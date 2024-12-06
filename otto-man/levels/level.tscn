@@ -1,7 +1,12 @@
-[gd_scene load_steps=5 format=3 uid="uid://bqvc2re6qqsew"]
+[gd_scene load_steps=10 format=3 uid="uid://bqvc2re6qqsew"]
 
 [ext_resource type="Texture2D" uid="uid://xa0y20hiinmn" path="res://Tile set/tiles.png" id="1_s2sog"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="2_71yt3"]
+[ext_resource type="Texture2D" uid="uid://cep2ia5jw0nf4" path="res://background/bulutlu dağlar/sky_fc.png" id="3_46xlt"]
+[ext_resource type="Texture2D" uid="uid://djoorlgrr8ip4" path="res://background/bulutlu dağlar/far_mountains_fc.png" id="4_b0p5t"]
+[ext_resource type="Texture2D" uid="uid://blby4j74a2iaq" path="res://background/bulutlu dağlar/grassy_mountains_fc.png" id="5_2eliy"]
+[ext_resource type="Texture2D" uid="uid://cq3piagq0rxws" path="res://background/bulutlu dağlar/clouds_mid_fc.png" id="6_fiv3j"]
+[ext_resource type="Texture2D" uid="uid://de7ouskihcyug" path="res://background/bulutlu dağlar/clouds_front_fc.png" id="7_bmq01"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4r1hk"]
 texture = ExtResource("1_s2sog")
@@ -106,3 +111,54 @@ layer_0/tile_data = PackedInt32Array(2359298, 393216, 1, 2424834, 458752, 1, 249
 
 [node name="Player" parent="." instance=ExtResource("2_71yt3")]
 position = Vector2(226, 284)
+
+[node name="Node2D" type="Node2D" parent="."]
+
+[node name="ParallaxBackground" type="ParallaxBackground" parent="Node2D"]
+
+[node name="gök" type="ParallaxLayer" parent="Node2D/ParallaxBackground"]
+motion_scale = Vector2(0, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/ParallaxBackground/gök"]
+position = Vector2(1054.5, 607)
+scale = Vector2(5.48177, 5.62037)
+texture = ExtResource("3_46xlt")
+
+[node name="dağ uzak" type="ParallaxLayer" parent="Node2D/ParallaxBackground"]
+motion_scale = Vector2(0.3, 0.3)
+motion_mirroring = Vector2(1940, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/ParallaxBackground/dağ uzak"]
+position = Vector2(0.999985, 2)
+scale = Vector2(5.4974, 5.62037)
+texture = ExtResource("4_b0p5t")
+centered = false
+
+[node name="dağ yakın" type="ParallaxLayer" parent="Node2D/ParallaxBackground"]
+motion_scale = Vector2(0.6, 0.6)
+motion_mirroring = Vector2(1940, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/ParallaxBackground/dağ yakın"]
+position = Vector2(1.00002, -1)
+scale = Vector2(5.48438, 5.60185)
+texture = ExtResource("5_2eliy")
+centered = false
+
+[node name="bulut uzak" type="ParallaxLayer" parent="Node2D/ParallaxBackground"]
+motion_scale = Vector2(0.8, 0.8)
+motion_mirroring = Vector2(2000, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/ParallaxBackground/bulut uzak"]
+position = Vector2(-5, 259)
+scale = Vector2(5.5, 5.64352)
+texture = ExtResource("6_fiv3j")
+centered = false
+
+[node name="bulut yakın" type="ParallaxLayer" parent="Node2D/ParallaxBackground"]
+motion_mirroring = Vector2(2108, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/ParallaxBackground/bulut yakın"]
+position = Vector2(-3, 390)
+scale = Vector2(5.49219, 5.61574)
+texture = ExtResource("7_bmq01")
+centered = false

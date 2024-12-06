@@ -671,3 +671,5 @@ position = Vector2(0, -22)
 shape = SubResource("CapsuleShape2D_i4d1d")
 
 [node name="Camera2D" type="Camera2D" parent="."]
+limit_smoothed = true
+position_smoothing_speed = 1.0
