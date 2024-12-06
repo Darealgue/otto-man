@@ -251,7 +251,7 @@ func _process(delta: float) -> void:
 			(double_jump_time / MAX_JUMP_HEIGHT_TIME) * (double_jump_time / MAX_JUMP_HEIGHT_TIME))
 		velocity.y = min(velocity.y, double_jump_force)
 
-func is_near_wall() -> bool:
+func is_near_wall() -> bool:# bitanem
 	return is_on_wall() and Input.get_axis("left", "right") != 0
 
 func get_wall_direction() -> float:
