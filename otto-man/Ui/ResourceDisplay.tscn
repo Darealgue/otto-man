@@ -1,0 +1,36 @@
+[gd_scene load_steps=2 format=3 uid="uid://cjk2111mh1l6r"]
+
+[ext_resource type="Script" path="res://ui/ResourceDisplay.gd" id="1_xxxxx"]
+
+[node name="ResourceDisplay" type="Control"]
+layout_mode = 3
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+grow_horizontal = 0
+script = ExtResource("1_xxxxx")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="WoodCount" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "Wood: 0"
+
+[node name="Spacer1" type="Control" parent="HBoxContainer"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+
+[node name="FoodCount" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "Food: 0"
+
+[node name="Spacer2" type="Control" parent="HBoxContainer"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+
+[node name="StoneCount" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "Stone: 0"

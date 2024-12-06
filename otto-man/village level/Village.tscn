@@ -1,0 +1,149 @@
+[gd_scene load_steps=6 format=3 uid="uid://ce8pptp4uv0eb"]
+
+[ext_resource type="Script" path="res://village level/BuildingPanel.gd" id="1_pkkgt"]
+[ext_resource type="Script" path="res://Ui/ResourceDisplay.gd" id="2_2mm16"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pxl38"]
+bg_color = Color(0.259294, 0.259294, 0.259294, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.597176, 0.597176, 0.597176, 1)
+border_blend = true
+corner_detail = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gh67m"]
+bg_color = Color(0.277528, 0.277528, 0.277528, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0, 0, 0, 1)
+border_blend = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gydbo"]
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0, 0, 0, 1)
+border_blend = true
+
+[node name="VillageScene" type="Node2D"]
+
+[node name="UI" type="Control" parent="."]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 3
+anchors_preset = 0
+offset_left = 1.0
+offset_top = 10.0
+offset_right = 962.0
+offset_bottom = 548.0
+script = ExtResource("2_2mm16")
+
+[node name="TopBar" type="Panel" parent="UI"]
+layout_mode = 0
+offset_right = 961.0
+offset_bottom = 40.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_pxl38")
+
+[node name="ResourcePanel" type="Panel" parent="UI/TopBar"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("2_2mm16")
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/TopBar/ResourcePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="UI/TopBar/ResourcePanel/MarginContainer"]
+layout_mode = 2
+
+[node name="WoodContainer" type="HBoxContainer" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="WoodIcon" type="TextureRect" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer/WoodContainer"]
+layout_mode = 2
+
+[node name="WoodCount" type="Label" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer/WoodContainer"]
+layout_mode = 2
+
+[node name="FoodContainer" type="HBoxContainer" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="FoodIcon" type="TextureRect" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer/FoodContainer"]
+layout_mode = 2
+
+[node name="FoodCount" type="Label" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer/FoodContainer"]
+layout_mode = 2
+
+[node name="StoneContainer" type="HBoxContainer" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="StoneIcon" type="TextureRect" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer/StoneContainer"]
+layout_mode = 2
+
+[node name="StoneCount" type="Label" parent="UI/TopBar/ResourcePanel/MarginContainer/HBoxContainer/StoneContainer"]
+layout_mode = 2
+
+[node name="VillagerPanel" type="Panel" parent="UI"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 0
+offset_left = 5.0
+offset_top = 103.0
+offset_right = 311.0
+offset_bottom = 419.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_gh67m")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/VillagerPanel"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = -1.101
+anchor_top = -0.012
+anchor_right = -1.101
+anchor_bottom = -0.012
+offset_left = 333.906
+offset_top = 0.792
+offset_right = 435.906
+offset_bottom = 321.792
+
+[node name="VillagerList" type="ItemList" parent="UI/VillagerPanel/VBoxContainer"]
+custom_minimum_size = Vector2(10, 315)
+layout_mode = 2
+
+[node name="TaskMenu" type="PopupMenu" parent="UI/VillagerPanel/VBoxContainer"]
+
+[node name="BuildingPanel" type="Panel" parent="UI"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 0
+offset_left = 321.0
+offset_top = 102.0
+offset_right = 636.0
+offset_bottom = 416.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_gydbo")
+script = ExtResource("1_pkkgt")
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/BuildingPanel"]
+layout_mode = 0
+offset_right = 315.0
+offset_bottom = 317.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/BuildingPanel/MarginContainer"]
+layout_mode = 2
+
+[node name="BuildingList" type="ItemList" parent="UI/BuildingPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="BuildButton" type="Button" parent="UI/BuildingPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="ResourceTimer" type="Timer" parent="."]
