@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 @onready var animated_sprite_2d = $AnimatedSprite2D
+@onready var hurtbox = $Hurtbox
 
 const gravity = 1000
 const speed = 600
@@ -13,6 +14,10 @@ var current_state
 
 func _ready():
 	current_state = State.Idle
+	
+	# Connect to hurtbox damaged signal
+	if hurtbox:
+		hurtbox.damaged.connect(_on_damaged)
 
 
 func _physics_process(delta):
@@ -71,3 +76,9 @@ func player_animations():
 		animated_sprite_2d.play("run")
 	elif current_state == State.Jump:
 		animated_sprite_2d.play("jump")
+
+
+func _on_damaged(amount: int) -> void:
+	# Handle player damage here
+	print("Player took ", amount, " damage")
+	# Implement your health system

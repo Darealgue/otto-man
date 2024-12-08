@@ -1,9 +1,9 @@
 ea4bc82a6ad023ab7ee23ee620429895
-::res://::1733500899
+::res://::1733603457
 ::res://autoload/::1733497136
 GameManager.gd::GDScript::-1::1733152623::0::1::::<>Node<>::
 ::res://background/::1733500899
-::res://background/bulutlu dağlar/::1733500883
+::res://background/bulutlu dağlar/::1733592916
 clouds_front_fc.png::CompressedTexture2D::7506964228779465486::1733500883::1733500899::1::::<><>::
 clouds_front_t_fc.png::CompressedTexture2D::8050560928233893959::1733500883::1733500899::1::::<><>::
 clouds_mid_fc.png::CompressedTexture2D::5954590493981027314::1733500883::1733500899::1::::<><>::
@@ -12,11 +12,16 @@ far_mountains_fc.png::CompressedTexture2D::7820743916595650035::1733500883::1733
 grassy_mountains_fc.png::CompressedTexture2D::3162071860777744552::1733500883::1733500899::1::::<><>::
 hill.png::CompressedTexture2D::453978828954035893::1733500883::1733500899::1::::<><>::
 sky_fc.png::CompressedTexture2D::5086216100188610499::1733500883::1733500899::1::::<><>::
+::res://enemy/::1733604060
+dusman idle border.png::CompressedTexture2D::3047736194585946928::1733604051::1733604051::1::::<><>::
+dusman walk border.png::CompressedTexture2D::1641916806189888906::1733604060::1733604061::1::::<><>::
+enemy_1.tscn::PackedScene::1933011795034587851::1733603770::0::1::::<><>::res://enemy/enemy.gd
+enemy.gd::GDScript::-1::1733603770::0::1::::<>CharacterBody2D<>::
 ::res://Globals/::1733497136
 GameManager.gd::GDScript::-1::1733152738::0::1::::<>Node<>::
-::res://levels/::1733500855
-level.tscn::PackedScene::3552964665664539078::1733500021::0::1::::<><>::uid://xa0y20hiinmn::::res://Tile set/tiles.png<>uid://bepujd34sp2i1::::res://player/player.tscn
-::res://player/::1733499878
+::res://levels/::1733602981
+level.tscn::PackedScene::3552964665664539078::1733602981::0::1::::<><>::uid://xa0y20hiinmn::::res://Tile set/tiles.png<>uid://bepujd34sp2i1::::res://player/player.tscn<>uid://cep2ia5jw0nf4::::res://background/bulutlu dağlar/sky_fc.png<>uid://djoorlgrr8ip4::::res://background/bulutlu dağlar/far_mountains_fc.png<>uid://blby4j74a2iaq::::res://background/bulutlu dağlar/grassy_mountains_fc.png<>uid://cq3piagq0rxws::::res://background/bulutlu dağlar/clouds_mid_fc.png<>uid://de7ouskihcyug::::res://background/bulutlu dağlar/clouds_front_fc.png
+::res://player/::1733602981
 otto2deneme1-Sheet.png::CompressedTexture2D::7927714077040066475::1732922059::1732922062::1::::<><>::
 ottodoublejump2deneme23-sheet.png::CompressedTexture2D::8151819520895114954::1733059244::1733059265::1::::<><>::
 ottojumpson1.png::CompressedTexture2D::4624871054615258415::1733058147::1733058147::1::::<><>::
@@ -24,18 +29,20 @@ ottojumpson2.png::CompressedTexture2D::2088287910743618726::1733058106::17330581
 ottojumpupwards1-sheet.png::CompressedTexture2D::2360694800427230560::1732998934::1732998937::1::::<><>::
 ottorun2deneme1-sheet2.png::CompressedTexture2D::239100890644400268::1732922072::1732922072::1::::<><>::
 ottowalljump-sheet.png::CompressedTexture2D::5789676708264920248::1733082624::1733082624::1::::<><>::
+ottowall_attack-sheet.png::CompressedTexture2D::4302686656183963465::1733598132::1733598132::1::::<><>::
+otto_lightattack1.png::CompressedTexture2D::8380546999294583714::1733592923::1733592923::1::::<><>::
 player.gd::GDScript::-1::1733053375::0::1::::<>CharacterBody2D<>::
-player.tscn::PackedScene::2699372338723477070::1733145419::0::1::::<><>::res://player/playertest.gd<>uid://dk7ij7ifw1k24::::res://player/otto2deneme1-Sheet.png<>uid://doe2jnwc22qb7::::res://player/ottodoublejump2deneme23-sheet.png<>uid://dn27r8ssmlr5::::res://player/ottorun2deneme1-sheet2.png<>uid://8vskfaypu0ky::::res://player/ottojumpupwards1-sheet.png<>uid://40t2dc6riass::::res://player/ottojumpson2.png<>uid://b65k7k4dow0xn::::res://player/ottojumpson1.png<>uid://coqtenx8hi5bo::::res://player/ottowalljump-sheet.png
-playertest.gd::GDScript::-1::1733499878::0::1::::<>CharacterBody2D<>::
+player.tscn::PackedScene::2699372338723477070::1733602981::0::1::::<><>::res://player/playertest.gd<>uid://dk7ij7ifw1k24::::res://player/otto2deneme1-Sheet.png<>uid://doe2jnwc22qb7::::res://player/ottodoublejump2deneme23-sheet.png<>uid://dn27r8ssmlr5::::res://player/ottorun2deneme1-sheet2.png<>uid://drnuncw442rtq::::res://player/otto_lightattack1.png<>uid://8vskfaypu0ky::::res://player/ottojumpupwards1-sheet.png<>uid://40t2dc6riass::::res://player/ottojumpson2.png<>uid://b65k7k4dow0xn::::res://player/ottojumpson1.png<>uid://coqtenx8hi5bo::::res://player/ottowalljump-sheet.png<>uid://b2kivdn7cdus4::::res://player/ottowall_attack-sheet.png
+playertest.gd::GDScript::-1::1733602844::0::1::::<>CharacterBody2D<>::
 ::res://Tile set/::1733497136
 tiles.png::CompressedTexture2D::1615905644627256761::1732919018::1732919018::1::::<><>::
 ::res://Ui/::1733497136
 general_ui.tscn::PackedScene::5551069824532416199::1733146946::0::1::::<><>::
 ResourceDisplay.gd::GDScript::-1::1733152893::0::1::::<>Control<>::
 ResourceDisplay.tscn::PackedScene::5426871933442946843::1733147923::0::1::::<><>::res://ui/ResourceDisplay.gd
-::res://village level/::1733500021
+::res://village level/::1733602981
 BuildingPanel.gd::GDScript::-1::1733151698::0::1::::<>Panel<>::
-Village.tscn::PackedScene::5122659772083302069::1733500021::0::1::::<><>::res://village level/BuildingPanel.gd<>res://Ui/ResourceDisplay.gd
+Village.tscn::PackedScene::5122659772083302069::1733602981::0::1::::<><>::res://village level/BuildingPanel.gd<>res://Ui/ResourceDisplay.gd
 VillagerManager.gd::GDScript::-1::1733151698::0::1::::<>Node<>::
 villager_panel.gd::GDScript::-1::1733151698::0::1::::<>Panel<>::
 VillageScene.gd::GDScript::-1::1733151698::0::1::::<>Node2D<>::

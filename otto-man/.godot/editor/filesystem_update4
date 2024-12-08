@@ -1,4 +1,11 @@
 res://village level/Village.tscn
 res://levels/level.tscn
-res://player/playertest.gd
 res://player/player.tscn
+res://player/playertest.gd
+res://enemy/enemy_1.tscn
+res://enemy/enemy.gd
+res://player/hitbox.gd
+res://player/hurtbox.gd
+res://player/hitbox.tscn
+res://player/hurtbox.tscn
+res://player/Hitbox.gd

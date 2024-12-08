@@ -1,4 +1,10 @@
+CollisionShape2D
+Area2D
+AnimatedSprite2D
+RayCast2D
+AnimationPlayer
 Sprite2D
+CharacterBody2D
 ParallaxLayer
 ParallaxBackground
 Node2D
@@ -6,10 +12,3 @@ VBoxContainer
 MarginContainer
 Label
 TextureRect
-HBoxContainer
-Panel
-Control
-Timer
-Button
-ItemList
-PopupMenu
