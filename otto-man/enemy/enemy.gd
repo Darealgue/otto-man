@@ -13,7 +13,7 @@ signal died
 @onready var hitbox_position = $Hitbox.position
 
 const MAX_HEALTH = 50
-const INVINCIBILITY_TIME = 0.2
+const INVINCIBILITY_TIME = 0.01
 const KNOCKBACK_FORCE = 300
 const MIN_PATROL_TIME = 10.0
 const MAX_PATROL_TIME = 15.0
@@ -221,18 +221,17 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 	print("[Enemy] Taking damage: ", amount, " (Health: ", health, "/", MAX_HEALTH, ")")
 	health_changed.emit(health)
 	
-	modulate = Color(1, 0.5, 0.5, 1)
+	modulate = Color(1, 0.5, 0.5, 1)  # Turn red
 	is_invincible = true
 	invincibility_timer = INVINCIBILITY_TIME
 	
 	current_state = State.HURT
 	can_move = false
-	hurt_timer = HURT_STATE_TIME  # Reset hurt timer
+	hurt_timer = HURT_STATE_TIME
 	
 	if knockback_direction != Vector2.ZERO:
 		var knockback_force_x = 300
 		var knockback_force_y = -200
-		
 		velocity = Vector2(knockback_direction.x * knockback_force_x, knockback_force_y)
 	
 	animated_sprite.play("hurt")
@@ -262,12 +261,15 @@ func die() -> void:
 	var death_knockback = Vector2(last_hit_direction * 300, -200)
 	velocity = death_knockback
 	
+	# Play death animation (now looping)
+	animated_sprite.play("death")
+	
+	# Create fade out tween
 	var tween = create_tween()
-	
-	tween.tween_interval(0.2)
-	
-	tween.tween_property(self, "modulate:a", 1.0, 0.2)
-	tween.tween_callback(queue_free)
+	tween.tween_interval(0.8)  # Wait before starting fade
+	tween.tween_property(self, "modulate:a", 0.0, 0.5)  # Fade out
+	tween.tween_interval(0.2)  # Short pause after fade
+	tween.tween_callback(queue_free)  # Remove enemy
 	
 	set_physics_process(true)
 
@@ -325,16 +327,16 @@ func handle_hurt_state(delta: float) -> void:
 		hurt_timer = 0
 
 func handle_dead_state(delta: float) -> void:
-	velocity = Vector2.ZERO
+	# Let physics handle the falling
+	pass
 
 func _on_damaged(amount: int) -> void:
 	pass
 
 func _process(_delta: float) -> void:
-	if is_invincible:
-		modulate.a = 0.5 + (sin(Time.get_ticks_msec() * 0.01) * 0.5)
-	else:
-		modulate = Color.WHITE
+	# Only flash during death animation
+	if current_state == State.DEAD and is_invincible:
+		modulate.a = 0.5 + (sin(Time.get_ticks_msec() * 0.03) * 0.5)
 
 func is_dead() -> bool:
 	return current_state == State.DEAD

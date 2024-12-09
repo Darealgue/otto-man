@@ -1,4 +1,4 @@
-[gd_scene load_steps=125 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=121 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/playertest.gd" id="1_ockrw"]
 [ext_resource type="Texture2D" uid="uid://dk7ij7ifw1k24" path="res://player/otto2deneme1-Sheet.png" id="1_wh4ep"]
@@ -12,14 +12,6 @@
 [ext_resource type="Texture2D" uid="uid://b2kivdn7cdus4" path="res://player/ottowall_attack-sheet.png" id="9_qaa8y"]
 [ext_resource type="Script" path="res://components/hitbox.gd" id="11_ymm3e"]
 [ext_resource type="Script" path="res://components/hurtbox.gd" id="12_mrdsu"]
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_x7pcv"]
-atlas = ExtResource("2_yxrfi")
-region = Rect2(0, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_0j44q"]
-atlas = ExtResource("2_yxrfi")
-region = Rect2(192, 0, 96, 96)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_n4eeq"]
 atlas = ExtResource("2_yxrfi")
@@ -69,10 +61,6 @@ region = Rect2(480, 0, 96, 96)
 atlas = ExtResource("2_yxrfi")
 region = Rect2(480, 0, 96, 96)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_we7y2"]
-atlas = ExtResource("2_yxrfi")
-region = Rect2(1152, 0, 96, 96)
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_i3v1c"]
 atlas = ExtResource("2_yxrfi")
 region = Rect2(1248, 0, 96, 96)
@@ -88,10 +76,6 @@ region = Rect2(1440, 0, 96, 96)
 [sub_resource type="AtlasTexture" id="AtlasTexture_uv8ub"]
 atlas = ExtResource("2_yxrfi")
 region = Rect2(1536, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_qsyug"]
-atlas = ExtResource("2_yxrfi")
-region = Rect2(1632, 0, 96, 96)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_65g0l"]
 atlas = ExtResource("2_yxrfi")
@@ -449,12 +433,6 @@ region = Rect2(672, 0, 96, 96)
 animations = [{
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_x7pcv")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_0j44q")
-}, {
-"duration": 1.0,
 "texture": SubResource("AtlasTexture_n4eeq")
 }, {
 "duration": 1.0,
@@ -501,9 +479,6 @@ animations = [{
 "texture": SubResource("AtlasTexture_qw5wo")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_we7y2")
-}, {
-"duration": 1.0,
 "texture": SubResource("AtlasTexture_i3v1c")
 }, {
 "duration": 1.0,
@@ -514,9 +489,6 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_uv8ub")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_qsyug")
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_65g0l")
@@ -895,7 +867,7 @@ script = ExtResource("1_ockrw")
 position = Vector2(0, -50.125)
 scale = Vector2(1, 1.04427)
 sprite_frames = SubResource("SpriteFrames_mi6n6")
-animation = &"attack2"
+animation = &"attack3"
 autoplay = "idle"
 frame = 6
 frame_progress = 1.0
