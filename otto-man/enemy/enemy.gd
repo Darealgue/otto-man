@@ -22,7 +22,7 @@ const ATTACK_COOLDOWN = 1.0
 const HURT_STATE_TIME = 0.5  # Slightly shorter stun
 const KNOCKBACK_FRICTION = 300  # Slightly faster recovery
 const KNOCKBACK_FORCE_X = 350  # Slightly less horizontal knockback
-const KNOCKBACK_FORCE_Y = -350  # Slightly more vertical knockback
+const KNOCKBACK_FORCE_Y = -250  # Slightly more vertical knockback
 
 # Constants for behavior variety
 const MIN_IDLE_TIME = 3.0
@@ -33,10 +33,6 @@ const DIRECTION_CHANGE_CHANCE = 0.01  # 1% chance per frame to change direction 
 
 # Add these constants with the other behavior constants
 const MIN_DIRECTION_CHANGE_TIME = 3.0  # Minimum seconds between direction changes
-
-# Add these constants at the top with others
-const HEALTH_BAR_SHOW_TIME = 5.0
-const HEALTH_BAR_FADE_TIME = 0.5
 
 var gravity = ProjectSettings.get_setting("physics/2d/default_gravity")
 var direction = -1
@@ -64,11 +60,6 @@ var base_speed: float = speed  # Store the original speed
 # Add this variable with other variables
 var direction_change_timer: float = 0.0
 
-# Add these variables with other variables
-var health_bar_timer: float = 0.0
-var health_bar_visible: bool = false
-@onready var health_bar = $HealthBar
-
 func _ready() -> void:
 	if !animated_sprite:
 		push_error("AnimatedSprite2D node not found!")
@@ -78,11 +69,6 @@ func _ready() -> void:
 	_init_components()
 	_connect_signals()
 	rng.randomize()  # Initialize the random number generator
-	
-	# Initialize health bar hidden
-	if health_bar:
-		health_bar.hide()
-		health_bar.value = 100
 
 func _init_components() -> void:
 	current_state = State.PATROL
@@ -235,15 +221,7 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 	print("[Enemy] Taking damage: ", amount, " (Health: ", health, "/", MAX_HEALTH, ")")
 	health_changed.emit(health)
 	
-	# Show and update health bar
-	if health_bar:
-		health_bar.show()
-		health_bar.value = (float(health) / MAX_HEALTH) * 100
-		health_bar.modulate.a = 1.0
-		health_bar_timer = HEALTH_BAR_SHOW_TIME
-		health_bar_visible = true
-	
-	modulate = Color(1, 0.5, 0.5, 1)
+	modulate = Color(1, 0.5, 0.5, 1)  # Turn red
 	is_invincible = true
 	invincibility_timer = INVINCIBILITY_TIME
 	
@@ -359,15 +337,6 @@ func _process(_delta: float) -> void:
 	# Only flash during death animation
 	if current_state == State.DEAD and is_invincible:
 		modulate.a = 0.5 + (sin(Time.get_ticks_msec() * 0.03) * 0.5)
-	
-	if health_bar_visible:
-		health_bar_timer -= _delta
-		if health_bar_timer <= 0:
-			# Start fading out
-			var tween = create_tween()
-			tween.tween_property(health_bar, "modulate:a", 0.0, HEALTH_BAR_FADE_TIME)
-			tween.tween_callback(func(): health_bar.hide())
-			health_bar_visible = false
 
 func is_dead() -> bool:
 	return current_state == State.DEAD
