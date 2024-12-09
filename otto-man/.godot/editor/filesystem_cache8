@@ -1,47 +1,47 @@
 ea4bc82a6ad023ab7ee23ee620429895
-::res://::1733783651
+::res://::1733786852
 ::res://autoload/::1733497136
 GameManager.gd::GDScript::-1::1733152623::0::1::::<>Node<>::
 ::res://background/::1733773843
-::res://background/bulutlu dağlar/::1733773859
-clouds_front_fc.png::CompressedTexture2D::7506964228779465486::1733773843::1733773859::1::::<><>::
-clouds_front_t_fc.png::CompressedTexture2D::8050560928233893959::1733773843::1733773859::1::::<><>::
-clouds_mid_fc.png::CompressedTexture2D::5954590493981027314::1733773843::1733773859::1::::<><>::
-clouds_mid_t_fc.png::CompressedTexture2D::1830935437441349574::1733773843::1733773859::1::::<><>::
-far_mountains_fc.png::CompressedTexture2D::7820743916595650035::1733773843::1733773859::1::::<><>::
-grassy_mountains_fc.png::CompressedTexture2D::3162071860777744552::1733773843::1733773859::1::::<><>::
-hill.png::CompressedTexture2D::453978828954035893::1733773843::1733773859::1::::<><>::
-sky_fc.png::CompressedTexture2D::5086216100188610499::1733773843::1733773859::1::::<><>::
+::res://background/bulutlu dağlar/::1733786044
+clouds_front_fc.png::CompressedTexture2D::7506964228779465486::1733773843::1733786853::1::::<><>::
+clouds_front_t_fc.png::CompressedTexture2D::8050560928233893959::1733773843::1733786853::1::::<><>::
+clouds_mid_fc.png::CompressedTexture2D::5954590493981027314::1733773843::1733786853::1::::<><>::
+clouds_mid_t_fc.png::CompressedTexture2D::1830935437441349574::1733773843::1733786853::1::::<><>::
+far_mountains_fc.png::CompressedTexture2D::7820743916595650035::1733773843::1733786853::1::::<><>::
+grassy_mountains_fc.png::CompressedTexture2D::3162071860777744552::1733773843::1733786853::1::::<><>::
+hill.png::CompressedTexture2D::453978828954035893::1733773843::1733786853::1::::<><>::
+sky_fc.png::CompressedTexture2D::5086216100188610499::1733773843::1733786853::1::::<><>::
 ::res://components/::1733776093
 hitbox.gd::GDScript::-1::1733779320::0::1::::<>Area2D<>::
 hurtbox.gd::GDScript::-1::1733779320::0::1::::<>Area2D<>::
-::res://enemy/::1733783903
-dusman dead.png::CompressedTexture2D::301935470661647614::1733783903::1733783903::1::::<><>::
-dusman hurt.png::CompressedTexture2D::3740450164068138657::1733783647::1733783651::1::::<><>::
-dusman idle border.png::CompressedTexture2D::3047736194585946928::1733773843::1733773859::1::::<><>::
-dusman walk border.png::CompressedTexture2D::1641916806189888906::1733773843::1733773859::1::::<><>::
-enemy.gd::GDScript::-1::1733782540::0::1::::<>CharacterBody2D<>::
-enemy_1.tscn::PackedScene::1933011795034587851::1733783666::0::1::::<><>::res://enemy/enemy.gd<>uid://bjol1f68t8nc7::::res://enemy/dusman idle border.png<>uid://xnmeogau235g::::res://enemy/dusman walk border.png<>uid://btj5wx45neh18::::res://enemy/dusman hurt.png<>res://components/hurtbox.gd<>res://components/hitbox.gd
+::res://enemy/::1733786841
+dusman dead.png::CompressedTexture2D::301935470661647614::1733783903::1733786853::1::::<><>::
+dusman hurt.png::CompressedTexture2D::3740450164068138657::1733783647::1733786853::1::::<><>::
+dusman idle border.png::CompressedTexture2D::3047736194585946928::1733773843::1733786853::1::::<><>::
+dusman walk border.png::CompressedTexture2D::1641916806189888906::1733773843::1733786853::1::::<><>::
+enemy.gd::GDScript::-1::1733786841::0::1::::<>CharacterBody2D<>::
+enemy_1.tscn::PackedScene::1933011795034587851::1733786841::0::1::::<><>::res://enemy/enemy.gd<>uid://bjol1f68t8nc7::::res://enemy/dusman idle border.png<>uid://eki3lbyd8887::::res://enemy/dusman dead.png<>uid://xnmeogau235g::::res://enemy/dusman walk border.png<>uid://btj5wx45neh18::::res://enemy/dusman hurt.png<>res://components/hurtbox.gd<>res://components/hitbox.gd
 ::res://Globals/::1733497136
 GameManager.gd::GDScript::-1::1733152738::0::1::::<>Node<>::
-::res://levels/::1733783666
-level.tscn::PackedScene::3552964665664539078::1733783666::0::1::::<><>::uid://xa0y20hiinmn::::res://Tile set/tiles.png<>uid://bepujd34sp2i1::::res://player/player.tscn<>uid://cep2ia5jw0nf4::::res://background/bulutlu dağlar/sky_fc.png<>uid://djoorlgrr8ip4::::res://background/bulutlu dağlar/far_mountains_fc.png<>uid://blby4j74a2iaq::::res://background/bulutlu dağlar/grassy_mountains_fc.png<>uid://cq3piagq0rxws::::res://background/bulutlu dağlar/clouds_mid_fc.png<>uid://de7ouskihcyug::::res://background/bulutlu dağlar/clouds_front_fc.png<>uid://2smolwkhncx4::::res://enemy/enemy_1.tscn
-::res://player/::1733783666
+::res://levels/::1733786066
+level.tscn::PackedScene::3552964665664539078::1733786066::0::1::::<><>::uid://xa0y20hiinmn::::res://Tile set/tiles.png<>uid://bepujd34sp2i1::::res://player/player.tscn<>uid://cep2ia5jw0nf4::::res://background/bulutlu dağlar/sky_fc.png<>uid://djoorlgrr8ip4::::res://background/bulutlu dağlar/far_mountains_fc.png<>uid://blby4j74a2iaq::::res://background/bulutlu dağlar/grassy_mountains_fc.png<>uid://cq3piagq0rxws::::res://background/bulutlu dağlar/clouds_mid_fc.png<>uid://de7ouskihcyug::::res://background/bulutlu dağlar/clouds_front_fc.png<>uid://2smolwkhncx4::::res://enemy/enemy_1.tscn
+::res://player/::1733786841
 hitbox.tscn::PackedScene::7315067651220948258::1733775981::0::1::::<><>::res://components/hitbox.gd
 hurtbox.tscn::PackedScene::8843343398705497298::1733775982::0::1::::<><>::res://player/hurtbox.gd
-otto2deneme1-Sheet.png::CompressedTexture2D::7927714077040066475::1732922059::1732922062::1::::<><>::
-ottodoublejump2deneme23-sheet.png::CompressedTexture2D::8151819520895114954::1733059244::1733059265::1::::<><>::
-ottojumpson1.png::CompressedTexture2D::4624871054615258415::1733058147::1733058147::1::::<><>::
-ottojumpson2.png::CompressedTexture2D::2088287910743618726::1733058106::1733058114::1::::<><>::
-ottojumpupwards1-sheet.png::CompressedTexture2D::2360694800427230560::1732998934::1732998937::1::::<><>::
-ottorun2deneme1-sheet2.png::CompressedTexture2D::239100890644400268::1732922072::1732922072::1::::<><>::
-ottowalljump-sheet.png::CompressedTexture2D::5789676708264920248::1733082624::1733082624::1::::<><>::
-ottowall_attack-sheet.png::CompressedTexture2D::4302686656183963465::1733773843::1733773859::1::::<><>::
-otto_lightattack1.png::CompressedTexture2D::8380546999294583714::1733773843::1733773859::1::::<><>::
-player.tscn::PackedScene::2699372338723477070::1733783666::0::1::::<><>::res://player/playertest.gd<>uid://dk7ij7ifw1k24::::res://player/otto2deneme1-Sheet.png<>uid://doe2jnwc22qb7::::res://player/ottodoublejump2deneme23-sheet.png<>uid://dn27r8ssmlr5::::res://player/ottorun2deneme1-sheet2.png<>uid://drnuncw442rtq::::res://player/otto_lightattack1.png<>uid://8vskfaypu0ky::::res://player/ottojumpupwards1-sheet.png<>uid://40t2dc6riass::::res://player/ottojumpson2.png<>uid://b65k7k4dow0xn::::res://player/ottojumpson1.png<>uid://coqtenx8hi5bo::::res://player/ottowalljump-sheet.png<>uid://b2kivdn7cdus4::::res://player/ottowall_attack-sheet.png<>res://components/hitbox.gd<>res://components/hurtbox.gd
-playertest.gd::GDScript::-1::1733780455::0::1::::<>CharacterBody2D<>::
-::res://Tile set/::1733497136
-tiles.png::CompressedTexture2D::1615905644627256761::1732919018::1732919018::1::::<><>::
+otto2deneme1-Sheet.png::CompressedTexture2D::7927714077040066475::1732922059::1733786853::1::::<><>::
+ottodoublejump2deneme23-sheet.png::CompressedTexture2D::8151819520895114954::1733059244::1733786853::1::::<><>::
+ottojumpson1.png::CompressedTexture2D::4624871054615258415::1733058147::1733786853::1::::<><>::
+ottojumpson2.png::CompressedTexture2D::2088287910743618726::1733058106::1733786853::1::::<><>::
+ottojumpupwards1-sheet.png::CompressedTexture2D::2360694800427230560::1732998934::1733786853::1::::<><>::
+ottorun2deneme1-sheet2.png::CompressedTexture2D::239100890644400268::1732922072::1733786853::1::::<><>::
+ottowalljump-sheet.png::CompressedTexture2D::5789676708264920248::1733082624::1733786853::1::::<><>::
+ottowall_attack-sheet.png::CompressedTexture2D::4302686656183963465::1733773843::1733786853::1::::<><>::
+otto_lightattack1.png::CompressedTexture2D::8380546999294583714::1733773843::1733786853::1::::<><>::
+player.tscn::PackedScene::2699372338723477070::1733786837::0::1::::<><>::res://player/playertest.gd<>uid://dk7ij7ifw1k24::::res://player/otto2deneme1-Sheet.png<>uid://doe2jnwc22qb7::::res://player/ottodoublejump2deneme23-sheet.png<>uid://dn27r8ssmlr5::::res://player/ottorun2deneme1-sheet2.png<>uid://drnuncw442rtq::::res://player/otto_lightattack1.png<>uid://8vskfaypu0ky::::res://player/ottojumpupwards1-sheet.png<>uid://40t2dc6riass::::res://player/ottojumpson2.png<>uid://b65k7k4dow0xn::::res://player/ottojumpson1.png<>uid://coqtenx8hi5bo::::res://player/ottowalljump-sheet.png<>uid://b2kivdn7cdus4::::res://player/ottowall_attack-sheet.png<>res://components/hitbox.gd<>res://components/hurtbox.gd
+playertest.gd::GDScript::-1::1733786841::0::1::::<>CharacterBody2D<>::
+::res://Tile set/::1733786044
+tiles.png::CompressedTexture2D::1615905644627256761::1732919018::1733786853::1::::<><>::
 ::res://Ui/::1733780576
 general_ui.tscn::PackedScene::5551069824532416199::1733780576::0::1::::<><>::
 ResourceDisplay.gd::GDScript::-1::1733152893::0::1::::<>Control<>::
