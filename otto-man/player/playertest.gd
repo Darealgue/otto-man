@@ -138,6 +138,49 @@ func _ready():
 	
 	if OS.is_debug_build():
 		_debug_check_setup()
+	
+	print("\n=== PLAYER COMBAT SETUP ===")
+	if hitbox:
+		print("Hitbox setup:")
+		print("  Layer: ", hitbox.collision_layer, " (Should be 16)")
+		print("  Mask: ", hitbox.collision_mask, " (Should be 32)")
+		print("  Position: ", hitbox.position)
+		print("  Scale: ", hitbox.scale)
+		if hitbox.has_node("CollisionShape2D"):
+			print("  Has collision shape: Yes")
+			print("  Shape disabled: ", hitbox.get_node("CollisionShape2D").disabled)
+		else:
+			print("  Has collision shape: No")
+	
+	if hurtbox:
+		print("Hurtbox setup:")
+		print("  Layer: ", hurtbox.collision_layer, " (Should be 8)")
+		print("  Mask: ", hurtbox.collision_mask, " (Should be 64)")
+		print("  Position: ", hurtbox.position)
+		if hurtbox.has_node("CollisionShape2D"):
+			print("  Has collision shape: Yes")
+			print("  Shape disabled: ", hurtbox.get_node("CollisionShape2D").disabled)
+		else:
+			print("  Has collision shape: No")
+	print("========================\n")
+	
+	# Make sure hitbox is configured as player hitbox
+	if hitbox:
+		hitbox.is_player = true  # Add this line
+		print("[Player] Configured hitbox as player hitbox")
+	
+	# Force correct collision layers for player
+	if hitbox:
+		hitbox.is_player = true
+		hitbox.collision_layer = 16  # Layer 5 (PLAYER HITBOX)
+		hitbox.collision_mask = 32   # Layer 6 (ENEMY HURTBOX)
+		print("[Player] Force set hitbox layers - Layer:", hitbox.collision_layer, " Mask:", hitbox.collision_mask)
+	
+	if hurtbox:
+		hurtbox.is_player = true
+		hurtbox.collision_layer = 8   # Layer 4 (PLAYER HURTBOX)
+		hurtbox.collision_mask = 64   # Layer 7 (ENEMY HITBOX)
+		print("[Player] Force set hurtbox layers - Layer:", hurtbox.collision_layer, " Mask:", hurtbox.collision_mask)
 
 func _physics_process(delta: float) -> void:
 	handle_jump_physics(delta)
@@ -159,13 +202,36 @@ func _physics_process(delta: float) -> void:
 	if hitbox:
 		hitbox.position.x = abs(hitbox.position.x) * facing
 		hitbox.scale.x = facing
+	
+	# Debug collision check only when attacking starts
+	if Input.is_action_just_pressed("attack") and OS.is_debug_build() and !is_attacking:
+		print("\n=== COLLISION LAYER CHECK ===")
+		if hitbox:
+			print("Player Hitbox can hit Enemy Hurtbox: ", 
+				  (hitbox.collision_mask & 32) != 0)
+		if hurtbox:
+			print("Player Hurtbox can be hit by Enemy Hitbox: ",
+				  (hurtbox.collision_mask & 64) != 0)
+		print("===========================\n")
+	
+	# Debug hitbox position relative to enemy
+	if hitbox and hitbox.is_active:
+		var space_state = get_world_2d().direct_space_state
+		var query = PhysicsRayQueryParameters2D.create(
+			hitbox.global_position,
+			hitbox.global_position + Vector2(50, 0),
+			32  # Layer 6 (ENEMY HURTBOX)
+		)
+		var result = space_state.intersect_ray(query)
+		if result:
+			print("[Player] Hitbox raycast hit: ", result.collider.name)
 
 func handle_jump_physics(delta: float) -> void:
 	if is_jumping:
 		if Input.is_action_pressed("jump"):
-			jump_time += delta
-			if jump_time > MAX_JUMP_HEIGHT_TIME:
-				is_jumping = false
+				jump_time += delta
+				if jump_time > MAX_JUMP_HEIGHT_TIME:
+					is_jumping = false
 		else:
 			is_jumping = false
 	
@@ -460,6 +526,8 @@ func _process(delta: float) -> void:
 			(double_jump_time / MAX_JUMP_HEIGHT_TIME) * (double_jump_time / MAX_JUMP_HEIGHT_TIME))
 		velocity.y = min(velocity.y, double_jump_force)
 
+	queue_redraw()  # Ensure debug drawing updates
+
 func is_near_wall() -> bool:
 	return is_on_wall() and Input.get_axis("left", "right") != 0
 
@@ -489,7 +557,9 @@ func handle_combat(delta: float) -> void:
 			attack_buffer_timer = ATTACK_BUFFER_TIME
 
 func perform_attack() -> void:
+	print("[Player] Starting attack...")  # Debug print
 	if is_wall_sliding:
+		print("[Player] Performing wall attack")
 		animated_sprite_2d.play("wall_attack")
 		current_attack_state = AttackState.ATTACK1
 		animated_sprite_2d.flip_h = wall_direction < 0
@@ -501,14 +571,17 @@ func perform_attack() -> void:
 	# Normal attack logic for when not wall sliding
 	match current_attack_state:
 		AttackState.NONE:
+			print("[Player] First attack in combo")  # Debug print
 			animated_sprite_2d.play("attack1")
 			current_attack_state = AttackState.ATTACK1
 		AttackState.ATTACK1:
 			if attack_combo_timer > 0:
+				print("[Player] Second attack in combo")  # Debug print
 				animated_sprite_2d.play("attack2")
 				current_attack_state = AttackState.ATTACK2
 		AttackState.ATTACK2:
 			if attack_combo_timer > 0:
+				print("[Player] Final attack in combo")  # Debug print
 				animated_sprite_2d.play("attack3")
 				current_attack_state = AttackState.ATTACK3
 	
@@ -543,55 +616,41 @@ func die() -> void:
 	# You can add death animation here
 	queue_free()
 
-func _draw() -> void:
-	if is_wall_sliding:
-		# Draw character's top edge
-		var character_top = Vector2(0, -32)
-		draw_line(character_top + Vector2(-10, 0), character_top + Vector2(10, 0), DEBUG_COLORS.character_top, 2)
-		
-		# Draw detection area
-		var wall_check_end = Vector2(-wall_direction * WALL_CLIMB_CHECK_WIDTH, 0)
-		draw_line(Vector2.ZERO, wall_check_end, Color.RED, 2)
-		
-		if can_wall_climb:
-			# Draw platform edge marker
-			var platform_marker = Vector2(-wall_direction * WALL_CLIMB_CHECK_WIDTH, -32)
-			draw_line(platform_marker + Vector2(-5, 0), platform_marker + Vector2(5, 0), DEBUG_COLORS.platform_edge, 2)
-			
-			# Draw climb check area
-			draw_rect(Rect2(Vector2(-wall_direction * WALL_CLIMB_CHECK_WIDTH, -34), Vector2(10, 4)), 
-					 DEBUG_COLORS.check_area, false, 1)
 
 func enable_hitbox() -> void:
 	if hitbox:
-		# Enable hitbox
-		hitbox.enable()
-		
-		# Update hitbox direction
+		print("[Player] Enabling hitbox")
+		# Get facing direction
 		var facing = -1 if animated_sprite_2d.flip_h else 1
-		hitbox.scale.x = facing
-		hitbox.position.x = abs(hitbox.position.x) * facing
 		
-		# Disable hitbox after a short delay
-		await get_tree().create_timer(0.2).timeout
-		hitbox.disable()
-		is_attacking = false  # End attack state after hitbox is disabled
+		# Set hitbox position to be in front of player
+		var offset = Vector2(20, 0)  # Adjust this value to position the hitbox
+		hitbox.position = offset * facing
+		
+		# Enable hitbox
+		hitbox.enable(0.2)
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
+	# Skip if target is dead
+	if area.get_parent().has_method("is_dead") and area.get_parent().is_dead():
+		return
+		
 	if area.is_in_group("hurtbox"):
 		_on_hitbox_hit(area)
+
+func _on_hitbox_hit(area: Area2D) -> void:
+	# Skip if target is dead
+	if area.get_parent().has_method("is_dead") and area.get_parent().is_dead():
+		return
+		
+	if area.has_method("take_damage"):
+		var damage = 10
+		var knockback_dir = (area.global_position - global_position).normalized()
+		area.take_damage(damage, knockback_dir)
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.is_in_group("hitbox"):
 		_on_hurtbox_hurt(area)
-
-func _on_hitbox_hit(area: Area2D) -> void:
-	print("Hitbox hit: ", area)  # Debug print
-	if area.has_method("take_damage"):
-		var damage = 10
-		var hit_info = "Player dealt %d damage" % damage
-		hit_landed.emit(hit_info)
-		area.take_damage(damage)
 
 func _on_hurtbox_hurt(area: Area2D) -> void:
 	print("Hurtbox hurt by: ", area)  # Debug print

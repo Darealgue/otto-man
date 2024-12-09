@@ -3,8 +3,8 @@
 [ext_resource type="Script" path="res://enemy/enemy.gd" id="1_kldqw"]
 [ext_resource type="Texture2D" uid="uid://bjol1f68t8nc7" path="res://enemy/dusman idle border.png" id="2_c47kl"]
 [ext_resource type="Texture2D" uid="uid://xnmeogau235g" path="res://enemy/dusman walk border.png" id="3_r5gcl"]
-[ext_resource type="Script" path="res://player/Hitbox.gd" id="4_5fy2y"]
-[ext_resource type="Script" path="res://player/Hurtbox.gd" id="5_e4x8p"]
+[ext_resource type="Script" path="res://components/hurtbox.gd" id="4_hurtb"]
+[ext_resource type="Script" path="res://components/hitbox.gd" id="5_hitbx"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_c3f5j"]
 atlas = ExtResource("3_r5gcl")
@@ -256,29 +256,32 @@ height = 48.0
 radius = 18.0278
 
 [node name="Enemy1" type="CharacterBody2D"]
+collision_layer = 4
 script = ExtResource("1_kldqw")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_2f2vy")
-animation = &"attack"
-frame_progress = 0.639503
+animation = &"idle"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(2, 21)
 shape = SubResource("CapsuleShape2D_lx500")
 
 [node name="Hitbox" type="Area2D" parent="."]
-collision_layer = 8
-script = ExtResource("4_5fy2y")
+collision_layer = 64
+collision_mask = 8
+script = ExtResource("5_hitbx")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
 position = Vector2(2, 21)
 shape = SubResource("CapsuleShape2D_xrej1")
 
 [node name="Hurtbox" type="Area2D" parent="."]
-collision_layer = 16
-script = ExtResource("5_e4x8p")
+position = Vector2(32, 6)
+collision_layer = 32
+collision_mask = 16
+script = ExtResource("4_hurtb")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(24, 23)
+position = Vector2(-5, 14)
 shape = SubResource("CircleShape2D_wxisj")

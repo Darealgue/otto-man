@@ -167,24 +167,3 @@ centered = false
 
 [node name="Enemy1" parent="." instance=ExtResource("8_7ua6u")]
 position = Vector2(93, 850)
-
-[node name="Enemy2" parent="." instance=ExtResource("8_7ua6u")]
-position = Vector2(-1076, 848)
-
-[node name="Enemy3" parent="." instance=ExtResource("8_7ua6u")]
-position = Vector2(860, 195)
-
-[node name="Enemy4" parent="." instance=ExtResource("8_7ua6u")]
-position = Vector2(1475, -34)
-
-[node name="Enemy5" parent="." instance=ExtResource("8_7ua6u")]
-position = Vector2(3085, 841)
-
-[node name="Enemy6" parent="." instance=ExtResource("8_7ua6u")]
-position = Vector2(5035, 388)
-
-[node name="Enemy7" parent="." instance=ExtResource("8_7ua6u")]
-position = Vector2(634, 523)
-
-[node name="Enemy8" parent="." instance=ExtResource("8_7ua6u")]
-position = Vector2(-1091, 212)
