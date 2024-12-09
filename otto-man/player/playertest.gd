@@ -387,7 +387,9 @@ func perform_jump() -> void:
 
 func handle_ground_movement(direction: float) -> void:
 	if direction:
-		velocity.x = direction * SPEED
+		# Reduce speed by half during attacks, but only on ground
+		var current_speed = SPEED * (0.5 if is_attacking else 1.0)
+		velocity.x = direction * current_speed
 		animated_sprite_2d.flip_h = direction < 0
 	else:
 		# Immediate stop
@@ -399,8 +401,9 @@ func handle_air_movement(direction: float, delta: float) -> void:
 	if direction != 0:
 		var control_multiplier = 1.0
 		if wall_jump_control_timer > 0:
-			control_multiplier = WALL_JUMP_CONTROL_MULTIPLIER  # Reduced control during wall jump
-			
+			control_multiplier = WALL_JUMP_CONTROL_MULTIPLIER
+		
+		# Keep full speed in air
 		var target_speed = direction * AIR_SPEED
 		velocity.x = move_toward(velocity.x, target_speed, AIR_ACCELERATION * delta * control_multiplier)
 		animated_sprite_2d.flip_h = direction < 0
@@ -616,6 +619,7 @@ func die() -> void:
 	# You can add death animation here
 	queue_free()
 
+	
 
 func enable_hitbox() -> void:
 	if hitbox:
