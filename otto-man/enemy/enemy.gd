@@ -11,7 +11,6 @@ signal died
 @onready var hitbox_collision = $Hitbox/CollisionShape2D
 @onready var hurtbox_collision = $Hurtbox/CollisionShape2D
 @onready var hitbox_position = $Hitbox.position
-@onready var health_bar = $HealthBar
 
 const MAX_HEALTH = 50
 const INVINCIBILITY_TIME = 0.01
@@ -34,8 +33,6 @@ const DIRECTION_CHANGE_CHANCE = 0.01  # 1% chance per frame to change direction 
 
 # Add these constants with the other behavior constants
 const MIN_DIRECTION_CHANGE_TIME = 3.0  # Minimum seconds between direction changes
-const HEALTH_BAR_SHOW_TIME = 5.0
-const HEALTH_BAR_FADE_TIME = 0.5
 
 var gravity = ProjectSettings.get_setting("physics/2d/default_gravity")
 var direction = -1
@@ -62,8 +59,6 @@ var base_speed: float = speed  # Store the original speed
 
 # Add this variable with other variables
 var direction_change_timer: float = 0.0
-var health_bar_timer: float = 0.0
-var health_bar_visible: bool = false
 
 func _ready() -> void:
 	if !animated_sprite:
@@ -74,11 +69,6 @@ func _ready() -> void:
 	_init_components()
 	_connect_signals()
 	rng.randomize()  # Initialize the random number generator
-	
-	# Initialize health bar hidden
-	if health_bar:
-		health_bar.hide()
-		health_bar.value = 100
 
 func _init_components() -> void:
 	current_state = State.PATROL
@@ -149,20 +139,6 @@ func _physics_process(delta: float) -> void:
 			perform_attack()
 	
 	move_and_slide()
-
-func _process(delta: float) -> void:
-	if health_bar_visible:
-		health_bar_timer -= delta
-		if health_bar_timer <= 0:
-			# Start fading out
-			var tween = create_tween()
-			tween.tween_property(health_bar, "modulate:a", 0.0, HEALTH_BAR_FADE_TIME)
-			tween.tween_callback(func(): health_bar.hide())
-			health_bar_visible = false
-	
-	# Add death animation flashing here
-	if current_state == State.DEAD and is_invincible:
-		modulate.a = 0.5 + (sin(Time.get_ticks_msec() * 0.03) * 0.5)
 
 func handle_idle_state(delta: float) -> void:
 	velocity.x = 0
@@ -245,15 +221,7 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 	print("[Enemy] Taking damage: ", amount, " (Health: ", health, "/", MAX_HEALTH, ")")
 	health_changed.emit(health)
 	
-	# Show and update health bar
-	if health_bar:
-		health_bar.show()
-		health_bar.value = (float(health) / MAX_HEALTH) * 100
-		health_bar.modulate.a = 1.0
-		health_bar_timer = HEALTH_BAR_SHOW_TIME
-		health_bar_visible = true
-	
-	modulate = Color(1, 0.5, 0.5, 1)
+	modulate = Color(1, 0.5, 0.5, 1)  # Turn red
 	is_invincible = true
 	invincibility_timer = INVINCIBILITY_TIME
 	
@@ -364,6 +332,11 @@ func handle_dead_state(delta: float) -> void:
 
 func _on_damaged(amount: int) -> void:
 	pass
+
+func _process(_delta: float) -> void:
+	# Only flash during death animation
+	if current_state == State.DEAD and is_invincible:
+		modulate.a = 0.5 + (sin(Time.get_ticks_msec() * 0.03) * 0.5)
 
 func is_dead() -> bool:
 	return current_state == State.DEAD
