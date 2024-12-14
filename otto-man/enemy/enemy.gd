@@ -66,6 +66,7 @@ func _ready() -> void:
 		queue_free()
 		return
 		
+	add_to_group("enemy")
 	_init_components()
 	_connect_signals()
 	rng.randomize()  # Initialize the random number generator

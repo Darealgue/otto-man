@@ -352,8 +352,8 @@ height = 54.0
 radius = 20.2237
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_wimnq"]
-radius = 19.0
-height = 62.0
+radius = 21.0
+height = 74.0
 
 [node name="Enemy1" type="CharacterBody2D"]
 collision_layer = 4

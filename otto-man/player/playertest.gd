@@ -46,7 +46,7 @@ const DEBUG_COLORS = {
 	"check_area": Color.MAGENTA
 }
 
-enum State { IDLE, RUN, JUMP, FALL, WALL_SLIDE, DASH }
+enum State { IDLE, RUN, JUMP, FALL, WALL_SLIDE, DASH, FALL_ATTACK }
 enum AnimState { IDLE, RUN, JUMP, FALL }
 enum AttackState { NONE, ATTACK1, ATTACK2, ATTACK3 }
 
@@ -118,6 +118,22 @@ const DASH_READY_FLASH_INTENSITY = 3.0  # Even brighter flash
 const DASH_READY_FLASH_DURATION = 0.4   # Slightly longer duration
 const DASH_READY_COLOR = Color(1.0, 0.9, 0.2)  # Bright yellow tint
 
+# Add these constants
+const FALL_ATTACK_SPEED = 2400  # Doubled from 1200 for faster fall
+const FALL_ATTACK_BOUNCE_FORCE = -1800  # 4x stronger bounce (from -800)
+const FALL_ATTACK_DAMAGE = 15  # Damage dealt to enemy
+const MIN_FALL_ATTACK_HEIGHT = 100  # Minimum height needed (optional)
+
+# Add this variable with other variables
+var is_fall_attacking: bool = false
+
+# Add these constants at the top
+const FALL_ATTACK_SHAKE_STRENGTH = 5.0
+const FALL_ATTACK_SHAKE_DURATION = 0.2
+
+# Add this variable with other variables
+@onready var camera = get_node("../Camera2D")  # Adjust the path to your camera
+
 func _ready():
 	current_state = State.IDLE
 	current_anim_state = AnimState.IDLE
@@ -152,6 +168,57 @@ func _ready():
 		hurtbox.collision_mask = 64   # Layer 7 (ENEMY HITBOX)
 
 func _physics_process(delta: float) -> void:
+	# Add this check early in the function
+	if current_state == State.FALL_ATTACK:
+		velocity.y = FALL_ATTACK_SPEED
+		
+		# First check for Area2D collisions (enemy hurtbox)
+		if hitbox and hitbox.is_active:
+			var areas = hitbox.get_overlapping_areas()
+			for area in areas:
+				if area.is_in_group("hurtbox") and area.get_parent().is_in_group("enemy"):
+					var target = area.get_parent()
+					if target.has_method("take_damage"):
+						var damage = FALL_ATTACK_DAMAGE
+						var knockback_dir = Vector2.UP
+						target.take_damage(damage, knockback_dir)
+						handle_fall_attack_hit(target)
+						return
+		
+		# Then check for direct collisions
+		for i in get_slide_collision_count():
+			var collision = get_slide_collision(i)
+			var collider = collision.get_collider()
+			
+			# Check if we're hitting from above and it's an enemy
+			if collision.get_normal().y < -0.7 and collider.is_in_group("enemy"):  # More strict vertical check
+				if hitbox and hitbox.is_active:
+					var target = collider
+					if target.has_method("take_damage"):
+						var damage = FALL_ATTACK_DAMAGE
+						var knockback_dir = Vector2.UP
+						target.take_damage(damage, knockback_dir)
+						handle_fall_attack_hit(target)
+						return
+		
+		move_and_slide()
+		
+		# Only end fall attack if we hit the ground
+		if is_on_floor():
+			is_fall_attacking = false
+			is_attacking = false
+			current_state = State.IDLE
+			if hitbox:
+				hitbox.disable()
+			animated_sprite_2d.play("idle")
+		return
+	
+	# Check for fall attack input - now requires down input
+	if Input.is_action_pressed("down") and Input.is_action_just_pressed("attack") and !is_on_floor():
+		if !is_fall_attacking and !is_attacking:
+			perform_fall_attack()
+			return
+	
 	# Handle dash cooldown
 	if dash_cooldown_timer > 0:
 		dash_cooldown_timer -= delta
@@ -589,10 +656,18 @@ func _on_hitbox_hit(area: Area2D) -> void:
 	if area.get_parent().has_method("is_dead") and area.get_parent().is_dead():
 		return
 		
-	if area.has_method("take_damage"):
+	if area.is_in_group("hurtbox"):
 		var damage = 10
 		var knockback_dir = (area.global_position - global_position).normalized()
-		area.take_damage(damage, knockback_dir)
+		
+		# Call take_damage on the parent instead of the hurtbox
+		var target = area.get_parent()
+		if target.has_method("take_damage"):
+			target.take_damage(damage, knockback_dir)
+		
+		# Handle bounce for fall attack
+		if current_state == State.FALL_ATTACK:
+			handle_fall_attack_hit(target)
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.is_in_group("hitbox"):
@@ -666,3 +741,65 @@ func play_dash_ready_effect() -> void:
 	tween.tween_property(self, "modulate", 
 		Color.WHITE, 
 		DASH_READY_FLASH_DURATION * 0.3)
+
+func perform_fall_attack() -> void:
+	if current_state == State.FALL_ATTACK:
+		return
+		
+	current_state = State.FALL_ATTACK
+	is_fall_attacking = true
+	is_attacking = true
+	velocity.y = FALL_ATTACK_SPEED
+	velocity.x = 0
+	animated_sprite_2d.play("fall_attack")
+	
+	# Enable hitbox at feet with improved detection
+	if hitbox:
+		hitbox.position = Vector2(0, 30)
+		if hitbox_collision:
+			var original_shape = hitbox_collision.shape
+			if original_shape is CircleShape2D:
+				original_shape.radius = 30
+		hitbox.enable()
+
+func handle_fall_attack_hit(enemy: Node2D) -> void:
+	var bounce_force = max(FALL_ATTACK_BOUNCE_FORCE, JUMP_FORCE * 4.8)
+	
+	velocity.y = bounce_force
+	is_fall_attacking = false
+	is_attacking = false
+	current_state = State.JUMP
+	
+	# Add screen shake
+	shake_camera(FALL_ATTACK_SHAKE_STRENGTH, FALL_ATTACK_SHAKE_DURATION)
+
+func get_height_from_ground() -> float:
+	var space_state = get_world_2d().direct_space_state
+	var query = PhysicsRayQueryParameters2D.create(
+		global_position,
+		global_position + Vector2(0, 1000),
+		collision_mask,  # Use the same collision mask as the character
+		[self]  # Exclude self from the raycast
+	)
+	var result = space_state.intersect_ray(query)
+	if result:
+		return global_position.y - result.position.y
+	return 0.0
+
+# Add this function for screen shake
+func shake_camera(strength: float, duration: float) -> void:
+	if camera:
+		var tween = create_tween()
+		
+		for i in range(int(duration / 0.05)):  # Create multiple shake steps
+			# Random offset
+			var offset = Vector2(
+				randf_range(-strength, strength),
+				randf_range(-strength, strength)
+			)
+			
+			# Shake
+			tween.tween_property(camera, "offset", offset, 0.05)
+		
+		# Reset camera position
+		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)

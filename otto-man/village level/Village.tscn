@@ -3991,4 +3991,4 @@ position = Vector2(-115, 53)
 script = ExtResource("4_huk03")
 
 [node name="Camera2D" type="Camera2D" parent="Node2D"]
-zoom = Vector2(2, 2)
+zoom = Vector2(3, 3)
