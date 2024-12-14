@@ -46,7 +46,7 @@ const DEBUG_COLORS = {
 	"check_area": Color.MAGENTA
 }
 
-enum State { IDLE, RUN, JUMP, FALL, WALL_SLIDE }
+enum State { IDLE, RUN, JUMP, FALL, WALL_SLIDE, DASH }
 enum AnimState { IDLE, RUN, JUMP, FALL }
 enum AttackState { NONE, ATTACK1, ATTACK2, ATTACK3 }
 
@@ -92,35 +92,39 @@ const INVINCIBILITY_TIME = 0.5  # Seconds of invincibility after taking damage
 var invincibility_timer: float = 0
 var is_invincible: bool = false
 
+# Add these constants at the top with other constants
+const DASH_SPEED = 2500
+const DASH_DURATION = 0.1
+const DASH_COOLDOWN = 1.2
+
+# Add these variables with other variables
+var can_dash: bool = true
+var is_dashing: bool = false
+var dash_timer: float = 0.0
+var dash_cooldown_timer: float = 0.0
+
+# Add this preload at the top of the file
+# var DashReadyParticles = preload("res://effects/dash_ready_particles.tscn")  # We'll create this
+
+# Add these constants at the top
+const GHOST_SPAWN_INTERVAL = 0.01  # How often to spawn ghosts during dash
+const GHOST_DURATION = 0.2  # How long each ghost lasts
+const GHOST_OPACITY = 0.2  # Starting opacity of ghosts
+
+var ghost_timer: float = 0  # Add with other variables
+
+# Adjust these constants for a more noticeable flash
+const DASH_READY_FLASH_INTENSITY = 3.0  # Even brighter flash
+const DASH_READY_FLASH_DURATION = 0.4   # Slightly longer duration
+const DASH_READY_COLOR = Color(1.0, 0.9, 0.2)  # Bright yellow tint
+
 func _ready():
-	print("=== DEBUG INFO ===")
-	print("Hitbox node exists: ", hitbox != null)
-	if hitbox:
-		var script = hitbox.get_script()
-		print("Hitbox script exists: ", script != null)
-		if script:
-			print("Script path: ", script.resource_path)
-			print("Available signals: ", hitbox.get_signal_list())
-	print("=================")
-	
-	print("Hitbox node exists: ", hitbox != null)
-	if hitbox:
-		print("Hitbox script: ", hitbox.get_script())
-		print("Hitbox signals: ", hitbox.get_signal_list())
-	
-	# Add this debug check
-	if !hitbox or !hitbox.get_script():
-		push_error("Hitbox node missing or has no script!")
-		return
-	
-	print("Hitbox script name: ", hitbox.get_script().resource_path)
-	
 	current_state = State.IDLE
 	current_anim_state = AnimState.IDLE
 	previous_anim_state = AnimState.IDLE
-	jumps_remaining = MAX_JUMPS  # Initialize jumps
+	jumps_remaining = MAX_JUMPS
 	animated_sprite_2d.animation_finished.connect(_on_animation_finished)
-	set_process_input(true)  # Ensure input processing is enabled
+	set_process_input(true)
 	
 	# Make sure hitboxes start disabled
 	if hitbox:
@@ -136,53 +140,49 @@ func _ready():
 	
 	health = MAX_HEALTH
 	
-	if OS.is_debug_build():
-		_debug_check_setup()
-	
-	print("\n=== PLAYER COMBAT SETUP ===")
-	if hitbox:
-		print("Hitbox setup:")
-		print("  Layer: ", hitbox.collision_layer, " (Should be 16)")
-		print("  Mask: ", hitbox.collision_mask, " (Should be 32)")
-		print("  Position: ", hitbox.position)
-		print("  Scale: ", hitbox.scale)
-		if hitbox.has_node("CollisionShape2D"):
-			print("  Has collision shape: Yes")
-			print("  Shape disabled: ", hitbox.get_node("CollisionShape2D").disabled)
-		else:
-			print("  Has collision shape: No")
-	
-	if hurtbox:
-		print("Hurtbox setup:")
-		print("  Layer: ", hurtbox.collision_layer, " (Should be 8)")
-		print("  Mask: ", hurtbox.collision_mask, " (Should be 64)")
-		print("  Position: ", hurtbox.position)
-		if hurtbox.has_node("CollisionShape2D"):
-			print("  Has collision shape: Yes")
-			print("  Shape disabled: ", hurtbox.get_node("CollisionShape2D").disabled)
-		else:
-			print("  Has collision shape: No")
-	print("========================\n")
-	
-	# Make sure hitbox is configured as player hitbox
-	if hitbox:
-		hitbox.is_player = true  # Add this line
-		print("[Player] Configured hitbox as player hitbox")
-	
-	# Force correct collision layers for player
+	# Configure hitbox/hurtbox layers
 	if hitbox:
 		hitbox.is_player = true
 		hitbox.collision_layer = 16  # Layer 5 (PLAYER HITBOX)
 		hitbox.collision_mask = 32   # Layer 6 (ENEMY HURTBOX)
-		print("[Player] Force set hitbox layers - Layer:", hitbox.collision_layer, " Mask:", hitbox.collision_mask)
 	
 	if hurtbox:
 		hurtbox.is_player = true
 		hurtbox.collision_layer = 8   # Layer 4 (PLAYER HURTBOX)
 		hurtbox.collision_mask = 64   # Layer 7 (ENEMY HITBOX)
-		print("[Player] Force set hurtbox layers - Layer:", hurtbox.collision_layer, " Mask:", hurtbox.collision_mask)
 
 func _physics_process(delta: float) -> void:
+	# Handle dash cooldown
+	if dash_cooldown_timer > 0:
+		dash_cooldown_timer -= delta
+		if dash_cooldown_timer <= 0:
+			can_dash = true
+			play_dash_ready_effect()
+	
+	# Handle dash state
+	if is_dashing:
+		dash_timer -= delta
+		ghost_timer -= delta  # Add ghost timer
+		
+		if ghost_timer <= 0:  # Spawn ghost on interval
+			ghost_timer = GHOST_SPAWN_INTERVAL
+			spawn_ghost()
+			
+		if dash_timer <= 0:
+			end_dash()
+		else:
+			current_state = State.DASH
+			var dash_direction = -1 if animated_sprite_2d.flip_h else 1
+			velocity = Vector2(DASH_SPEED * dash_direction, 0)
+			modulate.a = 0.5
+			move_and_slide()
+			return
+
+	# Check for dash input before other movement
+	if Input.is_action_just_pressed("dash") and can_dash and is_on_floor():
+		perform_dash()
+		return
+
 	handle_jump_physics(delta)
 	apply_gravity(delta)
 	update_timers(delta)
@@ -202,29 +202,6 @@ func _physics_process(delta: float) -> void:
 	if hitbox:
 		hitbox.position.x = abs(hitbox.position.x) * facing
 		hitbox.scale.x = facing
-	
-	# Debug collision check only when attacking starts
-	if Input.is_action_just_pressed("attack") and OS.is_debug_build() and !is_attacking:
-		print("\n=== COLLISION LAYER CHECK ===")
-		if hitbox:
-			print("Player Hitbox can hit Enemy Hurtbox: ", 
-				  (hitbox.collision_mask & 32) != 0)
-		if hurtbox:
-			print("Player Hurtbox can be hit by Enemy Hitbox: ",
-				  (hurtbox.collision_mask & 64) != 0)
-		print("===========================\n")
-	
-	# Debug hitbox position relative to enemy
-	if hitbox and hitbox.is_active:
-		var space_state = get_world_2d().direct_space_state
-		var query = PhysicsRayQueryParameters2D.create(
-			hitbox.global_position,
-			hitbox.global_position + Vector2(50, 0),
-			32  # Layer 6 (ENEMY HURTBOX)
-		)
-		var result = space_state.intersect_ray(query)
-		if result:
-			print("[Player] Hitbox raycast hit: ", result.collider.name)
 
 func handle_jump_physics(delta: float) -> void:
 	if is_jumping:
@@ -367,7 +344,6 @@ func perform_jump() -> void:
 	
 	if !is_on_floor():  # Double jump
 		if jumps_remaining > 0:  # Check if double jump is available
-			print("Double Jump Triggered")
 			velocity.y = DOUBLE_JUMP_FORCE
 			jumps_remaining -= 1
 			is_double_jumping = true
@@ -460,38 +436,28 @@ func update_animations() -> void:
 				animated_sprite_2d.play("fall")
 
 func _on_animation_finished():
-	if animated_sprite_2d.animation == "wall_climb":
-		is_wall_climbing = false
-		current_state = State.IDLE
-		velocity = Vector2.ZERO
-		position.y -= 50
-		update_animations()
-		return
-		
-	if animated_sprite_2d.animation == "ledge_grab":
-		# Just stay in the ledge grab animation until player presses up again
-		animated_sprite_2d.play("ledge_grab")
-		return
-	
-	if animated_sprite_2d.animation == "wall_attack":
-		is_attacking = false
-		current_attack_state = AttackState.NONE
-		# Return to wall slide animation if still wall sliding
-		if is_wall_sliding:
-			animated_sprite_2d.play("wall_slide")
-			animated_sprite_2d.flip_h = wall_direction < 0
+	if animated_sprite_2d.animation == "dash":
+		if is_dashing:
+			animated_sprite_2d.play("dash")  # Keep playing dash while dashing
 		else:
-			update_animations()
-		return
-		
-	if animated_sprite_2d.animation.begins_with("attack"):
+			if is_on_floor():
+				current_state = State.IDLE
+				animated_sprite_2d.play("idle")
+			else:
+				current_state = State.FALL
+				animated_sprite_2d.play("fall")
+	elif animated_sprite_2d.animation.begins_with("attack") or animated_sprite_2d.animation == "wall_attack":
 		is_attacking = false
 		
-		# Reset attack state if it was the final attack in combo
-		if animated_sprite_2d.animation == "attack3" or attack_combo_timer <= 0:
+		# Reset attack state if it was the final attack in combo or wall attack
+		if (animated_sprite_2d.animation == "attack3" or 
+			animated_sprite_2d.animation == "wall_attack" or 
+			attack_combo_timer <= 0):
 			current_attack_state = AttackState.NONE
 			attack_combo_timer = 0
 			next_attack_buffered = false
+			
+			# Reset attack buffer timer
 			attack_buffer_timer = 0
 		# Check for buffered next attack
 		elif next_attack_buffered and attack_buffer_timer > 0:
@@ -499,15 +465,6 @@ func _on_animation_finished():
 			perform_attack()
 		else:
 			update_animations()
-		return
-	
-	if animated_sprite_2d.animation == "double_jump":
-		is_double_jump_rising = false
-		if !is_attacking:  # Only change animation if not attacking
-			if velocity.y >= 0:
-				animated_sprite_2d.play("fall")
-			else:
-				animated_sprite_2d.play("jump")
 
 func apply_gravity(delta: float) -> void:
 	if !is_on_floor():
@@ -557,9 +514,7 @@ func handle_combat(delta: float) -> void:
 			attack_buffer_timer = ATTACK_BUFFER_TIME
 
 func perform_attack() -> void:
-	print("[Player] Starting attack...")  # Debug print
 	if is_wall_sliding:
-		print("[Player] Performing wall attack")
 		animated_sprite_2d.play("wall_attack")
 		current_attack_state = AttackState.ATTACK1
 		animated_sprite_2d.flip_h = wall_direction < 0
@@ -571,17 +526,14 @@ func perform_attack() -> void:
 	# Normal attack logic for when not wall sliding
 	match current_attack_state:
 		AttackState.NONE:
-			print("[Player] First attack in combo")  # Debug print
 			animated_sprite_2d.play("attack1")
 			current_attack_state = AttackState.ATTACK1
 		AttackState.ATTACK1:
 			if attack_combo_timer > 0:
-				print("[Player] Second attack in combo")  # Debug print
 				animated_sprite_2d.play("attack2")
 				current_attack_state = AttackState.ATTACK2
 		AttackState.ATTACK2:
 			if attack_combo_timer > 0:
-				print("[Player] Final attack in combo")  # Debug print
 				animated_sprite_2d.play("attack3")
 				current_attack_state = AttackState.ATTACK3
 	
@@ -619,15 +571,9 @@ func die() -> void:
 
 func enable_hitbox() -> void:
 	if hitbox:
-		print("[Player] Enabling hitbox")
-		# Get facing direction
 		var facing = -1 if animated_sprite_2d.flip_h else 1
-		
-		# Set hitbox position to be in front of player
-		var offset = Vector2(20, 0)  # Adjust this value to position the hitbox
+		var offset = Vector2(20, 0)
 		hitbox.position = offset * facing
-		
-		# Enable hitbox
 		hitbox.enable(0.2)
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
@@ -653,7 +599,6 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		_on_hurtbox_hurt(area)
 
 func _on_hurtbox_hurt(area: Area2D) -> void:
-	print("Hurtbox hurt by: ", area)  # Debug print
 	if area.has_method("get_damage"):
 		var damage = area.get_damage()
 		var hit_info = "Player took %d damage" % damage
@@ -661,13 +606,63 @@ func _on_hurtbox_hurt(area: Area2D) -> void:
 		var knockback_dir = (global_position - area.global_position).normalized()
 		take_damage(damage, knockback_dir)
 
-func _debug_check_setup() -> void:
-	print("Debug Check Setup:")
-	print("Hitbox node found: ", hitbox != null)
-	print("Hurtbox node found: ", hurtbox != null)
-	if hitbox:
-		print("Hitbox in group 'hitbox': ", hitbox.is_in_group("hitbox"))
-		print("Hitbox monitoring: ", hitbox.monitoring)
-	if hurtbox:
-		print("Hurtbox in group 'hurtbox': ", hurtbox.is_in_group("hurtbox"))
-		print("Hurtbox monitorable: ", hurtbox.monitorable)
+func perform_dash() -> void:
+	is_attacking = false
+	current_attack_state = AttackState.NONE
+	
+	ghost_timer = 0  # Reset ghost timer when starting dash
+	is_dashing = true
+	can_dash = false
+	is_invincible = true
+	dash_timer = DASH_DURATION
+	dash_cooldown_timer = DASH_COOLDOWN
+	current_state = State.DASH
+	
+	set_collision_mask_value(3, false)
+	animated_sprite_2d.play("dash")
+
+func end_dash() -> void:
+	is_dashing = false
+	is_invincible = false
+	modulate.a = 1.0
+	set_collision_mask_value(3, true)
+	velocity = Vector2.ZERO
+	
+	if is_attacking:
+		is_attacking = false
+		current_attack_state = AttackState.NONE
+	
+	if is_on_floor():
+		current_state = State.IDLE
+		animated_sprite_2d.play("idle")
+	else:
+		current_state = State.FALL
+		animated_sprite_2d.play("fall")
+
+# Add this function to create ghost sprites
+func spawn_ghost() -> void:
+	var ghost = Sprite2D.new()
+	ghost.texture = animated_sprite_2d.sprite_frames.get_frame_texture("dash", animated_sprite_2d.frame)
+	ghost.global_position = global_position + Vector2(0, -48)
+	ghost.flip_h = animated_sprite_2d.flip_h
+	ghost.modulate.a = GHOST_OPACITY
+	ghost.z_index = z_index
+	get_parent().add_child(ghost)
+	
+	# Create fade out tween
+	var tween = create_tween()
+	tween.tween_property(ghost, "modulate:a", 0.0, GHOST_DURATION)
+	tween.tween_callback(ghost.queue_free)
+
+func play_dash_ready_effect() -> void:
+	var tween = create_tween()
+	
+	# Flash bright with blue tint
+	tween.tween_property(self, "modulate", 
+		DASH_READY_COLOR * DASH_READY_FLASH_INTENSITY, 
+		DASH_READY_FLASH_DURATION * 0.2)
+	
+	# Return to normal
+	tween.tween_property(self, "modulate", 
+		Color.WHITE, 
+		DASH_READY_FLASH_DURATION * 0.3)

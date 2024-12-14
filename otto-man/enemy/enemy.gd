@@ -99,8 +99,8 @@ func _physics_process(delta: float) -> void:
 		return
 		
 	if current_state == State.HURT:
-		print("[Enemy] Physics - State: HURT, Can Move: ", can_move, " Velocity: ", velocity)
-		
+		pass
+	
 	match current_state:
 		State.IDLE:
 			handle_idle_state(delta)
@@ -217,8 +217,11 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 		
 	last_hit_direction = sign(knockback_direction.x) if knockback_direction.x != 0 else direction
 	
+	if knockback_direction.x != 0:
+		animated_sprite.flip_h = knockback_direction.x > 0
+		direction = -sign(knockback_direction.x)  # Set direction opposite to knockback
+	
 	health = max(0, health - amount)
-	print("[Enemy] Taking damage: ", amount, " (Health: ", health, "/", MAX_HEALTH, ")")
 	health_changed.emit(health)
 	
 	modulate = Color(1, 0.5, 0.5, 1)  # Turn red
