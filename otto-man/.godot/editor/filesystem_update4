@@ -3,3 +3,7 @@ res://player/player.tscn
 res://village level/village.tscn
 res://village level/playervillage/playervillage.tscn
 res://enemy/enemy_1.tscn
+res://village level/village npc/Kamil_NPC.tscn
+res://village level/village npc/kamil/Kamil_NPC.tscn
+res://village level/village npc/kamil/kamil_npc.gd
+res://village level/playervillage/playervillage.gd

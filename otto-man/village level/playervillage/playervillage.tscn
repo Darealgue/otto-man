@@ -782,7 +782,7 @@ animations = [{
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_m403w"]
 radius = 8.0
-height = 22.0
+height = 16.0
 
 [node name="Node2D" type="CharacterBody2D"]
 
@@ -791,5 +791,5 @@ sprite_frames = SubResource("SpriteFrames_6f8f0")
 animation = &"idle_right"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 5)
+position = Vector2(0, 8)
 shape = SubResource("CapsuleShape2D_m403w")

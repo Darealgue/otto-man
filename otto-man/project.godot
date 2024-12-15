@@ -70,6 +70,7 @@ attack={
 2d_physics/layer_5="PLAYER HITBOX"
 2d_physics/layer_6="ENEMY HURTBOX"
 2d_physics/layer_7="ENEMY HITBOX"
+2d_physics/layer_8="NPC"
 
 [rendering]
 
