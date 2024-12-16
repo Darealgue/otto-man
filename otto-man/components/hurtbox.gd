@@ -1,11 +1,10 @@
 extends Area2D
 
-signal hurt(area: Area2D)
-signal damaged(amount: int)
+signal hurt(hitbox: Area2D)
 
-@export var is_player: bool = false
+@export var is_player: bool = false  # Add this back
 
-func _ready():
+func _ready() -> void:
 	if is_player:
 		collision_layer = 8   # Layer 4 (PLAYER HURTBOX)
 		collision_mask = 64   # Layer 7 (ENEMY HITBOX)
@@ -15,12 +14,21 @@ func _ready():
 	
 	add_to_group("hurtbox")
 	area_entered.connect(_on_area_entered)
+	
+	# Debug info
+	print("Hurtbox setup for: ", get_parent().name)
+	print("- Layer: ", collision_layer)
+	print("- Mask: ", collision_mask)
+	print("- Monitorable: ", monitorable)
+	
+	# Verify collision shape
+	var shape = get_node_or_null("CollisionShape2D")
+	if shape:
+		print("- Shape found: ", shape.shape)
+		print("- Shape enabled: ", !shape.disabled)
+	else:
+		print("WARNING: No collision shape found!")
 
-func _on_area_entered(area: Area2D) -> void:
-	if get_parent().has_method("is_dead") and get_parent().is_dead():
-		return
-		
-	if not area.is_in_group("hitbox"):
-		return
-		
-	hurt.emit(area)
+func _on_area_entered(hitbox: Area2D) -> void:
+	if hitbox.is_in_group("hitbox"):
+		hurt.emit(hitbox)

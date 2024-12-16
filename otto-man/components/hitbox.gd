@@ -1,12 +1,17 @@
 extends Area2D
 
-signal hit(area: Area2D)
+signal hit(area)
 
 @export var damage: int = 10
 @export var is_player: bool = false
+@onready var collision_shape = $CollisionShape2D
 var is_active: bool = false
 
-func _ready():
+func _ready() -> void:
+	# Start with monitoring off
+	monitoring = false
+	monitorable = false
+	
 	if is_player:
 		collision_layer = 16  # Layer 5 (PLAYER HITBOX)
 		collision_mask = 32   # Layer 6 (ENEMY HURTBOX)
@@ -15,34 +20,46 @@ func _ready():
 		collision_mask = 8    # Layer 4 (PLAYER HURTBOX)
 	
 	add_to_group("hitbox")
-	area_entered.connect(_on_hitbox_area_entered)
-	disable()
-
-func _on_hitbox_area_entered(area: Area2D) -> void:
-	if area.get_parent().has_method("is_dead") and area.get_parent().is_dead():
-		return
-		
-	if not area.is_in_group("hurtbox"):
-		return
+	area_entered.connect(_on_area_entered)
 	
-	hit.emit(area)
-
-func enable(duration: float = 0.2) -> void:
-	is_active = true
-	monitoring = true
-	monitorable = true
-	if has_node("CollisionShape2D"):
-		var shape = $CollisionShape2D
-		shape.disabled = false
+	# Make sure collision shape is disabled
+	if collision_shape:
+		collision_shape.set_deferred("disabled", true)
 	
-	var timer = get_tree().create_timer(duration)
-	timer.timeout.connect(disable)
+	# Debug info
+	print("Hitbox setup for: ", get_parent().name)
+	print("- Layer: ", collision_layer)
+	print("- Mask: ", collision_mask)
+	print("- Monitoring: ", monitoring)
 
-func disable() -> void:
-	is_active = false
-	set_deferred("monitoring", false)
-	if has_node("CollisionShape2D"):
-		$CollisionShape2D.set_deferred("disabled", true)
+func _on_area_entered(area: Area2D) -> void:
+	print("Hitbox entered area: ", area.name)  # Debug print
+	if area.is_in_group("hurtbox"):
+		print("Valid hurtbox hit! Emitting signal")  # Debug print
+		hit.emit(area)
+	else:
+		print("Area is not a hurtbox: ", area.get_groups())  # Debug print
 
 func get_damage() -> int:
 	return damage
+
+func enable(duration: float = 0.0) -> void:
+	if collision_shape:
+		collision_shape.set_deferred("disabled", false)
+	set_deferred("monitoring", true)
+	set_deferred("monitorable", true)
+	is_active = true
+	
+	if duration > 0:
+		await get_tree().create_timer(duration).timeout
+		disable()
+
+func disable() -> void:
+	if collision_shape:
+		collision_shape.set_deferred("disabled", true)
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
+	is_active = false
+
+func is_enabled() -> bool:
+	return is_active

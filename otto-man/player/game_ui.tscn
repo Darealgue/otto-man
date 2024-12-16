@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://cnjry47lxod71"]
+
+[ext_resource type="PackedScene" uid="uid://b06qq61v1dvie" path="res://player/health_display.tscn" id="1_m3r7i"]
+
+[node name="GameUi" type="CanvasLayer"]
+
+[node name="HealthDisplay" parent="." instance=ExtResource("1_m3r7i")]

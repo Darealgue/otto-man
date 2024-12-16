@@ -1,17 +1,18 @@
-[gd_scene load_steps=148 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=153 format=3 uid="uid://bepujd34sp2i1"]
 
-[ext_resource type="Script" path="res://player/playertest.gd" id="1_ockrw"]
-[ext_resource type="Texture2D" uid="uid://dk7ij7ifw1k24" path="res://player/otto2deneme1-Sheet.png" id="1_wh4ep"]
-[ext_resource type="Texture2D" uid="uid://doe2jnwc22qb7" path="res://player/ottodoublejump2deneme23-sheet.png" id="2_fbehi"]
-[ext_resource type="Texture2D" uid="uid://dn27r8ssmlr5" path="res://player/ottorun2deneme1-sheet2.png" id="2_jqehs"]
-[ext_resource type="Texture2D" uid="uid://drnuncw442rtq" path="res://player/otto_lightattack1.png" id="2_yxrfi"]
-[ext_resource type="Texture2D" uid="uid://o2w3kn4qnqps" path="res://player/otto_dash.png" id="3_7iud1"]
-[ext_resource type="Texture2D" uid="uid://8vskfaypu0ky" path="res://player/ottojumpupwards1-sheet.png" id="3_87wbd"]
-[ext_resource type="Texture2D" uid="uid://40t2dc6riass" path="res://player/ottojumpson2.png" id="4_7f60a"]
-[ext_resource type="Texture2D" uid="uid://b65k7k4dow0xn" path="res://player/ottojumpson1.png" id="5_ye82r"]
-[ext_resource type="Texture2D" uid="uid://dq6g6s8ug160k" path="res://player/fall attack.png" id="6_vaiq4"]
-[ext_resource type="Texture2D" uid="uid://coqtenx8hi5bo" path="res://player/ottowalljump-sheet.png" id="8_byam3"]
-[ext_resource type="Texture2D" uid="uid://b2kivdn7cdus4" path="res://player/ottowall_attack-sheet.png" id="9_qaa8y"]
+[ext_resource type="Script" path="res://player/player.gd" id="1_ockrw"]
+[ext_resource type="Texture2D" uid="uid://dk7ij7ifw1k24" path="res://player/sprite/otto2deneme1-Sheet.png" id="1_wh4ep"]
+[ext_resource type="Texture2D" uid="uid://doe2jnwc22qb7" path="res://player/sprite/ottodoublejump2deneme23-sheet.png" id="2_fbehi"]
+[ext_resource type="Texture2D" uid="uid://dn27r8ssmlr5" path="res://player/sprite/ottorun2deneme1-sheet2.png" id="2_jqehs"]
+[ext_resource type="Texture2D" uid="uid://drnuncw442rtq" path="res://player/sprite/otto_lightattack1.png" id="2_yxrfi"]
+[ext_resource type="Texture2D" uid="uid://o2w3kn4qnqps" path="res://player/sprite/otto_dash.png" id="3_7iud1"]
+[ext_resource type="Texture2D" uid="uid://8vskfaypu0ky" path="res://player/sprite/ottojumpupwards1-sheet.png" id="3_87wbd"]
+[ext_resource type="Texture2D" uid="uid://40t2dc6riass" path="res://player/sprite/ottojumpson2.png" id="4_7f60a"]
+[ext_resource type="Texture2D" uid="uid://b65k7k4dow0xn" path="res://player/sprite/ottojumpson1.png" id="5_ye82r"]
+[ext_resource type="Texture2D" uid="uid://dq6g6s8ug160k" path="res://player/sprite/fall attack.png" id="6_vaiq4"]
+[ext_resource type="Texture2D" uid="uid://dioxpmkdq7jdh" path="res://player/sprite/ottohurt_border-sheet.png" id="7_t7t8m"]
+[ext_resource type="Texture2D" uid="uid://coqtenx8hi5bo" path="res://player/sprite/ottowalljump-sheet.png" id="8_byam3"]
+[ext_resource type="Texture2D" uid="uid://b2kivdn7cdus4" path="res://player/sprite/ottowall_attack-sheet.png" id="9_qaa8y"]
 [ext_resource type="Script" path="res://components/hitbox.gd" id="11_ymm3e"]
 [ext_resource type="Script" path="res://components/hurtbox.gd" id="12_mrdsu"]
 
@@ -254,6 +255,22 @@ region = Rect2(2400, 0, 96, 96)
 [sub_resource type="AtlasTexture" id="AtlasTexture_gwwxk"]
 atlas = ExtResource("6_vaiq4")
 region = Rect2(2496, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_v033s"]
+atlas = ExtResource("7_t7t8m")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e2ugk"]
+atlas = ExtResource("7_t7t8m")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f540q"]
+atlas = ExtResource("7_t7t8m")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_r048p"]
+atlas = ExtResource("7_t7t8m")
+region = Rect2(288, 0, 96, 96)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_dp4fl"]
 atlas = ExtResource("1_wh4ep")
@@ -767,6 +784,23 @@ animations = [{
 "speed": 18.0
 }, {
 "frames": [{
+"duration": 2.0,
+"texture": SubResource("AtlasTexture_v033s")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e2ugk")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_f540q")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_r048p")
+}],
+"loop": false,
+"name": &"hurt",
+"speed": 15.0
+}, {
+"frames": [{
 "duration": 3.0,
 "texture": SubResource("AtlasTexture_dp4fl")
 }, {
@@ -1054,24 +1088,21 @@ script = ExtResource("1_ockrw")
 position = Vector2(0, -50.125)
 scale = Vector2(1, 1.04427)
 sprite_frames = SubResource("SpriteFrames_mi6n6")
-animation = &"fall_attack"
+animation = &"hurt"
 autoplay = "idle"
-frame = 19
+frame = 3
 frame_progress = 1.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -22)
 shape = SubResource("CapsuleShape2D_i4d1d")
 
-[node name="Camera2D" type="Camera2D" parent="."]
-limit_smoothed = true
-position_smoothing_speed = 1.0
-
 [node name="Hitbox" type="Area2D" parent="."]
 collision_layer = 16
 collision_mask = 32
+monitoring = false
+monitorable = false
 script = ExtResource("11_ymm3e")
-is_player = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
 position = Vector2(10, -19)
@@ -1085,3 +1116,7 @@ script = ExtResource("12_mrdsu")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
 position = Vector2(0, -22)
 shape = SubResource("CapsuleShape2D_2b478")
+
+[node name="Camera2D" type="Camera2D" parent="." groups=["Camera Groups"]]
+limit_smoothed = true
+position_smoothing_speed = 1.0

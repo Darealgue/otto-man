@@ -1,0 +1,71 @@
+[gd_scene load_steps=9 format=3 uid="uid://fagn4l68hcmn"]
+
+[ext_resource type="Texture2D" uid="uid://r7yqxx3lltqh" path="res://effects/effectk sprites/shockwave.png" id="1_4y08n"]
+[ext_resource type="Script" path="res://enemy/heavy/shockwave.gd" id="1_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_xxxxx"]
+size = Vector2(32, 82)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_mgcn2"]
+atlas = ExtResource("1_4y08n")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hqdo2"]
+atlas = ExtResource("1_4y08n")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_imx8p"]
+atlas = ExtResource("1_4y08n")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_h6rtp"]
+atlas = ExtResource("1_4y08n")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_tnk30"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_mgcn2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hqdo2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_imx8p")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_h6rtp")
+}],
+"loop": true,
+"name": &"default",
+"speed": 20.0
+}]
+
+[node name="Shockwave" type="Area2D"]
+position = Vector2(0, 91)
+collision_layer = 64
+collision_mask = 8
+script = ExtResource("1_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -41)
+shape = SubResource("RectangleShape2D_xxxxx")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(4, -55.5)
+scale = Vector2(1, 1.17708)
+sprite_frames = SubResource("SpriteFrames_tnk30")
+autoplay = "default"
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+position = Vector2(12, -1)
+amount = 20
+lifetime = 0.5
+explosiveness = 0.2
+direction = Vector2(0, -1)
+initial_velocity_min = 100.0
+initial_velocity_max = 200.0
+scale_amount_min = 2.0
+scale_amount_max = 4.0
+color = Color(0.2, 0.4, 1, 1)

@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://dchqdimnesodu"]
-
-[ext_resource type="Script" path="res://components/hitbox.gd" id="1_xxxxx"]
-
-[node name="Hitbox" type="Area2D"]
-script = ExtResource("1_xxxxx")
