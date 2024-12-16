@@ -4060,7 +4060,7 @@ script = ExtResource("6_03x1o")
 
 [node name="HTTPRequest" type="HTTPRequest" parent="GeminiRequests"]
 
-[node name="Npc2" parent="." groups=["NPC"] instance=ExtResource("7_ihdyh")]
+[node name="Npc2" parent="." instance=ExtResource("7_ihdyh")]
 position = Vector2(-828, 155)
 
 [connection signal="request_completed" from="GeminiRequests/HTTPRequest" to="GeminiRequests" method="_on_http_request_request_completed"]

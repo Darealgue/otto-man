@@ -319,12 +319,13 @@ animations = [{
 radius = 8.0
 height = 16.0
 
-[node name="Npc2" type="CharacterBody2D"]
+[node name="Npc2" type="CharacterBody2D" groups=["NPC"]]
 script = ExtResource("1_tih6t")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." groups=["NPC"]]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_yvfkq")
-animation = &"idle"
+animation = &"walk_left"
+frame_progress = 0.656291
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, 8)

@@ -322,9 +322,9 @@ height = 16.0
 [node name="KamilNpc" type="CharacterBody2D" groups=["NPC"]]
 script = ExtResource("1_hcgwj")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." groups=["NPC"]]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_igbxd")
-animation = &"idle"
+animation = &"walk_up"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, 8)
