@@ -582,7 +582,7 @@ radius = 21.0
 height = 74.0
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_5f70b"]
-radius = 100.0
+radius = 185.043
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_charge"]
 radius = 200.0

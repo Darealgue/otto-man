@@ -1,6 +1,5 @@
 [gd_scene load_steps=16 format=4 uid="uid://b53ycjx80ajxu"]
 
-
 [ext_resource type="Texture2D" uid="uid://cbkhjveigdnfn" path="res://village level/tiles/terrain_tiles_v2.png" id="1_5d5fx"]
 [ext_resource type="Texture2D" uid="uid://uais335ebdjd" path="res://village level/tiles/assets_spritesheet_v2_free.png" id="2_vafi5"]
 [ext_resource type="PackedScene" uid="uid://h3h6mx748n3u" path="res://village level/playervillage/playervillage.tscn" id="3_r1rr4"]

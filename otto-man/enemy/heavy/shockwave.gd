@@ -9,8 +9,25 @@ var start_position: Vector2
 var initial_scale: Vector2
 
 @onready var animated_sprite = $AnimatedSprite2D
+@onready var collision_shape = $CollisionShape2D
 
 func _ready() -> void:
+	# Set up monitoring
+	monitoring = true
+	monitorable = true
+	
+	if collision_shape:
+		collision_shape.disabled = false
+	
+	# Debug output
+	print("Shockwave collision setup:")
+	print("- Layer: ", collision_layer)
+	print("- Mask: ", collision_mask)
+	print("- Monitoring: ", monitoring)
+	print("- Monitorable: ", monitorable)
+	if collision_shape:
+		print("- Shape enabled: ", !collision_shape.disabled)
+	
 	area_entered.connect(_on_area_entered)
 	initial_scale = scale
 	
@@ -45,3 +62,6 @@ func _on_area_entered(area: Area2D) -> void:
 		var damage = damage_amount
 		var knockback_dir = Vector2(direction, -0.5).normalized()
 		area.get_parent().take_damage(damage, knockback_dir)
+
+func get_damage() -> int:
+	return damage_amount

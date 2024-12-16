@@ -12,13 +12,6 @@ func _ready() -> void:
 	monitoring = false
 	monitorable = false
 	
-	if is_player:
-		collision_layer = 16  # Layer 5 (PLAYER HITBOX)
-		collision_mask = 32   # Layer 6 (ENEMY HURTBOX)
-	else:
-		collision_layer = 64  # Layer 7 (ENEMY HITBOX)
-		collision_mask = 8    # Layer 4 (PLAYER HURTBOX)
-	
 	add_to_group("hitbox")
 	area_entered.connect(_on_area_entered)
 	

@@ -1082,6 +1082,7 @@ height = 44.0
 
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 2
+collision_mask = 5
 script = ExtResource("1_ockrw")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
@@ -1110,7 +1111,7 @@ shape = SubResource("RectangleShape2D_megn6")
 
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
-collision_mask = 64
+collision_mask = 320
 script = ExtResource("12_mrdsu")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]

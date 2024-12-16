@@ -2,15 +2,6 @@ res://levels/level.tscn
 res://player/player.tscn
 res://enemy/heavy/enemy_1.tscn
 res://village level/village.tscn
-res://village level/village npc/kamil/Kamil_NPC.tscn
-res://village level/playervillage/playervillage.tscn
-res://effects/shockwave.tscn
-res://enemy/heavy/enemy.gd
-res://player/health_display.tscn
-res://player/health_display.gd
 res://player/game_ui.tscn
-res://player/playertest.gd
 res://enemy/heavy/shockwave.tscn
-res://enemy/heavy/shockwave.gd
-res://ui/health_display.gd
 res://player/player.gd

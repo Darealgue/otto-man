@@ -158,18 +158,30 @@ const HURT_INVINCIBILITY_TIME = 1.0  # How long player stays invincible after ge
 var is_hurt: bool = false
 var hurt_timer: float = 0.0
 
+# Add these collision layer constants at the top with other constants
+const LAYERS = {
+	WORLD = 1,                
+	PLAYER = 2,
+	ENEMY = 4,                        
+	PLAYER_HITBOX = 16,        
+	PLAYER_HURTBOX = 8,       
+	ENEMY_HITBOX = 64,       
+	ENEMY_HURTBOX = 32,      
+	ENEMY_PROJECTILE = 256    # 
+}
+
 func _ready():
 	add_to_group("player")
 	
+	# Set up player's main collision
+	collision_layer = LAYERS.PLAYER
+	collision_mask = LAYERS.WORLD | LAYERS.ENEMY  # Only collide with world and enemy bodies
+	
 	# Setup camera
 	if camera:
-		camera.enabled = true  # Enable the camera
-		camera.make_current()  # Make it the active camera
-		camera.add_to_group("camera")  # Add to group
-		
-	
-	# Debug camera setup
-	
+		camera.enabled = true
+		camera.make_current()
+		camera.add_to_group("camera")
 	
 	current_state = State.IDLE
 	current_anim_state = AnimState.IDLE
@@ -193,13 +205,21 @@ func _ready():
 	# Configure hitbox/hurtbox layers
 	if hitbox:
 		hitbox.is_player = true
-		hitbox.collision_layer = 16  # Layer 5 (PLAYER HITBOX)
-		hitbox.collision_mask = 32   # Layer 6 (ENEMY HURTBOX)
-	
+		hitbox.collision_layer = LAYERS.PLAYER_HITBOX
+		hitbox.collision_mask = LAYERS.ENEMY_HURTBOX
+		# Disable monitoring during initialization
+		hitbox.monitoring = false
+		if hitbox_collision:
+			hitbox_collision.disabled = true
+
 	if hurtbox:
 		hurtbox.is_player = true
-		hurtbox.collision_layer = 8   # Layer 4 (PLAYER HURTBOX)
-		hurtbox.collision_mask = 64   # Layer 7 (ENEMY HITBOX)
+		hurtbox.collision_layer = LAYERS.PLAYER_HURTBOX
+		hurtbox.collision_mask = LAYERS.ENEMY_HITBOX | LAYERS.ENEMY_PROJECTILE
+		# Make sure hurtbox is properly configured
+		hurtbox.monitorable = true
+		if hurtbox_collision:
+			hurtbox_collision.disabled = false
 
 	# Keep this to emit initial health
 	health_changed.emit(health)
@@ -213,6 +233,12 @@ func _physics_process(delta: float) -> void:
 			scale = Vector2.ONE
 			if !is_attacking:
 				animated_sprite_2d.play("idle")
+			# Ensure hitbox is disabled when landing
+			if hitbox:
+				hitbox.disable()
+				hitbox.position = Vector2.ZERO
+				if hitbox_collision:
+					hitbox_collision.disabled = false
 		return
 	
 	# Handle hurt state first
@@ -272,6 +298,9 @@ func _physics_process(delta: float) -> void:
 			current_state = State.IDLE
 			if hitbox:
 				hitbox.disable()
+				hitbox.position = Vector2.ZERO
+				if hitbox_collision:
+					hitbox_collision.disabled = false
 		return
 	
 	# Check for fall attack input - now requires down input
@@ -673,6 +702,14 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 	if is_invincible:
 		return
 		
+	print("Taking damage: ", amount)
+	print("Current state before damage: ", State.keys()[current_state])
+	
+	# If we're in fall attack, end it properly first
+	if current_state == State.FALL_ATTACK:
+		print("Was in fall attack, ending it")
+		end_fall_attack()
+	
 	health = max(0, health - amount)
 	health_changed.emit(health)
 	
@@ -681,15 +718,30 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 	is_hurt = true
 	hurt_timer = HURT_STATE_DURATION
 	
+	# Reset attack states
+	is_attacking = false
+	is_fall_attacking = false
+	
+	# Make sure hitbox is fully disabled
+	if hitbox:
+		hitbox.disable()
+		hitbox.monitoring = false
+		hitbox.monitorable = false
+		hitbox.position = Vector2.ZERO
+		if hitbox_collision:
+				hitbox_collision.disabled = true
+	
 	# Apply knockback
 	velocity = HURT_KNOCKBACK_FORCE * knockback_direction
 	
 	# Play hurt animation
-	animated_sprite_2d.play("hurt")  # You'll need to create this animation
+	animated_sprite_2d.play("hurt")
 	
 	# Make player invincible briefly
 	is_invincible = true
 	invincibility_timer = HURT_INVINCIBILITY_TIME
+	
+	print("Current state after damage: ", State.keys()[current_state])
 	
 	if health <= 0:
 		die()
@@ -714,6 +766,12 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		
 	if area.is_in_group("hurtbox"):
 		_on_hitbox_hit(area)
+		
+		# If we're fall attacking, end it regardless of what we hit
+		if current_state == State.FALL_ATTACK:
+			end_fall_attack()
+			current_state = State.JUMP
+			velocity.y = JUMP_FORCE  # Give a small bounce
 
 func _on_hitbox_hit(area: Area2D) -> void:
 	# Skip if target is dead
@@ -731,7 +789,13 @@ func _on_hitbox_hit(area: Area2D) -> void:
 		
 		# Handle bounce for fall attack
 		if current_state == State.FALL_ATTACK:
-			handle_fall_attack_hit(target)
+			if target.is_in_group("enemy"):
+				handle_fall_attack_hit(target)
+			else:
+				# If we hit something that's not an enemy (like a shockwave), just end the attack
+				end_fall_attack()
+				current_state = State.JUMP
+				velocity.y = JUMP_FORCE  # Give a small bounce
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.is_in_group("hitbox"):
@@ -757,14 +821,16 @@ func perform_dash() -> void:
 	dash_cooldown_timer = DASH_COOLDOWN
 	current_state = State.DASH
 	
-	set_collision_mask_value(3, false)
+	# During dash, don't collide with enemies but still collide with world
+	collision_mask = LAYERS.WORLD
 	animated_sprite_2d.play("dash")
 
 func end_dash() -> void:
 	is_dashing = false
 	is_invincible = false
 	modulate.a = 1.0
-	set_collision_mask_value(3, true)
+	# Restore normal collision mask after dash
+	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
 	velocity = Vector2.ZERO
 	
 	if is_attacking:
@@ -807,7 +873,7 @@ func play_dash_ready_effect() -> void:
 		DASH_READY_FLASH_DURATION * 0.3)
 
 func perform_fall_attack() -> void:
-	if current_state == State.FALL_ATTACK:
+	if current_state == State.FALL_ATTACK or !can_fall_attack():
 		return
 		
 	current_state = State.FALL_ATTACK
@@ -817,28 +883,50 @@ func perform_fall_attack() -> void:
 	velocity.x = 0
 	animated_sprite_2d.play("fall_attack")
 	
+	# During fall attack, only collide with world and enemy bodies, not projectiles
+	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
+	
 	# Enable hitbox at feet with improved detection
 	if hitbox:
 		hitbox.position = Vector2(0, 30)
 		if hitbox_collision:
+			hitbox_collision.disabled = false
 			var original_shape = hitbox_collision.shape
 			if original_shape is CircleShape2D:
 				original_shape.radius = 30
+		# Set specific collision mask for fall attack
+		hitbox.collision_layer = LAYERS.PLAYER_HITBOX
+		hitbox.collision_mask = LAYERS.ENEMY_HURTBOX
 		hitbox.enable()
+
+func can_fall_attack() -> bool:
+	return !is_fall_attacking and !is_attacking and !is_on_floor()
+
+func end_fall_attack() -> void:
+	print("Ending fall attack")
+	is_fall_attacking = false
+	is_attacking = false
+	
+	# Make sure to fully disable and reset hitbox
+	if hitbox:
+		print("Disabling hitbox")
+		hitbox.disable()
+		hitbox.monitoring = false
+		hitbox.monitorable = false
+		hitbox.position = Vector2.ZERO
+		if hitbox_collision:
+			hitbox_collision.disabled = true
+	
+	# Reset collision mask to normal
+	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
+	print("Fall attack ended")
 
 func handle_fall_attack_hit(enemy: Node2D) -> void:
 	var bounce_force = max(FALL_ATTACK_BOUNCE_FORCE, JUMP_FORCE * 4.8)
 	
 	velocity.y = bounce_force
-	is_fall_attacking = false
-	is_attacking = false
+	end_fall_attack()  # Use the new end_fall_attack function
 	current_state = State.JUMP
-	
-	# Make sure to disable hitbox
-	if hitbox:
-		hitbox.disable()
-		# Reset hitbox position
-		hitbox.position = Vector2.ZERO
 	
 	# Add screen shake
 	shake_camera(FALL_ATTACK_SHAKE_STRENGTH, FALL_ATTACK_SHAKE_DURATION)
@@ -879,11 +967,9 @@ func play_landing_animation():
 	landing_timer = LANDING_DURATION
 	animated_sprite_2d.play("landing")
 	
-	# Make sure hitbox is disabled when landing
-	if hitbox:
-		hitbox.disable()
-		# Reset hitbox position
-		hitbox.position = Vector2.ZERO
+	# End fall attack if it's still active
+	if is_fall_attacking:
+		end_fall_attack()
 	
 	# Create squash and stretch effect
 	var tween = create_tween()
@@ -911,6 +997,13 @@ func handle_hurt_state(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, 0, 1000 * delta)
 	
 	if hurt_timer <= 0:
+		print("Exiting hurt state")
 		is_hurt = false
 		current_state = State.IDLE
 		animated_sprite_2d.play("idle")
+		
+		# Double check that fall attack states are reset
+		is_fall_attacking = false
+		is_attacking = false
+		if hitbox:
+			hitbox.disable()
