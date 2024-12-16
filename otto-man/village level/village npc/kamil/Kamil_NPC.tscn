@@ -319,7 +319,7 @@ animations = [{
 radius = 8.0
 height = 16.0
 
-[node name="KamilNpc" type="CharacterBody2D"]
+[node name="KamilNpc" type="CharacterBody2D" groups=["NPC"]]
 script = ExtResource("1_hcgwj")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
