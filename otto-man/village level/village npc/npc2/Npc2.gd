@@ -35,6 +35,12 @@ var activity_zones = {
 		"center": Vector2.ZERO,
 		"positions": [],
 		"current_spot": null
+	},
+	"house2": {
+		"area": null,
+		"center": Vector2.ZERO,
+		"positions": [],
+		"current_spot": null
 	}
 }
 
@@ -62,7 +68,7 @@ var current_path_index = 0
 
 # Add these constants at the top
 const WALL_CHECK_DISTANCE = 30.0
-const WALL_AVOIDANCE_FORCE = 200.0
+const WALL_AVOIDANCE_FORCE = 50.0
 
 func _ready():
 	# Wait one frame to ensure the scene is fully loaded
@@ -93,6 +99,12 @@ func _ready():
 			"center": Vector2(-112, 44),  # GirlHouseZone CollisionShape2D position
 			"positions": [],
 			"current_spot": null
+		},
+		"house2": {
+			"area": null,
+			"center": Vector2.ZERO,
+			"positions": [],
+			"current_spot": null
 		}
 	}
 	
@@ -108,7 +120,8 @@ func _ready():
 				"forest": "ForestZone",
 				"well": "WellZone",
 				"house": "HouseZone",
-				"girl_house": "GirlHouseZone"
+				"girl_house": "GirlHouseZone",
+				"house2": "House2Zone"
 			}
 			
 			for zone_key in zone_mappings:
@@ -128,15 +141,16 @@ func _ready():
 	else:
 		print("ERROR: Could not find parent node")
 	
-	# Initialize navigation agent
-	nav_agent.path_desired_distance = 4.0
-	nav_agent.target_desired_distance = 4.0
+	# Initialize navigation agent with better settings
+	nav_agent.path_desired_distance = 10.0  # Increased from 4.0
+	nav_agent.target_desired_distance = 10.0  # Increased from 4.0
 	nav_agent.radius = 16.0
 	nav_agent.avoidance_enabled = true
 	nav_agent.max_speed = SPEED
+	nav_agent.path_max_distance = 50.0  # Add this
+	nav_agent.navigation_layers = 1  # Make sure this matches your navigation layer
 	
-	# Connect navigation signals
-	nav_agent.velocity_computed.connect(_on_velocity_computed)
+	# Only keep necessary navigation signals
 	nav_agent.navigation_finished.connect(_on_navigation_finished)
 	
 
@@ -209,23 +223,43 @@ func start_next_action():
 		return
 	
 	current_action = current_schedule.keys()[0]
-	current_duration = current_schedule[current_action]  # Duration is already in seconds
+	current_duration = current_schedule[current_action]
 	current_schedule.erase(current_action)
 	action_timer = 0.0
 	
 	# Get target zone
 	var target_zone = get_current_zone_name()
-
 	
 	if target_zone and activity_zones.has(target_zone):
-		var zone_pos = activity_zones[target_zone]["center"]
-
-		target_position = zone_pos
-		nav_agent.target_position = zone_pos
-		is_moving = true
-		is_performing_action = false
+		var zone = activity_zones[target_zone]["area"]
+		if zone:
+			# Get the collision shape
+			var collision_shape = zone.get_node("CollisionShape2D")
+			if collision_shape:
+				var shape = collision_shape.shape
+				var zone_pos = collision_shape.global_position
+				
+				# Generate random position within the zone based on shape type
+				var random_pos = Vector2.ZERO
+				if shape is RectangleShape2D:
+					var half_size = shape.size / 2
+					random_pos = Vector2(
+						randf_range(-half_size.x, half_size.x),
+						randf_range(-half_size.y, half_size.y)
+					)
+					random_pos += zone_pos
+				
+				target_position = random_pos
+				nav_agent.target_position = random_pos
+				is_moving = true
+				is_performing_action = false
+			else:
+				# Fallback to center if no collision shape
+				target_position = activity_zones[target_zone]["center"]
+				nav_agent.target_position = target_position
+				is_moving = true
+				is_performing_action = false
 	else:
-
 		is_performing_action = true
 	
 	update_action_label()
@@ -236,31 +270,30 @@ func _physics_process(delta: float) -> void:
 		return
 	
 	if is_moving:
-		var next_path_position: Vector2 = nav_agent.get_next_path_position()
-		var direction = (next_path_position - global_position).normalized()
-		
-		# Set velocity for navigation
-		velocity = direction * SPEED
-		
-		# Update animations based on movement direction
-		update_movement_animation(direction)
-		
-		# Check if we've arrived
-		var distance_to_target = global_position.distance_to(target_position)
-		if distance_to_target < ARRIVAL_THRESHOLD:
+		if nav_agent.is_navigation_finished():
 			handle_arrival()
 			return
+			
+		var next_path_position: Vector2 = nav_agent.get_next_path_position()
+		var current_position = global_position
+		var new_velocity = (next_path_position - current_position).normalized() * SPEED
 		
+		# Only slow down when very close to final target
+		var distance_to_final = current_position.distance_to(target_position)
+		if distance_to_final < ARRIVAL_THRESHOLD:
+			new_velocity *= clamp(distance_to_final / ARRIVAL_THRESHOLD, 0.1, 1.0)
+		
+		velocity = new_velocity
+		
+		if velocity.length() > 1.0:
+			update_movement_animation(velocity.normalized())
+			
 		move_and_slide()
 
 func handle_arrival():
-
 	is_moving = false
 	is_performing_action = true
 	velocity = Vector2.ZERO
-	
-	# Lock position
-	global_position = target_position
 	animated_sprite_2d.play("idle")
 	action_timer = 0.0
 	update_action_label()
@@ -299,27 +332,8 @@ func _start_next_action_internal():
 
 	start_next_action()
 
-func _on_velocity_computed(safe_velocity: Vector2):
-	# Only update velocity if we're actually moving
-	if is_moving:
-		velocity = safe_velocity
-		if safe_velocity.length() > 10:
-			print("Moving with velocity: ", int(safe_velocity.length()))
-	else:
-		velocity = Vector2.ZERO
-	move_and_slide()
-
 func _on_navigation_finished():
-	if current_nav_state == NavState.MOVING_TO_ZONE:
-		# We've reached the zone, now find specific spot
-		var zone_name = get_current_zone_name()
-		if zone_name and activity_zones.has(zone_name) and !activity_zones[zone_name]["positions"].is_empty():
-			var spot = find_nearest_activity_spot(zone_name)
-			activity_zones[zone_name]["current_spot"] = spot
-			navigate_to_target(spot)
-			current_nav_state = NavState.MOVING_TO_SPOT
-	elif current_nav_state == NavState.MOVING_TO_SPOT:
-		handle_arrival()
+	handle_arrival()
 
 func navigate_to_target(target_pos: Vector2):
 	if target_pos == Vector2.ZERO:
@@ -391,6 +405,8 @@ func get_current_zone_name() -> String:
 		return "forest"
 	elif "girl" in action_lower or "watching" in action_lower:  # Added watching
 		return "girl_house"
+	elif "house2" in action_lower:  # Add check for house2
+		return "house2"
 	elif "house" in action_lower and "girl" not in action_lower:  # Modified condition
 		return "house"
 	
