@@ -7,6 +7,9 @@ extends CharacterBody2D
 const SPEED = 50.0
 const ARRIVAL_THRESHOLD = 10.0  # Distance to consider NPC has arrived at destination
 
+var NPC_Info = {"Name":"Kamil", "Occupation":"Logger", "Mood":"Depressed", 
+"Gender":"Male", "Age":"25", "Health":"Injured"}
+
 # Define locations for different activities
 var activity_zones = {
 	"forest": {
@@ -116,9 +119,6 @@ func _ready():
 					var collision = zone_node.get_node("CollisionShape2D")
 					if collision:
 						activity_zones[zone_key]["center"] = collision.global_position
-						print("Registered zone: ", zone_key, 
-							  "\n  - Position: ", collision.global_position,
-							  "\n  - Node name: ", zone_node.name)
 					else:
 						print("ERROR: No CollisionShape2D found for zone: ", zone_key)
 			
@@ -139,8 +139,7 @@ func _ready():
 	nav_agent.velocity_computed.connect(_on_velocity_computed)
 	nav_agent.navigation_finished.connect(_on_navigation_finished)
 	
-	parse_daily_schedule()
-	update_action_label()
+
 	
 	# Set up collision
 	collision_layer = 128  # Layer 8 for NPCs
@@ -167,43 +166,22 @@ func update_action_label():
 	
 	action_label.text = label_text
 
-func parse_daily_schedule():
+func parse_daily_schedule(daily_actions : Array):
+	update_action_label()
 	# This is an example of how to parse the Gemini response
-	var daily_actions = [
-		"Main action: Visiting the girl's house but staying at a distance/ Duration: 20 minutes",
-		"Custom action: Watching the girl from afar, building courage to approach / Duration: 1 hour",
-		"Main action: Cutting down trees / Duration: 3 hours",
-		"Custom action: Resting under a tree, humming softly and carving a small wooden heart / Duration: 1 hour",
-		"Main action: Taking a bucket of water from the well / Duration: 5 minutes",
-		"Custom action: Drinking water and resting on the well's edge / Duration: 30 minutes",
-		"Main action: Enter the house / Duration: 10 minutes",
-		"Custom action: Sitting by the window, writing a note or poem for the girl / Duration: 1 hour",
-		"Main action: Get out of the house / Duration: 10 minutes",
-		"Custom action: Walking toward the girl's house but stopping halfway / Duration: 1 hour",
-		"Main action: Visiting the girl's house / Duration: 15 minutes",
-		"Custom action: Talking briefly if she is outside, or leaving a carved wooden heart nearby if she's not / Duration: 20 minutes",
-		"Main action: Cutting down trees / Duration: 1.5 hours",
-		"Custom action: Collecting wood and stacking it neatly near the house, hoping she will notice / Duration: 1 hour",
-		"Main action: Enter the house / Duration: 10 minutes",
-		"Custom action: Sitting on the floor, looking at the wooden heart he carved earlier / Duration: 30 minutes",
-		"Main action: Going to sleep / Duration: 5 hours"
-	]
 	
 	current_schedule.clear()
 	
 	for action_string in daily_actions:
-		print("Processing action: ", action_string)  # Debug print
 		
 		# First split to separate action and duration
 		var main_parts = action_string.split("Duration:")
 		if main_parts.size() < 2:
-			print("Invalid format: ", action_string)
 			continue
 			
 		# Get the action part (remove "Main action:" or "Custom action:")
 		var action_part = main_parts[0].split(": ", true, 1)
 		if action_part.size() < 2:
-			print("Invalid action format: ", main_parts[0])
 			continue
 		var action_name = action_part[1].strip_edges()
 		
@@ -219,20 +197,17 @@ func parse_daily_schedule():
 			# 1 minute = 24/60 = 0.4 seconds
 			duration = float(duration_str.split(" ")[0]) * 0.4
 		
-		print("Parsed: Action='", action_name, "' Duration=", duration, " game seconds")
 		current_schedule[action_name] = duration
 	
 	start_next_action()
 
 func start_next_action():
 	if current_schedule.is_empty():
-		print("Schedule empty, staying idle")
 		is_performing_action = false
 		is_moving = false
 		velocity = Vector2.ZERO
 		return
 	
-	print("\nStarting new action")
 	current_action = current_schedule.keys()[0]
 	current_duration = current_schedule[current_action]  # Duration is already in seconds
 	current_schedule.erase(current_action)
@@ -240,20 +215,17 @@ func start_next_action():
 	
 	# Get target zone
 	var target_zone = get_current_zone_name()
-	print("Action: ", current_action, 
-		  "\nZone: ", target_zone,
-		  "\nDuration: ", current_duration / 60.0, " minutes (",
-		  current_duration, " seconds)")
+
 	
 	if target_zone and activity_zones.has(target_zone):
 		var zone_pos = activity_zones[target_zone]["center"]
-		print("Moving to zone: ", target_zone, " at position: ", zone_pos)
+
 		target_position = zone_pos
 		nav_agent.target_position = zone_pos
 		is_moving = true
 		is_performing_action = false
 	else:
-		print("WARNING: No zone found for action: ", current_action)
+
 		is_performing_action = true
 	
 	update_action_label()
@@ -282,7 +254,7 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 
 func handle_arrival():
-	print("Arrived at location for: ", current_action)
+
 	is_moving = false
 	is_performing_action = true
 	velocity = Vector2.ZERO
@@ -303,14 +275,11 @@ func handle_action(delta: float) -> void:
 	# Print progress every second
 	if int(action_timer) != int(action_timer - delta):
 		var time_left = duration - action_timer
-		print("Action: ", current_action, 
-			  "\nTime left: ", int(time_left), " seconds")
+
 	
 	# Check if action is complete
 	if action_timer >= duration:
-		print("\n=== Action COMPLETED ===")
-		print("Action: ", current_action)
-		print("Moving to next action...")
+
 		
 		# Reset all states
 		is_performing_action = false
@@ -327,7 +296,7 @@ func handle_action(delta: float) -> void:
 
 # New internal function to ensure clean state transition
 func _start_next_action_internal():
-	print("\n=== Starting Next Action ===")
+
 	start_next_action()
 
 func _on_velocity_computed(safe_velocity: Vector2):
@@ -354,10 +323,9 @@ func _on_navigation_finished():
 
 func navigate_to_target(target_pos: Vector2):
 	if target_pos == Vector2.ZERO:
-		print("ERROR: Trying to navigate to (0,0)")
 		return
 		
-	print("Navigating to: ", target_pos, " for action: ", current_action)
+
 	target_position = target_pos
 	nav_agent.target_position = target_pos
 	current_nav_state = NavState.MOVING_TO_ZONE
@@ -416,7 +384,6 @@ func update_movement_animation(direction: Vector2) -> void:
 func get_current_zone_name() -> String:
 	# Determine which zone we're in based on current action
 	var action_lower = current_action.to_lower()
-	print("Determining zone for action: ", action_lower)
 	
 	if "water" in action_lower:
 		return "well"
@@ -431,7 +398,6 @@ func get_current_zone_name() -> String:
 	if "visiting" in action_lower:
 		return "girl_house"
 	
-	print("WARNING: No zone found for action: ", current_action)
 	return ""
 
 func is_in_zone(zone_name: String) -> bool:
