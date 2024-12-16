@@ -105,6 +105,8 @@ func Gather_Daily_NPC_Infos():
 	for NPC in get_tree().get_nodes_in_group("NPC"):
 		All_NPC_Infos.append(NPC.NPC_Info)
 		All_NPCs.append(NPC)
+		print("INFOS: ", All_NPC_Infos)
+		print("NPCS: ",All_NPCs)
 	Request_New_NPC_Actions()
 	
 func Request_New_NPC_Actions():
@@ -138,6 +140,7 @@ func Convert_Daily_Actions_To_Array(raw_string:String):
 	print(Current_Daily_Actions)
 	print(typeof(Current_Daily_Actions))
 	Current_NPC.parse_daily_schedule(Current_Daily_Actions)
-	Current_NPC = null
+	print("CURRENT NPC : ", Current_NPC)
 	All_NPCs.erase(Current_NPC)
+	Current_NPC = null
 	Request_New_NPC_Actions()
