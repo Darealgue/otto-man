@@ -677,7 +677,7 @@ func perform_attack() -> void:
 		animated_sprite_2d.flip_h = wall_direction < 0
 		attack_combo_timer = ATTACK_COMBO_WINDOW
 		is_attacking = true
-		enable_hitbox()
+		enable_hitbox(0.2)
 		return
 	
 	# Normal attack logic for when not wall sliding
@@ -696,7 +696,7 @@ func perform_attack() -> void:
 	
 	attack_combo_timer = ATTACK_COMBO_WINDOW
 	is_attacking = true
-	enable_hitbox()
+	enable_hitbox(0.2)
 
 func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> void:
 	if is_invincible:
@@ -708,7 +708,7 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 	# If we're in fall attack, end it properly first
 	if current_state == State.FALL_ATTACK:
 		print("Was in fall attack, ending it")
-		end_fall_attack()
+		call_deferred("end_fall_attack")
 	
 	health = max(0, health - amount)
 	health_changed.emit(health)
@@ -722,14 +722,13 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 	is_attacking = false
 	is_fall_attacking = false
 	
-	# Make sure hitbox is fully disabled
+	# Make sure hitbox is fully disabled using deferred calls
 	if hitbox:
-		hitbox.disable()
-		hitbox.monitoring = false
-		hitbox.monitorable = false
+		hitbox.set_deferred("monitoring", false)
+		hitbox.set_deferred("monitorable", false)
 		hitbox.position = Vector2.ZERO
 		if hitbox_collision:
-				hitbox_collision.disabled = true
+			hitbox_collision.set_deferred("disabled", true)
 	
 	# Apply knockback
 	velocity = HURT_KNOCKBACK_FORCE * knockback_direction
@@ -752,12 +751,20 @@ func die() -> void:
 	queue_free()
 
 
-func enable_hitbox() -> void:
+func enable_hitbox(duration: float = 0.0) -> void:
 	if hitbox:
 		var facing = -1 if animated_sprite_2d.flip_h else 1
 		var offset = Vector2(20, 0)
 		hitbox.position = offset * facing
-		hitbox.enable(0.2)
+		hitbox.set_deferred("monitoring", true)
+		hitbox.set_deferred("monitorable", true)
+		if hitbox_collision:
+			hitbox_collision.set_deferred("disabled", false)
+		
+		if duration > 0:
+			await get_tree().create_timer(duration).timeout
+			if hitbox:  # Check again in case hitbox was freed
+				hitbox.disable()
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	# Skip if target is dead
@@ -907,18 +914,17 @@ func end_fall_attack() -> void:
 	is_fall_attacking = false
 	is_attacking = false
 	
-	# Make sure to fully disable and reset hitbox
+	# Make sure to fully disable and reset hitbox using deferred calls
 	if hitbox:
 		print("Disabling hitbox")
-		hitbox.disable()
-		hitbox.monitoring = false
-		hitbox.monitorable = false
+		hitbox.set_deferred("monitoring", false)
+		hitbox.set_deferred("monitorable", false)
 		hitbox.position = Vector2.ZERO
 		if hitbox_collision:
-			hitbox_collision.disabled = true
+			hitbox_collision.set_deferred("disabled", true)
 	
 	# Reset collision mask to normal
-	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
+	set_deferred("collision_mask", LAYERS.WORLD | LAYERS.ENEMY)
 	print("Fall attack ended")
 
 func handle_fall_attack_hit(enemy: Node2D) -> void:

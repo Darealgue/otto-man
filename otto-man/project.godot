@@ -23,6 +23,10 @@ GameManager="*res://Globals/GameManager.gd"
 window/size/viewport_width=960
 window/size/viewport_height=540
 
+[global_group]
+
+NPC=""
+
 [input]
 
 left={

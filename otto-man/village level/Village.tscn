@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=4 uid="uid://b53ycjx80ajxu"]
+[gd_scene load_steps=17 format=4 uid="uid://b53ycjx80ajxu"]
 
 [ext_resource type="Texture2D" uid="uid://cbkhjveigdnfn" path="res://village level/tiles/terrain_tiles_v2.png" id="1_5d5fx"]
 [ext_resource type="Texture2D" uid="uid://uais335ebdjd" path="res://village level/tiles/assets_spritesheet_v2_free.png" id="2_vafi5"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://village level/playervillage/playervillage.gd" id="4_huk03"]
 [ext_resource type="PackedScene" uid="uid://bom3a27kvqase" path="res://village level/village npc/kamil/Kamil_NPC.tscn" id="5_615mv"]
 [ext_resource type="Script" path="res://Ui/gemini_test.gd" id="6_03x1o"]
+[ext_resource type="PackedScene" uid="uid://cea3iy15udslv" path="res://village level/village npc/npc2/Npc2.tscn" id="7_ihdyh"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_8acfc"]
 texture = ExtResource("1_5d5fx")
@@ -4052,11 +4053,14 @@ script = ExtResource("4_huk03")
 zoom = Vector2(2, 2)
 
 [node name="KamilNpc" parent="." instance=ExtResource("5_615mv")]
-position = Vector2(-739, 123)
+position = Vector2(-710, 121)
 
 [node name="GeminiRequests" type="Node" parent="."]
 script = ExtResource("6_03x1o")
 
 [node name="HTTPRequest" type="HTTPRequest" parent="GeminiRequests"]
+
+[node name="Npc2" parent="." groups=["NPC"] instance=ExtResource("7_ihdyh")]
+position = Vector2(-828, 155)
 
 [connection signal="request_completed" from="GeminiRequests/HTTPRequest" to="GeminiRequests" method="_on_http_request_request_completed"]

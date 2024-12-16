@@ -101,6 +101,14 @@ const DIRECTION_CHANGE_COOLDOWN = 1.0  # Seconds between direction changes
 # Add this near the top with other constants/preloads
 const ShockwaveScene = preload("res://enemy/heavy/shockwave.tscn")
 
+# Add these constants at the top with other constants
+const GHOST_SPAWN_INTERVAL = 0.05  # How often to spawn ghosts during charge
+const GHOST_DURATION = 0.3        # How long each ghost lasts
+const GHOST_OPACITY = 0.3         # Starting opacity of ghosts
+
+# Add this variable with other variables
+var ghost_timer: float = 0
+
 func _ready() -> void:
 	if !animated_sprite:
 		push_error("AnimatedSprite2D node not found!")
@@ -153,13 +161,30 @@ func _init_components() -> void:
 
 func _connect_signals() -> void:
 	if hitbox:
+		# Disconnect existing connections first
+		if hitbox.hit.is_connected(_on_hitbox_hit):
+			hitbox.hit.disconnect(_on_hitbox_hit)
 		
+		# Now connect the signal
 		hitbox.hit.connect(_on_hitbox_hit)
 		hitbox.add_to_group("hitbox")
+		
 	if hurtbox:
+		# Disconnect existing connections first
+		if hurtbox.hurt.is_connected(_on_hurtbox_hurt):
+			hurtbox.hurt.disconnect(_on_hurtbox_hurt)
+			
+		# Now connect the signal
 		hurtbox.hurt.connect(_on_hurtbox_hurt)
 		hurtbox.add_to_group("hurtbox")
-	animated_sprite.animation_finished.connect(_on_animation_finished)
+		
+	if animated_sprite:
+		# Disconnect existing connections first
+		if animated_sprite.animation_finished.is_connected(_on_animation_finished):
+			animated_sprite.animation_finished.disconnect(_on_animation_finished)
+			
+		# Now connect the signal
+		animated_sprite.animation_finished.connect(_on_animation_finished)
 
 func _physics_process(delta: float) -> void:
 	if current_state == State.DEAD:
@@ -642,6 +667,7 @@ func start_charge_attack() -> void:
 	can_charge = false
 	charge_start_position = global_position
 	velocity.x = 0  # Stop movement
+	ghost_timer = 0  # Reset ghost timer
 	
 	animated_sprite.play("charge_prepare")
 
@@ -651,6 +677,12 @@ func handle_charge_prepare_state(delta: float) -> void:
 func handle_charging_state(delta: float) -> void:
 	# Keep charging until we hit something or travel max distance
 	var distance_charged = abs(global_position.x - charge_start_position.x)
+	
+	# Handle ghost effect
+	ghost_timer -= delta
+	if ghost_timer <= 0:
+		ghost_timer = GHOST_SPAWN_INTERVAL
+		spawn_ghost()
 	
 	if is_on_wall() or distance_charged > CHARGE_MAX_RANGE:
 		end_charge()
@@ -741,3 +773,18 @@ func get_slam_target():
 					nearest_player = body
 	
 	return nearest_player
+
+func spawn_ghost() -> void:
+	var ghost = Sprite2D.new()
+	ghost.texture = animated_sprite.sprite_frames.get_frame_texture(animated_sprite.animation, animated_sprite.frame)
+	ghost.global_position = global_position
+	ghost.flip_h = animated_sprite.flip_h
+	ghost.scale = scale
+	ghost.modulate = Color(1, 1, 1, GHOST_OPACITY)
+	ghost.z_index = z_index - 1  # Place ghost behind the enemy
+	get_parent().add_child(ghost)
+	
+	# Create fade out tween
+	var tween = create_tween()
+	tween.tween_property(ghost, "modulate:a", 0.0, GHOST_DURATION)
+	tween.tween_callback(ghost.queue_free)

@@ -68,4 +68,4 @@ initial_velocity_min = 100.0
 initial_velocity_max = 200.0
 scale_amount_min = 2.0
 scale_amount_max = 4.0
-color = Color(0.2, 0.4, 1, 1)
+color = Color(0.186528, 0.0852985, 0.00369787, 1)
