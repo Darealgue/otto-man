@@ -4,8 +4,8 @@ res://enemy/heavy/enemy_1.tscn
 res://village level/village.tscn
 res://player/game_ui.tscn
 res://enemy/heavy/shockwave.tscn
-res://player/player.gd
 res://village level/village npc/npc2/Npc2.tscn
-res://village level/village npc/npc2/Npc2.gd
 res://village level/village npc/kamil/Kamil_NPC.tscn
-res://Ui/gemini_test.gd
+res://village level/village npc/kamil/kamil_npc.gd
+res://village level/village npc/npc2/Npc2.gd
+res://village level/playervillage/playervillage.tscn
