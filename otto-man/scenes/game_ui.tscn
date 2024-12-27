@@ -1,7 +1,10 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="PackedScene" path="res://ui/health_display.tscn" id="1_health_display"]
+[ext_resource type="PackedScene" uid="uid://c8k6y5q3n4m2p" path="res://ui/powerup_selection.tscn" id="2_powerup"]
 
 [node name="GameUI" type="CanvasLayer"]
 
-[node name="HealthDisplay" parent="." instance=ExtResource("1_health_display")] 
+[node name="HealthDisplay" parent="." instance=ExtResource("1_health_display")]
+
+[node name="PowerupSelection" parent="." instance=ExtResource("2_powerup")]
