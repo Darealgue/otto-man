@@ -383,10 +383,6 @@ func die() -> void:
 	current_state = State.DEAD
 	died.emit()
 	
-	# Register kill with PowerupManager
-	PowerupManager.add_kill()
-	
-	# Make enemy invincible and disable collisions
 	is_invincible = true
 	if hitbox:
 		hitbox.disable()
@@ -396,15 +392,13 @@ func die() -> void:
 		if hurtbox.has_node("CollisionShape2D"):
 			hurtbox.get_node("CollisionShape2D").set_deferred("disabled", true)
 	
-	# Disable collisions
 	set_deferred("collision_layer", 0)
 	set_deferred("collision_mask", 0)
 	
-	# Apply death knockback
 	var death_knockback = Vector2(last_hit_direction * 300, -200)
 	velocity = death_knockback
 	
-	# Play death animation
+	# Play death animation (now looping)
 	animated_sprite.play("death")
 	
 	# Create fade out tween

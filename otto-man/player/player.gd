@@ -83,7 +83,6 @@ var wall_jump_control_timer: float = 0
 signal health_changed(new_health: int)
 signal died
 signal hit_landed(hit_info: String)
-signal dash_started
 
 # Constants section (group ALL constants together)
 const MAX_HEALTH = 100
@@ -100,8 +99,7 @@ var invincibility_timer: float = 0
 # Add these constants with your other constants
 const DASH_SPEED = 2500
 const DASH_DURATION = 0.1
-var base_dash_cooldown: float = 1.2  # Default value
-var current_dash_cooldown: float = 1.2  # This is the one we'll modify
+const DASH_COOLDOWN = 1.2
 
 # Add these variables with other variables
 var can_dash: bool = true
@@ -171,17 +169,6 @@ const LAYERS = {
 	ENEMY_HURTBOX = 32,      
 	ENEMY_PROJECTILE = 256    # 
 }
-
-# Add these variables near your other health-related variables
-var base_max_health: int = 100
-var current_max_health: int = 100
-
-# Add this preload at the top with other preloads
-var DamageNumber = preload("res://ui/damage_number.tscn")
-
-# Add these variables near your other combat-related variables
-var base_damage: int = 10  # Default damage
-var current_damage: int = 10  # This will be modified by powerups
 
 func _ready():
 	add_to_group("player")
@@ -799,15 +786,13 @@ func _on_hitbox_hit(area: Area2D) -> void:
 		return
 		
 	if area.is_in_group("hurtbox"):
+		var damage = 10
 		var knockback_dir = (area.global_position - global_position).normalized()
 		
 		# Call take_damage on the parent instead of the hurtbox
 		var target = area.get_parent()
 		if target.has_method("take_damage"):
-			target.take_damage(current_damage, knockback_dir)
-			
-			# Spawn damage number at hit location
-			spawn_damage_number(current_damage, target.global_position)
+			target.take_damage(damage, knockback_dir)
 		
 		# Handle bounce for fall attack
 		if current_state == State.FALL_ATTACK:
@@ -832,44 +817,25 @@ func _on_hurtbox_hurt(area: Area2D) -> void:
 		take_damage(damage, knockback_dir)
 
 func perform_dash() -> void:
-	if not can_dash or is_dashing:
-		return
-		
+	is_attacking = false
+	current_attack_state = AttackState.NONE
+	
+	ghost_timer = 0  # Reset ghost timer when starting dash
 	is_dashing = true
 	can_dash = false
+	is_invincible = true
 	dash_timer = DASH_DURATION
-	is_invincible = true  # Add invincibility during dash
-	current_state = State.DASH  # Set state to DASH
+	dash_cooldown_timer = DASH_COOLDOWN
+	current_state = State.DASH
 	
-	# Get input direction for dash
-	var dash_direction = Input.get_axis("left", "right")
-	if dash_direction == 0:
-		dash_direction = 1 if not animated_sprite_2d.flip_h else -1
-	
-	# Apply dash velocity
-	velocity.x = dash_direction * DASH_SPEED
-	velocity.y = 0  # Cancel vertical momentum
-	
-	# Only collide with world during dash
+	# During dash, don't collide with enemies but still collide with world
 	collision_mask = LAYERS.WORLD
-	
-	# Play dash animation
 	animated_sprite_2d.play("dash")
-	
-	# Reset ghost timer
-	ghost_timer = 0
-	
-	# Emit the dash signal
-	dash_started.emit()
-	
-	# Start cooldown using current value
-	dash_cooldown_timer = current_dash_cooldown
 
 func end_dash() -> void:
 	is_dashing = false
 	is_invincible = false
 	modulate.a = 1.0
-	
 	# Restore normal collision mask after dash
 	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
 	velocity = Vector2.ZERO
@@ -1047,23 +1013,3 @@ func handle_hurt_state(delta: float) -> void:
 		is_attacking = false
 		if hitbox:
 			hitbox.disable()
-
-func set_dash_cooldown(new_cooldown: float) -> void:
-	current_dash_cooldown = new_cooldown
-
-func set_max_health(new_max: int) -> void:
-	current_max_health = new_max
-	# Heal to full when max health increases
-	health = current_max_health
-	health_changed.emit(health)
-
-# Add this new function
-func spawn_damage_number(amount: int, pos: Vector2) -> void:
-	var number = DamageNumber.instantiate()
-	get_tree().get_root().add_child(number)
-	number.global_position = pos
-	number.set_damage(amount)
-
-# Add this method to handle damage modifications
-func set_damage(new_damage: int) -> void:
-	current_damage = new_damage

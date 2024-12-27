@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://bqvc2re6qqsew"]
+[gd_scene load_steps=12 format=3 uid="uid://bqvc2re6qqsew"]
 
 [ext_resource type="Texture2D" uid="uid://xa0y20hiinmn" path="res://Tile set/tiles.png" id="1_s2sog"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="2_71yt3"]
@@ -9,7 +9,6 @@
 [ext_resource type="Texture2D" uid="uid://de7ouskihcyug" path="res://background/bulutlu dağlar/clouds_front_fc.png" id="7_bmq01"]
 [ext_resource type="PackedScene" uid="uid://2smolwkhncx4" path="res://enemy/heavy/enemy_1.tscn" id="8_7ua6u"]
 [ext_resource type="PackedScene" path="res://scenes/game_ui.tscn" id="9_rktge"]
-[ext_resource type="PackedScene" path="res://ui/powerup_selection.tscn" id="10_rhlfx"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4r1hk"]
 texture = ExtResource("1_s2sog")
@@ -192,5 +191,3 @@ position = Vector2(634, 523)
 position = Vector2(-1091, 212)
 
 [node name="GameUI" parent="." instance=ExtResource("9_rktge")]
-
-[node name="PowerupSelection2" parent="GameUI" instance=ExtResource("10_rhlfx")]
