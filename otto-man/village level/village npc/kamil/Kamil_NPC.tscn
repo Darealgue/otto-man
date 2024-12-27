@@ -316,28 +316,32 @@ animations = [{
 }]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_5c1jr"]
-radius = 8.0
-height = 16.0
+radius = 4.0
+height = 10.0
 
 [node name="KamilNpc" type="CharacterBody2D" groups=["NPC"]]
 script = ExtResource("1_hcgwj")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+y_sort_enabled = true
+position = Vector2(0, -14)
 sprite_frames = SubResource("SpriteFrames_igbxd")
 animation = &"walk_up"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 8)
+position = Vector2(0, -5)
 shape = SubResource("CapsuleShape2D_5c1jr")
 
 [node name="ActionLabel" type="Label" parent="."]
+z_index = 5
 offset_left = -254.0
-offset_top = -131.0
+offset_top = -145.0
 offset_right = -54.0
-offset_bottom = -54.0
+offset_bottom = -68.0
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
 
 [node name="RayCast2D" type="RayCast2D" parent="."]
+position = Vector2(0, -14)
