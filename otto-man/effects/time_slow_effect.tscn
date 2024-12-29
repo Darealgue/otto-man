@@ -1,0 +1,41 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="Shader" id="Shader_1"]
+code = "shader_type canvas_item;
+
+uniform float vignette_intensity = 0.4;
+uniform float vignette_opacity : hint_range(0.0, 1.0) = 0.5;
+uniform float desaturation : hint_range(0.0, 1.0) = 0.4;
+
+void fragment() {
+    vec4 color = texture(TEXTURE, UV);
+    
+    // Vignette
+    vec2 position = (UV - 0.5);
+    float vignette = length(position * 2.0) * vignette_intensity;
+    vignette = clamp(vignette, 0.0, 1.0);
+    
+    // Desaturation
+    float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 desaturated = mix(color.rgb, vec3(gray), desaturation);
+    
+    // Combine effects
+    color.rgb = mix(desaturated, desaturated * (1.0 - vignette), vignette_opacity);
+    
+    COLOR = color;
+}"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
+shader = SubResource("Shader_1")
+shader_parameter/vignette_intensity = 0.4
+shader_parameter/vignette_opacity = 0.5
+shader_parameter/desaturation = 0.4
+
+[node name="TimeSlowEffect" type="ColorRect"]
+material = SubResource("ShaderMaterial_1")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

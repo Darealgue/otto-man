@@ -17,8 +17,10 @@ func _init() -> void:
 	weight = RARITY_CHANCES["Common"]
 	stackable = true
 	max_stacks = 3
+	powerup_type = PowerupType.HEALTH_BOOST
+	print("DEBUG: Initialized Health Boost powerup with rarity: ", rarity)
 
-func _apply(player: CharacterBody2D) -> void:
+func apply_powerup(player: CharacterBody2D) -> void:
 	if player.has_method("modify_max_health"):
 		var rarity_name = ["Common", "Rare", "Epic", "Legendary"][rarity]
 		var boost = HEALTH_BOOSTS[rarity_name]
@@ -34,7 +36,7 @@ func _apply(player: CharacterBody2D) -> void:
 		
 		player.modify_max_health(total_multiplier)
 
-func _remove(player: CharacterBody2D) -> void:
+func remove_powerup(player: CharacterBody2D) -> void:
 	if player.has_method("reset_max_health"):
 		boost_stack.clear()  # Clear all boosts
 		player.reset_max_health()

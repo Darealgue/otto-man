@@ -8,3 +8,6 @@ res://village level/village npc/npc2/Npc2.tscn
 res://village level/village npc/kamil/Kamil_NPC.tscn
 res://village level/playervillage/playervillage.tscn
 res://ui/powerup_selection.tscn
+res://effects/fire_trail.gd
+res://ui/powerup_button.gd
+res://resources/powerups/shield_break_time.gd

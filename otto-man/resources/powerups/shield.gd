@@ -15,16 +15,17 @@ func _init() -> void:
 	weight = RARITY_CHANCES["Common"]
 	stackable = false
 	max_stacks = 1
+	powerup_type = PowerupType.SHIELD
 	print("DEBUG: Initialized Shield powerup with rarity: ", rarity)
 
-func _apply(player: CharacterBody2D) -> void:
+func apply_powerup(player: CharacterBody2D) -> void:
 	if player.has_method("enable_shield"):
 		var rarity_name = ["Common", "Rare", "Epic", "Legendary"][rarity]
 		var block_amount = SHIELD_BLOCKS[rarity_name]
 		print("DEBUG: Applying Shield - Rarity: ", rarity_name, ", Block amount: ", block_amount)
 		player.enable_shield(block_amount)
 
-func _remove(player: CharacterBody2D) -> void:
+func remove_powerup(player: CharacterBody2D) -> void:
 	if player.has_method("disable_shield"):
 		print("DEBUG: Removing Shield")
 		player.disable_shield()

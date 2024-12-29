@@ -17,20 +17,27 @@ func _init() -> void:
 	weight = RARITY_CHANCES["Common"]
 	stackable = false
 	max_stacks = 1
+	powerup_type = PowerupType.DASH_STRIKE
 
-func _apply(player: CharacterBody2D) -> void:
+func apply_powerup(player: CharacterBody2D) -> void:
+	print("DEBUG: Applying dash strike powerup")
 	if player.has_method("enable_dash_damage"):
 		var damage = DASH_DAMAGES[["Common", "Rare", "Epic", "Legendary"][rarity]]
 		var total_damage = damage * stack_count
+		print("DEBUG: Enabling dash damage with ", total_damage, " damage")
 		player.enable_dash_damage(total_damage)
 		
 	if player.has_method("modify_dash_cooldown"):
+		print("DEBUG: Modifying dash cooldown with multiplier ", COOLDOWN_MULTIPLIER)
 		player.modify_dash_cooldown(COOLDOWN_MULTIPLIER)
 
-func _remove(player: CharacterBody2D) -> void:
+func remove_powerup(player: CharacterBody2D) -> void:
+	print("DEBUG: Removing dash strike powerup")
 	if player.has_method("disable_dash_damage"):
+		print("DEBUG: Disabling dash damage")
 		player.disable_dash_damage()
 	if player.has_method("reset_dash_cooldown"):
+		print("DEBUG: Resetting dash cooldown")
 		player.reset_dash_cooldown()
 
 func get_modified_description() -> String:

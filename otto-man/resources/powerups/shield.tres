@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_s4b5p")
+powerup_type = 0  # SHIELD
 name = "Shield"
 description = "Grants a shield that blocks all damage and regenerates every 15 seconds"
 rarity = 2

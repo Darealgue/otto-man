@@ -49,7 +49,7 @@ const DEBUG_COLORS = {
 }
 
 enum State { IDLE, RUN, JUMP, FALL, WALL_SLIDE, DASH, FALL_ATTACK, HURT }
-enum AnimState { IDLE, RUN, JUMP, FALL }
+enum AnimState { IDLE, WALK, RUN, JUMP, FALL }
 enum AttackState { NONE, ATTACK1, ATTACK2, ATTACK3 }
 
 var current_state: State
@@ -84,6 +84,7 @@ var wall_jump_control_timer: float = 0
 signal health_changed(new_health: int)
 signal died
 signal hit_landed(hit_info: String)
+signal shield_broken
 
 # Constants section (group ALL constants together)
 const MAX_HEALTH = 100
@@ -192,6 +193,21 @@ var hitbox_state = {
 	"monitorable": false,
 	"collision_disabled": true
 }
+
+# Add these variables with other variables
+var fire_trail_enabled := false
+var fire_trail_damage := 0.0
+var fire_trail_duration := 0.0
+var fire_trail_interval := 0.0
+var fire_trail_timer := 0.0
+
+# Add this preload at the top with other preloads
+const FireTrailEffect = preload("res://effects/fire_trail.tscn")
+
+# Add these constants for movement speed thresholds
+const INPUT_DEADZONE = 0.2  # Minimum input strength required to move
+const WALK_SPEED = 300.0  # Speed for walking
+const RUN_SPEED = 600.0   # Speed for running (same as current SPEED)
 
 func _ready():
 	add_to_group("player")
@@ -402,6 +418,7 @@ func _physics_process(delta: float) -> void:
 	if is_dashing:
 		dash_timer -= delta
 		ghost_timer -= delta  # Add ghost timer
+		update_fire_trail(delta)  # Add this line
 		
 		if ghost_timer <= 0:  # Spawn ghost on interval
 			ghost_timer = GHOST_SPAWN_INTERVAL
@@ -602,8 +619,20 @@ func perform_jump() -> void:
 
 func handle_ground_movement(direction: float) -> void:
 	if direction:
-		velocity.x = direction * SPEED
-		animated_sprite_2d.flip_h = direction < 0
+		# Get the raw input strength for analog input (d-pad or analog stick)
+		var input_strength = abs(Input.get_axis("left", "right"))
+		
+		# Only move if input strength is above deadzone
+		if input_strength > INPUT_DEADZONE:
+			# Calculate target speed based on input strength
+			var target_speed = WALK_SPEED
+			if input_strength > 0.7:  # If input is strong enough, run
+				target_speed = RUN_SPEED
+				
+			velocity.x = direction * target_speed
+			animated_sprite_2d.flip_h = direction < 0
+		else:
+			velocity.x = 0
 	else:
 		# Immediate stop
 		velocity.x = 0
@@ -626,7 +655,7 @@ func can_jump() -> bool:
 	return is_on_floor() or coyote_timer > 0 or jumps_remaining > 0
 
 func update_animations() -> void:
-	if is_attacking:  # Remove ledge_grabbing check
+	if is_attacking:
 		return
 	
 	previous_anim_state = current_anim_state
@@ -638,8 +667,12 @@ func update_animations() -> void:
 		return
 
 	if is_on_floor():
-		if abs(velocity.x) > 10:
-			current_anim_state = AnimState.RUN
+		var speed = abs(velocity.x)
+		if speed > 10:
+			if speed <= WALK_SPEED * 1.1:  # Add some tolerance
+				current_anim_state = AnimState.WALK
+			else:
+				current_anim_state = AnimState.RUN
 		else:
 			current_anim_state = AnimState.IDLE
 	else:
@@ -657,6 +690,12 @@ func update_animations() -> void:
 				else:
 					animated_sprite_2d.play("idle")
 			
+			AnimState.WALK:
+				if previous_anim_state == AnimState.FALL:
+					animated_sprite_2d.play("landing")
+				else:
+					animated_sprite_2d.play("walk")
+			
 			AnimState.RUN:
 				if previous_anim_state == AnimState.FALL:
 					animated_sprite_2d.play("landing")
@@ -664,7 +703,7 @@ func update_animations() -> void:
 					animated_sprite_2d.play("run")
 			
 			AnimState.JUMP:
-				if previous_anim_state in [AnimState.IDLE, AnimState.RUN]:
+				if previous_anim_state in [AnimState.IDLE, AnimState.WALK, AnimState.RUN]:
 					animated_sprite_2d.play("jump_start")
 				elif jumps_remaining == 0:
 					animated_sprite_2d.play("double_jump")
@@ -806,6 +845,7 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 			var tween = create_tween()
 			tween.tween_property(shield_sprite, "modulate:a", 0.0, 0.2)
 			tween.tween_callback(func(): shield_sprite.visible = false)
+		shield_broken.emit()  # Emit the signal when shield breaks
 		return
 		
 	health -= amount
@@ -817,12 +857,14 @@ func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> vo
 		return
 	
 	is_invincible = true
-	invincibility_timer = INVINCIBILITY_TIME
+	# Scale invincibility time with current time scale to prevent multiple hits during slow motion
+	invincibility_timer = INVINCIBILITY_TIME / Engine.time_scale
 	
 	# Apply knockback and enter hurt state
 	velocity = HURT_KNOCKBACK_FORCE * knockback_direction
 	current_state = State.HURT
-	hurt_timer = HURT_STATE_DURATION
+	# Scale hurt state duration with time scale as well
+	hurt_timer = HURT_STATE_DURATION / Engine.time_scale
 	is_hurt = true
 	
 	# Visual feedback
@@ -885,18 +927,25 @@ func update_hitbox_state() -> void:
 		if is_instance_valid(hitbox_collision):
 			hitbox_collision.call_deferred("set", "disabled", hitbox_state.collision_disabled)
 
-func modify_max_health(value: float) -> void:
-	if !is_instance_valid(self):
-		return
-		
-	max_health_multiplier = value
+func modify_max_health(multiplier: float) -> void:
 	var old_max_health = current_max_health
-	current_max_health = int(base_max_health * max_health_multiplier)
+	current_max_health = base_max_health * multiplier
 	
+	# Adjust current health proportionally
 	var health_percentage = float(health) / float(old_max_health)
 	health = int(current_max_health * health_percentage)
-	health = min(health, current_max_health)
+	health = clamp(health, 1, current_max_health)  # Ensure health is between 1 and max
 	
+	print("[DEBUG] Health Boost: Old max health: ", old_max_health)
+	print("[DEBUG] Health Boost: New max health: ", current_max_health)
+	print("[DEBUG] Health Boost: Current health: ", health)
+	
+	if is_instance_valid(self):
+		health_changed.emit(health)
+
+func reset_max_health() -> void:
+	current_max_health = base_max_health
+	health = clamp(health, 1, current_max_health)
 	if is_instance_valid(self):
 		health_changed.emit(health)
 
@@ -929,10 +978,22 @@ func disable_dash_damage() -> void:
 	dash_damage = 0.0
 
 func modify_dash_cooldown(multiplier: float) -> void:
+	print("[DEBUG] Dash: Modifying cooldown with multiplier: ", multiplier)
+	print("[DEBUG] Dash: Old cooldown: ", current_dash_cooldown)
 	current_dash_cooldown = BASE_DASH_COOLDOWN * multiplier
+	print("[DEBUG] Dash: New cooldown: ", current_dash_cooldown)
+	
+	# If currently in cooldown, adjust remaining time
+	if !can_dash and dash_cooldown_timer > 0:
+		dash_cooldown_timer *= multiplier
 
 func reset_dash_cooldown() -> void:
+	print("[DEBUG] Dash: Resetting cooldown to base value: ", BASE_DASH_COOLDOWN)
 	current_dash_cooldown = BASE_DASH_COOLDOWN
+	
+	# Reset current cooldown timer if it's active
+	if !can_dash:
+		dash_cooldown_timer = current_dash_cooldown
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area.get_parent().has_method("is_dead") and area.get_parent().is_dead():
@@ -1118,6 +1179,10 @@ func perform_dash() -> void:
 	is_attacking = false
 	current_attack_state = AttackState.NONE
 	
+	print("[DEBUG] Dash: Starting dash")
+	print("[DEBUG] Dash: Current cooldown value: ", current_dash_cooldown)
+	print("[DEBUG] Dash: Base cooldown value: ", BASE_DASH_COOLDOWN)
+	
 	ghost_timer = 0
 	is_dashing = true
 	can_dash = false
@@ -1125,6 +1190,8 @@ func perform_dash() -> void:
 	dash_timer = DASH_DURATION
 	dash_cooldown_timer = current_dash_cooldown
 	current_state = State.DASH
+	
+	print("[DEBUG] Dash: Set cooldown timer to: ", dash_cooldown_timer)
 	
 	collision_mask = LAYERS.WORLD
 	animated_sprite_2d.play("dash")
@@ -1174,3 +1241,40 @@ func modify_damage(boost: float) -> void:
 func reset_damage() -> void:
 	print("[DAMAGE DEBUG] Resetting damage boost to 0")
 	damage_boost = 0
+
+func enable_fire_trail(damage: float, duration: float, interval: float) -> void:
+	fire_trail_enabled = true
+	fire_trail_damage = damage
+	fire_trail_duration = duration
+	fire_trail_interval = interval
+	fire_trail_timer = 0.0
+	print("[DEBUG] Fire Trail: Enabled with damage ", damage, " per second")
+
+func disable_fire_trail() -> void:
+	fire_trail_enabled = false
+	fire_trail_damage = 0.0
+	print("[DEBUG] Fire Trail: Disabled")
+
+func update_fire_trail(delta: float) -> void:
+	if !fire_trail_enabled or !is_dashing:
+		return
+		
+	fire_trail_timer -= delta
+	if fire_trail_timer <= 0:
+		spawn_fire_trail()
+		fire_trail_timer = fire_trail_interval
+		print("[DEBUG] Fire Trail: Spawning at interval ", fire_trail_interval)
+
+func spawn_fire_trail() -> void:
+	var fire = FireTrailEffect.instantiate()
+	# Spawn slightly behind the player based on direction
+	var facing = -1 if animated_sprite_2d.flip_h else 1
+	
+	# Spawn multiple patches in a line for better coverage
+	for i in range(2):
+		var offset = i * 10  # Small offset between patches
+		var patch = FireTrailEffect.instantiate()
+		patch.global_position = global_position + Vector2(-20 * facing - (offset * facing), 20)  # Spawn at feet and behind
+		patch.init(fire_trail_damage, fire_trail_duration)
+		get_parent().add_child(patch)
+		print("[DEBUG] Fire Trail: Spawned fire patch at ", patch.global_position)
