@@ -109,6 +109,17 @@ const GHOST_OPACITY = 0.3         # Starting opacity of ghosts
 # Add this variable with other variables
 var ghost_timer: float = 0
 
+const DEATH_BOUNCE_FORCE_Y = -400  # Stronger upward bounce
+const DEATH_BOUNCE_FORCE_X = 300   # Stronger horizontal bounce
+const DEATH_FADE_DELAY = 0.6       # Total time (0.5s bounce + 0.1s fall)
+
+const HealthBar = preload("res://ui/enemy_health_bar.tscn")
+
+@onready var health_bar = null
+
+# Add this with other preloads at the top
+const DamageNumber = preload("res://ui/damage_number.tscn")
+
 func _ready() -> void:
 	if !animated_sprite:
 		push_error("AnimatedSprite2D node not found!")
@@ -119,6 +130,12 @@ func _ready() -> void:
 	_init_components()
 	_connect_signals()
 	rng.randomize()  # Initialize the random number generator
+	
+	# Setup health bar
+	health_bar = HealthBar.instantiate()
+	add_child(health_bar)
+	health_bar.position = Vector2(-25, -30)  # Position above enemy, centered
+	health_bar.setup(MAX_HEALTH)
 	
 	# Set up raycasts with proper collision detection
 	if raycast_left and raycast_right:
@@ -188,6 +205,7 @@ func _connect_signals() -> void:
 
 func _physics_process(delta: float) -> void:
 	if current_state == State.DEAD:
+		# Keep applying gravity during death
 		velocity.y += gravity * delta
 		move_and_slide()
 		return
@@ -338,27 +356,50 @@ func enable_hitbox() -> void:
 		is_attacking = false
 
 func take_damage(damage: int, knockback_dir: Vector2 = Vector2.ZERO) -> void:
-	# Don't take damage if invincible, dead, or during charge-up animations
+	# Don't take damage if invincible or dead
 	if is_invincible or current_state == State.DEAD:
+		print("[DAMAGE DEBUG] Enemy damage ignored - Invincible: ", is_invincible, ", Dead: ", current_state == State.DEAD)
 		return
 		
-	# Check for uninterruptible states
-	if current_state == State.SLAM_CHARGE or current_state == State.CHARGE_PREPARE:
-		# Flash to show hit but don't interrupt
-		modulate = Color(1, 0.5, 0.5, 1)  # Red flash
-		var tween = create_tween()
-		tween.tween_property(self, "modulate", Color.WHITE, 0.2)
-		return
-		
+	print("[DAMAGE DEBUG] Enemy taking damage:")
+	print("- Amount: ", damage)
+	print("- Current health: ", health)
+	print("- Knockback direction: ", knockback_dir)
+	print("- Current state: ", current_state)
+	
+	# Spawn damage number
+	spawn_damage_number(damage)
+	
 	health = max(0, health - damage)
 	health_changed.emit(health)
 	
-	# Enter hurt state
+	print("[DAMAGE DEBUG] - New health: ", health)
+	
+	# Update health bar
+	if health_bar:
+		health_bar.update_health(health)
+	
+	if health <= 0:
+		print("[DAMAGE DEBUG] Enemy health reached 0, initiating death")
+		die(knockback_dir)  # Pass the knockback direction to die()
+		return
+	
+	# Always become briefly invincible
+	is_invincible = true
+	invincibility_timer = INVINCIBILITY_TIME
+	
+	# Show hit feedback during charge-up animations but don't interrupt them
+	if current_state == State.SLAM_CHARGE or current_state == State.CHARGE_PREPARE:
+		modulate = Color(1, 0.5, 0.5, 1)  # Red flash
+		var tween = create_tween()
+		tween.tween_property(self, "modulate", Color.WHITE, 0.2)
+		print("[DAMAGE DEBUG] Hit during charge animation")
+		return
+		
+	# Enter hurt state only if not in charge-up animations
 	current_state = State.HURT
 	hurt_timer = HURT_STATE_TIME
 	can_move = false
-	is_invincible = true
-	invincibility_timer = INVINCIBILITY_TIME
 	
 	# Apply knockback
 	velocity.x = KNOCKBACK_FORCE_X * sign(knockback_dir.x)
@@ -372,43 +413,67 @@ func take_damage(damage: int, knockback_dir: Vector2 = Vector2.ZERO) -> void:
 	
 	# Play hurt animation
 	animated_sprite.play("hurt")
-	
-	if health <= 0:
-		die()
+	print("[DAMAGE DEBUG] Entered hurt state")
 
-func die() -> void:
+func die(knockback_dir: Vector2 = Vector2.ZERO) -> void:
+	print("DEBUG: Enemy die() called")
 	if current_state == State.DEAD:
 		return
 		
+	# Set state to dead immediately
 	current_state = State.DEAD
-	died.emit()
+	print("DEBUG: Enemy state set to DEAD")
 	
-	is_invincible = true
-	if hitbox:
-		hitbox.disable()
-	if hurtbox:
-		hurtbox.set_deferred("monitoring", false)
-		hurtbox.set_deferred("monitorable", false)
-		if hurtbox.has_node("CollisionShape2D"):
-			hurtbox.get_node("CollisionShape2D").set_deferred("disabled", true)
+	# Stop all current actions but keep physics active for death animation
+	is_attacking = false
+	can_move = false
 	
-	set_deferred("collision_layer", 0)
-	set_deferred("collision_mask", 0)
+	# Apply death bounce with more vertical force
+	velocity.x = DEATH_BOUNCE_FORCE_X * sign(knockback_dir.x)
+	velocity.y = DEATH_BOUNCE_FORCE_Y
+	print("DEBUG: Applied death bounce: ", velocity)
 	
-	var death_knockback = Vector2(last_hit_direction * 300, -200)
-	velocity = death_knockback
-	
-	# Play death animation (now looping)
-	animated_sprite.play("death")
-	
-	# Create fade out tween
-	var tween = create_tween()
-	tween.tween_interval(0.8)  # Wait before starting fade
-	tween.tween_property(self, "modulate:a", 0.0, 0.5)  # Fade out
-	tween.tween_interval(0.2)  # Short pause after fade
-	tween.tween_callback(queue_free)  # Remove enemy
-	
-	set_physics_process(true)
+	# Play death animation
+	if animated_sprite:
+		print("DEBUG: Playing death animation")
+		animated_sprite.stop()
+		animated_sprite.play("death")
+		
+		# Disable ALL collision to ensure free fall
+		set_collision_layer(0)
+		set_collision_mask(0)  # No collision with anything
+		
+		if hitbox:
+			hitbox.set_collision_layer(0)
+			hitbox.set_collision_mask(0)
+			if hitbox.get_node("CollisionShape2D"):
+				hitbox.get_node("CollisionShape2D").set_deferred("disabled", true)
+				
+		if hurtbox:
+			hurtbox.set_collision_layer(0)
+			hurtbox.set_collision_mask(0)
+			if hurtbox.get_node("CollisionShape2D"):
+				hurtbox.get_node("CollisionShape2D").set_deferred("disabled", true)
+		
+		# Wait for bounce and fall
+		await get_tree().create_timer(DEATH_FADE_DELAY).timeout
+		
+		# Only emit signals if we're still valid (not already freed)
+		if is_instance_valid(self):
+			# Emit signals only once
+			died.emit()
+			PowerupManager.enemy_killed.emit()
+			print("DEBUG: Enemy death signals emitted")
+			
+			# Create fade-out effect
+			var tween = create_tween()
+			tween.tween_property(self, "modulate:a", 0.0, 0.5)  # 0.5s fade
+			await tween.finished
+			print("DEBUG: Fade-out completed")
+			
+			# Queue free
+			queue_free()
+			print("DEBUG: Enemy queued for deletion")
 
 func _on_hitbox_hit(area: Area2D) -> void:
 	if area.is_in_group("hurtbox") and area.get_parent().is_in_group("player"):
@@ -417,10 +482,26 @@ func _on_hitbox_hit(area: Area2D) -> void:
 		area.get_parent().take_damage(damage, knockback_dir)
 
 func _on_hurtbox_hurt(area: Area2D) -> void:
+	# Skip if area is not a hitbox
+	if !area.is_in_group("hitbox"):
+		return
+		
+	# Skip if we're already dead
+	if current_state == State.DEAD:
+		return
+		
+	# Only process player hitboxes
+	if !area.get_parent().is_in_group("player"):
+		return
+		
 	if area.has_method("get_damage"):
 		var damage = area.get_damage()
 		var knockback_dir = (global_position - area.global_position).normalized()
 		take_damage(damage, knockback_dir)
+		
+		# Emit signal for hit registration
+		if area.get_parent().has_signal("hit_landed"):
+			area.get_parent().hit_landed.emit("Enemy hit for " + str(damage) + " damage")
 
 func _on_animation_finished():
 	match animated_sprite.animation:
@@ -510,7 +591,7 @@ func handle_hurt_state(delta: float) -> void:
 		animated_sprite.play("idle")
 
 func handle_dead_state(delta: float) -> void:
-	# Let physics handle the falling
+	# Do nothing in dead state
 	pass
 
 func _on_damaged(amount: int) -> void:
@@ -788,3 +869,16 @@ func spawn_ghost() -> void:
 	var tween = create_tween()
 	tween.tween_property(ghost, "modulate:a", 0.0, GHOST_DURATION)
 	tween.tween_callback(ghost.queue_free)
+
+func spawn_damage_number(damage: int) -> void:
+	if !DamageNumber:
+		return
+		
+	var number = DamageNumber.instantiate()
+	get_parent().add_child(number)
+	
+	# Position the number at the enemy's position with a slight offset
+	number.global_position = global_position + Vector2(0, -30)
+	
+	# Setup the number
+	number.setup(damage)

@@ -6,6 +6,7 @@ extends CharacterBody2D
 @onready var hitbox_collision = $Hitbox/CollisionShape2D
 @onready var hurtbox_collision = $Hurtbox/CollisionShape2D
 @onready var camera = $Camera2D
+@onready var shield_sprite = $ShieldSprite
 
 const GRAVITY = 1000
 const SPEED = 600
@@ -99,13 +100,14 @@ var invincibility_timer: float = 0
 # Add these constants with your other constants
 const DASH_SPEED = 2500
 const DASH_DURATION = 0.1
-const DASH_COOLDOWN = 1.2
+const BASE_DASH_COOLDOWN = 1.2  # Changed from DASH_COOLDOWN to BASE_DASH_COOLDOWN
 
 # Add these variables with other variables
 var can_dash: bool = true
 var is_dashing: bool = false
 var dash_timer: float = 0.0
 var dash_cooldown_timer: float = 0.0
+var current_dash_cooldown: float = BASE_DASH_COOLDOWN  # New variable for modifiable cooldown
 
 # Add this preload at the top of the file
 # var DashReadyParticles = preload("res://effects/dash_ready_particles.tscn")  # We'll create this
@@ -170,6 +172,27 @@ const LAYERS = {
 	ENEMY_PROJECTILE = 256    # 
 }
 
+# Powerup-related variables
+var damage_boost := 0  # Changed from damage_multiplier to damage_boost
+var max_health_multiplier := 1.0
+var shield_enabled := false
+var shield_cooldown := 15.0
+var shield_timer := 0.0
+var has_shield := false
+var dash_damage_enabled := false
+var dash_damage := 0.0
+
+var base_max_health := MAX_HEALTH
+var current_max_health := MAX_HEALTH
+
+var hitbox_state = {
+	"active": false,
+	"offset": Vector2.ZERO,
+	"monitoring": false,
+	"monitorable": false,
+	"collision_disabled": true
+}
+
 func _ready():
 	add_to_group("player")
 	
@@ -224,7 +247,66 @@ func _ready():
 	# Keep this to emit initial health
 	health_changed.emit(health)
 
+	# Setup shield visual
+	if !shield_sprite:
+		shield_sprite = Node2D.new()
+		add_child(shield_sprite)
+		shield_sprite.z_index = 1
+		shield_sprite.position = Vector2(0, -32)  # Move shield up to center on character
+		
+		# Create multiple circles with different colors
+		for i in range(3):
+			var circle = ColorRect.new()
+			var size = Vector2(100 - i * 10, 100 - i * 10)  # Each circle slightly smaller
+			circle.size = size
+			circle.position = -size / 2
+			circle.color = Color(0.3, 0.7, 1.0, 0.3 - i * 0.1)
+			shield_sprite.add_child(circle)
+			
+			# Make the ColorRect circular using a shader
+			var shader = preload("res://shaders/circle.gdshader")
+			var material = ShaderMaterial.new()
+			material.shader = shader
+			circle.material = material
+		
+		shield_sprite.visible = false
+		
+		# Start color animation
+		_animate_shield_colors()
+
+func _animate_shield_colors() -> void:
+	for i in range(shield_sprite.get_child_count()):
+		var circle = shield_sprite.get_child(i)
+		var tween = create_tween()
+		tween.set_loops()  # Make it repeat forever
+		
+		# Create a sequence of color changes
+		var colors = [
+			Color(0.3, 0.7, 1.0, 0.3 - i * 0.1),  # Light blue
+			Color(0.2, 0.5, 0.9, 0.3 - i * 0.1),  # Medium blue
+			Color(0.1, 0.3, 0.8, 0.3 - i * 0.1),  # Dark blue
+			Color(0.2, 0.5, 0.9, 0.3 - i * 0.1)   # Back to medium blue
+		]
+		
+		for color in colors:
+			tween.tween_property(circle, "color", color, 1.0)
+
 func _physics_process(delta: float) -> void:
+	# Update hitbox based on state
+	if hitbox_state.active:
+		update_hitbox_state()
+	
+	# Add this at the start of _physics_process
+	if shield_enabled:
+		shield_timer += delta
+		if shield_timer >= shield_cooldown:
+			shield_timer = 0.0
+			has_shield = true
+			if shield_sprite:
+				shield_sprite.visible = true
+				var tween = create_tween()
+				tween.tween_property(shield_sprite, "modulate:a", 0.5, 0.2)
+	
 	# Add this near the start of the function
 	if is_landing:
 		landing_timer -= delta
@@ -592,17 +674,11 @@ func update_animations() -> void:
 			AnimState.FALL:
 				animated_sprite_2d.play("fall")
 
-func _on_animation_finished():
+func _on_animation_finished() -> void:
 	if animated_sprite_2d.animation == "dash":
 		if is_dashing:
-			animated_sprite_2d.play("dash")  # Keep playing dash while dashing
-		else:
-			if is_on_floor():
-				current_state = State.IDLE
-				animated_sprite_2d.play("idle")
-			else:
-				current_state = State.FALL
-				animated_sprite_2d.play("fall")
+			end_dash()
+			
 	elif animated_sprite_2d.animation.begins_with("attack") or animated_sprite_2d.animation == "wall_attack":
 		is_attacking = false
 		
@@ -613,15 +689,30 @@ func _on_animation_finished():
 			current_attack_state = AttackState.NONE
 			attack_combo_timer = 0
 			next_attack_buffered = false
-			
-			# Reset attack buffer timer
 			attack_buffer_timer = 0
+			disable_hitbox()
+			
 		# Check for buffered next attack
 		elif next_attack_buffered and attack_buffer_timer > 0:
 			next_attack_buffered = false
 			perform_attack()
 		else:
+			disable_hitbox()
 			update_animations()
+			
+	elif animated_sprite_2d.animation == "fall_attack":
+		if is_on_floor():
+			is_fall_attacking = false
+			is_attacking = false
+			disable_hitbox()
+			play_landing_animation()
+			
+	elif animated_sprite_2d.animation == "landing":
+		is_landing = false
+		scale = Vector2.ONE
+		if !is_attacking:
+			animated_sprite_2d.play("idle")
+		disable_hitbox()
 
 func apply_gravity(delta: float) -> void:
 	if !is_on_floor():
@@ -677,6 +768,7 @@ func perform_attack() -> void:
 		animated_sprite_2d.flip_h = wall_direction < 0
 		attack_combo_timer = ATTACK_COMBO_WINDOW
 		is_attacking = true
+		print("DEBUG: Enabling hitbox for wall attack")
 		enable_hitbox(0.2)
 		return
 	
@@ -696,113 +788,197 @@ func perform_attack() -> void:
 	
 	attack_combo_timer = ATTACK_COMBO_WINDOW
 	is_attacking = true
+	print("DEBUG: Enabling hitbox for attack state: ", current_attack_state)
 	enable_hitbox(0.2)
 
 func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> void:
+	if !is_instance_valid(self):
+		return
+		
 	if is_invincible:
 		return
 		
-	print("Taking damage: ", amount)
-	print("Current state before damage: ", State.keys()[current_state])
-	
-	# If we're in fall attack, end it properly first
-	if current_state == State.FALL_ATTACK:
-		print("Was in fall attack, ending it")
-		call_deferred("end_fall_attack")
-	
-	health = max(0, health - amount)
+	if has_shield:
+		print("DEBUG: Shield blocked damage")
+		has_shield = false
+		shield_timer = 0.0  # Reset shield timer when shield is used
+		if shield_sprite:
+			var tween = create_tween()
+			tween.tween_property(shield_sprite, "modulate:a", 0.0, 0.2)
+			tween.tween_callback(func(): shield_sprite.visible = false)
+		return
+		
+	health -= amount
 	health_changed.emit(health)
 	
-	# Enter hurt state
-	current_state = State.HURT
-	is_hurt = true
-	hurt_timer = HURT_STATE_DURATION
-	
-	# Reset attack states
-	is_attacking = false
-	is_fall_attacking = false
-	
-	# Make sure hitbox is fully disabled using deferred calls
-	if hitbox:
-		hitbox.set_deferred("monitoring", false)
-		hitbox.set_deferred("monitorable", false)
-		hitbox.position = Vector2.ZERO
-		if hitbox_collision:
-			hitbox_collision.set_deferred("disabled", true)
-	
-	# Apply knockback
-	velocity = HURT_KNOCKBACK_FORCE * knockback_direction
-	
-	# Play hurt animation
-	animated_sprite_2d.play("hurt")
-	
-	# Make player invincible briefly
-	is_invincible = true
-	invincibility_timer = HURT_INVINCIBILITY_TIME
-	
-	print("Current state after damage: ", State.keys()[current_state])
-	
 	if health <= 0:
-		die()
+		died.emit()
+		queue_free()
+		return
+	
+	is_invincible = true
+	invincibility_timer = INVINCIBILITY_TIME
+	
+	# Apply knockback and enter hurt state
+	velocity = HURT_KNOCKBACK_FORCE * knockback_direction
+	current_state = State.HURT
+	hurt_timer = HURT_STATE_DURATION
+	is_hurt = true
+	
+	# Visual feedback
+	modulate = DAMAGE_FLASH_COLOR
+	create_tween().tween_property(self, "modulate", Color.WHITE, DAMAGE_FLASH_DURATION)
 
 func die() -> void:
 	died.emit()
 	# You can add death animation here
 	queue_free()
 
+func disable_hitbox() -> void:
+	if !is_instance_valid(self):
+		return
+		
+	set_hitbox_state(false)
+	if hitbox:
+		hitbox.disable()
 
 func enable_hitbox(duration: float = 0.0) -> void:
-	if hitbox:
-		var facing = -1 if animated_sprite_2d.flip_h else 1
-		var offset = Vector2(20, 0)
-		hitbox.position = offset * facing
-		hitbox.set_deferred("monitoring", true)
-		hitbox.set_deferred("monitorable", true)
-		if hitbox_collision:
-			hitbox_collision.set_deferred("disabled", false)
+	if !is_instance_valid(self):
+		return
 		
-		if duration > 0:
-			await get_tree().create_timer(duration).timeout
-			if hitbox:  # Check again in case hitbox was freed
-				hitbox.disable()
+	var facing = -1 if animated_sprite_2d.flip_h else 1
+	set_hitbox_state(true, Vector2(20, 0))
+	
+	# Set the hitbox damage using static function
+	if hitbox:
+		var base_damage = DamageValues.get_base_attack_damage()
+		hitbox.damage = base_damage + damage_boost
+	
+	if duration > 0:
+		await get_tree().create_timer(duration).timeout
+		if is_instance_valid(self):
+			disable_hitbox()
+
+func set_hitbox_state(active: bool, offset: Vector2 = Vector2.ZERO) -> void:
+	hitbox_state.active = active
+	hitbox_state.offset = offset
+	hitbox_state.monitoring = active
+	hitbox_state.monitorable = active
+	hitbox_state.collision_disabled = !active
+	update_hitbox_state()
+
+func update_hitbox_state() -> void:
+	if !is_instance_valid(hitbox):
+		return
+		
+	if hitbox_state.active:
+		var facing = -1 if animated_sprite_2d.flip_h else 1
+		var new_position = Vector2(
+			hitbox_state.offset.x * facing,
+			hitbox_state.offset.y
+		)
+		hitbox.call_deferred("set", "position", new_position)
+		
+		hitbox.call_deferred("set", "monitoring", hitbox_state.monitoring)
+		hitbox.call_deferred("set", "monitorable", hitbox_state.monitorable)
+		
+		if is_instance_valid(hitbox_collision):
+			hitbox_collision.call_deferred("set", "disabled", hitbox_state.collision_disabled)
+
+func modify_max_health(value: float) -> void:
+	if !is_instance_valid(self):
+		return
+		
+	max_health_multiplier = value
+	var old_max_health = current_max_health
+	current_max_health = int(base_max_health * max_health_multiplier)
+	
+	var health_percentage = float(health) / float(old_max_health)
+	health = int(current_max_health * health_percentage)
+	health = min(health, current_max_health)
+	
+	if is_instance_valid(self):
+		health_changed.emit(health)
+
+func enable_shield(cooldown: float) -> void:
+	shield_enabled = true
+	shield_cooldown = cooldown
+	shield_timer = 0.0
+	has_shield = true
+	if shield_sprite:
+		shield_sprite.visible = true
+		shield_sprite.modulate.a = 0.5
+	print("DEBUG: Shield enabled with cooldown: ", cooldown)
+	
+func disable_shield() -> void:
+	if !is_instance_valid(self):
+		return
+	shield_enabled = false
+	has_shield = false
+	shield_timer = 0.0
+	if shield_sprite:
+		shield_sprite.visible = false
+	print("DEBUG: Shield disabled")
+
+func enable_dash_damage(damage: float) -> void:
+	dash_damage_enabled = true
+	dash_damage = damage
+	
+func disable_dash_damage() -> void:
+	dash_damage_enabled = false
+	dash_damage = 0.0
+
+func modify_dash_cooldown(multiplier: float) -> void:
+	current_dash_cooldown = BASE_DASH_COOLDOWN * multiplier
+
+func reset_dash_cooldown() -> void:
+	current_dash_cooldown = BASE_DASH_COOLDOWN
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
-	# Skip if target is dead
 	if area.get_parent().has_method("is_dead") and area.get_parent().is_dead():
 		return
 		
 	if area.is_in_group("hurtbox"):
-		_on_hitbox_hit(area)
+		if area.get_parent().is_in_group("enemy"):
+			apply_damage_to_target(area)
 		
-		# If we're fall attacking, end it regardless of what we hit
 		if current_state == State.FALL_ATTACK:
 			end_fall_attack()
 			current_state = State.JUMP
-			velocity.y = JUMP_FORCE  # Give a small bounce
+			velocity.y = JUMP_FORCE
 
-func _on_hitbox_hit(area: Area2D) -> void:
-	# Skip if target is dead
+func apply_damage_to_target(area: Area2D) -> void:
 	if area.get_parent().has_method("is_dead") and area.get_parent().is_dead():
 		return
 		
 	if area.is_in_group("hurtbox"):
-		var damage = 10
+		var final_damage = 0
+		
+		if is_dashing and dash_damage_enabled:
+			final_damage = int(dash_damage)  # Use the dash damage from powerup
+			print("[DAMAGE DEBUG] Using dash damage: ", final_damage)
+		else:
+			var base_damage = DamageValues.get_base_attack_damage()  # Use static function
+			final_damage = base_damage + damage_boost  # Add flat damage boost
+			print("[DAMAGE DEBUG] Using base damage: ", base_damage, " with boost: +", damage_boost, " = ", final_damage)
+		
+		# Set the hitbox damage before applying it
+		if hitbox:
+			hitbox.damage = final_damage
+		
 		var knockback_dir = (area.global_position - global_position).normalized()
 		
-		# Call take_damage on the parent instead of the hurtbox
 		var target = area.get_parent()
 		if target.has_method("take_damage"):
-			target.take_damage(damage, knockback_dir)
+			target.take_damage(final_damage, knockback_dir)
 		
-		# Handle bounce for fall attack
 		if current_state == State.FALL_ATTACK:
 			if target.is_in_group("enemy"):
 				handle_fall_attack_hit(target)
 			else:
-				# If we hit something that's not an enemy (like a shockwave), just end the attack
 				end_fall_attack()
 				current_state = State.JUMP
-				velocity.y = JUMP_FORCE  # Give a small bounce
+				velocity.y = JUMP_FORCE
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.is_in_group("hitbox"):
@@ -816,159 +992,31 @@ func _on_hurtbox_hurt(area: Area2D) -> void:
 		var knockback_dir = (global_position - area.global_position).normalized()
 		take_damage(damage, knockback_dir)
 
-func perform_dash() -> void:
-	is_attacking = false
-	current_attack_state = AttackState.NONE
+func handle_hurt_state(delta: float) -> void:
+	hurt_timer -= delta
+	velocity.x = move_toward(velocity.x, 0, 1000 * delta)
 	
-	ghost_timer = 0  # Reset ghost timer when starting dash
-	is_dashing = true
-	can_dash = false
-	is_invincible = true
-	dash_timer = DASH_DURATION
-	dash_cooldown_timer = DASH_COOLDOWN
-	current_state = State.DASH
-	
-	# During dash, don't collide with enemies but still collide with world
-	collision_mask = LAYERS.WORLD
-	animated_sprite_2d.play("dash")
-
-func end_dash() -> void:
-	is_dashing = false
-	is_invincible = false
-	modulate.a = 1.0
-	# Restore normal collision mask after dash
-	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
-	velocity = Vector2.ZERO
-	
-	if is_attacking:
-		is_attacking = false
-		current_attack_state = AttackState.NONE
-	
-	if is_on_floor():
+	if hurt_timer <= 0:
+		is_hurt = false
 		current_state = State.IDLE
 		animated_sprite_2d.play("idle")
-	else:
-		current_state = State.FALL
-		animated_sprite_2d.play("fall")
-
-# Add this function to create ghost sprites
-func spawn_ghost() -> void:
-	var ghost = Sprite2D.new()
-	ghost.texture = animated_sprite_2d.sprite_frames.get_frame_texture("dash", animated_sprite_2d.frame)
-	ghost.global_position = global_position + Vector2(0, -48)
-	ghost.flip_h = animated_sprite_2d.flip_h
-	ghost.modulate.a = GHOST_OPACITY
-	ghost.z_index = z_index
-	get_parent().add_child(ghost)
-	
-	# Create fade out tween
-	var tween = create_tween()
-	tween.tween_property(ghost, "modulate:a", 0.0, GHOST_DURATION)
-	tween.tween_callback(ghost.queue_free)
-
-func play_dash_ready_effect() -> void:
-	var tween = create_tween()
-	
-	# Flash bright with blue tint
-	tween.tween_property(self, "modulate", 
-		DASH_READY_COLOR * DASH_READY_FLASH_INTENSITY, 
-		DASH_READY_FLASH_DURATION * 0.2)
-	
-	# Return to normal
-	tween.tween_property(self, "modulate", 
-		Color.WHITE, 
-		DASH_READY_FLASH_DURATION * 0.3)
-
-func perform_fall_attack() -> void:
-	if current_state == State.FALL_ATTACK or !can_fall_attack():
-		return
 		
-	current_state = State.FALL_ATTACK
-	is_fall_attacking = true
-	is_attacking = true
-	velocity.y = FALL_ATTACK_SPEED
-	velocity.x = 0
-	animated_sprite_2d.play("fall_attack")
-	
-	# During fall attack, only collide with world and enemy bodies, not projectiles
-	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
-	
-	# Enable hitbox at feet with improved detection
-	if hitbox:
-		hitbox.position = Vector2(0, 30)
-		if hitbox_collision:
-			hitbox_collision.disabled = false
-			var original_shape = hitbox_collision.shape
-			if original_shape is CircleShape2D:
-				original_shape.radius = 30
-		# Set specific collision mask for fall attack
-		hitbox.collision_layer = LAYERS.PLAYER_HITBOX
-		hitbox.collision_mask = LAYERS.ENEMY_HURTBOX
-		hitbox.enable()
-
-func can_fall_attack() -> bool:
-	return !is_fall_attacking and !is_attacking and !is_on_floor()
-
-func end_fall_attack() -> void:
-	print("Ending fall attack")
-	is_fall_attacking = false
-	is_attacking = false
-	
-	# Make sure to fully disable and reset hitbox using deferred calls
-	if hitbox:
-		print("Disabling hitbox")
-		hitbox.set_deferred("monitoring", false)
-		hitbox.set_deferred("monitorable", false)
-		hitbox.position = Vector2.ZERO
-		if hitbox_collision:
-			hitbox_collision.set_deferred("disabled", true)
-	
-	# Reset collision mask to normal
-	set_deferred("collision_mask", LAYERS.WORLD | LAYERS.ENEMY)
-	print("Fall attack ended")
+		is_fall_attacking = false
+		is_attacking = false
+		if hitbox:
+			disable_hitbox()
 
 func handle_fall_attack_hit(enemy: Node2D) -> void:
 	var bounce_force = max(FALL_ATTACK_BOUNCE_FORCE, JUMP_FORCE * 4.8)
 	
 	velocity.y = bounce_force
-	end_fall_attack()  # Use the new end_fall_attack function
+	end_fall_attack()
 	current_state = State.JUMP
 	
 	# Add screen shake
 	shake_camera(FALL_ATTACK_SHAKE_STRENGTH, FALL_ATTACK_SHAKE_DURATION)
 
-func get_height_from_ground() -> float:
-	var space_state = get_world_2d().direct_space_state
-	var query = PhysicsRayQueryParameters2D.create(
-		global_position,
-		global_position + Vector2(0, 1000),
-		collision_mask,  # Use the same collision mask as the character
-		[self]  # Exclude self from the raycast
-	)
-	var result = space_state.intersect_ray(query)
-	if result:
-		return global_position.y - result.position.y
-	return 0.0
-
-# Add this function for screen shake
-func shake_camera(strength: float, duration: float) -> void:
-	if camera:
-		var tween = create_tween()
-		
-		for i in range(int(duration / 0.05)):  # Create multiple shake steps
-			# Random offset
-			var offset = Vector2(
-				randf_range(-strength, strength),
-				randf_range(-strength, strength)
-			)
-			
-			# Shake
-			tween.tween_property(camera, "offset", offset, 0.05)
-		
-		# Reset camera position
-		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
-
-func play_landing_animation():
+func play_landing_animation() -> void:
 	is_landing = true
 	landing_timer = LANDING_DURATION
 	animated_sprite_2d.play("landing")
@@ -988,7 +1036,113 @@ func play_landing_animation():
 	# Add extra screen shake for landing
 	shake_camera(FALL_ATTACK_SHAKE_STRENGTH * 0.5, FALL_ATTACK_SHAKE_DURATION * 0.5)
 
-func spawn_landing_particles():
+func perform_fall_attack() -> void:
+	if current_state == State.FALL_ATTACK or !can_fall_attack():
+		return
+		
+	current_state = State.FALL_ATTACK
+	is_fall_attacking = true
+	is_attacking = true
+	velocity.y = FALL_ATTACK_SPEED
+	velocity.x = 0
+	animated_sprite_2d.play("fall_attack")
+	
+	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
+	
+	if is_instance_valid(hitbox):
+		var hitbox_offset = Vector2(0, 40)
+		set_hitbox_state(true, hitbox_offset)
+		
+		hitbox.collision_layer = LAYERS.PLAYER_HITBOX
+		hitbox.collision_mask = LAYERS.ENEMY_HURTBOX
+		
+		var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
+		if collision_shape and collision_shape.shape is RectangleShape2D:
+			collision_shape.shape.size = Vector2(60, 30)
+
+func play_dash_ready_effect() -> void:
+	if !is_instance_valid(self):
+		return
+		
+	var tween = create_tween()
+	
+	# Flash bright with blue tint
+	tween.tween_property(self, "modulate", 
+		DASH_READY_COLOR * DASH_READY_FLASH_INTENSITY, 
+		DASH_READY_FLASH_DURATION * 0.2)
+	
+	# Return to normal
+	tween.tween_property(self, "modulate", 
+		Color.WHITE, 
+		DASH_READY_FLASH_DURATION * 0.3)
+	
+	# Make sure alpha is 1.0
+	modulate.a = 1.0
+
+func spawn_ghost() -> void:
+	var ghost = Sprite2D.new()
+	ghost.texture = animated_sprite_2d.sprite_frames.get_frame_texture("dash", animated_sprite_2d.frame)
+	ghost.global_position = global_position + Vector2(0, -48)
+	ghost.flip_h = animated_sprite_2d.flip_h
+	ghost.modulate.a = GHOST_OPACITY
+	ghost.z_index = z_index
+	get_parent().add_child(ghost)
+	
+	# Create fade out tween
+	var tween = create_tween()
+	tween.tween_property(ghost, "modulate:a", 0.0, GHOST_DURATION)
+	tween.tween_callback(ghost.queue_free)
+
+func end_dash() -> void:
+	is_dashing = false
+	is_invincible = false
+	ghost_timer = 0
+	modulate.a = 1.0
+	
+	if dash_damage_enabled:
+		disable_hitbox()
+	
+	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
+	
+	if is_on_floor():
+		current_state = State.IDLE
+		animated_sprite_2d.play("idle")
+	else:
+		current_state = State.FALL
+		animated_sprite_2d.play("fall")
+
+func perform_dash() -> void:
+	if !is_instance_valid(self):
+		return
+		
+	is_attacking = false
+	current_attack_state = AttackState.NONE
+	
+	ghost_timer = 0
+	is_dashing = true
+	can_dash = false
+	is_invincible = true
+	dash_timer = DASH_DURATION
+	dash_cooldown_timer = current_dash_cooldown
+	current_state = State.DASH
+	
+	collision_mask = LAYERS.WORLD
+	animated_sprite_2d.play("dash")
+	
+	if dash_damage_enabled:
+		var facing = -1 if animated_sprite_2d.flip_h else 1
+		set_hitbox_state(true, Vector2(20 * facing, 0))
+
+func end_fall_attack() -> void:
+	is_fall_attacking = false
+	is_attacking = false
+	disable_hitbox()
+	set_deferred("collision_mask", LAYERS.WORLD | LAYERS.ENEMY)
+
+func can_fall_attack() -> bool:
+	return !is_fall_attacking and !is_attacking and !is_on_floor()
+
+func spawn_landing_particles() -> void:
 	# You can add particle effects here
 	# For example:
 	# var particles = preload("res://effects/landing_particles.tscn").instantiate()
@@ -996,20 +1150,27 @@ func spawn_landing_particles():
 	# get_parent().add_child(particles)
 	pass
 
-func handle_hurt_state(delta: float) -> void:
-	hurt_timer -= delta
-	
-	# Apply friction to slow down knockback
-	velocity.x = move_toward(velocity.x, 0, 1000 * delta)
-	
-	if hurt_timer <= 0:
-		print("Exiting hurt state")
-		is_hurt = false
-		current_state = State.IDLE
-		animated_sprite_2d.play("idle")
+func shake_camera(strength: float, duration: float) -> void:
+	if camera:
+		var tween = create_tween()
 		
-		# Double check that fall attack states are reset
-		is_fall_attacking = false
-		is_attacking = false
-		if hitbox:
-			hitbox.disable()
+		for i in range(int(duration / 0.05)):  # Create multiple shake steps
+			# Random offset
+			var offset = Vector2(
+				randf_range(-strength, strength),
+				randf_range(-strength, strength)
+			)
+			
+			# Shake
+			tween.tween_property(camera, "offset", offset, 0.05)
+		
+		# Reset camera position
+		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
+
+func modify_damage(boost: float) -> void:
+	print("[DAMAGE DEBUG] Setting damage boost to: +", boost)
+	damage_boost = boost
+
+func reset_damage() -> void:
+	print("[DAMAGE DEBUG] Resetting damage boost to 0")
+	damage_boost = 0

@@ -18,20 +18,11 @@ func _ready() -> void:
 	# Make sure collision shape is disabled
 	if collision_shape:
 		collision_shape.set_deferred("disabled", true)
-	
-	# Debug info
-	print("Hitbox setup for: ", get_parent().name)
-	print("- Layer: ", collision_layer)
-	print("- Mask: ", collision_mask)
-	print("- Monitoring: ", monitoring)
 
 func _on_area_entered(area: Area2D) -> void:
-	print("Hitbox entered area: ", area.name)  # Debug print
 	if area.is_in_group("hurtbox"):
-		print("Valid hurtbox hit! Emitting signal")  # Debug print
+		print("[Hitbox] Hit hurtbox: ", area.get_parent().name)
 		hit.emit(area)
-	else:
-		print("Area is not a hurtbox: ", area.get_groups())  # Debug print
 
 func get_damage() -> int:
 	return damage

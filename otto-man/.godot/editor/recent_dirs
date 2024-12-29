@@ -1,3 +1,4 @@
+res://autoload
 res://village level/village npc/npc2
 res://player/sprite
 res://effects/effectk sprites
@@ -11,5 +12,4 @@ res://village level
 res://enemy
 res://components
 res://Ui
-res://Globals
 res://levels
