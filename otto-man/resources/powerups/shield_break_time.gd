@@ -1,47 +1,46 @@
-extends PowerupResource
+@tool
+extends PowerupEffect
+
+@export var time_slow_duration: float = 1.0  # Duration of time slow effect
+@export var time_slow_factor: float = 0.5  # How much to slow time (0.5 = half speed)
+@export var cooldown_reduction: float = 0.3  # 30% shield cooldown reduction
 
 func _init() -> void:
-	name = "Shield Break Time"
-	description = "When your shield breaks, time slows down for 2 seconds"
-	powerup_type = PowerupType.SHIELD_BREAK_TIME
-	rarity = Rarity.RARE
-	required_powerups = [PowerupType.SHIELD]
-	synergy_level = 1  # Tier 1 synergy
+	powerup_name = "Shield Break Time"
+	description = "Perfect blocks slow time to {slow}% for {duration}s. Shield cooldown reduced by {cooldown}%".format({
+		"slow": time_slow_factor * 100,
+		"duration": time_slow_duration,
+		"cooldown": cooldown_reduction * 100
+	})
+	duration = -1  # Permanent until death
+	powerup_type = PowerupType.DEFENSE
 
-func apply_powerup(player: CharacterBody2D) -> void:
-	# Connect directly to player's shield_broken signal
-	if player.has_signal("shield_broken"):
-		print("DEBUG: Connecting to player's shield_broken signal")
-		player.shield_broken.connect(_on_shield_broken.bind(player))
-	else:
-		print("DEBUG: Player does not have shield_broken signal!")
-
-func _on_shield_broken(player: CharacterBody2D) -> void:
-	print("DEBUG: Shield break detected - Slowing time")
-	# Slow time for 2 seconds
-	Engine.time_scale = 0.3
+func apply(player: CharacterBody2D) -> void:
+	print("[DEBUG] Applying Shield Break Time")
+	modify_stat("shield_cooldown", 1.0 - cooldown_reduction, true)
 	
-	# Show visual effect
-	if player.has_node("TimeSlowEffect"):
-		var effect = player.get_node("TimeSlowEffect")
-		effect.visible = true
-		
-		# Create tween to fade in effect
-		var effect_tween = player.create_tween()
-		effect_tween.tween_property(effect.material, "shader_parameter/vignette_opacity", 0.5, 0.2)
-		effect_tween.tween_property(effect.material, "shader_parameter/desaturation", 0.4, 0.2)
-		
-		# Create tween to restore time scale and fade out effect
-		var restore_tween = player.create_tween()
-		restore_tween.tween_interval(2.0)  # Wait for 2 seconds
-		restore_tween.tween_callback(func():
-			# Fade out effect
-			var fade_tween = player.create_tween()
-			fade_tween.tween_property(effect.material, "shader_parameter/vignette_opacity", 0.0, 0.3)
-			fade_tween.tween_property(effect.material, "shader_parameter/desaturation", 0.0, 0.3)
-			fade_tween.tween_callback(func(): effect.visible = false)
-			
-			# Restore time scale
-			var time_tween = player.create_tween()
-			time_tween.tween_property(Engine, "time_scale", 1.0, 0.3)
-		) 
+	# Connect to player's block signals if not already connected
+	if player.has_signal("shield_broken") and !player.shield_broken.is_connected(_on_shield_broken):
+		player.shield_broken.connect(_on_shield_broken)
+
+func remove(player: CharacterBody2D) -> void:
+	print("[DEBUG] Removing Shield Break Time")
+	modify_stat("shield_cooldown", 1.0, true)
+	
+	# Disconnect signals
+	if player.has_signal("shield_broken"):
+		if player.shield_broken.is_connected(_on_shield_broken):
+			player.shield_broken.disconnect(_on_shield_broken)
+
+func update(_player: CharacterBody2D, _delta: float) -> void:
+	pass  # No continuous updates needed
+
+func _on_shield_broken() -> void:
+	# Get the ScreenEffects singleton
+	var screen_effects = get_node_or_null("/root/ScreenEffects")
+	if screen_effects and screen_effects.has_method("slow_time"):
+		screen_effects.slow_time(time_slow_duration, time_slow_factor)
+
+# Synergize with other defensive powerups
+func has_synergy_with(other: PowerupEffect) -> bool:
+	return other.powerup_type == PowerupType.DEFENSE 

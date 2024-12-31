@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://d8n6x4q7n0p3q"]
+
+[ext_resource type="Script" path="res://resources/powerups/speed_demon.gd" id="1_w2r3d"]
+
+[node name="SpeedDemon" type="Node"]
+script = ExtResource("1_w2r3d")
+speed_bonus = 100.0
+attack_speed_ratio = 0.5 

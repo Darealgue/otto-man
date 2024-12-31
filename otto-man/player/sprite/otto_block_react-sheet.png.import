@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://3hxfpob58wfa"
-path="res://.godot/imported/ottowalk.png-f094c51ae49da2204219ba11c7ddab37.ctex"
+uid="uid://cteult8y5viq8"
+path="res://.godot/imported/otto_block_react-sheet.png-534dfe7ad771b677c38a2c23b3d67e61.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://ui/ottowalk.png"
-dest_files=["res://.godot/imported/ottowalk.png-f094c51ae49da2204219ba11c7ddab37.ctex"]
+source_file="res://player/sprite/otto_block_react-sheet.png"
+dest_files=["res://.godot/imported/otto_block_react-sheet.png-534dfe7ad771b677c38a2c23b3d67e61.ctex"]
 
 [params]
 

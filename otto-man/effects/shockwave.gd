@@ -33,8 +33,13 @@ func _ready():
 func _physics_process(delta):
     position += direction * speed * delta
 
-func _on_area_entered(area: Area2D):
-    if area.is_in_group("hurtbox") and area.get_parent().is_in_group("player"):
-        var player = area.get_parent()
-        if player.has_method("take_damage"):
-            player.take_damage(damage, direction)
+func _on_hitbox_area_entered(area: Area2D) -> void:
+	if area.is_in_group("hurtbox"):
+		var player = area.get_parent()
+		if player.has_method("take_damage"):
+			player.take_damage(damage)  # Only pass damage amount
+			
+			# Apply knockback separately if needed
+			if player is CharacterBody2D:
+				var direction = (player.global_position - global_position).normalized()
+				player.velocity = direction * KNOCKBACK_FORCE

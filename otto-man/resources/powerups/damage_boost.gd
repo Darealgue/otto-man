@@ -1,60 +1,21 @@
-extends PowerupResource
+extends PowerupEffect
 
-# Damage boost values for each rarity (flat damage increase)
-const DAMAGE_BOOSTS = {
-	"Common": 5,     # +5 damage
-	"Rare": 10,      # +10 damage
-	"Epic": 20,      # +20 damage
-	"Legendary": 30   # +30 damage
-}
-
-var boost_stack := []  # Track individual boosts
+const DAMAGE_BOOST = 20.0  # Flat damage increase
 
 func _init() -> void:
-	name = "Damage Boost"
-	description = "Increases damage dealt"
-	stackable = true
-	max_stacks = 999
-	weight = RARITY_CHANCES["Common"]
+	powerup_name = "Damage Upgrade"
+	description = "Permanently increases damage by {damage}".format({"damage": DAMAGE_BOOST})
+	duration = -1  # -1 means permanent until death
+	powerup_type = PowerupType.DAMAGE
 
-func apply_powerup(player: CharacterBody2D) -> void:
-	if !player.has_method("modify_damage"):
-		return
-	
-	var rarity_name = ["Common", "Rare", "Epic", "Legendary"][rarity]
-	var damage_boost = DAMAGE_BOOSTS[rarity_name]
-	boost_stack.append(damage_boost)  # Add this boost to our stack
-	
-	# Calculate total boost by summing all boosts
-	var total_boost = 0
-	for boost in boost_stack:
-		total_boost += boost
-	
-	print("[Damage Boost] Applied +" + str(damage_boost) + " damage [" + rarity_name + "]")
-	print("[Damage Boost] Total boost is now +" + str(total_boost))
-	
-	# Pass the total flat damage boost
-	player.modify_damage(total_boost)
+func activate(player: CharacterBody2D) -> void:
+	super.activate(player)
+	if player.has_method("modify_damage"):
+		player.modify_damage(DAMAGE_BOOST)
+		print("[DEBUG] Damage Upgrade: Applied +", DAMAGE_BOOST, " damage")
 
-func remove_powerup(player: CharacterBody2D) -> void:
-	if player.has_method("reset_damage"):
-		boost_stack.clear()  # Clear all boosts
-		player.reset_damage()
-
-func can_stack() -> bool:
-	return true
-
-func get_modified_description() -> String:
-	var rarity_name = ["Common", "Rare", "Epic", "Legendary"][rarity]
-	var damage_boost = DAMAGE_BOOSTS[rarity_name]
-	
-	var desc = "+" + str(damage_boost) + " damage"
-	if !boost_stack.is_empty():
-		var total_boost = 0
-		for boost in boost_stack:
-			total_boost += boost
-		desc += "\nCurrent total: +" + str(total_boost) + " damage"
-		desc += "\nTotal damage: " + str(10 + total_boost)
-	
-	desc += "\n[" + rarity_name + "]"
-	return desc 
+func deactivate(player: CharacterBody2D) -> void:
+	# Only deactivate if player dies
+	if !is_instance_valid(player):
+		super.deactivate(player)
+		print("[DEBUG] Damage Upgrade: Reset due to player death")

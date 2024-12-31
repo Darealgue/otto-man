@@ -1,7 +1,19 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" path="res://ui/health_display.tscn" id="1_health_display"]
+[ext_resource type="PackedScene" uid="uid://dxvvlck8ew3f4" path="res://ui/health_display.tscn" id="1_qr4hy"]
+[ext_resource type="PackedScene" uid="uid://c8j6u8o3xv2k4" path="res://ui/stamina_bar.tscn" id="2_stamina"]
 
 [node name="GameUI" type="CanvasLayer"]
 
-[node name="HealthDisplay" parent="." instance=ExtResource("1_health_display")] 
+[node name="HealthDisplay" parent="." instance=ExtResource("1_qr4hy")]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 40.0
+
+[node name="StaminaBar" parent="." instance=ExtResource("2_stamina")]
+visible = true
+offset_left = 20.0
+offset_top = 50.0
+offset_right = 220.0
+offset_bottom = 60.0 

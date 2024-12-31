@@ -20,7 +20,7 @@ const SLIDE_DURATION := 0.2
 const SLIDE_DISTANCE := 600
 const INPUT_COOLDOWN := 0.1
 const SELECTION_DELAY := 0.0
-const HOLD_DURATION := 0.25  # Increased from 0.15 to 0.25 seconds for slower fill
+const HOLD_DURATION := 0.5  # Increased time for more noticeable fill effect
 var hold_timer := 0.0
 var is_holding := false
 var selected_button: Button = null
@@ -28,10 +28,6 @@ var selected_button: Button = null
 # Store original deadzone values
 var original_jump_deadzone := 0.5
 var original_powerup_select_deadzone := 0.5
-
-# Add variables for input handling
-var last_input_time := 0.0
-var last_input_direction := 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -62,20 +58,63 @@ func _process(delta: float) -> void:
 	else:
 		set_input_deadzones(false)
 	
-	# Handle hold-to-select using unscaled delta time
-	if is_holding and !is_processing_selection:
-		hold_timer += delta / Engine.time_scale  # Use unscaled time
-		if is_instance_valid(selected_button):  # Check if button is still valid
-			# Update radial progress indicator
-			var progress = clamp(hold_timer / HOLD_DURATION, 0.0, 1.0)
-			selected_button.set_progress(progress)
-			
-			if hold_timer >= HOLD_DURATION:
-				confirm_selection()
-				is_holding = false
-				hold_timer = 0.0
-				if is_instance_valid(selected_button):  # Check again before setting progress
-					selected_button.set_progress(0.0)
+	# Handle input for selection
+	if !is_processing_selection and !is_transitioning:
+		# Move selection up/down
+		if Input.is_action_just_pressed("up") or Input.is_action_just_pressed("powerup_up"):
+			navigate_selection(-1)
+		elif Input.is_action_just_pressed("down") or Input.is_action_just_pressed("powerup_down"):
+			navigate_selection(1)
+		
+		# Start hold timer when jump/attack is pressed
+		if Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("attack"):
+			start_hold_timer()
+		# Update hold timer while button is held
+		elif Input.is_action_pressed("jump") or Input.is_action_pressed("attack"):
+			update_hold_timer(delta)
+		# Reset if button is released
+		elif is_holding:
+			reset_hold_timer()
+	
+func start_hold_timer() -> void:
+	is_holding = true
+	hold_timer = 0.0
+	if is_instance_valid(selected_button):
+		selected_button.set_progress(0.0)
+
+func update_hold_timer(delta: float) -> void:
+	if !is_holding or !is_instance_valid(selected_button):
+		return
+		
+	hold_timer += delta / Engine.time_scale
+	var progress = clamp(hold_timer / HOLD_DURATION, 0.0, 1.0)
+	selected_button.set_progress(progress)
+	
+	if hold_timer >= HOLD_DURATION:
+		confirm_selection()
+		reset_hold_timer()
+
+func reset_hold_timer() -> void:
+	is_holding = false
+	hold_timer = 0.0
+	if is_instance_valid(selected_button):
+		selected_button.set_progress(0.0)
+
+func navigate_selection(direction: int) -> void:
+	if powerup_buttons.is_empty():
+		return
+		
+	# Reset hold timer when changing selection
+	reset_hold_timer()
+	
+	# Update selection
+	current_selection = (current_selection + direction) % powerup_buttons.size()
+	if current_selection < 0:
+		current_selection = powerup_buttons.size() - 1
+	
+	# Highlight new button but don't select it
+	powerup_buttons[current_selection].grab_focus()
+	selected_button = powerup_buttons[current_selection]
 
 func set_input_deadzones(high_deadzone: bool) -> void:
 	# Only update if the state actually changes
@@ -102,7 +141,7 @@ func set_input_deadzones(high_deadzone: bool) -> void:
 		Input.action_release("powerup_up")
 		Input.action_release("powerup_down")
 
-func setup_powerups(powerups: Array) -> void:
+func setup_powerups(powerup_scenes: Array[PackedScene]) -> void:
 	print("[Setup] Starting powerup setup")
 	for child in powerup_container.get_children():
 		child.queue_free()
@@ -113,12 +152,12 @@ func setup_powerups(powerups: Array) -> void:
 	is_transitioning = false  # Don't block inputs
 	current_selection = 1  # Start with middle button (changed from 0)
 	
-	print("[Setup] Creating ", powerups.size(), " powerup buttons")
-	for powerup in powerups:
+	print("[Setup] Creating ", powerup_scenes.size(), " powerup buttons")
+	for scene in powerup_scenes:
 		var button = PowerupButton.instantiate()
 		powerup_container.add_child(button)
-		button.setup(powerup)
-		button.pressed.connect(func(): _on_powerup_selected(powerup))
+		button.setup(scene)
+		button.pressed.connect(func(): _on_powerup_selected(scene))
 		powerup_buttons.append(button)
 		# Start buttons off-screen and invisible
 		button.position.x = -SLIDE_DISTANCE
@@ -128,7 +167,8 @@ func setup_powerups(powerups: Array) -> void:
 		print("[Setup] Button created at x=", button.position.x)
 	
 	if !powerup_buttons.is_empty():
-		powerup_buttons[current_selection].button_pressed = true
+		powerup_buttons[current_selection].grab_focus()  # Just focus, don't select
+		selected_button = powerup_buttons[current_selection]
 	
 	# Combine time slow and button slide-in animations
 	print("[Animation] Starting combined animations")
@@ -161,182 +201,38 @@ func setup_powerups(powerups: Array) -> void:
 	set_input_deadzones(false)
 	print("[State] Setup complete - Ready for selection")
 
-func _unhandled_input(event: InputEvent) -> void:
-	if !visible or is_processing_selection or is_transitioning:
-		return
-	
-	var current_time = Time.get_ticks_msec() / 1000.0
-	
-	if event is InputEventJoypadMotion:
-		if event.axis == 1:  # Vertical axis
-			var input_value = event.axis_value
-			print("[Input] D-pad value: ", input_value)
-			var input_direction = 0
-			
-			if abs(input_value) > 0.5:
-				input_direction = 1 if input_value > 0 else -1
-				print("[Input] D-pad direction: ", input_direction)
-				
-				if input_direction != last_input_direction or (current_time - last_input_time) > INPUT_COOLDOWN:
-					change_selection(input_direction)
-					last_input_time = current_time
-					last_input_direction = input_direction
-					get_viewport().set_input_as_handled()
-					
-					# Reset hold state when changing selection
-					is_holding = false
-					hold_timer = 0.0
-					if is_instance_valid(selected_button):
-						selected_button.set_progress(0.0)
-			else:
-				last_input_direction = 0
-	
-	elif event.is_action_pressed("powerup_up"):
-		if (current_time - last_input_time) > INPUT_COOLDOWN:
-			print("[Input] Up button pressed")
-			change_selection(-1)
-			last_input_time = current_time
-			get_viewport().set_input_as_handled()
-			
-			# Reset hold state when changing selection
-			is_holding = false
-			hold_timer = 0.0
-			if is_instance_valid(selected_button):
-				selected_button.set_progress(0.0)
-	
-	elif event.is_action_pressed("powerup_down"):
-		if (current_time - last_input_time) > INPUT_COOLDOWN:
-			print("[Input] Down button pressed")
-			change_selection(1)
-			last_input_time = current_time
-			get_viewport().set_input_as_handled()
-			
-			# Reset hold state when changing selection
-			is_holding = false
-			hold_timer = 0.0
-			if is_instance_valid(selected_button):
-				selected_button.set_progress(0.0)
-	
-	elif event.is_action_pressed("powerup_select"):
-		print("[Input] Select button pressed")
-		is_holding = true
-		hold_timer = 0.0
-		if current_selection >= 0 and current_selection < powerup_buttons.size():
-			selected_button = powerup_buttons[current_selection]
-			if is_instance_valid(selected_button):
-				selected_button.set_progress(0.0)
-		get_viewport().set_input_as_handled()
-	
-	elif event.is_action_released("powerup_select"):
-		print("[Input] Select button released")
-		is_holding = false
-		hold_timer = 0.0
-		if is_instance_valid(selected_button):
-			selected_button.set_progress(0.0)
-		get_viewport().set_input_as_handled()
-
-func change_selection(direction: int) -> void:
-	if powerup_buttons.is_empty():
-		return
-		
-	if current_selection >= 0 and current_selection < powerup_buttons.size():
-		powerup_buttons[current_selection].button_pressed = false
-		
-	current_selection = (current_selection + direction) % powerup_buttons.size()
-	if current_selection < 0:
-		current_selection = powerup_buttons.size() - 1
-		
-	powerup_buttons[current_selection].button_pressed = true
-	selected_button = powerup_buttons[current_selection]
-
-func _on_powerup_selected(powerup: PowerupResource) -> void:
+func _on_powerup_selected(powerup_scene: PackedScene) -> void:
 	if is_processing_selection:
 		return
 		
 	is_processing_selection = true
+	print("[Selection] Processing powerup selection")
 	
-	# Reset input control immediately
-	set_input_deadzones(false)
-	is_processing_selection = false
-	input_buffer_timer = 0.0
-	
-	var tween = create_tween()
-	tween.set_parallel(true)
-	
-	tween.tween_property(background, "modulate:a", 0.0, FADE_DURATION)
+	# Start fade out animation
+	var fade_tween = create_tween()
+	fade_tween.set_parallel(true)
+	fade_tween.tween_property(background, "modulate:a", 0.0, FADE_DURATION)
+	fade_tween.tween_property(Engine, "time_scale", 1.0, FADE_DURATION)
 	
 	for button in powerup_buttons:
-		tween.tween_property(button, "modulate:a", 0.0, FADE_DURATION)
+		fade_tween.tween_property(button, "modulate:a", 0.0, FADE_DURATION)
 	
+	await fade_tween.finished
+	
+	# Activate the powerup
+	PowerupManager.activate_powerup(powerup_scene)
+	
+	# Clean up
 	get_tree().paused = false
-	tween.tween_property(Engine, "time_scale", 1.0, FADE_DURATION)
-	
-	await tween.finished
-	is_transitioning = false
-	
 	show_ui(false)
-	PowerupManager.apply_powerup(powerup)
+	queue_free()  # Remove the selection UI
 
 func confirm_selection() -> void:
 	if current_selection >= 0 and current_selection < powerup_buttons.size():
-		print("[Selection] Confirming selection: ", current_selection)
-		var selected_powerup = powerup_buttons[current_selection].powerup
-		var selected_button = powerup_buttons[current_selection]
-		
-		# Set states before starting animations
-		is_transitioning = true
-		is_processing_selection = true
-		set_input_deadzones(true)
-		
-		print("[Animation] Starting unselected button slide out")
-		Engine.time_scale = 1.0
-		var slide_tween = create_tween()
-		slide_tween.set_parallel(true)
-		
-		for button in powerup_buttons:
-			if button != selected_button:
-				var direction = 1 if button.global_position.y > selected_button.global_position.y else -1
-				slide_tween.tween_property(button, "position:x", SLIDE_DISTANCE * direction, SLIDE_DURATION * 0.75)
-				slide_tween.tween_property(button, "modulate:a", 0.0, SLIDE_DURATION * 0.75)
-		
-		await slide_tween.finished
-		print("[Animation] Unselected button slide out complete")
-		
-		print("[Animation] Starting fade out in slow motion")
-		Engine.time_scale = MIN_TIME_SCALE
-		get_tree().paused = false
-		
-		var fade_tween = create_tween()
-		fade_tween.set_parallel(true)
-		
-		fade_tween.tween_property(background, "modulate:a", 0.0, FADE_DURATION)
-		fade_tween.tween_property(selected_button, "modulate:a", 0.0, FADE_DURATION)
-		fade_tween.tween_property(Engine, "time_scale", 1.0, FADE_DURATION)
-		
-		await fade_tween.finished
-		print("[Animation] Fade out complete")
-		
-		# Reset states after all animations complete
-		is_transitioning = false
-		is_processing_selection = false
-		show_ui(false)
-		PowerupManager.apply_powerup(selected_powerup)
+		var button = powerup_buttons[current_selection]
+		_on_powerup_selected(button.powerup_scene)
 
-func show_ui(should_show: bool) -> void:
-	print("[UI] ", "Showing" if should_show else "Hiding", " UI")
-	visible = should_show
-	$Control.visible = should_show
-	
-	if should_show:
-		current_selection = 1  # Always start with middle button (changed from 0)
-		is_processing_selection = false
-		input_buffer_timer = 0.0
-		
-		background.modulate.a = 1.0
-		for button in powerup_buttons:
-			button.modulate.a = 1.0
-			
-		if !powerup_buttons.is_empty():
-			powerup_buttons[current_selection].button_pressed = true
-	else:
-		set_input_deadzones(false)
+func show_ui(show: bool) -> void:
+	visible = show
+	if !show:
+		get_tree().paused = false

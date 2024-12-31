@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8n6x4q7n0p2q"]
+
+[ext_resource type="Script" path="res://resources/powerups/health_boost.gd" id="1_v2r3d"]
+
+[node name="HealthBoost" type="Node"]
+script = ExtResource("1_v2r3d")
+health_bonus = 50.0
+heal_percent = 0.5 

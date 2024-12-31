@@ -7,6 +7,7 @@ extends CharacterBody2D
 @onready var hurtbox_collision = $Hurtbox/CollisionShape2D
 @onready var camera = $Camera2D
 @onready var shield_sprite = $ShieldSprite
+@onready var stamina_bar = get_node_or_null("../GameUI/StaminaBar")
 
 const GRAVITY = 1000
 const SPEED = 600
@@ -48,9 +49,27 @@ const DEBUG_COLORS = {
 	"check_area": Color.MAGENTA
 }
 
-enum State { IDLE, RUN, JUMP, FALL, WALL_SLIDE, DASH, FALL_ATTACK, HURT }
+enum State {
+	IDLE,
+	RUN,
+	JUMP,
+	FALL,
+	WALL_SLIDE,
+	DASH,
+	HURT,
+	BLOCK,
+	ATTACK,
+	WALL_ATTACK,
+	FALL_ATTACK,
+	PARRY
+}
 enum AnimState { IDLE, WALK, RUN, JUMP, FALL }
-enum AttackState { NONE, ATTACK1, ATTACK2, ATTACK3 }
+enum AttackState {
+	NONE,
+	ATTACK1,
+	ATTACK2,
+	ATTACK3
+}
 
 var current_state: State
 var current_anim_state: AnimState
@@ -85,6 +104,10 @@ signal health_changed(new_health: int)
 signal died
 signal hit_landed(hit_info: String)
 signal shield_broken
+signal stamina_changed(new_stamina: float, max_stamina: float)
+signal block_charge_used
+signal block_started
+signal block_ended
 
 # Constants section (group ALL constants together)
 const MAX_HEALTH = 100
@@ -154,7 +177,7 @@ var is_landing: bool = false
 
 # Add these constants at the top with other constants
 const HURT_KNOCKBACK_FORCE = Vector2(400, -300)  # Adjust these values as needed
-const HURT_STATE_DURATION = 0.3  # How long player stays in hurt state
+const HURT_STATE_DURATION = 0.3  # Reduced from 1.0 to match invincibility better
 const HURT_INVINCIBILITY_TIME = 1.0  # How long player stays invincible after getting hit
 
 # Add these variables with other variables
@@ -202,19 +225,33 @@ var fire_trail_interval := 0.0
 var fire_trail_timer := 0.0
 
 # Add this preload at the top with other preloads
-const FireTrailEffect = preload("res://effects/fire_trail.tscn")
+const FireTrailEffect = preload("res://resources/powerups/scenes/fire_trail_effect.tscn")
 
 # Add these constants for movement speed thresholds
 const INPUT_DEADZONE = 0.2  # Minimum input strength required to move
 const WALK_SPEED = 300.0  # Speed for walking
 const RUN_SPEED = 600.0   # Speed for running (same as current SPEED)
 
-func _ready():
+# Add new constants for block/parry mechanics
+const BLOCK_DAMAGE_REDUCTION = 0.5  # Take 50% damage while blocking (changed from 0.2)
+const BLOCK_MOVE_SPEED_MULTIPLIER = 0.5  # Move slower while blocking
+const MAX_STAMINA = 100.0
+const STAMINA_DRAIN_RATE = 20.0  # Stamina drain per second while blocking
+const STAMINA_REGEN_RATE = 10.0  # Stamina regeneration per second
+const BLOCK_FLASH_COLOR = Color(0.2, 0.4, 1.0, 1.0)  # Blue flash for successful block
+const BLOCK_EFFECT_DURATION = 0.15
+
+# Variables for block
+var stamina: float = MAX_STAMINA
+var is_blocking: bool = false
+var block_animation_state := 0  # 0: none, 1: startup, 2: hold, 3: release
+
+func _ready() -> void:
 	add_to_group("player")
 	
 	# Set up player's main collision
 	collision_layer = LAYERS.PLAYER
-	collision_mask = LAYERS.WORLD | LAYERS.ENEMY  # Only collide with world and enemy bodies
+	collision_mask = LAYERS.WORLD | LAYERS.ENEMY
 	
 	# Setup camera
 	if camera:
@@ -228,6 +265,13 @@ func _ready():
 	jumps_remaining = MAX_JUMPS
 	animated_sprite_2d.animation_finished.connect(_on_animation_finished)
 	set_process_input(true)
+	
+	# Initialize stamina bar
+	stamina_bar = get_node_or_null("../GameUI/StaminaBar")
+	if stamina_bar:
+		stamina_bar.hide_bar()
+	else:
+		stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
 	
 	# Make sure hitboxes start disabled
 	if hitbox:
@@ -290,6 +334,16 @@ func _ready():
 		# Start color animation
 		_animate_shield_colors()
 
+	# Initialize stamina and shield
+	stamina = MAX_STAMINA
+	stamina_changed.emit(stamina, MAX_STAMINA)
+	shield_enabled = false
+	has_shield = false
+	if shield_sprite:
+		shield_sprite.visible = false
+
+	stamina_bar.hide_bar()
+
 func _animate_shield_colors() -> void:
 	for i in range(shield_sprite.get_child_count()):
 		var circle = shield_sprite.get_child(i)
@@ -342,15 +396,7 @@ func _physics_process(delta: float) -> void:
 	# Handle hurt state first
 	if current_state == State.HURT:
 		handle_hurt_state(delta)
-		
-		# Handle invincibility timer
-		if invincibility_timer > 0:
-			invincibility_timer -= delta
-			# Flash the sprite while invincible
-			modulate.a = 0.5 if int(Time.get_ticks_msec() * 0.01) % 2 == 0 else 1.0
-			if invincibility_timer <= 0:
-				is_invincible = false
-				modulate.a = 1.0
+		move_and_slide()
 		return
 	
 	# Add this check early in the function
@@ -381,8 +427,7 @@ func _physics_process(delta: float) -> void:
 					var target = collider
 					if target.has_method("take_damage"):
 						var damage = FALL_ATTACK_DAMAGE
-						var knockback_dir = Vector2.UP
-						target.take_damage(damage, knockback_dir)
+						target.take_damage(damage)  # Only pass damage amount
 						handle_fall_attack_hit(target)
 						return
 		
@@ -433,12 +478,54 @@ func _physics_process(delta: float) -> void:
 			modulate.a = 0.5
 			move_and_slide()
 			return
-
+	
 	# Check for dash input before other movement
 	if Input.is_action_just_pressed("dash") and can_dash and is_on_floor():
 		perform_dash()
 		return
-
+	
+	# Handle stamina regeneration when not blocking
+	if !is_blocking and stamina < MAX_STAMINA:
+		stamina = min(stamina + STAMINA_REGEN_RATE * delta, MAX_STAMINA)
+		stamina_changed.emit(stamina, MAX_STAMINA)
+	
+	# Handle stamina drain while blocking
+	if is_blocking and stamina > 0:
+		stamina = max(stamina - STAMINA_DRAIN_RATE * delta, 0)
+		stamina_changed.emit(stamina, MAX_STAMINA)
+		if stamina == 0:
+			stop_blocking()
+	
+	# Update block animation state
+	if is_blocking:
+		match block_animation_state:
+			1:  # Startup
+				if !animated_sprite_2d.is_playing() or animated_sprite_2d.animation != "block_startup":
+					print("[BLOCK DEBUG] Block startup complete, transitioning to hold")
+					block_animation_state = 2
+					animated_sprite_2d.play("block_hold")
+			2:  # Hold
+				if animated_sprite_2d.animation != "block_hold":
+					animated_sprite_2d.play("block_hold")
+			3:  # Release
+				if !animated_sprite_2d.is_playing() or animated_sprite_2d.animation != "block_release":
+					print("[BLOCK DEBUG] Block release complete")
+					block_animation_state = 0
+					current_state = State.IDLE
+					animated_sprite_2d.play("idle")
+			4:  # Impact - don't interrupt this animation
+				if animated_sprite_2d.animation != "block_impact":
+					print("[BLOCK DEBUG] Block impact animation interrupted")
+					animated_sprite_2d.play("block_impact")
+	
+	# Handle movement and physics
+	var direction = Input.get_axis("left", "right")
+	
+	if is_on_floor():
+		handle_ground_movement(direction)
+	else:
+		handle_air_movement(direction, delta)
+	
 	handle_jump_physics(delta)
 	apply_gravity(delta)
 	update_timers(delta)
@@ -446,18 +533,6 @@ func _physics_process(delta: float) -> void:
 	handle_combat(delta)
 	move_and_slide()
 	update_animations()
-	
-	if invincibility_timer > 0:
-		invincibility_timer -= delta
-		if invincibility_timer <= 0:
-			is_invincible = false
-			modulate = Color.WHITE
-	
-	# Update hitbox position based on direction
-	var facing = -1 if animated_sprite_2d.flip_h else 1
-	if hitbox:
-		hitbox.position.x = abs(hitbox.position.x) * facing
-		hitbox.scale.x = facing
 
 func handle_jump_physics(delta: float) -> void:
 	if is_jumping:
@@ -489,6 +564,26 @@ func update_timers(delta: float) -> void:
 		jump_buffer_timer = max(jump_buffer_timer - delta, 0)
 
 func handle_state(delta: float) -> void:
+	var previous_state = current_state
+	
+	# Only log state changes
+	if previous_state != current_state:
+		print("[STATE] Changed from ", State.keys()[previous_state], " to ", State.keys()[current_state])
+	
+	# Force state check - if we're in IDLE but shouldn't be
+	if current_state == State.IDLE:
+		if is_blocking:
+			current_state = State.BLOCK
+		elif is_attacking:
+			match current_attack_state:
+				AttackState.ATTACK1: animated_sprite_2d.play("attack1")
+				AttackState.ATTACK2: animated_sprite_2d.play("attack2")
+				AttackState.ATTACK3: animated_sprite_2d.play("attack3")
+		elif is_hurt:
+			current_state = State.HURT
+		elif is_fall_attacking:
+			current_state = State.FALL_ATTACK
+	
 	wall_jump_timer = max(wall_jump_timer - delta, 0)
 	
 	var was_on_floor = is_on_floor()
@@ -550,16 +645,15 @@ func handle_state(delta: float) -> void:
 						is_wall_climbing = true
 						animated_sprite_2d.play("wall_climb")
 						return
-
+	
 	if is_wall_sliding:
-		# Only slide if we can't climb
 		velocity.y = WALL_SLIDE_SPEED if !can_wall_climb else 0
 		current_state = State.WALL_SLIDE
 		jumps_remaining = MAX_JUMPS
 	else:
 		if is_on_floor():
 			if direction == 0:
-					velocity.x = 0
+				velocity.x = 0
 			current_state = State.IDLE
 			can_wall_slide = true
 		else:
@@ -594,21 +688,20 @@ func perform_jump() -> void:
 		is_wall_sliding = false
 		can_wall_slide = false
 		wall_jump_timer = WALL_JUMP_TIME
-		wall_jump_control_timer = WALL_JUMP_CONTROL_DELAY  # Start control delay
+		wall_jump_control_timer = WALL_JUMP_CONTROL_DELAY
 		jumps_remaining = MAX_JUMPS
 		return
 	
 	if !is_on_floor():  # Double jump
-		if jumps_remaining > 0:  # Check if double jump is available
+		if jumps_remaining > 0:
 			velocity.y = DOUBLE_JUMP_FORCE
 			jumps_remaining -= 1
 			is_double_jumping = true
 			double_jump_time = 0
 			animated_sprite_2d.stop()
-			animated_sprite_2d.play("double_jump")  # Play double jump animation
+			animated_sprite_2d.play("double_jump")
 		return
 	
-	# Normal jump
 	if jumps_remaining > 0: 
 		jumps_remaining -= 1
 
@@ -618,6 +711,10 @@ func perform_jump() -> void:
 	coyote_timer = 0
 
 func handle_ground_movement(direction: float) -> void:
+	if is_blocking:
+		velocity.x = 0  # Stop movement while blocking
+		return
+		
 	if direction:
 		# Get the raw input strength for analog input (d-pad or analog stick)
 		var input_strength = abs(Input.get_axis("left", "right"))
@@ -626,7 +723,7 @@ func handle_ground_movement(direction: float) -> void:
 		if input_strength > INPUT_DEADZONE:
 			# Calculate target speed based on input strength
 			var target_speed = WALK_SPEED
-			if input_strength > 0.7:  # If input is strong enough, run
+			if input_strength > 0.7:  # Only run if not blocking
 				target_speed = RUN_SPEED
 				
 			velocity.x = direction * target_speed
@@ -655,7 +752,7 @@ func can_jump() -> bool:
 	return is_on_floor() or coyote_timer > 0 or jumps_remaining > 0
 
 func update_animations() -> void:
-	if is_attacking:
+	if is_attacking or is_blocking:  # Add is_blocking check
 		return
 	
 	previous_anim_state = current_anim_state
@@ -714,44 +811,16 @@ func update_animations() -> void:
 				animated_sprite_2d.play("fall")
 
 func _on_animation_finished() -> void:
-	if animated_sprite_2d.animation == "dash":
-		if is_dashing:
-			end_dash()
-			
-	elif animated_sprite_2d.animation.begins_with("attack") or animated_sprite_2d.animation == "wall_attack":
-		is_attacking = false
-		
-		# Reset attack state if it was the final attack in combo or wall attack
-		if (animated_sprite_2d.animation == "attack3" or 
-			animated_sprite_2d.animation == "wall_attack" or 
-			attack_combo_timer <= 0):
-			current_attack_state = AttackState.NONE
-			attack_combo_timer = 0
-			next_attack_buffered = false
-			attack_buffer_timer = 0
-			disable_hitbox()
-			
-		# Check for buffered next attack
-		elif next_attack_buffered and attack_buffer_timer > 0:
-			next_attack_buffered = false
-			perform_attack()
-		else:
-			disable_hitbox()
-			update_animations()
-			
-	elif animated_sprite_2d.animation == "fall_attack":
-		if is_on_floor():
-			is_fall_attacking = false
-			is_attacking = false
-			disable_hitbox()
-			play_landing_animation()
-			
-	elif animated_sprite_2d.animation == "landing":
-		is_landing = false
-		scale = Vector2.ONE
-		if !is_attacking:
-			animated_sprite_2d.play("idle")
-		disable_hitbox()
+	match animated_sprite_2d.animation:
+		"block_start":
+			if is_blocking:
+				animated_sprite_2d.play("block_hold")
+		"block_impact":
+			if is_blocking:
+				animated_sprite_2d.play("block_hold")
+		"block_end":
+			if !is_blocking:
+				animated_sprite_2d.play("idle")
 
 func apply_gravity(delta: float) -> void:
 	if !is_on_floor():
@@ -784,98 +853,98 @@ func handle_combat(delta: float) -> void:
 		attack_combo_timer -= delta
 		if attack_combo_timer <= 0:
 			current_attack_state = AttackState.NONE
+			if !animated_sprite_2d.is_playing():
+				is_attacking = false
+				if current_state == State.ATTACK:  # Only change state if we're still in attack
+					current_state = State.IDLE
+					animated_sprite_2d.play("idle")
 	
-	# Handle attack buffer timing
 	if attack_buffer_timer > 0:
 		attack_buffer_timer -= delta
 		if attack_buffer_timer <= 0:
-			next_attack_buffered = false
+				next_attack_buffered = false
 	
-	# Check for attack input
 	if Input.is_action_just_pressed("attack"):
+		if is_blocking:  # Prevent attacking while blocking
+			return
+			
 		if can_attack and !is_attacking:
 			perform_attack()
-		else:
-			# Buffer the attack input
+		elif is_attacking:
 			next_attack_buffered = true
 			attack_buffer_timer = ATTACK_BUFFER_TIME
 
 func perform_attack() -> void:
+	if is_blocking:  # Double check to prevent attacking while blocking
+		return
+		
 	if is_wall_sliding:
 		animated_sprite_2d.play("wall_attack")
-		current_attack_state = AttackState.ATTACK1
-		animated_sprite_2d.flip_h = wall_direction < 0
-		attack_combo_timer = ATTACK_COMBO_WINDOW
+		current_state = State.WALL_ATTACK
 		is_attacking = true
-		print("DEBUG: Enabling hitbox for wall attack")
 		enable_hitbox(0.2)
 		return
 	
-	# Normal attack logic for when not wall sliding
 	match current_attack_state:
 		AttackState.NONE:
-			animated_sprite_2d.play("attack1")
-			current_attack_state = AttackState.ATTACK1
+				animated_sprite_2d.play("attack1")
+				current_attack_state = AttackState.ATTACK1
+				current_state = State.ATTACK
 		AttackState.ATTACK1:
 			if attack_combo_timer > 0:
 				animated_sprite_2d.play("attack2")
 				current_attack_state = AttackState.ATTACK2
+				current_state = State.ATTACK
 		AttackState.ATTACK2:
 			if attack_combo_timer > 0:
 				animated_sprite_2d.play("attack3")
 				current_attack_state = AttackState.ATTACK3
+				current_state = State.ATTACK
 	
 	attack_combo_timer = ATTACK_COMBO_WINDOW
 	is_attacking = true
-	print("DEBUG: Enabling hitbox for attack state: ", current_attack_state)
 	enable_hitbox(0.2)
 
-func take_damage(amount: int, knockback_direction: Vector2 = Vector2.ZERO) -> void:
-	if !is_instance_valid(self):
-		return
-		
+func take_damage(amount: int) -> void:
 	if is_invincible:
 		return
 		
-	if has_shield:
-		print("DEBUG: Shield blocked damage")
-		has_shield = false
-		shield_timer = 0.0  # Reset shield timer when shield is used
-		if shield_sprite:
-			var tween = create_tween()
-			tween.tween_property(shield_sprite, "modulate:a", 0.0, 0.2)
-			tween.tween_callback(func(): shield_sprite.visible = false)
-		shield_broken.emit()  # Emit the signal when shield breaks
-		return
-		
-	health -= amount
-	health_changed.emit(health)
+	if is_blocking and stamina_bar and stamina_bar.has_charges():
+		# Use a block charge
+		if stamina_bar.use_charge():
+			# Play block impact animation
+			animated_sprite_2d.stop()
+			animated_sprite_2d.play("block_impact")
+			
+			# Take reduced damage
+			var reduced_damage = int(amount * BLOCK_DAMAGE_REDUCTION)
+			health = max(0, health - reduced_damage)
+			emit_signal("health_changed", health)
+			return
+			
+	# If not blocking or no charges, take full damage
+	health = max(0, health - amount)
+	emit_signal("health_changed", health)
+	
+	# Reset states when taking damage
+	is_attacking = false
+	is_blocking = false
+	current_attack_state = AttackState.NONE
+	attack_combo_timer = 0
+	
+	# Play hurt animation and set hurt state
+	animated_sprite_2d.play("hurt")
+	is_hurt = true
+	current_state = State.HURT
+	hurt_timer = HURT_STATE_DURATION
 	
 	if health <= 0:
-		died.emit()
-		queue_free()
-		return
-	
-	is_invincible = true
-	# Scale invincibility time with current time scale to prevent multiple hits during slow motion
-	invincibility_timer = INVINCIBILITY_TIME / Engine.time_scale
-	
-	# Apply knockback and enter hurt state
-	velocity = HURT_KNOCKBACK_FORCE * knockback_direction
-	current_state = State.HURT
-	# Scale hurt state duration with time scale as well
-	hurt_timer = HURT_STATE_DURATION / Engine.time_scale
-	is_hurt = true
-	
-	# Visual feedback
-	modulate = DAMAGE_FLASH_COLOR
-	create_tween().tween_property(self, "modulate", Color.WHITE, DAMAGE_FLASH_DURATION)
+		die()
 
 func die() -> void:
 	died.emit()
 	# You can add death animation here
 	queue_free()
-
 func disable_hitbox() -> void:
 	if !is_instance_valid(self):
 		return
@@ -929,21 +998,19 @@ func update_hitbox_state() -> void:
 
 func modify_max_health(multiplier: float) -> void:
 	var old_max_health = current_max_health
-	current_max_health = base_max_health * multiplier
+	max_health_multiplier *= multiplier  # Multiply instead of assign to allow stacking
+	current_max_health = base_max_health * max_health_multiplier
 	
 	# Adjust current health proportionally
 	var health_percentage = float(health) / float(old_max_health)
 	health = int(current_max_health * health_percentage)
 	health = clamp(health, 1, current_max_health)  # Ensure health is between 1 and max
 	
-	print("[DEBUG] Health Boost: Old max health: ", old_max_health)
-	print("[DEBUG] Health Boost: New max health: ", current_max_health)
-	print("[DEBUG] Health Boost: Current health: ", health)
-	
 	if is_instance_valid(self):
 		health_changed.emit(health)
 
 func reset_max_health() -> void:
+	max_health_multiplier = 1.0  # Reset the multiplier
 	current_max_health = base_max_health
 	health = clamp(health, 1, current_max_health)
 	if is_instance_valid(self):
@@ -954,11 +1021,11 @@ func enable_shield(cooldown: float) -> void:
 	shield_cooldown = cooldown
 	shield_timer = 0.0
 	has_shield = true
+	
 	if shield_sprite:
 		shield_sprite.visible = true
 		shield_sprite.modulate.a = 0.5
-	print("DEBUG: Shield enabled with cooldown: ", cooldown)
-	
+
 func disable_shield() -> void:
 	if !is_instance_valid(self):
 		return
@@ -967,7 +1034,6 @@ func disable_shield() -> void:
 	shield_timer = 0.0
 	if shield_sprite:
 		shield_sprite.visible = false
-	print("DEBUG: Shield disabled")
 
 func enable_dash_damage(damage: float) -> void:
 	dash_damage_enabled = true
@@ -978,17 +1044,13 @@ func disable_dash_damage() -> void:
 	dash_damage = 0.0
 
 func modify_dash_cooldown(multiplier: float) -> void:
-	print("[DEBUG] Dash: Modifying cooldown with multiplier: ", multiplier)
-	print("[DEBUG] Dash: Old cooldown: ", current_dash_cooldown)
 	current_dash_cooldown = BASE_DASH_COOLDOWN * multiplier
-	print("[DEBUG] Dash: New cooldown: ", current_dash_cooldown)
 	
 	# If currently in cooldown, adjust remaining time
 	if !can_dash and dash_cooldown_timer > 0:
 		dash_cooldown_timer *= multiplier
 
 func reset_dash_cooldown() -> void:
-	print("[DEBUG] Dash: Resetting cooldown to base value: ", BASE_DASH_COOLDOWN)
 	current_dash_cooldown = BASE_DASH_COOLDOWN
 	
 	# Reset current cooldown timer if it's active
@@ -1017,11 +1079,9 @@ func apply_damage_to_target(area: Area2D) -> void:
 		
 		if is_dashing and dash_damage_enabled:
 			final_damage = int(dash_damage)  # Use the dash damage from powerup
-			print("[DAMAGE DEBUG] Using dash damage: ", final_damage)
 		else:
 			var base_damage = DamageValues.get_base_attack_damage()  # Use static function
 			final_damage = base_damage + damage_boost  # Add flat damage boost
-			print("[DAMAGE DEBUG] Using base damage: ", base_damage, " with boost: +", damage_boost, " = ", final_damage)
 		
 		# Set the hitbox damage before applying it
 		if hitbox:
@@ -1031,7 +1091,7 @@ func apply_damage_to_target(area: Area2D) -> void:
 		
 		var target = area.get_parent()
 		if target.has_method("take_damage"):
-			target.take_damage(final_damage, knockback_dir)
+			target.take_damage(final_damage)  # Only pass damage amount
 		
 		if current_state == State.FALL_ATTACK:
 			if target.is_in_group("enemy"):
@@ -1042,30 +1102,61 @@ func apply_damage_to_target(area: Area2D) -> void:
 				velocity.y = JUMP_FORCE
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
+	if !is_instance_valid(self):
+		return
+		
+	if is_invincible:
+		return
+		
 	if area.is_in_group("hitbox"):
-		_on_hurtbox_hurt(area)
-
-func _on_hurtbox_hurt(area: Area2D) -> void:
-	if area.has_method("get_damage"):
-		var damage = area.get_damage()
-		var hit_info = "Player took %d damage" % damage
-		hit_landed.emit(hit_info)
+		var damage = 10  # Default damage if not specified
+		if area.has_method("get_damage"):
+			damage = area.get_damage()
+		
 		var knockback_dir = (global_position - area.global_position).normalized()
-		take_damage(damage, knockback_dir)
+		var knockback_force = HURT_KNOCKBACK_FORCE.length()
+		
+		# Set invincibility and hurt state BEFORE taking damage
+		is_invincible = true
+		invincibility_timer = INVINCIBILITY_TIME
+		is_hurt = true
+		hurt_timer = HURT_STATE_DURATION
+		current_state = State.HURT
+		
+		# Apply knockback directly
+		velocity = knockback_dir * knockback_force
+		
+		take_damage(damage)  # Only pass the damage amount
 
 func handle_hurt_state(delta: float) -> void:
+	if !is_hurt:
+		return
+		
 	hurt_timer -= delta
 	velocity.x = move_toward(velocity.x, 0, 1000 * delta)
 	
 	if hurt_timer <= 0:
 		is_hurt = false
 		current_state = State.IDLE
+		is_attacking = false  # Reset attacking state
 		animated_sprite_2d.play("idle")
 		
+		# Reset all combat states
 		is_fall_attacking = false
-		is_attacking = false
+		current_attack_state = AttackState.NONE
+		attack_combo_timer = 0
 		if hitbox:
 			disable_hitbox()
+			
+	# Update invincibility
+	if invincibility_timer > 0:
+		invincibility_timer -= delta
+		if invincibility_timer <= 0:
+			is_invincible = false
+			modulate.a = 1.0
+		else:
+			# Flash the sprite while invincible
+			modulate.a = 0.5 if int(Time.get_ticks_msec() * 0.01) % 2 == 0 else 1.0
 
 func handle_fall_attack_hit(enemy: Node2D) -> void:
 	var bounce_force = max(FALL_ATTACK_BOUNCE_FORCE, JUMP_FORCE * 4.8)
@@ -1120,6 +1211,16 @@ func perform_fall_attack() -> void:
 		var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape and collision_shape.shape is RectangleShape2D:
 			collision_shape.shape.size = Vector2(60, 30)
+			
+	# Check for collisions with enemies
+	for i in get_slide_collision_count():
+		var collision = get_slide_collision(i)
+		var collider = collision.get_collider()
+		
+		if collider.is_in_group("enemy"):
+			if collider.has_method("take_damage"):
+				collider.take_damage(FALL_ATTACK_DAMAGE)  # Only pass damage amount
+				handle_fall_attack_hit(collider)
 
 func play_dash_ready_effect() -> void:
 	if !is_instance_valid(self):
@@ -1179,10 +1280,6 @@ func perform_dash() -> void:
 	is_attacking = false
 	current_attack_state = AttackState.NONE
 	
-	print("[DEBUG] Dash: Starting dash")
-	print("[DEBUG] Dash: Current cooldown value: ", current_dash_cooldown)
-	print("[DEBUG] Dash: Base cooldown value: ", BASE_DASH_COOLDOWN)
-	
 	ghost_timer = 0
 	is_dashing = true
 	can_dash = false
@@ -1190,8 +1287,6 @@ func perform_dash() -> void:
 	dash_timer = DASH_DURATION
 	dash_cooldown_timer = current_dash_cooldown
 	current_state = State.DASH
-	
-	print("[DEBUG] Dash: Set cooldown timer to: ", dash_cooldown_timer)
 	
 	collision_mask = LAYERS.WORLD
 	animated_sprite_2d.play("dash")
@@ -1236,7 +1331,7 @@ func shake_camera(strength: float, duration: float) -> void:
 
 func modify_damage(boost: float) -> void:
 	print("[DAMAGE DEBUG] Setting damage boost to: +", boost)
-	damage_boost = boost
+	damage_boost += boost  # Changed from = to += to allow stacking
 
 func reset_damage() -> void:
 	print("[DAMAGE DEBUG] Resetting damage boost to 0")
@@ -1263,18 +1358,59 @@ func update_fire_trail(delta: float) -> void:
 	if fire_trail_timer <= 0:
 		spawn_fire_trail()
 		fire_trail_timer = fire_trail_interval
-		print("[DEBUG] Fire Trail: Spawning at interval ", fire_trail_interval)
 
 func spawn_fire_trail() -> void:
-	var fire = FireTrailEffect.instantiate()
-	# Spawn slightly behind the player based on direction
 	var facing = -1 if animated_sprite_2d.flip_h else 1
 	
-	# Spawn multiple patches in a line for better coverage
 	for i in range(2):
-		var offset = i * 10  # Small offset between patches
+		var offset = i * 10
 		var patch = FireTrailEffect.instantiate()
-		patch.global_position = global_position + Vector2(-20 * facing - (offset * facing), 20)  # Spawn at feet and behind
-		patch.init(fire_trail_damage, fire_trail_duration)
+		patch.global_position = global_position + Vector2(-20 * facing - (offset * facing), 20)
+		patch.initialize(fire_trail_damage, fire_trail_duration)
 		get_parent().add_child(patch)
-		print("[DEBUG] Fire Trail: Spawned fire patch at ", patch.global_position)
+
+func start_blocking() -> void:
+	if current_state == State.HURT or current_state == State.DASH:
+		return
+		
+	if !stamina_bar:
+		stamina_bar = get_node_or_null("../GameUI/StaminaBar")
+		if !stamina_bar:
+			return
+			
+	if !is_blocking and stamina_bar.has_charges():
+		is_blocking = true
+		current_state = State.BLOCK
+		stamina_bar.show_bar()
+		
+		# Play block startup animation
+		animated_sprite_2d.stop()
+		animated_sprite_2d.play("block_start")
+
+func stop_blocking() -> void:
+	if is_blocking:
+		is_blocking = false
+		current_state = State.IDLE
+		stamina_bar.hide_bar()
+		
+		# Play block end animation
+		animated_sprite_2d.stop()
+		animated_sprite_2d.play("block_end")
+
+func handle_block_state() -> void:
+	if !Input.is_action_pressed("block") or !stamina_bar.has_charges():
+		stop_blocking()
+		return
+		
+	# Don't allow attacking while blocking
+	if Input.is_action_just_pressed("attack"):
+		return
+		
+	if !is_blocking:
+		start_blocking()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("block"):
+		start_blocking()
+	elif event.is_action_released("block"):
+		stop_blocking()

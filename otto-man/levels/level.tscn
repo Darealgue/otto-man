@@ -114,6 +114,8 @@ layer_0/tile_data = PackedInt32Array(2359298, 393216, 1, 2424834, 458752, 1, 249
 
 [node name="Player" parent="." groups=["player"] instance=ExtResource("2_71yt3")]
 position = Vector2(226, 284)
+collision_layer = 1
+collision_mask = 1
 
 [node name="Node2D" type="Node2D" parent="."]
 

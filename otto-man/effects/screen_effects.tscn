@@ -1,0 +1,46 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://effects/screen_effects.gd" id="1_script"]
+
+[sub_resource type="Shader" id="Shader_1"]
+code = "shader_type canvas_item;
+
+uniform float vignette_intensity = 0.4;
+uniform float vignette_opacity : hint_range(0.0, 1.0) = 0.5;
+uniform float desaturation : hint_range(0.0, 1.0) = 0.4;
+
+void fragment() {
+    // Create a simple vignette effect
+    vec2 position = (UV - 0.5);
+    float vignette = length(position * 2.0) * vignette_intensity;
+    vignette = clamp(vignette, 0.0, 1.0);
+    
+    // Apply a color tint and desaturation
+    vec3 tint = vec3(0.8, 0.9, 1.0); // Slight blue tint
+    vec3 color = mix(tint, vec3(0.5), desaturation);
+    
+    // Combine effects
+    COLOR = vec4(color * (1.0 - vignette * vignette_opacity), 0.5);
+}"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
+shader = SubResource("Shader_1")
+shader_parameter/vignette_intensity = 0.4
+shader_parameter/vignette_opacity = 0.0
+shader_parameter/desaturation = 0.0
+
+[node name="ScreenEffects" type="Node"]
+script = ExtResource("1_script")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="TimeSlowEffect" type="ColorRect" parent="CanvasLayer"]
+visible = false
+material = SubResource("ShaderMaterial_1")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2 

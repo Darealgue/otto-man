@@ -1,163 +1,99 @@
 extends Node
 
-signal enemy_killed
-signal powerup_applied(powerup: PowerupResource)
+signal powerup_activated(powerup: PowerupEffect)
+signal powerup_deactivated(powerup: PowerupEffect)
 
-const KILLS_FOR_POWERUP := 1
+var player: CharacterBody2D
+var active_powerups: Array[PowerupEffect] = []
 
-var powerups: Array[PowerupResource] = []
-var active_powerups: Array[PowerupResource] = []
-var player: CharacterBody2D = null
-var enemy_kill_count := 0
-var powerup_selection_ui: CanvasLayer = null
+const PowerupSelection = preload("res://ui/powerup_selection.tscn")
+const POWERUP_SCENES: Array[PackedScene] = [
+	preload("res://resources/powerups/scenes/damage_boost.tscn"),
+	preload("res://resources/powerups/scenes/health_boost.tscn"),
+	preload("res://resources/powerups/scenes/speed_demon.tscn"),
+	preload("res://resources/powerups/scenes/momentum_master.tscn"),
+	preload("res://resources/powerups/scenes/perfect_guard.tscn"),
+	preload("res://resources/powerups/scenes/berserker_gambit.tscn"),
+	preload("res://resources/powerups/scenes/fire_trail.tscn")
+]
 
 func _ready() -> void:
-	print("DEBUG: PowerupManager ready")
-	load_powerups()
-	enemy_killed.connect(_on_enemy_killed)
-
-func _on_enemy_killed() -> void:
-	enemy_kill_count += 1
-	print("DEBUG: Enemy killed, count: ", enemy_kill_count, ", needed: ", KILLS_FOR_POWERUP)
-	if enemy_kill_count >= KILLS_FOR_POWERUP:
-		print("DEBUG: Triggering powerup selection")
-		enemy_kill_count = 0
-		_show_powerup_selection()
-
-func _show_powerup_selection() -> void:
-	print("DEBUG: Showing powerup selection")
-	# Create powerup selection UI if it doesn't exist
-	if !powerup_selection_ui or !is_instance_valid(powerup_selection_ui):
-		print("DEBUG: Creating new powerup selection UI")
-		powerup_selection_ui = preload("res://ui/powerup_selection.tscn").instantiate()
-		get_tree().root.add_child(powerup_selection_ui)
-		print("DEBUG: Added powerup selection UI to scene tree")
-		await get_tree().process_frame
-	
-	# Get random powerups
-	var powerups = get_random_powerups(3)
-	print("DEBUG: Selected powerups for UI: ", powerups.map(func(p): return p.name))
-	
-	# Show UI and let it handle the time slow effect
-	if is_instance_valid(powerup_selection_ui) and powerup_selection_ui.has_method("setup_powerups"):
-		print("DEBUG: Setting up powerups in UI")
-		powerup_selection_ui.setup_powerups(powerups)
-	else:
-		print("ERROR: PowerupSelection UI is not valid or missing setup_powerups method!")
-
-func load_powerups() -> void:
-	print("DEBUG: Looking for powerups in res://resources/powerups")
-	var dir = DirAccess.open("res://resources/powerups")
-	if dir:
-		for file in dir.get_files():
-			if file.ends_with(".tres"):
-				print("DEBUG: Attempting to load powerup: ", file)
-				var powerup = load("res://resources/powerups/" + file)
-				if powerup is PowerupResource:
-					powerups.append(powerup)
-					print("DEBUG: Successfully loaded powerup: ", powerup.name, " from ", "res://resources/powerups/" + file)
-	
-	print("DEBUG: Total powerups loaded: ", powerups.size())
-
-func get_random_powerups(count: int = 3) -> Array[PowerupResource]:
-	print("DEBUG: Getting random powerups from ", powerups.size(), " available powerups")
-	var available_powerups: Array[PowerupResource] = []
-	var current_powerup_types: Array[PowerupResource.PowerupType] = []
-	
-	# Get current powerup types
-	for powerup in active_powerups:
-		current_powerup_types.append(powerup.powerup_type)
-	
-	# Filter available powerups based on requirements and synergies
-	for powerup in powerups:
-		# Check if powerup can be stacked
-		var existing = active_powerups.filter(func(p): return p.powerup_type == powerup.powerup_type)
-		if !existing.is_empty() and !existing[0].can_stack():
-			continue
-			
-		if powerup.is_available(current_powerup_types) and powerup.creates_valid_synergy(current_powerup_types):
-			available_powerups.append(powerup)
-	
-	# If we don't have enough available powerups with synergies, add base powerups
-	if available_powerups.size() < count:
-		for powerup in powerups:
-			if powerup.synergy_level == 0 and not powerup in available_powerups:
-				available_powerups.append(powerup)
-	
-	var selected_powerups: Array[PowerupResource] = []
-	while selected_powerups.size() < count and available_powerups:
-		var index = randi() % available_powerups.size()
-		var powerup = available_powerups[index].duplicate()  # Create a copy
-		
-		# Set rarity based on chances
-		var total_weight = 0.0
-		for weight in powerup.RARITY_CHANCES.values():
-			total_weight += weight
-		
-		var random_value = randf() * total_weight
-		var current_weight = 0.0
-		
-		for i in range(powerup.RARITY_CHANCES.size()):
-			var rarity_name = ["Common", "Rare", "Epic", "Legendary"][i]
-			current_weight += powerup.RARITY_CHANCES[rarity_name]
-			if random_value <= current_weight:
-				powerup.rarity = i
-				break
-		
-		selected_powerups.append(powerup)
-		print("DEBUG: Selected powerup: ", powerup.name, " (", powerup.get_modified_description(), ")")
-		available_powerups.remove_at(index)
-	
-	return selected_powerups
+	# Create a container node for our powerup instances
+	var container = Node.new()
+	container.name = "ActivePowerups"
+	add_child(container)
 
 func register_player(p: CharacterBody2D) -> void:
-	print("DEBUG: Registered player: ", p)
 	player = p
-	player.tree_exiting.connect(_on_player_tree_exiting)
-	# Connect to player death signal
-	if player.has_signal("died"):
-		player.died.connect(_on_player_died)
-		print("DEBUG: Connected to player death signal")
 
-func _on_player_tree_exiting() -> void:
-	player = null
-	active_powerups.clear()
-
-func _on_player_died() -> void:
-	reset_powerups()
-
-func reset_powerups() -> void:
-	print("DEBUG: Resetting powerups due to player death")
-	if is_instance_valid(player):
-		for powerup in active_powerups:
-			if powerup.has_method("remove_powerup"):
-				powerup.remove_powerup(player)
-	active_powerups.clear()
-	enemy_kill_count = 0
-
-func apply_powerup(powerup: PowerupResource) -> void:
+func _process(delta: float) -> void:
 	if !player:
 		return
-	
-	print("DEBUG: Applying powerup: ", powerup.name, " (Type: ", PowerupResource.PowerupType.keys()[powerup.powerup_type], ") to player: ", player)
-	
-	# Check if powerup already exists
-	var existing = active_powerups.filter(func(p): return p.powerup_type == powerup.powerup_type)
-	if !existing.is_empty():
-		var existing_powerup = existing[0]
-		if existing_powerup.can_stack():
-			# Update stack count and rarity if new one is better
-			existing_powerup.stack_count += 1
-			if powerup.rarity > existing_powerup.rarity:
-				existing_powerup.rarity = powerup.rarity
-			# Reapply to update effects
-			existing_powerup.apply_powerup(player)
-			print("DEBUG: Stacked existing powerup. New stack count: ", existing_powerup.stack_count)
+		
+	# Update all active powerups
+	for powerup in active_powerups:
+		powerup.process(player, delta)
+
+func activate_powerup(powerup_scene: PackedScene) -> void:
+	if !player:
 		return
-	
-	# New powerup
-	powerup.stack_count = 1
-	powerup.apply_powerup(player)
+		
+	# Instance the powerup
+	var powerup = powerup_scene.instantiate() as PowerupEffect
+	if !powerup:
+		push_error("Failed to instantiate powerup")
+		return
+		
+	# Check for conflicts
+	for active in active_powerups:
+		if active.conflicts_with(powerup) or powerup.conflicts_with(active):
+			push_warning("Powerup conflicts with an active powerup: " + active.powerup_name)
+			powerup.queue_free()
+			return
+			
+	# Add to scene tree and activate
+	$ActivePowerups.add_child(powerup)
 	active_powerups.append(powerup)
-	powerup_applied.emit(powerup)
-	print("DEBUG: Applied new powerup with rarity: ", ["Common", "Rare", "Epic", "Legendary"][powerup.rarity])
+	powerup.activate(player)
+	powerup_activated.emit(powerup)
+
+func deactivate_powerup(powerup: PowerupEffect) -> void:
+	if !player or !powerup:
+		return
+		
+	powerup.deactivate(player)
+	active_powerups.erase(powerup)
+	powerup.queue_free()
+	powerup_deactivated.emit(powerup)
+
+func get_active_powerups() -> Array[PowerupEffect]:
+	return active_powerups
+
+func clear_all_powerups() -> void:
+	if !player:
+		return
+		
+	for powerup in active_powerups.duplicate():
+		deactivate_powerup(powerup)
+	active_powerups.clear()
+
+func enemy_killed(enemy: Node2D) -> void:
+	if !player:
+		return
+		
+	# Show powerup selection UI
+	var selection = PowerupSelection.instantiate()
+	get_tree().root.add_child(selection)
+	
+	# Get 3 random powerups to choose from
+	var available_powerups: Array[PackedScene] = POWERUP_SCENES.duplicate()
+	available_powerups.shuffle()
+	var powerup_choices: Array[PackedScene] = available_powerups.slice(0, 3)
+	
+	# Setup the selection UI with the random powerups
+	selection.setup_powerups(powerup_choices)
+	
+	# Notify powerups about the kill
+	for powerup in active_powerups:
+		if powerup.has_method("on_enemy_killed"):
+			powerup.on_enemy_killed(enemy)

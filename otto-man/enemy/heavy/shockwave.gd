@@ -1,5 +1,7 @@
 extends Area2D
 
+const KNOCKBACK_FORCE = 300
+
 var direction: int = 1
 var speed: float = 500
 var max_distance: float = 600
@@ -60,8 +62,25 @@ func initialize(dir: int, spd: float, dist: float, dmg: int) -> void:
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("hurtbox") and area.get_parent().is_in_group("player"):
 		var damage = damage_amount
-		var knockback_dir = Vector2(direction, -0.5).normalized()
-		area.get_parent().take_damage(damage, knockback_dir)
+		var player = area.get_parent()
+		# Apply damage
+		player.take_damage(damage)
+		# Apply knockback separately
+		if player is CharacterBody2D:
+			var knockback_dir = Vector2(direction, -0.5).normalized()
+			player.velocity = knockback_dir * KNOCKBACK_FORCE
 
 func get_damage() -> int:
 	return damage_amount
+
+func _on_hitbox_area_entered(area: Area2D) -> void:
+	if area.is_in_group("hurtbox"):
+		var damage = damage_amount
+		var knockback_dir = (area.global_position - global_position).normalized()
+		
+		if area.get_parent().has_method("take_damage"):
+			area.get_parent().take_damage(damage)
+			
+		# Apply knockback separately if needed
+		if area.get_parent() is CharacterBody2D:
+			area.get_parent().velocity = knockback_dir * KNOCKBACK_FORCE

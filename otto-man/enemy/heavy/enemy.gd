@@ -120,6 +120,8 @@ const HealthBar = preload("res://ui/enemy_health_bar.tscn")
 # Add this with other preloads at the top
 const DamageNumber = preload("res://ui/damage_number.tscn")
 
+const BASE_ATTACK_DAMAGE = 15  # Add this with other constants
+
 func _ready() -> void:
 	if !animated_sprite:
 		push_error("AnimatedSprite2D node not found!")
@@ -416,70 +418,41 @@ func take_damage(damage: int, knockback_dir: Vector2 = Vector2.ZERO) -> void:
 	print("[DAMAGE DEBUG] Entered hurt state")
 
 func die(knockback_dir: Vector2 = Vector2.ZERO) -> void:
-	print("DEBUG: Enemy die() called")
 	if current_state == State.DEAD:
 		return
 		
-	# Set state to dead immediately
 	current_state = State.DEAD
-	print("DEBUG: Enemy state set to DEAD")
 	
-	# Stop all current actions but keep physics active for death animation
-	is_attacking = false
-	can_move = false
+	# Notify PowerupManager about the kill
+	PowerupManager.enemy_killed(self)
 	
-	# Apply death bounce with more vertical force
-	velocity.x = DEATH_BOUNCE_FORCE_X * sign(knockback_dir.x)
+	# Disable collisions
+	if hitbox_collision:
+		hitbox_collision.set_deferred("disabled", true)
+	if hurtbox_collision:
+		hurtbox_collision.set_deferred("disabled", true)
+	
+	# Apply death bounce
 	velocity.y = DEATH_BOUNCE_FORCE_Y
-	print("DEBUG: Applied death bounce: ", velocity)
+	velocity.x = DEATH_BOUNCE_FORCE_X * last_hit_direction
 	
 	# Play death animation
 	if animated_sprite:
-		print("DEBUG: Playing death animation")
-		animated_sprite.stop()
 		animated_sprite.play("death")
-		
-		# Disable ALL collision to ensure free fall
-		set_collision_layer(0)
-		set_collision_mask(0)  # No collision with anything
-		
-		if hitbox:
-			hitbox.set_collision_layer(0)
-			hitbox.set_collision_mask(0)
-			if hitbox.get_node("CollisionShape2D"):
-				hitbox.get_node("CollisionShape2D").set_deferred("disabled", true)
-				
-		if hurtbox:
-			hurtbox.set_collision_layer(0)
-			hurtbox.set_collision_mask(0)
-			if hurtbox.get_node("CollisionShape2D"):
-				hurtbox.get_node("CollisionShape2D").set_deferred("disabled", true)
-		
-		# Wait for bounce and fall
-		await get_tree().create_timer(DEATH_FADE_DELAY).timeout
-		
-		# Only emit signals if we're still valid (not already freed)
-		if is_instance_valid(self):
-			# Emit signals only once
-			died.emit()
-			PowerupManager.enemy_killed.emit()
-			print("DEBUG: Enemy death signals emitted")
-			
-			# Create fade-out effect
-			var tween = create_tween()
-			tween.tween_property(self, "modulate:a", 0.0, 0.5)  # 0.5s fade
-			await tween.finished
-			print("DEBUG: Fade-out completed")
-			
-			# Queue free
-			queue_free()
-			print("DEBUG: Enemy queued for deletion")
+	
+	# Emit died signal
+	died.emit()
+	
+	# Start fade out timer
+	await get_tree().create_timer(DEATH_FADE_DELAY).timeout
+	queue_free()
 
 func _on_hitbox_hit(area: Area2D) -> void:
 	if area.is_in_group("hurtbox") and area.get_parent().is_in_group("player"):
-		var damage = hitbox.get_damage()
-		var knockback_dir = (area.global_position - global_position).normalized()
-		area.get_parent().take_damage(damage, knockback_dir)
+		var damage = BASE_ATTACK_DAMAGE
+		if hitbox and hitbox.has_method("get_damage"):
+			damage = hitbox.get_damage()
+		area.get_parent().take_damage(damage)  # Only pass the damage amount
 
 func _on_hurtbox_hurt(area: Area2D) -> void:
 	# Skip if area is not a hitbox
@@ -882,3 +855,18 @@ func spawn_damage_number(damage: int) -> void:
 	
 	# Setup the number
 	number.setup(damage)
+
+func _on_hitbox_area_entered(area: Area2D) -> void:
+	if area.is_in_group("hurtbox"):
+		var damage = BASE_ATTACK_DAMAGE  # Use the constant directly
+		var knockback_dir = (area.global_position - global_position).normalized()
+		
+		if area.get_parent().has_method("take_damage"):
+			area.get_parent().take_damage(damage)  # Only pass damage amount
+			
+		# Apply knockback separately if needed
+		if area.get_parent() is CharacterBody2D:
+			area.get_parent().velocity = knockback_dir * KNOCKBACK_FORCE
+
+func get_attack_damage() -> int:
+	return BASE_ATTACK_DAMAGE

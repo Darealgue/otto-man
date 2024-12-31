@@ -1,6 +1,5 @@
 extends Area2D
 
-# Add collision layer constants
 const LAYERS = {
 	WORLD = 1,                
 	PLAYER = 2,
@@ -18,14 +17,12 @@ var enemies_in_fire: Array[CharacterBody2D] = []
 var damage_timer: float = 0
 const DAMAGE_INTERVAL = 0.2  # Apply damage every 0.2 seconds
 
-@onready var sprite = $AnimatedSprite2D
-@onready var collision = $CollisionShape2D
 @onready var particles = $GPUParticles2D
+@onready var collision = $CollisionShape2D
 
-func init(damage: float, lifetime: float) -> void:
+func initialize(damage: float, lifetime: float) -> void:
 	damage_per_second = damage
 	duration = lifetime
-	print("[DEBUG] Fire Trail Effect: Initialized with damage ", damage_per_second, " duration ", duration)
 
 func _ready() -> void:
 	collision_layer = 0
@@ -34,8 +31,8 @@ func _ready() -> void:
 	area_exited.connect(_on_area_exited)
 	
 	# Start animation
-	if sprite:
-		sprite.play("default")
+	if particles:
+		particles.emitting = true
 	
 	# Start fade out timer if duration is set
 	if duration > 0:
@@ -59,18 +56,15 @@ func apply_damage() -> void:
 	var damage = damage_per_second * DAMAGE_INTERVAL
 	for enemy in enemies_in_fire:
 		if is_instance_valid(enemy) and enemy.has_method("take_damage"):
-			print("[DEBUG] Fire Trail Effect: Dealing ", damage, " damage to ", enemy.name)
 			enemy.take_damage(damage, Vector2.ZERO)
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("hurtbox") and area.get_parent().is_in_group("enemy"):
 		var enemy = area.get_parent()
 		if not enemies_in_fire.has(enemy):
-			print("[DEBUG] Fire Trail Effect: Enemy entered fire ", enemy.name)
 			enemies_in_fire.append(enemy)
 
 func _on_area_exited(area: Area2D) -> void:
 	if area.is_in_group("hurtbox") and area.get_parent().is_in_group("enemy"):
 		var enemy = area.get_parent()
-		print("[DEBUG] Fire Trail Effect: Enemy exited fire ", enemy.name)
 		enemies_in_fire.erase(enemy) 
