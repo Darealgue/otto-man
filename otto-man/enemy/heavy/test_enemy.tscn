@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://db5dd8tjhvq5s"]
+
+[ext_resource type="Script" path="res://enemy/heavy/test_enemy.gd" id="1_5sbwp"]
+[ext_resource type="PackedScene" uid="uid://b4yfkqn1hqv8q" path="res://enemy/heavy/heavy_enemy.tscn" id="1_enemy"]
+
+[node name="TestScene" type="Node2D"]
+script = ExtResource("1_5sbwp")
+
+[node name="HeavyEnemy" parent="." instance=ExtResource("1_enemy")]
+position = Vector2(100, 100)

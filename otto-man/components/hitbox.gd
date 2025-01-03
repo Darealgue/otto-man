@@ -1,49 +1,43 @@
 extends Area2D
 
-signal hit(area)
-
-@export var damage: int = 10
+@export var damage: float = 10.0
+@export var knockback_force: float = 0.0
+@export var knockback_up_force: float = 0.0
 @export var is_player: bool = false
-@onready var collision_shape = $CollisionShape2D
+@export var debug_enabled: bool = false
+
 var is_active: bool = false
 
-func _ready() -> void:
-	# Start with monitoring off
+func _ready():
+	if debug_enabled:
+		print("[Hitbox] Updated for", get_parent().name, "- Is player:", is_player)
+		print("[Hitbox] Collision layer:", collision_layer)
+		print("[Hitbox] Collision mask:", collision_mask)
+
+func enable():
+	monitoring = true
+	monitorable = true
+	$CollisionShape2D.set_deferred("disabled", false)
+	is_active = true
+	if debug_enabled:
+		print("[Hitbox] Enabled hitbox for", get_parent().name, "with damage:", damage)
+
+func disable():
 	monitoring = false
 	monitorable = false
-	
-	add_to_group("hitbox")
-	area_entered.connect(_on_area_entered)
-	
-	# Make sure collision shape is disabled
-	if collision_shape:
-		collision_shape.set_deferred("disabled", true)
-
-func _on_area_entered(area: Area2D) -> void:
-	if area.is_in_group("hurtbox"):
-		print("[Hitbox] Hit hurtbox: ", area.get_parent().name)
-		hit.emit(area)
-
-func get_damage() -> int:
-	return damage
-
-func enable(duration: float = 0.0) -> void:
-	if collision_shape:
-		collision_shape.set_deferred("disabled", false)
-	set_deferred("monitoring", true)
-	set_deferred("monitorable", true)
-	is_active = true
-	
-	if duration > 0:
-		await get_tree().create_timer(duration).timeout
-		disable()
-
-func disable() -> void:
-	if collision_shape:
-		collision_shape.set_deferred("disabled", true)
-	set_deferred("monitoring", false)
-	set_deferred("monitorable", false)
+	$CollisionShape2D.set_deferred("disabled", true)
 	is_active = false
+	if debug_enabled:
+		print("[Hitbox] Disabled hitbox for", get_parent().name)
 
 func is_enabled() -> bool:
 	return is_active
+
+func get_damage() -> float:
+	return damage
+
+func get_knockback_data() -> Dictionary:
+	return {
+		"force": knockback_force,
+		"up_force": knockback_up_force
+	}

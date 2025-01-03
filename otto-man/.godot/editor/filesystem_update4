@@ -1,12 +1,3 @@
-res://enemy/heavy/enemy_1.tscn
 res://levels/level.tscn
-res://village level/village.tscn
-res://player/game_ui.tscn
-res://enemy/heavy/shockwave.tscn
-res://village level/village npc/npc2/Npc2.tscn
-res://village level/village npc/kamil/Kamil_NPC.tscn
-res://village level/playervillage/playervillage.tscn
-res://ui/powerup_selection.tscn
+res://enemy/heavy/heavy_enemy.tscn
 res://player/player.tscn
-res://player/states/idle_state.gd
-res://player/state_machine.gd
