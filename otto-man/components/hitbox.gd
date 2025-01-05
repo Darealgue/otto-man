@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var damage: float = 10.0
+@export var damage: float = 0.0
 @export var knockback_force: float = 0.0
 @export var knockback_up_force: float = 0.0
 @export var is_player: bool = false
@@ -9,10 +9,11 @@ extends Area2D
 var is_active: bool = false
 
 func _ready():
-	if debug_enabled:
-		print("[Hitbox] Updated for", get_parent().name, "- Is player:", is_player)
-		print("[Hitbox] Collision layer:", collision_layer)
-		print("[Hitbox] Collision mask:", collision_mask)
+	# Ensure hitbox starts disabled
+	disable()
+	# Make collision shape visible in editor but hidden in game
+	if get_node_or_null("CollisionShape2D"):
+		get_node("CollisionShape2D").debug_color = Color(0.7, 0, 0, 0.4)
 
 func enable():
 	monitoring = true

@@ -1,11 +1,24 @@
 extends State
 
 func enter():
-	print("Entering Run State")
 	animation_player.play("run")
-	print("Playing animation:", animation_player.current_animation)
 
 func physics_update(delta: float):
+	if !player:
+		return
+		
+	# Check for attack input first
+	if Input.is_action_just_pressed("attack"):
+		state_machine.transition_to("Attack")
+		return
+		
+	# Check for block input
+	if Input.is_action_pressed("block"):
+		var block_state = state_machine.get_node("Block")
+		if block_state.current_stamina > 0:  # Only try to block if we have stamina
+			state_machine.transition_to("Block")
+		return
+		
 	if not player.is_on_floor():
 		state_machine.transition_to("Fall")
 		return
@@ -31,4 +44,6 @@ func physics_update(delta: float):
 		animation_player.play("run")
 
 func exit():
-	animation_tree.set("parameters/conditions/air_to_movement", false) 
+	# Stop any current animation when exiting the run state
+	if animation_player and animation_player.is_playing():
+		animation_player.stop() 

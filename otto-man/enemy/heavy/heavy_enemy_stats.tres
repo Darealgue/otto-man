@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3 uid="uid://baftw8h06wv1a"]
 
 [ext_resource type="Script" path="res://enemy/enemy_stats.gd" id="1_script"]
 
@@ -12,4 +12,4 @@ attack_cooldown = 2.5
 knockback_resistance = 0.8
 health_scale = 1.25
 damage_scale = 1.2
-speed_scale = 1.1 
+speed_scale = 1.1

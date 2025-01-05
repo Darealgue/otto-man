@@ -4,7 +4,7 @@ const WALL_JUMP_FORCE := Vector2(700, -550)
 const WALL_JUMP_BOOST_DURATION := 0.2
 const MIN_WALL_NORMAL_X := 0.7
 const WALL_STICK_DURATION := 0.15
-const MAX_UPWARD_SLIDE_SPEED := 50.0  # Maximum speed when sliding up
+const MAX_UPWARD_SLIDE_SPEED := 100.0  # Increased from 50 to 100 to allow more upward movement
 const WALL_SLIDE_SPEED_MULTIPLIER := 0.5  # Reduces the overall wall slide speed
 
 @onready var wall_ray_left: RayCast2D = $"../../WallRayLeft"
@@ -36,26 +36,17 @@ func _ready():
 	wall_ray_left.collision_mask = 1  # Only detect walls
 	wall_ray_right.collision_mask = 1
 	
-	print("DEBUG: Wall raycasts configuration:")
-	print("Left raycast - Enabled:", wall_ray_left.enabled, 
-		  " Collision mask:", wall_ray_left.collision_mask,
-		  " Target:", wall_ray_left.target_position)
-	print("Right raycast - Enabled:", wall_ray_right.enabled,
-		  " Collision mask:", wall_ray_right.collision_mask,
-		  " Target:", wall_ray_right.target_position)
 
 func _get_wall_collision() -> WallCollision:
 	# First check raycasts as they're more reliable
 	if wall_ray_left.is_colliding():
 		var collision_point = wall_ray_left.get_collision_point()
 		var normal = wall_ray_left.get_collision_normal()
-		print("DEBUG: Left raycast hit at distance:", (collision_point - wall_ray_left.global_position).length(), " Normal:", normal)
 		return WallCollision.new(normal, collision_point)
 		
 	if wall_ray_right.is_colliding():
 		var collision_point = wall_ray_right.get_collision_point()
 		var normal = wall_ray_right.get_collision_normal()
-		print("DEBUG: Right raycast hit at distance:", (collision_point - wall_ray_right.global_position).length(), " Normal:", normal)
 		return WallCollision.new(normal, collision_point)
 	
 	# Fallback to direct wall collision
@@ -64,12 +55,8 @@ func _get_wall_collision() -> WallCollision:
 			var collision = player.get_slide_collision(i)
 			var normal = collision.get_normal()
 			if abs(normal.x) >= MIN_WALL_NORMAL_X:
-				print("DEBUG: Found wall collision with normal:", normal)
 				return WallCollision.new(normal, collision.get_position())
 	
-	print("DEBUG: No wall detected - Left ray colliding:", wall_ray_left.is_colliding(),
-		  " Right ray colliding:", wall_ray_right.is_colliding(),
-		  " On wall:", player.is_on_wall())
 	return null
 
 func can_wall_slide() -> bool:
@@ -79,22 +66,18 @@ func can_wall_slide() -> bool:
 		wall_stick_timer = WALL_STICK_DURATION
 		last_valid_normal = collision.get_normal()
 		has_valid_wall = true
-		print("DEBUG: Wall slide possible - Normal:", last_valid_normal)
 		return true
 		
 	if has_valid_wall and wall_stick_timer > 0:
-		print("DEBUG: Using wall stick buffer - Time left:", wall_stick_timer)
 		return true
 		
 	if player.velocity.y < -100:
-		print("DEBUG: Moving upward too fast for wall slide")
 		return false
 		
 	has_valid_wall = false
 	return false
 
 func enter():
-	print("DEBUG: Entering wall slide state")
 	animation_player.play("wall_slide")
 	
 	# Get wall normal from raycast
@@ -114,6 +97,11 @@ func enter():
 	player.sprite.flip_h = wall_normal.x < 0
 
 func physics_update(delta: float):
+	# Check for ground contact first
+	if player.is_on_floor():
+		state_machine.transition_to("Idle")
+		return
+		
 	# Check if we're still on the wall
 	var wall_normal = _get_wall_normal()
 	if wall_normal == Vector2.ZERO:
@@ -122,14 +110,12 @@ func physics_update(delta: float):
 	
 	# Handle wall jump input
 	if Input.is_action_just_pressed("jump"):
-		print("DEBUG: Wall jump triggered")
 		_perform_wall_jump(wall_normal)
 		return
 	
 	# Check if moving away from wall
 	var input_dir = Input.get_axis("left", "right")
 	if input_dir * wall_normal.x > 0:
-		print("DEBUG: Detaching from wall due to input")
 		_end_wall_slide()
 		return
 	
@@ -169,6 +155,5 @@ func _perform_wall_jump(wall_normal: Vector2):
 	state_machine.transition_to("Jump")  # Let Jump state handle the animation
 
 func _end_wall_slide():
-	print("DEBUG: Exiting wall slide state")
 	player.end_wall_slide()
 	state_machine.transition_to("Fall")

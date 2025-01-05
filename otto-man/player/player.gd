@@ -11,8 +11,8 @@ signal health_changed(new_health: float)
 @export var max_health: float = 100.0
 @export var coyote_time: float = 0.15
 @export var jump_buffer_time: float = 0.1
-@export var fall_gravity_multiplier: float = 1.3
-@export var max_fall_speed: float = 1500.0
+@export var fall_gravity_multiplier: float = 2.0
+@export var max_fall_speed: float = 2000.0
 @export var jump_cut_height: float = 0.5
 @export var max_jump_time: float = 0.4
 @export var jump_horizontal_dampening: float = 0.9
@@ -27,6 +27,9 @@ signal health_changed(new_health: float)
 @export var wall_jump_momentum_preservation: float = 0.8
 @export var wall_jump_control_delay: float = 0.15
 @export var debug_enabled: bool = false
+
+const COYOTE_TIME := 0.15  # Time in seconds player can still jump after leaving ground
+const FALL_GRAVITY_MULTIPLIER := 1.5  # Makes falling faster than rising
 
 var gravity: float = ProjectSettings.get_setting("physics/2d/default_gravity")
 var health: float = max_health
@@ -64,23 +67,24 @@ func _ready():
 	
 	health = max_health
 	emit_signal("health_changed", health)
-	print("[Player] Initial health:", health)
 	
 	# Set up hitbox and hurtbox
 	if hitbox:
 		hitbox.is_player = true
 		hitbox.collision_layer = 16  # Layer 5 (Player hitbox)
 		hitbox.collision_mask = 32   # Layer 6 (Enemy hurtbox)
-		print("[Player] Setting hitbox is_player to true")
 	
 	if hurtbox:
 		hurtbox.is_player = true
 		hurtbox.collision_layer = 8   # Layer 4 (Player hurtbox)
 		hurtbox.collision_mask = 64   # Layer 7 (Enemy hitbox)
-		print("[Player] Setting hurtbox is_player to true")
+		# Disconnect any existing connections to avoid duplicates
+		if hurtbox.hurt.is_connected(_on_hurtbox_hurt):
+			hurtbox.hurt.disconnect(_on_hurtbox_hurt)
+		# Connect the hurt signal
 		hurtbox.hurt.connect(_on_hurtbox_hurt)
 	else:
-		print("[Player] Warning: No hurtbox found!")
+		push_error("[Player] Warning: No hurtbox found!")
 
 func _physics_process(delta):
 	# Update dash cooldown
@@ -107,7 +111,7 @@ func _physics_process(delta):
 	
 	# Handle coyote time
 	if is_on_floor():
-		coyote_timer = coyote_time
+		coyote_timer = COYOTE_TIME
 		was_on_floor = true
 		if jump_buffer_timer > 0:  # Execute buffered jump
 			start_jump()
@@ -127,15 +131,12 @@ func _physics_process(delta):
 				velocity.y *= jump_cut_height
 				current_gravity_multiplier = fall_gravity_multiplier
 	else:
+		# Apply stronger gravity when falling
 		current_gravity_multiplier = fall_gravity_multiplier if velocity.y > 0 else 1.0
 	
-	# Apply maximum fall speed
+	# Apply maximum fall speed with the new higher limit
 	if velocity.y > max_fall_speed:
 		velocity.y = max_fall_speed
-	
-	# Debug animation state
-	if Input.is_action_just_pressed("jump"):
-		print("Jump pressed - Current animation:", animation_player.current_animation)
 
 	# Update wall jump timer
 	if wall_jump_timer > 0:
@@ -172,8 +173,6 @@ func _physics_process(delta):
 	# Update ledge grab cooldown
 	if ledge_grab_cooldown_timer > 0:
 		ledge_grab_cooldown_timer -= delta
-		if ledge_grab_cooldown_timer <= 0:
-			print("DEBUG: Ledge grab cooldown ended")
 			
 	# Update invincibility timer
 	if invincibility_timer > 0:
@@ -225,20 +224,23 @@ func enable_double_jump():
 func take_damage(amount: float):
 	# Check if player is invincible
 	if invincibility_timer > 0:
-		print("[Player] Damage ignored - Invincible for:", invincibility_timer, "seconds")
 		return
 		
-	print("[Player] take_damage called with amount:", amount)
 	health -= amount
 	health = clamp(health, 0, max_health)
-	print("[Player] Health after damage:", health)
 	emit_signal("health_changed", health)
+	
+	# Spawn damage number
+	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
+	add_child(damage_number)
+	damage_number.global_position = global_position + Vector2(0, -50)  # Offset above player
+	damage_number.setup(int(amount))
+	damage_number.get_node("Label").modulate = Color(1.0, 0.2, 0.2)  # Red color for player damage
 
 func heal(amount: float):
 	health += amount
 	health = clamp(health, 0, max_health)
 	emit_signal("health_changed", health)
-	print("Player healed:", amount, " Current health:", health)
 
 func is_moving_away_from_wall() -> bool:
 	var input_dir = Input.get_axis("left", "right")
@@ -263,10 +265,6 @@ func end_wall_slide() -> void:
 	current_gravity_multiplier = 1.0
 
 func wall_jump():
-	print("\n=== WALL JUMP START ===")
-	print("Wall normal:", wall_normal)
-	print("Initial velocity:", velocity)
-	
 	is_jumping = true
 	is_wall_jumping = true
 	jump_timer = 0.0
@@ -282,48 +280,47 @@ func wall_jump():
 	# Set velocities directly without any dampening
 	velocity = Vector2(jump_x, jump_y)
 	
-	print("Jump direction:", wall_jump_direction)
-	print("Jump velocity - X:", velocity.x, " Y:", velocity.y)
-	
 	# Add an immediate position adjustment for instant feedback
 	position.x += wall_jump_direction * 20
 	
 	# Enable double jump after wall jump
 	enable_double_jump()
-	print("=== WALL JUMP END ===")
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Check if player is invincible
 	if invincibility_timer > 0:
 		return
 		
-	if debug_enabled:
-		print("[Player] Hurtbox hurt by:", hitbox.get_parent().name)
-	
 	# Store attacker's position and knockback data for hurt state BEFORE taking damage
 	last_hit_position = hitbox.global_position
 	if hitbox.has_method("get_knockback_data"):
 		last_hit_knockback = hitbox.get_knockback_data()
-		if debug_enabled:
-			print("[Player] Knockback data received - Force:", last_hit_knockback.force, " Up Force:", last_hit_knockback.up_force)
 	
-	if hitbox.has_method("get_damage"):
-		var damage = hitbox.get_damage()
-		if debug_enabled:
-			print("[Player] Taking damage:", damage)
-		take_damage(damage)
-		if debug_enabled:
-			print("[Player] Current health:", health)
-	
-	# Always transition to hurt state when hit, regardless of current state
-	if state_machine and state_machine.has_node("Hurt"):
-		if debug_enabled:
-			print("[Player] Transitioning to hurt state")
-		state_machine.transition_to("Hurt")
+	# Check if we're in block state
+	if state_machine and state_machine.current_state.name == "Block":
+		# Use the damage value set by block state (0 for parry, reduced for block)
+		take_damage(hurtbox.last_damage)
 	else:
-		push_error("[Player] Hurt state not found in state machine!")
+		# Normal damage handling
+		if hitbox.has_method("get_damage"):
+			var damage = hitbox.get_damage()
+			take_damage(damage)
 	
-	# Flash the sprite red to indicate damage
-	sprite.modulate = Color(1, 0, 0, 1)
-	await get_tree().create_timer(0.1).timeout
-	sprite.modulate = Color(1, 1, 1, 1)
+	# Only transition to hurt state if not blocking
+	if state_machine and state_machine.has_node("Hurt") and state_machine.current_state.name != "Block":
+		# Force immediate transition to hurt state
+		if state_machine.current_state:
+			state_machine.current_state.exit()
+		
+		var hurt_state = state_machine.get_node("Hurt")
+		state_machine.current_state = hurt_state
+		state_machine.current_state.enter()
+	
+	# Flash the sprite red to indicate damage (only if actually taking damage)
+	if hurtbox.last_damage > 0:
+		sprite.modulate = Color(1, 0, 0, 1)
+		await get_tree().create_timer(0.1).timeout
+		sprite.modulate = Color(1, 1, 1, 1)
+
+func has_coyote_time() -> bool:
+	return coyote_timer > 0.0

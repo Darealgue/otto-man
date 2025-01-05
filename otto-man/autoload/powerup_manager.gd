@@ -25,6 +25,9 @@ func _ready() -> void:
 
 func register_player(p: CharacterBody2D) -> void:
 	player = p
+	# Reactivate any existing powerups for the new player
+	for powerup in active_powerups:
+		powerup.activate(player)
 
 func _process(delta: float) -> void:
 	if !player:
@@ -33,6 +36,15 @@ func _process(delta: float) -> void:
 	# Update all active powerups
 	for powerup in active_powerups:
 		powerup.process(player, delta)
+
+func show_powerup_selection() -> void:
+	if !player:
+		return
+		
+	var selection_ui = PowerupSelection.instantiate()
+	get_tree().root.add_child(selection_ui)
+	selection_ui.setup_powerups(POWERUP_SCENES)
+	get_tree().paused = true
 
 func activate_powerup(powerup_scene: PackedScene) -> void:
 	if !player:
@@ -47,7 +59,6 @@ func activate_powerup(powerup_scene: PackedScene) -> void:
 	# Check for conflicts
 	for active in active_powerups:
 		if active.conflicts_with(powerup) or powerup.conflicts_with(active):
-			push_warning("Powerup conflicts with an active powerup: " + active.powerup_name)
 			powerup.queue_free()
 			return
 			
@@ -77,23 +88,9 @@ func clear_all_powerups() -> void:
 		deactivate_powerup(powerup)
 	active_powerups.clear()
 
-func enemy_killed(enemy: Node2D) -> void:
-	if !player:
-		return
-		
-	# Show powerup selection UI
-	var selection = PowerupSelection.instantiate()
-	get_tree().root.add_child(selection)
-	
-	# Get 3 random powerups to choose from
-	var available_powerups: Array[PackedScene] = POWERUP_SCENES.duplicate()
-	available_powerups.shuffle()
-	var powerup_choices: Array[PackedScene] = available_powerups.slice(0, 3)
-	
-	# Setup the selection UI with the random powerups
-	selection.setup_powerups(powerup_choices)
-	
-	# Notify powerups about the kill
+# Helper function to check if a powerup is active by its scene path
+func has_powerup(powerup_scene_path: String) -> bool:
 	for powerup in active_powerups:
-		if powerup.has_method("on_enemy_killed"):
-			powerup.on_enemy_killed(enemy)
+		if powerup.scene_file_path == powerup_scene_path:
+			return true
+	return false

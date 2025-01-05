@@ -5,10 +5,8 @@ func enter():
 		push_error("Player reference not set in idle state!")
 		return
 		
-	print("Entering Idle State")
 	if animation_player:
 		animation_player.play("idle")
-		print("Playing animation:", animation_player.current_animation)
 	
 	if player.has_method("reset_jump_state"):
 		player.reset_jump_state()
@@ -17,6 +15,18 @@ func enter():
 
 func physics_update(delta: float):
 	if !player:
+		return
+		
+	# Check for attack input first
+	if Input.is_action_just_pressed("attack"):
+		state_machine.transition_to("Attack")
+		return
+		
+	# Check for block input
+	if Input.is_action_pressed("block"):
+		var block_state = state_machine.get_node("Block")
+		if block_state.current_stamina > 0:  # Only try to block if we have stamina
+			state_machine.transition_to("Block")
 		return
 		
 	if not player.is_on_floor() and player.coyote_timer <= 0:

@@ -172,4 +172,10 @@ centered = false
 [node name="GameUI" parent="." instance=ExtResource("9_rktge")]
 
 [node name="HeavyEnemy" parent="." instance=ExtResource("10_jfg6n")]
-position = Vector2(443, 239)
+position = Vector2(394, 252)
+
+[node name="HeavyEnemy2" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(913, 556)
+
+[node name="HeavyEnemy3" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(1462, 12)

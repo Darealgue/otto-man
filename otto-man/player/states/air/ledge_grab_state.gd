@@ -25,11 +25,6 @@ func _ready():
 	ledge_ray_top_left.enabled = true
 	ledge_ray_top_right.enabled = true
 	
-	print("DEBUG: Ledge grab state ready")
-	print("DEBUG: Raycasts enabled - Left:", wall_ray_left.enabled, 
-		  " Right:", wall_ray_right.enabled,
-		  " TopLeft:", ledge_ray_top_left.enabled,
-		  " TopRight:", ledge_ray_top_right.enabled)
 
 func physics_update(delta: float):
 	if grab_timer > 0:
@@ -37,7 +32,6 @@ func physics_update(delta: float):
 	
 	# Handle instant mounting with up button
 	if Input.is_action_just_pressed("up") and can_climb:
-		print("DEBUG: Instant mounting to platform")
 		# Move player to top of platform and forward
 		var mount_pos = ledge_position + MOUNT_OFFSET
 		mount_pos.x += facing_direction * MOUNT_FORWARD_OFFSET  # Move in the direction we're facing
@@ -45,23 +39,31 @@ func physics_update(delta: float):
 		player.velocity = Vector2.ZERO
 		# Flip the player to face the opposite direction
 		player.sprite.flip_h = !player.sprite.flip_h
-		state_machine.transition_to("Idle")
+		
+		# Ensure we're on the ground before transitioning to idle
+		if player.is_on_floor():
+			animation_player.play("idle")
+			state_machine.transition_to("Idle")
+		else:
+			# If somehow not on floor, transition to fall
+			animation_player.play("fall")
+			state_machine.transition_to("Fall")
 		return
 	
 	# Handle climbing up with jump
 	if Input.is_action_just_pressed("jump") and can_climb:
-		print("DEBUG: Climbing up ledge")
 		player.velocity = CLIMB_FORCE
 		player.velocity.x = facing_direction * 150  # Horizontal boost for smoother climb
+		animation_player.play("jump_upwards")  # Play jump animation when climbing
 		state_machine.transition_to("Jump")
 		return
 	
 	# Handle letting go
 	var input_dir = Input.get_axis("left", "right")
 	if Input.is_action_just_pressed("down") or input_dir * facing_direction < 0:
-		print("DEBUG: Letting go of ledge - Input dir:", input_dir, " Facing:", facing_direction)
 		player.velocity = Vector2.ZERO  # Reset velocity before falling
 		player.ledge_grab_cooldown_timer = LEDGE_GRAB_COOLDOWN  # Start cooldown
+		animation_player.play("fall")  # Play fall animation when letting go
 		state_machine.transition_to("Fall")
 		return
 	
@@ -70,7 +72,6 @@ func physics_update(delta: float):
 	player.global_position = ledge_position + (LEDGE_OFFSET * Vector2(facing_direction, 1))  # Flip X offset based on facing direction
 
 func enter():
-	print("DEBUG: Entering ledge grab state")
 	animation_player.stop()
 	animation_player.play("ledge_grab")
 	
@@ -80,7 +81,6 @@ func enter():
 	facing_direction = ledge_data.direction
 	
 	if ledge_position == Vector2.ZERO:
-		print("DEBUG: No valid ledge found")
 		state_machine.transition_to("Fall")
 		return
 	
@@ -93,7 +93,6 @@ func enter():
 	# Face the correct direction - when grabbing left wall, face right and vice versa
 	player.sprite.flip_h = facing_direction > 0  # Inverted logic for correct facing
 	
-	print("DEBUG: Grabbed ledge at:", ledge_position, " facing:", facing_direction)
 
 func _get_ledge_position() -> Dictionary:
 	var result = {"position": Vector2.ZERO, "direction": 0}
@@ -106,10 +105,6 @@ func _get_ledge_position() -> Dictionary:
 	var left_wall = wall_ray_left.is_colliding()
 	var right_wall = wall_ray_right.is_colliding()
 	
-	# Only print when there's a potential ledge grab
-	if left_wall or right_wall:
-		print("DEBUG: Ledge check - Wall:", "Left" if left_wall else "Right", "Dir:", chosen_direction)
-		print("DEBUG: Top rays - Left:", ledge_ray_top_left.is_colliding(), "Right:", ledge_ray_top_right.is_colliding())
 	
 	# Check left side
 	if chosen_direction <= 0 and left_wall and not ledge_ray_top_left.is_colliding():
@@ -128,14 +123,9 @@ func _get_ledge_position() -> Dictionary:
 func can_ledge_grab() -> bool:
 	# Check cooldown first
 	if player.ledge_grab_cooldown_timer > 0:
-		print("DEBUG: Ledge grab on cooldown:", player.ledge_grab_cooldown_timer)
 		return false
 		
 	var ledge = _get_ledge_position()
 	var can_grab = ledge.direction != 0 and ledge.position != Vector2.ZERO
-	
-	# Only print when we find a valid ledge
-	if can_grab:
-		print("DEBUG: Valid ledge found at", ledge.position, "Dir:", ledge.direction)
 	
 	return can_grab

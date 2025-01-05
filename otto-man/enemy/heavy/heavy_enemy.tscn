@@ -1,7 +1,7 @@
 [gd_scene load_steps=88 format=3 uid="uid://b4yfkqn1hqv8q"]
 
 [ext_resource type="Script" path="res://enemy/heavy/heavy_enemy.gd" id="1_script"]
-[ext_resource type="Resource" path="res://enemy/heavy/heavy_enemy_stats.tres" id="2_stats"]
+[ext_resource type="Resource" uid="uid://baftw8h06wv1a" path="res://enemy/heavy/heavy_enemy_stats.tres" id="2_stats"]
 [ext_resource type="Script" path="res://components/hitbox.gd" id="3_hitbox"]
 [ext_resource type="Script" path="res://components/hurtbox.gd" id="4_hurtbox"]
 [ext_resource type="Texture2D" uid="uid://bjol1f68t8nc7" path="res://enemy/heavy/sprites/dusman idle border.png" id="5_idle"]
@@ -395,7 +395,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_2bqka")
 }],
-"loop": false,
+"loop": true,
 "name": &"dead",
 "speed": 12.0
 }, {
@@ -418,7 +418,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_oq5s2")
 }],
-"loop": false,
+"loop": true,
 "name": &"hurt",
 "speed": 15.0
 }, {
@@ -577,7 +577,9 @@ debug_enabled = true
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -16)
 sprite_frames = SubResource("SpriteFrames_enemy")
-animation = &"slam_prepare"
+animation = &"hurt"
+frame = 5
+frame_progress = 1.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(1, 1)
