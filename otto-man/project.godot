@@ -23,6 +23,7 @@ DevConsole="*res://ui/dev_console.tscn"
 DamageValues="*res://autoload/damage_values.gd"
 ScreenEffects="*res://effects/screen_effects.tscn"
 PlayerStats="*res://autoload/player_stats.gd"
+AttackManager="*res://autoload/attack_manager.gd"
 
 [display]
 

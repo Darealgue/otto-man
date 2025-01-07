@@ -3,5 +3,4 @@
 [ext_resource type="Script" path="res://resources/powerups/damage_boost.gd" id="1_u2r3d"]
 
 [node name="DamageBoost" type="Node"]
-script = ExtResource("1_u2r3d")
-damage_multiplier = 1.5 
+script = ExtResource("1_u2r3d") 

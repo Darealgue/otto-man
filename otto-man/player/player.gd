@@ -1,6 +1,8 @@
 extends CharacterBody2D
 
 signal health_changed(new_health: float)
+signal perfect_parry  # Signal for Perfect Guard powerup
+signal dash_started
 
 @export var speed: float = 450.0
 @export var jump_velocity: float = 600.0
@@ -8,7 +10,6 @@ signal health_changed(new_health: float)
 @export var acceleration: float = 3000.0
 @export var friction: float = 2000.0
 @export var stop_friction_multiplier: float = 2.0
-@export var max_health: float = 100.0
 @export var coyote_time: float = 0.15
 @export var jump_buffer_time: float = 0.1
 @export var fall_gravity_multiplier: float = 2.0
@@ -32,7 +33,6 @@ const COYOTE_TIME := 0.15  # Time in seconds player can still jump after leaving
 const FALL_GRAVITY_MULTIPLIER := 1.5  # Makes falling faster than rising
 
 var gravity: float = ProjectSettings.get_setting("physics/2d/default_gravity")
-var health: float = max_health
 var can_double_jump: bool = false
 var has_double_jumped: bool = false
 var coyote_timer: float = 0.0
@@ -53,6 +53,13 @@ var last_hit_knockback: Dictionary = {}
 var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
 
+# Stats multipliers for powerups
+var damage_multiplier: float = 1.0
+var speed_multiplier: float = 1.0
+var base_damage: float = 15.0  # Base damage value
+var damage_multipliers: Array[float] = []  # Array to store all active multipliers
+var is_dashing: bool = false  # For Speed Demon powerup
+
 @onready var animation_tree = $AnimationTree
 @onready var animation_player = $AnimationPlayer
 @onready var sprite = $Sprite2D
@@ -65,17 +72,19 @@ func _ready():
 	animation_player.active = true
 	animation_tree.active = false
 	
-	health = max_health
-	emit_signal("health_changed", health)
+	# Initialize health from PlayerStats
+	var player_stats = get_node("/root/PlayerStats")
+	if player_stats:
+		player_stats.health_changed.connect(_on_health_changed)
+		emit_signal("health_changed", player_stats.get_current_health())
+		player_stats.stat_changed.connect(_on_stat_changed)
 	
 	# Set up hitbox and hurtbox
 	if hitbox:
-		hitbox.is_player = true
 		hitbox.collision_layer = 16  # Layer 5 (Player hitbox)
 		hitbox.collision_mask = 32   # Layer 6 (Enemy hurtbox)
 	
 	if hurtbox:
-		hurtbox.is_player = true
 		hurtbox.collision_layer = 8   # Layer 4 (Player hurtbox)
 		hurtbox.collision_mask = 64   # Layer 7 (Enemy hitbox)
 		# Disconnect any existing connections to avoid duplicates
@@ -85,6 +94,24 @@ func _ready():
 		hurtbox.hurt.connect(_on_hurtbox_hurt)
 	else:
 		push_error("[Player] Warning: No hurtbox found!")
+	
+	# Register with PowerupManager
+	PowerupManager.register_player(self)
+	
+	# Initialize stats
+	damage_multiplier = 1.0
+	speed_multiplier = 1.0
+	
+	# Connect dash state signals
+	if dash_state:
+		print("[DEBUG] Connecting dash state signals")
+		if not dash_state.is_connected("state_entered", _on_dash_state_entered):
+			dash_state.connect("state_entered", _on_dash_state_entered)
+		if not dash_state.is_connected("state_exited", _on_dash_state_exited):
+			dash_state.connect("state_exited", _on_dash_state_exited)
+		
+	# Initialize stats from PlayerStats
+	_sync_stats_from_player_stats()
 
 func _physics_process(delta):
 	# Update dash cooldown
@@ -178,6 +205,14 @@ func _physics_process(delta):
 	if invincibility_timer > 0:
 		invincibility_timer -= delta
 
+	# Apply speed multiplier to movement
+	if Input.is_action_pressed("right"):
+		velocity.x = move_toward(velocity.x, speed * speed_multiplier, acceleration * delta)
+	elif Input.is_action_pressed("left"):
+		velocity.x = move_toward(velocity.x, -speed * speed_multiplier, acceleration * delta)
+	else:
+		apply_friction(delta)
+
 func can_jump() -> bool:
 	return is_on_floor() or coyote_timer > 0
 
@@ -221,26 +256,17 @@ func enable_double_jump():
 	can_double_jump = true
 	has_double_jumped = false
 
-func take_damage(amount: float):
-	# Check if player is invincible
-	if invincibility_timer > 0:
-		return
-		
-	health -= amount
-	health = clamp(health, 0, max_health)
-	emit_signal("health_changed", health)
-	
-	# Spawn damage number
-	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-	add_child(damage_number)
-	damage_number.global_position = global_position + Vector2(0, -50)  # Offset above player
-	damage_number.setup(int(amount))
-	damage_number.get_node("Label").modulate = Color(1.0, 0.2, 0.2)  # Red color for player damage
+func take_damage(amount: float, show_damage_number: bool = true):
+	var player_stats = get_node("/root/PlayerStats")
+	if player_stats:
+		var current_health = player_stats.get_current_health()
+		player_stats.set_current_health(current_health - amount, show_damage_number)
 
 func heal(amount: float):
-	health += amount
-	health = clamp(health, 0, max_health)
-	emit_signal("health_changed", health)
+	var player_stats = get_node("/root/PlayerStats")
+	if player_stats:
+		var current_health = player_stats.get_current_health()
+		player_stats.set_current_health(current_health + amount)
 
 func is_moving_away_from_wall() -> bool:
 	var input_dir = Input.get_axis("left", "right")
@@ -299,12 +325,13 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Check if we're in block state
 	if state_machine and state_machine.current_state.name == "Block":
 		# Use the damage value set by block state (0 for parry, reduced for block)
-		take_damage(hurtbox.last_damage)
+		var is_parry = hurtbox.last_damage == 0  # Check if this was a parry
+		take_damage(hurtbox.last_damage, !is_parry)  # Only show damage number if not a parry
 	else:
 		# Normal damage handling
 		if hitbox.has_method("get_damage"):
 			var damage = hitbox.get_damage()
-			take_damage(damage)
+			take_damage(damage)  # Show damage number for normal hits
 	
 	# Only transition to hurt state if not blocking
 	if state_machine and state_machine.has_node("Hurt") and state_machine.current_state.name != "Block":
@@ -324,3 +351,118 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 
 func has_coyote_time() -> bool:
 	return coyote_timer > 0.0
+
+# Powerup-related functions
+func modify_damage_multiplier(multiplier: float) -> void:
+	# This function now only handles attack damage multipliers
+	print("[DEBUG] Damage Calculation - Starting damage:", base_damage * damage_multiplier)
+	print("[DEBUG] Damage Calculation - Adding multiplier:", multiplier)
+	
+	# Convert multiplier to bonus (e.g., 1.2 becomes 0.2)
+	var bonus = multiplier - 1.0
+	damage_multipliers.append(bonus)
+	
+	# Calculate total bonus (additive stacking)
+	var total_bonus = 0.0
+	for bonus_value in damage_multipliers:
+		total_bonus += bonus_value
+	
+	# Apply total bonus
+	damage_multiplier = 1.0 + total_bonus
+	
+	print("[DEBUG] Damage Calculation - Current bonuses:", damage_multipliers)
+	print("[DEBUG] Damage Calculation - Total bonus:", total_bonus)
+	
+	# Update hitbox damage using base damage from PlayerStats
+	if hitbox:
+		hitbox.damage = base_damage * damage_multiplier
+		print("[DEBUG] Damage Calculation - Final damage:", hitbox.damage)
+
+func remove_damage_multiplier(multiplier: float) -> void:
+	# Convert multiplier to bonus before removing
+	var bonus = multiplier - 1.0
+	damage_multipliers.erase(bonus)
+	
+	# Recalculate total bonus
+	var total_bonus = 0.0
+	for bonus_value in damage_multipliers:
+		total_bonus += bonus_value
+	
+	# Apply the total bonus
+	damage_multiplier = 1.0 + total_bonus
+	
+	# Update hitbox damage using base damage
+	if hitbox:
+		hitbox.damage = base_damage * damage_multiplier
+		print("[DEBUG] Damage Calculation - Removed multiplier, new damage:", hitbox.damage)
+
+func modify_speed(multiplier: float) -> void:
+	# This function is now just for temporary speed modifications (like dash)
+	speed_multiplier = multiplier
+
+func get_stats() -> Dictionary:
+	var player_stats = get_node("/root/PlayerStats")
+	return {
+		"current_health": get_current_health(),
+		"max_health": get_max_health(),
+		"damage_multiplier": damage_multiplier,
+		"movement_speed": speed * speed_multiplier,
+		"base_damage": base_damage,
+		"total_damage": base_damage * damage_multiplier,
+		"speed_multiplier": speed_multiplier
+	}
+
+# Update dash state tracking
+func _on_dash_state_entered() -> void:
+	print("[DEBUG] Dash state entered")
+	is_dashing = true
+	emit_signal("dash_started")
+
+func _on_dash_state_exited() -> void:
+	print("[DEBUG] Dash state exited")
+	is_dashing = false
+
+# Update perfect parry detection
+func _on_successful_parry() -> void:
+	print("[DEBUG] Player - Perfect parry detected")
+	print("   Has signal:", has_signal("perfect_parry"))
+	print("   Signal connections:", get_signal_connection_list("perfect_parry"))
+	emit_signal("perfect_parry")
+	print("   Signal emitted")
+
+# Add new functions for stat syncing
+func _sync_stats_from_player_stats() -> void:
+	var player_stats = get_node("/root/PlayerStats")
+	if !player_stats:
+		return
+		
+	speed = player_stats.get_stat("movement_speed")
+	base_damage = player_stats.get_stat("base_damage")
+
+func _on_stat_changed(stat_name: String, _old_value: float, new_value: float) -> void:
+	match stat_name:
+		"movement_speed":
+			speed = new_value
+		"base_damage":
+			base_damage = new_value
+			if hitbox:
+				hitbox.damage = base_damage * damage_multiplier
+
+func _on_health_changed(new_health: float) -> void:
+	emit_signal("health_changed", new_health)
+
+func get_max_health() -> float:
+	var player_stats = get_node("/root/PlayerStats")
+	return player_stats.get_max_health() if player_stats else 100.0
+
+func get_current_health() -> float:
+	var player_stats = get_node("/root/PlayerStats")
+	return player_stats.get_current_health() if player_stats else 100.0
+
+func get_health_percent() -> float:
+	var max_health = get_max_health()
+	return get_current_health() / max_health if max_health > 0 else 1.0
+
+# Make dash state accessible for powerups
+func get_dash_state() -> State:
+	return dash_state

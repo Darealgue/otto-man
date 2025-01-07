@@ -1,238 +1,181 @@
 extends State
 
-const AttackConfigClass = preload("res://autoload/attack_config.gd")
+const COMBO_WINDOW_FRAMES = 20
+const MAX_COMBO_COUNT = 3
+const ATTACK_SPEED_MULTIPLIER = 0.5  # 50% movement speed during attacks
+const MOMENTUM_PRESERVATION = 0.8     # Preserve 80% of previous momentum
+const ANIMATION_SPEED = 1.25         # 25% faster animations
 
-var attack_config_instance: Node
-var current_attack_type = AttackConfigClass.AttackType.LIGHT
 var combo_count := 0
-var combo_window_timer := 0.0
-var attack_cooldown_timer := 0.0
-const COMBO_WINDOW := 0.8  # Increased from 0.5 to give more time for next input
-const ATTACK_COOLDOWN := 0.1  # Reduced from 0.2 to make attacks more responsive
-const INPUT_BUFFER_TIME := 0.2  # Time window to buffer the next attack input
-
-# Track which frames should enable/disable hitbox for each attack
-const ATTACK_FRAMES = {
-	"light_attack1": {"enable": 2, "disable": 4},  # Enable on frame 2, disable on frame 4
-	"light_attack2": {"enable": 4, "disable": 8},  # Adjusted to match the swing animation frames (frames 7-8)
-	"light_attack3": {"enable": 4, "disable": 7}   # Enable during the strong swing
-}
-
-# Minimum animation progress required before allowing next combo (0.0 to 1.0)
-const MIN_COMBO_PROGRESS = {
-	"light_attack1": 0.6,  # 60% through the animation
-	"light_attack2": 0.7,  # 70% through the animation
-	"light_attack3": 0.8   # 80% through the animation
-}
-
-var current_attack_name := ""
+var combo_window := 0
+var current_attack := ""
 var hitbox_enabled := false
-var can_attack := true
-var original_hitbox_position: Vector2
-var buffered_attack := false
-var buffer_timer := 0.0
-
-func _ready():
-	# Wait for player node to be ready
-	await owner.ready
-	
-	attack_config_instance = AttackConfigClass.new()
-	
-	# Store original hitbox position if hitbox exists
-	if player and player.has_node("Hitbox") and player.get_node("Hitbox").has_node("CollisionShape2D"):
-		original_hitbox_position = player.get_node("Hitbox").get_node("CollisionShape2D").position
-	else:
-		push_error("[AttackState] Could not find hitbox or its collision shape")
-	
-	# Reset attack state when node is ready
-	_reset_attack_state()
+var next_combo_ready := false  # Track if we've queued up the next combo
+var input_locked := false      # Prevent multiple inputs during the same attack
+var initial_velocity := Vector2.ZERO  # Store initial velocity for momentum preservation
 
 func enter():
-	if not can_attack:
-		state_machine.transition_to("Idle")
-		return
-		
-	
-	if animation_tree:
-		animation_tree.active = true
-		animation_tree.set("parameters/conditions/movement_to_combat", true)
-	
-	player.velocity.x = 0
 	hitbox_enabled = false
-	can_attack = false  # Start cooldown
-	attack_cooldown_timer = ATTACK_COOLDOWN
+	next_combo_ready = false
+	input_locked = false
 	
-	# Get attack configuration
-	var config = attack_config_instance.get_attack_config(current_attack_type)
+	# Store initial velocity for momentum preservation
+	initial_velocity = player.velocity
 	
-	# Set up hitbox for attack (but don't enable yet)
+	# Get attack name based on combo count
+	current_attack = "light_attack" + str(combo_count + 1)
+	
+	# Connect animation finished signal
+	if not animation_player.is_connected("animation_finished", _on_animation_player_animation_finished):
+		animation_player.animation_finished.connect(_on_animation_player_animation_finished)
+	
+	# Stop any current animation and play the new one with increased speed
+	animation_player.stop()
+	animation_player.play(current_attack)
+	animation_player.speed_scale = ANIMATION_SPEED  # Speed up the animation
+	
+	# Set up hitbox for current attack
 	var hitbox = player.get_node_or_null("Hitbox")
-	if hitbox:
-		# Get the combo multiplier for the current attack
-		var damage_multiplier = 1.0
-		var knockback_multiplier = 1.0
-		
-		if config.has("combo_multipliers"):
-			match combo_count:
-				0:
-					damage_multiplier = config.combo_multipliers.light_attack1
-					knockback_multiplier = 1.0
-				1:
-					damage_multiplier = config.combo_multipliers.light_attack2.damage
-					knockback_multiplier = config.combo_multipliers.light_attack2.knockback
-				2:
-					damage_multiplier = config.combo_multipliers.light_attack3.damage
-					knockback_multiplier = config.combo_multipliers.light_attack3.knockback
-		
-		# Apply damage and knockback with multipliers
-		hitbox.damage = config.damage * damage_multiplier
-		hitbox.knockback_force = config.knockback_force * knockback_multiplier
-		hitbox.knockback_up_force = config.knockback_up_force * knockback_multiplier
-		hitbox.disable()  # Ensure hitbox starts disabled
-		
-		# Update hitbox position based on player direction
-		_update_hitbox_position()
-		
-	else:
-		push_error("[AttackState] Could not find hitbox node")
-	
-	# Play the appropriate combo animation
-	match combo_count:
-		0: 
-			current_attack_name = "light_attack1"
-			animation_player.play(current_attack_name)
-		1: 
-			current_attack_name = "light_attack2"
-			animation_player.play(current_attack_name)
-		2: 
-			current_attack_name = "light_attack3"
-			animation_player.play(current_attack_name)
-	
-	combo_window_timer = COMBO_WINDOW
-
-func physics_update(delta: float):
-	# Update cooldown timer
-	if not can_attack:
-		attack_cooldown_timer -= delta
-		if attack_cooldown_timer <= 0:
-			can_attack = true
-			# Check for buffered attack
-			if buffered_attack:
-				buffered_attack = false
-				if combo_count < 2:
-					combo_count += 1
-					enter()
-					return
-	
-	# Update buffer timer
-	if buffer_timer > 0:
-		buffer_timer -= delta
-		if buffer_timer <= 0:
-			buffered_attack = false
-	
-	# Check current animation frame for hitbox timing
-	if animation_player and animation_player.is_playing():
-		var hitbox = player.get_node_or_null("Hitbox")
-		if hitbox:
-			var current_frame = animation_player.current_animation_position / animation_player.current_animation_length * animation_player.get_animation(current_attack_name).length
-			var frame_number = int(current_frame / animation_player.get_animation(current_attack_name).step)
-			
-			if current_attack_name in ATTACK_FRAMES:
-				var frames = ATTACK_FRAMES[current_attack_name]
-				if frame_number >= frames["enable"] and frame_number < frames["disable"] and not hitbox_enabled:
-					_update_hitbox_position()  # Update position before enabling
-					hitbox.enable()
-					hitbox_enabled = true
-				elif frame_number >= frames["disable"] and hitbox_enabled:
-					hitbox.disable()
-					hitbox_enabled = false
-	
-	if combo_window_timer > 0:
-		combo_window_timer -= delta
-		
-		# Check for next combo input during the window
-		if Input.is_action_just_pressed("attack"):
-			# Check if current animation has progressed enough
-			var can_combo = true
-			if animation_player and animation_player.is_playing() and current_attack_name in MIN_COMBO_PROGRESS:
-				var progress = animation_player.current_animation_position / animation_player.current_animation_length
-				can_combo = progress >= MIN_COMBO_PROGRESS[current_attack_name]
-			
-			if can_attack and can_combo and combo_count < 2:  # Max 3 hits in combo (0, 1, 2)
-				combo_count += 1
-				enter()  # Restart the state with next combo attack
-				return
-			elif not can_combo:  # Only buffer if we're not ready for combo yet
-				# Buffer the attack input
-				buffered_attack = true
-				buffer_timer = INPUT_BUFFER_TIME
-	
-	if not player.is_on_floor():
-		_end_combo()
-		state_machine.transition_to("Fall")
-		return
-		
-	if Input.is_action_just_pressed("jump"):
-		_end_combo()
-		state_machine.transition_to("Jump")
-		return
-		
-	var input_dir = Input.get_axis("left", "right")
-	if input_dir != 0:
-		player.velocity.x = move_toward(player.velocity.x, player.speed * input_dir, player.acceleration * delta)
-		player.sprite.flip_h = input_dir < 0
-		_update_hitbox_position()  # Update hitbox position when player changes direction
-	player.move_and_slide()
-
-func _update_hitbox_position() -> void:
-	var hitbox = player.get_node_or_null("Hitbox")
-	if hitbox and hitbox.has_node("CollisionShape2D"):
-		var hitbox_shape = hitbox.get_node("CollisionShape2D")
-		if player.sprite.flip_h:  # Facing left
-			hitbox_shape.position.x = -abs(original_hitbox_position.x)
-		else:  # Facing right
-			hitbox_shape.position.x = abs(original_hitbox_position.x)
-
-func _on_animation_player_animation_finished(anim_name: String):
-	if anim_name.begins_with("light_attack"):
-		
-		# Ensure hitbox is disabled when animation ends
-		var hitbox = player.get_node_or_null("Hitbox")
-		if hitbox:
-			hitbox.disable()
-			hitbox_enabled = false
-		
-		# Always transition to idle after attack animation finishes
-		# The combo can continue from idle state if within the window
-		_end_combo()
-		state_machine.transition_to("Idle")
+	if hitbox and hitbox is PlayerHitbox:
+		hitbox.enable_combo(current_attack, combo_count + 1)
+		_update_hitbox_position(hitbox)
 
 func exit():
-	if animation_tree:
-		animation_tree.set("parameters/conditions/movement_to_combat", false)
-	# Ensure hitbox is disabled when leaving state
+	# Disconnect animation finished signal
+	if animation_player.is_connected("animation_finished", _on_animation_player_animation_finished):
+		animation_player.animation_finished.disconnect(_on_animation_player_animation_finished)
+	
+	current_attack = ""
+	input_locked = false
+	
+	# Reset animation speed
+	animation_player.speed_scale = 1.0
+	
+	# Disable hitbox
 	var hitbox = player.get_node_or_null("Hitbox")
-	if hitbox:
+	if hitbox and hitbox is PlayerHitbox:
 		hitbox.disable()
+		hitbox.disable_combo()
 		hitbox_enabled = false
+	
+	# If we haven't queued up the next combo and we're transitioning to a different state,
+	# reset the combo count
+	if not next_combo_ready:
+		combo_count = 0
+		# Play idle animation when exiting without next combo
+		animation_player.play("idle")
 
-func _end_combo():
-	combo_count = 0
-	combo_window_timer = 0.0
-	current_attack_name = ""
+func update(delta: float):
+	# Handle movement during attack
+	_handle_movement(delta)
+	
+	# Handle attack cancels
+	if _check_cancel_conditions():
+		return
+	
+	# Check for next attack input at any time during the animation
+	if Input.is_action_just_pressed("attack") and not input_locked and combo_count < MAX_COMBO_COUNT - 1:
+		next_combo_ready = true
+		input_locked = true  # Lock input until next attack
+	
+	# Enable/disable hitbox based on animation frames
+	var current_frame = animation_player.current_animation_position * animation_player.current_animation_length
+	var hitbox = player.get_node_or_null("Hitbox")
+	
+	if hitbox and hitbox is PlayerHitbox:
+		# Enable hitbox during the middle frames of the animation
+		var anim_length = animation_player.current_animation_length
+		var start_frame = anim_length * 0.1  # Enable at 10% of animation
+		var end_frame = anim_length * 0.7    # Disable at 70% of animation
+		
+		if current_frame >= start_frame and current_frame <= end_frame:
+			if not hitbox_enabled:
+				hitbox.enable()
+				hitbox_enabled = true
+				_update_hitbox_position(hitbox)
+		else:
+			if hitbox_enabled:
+				hitbox.disable()
+				hitbox_enabled = false
 
+func _handle_movement(delta: float) -> void:
+	# Get input direction
+	var input_dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	
+	# Calculate velocity with attack speed multiplier
+	var target_velocity = Vector2(
+		input_dir.x * player.speed * ATTACK_SPEED_MULTIPLIER,
+		player.velocity.y  # Keep vertical velocity unchanged
+	)
+	
+	# Apply momentum preservation
+	player.velocity.x = lerp(player.velocity.x, target_velocity.x, 1.0 - MOMENTUM_PRESERVATION)
+	
+	# Update player facing direction if moving
+	if input_dir.x != 0:
+		player.sprite.flip_h = input_dir.x < 0
+		
+		# Update hitbox position when changing direction
+		var hitbox = player.get_node_or_null("Hitbox")
+		if hitbox and hitbox is PlayerHitbox:
+			_update_hitbox_position(hitbox)
+	
+	# Apply movement
+	player.move_and_slide()
 
-func _reset_attack_state():
-	can_attack = true
-	attack_cooldown_timer = 0.0
-	combo_count = 0
-	combo_window_timer = 0.0
-	current_attack_name = ""
-	hitbox_enabled = false
-	buffered_attack = false
-	buffer_timer = 0.0
+func _check_cancel_conditions() -> bool:
+	# Cancel into dash
+	if Input.is_action_just_pressed("dash") and state_machine.has_node("Dash"):
+		_cancel_into_state("Dash")
+		return true
+	
+	# Cancel into jump
+	if Input.is_action_just_pressed("jump") and player.is_on_floor() and state_machine.has_node("Jump"):
+		_cancel_into_state("Jump")
+		return true
+	
+	# Cancel into block
+	if Input.is_action_just_pressed("block") and state_machine.has_node("Block"):
+		_cancel_into_state("Block")
+		return true
+	
+	return false
 
+func _cancel_into_state(state_name: String) -> void:
+	# Clean up current attack state
+	var hitbox = player.get_node_or_null("Hitbox")
+	if hitbox and hitbox is PlayerHitbox:
+		hitbox.disable()
+		hitbox.disable_combo()
+	
+	# Preserve some momentum when canceling
+	initial_velocity = player.velocity
+	
+	# Transition to new state
+	state_machine.transition_to(state_name)
 
-# Set the attack type before entering the state
-func set_attack_type(type: int) -> void:
-	current_attack_type = type
+func _update_hitbox_position(hitbox: Node2D) -> void:
+	var collision_shape = hitbox.get_node("CollisionShape2D")
+	if collision_shape:
+		var position = collision_shape.position
+		position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
+		collision_shape.position = position
+
+func _on_animation_player_animation_finished(anim_name: String):
+	if anim_name == current_attack:
+		if next_combo_ready and combo_count < MAX_COMBO_COUNT - 1:
+			# Increment combo count before starting next attack
+			combo_count += 1
+			var next_combo = combo_count  # Store the next combo count
+			next_combo_ready = false
+			# Clean up current state
+			exit()
+			# Reset combo count to what it should be
+			combo_count = next_combo
+			# Start new attack
+			enter()
+		else:
+			# No next attack queued, return to idle
+			combo_count = 0
+			next_combo_ready = false
+			state_machine.transition_to("Idle") 

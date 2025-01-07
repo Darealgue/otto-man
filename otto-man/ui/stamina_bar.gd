@@ -9,11 +9,19 @@ var recharging_index = -1  # Which segment is currently recharging (-1 if none)
 @onready var segments = [$Segments/Segment1, $Segments/Segment2, $Segments/Segment3]
 
 func _ready():
+	print("[StaminaBar] Initializing...")
 	add_to_group("stamina_bar")
 	update_segments()
-	modulate.a = 0.0  # Start invisible
+	show()
+	modulate.a = 1.0  # Start visible
+	print("[StaminaBar] Ready - Visible:", visible, " Modulate:", modulate)
 
 func _process(delta):
+	if !visible:
+		show()
+		modulate.a = 1.0
+		return
+		
 	if recharging_index >= 0:
 		charges[recharging_index] = min(charges[recharging_index] + delta / RECHARGE_RATE, 1.0)
 		if charges[recharging_index] >= 1.0:
@@ -23,11 +31,14 @@ func _process(delta):
 				if charges[i] < 1.0:
 					recharging_index = i
 					break
-			
-			if recharging_index == -1:  # All segments are full
-				hide_bar()  # Hide when fully recharged
-			
 		update_segments()
+
+func show_bar():
+	show()
+	modulate.a = 1.0
+
+func hide_bar():
+	modulate.a = 0.5  # Keep slightly visible when full
 
 func use_charge():
 	# Find rightmost full charge
@@ -40,10 +51,10 @@ func use_charge():
 					if charges[j] < 1.0:
 						recharging_index = j
 						break
-			show_bar()  # Show when using charges
+			show_bar()
 			update_segments()
 			return true
-	return false  # No charges available
+	return false
 
 func get_segment_priority(value: float) -> int:
 	if value >= 1.0:  # Full
@@ -94,12 +105,6 @@ func update_segments():
 			segments[i].modulate = Color(1.0, 1.0, 1.0, 1.0)  # Full brightness
 		else:
 			segments[i].modulate = Color(0.7, 0.7, 0.7, 0.7)  # Dimmed when not full
-
-func show_bar():
-	modulate.a = 1.0
-
-func hide_bar():
-	modulate.a = 0.0  # Make fully invisible when not in use
 
 func is_recharging():
 	return recharging_index >= 0

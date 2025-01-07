@@ -14,7 +14,6 @@ func _init() -> void:
 	powerup_type = PowerupType.DEFENSE
 
 func apply(player: CharacterBody2D) -> void:
-	print("[DEBUG] Applying Shield Master powerup")
 	modify_stat("shield_cooldown", 1.0 - shield_cooldown_reduction, true)
 	modify_stat("shield_strength", shield_strength_bonus)
 	
@@ -23,7 +22,6 @@ func apply(player: CharacterBody2D) -> void:
 		player.shield_broken.connect(_on_shield_broken)
 
 func remove(player: CharacterBody2D) -> void:
-	print("[DEBUG] Removing Shield Master powerup")
 	modify_stat("shield_cooldown", 1.0, true)
 	modify_stat("shield_strength", 0)
 	

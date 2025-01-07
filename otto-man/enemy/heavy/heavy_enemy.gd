@@ -77,7 +77,6 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	
 	
 	if hitbox and current_behavior in ["charging", "slam"]:
-		print("[HeavyEnemy] Disabling hitbox from previous attack")
 		hitbox.disable()
 		
 	current_behavior = new_behavior

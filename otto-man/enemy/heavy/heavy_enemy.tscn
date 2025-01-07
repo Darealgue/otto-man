@@ -2,15 +2,15 @@
 
 [ext_resource type="Script" path="res://enemy/heavy/heavy_enemy.gd" id="1_script"]
 [ext_resource type="Resource" uid="uid://baftw8h06wv1a" path="res://enemy/heavy/heavy_enemy_stats.tres" id="2_stats"]
-[ext_resource type="Script" path="res://components/hitbox.gd" id="3_hitbox"]
-[ext_resource type="Script" path="res://components/hurtbox.gd" id="4_hurtbox"]
 [ext_resource type="Texture2D" uid="uid://bjol1f68t8nc7" path="res://enemy/heavy/sprites/dusman idle border.png" id="5_idle"]
 [ext_resource type="Texture2D" uid="uid://xnmeogau235g" path="res://enemy/heavy/sprites/dusman walk border.png" id="6_walk"]
 [ext_resource type="Texture2D" uid="uid://btj5wx45neh18" path="res://enemy/heavy/sprites/dusman hurt.png" id="7_hurt"]
 [ext_resource type="Texture2D" uid="uid://eki3lbyd8887" path="res://enemy/heavy/sprites/dusman dead.png" id="8_dead"]
 [ext_resource type="Texture2D" uid="uid://dm4kp8jm6786r" path="res://enemy/heavy/sprites/charge_attack_border.png" id="9_charge"]
 [ext_resource type="Texture2D" uid="uid://bw7w8bdibm3s8" path="res://enemy/heavy/sprites/charge_attack_charge_border.png" id="10_charge_prep"]
+[ext_resource type="Script" path="res://components/enemy_hitbox.gd" id="11_q5cr5"]
 [ext_resource type="Texture2D" uid="uid://bp2ngylmbweim" path="res://enemy/heavy/sprites/dusman_ground_slam_border.png" id="11_slam"]
+[ext_resource type="Script" path="res://components/enemy_hurtbox.gd" id="12_f3s5r"]
 [ext_resource type="Texture2D" uid="uid://bg52og47c4jgf" path="res://enemy/heavy/sprites/dusman_ground_slam_charge_border.png" id="12_slam_prep"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_xfvss"]
@@ -418,7 +418,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_oq5s2")
 }],
-"loop": true,
+"loop": false,
 "name": &"hurt",
 "speed": 15.0
 }, {
@@ -596,7 +596,7 @@ target_position = Vector2(0, 64)
 [node name="Hitbox" type="Area2D" parent="." groups=["hitbox"]]
 collision_layer = 16
 collision_mask = 8
-script = ExtResource("3_hitbox")
+script = ExtResource("11_q5cr5")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
 shape = SubResource("RectangleShape2D_combat")
@@ -605,7 +605,7 @@ disabled = true
 [node name="Hurtbox" type="Area2D" parent="." groups=["hurtbox"]]
 collision_layer = 32
 collision_mask = 16
-script = ExtResource("4_hurtbox")
+script = ExtResource("12_f3s5r")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("RectangleShape2D_combat")

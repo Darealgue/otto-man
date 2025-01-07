@@ -1,4 +1,4 @@
-extends State
+extends "res://player/states/state.gd"
 
 const DASH_SPEED := 2500.0
 const DASH_DURATION := 0.1
@@ -10,7 +10,26 @@ var can_dash := true
 var original_collision_mask := 0  # Store original collision mask
 var original_collision_layer := 0  # Store original collision layer
 
+func _ready() -> void:
+	await owner.ready  # Wait for owner to be ready
+	if player:
+		if !is_connected("state_entered", player._on_dash_state_entered):
+			connect("state_entered", player._on_dash_state_entered)
+		if !is_connected("state_exited", player._on_dash_state_exited):
+			connect("state_exited", player._on_dash_state_exited)
+		print("[DEBUG] Dash State - Connected signals")
+		print("   State entered connections:", get_signal_connection_list("state_entered"))
+		print("   State exited connections:", get_signal_connection_list("state_exited"))
+
 func enter():
+	print("[DEBUG] Dash State - Entering")
+	print("   Has state_entered signal:", has_signal("state_entered"))
+	print("   Signal connections:", get_signal_connection_list("state_entered"))
+	
+	# Call parent enter to emit signal
+	super.enter()
+	print("   Emitted state_entered signal")
+	
 	# Store original collision settings
 	original_collision_mask = player.collision_mask
 	original_collision_layer = player.collision_layer
@@ -45,6 +64,9 @@ func physics_update(delta: float):
 	player.move_and_slide()
 
 func exit():
+	# Call parent exit to emit signal
+	super.exit()
+	
 	# Ensure collision settings are restored when exiting state
 	player.collision_mask = original_collision_mask
 	player.collision_layer = original_collision_layer

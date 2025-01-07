@@ -35,6 +35,10 @@ const DEATH_FADE_SPEED := 2.0  # How fast to fade
 var death_fade_timer: float = 0.0
 var fade_out: bool = true  # Whether we're currently fading out or in
 
+var invulnerable: bool = false
+var invulnerability_timer: float = 0.0
+const INVULNERABILITY_DURATION: float = 0.1  # Short invulnerability window
+
 func _ready() -> void:
 	add_to_group("enemies")
 	if stats:
@@ -52,6 +56,12 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if current_behavior != "dead":
+		# Update invulnerability
+		if invulnerable:
+			invulnerability_timer -= delta
+			if invulnerability_timer <= 0:
+				invulnerable = false
+		
 		# Update attack cooldown
 		if not can_attack:
 			attack_timer -= delta
@@ -59,12 +69,25 @@ func _physics_process(delta: float) -> void:
 				can_attack = true
 				attack_timer = 0.0
 		
+		# Handle behavior first
 		handle_behavior(delta)
+		
+		# Apply gravity
 		apply_gravity(delta)
+		
+		# Apply deceleration if in hurt state
+		if current_behavior == "hurt":
+			velocity.x = move_toward(velocity.x, 0, 2000 * delta)  # Increased deceleration
+		
+		# Move the enemy
 		move_and_slide()
 	else:
 		# Apply gravity during death
 		velocity.y += GRAVITY * delta
+		
+		# Apply deceleration to horizontal movement
+		velocity.x = move_toward(velocity.x, 0, 2000 * delta)  # Increased deceleration
+		
 		# Don't use move_and_slide to prevent floor collision
 		position += velocity * delta
 		
@@ -82,9 +105,26 @@ func _physics_process(delta: float) -> void:
 			
 			sprite.modulate = Color(1, 1, 1, current_alpha)
 
-func handle_behavior(_delta: float) -> void:
-	# Override in child classes
-	pass
+func handle_behavior(delta: float) -> void:
+	# Handle hurt state in base class first
+	if current_behavior == "hurt":
+		behavior_timer += delta
+		
+		# Only exit hurt state if timer is up AND mostly stopped
+		if behavior_timer >= 0.2 and abs(velocity.x) <= 25:  # Reduced hurt state duration
+			change_behavior("chase")
+			# Make sure hurtbox is re-enabled
+			if hurtbox:
+				hurtbox.monitoring = true
+				hurtbox.monitorable = true
+		return  # Don't let child classes override hurt behavior
+	
+	# Let child classes handle other behaviors
+	_handle_child_behavior(delta)
+
+# New function for child classes to override
+func _handle_child_behavior(_delta: float) -> void:
+	pass  # Child classes will override this
 
 func get_nearest_player() -> Node2D:
 	var players = get_tree().get_nodes_in_group("player")
@@ -104,8 +144,12 @@ func start_attack_cooldown() -> void:
 	attack_timer = stats.attack_cooldown if stats else 2.0
 
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
-	if stats:
+	if stats and not invulnerable:
 		health -= amount
+		
+		# Set brief invulnerability
+		invulnerable = true
+		invulnerability_timer = INVULNERABILITY_DURATION
 		
 		# Update health bar
 		if health_bar:
@@ -117,22 +161,20 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 		damage_number.global_position = global_position + Vector2(0, -50)  # Offset above enemy
 		damage_number.setup(int(amount))
 		
-		# Apply knockback with increased forces
-		var players = get_tree().get_nodes_in_group("player")
-		if players.size() > 0:
-			var player = players[0]
-			var dir = (global_position - player.global_position).normalized()
-			# Increase base knockback and add more upward force
-			var actual_knockback = knockback_force * 1.5  # 50% stronger knockback
-			velocity = Vector2(
-				dir.x * actual_knockback,
-				-actual_knockback * 0.8  # 80% of knockback force as upward force
-			)
-		
 		if health <= 0:
-			change_behavior("dead", true)  # Force immediate change
-			_apply_death_knockback()
+			handle_death()  # Remove await, just call directly
+			_apply_death_knockback()  # Apply knockback immediately after death
 		else:
+			# Apply knockback with increased forces
+			var players = get_tree().get_nodes_in_group("player")
+			if players.size() > 0:
+				var player = players[0]
+				var dir = (global_position - player.global_position).normalized()
+				# Apply knockback
+				velocity = Vector2(
+					dir.x * knockback_force,
+					-knockback_force * 0.8  # Fixed upward force for better gameplay feel
+				)
 			change_behavior("hurt", true)  # Force hurt state
 			_flash_hurt()
 
@@ -160,32 +202,25 @@ func _apply_death_knockback() -> void:
 		fall_timer.timeout.connect(_on_fall_timer_timeout)
 
 func handle_hurt() -> void:
-	if sprite and sprite.has_animation("hurt"):
+	if sprite:
 		sprite.play("hurt")
-		# Don't change animation until knockback is mostly done
-		if abs(velocity.x) > 50 or abs(velocity.y) > 50:
-			sprite.animation_finished.connect(_on_hurt_animation_finished, CONNECT_ONE_SHOT)
 	current_behavior = "hurt"
+	behavior_timer = 0.0  # Reset behavior timer
 
 func _on_hurt_animation_finished() -> void:
-	if current_behavior == "hurt":
-		# Only change behavior if we're still in hurt state and knockback has slowed down
-		if abs(velocity.x) <= 50 and abs(velocity.y) <= 50:
-			change_behavior("chase")
-		else:
-			# Still being knocked back, play hurt animation again
-			if sprite and sprite.has_animation("hurt"):
-				sprite.play("hurt")
-				sprite.animation_finished.connect(_on_hurt_animation_finished, CONNECT_ONE_SHOT)
+	pass  # No longer needed, behavior handles state changes
 
 func handle_death() -> void:
-	if sprite and sprite.has_animation("dead"):
-		sprite.play("dead")
+	current_behavior = "dead"  # Set this first to prevent any other behavior changes
+	
+	# Notify PowerupManager of the kill FIRST, before any other death handling
+	PowerupManager.on_enemy_killed()
+	
+	if sprite:
+		sprite.play("dead")  # Just try to play it directly
 		# Start fade effect
 		sprite.modulate = Color(1, 1, 1, DEATH_FADE_MAX)
 		fade_out = true
-	
-	current_behavior = "dead"
 	
 	# Disable ALL collision to ensure falling through platforms
 	collision_layer = 0
@@ -200,13 +235,13 @@ func handle_death() -> void:
 		get_node("Hurtbox").set_deferred("monitoring", false)
 		get_node("Hurtbox").set_deferred("monitorable", false)
 	
-	# Handle powerup drop
-	if stats and stats.can_drop_powerup:
-		var rng = RandomNumberGenerator.new()
-		rng.randomize()
-		if rng.randf() <= stats.powerup_drop_chance:
-			await get_tree().create_timer(0.5).timeout
-			PowerupManager.show_powerup_selection()
+	# Mark death handling as complete immediately
+	# We don't need to wait for powerup selection since that's handled by PowerupManager
+	set_meta("death_handling_complete", true)
+	
+	# Wait for PowerupManager to finish showing powerup selection before cleanup
+	await get_tree().create_timer(1.0).timeout
+	queue_free()
 
 func apply_gravity(delta: float) -> void:
 	if not is_on_floor():
@@ -223,16 +258,17 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 		behavior_timer = 0.0
 		
 	current_behavior = new_behavior
-	match new_behavior:
-		"hurt":
-			handle_hurt()
-		"dead":
-			handle_death()
 
 func _on_fall_timer_timeout() -> void:
 	# Check if we're off screen or far below the ground
 	if not is_on_screen() or global_position.y > 1000:
-		queue_free()
+		# If we're dead and off screen, just queue_free
+		if current_behavior == "dead":
+			queue_free()
+		else:
+			# Start another timer if still alive
+			var fall_timer = get_tree().create_timer(FALL_DELETE_TIME)
+			fall_timer.timeout.connect(_on_fall_timer_timeout)
 	else:
 		# Start another timer if still on screen
 		var fall_timer = get_tree().create_timer(FALL_DELETE_TIME)
@@ -253,4 +289,10 @@ func is_on_screen() -> bool:
 	
 	return global_position.x >= top_left.x - 100 and global_position.x <= bottom_right.x + 100 and \
 		   global_position.y >= top_left.y - 100 and global_position.y <= bottom_right.y + 100
+
+func _on_hurtbox_hurt(hitbox: Area2D) -> void:
+	if current_behavior != "dead" and not invulnerable:
+		var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
+		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0}
+		take_damage(damage, knockback_data.force)  # Pass the actual knockback force from the hitbox
  

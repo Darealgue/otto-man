@@ -7,6 +7,9 @@ signal powerup_selected(powerup_scene: PackedScene)
 var powerup_buttons: Array[Button] = []
 var selected_index: int = 0
 var is_processing_selection := false
+var selection_hold_time := 0.0
+var scenes_to_show: Array[PackedScene] = []  # Store the selected scenes
+const SELECTION_HOLD_DURATION := 0.2  # Reduced from 0.4 to 0.2 seconds
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -25,10 +28,24 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("powerup_down"):
 		selected_index = (selected_index + 1) % powerup_buttons.size()
 		update_selection()
+
+func _process(delta: float) -> void:
+	if !visible or is_processing_selection:
+		return
 		
-	elif event.is_action_pressed("powerup_select"):
+	if Input.is_action_pressed("powerup_select"):
+		selection_hold_time += delta
+		if selection_hold_time >= SELECTION_HOLD_DURATION:
+			if selected_index >= 0 and selected_index < powerup_buttons.size():
+				select_powerup(selected_index)
+		# Update button progress
 		if selected_index >= 0 and selected_index < powerup_buttons.size():
-			select_powerup(selected_index)
+			powerup_buttons[selected_index].set_progress(selection_hold_time / SELECTION_HOLD_DURATION)
+	else:
+		selection_hold_time = 0.0
+		# Reset button progress
+		if selected_index >= 0 and selected_index < powerup_buttons.size():
+			powerup_buttons[selected_index].set_progress(0.0)
 
 func setup_powerups(powerup_scenes: Array[PackedScene]) -> void:
 	for child in powerup_container.get_children():
@@ -38,24 +55,32 @@ func setup_powerups(powerup_scenes: Array[PackedScene]) -> void:
 	# Set states before starting any animations
 	is_processing_selection = false
 	selected_index = 0
+	selection_hold_time = 0.0
+	
+	# Randomly select 3 powerups
+	var available_scenes = powerup_scenes.duplicate()
+	available_scenes.shuffle()
+	scenes_to_show = available_scenes.slice(0, 3)  # Store in class variable
 	
 	# Create buttons for each powerup
-	for scene in powerup_scenes:
+	for scene in scenes_to_show:
 		var powerup = scene.instantiate() as PowerupEffect
 		if !powerup:
 			continue
 			
-		var button = Button.new()
-		button.text = powerup.powerup_name + "\n" + powerup.description
+		var button = preload("res://ui/powerup_button.tscn").instantiate()
+		button.setup(scene)
 		button.custom_minimum_size = Vector2(400, 80)
-		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.pressed.connect(_on_powerup_button_pressed.bind(powerup_scenes.find(scene)))
+		button.pressed.connect(_on_powerup_button_pressed.bind(scenes_to_show.find(scene)))
 		
 		powerup_container.add_child(button)
 		powerup_buttons.append(button)
 		
 		powerup.queue_free()
 	
+	# Start time slow effect
+	if get_node_or_null("/root/ScreenEffects"):
+		ScreenEffects.slow_time(0.3, 0.3)  # Reduced duration and increased speed
 	show_ui(true)
 	update_selection()
 
@@ -69,17 +94,21 @@ func select_powerup(index: int) -> void:
 		return
 		
 	is_processing_selection = true
-	var powerup_scene = PowerupManager.POWERUP_SCENES[index]
+	var powerup_scene = scenes_to_show[index]  # Use the stored scenes
 	PowerupManager.activate_powerup(powerup_scene)
 	
-	# Clean up and unpause
+	# Slow time again when exiting
+	if get_node_or_null("/root/ScreenEffects"):
+		ScreenEffects.slow_time(0.2, 0.3)  # Reduced duration and increased speed
+	
+	# Clean up and unpause after time slow
+	await get_tree().create_timer(0.2).timeout
 	get_tree().paused = false
 	queue_free()
 
 func _on_powerup_button_pressed(index: int) -> void:
 	selected_index = index
 	update_selection()
-	select_powerup(index)
 
 func show_ui(show: bool) -> void:
 	visible = show

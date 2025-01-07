@@ -105,7 +105,6 @@ func physics_update(delta: float):
 	# Check for ledge grab first
 	var ledge_state = get_parent().get_node("LedgeGrab")
 	if ledge_state and ledge_state.can_ledge_grab():
-		print("DEBUG: Transitioning to ledge grab")
 		state_machine.transition_to("LedgeGrab")
 		return
 	

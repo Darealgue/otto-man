@@ -22,6 +22,7 @@ func _ready():
 	debug_enabled = true  # Enable debug logging for block state
 
 func enter():
+	print("[DEBUG] Block State - Entering")
 	
 	# Get stamina bar reference
 	stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
@@ -40,11 +41,13 @@ func enter():
 	is_transitioning = false
 	stamina_consumed_this_hit = false
 	block_start_time = Time.get_ticks_msec() / 1000.0  # Set block start time
+	print("   Block start time:", block_start_time)
 	
 	# Create finish timer if not exists
 	if not finish_timer:
 		finish_timer = Timer.new()
 		finish_timer.one_shot = true
+		
 		finish_timer.timeout.connect(_on_finish_timer_timeout)
 		add_child(finish_timer)
 	
@@ -58,6 +61,10 @@ func enter():
 	# Connect to hurtbox signal if not already connected
 	if not player.hurtbox.is_connected("hurt", _on_hurtbox_hurt):
 		player.hurtbox.connect("hurt", _on_hurtbox_hurt)
+	
+	print("[DEBUG] Block State - Enter complete")
+	print("   Can parry:", can_parry)
+	print("   Parry timer:", parry_timer)
 
 func exit():
 	is_blocking = false
@@ -105,6 +112,8 @@ func physics_update(delta: float):
 	player.move_and_slide()
 
 func _start_finish_animation():
+	if is_transitioning:  # Don't start finish animation if already transitioning
+		return
 	is_transitioning = true
 	animation_player.play("block_finish")
 	# Start safety timer
@@ -119,53 +128,118 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	var current_time = Time.get_ticks_msec() / 1000.0
 	var time_since_block = current_time - block_start_time
 	
+	print("[DEBUG] Block State - Hurtbox hit")
+	print("   Current time:", current_time)
+	print("   Block start time:", block_start_time)
+	print("   Time since block:", time_since_block)
+	print("   Parry window:", PARRY_WINDOW)
+	print("   Can parry:", can_parry)
+	print("   Is parrying:", is_parrying)
 	
 	# Prevent double parry
 	if is_parrying:
+		print("   Skipping - Already parrying")
 		return
 	
-	# Check if within parry window
-	if time_since_block <= PARRY_WINDOW:
+	# Check if within parry window and can parry
+	if can_parry and time_since_block <= PARRY_WINDOW:
+		print("[DEBUG] Block State - Perfect parry detected!")
+		
+		# Consume stamina for parry if not already consumed for this hit
+		if not stamina_consumed_this_hit and stamina_bar:
+			print("   Consuming stamina for parry")
+			if stamina_bar.use_charge():
+				stamina_consumed_this_hit = true
+				print("   Stamina consumed successfully")
+			else:
+				print("   No stamina available - Parry will fail")
+				# If no stamina, treat as normal block
+				player.hurtbox.last_damage = hitbox.get_damage() * (1.0 - BLOCK_DAMAGE_REDUCTION)
+				is_in_impact_animation = true
+				animation_player.play("block_impact")
+				return
+		
 		player.hurtbox.last_damage = 0  # No damage on successful parry
 		
 		# Set parrying flag
 		is_parrying = true
+		print("   Set parrying flag")
 		
 		# Play parry animation
-
 		animation_player.play("parry")
+		print("   Playing parry animation")
 		
 		# Create parry effect
 		var parry_effect = preload("res://effects/parry_effect.tscn").instantiate()
 		player.add_child(parry_effect)
 		parry_effect.global_position = hitbox.global_position
+		print("   Created parry effect")
 		
 		# Reflect damage back to attacker
 		var attacker = hitbox.get_parent()
 		if attacker.has_method("take_damage"):
-			var reflected_damage = hitbox.get_damage() * 1.5  # 50% more damage
+			var reflected_damage = hitbox.get_damage() * PARRY_DAMAGE_MULTIPLIER
+			print("   Reflecting damage:", reflected_damage)
+			# Use the normal damage handling path
+			attacker.change_behavior("hurt", true)  # Force hurt state first
 			attacker.take_damage(reflected_damage)
+			
+		# Emit perfect parry signal for powerups
+		print("[DEBUG] Block State - Emitting perfect_parry signal")
+		print("   Player has signal:", player.has_signal("perfect_parry"))
+		print("   Signal connections:", player.get_signal_connection_list("perfect_parry"))
+		player._on_successful_parry()  # Call the function that emits the signal
+		print("   Signal emitted")
 	else:
-		player.hurtbox.last_damage = hitbox.get_damage() * (1.0 - BLOCK_DAMAGE_REDUCTION)
-		player.animation_player.play("block_impact")
+		print("[DEBUG] Block State - Normal block (outside parry window)")
+		# Consume stamina for normal blocks if not already consumed for this hit
+		if not stamina_consumed_this_hit and stamina_bar:
+			print("   Consuming stamina for block")
+			if stamina_bar.use_charge():
+				stamina_consumed_this_hit = true
+				print("   Stamina consumed successfully")
+			else:
+				print("   No stamina available - Block will fail")
+				# If no stamina, take full damage
+				player.hurtbox.last_damage = hitbox.get_damage()
+				_start_finish_animation()
+				return
+		
+		# Apply reduced damage if we had stamina
+		if stamina_consumed_this_hit:
+			var reduced_damage = hitbox.get_damage() * (1.0 - BLOCK_DAMAGE_REDUCTION)
+			player.hurtbox.last_damage = reduced_damage
+		else:
+			var full_damage = hitbox.get_damage()
+			player.hurtbox.last_damage = full_damage  # Full damage if no stamina
+		
+		is_in_impact_animation = true
+		animation_player.play("block_impact")
 
 func _on_animation_finished(anim_name: String):
-	
 	match anim_name:
 		"parry":
 			is_parrying = false  # Reset parrying flag
-			if Input.is_action_pressed("block") and not is_transitioning and stamina_bar and stamina_bar.has_charges():
+			is_transitioning = false  # Reset transitioning flag
+			if Input.is_action_pressed("block") and stamina_bar and stamina_bar.has_charges():
 				animation_player.play("block")
+			else:
+				_start_finish_animation()
 		"block_prepare":
-			if not is_transitioning:
+			is_transitioning = false  # Reset transitioning flag
+			if not Input.is_action_pressed("block"):
+				_start_finish_animation()
+			else:
 				is_blocking = true
 				animation_player.play("block")
 		"block_impact":
 			is_in_impact_animation = false
+			is_transitioning = false  # Reset transitioning flag
 			stamina_consumed_this_hit = false  # Reset stamina consumption flag after impact
-			if Input.is_action_pressed("block") and not is_transitioning and stamina_bar and stamina_bar.has_charges():
-					animation_player.play("block")
+			if Input.is_action_pressed("block") and stamina_bar and stamina_bar.has_charges():
+				animation_player.play("block")
 			else:
 				_start_finish_animation()
 		"block_finish":
+			is_transitioning = false  # Reset transitioning flag
 			state_machine.transition_to("Idle")

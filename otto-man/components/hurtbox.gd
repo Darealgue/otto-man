@@ -25,7 +25,6 @@ func _process(delta: float):
 		recent_hits.erase(hitbox)
 
 func _on_area_entered(hitbox: Area2D):
-	
 	if hitbox.is_in_group("hitbox"):
 		# Check if this hitbox is on cooldown
 		if hitbox in recent_hits:

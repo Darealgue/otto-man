@@ -20,16 +20,12 @@ func enable():
 	monitorable = true
 	$CollisionShape2D.set_deferred("disabled", false)
 	is_active = true
-	if debug_enabled:
-		print("[Hitbox] Enabled hitbox for", get_parent().name, "with damage:", damage)
 
 func disable():
 	monitoring = false
 	monitorable = false
 	$CollisionShape2D.set_deferred("disabled", true)
 	is_active = false
-	if debug_enabled:
-		print("[Hitbox] Disabled hitbox for", get_parent().name)
 
 func is_enabled() -> bool:
 	return is_active

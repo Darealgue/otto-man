@@ -1,21 +1,36 @@
+@tool
 extends PowerupEffect
 
-const DAMAGE_BOOST = 20.0  # Flat damage increase
+const DAMAGE_BOOST = 0.2  # 20% damage increase
 
 func _init() -> void:
 	powerup_name = "Damage Upgrade"
-	description = "Permanently increases damage by {damage}".format({"damage": DAMAGE_BOOST})
+	description = "Permanently increases damage by 20%"
 	duration = -1  # -1 means permanent until death
 	powerup_type = PowerupType.DAMAGE
+	affected_stats = ["base_damage"]
 
 func activate(player: CharacterBody2D) -> void:
 	super.activate(player)
-	if player.has_method("modify_damage"):
-		player.modify_damage(DAMAGE_BOOST)
-		print("[DEBUG] Damage Upgrade: Applied +", DAMAGE_BOOST, " damage")
+	
+	var old_damage = player_stats.get_stat("base_damage")
+	print("[DEBUG] Damage Boost - Before modification:")
+	print("   Current Base Damage:", old_damage)
+	print("   Current Multiplier:", player_stats.stat_multipliers["base_damage"])
+	
+	# Add multiplier to the stat system
+	player_stats.add_stat_multiplier("base_damage", 1.0 + DAMAGE_BOOST)
+	
+	print("[DEBUG] Damage Boost - After modification:")
+	print("   New Base Damage:", player_stats.get_stat("base_damage"))
+	print("   New Multiplier:", player_stats.stat_multipliers["base_damage"])
 
 func deactivate(player: CharacterBody2D) -> void:
-	# Only deactivate if player dies
 	if !is_instance_valid(player):
+		# Reset multiplier in stat system
+		player_stats.add_stat_multiplier("base_damage", 1.0 / (1.0 + DAMAGE_BOOST))  # Divide to remove multiplier
 		super.deactivate(player)
-		print("[DEBUG] Damage Upgrade: Reset due to player death")
+
+# Synergize with other damage upgrades
+func conflicts_with(other: PowerupEffect) -> bool:
+	return false  # Allow stacking damage upgrades

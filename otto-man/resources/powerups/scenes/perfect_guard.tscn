@@ -1,9 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://f8n6x4q7n0p5q"]
+[gd_scene load_steps=2 format=3 uid="uid://b8q6y4q7n0p5q"]
 
-[ext_resource type="Script" path="res://resources/powerups/perfect_guard.gd" id="1_y2r3d"]
+[ext_resource type="Script" path="res://resources/powerups/perfect_guard.gd" id="1_u2r3d"]
 
 [node name="PerfectGuard" type="Node"]
-script = ExtResource("1_y2r3d")
-counter_damage_multiplier = 2.0
-counter_window = 0.5
-perfect_block_window = 0.15 
+script = ExtResource("1_u2r3d") 

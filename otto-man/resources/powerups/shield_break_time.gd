@@ -16,7 +16,6 @@ func _init() -> void:
 	powerup_type = PowerupType.DEFENSE
 
 func apply(player: CharacterBody2D) -> void:
-	print("[DEBUG] Applying Shield Break Time")
 	modify_stat("shield_cooldown", 1.0 - cooldown_reduction, true)
 	
 	# Connect to player's block signals if not already connected
@@ -24,7 +23,6 @@ func apply(player: CharacterBody2D) -> void:
 		player.shield_broken.connect(_on_shield_broken)
 
 func remove(player: CharacterBody2D) -> void:
-	print("[DEBUG] Removing Shield Break Time")
 	modify_stat("shield_cooldown", 1.0, true)
 	
 	# Disconnect signals

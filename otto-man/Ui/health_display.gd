@@ -3,86 +3,124 @@ extends Control
 @onready var health_label = $BarContainer/HealthLabel
 @onready var health_bar = $BarContainer/HealthBar
 @onready var delayed_bar = $BarContainer/DelayedHealthBar
-@onready var player = get_tree().get_first_node_in_group("player")
 
-const DELAYED_BAR_SPEED = 0.3  # How fast the delayed bar catches up (units per second)
-const HIT_SEQUENCE_WINDOW = 1.0  # Time to wait after last hit before starting slide
-const INITIAL_SLIDE_DELAY = 0.3  # Small delay before starting slide after hit sequence
+const DELAYED_BAR_SPEED = 2.0  # Speed at which delayed bar catches up
+const FLASH_DURATION = 0.1     # Duration of flash effect
+const FLASH_INTENSITY = 1.5    # Intensity of flash effect
 
 var delayed_health: float = 100.0
-var time_since_last_hit: float = 0.0
-var is_hit_sequence_active: bool = false
-var slide_delay_active: bool = false
+var player_stats: Node
 
-func _ready():
+func _ready() -> void:
+	print("[HealthDisplay] Initializing...")
+	print("[HealthDisplay] Node path:", get_path())
+	
+	# Force visibility
+	show()
+	modulate.a = 1.0
+	
+	print("[HealthDisplay] Visibility:", visible)
+	print("[HealthDisplay] Modulate:", modulate)
+	print("[HealthDisplay] Global position:", global_position)
+	print("[HealthDisplay] Size:", size)
+	
+	# Verify UI components
+	print("[HealthDisplay] Checking UI components...")
+	print("  - HealthLabel:", health_label != null)
+	print("  - HealthBar:", health_bar != null)
+	print("  - DelayedBar:", delayed_bar != null)
+	
 	if !health_label or !health_bar or !delayed_bar:
-		push_error("Required nodes not found! Make sure all nodes exist as children of BarContainer.")
+		push_error("[HealthDisplay] Missing UI components!")
 		return
 		
-	if !player:
-		push_error("Player not found! Make sure the player is in the 'player' group.")
+	# Get PlayerStats singleton
+	print("[HealthDisplay] Getting PlayerStats singleton...")
+	player_stats = get_node("/root/PlayerStats")
+	print("  - PlayerStats found:", player_stats != null)
+	
+	if !player_stats:
+		push_error("[HealthDisplay] PlayerStats singleton not found!")
 		return
 		
-	player.health_changed.connect(_on_player_health_changed)
-	update_health_display(player.health)
+	# Initialize values from PlayerStats
+	var current_health = player_stats.get_current_health()
+	var max_health = player_stats.get_max_health()
+	print("[HealthDisplay] Initial values:")
+	print("  - Current Health:", current_health)
+	print("  - Max Health:", max_health)
+	
+	update_health_display(current_health, max_health)
+	
+	# Connect to PlayerStats signals
+	print("[HealthDisplay] Connecting signals...")
+	if !player_stats.health_changed.is_connected(_on_health_changed):
+		player_stats.health_changed.connect(_on_health_changed, CONNECT_DEFERRED)
+		print("  - Connected health_changed signal")
+	if !player_stats.stat_changed.is_connected(_on_stat_changed):
+		player_stats.stat_changed.connect(_on_stat_changed, CONNECT_DEFERRED)
+		print("  - Connected stat_changed signal")
 
-func _process(delta: float):
-	if is_hit_sequence_active:
-		time_since_last_hit += delta
+func _process(delta: float) -> void:
+	if !visible:
+		print("[HealthDisplay] Forcing visibility...")
+		show()
+		modulate.a = 1.0
+		return
 		
-		# Check if hit sequence has ended
-		if time_since_last_hit >= HIT_SEQUENCE_WINDOW:
-			is_hit_sequence_active = false
-			slide_delay_active = true
-			time_since_last_hit = 0.0
-	elif slide_delay_active:
-		time_since_last_hit += delta
-		if time_since_last_hit >= INITIAL_SLIDE_DELAY:
-			slide_delay_active = false
-	# Only update delayed bar if not in hit sequence and delay is over
-	elif delayed_health > health_bar.value:
-		delayed_health = move_toward(delayed_health, health_bar.value, player.max_health * DELAYED_BAR_SPEED * delta)
+	if !health_bar or !delayed_bar:
+		return
+		
+	# Update delayed bar
+	if delayed_health > health_bar.value:
+		delayed_health = move_toward(delayed_health, health_bar.value, player_stats.get_max_health() * DELAYED_BAR_SPEED * delta)
 		delayed_bar.value = delayed_health
 
-func _on_player_health_changed(new_health: float):
-	update_health_display(new_health)
+func _on_health_changed(new_health: float) -> void:
+	print("[HealthDisplay] Health changed to:", new_health)
+	if player_stats:
+		update_health_display(new_health, player_stats.get_max_health())
 
-func update_health_display(current_health: float):
-	if health_label and health_bar and delayed_bar:
-		# Update text
-		health_label.text = "%d/%d" % [current_health, player.max_health]
+func _on_stat_changed(stat_name: String, _old_value: float, new_value: float) -> void:
+	if stat_name == "max_health" and player_stats:
+		print("[HealthDisplay] Max health changed to:", new_value)
+		update_health_display(player_stats.get_current_health(), new_value)
+
+func update_health_display(current_health: float, max_health: float) -> void:
+	print("[HealthDisplay] Updating display:")
+	print("  - Current Health:", current_health)
+	print("  - Max Health:", max_health)
+	
+	if !health_label or !health_bar or !delayed_bar:
+		push_error("[HealthDisplay] Missing UI components during update!")
+		return
 		
-		# Update bars
-		health_bar.max_value = player.max_health
-		delayed_bar.max_value = player.max_health
-		health_bar.value = current_health
-		
-		# Handle hit sequence
-		if current_health < delayed_bar.value:
-			# If this is the first hit or we're outside the hit sequence window
-			if !is_hit_sequence_active:
-				delayed_health = delayed_bar.value  # Store the pre-hit health
-			
-			# Reset hit sequence timer and activate sequence
-			time_since_last_hit = 0.0
-			is_hit_sequence_active = true
-		elif current_health > delayed_bar.value:
-			# If health increased (healing), update delayed bar immediately
-			delayed_health = current_health
-			delayed_bar.value = current_health
-			is_hit_sequence_active = false
-			slide_delay_active = false
-		
-		# Update bar color based on health percentage
-		var health_percent = current_health / player.max_health
-		var bar_style = health_bar.get_theme_stylebox("fill")
-		
-		if health_percent <= 0.2:  # Below 20% health
-			bar_style.bg_color = Color(0.8, 0.0, 0.0, 1.0)  # Bright red
-			bar_style.border_color = Color(1.0, 0.2, 0.2, 1.0)
-		elif health_percent <= 0.5:  # Below 50% health
-			bar_style.bg_color = Color(0.8, 0.4, 0.0, 1.0)  # Orange
-			bar_style.border_color = Color(1.0, 0.6, 0.2, 1.0)
-		else:  # Above 50% health
-			bar_style.bg_color = Color(0.8, 0.2, 0.2, 1.0)  # Normal red
-			bar_style.border_color = Color(1.0, 0.4, 0.4, 1.0)
+	# Update label
+	health_label.text = "%d/%d" % [current_health, max_health]
+	
+	# Update progress bars
+	health_bar.max_value = max_health
+	delayed_bar.max_value = max_health
+	health_bar.value = current_health
+	
+	# Handle delayed bar updates
+	if current_health < delayed_bar.value:
+		delayed_health = delayed_bar.value
+		modulate = Color(FLASH_INTENSITY, 1, 1)
+		create_tween().tween_property(self, "modulate", Color.WHITE, FLASH_DURATION)
+	elif current_health > delayed_bar.value:
+		delayed_health = current_health
+		delayed_bar.value = current_health
+		modulate = Color(1, FLASH_INTENSITY, 1)
+		create_tween().tween_property(self, "modulate", Color.WHITE, FLASH_DURATION)
+	
+	# Update bar color based on health percentage
+	var health_percent = current_health / max_health
+	var bar_style = health_bar.get_theme_stylebox("fill")
+	
+	if health_percent <= 0.2:
+		bar_style.bg_color = Color(0.8, 0.0, 0.0)  # Red
+	elif health_percent <= 0.5:
+		bar_style.bg_color = Color(0.8, 0.4, 0.0)  # Orange
+	else:
+		bar_style.bg_color = Color(0.0, 0.8, 0.0)  # Green

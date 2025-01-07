@@ -16,6 +16,7 @@ var has_hit_enemy := false
 var is_impacting := false
 var impact_timer := 0.0
 var original_sprite_position := Vector2.ZERO
+var hitbox_enabled := false
 
 static func is_on_cooldown() -> bool:
 	return cooldown_timer > 0.0
@@ -23,13 +24,8 @@ static func is_on_cooldown() -> bool:
 static func update_cooldown(delta: float) -> void:
 	if cooldown_timer > 0:
 		cooldown_timer = max(0.0, cooldown_timer - delta)
-		if OS.is_debug_build():
-			print("[FallAttackState] Cooldown remaining:", cooldown_timer)
 
 func enter():
-	if OS.is_debug_build():
-		print("[FallAttackState] Entering Fall Attack State")
-	
 	# Start cooldown
 	cooldown_timer = COOLDOWN_DURATION
 	
@@ -37,6 +33,7 @@ func enter():
 	has_hit_enemy = false
 	is_impacting = false
 	impact_timer = 0.0
+	hitbox_enabled = false
 	original_sprite_position = player.sprite.position
 	player.sprite.scale = Vector2.ONE
 	player.sprite.position = original_sprite_position
@@ -45,57 +42,43 @@ func enter():
 	animation_player.stop()
 	
 	# Set up fall attack hitbox
-	var fall_attack_hitbox = player.get_node("FallAttack")
-	if fall_attack_hitbox:
-		if OS.is_debug_build():
-			print("[FallAttackState] Setting up fall attack hitbox")
+	var fall_attack_hitbox = player.get_node_or_null("FallAttack")
+	if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:
+		# Connect to hitbox signals
+		if not fall_attack_hitbox.is_connected("area_entered", _on_hitbox_area_entered):
+			fall_attack_hitbox.area_entered.connect(_on_hitbox_area_entered)
 		
 		# Set hitbox properties
 		fall_attack_hitbox.damage = ATTACK_DAMAGE
 		fall_attack_hitbox.knockback_force = ATTACK_KNOCKBACK
 		fall_attack_hitbox.knockback_up_force = ATTACK_UP_FORCE
 		
-		# Enable the hitbox using its enable() function
+		# Enable the hitbox
+		fall_attack_hitbox.enable_combo("fall_attack", 1.0)
 		fall_attack_hitbox.enable()
-		
-		if OS.is_debug_build():
-			print("[FallAttackState] Fall attack hitbox enabled")
-		
-		# Connect to hit signal if not already connected
-		if not fall_attack_hitbox.is_connected("area_entered", _on_hitbox_area_entered):
-			fall_attack_hitbox.connect("area_entered", _on_hitbox_area_entered)
-	
-	# Connect to animation finished if not already connected
-	if not animation_player.is_connected("animation_finished", _on_animation_finished):
-		animation_player.connect("animation_finished", _on_animation_finished)
+		hitbox_enabled = true
+	else:
+		push_error("[FallAttackState] Could not find FallAttack hitbox!")
 	
 	# Immediately set velocity and play fall attack animation
 	player.velocity.y = FALL_ATTACK_SPEED
 	animation_player.play("fall_attack")
 
 func exit():
-	if OS.is_debug_build():
-		print("[FallAttackState] Exiting Fall Attack State")
-	
 	# Reset sprite scale and position
 	player.sprite.scale = Vector2.ONE
 	player.sprite.position = original_sprite_position
 	is_impacting = false
 	impact_timer = 0.0
 	
-	# Disable fall attack hitbox
-	var fall_attack_hitbox = player.get_node("FallAttack")
-	if fall_attack_hitbox:
-		fall_attack_hitbox.disable()
-		if OS.is_debug_build():
-			print("[FallAttackState] Disabled fall attack hitbox")
-		
-		# Disconnect signals if connected
+	# Disable fall attack hitbox and disconnect signals
+	var fall_attack_hitbox = player.get_node_or_null("FallAttack")
+	if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:
 		if fall_attack_hitbox.is_connected("area_entered", _on_hitbox_area_entered):
-			fall_attack_hitbox.disconnect("area_entered", _on_hitbox_area_entered)
-	
-	if animation_player.is_connected("animation_finished", _on_animation_finished):
-		animation_player.disconnect("animation_finished", _on_animation_finished)
+			fall_attack_hitbox.area_entered.disconnect(_on_hitbox_area_entered)
+		fall_attack_hitbox.disable()
+		fall_attack_hitbox.disable_combo()
+		hitbox_enabled = false
 
 func physics_update(delta: float):
 	# Keep downward velocity constant during fall attack
@@ -107,6 +90,15 @@ func physics_update(delta: float):
 	if input_dir != 0 and not is_impacting:
 		player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed * 0.5, player.acceleration * delta)
 		player.sprite.flip_h = input_dir < 0
+		
+		# Update fall attack hitbox direction
+		var fall_attack_hitbox = player.get_node_or_null("FallAttack")
+		if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox and hitbox_enabled:
+			var collision_shape = fall_attack_hitbox.get_node("CollisionShape2D")
+			if collision_shape:
+				var position = collision_shape.position
+				position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
+				collision_shape.position = position
 	else:
 		player.apply_friction(delta)
 	
@@ -127,27 +119,35 @@ func physics_update(delta: float):
 			player.sprite.position = original_sprite_position.lerp(original_sprite_position + IMPACT_OFFSET, progress)
 	# Check for landing
 	elif player.is_on_floor() and not has_hit_enemy:
-		if OS.is_debug_build():
-			print("[FallAttackState] Landing detected, starting impact animation")
 		is_impacting = true
 		impact_timer = 0.0
 		player.sprite.scale = IMPACT_SQUASH_SCALE
 		player.sprite.position = original_sprite_position + IMPACT_OFFSET
-		animation_player.play("landing")  # Play landing animation
+		
+		# Disable hitbox on impact
+		var fall_attack_hitbox = player.get_node_or_null("FallAttack")
+		if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:
+			fall_attack_hitbox.disable()
+			fall_attack_hitbox.disable_combo()
+			hitbox_enabled = false
+		
+		animation_player.play("landing")
 
 func _on_animation_finished(anim_name: String):
 	if anim_name == "landing" and is_impacting:
-		if OS.is_debug_build():
-			print("[FallAttackState] Landing animation finished")
 		state_machine.transition_to("Idle")
 
 func _on_hitbox_area_entered(area: Area2D):
-	if OS.is_debug_build():
-		print("[FallAttackState] Hitbox entered area:", area.name)
 	if area.is_in_group("hurtbox") and not has_hit_enemy:
-		if OS.is_debug_build():
-			print("[FallAttackState] Hit enemy! Bouncing with velocity:", BOUNCE_VELOCITY)
 		has_hit_enemy = true
+		
+		# Disable hitbox after hitting enemy
+		var fall_attack_hitbox = player.get_node_or_null("FallAttack")
+		if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:
+			fall_attack_hitbox.disable()
+			fall_attack_hitbox.disable_combo()
+			hitbox_enabled = false
+		
 		player.velocity.y = BOUNCE_VELOCITY  # Bounce off enemy
-		animation_player.play("jump_upwards")  # Transition to jump animation
+		animation_player.play("jump_upwards")  # Play jump animation when bouncing
 		state_machine.transition_to("Fall")  # Switch to fall state after bounce 

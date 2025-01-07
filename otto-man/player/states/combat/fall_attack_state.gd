@@ -13,21 +13,20 @@ func _ready():
 	if debug_enabled:
 		print("[FallAttackState] Created attack config instance")
 
-func enter():
+func enter() -> void:
 	if debug_enabled:
 		print("[FallAttackState] Entering state")
 	
-	# Get fall attack configuration
-	var config = attack_config_instance.get_attack_config(AttackConfigClass.AttackType.FALL)
+	# Get attack configuration with player's damage multiplier
+	var config = attack_config_instance.get_attack_config(AttackConfigClass.AttackType.FALL, player.damage_multiplier)
 	
-	# Configure hitbox
+	# Set up hitbox
 	var hitbox = player.get_node_or_null("FallAttack")
 	if hitbox:
 		hitbox.damage = config.damage
+		
 		hitbox.knockback_force = config.knockback_force
 		hitbox.knockback_up_force = config.knockback_up_force
-		hitbox.add_to_group("hitbox")  # Add to hitbox group
-		hitbox.enable()
 		hitbox_enabled = true
 		if debug_enabled:
 			print("[FallAttackState] Configured hitbox:")

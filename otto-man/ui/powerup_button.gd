@@ -11,14 +11,12 @@ func setup(scene: PackedScene) -> void:
 	
 	# Check if it's a PowerupEffect or has the required properties
 	if powerup is PowerupEffect:
-		text = powerup.powerup_name
-		tooltip_text = powerup.description
+		text = powerup.powerup_name + "\n" + powerup.description
 	else:
 		# For non-PowerupEffect powerups, use the script name as fallback
 		var script_path = powerup.get_script().resource_path
 		var script_name = script_path.get_file().get_basename()
-		text = script_name.capitalize()
-		tooltip_text = "Activates " + script_name.capitalize()
+		text = script_name.capitalize() + "\n" + "Activates " + script_name.capitalize()
 	
 	powerup.queue_free()
 

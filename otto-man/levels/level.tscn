@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://bqvc2re6qqsew"]
+[gd_scene load_steps=12 format=3 uid="uid://bqvc2re6qqsew"]
 
 [ext_resource type="Script" path="res://levels/level.gd" id="1_4uf60"]
 [ext_resource type="Texture2D" uid="uid://xa0y20hiinmn" path="res://Tile set/tiles.png" id="1_s2sog"]
@@ -8,7 +8,6 @@
 [ext_resource type="Texture2D" uid="uid://blby4j74a2iaq" path="res://background/bulutlu dağlar/grassy_mountains_fc.png" id="5_2eliy"]
 [ext_resource type="Texture2D" uid="uid://cq3piagq0rxws" path="res://background/bulutlu dağlar/clouds_mid_fc.png" id="6_fiv3j"]
 [ext_resource type="Texture2D" uid="uid://de7ouskihcyug" path="res://background/bulutlu dağlar/clouds_front_fc.png" id="7_bmq01"]
-[ext_resource type="PackedScene" path="res://scenes/game_ui.tscn" id="9_rktge"]
 [ext_resource type="PackedScene" uid="uid://b4yfkqn1hqv8q" path="res://enemy/heavy/heavy_enemy.tscn" id="10_jfg6n"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4r1hk"]
@@ -169,13 +168,38 @@ scale = Vector2(5.49219, 5.61574)
 texture = ExtResource("7_bmq01")
 centered = false
 
-[node name="GameUI" parent="." instance=ExtResource("9_rktge")]
-
 [node name="HeavyEnemy" parent="." instance=ExtResource("10_jfg6n")]
-position = Vector2(394, 252)
+position = Vector2(375, 250)
 
 [node name="HeavyEnemy2" parent="." instance=ExtResource("10_jfg6n")]
 position = Vector2(913, 556)
 
 [node name="HeavyEnemy3" parent="." instance=ExtResource("10_jfg6n")]
 position = Vector2(1462, 12)
+
+[node name="HeavyEnemy4" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(3006, 65)
+
+[node name="HeavyEnemy5" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(2998, 826)
+
+[node name="HeavyEnemy6" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(3036, 1152)
+
+[node name="HeavyEnemy7" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(5242, 442)
+
+[node name="HeavyEnemy8" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(4914, 1138)
+
+[node name="HeavyEnemy9" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(-103, 860)
+
+[node name="HeavyEnemy10" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(-1387, 868)
+
+[node name="HeavyEnemy11" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(-995, 200)
+
+[node name="HeavyEnemy12" parent="." instance=ExtResource("10_jfg6n")]
+position = Vector2(797, 1124)

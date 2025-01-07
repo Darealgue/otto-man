@@ -23,19 +23,58 @@ func _ready() -> void:
 
 func activate(player: CharacterBody2D) -> void:
 	timer = duration
+	debug_print_activation(player)
 
 func deactivate(player: CharacterBody2D) -> void:
-	pass
+	debug_print_deactivation(player)
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if timer > 0:
 		timer -= delta
 		if timer <= 0:
 			PowerupManager.deactivate_powerup(self)
+			
+	debug_print_process(player, delta)
 
 func conflicts_with(other: PowerupEffect) -> bool:
 	# By default, powerups of the same type conflict
 	return powerup_type == other.powerup_type
+
+# Debug print functions
+func debug_print_activation(player: CharacterBody2D) -> void:
+	print("\n[DEBUG] Powerup Activated: ", powerup_name)
+	print("- Description: ", description)
+	print("- Duration: ", "Permanent" if duration < 0 else str(duration))
+	print("- Affected Stats: ", affected_stats)
+	debug_print_stats_before(player)
+
+func debug_print_deactivation(player: CharacterBody2D) -> void:
+	print("\n[DEBUG] Powerup Deactivated: ", powerup_name)
+	debug_print_stats_before(player)
+
+func debug_print_process(player: CharacterBody2D, delta: float) -> void:
+	# Only print every second to avoid spam
+	if int(timer) != int(timer - delta):
+		print("[DEBUG] ", powerup_name, " - Time remaining: ", timer)
+		debug_print_stats_current(player)
+
+func debug_print_stats_before(player: CharacterBody2D) -> void:
+	if !player or !player.has_method("get_stats"):
+		return
+		
+	var stats = player.get_stats()
+	print("Stats before effect:")
+	for stat in affected_stats:
+		print("- ", stat, ": ", stats.get(stat, 0))
+
+func debug_print_stats_current(player: CharacterBody2D) -> void:
+	if !player or !player.has_method("get_stats"):
+		return
+		
+	var stats = player.get_stats()
+	print("Current stats:")
+	for stat in affected_stats:
+		print("- ", stat, ": ", stats.get(stat, 0))
 
 func on_enemy_killed(enemy: Node2D) -> void:
 	pass

@@ -14,7 +14,6 @@ func _init() -> void:
 	powerup_type = PowerupType.MOVEMENT
 
 func apply(player: CharacterBody2D) -> void:
-	print("[DEBUG] Applying Dash Strike")
 	modify_stat("dash_cooldown", 1.0 - cooldown_reduction, true)  # Reduce cooldown
 	
 	if player.has_method("enable_dash_damage"):
@@ -22,7 +21,6 @@ func apply(player: CharacterBody2D) -> void:
 		player.enable_dash_damage(damage)
 
 func remove(player: CharacterBody2D) -> void:
-	print("[DEBUG] Removing Dash Strike")
 	modify_stat("dash_cooldown", 1.0, true)  # Reset cooldown
 	
 	if player.has_method("disable_dash_damage"):

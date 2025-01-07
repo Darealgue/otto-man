@@ -35,13 +35,15 @@ func _process(delta: float) -> void:
 	if modulate.a <= 0:
 		queue_free()
 
-func setup(damage: int, is_crit: bool = false) -> void:
+func setup(damage: int, is_crit: bool = false, is_player_damage: bool = false) -> void:
 	# Set the damage text
 	label.text = str(damage)
 	
-	# Critical hit formatting
+	# Critical hit or player damage formatting
 	if is_crit:
 		scale = Vector2(CRIT_SCALE, CRIT_SCALE)
 		label.modulate = Color(1.0, 0.2, 0.2)  # Red for crits
+	elif is_player_damage:
+		label.modulate = Color(1.0, 0.2, 0.2)  # Red for player damage
 	else:
 		label.modulate = Color(1.0, 0.9, 0.2)  # Slightly yellow-tinted for better visibility 

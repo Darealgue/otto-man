@@ -1,9 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://g8n6x4q7n0p6q"]
+[gd_scene load_steps=2 format=3 uid="uid://b8q6y4q7n0p6q"]
 
-[ext_resource type="Script" path="res://resources/powerups/berserker_gambit.gd" id="1_z2r3d"]
+[ext_resource type="Script" path="res://resources/powerups/berserker_gambit.gd" id="1_u2r3d"]
 
 [node name="BerserkerGambit" type="Node"]
-script = ExtResource("1_z2r3d")
+script = ExtResource("1_u2r3d")
 damage_per_charge = 0.3
 max_charges = 3
 charge_duration = 5.0 

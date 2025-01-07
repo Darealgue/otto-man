@@ -44,20 +44,20 @@ shadow_size = 2
 
 [node name="HealthDisplay" type="Control"]
 layout_mode = 3
+anchors_preset = 0
+offset_right = 200.0
+offset_bottom = 20.0
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="BarContainer" type="Control" parent="."]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_script")
-
-[node name="BarContainer" type="Control" parent="."]
-custom_minimum_size = Vector2(200, 20)
-layout_mode = 0
-offset_left = 16.0
-offset_top = 16.0
-offset_right = 216.0
-offset_bottom = 36.0
+mouse_filter = 2
 
 [node name="Background" type="Panel" parent="BarContainer"]
 layout_mode = 1
@@ -66,6 +66,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_1")
 
 [node name="DelayedHealthBar" type="ProgressBar" parent="BarContainer"]
@@ -75,6 +76,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_1")
 theme_override_styles/fill = SubResource("StyleBoxFlat_3")
 value = 100.0
@@ -87,6 +89,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_1")
 theme_override_styles/fill = SubResource("StyleBoxFlat_2")
 value = 100.0

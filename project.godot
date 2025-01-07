@@ -1,3 +1,10 @@
+[autoload]
+
+PlayerStats="*res://autoload/player_stats.gd"
+PowerupManager="*res://autoload/powerup_manager.gd"
+AttackManager="*res://autoload/attack_manager.gd"
+GameManager="*res://autoload/GameManager.gd"
+
 [input]
 
 block={
