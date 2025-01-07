@@ -12,28 +12,32 @@ var scenes_to_show: Array[PackedScene] = []  # Store the selected scenes
 const SELECTION_HOLD_DURATION := 0.2  # Reduced from 0.4 to 0.2 seconds
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	show_ui(false)
 
 func _input(event: InputEvent) -> void:
 	if !visible or is_processing_selection:
 		return
 		
-	if event.is_action_pressed("powerup_up"):
+	# Navigate up with W key
+	if event.is_action_pressed("up"):
 		selected_index = (selected_index - 1) % powerup_buttons.size()
 		if selected_index < 0:
 			selected_index = powerup_buttons.size() - 1
 		update_selection()
+		get_viewport().set_input_as_handled()
 		
-	elif event.is_action_pressed("powerup_down"):
+	# Navigate down with S key
+	elif event.is_action_pressed("down"):
 		selected_index = (selected_index + 1) % powerup_buttons.size()
 		update_selection()
+		get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	if !visible or is_processing_selection:
 		return
 		
-	if Input.is_action_pressed("powerup_select"):
+	if Input.is_action_pressed("jump"):  # Using jump for selection
 		selection_hold_time += delta
 		if selection_hold_time >= SELECTION_HOLD_DURATION:
 			if selected_index >= 0 and selected_index < powerup_buttons.size():

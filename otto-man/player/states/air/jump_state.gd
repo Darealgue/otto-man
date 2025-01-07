@@ -45,21 +45,27 @@ func physics_update(delta: float):
 	# Apply horizontal movement
 	var input_dir = Input.get_axis("left", "right")
 	if player.is_wall_jumping:
-		# During wall jump, blend between wall jump velocity and player input
+		# During wall jump, blend between wall jump velocity and player input more smoothly
 		if input_dir != 0:
-			player.velocity.x = lerp(player.velocity.x, input_dir * player.speed, 0.1)
+			# Gradually increase player control based on time since wall jump
+			var control_factor = 1.0 - (wall_jump_grace_timer / WALL_JUMP_GRACE_PERIOD)
+			control_factor = clamp(control_factor * 1.5, 0.1, 1.0)  # Faster control gain
+			
+			# Blend between wall jump momentum and player input
+			var target_velocity = input_dir * player.speed
+			player.velocity.x = lerp(player.velocity.x, target_velocity, control_factor * 0.15)
+			
 			if not animation_player.current_animation == "wall_jump":
 				player.sprite.flip_h = input_dir < 0
 		else:
+			# Preserve more momentum when no input is pressed
 			player.velocity.x *= WALL_JUMP_HORIZONTAL_DECAY
 			player.sprite.flip_h = wall_jump_sprite_direction
 	else:
-		# Normal movement
+		# Use new air movement system
+		player.apply_movement(delta, input_dir)
 		if input_dir != 0:
-			player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed, player.acceleration * delta)
 			player.sprite.flip_h = input_dir < 0
-		else:
-			player.apply_friction(delta)
 	
 	# Apply gravity with reduced effect during wall jump
 	if player.is_wall_jumping:

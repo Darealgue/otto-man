@@ -66,6 +66,10 @@ func exit():
 		animation_player.play("idle")
 
 func update(delta: float):
+	# Skip all processing if game is paused
+	if get_tree().paused:
+		return
+		
 	# Handle movement during attack
 	_handle_movement(delta)
 	
@@ -99,12 +103,12 @@ func update(delta: float):
 				hitbox_enabled = false
 
 func _handle_movement(delta: float) -> void:
-	# Get input direction
-	var input_dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	# Get horizontal movement only
+	var input_dir_x = Input.get_axis("ui_left", "ui_right")
 	
 	# Calculate velocity with attack speed multiplier
 	var target_velocity = Vector2(
-		input_dir.x * player.speed * ATTACK_SPEED_MULTIPLIER,
+		input_dir_x * player.speed * ATTACK_SPEED_MULTIPLIER,
 		player.velocity.y  # Keep vertical velocity unchanged
 	)
 	
@@ -112,8 +116,8 @@ func _handle_movement(delta: float) -> void:
 	player.velocity.x = lerp(player.velocity.x, target_velocity.x, 1.0 - MOMENTUM_PRESERVATION)
 	
 	# Update player facing direction if moving
-	if input_dir.x != 0:
-		player.sprite.flip_h = input_dir.x < 0
+	if input_dir_x != 0:
+		player.sprite.flip_h = input_dir_x < 0
 		
 		# Update hitbox position when changing direction
 		var hitbox = player.get_node_or_null("Hitbox")
@@ -124,6 +128,10 @@ func _handle_movement(delta: float) -> void:
 	player.move_and_slide()
 
 func _check_cancel_conditions() -> bool:
+	# Skip cancel checks if game is paused
+	if get_tree().paused:
+		return false
+		
 	# Cancel into dash
 	if Input.is_action_just_pressed("dash") and state_machine.has_node("Dash"):
 		_cancel_into_state("Dash")

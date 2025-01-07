@@ -27,24 +27,19 @@ func _init() -> void:
 	duration = -1  # Permanent until death
 	powerup_type = PowerupType.DEFENSE
 	affected_stats = ["max_health"]
-	print("[DEBUG] Health Boost - Initialized")
 
 func _ready() -> void:
-	print("[DEBUG] Health Boost - Ready")
 	# Ensure we have PlayerStats reference
 	if !player_stats:
 		player_stats = get_node("/root/PlayerStats")
-		print("   PlayerStats reference:", player_stats != null)
 		if !player_stats:
 			push_error("[Health Boost] PlayerStats singleton not found!")
 
 func activate(player: CharacterBody2D) -> void:
-	print("[DEBUG] Health Boost - Starting activation...")
 	
 	# Ensure we have PlayerStats reference
 	if !player_stats:
 		player_stats = get_node("/root/PlayerStats")
-		print("   PlayerStats reference:", player_stats != null)
 	if !player_stats:
 		push_error("[Health Boost] PlayerStats singleton not found!")
 		return
@@ -53,10 +48,6 @@ func activate(player: CharacterBody2D) -> void:
 	var old_max_health = player_stats.get_stat("max_health")
 	var old_current_health = player_stats.get_current_health()
 	var old_multiplier = player_stats.stat_multipliers["max_health"]
-	print("[DEBUG] Health Boost - Before modification:")
-	print("   Current Health:", old_current_health)
-	print("   Current Max Health:", old_max_health)
-	print("   Current Multiplier:", old_multiplier)
 	
 	# Apply the health increase multiplier
 	player_stats.add_stat_multiplier("max_health", 1.0 + HEALTH_INCREASE)
@@ -65,16 +56,10 @@ func activate(player: CharacterBody2D) -> void:
 	var new_max_health = player_stats.get_stat("max_health")
 	var new_current_health = player_stats.get_current_health()
 	var new_multiplier = player_stats.stat_multipliers["max_health"]
-	print("[DEBUG] Health Boost - After modification:")
-	print("   New Health:", new_current_health)
-	print("   New Max Health:", new_max_health)
-	print("   New Multiplier:", new_multiplier)
-	print("   Health Percentage:", (new_current_health / new_max_health) * 100, "%")
 	
 	super.activate(player)
 
 func deactivate(player: CharacterBody2D) -> void:
-	print("[DEBUG] Health Boost - Deactivating...")
 	
 	# Ensure we have PlayerStats reference
 	if !player_stats:
@@ -87,10 +72,6 @@ func deactivate(player: CharacterBody2D) -> void:
 	var old_max_health = player_stats.get_stat("max_health")
 	var old_current_health = player_stats.get_current_health()
 	var old_multiplier = player_stats.stat_multipliers["max_health"]
-	print("[DEBUG] Health Boost - Before deactivation:")
-	print("   Current Health:", old_current_health)
-	print("   Current Max Health:", old_max_health)
-	print("   Current Multiplier:", old_multiplier)
 	
 	# Remove the health increase multiplier
 	player_stats.add_stat_multiplier("max_health", 1.0 / (1.0 + HEALTH_INCREASE))
@@ -99,11 +80,6 @@ func deactivate(player: CharacterBody2D) -> void:
 	var new_max_health = player_stats.get_stat("max_health")
 	var new_current_health = player_stats.get_current_health()
 	var new_multiplier = player_stats.stat_multipliers["max_health"]
-	print("[DEBUG] Health Boost - After deactivation:")
-	print("   New Health:", new_current_health)
-	print("   New Max Health:", new_max_health)
-	print("   New Multiplier:", new_multiplier)
-	print("   Health Percentage:", (new_current_health / new_max_health) * 100, "%")
 	
 	super.deactivate(player)
 

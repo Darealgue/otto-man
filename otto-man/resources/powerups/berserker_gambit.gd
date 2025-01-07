@@ -24,12 +24,10 @@ func activate(player: CharacterBody2D) -> void:
 		var max_health = player_stats.get_stat("max_health")
 		var current_health = player_stats.get_stat("current_health")
 		if current_health <= 0:
-			print("[DEBUG] Berserker Gambit - Initializing current health to max health")
 			player_stats.add_stat_bonus("current_health", max_health)
 	
 	var attack_manager = get_node("/root/AttackManager")
 	if attack_manager:
-		print("[DEBUG] Berserker Gambit - Initializing with no boost")
 		attack_manager.add_damage_multiplier(player, 1.0, "berserker_gambit")
 		_update_damage_boost(player)  # Initial update
 
@@ -50,11 +48,6 @@ func _update_damage_boost(player: CharacterBody2D) -> void:
 	var current_health = player_stats.get_stat("current_health")
 	var missing_health = max_health - current_health
 	
-	print("[DEBUG] Berserker Gambit - Health status:")
-	print("   Max Health:", max_health)
-	print("   Current Health:", current_health)
-	print("   Missing Health:", missing_health)
-	print("   Player Stats Valid:", is_instance_valid(player_stats))
 	
 	# Calculate new damage boost based on missing health percentage
 	var health_percentage = current_health / max_health if max_health > 0 else 1.0
@@ -71,22 +64,13 @@ func _update_damage_boost(player: CharacterBody2D) -> void:
 			current_damage_boost = new_boost
 			current_multiplier = 1.0 + current_damage_boost
 			
-			print("[DEBUG] Berserker Gambit - Updating damage boost:")
-			print("   Health Percentage:", health_percentage * 100, "%")
-			print("   Missing Health:", missing_health)
-			print("   Damage Boost:", current_damage_boost * 100, "%")
-			print("   New Multiplier:", current_multiplier)
 			
 			attack_manager.add_damage_multiplier(player, current_multiplier, "berserker_gambit")
 
 func deactivate(player: CharacterBody2D) -> void:
-	print("[DEBUG] Berserker Gambit - Deactivating...")
-	print("   Player valid:", is_instance_valid(player))
-	print("   Current multiplier:", current_multiplier)
 	
 	var attack_manager = get_node("/root/AttackManager")
 	if attack_manager:
-		print("[DEBUG] Berserker Gambit - Removing multiplier:", current_multiplier)
 		attack_manager.remove_damage_multiplier(player, current_multiplier, "berserker_gambit")
 	super.deactivate(player)
 

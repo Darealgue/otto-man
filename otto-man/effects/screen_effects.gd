@@ -8,14 +8,9 @@ func _ready():
 	Engine.time_scale = 1.0  # Ensure we start with normal time scale
 
 func slow_time(scale: float = 0.2, duration: float = 1.0) -> void:
-	print("[DEBUG] ScreenEffects - Slowing time")
-	print("   Scale:", scale)
-	print("   Duration:", duration)
-	print("   Current time scale:", Engine.time_scale)
 	
 	# Immediately set time scale
 	Engine.time_scale = scale
-	print("   New time scale:", Engine.time_scale)
 	
 	time_slow_effect.visible = true
 	
@@ -28,8 +23,6 @@ func slow_time(scale: float = 0.2, duration: float = 1.0) -> void:
 	var timer = get_tree().create_timer(duration)  # Don't adjust for slowed time
 	await timer.timeout
 	
-	print("[DEBUG] ScreenEffects - Restoring time")
-	print("   Current time scale:", Engine.time_scale)
 	
 	# Fade out effect
 	var fade_tween = create_tween()
@@ -41,7 +34,6 @@ func slow_time(scale: float = 0.2, duration: float = 1.0) -> void:
 	
 	# Restore time scale
 	Engine.time_scale = 1.0
-	print("   Restored time scale:", Engine.time_scale)
 
 func apply_time_slow_effect():
 	slow_time(0.2, 1.0)  # Use standard values for testing

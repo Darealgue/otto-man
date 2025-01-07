@@ -12,32 +12,20 @@ var delayed_health: float = 100.0
 var player_stats: Node
 
 func _ready() -> void:
-	print("[HealthDisplay] Initializing...")
-	print("[HealthDisplay] Node path:", get_path())
 	
 	# Force visibility
 	show()
 	modulate.a = 1.0
 	
-	print("[HealthDisplay] Visibility:", visible)
-	print("[HealthDisplay] Modulate:", modulate)
-	print("[HealthDisplay] Global position:", global_position)
-	print("[HealthDisplay] Size:", size)
 	
 	# Verify UI components
-	print("[HealthDisplay] Checking UI components...")
-	print("  - HealthLabel:", health_label != null)
-	print("  - HealthBar:", health_bar != null)
-	print("  - DelayedBar:", delayed_bar != null)
 	
 	if !health_label or !health_bar or !delayed_bar:
 		push_error("[HealthDisplay] Missing UI components!")
 		return
 		
 	# Get PlayerStats singleton
-	print("[HealthDisplay] Getting PlayerStats singleton...")
 	player_stats = get_node("/root/PlayerStats")
-	print("  - PlayerStats found:", player_stats != null)
 	
 	if !player_stats:
 		push_error("[HealthDisplay] PlayerStats singleton not found!")
@@ -46,24 +34,17 @@ func _ready() -> void:
 	# Initialize values from PlayerStats
 	var current_health = player_stats.get_current_health()
 	var max_health = player_stats.get_max_health()
-	print("[HealthDisplay] Initial values:")
-	print("  - Current Health:", current_health)
-	print("  - Max Health:", max_health)
 	
 	update_health_display(current_health, max_health)
 	
 	# Connect to PlayerStats signals
-	print("[HealthDisplay] Connecting signals...")
 	if !player_stats.health_changed.is_connected(_on_health_changed):
 		player_stats.health_changed.connect(_on_health_changed, CONNECT_DEFERRED)
-		print("  - Connected health_changed signal")
 	if !player_stats.stat_changed.is_connected(_on_stat_changed):
 		player_stats.stat_changed.connect(_on_stat_changed, CONNECT_DEFERRED)
-		print("  - Connected stat_changed signal")
 
 func _process(delta: float) -> void:
 	if !visible:
-		print("[HealthDisplay] Forcing visibility...")
 		show()
 		modulate.a = 1.0
 		return
@@ -77,19 +58,14 @@ func _process(delta: float) -> void:
 		delayed_bar.value = delayed_health
 
 func _on_health_changed(new_health: float) -> void:
-	print("[HealthDisplay] Health changed to:", new_health)
 	if player_stats:
 		update_health_display(new_health, player_stats.get_max_health())
 
 func _on_stat_changed(stat_name: String, _old_value: float, new_value: float) -> void:
 	if stat_name == "max_health" and player_stats:
-		print("[HealthDisplay] Max health changed to:", new_value)
 		update_health_display(player_stats.get_current_health(), new_value)
 
 func update_health_display(current_health: float, max_health: float) -> void:
-	print("[HealthDisplay] Updating display:")
-	print("  - Current Health:", current_health)
-	print("  - Max Health:", max_health)
 	
 	if !health_label or !health_bar or !delayed_bar:
 		push_error("[HealthDisplay] Missing UI components during update!")

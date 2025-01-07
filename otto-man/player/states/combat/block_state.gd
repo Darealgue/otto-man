@@ -22,7 +22,6 @@ func _ready():
 	debug_enabled = true  # Enable debug logging for block state
 
 func enter():
-	print("[DEBUG] Block State - Entering")
 	
 	# Get stamina bar reference
 	stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
@@ -41,7 +40,6 @@ func enter():
 	is_transitioning = false
 	stamina_consumed_this_hit = false
 	block_start_time = Time.get_ticks_msec() / 1000.0  # Set block start time
-	print("   Block start time:", block_start_time)
 	
 	# Create finish timer if not exists
 	if not finish_timer:
@@ -62,9 +60,6 @@ func enter():
 	if not player.hurtbox.is_connected("hurt", _on_hurtbox_hurt):
 		player.hurtbox.connect("hurt", _on_hurtbox_hurt)
 	
-	print("[DEBUG] Block State - Enter complete")
-	print("   Can parry:", can_parry)
-	print("   Parry timer:", parry_timer)
 
 func exit():
 	is_blocking = false
@@ -128,31 +123,19 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	var current_time = Time.get_ticks_msec() / 1000.0
 	var time_since_block = current_time - block_start_time
 	
-	print("[DEBUG] Block State - Hurtbox hit")
-	print("   Current time:", current_time)
-	print("   Block start time:", block_start_time)
-	print("   Time since block:", time_since_block)
-	print("   Parry window:", PARRY_WINDOW)
-	print("   Can parry:", can_parry)
-	print("   Is parrying:", is_parrying)
 	
 	# Prevent double parry
 	if is_parrying:
-		print("   Skipping - Already parrying")
 		return
 	
 	# Check if within parry window and can parry
 	if can_parry and time_since_block <= PARRY_WINDOW:
-		print("[DEBUG] Block State - Perfect parry detected!")
 		
 		# Consume stamina for parry if not already consumed for this hit
 		if not stamina_consumed_this_hit and stamina_bar:
-			print("   Consuming stamina for parry")
 			if stamina_bar.use_charge():
 				stamina_consumed_this_hit = true
-				print("   Stamina consumed successfully")
 			else:
-				print("   No stamina available - Parry will fail")
 				# If no stamina, treat as normal block
 				player.hurtbox.last_damage = hitbox.get_damage() * (1.0 - BLOCK_DAMAGE_REDUCTION)
 				is_in_impact_animation = true
@@ -163,43 +146,31 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		
 		# Set parrying flag
 		is_parrying = true
-		print("   Set parrying flag")
 		
 		# Play parry animation
 		animation_player.play("parry")
-		print("   Playing parry animation")
 		
 		# Create parry effect
 		var parry_effect = preload("res://effects/parry_effect.tscn").instantiate()
 		player.add_child(parry_effect)
 		parry_effect.global_position = hitbox.global_position
-		print("   Created parry effect")
 		
 		# Reflect damage back to attacker
 		var attacker = hitbox.get_parent()
 		if attacker.has_method("take_damage"):
 			var reflected_damage = hitbox.get_damage() * PARRY_DAMAGE_MULTIPLIER
-			print("   Reflecting damage:", reflected_damage)
 			# Use the normal damage handling path
 			attacker.change_behavior("hurt", true)  # Force hurt state first
 			attacker.take_damage(reflected_damage)
 			
 		# Emit perfect parry signal for powerups
-		print("[DEBUG] Block State - Emitting perfect_parry signal")
-		print("   Player has signal:", player.has_signal("perfect_parry"))
-		print("   Signal connections:", player.get_signal_connection_list("perfect_parry"))
 		player._on_successful_parry()  # Call the function that emits the signal
-		print("   Signal emitted")
 	else:
-		print("[DEBUG] Block State - Normal block (outside parry window)")
 		# Consume stamina for normal blocks if not already consumed for this hit
 		if not stamina_consumed_this_hit and stamina_bar:
-			print("   Consuming stamina for block")
 			if stamina_bar.use_charge():
 				stamina_consumed_this_hit = true
-				print("   Stamina consumed successfully")
 			else:
-				print("   No stamina available - Block will fail")
 				# If no stamina, take full damage
 				player.hurtbox.last_damage = hitbox.get_damage()
 				_start_finish_animation()

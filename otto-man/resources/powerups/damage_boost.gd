@@ -14,16 +14,10 @@ func activate(player: CharacterBody2D) -> void:
 	super.activate(player)
 	
 	var old_damage = player_stats.get_stat("base_damage")
-	print("[DEBUG] Damage Boost - Before modification:")
-	print("   Current Base Damage:", old_damage)
-	print("   Current Multiplier:", player_stats.stat_multipliers["base_damage"])
 	
 	# Add multiplier to the stat system
 	player_stats.add_stat_multiplier("base_damage", 1.0 + DAMAGE_BOOST)
 	
-	print("[DEBUG] Damage Boost - After modification:")
-	print("   New Base Damage:", player_stats.get_stat("base_damage"))
-	print("   New Multiplier:", player_stats.stat_multipliers["base_damage"])
 
 func deactivate(player: CharacterBody2D) -> void:
 	if !is_instance_valid(player):

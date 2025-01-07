@@ -17,18 +17,11 @@ func _ready() -> void:
 			connect("state_entered", player._on_dash_state_entered)
 		if !is_connected("state_exited", player._on_dash_state_exited):
 			connect("state_exited", player._on_dash_state_exited)
-		print("[DEBUG] Dash State - Connected signals")
-		print("   State entered connections:", get_signal_connection_list("state_entered"))
-		print("   State exited connections:", get_signal_connection_list("state_exited"))
 
 func enter():
-	print("[DEBUG] Dash State - Entering")
-	print("   Has state_entered signal:", has_signal("state_entered"))
-	print("   Signal connections:", get_signal_connection_list("state_entered"))
 	
 	# Call parent enter to emit signal
 	super.enter()
-	print("   Emitted state_entered signal")
 	
 	# Store original collision settings
 	original_collision_mask = player.collision_mask

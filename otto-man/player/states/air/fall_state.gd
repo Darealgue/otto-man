@@ -47,22 +47,24 @@ func physics_update(delta: float):
 	get_parent().get_node("FallAttack").update_cooldown(delta)
 	
 	# Check for fall attack input first (before any animation checks)
-	if Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
-		if not get_parent().get_node("FallAttack").is_on_cooldown():
-			
-			# Force immediate transition to fall attack
-			is_double_jumping = false
-			is_transitioning = false
-			double_jump_animation_finished = true
-			animation_player.stop()  # Stop any current animation
-			state_machine.transition_to("FallAttack")
-			return
-		else:
-			return  # Added return to prevent the code below from executing
+	if Input.is_action_pressed("down"):
+		# Make fall attack easier to execute by checking for jump input more frequently
+		if Input.is_action_just_pressed("jump") or Input.is_action_pressed("jump"):
+			if not get_parent().get_node("FallAttack").is_on_cooldown():
+				# Force immediate transition to fall attack
+				is_double_jumping = false
+				is_transitioning = false
+				double_jump_animation_finished = true
+				animation_player.stop()  # Stop any current animation
+				
+				# Almost eliminate horizontal momentum for more vertical fall attack
+				player.velocity.x *= 0.1  # Reduced from 0.5 to 0.1
+				
+				state_machine.transition_to("FallAttack")
+				return
 	
 	# Handle jump during fall (if we have coyote time or can double jump)
 	if Input.is_action_just_pressed("jump"):
-		
 		if player.has_coyote_time() and not player.has_double_jumped:
 			player.start_jump()
 			state_machine.transition_to("Jump")
@@ -78,6 +80,14 @@ func physics_update(delta: float):
 			animation_player.play("double_jump")
 			return
 	
+	# Get input for horizontal movement
+	var input_dir = Input.get_axis("left", "right")
+	
+	# Handle horizontal movement using new air movement system
+	player.apply_movement(delta, input_dir)
+	if input_dir != 0:
+		player.sprite.flip_h = input_dir < 0
+	
 	# Apply gravity with increased falling speed, except during double jump
 	if is_double_jumping:
 		# Use normal gravity during double jump
@@ -85,16 +95,6 @@ func physics_update(delta: float):
 	else:
 		# Use increased gravity for normal falling
 		player.velocity.y += player.gravity * delta * player.fall_gravity_multiplier
-	
-	# Get input for horizontal movement
-	var input_dir = Input.get_axis("left", "right")
-	
-	# Handle horizontal movement
-	if input_dir != 0:
-		player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed, player.acceleration * delta)
-		player.sprite.flip_h = input_dir < 0
-	else:
-		player.apply_friction(delta)
 	
 	# Apply maximum fall speed
 	if player.velocity.y > player.max_fall_speed:

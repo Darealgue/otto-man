@@ -27,8 +27,6 @@ func _ready():
 		shape.debug_color = Color(1, 0, 0, 0.5)  # Red with 50% transparency
 
 func enable_combo(attack_name: String, multiplier: float):
-	print("\n[DEBUG] Player Hitbox - Enabling combo attack:", attack_name)
-	print("   Raw Combo Multiplier:", multiplier)
 	
 	combo_multiplier = multiplier
 	is_combo_hit = true
@@ -37,11 +35,9 @@ func enable_combo(attack_name: String, multiplier: float):
 	# Set damage based on attack type
 	if attack_name == "fall_attack":
 		damage = 20.0  # Fall attack has fixed damage
-		print("   Fall Attack - Fixed damage:", damage)
 	else:
 		# Use AttackManager for normal attacks
 		damage = attack_manager.calculate_attack_damage(get_parent(), "light", attack_name)
-		print("   Final Hitbox Damage:", damage)
 	
 	has_hit_enemy = false  # Reset hit flag when enabling combo
 
@@ -61,7 +57,6 @@ func enable():
 		# Make hitbox more visible when active
 		get_node("CollisionShape2D").debug_color = Color(0, 1, 0, 0.5)  # Green when active
 		
-	print("[DEBUG] Player Hitbox - Enabled with damage:", damage)
 
 func disable():
 	is_active = false
@@ -83,7 +78,6 @@ func _on_area_entered(area: Area2D) -> void:
 		var enemy = area.get_parent()
 		if enemy:
 			has_hit_enemy = true  # Mark that we've hit during this attack
-			print("[DEBUG] Player Hitbox - Hit enemy with damage:", damage)
 			hit_enemy.emit(enemy)
 			
 func _physics_process(_delta: float) -> void:

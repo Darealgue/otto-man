@@ -26,14 +26,10 @@ func _ready() -> void:
 	stamina_bar.position = Vector2(20, 65)
 	container.add_child(stamina_bar)
 	
-	print("[Level] Initializing level...")
 	_print_scene_tree(self)
 	
 	var enemies = get_tree().get_nodes_in_group("enemies")
-	for enemy in enemies:
-		print("[Level] Found enemy:", enemy.name)
 
 func _print_scene_tree(node: Node, indent: String = "") -> void:
-	print(indent + node.name + " (" + node.get_class() + ")")
 	for child in node.get_children():
 		_print_scene_tree(child, indent + "  ")

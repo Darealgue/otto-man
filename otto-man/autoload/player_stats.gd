@@ -66,10 +66,6 @@ var stat_bonuses = {
 	"block_charges": 0.0,
 }
 
-func _ready() -> void:
-	print("[PlayerStats] Initializing...")
-	print("[PlayerStats] Initial health:", current_health)
-	print("[PlayerStats] Initial max health:", get_stat("max_health"))
 
 # Get the final value of a stat after all multipliers and bonuses
 func get_stat(stat_name: String) -> float:
@@ -147,15 +143,12 @@ func get_stat_modifiers(stat_name: String) -> Array:
 # Helper functions for common stat operations
 func get_max_health() -> float:
 	var max_health = get_stat("max_health")
-	print("[PlayerStats] Getting max health:", max_health)
 	return max_health
 
 func get_current_health() -> float:
-	print("[PlayerStats] Getting current health:", current_health)
 	return current_health
 
 func set_current_health(value: float, show_damage_number: bool = true) -> void:
-	print("[PlayerStats] Setting health from", current_health, "to", value)
 	var old_health = current_health
 	current_health = clamp(value, 0, get_max_health())
 	health_changed.emit(current_health)

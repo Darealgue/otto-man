@@ -9,12 +9,10 @@ var recharging_index = -1  # Which segment is currently recharging (-1 if none)
 @onready var segments = [$Segments/Segment1, $Segments/Segment2, $Segments/Segment3]
 
 func _ready():
-	print("[StaminaBar] Initializing...")
 	add_to_group("stamina_bar")
 	update_segments()
 	show()
 	modulate.a = 1.0  # Start visible
-	print("[StaminaBar] Ready - Visible:", visible, " Modulate:", modulate)
 
 func _process(delta):
 	if !visible:

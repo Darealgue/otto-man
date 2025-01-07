@@ -8,8 +8,11 @@ signal dash_started
 @export var jump_velocity: float = 600.0
 @export var double_jump_velocity: float = 550.0
 @export var acceleration: float = 3000.0
+@export var air_acceleration: float = 1500.0  # Lower acceleration in air for better momentum
 @export var friction: float = 2000.0
+@export var air_friction: float = 200.0  # Much lower friction in air to preserve momentum
 @export var stop_friction_multiplier: float = 2.0
+@export var air_control_multiplier: float = 0.5  # Reduced from 0.65 for more precise control
 @export var coyote_time: float = 0.15
 @export var jump_buffer_time: float = 0.1
 @export var fall_gravity_multiplier: float = 2.0
@@ -28,6 +31,9 @@ signal dash_started
 @export var wall_jump_momentum_preservation: float = 0.8
 @export var wall_jump_control_delay: float = 0.15
 @export var debug_enabled: bool = false
+@export var precision_air_control_multiplier: float = 0.9  # How much control player has in air when holding down
+@export var precision_air_friction: float = 400.0  # Higher air friction when holding down for more precise control
+@export var air_momentum_cancel_rate: float = 0.85  # How quickly to reduce horizontal velocity when releasing direction in air
 
 const COYOTE_TIME := 0.15  # Time in seconds player can still jump after leaving ground
 const FALL_GRAVITY_MULTIPLIER := 1.5  # Makes falling faster than rising
@@ -104,7 +110,6 @@ func _ready():
 	
 	# Connect dash state signals
 	if dash_state:
-		print("[DEBUG] Connecting dash state signals")
 		if not dash_state.is_connected("state_entered", _on_dash_state_entered):
 			dash_state.connect("state_entered", _on_dash_state_entered)
 		if not dash_state.is_connected("state_exited", _on_dash_state_exited):
@@ -220,25 +225,27 @@ func start_jump():
 	is_jumping = true
 	jump_timer = 0.0
 	velocity.y = -jump_velocity
-	# Add a larger horizontal boost for more dynamic movement
+	# Reduce horizontal boost for more predictable jumps
 	var input_dir = Input.get_axis("left", "right")
 	if input_dir != 0:
-		velocity.x += input_dir * speed * 0.3
+		velocity.x += input_dir * speed * 0.2  # Reduced from 0.3
 
 func start_double_jump():
 	is_jumping = true
 	jump_timer = 0.0
 	velocity.y = -double_jump_velocity
-	# Add a larger horizontal boost for double jump
+	# Reduce horizontal boost for double jump too
 	var input_dir = Input.get_axis("left", "right")
 	if input_dir != 0:
-		velocity.x += input_dir * speed * 0.4
+		velocity.x += input_dir * speed * 0.25  # Reduced from 0.4
 
-func apply_friction(delta: float, input_dir: float = 0.0) -> void:
+func apply_friction(delta: float, input_dir: float = 0.0, precision_mode: bool = false) -> void:
+	# Use different friction values for ground and air
+	var friction_to_use = friction if is_on_floor() else (precision_air_friction if precision_mode else air_friction)
+	
 	# Apply extra friction when stopping (input direction is opposite to velocity or zero)
-	var friction_to_use = friction
 	if (input_dir == 0.0) or (sign(input_dir) != sign(velocity.x)):
-		friction_to_use *= stop_friction_multiplier
+		friction_to_use *= stop_friction_multiplier if is_on_floor() else 1.0  # Don't multiply air friction
 	
 	velocity.x = move_toward(velocity.x, 0, friction_to_use * delta)
 
@@ -355,8 +362,6 @@ func has_coyote_time() -> bool:
 # Powerup-related functions
 func modify_damage_multiplier(multiplier: float) -> void:
 	# This function now only handles attack damage multipliers
-	print("[DEBUG] Damage Calculation - Starting damage:", base_damage * damage_multiplier)
-	print("[DEBUG] Damage Calculation - Adding multiplier:", multiplier)
 	
 	# Convert multiplier to bonus (e.g., 1.2 becomes 0.2)
 	var bonus = multiplier - 1.0
@@ -370,13 +375,10 @@ func modify_damage_multiplier(multiplier: float) -> void:
 	# Apply total bonus
 	damage_multiplier = 1.0 + total_bonus
 	
-	print("[DEBUG] Damage Calculation - Current bonuses:", damage_multipliers)
-	print("[DEBUG] Damage Calculation - Total bonus:", total_bonus)
 	
 	# Update hitbox damage using base damage from PlayerStats
 	if hitbox:
 		hitbox.damage = base_damage * damage_multiplier
-		print("[DEBUG] Damage Calculation - Final damage:", hitbox.damage)
 
 func remove_damage_multiplier(multiplier: float) -> void:
 	# Convert multiplier to bonus before removing
@@ -394,7 +396,6 @@ func remove_damage_multiplier(multiplier: float) -> void:
 	# Update hitbox damage using base damage
 	if hitbox:
 		hitbox.damage = base_damage * damage_multiplier
-		print("[DEBUG] Damage Calculation - Removed multiplier, new damage:", hitbox.damage)
 
 func modify_speed(multiplier: float) -> void:
 	# This function is now just for temporary speed modifications (like dash)
@@ -414,21 +415,15 @@ func get_stats() -> Dictionary:
 
 # Update dash state tracking
 func _on_dash_state_entered() -> void:
-	print("[DEBUG] Dash state entered")
 	is_dashing = true
 	emit_signal("dash_started")
 
 func _on_dash_state_exited() -> void:
-	print("[DEBUG] Dash state exited")
 	is_dashing = false
 
 # Update perfect parry detection
 func _on_successful_parry() -> void:
-	print("[DEBUG] Player - Perfect parry detected")
-	print("   Has signal:", has_signal("perfect_parry"))
-	print("   Signal connections:", get_signal_connection_list("perfect_parry"))
 	emit_signal("perfect_parry")
-	print("   Signal emitted")
 
 # Add new functions for stat syncing
 func _sync_stats_from_player_stats() -> void:
@@ -466,3 +461,32 @@ func get_health_percent() -> float:
 # Make dash state accessible for powerups
 func get_dash_state() -> State:
 	return dash_state
+
+func apply_movement(delta: float, input_dir: float) -> void:
+	# Use different acceleration values for ground and air
+	var current_acceleration = acceleration if is_on_floor() else air_acceleration
+	var target_speed = speed
+	
+	# In air, apply different control based on if down is held
+	if !is_on_floor():
+		if Input.is_action_pressed("down"):
+			# Precision mode - better control and more friction
+			target_speed *= precision_air_control_multiplier
+			if input_dir == 0:
+				apply_friction(delta, input_dir, true)  # Use precision friction
+				return
+		else:
+			target_speed *= air_control_multiplier
+			
+			# Quick momentum cancellation when releasing direction in air
+			# Only if not wall jumping to preserve wall jump feel
+			if input_dir == 0 and !is_wall_jumping:
+				velocity.x *= air_momentum_cancel_rate
+			# Add extra friction when changing direction in air
+			elif input_dir != 0 and sign(input_dir) != sign(velocity.x):
+				velocity.x *= 0.95  # Slight momentum reduction when turning
+	
+	if input_dir != 0:
+		velocity.x = move_toward(velocity.x, input_dir * target_speed, current_acceleration * delta)
+	else:
+		apply_friction(delta, input_dir)

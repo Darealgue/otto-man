@@ -135,18 +135,22 @@ func _get_wall_normal() -> Vector2:
 	return wall_normal
 
 func _perform_wall_jump(wall_normal: Vector2):
-	# Calculate wall jump velocity - jump away from wall
+	# Calculate wall jump velocity with better momentum preservation
 	var jump_velocity = Vector2(
-		player.wall_jump_velocity.x * wall_normal.x,  # Jump in direction of wall normal
-		player.wall_jump_velocity.y  # Vertical component
+		player.wall_jump_velocity.x * wall_normal.x * 1.2,  # Increased horizontal force by 20%
+		player.wall_jump_velocity.y * 0.9  # Slightly reduced vertical force for better control
 	)
+	
+	# Preserve some of the player's existing horizontal velocity
+	var preserved_velocity = player.velocity.x * 0.4  # Preserve 40% of current horizontal velocity
+	jump_velocity.x += preserved_velocity
 	
 	# Apply the wall jump with consistent velocity
 	player.velocity = jump_velocity
 	player.is_wall_jumping = true
 	player.wall_jump_direction = wall_normal.x  # Direction matches wall normal
-	player.wall_jump_timer = player.wall_jump_control_delay
-	player.wall_jump_boost_timer = player.wall_jump_control_delay
+	player.wall_jump_timer = player.wall_jump_control_delay * 0.7  # Reduced control delay by 30%
+	player.wall_jump_boost_timer = player.wall_jump_control_delay * 0.7
 	
 	# Face away from wall - flip sprite to face jump direction
 	player.sprite.flip_h = wall_normal.x > 0  # Face opposite to wall normal

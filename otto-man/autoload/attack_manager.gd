@@ -48,8 +48,6 @@ func add_damage_multiplier(player: Node, multiplier: float, source: String = "")
 		"value": multiplier,
 		"source": source
 	})
-	print("[DEBUG] Attack Manager - Added damage multiplier:", multiplier, " from source:", source)
-	print("   Current multipliers:", player_modifiers[player]["damage_multipliers"])
 
 # Remove a specific damage multiplier
 func remove_damage_multiplier(player: Node, multiplier: float, source: String = "") -> void:
@@ -60,8 +58,6 @@ func remove_damage_multiplier(player: Node, multiplier: float, source: String = 
 	for i in range(multipliers.size() - 1, -1, -1):
 		if multipliers[i]["value"] == multiplier and multipliers[i]["source"] == source:
 			multipliers.remove_at(i)
-			print("[DEBUG] Attack Manager - Removed damage multiplier:", multiplier, " from source:", source)
-			print("   Remaining multipliers:", multipliers)
 			break
 
 # Calculate final damage for an attack
@@ -84,12 +80,6 @@ func calculate_attack_damage(player: Node, attack_type: String, attack_name: Str
 	var combo_mult = BASE_CONFIG[attack_type]["combo_multipliers"][attack_name]["damage"]
 	var final_damage = modified_base * combo_mult
 	
-	print("[DEBUG] Attack Manager - Damage Calculation:")
-	print("   Base Damage (from PlayerStats):", base_damage)
-	print("   Powerup Multiplier:", total_powerup_multiplier)
-	print("   Modified Base:", modified_base)
-	print("   Combo Multiplier:", combo_mult)
-	print("   Final Damage:", final_damage)
 	
 	return final_damage
 
