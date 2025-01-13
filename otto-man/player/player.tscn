@@ -1,4 +1,4 @@
-[gd_scene load_steps=89 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=91 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -30,6 +30,8 @@
 [ext_resource type="Texture2D" uid="uid://nkj6bhhd5r1x" path="res://assets/player/sprite/otto_parry_border-sheet.png" id="28_llupn"]
 [ext_resource type="Script" path="res://components/player_hitbox.gd" id="29_xgdcd"]
 [ext_resource type="Script" path="res://components/player_hurtbox.gd" id="30_gsi5t"]
+[ext_resource type="PackedScene" path="res://ui/health_display.tscn" id="health_display"]
+[ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
 
 [sub_resource type="Animation" id="Animation_55col"]
 length = 0.001
@@ -1238,6 +1240,36 @@ height = 44.0
 collision_layer = 2
 collision_mask = 5
 script = ExtResource("1_player")
+speed = null
+jump_velocity = null
+double_jump_velocity = null
+acceleration = null
+air_acceleration = null
+friction = null
+air_friction = null
+stop_friction_multiplier = null
+air_control_multiplier = null
+coyote_time = null
+jump_buffer_time = null
+fall_gravity_multiplier = null
+max_fall_speed = null
+jump_cut_height = null
+max_jump_time = null
+jump_horizontal_dampening = null
+wall_slide_speed = null
+wall_jump_velocity = null
+wall_slide_gravity_multiplier = null
+wall_stick_force = null
+wall_stick_distance = null
+wall_jump_horizontal_dampening = null
+wall_jump_boost = null
+wall_detach_boost = null
+wall_jump_momentum_preservation = null
+wall_jump_control_delay = null
+debug_enabled = null
+precision_air_control_multiplier = null
+precision_air_friction = null
+air_momentum_cancel_rate = null
 
 [node name="StateMachine" type="Node" parent="."]
 script = ExtResource("2_state_machine")
@@ -1355,6 +1387,20 @@ target_position = Vector2(-15, 0)
 [node name="LedgeRayTopRight" type="RayCast2D" parent="."]
 position = Vector2(0, -44)
 target_position = Vector2(15, 0)
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HealthDisplay" parent="UI" instance=ExtResource("health_display")]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 320.0
+offset_bottom = 60.0
+
+[node name="StaminaBar" parent="UI" instance=ExtResource("stamina_bar")]
+offset_left = 20.0
+offset_top = 70.0
+offset_right = 320.0
+offset_bottom = 90.0
 
 [connection signal="animation_finished" from="AnimationPlayer" to="StateMachine/Attack" method="_on_animation_player_animation_finished"]
 [connection signal="animation_finished" from="AnimationPlayer" to="StateMachine/FallAttack" method="_on_animation_finished"]

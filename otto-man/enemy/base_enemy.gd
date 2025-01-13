@@ -1,6 +1,8 @@
 class_name BaseEnemy
 extends CharacterBody2D
 
+signal enemy_defeated
+
 # Core components
 @export var stats: EnemyStats
 @export var debug_enabled: bool = false
@@ -145,7 +147,12 @@ func start_attack_cooldown() -> void:
 
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if stats and not invulnerable:
+		print("\n=== ENEMY TAKING DAMAGE ===")
+		print("Current health: ", health)
+		print("Damage amount: ", amount)
+		
 		health -= amount
+		print("Health after damage: ", health)
 		
 		# Set brief invulnerability
 		invulnerable = true
@@ -162,6 +169,7 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 		damage_number.setup(int(amount))
 		
 		if health <= 0:
+			print("Enemy health <= 0, calling handle_death()")
 			handle_death()  # Remove await, just call directly
 			_apply_death_knockback()  # Apply knockback immediately after death
 		else:
@@ -211,17 +219,24 @@ func _on_hurt_animation_finished() -> void:
 	pass  # No longer needed, behavior handles state changes
 
 func handle_death() -> void:
+	print("\n=== ENEMY DEATH HANDLER ===")
+	print("Setting behavior to dead")
 	current_behavior = "dead"  # Set this first to prevent any other behavior changes
 	
-	# Notify PowerupManager of the kill FIRST, before any other death handling
+	print("Emitting enemy_defeated signal")
+	enemy_defeated.emit()
+	
+	print("Notifying PowerupManager")
 	PowerupManager.on_enemy_killed()
 	
 	if sprite:
+		print("Playing death animation")
 		sprite.play("dead")  # Just try to play it directly
 		# Start fade effect
 		sprite.modulate = Color(1, 1, 1, DEATH_FADE_MAX)
 		fade_out = true
 	
+	print("Disabling collision")
 	# Disable ALL collision to ensure falling through platforms
 	collision_layer = 0
 	collision_mask = 0
@@ -235,12 +250,15 @@ func handle_death() -> void:
 		get_node("Hurtbox").set_deferred("monitoring", false)
 		get_node("Hurtbox").set_deferred("monitorable", false)
 	
+	print("Marking death handling as complete")
 	# Mark death handling as complete immediately
 	# We don't need to wait for powerup selection since that's handled by PowerupManager
 	set_meta("death_handling_complete", true)
 	
+	print("Starting cleanup timer")
 	# Wait for PowerupManager to finish showing powerup selection before cleanup
 	await get_tree().create_timer(1.0).timeout
+	print("Queuing enemy for deletion")
 	queue_free()
 
 func apply_gravity(delta: float) -> void:

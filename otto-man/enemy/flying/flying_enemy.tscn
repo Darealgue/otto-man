@@ -1,0 +1,141 @@
+[gd_scene load_steps=16 format=3 uid="uid://kppl7yjrg67q"]
+
+[ext_resource type="Script" path="res://enemy/flying/flying_enemy.gd" id="1_j6iyu"]
+[ext_resource type="Texture2D" uid="uid://8vmlfuinkalh" path="res://enemy/flying/sprites/flying dusman_border-sheet.png" id="1_mf8d4"]
+[ext_resource type="Resource" uid="uid://dwaj5bwbiefvr" path="res://enemy/flying/flying_enemy_stats.tres" id="2_7548b"]
+[ext_resource type="Script" path="res://components/enemy_hitbox.gd" id="4_gupnj"]
+[ext_resource type="Script" path="res://components/enemy_hurtbox.gd" id="5_2v5ws"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_onqcp"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vnufl"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5awe8"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_30idw"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kudy6"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yvsqp"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_tm2ey"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_onqcp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vnufl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5awe8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_30idw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kudy6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yvsqp")
+}],
+"loop": true,
+"name": &"fly",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_onqcp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vnufl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5awe8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_30idw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kudy6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yvsqp")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_onqcp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yvsqp")
+}],
+"loop": true,
+"name": &"swoop",
+"speed": 10.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_tf0tv"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_3d7ya"]
+radius = 14.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_4f0f6"]
+radius = 18.0
+
+[node name="Flying Enemy" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 5
+script = ExtResource("1_j6iyu")
+stats = ExtResource("2_7548b")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(-3, -18)
+sprite_frames = SubResource("SpriteFrames_tm2ey")
+animation = &"swoop"
+frame_progress = 0.377603
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_tf0tv")
+
+[node name="Hitbox" type="Area2D" parent="."]
+collision_layer = 64
+collision_mask = 8
+script = ExtResource("4_gupnj")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
+shape = SubResource("CircleShape2D_3d7ya")
+
+[node name="HurtBox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 16
+script = ExtResource("5_2v5ws")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtBox"]
+shape = SubResource("CircleShape2D_4f0f6")
+
+[node name="WallDetector" type="RayCast2D" parent="."]
+target_position = Vector2(50, 0)
+
+[node name="CeilingDetector" type="RayCast2D" parent="."]
+target_position = Vector2(0, -50)
+
+[node name="FloorDetector" type="RayCast2D" parent="."]
+target_position = Vector2(0, 75)
+
+[connection signal="hurt" from="HurtBox" to="." method="_on_hurtbox_hurt"]

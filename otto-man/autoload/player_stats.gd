@@ -34,6 +34,7 @@ signal health_changed(new_health: float)
 var base_stats = {
 	"max_health": 100.0,
 	"base_damage": 10.0,
+	"fall_attack_damage": 10.0,
 	"movement_speed": 600.0,
 	"jump_force": 600.0,
 	"shield_cooldown": 15.0,
@@ -48,6 +49,7 @@ var current_health: float = 100.0
 var stat_multipliers = {
 	"max_health": 1.0,
 	"base_damage": 1.0,
+	"fall_attack_damage": 1.0,
 	"movement_speed": 1.0,
 	"jump_force": 1.0,
 	"shield_cooldown": 1.0,
@@ -59,6 +61,7 @@ var stat_multipliers = {
 var stat_bonuses = {
 	"max_health": 0.0,
 	"base_damage": 0.0,
+	"fall_attack_damage": 0.0,
 	"movement_speed": 0.0,
 	"jump_force": 0.0,
 	"shield_cooldown": 0.0,
@@ -176,5 +179,9 @@ func get_dash_cooldown() -> float:
 
 func get_block_charges() -> int:
 	return int(get_stat("block_charges"))
+
+# Add helper function for fall attack damage
+func get_fall_attack_damage() -> float:
+	return get_stat("fall_attack_damage")
 
 # Add more helper functions as needed... 

@@ -1,0 +1,111 @@
+[gd_scene load_steps=8 format=3 uid="uid://b44jjxmt1eos6"]
+
+[ext_resource type="Script" path="res://rooms/test_room.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://rooms/spawn_point.tscn" id="2_spawn_point"]
+[ext_resource type="PackedScene" uid="uid://b4yfkqn1hqv8q" path="res://rooms/exit_area.tscn" id="3_enemy"]
+
+[sub_resource type="RectangleShape2D" id="3"]
+size = Vector2(400, 400)
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(1280, 40)
+
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(200, 40)
+
+[sub_resource type="RectangleShape2D" id="4"]
+size = Vector2(2000, 100)
+
+[node name="TestRoom" type="Node2D"]
+script = ExtResource("1_script")
+enemy_scene = ExtResource("3_enemy")
+enemies_per_wave = 2
+
+[node name="TriggerArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TriggerArea"]
+position = Vector2(300, 500)
+shape = SubResource("3")
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="Ground" type="StaticBody2D" parent="Platforms"]
+position = Vector2(640, 680)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Ground"]
+shape = SubResource("1")
+
+[node name="ColorRect" type="ColorRect" parent="Platforms/Ground"]
+offset_left = -640.0
+offset_top = -20.0
+offset_right = 640.0
+offset_bottom = 20.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="Platform1" type="StaticBody2D" parent="Platforms"]
+position = Vector2(200, 500)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform1"]
+shape = SubResource("2")
+
+[node name="ColorRect" type="ColorRect" parent="Platforms/Platform1"]
+offset_left = -100.0
+offset_top = -20.0
+offset_right = 100.0
+offset_bottom = 20.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="Platform2" type="StaticBody2D" parent="Platforms"]
+position = Vector2(1080, 500)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform2"]
+shape = SubResource("2")
+
+[node name="ColorRect" type="ColorRect" parent="Platforms/Platform2"]
+offset_left = -100.0
+offset_top = -20.0
+offset_right = 100.0
+offset_bottom = 20.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="Platform3" type="StaticBody2D" parent="Platforms"]
+position = Vector2(640, 400)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform3"]
+shape = SubResource("2")
+
+[node name="ColorRect" type="ColorRect" parent="Platforms/Platform3"]
+offset_left = -100.0
+offset_top = -20.0
+offset_right = 100.0
+offset_bottom = 20.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="SpawnPoints" type="Node2D" parent="."]
+
+[node name="SpawnPoint1" parent="SpawnPoints" instance=ExtResource("2_spawn_point")]
+position = Vector2(200, 450)
+
+[node name="SpawnPoint2" parent="SpawnPoints" instance=ExtResource("2_spawn_point")]
+position = Vector2(1080, 450)
+
+[node name="SpawnPoint3" parent="SpawnPoints" instance=ExtResource("2_spawn_point")]
+position = Vector2(640, 350)
+
+[node name="Positions" type="Node2D" parent="."]
+
+[node name="EntrancePosition" type="Marker2D" parent="Positions"]
+position = Vector2(100, 600)
+
+[node name="ExitPosition" type="Marker2D" parent="Positions"]
+position = Vector2(1180, 600)
+
+[node name="KillZone" type="Area2D" parent="."]
+position = Vector2(640, 800)
+collision_layer = 0
+collision_mask = 34
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="KillZone"]
+shape = SubResource("4")

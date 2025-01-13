@@ -1,0 +1,343 @@
+extends BaseEnemy
+class_name FlyingEnemy
+
+# Constants for movement
+const CHASE_SPEED_MULTIPLIER = 1.2
+const SWOOP_SPEED_MULTIPLIER = 1.5
+const CIRCLE_RADIUS = 200.0
+const CIRCLE_SPEED = 3.0
+const NEUTRAL_SPEED = 150.0
+const ESCAPE_SPEED = 400.0  # Speed when flying away after summoner death
+const RETURN_SPEED = 400.0  # Speed when returning to summoner
+const RETURN_COOLDOWN = 3.0  # Time before bird can return to summoner
+
+# State tracking
+var circle_angle: float = 0.0
+var swoop_target_pos: Vector2
+var is_neutral: bool = false
+var neutral_direction: Vector2
+var neutral_timer: float = 0.0
+var is_escaping: bool = false  # Track if we're flying away after summoner death
+var is_returning: bool = false  # Track if we're returning to summoner
+var summoner: Node2D = null   # Reference to our summoner
+var return_timer: float = RETURN_COOLDOWN  # Track time before allowing return
+
+# Node references
+@onready var wall_detector: RayCast2D = $WallDetector
+@onready var ceiling_detector: RayCast2D = $CeilingDetector
+@onready var floor_detector: RayCast2D = $FloorDetector
+
+# Add debug print function
+func _debug_print_hurtbox_state(context: String) -> void:
+	if hurtbox:
+		print("[DEBUG] Flying Enemy Hurtbox State - ", context)
+		print("- Monitoring: ", hurtbox.monitoring)
+		print("- Monitorable: ", hurtbox.monitorable)
+		print("- Groups: ", hurtbox.get_groups())
+		print("- Process Mode: ", hurtbox.process_mode)
+		print("- Visible: ", hurtbox.visible)
+		print("- Owner: ", hurtbox.owner.name if hurtbox.owner else "None")
+
+func _ready() -> void:
+	super._ready()
+	_debug_print_hurtbox_state("Initial State")
+	
+	# Initialize combat components with our own stats
+	if hitbox:
+		hitbox.damage = stats.attack_damage
+		hitbox.knockback_force = 200.0 * stats.knockback_resistance
+		hitbox.enable()
+	else:
+		push_error("Flying enemy missing hitbox!")
+	
+	# Find and setup hurtbox - try both capitalization variants
+	var hurtbox_node = get_node_or_null("HurtBox")
+	if not hurtbox_node:
+		hurtbox_node = get_node_or_null("Hurtbox")
+	if not hurtbox_node:
+		hurtbox_node = get_node_or_null("hurtbox")
+	
+	if hurtbox_node:
+		print("[DEBUG] Flying Enemy - Found hurtbox node: ", hurtbox_node.name)
+		hurtbox = hurtbox_node
+		
+		# Remove from any existing hurtbox groups to avoid duplicates
+		if hurtbox.is_in_group("HurtBox"):
+			hurtbox.remove_from_group("HurtBox")
+		if hurtbox.is_in_group("hurtbox"):
+			hurtbox.remove_from_group("hurtbox")
+		if hurtbox.is_in_group("Hurtbox"):
+			hurtbox.remove_from_group("Hurtbox")
+		
+		# Add to all common case variants to ensure compatibility
+		hurtbox.add_to_group("hurtbox")
+		hurtbox.add_to_group("HurtBox")
+		print("[DEBUG] Flying Enemy - Added hurtbox to groups")
+		print("[DEBUG] Flying Enemy - Current groups: ", hurtbox.get_groups())
+	else:
+		push_error("Flying enemy missing hurtbox!")
+	
+	change_behavior("idle")
+
+func _handle_child_behavior(delta: float) -> void:
+	# Update return timer
+	if return_timer > 0:
+		return_timer -= delta
+	
+	match current_behavior:
+		"idle":
+			_handle_idle_state()
+		"chase":
+			_handle_chase_state(delta)
+		"swoop":
+			_handle_swoop_state(delta)
+		"neutral":
+			if is_escaping:
+				_handle_escape_state(delta)
+			elif is_returning:
+				_handle_return_state(delta)
+			else:
+				_handle_neutral_state(delta)
+			
+	_update_animation_state()
+
+func _handle_idle_state() -> void:
+	target = get_nearest_player()
+	if target and is_instance_valid(target):
+		change_behavior("chase")
+	elif not is_returning and summoner and is_instance_valid(summoner):
+		# Only allow return if cooldown has elapsed
+		if return_timer <= 0:
+			print("[Bird] Return cooldown finished, can return to summoner")
+			is_returning = true
+			change_behavior("neutral")
+		else:
+			print("[Bird] Cannot return yet, continuing to chase")
+			change_behavior("chase")  # Keep chasing until cooldown is done
+
+func _handle_return_state(delta: float) -> void:
+	if not summoner or not is_instance_valid(summoner):
+		queue_free()
+		return
+		
+	# Disable collisions while returning
+	set_collision_layer_value(3, false)  # Layer 3 is typically for enemy collision
+	set_collision_mask_value(1, false)   # Layer 1 is typically for environment
+	
+	# Fly towards summoner
+	var direction = global_position.direction_to(summoner.global_position)
+	velocity = direction * RETURN_SPEED
+	# Use move_and_slide() without collision
+	position += velocity * delta
+	
+	# Update sprite direction while returning
+	sprite.flip_h = velocity.x < 0
+	
+	# Check if we've reached the summoner
+	if global_position.distance_to(summoner.global_position) < 50:
+		# Tell summoner we're back
+		if summoner.has_method("_on_bird_returned"):
+			summoner.call("_on_bird_returned", self)
+		queue_free()
+
+func _handle_chase_state(delta: float) -> void:
+	if not target or not is_instance_valid(target):
+		change_behavior("idle")
+		return
+		
+	# Calculate desired position on circle around player
+	circle_angle += CIRCLE_SPEED * delta
+	var circle_pos = target.global_position + Vector2(cos(circle_angle), sin(circle_angle)) * CIRCLE_RADIUS
+	
+	# Move towards circle position
+	var direction = global_position.direction_to(circle_pos)
+	velocity = direction * stats.movement_speed * CHASE_SPEED_MULTIPLIER
+	
+	# Check for obstacles
+	if wall_detector.is_colliding() or ceiling_detector.is_colliding() or floor_detector.is_colliding():
+		velocity = velocity.rotated(PI/4)  # Turn away from obstacle
+	
+	move_and_slide()
+	
+	# Update sprite direction
+	sprite.flip_h = velocity.x < 0
+	
+	# Check if target is in range before attempting swoop
+	var distance_to_target = global_position.distance_to(target.global_position)
+	if distance_to_target <= stats.detection_range:
+		# Randomly decide to swoop
+		if randf() < 0.01:  # 1% chance per frame
+			swoop_target_pos = target.global_position
+			change_behavior("swoop")
+	else:
+		change_behavior("idle")
+
+func _handle_swoop_state(delta: float) -> void:
+	if not target or not is_instance_valid(target):
+		# If we lose target during swoop, check if we should return to summoner
+		if not is_returning and summoner and is_instance_valid(summoner):
+			is_returning = true
+			change_behavior("neutral")
+		else:
+			change_behavior("idle")
+		return
+		
+	var distance_to_target = global_position.distance_to(target.global_position)
+	if distance_to_target > stats.detection_range:
+		if not is_returning and summoner and is_instance_valid(summoner):
+			is_returning = true
+			change_behavior("neutral")
+		else:
+			change_behavior("idle")
+		return
+		
+	var direction = global_position.direction_to(swoop_target_pos)
+	velocity = direction * stats.movement_speed * SWOOP_SPEED_MULTIPLIER
+	
+	move_and_slide()
+	
+	# Check if we've reached the swoop target
+	var distance_to_swoop_target = global_position.distance_to(swoop_target_pos)
+	if distance_to_swoop_target < 20:
+		change_behavior("chase")
+
+func _handle_neutral_state(delta: float) -> void:
+	neutral_timer += delta
+	
+	# Change direction occasionally
+	if neutral_timer >= 2.0:
+		neutral_timer = 0.0
+		neutral_direction = Vector2(randf_range(-1, 1), -1).normalized()
+	
+	velocity = neutral_direction * NEUTRAL_SPEED
+	
+	# Check for obstacles
+	if wall_detector.is_colliding() or ceiling_detector.is_colliding() or floor_detector.is_colliding():
+		neutral_direction = neutral_direction.rotated(PI/4)
+		
+	move_and_slide()
+	sprite.flip_h = velocity.x < 0
+
+func _handle_escape_state(delta: float) -> void:
+	# Always fly upward and slightly to the side
+	velocity = Vector2(neutral_direction.x * ESCAPE_SPEED * 0.3, -ESCAPE_SPEED)
+	move_and_slide()
+	
+	# Check if we're off screen
+	var viewport = get_viewport()
+	if viewport:
+		var screen_size = viewport.get_visible_rect().size
+		var camera = viewport.get_camera_2d()
+		if camera:
+			var top_of_screen = camera.global_position.y - screen_size.y
+			if global_position.y < top_of_screen - 100:  # 100 pixels above screen
+				queue_free()
+
+func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+	_debug_print_hurtbox_state("Before Taking Damage")
+	
+	if stats and not invulnerable:
+		health -= amount
+		print("[DEBUG] Flying Enemy Health: ", health, " after taking ", amount, " damage")
+		
+		# Set brief invulnerability
+		invulnerable = true
+		invulnerability_timer = INVULNERABILITY_DURATION
+		
+		# Update health bar
+		if health_bar:
+			health_bar.update_health(health)
+		
+		# Spawn damage number
+		var damage_number = preload("res://effects/damage_number.tscn").instantiate()
+		add_child(damage_number)
+		damage_number.global_position = global_position + Vector2(0, -50)
+		damage_number.setup(int(amount))
+		
+		if health <= 0:
+			handle_death()
+			_apply_death_knockback()
+			await get_tree().create_timer(0.1).timeout
+			_debug_print_hurtbox_state("After Death")
+		else:
+			# Apply knockback
+			var players = get_tree().get_nodes_in_group("player")
+			if players.size() > 0:
+				var player = players[0]
+				var dir = (global_position - player.global_position).normalized()
+				velocity = Vector2(
+					dir.x * knockback_force,
+					-knockback_force * 0.5
+				)
+				change_behavior("hurt", true)
+			
+			_flash_hurt()
+			await get_tree().create_timer(0.1).timeout
+			_debug_print_hurtbox_state("After Taking Damage")
+
+func _update_animation_state() -> void:
+	match current_behavior:
+		"idle":
+			sprite.play("idle")
+		"chase":
+			sprite.play("fly")
+		"swoop":
+			sprite.play("swoop")
+		"neutral":
+			sprite.play("fly")
+		"hurt":
+			sprite.play("hurt")
+		"dead":
+			sprite.play("dead")
+
+func set_neutral_state() -> void:
+	_debug_print_hurtbox_state("Before Neutral State")
+	
+	is_neutral = true
+	is_escaping = true
+	change_behavior("neutral")
+	
+	# Pick a random direction to fly (left or right)
+	neutral_direction = Vector2(randf_range(-1, 1), -1).normalized()
+	
+	# Disable only hitbox for combat
+	if hitbox:
+		hitbox.set_deferred("monitoring", false)
+		hitbox.set_deferred("monitorable", false)
+	
+	# Keep hurtbox active and explicitly set it to be monitorable for bouncing
+	if hurtbox:
+		print("[DEBUG] Flying Enemy - Setting hurtbox state for neutral")
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
+		if not hurtbox.is_in_group("hurtbox"):
+			hurtbox.add_to_group("hurtbox")
+			print("[DEBUG] Flying Enemy - Re-added to hurtbox group")
+		print("[DEBUG] Flying Enemy - Current groups: ", hurtbox.get_groups())
+	
+	# Disable collision with environment
+	set_collision_layer_value(3, false)  # Layer 3 is typically for enemy collision
+	set_collision_mask_value(1, false)   # Layer 1 is typically for environment
+	
+	await get_tree().create_timer(0.1).timeout
+	_debug_print_hurtbox_state("After Neutral State")
+
+func set_summoner(new_summoner: Node2D) -> void:
+	summoner = new_summoner
+
+func apply_gravity(_delta: float) -> void:
+	# Override to prevent gravity from affecting flying enemies
+	pass
+
+func handle_death() -> void:
+	_debug_print_hurtbox_state("Before Death Handler")
+	super.handle_death()
+	
+	if hurtbox:
+		# Force enable hurtbox for bouncing
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
+		print("[DEBUG] Flying Enemy - Explicitly enabled hurtbox after death")
+	
+	await get_tree().create_timer(0.1).timeout
+	_debug_print_hurtbox_state("After Death Handler")

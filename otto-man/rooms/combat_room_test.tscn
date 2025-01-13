@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3 uid="uid://b3cq08k0d68gg"]
+
+[ext_resource type="PackedScene" uid="uid://cub5nhn1ah68w" path="res://rooms/combat_challenge_room.tscn" id="1_room"]
+[ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="2_player"]
+
+[node name="CombatRoomTest" type="Node2D"]
+
+[node name="CombatChallengeRoom" parent="." instance=ExtResource("1_room")]
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(58, 629)

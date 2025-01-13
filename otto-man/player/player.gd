@@ -75,6 +75,9 @@ var is_dashing: bool = false  # For Speed Demon powerup
 @onready var state_machine = $StateMachine
 
 func _ready():
+	# Add to player group
+	add_to_group("player")
+	
 	animation_player.active = true
 	animation_tree.active = false
 	
@@ -101,8 +104,9 @@ func _ready():
 	else:
 		push_error("[Player] Warning: No hurtbox found!")
 	
-	# Register with PowerupManager
+	# Register with PowerupManager and RoomManager
 	PowerupManager.register_player(self)
+	RoomManager.register_player(self)
 	
 	# Initialize stats
 	damage_multiplier = 1.0

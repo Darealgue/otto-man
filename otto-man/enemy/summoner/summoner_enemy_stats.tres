@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EnemyStats" load_steps=2 format=3 uid="uid://1p1x5iyswfad"]
+
+[ext_resource type="Script" path="res://enemy/enemy_stats.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+max_health = 100.0
+movement_speed = 200.0
+attack_damage = 0.0
+detection_range = 400.0
+attack_range = 400.0
+attack_cooldown = 2.0
+knockback_resistance = 0.3
+health_scale = 1.2
+damage_scale = 1.0
+speed_scale = 1.1
+can_drop_powerup = true
+powerup_drop_chance = 0.6
