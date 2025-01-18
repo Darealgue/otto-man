@@ -7,7 +7,6 @@ const WALL_JUMP_HORIZONTAL_DECAY := 0.95  # How much horizontal velocity is main
 var wall_jump_sprite_direction := false  # Store initial wall jump direction
 
 func enter():
-	
 	# Connect animation signals
 	if not animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.connect("animation_finished", _on_animation_finished)
@@ -22,10 +21,14 @@ func enter():
 		# Enable double jump immediately after wall jump
 		player.enable_double_jump()
 	else:
-		# Normal jump or coyote time jump
-		player.start_jump()
-		player.enable_double_jump()
-		animation_player.play("jump_upwards")
+		# Only start jump if not pressing down
+		if not Input.is_action_pressed("down"):
+			player.start_jump()
+			player.enable_double_jump()
+			animation_player.play("jump_upwards")
+		else:
+			# If pressing down, transition to fall state
+			state_machine.transition_to("Fall")
 
 func physics_update(delta: float):
 	# Update fall attack cooldown
@@ -76,8 +79,8 @@ func physics_update(delta: float):
 	else:
 		player.velocity.y += player.gravity * player.current_gravity_multiplier * delta
 	
-	# Handle double jump
-	if Input.is_action_just_pressed("jump") and player.can_double_jump and not player.has_double_jumped:
+	# Handle double jump - prevent if pressing down
+	if Input.is_action_just_pressed("jump") and player.can_double_jump and not player.has_double_jumped and not Input.is_action_pressed("down"):
 		is_double_jumping = true
 		player.has_double_jumped = true
 		player.start_double_jump()
@@ -95,7 +98,6 @@ func physics_update(delta: float):
 		
 		# Only handle fall transition if we're not already transitioning
 		if current_anim != "jump_to_fall" and current_anim != "fall" and current_anim != "double_jump":
-			
 			# Play jump_to_fall transition and then transition to fall state
 			animation_player.play("jump_to_fall")
 

@@ -1,5 +1,7 @@
-extends BaseEnemy
 class_name FlyingEnemy
+extends BaseEnemy
+
+const BaseEnemyScript = preload("res://enemy/base_enemy.gd")
 
 # Constants for movement
 const CHASE_SPEED_MULTIPLIER = 1.2
@@ -233,47 +235,22 @@ func _handle_escape_state(delta: float) -> void:
 			if global_position.y < top_of_screen - 100:  # 100 pixels above screen
 				queue_free()
 
+func handle_patrol(delta: float) -> void:
+	_handle_idle_state()
+
+func handle_alert(delta: float) -> void:
+	_handle_chase_state(delta)
+
+func handle_chase(delta: float) -> void:
+	_handle_chase_state(delta)
+
+func handle_hurt_behavior(delta: float) -> void:
+	super.handle_hurt_behavior(delta)
+
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	_debug_print_hurtbox_state("Before Taking Damage")
-	
-	if stats and not invulnerable:
-		health -= amount
-		print("[DEBUG] Flying Enemy Health: ", health, " after taking ", amount, " damage")
-		
-		# Set brief invulnerability
-		invulnerable = true
-		invulnerability_timer = INVULNERABILITY_DURATION
-		
-		# Update health bar
-		if health_bar:
-			health_bar.update_health(health)
-		
-		# Spawn damage number
-		var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-		add_child(damage_number)
-		damage_number.global_position = global_position + Vector2(0, -50)
-		damage_number.setup(int(amount))
-		
-		if health <= 0:
-			handle_death()
-			_apply_death_knockback()
-			await get_tree().create_timer(0.1).timeout
-			_debug_print_hurtbox_state("After Death")
-		else:
-			# Apply knockback
-			var players = get_tree().get_nodes_in_group("player")
-			if players.size() > 0:
-				var player = players[0]
-				var dir = (global_position - player.global_position).normalized()
-				velocity = Vector2(
-					dir.x * knockback_force,
-					-knockback_force * 0.5
-				)
-				change_behavior("hurt", true)
-			
-			_flash_hurt()
-			await get_tree().create_timer(0.1).timeout
-			_debug_print_hurtbox_state("After Taking Damage")
+	super.take_damage(amount, knockback_force)
+	_debug_print_hurtbox_state("After Taking Damage")
 
 func _update_animation_state() -> void:
 	match current_behavior:
@@ -329,9 +306,9 @@ func apply_gravity(_delta: float) -> void:
 	# Override to prevent gravity from affecting flying enemies
 	pass
 
-func handle_death() -> void:
+func die() -> void:
 	_debug_print_hurtbox_state("Before Death Handler")
-	super.handle_death()
+	super.die()
 	
 	if hurtbox:
 		# Force enable hurtbox for bouncing
@@ -341,3 +318,19 @@ func handle_death() -> void:
 	
 	await get_tree().create_timer(0.1).timeout
 	_debug_print_hurtbox_state("After Death Handler")
+
+func change_behavior(new_behavior: String, force: bool = false) -> void:
+	super.change_behavior(new_behavior, force)
+	
+	# Map behaviors to available animations
+	match new_behavior:
+		"idle":
+			sprite.play("idle")
+		"chase", "patrol", "alert":
+			sprite.play("fly")
+		"swoop":
+			sprite.play("swoop")
+		"hurt":
+			sprite.play("fly")  # Use fly animation for hurt state
+		_:
+			sprite.play("idle")  # Default to idle for unknown states

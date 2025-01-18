@@ -223,9 +223,16 @@ func _physics_process(delta):
 		apply_friction(delta)
 
 func can_jump() -> bool:
+	# Prevent jumping if pressing down
+	if Input.is_action_pressed("down"):
+		return false
 	return is_on_floor() or coyote_timer > 0
 
 func start_jump():
+	# Don't start jump if pressing down
+	if Input.is_action_pressed("down"):
+		return
+		
 	is_jumping = true
 	jump_timer = 0.0
 	velocity.y = -jump_velocity
@@ -235,6 +242,10 @@ func start_jump():
 		velocity.x += input_dir * speed * 0.2  # Reduced from 0.3
 
 func start_double_jump():
+	# Don't start double jump if pressing down
+	if Input.is_action_pressed("down"):
+		return
+		
 	is_jumping = true
 	jump_timer = 0.0
 	velocity.y = -double_jump_velocity

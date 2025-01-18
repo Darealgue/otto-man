@@ -13,6 +13,10 @@ class_name EnemyStats
 @export var attack_cooldown: float = 2.0
 @export var knockback_resistance: float = 1.0
 
+# Summoner stats
+@export var max_summon_count: int = 3  # Maximum number of birds that can be summoned
+@export var summon_cooldown: float = 5.0  # Time between summons
+
 # Scaling factors
 @export var health_scale: float = 1.2
 @export var damage_scale: float = 1.15

@@ -4,13 +4,15 @@
 
 [resource]
 script = ExtResource("1_script")
-max_health = 100.0
+max_health = 30.0
 movement_speed = 200.0
 attack_damage = 0.0
 detection_range = 400.0
 attack_range = 400.0
 attack_cooldown = 2.0
 knockback_resistance = 0.3
+max_summon_count = 1
+summon_cooldown = 10.0
 health_scale = 1.2
 damage_scale = 1.0
 speed_scale = 1.1

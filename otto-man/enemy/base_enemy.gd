@@ -1,16 +1,27 @@
 class_name BaseEnemy
 extends CharacterBody2D
 
+# Preload autoloads
+@onready var object_pool = get_node("/root/ObjectPool")
+
 signal enemy_defeated
 
 # Core components
 @export var stats: EnemyStats
 @export var debug_enabled: bool = false
 
+# Sleep state management
+var is_sleeping: bool = false
+var sleep_distance: float = 1000.0  # Distance at which enemy goes to sleep
+var wake_distance: float = 800.0    # Distance at which enemy wakes up
+var last_position: Vector2          # Store position when going to sleep
+var last_behavior: String          # Store behavior when going to sleep
+
 # Node references
 @onready var sprite = $AnimatedSprite2D
 @onready var hitbox = $Hitbox
 @onready var hurtbox = $Hurtbox
+@onready var state_machine = $StateMachine
 
 # Basic state tracking
 var current_behavior: String = "idle"
@@ -55,59 +66,116 @@ func _ready() -> void:
 	add_child(health_bar)
 	health_bar.position = Vector2(0, -60)  # Position above enemy
 	health_bar.setup(health)  # Initialize with current health
+	
+	# Initialize components after a short delay
+	call_deferred("_initialize_components")
+	
+	last_position = global_position
+	last_behavior = "idle"
 
 func _physics_process(delta: float) -> void:
-	if current_behavior != "dead":
-		# Update invulnerability
-		if invulnerable:
-			invulnerability_timer -= delta
-			if invulnerability_timer <= 0:
-				invulnerable = false
+	if is_sleeping:
+		return
 		
-		# Update attack cooldown
-		if not can_attack:
-			attack_timer -= delta
-			if attack_timer <= 0:
-				can_attack = true
-				attack_timer = 0.0
-		
-		# Handle behavior first
-		handle_behavior(delta)
-		
-		# Apply gravity
-		apply_gravity(delta)
-		
-		# Apply deceleration if in hurt state
-		if current_behavior == "hurt":
-			velocity.x = move_toward(velocity.x, 0, 2000 * delta)  # Increased deceleration
-		
-		# Move the enemy
-		move_and_slide()
-	else:
-		# Apply gravity during death
+	# Handle invulnerability timer
+	if invulnerable:
+		invulnerability_timer -= delta
+		if invulnerability_timer <= 0:
+			invulnerable = false
+			# Make sure hurtbox is re-enabled
+			if hurtbox:
+				hurtbox.monitoring = true
+				hurtbox.monitorable = true
+	
+	# Normal physics processing
+	if not is_on_floor() and current_behavior != "dead":
 		velocity.y += GRAVITY * delta
+	
+	handle_behavior(delta)
+	move_and_slide()
+
+func check_sleep_state() -> void:
+	var player = get_nearest_player()
+	if !player:
+		return
 		
-		# Apply deceleration to horizontal movement
-		velocity.x = move_toward(velocity.x, 0, 2000 * delta)  # Increased deceleration
+	var distance = global_position.distance_to(player.global_position)
+	
+	# If awake and too far, go to sleep
+	if !is_sleeping and distance > sleep_distance:
+		go_to_sleep()
+	# If sleeping and close enough, wake up
+	elif is_sleeping and distance < wake_distance:
+		wake_up()
+
+func go_to_sleep() -> void:
+	if is_sleeping:
+		return
 		
-		# Don't use move_and_slide to prevent floor collision
-		position += velocity * delta
+	is_sleeping = true
+	last_position = global_position
+	last_behavior = current_behavior
+	
+	# Disable processing and collision
+	set_physics_process(false)
+	if hitbox:
+		hitbox.disable()
+	if hurtbox:
+		hurtbox.set_deferred("monitoring", false)
+		hurtbox.set_deferred("monitorable", false)
+	
+	# Pause animation
+	if sprite:
+		sprite.pause()
+	
+	if debug_enabled:
+		print("[BaseEnemy] Going to sleep at position: ", last_position)
+
+func wake_up() -> void:
+	if !is_sleeping:
+		return
 		
-		# Handle death fade effect
-		if sprite:
-			var current_alpha = sprite.modulate.a
-			if fade_out:
-				current_alpha = move_toward(current_alpha, DEATH_FADE_MIN, DEATH_FADE_SPEED * delta)
-				if current_alpha <= DEATH_FADE_MIN:
-					fade_out = false
-			else:
-				current_alpha = move_toward(current_alpha, DEATH_FADE_MAX, DEATH_FADE_SPEED * delta)
-				if current_alpha >= DEATH_FADE_MAX:
-					fade_out = true
-			
-			sprite.modulate = Color(1, 1, 1, current_alpha)
+	is_sleeping = false
+	global_position = last_position
+	
+	# Re-enable processing and collision
+	set_physics_process(true)
+	if hitbox:
+		hitbox.disable()  # Make sure hitbox starts disabled
+	if hurtbox:
+		hurtbox.set_deferred("monitoring", true)
+		hurtbox.set_deferred("monitorable", true)
+	
+	# Resume animation and behavior
+	if sprite:
+		sprite.play()
+	change_behavior(last_behavior)
+	
+	if debug_enabled:
+		print("[BaseEnemy] Waking up at position: ", global_position)
 
 func handle_behavior(delta: float) -> void:
+	check_sleep_state()
+	
+	if is_sleeping:
+		return
+		
+	behavior_timer += delta
+	
+	match current_behavior:
+		"patrol":
+			handle_patrol(delta)
+		"idle":
+			handle_patrol(delta)
+		"alert":
+			handle_alert(delta)
+		"chase":
+			handle_chase(delta)
+		"hurt":
+			handle_hurt_behavior(delta)
+		"dead":
+			return
+	
 	# Handle hurt state in base class first
 	if current_behavior == "hurt":
 		behavior_timer += delta
@@ -146,45 +214,50 @@ func start_attack_cooldown() -> void:
 	attack_timer = stats.attack_cooldown if stats else 2.0
 
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
-	if stats and not invulnerable:
-		print("\n=== ENEMY TAKING DAMAGE ===")
-		print("Current health: ", health)
-		print("Damage amount: ", amount)
+	if current_behavior == "dead" or invulnerable:
+		return
 		
-		health -= amount
-		print("Health after damage: ", health)
-		
-		# Set brief invulnerability
-		invulnerable = true
-		invulnerability_timer = INVULNERABILITY_DURATION
-		
-		# Update health bar
-		if health_bar:
-			health_bar.update_health(health)
-		
-		# Spawn damage number
-		var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-		add_child(damage_number)
-		damage_number.global_position = global_position + Vector2(0, -50)  # Offset above enemy
-		damage_number.setup(int(amount))
-		
-		if health <= 0:
-			print("Enemy health <= 0, calling handle_death()")
-			handle_death()  # Remove await, just call directly
-			_apply_death_knockback()  # Apply knockback immediately after death
-		else:
-			# Apply knockback with increased forces
-			var players = get_tree().get_nodes_in_group("player")
-			if players.size() > 0:
-				var player = players[0]
-				var dir = (global_position - player.global_position).normalized()
-				# Apply knockback
-				velocity = Vector2(
-					dir.x * knockback_force,
-					-knockback_force * 0.8  # Fixed upward force for better gameplay feel
-				)
-			change_behavior("hurt", true)  # Force hurt state
-			_flash_hurt()
+	print("[Enemy] Taking damage: ", amount, " Current health: ", health)
+	health -= amount
+	
+	# Update health bar
+	if health_bar:
+		health_bar.update_health(health)
+	
+	print("[Enemy] Health after damage: ", health)
+	
+	# Spawn damage number
+	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
+	add_child(damage_number)
+	damage_number.global_position = global_position + Vector2(0, -50)
+	damage_number.setup(int(amount))
+	
+	# Apply knockback
+	velocity.x = -direction * knockback_force
+	velocity.y = -knockback_force * 0.5
+	
+	# Enter hurt state
+	change_behavior("hurt")
+	behavior_timer = 0.0
+	
+	# Brief invulnerability
+	invulnerable = true
+	invulnerability_timer = INVULNERABILITY_DURATION
+	
+	# Flash red
+	if sprite:
+		sprite.modulate = Color(1, 0, 0, 1)
+		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
+	
+	# Check for death
+	if health <= 0:
+		print("[Enemy] Health depleted, calling die()")
+		die()
+	else:
+		# Disable hurtbox briefly
+		if hurtbox:
+			hurtbox.monitoring = false
+			hurtbox.monitorable = false
 
 func _flash_hurt() -> void:
 	if sprite:
@@ -218,10 +291,13 @@ func handle_hurt() -> void:
 func _on_hurt_animation_finished() -> void:
 	pass  # No longer needed, behavior handles state changes
 
-func handle_death() -> void:
+func die() -> void:
+	if current_behavior == "dead":
+		return
+		
 	print("\n=== ENEMY DEATH HANDLER ===")
 	print("Setting behavior to dead")
-	current_behavior = "dead"  # Set this first to prevent any other behavior changes
+	current_behavior = "dead"
 	
 	print("Emitting enemy_defeated signal")
 	enemy_defeated.emit()
@@ -229,37 +305,37 @@ func handle_death() -> void:
 	print("Notifying PowerupManager")
 	PowerupManager.on_enemy_killed()
 	
+	print("Playing death animation")
 	if sprite:
-		print("Playing death animation")
-		sprite.play("dead")  # Just try to play it directly
-		# Start fade effect
-		sprite.modulate = Color(1, 1, 1, DEATH_FADE_MAX)
-		fade_out = true
+		sprite.play("death")
 	
 	print("Disabling collision")
 	# Disable ALL collision to ensure falling through platforms
 	collision_layer = 0
 	collision_mask = 0
 	
-	# Disable combat collision
-	if has_node("Hitbox"):
-		get_node("Hitbox").set_deferred("monitoring", false)
-		get_node("Hitbox").set_deferred("monitorable", false)
-	
-	if has_node("Hurtbox"):
-		get_node("Hurtbox").set_deferred("monitoring", false)
-		get_node("Hurtbox").set_deferred("monitorable", false)
-	
+	# Disable components
+	if hitbox:
+		hitbox.disable()
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
+		
 	print("Marking death handling as complete")
-	# Mark death handling as complete immediately
-	# We don't need to wait for powerup selection since that's handled by PowerupManager
-	set_meta("death_handling_complete", true)
-	
 	print("Starting cleanup timer")
-	# Wait for PowerupManager to finish showing powerup selection before cleanup
-	await get_tree().create_timer(1.0).timeout
-	print("Queuing enemy for deletion")
-	queue_free()
+	
+	# Start fade out
+	if sprite:
+		sprite.modulate = Color(1, 1, 1, 1)
+	fade_out = true
+	
+	# Return to pool after delay
+	await get_tree().create_timer(2.0).timeout
+	print("[Enemy] Returning to pool")
+	# Get pool name based on scene filename
+	var scene_path = scene_file_path
+	var pool_name = scene_path.get_file().get_basename()
+	object_pool.return_object(self, pool_name)
 
 func apply_gravity(delta: float) -> void:
 	if not is_on_floor():
@@ -267,15 +343,21 @@ func apply_gravity(delta: float) -> void:
 	velocity.y = minf(velocity.y, GRAVITY)
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
-	if not force and current_behavior == "dead":
-		# Don't change behavior if already dead unless forced
+	if current_behavior == "dead" and not force:
 		return
-	
-	# Reset behavior timer if forcing the change
-	if force:
-		behavior_timer = 0.0
 		
+	print("[Enemy] Changing behavior from ", current_behavior, " to ", new_behavior)
 	current_behavior = new_behavior
+	behavior_timer = 0.0
+	
+	# Play appropriate animation if available
+	if sprite and sprite.has_method("play"):
+		sprite.play(new_behavior)
+		
+	# Reset attack cooldown when changing behavior
+	if new_behavior != "attack":
+		can_attack = true
+		attack_timer = 0.0
 
 func _on_fall_timer_timeout() -> void:
 	# Check if we're off screen or far below the ground
@@ -314,3 +396,74 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0}
 		take_damage(damage, knockback_data.force)  # Pass the actual knockback force from the hitbox
  
+func _initialize_components() -> void:
+	hurtbox = $Hurtbox
+	if not hurtbox:
+		push_error("Hurtbox node not found in enemy")
+		return
+		
+	hitbox = $Hitbox
+	if not hitbox:
+		push_error("Hitbox node not found in enemy")
+		return
+		
+	state_machine = $StateMachine
+	if not state_machine:
+		push_error("StateMachine node not found in enemy")
+		return
+
+func reset() -> void:
+	print("[Enemy] Resetting state for reuse")
+	# Reset all state when reusing from pool
+	current_behavior = "idle"
+	target = null
+	can_attack = true
+	attack_timer = 0.0
+	health = stats.max_health if stats else 100.0
+	direction = 1
+	behavior_timer = 0.0
+	invulnerable = false
+	invulnerability_timer = 0.0
+	velocity = Vector2.ZERO
+	
+	# Reset visuals
+	if sprite:
+		sprite.modulate = Color(1, 1, 1, 1)
+		if sprite.has_method("play"):
+			sprite.play("idle")
+	
+	# Reset health bar
+	if health_bar:
+		health_bar.setup(health)
+		
+	# Re-enable components
+	if hitbox:
+		hitbox.enable()
+	if hurtbox:
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
+	
+	print("[Enemy] Reset complete - Health:", health)
+
+func handle_patrol(_delta: float) -> void:
+	# Virtual function to be overridden by child classes
+	pass
+
+func handle_alert(_delta: float) -> void:
+	# Virtual function to be overridden by child classes
+	pass
+
+func handle_chase(_delta: float) -> void:
+	# Virtual function to be overridden by child classes
+	pass
+
+func handle_hurt_behavior(_delta: float) -> void:
+	behavior_timer += _delta
+	
+	# Only exit hurt state if timer is up AND mostly stopped
+	if behavior_timer >= 0.2 and abs(velocity.x) <= 25:  # Reduced hurt state duration
+		change_behavior("chase")
+		# Make sure hurtbox is re-enabled
+		if hurtbox:
+			hurtbox.monitoring = true
+			hurtbox.monitorable = true

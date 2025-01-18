@@ -1,11 +1,9 @@
 extends BaseEnemy
 class_name SummonerEnemy
 
-# Constants for behavior
-const MIN_DISTANCE_FROM_PLAYER = 300.0
-const MAX_SUMMON_COUNT = 2  # Maximum birds active at once
-const SUMMON_COOLDOWN = 5.0  # Cooldown between summons
-const RETURN_COOLDOWN = 3.0  # Cooldown after birds return before allowing new summons
+@export var default_stats: Dictionary = {}
+
+# Constants that are truly fixed behavior
 const SUMMON_ANIMATION_TIMEOUT = 1.0  # Maximum time for summon animation
 const WALK_START_THRESHOLD = 10.0  # Speed needed to start walking
 const WALK_STOP_THRESHOLD = 5.0   # Speed needed to stop walking
@@ -33,6 +31,16 @@ func _debug_print_hurtbox_state(context: String) -> void:
 		print("- Owner: ", hurtbox.owner.name if hurtbox.owner else "None")
 
 func _ready() -> void:
+	# Initialize default stats for summoner
+	default_stats = {
+		"health": 100.0,
+		"movement_speed": 200.0,
+		"detection_range": 400.0,
+		"max_summon_count": 3,
+		"summon_cooldown": 5.0,
+		"return_cooldown": 3.0,
+	}
+	
 	super._ready()
 	_debug_print_hurtbox_state("Initial State")
 	
@@ -53,7 +61,7 @@ func _ready() -> void:
 	
 	# Initialize summon timer
 	if summon_timer:
-		summon_timer.wait_time = SUMMON_COOLDOWN
+		summon_timer.wait_time = stats["summon_cooldown"] if "summon_cooldown" in stats else 5.0
 		summon_timer.one_shot = true
 		summon_timer.timeout.connect(_on_summon_timer_timeout)
 	else:
@@ -69,14 +77,30 @@ func _process(delta: float) -> void:
 	_update_animation()
 
 func _physics_process(delta: float) -> void:
-	super._physics_process(delta)  # This will handle gravity and movement
+	# Don't process anything if dead
+	if current_behavior == "dead":
+		return
+		
+	# Apply gravity first
+	super.apply_gravity(delta)
 	
-	# Handle cooldown timer
-	if not can_summon:
-		return_cooldown_timer -= delta
-		if return_cooldown_timer <= 0:
-			can_summon = true
-			return_cooldown_timer = 0.0
+	# Check for player in range
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		var distance = global_position.distance_to(player.global_position)
+		
+		if distance <= (stats["detection_range"] if "detection_range" in stats else 400.0) and can_summon and active_birds.size() < (stats["max_summon_count"] if "max_summon_count" in stats else 3):
+			print("[Summoner] Attempting to summon. Can summon: ", can_summon, ", Active birds: ", active_birds.size())
+			is_summoning = true
+			sprite.play("summon")
+			change_behavior("summon")
+	
+	# Handle behavior after gravity
+	_handle_child_behavior(delta)
+	
+	# Apply movement
+	move_and_slide()
 
 func _handle_child_behavior(delta: float) -> void:
 	match current_behavior:
@@ -85,17 +109,13 @@ func _handle_child_behavior(delta: float) -> void:
 		"run":
 			_handle_run(delta)
 		"summon":
-			_handle_summon(delta)  # Pass delta to handle timeout
-		# Remove custom hurt and dead handling - let base class handle these
+			_handle_summon(delta)
 			
 	if not can_summon:
 		return_cooldown_timer -= delta
 		if return_cooldown_timer <= 0:
 			can_summon = true
 			return_cooldown_timer = 0.0
-	
-	# Apply gravity from base enemy class
-	super.apply_gravity(delta)
 
 func _handle_idle() -> void:
 	# Only reset horizontal velocity, keep vertical for gravity
@@ -104,13 +124,13 @@ func _handle_idle() -> void:
 	# Clear target and ensure idle animation plays
 	if target:
 		target = null
-		sprite.play("idle")  # Force idle animation when losing target
-		
+		sprite.play("idle")
+	
 	# Check for new target
 	var potential_target = get_nearest_player()
 	if potential_target and is_instance_valid(potential_target):
 		var distance_to_target = global_position.distance_to(potential_target.global_position)
-		if distance_to_target <= stats.detection_range:
+		if distance_to_target <= (stats["detection_range"] if "detection_range" in stats else 400.0):
 			print("[Summoner] Player detected at distance: ", distance_to_target)
 			target = potential_target
 			change_behavior("run")
@@ -123,14 +143,14 @@ func _handle_run(delta: float) -> void:
 		
 	# Check if player is out of detection range
 	var distance_to_target = global_position.distance_to(target.global_position)
-	if distance_to_target > stats.detection_range:
+	if distance_to_target > (stats["detection_range"] if "detection_range" in stats else 400.0):
 		print("[Summoner] Target out of detection range: ", distance_to_target)
 		change_behavior("idle")
 		return
 		
 	# Run away from player
 	var direction = global_position.direction_to(target.global_position)
-	var desired_velocity = -direction * stats.movement_speed
+	var desired_velocity = -direction * (stats["movement_speed"] if "movement_speed" in stats else 200.0)
 	
 	# Check wall collision
 	if wall_detector.is_colliding():
@@ -145,7 +165,7 @@ func _handle_run(delta: float) -> void:
 	sprite.flip_h = target.global_position.x < global_position.x
 	
 	# Try to summon if possible
-	if can_summon and not is_summoning and active_birds.size() < MAX_SUMMON_COUNT:
+	if can_summon and not is_summoning and active_birds.size() < (stats["max_summon_count"] if "max_summon_count" in stats else 3):
 		print("[Summoner] Attempting to summon. Can summon: ", can_summon, ", Active birds: ", active_birds.size())
 		change_behavior("summon")
 
@@ -154,8 +174,8 @@ func _handle_summon(delta: float) -> void:
 		change_behavior("run")
 		return
 	
-	# Stop all movement while summoning
-	velocity = Vector2.ZERO
+	# Only reset horizontal movement while summoning, keep vertical for gravity
+	velocity.x = 0
 	
 	# Start summon animation if not already playing
 	if sprite.animation != "summon":
@@ -181,7 +201,7 @@ func _complete_summon() -> void:
 		return
 		
 	# Calculate how many birds to summon
-	var birds_to_summon = MAX_SUMMON_COUNT - active_birds.size()
+	var birds_to_summon = (stats["max_summon_count"] if "max_summon_count" in stats else 3) - active_birds.size()
 	
 	# Summon all birds at once
 	for i in range(birds_to_summon):
@@ -247,7 +267,7 @@ func _on_bird_died(bird: Node) -> void:
 		active_birds.erase(bird)
 		print("[Summoner] Bird died, remaining birds: ", active_birds.size())
 
-func handle_death() -> void:
+func die() -> void:
 	_debug_print_hurtbox_state("Before Death Handler")
 	
 	# Reset summoning state
@@ -258,8 +278,10 @@ func handle_death() -> void:
 	for bird in active_birds:
 		if is_instance_valid(bird):
 			bird.set_neutral_state()
+	active_birds.clear()  # Clear the array since we don't control these birds anymore
 	
-	super.handle_death()
+	# Change behavior to dead first
+	change_behavior("dead", true)
 	
 	# Keep our own hurtbox active for bouncing
 	if hurtbox:
@@ -267,28 +289,63 @@ func handle_death() -> void:
 		hurtbox.monitorable = true
 		print("[DEBUG] Summoner - Explicitly enabled hurtbox after death")
 	
+	# Keep collision with environment active
+	set_collision_layer_value(3, true)  # Layer 3 is typically for enemy collision
+	set_collision_mask_value(1, true)   # Layer 1 is typically for environment
+	
+	# Emit signal and notify PowerupManager
+	emit_signal("enemy_defeated")
+	PowerupManager.on_enemy_killed()
+	
+	# Start fade out and return to pool
+	var tween = create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 2.0)
+	await tween.finished
+	
+	# Return to pool after fade out
+	print("[Enemy] Returning to pool")
+	queue_free()  # This will trigger the object pool to handle the return
+	
 	await get_tree().create_timer(0.1).timeout
 	_debug_print_hurtbox_state("After Death Handler")
 
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
-	_debug_print_hurtbox_state("Before Taking Damage")
+	if current_behavior == "dead":
+		return
+		
+	# Update health
+	health -= amount
 	
-	# Reset summoning state if interrupted by damage
-	if is_summoning:
-		is_summoning = false
-		can_summon = false
-		return_cooldown_timer = RETURN_COOLDOWN
+	# Update health bar
+	if health_bar:
+		health_bar.update_health(health)
 	
-	# Call parent's take_damage
-	super.take_damage(amount, knockback_force)
+	# Spawn damage number
+	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
+	add_child(damage_number)
+	damage_number.global_position = global_position + Vector2(0, -50)
+	damage_number.setup(int(amount))
 	
-	# Play hurt animation and change state
-	if sprite and sprite.sprite_frames.has_animation("hurt"):
-		sprite.play("hurt")
-		change_behavior("hurt")
+	# Apply knockback
+	velocity.x = -direction * knockback_force
+	velocity.y = -knockback_force * 0.5
 	
-	await get_tree().create_timer(0.1).timeout
-	_debug_print_hurtbox_state("After Taking Damage")
+	# Enter hurt state
+	change_behavior("hurt")
+	behavior_timer = 0.0
+	
+	# Brief invulnerability
+	invulnerable = true
+	invulnerability_timer = INVULNERABILITY_DURATION
+	
+	# Flash red
+	if sprite:
+		sprite.modulate = Color(1, 0, 0, 1)
+		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
+	
+	# Check for death
+	if health <= 0:
+		die()
 
 func _on_animation_finished() -> void:
 	match sprite.animation:
@@ -313,7 +370,7 @@ func _on_bird_returned(bird: Node) -> void:
 			summon_timer.stop()  # Stop current cooldown timer
 		# Start return cooldown to prevent immediate re-summon
 		can_summon = false
-		return_cooldown_timer = RETURN_COOLDOWN
+		return_cooldown_timer = stats["return_cooldown"] if "return_cooldown" in stats else 3.0
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
 	# Don't change behavior if we're in the middle of summoning, unless forced

@@ -136,6 +136,6 @@ target_position = Vector2(50, 0)
 target_position = Vector2(0, -50)
 
 [node name="FloorDetector" type="RayCast2D" parent="."]
-target_position = Vector2(0, 75)
+target_position = Vector2(0, 100)
 
 [connection signal="hurt" from="HurtBox" to="." method="_on_hurtbox_hurt"]

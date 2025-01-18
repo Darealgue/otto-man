@@ -25,6 +25,8 @@ ScreenEffects="*res://effects/screen_effects.tscn"
 PlayerStats="*res://autoload/player_stats.gd"
 AttackManager="*res://autoload/attack_manager.gd"
 RoomManager="*res://autoload/room_manager.gd"
+ChunkManager="*res://autoload/chunk_manager.gd"
+ObjectPool="*res://autoload/object_pool.gd"
 
 [display]
 

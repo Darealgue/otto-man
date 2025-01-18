@@ -7,6 +7,7 @@ signal hit_player(player: Node)
 var attack_type: String = ""
 var can_be_parried: bool = true
 var stun_duration: float = 0.0
+var is_parried: bool = false  # Track if the hitbox has been parried
 
 func _ready():
     super._ready()

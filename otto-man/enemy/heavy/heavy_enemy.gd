@@ -274,40 +274,39 @@ func handle_charge_prepare(delta: float) -> void:
 			hitbox_collision.shape = rect_shape
 			hitbox.position.x = 30 * direction
 			hitbox.position.y = 0
+			
+			# Set up and enable hitbox for charge attack
+			hitbox.damage = charge_damage
+			hitbox.knockback_force = 700.0  # Strong horizontal force for charge
+			hitbox.knockback_up_force = 0.0  # No upward force for pure horizontal knockback
+			hitbox.enable()
 
 func handle_charging(delta: float) -> void:
-	if is_on_wall():
-		velocity.x = 0
-		if hitbox:
-			hitbox.disable()
-		if hitbox_collision and original_collision_shape:
-			hitbox_collision.shape = original_collision_shape.duplicate()
-		charge_timer = 0.0  # Reset charge timer when interrupted
-		change_behavior("chase", true)
-		return
-		
-	if not hitbox.is_enabled():
-		hitbox.damage = charge_damage
-		hitbox.knockback_force = 700.0  # Strong horizontal force for charge
-		hitbox.knockback_up_force = 0.0  # No upward force for pure horizontal knockback
-		hitbox.enable()
-	
 	charge_timer += delta
 	
 	if charge_timer >= charge_duration:
+		change_behavior("chase")
 		if hitbox:
 			hitbox.disable()
-		if hitbox_collision and original_collision_shape:
-			hitbox_collision.shape = original_collision_shape.duplicate()
-		velocity.x = move_toward(velocity.x, 0, 2000 * delta)  # Quick deceleration at the end
-		if abs(velocity.x) < 25:
-			velocity.x = 0
-			charge_timer = 0.0
-			change_behavior("chase", true)
-	else:
-		velocity.x = charge_speed * direction
+		return
+	
+	# Apply charge movement
+	velocity.x = direction * charge_speed
+	
+	# Check for parry
+	if hitbox and hitbox.is_parried:
+		print("[HeavyEnemy] Charge attack parried!")
+		hitbox.disable()
+		hitbox.is_parried = false  # Reset parry state
 		
-	move_and_slide()
+		# Re-enable hurtbox
+		if hurtbox:
+			hurtbox.monitoring = true
+			hurtbox.monitorable = true
+		
+		# Take damage and enter hurt state
+		take_damage(25.0, 400.0)  # Higher knockback when parried
+		return
 
 func handle_slam_prepare(delta: float) -> void:
 	if behavior_timer >= 0.5:
@@ -424,3 +423,18 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	else:
 		# Normal damage handling for interruptible states
 		super.take_damage(amount, knockback_force)
+
+func reset() -> void:
+	super.reset()
+	charge_timer = 0.0
+	has_seen_player = false
+	memory_timer = 0.0
+	
+	# Reset all collision states
+	if hitbox:
+		hitbox.disable()
+		hitbox.is_parried = false
+	
+	if hurtbox:
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
