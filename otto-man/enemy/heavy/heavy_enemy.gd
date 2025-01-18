@@ -398,39 +398,62 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		take_damage(damage, knockback_data.get("force", 200.0))
 
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+	# Don't take damage if already dead
+	if current_behavior == "dead":
+		return
+		
 	# List of states where enemy should be uninterruptible
 	var uninterruptible_states = ["charge_prepare", "charging", "slam_prepare", "slam"]
 	
-	# If in an uninterruptible state, only take damage but don't get knocked back or interrupted
-	if uninterruptible_states.has(current_behavior):
-		if stats:
-			health -= amount
-			
-			# Update health bar
-			if health_bar:
-				health_bar.update_health(health)
-			
-			# Spawn damage number
-			var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-			add_child(damage_number)
-			damage_number.global_position = global_position + Vector2(0, -50)
-			damage_number.setup(int(amount))
-			
-			# Check for death
-			if health <= 0:
-				change_behavior("dead", true)
-				_apply_death_knockback()
-	else:
-		# Normal damage handling for interruptible states
-		super.take_damage(amount, knockback_force)
+	# Apply damage and effects
+	if stats:
+		health -= amount
+		
+		# Update health bar
+		if health_bar:
+			health_bar.update_health(health)
+		
+		# Spawn damage number
+		var damage_number = preload("res://effects/damage_number.tscn").instantiate()
+		add_child(damage_number)
+		damage_number.global_position = global_position + Vector2(0, -50)
+		damage_number.setup(int(amount))
+		
+		# Flash red
+		_flash_hurt()
+		
+		# Check for death
+		if health <= 0:
+			die()
+			return
+	
+	# Handle knockback and state changes
+	if not uninterruptible_states.has(current_behavior):
+		# Apply knockback
+		var players = get_tree().get_nodes_in_group("player")
+		if players.size() > 0:
+			var player = players[0]
+			var dir = (global_position - player.global_position).normalized()
+			velocity = Vector2(
+				dir.x * knockback_force,
+				-knockback_force * 0.5  # Reduced vertical knockback
+			)
+		
+		# Change to hurt state
+		change_behavior("hurt", true)
 
 func reset() -> void:
 	super.reset()
 	charge_timer = 0.0
 	has_seen_player = false
 	memory_timer = 0.0
+	modulate.a = 1.0  # Reset opacity
 	
-	# Reset all collision states
+	# Reset collision states
+	set_collision_layer_value(3, true)  # Enemy collision
+	set_collision_mask_value(1, true)   # Environment collision
+	set_collision_mask_value(2, true)   # Other necessary collisions
+	
 	if hitbox:
 		hitbox.disable()
 		hitbox.is_parried = false
@@ -438,3 +461,91 @@ func reset() -> void:
 	if hurtbox:
 		hurtbox.monitoring = true
 		hurtbox.monitorable = true
+
+func die() -> void:
+	if current_behavior == "dead":
+		return
+		
+	print("[HeavyEnemy] Starting death sequence")
+	current_behavior = "dead"
+	
+	# Play death animation
+	if sprite:
+		sprite.play("dead")
+	
+	# Set initial death velocity with reduced knockback
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		var dir = (global_position - player.global_position).normalized()
+		velocity = Vector2(
+			dir.x * DEATH_KNOCKBACK_FORCE * 0.3,  # Reduced horizontal knockback
+			-DEATH_UP_FORCE * 1.2  # Increased upward force
+		)
+		print("[HeavyEnemy] Death velocity set to: ", velocity)
+	
+	print("[HeavyEnemy] Disabling collisions...")
+	# Disable ALL collision except with ground
+	collision_layer = 0  # No collision with anything
+	collision_mask = 1   # Only collide with environment
+	set_collision_layer_value(1, false)  # Ensure no world collision
+	set_collision_layer_value(2, false)  # Ensure no player collision
+	set_collision_layer_value(3, false)  # Ensure no enemy collision
+	set_collision_mask_value(2, false)   # Don't collide with player
+	print("[HeavyEnemy] New collision_layer: ", collision_layer)
+	print("[HeavyEnemy] New collision_mask: ", collision_mask)
+	
+	# Disable combat components
+	if hitbox:
+		hitbox.disable()
+		print("[HeavyEnemy] Hitbox disabled")
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
+		print("[HeavyEnemy] Hurtbox disabled")
+	
+	# Emit signals and notify systems
+	enemy_defeated.emit()
+	PowerupManager.on_enemy_killed()
+	
+	# Start fade out after a longer delay
+	await get_tree().create_timer(4.0).timeout  # Increased from 2.0 to 4.0
+	
+	var tween = create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 2.0)  # Increased fade duration from 1.0 to 2.0
+	await tween.finished
+	
+	print("[HeavyEnemy] Death sequence complete, returning to pool")
+	# Return to object pool
+	var pool_name = scene_file_path.get_file().get_basename()
+	object_pool.return_object(self, pool_name)
+
+func _physics_process(delta: float) -> void:
+	# Apply gravity regardless of state
+	velocity.y += GRAVITY * delta
+	
+	match current_behavior:
+		"dead":
+			# Debug print every few frames
+			if Engine.get_physics_frames() % 60 == 0:  # Print every ~1 second
+				print("[HeavyEnemy] Dead state - Position: ", global_position)
+				print("[HeavyEnemy] Velocity: ", velocity)
+				print("[HeavyEnemy] Collision layer: ", collision_layer)
+				print("[HeavyEnemy] Collision mask: ", collision_mask)
+			
+			# Slow down horizontal movement during death
+			velocity.x = move_toward(velocity.x, 0, GRAVITY * delta * 2.0)
+			if velocity.y > 0:  # If falling
+				velocity.x = 0  # Stop horizontal movement completely
+			
+			# Only move vertically in death state
+			var saved_x = global_position.x
+			move_and_slide()
+			global_position.x = saved_x  # Force X position to stay the same
+			return
+		_:  # For all other states
+			handle_behavior(delta)
+			move_and_slide()
+
+func get_behavior() -> String:
+	return current_behavior

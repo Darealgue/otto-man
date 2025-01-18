@@ -87,9 +87,12 @@ func activate_chunk() -> void:
 		
 	is_chunk_active = true
 	
+	# Clean up any invalid enemies first
+	cleanup_dead_enemies()
+	
 	# Wake up all enemies in the chunk
 	for enemy in active_enemies:
-		if enemy and enemy.has_method("wake_up"):
+		if is_instance_valid(enemy) and enemy.has_method("wake_up"):
 			enemy.wake_up()
 	
 	# Only spawn enemies if this is a combat chunk and we haven't cleared it yet
@@ -110,9 +113,12 @@ func deactivate_chunk() -> void:
 		
 	is_chunk_active = false
 	
+	# Clean up any invalid enemies first
+	cleanup_dead_enemies()
+	
 	# Put all enemies to sleep
 	for enemy in active_enemies:
-		if enemy and enemy.has_method("go_to_sleep"):
+		if is_instance_valid(enemy) and enemy.has_method("go_to_sleep"):
 			enemy.go_to_sleep()
 			
 	if debug_enabled:
@@ -176,13 +182,15 @@ func _get_valid_spawn_point() -> Node2D:
 	return available_points.pick_random()
 
 func _on_enemy_defeated(enemy: Node) -> void:
-	active_enemies.erase(enemy)
-	enemy_defeated.emit(enemy)
-	
-	# Check if chunk is cleared
-	if chunk_type.category == ChunkTypeScript.ChunkCategory.COMBAT and active_enemies.is_empty():
-		is_chunk_cleared = true
-		chunk_cleared.emit()
+	if is_instance_valid(enemy):
+		active_enemies.erase(enemy)
+		enemy_defeated.emit(enemy)
+		
+		# Check if chunk is cleared
+		cleanup_dead_enemies()  # Clean up before checking if cleared
+		if chunk_type.category == ChunkTypeScript.ChunkCategory.COMBAT and active_enemies.is_empty():
+			is_chunk_cleared = true
+			chunk_cleared.emit()
 
 func _on_trigger_area_entered(body: Node2D) -> void:
 	print("[BaseChunk] Trigger entered by: ", body.name)
@@ -203,7 +211,18 @@ func _setup_editor_display() -> void:
 				point.visible = true
 
 func get_active_enemy_count() -> int:
+	cleanup_dead_enemies()  # Clean up before returning count
 	return active_enemies.size()
 
 func cleanup_dead_enemies() -> void:
-	active_enemies = active_enemies.filter(func(enemy): return is_instance_valid(enemy) and enemy.current_behavior != "dead") 
+	var valid_enemies: Array[Node] = []
+	for enemy in active_enemies:
+		if not is_instance_valid(enemy):
+			continue
+		if not enemy.has_method("get_behavior"):
+			continue
+		if enemy.get_behavior() == "dead":
+			continue
+		valid_enemies.append(enemy)
+	active_enemies = valid_enemies
+ 

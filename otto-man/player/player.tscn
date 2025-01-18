@@ -1359,6 +1359,7 @@ position = Vector2(0, -44)
 target_position = Vector2(15, 0)
 
 [node name="UI" type="CanvasLayer" parent="."]
+visible = false
 
 [node name="HealthDisplay" parent="UI" instance=ExtResource("health_display")]
 offset_left = 20.0

@@ -245,11 +245,65 @@ func handle_chase(delta: float) -> void:
 	_handle_chase_state(delta)
 
 func handle_hurt_behavior(delta: float) -> void:
-	super.handle_hurt_behavior(delta)
+	behavior_timer += delta
+	
+	# Only exit hurt state if timer is up AND mostly stopped
+	if behavior_timer >= 0.2 and abs(velocity.x) <= 25:  # Reduced hurt state duration
+		change_behavior("chase")
+		# Make sure hurtbox is re-enabled
+		if hurtbox:
+			hurtbox.monitoring = true
+			hurtbox.monitorable = true
 
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+	if current_behavior == "dead" or invulnerable:
+		return
+		
 	_debug_print_hurtbox_state("Before Taking Damage")
-	super.take_damage(amount, knockback_force)
+	
+	# Update health
+	health -= amount
+	
+	# Update health bar
+	if health_bar:
+		health_bar.update_health(health)
+	
+	# Spawn damage number
+	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
+	add_child(damage_number)
+	damage_number.global_position = global_position + Vector2(0, -50)
+	damage_number.setup(int(amount))
+	
+	# Apply knockback
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		var dir = (global_position - player.global_position).normalized()
+		velocity = Vector2(
+			dir.x * knockback_force,
+			-knockback_force * 0.5  # Reduced vertical knockback
+		)
+	
+	# Enter hurt state
+	change_behavior("hurt")
+	behavior_timer = 0.0
+	
+	# Brief invulnerability and disable hurtbox
+	invulnerable = true
+	invulnerability_timer = INVULNERABILITY_DURATION
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
+	
+	# Flash red
+	if sprite:
+		sprite.modulate = Color(1, 0, 0, 1)
+		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
+	
+	# Check for death
+	if health <= 0:
+		die()
+	
 	_debug_print_hurtbox_state("After Taking Damage")
 
 func _update_animation_state() -> void:
@@ -307,17 +361,66 @@ func apply_gravity(_delta: float) -> void:
 	pass
 
 func die() -> void:
-	_debug_print_hurtbox_state("Before Death Handler")
-	super.die()
+	if current_behavior == "dead":
+		return
+		
+	print("[FlyingEnemy] Starting death sequence")
+	current_behavior = "dead"
 	
+	# Play death animation
+	if sprite:
+		sprite.play("dead")
+	
+	# Set downward velocity for death fall
+	velocity = Vector2(0, 200)  # Start with a moderate downward speed
+	
+	# Disable ALL collision
+	collision_layer = 0  # Nothing can collide with corpse
+	collision_mask = 0   # Corpse can't collide with anything
+	
+	# Disable combat components
+	if hitbox:
+		hitbox.disable()
 	if hurtbox:
-		# Force enable hurtbox for bouncing
-		hurtbox.monitoring = true
-		hurtbox.monitorable = true
-		print("[DEBUG] Flying Enemy - Explicitly enabled hurtbox after death")
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
 	
-	await get_tree().create_timer(0.1).timeout
-	_debug_print_hurtbox_state("After Death Handler")
+	# Emit signals and notify systems
+	enemy_defeated.emit()
+	PowerupManager.on_enemy_killed()
+	
+	# Start fade out after a longer delay to allow for falling
+	await get_tree().create_timer(2.0).timeout  # Increased from 0.5 to 2.0 seconds
+	
+	var tween = create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 1.0)  # Increased fade duration from 0.5 to 1.0 seconds
+	await tween.finished
+	
+	# Return to object pool
+	var pool_name = scene_file_path.get_file().get_basename()
+	object_pool.return_object(self, pool_name)
+
+func _physics_process(delta: float) -> void:
+	# Handle invulnerability timer
+	if invulnerability_timer > 0:
+		invulnerability_timer -= delta
+		if invulnerability_timer <= 0:
+			invulnerable = false
+			# Re-enable hurtbox when invulnerability ends
+			if hurtbox:
+				hurtbox.monitoring = true
+				hurtbox.monitorable = true
+	
+	match current_behavior:
+		"dead":
+			# Just update position directly for smooth falling
+			position += velocity * delta
+			# Gradually increase falling speed
+			velocity.y = move_toward(velocity.y, 400, GRAVITY * delta * 0.5)
+			return
+		_:  # For all other states
+			handle_behavior(delta)
+			move_and_slide()
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
 	super.change_behavior(new_behavior, force)

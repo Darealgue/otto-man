@@ -9,6 +9,7 @@ var chunk_activation_distance: float = 2500.0  # Increased from 1500 to 2500
 var chunk_deactivation_distance: float = 3500.0  # Increased from 2000 to 3500
 var debug_enabled: bool = false
 var current_difficulty: int = 1
+var is_enabled: bool = false
 
 # Generation settings
 var chunk_width: float = 1920.0  # Width of each chunk in pixels
@@ -39,23 +40,30 @@ func get_spawn_position() -> Vector2:
 	return Vector2(first_chunk.global_position.x + 200, first_chunk.global_position.y + 200)
 
 func start_generation() -> void:
-	# Clear any existing chunks
-	for chunk in active_chunks:
-		if is_instance_valid(chunk):
-			chunk.queue_free()
+	if not is_enabled:
+		print("[ChunkManager] Generation not started - manager is disabled")
+		return
+		
+	print("[ChunkManager] Starting chunk generation")
+	# Reset state
+	current_chunk_x = 0
 	active_chunks.clear()
-	
-	# Reset generation position
-	current_chunk_x = 0.0
 	
 	# Generate initial chunks
 	for i in range(initial_chunks):
 		generate_next_chunk()
 		
-	if debug_enabled:
-		print("[ChunkManager] Started generation with ", initial_chunks, " chunks")
+	# Connect to signals
+	if not get_tree().get_root().get_node("ProceduralLevel"):
+		print("[ChunkManager] Warning: ProceduralLevel scene not found")
+		return
+		
+	print("[ChunkManager] Generation system initialized")
 
 func generate_next_chunk() -> void:
+	if not is_enabled:
+		return
+		
 	# Define available chunk resources
 	var available_chunks = [
 		"res://resources/chunks/test_platform_chunk.tres",
@@ -198,3 +206,11 @@ func check_generate_chunks(player: Node2D) -> void:
 		if debug_enabled:
 			print("[ChunkManager] Player approaching end, generating new chunk")
 		generate_next_chunk() 
+
+func enable() -> void:
+	is_enabled = true
+	print("[ChunkManager] Enabled chunk generation")
+	
+func disable() -> void:
+	is_enabled = false
+	print("[ChunkManager] Disabled chunk generation")

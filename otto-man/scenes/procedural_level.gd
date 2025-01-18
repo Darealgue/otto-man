@@ -8,7 +8,8 @@ func _ready() -> void:
 	
 	print("[ProceduralLevel] Starting level generation")
 	
-	# Start chunk generation
+	# Enable and start chunk generation
+	ChunkManager.enable()
 	ChunkManager.start_generation()
 	
 	# Position player at spawn point
@@ -18,6 +19,10 @@ func _ready() -> void:
 	ChunkManager.difficulty_changed.connect(_on_difficulty_changed)
 	ChunkManager.chunk_loaded.connect(_on_chunk_loaded)
 	ChunkManager.chunk_unloaded.connect(_on_chunk_unloaded)
+
+func _exit_tree() -> void:
+	# Disable chunk generation when leaving the scene
+	ChunkManager.disable()
 
 func _on_difficulty_changed(new_difficulty: int) -> void:
 	print("[ProceduralLevel] Difficulty increased to: ", new_difficulty)

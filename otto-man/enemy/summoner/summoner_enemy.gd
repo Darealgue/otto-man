@@ -77,45 +77,69 @@ func _process(delta: float) -> void:
 	_update_animation()
 
 func _physics_process(delta: float) -> void:
-	# Don't process anything if dead
-	if current_behavior == "dead":
-		return
-		
-	# Apply gravity first
-	super.apply_gravity(delta)
+	# Simplified debug - only print state changes
+	if Engine.get_physics_frames() % 120 == 0:  # Reduced frequency
+		print("[Summoner] State: ", current_behavior, " | Animation: ", sprite.animation)
 	
-	# Check for player in range
-	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		var player = players[0]
-		var distance = global_position.distance_to(player.global_position)
-		
-		if distance <= (stats["detection_range"] if "detection_range" in stats else 400.0) and can_summon and active_birds.size() < (stats["max_summon_count"] if "max_summon_count" in stats else 3):
-			print("[Summoner] Attempting to summon. Can summon: ", can_summon, ", Active birds: ", active_birds.size())
-			is_summoning = true
-			sprite.play("summon")
-			change_behavior("summon")
+	# Rest of the timers and state handling
+	if invulnerability_timer > 0:
+		invulnerability_timer -= delta
+		if invulnerability_timer <= 0:
+			invulnerable = false
+			if hurtbox:
+				hurtbox.monitoring = true
+				hurtbox.monitorable = true
 	
-	# Handle behavior after gravity
-	_handle_child_behavior(delta)
+	if return_cooldown_timer > 0:
+		return_cooldown_timer -= delta
+		if return_cooldown_timer <= 0:
+			can_summon = true
 	
-	# Apply movement
-	move_and_slide()
-
-func _handle_child_behavior(delta: float) -> void:
+	if current_behavior != "hurt":
+		apply_gravity(delta)
+	
 	match current_behavior:
+		"hurt":
+			handle_hurt_behavior(delta)
+			var saved_pos = global_position
+			move_and_slide()
+			global_position = saved_pos
+			return
+		"dead":
+			velocity.x = 0
+			var saved_x = global_position.x
+			move_and_slide()
+			global_position.x = saved_x
+			return
 		"idle":
 			_handle_idle()
 		"run":
 			_handle_run(delta)
 		"summon":
 			_handle_summon(delta)
-			
-	if not can_summon:
-		return_cooldown_timer -= delta
-		if return_cooldown_timer <= 0:
-			can_summon = true
-			return_cooldown_timer = 0.0
+	
+	move_and_slide()
+	_update_animation()
+
+func handle_hurt_behavior(delta: float) -> void:
+	behavior_timer += delta
+	print("[Summoner] Hurt behavior - Timer: ", behavior_timer)
+	
+	# Ensure hurt animation is playing and freeze movement
+	if sprite:
+		if sprite.animation != "hurt":
+			print("[Summoner] Playing hurt animation")
+			sprite.play("hurt")
+	
+	# Force velocity to zero during hurt state
+	velocity = Vector2.ZERO
+	print("[Summoner] Velocity in hurt: ", velocity)
+	
+	# Let the animation finish naturally through _on_animation_finished
+	# Only force exit if we've been in hurt state too long
+	if behavior_timer >= 0.5:  # Failsafe timeout
+		print("[Summoner] Hurt timeout - forcing run state")
+		change_behavior("run", true)
 
 func _handle_idle() -> void:
 	# Only reset horizontal velocity, keep vertical for gravity
@@ -131,42 +155,36 @@ func _handle_idle() -> void:
 	if potential_target and is_instance_valid(potential_target):
 		var distance_to_target = global_position.distance_to(potential_target.global_position)
 		if distance_to_target <= (stats["detection_range"] if "detection_range" in stats else 400.0):
-			print("[Summoner] Player detected at distance: ", distance_to_target)
 			target = potential_target
 			change_behavior("run")
 
 func _handle_run(delta: float) -> void:
 	if not target or not is_instance_valid(target):
-		print("[Summoner] Lost target, returning to idle")
 		change_behavior("idle")
 		return
 		
-	# Check if player is out of detection range
 	var distance_to_target = global_position.distance_to(target.global_position)
 	if distance_to_target > (stats["detection_range"] if "detection_range" in stats else 400.0):
-		print("[Summoner] Target out of detection range: ", distance_to_target)
 		change_behavior("idle")
 		return
 		
-	# Run away from player
 	var direction = global_position.direction_to(target.global_position)
 	var desired_velocity = -direction * (stats["movement_speed"] if "movement_speed" in stats else 200.0)
 	
-	# Check wall collision
 	if wall_detector.is_colliding():
-		# Try to move parallel to wall
 		desired_velocity = desired_velocity.rotated(PI/2)
 	
-	# Only lerp the horizontal component, preserve vertical for gravity
 	velocity.x = lerp(velocity.x, desired_velocity.x, 0.1)
-	move_and_slide()
 	
-	# Face the player even while running
+	# Update animation based on movement
+	if abs(velocity.x) > WALK_START_THRESHOLD:
+		sprite.play("walk")
+	elif abs(velocity.x) < WALK_STOP_THRESHOLD:
+		sprite.play("idle")
+	
 	sprite.flip_h = target.global_position.x < global_position.x
 	
-	# Try to summon if possible
 	if can_summon and not is_summoning and active_birds.size() < (stats["max_summon_count"] if "max_summon_count" in stats else 3):
-		print("[Summoner] Attempting to summon. Can summon: ", can_summon, ", Active birds: ", active_birds.size())
 		change_behavior("summon")
 
 func _handle_summon(delta: float) -> void:
@@ -233,9 +251,7 @@ func _complete_summon() -> void:
 	change_behavior("run")
 
 func _update_animation() -> void:
-	var old_anim = sprite.animation
-	
-	# Don't change animations during summon or hurt states
+	# Don't change animations during special states
 	if current_behavior in ["summon", "hurt", "dead"]:
 		match current_behavior:
 			"summon":
@@ -255,64 +271,77 @@ func _update_animation() -> void:
 			if sprite.animation != "idle":
 				sprite.play("idle")
 		"run":
-			# Animation is now handled in _handle_run to match desired movement
-			pass
+			if abs(velocity.x) > WALK_START_THRESHOLD and sprite.animation != "walk":
+				sprite.play("walk")
+			elif abs(velocity.x) < WALK_STOP_THRESHOLD and sprite.animation != "idle":
+				sprite.play("idle")
 
 func _on_summon_timer_timeout() -> void:
 	can_summon = true
-	print("[Summoner] Summon cooldown finished - can summon again")
 
 func _on_bird_died(bird: Node) -> void:
 	if bird in active_birds:  # Only remove if it's still in our array
 		active_birds.erase(bird)
-		print("[Summoner] Bird died, remaining birds: ", active_birds.size())
 
 func die() -> void:
+	print("[Summoner] Starting death sequence")
 	_debug_print_hurtbox_state("Before Death Handler")
 	
 	# Reset summoning state
 	is_summoning = false
 	can_summon = false
 	
-	# Make all birds neutral when summoner dies, but keep their hurtboxes active
+	# Make all birds neutral when summoner dies
 	for bird in active_birds:
 		if is_instance_valid(bird):
 			bird.set_neutral_state()
-	active_birds.clear()  # Clear the array since we don't control these birds anymore
+	active_birds.clear()
 	
 	# Change behavior to dead first
 	change_behavior("dead", true)
 	
-	# Keep our own hurtbox active for bouncing
-	if hurtbox:
-		hurtbox.monitoring = true
-		hurtbox.monitorable = true
-		print("[DEBUG] Summoner - Explicitly enabled hurtbox after death")
+	print("[Summoner] Disabling collisions...")
+	# Disable ALL collision except with ground
+	collision_layer = 0  # No collision with anything
+	collision_mask = 1   # Only collide with environment
+	set_collision_layer_value(1, false)  # Ensure no world collision
+	set_collision_layer_value(2, false)  # Ensure no player collision
+	set_collision_layer_value(3, false)  # Ensure no enemy collision
+	set_collision_mask_value(2, false)   # Don't collide with player
+	print("[Summoner] New collision_layer: ", collision_layer)
+	print("[Summoner] New collision_mask: ", collision_mask)
 	
-	# Keep collision with environment active
-	set_collision_layer_value(3, true)  # Layer 3 is typically for enemy collision
-	set_collision_mask_value(1, true)   # Layer 1 is typically for environment
+	# Disable combat components
+	if hitbox:
+		hitbox.disable()
+		print("[Summoner] Hitbox disabled")
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
+		print("[Summoner] Hurtbox disabled")
 	
 	# Emit signal and notify PowerupManager
 	emit_signal("enemy_defeated")
 	PowerupManager.on_enemy_killed()
 	
+	# Wait before starting fade out
+	await get_tree().create_timer(4.0).timeout  # Increased from 0 to 4.0 seconds
+	
 	# Start fade out and return to pool
 	var tween = create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 2.0)
+	tween.tween_property(self, "modulate:a", 0.0, 2.0)  # Increased from 2.0 to match heavy enemy
 	await tween.finished
 	
+	print("[Summoner] Death sequence complete")
 	# Return to pool after fade out
-	print("[Enemy] Returning to pool")
-	queue_free()  # This will trigger the object pool to handle the return
-	
-	await get_tree().create_timer(0.1).timeout
-	_debug_print_hurtbox_state("After Death Handler")
+	queue_free()
 
 func take_damage(amount: float, knockback_force: float = 200.0) -> void:
-	if current_behavior == "dead":
+	if current_behavior == "dead" or invulnerable:
 		return
 		
+	_debug_print_hurtbox_state("Before Taking Damage")
+	
 	# Update health
 	health -= amount
 	
@@ -327,16 +356,27 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	damage_number.setup(int(amount))
 	
 	# Apply knockback
-	velocity.x = -direction * knockback_force
-	velocity.y = -knockback_force * 0.5
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		var dir = (global_position - player.global_position).normalized()
+		velocity = Vector2(
+			dir.x * knockback_force,
+			-knockback_force * 0.5  # Reduced vertical knockback
+		)
 	
-	# Enter hurt state
-	change_behavior("hurt")
+	# Enter hurt state and play animation
+	change_behavior("hurt", true)  # Force the behavior change
+	if sprite:
+		sprite.play("hurt")  # Explicitly play hurt animation
 	behavior_timer = 0.0
 	
-	# Brief invulnerability
+	# Brief invulnerability and disable hurtbox
 	invulnerable = true
 	invulnerability_timer = INVULNERABILITY_DURATION
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
 	
 	# Flash red
 	if sprite:
@@ -346,11 +386,16 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	# Check for death
 	if health <= 0:
 		die()
+	
+	_debug_print_hurtbox_state("After Taking Damage")
 
 func _on_animation_finished() -> void:
 	match sprite.animation:
 		"hurt":
-			change_behavior("run")
+			if current_behavior == "hurt":
+				change_behavior("run", true)
+				velocity = Vector2.ZERO
+				sprite.play("walk")
 		"summon":
 			_complete_summon()
 			is_summoning = false
@@ -358,13 +403,11 @@ func _on_animation_finished() -> void:
 			change_behavior("run", true)
 
 func _on_bird_returned(bird: Node) -> void:
-	print("[Summoner] Bird returned")
 	if bird in active_birds:
 		active_birds.erase(bird)
 		
 	# If all birds have returned, reset cooldown
 	if active_birds.is_empty():
-		print("[Summoner] All birds returned, resetting cooldown")
 		can_summon = true
 		if summon_timer:
 			summon_timer.stop()  # Stop current cooldown timer
@@ -373,13 +416,18 @@ func _on_bird_returned(bird: Node) -> void:
 		return_cooldown_timer = stats["return_cooldown"] if "return_cooldown" in stats else 3.0
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
-	# Don't change behavior if we're in the middle of summoning, unless forced
+	if current_behavior == new_behavior:
+		return
+		
 	if current_behavior == "summon" and not force:
 		return
 	
+	if current_behavior == "hurt" and not force and behavior_timer < 0.3:
+		return
+	
+	print("[Summoner] State change: ", current_behavior, " -> ", new_behavior)
 	current_behavior = new_behavior
 	
-	# Handle animation changes based on new behavior
 	match new_behavior:
 		"summon":
 			is_summoning = true
@@ -392,9 +440,15 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 		"dead":
 			sprite.play("dead")
 		"run":
-			if not is_summoning:  # Don't interrupt summon animation
-				sprite.play("walk")
+			if not is_summoning:
+				if abs(velocity.x) > WALK_START_THRESHOLD:
+					sprite.play("walk")
+				else:
+					sprite.play("idle")
 
 func apply_gravity(delta: float) -> void:
 	# Apply normal gravity from BaseEnemy
 	super.apply_gravity(delta)
+
+func get_behavior() -> String:
+	return current_behavior
