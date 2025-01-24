@@ -1,12 +1,2 @@
-res://player/player.tscn
-res://levels/level.tscn
-res://enemy/heavy/heavy_enemy.tscn
-res://rooms/test_room.tscn
-res://rooms/combat_room_test.tscn
-res://rooms/room_template.tscn
-res://rooms/combat_challenge_room.tscn
-res://enemy/flying/flying_enemy.tscn
-res://enemy/summoner/summoner_enemy.tscn
-res://enemy/flying/flying_enemy.gd
-res://enemy/summoner/summoner_enemy_stats.tres
-res://enemy/flying/flying_enemy_stats.tres
+res://AI/TinyLLaMA_test.tscn
+res://AI/TinyLLaMA_test.gd

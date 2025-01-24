@@ -1,0 +1,48 @@
+res://AI/TinyLLaMA_test.tscn::7772fef8a7b800c94fd1a0178462a869::1737732050::res://.godot/exported/133200997/export-c838a83687f03ca1483a457c36035e0f-TinyLLaMA_test.scn
+res://components/hitbox.tscn::ceb4f7954885959e19f79d910116503d::1737215783::res://.godot/exported/133200997/export-b2341dee687fbb8fa985e52dab686a3c-hitbox.scn
+res://components/hurtbox.tscn::cf7391c93b4946c78f3331a3d9c3c118::1737215783::res://.godot/exported/133200997/export-19af685d2ea4eb792b99e57c02b3a3a3-hurtbox.scn
+res://effects/damage_number.tscn::ff6f268c60ed14a67b396c5ee8e8527c::1737215783::res://.godot/exported/133200997/export-9e97783f81b07050d7ba71130acc79ea-damage_number.scn
+res://effects/hit_effect.tscn::f9bda24c5ee8adf230a7936e58c53729::1737215783::res://.godot/exported/133200997/export-9d2bb04f1e5b79142cba2e8dac26f24f-hit_effect.scn
+res://effects/parry_effect.tscn::29d9fa39f89c48b8bb74e0c2ab269648::1737215783::res://.godot/exported/133200997/export-cd986dd937e0fefa13da9263baf2f17a-parry_effect.scn
+res://effects/screen_effects.tscn::c9ab04075e2c92a697939c7b39f995d6::1737215783::res://.godot/exported/133200997/export-98a49908b8a4848d1d46b95e904ecb51-screen_effects.scn
+res://effects/shockwave.tscn::326de8557cd6b82fe2265a652f8b71fb::1737215783::res://.godot/exported/133200997/export-a2a98af43150c7c608bc8811c1cd3457-shockwave.scn
+res://enemy/flying/flying_enemy.tscn::07330046264b43e3f0fe5a3748ece619::1737215783::res://.godot/exported/133200997/export-6f39cc25421322f9b5f9134e19253e08-flying_enemy.scn
+res://enemy/flying/flying_enemy_stats.tres::da33a0259310c7c2760510f7dc16ebb6::1737215783::res://.godot/exported/133200997/export-652dd8c690543a05073bbc8f97346135-flying_enemy_stats.res
+res://enemy/heavy/heavy_enemy.tscn::417f17d85c02adfce33d1111cdeb870a::1737215783::res://.godot/exported/133200997/export-189e80ac114ac129a255ecb0a152e354-heavy_enemy.scn
+res://enemy/heavy/heavy_enemy_stats.tres::4d257da2a21c2523b8ee9bc6310f6c9c::1737215783::res://.godot/exported/133200997/export-e455d3b45ae8de9084bf567047c31824-heavy_enemy_stats.res
+res://enemy/heavy/shockwave.tscn::4e1ecc8207f0730b262deb812f405b90::1737215783::res://.godot/exported/133200997/export-99d5066ca1d311378f124f244b44d5eb-shockwave.scn
+res://enemy/summoner/summoner_enemy.tscn::b16391d75950f4ad0821663beda00131::1737215783::res://.godot/exported/133200997/export-b648504ef125005ff5c568aaece68082-summoner_enemy.scn
+res://enemy/summoner/summoner_enemy_stats.tres::7be2ff9a33291ca979cad14b0d85c331::1737215783::res://.godot/exported/133200997/export-7c5e63aebd9350cd23d1429da7605ee1-summoner_enemy_stats.res
+res://levels/level.tscn::a1a32433f08736eaecbbf316db12464b::1737215783::res://.godot/exported/133200997/export-2ba9609e68cc8875d848c4125928a176-level.scn
+res://player/game_ui.tscn::9ed63db4541d62f9f53d8ca677f6d253::1737215783::res://.godot/exported/133200997/export-e210b716264b8c5cc54beee4b9374a45-game_ui.scn
+res://player/player.tscn::943b7773f025aaea566ddff27553f0be::1737215783::res://.godot/exported/133200997/export-753d15e03e0182f9d550ac833b42bb41-player.scn
+res://resources/powerups/scenes/berserker_gambit.tscn::20e7ea7f136cb7af952d38e8378c1a3b::1737215783::res://.godot/exported/133200997/export-a604bb3a5f824fcec5b23d75cbf6a2fc-berserker_gambit.scn
+res://resources/powerups/scenes/damage_boost.tscn::f9ef4c7fb246d7b8d2b6a817dc13a4c3::1737215783::res://.godot/exported/133200997/export-a647513e0637751c07c8842af2db156b-damage_boost.scn
+res://resources/powerups/scenes/fire_trail.tscn::ebcd2b96751325622eb06ce4fce57c9f::1737215783::res://.godot/exported/133200997/export-25d0037592230304adc952259350baa0-fire_trail.scn
+res://resources/powerups/scenes/fire_trail_effect.tscn::cc6773f5cc1e24999d64240f8b0541f7::1737215783::res://.godot/exported/133200997/export-9695c96846a157793a85f55850b8e981-fire_trail_effect.scn
+res://resources/powerups/scenes/health_boost.tscn::e2ef8d350dd9d52bb5d1c394d1cc0ab2::1737215783::res://.godot/exported/133200997/export-501a92d07f1116db2a028cf9cf9965af-health_boost.scn
+res://resources/powerups/scenes/momentum_master.tscn::00acad0efb00454b0478d855a413e406::1737215783::res://.godot/exported/133200997/export-57cb5bf84424897956e3e50ba327c2be-momentum_master.scn
+res://resources/powerups/scenes/perfect_guard.tscn::f6d1bdabc18662e6101d97f608806724::1737215783::res://.godot/exported/133200997/export-fc9b183102f3ca4b186153141298fd35-perfect_guard.scn
+res://resources/powerups/scenes/speed_demon.tscn::f8555eaecff141238b054d540315eb03::1737215783::res://.godot/exported/133200997/export-184ba6e4a2dff2f22c64f880d2385c30-speed_demon.scn
+res://resources/powerups/scenes/time_slow_effect.tscn::99ec801f1cdd3d01bff9ce6bac395503::1737215783::res://.godot/exported/133200997/export-4ed2cfc437a81ccbc7aa3215d94e5fb3-time_slow_effect.scn
+res://rooms/combat_challenge_room.tscn::4c05d7d22b35b9e8561619bb634adc97::1737215783::res://.godot/exported/133200997/export-e9851148423764e62a678aa4bdfd7879-combat_challenge_room.scn
+res://rooms/combat_room_test.tscn::220681ac01f7317b39e4dc77e43d6cdb::1737215783::res://.godot/exported/133200997/export-d10ea23ce0ac3986906df7a7036b4d27-combat_room_test.scn
+res://rooms/exit_area.tscn::4dc89ac0fd3523c2e6830c11f0160b1b::1737215783::res://.godot/exported/133200997/export-ac0cc31622ed8c2eaf7d5c2a3df50777-exit_area.scn
+res://rooms/room_template.tscn::f0d19b306257bc6c200280a79ca272ea::1737215783::res://.godot/exported/133200997/export-d9b13d1f4854c3233c8707d18fb04476-room_template.scn
+res://rooms/room_test_scene.tscn::20f9442ac76dcb6b49cad989fb09fefc::1737215783::res://.godot/exported/133200997/export-7b948ed9d477dd37d61b086144a5f928-room_test_scene.scn
+res://rooms/spawn_point.tscn::a1329536c1fa1b674884ad055ad2d670::1737215783::res://.godot/exported/133200997/export-3d9c522768a3dcf1bf980a73b41b4628-spawn_point.scn
+res://rooms/test_room.tscn::8f553f5e0db8eac3be33f20bf5c9c270::1737215783::res://.godot/exported/133200997/export-5f2ace622ff07b9050a06333c7ccd45d-test_room.scn
+res://scenes/game_ui.tscn::8ffc4a426e7dce4af1b2542c2c544430::1737215783::res://.godot/exported/133200997/export-b1dc3a39ca5bc4d3f22bdf9178299c50-game_ui.scn
+res://Ui/damage_number.tscn::c4a261f6b4b219ff1b29eec23f5ee3b7::1737215783::res://.godot/exported/133200997/export-73752b8d2893b25fccc62b9a796fd7d9-damage_number.scn
+res://Ui/dev_console.tscn::b7a492c620de5493d5bf4bc8e805d97c::1737215783::res://.godot/exported/133200997/export-ee4be8981ce5c28eb1b2f8a9377fdee7-dev_console.scn
+res://Ui/enemy_health_bar.tscn::6c48b9846337c01614ed8e8ddf6b46b1::1737215783::res://.godot/exported/133200997/export-ed743d4ba103ff27daaa6fc9c1ecf301-enemy_health_bar.scn
+res://Ui/general_ui.tscn::2a73f2d7c07847b63b1edc2e76fa646e::1733497850::res://.godot/exported/133200997/export-e219f391d0f0f87bbffec29f4b1e4304-general_ui.scn
+res://Ui/health_display.tscn::f92a9f079e588de9b5f639df213a7bf0::1737215783::res://.godot/exported/133200997/export-2c74bfe5695dc402c64e1149e5aa6266-health_display.scn
+res://Ui/powerup_button.tscn::8da8dd80bf6c8acc9f17e97f8475e44a::1737215783::res://.godot/exported/133200997/export-3a3233ef3bb277555f2f4c8235d77e6f-powerup_button.scn
+res://Ui/powerup_selection.tscn::682aea7c1669be4aced0d2fb73615d4d::1737215783::res://.godot/exported/133200997/export-380ccfcbe10a3f3a862837a071251c39-powerup_selection.scn
+res://Ui/ResourceDisplay.tscn::5e05a8b16cd288556a2c27492684df02::1733497850::res://.godot/exported/133200997/export-06d02cd9f3043326939e355bfb49b566-ResourceDisplay.scn
+res://Ui/stamina_bar.tscn::9b387c250111286fd89ac58a838181ac::1737215783::res://.godot/exported/133200997/export-2dc7869eca0548833c73145f1e841d87-stamina_bar.scn
+res://village level/playervillage/playervillage.tscn::470e0335474bcb8d3f93e549de00a7bc::1737215783::res://.godot/exported/133200997/export-9d326c085f4373fc4633c1e1a3e25284-playervillage.scn
+res://village level/village npc/kamil/Kamil_NPC.tscn::a3108f6d9a376781d7f5d7f26061e5cf::1737215783::res://.godot/exported/133200997/export-6b563df6fbd85a6a6600a52e96f834e0-Kamil_NPC.scn
+res://village level/village npc/npc2/Npc2.tscn::84e561d2ff7b6f88a78fe9a1e4e71f28::1737215784::res://.godot/exported/133200997/export-420e5d251e86eb17ef3e9e428797da72-Npc2.scn
+res://village level/Village.tscn::0a28a6c9d7b87fbfb96cc6033a3b0514::1737731451::res://.godot/exported/133200997/export-54afd40055c3fd9f8c189a843be445a6-Village.scn

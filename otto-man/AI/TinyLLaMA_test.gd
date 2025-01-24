@@ -120,7 +120,7 @@ func SendDialogue():
 				"self": "*cries in agony*"
 			}
 		},
-		"NewDialogue": "Villager: " + invokedDialogue
+		"Invoked dialogue": "Villager: " + invokedDialogue
 	}
 
 	# Send the structured data to the AI
