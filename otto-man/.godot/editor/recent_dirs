@@ -1,9 +1,9 @@
-res://enemy/summoner/sprites
+res://chunks
+res://scenes
 res://enemy/flying/sprites
+res://enemy/summoner/sprites
 res://enemy/heavy/sprites
 res://autoload
-res://resources/chunks
-res://chunks
 res://enemy/summoner
 res://enemy/flying
 res://rooms

@@ -29,20 +29,9 @@ var return_timer: float = RETURN_COOLDOWN  # Track time before allowing return
 @onready var ceiling_detector: RayCast2D = $CeilingDetector
 @onready var floor_detector: RayCast2D = $FloorDetector
 
-# Add debug print function
-func _debug_print_hurtbox_state(context: String) -> void:
-	if hurtbox:
-		print("[DEBUG] Flying Enemy Hurtbox State - ", context)
-		print("- Monitoring: ", hurtbox.monitoring)
-		print("- Monitorable: ", hurtbox.monitorable)
-		print("- Groups: ", hurtbox.get_groups())
-		print("- Process Mode: ", hurtbox.process_mode)
-		print("- Visible: ", hurtbox.visible)
-		print("- Owner: ", hurtbox.owner.name if hurtbox.owner else "None")
 
 func _ready() -> void:
 	super._ready()
-	_debug_print_hurtbox_state("Initial State")
 	
 	# Initialize combat components with our own stats
 	if hitbox:
@@ -60,7 +49,6 @@ func _ready() -> void:
 		hurtbox_node = get_node_or_null("hurtbox")
 	
 	if hurtbox_node:
-		print("[DEBUG] Flying Enemy - Found hurtbox node: ", hurtbox_node.name)
 		hurtbox = hurtbox_node
 		
 		# Remove from any existing hurtbox groups to avoid duplicates
@@ -74,8 +62,6 @@ func _ready() -> void:
 		# Add to all common case variants to ensure compatibility
 		hurtbox.add_to_group("hurtbox")
 		hurtbox.add_to_group("HurtBox")
-		print("[DEBUG] Flying Enemy - Added hurtbox to groups")
-		print("[DEBUG] Flying Enemy - Current groups: ", hurtbox.get_groups())
 	else:
 		push_error("Flying enemy missing hurtbox!")
 	
@@ -110,11 +96,9 @@ func _handle_idle_state() -> void:
 	elif not is_returning and summoner and is_instance_valid(summoner):
 		# Only allow return if cooldown has elapsed
 		if return_timer <= 0:
-			print("[Bird] Return cooldown finished, can return to summoner")
 			is_returning = true
 			change_behavior("neutral")
 		else:
-			print("[Bird] Cannot return yet, continuing to chase")
 			change_behavior("chase")  # Keep chasing until cooldown is done
 
 func _handle_return_state(delta: float) -> void:
@@ -259,7 +243,6 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if current_behavior == "dead" or invulnerable:
 		return
 		
-	_debug_print_hurtbox_state("Before Taking Damage")
 	
 	# Update health
 	health -= amount
@@ -304,7 +287,6 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if health <= 0:
 		die()
 	
-	_debug_print_hurtbox_state("After Taking Damage")
 
 func _update_animation_state() -> void:
 	match current_behavior:
@@ -322,7 +304,6 @@ func _update_animation_state() -> void:
 			sprite.play("dead")
 
 func set_neutral_state() -> void:
-	_debug_print_hurtbox_state("Before Neutral State")
 	
 	is_neutral = true
 	is_escaping = true
@@ -338,20 +319,16 @@ func set_neutral_state() -> void:
 	
 	# Keep hurtbox active and explicitly set it to be monitorable for bouncing
 	if hurtbox:
-		print("[DEBUG] Flying Enemy - Setting hurtbox state for neutral")
 		hurtbox.monitoring = true
 		hurtbox.monitorable = true
 		if not hurtbox.is_in_group("hurtbox"):
 			hurtbox.add_to_group("hurtbox")
-			print("[DEBUG] Flying Enemy - Re-added to hurtbox group")
-		print("[DEBUG] Flying Enemy - Current groups: ", hurtbox.get_groups())
 	
 	# Disable collision with environment
 	set_collision_layer_value(3, false)  # Layer 3 is typically for enemy collision
 	set_collision_mask_value(1, false)   # Layer 1 is typically for environment
 	
 	await get_tree().create_timer(0.1).timeout
-	_debug_print_hurtbox_state("After Neutral State")
 
 func set_summoner(new_summoner: Node2D) -> void:
 	summoner = new_summoner
@@ -364,7 +341,6 @@ func die() -> void:
 	if current_behavior == "dead":
 		return
 		
-	print("[FlyingEnemy] Starting death sequence")
 	current_behavior = "dead"
 	
 	# Play death animation

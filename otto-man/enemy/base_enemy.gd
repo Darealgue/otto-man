@@ -128,8 +128,6 @@ func go_to_sleep() -> void:
 	if sprite:
 		sprite.pause()
 	
-	if debug_enabled:
-		print("[BaseEnemy] Going to sleep at position: ", last_position)
 
 func wake_up() -> void:
 	if !is_sleeping:
@@ -151,8 +149,6 @@ func wake_up() -> void:
 		sprite.play()
 	change_behavior(last_behavior)
 	
-	if debug_enabled:
-		print("[BaseEnemy] Waking up at position: ", global_position)
 
 func handle_behavior(delta: float) -> void:
 	check_sleep_state()
@@ -217,14 +213,12 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if current_behavior == "dead" or invulnerable:
 		return
 		
-	print("[Enemy] Taking damage: ", amount, " Current health: ", health)
 	health -= amount
 	
 	# Update health bar
 	if health_bar:
 		health_bar.update_health(health)
 	
-	print("[Enemy] Health after damage: ", health)
 	
 	# Spawn damage number
 	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
@@ -251,7 +245,6 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	
 	# Check for death
 	if health <= 0:
-		print("[Enemy] Health depleted, calling die()")
 		die()
 	else:
 		# Disable hurtbox briefly
@@ -295,21 +288,15 @@ func die() -> void:
 	if current_behavior == "dead":
 		return
 		
-	print("\n=== ENEMY DEATH HANDLER ===")
-	print("Setting behavior to dead")
 	current_behavior = "dead"
 	
-	print("Emitting enemy_defeated signal")
 	enemy_defeated.emit()
 	
-	print("Notifying PowerupManager")
 	PowerupManager.on_enemy_killed()
 	
-	print("Playing death animation")
 	if sprite:
 		sprite.play("death")
 	
-	print("Disabling collision")
 	# Disable ALL collision to ensure falling through platforms
 	collision_layer = 0
 	collision_mask = 0
@@ -321,8 +308,6 @@ func die() -> void:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
 		
-	print("Marking death handling as complete")
-	print("Starting cleanup timer")
 	
 	# Start fade out
 	if sprite:
@@ -331,7 +316,6 @@ func die() -> void:
 	
 	# Return to pool after delay
 	await get_tree().create_timer(2.0).timeout
-	print("[Enemy] Returning to pool")
 	# Get pool name based on scene filename
 	var scene_path = scene_file_path
 	var pool_name = scene_path.get_file().get_basename()
@@ -346,7 +330,6 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == "dead" and not force:
 		return
 		
-	print("[Enemy] Changing behavior from ", current_behavior, " to ", new_behavior)
 	current_behavior = new_behavior
 	behavior_timer = 0.0
 	
@@ -413,7 +396,6 @@ func _initialize_components() -> void:
 		return
 
 func reset() -> void:
-	print("[Enemy] Resetting state for reuse")
 	# Reset all state when reusing from pool
 	current_behavior = "idle"
 	target = null
@@ -443,7 +425,6 @@ func reset() -> void:
 		hurtbox.monitoring = true
 		hurtbox.monitorable = true
 	
-	print("[Enemy] Reset complete - Health:", health)
 
 func handle_patrol(_delta: float) -> void:
 	# Virtual function to be overridden by child classes

@@ -295,7 +295,6 @@ func handle_charging(delta: float) -> void:
 	
 	# Check for parry
 	if hitbox and hitbox.is_parried:
-		print("[HeavyEnemy] Charge attack parried!")
 		hitbox.disable()
 		hitbox.is_parried = false  # Reset parry state
 		
@@ -466,7 +465,6 @@ func die() -> void:
 	if current_behavior == "dead":
 		return
 		
-	print("[HeavyEnemy] Starting death sequence")
 	current_behavior = "dead"
 	
 	# Play death animation
@@ -482,9 +480,6 @@ func die() -> void:
 			dir.x * DEATH_KNOCKBACK_FORCE * 0.3,  # Reduced horizontal knockback
 			-DEATH_UP_FORCE * 1.2  # Increased upward force
 		)
-		print("[HeavyEnemy] Death velocity set to: ", velocity)
-	
-	print("[HeavyEnemy] Disabling collisions...")
 	# Disable ALL collision except with ground
 	collision_layer = 0  # No collision with anything
 	collision_mask = 1   # Only collide with environment
@@ -492,17 +487,13 @@ func die() -> void:
 	set_collision_layer_value(2, false)  # Ensure no player collision
 	set_collision_layer_value(3, false)  # Ensure no enemy collision
 	set_collision_mask_value(2, false)   # Don't collide with player
-	print("[HeavyEnemy] New collision_layer: ", collision_layer)
-	print("[HeavyEnemy] New collision_mask: ", collision_mask)
 	
 	# Disable combat components
 	if hitbox:
 		hitbox.disable()
-		print("[HeavyEnemy] Hitbox disabled")
 	if hurtbox:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
-		print("[HeavyEnemy] Hurtbox disabled")
 	
 	# Emit signals and notify systems
 	enemy_defeated.emit()
@@ -515,7 +506,6 @@ func die() -> void:
 	tween.tween_property(self, "modulate:a", 0.0, 2.0)  # Increased fade duration from 1.0 to 2.0
 	await tween.finished
 	
-	print("[HeavyEnemy] Death sequence complete, returning to pool")
 	# Return to object pool
 	var pool_name = scene_file_path.get_file().get_basename()
 	object_pool.return_object(self, pool_name)
@@ -526,12 +516,6 @@ func _physics_process(delta: float) -> void:
 	
 	match current_behavior:
 		"dead":
-			# Debug print every few frames
-			if Engine.get_physics_frames() % 60 == 0:  # Print every ~1 second
-				print("[HeavyEnemy] Dead state - Position: ", global_position)
-				print("[HeavyEnemy] Velocity: ", velocity)
-				print("[HeavyEnemy] Collision layer: ", collision_layer)
-				print("[HeavyEnemy] Collision mask: ", collision_mask)
 			
 			# Slow down horizontal movement during death
 			velocity.x = move_toward(velocity.x, 0, GRAVITY * delta * 2.0)

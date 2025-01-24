@@ -1,3 +1,7 @@
+Camera2D
+TileMap
+TileMapLayer
+Node
 CollisionShape2D
 ColorRect
 StaticBody2D
@@ -6,4 +10,3 @@ Timer
 Area2D
 AnimatedSprite2D
 CharacterBody2D
-Node

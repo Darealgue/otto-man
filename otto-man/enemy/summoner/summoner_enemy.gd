@@ -19,16 +19,6 @@ var is_summoning: bool = false
 var return_cooldown_timer: float = 0.0
 var summon_animation_timer: float = 0.0  # Track summon animation duration
 
-# Add debug print function
-func _debug_print_hurtbox_state(context: String) -> void:
-	if hurtbox:
-		print("[DEBUG] Summoner Hurtbox State - ", context)
-		print("- Monitoring: ", hurtbox.monitoring)
-		print("- Monitorable: ", hurtbox.monitorable)
-		print("- Groups: ", hurtbox.get_groups())
-		print("- Process Mode: ", hurtbox.process_mode)
-		print("- Visible: ", hurtbox.visible)
-		print("- Owner: ", hurtbox.owner.name if hurtbox.owner else "None")
 
 func _ready() -> void:
 	# Initialize default stats for summoner
@@ -42,7 +32,6 @@ func _ready() -> void:
 	}
 	
 	super._ready()
-	_debug_print_hurtbox_state("Initial State")
 	
 	# Add hurtbox to group with proper case
 	if hurtbox:
@@ -56,8 +45,6 @@ func _ready() -> void:
 		
 		# Add to correct group
 		hurtbox.add_to_group("hurtbox")
-		print("[DEBUG] Summoner - Added hurtbox to group 'hurtbox'")
-		print("[DEBUG] Summoner - Current groups: ", hurtbox.get_groups())
 	
 	# Initialize summon timer
 	if summon_timer:
@@ -77,9 +64,6 @@ func _process(delta: float) -> void:
 	_update_animation()
 
 func _physics_process(delta: float) -> void:
-	# Simplified debug - only print state changes
-	if Engine.get_physics_frames() % 120 == 0:  # Reduced frequency
-		print("[Summoner] State: ", current_behavior, " | Animation: ", sprite.animation)
 	
 	# Rest of the timers and state handling
 	if invulnerability_timer > 0:
@@ -123,22 +107,18 @@ func _physics_process(delta: float) -> void:
 
 func handle_hurt_behavior(delta: float) -> void:
 	behavior_timer += delta
-	print("[Summoner] Hurt behavior - Timer: ", behavior_timer)
 	
 	# Ensure hurt animation is playing and freeze movement
 	if sprite:
 		if sprite.animation != "hurt":
-			print("[Summoner] Playing hurt animation")
 			sprite.play("hurt")
 	
 	# Force velocity to zero during hurt state
 	velocity = Vector2.ZERO
-	print("[Summoner] Velocity in hurt: ", velocity)
 	
 	# Let the animation finish naturally through _on_animation_finished
 	# Only force exit if we've been in hurt state too long
 	if behavior_timer >= 0.5:  # Failsafe timeout
-		print("[Summoner] Hurt timeout - forcing run state")
 		change_behavior("run", true)
 
 func _handle_idle() -> void:
@@ -284,8 +264,6 @@ func _on_bird_died(bird: Node) -> void:
 		active_birds.erase(bird)
 
 func die() -> void:
-	print("[Summoner] Starting death sequence")
-	_debug_print_hurtbox_state("Before Death Handler")
 	
 	# Reset summoning state
 	is_summoning = false
@@ -300,7 +278,6 @@ func die() -> void:
 	# Change behavior to dead first
 	change_behavior("dead", true)
 	
-	print("[Summoner] Disabling collisions...")
 	# Disable ALL collision except with ground
 	collision_layer = 0  # No collision with anything
 	collision_mask = 1   # Only collide with environment
@@ -308,17 +285,13 @@ func die() -> void:
 	set_collision_layer_value(2, false)  # Ensure no player collision
 	set_collision_layer_value(3, false)  # Ensure no enemy collision
 	set_collision_mask_value(2, false)   # Don't collide with player
-	print("[Summoner] New collision_layer: ", collision_layer)
-	print("[Summoner] New collision_mask: ", collision_mask)
 	
 	# Disable combat components
 	if hitbox:
 		hitbox.disable()
-		print("[Summoner] Hitbox disabled")
 	if hurtbox:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
-		print("[Summoner] Hurtbox disabled")
 	
 	# Emit signal and notify PowerupManager
 	emit_signal("enemy_defeated")
@@ -332,7 +305,6 @@ func die() -> void:
 	tween.tween_property(self, "modulate:a", 0.0, 2.0)  # Increased from 2.0 to match heavy enemy
 	await tween.finished
 	
-	print("[Summoner] Death sequence complete")
 	# Return to pool after fade out
 	queue_free()
 
@@ -340,7 +312,6 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if current_behavior == "dead" or invulnerable:
 		return
 		
-	_debug_print_hurtbox_state("Before Taking Damage")
 	
 	# Update health
 	health -= amount
@@ -387,7 +358,6 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if health <= 0:
 		die()
 	
-	_debug_print_hurtbox_state("After Taking Damage")
 
 func _on_animation_finished() -> void:
 	match sprite.animation:
@@ -425,7 +395,6 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == "hurt" and not force and behavior_timer < 0.3:
 		return
 	
-	print("[Summoner] State change: ", current_behavior, " -> ", new_behavior)
 	current_behavior = new_behavior
 	
 	match new_behavior:

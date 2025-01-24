@@ -49,7 +49,6 @@ func enter():
 		
 		# Set hitbox properties using fall attack damage from PlayerStats
 		var fall_damage = PlayerStats.get_fall_attack_damage()
-		print("[DEBUG] Fall Attack - Setting damage to: ", fall_damage)
 		fall_attack_hitbox.damage = fall_damage
 		fall_attack_hitbox.knockback_force = ATTACK_KNOCKBACK
 		fall_attack_hitbox.knockback_up_force = ATTACK_UP_FORCE
@@ -139,9 +138,6 @@ func _on_animation_finished(anim_name: String):
 		state_machine.transition_to("Idle")
 
 func _on_hitbox_area_entered(area: Area2D):
-	print("[DEBUG] Fall Attack - Area entered: ", area.name, " Groups: ", area.get_groups())
-	print("[DEBUG] Fall Attack - Area class: ", area.get_class(), " Parent: ", area.get_parent().name if area.get_parent() else "None")
-	print("[DEBUG] Fall Attack - Current damage: ", PlayerStats.get_fall_attack_damage())
 	
 	# Case-insensitive check for hurtbox group
 	var is_in_hurtbox_group = false
@@ -151,18 +147,15 @@ func _on_hitbox_area_entered(area: Area2D):
 			break
 	
 	if (is_in_hurtbox_group or area.name.to_lower() == "hurtbox") and not has_hit_enemy:
-		print("[DEBUG] Fall Attack - Hit valid hurtbox, attempting bounce")
 		has_hit_enemy = true
 		
 		# Disable hitbox after hitting enemy
 		var fall_attack_hitbox = player.get_node_or_null("FallAttack")
 		if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:
-			print("[DEBUG] Fall Attack - Hitbox damage: ", fall_attack_hitbox.damage)
 			fall_attack_hitbox.disable()
 			fall_attack_hitbox.disable_combo()
 			hitbox_enabled = false
 		
-		print("[DEBUG] Fall Attack - Applying bounce velocity: ", BOUNCE_VELOCITY)
 		player.velocity.y = BOUNCE_VELOCITY  # Bounce off enemy
 		player.enable_double_jump()  # Enable double jump after bounce
 		animation_player.play("jump_upwards")  # Play jump animation when bouncing

@@ -106,7 +106,6 @@ func _ready():
 	
 	# Register with PowerupManager and RoomManager
 	PowerupManager.register_player(self)
-	RoomManager.register_player(self)
 	
 	# Initialize stats
 	damage_multiplier = 1.0

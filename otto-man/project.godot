@@ -10,8 +10,8 @@ config_version=5
 
 [application]
 
-config/name="Otto-man multi"
-run/main_scene="res://levels/level.tscn"
+config/name="otto-man"
+run/main_scene="res://otto-man/scenes/test_level.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -24,14 +24,14 @@ DamageValues="*res://autoload/damage_values.gd"
 ScreenEffects="*res://effects/screen_effects.tscn"
 PlayerStats="*res://autoload/player_stats.gd"
 AttackManager="*res://autoload/attack_manager.gd"
-RoomManager="*res://autoload/room_manager.gd"
-ChunkManager="*res://autoload/chunk_manager.gd"
 ObjectPool="*res://autoload/object_pool.gd"
 
 [display]
 
-window/size/viewport_width=960
-window/size/viewport_height=540
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [global_group]
 
@@ -96,6 +96,12 @@ block={
 "deadzone": 0.5,
 "events": [Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"button_index":10,"pressure":0.0,"pressed":true,"script":null)
 , Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":81,"key_label":0,"unicode":113,"location":0,"echo":false,"script":null)
+]
+}
+toggle_camera={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":86,"key_label":0,"unicode":118,"location":0,"echo":false,"script":null)
+, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"button_index":4,"pressure":0.0,"pressed":true,"script":null)
 ]
 }
 
