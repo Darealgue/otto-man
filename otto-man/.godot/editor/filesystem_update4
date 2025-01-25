@@ -26,4 +26,4 @@ res://chunks/special/dead_end_right.tscn
 res://chunks/special/dead_end_up.tscn
 res://chunks/basic/basic_platform.tscn
 res://scenes/test_level.tscn
-res://chunks/base_chunk.gd
+res://chunks/special/dead_end_left.tscn
