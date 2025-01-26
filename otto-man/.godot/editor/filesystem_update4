@@ -1,4 +1,5 @@
 res://player/player.tscn
+res://chunks/base_chunk.gd
 res://levels/level.tscn
 res://enemy/flying/flying_enemy.tscn
 res://chunks/hub/l_corner_hub.tscn
@@ -17,13 +18,13 @@ res://chunks/hub/l_corner_left_down.tscn
 res://chunks/hub/l_corner_left_up.tscn
 res://chunks/hub/l_corner_right_down.tscn
 res://chunks/hub/l_corner_right_up.tscn
-res://chunks/hub/t_junction_down.tscn
 res://chunks/hub/t_junction_up.tscn
-res://chunks/hub/t_junction_right.tscn
+res://chunks/hub/t_junction_down.tscn
 res://chunks/hub/t_junction_left.tscn
+res://chunks/hub/t_junction_right.tscn
 res://chunks/special/dead_end_down.tscn
 res://chunks/special/dead_end_right.tscn
 res://chunks/special/dead_end_up.tscn
 res://chunks/basic/basic_platform.tscn
-res://scenes/test_level.tscn
 res://chunks/special/dead_end_left.tscn
+res://scenes/test_level.tscn

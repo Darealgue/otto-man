@@ -558,7 +558,10 @@ func generate_layout() -> bool:
 		# Connect back to main path if not too close to finish
 		if current_pos.x < finish_pos.x - 5:
 			var rejoin_dir = get_opposite_direction(branch_dir)
-			while not grid[current_pos.x][current_pos.y + DIRECTION_VECTORS[rejoin_dir].y].visited:
+			if not is_valid_direction(rejoin_dir):
+				continue  # Skip this branch if direction is invalid
+				
+			while true:
 				var next_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
 				if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
 					break
@@ -567,22 +570,27 @@ func generate_layout() -> bool:
 				grid[next_pos.x][next_pos.y].visited = true
 				
 				# Set vertical connections for rejoining
-				grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
-				grid[next_pos.x][next_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
+				set_grid_connection(current_pos, rejoin_dir, true)
+				set_grid_connection(next_pos, get_opposite_direction(rejoin_dir), true)
 				
 				# Clear any other connections for the next position
 				for dir in Direction.values():
-					if dir != get_opposite_direction(rejoin_dir):
-						grid[next_pos.x][next_pos.y].connections[dir] = false
+					if is_valid_direction(dir) and dir != get_opposite_direction(rejoin_dir):
+						set_grid_connection(next_pos, dir, false)
 				
 				current_pos = next_pos
 				current_branch_points.append(current_pos)
+				
+				# Check if we've reached a visited cell
+				var check_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
+				if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].visited:
+					break
 			
 			# Connect to main path
 			var main_path_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
 			if is_valid_position(main_path_pos) and grid[main_path_pos.x][main_path_pos.y].visited:
-				grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
-				grid[main_path_pos.x][main_path_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
+				set_grid_connection(current_pos, rejoin_dir, true)
+				set_grid_connection(main_path_pos, get_opposite_direction(rejoin_dir), true)
 		
 		all_paths.append(current_branch_points)
 	
@@ -628,23 +636,36 @@ func generate_layout() -> bool:
 		
 		# Create dead end path
 		var dead_end_length = randi() % 2 + 1  # 1-2 chunks
+		var dead_end_start_pos = current_pos  # Remember where we started
+		var next_pos = current_pos + DIRECTION_VECTORS[dead_end_dir]
 		
-		# Set connection for the starting point
-		grid[current_pos.x][current_pos.y].connections[dead_end_dir] = true
-		
-		for _j in range(dead_end_length):
-			var next_pos = current_pos + DIRECTION_VECTORS[dead_end_dir]
-			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-				break
-				
+		if is_valid_position(next_pos) and not grid[next_pos.x][next_pos.y].visited:
 			grid[next_pos.x][next_pos.y].cell_type = CellType.DEAD_END
 			grid[next_pos.x][next_pos.y].visited = true
 			
-			# Set only the connection back to the previous chunk
-			for dir in Direction.values():
-				grid[next_pos.x][next_pos.y].connections[dir] = (dir == get_opposite_direction(dead_end_dir))
-			
-			current_pos = next_pos
+			# Set up connections for the dead end
+			var opposite_dir = get_opposite_direction(dead_end_dir)
+			if is_valid_direction(opposite_dir):
+				# Set connection from dead end back to previous cell
+				grid[next_pos.x][next_pos.y].connections[opposite_dir] = true
+				# Set connection from previous cell to dead end
+				grid[current_pos.x][current_pos.y].connections[dead_end_dir] = true
+				
+				# Clear any other connections for both cells
+				for dir in Direction.values():
+					if dir != opposite_dir:
+						grid[next_pos.x][next_pos.y].connections[dir] = false
+					if dir != dead_end_dir and current_pos != dead_end_start_pos:  # Don't clear other connections for the starting cell
+						grid[current_pos.x][current_pos.y].connections[dir] = false
+				
+				# For vertical connections, ensure proper alignment
+				if dead_end_dir == Direction.UP or dead_end_dir == Direction.DOWN:
+					# Clear horizontal connections on both cells
+					grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = false
+					grid[next_pos.x][next_pos.y].connections[Direction.RIGHT] = false
+					if current_pos != dead_end_start_pos:
+						grid[current_pos.x][current_pos.y].connections[Direction.LEFT] = false
+						grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = false
 	
 	# Ensure finish chunk is properly connected
 	for dir in Direction.values():
@@ -716,17 +737,6 @@ func populate_chunks() -> bool:
 					print("Dead end at ", pos, " has incorrect number of connections: ", connection_count)
 					continue
 				
-				# Check if the connection is valid with neighboring chunk
-				var neighbor_pos = pos + DIRECTION_VECTORS[connection_dir]
-				if is_valid_position(neighbor_pos) and grid[neighbor_pos.x][neighbor_pos.y].chunk:
-					var neighbor_type = get_chunk_type(grid[neighbor_pos.x][neighbor_pos.y].chunk)
-					if not neighbor_type.is_empty():
-						var neighbor_ports = CHUNK_PORTS[neighbor_type]["ports"]
-						var opposite_dir = get_opposite_direction(connection_dir)
-						if neighbor_ports[opposite_dir] != Port.OPEN:
-							print("Cannot connect dead end at ", pos, " to neighbor in direction ", connection_dir)
-							continue
-				
 				# Select appropriate dead end based on connection direction
 				var chunk_type = ""
 				match connection_dir:
@@ -742,15 +752,30 @@ func populate_chunks() -> bool:
 						print("Invalid connection direction for dead end at ", pos)
 						continue
 				
-				# Clear all connections except the required one
-				for dir in Direction.values():
-					cell.connections[dir] = (dir == connection_dir)
+				# Check if the connection is valid with neighboring chunk
+				var check_pos = pos + DIRECTION_VECTORS[connection_dir]
+				if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].chunk:
+					var neighbor_type = get_chunk_type(grid[check_pos.x][check_pos.y].chunk)
+					if not neighbor_type.is_empty():
+						var neighbor_ports = CHUNK_PORTS[neighbor_type]["ports"]
+						var opposite_dir = get_opposite_direction(connection_dir)
+						
+						# For vertical connections, ensure proper port alignment
+						if connection_dir == Direction.UP or connection_dir == Direction.DOWN:
+							if neighbor_ports[opposite_dir] != Port.OPEN:
+								print("Cannot connect dead end at ", pos, " to neighbor in direction ", connection_dir)
+								continue
+						else:
+							# For horizontal connections, check as before
+							if neighbor_ports[opposite_dir] != Port.OPEN:
+								print("Cannot connect dead end at ", pos, " to neighbor in direction ", connection_dir)
+								continue
 				
 				if not place_chunk(pos, chunk_type):
 					print("Failed to place dead end at ", pos)
-					return false
+					continue  # Skip this dead end and try others
 	
-	return true
+	return true  # Return true if we've made it through all placements
 
 func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 	# Get required connections based on surrounding cells
@@ -841,8 +866,8 @@ func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 		for dir in Direction.values():
 			# If a connection is required, the port must be open
 			if required_connections[dir] and ports[dir] != Port.OPEN:
-				is_valid = false
-				break
+					is_valid = false
+					break
 		
 		if is_valid:
 			valid_chunks.append(chunk_type)
@@ -852,7 +877,7 @@ func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 	# If no valid chunks found, return empty string
 	if valid_chunks.is_empty():
 		return ""
-	
+
 	# Use weighted selection
 	var total_weight = 0
 	for chunk in valid_chunks:
@@ -937,12 +962,22 @@ func get_chunk_type(chunk: Node) -> String:
 	return ""
 
 func get_opposite_direction(dir: Direction) -> Direction:
+	if not is_valid_direction(dir):
+		push_error("Invalid direction value: " + str(dir))
+		return Direction.RIGHT  # Safe fallback
+		
 	match dir:
 		Direction.LEFT: return Direction.RIGHT
 		Direction.RIGHT: return Direction.LEFT
 		Direction.UP: return Direction.DOWN
 		Direction.DOWN: return Direction.UP
-	return Direction.RIGHT
+	return Direction.RIGHT  # Fallback, should never reach here
+
+func set_grid_connection(pos: Vector2i, dir: int, value: bool) -> void:
+	if not is_valid_position(pos) or not is_valid_direction(dir):
+		return
+	
+	grid[pos.x][pos.y].connections[dir] = value
 
 const CHUNK_PORTS = {
 	"start": {
@@ -1142,3 +1177,6 @@ func spawn_player() -> void:
 			# Adjusted spawn position to be closer to the ground
 			player.position = start_chunk.position + Vector2(200, 400)
 			print("Player spawned at: ", player.position)
+
+func is_valid_direction(dir: int) -> bool:
+	return dir >= 0 and dir < 4  # Since we have 4 directions (LEFT=0, RIGHT=1, UP=2, DOWN=3)
