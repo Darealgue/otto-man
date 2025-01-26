@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/level_config.gd" id="1_config"]
+
+[resource]
+script = ExtResource("1_config")
+min_length = 20
+max_length = 25
+min_branches = 3
+max_branches = 5
+min_dead_ends = 3
+max_dead_ends = 5
+combat_room_chance = 0.4
+description = "Mid-game level - longer dungeons, more branches, increased combat" 

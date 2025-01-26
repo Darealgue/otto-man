@@ -1,3 +1,4 @@
+res://resources
 res://chunks
 res://scenes
 res://enemy/flying/sprites
@@ -6,4 +7,3 @@ res://enemy/heavy/sprites
 res://autoload
 res://enemy/summoner
 res://enemy/flying
-res://rooms

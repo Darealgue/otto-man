@@ -28,3 +28,5 @@ res://chunks/special/dead_end_up.tscn
 res://chunks/basic/basic_platform.tscn
 res://chunks/special/dead_end_left.tscn
 res://scenes/test_level.tscn
+res://resources/dungeon_config.tres
+res://scenes/level_generator.gd

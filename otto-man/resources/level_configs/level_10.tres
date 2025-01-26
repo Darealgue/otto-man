@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/level_config.gd" id="1_config"]
+
+[resource]
+script = ExtResource("1_config")
+min_length = 25
+max_length = 30
+min_branches = 4
+max_branches = 6
+min_dead_ends = 4
+max_dead_ends = 6
+combat_room_chance = 0.5
+description = "Late-game level - long dungeons, many branches, high combat frequency" 
