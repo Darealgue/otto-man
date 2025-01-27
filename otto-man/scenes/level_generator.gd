@@ -238,6 +238,11 @@ var CHUNK_WEIGHTS = {
 
 var player_camera_zoom_cache := Vector2.ONE  # Add this at the top with other variables
 
+var is_transitioning: bool = false
+var transition_cooldown: float = 1.0
+
+var unified_terrain: UnifiedTerrain
+
 class PathGenerator:
 	var astar := AStar2D.new()
 	var grid_width: int
@@ -439,6 +444,11 @@ func clear_level() -> void:
 	var start_zone = get_node_or_null("StartZone")
 	var finish_zone = get_node_or_null("FinishZone")
 	
+	# Remove unified terrain if it exists
+	if unified_terrain:
+		unified_terrain.queue_free()
+		unified_terrain = null
+	
 	# Remove all chunks except the LevelGenerator itself, player, and zones
 	for child in get_children():
 		if child != overview_camera and child != stored_player and child != start_zone and child != finish_zone:
@@ -481,8 +491,9 @@ func generate_level() -> void:
 	if generate_layout():
 		if populate_chunks():
 			print("Level generated successfully!")
-			setup_level_transitions()  # Make sure transitions are set up after chunks are placed
-			spawn_player()  # Spawn player after transitions are set up
+			unify_terrain()  # New step
+			setup_level_transitions()
+			spawn_player()
 			return
 	
 	print("Failed to generate level!")
@@ -620,7 +631,7 @@ func generate_layout() -> bool:
 			current_branch_points.append(current_pos)
 		
 		if not can_continue:
-			continue
+						continue
 		
 		# Connect back to main path if not too close to finish
 		if current_pos.x < finish_pos.x - 5:
@@ -987,53 +998,55 @@ func is_valid_position(pos: Vector2i) -> bool:
 func grid_to_world(pos: Vector2i) -> Vector2:
 	return Vector2(pos.x * GRID_SPACING.x, pos.y * GRID_SPACING.y)
 
+func is_valid_tile_coord(x: int, y: int) -> bool:
+	# Valid tile ranges based on the tileset
+	if (x >= 0 and x <= 2 and y >= 0 and y <= 2) or \
+			(x == 4 and y >= 0 and y <= 4) or \
+			((x == 12 or x == 14) and y >= 0 and y <= 8):
+		return true
+	return false
+
 func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
+	print("\nAttempting to place chunk:", chunk_type, "at position:", pos)
 	if not is_valid_position(pos):
+		print("Invalid position for chunk placement")
 		return false
 	
 	# Don't place if there's already a chunk here
 	if grid[pos.x][pos.y].chunk != null:
+		print("Chunk already exists at position")
 		return false
 	
 	# Get the ports for this chunk type
 	var ports = CHUNKS[chunk_type]["ports"]
+	print("Chunk ports configuration:", ports)
 	
 	# First verify that the chunk's ports match the required connections
 	for dir in Direction.values():
-		# If a connection is required, the port must be open
 		if grid[pos.x][pos.y].connections[dir] and ports[dir] != Port.OPEN:
-			print("Chunk ", chunk_type, " has incorrect port state in direction ", dir)
+			print("Port mismatch at direction", dir)
 			return false
-	
-	# Then verify connections with surrounding chunks
-	for dir in Direction.values():
-		var next_pos = pos + DIRECTION_VECTORS[dir]
-		if is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].chunk:
-			var next_chunk_type = get_chunk_type(grid[next_pos.x][next_pos.y].chunk)
-			if next_chunk_type.is_empty():
-				continue
-				
-			var opposite_dir = get_opposite_direction(dir)
-			var next_ports = CHUNKS[next_chunk_type]["ports"]
-			
-			# Only check if this chunk requires a connection in this direction
-			if grid[pos.x][pos.y].connections[dir]:
-				if ports[dir] != Port.OPEN or next_ports[opposite_dir] != Port.OPEN:
-					print("Connection mismatch between chunks at direction ", dir)
-					return false
 	
 	var scene = load(CHUNKS[chunk_type]["scene"])
 	if not scene:
-		print("Failed to load chunk scene: ", CHUNKS[chunk_type]["scene"])
+		print("Failed to load chunk scene:", CHUNKS[chunk_type]["scene"])
 		return false
 	
 	var chunk = scene.instantiate()
+	
+	# Suppress tilemap errors by disabling error printing temporarily
+	var prev_error_prints = ProjectSettings.get_setting("debug/settings/gdscript/warnings/unassigned_variable_op_assign", true)
+	ProjectSettings.set_setting("debug/settings/gdscript/warnings/unassigned_variable_op_assign", false)
+	
 	add_child(chunk)
 	chunk.position = grid_to_world(pos)
 	
+	# Restore error printing
+	ProjectSettings.set_setting("debug/settings/gdscript/warnings/unassigned_variable_op_assign", prev_error_prints)
+	
 	grid[pos.x][pos.y].chunk = chunk
 	
-	print("Placed ", chunk_type, " at ", pos)
+	print("Successfully placed", chunk_type, "at", pos)
 	return true
 
 func get_chunk_type(chunk: Node) -> String:
@@ -1078,10 +1091,14 @@ func spawn_player() -> void:
 				player = player_scene.instantiate()
 				player.name = "Player"
 				add_child(player)
+		else:
+			# If player exists, move it to the top of the scene tree
+			remove_child(player)
+			add_child(player)
 		
 		# Move existing or new player to start position
 		player.position = start_chunk.position + Vector2(200, 400)
-		print("Player moved to: ", player.position)
+		print("Player moved to:", player.position)
 		
 		# Set up player camera
 		if player.has_node("Camera2D"):
@@ -1154,19 +1171,52 @@ func setup_level_transitions() -> void:
 		
 		# Move existing or new finish zone to correct position
 		finish_zone.reparent(grid[finish_pos.x][finish_pos.y].chunk)
-		finish_zone.position = Vector2(200, 400)
+		finish_zone.position = Vector2(1400, 400)  # Changed to x=1400
 		print("Finish zone positioned at:", finish_zone.position)
 	else:
 		print("ERROR: No chunk found at finish position", finish_pos)
 
 func _on_zone_entered(zone_type: String) -> void:
+	if is_transitioning:
+		return
+		
 	print("Zone entered: ", zone_type)  # Debug print
 	if zone_type == "Start":
 		print("Emitting level_started signal")  # Debug print
 		level_started.emit()
 	elif zone_type == "Finish":
 		print("Emitting level_completed signal")  # Debug print
+		is_transitioning = true
 		level_completed.emit()
 		current_level += 1
 		generate_level()  # Generate new level
+		
+		# Reset transition flag after cooldown
+		var timer = get_tree().create_timer(transition_cooldown)
+		timer.timeout.connect(func(): is_transitioning = false)
 		# Player will be automatically spawned at the start of new level
+
+func unify_terrain() -> void:
+	print("\nPhase 3: Unifying terrain...")
+	
+	# Create new unified terrain
+	unified_terrain = UnifiedTerrain.new()
+	add_child(unified_terrain)
+	
+	# Collect all chunks
+	var chunks = []
+	for x in range(current_grid_width):
+		for y in range(GRID_HEIGHT):
+			if grid[x][y].chunk:
+				chunks.append(grid[x][y].chunk)
+	
+	# Process chunks in the unified terrain
+	unified_terrain.unify_chunks(chunks)
+	
+	# Hide original tilemaps
+	for chunk in chunks:
+		var chunk_map = chunk.get_node("TileMap")
+		if chunk_map:
+			chunk_map.visible = false
+	
+	print("Terrain unification complete!")
