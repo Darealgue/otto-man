@@ -1,9 +1,6 @@
 res://player/player.tscn
 res://chunks/base_chunk.gd
-res://testing.tscn
-res://scenes/test_level.tscn
 res://scenes/testing.tscn
-res://chunks/special/start_chunk.tscn
-res://chunks/special/finish_chunk.tscn
-res://scenes/unified_terrain.gd
-res://chunks/basic/basic_platform.tscn
+res://scenes/test_level.tscn
+res://chunks/special/combat_arena.tscn
+res://chunks/vertical/climbing_tower.tscn

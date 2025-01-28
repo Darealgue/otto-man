@@ -56,17 +56,17 @@ func unify_chunks(chunks: Array) -> void:
 	# Make sure the unified terrain is visible
 	visible = true
 
-func process_tilemap_layer(tilemap_layer: Node, chunk: Node) -> void:
+func process_tilemap_layer(tilemap_layer: TileMapLayer, chunk: Node2D) -> void:
 	if not tile_set and tilemap_layer.tile_set:
 		tile_set = tilemap_layer.tile_set
-		collision_visibility_mode = TileMap.VISIBILITY_MODE_DEFAULT
-		y_sort_enabled = tilemap_layer.y_sort_enabled if tilemap_layer.has_method("is_y_sort_enabled") else false
 	
-	var cells = tilemap_layer.get_used_cells()
 	print("\n=== Position Analysis for Chunk: ", chunk.name, " ===")
 	print("Chunk Global Position: ", chunk.global_position)
 	print("TileMapLayer Position: ", tilemap_layer.position)
 	print("TileMapLayer Global Position: ", tilemap_layer.global_position)
+	
+	# Get all cells in the tilemap layer
+	var cells = tilemap_layer.get_used_cells()
 	print("Processing ", cells.size(), " cells")
 	
 	# Sort cells by Y coordinate to ensure consistent processing
@@ -76,62 +76,47 @@ func process_tilemap_layer(tilemap_layer: Node, chunk: Node) -> void:
 	var min_pos = Vector2.INF
 	var max_pos = -Vector2.INF
 	
-	# Get the chunk's base Y position (rounded to nearest tile)
-	var chunk_base_y = int(chunk.position.y / TILE_SIZE) * TILE_SIZE
-	
 	for cell in cells:
+		# Get cell data using Vector2i cell position
 		var source_id = tilemap_layer.get_cell_source_id(cell)
+		if source_id == -1:
+			continue
+			
 		var atlas_coords = tilemap_layer.get_cell_atlas_coords(cell)
 		var alternative_tile = tilemap_layer.get_cell_alternative_tile(cell)
 		
-		if source_id != -1:
-			# Calculate local position in tilemap space
-			var local_pos = tilemap_layer.map_to_local(cell)
-			
-			# Calculate world position with corrected Y coordinate
-			var world_pos = Vector2(
-				local_pos.x + chunk.position.x,
-				local_pos.y + chunk_base_y
-			)
-			
-			# Convert to unified tilemap coordinates
-			var unified_cell = local_to_map(world_pos)
-			
-			# Update bounds
-			min_pos = Vector2(min(min_pos.x, world_pos.x), min(min_pos.y, world_pos.y))
-			max_pos = Vector2(max(max_pos.x, world_pos.x), max(max_pos.y, world_pos.y))
-			
-			var pos_key = str(unified_cell)
-			
-			# Check if this position has already been processed
-			if not processed_positions.has(pos_key):
-				set_cell(0, unified_cell, source_id, atlas_coords, alternative_tile)
-				processed_positions[pos_key] = {
-					"chunk": chunk.name,
-					"source_id": source_id,
-					"atlas_coords": atlas_coords,
-					"alternative_tile": alternative_tile,
-					"original_pos": world_pos,
-					"final_pos": map_to_local(unified_cell),
-					"has_collision": tilemap_layer.get_cell_tile_data(cell) != null and tilemap_layer.get_cell_tile_data(cell).get_collision_polygons_count(0) > 0
-				}
-			else:
-				var existing = processed_positions[pos_key]
-				var new_data = tilemap_layer.get_cell_tile_data(cell)
-				var has_new_collision = new_data != null and new_data.get_collision_polygons_count(0) > 0
-				
-				# Only update if the new tile has collision and the existing one doesn't
-				if has_new_collision and not existing.has_collision:
-					set_cell(0, unified_cell, source_id, atlas_coords, alternative_tile)
-					existing.source_id = source_id
-					existing.atlas_coords = atlas_coords
-					existing.alternative_tile = alternative_tile
-					existing.has_collision = true
+		# Calculate local position in tilemap space
+		var local_pos = tilemap_layer.map_to_local(cell)
+		
+		# Calculate world position
+		var world_pos = local_pos + chunk.position
+		
+		# Convert to unified tilemap coordinates
+		var unified_cell = local_to_map(world_pos)
+		
+		# Update bounds
+		min_pos = Vector2(min(min_pos.x, world_pos.x), min(min_pos.y, world_pos.y))
+		max_pos = Vector2(max(max_pos.x, world_pos.x), max(max_pos.y, world_pos.y))
+		
+		# Set the cell in our tilemap
+		set_cell(0, unified_cell, source_id, atlas_coords, alternative_tile)
 	
 	print("\nChunk Bounds Analysis:")
 	print("- Min Position: ", min_pos)
 	print("- Max Position: ", max_pos)
 	print("- Chunk Size: ", max_pos - min_pos)
+	
+	# After processing the layer, disable both visibility and collision
+	tilemap_layer.visible = false
+	tilemap_layer.process_mode = Node.PROCESS_MODE_DISABLED  # Disable processing
+	
+	# Clear all cells from the original tilemap to remove collision
+	for cell in cells:
+		tilemap_layer.set_cell(cell, -1)  # -1 removes the cell
+	
+	# Make sure our layer is visible and has collision
+	visible = true
+	process_mode = Node.PROCESS_MODE_INHERIT
 
 func get_chunk_children(node: Node) -> String:
 	var children = []
@@ -289,16 +274,10 @@ func is_boundary_cell(cell: Vector2i) -> bool:
 	return is_boundary
 
 func get_cell_terrain_type(cell: Vector2i) -> int:
-	var data = get_cell_tile_data(0, cell)
-	if data == null:
-		return -1
-	
-	# Only consider cells that have a valid tile
 	var source_id = get_cell_source_id(0, cell)
 	if source_id == -1:
 		return -1
-		
-	return data.terrain if data.has_method("get_terrain") else 0
+	return source_id
 
 func update_boundary_cell(cell: Vector2i) -> bool:
 	var source_id = get_cell_source_id(0, cell)
@@ -322,10 +301,10 @@ func update_boundary_cell(cell: Vector2i) -> bool:
 	pattern += "T" if surroundings["top"] == terrain else "_"
 	pattern += "R" if surroundings["right"] == terrain else "_"
 	pattern += "B" if surroundings["bottom"] == terrain else "_"
-	pattern += "L" if surroundings["left"] == terrain else "_"
+	pattern += "L" if surroundings["left"] else "_"
 	
 	# Select appropriate tile based on surroundings and terrain type
-	var new_coords = select_appropriate_tile(surroundings, terrain)
+	var new_coords = select_appropriate_tile(surroundings)
 	if new_coords != atlas_coords:
 		print("Cell ", cell, " Pattern: ", pattern, " Old coords: ", atlas_coords, " New coords: ", new_coords)
 		set_cell(0, cell, source_id, new_coords, alternative)
@@ -336,110 +315,143 @@ func get_surrounding_terrain(cell: Vector2i) -> Dictionary:
 	var current_terrain = get_cell_terrain_type(cell)
 	if current_terrain == -1:
 		return {
-			"top": -1, "right": -1, "bottom": -1, "left": -1,
-			"top_right": -1, "bottom_right": -1, "bottom_left": -1, "top_left": -1
+			"top": false, "right": false, "bottom": false, "left": false,
+			"top_right": false, "bottom_right": false, "bottom_left": false, "top_left": false
 		}
 	
 	var surroundings = {
-		"top": get_cell_terrain_type(cell + Vector2i(0, -1)),
-		"right": get_cell_terrain_type(cell + Vector2i(1, 0)),
-		"bottom": get_cell_terrain_type(cell + Vector2i(0, 1)),
-		"left": get_cell_terrain_type(cell + Vector2i(-1, 0)),
-		"top_right": get_cell_terrain_type(cell + Vector2i(1, -1)),
-		"bottom_right": get_cell_terrain_type(cell + Vector2i(1, 1)),
-		"bottom_left": get_cell_terrain_type(cell + Vector2i(-1, 1)),
-		"top_left": get_cell_terrain_type(cell + Vector2i(-1, -1))
+		"top": false, "right": false, "bottom": false, "left": false,
+		"top_right": false, "bottom_right": false, "bottom_left": false, "top_left": false
 	}
 	
-	# Only consider a direction connected if it has a valid tile and matching terrain
-	for direction in surroundings:
-		if surroundings[direction] != current_terrain:
-			surroundings[direction] = -1
+	# Check each direction and compare terrain types
+	var top_terrain = get_cell_terrain_type(cell + Vector2i(0, -1))
+	var right_terrain = get_cell_terrain_type(cell + Vector2i(1, 0))
+	var bottom_terrain = get_cell_terrain_type(cell + Vector2i(0, 1))
+	var left_terrain = get_cell_terrain_type(cell + Vector2i(-1, 0))
+	var top_right_terrain = get_cell_terrain_type(cell + Vector2i(1, -1))
+	var bottom_right_terrain = get_cell_terrain_type(cell + Vector2i(1, 1))
+	var bottom_left_terrain = get_cell_terrain_type(cell + Vector2i(-1, 1))
+	var top_left_terrain = get_cell_terrain_type(cell + Vector2i(-1, -1))
+	
+	# Set boolean values based on terrain matching
+	surroundings["top"] = (top_terrain != -1 and top_terrain == current_terrain)
+	surroundings["right"] = (right_terrain != -1 and right_terrain == current_terrain)
+	surroundings["bottom"] = (bottom_terrain != -1 and bottom_terrain == current_terrain)
+	surroundings["left"] = (left_terrain != -1 and left_terrain == current_terrain)
+	surroundings["top_right"] = (top_right_terrain != -1 and top_right_terrain == current_terrain)
+	surroundings["bottom_right"] = (bottom_right_terrain != -1 and bottom_right_terrain == current_terrain)
+	surroundings["bottom_left"] = (bottom_left_terrain != -1 and bottom_left_terrain == current_terrain)
+	surroundings["top_left"] = (top_left_terrain != -1 and top_left_terrain == current_terrain)
 	
 	return surroundings
 
-func select_appropriate_tile(surroundings: Dictionary, terrain: int) -> Vector2i:
-	var has_top = surroundings["top"] == terrain
-	var has_right = surroundings["right"] == terrain
-	var has_bottom = surroundings["bottom"] == terrain
-	var has_left = surroundings["left"] == terrain
+func select_appropriate_tile(surroundings: Dictionary) -> Vector2i:
+	# Debug print to see what patterns we're getting
+	var pattern = ""
+	pattern += "T" if surroundings.top else "_"
+	pattern += "R" if surroundings.right else "_"
+	pattern += "B" if surroundings.bottom else "_"
+	pattern += "L" if surroundings.left else "_"
+	print("Pattern at tile: ", pattern)
 	
-	# Count connections
-	var connection_count = 0
-	if has_top: connection_count += 1
-	if has_right: connection_count += 1
-	if has_bottom: connection_count += 1
-	if has_left: connection_count += 1
+	# Check for inner corners first
+	# Top-right inner corner (when connecting up and right)
+	if surroundings.top and surroundings.right and not surroundings.top_right:
+		print("Using top-right inner corner (6,1)")
+		return Vector2i(6, 1)
 	
-	# Single connection - end pieces
-	if connection_count == 1:
-		if has_top: return Vector2i(1, 0)    # End piece pointing up
-		if has_right: return Vector2i(2, 1)   # End piece pointing right
-		if has_bottom: return Vector2i(1, 2)  # End piece pointing down
-		if has_left: return Vector2i(0, 1)    # End piece pointing left
+	# Top-left inner corner (when connecting up and left)
+	if surroundings.top and surroundings.left and not surroundings.top_left:
+		print("Using top-left inner corner (7,1)")
+		return Vector2i(7, 1)
 	
-	# Two connections - corners or straight pieces
-	if connection_count == 2:
-		# Prioritize vertical connections
-		if has_top and has_bottom: return Vector2i(1, 1)   # Vertical
-		if has_left and has_right: return Vector2i(1, 1)   # Horizontal
-		
-		# Corners
-		if has_bottom and has_right: return Vector2i(0, 0)  # Top-left corner
-		if has_bottom and has_left: return Vector2i(2, 0)   # Top-right corner
-		if has_top and has_right: return Vector2i(0, 2)     # Bottom-left corner
-		if has_top and has_left: return Vector2i(2, 2)      # Bottom-right corner
+	# Bottom-right inner corner (when connecting bottom and right)
+	if surroundings.bottom and surroundings.right and not surroundings.bottom_right:
+		print("Using bottom-right inner corner (6,0)")
+		return Vector2i(6, 0)
 	
-	# Three connections - T-junctions
-	if connection_count == 3:
-		if !has_top: return Vector2i(1, 0)     # T-junction open top
-		if !has_right: return Vector2i(2, 1)   # T-junction open right
-		if !has_bottom: return Vector2i(1, 2)  # T-junction open bottom
-		if !has_left: return Vector2i(0, 1)    # T-junction open left
+	# Bottom-left inner corner (when connecting bottom and left)
+	if surroundings.bottom and surroundings.left and not surroundings.bottom_left:
+		print("Using bottom-left inner corner (7,0)")
+		return Vector2i(7, 0)
 	
-	# Four connections or default - center piece
-	return Vector2i(1, 1)
+	# Regular tile selection
+	if surroundings.top and surroundings.right and surroundings.bottom and surroundings.left:
+		return Vector2i(1, 1)  # Full cross piece - middle tile
+	elif surroundings.top and surroundings.bottom and not surroundings.left and not surroundings.right:
+		return Vector2i(3, 1)  # Vertical corridor
+	elif surroundings.left and surroundings.right and not surroundings.top and not surroundings.bottom:
+		return Vector2i(1, 1)  # Horizontal corridor - using middle piece
+	elif surroundings.right and surroundings.bottom and not surroundings.top and not surroundings.left:
+		return Vector2i(0, 0)  # Top-left corner
+	elif surroundings.left and surroundings.bottom and not surroundings.top and not surroundings.right:
+		return Vector2i(2, 0)  # Top-right corner
+	elif surroundings.top and surroundings.right and not surroundings.bottom and not surroundings.left:
+		return Vector2i(0, 2)  # Bottom-left corner
+	elif surroundings.top and surroundings.left and not surroundings.bottom and not surroundings.right:
+		return Vector2i(2, 2)  # Bottom-right corner
+	elif surroundings.top and not surroundings.right and not surroundings.bottom and not surroundings.left:
+		return Vector2i(1, 2)  # Bottom cap
+	elif not surroundings.top and surroundings.right and not surroundings.bottom and not surroundings.left:
+		return Vector2i(0, 1)  # Left cap
+	elif not surroundings.top and not surroundings.right and surroundings.bottom and not surroundings.left:
+		return Vector2i(1, 0)  # Top cap
+	elif not surroundings.top and not surroundings.right and not surroundings.bottom and surroundings.left:
+		return Vector2i(2, 1)  # Right cap
+	elif surroundings.top and surroundings.right and surroundings.bottom and not surroundings.left:
+		return Vector2i(0, 1)  # Left T-junction
+	elif surroundings.top and not surroundings.right and surroundings.bottom and surroundings.left:
+		return Vector2i(2, 1)  # Right T-junction
+	elif not surroundings.top and surroundings.right and surroundings.bottom and surroundings.left:
+		return Vector2i(1, 0)  # Top T-junction
+	elif surroundings.top and surroundings.right and not surroundings.bottom and surroundings.left:
+		return Vector2i(1, 2)  # Bottom T-junction
+	
+	return Vector2i(1, 1)  # Default to middle piece instead of blank
 
 func fix_terrain_connections() -> void:
-	print("\nFixing terrain connections...")
-	var cells = get_used_cells(0)
-	print("Processing ", cells.size(), " cells for terrain connections")
+	var cells_to_update = []
+	var processed_cells = {}
+	var skipped_count = 0
+	
+	# First pass: collect all cells and their current states
+	for cell in get_used_cells(0):
+		var terrain = get_cell_terrain_type(cell)
+		if terrain != -1:
+			processed_cells[cell] = {
+				"terrain": terrain,
+				"atlas_coords": get_cell_atlas_coords(0, cell),
+				"source_id": get_cell_source_id(0, cell),
+				"alternative_tile": get_cell_alternative_tile(0, cell)
+			}
+			cells_to_update.append(cell)
 	
 	# Sort cells by Y coordinate to ensure consistent processing
-	cells.sort_custom(func(a, b): return a.y < b.y)
+	cells_to_update.sort_custom(func(a, b): return a.y < b.y)
 	
-	var processed_cells = {}
 	var updated_count = 0
 	
-	# First pass: Store all existing tiles and their terrain types
-	for cell in cells:
-		var data = get_cell_tile_data(0, cell)
-		if data and data.has_method("get_terrain"):
-			processed_cells[cell] = {
-				"terrain": data.get_terrain(),
-				"source_id": get_cell_source_id(0, cell),
-				"atlas_coords": get_cell_atlas_coords(0, cell),
-				"alternative": get_cell_alternative_tile(0, cell)
-			}
-	
-	# Second pass: Update tiles based on their surroundings
-	for cell in cells:
-		if not processed_cells.has(cell):
-			continue
-			
-		var cell_info = processed_cells[cell]
-		var terrain = cell_info.terrain
+	# Second pass: update tiles based on surroundings
+	for cell in cells_to_update:
+		var terrain = processed_cells[cell].terrain
 		
 		# Get surrounding terrain information
 		var surroundings = {
-			"top": -1, "right": -1, "bottom": -1, "left": -1
+			"top": false, "right": false, "bottom": false, "left": false,
+			"top_right": false, "bottom_right": false, "bottom_left": false, "top_left": false
 		}
 		
+		# Check each neighbor
 		var neighbors = {
 			"top": cell + Vector2i(0, -1),
 			"right": cell + Vector2i(1, 0),
 			"bottom": cell + Vector2i(0, 1),
-			"left": cell + Vector2i(-1, 0)
+			"left": cell + Vector2i(-1, 0),
+			"top_right": cell + Vector2i(1, -1),
+			"bottom_right": cell + Vector2i(1, 1),
+			"bottom_left": cell + Vector2i(-1, 1),
+			"top_left": cell + Vector2i(-1, -1)
 		}
 		
 		# Check each neighbor
@@ -447,43 +459,41 @@ func fix_terrain_connections() -> void:
 			var neighbor = neighbors[direction]
 			if processed_cells.has(neighbor):
 				var neighbor_terrain = processed_cells[neighbor].terrain
-				if neighbor_terrain == terrain:
-					surroundings[direction] = terrain
+				surroundings[direction] = (neighbor_terrain != -1 and neighbor_terrain == terrain)
 		
 		# Create debug pattern
 		var pattern = ""
-		pattern += "T" if surroundings.top == terrain else "_"
-		pattern += "R" if surroundings.right == terrain else "_"
-		pattern += "B" if surroundings.bottom == terrain else "_"
-		pattern += "L" if surroundings.left == terrain else "_"
+		pattern += "T" if surroundings["top"] else "_"
+		pattern += "R" if surroundings["right"] else "_"
+		pattern += "B" if surroundings["bottom"] else "_"
+		pattern += "L" if surroundings["left"] else "_"
 		
 		# Determine the appropriate tile based on connections
-		var new_coords = select_appropriate_tile(surroundings, terrain)
+		var atlas_coords = processed_cells[cell].atlas_coords
+		var new_coords = select_appropriate_tile(surroundings)
 		
-		# Only update if the tile needs to change
-		if new_coords != cell_info.atlas_coords:
-			var should_update = true
-			
+		if new_coords != atlas_coords:
 			# Check if this would create a duplicate connection
 			var would_create_duplicate = false
 			for direction in neighbors:
 				var neighbor = neighbors[direction]
 				if processed_cells.has(neighbor) and processed_cells[neighbor].atlas_coords == new_coords:
 					# Allow duplicates if they maintain vertical connections
-					if surroundings.top == terrain or surroundings.bottom == terrain:
-						would_create_duplicate = false
+					if not (surroundings["top"] or surroundings["bottom"]):
+						would_create_duplicate = true
 						break
-					would_create_duplicate = true
-					break
 			
-			if would_create_duplicate:
-				print("SKIPPED Update at ", cell, " - Would create duplicate tile. Pattern: ", pattern)
-			else:
-				set_cell(0, cell, cell_info.source_id, new_coords, cell_info.alternative)
+			if not would_create_duplicate:
+				set_cell(0, cell, processed_cells[cell].source_id, new_coords, processed_cells[cell].alternative_tile)
 				processed_cells[cell].atlas_coords = new_coords
 				updated_count += 1
-				print("UPDATED tile at ", cell, " Pattern: ", pattern, " New coords: ", new_coords)
+			else:
+				skipped_count += 1
 	
 	print("\nTerrain Connection Summary:")
-	print("- Total cells processed: ", cells.size())
+	print("- Total cells processed: ", cells_to_update.size())
 	print("- Updates applied: ", updated_count)
+	print("- Updates skipped: ", skipped_count)
+
+func has_terrain_at(pos: Vector2i) -> bool:
+	return get_cell_source_id(0, pos) != -1
