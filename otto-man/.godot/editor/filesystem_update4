@@ -2,5 +2,12 @@ res://player/player.tscn
 res://chunks/base_chunk.gd
 res://scenes/testing.tscn
 res://scenes/test_level.tscn
+res://chunks/basic/basic_platform.tscn
+res://chunks/special/dead_end_left.tscn
+res://chunks/special/dead_end_up.tscn
 res://chunks/special/combat_arena.tscn
-res://chunks/vertical/climbing_tower.tscn
+res://chunks/hub/t_junction_down.tscn
+res://ui/health_display.tscn
+res://enemy/heavy/heavy_enemy_stats.tres
+res://enemy/heavy/heavy_enemy.tscn
+res://enemy/heavy/heavy_enemy.gd

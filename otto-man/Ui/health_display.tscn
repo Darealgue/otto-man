@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=5 format=3 uid="uid://barvau4dax7to"]
 
 [ext_resource type="Script" path="res://ui/health_display.gd" id="1_script"]
 
@@ -8,38 +8,38 @@ border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.3, 0.3, 0.3, 1.0)
+border_color = Color(0.3, 0.3, 0.3, 1)
 corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
-bg_color = Color(0.8, 0.2, 0.2, 1.0)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3"]
+bg_color = Color(1, 1, 1, 0.8)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(1.0, 0.4, 0.4, 1.0)
+border_color = Color(1, 1, 1, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+shadow_color = Color(1, 1, 1, 0.3)
+shadow_size = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
+bg_color = Color(0.8, 0.2, 0.2, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.4, 0.4, 1)
 corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 shadow_color = Color(0.8, 0.2, 0.2, 0.4)
-shadow_size = 2
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3"]
-bg_color = Color(1.0, 1.0, 1.0, 0.8)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1.0, 1.0, 1.0, 0.6)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
-shadow_color = Color(1.0, 1.0, 1.0, 0.3)
 shadow_size = 2
 
 [node name="HealthDisplay" type="Control"]

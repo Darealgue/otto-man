@@ -1,8 +1,6 @@
 class_name FlyingEnemy
 extends BaseEnemy
 
-const BaseEnemyScript = preload("res://enemy/base_enemy.gd")
-
 # Constants for movement
 const CHASE_SPEED_MULTIPLIER = 1.2
 const SWOOP_SPEED_MULTIPLIER = 1.5

@@ -17,6 +17,9 @@ var wake_distance: float = 800.0    # Distance at which enemy wakes up
 var last_position: Vector2          # Store position when going to sleep
 var last_behavior: String          # Store behavior when going to sleep
 
+# Debug ID
+var enemy_id: String = ""
+
 # Node references
 @onready var sprite = $AnimatedSprite2D
 @onready var hitbox = $Hitbox
@@ -52,111 +55,71 @@ var invulnerable: bool = false
 var invulnerability_timer: float = 0.0
 const INVULNERABILITY_DURATION: float = 0.1  # Short invulnerability window
 
+# Add debug print counter to avoid spam
+var _debug_print_counter: int = 0
+const DEBUG_PRINT_INTERVAL: int = 60  # Print every 60 frames
+
 func _ready() -> void:
 	add_to_group("enemies")
+	enemy_id = "%s_%d" % [get_script().resource_path.get_file().get_basename(), get_instance_id()]
+	
 	if stats:
 		health = stats.max_health
 	else:
 		push_warning("No stats resource assigned to enemy!")
-		health = 100.0  # Default value
+		health = 100.0
 	
-	# Create and setup health bar
 	var health_bar_scene = preload("res://ui/enemy_health_bar.tscn")
 	health_bar = health_bar_scene.instantiate()
 	add_child(health_bar)
-	health_bar.position = Vector2(0, -60)  # Position above enemy
-	health_bar.setup(health)  # Initialize with current health
+	health_bar.position = Vector2(0, -60)
+	health_bar.setup(health)
 	
-	# Initialize components after a short delay
 	call_deferred("_initialize_components")
+	
+	await get_tree().process_frame
+	
+	if global_position.is_equal_approx(Vector2.ZERO):
+		push_warning("[Enemy:%s] Enemy initialized at origin (0,0)" % enemy_id)
+		return
 	
 	last_position = global_position
 	last_behavior = "idle"
 
 func _physics_process(delta: float) -> void:
-	if is_sleeping:
+	# Skip all processing if position is invalid
+	if global_position == Vector2.ZERO:
 		return
+	
+	# Only process movement and behavior if awake
+	if not is_sleeping:
+		# Handle invulnerability timer
+		if invulnerable:
+			invulnerability_timer -= delta
+			if invulnerability_timer <= 0:
+				invulnerable = false
+				# Make sure hurtbox is re-enabled
+				if hurtbox:
+					hurtbox.monitoring = true
+					hurtbox.monitorable = true
 		
-	# Handle invulnerability timer
-	if invulnerable:
-		invulnerability_timer -= delta
-		if invulnerability_timer <= 0:
-			invulnerable = false
-			# Make sure hurtbox is re-enabled
-			if hurtbox:
-				hurtbox.monitoring = true
-				hurtbox.monitorable = true
-	
-	# Normal physics processing
-	if not is_on_floor() and current_behavior != "dead":
-		velocity.y += GRAVITY * delta
-	
-	handle_behavior(delta)
-	move_and_slide()
-
-func check_sleep_state() -> void:
-	var player = get_nearest_player()
-	if !player:
-		return
+		# Handle behavior and movement
+		handle_behavior(delta)
 		
-	var distance = global_position.distance_to(player.global_position)
-	
-	# If awake and too far, go to sleep
-	if !is_sleeping and distance > sleep_distance:
-		go_to_sleep()
-	# If sleeping and close enough, wake up
-	elif is_sleeping and distance < wake_distance:
-		wake_up()
-
-func go_to_sleep() -> void:
-	if is_sleeping:
-		return
-		
-	is_sleeping = true
-	last_position = global_position
-	last_behavior = current_behavior
-	
-	# Disable processing and collision
-	set_physics_process(false)
-	if hitbox:
-		hitbox.disable()
-	if hurtbox:
-		hurtbox.set_deferred("monitoring", false)
-		hurtbox.set_deferred("monitorable", false)
-	
-	# Pause animation
-	if sprite:
-		sprite.pause()
-	
-
-func wake_up() -> void:
-	if !is_sleeping:
-		return
-		
-	is_sleeping = false
-	global_position = last_position
-	
-	# Re-enable processing and collision
-	set_physics_process(true)
-	if hitbox:
-		hitbox.disable()  # Make sure hitbox starts disabled
-	if hurtbox:
-		hurtbox.set_deferred("monitoring", true)
-		hurtbox.set_deferred("monitorable", true)
-	
-	# Resume animation and behavior
-	if sprite:
-		sprite.play()
-	change_behavior(last_behavior)
-	
+		# Apply gravity and move
+		if not is_on_floor() and current_behavior != "dead":
+			velocity.y += GRAVITY * delta
+		move_and_slide()
 
 func handle_behavior(delta: float) -> void:
-	check_sleep_state()
-	
+	# Remove sleep check from here since we're doing it in _physics_process
 	if is_sleeping:
 		return
 		
 	behavior_timer += delta
+	
+	# Get player within detection range for behavior
+	target = get_nearest_player_in_range()
 	
 	match current_behavior:
 		"patrol":
@@ -194,16 +157,34 @@ func _handle_child_behavior(_delta: float) -> void:
 
 func get_nearest_player() -> Node2D:
 	var players = get_tree().get_nodes_in_group("player")
+	if players.size() == 0:
+		return null
+	
 	var nearest_player = null
-	var min_distance = stats.detection_range if stats else 300.0
+	var min_distance = INF
 	
 	for player in players:
+		if not is_instance_valid(player) or not player.is_inside_tree():
+			continue
+			
 		var distance = global_position.distance_to(player.global_position)
 		if distance < min_distance:
 			min_distance = distance
 			nearest_player = player
 	
 	return nearest_player
+
+func get_nearest_player_in_range() -> Node2D:
+	var player = get_nearest_player()
+	if !player:
+		return null
+		
+	var distance = global_position.distance_to(player.global_position)
+	var detection_range = stats.detection_range if stats else 300.0
+	
+	if distance <= detection_range:
+		return player
+	return null
 
 func start_attack_cooldown() -> void:
 	can_attack = false
@@ -448,3 +429,77 @@ func handle_hurt_behavior(_delta: float) -> void:
 		if hurtbox:
 			hurtbox.monitoring = true
 			hurtbox.monitorable = true
+
+func check_sleep_state() -> void:
+	if current_behavior == "dead" or not is_instance_valid(self):
+		return
+		
+	var player = get_nearest_player()
+	if !player:
+		return
+		
+	var distance = global_position.distance_to(player.global_position)
+	
+	if is_sleeping and distance <= wake_distance:
+		wake_up()
+	elif !is_sleeping and distance >= sleep_distance:
+		# Don't go to sleep if we just spawned (give a grace period)
+		if Engine.get_physics_frames() < 60:  # About 1 second grace period
+			return
+		go_to_sleep()
+
+func go_to_sleep() -> void:
+	if is_sleeping or current_behavior == "dead":
+		return
+		
+	print("[BaseEnemy:%s] Going to sleep at distance %.1f" % [enemy_id, global_position.distance_to(get_nearest_player().global_position)])
+	
+	is_sleeping = true
+	last_position = global_position
+	last_behavior = current_behavior
+	
+	if self is FlyingEnemy:
+		set_meta("last_velocity", velocity)
+		set_meta("last_direction", direction)
+	
+	set_process(false)
+	if hitbox:
+		hitbox.disable()
+	if hurtbox:
+		hurtbox.set_deferred("monitoring", false)
+		hurtbox.set_deferred("monitorable", false)
+	
+	if sprite and sprite.has_method("pause"):
+		sprite.pause()
+
+func wake_up() -> void:
+	if !is_sleeping or current_behavior == "dead":
+		return
+		
+	print("[BaseEnemy:%s] Waking up at distance %.1f" % [enemy_id, global_position.distance_to(get_nearest_player().global_position)])
+	
+	is_sleeping = false
+	
+	set_process(true)
+	if hitbox:
+		hitbox.enable()
+	if hurtbox:
+		hurtbox.set_deferred("monitoring", true)
+		hurtbox.set_deferred("monitorable", true)
+	
+	if self is FlyingEnemy:
+		if has_meta("last_velocity"):
+			velocity = get_meta("last_velocity")
+		if has_meta("last_direction"):
+			direction = get_meta("last_direction")
+	
+	if sprite and sprite.has_method("play"):
+		sprite.play()
+	
+	if self is FlyingEnemy:
+		if last_behavior == "neutral" and has_method("is_returning") and not get("is_returning"):
+			change_behavior("chase")
+		else:
+			change_behavior(last_behavior)
+	else:
+		change_behavior(last_behavior)

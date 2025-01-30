@@ -1,4 +1,4 @@
-[gd_scene load_steps=95 format=3 uid="uid://b4yfkqn1hqv8q"]
+[gd_scene load_steps=94 format=3 uid="uid://b4yfkqn1hqv8q"]
 
 [ext_resource type="Script" path="res://enemy/heavy/heavy_enemy.gd" id="1_script"]
 [ext_resource type="Resource" uid="uid://baftw8h06wv1a" path="res://enemy/heavy/heavy_enemy_stats.tres" id="2_stats"]
@@ -12,46 +12,6 @@
 [ext_resource type="Texture2D" uid="uid://bp2ngylmbweim" path="res://enemy/heavy/sprites/dusman_ground_slam_border.png" id="11_slam"]
 [ext_resource type="Script" path="res://components/enemy_hurtbox.gd" id="12_f3s5r"]
 [ext_resource type="Texture2D" uid="uid://bg52og47c4jgf" path="res://enemy/heavy/sprites/dusman_ground_slam_charge_border.png" id="12_slam_prep"]
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_xfvss"]
-atlas = ExtResource("9_charge")
-region = Rect2(0, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_3u3ab"]
-atlas = ExtResource("9_charge")
-region = Rect2(96, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_kowwu"]
-atlas = ExtResource("9_charge")
-region = Rect2(192, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_8heeg"]
-atlas = ExtResource("9_charge")
-region = Rect2(288, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_41w67"]
-atlas = ExtResource("9_charge")
-region = Rect2(384, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_0wbhu"]
-atlas = ExtResource("9_charge")
-region = Rect2(480, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_6rwcg"]
-atlas = ExtResource("9_charge")
-region = Rect2(576, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_7vnow"]
-atlas = ExtResource("9_charge")
-region = Rect2(672, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_m7e6c"]
-atlas = ExtResource("9_charge")
-region = Rect2(768, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_id8pk"]
-atlas = ExtResource("9_charge")
-region = Rect2(864, 0, 96, 96)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_8rnja"]
 atlas = ExtResource("9_charge")
@@ -88,6 +48,42 @@ region = Rect2(576, 0, 96, 96)
 [sub_resource type="AtlasTexture" id="AtlasTexture_juq1h"]
 atlas = ExtResource("10_charge_prep")
 region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3u3ab"]
+atlas = ExtResource("9_charge")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kowwu"]
+atlas = ExtResource("9_charge")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8heeg"]
+atlas = ExtResource("9_charge")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_41w67"]
+atlas = ExtResource("9_charge")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0wbhu"]
+atlas = ExtResource("9_charge")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6rwcg"]
+atlas = ExtResource("9_charge")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7vnow"]
+atlas = ExtResource("9_charge")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_m7e6c"]
+atlas = ExtResource("9_charge")
+region = Rect2(768, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_id8pk"]
+atlas = ExtResource("9_charge")
+region = Rect2(864, 0, 96, 96)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_pmkq3"]
 atlas = ExtResource("5_sxltj")
@@ -333,41 +329,11 @@ region = Rect2(1056, 0, 96, 96)
 animations = [{
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_xfvss")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_3u3ab")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_kowwu")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_8heeg")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_41w67")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_0wbhu")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_6rwcg")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_7vnow")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_m7e6c")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_id8pk")
-}, {
-"duration": 1.0,
 "texture": SubResource("AtlasTexture_8rnja")
 }],
 "loop": false,
-"name": &"charge",
-"speed": 12.0
+"name": &"charge_end",
+"speed": 5.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -396,6 +362,43 @@ animations = [{
 }],
 "loop": false,
 "name": &"charge_prepare",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3u3ab")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kowwu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8heeg")
+}],
+"loop": false,
+"name": &"charge_start",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_41w67")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0wbhu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6rwcg")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7vnow")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_m7e6c")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_id8pk")
+}],
+"loop": true,
+"name": &"charging",
 "speed": 12.0
 }, {
 "frames": [{
@@ -626,21 +629,19 @@ debug_enabled = true
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -16)
 sprite_frames = SubResource("SpriteFrames_enemy")
-animation = &"dead"
-frame = 14
-frame_progress = 1.0
+animation = &"charge_end"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(1, 1)
 shape = SubResource("CapsuleShape2D_qvs0h")
 
 [node name="RayCastLeft" type="RayCast2D" parent="."]
-position = Vector2(-20, 0)
-target_position = Vector2(0, 64)
+position = Vector2(-21, 25)
+target_position = Vector2(0, 80)
 
 [node name="RayCastRight" type="RayCast2D" parent="."]
-position = Vector2(20, 0)
-target_position = Vector2(0, 64)
+position = Vector2(21, 25)
+target_position = Vector2(0, 80)
 
 [node name="Hitbox" type="Area2D" parent="." groups=["hitbox"]]
 collision_layer = 16
@@ -660,7 +661,6 @@ script = ExtResource("12_f3s5r")
 shape = SubResource("RectangleShape2D_combat")
 
 [node name="SlamEffect" type="Line2D" parent="."]
-visible = false
 z_index = 1
 width = 8.0
 default_color = Color(1, 0.8, 0.2, 0.8)

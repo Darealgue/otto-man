@@ -24,17 +24,25 @@ var base_size = Vector2(1920, 1080)
 var actual_size: Vector2:
 	get: return base_size * size_in_units
 
+var chunk_type: String = "basic"  # Override in specific chunks
+var spawn_manager: SpawnManager
+
 # Called when the node enters the scene tree
 func _ready() -> void:
-	# Initialize connections based on scene name
-	_initialize_connections()
+	print("[BaseChunk] Initialized:", name)
+	print("  - Size:", get_chunk_size())
+	print("  - Connections:", get_connections())
 	
-	if not Engine.is_editor_hint():
-		print("[BaseChunk] Initialized: ", name)
-		print("  - Size: ", size)
-		print("  - Connections: ", connections)
-	else:
-		_initialize_chunk()
+	# Initialize spawn manager
+	spawn_manager = $SpawnManager
+	if spawn_manager:
+		var level = 1  # Default level
+		var level_generator = get_tree().get_first_node_in_group("level_generator")
+		if level_generator:
+			level = level_generator.current_level
+		
+		# Initialize spawn manager with chunk type and level
+		spawn_manager.initialize(chunk_type, level)
 
 func _initialize_chunk() -> void:
 	print("[BaseChunk] Initializing chunk: ", name)
@@ -136,4 +144,34 @@ func _get_connection_point(dir: Direction) -> Vector2:
 		Direction.UP: return Vector2(size.x / 2, 0)
 		Direction.DOWN: return Vector2(size.x / 2, size.y)
 	return Vector2.ZERO
+
+func get_chunk_size() -> Vector2:
+	return Vector2(1920, 1080)  # Default chunk size
+
+func get_connections() -> Array:
+	# Override in specific chunks to define their connections
+	return []
+
+func get_chunk_position() -> Vector2:
+	return position
+
+func set_level(level: int) -> void:
+	if spawn_manager:
+		spawn_manager.set_level(level)
+
+# Optional: Start spawning enemies with interval
+func start_spawning(interval: float = 5.0) -> void:
+	if spawn_manager:
+		spawn_manager.start_all_spawning(interval)
+
+# Clear all enemies in this chunk
+func clear_enemies() -> void:
+	if spawn_manager:
+		spawn_manager.clear_all_enemies()
+
+# Get active spawn points
+func get_active_spawn_points() -> Array:
+	if spawn_manager:
+		return spawn_manager.get_active_spawn_points()
+	return []
  

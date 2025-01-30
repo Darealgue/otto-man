@@ -30,7 +30,7 @@
 [ext_resource type="Texture2D" uid="uid://nkj6bhhd5r1x" path="res://assets/player/sprite/otto_parry_border-sheet.png" id="28_llupn"]
 [ext_resource type="Script" path="res://components/player_hitbox.gd" id="29_xgdcd"]
 [ext_resource type="Script" path="res://components/player_hurtbox.gd" id="30_gsi5t"]
-[ext_resource type="PackedScene" path="res://ui/health_display.tscn" id="health_display"]
+[ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
 [ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
 
 [sub_resource type="Animation" id="Animation_55col"]
@@ -1359,7 +1359,6 @@ position = Vector2(0, -44)
 target_position = Vector2(15, 0)
 
 [node name="UI" type="CanvasLayer" parent="."]
-visible = false
 
 [node name="HealthDisplay" parent="UI" instance=ExtResource("health_display")]
 offset_left = 20.0

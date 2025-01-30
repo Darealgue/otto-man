@@ -8,6 +8,22 @@ const DELAYED_BAR_SPEED = 2.0  # Speed at which delayed bar catches up
 const FLASH_DURATION = 0.1     # Duration of flash effect
 const FLASH_INTENSITY = 1.5    # Intensity of flash effect
 
+# Color configurations
+const HEALTH_COLORS = {
+	"high": {
+		"fill": Color(0.0, 0.8, 0.0),     # Green fill
+		"border": Color(0.2, 1.0, 0.2)     # Light green border
+	},
+	"medium": {
+		"fill": Color(0.8, 0.4, 0.0),     # Orange fill
+		"border": Color(1.0, 0.6, 0.2)     # Light orange border
+	},
+	"low": {
+		"fill": Color(0.8, 0.0, 0.0),     # Red fill
+		"border": Color(1.0, 0.4, 0.4)     # Light red border
+	}
+}
+
 var delayed_health: float = 100.0
 var player_stats: Node
 
@@ -90,13 +106,19 @@ func update_health_display(current_health: float, max_health: float) -> void:
 		modulate = Color(1, FLASH_INTENSITY, 1)
 		create_tween().tween_property(self, "modulate", Color.WHITE, FLASH_DURATION)
 	
-	# Update bar color based on health percentage
+	# Update bar colors based on health percentage
 	var health_percent = current_health / max_health
-	var bar_style = health_bar.get_theme_stylebox("fill")
+	var bar_style = health_bar.get_theme_stylebox("fill") as StyleBoxFlat
 	
+	var colors
 	if health_percent <= 0.2:
-		bar_style.bg_color = Color(0.8, 0.0, 0.0)  # Red
+		colors = HEALTH_COLORS.low
 	elif health_percent <= 0.5:
-		bar_style.bg_color = Color(0.8, 0.4, 0.0)  # Orange
+		colors = HEALTH_COLORS.medium
 	else:
-		bar_style.bg_color = Color(0.0, 0.8, 0.0)  # Green
+		colors = HEALTH_COLORS.high
+	
+	# Update both fill and border colors
+	if bar_style:
+		bar_style.bg_color = colors.fill
+		bar_style.border_color = colors.border

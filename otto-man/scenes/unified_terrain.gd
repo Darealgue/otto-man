@@ -306,7 +306,6 @@ func update_boundary_cell(cell: Vector2i) -> bool:
 	# Select appropriate tile based on surroundings and terrain type
 	var new_coords = select_appropriate_tile(surroundings)
 	if new_coords != atlas_coords:
-		print("Cell ", cell, " Pattern: ", pattern, " Old coords: ", atlas_coords, " New coords: ", new_coords)
 		set_cell(0, cell, source_id, new_coords, alternative)
 		return true
 	return false
@@ -353,27 +352,22 @@ func select_appropriate_tile(surroundings: Dictionary) -> Vector2i:
 	pattern += "R" if surroundings.right else "_"
 	pattern += "B" if surroundings.bottom else "_"
 	pattern += "L" if surroundings.left else "_"
-	print("Pattern at tile: ", pattern)
 	
 	# Check for inner corners first
 	# Top-right inner corner (when connecting up and right)
 	if surroundings.top and surroundings.right and not surroundings.top_right:
-		print("Using top-right inner corner (6,1)")
 		return Vector2i(6, 1)
 	
 	# Top-left inner corner (when connecting up and left)
 	if surroundings.top and surroundings.left and not surroundings.top_left:
-		print("Using top-left inner corner (7,1)")
 		return Vector2i(7, 1)
 	
 	# Bottom-right inner corner (when connecting bottom and right)
 	if surroundings.bottom and surroundings.right and not surroundings.bottom_right:
-		print("Using bottom-right inner corner (6,0)")
 		return Vector2i(6, 0)
 	
 	# Bottom-left inner corner (when connecting bottom and left)
 	if surroundings.bottom and surroundings.left and not surroundings.bottom_left:
-		print("Using bottom-left inner corner (7,0)")
 		return Vector2i(7, 0)
 	
 	# Regular tile selection
