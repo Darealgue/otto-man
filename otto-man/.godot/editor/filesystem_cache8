@@ -1,12 +1,12 @@
 ea4bc82a6ad023ab7ee23ee620429895
-::res://::1737731485
-export_presets.cfg::TextFile::-1::1737731497::0::1::::<><>::
+::res://::1741275257
+export_presets.cfg::TextFile::-1::1741275189::0::1::::<><>::
 main.gd::GDScript::-1::1737215783::0::1::::<>Node<>::
-::res://AI/::1737731458
-TinyLLaMA_test.gd::GDScript::-1::1737732050::0::1::::<>Node<>::
-TinyLLaMA_test.tscn::PackedScene::1093177163224832086::1737732050::0::1::::<><>::res://AI/TinyLLaMA_test.gd
-::res://AI/config/::1737731448
-::res://AI/models/::1737731449
+::res://AI/::1741275189
+TinyLLaMA_test.gd::GDScript::-1::1741275189::0::1::::<>Node<>::
+TinyLLaMA_test.tscn::PackedScene::1093177163224832086::1741275209::0::1::::<><>::res://AI/TinyLLaMA_test.gd
+::res://AI/config/::1741273745
+::res://AI/models/::1741273745
 ::res://assets/::1737215783
 ::res://assets/player/::1737215783
 ::res://assets/player/sprite/::1737731451
@@ -26,16 +26,16 @@ otto_block_react-sheet.png::CompressedTexture2D::6115921941166913577::1737215783
 otto_dash.png::CompressedTexture2D::1039768333017764120::1737215783::1737731472::1::::<><>::
 otto_lightattack1.png::CompressedTexture2D::8380546999294583714::1737215783::1737731472::1::::<><>::
 otto_parry_border-sheet.png::CompressedTexture2D::933700621041206415::1737215783::1737731472::1::::<><>::
-::res://autoload/::1737731451
+::res://autoload/::1741273746
 attack_manager.gd::GDScript::-1::1737731451::0::1::::<>Node<>::
 damage_values.gd::GDScript::-1::1737215783::0::1::::<>Node<>::
 dev_console.gd::GDScript::-1::1737215783::0::1::::<>CanvasLayer<>::
-GameManager.gd::GDScript::-1::1733497850::0::1::::<>Node<>::
+GameManager.gd::GDScript::-1::1741273746::0::1::::<>Node<>::
 player_stats.gd::GDScript::-1::1737731451::0::1::::<>Node<>::
 powerup_manager.gd::GDScript::-1::1737731451::0::1::::<>Node<>::
 room_manager.gd::GDScript::-1::1737731451::0::1::::<>Node<>::
-::res://autoload/ServerManager/::1737462969
-Server_Manager.gd::GDScript::-1::1737723139::0::1::::<>Node<>::
+::res://autoload/ServerManager/::1741273805
+Server_Manager.gd::GDScript::-1::1741273805::0::1::::<>Node<>::
 ::res://background/::1737215783
 ::res://background/bulutlu dağlar/::1737731451
 clouds_front_fc.png::CompressedTexture2D::7506964228779465486::1737215783::1737731472::1::::<><>::
@@ -58,7 +58,7 @@ hurtbox.tscn::PackedScene::8843343398705497298::1737215783::0::1::::<><>::res://
 player_hitbox.gd::GDScript::-1::1737731451::0::1::::PlayerHitbox<>BaseHitbox<>::
 player_hurtbox.gd::GDScript::-1::1737731451::0::1::::PlayerHurtbox<>BaseHurtbox<>::
 raycast_debug.gd::GDScript::-1::1737731451::0::1::::<>RayCast2D<>::
-::res://effects/::1737731451
+::res://effects/::1741275269
 damage_number.gd::GDScript::-1::1737215783::0::1::::<>Node2D<>::
 damage_number.tscn::PackedScene::-1::1737215783::0::1::::<><>::res://effects/damage_number.gd
 hit_effect.gd::GDScript::-1::1737215783::0::1::::<>Node2D<>::
@@ -68,7 +68,6 @@ screen_effects.gd::GDScript::-1::1737731451::0::1::::<>Node<>::
 screen_effects.tscn::PackedScene::-1::1737215783::0::1::::<><>::res://effects/screen_effects.gd
 shockwave.gd::GDScript::-1::1737215783::0::1::::<>Area2D<>::
 shockwave.tscn::PackedScene::5768914874437442556::1737215783::0::1::::<><>::res://effects/shockwave.gd<>uid://r7yqxx3lltqh::::res://effects/effectk sprites/shockwave.png
-slam_circle.png::::-1::0::0::0::::<><>::
 ::res://effects/effectk sprites/::1737731451
 shockwave.png::CompressedTexture2D::1260757455360238139::1737215783::1737731472::1::::<><>::
 ::res://enemy/::1737731451

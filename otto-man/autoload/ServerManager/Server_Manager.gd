@@ -10,7 +10,6 @@ signal server_ready
 func Launch_AI_Server():
 	print("Server manager starting...")
 	
-	# Get path and convert to Windows format
 	var base_path = OS.get_executable_path().get_base_dir().replace("/", "\\")
 	var ai_path = base_path + "\\AI"
 	var full_server_path = ai_path + "\\" + SERVER_PATH
@@ -21,15 +20,17 @@ func Launch_AI_Server():
 	print("Full server path: ", full_server_path)
 	print("Full model path: ", full_model_path)
 	
-	# Launch server using create_process (non-blocking)
+	# Simplified server launch with minimal required parameters
 	_server_process = OS.create_process(
 		full_server_path,
 		[
-			"--model", full_model_path,
-			"--host", "127.0.0.1",
-			"--port", "1234",
-			"--json-schema", "{}"
-		]
+			"-m", full_model_path,  # Model path with -m instead of --model
+			"-c", "2048",           # Context size with -c instead of --ctx-size
+			"-ngl", "0",            # GPU layers with -ngl instead of --n-gpu-layers
+			"--host", "127.0.0.1",  # Keep these the same
+			"--port", "1234"        # Keep these the same
+		],
+		ai_path
 	)
 	
 	if _server_process <= 0:
