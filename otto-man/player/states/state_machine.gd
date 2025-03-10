@@ -3,7 +3,10 @@ extends Node
 var current_state: State
 var previous_state: State
 
+@onready var state: State = get_child(0)
+
 func _ready() -> void:
+	await owner.ready
 	# Set initial state
 	current_state = get_child(0) as State
 	previous_state = current_state
@@ -33,6 +36,9 @@ func _physics_process(delta: float) -> void:
 		current_state.physics_update(delta)
 
 func transition_to(target_state_name: String, force: bool = false) -> void:
+	if not has_node(target_state_name):
+		return
+		
 	# Don't transition to the same state unless forced
 	if not force and current_state and current_state.name == target_state_name:
 		return

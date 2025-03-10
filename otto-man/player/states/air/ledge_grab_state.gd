@@ -35,10 +35,12 @@ func physics_update(delta: float):
 		# Move player to top of platform and forward
 		var mount_pos = ledge_position + MOUNT_OFFSET
 		mount_pos.x += facing_direction * MOUNT_FORWARD_OFFSET  # Move in the direction we're facing
-		player.global_position = mount_pos
+		
+		# Smoothly interpolate to the mount position
+		player.global_position = player.global_position.lerp(mount_pos, 0.5)
 		player.velocity = Vector2.ZERO
-		# Flip the player to face the opposite direction
-		player.sprite.flip_h = !player.sprite.flip_h
+		
+		# Keep the same sprite direction - don't flip
 		
 		# Ensure we're on the ground before transitioning to idle
 		if player.is_on_floor():
@@ -91,7 +93,8 @@ func enter():
 	can_climb = true
 	
 	# Face the correct direction - when grabbing left wall, face right and vice versa
-	player.sprite.flip_h = facing_direction > 0  # Inverted logic for correct facing
+	# When grabbing a ledge, we want to face towards the wall
+	player.sprite.flip_h = facing_direction < 0  # Face towards the wall
 	
 
 func _get_ledge_position() -> Dictionary:
@@ -105,17 +108,16 @@ func _get_ledge_position() -> Dictionary:
 	var left_wall = wall_ray_left.is_colliding()
 	var right_wall = wall_ray_right.is_colliding()
 	
-	
 	# Check left side
 	if chosen_direction <= 0 and left_wall and not ledge_ray_top_left.is_colliding():
 		result.position = wall_ray_left.get_collision_point()
-		result.direction = -1
+		result.direction = -1  # Grabbing left wall, face right
 		return result
 	
 	# Check right side
 	if chosen_direction >= 0 and right_wall and not ledge_ray_top_right.is_colliding():
 		result.position = wall_ray_right.get_collision_point()
-		result.direction = 1
+		result.direction = 1  # Grabbing right wall, face left
 		return result
 	
 	return result

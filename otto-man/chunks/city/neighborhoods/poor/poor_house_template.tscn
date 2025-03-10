@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://chunks/city/city_chunk_template.tscn" id="1_template"]
+
+[node name="PoorHouseChunk" instance=ExtResource("1_template")]
+
+[node name="VisualBorder" parent="." index="0"]
+default_color = Color(0.6, 0.4, 0.2, 0.5)  # Brown tint for poor district
+
+[node name="Info" type="Label" parent="." index="1"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 147.0
+offset_bottom = 46.0
+text = "Poor District"
+metadata/_edit_use_anchors_ = true 

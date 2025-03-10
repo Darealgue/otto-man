@@ -59,6 +59,9 @@ const INVULNERABILITY_DURATION: float = 0.1  # Short invulnerability window
 var _debug_print_counter: int = 0
 const DEBUG_PRINT_INTERVAL: int = 60  # Print every 60 frames
 
+# Add static variable at class level
+var _was_in_range := false
+
 func _ready() -> void:
 	add_to_group("enemies")
 	enemy_id = "%s_%d" % [get_script().resource_path.get_file().get_basename(), get_instance_id()]
@@ -158,6 +161,8 @@ func _handle_child_behavior(_delta: float) -> void:
 func get_nearest_player() -> Node2D:
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() == 0:
+		if Engine.get_physics_frames() % 60 == 0:  # Only print every ~1 second
+			print("[BaseEnemy:%s] No players found in scene" % enemy_id)
 		return null
 	
 	var nearest_player = null
@@ -172,6 +177,7 @@ func get_nearest_player() -> Node2D:
 			min_distance = distance
 			nearest_player = player
 	
+	
 	return nearest_player
 
 func get_nearest_player_in_range() -> Node2D:
@@ -182,9 +188,13 @@ func get_nearest_player_in_range() -> Node2D:
 	var distance = global_position.distance_to(player.global_position)
 	var detection_range = stats.detection_range if stats else 300.0
 	
-	if distance <= detection_range:
-		return player
-	return null
+	# Only print when detection status changes
+	var is_in_range = distance <= detection_range
+	
+	if is_in_range != _was_in_range:
+		_was_in_range = is_in_range
+	
+	return player if is_in_range else null
 
 func start_attack_cooldown() -> void:
 	can_attack = false
@@ -451,9 +461,7 @@ func check_sleep_state() -> void:
 func go_to_sleep() -> void:
 	if is_sleeping or current_behavior == "dead":
 		return
-		
-	print("[BaseEnemy:%s] Going to sleep at distance %.1f" % [enemy_id, global_position.distance_to(get_nearest_player().global_position)])
-	
+			
 	is_sleeping = true
 	last_position = global_position
 	last_behavior = current_behavior
@@ -475,9 +483,7 @@ func go_to_sleep() -> void:
 func wake_up() -> void:
 	if !is_sleeping or current_behavior == "dead":
 		return
-		
-	print("[BaseEnemy:%s] Waking up at distance %.1f" % [enemy_id, global_position.distance_to(get_nearest_player().global_position)])
-	
+			
 	is_sleeping = false
 	
 	set_process(true)

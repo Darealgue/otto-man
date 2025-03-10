@@ -1,4 +1,4 @@
-extends State
+extends "../state.gd"
 
 func enter():
 	if !player:
@@ -29,21 +29,29 @@ func physics_update(delta: float):
 			state_machine.transition_to("Block")
 		return
 		
-	if not player.is_on_floor() and player.coyote_timer <= 0:
+	# Check for crouch input
+	if Input.is_action_pressed("crouch"):
+		state_machine.transition_to("Crouch")
+		return
+		
+	if not player.is_on_floor():
 		state_machine.transition_to("Fall")
 		return
 		
-	if Input.is_action_just_pressed("jump") and player.can_jump():
+	if Input.is_action_just_pressed("jump"):
 		state_machine.transition_to("Jump")
 		return
 		
 	var input_dir = Input.get_axis("left", "right")
-	if input_dir:
+	if input_dir != 0:
 		state_machine.transition_to("Run")
 		return
 		
-	player.apply_friction(delta)
+	player.velocity.x = move_toward(player.velocity.x, 0, player.friction * delta)
 	player.move_and_slide()
+	
+	if animation_player.current_animation != "idle":
+		animation_player.play("idle")
 
 func exit():
 	pass

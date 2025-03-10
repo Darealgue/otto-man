@@ -100,6 +100,22 @@ func spawn_enemies() -> void:
 	# Set the global position
 	enemy.global_position = spawn_pos
 	
+	# Ensure enemy is on the floor by raycasting down
+	var space_state = get_world_2d().direct_space_state
+	var query = PhysicsRayQueryParameters2D.create(spawn_pos, spawn_pos + Vector2.DOWN * 500.0)  # Increased raycast distance
+	query.collision_mask = 1  # Environment layer
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		# Place slightly above the ground to ensure proper floor detection
+		enemy.global_position = result.position - Vector2(0, 32)  # Offset up by 32 pixels
+		print("[EnemySpawner] Adjusted enemy position to floor: ", enemy.global_position)
+		
+		# Force an immediate physics update to ensure floor detection
+		enemy.move_and_slide()
+	else:
+		push_warning("[EnemySpawner] Could not find floor below spawn point")
+	
 	print("[EnemySpawner] Position set to: ", enemy.global_position)
 	
 	# Ensure enemy appears above tiles

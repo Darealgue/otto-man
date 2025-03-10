@@ -4,18 +4,18 @@ signal health_changed(new_health: float)
 signal perfect_parry  # Signal for Perfect Guard powerup
 signal dash_started
 
-@export var speed: float = 450.0
-@export var jump_velocity: float = 600.0
-@export var double_jump_velocity: float = 550.0
-@export var acceleration: float = 3000.0
+@export var speed: float = 400.0
+@export var jump_velocity: float = -600.0  # Changed to -600 for higher jump
+@export var double_jump_velocity: float = -550.0
+@export var acceleration: float = 2000.0
 @export var air_acceleration: float = 1500.0  # Lower acceleration in air for better momentum
-@export var friction: float = 2000.0
+@export var friction: float = 1000.0
 @export var air_friction: float = 200.0  # Much lower friction in air to preserve momentum
 @export var stop_friction_multiplier: float = 2.0
 @export var air_control_multiplier: float = 0.5  # Reduced from 0.65 for more precise control
 @export var coyote_time: float = 0.15
 @export var jump_buffer_time: float = 0.1
-@export var fall_gravity_multiplier: float = 2.0
+@export var fall_gravity_multiplier: float = 2.5
 @export var max_fall_speed: float = 2000.0
 @export var jump_cut_height: float = 0.5
 @export var max_jump_time: float = 0.4
@@ -30,6 +30,8 @@ signal dash_started
 @export var wall_detach_boost: float = 300.0
 @export var wall_jump_momentum_preservation: float = 0.8
 @export var wall_jump_control_delay: float = 0.15
+@export var wall_slide_buffer_time: float = 0.1  # Buffer time before wall sliding
+@export var wall_slide_min_height: float = 50.0  # Minimum height to allow wall sliding
 @export var debug_enabled: bool = false
 @export var precision_air_control_multiplier: float = 0.9  # How much control player has in air when holding down
 @export var precision_air_friction: float = 400.0  # Higher air friction when holding down for more precise control
@@ -66,6 +68,8 @@ var base_damage: float = 15.0  # Base damage value
 var damage_multipliers: Array[float] = []  # Array to store all active multipliers
 var is_dashing: bool = false  # For Speed Demon powerup
 
+var facing_direction := 1.0  # 1 for right, -1 for left
+
 @onready var animation_tree = $AnimationTree
 @onready var animation_player = $AnimationPlayer
 @onready var sprite = $Sprite2D
@@ -77,6 +81,10 @@ var is_dashing: bool = false  # For Speed Demon powerup
 func _ready():
 	# Add to player group
 	add_to_group("player")
+	
+	# Set up collision mask to detect both ground and platforms
+	collision_mask |= 10  # Add platform layer (10) to existing collision mask
+	set_collision_mask_value(10, true)  # Ensure platform collision is enabled by default
 	
 	animation_player.active = true
 	animation_tree.active = false
@@ -122,6 +130,12 @@ func _ready():
 	_sync_stats_from_player_stats()
 
 func _physics_process(delta):
+	# Handle drop-through platform
+	if is_on_floor() and Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
+		print("[Player] Attempting to drop through platform...")  # Debug print
+		drop_through_platform()
+		return  # Skip other processing for this frame
+	
 	# Update dash cooldown
 	if dash_state and dash_state.has_method("cooldown_update"):
 		dash_state.cooldown_update(delta)
@@ -221,20 +235,38 @@ func _physics_process(delta):
 	else:
 		apply_friction(delta)
 
+	# Update facing direction based on movement
+	var input_dir = Input.get_axis("left", "right")
+	if input_dir != 0:
+		facing_direction = sign(input_dir)
+		# Flip the sprite based on direction
+		sprite.flip_h = facing_direction < 0
+
+# No need to call physics_update explicitly, it's handled by _physics_process in the state machine
+
 func can_jump() -> bool:
 	# Prevent jumping if pressing down
 	if Input.is_action_pressed("down"):
 		return false
-	return is_on_floor() or coyote_timer > 0
+		
+	var can_jump_result = (
+		is_on_floor() or
+		($StateMachine.current_state and (
+			$StateMachine.current_state.name == "WallSlide" or
+			$StateMachine.current_state.name == "LedgeGrab"
+			)
+		)
+	)
+	return can_jump_result
 
-func start_jump():
+func start_jump() -> void:
 	# Don't start jump if pressing down
 	if Input.is_action_pressed("down"):
 		return
 		
 	is_jumping = true
 	jump_timer = 0.0
-	velocity.y = -jump_velocity
+	velocity.y = jump_velocity
 	# Reduce horizontal boost for more predictable jumps
 	var input_dir = Input.get_axis("left", "right")
 	if input_dir != 0:
@@ -247,26 +279,31 @@ func start_double_jump():
 		
 	is_jumping = true
 	jump_timer = 0.0
-	velocity.y = -double_jump_velocity
+	velocity.y = double_jump_velocity
 	# Reduce horizontal boost for double jump too
 	var input_dir = Input.get_axis("left", "right")
 	if input_dir != 0:
 		velocity.x += input_dir * speed * 0.25  # Reduced from 0.4
 
-func apply_friction(delta: float, input_dir: float = 0.0, precision_mode: bool = false) -> void:
-	# Use different friction values for ground and air
-	var friction_to_use = friction if is_on_floor() else (precision_air_friction if precision_mode else air_friction)
+func apply_friction(delta: float, input_dir: float = 0.0, use_precision: bool = false) -> void:
+	# Use different friction values based on state and parameters
+	var current_friction = friction
 	
-	# Apply extra friction when stopping (input direction is opposite to velocity or zero)
-	if (input_dir == 0.0) or (sign(input_dir) != sign(velocity.x)):
-		friction_to_use *= stop_friction_multiplier if is_on_floor() else 1.0  # Don't multiply air friction
+	if !is_on_floor():
+		# Use air friction
+		current_friction = precision_air_friction if use_precision else air_friction
+	elif input_dir == 0:
+		# Apply stronger friction when stopping
+		current_friction = friction * stop_friction_multiplier
 	
-	velocity.x = move_toward(velocity.x, 0, friction_to_use * delta)
+	velocity.x = move_toward(velocity.x, 0, current_friction * delta)
 
 func reset_jump_state():
-	can_double_jump = false
-	has_double_jumped = false
 	is_jumping = false
+	has_double_jumped = false
+	is_wall_jumping = false
+	wall_jump_timer = 0.0
+	wall_jump_boost_timer = 0.0
 	jump_timer = 0.0
 	coyote_timer = 0.0
 	was_on_floor = false
@@ -294,7 +331,20 @@ func is_moving_away_from_wall() -> bool:
 	return input_dir * wall_normal.x > 0
 
 func is_on_wall_slide() -> bool:
-	return is_on_wall() and not is_on_floor() and not is_moving_away_from_wall()
+	# Don't allow wall sliding if too close to ground
+	if is_on_floor() or position.y < wall_slide_min_height:
+		return false
+		
+	# Basic wall slide conditions
+	var on_wall = is_on_wall()
+	var not_moving_away = not is_moving_away_from_wall()
+	
+	# Only check current conditions if we're already wall sliding
+	if is_wall_sliding:
+		return on_wall and not_moving_away
+	
+	# For new wall slides, use immediate check without delay
+	return on_wall and not_moving_away and not is_wall_sliding
 
 func start_wall_slide(normal: Vector2) -> void:
 	is_wall_sliding = true
@@ -305,7 +355,7 @@ func start_wall_slide(normal: Vector2) -> void:
 	# Apply magnetic effect
 	if abs(velocity.x) < wall_stick_force:
 		velocity.x = -wall_normal.x * wall_stick_force
-	
+
 func end_wall_slide() -> void:
 	is_wall_sliding = false
 	wall_normal = Vector2.ZERO
@@ -353,7 +403,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		if hitbox.has_method("get_damage"):
 			var damage = hitbox.get_damage()
 			take_damage(damage)  # Show damage number for normal hits
-	
+
 	# Only transition to hurt state if not blocking
 	if state_machine and state_machine.has_node("Hurt") and state_machine.current_state.name != "Block":
 		# Force immediate transition to hurt state
@@ -504,3 +554,30 @@ func apply_movement(delta: float, input_dir: float) -> void:
 		velocity.x = move_toward(velocity.x, input_dir * target_speed, current_acceleration * delta)
 	else:
 		apply_friction(delta, input_dir)
+
+func drop_through_platform() -> void:
+	
+	# Temporarily disable collision with platform layer (layer 10)
+	set_collision_mask_value(10, false)  # Disable collision with platforms
+	
+	# Add downward velocity for faster dropping
+	velocity.y = 200.0
+	
+	# Move down slightly to ensure we're no longer colliding
+	position.y += 2
+	
+	# Create a timer to restore collision
+	var timer = get_tree().create_timer(0.15)
+	timer.timeout.connect(func():
+		if not Input.is_action_pressed("down"):
+			set_collision_mask_value(10, true)  # Re-enable platform collision
+		else:
+			# If still holding down, start another timer
+			var extended_timer = get_tree().create_timer(0.1)
+			extended_timer.timeout.connect(func():
+				set_collision_mask_value(10, true)  # Re-enable platform collision
+			)
+	)
+
+func get_facing_direction() -> float:
+	return facing_direction

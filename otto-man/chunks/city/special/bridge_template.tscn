@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://cioteq6np3yjh"]
+
+[ext_resource type="PackedScene" path="res://chunks/city/city_chunk_template.tscn" id="1_template"]
+
+[node name="BridgeChunk" instance=ExtResource("1_template")]
+
+[node name="VisualBorder" parent="." index="0"]
+default_color = Color(0.4, 0.4, 0.8, 0.5)
+metadata/_edit_use_anchors_ = true

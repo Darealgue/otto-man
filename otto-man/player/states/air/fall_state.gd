@@ -6,17 +6,29 @@ var is_transitioning := false
 var wall_transition_timer := 0.0
 const WALL_TRANSITION_DELAY := 0.15
 const MIN_WALL_CONTACT_TIME := 0.05
+const WALL_DETACH_GRACE := 0.2  # Grace period after detaching from wall
 
 var wall_contact_timer := 0.0
+var wall_detach_grace_timer := 0.0
 var last_wall_normal := Vector2.ZERO
+var wall_slide_state = null  # Store reference to wall slide state
 
 func enter():
-	
 	wall_transition_timer = WALL_TRANSITION_DELAY
 	wall_contact_timer = 0.0
-	last_wall_normal = Vector2.ZERO
 	
-	# Only play fall animation if we're not already playing double_jump or jump_to_fall
+	# If coming from wall slide, start grace period
+	if state_machine.previous_state and state_machine.previous_state.name == "WallSlide":
+		wall_detach_grace_timer = WALL_DETACH_GRACE
+		last_wall_normal = player.wall_normal  # Store the wall normal we detached from
+	else:
+		wall_detach_grace_timer = 0.0
+		last_wall_normal = Vector2.ZERO
+	
+	# Get reference to wall slide state
+	wall_slide_state = get_parent().get_node("WallSlide")
+	
+	# Only play fall animation if we're not in a special animation
 	var current_anim = animation_player.current_animation
 	
 	# If we're in the middle of a transition animation, let it finish
@@ -31,7 +43,7 @@ func enter():
 			return
 		else:
 			animation_player.play("fall")
-	elif current_anim != "fall":
+	elif current_anim != "fall" and current_anim != "jump_upwards" and current_anim != "double_jump":
 		animation_player.play("fall")
 	
 	# Enable double jump if we walked off a platform and have coyote time
@@ -46,11 +58,20 @@ func physics_update(delta: float):
 	# Update fall attack cooldown
 	get_parent().get_node("FallAttack").update_cooldown(delta)
 	
+	# Update wall slide cooldown
+	if wall_slide_state:
+		wall_slide_state.update_cooldown(delta)
+	
+	# Update grace period timer
+	if wall_detach_grace_timer > 0:
+		wall_detach_grace_timer -= delta
+	
 	# Check for fall attack input first (before any animation checks)
 	if Input.is_action_pressed("down"):
 		# Make fall attack easier to execute by checking for jump input more frequently
-		if Input.is_action_just_pressed("jump") or Input.is_action_pressed("jump"):
-			if not get_parent().get_node("FallAttack").is_on_cooldown():
+		if Input.is_action_just_pressed("jump"):
+			var fall_attack_state = get_parent().get_node("FallAttack")
+			if fall_attack_state and not fall_attack_state.is_on_cooldown():
 				# Force immediate transition to fall attack
 				is_double_jumping = false
 				is_transitioning = false
@@ -72,11 +93,8 @@ func physics_update(delta: float):
 		elif player.can_double_jump and not player.has_double_jumped:
 			player.has_double_jumped = true
 			is_double_jumping = true
-			var boost_multiplier = 1.1
-			if player.velocity.y > 400:
-				player.velocity.y = -player.double_jump_velocity * boost_multiplier
-			else:
-				player.velocity.y = -player.double_jump_velocity
+			# Use player's double jump function instead of setting velocity directly
+			player.start_double_jump()
 			animation_player.play("double_jump")
 			return
 	
@@ -85,8 +103,20 @@ func physics_update(delta: float):
 	
 	# Handle horizontal movement using new air movement system
 	player.apply_movement(delta, input_dir)
+	
+	# Only flip sprite if:
+	# 1. We're not in wall detach grace period, OR
+	# 2. We're pressing in the opposite direction of our last wall
 	if input_dir != 0:
-		player.sprite.flip_h = input_dir < 0
+		if wall_detach_grace_timer <= 0:
+			# Normal sprite control
+			player.sprite.flip_h = input_dir < 0
+		elif (last_wall_normal.x < 0 and input_dir > 0):
+			# Only flip if explicitly moving away from the wall we detached from
+			player.sprite.flip_h = false  # Face right when moving right
+		elif (last_wall_normal.x > 0 and input_dir < 0):
+			# Only flip if explicitly moving away from the wall we detached from
+			player.sprite.flip_h = true  # Face left when moving left
 	
 	# Apply gravity with increased falling speed, except during double jump
 	if is_double_jumping:
@@ -108,10 +138,20 @@ func physics_update(delta: float):
 		state_machine.transition_to("LedgeGrab")
 		return
 	
-	# Then check for wall slide
+	# Then check for wall slide with improved logic
 	if player.is_on_wall():
-		state_machine.transition_to("WallSlide")
-		return
+		# Track wall contact time
+		wall_contact_timer += delta
+		
+		# Only transition if:
+		# 1. We've been in contact with the wall for minimum time
+		# 2. The wall slide state is available and can be entered (not on cooldown)
+		if wall_contact_timer >= MIN_WALL_CONTACT_TIME and wall_slide_state and wall_slide_state.can_enter():
+			wall_slide_state.reset_cooldown()  # Reset cooldown before entering
+			state_machine.transition_to("WallSlide")
+			return
+	else:
+		wall_contact_timer = 0.0
 	
 	# Finally check for landing
 	if player.is_on_floor():
@@ -132,11 +172,11 @@ func _on_animation_finished(anim_name: String):
 				state_machine.transition_to("Idle")
 
 func exit():
-	
 	is_double_jumping = false
 	double_jump_animation_finished = false
 	is_transitioning = false
 	wall_contact_timer = 0.0
+	wall_detach_grace_timer = 0.0
 	last_wall_normal = Vector2.ZERO
 	if animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.disconnect("animation_finished", _on_animation_finished)

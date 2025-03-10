@@ -1,5 +1,5 @@
 class_name HeavyEnemy
-extends "res://enemy/base_enemy.gd"
+extends BaseEnemy
 
 # Enemy-specific stats
 var patrol_point_left: float
@@ -29,7 +29,7 @@ var behavior_change_delay: float = 0.5
 var last_behavior_change: float = 0.0
 var direction_change_cooldown: float = 0.5
 var last_direction_change: float = 0.0
-var vertical_tolerance: float = 100.0
+var vertical_tolerance: float = 200.0
 
 # Patrol and detection properties
 var patrol_point_wait_time: float = 1.5
@@ -49,10 +49,20 @@ const CHARGE_END_THRESHOLD := 0.8
 @onready var raycast_right = $RayCastRight
 
 func _ready() -> void:
-	super()
-	sleep_distance = 1200.0
-	wake_distance = 1000.0
+	super._ready()
+	
+	# Initialize attack variables
+	can_attack = true
+	
+	# Add platform layer to collision mask
+	collision_mask |= 10  # Add platform layer (10) to existing collision mask
+	set_collision_mask_value(10, true)  # Ensure platform collision is enabled
+	
+	sleep_distance = 2000.0  # Increased from 1200
+	wake_distance = 1800.0   # Increased from 1000
 	is_sleeping = false  # Start awake
+	vertical_tolerance = 200.0  # Increased from 100
+	can_attack = true  # Ensure can_attack starts true
 	
 	# Set initial direction
 	direction = 1  # Start moving right
@@ -106,15 +116,14 @@ func _ready() -> void:
 		# If still not on floor, try raycasting down
 		if not is_on_floor():
 			var space_state = get_world_2d().direct_space_state
-			var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * 100.0)
+			var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * 500.0)
 			query.collision_mask = 1  # Environment layer
 			var result = space_state.intersect_ray(query)
 			
 			if result:
-				global_position = result.position
+				global_position = result.position - Vector2(0, 32)  # Offset up by 32 pixels
 				move_and_slide()
 
-	print("[HeavyEnemy:%s] Initialized at position (%d,%d), on_floor=%s" % [enemy_id, global_position.x, global_position.y, is_on_floor()])
 
 func find_ground_below(start_pos: Vector2) -> Vector2:
 	if start_pos == Vector2.ZERO:
@@ -182,17 +191,7 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == new_behavior:
 		return
 		
-	if not force and behavior_timer < behavior_change_delay:
-		# Only log blocked changes for attack states
-		if new_behavior in ["charge_prepare", "charge_start", "charging", "charge_end", "slam_prepare", "slam"]:
-			print("[HeavyEnemy:%s] Blocked attack: %s -> %s (Timer: %.2f)" % 
-				[enemy_id, current_behavior, new_behavior, behavior_timer])
-		return
 	
-	# Log only combat-related transitions
-	if new_behavior in ["charge_prepare", "charge_start", "charging", "charge_end", "slam_prepare", "slam"] or current_behavior in ["charge_prepare", "charge_start", "charging", "charge_end", "slam_prepare", "slam"]:
-		print("[HeavyEnemy:%s] State change: %s -> %s (Can attack: %s, Velocity: %.1f)" % 
-			[enemy_id, current_behavior, new_behavior, can_attack, velocity.x])
 	
 	if hitbox and current_behavior in ["charging", "slam"]:
 		hitbox.disable()
@@ -239,16 +238,14 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 			velocity.x = 0
 
 func handle_patrol(delta: float) -> void:
-	if Engine.get_physics_frames() % 60 == 0:
-		print("[HeavyEnemy:%s] Patrol: pos=(%d,%d), velocity=(%d,%d), direction=%d, on_floor=%s" % 
-			[enemy_id, position.x, position.y, velocity.x, velocity.y, direction, is_on_floor()])
-	
 	behavior_timer += delta
 	
 	# First check for player
+	var had_target = target != null
 	target = get_nearest_player_in_range()  # Use the range-limited check
+	
+
 	if target:
-		print("[HeavyEnemy:%s] Player detected during patrol, changing to alert" % enemy_id)
 		change_behavior("alert")
 		return
 	
@@ -268,7 +265,6 @@ func handle_patrol(delta: float) -> void:
 		
 		# Add a small delay before turning around to prevent rapid flipping
 		if not has_floor and behavior_timer >= 0.5:
-			print("[HeavyEnemy:%s] No floor ahead, turning around" % enemy_id)
 			velocity.x = 0
 			direction *= -1
 			sprite.flip_h = direction < 0
@@ -293,13 +289,11 @@ func handle_idle(delta: float) -> void:
 	# Check for player first
 	target = get_nearest_player_in_range()
 	if target:
-		print("[HeavyEnemy:%s] Player detected during idle, changing to alert" % enemy_id)
 		change_behavior("alert")
 		return
 	
 	# Stay in idle for patrol_point_wait_time before returning to patrol
 	if behavior_timer >= patrol_point_wait_time:
-		print("[HeavyEnemy:%s] Idle timeout, returning to patrol" % enemy_id)
 		direction *= -1  # Change direction before returning to patrol
 		sprite.flip_h = direction < 0
 		change_behavior("patrol")
@@ -322,10 +316,8 @@ func handle_alert(delta: float) -> void:
 			# Update direction before chase
 			direction = sign(target.global_position.x - global_position.x)
 			sprite.flip_h = direction < 0
-			print("[HeavyEnemy:%s] Alert -> Chase, facing direction: %d" % [enemy_id, direction])
 			change_behavior("chase")
 		else:
-			print("[HeavyEnemy:%s] No target after alert, returning to patrol" % enemy_id)
 			change_behavior("patrol")
 
 func handle_chase(delta: float) -> void:
@@ -334,7 +326,6 @@ func handle_chase(delta: float) -> void:
 		change_behavior("patrol")
 		target = null
 		memory_timer = 0.0
-		print("[HeavyEnemy:%s] Chase timeout, returning to patrol" % enemy_id)
 		return
 	
 	# Get current target
@@ -344,19 +335,19 @@ func handle_chase(delta: float) -> void:
 		last_known_player_pos = target.global_position
 		memory_timer = memory_duration
 		
-		var distance = position.distance_to(target.global_position)
-		var height_diff = target.global_position.y - position.y
-		var dir_to_player = sign(target.global_position.x - position.x)
+		# Calculate distances using global positions
+		var distance = global_position.distance_to(target.global_position)
+		var height_diff = abs(global_position.y - target.global_position.y)
+		var dir_to_player = sign(target.global_position.x - global_position.x)
 		
 		# Update direction if enough time has passed
-		if abs(height_diff) <= vertical_tolerance and last_direction_change >= direction_change_cooldown:
+		if height_diff <= vertical_tolerance and last_direction_change >= direction_change_cooldown:
 			if dir_to_player != direction:
 				direction = dir_to_player
 				sprite.flip_h = direction < 0
 				if hitbox:
 					hitbox.position.x = abs(hitbox.position.x) * direction
 				last_direction_change = 0.0
-				print("[HeavyEnemy:%s] Changed chase direction to %d" % [enemy_id, direction])
 		
 		last_direction_change += delta
 		
@@ -365,27 +356,21 @@ func handle_chase(delta: float) -> void:
 			sprite.play("walk")
 		velocity.x = direction * (stats.movement_speed if stats else 100.0)
 		
-		# Debug movement
-		if Engine.get_physics_frames() % 60 == 0:
-			print("[HeavyEnemy:%s] Chase state: distance=%.1f, velocity=(%d,%d), direction=%d" % 
-				[enemy_id, distance, velocity.x, velocity.y, direction])
 		
-		# Try to attack if possible
 		if can_attack and behavior_timer >= behavior_change_delay:
-			if distance <= slam_range and abs(height_diff) <= vertical_tolerance:
+			# Check if we're in range for either attack
+			var can_slam = distance <= slam_range and height_diff <= vertical_tolerance
+			var can_charge = distance <= charge_range and height_diff <= vertical_tolerance
+			
+			if can_slam:
 				change_behavior("slam_prepare")
 				return
-			elif distance <= charge_range and abs(height_diff) <= vertical_tolerance:
+			elif can_charge:
 				change_behavior("charge_prepare")
 				return
-		elif not can_attack:
-			# Keep chasing during cooldown, but only log occasionally
-			if int(behavior_timer * 10) % 20 == 0:
-				print("[HeavyEnemy:%s] Cannot attack - Cooldown active" % enemy_id)
 	else:
 		# If no target, return to patrol
 		change_behavior("patrol")
-		print("[HeavyEnemy:%s] Lost target, returning to patrol" % enemy_id)
 
 func handle_charge_prepare(delta: float) -> void:
 	if behavior_timer >= 0.5 and sprite.frame >= sprite.sprite_frames.get_frame_count("charge_prepare") - 1:
@@ -564,21 +549,16 @@ func _on_slam_hitbox_hit(area: Area2D) -> void:
 func handle_hurt_behavior(delta: float) -> void:
 	behavior_timer += delta
 	
-	# Ensure hurt animation is playing
-	if sprite and sprite.sprite_frames.has_animation("hurt") and sprite.animation != "hurt":
-		sprite.play("hurt")
+	# Apply friction to slow down the knockback
+	velocity.x = move_toward(velocity.x, 0, 1000.0 * delta)
 	
-	# Only exit hurt state if both timer is up AND knockback has slowed down significantly
-	if behavior_timer >= hurt_duration and abs(velocity.x) <= 100:
-		# After being hurt, always go to alert/chase state
-		has_seen_player = true
-		target = get_nearest_player()
+	# Only exit hurt state if timer is up AND mostly stopped
+	if behavior_timer >= hurt_duration and abs(velocity.x) <= 25:
+		velocity.x = 0  # Ensure velocity is completely zeroed
 		if target:
-			print("[HeavyEnemy:%s] Exiting hurt state, transitioning to alert" % enemy_id)
-			change_behavior("alert", true)  # Force the change
+			change_behavior("chase")
 		else:
-			print("[HeavyEnemy:%s] No target after hurt, returning to patrol" % enemy_id)
-			change_behavior("patrol", true)  # Force the change
+			change_behavior("patrol")
 
 func _on_hitbox_hit(area: Area2D) -> void:
 	pass
@@ -660,47 +640,37 @@ func die() -> void:
 		
 	current_behavior = "dead"
 	
-	# Play death animation
+	enemy_defeated.emit()
+	
+	PowerupManager.on_enemy_killed()
+	
 	if sprite:
 		sprite.play("dead")
 	
-	# Set initial death velocity with reduced knockback
-	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		var player = players[0]
-		var dir = (position - player.global_position).normalized()
-		velocity = Vector2(
-			dir.x * DEATH_KNOCKBACK_FORCE * 0.3,  # Reduced horizontal knockback
-			-DEATH_UP_FORCE * 1.2  # Increased upward force
-		)
-	# Disable ALL collision except with ground
-	collision_layer = 0  # No collision with anything
-	collision_mask = 1   # Only collide with environment
-	set_collision_layer_value(1, false)  # Ensure no world collision
-	set_collision_layer_value(2, false)   # Ensure no player collision
-	set_collision_layer_value(3, false)  # Ensure no enemy collision
-	set_collision_mask_value(2, false)   # Don't collide with player
+	# Immediately stop all movement
+	velocity = Vector2.ZERO
 	
-	# Disable combat components
+	# Disable ALL collision to ensure no interactions
+	collision_layer = 0
+	collision_mask = 0
+	
+	# Disable components
 	if hitbox:
 		hitbox.disable()
 	if hurtbox:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
 	
-	# Emit signals and notify systems
-	enemy_defeated.emit()
-	PowerupManager.on_enemy_killed()
+	# Start fade out
+	if sprite:
+		sprite.modulate = Color(1, 1, 1, 1)
+	fade_out = true
 	
-	# Start fade out after a longer delay
-	await get_tree().create_timer(4.0).timeout  # Increased from 2.0 to 4.0
-	
-	var tween = create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 2.0)  # Increased fade duration from 1.0 to 2.0
-	await tween.finished
-	
-	# Return to object pool
-	var pool_name = scene_file_path.get_file().get_basename()
+	# Return to pool after delay
+	await get_tree().create_timer(2.0).timeout
+	# Get pool name based on scene filename
+	var scene_path = scene_file_path
+	var pool_name = scene_path.get_file().get_basename()
 	object_pool.return_object(self, pool_name)
 
 func _physics_process(delta: float) -> void:
@@ -717,11 +687,6 @@ func _physics_process(delta: float) -> void:
 		# Reset vertical velocity when on floor
 		velocity.y = 0
 	
-	# Debug state logging
-	if Engine.get_physics_frames() % 60 == 0:  # Log every ~1 second
-		print("[HeavyEnemy:%s] State: sleeping=%s, behavior=%s, position=(%d,%d), velocity=(%d,%d), on_floor=%s" % 
-			[enemy_id, is_sleeping, current_behavior, global_position.x, global_position.y, 
-			velocity.x, velocity.y, is_on_floor()])
 	
 	# Check if we should wake up
 	if is_sleeping:
@@ -729,11 +694,7 @@ func _physics_process(delta: float) -> void:
 		if nearest_player:
 			var distance = global_position.distance_to(nearest_player.global_position)
 			if distance <= wake_distance:
-				print("[HeavyEnemy:%s] Player detected at distance %.1f, waking up" % [enemy_id, distance])
 				wake_up()
-			else:
-				if Engine.get_physics_frames() % 60 == 0:
-					print("[HeavyEnemy:%s] Player too far (%.1f > %.1f)" % [enemy_id, distance, wake_distance])
 		return
 	
 	# Check if we should go to sleep
@@ -741,7 +702,6 @@ func _physics_process(delta: float) -> void:
 	if nearest_player:
 		var distance = global_position.distance_to(nearest_player.global_position)
 		if distance >= sleep_distance and current_behavior != "hurt" and current_behavior != "dead":
-			print("[HeavyEnemy:%s] Player too far (%.1f > %.1f), going to sleep" % [enemy_id, distance, sleep_distance])
 			go_to_sleep()
 			return
 	
@@ -774,7 +734,6 @@ func get_behavior() -> String:
 	return current_behavior
 
 func wake_up() -> void:
-	print("[HeavyEnemy:%s] Wake up called. Current state: sleeping=%s, behavior=%s" % [enemy_id, is_sleeping, current_behavior])
 	
 	is_sleeping = false
 	set_physics_process(true)
@@ -784,16 +743,13 @@ func wake_up() -> void:
 	change_behavior("patrol", true)  # Force the behavior change
 	sprite.play("walk")
 	
-	print("[HeavyEnemy:%s] Woke up successfully. New state: sleeping=%s, behavior=%s" % [enemy_id, is_sleeping, current_behavior])
 
 func go_to_sleep() -> void:
 	if not is_sleeping:
-		print("[HeavyEnemy:%s] Going to sleep. Last state: behavior=%s" % [enemy_id, current_behavior])
 		is_sleeping = true
 		disable_all_hitboxes()
 		velocity = Vector2.ZERO
 		sprite.play("idle")
-		print("[HeavyEnemy:%s] Now sleeping" % enemy_id)
 
 func _exit_tree() -> void:
 	# Just do our own cleanup without trying to call parent
@@ -813,15 +769,15 @@ func _exit_tree() -> void:
 
 func start_attack_cooldown() -> void:
 	can_attack = false
-	await get_tree().create_timer(attack_cooldown).timeout
-	if is_instance_valid(self):
-		can_attack = true
-		# Reset behavior timer to encourage immediate attack evaluation
-		behavior_timer = behavior_change_delay
+	var timer = get_tree().create_timer(attack_cooldown)
+	timer.timeout.connect(func(): 
+		if is_instance_valid(self):
+			can_attack = true
+			behavior_timer = behavior_change_delay
+	)
 
 func check_floor() -> bool:
 	if not raycast_left or not raycast_right:
-		print("[HeavyEnemy:%s] ERROR: Missing raycasts - Left: %s, Right: %s" % [enemy_id, raycast_left, raycast_right])
 		return true  # If no raycasts, assume floor exists
 	
 	# Check which raycast to use based on direction
@@ -837,11 +793,6 @@ func check_floor() -> bool:
 		var collision_point = check_ray.get_collision_point()
 		var local_collision = to_local(collision_point)
 		
-		# More lenient floor detection
-		if abs(local_collision.y) > 150:  # Increased threshold
-			print("[HeavyEnemy:%s] Floor too far below at (%d,%d), treating as no floor" % 
-				[enemy_id, collision_point.x, collision_point.y])
-			return false
 		
 		# More lenient floor level check
 		if abs(local_collision.y) <= 100:  # Increased tolerance
@@ -849,7 +800,4 @@ func check_floor() -> bool:
 		
 		return true  # If we hit something within reasonable range, consider it floor
 	
-	# Only print floor check failures occasionally to reduce spam
-	if Engine.get_physics_frames() % 60 == 0:
-		print("[HeavyEnemy:%s] No floor detected in direction %d" % [enemy_id, direction])
 	return false

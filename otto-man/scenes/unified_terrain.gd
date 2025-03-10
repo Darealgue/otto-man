@@ -277,7 +277,12 @@ func get_cell_terrain_type(cell: Vector2i) -> int:
 	var source_id = get_cell_source_id(0, cell)
 	if source_id == -1:
 		return -1
-	return source_id
+		
+	# Get tile data to check collision layer
+	var tile_data = get_cell_tile_data(0, cell)
+	if tile_data:
+		return source_id
+	return -1
 
 func update_boundary_cell(cell: Vector2i) -> bool:
 	var source_id = get_cell_source_id(0, cell)

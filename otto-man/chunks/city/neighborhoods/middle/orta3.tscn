@@ -1,0 +1,47 @@
+[gd_scene load_steps=4 format=3 uid="uid://dup1t2x0eycd0"]
+
+[ext_resource type="Texture2D" uid="uid://hsc2exoi7emr" path="res://assets/buildings/orta/orta3.png" id="1_ligxv"]
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_ed15c"]
+a = Vector2(-42, 35)
+b = Vector2(-130, 35)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_o804h"]
+a = Vector2(55, 10)
+b = Vector2(-65, 10)
+
+[node name="Node2D" type="StaticBody2D"]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_ligxv")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-12, -57)
+shape = SubResource("SegmentShape2D_ed15c")
+one_way_collision = true
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="."]
+position = Vector2(76, 132)
+shape = SubResource("SegmentShape2D_ed15c")
+one_way_collision = true
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="."]
+position = Vector2(102, 49)
+rotation = 1.5708
+shape = SubResource("SegmentShape2D_o804h")
+one_way_collision = true
+
+[node name="CollisionShape2D4" type="CollisionShape2D" parent="."]
+position = Vector2(-127, 42)
+rotation = -1.5708
+shape = SubResource("SegmentShape2D_o804h")
+one_way_collision = true
+
+[node name="CollisionShape2D5" type="CollisionShape2D" parent="."]
+position = Vector2(160, -57)
+shape = SubResource("SegmentShape2D_ed15c")
+one_way_collision = true
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(27, -21, -12, -58, -54, -22, -12, -58, -12, -57)
+one_way_collision = true

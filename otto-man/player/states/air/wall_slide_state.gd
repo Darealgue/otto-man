@@ -4,8 +4,12 @@ const WALL_JUMP_FORCE := Vector2(700, -550)
 const WALL_JUMP_BOOST_DURATION := 0.2
 const MIN_WALL_NORMAL_X := 0.7
 const WALL_STICK_DURATION := 0.15
-const MAX_UPWARD_SLIDE_SPEED := 100.0  # Increased from 50 to 100 to allow more upward movement
-const WALL_SLIDE_SPEED_MULTIPLIER := 0.5  # Reduces the overall wall slide speed
+const MAX_UPWARD_SLIDE_SPEED := 100.0
+const WALL_SLIDE_SPEED_MULTIPLIER := 0.5
+const WALL_DETACH_BUFFER := 0.1
+const INPUT_THRESHOLD := 0.5  # Only consider input above this threshold
+const PRESS_AWAY_GRACE := 0.3  # Increased grace period
+const REENTRY_COOLDOWN := 0.2  # Increased cooldown to prevent rapid re-entry
 
 @onready var wall_ray_left: RayCast2D = $"../../WallRayLeft"
 @onready var wall_ray_right: RayCast2D = $"../../WallRayRight"
@@ -13,151 +17,198 @@ const WALL_SLIDE_SPEED_MULTIPLIER := 0.5  # Reduces the overall wall slide speed
 var wall_stick_timer := 0.0
 var last_valid_normal := Vector2.ZERO
 var has_valid_wall := false
-var initial_wall_side := 0  # -1 for left wall, 1 for right wall
-var initial_sprite_flip := false  # Store initial sprite flip state
-
-class WallCollision:
-	var normal: Vector2
-	var point: Vector2
-	
-	func _init(n: Vector2, p: Vector2):
-		normal = n
-		point = p
-	
-	func get_normal() -> Vector2:
-		return normal
+var wall_detach_timer := 0.0
+var current_wall_normal := Vector2.ZERO
+var press_away_timer := 0.0  # Track how long we've been pressing away
+var reentry_cooldown_timer := 0.0  # Track cooldown for this instance
+var locked_sprite_direction := false  # Whether we've locked the sprite direction
+var wall_side := 0  # -1 for left wall, 1 for right wall
 
 func _ready():
-	# Ensure raycasts exist and are configured
-	assert(wall_ray_left != null, "Left wall raycast not found! Add RayCast2D named WallRayLeft as child of player")
-	assert(wall_ray_right != null, "Right wall raycast not found! Add RayCast2D named WallRayRight as child of player")
-	
-	# Configure raycasts
-	wall_ray_left.collision_mask = 1  # Only detect walls
+	assert(wall_ray_left != null, "Left wall raycast not found!")
+	assert(wall_ray_right != null, "Right wall raycast not found!")
+	wall_ray_left.collision_mask = 1
 	wall_ray_right.collision_mask = 1
-	
 
-func _get_wall_collision() -> WallCollision:
-	# First check raycasts as they're more reliable
-	if wall_ray_left.is_colliding():
-		var collision_point = wall_ray_left.get_collision_point()
-		var normal = wall_ray_left.get_collision_normal()
-		return WallCollision.new(normal, collision_point)
-		
-	if wall_ray_right.is_colliding():
-		var collision_point = wall_ray_right.get_collision_point()
-		var normal = wall_ray_right.get_collision_normal()
-		return WallCollision.new(normal, collision_point)
-	
-	# Fallback to direct wall collision
-	if player.is_on_wall():
-		for i in range(player.get_slide_collision_count()):
-			var collision = player.get_slide_collision(i)
-			var normal = collision.get_normal()
-			if abs(normal.x) >= MIN_WALL_NORMAL_X:
-				return WallCollision.new(normal, collision.get_position())
-	
-	return null
+func update_cooldown(delta: float) -> void:
+	if reentry_cooldown_timer > 0:
+		reentry_cooldown_timer = max(0.0, reentry_cooldown_timer - delta)
 
-func can_wall_slide() -> bool:
-	var collision = _get_wall_collision()
-	
-	if collision:
-		wall_stick_timer = WALL_STICK_DURATION
-		last_valid_normal = collision.get_normal()
-		has_valid_wall = true
-		return true
-		
-	if has_valid_wall and wall_stick_timer > 0:
-		return true
-		
-	if player.velocity.y < -100:
+func is_on_cooldown() -> bool:
+	return reentry_cooldown_timer > 0.0
+
+func can_enter() -> bool:
+	# Don't allow re-entry if we're already wall sliding
+	if state_machine.current_state == self:
 		return false
 		
-	has_valid_wall = false
-	return false
+	# Don't check cooldown if we're coming from Jump or Fall state
+	var skip_cooldown = state_machine.previous_state and (state_machine.previous_state.name == "Jump" or state_machine.previous_state.name == "Fall")
+	
+	# If we're on cooldown and not coming from Jump/Fall, prevent entry
+	if not skip_cooldown and is_on_cooldown():
+		return false
+	
+	# Check if we're actually on a wall
+	var left_wall = wall_ray_left.is_colliding()
+	var right_wall = wall_ray_right.is_colliding()
+	
+	return left_wall or right_wall
+
+func reset_cooldown() -> void:
+	reentry_cooldown_timer = 0.0
 
 func enter():
-	animation_player.play("wall_slide")
+	if !player:
+		return
 	
-	# Get wall normal from raycast
-	var wall_normal = _get_wall_normal()
-	if wall_normal == Vector2.ZERO:
+	# Get wall normal from raycast and determine wall side
+	current_wall_normal = _get_wall_normal()
+	var left_colliding = wall_ray_left.is_colliding()
+	var right_colliding = wall_ray_right.is_colliding()
+	wall_side = -1 if left_colliding else 1
+	
+	if current_wall_normal == Vector2.ZERO:
 		state_machine.transition_to("Fall")
 		return
+	
+	# Reset cooldown on successful entry
+	reset_cooldown()
 	
 	# Initialize wall slide
 	player.velocity.x = 0
 	player.velocity.y = min(player.velocity.y, player.wall_slide_speed)
 	player.current_gravity_multiplier = player.wall_slide_gravity_multiplier
-	player.wall_normal = wall_normal
+	player.wall_normal = current_wall_normal
 	player.is_wall_sliding = true
+	wall_detach_timer = 0.0
+	press_away_timer = 0.0
+	wall_stick_timer = WALL_STICK_DURATION
 	
-	# Set sprite direction - face towards wall
-	player.sprite.flip_h = wall_normal.x < 0
+	# Lock sprite direction based on wall side
+	locked_sprite_direction = true
+	
+	# Face TOWARDS the wall: face left on left wall, face right on right wall
+	player.sprite.flip_h = wall_side < 0
+	
+	# Double check the sprite direction was set correctly
+	if player.sprite.flip_h != (wall_side < 0):
+		await get_tree().process_frame
+		player.sprite.flip_h = wall_side < 0
+	
+	# Play wall slide animation
+	animation_player.play("wall_slide")
 
 func physics_update(delta: float):
-	# Check for ground contact first
-	if player.is_on_floor():
-		state_machine.transition_to("Idle")
+	if !player:
 		return
+	
+	# Update cooldown timer
+	update_cooldown(delta)
+	
+	# Track wall collision
+	var is_on_wall = player.is_on_wall()
+	var wall_normal = player.get_wall_normal()
+	var left_colliding = wall_ray_left.is_colliding()
+	var right_colliding = wall_ray_right.is_colliding()
+	
+	# Verify sprite direction is still correct
+	if locked_sprite_direction and player.sprite.flip_h != (wall_side < 0):
+		player.sprite.flip_h = wall_side < 0
+	
+	# Update wall detach timer
+	if not is_on_wall:
+		wall_detach_timer += delta
 		
-	# Check if we're still on the wall
-	var wall_normal = _get_wall_normal()
-	if wall_normal == Vector2.ZERO:
-		_end_wall_slide()
-		return
-	
-	# Handle wall jump input
+		# Only unlock sprite direction if explicitly moving in opposite direction
+		var input_dir = Input.get_axis("left", "right")
+		if abs(input_dir) >= INPUT_THRESHOLD:
+			var would_unlock = (wall_side < 0 and input_dir > 0) or (wall_side > 0 and input_dir < 0)
+			if would_unlock:
+				locked_sprite_direction = false
+	else:
+		wall_detach_timer = 0.0
+		wall_stick_timer = WALL_STICK_DURATION
+		
+		# Verify wall side hasn't changed
+		var current_side = -1 if left_colliding else 1
+		if current_side != wall_side:
+			wall_side = current_side
+			if locked_sprite_direction:
+				player.sprite.flip_h = wall_side < 0
+
+	# Check for jump input first
 	if Input.is_action_just_pressed("jump"):
-		_perform_wall_jump(wall_normal)
-		return
-	
-	# Check if moving away from wall
-	var input_dir = Input.get_axis("left", "right")
-	if input_dir * wall_normal.x > 0:
-		_end_wall_slide()
+		_perform_wall_jump(current_wall_normal)
 		return
 	
 	# Apply wall slide physics
-	player.velocity.y = min(player.velocity.y + player.gravity * player.current_gravity_multiplier * delta, player.wall_slide_speed)
-	player.velocity.x = -wall_normal.x * player.wall_stick_force  # Apply stick force
+	player.velocity.y = min(player.velocity.y + player.gravity * delta * player.wall_slide_gravity_multiplier, 100.0)
+	
+	# Check if we should exit wall slide
+	var input_dir = Input.get_axis("left", "right")
+	var pressing_away = false
+	
+	if abs(input_dir) >= INPUT_THRESHOLD:
+		pressing_away = (wall_side < 0 and input_dir > 0) or (wall_side > 0 and input_dir < 0)
+		
+		if pressing_away:
+			press_away_timer += delta
+		else:
+			press_away_timer = 0.0
+			wall_stick_timer = WALL_STICK_DURATION
+	else:
+		press_away_timer = 0.0
+		wall_stick_timer = WALL_STICK_DURATION
+	
+	# Update wall stick timer
+	if wall_stick_timer > 0:
+		wall_stick_timer -= delta
+	
+	# Exit check
+	var should_exit = false
+	if wall_detach_timer >= WALL_DETACH_BUFFER:
+		should_exit = true
+	elif pressing_away and press_away_timer >= PRESS_AWAY_GRACE and wall_stick_timer <= 0:
+		should_exit = true
+	
+	if should_exit:
+		_end_wall_slide()
+		state_machine.transition_to("Fall")
+		return
+	
 	player.move_and_slide()
 
 func _get_wall_normal() -> Vector2:
-	var wall_normal = Vector2.ZERO
-	
 	if wall_ray_left.is_colliding():
-		wall_normal = Vector2.RIGHT
+		return Vector2.RIGHT
 	elif wall_ray_right.is_colliding():
-		wall_normal = Vector2.LEFT
-	
-	return wall_normal
+		return Vector2.LEFT
+	return Vector2.ZERO
 
 func _perform_wall_jump(wall_normal: Vector2):
-	# Calculate wall jump velocity with better momentum preservation
+	# Calculate wall jump velocity
 	var jump_velocity = Vector2(
-		player.wall_jump_velocity.x * wall_normal.x * 1.2,  # Increased horizontal force by 20%
-		player.wall_jump_velocity.y * 0.9  # Slightly reduced vertical force for better control
+		WALL_JUMP_FORCE.x * wall_normal.x,
+		WALL_JUMP_FORCE.y
 	)
 	
-	# Preserve some of the player's existing horizontal velocity
-	var preserved_velocity = player.velocity.x * 0.4  # Preserve 40% of current horizontal velocity
-	jump_velocity.x += preserved_velocity
+	_end_wall_slide()
 	
-	# Apply the wall jump with consistent velocity
+	# Set player state for wall jump
 	player.velocity = jump_velocity
 	player.is_wall_jumping = true
-	player.wall_jump_direction = wall_normal.x  # Direction matches wall normal
-	player.wall_jump_timer = player.wall_jump_control_delay * 0.7  # Reduced control delay by 30%
-	player.wall_jump_boost_timer = player.wall_jump_control_delay * 0.7
+	player.wall_jump_direction = wall_normal.x
 	
-	# Face away from wall - flip sprite to face jump direction
-	player.sprite.flip_h = wall_normal.x > 0  # Face opposite to wall normal
+	# When wall jumping, face AWAY from the wall
+	player.sprite.flip_h = wall_side > 0  # This stays > because we want to face AWAY for the jump
+	locked_sprite_direction = false  # Allow sprite direction to change after wall jump
 	
-	_end_wall_slide()
-	state_machine.transition_to("Jump")  # Let Jump state handle the animation
+	state_machine.transition_to("Jump")
 
 func _end_wall_slide():
 	player.end_wall_slide()
-	state_machine.transition_to("Fall")
+	reentry_cooldown_timer = REENTRY_COOLDOWN
+
+func exit():
+	pass

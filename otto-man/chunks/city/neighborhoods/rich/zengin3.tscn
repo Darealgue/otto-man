@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://bu61qblj001aw"]
+
+[ext_resource type="Texture2D" uid="uid://dxn14jbr02akg" path="res://assets/buildings/zengin/zengin3.png" id="1_aovfr"]
+
+[node name="Node2D" type="StaticBody2D"]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_aovfr")

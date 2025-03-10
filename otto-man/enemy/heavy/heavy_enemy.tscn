@@ -621,7 +621,7 @@ size = Vector2(40, 64)
 
 [node name="HeavyEnemy" type="CharacterBody2D" groups=["enemies"]]
 collision_layer = 4
-collision_mask = 5
+collision_mask = 517
 script = ExtResource("1_script")
 stats = ExtResource("2_stats")
 debug_enabled = true

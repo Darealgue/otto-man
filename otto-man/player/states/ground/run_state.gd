@@ -1,4 +1,4 @@
-extends State
+extends "../state.gd"
 
 func enter():
 	animation_player.play("run")
@@ -19,6 +19,11 @@ func physics_update(delta: float):
 			state_machine.transition_to("Block")
 		return
 		
+	# Check for crouch input
+	if Input.is_action_pressed("crouch"):
+		state_machine.transition_to("Crouch")
+		return
+		
 	if not player.is_on_floor():
 		state_machine.transition_to("Fall")
 		return
@@ -34,7 +39,7 @@ func physics_update(delta: float):
 		
 	# Check if we're running into a wall
 	var was_on_wall = player.is_on_wall()
-	player.velocity.x = move_toward(player.velocity.x, player.speed * input_dir, player.acceleration * delta)
+	player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed, player.acceleration * delta)
 	player.move_and_slide()
 	
 	# If we hit a wall, stop the run animation and play idle

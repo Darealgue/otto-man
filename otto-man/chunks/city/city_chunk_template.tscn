@@ -1,0 +1,40 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://chunks/city/linear_chunk.gd" id="1_script"]
+[ext_resource type="Script" path="res://enemy/spawn_manager.gd" id="2_spawn_manager"]
+[ext_resource type="PackedScene" path="res://gameplay/platform_highlight_manager.tscn" id="3_highlight"]
+
+[node name="CityChunkTemplate" type="Node2D"]
+script = ExtResource("1_script")
+size_in_units = Vector2i(3, 2)
+debug_draw = true
+
+[node name="VisualBorder" type="Line2D" parent="."]
+points = PackedVector2Array(0, 0, 5760, 0, 5760, 2160, 0, 2160, 0, 0)
+width = 4.0
+default_color = Color(0.4, 0.8, 1.0, 0.5)
+
+[node name="ConnectionPoints" type="Node2D" parent="."]
+
+[node name="left" type="Marker2D" parent="ConnectionPoints"]
+position = Vector2(0, 1080)
+
+[node name="right" type="Marker2D" parent="ConnectionPoints"]
+position = Vector2(5760, 1080)
+
+[node name="SpawnPoints" type="Node2D" parent="."]
+
+[node name="Ground" type="Node2D" parent="."]
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="Background" type="Node2D" parent="."]
+z_index = -1
+
+[node name="Foreground" type="Node2D" parent="."]
+z_index = 1
+
+[node name="SpawnManager" type="Node" parent="."]
+script = ExtResource("2_spawn_manager")
+
+[node name="PlatformHighlightManager" parent="." instance=ExtResource("3_highlight")] 
