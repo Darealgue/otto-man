@@ -1,3 +1,4 @@
+res://enemy/flying/sprites
 res://chunks/city/neighborhoods/rich
 res://
 res://chunks/city/neighborhoods/poor
@@ -6,7 +7,6 @@ res://enemy/hunter/sprites
 res://scenes
 res://resources
 res://chunks
-res://enemy/flying/sprites
 res://enemy/summoner/sprites
 res://enemy/heavy/sprites
 res://autoload
