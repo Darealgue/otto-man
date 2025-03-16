@@ -629,8 +629,7 @@ debug_enabled = true
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -16)
 sprite_frames = SubResource("SpriteFrames_enemy")
-animation = &"idle"
-frame_progress = 0.23938
+animation = &"charge_end"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(1, 1)

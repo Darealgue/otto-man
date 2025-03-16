@@ -1,19 +1,14 @@
 extends Node2D
 
 const FADE_SPEED := 2.5  # Even slower fade for smoother transition
-const DETECTION_RANGE := 300.0  # Increased range for earlier visibility
-const MIN_ALPHA := 1.0  # Maximum opacity
-const MAX_ALPHA := 1.0  # Maximum opacity
+const DETECTION_RANGE := 200.0  # Reduced range further
+const MIN_ALPHA := 0.0  # Completely invisible when far
+const MAX_ALPHA := 0.15  # Even more subtle maximum alpha
 const GLOW_MARGIN := 2.0  # Tiny margin to prevent hard edges
 const HIGHLIGHT_HEIGHT := 16.0  # Much smaller height for tighter binding
 const HIGHLIGHT_EXTEND := 8.0  # Much smaller extension
-const PRIMARY_COLOR := Color(0.0, 0.0, 0.0, 1.0)  # Black color
+const PRIMARY_COLOR := Color(1.0, 0.8, 0.2, 1.0)  # Softer golden color
 const SECONDARY_COLOR := Color(1.0, 0.9, 0.4, 1.0)  # Very soft yellow
-const OUTLINE_WIDTH := 2.0  # Original thickness
-const OUTLINE_OFFSET_TOP := 6.0  # Adjusted for better visibility
-const OUTLINE_OFFSET_BOTTOM := 6.0  # Equal spacing top and bottom
-const OUTLINE_END_MARGIN := 2.0  # Distance for vertical end lines
-const VERTICAL_LINE_LENGTH := 2.0  # Length of connecting vertical lines
 
 var platform_highlights: Dictionary = {}
 var player: Node2D
@@ -112,80 +107,76 @@ func _create_highlight_for_platform(platform: CollisionShape2D) -> void:
 	var container = Node2D.new()
 	add_child(container)
 	
+	# Create the line that exactly follows the platform
+	var line = Line2D.new()
+	
 	# Convert platform points to local coordinates
 	var global_a = platform.to_global(shape.a)
 	var global_b = platform.to_global(shape.b)
 	var local_a = to_local(global_a)
 	var local_b = to_local(global_b)
 	
-	# Calculate normal vector for offset
-	var direction = (local_b - local_a).normalized()
-	var normal = Vector2(-direction.y, direction.x)
+	# Set line points
+	line.add_point(local_a)
+	line.add_point(local_b)
 	
-	# Create horizontal lines
-	var lines = []
+	# Configure line appearance
+	line.width = 4.0  # Platform thickness
+	line.default_color = PRIMARY_COLOR
+	line.default_color.a = 0  # Start invisible
 	
-	# Top line
-	var top_line = Line2D.new()
-	top_line.add_point(local_a + (normal * OUTLINE_OFFSET_TOP))
-	top_line.add_point(local_b + (normal * OUTLINE_OFFSET_TOP))
-	top_line.width = OUTLINE_WIDTH
-	top_line.default_color = PRIMARY_COLOR
-	top_line.default_color.a = MIN_ALPHA
-	top_line.antialiased = true
+	# Set line texture mode for smoother appearance
+	line.texture_mode = Line2D.LINE_TEXTURE_TILE
+	line.joint_mode = Line2D.LINE_JOINT_ROUND
+	line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	line.end_cap_mode = Line2D.LINE_CAP_ROUND
+	line.antialiased = true
 	
-	# Bottom line
-	var bottom_line = Line2D.new()
-	bottom_line.add_point(local_a - (normal * OUTLINE_OFFSET_BOTTOM))
-	bottom_line.add_point(local_b - (normal * OUTLINE_OFFSET_BOTTOM))
-	bottom_line.width = OUTLINE_WIDTH
-	bottom_line.default_color = PRIMARY_COLOR
-	bottom_line.default_color.a = MIN_ALPHA
-	bottom_line.antialiased = true
+	# Add blend mode for glow
+	line.material = CanvasItemMaterial.new()
+	line.material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	
-	# Left connecting line
-	var left_line = Line2D.new()
-	left_line.add_point(local_a + (normal * OUTLINE_OFFSET_TOP))
-	left_line.add_point(local_a - (normal * OUTLINE_OFFSET_BOTTOM))
-	left_line.width = OUTLINE_WIDTH
-	left_line.default_color = PRIMARY_COLOR
-	left_line.default_color.a = MIN_ALPHA
-	left_line.antialiased = true
-	
-	# Right connecting line
-	var right_line = Line2D.new()
-	right_line.add_point(local_b + (normal * OUTLINE_OFFSET_TOP))
-	right_line.add_point(local_b - (normal * OUTLINE_OFFSET_BOTTOM))
-	right_line.width = OUTLINE_WIDTH
-	right_line.default_color = PRIMARY_COLOR
-	right_line.default_color.a = MIN_ALPHA
-	right_line.antialiased = true
-	
-	# Add blend mode for all lines
-	for line in [top_line, bottom_line, left_line, right_line]:
-		line.material = CanvasItemMaterial.new()
-		line.material.blend_mode = CanvasItemMaterial.BLEND_MODE_MIX
-		container.add_child(line)
-		lines.append(line)
+	container.add_child(line)
 	
 	# Store effect
 	platform_highlights[platform] = {
 		"container": container,
-		"lines": lines
+		"line": line
 	}
 
 func _physics_process(delta: float) -> void:
 	if not player:
 		return
 	
-	# Lines are always visible at constant alpha
+	# Update all platform highlights
 	for platform in platform_highlights:
 		var effects = platform_highlights[platform]
-		for line in effects.lines:
-			if line.default_color.a != MIN_ALPHA:  # Only update if needed
-				var color = line.default_color
-				color.a = MIN_ALPHA
-				line.default_color = color
+		var distance = _get_distance_to_platform(platform, player.global_position)
+		
+		# Only show effects when within detection range
+		if distance <= DETECTION_RANGE:
+			# Calculate base alpha based on distance with quadratic falloff
+			var distance_factor = 1.0 - (distance / DETECTION_RANGE)
+			distance_factor = smoothstep(0.0, 1.0, distance_factor)  # Smoother transition
+			distance_factor = distance_factor * distance_factor  # Quadratic falloff for more subtlety
+			
+			# Add very subtle breathing effect when close
+			var breath = 1.0
+			if distance_factor > 0.7:  # Only breathe when very close
+				breath = (sin(Time.get_ticks_msec() * 0.0008) * 0.08 + 0.92)  # Even more subtle breathing
+			
+			# Calculate final alpha
+			var alpha = distance_factor * MAX_ALPHA * breath
+			
+			# Update line color
+			var color = effects.line.default_color
+			color.a = lerpf(color.a, alpha, delta * FADE_SPEED)
+			effects.line.default_color = color
+		else:
+			# Fade out line
+			var color = effects.line.default_color
+			color.a = lerpf(color.a, 0.0, delta * FADE_SPEED)
+			effects.line.default_color = color
 
 # Helper function for smoother transitions
 func smoothstep(edge0: float, edge1: float, x: float) -> float:

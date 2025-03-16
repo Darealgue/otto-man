@@ -290,8 +290,8 @@ shape = SubResource("CapsuleShape2D_collision")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -22)
 sprite_frames = SubResource("SpriteFrames_cc4mj")
-animation = &"patrol"
-frame_progress = 0.791805
+animation = &"fall"
+frame_progress = 0.0358202
 
 [node name="StateMachine" type="Node" parent="."]
 
