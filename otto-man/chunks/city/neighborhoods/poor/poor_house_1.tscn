@@ -275,7 +275,6 @@ scale = Vector2(5.48177, 5.62037)
 texture = ExtResource("3_81id3")
 
 [node name="dağ uzak" type="ParallaxLayer" parent="Background/ParallaxBackground" index="1"]
-visible = false
 motion_scale = Vector2(0.3, 0.3)
 motion_mirroring = Vector2(1940, 0)
 
@@ -286,7 +285,6 @@ texture = ExtResource("4_mqnpa")
 centered = false
 
 [node name="dağ yakın" type="ParallaxLayer" parent="Background/ParallaxBackground" index="2"]
-visible = false
 motion_scale = Vector2(0.6, 0.6)
 motion_mirroring = Vector2(1940, 0)
 

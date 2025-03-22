@@ -20,10 +20,10 @@ const PatrolPointScript = preload("res://enemy/hunter/patrol_point.gd")
 # Movement parameters
 const GRAVITY_MULTIPLIER = 2.5
 const JUMP_VELOCITY = -700.0  # Increased jump force further
-const MAX_FALL_SPEED = 600.0  # Increased to match more aggressive movement
+const MAX_FALL_SPEED = 400.0  # Increased to match more aggressive movement
 const CHASE_SPEED = 300.0  # Significantly increased chase speed
 const APPROACH_SPEED = 150.0  # Increased approach speed
-const JUMP_COOLDOWN = 0.3  # Reduced cooldown for more frequent jumps
+const JUMP_COOLDOWN = 0.6  # Reduced cooldown for more frequent jumps
 const MAX_DROP_HEIGHT = 400.0  # Increased drop height for more aggressive pursuit
 
 # Improved stuck detection and handling
