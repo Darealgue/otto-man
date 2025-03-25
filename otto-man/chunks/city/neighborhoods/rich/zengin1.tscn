@@ -162,5 +162,3 @@ one_way_collision = true
 position = Vector2(833, 3)
 polygon = PackedVector2Array(-668, -118, -576, -118, -432, -190, -289, -119, -192, -117, -192, -111, -290, -112, -431, -182, -577, -111, -668, -110)
 one_way_collision = true
-
-[node name="Node" type="Node" parent="."]
