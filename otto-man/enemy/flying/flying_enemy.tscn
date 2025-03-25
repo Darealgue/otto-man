@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3 uid="uid://kppl7yjrg67q"]
+[gd_scene load_steps=32 format=3 uid="uid://kppl7yjrg67q"]
 
 [ext_resource type="Script" path="res://enemy/flying/flying_enemy.gd" id="1_j6iyu"]
 [ext_resource type="Texture2D" uid="uid://8vmlfuinkalh" path="res://enemy/flying/sprites/flying dusman_border-sheet.png" id="1_mf8d4"]
@@ -6,6 +6,30 @@
 [ext_resource type="Texture2D" uid="uid://db0kb78u54mjb" path="res://enemy/flying/sprites/flying dead.png" id="3_10tbw"]
 [ext_resource type="Script" path="res://components/enemy_hitbox.gd" id="4_gupnj"]
 [ext_resource type="Script" path="res://components/enemy_hurtbox.gd" id="5_2v5ws"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_608np"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lfmvs"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lq66n"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fgw4c"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8e0f5"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yt77h"]
+atlas = ExtResource("1_mf8d4")
+region = Rect2(480, 0, 96, 96)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_r41yp"]
 atlas = ExtResource("3_10tbw")
@@ -69,6 +93,29 @@ region = Rect2(480, 0, 96, 96)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_tm2ey"]
 animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_608np")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lfmvs")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lq66n")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fgw4c")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8e0f5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yt77h")
+}],
+"loop": true,
+"name": &"chase",
+"speed": 12.0
+}, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_r41yp")
@@ -170,7 +217,7 @@ stats = ExtResource("2_7548b")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(-3, -18)
 sprite_frames = SubResource("SpriteFrames_tm2ey")
-animation = &"swoop"
+animation = &"chase"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_tf0tv")
