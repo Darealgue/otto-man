@@ -1,14 +1,14 @@
-CollisionShape2D
-Node
-Line2D
 Sprite2D
 StaticBody2D
 CollisionPolygon2D
+CollisionShape2D
 State
 Node2D
 TileMapLayer
 Camera2D
 TileMap
+Node
 ColorRect
 RayCast2D
 Timer
+Area2D
