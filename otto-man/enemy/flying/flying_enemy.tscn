@@ -69,11 +69,6 @@ region = Rect2(480, 0, 96, 96)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_tm2ey"]
 animations = [{
-"frames": [],
-"loop": true,
-"name": &"chase",
-"speed": 5.0
-}, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_r41yp")
@@ -175,7 +170,7 @@ stats = ExtResource("2_7548b")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(-3, -18)
 sprite_frames = SubResource("SpriteFrames_tm2ey")
-animation = &"chase"
+animation = &"swoop"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_tf0tv")

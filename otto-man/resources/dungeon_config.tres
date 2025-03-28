@@ -1,15 +1,19 @@
-[gd_resource type="Resource" script_class="DungeonConfig" load_steps=2 format=3 uid="uid://dsobemnkhgy1f"]
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3 uid="uid://dsobemnkhgy1f"]
 
-[ext_resource type="Script" path="res://resources/dungeon_config.gd" id="1_2u4vx"]
+[ext_resource type="Script" path="res://resources/level_config.gd" id="1_config"]
 
 [resource]
-script = ExtResource("1_2u4vx")
-base_length = 14
-base_branches = 6
-base_dead_ends = 1
-length_increase_per_level = 1.0
-branch_increase_per_level = 0.5
-dead_end_increase_per_level = 0.3
+script = ExtResource("1_config")
+base_length = 8
+length_increase_per_level = 2
 max_length = 40
-max_branches = 10
-max_dead_ends = 3
+branch_ratio = 0.2
+dead_end_ratio = 0.15
+combat_room_base_chance = 0.2
+combat_chance_increase = 0.02
+min_branches = 2
+max_branches = 4
+min_dead_ends = 2
+max_dead_ends = 4
+combat_room_chance = 0.3
+description = ""

@@ -13,14 +13,14 @@ enum Direction {
 # Size configuration
 @export var size_in_units: Vector2i = Vector2i(1, 1)
 @export var debug_draw: bool = true
-@export var size = Vector2(1920, 1088)
+@export var size = Vector2(1920, 1080)
 
 # Connections are determined by scene name
 var connections: Array[Direction] = []
 
 # Connection points - automatically updated based on size
 var connection_points: Dictionary = {}
-var base_size = Vector2(1920, 1088)
+var base_size = Vector2(1920, 1080)
 var actual_size: Vector2:
 	get: return base_size * size_in_units
 
@@ -146,7 +146,7 @@ func _get_connection_point(dir: Direction) -> Vector2:
 	return Vector2.ZERO
 
 func get_chunk_size() -> Vector2:
-	return Vector2(1920, 1088)  # Updated default chunk size
+	return Vector2(1920, 1080)  # Default chunk size
 
 func get_connections() -> Array:
 	# Override in specific chunks to define their connections
