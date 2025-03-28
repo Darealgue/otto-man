@@ -1,6 +1,6 @@
 ea4bc82a6ad023ab7ee23ee620429895
-::res://::1741623944
-main.gd::GDScript::-1::1736283925::0::1::::<>Node<>::
+::res://::1743192865
+main.gd::GDScript::-1::1742640253::0::1::::<>Node<>::
 project_status.md::TextFile::-1::1737215685::0::1::::<><>::
 ::res://assets/::1741387750
 ::res://assets/buildings/::1741548508
@@ -41,12 +41,12 @@ otto_ledgegrab.png::CompressedTexture2D::4849465761327981846::1738429083::173842
 otto_lightattack1.png::CompressedTexture2D::8380546999294583714::1735341764::1735909259::1::::<><>::
 otto_parry_border-sheet.png::CompressedTexture2D::933700621041206415::1736074977::1736074977::1::::<><>::
 otto_slide2.png::CompressedTexture2D::4880778790963807979::1738348031::1738348031::1::::<><>::
-::res://autoload/::1737554116
+::res://autoload/::1742942297
 attack_manager.gd::GDScript::-1::1736286608::0::1::::<>Node<>::
 damage_values.gd::GDScript::-1::1735409932::0::1::::<>Node<>::
 dev_console.gd::GDScript::-1::1735590178::0::1::::<>CanvasLayer<>::
 GameManager.gd::GDScript::-1::1736082668::0::1::::<>Node<>::
-object_pool.gd::GDScript::-1::1737212051::0::1::::<>Node<>::
+object_pool.gd::GDScript::-1::1742942297::0::1::::<>Node<>::
 player_stats.gd::GDScript::-1::1736802898::0::1::::<>Node<>::
 powerup_manager.gd::GDScript::-1::1736286530::0::1::::<>Node<>::
 ::res://background/::1735341764
@@ -59,62 +59,67 @@ far_mountains_fc.png::CompressedTexture2D::7820743916595650035::1735341764::1735
 grassy_mountains_fc.png::CompressedTexture2D::3162071860777744552::1735341764::1735909259::1::::<><>::
 hill.png::CompressedTexture2D::453978828954035893::1735341764::1735909259::1::::<><>::
 sky_fc.png::CompressedTexture2D::5086216100188610499::1735341764::1735909259::1::::<><>::
-::res://chunks/::1741517158
-base_chunk.gd::GDScript::-1::1741517158::0::1::::BaseChunk<>Node2D<>::
-::res://chunks/basic/::1739053728
-basic_platform.tscn::PackedScene::7802456863000601819::1739053728::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
-::res://chunks/city/::1741388585
-city_chunk_template.tscn::PackedScene::-1::1741445348::0::1::::<><>::
-linear_chunk.gd::GDScript::-1::1741389821::0::1::::LinearChunk<>Node2D<>::
+::res://chunks/::1743157512
+base_chunk.gd::GDScript::-1::1743192861::0::1::::BaseChunk<>Node2D<>::
+::res://chunks/basic/::1743116494
+basic_platform.tscn::PackedScene::7802456863000601819::1743116494::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
+::res://chunks/city/::1742942294
+city_chunk_template.tscn::PackedScene::-1::1742936736::0::1::::<><>::res://chunks/city/linear_chunk.gd<>res://enemy/spawn_manager.gd<>res://gameplay/platform_highlight_manager.tscn
+linear_chunk.gd::GDScript::-1::1743192861::0::1::::LinearChunk<>Node2D<>::
 ::res://chunks/city/neighborhoods/::1741376707
-::res://chunks/city/neighborhoods/middle/::1741551807
-middle_house_1.tscn::PackedScene::7698643636555785197::1741551807::0::1::::<><>::res://chunks/city/city_chunk_template.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://dvc5ywo5qbpny::::res://chunks/city/neighborhoods/poor/orta4.tscn
+::res://chunks/city/neighborhoods/middle/::1743103790
+middle_house_1.tscn::PackedScene::7698643636555785197::1743103790::0::1::::<><>::res://chunks/city/city_chunk_template.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://dvc5ywo5qbpny::::res://chunks/city/neighborhoods/poor/orta4.tscn
 middle_house_template.tscn::PackedScene::-1::1741378432::0::1::::<><>::
-orta1.tscn::PackedScene::6733626202408529409::1741551807::0::1::::<><>::uid://dynq3hfprdsyy::::res://assets/buildings/orta/orta1.png
+orta1.tscn::PackedScene::6733626202408529409::1743103790::0::1::::<><>::uid://dynq3hfprdsyy::::res://assets/buildings/orta/orta1.png
 orta2.tscn::PackedScene::5987260842969305594::1741390352::0::1::::<><>::uid://bu8fjnnljuawt::::res://assets/buildings/orta/orta2.png
-orta3.tscn::PackedScene::8595618616850100711::1741551807::0::1::::<><>::uid://hsc2exoi7emr::::res://assets/buildings/orta/orta3.png
-::res://chunks/city/neighborhoods/poor/::1741551808
-fakir1.tscn::PackedScene::3738356579858391431::1741551807::0::1::::<><>::uid://ieesf0rmlkok::::res://assets/buildings/alt/fakir1(2).png
-orta4.tscn::PackedScene::8639222070348280406::1741551808::0::1::::<><>::uid://b2qmylummuln6::::res://assets/buildings/orta/orta4.png
-poor_house_1.tscn::PackedScene::7339617791762005588::1741551807::0::1::::<><>::res://chunks/city/neighborhoods/poor/poor_house_template.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://cep2ia5jw0nf4::::res://background/bulutlu dağlar/sky_fc.png<>uid://bti5gl2v7hse6::::res://chunks/city/neighborhoods/poor/fakir1.tscn<>uid://djoorlgrr8ip4::::res://background/bulutlu dağlar/far_mountains_fc.png<>uid://blby4j74a2iaq::::res://background/bulutlu dağlar/grassy_mountains_fc.png<>uid://cq3piagq0rxws::::res://background/bulutlu dağlar/clouds_mid_fc.png<>uid://de7ouskihcyug::::res://background/bulutlu dağlar/clouds_front_fc.png
+orta3.tscn::PackedScene::8595618616850100711::1743103790::0::1::::<><>::uid://hsc2exoi7emr::::res://assets/buildings/orta/orta3.png
+::res://chunks/city/neighborhoods/poor/::1743103790
+fakir1.tscn::PackedScene::3738356579858391431::1743103790::0::1::::<><>::uid://ieesf0rmlkok::::res://assets/buildings/alt/fakir1(2).png
+orta4.tscn::PackedScene::8639222070348280406::1743103790::0::1::::<><>::uid://b2qmylummuln6::::res://assets/buildings/orta/orta4.png
+poor_house_1.tscn::PackedScene::7339617791762005588::1743103790::0::1::::<><>::res://chunks/city/neighborhoods/poor/poor_house_template.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://cep2ia5jw0nf4::::res://background/bulutlu dağlar/sky_fc.png<>uid://bti5gl2v7hse6::::res://chunks/city/neighborhoods/poor/fakir1.tscn<>uid://djoorlgrr8ip4::::res://background/bulutlu dağlar/far_mountains_fc.png<>uid://blby4j74a2iaq::::res://background/bulutlu dağlar/grassy_mountains_fc.png<>uid://cq3piagq0rxws::::res://background/bulutlu dağlar/clouds_mid_fc.png<>uid://de7ouskihcyug::::res://background/bulutlu dağlar/clouds_front_fc.png
 poor_house_template.tscn::PackedScene::-1::1741378397::0::1::::<><>::
-::res://chunks/city/neighborhoods/rich/::1741551808
-rich_house_1.tscn::PackedScene::2379306429686233069::1741551807::0::1::::<><>::res://chunks/city/neighborhoods/rich/rich_house_template.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://fb3nih1k4arf::::res://chunks/city/neighborhoods/rich/zengin2.tscn<>uid://bu61qblj001aw::::res://chunks/city/neighborhoods/rich/zengin3.tscn
+::res://chunks/city/neighborhoods/rich/::1743103791
+rich_house_1.tscn::PackedScene::2379306429686233069::1743103790::0::1::::<><>::res://chunks/city/neighborhoods/rich/rich_house_template.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://fb3nih1k4arf::::res://chunks/city/neighborhoods/rich/zengin2.tscn<>uid://bu61qblj001aw::::res://chunks/city/neighborhoods/rich/zengin3.tscn
 rich_house_template.tscn::PackedScene::-1::1741378449::0::1::::<><>::
-zengin1.tscn::PackedScene::6551415949415302064::1741551808::0::1::::<><>::uid://cawvm4utgjex1::::res://assets/buildings/zengin/zengin1.png
-zengin2.tscn::PackedScene::354732319258703183::1741551808::0::1::::<><>::uid://b6k18gardmtel::::res://assets/buildings/zengin/zengin2.png
-zengin3.tscn::PackedScene::3855800551303546806::1741551808::0::1::::<><>::uid://dxn14jbr02akg::::res://assets/buildings/zengin/zengin3.png
-::res://chunks/city/special/::1741551808
-bridge_template.tscn::PackedScene::5364415059959853769::1741551808::0::1::::<><>::res://chunks/city/city_chunk_template.tscn
+zengin1.tscn::PackedScene::6551415949415302064::1743103791::0::1::::<><>::uid://cawvm4utgjex1::::res://assets/buildings/zengin/zengin1.png
+zengin2.tscn::PackedScene::354732319258703183::1743103791::0::1::::<><>::uid://b6k18gardmtel::::res://assets/buildings/zengin/zengin2.png
+zengin3.tscn::PackedScene::3855800551303546806::1743103791::0::1::::<><>::uid://dxn14jbr02akg::::res://assets/buildings/zengin/zengin3.png
+::res://chunks/city/special/::1743103791
+bridge_template.tscn::PackedScene::5364415059959853769::1743103791::0::1::::<><>::res://chunks/city/city_chunk_template.tscn
 canal_template.tscn::PackedScene::-1::1741378507::0::1::::<><>::
-::res://chunks/hub/::1739053728
-four_way_hub.tscn::PackedScene::7781748595046172573::1738096224::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-l_corner_hub.tscn::PackedScene::7856369307843692283::1737985713::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-l_corner_left_down.tscn::PackedScene::4123850892092995896::1737985729::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-l_corner_left_up.tscn::PackedScene::3746011125834248918::1738096284::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-l_corner_right_down.tscn::PackedScene::3361328351764489115::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-l_corner_right_up.tscn::PackedScene::6305963316130049783::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-t_junction_down.tscn::PackedScene::1309663000227966792::1739053728::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-t_junction_hub.tscn::PackedScene::5261788482492970867::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-t_junction_left.tscn::PackedScene::8408803024553728576::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-t_junction_right.tscn::PackedScene::8408803024553728576::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-t_junction_up.tscn::PackedScene::1309663000227966792::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-::res://chunks/special/::1739053728
-boss_arena.tscn::PackedScene::7455996095044976829::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-challenge_room.tscn::PackedScene::3177130968035861780::1738096425::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-combat_arena.gd::GDScript::-1::1738160695::0::1::::<>BaseChunk<>::
-combat_arena.tscn::PackedScene::4206272027420641519::1739053728::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
-dead_end_down.tscn::PackedScene::6512235986233112855::1738163176::0::1::::<><>::res://chunks/base_chunk.gd<>res://enemy/spawn_manager.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/enemy_spawner.tscn
-dead_end_left.tscn::PackedScene::5772743245628449747::1739053728::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
-dead_end_right.tscn::PackedScene::4791021834226951873::1738163205::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
-dead_end_up.tscn::PackedScene::5920555436531354893::1739053728::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
-finish_chunk.tscn::PackedScene::7123942500069652758::1738096426::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-secret_passage.tscn::PackedScene::407748287561779664::1738096426::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-start_chunk.tscn::PackedScene::6839176379444497170::1738096426::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-treasure_room.tscn::PackedScene::704360094826490226::1738096426::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-::res://chunks/vertical/::1738107053
-climbing_tower.tscn::PackedScene::5572139851064878490::1738107053::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
-side_tower.tscn::PackedScene::7005351312461181859::1738096426::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+::res://chunks/dungeon/::1742936735
+::res://chunks/dungeon/basic/::1742936735
+::res://chunks/dungeon/hub/::1742936735
+::res://chunks/dungeon/special/::1742936735
+::res://chunks/dungeon/vertical/::1742936735
+::res://chunks/hub/::1743185234
+four_way_hub.tscn::PackedScene::7781748595046172573::1743116494::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+l_corner_hub.tscn::PackedScene::7856369307843692283::1743103791::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+l_corner_left_down.tscn::PackedScene::4123850892092995896::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+l_corner_left_up.tscn::PackedScene::3746011125834248918::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+l_corner_right_down.tscn::PackedScene::3361328351764489115::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+l_corner_right_up.tscn::PackedScene::6305963316130049783::1743185232::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+t_junction_down.tscn::PackedScene::1309663000227966792::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+t_junction_hub.tscn::PackedScene::2605662876253731468::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+t_junction_left.tscn::PackedScene::8408803024553728576::1743185234::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+t_junction_right.tscn::PackedScene::8408803024553728576::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+t_junction_up.tscn::PackedScene::1309663000227966792::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+::res://chunks/special/::1743185234
+boss_arena.tscn::PackedScene::7455996095044976829::1743103792::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+challenge_room.tscn::PackedScene::3177130968035861780::1743103792::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+combat_arena.gd::GDScript::-1::1742936736::0::1::::<>BaseChunk<>::
+combat_arena.tscn::PackedScene::4206272027420641519::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
+dead_end_down.tscn::PackedScene::6512235986233112855::1743185232::0::1::::<><>::res://chunks/base_chunk.gd<>res://enemy/spawn_manager.tscn<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/enemy_spawner.tscn
+dead_end_left.tscn::PackedScene::5772743245628449747::1743116494::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
+dead_end_right.tscn::PackedScene::4791021834226951873::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
+dead_end_up.tscn::PackedScene::5920555436531354893::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>res://enemy/spawn_manager.tscn<>res://enemy/enemy_spawner.tscn
+finish_chunk.tscn::PackedScene::7123942500069652758::1743185234::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+secret_passage.tscn::PackedScene::407748287561779664::1743103792::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+start_chunk.tscn::PackedScene::6839176379444497170::1743185233::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+treasure_room.tscn::PackedScene::704360094826490226::1743103792::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+::res://chunks/vertical/::1743116494
+climbing_tower.tscn::PackedScene::5572139851064878490::1743116494::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
+side_tower.tscn::PackedScene::7005351312461181859::1743103793::0::1::::<><>::res://chunks/base_chunk.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
 ::res://components/::1737190726
 base_hitbox.gd::GDScript::-1::1737191388::0::1::::BaseHitbox<>Area2D<>::
 base_hurtbox.gd::GDScript::-1::1736110137::0::1::::BaseHurtbox<>Area2D<>::
@@ -127,8 +132,8 @@ hurtbox.tscn::PackedScene::8843343398705497298::1735341764::0::1::::<><>::res://
 player_hitbox.gd::GDScript::-1::1736803340::0::1::::PlayerHitbox<>BaseHitbox<>::
 player_hurtbox.gd::GDScript::-1::1736164450::0::1::::PlayerHurtbox<>BaseHurtbox<>::
 raycast_debug.gd::GDScript::-1::1736080895::0::1::::<>RayCast2D<>::
-::res://effects/::1736286530
-damage_number.gd::GDScript::-1::1736191979::0::1::::<>Node2D<>::
+::res://effects/::1742936736
+damage_number.gd::GDScript::-1::1742936736::0::1::::<>Node2D<>::
 damage_number.tscn::PackedScene::-1::1736075158::0::1::::<><>::res://effects/damage_number.gd
 hit_effect.gd::GDScript::-1::1735911005::0::1::::<>Node2D<>::
 hit_effect.tscn::PackedScene::-1::1735911005::0::1::::<><>::
@@ -140,24 +145,24 @@ shockwave.tscn::PackedScene::5768914874437442556::1735341764::0::1::::<><>::res:
 slam_circle.png::CompressedTexture2D::837811470658382678::1735913617::1735913630::0::::<><>::
 ::res://effects/effectk sprites/::1735909259
 shockwave.png::CompressedTexture2D::1260757455360238139::1735341764::1735909259::1::::<><>::
-::res://enemy/::1739044639
-base_enemy.gd::GDScript::-1::1739044639::0::1::::BaseEnemy<>CharacterBody2D<>::
-enemy_spawner.gd::GDScript::-1::1738341386::0::1::::EnemySpawner<>Node2D<>::
+::res://enemy/::1742936740
+base_enemy.gd::GDScript::-1::1742936740::0::1::::BaseEnemy<>CharacterBody2D<>::
+enemy_spawner.gd::GDScript::-1::1742936736::0::1::::EnemySpawner<>Node2D<>::
 enemy_spawner.tscn::PackedScene::-1::1738109255::0::1::::<><>::res://enemy/enemy_spawner.gd
-enemy_stats.gd::GDScript::-1::1739204605::0::1::::EnemyStats<>Resource<>::
+enemy_stats.gd::GDScript::-1::1742936736::0::1::::EnemyStats<>Resource<>::
 spawn_manager.gd::GDScript::-1::1738162964::0::1::::SpawnManager<>Node<>::
 spawn_manager.tscn::PackedScene::-1::1738160659::0::1::::<><>::res://enemy/spawn_manager.gd
-::res://enemy/flying/::1741551807
-flying_enemy.gd::GDScript::-1::1738167283::0::1::::FlyingEnemy<>BaseEnemy<>::
-flying_enemy.tscn::PackedScene::733786219570091180::1741551807::0::1::::<><>::res://enemy/flying/flying_enemy.gd<>uid://8vmlfuinkalh::::res://enemy/flying/sprites/flying dusman_border-sheet.png<>uid://dwaj5bwbiefvr::::res://enemy/flying/flying_enemy_stats.tres<>uid://db0kb78u54mjb::::res://enemy/flying/sprites/flying dead.png<>res://components/enemy_hitbox.gd<>res://components/enemy_hurtbox.gd
-flying_enemy_stats.tres::Resource/EnemyStats::8704016724433397807::1737213517::0::1::::<><>::res://enemy/enemy_stats.gd
+::res://enemy/flying/::1743103790
+flying_enemy.gd::GDScript::-1::1742936740::0::1::::FlyingEnemy<>BaseEnemy<>::
+flying_enemy.tscn::PackedScene::733786219570091180::1743103790::0::1::::<><>::res://enemy/flying/flying_enemy.gd<>uid://8vmlfuinkalh::::res://enemy/flying/sprites/flying dusman_border-sheet.png<>uid://dwaj5bwbiefvr::::res://enemy/flying/flying_enemy_stats.tres<>uid://db0kb78u54mjb::::res://enemy/flying/sprites/flying dead.png<>res://components/enemy_hitbox.gd<>res://components/enemy_hurtbox.gd
+flying_enemy_stats.tres::Resource/EnemyStats::8704016724433397807::1742936740::0::1::::<><>::res://enemy/enemy_stats.gd
 ::res://enemy/flying/sprites/::1737225881
 flying dead.png::CompressedTexture2D::7281671026966102379::1737225881::1737225881::1::::<><>::
 flying dusman_border-sheet.png::CompressedTexture2D::2360332314430563613::1736699046::1736699046::1::::<><>::
-::res://enemy/heavy/::1741551806
-heavy_enemy.gd::GDScript::-1::1739093440::0::1::::HeavyEnemy<>BaseEnemy<>::
-heavy_enemy.tscn::PackedScene::4471764519843745462::1741551806::0::1::::<><>::res://enemy/heavy/heavy_enemy.gd<>uid://baftw8h06wv1a::::res://enemy/heavy/heavy_enemy_stats.tres<>uid://bjol1f68t8nc7::::res://enemy/heavy/sprites/dusman idle border.png<>uid://dvufd3ckhn1mp::::res://enemy/heavy/sprites/dusman dead2_border.png<>uid://xnmeogau235g::::res://enemy/heavy/sprites/dusman walk border.png<>uid://btj5wx45neh18::::res://enemy/heavy/sprites/dusman hurt.png<>uid://dm4kp8jm6786r::::res://enemy/heavy/sprites/charge_attack_border.png<>uid://bw7w8bdibm3s8::::res://enemy/heavy/sprites/charge_attack_charge_border.png<>res://components/enemy_hitbox.gd<>uid://bp2ngylmbweim::::res://enemy/heavy/sprites/dusman_ground_slam_border.png<>res://components/enemy_hurtbox.gd<>uid://bg52og47c4jgf::::res://enemy/heavy/sprites/dusman_ground_slam_charge_border.png
-heavy_enemy_stats.tres::Resource/EnemyStats::2397937228054257992::1738239895::0::1::::<><>::res://enemy/enemy_stats.gd
+::res://enemy/heavy/::1743103790
+heavy_enemy.gd::GDScript::-1::1742936736::0::1::::HeavyEnemy<>BaseEnemy<>::
+heavy_enemy.tscn::PackedScene::4471764519843745462::1743103790::0::1::::<><>::res://enemy/heavy/heavy_enemy.gd<>uid://baftw8h06wv1a::::res://enemy/heavy/heavy_enemy_stats.tres<>uid://bjol1f68t8nc7::::res://enemy/heavy/sprites/dusman idle border.png<>uid://dvufd3ckhn1mp::::res://enemy/heavy/sprites/dusman dead2_border.png<>uid://xnmeogau235g::::res://enemy/heavy/sprites/dusman walk border.png<>uid://btj5wx45neh18::::res://enemy/heavy/sprites/dusman hurt.png<>uid://dm4kp8jm6786r::::res://enemy/heavy/sprites/charge_attack_border.png<>uid://bw7w8bdibm3s8::::res://enemy/heavy/sprites/charge_attack_charge_border.png<>res://components/enemy_hitbox.gd<>uid://bp2ngylmbweim::::res://enemy/heavy/sprites/dusman_ground_slam_border.png<>res://components/enemy_hurtbox.gd<>uid://bg52og47c4jgf::::res://enemy/heavy/sprites/dusman_ground_slam_charge_border.png
+heavy_enemy_stats.tres::Resource/EnemyStats::2397937228054257992::1742936740::0::1::::<><>::res://enemy/enemy_stats.gd
 shockwave.tscn::PackedScene::351333277090402197::1735909231::0::1::::<><>::uid://r7yqxx3lltqh::::res://effects/effectk sprites/shockwave.png<>res://enemy/heavy/shockwave.gd
 ::res://enemy/heavy/sprites/::1737224729
 charge_attack_border.png::CompressedTexture2D::8062030834201406307::1735341764::1735909259::1::::<><>::
@@ -169,10 +174,10 @@ dusman idle border.png::CompressedTexture2D::3047736194585946928::1735341764::17
 dusman walk border.png::CompressedTexture2D::1641916806189888906::1735341764::1735909258::1::::<><>::
 dusman_ground_slam_border.png::CompressedTexture2D::3495792851393277228::1735341764::1735909258::1::::<><>::
 dusman_ground_slam_charge_border.png::CompressedTexture2D::2871149799459637309::1735341764::1735909258::1::::<><>::
-::res://enemy/hunter/::1741551807
-hunter_enemy.gd::GDScript::-1::1739389463::0::1::::HunterEnemy<>BaseEnemy<>::
-hunter_enemy.tscn::PackedScene::5044387759518936720::1741551807::0::1::::<><>::res://enemy/hunter/hunter_enemy.gd<>uid://0o3s7mphe1oh::::res://enemy/hunter/sprites/hunter_chase_short_border.png<>uid://d0vy3h8mt22c2::::res://enemy/hunter/sprites/hunter_idle_border.png<>uid://cu054g26xmf2s::::res://enemy/hunter/sprites/hunter_fall_border.png<>uid://d2bcqtba4aa00::::res://enemy/hunter/sprites/hunter_patrol_border.png<>uid://v341glggu5xr::::res://enemy/hunter/sprites/hunter_jump.png
-hunter_enemy_stats.tres::Resource/EnemyStats::6136979526956689135::1739204838::0::1::::<><>::res://enemy/enemy_stats.gd
+::res://enemy/hunter/::1743103790
+hunter_enemy.gd::GDScript::-1::1743096279::0::1::::HunterEnemy<>BaseEnemy<>::
+hunter_enemy.tscn::PackedScene::5044387759518936720::1743103790::0::1::::<><>::res://enemy/hunter/hunter_enemy.gd<>uid://0o3s7mphe1oh::::res://enemy/hunter/sprites/hunter_chase_short_border.png<>uid://d0vy3h8mt22c2::::res://enemy/hunter/sprites/hunter_idle_border.png<>uid://cu054g26xmf2s::::res://enemy/hunter/sprites/hunter_fall_border.png<>uid://d2bcqtba4aa00::::res://enemy/hunter/sprites/hunter_patrol_border.png<>uid://v341glggu5xr::::res://enemy/hunter/sprites/hunter_jump.png
+hunter_enemy_stats.tres::Resource/EnemyStats::6136979526956689135::1742936740::0::1::::<><>::res://enemy/enemy_stats.gd
 patrol_point.gd::GDScript::-1::1739226451::0::1::::PatrolPoint<>RefCounted<>::
 ::res://enemy/hunter/sprites/::1739383279
 hunter_chase_short_border.png::CompressedTexture2D::1785356299571326651::1739040393::1739040393::1::::<><>::
@@ -180,22 +185,22 @@ hunter_fall_border.png::CompressedTexture2D::6230101340094112428::1739383278::17
 hunter_idle_border.png::CompressedTexture2D::8958842704134805011::1739040375::1739040375::1::::<><>::
 hunter_jump.png::CompressedTexture2D::1533575849358510103::1739383139::1739383140::1::::<><>::
 hunter_patrol_border.png::CompressedTexture2D::9056576213275460347::1739040384::1739040384::1::::<><>::
-::res://enemy/summoner/::1741551807
-summoner_enemy.gd::GDScript::-1::1737409235::0::1::::SummonerEnemy<>BaseEnemy<>::
-summoner_enemy.tscn::PackedScene::8853782955126301987::1741551807::0::1::::<><>::uid://bute08t1n7cvv::::res://enemy/summoner/sprites/birdman_border_sheet.png<>res://enemy/summoner/summoner_enemy.gd<>uid://1p1x5iyswfad::::res://enemy/summoner/summoner_enemy_stats.tres<>uid://bk0vy7klusmoi::::res://enemy/summoner/sprites/birdman_summon_sheet.png<>uid://on1y2b6thq8n::::res://enemy/summoner/sprites/birdman_walk_sheet.png<>uid://bimout3j8xgrw::::res://enemy/summoner/sprites/birdman_hurt_border.png<>uid://b3tuvsve76mpk::::res://enemy/summoner/sprites/birdman_dead_border.png<>res://components/enemy_hurtbox.gd<>res://components/enemy_hitbox.gd
-summoner_enemy_stats.tres::Resource/EnemyStats::1857496905145793639::1737213517::0::1::::<><>::res://enemy/enemy_stats.gd
+::res://enemy/summoner/::1743103790
+summoner_enemy.gd::GDScript::-1::1742936740::0::1::::SummonerEnemy<>BaseEnemy<>::
+summoner_enemy.tscn::PackedScene::8853782955126301987::1743103790::0::1::::<><>::uid://bute08t1n7cvv::::res://enemy/summoner/sprites/birdman_border_sheet.png<>res://enemy/summoner/summoner_enemy.gd<>uid://1p1x5iyswfad::::res://enemy/summoner/summoner_enemy_stats.tres<>uid://bk0vy7klusmoi::::res://enemy/summoner/sprites/birdman_summon_sheet.png<>uid://on1y2b6thq8n::::res://enemy/summoner/sprites/birdman_walk_sheet.png<>uid://bimout3j8xgrw::::res://enemy/summoner/sprites/birdman_hurt_border.png<>uid://b3tuvsve76mpk::::res://enemy/summoner/sprites/birdman_dead_border.png<>res://components/enemy_hurtbox.gd<>res://components/enemy_hitbox.gd
+summoner_enemy_stats.tres::Resource/EnemyStats::1857496905145793639::1742936740::0::1::::<><>::res://enemy/enemy_stats.gd
 ::res://enemy/summoner/sprites/::1737228047
 birdman_border_sheet.png::CompressedTexture2D::3829710010421365559::1736719255::1736719868::1::::<><>::
 birdman_dead_border.png::CompressedTexture2D::4392184302499408240::1737228047::1737228047::1::::<><>::
 birdman_hurt_border.png::CompressedTexture2D::2973590761275011672::1736778145::1736778145::1::::<><>::
 birdman_summon_sheet.png::CompressedTexture2D::3141238176549219524::1736718863::1736719868::1::::<><>::
 birdman_walk_sheet.png::CompressedTexture2D::1011103643710317623::1736718877::1736719868::1::::<><>::
-::res://gameplay/::1741445861
-platform_highlight_manager.gd::GDScript::-1::1741452704::0::1::::<>Node2D<>::
+::res://gameplay/::1743096279
+platform_highlight_manager.gd::GDScript::-1::1743096279::0::1::::<>Node2D<>::
 platform_highlight_manager.tscn::PackedScene::-1::1741445214::0::1::::<><>::res://gameplay/platform_highlight_manager.gd
-::res://levels/::1741551807
-city_level_generator.gd::GDScript::-1::1741390087::0::1::::CityLevelGenerator<>Node2D<>::
-city_test.tscn::PackedScene::2629593167639492543::1741551807::0::1::::<><>::res://levels/city_level_generator.gd<>uid://bepujd34sp2i1::::res://player/player.tscn
+::res://levels/::1743185232
+city_level_generator.gd::GDScript::-1::1743192860::0::1::::CityLevelGenerator<>Node2D<>::
+city_test.tscn::PackedScene::2629593167639492543::1743185232::0::1::::<><>::res://levels/city_level_generator.gd<>uid://bepujd34sp2i1::::res://player/player.tscn
 testing.tscn::PackedScene::-1::1738950152::0::1::::<><>::res://enemy/heavy/heavy_enemy.tscn<>uid://baftw8h06wv1a::::res://enemy/heavy/heavy_enemy_stats.tres
 ::res://platforms/::1739053728
 base_platform.gd::GDScript::-1::1737196725::0::1::::BasePlatform<>StaticBody2D<>::
@@ -203,14 +208,14 @@ moving_platform.gd::GDScript::-1::1737221276::0::1::::<>CharacterBody2D<>::
 moving_platform.tscn::PackedScene::7124029766130057810::1739053728::0::1::::<><>::res://platforms/moving_platform.gd<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png
 one_way_platform.gd::GDScript::-1::1737215316::0::1::::OneWayPlatform<>BasePlatform<>::
 one_way_platform.tscn::PackedScene::4456948354963082585::1737303410::0::1::::<><>::res://platforms/one_way_platform.gd
-::res://player/::1741551806
+::res://player/::1743185232
 animation_states.gd::GDScript::-1::1735997830::0::1::::<>Node<>::
 animation_state_machine.gd::GDScript::-1::1735648255::0::1::::<>AnimationNodeStateMachinePlayback<>::
 animation_tree_setup.gd::GDScript::-1::1735997830::0::1::::<>Node<>::
 game_ui.tscn::PackedScene::5704952355539884198::1735909231::0::1::::<><>::uid://b06qq61v1dvie::::res://player/health_display.tscn
 health_display.gd::GDScript::-1::1735341764::0::1::::<>Node<>::
-player.gd::GDScript::-1::1739019464::0::1::::<>CharacterBody2D<>::
-player.tscn::PackedScene::2699372338723477070::1741551806::0::1::::<><>::res://player/player.gd<>res://player/states/state_machine.gd<>res://player/states/ground/idle_state.gd<>res://player/states/ground/run_state.gd<>res://player/states/air/jump_state.gd<>res://player/states/air/fall_state.gd<>res://player/states/combat/attack_state.gd<>res://player/states/air/wall_slide_state.gd<>res://player/states/combat/block_state.gd<>res://player/states/air/ledge_grab_state.gd<>res://player/states/dash_state.gd<>uid://dk7ij7ifw1k24::::res://assets/player/sprite/otto2deneme1-Sheet.png<>uid://doe2jnwc22qb7::::res://assets/player/sprite/ottodoublejump2deneme23-sheet.png<>uid://8vskfaypu0ky::::res://assets/player/sprite/ottojumpupwards1-sheet.png<>uid://cteult8y5viq8::::res://assets/player/sprite/otto_block_react-sheet.png<>uid://cf3w58wfm4r75::::res://assets/player/sprite/ottowalk.png<>res://player/states/hurt_state.gd<>res://player/states/air/fall_attack_state.gd<>uid://40t2dc6riass::::res://assets/player/sprite/ottojumpson2.png<>uid://b65k7k4dow0xn::::res://assets/player/sprite/ottojumpson1.png<>res://player/states/ground/crouch_state.gd<>res://player/states/ground/slide_state.gd<>uid://dn27r8ssmlr5::::res://assets/player/sprite/ottorun2deneme1-sheet2.png<>uid://d0j6uvglcan2a::::res://assets/player/sprite/otto_block.png<>uid://dioxpmkdq7jdh::::res://assets/player/sprite/ottohurt_border-sheet.png<>uid://o2w3kn4qnqps::::res://assets/player/sprite/otto_dash.png<>uid://dq6g6s8ug160k::::res://assets/player/sprite/fall attack.png<>uid://cbdd80odm1xy1::::res://assets/player/sprite/otto_ledgegrab.png<>uid://drnuncw442rtq::::res://assets/player/sprite/otto_lightattack1.png<>uid://nkj6bhhd5r1x::::res://assets/player/sprite/otto_parry_border-sheet.png<>uid://dkoq35p6nflht::::res://assets/player/sprite/otto_crouch_border.png<>res://components/player_hitbox.gd<>uid://cbsjyi6gwdmb8::::res://assets/player/sprite/otto_slide2.png<>res://components/player_hurtbox.gd<>uid://di7eukhiijbb8::::res://assets/player/sprite/otto_crawl_border.png<>uid://dgvjntoyf3545::::res://assets/player/sprite/ottowalljump_border.png<>uid://bq8dkhuoil6fs::::res://assets/player/sprite/ottowalljump_border_flipped.png<>uid://barvau4dax7to::::res://ui/health_display.tscn<>res://ui/stamina_bar.tscn
+player.gd::GDScript::-1::1742936736::0::1::::<>CharacterBody2D<>::
+player.tscn::PackedScene::2699372338723477070::1743185232::0::1::::<><>::res://player/player.gd<>res://player/states/state_machine.gd<>res://player/states/ground/idle_state.gd<>res://player/states/ground/run_state.gd<>res://player/states/air/jump_state.gd<>res://player/states/air/fall_state.gd<>res://player/states/combat/attack_state.gd<>res://player/states/air/wall_slide_state.gd<>res://player/states/combat/block_state.gd<>res://player/states/air/ledge_grab_state.gd<>res://player/states/dash_state.gd<>uid://dk7ij7ifw1k24::::res://assets/player/sprite/otto2deneme1-Sheet.png<>uid://doe2jnwc22qb7::::res://assets/player/sprite/ottodoublejump2deneme23-sheet.png<>uid://8vskfaypu0ky::::res://assets/player/sprite/ottojumpupwards1-sheet.png<>uid://cteult8y5viq8::::res://assets/player/sprite/otto_block_react-sheet.png<>uid://cf3w58wfm4r75::::res://assets/player/sprite/ottowalk.png<>res://player/states/hurt_state.gd<>res://player/states/air/fall_attack_state.gd<>uid://40t2dc6riass::::res://assets/player/sprite/ottojumpson2.png<>uid://b65k7k4dow0xn::::res://assets/player/sprite/ottojumpson1.png<>res://player/states/ground/crouch_state.gd<>res://player/states/ground/slide_state.gd<>uid://dn27r8ssmlr5::::res://assets/player/sprite/ottorun2deneme1-sheet2.png<>uid://d0j6uvglcan2a::::res://assets/player/sprite/otto_block.png<>uid://dioxpmkdq7jdh::::res://assets/player/sprite/ottohurt_border-sheet.png<>uid://o2w3kn4qnqps::::res://assets/player/sprite/otto_dash.png<>uid://dq6g6s8ug160k::::res://assets/player/sprite/fall attack.png<>uid://cbdd80odm1xy1::::res://assets/player/sprite/otto_ledgegrab.png<>uid://drnuncw442rtq::::res://assets/player/sprite/otto_lightattack1.png<>uid://nkj6bhhd5r1x::::res://assets/player/sprite/otto_parry_border-sheet.png<>uid://dkoq35p6nflht::::res://assets/player/sprite/otto_crouch_border.png<>res://components/player_hitbox.gd<>uid://cbsjyi6gwdmb8::::res://assets/player/sprite/otto_slide2.png<>res://components/player_hurtbox.gd<>uid://di7eukhiijbb8::::res://assets/player/sprite/otto_crawl_border.png<>uid://dgvjntoyf3545::::res://assets/player/sprite/ottowalljump_border.png<>uid://bq8dkhuoil6fs::::res://assets/player/sprite/ottowalljump_border_flipped.png<>uid://barvau4dax7to::::res://ui/health_display.tscn<>res://ui/stamina_bar.tscn
 player_animation_tree.gd::GDScript::-1::1735648188::0::1::::<>AnimationTree<>::
 ::res://player/animations/::1735653812
 animation_creator.gd::GDScript::-1::1735656452::0::1::::<>Node<>::
@@ -219,40 +224,41 @@ animation_tree_initializer.gd::GDScript::-1::1736079284::0::1::::<>Node<>::
 player_animations.gd::GDScript::-1::1735648109::0::1::::<>Resource<>::
 player_scene_setup.gd::GDScript::-1::1735654244::0::1::::<>Node<>::
 ::res://player/states/::1738415282
-dash_state.gd::GDScript::-1::1736286529::0::1::::<>Node<>::
+dash_state.gd::GDScript::-1::1742243616::0::1::::<>Node<>::
 hurt_state.gd::GDScript::-1::1736202259::0::1::::<>State<>::
 state.gd::GDScript::-1::1738350316::0::1::::State<>Node<>::
 state_machine.gd::GDScript::-1::1738415282::0::1::::<>Node<>::
 ::res://player/states/air/::1738944519
 fall_attack_state.gd::GDScript::-1::1738944519::0::1::::<>State<>::
-fall_state.gd::GDScript::-1::1738505378::0::1::::<>State<>::
-jump_state.gd::GDScript::-1::1738944411::0::1::::<>State<>::
+fall_state.gd::GDScript::-1::1742243616::0::1::::<>State<>::
+jump_state.gd::GDScript::-1::1742243616::0::1::::<>State<>::
 ledge_grab_state.gd::GDScript::-1::1738501276::0::1::::<>State<>::
-wall_slide_state.gd::GDScript::-1::1738943603::0::1::::<>State<>::
+wall_slide_state.gd::GDScript::-1::1742243616::0::1::::<>State<>::
 ::res://player/states/combat/::1736286529
 attack_state.gd::GDScript::-1::1736287693::0::1::::<>State<>::
 block_state.gd::GDScript::-1::1736286529::0::1::::<>State<>::
 fall_attack_state.gd::GDScript::-1::1736095626::0::1::::<>State<>::
 ::res://player/states/ground/::1738944376
 crouch_state.gd::GDScript::-1::1738944376::0::1::::<><>::
-idle_state.gd::GDScript::-1::1738349079::0::1::::<><>::
-run_state.gd::GDScript::-1::1738349093::0::1::::<><>::
+idle_state.gd::GDScript::-1::1742243615::0::1::::<><>::
+run_state.gd::GDScript::-1::1742243615::0::1::::<><>::
 slide_state.gd::GDScript::-1::1738944318::0::1::::<><>::
-::res://resources/::1738160141
-dungeon_config.tres::Resource/LevelConfig::8451631036115741177::1737927062::0::1::::<><>::res://resources/level_config.gd
-level_config.gd::GDScript::-1::1737896183::0::1::::LevelConfig<>Resource<>::
+::res://resources/::1743185232
+dungeon_config.gd::GDScript::-1::1743160112::0::1::::DungeonConfig<>Resource<>::
+dungeon_config.tres::Resource/DungeonConfig::8451631036115741177::1743192861::0::1::::<><>::res://resources/dungeon_config.gd
+level_config.gd::GDScript::-1::1743102096::0::1::::LevelConfig<>Resource<>::
 powerup_resource.gd::GDScript::-1::1736286833::0::1::::PowerupResource<>Resource<>::
-spawn_config.gd::GDScript::-1::1738162961::0::1::::SpawnConfig<>Resource<>::
-::res://resources/level_configs/::1737895748
-level_1.tres::Resource/LevelConfig::-1::1737895941::0::1::::<><>::res://resources/level_config.gd
-level_5.tres::Resource/LevelConfig::-1::1737895941::0::1::::<><>::res://resources/level_config.gd
-level_10.tres::Resource/LevelConfig::-1::1737895941::0::1::::<><>::res://resources/level_config.gd
-::res://resources/powerups/::1736286833
+spawn_config.gd::GDScript::-1::1742936736::0::1::::SpawnConfig<>Resource<>::
+::res://resources/level_configs/::1742133410
+level_1.tres::Resource/LevelConfig::-1::1743192860::0::1::::<><>::res://resources/level_config.gd
+level_5.tres::Resource/LevelConfig::-1::1743192860::0::1::::<><>::res://resources/level_config.gd
+level_10.tres::Resource/LevelConfig::-1::1743192860::0::1::::<><>::res://resources/level_config.gd
+::res://resources/powerups/::1743094999
 berserker_gambit.gd::GDScript::-1::1736286833::0::1::::<>PowerupEffect<>::
 damage_boost.gd::GDScript::-1::1736286529::0::1::::<>PowerupEffect<>::
 dash_strike.gd::GDScript::-1::1736081360::0::1::::<>PowerupEffect<>::
-fire_trail.gd::GDScript::-1::1736087062::0::1::::<>PowerupEffect<>::
-fire_trail_effect.gd::GDScript::-1::1735645328::0::1::::<>Area2D<>::
+fire_trail.gd::GDScript::-1::1743094999::0::1::::<>PowerupEffect<>::
+fire_trail_effect.gd::GDScript::-1::1742936736::0::1::::<>Area2D<>::
 health_boost.gd::GDScript::-1::1736286529::0::1::::<>PowerupEffect<>::
 health_damage.gd::GDScript::-1::1735589166::0::1::::<>PowerupEffect<>::
 momentum_master.gd::GDScript::-1::1736110821::0::1::::<>PowerupEffect<>::
@@ -271,30 +277,28 @@ momentum_master.tscn::PackedScene::1279985256307479643::1736164314::0::1::::<><>
 perfect_guard.tscn::PackedScene::4737609203008935776::1736164314::0::1::::<><>::res://resources/powerups/perfect_guard.gd
 speed_demon.tscn::PackedScene::8818252210170708935::1736164314::0::1::::<><>::res://resources/powerups/speed_demon.gd
 time_slow_effect.tscn::PackedScene::-1::1735496103::0::1::::<><>::
-::res://scenes/::1741551806
+::res://scenes/::1743185232
 game_ui.tscn::PackedScene::-1::1736284230::0::1::::<><>::uid://dxvvlck8ew3f4::::res://ui/health_display.tscn<>uid://c8j6u8o3xv2k4::::res://ui/stamina_bar.tscn
-level_generator.gd::GDScript::-1::1737994615::0::1::::<>Node2D<>::
+level_generator.gd::GDScript::-1::1743181833::0::1::::<>Node2D<>::
 level_test.tscn::PackedScene::298589977467146263::1737558888::0::1::::<><>::res://scenes/level_test.gd
-level_transition_zone.gd::GDScript::-1::1737926131::0::1::::<>Area2D<>::
-level_transition_zone.tscn::PackedScene::4459025261111491692::1737898982::0::1::::<><>::res://scenes/level_transition_zone.gd
+level_transition_zone.gd::GDScript::-1::1742936736::0::1::::<>Area2D<>::
+level_transition_zone.tscn::PackedScene::4459025261111491692::1742133410::0::1::::<><>::res://scenes/level_transition_zone.gd
 procedural_level.tscn::PackedScene::5331360063461745267::1737560702::0::1::::<><>::res://scenes/procedural_level.gd<>uid://bepujd34sp2i1::::res://player/player.tscn
-testing.tscn::PackedScene::1516931938491384235::1741551806::0::1::::<><>::uid://cep2ia5jw0nf4::::res://background/bulutlu dağlar/sky_fc.png<>uid://djoorlgrr8ip4::::res://background/bulutlu dağlar/far_mountains_fc.png<>uid://blby4j74a2iaq::::res://background/bulutlu dağlar/grassy_mountains_fc.png<>uid://cq3piagq0rxws::::res://background/bulutlu dağlar/clouds_mid_fc.png<>uid://de7ouskihcyug::::res://background/bulutlu dağlar/clouds_front_fc.png<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://bepujd34sp2i1::::res://player/player.tscn<>uid://b4yfkqn1hqv8q::::res://enemy/heavy/heavy_enemy.tscn<>uid://dye3rnsr6hc0b::::res://enemy/summoner/summoner_enemy.tscn<>uid://c8q6y2g5x7n8m::::res://platforms/moving_platform.tscn<>uid://cd4slg1606llg::::res://enemy/hunter/hunter_enemy.tscn
-test_level.tscn::PackedScene::7123942500069652758::1741551806::0::1::::<><>::res://scenes/level_generator.gd<>uid://dsobemnkhgy1f::::res://resources/dungeon_config.tres
-unified_terrain.gd::GDScript::-1::1739058791::0::1::::UnifiedTerrain<>TileMap<>::
-::res://scripts/::1741444568
+testing.tscn::PackedScene::1516931938491384235::1743185232::0::1::::<><>::uid://cep2ia5jw0nf4::::res://background/bulutlu dağlar/sky_fc.png<>uid://djoorlgrr8ip4::::res://background/bulutlu dağlar/far_mountains_fc.png<>uid://blby4j74a2iaq::::res://background/bulutlu dağlar/grassy_mountains_fc.png<>uid://cq3piagq0rxws::::res://background/bulutlu dağlar/clouds_mid_fc.png<>uid://de7ouskihcyug::::res://background/bulutlu dağlar/clouds_front_fc.png<>uid://ci7v07sdxmrnf::::res://Tile set/Palace TileMap 1.png<>uid://bepujd34sp2i1::::res://player/player.tscn<>uid://b4yfkqn1hqv8q::::res://enemy/heavy/heavy_enemy.tscn<>uid://dye3rnsr6hc0b::::res://enemy/summoner/summoner_enemy.tscn<>uid://c8q6y2g5x7n8m::::res://platforms/moving_platform.tscn<>uid://cd4slg1606llg::::res://enemy/hunter/hunter_enemy.tscn
+test_level.tscn::PackedScene::7123942500069652758::1743185232::0::1::::<><>::res://scenes/level_generator.gd<>uid://dsobemnkhgy1f::::res://resources/dungeon_config.tres
 ::res://shaders/::1741444568
 circle.gdshader::Shader::-1::1735392284::0::1::::<><>::
 ::res://Tile set/::1737296573
 Palace TileMap 1.png::CompressedTexture2D::5401733615037310003::1737296573::1737296573::1::::<><>::
 tiles.png::CompressedTexture2D::1615905644627256761::1732919018::1735909258::1::::<><>::
-::res://ui/::1738261265
+::res://ui/::1742936736
 damage_number.gd::GDScript::-1::1735402728::0::1::::<>Node2D<>::
 damage_number.tscn::PackedScene::7124002985447393870::1735399229::0::1::::<><>::res://ui/damage_number.gd
 dev_console.gd::GDScript::-1::1735388431::0::1::::<>Control<>::
 dev_console.tscn::PackedScene::4737609203008935640::1735590173::0::1::::<><>::res://autoload/dev_console.gd
 enemy_health_bar.gd::GDScript::-1::1735399035::0::1::::<>Control<>::
 enemy_health_bar.tscn::PackedScene::4456948361187696206::1735399035::0::1::::<><>::res://ui/enemy_health_bar.gd
-gemini_test.gd::GDScript::-1::1735341764::0::1::::<>Node<>::
+gemini_test.gd::GDScript::-1::1742248242::0::1::::<>Node<>::
 gemini_test.tscn::PackedScene::572360002618233930::1734558791::0::1::::<><>::res://Ui/gemini_test.gd
 general_ui.tscn::PackedScene::5551069824532416199::1734558791::0::1::::<><>::
 health_display.gd::GDScript::-1::1738165065::0::1::::<>Control<>::
@@ -307,8 +311,8 @@ ResourceDisplay.gd::GDScript::-1::1735922925::0::1::::<>Control<>::
 ResourceDisplay.tscn::PackedScene::5426871933442946843::1734558791::0::1::::<><>::res://ui/ResourceDisplay.gd
 stamina_bar.gd::GDScript::-1::1736286530::0::1::::<>Control<>::
 stamina_bar.tscn::PackedScene::-1::1735586588::0::1::::<><>::res://ui/stamina_bar.gd
-::res://village level/::1735909231
-village.tscn::PackedScene::4551349859135392694::1735909231::0::1::::<><>::uid://cbkhjveigdnfn::::res://village level/tiles/terrain_tiles_v2.png<>uid://uais335ebdjd::::res://village level/tiles/assets_spritesheet_v2_free.png<>uid://h3h6mx748n3u::::res://village level/playervillage/playervillage.tscn<>res://village level/playervillage/playervillage.gd<>uid://bom3a27kvqase::::res://village level/village npc/kamil/Kamil_NPC.tscn<>res://Ui/gemini_test.gd<>uid://cea3iy15udslv::::res://village level/village npc/npc2/Npc2.tscn
+::res://village level/::1741810185
+village.tscn::PackedScene::4551349859135392694::1741810185::0::1::::<><>::uid://cbkhjveigdnfn::::res://village level/tiles/terrain_tiles_v2.png<>uid://uais335ebdjd::::res://village level/tiles/assets_spritesheet_v2_free.png<>uid://h3h6mx748n3u::::res://village level/playervillage/playervillage.tscn<>res://village level/playervillage/playervillage.gd<>uid://bom3a27kvqase::::res://village level/village npc/kamil/Kamil_NPC.tscn<>res://Ui/gemini_test.gd<>uid://cea3iy15udslv::::res://village level/village npc/npc2/Npc2.tscn
 ::res://village level/playervillage/::1735909231
 playervillage.gd::GDScript::-1::1735341764::0::1::::<>CharacterBody2D<>::
 playervillage.tscn::PackedScene::549605528445021080::1735909231::0::1::::<><>::uid://bx67qh5od3kbl::::res://village level/playervillage/sprite/ottovil_idle2border.png<>uid://bfrw2dou5nmy3::::res://village level/playervillage/sprite/ottovil_idle2_backborder.png<>uid://djdhm1b2r7eg5::::res://village level/playervillage/sprite/ottovil_idle2_side_leftborder.png<>uid://qwsu213downk::::res://village level/playervillage/sprite/ottovil_idle2_side_rightborder.png<>uid://bb0nubdg04sbs::::res://village level/playervillage/sprite/ottovil_walkborder.png<>uid://bu0d18eu2iq07::::res://village level/playervillage/sprite/ottovil_walk_backborder.png<>uid://dnhuu4hd722e1::::res://village level/playervillage/sprite/ottovil_walk_leftborder.png<>uid://cgqo6dywbu213::::res://village level/playervillage/sprite/ottovil_walk_rightborder.png

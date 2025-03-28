@@ -13,7 +13,7 @@ enum Direction {
 @export var debug_draw: bool = true
 
 # Base size and actual size calculations
-const BASE_SIZE = Vector2(1920, 1080)
+const BASE_SIZE = Vector2(1920, 1088)
 var size: Vector2:
 	get: return BASE_SIZE * Vector2(size_in_units)
 

@@ -16,8 +16,8 @@ enum Port {
 # Grid settings
 const GRID_WIDTH = 20
 const GRID_HEIGHT = 10
-const CHUNK_SIZE = Vector2(1920, 1080)  # Restored original chunk size
-const GRID_SPACING = Vector2(1920, 1080)  # Space between chunks
+const CHUNK_SIZE = Vector2(1920, 1088)  # Updated to be perfectly divisible by tile size (32x32)
+const GRID_SPACING = Vector2(1920, 1088)  # Space between chunks must match chunk size
 const MIN_CHUNKS = 30  # Increased minimum chunks for larger levels
 
 # Direction vectors for easy position calculations
@@ -216,9 +216,13 @@ var chunks_placed: int = 0
 var current_path: Array = []
 var overview_camera: Camera2D
 var is_overview_active: bool = true
+var start_positions: Array = []
+var finish_positions: Array = []
+var path_points: Array = []
+const max_consecutive_same_direction = 3
 
 @export var current_level: int = 1  # Current level number
-@export var level_config: LevelConfig  # Reference to our dungeon configuration resource
+@export var level_config: DungeonConfig  # Reference to our dungeon configuration resource
 
 var current_grid_width = 20  # This will be updated based on level
 var CHUNK_WEIGHTS = {
@@ -241,7 +245,9 @@ var player_camera_zoom_cache := Vector2.ONE  # Add this at the top with other va
 var is_transitioning: bool = false
 var transition_cooldown: float = 1.0
 
-var unified_terrain: UnifiedTerrain
+var chunk_cache: Dictionary = {}
+var BATCH_SIZE = 20  # Increased from 10 to 20
+var is_chunk_loading_async: bool = true
 
 class PathGenerator:
 	var astar := AStar2D.new()
@@ -391,10 +397,10 @@ signal level_completed
 signal level_started
 
 func _ready() -> void:
-	is_overview_active = true  # Start with overview camera
+	is_overview_active = true
 	setup_camera()
+	preload_chunks()
 	generate_level()
-	setup_level_transitions()
 
 func setup_camera() -> void:
 	overview_camera = Camera2D.new()
@@ -444,11 +450,6 @@ func clear_level() -> void:
 	var start_zone = get_node_or_null("StartZone")
 	var finish_zone = get_node_or_null("FinishZone")
 	
-	# Remove unified terrain if it exists
-	if unified_terrain:
-		unified_terrain.queue_free()
-		unified_terrain = null
-	
 	# Remove all chunks except the LevelGenerator itself, player, and zones
 	for child in get_children():
 		if child != overview_camera and child != stored_player and child != start_zone and child != finish_zone:
@@ -466,531 +467,664 @@ func clear_level() -> void:
 	if not stored_player:
 		player_camera_zoom_cache = player_camera_zoom
 
+func preload_chunks() -> void:
+	print("\nPreloading chunks...")
+	var start_time = Time.get_ticks_msec()
+	
+	for chunk_type in CHUNKS:
+		var scene = load(CHUNKS[chunk_type]["scene"])
+		if scene:
+			chunk_cache[chunk_type] = scene
+	
+	var end_time = Time.get_ticks_msec()
+	print("Chunk preloading completed in ", (end_time - start_time) / 1000.0, " seconds")
+
 func generate_level() -> void:
-	print("\nStarting level generation...")
+	var start_time = Time.get_ticks_msec()
+	print("\n=== STARTING LEVEL GENERATION ===")
+	print("Current level: ", current_level)
 	
-	if not level_config:
-		push_error("Level configuration not set!")
-		return
-	
-	# Clear previous level first
+	# Clear existing level
 	clear_level()
 	
-	# Update grid dimensions based on level
-	current_grid_width = level_config.get_length_for_level(current_level)
+	# Calculate grid width based on level
+	current_grid_width = GRID_WIDTH + (current_level - 1) * 2  # Increase width by 2 for each level
+	print("Grid width for level ", current_level, ": ", current_grid_width)
 	
-	# Initialize grid
-	grid = []
+	# Preload chunks if needed
+	if not is_chunk_loading_async:
+		preload_chunks()
+	
+	# Increment level counter
+	current_level += 1
+	
+	# Generate the layout first
+	print("\nGenerating level layout...")
+	if not generate_layout():
+		push_error("Failed to generate layout!")
+		return
+	print("Layout generation completed successfully")
+	
+	# Populate chunks
+	print("\nPopulating chunks...")
+	if not populate_chunks():
+		push_error("Failed to populate chunks!")
+		return
+	print("Chunk population completed successfully")
+	
+	# Process chunks in batches
+	print("\nProcessing chunks...")
+	var chunks_to_process = []
 	for x in range(current_grid_width):
-		grid.append([])
 		for y in range(GRID_HEIGHT):
-			grid[x].append(GridCell.new())
+			if grid[x][y].chunk:
+				chunks_to_process.append(grid[x][y].chunk)
 	
-	print("Level ", current_level, " - Grid size: ", current_grid_width, "x", GRID_HEIGHT)
+	var total_chunks = chunks_to_process.size()
+	var processed_chunks = 0
 	
-	if generate_layout():
-		if populate_chunks():
-			print("Level generated successfully!")
-			unify_terrain()  # New step
-			setup_level_transitions()
-			spawn_player()
-			return
+	print("Processing ", total_chunks, " chunks in batches of ", BATCH_SIZE)
+	while processed_chunks < total_chunks:
+		var batch_end = min(processed_chunks + BATCH_SIZE, total_chunks)
+		var batch = chunks_to_process.slice(processed_chunks, batch_end)
+		
+		# Process batch
+		for chunk in batch:
+			if chunk and chunk.has_meta("original_collision"):
+				var original_collision = chunk.get_meta("original_collision")
+				chunk.collision_layer = original_collision.layer
+				chunk.collision_mask = original_collision.mask
+		
+		processed_chunks = batch_end
+		print("Processed ", processed_chunks, " of ", total_chunks, " chunks")
+		
+		# Reduced delay between batches
+		await get_tree().create_timer(0.05).timeout
 	
-	print("Failed to generate level!")
+	print("Setting up level transitions...")
+	var transition_start = Time.get_ticks_msec()
+	setup_level_transitions()
+	var transition_end = Time.get_ticks_msec()
+	print("Level transitions setup completed in ", (transition_end - transition_start) / 1000.0, " seconds")
+	
+	print("Spawning player...")
+	var spawn_start = Time.get_ticks_msec()
+	spawn_player()
+	var spawn_end = Time.get_ticks_msec()
+	print("Player spawned in ", (spawn_end - spawn_start) / 1000.0, " seconds")
+	
+	var end_time = Time.get_ticks_msec()
+	print("Level generation completed in ", (end_time - start_time) / 1000.0, " seconds")
 
 func generate_layout() -> bool:
-	print("\nPhase 1: Generating abstract layout...")
+	print("\n=== PHASE 1: GENERATING ABSTRACT LAYOUT ===")
+	print("Grid dimensions: ", current_grid_width, "x", GRID_HEIGHT)
+	print("Current level: ", current_level)
 	
-	# Get level-specific values
-	var num_branches = level_config.get_num_branches_for_level(current_level)
-	var num_dead_ends = level_config.get_num_dead_ends_for_level(current_level)
+	# Initialize grid
+	print("\nInitializing grid...")
+	initialize_grid()
 	
-	# Initialize path generator
-	var path_gen = PathGenerator.new(current_grid_width, GRID_HEIGHT)
+	for x in range(current_grid_width):
+		for y in range(GRID_HEIGHT):
+			grid[x][y].cell_type = CellType.EMPTY
+			grid[x][y].visited = false
+			for dir in Direction.values():
+				grid[x][y].connections[dir] = false
+	print("Grid initialized with empty cells")
 	
-	# Set start and finish positions
+	# Set up start and finish positions
 	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
-	var finish_pos = Vector2i(current_grid_width - 2, GRID_HEIGHT / 2)
+	var finish_pos = Vector2i(current_grid_width - 1, GRID_HEIGHT / 2)
+	print("\nSetting up start and finish positions:")
+	print("Start position: ", start_pos)
+	print("Finish position: ", finish_pos)
 	
-	# Mark start and finish in grid
+	# Mark start position
 	grid[start_pos.x][start_pos.y].cell_type = CellType.MAIN_PATH
 	grid[start_pos.x][start_pos.y].visited = true
-	# Set start chunk connections (only right connection)
+	# Clear all connections first
 	for dir in Direction.values():
-		grid[start_pos.x][start_pos.y].connections[dir] = (dir == Direction.RIGHT)
+		grid[start_pos.x][start_pos.y].connections[dir] = false
+	# Only set right connection
+	grid[start_pos.x][start_pos.y].connections[Direction.RIGHT] = true
+	print("Start position marked as MAIN_PATH with RIGHT connection only")
 	
+	# Mark finish position
 	grid[finish_pos.x][finish_pos.y].cell_type = CellType.MAIN_PATH
 	grid[finish_pos.x][finish_pos.y].visited = true
-	
-	var all_paths = []
-	
-	# Generate main path with waypoints for more interesting routes
-	var waypoints = []
-	waypoints.append(start_pos)
-	
-	# Add 2-3 intermediate waypoints for main path
-	var num_waypoints = randi() % 2 + 2
-	for i in range(num_waypoints):
-		var x = start_pos.x + ((i + 1) * (finish_pos.x - start_pos.x)) / (num_waypoints + 1)
-		var y = GRID_HEIGHT / 2 + (randi() % 3 - 1)  # Less vertical variation
-		waypoints.append(Vector2i(x, y))
-	
-	# Ensure path returns to finish height gradually
-	var last_waypoint = waypoints[-1]
-	if abs(last_waypoint.y - finish_pos.y) > 0:
-		var pre_finish = Vector2i(finish_pos.x - 2, finish_pos.y)
-		waypoints.append(pre_finish)
-	waypoints.append(finish_pos)
-	
-	# Generate main path through waypoints
-	var main_path_points = []
-	for i in range(waypoints.size() - 1):
-		var path_segment = path_gen.astar.get_point_path(
-			path_gen._get_point_index(waypoints[i]),
-			path_gen._get_point_index(waypoints[i + 1])
-		)
-		
-		for j in range(path_segment.size() - (1 if i < waypoints.size() - 2 else 0)):
-			var grid_pos = Vector2i(path_segment[j].x, path_segment[j].y)
-			main_path_points.append(grid_pos)
-			grid[grid_pos.x][grid_pos.y].cell_type = CellType.MAIN_PATH
-			grid[grid_pos.x][grid_pos.y].visited = true
-	
-	# Set connections for main path
-	for i in range(main_path_points.size()):
-		var current = main_path_points[i]
-		
-		if i > 0:  # Connect to previous
-			var prev = main_path_points[i - 1]
-			var dir = get_direction_between(prev, current)
-			if is_valid_direction(dir):
-				grid[current.x][current.y].connections[get_opposite_direction(dir)] = true
-				grid[prev.x][prev.y].connections[dir] = true
-		
-		if i < main_path_points.size() - 1:  # Connect to next
-			var next = main_path_points[i + 1]
-			var dir = get_direction_between(current, next)
-			if is_valid_direction(dir):
-				grid[current.x][current.y].connections[dir] = true
-				grid[next.x][next.y].connections[get_opposite_direction(dir)] = true
-	
-	# Ensure finish chunk is properly connected
+	# Clear all connections first
 	for dir in Direction.values():
-		grid[finish_pos.x][finish_pos.y].connections[dir] = (dir == Direction.LEFT)  # Only left connection
+		grid[finish_pos.x][finish_pos.y].connections[dir] = false
+	# Only set left connection
+	grid[finish_pos.x][finish_pos.y].connections[Direction.LEFT] = true
+	print("Finish position marked as MAIN_PATH with LEFT connection only")
 	
-	# Ensure clean connection to finish
-	var pre_finish_pos = Vector2i(finish_pos.x - 1, finish_pos.y)
-	if is_valid_position(pre_finish_pos):
-		for dir in Direction.values():
-			grid[pre_finish_pos.x][pre_finish_pos.y].connections[dir] = (dir == Direction.LEFT or dir == Direction.RIGHT)  # Left and right connections only
+	# Calculate number of main paths based on level
+	var num_main_paths = 1 + (current_level - 1) / 4  # Every 4 levels, add a new path
+	print("\nGenerating ", num_main_paths, " main paths...")
 	
-	all_paths.append(main_path_points)
+	# Generate first path from start position
+	print("\nGenerating first path from start position")
+	generate_single_path(Vector2i(1, GRID_HEIGHT / 2), true)
 	
-	# Create branch points every 4 chunks along the main path, but not in the last third
-	var branch_start_positions = []
-	var last_third_start = main_path_points.size() * 2 / 3
-	for i in range(2, last_third_start, 4):
-		branch_start_positions.append(main_path_points[i])
-	
-	# Generate branches from each branch point
-	for branch_start in branch_start_positions:
-		# Skip if too close to finish
-		if abs(branch_start.x - finish_pos.x) < 6:
-			continue
-			
-		# Determine branch direction (up or down)
-		var branch_dir = Direction.UP if randf() < 0.5 else Direction.DOWN
-		var branch_length = randi() % 3 + 2  # 2-4 chunks
+	# Generate additional paths if needed
+	for i in range(1, num_main_paths):
+		print("\nGenerating additional path ", i + 1)
 		
-		# Create branch path
-		var current_branch_points = []
-		var current_pos = branch_start
-		current_branch_points.append(current_pos)
+		# Find a valid starting point
+		var valid_start_points = []
+		for x in range(1, current_grid_width - 1):
+			for y in range(1, GRID_HEIGHT - 1):
+				if grid[x][y].cell_type == CellType.MAIN_PATH:
+					# Check if this point has potential for a new path
+					var has_potential = false
+					for dir in Direction.values():
+						var next_pos = Vector2i(x, y) + DIRECTION_VECTORS[dir]
+						if is_valid_position(next_pos) and not grid[next_pos.x][next_pos.y].visited:
+							has_potential = true
+							break
+					if has_potential:
+						valid_start_points.append(Vector2i(x, y))
 		
-		# Move vertically
-		var can_continue = true
-		for _i in range(branch_length):
-			var next_pos = current_pos + DIRECTION_VECTORS[branch_dir]
-			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-				can_continue = false
-				break
-				
-			grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-			grid[next_pos.x][next_pos.y].visited = true
-			
-			# Set connections for both current and next positions
-			grid[current_pos.x][current_pos.y].connections[branch_dir] = true
-			grid[next_pos.x][next_pos.y].connections[get_opposite_direction(branch_dir)] = true
-			
-			# Clear any other connections for the next position
-			for dir in Direction.values():
-				if dir != get_opposite_direction(branch_dir):
-					grid[next_pos.x][next_pos.y].connections[dir] = false
-			
-			current_pos = next_pos
-			current_branch_points.append(current_pos)
-		
-		if not can_continue:
-						continue
-		
-		# Connect back to main path if not too close to finish
-		if current_pos.x < finish_pos.x - 5:
-			var rejoin_dir = get_opposite_direction(branch_dir)
-			if not is_valid_direction(rejoin_dir):
-				continue
-			
-			# Move horizontally towards main path
-			var rejoin_target_x = branch_start.x + randi() % 3 + 2  # Shorter horizontal segments (2-4 chunks)
-			while current_pos.x < rejoin_target_x and current_pos.x < finish_pos.x - 6:
-				var next_pos = current_pos + DIRECTION_VECTORS[Direction.RIGHT]
-				if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-					break
-				
-				grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-				grid[next_pos.x][next_pos.y].visited = true
-				
-				# Set horizontal connections
-				grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = true
-				grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = true
-				
-				# Clear any other connections for the next position
-				for dir in Direction.values():
-					if dir != Direction.LEFT:
-						grid[next_pos.x][next_pos.y].connections[dir] = false
-				
-				current_pos = next_pos
-				current_branch_points.append(current_pos)
-			
-			# Now try to rejoin with the main path
-			var can_rejoin = true
-			var rejoin_steps = 0
-			while rejoin_steps < 3:  # Limit vertical rejoining to 3 steps
-				var next_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-				if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-					can_rejoin = false
-					break
-				
-				grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-				grid[next_pos.x][next_pos.y].visited = true
-				
-				# Set vertical connections for rejoining
-				grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
-				grid[next_pos.x][next_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
-				
-				# Clear any other connections for the next position
-				for dir in Direction.values():
-					if dir != get_opposite_direction(rejoin_dir):
-						grid[next_pos.x][next_pos.y].connections[dir] = false
-				
-				current_pos = next_pos
-				current_branch_points.append(current_pos)
-				
-				# Check if we've reached a visited cell
-				var check_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-				if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].visited:
-					break
-				
-				rejoin_steps += 1
-			
-			if can_rejoin:
-				# Connect to main path
-				var main_path_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-				if is_valid_position(main_path_pos) and grid[main_path_pos.x][main_path_pos.y].visited:
-					grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
-					grid[main_path_pos.x][main_path_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
-					all_paths.append(current_branch_points)
-	
-	# Add some dead ends (but not near finish)
-	for _i in range(num_dead_ends):
-		# Start from middle points of paths
-		var source_path = all_paths[randi() % all_paths.size()]
-		if source_path.size() < 3:
-			continue
-			
-		var start_idx = randi() % (source_path.size() - 2) + 1
-		var dead_end_start = source_path[start_idx]
-		
-		# Skip if too close to finish
-		if abs(dead_end_start.x - finish_pos.x) < 5:
-			continue
-		
-		# Choose direction for dead end
-		var available_dirs = []
-		for dir in Direction.values():
-			var next_pos = dead_end_start + DIRECTION_VECTORS[dir]
-			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-				continue
-				
-			# Check if the current position can support a connection in this direction
-			var can_connect = true
-			if grid[dead_end_start.x][dead_end_start.y].chunk:
-				var current_chunk_type = get_chunk_type(grid[dead_end_start.x][dead_end_start.y].chunk)
-				if not current_chunk_type.is_empty():
-					var current_ports = CHUNKS[current_chunk_type]["ports"]
-					if current_ports[dir] != Port.OPEN:
-						can_connect = false
-			
-			if can_connect:
-				available_dirs.append(dir)
-		
-		if available_dirs.is_empty():
-			continue
-			
-		var dead_end_dir = available_dirs[randi() % available_dirs.size()]
-		var current_pos = dead_end_start
-		
-		# Create dead end path
-		var dead_end_length = randi() % 2 + 1  # 1-2 chunks
-		var dead_end_start_pos = current_pos  # Remember where we started
-		var next_pos = current_pos + DIRECTION_VECTORS[dead_end_dir]
-		
-		if is_valid_position(next_pos) and not grid[next_pos.x][next_pos.y].visited:
-			grid[next_pos.x][next_pos.y].cell_type = CellType.DEAD_END
-			grid[next_pos.x][next_pos.y].visited = true
-			
-			# Set up connections for the dead end
-			var opposite_dir = get_opposite_direction(dead_end_dir)
-			if is_valid_direction(opposite_dir):
-				# Set connection from dead end back to previous cell
-				grid[next_pos.x][next_pos.y].connections[opposite_dir] = true
-				# Set connection from previous cell to dead end
-				grid[current_pos.x][current_pos.y].connections[dead_end_dir] = true
-				
-				# Clear any other connections for both cells
-				for dir in Direction.values():
-					if dir != opposite_dir:
-						grid[next_pos.x][next_pos.y].connections[dir] = false
-					if dir != dead_end_dir and current_pos != dead_end_start_pos:  # Don't clear other connections for the starting cell
-						grid[current_pos.x][current_pos.y].connections[dir] = false
-				
-				# For vertical connections, ensure proper alignment
-				if dead_end_dir == Direction.UP or dead_end_dir == Direction.DOWN:
-					# Clear horizontal connections on both cells
-					grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = false
-					grid[next_pos.x][next_pos.y].connections[Direction.RIGHT] = false
-					if current_pos != dead_end_start_pos:
-						grid[current_pos.x][current_pos.y].connections[Direction.LEFT] = false
-						grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = false
+		if not valid_start_points.is_empty():
+			var start_point = valid_start_points[randi() % valid_start_points.size()]
+			print("Selected start point for additional path: ", start_point)
+			generate_single_path(start_point, false)
+		else:
+			print("No valid start points found for additional path")
 	
 	return true
 
-func populate_chunks() -> bool:
-	print("\nPhase 2: Populating with actual chunks...")
+func generate_single_path(start_pos: Vector2i, is_first_path: bool) -> void:
+	var current_pos = start_pos
+	var path_segments = 0
+	var vertical_moves = 0
+	var horizontal_moves = 0
+	var last_direction = Direction.RIGHT
+	var consecutive_same_direction = 0
 	
-	# 1. Place start chunk first
-	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
-	if not place_chunk(start_pos, "start"):
-		print("Failed to place start chunk")
-		return false
+	# Add start position to path if it's the first path
+	if is_first_path:
+		path_points.clear()
+		path_points.append(Vector2i(0, GRID_HEIGHT / 2))
+		# Ensure start chunk is connected to first path segment
+		grid[0][GRID_HEIGHT / 2].connections[Direction.RIGHT] = true
+		grid[1][GRID_HEIGHT / 2].connections[Direction.LEFT] = true
+		print("Connecting start chunk to first path segment")
 	
-	# 2. Place finish chunk
-	var finish_pos = Vector2i(current_grid_width - 2, GRID_HEIGHT / 2)
-	if not place_chunk(finish_pos, "finish"):
-		print("Failed to place finish chunk")
-		return false
+	print("Starting path generation from position: ", current_pos)
+	
+	# Mark the starting position
+	grid[current_pos.x][current_pos.y].cell_type = CellType.MAIN_PATH
+	grid[current_pos.x][current_pos.y].visited = true
+	
+	while current_pos.x < current_grid_width - 1:
+		path_segments += 1
+		print("Path segment ", path_segments, ": ")
 		
-	# 3. Place main path chunks
-	for x in range(current_grid_width):
-		for y in range(GRID_HEIGHT):
-			var pos = Vector2i(x, y)
-			if grid[x][y].visited and not grid[x][y].chunk and grid[x][y].cell_type == CellType.MAIN_PATH:
-				var cell = grid[x][y]
-				var chunk_type = select_appropriate_chunk(pos, cell)
-				if chunk_type.is_empty() or not place_chunk(pos, chunk_type):
-					print("Failed to place main path chunk at ", pos)
-					return false
+		# Determine next direction based on current state
+		var next_direction = select_next_direction(
+			current_pos,
+			last_direction,
+			consecutive_same_direction,
+			vertical_moves,
+			horizontal_moves
+		)
+		
+		# Calculate potential next position
+		var next_pos = current_pos + get_direction_vector(next_direction)
+		print("Attempting ", get_direction_name(next_direction), " movement")
+		print("Potential next position: ", next_pos)
+		
+		# Validate position
+		if is_valid_position(next_pos):
+			# Check if this would create a diagonal connection
+			if not would_create_diagonal(current_pos, next_pos):
+				print("Valid position found, moving to: ", next_pos)
+				# Set connections
+				grid[current_pos.x][current_pos.y].connections[next_direction] = true
+				grid[next_pos.x][next_pos.y].connections[get_opposite_direction(next_direction)] = true
+				print("Setting connection from ", current_pos, " to ", next_pos, " in direction ", next_direction)
+				print("Setting connection from ", next_pos, " to ", current_pos, " in direction ", get_opposite_direction(next_direction))
+				
+				# Mark both positions as main path
+				grid[current_pos.x][current_pos.y].cell_type = CellType.MAIN_PATH
+				grid[current_pos.x][current_pos.y].visited = true
+				grid[next_pos.x][next_pos.y].cell_type = CellType.MAIN_PATH
+				grid[next_pos.x][next_pos.y].visited = true
+				
+				# Update path points
+				path_points.append(next_pos)
+				
+				# Update movement counters
+				if next_direction == Direction.UP or next_direction == Direction.DOWN:
+					vertical_moves += 1
+				else:
+					horizontal_moves += 1
+				
+				# Update consecutive direction tracking
+				if next_direction == last_direction:
+					consecutive_same_direction += 1
+				else:
+					consecutive_same_direction = 0
+					last_direction = next_direction
+				
+				current_pos = next_pos
+				continue
+			else:
+				print("Diagonal connection would be created, trying alternative direction")
+				# Try alternative directions
+				var alternative_directions = [Direction.RIGHT, Direction.UP, Direction.DOWN]
+				alternative_directions.erase(next_direction)
+				var found_valid = false
+				
+				for alt_dir in alternative_directions:
+					var alt_pos = current_pos + get_direction_vector(alt_dir)
+					if is_valid_position(alt_pos) and not would_create_diagonal(current_pos, alt_pos):
+						next_direction = alt_dir
+						next_pos = alt_pos
+						found_valid = true
+						break
+				
+				if not found_valid:
+					print("No valid alternative direction found, defaulting to right movement")
+					next_pos = Vector2i(current_pos.x + 1, current_pos.y)
+		else:
+			print("Invalid position, trying alternative direction")
+			# Try alternative directions
+			var alternative_directions = [Direction.RIGHT, Direction.UP, Direction.DOWN]
+			alternative_directions.erase(next_direction)
+			var found_valid = false
+			
+			for alt_dir in alternative_directions:
+				var alt_pos = current_pos + get_direction_vector(alt_dir)
+				if is_valid_position(alt_pos) and not would_create_diagonal(current_pos, alt_pos):
+					next_direction = alt_dir
+					next_pos = alt_pos
+					found_valid = true
+					break
+				
+			if not found_valid:
+				print("No valid alternative direction found, defaulting to right movement")
+				next_pos = Vector2i(current_pos.x + 1, current_pos.y)
+				
+		# Handle movement to next position
+		grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = true
+		grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = true
+		print("Setting connection from ", current_pos, " to ", next_pos, " in direction 1")
+		print("Setting connection from ", next_pos, " to ", current_pos, " in direction 0")
+		
+		# Mark both positions as main path
+		grid[current_pos.x][current_pos.y].cell_type = CellType.MAIN_PATH
+		grid[current_pos.x][current_pos.y].visited = true
+		grid[next_pos.x][next_pos.y].cell_type = CellType.MAIN_PATH
+		grid[next_pos.x][next_pos.y].visited = true
+		
+		path_points.append(next_pos)
+		horizontal_moves += 1
+		consecutive_same_direction = 0
+		last_direction = Direction.RIGHT
+		current_pos = next_pos
 	
-	# 4. Place branch points and branch paths
-	for x in range(current_grid_width):
-		for y in range(GRID_HEIGHT):
-			var pos = Vector2i(x, y)
-			if grid[x][y].visited and not grid[x][y].chunk and \
-			   (grid[x][y].cell_type == CellType.BRANCH_POINT or grid[x][y].cell_type == CellType.BRANCH_PATH):
-				var cell = grid[x][y]
-				var chunk_type = select_appropriate_chunk(pos, cell)
-				if chunk_type.is_empty() or not place_chunk(pos, chunk_type):
-					print("Failed to place branch chunk at ", pos)
-					return false
+	print("\nMain path generation completed:")
+	print("Total path segments: ", path_segments)
+	print("Path points: ", path_points)
 	
-	# 5. Place dead ends
-	for x in range(current_grid_width):
-		for y in range(GRID_HEIGHT):
-			var pos = Vector2i(x, y)
-			if grid[x][y].visited and not grid[x][y].chunk and grid[x][y].cell_type == CellType.DEAD_END:
-				var cell = grid[x][y]
-				
-				# Find the single required connection
-				var connection_dir = -1
-				var connection_count = 0
-				for dir in Direction.values():
-					if cell.connections[dir]:
-						connection_dir = dir
-						connection_count += 1
-				
-				# Dead ends should only have one connection
-				if connection_count != 1:
-					print("Dead end at ", pos, " has incorrect number of connections: ", connection_count)
-					continue
-				
-				# Select appropriate dead end based on connection direction
-				var chunk_type = ""
-				match connection_dir:
-					Direction.LEFT:
-						chunk_type = "dead_end_right"  # LEFT connection needed, use dead end with RIGHT port closed
-					Direction.RIGHT:
-						chunk_type = "dead_end_left"   # RIGHT connection needed, use dead end with LEFT port closed
-					Direction.UP:
-						chunk_type = "dead_end_down"   # UP connection needed, use dead end with DOWN port closed
-					Direction.DOWN:
-						chunk_type = "dead_end_up"     # DOWN connection needed, use dead end with UP port closed
-					_:
-						print("Invalid connection direction for dead end at ", pos)
-						continue
-				
-				# Check if the connection is valid with neighboring chunk
-				var check_pos = pos + DIRECTION_VECTORS[connection_dir]
-				if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].chunk:
-					var neighbor_type = get_chunk_type(grid[check_pos.x][check_pos.y].chunk)
-					if not neighbor_type.is_empty():
-						var neighbor_ports = CHUNKS[neighbor_type]["ports"]
-						var opposite_dir = get_opposite_direction(connection_dir)
-						
-						# For vertical connections, ensure proper port alignment
-						if connection_dir == Direction.UP or connection_dir == Direction.DOWN:
-							if neighbor_ports[opposite_dir] != Port.OPEN:
-								print("Cannot connect dead end at ", pos, " to neighbor in direction ", connection_dir)
-								continue
-						else:
-							# For horizontal connections, check as before
-							if neighbor_ports[opposite_dir] != Port.OPEN:
-								print("Cannot connect dead end at ", pos, " to neighbor in direction ", connection_dir)
-								continue
-				
-				if not place_chunk(pos, chunk_type):
-					print("Failed to place dead end at ", pos)
-					continue  # Skip this dead end and try others
+	# Connect final path segment to finish position
+	if not path_points.is_empty():
+		var final_pos = path_points[-1]
+		var finish_pos = Vector2i(current_grid_width - 1, GRID_HEIGHT / 2)
+		grid[final_pos.x][final_pos.y].connections[Direction.RIGHT] = true
+		grid[finish_pos.x][finish_pos.y].connections[Direction.LEFT] = true
+		print("\nConnecting final path segment to finish position")
+		print("Final connection established from ", final_pos, " to ", finish_pos)
 	
-	return true  # Return true if we've made it through all placements
+	# Generate branches
+	print("\nGenerating branches...")
+	var num_branches = min(3, current_grid_width / 5)  # Scale branches with level size
+	print("Target number of branches: ", num_branches)
+	var branch_points = []
+	
+	# Find potential branch points
+	for i in range(1, path_points.size() - 1):
+		var point = path_points[i]
+		if point.x > 1 and point.x < current_grid_width - 2:  # Avoid branching near start/finish
+			branch_points.append(point)
+	print("Found ", branch_points.size(), " potential branch points")
+	
+	# Create branches
+	var branches_created = 0
+	for _i in range(num_branches):
+		if branch_points.is_empty():
+			print("No more valid branch points available")
+			break
+		
+		var branch_start_idx = randi() % branch_points.size()
+		var branch_start = branch_points[branch_start_idx]
+		branch_points.remove_at(branch_start_idx)
+		print("\nCreating branch ", branches_created + 1, " from point: ", branch_start)
+		
+		# Determine branch direction (up or down)
+		var branch_direction = Direction.UP if randi() % 2 == 0 else Direction.DOWN
+		var branch_length = randi() % 3 + 2  # 2-4 segments
+		print("Branch direction: ", branch_direction, ", Target length: ", branch_length)
+		
+		var branch_pos = branch_start
+		var actual_length = 0
+		for _j in range(branch_length):
+			var next_pos = branch_pos + DIRECTION_VECTORS[branch_direction]
+			print("Attempting to extend branch to: ", next_pos)
+			
+			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+				print("Invalid or occupied position, stopping branch")
+				break
+			
+			# Set up branch connections
+			grid[branch_pos.x][branch_pos.y].connections[branch_direction] = true
+			grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
+			grid[next_pos.x][next_pos.y].visited = true
+			grid[next_pos.x][next_pos.y].connections[get_opposite_direction(branch_direction)] = true
+			print("Branch connection established from ", branch_pos, " to ", next_pos)
+			
+			branch_pos = next_pos
+			actual_length += 1
+		
+		# Mark end of branch as dead end
+		grid[branch_pos.x][branch_pos.y].cell_type = CellType.DEAD_END
+		print("Branch completed with length ", actual_length, ", marked as dead end at ", branch_pos)
+		branches_created += 1
+	
+	print("\nBranch generation completed:")
+	print("Total branches created: ", branches_created)
+	
+	# Print final grid state
+	print("\nFinal grid state:")
+	for y in range(GRID_HEIGHT):
+		var row = ""
+		for x in range(current_grid_width):
+			if grid[x][y].cell_type == CellType.EMPTY:
+				row += "."
+			elif grid[x][y].cell_type == CellType.MAIN_PATH:
+				row += "M"
+			elif grid[x][y].cell_type == CellType.BRANCH_PATH:
+				row += "B"
+			elif grid[x][y].cell_type == CellType.DEAD_END:
+				row += "D"
+		print(row)
+	
+	print("\nLayout generation completed successfully")
 
-func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
-	# Get required connections based on surrounding cells
-	var required_connections = [false, false, false, false]  # [LEFT, RIGHT, UP, DOWN]
+func populate_chunks() -> bool:
+	print("\n=== PHASE 2: POPULATING CHUNKS ===")
 	
-	# First check existing connections in the grid cell
+	# Create a list of positions to process
+	var positions_to_process = []
+	for x in range(current_grid_width):
+		for y in range(GRID_HEIGHT):
+			if grid[x][y].visited:
+				positions_to_process.append(Vector2i(x, y))
+	
+	print("\nFound ", positions_to_process.size(), " positions to process")
+	
+	# Sort positions from left to right
+	positions_to_process.sort_custom(func(a, b): return a.x < b.x)
+	print("Positions sorted from left to right")
+	
+	# Process each position
+	var chunks_placed = 0
+	for pos in positions_to_process:
+		print("\n=== Processing position: ", pos, " ===")
+		
+		# Skip if already has a chunk
+		if grid[pos.x][pos.y].chunk != null:
+			print("Position already has a chunk, skipping...")
+			continue
+		
+		# Get cell data
+		var cell = grid[pos.x][pos.y]
+		print("Cell type: ", cell.cell_type)
+		print("Connections: ", cell.connections)
+		
+		# Handle special cases first
+		var chunk_type = ""
+		if pos.x == 0:  # Leftmost column
+			chunk_type = "start"
+			print("Special case: Start chunk (leftmost column)")
+		elif pos.x == current_grid_width - 1:  # Rightmost column
+			chunk_type = "finish"
+			print("Special case: Finish chunk (rightmost column)")
+		elif cell.cell_type == CellType.DEAD_END and cell.connections.count(true) == 1:  # Only handle dead ends with exactly one connection
+			# Determine dead end type based on connections
+			if cell.connections[Direction.LEFT]:
+				chunk_type = "dead_end_right"
+			elif cell.connections[Direction.RIGHT]:
+				chunk_type = "dead_end_left"
+			elif cell.connections[Direction.UP]:
+				chunk_type = "dead_end_down"
+			elif cell.connections[Direction.DOWN]:
+				chunk_type = "dead_end_up"
+			print("Special case: Dead end chunk (", chunk_type, ")")
+		
+		# If no special case, select appropriate chunk
+		if chunk_type.is_empty():
+			print("No special case, selecting appropriate chunk based on connections...")
+			chunk_type = select_appropriate_chunk(cell)
+			print("Selected chunk type: ", chunk_type)
+		
+		# Validate chunk selection
+		if chunk_type.is_empty():
+			push_error("Failed to select appropriate chunk for position " + str(pos))
+			return false
+		
+		# Create chunk instance
+		print("\nCreating chunk instance...")
+		var chunk_scene = load(CHUNKS[chunk_type]["scene"])
+		if chunk_scene == null:
+			push_error("Failed to load chunk scene: " + CHUNKS[chunk_type]["scene"])
+			return false
+		print("Chunk scene loaded successfully")
+		
+		var chunk_instance = chunk_scene.instantiate()
+		if chunk_instance == null:
+			push_error("Failed to instantiate chunk scene")
+			return false
+		print("Chunk instance created successfully")
+		
+		# Position the chunk
+		var world_pos = Vector2(pos.x * GRID_SPACING.x, pos.y * GRID_SPACING.y)
+		chunk_instance.position = world_pos
+		print("Chunk positioned at world coordinates: ", world_pos)
+		
+		# Add chunk to grid and scene
+		grid[pos.x][pos.y].chunk = chunk_instance
+		add_child(chunk_instance)
+		chunks_placed += 1
+		print("Chunk added to grid and scene tree")
+		
+		# Validate connections for this chunk
+		print("\nValidating connections for chunk at ", pos)
+		if not validate_connections(pos, chunk_type):
+			push_error("Connection validation failed for chunk at " + str(pos))
+			return false
+		print("Connection validation successful")
+	
+	print("\n=== Chunk Population Summary ===")
+	print("Total chunks placed: ", chunks_placed)
+	print("Total positions processed: ", positions_to_process.size())
+	
+	# Print final chunk placement visualization
+	print("\nFinal chunk placement visualization:")
+	for y in range(GRID_HEIGHT):
+		var row = ""
+		for x in range(current_grid_width):
+			if grid[x][y].chunk == null:
+				row += "."
+			else:
+				var chunk_type = get_chunk_type(grid[x][y].chunk)
+				match chunk_type:
+					"start": row += "S"
+					"finish": row += "F"
+					"dead_end_up": row += "U"
+					"dead_end_down": row += "D"
+					"dead_end_left": row += "L"
+					"dead_end_right": row += "R"
+					"basic": row += "B"
+					"vertical": row += "V"
+					"corner_left_up": row += "1"
+					"corner_right_up": row += "2"
+					"corner_left_down": row += "3"
+					"corner_right_down": row += "4"
+					"t_junction_up": row += "5"
+					"t_junction_down": row += "6"
+					"t_junction_left": row += "7"
+					"t_junction_right": row += "8"
+					"four_way_hub": row += "9"
+					_: row += "?"
+		print(row)
+	
+	print("\nChunk population completed successfully")
+	return true
+
+func select_appropriate_chunk(cell: GridCell) -> String:
+	# Count total connections
+	var connection_count = 0
 	for dir in Direction.values():
 		if cell.connections[dir]:
-			required_connections[dir] = true
-	
-	print("Required connections: ", required_connections)
-	
-	# Count total required connections
-	var connection_count = 0
-	for required in required_connections:
-		if required:
 			connection_count += 1
 	
-	# Handle four-connection case first (four-way hub)
-	if connection_count == 4:
-		return "four_way_hub"
+	print("Selecting chunk with ", connection_count, " connections")
 	
-	# Handle single connection case (dead ends)
-	if connection_count == 1:
-		if required_connections[Direction.LEFT]:
-			return "dead_end_right"
-		if required_connections[Direction.RIGHT]:
-			return "dead_end_left"
-		if required_connections[Direction.UP]:
-			return "dead_end_down"
-		if required_connections[Direction.DOWN]:
-			return "dead_end_up"
+	# Handle different connection counts
+	match connection_count:
+		1:  # Dead end
+			if cell.connections[Direction.LEFT]:
+				return "dead_end_right"
+			elif cell.connections[Direction.RIGHT]:
+				return "dead_end_left"
+			elif cell.connections[Direction.UP]:
+				return "dead_end_down"
+			elif cell.connections[Direction.DOWN]:
+				return "dead_end_up"
 	
-	# Handle two-connection cases with corners
-	if connection_count == 2:
-		if required_connections[Direction.RIGHT] and required_connections[Direction.UP]:
-			return "corner_right_up"
-		if required_connections[Direction.RIGHT] and required_connections[Direction.DOWN]:
-			return "corner_right_down"
-		if required_connections[Direction.LEFT] and required_connections[Direction.UP]:
-			return "corner_left_up"
-		if required_connections[Direction.LEFT] and required_connections[Direction.DOWN]:
-			return "corner_left_down"
-		if required_connections[Direction.UP] and required_connections[Direction.DOWN]:
-			return "vertical"
-		if required_connections[Direction.LEFT] and required_connections[Direction.RIGHT]:
-			return "basic" if randf() < 0.7 else "combat"  # Favor basic platforms slightly more
-	
-	# Handle three-connection cases (T-junctions)
-	if connection_count == 3:
-		var t_junctions = []
-		if required_connections[Direction.LEFT] and required_connections[Direction.RIGHT] and required_connections[Direction.UP]:
-			t_junctions.append("t_junction_down")   # DOWN is closed, others open
-		if required_connections[Direction.LEFT] and required_connections[Direction.RIGHT] and required_connections[Direction.DOWN]:
-			t_junctions.append("t_junction_up")     # UP is closed, others open
-		if required_connections[Direction.LEFT] and required_connections[Direction.UP] and required_connections[Direction.DOWN]:
-			t_junctions.append("t_junction_right")  # RIGHT is closed, others open
-		if required_connections[Direction.RIGHT] and required_connections[Direction.UP] and required_connections[Direction.DOWN]:
-			t_junctions.append("t_junction_left")   # LEFT is closed, others open
+		2:  # Basic path or corner
+			if cell.connections[Direction.LEFT] and cell.connections[Direction.RIGHT]:
+				return "basic"
+			elif cell.connections[Direction.UP] and cell.connections[Direction.DOWN]:
+				return "vertical"
+			elif cell.connections[Direction.LEFT] and cell.connections[Direction.UP]:
+				return "corner_left_up"
+			elif cell.connections[Direction.RIGHT] and cell.connections[Direction.UP]:
+				return "corner_right_up"
+			elif cell.connections[Direction.LEFT] and cell.connections[Direction.DOWN]:
+				return "corner_left_down"
+			elif cell.connections[Direction.RIGHT] and cell.connections[Direction.DOWN]:
+				return "corner_right_down"
 		
-		# If we have valid T-junctions, randomly select one
-		if not t_junctions.is_empty():
-			# Add some randomness to prefer different directions
-			var rand = randf()
-			if rand < 0.4:  # 40% chance to use a vertical junction (up/down)
-				var vertical_junctions = t_junctions.filter(func(j): return j in ["t_junction_up", "t_junction_down"])
-				if not vertical_junctions.is_empty():
-					return vertical_junctions[randi() % vertical_junctions.size()]
-			elif rand < 0.7:  # 30% chance to use a horizontal junction (left/right)
-				var horizontal_junctions = t_junctions.filter(func(j): return j in ["t_junction_left", "t_junction_right"])
-				if not horizontal_junctions.is_empty():
-					return horizontal_junctions[randi() % horizontal_junctions.size()]
-			
-			# If preferred direction not found or remaining 30% chance, use any valid junction
-			return t_junctions[randi() % t_junctions.size()]
-	
-	# For any other case, find a chunk that matches the required connections exactly
-	var valid_chunks = []
-	for chunk_type in CHUNKS:
-		# Skip special chunks (handled separately)
-		if chunk_type in ["start", "finish"]:
-			continue
+		3:  # T-junction
+			if not cell.connections[Direction.LEFT]:
+				return "t_junction_left"
+			elif not cell.connections[Direction.RIGHT]:
+				return "t_junction_right"
+			elif not cell.connections[Direction.UP]:
+				return "t_junction_up"
+			elif not cell.connections[Direction.DOWN]:
+				return "t_junction_down"
 		
-		# Ensure chunk type exists in both dictionaries
-		if not CHUNK_WEIGHTS.has(chunk_type):
-			continue
-			
-		var ports = CHUNKS[chunk_type]["ports"]
-		var is_valid = true
-		
-		# Check each direction
-		for dir in Direction.values():
-			# If a connection is required, the port must be open
-			if required_connections[dir] and ports[dir] != Port.OPEN:
-					is_valid = false
-					break
-		
-		if is_valid:
-			valid_chunks.append(chunk_type)
+		4:  # Four-way intersection
+			return "four_way_hub"
 	
-	print("Valid chunks: ", valid_chunks)
-	
-	# If no valid chunks found, return empty string
-	if valid_chunks.is_empty():
-		return ""
+	# If no match found, use basic chunk as fallback
+	print("Warning: No specific chunk type found, using basic as fallback")
+	return "basic"
 
-	# Use weighted selection
-	var total_weight = 0
-	for chunk in valid_chunks:
-		total_weight += CHUNK_WEIGHTS[chunk]
+func validate_connections(pos: Vector2i, chunk_type: String) -> bool:
+	print("\n=== Validating connections for ", chunk_type, " at position ", pos, " ===")
 	
-	var random_weight = randi() % total_weight
-	var current_weight = 0
+	# Get the ports configuration for the chunk type
+	var ports = CHUNKS[chunk_type]["ports"]
+	print("\nChunk ports configuration:")
+	for dir in Direction.values():
+		print("Direction ", dir, ": ", ports[dir])
+		
+	# Special handling for start and finish chunks
+	if chunk_type == "start":
+		print("\nValidating start chunk connections...")
+		# Start chunks should only have right connection
+		for dir in Direction.values():
+			if dir == Direction.RIGHT:
+				if not grid[pos.x][pos.y].connections[dir]:
+					print("ERROR: Start chunk missing required RIGHT connection")
+					return false
+				print("✓ RIGHT connection validated")
+			else:
+				if grid[pos.x][pos.y].connections[dir]:
+					print("ERROR: Start chunk has invalid connection in direction ", dir)
+					return false
+				print("✓ No connection in direction ", dir, " (valid)")
+		print("Start chunk validation successful!")
+		return true
 	
-	for chunk in valid_chunks:
-		current_weight += CHUNK_WEIGHTS[chunk]
-		if random_weight < current_weight:
-			return chunk
+	if chunk_type == "finish":
+		print("\nValidating finish chunk connections...")
+		# Finish chunks should only have left connection
+		for dir in Direction.values():
+			if dir == Direction.LEFT:
+				if not grid[pos.x][pos.y].connections[dir]:
+					print("ERROR: Finish chunk missing required LEFT connection")
+					return false
+				print("✓ LEFT connection validated")
+			else:
+				if grid[pos.x][pos.y].connections[dir]:
+					print("ERROR: Finish chunk has invalid connection in direction ", dir)
+					return false
+				print("✓ No connection in direction ", dir, " (valid)")
+		print("Finish chunk validation successful!")
+		return true
 	
-	return valid_chunks[0]  # Fallback
+	# Check each direction
+	print("\nValidating connections in each direction...")
+	for dir in Direction.values():
+		var neighbor_pos = pos + DIRECTION_VECTORS[dir]
+		var has_connection = grid[pos.x][pos.y].connections[dir]
+		var port_state = ports[dir]
+		
+		print("\nDirection ", dir, ":")
+		print("- Has connection: ", has_connection)
+		print("- Port state: ", port_state)
+		print("- Neighbor position: ", neighbor_pos)
+		
+		if has_connection:
+			# If we have a connection, the port must be open
+			if port_state != Port.OPEN:
+				print("ERROR: Connection exists but port is closed")
+				return false
+			print("✓ Port is open (valid)")
+			
+			# Check if the neighbor exists and has a matching connection
+			if is_valid_position(neighbor_pos):
+				var opposite_dir = get_opposite_direction(dir)
+				if grid[neighbor_pos.x][neighbor_pos.y].visited:
+					if not grid[neighbor_pos.x][neighbor_pos.y].connections[opposite_dir]:
+						print("ERROR: Missing matching connection at neighbor position")
+						print("Current connections: ", grid[pos.x][pos.y].connections)
+						print("Neighbor connections: ", grid[neighbor_pos.x][neighbor_pos.y].connections)
+						return false
+					print("✓ Matching connection found at neighbor")
+				else:
+					print("WARNING: Neighbor position is not visited")
+			else:
+				print("ERROR: Connection leads outside grid")
+				return false
+		else:
+			# If we don't have a connection, the port must be closed
+			if port_state != Port.CLOSED:
+				print("ERROR: No connection but port is open")
+				return false
+			print("✓ Port is closed (valid)")
+	
+	print("\nAll connections validated successfully!")
+	return true
 
 func is_valid_position(pos: Vector2i) -> bool:
 	return pos.x >= 0 and pos.x < current_grid_width and pos.y >= 0 and pos.y < GRID_HEIGHT
@@ -1012,38 +1146,30 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 		print("Invalid position for chunk placement")
 		return false
 	
-	# Don't place if there's already a chunk here
 	if grid[pos.x][pos.y].chunk != null:
 		print("Chunk already exists at position")
 		return false
 	
-	# Get the ports for this chunk type
 	var ports = CHUNKS[chunk_type]["ports"]
 	print("Chunk ports configuration:", ports)
 	
-	# First verify that the chunk's ports match the required connections
-	for dir in Direction.values():
-		if grid[pos.x][pos.y].connections[dir] and ports[dir] != Port.OPEN:
-			print("Port mismatch at direction", dir)
-			return false
-	
-	var scene = load(CHUNKS[chunk_type]["scene"])
-	if not scene:
-		print("Failed to load chunk scene:", CHUNKS[chunk_type]["scene"])
+	# Validate connections before placing the chunk
+	if not validate_connections(pos, chunk_type):
+		print("Connection validation failed, cannot place chunk")
 		return false
 	
-	var chunk = scene.instantiate()
-	
-	# Suppress tilemap errors by disabling error printing temporarily
-	var prev_error_prints = ProjectSettings.get_setting("debug/settings/gdscript/warnings/unassigned_variable_op_assign", true)
-	ProjectSettings.set_setting("debug/settings/gdscript/warnings/unassigned_variable_op_assign", false)
+	var chunk
+	if chunk_cache.has(chunk_type):
+		chunk = chunk_cache[chunk_type].instantiate()
+	else:
+		var scene = load(CHUNKS[chunk_type]["scene"])
+		if not scene:
+			print("Failed to load chunk scene:", CHUNKS[chunk_type]["scene"])
+			return false
+		chunk = scene.instantiate()
 	
 	add_child(chunk)
 	chunk.position = grid_to_world(pos)
-	
-	# Restore error printing
-	ProjectSettings.set_setting("debug/settings/gdscript/warnings/unassigned_variable_op_assign", prev_error_prints)
-	
 	grid[pos.x][pos.y].chunk = chunk
 	
 	print("Successfully placed", chunk_type, "at", pos)
@@ -1078,37 +1204,62 @@ func set_grid_connection(pos: Vector2i, dir: int, value: bool) -> void:
 	grid[pos.x][pos.y].connections[dir] = value
 
 func spawn_player() -> void:
-	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
-	var start_chunk = grid[start_pos.x][start_pos.y].chunk
+	print("\n=== Spawning Player ===")
 	
-	if start_chunk:
-		var player = get_node_or_null("Player")
-		
-		if not player:
-			# Only create a new player if one doesn't exist
-			var player_scene = load("res://player/player.tscn")
-			if player_scene:
-				player = player_scene.instantiate()
-				player.name = "Player"
-				add_child(player)
-		else:
-			# If player exists, move it to the top of the scene tree
-			remove_child(player)
-			add_child(player)
-		
-		# Move existing or new player to start position
-		player.position = start_chunk.position + Vector2(200, 400)
-		print("Player moved to:", player.position)
-		
-		# Set up player camera
-		if player.has_node("Camera2D"):
-			var player_camera = player.get_node("Camera2D")
-			player_camera.enabled = true
-			
-			if not is_overview_active:
-				player_camera.make_current()
-			else:
-				overview_camera.make_current()
+	# Find start position
+	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
+	print("Start position: ", start_pos)
+	
+	# Find start chunk
+	var start_chunk = grid[start_pos.x][start_pos.y].chunk
+	if start_chunk == null:
+		push_error("No start chunk found at position " + str(start_pos))
+		return
+	print("Found start chunk at position: ", start_pos)
+	
+	# Get spawn point from start chunk
+	var spawn_point = start_chunk.get_node_or_null("SpawnPoint")
+	if spawn_point == null:
+		push_error("No spawn point found in start chunk")
+		return
+	print("Found spawn point in start chunk")
+	
+	# Get player scene
+	var player_scene = preload("res://player/player.tscn")
+	if player_scene == null:
+		push_error("Failed to load player scene")
+		return
+	print("Player scene loaded successfully")
+	
+	# Create player instance
+	var player = player_scene.instantiate()
+	if player == null:
+		push_error("Failed to instantiate player scene")
+		return
+	print("Player instance created successfully")
+	
+	# Add player to scene
+	add_child(player)
+	print("Player added to scene tree")
+	
+	# Position player at spawn point
+	player.global_position = spawn_point.global_position
+	print("Player positioned at: ", player.global_position)
+	
+	# Enable player camera
+	var camera = player.get_node_or_null("Camera2D")
+	if camera != null:
+		camera.enabled = true
+		print("Player camera enabled")
+	else:
+		push_warning("No camera found in player scene")
+	
+	# Ensure player is in the correct group for enemies to find it
+	if not player.is_in_group("player"):
+		player.add_to_group("player")
+		print("Added player to 'player' group")
+	
+	print("Player spawn completed successfully")
 
 func is_valid_direction(dir: int) -> bool:
 	return dir >= 0 and dir < 4  # Since we have 4 directions (LEFT=0, RIGHT=1, UP=2, DOWN=3)
@@ -1128,95 +1279,179 @@ func get_direction_between(from: Vector2i, to: Vector2i) -> Direction:
 func setup_level_transitions() -> void:
 	print("\nSetting up level transitions...")
 	
-	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
-	var finish_pos = Vector2i(current_grid_width - 2, GRID_HEIGHT / 2)
+	# Handle start zones
+	for i in range(start_positions.size()):
+		var start_pos = start_positions[i]
+		print("Setting up start zone at position:", start_pos)
+		
+		if grid[start_pos.x][start_pos.y].chunk:
+			print("Found start chunk, setting up start zone")
+			var start_zone = get_node_or_null("StartZone" + str(i))
+			
+			if not start_zone:
+				# Only create if it doesn't exist
+				print("Creating new start zone")
+				start_zone = preload("res://scenes/level_transition_zone.tscn").instantiate()
+				start_zone.name = "StartZone" + str(i)
+				start_zone.zone_type = "Start"
+				start_zone.player_entered.connect(_on_zone_entered)
+				add_child(start_zone)
+			
+			# Move existing or new start zone to correct position
+			start_zone.reparent(grid[start_pos.x][start_pos.y].chunk)
+			start_zone.position = Vector2(200, 400)
+			print("Start zone positioned at:", start_zone.position)
+		else:
+			print("WARNING: Start chunk not found at position", start_pos)
 	
-	print("Start position:", start_pos)
-	print("Finish position:", finish_pos)
-	
-	# Handle start zone
-	if grid[start_pos.x][start_pos.y].chunk:
-		print("Found start chunk, setting up start zone")
-		var start_zone = get_node_or_null("StartZone")
+	# Handle finish zones
+	for i in range(finish_positions.size()):
+		var finish_pos = finish_positions[i]
+		print("Setting up finish zone at position:", finish_pos)
 		
-		if not start_zone:
-			# Only create if it doesn't exist
-			print("Creating new start zone")
-			start_zone = preload("res://scenes/level_transition_zone.tscn").instantiate()
-			start_zone.name = "StartZone"
-			start_zone.zone_type = "Start"
-			start_zone.player_entered.connect(_on_zone_entered)
-			add_child(start_zone)
-		
-		# Move existing or new start zone to correct position
-		start_zone.reparent(grid[start_pos.x][start_pos.y].chunk)
-		start_zone.position = Vector2(200, 400)
-		print("Start zone positioned at:", start_zone.position)
-	else:
-		print("WARNING: Start chunk not found at position", start_pos)
-	
-	# Handle finish zone
-	if grid[finish_pos.x][finish_pos.y].chunk:
-		print("Found finish chunk, setting up finish zone")
-		var finish_zone = get_node_or_null("FinishZone")
-		
-		if not finish_zone:
-			# Only create if it doesn't exist
-			print("Creating new finish zone")
-			finish_zone = preload("res://scenes/level_transition_zone.tscn").instantiate()
-			finish_zone.name = "FinishZone"
-			finish_zone.zone_type = "Finish"
-			finish_zone.player_entered.connect(_on_zone_entered)
-			add_child(finish_zone)
-		
-		# Move existing or new finish zone to correct position
-		finish_zone.reparent(grid[finish_pos.x][finish_pos.y].chunk)
-		finish_zone.position = Vector2(1400, 400)  # Changed to x=1400
-		print("Finish zone positioned at:", finish_zone.position)
-	else:
-		print("ERROR: No chunk found at finish position", finish_pos)
+		if grid[finish_pos.x][finish_pos.y].chunk:
+			print("Found finish chunk, setting up finish zone")
+			var finish_zone = get_node_or_null("FinishZone" + str(i))
+			
+			if not finish_zone:
+				# Only create if it doesn't exist
+				print("Creating new finish zone")
+				finish_zone = preload("res://scenes/level_transition_zone.tscn").instantiate()
+				finish_zone.name = "FinishZone" + str(i)
+				finish_zone.zone_type = "Finish"
+				finish_zone.player_entered.connect(_on_zone_entered)
+				add_child(finish_zone)
+			
+			# Move existing or new finish zone to correct position
+			finish_zone.reparent(grid[finish_pos.x][finish_pos.y].chunk)
+			finish_zone.position = Vector2(1400, 400)  # Changed to x=1400
+			print("Finish zone positioned at:", finish_zone.position)
+		else:
+			print("ERROR: No chunk found at finish position", finish_pos)
 
 func _on_zone_entered(zone_type: String) -> void:
 	if is_transitioning:
 		return
 		
-	print("Zone entered: ", zone_type)  # Debug print
+	print("Zone entered: ", zone_type)
+	
+	# Add cooldown check to prevent duplicate signals
+	var current_time = Time.get_ticks_msec()
+	if not has_meta("last_zone_time") or current_time - get_meta("last_zone_time") > 1000:
+		set_meta("last_zone_time", current_time)
+		
 	if zone_type == "Start":
-		print("Emitting level_started signal")  # Debug print
+		print("Emitting level_started signal")
 		level_started.emit()
 	elif zone_type == "Finish":
-		print("Emitting level_completed signal")  # Debug print
+		print("Emitting level_completed signal")
 		is_transitioning = true
 		level_completed.emit()
 		current_level += 1
-		generate_level()  # Generate new level
 		
-		# Reset transition flag after cooldown
-		var timer = get_tree().create_timer(transition_cooldown)
-		timer.timeout.connect(func(): is_transitioning = false)
-		# Player will be automatically spawned at the start of new level
+		var start_time = Time.get_ticks_msec()
+		print("Starting level generation...")
+		
+		generate_level()
+		
+		var end_time = Time.get_ticks_msec()
+		print("Level generation completed in ", (end_time - start_time) / 1000.0, " seconds")
+	
+	# Reset transition flag after cooldown
+	var timer = get_tree().create_timer(transition_cooldown)
+	timer.timeout.connect(func(): is_transitioning = false)
 
-func unify_terrain() -> void:
-	print("\nPhase 3: Unifying terrain...")
+func validate_all_connections() -> bool:
+	print("\nValidating all chunk connections...")
 	
-	# Create new unified terrain
-	unified_terrain = UnifiedTerrain.new()
-	add_child(unified_terrain)
-	
-	# Collect all chunks
-	var chunks = []
 	for x in range(current_grid_width):
 		for y in range(GRID_HEIGHT):
+			var pos = Vector2i(x, y)
 			if grid[x][y].chunk:
-				chunks.append(grid[x][y].chunk)
+				var chunk_type = get_chunk_type(grid[x][y].chunk)
+				if not chunk_type.is_empty():
+					if not validate_connections(pos, chunk_type):
+						print("Connection validation failed at position ", pos)
+						return false
 	
-	# Process chunks in the unified terrain
-	unified_terrain.unify_chunks(chunks)
+	print("All connections validated successfully!")
+	return true
+
+func select_next_direction(current_pos: Vector2i, last_direction: int, consecutive_same_direction: int, vertical_moves: int, horizontal_moves: int) -> int:
+	# Calculate movement ratio
+	var total_moves = vertical_moves + horizontal_moves
+	var vertical_ratio = 0.0
+	if total_moves > 0:
+		vertical_ratio = float(vertical_moves) / total_moves
 	
-	# Hide original tilemaps
-	for chunk in chunks:
-		var chunk_map = chunk.get_node("TileMap")
-		if chunk_map:
-			chunk_map.visible = false
+	# Define direction weights
+	var weights = {
+		Direction.LEFT: 0.0,  # Never go left in main path
+		Direction.RIGHT: 1.0,
+		Direction.UP: 0.5,
+		Direction.DOWN: 0.5
+	}
 	
-	print("Terrain unification complete!")
+	# Adjust weights based on current state
+	if consecutive_same_direction >= max_consecutive_same_direction:
+		# Reduce weight of current direction
+		weights[last_direction] *= 0.5
+	
+	# Adjust vertical movement weights based on ratio
+	if vertical_ratio < 0.3:  # Too few vertical moves
+		weights[Direction.UP] *= 1.5
+		weights[Direction.DOWN] *= 1.5
+	elif vertical_ratio > 0.7:  # Too many vertical moves
+		weights[Direction.RIGHT] *= 1.5
+	
+	# Adjust weights based on position
+	if current_pos.y < 2:  # Near top
+		weights[Direction.UP] *= 0.5
+	if current_pos.y > GRID_HEIGHT - 3:  # Near bottom
+		weights[Direction.DOWN] *= 0.5
+	
+	# Select direction based on weights
+	var total_weight = 0.0
+	for weight in weights.values():
+		total_weight += weight
+	
+	var random_value = randf() * total_weight
+	var current_sum = 0.0
+	
+	for direction in weights.keys():
+		current_sum += weights[direction]
+		if random_value <= current_sum:
+			return direction
+	
+	return Direction.RIGHT  # Default to right if something goes wrong
+
+func would_create_diagonal(from_pos: Vector2i, to_pos: Vector2i) -> bool:
+	# Check if the move would create a diagonal connection
+	var dx = to_pos.x - from_pos.x
+	var dy = to_pos.y - from_pos.y
+	
+	# If both x and y change, it's a diagonal move
+	return abs(dx) > 0 and abs(dy) > 0
+
+func get_direction_name(direction: int) -> String:
+	match direction:
+		Direction.LEFT: return "left"
+		Direction.RIGHT: return "right"
+		Direction.UP: return "up"
+		Direction.DOWN: return "down"
+		_: return "unknown"
+
+func get_direction_vector(direction: int) -> Vector2i:
+	match direction:
+		Direction.LEFT: return Vector2i(-1, 0)
+		Direction.RIGHT: return Vector2i(1, 0)
+		Direction.UP: return Vector2i(0, -1)
+		Direction.DOWN: return Vector2i(0, 1)
+		_: return Vector2i(1, 0)  # Default to right
+
+func initialize_grid() -> void:
+	grid.clear()
+	for x in range(current_grid_width):
+		grid.append([])
+		for y in range(GRID_HEIGHT):
+			grid[x].append(GridCell.new())
