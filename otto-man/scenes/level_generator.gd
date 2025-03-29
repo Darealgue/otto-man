@@ -16,8 +16,8 @@ enum Port {
 # Grid settings
 const GRID_WIDTH = 20
 const GRID_HEIGHT = 10
-const CHUNK_SIZE = Vector2(1920, 1080)  # Restored original chunk size
-const GRID_SPACING = Vector2(1920, 1080)  # Space between chunks
+const CHUNK_SIZE = Vector2(1920, 1088)  # Updated height to be divisible by 16
+const GRID_SPACING = Vector2(1920, 1088)  # Updated spacing to match chunk size
 const MIN_CHUNKS = 30  # Increased minimum chunks for larger levels
 
 # Direction vectors for easy position calculations
@@ -31,7 +31,7 @@ const DIRECTION_VECTORS = {
 # Chunk definitions with their port configurations
 const CHUNKS = {
 	"start": {
-		"scene": "res://chunks/dungeon/special/start_chunk.tscn",
+		"scenes": ["res://chunks/dungeon/special/start_chunk.tscn"],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -39,8 +39,21 @@ const CHUNKS = {
 			Direction.DOWN: Port.CLOSED
 		}
 	},
+	"finish": {
+		"scenes": ["res://chunks/dungeon/special/finish_chunk.tscn"],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.CLOSED,
+			Direction.UP: Port.CLOSED,
+			Direction.DOWN: Port.CLOSED
+		}
+	},
 	"basic": {
-		"scene": "res://chunks/dungeon/basic/basic_platform.tscn",
+		"scenes": [
+			"res://chunks/dungeon/basic/basic_platform.tscn",
+			"res://chunks/dungeon/basic/basic_platform1.tscn",
+			"res://chunks/dungeon/basic/basic_platform2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -49,7 +62,7 @@ const CHUNKS = {
 		}
 	},
 	"combat": {
-		"scene": "res://chunks/dungeon/special/combat_arena.tscn",
+		"scenes": ["res://chunks/dungeon/special/combat_arena.tscn"],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -57,35 +70,38 @@ const CHUNKS = {
 			Direction.DOWN: Port.CLOSED
 		}
 	},
-	"vertical": {
-		"scene": "res://chunks/dungeon/vertical/climbing_tower.tscn",
+	"corner_right_down": {
+		"scenes": [
+			"res://chunks/dungeon/hub/l_corner_right_down.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down1.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
-			Direction.RIGHT: Port.CLOSED,
-			Direction.UP: Port.OPEN,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.CLOSED,
 			Direction.DOWN: Port.OPEN
 		}
 	},
 	"corner_left_up": {
-		"scene": "res://chunks/dungeon/hub/l_corner_left_up.tscn",
+		"scenes": [
+			"res://chunks/dungeon/hub/l_corner_left_up.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up1.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
-			Direction.UP: Port.OPEN,
-			Direction.DOWN: Port.CLOSED
-		}
-	},
-	"corner_right_up": {
-		"scene": "res://chunks/dungeon/hub/l_corner_right_up.tscn",
-		"ports": {
-			Direction.LEFT: Port.CLOSED,
-			Direction.RIGHT: Port.OPEN,
 			Direction.UP: Port.OPEN,
 			Direction.DOWN: Port.CLOSED
 		}
 	},
 	"corner_left_down": {
-		"scene": "res://chunks/dungeon/hub/l_corner_left_down.tscn",
+		"scenes": [
+			"res://chunks/dungeon/hub/l_corner_left_down.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down1.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -93,35 +109,25 @@ const CHUNKS = {
 			Direction.DOWN: Port.OPEN
 		}
 	},
-	"corner_right_down": {
-		"scene": "res://chunks/dungeon/hub/l_corner_right_down.tscn",
+	"corner_right_up": {
+		"scenes": [
+			"res://chunks/dungeon/hub/l_corner_right_up.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up1.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
-			Direction.RIGHT: Port.OPEN,
-			Direction.UP: Port.CLOSED,
-			Direction.DOWN: Port.OPEN
-		}
-	},
-	"t_junction_down": {
-		"scene": "res://chunks/dungeon/hub/t_junction_down.tscn",
-		"ports": {
-			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
 			Direction.UP: Port.OPEN,
 			Direction.DOWN: Port.CLOSED
 		}
 	},
-	"t_junction_up": {
-		"scene": "res://chunks/dungeon/hub/t_junction_up.tscn",
-		"ports": {
-			Direction.LEFT: Port.OPEN,
-			Direction.RIGHT: Port.OPEN,
-			Direction.UP: Port.CLOSED,
-			Direction.DOWN: Port.OPEN
-		}
-	},
 	"t_junction_right": {
-		"scene": "res://chunks/dungeon/hub/t_junction_right.tscn",
+		"scenes": [
+			"res://chunks/dungeon/hub/t_junction_right.tscn",
+			"res://chunks/dungeon/hub/t_junction_right1.tscn",
+			"res://chunks/dungeon/hub/t_junction_right2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -130,7 +136,11 @@ const CHUNKS = {
 		}
 	},
 	"t_junction_left": {
-		"scene": "res://chunks/dungeon/hub/t_junction_left.tscn",
+		"scenes": [
+			"res://chunks/dungeon/hub/t_junction_left.tscn",
+			"res://chunks/dungeon/hub/t_junction_left1.tscn",
+			"res://chunks/dungeon/hub/t_junction_left2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -138,26 +148,69 @@ const CHUNKS = {
 			Direction.DOWN: Port.OPEN
 		}
 	},
-	"four_way_hub": {
-		"scene": "res://chunks/dungeon/hub/four_way_hub.tscn",
+	"t_junction_up": {
+		"scenes": [
+			"res://chunks/dungeon/hub/t_junction_up.tscn",
+			"res://chunks/dungeon/hub/t_junction_up1.tscn",
+			"res://chunks/dungeon/hub/t_junction_up2.tscn"
+		],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.CLOSED,
+			Direction.DOWN: Port.OPEN
+		}
+	},
+	"t_junction_down": {
+		"scenes": [
+			"res://chunks/dungeon/hub/t_junction_down.tscn",
+			"res://chunks/dungeon/hub/t_junction_down1.tscn",
+			"res://chunks/dungeon/hub/t_junction_down2.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
 			Direction.UP: Port.OPEN,
-			Direction.DOWN: Port.OPEN
-		}
-	},
-	"finish": {
-		"scene": "res://chunks/dungeon/special/finish_chunk.tscn",
-		"ports": {
-			Direction.LEFT: Port.OPEN,
-			Direction.RIGHT: Port.CLOSED,
-			Direction.UP: Port.CLOSED,
 			Direction.DOWN: Port.CLOSED
 		}
 	},
+	"four_way_hub": {
+		"scenes": [
+			"res://chunks/dungeon/hub/four_way_hub.tscn",
+			"res://chunks/dungeon/hub/four_way_hub1.tscn",
+			"res://chunks/dungeon/hub/four_way_hub2.tscn"
+		],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.OPEN,
+			Direction.DOWN: Port.OPEN
+		}
+	},
+	"vertical": {
+		"scenes": [
+			"res://chunks/dungeon/vertical/climbing_tower.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower1.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower2.tscn"
+		],
+		"ports": {
+			Direction.LEFT: Port.CLOSED,
+			Direction.RIGHT: Port.CLOSED,
+			Direction.UP: Port.OPEN,
+			Direction.DOWN: Port.OPEN
+		}
+	},
 	"dead_end_up": {
-		"scene": "res://chunks/dungeon/special/dead_end_up.tscn",
+		"scenes": ["res://chunks/dungeon/special/dead_end_up.tscn"],
+		"ports": {
+			Direction.LEFT: Port.CLOSED,
+			Direction.RIGHT: Port.CLOSED,
+			Direction.UP: Port.OPEN,
+			Direction.DOWN: Port.CLOSED
+		}
+	},
+	"dead_end_down": {
+		"scenes": ["res://chunks/dungeon/special/dead_end_down.tscn"],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.CLOSED,
@@ -165,31 +218,58 @@ const CHUNKS = {
 			Direction.DOWN: Port.OPEN
 		}
 	},
-	"dead_end_down": {
-		"scene": "res://chunks/dungeon/special/dead_end_down.tscn",
+	"dead_end_left": {
+		"scenes": ["res://chunks/dungeon/special/dead_end_left.tscn"],
 		"ports": {
-			Direction.LEFT: Port.CLOSED,
+			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
-			Direction.UP: Port.OPEN,
+			Direction.UP: Port.CLOSED,
 			Direction.DOWN: Port.CLOSED
 		}
 	},
 	"dead_end_right": {
-		"scene": "res://chunks/dungeon/special/dead_end_right.tscn",
-		"ports": {
-			Direction.LEFT: Port.OPEN,
-			Direction.RIGHT: Port.CLOSED,
-			Direction.UP: Port.CLOSED,
-			Direction.DOWN: Port.CLOSED
-		}
-	},
-	"dead_end_left": {
-		"scene": "res://chunks/dungeon/special/dead_end_left.tscn",
+		"scenes": ["res://chunks/dungeon/special/dead_end_right.tscn"],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
 			Direction.UP: Port.CLOSED,
 			Direction.DOWN: Port.CLOSED
+		}
+	},
+	"treasure_room": {
+		"scenes": ["res://chunks/dungeon/special/treasure_room.tscn"],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.OPEN,
+			Direction.DOWN: Port.OPEN
+		}
+	},
+	"challenge_room": {
+		"scenes": ["res://chunks/dungeon/special/challenge_room.tscn"],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.OPEN,
+			Direction.DOWN: Port.OPEN
+		}
+	},
+	"boss_arena": {
+		"scenes": ["res://chunks/dungeon/special/boss_arena.tscn"],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.OPEN,
+			Direction.DOWN: Port.OPEN
+		}
+	},
+	"full": {
+		"scenes": ["res://chunks/dungeon/special/full.tscn"],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.OPEN,
+			Direction.DOWN: Port.OPEN
 		}
 	}
 }
@@ -952,32 +1032,24 @@ func is_valid_tile_coord(x: int, y: int) -> bool:
 	return false
 
 func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
-	print("\nAttempting to place chunk:", chunk_type, "at position:", pos)
-	if not is_valid_position(pos):
-		print("Invalid position for chunk placement")
+	print("\nAttempting to place chunk:" + chunk_type + "at position:" + str(pos))
+	
+	if not CHUNKS.has(chunk_type):
+		print("Invalid chunk type:", chunk_type)
 		return false
 	
-	# Don't place if there's already a chunk here
-	if grid[pos.x][pos.y].chunk != null:
-		print("Chunk already exists at position")
+	var chunk_data = CHUNKS[chunk_type]
+	var scene_path = chunk_data["scenes"][randi() % chunk_data["scenes"].size()]
+	var chunk_scene = load(scene_path)
+	
+	if not chunk_scene:
+		print("Failed to load chunk scene:", scene_path)
 		return false
 	
-	# Get the ports for this chunk type
-	var ports = CHUNKS[chunk_type]["ports"]
-	print("Chunk ports configuration:", ports)
-	
-	# First verify that the chunk's ports match the required connections
-	for dir in Direction.values():
-		if grid[pos.x][pos.y].connections[dir] and ports[dir] != Port.OPEN:
-			print("Port mismatch at direction", dir)
-			return false
-	
-	var scene = load(CHUNKS[chunk_type]["scene"])
-	if not scene:
-		print("Failed to load chunk scene:", CHUNKS[chunk_type]["scene"])
+	var chunk = chunk_scene.instantiate()
+	if not chunk:
+		print("Failed to instantiate chunk:", chunk_type)
 		return false
-	
-	var chunk = scene.instantiate()
 	
 	# Suppress tilemap errors by disabling error printing temporarily
 	var prev_error_prints = ProjectSettings.get_setting("debug/settings/gdscript/warnings/unassigned_variable_op_assign", true)
@@ -999,7 +1071,7 @@ func get_chunk_type(chunk: Node) -> String:
 		return ""
 	
 	for type in CHUNKS:
-		if chunk.scene_file_path == CHUNKS[type]["scene"]:
+		if chunk.scene_file_path == CHUNKS[type]["scenes"][0]:
 			return type
 	
 	return ""
