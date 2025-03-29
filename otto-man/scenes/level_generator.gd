@@ -31,7 +31,7 @@ const DIRECTION_VECTORS = {
 # Chunk definitions with their port configurations
 const CHUNKS = {
 	"start": {
-		"scene": "res://chunks/special/start_chunk.tscn",
+		"scene": "res://chunks/dungeon/special/start_chunk.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -40,7 +40,7 @@ const CHUNKS = {
 		}
 	},
 	"basic": {
-		"scene": "res://chunks/basic/basic_platform.tscn",
+		"scene": "res://chunks/dungeon/basic/basic_platform.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -49,7 +49,7 @@ const CHUNKS = {
 		}
 	},
 	"combat": {
-		"scene": "res://chunks/special/combat_arena.tscn",
+		"scene": "res://chunks/dungeon/special/combat_arena.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -58,7 +58,7 @@ const CHUNKS = {
 		}
 	},
 	"vertical": {
-		"scene": "res://chunks/vertical/climbing_tower.tscn",
+		"scene": "res://chunks/dungeon/vertical/climbing_tower.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.CLOSED,
@@ -67,7 +67,7 @@ const CHUNKS = {
 		}
 	},
 	"corner_left_up": {
-		"scene": "res://chunks/hub/l_corner_left_up.tscn",
+		"scene": "res://chunks/dungeon/hub/l_corner_left_up.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -76,7 +76,7 @@ const CHUNKS = {
 		}
 	},
 	"corner_right_up": {
-		"scene": "res://chunks/hub/l_corner_right_up.tscn",
+		"scene": "res://chunks/dungeon/hub/l_corner_right_up.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -85,7 +85,7 @@ const CHUNKS = {
 		}
 	},
 	"corner_left_down": {
-		"scene": "res://chunks/hub/l_corner_left_down.tscn",
+		"scene": "res://chunks/dungeon/hub/l_corner_left_down.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -94,7 +94,7 @@ const CHUNKS = {
 		}
 	},
 	"corner_right_down": {
-		"scene": "res://chunks/hub/l_corner_right_down.tscn",
+		"scene": "res://chunks/dungeon/hub/l_corner_right_down.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -103,7 +103,7 @@ const CHUNKS = {
 		}
 	},
 	"t_junction_down": {
-		"scene": "res://chunks/hub/t_junction_down.tscn",
+		"scene": "res://chunks/dungeon/hub/t_junction_down.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -112,7 +112,7 @@ const CHUNKS = {
 		}
 	},
 	"t_junction_up": {
-		"scene": "res://chunks/hub/t_junction_up.tscn",
+		"scene": "res://chunks/dungeon/hub/t_junction_up.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -121,7 +121,7 @@ const CHUNKS = {
 		}
 	},
 	"t_junction_right": {
-		"scene": "res://chunks/hub/t_junction_right.tscn",
+		"scene": "res://chunks/dungeon/hub/t_junction_right.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -130,7 +130,7 @@ const CHUNKS = {
 		}
 	},
 	"t_junction_left": {
-		"scene": "res://chunks/hub/t_junction_left.tscn",
+		"scene": "res://chunks/dungeon/hub/t_junction_left.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -139,7 +139,7 @@ const CHUNKS = {
 		}
 	},
 	"four_way_hub": {
-		"scene": "res://chunks/hub/four_way_hub.tscn",
+		"scene": "res://chunks/dungeon/hub/four_way_hub.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -148,7 +148,7 @@ const CHUNKS = {
 		}
 	},
 	"finish": {
-		"scene": "res://chunks/special/finish_chunk.tscn",
+		"scene": "res://chunks/dungeon/special/finish_chunk.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -157,7 +157,7 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_up": {
-		"scene": "res://chunks/special/dead_end_up.tscn",
+		"scene": "res://chunks/dungeon/special/dead_end_up.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.CLOSED,
@@ -166,7 +166,7 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_down": {
-		"scene": "res://chunks/special/dead_end_down.tscn",
+		"scene": "res://chunks/dungeon/special/dead_end_down.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.CLOSED,
@@ -175,7 +175,7 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_right": {
-		"scene": "res://chunks/special/dead_end_right.tscn",
+		"scene": "res://chunks/dungeon/special/dead_end_right.tscn",
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -184,7 +184,7 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_left": {
-		"scene": "res://chunks/special/dead_end_left.tscn",
+		"scene": "res://chunks/dungeon/special/dead_end_left.tscn",
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -504,35 +504,135 @@ func generate_layout() -> bool:
 	# Get level-specific values
 	var num_branches = level_config.get_num_branches_for_level(current_level)
 	var num_dead_ends = level_config.get_num_dead_ends_for_level(current_level)
+	var num_main_paths = level_config.get_num_main_paths_for_level(current_level)
 	
 	# Initialize path generator
 	var path_gen = PathGenerator.new(current_grid_width, GRID_HEIGHT)
 	
-	# Set start and finish positions
+	# Set start position
 	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
-	var finish_pos = Vector2i(current_grid_width - 2, GRID_HEIGHT / 2)
 	
-	# Mark start and finish in grid
+	# Set up start position with proper connections
 	grid[start_pos.x][start_pos.y].cell_type = CellType.MAIN_PATH
 	grid[start_pos.x][start_pos.y].visited = true
 	# Set start chunk connections (only right connection)
 	for dir in Direction.values():
 		grid[start_pos.x][start_pos.y].connections[dir] = (dir == Direction.RIGHT)
 	
+	# Randomize finish position with more vertical variation
+	var finish_y = GRID_HEIGHT / 2 + (randi() % 5 - 2)  # -2 to +2 from center
+	var finish_pos = Vector2i(current_grid_width - 2, finish_y)
+	
+	# Set up finish position with proper connections
 	grid[finish_pos.x][finish_pos.y].cell_type = CellType.MAIN_PATH
 	grid[finish_pos.x][finish_pos.y].visited = true
+	# Set finish chunk connections (only left connection)
+	for dir in Direction.values():
+		grid[finish_pos.x][finish_pos.y].connections[dir] = (dir == Direction.LEFT)
+	
+	# Ensure the cell before finish has a right connection
+	var pre_finish_pos = Vector2i(finish_pos.x - 1, finish_pos.y)
+	if is_valid_position(pre_finish_pos):
+		grid[pre_finish_pos.x][pre_finish_pos.y].cell_type = CellType.MAIN_PATH
+		grid[pre_finish_pos.x][pre_finish_pos.y].visited = true
+		grid[pre_finish_pos.x][pre_finish_pos.y].connections[Direction.RIGHT] = true
+		grid[pre_finish_pos.x][pre_finish_pos.y].connections[Direction.LEFT] = false
+		grid[pre_finish_pos.x][pre_finish_pos.y].connections[Direction.UP] = false
+		grid[pre_finish_pos.x][pre_finish_pos.y].connections[Direction.DOWN] = false
 	
 	var all_paths = []
 	
-	# Generate main path with waypoints for more interesting routes
+	# Generate first main path (always from start)
+	var first_path = generate_main_path(start_pos, finish_pos, path_gen)
+	if first_path.is_empty():
+		return false
+	all_paths.append(first_path)
+	
+	# Generate additional main paths if needed
+	for i in range(1, num_main_paths):
+		# Find a suitable starting point from the first path
+		var branch_point = find_suitable_branch_point(first_path)
+		if branch_point == null:
+			continue
+			
+		# Generate a new finish position with more vertical variation
+		var new_finish_x = current_grid_width - 2 - (i * 2)  # Space paths apart
+		var new_finish_y = GRID_HEIGHT / 2 + (randi() % 5 - 2)  # More vertical variation
+		var new_finish_pos = Vector2i(new_finish_x, new_finish_y)
+		
+		# Set up connections for the new finish position
+		grid[new_finish_pos.x][new_finish_pos.y].cell_type = CellType.MAIN_PATH
+		grid[new_finish_pos.x][new_finish_pos.y].visited = true
+		for dir in Direction.values():
+			grid[new_finish_pos.x][new_finish_pos.y].connections[dir] = (dir == Direction.LEFT)
+		
+		# Ensure the cell before new finish has a right connection
+		var pre_new_finish_pos = Vector2i(new_finish_pos.x - 1, new_finish_pos.y)
+		if is_valid_position(pre_new_finish_pos):
+			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].cell_type = CellType.MAIN_PATH
+			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].visited = true
+			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].connections[Direction.RIGHT] = true
+			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].connections[Direction.LEFT] = false
+			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].connections[Direction.UP] = false
+			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].connections[Direction.DOWN] = false
+		
+		# Generate new path
+		var new_path = generate_main_path(branch_point, new_finish_pos, path_gen)
+		if not new_path.is_empty():
+			all_paths.append(new_path)
+	
+	# Create branch points and generate branches
+	for main_path in all_paths:
+		# Create branch points every 4 chunks along the main path, but not in the last third
+		var branch_start_positions = []
+		var last_third_start = main_path.size() * 2 / 3
+		for i in range(2, last_third_start, 4):
+			branch_start_positions.append(main_path[i])
+		
+		# Generate branches from each branch point
+		for branch_start in branch_start_positions:
+			generate_branch(branch_start, all_paths)
+	
+	# Add dead ends
+	for _i in range(num_dead_ends):
+		add_dead_end(all_paths)
+	
+	return true
+
+func find_suitable_branch_point(main_path: Array) -> Vector2i:
+	# Look for a point in the first third of the path that can support a new connection
+	var search_range = main_path.size() / 3
+	for i in range(1, search_range):
+		var pos = main_path[i]
+		# Check if this position can support a new connection
+		var available_dirs = []
+		for dir in Direction.values():
+			var next_pos = pos + DIRECTION_VECTORS[dir]
+			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+				continue
+			available_dirs.append(dir)
+		
+		if not available_dirs.is_empty():
+			return pos
+	
+	# If no suitable point found, return the first valid position from the path
+	if not main_path.is_empty():
+		return main_path[0]
+	
+	# If path is empty, return a default position
+	return Vector2i(2, GRID_HEIGHT / 2)
+
+func generate_main_path(start_pos: Vector2i, finish_pos: Vector2i, path_gen: PathGenerator) -> Array:
+	var path_points = []
 	var waypoints = []
 	waypoints.append(start_pos)
 	
-	# Add 2-3 intermediate waypoints for main path
-	var num_waypoints = randi() % 2 + 2
+	# Add more intermediate waypoints for a more winding path
+	var num_waypoints = randi() % 3 + 3  # 3-5 waypoints
 	for i in range(num_waypoints):
 		var x = start_pos.x + ((i + 1) * (finish_pos.x - start_pos.x)) / (num_waypoints + 1)
-		var y = GRID_HEIGHT / 2 + (randi() % 3 - 1)  # Less vertical variation
+		# Add more vertical variation
+		var y = GRID_HEIGHT / 2 + (randi() % 5 - 2)  # -2 to +2 vertical variation
 		waypoints.append(Vector2i(x, y))
 	
 	# Ensure path returns to finish height gradually
@@ -542,8 +642,7 @@ func generate_layout() -> bool:
 		waypoints.append(pre_finish)
 	waypoints.append(finish_pos)
 	
-	# Generate main path through waypoints
-	var main_path_points = []
+	# Generate path through waypoints
 	for i in range(waypoints.size() - 1):
 		var path_segment = path_gen.astar.get_point_path(
 			path_gen._get_point_index(waypoints[i]),
@@ -552,227 +651,46 @@ func generate_layout() -> bool:
 		
 		for j in range(path_segment.size() - (1 if i < waypoints.size() - 2 else 0)):
 			var grid_pos = Vector2i(path_segment[j].x, path_segment[j].y)
-			main_path_points.append(grid_pos)
+			path_points.append(grid_pos)
 			grid[grid_pos.x][grid_pos.y].cell_type = CellType.MAIN_PATH
 			grid[grid_pos.x][grid_pos.y].visited = true
 	
-	# Set connections for main path
-	for i in range(main_path_points.size()):
-		var current = main_path_points[i]
+	# Set connections for the path
+	for i in range(path_points.size()):
+		var current = path_points[i]
 		
 		if i > 0:  # Connect to previous
-			var prev = main_path_points[i - 1]
+			var prev = path_points[i - 1]
 			var dir = get_direction_between(prev, current)
 			if is_valid_direction(dir):
 				grid[current.x][current.y].connections[get_opposite_direction(dir)] = true
 				grid[prev.x][prev.y].connections[dir] = true
 		
-		if i < main_path_points.size() - 1:  # Connect to next
-			var next = main_path_points[i + 1]
+		if i < path_points.size() - 1:  # Connect to next
+			var next = path_points[i + 1]
 			var dir = get_direction_between(current, next)
 			if is_valid_direction(dir):
 				grid[current.x][current.y].connections[dir] = true
 				grid[next.x][next.y].connections[get_opposite_direction(dir)] = true
 	
-	# Ensure finish chunk is properly connected
-	for dir in Direction.values():
-		grid[finish_pos.x][finish_pos.y].connections[dir] = (dir == Direction.LEFT)  # Only left connection
-	
-	# Ensure clean connection to finish
-	var pre_finish_pos = Vector2i(finish_pos.x - 1, finish_pos.y)
-	if is_valid_position(pre_finish_pos):
-		for dir in Direction.values():
-			grid[pre_finish_pos.x][pre_finish_pos.y].connections[dir] = (dir == Direction.LEFT or dir == Direction.RIGHT)  # Left and right connections only
-	
-	all_paths.append(main_path_points)
-	
-	# Create branch points every 4 chunks along the main path, but not in the last third
-	var branch_start_positions = []
-	var last_third_start = main_path_points.size() * 2 / 3
-	for i in range(2, last_third_start, 4):
-		branch_start_positions.append(main_path_points[i])
-	
-	# Generate branches from each branch point
-	for branch_start in branch_start_positions:
-		# Skip if too close to finish
-		if abs(branch_start.x - finish_pos.x) < 6:
-			continue
-			
-		# Determine branch direction (up or down)
-		var branch_dir = Direction.UP if randf() < 0.5 else Direction.DOWN
-		var branch_length = randi() % 3 + 2  # 2-4 chunks
-		
-		# Create branch path
-		var current_branch_points = []
-		var current_pos = branch_start
-		current_branch_points.append(current_pos)
-		
-		# Move vertically
-		var can_continue = true
-		for _i in range(branch_length):
-			var next_pos = current_pos + DIRECTION_VECTORS[branch_dir]
-			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-				can_continue = false
-				break
-				
-			grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-			grid[next_pos.x][next_pos.y].visited = true
-			
-			# Set connections for both current and next positions
-			grid[current_pos.x][current_pos.y].connections[branch_dir] = true
-			grid[next_pos.x][next_pos.y].connections[get_opposite_direction(branch_dir)] = true
-			
-			# Clear any other connections for the next position
+	# Ensure finish chunk has proper connection
+	if path_points.size() > 0:
+		var last_path_point = path_points[-1]
+		var dir_to_finish = get_direction_between(last_path_point, finish_pos)
+		if is_valid_direction(dir_to_finish):
+			# Clear all connections for the last path point
 			for dir in Direction.values():
-				if dir != get_opposite_direction(branch_dir):
-					grid[next_pos.x][next_pos.y].connections[dir] = false
+				grid[last_path_point.x][last_path_point.y].connections[dir] = false
+			# Set only the connection to finish
+			grid[last_path_point.x][last_path_point.y].connections[dir_to_finish] = true
 			
-			current_pos = next_pos
-			current_branch_points.append(current_pos)
-		
-		if not can_continue:
-						continue
-		
-		# Connect back to main path if not too close to finish
-		if current_pos.x < finish_pos.x - 5:
-			var rejoin_dir = get_opposite_direction(branch_dir)
-			if not is_valid_direction(rejoin_dir):
-				continue
-			
-			# Move horizontally towards main path
-			var rejoin_target_x = branch_start.x + randi() % 3 + 2  # Shorter horizontal segments (2-4 chunks)
-			while current_pos.x < rejoin_target_x and current_pos.x < finish_pos.x - 6:
-				var next_pos = current_pos + DIRECTION_VECTORS[Direction.RIGHT]
-				if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-					break
-				
-				grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-				grid[next_pos.x][next_pos.y].visited = true
-				
-				# Set horizontal connections
-				grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = true
-				grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = true
-				
-				# Clear any other connections for the next position
-				for dir in Direction.values():
-					if dir != Direction.LEFT:
-						grid[next_pos.x][next_pos.y].connections[dir] = false
-				
-				current_pos = next_pos
-				current_branch_points.append(current_pos)
-			
-			# Now try to rejoin with the main path
-			var can_rejoin = true
-			var rejoin_steps = 0
-			while rejoin_steps < 3:  # Limit vertical rejoining to 3 steps
-				var next_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-				if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-					can_rejoin = false
-					break
-				
-				grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-				grid[next_pos.x][next_pos.y].visited = true
-				
-				# Set vertical connections for rejoining
-				grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
-				grid[next_pos.x][next_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
-				
-				# Clear any other connections for the next position
-				for dir in Direction.values():
-					if dir != get_opposite_direction(rejoin_dir):
-						grid[next_pos.x][next_pos.y].connections[dir] = false
-				
-				current_pos = next_pos
-				current_branch_points.append(current_pos)
-				
-				# Check if we've reached a visited cell
-				var check_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-				if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].visited:
-					break
-				
-				rejoin_steps += 1
-			
-			if can_rejoin:
-				# Connect to main path
-				var main_path_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-				if is_valid_position(main_path_pos) and grid[main_path_pos.x][main_path_pos.y].visited:
-					grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
-					grid[main_path_pos.x][main_path_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
-					all_paths.append(current_branch_points)
+			# Clear all connections for finish position
+			for dir in Direction.values():
+				grid[finish_pos.x][finish_pos.y].connections[dir] = false
+			# Set only the connection from finish to last path point
+			grid[finish_pos.x][finish_pos.y].connections[get_opposite_direction(dir_to_finish)] = true
 	
-	# Add some dead ends (but not near finish)
-	for _i in range(num_dead_ends):
-		# Start from middle points of paths
-		var source_path = all_paths[randi() % all_paths.size()]
-		if source_path.size() < 3:
-			continue
-			
-		var start_idx = randi() % (source_path.size() - 2) + 1
-		var dead_end_start = source_path[start_idx]
-		
-		# Skip if too close to finish
-		if abs(dead_end_start.x - finish_pos.x) < 5:
-			continue
-		
-		# Choose direction for dead end
-		var available_dirs = []
-		for dir in Direction.values():
-			var next_pos = dead_end_start + DIRECTION_VECTORS[dir]
-			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-				continue
-				
-			# Check if the current position can support a connection in this direction
-			var can_connect = true
-			if grid[dead_end_start.x][dead_end_start.y].chunk:
-				var current_chunk_type = get_chunk_type(grid[dead_end_start.x][dead_end_start.y].chunk)
-				if not current_chunk_type.is_empty():
-					var current_ports = CHUNKS[current_chunk_type]["ports"]
-					if current_ports[dir] != Port.OPEN:
-						can_connect = false
-			
-			if can_connect:
-				available_dirs.append(dir)
-		
-		if available_dirs.is_empty():
-			continue
-			
-		var dead_end_dir = available_dirs[randi() % available_dirs.size()]
-		var current_pos = dead_end_start
-		
-		# Create dead end path
-		var dead_end_length = randi() % 2 + 1  # 1-2 chunks
-		var dead_end_start_pos = current_pos  # Remember where we started
-		var next_pos = current_pos + DIRECTION_VECTORS[dead_end_dir]
-		
-		if is_valid_position(next_pos) and not grid[next_pos.x][next_pos.y].visited:
-			grid[next_pos.x][next_pos.y].cell_type = CellType.DEAD_END
-			grid[next_pos.x][next_pos.y].visited = true
-			
-			# Set up connections for the dead end
-			var opposite_dir = get_opposite_direction(dead_end_dir)
-			if is_valid_direction(opposite_dir):
-				# Set connection from dead end back to previous cell
-				grid[next_pos.x][next_pos.y].connections[opposite_dir] = true
-				# Set connection from previous cell to dead end
-				grid[current_pos.x][current_pos.y].connections[dead_end_dir] = true
-				
-				# Clear any other connections for both cells
-				for dir in Direction.values():
-					if dir != opposite_dir:
-						grid[next_pos.x][next_pos.y].connections[dir] = false
-					if dir != dead_end_dir and current_pos != dead_end_start_pos:  # Don't clear other connections for the starting cell
-						grid[current_pos.x][current_pos.y].connections[dir] = false
-				
-				# For vertical connections, ensure proper alignment
-				if dead_end_dir == Direction.UP or dead_end_dir == Direction.DOWN:
-					# Clear horizontal connections on both cells
-					grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = false
-					grid[next_pos.x][next_pos.y].connections[Direction.RIGHT] = false
-					if current_pos != dead_end_start_pos:
-						grid[current_pos.x][current_pos.y].connections[Direction.LEFT] = false
-						grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = false
-	
-	return true
+	return path_points
 
 func populate_chunks() -> bool:
 	print("\nPhase 2: Populating with actual chunks...")
@@ -783,8 +701,20 @@ func populate_chunks() -> bool:
 		print("Failed to place start chunk")
 		return false
 	
-	# 2. Place finish chunk
-	var finish_pos = Vector2i(current_grid_width - 2, GRID_HEIGHT / 2)
+	# 2. Find and place finish chunk
+	var finish_pos = Vector2i.ZERO
+	for x in range(current_grid_width - 1, -1, -1):
+		for y in range(GRID_HEIGHT):
+			if grid[x][y].cell_type == CellType.MAIN_PATH:
+				finish_pos = Vector2i(x, y)
+				break
+		if finish_pos != Vector2i.ZERO:
+			break
+	
+	if finish_pos == Vector2i.ZERO:
+		print("Failed to find finish position")
+		return false
+		
 	if not place_chunk(finish_pos, "finish"):
 		print("Failed to place finish chunk")
 		return false
@@ -869,6 +799,21 @@ func populate_chunks() -> bool:
 				if not place_chunk(pos, chunk_type):
 					print("Failed to place dead end at ", pos)
 					continue  # Skip this dead end and try others
+	
+	# 6. Ensure finish chunk is properly connected
+	var last_path_pos = Vector2i(finish_pos.x - 1, finish_pos.y)
+	if is_valid_position(last_path_pos) and grid[last_path_pos.x][last_path_pos.y].chunk:
+		# Set up connection between last path chunk and finish chunk
+		grid[last_path_pos.x][last_path_pos.y].connections[Direction.RIGHT] = true
+		grid[finish_pos.x][finish_pos.y].connections[Direction.LEFT] = true
+		
+		# Update the chunks to reflect the connection
+		var last_chunk = grid[last_path_pos.x][last_path_pos.y].chunk
+		var finish_chunk = grid[finish_pos.x][finish_pos.y].chunk
+		
+		# Ensure the chunks are properly connected
+		if last_chunk and finish_chunk:
+			print("Connecting finish chunk to last path chunk")
 	
 	return true  # Return true if we've made it through all placements
 
@@ -1220,3 +1165,181 @@ func unify_terrain() -> void:
 			chunk_map.visible = false
 	
 	print("Terrain unification complete!")
+
+func generate_branch(branch_start: Vector2i, all_paths: Array) -> void:
+	# Skip if too close to finish
+	if abs(branch_start.x - current_grid_width - 2) < 6:
+		return
+		
+	# Determine branch direction (up or down)
+	var branch_dir = Direction.UP if randf() < 0.5 else Direction.DOWN
+	var branch_length = randi() % 3 + 2  # 2-4 chunks
+	
+	# Create branch path
+	var current_branch_points = []
+	var current_pos = branch_start
+	current_branch_points.append(current_pos)
+	
+	# Move vertically
+	var can_continue = true
+	for _i in range(branch_length):
+		var next_pos = current_pos + DIRECTION_VECTORS[branch_dir]
+		if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+			can_continue = false
+			break
+			
+		grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
+		grid[next_pos.x][next_pos.y].visited = true
+		
+		# Set connections for both current and next positions
+		grid[current_pos.x][current_pos.y].connections[branch_dir] = true
+		grid[next_pos.x][next_pos.y].connections[get_opposite_direction(branch_dir)] = true
+		
+		# Clear any other connections for the next position
+		for dir in Direction.values():
+			if dir != get_opposite_direction(branch_dir):
+				grid[next_pos.x][next_pos.y].connections[dir] = false
+		
+		current_pos = next_pos
+		current_branch_points.append(current_pos)
+	
+	if not can_continue:
+		return
+	
+	# Connect back to any main path if not too close to finish
+	if current_pos.x < current_grid_width - 7:
+		var rejoin_dir = get_opposite_direction(branch_dir)
+		if not is_valid_direction(rejoin_dir):
+			return
+		
+		# Move horizontally towards main path
+		var rejoin_target_x = branch_start.x + randi() % 3 + 2  # Shorter horizontal segments (2-4 chunks)
+		while current_pos.x < rejoin_target_x and current_pos.x < current_grid_width - 8:
+			var next_pos = current_pos + DIRECTION_VECTORS[Direction.RIGHT]
+			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+				break
+			
+			grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
+			grid[next_pos.x][next_pos.y].visited = true
+			
+			# Set horizontal connections
+			grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = true
+			grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = true
+			
+			# Clear any other connections for the next position
+			for dir in Direction.values():
+				if dir != Direction.LEFT:
+					grid[next_pos.x][next_pos.y].connections[dir] = false
+			
+			current_pos = next_pos
+			current_branch_points.append(current_pos)
+		
+		# Now try to rejoin with any main path
+		var can_rejoin = true
+		var rejoin_steps = 0
+		while rejoin_steps < 3:  # Limit vertical rejoining to 3 steps
+			var next_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
+			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+				can_rejoin = false
+				break
+			
+			grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
+			grid[next_pos.x][next_pos.y].visited = true
+			
+			# Set vertical connections for rejoining
+			grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
+			grid[next_pos.x][next_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
+			
+			# Clear any other connections for the next position
+			for dir in Direction.values():
+				if dir != get_opposite_direction(rejoin_dir):
+					grid[next_pos.x][next_pos.y].connections[dir] = false
+			
+			current_pos = next_pos
+			current_branch_points.append(current_pos)
+			
+			# Check if we've reached a visited cell
+			var check_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
+			if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].visited:
+				break
+			
+			rejoin_steps += 1
+		
+		if can_rejoin:
+			# Connect to main path
+			var main_path_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
+			if is_valid_position(main_path_pos) and grid[main_path_pos.x][main_path_pos.y].visited:
+				grid[current_pos.x][current_pos.y].connections[rejoin_dir] = true
+				grid[main_path_pos.x][main_path_pos.y].connections[get_opposite_direction(rejoin_dir)] = true
+				all_paths.append(current_branch_points)
+
+func add_dead_end(all_paths: Array) -> void:
+	# Start from middle points of paths
+	var source_path = all_paths[randi() % all_paths.size()]
+	if source_path.size() < 3:
+		return
+		
+	var start_idx = randi() % (source_path.size() - 2) + 1
+	var dead_end_start = source_path[start_idx]
+	
+	# Skip if too close to finish
+	if abs(dead_end_start.x - current_grid_width - 2) < 5:
+		return
+	
+	# Choose direction for dead end
+	var available_dirs = []
+	for dir in Direction.values():
+		var next_pos = dead_end_start + DIRECTION_VECTORS[dir]
+		if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+			continue
+			
+		# Check if the current position can support a connection in this direction
+		var can_connect = true
+		if grid[dead_end_start.x][dead_end_start.y].chunk:
+			var current_chunk_type = get_chunk_type(grid[dead_end_start.x][dead_end_start.y].chunk)
+			if not current_chunk_type.is_empty():
+				var current_ports = CHUNKS[current_chunk_type]["ports"]
+				if current_ports[dir] != Port.OPEN:
+					can_connect = false
+		
+		if can_connect:
+			available_dirs.append(dir)
+	
+	if available_dirs.is_empty():
+		return
+		
+	var dead_end_dir = available_dirs[randi() % available_dirs.size()]
+	var current_pos = dead_end_start
+	
+	# Create dead end path
+	var dead_end_length = randi() % 2 + 1  # 1-2 chunks
+	var dead_end_start_pos = current_pos  # Remember where we started
+	var next_pos = current_pos + DIRECTION_VECTORS[dead_end_dir]
+	
+	if is_valid_position(next_pos) and not grid[next_pos.x][next_pos.y].visited:
+		grid[next_pos.x][next_pos.y].cell_type = CellType.DEAD_END
+		grid[next_pos.x][next_pos.y].visited = true
+		
+		# Set up connections for the dead end
+		var opposite_dir = get_opposite_direction(dead_end_dir)
+		if is_valid_direction(opposite_dir):
+			# Set connection from dead end back to previous cell
+			grid[next_pos.x][next_pos.y].connections[opposite_dir] = true
+			# Set connection from previous cell to dead end
+			grid[current_pos.x][current_pos.y].connections[dead_end_dir] = true
+			
+			# Clear any other connections for both cells
+			for dir in Direction.values():
+				if dir != opposite_dir:
+					grid[next_pos.x][next_pos.y].connections[dir] = false
+				if dir != dead_end_dir and current_pos != dead_end_start_pos:  # Don't clear other connections for the starting cell
+					grid[current_pos.x][current_pos.y].connections[dir] = false
+			
+			# For vertical connections, ensure proper alignment
+			if dead_end_dir == Direction.UP or dead_end_dir == Direction.DOWN:
+				# Clear horizontal connections on both cells
+				grid[next_pos.x][next_pos.y].connections[Direction.LEFT] = false
+				grid[next_pos.x][next_pos.y].connections[Direction.RIGHT] = false
+				if current_pos != dead_end_start_pos:
+					grid[current_pos.x][current_pos.y].connections[Direction.LEFT] = false
+					grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = false

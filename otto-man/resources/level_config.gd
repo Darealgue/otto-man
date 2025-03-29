@@ -33,4 +33,12 @@ func get_combat_chance_for_level(level: int) -> float:
 @export var min_dead_ends: int = 2  # Minimum number of dead ends
 @export var max_dead_ends: int = 4  # Maximum number of dead ends
 @export var combat_room_chance: float = 0.3  # Chance for a basic platform to be a combat room
-@export var description: String = ""  # Optional description of this level configuration 
+@export var description: String = ""  # Optional description of this level configuration
+
+func get_num_main_paths_for_level(level: int) -> int:
+    # Every 4 levels, add one more main path
+    # Level 1-4: 1 path
+    # Level 5-8: 2 paths
+    # Level 9-12: 3 paths
+    # And so on...
+    return (level - 1) / 4 + 1 
