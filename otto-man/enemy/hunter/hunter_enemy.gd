@@ -352,9 +352,12 @@ func terrain_info() -> Dictionary:
 			
 			if result:
 				info.gap_width = abs(global_position.x - result.position.x)
+				if debug_enabled:
+					print("[Hunter] Found gap - Width:", info.gap_width, ", Direction:", "right" if info.gap_right else "left")
 			else:
 				info.gap_width = MAX_JUMPABLE_GAP
-
+				if debug_enabled:
+					print("[Hunter] Gap exceeds max jumpable distance")
 	
 	return info
 
@@ -480,6 +483,7 @@ func generate_patrol_points() -> void:
 	var space_state = get_world_2d().direct_space_state
 	
 	# Scan for ground points with debug info
+	print("[Hunter] Starting ground scan - Width:", scan_width, " Height:", scan_height)
 	
 	for x in range(-scan_width, scan_width + 1, scan_interval):
 		if ground_points.size() >= PATROL_POINT_LIMIT / 2:
@@ -495,8 +499,10 @@ func generate_patrol_points() -> void:
 			ground_points.append(point)
 			patrol_points.append(point)
 	
+	print("[Hunter] Ground scan complete - Found", ground_points.size(), "points")
 	
 	# Scan for platforms above ground points
+	print("[Hunter] Starting platform scan...")
 	var platform_count = 0
 	
 	for ground_point in ground_points:
@@ -534,7 +540,12 @@ func generate_patrol_points() -> void:
 						platform_points.append(side_point)
 						patrol_points.append(side_point)
 						platform_count += 1
-		
+	
+	print("[Hunter] Platform scan complete - Found", platform_count, "points")
+	if platform_count == 0:
+		print("[Hunter] WARNING: No platform points found - vertical navigation will be limited")
+	print("[Hunter] Total patrol points:", patrol_points.size())
+	
 	# Connect patrol points with limits
 	var connection_count = 0
 	for i in patrol_points.size():
@@ -564,6 +575,7 @@ func generate_patrol_points() -> void:
 				connection_count += 1
 				connection_count_for_point += 1
 	
+	print("[Hunter] Connected patrol points - Total connections:", connection_count)
 
 func update_path_to_target() -> bool:
 	# Don't update path if on cooldown
@@ -608,13 +620,17 @@ func find_path_to_target() -> Array[PatrolPoint]:
 	var end_point = get_closest_patrol_point(target.global_position)
 	
 	if not start_point or not end_point:
+		print("[Hunter] Could not find valid start/end points for path")
 		return []
 		
+	print("[Hunter] Found path points - Start dist:", start_point.position.distance_to(global_position), " End dist:", end_point.position.distance_to(target_position))
 	
 	var path = find_path(start_point, target_position)
 	if not path or path.is_empty():
+		print("[Hunter] No path found to target")
 		return []
 		
+	print("[Hunter] Found path with", path.size(), "points")
 	return path
 
 func handle_stuck_state() -> void:
@@ -843,6 +859,7 @@ func apply_gravity(delta: float) -> void:
 
 func jump() -> void:
 	if is_on_floor() and not is_jumping:
+		print("[Hunter] Starting jump")
 		velocity.y = JUMP_VELOCITY
 		is_jumping = true
 		jump_cooldown_timer = JUMP_COOLDOWN
@@ -943,6 +960,7 @@ func update_chase_path() -> void:
 	
 	# Only log significant position changes
 	if abs(distance_to_target - last_logged_distance) > POSITION_LOG_THRESHOLD:
+		print("[Hunter] Significant position change - Distance to target:", distance_to_target)
 		last_logged_distance = distance_to_target
 	
 	# Update path only when needed

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ptl2r7662pel"
-path="res://.godot/imported/şehir orta.png-2f4fa804f5df445e8da91815b52b7771.ctex"
+uid="uid://blby4j74a2iaq"
+path="res://.godot/imported/grassy_mountains_fc.png-8a9782f4d4d30fd2f9eac3ac09236c21.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://background/parallax/dungeon parallax/şehir orta.png"
-dest_files=["res://.godot/imported/şehir orta.png-2f4fa804f5df445e8da91815b52b7771.ctex"]
+source_file="res://background/bulutlu dağlar/grassy_mountains_fc.png"
+dest_files=["res://.godot/imported/grassy_mountains_fc.png-8a9782f4d4d30fd2f9eac3ac09236c21.ctex"]
 
 [params]
 

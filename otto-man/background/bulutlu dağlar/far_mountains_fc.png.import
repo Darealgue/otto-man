@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://pfdqmop105x7"
-path="res://.godot/imported/otto_air_attack.png-d54dd57805f7e964306cc196bacb7861.ctex"
+uid="uid://djoorlgrr8ip4"
+path="res://.godot/imported/far_mountains_fc.png-423a5b1d249c40e630a3283d44c3db79.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/player/sprite/otto_air_attack.png"
-dest_files=["res://.godot/imported/otto_air_attack.png-d54dd57805f7e964306cc196bacb7861.ctex"]
+source_file="res://background/bulutlu dağlar/far_mountains_fc.png"
+dest_files=["res://.godot/imported/far_mountains_fc.png-423a5b1d249c40e630a3283d44c3db79.ctex"]
 
 [params]
 
