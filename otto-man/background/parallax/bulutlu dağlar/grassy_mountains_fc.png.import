@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://de7ouskihcyug"
-path="res://.godot/imported/clouds_front_fc.png-a12e31e6a9e4d71356103d0980f07459.ctex"
+uid="uid://blby4j74a2iaq"
+path="res://.godot/imported/grassy_mountains_fc.png-b1f6e5cbb0a15c71f14bdfa246119525.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://background/bulutlu dağlar/clouds_front_fc.png"
-dest_files=["res://.godot/imported/clouds_front_fc.png-a12e31e6a9e4d71356103d0980f07459.ctex"]
+source_file="res://background/parallax/bulutlu dağlar/grassy_mountains_fc.png"
+dest_files=["res://.godot/imported/grassy_mountains_fc.png-b1f6e5cbb0a15c71f14bdfa246119525.ctex"]
 
 [params]
 

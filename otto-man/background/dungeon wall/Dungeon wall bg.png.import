@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gp572r2gckwr"
-path="res://.godot/imported/hill.png-b67195ccfc824b661ed416640a88d65e.ctex"
+uid="uid://0d1wbigaor67"
+path="res://.godot/imported/Dungeon wall bg.png-5cd2f10599ef8a2897150976a4ca29f8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://background/bulutlu dağlar/hill.png"
-dest_files=["res://.godot/imported/hill.png-b67195ccfc824b661ed416640a88d65e.ctex"]
+source_file="res://background/dungeon wall/Dungeon wall bg.png"
+dest_files=["res://.godot/imported/Dungeon wall bg.png-5cd2f10599ef8a2897150976a4ca29f8.ctex"]
 
 [params]
 

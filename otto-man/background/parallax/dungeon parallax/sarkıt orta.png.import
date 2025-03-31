@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://1c6iepu7lpwg"
-path="res://.godot/imported/clouds_mid_t_fc.png-683ddbc17f6204fe2e77ab9ecd3189a8.ctex"
+uid="uid://ctsv23agdinmv"
+path="res://.godot/imported/sarkıt orta.png-3720d01dce36cb62f94df535f8b9d0e1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://background/bulutlu dağlar/clouds_mid_t_fc.png"
-dest_files=["res://.godot/imported/clouds_mid_t_fc.png-683ddbc17f6204fe2e77ab9ecd3189a8.ctex"]
+source_file="res://background/parallax/dungeon parallax/sarkıt orta.png"
+dest_files=["res://.godot/imported/sarkıt orta.png-3720d01dce36cb62f94df535f8b9d0e1.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cq3piagq0rxws"
-path="res://.godot/imported/clouds_mid_fc.png-47938dcaf04d8d7ee5c305223b881b1d.ctex"
+uid="uid://gp572r2gckwr"
+path="res://.godot/imported/hill.png-e2bbb97eb1ca130de917524436d92c45.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://background/bulutlu dağlar/clouds_mid_fc.png"
-dest_files=["res://.godot/imported/clouds_mid_fc.png-47938dcaf04d8d7ee5c305223b881b1d.ctex"]
+source_file="res://background/parallax/bulutlu dağlar/hill.png"
+dest_files=["res://.godot/imported/hill.png-e2bbb97eb1ca130de917524436d92c45.ctex"]
 
 [params]
 
