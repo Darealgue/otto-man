@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://8q405fcb44ls"]
+
+[ext_resource type="Texture2D" uid="uid://ue4ioksxcq3x" path="res://assets/player/sprite/otto_air_attack.png" id="1_xg0if"]
+[ext_resource type="Texture2D" uid="uid://d16xhbjscbk6d" path="res://assets/player/normal/otto_air_attack_n.png" id="2_y07ce"]
+
+[resource]
+diffuse_texture = ExtResource("1_xg0if")
+normal_texture = ExtResource("2_y07ce")

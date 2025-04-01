@@ -129,10 +129,47 @@ func _ready():
 	# Initialize stats from PlayerStats
 	_sync_stats_from_player_stats()
 
+	# Debug hitbox component
+	if hitbox:
+		print("[Player] Hitbox node found: ", hitbox)
+		if hitbox is PlayerHitbox:
+			print("[Player] Hitbox is a PlayerHitbox")
+			
+			# Ensure hitbox signals are connected
+			if not hitbox.hit_enemy.is_connected(_on_hitbox_hit):
+				hitbox.hit_enemy.connect(_on_hitbox_hit)
+				print("[Player] Connected hitbox hit_enemy signal")
+			
+			# Verify hitbox is properly initialized
+			print("[Player] Hitbox monitoring: ", hitbox.monitoring)
+			print("[Player] Hitbox monitorable: ", hitbox.monitorable)
+			print("[Player] Hitbox collision shape enabled: ", 
+				!hitbox.get_node("CollisionShape2D").disabled if hitbox.has_node("CollisionShape2D") else "No collision shape")
+		else:
+			print("[Player] WARNING: Hitbox is not a PlayerHitbox but a: ", hitbox.get_class())
+			# Try to fix hitbox type if needed
+			print("[Player] Attempting to set hitbox script to PlayerHitbox...")
+			var player_hitbox_script = load("res://components/player_hitbox.gd")
+			if player_hitbox_script:
+				hitbox.set_script(player_hitbox_script)
+				print("[Player] Hitbox script set to PlayerHitbox")
+				# Re-initialize the hitbox
+				hitbox._ready()
+			else:
+				print("[Player] ERROR: Could not load PlayerHitbox script!")
+	else:
+		print("[Player] ERROR: Hitbox node not found!")
+		
+	# Add verification for Hitbox node path
+	var hitbox_node = get_node_or_null("Hitbox")
+	if hitbox_node:
+		print("[Player] Direct Hitbox node found at path 'Hitbox'")
+	else:
+		print("[Player] WARNING: No direct Hitbox node found at path 'Hitbox'")
+
 func _physics_process(delta):
 	# Handle drop-through platform
 	if is_on_floor() and Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
-		print("[Player] Attempting to drop through platform...")  # Debug print
 		drop_through_platform()
 		return  # Skip other processing for this frame
 	
@@ -581,3 +618,7 @@ func drop_through_platform() -> void:
 
 func get_facing_direction() -> float:
 	return facing_direction
+
+# Handle hitbox hit events
+func _on_hitbox_hit(enemy: Node) -> void:
+	print("[Player] Hitbox hit enemy: ", enemy.name if enemy else "Unknown")

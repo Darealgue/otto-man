@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://de4ssv6rg8c3w"]
+
+[ext_resource type="Texture2D" uid="uid://n5c26a7vkjml" path="res://assets/player/sprite/otto_lightattack4.png" id="1_u5d4t"]
+[ext_resource type="Texture2D" uid="uid://c42c5h4hrdf6o" path="res://assets/player/normal/otto_lightattack4_n.png" id="2_8gs8a"]
+
+[resource]
+diffuse_texture = ExtResource("1_u5d4t")
+normal_texture = ExtResource("2_8gs8a")

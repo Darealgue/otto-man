@@ -10,13 +10,8 @@ var is_bouncing := false
 func _ready():
 	await owner.ready
 	attack_config_instance = AttackConfigClass.new()
-	if debug_enabled:
-		print("[FallAttackState] Created attack config instance")
 
 func enter() -> void:
-	if debug_enabled:
-		print("[FallAttackState] Entering state")
-	
 	# Get attack configuration with player's damage multiplier
 	var config = attack_config_instance.get_attack_config(AttackConfigClass.AttackType.FALL, player.damage_multiplier)
 	
@@ -24,15 +19,9 @@ func enter() -> void:
 	var hitbox = player.get_node_or_null("FallAttack")
 	if hitbox:
 		hitbox.damage = config.damage
-		
 		hitbox.knockback_force = config.knockback_force
 		hitbox.knockback_up_force = config.knockback_up_force
 		hitbox_enabled = true
-		if debug_enabled:
-			print("[FallAttackState] Configured hitbox:")
-			print("- Damage:", hitbox.damage)
-			print("- Knockback force:", hitbox.knockback_force)
-			print("- Knockback up force:", hitbox.knockback_up_force)
 	
 	# Start fall attack animation
 	animation_player.play("fall_attack")
@@ -63,9 +52,6 @@ func _handle_ground_impact():
 	has_hit_ground = true
 	var config = attack_config_instance.get_attack_config(AttackConfigClass.AttackType.FALL)
 	
-	if debug_enabled:
-		print("[FallAttackState] Ground impact!")
-	
 	# Create ground impact effect if enabled
 	if config.effects.ground_impact:
 		_create_impact_effect()
@@ -78,8 +64,6 @@ func _handle_ground_impact():
 	if config.effects.bounce_up:
 		is_bouncing = true
 		player.velocity.y = -config.effects.bounce_force
-		if debug_enabled:
-			print("[FallAttackState] Bouncing up with force:", config.effects.bounce_force)
 	
 	# Disable hitbox
 	var hitbox = player.get_node_or_null("FallAttack")
@@ -92,19 +76,14 @@ func _handle_ground_impact():
 	state_machine.transition_to("Fall")
 
 func _create_impact_effect():
-	if debug_enabled:
-		print("[FallAttackState] Creating impact effect")
 	# TODO: Implement impact effect (particles, animation, etc.)
+	pass
 
 func _apply_screen_shake():
-	if debug_enabled:
-		print("[FallAttackState] Applying screen shake")
 	# TODO: Implement screen shake effect
+	pass
 
 func exit():
-	if debug_enabled:
-		print("[FallAttackState] Exiting state")
-	
 	# Ensure hitbox is disabled
 	var hitbox = player.get_node_or_null("FallAttack")
 	if hitbox:

@@ -27,9 +27,9 @@ func enter():
 			player.sprite.flip_h = input_dir < 0
 		# Only start jump if not pressing down
 		if not Input.is_action_pressed("down"):
-			player.start_jump()
+			# Play jump prepare animation first
+			animation_player.play("jump_prepare")
 			player.enable_double_jump()
-			animation_player.play("jump_upwards")
 		else:
 			# If pressing down, transition to fall state
 			state_machine.transition_to("Fall")
@@ -44,6 +44,11 @@ func physics_update(delta: float):
 	var down_pressed = Input.is_action_pressed("down")
 	var jump_pressed = Input.is_action_just_pressed("jump")
 	
+	# Check for attack input first - highest priority for responsive controls
+	if Input.is_action_just_pressed("attack"):
+		print("[Jump State] Attack button pressed, transitioning to Attack state for air attack")
+		state_machine.transition_to("Attack")
+		return
 	
 	# Check for fall attack first - highest priority
 	if down_pressed and jump_pressed:
@@ -132,6 +137,9 @@ func _on_animation_finished(anim_name: String):
 				animation_player.play("jump_to_fall")
 			elif player.is_on_floor():
 				state_machine.transition_to("Idle")
+		"jump_prepare":
+			# After jump prepare animation, start the actual jump
+			animation_player.play("jump_upwards")
 
 func exit():
 	is_double_jumping = false

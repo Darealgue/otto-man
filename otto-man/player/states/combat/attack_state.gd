@@ -1,69 +1,121 @@
 extends State
 
-const COMBO_WINDOW_FRAMES = 20
-const MAX_COMBO_COUNT = 3
 const ATTACK_SPEED_MULTIPLIER = 0.5  # 50% movement speed during attacks
 const MOMENTUM_PRESERVATION = 0.8     # Preserve 80% of previous momentum
 const ANIMATION_SPEED = 1.25         # 25% faster animations
+const GROUND_ATTACK_ANIMATIONS = ["attack_1.1"]  # Attacks only available on ground
+const AIR_ATTACK_ANIMATIONS = ["air_attack1", "air_attack2", "air_attack3"]  # Attacks only available in air
+const DAMAGE_MULTIPLIER = 1  # Fixed damage multiplier for all attacks
 
-var combo_count := 0
-var combo_window := 0
 var current_attack := ""
 var hitbox_enabled := false
-var next_combo_ready := false  # Track if we've queued up the next combo
-var input_locked := false      # Prevent multiple inputs during the same attack
-var initial_velocity := Vector2.ZERO  # Store initial velocity for momentum preservation
+var initial_velocity := Vector2.ZERO
+var has_activated_hitbox := false  # Track if we've already activated the hitbox in this attack
+var can_use_attack_1_2 := false    # Track if attack_1.2 can be used (only after attack_1.1)
+var next_attack_queued := ""       # For storing the next attack in the sequence
+var hitbox_start_time := 0.0      # Track when the hitbox was enabled
+var hitbox_end_time := 0.0        # Track when the hitbox was disabled
 
 func enter():
-	hitbox_enabled = false
-	next_combo_ready = false
-	input_locked = false
+	print("[Attack State] Entering attack state")
+	hitbox_start_time = 0.0
+	hitbox_end_time = 0.0
 	
 	# Store initial velocity for momentum preservation
 	initial_velocity = player.velocity
 	
-	# Get attack name based on combo count
-	current_attack = "light_attack" + str(combo_count + 1)
-	
-	# Connect animation finished signal
-	if not animation_player.is_connected("animation_finished", _on_animation_player_animation_finished):
-		animation_player.animation_finished.connect(_on_animation_player_animation_finished)
-	
-	# Stop any current animation and play the new one with increased speed
-	animation_player.stop()
-	animation_player.play(current_attack)
-	animation_player.speed_scale = ANIMATION_SPEED  # Speed up the animation
-	
-	# Set up hitbox for current attack
-	var hitbox = player.get_node_or_null("Hitbox")
-	if hitbox and hitbox is PlayerHitbox:
-		hitbox.enable_combo(current_attack, combo_count + 1)
-		_update_hitbox_position(hitbox)
-
-func exit():
-	# Disconnect animation finished signal
+	# Disconnect previous animation signal if connected
 	if animation_player.is_connected("animation_finished", _on_animation_player_animation_finished):
 		animation_player.animation_finished.disconnect(_on_animation_player_animation_finished)
 	
-	current_attack = ""
-	input_locked = false
+	# Connect animation finished signal
+	animation_player.animation_finished.connect(_on_animation_player_animation_finished)
 	
-	# Reset animation speed
-	animation_player.speed_scale = 1.0
+	# Debug available animations
+	print("[Attack State] Available animations: ", animation_player.get_animation_list())
+	print("[Attack State] Player is on floor: ", player.is_on_floor())
+	
+	# Use queued attack if available, otherwise choose randomly
+	if next_attack_queued == "attack_1.2" and can_use_attack_1_2:
+		current_attack = "attack_1.2"
+		next_attack_queued = ""
+		can_use_attack_1_2 = false
+		print("[Attack State] Using queued attack_1.2")
+	else:
+		# Choose a random attack animation based on whether the player is in the air or on ground
+		if player.is_on_floor():
+			if GROUND_ATTACK_ANIMATIONS.size() > 0:
+				current_attack = GROUND_ATTACK_ANIMATIONS[randi() % GROUND_ATTACK_ANIMATIONS.size()]
+				print("[Attack State] Starting ground attack: ", current_attack)
+			else:
+				print("[Attack State] No ground attacks available")
+				state_machine.transition_to("Idle")
+				return
+		else:
+			if AIR_ATTACK_ANIMATIONS.size() > 0:
+				current_attack = AIR_ATTACK_ANIMATIONS[randi() % AIR_ATTACK_ANIMATIONS.size()]
+				print("[Attack State] Starting air attack: ", current_attack)
+			else:
+				print("[Attack State] No air attacks available")
+				state_machine.transition_to("Fall")
+				return
+		
+		# Reset attack_1.2 availability unless we're doing attack_1.1
+		if current_attack == "attack_1.1":
+			can_use_attack_1_2 = true
+		else:
+			can_use_attack_1_2 = false
+	
+	# Ensure animation player is reset before playing new animation
+	animation_player.stop()
+	animation_player.speed_scale = ANIMATION_SPEED
+	
+	# Check if animation exists before playing
+	if animation_player.has_animation(current_attack):
+		animation_player.play(current_attack)
+		print("[Attack State] Playing animation: ", current_attack)
+	else:
+		print("[Attack State] Animation not found: ", current_attack, " - available animations: ", animation_player.get_animation_list())
+		# Fall back to a default animation or return to previous state
+		if player.is_on_floor():
+			state_machine.transition_to("Idle")
+		else:
+			state_machine.transition_to("Fall")
+		return
+	
+	# Reset hitbox state
+	hitbox_enabled = false
+	has_activated_hitbox = false
+	
+	# Set up hitbox for current attack and make sure it's disabled at start
+	var hitbox = player.get_node_or_null("Hitbox")
+	if hitbox and hitbox is PlayerHitbox:
+		hitbox.disable()  # Always start with hitbox disabled
+		
+		# Prepare the attack type based on whether it's an air attack or ground attack
+		var attack_type = "light"
+		print("[Attack State] Setting up hitbox for attack: ", current_attack)
+		hitbox.enable_combo(current_attack, DAMAGE_MULTIPLIER) 
+		_update_hitbox_position(hitbox)
+	else:
+		print("[Attack State] ERROR: Hitbox not found or not a PlayerHitbox!")
+		print("[Attack State] Hitbox class: ", hitbox.get_class() if hitbox else "null")
+
+func exit():
+	print("[Attack State] Exiting attack state")
+	
+	# Disconnect animation finished signal
+	if animation_player.is_connected("animation_finished", _on_animation_player_animation_finished):
+		animation_player.animation_finished.disconnect(_on_animation_player_animation_finished)
 	
 	# Disable hitbox
 	var hitbox = player.get_node_or_null("Hitbox")
 	if hitbox and hitbox is PlayerHitbox:
 		hitbox.disable()
 		hitbox.disable_combo()
-		hitbox_enabled = false
 	
-	# If we haven't queued up the next combo and we're transitioning to a different state,
-	# reset the combo count
-	if not next_combo_ready:
-		combo_count = 0
-		# Play idle animation when exiting without next combo
-		animation_player.play("idle")
+	# Reset animation speed
+	animation_player.speed_scale = 1.0
 
 func update(delta: float):
 	# Skip all processing if game is paused
@@ -73,34 +125,81 @@ func update(delta: float):
 	# Handle movement during attack
 	_handle_movement(delta)
 	
+	# Check for attack_1.2 input if we just performed attack_1.1 and still on ground
+	if can_use_attack_1_2 and Input.is_action_just_pressed("attack") and player.is_on_floor():
+		next_attack_queued = "attack_1.2"
+		print("[Attack State] Queued attack_1.2 for next attack")
+	
+	# Check for air attack input
+	if Input.is_action_just_pressed("attack") and not player.is_on_floor() and not _is_air_attack(current_attack):
+		# If player is in air and not already performing an air attack, transition to a new attack state
+		print("[Attack State] Initiating new air attack")
+		state_machine.transition_to("Attack")
+		return
+	
 	# Handle attack cancels
 	if _check_cancel_conditions():
 		return
 	
-	# Check for next attack input at any time during the animation
-	if Input.is_action_just_pressed("attack") and not input_locked and combo_count < MAX_COMBO_COUNT - 1:
-		next_combo_ready = true
-		input_locked = true  # Lock input until next attack
+	# Handle hitbox based on animation progress
+	_update_hitbox()
 	
-	# Enable/disable hitbox based on animation frames
-	var current_frame = animation_player.current_animation_position * animation_player.current_animation_length
-	var hitbox = player.get_node_or_null("Hitbox")
-	
-	if hitbox and hitbox is PlayerHitbox:
-		# Enable hitbox during the middle frames of the animation
-		var anim_length = animation_player.current_animation_length
-		var start_frame = anim_length * 0.1  # Enable at 10% of animation
-		var end_frame = anim_length * 0.7    # Disable at 70% of animation
+	# Check if we need to transition to fall state if player is no longer on floor
+	if not player.is_on_floor() and _is_ground_attack(current_attack) and animation_player.current_animation_position > 0.6:
+		print("[Attack State] Player in air, transitioning to fall")
+		state_machine.transition_to("Fall")
+		return
+
+# Helper function to check if the current attack is an air attack
+func _is_air_attack(attack_name: String) -> bool:
+	var is_air = AIR_ATTACK_ANIMATIONS.has(attack_name)
+	print("[Attack State] Checking if ", attack_name, " is an air attack: ", is_air)
+	return is_air
+
+# Helper function to check if the current attack is a ground attack
+func _is_ground_attack(attack_name: String) -> bool:
+	var is_ground = GROUND_ATTACK_ANIMATIONS.has(attack_name) or attack_name == "attack_1.2"
+	print("[Attack State] Checking if ", attack_name, " is a ground attack: ", is_ground)
+	return is_ground
+
+func _update_hitbox():
+	# If we've already activated the hitbox in this attack, don't activate it again
+	if has_activated_hitbox:
+		return
 		
-		if current_frame >= start_frame and current_frame <= end_frame:
-			if not hitbox_enabled:
-				hitbox.enable()
-				hitbox_enabled = true
-				_update_hitbox_position(hitbox)
-		else:
-			if hitbox_enabled:
-				hitbox.disable()
-				hitbox_enabled = false
+	# Get current animation progress as a percentage (0.0 to 1.0)
+	var anim_progress = animation_player.current_animation_position / animation_player.current_animation_length
+	
+	var hitbox = player.get_node_or_null("Hitbox")
+	if not hitbox or not hitbox is PlayerHitbox:
+		print("[Attack State] ERROR: No hitbox component found in player!")
+		return
+	
+	# Enable hitbox during a very specific part of the animation (30% to 40%)
+	if anim_progress >= 0.3 and anim_progress <= 0.4 and not hitbox_enabled:
+		hitbox.disable()  # Ensure it's disabled first
+		
+		# Update the hitbox with the current attack type
+		print("[Attack State] Enabling hitbox with current attack: ", current_attack)
+		hitbox.enable_combo(current_attack, DAMAGE_MULTIPLIER)
+		
+		hitbox.enable()
+		hitbox_enabled = true
+		has_activated_hitbox = true  # Mark that we've activated the hitbox for this attack
+		hitbox_start_time = Time.get_ticks_msec() / 1000.0
+		print("[Attack State] Hitbox enabled at progress: ", anim_progress, " for attack: ", current_attack, " at time: ", hitbox_start_time)
+		
+		# Set a timer to disable the hitbox after a short duration
+		await get_tree().create_timer(0.1).timeout
+		if hitbox and is_instance_valid(hitbox) and hitbox_enabled:
+			hitbox.disable()
+			hitbox_enabled = false
+			hitbox_end_time = Time.get_ticks_msec() / 1000.0
+			var duration = hitbox_end_time - hitbox_start_time
+			print("[Attack State] Hitbox disabled by timer. Duration active: ", duration, " seconds")
+	
+	# Update hitbox position
+	_update_hitbox_position(hitbox)
 
 func _handle_movement(delta: float) -> void:
 	# Get horizontal movement only
@@ -118,20 +217,11 @@ func _handle_movement(delta: float) -> void:
 	# Update player facing direction if moving
 	if input_dir_x != 0:
 		player.sprite.flip_h = input_dir_x < 0
-		
-		# Update hitbox position when changing direction
-		var hitbox = player.get_node_or_null("Hitbox")
-		if hitbox and hitbox is PlayerHitbox:
-			_update_hitbox_position(hitbox)
 	
 	# Apply movement
 	player.move_and_slide()
 
 func _check_cancel_conditions() -> bool:
-	# Skip cancel checks if game is paused
-	if get_tree().paused:
-		return false
-		
 	# Cancel into dash
 	if Input.is_action_just_pressed("dash") and state_machine.has_node("Dash"):
 		_cancel_into_state("Dash")
@@ -156,9 +246,6 @@ func _cancel_into_state(state_name: String) -> void:
 		hitbox.disable()
 		hitbox.disable_combo()
 	
-	# Preserve some momentum when canceling
-	initial_velocity = player.velocity
-	
 	# Transition to new state
 	state_machine.transition_to(state_name)
 
@@ -171,19 +258,42 @@ func _update_hitbox_position(hitbox: Node2D) -> void:
 
 func _on_animation_player_animation_finished(anim_name: String):
 	if anim_name == current_attack:
-		if next_combo_ready and combo_count < MAX_COMBO_COUNT - 1:
-			# Increment combo count before starting next attack
-			combo_count += 1
-			var next_combo = combo_count  # Store the next combo count
-			next_combo_ready = false
-			# Clean up current state
-			exit()
-			# Reset combo count to what it should be
-			combo_count = next_combo
-			# Start new attack
-			enter()
+		print("[Attack State] Animation finished: ", anim_name)
+		
+		# Disable hitbox if still active
+		if hitbox_enabled:
+			var hitbox = player.get_node_or_null("Hitbox")
+			if hitbox and hitbox is PlayerHitbox:
+				hitbox.disable()
+				hitbox_enabled = false
+		
+		# If we have a queued attack_1.2 after attack_1.1 and still on ground, transition to it
+		if next_attack_queued == "attack_1.2" and can_use_attack_1_2 and player.is_on_floor():
+			print("[Attack State] Transitioning to queued attack_1.2")
+			# Avoid transitioning through the state machine to prevent animation glitches
+			# Just play the new animation directly
+			current_attack = "attack_1.2"
+			next_attack_queued = ""
+			can_use_attack_1_2 = false
+			
+			# Reset hitbox state for new attack
+			hitbox_enabled = false
+			has_activated_hitbox = false
+			
+			# Play the new animation
+			animation_player.stop()
+			animation_player.play(current_attack)
+			return
+		
+		# Return to appropriate state based on whether player is on ground
+		if player.is_on_floor():
+			print("[Attack State] Returning to idle")
+			state_machine.transition_to("Idle")
 		else:
-			# No next attack queued, return to idle
-			combo_count = 0
-			next_combo_ready = false
-			state_machine.transition_to("Idle") 
+			print("[Attack State] Returning to fall")
+			state_machine.transition_to("Fall")
+
+func _on_enemy_hit(enemy: Node):
+	if not has_activated_hitbox:
+		has_activated_hitbox = true
+		print("[Attack State] Hit enemy with attack: ", current_attack) 

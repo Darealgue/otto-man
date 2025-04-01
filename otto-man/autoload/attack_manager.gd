@@ -7,7 +7,11 @@ const BASE_CONFIG = {
 		"combo_multipliers": {
 			"light_attack1": {"damage": 1.0, "knockback": 1.0},
 			"light_attack2": {"damage": 1.2, "knockback": 1.5},
-			"light_attack3": {"damage": 1.5, "knockback": 2.0}
+			"light_attack3": {"damage": 1.5, "knockback": 2.0},
+			# Add air attack configurations
+			"air_attack1": {"damage": 1.2, "knockback": 1.2},
+			"air_attack2": {"damage": 1.4, "knockback": 1.6},
+			"air_attack3": {"damage": 1.6, "knockback": 2.0}
 		},
 		"base_knockback": {
 			"force": 100.0,
@@ -76,10 +80,25 @@ func calculate_attack_damage(player: Node, attack_type: String, attack_name: Str
 	# Apply powerup multipliers to base damage first
 	var modified_base = base_damage * total_powerup_multiplier
 	
-	# Then apply combo multiplier to the modified base damage
-	var combo_mult = BASE_CONFIG[attack_type]["combo_multipliers"][attack_name]["damage"]
-	var final_damage = modified_base * combo_mult
+	# Check if the attack name is an air attack
+	if attack_name.begins_with("air_attack"):
+		print("[Attack Manager] Processing air attack: ", attack_name)
+		# Check if we have a specific multiplier for this air attack
+		if BASE_CONFIG.has(attack_type) and BASE_CONFIG[attack_type].has("combo_multipliers") and BASE_CONFIG[attack_type]["combo_multipliers"].has(attack_name):
+			var damage_multiplier = BASE_CONFIG[attack_type]["combo_multipliers"][attack_name]["damage"]
+			var final_damage = modified_base * damage_multiplier
+			print("[Attack Manager] Using specific air attack multiplier: ", damage_multiplier, " for damage: ", final_damage)
+			return final_damage
+		else:
+			print("[Attack Manager] No specific multiplier found for ", attack_name, ", using default")
+			# Since no specific multiplier was found, use the general air attack multiplier of 1.2
+			var final_damage = modified_base * 1.2  # Default air attack bonus
+			print("[Attack Manager] Using default air attack multiplier: 1.2 for damage: ", final_damage)
+			return final_damage
 	
+	# Always use a damage multiplier of 1.0 for other attacks
+	var final_damage = modified_base * 1.0
+	print("[Attack Manager] Using default multiplier for damage: ", final_damage)
 	
 	return final_damage
 
@@ -89,10 +108,16 @@ func calculate_knockback(player: Node, attack_type: String, attack_name: String)
 		register_player(player)
 	
 	var base_knockback = BASE_CONFIG[attack_type]["base_knockback"]
-	var combo_knockback = BASE_CONFIG[attack_type]["combo_multipliers"][attack_name]["knockback"]
 	
-	var force = base_knockback["force"] * combo_knockback
-	var up_force = base_knockback["up_force"] * combo_knockback
+	# Use a fixed knockback multiplier of 1.0 for all attacks
+	var knockback_multiplier = 1.0
+	
+	# Check if the attack name is an air attack and we have specific multipliers
+	if attack_name.begins_with("air_attack") and BASE_CONFIG.has(attack_type) and BASE_CONFIG[attack_type].has("combo_multipliers") and BASE_CONFIG[attack_type]["combo_multipliers"].has(attack_name):
+		knockback_multiplier = BASE_CONFIG[attack_type]["combo_multipliers"][attack_name]["knockback"]
+	
+	var force = base_knockback["force"] * knockback_multiplier
+	var up_force = base_knockback["up_force"] * knockback_multiplier
 	
 	# Apply knockback multipliers
 	for mult in player_modifiers[player]["knockback_multipliers"]:

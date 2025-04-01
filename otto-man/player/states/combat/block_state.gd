@@ -19,7 +19,7 @@ var block_start_time: float = 0.0  # Track when block started
 var is_parrying := false  # Add this at the top with other vars
 
 func _ready():
-	debug_enabled = true  # Enable debug logging for block state
+	pass
 
 func enter():
 	

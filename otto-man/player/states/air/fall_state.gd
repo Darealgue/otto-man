@@ -66,7 +66,13 @@ func physics_update(delta: float):
 	if wall_detach_grace_timer > 0:
 		wall_detach_grace_timer -= delta
 	
-	# Check for fall attack input first (before any animation checks)
+	# Check for normal attack input first, highest priority for responsive controls
+	if Input.is_action_just_pressed("attack"):
+		print("[Fall State] Attack button pressed, transitioning to Attack state for air attack")
+		state_machine.transition_to("Attack")
+		return
+	
+	# Check for fall attack input second (special air attack)
 	if Input.is_action_pressed("down"):
 		# Make fall attack easier to execute by checking for jump input more frequently
 		if Input.is_action_just_pressed("jump"):
@@ -155,7 +161,9 @@ func physics_update(delta: float):
 	
 	# Finally check for landing
 	if player.is_on_floor():
-		state_machine.transition_to("Idle")
+		# Only play landing animation if we're not already playing it
+		if animation_player.current_animation != "landing":
+			animation_player.play("landing")
 		return
 
 func _on_animation_finished(anim_name: String):
@@ -168,8 +176,12 @@ func _on_animation_finished(anim_name: String):
 			is_transitioning = false
 			animation_player.play("fall")
 		"landing":
+			# Always transition to idle when landing animation finishes
+			state_machine.transition_to("Idle")
+		"fall":
+			# If we're on the floor and fall animation finishes, play landing
 			if player.is_on_floor():
-				state_machine.transition_to("Idle")
+				animation_player.play("landing")
 
 func exit():
 	is_double_jumping = false

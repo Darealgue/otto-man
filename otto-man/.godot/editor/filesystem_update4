@@ -56,3 +56,8 @@ res://chunks/dungeon/hub/t_junction_up2.tscn
 res://chunks/dungeon/hub/t_junction_up.tscn
 res://village level/village.tscn
 res://Ui/gemini_test.gd
+res://player/states/air/jump_state.gd
+res://player/states/air/fall_attack_state.gd
+res://resources/player_normalmap resources/attack1_n.tres
+res://resources/player_normalmap resources/air_attack_n.tres
+res://chunks/dungeon/special/full.tscn
