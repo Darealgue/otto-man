@@ -1,3 +1,6 @@
+res://objects/dungeon/lighting
+res://objects/dungeon
+res://resources/player_normalmap resources
 res://chunks/dungeon/vertical
 res://chunks/dungeon/hub
 res://chunks/dungeon/basic

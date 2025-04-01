@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://cs8j8vjddl30i"]
+
+[ext_resource type="Texture2D" uid="uid://di7eukhiijbb8" path="res://assets/player/sprite/otto_crawl_border.png" id="1_7bwc2"]
+[ext_resource type="Texture2D" uid="uid://rdtvsfkk230l" path="res://assets/player/normal/otto_crawl_border_n.png" id="2_wqbi0"]
+
+[resource]
+diffuse_texture = ExtResource("1_7bwc2")
+normal_texture = ExtResource("2_wqbi0")

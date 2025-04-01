@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://bkbdv0v7yc2sn"]
+
+[ext_resource type="Texture2D" uid="uid://dn27r8ssmlr5" path="res://assets/player/sprite/ottorun2deneme1-sheet2.png" id="1_2hurs"]
+[ext_resource type="Texture2D" uid="uid://dwmdh0trse86v" path="res://assets/player/normal/ottorun2deneme1-sheet2_n.png" id="2_vmnqm"]
+
+[resource]
+diffuse_texture = ExtResource("1_2hurs")
+normal_texture = ExtResource("2_vmnqm")

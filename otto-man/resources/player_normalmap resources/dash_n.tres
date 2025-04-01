@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://dx8hwlwxl1a2o"]
+
+[ext_resource type="Texture2D" uid="uid://o2w3kn4qnqps" path="res://assets/player/sprite/otto_dash.png" id="1_eqvpm"]
+[ext_resource type="Texture2D" uid="uid://bt0gv7jmh0eg6" path="res://assets/player/normal/otto_dash_n.png" id="2_07kj4"]
+
+[resource]
+diffuse_texture = ExtResource("1_eqvpm")
+normal_texture = ExtResource("2_07kj4")

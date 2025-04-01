@@ -1,0 +1,60 @@
+[gd_scene load_steps=9 format=3 uid="uid://jd3pyam6x1c"]
+
+[ext_resource type="Texture2D" uid="uid://qb04iu0hfw4" path="res://objects/dungeon/lighting/mesale2.png" id="1_noogg"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wp7v6"]
+atlas = ExtResource("1_noogg")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_p2tqb"]
+atlas = ExtResource("1_noogg")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_47nbt"]
+atlas = ExtResource("1_noogg")
+region = Rect2(64, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hrqcf"]
+atlas = ExtResource("1_noogg")
+region = Rect2(96, 0, 32, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_w7l8y"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wp7v6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_p2tqb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_47nbt")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hrqcf")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 12.0
+}]
+
+[sub_resource type="Gradient" id="Gradient_5eems"]
+offsets = PackedFloat32Array(0, 0.707792)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_a0sqj"]
+gradient = SubResource("Gradient_5eems")
+fill = 1
+fill_from = Vector2(0.495413, 0.5)
+
+[node name="Mesale" type="Node2D"]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_w7l8y")
+animation = &"idle"
+frame_progress = 0.458046
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+color = Color(1, 0.580392, 0.196078, 1)
+texture = SubResource("GradientTexture2D_a0sqj")
+texture_scale = 4.33

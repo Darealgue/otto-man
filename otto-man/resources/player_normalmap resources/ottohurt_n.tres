@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://qymwpcdkgny"]
+
+[ext_resource type="Texture2D" uid="uid://dioxpmkdq7jdh" path="res://assets/player/sprite/ottohurt_border-sheet.png" id="1_ta4xi"]
+[ext_resource type="Texture2D" uid="uid://dultttc3nm3h8" path="res://assets/player/normal/ottohurt_border-sheet_n.png" id="2_4wn5p"]
+
+[resource]
+diffuse_texture = ExtResource("1_ta4xi")
+normal_texture = ExtResource("2_4wn5p")

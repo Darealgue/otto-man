@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://dpmlusxxy11oa"]
+
+[ext_resource type="Texture2D" uid="uid://cbdd80odm1xy1" path="res://assets/player/sprite/otto_ledgegrab.png" id="1_b2emo"]
+[ext_resource type="Texture2D" uid="uid://dt1q1itr1bjlb" path="res://assets/player/normal/otto_ledgegrab_n.png" id="2_xlg0b"]
+
+[resource]
+diffuse_texture = ExtResource("1_b2emo")
+normal_texture = ExtResource("2_xlg0b")

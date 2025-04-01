@@ -87,7 +87,7 @@ func _ready():
 	set_collision_mask_value(10, true)  # Ensure platform collision is enabled by default
 	
 	animation_player.active = true
-	animation_tree.active = false
+	#animation_tree.active = false
 	
 	# Initialize health from PlayerStats
 	var player_stats = get_node("/root/PlayerStats")

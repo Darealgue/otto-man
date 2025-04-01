@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://c47u647h31m3d"]
+
+[ext_resource type="Texture2D" uid="uid://nkj6bhhd5r1x" path="res://assets/player/sprite/otto_parry_border-sheet.png" id="1_1ksb4"]
+[ext_resource type="Texture2D" uid="uid://hlpmpmw1dme5" path="res://assets/player/normal/otto_parry_border-sheet_n.png" id="2_xfdaw"]
+
+[resource]
+diffuse_texture = ExtResource("1_1ksb4")
+normal_texture = ExtResource("2_xfdaw")

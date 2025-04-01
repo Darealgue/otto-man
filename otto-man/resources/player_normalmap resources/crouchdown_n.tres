@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://cwtswq0ece6fr"]
+
+[ext_resource type="Texture2D" uid="uid://dkoq35p6nflht" path="res://assets/player/sprite/otto_crouch_border.png" id="1_tuumh"]
+[ext_resource type="Texture2D" uid="uid://css70qiwlbod1" path="res://assets/player/normal/otto_crouch_border_n.png" id="2_snhmk"]
+
+[resource]
+diffuse_texture = ExtResource("1_tuumh")
+normal_texture = ExtResource("2_snhmk")
