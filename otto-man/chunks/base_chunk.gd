@@ -59,33 +59,50 @@ func _initialize_connections() -> void:
 	
 	# Initialize connections based on scene name
 	if scene_name == "start_chunk":
-		connections = [Direction.RIGHT]
+		connections.push_back(Direction.RIGHT)
 	elif scene_name == "finish_chunk":
-		connections = [Direction.LEFT]
+		connections.push_back(Direction.LEFT)
 	elif scene_name == "basic_platform" or scene_name == "combat_arena":
-		connections = [Direction.LEFT, Direction.RIGHT]
+		connections.push_back(Direction.LEFT)
+		connections.push_back(Direction.RIGHT)
 	elif scene_name == "climbing_tower":
-		connections = [Direction.UP, Direction.DOWN]
+		connections.push_back(Direction.UP)
+		connections.push_back(Direction.DOWN)
 	elif scene_name.begins_with("l_corner"):
 		if "left_up" in scene_name:
-			connections = [Direction.LEFT, Direction.UP]
+			connections.push_back(Direction.LEFT)
+			connections.push_back(Direction.UP)
 		elif "left_down" in scene_name:
-			connections = [Direction.LEFT, Direction.DOWN]
+			connections.push_back(Direction.LEFT)
+			connections.push_back(Direction.DOWN)
 		elif "right_up" in scene_name:
-			connections = [Direction.RIGHT, Direction.UP]
+			connections.push_back(Direction.RIGHT)
+			connections.push_back(Direction.UP)
 		elif "right_down" in scene_name:
-			connections = [Direction.RIGHT, Direction.DOWN]
+			connections.push_back(Direction.RIGHT)
+			connections.push_back(Direction.DOWN)
 	elif scene_name.begins_with("t_junction"):
 		if "left" in scene_name:
-			connections = [Direction.RIGHT, Direction.UP, Direction.DOWN]
+			connections.push_back(Direction.RIGHT)
+			connections.push_back(Direction.UP)
+			connections.push_back(Direction.DOWN)
 		elif "right" in scene_name:
-			connections = [Direction.LEFT, Direction.UP, Direction.DOWN]
+			connections.push_back(Direction.LEFT)
+			connections.push_back(Direction.UP)
+			connections.push_back(Direction.DOWN)
 		elif "up" in scene_name:
-			connections = [Direction.LEFT, Direction.RIGHT, Direction.DOWN]
+			connections.push_back(Direction.LEFT)
+			connections.push_back(Direction.RIGHT)
+			connections.push_back(Direction.DOWN)
 		elif "down" in scene_name:
-			connections = [Direction.LEFT, Direction.RIGHT, Direction.UP]
+			connections.push_back(Direction.LEFT)
+			connections.push_back(Direction.RIGHT)
+			connections.push_back(Direction.UP)
 	elif scene_name == "four_way_hub":
-		connections = [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN]
+		connections.push_back(Direction.LEFT)
+		connections.push_back(Direction.RIGHT)
+		connections.push_back(Direction.UP)
+		connections.push_back(Direction.DOWN)
 
 func _setup_connection_points() -> void:
 	# Clear existing points

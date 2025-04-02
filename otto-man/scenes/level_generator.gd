@@ -568,15 +568,83 @@ func generate_level() -> void:
 	
 	print("Level ", current_level, " - Grid size: ", current_grid_width, "x", GRID_HEIGHT)
 	
-	if generate_layout():
-		if populate_chunks():
-			print("Level generated successfully!")
-			unify_terrain()  # New step
-			setup_level_transitions()
-			spawn_player()
-			return
+	# Make multiple attempts to generate a valid level if needed
+	var max_attempts = 3
+	var attempt = 0
 	
-	print("Failed to generate level!")
+	while attempt < max_attempts:
+		if generate_layout():
+			if populate_chunks():
+				# Verify if there's a valid path from start to finish
+				if verify_level_path():
+					print("Level generated successfully!")
+					unify_terrain()  # New step
+					setup_level_transitions()
+					spawn_player()
+					return
+				else:
+					print("No valid path from start to finish, retrying...")
+		
+		print("Attempt ", attempt+1, " failed, retrying...")
+		attempt += 1
+		
+		# Clear the grid for a new attempt
+		for x in range(current_grid_width):
+			for y in range(GRID_HEIGHT):
+				grid[x][y] = GridCell.new()
+	
+	print("Failed to generate level after ", max_attempts, " attempts!")
+
+# Verify there is a valid path from start to finish
+func verify_level_path() -> bool:
+	print("Verifying path from start to finish...")
+	
+	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
+	
+	# Find finish position
+	var finish_pos = Vector2i.ZERO
+	for x in range(current_grid_width - 1, -1, -1):
+		for y in range(GRID_HEIGHT):
+			if grid[x][y].chunk and grid[x][y].chunk.scene_file_path.contains("finish_chunk"):
+				finish_pos = Vector2i(x, y)
+				break
+		if finish_pos != Vector2i.ZERO:
+			break
+	
+	if finish_pos == Vector2i.ZERO:
+		print("Finish chunk not found!")
+		return false
+	
+	print("Start position:", start_pos)
+	print("Finish position:", finish_pos)
+	
+	# Do a BFS to find a path from start to finish
+	var queue = [start_pos]
+	var visited = {}
+	visited[start_pos] = true
+	
+	while not queue.is_empty():
+		var current = queue.pop_front()
+		
+		# Check if we've reached the finish
+		if current == finish_pos:
+			print("Valid path found from start to finish!")
+			return true
+		
+		# Add all connected neighbors
+		for dir in Direction.values():
+			if grid[current.x][current.y].connections[dir]:
+				var next_pos = current + DIRECTION_VECTORS[dir]
+				
+				if is_valid_position(next_pos) and not visited.has(next_pos):
+					# Verify the connection is two-way (neighbor connects back)
+					var opposite_dir = get_opposite_direction(dir)
+					if grid[next_pos.x][next_pos.y].connections[opposite_dir]:
+						queue.append(next_pos)
+						visited[next_pos] = true
+	
+	print("No valid path found from start to finish!")
+	return false
 
 func generate_layout() -> bool:
 	print("\nPhase 1: Generating abstract layout...")
@@ -595,7 +663,7 @@ func generate_layout() -> bool:
 	# Set up start position with proper connections
 	grid[start_pos.x][start_pos.y].cell_type = CellType.MAIN_PATH
 	grid[start_pos.x][start_pos.y].visited = true
-	# Set start chunk connections (only right connection)
+	# Make sure to explicitly set all connections for the start chunk - only RIGHT connection
 	for dir in Direction.values():
 		grid[start_pos.x][start_pos.y].connections[dir] = (dir == Direction.RIGHT)
 	
@@ -707,6 +775,30 @@ func generate_main_path(start_pos: Vector2i, finish_pos: Vector2i, path_gen: Pat
 	var waypoints = []
 	waypoints.append(start_pos)
 	
+	# Always include the position to the right of start in the path,
+	# and ensure at least one connection from that position to continue the path
+	var right_of_start = Vector2i(start_pos.x + 1, start_pos.y)
+	if is_valid_position(right_of_start) and right_of_start != waypoints[-1]:
+		waypoints.append(right_of_start)
+		
+		# Get the possible directions to continue from right_of_start
+		var continue_directions = []
+		var possible_dirs = [Direction.RIGHT, Direction.UP, Direction.DOWN]
+		
+		for dir in possible_dirs:
+			var next_pos = right_of_start + DIRECTION_VECTORS[dir]
+			if is_valid_position(next_pos) and not grid[next_pos.x][next_pos.y].visited:
+				continue_directions.append(dir)
+		
+		# If there are possible directions to continue, pick one
+		if not continue_directions.is_empty():
+			var chosen_dir = continue_directions[randi() % continue_directions.size()]
+			var next_pos = right_of_start + DIRECTION_VECTORS[chosen_dir]
+			
+			# Set up connections between right_of_start and next_pos
+			if not waypoints.has(next_pos):
+				waypoints.append(next_pos)
+	
 	# Add more intermediate waypoints for a more winding path
 	var num_waypoints = randi() % 3 + 3  # 3-5 waypoints
 	for i in range(num_waypoints):
@@ -739,17 +831,24 @@ func generate_main_path(start_pos: Vector2i, finish_pos: Vector2i, path_gen: Pat
 	for i in range(path_points.size()):
 		var current = path_points[i]
 		
+		# Special handling for the start position - only allow RIGHT connection
+		if current == Vector2i(0, GRID_HEIGHT / 2):  # Start position
+			# Only maintain the RIGHT connection for start chunk
+			for dir in Direction.values():
+				grid[current.x][current.y].connections[dir] = (dir == Direction.RIGHT)
+			continue
+		
 		if i > 0:  # Connect to previous
 			var prev = path_points[i - 1]
 			var dir = get_direction_between(prev, current)
-			if is_valid_direction(dir):
+			if is_valid_direction(dir) and is_valid_connection(prev, current, dir):
 				grid[current.x][current.y].connections[get_opposite_direction(dir)] = true
 				grid[prev.x][prev.y].connections[dir] = true
 		
 		if i < path_points.size() - 1:  # Connect to next
 			var next = path_points[i + 1]
 			var dir = get_direction_between(current, next)
-			if is_valid_direction(dir):
+			if is_valid_direction(dir) and is_valid_connection(current, next, dir):
 				grid[current.x][current.y].connections[dir] = true
 				grid[next.x][next.y].connections[get_opposite_direction(dir)] = true
 	
@@ -780,6 +879,58 @@ func populate_chunks() -> bool:
 	if not place_chunk(start_pos, "start"):
 		print("Failed to place start chunk")
 		return false
+	
+	print("\nStart chunk connections:")
+	print("RIGHT connection:", grid[start_pos.x][start_pos.y].connections[Direction.RIGHT])
+	
+	# Ensure no illegal connections to start chunk
+	for dir in Direction.values():
+		if dir != Direction.RIGHT:
+			var neighbor_pos = start_pos + DIRECTION_VECTORS[dir]
+			if is_valid_position(neighbor_pos) and grid[neighbor_pos.x][neighbor_pos.y].visited:
+				# Remove any connection to start chunk in this direction
+				grid[neighbor_pos.x][neighbor_pos.y].connections[get_opposite_direction(dir)] = false
+	
+	# Ensure there's at least a path out of the start chunk
+	var right_of_start = Vector2i(start_pos.x + 1, start_pos.y)
+	if is_valid_position(right_of_start):
+		print("\nProcessing chunk to the right of start:")
+		print("Position right of start:", right_of_start)
+		
+		# Mark as visited and part of main path if not already
+		if not grid[right_of_start.x][right_of_start.y].visited:
+			grid[right_of_start.x][right_of_start.y].visited = true
+			grid[right_of_start.x][right_of_start.y].cell_type = CellType.MAIN_PATH
+			print("Marked as visited and part of main path")
+		
+		# Make sure it connects to the start chunk (the only mandatory connection)
+		grid[right_of_start.x][right_of_start.y].connections[Direction.LEFT] = true
+		print("Set LEFT connection to true")
+		
+		# Don't enforce other connections - let the level generator decide
+		print("Current connections:", grid[right_of_start.x][right_of_start.y].connections)
+		
+		# Choose appropriate chunk type based on the connections
+		var cell = grid[right_of_start.x][right_of_start.y]
+		var chunk_type = select_appropriate_chunk(right_of_start, cell)
+		
+		if chunk_type.is_empty():
+			print("No suitable chunk type found, defaulting to basic")
+			chunk_type = "basic"
+		
+		# Place the appropriate chunk
+		if not place_chunk(right_of_start, chunk_type):
+			print("Failed to place chunk right of start")
+			return false
+		
+		print("Successfully placed chunk right of start:", chunk_type)
+		
+		# Verify connections after placement
+		print("After chunk placement:")
+		print("Connections right of start: [LEFT:", grid[right_of_start.x][right_of_start.y].connections[Direction.LEFT], 
+			  ", RIGHT:", grid[right_of_start.x][right_of_start.y].connections[Direction.RIGHT], 
+			  ", UP:", grid[right_of_start.x][right_of_start.y].connections[Direction.UP], 
+			  ", DOWN:", grid[right_of_start.x][right_of_start.y].connections[Direction.DOWN], "]")
 	
 	# 2. Find and place finish chunk
 	var finish_pos = Vector2i.ZERO
@@ -898,6 +1049,56 @@ func populate_chunks() -> bool:
 	return true  # Return true if we've made it through all placements
 
 func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
+	# Special case for start position - always return "start"
+	if pos == Vector2i(0, GRID_HEIGHT / 2):
+		return "start"
+	
+	# Special case for the position right after start - we need to be more flexible
+	if pos == Vector2i(1, GRID_HEIGHT / 2):
+		# Make sure it connects to start from LEFT
+		cell.connections[Direction.LEFT] = true
+		
+		# We don't enforce RIGHT connection anymore, but respect what the level generator decided
+		# Just get the required connections from the cell
+		var required_connections = [false, false, false, false]  # [LEFT, RIGHT, UP, DOWN]
+		
+		# First check existing connections in the grid cell
+		for dir in Direction.values():
+			if cell.connections[dir]:
+				required_connections[dir] = true
+		
+		print("Right-of-start required connections: ", required_connections)
+		
+		# Count how many connections are required
+		var connection_count = 0
+		for required in required_connections:
+			if required:
+				connection_count += 1
+		
+		# Select an appropriate chunk type based on the connections
+		# Handle different connection counts
+		if connection_count == 1:  # Only LEFT connection
+			return "dead_end_right"
+		elif connection_count == 2:
+			if required_connections[Direction.LEFT] and required_connections[Direction.RIGHT]:
+				return "basic" if randf() < 0.7 else "combat"
+			elif required_connections[Direction.LEFT] and required_connections[Direction.UP]:
+				return "corner_left_up"
+			elif required_connections[Direction.LEFT] and required_connections[Direction.DOWN]:
+				return "corner_left_down"
+		elif connection_count == 3:
+			if required_connections[Direction.LEFT] and required_connections[Direction.RIGHT] and required_connections[Direction.UP]:
+				return "t_junction_down"
+			elif required_connections[Direction.LEFT] and required_connections[Direction.RIGHT] and required_connections[Direction.DOWN]:
+				return "t_junction_up"
+			elif required_connections[Direction.LEFT] and required_connections[Direction.UP] and required_connections[Direction.DOWN]:
+				return "t_junction_right"
+		elif connection_count == 4:
+			return "four_way_hub"
+		
+		# If no specific match, default to basic horizontal path
+		return "basic"
+	
 	# Get required connections based on surrounding cells
 	var required_connections = [false, false, false, false]  # [LEFT, RIGHT, UP, DOWN]
 	
@@ -905,6 +1106,13 @@ func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 	for dir in Direction.values():
 		if cell.connections[dir]:
 			required_connections[dir] = true
+			
+			# Extra check: if this is connecting to the start chunk in a direction other than LEFT,
+			# set this connection to false to prevent unwanted connections
+			var next_pos = pos + DIRECTION_VECTORS[dir]
+			if next_pos == Vector2i(0, GRID_HEIGHT / 2) and dir != Direction.LEFT:
+				required_connections[dir] = false
+				cell.connections[dir] = false
 	
 	print("Required connections: ", required_connections)
 	
@@ -1146,7 +1354,23 @@ func setup_level_transitions() -> void:
 	print("\nSetting up level transitions...")
 	
 	var start_pos = Vector2i(0, GRID_HEIGHT / 2)
-	var finish_pos = Vector2i(current_grid_width - 2, GRID_HEIGHT / 2)
+	# Find the actual finish chunk position - should be at (current_grid_width - 2, y)
+	var finish_pos = Vector2i.ZERO
+	var finish_found = false
+	
+	# Search for finish chunk
+	for x in range(current_grid_width - 1, -1, -1):
+		for y in range(GRID_HEIGHT):
+			if grid[x][y].chunk and grid[x][y].chunk.scene_file_path.contains("finish_chunk"):
+				finish_pos = Vector2i(x, y)
+				finish_found = true
+				break
+		if finish_found:
+			break
+	
+	if not finish_found:
+		# Fallback to expected finish position
+		finish_pos = Vector2i(current_grid_width - 2, GRID_HEIGHT / 2)
 	
 	print("Start position:", start_pos)
 	print("Finish position:", finish_pos)
@@ -1239,8 +1463,8 @@ func unify_terrain() -> void:
 	print("Terrain unification complete!")
 
 func generate_branch(branch_start: Vector2i, all_paths: Array) -> void:
-	# Skip if too close to finish
-	if abs(branch_start.x - current_grid_width - 2) < 6:
+	# Skip if this is the start position or too close to finish
+	if branch_start == Vector2i(0, GRID_HEIGHT / 2) or abs(branch_start.x - current_grid_width - 2) < 5:
 		return
 		
 	# Determine branch direction (up or down)
@@ -1415,3 +1639,15 @@ func add_dead_end(all_paths: Array) -> void:
 				if current_pos != dead_end_start_pos:
 					grid[current_pos.x][current_pos.y].connections[Direction.LEFT] = false
 					grid[current_pos.x][current_pos.y].connections[Direction.RIGHT] = false
+
+func is_valid_connection(from_pos: Vector2i, to_pos: Vector2i, dir: Direction) -> bool:
+	# If connecting to/from the start chunk, only allow its RIGHT connection
+	if from_pos == Vector2i(0, GRID_HEIGHT / 2):  # Start position
+		return dir == Direction.RIGHT
+	
+	# If connecting TO the start chunk, only allow from its RIGHT side (LEFT direction)
+	if to_pos == Vector2i(0, GRID_HEIGHT / 2):
+		return dir == Direction.LEFT
+	
+	# Regular connection is valid
+	return true

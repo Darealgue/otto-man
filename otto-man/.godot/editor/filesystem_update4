@@ -1,63 +1,35 @@
 res://player/player.tscn
-res://chunks/base_chunk.gd
-res://scenes/testing.tscn
-res://scenes/test_level.tscn
-res://levels/city_test.tscn
-res://resources/player_normalmap resources/idle_normal.tres
+res://player/states/air/fall_attack_state.gd
 res://resources/player_normalmap resources/run_normal.tres
-res://player/player.gd
+res://resources/player_normalmap resources/idle_normal.tres
+res://resources/player_normalmap resources/block_normal.tres
 res://resources/player_normalmap resources/blockfinish_n.tres
 res://resources/player_normalmap resources/blockimpact_n.tres
 res://resources/player_normalmap resources/blockprepare.tres
 res://resources/player_normalmap resources/crawl_n.tres
-res://resources/player_normalmap resources/crouchdown_n.tres
 res://resources/player_normalmap resources/crouch_n.tres
+res://resources/player_normalmap resources/crouchdown_n.tres
 res://resources/player_normalmap resources/dash_n.tres
 res://resources/player_normalmap resources/doublejump_n.tres
 res://resources/player_normalmap resources/fall_n.tres
-res://resources/player_normalmap resources/lightattack_n.tres
+res://resources/player_normalmap resources/fallattack_n.tres
+res://resources/player_normalmap resources/fallattackstart_n.tres
+res://resources/player_normalmap resources/ottohurt_n.tres
+res://resources/player_normalmap resources/jumpprepare_n.tres
+res://resources/player_normalmap resources/jumptofall_n.tres
+res://resources/player_normalmap resources/jumpupwards_n.tres
+res://resources/player_normalmap resources/landing_n.tres
+res://resources/player_normalmap resources/ledgegrab_n.tres
+res://resources/player_normalmap resources/parry_n.tres
+res://resources/player_normalmap resources/slide_n.tres
 res://resources/player_normalmap resources/walljump_n.tres
-res://chunks/dungeon/special/start_chunk.tscn
-res://objects/dungeon/mesale.tscn
-res://objects/dungeon/lighting/mesale.tscn
-res://objects/dungeon/lighting/mesale3.tscn
-res://objects/dungeon/lighting/mesale2.tscn
-res://objects/dungeon/lighting/mum.tscn
-res://objects/dungeon/lighting/mum2.tscn
-res://chunks/dungeon/basic/basic_platform1.tscn
-res://chunks/dungeon/basic/basic_platform2.tscn
-res://chunks/dungeon/basic/basic_platform.tscn
-res://chunks/dungeon/hub/four_way_hub1.tscn
-res://chunks/dungeon/hub/four_way_hub2.tscn
-res://chunks/dungeon/hub/four_way_hub.tscn
-res://chunks/dungeon/hub/l_corner_left_down1.tscn
-res://chunks/dungeon/hub/l_corner_left_down2.tscn
-res://chunks/dungeon/hub/l_corner_left_down.tscn
-res://chunks/dungeon/hub/l_corner_left_up1.tscn
-res://chunks/dungeon/hub/l_corner_left_up2.tscn
-res://chunks/dungeon/hub/l_corner_left_up.tscn
-res://chunks/dungeon/hub/l_corner_right_down1.tscn
-res://chunks/dungeon/hub/l_corner_right_down2.tscn
-res://chunks/dungeon/hub/l_corner_right_down.tscn
-res://chunks/dungeon/hub/l_corner_right_up1.tscn
-res://chunks/dungeon/hub/l_corner_right_up.tscn
-res://chunks/dungeon/hub/l_corner_right_up2.tscn
-res://chunks/dungeon/hub/t_junction_down1.tscn
-res://chunks/dungeon/hub/t_junction_down2.tscn
-res://chunks/dungeon/hub/t_junction_down.tscn
-res://chunks/dungeon/hub/t_junction_left1.tscn
-res://chunks/dungeon/hub/t_junction_left2.tscn
-res://chunks/dungeon/hub/t_junction_left.tscn
-res://chunks/dungeon/hub/t_junction_right1.tscn
-res://chunks/dungeon/hub/t_junction_right2.tscn
-res://chunks/dungeon/hub/t_junction_right.tscn
-res://chunks/dungeon/hub/t_junction_up1.tscn
-res://chunks/dungeon/hub/t_junction_up2.tscn
-res://chunks/dungeon/hub/t_junction_up.tscn
-res://village level/village.tscn
-res://Ui/gemini_test.gd
-res://player/states/air/jump_state.gd
-res://player/states/air/fall_attack_state.gd
+res://resources/player_normalmap resources/wallslide_n.tres
 res://resources/player_normalmap resources/attack1_n.tres
 res://resources/player_normalmap resources/air_attack_n.tres
+res://chunks/base_chunk.gd
+res://scenes/testing.tscn
+res://scenes/test_level.tscn
+res://levels/city_test.tscn
 res://chunks/dungeon/special/full.tscn
+res://objects/dungeon/lighting/mesale3.tscn
+res://objects/dungeon/lighting/mesale2.tscn

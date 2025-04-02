@@ -58,4 +58,4 @@ frame_progress = 0.517652
 color = Color(1, 0.580392, 0.196078, 1)
 energy = 2.0
 texture = SubResource("GradientTexture2D_a0sqj")
-texture_scale = 4.33
+texture_scale = 8.0
