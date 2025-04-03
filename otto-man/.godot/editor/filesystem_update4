@@ -1,4 +1,4 @@
-res://player/player.tscn
+res://scenes/test_level.tscn
 res://player/states/air/fall_attack_state.gd
 res://resources/player_normalmap resources/run_normal.tres
 res://resources/player_normalmap resources/idle_normal.tres
@@ -27,9 +27,9 @@ res://resources/player_normalmap resources/wallslide_n.tres
 res://resources/player_normalmap resources/attack1_n.tres
 res://resources/player_normalmap resources/air_attack_n.tres
 res://chunks/base_chunk.gd
+res://player/player.tscn
 res://scenes/testing.tscn
-res://scenes/test_level.tscn
 res://levels/city_test.tscn
 res://chunks/dungeon/special/full.tscn
-res://objects/dungeon/lighting/mesale3.tscn
 res://objects/dungeon/lighting/mesale2.tscn
+res://objects/dungeon/lighting/mesale3.tscn
