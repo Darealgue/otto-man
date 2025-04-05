@@ -1,0 +1,41 @@
+[gd_scene load_steps=4 format=3 uid="uid://c8vfcp3r6xk2n"]
+
+[ext_resource type="Script" path="res://village/buildings/resource_building.gd" id="1_bxsrt"]
+[ext_resource type="Texture2D" uid="uid://bwokivgexyyfa" path="res://assets/buildings/lumberjack.png" id="2_6pcj4"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hhdgu"]
+radius = 50.0
+
+[node name="Lumberjack" type="Node2D" groups=["resource_buildings"]]
+script = ExtResource("1_bxsrt")
+resource_type = "wood"
+building_name = "Oduncu"
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(2, 2)
+texture = ExtResource("2_6pcj4")
+
+[node name="Label" type="Label" parent="."]
+offset_left = -60.0
+offset_top = -70.0
+offset_right = 60.0
+offset_bottom = -44.0
+text = "Oduncu"
+horizontal_alignment = 1
+
+[node name="InteractionArea" type="Area2D" parent="."]
+collision_layer = 4
+collision_mask = 2
+monitoring = true
+monitorable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea"]
+shape = SubResource("CircleShape2D_hhdgu")
+
+[node name="WorkerLabel" type="Label" parent="."]
+offset_left = -60.0
+offset_top = -44.0
+offset_right = 60.0
+offset_bottom = -18.0
+text = "İşçi: Yok"
+horizontal_alignment = 1 

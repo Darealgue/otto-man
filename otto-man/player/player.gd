@@ -82,9 +82,15 @@ func _ready():
 	# Add to player group
 	add_to_group("player")
 	
+	# Collision layer ve mask'ı doğru şekilde ayarla
+	collision_layer = 2  # Layer 2 (player)
+	print("Oyuncu collision_layer: ", collision_layer)
+	
 	# Set up collision mask to detect both ground and platforms
 	collision_mask |= 10  # Add platform layer (10) to existing collision mask
+	collision_mask |= 4   # Add building slot layer (4) to collision mask
 	set_collision_mask_value(10, true)  # Ensure platform collision is enabled by default
+	print("Oyuncu collision_mask: ", collision_mask)
 	
 	animation_player.active = true
 	#animation_tree.active = false
@@ -128,44 +134,6 @@ func _ready():
 		
 	# Initialize stats from PlayerStats
 	_sync_stats_from_player_stats()
-
-	# Debug hitbox component
-	if hitbox:
-		print("[Player] Hitbox node found: ", hitbox)
-		if hitbox is PlayerHitbox:
-			print("[Player] Hitbox is a PlayerHitbox")
-			
-			# Ensure hitbox signals are connected
-			if not hitbox.hit_enemy.is_connected(_on_hitbox_hit):
-				hitbox.hit_enemy.connect(_on_hitbox_hit)
-				print("[Player] Connected hitbox hit_enemy signal")
-			
-			# Verify hitbox is properly initialized
-			print("[Player] Hitbox monitoring: ", hitbox.monitoring)
-			print("[Player] Hitbox monitorable: ", hitbox.monitorable)
-			print("[Player] Hitbox collision shape enabled: ", 
-				!hitbox.get_node("CollisionShape2D").disabled if hitbox.has_node("CollisionShape2D") else "No collision shape")
-		else:
-			print("[Player] WARNING: Hitbox is not a PlayerHitbox but a: ", hitbox.get_class())
-			# Try to fix hitbox type if needed
-			print("[Player] Attempting to set hitbox script to PlayerHitbox...")
-			var player_hitbox_script = load("res://components/player_hitbox.gd")
-			if player_hitbox_script:
-				hitbox.set_script(player_hitbox_script)
-				print("[Player] Hitbox script set to PlayerHitbox")
-				# Re-initialize the hitbox
-				hitbox._ready()
-			else:
-				print("[Player] ERROR: Could not load PlayerHitbox script!")
-	else:
-		print("[Player] ERROR: Hitbox node not found!")
-		
-	# Add verification for Hitbox node path
-	var hitbox_node = get_node_or_null("Hitbox")
-	if hitbox_node:
-		print("[Player] Direct Hitbox node found at path 'Hitbox'")
-	else:
-		print("[Player] WARNING: No direct Hitbox node found at path 'Hitbox'")
 
 func _physics_process(delta):
 	# Handle drop-through platform

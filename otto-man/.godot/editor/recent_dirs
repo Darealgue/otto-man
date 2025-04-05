@@ -1,3 +1,7 @@
+res://levels
+res://autoload
+res://village
+res://village/village_ui
 res://resources/player_normalmap resources
 res://objects/dungeon/lighting
 res://objects/dungeon
@@ -15,6 +19,4 @@ res://chunks
 res://enemy/flying/sprites
 res://enemy/summoner/sprites
 res://enemy/heavy/sprites
-res://autoload
 res://enemy/summoner
-res://enemy/flying

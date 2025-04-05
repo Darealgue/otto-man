@@ -1,0 +1,33 @@
+[gd_scene load_steps=2 format=3 uid="uid://dnb1i83q6fsvp"]
+
+[ext_resource type="Script" path="res://village/village_ui/worker_assignment_button.gd" id="1_bdg08"]
+
+[node name="WorkerAssignmentButton" type="Button"]
+offset_left = 9.0
+offset_top = 7.0
+offset_right = 136.0
+offset_bottom = 47.0
+script = ExtResource("1_bdg08")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="NameLabel" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 1
+text = "İşçi"
+vertical_alignment = 1
+
+[node name="ResourceLabel" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 1
+text = "Atanmamış"
+vertical_alignment = 1

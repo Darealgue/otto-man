@@ -1,0 +1,97 @@
+[gd_scene load_steps=8 format=3 uid="uid://b3d25gbwddjj8"]
+
+[ext_resource type="PackedScene" uid="uid://dbukgdjc7hm1p" path="res://village/buildings/resources/wood_resource.tscn" id="1_p4ojq"]
+[ext_resource type="PackedScene" uid="uid://bxyyo68jyy7jl" path="res://village/buildings/resources/water_resource.tscn" id="2_8uw1l"]
+[ext_resource type="PackedScene" uid="uid://d4kxj73lh0kma" path="res://village/buildings/resources/food_resource.tscn" id="3_a0n8m"]
+[ext_resource type="PackedScene" uid="uid://bgbkexofv4gus" path="res://village/buildings/resources/stone_resource.tscn" id="4_5k2q0"]
+[ext_resource type="PackedScene" uid="uid://blgdqe7do210h" path="res://village/village_ui/resource_display.tscn" id="5_v7j5r"]
+[ext_resource type="Script" path="res://village/building_slot.gd" id="6_17wd2"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_4q8rl"]
+radius = 60.0
+
+[node name="VillageScene" type="Node2D"]
+
+[node name="ResourceBuildings" type="Node2D" parent="."]
+
+[node name="WoodResource" parent="ResourceBuildings" instance=ExtResource("1_p4ojq")]
+position = Vector2(200, 150)
+
+[node name="WaterResource" parent="ResourceBuildings" instance=ExtResource("2_8uw1l")]
+position = Vector2(400, 150)
+
+[node name="FoodResource" parent="ResourceBuildings" instance=ExtResource("3_a0n8m")]
+position = Vector2(600, 150)
+
+[node name="StoneResource" parent="ResourceBuildings" instance=ExtResource("4_5k2q0")]
+position = Vector2(800, 150)
+
+[node name="BuildingSlots" type="Node2D" parent="."]
+position = Vector2(0, 300)
+
+[node name="BuildingSlot1" type="Node2D" parent="BuildingSlots" groups=["building_slots"]]
+position = Vector2(100, 0)
+script = ExtResource("6_17wd2")
+
+[node name="Sprite2D" type="Sprite2D" parent="BuildingSlots/BuildingSlot1"]
+modulate = Color(1, 1, 1, 0.5)
+scale = Vector2(0.3, 0.3)
+
+[node name="InteractionArea" type="Area2D" parent="BuildingSlots/BuildingSlot1"]
+collision_layer = 4
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BuildingSlots/BuildingSlot1/InteractionArea"]
+shape = SubResource("CircleShape2D_4q8rl")
+
+[node name="BuildingSlot2" type="Node2D" parent="BuildingSlots" groups=["building_slots"]]
+position = Vector2(300, 0)
+script = ExtResource("6_17wd2")
+slot_position_index = 1
+
+[node name="Sprite2D" type="Sprite2D" parent="BuildingSlots/BuildingSlot2"]
+modulate = Color(1, 1, 1, 0.5)
+scale = Vector2(0.3, 0.3)
+
+[node name="InteractionArea" type="Area2D" parent="BuildingSlots/BuildingSlot2"]
+collision_layer = 4
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BuildingSlots/BuildingSlot2/InteractionArea"]
+shape = SubResource("CircleShape2D_4q8rl")
+
+[node name="BuildingSlot3" type="Node2D" parent="BuildingSlots" groups=["building_slots"]]
+position = Vector2(500, 0)
+script = ExtResource("6_17wd2")
+slot_position_index = 2
+
+[node name="Sprite2D" type="Sprite2D" parent="BuildingSlots/BuildingSlot3"]
+modulate = Color(1, 1, 1, 0.5)
+scale = Vector2(0.3, 0.3)
+
+[node name="InteractionArea" type="Area2D" parent="BuildingSlots/BuildingSlot3"]
+collision_layer = 4
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BuildingSlots/BuildingSlot3/InteractionArea"]
+shape = SubResource("CircleShape2D_4q8rl")
+
+[node name="BuildingSlot4" type="Node2D" parent="BuildingSlots" groups=["building_slots"]]
+position = Vector2(700, 0)
+script = ExtResource("6_17wd2")
+slot_position_index = 3
+
+[node name="Sprite2D" type="Sprite2D" parent="BuildingSlots/BuildingSlot4"]
+modulate = Color(1, 1, 1, 0.5)
+scale = Vector2(0.3, 0.3)
+
+[node name="InteractionArea" type="Area2D" parent="BuildingSlots/BuildingSlot4"]
+collision_layer = 4
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BuildingSlots/BuildingSlot4/InteractionArea"]
+shape = SubResource("CircleShape2D_4q8rl")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="ResourceDisplay" parent="CanvasLayer" instance=ExtResource("5_v7j5r")] 

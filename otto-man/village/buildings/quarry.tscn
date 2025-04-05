@@ -1,0 +1,41 @@
+[gd_scene load_steps=4 format=3 uid="uid://b0k2c8avyc6ny"]
+
+[ext_resource type="Script" path="res://village/buildings/resource_building.gd" id="1_n4r47"]
+[ext_resource type="Texture2D" uid="uid://bcpx50thbxstp" path="res://assets/buildings/quarry.png" id="2_bnl88"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hhdgu"]
+radius = 50.0
+
+[node name="Quarry" type="Node2D" groups=["resource_buildings"]]
+script = ExtResource("1_n4r47")
+resource_type = "stone"
+building_name = "Taş Ocağı"
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(2, 2)
+texture = ExtResource("2_bnl88")
+
+[node name="Label" type="Label" parent="."]
+offset_left = -60.0
+offset_top = -70.0
+offset_right = 60.0
+offset_bottom = -44.0
+text = "Taş Ocağı"
+horizontal_alignment = 1
+
+[node name="InteractionArea" type="Area2D" parent="."]
+collision_layer = 4
+collision_mask = 2
+monitoring = true
+monitorable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea"]
+shape = SubResource("CircleShape2D_hhdgu")
+
+[node name="WorkerLabel" type="Label" parent="."]
+offset_left = -60.0
+offset_top = -44.0
+offset_right = 60.0
+offset_bottom = -18.0
+text = "İşçi: Yok"
+horizontal_alignment = 1 
