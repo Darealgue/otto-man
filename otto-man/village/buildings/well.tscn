@@ -1,41 +1,12 @@
-[gd_scene load_steps=4 format=3 uid="uid://cgxyodjnx4jb0"]
+[gd_scene load_steps=2 format=3 uid="uid://cqos6oeqcgvee"]
 
-[ext_resource type="Script" path="res://village/buildings/resource_building.gd" id="1_6yrjk"]
-[ext_resource type="Texture2D" uid="uid://c4c37xfx2k6s7" path="res://assets/buildings/well.png" id="2_oatsa"]
+[ext_resource type="Script" path="res://village/scripts/Well.gd" id="1_nmieb"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_hhdgu"]
-radius = 50.0
+[node name="Well" type="Node2D"]
+script = ExtResource("1_nmieb")
 
-[node name="Well" type="Node2D" groups=["resource_buildings"]]
-script = ExtResource("1_6yrjk")
-resource_type = "water"
-building_name = "Su Kuyusu"
-
-[node name="Sprite2D" type="Sprite2D" parent="."]
-scale = Vector2(2, 2)
-texture = ExtResource("2_oatsa")
-
-[node name="Label" type="Label" parent="."]
-offset_left = -60.0
-offset_top = -70.0
-offset_right = 60.0
-offset_bottom = -44.0
-text = "Su Kuyusu"
-horizontal_alignment = 1
-
-[node name="InteractionArea" type="Area2D" parent="."]
-collision_layer = 4
-collision_mask = 2
-monitoring = true
-monitorable = true
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea"]
-shape = SubResource("CircleShape2D_hhdgu")
-
-[node name="WorkerLabel" type="Label" parent="."]
-offset_left = -60.0
-offset_top = -44.0
-offset_right = 60.0
-offset_bottom = -18.0
-text = "İşçi: Yok"
-horizontal_alignment = 1 
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_left = -20.0
+offset_top = -40.0
+offset_right = 20.0
+color = Color(0.173713, 0.392006, 0.734552, 1)

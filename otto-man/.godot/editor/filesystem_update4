@@ -1,43 +1,14 @@
+res://village/buildings/woodcutter_camp.tscn
 res://scenes/testing.tscn
-res://village/village_ui/resource_assignment_screen.gd
-res://player/states/air/fall_attack_state.gd
-res://resources/player_normalmap resources/run_normal.tres
-res://resources/player_normalmap resources/idle_normal.tres
-res://resources/player_normalmap resources/block_normal.tres
-res://resources/player_normalmap resources/blockfinish_n.tres
-res://resources/player_normalmap resources/blockimpact_n.tres
-res://resources/player_normalmap resources/blockprepare.tres
-res://resources/player_normalmap resources/crawl_n.tres
-res://resources/player_normalmap resources/crouch_n.tres
-res://resources/player_normalmap resources/crouchdown_n.tres
-res://resources/player_normalmap resources/dash_n.tres
-res://resources/player_normalmap resources/doublejump_n.tres
-res://resources/player_normalmap resources/fall_n.tres
-res://resources/player_normalmap resources/fallattack_n.tres
-res://resources/player_normalmap resources/fallattackstart_n.tres
-res://resources/player_normalmap resources/ottohurt_n.tres
-res://resources/player_normalmap resources/jumpprepare_n.tres
-res://resources/player_normalmap resources/jumptofall_n.tres
-res://resources/player_normalmap resources/jumpupwards_n.tres
-res://resources/player_normalmap resources/landing_n.tres
-res://resources/player_normalmap resources/ledgegrab_n.tres
-res://resources/player_normalmap resources/parry_n.tres
-res://resources/player_normalmap resources/slide_n.tres
-res://resources/player_normalmap resources/walljump_n.tres
-res://resources/player_normalmap resources/wallslide_n.tres
-res://resources/player_normalmap resources/attack1_n.tres
-res://resources/player_normalmap resources/air_attack_n.tres
-res://chunks/base_chunk.gd
+res://village/scenes/VillageScene.tscn
+res://village/scripts/VillageScene.gd
+res://village/buildings/WoodcutterCamp.tscn
+res://village/scripts/WoodcutterCamp.gd
+res://village/buildings/StoneMine.tscn
+res://village/scripts/StoneMine.gd
+res://village/buildings/HunterGathererHut.tscn
+res://village/scripts/HunterGathererHut.gd
+res://village/buildings/Well.tscn
+res://village/scripts/Well.gd
+res://levels/city_test.tscn
 res://scenes/test_level.tscn
-res://village/village.tscn
-res://village/camp_fire.tscn
-res://village/worker.tscn
-res://village/village_ui/resource_display.tscn
-res://village/village_ui/worker_assignment_button.tscn
-res://village/village_ui/building_button.tscn
-res://village/village_ui/village_ui.tscn
-res://village/buildings/house.tscn
-res://village/village_ui/building_selection_ui.tscn
-res://village/Villager.tscn
-res://village/village_ui/TimeUI.tscn
-res://village/Villager.gd

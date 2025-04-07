@@ -25,12 +25,8 @@ ScreenEffects="*res://effects/screen_effects.tscn"
 PlayerStats="*res://autoload/player_stats.gd"
 AttackManager="*res://autoload/attack_manager.gd"
 ObjectPool="*res://autoload/object_pool.gd"
-VillageManager="*res://autoload/VillageManager.gd"
-TimeManager="*res://autoload/TimeManager.gd"
 SoundManager="*res://autoload/SoundManager.gd"
-VillagerManager="*res://autoload/VillagerManager.gd"
-InputFixer="*res://autoload/InputFixer.gd"
-ScheduleManager="*res://autoload/ScheduleManager.gd"
+VillageManager="*res://village/scripts/VillageManager.gd"
 
 [display]
 

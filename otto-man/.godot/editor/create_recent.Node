@@ -1,14 +1,3 @@
-Node2D
-CanvasModulate
-CanvasLayer
-Label
-Sprite2D
-ResourceNode
 Button
-VBoxContainer
-PanelContainer
-Control
-HBoxContainer
-TextureRect
-CollisionShape2D
-Area2D
+Node2D
+Camera2D
