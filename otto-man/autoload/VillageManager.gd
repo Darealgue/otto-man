@@ -43,10 +43,15 @@ var village_ui = null
 var available_workers = [] # Atanmamış işçiler için liste
 
 func _ready():
-	# Test için örnek işçiler ekleyelim
-	add_worker()
-	add_worker()
-	add_worker()
+	# Köylüleri oluşturmayı biraz geciktir (sahnenin yüklenmesini bekle)
+	await get_tree().create_timer(0.5).timeout
+	
+	# Test için örnek işçiler ekleyelim ve köylü olarak oluşturalım
+	for i in range(3):
+		var worker_id = add_worker()
+		# VillagerManager'a köylü oluşturması için sinyal gönder
+		emit_signal("worker_assigned", worker_id, "wandering")
+		print("Başlangıç köylüsü oluşturuldu - ID: ", worker_id)
 	
 	# Müsait işçileri güncelle
 	_update_available_workers()

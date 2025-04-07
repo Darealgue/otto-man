@@ -3,6 +3,7 @@ extends Node
 signal time_advanced(hour: int, minute: int, day: int, period: String)
 signal day_advanced(day: int)
 signal period_changed(period: String)
+signal time_changed(hour: int, minute: int, second: int, time_text: String)
 
 const MINUTES_PER_HOUR = 60
 const HOURS_PER_DAY = 24
@@ -18,8 +19,10 @@ var time_scale = 1.0  # Zamanı hızlandırmak için çarpan
 # Starting values
 var hour: int = 6
 var minute: int = 0
+var second: int = 0  # Saniye takibi için
 var day: int = 1
 var accumulated_minutes: float = 0.0  # Fractional minute accumulator
+var accumulated_seconds: float = 0.0  # Saniye birikimi
 
 # Time periods
 enum Period { MORNING, NOON, EVENING, NIGHT }
@@ -48,6 +51,9 @@ func _ready():
 	
 	# Start time advancement
 	_update_period()
+	
+	# İlk time_changed sinyalini gönder
+	time_changed.emit(hour, minute, second, get_time_text())
 
 func _process(delta):
 	if time_paused:
@@ -79,6 +85,22 @@ func _advance_time(delta):
 	# Add to accumulated minutes
 	accumulated_minutes += minutes_to_advance
 	
+	# Saniye hesabı için
+	accumulated_seconds += delta * 60.0 * time_scale  # 1 gerçek saniye = 60 * time_scale oyun saniyesi
+	
+	if accumulated_seconds >= 1.0:
+		var full_seconds = floor(accumulated_seconds)
+		accumulated_seconds -= full_seconds
+		
+		second += int(full_seconds)
+		if second >= 60:
+			second = second % 60
+			# Saniyeler için time_changed sinyalini gönder
+			# Bu kısım dakikalar zaten _advance_time içinde artacak
+		
+		# Her saniye değişiminde time_changed sinyalini gönder
+		time_changed.emit(hour, minute, second, get_time_text())
+	
 	# If we've accumulated at least one minute, advance the clock
 	if accumulated_minutes >= 1.0:
 		var full_minutes = floor(accumulated_minutes)
@@ -104,6 +126,9 @@ func _advance_time(delta):
 		
 		# Emit time advanced signal
 		time_advanced.emit(hour, minute, day, get_period_string())
+		
+		# Dakika değişiminde time_changed sinyalini gönder
+		time_changed.emit(hour, minute, second, get_time_text())
 
 func _update_period():
 	var old_period = current_period
@@ -125,6 +150,9 @@ func _update_period():
 
 func get_time_string() -> String:
 	return "%02d:%02d" % [hour, minute]
+
+func get_time_text() -> String:
+	return "%02d:%02d:%02d" % [hour, minute, second]
 
 func get_day_string() -> String:
 	return "Day %d" % day
@@ -158,12 +186,14 @@ func get_period_color() -> Color:
 func set_time(new_hour: int, new_minute: int, new_day: int = -1):
 	hour = clampi(new_hour, 0, 23)
 	minute = clampi(new_minute, 0, 59)
+	second = 0  # Saniyeyi sıfırla
 	
 	if new_day > 0:
 		day = new_day
 	
 	_update_period()
 	time_advanced.emit(hour, minute, day, get_period_string())
+	time_changed.emit(hour, minute, second, get_time_text())
 	print("Time manually set to: ", get_time_string(), " (Day ", day, ")")
 
 func pause_time():

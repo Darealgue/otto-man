@@ -1,4 +1,4 @@
-res://village/village.tscn
+res://scenes/testing.tscn
 res://village/village_ui/resource_assignment_screen.gd
 res://player/states/air/fall_attack_state.gd
 res://resources/player_normalmap resources/run_normal.tres
@@ -28,9 +28,10 @@ res://resources/player_normalmap resources/wallslide_n.tres
 res://resources/player_normalmap resources/attack1_n.tres
 res://resources/player_normalmap resources/air_attack_n.tres
 res://chunks/base_chunk.gd
+res://scenes/test_level.tscn
+res://village/village.tscn
 res://village/camp_fire.tscn
 res://village/worker.tscn
-res://village/building_slot.tscn
 res://village/village_ui/resource_display.tscn
 res://village/village_ui/worker_assignment_button.tscn
 res://village/village_ui/building_button.tscn
@@ -38,11 +39,5 @@ res://village/village_ui/village_ui.tscn
 res://village/buildings/house.tscn
 res://village/village_ui/building_selection_ui.tscn
 res://village/Villager.tscn
-res://village/VillagerManager.gd
 res://village/village_ui/TimeUI.tscn
-res://village/village_ui/TimeUI.gd
-res://autoload/TimeManager.gd
 res://village/Villager.gd
-res://autoload/VillagerManager.gd
-res://scenes/test_level.tscn
-res://scenes/testing.tscn

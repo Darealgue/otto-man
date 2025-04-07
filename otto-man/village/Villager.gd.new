@@ -26,7 +26,6 @@ enum PersonalityType {
 # İşçi tanımlama özellikleri
 @export var worker_id: int = -1
 @export var resource_type: String = "wandering"
-@export var debug_enabled: bool = false  # Debug mesajlarını kontrol etmek için
 
 # Hareket ve fizik özellikleri
 var move_speed: float = 55.0
@@ -45,7 +44,7 @@ var personality_type: int = PersonalityType.SOCIAL
 var is_job_done: bool = false
 var is_returning_home: bool = false
 var job_duration: float = 0.0
-var max_job_duration: float = 180.0  # 3 dakika (gerçek zamanda)
+var max_job_duration: float = 30.0
 var next_target_change: float = 0.0
 
 # Performans ve davranış özellikleri
@@ -138,25 +137,13 @@ func _ready() -> void:
 		_update_state_based_on_activity(activity)
 
 func _physics_process(delta: float) -> void:
-	# İşe atanmamış köylüler için sadece gezinme kontrolü
-	if resource_type == "wandering":
-		_process_wandering(delta)
-		return
+	# Update debug info every 2 seconds
+	activity_transition_timer += delta
+	if activity_transition_timer >= 2.0:
+		_debug_print_status()
+		activity_transition_timer = 0.0
 
-	# İşe atanmış köylüler için zaman bazlı kontroller
-	if schedule_manager and time_manager:
-		var current_time = time_manager.get_time_text()
-		var activity = schedule_manager.get_activity_for_villager(worker_id, current_time)
-		
-		# Her 10 saniyede bir aktivite kontrolü
-		activity_transition_timer += delta
-		if activity_transition_timer >= 10.0:
-			if debug_enabled:
-				_debug_print_status()
-			_update_state_based_on_activity(activity)
-			activity_transition_timer = 0.0
-
-	# Y pozisyonunu sabit tut
+	# Keep Y position fixed
 	position.y = fixed_y_position
 	velocity.y = 0
 	
@@ -170,14 +157,6 @@ func _physics_process(delta: float) -> void:
 			_process_working(delta)
 		VillagerState.RETURNING_HOME:
 			_process_returning_home(delta)
-		VillagerState.SLEEPING:
-			_process_sleeping(delta)
-		VillagerState.WAKING_UP:
-			_process_waking_up(delta)
-		VillagerState.RESTING:
-			velocity = Vector2.ZERO
-		VillagerState.SOCIALIZING:
-			_process_wandering(delta)  # Sosyalleşirken gezinme
 	
 	# Hareketi uygula
 	move_and_slide()
@@ -189,59 +168,24 @@ func _physics_process(delta: float) -> void:
 			sprite.flip_h = (direction < 0)
 
 func _update_state_based_on_activity(activity) -> void:
-	# İşe atanmamış köylüler sadece gezinir
-	if resource_type == "wandering":
-		if state != VillagerState.WANDERING:
-			if debug_enabled:
-				print("[DEBUG] İşsiz köylü #", worker_id, " geziniyor")
-			_change_state(VillagerState.WANDERING)
-		return
-
-	# İşe atanmış köylüler için aktivite kontrolü
+	# Aktiviteye göre durumu güncelle
 	match activity:
-		ScheduleManager.ActivityType.SLEEPING:
-			if state != VillagerState.SLEEPING:
-				if debug_enabled:
-					print("[DEBUG] Köylü #", worker_id, " (", resource_type, ") uyumaya gidiyor")
-				_change_state(VillagerState.SLEEPING)
-		
-		ScheduleManager.ActivityType.WAKING_UP:
-			if state == VillagerState.SLEEPING:
-				if debug_enabled:
-					print("[DEBUG] Köylü #", worker_id, " (", resource_type, ") uyanıyor")
-				_change_state(VillagerState.WAKING_UP)
-		
-		ScheduleManager.ActivityType.GETTING_TOOLS:
-			if state in [VillagerState.WAKING_UP, VillagerState.RESTING]:
-				if debug_enabled:
-					print("[DEBUG] Köylü #", worker_id, " (", resource_type, ") iş aletlerini almaya gidiyor")
-				_change_state(VillagerState.GETTING_TOOLS)
-		
-		ScheduleManager.ActivityType.WORKING:
-			if state == VillagerState.GETTING_TOOLS:
-				if debug_enabled:
-					print("[DEBUG] Köylü #", worker_id, " (", resource_type, ") çalışmaya başlıyor")
-				_change_state(VillagerState.WORKING)
-		
-		ScheduleManager.ActivityType.RESTING:
-			if state == VillagerState.WORKING:
-				if debug_enabled:
-					print("[DEBUG] Köylü #", worker_id, " (", resource_type, ") dinlenmeye gidiyor")
-				_change_state(VillagerState.RESTING)
-		
-		ScheduleManager.ActivityType.SOCIALIZING:
-			if state == VillagerState.RESTING:
-				if debug_enabled:
-					print("[DEBUG] Köylü #", worker_id, " (", resource_type, ") sosyalleşmeye gidiyor")
-				_change_state(VillagerState.SOCIALIZING)
+		"SLEEPING":
+			state = VillagerState.WANDERING  # Uyuma yerine gezinme
+		"WORKING":
+			if resource_type != "wandering":
+				state = VillagerState.GETTING_TOOLS
+		"RESTING":
+			state = VillagerState.WANDERING  # Dinlenme yerine gezinme
+		"SOCIALIZING":
+			state = VillagerState.WANDERING  # Sosyalleşme yerine gezinme
 	
 	# Durum etiketini güncelle
 	_update_state_label()
 
 func _process_wandering(delta: float) -> void:
 	if resource_type != "wandering" and target_building:
-		if debug_enabled:
-			print("[DEBUG] Kaynak atanmış köylü gezinmeden çıkıyor - ID:%s" % worker_id)
+		print("[DEBUG] Kaynak atanmış köylü gezinmeden çıkıyor - ID:%s" % worker_id)
 		_change_state(VillagerState.GETTING_TOOLS)
 		return
 	
@@ -251,8 +195,7 @@ func _process_wandering(delta: float) -> void:
 		activity_transition_timer = 0.0
 		
 	var distance = abs(position.x - target_position.x)
-	if debug_enabled and Engine.get_physics_frames() % 60 == 0:  # Her saniyede bir
-		print("[DEBUG] Wandering - Target:%s Distance:%s" % [str(target_position), distance])
+	print("[DEBUG] Wandering - Target:%s Distance:%s" % [str(target_position), distance])
 	
 	if distance <= 50:
 		velocity.x = 0
@@ -269,36 +212,18 @@ func _process_waking_up(delta: float) -> void:
 	velocity = Vector2.ZERO
 
 func _process_getting_tools(delta: float) -> void:
-	if not target_building:
-		print("[DEBUG] HATA: Hedef bina yok! Yeniden bulmaya çalışılıyor...")
-		# Binayı yeniden bulmaya çalış
-		var buildings = get_tree().get_nodes_in_group("resource_buildings")
-		for building in buildings:
-			if building.has_method("get_resource_type") and building.get_resource_type() == resource_type:
-				target_building = building
-				print("[DEBUG] Hedef bina bulundu:", building.name)
-				break
+	if target_building:
+		var distance = abs(position.x - target_building.position.x)
+		print("[DEBUG] Getting Tools - Distance to building:%s Position:%s" % [distance, str(Vector2(position.x, 950))])
 		
-		if not target_building:
-			print("[DEBUG] HATA: Hedef bina bulunamadı, gezinmeye geçiliyor")
-			_change_state(VillagerState.WANDERING)
-			return
-	
-	var target_x = target_building.global_position.x
-	var distance = abs(global_position.x - target_x)
-	
-	if debug_enabled and Engine.get_physics_frames() % 60 == 0:  # Her saniyede bir
-		print("[DEBUG] Getting Tools - Hedef:%s Mesafe:%s" % [target_x, distance])
-	
-	if distance <= 50:
-		velocity.x = 0
-		global_position.x = target_x
-		if debug_enabled:
+		if distance <= 50:
+			velocity.x = 0
+			position.x = target_building.position.x
 			print("[DEBUG] Binaya ulaşıldı, çalışmaya başlanıyor")
-		_change_state(VillagerState.WORKING)
-	else:
-		var direction = sign(target_x - global_position.x)
-		velocity.x = direction * move_speed
+			_change_state(VillagerState.WORKING)
+		else:
+			var direction = sign(target_building.position.x - position.x)
+			velocity.x = direction * move_speed
 
 func _process_going_to_work(delta: float) -> void:
 	# Hedef noktaya doğru hareket et
@@ -310,48 +235,36 @@ func _process_going_to_work(delta: float) -> void:
 		_change_state(VillagerState.WORKING)
 
 func _process_working(delta: float) -> void:
-	# Köyün dışında çalışma konumu (sağ taraf)
-	var work_position = Vector2(2000, fixed_y_position)
-	var distance = abs(position.x - work_position.x)
-	
-	# If we're at the work position, stay there and work
-	if distance <= 50:
-		velocity.x = 0
-		position.x = work_position.x
-		job_duration += delta
+	if target_building:
+		var distance = abs(position.x - target_building.position.x)
 		
-		if debug_enabled and Engine.get_physics_frames() % 300 == 0:  # Her 5 saniyede bir
-			print("[DEBUG] Working at %s - Progress:%s/%s" % [resource_type, job_duration, max_job_duration])
-		
-		# Çalışma süresini kontrol et
-		if schedule_manager and time_manager:
-			var current_time = time_manager.get_time_text()
-			var current_activity = schedule_manager.get_activity_for_villager(worker_id, current_time)
+		# If we're at the building, stay there and work
+		if distance <= 50:
+			velocity.x = 0
+			position.x = target_building.position.x
+			job_duration += delta
 			
-			# Eğer aktivite çalışma değilse (mola veya başka bir aktivite), eve dön
-			if current_activity != ScheduleManager.ActivityType.WORKING:
-				if debug_enabled:
-					print("[DEBUG] Çalışma süresi bitti (%s), eve dönülüyor" % current_time)
+			print("[DEBUG] Working - Progress:%s/%s" % [job_duration, max_job_duration])
+			
+			if job_duration >= max_job_duration:
+				print("[DEBUG] İş tamamlandı, eve dönülüyor")
 				_change_state(VillagerState.RETURNING_HOME)
 				job_duration = 0
-	else:
-		# Move towards work position if we somehow got pushed away
-		var direction = sign(work_position.x - position.x)
-		velocity.x = direction * move_speed
+		else:
+			# Move towards building if we somehow got pushed away
+			var direction = sign(target_building.position.x - position.x)
+			velocity.x = direction * move_speed
 
 func _process_returning_home(delta: float) -> void:
 	var home_x = 960  # Center of the screen
 	var distance = abs(position.x - home_x)
-	
-	if debug_enabled and Engine.get_physics_frames() % 60 == 0:  # Her saniyede bir
-		print("[DEBUG] Returning Home - Distance:%s" % distance)
+	print("[DEBUG] Returning Home - Distance to home:%s" % [distance])
 	
 	if distance <= 50:
 		velocity.x = 0
 		position.x = home_x
-		if debug_enabled:
-			print("[DEBUG] Eve ulaşıldı, dinlenmeye geçiliyor")
-		_change_state(VillagerState.RESTING)
+		print("[DEBUG] Eve ulaşıldı, tekrar işe gidiliyor")
+		_change_state(VillagerState.GETTING_TOOLS)
 	else:
 		var direction = sign(home_x - position.x)
 		velocity.x = direction * move_speed
@@ -365,16 +278,6 @@ func _process_entering_building(delta: float) -> void:
 
 func _process_resting(delta: float) -> void:
 	velocity = Vector2.ZERO
-	
-	# Eğer schedule_manager varsa, çalışma zamanını kontrol et
-	if schedule_manager and time_manager:
-		var current_time = time_manager.get_time_text()
-		var activity = schedule_manager.get_activity_for_villager(worker_id, current_time)
-		
-		if activity == ScheduleManager.ActivityType.WORKING:
-			if debug_enabled:
-				print("[DEBUG] Çalışma zamanı geldi, işe gidiliyor")
-			_change_state(VillagerState.GETTING_TOOLS)
 
 func _process_socializing(delta: float) -> void:
 	velocity = Vector2.ZERO
@@ -418,8 +321,7 @@ func _change_state(new_state: VillagerState) -> void:
 		VillagerState.WORKING:
 			job_duration = 0.0
 			velocity = Vector2.ZERO
-			# Çalışma süresini sabit yap
-			max_job_duration = 180.0  # 3 dakika (gerçek zamanda)
+			max_job_duration = randf_range(15.0, 30.0)
 		
 		VillagerState.RETURNING_HOME:
 			is_returning_home = true
@@ -455,33 +357,22 @@ func setup(id: int, resource: String) -> void:
 	if resource_type != "wandering":
 		print("[DEBUG] Kaynak atandı, hedef bina aranıyor...")
 		# Önce Village sahnesini bul
-		var village = get_node("/root/Village")
-		if not village:
-			# Village sahnesi bulunamazsa ana sahneyi dene
-			village = get_tree().root.get_child(0)
-			if not village:
-				print("[DEBUG] HATA: Village sahnesi bulunamadı!")
-				state = VillagerState.WANDERING
-				return
-		
-		# resource_buildings grubundaki tüm binaları kontrol et
-		var buildings = get_tree().get_nodes_in_group("resource_buildings")
-		print("[DEBUG] Bulunan bina sayısı:", buildings.size())
-		
-		for building in buildings:
-			if building.has_method("get_resource_type"):
-				var building_resource = building.get_resource_type()
-				print("[DEBUG] Bina kontrolü - Bina:", building.name, " Kaynak:", building_resource)
-				if building_resource == resource_type:
+		var village = get_node_or_null("/root/Village")
+		if village:
+			# resource_buildings grubundaki tüm binaları kontrol et
+			var buildings = get_tree().get_nodes_in_group("resource_buildings")
+			for building in buildings:
+				if building.resource_type == resource_type:
 					target_building = building
 					print("[DEBUG] Hedef bina bulundu:", building.name, " - Pozisyon:", building.global_position)
 					state = VillagerState.GETTING_TOOLS
 					break
-			else:
-				print("[DEBUG] UYARI: Bina resource_type özelliği yok:", building.name)
-		
-		if not target_building:
-			print("[DEBUG] HATA: ", resource_type, " tipi için bina bulunamadı!")
+			
+			if not target_building:
+				print("[DEBUG] HATA: ", resource_type, " tipi için bina bulunamadı!")
+				state = VillagerState.WANDERING
+		else:
+			print("[DEBUG] HATA: Village sahnesi bulunamadı!")
 			state = VillagerState.WANDERING
 	else:
 		print("[DEBUG] Kaynak atanmadı, gezinme durumuna geçiliyor")
@@ -513,29 +404,20 @@ func is_already_in_work_sequence() -> bool:
 	return work_states.has(state) 
 
 func _debug_print_status() -> void:
-	if not debug_enabled:
-		return
-		
-	var current_time = "Zaman bilgisi yok"
-	var current_period = "Periyot bilgisi yok"
-	
-	if time_manager:
-		current_time = time_manager.get_time_text()
-		current_period = time_manager.get_period_string()
-	
-	print("[DEBUG] Köylü durumu - ID:", worker_id)
-	print("  Zaman:", current_time)
-	print("  Periyot:", current_period)
-	print("  Durum:", VillagerState.keys()[state])
-	print("  Pozisyon:", position)
+	print("\n[DEBUG] Köylü %s durumu:" % worker_id)
+	print("  - State:%s" % VillagerState.keys()[state])
+	print("  - Resource:%s" % resource_type)
+	print("  - Position:%s" % position)
+	print("  - Velocity:%s" % velocity)
+	print("  - Target Building:%s" % ("Var" if target_building else "Yok"))
 	if target_building:
-		print("  Hedef bina:", target_building.name)
-	print("  İş süresi:", job_duration)
+		print("  - Target Building Position:%s" % target_building.position)
+		print("  - Distance to Target:%s" % abs(position.x - target_building.position.x))
+	print("  - Job Duration:%s/%s" % [job_duration, max_job_duration])
 
 func _set_new_wandering_target() -> void:
 	target_position = Vector2(
 		randf_range(-500, 2500),
 		fixed_y_position
 	)
-	if debug_enabled:
-		print("[DEBUG] Yeni gezinme hedefi:%s" % target_position) 
+	print("[DEBUG] Yeni gezinme hedefi:%s" % target_position) 

@@ -156,16 +156,20 @@ func create_villager_for_resource(worker_id, resource_type, position = Vector2.Z
 		villager.collision_mask = 1    # Sadece zemin ile etkileşim (1. bit)
 		print("Villager collision configured: Layer=16, Mask=1")
 	
-	# Köylüye sadece X koordinatını veriyoruz, Y'yi köylü kendisi ayarlayacak
+	# Köylüye başlangıç pozisyonu ver
+	var start_pos = Vector2.ZERO
 	if position == Vector2.ZERO:
-		position = Vector2(960 + (worker_id * 70), 0)  # Y koordinatını görmezden gel
+		# Köy merkezinde rastgele bir pozisyon (960 ± 300)
+		start_pos = Vector2(960 + randf_range(-300, 300), 0)
+	else:
+		start_pos = position
 	
-	villager.position = Vector2(position.x, 0)  # Sadece X koordinatını ayarla
+	villager.position = Vector2(start_pos.x, 0)  # Y koordinatı köylü tarafından ayarlanacak
 	print("Köylü başlangıç pozisyonu: ", villager.position, " (Y köylü tarafından ayarlanacak)")
 	
-	# İşçi kimliği atama - Villager sınıfı için geçerli tür dönüşümü
+	# İşçi kimliği atama
 	if "worker_id" in villager:
-		villager.worker_id = int(worker_id)  # tür dönüşümü ile atama
+		villager.worker_id = int(worker_id)
 		print("İşçi kimliği atandı: ", worker_id)
 	else:
 		print("UYARI: Köylüde worker_id özelliği yok!")
@@ -186,6 +190,8 @@ func create_villager_for_resource(worker_id, resource_type, position = Vector2.Z
 	var sprite = villager.get_node_or_null("Sprite2D")
 	if sprite:
 		match resource_type:
+			"wandering":
+				sprite.modulate = Color(1.0, 1.0, 1.0)  # Normal renk
 			"wood": 
 				sprite.modulate = Color(0.6, 0.4, 0.2)  # Kahverengi
 			"stone": 
@@ -204,64 +210,64 @@ func create_villager_for_resource(worker_id, resource_type, position = Vector2.Z
 		label.text = "İşçi #" + str(worker_id) + "\n" + resource_type
 		print("Köylü etiketi ayarlandı: ", label.text)
 	
-	# Find a target building for this resource type
-	var target_building = _find_building_for_resource(resource_type)
-	if target_building:
-		if "set_target_building" in villager:
-			villager.set_target_building(target_building)
-			print("Assigned villager to target building: ", target_building.name)
+	# Eğer wandering değilse, hedef bina ve toplama noktası ata
+	if resource_type != "wandering":
+		# Find a target building for this resource type
+		var target_building = _find_building_for_resource(resource_type)
+		if target_building:
+			if "set_target_building" in villager:
+				villager.set_target_building(target_building)
+				print("Assigned villager to target building: ", target_building.name)
+			else:
+				print("UYARI: Köylüde set_target_building metodu yok!")
 		else:
-			print("UYARI: Köylüde set_target_building metodu yok!")
-	else:
-		print("WARNING: No building found for resource type: ", resource_type)
-	
-	# Set gathering point for this resource type
-	if resource_type in resource_gathering_points:
-		var gathering_point = resource_gathering_points[resource_type]
-		if "set_gathering_point" in villager:
-			villager.set_gathering_point(gathering_point)
-			print("Assigned gathering point for ", resource_type, ": ", gathering_point)
-		elif "gathering_point" in villager:
-			villager.gathering_point = gathering_point
-			print("Gathering point atandı: ", gathering_point)
-		else:
-			print("UYARI: Köylüde set_gathering_point metodu veya gathering_point özelliği yok!")
+			print("WARNING: No building found for resource type: ", resource_type)
+		
+		# Set gathering point for this resource type
+		if resource_type in resource_gathering_points:
+			var gathering_point = resource_gathering_points[resource_type]
+			if "set_gathering_point" in villager:
+				villager.set_gathering_point(gathering_point)
+				print("Assigned gathering point for ", resource_type, ": ", gathering_point)
+			elif "gathering_point" in villager:
+				villager.gathering_point = gathering_point
+				print("Gathering point atandı: ", gathering_point)
+			else:
+				print("UYARI: Köylüde set_gathering_point metodu veya gathering_point özelliği yok!")
 	
 	# Add villager to the scene
-	# İlk olarak doğrudan köy sahnesini bulmaya çalışalım
-	var village_scene = get_tree().get_nodes_in_group("village_scene")
+	# Önce ana sahneyi bul
+	var main_scene = get_tree().get_root().get_child(get_tree().get_root().get_child_count() - 1)
+	print("Ana sahne bulundu: ", main_scene.name)
 	
-	if village_scene.size() > 0:
-		print("Köy sahnesi bulundu: ", village_scene[0].name)
+	# Village sahnesini bul
+	var village_scene = null
+	for child in main_scene.get_children():
+		if child.name == "Village":
+			village_scene = child
+			break
+	
+	if village_scene:
+		print("Village sahnesi bulundu: ", village_scene.name)
+		village_scene.add_child(villager)
+		print("Köylü Village sahnesine eklendi")
 		
-		# X koordinatını ayarla, Y köylünün kendi kodunda ayarlanacak
-		villager.position.x = 960 + (worker_id * 70)
-		print("Köylü ", worker_id, " için X konumu atandı: ", villager.position.x)
-		
-		village_scene[0].add_child(villager)
-		print("Köylü köy sahnesine eklendi: ", village_scene[0].name)
+		# Village sahnesini village_scene grubuna ekle
+		if not village_scene.is_in_group("village_scene"):
+			village_scene.add_to_group("village_scene")
+			print("Village sahnesi 'village_scene' grubuna eklendi")
 	else:
-		print("UYARI: 'village_scene' grubunda köy sahnesi bulunamadı, ana sahneyi deneniyor...")
-		
-		# Alternatif 1: Ana sahne (genellikle root'un ilk çocuğu)
-		var root = get_tree().get_root()
-		if root.get_child_count() > 0:
-			var main_scene = root.get_child(root.get_child_count() - 1)
-			print("Ana sahne bulundu: ", main_scene.name)
-			
-			# X koordinatını ayarla, Y köylünün kendi kodunda ayarlanacak
-			villager.position.x = 960 + (worker_id * 70)
-			print("Köylü ", worker_id, " için X konumu atandı: ", villager.position.x)
-			
-			main_scene.add_child(villager)
-			print("Köylü ana sahneye eklendi: ", main_scene.name)
-		else:
-			print("HATA: Hiçbir ana sahne bulunamadı, köylüyü doğrudan root'a ekliyorum")
-			get_tree().get_root().add_child(villager)
-			print("Köylü doğrudan root'a eklendi")
+		print("UYARI: Village sahnesi bulunamadı, ana sahneye ekleniyor...")
+		main_scene.add_child(villager)
+		print("Köylü ana sahneye eklendi")
 	
 	# Track villager
 	villagers[worker_id] = villager
+	
+	# Köylüyü ayarla
+	if "setup" in villager:
+		villager.setup(worker_id, resource_type)
+		print("Köylü ayarlandı - worker_id: ", worker_id, ", resource_type: ", resource_type)
 	
 	emit_signal("villager_created", villager)
 	print("Köylü oluşturuldu - worker_id: ", worker_id, " konumu: ", villager.position)
@@ -308,6 +314,11 @@ func _on_building_registered(building_id, building):
 
 func _on_worker_assigned(worker_id, resource_type):
 	print("Worker assigned: ", worker_id, " to resource: ", resource_type)
+	
+	# Eğer bu bir wandering köylüsü ise, direkt oluştur
+	if resource_type == "wandering":
+		create_villager_for_resource(worker_id, resource_type)
+		return
 	
 	# Eğer bu bir kaynak tipi (building değil) ise ve bina bulunamıyorsa, işçi atamasını yapmayı reddet
 	if not resource_type.begins_with("building:"):
@@ -408,7 +419,7 @@ func _debug_report_villagers():
 				  " - Sahne yolu: ", villager.get_path() if villager.is_inside_tree() else "ağaçta değil")
 			
 			# İş süresi bilgisini ekle (çalışıyorsa)
-			if "state" in villager and villager.state == villager.VillagerState.RETURNING and "job_duration" in villager:
+			if "state" in villager and villager.state == villager.VillagerState.RETURNING_HOME and "job_duration" in villager:
 				if villager.job_duration > 0 and villager.job_duration < villager.max_job_duration:
 					print("  > Çalışma süresi: ", int(villager.job_duration), "/", int(villager.max_job_duration), " saniye")
 		else:
