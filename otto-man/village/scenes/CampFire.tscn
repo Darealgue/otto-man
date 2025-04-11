@@ -1,11 +1,13 @@
-[gd_scene load_steps=3 format=3 uid="uid://dfo7asubvab08"]
+[gd_scene load_steps=4 format=3 uid="uid://dfo7asubvab08"]
 
+[ext_resource type="Script" path="res://village/scripts/CampFire.gd" id="1_m4h0u"]
 [ext_resource type="Texture2D" uid="uid://okpj3hiw6yiy" path="res://village/assets/pngaaa.com-1394582.png" id="1_up5dw"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_b8a2o"]
 radius = 30.0
 
 [node name="CampFire" type="Node2D"]
+script = ExtResource("1_m4h0u")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(0, -14)

@@ -61,6 +61,9 @@ var last_hit_knockback: Dictionary = {}
 var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
 
+# Etkileşim için değişkenler (YENİ - physics_process'e dokunmadan)
+var overlapping_interactables: Array[Area2D] = []
+
 # Stats multipliers for powerups
 var damage_multiplier: float = 1.0
 var speed_multiplier: float = 1.0
@@ -587,6 +590,45 @@ func drop_through_platform() -> void:
 func get_facing_direction() -> float:
 	return facing_direction
 
+# Input Handling (YENİ - physics_process yerine)
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("interact") and not overlapping_interactables.is_empty():
+		# En üstteki (genellikle en son girilen) etkileşimli nesneyi al
+		var target_area = overlapping_interactables.back()
+
+		# Alanın sahibi yerine, alanın EBEVEYN'ini (parent) hedef alıyoruz.
+		# Bu, InteractionArea'nın doğrudan CampFire'ın altında olduğunu varsayar.
+		var interactable_node = target_area.get_parent()
+
+		if interactable_node and interactable_node.has_method("interact"):
+			interactable_node.interact() # Artık CampFire'daki interact() çağrılmalı
+			get_viewport().set_input_as_handled() # Input'un başka yerde işlenmesini önle (get_tree yerine get_viewport)
+		else:
+			# Daha bilgilendirici hata mesajı
+			var node_name = interactable_node.name if interactable_node else "Bulunamadı"
+			print("Uyarı: Etkileşimli alanın ebeveyni ('%s' - Area: %s) 'interact' metoduna sahip değil veya ebeveyni yok." % [node_name, target_area.name])
+
 # Handle hitbox hit events
 func _on_hitbox_hit(enemy: Node) -> void:
 	print("[Player] Hitbox hit enemy: ", enemy.name if enemy else "Unknown")
+
+
+func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
+	# (YENİ - fonksiyon içeriği)
+	if area.is_in_group("interactables"):
+		if not overlapping_interactables.has(area):
+			overlapping_interactables.push_back(area)
+			# İsteğe bağlı: Ekranda "Etkileşim için E'ye bas" gibi bir ipucu gösterebilirsin
+			var parent_node = area.get_parent()
+			print("Etkileşim alanına girildi:", parent_node.name if parent_node else "Ebeveynsiz Alan")
+
+
+func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
+	# (YENİ - fonksiyon içeriği)
+	if area.is_in_group("interactables"):
+		var index = overlapping_interactables.find(area)
+		if index != -1:
+			overlapping_interactables.remove_at(index)
+			# İsteğe bağlı: Etkileşim ipucunu gizleyebilirsin
+			var parent_node = area.get_parent()
+			print("Etkileşim alanından çıkıldı:", parent_node.name if parent_node else "Ebeveynsiz Alan")

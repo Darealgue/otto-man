@@ -2,248 +2,296 @@
 
 [ext_resource type="Script" path="res://village/scripts/WorkerAssignmentUI.gd" id="1_6u0ag"]
 
-[node name="WorkerAssignmentUI" type="PanelContainer"]
+[node name="CanvasLayer" type="CanvasLayer"]
+
+[node name="WorkerAssignmentUI" type="PanelContainer" parent="."]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -170.0
-offset_top = -170.0
+offset_top = -430.0
 offset_right = 170.0
-offset_bottom = 170.0
+offset_bottom = -39.0
 grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_6u0ag")
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="WorkerAssignmentUI"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="WorkerAssignmentUI/MarginContainer"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="TitleLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "İşçi Yönetimi"
 horizontal_alignment = 1
 
-[node name="IdleWorkerHBox" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="IdleWorkerHBox" type="HBoxContainer" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
 layout_mode = 2
 
-[node name="IdleLabel" type="Label" parent="MarginContainer/VBoxContainer/IdleWorkerHBox"]
+[node name="IdleLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/IdleWorkerHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Boşta İşçi:"
 
-[node name="IdleValueLabel" type="Label" parent="MarginContainer/VBoxContainer/IdleWorkerHBox"]
+[node name="IdleValueLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/IdleWorkerHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "0"
 horizontal_alignment = 2
 
-[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer"]
+[node name="HSeparator" type="HSeparator" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
 layout_mode = 2
 
-[node name="WoodHBox" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="WoodHBox" type="HBoxContainer" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="WoodLabel" type="Label" parent="MarginContainer/VBoxContainer/WoodHBox"]
+[node name="WoodLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WoodHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Odun:"
 
-[node name="WoodLevelIndicator" type="Label" parent="MarginContainer/VBoxContainer/WoodHBox"]
+[node name="WoodLevelIndicator" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Bina Seviyesi"
 text = "[Lv. -]"
 
-[node name="WoodLevelLabel" type="Label" parent="MarginContainer/VBoxContainer/WoodHBox"]
+[node name="WoodLevelLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 6
 text = "0"
 horizontal_alignment = 2
 
-[node name="UpgradeWoodButton" type="Button" parent="MarginContainer/VBoxContainer/WoodHBox"]
+[node name="UpgradeWoodButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Yükselt"
 text = "↑"
 
-[node name="AddWoodButton" type="Button" parent="MarginContainer/VBoxContainer/WoodHBox"]
+[node name="AddWoodButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "+"
 
-[node name="RemoveWoodButton" type="Button" parent="MarginContainer/VBoxContainer/WoodHBox"]
+[node name="RemoveWoodButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "-"
 
-[node name="StoneHBox" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="StoneHBox" type="HBoxContainer" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="StoneLabel" type="Label" parent="MarginContainer/VBoxContainer/StoneHBox"]
+[node name="StoneLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/StoneHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Taş:"
 
-[node name="StoneLevelIndicator" type="Label" parent="MarginContainer/VBoxContainer/StoneHBox"]
+[node name="StoneLevelIndicator" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/StoneHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Bina Seviyesi"
 text = "[Lv. -]"
 
-[node name="StoneLevelLabel" type="Label" parent="MarginContainer/VBoxContainer/StoneHBox"]
+[node name="StoneLevelLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/StoneHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 6
 text = "0"
 horizontal_alignment = 2
 
-[node name="UpgradeStoneButton" type="Button" parent="MarginContainer/VBoxContainer/StoneHBox"]
+[node name="UpgradeStoneButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/StoneHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Yükselt"
 text = "↑"
 
-[node name="AddStoneButton" type="Button" parent="MarginContainer/VBoxContainer/StoneHBox"]
+[node name="AddStoneButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/StoneHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "+"
 
-[node name="RemoveStoneButton" type="Button" parent="MarginContainer/VBoxContainer/StoneHBox"]
+[node name="RemoveStoneButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/StoneHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "-"
 
-[node name="FoodHBox" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="FoodHBox" type="HBoxContainer" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="FoodLabel" type="Label" parent="MarginContainer/VBoxContainer/FoodHBox"]
+[node name="FoodLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/FoodHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Yiyecek:"
 
-[node name="FoodLevelIndicator" type="Label" parent="MarginContainer/VBoxContainer/FoodHBox"]
+[node name="FoodLevelIndicator" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/FoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Bina Seviyesi"
 text = "[Lv. -]"
 
-[node name="FoodLevelLabel" type="Label" parent="MarginContainer/VBoxContainer/FoodHBox"]
+[node name="FoodLevelLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/FoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 6
 text = "0"
 horizontal_alignment = 2
 
-[node name="UpgradeFoodButton" type="Button" parent="MarginContainer/VBoxContainer/FoodHBox"]
+[node name="UpgradeFoodButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/FoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Yükselt"
 text = "↑"
 
-[node name="AddFoodButton" type="Button" parent="MarginContainer/VBoxContainer/FoodHBox"]
+[node name="AddFoodButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/FoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "+"
 
-[node name="RemoveFoodButton" type="Button" parent="MarginContainer/VBoxContainer/FoodHBox"]
+[node name="RemoveFoodButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/FoodHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "-"
 
-[node name="WaterHBox" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="WaterHBox" type="HBoxContainer" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="WaterLabel" type="Label" parent="MarginContainer/VBoxContainer/WaterHBox"]
+[node name="WaterLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WaterHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Su:"
 
-[node name="WaterLevelIndicator" type="Label" parent="MarginContainer/VBoxContainer/WaterHBox"]
+[node name="WaterLevelIndicator" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WaterHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Bina Seviyesi"
 text = "[Lv. -]"
 
-[node name="WaterLevelLabel" type="Label" parent="MarginContainer/VBoxContainer/WaterHBox"]
+[node name="WaterLevelLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WaterHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 6
 text = "0"
 horizontal_alignment = 2
 
-[node name="UpgradeWaterButton" type="Button" parent="MarginContainer/VBoxContainer/WaterHBox"]
+[node name="UpgradeWaterButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WaterHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Yükselt"
 text = "↑"
 
-[node name="AddWaterButton" type="Button" parent="MarginContainer/VBoxContainer/WaterHBox"]
+[node name="AddWaterButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WaterHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "+"
 
-[node name="RemoveWaterButton" type="Button" parent="MarginContainer/VBoxContainer/WaterHBox"]
+[node name="RemoveWaterButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/WaterHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "-"
 
-[node name="MetalHBox" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="MetalHBox" type="HBoxContainer" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="MetalLabel" type="Label" parent="MarginContainer/VBoxContainer/MetalHBox"]
+[node name="MetalLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/MetalHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Metal:"
 
-[node name="MetalLevelIndicator" type="Label" parent="MarginContainer/VBoxContainer/MetalHBox"]
+[node name="MetalLevelIndicator" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/MetalHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Bina Seviyesi"
 text = "[Lv. -]"
 
-[node name="MetalLevelLabel" type="Label" parent="MarginContainer/VBoxContainer/MetalHBox"]
+[node name="MetalLevelLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/MetalHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 6
 text = "0"
 horizontal_alignment = 2
 
-[node name="UpgradeMetalButton" type="Button" parent="MarginContainer/VBoxContainer/MetalHBox"]
+[node name="UpgradeMetalButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/MetalHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Yükselt"
+disabled = true
 text = "↑"
-disabled = true
 
-[node name="AddMetalButton" type="Button" parent="MarginContainer/VBoxContainer/MetalHBox"]
+[node name="AddMetalButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/MetalHBox"]
 unique_name_in_owner = true
 layout_mode = 2
+disabled = true
 text = "+"
-disabled = true
 
-[node name="RemoveMetalButton" type="Button" parent="MarginContainer/VBoxContainer/MetalHBox"]
+[node name="RemoveMetalButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/MetalHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "-"
 disabled = true
+text = "-"
 
-[node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer"]
+[node name="BreadHBox" type="HBoxContainer" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer"]
+[node name="BreadLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/BreadHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Ekmek:"
+
+[node name="BreadLevelIndicator" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/BreadHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Bina Seviyesi"
+text = "[Lv. -]"
+
+[node name="BreadLevelLabel" type="Label" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/BreadHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 6
+text = "0"
+horizontal_alignment = 2
+
+[node name="UpgradeBreadButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/BreadHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Yükselt"
+disabled = true
+text = "↑"
+
+[node name="AddBreadButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/BreadHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "+"
+
+[node name="RemoveBreadButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer/BreadHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "-"
+
+[node name="HSeparator2" type="HSeparator" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="CloseButton" type="Button" parent="WorkerAssignmentUI/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Kapat"

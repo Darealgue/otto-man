@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3 uid="uid://bplrinm6jpfoi"]
+
+[ext_resource type="Script" path="res://village/scripts/Bakery.gd" id="1_xrtks"]
+
+[node name="Bakery" type="Node2D"]
+script = ExtResource("1_xrtks")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_left = -20.0
+offset_top = -40.0
+offset_right = 20.0
+color = Color(0.877934, 0.208258, 0.295699, 1)

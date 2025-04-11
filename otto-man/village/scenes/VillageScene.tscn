@@ -1,10 +1,16 @@
-[gd_scene load_steps=5 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=9 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
 [ext_resource type="PackedScene" uid="uid://cwc4rjb3xwqx" path="res://village/scenes/WorkerAssignmentUI.tscn" id="2_exr1e"]
+[ext_resource type="PackedScene" uid="uid://dc45tnfhvti72" path="res://village/scenes/CariyeManagementUI.tscn" id="4_fbyh8"]
+[ext_resource type="PackedScene" uid="uid://dptamh04yqugv" path="res://village/scenes/VillageStatusUI.tscn" id="5_3scu2"]
+[ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="6_nhirr"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_pfood"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_ftls5"]
+radius = 50.0
 
 [node name="VillageScene" type="Node2D"]
 script = ExtResource("1_q7bpx")
@@ -15,6 +21,15 @@ script = ExtResource("1_q7bpx")
 shape = SubResource("WorldBoundaryShape2D_pfood")
 
 [node name="CampFire" parent="." instance=ExtResource("1_u4slp")]
+position = Vector2(0, -6)
+
+[node name="InteractionArea" type="Area2D" parent="CampFire" groups=["interactables"]]
+collision_mask = 3
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CampFire/InteractionArea"]
+shape = SubResource("CircleShape2D_ftls5")
+
+[node name="InteractionMenu" type="PopupMenu" parent="CampFire"]
 
 [node name="PlacedBuildings" type="Node2D" parent="."]
 
@@ -32,51 +47,55 @@ position = Vector2(800, 0)
 [node name="BuildPlot4" type="Marker2D" parent="PlotMarkers"]
 position = Vector2(-800, 0)
 
+[node name="BuildPlot5" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(1200, 0)
+
+[node name="BuildPlot6" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-1200, 0)
+
 [node name="WorkerAssignmentUI" parent="." instance=ExtResource("2_exr1e")]
 visible = false
-offset_top = -175.0
-offset_bottom = 175.0
+
+[node name="CariyeManagementUI" parent="." instance=ExtResource("4_fbyh8")]
+visible = false
 
 [node name="OpenWorkerUIButton" type="Button" parent="."]
+visible = false
 offset_left = -42.0
 offset_top = 49.0
 offset_right = 44.0
 offset_bottom = 80.0
 text = "Camp Fire"
 
-[node name="BuildWoodcutterButton" type="Button" parent="."]
-offset_left = -495.0
-offset_top = -198.0
-offset_right = -325.0
-offset_bottom = -167.0
-text = "Odun Kampı inşaa et"
-
-[node name="BuildStoneMineButton" type="Button" parent="."]
-offset_left = -483.0
-offset_top = -164.0
-offset_right = -336.0
-offset_bottom = -133.0
-text = "Taş Ocağı inşaa et"
-
-[node name="BuildWellButton" type="Button" parent="."]
-offset_left = -483.0
-offset_top = -130.0
-offset_right = -336.0
-offset_bottom = -99.0
-text = "Kuyu inşaa et"
-
-[node name="BuildHunterHutButton" type="Button" parent="."]
-offset_left = -500.0
-offset_top = -96.0
-offset_right = -321.0
-offset_bottom = -65.0
-text = "Avcı/Toplayıcı inşaa et"
-
 [node name="AddVillagerButton" type="Button" parent="."]
-offset_left = -458.0
-offset_top = -264.0
-offset_right = -356.0
-offset_bottom = -233.0
+offset_left = -51.0
+offset_top = 46.0
+offset_right = 51.0
+offset_bottom = 77.0
 text = "Köylü lütfen"
 
+[node name="OpenCariyeUIButton" type="Button" parent="."]
+visible = false
+offset_left = -28.0
+offset_top = 83.0
+offset_right = 29.0
+offset_bottom = 114.0
+text = "Cariye"
+
+[node name="OpenBuildUIButton" type="Button" parent="."]
+visible = false
+offset_left = -28.0
+offset_top = 117.0
+offset_right = 29.0
+offset_bottom = 148.0
+text = "İnşaa"
+
+[node name="VillageStatusUI" parent="." instance=ExtResource("5_3scu2")]
+
 [node name="Camera2D" type="Camera2D" parent="."]
+visible = false
+texture_filter = 1
+enabled = false
+
+[node name="Player" parent="." instance=ExtResource("6_nhirr")]
+position = Vector2(2, -70)

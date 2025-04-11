@@ -1,0 +1,99 @@
+[gd_scene load_steps=2 format=3 uid="uid://dc45tnfhvti72"]
+
+[ext_resource type="Script" path="res://village/scripts/CariyeManagementUI.gd" id="1_txcnc"]
+
+[node name="CanvasLayer" type="CanvasLayer"]
+
+[node name="CariyeManagementUI" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -180.0
+offset_right = 250.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+script = ExtResource("1_txcnc")
+
+[node name="MarginContainer" type="MarginContainer" parent="CariyeManagementUI"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="MainVBox" type="VBoxContainer" parent="CariyeManagementUI/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="CariyeManagementUI/MarginContainer/MainVBox"]
+layout_mode = 2
+text = "Görev Yönetimi"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="CariyeManagementUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="ContentHBox" type="HBoxContainer" parent="CariyeManagementUI/MarginContainer/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="CariyeVBox" type="VBoxContainer" parent="CariyeManagementUI/MarginContainer/MainVBox/ContentHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CariyeTitleLabel" type="Label" parent="CariyeManagementUI/MarginContainer/MainVBox/ContentHBox/CariyeVBox"]
+layout_mode = 2
+text = "Müsait Cariyeler"
+horizontal_alignment = 1
+
+[node name="CariyeItemList" type="ItemList" parent="CariyeManagementUI/MarginContainer/MainVBox/ContentHBox/CariyeVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true
+
+[node name="VSeparator" type="VSeparator" parent="CariyeManagementUI/MarginContainer/MainVBox/ContentHBox"]
+layout_mode = 2
+
+[node name="MissionVBox" type="VBoxContainer" parent="CariyeManagementUI/MarginContainer/MainVBox/ContentHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MissionTitleLabel" type="Label" parent="CariyeManagementUI/MarginContainer/MainVBox/ContentHBox/MissionVBox"]
+layout_mode = 2
+text = "Mevcut Görevler"
+horizontal_alignment = 1
+
+[node name="MissionItemList" type="ItemList" parent="CariyeManagementUI/MarginContainer/MainVBox/ContentHBox/MissionVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+allow_reselect = true
+
+[node name="HSeparator2" type="HSeparator" parent="CariyeManagementUI/MarginContainer/MainVBox"]
+layout_mode = 2
+
+[node name="ActionHBox" type="HBoxContainer" parent="CariyeManagementUI/MarginContainer/MainVBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="AssignButton" type="Button" parent="CariyeManagementUI/MarginContainer/MainVBox/ActionHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Göreve Ata"
+
+[node name="CloseButton" type="Button" parent="CariyeManagementUI/MarginContainer/MainVBox/ActionHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Kapat"
+
+[connection signal="visibility_changed" from="CariyeManagementUI" to="CariyeManagementUI" method="_on_visibility_changed"]

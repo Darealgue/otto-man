@@ -1,0 +1,47 @@
+[gd_scene load_steps=2 format=3 uid="uid://d1hjdmbn1joxm"]
+
+[ext_resource type="Script" path="res://village/scripts/BuildMenuUI.gd" id="1_1y8x3"]
+
+[node name="BuildMenuUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_1y8x3")
+
+[node name="HBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 290.0
+offset_bottom = 206.0
+
+[node name="BuildWoodcutterButton" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Odun Kampı inşaa et"
+
+[node name="BuildStoneMineButton" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Taş Ocağı inşaa et"
+
+[node name="BuildWellButton" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Kuyu inşaa et"
+
+[node name="BuildHunterHutButton" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Avcı/Toplayıcı inşaa et"
+
+[node name="BuildBakeryButton" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Fırın inşaa et"
+
+[node name="CloseButton" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Kapat"

@@ -1,4 +1,4 @@
-[gd_scene load_steps=84 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=85 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -1414,6 +1414,10 @@ size = Vector2(38, 23.5)
 radius = 11.0
 height = 44.0
 
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_fm8kb"]
+radius = 11.0
+height = 42.0
+
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 collision_layer = 2
 collision_mask = 5
@@ -1481,6 +1485,7 @@ script = ExtResource("29_xgdcd")
 damage = 15.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
+visible = false
 position = Vector2(27, -22)
 shape = SubResource("RectangleShape2D_1")
 debug_color = Color(1, 0, 0, 0.5)
@@ -1502,6 +1507,7 @@ monitorable = false
 script = ExtResource("29_xgdcd")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="FallAttack"]
+visible = false
 position = Vector2(0, 4.25)
 shape = SubResource("RectangleShape2D_qmk40")
 debug_color = Color(1, 0, 0, 0.5)
@@ -1509,6 +1515,13 @@ debug_color = Color(1, 0, 0, 0.5)
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -22)
 shape = SubResource("CapsuleShape2D_1")
+
+[node name="InteractionDetectionArea" type="Area2D" parent="."]
+collision_layer = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionDetectionArea"]
+position = Vector2(0, -22)
+shape = SubResource("CapsuleShape2D_fm8kb")
 
 [node name="Camera2D" type="Camera2D" parent="." groups=["Camera Groups"]]
 position = Vector2(0, -30)
@@ -1549,3 +1562,5 @@ offset_bottom = 90.0
 
 [connection signal="animation_finished" from="AnimationPlayer" to="StateMachine/Attack" method="_on_animation_player_animation_finished"]
 [connection signal="animation_finished" from="AnimationPlayer" to="StateMachine/FallAttack" method="_on_animation_finished"]
+[connection signal="area_entered" from="InteractionDetectionArea" to="." method="_on_interaction_detection_area_area_entered"]
+[connection signal="area_exited" from="InteractionDetectionArea" to="." method="_on_interaction_detection_area_area_exited"]
