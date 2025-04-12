@@ -78,16 +78,16 @@ func _ready() -> void:
 		printerr("WorkerAssignmentUI Error: Node not found - IdleValueLabel")
 	
 	# Buton sinyallerini bağla
-	add_wood_button.pressed.connect(_on_add_worker_pressed.bind("wood", WOOD_SCRIPT)) 
-	remove_wood_button.pressed.connect(_on_remove_worker_pressed.bind("wood", WOOD_SCRIPT)) 
-	add_stone_button.pressed.connect(_on_add_worker_pressed.bind("stone", STONE_SCRIPT)) 
-	remove_stone_button.pressed.connect(_on_remove_worker_pressed.bind("stone", STONE_SCRIPT)) 
-	add_food_button.pressed.connect(_on_add_worker_pressed.bind("food", FOOD_SCRIPT)) 
-	remove_food_button.pressed.connect(_on_remove_worker_pressed.bind("food", FOOD_SCRIPT)) 
-	add_water_button.pressed.connect(_on_add_worker_pressed.bind("water", WATER_SCRIPT)) 
-	remove_water_button.pressed.connect(_on_remove_worker_pressed.bind("water", WATER_SCRIPT))
-	add_bread_button.pressed.connect(_on_add_worker_pressed.bind("bread", BREAD_SCRIPT))
-	remove_bread_button.pressed.connect(_on_remove_worker_pressed.bind("bread", BREAD_SCRIPT))
+	add_wood_button.pressed.connect(_on_add_worker_pressed.bind("wood")) 
+	remove_wood_button.pressed.connect(_on_remove_worker_pressed.bind("wood")) 
+	add_stone_button.pressed.connect(_on_add_worker_pressed.bind("stone")) 
+	remove_stone_button.pressed.connect(_on_remove_worker_pressed.bind("stone")) 
+	add_food_button.pressed.connect(_on_add_worker_pressed.bind("food")) 
+	remove_food_button.pressed.connect(_on_remove_worker_pressed.bind("food")) 
+	add_water_button.pressed.connect(_on_add_worker_pressed.bind("water")) 
+	remove_water_button.pressed.connect(_on_remove_worker_pressed.bind("water"))
+	add_bread_button.pressed.connect(_on_add_worker_pressed.bind("bread"))
+	remove_bread_button.pressed.connect(_on_remove_worker_pressed.bind("bread"))
 
 	# Upgrade Buttons - DÜZELTME: Sahne yolunu bind et
 	upgrade_wood_button.pressed.connect(_on_upgrade_button_pressed.bind(WOODCUTTER_SCENE))
@@ -136,13 +136,14 @@ func _process(delta: float) -> void:
 
 	# Eğer interval dolduysa UI'ı güncelle
 	if time_since_last_update >= update_interval:
-		# print("WorkerAssignmentUI: Updating UI via _process timer") # Opsiyonel Debug
+		#print("WorkerAssignmentUI DEBUG: Calling update_ui() from _process") #<<< YENİ PRINT
 		update_ui()
 		time_since_last_update = 0.0 # Sayacı sıfırla
 
 # Arayüzdeki etiketleri VillageManager'dan alınan verilerle günceller
 func update_ui() -> void:
-	#print("WorkerAssignmentUI: update_ui ENTERED") # <<< YENİ PRINT
+	#print("WorkerAssignmentUI DEBUG: --- update_ui() STARTED ---") #<<< YENİ PRINT
+	#print("WorkerAssignmentUI: update_ui ENTERED") # <<< ESKİ PRINT YORUMLANDI
 	#print("WorkerAssignmentUI: update_ui CALLED (Signal received or manual call)") # DEBUG
 	# Eğer UI görünür değilse güncelleme yapma
 	if not visible:
@@ -311,21 +312,17 @@ func update_ui() -> void:
 	bread_hbox.visible = bread_building_exists
 	#print("DEBUG update_ui: bread_hbox.visible set to: ", bread_hbox.visible) # DEBUG
 	if bread_building_exists:
-		print("DEBUG (Bakery): Fırın bulundu.") 
 		# Doğrudan Erişim Denemesi
 		var bread_is_upgrading = bread_building.is_upgrading if "is_upgrading" in bread_building else false 
 		var bread_current_workers = bread_building.assigned_workers if "assigned_workers" in bread_building else -1
 		var bread_max_workers = bread_building.max_workers if "max_workers" in bread_building else 0
-		print("DEBUG (Bakery): Assigned=%s, Max=%s, Upgrading=%s" % [bread_current_workers, bread_max_workers, bread_is_upgrading]) 
-		
+
 		var can_add_bread = not bread_is_upgrading and bread_current_workers < bread_max_workers
 		var can_remove_bread = not bread_is_upgrading and bread_current_workers > 0
-		print("DEBUG (Bakery): idle_available=%s, can_add_bread=%s, can_remove_bread=%s" % [idle_available, can_add_bread, can_remove_bread]) 
-		
+
 		add_bread_button.disabled = not (idle_available and can_add_bread)
 		remove_bread_button.disabled = not can_remove_bread
-		print("DEBUG (Bakery): add_button.disabled=%s, remove_button.disabled=%s" % [add_bread_button.disabled, remove_bread_button.disabled]) 
-		
+
 		# Upgrade Bread Button (Şimdilik pasif)
 		upgrade_bread_button.disabled = true 
 		upgrade_bread_button.text = "↑"
@@ -345,53 +342,64 @@ func update_ui() -> void:
 
 
 # "+" butonuna basıldığında çalışır
-func _on_add_worker_pressed(resource_type: String, building_script_path: String) -> void: 
-	if VillageManager.idle_workers <= 0: return # Kısa kontrol
+func _on_add_worker_pressed(resource_type: String) -> void:
+	print("UI: İşçi atama isteği gönderiliyor: ", resource_type) # Debug
 
-	# --- YENİ: Burada da güncel node referansını al ---
-	var current_building_plots_node = get_tree().current_scene.get_node_or_null("PlacedBuildings")
-	if not current_building_plots_node: 
-		printerr("_on_add_worker_pressed: PlacedBuildings node could not be found!")
-		return # Bulamazsa çık
-	# ----------------------------------------------
-
-	var available_building = _find_building_with_capacity(building_script_path, current_building_plots_node) # <-- Değişiklik
-	if available_building and available_building.add_worker():
-		print("UI: İşçi başarıyla %s binasına atandı." % building_script_path.get_file())
+	if resource_type == "bread":
+		# --- FIRIN ÖZEL KODU ---
+		var bakery_node = _find_first_building(BAKERY_SCENE, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
+		if is_instance_valid(bakery_node):
+			if bakery_node.has_method("add_worker"):
+				if bakery_node.add_worker():
+					print("UI: Fırına işçi başarıyla atandı.")
+					# update_ui() # Zaten periyodik olarak güncelleniyor
+				else:
+					# Hata mesajı Bakery.gd içinden gelmeli (örn. kaynak yetersiz)
+					printerr("UI: Fırına işçi atanamadı (Bakery.add_worker() false döndü).")
+			else:
+				printerr("UI Error: Bakery node'unda 'add_worker' metodu bulunamadı!")
+		else:
+			printerr("UI Error: Aktif Fırın binası bulunamadı!")
+		# --- FIRIN ÖZEL KODU SONU ---
 	else:
-		print("UI: %s türünde uygun bina bulunamadı veya atama başarısız." % building_script_path.get_file())
-	# update_ui() # Sinyal ile güncelleniyor olmalı
-
+		# --- TEMEL KAYNAKLAR İÇİN ESKİ KOD ---
+		var success = VillageManager.assign_idle_worker_to_job(resource_type)
+		if success:
+			print("UI: Boşta bir işçi başarıyla '%s' işine atandı." % resource_type)
+			# update_ui() 
+		else:
+			printerr("UI: '%s' işine işçi atanamadı (VillageManager.assign_idle_worker_to_job false döndü)." % resource_type) # Mesaj güncellendi
+		# --- TEMEL KAYNAKLAR SONU ---
 
 # "-" butonuna basıldığında çalışır
-func _on_remove_worker_pressed(resource_type: String, building_script_path: String) -> void: 
-	print("\n--- _on_remove_worker_pressed ---") # Debug
-	print("Button Pressed For: %s (Script: %s)" % [resource_type, building_script_path]) # Debug
+func _on_remove_worker_pressed(resource_type: String) -> void:
+	print("UI: İşçi çıkarma isteği gönderiliyor: ", resource_type) # Debug
 
-	# --- YENİ: Burada da güncel node referansını al ---
-	var current_building_plots_node = get_tree().current_scene.get_node_or_null("PlacedBuildings")
-	if not current_building_plots_node: 
-		printerr("_on_remove_worker_pressed: PlacedBuildings node could not be found!")
-		return # Bulamazsa çık
-	# ----------------------------------------------
-	
-	var removable_building = _find_building_with_worker(building_script_path, current_building_plots_node) # <-- Değişiklik 
-	print("Found Removable Building: ", removable_building) # Debug
-
-	if removable_building: # Null kontrolü
-		# remove_worker'ın dönüş değerini kontrol et (eğer varsa)
-		var success = removable_building.remove_worker()
-		print("removable_building.remove_worker() returned: ", success) # Debug
-		if success:
-			print("UI: İşçi başarıyla %s binasından çıkarıldı." % building_script_path.get_file())
+	if resource_type == "bread":
+		# --- FIRIN ÖZEL KODU ---
+		var bakery_node = _find_first_building(BAKERY_SCENE, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
+		if is_instance_valid(bakery_node):
+			if bakery_node.has_method("remove_worker"):
+				if bakery_node.remove_worker():
+					print("UI: Fırından işçi başarıyla çıkarıldı.")
+					# update_ui() # Zaten periyodik olarak güncelleniyor
+				else:
+					# Hata mesajı Bakery.gd içinden gelmeli (örn. çıkarılacak işçi yok)
+					printerr("UI: Fırından işçi çıkarılamadı (Bakery.remove_worker() false döndü).")
+			else:
+				printerr("UI Error: Bakery node'unda 'remove_worker' metodu bulunamadı!")
 		else:
-			print("UI: İşçi %s binasından çıkarılamadı (remove_worker false döndü)." % building_script_path.get_file())
+			printerr("UI Error: Aktif Fırın binası bulunamadı!")
+		# --- FIRIN ÖZEL KODU SONU ---
 	else:
-		print("UI: İşçi çıkarılacak %s türünde bina bulunamadı (_find_building_with_worker null döndü)." % building_script_path.get_file())
-
-	# update_ui() # Sinyal mekanizması varsa bu gereksiz olabilir, ama şimdilik kalsın
-	print("--- end _on_remove_worker_pressed ---\n") # Debug
-
+		# --- TEMEL KAYNAKLAR İÇİN ESKİ KOD ---
+		var success = VillageManager.unassign_worker_from_job(resource_type)
+		if success:
+			print("UI: Bir işçi başarıyla '%s' işinden çıkarıldı." % resource_type)
+			# update_ui()
+		else:
+			printerr("UI: '%s' işinden işçi çıkarılamadı (VillageManager.unassign_worker_from_job false döndü)." % resource_type) # Mesaj güncellendi
+		# --- TEMEL KAYNAKLAR SONU ---
 
 # Helper: Belirtilen script yoluna sahip, kapasitesi dolmamış bir bina bulur
 func _find_building_with_capacity(building_script_path: String, plots_node): # <-- Yeni parametre
@@ -421,35 +429,6 @@ func _find_building_with_capacity(building_script_path: String, plots_node): # <
 				# print("Building found but no add_worker method or is upgrading.")
 	# print("No suitable building found.")
 	# print("--- end _find_building_with_capacity (not found) ---\n")
-	return null
-
-# Helper: Belirtilen script yoluna sahip, içinde işçi olan bir bina bulur
-func _find_building_with_worker(building_script_path: String, plots_node): # <-- Yeni parametre
-	print("--- _find_building_with_worker ---") # Debug - Yeni isim
-	print("Searching for removable building with script: ", building_script_path) # Debug
-	if plots_node == null: # Parametreyi kontrol et
-		print("Error: plots_node is null!") # Debug
-		return null
-	for building in plots_node.get_children():
-		# print("Checking building: ", building.name)
-		var attached_script = building.get_script()
-		if attached_script != null and attached_script.resource_path == building_script_path: 
-			# print("Script match found: ", building.name)
-			# Doğrudan Erişim Denemesi
-			var upgrading = building.is_upgrading if "is_upgrading" in building else false
-			var current_assigned = building.assigned_workers if "assigned_workers" in building else -1 # Hata durumunu görmek için -1
-			# print("Checking state: Upgrading=%s, Assigned=%s" % [upgrading, current_assigned])
-			if building.has_method("remove_worker") and not upgrading:
-				if current_assigned > 0:
-					# print("Found suitable building: ", building.name)
-					# print("--- end _find_building_with_worker (found) ---\n")
-					return building
-				# else:
-					# print("Building found but has no workers (Assigned=%s)" % current_assigned)
-			# else:
-				# print("Building found but no remove_worker method or is upgrading.")
-	# print("No suitable building found.")
-	# print("--- end _find_building_with_worker (not found) ---\n")
 	return null
 
 # Finds the first building instance with the matching scene path (Güncellendi: sahne yolu alır)

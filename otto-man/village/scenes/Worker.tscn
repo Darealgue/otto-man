@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://ei73gvx0mn60"]
+
+[ext_resource type="Script" path="res://village/scripts/Worker.gd" id="1_tpsik"]
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_kcvbd"]
+
+[node name="Worker" type="Node2D"]
+script = ExtResource("1_tpsik")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = SubResource("Texture2DRD_kcvbd")
+
+[node name="ColorRect" type="ColorRect" parent="Sprite2D"]
+offset_left = -10.0
+offset_top = -44.0
+offset_right = 10.0
+offset_bottom = 6.0
+
+[node name="WorkTimer" type="Timer" parent="."]

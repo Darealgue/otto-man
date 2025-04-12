@@ -5,6 +5,7 @@ res://village/buildings/WoodcutterCamp.tscn
 res://village/buildings/Well.tscn
 res://village/buildings/Bakery.tscn
 res://village/buildings/StoneMine.tscn
+res://village/buildings/HunterGathererHut.tscn
 res://levels/city_test.tscn
 res://scenes/test_level.tscn
 res://village/scenes/CariyeManagementUI.tscn
@@ -12,4 +13,8 @@ res://village/scenes/WorkerAssignmentUI.tscn
 res://village/scenes/VillageStatusUI.tscn
 res://village/scenes/CampFire.tscn
 res://village/scenes/BuildMenuUI.tscn
+res://village/scenes/Worker.tscn
+res://village/scenes/TimeDisplayUI.tscn
+res://village/buildings/House.tscn
+res://village/scripts/WorkerAssignmentUI.gd
 res://village/scripts/VillageManager.gd

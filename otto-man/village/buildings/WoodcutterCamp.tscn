@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://village/scripts/WoodcutterCamp.gd" id="1_20smd"]
 
-[node name="WoodcutterCamp" type="Node2D"]
+[node name="WoodcutterCamp" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_20smd")
 
 [node name="ColorRect" type="ColorRect" parent="."]

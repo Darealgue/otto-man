@@ -6,9 +6,9 @@ var building_name: String = "Fırın"
 @export var max_workers: int = 1 # Başlangıçta 1 işçi alabilir
 @export var assigned_workers: int = 0
 
-# Gerekli temel kaynak (üretim için)
-var required_resource: String = "food" # Şimdilik buğday/un yerine food kullanalım
-var required_resource_amount: int = 1 # Bir ekmek için 1 birim food
+# Gerekli temel kaynaklar (üretim için)
+# Artık dictionary olarak tanımlıyoruz: {"kaynak_adı": miktar}
+var required_resources: Dictionary = {"food": 1, "water": 1}
 
 # Üretilen gelişmiş kaynak
 var produced_resource: String = "bread"
@@ -31,24 +31,30 @@ func add_worker() -> bool:
 		print("%s: Zaten maksimum işçi sayısına ulaşıldı." % building_name)
 		return false
 		
-	# Önce gerekli kaynak var mı diye ANLIK kontrol et
-	if VillageManager.get_available_resource_level(required_resource) < required_resource_amount:
-		print("%s: İşçi atanamıyor, yeterli %s yok." % [building_name, required_resource])
-		return false
+	# Gerekli TÜM kaynaklar var mı diye ANLIK kontrol et
+	for resource_name in required_resources:
+		var amount_needed = required_resources[resource_name]
+		if VillageManager.get_available_resource_level(resource_name) < amount_needed:
+			print("%s: İşçi atanamıyor, yeterli %s yok. (Gereken: %d, Mevcut: %d)" % [
+				building_name, resource_name, amount_needed, VillageManager.get_available_resource_level(resource_name)
+			])
+			return false
 
 	# VillageManager'dan boşta işçi kontrolü ve kaydı
-	if VillageManager.register_generic_worker(): 
-		# İşçi alındı, şimdi üretimi kaydet (kaynakları tüket/artır)
-		if VillageManager.register_advanced_production(produced_resource, required_resource, required_resource_amount):
+	if VillageManager.register_generic_worker():
+		# İşçi alındı, şimdi üretimi kaydet (girdi kaynaklarını kilitle, çıktıyı kullanılabilir yap)
+		if VillageManager.register_advanced_production(produced_resource, required_resources):
 			assigned_workers += 1
-			print("%s: İşçi atandı ve üretim başladı (%d/%d)" % [building_name, assigned_workers, max_workers])
+			print("%s: İşçi atandı ve üretim başladı (%d/%d). Gerekli kaynaklar: %s" % [
+				building_name, assigned_workers, max_workers, required_resources
+			])
 			_update_ui()
 			return true
 		else:
-			# Üretim kaydedilemedi (kaynak yetersiz kalmış olabilir - nadir durum)
+			# Üretim kaydedilemedi (kaynak yetersiz kalmış olabilir)
 			# İşçiyi geri bırak
 			VillageManager.unregister_generic_worker()
-			print("%s: Üretim başlatılamadığı için işçi geri çekildi." % building_name)
+			print("%s: Üretim başlatılamadığı (kaynak yetersiz?) için işçi geri çekildi." % building_name)
 			return false
 	else:
 		# Boşta işçi yok (Hata mesajı VillageManager tarafından yazdırılacak)
@@ -57,11 +63,13 @@ func add_worker() -> bool:
 func remove_worker() -> bool:
 	if assigned_workers > 0:
 		assigned_workers -= 1
-		# İleri seviye üretimi kaldır (kaynakları geri ver)
-		VillageManager.unregister_advanced_production(produced_resource, required_resource, required_resource_amount)
+		# İleri seviye üretimi kaldır (kaynakları serbest bırak)
+		VillageManager.unregister_advanced_production(produced_resource, required_resources)
 		# Genel işçiyi geri bırak
 		VillageManager.unregister_generic_worker()
-		print("%s: İşçi çıkarıldı ve üretim durdu (%d/%d)" % [building_name, assigned_workers, max_workers])
+		print("%s: İşçi çıkarıldı ve üretim durdu (%d/%d). Serbest bırakılan kaynaklar: %s" % [
+			building_name, assigned_workers, max_workers, required_resources
+		])
 		_update_ui()
 		return true
 	else:

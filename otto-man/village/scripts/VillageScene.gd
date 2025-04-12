@@ -16,6 +16,9 @@ const BakeryScene = preload("res://village/buildings/Bakery.tscn")
 @onready var placed_buildings_node = $PlacedBuildings
 @onready var plot_markers_node = $PlotMarkers
 
+# TimeManager node'una referans lazım (eğer farklı bir yolla erişiyorsanız ona göre ayarlayın)
+@onready var time_manager: TimeManager = get_node("/root/TimeManager") # Veya doğru yolu kullanın
+
 func _ready() -> void:
 	# VillageManager'a bu sahneyi tanıt
 	VillageManager.register_village_scene(self)
@@ -83,3 +86,42 @@ func _on_add_villager_button_pressed() -> void:
 # func _input(event):
 # 	if event.is_action_pressed("ui_cancel") and worker_assignment_ui.visible:
 # 		worker_assignment_ui.hide()
+
+func _input(event: InputEvent) -> void:
+	# Sadece klavye tuş basımlarını dinle
+	if event is InputEventKey and event.pressed and not event.is_echo():
+		# 1 tuşu: Normal hız (x1)
+		if event.keycode == KEY_1:
+			if time_manager: # Null kontrolü
+				time_manager.set_time_scale_index(0)
+		# 2 tuşu: Hızlı hız (x4)
+		elif event.keycode == KEY_2:
+			if time_manager:
+				time_manager.set_time_scale_index(1)
+		# 3 tuşu: Çok hızlı hız (x16)
+		elif event.keycode == KEY_3:
+			if time_manager:
+				time_manager.set_time_scale_index(2)
+		# Veya 'T' tuşu ile hızlar arasında geçiş yap (isteğe bağlı)
+		elif event.keycode == KEY_T:
+			if time_manager:
+				time_manager.cycle_time_scale()
+		# 'N' tuşuna basıldığında yeni işçi ekle (DEBUG)
+		elif event.keycode == KEY_N:
+			# VillageManager autoload ise direkt çağır:
+			VillageManager._add_new_worker()
+			# Eğer autoload değilse ve yukarıdaki gibi @onready ile aldıysak:
+			# if village_manager: village_manager._add_new_worker()
+			print("DEBUG: 'N' key pressed, attempting to add new worker.")
+		
+		# 'M' tuşuna basıldığında rastgele işçi sil (DEBUG)
+		elif event.keycode == KEY_M:
+			var worker_ids = VillageManager.get_active_worker_ids() # VillageManager'da bu fonksiyonu eklememiz gerekecek
+			if not worker_ids.is_empty():
+				var random_worker_id = worker_ids.pick_random()
+				print("DEBUG: 'M' key pressed, attempting to remove random worker: %d" % random_worker_id)
+				VillageManager.remove_worker_from_village(random_worker_id)
+			else:
+				print("DEBUG: 'M' key pressed, but no active workers to remove.")
+
+	# Varsa diğer _input kodları...

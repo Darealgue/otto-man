@@ -2,8 +2,11 @@
 
 [ext_resource type="Script" path="res://village/scripts/Bakery.gd" id="1_xrtks"]
 
-[node name="Bakery" type="Node2D"]
+[node name="Bakery" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_xrtks")
+level = null
+max_workers = null
+assigned_workers = null
 
 [node name="ColorRect" type="ColorRect" parent="."]
 offset_left = -20.0

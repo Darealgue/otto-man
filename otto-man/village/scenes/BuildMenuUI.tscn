@@ -41,6 +41,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Fırın inşaa et"
 
+[node name="BuildHouseButton" type="Button" parent="HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Ev inşaa et"
+
 [node name="CloseButton" type="Button" parent="HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2

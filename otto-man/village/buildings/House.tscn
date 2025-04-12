@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxcfkbln1rr3r"]
+
+[ext_resource type="Script" path="res://village/scripts/House.gd" id="1_8xofj"]
+
+[node name="House" type="Node2D" groups=["Housing"]]
+script = ExtResource("1_8xofj")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_left = -20.0
+offset_top = -40.0
+offset_right = 20.0
+color = Color(0.260692, 0.445081, 0.189714, 1)

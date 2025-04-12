@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3 uid="uid://ip73ci5ccf8t"]
+
+[ext_resource type="Script" path="res://village/scripts/TimeDisplayUI.gd" id="1_48lip"]
+
+[node name="CanvasLayer" type="CanvasLayer"]
+
+[node name="TimeDisplayUi" type="MarginContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -1.0
+offset_bottom = 23.0
+grow_horizontal = 0
+script = ExtResource("1_48lip")
+
+[node name="TimeLabel" type="Label" parent="TimeDisplayUi"]
+unique_name_in_owner = true
+layout_mode = 2

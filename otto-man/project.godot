@@ -28,6 +28,7 @@ ObjectPool="*res://autoload/object_pool.gd"
 SoundManager="*res://autoload/SoundManager.gd"
 VillageManager="*res://village/scripts/VillageManager.gd"
 GlobalPlayerData="*res://village/scripts/GlobalPlayerData.gd"
+TimeManager="*res://village/scripts/TimeManager.gd"
 
 [display]
 
@@ -40,6 +41,8 @@ window/stretch/aspect="expand"
 
 NPC=""
 interactables=""
+Housing=""
+WorkBuildings=""
 
 [input]
 

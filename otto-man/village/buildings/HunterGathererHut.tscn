@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://village/scripts/HunterGathererHut.gd" id="1_7vpw7"]
 
-[node name="HunterGathererHut" type="Node2D"]
+[node name="HunterGathererHut" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_7vpw7")
 
 [node name="ColorRect" type="ColorRect" parent="."]

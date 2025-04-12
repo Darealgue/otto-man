@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://village/scripts/Well.gd" id="1_nmieb"]
 
-[node name="Well" type="Node2D"]
+[node name="Well" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_nmieb")
 
 [node name="ColorRect" type="ColorRect" parent="."]
