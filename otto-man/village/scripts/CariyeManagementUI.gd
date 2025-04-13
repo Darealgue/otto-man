@@ -13,59 +13,18 @@ var selected_gorev_id: int = -1
 
 # --- Ready Function ---
 func _ready() -> void:
-	# Node referanslarını get_node_or_null ile al ve kontrol et
-	cariye_item_list = get_node_or_null("MarginContainer/MainVBox/ContentHBox/CariyeVBox/CariyeItemList")
-	if cariye_item_list == null:
-		printerr("ERROR: CariyeItemList node not found at path: MarginContainer/MainVBox/ContentHBox/CariyeVBox/CariyeItemList")
-		return # Hata durumunda devam etme
-	
-	mission_item_list = get_node_or_null("MarginContainer/MainVBox/ContentHBox/MissionVBox/MissionItemList")
-	if mission_item_list == null:
-		printerr("ERROR: MissionItemList node not found at path: MarginContainer/MainVBox/ContentHBox/MissionVBox/MissionItemList")
-		return
-		
-	assign_button = get_node_or_null("MarginContainer/MainVBox/ActionHBox/AssignButton")
-	if assign_button == null:
-		printerr("ERROR: AssignButton node not found at path: MarginContainer/MainVBox/ActionHBox/AssignButton")
-		return
-		
-	close_button = get_node_or_null("MarginContainer/MainVBox/ActionHBox/CloseButton")
-	if close_button == null:
-		printerr("ERROR: CloseButton node not found at path: MarginContainer/MainVBox/ActionHBox/CloseButton")
-		return
-
-	# ItemList sinyallerini bağla (bir öğe seçildiğinde)
-	cariye_item_list.item_selected.connect(_on_cariye_item_selected)
-	mission_item_list.item_selected.connect(_on_mission_item_selected)
-	
-	# Buton sinyallerini bağla
-	assign_button.pressed.connect(_on_assign_button_pressed)
-	close_button.pressed.connect(_on_close_button_pressed)
-	
-	# Başlangıçta listeleri doldur ve buton durumunu ayarla
-	populate_cariye_list()
-	populate_mission_list()
-	_update_assign_button_state()
-	
-	# VillageManager'dan gelen sinyallere bağlan
-	if VillageManager.has_signal("cariye_data_changed"):
-		VillageManager.cariye_data_changed.connect(populate_cariye_list)
-	else:
-		printerr("VillageManager'da 'cariye_data_changed' sinyali bulunamadı!")
-		
-	if VillageManager.has_signal("gorev_data_changed"):
-		VillageManager.gorev_data_changed.connect(populate_mission_list)
-	else:
-		printerr("VillageManager'da 'gorev_data_changed' sinyali bulunamadı!")
+	# Node referansları ve sinyal bağlantıları show_centered fonksiyonuna taşındı.
+	# Sadece _ready içinde yapılması gereken başka başlangıç ayarları varsa buraya eklenebilir.
+	pass 
 
 # --- List Population Functions ---
 
 # Cariye listesini VillageManager'dan alınan verilerle doldurur
 func populate_cariye_list() -> void:
-	# Null kontrolü eklendi
-	if cariye_item_list == null:
-		printerr("ERROR: populate_cariye_list called but cariye_item_list is null!")
-		return
+	# Null kontrolü kaldırıldı (show_centered garantilemeli)
+	# if cariye_item_list == null:
+	# 	printerr("ERROR: populate_cariye_list called but cariye_item_list is null!")
+	# 	return
 		
 	cariye_item_list.clear()
 	var cariyeler: Dictionary = VillageManager.cariyeler
@@ -82,10 +41,10 @@ func populate_cariye_list() -> void:
 
 # Görev listesini VillageManager'dan alınan verilerle doldurur
 func populate_mission_list() -> void:
-	# Null kontrolü eklendi
-	if mission_item_list == null:
-		printerr("ERROR: populate_mission_list called but mission_item_list is null!")
-		return
+	# Null kontrolü kaldırıldı (show_centered garantilemeli)
+	# if mission_item_list == null:
+	# 	printerr("ERROR: populate_mission_list called but mission_item_list is null!")
+	# 	return
 		
 	mission_item_list.clear()
 	var gorevler: Dictionary = VillageManager.gorevler
@@ -162,10 +121,10 @@ func _on_close_button_pressed() -> void:
 
 # "Göreve Ata" butonunun durumunu günceller
 func _update_assign_button_state() -> void:
-	# Null kontrolü eklendi
-	if assign_button == null:
-		printerr("ERROR: _update_assign_button_state called but assign_button is null!")
-		return
+	# Null kontrolü kaldırıldı (show_centered garantilemeli)
+	# if assign_button == null:
+	# 	printerr("ERROR: _update_assign_button_state called but assign_button is null!")
+	# 	return
 		
 	# Eğer geçerli bir cariye ve görev seçiliyse ve görev boşsa butonu etkinleştir
 	if selected_cariye_id != -1 and selected_gorev_id != -1:
@@ -200,9 +159,10 @@ func _update_assign_button_state() -> void:
 func _on_visibility_changed() -> void:
 	if visible:
 		# Görünür olduğunda listeleri ve buton durumunu güncelle
-		populate_cariye_list()
-		populate_mission_list()
-		_update_assign_button_state()
+		# populate_cariye_list()
+		# populate_mission_list()
+		# _update_assign_button_state()
+		pass # Görünür olduğunda özel bir şey yapmaya gerek yok, show_centered hallediyor
 	else:
 		# Gizlendiğinde seçimleri temizle
 		# Null kontrolü
@@ -221,6 +181,48 @@ func show_centered() -> void:
 	visible = true
 	# Boyutların hesaplanması için bir frame bekle
 	await get_tree().process_frame
+	
+	# <<< NODE REFERANSLARI VE SİNYALLER BURAYA TAŞINDI >>>
+	# Node referanslarını get_node_or_null ile al ve kontrol et
+	cariye_item_list = get_node_or_null("MarginContainer/MainVBox/ContentHBox/CariyeVBox/CariyeItemList")
+	if cariye_item_list == null:
+		printerr("ERROR (show_centered): CariyeItemList node not found!")
+		return # Hata durumunda devam etme
+	
+	mission_item_list = get_node_or_null("MarginContainer/MainVBox/ContentHBox/MissionVBox/MissionItemList")
+	if mission_item_list == null:
+		printerr("ERROR (show_centered): MissionItemList node not found!")
+		return
+		
+	assign_button = get_node_or_null("MarginContainer/MainVBox/ActionHBox/AssignButton")
+	if assign_button == null:
+		printerr("ERROR (show_centered): AssignButton node not found!")
+		return
+		
+	close_button = get_node_or_null("MarginContainer/MainVBox/ActionHBox/CloseButton")
+	if close_button == null:
+		printerr("ERROR (show_centered): CloseButton node not found!")
+		return
+
+	# ItemList sinyallerini bağla (eğer bağlı değilse)
+	if not cariye_item_list.is_connected("item_selected", Callable(self, "_on_cariye_item_selected")):
+		cariye_item_list.item_selected.connect(_on_cariye_item_selected)
+	if not mission_item_list.is_connected("item_selected", Callable(self, "_on_mission_item_selected")):
+		mission_item_list.item_selected.connect(_on_mission_item_selected)
+	
+	# Buton sinyallerini bağla (eğer bağlı değilse)
+	if not assign_button.is_connected("pressed", Callable(self, "_on_assign_button_pressed")):
+		assign_button.pressed.connect(_on_assign_button_pressed)
+	if not close_button.is_connected("pressed", Callable(self, "_on_close_button_pressed")):
+		close_button.pressed.connect(_on_close_button_pressed)
+		
+	# VillageManager sinyallerini bağla (eğer bağlı değilse)
+	if VillageManager.has_signal("cariye_data_changed") and not VillageManager.is_connected("cariye_data_changed", Callable(self, "populate_cariye_list")):
+		VillageManager.cariye_data_changed.connect(populate_cariye_list)
+	if VillageManager.has_signal("gorev_data_changed") and not VillageManager.is_connected("gorev_data_changed", Callable(self, "populate_mission_list")):
+		VillageManager.gorev_data_changed.connect(populate_mission_list)
+	# <<< TAŞIMA SONU >>>
+
 	# Viewport ve panel boyutlarını al
 	var viewport_size = get_viewport().get_visible_rect().size
 	var panel_size = size
@@ -228,15 +230,8 @@ func show_centered() -> void:
 	var centered_pos = (viewport_size - panel_size) / 2
 	# Pozisyonu ayarla
 	position = centered_pos
-	# Eğer Cariye menüsünün de açıldığında güncellenmesi gereken
-	# bir fonksiyonu varsa, onu burada çağırabilirsin.
-	# Örn: if has_method("update_cariye_ui"): update_cariye_ui()
-	
 	# Mevcut null hatalarını gidermek için UI güncelleme fonksiyonlarını çağırabiliriz
-	# Ancak bu fonksiyonların kendisi de null check yapmalı
-	if has_method("populate_cariye_list"):
-		populate_cariye_list()
-	if has_method("populate_mission_list"):
-		populate_mission_list()
-	if has_method("_update_assign_button_state"):
-		_update_assign_button_state()
+	# Artık null kontrolleri olmadan çağrılabilirler
+	populate_cariye_list()
+	populate_mission_list()
+	_update_assign_button_state()

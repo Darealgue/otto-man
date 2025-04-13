@@ -1,61 +1,130 @@
 class_name WoodcutterCamp
 extends Node2D
 
+@export var worker_stays_inside: bool = false #<<< YENİ
+
 # Bu binaya özgü değişkenler
-var assigned_workers: int = 0
-var max_workers: int: # Maksimum işçi sayısı seviyeye göre hesaplanır
-	get: return level
+@export var level: int = 1
+@export var max_workers: int = 1 # Başlangıçta 1 işçi alabilir
+@export var assigned_workers: int = 0
+var assigned_worker_ids: Array[int] = [] #<<< YENİ: Atanan işçi ID'leri
 
-# Bu bina için bir işçi atamaya çalışır
+@export var base_production_rate: float = 1.0 # Seviye başına üretim (opsiyonel)
+@export var max_level: int = 3 # Inspector'dan ayarlanabilir, varsayılan 3
+
+# Upgrade değişkenleri
+var is_upgrading: bool = false
+var upgrade_timer: Timer = null
+var upgrade_time_seconds: float = 10.0 # Yükseltme süresi (örnek)
+
+# --- UI Bağlantıları (Eğer varsa) ---
+# @onready var worker_label: Label = %WorkerLabel # Gerekirse eklenecek
+
+func _ready() -> void:
+	print("WoodcutterCamp hazır.")
+	_update_ui()
+
+# --- Worker Management (YENİ) ---
 func add_worker() -> bool:
-	if is_upgrading: # Yükseltme sırasında işçi eklenemez/çıkarılamaz
-		print("Oduncu Kampı: Yükseltme sırasında işlem yapılamaz!")
-		return false
 	if assigned_workers >= max_workers:
-		print("Oduncu Kampı: Kapasite dolu!")
-		return false
-	# VillageManager'dan genel bir işçi iste
-	if not VillageManager.register_generic_worker():
-		# Hata mesajı VillageManager tarafından yazdırılacak
+		print("WoodcutterCamp: Zaten maksimum işçi sayısına ulaşıldı.")
 		return false
 
-	# İşçi başarıyla alındı
+	# 1. Boşta İşçi Bul ve Kaydet
+	var worker_instance: Node = VillageManager.register_generic_worker()
+	if not is_instance_valid(worker_instance):
+		return false # Hata mesajı VillageManager'dan
+
+	# 2. Başarılı: İşçi Bilgilerini Ayarla ve Kaydet
 	assigned_workers += 1
-	print("Oduncu Kampı: İşçi atandı (%d/%d)" % [assigned_workers, max_workers])
-	# VillageManager.register_worker_assignment("wood") # KALDIRILDI
-	# Seviye artık dinamik olarak hesaplanıyor, ayrıca bildirmeye gerek yok.
-	# Sadece UI güncellemesi için sinyal yayabiliriz (opsiyonel)
-	# VillageManager.emit_signal("village_data_changed") # Zaten generic_worker içinde emit ediliyor
-	VillageManager.notify_building_state_changed(self) # YENİ
+	assigned_worker_ids.append(worker_instance.worker_id) # ID'yi listeye ekle
 
-	return true # Başarılı
+	# İşçinin hedefini ve durumunu ayarla
+	worker_instance.assigned_job_type = "wood"
+	worker_instance.assigned_building_node = self
+	worker_instance.move_target_x = self.global_position.x
+	worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
 
-# Bu binadan bir işçi çıkarır
+	print("WoodcutterCamp: İşçi (ID: %d) atandı (%d/%d)." % [
+		worker_instance.worker_id, assigned_workers, max_workers
+	])
+	_update_ui()
+	VillageManager.notify_building_state_changed(self) # Sinyal ekle
+	return true
+
 func remove_worker() -> bool:
-	if is_upgrading: # Yükseltme sırasında işçi eklenemez/çıkarılamaz
-		print("Oduncu Kampı: Yükseltme sırasında işlem yapılamaz!")
-		return false
-	if assigned_workers <= 0:
-		print("Oduncu Kampı: Çıkarılacak işçi yok!")
+	if assigned_workers <= 0 or assigned_worker_ids.is_empty():
+		print("WoodcutterCamp: Çıkarılacak işçi yok.")
 		return false
 
-	# İşçiyi genel havuza geri bırak
-	VillageManager.unregister_generic_worker()
+	# Çıkarılacak işçi ID'sini bul (genellikle listedeki sonuncuyu çıkarmak basit olur)
+	# VEYA spesifik bir ID gerekirse farklı bir mantık lazım.
+	# Şimdilik en son ekleneni çıkaralım:
+	var worker_id_to_remove = assigned_worker_ids.pop_back()
+	var worker_instance = VillageManager.active_workers.get(worker_id_to_remove)
 
+	if not is_instance_valid(worker_instance):
+		printerr("WoodcutterCamp: Çıkarılacak işçi (ID: %d) VillageManager'da bulunamadı veya geçersiz!" % worker_id_to_remove)
+		# assigned_workers sayısını yine de azaltalım mı? Evet, liste güncellendi.
+		assigned_workers = assigned_worker_ids.size() # Sayacı listeyle senkronize et
+		_update_ui()
+		VillageManager.notify_building_state_changed(self)
+		return false # Hata durumu
+	
 	assigned_workers -= 1
-	print("Oduncu Kampı: İşçi çıkarıldı (%d/%d)" % [assigned_workers, max_workers])
-	# VillageManager.unregister_worker_assignment("wood") # KALDIRILDI
-	# Seviye artık dinamik olarak hesaplanıyor, ayrıca bildirmeye gerek yok.
-	# VillageManager.emit_signal("village_data_changed") # Zaten generic_worker içinde emit ediliyor
-	VillageManager.notify_building_state_changed(self) # YENİ
 
-	return true # Başarılı
+	# İşçinin Durumunu Sıfırla
+	worker_instance.assigned_job_type = ""
+	worker_instance.assigned_building_node = null
+	worker_instance.move_target_x = worker_instance.global_position.x
+	# Eğer çalışıyorsa veya işe gidiyorsa idle yap
+	if worker_instance.current_state == worker_instance.State.WORKING_OFFSCREEN or \
+	   worker_instance.current_state == worker_instance.State.WAITING_OFFSCREEN or \
+	   worker_instance.current_state == worker_instance.State.GOING_TO_BUILDING_FIRST:
+		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
+		worker_instance.visible = true
+
+	# İşçiyi VillageManager'dan kaldır
+	VillageManager.unregister_generic_worker(worker_id_to_remove)
+
+	print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [self.name, worker_id_to_remove, assigned_workers, max_workers]) # Debug
+	emit_signal("worker_removed", worker_id_to_remove)
+	VillageManager.notify_building_state_changed(self)
+
+	# <<< YENİ: İşçi çıkarıldıktan sonra SON işçiyi içeri al VEYA TEK işçiyi dışarı çıkar >>>
+	if not worker_stays_inside and level >= 2:
+		if assigned_worker_ids.is_empty():
+			# İşçi kalmadı, bir şey yapma
+			pass
+		elif assigned_worker_ids.size() == 1:
+			# Sadece 1 işçi kaldı, eğer içerideyse dışarı çıkar
+			var last_remaining_worker_id = assigned_worker_ids[0]
+			var remaining_worker_instance = VillageManager.active_workers.get(last_remaining_worker_id)
+			if is_instance_valid(remaining_worker_instance):
+				if remaining_worker_instance.current_state == remaining_worker_instance.State.WORKING_INSIDE:
+					# print("%s RemoveWorker: Only 1 worker left (ID %d), switching from inside to offscreen." % [self.name, last_remaining_worker_id]) #<<< KALDIRILDI
+					remaining_worker_instance.switch_to_working_offscreen()
+				# else: #<<< KALDIRILDI
+					# print("%s RemoveWorker: Only 1 worker left (ID %d), already not inside." % [self.name, last_remaining_worker_id]) #<<< KALDIRILDI
+			# else: # Hata durumu printerr ile kalsın
+			# 	printerr("%s RemoveWorker: Could not find instance for the last remaining worker (ID %d)" % [self.name, last_remaining_worker_id])
+		else: # 2 veya daha fazla işçi kaldı
+			var new_last_worker_id = assigned_worker_ids[-1]
+			var last_worker_instance = VillageManager.active_workers.get(new_last_worker_id)
+			if is_instance_valid(last_worker_instance):
+				if last_worker_instance.current_state == last_worker_instance.State.WORKING_OFFSCREEN or \
+				   last_worker_instance.current_state == last_worker_instance.State.WAITING_OFFSCREEN:
+					# print("%s RemoveWorker: Switching new last worker (ID %d) to inside." % [self.name, new_last_worker_id]) #<<< KALDIRILDI
+					last_worker_instance.switch_to_working_inside()
+				# else: #<<< KALDIRILDI
+				# 	print("%s RemoveWorker: New last worker (ID %d) already inside or in other state." % [self.name, new_last_worker_id]) #<<< KALDIRILDI
+			# else: # Hata durumu printerr ile kalsın
+			# 	printerr("%s RemoveWorker: Could not find instance for new last worker (ID %d)" % [self.name, new_last_worker_id])
+	# <<< YENİ KOD BİTİŞİ >>>
+
+	return true # Başarıyla çıkarıldı
 
 # --- Yükseltme Değişkenleri ---
-var level: int = 1
-var max_level: int = 3 # Örnek bir maksimum seviye
-var is_upgrading: bool = false
-var upgrade_duration: float = 5.0 # Saniye cinsinden yükseltme süresi (test için)
 
 # Yükseltme maliyetleri: Seviye -> {kaynak: maliyet}
 const UPGRADE_COSTS = {
@@ -66,7 +135,6 @@ const UPGRADE_COSTS = {
 # const MAX_WORKERS_PER_LEVEL = { 1: 1, 2: 2, 3: 3 }
 
 # --- Zamanlayıcı (Timer) ---
-var upgrade_timer: Timer # Tekrar aktif
 
 # --- Sinyaller ---
 signal upgrade_started
@@ -81,12 +149,12 @@ func _init(): # _ready yerine _init'te oluşturmak daha güvenli olabilir
 	add_child(upgrade_timer) # Timer'ı node ağacına ekle
 
 # Called when the node enters the scene tree for the first time.
-func _ready() -> void:
-	# Yükseltme zamanlayıcısını oluştur ve ayarla
-	# _init'e taşındı
-	# Timer'ın bekleme süresini ayarla
-	upgrade_timer.wait_time = upgrade_duration
-	pass
+# func _ready() -> void: # <<< BU FONKSİYON BLOKU SİLİNECEK (Duplicate)
+# 	# Yükseltme zamanlayıcısını oluştur ve ayarla
+# 	# _init'e taşındı
+# 	# Timer'ın bekleme süresini ayarla
+# 	upgrade_timer.wait_time = upgrade_time_seconds
+# 	pass
 
 # --- Yeni Yükseltme Fonksiyonları (Timer ile) ---
 
@@ -144,11 +212,26 @@ func finish_upgrade() -> void:
 	print("Oduncu Kampı: Yükseltme tamamlandı (Seviye %d -> %d)" % [level, level + 1])
 	is_upgrading = false
 	level += 1
-	# max_workers otomatik olarak güncellenecek (get metodu sayesinde)
+	max_workers = level #<<< YENİ: Maksimum işçi sayısını seviyeye eşitle
+
+	# <<< YENİ: İlk işçinin durumunu güncelle >>>
+	# <<< BU BLOK KALDIRILIYOR - "SON İŞÇİ İÇERİDE" KURALI İLE GEREKSİZ >>>
+	# if level >= 2 and not worker_stays_inside and not assigned_worker_ids.is_empty():
+	# 	var first_worker_id = assigned_worker_ids[0]
+	# 	var first_worker_instance = VillageManager.active_workers.get(first_worker_id)
+	# 	if is_instance_valid(first_worker_instance):
+	# 		# Sadece dışarıda çalışan/bekleyen işçinin durumunu değiştir
+	# 		if first_worker_instance.current_state == first_worker_instance.State.WORKING_OFFSCREEN or \
+	# 		   first_worker_instance.current_state == first_worker_instance.State.WAITING_OFFSCREEN:
+	# 			first_worker_instance.switch_to_working_inside()
+	# 		else:
+	# 			print("WoodcutterCamp Upgrade: First worker (ID %d) not offscreen, state: %s" % [first_worker_id, first_worker_instance.State.keys()[first_worker_instance.current_state]])
+	# 	else:
+	# 		printerr("WoodcutterCamp Upgrade: Could not find instance for first worker (ID %d)" % first_worker_id)
+	# <<< YENİ KOD BİTİŞİ >>>
 
 	# Kaynakları serbest bırakmaya gerek yok, çünkü kilitlemedik
-	# var cost = UPGRADE_COSTS.get(level, {}) 
-	# VillageManager.unlock_resources(cost, self)
+	# var cost = UPGRADE_COSTS.get(level, {})
 	
 	emit_signal("upgrade_finished") # Sinyali gönder
 	emit_signal("state_changed") # Genel durum değişikliği sinyali
@@ -159,3 +242,8 @@ func finish_upgrade() -> void:
 		get_node("Sprite2D").modulate = Color.WHITE
 
 	print("Oduncu Kampı: Yeni seviye: %d, Maks İşçi: %d" % [level, max_workers])
+
+# --- UI Update ---
+func _update_ui() -> void:
+	# UI güncelleme işlemleri burada yapılabilir
+	pass

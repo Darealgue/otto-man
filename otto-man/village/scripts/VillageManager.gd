@@ -74,14 +74,15 @@ var next_gorev_id: int = 1
 
 # --- İşçi Yönetimi ---
 var worker_scene: PackedScene = preload("res://village/scenes/Worker.tscn") # Worker.tscn dosya yolunu kontrol edin!
-var active_workers: Dictionary = {} # { worker_id: worker_instance }
-var next_worker_id: int = 1
+var all_workers: Dictionary = {} # { worker_id: worker_data } # <<< YENİ: active_workers yerine
+var worker_id_counter: int = 0 # <<< YENİ: ID üretici
 var campfire_node: Node2D = null # Kamp ateşi referansı
+var workers_container: Node = null #<<< YENİ: workers_parent_node yerine
 
 # İşçilerin ekleneceği parent node. @onready KULLANMAYIN,
 # çünkü VillageManager'ın kendisi Autoload olabilir veya sahne ağacına farklı zamanda eklenebilir.
 # Bu referansı _ready içinde veya ihtiyaç duyulduğunda alacağız.
-var workers_parent_node: Node = null 
+# var workers_parent_node: Node = null #<<< SİLİNDİ
 
 const STARTING_WORKER_COUNT = 5 # Başlangıç işçi sayısı
 # ---------------------
@@ -117,8 +118,8 @@ func register_village_scene(scene: Node2D) -> void:
 		return
 
 	# WorkersContainer'ı bul (artık scene referansımız var)
-	workers_parent_node = scene.get_node_or_null("WorkersContainer")
-	if workers_parent_node == null:
+	workers_container = scene.get_node_or_null("WorkersContainer")
+	if workers_container == null:
 		printerr("VillageManager Error (in register_village_scene): Kaydedilen sahnede 'WorkersContainer' node'u bulunamadı!")
 		# Alternatif yolu deneyebiliriz ama sahne adı sabit olmalı:
 		# workers_parent_node = get_tree().root.get_node_or_null("VillageScene/WorkersContainer") 
@@ -127,29 +128,24 @@ func register_village_scene(scene: Node2D) -> void:
 		#    return
 		return
 
-	# Campfire ve WorkersContainer bulunduğuna göre başlangıç işçilerini oluştur
-	print("VillageManager: Campfire ve WorkersContainer bulundu, başlangıç işçileri oluşturuluyor...")
-	# Mevcut işçi varsa temizleyelim (sahne yeniden yüklenirse diye?)
-	# for worker_id in active_workers:
-	#     if is_instance_valid(active_workers[worker_id]):
-	#         active_workers[worker_id].queue_free()
-	# active_workers.clear()
-	# next_worker_id = 1
-	# total_workers = 0 # Sıfırlanmalı mı? Başlangıç değeri var.
-	# idle_workers = 0 
-	
-	# Yenilerini oluştur
-	for i in range(STARTING_WORKER_COUNT):
-		_add_new_worker()
+	# Başlangıç işçilerini oluştur
+	if workers_container and is_instance_valid(campfire_node):
+		print("VillageManager: Campfire ve WorkersContainer bulundu, başlangıç işçileri oluşturuluyor...")
+		var initial_worker_count = STARTING_WORKER_COUNT # TODO: Bu değeri GlobalPlayerData veya başka bir yerden al
+		# <<< GÜNCELLENDİ: Başarısız olursa döngüyü kır >>>
+		for i in range(initial_worker_count):
+			if not _add_new_worker(): 
+				print("VillageManager: Initial worker %d could not be added due to lack of housing. Stopping initial worker creation." % (i + 1))
+				break 
+		# <<< GÜNCELLEME SONU >>>
+		print("VillageManager: Başlangıç işçileri oluşturuldu.")
+	else:
+		if not workers_container:
+			printerr("VillageManager Ready Error: WorkersContainer bulunamadı!")
+		if not is_instance_valid(campfire_node):
+			printerr("VillageManager Ready Error: Campfire bulunamadı veya geçersiz!")
 		
-		# --- OTOMATİK ATAMA KODU TAMAMEN KALDIRILDI ---
-		# if i == 0 and wood_building_node != null: ... kısmı kaldırıldı.
-		# -------------------------------------------
-
-	print("VillageManager: Başlangıç işçileri oluşturuldu.")
-	# ----------------------------------------------------
-
-# --- Kaynak Seviyesi Hesaplama (YENİ) ---
+	# --- Kaynak Seviyesi Hesaplama (YENİ) ---
 
 # Belirli bir kaynak türünü üreten Tescilli Script Yolları
 # Bu, get_resource_level için gereklidir
@@ -384,23 +380,62 @@ func request_build_building(building_scene_path: String) -> bool:
 
 # --- Diğer Fonksiyonlar (Cariye, Görev vb.) ---
 
-# --- YENİ Genel İşçi Yönetimi Fonksiyonları ---
-# Kaynak seviyesini etkilemeden genel bir işçi atamasını kaydeder
-func register_generic_worker() -> bool:
-	if idle_workers > 0:
-		idle_workers -= 1
-		emit_signal("village_data_changed") # UI güncellensin
-		return true
-	else:
-		printerr("VillageManager: register_generic_worker çağrıldı ama boşta işçi yok!")
-		return false
+# --- YENİ Genel İşçi Fonksiyonları ---
+# Kayıtlı bir işçi örneğini döndürür veya yoksa yenisini ekler (şimdilik sadece boşta olanları döndürür)
+func register_generic_worker() -> Node: #<<< BU AYNI KALIYOR
+	# Boşta işçi var mı diye active_workers'ı kontrol et
+	for worker_id in all_workers:
+		var worker = all_workers[worker_id]["instance"]
+		if is_instance_valid(worker) and worker.assigned_job_type == "":
+			print("VillageManager: Found idle worker (ID: %d), registering." % worker_id) # Debug
+			idle_workers -= 1 # Boşta işçi sayısını azalt
+			emit_signal("village_data_changed")
+			return worker # Boşta olanı döndür
 
-# Kaynak seviyesini etkilemeden genel bir işçi atamasının kaldırılmasını kaydeder
-func unregister_generic_worker() -> void:
-	# Bu fonksiyon çağrıldığında binada işçi olduğu varsayılır (kontrol binada yapılır)
-	idle_workers += 1
-	emit_signal("village_data_changed") # UI güncellensin
-# -------------------------------------------
+	# Boşta işçi bulunamadıysa hata ver (veya otomatik yeni işçi ekle?)
+	printerr("VillageManager: register_generic_worker - Uygun boşta işçi bulunamadı!")
+	return null
+
+# Bir işçiyi tekrar boşta duruma getirir (generic)
+func unregister_generic_worker(worker_id: int) -> void: #<<< DEĞİŞTİ: worker_id parametresi eklendi
+	# print("VillageManager: Unregistering worker (ID: %d)" % worker_id) # Debug <<< KALDIRILDI
+	if all_workers.has(worker_id):
+		var worker = all_workers[worker_id]["instance"]
+		if is_instance_valid(worker):
+			if worker.assigned_job_type != "": # Zaten boşta değilse
+				worker.assigned_job_type = ""
+				worker.assigned_building_node = null
+				# Durumunu AWAKE_IDLE yapalım (eğer farklıysa)
+				if worker.current_state != worker.State.AWAKE_IDLE and \
+				   worker.current_state != worker.State.SLEEPING: # Uyuyanları rahatsız etmeyelim
+					worker.current_state = worker.State.AWAKE_IDLE
+					worker.visible = true # Görünür yap (eğer değildiyse)
+					# Hedefini sıfırla (belki barınağa gitmeli? Şimdilik bulunduğu yer)
+					worker.move_target_x = worker.global_position.x 
+			
+				idle_workers += 1 # Boşta işçi sayısını artır
+
+				# <<< YENİ: Evden çıkarma >>>
+				var current_housing = worker.housing_node
+				if is_instance_valid(current_housing) and \
+				   current_housing.has_method("get_script") and \
+				   current_housing.get_script() == HouseScript:
+					# print("DEBUG VillageManager: Removing worker %d from House %s" % [worker_id, current_housing.name]) #<<< Yorumlandı
+					if not current_housing.remove_occupant():
+						printerr("VillageManager ERROR: Failed to remove occupant from House %s for worker %d!" % [current_housing.name, worker_id])
+				# <<< EV ÇIKARMA SONU >>>
+
+				emit_signal("village_data_changed")
+				# print("VillageManager: Worker (ID: %d) unregistered and set to idle." % worker_id) #<<< KALDIRILDI
+			else:
+				# print("VillageManager: Worker (ID: %d) was already idle." % worker_id)
+				printerr("VillageManager: Worker (ID: %d) was already idle." % worker_id)
+		else:
+			# print("VillageManager: unregister_generic_worker - Worker instance (ID: %d) is invalid!" % worker_id) #<<< KALDIRILDI
+			printerr("VillageManager: unregister_generic_worker - Worker instance (ID: %d) is invalid!" % worker_id)
+	else:
+		# print("VillageManager: unregister_generic_worker - Worker ID %d not found in active_workers!" % worker_id) #<<< KALDIRILDI
+		printerr("VillageManager: unregister_generic_worker - Worker ID %d not found in active_workers!" % worker_id)
 
 # --- YENİ İleri Seviye Üretim Yönetimi (Dictionary Tabanlı) --- #<<< BAŞLIK GÜNCELLENDİ
 
@@ -626,126 +661,130 @@ func _create_debug_gorevler() -> void:
 		"ceza": {"asker_kaybi": 1, "cariye_yaralanma_ihtimali": 0.4}
 	})
 
-# Binaların çağırması için yeni fonksiyon
-func notify_building_state_changed(building_node):
-	print("VillageManager: notify_building_state_changed called by: ", building_node.name) # DEBUG
+# Bir binanın durumu değiştiğinde UI'yi bilgilendirir
+func notify_building_state_changed(building_node: Node) -> void:
+	# print("VillageManager: notify_building_state_changed called by: ", building_node.name) # DEBUG <<< KALDIRILDI
 	emit_signal("building_state_changed", building_node)
 	# İsteğe bağlı: Genel UI güncellemesi için bunu da tetikleyebiliriz?
-	# emit_signal("village_data_changed")
+	emit_signal("village_data_changed")
 
-# Yeni bir işçi instance'ı oluşturur, barınak atar ve sahneye ekler
-func _add_new_worker() -> void:
-	# Ön kontroller
-	if worker_scene == null:
-		printerr("VillageManager Error: Worker scene yüklenmemiş!")
-		return
-	# Campfire veya workers_parent_node kontrolü burada artık yapılmayabilir,
-	# _assign_housing içinde kontrol edilecek.
-	# if campfire_node == null: ...
-	if workers_parent_node == null:
-		printerr("VillageManager Error: Workers parent node referansı yok!")
-		return
+# Yeni bir işçi düğümü oluşturur, ID atar, listeye ekler, sayacı günceller ve barınak atar.
+# Başarılı olursa true, barınak bulunamazsa veya hata olursa false döner.
+func _add_new_worker() -> bool: # <<< Dönüş tipi eklendi
+	if not worker_scene:
+		printerr("VillageManager: Worker scene not loaded!")
+		return false
 		
-	# Instance oluştur
 	var worker_instance = worker_scene.instantiate()
+	worker_id_counter += 1
+	worker_instance.worker_id = worker_id_counter
+	worker_instance.name = "Worker" + str(worker_id_counter) 
 	
-	# Worker scriptindeki değişkenleri ayarla
-	var worker_id_to_assign = next_worker_id
-	next_worker_id += 1 # ID'yi hemen artır
-
-	if worker_instance.has_method("set_worker_id"): # Güvenli erişim
-		worker_instance.set_worker_id(worker_id_to_assign) 
-	else:
-		worker_instance.worker_id = worker_id_to_assign # Doğrudan erişim
-
-	# --- BARINAK ATAMA (YENİ MANTIK) ---
+	# <<< GÜNCELLENDİ: Barınak ataması başarısız olursa işçiyi ekleme >>>
+	# Barınak atamaya çalış (bu fonksiyon housing_node ve start_x_pos ayarlar)
 	if not _assign_housing(worker_instance):
-		printerr("VillageManager: İşçi %d için uygun barınak bulunamadı! İşçi eklenemiyor." % worker_id_to_assign)
+		printerr("VillageManager: Yeni işçi (ID: %d) İÇİN BARINAK BULUNAMADI, işçi eklenmiyor." % worker_id_counter) 
 		worker_instance.queue_free() # Oluşturulan instance'ı sil
-		next_worker_id -= 1 # ID'yi geri al
-		return # Fonksiyondan çık
-	# ---------------------------------
+		# ID sayacını geri almalı mıyız? Şimdilik almıyoruz, ID'ler atlanmış olacak.
+		return false # Başarısız
+
+	# Barınak bulunduysa sahneye ve listeye ekle
+	if workers_container:
+		workers_container.add_child(worker_instance)
+	else:
+		printerr("VillageManager: WorkersContainer not found! Cannot add worker to scene.")
+		worker_instance.queue_free() # Oluşturulan instance'ı sil
+		return false # Başarısız
 		
-	worker_instance.current_state = worker_instance.State.SLEEPING # Worker'daki enum'a erişim
-	worker_instance.visible = false # Başlangıçta görünmez
-	# Pozisyon _assign_housing içinde ayarlandı
-	
-	# Sahneye ve takip listesine ekle
-	workers_parent_node.add_child(worker_instance)
-	worker_instance.add_to_group("Workers") # Kolay erişim için gruba ekle
-	active_workers[worker_id_to_assign] = worker_instance
-	
-	# Genel işçi sayılarını güncelle (idle olarak ekleniyor)
+	# Yeni işçiyi listeye ekle (Sadece sahneye eklendiyse)
+	var worker_data = {
+		"instance": worker_instance,
+		"status": "idle", 
+		"assigned_building": null,
+		"housing_node": worker_instance.housing_node # _assign_housing tarafından ayarlandı
+	}
+	all_workers[worker_id_counter] = worker_data
+
+	# Toplam ve boştaki işçi sayısını güncelle
 	total_workers += 1
 	idle_workers += 1
 	
-	print("VillageManager: Yeni işçi eklendi (ID: %d) ve barınağa atandı." % worker_id_to_assign)
+	print("VillageManager: Yeni işçi (ID: %d) eklendi ve barınağa atandı." % worker_id_counter)
+	
+	# WorkerAssignmentUI'yi güncellemek için sinyal gönder
+	emit_signal("worker_list_changed")
+	return true # Başarılı
+# <<< GÜNCELLEME SONU >>>
 
-# Verilen işçiye uygun bir barınak bulup atar
-func _assign_housing(worker_node) -> bool:
-	print("DEBUG VillageManager: Assigning housing for worker %d..." % worker_node.worker_id) #<<< YENİ
+# Verilen işçiye uygun bir barınak bulup atar ve evin sayacını günceller
+func _assign_housing(worker_instance: Node2D) -> bool:
 	var housing_node = _find_available_housing()
 	if housing_node:
-		print("DEBUG VillageManager: Found housing for worker %d: %s at %s" % [worker_node.worker_id, housing_node.name, housing_node.global_position]) #<<< YENİ
-		if worker_node.has_method("set_housing_node"): # Güvenli erişim
-			worker_node.set_housing_node(housing_node)
+		worker_instance.housing_node = housing_node
+		
+		# Yerleşme pozisyonunu ayarla (sol/sağ kenar)
+		var viewport_width = get_tree().root.get_viewport().get_visible_rect().size.x
+		if housing_node.global_position.x < viewport_width / 2:
+			worker_instance.start_x_pos = -2500 # Sol kenar
 		else:
-			worker_node.housing_node = housing_node # Doğrudan erişim
+			worker_instance.start_x_pos = 2500  # Sağ kenar
 		
-		worker_node.global_position = housing_node.global_position # Barınağın konumunda başlat
-		print("DEBUG VillageManager: Worker %d position set to %s" % [worker_node.worker_id, worker_node.global_position]) #<<< YENİ
-		
-		# Eğer bulunan barınak bir Ev ise, sakini ekle
-		if housing_node.get_script() == HouseScript: #<<< YENİ KONTROL
-			print("DEBUG VillageManager: Assigning worker %d to House %s" % [worker_node.worker_id, housing_node.name]) #<<< YENİ
+		# İlgili barınağın doluluk sayısını artır
+		if housing_node.has_method("add_occupant"):
 			if not housing_node.add_occupant():
-				# Bu durumun olmaması lazım çünkü _find_available_housing kontrol etti,
-				# ama yine de güvenlik için loglayalım.
-				printerr("VillageManager: ERROR - House %s is full, but was selected by _find_available_housing!" % housing_node.name)
-				# Alternatif barınak bulmaya çalışabilir veya hata verebiliriz.
-				# Şimdilik devam edelim ama bu bir sorun.
-		#else: # Eğer kamp ateşi ise (debug için)
-			#print("DEBUG VillageManager: Assigning worker %d to CampFire" % worker_node.worker_id) #<<< YENİ
+				printerr("VillageManager: Failed to add occupant to %s. Housing might be full despite find_available_housing passing." % housing_node.name)
+				# Bu durumda ne yapılmalı? Belki işçiyi kamp ateşine atamayı dene?
+				# Şimdilik sadece hata verelim.
+				return false # Atama başarısız
+		else:
+			printerr("VillageManager: Housing node %s does not have add_occupant method!" % housing_node.name)
+			return false # Atama başarısız
+		
 		return true
 	else:
-		print("DEBUG VillageManager: No available housing found for worker %d." % worker_node.worker_id) #<<< YENİ (printerr yerine print)
-		# Uygun barınak yoksa, işçiyi varsayılan bir konuma yerleştir
-		# veya hiç eklememe kararı al (yukarıdaki _add_new_worker bunu yapıyor)
-		worker_node.global_position = Vector2.ZERO # Veya başka bir mantıklı varsayılan
+		# printerr("VillageManager: No available housing found for %s." % worker_instance.name) # Hata mesajını _add_new_worker'da veriyoruz
 		return false
 
 # Boş kapasitesi olan bir barınak (önce Ev, sonra CampFire) arar
 func _find_available_housing() -> Node2D:
-	print("DEBUG VillageManager: Searching for available housing...") #<<< YENİ
+	# print("DEBUG VillageManager: Searching for available housing...") #<<< Yorumlandı
 	var housing_nodes = get_tree().get_nodes_in_group("Housing")
-	print("DEBUG VillageManager: Found %d nodes in Housing group." % housing_nodes.size()) #<<< YENİ
+	# print("DEBUG VillageManager: Found %d nodes in Housing group." % housing_nodes.size()) #<<< Yorumlandı
 
 	# Önce Evleri kontrol et
 	for node in housing_nodes:
-		print("DEBUG VillageManager: Checking node: %s" % node.name) #<<< YENİ
-		# Düğümün bir House scripti olup olmadığını ve barındırma kapasitesi olup olmadığını kontrol et
+		# print("DEBUG VillageManager: Checking node: %s" % node.name) #<<< Yorumlandı
+		# <<< DEĞİŞTİRİLDİ: Sadece House ise kapasiteyi kontrol et >>>
 		if node.has_method("get_script") and node.get_script() == HouseScript:
-			print("DEBUG VillageManager:   Node is House. Checking capacity (%d/%d)" % [node.current_occupants, node.max_occupants]) #<<< YENİ
+			# print("DEBUG VillageManager:   Node is House. Checking capacity (%d/%d)" % [node.current_occupants, node.max_occupants]) #<<< Yorumlandı
 			if node.can_house_worker():
-				print("DEBUG VillageManager:   Found available House: %s. Returning this node." % node.name) #<<< YENİ
+				# print("DEBUG VillageManager:   Found available House: %s. Returning this node." % node.name) #<<< Yorumlandı
 				return node # Boş ev bulundu
-		else:
-				print("DEBUG VillageManager:   House %s is full." % node.name) #<<< YENİ
-		# else: # Düğüm bir Ev değilse (veya scripti yoksa)
-		# 	print("DEBUG VillageManager:   Node %s is not a House or has no script." % node.name) # Debug için eklenebilir
+			# else: # Ev doluysa (debug için)
+				# print("DEBUG VillageManager:   House %s is full." % node.name) #<<< Yorumlandı
+		# <<< DEĞİŞİKLİK SONU >>>
+		# else: # Eğer scripti HouseScript değilse (örn. CampFire) veya scripti yoksa, bu döngüde atla
+			# print("DEBUG VillageManager:   Node %s is not a House, skipping capacity check in this loop." % node.name) # Debug
+			# pass # Bu else bloğu artık gereksiz
 
 	# Boş ev yoksa, CampFire'ı kontrol et (varsa)
-	print("DEBUG VillageManager: No available house found. Checking for CampFire...") #<<< YENİ
+	# print("DEBUG VillageManager: No available house found. Checking for CampFire...") #<<< Yorumlandı
 	# campfire_node referansı _ready veya register_village_scene içinde set edilmiş olmalı
 	if is_instance_valid(campfire_node) and campfire_node.is_in_group("Housing"):
-		print("DEBUG VillageManager:   Found valid CampFire: %s. Returning this node." % campfire_node.name) #<<< YENİ
-		# Kamp ateşinin kapasitesi sonsuz varsayılabilir veya bir kontrol eklenebilir
-		return campfire_node
-	else:
-		print("DEBUG VillageManager:   Campfire node is not valid or not in Housing group.") #<<< YENİ
+		# print("DEBUG VillageManager:   Found valid CampFire: %s. Returning this node." % campfire_node.name) #<<< Yorumlandı
+		# <<< YENİ: Campfire kapasitesini kontrol et >>>
+		if campfire_node.can_house_worker():
+			# print("DEBUG VillageManager:   Found available CampFire: %s. Returning this node." % campfire_node.name) #<<< Yorumlandı
+			return campfire_node
+		# else: # Kamp ateşi doluysa
+		# 	# print("DEBUG VillageManager:   Campfire is full.") #<<< Yorumlandı
+		# 	pass
+		# <<< YENİ SONU >>>
+	# else: # Debug için
+		# print("DEBUG VillageManager:   Campfire node is not valid or not in Housing group.") #<<< Yorumlandı
 
 	# Hiçbir barınak bulunamadı
-	print("VillageManager Warning: No available housing found (No suitable House or CampFire).") # Mesaj zaten vardı
+	# printerr("VillageManager Warning: No available housing found (No suitable House or CampFire).") # Bu mesajı artık burada vermeyebiliriz, çağıran yer kontrol etmeli.
 	return null
 
 # --- İşçi Atama/Çıkarma (Mevcut Fonksiyonlar) --- # Burası olduğu gibi kalacak
@@ -756,8 +795,8 @@ func assign_idle_worker_to_job(job_type: String) -> bool:
 	var idle_worker_id = -1
 
 	# 1. Boşta bir işçi bul
-	for worker_id in active_workers:
-		var worker = active_workers[worker_id]
+	for worker_id in all_workers:
+		var worker = all_workers[worker_id]["instance"]
 		if is_instance_valid(worker) and worker.assigned_job_type == "":
 			idle_worker_instance = worker
 			idle_worker_id = worker_id
@@ -819,8 +858,8 @@ func unassign_worker_from_job(job_type: String) -> bool:
 	var building_node: Node2D = null # İşçinin çalıştığı bina
 
 	# 1. Bu işe atanmış bir işçi bul
-	for worker_id in active_workers:
-		var worker = active_workers[worker_id]
+	for worker_id in all_workers:
+		var worker = all_workers[worker_id]["instance"]
 		if is_instance_valid(worker) and worker.assigned_job_type == job_type:
 			assigned_worker_instance = worker
 			assigned_worker_id = worker_id
@@ -859,14 +898,14 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 	print("VillageManager: Attempting to remove worker %d" % worker_id_to_remove) # Debug
 
 	# 1. İşçi listede var mı ve geçerli mi?
-	if not active_workers.has(worker_id_to_remove):
+	if not all_workers.has(worker_id_to_remove):
 		printerr("VillageManager Error: Worker %d not found in active_workers." % worker_id_to_remove)
 		return
 		
-	var worker_instance = active_workers[worker_id_to_remove]
+	var worker_instance = all_workers[worker_id_to_remove]["instance"]
 	if not is_instance_valid(worker_instance):
 		printerr("VillageManager Warning: Worker %d instance is invalid. Removing from list." % worker_id_to_remove)
-		active_workers.erase(worker_id_to_remove) # Listeyi temizle
+		all_workers.erase(worker_id_to_remove) # Listeyi temizle
 		# Sayaçları burada azaltmak riskli olabilir, belki zaten azalmıştır.
 		return
 
@@ -901,7 +940,7 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 	# print("DEBUG: Total workers: %d, Idle workers: %d" % [total_workers, idle_workers]) # Debug
 
 	# 5. Listeden Sil
-	active_workers.erase(worker_id_to_remove)
+	all_workers.erase(worker_id_to_remove)
 	
 	# 6. Sahneden Sil
 	worker_instance.queue_free()
@@ -912,10 +951,70 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 
 # --- Helper Fonksiyonlar ---
 func get_active_worker_ids() -> Array[int]:
-	# return active_workers.keys() #<<< ESKİ KOD: Genel Array döndürüyor
+	# return all_workers.keys() #<<< ESKİ KOD: Genel Array döndürüyor
 	var keys_array: Array[int] = [] #<<< YENİ: Tip belirterek boş dizi oluştur
-	for key in active_workers.keys(): #<<< YENİ: Anahtarlar üzerinde döngü
+	for key in all_workers.keys(): #<<< YENİ: Anahtarlar üzerinde döngü
 		keys_array.append(key) #<<< YENİ: Tipi belli diziye ekle
 	return keys_array #<<< YENİ: Tipi belli diziyi döndür
 
 # PlacedBuildings node'unu kaydeder (VillageScene _ready tarafından çağrılır)
+
+# <<< YENİ FONKSİYON: cancel_worker_registration >>>
+# Başarısız bir işçi atama girişiminden sonra (örn. kaynak yetersizliği),
+# register_generic_worker tarafından azaltılan idle_workers sayacını geri artırır.
+func cancel_worker_registration() -> void:
+	# print("VillageManager: Canceling previous worker registration attempt, incrementing idle_workers.") #<<< KALDIRILDI
+	idle_workers += 1
+	emit_signal("village_data_changed")
+# <<< YENİ FONKSİYON BİTİŞ >>>
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("add_worker_debug"): 
+		print("DEBUG: 'N' key pressed, attempting to add new worker.")
+		
+		# <<< GÜNCELLENDİ: Ön kontrol kaldırıldı, _add_new_worker kontrolü yeterli >>>
+		if not _add_new_worker():
+			# _add_new_worker zaten hata mesajı yazdırıyor.
+			# print("VillageManager: Failed to add new worker via N key (likely no housing).")
+			pass 
+		# <<< GÜNCELLEME SONU >>>
+
+# Belirli bir kaynak türünü üreten ilk binanın pozisyonunu döndürür
+# (Kaynak Taşıma İllüzyonu için)
+func get_source_building_position(resource_type: String) -> Vector2:
+	# <<< DÜZELTİLDİ: Doğrudan dictionary lookup >>>
+	# Kaynak türünü hangi scriptlerin ürettiğini bul
+	var target_script_path = RESOURCE_PRODUCER_SCRIPTS.get(resource_type, "")
+	# <<< DÜZELTME SONU >>>
+	
+	if target_script_path.is_empty():
+		printerr("VillageManager: No script found producing resource type '%s' for fetching illusion." % resource_type)
+		return Vector2.ZERO # Veya null? Şimdilik ZERO
+		
+	# İlgili script'e sahip tüm düğümleri (binaları) bul
+	# ... (rest of the function remains the same: find building instance with this script path) ...
+	var potential_buildings = []
+	# Varsayım: Tüm binalar village_scene altında
+	if is_instance_valid(village_scene_instance):
+		# <<< YENİ: PlacedBuildings altını kontrol et (daha güvenli) >>>
+		var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+		if placed_buildings:
+			for child in placed_buildings.get_children(): # Sadece yerleştirilmiş binalara bak
+				if child.has_method("get_script") and child.get_script() != null and child.get_script().resource_path == target_script_path:
+					potential_buildings.append(child)
+		else:
+			printerr("VillageManager: PlacedBuildings node not found in VillageScene.")
+			return Vector2.ZERO
+		# <<< YENİ SONU >>>
+	else:
+		printerr("VillageManager: VillageScene invalid, cannot search for source buildings.")
+		return Vector2.ZERO
+	
+	# Bulunan ilk binanın pozisyonunu döndür
+	if not potential_buildings.is_empty():
+		var target_building = potential_buildings[0]
+		# print("VillageManager: Found source building %s for %s at %s" % [target_building.name, resource_type, target_building.global_position]) # Debug
+		return target_building.global_position
+	else:
+		print("VillageManager: No building instance found producing '%s' (script: %s)" % [resource_type, target_script_path])
+		return Vector2.ZERO # Uygun bina bulunamadı

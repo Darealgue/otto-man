@@ -1,5 +1,10 @@
 extends Node2D # veya StaticBody2D, ne tür bir node ise
 
+# <<< YENİ: Kapasite Değişkenleri >>>
+@export var max_occupants: int = 3
+var current_occupants: int = 0
+# <<< YENİ SONU >>>
+
 # Eklediğimiz PopupMenu node'una referans
 @onready var interaction_menu: PopupMenu = $InteractionMenu
 
@@ -20,6 +25,12 @@ var open_panels = {}
 # -----------------------------------------------------
 
 func _ready() -> void:
+	# <<< YENİ: Housing grubuna ekle >>>
+	if not is_in_group("Housing"):
+		add_to_group("Housing")
+		print("Campfire %s added to Housing group via code." % name)
+	# <<< YENİ SONU >>>
+	
 	# PopupMenu'nun id_pressed sinyalini bağla
 	if interaction_menu:
 		# Önce mevcut bağlantıyı kes (varsa)
@@ -148,6 +159,32 @@ func _on_panel_close_requested(scene_path_to_close: String) -> void: # Parametre
 		print("Campfire: Panel hidden: ", scene_path_to_close)
 	else:
 		print("Campfire: Panel to hide not found or invalid: ", scene_path_to_close)
+
+# <<< YENİ: Kapasite Fonksiyonları >>>
+# Bu kamp ateşinin bir işçi daha alıp alamayacağını kontrol eder
+func can_house_worker() -> bool:
+	return current_occupants < max_occupants
+
+# Kamp ateşine yeni bir işçi ekler (başarılıysa true döner)
+func add_occupant() -> bool:
+	if can_house_worker():
+		current_occupants += 1
+		print("Campfire %s: Occupant added. Current: %d/%d" % [name, current_occupants, max_occupants]) # Debug
+		return true
+	else:
+		printerr("Campfire %s: Cannot add occupant, campfire is full! (%d/%d)" % [name, current_occupants, max_occupants])
+		return false
+
+# Kamp ateşinden bir işçi çıkarır (başarılıysa true döner)
+func remove_occupant() -> bool:
+	if current_occupants > 0:
+		current_occupants -= 1
+		print("Campfire %s: Occupant removed. Current: %d/%d" % [name, current_occupants, max_occupants]) # Debug
+		return true
+	else:
+		printerr("Campfire %s: Cannot remove occupant, campfire is already empty!" % name)
+		return false
+# <<< YENİ SONU >>>
 
 # Oyun kapatılırken veya sahne değişirken panelleri temizle (opsiyonel)
 func _exit_tree() -> void:

@@ -3,7 +3,7 @@ extends Node2D
 class_name House # Bu, diğer scriptlerden type hint için faydalı olabilir
 
 # Evin kaç işçiyi barındırabileceği
-@export var max_occupants: int = 2
+@export var max_occupants: int = 5
 
 # Şu anda bu evde kalan işçilerin sayısını tutan bir dizi
 # Veya sadece sayısını tutabiliriz, şimdilik sayı daha kolay:

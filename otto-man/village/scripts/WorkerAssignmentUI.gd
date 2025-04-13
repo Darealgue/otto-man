@@ -202,26 +202,47 @@ func update_ui() -> void:
 	wood_hbox.visible = wood_building_exists
 	#print("DEBUG update_ui: wood_hbox.visible set to: ", wood_hbox.visible) # DEBUG
 	if wood_building_exists:
-		var wood_is_upgrading = wood_building.is_upgrading
-		var can_add_wood = not wood_is_upgrading and wood_building.assigned_workers < wood_building.max_workers
-		var can_remove_wood = not wood_is_upgrading and wood_building.assigned_workers > 0
+		# --- Null Kontrolleri Eklendi --- 
+		var wood_is_upgrading = wood_building.is_upgrading if "is_upgrading" in wood_building else false 
+		var wood_current_workers = wood_building.assigned_workers if "assigned_workers" in wood_building and wood_building.assigned_workers != null else 0
+		var wood_max_workers_val = wood_building.max_workers if "max_workers" in wood_building and wood_building.max_workers != null else 1 # Varsayılan 1
+		var wood_current_level = wood_building.level if "level" in wood_building and wood_building.level != null else 1 # Varsayılan 1
+		var wood_max_level_val = wood_building.max_level if "max_level" in wood_building and wood_building.max_level != null else 1 # Varsayılan 1
+		# --- Kontroller Sonu ---
+
+		var can_add_wood = not wood_is_upgrading and wood_current_workers < wood_max_workers_val
+		var can_remove_wood = not wood_is_upgrading and wood_current_workers > 0
 		add_wood_button.disabled = not (idle_available and can_add_wood)
 		remove_wood_button.disabled = not can_remove_wood
 
-		# Upgrade Wood Button - DÜZELTME: Sahne yolunu kullan
-		var wood_is_max_level = wood_building.level >= wood_building.max_level
+		# --- Upgrade Wood Button DEBUG --- 
+		# print("--- Wood Upgrade Check DEBUG ---") #<<< KALDIRILDI
+		# print("wood_current_level: %s, wood_max_level_val: %s" % [wood_current_level, wood_max_level_val]) #<<< KALDIRILDI
+		var wood_is_max_level_check = wood_current_level >= wood_max_level_val #<<< Null kontrolünden sonra
+		# print("wood_is_max_level_check: %s" % wood_is_max_level_check) #<<< KALDIRILDI
 		var wood_can_meet_reqs = false
-		if not wood_is_max_level:
-			wood_can_meet_reqs = VillageManager.can_meet_requirements(WOODCUTTER_SCENE) # Sahne yolu
+		if not wood_is_max_level_check:
+			# TODO: can_meet_requirements içinde de null kontrolü var mı kontrol et
+			var req_check_result = VillageManager.can_meet_requirements(WOODCUTTER_SCENE) # Sahne yolu
+			# print("VillageManager.can_meet_requirements(WOODCUTTER_SCENE) result: %s" % req_check_result) #<<< KALDIRILDI
+			wood_can_meet_reqs = req_check_result
+		# else: #<<< KALDIRILDI
+			# print("Skipping requirement check because max level reached or check failed.") #<<< KALDIRILDI
 
-		var can_upgrade_wood = not wood_is_upgrading and not wood_is_max_level and wood_can_meet_reqs
+		# print("wood_is_upgrading: %s" % wood_is_upgrading) #<<< KALDIRILDI
+		var can_upgrade_wood = not wood_is_upgrading and not wood_is_max_level_check and wood_can_meet_reqs
+		# print("Final can_upgrade_wood: %s" % can_upgrade_wood) #<<< KALDIRILDI
 		upgrade_wood_button.disabled = not can_upgrade_wood
+		# print("upgrade_wood_button.disabled set to: %s" % upgrade_wood_button.disabled) #<<< KALDIRILDI
+		# print("-------------------------------") #<<< KALDIRILDI
+		# --- DEBUG END ---
+
 		upgrade_wood_button.text = "Yükseltiliyor..." if wood_is_upgrading else "↑"
 		var wood_upgrade_reqs = VillageManager.get_building_requirements(WOODCUTTER_SCENE) # Sahne yolu
-		upgrade_wood_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(wood_upgrade_reqs) if not wood_upgrade_reqs.is_empty() and not wood_is_max_level else ("Maks Seviye" if wood_is_max_level else "Yükseltilemez")
+		upgrade_wood_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(wood_upgrade_reqs) if not wood_upgrade_reqs.is_empty() and not wood_is_max_level_check else ("Maks Seviye" if wood_is_max_level_check else "Yükseltilemez")
 
-		wood_level_indicator.text = "[Lv. %d]" % wood_building.level
-		wood_level_label.text = str(VillageManager.get_resource_level("wood")) # resource_levels yerine get_resource_level kullan
+		wood_level_indicator.text = "[Lv. %d]" % wood_current_level #<<< Güncel değişkeni kullan
+		wood_level_label.text = str(VillageManager.get_resource_level("wood"))
 
 
 	# --- Stone Row Visibility & Buttons & Level ---
@@ -229,78 +250,99 @@ func update_ui() -> void:
 	stone_hbox.visible = stone_building_exists
 	#print("DEBUG update_ui: stone_hbox.visible set to: ", stone_hbox.visible) # DEBUG
 	if stone_building_exists:
-		var stone_is_upgrading = stone_building.is_upgrading
-		var can_add_stone = not stone_is_upgrading and stone_building.assigned_workers < stone_building.max_workers
-		var can_remove_stone = not stone_is_upgrading and stone_building.assigned_workers > 0
+		# --- Null Kontrolleri Eklendi --- 
+		var stone_is_upgrading = stone_building.is_upgrading if "is_upgrading" in stone_building else false 
+		var stone_current_workers = stone_building.assigned_workers if "assigned_workers" in stone_building and stone_building.assigned_workers != null else 0
+		var stone_max_workers_val = stone_building.max_workers if "max_workers" in stone_building and stone_building.max_workers != null else 1
+		var stone_current_level = stone_building.level if "level" in stone_building and stone_building.level != null else 1
+		var stone_max_level_val = stone_building.max_level if "max_level" in stone_building and stone_building.max_level != null else 1
+		# --- Kontroller Sonu ---
+
+		var can_add_stone = not stone_is_upgrading and stone_current_workers < stone_max_workers_val
+		var can_remove_stone = not stone_is_upgrading and stone_current_workers > 0
 		add_stone_button.disabled = not (idle_available and can_add_stone)
 		remove_stone_button.disabled = not can_remove_stone
 
-		# Upgrade Stone Button - DÜZELTME: Sahne yolunu kullan
-		var stone_is_max_level = stone_building.level >= stone_building.max_level
+		# Upgrade Stone Button
+		var stone_is_max_level_check = stone_current_level >= stone_max_level_val #<<< Null kontrolünden sonra
 		var stone_can_meet_reqs = false
-		if not stone_is_max_level:
+		if not stone_is_max_level_check:
 			stone_can_meet_reqs = VillageManager.can_meet_requirements(STONE_MINE_SCENE) # Sahne yolu
 
-		var can_upgrade_stone = not stone_is_upgrading and not stone_is_max_level and stone_can_meet_reqs
+		var can_upgrade_stone = not stone_is_upgrading and not stone_is_max_level_check and stone_can_meet_reqs
 		upgrade_stone_button.disabled = not can_upgrade_stone
 		upgrade_stone_button.text = "Yükseltiliyor..." if stone_is_upgrading else "↑"
 		var stone_upgrade_reqs = VillageManager.get_building_requirements(STONE_MINE_SCENE) # Sahne yolu
-		upgrade_stone_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(stone_upgrade_reqs) if not stone_upgrade_reqs.is_empty() and not stone_is_max_level else ("Maks Seviye" if stone_is_max_level else "Yükseltilemez")
+		upgrade_stone_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(stone_upgrade_reqs) if not stone_upgrade_reqs.is_empty() and not stone_is_max_level_check else ("Maks Seviye" if stone_is_max_level_check else "Yükseltilemez")
 
-		stone_level_indicator.text = "[Lv. %d]" % stone_building.level
-		stone_level_label.text = str(VillageManager.get_resource_level("stone")) # resource_levels yerine get_resource_level kullan
+		stone_level_indicator.text = "[Lv. %d]" % stone_current_level #<<< Güncel değişkeni kullan
+		stone_level_label.text = str(VillageManager.get_resource_level("stone"))
 
 	# --- Food Row Visibility & Buttons & Level ---
 	var food_building_exists = food_building != null
 	food_hbox.visible = food_building_exists
 	#print("DEBUG update_ui: food_hbox.visible set to: ", food_hbox.visible) # DEBUG
 	if food_building_exists:
-		var food_is_upgrading = food_building.is_upgrading
-		var can_add_food = not food_is_upgrading and food_building.assigned_workers < food_building.max_workers
-		var can_remove_food = not food_is_upgrading and food_building.assigned_workers > 0
+		# --- Null Kontrolleri Eklendi --- 
+		var food_is_upgrading = food_building.is_upgrading if "is_upgrading" in food_building else false 
+		var food_current_workers = food_building.assigned_workers if "assigned_workers" in food_building and food_building.assigned_workers != null else 0
+		var food_max_workers_val = food_building.max_workers if "max_workers" in food_building and food_building.max_workers != null else 1
+		var food_current_level = food_building.level if "level" in food_building and food_building.level != null else 1
+		var food_max_level_val = food_building.max_level if "max_level" in food_building and food_building.max_level != null else 1
+		# --- Kontroller Sonu ---
+
+		var can_add_food = not food_is_upgrading and food_current_workers < food_max_workers_val
+		var can_remove_food = not food_is_upgrading and food_current_workers > 0
 		add_food_button.disabled = not (idle_available and can_add_food)
 		remove_food_button.disabled = not can_remove_food
 
-		# Upgrade Food Button - DÜZELTME: Sahne yolunu kullan
-		var food_is_max_level = food_building.level >= food_building.max_level
+		# Upgrade Food Button
+		var food_is_max_level_check = food_current_level >= food_max_level_val #<<< Null kontrolünden sonra
 		var food_can_meet_reqs = false
-		if not food_is_max_level:
+		if not food_is_max_level_check:
 			food_can_meet_reqs = VillageManager.can_meet_requirements(HUNTER_HUT_SCENE)
 
-		var can_upgrade_food = not food_is_upgrading and not food_is_max_level and food_can_meet_reqs
+		var can_upgrade_food = not food_is_upgrading and not food_is_max_level_check and food_can_meet_reqs
 		upgrade_food_button.disabled = not can_upgrade_food
 		upgrade_food_button.text = "Yükseltiliyor..." if food_is_upgrading else "↑"
 		var food_upgrade_reqs = VillageManager.get_building_requirements(HUNTER_HUT_SCENE)
-		upgrade_food_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(food_upgrade_reqs) if not food_upgrade_reqs.is_empty() and not food_is_max_level else ("Maks Seviye" if food_is_max_level else "Yükseltilemez")
+		upgrade_food_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(food_upgrade_reqs) if not food_upgrade_reqs.is_empty() and not food_is_max_level_check else ("Maks Seviye" if food_is_max_level_check else "Yükseltilemez")
 
-		food_level_indicator.text = "[Lv. %d]" % food_building.level
-		food_level_label.text = str(VillageManager.get_resource_level("food")) # resource_levels yerine get_resource_level kullan
+		food_level_indicator.text = "[Lv. %d]" % food_current_level #<<< Güncel değişkeni kullan
+		food_level_label.text = str(VillageManager.get_resource_level("food"))
 
 	# --- Water Row Visibility & Buttons & Level ---
 	var water_building_exists = water_building != null
 	water_hbox.visible = water_building_exists
 	#print("DEBUG update_ui: water_hbox.visible set to: ", water_hbox.visible) # DEBUG
 	if water_building_exists:
-		var water_is_upgrading = water_building.is_upgrading
-		var can_add_water = not water_is_upgrading and water_building.assigned_workers < water_building.max_workers
-		var can_remove_water = not water_is_upgrading and water_building.assigned_workers > 0
+		# --- Null Kontrolleri Eklendi --- 
+		var water_is_upgrading = water_building.is_upgrading if "is_upgrading" in water_building else false 
+		var water_current_workers = water_building.assigned_workers if "assigned_workers" in water_building and water_building.assigned_workers != null else 0
+		var water_max_workers_val = water_building.max_workers if "max_workers" in water_building and water_building.max_workers != null else 1
+		var water_current_level = water_building.level if "level" in water_building and water_building.level != null else 1
+		var water_max_level_val = water_building.max_level if "max_level" in water_building and water_building.max_level != null else 1
+		# --- Kontroller Sonu ---
+
+		var can_add_water = not water_is_upgrading and water_current_workers < water_max_workers_val
+		var can_remove_water = not water_is_upgrading and water_current_workers > 0
 		add_water_button.disabled = not (idle_available and can_add_water)
 		remove_water_button.disabled = not can_remove_water
 
-		# Upgrade Water Button - DÜZELTME: Sahne yolunu kullan
-		var water_is_max_level = water_building.level >= water_building.max_level
+		# Upgrade Water Button
+		var water_is_max_level_check = water_current_level >= water_max_level_val #<<< Null kontrolünden sonra
 		var water_can_meet_reqs = false
-		if not water_is_max_level:
+		if not water_is_max_level_check:
 			water_can_meet_reqs = VillageManager.can_meet_requirements(WELL_SCENE)
 
-		var can_upgrade_water = not water_is_upgrading and not water_is_max_level and water_can_meet_reqs
+		var can_upgrade_water = not water_is_upgrading and not water_is_max_level_check and water_can_meet_reqs
 		upgrade_water_button.disabled = not can_upgrade_water
 		upgrade_water_button.text = "Yükseltiliyor..." if water_is_upgrading else "↑"
 		var water_upgrade_reqs = VillageManager.get_building_requirements(WELL_SCENE)
-		upgrade_water_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(water_upgrade_reqs) if not water_upgrade_reqs.is_empty() and not water_is_max_level else ("Maks Seviye" if water_is_max_level else "Yükseltilemez")
+		upgrade_water_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(water_upgrade_reqs) if not water_upgrade_reqs.is_empty() and not water_is_max_level_check else ("Maks Seviye" if water_is_max_level_check else "Yükseltilemez")
 
-		water_level_indicator.text = "[Lv. %d]" % water_building.level
-		water_level_label.text = str(VillageManager.get_resource_level("water")) # resource_levels yerine get_resource_level kullan
+		water_level_indicator.text = "[Lv. %d]" % water_current_level #<<< Güncel değişkeni kullan
+		water_level_label.text = str(VillageManager.get_resource_level("water"))
 
 	# --- Metal Row Visibility & Buttons & Level ---
 	metal_hbox.visible = false
@@ -312,28 +354,33 @@ func update_ui() -> void:
 	bread_hbox.visible = bread_building_exists
 	#print("DEBUG update_ui: bread_hbox.visible set to: ", bread_hbox.visible) # DEBUG
 	if bread_building_exists:
-		# Doğrudan Erişim Denemesi
-		var bread_is_upgrading = bread_building.is_upgrading if "is_upgrading" in bread_building else false 
-		var bread_current_workers = bread_building.assigned_workers if "assigned_workers" in bread_building else -1
-		var bread_max_workers = bread_building.max_workers if "max_workers" in bread_building else 0
+		# --- Null Kontrolleri Eklendi --- 
+		# Bakery'nin kendine özgü değişkenleri olabilir (örn. üretim durumu)
+		var bread_is_upgrading = bread_building.is_upgrading if "is_upgrading" in bread_building else false # Yükseltme varsa
+		var bread_current_workers = bread_building.assigned_workers if "assigned_workers" in bread_building and bread_building.assigned_workers != null else 0
+		var bread_max_workers_val = bread_building.max_workers if "max_workers" in bread_building and bread_building.max_workers != null else 1 # Bakery için max worker önemli
+		# Bakery'nin level/max_level'ı olmayabilir, varsayılanları dikkatli seçelim veya hiç kullanmayalım
+		var bread_current_level = bread_building.level if "level" in bread_building and bread_building.level != null else 1 
+		var bread_max_level_val = bread_building.max_level if "max_level" in bread_building and bread_building.max_level != null else 1
+		# --- Kontroller Sonu ---
 
-		var can_add_bread = not bread_is_upgrading and bread_current_workers < bread_max_workers
+		# Bakery'nin upgrade mekanizması farklı olabilir, şimdilik upgrade butonunu gizleyelim
+		upgrade_bread_button.visible = false # Veya true yapıp disabled edebiliriz
+		# upgrade_bread_button.disabled = true
+		# upgrade_bread_button.tooltip_text = "Fırın yükseltilemez"
+
+		# Fırın seviyesi göstergesi belki gereksiz? Şimdilik gizleyelim.
+		bread_level_indicator.visible = false 
+		# bread_level_indicator.text = "" 
+		
+		# Ekmek seviyesi VillageManager'daki resource_levels'dan gelmeli
+		bread_level_label.text = str(VillageManager.get_resource_level("bread"))
+
+		# Add/Remove Butonları (Normal binalar gibi)
+		var can_add_bread = not bread_is_upgrading and bread_current_workers < bread_max_workers_val
 		var can_remove_bread = not bread_is_upgrading and bread_current_workers > 0
-
 		add_bread_button.disabled = not (idle_available and can_add_bread)
 		remove_bread_button.disabled = not can_remove_bread
-
-		# Upgrade Bread Button (Şimdilik pasif)
-		upgrade_bread_button.disabled = true 
-		upgrade_bread_button.text = "↑"
-		upgrade_bread_button.tooltip_text = "Yükseltilemez"
-		
-		# Seviye Göstergesi
-		var bread_level = bread_building.level if "level" in bread_building else 1 
-		bread_level_indicator.text = "[Lv. %d]" % bread_level
-			
-		# Ekmek Miktarı Göstergesi - resource_levels'dan al
-		bread_level_label.text = str(VillageManager.resource_levels.get("bread", 0))
 	else: 
 		if is_instance_valid(bread_level_label):
 			bread_level_label.text = "0"
@@ -345,61 +392,69 @@ func update_ui() -> void:
 func _on_add_worker_pressed(resource_type: String) -> void:
 	print("UI: İşçi atama isteği gönderiliyor: ", resource_type) # Debug
 
-	if resource_type == "bread":
-		# --- FIRIN ÖZEL KODU ---
-		var bakery_node = _find_first_building(BAKERY_SCENE, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
-		if is_instance_valid(bakery_node):
-			if bakery_node.has_method("add_worker"):
-				if bakery_node.add_worker():
-					print("UI: Fırına işçi başarıyla atandı.")
-					# update_ui() # Zaten periyodik olarak güncelleniyor
-				else:
-					# Hata mesajı Bakery.gd içinden gelmeli (örn. kaynak yetersiz)
-					printerr("UI: Fırına işçi atanamadı (Bakery.add_worker() false döndü).")
+	# 1. İlgili bina türünün sahne yolunu al
+	var target_building_scene_path = ""
+	match resource_type:
+		"wood": target_building_scene_path = WOODCUTTER_SCENE
+		"stone": target_building_scene_path = STONE_MINE_SCENE
+		"food": target_building_scene_path = HUNTER_HUT_SCENE
+		"water": target_building_scene_path = WELL_SCENE
+		"bread": target_building_scene_path = BAKERY_SCENE
+		_: # Bilinmeyen kaynak türü
+			printerr("UI Error: Bilinmeyen kaynak türü için işçi eklenemiyor: ", resource_type)
+			return
+
+	# 2. Sahnedeki o türden ilk binayı bul
+	var building_node = _find_first_building(target_building_scene_path, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
+
+	# 3. Binanın add_worker metodunu çağır
+	if is_instance_valid(building_node):
+		if building_node.has_method("add_worker"):
+			if building_node.add_worker():
+				print("UI: %s binasına işçi başarıyla atandı." % building_node.name)
+				# update_ui() # Zaten periyodik olarak güncelleniyor
 			else:
-				printerr("UI Error: Bakery node'unda 'add_worker' metodu bulunamadı!")
+				# Hata mesajı binanın kendi add_worker metodundan gelmeli
+				printerr("UI: %s binasına işçi atanamadı (%s.add_worker() false döndü)." % [building_node.name, building_node.name])
 		else:
-			printerr("UI Error: Aktif Fırın binası bulunamadı!")
-		# --- FIRIN ÖZEL KODU SONU ---
+			printerr("UI Error: %s node'unda 'add_worker' metodu bulunamadı!" % building_node.name)
 	else:
-		# --- TEMEL KAYNAKLAR İÇİN ESKİ KOD ---
-		var success = VillageManager.assign_idle_worker_to_job(resource_type)
-		if success:
-			print("UI: Boşta bir işçi başarıyla '%s' işine atandı." % resource_type)
-			# update_ui() 
-		else:
-			printerr("UI: '%s' işine işçi atanamadı (VillageManager.assign_idle_worker_to_job false döndü)." % resource_type) # Mesaj güncellendi
-		# --- TEMEL KAYNAKLAR SONU ---
+		printerr("UI Error: Aktif %s binası bulunamadı!" % resource_type.capitalize())
+
 
 # "-" butonuna basıldığında çalışır
 func _on_remove_worker_pressed(resource_type: String) -> void:
 	print("UI: İşçi çıkarma isteği gönderiliyor: ", resource_type) # Debug
 
-	if resource_type == "bread":
-		# --- FIRIN ÖZEL KODU ---
-		var bakery_node = _find_first_building(BAKERY_SCENE, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
-		if is_instance_valid(bakery_node):
-			if bakery_node.has_method("remove_worker"):
-				if bakery_node.remove_worker():
-					print("UI: Fırından işçi başarıyla çıkarıldı.")
-					# update_ui() # Zaten periyodik olarak güncelleniyor
-				else:
-					# Hata mesajı Bakery.gd içinden gelmeli (örn. çıkarılacak işçi yok)
-					printerr("UI: Fırından işçi çıkarılamadı (Bakery.remove_worker() false döndü).")
+	# 1. İlgili bina türünün sahne yolunu al
+	var target_building_scene_path = ""
+	match resource_type:
+		"wood": target_building_scene_path = WOODCUTTER_SCENE
+		"stone": target_building_scene_path = STONE_MINE_SCENE
+		"food": target_building_scene_path = HUNTER_HUT_SCENE
+		"water": target_building_scene_path = WELL_SCENE
+		"bread": target_building_scene_path = BAKERY_SCENE
+		_: # Bilinmeyen kaynak türü
+			printerr("UI Error: Bilinmeyen kaynak türü için işçi çıkarılamıyor: ", resource_type)
+			return
+
+	# 2. Sahnedeki o türden ilk binayı bul
+	var building_node = _find_first_building(target_building_scene_path, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
+
+	# 3. Binanın remove_worker metodunu çağır
+	if is_instance_valid(building_node):
+		if building_node.has_method("remove_worker"):
+			if building_node.remove_worker():
+				print("UI: %s binasından işçi başarıyla çıkarıldı." % building_node.name)
+				# update_ui() # Zaten periyodik olarak güncelleniyor
 			else:
-				printerr("UI Error: Bakery node'unda 'remove_worker' metodu bulunamadı!")
+				# Hata mesajı binanın kendi remove_worker metodundan gelmeli
+				printerr("UI: %s binasından işçi çıkarılamadı (%s.remove_worker() false döndü)." % [building_node.name, building_node.name])
 		else:
-			printerr("UI Error: Aktif Fırın binası bulunamadı!")
-		# --- FIRIN ÖZEL KODU SONU ---
+			printerr("UI Error: %s node'unda 'remove_worker' metodu bulunamadı!" % building_node.name)
 	else:
-		# --- TEMEL KAYNAKLAR İÇİN ESKİ KOD ---
-		var success = VillageManager.unassign_worker_from_job(resource_type)
-		if success:
-			print("UI: Bir işçi başarıyla '%s' işinden çıkarıldı." % resource_type)
-			# update_ui()
-		else:
-			printerr("UI: '%s' işinden işçi çıkarılamadı (VillageManager.unassign_worker_from_job false döndü)." % resource_type) # Mesaj güncellendi
-		# --- TEMEL KAYNAKLAR SONU ---
+		printerr("UI Error: Aktif %s binası bulunamadı!" % resource_type.capitalize())
+
 
 # Helper: Belirtilen script yoluna sahip, kapasitesi dolmamış bir bina bulur
 func _find_building_with_capacity(building_script_path: String, plots_node): # <-- Yeni parametre

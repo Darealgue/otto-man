@@ -16,5 +16,3 @@ res://village/scenes/BuildMenuUI.tscn
 res://village/scenes/Worker.tscn
 res://village/scenes/TimeDisplayUI.tscn
 res://village/buildings/House.tscn
-res://village/scripts/WorkerAssignmentUI.gd
-res://village/scripts/VillageManager.gd

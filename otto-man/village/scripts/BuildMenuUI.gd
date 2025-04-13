@@ -108,7 +108,8 @@ func _update_single_button_state(button: Button, scene_path: String):
 	
 	# Butonu sadece gereksinimler karşılanıyorsa VE bu türden bina yoksa aktif et
 	button.disabled = already_exists or not can_afford
-	print("DEBUG BuildMenuUI: %s butonu durumu (disabled): %s" % [button.name, button.disabled])
+	# <<< YORUMA AL >>>
+	# print("DEBUG BuildMenuUI: %s butonu durumu (disabled): %s" % [button.name, button.disabled])
 	
 	# Tooltip ekle (opsiyonel ama faydalı)
 	if already_exists:
