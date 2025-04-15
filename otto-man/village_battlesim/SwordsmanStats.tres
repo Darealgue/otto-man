@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=3 format=3 uid="uid://vp614aw8cfi2"]
+
+[ext_resource type="Script" path="res://village_battlesim/UnitStats.gd" id="1_btwap"]
+[ext_resource type="Texture2D" uid="uid://c02ydx45pnaso" path="res://village_battlesim/assets villagesim/Ekran görüntüsü 2025-04-15 021328.png" id="2_3rpkq"]
+
+[resource]
+script = ExtResource("1_btwap")
+display_name = "Kılıçlı"
+unit_type_id = "swordsman"
+max_hp = 45
+attack_damage = 25
+defense = 5
+attack_speed = 1.0
+move_speed = 60.0
+attack_range = 40.0
+hit_chance = 0.9
+block_chance = 0.33
+texture = ExtResource("2_3rpkq")

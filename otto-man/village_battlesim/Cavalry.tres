@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=3 format=3 uid="uid://3nrcjofwu5sm"]
+
+[ext_resource type="Script" path="res://village_battlesim/UnitStats.gd" id="1_m1q22"]
+[ext_resource type="Texture2D" uid="uid://bkvb4jsiwe11e" path="res://village_battlesim/assets villagesim/Ekran görüntüsü 2025-04-15 021256.png" id="2_i52uq"]
+
+[resource]
+script = ExtResource("1_m1q22")
+display_name = "Atlı"
+unit_type_id = "cavalry"
+max_hp = 100
+attack_damage = 20
+defense = 2
+attack_speed = 1.0
+move_speed = 150.0
+attack_range = 40.0
+hit_chance = 0.8
+block_chance = 0.1
+texture = ExtResource("2_i52uq")

@@ -57,15 +57,13 @@ func remove_worker() -> bool:
 		print("WoodcutterCamp: Çıkarılacak işçi yok.")
 		return false
 
-	# Çıkarılacak işçi ID'sini bul (genellikle listedeki sonuncuyu çıkarmak basit olur)
-	# VEYA spesifik bir ID gerekirse farklı bir mantık lazım.
-	# Şimdilik en son ekleneni çıkaralım:
 	var worker_id_to_remove = assigned_worker_ids.pop_back()
-	var worker_instance = VillageManager.active_workers.get(worker_id_to_remove)
+	var worker_instance = null
+	if VillageManager.all_workers.has(worker_id_to_remove):
+		worker_instance = VillageManager.all_workers[worker_id_to_remove]["instance"]
 
 	if not is_instance_valid(worker_instance):
 		printerr("WoodcutterCamp: Çıkarılacak işçi (ID: %d) VillageManager'da bulunamadı veya geçersiz!" % worker_id_to_remove)
-		# assigned_workers sayısını yine de azaltalım mı? Evet, liste güncellendi.
 		assigned_workers = assigned_worker_ids.size() # Sayacı listeyle senkronize et
 		_update_ui()
 		VillageManager.notify_building_state_changed(self)
@@ -94,32 +92,24 @@ func remove_worker() -> bool:
 	# <<< YENİ: İşçi çıkarıldıktan sonra SON işçiyi içeri al VEYA TEK işçiyi dışarı çıkar >>>
 	if not worker_stays_inside and level >= 2:
 		if assigned_worker_ids.is_empty():
-			# İşçi kalmadı, bir şey yapma
 			pass
 		elif assigned_worker_ids.size() == 1:
-			# Sadece 1 işçi kaldı, eğer içerideyse dışarı çıkar
 			var last_remaining_worker_id = assigned_worker_ids[0]
-			var remaining_worker_instance = VillageManager.active_workers.get(last_remaining_worker_id)
+			var remaining_worker_instance = null
+			if VillageManager.all_workers.has(last_remaining_worker_id):
+				remaining_worker_instance = VillageManager.all_workers[last_remaining_worker_id]["instance"]
 			if is_instance_valid(remaining_worker_instance):
 				if remaining_worker_instance.current_state == remaining_worker_instance.State.WORKING_INSIDE:
-					# print("%s RemoveWorker: Only 1 worker left (ID %d), switching from inside to offscreen." % [self.name, last_remaining_worker_id]) #<<< KALDIRILDI
 					remaining_worker_instance.switch_to_working_offscreen()
-				# else: #<<< KALDIRILDI
-					# print("%s RemoveWorker: Only 1 worker left (ID %d), already not inside." % [self.name, last_remaining_worker_id]) #<<< KALDIRILDI
-			# else: # Hata durumu printerr ile kalsın
-			# 	printerr("%s RemoveWorker: Could not find instance for the last remaining worker (ID %d)" % [self.name, last_remaining_worker_id])
 		else: # 2 veya daha fazla işçi kaldı
 			var new_last_worker_id = assigned_worker_ids[-1]
-			var last_worker_instance = VillageManager.active_workers.get(new_last_worker_id)
+			var last_worker_instance = null
+			if VillageManager.all_workers.has(new_last_worker_id):
+				last_worker_instance = VillageManager.all_workers[new_last_worker_id]["instance"]
 			if is_instance_valid(last_worker_instance):
 				if last_worker_instance.current_state == last_worker_instance.State.WORKING_OFFSCREEN or \
 				   last_worker_instance.current_state == last_worker_instance.State.WAITING_OFFSCREEN:
-					# print("%s RemoveWorker: Switching new last worker (ID %d) to inside." % [self.name, new_last_worker_id]) #<<< KALDIRILDI
 					last_worker_instance.switch_to_working_inside()
-				# else: #<<< KALDIRILDI
-				# 	print("%s RemoveWorker: New last worker (ID %d) already inside or in other state." % [self.name, new_last_worker_id]) #<<< KALDIRILDI
-			# else: # Hata durumu printerr ile kalsın
-			# 	printerr("%s RemoveWorker: Could not find instance for new last worker (ID %d)" % [self.name, new_last_worker_id])
 	# <<< YENİ KOD BİTİŞİ >>>
 
 	return true # Başarıyla çıkarıldı

@@ -397,45 +397,46 @@ func register_generic_worker() -> Node: #<<< BU AYNI KALIYOR
 	return null
 
 # Bir işçiyi tekrar boşta duruma getirir (generic)
-func unregister_generic_worker(worker_id: int) -> void: #<<< DEĞİŞTİ: worker_id parametresi eklendi
-	# print("VillageManager: Unregistering worker (ID: %d)" % worker_id) # Debug <<< KALDIRILDI
+func unregister_generic_worker(worker_id: int):
 	if all_workers.has(worker_id):
-		var worker = all_workers[worker_id]["instance"]
-		if is_instance_valid(worker):
-			if worker.assigned_job_type != "": # Zaten boşta değilse
-				worker.assigned_job_type = ""
-				worker.assigned_building_node = null
-				# Durumunu AWAKE_IDLE yapalım (eğer farklıysa)
-				if worker.current_state != worker.State.AWAKE_IDLE and \
-				   worker.current_state != worker.State.SLEEPING: # Uyuyanları rahatsız etmeyelim
-					worker.current_state = worker.State.AWAKE_IDLE
-					worker.visible = true # Görünür yap (eğer değildiyse)
-					# Hedefini sıfırla (belki barınağa gitmeli? Şimdilik bulunduğu yer)
-					worker.move_target_x = worker.global_position.x 
-			
-				idle_workers += 1 # Boşta işçi sayısını artır
+		var worker_data = all_workers[worker_id]
+		var worker_instance = worker_data["instance"]
+		if not is_instance_valid(worker_instance):
+			printerr("unregister_generic_worker: Worker instance for ID %d is invalid!" % worker_id)
+			return
 
-				# <<< YENİ: Evden çıkarma >>>
-				var current_housing = worker.housing_node
-				if is_instance_valid(current_housing) and \
-				   current_housing.has_method("get_script") and \
-				   current_housing.get_script() == HouseScript:
-					# print("DEBUG VillageManager: Removing worker %d from House %s" % [worker_id, current_housing.name]) #<<< Yorumlandı
-					if not current_housing.remove_occupant():
-						printerr("VillageManager ERROR: Failed to remove occupant from House %s for worker %d!" % [current_housing.name, worker_id])
-				# <<< EV ÇIKARMA SONU >>>
+		# --- IDLE CHECK and Conditional Increment --- 
+		var needs_to_become_idle = (worker_instance.assigned_job_type != "") 
+		# if not needs_to_become_idle: # Artık bu mesajı yazdırmayalım, kafa karıştırıyor
+		# 	 print("VillageManager: Worker (ID: %d) was already idle." % worker_id)
+		# -------------------------------------------
 
-				emit_signal("village_data_changed")
-				# print("VillageManager: Worker (ID: %d) unregistered and set to idle." % worker_id) #<<< KALDIRILDI
+		# Binadan çıkar (Bu kısım büyük ölçüde formalite, asıl iş bina scriptinde yapıldı)
+		var current_building = worker_instance.assigned_building_node
+		if is_instance_valid(current_building):
+			# worker_instance.assigned_building = null # Bina scripti zaten yapıyor ama garanti olsun
+			# Bina scriptinin remove_worker'ını tekrar çağırmaya gerek yok.
+			pass
+		# Hata durumunda bile worker instance'ın bina bağlantısını keselim:
+		worker_instance.assigned_building_node = null 
+		
+		# --- Idle Sayısını Artır --- #<<< YENİ YORUM
+		idle_workers += 1 #<<< HER ZAMAN ARTIRILACAK
+		# print("VillageManager: Worker %d unregistered. Idle count: %d" % [worker_id, idle_workers]) # DEBUG
+
+		# Eğer işçi bir barınakta kalıyorsa, barınağın doluluk sayısını azalt
+		var current_housing = worker_instance.housing_node
+		if is_instance_valid(current_housing):
+			if current_housing.has_method("remove_occupant"):
+				if not current_housing.remove_occupant():
+					printerr("VillageManager: Failed to remove occupant from %s for worker %d." % [current_housing.name, worker_id])
 			else:
-				# print("VillageManager: Worker (ID: %d) was already idle." % worker_id)
-				printerr("VillageManager: Worker (ID: %d) was already idle." % worker_id)
-		else:
-			# print("VillageManager: unregister_generic_worker - Worker instance (ID: %d) is invalid!" % worker_id) #<<< KALDIRILDI
-			printerr("VillageManager: unregister_generic_worker - Worker instance (ID: %d) is invalid!" % worker_id)
+				printerr("VillageManager: Housing node %s does not have remove_occupant method!" % current_housing.name)
+
+		# WorkerAssignmentUI'yi güncellemek için sinyal gönder (varsa)
+		emit_signal("worker_list_changed")
 	else:
-		# print("VillageManager: unregister_generic_worker - Worker ID %d not found in active_workers!" % worker_id) #<<< KALDIRILDI
-		printerr("VillageManager: unregister_generic_worker - Worker ID %d not found in active_workers!" % worker_id)
+		printerr("unregister_generic_worker: Worker data not found for ID: %d" % worker_id)
 
 # --- YENİ İleri Seviye Üretim Yönetimi (Dictionary Tabanlı) --- #<<< BAŞLIK GÜNCELLENDİ
 
@@ -674,7 +675,7 @@ func _add_new_worker() -> bool: # <<< Dönüş tipi eklendi
 	if not worker_scene:
 		printerr("VillageManager: Worker scene not loaded!")
 		return false
-		
+
 	var worker_instance = worker_scene.instantiate()
 	worker_id_counter += 1
 	worker_instance.worker_id = worker_id_counter

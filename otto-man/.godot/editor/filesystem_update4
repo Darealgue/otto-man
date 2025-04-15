@@ -16,3 +16,13 @@ res://village/scenes/BuildMenuUI.tscn
 res://village/scenes/Worker.tscn
 res://village/scenes/TimeDisplayUI.tscn
 res://village/buildings/House.tscn
+res://village_battlesim/Unit.tscn
+res://village_battlesim/BattleScene.tscn
+res://village_battlesim/Unit.gd
+res://village_battlesim/SwordsmanStats.tres
+res://village_battlesim/ArcherStats.tres
+res://resources/player_normalmap resources/fall_n.tres
+res://village_battlesim/Cavalry.tres
+res://village/scripts/VillageManager.gd
+res://village_battlesim/spearman.tres
+res://village_battlesim/shieldbearer.tres

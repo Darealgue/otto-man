@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=3 format=3 uid="uid://qf5mn0nhvxk1"]
+
+[ext_resource type="Script" path="res://village_battlesim/UnitStats.gd" id="1_8w604"]
+[ext_resource type="Texture2D" uid="uid://cogfdqywasuj4" path="res://village_battlesim/assets villagesim/Ekran görüntüsü 2025-04-15 021350.png" id="2_5kb21"]
+
+[resource]
+script = ExtResource("1_8w604")
+display_name = "Mızrakçı"
+unit_type_id = "spearman"
+max_hp = 50
+attack_damage = 20
+defense = 2
+attack_speed = 1.0
+move_speed = 40.0
+attack_range = 60.0
+hit_chance = 0.9
+block_chance = 0.1
+texture = ExtResource("2_5kb21")

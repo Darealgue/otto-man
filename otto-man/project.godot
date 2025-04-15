@@ -215,6 +215,8 @@ interact={
 2d_physics/layer_8="NPC"
 2d_physics/layer_9="ENEMY PROJECTILES"
 2d_physics/layer_10="PLATFORM"
+2d_physics/layer_11="PLAYER_UNITS"
+2d_physics/layer_12="ENEMY_UNITS"
 
 [rendering]
 

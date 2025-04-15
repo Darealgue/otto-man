@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3 uid="uid://jwooykdq66m5"]
+
+[ext_resource type="Script" path="res://village_battlesim/UnitStats.gd" id="1_87oum"]
+
+[resource]
+script = ExtResource("1_87oum")
+display_name = "Kalkancı"
+unit_type_id = "shieldbearer"
+max_hp = 100
+attack_damage = 5
+defense = 10
+attack_speed = 1.0
+move_speed = 50.0
+attack_range = 30.0
+hit_chance = 0.9
+block_chance = 0.8

@@ -437,12 +437,42 @@ func _on_fetching_timer_timeout():
 	# Sadece içeride çalışırken ve bina geçerliyse tetiklenmeli
 	if current_state != State.WORKING_INSIDE or not is_instance_valid(assigned_building_node):
 		return
+
+	# <<< YENİ: İş Bitiş Saati Kontrolü >>>
+	var current_hour = TimeManager.get_hour()
+	if current_hour >= TimeManager.WORK_END_HOUR:
+		print("Worker %d stopping fetch timer, it's end of work time." % worker_id)
+		# Fetch timer zaten doldu, tekrar başlatmaya gerek yok.
+		# Doğrudan iş bitiş mantığını çalıştır (WORKING_INSIDE'dan kopyalandı/uyarlandı)
+		visible = true # Görünür yap (eğer zaten değilse)
+		
+		# Konumu bina konumu yap
+		if is_instance_valid(assigned_building_node):
+			global_position = assigned_building_node.global_position
+		
+		# Uyku vakti mi?
+		if current_hour >= TimeManager.SLEEP_HOUR:
+			if is_instance_valid(housing_node):
+				print("Worker %d going to sleep directly after fetch timer (work end time)." % worker_id)
+				current_state = State.GOING_TO_SLEEP
+				move_target_x = housing_node.global_position.x
+			else:
+				print("Worker %d finished work (fetch timer), no housing, socializing." % worker_id)
+				current_state = State.SOCIALIZING
+				var wander_range = 150.0
+				move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+		else:
+			# Uyku vakti değilse sosyalleş
+			print("Worker %d finished work (fetch timer), socializing." % worker_id)
+			current_state = State.SOCIALIZING
+			var wander_range = 150.0
+			move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+		return # Fetch işlemine devam etme
+	# <<< YENİ KONTROL SONU >>>
 		
 	# Binanın izin fonksiyonu var mı ve izin veriyor mu?
 	if assigned_building_node.has_method("can_i_fetch") and assigned_building_node.can_i_fetch():
-		
-		# <<< GÜNCELLENDİ: Gerçek Hedef Belirleme >>>
-		# 1. Binanın hangi kaynaklara ihtiyacı olduğunu öğren (required_resources dict)
+		# 1. Binanın hangi kaynaklara ihtiyacı olduğunu öğren
 		var required = {}
 		if assigned_building_node.has_method("get") and assigned_building_node.get("required_resources") is Dictionary:
 			required = assigned_building_node.get("required_resources")
@@ -470,9 +500,8 @@ func _on_fetching_timer_timeout():
 		current_state = State.FETCHING_RESOURCE
 		visible = true
 		move_target_x = target_pos.x # Hedef X'i ayarla
-		# <<< GÜNCELLEME SONU >>>
 	else:
-		# İzin yok veya fonksiyon yok, tekrar bekle
+		# İzin yok veya fonksiyon yok, tekrar bekle (ama saat kontrolü zaten yapıldı)
 		_start_fetching_timer()
 # <<< YENİ SONU >>>
 
