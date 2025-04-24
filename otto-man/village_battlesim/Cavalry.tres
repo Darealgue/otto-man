@@ -7,12 +7,13 @@
 script = ExtResource("1_m1q22")
 display_name = "Atlı"
 unit_type_id = "cavalry"
-max_hp = 100
-attack_damage = 20
+max_hp = 200
+attack_damage = 50
 defense = 2
 attack_speed = 1.0
 move_speed = 150.0
 attack_range = 40.0
 hit_chance = 0.8
-block_chance = 0.1
+block_chance = 0.2
+is_ranged = false
 texture = ExtResource("2_i52uq")

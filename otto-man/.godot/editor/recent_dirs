@@ -1,4 +1,5 @@
-res://village_battlesim
-res://village/scripts
-res://village/scenes
-res://village/buildings
+res://village_battlesim/assets villagesim/ordu/shield
+res://village_battlesim/assets villagesim/ordu/cavalry
+res://village_battlesim/assets villagesim/ordu/spearman
+res://village_battlesim/assets villagesim/ordu/archer
+res://village_battlesim/assets villagesim/ordu/sword

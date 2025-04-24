@@ -4,7 +4,7 @@ class_name UnitStats
 ## Birimin görünen adı (UI için)
 @export var display_name: String = "Birim" 
 ## Birimin içsel tür kimliği (mantık için)
-@export var unit_type_id: String = "generic" 
+@export var unit_type_id: String = "swordsman" 
 
 @export_group("Temel İstatistikler")
 ## Maksimum Can Puanı
@@ -14,15 +14,17 @@ class_name UnitStats
 ## Savunma Değeri (Hasar azaltma)
 @export var defense: int = 2 
 ## Saniyedeki saldırı sayısı (örn: 1.0 = saniyede 1 saldırı)
-@export var attack_speed: float = 1.0 
+@export var attack_speed: float = 1.5 
 ## Piksel/saniye cinsinden hareket hızı
-@export var move_speed: float = 50.0 
+@export var move_speed: float = 100.0 
 ## Birimin saldırabileceği maksimum piksel mesafesi
-@export var attack_range: float = 15.0 
+@export var attack_range: float = 40.0 
 ## Saldırının isabet etme şansı (0.0 ile 1.0 arası)
-@export var hit_chance: float = 0.9 
+@export var hit_chance: float = 0.85 
 ## Gelen saldırıyı bloklama şansı (0.0 ile 1.0 arası)
 @export var block_chance: float = 0.1 
+## Menzilli mekanik mi kullanıyor?
+@export var is_ranged: bool = false 
 
 @export_group("Görsel")
 ## Bu birim türü için kullanılacak sprite dokusu (texture)

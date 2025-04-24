@@ -966,7 +966,7 @@ func get_active_worker_ids() -> Array[int]:
 func cancel_worker_registration() -> void:
 	# print("VillageManager: Canceling previous worker registration attempt, incrementing idle_workers.") #<<< KALDIRILDI
 	idle_workers += 1
-	emit_signal("village_data_changed")
+	emit_signal("village_data_changed") # <<< Girinti Düzeltildi
 # <<< YENİ FONKSİYON BİTİŞ >>>
 
 func _unhandled_input(event: InputEvent) -> void:
