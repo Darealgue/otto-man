@@ -19,7 +19,6 @@ unit_stats_spearman = ExtResource("6_ues31")
 unit_stats_shieldbearer = ExtResource("7_fvmfh")
 player_unit_count = 0
 enemy_unit_count = 0
-ordered_spawn = true
 unit_spacing = 25.0
 row_spacing = 40.0
 formation_depth = 12

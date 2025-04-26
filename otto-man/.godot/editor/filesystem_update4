@@ -5,8 +5,14 @@ res://village_battlesim/Cavalry.tres
 res://village_battlesim/spearman.tres
 res://village_battlesim/shieldbearer.tres
 res://village_battlesim/BattleScene.tscn
-res://village_battlesim/arrow.tscn
 res://village_battlesim/Unit.tscn
 res://levels/city_test.tscn
-res://village_battlesim/BattleScene.gd
-res://village_battlesim/Unit.gd
+res://scenes/test_level.tscn
+res://village/scenes/VillageScene.tscn
+res://player/player.tscn
+res://chunks/dungeon/hub/t_junction_down2.tscn
+res://chunks/dungeon/hub/t_junction_down1.tscn
+res://chunks/dungeon/hub/t_junction_down.tscn
+res://resources/dungeon_config.tres
+res://chunks/dungeon/special/full.tscn
+res://chunks/dungeon/special/start_chunk.tscn

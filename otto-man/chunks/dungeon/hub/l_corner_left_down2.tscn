@@ -488,6 +488,7 @@ sources/2 = SubResource("TileSetAtlasSource_3k5p2")
 
 [node name="LCornerLeftDown" type="Node2D"]
 script = ExtResource("1_f6a41")
+size = Vector2(1920, 1088)
 
 [node name="ConnectionPoints" type="Node2D" parent="."]
 

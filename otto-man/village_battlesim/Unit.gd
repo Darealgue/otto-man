@@ -127,7 +127,7 @@ func _ready() -> void:
 		return
 	# <<< YENİ: AnimatedSprite Kontrolü >>>
 	if not is_instance_valid(animated_sprite):
-		#printerr("Unit (%s) has no AnimatedSprite2D node assigned or it's invalid!" % name)
+		#printprierr("Unit (%s) has no AnimatedSprite2D node assigned or it's invalid!" % name)
 		queue_free()
 		return
 	
@@ -382,7 +382,7 @@ func _physics_process(delta: float) -> void:
 				#print("DEBUG (%s): MELEE - Applying delayed damage %d to %s" % [name, damage, _target_for_pending_melee.name]) # <<< YENİ DEBUG >>>
 				_target_for_pending_melee.take_damage(damage)
 			#else:
-				print("DEBUG (%s): MELEE - Delayed damage target %s became invalid." % [name, _target_for_pending_melee.name if _target_for_pending_melee else 'null']) # <<< YENİ DEBUG >>>
+				#print("DEBUG (%s): MELEE - Delayed damage target %s became invalid." % [name, _target_for_pending_melee.name if _target_for_pending_melee else 'null']) # <<< YENİ DEBUG >>>
 			_target_for_pending_melee = null # Hedefi temizle (her durumda)
 	# <<< YAKIN DÖVÜŞ HASAR KONTROL SONU >>>
 

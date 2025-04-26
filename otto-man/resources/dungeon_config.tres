@@ -4,8 +4,8 @@
 
 [resource]
 script = ExtResource("1_config")
-base_length = 8
-length_increase_per_level = 2
+base_length = 10
+length_increase_per_level = 1
 max_length = 40
 branch_ratio = 0.2
 dead_end_ratio = 0.15

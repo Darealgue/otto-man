@@ -490,6 +490,7 @@ sources/2 = SubResource("TileSetAtlasSource_43n2i")
 
 [node name="BasicPlatform" type="Node2D"]
 script = ExtResource("1_ao25l")
+size = Vector2(1920, 1088)
 
 [node name="SpawnManager" parent="." instance=ExtResource("2_oaspk")]
 
