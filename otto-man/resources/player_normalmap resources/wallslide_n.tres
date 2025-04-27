@@ -1,8 +1,8 @@
 [gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://vl3e1wjqxw8l"]
 
-[ext_resource type="Texture2D" uid="uid://dgvjntoyf3545" path="res://assets/player/sprite/ottowalljump_border.png" id="1_u3mdh"]
-[ext_resource type="Texture2D" uid="uid://cmqwxo2apyqwi" path="res://assets/player/normal/ottowalljump_border_n.png" id="2_ogrl3"]
+[ext_resource type="Texture2D" uid="uid://bls6h7byvl24" path="res://assets/player/sprite/ottowalljump_up_border.png" id="1_sdap7"]
+[ext_resource type="Texture2D" uid="uid://bux2pjfqqpsfc" path="res://assets/player/normal/ottowalljump_up_border_n.png" id="2_hjnko"]
 
 [resource]
-diffuse_texture = ExtResource("1_u3mdh")
-normal_texture = ExtResource("2_ogrl3")
+diffuse_texture = ExtResource("1_sdap7")
+normal_texture = ExtResource("2_hjnko")

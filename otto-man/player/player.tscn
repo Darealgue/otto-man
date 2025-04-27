@@ -1,4 +1,4 @@
-[gd_scene load_steps=85 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=89 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -43,6 +43,7 @@
 [ext_resource type="Texture2D" uid="uid://g8q1ryk4vn7t" path="res://resources/player_normalmap resources/slide_n.tres" id="39_4mjej"]
 [ext_resource type="Texture2D" uid="uid://bk6n01ve7g1wd" path="res://resources/player_normalmap resources/walljump_n.tres" id="41_ge282"]
 [ext_resource type="Texture2D" uid="uid://vl3e1wjqxw8l" path="res://resources/player_normalmap resources/wallslide_n.tres" id="42_txonu"]
+[ext_resource type="Texture2D" uid="uid://c4wc0vdsueec1" path="res://resources/player_normalmap resources/wall_slide_down.tres" id="43_bkg3i"]
 [ext_resource type="Texture2D" uid="uid://de4ssv6rg8c3w" path="res://resources/player_normalmap resources/attack1_n.tres" id="43_fifwf"]
 [ext_resource type="Texture2D" uid="uid://8q405fcb44ls" path="res://resources/player_normalmap resources/air_attack_n.tres" id="43_r0cly"]
 [ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
@@ -1312,7 +1313,7 @@ tracks/2/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_l1kce"]
-resource_name = "wall_slide"
+resource_name = "wall_slide_down"
 length = 0.84
 loop_mode = 2
 step = 0.12
@@ -1343,26 +1344,80 @@ tracks/1/keys = {
 tracks/2/type = "value"
 tracks/2/imported = false
 tracks/2/enabled = true
-tracks/2/path = NodePath("Sprite2D:hframes")
+tracks/2/path = NodePath("Sprite2D:texture")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [13]
+"update": 1,
+"values": [ExtResource("43_bkg3i")]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
 tracks/3/enabled = true
-tracks/3/path = NodePath("Sprite2D:texture")
+tracks/3/path = NodePath("Sprite2D:hframes")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [13]
+}
+
+[sub_resource type="Animation" id="Animation_bmiwt"]
+resource_name = "wall_slide_up"
+length = 0.84
+loop_mode = 2
+step = 0.12
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, -48)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:frame")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.72),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"update": 0,
+"values": [0, 1, 2, 3, 4, 5, 7]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D:texture")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [ExtResource("42_txonu")]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Sprite2D:hframes")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [8]
 }
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_player"]
@@ -1397,7 +1452,8 @@ _data = {
 "slide": SubResource("Animation_r8die"),
 "walk": SubResource("Animation_walk"),
 "wall_jump": SubResource("Animation_3fdhl"),
-"wall_slide": SubResource("Animation_l1kce")
+"wall_slide_down": SubResource("Animation_l1kce"),
+"wall_slide_up": SubResource("Animation_bmiwt")
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
@@ -1417,6 +1473,10 @@ height = 44.0
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_fm8kb"]
 radius = 11.0
 height = 42.0
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_ubnvy"]
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_7bcoa"]
 
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 collision_layer = 2
@@ -1531,19 +1591,11 @@ position_smoothing_speed = 50.0
 rotation_smoothing_speed = 0.5
 
 [node name="WallRayLeft" type="RayCast2D" parent="."]
-position = Vector2(0, -18)
+position = Vector2(-5, -25)
 target_position = Vector2(-15, 0)
 
 [node name="WallRayRight" type="RayCast2D" parent="."]
-position = Vector2(0, -18)
-target_position = Vector2(15, 0)
-
-[node name="LedgeRayTopLeft" type="RayCast2D" parent="."]
-position = Vector2(0, -44)
-target_position = Vector2(-15, 0)
-
-[node name="LedgeRayTopRight" type="RayCast2D" parent="."]
-position = Vector2(0, -44)
+position = Vector2(5, -25)
 target_position = Vector2(15, 0)
 
 [node name="UI" type="CanvasLayer" parent="."]
@@ -1559,6 +1611,16 @@ offset_left = 20.0
 offset_top = 70.0
 offset_right = 320.0
 offset_bottom = 90.0
+
+[node name="LedgeShapeCastTopLeft" type="ShapeCast2D" parent="."]
+position = Vector2(-10, -46)
+shape = SubResource("SegmentShape2D_ubnvy")
+target_position = Vector2(-10, -24)
+
+[node name="LedgeShapeCastTopRight" type="ShapeCast2D" parent="."]
+position = Vector2(10, -46)
+shape = SubResource("SegmentShape2D_7bcoa")
+target_position = Vector2(10, -24)
 
 [connection signal="animation_finished" from="AnimationPlayer" to="StateMachine/Attack" method="_on_animation_player_animation_finished"]
 [connection signal="animation_finished" from="AnimationPlayer" to="StateMachine/FallAttack" method="_on_animation_finished"]

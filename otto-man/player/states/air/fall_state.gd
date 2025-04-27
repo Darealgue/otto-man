@@ -140,9 +140,17 @@ func physics_update(delta: float):
 	
 	# Check for ledge grab first
 	var ledge_state = get_parent().get_node("LedgeGrab")
+	print("[FallState] Checking can_ledge_grab...") # DEBUG
 	if ledge_state and ledge_state.can_ledge_grab():
+		print("[FallState] LedgeGrab condition MET! Transitioning.") # DEBUG
 		state_machine.transition_to("LedgeGrab")
 		return
+	else:
+		# DEBUG: Print why it failed if ledge_state exists
+		if ledge_state:
+			print("[FallState] LedgeGrab condition FAILED.")
+		else:
+			print("[FallState] LedgeGrab state node not found.")
 	
 	# Then check for wall slide with improved logic
 	if player.is_on_wall():

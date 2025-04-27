@@ -145,6 +145,19 @@ func physics_update(delta: float):
 	# Apply wall slide physics
 	player.velocity.y = min(player.velocity.y + player.gravity * delta * player.wall_slide_gravity_multiplier, 100.0)
 	
+	# Play correct wall slide animation based on vertical velocity
+	var target_animation: String
+	if player.velocity.y > 5.0: # Small threshold to prevent flickering when velocity is near zero
+		target_animation = "wall_slide_down"
+	elif player.velocity.y < -5.0:
+		target_animation = "wall_slide_up"
+	else:
+		target_animation = animation_player.current_animation # Keep current animation if near zero or static
+		# Optionally, you could play a specific 'wall_slide_idle' animation here if you have one.
+
+	if target_animation != "" and animation_player.current_animation != target_animation:
+		animation_player.play(target_animation)
+	
 	# Check if we should exit wall slide
 	var input_dir = Input.get_axis("left", "right")
 	var pressing_away = false
@@ -165,6 +178,14 @@ func physics_update(delta: float):
 	if wall_stick_timer > 0:
 		wall_stick_timer -= delta
 	
+	# --- ADDED Ledge Grab Check ---
+	var ledge_state = get_parent().get_node("LedgeGrab")
+	if ledge_state and ledge_state.can_ledge_grab():
+		_end_wall_slide() # Ensure wall slide cleanup happens
+		state_machine.transition_to("LedgeGrab")
+		return
+	# --- END Ledge Grab Check ---
+
 	# Exit check
 	var should_exit = false
 	if wall_detach_timer >= WALL_DETACH_BUFFER:
