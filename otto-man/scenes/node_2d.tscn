@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3 uid="uid://xi5plqlcmoxs"]
+
+[ext_resource type="Texture2D" uid="uid://doe2jnwc22qb7" path="res://assets/player/sprite/ottodoublejump2deneme23-sheet.png" id="2_uf4hy"]
+
+[sub_resource type="Environment" id="Environment_ryjp6"]
+ambient_light_source = 3
+ambient_light_color = Color(1, 0, 0, 1)
+ambient_light_energy = 10.56
+reflected_light_source = 1
+adjustment_brightness = 6.17
+adjustment_contrast = 5.35
+adjustment_saturation = 5.7
+
+[node name="Node2D" type="Node2D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_ryjp6")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(549, 73)
+texture = ExtResource("2_uf4hy")

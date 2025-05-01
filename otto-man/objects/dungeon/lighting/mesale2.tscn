@@ -55,6 +55,7 @@ animation = &"idle"
 frame_progress = 0.458046
 
 [node name="PointLight2D" type="PointLight2D" parent="."]
-color = Color(1, 0.580392, 0.196078, 1)
+color = Color(0.989348, 0.81326, 1.15514e-06, 1)
+shadow_enabled = true
 texture = SubResource("GradientTexture2D_a0sqj")
-texture_scale = 4.33
+texture_scale = 15.0

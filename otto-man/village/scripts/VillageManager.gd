@@ -681,6 +681,13 @@ func _add_new_worker() -> bool: # <<< Dönüş tipi eklendi
 	worker_instance.worker_id = worker_id_counter
 	worker_instance.name = "Worker" + str(worker_id_counter) 
 	
+	# <<< YENİ: Rastgele Görünüm Ata >>>
+	if worker_instance.has_method("update_visuals"): # Önce metodun varlığını kontrol et (güvenlik)
+		worker_instance.appearance = AppearanceDB.generate_random_appearance()
+	else:
+		printerr("VillageManager: Worker instance does not have 'update_visuals' method!")
+	# <<< YENİ SONU >>>
+
 	# <<< GÜNCELLENDİ: Barınak ataması başarısız olursa işçiyi ekleme >>>
 	# Barınak atamaya çalış (bu fonksiyon housing_node ve start_x_pos ayarlar)
 	if not _assign_housing(worker_instance):
@@ -712,10 +719,16 @@ func _add_new_worker() -> bool: # <<< Dönüş tipi eklendi
 	
 	print("VillageManager: Yeni işçi (ID: %d) eklendi ve barınağa atandı." % worker_id_counter)
 	
+	# <<< YENİ: Test için Walk Animasyonunu Başlat >>>
+	# Normalde bu _physics_process'te state'e göre belirlenir,
+	# ama şimdi test için doğrudan başlatalım.
+	if worker_instance.has_method("play_animation"):
+		worker_instance.play_animation("walk")
+	# <<< YENİ SONU >>>
+	
 	# WorkerAssignmentUI'yi güncellemek için sinyal gönder
 	emit_signal("worker_list_changed")
 	return true # Başarılı
-# <<< GÜNCELLEME SONU >>>
 
 # Verilen işçiye uygun bir barınak bulup atar ve evin sayacını günceller
 func _assign_housing(worker_instance: Node2D) -> bool:

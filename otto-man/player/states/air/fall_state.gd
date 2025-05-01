@@ -67,8 +67,8 @@ func physics_update(delta: float):
 		wall_detach_grace_timer -= delta
 	
 	# Check for normal attack input first, highest priority for responsive controls
-	if Input.is_action_just_pressed("attack"):
-		print("[Fall State] Attack button pressed, transitioning to Attack state for air attack")
+	if Input.is_action_just_pressed("attack") and player.attack_cooldown_timer <= 0:
+		#print("[Fall State] Attack button pressed, transitioning to Attack state for air attack")
 		state_machine.transition_to("Attack")
 		return
 	
@@ -140,12 +140,12 @@ func physics_update(delta: float):
 	
 	# Check for ledge grab first
 	var ledge_state = get_parent().get_node("LedgeGrab")
-	print("[FallState] Checking can_ledge_grab...") # DEBUG
+	#print("[FallState] Checking can_ledge_grab...") # DEBUG
 	if ledge_state and ledge_state.can_ledge_grab():
-		print("[FallState] LedgeGrab condition MET! Transitioning.") # DEBUG
+		#print("[FallState] LedgeGrab condition MET! Transitioning.") # DEBUG
 		state_machine.transition_to("LedgeGrab")
 		return
-	else:
+	#else:
 		# DEBUG: Print why it failed if ledge_state exists
 		if ledge_state:
 			print("[FallState] LedgeGrab condition FAILED.")

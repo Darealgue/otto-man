@@ -4,6 +4,8 @@ signal health_changed(new_health: float)
 signal perfect_parry  # Signal for Perfect Guard powerup
 signal dash_started
 
+const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
+
 @export var speed: float = 400.0
 @export var jump_velocity: float = -600.0  # Changed to -600 for higher jump
 @export var double_jump_velocity: float = -550.0
@@ -60,6 +62,7 @@ var last_hit_position: Vector2 = Vector2.ZERO
 var last_hit_knockback: Dictionary = {}
 var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
+var attack_cooldown_timer: float = 0.0 # <<< YENİ DEĞİŞKEN >>>
 
 # Etkileşim için değişkenler (YENİ - physics_process'e dokunmadan)
 var overlapping_interactables: Array[Area2D] = []
@@ -139,6 +142,10 @@ func _ready():
 	_sync_stats_from_player_stats()
 
 func _physics_process(delta):
+	# Update attack cooldown timer
+	if attack_cooldown_timer > 0:
+		attack_cooldown_timer -= delta
+		
 	# Handle drop-through platform
 	if is_on_floor() and Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
 		drop_through_platform()
@@ -169,15 +176,15 @@ func _physics_process(delta):
 	# Handle coyote time
 	if is_on_floor():
 		coyote_timer = COYOTE_TIME
-		was_on_floor = true
 		if jump_buffer_timer > 0:  # Execute buffered jump
+			spawn_dust_cloud(get_foot_position(), "puff_up")
 			start_jump()
 			jump_buffer_timer = 0.0
 	elif was_on_floor:
 		coyote_timer -= delta
 		if coyote_timer <= 0:
 			was_on_floor = false
-	
+
 	# Handle variable jump height and gravity
 	if is_jumping:
 		jump_timer += delta
@@ -249,6 +256,15 @@ func _physics_process(delta):
 		facing_direction = sign(input_dir)
 		# Flip the sprite based on direction
 		sprite.flip_h = facing_direction < 0
+
+	# Handle landing
+	var is_landing = is_on_floor() and not was_on_floor
+	if is_landing:
+		# Yere indiğimizde yapılacaklar (ses çalma vb.)
+		spawn_dust_cloud(get_foot_position(), "puff_down")
+		# Yere indiğimizde was_on_floor'u hemen true yapabiliriz
+		was_on_floor = true
+		coyote_timer = COYOTE_TIME # Yere iner inmez coyote time'ı sıfırla
 
 # No need to call physics_update explicitly, it's handled by _physics_process in the state machine
 
@@ -632,3 +648,81 @@ func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 			# İsteğe bağlı: Etkileşim ipucunu gizleyebilirsin
 			var parent_node = area.get_parent()
 			print("Etkileşim alanından çıkıldı:", parent_node.name if parent_node else "Ebeveynsiz Alan")
+
+# <<< YENİ FONKSİYON: Animasyondan çağırmak için >>>
+func spawn_attack_effect_by_name(attack_name: String):
+	var effect_scene_path = ""
+	var effect_offset = Vector2.ZERO
+	# var is_air = attack_name.begins_with("air_attack") # Bu değişkene gerek kalmadı
+
+	# <<< YÖN HESAPLAMASINI DEĞİŞTİR >>>
+	# Görsel yöne göre hesapla (flip_h false ise sağa = 1, true ise sola = -1)
+	var current_visual_direction = 1.0 if not sprite.flip_h else -1.0
+
+	# Saldırı adına göre yolu ve ofseti belirle
+	match attack_name:
+		"air_attack1":
+			effect_scene_path = "res://assets/effects/player fx/air_attack_effect_1.tscn"
+			effect_offset = Vector2(60 * current_visual_direction, -10) # <<< DEĞİŞTİ >>>
+		"air_attack2":
+			effect_scene_path = "res://assets/effects/player fx/air_attack_effect_2.tscn"
+			effect_offset = Vector2(60 * current_visual_direction, -10) # <<< DEĞİŞTİ >>>
+		"air_attack3":
+			effect_scene_path = "res://assets/effects/player fx/air_attack_effect_3.tscn"
+			effect_offset = Vector2(60 * current_visual_direction, -10) # <<< DEĞİŞTİ >>>
+		"attack_1.1":
+			effect_scene_path = "res://assets/effects/player fx/attack_1_1_effect.tscn"
+			effect_offset = Vector2(50 * current_visual_direction, 0)    # <<< DEĞİŞTİ >>>
+		"attack_1.2":
+			effect_scene_path = "res://assets/effects/player fx/attack_1_2_effect.tscn"
+			effect_offset = Vector2(70 * current_visual_direction, 5)    # <<< DEĞİŞTİ >>>
+		_:
+			push_error("Bilinmeyen saldırı adı için efekt oluşturulamaz: " + attack_name)
+			return
+
+	if effect_scene_path == "":
+		push_warning("Efekt yolu bulunamadı: " + attack_name)
+		return
+
+	# Sahneyi yükle
+	var effect_scene = load(effect_scene_path)
+	if not effect_scene:
+		push_error("Efekt sahnesi yüklenemedi: " + effect_scene_path)
+		return
+
+	# Örneği oluştur
+	var effect_instance = effect_scene.instantiate()
+
+	# Pozisyonu ŞİMDİ hesapla (o anki oyuncu pozisyonuna göre)
+	var effect_pos = global_position + effect_offset
+	effect_instance.global_position = effect_pos
+
+	# Sprite'ı çevir (o anki oyuncu yönüne göre)
+	var should_flip = sprite.flip_h
+	var sprite_node = effect_instance.find_child("AnimatedSprite2D", true, false)
+	if sprite_node and sprite_node.has_method("set_flip_h"):
+		sprite_node.flip_h = should_flip
+	elif sprite_node:
+		push_warning("Efekt içindeki düğüm ('AnimatedSprite2D') çevirme (flip_h) özelliğine sahip değil.")
+
+	# Hızı ayarla (o anki oyuncu hızına göre)
+	if effect_instance.has_method("set_initial_velocity"):
+		var horizontal_momentum_transfer = 0.5
+		var vertical_momentum_transfer = 0.7
+		var initial_effect_velocity = Vector2(velocity.x * horizontal_momentum_transfer, velocity.y * vertical_momentum_transfer)
+		effect_instance.set_initial_velocity(initial_effect_velocity)
+	else:
+		push_warning("Efekt script'i 'set_initial_velocity' metoduna sahip değil.")
+
+	# Ana sahneye ekle
+	get_tree().current_scene.add_child(effect_instance)
+
+func spawn_dust_cloud(position: Vector2, animation_name: String):
+	var dust_effect = DustCloudEffect.instantiate()
+	dust_effect.animation_to_play = animation_name
+	dust_effect.global_position = position
+	get_tree().current_scene.add_child(dust_effect)
+
+func get_foot_position() -> Vector2:
+	var sprite_height = sprite.texture.get_height() * sprite.scale.y
+	return global_position + Vector2(0, sprite_height / 2 + 5)

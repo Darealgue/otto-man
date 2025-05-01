@@ -1,3 +1,13 @@
+res://assets/character_parts/hair
+res://assets/character_parts/beard
+res://assets/character_parts/eyes
+res://assets/character_parts/mouth
+res://assets/character_parts/clothing
+res://assets/character_parts/pants
+res://assets/character_parts/body
+res://autoload
+res://scenes
+res://assets/effects/player fx
 res://resources/player_normalmap resources
 res://village_battlesim/assets villagesim/ordu/shield
 res://village_battlesim/assets villagesim/ordu/cavalry

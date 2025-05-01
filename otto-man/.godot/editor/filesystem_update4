@@ -1,14 +1,17 @@
-res://scenes/testing.tscn
+res://player/player.tscn
+res://resources/player_normalmap resources/wallslide_n.tres
+res://resources/player_normalmap resources/wall_slide_down.tres
 res://village_battlesim/ArcherStats.tres
 res://village_battlesim/SwordsmanStats.tres
 res://village_battlesim/Cavalry.tres
 res://village_battlesim/spearman.tres
 res://village_battlesim/shieldbearer.tres
+res://scenes/testing.tscn
 res://village_battlesim/BattleScene.tscn
 res://village_battlesim/Unit.tscn
 res://levels/city_test.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
-res://player/player.tscn
-res://resources/player_normalmap resources/wallslide_n.tres
-res://resources/player_normalmap resources/wall_slide_down.tres
+res://objects/dungeon/lighting/mesale2.tscn
+res://village/scenes/Worker.tscn
+res://resources/player_normalmap resources/air_attack_n.tres

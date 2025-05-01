@@ -1,0 +1,42 @@
+[gd_scene load_steps=7 format=3 uid="uid://cq6t2qgb0mp0l"]
+
+[ext_resource type="Script" path="res://assets/effects/player fx/air_attack_effect.gd" id="1_wqgop"]
+[ext_resource type="Texture2D" uid="uid://bqg5ns782jln5" path="res://assets/effects/player fx/otto_air_attack_fx_border.png" id="2_es634"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_vrisc"]
+atlas = ExtResource("2_es634")
+region = Rect2(1000, 0, 200, 200)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_27hkh"]
+atlas = ExtResource("2_es634")
+region = Rect2(1200, 0, 200, 200)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7jtyl"]
+atlas = ExtResource("2_es634")
+region = Rect2(1400, 0, 200, 200)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_07l71"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_vrisc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_27hkh")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7jtyl")
+}],
+"loop": false,
+"name": &"default",
+"speed": 20.0
+}]
+
+[node name="Air Attack Effect 2" type="Node2D"]
+script = ExtResource("1_wqgop")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -60)
+sprite_frames = SubResource("SpriteFrames_07l71")
+frame = 2
+frame_progress = 1.0

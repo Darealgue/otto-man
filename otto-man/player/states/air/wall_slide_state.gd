@@ -185,7 +185,7 @@ func physics_update(delta: float):
 		state_machine.transition_to("LedgeGrab")
 		return
 	# --- END Ledge Grab Check ---
-
+	
 	# Exit check
 	var should_exit = false
 	if wall_detach_timer >= WALL_DETACH_BUFFER:

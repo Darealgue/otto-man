@@ -20,7 +20,8 @@ var has_knockback := false  # Track if this hit should apply knockback at all
 func enter() -> void:
 	
 	# Store original facing direction immediately
-	original_flip_h = player.sprite.flip_h
+	# original_flip_h = player.sprite.flip_h # <<< SAKLANABİLİR AMA ZORLAMAYACAĞIZ >>>
+	original_flip_h = player.sprite.flip_h # Geçici olarak kalsın, belki başka yerde lazım olur
 	
 	# Reset attack state
 	var attack_state = state_machine.get_node("Attack")
@@ -70,8 +71,8 @@ func enter() -> void:
 		# No knockback, just keep current velocity
 		is_charge_knockback = false
 	
-	# Force the sprite to keep its original direction
-	player.sprite.flip_h = original_flip_h
+	# Force the sprite to keep its original direction # <<< BU SATIR KALDIRILDI >>>
+	# player.sprite.flip_h = original_flip_h
 	
 	# Flash the sprite red
 	player.sprite.modulate = Color(1, 0, 0, 1)
@@ -80,8 +81,8 @@ func physics_update(delta: float) -> void:
 	hurt_timer -= delta
 	invincibility_timer -= delta
 	
-	# Force sprite to maintain original direction
-	player.sprite.flip_h = original_flip_h
+	# Force sprite to maintain original direction # <<< BU SATIR KALDIRILDI >>>
+	# player.sprite.flip_h = original_flip_h 
 	
 	# Handle sprite flashing
 	flash_timer -= delta
@@ -110,6 +111,10 @@ func physics_update(delta: float) -> void:
 		
 		player.sprite.visible = true  # Ensure sprite is visible
 		player.sprite.modulate = Color(1, 1, 1, 1)  # Reset color
+		
+		# <<< YENİ SATIR: State'ten çıkmadan cooldown başlat >>>
+		player.attack_cooldown_timer = 0.1 # Kısa bir bekleme süresi
+		
 		if player.is_on_floor():
 			state_machine.transition_to("Idle")
 		else:
@@ -122,8 +127,8 @@ func exit() -> void:
 	player.sprite.visible = true
 	player.sprite.modulate = Color(1, 1, 1, 1)
 	
-	# Ensure we keep the original facing direction
-	player.sprite.flip_h = original_flip_h
+	# Ensure we keep the original facing direction # <<< BU SATIR KALDIRILDI >>>
+	# player.sprite.flip_h = original_flip_h
 	
 	# Keep invincibility timer in player for other states to check
 	player.invincibility_timer = invincibility_timer

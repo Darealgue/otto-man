@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=15 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
@@ -7,8 +7,11 @@
 [ext_resource type="PackedScene" uid="uid://dptamh04yqugv" path="res://village/scenes/VillageStatusUI.tscn" id="5_3scu2"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="6_nhirr"]
 [ext_resource type="PackedScene" uid="uid://ip73ci5ccf8t" path="res://village/scenes/TimeDisplayUI.tscn" id="7_miuw4"]
+[ext_resource type="Texture2D" uid="uid://2fxowddyn6d2" path="res://village/assets/plain-light-blue-background-1920-x-1080-92wew3t96f5lzjk6.png" id="8_3pqng"]
 [ext_resource type="Texture2D" uid="uid://c0tlebkwmqbqu" path="res://village/assets/ChatGPT Image 12 Nis 2025 00_22_18.png" id="8_8if1x"]
 [ext_resource type="Texture2D" uid="uid://d1g551y8ufkjn" path="res://village/assets/ChatGPT Image 12 Nis 2025 00_27_55.png" id="9_hgedo"]
+[ext_resource type="Script" path="res://village/scripts/DayNightController.gd" id="10_m5lc0"]
+[ext_resource type="PackedScene" uid="uid://jd3pyam6x1c" path="res://objects/dungeon/lighting/mesale2.tscn" id="11_e0f34"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_pfood"]
 
@@ -57,44 +60,47 @@ position = Vector2(1200, 0)
 position = Vector2(-1200, 0)
 
 [node name="WorkerAssignmentUI" parent="." instance=ExtResource("2_exr1e")]
+layer = 10
 visible = false
 
 [node name="CariyeManagementUI" parent="." instance=ExtResource("4_fbyh8")]
+layer = 10
 visible = false
 
 [node name="OpenWorkerUIButton" type="Button" parent="."]
-visible = false
+z_index = 10
 offset_left = -42.0
-offset_top = 49.0
+offset_top = 456.0
 offset_right = 44.0
-offset_bottom = 80.0
+offset_bottom = 487.0
 text = "Camp Fire"
 
 [node name="AddVillagerButton" type="Button" parent="."]
-visible = false
+z_index = 10
 offset_left = -51.0
-offset_top = 46.0
+offset_top = 453.0
 offset_right = 51.0
-offset_bottom = 77.0
+offset_bottom = 484.0
 text = "Köylü lütfen"
 
 [node name="OpenCariyeUIButton" type="Button" parent="."]
-visible = false
+z_index = 10
 offset_left = -28.0
-offset_top = 83.0
+offset_top = 490.0
 offset_right = 29.0
-offset_bottom = 114.0
+offset_bottom = 521.0
 text = "Cariye"
 
 [node name="OpenBuildUIButton" type="Button" parent="."]
-visible = false
+z_index = 10
 offset_left = -28.0
-offset_top = 117.0
+offset_top = 524.0
 offset_right = 29.0
-offset_bottom = 148.0
+offset_bottom = 555.0
 text = "İnşaa"
 
 [node name="VillageStatusUI" parent="." instance=ExtResource("5_3scu2")]
+layer = 10
 
 [node name="Camera2D" type="Camera2D" parent="."]
 visible = false
@@ -107,6 +113,7 @@ position = Vector2(2, -70)
 [node name="WorkersContainer" type="Node2D" parent="."]
 
 [node name="TimeDisplayUi" parent="." instance=ExtResource("7_miuw4")]
+layer = 10
 
 [node name="ParallaxBackground" type="ParallaxBackground" parent="."]
 
@@ -114,6 +121,7 @@ position = Vector2(2, -70)
 position = Vector2(670, 242)
 
 [node name="ChatGptImage12Nis2025002218" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -2
 y_sort_enabled = true
 position = Vector2(-670, -869)
 scale = Vector2(1, 0.800781)
@@ -121,8 +129,26 @@ texture = ExtResource("8_8if1x")
 centered = false
 
 [node name="ChatGptImage12Nis2025002755" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -2
 y_sort_enabled = true
 position = Vector2(-2205, -785)
 scale = Vector2(1, 0.6875)
 texture = ExtResource("9_hgedo")
 centered = false
+
+[node name="Plain-light-blue-background-1920-x-1080-92Wew3t96f5Lzjk6" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -3
+position = Vector2(-668.5, -778)
+scale = Vector2(3.39889, 2.53755)
+texture = ExtResource("8_3pqng")
+
+[node name="BackgroundTint" type="CanvasModulate" parent="ParallaxBackground"]
+script = ExtResource("10_m5lc0")
+
+[node name="CanvasModulate" type="CanvasModulate" parent="."]
+script = ExtResource("10_m5lc0")
+transition_speed = 0.3
+night_color = Color(0.337406, 0.445476, 0.853101, 1)
+
+[node name="Mesale" parent="." instance=ExtResource("11_e0f34")]
+position = Vector2(-1, -8)

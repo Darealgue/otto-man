@@ -162,11 +162,10 @@ func _update_hitbox():
 		
 		hitbox.enable()
 		hitbox_enabled = true
-		has_activated_hitbox = true  # Mark that we've activated the hitbox for this attack
 		hitbox_start_time = Time.get_ticks_msec() / 1000.0
 		
-		# Set a timer to disable the hitbox after a short duration
-		await get_tree().create_timer(0.1).timeout
+		# Set a timer to disable the hitbox after a short duration (Increased by 50%)
+		await get_tree().create_timer(0.15).timeout
 		if hitbox and is_instance_valid(hitbox) and hitbox_enabled:
 			hitbox.disable()
 			hitbox_enabled = false
@@ -232,6 +231,11 @@ func _update_hitbox_position(hitbox: Node2D) -> void:
 		collision_shape.position = position
 
 func _on_animation_player_animation_finished(anim_name: String):
+	# <<< DEBUG BAŞLANGIÇ >>>
+	print("AttackState: Animation finished: ", anim_name, ", Current Attack: ", current_attack)
+	print("AttackState: Is on floor? ", player.is_on_floor())
+	# <<< DEBUG BİTİŞ >>>
+
 	if anim_name == current_attack:
 		
 		# Disable hitbox if still active
@@ -256,12 +260,17 @@ func _on_animation_player_animation_finished(anim_name: String):
 			# Play the new animation
 			animation_player.stop()
 			animation_player.play(current_attack)
+
+			print("AttackState: Continuing to attack_1.2") # DEBUG
 			return
 		
 		# Return to appropriate state based on whether player is on ground
 		if player.is_on_floor():
+			print("AttackState: Transitioning to Idle") # DEBUG
 			state_machine.transition_to("Idle")
 		else:
+			print("AttackState: Transitioning to Fall") # DEBUG
+			player.attack_cooldown_timer = 0.1 # <<< YENİ SATIR (0.1 saniye cooldown) >>>
 			state_machine.transition_to("Fall")
 
 func _on_enemy_hit(enemy: Node):

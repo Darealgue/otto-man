@@ -29,6 +29,7 @@ SoundManager="*res://autoload/SoundManager.gd"
 VillageManager="*res://village/scripts/VillageManager.gd"
 GlobalPlayerData="*res://village/scripts/GlobalPlayerData.gd"
 TimeManager="*res://village/scripts/TimeManager.gd"
+AppearanceDB="*res://autoload/AppearanceDB.gd"
 
 [display]
 
@@ -221,3 +222,4 @@ interact={
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method.web="forward_plus"

@@ -2,7 +2,7 @@ extends State
 
 const LEDGE_GRAB_DURATION := 0.2
 const CLIMB_FORCE := Vector2(0, -400)
-const LEDGE_OFFSET := Vector2(-9, 36)  # Adjusted Y offset (41 - 5 = 36) to move player 5px higher
+const LEDGE_OFFSET := Vector2(-6, 36)  # Adjusted X offset (-9 + 3 = -6) to move player 3px closer to the wall
 const GRAB_DISTANCE := 20.0
 const MOUNT_OFFSET := Vector2(0, -37)  # Vertical offset to clear the platform (adjusted -32 - 5 = -37)
 const MOUNT_FORWARD_OFFSET := 20  # How many pixels to move forward onto the platform
@@ -115,12 +115,7 @@ func _get_ledge_position() -> Dictionary:
 		push_error("LedgeGrab _get_ledge_position: Player reference is null!")
 		return {"position": Vector2.ZERO, "direction": 0}
 		
-	# --- DEBUG: Print player path and children --- 
-	print("--- LedgeGrab Debug Info ---")
-	print("Player node path: ", player.get_path())
-	print("Player children nodes: ", player.get_children())
-	print("-----------------------------")
-	# --- End Debug ---
+	# --- REMOVED Debug Info ---
 	
 	var wl = player.get_node("WallRayLeft") as RayCast2D
 	var wr = player.get_node("WallRayRight") as RayCast2D
@@ -130,33 +125,29 @@ func _get_ledge_position() -> Dictionary:
 	# Check if nodes were found
 	if not (wl and wr and sctl and sctr):
 		push_error("LedgeGrab _get_ledge_position: Failed to find one or more RayCast/ShapeCast nodes on Player!")
-		# DEBUG: Print which nodes were not found
-		if not wl: print(" - WallRayLeft not found")
+		# REMOVED Debug prints for missing nodes
+		if not wl: print(" - WallRayLeft not found") # Keeping error prints, removing debug prints
 		if not wr: print(" - WallRayRight not found")
 		if not sctl: print(" - LedgeShapeCastTopLeft not found")
 		if not sctr: print(" - LedgeShapeCastTopRight not found")
 		return {"position": Vector2.ZERO, "direction": 0}
 			
 	var result = {"position": Vector2.ZERO, "direction": 0}
-
+	
 	# Allow grab as long as the player is airborne
 	if player.is_on_floor():
-		print("[LedgeGrab] _get_ledge_position: Player is on floor, exiting.") # DEBUG
+		# REMOVED Debug print for player on floor
 		return result
 
 	# Force shapecasts to update collision info - important before checking!
 	sctl.force_shapecast_update()
 	sctr.force_shapecast_update()
 	
-	# DEBUG: Print collision states
+	# REMOVED Debug print for collision states (Left)
 	var wl_colliding = wl.is_colliding()
 	var sc_tl_colliding = sctl.is_colliding()
-	print("[LedgeGrab] _get_ledge_position: Left Side - WallRay: ", wl_colliding, ", ShapeCastTop: ", sc_tl_colliding) # DEBUG
-	# --- Added ShapeCast Collision Details --- 
-	if sc_tl_colliding:
-		print("  [Debug] Left ShapeCast colliding with: ", sctl.get_collider(0), " at point: ", sctl.get_collision_point(0))
-	# --- End Added Details ---
-
+	# REMOVED ShapeCast Collision Details (Left)
+	
 	# Check left side
 	# Condition: Wall detected on the left AND no collision directly above the left ledge point AND the shapecast is not colliding (clear space above)
 	if wl_colliding and not sc_tl_colliding:
@@ -165,18 +156,14 @@ func _get_ledge_position() -> Dictionary:
 		# Use the wall ray's collision point X + offset for horizontal positioning
 		result.position = Vector2(collision_point.x + 4, collision_point.y) # Adjusted horizontal offset from 8 to 4
 		result.direction = -1  # Grabbing left wall, player should face right
-		print("[LedgeGrab] Left ledge DETECTED. Collision Y: ", collision_point.y) # DEBUG Y value
+		# REMOVED Debug print for left ledge detected
 		return result
 		
-	# DEBUG: Print collision states for right side
+	# REMOVED Debug print for collision states (Right)
 	var wr_colliding = wr.is_colliding()
 	var sc_tr_colliding = sctr.is_colliding()
-	print("[LedgeGrab] _get_ledge_position: Right Side - WallRay: ", wr_colliding, ", ShapeCastTop: ", sc_tr_colliding) # DEBUG
-	# --- Added ShapeCast Collision Details --- 
-	if sc_tr_colliding:
-		print("  [Debug] Right ShapeCast colliding with: ", sctr.get_collider(0), " at point: ", sctr.get_collision_point(0))
-	# --- End Added Details ---
-
+	# REMOVED ShapeCast Collision Details (Right)
+	
 	# Check right side
 	# Condition: Wall detected on the right AND no collision directly above the right ledge point AND the shapecast is not colliding (clear space above)
 	if wr_colliding and not sc_tr_colliding:
@@ -184,23 +171,23 @@ func _get_ledge_position() -> Dictionary:
 		# Use the wall ray's collision point X - offset for horizontal positioning
 		result.position = Vector2(collision_point.x - 4, collision_point.y) # Adjusted horizontal offset from 8 to 4
 		result.direction = 1  # Grabbing right wall, player should face left
-		print("[LedgeGrab] Right ledge DETECTED. Collision Y: ", collision_point.y) # DEBUG Y value
+		# REMOVED Debug print for right ledge detected
 		return result
-
-	print("[LedgeGrab] _get_ledge_position: No ledge detected.") # DEBUG
+	
+	# REMOVED Debug print for no ledge detected
 	return result
 
 func can_ledge_grab() -> bool:
 	# Node checks are now handled inside _get_ledge_position
 
 	# Check cooldown first
-	print("[LedgeGrab] can_ledge_grab: Cooldown timer = ", player.ledge_grab_cooldown_timer) # DEBUG
+	# REMOVED Debug print for cooldown timer
 	if player.ledge_grab_cooldown_timer > 0:
-		print("[LedgeGrab] can_ledge_grab: Cooldown active, returning false.") # DEBUG
+		# REMOVED Debug print for cooldown active
 		return false
 		
 	var ledge = _get_ledge_position()
 	var can_grab = ledge.direction != 0 and ledge.position != Vector2.ZERO
-	print("[LedgeGrab] can_ledge_grab: Result from _get_ledge_position = ", ledge, ", Can Grab = ", can_grab) # DEBUG
+	# REMOVED Debug print for _get_ledge_position result
 	
 	return can_grab

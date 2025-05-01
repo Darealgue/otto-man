@@ -153,6 +153,20 @@ tracks/2/keys = {
 "update": 1,
 "values": [ExtResource("43_r0cly")]
 }
+tracks/3/type = "method"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.0666667),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": ["air_attack1"],
+"method": &"spawn_attack_effect_by_name"
+}]
+}
 
 [sub_resource type="Animation" id="Animation_bxqf1"]
 resource_name = "air_attack2"
@@ -193,6 +207,20 @@ tracks/2/keys = {
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
 "update": 0,
 "values": [4, 5, 6, 5, 6, 7]
+}
+tracks/3/type = "method"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.0666667),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": ["air_attack2"],
+"method": &"spawn_attack_effect_by_name"
+}]
 }
 
 [sub_resource type="Animation" id="Animation_1a62c"]
@@ -235,6 +263,20 @@ tracks/2/keys = {
 "update": 0,
 "values": [9, 10, 11, 12, 13, 14, 15, 16]
 }
+tracks/3/type = "method"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.266667),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": ["air_attack3"],
+"method": &"spawn_attack_effect_by_name"
+}]
+}
 
 [sub_resource type="Animation" id="Animation_omgi3"]
 resource_name = "attack_1.1"
@@ -276,6 +318,20 @@ tracks/2/keys = {
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5]
 }
+tracks/3/type = "method"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.133333),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": ["attack_1.1"],
+"method": &"spawn_attack_effect_by_name"
+}]
+}
 
 [sub_resource type="Animation" id="Animation_cq4tr"]
 resource_name = "attack_1.2"
@@ -316,6 +372,20 @@ tracks/2/keys = {
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(6, 0), Vector2i(7, 0), Vector2i(8, 0), Vector2i(9, 0), Vector2i(10, 0), Vector2i(11, 0)]
+}
+tracks/3/type = "method"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.133333),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": ["attack_1.2"],
+"method": &"spawn_attack_effect_by_name"
+}]
 }
 
 [sub_resource type="Animation" id="Animation_02k07"]
@@ -1457,7 +1527,7 @@ _data = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
-size = Vector2(53.5, 32)
+size = Vector2(79.75, 32)
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_2"]
 radius = 9.0
@@ -1545,8 +1615,7 @@ script = ExtResource("29_xgdcd")
 damage = 15.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
-visible = false
-position = Vector2(27, -22)
+position = Vector2(40.125, -22)
 shape = SubResource("RectangleShape2D_1")
 debug_color = Color(1, 0, 0, 0.5)
 
