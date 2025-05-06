@@ -1,421 +1,410 @@
 extends CharacterBody2D
 
+# Keep UI/Animation refs if needed
 @onready var animated_sprite_2d = $AnimatedSprite2D
-@onready var action_label = $ActionLabel
-@onready var nav_agent = $NavigationAgent2D
+@onready var action_label = $ActionLabel # Keep if you want to display Mood, etc.
 
-const SPEED = 50.0
-const ARRIVAL_THRESHOLD = 20.0
+# Autoload reference
+var llama_service = null
 
-var NPC_Info = {"Name":"Kamil", "Occupation":"Logger", "Mood":"Depressed", 
-"Gender":"Male", "Age":"25", "Health":"Injured"}
-
-# Define locations for different activities
-var activity_zones = {
-	"forest": {
-		"area": null,  # Will hold reference to Area2D
-		"center": Vector2.ZERO,  # Will store zone's center position
-		"positions": [],  # Array of specific positions in the zone
-		"current_spot": null  # Current target position
+# NPC State (Mirroring Osman's structure)
+var NPC_Info = {
+	"Info": {
+		"Name": "Kamil",
+		"Occupation": "Logger",
+		"Mood": "Depressed",
+		"Gender": "Male",
+		"Age": "25",
+		"Health": "Injured"
 	},
-	"well": {
-		"area": null,
-		"center": Vector2.ZERO,
-		"positions": [],
-		"current_spot": null
-	},
-	"house": {
-		"area": null,
-		"center": Vector2.ZERO,
-		"positions": [],
-		"current_spot": null
-	},
-	"girl_house": {
-		"area": null,
-		"center": Vector2.ZERO,
-		"positions": [],
-		"current_spot": null
-	},
-	"house2": {
-		"area": null,
-		"center": Vector2.ZERO,
-		"positions": [],
-		"current_spot": null
+	"History": [
+		"Witnessed the murder of his own mother",
+		"Fell in love with a girl in the same village",
+		"Sprained own ankle"
+	],
+	"DialogueHistory": {
+		"Dialogue with Bandits": {
+			"speaker": "If you want to take revenge some day, I'll be waiting for you, and I'll be ready.",
+			"self": "*cries in agony*"
+		}
 	}
 }
 
-var current_schedule = {}  # Will store action:duration pairs
-var current_action = ""
-var current_duration = 0.0
-var action_timer = 0.0
-var target_position = Vector2.ZERO
-var is_moving = false
-var is_performing_action = false
-var next_action = ""
+# Variables to hold state during async LLM call
+var _is_waiting_for_llm = false # Use underscore prefix matching Osman's var
+var _original_info_state = {}
+var _original_history_state = []
+var _original_dialogue_history_state = {} # Store original dialogue history
+var _current_player_input = ""
+var _conversation_turn_count = 0 # Add conversation turn counter
 
-# Navigation states
-enum NavState { IDLE, MOVING_TO_ZONE, MOVING_TO_SPOT, AVOIDING_OBSTACLE }
-var current_nav_state = NavState.IDLE
+# Remove incorrect interaction state variables
+# var player_in_area = false
+# var dialogue_mode = false
 
-# Navigation settings
-const OBSTACLE_CHECK_RADIUS = 50.0
-const PATH_RECALCULATION_TIME = 0.5
-const MIN_DISTANCE_TO_TARGET = 5.0
+# Keep UI node refs if needed (but interaction flow is via manager)
+var dialogue_label: Label = null # Keep if used by show_npc_speech
+var dialogue_options_ui: Control = null # Keep if used by show_npc_speech
 
-var path_update_timer = 0.0
-var current_path = []
-var current_path_index = 0
+# Movement related (2D)
+var gravity = ProjectSettings.get_setting("physics/2d/default_gravity")
+var movement_speed = 50.0 # Adjust speed for 2D pixels/sec
+var nav_agent: NavigationAgent2D = null
+var current_target_position: Vector2 = Vector2.ZERO
 
-# Add these constants at the top
-const WALL_CHECK_DISTANCE = 30.0
-const WALL_AVOIDANCE_FORCE = 50.0
 
+# --- Godot Lifecycle Functions ---
 func _ready():
-	# Wait one frame to ensure the scene is fully loaded
+	# Wait one frame potentially for C# autoloads
 	await get_tree().process_frame
-	
-	# Initialize zone positions manually based on your scene
-	activity_zones = {
-		"forest": {
-			"area": null,
-			"center": Vector2(-998.25, 154.75),  # ForestZone CollisionShape2D position
-			"positions": [],
-			"current_spot": null
-		},
-		"well": {
-			"area": null,
-			"center": Vector2(279, -85),  # WellZone CollisionShape2D position
-			"positions": [],
-			"current_spot": null
-		},
-		"house": {
-			"area": null,
-			"center": Vector2(-114.5, 26.5),  # HouseZone CollisionShape2D position
-			"positions": [],
-			"current_spot": null
-		},
-		"girl_house": {
-			"area": null,
-			"center": Vector2(-112, 44),  # GirlHouseZone CollisionShape2D position
-			"positions": [],
-			"current_spot": null
-		},
-		"house2": {
-			"area": null,
-			"center": Vector2.ZERO,
-			"positions": [],
-			"current_spot": null
-		}
-	}
-	
-	# Get the parent node (Village)
-	var village = get_parent()
-	if village:
-		# We only need spots now
-		var zones = village.get_node("Zones")
-		
-		if zones:
-			# Register zones and their centers
-			var zone_mappings = {
-				"forest": "ForestZone",
-				"well": "WellZone",
-				"house": "HouseZone",
-				"girl_house": "GirlHouseZone",
-				"house2": "House2Zone"
-			}
-			
-			for zone_key in zone_mappings:
-				var zone_node = zones.get_node_or_null(zone_mappings[zone_key])
-				if zone_node:
-					activity_zones[zone_key]["area"] = zone_node
-					# Get position from CollisionShape2D
-					var collision = zone_node.get_node("CollisionShape2D")
-					if collision:
-						activity_zones[zone_key]["center"] = collision.global_position
-					else:
-						print("ERROR: No CollisionShape2D found for zone: ", zone_key)
-			
-			print("Successfully registered all zones")
-		else:
-			print("ERROR: Could not find Zones node")
-	else:
-		print("ERROR: Could not find parent node")
-	
-	# Initialize navigation agent with better settings
-	nav_agent.path_desired_distance = 10.0  # Increased from 4.0
-	nav_agent.target_desired_distance = 10.0  # Increased from 4.0
-	nav_agent.radius = 16.0
-	nav_agent.avoidance_enabled = true
-	nav_agent.max_speed = SPEED
-	nav_agent.path_max_distance = 50.0  # Add this
-	nav_agent.navigation_layers = 1  # Make sure this matches your navigation layer
-	
-	# Only keep necessary navigation signals
-	nav_agent.navigation_finished.connect(_on_navigation_finished)
-	
 
-	
-	# Set up collision
-	collision_layer = 128  # Layer 8 for NPCs
-	collision_mask = 1    # Only collide with world/terrain
+	dialogue_label = get_node_or_null("DialogueLabel") # Adjust path if needed
+	dialogue_options_ui = get_node_or_null("DialogueOptionsUI") # Adjust path if needed
+	nav_agent = get_node_or_null("NavigationAgent2D") # Get 2D agent
+
+	if not nav_agent:
+		printerr("NavigationAgent2D node not found on %s! Movement disabled." % NPC_Info["Info"]["Name"])
+
+	if dialogue_label: dialogue_label.hide()
+	if dialogue_options_ui: dialogue_options_ui.hide()
+
+	# Connect to LlamaService (using Autoload access)
+	# No need to store llama_service variable if accessing directly
+	if not LlamaService.is_connected("GenerationComplete", Callable(self, "_on_llama_generation_complete")):
+		var error_code = LlamaService.connect("GenerationComplete", Callable(self, "_on_llama_generation_complete"))
+		if error_code != OK:
+			printerr("Kamil_NPC: Failed to connect GenerationComplete signal: Error ", error_code)
+	# Check initialization status (Optional - manager should handle init)
+	elif not LlamaService.IsInitialized():
+		printerr("Kamil_NPC: Warning - LlamaService found but reports not initialized in _ready.")
+
+
+	animated_sprite_2d.play("idle")
+	update_action_label() # Update label initially
+
 
 func update_action_label():
-	var label_text = "Current: " + current_action
-	
-	# Add next action if available
-	if !current_schedule.is_empty():
-		var next_key = current_schedule.keys()[0]
-		label_text += "\nNext: " + next_key
+	# Modify this to show relevant info, e.g., current Mood
+	if NPC_Info.has("Info") and NPC_Info["Info"].has("Mood"):
+		action_label.text = "Mood: %s" % NPC_Info["Info"]["Mood"]
 	else:
-		label_text += "\nNext: None"
-	
-	# Add status
-	if is_moving:
-		label_text += "\nStatus: Moving to location"
-	elif is_performing_action:
-		label_text += "\nStatus: Performing action"
-		# Add remaining time
-		var time_left = current_duration - action_timer
-		label_text += "\nTime left: " + str(int(time_left)) + " minutes"
-	
-	action_label.text = label_text
+		action_label.text = "Mood: Unknown"
+	if _is_waiting_for_llm:
+		action_label.text += "\n(Thinking...)"
 
-func parse_daily_schedule(daily_actions : Array):
-	update_action_label()
-	# This is an example of how to parse the Gemini response
-	
-	current_schedule.clear()
-	
-	for action_string in daily_actions:
-		
-		# First split to separate action and duration
-		var main_parts = action_string.split("Duration:")
-		if main_parts.size() < 2:
-			continue
-			
-		# Get the action part (remove "Main action:" or "Custom action:")
-		var action_part = main_parts[0].split(": ", true, 1)
-		if action_part.size() < 2:
-			continue
-		var action_name = action_part[1].strip_edges()
-		
-		# Get the duration part
-		var duration_str = main_parts[1].strip_edges()
-		
-		# Convert duration to game seconds (24 real seconds = 1 game hour)
-		var duration = 0.0
-		if "hour" in duration_str:
-			# 1 hour = 24 seconds
-			duration = float(duration_str.split(" ")[0]) * 24.0
-		else:
-			# 1 minute = 24/60 = 0.4 seconds
-			duration = float(duration_str.split(" ")[0]) * 0.4
-		
-		current_schedule[action_name] = duration
-	
-	start_next_action()
 
-func start_next_action():
-	if current_schedule.is_empty():
-		is_performing_action = false
-		is_moving = false
-		velocity = Vector2.ZERO
+# --- Dialogue Processing ---
+
+# This function should be called by your UI (e.g., NpcInteractionManager)
+# when the player submits their dialogue input.
+func process_player_dialogue(player_input: String):
+	# Use direct Autoload access
+	if not LlamaService.IsInitialized():
+		push_error("Kamil_NPC: LlamaService not available or not initialized.")
+		show_npc_speech(NPC_Info["Info"]["Name"], "...")
+		return
+
+	if _is_waiting_for_llm:
+		push_warning("Kamil_NPC: Already waiting for LLM response.")
+		return
+
+	_current_player_input = player_input
+	print("GDScript (Kamil): Player said: ", _current_player_input)
+
+	# 1. Increment turn count BEFORE constructing prompt
+	_conversation_turn_count += 1
+
+	# 2. Store original state for comparison (duplicate needed!)
+	# We store state *before* the LLM potentially modifies it based on the current input
+	_original_info_state = NPC_Info["Info"].duplicate(true) # Deep duplicate
+	_original_history_state = NPC_Info["History"].duplicate(true) # Deep duplicate
+	_original_dialogue_history_state = NPC_Info["DialogueHistory"].duplicate(true) # Store original dialogue history
+
+	# 3. Construct the prompt string (now context-aware: full or hybrid)
+	var prompt_to_send = _construct_full_prompt(NPC_Info, _current_player_input)
+	if prompt_to_send.is_empty():
+		push_error("Kamil_NPC: Failed to construct prompt.")
+		_conversation_turn_count = 0 # Reset count on error
+		return
+
+	# 4. Call LlamaService asynchronously
+	_is_waiting_for_llm = true
+	update_action_label() # Show "Thinking..."
+	LlamaService.GenerateResponseAsync(prompt_to_send, 256)
+	print("GDScript (Kamil): Called GenerateResponseAsync. Waiting for signal...")
+
+
+# Signal handler called by LlamaService when generation finishes
+func _on_llama_generation_complete(result_string: String):
+	# Only process if this specific NPC was waiting for a response
+	if not _is_waiting_for_llm:
+		return # Exit if this NPC wasn't the one waiting
+		
+	print("GDScript (Kamil): Received GenerationComplete signal.") # Log kept for consistency, check helps
+	# Trim whitespace from the raw response
+	var trimmed_result_string = result_string.strip_edges()
+	# print("\n--- Full LLM Response (Kamil) ---\n" + trimmed_result_string + "\n---------------------------------") # Print trimmed string <<< COMMENT OUT
+	_is_waiting_for_llm = false
+	update_action_label() # Remove "Thinking..."
+	
+	# Check trimmed string before parsing
+	if trimmed_result_string == null or trimmed_result_string.is_empty():
+		push_error("GDScript (Kamil): LLM failed to generate a response (trimmed result_string is empty).")
+		show_npc_speech(NPC_Info["Info"]["Name"], "I... don't know what to say.") # Placeholder error reply
 		return
 	
-	current_action = current_schedule.keys()[0]
-	current_duration = current_schedule[current_action]
-	current_schedule.erase(current_action)
-	action_timer = 0.0
-	
-	var target_zone = get_current_zone_name()
-	
-	if target_zone and activity_zones.has(target_zone):
-		var zone = activity_zones[target_zone]["area"]
-		if zone:
-			var collision_shape = zone.get_node("CollisionShape2D")
-			if collision_shape:
-				var shape = collision_shape.shape
-				var zone_pos = collision_shape.global_position
-				
-				var random_pos = Vector2.ZERO
-				if shape is RectangleShape2D:
-					var half_size = shape.size / 2
-					random_pos = Vector2(
-						randf_range(-half_size.x, half_size.x),
-						randf_range(-half_size.y, half_size.y)
-					)
-					random_pos += zone_pos
-				
-				target_position = random_pos
-				nav_agent.target_position = random_pos
-				is_moving = true
-				is_performing_action = false
-			else:
-				target_position = activity_zones[target_zone]["center"]
-				nav_agent.target_position = target_position
-				is_moving = true
-				is_performing_action = false
+	# Attempt to parse using Godot's built-in JSON parser
+	var parsed_result = null
+	var json_parser_helper = JSON.new()
+	var error_code = json_parser_helper.parse(trimmed_result_string)
+
+	if error_code != OK:
+		var error_line = json_parser_helper.get_error_line()
+		var error_msg = json_parser_helper.get_error_message()
+		push_error("GDScript (Kamil): Godot JSON.parse failed. Error '%s' at line %d.\nRaw LLM Response:\n%s" % [error_msg, error_line, trimmed_result_string])
+		parsed_result = null
 	else:
-		is_performing_action = true
-	
-	update_action_label()
+		parsed_result = json_parser_helper.get_data()
 
-func _physics_process(delta: float) -> void:
-	if is_performing_action:
-		handle_action(delta)
+	# Check if parsing succeeded and the result is a Dictionary
+	if typeof(parsed_result) != TYPE_DICTIONARY:
+		# Error messages are now more specific from the block above
+		# var error_string = json_string_to_parse if not json_string_to_parse.is_empty() else trimmed_result_string
+		# push_error("GDScript (Kamil): LLM response was not valid JSON.\nAttempted to parse: %s" % error_string)
+		show_npc_speech(NPC_Info["Info"]["Name"], "My thoughts are scrambled...") # Placeholder error reply
 		return
-	
-	if is_moving:
-		if nav_agent.is_navigation_finished():
-			handle_arrival()
-			return
-			
-		var next_path_position: Vector2 = nav_agent.get_next_path_position()
-		var current_position = global_position
-		var new_velocity = (next_path_position - current_position).normalized() * SPEED
-		
-		# Only slow down when very close to final target
-		var distance_to_final = current_position.distance_to(target_position)
-		if distance_to_final < ARRIVAL_THRESHOLD:
-			new_velocity *= clamp(distance_to_final / ARRIVAL_THRESHOLD, 0.1, 1.0)
-		
-		velocity = new_velocity
-		
-		if velocity.length() > 1.0:
-			update_movement_animation(velocity.normalized())
-			
-		move_and_slide()
+	var response_data = parsed_result as Dictionary
 
-func handle_arrival():
-	is_moving = false
-	is_performing_action = true
-	velocity = Vector2.ZERO
-	animated_sprite_2d.play("idle")
-	action_timer = 0.0
-	update_action_label()
+	# 6. Extract data
+	# Use .get() with default values for safety
+	var new_info = response_data.get("Info", {}) as Dictionary
+	var new_history = response_data.get("History", []) as Array
+	var generated_dialogue = response_data.get("Generated Dialogue", "") as String
+	var new_dialogue_history = response_data.get("Dialogue History", {}) as Dictionary # Extract Dialogue History
 
-func handle_action(delta: float) -> void:
-	if !is_performing_action:
-		return
-	
-	var duration = current_duration  # Duration is already in game seconds
-	action_timer += delta
-	
-	# Print progress every second
-	if int(action_timer) != int(action_timer - delta):
-		var time_left = duration - action_timer
+	# Check specifically if Generated Dialogue is missing
+	if not response_data.has("Generated Dialogue"):
+		push_error("GDScript (Kamil): LLM output was valid JSON but missing the 'Generated Dialogue' field.")
+		# Keep generated_dialogue as "..." (already defaulted)
+	elif generated_dialogue.is_empty(): # Log if it's present but empty
+		push_warning("GDScript (Kamil): LLM response parsed okay, but 'Generated Dialogue' was empty.")
+		generated_dialogue = "..." # Fallback dialogue
 
-	
-	# Check if action is complete
-	if action_timer >= duration:
+	# 7. Determine Significance by comparing (primarily Dialogue History now for logging)
+	var was_significant = _did_state_change(
+		_original_info_state, new_info,
+		_original_history_state, new_history,
+		_original_dialogue_history_state, new_dialogue_history # Pass dialogue history to checker
+	)
+	print("GDScript (Kamil): Dialogue was significant (based on state change)? ", was_significant)
 
-		
-		# Reset all states
-		is_performing_action = false
-		is_moving = false
-		velocity = Vector2.ZERO
-		nav_agent.set_velocity(Vector2.ZERO)
-		action_timer = 0.0
-		
-		# Start next action
-		call_deferred("_start_next_action_internal")
-		return
-	
-	update_action_label()
+	# 8. Update NPC internal state (LLM output IS the new state)
+	NPC_Info["Info"] = new_info
+	NPC_Info["History"] = new_history
+	NPC_Info["DialogueHistory"] = new_dialogue_history # Update internal Dialogue History
+	update_action_label() # Update mood display
 
-# New internal function to ensure clean state transition
-func _start_next_action_internal():
+	# 9. Display generated dialogue
+	show_npc_speech(NPC_Info["Info"]["Name"], generated_dialogue)
 
-	start_next_action()
+	# 10. Log to diary (including significance flag)
+	log_to_diary(NPC_Info["Info"]["Name"], _current_player_input, generated_dialogue, was_significant)
 
-func _on_navigation_finished():
-	handle_arrival()
 
-func navigate_to_target(target_pos: Vector2):
-	if target_pos == Vector2.ZERO:
-		return
-		
+# --- Helper function implementations (STUBS - NEED TO BE IMPLEMENTED) ---
 
-	target_position = target_pos
-	nav_agent.target_position = target_pos
-	current_nav_state = NavState.MOVING_TO_ZONE
-	is_moving = true
-	is_performing_action = false
+# Constructs the prompt string based on our established format
+func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
+	var info_json = JSON.stringify(state.get("Info", {}))
+	var history_json = JSON.stringify(state.get("History", []))
+	var dialogue_history_json = JSON.stringify(state.get("DialogueHistory", {})) # Stringify Dialogue History
 
-func find_nearest_activity_spot(zone_name: String) -> Vector2:
-	if !activity_zones.has(zone_name):
-		return activity_zones[zone_name]["center"]  # Use zone center as fallback
-		
-	var nearest_pos = activity_zones[zone_name]["center"]  # Use zone center as default
-	var shortest_dist = global_position.distance_squared_to(nearest_pos)
-	
-	# If there are specific positions in the zone, find the nearest one
-	if !activity_zones[zone_name]["positions"].is_empty():
-		for pos in activity_zones[zone_name]["positions"]:
-			var dist = global_position.distance_squared_to(pos)
-			if dist < shortest_dist:
-				shortest_dist = dist
-				nearest_pos = pos
-	
-	return nearest_pos
+	# Always use the detailed prompt format
+	var full_prompt = """
+Input State:
+{
+  "Info": %s,
+  "History": %s,
+  "DialogueHistory": %s
+}
 
-func set_daily_schedule(schedule_data: Array):
-	# Call this function from your schedule manager script
-	current_schedule.clear()
-	
-	for action_string in schedule_data:
-		var parts = action_string.split(" / ")
-		var action_part = parts[0].split(": ", true, 1)[1]
-		var duration_part = parts[1].split(": ")[1]
-		
-		var duration = 0.0
-		if "hour" in duration_part:
-			duration = float(duration_part.split(" ")[0]) * 60
-		else:
-			duration = float(duration_part.split(" ")[0])
-		
-		current_schedule[action_part] = duration
-	
-	start_next_action()
+Player Dialogue: "Player":"%s"
 
-func update_movement_animation(direction: Vector2) -> void:
-	# Update animations based on movement direction
-	if abs(direction.x) > abs(direction.y):
-		if direction.x > 0:
-			animated_sprite_2d.play("walk_right")
-		else:
-			animated_sprite_2d.play("walk_left")
-	else:
-		if direction.y < 0:
-			animated_sprite_2d.play("walk_up")
-		else:
-			animated_sprite_2d.play("walk")  # Walking down
+Instructions: Determine significance based on initial instructions (reveals major plots, causes strong emotions, involves key actions/items, bestows titles). If significant, update Info, History, and/or DialogueHistory fields in the output JSON. If insignificant, Info, History, and DialogueHistory MUST be identical to the Input State. Provide ONLY the JSON output. The 'Generated Dialogue' field MUST always be included.
 
-func get_current_zone_name() -> String:
-	# Determine which zone we're in based on current action
-	var action_lower = current_action.to_lower()
-	
-	if "water" in action_lower:
-		return "well"
-	elif "tree" in action_lower or "wood" in action_lower:
-		return "forest"
-	elif "girl" in action_lower or "watching" in action_lower:
-		return "girl_house"
-	elif "house2" in action_lower:
-		return "house2"
-	elif "house" in action_lower and "girl" not in action_lower:
-		return "house"
-	
-	# Default to girl_house for specific actions
-	if "visiting" in action_lower:
-		return "girl_house"
-	
-	return ""
+Rules for Significance & State Update:
+- Significance Criteria: Dialogue is significant if it bestows titles, reveals major plot points, causes strong emotional reactions, involves important actions/items/decisions, or refers specifically to the NPC's unique history/personality.
+- Insignificant Dialogue: Simple greetings, casual questions, generic statements.
+- IF SIGNIFICANT: Update the "Info", "History" (append short description), and/or "DialogueHistory" (add a new entry summarizing the interaction) fields in the output JSON as appropriate. The new "DialogueHistory" entry key should be a short descriptive title.
+- IF NOT SIGNIFICANT: The "Info", "History", AND "DialogueHistory" fields in the output JSON MUST be ABSOLUTELY IDENTICAL to the Input State provided below. Make NO CHANGES WHATSOEVER to these three fields if the dialogue is insignificant.
+- The "Generated Dialogue" field MUST always be present in the output JSON.
 
-func is_in_zone(zone_name: String) -> bool:
-	if !activity_zones.has(zone_name) or !activity_zones[zone_name]["area"]:
-		return false
-	
-	var zone = activity_zones[zone_name]["area"]
-	var overlapping_areas = zone.get_overlapping_bodies()
-	return overlapping_areas.has(self)
+---
+
+EXAMPLE 1 (Insignificant Dialogue):
+
+Input State:
+{
+  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Depressed", "Gender":"Male", "Age":"25", "Health":"Injured"},
+  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle"],
+  "DialogueHistory": {
+	"Dialogue with Bandits": {"speaker":"If you want to take revenge some day...", "self":"*cries in agony*"}
+  }
+}
+
+Player Dialogue: "Player":"Hello how are you?"
+
+Output JSON:
+{
+  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Depressed", "Gender":"Male", "Age":"25", "Health":"Injured"},
+  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle"],
+  "DialogueHistory": {
+	"Dialogue with Bandits": {"speaker":"If you want to take revenge some day...", "self":"*cries in agony*"}
+  },
+  "Generated Dialogue": "Not great... been struggling lately."
+}
+
+---
+
+EXAMPLE 2 (Significant Dialogue - Title):
+
+Input State:
+{
+  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Depressed", "Gender":"Male", "Age":"25", "Health":"Injured"},
+  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle"],
+  "DialogueHistory": {
+	"Dialogue with Bandits": {"speaker":"...", "self":"..."}
+  }
+}
+
+Player Dialogue: "Player":"Now I am giving you the title of Eagle!"
+
+Output JSON:
+{
+  "Info": {"Name":"Kamil the Eagle", "Occupation":"Logger", "Mood":"Proud/Honored", "Gender":"Male", "Age":"25", "Health":"Injured"},
+  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle", "Was given the title 'Eagle' by the player"],
+  "DialogueHistory": {
+	"Dialogue with Bandits": {"speaker":"...", "self":"..."},
+	"Given Title Eagle": {"Player":"Now I am giving you the title of Eagle!", "Kamil": "That is an honor, I wish my mother could see this day..." }
+  },
+  "Generated Dialogue": "That is an honor, I wish my mother could see this day..."
+}
+
+---
+
+EXAMPLE 3 (Significant Dialogue - Item/Plot):
+
+Input State:
+{
+  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Depressed", "Gender":"Male", "Age":"25", "Health":"Injured"},
+  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle"],
+  "DialogueHistory": {
+	"Dialogue with Bandits": {"speaker":"...", "self":"..."}
+  }
+}
+
+Player Dialogue: "Player":"Kamil, I found this Sunpetal herb. It's said to mend injuries quickly. Take it for your ankle."
+
+Output JSON:
+{
+  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Grateful/Hopeful", "Gender":"Male", "Age":"25", "Health":"Injured"},
+  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle", "Received Sunpetal herb from player for ankle"],
+  "DialogueHistory": {
+	"Dialogue with Bandits": {"speaker":"...", "self":"..."},
+	"Received Sunpetal Herb": {"Player":"Kamil, I found this Sunpetal herb... Take it...", "Kamil": "Thank you! Maybe this will finally help..."}
+  },
+  "Generated Dialogue": "Thank you! Maybe this will finally help..."
+}
+
+---
+
+NOW, PROCESS THE FOLLOWING INPUT AND PROVIDE ONLY THE JSON OUTPUT:
+
+Input State:
+{
+  "Info": %s,
+  "History": %s,
+  "DialogueHistory": %s
+}
+
+Player Dialogue: "Player":"%s"
+""" % [info_json, history_json, dialogue_history_json, player_input.replace('"', '\"'), info_json, history_json, dialogue_history_json, player_input.replace('"', '\"')] # Provide args twice
+
+	# print("Constructed Prompt:\n", full_prompt) # Debug print - Re-enable if needed
+	return full_prompt
+
+
+# Compares old and new state dictionaries/arrays to see if changes occurred
+func _did_state_change(old_info: Dictionary, new_info: Dictionary,
+					   old_history: Array, new_history: Array,
+					   old_dialogue_history: Dictionary, new_dialogue_history: Dictionary) -> bool: # Added dialogue history params
+
+	# Convert states to comparable strings (handles order differences, basic types)
+	var old_info_str = JSON.stringify(old_info, "\t", false) # Use stringify for consistent comparison
+	var new_info_str = JSON.stringify(new_info, "\t", false)
+	var old_history_str = JSON.stringify(old_history, "\t", false)
+	var new_history_str = JSON.stringify(new_history, "\t", false)
+	var old_dialogue_history_str = JSON.stringify(old_dialogue_history, "\t", false)
+	var new_dialogue_history_str = JSON.stringify(new_dialogue_history, "\t", false)
+
+	# Check if any state component has changed
+	if old_info_str != new_info_str:
+		print("_did_state_change: Info changed")
+		return true
+	if old_history_str != new_history_str:
+		print("_did_state_change: History changed")
+		return true
+	if old_dialogue_history_str != new_dialogue_history_str:
+		print("_did_state_change: DialogueHistory changed")
+		return true
+
+	# If none of the stringified states differ, assume insignificant
+	return false
+
+
+# Displays the NPC's dialogue in the game UI
+func show_npc_speech(_npc_name: String, text: String):
+	print("Kamil says: ", text)
+	# TODO: Implement your actual UI update logic here
+	# e.g., get_node("SpeechBubble").show_text(text)
+	pass
+
+
+# Logs the conversation turn to the diary system
+func log_to_diary(npc_name: String, player_text: String, npc_text: String, significant: bool):
+	print("Diary Log (%s): Player: '%s' / NPC: '%s' (Significant: %s)" % [npc_name, player_text, npc_text, significant])
+	# TODO: Get your DiaryManager node/autoload and call its logging function
+	# e.g., DiaryManager.add_entry(npc_name, player_text, npc_text, significant)
+	pass
+
+
+# --- Interaction Area / Button Signals (Mirroring Osman's structure) ---
+
+func _on_interaction_area_area_entered(_area: Area2D) -> void:
+	# Assumes this signal is connected from an Area2D child node named "InteractionArea"
+	# Mirror Osman's logic: Show OptionsPanel?
+	# IMPORTANT: Adjust the node path to match Kamil's scene structure
+	var options_panel = $InteractionArea.get_node_or_null("OptionsPanel")
+	if options_panel:
+		options_panel.show()
+	print("Player entered Kamil interaction area")
+
+
+func _on_interaction_area_area_exited(_area: Area2D) -> void:
+	# Assumes this signal is connected from an Area2D child node named "InteractionArea"
+	# Mirror Osman's logic: Hide OptionsPanel? Close Dialogue Window?
+	# IMPORTANT: Adjust the node path to match Kamil's scene structure
+	var options_panel = $InteractionArea.get_node_or_null("OptionsPanel")
+	if options_panel:
+		options_panel.hide()
+	# Assume NpcInteractionManager handles closing the main dialogue UI
+	NpcInteractionManager.CloseDialogueWindow()
+	_conversation_turn_count = 0 # Reset turn counter when player leaves
+	print("GDScript (Kamil): Player exited area, conversation turn count reset.")
+	print("Player exited Kamil interaction area")
+
+
+func _on_dialogue_button_pressed() -> void:
+	NpcInteractionManager.SelectedNPC = NPC_Info["Info"]["Name"]
+	NpcInteractionManager.OpenDialogueWindow() # This manager method should eventually lead to process_player_dialogue
+	print("Kamil dialogue button pressed")

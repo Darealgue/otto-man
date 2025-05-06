@@ -1,0 +1,3 @@
+root   ::= simpleobject
+simpleobject ::= "{" ws "\"Key\"" ws ":" ws "\"Value\"" ws "}" ws
+ws ::= | " " | "\n" [ \t]*

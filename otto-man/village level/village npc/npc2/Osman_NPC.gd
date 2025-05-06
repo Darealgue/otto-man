@@ -117,7 +117,7 @@ func _on_llama_generation_complete(result_string: String):
 	print("GDScript (Osman): Received generation_complete signal.") # Log kept for consistency, check helps
 	# Trim whitespace from the raw response
 	var trimmed_result_string = result_string.strip_edges()
-	print("\n--- Full LLM Response (Osman) ---\n" + trimmed_result_string + "\n---------------------------------") # Print trimmed string
+	# print("\n--- Full LLM Response (Osman) ---\n" + trimmed_result_string + "\n---------------------------------") # Print trimmed string <<< COMMENT OUT
 	_is_waiting_for_llm = false
 	update_action_label() # Remove "Thinking..."
 	
@@ -127,53 +127,18 @@ func _on_llama_generation_complete(result_string: String):
 		show_npc_speech(NPC_Info["Info"]["Name"], "I... don't know what to say.") # Placeholder error reply
 		return
 	
-	# Attempt to extract JSON block robustly by finding the first '{' and its matching '}'
-	var extracted_json_block = ""
+	# Attempt to parse using Godot's built-in JSON parser
 	var parsed_result = null
-	
-	var json_start = trimmed_result_string.find("{")
-	if json_start != -1:
-		var brace_count = 0
-		var json_end = -1
-		for i in range(json_start, trimmed_result_string.length()):
-			var char = trimmed_result_string[i]
-			if char == '{':
-				brace_count += 1
-			elif char == '}':
-				brace_count -= 1
-				if brace_count == 0: # Found the matching closing brace for the first opening brace
-					json_end = i
-					break
-				elif brace_count < 0:
-					# This shouldn't normally happen if starting search from the first '{'
-					push_warning("GDScript (Osman): Found closing brace before matching opening brace during JSON extraction.")
-					break 
+	var json_parser_helper = JSON.new()
+	var error_code = json_parser_helper.parse(trimmed_result_string)
 
-		if json_end != -1:
-			# Extract the substring from the first '{' to the matched '}'
-			extracted_json_block = trimmed_result_string.substr(json_start, json_end - json_start + 1)
-			
-			# Now attempt to parse ONLY the extracted block
-			var json_parser = JSON.new()
-			var error_code = json_parser.parse(extracted_json_block)
-
-			if error_code != OK:
-				var error_line = json_parser.get_error_line()
-				var error_msg = json_parser.get_error_message()
-				# Log the block we TRIED to parse
-				push_error("GDScript (Osman): JSON parsing failed. Error '%s' at line %d:\n%s" % [error_msg, error_line, extracted_json_block])
-				parsed_result = null
-			else:
-				# Success! Get the actual result
-				parsed_result = json_parser.get_data()
-		else:
-			# Could not find matching closing brace for the first opening brace
-			push_error("GDScript (Osman): Could not find matching '}' for the initial '{' in LLM response: %s" % [trimmed_result_string])
-			parsed_result = null
+	if error_code != OK:
+		var error_line = json_parser_helper.get_error_line()
+		var error_msg = json_parser_helper.get_error_message()
+		push_error("GDScript (Osman): Godot JSON.parse failed. Error '%s' at line %d.\nRaw LLM Response:\n%s" % [error_msg, error_line, trimmed_result_string])
+		parsed_result = null
 	else:
-		# Could not find opening '{' at all
-		push_error("GDScript (Osman): Could not find starting '{' in LLM response: %s" % [trimmed_result_string])
-		parsed_result = null 
+		parsed_result = json_parser_helper.get_data()
 
 	# Check if parsing succeeded and the result is a Dictionary
 	if typeof(parsed_result) != TYPE_DICTIONARY:
@@ -240,15 +205,7 @@ Input State:
 
 Player Dialogue: "Player":"%s"
 
-Instructions: Respond strictly in the JSON format below. Determine significance based on initial instructions (reveals major plots, causes strong emotions, involves key actions/items, bestows titles). If significant, update Info, History, and/or DialogueHistory fields in the output JSON. If insignificant, Info, History, and DialogueHistory MUST be identical to the Input State. Provide ONLY the JSON output. The 'Generated Dialogue' field MUST always be included.
-
-Output JSON:
-{
-  "Info": { ... current or updated info ... },
-  "History": [ ... current or updated history ... ],
-  "DialogueHistory": { ... current or updated dialogue history ... },
-  "Generated Dialogue": "NPC's response here"
-}
+Instructions: Determine significance based on initial instructions (reveals major plots, causes strong emotions, involves key actions/items, bestows titles). If significant, update Info, History, and/or DialogueHistory fields in the output JSON. If insignificant, Info, History, and DialogueHistory MUST be identical to the Input State. Provide ONLY the JSON output. The 'Generated Dialogue' field MUST always be included.
 
 Rules for Significance & State Update:
 - Significance Criteria: Dialogue is significant if it bestows titles, reveals major plot points, causes strong emotional reactions, involves important actions/items/decisions, or refers specifically to the NPC's unique history/personality.
@@ -320,11 +277,9 @@ Input State:
 }
 
 Player Dialogue: "Player":"%s"
+""" % [info_json, history_json, dialogue_history_json, player_input.replace('"', '\"'), info_json, history_json, dialogue_history_json, player_input.replace('"', '\"')] # Provide args twice
 
-Output JSON:
-""" % [info_json, history_json, dialogue_history_json, player_input.replace('"', '\\"'), info_json, history_json, dialogue_history_json, player_input.replace('"', '\\"')] # Provide args twice
-
-	# print("Constructed Prompt:\\n", full_prompt) # Debug print - Re-enable if needed
+	# print("Constructed Prompt:\n", full_prompt) # Debug print - Re-enable if needed
 	return full_prompt
 
 

@@ -4,7 +4,7 @@ var isDialogueOpen : bool = false
 var SelectedNPC = ""
 
 # Model filename constant
-const LLAMA_MODEL_FILENAME = "Phi-3-mini-4k-instruct-q4.gguf"
+const LLAMA_MODEL_FILENAME = "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 
 
 func _ready():
