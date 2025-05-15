@@ -137,7 +137,7 @@ public partial class LlamaService : Node, IDisposable
 	}
 
 	// --- Async Wrapper (Remains mostly the same) ---
-	public void GenerateResponseAsync(string prompt, int maxNewTokens = 128)
+	public void GenerateResponseAsync(string prompt, int maxNewTokens = 350)
 	{
 		if (!_isInitialized || _isDisposed)
 		{
@@ -158,7 +158,7 @@ public partial class LlamaService : Node, IDisposable
 	}
 
 	// --- Core Inference (To be re-implemented with LLamaSharp) ---
-	private async Task<string> GenerateResponse(string prompt, int maxNewTokens = 128)
+	private async Task<string> GenerateResponse(string prompt, int maxNewTokens = 350)
 	{
 		if (!_isInitialized || _isDisposed || _modelWeights == null || _parameters == null)
 		{
@@ -194,6 +194,17 @@ public partial class LlamaService : Node, IDisposable
 					// grammarContent = grammarContent.Replace("[ \t\n]*", "[ \t]*"); 
 					// grammarContent = grammarContent.Replace("[ \t\r\n]*", "[ \t]*"); 
 					GD.Print("Sanitized grammarContent for ws rule (first 100 chars): " + grammarContent.Substring(0, Math.Min(100, grammarContent.Length)));
+
+					// GD.Print("Full grammarContent (first 200 chars): " + grammarContent.Substring(0, Math.Min(200, grammarContent.Length)));
+					// int indexOfInfo = grammarContent.IndexOf("\"Info\""); // Look for "Info" with GBNF escapes
+					// GD.Print("IndexOf '\"Info\"': " + indexOfInfo);
+
+					// if (indexOfInfo != -1 && indexOfInfo + 10 <= grammarContent.Length) {
+					// 	GD.Print("Byte representation of key part: " + BitConverter.ToString(Encoding.UTF8.GetBytes(grammarContent.Substring(indexOfInfo, 10))));
+					// } else {
+					// 	GD.Print("Could not find '\"Info\"' or not enough length for byte representation.");
+					// }
+					// GD.Print("Grammar content length: " + grammarContent.Length);
 				}
 				else { GD.PrintErr($"Grammar file not found at {grammarPath}"); }
 			}
