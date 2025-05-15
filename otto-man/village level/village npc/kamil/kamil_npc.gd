@@ -130,7 +130,7 @@ func process_player_dialogue(player_input: String):
 	# 4. Call LlamaService asynchronously
 	_is_waiting_for_llm = true
 	update_action_label() # Show "Thinking..."
-	LlamaService.GenerateResponseAsync(prompt_to_send, 256)
+	LlamaService.GenerateResponseAsync(prompt_to_send, 350) # Increased max tokens
 	print("GDScript (Kamil): Called GenerateResponseAsync. Waiting for signal...")
 
 
@@ -179,8 +179,8 @@ func _on_llama_generation_complete(result_string: String):
 	# Use .get() with default values for safety
 	var new_info = response_data.get("Info", {}) as Dictionary
 	var new_history = response_data.get("History", []) as Array
-	var generated_dialogue = response_data.get("Generated Dialogue", "") as String
-	var new_dialogue_history = response_data.get("Dialogue History", {}) as Dictionary # Extract Dialogue History
+	var generated_dialogue = response_data.get("Generated Dialogue", "...") as String # Default to "..."
+	var new_dialogue_history = response_data.get("DialogueHistory", {}) as Dictionary # Extract Dialogue History
 
 	# Check specifically if Generated Dialogue is missing
 	if not response_data.has("Generated Dialogue"):
@@ -194,7 +194,7 @@ func _on_llama_generation_complete(result_string: String):
 	var was_significant = _did_state_change(
 		_original_info_state, new_info,
 		_original_history_state, new_history,
-		_original_dialogue_history_state, new_dialogue_history # Pass dialogue history to checker
+		_original_dialogue_history_state, new_dialogue_history
 	)
 	print("GDScript (Kamil): Dialogue was significant (based on state change)? ", was_significant)
 
@@ -208,13 +208,14 @@ func _on_llama_generation_complete(result_string: String):
 	show_npc_speech(NPC_Info["Info"]["Name"], generated_dialogue)
 
 	# 10. Log to diary (including significance flag)
-	log_to_diary(NPC_Info["Info"]["Name"], _current_player_input, generated_dialogue, was_significant)
+	# log_to_diary(NPC_Info["Info"]["Name"], _current_player_input, generated_dialogue, was_significant)
 
 
 # --- Helper function implementations (STUBS - NEED TO BE IMPLEMENTED) ---
 
 # Constructs the prompt string based on our established format
 func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
+	var npc_name = state.get("Info", {}).get("Name", "NPC") # Get NPC name for prompt
 	var info_json = JSON.stringify(state.get("Info", {}))
 	var history_json = JSON.stringify(state.get("History", []))
 	var dialogue_history_json = JSON.stringify(state.get("DialogueHistory", {})) # Stringify Dialogue History
@@ -230,14 +231,26 @@ Input State:
 
 Player Dialogue: "Player":"%s"
 
-Instructions: Determine significance based on initial instructions (reveals major plots, causes strong emotions, involves key actions/items, bestows titles). If significant, update Info, History, and/or DialogueHistory fields in the output JSON. If insignificant, Info, History, and DialogueHistory MUST be identical to the Input State. Provide ONLY the JSON output. The 'Generated Dialogue' field MUST always be included.
+Instructions:
+1. Evaluate the Player Dialogue in the context of the NPC's current Input State (Info, History, DialogueHistory).
+2. Determine if the dialogue is "Significant" or "Insignificant" based on the "Significance Criteria" and "Insignificant Dialogue" definitions below.
+3. If Significant: Update "Info", "History" (e.g., append a new memory), and add a new entry to "DialogueHistory" in the output JSON, reflecting the changes. The new "DialogueHistory" entry should summarize the key parts of the interaction.
+4. If Insignificant: The "Info", "History", and "DialogueHistory" fields in the output JSON MUST be *exactly identical* to those in the Input State. Crucially, do NOT add any new entries to "DialogueHistory" and make no alterations to it if the dialogue is insignificant.
+5. ALWAYS include the "Generated Dialogue" field with the NPC's spoken response.
+6. Provide ONLY the complete JSON output as specified by the GBNF grammar.
 
 Rules for Significance & State Update:
-- Significance Criteria: Dialogue is significant if it bestows titles, reveals major plot points, causes strong emotional reactions, involves important actions/items/decisions, or refers specifically to the NPC's unique history/personality.
-- Insignificant Dialogue: Simple greetings, casual questions, generic statements.
-- IF SIGNIFICANT: Update the "Info", "History" (append short description), and/or "DialogueHistory" (add a new entry summarizing the interaction) fields in the output JSON as appropriate. The new "DialogueHistory" entry key should be a short descriptive title.
-- IF NOT SIGNIFICANT: The "Info", "History", AND "DialogueHistory" fields in the output JSON MUST be ABSOLUTELY IDENTICAL to the Input State provided below. Make NO CHANGES WHATSOEVER to these three fields if the dialogue is insignificant.
-- The "Generated Dialogue" field MUST always be present in the output JSON.
+- Significance Criteria: Dialogue is significant if it bestows titles, reveals major plot points, causes strong emotional reactions in the NPC, involves important actions/items/decisions relevant to the NPC, or makes the NPC reveal something deep about their unique history/personality.
+- Insignificant Dialogue: Simple greetings ("hello", "how are you?"), casual questions unrelated to the NPC's core concerns, generic statements, or chit-chat that doesn't impact the NPC's state or understanding.
+- IF SIGNIFICANT:
+	- If the dialogue provides new or superseding information directly impacting the NPC's *attributes* (those represented by the existing keys in the "Info" field like name, age, gender, mood, occupation, etc.), update the "Info" field in the output JSON. **CRITICAL RULE: You MUST only use the exact same set of keys for "Info" that were provided in the Input State's "Info" object. YOU ARE NOT ALLOWED TO ADD NEW KEYS to the "Info" object.** Change the values of the existing keys as appropriate. For example, if a title is bestowed and the Input State's "Info" object does NOT contain a 'Title' key, you MUST append the title to the existing "Name" value (e.g., Input "Name": "Kamil" becomes Output "Name": "Kamil the Mended"). If an existing key can logically store the new information (like "Mood", "Age", "Occupation", "Health"), update its value.
+	- ALWAYS append a short description of the significant event or new memory to the "History" array in the output JSON.
+	- ALWAYS add a new entry to "DialogueHistory" in the output JSON, summarizing this significant interaction. The key for this new entry should be a short, descriptive title for the dialogue turn (e.g., "Received Sunpetal Herb", "Confrontation about Mother"). The value should be an object containing player and NPC lines (e.g., {"Player": "...", "%s": "..."}).
+- IF INSIGNIFICANT:
+	- The "Info", "History", AND "DialogueHistory" fields in the output JSON MUST be ABSOLUTELY IDENTICAL to the Input State provided.
+	- DO NOT add any new entries to "DialogueHistory".
+	- Make NO CHANGES WHATSOEVER to these three fields if the dialogue is insignificant.
+- The "Generated Dialogue" field MUST always be present and contain the NPC's direct response.
 
 ---
 
@@ -266,33 +279,7 @@ Output JSON:
 
 ---
 
-EXAMPLE 2 (Significant Dialogue - Title):
-
-Input State:
-{
-  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Depressed", "Gender":"Male", "Age":"25", "Health":"Injured"},
-  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle"],
-  "DialogueHistory": {
-	"Dialogue with Bandits": {"speaker":"...", "self":"..."}
-  }
-}
-
-Player Dialogue: "Player":"Now I am giving you the title of Eagle!"
-
-Output JSON:
-{
-  "Info": {"Name":"Kamil the Eagle", "Occupation":"Logger", "Mood":"Proud/Honored", "Gender":"Male", "Age":"25", "Health":"Injured"},
-  "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle", "Was given the title 'Eagle' by the player"],
-  "DialogueHistory": {
-	"Dialogue with Bandits": {"speaker":"...", "self":"..."},
-	"Given Title Eagle": {"Player":"Now I am giving you the title of Eagle!", "Kamil": "That is an honor, I wish my mother could see this day..." }
-  },
-  "Generated Dialogue": "That is an honor, I wish my mother could see this day..."
-}
-
----
-
-EXAMPLE 3 (Significant Dialogue - Item/Plot):
+EXAMPLE 2 (Significant Dialogue - Item):
 
 Input State:
 {
@@ -307,11 +294,11 @@ Player Dialogue: "Player":"Kamil, I found this Sunpetal herb. It's said to mend 
 
 Output JSON:
 {
-  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Grateful/Hopeful", "Gender":"Male", "Age":"25", "Health":"Injured"},
+  "Info": {"Name":"Kamil", "Occupation":"Logger", "Mood":"Grateful/Hopeful", "Gender":"Male", "Age":"25", "Health":"Mending"},
   "History": ["Witnessed the murder of his own mother", "Fell in love with a girl in the same village", "Sprained own ankle", "Received Sunpetal herb from player for ankle"],
   "DialogueHistory": {
 	"Dialogue with Bandits": {"speaker":"...", "self":"..."},
-	"Received Sunpetal Herb": {"Player":"Kamil, I found this Sunpetal herb... Take it...", "Kamil": "Thank you! Maybe this will finally help..."}
+	"Received Sunpetal Herb": {"Player":"Kamil, I found this Sunpetal herb...", "Kamil": "Thank you! Maybe this will finally help..."}
   },
   "Generated Dialogue": "Thank you! Maybe this will finally help..."
 }
@@ -328,24 +315,56 @@ Input State:
 }
 
 Player Dialogue: "Player":"%s"
-""" % [info_json, history_json, dialogue_history_json, player_input.replace('"', '\"'), info_json, history_json, dialogue_history_json, player_input.replace('"', '\"')] # Provide args twice
+""" % [info_json, history_json, dialogue_history_json, player_input.replace('"', '\"'), npc_name, info_json, history_json, dialogue_history_json, player_input.replace('"', '\"')] # Provide args
 
 	# print("Constructed Prompt:\n", full_prompt) # Debug print - Re-enable if needed
 	return full_prompt
 
 
+func _compare_dialogue_histories(dh1: Dictionary, dh2: Dictionary) -> bool:
+	if dh1.size() != dh2.size():
+		# print("_compare_dialogue_histories: Size mismatch")
+		return true # Changed (different number of entries)
+
+	for title in dh1:
+		if not dh2.has(title):
+			# print("_compare_dialogue_histories: Title '%s' missing in new history" % title)
+			return true # Changed (title removed or renamed)
+		
+		var entry1 = dh1[title]
+		var entry2 = dh2[title]
+
+		# Ensure both entries are dictionaries as expected
+		if typeof(entry1) != TYPE_DICTIONARY or typeof(entry2) != TYPE_DICTIONARY:
+			# print("_compare_dialogue_histories: Type mismatch for entry '%s'" % title)
+			if entry1 != entry2: return true # Fallback to direct comparison if not dicts
+			continue # Or treat as unchanged if types are same but not dicts (should not happen with GBNF)
+
+		# Compare the inner dictionaries (e.g., {"speaker": "...", "self": "..."})
+		# by stringifying THEM with sorted keys.
+		var entry1_str = JSON.stringify(entry1, "\t", true) # sort_keys=true for inner dict
+		var entry2_str = JSON.stringify(entry2, "\t", true) # sort_keys=true for inner dict
+		
+		if entry1_str != entry2_str:
+			# print("_compare_dialogue_histories: Content mismatch for entry '%s'" % title)
+			# print("Entry1: ", entry1_str)
+			# print("Entry2: ", entry2_str)
+			return true # Changed (content of an entry differs)
+			
+	return false # No changes detected
+
+
 # Compares old and new state dictionaries/arrays to see if changes occurred
 func _did_state_change(old_info: Dictionary, new_info: Dictionary,
 					   old_history: Array, new_history: Array,
-					   old_dialogue_history: Dictionary, new_dialogue_history: Dictionary) -> bool: # Added dialogue history params
+					   old_dialogue_history: Dictionary, new_dialogue_history: Dictionary) -> bool: # Added dialogue history and level params
 
 	# Convert states to comparable strings (handles order differences, basic types)
-	var old_info_str = JSON.stringify(old_info, "\t", false) # Use stringify for consistent comparison
-	var new_info_str = JSON.stringify(new_info, "\t", false)
-	var old_history_str = JSON.stringify(old_history, "\t", false)
-	var new_history_str = JSON.stringify(new_history, "\t", false)
-	var old_dialogue_history_str = JSON.stringify(old_dialogue_history, "\t", false)
-	var new_dialogue_history_str = JSON.stringify(new_dialogue_history, "\t", false)
+	var old_info_str = JSON.stringify(old_info, "\t", true) # Use stringify for consistent comparison, sort_keys=true
+	var new_info_str = JSON.stringify(new_info, "\t", true) # sort_keys=true
+	var old_history_str = JSON.stringify(old_history, "\t", false) # History is an array, order matters, sort_keys not applicable directly
+	var new_history_str = JSON.stringify(new_history, "\t", false) # History is an array, order matters
+	# Removed direct stringification of entire dialogue history
 
 	# Check if any state component has changed
 	if old_info_str != new_info_str:
@@ -354,7 +373,8 @@ func _did_state_change(old_info: Dictionary, new_info: Dictionary,
 	if old_history_str != new_history_str:
 		print("_did_state_change: History changed")
 		return true
-	if old_dialogue_history_str != new_dialogue_history_str:
+	
+	if _compare_dialogue_histories(old_dialogue_history, new_dialogue_history):
 		print("_did_state_change: DialogueHistory changed")
 		return true
 
@@ -371,11 +391,11 @@ func show_npc_speech(_npc_name: String, text: String):
 
 
 # Logs the conversation turn to the diary system
-func log_to_diary(npc_name: String, player_text: String, npc_text: String, significant: bool):
-	print("Diary Log (%s): Player: '%s' / NPC: '%s' (Significant: %s)" % [npc_name, player_text, npc_text, significant])
-	# TODO: Get your DiaryManager node/autoload and call its logging function
-	# e.g., DiaryManager.add_entry(npc_name, player_text, npc_text, significant)
-	pass
+#func log_to_diary(npc_name: String, player_text: String, npc_text: String, significant: bool):
+#	print("Diary Log (%s): Player: '%s' / NPC: '%s' (Significant: %s)" % [npc_name, player_text, npc_text, significant])
+#	# TODO: Get your DiaryManager node/autoload and call its logging function
+#	# e.g., DiaryManager.add_entry(npc_name, player_text, npc_text, significant)
+#	pass
 
 
 # --- Interaction Area / Button Signals (Mirroring Osman's structure) ---

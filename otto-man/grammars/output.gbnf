@@ -1,4 +1,4 @@
-root ::= npc-complete-output
+root ::= npc-final-output
 
 ws ::= ([ \t\n]*)
 
@@ -10,7 +10,4 @@ generic-string-map-object ::= "{" ws ( json-string ws ":" ws json-string (ws ","
 
 dialogue-history-object ::= "{" ws ( json-string ws ":" ws generic-string-map-object (ws "," ws json-string ws ":" ws generic-string-map-object)* )? ws "}"
 
-integer-element ::= [0-9]+ ws
-boolean-element ::= ("true" | "false") ws
-
-npc-complete-output ::= "{" ws json-string ws ":" ws generic-string-map-object ws "," ws json-string ws ":" ws string-array ws "," ws json-string ws ":" ws dialogue-history-object ws "," ws json-string ws ":" ws json-string ws "," ws json-string ws ":" ws integer-element ws "," ws json-string ws ":" ws boolean-element ws "}"
+npc-final-output ::= "{" ws json-string ws ":" ws generic-string-map-object ws "," ws json-string ws ":" ws string-array ws "," ws json-string ws ":" ws dialogue-history-object ws "," ws json-string ws ":" ws json-string ws "}"

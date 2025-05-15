@@ -1,16 +1,16 @@
 ## GBNF and NPC Interaction Enhancement Checklist
 
-**Goal:** Ensure the LLM outputs a guaranteed JSON structure for NPC interactions, allowing for dynamic updates to NPC state (Info, History, Dialogue History) based on dialogue significance.
+**Goal:** Ensure the LLM outputs a guaranteed JSON structure for NPC interactions, allowing for dynamic updates to NPC state (Info, History, Dialogue History) based on dialogue significance, and correctly identifies significance.
 
 **Target JSON Structure:**
 ```json
 {
-  "Info": { "Key1": "Value1", ... },
-  "History": ["String1", ... ],
+  "Info": { "Key1": "Value1", ... , "Name": "UpdatedName", "Title": "OptionalTitle"},
+  "History": ["String1", ... , "New significant event memory"],
   "Dialogue History": {
     "Title1": { "SpeakerA": "LineA", "self": "LineB", ... },
     "Title2": { ... },
-    ...
+    "NewSignificantDialogueTitle": { "Player": "...", "NPCName": "..."}
   },
   "Generated Dialogue": "NPC's response string."
 }
@@ -18,48 +18,70 @@
 
 **Checklist Items:**
 
-1.  **Define Core GBNF Elements:**
-    *   `string-element`: Define a robust rule for JSON strings (handling quotes, escapes). (Already mostly done, review for context).
-    *   `ws`: Define a rule for optional whitespace. (Already mostly done, review for context).
+**Phase 1: GBNF Setup & Initial LLM Integration (Mostly Done)**
 
-2.  **Define Reusable Object Structure:**
-    *   `generic-string-map-object`: Create a GBNF rule for a generic JSON object that maps string keys to string values (e.g., ` { ws ("\"key\"" ws ":" ws string-element (ws "," ws "\"key\"" ws ":" ws string-element)*)? ws } ` ). This will be used for the `Info` field and for each individual entry within `Dialogue History`.
+1.  **[DONE] Define Core GBNF Elements:**
+    *   `json-string` (formerly string-element): Define a robust rule for JSON strings (handling quotes, escapes).
+    *   `ws`: Define a rule for optional whitespace.
 
-3.  **Define `Info` Field GBNF:**
-    *   Utilize `generic-string-map-object` for the `Info` field's value.
+2.  **[DONE] Define Reusable Object Structure:**
+    *   `generic-string-map-object`: GBNF rule for generic JSON object mapping string keys to string values (used for `Info` and inner `Dialogue History` entries).
+    *   `string-array`: GBNF rule for an array of `json-string` (used for `History`).
+    *   `dialogue-history-object`: GBNF rule for `Dialogue History` object mapping string titles to `generic-string-map-object`.
 
-4.  **Define `History` Field GBNF:**
-    *   `history-array`: Create a GBNF rule for an array of `string-element`. (Already mostly done, review for context).
+3.  **[DONE] Define Root GBNF Object (`npc-final-output`):**
+    *   Combined rules for the top-level JSON with four keys: `"Info"`, `"History"`, `"Dialogue History"`, and `"Generated Dialogue"`.
 
-5.  **Define `Dialogue History` Field GBNF (Nested Structure):**
-    *   `dialogue-history-object`: Create a GBNF rule for the main `Dialogue History` object. This object will map string keys (dialogue titles) to `generic-string-map-object` values. (e.g., ` { ws (string-element ws ":" ws generic-string-map-object (ws "," ws string-element ws ":" ws generic-string-map-object)*)? ws } `).
+4.  **[DONE] Assemble `output.gbnf`:**
+    *   All rules written to `OttoMan/otto-man/otto-man/grammars/output.gbnf`, clean, single-line definitions.
 
-6.  **Define `Generated Dialogue` Field GBNF:**
-    *   This will simply be a `string-element`.
+5.  **[DONE] Update `syntaxrules.txt` Documentation:**
+    *   Documented the GBNF structure and LLamaSharp parser observations.
 
-7.  **Define Root GBNF Object:**
-    *   `root` (or `npc-json-output`): Combine the above rules to define the top-level JSON object containing the four keys: `"Info"`, `"History"`, `"Dialogue History"`, and `"Generated Dialogue"`, ensuring correct commas and structure.
+6.  **[DONE] Initial `LlamaService.cs` and GDScript Integration:**
+    *   `LlamaService.cs` loads model, uses grammar.
+    *   GDScript (`Osman_NPC.gd`, `kamil_npc.gd`) constructs prompt, calls service, parses JSON.
+    *   Increased `maxNewTokens` to prevent truncation.
 
-8.  **Assemble `output.gbnf`:**
-    *   Write all defined rules into `OttoMan/otto-man/otto-man/grammars/output.gbnf`, ensuring it's clean, comment-free, and all rules are correctly interconnected.
+**Phase 2: Refining Significance Logic & Prompt Engineering (In Progress)**
 
-9.  **Update `syntaxrules.txt` Documentation:**
-    *   Thoroughly document the new, complete GBNF structure in `OttoMan/otto-man/otto-man/grammars/syntaxrules.txt`.
-    *   Provide clear explanations for each rule, especially the `generic-string-map-object` and the nested structure of `dialogue-history-object`.
-    *   Include an example of the full JSON output that this GBNF would produce, matching your provided "WHAT WE WANT AS THE RESPONSE" structure.
+7.  **[DONE] Correct Significance for `Info` based on Key Order:**
+    *   Modified `_did_state_change` in GDScript to use `JSON.stringify(..., true)` for `Info` dictionary comparison, making it insensitive to key order.
 
-10. **Testing and Verification (Manual Steps for You):**
-    *   Replace the content of `output.gbnf` with the newly designed grammar.
-    *   Run the Godot project.
-    *   Provide a sample prompt (like your "SIGNIFICANT DIALOGUE EXAMPLE") to an NPC (e.g., Kamil).
-    *   Observe the raw LLM output in the Godot console (logged by `LlamaService.cs`).
-    *   Verify if the output strictly adheres to the new GBNF (correct keys, types, nesting).
-    *   Check if Godot's JSON parser in `Osman_NPC.gd` or `kamil_npc.gd` successfully parses the output without errors.
-    *   Confirm that the NPC's internal state (`NPC_Info` dictionary in GDScript) is updated correctly based on the parsed JSON, especially the nested `DialogueHistory`.
-    *   Test both significant and insignificant dialogue examples (as per your prompt instructions) to ensure the LLM correctly either updates or preserves the `Info`, `History`, and `Dialogue History` fields while always providing `Generated Dialogue`.
+8.  **[DONE] Correct Significance for `DialogueHistory` based on Key Order & Content:**
+    *   Implemented `_compare_dialogue_histories` helper in GDScript.
+    *   Updated `_did_state_change` to use this helper for `DialogueHistory`, ensuring inner dictionary key order or content changes are correctly detected, and no change is reported if only inner key order differs but content is identical.
 
-11. **Review Prompt Engineering (Ongoing):**
-    *   While GBNF enforces structure, the LLM's ability to correctly determine significance and populate fields meaningfully depends heavily on the prompt in `_construct_full_prompt` in `Osman_NPC.gd` and `kamil_npc.gd`.
-    *   Continuously refine these prompts to improve the LLM's reasoning for state updates. The GBNF will ensure that *if* it decides to update, it does so in the correct format.
+9.  **[DONE] Refine Prompt for `DialogueHistory` in Insignificant Cases:**
+    *   Updated prompts in GDScript to explicitly state that if dialogue is insignificant, `DialogueHistory` (along with `Info` and `History`) MUST be identical to input and NO new entries should be added.
 
-This checklist should guide us effectively. We'll tackle these steps one by one tomorrow, starting with the GBNF definitions.
+10. **[REVISED] Refine Prompt for `Info` Field Updates on Significant Events:
+    *   Updated "IF SIGNIFICANT" rule in prompts to provide generalized instructions for updating `Info`. LLM should semantically analyze dialogue and update/add key-value pairs in `Info` (e.g. for name, age, gender, mood, occupation, new titles, etc.) rather than relying on exhaustive examples for each field.
+    *   Clarified that significance determination is holistic (based on Info, History, DialogueHistory) and occurs *before* deciding on specific field updates within the 'IF SIGNIFICANT' block (removed redundant determination).
+    *   Further refined "IF SIGNIFICANT" to explicitly FORBID adding new keys to `Info` and guide modification of existing keys (e.g., `Name` for titles if no `Title` key exists). Emphasized that `History` and `DialogueHistory` should ALWAYS be updated if significant.
+    *   Kept "EXAMPLE 3 (Significant Dialogue - Title Bestowed)" in `Osman_NPC.gd` prompt as an illustration of the *process* of multi-field updates including `Info`.
+
+11. **[DONE] Remove Diary Logging:**
+    *   Removed `log_to_diary` function and its calls from NPC scripts.
+
+**Phase 3: Testing and Further Refinements (Current Focus)**
+
+12. **Testing and Verification (Manual Steps for You):**
+    *   Test with insignificant dialogue (e.g., "hello how are you?") with Osman:
+        *   Verify raw LLM output: `Info`, `History`, `DialogueHistory` should be identical to input (check inner key order for `DialogueHistory` entries if only one exists).
+        *   Verify GDScript: `_did_state_change` should return `false`, NPC should report dialogue as insignificant.
+    *   Test with significant dialogue (e.g., player gives Osman a title like "Osman the Tax Evader" or "Osman the Resolute"):
+        *   Verify raw LLM output: `Info` should be updated (e.g., `"Name": "Osman the Tax Evader"` or `"Title": "the Tax Evader"`), `History` should append this event, `DialogueHistory` should add a new entry.
+        *   Verify GDScript: `_did_state_change` should return `true`, NPC should report dialogue as significant, internal `NPC_Info` should reflect all changes.
+    *   Test other significant scenarios (plot reveals, strong emotional reactions) for both NPCs.
+    *   Ensure LLM consistently respects the "IF INSIGNIFICANT, all three state fields are IDENTICAL" rule.
+
+13. **Review Prompt Engineering (Ongoing):**
+    *   Continuously refine prompts in `_construct_full_prompt` to improve LLM's reasoning, especially for subtle significance and appropriate state updates.
+    *   Ensure examples are clear and effectively guide the LLM for both significant and insignificant cases across different types of significant events.
+
+**Future Considerations (Optional):**
+*   More complex GBNF for varied value types if needed (e.g., numbers, booleans directly in GBNF if `json-string` becomes too restrictive for certain fields, though current approach of stringifying everything and parsing in Godot is viable).
+*   Error handling for unexpected LLM outputs beyond GBNF structure (though GBNF should prevent this).
+
+This checklist should guide us effectively. We'll tackle these steps one by one.
