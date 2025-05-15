@@ -69,10 +69,10 @@
 12. **Testing and Verification (Manual Steps for You):**
     *   Test with insignificant dialogue (e.g., "hello how are you?") with Osman:
         *   Verify raw LLM output: `Info`, `History`, `DialogueHistory` should be identical to input (check inner key order for `DialogueHistory` entries if only one exists).
-        *   Verify GDScript: `_did_state_change` should return `false`, NPC should report dialogue as insignificant.
+        *   Verify GDScript: `_did_state_change` should return `false`, NPC should report dialogue as insignificant. **(Pending final confirmation)**
     *   Test with significant dialogue (e.g., player gives Osman a title like "Osman the Tax Evader" or "Osman the Resolute"):
-        *   Verify raw LLM output: `Info` should be updated (e.g., `"Name": "Osman the Tax Evader"` or `"Title": "the Tax Evader"`), `History` should append this event, `DialogueHistory` should add a new entry.
-        *   Verify GDScript: `_did_state_change` should return `true`, NPC should report dialogue as significant, internal `NPC_Info` should reflect all changes.
+        *   **[CONFIRMED WORKING 2023-05-16]** Verify raw LLM output: `Info` is updated correctly (e.g., `"Name": "Osman the Tax Evader"`, no new keys), `History` appends the event, `DialogueHistory` adds a new entry.
+        *   **[CONFIRMED WORKING 2023-05-16]** Verify GDScript: `_did_state_change` returns `true`, NPC reports dialogue as significant, internal `NPC_Info` reflects all changes.
     *   Test other significant scenarios (plot reveals, strong emotional reactions) for both NPCs.
     *   Ensure LLM consistently respects the "IF INSIGNIFICANT, all three state fields are IDENTICAL" rule.
 
