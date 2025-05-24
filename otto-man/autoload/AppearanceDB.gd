@@ -94,7 +94,7 @@ func generate_random_appearance() -> VillagerAppearance:
 		
 	if !SKIN_TONES.is_empty():
 		new_appearance.body_tint = SKIN_TONES.pick_random()
-
+	
 	# Pants 
 	if !PANTS_TEXTURES.is_empty():
 		var pants_path = PANTS_TEXTURES.pick_random()
@@ -196,5 +196,5 @@ func generate_random_appearance() -> VillagerAppearance:
 		
 		if !HAIR_COLORS.is_empty():
 			new_appearance.hair_tint = HAIR_COLORS.pick_random()
-	
+
 	return new_appearance 

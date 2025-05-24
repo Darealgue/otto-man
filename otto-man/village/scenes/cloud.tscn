@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://dsddcqby8ie1o"]
+
+[ext_resource type="Texture2D" uid="uid://6iqi6f8skqob" path="res://village/assets/clouds/cloud1.png" id="1_1n2by"]
+[ext_resource type="Script" path="res://village/scripts/cloud.gd" id="1_pmaxj"]
+
+[node name="Cloud" type="Node2D"]
+script = ExtResource("1_pmaxj")
+speed_min = 2.0
+speed_max = 10.0
+fade_in_duration = 10.0
+fade_out_duration = 10.0
+
+[node name="CloudSprite" type="Sprite2D" parent="."]
+texture = ExtResource("1_1n2by")

@@ -19,21 +19,14 @@ unit_stats_spearman = ExtResource("6_ues31")
 unit_stats_shieldbearer = ExtResource("7_fvmfh")
 player_unit_count = 0
 enemy_unit_count = 0
+ordered_spawn = true
 unit_spacing = 25.0
 row_spacing = 40.0
 formation_depth = 12
 player_spawn_start = Vector2(150, 500)
 enemy_spawn_start = Vector2(1770, 500)
-player_shieldbearer_count = 10
-player_spearman_count = 20
-player_swordsman_count = 60
-player_archer_count = 30
-player_cavalry_count = 20
-enemy_shieldbearer_count = 10
-enemy_spearman_count = 20
-enemy_swordsman_count = 60
-enemy_archer_count = 30
-enemy_cavalry_count = 20
+player_swordsman_count = 100
+enemy_shieldbearer_count = 1
 forbidden_areas = Array[Rect2]([Rect2(-1000, -200, 3000, 680)])
 
 [node name="UnitsContainer" type="Node2D" parent="."]
@@ -44,6 +37,7 @@ y_sort_enabled = true
 [node name="EnemyUnits" type="Node2D" parent="UnitsContainer"]
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
+visible = false
 
 [node name="UnitCountLabel" type="Label" parent="CanvasLayer"]
 anchors_preset = 5

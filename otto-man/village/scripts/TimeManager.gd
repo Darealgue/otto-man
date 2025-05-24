@@ -29,6 +29,7 @@ var time_scales: Array[float] = [1.0, 4.0, 16.0]
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	print("--- TimeManager.gd: _ready() ÇAĞRILDI! TimeManager YÜKLENDİ! ---")
 	pass # Replace with function body.
 
 
@@ -51,6 +52,7 @@ func _advance_time(minutes_to_advance: int) -> void:
 	minutes += minutes_to_advance
 	var extra_hours = floori(minutes / 60.0)
 	minutes = minutes % 60
+	emit_signal("minute_changed", minutes) # YENİ: Dakika değiştiğinde sinyal gönder
 	
 	if extra_hours > 0:
 		hours += extra_hours
@@ -91,3 +93,20 @@ func cycle_time_scale() -> void:
 
 func get_current_time_scale() -> float:
 	return Engine.time_scale
+
+func get_current_hour_float() -> float:
+	# Mevcut saat ve dakikayı ondalık bir değere çevirir (örn: 6:30 -> 6.5)
+	return float(hours) + (float(minutes) / 60.0)
+
+func get_continuous_hour_float() -> float:
+	# Oyun dakikasının içindeki ilerlemeyi de hesaba katarak daha akıcı bir saat değeri döndürür.
+	# Bu, animasyonların ve pozisyon güncellemelerinin saniye bazında daha yumuşak olmasını sağlar.
+	var minute_progress = _time_accumulator / SECONDS_PER_GAME_MINUTE
+	return float(hours) + (float(minutes) / 60.0) + (minute_progress / 60.0)
+
+func get_current_day_count() -> int:
+	return days
+
+# сигналы
+signal hour_changed(new_hour: int)
+signal minute_changed(new_minute: int) # YENİ SİNYAL (Opsiyonel, gerekirse diye)

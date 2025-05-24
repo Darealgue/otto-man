@@ -86,7 +86,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"puff_down",
-"speed": 15.0
+"speed": 25.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -94,6 +94,9 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_bhrgx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_64mbs")
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_64mbs")
@@ -112,7 +115,7 @@ animations = [{
 }],
 "loop": false,
 "name": &"puff_up",
-"speed": 15.0
+"speed": 25.0
 }]
 
 [node name="DustCloudEffect" type="Node2D"]
@@ -121,6 +124,4 @@ script = ExtResource("1_gxoy7")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -100)
 sprite_frames = SubResource("SpriteFrames_epahh")
-animation = &"puff_down"
-frame = 6
-frame_progress = 1.0
+animation = &"puff_up"

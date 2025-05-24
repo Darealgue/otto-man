@@ -1,13 +1,7 @@
 Sprite2D
-AnimationPlayer
-CanvasModulate
-ColorRect
-CanvasLayer
-WorldEnvironment
-AnimatedSprite2D
-ShapeCast2D
-Label
-ProgressBar
 Node2D
-ParallaxLayer
+CanvasLayer
 ParallaxBackground
+ParallaxLayer
+PointLight2D
+WorldEnvironment
