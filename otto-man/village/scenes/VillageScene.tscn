@@ -355,4 +355,4 @@ parallax_layer_paths = Array[NodePath]([NodePath("../ParallaxBackground/Parallax
 min_spawn_interval = -10.0
 max_spawn_interval = 20.0
 cloud_y_position_min = -50.0
-cloud_y_position_max = 50.0
+cloud_y_position_max = 100.0

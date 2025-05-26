@@ -12,7 +12,7 @@ config_version=5
 
 config/name="otto-man"
 run/main_scene="res://scenes/testing.tscn"
-config/features=PackedStringArray("4.3", "Forward Plus")
+config/features=PackedStringArray("4.3", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -30,6 +30,8 @@ VillageManager="*res://village/scripts/VillageManager.gd"
 GlobalPlayerData="*res://village/scripts/GlobalPlayerData.gd"
 TimeManager="*res://village/scripts/TimeManager.gd"
 AppearanceDB="*res://autoload/AppearanceDB.gd"
+LlamaService="*res://autoload/LlamaService.cs"
+NpcDialogueManager="*res://autoload/NPCDialogueManager.gd"
 
 [display]
 
@@ -37,6 +39,10 @@ window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[dotnet]
+
+project/assembly_name="otto-man"
 
 [global_group]
 

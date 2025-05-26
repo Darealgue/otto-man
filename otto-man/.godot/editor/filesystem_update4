@@ -1,5 +1,4 @@
 res://scenes/testing.tscn
 res://village/scenes/VillageScene.tscn
 res://player/player.tscn
-res://objects/dungeon/lighting/mesale2.tscn
-res://village/scripts/StarsContainer.gd
+res://scenes/test_level.tscn

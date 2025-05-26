@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "dgSpecHash": "WM/sz66UCWyrn4CtvKqS/AidmguEDrubIUp1ge4jlYm/VILSN5dmSxzuL9UNR7SBh/hxrPK4Oyd3Atsg/EKlKw==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Günsu\\Desktop\\Proje otto\\otto-man\\otto-man\\otto-man.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Günsu\\.nuget\\packages\\godot.sourcegenerators\\4.3.0\\godot.sourcegenerators.4.3.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\godotsharp\\4.3.0\\godotsharp.4.3.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\godotsharpeditor\\4.3.0\\godotsharpeditor.4.3.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\humanizer.core\\2.11.10\\humanizer.core.2.11.10.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\jetbrains.annotations\\2021.2.0\\jetbrains.annotations.2021.2.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\json.more.net\\1.9.0\\json.more.net.1.9.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\jsonpointer.net\\3.0.3\\jsonpointer.net.3.0.3.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\jsonschema.net\\5.4.2\\jsonschema.net.5.4.2.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\jsonschema.net.generation\\3.5.1\\jsonschema.net.generation.3.5.1.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\llamasharp\\0.12.0\\llamasharp.0.12.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\llamasharp.backend.cuda12\\0.12.0\\llamasharp.backend.cuda12.0.12.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\llamasharp.semantic-kernel\\0.12.0\\llamasharp.semantic-kernel.0.12.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\8.0.0\\microsoft.bcl.asyncinterfaces.8.0.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\microsoft.bcl.hashcode\\1.1.1\\microsoft.bcl.hashcode.1.1.1.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.1\\microsoft.extensions.dependencyinjection.abstractions.8.0.1.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.1\\microsoft.extensions.logging.abstractions.8.0.1.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\microsoft.semantickernel.abstractions\\1.6.2\\microsoft.semantickernel.abstractions.1.6.2.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\system.diagnostics.diagnosticsource\\8.0.0\\system.diagnostics.diagnosticsource.8.0.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\system.text.encodings.web\\8.0.0\\system.text.encodings.web.8.0.0.nupkg.sha512",
+    "C:\\Users\\Günsu\\.nuget\\packages\\system.text.json\\8.0.2\\system.text.json.8.0.2.nupkg.sha512"
+  ],
+  "logs": []
+}
