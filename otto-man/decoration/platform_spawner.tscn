@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://platform_spawner" parent_scene="res://decoration/decoration_spawner.tscn"]
+
+[ext_resource type="PackedScene" uid="uid://decoration_spawner_base" path="res://decoration/decoration_spawner.tscn" id="1_base"]
+
+[node name="DecorationSpawner"]
+decoration_type = 2
+spawn_chance = 0.4
+
+[node name="SpawnMarker" parent="." index="0"]
+[node name="Sprite2D" parent="SpawnMarker" index="0"]
+modulate = Color(0.7, 0.7, 0.7, 1) 

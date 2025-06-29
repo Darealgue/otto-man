@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://cqy5k6n8ksxfp"]
+
+[ext_resource type="Script" path="res://effects/explosion_shockwave.gd" id="1_y8k9w"]
+
+[node name="ExplosionShockwave" type="Node2D"]
+script = ExtResource("1_y8k9w")
+
+[node name="ShockwaveSprite" type="Sprite2D" parent="."] 

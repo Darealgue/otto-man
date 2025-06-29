@@ -25,8 +25,16 @@ row_spacing = 40.0
 formation_depth = 12
 player_spawn_start = Vector2(150, 500)
 enemy_spawn_start = Vector2(1770, 500)
-player_swordsman_count = 100
-enemy_shieldbearer_count = 1
+player_shieldbearer_count = 10
+player_spearman_count = 15
+player_swordsman_count = 20
+player_archer_count = 10
+player_cavalry_count = 5
+enemy_shieldbearer_count = 10
+enemy_spearman_count = 15
+enemy_swordsman_count = 20
+enemy_archer_count = 10
+enemy_cavalry_count = 5
 forbidden_areas = Array[Rect2]([Rect2(-1000, -200, 3000, 680)])
 
 [node name="UnitsContainer" type="Node2D" parent="."]

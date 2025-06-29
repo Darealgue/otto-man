@@ -88,6 +88,10 @@ func _ready():
 	# Add to player group
 	add_to_group("player")
 	
+	# Set player z_index to appear above ground traps but below flying objects
+	# Use call_deferred to ensure sprite is ready
+	call_deferred("_set_player_z_index")
+	
 	# Collision layer ve mask'ı doğru şekilde ayarla
 	collision_layer = 2  # Layer 2 (player)
 	print("Oyuncu collision_layer: ", collision_layer)
@@ -726,3 +730,11 @@ func spawn_dust_cloud(position: Vector2, animation_name: String):
 func get_foot_position() -> Vector2:
 	var sprite_height = sprite.texture.get_height() * sprite.scale.y
 	return global_position + Vector2(0, sprite_height / 2 + 5)
+
+func _set_player_z_index():
+	# Set player sprite z_index to appear above ground traps
+	if sprite:
+		sprite.z_index = 5  # Same as enemies, above ground traps (1)
+		print("Oyuncu z_index set to: ", sprite.z_index)
+	else:
+		print("Oyuncu sprite not found for z_index setting")

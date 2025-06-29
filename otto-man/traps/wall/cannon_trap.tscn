@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8xvzr5k3yskbv"]
+
+[ext_resource type="Script" path="res://traps/wall/cannon_trap.gd" id="1_8xvzr"]
+
+[node name="CannonTrap" type="Node2D"]
+script = ExtResource("1_8xvzr")
+cannon_interval = 4.0
+cannonball_speed = 300.0
+cannonball_range = 600.0
+warning_duration = 1.0
+cannonball_damage = 50.0
+explosion_radius = 80.0
+
+[node name="DetectionArea" type="Area2D" parent="."]
+
+[node name="DetectionShape" type="CollisionShape2D" parent="DetectionArea"]
+
+[node name="DamageArea" type="Area2D" parent="."]
+
+[node name="DamageShape" type="CollisionShape2D" parent="DamageArea"] 

@@ -1,0 +1,31 @@
+[gd_scene load_steps=4 format=3 uid="uid://cxc6ygb2qnrk3"]
+
+[ext_resource type="Script" path="res://traps/ground/fire_geyser.gd" id="1_0xk8s"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(102, 64)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_277t3"]
+radius = 171.0
+
+[node name="FireGeyser" type="Node2D"]
+script = ExtResource("1_0xk8s")
+sprite_offset = Vector2(0, -17)
+base_damage = 50.0
+activation_delay = 0.1
+
+[node name="DamageArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DamageArea"]
+position = Vector2(24, -24)
+shape = SubResource("RectangleShape2D_1")
+
+[node name="TriggerArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TriggerArea"]
+position = Vector2(27, -10)
+shape = SubResource("CircleShape2D_277t3")

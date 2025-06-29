@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://eu5s0itvwmeq"]
+
+[ext_resource type="PackedScene" uid="uid://b8xk2yv4qjwqr" path="res://traps/base_trap.tscn" id="1_base_trap"]
+[ext_resource type="Script" path="res://traps/ground/spike_trap.gd" id="2_spike_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_spike_damage"]
+size = Vector2(102, 64)
+
+[node name="SpikeTrap" instance=ExtResource("1_base_trap")]
+script = ExtResource("2_spike_script")
+spike_height = 64.0
+rise_duration = 0.2
+stay_duration = 1.0
+fall_duration = 0.3
+warning_duration = 0.4
+sprite_offset = Vector2(-25, -15)
+sprite_z_index = 1
+base_damage = 30.0
+activation_range = 80.0
+activation_delay = 0.3
+
+[node name="CollisionShape2D" parent="DamageArea" index="0"]
+shape = SubResource("RectangleShape2D_spike_damage")

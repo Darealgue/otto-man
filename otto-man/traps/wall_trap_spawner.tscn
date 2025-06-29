@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://bx8vn4k2qwrtc"]
+
+[ext_resource type="PackedScene" uid="uid://c5m7n8qaq0rst" path="res://traps/trap_spawner.tscn" id="1_trap_spawner"]
+
+[node name="WallTrapSpawner" instance=ExtResource("1_trap_spawner")]
+trap_category = 1
+spawn_chance = 1.0
+
+[node name="SpawnMarker" parent="." index="0"]
+modulate = Color(0, 0.5, 1, 1) 

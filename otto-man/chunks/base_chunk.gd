@@ -26,6 +26,8 @@ var actual_size: Vector2:
 
 var chunk_type: String = "basic"  # Override in specific chunks
 var spawn_manager: SpawnManager
+var trap_manager: TrapManager
+var decoration_manager: DecorationManager
 
 # Called when the node enters the scene tree
 func _ready() -> void:
@@ -43,6 +45,28 @@ func _ready() -> void:
 		
 		# Initialize spawn manager with chunk type and level
 		spawn_manager.initialize(chunk_type, level)
+	
+	# Initialize trap manager
+	trap_manager = $TrapManager
+	if trap_manager:
+		var level = 1  # Default level
+		var level_generator = get_tree().get_first_node_in_group("level_generator")
+		if level_generator:
+			level = level_generator.current_level
+		
+		# Initialize trap manager with chunk type and level
+		trap_manager.initialize(chunk_type, level)
+	
+	# Initialize decoration manager
+	decoration_manager = $DecorationManager
+	if decoration_manager:
+		var level = 1  # Default level
+		var level_generator = get_tree().get_first_node_in_group("level_generator")
+		if level_generator:
+			level = level_generator.current_level
+		
+		# Initialize decoration manager with chunk type and level
+		decoration_manager.initialize(chunk_type, level)
 
 func _initialize_chunk() -> void:
 	print("[BaseChunk] Initializing chunk: ", name)
@@ -175,6 +199,10 @@ func get_chunk_position() -> Vector2:
 func set_level(level: int) -> void:
 	if spawn_manager:
 		spawn_manager.set_level(level)
+	if trap_manager:
+		trap_manager.set_level(level)
+	if decoration_manager:
+		decoration_manager.set_level(level)
 
 # Optional: Start spawning enemies with interval
 func start_spawning(interval: float = 5.0) -> void:

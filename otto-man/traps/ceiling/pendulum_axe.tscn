@@ -1,0 +1,98 @@
+[gd_scene load_steps=14 format=3 uid="uid://cowwtemwkdq4y"]
+
+[ext_resource type="PackedScene" uid="uid://b8xk2yv4qjwqr" path="res://traps/base_trap.tscn" id="1_1a2b3"]
+[ext_resource type="Script" path="res://traps/ceiling/pendulum_axe.gd" id="2_2c3d4"]
+[ext_resource type="Texture2D" uid="uid://qoi7s7gqxkrc" path="res://objects/dungeon/traps/axe_trap.png" id="3_u635k"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1e2f3"]
+radius = 25.0
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_gl73k"]
+atlas = ExtResource("3_u635k")
+region = Rect2(0, 0, 200, 300)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wjvej"]
+atlas = ExtResource("3_u635k")
+region = Rect2(200, 0, 200, 300)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_aukb5"]
+atlas = ExtResource("3_u635k")
+region = Rect2(400, 0, 200, 300)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jf8ay"]
+atlas = ExtResource("3_u635k")
+region = Rect2(600, 0, 200, 300)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6srk7"]
+atlas = ExtResource("3_u635k")
+region = Rect2(800, 0, 200, 300)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0ynuw"]
+atlas = ExtResource("3_u635k")
+region = Rect2(1000, 0, 200, 300)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q3x2q"]
+atlas = ExtResource("3_u635k")
+region = Rect2(1200, 0, 200, 300)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_j07sy"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_gl73k")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wjvej")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_aukb5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jf8ay")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6srk7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0ynuw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_q3x2q")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 3.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_equjj"]
+radius = 30.0
+
+[node name="PendulumAxe" instance=ExtResource("1_1a2b3")]
+script = ExtResource("2_2c3d4")
+sprite_vertical_offset = -75.0
+trap_category = 2
+
+[node name="DetectionArea" parent="." index="1"]
+visible = false
+
+[node name="DamageArea" parent="." index="2"]
+visible = false
+collision_layer = 8
+
+[node name="CollisionShape2D" parent="DamageArea" index="0"]
+shape = SubResource("CircleShape2D_1e2f3")
+
+[node name="pivot_point" type="Node2D" parent="." index="5"]
+position = Vector2(0, -139)
+
+[node name="axe_sprite" type="AnimatedSprite2D" parent="." index="6"]
+position = Vector2(0, -63)
+sprite_frames = SubResource("SpriteFrames_j07sy")
+animation = &"idle"
+frame_progress = 0.236721
+
+[node name="hitbox_area" type="Area2D" parent="." index="7"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="hitbox_area" index="0"]
+position = Vector2(0, -9)
+shape = SubResource("CircleShape2D_equjj")

@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://c7xvn9m3rwstd"]
+
+[ext_resource type="PackedScene" uid="uid://c5m7n8qaq0rst" path="res://traps/trap_spawner.tscn" id="1_trap_spawner"]
+
+[node name="CeilingTrapSpawner" instance=ExtResource("1_trap_spawner")]
+trap_category = 2
+spawn_chance = 0.8
+
+[node name="SpawnMarker" parent="." index="0"]
+modulate = Color(0.5, 1, 0, 1) 

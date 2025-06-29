@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://j6k7l8m9n0opq"]
+
+[ext_resource type="Script" path="res://traps/trap_manager.gd" id="1_trap_manager_script"]
+ 
+[node name="TrapManager" type="Node"]
+script = ExtResource("1_trap_manager_script") 
