@@ -38,6 +38,12 @@ public partial class LlamaService : Node, IDisposable
 	{
 		base._Ready();
 		GD.Print("LlamaService Autoload _Ready.");
+		
+		// Initialize the model
+		if (!Initialize("mistral-7b-instruct-v0.2.Q4_K_M.gguf"))
+		{
+			GD.PrintErr("Failed to initialize LlamaService with model.");
+		}
 	}
 
 	// --- Initialization and Cleanup (To be re-implemented with LLamaSharp) ---

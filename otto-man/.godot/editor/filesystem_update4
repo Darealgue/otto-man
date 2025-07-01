@@ -2,3 +2,4 @@ res://scenes/testing.tscn
 res://village/scenes/VillageScene.tscn
 res://player/player.tscn
 res://scenes/test_level.tscn
+res://village/scripts/Worker.gd
