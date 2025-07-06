@@ -103,7 +103,11 @@ func _ready() -> void:
 
 	# !!! İŞÇİ OLUŞTURMA BURADAN KALDIRILDI !!!
 	# İşçi oluşturma register_village_scene fonksiyonuna taşındı.
-
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("SaveVillagers"):
+		for worker in workers_container.get_children():
+			worker.Save_Villager_Info()
+		print(VillagerAiInitializer.Saved_Villagers)
 # VillageScene tarafından çağrılır ve başlangıç işçi kurulumunu yapar
 func register_village_scene(scene: Node2D) -> void:
 	village_scene_instance = scene
@@ -671,6 +675,9 @@ func notify_building_state_changed(building_node: Node) -> void:
 
 # Yeni bir işçi düğümü oluşturur, ID atar, listeye ekler, sayacı günceller ve barınak atar.
 # Başarılı olursa true, barınak bulunamazsa veya hata olursa false döner.
+func load_existing_worker():
+	#TODO LOAD FROM VILLAGEAIINITIALIZER SAVED ARRAY
+	pass
 func _add_new_worker() -> bool: # <<< Dönüş tipi eklendi
 	if not worker_scene:
 		#printerr("VillageManager: Worker scene not loaded!")

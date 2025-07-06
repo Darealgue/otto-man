@@ -22,6 +22,7 @@ func _ready():
 # npc_state: The complete NPC_Info dictionary
 # player_input: What the player said
 # npc_name: Name of the calling NPC (for response routing)
+
 func process_dialogue(npc_state: Dictionary, player_input: String, npc_name: String):
 	if not LlamaService.IsInitialized():
 		push_error("NPCDialogueManager: LlamaService not available or not initialized.")
@@ -110,7 +111,7 @@ func _on_llama_generation_complete(result_string: String):
 	
 	# Emit response to the NPC
 	dialogue_processed.emit(npc_name, new_state, generated_dialogue, was_significant)
-
+	
 # Internal: Construct the full prompt
 func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
 	var npc_name = state.get("Info", {}).get("Name", "NPC")

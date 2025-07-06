@@ -1,5 +1,10 @@
+res://village/scenes/Worker.tscn
+res://autoload/Villager_AI_Initializer.gd
+res://village/scripts/Worker.gd
 res://scenes/testing.tscn
 res://village/scenes/VillageScene.tscn
 res://player/player.tscn
 res://scenes/test_level.tscn
-res://village/scripts/Worker.gd
+res://Ui/npc_window.tscn
+res://village/scripts/VillageManager.gd
+res://village/scripts/VillageScene.gd

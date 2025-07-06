@@ -1,5 +1,6 @@
 extends Node2D
 
+@export var NPC_Info : Dictionary
 # <<< YENİ: Appearance Resource >>>
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 @export var appearance: VillagerAppearance:
@@ -7,28 +8,6 @@ const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd"
 		appearance = value
 		if is_node_ready(): # Eğer sahne hazırsa görselleri hemen güncelle
 			update_visuals()
-# <<< YENİ SONU >>>
-
-# <<< YENİ: NPC Dialogue State Management >>>
-# NPC dialogue state - this represents the NPC's personality, memories, and dialogue history
-var npc_state: Dictionary = {
-	"Info": {},
-	"History": [],
-	"DialogueHistory": {}
-}
-
-# Flag to track if this worker can engage in dialogue
-var can_dialogue: bool = false
-var dialogue_name: String = "" # The name this NPC uses in dialogue (e.g., "Osman", "Village Worker")
-
-# <<< YENİ: Temporary Name Plate >>>
-var name_plate_label: Label = null
-# <<< YENİ SONU >>>
-
-# <<< YENİ: NPC Dialogue Signals >>>
-# Signal emitted when this NPC wants to show dialogue to the player
-signal show_dialogue_to_player(npc_name: String, dialogue_text: String)
-# <<< YENİ SONU >>>
 
 var worker_id: int = -1 # VillageManager tarafından atanacak
 
@@ -513,6 +492,7 @@ var walk_textures = {
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	randomize()
 	# <<< YENİ: Timer Oluşturma >>>
 	fetching_timer = Timer.new()
 	fetching_timer.one_shot = true
@@ -569,8 +549,26 @@ func _ready() -> void:
 	if appearance:
 		update_visuals()
 	# <<< YENİ SONU >>>
+	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
+
+func Save_Villager_Info():
+	VillagerAiInitializer.Saved_Villagers.append(NPC_Info)
+	
+func Load_Villager_Info(VillagerInfo:Dictionary):
+	NPC_Info = VillagerInfo
+
+func Initialize_New_Villager():
+	NPC_Info = VillagerAiInitializer.get_villager_info()
+	$NamePlate.text = NPC_Info["Info"]["Name"]
 
 func _physics_process(delta: float) -> void:
+	# AI kamili workerların sağa sola dönmesini spriteları döndürmek yerine
+	# tüm node'un X scale'ını değiştirerek yaptığı için böyle isim plakasını tersine çevirmemiz gerekti
+	if scale.x < 0:
+		$NamePlate.scale.x = -1
+	else:
+		$NamePlate.scale.x = 1
+		
 	# <<< YENİ: Mevcut Duruma Göre Animasyon Belirleme >>>
 	var target_anim = "idle" # Varsayılan animasyon
 	var target_pos = Vector2(move_target_x, _target_global_y)
@@ -664,11 +662,6 @@ func _physics_process(delta: float) -> void:
 	# Gizli state'ler dışındaysa görünür yap
 	if target_anim != "":
 		visible = true # Yeni mantıkta visible burada ayarlanıyor
-
-	# <<< YENİ: Update name plate visibility >>>
-	if can_dialogue:
-		update_name_plate_visibility()
-	# <<< YENİ SONU >>>
 
 	# Animasyonu ve texture'ları GÜNCELLE (State Machine'den ÖNCE)
 	if target_anim != "":
@@ -1497,158 +1490,3 @@ func _choose_next_idle_activity():
 	# Debug: #print("Worker %d - Chosen Activity: %s" % [worker_id, chosen_activity])
 	return chosen_activity
 # <<< YENİ SONU >>>
-
-# <<< YENİ: NPC Dialogue System Methods >>>
-
-# Initialize this worker as an NPC with dialogue capability
-func initialize_as_npc(npc_name: String, initial_info: Dictionary = {}, initial_history: Array = []):
-	can_dialogue = true
-	dialogue_name = npc_name
-	
-	# Set up initial NPC state
-	npc_state["Info"] = initial_info.duplicate(true)
-	npc_state["History"] = initial_history.duplicate(true)
-	npc_state["DialogueHistory"] = {}
-	
-	# Connect to NPCDialogueManager's response signal
-	if NpcDialogueManager.is_connected("dialogue_processed", Callable(self, "_on_dialogue_processed")):
-		print("Worker %d (%s): Already connected to NPCDialogueManager" % [worker_id, dialogue_name])
-	else:
-		var error_code = NpcDialogueManager.connect("dialogue_processed", Callable(self, "_on_dialogue_processed"))
-		if error_code == OK:
-			print("Worker %d (%s): Successfully connected to NPCDialogueManager" % [worker_id, dialogue_name])
-		else:
-			printerr("Worker %d (%s): Failed to connect to NPCDialogueManager: Error %d" % [worker_id, dialogue_name, error_code])
-	
-	# Create name plate for this NPC
-	create_name_plate(npc_name)
-
-# <<< YENİ: Name Plate Functions >>>
-# Create a temporary name plate above the NPC
-func create_name_plate(npc_name: String):
-	if name_plate_label != null:
-		remove_name_plate() # Remove existing one first
-	
-	# Create a new Label node
-	name_plate_label = Label.new()
-	name_plate_label.text = npc_name
-	name_plate_label.add_theme_font_size_override("font_size", 16)
-	name_plate_label.add_theme_color_override("font_color", Color.WHITE)
-	name_plate_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	name_plate_label.add_theme_constant_override("shadow_offset_x", 1)
-	name_plate_label.add_theme_constant_override("shadow_offset_y", 1)
-	
-	# Center the text
-	name_plate_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_plate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	
-	# Position it above the NPC
-	name_plate_label.position = Vector2(-30, -80) # Adjust as needed
-	name_plate_label.size = Vector2(60, 20)
-	
-	# Add it as a child of this worker
-	add_child(name_plate_label)
-	print("Worker %d: Created name plate for %s" % [worker_id, npc_name])
-
-# Remove the name plate
-func remove_name_plate():
-	if name_plate_label != null:
-		name_plate_label.queue_free()
-		name_plate_label = null
-		print("Worker %d: Removed name plate" % worker_id)
-
-# Update name plate visibility based on dialogue capability and visibility
-func update_name_plate_visibility():
-	if name_plate_label != null:
-		name_plate_label.visible = can_dialogue and visible and can_start_dialogue()
-# <<< YENİ SONU: Name Plate Functions >>>
-
-# Check if this worker can engage in dialogue
-func can_start_dialogue() -> bool:
-	return can_dialogue and visible and current_state in [State.AWAKE_IDLE, State.SOCIALIZING]
-
-# Start a dialogue interaction with the player
-# This method should be called when the player initiates dialogue with this NPC
-func start_dialogue(player_input: String):
-	if not can_start_dialogue():
-		print("Worker %d (%s): Cannot start dialogue in current state" % [worker_id, dialogue_name])
-		return
-	
-	if dialogue_name.is_empty():
-		printerr("Worker %d: No dialogue name set for NPC!" % worker_id)
-		return
-	
-	print("Worker %d (%s): Starting dialogue with player input: '%s'" % [worker_id, dialogue_name, player_input])
-	
-	# Send the dialogue request to NPCDialogueManager
-	NpcDialogueManager.process_dialogue(npc_state, player_input, dialogue_name)
-
-# Internal: Handle response from NPCDialogueManager
-func _on_dialogue_processed(npc_name: String, new_state: Dictionary, generated_dialogue: String, was_significant: bool):
-	# Check if this response is for this NPC
-	if npc_name != dialogue_name:
-		return # Not for us
-	
-	print("Worker %d (%s): Received dialogue response. Significant: %s" % [worker_id, dialogue_name, was_significant])
-	print("Worker %d (%s): Generated dialogue: '%s'" % [worker_id, dialogue_name, generated_dialogue])
-	
-	# Update our state with the new state
-	npc_state = new_state.duplicate(true)
-	
-	# Emit signal to show dialogue to player (UI will handle this)
-	show_dialogue_to_player.emit(dialogue_name, generated_dialogue)
-	
-	# Optional: Log significance for debugging
-	if was_significant:
-		print("Worker %d (%s): This dialogue was significant and updated NPC state" % [worker_id, dialogue_name])
-
-# Get current NPC info (useful for debugging or UI display)
-func get_npc_info() -> Dictionary:
-	return npc_state.get("Info", {}).duplicate()
-
-# Get current NPC history (useful for debugging)
-func get_npc_history() -> Array:
-	return npc_state.get("History", []).duplicate()
-
-# Add a memory to this NPC's history (useful for external events)
-func add_memory(memory: String):
-	if not can_dialogue:
-		return
-	
-	if not npc_state.has("History"):
-		npc_state["History"] = []
-	
-	npc_state["History"].append(memory)
-	print("Worker %d (%s): Added memory: '%s'" % [worker_id, dialogue_name, memory])
-
-# Update NPC info (useful for external state changes)
-func update_npc_info(key: String, value):
-	if not can_dialogue:
-		return
-	
-	if not npc_state.has("Info"):
-		npc_state["Info"] = {}
-	
-	npc_state["Info"][key] = value
-	print("Worker %d (%s): Updated info - %s: %s" % [worker_id, dialogue_name, key, str(value)])
-
-# Get the dialogue name for this NPC
-func get_dialogue_name() -> String:
-	return dialogue_name
-
-# <<< YENİ SONU: NPC Dialogue System Methods >>>
-
-# <<< YENİ: Cleanup function >>>
-# Clean up NPC resources when worker is removed
-func cleanup_npc():
-	if can_dialogue:
-		remove_name_plate()
-		can_dialogue = false
-		dialogue_name = ""
-		
-		# Disconnect from NPCDialogueManager if connected
-		if NpcDialogueManager.is_connected("dialogue_processed", Callable(self, "_on_dialogue_processed")):
-			NpcDialogueManager.disconnect("dialogue_processed", Callable(self, "_on_dialogue_processed"))
-			print("Worker %d: Disconnected from NPCDialogueManager" % worker_id)
-
-# <<< YENİ SONU: Cleanup >>>
