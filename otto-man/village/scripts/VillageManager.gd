@@ -101,14 +101,6 @@ func _ready() -> void:
 	# ---------------------------
 	#print("VillageManager Ready: Initial resource levels set to 0.")
 
-	# !!! İŞÇİ OLUŞTURMA BURADAN KALDIRILDI !!!
-	# İşçi oluşturma register_village_scene fonksiyonuna taşındı.
-func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("SaveVillagers"):
-		for worker in workers_container.get_children():
-			worker.Save_Villager_Info()
-		print(VillagerAiInitializer.Saved_Villagers)
-# VillageScene tarafından çağrılır ve başlangıç işçi kurulumunu yapar
 func register_village_scene(scene: Node2D) -> void:
 	village_scene_instance = scene
 	#print("VillageManager: VillageScene kaydedildi.")
@@ -135,10 +127,10 @@ func register_village_scene(scene: Node2D) -> void:
 	# Başlangıç işçilerini oluştur
 	if workers_container and is_instance_valid(campfire_node):
 		#print("VillageManager: Campfire ve WorkersContainer bulundu, başlangıç işçileri oluşturuluyor...")
-		var initial_worker_count = STARTING_WORKER_COUNT # TODO: Bu değeri GlobalPlayerData veya başka bir yerden al
+		var initial_worker_count = VillagerAiInitializer.Saved_Villagers.size() # TODO: Bu değeri GlobalPlayerData veya başka bir yerden al
 		# <<< GÜNCELLENDİ: Başarısız olursa döngüyü kır >>>
 		for i in range(initial_worker_count):
-			if not _add_new_worker(): 
+			if not _add_new_worker(VillagerAiInitializer.Saved_Villagers[i]): 
 				#print("VillageManager: Initial worker %d could not be added due to lack of housing. Stopping initial worker creation." % (i + 1))
 				break 
 		# <<< GÜNCELLEME SONU >>>
@@ -675,19 +667,18 @@ func notify_building_state_changed(building_node: Node) -> void:
 
 # Yeni bir işçi düğümü oluşturur, ID atar, listeye ekler, sayacı günceller ve barınak atar.
 # Başarılı olursa true, barınak bulunamazsa veya hata olursa false döner.
-func load_existing_worker():
-	#TODO LOAD FROM VILLAGEAIINITIALIZER SAVED ARRAY
-	pass
-func _add_new_worker() -> bool: # <<< Dönüş tipi eklendi
+
+
+func _add_new_worker(NPC_Info:Dictionary = {}) -> bool: # <<< Dönüş tipi eklendi
 	if not worker_scene:
 		#printerr("VillageManager: Worker scene not loaded!")
 		return false
-
+	
 	var worker_instance = worker_scene.instantiate()
 	worker_id_counter += 1
 	worker_instance.worker_id = worker_id_counter
 	worker_instance.name = "Worker" + str(worker_id_counter) 
-	
+	worker_instance.NPC_Info = NPC_Info
 	# <<< YENİ: Rastgele Görünüm Ata >>>
 	if worker_instance.has_method("update_visuals"): # Önce metodun varlığını kontrol et (güvenlik)
 		worker_instance.appearance = AppearanceDB.generate_random_appearance()

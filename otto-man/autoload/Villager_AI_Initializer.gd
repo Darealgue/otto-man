@@ -2103,6 +2103,7 @@ var Villager_Info_Pool : Array =[
 		}
 	}
 ]
+signal LoadComplete
 
 func _ready() -> void:
 	randomize()
@@ -2112,25 +2113,67 @@ func get_villager_info():
 	Villager_Info_Pool.erase(ChosenInfo)
 	return ChosenInfo
 	
-func save_array_to_json(array: Array, path: String) -> void:
-	var file = FileAccess.open(path, FileAccess.WRITE)
+const SAVE_DIR = "user://otto-man-save/"
+
+func save_array_to_json(array: Array, file_name: String) -> void:
+	# Ensure the save directory exists
+	create_save_directory()
+
+	# Construct the full path for the file
+	var full_path = SAVE_DIR + file_name
+
+	var file = FileAccess.open(full_path, FileAccess.WRITE)
 	if file:
 		var json_string = JSON.stringify(array)
 		file.store_string(json_string)
 		file.close()
+		print("Successfully saved data to: %s" % full_path)
 	else:
-		push_error("Failed to open file for writing: %s" % path)
+		push_error("Failed to open file for writing: %s" % full_path)
+func Load_existing_villagers():
+	var ExistingVillagers = load_array_from_json("Saved_Villagers.json")
+	for NPCdata in ExistingVillagers:
+		Villager_Info_Pool.erase(NPCdata)
+	Saved_Villagers = ExistingVillagers
+	
+func load_array_from_json(file_name: String) -> Array:
+	# Construct the full path for the file
+	var full_path = SAVE_DIR + file_name
 
-func load_array_from_json(path: String) -> Array:
-	var file = FileAccess.open(path, FileAccess.READ)
+	# Check if the file exists before trying to open it
+	if not FileAccess.file_exists(full_path):
+		print("Save file does not exist: %s" % full_path)
+		return [] # Return empty array if file doesn't exist
+
+	var file = FileAccess.open(full_path, FileAccess.READ)
 	if file:
 		var json_string = file.get_as_text()
 		file.close()
 		var result = JSON.parse_string(json_string)
 		if result is Array:
+			print("Successfully loaded data from: %s" % full_path)
+			emit_signal("LoadComplete")
 			return result
 		else:
-			push_error("Loaded JSON is not an array.")
+			push_error("Loaded JSON is not an array or is invalid: %s" % full_path)
 	else:
-		push_error("Failed to open file for reading: %s" % path)
+		push_error("Failed to open file for reading: %s" % full_path)
 	return []
+
+func create_save_directory() -> void:
+	# Get a DirAccess instance
+	var dir = DirAccess.open("user://")
+	if dir:
+		# Check if the "otto-man-save" directory exists within user://
+		# Updated directory name here
+		if not dir.dir_exists("otto-man-save"):
+			# If not, create it
+			# Updated directory name here
+			var error = dir.make_dir("otto-man-save")
+			if error != OK:
+				push_error("Failed to create save directory: %s" % SAVE_DIR)
+			else:
+				print("Created save directory: %s" % SAVE_DIR)
+		# Close the DirAccess instance
+	else:
+		push_error("Failed to open user:// directory.")

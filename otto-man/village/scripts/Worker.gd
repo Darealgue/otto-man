@@ -550,12 +550,15 @@ func _ready() -> void:
 		update_visuals()
 	# <<< YENİ SONU >>>
 	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
-
+	if NPC_Info.is_empty() == true:
+		Initialize_New_Villager()
+	else:
+		$NamePlate.text = NPC_Info["Info"]["Name"]
 func Save_Villager_Info():
 	VillagerAiInitializer.Saved_Villagers.append(NPC_Info)
 	
-func Load_Villager_Info(VillagerInfo:Dictionary):
-	NPC_Info = VillagerInfo
+#func Load_Villager_Info(VillagerInfo:Dictionary):
+	#NPC_Info = VillagerInfo
 
 func Initialize_New_Villager():
 	NPC_Info = VillagerAiInitializer.get_villager_info()

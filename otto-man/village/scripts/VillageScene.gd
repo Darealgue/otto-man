@@ -28,7 +28,8 @@ var active_dialogue_npc: Node = null
 
 func _ready() -> void:
 	# VillageManager'a bu sahneyi tanıt
-	VillageManager.register_village_scene(self)
+	VillagerAiInitializer.LoadComplete.connect(VillagersLoaded)
+	
 
 	# Sinyalleri bağla (Eski inşa buton bağlantıları kaldırıldı)
 	open_worker_ui_button.pressed.connect(_on_open_worker_ui_button_pressed)
@@ -52,8 +53,13 @@ func _ready() -> void:
 	# Print instructions for testing
 	call_deferred("print_dialogue_test_instructions")
 	# <<< YENİ SONU >>>
-
+	Load_Existing_Villagers()
 # --- UI Açma / Kapatma Fonksiyonları ---
+func Load_Existing_Villagers():
+	VillagerAiInitializer.Load_existing_villagers()
+func VillagersLoaded():
+	VillageManager.register_village_scene(self)
+	
 func _on_open_worker_ui_button_pressed() -> void:
 	# Diğer paneli kapat (aynı anda sadece biri açık olsun)
 	cariye_management_ui.hide()
