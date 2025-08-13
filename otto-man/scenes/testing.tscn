@@ -452,3 +452,5 @@ position = Vector2(5526, 531)
 
 [node name="HunterEnemy" parent="." instance=ExtResource("11_4fdil")]
 position = Vector2(1760, -102)
+default_stats = null
+debug_enabled = null

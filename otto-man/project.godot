@@ -32,6 +32,7 @@ TimeManager="*res://village/scripts/TimeManager.gd"
 AppearanceDB="*res://autoload/AppearanceDB.gd"
 LlamaService="*res://autoload/LlamaService.cs"
 NpcDialogueManager="*res://autoload/NPCDialogueManager.gd"
+Loots="*res://autoload/loot_pool.gd"
 
 [display]
 

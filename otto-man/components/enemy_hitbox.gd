@@ -11,8 +11,8 @@ var is_parried: bool = false  # Track if the hitbox has been parried
 
 func _ready():
     super._ready()
-    collision_layer = 64  # Layer 7 (Enemy hitbox)
-    collision_mask = 8    # Layer 4 (Player hurtbox)
+    collision_layer = CollisionLayers.ENEMY_HITBOX
+    collision_mask = CollisionLayers.PLAYER_HURTBOX
 
 func setup_attack(type: String, parryable: bool = true, stun: float = 0.0):
     attack_type = type

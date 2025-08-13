@@ -22,7 +22,7 @@ var connections: Array[Direction] = []
 var connection_points: Dictionary = {}
 
 var chunk_type: String = "city"  # Base type for city chunks
-@onready var spawn_manager: SpawnManager = $SpawnManager as SpawnManager
+@onready var spawn_manager = $SpawnManager
 
 func _ready() -> void:
 	print("[LinearChunk] Initialized:", name)
@@ -104,6 +104,6 @@ func clear_enemies() -> void:
 
 # Get active spawn points
 func get_active_spawn_points() -> Array:
-	if spawn_manager:
-		return spawn_manager.get_active_spawn_points()
-	return [] 
+    if spawn_manager and spawn_manager.has_method("get_active_spawn_points"):
+        return spawn_manager.get_active_spawn_points()
+    return [] 

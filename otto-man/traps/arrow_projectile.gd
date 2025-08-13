@@ -14,8 +14,8 @@ func _ready():
 	# area_entered.connect(_on_area_entered)  # Disabled to prevent double collision
 	
 	# Set collision layers for arrow
-	collision_layer = 0  # Arrow doesn't need to be detected by others
-	collision_mask = 2   # Detect player (layer 2)
+	collision_layer = CollisionLayers.NONE  # Arrow doesn't need to be detected by others
+	collision_mask = CollisionLayers.PLAYER   # Detect player by named layer
 	
 	print("[Arrow] Arrow created with collision_mask: " + str(collision_mask))
 	

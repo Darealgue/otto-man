@@ -15,8 +15,8 @@ var combo_enabled: bool = false  # Added missing property
 
 func _ready():
 	super._ready()
-	collision_layer = 16  # Layer 5 (Player hitbox)
-	collision_mask = 32   # Layer 6 (Enemy hurtbox)
+	collision_layer = CollisionLayers.PLAYER_HITBOX
+	collision_mask = CollisionLayers.ENEMY_HURTBOX
 	# Ensure hitbox starts inactive but visible for debugging
 	monitoring = false
 	monitorable = false

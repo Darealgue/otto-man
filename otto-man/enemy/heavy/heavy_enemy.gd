@@ -71,8 +71,8 @@ func _ready() -> void:
 	if raycast_left and raycast_right:
 		raycast_left.enabled = true
 		raycast_right.enabled = true
-		raycast_left.collision_mask = 1  # Layer 1 for environment
-		raycast_right.collision_mask = 1
+		raycast_left.collision_mask = CollisionLayers.WORLD  # Environment
+		raycast_right.collision_mask = CollisionLayers.WORLD
 		raycast_left.position = Vector2(-20, 0)  # Offset from center
 		raycast_right.position = Vector2(20, 0)
 		raycast_left.target_position = Vector2(0, 100)  # Longer raycast
@@ -97,7 +97,7 @@ func _ready() -> void:
 	
 	# Ensure physics are properly set up
 	collision_layer = 4  # Enemy layer
-	collision_mask = 1   # Collide with environment
+	collision_mask = CollisionLayers.WORLD   # Collide with environment
 	floor_snap_length = 32.0  # Snap to floor
 	up_direction = Vector2.UP
 	
@@ -117,7 +117,7 @@ func _ready() -> void:
 		if not is_on_floor():
 			var space_state = get_world_2d().direct_space_state
 			var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * 500.0)
-			query.collision_mask = 1  # Environment layer
+			query.collision_mask = CollisionLayers.WORLD  # Environment layer
 			var result = space_state.intersect_ray(query)
 			
 			if result:
@@ -136,7 +136,7 @@ func find_ground_below(start_pos: Vector2) -> Vector2:
 	ground_check.enabled = true
 	ground_check.position = Vector2(0, 0)
 	ground_check.target_position = Vector2(0, 500)  # Check up to 500 pixels down
-	ground_check.collision_mask = 1
+	ground_check.collision_mask = CollisionLayers.WORLD
 	
 	# Store current position
 	var current_pos = position
@@ -721,7 +721,7 @@ func _physics_process(delta: float) -> void:
 			# Try to detect ground below
 			var space_state = get_world_2d().direct_space_state
 			var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * floor_snap_length)
-			query.collision_mask = 1  # Environment layer
+			query.collision_mask = CollisionLayers.WORLD  # Environment layer
 			var result = space_state.intersect_ray(query)
 			
 			if result:

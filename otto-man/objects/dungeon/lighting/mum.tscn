@@ -66,7 +66,8 @@ fill_from = Vector2(0.495413, 0.5)
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_w7l8y")
 animation = &"idle"
-frame_progress = 0.226257
+frame = 4
+frame_progress = 0.541133
 
 [node name="PointLight2D" type="PointLight2D" parent="."]
 color = Color(1, 0.580392, 0.196078, 1)

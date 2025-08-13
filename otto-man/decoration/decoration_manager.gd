@@ -6,6 +6,7 @@ var _decoration_spawners: Array[DecorationSpawner] = []
 var _active_spawners: Array[DecorationSpawner] = []
 var _chunk_type: String = "basic"
 var _current_level: int = 1
+const EDGE_MARGIN_PX: float = 96.0
 
 func _ready() -> void:
 	_decoration_config = DecorationConfig.new()
@@ -63,6 +64,12 @@ func initialize(chunk_type: String, level: int) -> void:
 func _select_decoration_spawners(available_spawners: Array[DecorationSpawner], chunk_type: String, level: int) -> Array[DecorationSpawner]:
 	var selected: Array[DecorationSpawner] = []
 	
+	# Filter out spawners that are too close to the chunk's outer edges
+	var safe_spawners: Array[DecorationSpawner] = []
+	for s in available_spawners:
+		if not _is_spawner_near_chunk_edge(s):
+			safe_spawners.append(s)
+	
 	# Chunk tipi için density bilgilerini al
 	var density = _decoration_config.get_decoration_density(chunk_type)
 	
@@ -72,7 +79,7 @@ func _select_decoration_spawners(available_spawners: Array[DecorationSpawner], c
 	var platform_spawners: Array[DecorationSpawner] = []
 	var breakable_spawners: Array[DecorationSpawner] = []
 	
-	for spawner in available_spawners:
+	for spawner in safe_spawners:
 		match spawner.decoration_type:
 			DecorationConfig.DecorationType.GOLD:
 				gold_spawners.append(spawner)
@@ -90,6 +97,27 @@ func _select_decoration_spawners(available_spawners: Array[DecorationSpawner], c
 	selected.append_array(_select_spawners_by_type(breakable_spawners, density.breakable_decorations))
 	
 	return selected
+
+# Returns true if the given spawner is within EDGE_MARGIN_PX of the chunk's outer bounds
+func _is_spawner_near_chunk_edge(spawner: DecorationSpawner) -> bool:
+	var chunk := get_parent() as Node2D
+	if not chunk:
+		return false
+	# Determine chunk size (fallback to default if method unavailable)
+	var chunk_size: Vector2 = Vector2(1920, 1080)
+	if chunk.has_method("get_chunk_size"):
+		chunk_size = chunk.call("get_chunk_size")
+	# Compute local position of spawner relative to chunk
+	var local_pos: Vector2 = chunk.to_local(spawner.global_position)
+	if local_pos.x < EDGE_MARGIN_PX:
+		return true
+	if local_pos.x > chunk_size.x - EDGE_MARGIN_PX:
+		return true
+	if local_pos.y < EDGE_MARGIN_PX:
+		return true
+	if local_pos.y > chunk_size.y - EDGE_MARGIN_PX:
+		return true
+	return false
 
 func _select_spawners_by_type(spawners: Array[DecorationSpawner], count_range: Dictionary) -> Array[DecorationSpawner]:
 	var selected: Array[DecorationSpawner] = []
@@ -241,14 +269,14 @@ func _spawn_gold_drops(pos: Vector2, amount: int) -> void:
 		
 		get_parent().add_child(coin)
 
-func _on_dropped_gold_collected(coin: Node2D, body: Node2D) -> void:
+func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 	if body.is_in_group("player"):
 		var gold_value = coin.get_meta("gold_value", 1)
 		
 		if GlobalPlayerData:
 			GlobalPlayerData.add_gold(gold_value)
 		
-		print("[DecorationManager] Dropped gold collected: %d" % gold_value)
+		print("[DecorationManager] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 		coin.queue_free()
 
 func _create_break_effect(pos: Vector2) -> void:
@@ -278,4 +306,4 @@ func _create_break_effect(pos: Vector2) -> void:
 	# Efekti temizle
 	var cleanup_tween = create_tween()
 	cleanup_tween.tween_delay(0.5)
-	cleanup_tween.tween_callback(effect.queue_free) 
+	cleanup_tween.tween_callback(effect.queue_free)

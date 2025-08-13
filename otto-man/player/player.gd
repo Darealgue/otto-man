@@ -93,13 +93,13 @@ func _ready():
 	call_deferred("_set_player_z_index")
 	
 	# Collision layer ve mask'ı doğru şekilde ayarla
-	collision_layer = 2  # Layer 2 (player)
+	collision_layer = CollisionLayers.PLAYER  # Player layer
 	print("Oyuncu collision_layer: ", collision_layer)
 	
 	# Set up collision mask to detect both ground and platforms
-	collision_mask |= 10  # Add platform layer (10) to existing collision mask
-	collision_mask |= 4   # Add building slot layer (4) to collision mask
-	set_collision_mask_value(10, true)  # Ensure platform collision is enabled by default
+	collision_mask |= CollisionLayers.PLATFORM  # Add platform layer
+	collision_mask |= CollisionLayers.BUILDING_SLOT  # Add building slot layer
+	set_collision_mask_value(10, true)  # Ensure platform collision is enabled by default (kept as numeric for now)
 	print("Oyuncu collision_mask: ", collision_mask)
 	
 	animation_player.active = true
@@ -114,12 +114,12 @@ func _ready():
 	
 	# Set up hitbox and hurtbox
 	if hitbox:
-		hitbox.collision_layer = 16  # Layer 5 (Player hitbox)
-		hitbox.collision_mask = 32   # Layer 6 (Enemy hurtbox)
+		hitbox.collision_layer = CollisionLayers.PLAYER_HITBOX
+		hitbox.collision_mask = CollisionLayers.ENEMY_HURTBOX
 	
 	if hurtbox:
-		hurtbox.collision_layer = 8   # Layer 4 (Player hurtbox)
-		hurtbox.collision_mask = 64   # Layer 7 (Enemy hitbox)
+		hurtbox.collision_layer = CollisionLayers.PLAYER_HURTBOX
+		hurtbox.collision_mask = CollisionLayers.ENEMY_HITBOX
 		# Disconnect any existing connections to avoid duplicates
 		if hurtbox.hurt.is_connected(_on_hurtbox_hurt):
 			hurtbox.hurt.disconnect(_on_hurtbox_hurt)

@@ -279,8 +279,8 @@ func die() -> void:
 	change_behavior("dead", true)
 	
 	# Disable ALL collision except with ground
-	collision_layer = 0  # No collision with anything
-	collision_mask = 1   # Only collide with environment
+	collision_layer = CollisionLayers.NONE  # No collision with anything
+	collision_mask = CollisionLayers.WORLD  # Only collide with environment
 	set_collision_layer_value(1, false)  # Ensure no world collision
 	set_collision_layer_value(2, false)  # Ensure no player collision
 	set_collision_layer_value(3, false)  # Ensure no enemy collision

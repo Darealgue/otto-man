@@ -103,7 +103,7 @@ func spawn_enemies() -> void:
 	# Ensure enemy is on the floor by raycasting down
 	var space_state = get_world_2d().direct_space_state
 	var query = PhysicsRayQueryParameters2D.create(spawn_pos, spawn_pos + Vector2.DOWN * 500.0)  # Increased raycast distance
-	query.collision_mask = 1  # Environment layer
+	query.collision_mask = CollisionLayers.WORLD  # Environment layer
 	var result = space_state.intersect_ray(query)
 	
 	if result:

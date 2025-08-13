@@ -102,16 +102,16 @@ func _setup_nodes():
 		hitbox_area.add_child(collision)
 		# Ensure the hitbox detects the player body (layer 2) and hurtbox (layer 4 -> value 8)
 		# We keep the axe itself out of collision layers to avoid physics interference
-		hitbox_area.collision_layer = 0
-		hitbox_area.collision_mask = 2 + 8  # Player body (2) + player hurtbox (8)
+		hitbox_area.collision_layer = CollisionLayers.NONE
+		hitbox_area.collision_mask = CollisionLayers.PLAYER | CollisionLayers.PLAYER_HURTBOX  # Player body + hurtbox
 		
 		add_child(hitbox_area)
 		print("[PendulumAxe] Created hitbox_area")
 	
 	# Ensure collision layers/mask detect player regardless of existing or new hitbox
 	if hitbox_area:
-		hitbox_area.collision_layer = 0
-		hitbox_area.collision_mask = 2 + 8  # Player body + hurtbox
+		hitbox_area.collision_layer = CollisionLayers.NONE
+		hitbox_area.collision_mask = CollisionLayers.PLAYER | CollisionLayers.PLAYER_HURTBOX  # Player body + hurtbox
 	
 	# IMPORTANT: Reset all transforms to ensure a clean slate
 	axe_sprite.offset = Vector2.ZERO

@@ -27,8 +27,8 @@ var wall_side := 0  # -1 for left wall, 1 for right wall
 func _ready():
 	assert(wall_ray_left != null, "Left wall raycast not found!")
 	assert(wall_ray_right != null, "Right wall raycast not found!")
-	wall_ray_left.collision_mask = 1
-	wall_ray_right.collision_mask = 1
+	wall_ray_left.collision_mask = CollisionLayers.WORLD
+	wall_ray_right.collision_mask = CollisionLayers.WORLD
 
 func update_cooldown(delta: float) -> void:
 	if reentry_cooldown_timer > 0:

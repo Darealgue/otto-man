@@ -13,8 +13,8 @@ func _ready():
     timer.timeout.connect(queue_free)
     
     # Set up collision
-    collision_layer = 256  # Layer 9 (Enemy Projectiles)
-    collision_mask = 8    # Layer 4 (Player Hurtbox)
+    collision_layer = CollisionLayers.ENEMY_PROJECTILE  # Enemy projectile layer
+    collision_mask = CollisionLayers.PLAYER_HURTBOX     # Hit player hurtbox
     
     # Fix rotation based on direction
     if direction.x < 0:

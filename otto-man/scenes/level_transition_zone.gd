@@ -9,8 +9,8 @@ var is_on_cooldown: bool = false
 
 func _ready() -> void:
 	# Set up collision layer and mask for player detection
-	collision_layer = 0  # Zone doesn't need a collision layer
-	collision_mask = 2   # Layer 2 is typically for player
+	collision_layer = CollisionLayers.NONE  # Zone doesn't need a collision layer
+	collision_mask = CollisionLayers.PLAYER   # Detect player by named layer
 	monitoring = true    # Ensure monitoring is enabled
 	monitorable = true  # Allow the area to be monitored
 	
@@ -45,4 +45,4 @@ func _on_body_entered(body: Node2D) -> void:
 	if body.name == "Player" or (body.get_parent() and body.get_parent().name == "Player"):
 		print("Player body detected, emitting signal for zone type: ", zone_type)
 		player_entered.emit(zone_type)
-		start_cooldown() 
+		start_cooldown()

@@ -6,8 +6,8 @@ var can_be_parried := true
 
 func _ready():
 	super._ready()
-	collision_layer = 8   # Layer 4 (Player hurtbox)
-	collision_mask = 64   # Layer 7 (Enemy hitbox)
+	collision_layer = CollisionLayers.PLAYER_HURTBOX
+	collision_mask = CollisionLayers.ENEMY_HITBOX
 
 func _on_area_entered(hitbox: Area2D):
 	if not hitbox is EnemyHitbox:

@@ -1527,7 +1527,7 @@ _data = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
-size = Vector2(79.75, 32)
+size = Vector2(104.75, 49)
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_2"]
 radius = 9.0
@@ -1615,7 +1615,7 @@ script = ExtResource("29_xgdcd")
 damage = 15.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
-position = Vector2(40.125, -22)
+position = Vector2(52.625, -22.5)
 shape = SubResource("RectangleShape2D_1")
 debug_color = Color(1, 0, 0, 0.5)
 

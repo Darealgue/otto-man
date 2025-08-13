@@ -25,7 +25,7 @@ var actual_size: Vector2:
 	get: return base_size * size_in_units
 
 var chunk_type: String = "basic"  # Override in specific chunks
-var spawn_manager: SpawnManager
+var spawn_manager
 var trap_manager: TrapManager
 var decoration_manager: DecorationManager
 
@@ -216,7 +216,7 @@ func clear_enemies() -> void:
 
 # Get active spawn points
 func get_active_spawn_points() -> Array:
-	if spawn_manager:
+	if spawn_manager and spawn_manager.has_method("get_active_spawn_points"):
 		return spawn_manager.get_active_spawn_points()
 	return []
  

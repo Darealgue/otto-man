@@ -8,8 +8,8 @@ func _ready() -> void:
 	super._ready()
 	
 	# Set up one-way collision
-	collision_layer = 1  # Ground layer
-	collision_mask = 0   # Don't collide with anything
+    collision_layer = CollisionLayers.WORLD  # Ground layer
+    collision_mask = CollisionLayers.NONE   # Don't collide with anything
 	
 	# Make platform semi-transparent
 	platform_color.a = 0.7
@@ -43,7 +43,7 @@ func start_drop_through(body: Node) -> void:
 	if body not in dropping_bodies:
 		dropping_bodies.append(body)
 		# Disable collision with this body
-		collision_layer = 0
+        collision_layer = CollisionLayers.NONE
 		# Start a timer to re-enable collision
 		get_tree().create_timer(0.15).timeout.connect(
 			func(): stop_drop_through(body)
@@ -53,4 +53,4 @@ func stop_drop_through(body: Node) -> void:
 	if body in dropping_bodies:
 		dropping_bodies.erase(body)
 		if dropping_bodies.is_empty():
-			collision_layer = 1 
+            collision_layer = CollisionLayers.WORLD 

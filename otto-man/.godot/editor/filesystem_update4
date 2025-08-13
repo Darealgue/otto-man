@@ -1,0 +1,9 @@
+res://village/scenes/VillageScene.tscn
+res://Tile set/dungeon_master_tileset.tres
+res://scenes/testing.tscn
+res://player/player.tscn
+res://scenes/test_level.tscn
+res://chunks/dungeon/special/start_chunk.tscn
+res://chunks/dungeon/basic/basic_platform1.tscn
+res://chunks/dungeon/basic/basic_platform2.tscn
+res://chunks/dungeon/basic/basic_platform.tscn

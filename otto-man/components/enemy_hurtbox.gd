@@ -5,8 +5,8 @@ var slam_hit_cooldown := 0.5  # Longer cooldown for slam attacks
 
 func _ready():
     super._ready()
-    collision_layer = 32  # Layer 6 (Enemy hurtbox)
-    collision_mask = 16   # Layer 5 (Player hitbox)
+    collision_layer = CollisionLayers.ENEMY_HURTBOX
+    collision_mask = CollisionLayers.PLAYER_HITBOX
 
 func _on_area_entered(hitbox: Area2D):
     if not hitbox is PlayerHitbox:

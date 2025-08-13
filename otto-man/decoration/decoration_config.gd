@@ -25,35 +25,35 @@ const GOLD_TYPES = {
 	"single_coin": {
 		"weight": 70,
 		"gold_value": 5,
-		"sprite": "res://assets/gold/single_coin.png"
+		"sprites": ["res://assets/gold/single_coin.png"]
 	},
 	"small_pile": {
 		"weight": 20,
 		"gold_value": 15,
-		"sprite": "res://assets/gold/small_pile.png"
+		"sprites": ["res://assets/gold/small_pile.png"]
 	},
 	"large_pile": {
 		"weight": 8,
 		"gold_value": 30,
-		"sprite": "res://assets/gold/large_pile.png"
+		"sprites": ["res://assets/gold/large_pile.png"]
 	},
 	"gold_pouch": {
 		"weight": 2,
 		"gold_value": 100,
-		"sprite": "res://assets/gold/gold_pouch.png"
+		"sprites": ["res://assets/gold/gold_pouch.png"]
 	}
 }
 
 # Arka plan dekorları
 const BACKGROUND_DECORS = {
-	"spider_web": {
-		"weight": 30,
-		"locations": [SpawnLocation.CORNER_HIGH, SpawnLocation.CEILING],
-		"sprites": [
-			"res://assets/decorations/spider_web_1.png",
-			"res://assets/decorations/spider_web_2.png"
-		]
-	},
+    "spider_web": {
+        "weight": 60,
+        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER, SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH, SpawnLocation.CEILING, SpawnLocation.CORNER_HIGH, SpawnLocation.CORNER_LOW],
+        "sprites": [
+            "res://assets/objects/dungeon/web1.png",
+            "res://assets/objects/dungeon/web2.png"
+        ]
+    },
 	"hanging_chains": {
 		"weight": 25,
 		"locations": [SpawnLocation.CEILING, SpawnLocation.WALL_HIGH],
@@ -70,14 +70,96 @@ const BACKGROUND_DECORS = {
 			"res://assets/decorations/moss_2.png"
 		]
 	},
-	"bone_pile": {
-		"weight": 15,
-		"locations": [SpawnLocation.FLOOR_CORNER],
-		"sprites": [
-			"res://assets/decorations/bones_1.png",
-			"res://assets/decorations/bones_2.png"
-		]
-	},
+    "bone_pile": {
+        "weight": 15,
+        "locations": [SpawnLocation.FLOOR_CORNER],
+        "sprites": [
+			"res://assets/objects/dungeon/bone1.png",
+			"res://assets/objects/dungeon/bone2.png"
+        ]
+    },
+    "stone1": {
+        "weight": 20,
+        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+        "sprites": [
+            "res://assets/objects/dungeon/stone1.png"
+        ]
+    },
+    "box1": {
+        "weight": 18,
+        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+        "sprites": [
+            "res://assets/objects/dungeon/box1.png"
+        ]
+    },
+    "box2": {
+        "weight": 10,
+        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+        # 2x2 tile footprint, grows upward from floor
+        "width_tiles": 2,
+        "height_tiles": 2,
+        "grow_dir": "up",
+        "sprites": [
+            "res://assets/objects/dungeon/box2.png"
+        ]
+    },
+    "gate1": {
+        "weight": 4,
+        "locations": [SpawnLocation.FLOOR_CENTER],
+		# 2x3 tile footprint, grows upward from floor
+		"width_tiles": 2,
+		"height_tiles": 3,
+        "grow_dir": "up",
+        "sprites": [
+            "res://assets/objects/dungeon/gate1.png"
+        ]
+    },
+    "gate2": {
+        "weight": 3,
+        "locations": [SpawnLocation.FLOOR_CENTER],
+        # Same width as gate1, shorter height (2 tiles)
+        "width_tiles": 2,
+        "height_tiles": 2,
+        "grow_dir": "up",
+        "sprites": [
+            "res://assets/objects/dungeon/gate2.png"
+        ]
+    },
+    "pipe1": {
+        "weight": 12,
+        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+        # 1x1 tile
+        "width_tiles": 1,
+        "height_tiles": 1,
+        "grow_dir": "up",
+        "requires_background": true,
+        "sprites": [
+            "res://assets/objects/dungeon/pipe1.png"
+        ]
+    },
+    "pipe2": {
+        "weight": 10,
+        "locations": [SpawnLocation.FLOOR_CENTER],
+        # 1x5 tiles (vertical)
+        "width_tiles": 1,
+        "height_tiles": 5,
+        "grow_dir": "up",
+        "requires_background": true,
+        "sprites": [
+            "res://assets/objects/dungeon/pipe2.png"
+        ]
+    },
+    "sculpture1": {
+        "weight": 6,
+        "locations": [SpawnLocation.FLOOR_CENTER],
+        # 3x5 tiles, grows upward from floor
+        "width_tiles": 3,
+        "height_tiles": 5,
+        "grow_dir": "up",
+        "sprites": [
+            "res://assets/objects/dungeon/sculpture1.png"
+        ]
+    },
 	"wall_cracks": {
 		"weight": 10,
 		"locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH],
@@ -90,16 +172,16 @@ const BACKGROUND_DECORS = {
 
 # Platform dekorları
 const PLATFORM_DECORS = {
-	"large_pot": {
-		"weight": 30,
-		"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-		"collision_size": Vector2(64, 96),
-		"sprites": [
-			"res://assets/decorations/large_pot_1.png",
-			"res://assets/decorations/large_pot_2.png"
-		]
-	},
-	"stone_block": {
+    "large_pot": {
+        "weight": 30,
+        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+        "collision_size": Vector2(64, 96),
+        "sprites": [
+            "res://assets/decorations/large_pot_1.png",
+            "res://assets/decorations/large_pot_2.png"
+        ]
+    },
+    "stone_block": {
 		"weight": 25,
 		"locations": [SpawnLocation.FLOOR_CENTER],
 		"collision_size": Vector2(96, 64),
@@ -253,4 +335,110 @@ func select_random_decoration(available_decorations: Array, decoration_type: Dec
 
 # Chunk türü için dekorasyon yoğunluğu al
 func get_decoration_density(chunk_type: String) -> Dictionary:
-	return DECORATION_DENSITY.get(chunk_type, DECORATION_DENSITY["basic"]) 
+	return DECORATION_DENSITY.get(chunk_type, DECORATION_DENSITY["basic"])
+
+# ==============================================================================
+# TILE-BASED DECORATION RULES
+# ==============================================================================
+# Bu kurallar, TileMap'teki custom data layer'larına göre çalışır.
+# TileSet editöründe, 'decor_anchor' adında bir string custom data layer'ı oluşturun.
+# Üzerine dekorasyon spawn olabilecek tile'lara (duvar, zemin vb.) bu layer'da
+# aşağıdaki anahtarlarla eşleşen değerler atayın (örn: "wall_surface").
+
+const TILE_DECOR_RULES = {
+	"wall_surface": {
+		"chance": 0.15, # Bu tile üzerinde dekorasyon spawn olma ihtimali
+		"decoration_type": DecorationType.BACKGROUND, # Hangi dekor listesinden seçilecek
+		"allowed_locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH], # Hangi pozisyonlara spawn olabilir
+		"allowed_decors": ["moss_patch", "wall_cracks", "hanging_chains", "spider_web"] # İzin verilen spesifik dekorlar
+	},
+	"floor_surface": {
+		"chance": 0.05,
+		"decoration_type": DecorationType.BACKGROUND,
+		"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+		"allowed_decors": ["bone_pile", "spider_web"]
+	},
+	"ceiling_surface": {
+		"chance": 0.1,
+		"decoration_type": DecorationType.BACKGROUND,
+		"allowed_locations": [SpawnLocation.CEILING],
+		"allowed_decors": ["hanging_chains", "spider_web"]
+	},
+	"floor_breakable": {
+		"chance": 0.2,
+		"decoration_type": DecorationType.BREAKABLE,
+		"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+		"allowed_decors": ["small_pot", "wooden_barrel"]
+	}
+}
+
+# Tile'ın custom data'sına göre kuralı getirir
+func get_rule_for_tile_data(custom_data: String) -> Dictionary:
+	return TILE_DECOR_RULES.get(custom_data, {}) 
+
+# ==============================================================================
+# HİYERARŞİK (ÖNCELİKLİ) DEKORASYON KURALLARI
+# ==============================================================================
+# Tek bir tile etiketiyle (örn: 'floor') hem kırılabilir obje hem dekoratif obje spawn edilebilsin diye,
+# önceliklendirilmiş bir kural listesi tanımlıyoruz. Kodda sırayla denenir, biri tutarsa diğerleri atlanır.
+
+const PRIORITY_DECOR_RULES = {
+    "floor_surface": [
+        {
+            "chance": 0.12,
+            "decoration_type": DecorationType.BACKGROUND,
+            "decoration_names": ["spider_web", "box2", "gate1", "gate2", "pipe1", "pipe2", "sculpture1"],
+            "allowed_locations": [SpawnLocation.FLOOR_CENTER]
+        },
+		{
+			"chance": 0.05, # %5
+			"decoration_type": DecorationType.GOLD,
+			"decoration_names": ["single_coin"]
+		},
+		{
+			"chance": 0.05, # %5
+			"decoration_type": DecorationType.BREAKABLE,
+			"decoration_names": ["small_pot"]
+		},
+		{
+			"chance": 0.05, # %5
+            "decoration_type": DecorationType.BACKGROUND,
+            "decoration_names": ["bone_pile"]
+        },
+    {
+            "chance": 0.12,
+            "decoration_type": DecorationType.BACKGROUND,
+            "decoration_names": ["stone1", "box1"],
+            "allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER]
+        }
+	],
+    "floor": [
+        {
+            "chance": 0.04,
+            "decoration_type": DecorationType.BACKGROUND,
+            "decoration_names": ["spider_web", "box2", "gate2", "pipe1", "pipe2", "sculpture1"]
+        },
+		{
+			"chance": 0.2, # %20 ihtimalle kırılabilir obje
+			"decoration_type": DecorationType.BREAKABLE,
+			"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+			"allowed_decors": ["small_pot", "wooden_barrel"]
+		},
+		{
+			"chance": 0.05, # %5 ihtimalle dekoratif obje (kemik yığını)
+            "decoration_type": DecorationType.BACKGROUND,
+            "allowed_locations": [SpawnLocation.FLOOR_CORNER],
+            "allowed_decors": ["bone_pile"]
+        },
+        {
+            "chance": 0.12,
+            "decoration_type": DecorationType.BACKGROUND,
+            "allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+            "allowed_decors": ["stone1", "box1"]
+        }
+	]
+}
+
+# Bir tile'ın custom data'sına göre öncelikli kural listesini getirir
+func get_priority_rules_for_tile_data(custom_data: String) -> Array:
+	return PRIORITY_DECOR_RULES.get(custom_data, []) 

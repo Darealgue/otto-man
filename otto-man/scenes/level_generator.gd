@@ -1,5 +1,28 @@
 extends Node2D
 
+# Helper: abstract get_cell_source_id across TileMap vs TileMapLayer APIs
+func _get_cell_source_id_any(tilemap_node: Node, cell: Vector2i) -> int:
+	if tilemap_node == null:
+		return -1
+	var cls := tilemap_node.get_class()
+	# TileMap (Godot 4): get_cell_source_id(layer, pos)
+	if cls == "TileMap" and tilemap_node.has_method("get_cell_source_id"):
+		var v = tilemap_node.callv("get_cell_source_id", [0, cell])
+		return int(v) if typeof(v) == TYPE_INT else -1
+	# TileMapLayer: get_cell_source_id(pos)
+	if cls == "TileMapLayer" and tilemap_node.has_method("get_cell_source_id"):
+		var v2 = tilemap_node.callv("get_cell_source_id", [cell])
+		return int(v2) if typeof(v2) == TYPE_INT else -1
+	# Fallback: try both signatures defensively
+	if tilemap_node.has_method("get_cell_source_id"):
+		var r2 = tilemap_node.callv("get_cell_source_id", [0, cell])
+		if typeof(r2) == TYPE_INT:
+			return int(r2)
+		var r1 = tilemap_node.callv("get_cell_source_id", [cell])
+		if typeof(r1) == TYPE_INT:
+			return int(r1)
+	return -1
+
 enum Direction {
 	LEFT = 0,
 	RIGHT = 1,
@@ -327,6 +350,7 @@ var is_transitioning: bool = false
 var transition_cooldown: float = 1.0
 
 var unified_terrain: UnifiedTerrain
+var placed_gate_positions: Array[Vector2] = []
 
 class PathGenerator:
 	var astar := AStar2D.new()
@@ -517,6 +541,7 @@ func toggle_camera() -> void:
 		player_camera.enabled = true
 
 func clear_level() -> void:
+	placed_gate_positions.clear()
 	# Store camera state and zoom
 	var player = get_node_or_null("Player")
 	var player_camera_zoom = Vector2.ONE
@@ -1343,8 +1368,681 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 
 	grid[pos.x][pos.y].chunk = chunk # Assign the new chunk to the grid
 
+	# TileMap tabanlı dekorasyonları oluştur
+	_populate_decorations_from_tilemap(chunk)
+
 	print("Successfully placed " + chunk_type + " at " + str(pos)) # Improved logging
 	return true
+
+func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
+	# Kullanıcının belirttiği gibi, tüm chunk'larda TileMap'in adı "TileMapLayer".
+	# Bu yüzden doğrudan bu ismi aramak en verimli yöntem.
+	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
+
+	if not tile_map:
+		print("[DecorPopulate] SKIPPING: Chunk '%s' does not have a child node named 'TileMapLayer'." % chunk_node.name)
+		return
+
+	var config = DecorationConfig.new()
+	var tile_set = tile_map.tile_set
+	if not tile_set:
+		push_warning("TileMap in '%s' has no TileSet." % chunk_node.name)
+		return
+
+	var decor_layer_name = "decor_anchor"
+	var decor_layer_index = -1
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == decor_layer_name:
+			decor_layer_index = i
+			break
+	if decor_layer_index == -1:
+		print("[DecorPopulate] SKIPPING: TileSet in chunk '%s' does not have a custom data layer named '%s'." % [chunk_node.name, decor_layer_name])
+		return
+
+	var used_cells = tile_map.get_used_cells()
+	var found_data_count = 0
+
+	for cell in used_cells:
+		var tile_data = tile_map.get_cell_tile_data(cell)
+		if not tile_data:
+			continue
+		var custom_data = tile_data.get_custom_data(decor_layer_name)
+		# print("DEBUG: cell=", cell, " custom_data=", custom_data)
+		# print("DEBUG: rules for ", custom_data, " = ", rules)
+		if not custom_data:
+			continue
+		var rules = config.PRIORITY_DECOR_RULES.get(custom_data, null)
+		# print("DEBUG: rules for ", custom_data, " = ", rules)
+		if not rules:
+			continue
+		found_data_count += 1
+
+		# --- Hiyerarşik kural sistemi ---
+		for rule in rules:
+			# Global kural: Chunk'ın en dış sınırındaki tile'larda dekor spawn etme
+			if _is_on_chunk_outer_boundary(tile_map, cell):
+				continue
+			# Ek güvenlik: Hücre chunk'ın piksel bazlı güvenli alanının dışında mı?
+			if not _is_cell_within_chunk_safe_bounds(tile_map, cell, chunk_node, 160.0):
+				continue
+			if rule.is_empty():
+				continue
+			if randf() < rule.chance:
+				# Kuralda izin verilen ve lokasyona uygun dekorları filtrele
+				var decoration_pool = config.get_decorations_for_type(rule.decoration_type)
+				var valid_decors = []
+				for decor_name in rule.decoration_names:
+					if decor_name in decoration_pool:
+						valid_decors.append(decor_name)
+				if valid_decors.is_empty():
+					if "gate1" in rule.decoration_names:
+						print("[GateDebug] valid_decors EMPTY at tile=", cell, " rule_names=", rule.decoration_names)
+					if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+						print("[WebDebug] Tile ", cell, " tag=", custom_data, " → valid_decors EMPTY (pool=", decoration_pool, ")")
+					continue
+				var selected_decor_name = valid_decors.pick_random()
+				if selected_decor_name == "gate1":
+					print("[GateDebug] SELECT tile=", cell, " names=", valid_decors)
+				if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+					print("[WebDebug] Tile ", cell, " tag=", custom_data, " pool=", decoration_pool, " valid=", valid_decors, " selected=", selected_decor_name)
+				var did_spawn: bool = false
+				var spawner = DecorationSpawner.new()
+				var decoration_instance = spawner.create_decoration_instance(selected_decor_name, rule.decoration_type)
+				if decoration_instance:
+					# Derive spawn location first for edge filtering
+					var spawn_loc: int = _derive_spawn_location_from_tile_data(custom_data, rule)
+					# did_spawn already declared in outer scope
+					# Optional clearance check for larger decorations
+					var needs_clearance: bool = false
+					var w_tiles: int = 1
+					var h_tiles: int = 1
+					var grow_dir: String = "up"
+					if selected_decor_name in decoration_pool:
+						var dd: Dictionary = decoration_pool.get(selected_decor_name, {})
+						if dd.has("width_tiles") and dd.width_tiles is int:
+							needs_clearance = true
+							w_tiles = int(dd.width_tiles)
+						if dd.has("height_tiles") and dd.height_tiles is int:
+							needs_clearance = true
+							h_tiles = int(dd.height_tiles)
+						if dd.has("grow_dir") and dd.grow_dir is String:
+							grow_dir = String(dd.grow_dir)
+					if needs_clearance:
+						# Ensure base support uses at least the visual width in tiles
+						var vis_size_nc: Vector2 = _get_visual_size_from_instance(decoration_instance)
+						var tile_w_nc: float = float(tile_map.tile_set.tile_size.x)
+						if tile_w_nc > 0.0:
+							var vis_tiles_nc: int = int(ceil(vis_size_nc.x / tile_w_nc))
+							if vis_tiles_nc > w_tiles:
+								w_tiles = vis_tiles_nc
+						if selected_decor_name == "gate1":
+							print("[GateDebug] CLEARANCE footprint=", w_tiles, "x", h_tiles, " grow_dir=", grow_dir)
+						var anchor: Vector2i = cell
+						var dbg: bool = (selected_decor_name == "gate1" or selected_decor_name == "box2")
+						if not _has_clearance_tiles(tile_map, anchor, w_tiles, h_tiles, grow_dir, spawn_loc, dbg, selected_decor_name):
+							if selected_decor_name == "gate1":
+								print("[GateDebug] FAIL clearance at tile=", cell)
+							decoration_instance.queue_free()
+							spawner.queue_free()
+							continue
+						# Background support check for pipes/gates only
+						if selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "gate1" or selected_decor_name == "gate2":
+							var bg_map: TileMap = _find_background_tilemap(chunk_node)
+							if not _has_background_support(bg_map, anchor, w_tiles, h_tiles, grow_dir, dbg, selected_decor_name):
+								decoration_instance.queue_free()
+								spawner.queue_free()
+								continue
+						# Additional wall collision guard only for non-floor placements
+						var floor_based := (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
+						if not floor_based:
+							if _footprint_overlaps_wall(tile_map, anchor, w_tiles, h_tiles, grow_dir, spawn_loc):
+								if selected_decor_name == "gate1":
+									print("[GateDebug] FAIL border overlap at tile=", cell)
+								decoration_instance.queue_free()
+								spawner.queue_free()
+								continue
+					# Skip cells near open chunk edges for floor-like placements
+					if _is_near_open_chunk_edge(tile_map, cell, chunk_node, spawn_loc, rule):
+						if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+							print("[WebDebug] SKIP near edge tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
+						decoration_instance.queue_free()
+						spawner.queue_free()
+						continue
+					# Avoid outside L-shaped dead zones
+					if _is_outside_L_deadzone(tile_map, cell, spawn_loc):
+						if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+							print("[WebDebug] SKIP outside L deadzone tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
+						decoration_instance.queue_free()
+						spawner.queue_free()
+						continue
+					add_child(decoration_instance)
+					# Keep the spawner alive as a child so signal targets remain valid
+					# (create_decoration_instance connects signals to spawner methods)
+					add_child(spawner)
+					var spawn_pos: Vector2 = _compute_decoration_spawn_position(tile_map, cell, spawn_loc)
+					# For clearance-based floor decors (box2, gate1), cancel global left bias to stay tile-aligned
+					if needs_clearance and (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER):
+						# Align X to exact multi-tile floor span center
+						var tile_size_v2: Vector2 = Vector2(tile_map.tile_set.tile_size)
+						var half_w_left := int(floor((w_tiles - 1) / 2.0))
+						var left_cell: Vector2i = cell + Vector2i(-half_w_left, 0)
+						var right_cell: Vector2i = left_cell + Vector2i(w_tiles - 1, 0)
+						var left_center: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell)) + tile_size_v2 / 2.0
+						var right_center: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell)) + tile_size_v2 / 2.0
+						var before := spawn_pos.x
+						spawn_pos.x = (left_center.x + right_center.x) * 0.5
+						if selected_decor_name == "gate1" or selected_decor_name == "box2":
+							print("[GateDebug] ALIGN cells=", left_cell, "..", right_cell, " left_center=", left_center.x, " right_center=", right_center.x, " beforeX=", before, " afterX=", spawn_pos.x)
+					# For clearance-based floor decors (box2, gate1), remove previous upward lift
+					var floor_based := (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
+					# No extra vertical offset; sprite bottom alignment will sit on floor
+					# Safety: skip placements that would hang over edges (half in air or inside wall)
+					var dec_type: String = ""
+					if decoration_instance.has_meta("decoration_type"):
+						dec_type = String(decoration_instance.get_meta("decoration_type"))
+					var needs_support: bool = (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER \
+						or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
+					if needs_support and (dec_type == "gold" or dec_type == "breakable" or dec_type == "background"):
+						var vis_size: Vector2 = _get_visual_size_from_instance(decoration_instance)
+						var tile_w: float = float(tile_map.tile_set.tile_size.x)
+						var half_w: float = min(max(4.0, vis_size.x * 0.5), tile_w * 0.45)
+						if needs_clearance:
+							# For clearance-based decors, we already verified base support tile-by-tile; skip span search
+							pass
+						else:
+							var adj: Dictionary = _find_supported_position(spawn_pos, half_w, 12.0, 3.0)
+							if selected_decor_name == "gate1" or selected_decor_name == "box2":
+								print("[GateDebug] SUPPORT half_w=", half_w, " spawn_pos=", spawn_pos, " adj=", adj)
+							if adj.has("ok") and bool(adj.ok):
+								spawn_pos = adj.pos
+					# Global fine-tune: only a slight vertical settle for small decors; no extra X nudge
+					var final_pos := spawn_pos
+					if not needs_clearance:
+						final_pos = spawn_pos + Vector2(0, 5)
+					# Prevent overlapping large decors: gates/pipes/sculptures
+					if (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "sculpture1") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
+						print("[GateDebug] SKIP overlap near existing gate at pos=", final_pos)
+						decoration_instance.queue_free()
+						spawner.queue_free()
+						# do not mark placed; allow next rules to try
+						continue
+					decoration_instance.global_position = final_pos
+					if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "box2":
+						print("[GateDebug] FINAL_POS ", selected_decor_name, " at ", final_pos)
+						# Compute visual vs tile-span extents for precise debug
+						var vis_sz: Vector2 = _get_visual_size_from_instance(decoration_instance)
+						var tile_size_dbg: Vector2 = Vector2(tile_map.tile_set.tile_size)
+						var half_w_left_dbg := int(floor((w_tiles - 1) / 2.0))
+						var left_cell_dbg: Vector2i = cell + Vector2i(-half_w_left_dbg, 0)
+						var right_cell_dbg: Vector2i = left_cell_dbg + Vector2i(w_tiles - 1, 0)
+						var left_center_dbg: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell_dbg)) + tile_size_dbg / 2.0
+						var right_center_dbg: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell_dbg)) + tile_size_dbg / 2.0
+						var span_left_x: float = left_center_dbg.x - tile_size_dbg.x * 0.5
+						var span_right_x: float = right_center_dbg.x + tile_size_dbg.x * 0.5
+						var sprite_left_x: float = final_pos.x - vis_sz.x * 0.5
+						var sprite_right_x: float = final_pos.x + vis_sz.x * 0.5
+						var diff_left := sprite_left_x - span_left_x
+						var diff_right := span_right_x - sprite_right_x
+						print("[GateDebug] EXTENTS ", selected_decor_name, " sprite_left=", sprite_left_x, " sprite_right=", sprite_right_x,
+							" span_left=", span_left_x, " span_right=", span_right_x,
+							" diff_left=", diff_left, " diff_right=", diff_right)
+						# Y taban hizası: zemin çizgisi vs sprite altı
+						var floor_center_dbg: Vector2 = (left_center_dbg + right_center_dbg) * 0.5
+						var floor_line_y: float = floor_center_dbg.y + tile_size_dbg.y * 0.5
+						var expected_bottom_y: float = floor_line_y + 5.0
+						var sprite_bottom_y: float = final_pos.y + vis_sz.y * 0.5
+						var diff_bottom_y: float = expected_bottom_y - sprite_bottom_y
+						print("[GateDebug] EXTENTS_Y ", selected_decor_name,
+							" sprite_bottom=", sprite_bottom_y,
+							" expected_bottom=", expected_bottom_y,
+							" diff_bottom=", diff_bottom_y)
+					# Track placed large decor positions to avoid same-pass overlaps
+					if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "sculpture1":
+						placed_gate_positions.append(final_pos)
+					if selected_decor_name == "gate1":
+						print("[GateDebug] SPAWNED at ", decoration_instance.global_position, " floor_based=", floor_based)
+					if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+						print("[WebDebug] SPAWNED ", selected_decor_name, " at ", decoration_instance.global_position)
+					print("[DecorPopulate] SUCCESS: Spawned decoration '%s' at tile %s (world pos: %s)" % [selected_decor_name, cell, decoration_instance.global_position])
+					did_spawn = true
+				# Do not free spawner here; it holds signal handlers for the decoration
+				if did_spawn:
+					break # Bir kural tuttuysa diğerlerini deneme
+	
+	if found_data_count > 0:
+		pass # print("[DecorPopulate] INFO: Finished chunk '%s'. Found %d tiles with '%s' data." % [chunk_node.name, found_data_count, decor_layer_name])
+
+# --- Decoration spawn alignment helpers ---
+# Derive a reasonable spawn location based on tile tag and rule
+func _derive_spawn_location_from_tile_data(custom_data: String, rule: Dictionary) -> int:
+	# If rule explicitly provides allowed_locations, prefer one of them
+	if rule and rule.has("allowed_locations") and rule.allowed_locations is Array and not rule.allowed_locations.is_empty():
+		return rule.allowed_locations.pick_random()
+
+	# Fallbacks based on tile custom data tag
+	match custom_data:
+		"floor_surface", "floor", "floor_breakable":
+			return DecorationConfig.SpawnLocation.FLOOR_CENTER
+		"ceiling_surface":
+			return DecorationConfig.SpawnLocation.CEILING
+		"wall_surface":
+			# Choose one to vary visuals
+			return [DecorationConfig.SpawnLocation.WALL_LOW, DecorationConfig.SpawnLocation.WALL_HIGH].pick_random()
+		"corner_high":
+			return DecorationConfig.SpawnLocation.CORNER_HIGH
+		"corner_low":
+			return DecorationConfig.SpawnLocation.CORNER_LOW
+		_:
+			return DecorationConfig.SpawnLocation.FLOOR_CENTER
+
+# Compute a world position aligned to tile edges based on spawn location
+func _compute_decoration_spawn_position(tile_map, cell: Vector2i, spawn_loc: int) -> Vector2:
+	var tile_size_v2: Vector2 = Vector2(tile_map.tile_set.tile_size)
+	var tile_center: Vector2 = tile_map.to_global(tile_map.map_to_local(cell)) + tile_size_v2 / 2.0
+	var floor_offset_y := 20.0
+	var fudge_y := 2.0
+	var fudge_x := 2.0
+	# Horizontal bias: consistent global left shift to avoid right-edge hanging
+	var bias_x := -8.0
+
+	var top_center := tile_center + Vector2(0, -tile_size_v2.y / 2.0)
+	var bottom_center := tile_center + Vector2(0, tile_size_v2.y / 2.0)
+	var mid_left := tile_center + Vector2(-tile_size_v2.x / 2.0, 0)
+	var mid_right := tile_center + Vector2(tile_size_v2.x / 2.0, 0)
+	var top_left := tile_center + Vector2(-tile_size_v2.x / 2.0, -tile_size_v2.y / 2.0)
+	var top_right := tile_center + Vector2(tile_size_v2.x / 2.0, -tile_size_v2.y / 2.0)
+	var bottom_left := tile_center + Vector2(-tile_size_v2.x / 2.0, tile_size_v2.y / 2.0)
+	var bottom_right := tile_center + Vector2(tile_size_v2.x / 2.0, tile_size_v2.y / 2.0)
+
+	match spawn_loc:
+		DecorationConfig.SpawnLocation.FLOOR_CENTER:
+			# Place slightly above the floor (towards air)
+			return top_center + Vector2(bias_x, -floor_offset_y)
+		DecorationConfig.SpawnLocation.FLOOR_CORNER:
+			# Prefer inner corner (avoid outside of L-shaped dead zones)
+			var prefer_left := _has_vertical_wall_on_right(tile_map, cell)
+			var prefer_right := _has_vertical_wall_on_left(tile_map, cell)
+			if prefer_left and not prefer_right:
+				return top_left + Vector2(bias_x, -floor_offset_y)
+			elif prefer_right and not prefer_left:
+				# Nudge inward from the right edge
+				return top_right + Vector2(bias_x, -floor_offset_y)
+			else:
+				var corner = [top_left, top_right].pick_random()
+				return corner + Vector2(bias_x, -floor_offset_y)
+		DecorationConfig.SpawnLocation.CEILING:
+			return bottom_center + Vector2(0, fudge_y)
+		DecorationConfig.SpawnLocation.WALL_LOW:
+			# Approximate lower half of wall
+			return tile_center + Vector2(0, tile_size_v2.y * 0.25)
+		DecorationConfig.SpawnLocation.WALL_HIGH:
+			# Approximate upper half of wall
+			return tile_center + Vector2(0, -tile_size_v2.y * 0.25)
+		DecorationConfig.SpawnLocation.CORNER_HIGH:
+			var high_corner = [top_left, top_right].pick_random()
+			return high_corner + Vector2(fudge_x, -fudge_y)
+		DecorationConfig.SpawnLocation.CORNER_LOW:
+			var low_corner = [bottom_left, bottom_right].pick_random()
+			return low_corner + Vector2(fudge_x, fudge_y)
+		_:
+			# Safe fallback similar to previous behavior but slightly above center
+			return tile_center + Vector2(0, -tile_size_v2.y * 0.25)
+
+# Ensure rectangular empty space around anchor based on footprint and growth direction
+func _has_clearance_tiles(tile_map, anchor: Vector2i, w_tiles: int, h_tiles: int, grow_dir: String, spawn_loc: int, dbg: bool = false, name: String = "") -> bool:
+	var offsets: Array[Vector2i] = []
+	var half_w_left := int(floor((w_tiles - 1) / 2.0))
+	var half_w_right := w_tiles - 1 - half_w_left
+	match grow_dir:
+		"up":
+			for dy in range(1, h_tiles + 1):
+				for dx in range(-half_w_left, half_w_right + 1):
+					offsets.append(Vector2i(dx, -dy))
+		"down":
+			for dy in range(1, h_tiles + 1):
+				for dx in range(-half_w_left, half_w_right + 1):
+					offsets.append(Vector2i(dx, dy))
+		"out":
+			var nx := 1
+			var ny := 0
+			if spawn_loc == DecorationConfig.SpawnLocation.WALL_LOW or spawn_loc == DecorationConfig.SpawnLocation.WALL_HIGH:
+				# Heuristic: assume outward is to the right for now
+				nx = 1; ny = 0
+			for i in range(1, w_tiles + 1):
+				for j in range(0, h_tiles):
+					offsets.append(Vector2i(nx * i, -j))
+		_:
+			# Default to up
+			for dy in range(1, h_tiles + 1):
+				for dx in range(-half_w_left, half_w_right + 1):
+					offsets.append(Vector2i(dx, -dy))
+	for off in offsets:
+		var c := anchor + off
+		if _get_cell_source_id_any(tile_map, c) != -1:
+			if dbg:
+				print("[GateDebug] OCCUPIED at ", c, " for ", name)
+			return false
+	# Additional side clearance on the right to avoid hugging walls for wide floor decors
+	if grow_dir == "up" and (name == "box2" or name == "gate1"):
+		var half_w_left_side := int(floor((w_tiles - 1) / 2.0))
+		var half_w_right_side := int(ceil((w_tiles - 1) / 2.0))
+		var right_pad_x := half_w_right_side + 1
+		for dy in range(1, h_tiles + 1):
+			var right_nei := anchor + Vector2i(right_pad_x, -dy)
+			if tile_map.get_cell_source_id(right_nei) != -1:
+				if dbg:
+					print("[GateDebug] SIDE_RIGHT_OCCUPIED at ", right_nei, " for ", name)
+				return false
+	# For floor-based growth, ensure all supporting floor tiles directly below footprint are solid
+	if grow_dir == "up":
+		# Base row must be fully walkable/solid across the footprint
+		for dx in range(-half_w_left, half_w_right + 1):
+			var base := anchor + Vector2i(dx, 0)
+			if tile_map.get_cell_source_id(base) == -1:
+				if dbg:
+					print("[GateDebug] BASE_GAP at ", base, " for ", name)
+				return false
+		# Require at least 1 extra floor tile padding on both left and right of the footprint
+		var left_pad := anchor + Vector2i(-half_w_left - 1, 0)
+		var right_pad := anchor + Vector2i(half_w_right + 1, 0)
+		if tile_map.get_cell_source_id(left_pad) == -1 or tile_map.get_cell_source_id(right_pad) == -1:
+			if dbg:
+				print("[GateDebug] EDGE_TOO_CLOSE left_pad=", left_pad, " right_pad=", right_pad, " for ", name)
+			return false
+		for dx in range(-half_w_left, half_w_right + 1):
+			var below := anchor + Vector2i(dx, 1)
+			if _get_cell_source_id_any(tile_map, below) == -1:
+				if dbg:
+					print("[GateDebug] NO SUPPORT below ", below, " for ", name)
+				return false
+	return true
+
+# Background support: ensure background TileMap has tiles behind the footprint
+func _has_background_support(bg_map, anchor: Vector2i, w_tiles: int, h_tiles: int, grow_dir: String, dbg: bool, name: String) -> bool:
+	if bg_map == null:
+		return true
+	var half_w_left := int(floor((w_tiles - 1) / 2.0))
+	var half_w_right := int(ceil((w_tiles - 1) / 2.0))
+	var offsets: Array[Vector2i] = []
+	match grow_dir:
+		"up":
+			for dy in range(0, h_tiles):
+				for dx in range(-half_w_left, half_w_right + 1):
+					offsets.append(Vector2i(dx, -dy))
+		_:
+			for dy in range(0, h_tiles):
+				for dx in range(-half_w_left, half_w_right + 1):
+					offsets.append(Vector2i(dx, -dy))
+	for off in offsets:
+		var c := anchor + off
+		if _get_cell_source_id_any(bg_map, c) == -1:
+			if dbg:
+				print("[BgCheck] NO_BG at ", c, " for ", name)
+			return false
+	return true
+
+# Check if the rectangular footprint touches any solid tile around its border
+func _footprint_overlaps_wall(tile_map, anchor: Vector2i, w_tiles: int, h_tiles: int, grow_dir: String, spawn_loc: int) -> bool:
+	var border: Array[Vector2i] = []
+	var half_w_left: int = int(floor((w_tiles - 1) / 2.0))
+	var half_w_right: int = w_tiles - 1 - half_w_left
+	# Compute footprint cells (relative to anchor) depending on growth
+	var cells: Array[Vector2i] = []
+	match grow_dir:
+		"up":
+			for dy in range(0, h_tiles):
+				for dx in range(-half_w_left, half_w_right + 1):
+					cells.append(Vector2i(dx, -dy))
+		"down":
+			for dy in range(0, h_tiles):
+				for dx in range(-half_w_left, half_w_right + 1):
+					cells.append(Vector2i(dx, dy))
+		_:
+			for dy in range(0, h_tiles):
+				for dx in range(-half_w_left, half_w_right + 1):
+					cells.append(Vector2i(dx, -dy))
+	# Build a 1-tile-thick border around these cells
+	var neighbor_dirs: Array[Vector2i] = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+	var seen: Dictionary = {}
+	for c in cells:
+		for d in neighbor_dirs:
+			var b: Vector2i = c + d
+			if not seen.has(b):
+				seen[b] = true
+				border.append(b)
+	# If any border cell is solid, we consider overlap risky
+	for off in border:
+		# Do not treat the supporting floor as an overlapping wall
+		if grow_dir == "up":
+			if off.y == 1 and off.x >= -half_w_left and off.x <= half_w_right:
+				continue
+		elif grow_dir == "down":
+			if off.y == -1 and off.x >= -half_w_left and off.x <= half_w_right:
+				continue
+		var check: Vector2i = anchor + off
+		if tile_map.get_cell_source_id(check) != -1:
+			return true
+	return false
+
+# Strict boundary rule: returns true if cell lies on the outermost tile ring of the chunk
+func _is_on_chunk_outer_boundary(tile_map, cell: Vector2i) -> bool:
+	var used_rect: Rect2i = tile_map.get_used_rect()
+	var left_x := used_rect.position.x
+	var right_x := used_rect.position.x + used_rect.size.x - 1
+	var top_y := used_rect.position.y
+	var bottom_y := used_rect.position.y + used_rect.size.y - 1
+	# Outer boundary margin (tiles). Increased to be stricter against dead-zones
+	var margin := 4
+	return cell.x <= left_x + margin or cell.x >= right_x - margin or cell.y <= top_y + margin or cell.y >= bottom_y - margin
+
+# Pixel-based check: ensure the tile's local position within its chunk is away from the outer bounds
+func _is_cell_within_chunk_safe_bounds(tile_map, cell: Vector2i, chunk_node: Node2D, margin_px: float) -> bool:
+	var chunk := chunk_node as Node2D
+	if not chunk:
+		return true
+	var cell_local_in_tilemap: Vector2 = tile_map.map_to_local(cell)
+	var cell_global: Vector2 = tile_map.to_global(cell_local_in_tilemap)
+	var cell_local_in_chunk: Vector2 = chunk.to_local(cell_global)
+	var chunk_size: Vector2 = CHUNK_SIZE
+	if chunk.has_method("get_chunk_size"):
+		chunk_size = chunk.call("get_chunk_size")
+	return cell_local_in_chunk.x >= margin_px and cell_local_in_chunk.x <= (chunk_size.x - margin_px) and cell_local_in_chunk.y >= margin_px and cell_local_in_chunk.y <= (chunk_size.y - margin_px)
+
+# Returns true if the tile cell is within a margin of an OPEN edge of its chunk
+func _is_near_open_chunk_edge(tile_map, cell: Vector2i, chunk_node: Node2D, spawn_loc: int, rule: Dictionary) -> bool:
+	# Apply to ALL decoration types to avoid dead zones along chunk seams
+	var check_any := true
+
+	var used_rect: Rect2i = tile_map.get_used_rect()
+	var left_x := used_rect.position.x
+	var right_x := used_rect.position.x + used_rect.size.x - 1
+	var top_y := used_rect.position.y
+	var bottom_y := used_rect.position.y + used_rect.size.y - 1
+	var EDGE_MARGIN_TILES := 4
+
+	var near_left := (cell.x - left_x) < EDGE_MARGIN_TILES
+	var near_right := (right_x - cell.x) < EDGE_MARGIN_TILES
+	var near_top := (cell.y - top_y) < EDGE_MARGIN_TILES
+	var near_bottom := (bottom_y - cell.y) < EDGE_MARGIN_TILES
+
+	# Determine grid position of this chunk to check neighbors
+	var grid_pos := _find_grid_pos_for_chunk(chunk_node)
+	if grid_pos == Vector2i(-1, -1):
+		return false
+
+	var has_left_neighbor := is_valid_position(grid_pos + DIRECTION_VECTORS[Direction.LEFT]) and grid[grid_pos.x + DIRECTION_VECTORS[Direction.LEFT].x][grid_pos.y + DIRECTION_VECTORS[Direction.LEFT].y].chunk != null
+	var has_right_neighbor := is_valid_position(grid_pos + DIRECTION_VECTORS[Direction.RIGHT]) and grid[grid_pos.x + DIRECTION_VECTORS[Direction.RIGHT].x][grid_pos.y + DIRECTION_VECTORS[Direction.RIGHT].y].chunk != null
+	var has_top_neighbor := is_valid_position(grid_pos + DIRECTION_VECTORS[Direction.UP]) and grid[grid_pos.x + DIRECTION_VECTORS[Direction.UP].x][grid_pos.y + DIRECTION_VECTORS[Direction.UP].y].chunk != null
+	var has_bottom_neighbor := is_valid_position(grid_pos + DIRECTION_VECTORS[Direction.DOWN]) and grid[grid_pos.x + DIRECTION_VECTORS[Direction.DOWN].x][grid_pos.y + DIRECTION_VECTORS[Direction.DOWN].y].chunk != null
+
+	# If there is a neighbor on that side AND the cell is near that edge, skip spawn
+	if has_top_neighbor and near_top:
+		return true
+	if has_bottom_neighbor and near_bottom:
+		return true
+	if has_left_neighbor and near_left:
+		return true
+	if has_right_neighbor and near_right:
+		return true
+
+	return false
+
+# New rule: avoid outside corners of L shapes.
+# If this floor tile has a vertical wall immediately to left or right and empty space on the other side,
+# block 'outside' corner placements.
+func _is_outside_L_deadzone(tile_map, cell: Vector2i, spawn_loc: int) -> bool:
+	# Only relevant for floor-like anchors
+	if spawn_loc != DecorationConfig.SpawnLocation.FLOOR_CENTER and \
+		spawn_loc != DecorationConfig.SpawnLocation.FLOOR_CORNER:
+		return false
+	# Check neighboring tiles in the same TileMap layer
+	var left_cell := cell + Vector2i(-1, 0)
+	var right_cell := cell + Vector2i(1, 0)
+	var up_cell := cell + Vector2i(0, -1)
+	var left_tile: TileData = tile_map.get_cell_tile_data(left_cell)
+	var right_tile: TileData = tile_map.get_cell_tile_data(right_cell)
+	var up_tile: TileData = tile_map.get_cell_tile_data(up_cell)
+	var has_left_wall := left_tile != null and left_tile.get_collision_polygons_count(0) > 0
+	var has_right_wall := right_tile != null and right_tile.get_collision_polygons_count(0) > 0
+	var has_air_above := up_tile == null
+	# Outside L if we have a wall on one side and air above (rises vertically) and the other side is air
+	if has_left_wall and has_air_above and right_tile == null:
+		return true
+	if has_right_wall and has_air_above and left_tile == null:
+		return true
+	return false
+
+func _has_vertical_wall_on_left(tile_map, cell: Vector2i) -> bool:
+	var left_cell := cell + Vector2i(-1, 0)
+	var up_cell := cell + Vector2i(-1, -1)
+	var left: TileData = tile_map.get_cell_tile_data(left_cell)
+	var up: TileData = tile_map.get_cell_tile_data(up_cell)
+	return (left != null and up != null)
+
+func _has_vertical_wall_on_right(tile_map, cell: Vector2i) -> bool:
+	var right_cell := cell + Vector2i(1, 0)
+	var up_cell := cell + Vector2i(1, -1)
+	var right: TileData = tile_map.get_cell_tile_data(right_cell)
+	var up: TileData = tile_map.get_cell_tile_data(up_cell)
+	return (right != null and up != null)
+
+# Check proximity to existing "gate1" nodes to avoid visual overlaps
+func _is_near_existing_gate(pos: Vector2, min_dx: float) -> bool:
+	var existing := get_tree().get_nodes_in_group("background_decor")
+	for n in existing:
+		if n is Node2D and ((n as Node2D).name == "gate1" or (n as Node2D).name == "gate2" or (n as Node2D).name == "pipe1" or (n as Node2D).name == "pipe2" or (n as Node2D).name == "sculpture1"):
+			var d := (n as Node2D).global_position.distance_to(pos)
+			if d < min_dx:
+				return true
+	return false
+
+func _is_near_gate_pos_list(pos: Vector2, min_dx: float) -> bool:
+	for p in placed_gate_positions:
+		if p.distance_to(pos) < min_dx:
+			return true
+	return false
+
+
+# Locate the grid coordinates of a given chunk node
+func _find_grid_pos_for_chunk(chunk_node: Node2D) -> Vector2i:
+	for x in range(current_grid_width):
+		if x < 0 or x >= grid.size():
+			continue
+		for y in range(current_grid_height):
+			if y < 0 or y >= grid[x].size():
+				continue
+			if grid[x][y].chunk == chunk_node:
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+# Find background TileMap layer under the given chunk
+func _find_background_tilemap(chunk_node: Node2D) -> TileMap:
+	if chunk_node == null:
+		return null
+	# Heuristic: look for a child named like background or a TileMap with lower z_index
+	var candidates := []
+	for child in chunk_node.get_children():
+		if child is TileMap:
+			candidates.append(child)
+	# Prefer a node with name containing "background"
+	for c in candidates:
+		var n := c as Node
+		var nm := n.name.to_lower()
+		if nm.find("background") != -1 or nm.find("bg") != -1:
+			return c
+	# Fallback: return first TileMap if any
+	if candidates.size() > 0:
+		return candidates[0]
+	return null
+
+# Estimate visual width of an instance (Sprite2D/AnimatedSprite2D) to validate edge support
+func _get_visual_size_from_instance(node: Node2D) -> Vector2:
+	var size := Vector2(32, 32)
+	var spr := node.get_node_or_null("Sprite") as Sprite2D
+	if spr and spr.texture:
+		var w := 0
+		var h := 0
+		if spr.texture is AtlasTexture:
+			var at := spr.texture as AtlasTexture
+			w = int(at.region.size.x)
+			h = int(at.region.size.y)
+		else:
+			w = spr.texture.get_width()
+			h = spr.texture.get_height()
+		if spr.vframes > 1:
+			h = int(floor(float(h) / float(max(1, spr.vframes))))
+		if spr.hframes > 1:
+			w = int(floor(float(w) / float(max(1, spr.hframes))))
+		return Vector2(w, h)
+	var anim := node.get_node_or_null("Anim") as AnimatedSprite2D
+	if anim and anim.sprite_frames and anim.sprite_frames.get_frame_count("idle") > 0:
+		var tex := anim.sprite_frames.get_frame_texture("idle", 0)
+		if tex:
+			if tex is AtlasTexture:
+				var at2 := tex as AtlasTexture
+				return Vector2(at2.region.size.x, at2.region.size.y)
+			elif tex is Texture2D:
+				return Vector2(tex.get_width(), tex.get_height())
+	return size
+
+# Raycast span check: ensure there is ground support across [x-half_w, x+half_w]
+func _has_ground_support_span(center_pos: Vector2, half_w: float) -> bool:
+	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var mask: int = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	var samples: int = 5
+	var hits: int = 0
+	for i in range(samples):
+		var t: float = (i as float) / float(samples - 1)
+		var x: float = lerp(center_pos.x - half_w, center_pos.x + half_w, t)
+		var from: Vector2 = Vector2(x, center_pos.y - 16)
+		var to: Vector2 = Vector2(x, center_pos.y + 128)
+		var params: PhysicsRayQueryParameters2D = PhysicsRayQueryParameters2D.create(from, to)
+		params.collision_mask = mask
+		params.collide_with_areas = false
+		params.collide_with_bodies = true
+		var hit: Dictionary = space.intersect_ray(params)
+		if hit and hit.has("position"):
+			hits += 1
+	# Require majority of samples to have support
+	return hits >= int(ceil(float(samples) * 0.6))
+
+# Try to nudge spawn_pos horizontally inward to find a supported placement
+func _find_supported_position(center_pos: Vector2, half_w: float, max_nudge: float, step: float) -> Dictionary:
+	var result := {"ok": false, "pos": center_pos}
+	if _has_ground_support_span(center_pos, half_w):
+		result.ok = true
+		return result
+	var dir := [-1.0, 1.0]
+	var d := step
+	while d <= max_nudge:
+		for s in dir:
+			var candidate := center_pos + Vector2(s * d, 0)
+			if _has_ground_support_span(candidate, half_w):
+				result.ok = true
+				result.pos = candidate
+				return result
+		d += step
+	return result
 
 func get_chunk_type(chunk: Node) -> String:
 	if not chunk:

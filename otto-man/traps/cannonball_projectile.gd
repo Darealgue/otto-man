@@ -67,8 +67,8 @@ func _ready():
 	velocity = direction * SPEED
 	
 	# Set up collision detection
-	collision_layer = 0  # Cannonball doesn't need to be in any layer
-	collision_mask = 8 + 2 + 1  # Layer 4 (Player hurtbox) + Layer 2 (Player body) + Layer 1 (Walls)
+	collision_layer = CollisionLayers.NONE  # Cannonball doesn't need to be in any layer
+	collision_mask = CollisionLayers.PLAYER_HURTBOX | CollisionLayers.PLAYER | CollisionLayers.WORLD
 	
 	# Enable both monitoring types
 	monitoring = true
@@ -114,7 +114,7 @@ func _on_area_entered(area):
 	
 	# Player hurtbox layer 4 (8) veya hurtbox grubunda olanları kontrol et
 	# But also verify the parent is actually a player
-	var is_player_hurtbox = ((area_collision_layer == 8 or area.is_in_group("hurtbox") or area.name == "Hurtbox") and
+	var is_player_hurtbox = ((area_collision_layer == CollisionLayers.PLAYER_HURTBOX or area.is_in_group("hurtbox") or area.name == "Hurtbox") and
 							area.get_parent() != null and
 							area.get_parent().is_in_group("player") and
 							not area.get_parent().is_in_group("trap") and
@@ -148,7 +148,7 @@ func _on_body_entered(body):
 							(body.name == "Player" or body.name.to_lower().contains("player")) and
 							not body.is_in_group("trap") and not body.is_in_group("enemy"))
 	
-	if body_collision_layer == 2 and is_actual_player:
+	if body_collision_layer == CollisionLayers.PLAYER and is_actual_player:
 		print("[Cannonball] Direct hit on player body: " + str(body.name))
 		
 		has_hit_anything = true
@@ -224,7 +224,7 @@ func _explode(excluded_target: Node = null):
 	query.transform = Transform2D(0, global_position)
 	
 	# Check both player hurtbox (layer 4) and player body (layer 2)
-	query.collision_mask = 8 + 2  # Layer 4 (Player hurtbox) + Layer 2 (Player body)
+	query.collision_mask = CollisionLayers.PLAYER_HURTBOX | CollisionLayers.PLAYER
 	
 	var results = space_state.intersect_shape(query)
 	print("[Cannonball] Found " + str(results.size()) + " targets in explosion radius")
@@ -242,7 +242,7 @@ func _explode(excluded_target: Node = null):
 		print("[Cannonball] Explosion target: " + str(body.name) + " (type: " + str(body.get_class()) + ") (groups: " + str(body.get_groups()) + ") layer: " + str(body_collision_layer))
 		
 		# Check if it's player (by layer or group or name) - but be more specific
-		var is_player = ((body_collision_layer == 2 or body_collision_layer == 8 or 
+		var is_player = ((body_collision_layer == CollisionLayers.PLAYER or body_collision_layer == CollisionLayers.PLAYER_HURTBOX or 
 						body.is_in_group("player") or body.name == "Player") and
 						(body.name == "Player" or body.name.to_lower().contains("player")) and
 						not body.is_in_group("trap") and not body.is_in_group("enemy"))
