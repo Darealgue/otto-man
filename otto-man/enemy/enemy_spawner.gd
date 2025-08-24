@@ -35,6 +35,7 @@ var _spawned_enemies: Array[Node] = []
 var _level_generator: Node = null
 var _spawn_config: SpawnConfig
 var _is_active: bool = false  # Whether this spawn point is active
+signal enemy_spawned(enemy: Node)
 
 const ENEMY_Z_INDEX = 5  # Ensure enemies appear above tiles
 
@@ -121,6 +122,7 @@ func spawn_enemies() -> void:
 	# Ensure enemy appears above tiles
 	enemy.z_index = ENEMY_Z_INDEX
 	_spawned_enemies.append(enemy)
+	enemy_spawned.emit(enemy)
 	
 	# Scale enemy stats to current level
 	if enemy.stats:

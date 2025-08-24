@@ -328,6 +328,25 @@ var current_grid_height: int = BASE_GRID_HEIGHT # Dynamic height, calculated per
 @export var current_level: int = 1  # Current level number
 @export var level_config: LevelConfig  # Reference to our dungeon configuration resource
 
+# --- Boss schedule helpers (debug-only for now) ---
+# Levels mapping for boss events; we keep it data-driven and simple
+const BOSS_SCHEDULE: Dictionary = {
+	3: "mini",
+	5: "major",
+	7: "mini",
+	9: "major",
+}
+
+func get_boss_event_type(level: int) -> String:
+	# Returns "" | "mini" | "major" according to cyclic schedule (3,5,7,9...)
+	if level < 3:
+		return ""
+	var keys: Array[int] = [3, 5, 7, 9]
+	var idx: int = (level - 3) % keys.size()
+	var mapped_level: int = keys[idx]
+	var result = BOSS_SCHEDULE.get(mapped_level, "")
+	return String(result)
+
 var current_grid_width = 20  # This will be updated based on level
 var CHUNK_WEIGHTS = {
 	"basic": 70,
@@ -578,6 +597,9 @@ func clear_level() -> void:
 
 func generate_level() -> bool:
 	print("\nStarting level generation...")
+	var boss_type := get_boss_event_type(current_level)
+	if boss_type != "":
+		print("  Boss schedule: level ", current_level, " -> ", boss_type)
 	
 	# Clear previous level first (before calculating new width or initializing grid)
 	clear_level()
@@ -644,19 +666,20 @@ func verify_level_path() -> bool:
 	
 	var start_pos = Vector2i(0, current_grid_height / 2) # Use current_grid_height
 	
-	# Find finish position
+	# Find finish position (support both finish_chunk and boss_arena)
 	var finish_pos = Vector2i.ZERO
 	for x in range(current_grid_width - 1, -1, -1):
 		for y in range(current_grid_height): # Use current_grid_height
 			# Check if the cell has a chunk AND the chunk's scene path contains "finish_chunk"
-			if grid[x][y].chunk and grid[x][y].chunk.scene_file_path.contains("finish_chunk"):
+			if grid[x][y].chunk and (grid[x][y].chunk.scene_file_path.contains("finish_chunk")
+					or grid[x][y].chunk.scene_file_path.contains("boss_arena")):
 				finish_pos = Vector2i(x, y)
 				break
 		if finish_pos != Vector2i.ZERO:
 			break
 	
 	if finish_pos == Vector2i.ZERO:
-		print("Finish chunk not found during verification!")
+		print("Finish/boss arena not found during verification!")
 		return false
 	
 	print("Start position:", start_pos)
@@ -1014,10 +1037,19 @@ func populate_chunks() -> bool:
 			print("Could not find any main path cell as fallback finish position.")
 			return false # Cannot proceed without a finish position
 		
-	# Place finish chunk (can use the same function)
-	if not place_chunk(finish_pos, "finish"):
-		print("Failed to place finish chunk at ", finish_pos)
-		return false
+	# Boss-aware finish placement
+	var boss_event := get_boss_event_type(current_level)
+	if boss_event == "mini":
+		# On mini-boss levels, replace finish with boss arena directly at the finish position
+		print("Mini-boss level: placing boss_arena at finish position ", finish_pos)
+		if not place_chunk(finish_pos, "boss_arena"):
+			print("Failed to place boss_arena at ", finish_pos)
+			return false
+	else:
+		# Default behaviour: place finish chunk
+		if not place_chunk(finish_pos, "finish"):
+			print("Failed to place finish chunk at ", finish_pos)
+			return false
 		
 	# --- Simplified Main Population Loop --- 
 	# Iterate through all grid cells once
@@ -1367,6 +1399,37 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 	# ProjectSettings.set_setting("...", prev_error_prints)
 
 	grid[pos.x][pos.y].chunk = chunk # Assign the new chunk to the grid
+
+	# Extra setup for boss arenas (mini-boss levels)
+	if chunk_type == "boss_arena":
+		# Add a dedicated spawner to this arena and wire up finish enabling after defeat
+		var spawner_scene: PackedScene = load("res://enemy/enemy_spawner.tscn")
+		if spawner_scene:
+			var spawner: Node2D = spawner_scene.instantiate()
+			spawner.name = "MiniBossSpawner"
+			# Configure basic params
+			if spawner.has_method("set"): # safe set
+				spawner.set("auto_spawn", true)
+				spawner.set("spawn_on_level_start", false)
+				# Replace spawner usage with direct miniboss scene instantiation
+				pass
+			# Directly instantiate Shield Captain miniboss
+			var mini_scene_path := "res://enemy/miniboss/shield_captain/shield_captain.tscn"
+			var mini_scene: PackedScene = load(mini_scene_path)
+			if mini_scene:
+				print("[BossArena] Instantiating miniboss from ", mini_scene_path)
+				var mini = mini_scene.instantiate()
+				mini.name = "MiniBoss_ShieldCaptain"
+				chunk.add_child(mini)
+				mini.global_position = chunk.global_position + Vector2(960, 600)
+				# Wire defeat → enable finish
+				if mini.has_signal("enemy_defeated"):
+					mini.connect("enemy_defeated", Callable(self, "_on_miniboss_defeated").bind(chunk))
+				# Defer boss bar attachment to ensure UI is ready
+				var _mini_ref = mini
+				get_tree().create_timer(0.05).timeout.connect(func(): _attach_boss_bar(_mini_ref))
+			else:
+				push_error("[BossArena] Failed to load miniboss scene at path: " + mini_scene_path)
 
 	# TileMap tabanlı dekorasyonları oluştur
 	_populate_decorations_from_tilemap(chunk)
@@ -2185,7 +2248,7 @@ func setup_level_transitions() -> void:
 		push_error("!!! setup_level_transitions: Grid size mismatch! grid.size()=%d, current_grid_width=%d" % [grid.size(), current_grid_width])
 		# Potentially return or handle error? For now just log.
 	
-	# Search for finish chunk
+	# Search for finish chunk (or boss arena on mini levels)
 	for x in range(current_grid_width - 1, -1, -1):
 		# <<< DEBUG: Check x bounds >>>
 		if x < 0 or x >= grid.size():
@@ -2198,7 +2261,8 @@ func setup_level_transitions() -> void:
 				continue
 
 			# Access grid[x][y].chunk
-			if grid[x][y].chunk and grid[x][y].chunk.scene_file_path.contains("finish_chunk"):
+			if grid[x][y].chunk and (grid[x][y].chunk.scene_file_path.contains("finish_chunk")
+				or grid[x][y].chunk.scene_file_path.contains("boss_arena")):
 				finish_pos = Vector2i(x, y)
 				finish_found = true
 				break
@@ -2246,7 +2310,7 @@ func setup_level_transitions() -> void:
 		return # Cannot continue if finish_pos is invalid
 
 	if grid[finish_pos.x][finish_pos.y].chunk:
-		print("Found finish chunk, setting up finish zone")
+		print("Found finish/boss chunk, setting up finish zone")
 		var finish_zone = get_node_or_null("FinishZone")
 		
 		if not finish_zone:
@@ -2262,6 +2326,12 @@ func setup_level_transitions() -> void:
 		finish_zone.reparent(grid[finish_pos.x][finish_pos.y].chunk)
 		finish_zone.position = Vector2(1400, 400)  # Changed to x=1400
 		print("Finish zone positioned at:", finish_zone.position)
+		# If the finish cell is a boss arena, keep the FinishZone disabled until boss dies
+		var finish_chunk: Node2D = grid[finish_pos.x][finish_pos.y].chunk
+		if finish_chunk and finish_chunk.scene_file_path.contains("boss_arena"):
+			print("Boss arena detected at finish. Disabling FinishZone until boss is defeated.")
+			finish_zone.monitoring = false
+			finish_zone.visible = false
 	else:
 		print("ERROR: No chunk found at finish position", finish_pos)
 
@@ -2285,6 +2355,88 @@ func _on_zone_entered(zone_type: String) -> void:
 		timer.timeout.connect(func(): is_transitioning = false)
 		# Player will be automatically spawned at the start of new level
 
+func _on_miniboss_spawned(enemy: Node, boss_chunk: Node2D) -> void:
+	# Wire defeat to enabling FinishZone under the boss arena chunk
+	if enemy and enemy.has_signal("enemy_defeated"):
+		enemy.connect("enemy_defeated", Callable(self, "_on_miniboss_defeated").bind(boss_chunk))
+
+func _on_miniboss_defeated(boss_chunk: Node2D) -> void:
+	if not boss_chunk:
+		return
+	var finish_zone: Node = boss_chunk.get_node_or_null("FinishZone")
+	if finish_zone:
+		if finish_zone.has_method("set"):
+			finish_zone.set("monitoring", true)
+			finish_zone.set("visible", true)
+		print("[LevelGenerator] MiniBoss defeated. FinishZone enabled.")
+
+func _attach_boss_bar(mini: Node) -> void:
+	if not is_instance_valid(mini):
+		return
+	# Find UI root
+	var ui_root = get_tree().get_first_node_in_group("ui_root")
+	if ui_root == null:
+		var players = get_tree().get_nodes_in_group("player")
+		if players.size() > 0 and players[0].has_node("UI"):
+			ui_root = players[0].get_node("UI")
+	# If still not found, create a temporary CanvasLayer under current scene
+	if ui_root == null:
+		var canvas := CanvasLayer.new()
+		canvas.name = "TempUIRoot"
+		add_child(canvas)
+		ui_root = canvas
+	# Add bar
+	var boss_bar_scene: PackedScene = load("res://ui/boss_health_bar.tscn")
+	if boss_bar_scene and ui_root:
+		# Remove existing if any
+		var existing = ui_root.get_node_or_null("BossHealthBar")
+		if existing:
+			existing.queue_free()
+		var boss_bar = boss_bar_scene.instantiate()
+		boss_bar.name = "BossHealthBar"
+		ui_root.add_child(boss_bar)
+		# Start hidden; will reveal on proximity
+		boss_bar.visible = false
+		# Prepare silently; reveal on proximity
+		boss_bar.defer_reveal = true
+		boss_bar.call_deferred("setup_silent", (mini.stats.max_health if mini.has_method("get") and mini.stats else 100.0))
+		# Bind updates
+		if mini.has_signal("health_changed"):
+			mini.connect("health_changed", Callable(boss_bar, "update_health"))
+		# Auto-hide when boss dies
+		if mini.has_signal("enemy_defeated"):
+			mini.connect("enemy_defeated", Callable(boss_bar, "queue_free"))
+		# Proximity-based reveal
+		var proximity_threshold: float = 520.0
+		var hide_threshold: float = 640.0
+		var proximity_timer := Timer.new()
+		proximity_timer.wait_time = 0.1
+		proximity_timer.one_shot = false
+		proximity_timer.autostart = true
+		boss_bar.add_child(proximity_timer)
+		proximity_timer.timeout.connect(func():
+			if not is_instance_valid(mini) or not is_instance_valid(boss_bar):
+				if is_instance_valid(proximity_timer):
+					proximity_timer.stop()
+					proximity_timer.queue_free()
+				return
+			var players = get_tree().get_nodes_in_group("player")
+			if players.size() == 0:
+				return
+			var player = players[0]
+			if player is Node2D and mini is Node2D:
+				var player_pos: Vector2 = player.global_position
+				var boss_pos: Vector2 = (mini as Node2D).global_position
+				var dist = player_pos.distance_to(boss_pos)
+				if dist <= proximity_threshold:
+					if boss_bar.has_method("reveal"):
+						boss_bar.reveal()
+					else:
+						boss_bar.visible = true
+				elif dist >= hide_threshold:
+					if boss_bar.has_method("conceal"):
+						boss_bar.conceal()
+		)
 func unify_terrain() -> void:
 	print("\nPhase 3: Unifying terrain...")
 	

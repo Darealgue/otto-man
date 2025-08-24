@@ -5,6 +5,7 @@ extends CharacterBody2D
 @onready var object_pool = get_node("/root/ObjectPool")
 
 signal enemy_defeated
+signal health_changed(new_health: float, max_health: float)
 
 # Core components
 @export var stats: EnemyStats
@@ -77,6 +78,8 @@ func _ready() -> void:
 	add_child(health_bar)
 	health_bar.position = Vector2(0, -60)
 	health_bar.setup(health)
+	# Notify initial health for external UI (e.g., boss bar)
+	_health_emit_changed()
 	
 	call_deferred("_initialize_components")
 	
@@ -209,6 +212,8 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	# Update health bar
 	if health_bar:
 		health_bar.update_health(health)
+	# Emit health changed for external listeners
+	_health_emit_changed()
 	
 	
 	# Spawn damage number
@@ -368,13 +373,21 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	if current_behavior != "dead" and not invulnerable:
 		var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
 		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0}
+		print("[BaseEnemy:", enemy_id, "] hurt signal received dmg=", damage, " kb=", knockback_data.force)
 		take_damage(damage, knockback_data.force)  # Pass the actual knockback force from the hitbox
+
+func _health_emit_changed() -> void:
+	var max_h = stats.max_health if stats else 100.0
+	health_changed.emit(health, max_h)
  
 func _initialize_components() -> void:
 	hurtbox = $Hurtbox
 	if not hurtbox:
 		push_error("Hurtbox node not found in enemy")
 		return
+	# Connect hurt signal if not already
+	if not hurtbox.hurt.is_connected(_on_hurtbox_hurt):
+		hurtbox.hurt.connect(_on_hurtbox_hurt)
 		
 	hitbox = $Hitbox
 	if not hitbox:
@@ -431,6 +444,8 @@ func handle_chase(_delta: float) -> void:
 
 func handle_hurt_behavior(_delta: float) -> void:
 	behavior_timer += _delta
+	# Apply strong horizontal damping while hurt to avoid infinite drift
+	velocity.x = move_toward(velocity.x, 0.0, 2000.0 * _delta)
 	
 	# Only exit hurt state if timer is up AND mostly stopped
 	if behavior_timer >= 0.2 and abs(velocity.x) <= 25:  # Reduced hurt state duration

@@ -58,6 +58,7 @@ func enable():
 	monitoring = true
 	monitorable = true
 	has_hit_enemy = false  # Reset hit flag when enabling hitbox
+	print("[PlayerHitbox] ENABLE name=", name, " dmg=", damage)
 	if has_node("CollisionShape2D"):
 		get_node("CollisionShape2D").set_deferred("disabled", false)
 		# Make hitbox more visible when active
@@ -68,6 +69,7 @@ func disable():
 	is_active = false
 	monitoring = false
 	monitorable = false
+	print("[PlayerHitbox] DISABLE name=", name)
 	if has_node("CollisionShape2D"):
 		get_node("CollisionShape2D").set_deferred("disabled", true)
 		get_node("CollisionShape2D").debug_color = Color(1, 0, 0, 0.5)  # Red when disabled
@@ -75,8 +77,7 @@ func disable():
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("hurtbox"):
-		
-		
+		print("[PlayerHitbox] overlapped with hurtbox area=", area.name)
 		if not has_hit_enemy:
 			has_hit_enemy = true
 			hit_enemy.emit(area.get_parent())
