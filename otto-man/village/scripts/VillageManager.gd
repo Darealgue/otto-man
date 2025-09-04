@@ -551,7 +551,6 @@ func unregister_advanced_production(produced_resource: String, required_resource
 
 # --- Yeni Köylü Ekleme Fonksiyonu ---
 func add_villager() -> void:
-
 	# Barınak kontrolü yap - _add_new_worker() fonksiyonunu kullan
 	if _add_new_worker():
 		print("VillageManager: Yeni köylü eklendi. Toplam: %d, Boşta: %d" % [total_workers, idle_workers])
@@ -752,7 +751,7 @@ func notify_building_state_changed(building_node: Node) -> void:
 # Başarılı olursa true, barınak bulunamazsa veya hata olursa false döner.
 
 
-func _add_new_worker(NPC_Info) -> bool: # <<< Dönüş tipi eklendi
+func _add_new_worker(NPC_Info = {}) -> bool: # <<< Dönüş tipi eklendi
 	if not worker_scene:
 		#printerr("VillageManager: Worker scene not loaded!")
 		return false
