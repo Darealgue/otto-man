@@ -1,22 +1,27 @@
 extends Control
 
 var chat_history: Array = [] # Session chat log
-
-@onready var chat_vbox = $"BackPanel/ChangeableWindow/ChangeableWindow_DialogueWindow#ChatVBox/ScrollContainer/VBoxContainer/Label"
-@onready var chat_line_edit = $"BackPanel/ChangeableWindow/ChangeableWindow_DialogueWindow#ChatVBox/ChatLineEdit"
-@onready var send_button = $"BackPanel/ChangeableWindow/ChangeableWindow_DialogueWindow#ChatVBox/SendButton"
+var NpcInfo 
+@onready var chat_vbox = $BackPanel/DialogueWindow/ChangeableWindow/ScrollContainer/VBoxContainer
+@onready var chat_line_edit = $BackPanel/DialogueWindow/ChangeableWindow/ChatLineEdit
+@onready var send_button = $BackPanel/DialogueWindow/ChangeableWindow/SendButton
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	# Connect send button
 	send_button.connect("pressed",_on_send_button_pressed)
 	
-func get_NPC():
-	pass
+func InitializeWindow(Info):
+	NpcInfo = Info
+	print("WindowInfo: ", Info)
+	
+	
 func _on_send_button_pressed():
 	_add_chat_message("Player",chat_line_edit.text)
 	chat_line_edit.text = ""
-
+	$BackPanel/DialogueWindow/ChangeableWindow/SendButton.disabled = true
+	NpcDialogueManager.process_dialogue(NpcInfo,chat_line_edit.text,NpcInfo["Info"]["Name"])
+	
 func _on_chat_line_edit_text_submitted(new_text: String) -> void:
 	_add_chat_message("Player",new_text)
 	chat_line_edit.text = ""
@@ -27,7 +32,8 @@ func _add_chat_message(talker : String , message: String) -> void:
 	# Add to session log
 	chat_history.append(message)
 	# Add to UI
-	$"BackPanel/ChangeableWindow/ChangeableWindow_DialogueWindow#ChatVBox/ScrollContainer/VBoxContainer/Label".text = $"BackPanel/ChangeableWindow/ChangeableWindow_DialogueWindow#ChatVBox/ScrollContainer/VBoxContainer/Label".text + talker + " : " + message + "\n"
+	$BackPanel/DialogueWindow/ChangeableWindow/ScrollContainer/VBoxContainer/Label.text = $BackPanel/DialogueWindow/ChangeableWindow/ScrollContainer/VBoxContainer/Label.text + talker + " : " + message + "\n"
+	
 func save_chat_history(file_path: String) -> void:
 	var file = FileAccess.open(file_path, FileAccess.WRITE)
 	if file:
@@ -54,6 +60,7 @@ func _update_chat_ui_from_history():
 	await get_tree().process_frame
 	$BackPanel/ChangeableWindow/DialogueWindow.scroll_vertical = $BackPanel/ChangeableWindow/DialogueWindow.get_v_scroll_bar().max_value
 
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta: float) -> void:
-	pass
+
+func NPCDialogueProcessed(npc_name: String, new_state: Dictionary, generated_dialogue: String, was_significant: bool):
+	_on_chat_line_edit_text_submitted(generated_dialogue)
+	$BackPanel/DialogueWindow/ChangeableWindow/SendButton.disabled = false

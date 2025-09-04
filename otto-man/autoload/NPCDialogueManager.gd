@@ -161,7 +161,7 @@ Input State:
 
 Player Dialogue: "Player":"%s"
 """ % [info_json, history_json, dialogue_history_json, player_input.replace('"', '\"'), npc_name, info_json, history_json, dialogue_history_json, player_input.replace('"', '\"')]
-	
+	print("FULL PROMPT : ", full_prompt)
 	return full_prompt
 
 # Internal: Parse JSON response safely

@@ -1,6 +1,7 @@
 extends Node2D
 
-@export var NPC_Info : Dictionary
+@export var NPC_Info : Dictionary 
+var NPCWindow = preload("res://Ui/npc_window.tscn")
 # <<< YENİ: Appearance Resource >>>
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 @export var appearance: VillagerAppearance:
@@ -550,16 +551,20 @@ func _ready() -> void:
 		update_visuals()
 	# <<< YENİ SONU >>>
 	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
-	if NPC_Info.is_empty() == true:
-		Initialize_New_Villager()
-	else:
-		$NamePlate.text = NPC_Info["Info"]["Name"]
+
 func Save_Villager_Info():
 	VillagerAiInitializer.Saved_Villagers.append(NPC_Info)
 	
 #func Load_Villager_Info(VillagerInfo:Dictionary):
 	#NPC_Info = VillagerInfo
-
+	
+func Initialize_Existing_Villager(NPCInfo):
+		if NPCInfo.is_empty() == true:
+			Initialize_New_Villager()
+		else:
+			NPC_Info=NPCInfo
+			$NamePlate.text = NPCInfo["Info"]["Name"]
+			$NpcWindow.InitializeWindow(NPC_Info)
 func Initialize_New_Villager():
 	NPC_Info = VillagerAiInitializer.get_villager_info()
 	$NamePlate.text = NPC_Info["Info"]["Name"]
@@ -569,9 +574,12 @@ func _physics_process(delta: float) -> void:
 	# tüm node'un X scale'ını değiştirerek yaptığı için böyle isim plakasını tersine çevirmemiz gerekti
 	if scale.x < 0:
 		$NamePlate.scale.x = -1
+		$InteractButton.scale.x = -1
+		$NpcWindow.scale.x = -1
 	else:
 		$NamePlate.scale.x = 1
-		
+		$InteractButton.scale.x = 1
+		$NpcWindow.scale.x = 1
 	# <<< YENİ: Mevcut Duruma Göre Animasyon Belirleme >>>
 	var target_anim = "idle" # Varsayılan animasyon
 	var target_pos = Vector2(move_target_x, _target_global_y)
@@ -1493,3 +1501,24 @@ func _choose_next_idle_activity():
 	# Debug: #print("Worker %d - Chosen Activity: %s" % [worker_id, chosen_activity])
 	return chosen_activity
 # <<< YENİ SONU >>>
+
+func ShowInteractButton():
+	$InteractButton.show()
+
+func HideInteractButton():
+	$InteractButton.hide()
+
+func _on_interact_button_pressed() -> void:
+	OpenNpcWindow()
+
+func OpenNpcWindow():
+	$NpcWindow.show()
+	NpcDialogueManager.dialogue_processed.connect(NpcAnswered)
+	
+func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
+	$NpcWindow.NPCDialogueProcessed(npc_name, new_state, generated_dialogue, was_significant)
+	
+func CloseNpcWindow():
+	$NpcWindow.hide()
+	NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
+	

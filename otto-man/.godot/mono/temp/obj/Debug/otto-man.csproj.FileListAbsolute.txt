@@ -69,9 +69,9 @@ C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.AssemblyInfo.cs
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.csproj.CoreCompileInputs.cache
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.sourcelink.json
-C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.csproj.CopyComplete
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.dll
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\refint\otto-man.dll
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.pdb
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.genruntimeconfig.cache
 C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\ref\otto-man.dll
+C:\Users\Aras\Desktop\OttoMan\otto-man\otto-man\.godot\mono\temp\obj\Debug\otto-man.csproj.Up2Date

@@ -84,6 +84,7 @@ var facing_direction := 1.0  # 1 for right, -1 for left
 @onready var hitbox = $Hitbox
 @onready var state_machine = $StateMachine
 
+
 func _ready():
 	# Add to player group
 	add_to_group("player")
@@ -140,7 +141,10 @@ func _ready():
 		
 	# Initialize stats from PlayerStats
 	_sync_stats_from_player_stats()
-
+func _input(event: InputEvent) -> void:
+	if VillageManager.active_dialogue_npc != null:
+		if event.is_action_pressed("interact"):
+			VillageManager.active_dialogue_npc._on_interact_button_pressed()
 func _physics_process(delta):
 	# Update attack cooldown timer
 	if attack_cooldown_timer > 0:
@@ -628,7 +632,6 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_hitbox_hit(enemy: Node) -> void:
 	print("[Player] Hitbox hit enemy: ", enemy.name if enemy else "Unknown")
 
-
 func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
 	# (YENİ - fonksiyon içeriği)
 	if area.is_in_group("interactables"):
@@ -637,7 +640,10 @@ func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
 			# İsteğe bağlı: Ekranda "Etkileşim için E'ye bas" gibi bir ipucu gösterebilirsin
 			var parent_node = area.get_parent()
 			print("Etkileşim alanına girildi:", parent_node.name if parent_node else "Ebeveynsiz Alan")
-
+			if parent_node.is_in_group("NPC"):
+				VillageManager.active_dialogue_npc = parent_node
+				VillageManager.dialogue_npcs.append(parent_node)
+				HandleDialogueNpcWindows(parent_node)
 
 func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 	# (YENİ - fonksiyon içeriği)
@@ -648,7 +654,19 @@ func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 			# İsteğe bağlı: Etkileşim ipucunu gizleyebilirsin
 			var parent_node = area.get_parent()
 			print("Etkileşim alanından çıkıldı:", parent_node.name if parent_node else "Ebeveynsiz Alan")
-
+			if parent_node.is_in_group("NPC"):
+				parent_node.HideInteractButton()
+				parent_node.CloseNpcWindow()
+				VillageManager.dialogue_npcs.erase(parent_node)
+				if VillageManager.dialogue_npcs.is_empty() == true:
+					VillageManager.active_dialogue_npc = null
+					
+func HandleDialogueNpcWindows(last_npc):
+	last_npc.ShowInteractButton()
+	for NPC in VillageManager.dialogue_npcs:
+		if NPC != last_npc:
+			NPC.HideInteractButton()
+			
 # <<< YENİ FONKSİYON: Animasyondan çağırmak için >>>
 func spawn_attack_effect_by_name(attack_name: String):
 	var effect_scene_path = ""

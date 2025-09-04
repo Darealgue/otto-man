@@ -83,7 +83,7 @@ offset_right = -10.0
 offset_bottom = 590.0
 grow_horizontal = 2
 
-[node name="ChangeableWindow_DialogueWindow#ChatVBox" type="VBoxContainer" parent="BackPanel/DialogueWindow"]
+[node name="ChangeableWindow" type="VBoxContainer" parent="BackPanel/DialogueWindow"]
 custom_minimum_size = Vector2(380, 0)
 layout_mode = 1
 anchors_preset = 8
@@ -98,25 +98,25 @@ offset_bottom = 33.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="ScrollContainer" type="ScrollContainer" parent="BackPanel/DialogueWindow/ChangeableWindow_DialogueWindow#ChatVBox"]
+[node name="ScrollContainer" type="ScrollContainer" parent="BackPanel/DialogueWindow/ChangeableWindow"]
 custom_minimum_size = Vector2(0, 360)
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="BackPanel/DialogueWindow/ChangeableWindow_DialogueWindow#ChatVBox/ScrollContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="BackPanel/DialogueWindow/ChangeableWindow/ScrollContainer"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="BackPanel/DialogueWindow/ChangeableWindow_DialogueWindow#ChatVBox/ScrollContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="BackPanel/DialogueWindow/ChangeableWindow/ScrollContainer/VBoxContainer"]
 custom_minimum_size = Vector2(370, 360)
 layout_mode = 2
 vertical_alignment = 2
 autowrap_mode = 3
 
-[node name="ChatLineEdit" type="LineEdit" parent="BackPanel/DialogueWindow/ChangeableWindow_DialogueWindow#ChatVBox"]
+[node name="ChatLineEdit" type="LineEdit" parent="BackPanel/DialogueWindow/ChangeableWindow"]
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "Type your message..."
 
-[node name="SendButton" type="Button" parent="BackPanel/DialogueWindow/ChangeableWindow_DialogueWindow#ChatVBox"]
+[node name="SendButton" type="Button" parent="BackPanel/DialogueWindow/ChangeableWindow"]
 layout_mode = 2
 text = "Send"
 
@@ -153,4 +153,4 @@ offset_right = -10.0
 offset_bottom = 590.0
 grow_horizontal = 2
 
-[connection signal="text_submitted" from="BackPanel/DialogueWindow/ChangeableWindow_DialogueWindow#ChatVBox/ChatLineEdit" to="." method="_on_chat_line_edit_text_submitted"]
+[connection signal="text_submitted" from="BackPanel/DialogueWindow/ChangeableWindow/ChatLineEdit" to="." method="_on_chat_line_edit_text_submitted"]

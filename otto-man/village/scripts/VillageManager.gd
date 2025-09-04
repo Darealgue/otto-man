@@ -86,7 +86,8 @@ var workers_container: Node = null #<<< YENİ: workers_parent_node yerine
 
 const STARTING_WORKER_COUNT = 5 # Başlangıç işçi sayısı
 # ---------------------
-
+var active_dialogue_npc: Node = null
+var dialogue_npcs : Array
 func _ready() -> void:
 	# Oyun başlangıcında boşta işçi sayısını toplam işçi sayısına eşitle
 	idle_workers = total_workers
@@ -669,7 +670,7 @@ func notify_building_state_changed(building_node: Node) -> void:
 # Başarılı olursa true, barınak bulunamazsa veya hata olursa false döner.
 
 
-func _add_new_worker(NPC_Info:Dictionary = {}) -> bool: # <<< Dönüş tipi eklendi
+func _add_new_worker(NPC_Info) -> bool: # <<< Dönüş tipi eklendi
 	if not worker_scene:
 		#printerr("VillageManager: Worker scene not loaded!")
 		return false
@@ -678,7 +679,7 @@ func _add_new_worker(NPC_Info:Dictionary = {}) -> bool: # <<< Dönüş tipi ekle
 	worker_id_counter += 1
 	worker_instance.worker_id = worker_id_counter
 	worker_instance.name = "Worker" + str(worker_id_counter) 
-	worker_instance.NPC_Info = NPC_Info
+	
 	# <<< YENİ: Rastgele Görünüm Ata >>>
 	if worker_instance.has_method("update_visuals"): # Önce metodun varlığını kontrol et (güvenlik)
 		worker_instance.appearance = AppearanceDB.generate_random_appearance()
@@ -697,6 +698,7 @@ func _add_new_worker(NPC_Info:Dictionary = {}) -> bool: # <<< Dönüş tipi ekle
 	# Barınak bulunduysa sahneye ve listeye ekle
 	if workers_container:
 		workers_container.add_child(worker_instance)
+		worker_instance.Initialize_Existing_Villager(NPC_Info)
 	else:
 		#printerr("VillageManager: WorkersContainer not found! Cannot add worker to scene.")
 		worker_instance.queue_free() # Oluşturulan instance'ı sil
@@ -980,16 +982,7 @@ func cancel_worker_registration() -> void:
 	emit_signal("village_data_changed") # <<< Girinti Düzeltildi
 # <<< YENİ FONKSİYON BİTİŞ >>>
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("add_worker_debug"): 
-		#print("DEBUG: 'N' key pressed, attempting to add new worker.")
-		
-		# <<< GÜNCELLENDİ: Ön kontrol kaldırıldı, _add_new_worker kontrolü yeterli >>>
-		if not _add_new_worker():
-			# _add_new_worker zaten hata mesajı yazdırıyor.
-			# #print("VillageManager: Failed to add new worker via N key (likely no housing).")
-			pass 
-		# <<< GÜNCELLEME SONU >>>
+
 
 # Belirli bir kaynak türünü üreten ilk binanın pozisyonunu döndürür
 # (Kaynak Taşıma İllüzyonu için)
