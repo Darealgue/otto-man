@@ -107,7 +107,11 @@ func physics_update(delta: float):
 	
 	# Check for landing
 	if player.is_on_floor():
-		state_machine.transition_to("Idle")
+		# If we recently did a ledgegrab, transition to crouch to prevent getting stuck
+		if player.ledge_grab_cooldown_timer > 0:
+			state_machine.transition_to("Crouch")
+		else:
+			state_machine.transition_to("Idle")
 		return
 	
 	# Check for falling

@@ -21,6 +21,11 @@ func physics_update(delta: float):
 	if Input.is_action_just_pressed("attack") and player.attack_cooldown_timer <= 0:
 		state_machine.transition_to("Attack")
 		return
+
+	# Heavy attack input
+	if Input.is_action_just_pressed("heavy_attack") and player.attack_cooldown_timer <= 0:
+		state_machine.transition_to("HeavyAttack")
+		return
 		
 	# Check for block input
 	if Input.is_action_pressed("block"):

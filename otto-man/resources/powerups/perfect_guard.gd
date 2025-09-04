@@ -30,6 +30,8 @@ func _init() -> void:
 	description = "Perfect parries slow down time"
 	duration = -1  # Permanent until death
 	powerup_type = PowerupType.UTILITY
+	affected_stats = []  # Add affected_stats
+	tree_name = "defense"  # Add tree association
 
 func _ready() -> void:
 	# Get ScreenEffects reference

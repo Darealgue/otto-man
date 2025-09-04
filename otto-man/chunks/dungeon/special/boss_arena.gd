@@ -1,6 +1,6 @@
 extends Node2D
 
-@onready var finish_zone: Area2D = get_node_or_null("../FinishZone")
+@onready var finish_door: Node = get_node_or_null("FinishDoor")
 @onready var spawner: Node2D = $EnemySpawner if has_node("EnemySpawner") else null
 
 func _ready() -> void:
@@ -13,21 +13,11 @@ func _on_enemy_spawned(enemy: Node) -> void:
 		enemy.connect("enemy_defeated", Callable(self, "_on_boss_defeated"))
 
 func _on_boss_defeated() -> void:
-	# Enable finish zone when boss dies
-	var fz = _find_finish_zone()
-	if fz:
-		fz.monitoring = true
-		fz.visible = true
-		print("[BossArena] Boss defeated. FinishZone enabled.")
-
-func _find_finish_zone() -> Area2D:
-	# FinishZone is reparented under this chunk by level_generator in setup_level_transitions
-	# So search in self children for a node named FinishZone
-	var fz = get_node_or_null("FinishZone")
-	if fz and fz is Area2D:
-		return fz
-	# Fallback: search upwards or in tree
-	var candidates = get_tree().get_nodes_in_group("")
-	return fz
+	# Unlock finish door when boss dies
+	if finish_door and finish_door.has_method("unlock_door"):
+		finish_door.unlock_door()
+		print("[BossArena] Boss defeated. FinishDoor unlocked.")
+	else:
+		print("[BossArena] Boss defeated but no FinishDoor found.")
 
 

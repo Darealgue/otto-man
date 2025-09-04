@@ -11,7 +11,21 @@ func setup(scene: PackedScene) -> void:
 	
 	# Check if it's a PowerupEffect or has the required properties
 	if powerup is PowerupEffect:
-		text = powerup.powerup_name + "\n" + powerup.description
+		var powerup_name = powerup.powerup_name
+		var description = powerup.description
+		var tree_name = powerup.tree_name
+		
+		# Add tree information to the text
+		var tree_info = ""
+		if tree_name != "":
+			var powerup_manager = get_node("/root/PowerupManager")
+			if powerup_manager and powerup_manager.TREE_DEFINITIONS.has(tree_name):
+				var tree_def = powerup_manager.TREE_DEFINITIONS[tree_name]
+				var tree_color = tree_def.get("color", Color.WHITE)
+				var tree_display_name = tree_def.get("name", tree_name.capitalize())
+				tree_info = " [" + tree_display_name + "]"
+		
+		text = powerup_name + tree_info + "\n" + description
 	else:
 		# For non-PowerupEffect powerups, use the script name as fallback
 		var script_path = powerup.get_script().resource_path

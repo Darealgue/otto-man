@@ -8,6 +8,9 @@ func _ready():
 	super._ready()
 	collision_layer = CollisionLayers.PLAYER_HURTBOX
 	collision_mask = CollisionLayers.ENEMY_HITBOX
+	
+	# Add to player_hurtbox group for enemy hitbox detection
+	add_to_group("player_hurtbox")
 
 func _on_area_entered(hitbox: Area2D):
 	if not hitbox is EnemyHitbox:

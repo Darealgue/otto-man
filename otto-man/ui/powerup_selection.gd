@@ -3,6 +3,7 @@ extends CanvasLayer
 signal powerup_selected(powerup_scene: PackedScene)
 
 @onready var powerup_container = $Control/CenterContainer/VBoxContainer/PowerupContainer
+@onready var tree_info_label = $Control/CenterContainer/VBoxContainer/TreeInfoLabel
 
 var powerup_buttons: Array[Button] = []
 var selected_index: int = 0
@@ -82,6 +83,9 @@ func setup_powerups(powerup_scenes: Array[PackedScene]) -> void:
 		
 		powerup.queue_free()
 	
+	# Update tree info
+	_update_tree_info()
+	
 	# Start time slow effect
 	if get_node_or_null("/root/ScreenEffects"):
 		ScreenEffects.slow_time(0.3, 0.3)  # Reduced duration and increased speed
@@ -116,3 +120,36 @@ func _on_powerup_button_pressed(index: int) -> void:
 
 func show_ui(show: bool) -> void:
 	visible = show
+
+func _update_tree_info() -> void:
+	if !tree_info_label:
+		return
+	
+	var powerup_manager = get_node("/root/PowerupManager")
+	if !powerup_manager:
+		return
+	
+	var tree_info = ""
+	var unlocked_trees = powerup_manager.get_unlocked_trees()
+	
+	if unlocked_trees.size() > 0:
+		tree_info = "Unlocked Trees:\n"
+		for tree_name in unlocked_trees:
+			var progress = powerup_manager.get_tree_progress(tree_name)
+			var tree_def = powerup_manager.TREE_DEFINITIONS.get(tree_name, {})
+			var tree_color = tree_def.get("color", Color.WHITE)
+			var tree_display_name = tree_def.get("name", tree_name.capitalize())
+			tree_info += "• " + tree_display_name + " (Level " + str(progress) + ")\n"
+	else:
+		tree_info = "No trees unlocked yet.\nChoose powerups to unlock trees!"
+	
+	# Add synergy info
+	var active_synergies = powerup_manager.get_active_synergies()
+	if active_synergies.size() > 0:
+		tree_info += "\nActive Synergies:\n"
+		for synergy_id in active_synergies:
+			var synergy_info = powerup_manager.get_synergy_info(synergy_id)
+			if synergy_info.has("name"):
+				tree_info += "• " + synergy_info.name + "\n"
+	
+	tree_info_label.text = tree_info

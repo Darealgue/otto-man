@@ -1,4 +1,4 @@
-extends BaseEnemy
+extends "res://enemy/base_enemy.gd"
 class_name SummonerEnemy
 
 @export var default_stats: Dictionary = {}
@@ -64,7 +64,7 @@ func _process(delta: float) -> void:
 	_update_animation()
 
 func _physics_process(delta: float) -> void:
-	
+
 	# Rest of the timers and state handling
 	if invulnerability_timer > 0:
 		invulnerability_timer -= delta
@@ -78,17 +78,13 @@ func _physics_process(delta: float) -> void:
 		return_cooldown_timer -= delta
 		if return_cooldown_timer <= 0:
 			can_summon = true
-	
-	if current_behavior != "hurt":
-		apply_gravity(delta)
+
+	# Always apply gravity (including during hurt) so launches arc properly
+	apply_gravity(delta)
 	
 	match current_behavior:
 		"hurt":
 			handle_hurt_behavior(delta)
-			var saved_pos = global_position
-			move_and_slide()
-			global_position = saved_pos
-			return
 		"dead":
 			velocity.x = 0
 			var saved_x = global_position.x
@@ -112,9 +108,9 @@ func handle_hurt_behavior(delta: float) -> void:
 	if sprite:
 		if sprite.animation != "hurt":
 			sprite.play("hurt")
-	
-	# Force velocity to zero during hurt state
-	velocity = Vector2.ZERO
+
+	# During hurt we only stop horizontal motion; keep vertical for launch/gravity
+	velocity.x = 0
 	
 	# Let the animation finish naturally through _on_animation_finished
 	# Only force exit if we've been in hurt state too long
@@ -122,8 +118,9 @@ func handle_hurt_behavior(delta: float) -> void:
 		change_behavior("run", true)
 
 func _handle_idle() -> void:
-	# Only reset horizontal velocity, keep vertical for gravity
-	velocity.x = 0
+	# Only reset horizontal velocity; don't cancel upward hurt launch
+	if not (current_behavior == "hurt" and velocity.y < 0.0):
+		velocity.x = 0
 	
 	# Clear target and ensure idle animation plays
 	if target:
@@ -172,8 +169,9 @@ func _handle_summon(delta: float) -> void:
 		change_behavior("run")
 		return
 	
-	# Only reset horizontal movement while summoning, keep vertical for gravity
-	velocity.x = 0
+	# Only reset horizontal movement while summoning; preserve upward hurt motion
+	if not (current_behavior == "hurt" and velocity.y < 0.0):
+		velocity.x = 0
 	
 	# Start summon animation if not already playing
 	if sprite.animation != "summon":
@@ -308,7 +306,7 @@ func die() -> void:
 	# Return to pool after fade out
 	queue_free()
 
-func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
 	if current_behavior == "dead" or invulnerable:
 		return
 		
@@ -331,10 +329,26 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if players.size() > 0:
 		var player = players[0]
 		var dir = (global_position - player.global_position).normalized()
-		velocity = Vector2(
-			dir.x * knockback_force,
-			-knockback_force * 0.5  # Reduced vertical knockback
-		)
+		var up = -knockback_force * 0.5
+		if knockback_up_force >= 0.0:
+			up = -knockback_up_force
+		velocity = Vector2(dir.x * knockback_force, up)
+		# Start float if launched upward
+		if up < 0.0:
+			air_float_timer = air_float_duration
+		# If launched upward, start float window so player can juggle
+		if up < 0.0 and has_node("."):
+			if has_method("set"):
+				air_float_timer = air_float_duration
+		# If launched upward, briefly disable floor snap behavior so takeoff is visible
+		if up < 0.0:
+			var prev_snap = floor_snap_length
+			floor_snap_length = 0.0
+			var t = get_tree().create_timer(0.1)
+			t.timeout.connect(func():
+				if is_instance_valid(self):
+					floor_snap_length = prev_snap
+			)
 	
 	# Enter hurt state and play animation
 	change_behavior("hurt", true)  # Force the behavior change

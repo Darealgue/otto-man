@@ -1,5 +1,5 @@
 class_name HeavyEnemy
-extends BaseEnemy
+extends "res://enemy/base_enemy.gd"
 
 # Enemy-specific stats
 var patrol_point_left: float
@@ -263,8 +263,14 @@ func handle_patrol(delta: float) -> void:
 		# Check floor before moving
 		var has_floor = check_floor()
 		
+		# Check for walls/obstacles in front
+		var has_wall = check_wall()
+		
+		# Check if player is too close in front
+		var player_too_close = check_player_in_front()
+		
 		# Add a small delay before turning around to prevent rapid flipping
-		if not has_floor and behavior_timer >= 0.5:
+		if (not has_floor or has_wall or player_too_close) and behavior_timer >= 0.5:
 			velocity.x = 0
 			direction *= -1
 			sprite.flip_h = direction < 0
@@ -274,6 +280,10 @@ func handle_patrol(delta: float) -> void:
 			if sprite.animation != "walk":
 				sprite.play("walk")
 			velocity.x = direction * (stats.movement_speed if stats else 100.0) * 0.7
+		
+		# Stop animation if not moving
+		if velocity.x == 0 and sprite.animation == "walk":
+			sprite.play("idle")
 	else:
 		# In air, try to recover
 		velocity.x = move_toward(velocity.x, 0, (stats.movement_speed if stats else 100.0) * delta)
@@ -351,10 +361,22 @@ func handle_chase(delta: float) -> void:
 		
 		last_direction_change += delta
 		
-		# Move towards player
-		if sprite.animation != "walk":
-			sprite.play("walk")
-		velocity.x = direction * (stats.movement_speed if stats else 100.0)
+		# Check for obstacles before moving
+		var has_wall = check_wall()
+		var player_too_close = check_player_in_front()
+		
+		# If there's a wall or player is too close, stop moving
+		if has_wall or player_too_close:
+			velocity.x = 0
+			if sprite.animation == "walk":
+				sprite.play("idle")
+			# Reduced debug noise: comment out frequent prints
+			# print("[HeavyEnemy] Stopped due to obstacle or player too close")
+		else:
+			# Move towards player
+			if sprite.animation != "walk":
+				sprite.play("walk")
+			velocity.x = direction * (stats.movement_speed if stats else 100.0)
 		
 		
 		if can_attack and behavior_timer >= behavior_change_delay:
@@ -566,10 +588,10 @@ func _on_hitbox_hit(area: Area2D) -> void:
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	if current_behavior != "dead":
 		var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
-		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0}
-		take_damage(damage, knockback_data.get("force", 200.0))
+		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
+		take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0))
 
-func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
 	# Don't take damage if already dead
 	if current_behavior == "dead":
 		return
@@ -577,6 +599,8 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	# List of states where enemy should be uninterruptible
 	var uninterruptible_states = ["charge_prepare", "charging", "slam_prepare", "slam"]
 	
+	# Track if this hit kills the enemy (always define var)
+	var was_lethal = false
 	# Apply damage and effects
 	if stats:
 		health -= amount
@@ -594,25 +618,36 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 		# Flash red
 		_flash_hurt()
 		
-		# Check for death
-		if health <= 0:
-			die()
-			return
+		# Don't exit early; we want to apply on-hit knockback even on lethal
+		was_lethal = health <= 0
 	
-	# Handle knockback and state changes
-	if not uninterruptible_states.has(current_behavior):
-		# Apply knockback
-		var players = get_tree().get_nodes_in_group("player")
-		if players.size() > 0:
-			var player = players[0]
-			var dir = (position - player.global_position).normalized()
-			velocity = Vector2(
-				dir.x * knockback_force,
-				-knockback_force * 0.5  # Reduced vertical knockback
+	# Handle knockback and state changes (apply knockback even on lethal)
+	var players = get_tree().get_nodes_in_group("player")
+	if players.size() > 0:
+		var player = players[0]
+		var dir = (position - player.global_position).normalized()
+		var up = -knockback_force * 0.5
+		if knockback_up_force >= 0.0:
+			up = -knockback_up_force
+		velocity = Vector2(dir.x * knockback_force, up)
+		# If launched upward, ensure we are not clamped by floor snap immediately
+		if up < 0.0:
+			# Temporarily clear floor snap so launch takes effect
+			floor_snap_length = 0.0
+			air_float_timer = air_float_duration
+
+	if was_lethal:
+		# Go straight to death after applying launch; keep vertical velocity so the corpse falls
+		die()
+	else:
+		if not uninterruptible_states.has(current_behavior):
+			# Change to hurt state and restore floor snap shortly after
+			change_behavior("hurt", true)
+			var t := get_tree().create_timer(0.1)
+			t.timeout.connect(func():
+				if is_instance_valid(self):
+					floor_snap_length = 32.0
 			)
-		
-		# Change to hurt state
-		change_behavior("hurt", true)
 
 func reset() -> void:
 	super.reset()
@@ -647,12 +682,12 @@ func die() -> void:
 	if sprite:
 		sprite.play("dead")
 	
-	# Immediately stop all movement
-	velocity = Vector2.ZERO
+	# Stop horizontal movement, keep vertical so corpse falls
+	velocity.x = 0
 	
-	# Disable ALL collision to ensure no interactions
-	collision_layer = 0
-	collision_mask = 0
+	# Collide only with environment so the body lands on ground
+	collision_layer = CollisionLayers.NONE
+	collision_mask = CollisionLayers.WORLD
 	
 	# Disable components
 	if hitbox:
@@ -678,14 +713,20 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(self) or global_position == Vector2.ZERO:
 		return
 	
-	# Always apply gravity unless dead
-	if not is_on_floor() and current_behavior != "dead":
-		velocity.y += GRAVITY * delta
-		# Cap falling speed
-		velocity.y = minf(velocity.y, 2000.0)
+	# Always apply gravity (even when dead so corpse falls), with juggle float support
+	if not is_on_floor():
+		var g_scale := 1.0
+		if air_float_timer > 0.0:
+			g_scale = air_float_gravity_scale
+			air_float_timer = max(0.0, air_float_timer - delta)
+		velocity.y += GRAVITY * g_scale * delta
+		# Cap falling speed while float active
+		if air_float_timer > 0.0:
+			velocity.y = minf(velocity.y, air_float_max_fall_speed)
 	elif is_on_floor():
-		# Reset vertical velocity when on floor
-		velocity.y = 0
+		# Do not zero out upward knockback during hurt; allow takeoff
+		if not (current_behavior == "hurt" and velocity.y < 0.0):
+			velocity.y = 0
 	
 	
 	# Check if we should wake up
@@ -799,5 +840,45 @@ func check_floor() -> bool:
 			return true
 		
 		return true  # If we hit something within reasonable range, consider it floor
+	
+	return false
+
+func check_wall() -> bool:
+	# Create a raycast to check for walls/obstacles in front
+	var space_state = get_world_2d().direct_space_state
+	var ray_start = global_position
+	var ray_end = ray_start + Vector2(direction * 30, 0)  # Check 30 pixels ahead (reduced from 50)
+	
+	var query = PhysicsRayQueryParameters2D.create(ray_start, ray_end)
+	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Check both world and platform layers
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		# Check if the obstacle is close enough to be a problem
+		var distance = global_position.distance_to(result.position)
+		if distance < 35:  # If obstacle is within 35 pixels (reduced from 60)
+			print("[HeavyEnemy] Wall detected at distance: " + str(distance))
+			return true
+	
+	return false
+
+func check_player_in_front() -> bool:
+	# Check if player is directly in front and too close
+	if not target:
+		return false
+	
+	var player_pos = target.global_position
+	var enemy_pos = global_position
+	
+	# Check if player is in front of enemy (same direction as enemy is facing)
+	var direction_to_player = (player_pos - enemy_pos).normalized()
+	var dot_product = direction_to_player.x * direction
+	
+	if dot_product > 0:  # Player is in front
+		var distance = enemy_pos.distance_to(player_pos)
+		if distance < 80:  # If player is very close in front
+			# Reduced debug noise
+			# print("[HeavyEnemy] Player too close in front, distance: " + str(distance))
+			return true
 	
 	return false

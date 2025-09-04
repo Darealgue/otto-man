@@ -1,6 +1,6 @@
 extends State
 
-const PARRY_WINDOW := 0.1  # 0.1 seconds window for parry
+const PARRY_WINDOW := 0.2  # Wider parry window (seconds)
 const BLOCK_DAMAGE_REDUCTION := 0.5  # 50% damage reduction when blocking
 const STAMINA_RECHARGE_TIME := 5.0  # Time to recharge one stamina segment
 const PARRY_DAMAGE_MULTIPLIER := 1.5  # 50% more damage reflected on successful parry
@@ -36,6 +36,7 @@ func enter():
 	is_blocking = false
 	can_parry = true
 	parry_timer = PARRY_WINDOW
+	print("[Block] ENTER | Parry window started=", PARRY_WINDOW)
 	is_in_impact_animation = false
 	is_transitioning = false
 	stamina_consumed_this_hit = false
@@ -83,21 +84,46 @@ func exit():
 		player.hurtbox.disconnect("hurt", _on_hurtbox_hurt)
 
 func physics_update(delta: float):
-	# Don't process input during transitions or parrying
-	if is_transitioning or is_parrying:
+	# Don't process input during transitions
+	if is_transitioning:
 		return
+	
+	# During parry, allow immediate cancel into counter attack
+	if is_parrying:
+		if Input.is_action_just_pressed("heavy_attack") and state_machine.has_node("HeavyAttack"):
+			print("[Block] Counter cancel -> HeavyAttack")
+			# End parry immediately and transition
+			is_parrying = false
+			state_machine.transition_to("HeavyAttack")
+			return
+		elif Input.is_action_just_pressed("attack") and state_machine.has_node("Attack"):
+			print("[Block] Counter cancel -> Attack")
+			is_parrying = false
+			state_machine.transition_to("Attack")
+			return
+		
+	# If player taps block again, re-arm parry window
+	if Input.is_action_just_pressed("block"):
+		can_parry = true
+		parry_timer = PARRY_WINDOW
+		block_start_time = Time.get_ticks_msec() / 1000.0
+		print("[Block] Parry window re-armed")
 		
 	# Update parry window timer
 	if parry_timer > 0:
 		parry_timer -= delta
 		if parry_timer <= 0:
 			can_parry = false
+			print("[Block] Parry window closed")
 			if not is_blocking and not is_in_impact_animation and not is_parrying:
 				is_blocking = true
 				animation_player.play("block")
 	
 	# Check if still blocking and has stamina
-	if not Input.is_action_pressed("block") or (stamina_bar and not stamina_bar.has_charges() and not is_in_impact_animation):
+	# Allow tap-parry: during active parry window, ignore block release
+	var can_end_block := parry_timer <= 0.0 and not is_parrying
+	if can_end_block and (not Input.is_action_pressed("block") or (stamina_bar and not stamina_bar.has_charges() and not is_in_impact_animation)):
+		print("[Block] Exiting block (release or no stamina), parry window over")
 		_start_finish_animation()
 		return
 	
@@ -119,17 +145,13 @@ func _on_finish_timer_timeout():
 		state_machine.transition_to("Idle")
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
-	# Get timing window
-	var current_time = Time.get_ticks_msec() / 1000.0
-	var time_since_block = current_time - block_start_time
-	
-	
 	# Prevent double parry
 	if is_parrying:
 		return
 	
 	# Check if within parry window and can parry
-	if can_parry and time_since_block <= PARRY_WINDOW:
+	if can_parry:
+		print("[Block] PARRY SUCCESS")
 		
 		# Consume stamina for parry if not already consumed for this hit
 		if not stamina_consumed_this_hit and stamina_bar:
@@ -155,16 +177,14 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		player.add_child(parry_effect)
 		parry_effect.global_position = hitbox.global_position
 		
-		# Reflect damage back to attacker
-		var attacker = hitbox.get_parent()
-		if attacker.has_method("take_damage"):
-			var reflected_damage = hitbox.get_damage() * PARRY_DAMAGE_MULTIPLIER
-			# Use the normal damage handling path
-			attacker.change_behavior("hurt", true)  # Force hurt state first
-			attacker.take_damage(reflected_damage)
-			
+		# Instead of reflecting damage, open counter-attack window
+		if player and player.has_method("start_counter_window"):
+			player.start_counter_window(0.8)  # Slightly longer counter chance
 		# Emit perfect parry signal for powerups
 		player._on_successful_parry()  # Call the function that emits the signal
+		# Close parry window immediately after success
+		can_parry = false
+		parry_timer = 0.0
 	else:
 		# Consume stamina for normal blocks if not already consumed for this hit
 		if not stamina_consumed_this_hit and stamina_bar:

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bloodthirsty_powerup"]
+
+[ext_resource type="Script" path="res://resources/powerups/bloodthirsty.gd" id="1_blood"]
+
+[node name="Bloodthirsty" type="Node"]
+script = ExtResource("1_blood")

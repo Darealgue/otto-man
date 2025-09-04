@@ -3,6 +3,7 @@ extends CharacterBody2D
 signal health_changed(new_health: float)
 signal perfect_parry  # Signal for Perfect Guard powerup
 signal dash_started
+signal fall_attack_performed  # Signal for Triple Strike powerup
 
 const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
 
@@ -64,6 +65,17 @@ var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
 var attack_cooldown_timer: float = 0.0 # <<< YENİ DEĞİŞKEN >>>
 
+# Air-combo float for player (stay airborne longer during juggles)
+@export var air_combo_float_duration: float = 0.35
+@export var air_combo_gravity_scale: float = 0.35
+@export var air_combo_max_fall_speed: float = 620.0
+var air_combo_float_timer: float = 0.0
+
+# Counter window after perfect parry
+var counter_window_timer: float = 0.0
+var counter_damage_bonus: float = 0.5  # +50% damage during counter
+var counter_knockback_bonus: float = 0.35  # +35% knockback during counter
+
 # Etkileşim için değişkenler (YENİ - physics_process'e dokunmadan)
 var overlapping_interactables: Array[Area2D] = []
 
@@ -104,6 +116,8 @@ func _ready():
 	
 	animation_player.active = true
 	#animation_tree.active = false
+	# Ensure counter animations exist even if scene file missed them
+	_ensure_counter_animations()
 	
 	# Initialize health from PlayerStats
 	var player_stats = get_node("/root/PlayerStats")
@@ -149,6 +163,11 @@ func _physics_process(delta):
 	# Update attack cooldown timer
 	if attack_cooldown_timer > 0:
 		attack_cooldown_timer -= delta
+	# Decay counter window
+	if counter_window_timer > 0.0:
+		counter_window_timer -= delta
+		if counter_window_timer < 0.0:
+			counter_window_timer = 0.0
 		
 	# Handle drop-through platform
 	if is_on_floor() and Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
@@ -171,9 +190,13 @@ func _physics_process(delta):
 		elif velocity.x > 0:
 			sprite.flip_h = false
 	
-	# Handle jump buffering
+	# Handle jump buffering (disabled during Crouch)
+	var is_crouching := false
+	if $StateMachine and $StateMachine.current_state:
+		is_crouching = $StateMachine.current_state.name == "Crouch"
 	if Input.is_action_just_pressed("jump"):
-		jump_buffer_timer = jump_buffer_time
+		if not is_crouching:
+			jump_buffer_timer = jump_buffer_time
 	elif jump_buffer_timer > 0:
 		jump_buffer_timer -= delta
 	
@@ -181,9 +204,14 @@ func _physics_process(delta):
 	if is_on_floor():
 		coyote_timer = COYOTE_TIME
 		if jump_buffer_timer > 0:  # Execute buffered jump
-			spawn_dust_cloud(get_foot_position(), "puff_up")
-			start_jump()
-			jump_buffer_timer = 0.0
+			# Do not execute buffered jump while crouching
+			var crouch_now := false
+			if $StateMachine and $StateMachine.current_state:
+				crouch_now = $StateMachine.current_state.name == "Crouch"
+			if not crouch_now:
+				spawn_dust_cloud(get_foot_position(), "puff_up")
+				start_jump()
+				jump_buffer_timer = 0.0
 	elif was_on_floor:
 		coyote_timer -= delta
 		if coyote_timer <= 0:
@@ -201,10 +229,17 @@ func _physics_process(delta):
 	else:
 		# Apply stronger gravity when falling
 		current_gravity_multiplier = fall_gravity_multiplier if velocity.y > 0 else 1.0
+		# Apply air-combo float modifier while airborne
+		if not is_on_floor() and air_combo_float_timer > 0.0:
+			air_combo_float_timer = max(0.0, air_combo_float_timer - delta)
+			current_gravity_multiplier *= air_combo_gravity_scale
 	
 	# Apply maximum fall speed with the new higher limit
-	if velocity.y > max_fall_speed:
-		velocity.y = max_fall_speed
+	var max_fall := max_fall_speed
+	if air_combo_float_timer > 0.0:
+		max_fall = min(max_fall_speed, air_combo_max_fall_speed)
+	if velocity.y > max_fall:
+		velocity.y = max_fall
 
 	# Update wall jump timer
 	if wall_jump_timer > 0:
@@ -269,6 +304,10 @@ func _physics_process(delta):
 		# Yere indiğimizde was_on_floor'u hemen true yapabiliriz
 		was_on_floor = true
 		coyote_timer = COYOTE_TIME # Yere iner inmez coyote time'ı sıfırla
+	
+	# Z-Index'i Y pozisyonuna göre güncelle (Worker'lar gibi)
+	if sprite:
+		sprite.z_index = int(global_position.y)
 
 # No need to call physics_update explicitly, it's handled by _physics_process in the state machine
 
@@ -516,6 +555,23 @@ func _on_dash_state_exited() -> void:
 # Update perfect parry detection
 func _on_successful_parry() -> void:
 	emit_signal("perfect_parry")
+	# Open counter window for a brief time
+	start_counter_window(0.5)
+
+# Counter window API
+func start_counter_window(duration: float = 0.5) -> void:
+	counter_window_timer = max(counter_window_timer, duration)
+	# Optional: small visual cue
+	if has_node("/root/ScreenEffects"):
+		var fx = get_node("/root/ScreenEffects")
+		if fx and fx.has_method("shake"):
+			fx.shake(0.05, 2.0)
+
+func is_counter_window_active() -> bool:
+	return counter_window_timer > 0.0
+
+func consume_counter_window() -> void:
+	counter_window_timer = 0.0
 
 # Add new functions for stat syncing
 func _sync_stats_from_player_stats() -> void:
@@ -553,6 +609,81 @@ func get_health_percent() -> float:
 # Make dash state accessible for powerups
 func get_dash_state() -> State:
 	return dash_state
+
+# Ensure counter animations exist in AnimationPlayer at runtime
+func _ensure_counter_animations() -> void:
+	if not animation_player:
+		return
+	# Ensure default animation library exists
+	var lib_obj = animation_player.get_animation_library("")
+	if lib_obj == null:
+		lib_obj = AnimationLibrary.new()
+		animation_player.add_animation_library("", lib_obj)
+	var lib: AnimationLibrary = lib_obj
+	# Counter Light (6 frames)
+	if not animation_player.has_animation("counter_light"):
+		var anim_l = Animation.new()
+		anim_l.length = 0.4
+		# hframes = 6
+		var t0 = anim_l.add_track(Animation.TYPE_VALUE)
+		anim_l.track_set_path(t0, NodePath("Sprite2D:hframes"))
+		anim_l.track_insert_key(t0, 0.0, 6)
+		# texture
+		var tex_l = load("res://resources/player_normalmap resources/counter_light_n.tres")
+		if tex_l:
+			var t1 = anim_l.add_track(Animation.TYPE_VALUE)
+			anim_l.track_set_path(t1, NodePath("Sprite2D:texture"))
+			anim_l.track_insert_key(t1, 0.0, tex_l)
+		# frame keys 0..5
+		var t2 = anim_l.add_track(Animation.TYPE_VALUE)
+		anim_l.track_set_path(t2, NodePath("Sprite2D:frame"))
+		var times_l = [0.0, 0.067, 0.134, 0.201, 0.268, 0.335]
+		for i in range(times_l.size()):
+			anim_l.track_insert_key(t2, times_l[i], i)
+		# method track for effect
+		var tm = anim_l.add_track(Animation.TYPE_METHOD)
+		anim_l.track_set_path(tm, NodePath("."))
+		anim_l.track_insert_key(tm, 0.216, {"method": "spawn_attack_effect_by_name", "args": ["counter_light"]})
+		lib.add_animation("counter_light", anim_l)
+	# Counter Heavy (7 frames)
+	if not animation_player.has_animation("counter_heavy"):
+		var anim_h = Animation.new()
+		anim_h.length = 0.47
+		# hframes = 7
+		var h0 = anim_h.add_track(Animation.TYPE_VALUE)
+		anim_h.track_set_path(h0, NodePath("Sprite2D:hframes"))
+		anim_h.track_insert_key(h0, 0.0, 7)
+		# texture
+		var tex_h = load("res://resources/player_normalmap resources/counter_heavy_n.tres")
+		if tex_h:
+			var h1 = anim_h.add_track(Animation.TYPE_VALUE)
+			anim_h.track_set_path(h1, NodePath("Sprite2D:texture"))
+			anim_h.track_insert_key(h1, 0.0, tex_h)
+		# frame keys 0..6
+		var h2 = anim_h.add_track(Animation.TYPE_VALUE)
+		anim_h.track_set_path(h2, NodePath("Sprite2D:frame"))
+		var times_h = [0.0, 0.067, 0.134, 0.201, 0.268, 0.335, 0.402]
+		for j in range(times_h.size()):
+			anim_h.track_insert_key(h2, times_h[j], j)
+		# method track for effect
+		var hm = anim_h.add_track(Animation.TYPE_METHOD)
+		anim_h.track_set_path(hm, NodePath("."))
+		anim_h.track_insert_key(hm, 0.24, {"method": "spawn_attack_effect_by_name", "args": ["counter_heavy"]})
+		lib.add_animation("counter_heavy", anim_h)
+
+# Update dash charges for Double Dash powerup
+func update_dash_charges() -> void:
+	var player_stats = get_node("/root/PlayerStats")
+	if !player_stats:
+		return
+	
+	var dash_charges = int(player_stats.get_stat("dash_charges"))
+	
+	# Update dash state if it exists
+	if dash_state and dash_state.has_method("set_dash_charges"):
+		dash_state.set_dash_charges(dash_charges)
+	
+	print("[Player] Updated dash charges: " + str(dash_charges))
 
 func apply_movement(delta: float, input_dir: float) -> void:
 	# Use different acceleration values for ground and air
@@ -655,6 +786,8 @@ func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 
 # <<< YENİ FONKSİYON: Animasyondan çağırmak için >>>
 func spawn_attack_effect_by_name(attack_name: String):
+	# Debug print disabled to reduce console spam
+	# print("[Player] spawn_attack_effect_by_name -> ", attack_name)
 	var effect_scene_path = ""
 	var effect_offset = Vector2.ZERO
 	# var is_air = attack_name.begins_with("air_attack") # Bu değişkene gerek kalmadı
@@ -679,7 +812,19 @@ func spawn_attack_effect_by_name(attack_name: String):
 			effect_offset = Vector2(50 * current_visual_direction, 0)    # <<< DEĞİŞTİ >>>
 		"attack_1.2":
 			effect_scene_path = "res://assets/effects/player fx/attack_1_2_effect.tscn"
-			effect_offset = Vector2(70 * current_visual_direction, 5)    # <<< DEĞİŞTİ >>>
+			effect_offset = Vector2(70 * current_visual_direction, 5)
+		"attack_1.3":
+			effect_scene_path = "res://assets/effects/player fx/attack_1_3_effect.tscn"
+			effect_offset = Vector2(75 * current_visual_direction, 6)
+		"attack_1.4":
+			effect_scene_path = "res://assets/effects/player fx/attack_1_1_effect.tscn"
+			effect_offset = Vector2(60 * current_visual_direction, 2)
+		"attack_1.3":
+			effect_scene_path = "res://assets/effects/player fx/attack_1_3_effect.tscn"
+			effect_offset = Vector2(75 * current_visual_direction, 6)
+		"up_light":
+			effect_scene_path = "res://assets/effects/player fx/attack_1_1_effect.tscn"
+			effect_offset = Vector2(50 * current_visual_direction, -10)
 		_:
 			push_error("Bilinmeyen saldırı adı için efekt oluşturulamaz: " + attack_name)
 			return
@@ -688,10 +833,19 @@ func spawn_attack_effect_by_name(attack_name: String):
 		push_warning("Efekt yolu bulunamadı: " + attack_name)
 		return
 
-	# Sahneyi yükle
-	var effect_scene = load(effect_scene_path)
+	# Sahneyi yükle (fallback'lerle)
+	var resolved_path = effect_scene_path
+	if not ResourceLoader.exists(resolved_path):
+		if attack_name == "attack_1.3" and ResourceLoader.exists("res://assets/effects/player fx/attack_1_2_effect.tscn"):
+			resolved_path = "res://assets/effects/player fx/attack_1_2_effect.tscn"
+		elif ResourceLoader.exists("res://assets/effects/player fx/attack_1_1_effect.tscn"):
+			resolved_path = "res://assets/effects/player fx/attack_1_1_effect.tscn"
+		else:
+			push_error("Efekt sahnesi bulunamadı: " + effect_scene_path)
+			return
+	var effect_scene = load(resolved_path)
 	if not effect_scene:
-		push_error("Efekt sahnesi yüklenemedi: " + effect_scene_path)
+		push_error("Efekt sahnesi yüklenemedi: " + resolved_path)
 		return
 
 	# Örneği oluştur
@@ -732,9 +886,9 @@ func get_foot_position() -> Vector2:
 	return global_position + Vector2(0, sprite_height / 2 + 5)
 
 func _set_player_z_index():
-	# Set player sprite z_index to appear above ground traps
+	# Set player sprite z_index based on Y position (like workers)
 	if sprite:
-		sprite.z_index = 5  # Same as enemies, above ground traps (1)
+		sprite.z_index = int(global_position.y)  # Y düşük = önde
 		print("Oyuncu z_index set to: ", sprite.z_index)
 	else:
 		print("Oyuncu sprite not found for z_index setting")

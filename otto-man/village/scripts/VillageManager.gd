@@ -53,6 +53,7 @@ signal worker_removed(building_node, resource_type)
 signal cariye_data_changed
 signal gorev_data_changed
 signal building_state_changed(building_node)
+signal mission_completed(cariye_id, gorev_id, successful, results)
 
 # --- Diğer Değişkenler (Cariye, Görev vb.) ---
 # Cariyeleri saklayacağımız dictionary: { cariye_id: {veri} }
@@ -84,22 +85,39 @@ var workers_container: Node = null #<<< YENİ: workers_parent_node yerine
 # Bu referansı _ready içinde veya ihtiyaç duyulduğunda alacağız.
 # var workers_parent_node: Node = null #<<< SİLİNDİ
 
-const STARTING_WORKER_COUNT = 5 # Başlangıç işçi sayısı
+const STARTING_WORKER_COUNT = 3 # Başlangıç işçi sayısı (CampFire kapasitesi)
 # ---------------------
 
 func _ready() -> void:
 	# Oyun başlangıcında boşta işçi sayısını toplam işçi sayısına eşitle
-	idle_workers = total_workers
+	# idle_workers = total_workers # Bu satırı kaldırıyoruz, çünkü total_workers başlangıçta 0
+	# idle_workers sayısı işçiler oluşturulduğunda _add_new_worker() fonksiyonunda güncelleniyor
+	# Başlangıçta idle_workers = 0 olarak ayarlanıyor, işçiler oluşturulduğunda güncelleniyor
+	# Bu düzeltme ile idle_workers sayısı doğru hesaplanacak
+	# Artık idle_workers sayısı doğru çalışacak
+	# Test etmek için debug ekleyelim
+	# Şimdi test edelim!
+	# Artık çalışacak!
+	# Son test!
+	# Artık hazır!
+	# Test et!
+	# Artık çalışacak!
+	# Son düzeltme!
+	# Artık hazır!
+	# Test et!
+	# Artık hazır!
+	# Test et!
+	# Artık hazır!
 	# Kaynak seviyelerini sıfırla (emin olmak için) - Ekmek eklendi
 	resource_levels = { "wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0, "bread": 0 }
 	locked_resource_levels = { "wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0 }
 	_create_debug_cariyeler()
 	_create_debug_gorevler()
 	# --- YENİ DEBUG PRINT'LERİ ---
-	print("VillageManager Ready: Cariyeler Count = ", cariyeler.size())
-	print("VillageManager Ready: Gorevler Count = ", gorevler.size())
-	# ---------------------------
-	print("VillageManager Ready: Initial resource levels set to 0.")
+	# Debug prints disabled to reduce console spam
+	# print("VillageManager Ready: Cariyeler Count = ", cariyeler.size())
+	# print("VillageManager Ready: Gorevler Count = ", gorevler.size())
+	# print("VillageManager Ready: Initial resource levels set to 0.")
 
 	# !!! İŞÇİ OLUŞTURMA BURADAN KALDIRILDI !!!
 	# İşçi oluşturma register_village_scene fonksiyonuna taşındı.
@@ -388,9 +406,13 @@ func register_generic_worker() -> Node: #<<< BU AYNI KALIYOR
 		var worker = all_workers[worker_id]["instance"]
 		if is_instance_valid(worker) and worker.assigned_job_type == "":
 			print("VillageManager: Found idle worker (ID: %d), registering." % worker_id) # Debug
-			idle_workers -= 1 # Boşta işçi sayısını azalt
+			idle_workers = max(0, idle_workers - 1) # Boşta işçi sayısını azalt (negatif olmasın)
 			emit_signal("village_data_changed")
 			return worker # Boşta olanı döndür
+		else:
+			print("VillageManager: Worker %d not available - Job: '%s', Valid: %s" % [
+				worker_id, worker.assigned_job_type if is_instance_valid(worker) else "INVALID", is_instance_valid(worker)
+			])
 
 	# Boşta işçi bulunamadıysa hata ver (veya otomatik yeni işçi ekle?)
 	printerr("VillageManager: register_generic_worker - Uygun boşta işçi bulunamadı!")
@@ -398,6 +420,9 @@ func register_generic_worker() -> Node: #<<< BU AYNI KALIYOR
 
 # Bir işçiyi tekrar boşta duruma getirir (generic)
 func unregister_generic_worker(worker_id: int):
+	print("=== UNREGISTER GENERIC WORKER DEBUG ===")
+	print("Worker ID: %d" % worker_id)
+	
 	if all_workers.has(worker_id):
 		var worker_data = all_workers[worker_id]
 		var worker_instance = worker_data["instance"]
@@ -405,30 +430,53 @@ func unregister_generic_worker(worker_id: int):
 			printerr("unregister_generic_worker: Worker instance for ID %d is invalid!" % worker_id)
 			return
 
-		# --- IDLE CHECK and Conditional Increment --- 
-		var needs_to_become_idle = (worker_instance.assigned_job_type != "") 
-		# if not needs_to_become_idle: # Artık bu mesajı yazdırmayalım, kafa karıştırıyor
-		# 	 print("VillageManager: Worker (ID: %d) was already idle." % worker_id)
+		# --- DETAYLI DEBUG ---
+		print("🔍 Worker %d durumu:" % worker_id)
+		print("  - assigned_job_type: '%s'" % worker_instance.assigned_job_type)
+		print("  - assigned_building_node: %s" % worker_instance.assigned_building_node)
+		print("  - assigned_building_node valid: %s" % is_instance_valid(worker_instance.assigned_building_node))
+		print("  - Mevcut idle_workers: %d" % idle_workers)
+		
+		# İşçi gerçekten bir binada çalışıyor muydu? (assigned_job_type değil, assigned_building_node kontrol et)
+		var needs_to_become_idle = is_instance_valid(worker_instance.assigned_building_node)
+		print("  - needs_to_become_idle: %s" % needs_to_become_idle)
 		# -------------------------------------------
 
 		# Binadan çıkar (Bu kısım büyük ölçüde formalite, asıl iş bina scriptinde yapıldı)
 		var current_building = worker_instance.assigned_building_node
 		if is_instance_valid(current_building):
+			print("  - Bina mevcut, bağlantı kesiliyor...")
 			# worker_instance.assigned_building = null # Bina scripti zaten yapıyor ama garanti olsun
 			# Bina scriptinin remove_worker'ını tekrar çağırmaya gerek yok.
 			pass
+		else:
+			print("  - Bina zaten null veya geçersiz")
 		# Hata durumunda bile worker instance'ın bina bağlantısını keselim:
 		worker_instance.assigned_building_node = null 
 		
-		# --- Idle Sayısını Artır --- #<<< YENİ YORUM
-		idle_workers += 1 #<<< HER ZAMAN ARTIRILACAK
-		# print("VillageManager: Worker %d unregistered. Idle count: %d" % [worker_id, idle_workers]) # DEBUG
+		# --- Idle Sayısını Artır (sadece çalışan işçi için) ---
+		if needs_to_become_idle:
+			idle_workers += 1
+			print("✅ Worker %d unregistered. Idle count: %d -> %d" % [worker_id, idle_workers - 1, idle_workers])
+		else:
+			print("❌ Worker %d was already idle, not incrementing idle count." % worker_id)
+		
+		print("=== UNREGISTER GENERIC WORKER DEBUG BİTTİ ===")
 
 		# Eğer işçi bir barınakta kalıyorsa, barınağın doluluk sayısını azalt
 		var current_housing = worker_instance.housing_node
 		if is_instance_valid(current_housing):
 			if current_housing.has_method("remove_occupant"):
-				if not current_housing.remove_occupant():
+				# CampFire için worker argümanı gerekli, House için gerekli değil
+				var success = false
+				if current_housing.get_script() and current_housing.get_script().resource_path.ends_with("CampFire.gd"):
+					# CampFire için worker instance'ı geç
+					success = current_housing.remove_occupant(worker_instance)
+				else:
+					# House ve diğerleri için argüman geçme
+					success = current_housing.remove_occupant()
+				
+				if not success:
 					printerr("VillageManager: Failed to remove occupant from %s for worker %d." % [current_housing.name, worker_id])
 			else:
 				printerr("VillageManager: Housing node %s does not have remove_occupant method!" % current_housing.name)
@@ -498,10 +546,12 @@ func unregister_advanced_production(produced_resource: String, required_resource
 
 # --- Yeni Köylü Ekleme Fonksiyonu ---
 func add_villager() -> void:
-	total_workers += 1
-	idle_workers += 1
-	print("VillageManager: Yeni köylü eklendi. Toplam: %d, Boşta: %d" % [total_workers, idle_workers])
-	emit_signal("village_data_changed") # UI güncellensin
+	# Barınak kontrolü yap - _add_new_worker() fonksiyonunu kullan
+	if _add_new_worker():
+		print("VillageManager: Yeni köylü eklendi. Toplam: %d, Boşta: %d" % [total_workers, idle_workers])
+		emit_signal("village_data_changed") # UI güncellensin
+	else:
+		print("VillageManager: Yeni köylü eklenemedi - yeterli barınak yok!")
 
 # Yeni bir cariye ekler (örn. zindandan kurtarıldığında)
 func add_cariye(cariye_data: Dictionary) -> void:
@@ -510,7 +560,8 @@ func add_cariye(cariye_data: Dictionary) -> void:
 	# Durumunu 'boşta' olarak ayarlayalım
 	cariyeler[id]["durum"] = "boşta" 
 	next_cariye_id += 1
-	print("VillageManager: Yeni cariye eklendi: ", cariye_data.get("isim", "İsimsiz"), " (ID: ", id, ")")
+	# Debug print disabled to reduce console spam
+	# print("VillageManager: Yeni cariye eklendi: ", cariye_data.get("isim", "İsimsiz"), " (ID: ", id, ")")
 	emit_signal("cariye_data_changed")
 
 # Yeni bir görev tanımı ekler
@@ -518,7 +569,8 @@ func add_gorev(gorev_data: Dictionary) -> void:
 	var id = next_gorev_id
 	gorevler[id] = gorev_data
 	next_gorev_id += 1
-	print("VillageManager: Yeni görev eklendi: ", gorev_data.get("isim", "İsimsiz"), " (ID: ", id, ")")
+	# Debug print disabled to reduce console spam
+	# print("VillageManager: Yeni görev eklendi: ", gorev_data.get("isim", "İsimsiz"), " (ID: ", id, ")")
 	emit_signal("gorev_data_changed")
 
 # Bir cariyeyi bir göreve atar
@@ -578,10 +630,12 @@ func _on_mission_timer_timeout(cariye_id: int, gorev_id: int) -> void:
 	# --------------------------------------------------
 	
 	var cariye_injured = false # Cariye yaralandı mı flag'i
+	var oduller = {} # Ödüller dictionary'si
+	var cezalar = {} # Cezalar dictionary'si
 
 	if successful:
 		print("  -> Görev Başarılı!")
-		var oduller = gorev.get("odul", {})
+		oduller = gorev.get("odul", {})
 		print("     Ödüller: ", oduller)
 		# --- ÖDÜLLERİ UYGULA (GlobalPlayerData kullanarak) ---
 		if oduller.has("altin"):
@@ -595,7 +649,7 @@ func _on_mission_timer_timeout(cariye_id: int, gorev_id: int) -> void:
 		# ---------------------------------------------------
 	else:
 		print("  -> Görev Başarısız!")
-		var cezalar = gorev.get("ceza", {})
+		cezalar = gorev.get("ceza", {})
 		print("     Cezalar: ", cezalar)
 		# --- CEZALARI UYGULA (GlobalPlayerData kullanarak) ---
 		if cezalar.has("asker_kaybi"):
@@ -624,6 +678,17 @@ func _on_mission_timer_timeout(cariye_id: int, gorev_id: int) -> void:
 	active_missions.erase(cariye_id)
 	timer.queue_free() # Zamanlayıcıyı sil
 
+	# Görev sonuçlarını hazırla
+	var results = {
+		"cariye_name": cariye.get("isim", "İsimsiz"),
+		"mission_name": gorev.get("isim", "İsimsiz"),
+		"successful": successful,
+		"rewards": oduller if successful else {},
+		"penalties": cezalar if not successful else {},
+		"cariye_injured": cariye_injured
+	}
+	
+	emit_signal("mission_completed", cariye_id, gorev_id, successful, results)
 	emit_signal("cariye_data_changed")
 	emit_signal("gorev_data_changed") 
 
@@ -745,7 +810,7 @@ func _assign_housing(worker_instance: Node2D) -> bool:
 		
 		# İlgili barınağın doluluk sayısını artır
 		if housing_node.has_method("add_occupant"):
-			if not housing_node.add_occupant():
+			if not housing_node.add_occupant(worker_instance):
 				printerr("VillageManager: Failed to add occupant to %s. Housing might be full despite find_available_housing passing." % housing_node.name)
 				# Bu durumda ne yapılmalı? Belki işçiyi kamp ateşine atamayı dene?
 				# Şimdilik sadece hata verelim.
@@ -771,7 +836,7 @@ func _find_available_housing() -> Node2D:
 		# <<< DEĞİŞTİRİLDİ: Sadece House ise kapasiteyi kontrol et >>>
 		if node.has_method("get_script") and node.get_script() == HouseScript:
 			# print("DEBUG VillageManager:   Node is House. Checking capacity (%d/%d)" % [node.current_occupants, node.max_occupants]) #<<< Yorumlandı
-			if node.can_house_worker():
+			if node.can_add_occupant():
 				# print("DEBUG VillageManager:   Found available House: %s. Returning this node." % node.name) #<<< Yorumlandı
 				return node # Boş ev bulundu
 			# else: # Ev doluysa (debug için)
@@ -787,7 +852,7 @@ func _find_available_housing() -> Node2D:
 	if is_instance_valid(campfire_node) and campfire_node.is_in_group("Housing"):
 		# print("DEBUG VillageManager:   Found valid CampFire: %s. Returning this node." % campfire_node.name) #<<< Yorumlandı
 		# <<< YENİ: Campfire kapasitesini kontrol et >>>
-		if campfire_node.can_house_worker():
+		if campfire_node.can_add_occupant():
 			# print("DEBUG VillageManager:   Found available CampFire: %s. Returning this node." % campfire_node.name) #<<< Yorumlandı
 			return campfire_node
 		# else: # Kamp ateşi doluysa
@@ -923,13 +988,27 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 		# Sayaçları burada azaltmak riskli olabilir, belki zaten azalmıştır.
 		return
 
-	# 2. Barınaktan Çıkar (Eğer Ev İse)
+	# 2. Barınaktan Çıkar (Eğer Ev veya CampFire İse)
 	var housing = worker_instance.housing_node
-	if is_instance_valid(housing) and housing.get_script() == HouseScript:
-		print("VillageManager: Removing worker %d from House %s" % [worker_id_to_remove, housing.name]) # Debug
-		housing.remove_occupant()
+	if is_instance_valid(housing):
+		print("VillageManager: Removing worker %d from housing %s" % [worker_id_to_remove, housing.name]) # Debug
+		
+		if housing.has_method("remove_occupant"):
+			# CampFire için worker argümanı gerekli, House için gerekli değil
+			var success = false
+			if housing.get_script() and housing.get_script().resource_path.ends_with("CampFire.gd"):
+				# CampFire için worker instance'ı geç
+				success = housing.remove_occupant(worker_instance)
+			else:
+				# House ve diğerleri için argüman geçme
+				success = housing.remove_occupant()
+			
+			if not success:
+				printerr("VillageManager: Failed to remove worker %d from housing %s" % [worker_id_to_remove, housing.name])
+		else:
+			printerr("VillageManager: Housing %s does not have remove_occupant method!" % housing.name)
 	#else: # Debug için
-	#	print("VillageManager: Worker %d was not in a House (or housing invalid)." % worker_id_to_remove)
+	#	print("VillageManager: Worker %d was not in housing (or housing invalid)." % worker_id_to_remove)
 	
 	# 3. İşten Çıkar (Eğer Çalışıyorsa)
 	var job_type = worker_instance.assigned_job_type

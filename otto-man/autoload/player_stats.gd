@@ -40,6 +40,7 @@ var base_stats = {
 	"shield_cooldown": 15.0,
 	"dash_cooldown": 1.2,
 	"block_charges": 3,
+	"dash_charges": 1,  # Add dash charges stat
 }
 
 # Current health tracking
@@ -55,6 +56,7 @@ var stat_multipliers = {
 	"shield_cooldown": 1.0,
 	"dash_cooldown": 1.0,
 	"block_charges": 1.0,
+	"dash_charges": 1.0,  # Add dash charges multiplier
 }
 
 # Flat bonuses (start at 0)
@@ -67,6 +69,7 @@ var stat_bonuses = {
 	"shield_cooldown": 0.0,
 	"dash_cooldown": 0.0,
 	"block_charges": 0.0,
+	"dash_charges": 0.0,  # Add dash charges bonus
 }
 
 

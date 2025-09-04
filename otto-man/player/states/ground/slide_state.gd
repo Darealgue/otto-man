@@ -153,10 +153,12 @@ func physics_update(delta: float):
 			player.velocity.x = sign(player.velocity.x) * min(abs(player.velocity.x), EXIT_SPEED)
 			state_machine.transition_to("Crouch")
 		else:
-			state_machine.transition_to("Idle")
+			# Add a brief crouch period before transitioning to idle to prevent getting stuck
+			state_machine.transition_to("Crouch")
 		return
 	elif not Input.is_action_pressed("crouch"):
-		state_machine.transition_to("Idle")
+		# Add a brief crouch period before transitioning to idle to prevent getting stuck
+		state_machine.transition_to("Crouch")
 		return
 		
 	# Only check floor state after initial delay and if we've moved significantly from last floor position

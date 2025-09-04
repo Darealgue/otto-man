@@ -13,6 +13,8 @@ func _init() -> void:
 	description = "Deal more damage based on movement speed"
 	duration = -1  # Permanent upgrade
 	powerup_type = PowerupType.DAMAGE
+	affected_stats = ["base_damage"]  # Add affected_stats
+	tree_name = "mobility"  # Add tree association
 
 func activate(player: CharacterBody2D) -> void:
 	super.activate(player)

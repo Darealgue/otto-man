@@ -7,6 +7,8 @@ const DASH_END_SPEED_MULTIPLIER := 0.3  # Player will retain 30% of dash speed w
 var dash_timer := 0.0
 var cooldown_timer := 0.0
 var can_dash := true
+var dash_charges := 1  # Number of available dash charges
+var max_dash_charges := 1  # Maximum dash charges
 var original_collision_mask := 0  # Store original collision mask
 var original_collision_layer := 0  # Store original collision layer
 
@@ -23,6 +25,9 @@ func enter():
 	# Call parent enter to emit signal
 	super.enter()
 	
+	# Use a dash charge
+	dash_charges = max(0, dash_charges - 1)
+	
 	# Store original collision settings
 	original_collision_mask = player.collision_mask
 	original_collision_layer = player.collision_layer
@@ -34,7 +39,7 @@ func enter():
 	# Start dash
 	dash_timer = DASH_DURATION
 	cooldown_timer = DASH_COOLDOWN
-	can_dash = false
+	can_dash = dash_charges > 0  # Can dash if we have charges left
 	animation_player.play("dash")
 	
 	# Set initial dash velocity based on facing direction
@@ -68,6 +73,8 @@ func cooldown_update(delta: float):
 	if not can_dash:
 		cooldown_timer -= delta
 		if cooldown_timer <= 0:
+			# Refill dash charges
+			dash_charges = max_dash_charges
 			can_dash = true
 			cooldown_timer = 0.0
 			# Flash yellow when dash is ready
@@ -76,5 +83,11 @@ func cooldown_update(delta: float):
 			tween.tween_property(player.sprite, "modulate", Color(1, 1, 1), 0.1)
 
 func can_start_dash() -> bool:
-	# Only allow dash when on ground
-	return can_dash and player.is_on_floor() 
+	# Allow dash when on ground and we have charges
+	return can_dash and player.is_on_floor() and dash_charges > 0
+
+func set_dash_charges(charges: int) -> void:
+	max_dash_charges = charges
+	dash_charges = charges
+	can_dash = dash_charges > 0
+	print("[Dash State] Set dash charges: " + str(charges)) 

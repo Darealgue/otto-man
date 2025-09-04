@@ -522,6 +522,9 @@ func _ready() -> void:
 	# <<< YENİ: Başlangıç Y Konumunu ve Hedefini Ayarla >>>
 	global_position.y = randf_range(0.0, VERTICAL_RANGE_MAX)
 	_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+	
+	# Z-Index'i Y pozisyonuna göre ayarla (Y düşük = önde)
+	z_index = int(global_position.y)
 	# <<< YENİ SONU >>>
 
 	# <<< YENİ: Başlangıç Hedefini Ayarla >>>
@@ -626,6 +629,9 @@ func _physics_process(delta: float) -> void:
 						target_anim = "idle" # Brief idle state uses idle animation
 					_:
 						target_anim = "idle" # Bilinmeyen aktivite
+				
+				# AWAKE_IDLE ve SOCIALIZING state'lerinde her zaman görünür ol
+				visible = true
 			_:
 				target_anim = "idle" # Bilinmeyen hareketsiz state için varsayılan idle
 
@@ -708,6 +714,12 @@ func _physics_process(delta: float) -> void:
 				print("Worker %d uyandı!" % worker_id) # Debug
 
 		State.AWAKE_IDLE:
+			# DEBUG: AWAKE_IDLE state'inde her frame kontrol
+			if _debug_frame_counter % 60 == 0: # Her 60 frame'de bir
+				print("🔍 Worker %d AWAKE_IDLE state'inde - Visible: %s, Pos: %s, Activity: %s" % [
+					worker_id, visible, global_position, _current_idle_activity
+				])
+			
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
 			
@@ -975,6 +987,11 @@ func _physics_process(delta: float) -> void:
 
 		_:
 			pass # Bilinmeyen veya henüz işlenmeyen durumlar
+	
+	# Z-Index'i Y pozisyonuna göre güncelle (Y düşük = önde)
+	var new_z_index = int(global_position.y)
+	if z_index != new_z_index:
+		z_index = new_z_index
 
 # Worker'ın scriptine set fonksiyonları eklemek daha güvenli olabilir:
 # --- Worker.gd içine eklenecek opsiyonel set fonksiyonları ---

@@ -63,6 +63,12 @@ const DEBUG_PRINT_INTERVAL: int = 60  # Print every 60 frames
 # Add static variable at class level
 var _was_in_range := false
 
+# Air hitstun float (juggle) settings
+var air_float_timer: float = 0.0
+@export var air_float_duration: float = 0.25
+@export var air_float_gravity_scale: float = 0.35
+@export var air_float_max_fall_speed: float = 420.0
+
 func _ready() -> void:
 	add_to_group("enemies")
 	enemy_id = "%s_%d" % [get_script().resource_path.get_file().get_basename(), get_instance_id()]
@@ -114,7 +120,19 @@ func _physics_process(delta: float) -> void:
 		
 		# Apply gravity and move
 		if not is_on_floor() and current_behavior != "dead":
-			velocity.y += GRAVITY * delta
+			var g_scale := 1.0
+			# Apply juggle float whenever timer is active, not only in hurt state
+			if air_float_timer > 0.0:
+				g_scale = air_float_gravity_scale
+				air_float_timer = max(0.0, air_float_timer - delta)
+			velocity.y += GRAVITY * g_scale * delta
+			# Cap fall speed while float is active
+			if air_float_timer > 0.0:
+				velocity.y = min(velocity.y, air_float_max_fall_speed)
+		# When hurt and moving upward, don't instantly cancel vertical velocity on floor contact
+		if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
+			# Skip vertical zeroing this frame to allow visible pop-up
+			pass
 		move_and_slide()
 
 func handle_behavior(delta: float) -> void:
@@ -203,7 +221,7 @@ func start_attack_cooldown() -> void:
 	can_attack = false
 	attack_timer = stats.attack_cooldown if stats else 2.0
 
-func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
 	if current_behavior == "dead" or invulnerable:
 		return
 		
@@ -222,9 +240,15 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	damage_number.global_position = global_position + Vector2(0, -50)
 	damage_number.setup(int(amount))
 	
-	# Apply knockback
+	# Apply knockback (use explicit up_force if provided)
 	velocity.x = -direction * knockback_force
-	velocity.y = -knockback_force * 0.5
+	if knockback_up_force >= 0.0:
+		velocity.y = -knockback_up_force
+	else:
+		velocity.y = -knockback_force * 0.5
+	# If we have upward velocity from hit, start float window for juggle
+	if velocity.y < 0.0:
+		air_float_timer = air_float_duration
 	
 	# Enter hurt state
 	change_behavior("hurt")
@@ -372,9 +396,9 @@ func is_on_screen() -> bool:
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	if current_behavior != "dead" and not invulnerable:
 		var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
-		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0}
+		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
 		print("[BaseEnemy:", enemy_id, "] hurt signal received dmg=", damage, " kb=", knockback_data.force)
-		take_damage(damage, knockback_data.force)  # Pass the actual knockback force from the hitbox
+		take_damage(damage, knockback_data.force, knockback_data.get("up_force", -1.0))
 
 func _health_emit_changed() -> void:
 	var max_h = stats.max_health if stats else 100.0

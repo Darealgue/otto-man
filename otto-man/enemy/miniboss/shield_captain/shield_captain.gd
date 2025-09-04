@@ -1,4 +1,4 @@
-extends BaseEnemy
+extends "res://enemy/base_enemy.gd"
 class_name ShieldCaptain
 
 @export var max_health_override: float = 320.0
@@ -427,7 +427,7 @@ func _get_incoming_hit_position() -> Vector2:
 	var p = get_nearest_player()
 	return p.global_position if p else global_position
 
-func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
 	# Ignore further hits if already dead
 	if current_behavior == "dead":
 		return
@@ -454,7 +454,7 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	# During guard break do normal damage
 	if in_guard_break:
 		print("[ShieldCaptain] GUARD BREAK, passing to BaseEnemy dmg=", amount)
-		super(amount, knockback_force)
+		super(amount, knockback_force, knockback_up_force)
 		return
 
 	# Directional block: any front hit consumes guard instead of health
@@ -481,7 +481,7 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	# Play hurt and protect it from immediate override for the full anim duration
 	_play_anim_safe("hurt")
 	hurt_anim_timer = 0.06 * anim_time_scale * 4.0
-	super(dmg, knock)
+	super(dmg, knock, knockback_up_force)
 
 func _guard_break() -> void:
 	in_guard_break = true

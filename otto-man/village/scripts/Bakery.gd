@@ -99,7 +99,7 @@ func remove_worker() -> bool:
 			worker_to_remove.visible = true # Görünür yap
 
 		# İşçiyi VillageManager'dan kaldır
-		VillageManager.unregister_generic_worker(worker_to_remove.worker_id)
+		# VillageManager.unregister_generic_worker(worker_to_remove.worker_id) # MissionCenter.gd'de çağrılıyor
 		
 		print("%s: İşçi (ID: %d) çıkarıldı ve üretim durdu (%d/%d). Serbest bırakılan kaynaklar: %s" % [
 			building_name, worker_to_remove.worker_id, assigned_workers, max_workers, required_resources

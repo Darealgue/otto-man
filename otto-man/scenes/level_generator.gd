@@ -295,6 +295,48 @@ const CHUNKS = {
 			Direction.DOWN: Port.OPEN
 		}
 	}
+,
+	# --- Special dead-end chunks for villager/VIP rooms (spawned via reservation) ---
+	"villager_dead_end_left": {
+		# Note: Scene mapping swapped to match actual doorway orientation in prefab
+		"scenes": ["res://chunks/dungeon/special/villager_dead_end_right.tscn"],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.CLOSED,
+			Direction.UP: Port.CLOSED,
+			Direction.DOWN: Port.CLOSED
+		}
+	},
+	"villager_dead_end_right": {
+		# Note: Scene mapping swapped to match actual doorway orientation in prefab
+		"scenes": ["res://chunks/dungeon/special/villager_dead_end_left.tscn"],
+		"ports": {
+			Direction.LEFT: Port.CLOSED,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.CLOSED,
+			Direction.DOWN: Port.CLOSED
+		}
+	},
+	"vip_dead_end_left": {
+		# Note: Scene mapping swapped to match actual doorway orientation in prefab
+		"scenes": ["res://chunks/dungeon/special/vip_dead_end_right.tscn"],
+		"ports": {
+			Direction.LEFT: Port.OPEN,
+			Direction.RIGHT: Port.CLOSED,
+			Direction.UP: Port.CLOSED,
+			Direction.DOWN: Port.CLOSED
+		}
+	},
+	"vip_dead_end_right": {
+		# Note: Scene mapping swapped to match actual doorway orientation in prefab
+		"scenes": ["res://chunks/dungeon/special/vip_dead_end_left.tscn"],
+		"ports": {
+			Direction.LEFT: Port.CLOSED,
+			Direction.RIGHT: Port.OPEN,
+			Direction.UP: Port.CLOSED,
+			Direction.DOWN: Port.CLOSED
+		}
+	}
 }
 
 # Layout cell types for first phase generation
@@ -315,6 +357,7 @@ class GridCell:
 	var connections: Array[bool] = [false, false, false, false]  # LEFT, RIGHT, UP, DOWN
 	var visited_by: String = "" # Track which function first visited this cell
 	var path_id: int = -1 # ID of the path segment this cell belongs to
+	var reserved_chunk: String = "" # If set, override selection with this exact chunk type
 
 # Member variables
 var grid: Array = []
@@ -568,19 +611,18 @@ func clear_level() -> void:
 		is_overview_active = !player.get_node("Camera2D").is_current()
 		player_camera_zoom = player.get_node("Camera2D").zoom
 	
-	# Store player and zone references before clearing
+	# Store player reference before clearing
 	var stored_player = player
-	var start_zone = get_node_or_null("StartZone")
-	var finish_zone = get_node_or_null("FinishZone")
 	
 	# Remove unified terrain if it exists
 	if unified_terrain:
 		unified_terrain.queue_free()
 		unified_terrain = null
 	
-	# Remove all chunks except the LevelGenerator itself, player, and zones
+	# Remove all chunks except the LevelGenerator itself and player
+	# Doors are now part of chunks, so they'll be removed with chunks
 	for child in get_children():
-		if child != overview_camera and child != stored_player and child != start_zone and child != finish_zone:
+		if child != overview_camera and child != stored_player:
 			child.queue_free()
 	
 	# Reset grid
@@ -1051,6 +1093,9 @@ func populate_chunks() -> bool:
 			print("Failed to place finish chunk at ", finish_pos)
 			return false
 		
+	# Optional: tag special dead-end cells before main placement (light heuristic)
+	_tag_villager_and_vip_deadends()
+
 	# --- Simplified Main Population Loop --- 
 	# Iterate through all grid cells once
 	for x in range(current_grid_width):
@@ -1085,6 +1130,9 @@ func populate_chunks() -> bool:
 			# --- Determine chunk based on *connections*, not cell_type --- 
 			# Use the existing select_appropriate_chunk function which relies on connections
 			var chunk_type = select_appropriate_chunk(pos, cell)
+			# Reserved override for special rooms (villager/vip)
+			if not cell.reserved_chunk.is_empty():
+				chunk_type = cell.reserved_chunk
 			
 			# <<< START DEBUG LOG >>>
 			print(">>> populate_chunks: Checking cell at ", pos)
@@ -1147,6 +1195,71 @@ func populate_chunks() -> bool:
 			print("Re-verified connection to finish chunk from ", pre_finish_pos)
 
 	return true  # Return true if we've successfully populated all required cells
+
+func _tag_villager_and_vip_deadends() -> void:
+	# Very light heuristic: mark some BRANCH/DEAD_END cells that have exactly one connection
+	# as villager/vip dead-end rooms, with simple spacing rules.
+	var deadends: Array[Vector2i] = []
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			var pos := Vector2i(x, y)
+			var c: GridCell = grid[x][y] as GridCell
+			if not c.visited or c.chunk != null:
+				continue
+			if c.cell_type != CellType.DEAD_END and c.cell_type != CellType.BRANCH_PATH:
+				continue
+			var conn_count := 0
+			for dir in Direction.values():
+				if c.connections[dir]:
+					conn_count += 1
+			if conn_count != 1:
+				continue
+			# Keep away from start/finish/boss vicinity (simple x threshold)
+			if pos.x <= 1:
+				continue
+			deadends.append(pos)
+
+	deadends.shuffle()
+	# Simple quotas; can be data-driven later
+	var villager_quota := 1
+	var vip_quota := 1
+
+	for i in range(deadends.size()):
+		var pos = deadends[i]
+		var c: GridCell = grid[pos.x][pos.y] as GridCell
+		if vip_quota > 0 and pos.x > current_grid_width - 5:
+			# Prefer VIP deeper in the floor
+			var dir_idx := _single_open_dir_index(c)
+			# Only reserve horizontally connected dead-ends for LEFT/RIGHT variants
+			if dir_idx == Direction.LEFT:
+				c.reserved_chunk = "vip_dead_end_left"
+			elif dir_idx == Direction.RIGHT:
+				c.reserved_chunk = "vip_dead_end_right"
+			else:
+				# Vertical dead-ends are skipped for VIP; try another candidate
+				continue
+			vip_quota -= 1
+			continue
+		if villager_quota > 0:
+			var dir_idx2 := _single_open_dir_index(c)
+			# Only reserve horizontally connected dead-ends for LEFT/RIGHT variants
+			if dir_idx2 == Direction.LEFT:
+				c.reserved_chunk = "villager_dead_end_left"
+			elif dir_idx2 == Direction.RIGHT:
+				c.reserved_chunk = "villager_dead_end_right"
+			else:
+				# Vertical dead-ends are skipped for Villager; try another candidate
+				continue
+			villager_quota -= 1
+			continue
+		if villager_quota <= 0 and vip_quota <= 0:
+			break
+
+func _single_open_dir_index(c: GridCell) -> int:
+	for d in Direction.values():
+		if c.connections[d]:
+			return d
+	return Direction.LEFT
 
 func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 	# Special case for start position - always return "start"
@@ -2178,9 +2291,9 @@ func spawn_player() -> void:
 			remove_child(player)
 			add_child(player)
 		
-		# Move existing or new player to start position
-		player.position = start_chunk.position + Vector2(200, 400)
-		print("Player moved to:", player.position)
+		# Player pozisyonu artık setup_level_transitions() tarafından ayarlanıyor
+		# Burada sadece kamera ayarlarını yapıyoruz
+		print("Player spawn completed, position will be set by door system")
 		
 		# Set up player camera
 		if player.has_node("Camera2D"):
@@ -2277,73 +2390,72 @@ func setup_level_transitions() -> void:
 	print("Start position:", start_pos)
 	print("Finish position:", finish_pos)
 
-	# Handle start zone
+	# Handle start door - use pre-placed door in start chunk
 	# <<< DEBUG: Check start_pos bounds >>>
 	if start_pos.x < 0 or start_pos.x >= grid.size() or start_pos.y < 0 or start_pos.y >= grid[start_pos.x].size():
 		push_error("!!! setup_level_transitions: start_pos %s out of bounds for grid size %d!" % [str(start_pos), grid.size()])
 		return # Cannot continue if start_pos is invalid
 
 	if grid[start_pos.x][start_pos.y].chunk:
-		print("Found start chunk, setting up start zone")
-		var start_zone = get_node_or_null("StartZone")
+		print("Found start chunk, connecting to pre-placed start door")
+		var start_chunk = grid[start_pos.x][start_pos.y].chunk
+		var start_door = start_chunk.get_node_or_null("StartDoor")
 		
-		if not start_zone:
-			# Only create if it doesn't exist
-			print("Creating new start zone")
-			start_zone = preload("res://scenes/level_transition_zone.tscn").instantiate()
-			start_zone.name = "StartZone"
-			start_zone.zone_type = "Start"
-			start_zone.player_entered.connect(_on_zone_entered)
-			add_child(start_zone)
-		
-		# Move existing or new start zone to correct position
-		start_zone.reparent(grid[start_pos.x][start_pos.y].chunk)
-		start_zone.position = Vector2(200, 400)
-		print("Start zone positioned at:", start_zone.position)
+		if start_door:
+			# Connect the pre-placed door to our signal handler
+			if not start_door.door_opened.is_connected(_on_door_opened):
+				start_door.door_opened.connect(_on_door_opened)
+			print("Connected to pre-placed start door")
+			
+			# Player'ı start kapısının pozisyonunda spawn et
+			var player = get_node_or_null("Player")
+			if player:
+				# StartDoor'un gerçek global pozisyonunu kullan
+				player.global_position = start_door.global_position + Vector2(0, -64)  # Kapının hemen üstünde
+				print("[LevelGenerator] Player spawned at StartDoor position: ", player.global_position)
+				print("[LevelGenerator] StartDoor actual position: ", start_door.global_position)
+		else:
+			print("WARNING: No StartDoor found in start chunk")
 	else:
 		print("WARNING: Start chunk not found at position", start_pos)
 	
-	# Handle finish zone
+	# Handle finish door - use pre-placed door in finish/boss chunk
 	# <<< DEBUG: Check finish_pos bounds >>>
 	if finish_pos.x < 0 or finish_pos.x >= grid.size() or finish_pos.y < 0 or finish_pos.y >= grid[finish_pos.x].size():
 		push_error("!!! setup_level_transitions: finish_pos %s out of bounds for grid size %d!" % [str(finish_pos), grid.size()])
 		return # Cannot continue if finish_pos is invalid
 
 	if grid[finish_pos.x][finish_pos.y].chunk:
-		print("Found finish/boss chunk, setting up finish zone")
-		var finish_zone = get_node_or_null("FinishZone")
+		print("Found finish/boss chunk, connecting to pre-placed finish door")
+		var finish_chunk = grid[finish_pos.x][finish_pos.y].chunk
+		var finish_door = finish_chunk.get_node_or_null("FinishDoor")
 		
-		if not finish_zone:
-			# Only create if it doesn't exist
-			print("Creating new finish zone")
-			finish_zone = preload("res://scenes/level_transition_zone.tscn").instantiate()
-			finish_zone.name = "FinishZone"
-			finish_zone.zone_type = "Finish"
-			finish_zone.player_entered.connect(_on_zone_entered)
-			add_child(finish_zone)
-		
-		# Move existing or new finish zone to correct position
-		finish_zone.reparent(grid[finish_pos.x][finish_pos.y].chunk)
-		finish_zone.position = Vector2(1400, 400)  # Changed to x=1400
-		print("Finish zone positioned at:", finish_zone.position)
-		# If the finish cell is a boss arena, keep the FinishZone disabled until boss dies
-		var finish_chunk: Node2D = grid[finish_pos.x][finish_pos.y].chunk
-		if finish_chunk and finish_chunk.scene_file_path.contains("boss_arena"):
-			print("Boss arena detected at finish. Disabling FinishZone until boss is defeated.")
-			finish_zone.monitoring = false
-			finish_zone.visible = false
+		if finish_door:
+			# Connect the pre-placed door to our signal handler
+			if not finish_door.door_opened.is_connected(_on_door_opened):
+				finish_door.door_opened.connect(_on_door_opened)
+			
+			# If the finish cell is a boss arena, lock the door until boss dies
+			if finish_chunk.scene_file_path.contains("boss_arena"):
+				print("Boss arena detected at finish. Locking FinishDoor until boss is defeated.")
+				finish_door.lock_door()
+				finish_door.door_type = "Boss"  # Change type to Boss for different appearance
+			
+			print("Connected to pre-placed finish door")
+		else:
+			print("WARNING: No FinishDoor found in finish/boss chunk")
 	else:
 		print("ERROR: No chunk found at finish position", finish_pos)
 
-func _on_zone_entered(zone_type: String) -> void:
+func _on_door_opened(door_type: String) -> void:
 	if is_transitioning:
 		return
 		
-	print("Zone entered: ", zone_type)  # Debug print
-	if zone_type == "Start":
+	print("Door opened: ", door_type)  # Debug print
+	if door_type == "Start":
 		print("Emitting level_started signal")  # Debug print
 		level_started.emit()
-	elif zone_type == "Finish":
+	elif door_type == "Finish" or door_type == "Boss":
 		print("Emitting level_completed signal")  # Debug print
 		is_transitioning = true
 		level_completed.emit()
@@ -2363,12 +2475,13 @@ func _on_miniboss_spawned(enemy: Node, boss_chunk: Node2D) -> void:
 func _on_miniboss_defeated(boss_chunk: Node2D) -> void:
 	if not boss_chunk:
 		return
-	var finish_zone: Node = boss_chunk.get_node_or_null("FinishZone")
-	if finish_zone:
-		if finish_zone.has_method("set"):
-			finish_zone.set("monitoring", true)
-			finish_zone.set("visible", true)
-		print("[LevelGenerator] MiniBoss defeated. FinishZone enabled.")
+	var finish_door: Node = boss_chunk.get_node_or_null("FinishDoor")
+	if finish_door:
+		if finish_door.has_method("unlock_door"):
+			finish_door.unlock_door()
+		print("[LevelGenerator] MiniBoss defeated. FinishDoor unlocked.")
+	else:
+		print("[LevelGenerator] MiniBoss defeated but no FinishDoor found in boss chunk.")
 
 func _attach_boss_bar(mini: Node) -> void:
 	if not is_instance_valid(mini):

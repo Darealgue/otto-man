@@ -15,6 +15,7 @@ var duration: float = 10.0
 var timer: float = 0.0
 var powerup_type: PowerupType = PowerupType.UTILITY
 var affected_stats: Array[String] = []
+var tree_name: String = ""  # Add tree_name property
 
 @onready var player_stats = get_node("/root/PlayerStats")
 

@@ -1,0 +1,452 @@
+[gd_scene load_steps=2 format=3 uid="uid://c5ne8mlwdnbrv"]
+
+[ext_resource type="Script" path="res://village/missions/MissionCenter.gd" id="1_mission_center"]
+
+[node name="MissionCenterScene" type="CanvasLayer"]
+script = ExtResource("1_mission_center")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.1, 0.05, 0.02, 0.9)
+
+[node name="HeaderLabel" type="Label" parent="."]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_top = 50.0
+offset_right = 100.0
+offset_bottom = 100.0
+grow_horizontal = 2
+text = "GÖREV MERKEZİ"
+horizontal_alignment = 1
+
+[node name="PageLabel" type="Label" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -50.0
+offset_right = 100.0
+offset_bottom = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Görev sayfası içeriği burada olacak"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MissionsPage" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 50.0
+offset_top = 120.0
+offset_right = -50.0
+offset_bottom = -100.0
+
+[node name="MissionsHeader" type="HBoxContainer" parent="MissionsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="MissionsTitle" type="Label" parent="MissionsPage/MissionsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "🎯 GÖREVLER"
+horizontal_alignment = 1
+
+[node name="IdleCariyelerLabel" type="Label" parent="MissionsPage/MissionsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "👥 BOŞTA: 3"
+horizontal_alignment = 2
+
+[node name="MainContent" type="HBoxContainer" parent="MissionsPage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ActiveMissionsPanel" type="VBoxContainer" parent="MissionsPage/MainContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ActiveMissionsTitle" type="Label" parent="MissionsPage/MainContent/ActiveMissionsPanel"]
+layout_mode = 2
+text = "📋 AKTİF GÖREVLER"
+horizontal_alignment = 1
+
+[node name="ActiveMissionsScroll" type="ScrollContainer" parent="MissionsPage/MainContent/ActiveMissionsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ActiveMissionsList" type="VBoxContainer" parent="MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ActiveMissionCard1" type="Panel" parent="MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll/ActiveMissionsList"]
+modulate = Color(0.8, 1, 0.8, 1)
+custom_minimum_size = Vector2(300, 100)
+layout_mode = 2
+
+[node name="ActiveMissionVBox" type="VBoxContainer" parent="MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll/ActiveMissionsList/ActiveMissionCard1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ActiveMissionTitle" type="Label" parent="MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll/ActiveMissionsList/ActiveMissionCard1/ActiveMissionVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Ayşe → Komşu Köy ile Ticaret"
+
+[node name="ActiveMissionTime" type="Label" parent="MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll/ActiveMissionsList/ActiveMissionCard1/ActiveMissionVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0, 1)
+theme_override_font_sizes/font_size = 12
+text = "⏱️ 8.5 saniye kaldı"
+
+[node name="ActiveMissionProgress" type="Label" parent="MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll/ActiveMissionsList/ActiveMissionCard1/ActiveMissionVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 10
+text = "İlerleme: 43%"
+
+[node name="AvailableMissionsPanel" type="VBoxContainer" parent="MissionsPage/MainContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AvailableMissionsTitle" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel"]
+layout_mode = 2
+text = "📝 YAPILABİLİR GÖREVLER"
+horizontal_alignment = 1
+
+[node name="AvailableMissionsScroll" type="ScrollContainer" parent="MissionsPage/MainContent/AvailableMissionsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AvailableMissionsList" type="VBoxContainer" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AvailableMissionCard1" type="Panel" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList"]
+modulate = Color(1, 1, 0.8, 1)
+custom_minimum_size = Vector2(300, 120)
+layout_mode = 2
+
+[node name="AvailableMissionVBox1" type="VBoxContainer" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AvailableMissionTitle1" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard1/AvailableMissionVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Yakındaki Harabeleri Keşfet"
+
+[node name="AvailableMissionInfo1" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard1/AvailableMissionVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Tür: KEŞİF | Süre: 20.0s"
+
+[node name="AvailableMissionSuccess1" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard1/AvailableMissionVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "Başarı Şansı: 60%"
+
+[node name="AvailableMissionRewards1" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard1/AvailableMissionVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 10
+text = "Ödüller: bulunan_esya altin"
+
+[node name="AvailableMissionCard2" type="Panel" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList"]
+custom_minimum_size = Vector2(300, 120)
+layout_mode = 2
+
+[node name="AvailableMissionVBox2" type="VBoxContainer" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AvailableMissionTitle2" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard2/AvailableMissionVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Haydut Kampına Baskın"
+
+[node name="AvailableMissionInfo2" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard2/AvailableMissionVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Tür: YAĞMA | Süre: 30.0s"
+
+[node name="AvailableMissionSuccess2" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard2/AvailableMissionVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "Başarı Şansı: 50%"
+
+[node name="AvailableMissionRewards2" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard2/AvailableMissionVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 10
+text = "Ödüller: altin odun_seviyesi_artis"
+
+[node name="CariyeSelectionPanel" type="VBoxContainer" parent="MissionsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="CariyeSelectionTitle" type="Label" parent="MissionsPage/CariyeSelectionPanel"]
+layout_mode = 2
+text = "👥 CARİYE SEÇİMİ"
+horizontal_alignment = 1
+
+[node name="CariyeSelectionScroll" type="ScrollContainer" parent="MissionsPage/CariyeSelectionPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CariyeSelectionList" type="VBoxContainer" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CariyeCard1" type="Panel" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList"]
+modulate = Color(1, 1, 0.8, 1)
+custom_minimum_size = Vector2(250, 100)
+layout_mode = 2
+
+[node name="CariyeVBox1" type="VBoxContainer" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CariyeName1" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard1/CariyeVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Fatma"
+
+[node name="CariyeYetenekler1" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard1/CariyeVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "Yetenekler: Liderlik Savaş"
+
+[node name="CariyeDurum1" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard1/CariyeVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 12
+text = "Durum: boşta"
+
+[node name="CariyeCard2" type="Panel" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList"]
+custom_minimum_size = Vector2(250, 100)
+layout_mode = 2
+
+[node name="CariyeVBox2" type="VBoxContainer" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CariyeName2" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard2/CariyeVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Zeynep"
+
+[node name="CariyeYetenekler2" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard2/CariyeVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "Yetenekler: Gizlilik Keşif"
+
+[node name="CariyeDurum2" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard2/CariyeVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 12
+text = "Durum: boşta"
+
+[node name="MissionResultPanel" type="VBoxContainer" parent="MissionsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="MissionResultTitle" type="Label" parent="MissionsPage/MissionResultPanel"]
+layout_mode = 2
+text = "🎯 GÖREV SONUCU"
+horizontal_alignment = 1
+
+[node name="MissionResultContent" type="Label" parent="MissionsPage/MissionResultPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Görev sonucu burada görünecek..."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ControlsPanel" type="HBoxContainer" parent="MissionsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ControlsLabel" type="Label" parent="MissionsPage/ControlsPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "[Yukarı/Aşağı: Seçim] [A: Seç/Atama] [B: Geri]"
+horizontal_alignment = 1
+
+[node name="AssignmentPage" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AssignmentHeader" type="Label" parent="AssignmentPage"]
+layout_mode = 2
+text = "İŞÇİ ATAMA MENÜSÜ"
+horizontal_alignment = 1
+
+[node name="CategoryRow" type="HBoxContainer" parent="AssignmentPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="CategoryLabel" type="Label" parent="AssignmentPage/CategoryRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "KATEGORİ: İŞÇİ ATAMALARI"
+horizontal_alignment = 1
+
+[node name="BuildingsLabel" type="Label" parent="AssignmentPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "BİNALAR:
+• Kuyu (0/1)
+• Avcı (0/1)
+• Oduncu (0/1)
+• Taş Madeni (0/1)
+• Fırın (0/1)"
+horizontal_alignment = 1
+
+[node name="AssignmentControls" type="Label" parent="AssignmentPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "KONTROLLER:
+Yukarı/Aşağı: Bina seçimi
+Sol/Sağ: İşçi ekle/çıkar
+A: Bina detayı
+B: Geri"
+horizontal_alignment = 1
+
+[node name="ConstructionPage" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ConstructionHeader" type="Label" parent="ConstructionPage"]
+layout_mode = 2
+text = "İNŞAAT MENÜSÜ"
+horizontal_alignment = 1
+
+[node name="ActionRow" type="HBoxContainer" parent="ConstructionPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ActionLabel" type="Label" parent="ConstructionPage/ActionRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "İŞLEM: YAP"
+horizontal_alignment = 1
+
+[node name="CategoryRow" type="HBoxContainer" parent="ConstructionPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="CategoryLabel" type="Label" parent="ConstructionPage/CategoryRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "KATEGORİ: ÜRETİM"
+horizontal_alignment = 1
+
+[node name="BuildingsLabel" type="Label" parent="ConstructionPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "BİNALAR:
+• Kuyu
+• Avcı
+• Oduncu
+• Taş Madeni
+• Fırın"
+horizontal_alignment = 1
+
+[node name="ConstructionControls" type="Label" parent="ConstructionPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "KONTROLLER:
+Sol/Sağ: İşlem seçimi
+Yukarı/Aşağı: Kategori
+A: Seçim/Onay
+B: Geri"
+horizontal_alignment = 1
+
+[node name="ControlsLabel" type="Label" parent="."]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -100.0
+text = "L2: Önceki Sayfa | R2: Sonraki Sayfa | B: Kapat"
+horizontal_alignment = 1

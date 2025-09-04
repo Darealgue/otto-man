@@ -70,7 +70,7 @@ func remove_worker() -> bool:
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 		worker_instance.visible = true
 
-	VillageManager.unregister_generic_worker(worker_id_to_remove)
+	# VillageManager.unregister_generic_worker(worker_id_to_remove) # MissionCenter.gd'de çağrılıyor
 
 	print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [self.name, worker_id_to_remove, assigned_workers, max_workers])
 	emit_signal("worker_removed", worker_id_to_remove)

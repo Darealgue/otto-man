@@ -27,6 +27,7 @@ func _init() -> void:
 	duration = -1  # Permanent until death
 	powerup_type = PowerupType.DEFENSE
 	affected_stats = ["max_health"]
+	tree_name = "defense"  # Add tree association
 
 func _ready() -> void:
 	# Ensure we have PlayerStats reference

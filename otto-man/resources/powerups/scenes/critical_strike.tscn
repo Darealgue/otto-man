@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://critical_strike_powerup"]
+
+[ext_resource type="Script" path="res://resources/powerups/critical_strike.gd" id="1_critical"]
+
+[node name="CriticalStrike" type="Node"]
+script = ExtResource("1_critical")

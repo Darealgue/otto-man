@@ -35,16 +35,16 @@ func _ready() -> void:
 	print("  - Size:", get_chunk_size())
 	print("  - Connections:", get_connections())
 	
-	# Initialize spawn manager
+	# Initialize spawn manager (guarded)
 	spawn_manager = $SpawnManager
 	if spawn_manager:
 		var level = 1  # Default level
 		var level_generator = get_tree().get_first_node_in_group("level_generator")
 		if level_generator:
 			level = level_generator.current_level
-		
-		# Initialize spawn manager with chunk type and level
-		spawn_manager.initialize(chunk_type, level)
+		# Guard: only call if method exists
+		if spawn_manager.has_method("initialize"):
+			spawn_manager.initialize(chunk_type, level)
 	
 	# Initialize trap manager
 	trap_manager = $TrapManager

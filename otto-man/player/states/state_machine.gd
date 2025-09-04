@@ -45,10 +45,13 @@ func transition_to(target_state_name: String, force: bool = false) -> void:
 		
 	var target_state = get_node(target_state_name)
 	if target_state:
+		var prev_name = current_state.name if current_state else "<none>"
 		if current_state:
 			current_state.exit()
 		previous_state = current_state
 		current_state = target_state
 		current_state.enter()
+		# Debug print disabled to reduce console spam
+		# print("[StateMachine] TRANSITION | ", prev_name, " -> ", target_state_name)
 	else:
 		push_error("[StateMachine] State", target_state_name, "not found in state machine!")

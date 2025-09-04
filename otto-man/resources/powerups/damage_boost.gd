@@ -9,6 +9,7 @@ func _init() -> void:
 	duration = -1  # -1 means permanent until death
 	powerup_type = PowerupType.DAMAGE
 	affected_stats = ["base_damage"]
+	tree_name = "combat"  # Add tree association
 
 func activate(player: CharacterBody2D) -> void:
 	super.activate(player)

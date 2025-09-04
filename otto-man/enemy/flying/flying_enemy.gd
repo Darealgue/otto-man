@@ -1,5 +1,5 @@
 class_name FlyingEnemy
-extends BaseEnemy
+extends "res://enemy/base_enemy.gd"
 
 # Constants for movement
 const CHASE_SPEED_MULTIPLIER = 1.2
@@ -237,7 +237,7 @@ func handle_hurt_behavior(delta: float) -> void:
 			hurtbox.monitoring = true
 			hurtbox.monitorable = true
 
-func take_damage(amount: float, knockback_force: float = 200.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
 	if current_behavior == "dead" or invulnerable:
 		return
 		
@@ -260,10 +260,12 @@ func take_damage(amount: float, knockback_force: float = 200.0) -> void:
 	if players.size() > 0:
 		var player = players[0]
 		var dir = (global_position - player.global_position).normalized()
-		velocity = Vector2(
-			dir.x * knockback_force,
-			-knockback_force * 0.5  # Reduced vertical knockback
-		)
+		var up = -knockback_force * 0.5
+		if knockback_up_force >= 0.0:
+			up = -knockback_up_force
+		velocity = Vector2(dir.x * knockback_force, up)
+		if up < 0.0:
+			air_float_timer = air_float_duration
 	
 	# Enter hurt state
 	change_behavior("hurt")

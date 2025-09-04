@@ -1,5 +1,5 @@
 class_name HunterEnemy
-extends BaseEnemy
+extends "res://enemy/base_enemy.gd"
 
 const PatrolPointScript = preload("res://enemy/hunter/patrol_point.gd")
 
@@ -160,10 +160,10 @@ func _ready() -> void:
 	super._ready()
 	
 	# Set up collision masks for terrain detection
-    for ray in $TerrainDetection.get_children():
-        if ray is RayCast2D:
-            ray.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
-            ray.enabled = true
+	for ray in $TerrainDetection.get_children():
+		if ray is RayCast2D:
+			ray.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
+			ray.enabled = true
 	
 	# Set up collision layers correctly
 	set_collision_layer_value(3, true)   # Enemy layer (layer 3)
@@ -346,8 +346,8 @@ func terrain_info() -> Dictionary:
 			var space_state = get_world_2d().direct_space_state
 			var start_pos = global_position
 			var direction = Vector2.RIGHT if info.gap_right else Vector2.LEFT
-            var query = PhysicsRayQueryParameters2D.create(start_pos, start_pos + direction * MAX_JUMPABLE_GAP)
-            query.collision_mask = CollisionLayers.WORLD  # Environment layer
+			var query = PhysicsRayQueryParameters2D.create(start_pos, start_pos + direction * MAX_JUMPABLE_GAP)
+			query.collision_mask = CollisionLayers.WORLD  # Environment layer
 			var result = space_state.intersect_ray(query)
 			
 			if result:
@@ -375,8 +375,8 @@ func estimate_gap_width(start_position: Vector2, direction: int) -> float:
 		var ray_start = check_pos + Vector2(distance * direction, 100.0)  # Check further down
 		var ray_end = ray_start + Vector2(0, -50.0)  # Check upward
 		
-        var query = PhysicsRayQueryParameters2D.create(ray_start, ray_end)
-        query.collision_mask = CollisionLayers.WORLD  # Environment layer
+		var query = PhysicsRayQueryParameters2D.create(ray_start, ray_end)
+		query.collision_mask = CollisionLayers.WORLD  # Environment layer
 		var result = space_state.intersect_ray(query)
 		
 		if result:
@@ -490,8 +490,8 @@ func generate_patrol_points() -> void:
 			break
 			
 		var query_pos = start_pos + Vector2(x, -50)  # Start a bit above
-        var query = PhysicsRayQueryParameters2D.create(query_pos, query_pos + Vector2.DOWN * scan_height)
-        query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
+		var query = PhysicsRayQueryParameters2D.create(query_pos, query_pos + Vector2.DOWN * scan_height)
+		query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
 		var result = space_state.intersect_ray(query)
 		
 		if result:
@@ -515,8 +515,8 @@ func generate_patrol_points() -> void:
 		
 		for height in range(step, max_height, step):
 			var scan_pos = ground_point.position + Vector2.UP * height
-            var query = PhysicsRayQueryParameters2D.create(scan_pos + Vector2.UP * 20, scan_pos + Vector2.DOWN * 40)
-            query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
+			var query = PhysicsRayQueryParameters2D.create(scan_pos + Vector2.UP * 20, scan_pos + Vector2.DOWN * 40)
+			query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
 			var result = space_state.intersect_ray(query)
 			
 			if result:
@@ -531,8 +531,8 @@ func generate_patrol_points() -> void:
 						break
 						
 					var side_pos = result.position + Vector2(side_offset, 0)
-                    var side_query = PhysicsRayQueryParameters2D.create(side_pos + Vector2.UP * 20, side_pos + Vector2.DOWN * 40)
-                    side_query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
+					var side_query = PhysicsRayQueryParameters2D.create(side_pos + Vector2.UP * 20, side_pos + Vector2.DOWN * 40)
+					side_query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
 					var side_result = space_state.intersect_ray(side_query)
 					
 					if side_result:
@@ -700,8 +700,8 @@ func check_for_platform(offset: Vector2) -> bool:
 	var check_pos = global_position + offset
 	
 	# Check for platform at the target height
-    var query = PhysicsRayQueryParameters2D.create(check_pos, check_pos + Vector2.DOWN * 50.0)
-    query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
+	var query = PhysicsRayQueryParameters2D.create(check_pos, check_pos + Vector2.DOWN * 50.0)
+	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
 	var result = space_state.intersect_ray(query)
 	
 	if result:
@@ -845,8 +845,8 @@ func check_ground_ahead(direction: Vector2) -> bool:
 	var start_pos = global_position + Vector2(0, -20)
 	var end_pos = start_pos + Vector2(direction.x * check_distance, 40)  # Check downward
 	
-    var query = PhysicsRayQueryParameters2D.create(start_pos, end_pos)
-    query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
+	var query = PhysicsRayQueryParameters2D.create(start_pos, end_pos)
+	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
 	var result = space_state.intersect_ray(query)
 	
 	return result != null

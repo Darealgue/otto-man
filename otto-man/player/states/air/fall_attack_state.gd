@@ -51,6 +51,10 @@ func enter():
 	animation_player.stop()
 	animation_player.play("fall_attack")
 	
+	# Emit fall attack performed signal for powerups
+	if player.has_signal("fall_attack_performed"):
+		player.emit_signal("fall_attack_performed")
+	
 	# Set up fall attack hitbox
 	var fall_attack_hitbox = player.get_node_or_null("FallAttack")
 	if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:

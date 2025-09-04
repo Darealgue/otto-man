@@ -18,19 +18,19 @@ func _ready() -> void:
 		print("House %s added to Housing group via code." % name) # Debug
 
 
-# Bu evin bir işçi daha alıp alamayacağını kontrol eder
-func can_house_worker() -> bool:
+# Bu ev bir işçi daha alabilir mi?
+func can_add_occupant() -> bool:
 	return current_occupants < max_occupants
 
-
-# Eve yeni bir işçi ekler (başarılıysa true döner)
-func add_occupant() -> bool:
-	if can_house_worker():
+# Bu eve yeni bir işçi ekler
+func add_occupant(worker: Node) -> bool:
+	if can_add_occupant():
 		current_occupants += 1
-		print("House %s: Occupant added. Current: %d/%d" % [name, current_occupants, max_occupants]) # Debug
+		add_child(worker)
+		print("House %s: Occupant added. Current: %d/%d" % [name, current_occupants, max_occupants])
 		return true
 	else:
-		printerr("House %s: Cannot add occupant, house is full! (%d/%d)" % [name, current_occupants, max_occupants])
+		print("House %s: Cannot add occupant, house is full! (%d/%d)" % [name, current_occupants, max_occupants])
 		return false
 
 

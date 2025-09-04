@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqxvn8yqxqxqx"]
+
+[ext_resource type="Script" path="res://resources/powerups/guard_master.gd" id="1_guard_master"]
+
+[node name="GuardMaster" type="Node2D"]
+script = ExtResource("1_guard_master")
