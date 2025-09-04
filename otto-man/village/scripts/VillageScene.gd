@@ -19,9 +19,12 @@ const BakeryScene = preload("res://village/buildings/Bakery.tscn")
 # TimeManager node'una referans lazım (eğer farklı bir yolla erişiyorsanız ona göre ayarlayın)
 @onready var time_manager: TimeManager = get_node("/root/TimeManager") # Veya doğru yolu kullanın
 
+
+
 func _ready() -> void:
 	# VillageManager'a bu sahneyi tanıt
-	VillageManager.register_village_scene(self)
+	VillagerAiInitializer.LoadComplete.connect(VillagersLoaded)
+
 
 	# Sinyalleri bağla (Eski inşa buton bağlantıları kaldırıldı)
 	open_worker_ui_button.pressed.connect(_on_open_worker_ui_button_pressed)
@@ -39,7 +42,21 @@ func _ready() -> void:
 	open_worker_ui_button.show()
 	open_cariye_ui_button.show()
 
+	# <<< YENİ: Set up example NPCs after the scene is fully loaded >>>
+	# Use call_deferred to ensure all workers are created first
+	call_deferred("setup_example_npcs")
+	# Print instructions for testing
+	call_deferred("print_dialogue_test_instructions")
+	# <<< YENİ SONU >>>
+	Load_Existing_Villagers()
 # --- UI Açma / Kapatma Fonksiyonları ---
+
+func Load_Existing_Villagers():
+	VillagerAiInitializer.Load_existing_villagers()
+
+func VillagersLoaded():
+	VillageManager.register_village_scene(self)
+
 func _on_open_worker_ui_button_pressed() -> void:
 	# Diğer paneli kapat (aynı anda sadece biri açık olsun)
 	cariye_management_ui.hide()
@@ -109,7 +126,7 @@ func _input(event: InputEvent) -> void:
 		# 'N' tuşuna basıldığında yeni işçi ekle (DEBUG)
 		elif event.keycode == KEY_N:
 			# VillageManager autoload ise direkt çağır:
-			VillageManager._add_new_worker()
+			VillageManager._add_new_worker({})
 			# Eğer autoload değilse ve yukarıdaki gibi @onready ile aldıysak:
 			# if village_manager: village_manager._add_new_worker()
 			print("DEBUG: 'N' key pressed, attempting to add new worker.")
@@ -123,5 +140,4 @@ func _input(event: InputEvent) -> void:
 				VillageManager.remove_worker_from_village(random_worker_id)
 			else:
 				print("DEBUG: 'M' key pressed, but no active workers to remove.")
-
-	# Varsa diğer _input kodları...
+		

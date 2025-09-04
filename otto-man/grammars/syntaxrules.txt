@@ -1,0 +1,145 @@
+GBNF Syntax Rules Notes:
+
+1. Simple Dictionary (Object with Key-Value):
+   - root   ::= simpleobject
+   - simpleobject ::= "{" ws "\"Key\"" ws ":" ws "\"Value\"" ws "}" ws
+   - ws ::= | " " | "\n" [ \t]*
+   - Explanation:
+     - `root` is the starting rule.
+     - `simpleobject` defines a JSON-like object.
+     - `{` and `}` are literal curly braces.
+     - `"`Key`"` and `"`Value`"` are literal strings "Key" and "Value".
+     - `:` is a literal colon.
+     - `ws` defines whitespace: allows an empty string, a single space, or a newline optionally followed by spaces/tabs. This is used to allow flexible formatting.
+
+2. Array of Strings:
+   - root ::= string-array  // Assuming string-array is the top-level structure desired
+   - string-array ::= "[" ws (string-element (ws "," ws string-element)*)? ws "]"
+   - string-element ::= "\"" ([^\"])* "\""
+   - ws ::= | " " | "\n" [ \t]* // Same whitespace rule as above
+
+   - Explanation:
+     - `string-array` defines the structure for an array of strings.
+     - `[` and `]` are literal square brackets marking the start and end of the array.
+     - `ws` is used for optional whitespace around brackets, commas, and elements.
+     - `(string-element (ws "," ws string-element)*)?`: This is the core of the list definition.
+       - `string-element`: Defines a single string element.
+       - `(ws "," ws string-element)*`: Defines zero or more subsequent elements, each preceded by a comma and optional whitespace.
+       - `(...)?`: The question mark makes the entire list of elements optional. This allows for an empty array `[]`.
+         - If present, it must start with one `string-element`.
+         - Then, it can be followed by zero or more instances of `, string-element` (with whitespace).
+     - `string-element ::= "\"" ([^\"])* "\""`:
+       - `"`: Literal double quotes marking the start and end of a string.
+       - `([^\"])*`: Defines the content of the string.
+         - `[^\"]`: A character class representing "any character that is NOT a double quote".
+         - `*`: A quantifier meaning "zero or more occurrences" of the preceding character class. So, it matches any sequence of characters that doesn't include a double quote.
+
+   - Examples of valid output for `string-array`:
+     - `[]`
+     - `[ "hello" ]`
+     - `["hello", "world"]`
+     - `[ "first string" , "second string" , "third" ]` (with varied spacing due to `ws`)
+
+3. Full NPC JSON Object (Target Structure):
+   - root ::= npc-json-object
+   - npc-json-object ::=
+       "{" ws
+         "\"Info\"" ws ":" ws string-element ws "," ws
+         "\"History\"" ws ":" ws string-element ws "," ws
+         "\"DialogueHistory\"" ws ":" ws string-array ws "," ws
+         "\"Generated Dialogue\"" ws ":" ws string-element ws "," ws
+         "\"NPCLevel\"" ws ":" ws integer-element ws "," ws
+         "\"IsHostile\"" ws ":" ws boolean-element ws
+       "}" ws
+   - string-array ::= "[" ws (string-element (ws "," ws string-element)*)? ws "]"
+   - string-element ::= "\"" ( [^"\\] | "\\" . )* "\""  // Robust string with escapes
+   - ws ::= ([ \t\n]*) // Optional spaces, tabs, newlines
+
+   - Explanation:
+     - `npc-json-object` defines a JSON object with four specific key-value pairs.
+     - Keys ("Info", "History", "DialogueHistory", "Generated Dialogue") are literal strings.
+     - Values for "Info", "History", and "Generated Dialogue" use the `string-element` rule.
+     - The value for "DialogueHistory" uses the `string-array` rule defined earlier.
+     - Commas separate the key-value pairs.
+     - `string-element ::= "\"" ( [^"\\] | "\\" . )* "\""` // Robust string with escapes
+       - This rule defines how a single JSON string is structured.
+       - `"\""`: Matches the literal opening double quote of the string.
+       - `( [^"\\] | "\\" . )*`: This is the core pattern for the string's content. It matches zero or more occurrences of either:
+         - `[^"\\]`: Any character that is NOT a double quote (`"`) and NOT a backslash (`\\`). This allows most characters to be part of the string directly.
+         - `|`: Logical OR.
+         - `"\\" .`: A literal backslash (`\\`) followed by ANY character (`.`). This part handles escaped sequences. For example:
+           - `\"` would match an escaped double quote within the string.
+           - `\\` would match an escaped backslash.
+           - `\n` would match an escaped newline character.
+           - And so on for other standard JSON escapes like `\b`, `\f`, `\r`, `\t`, `\uXXXX` (though `.` is a simplification, GBNF might need specific escape rule definitions for full JSON compliance if the backend doesn't handle `.` as broadly as a regex `.` for all unicode chars post-backslash).
+       - `"\""`: Matches the literal closing double quote of the string.
+       - This robust definition ensures that strings can correctly contain characters like `"` or `\` by escaping them.
+
+     - `ws ::= ([ \t\n]*)` // Optional spaces, tabs, newlines
+       - This rule defines "whitespace".
+       - `[` and `]`: Define a character set.
+       - ` `: Matches a space character.
+       - `\t`: Matches a tab character.
+       - `\n`: Matches a newline character.
+       - `*`: Quantifier meaning "zero or more occurrences" of the characters in the set.
+       - `()`: Groups the expression.
+       - This rule allows for flexible formatting of the JSON output by permitting any amount of spaces, tabs, or newlines (or none at all) between JSON tokens like braces, commas, colons, and values.
+
+   - Example of valid output for `npc-json-object`:
+     ```json
+     {
+       "Info": "A knowledgeable old scholar.",
+       "History": "Has seen many ages pass.",
+       "DialogueHistory": ["Hello there."],
+       "Generated Dialogue": "Welcome, traveler!",
+       "NPCLevel": 75,
+       "IsHostile": false
+     }
+     ```
+
+4. Adding Integer and Boolean Types:
+   - GBNF can define rules for values that should be parsed as numbers or booleans in JSON.
+   - The LLM still outputs these as part of a larger string, but the JSON parser will interpret them as the correct types.
+
+   - New Element Rules:
+     - `integer-element ::= [0-9]+`
+       - `[0-9]`: A character class matching any digit from 0 to 9.
+       - `+`: Quantifier meaning "one or more occurrences".
+       - This rule matches a sequence of one or more digits (e.g., "0", "123", "9000").
+       - For negative numbers or more complex number formats (like floats, exponents), the rule would need to be expanded (e.g., `("-")? [0-9]+ ( "." [0-9]+ )?`). The example `("-")? ([0-9] | [1-9][0-9]*)` is a more robust integer definition that handles zero and prevents leading zeros for multi-digit numbers (e.g. allows "0", "123", disallows "01"). For simplicity in this step, `[0-9]+` is used.
+
+     - `boolean-element ::= "true" | "false"`
+       - `"true"`: Matches the literal string "true".
+       - `"false"`: Matches the literal string "false".
+       - `|`: Logical OR.
+       - This rule ensures the value is exactly `true` or `false` (without quotes in the GBNF rule itself, as these are literal keywords in JSON for booleans).
+
+   - Updated `npc-json-object` to include these types:
+     - npc-json-object ::=
+         "{" ws
+           "\"Info\"" ws ":" ws string-element ws "," ws
+           "\"History\"" ws ":" ws string-element ws "," ws
+           "\"DialogueHistory\"" ws ":" ws string-array ws "," ws
+           "\"Generated Dialogue\"" ws ":" ws string-element ws "," ws
+           "\"NPCLevel\"" ws ":" ws integer-element ws "," ws
+           "\"IsHostile\"" ws ":" ws boolean-element ws
+         "}" ws
+
+   - Example of valid output with new types:
+     ```json
+     {
+       "Info": "A knowledgeable old scholar.",
+       "History": "Has seen many ages pass.",
+       "DialogueHistory": ["Hello there."],
+       "Generated Dialogue": "Welcome, traveler!",
+       "NPCLevel": 75,
+       "IsHostile": false
+     }
+     ```
+   - When this JSON string is parsed by Godot, the `NPCLevel` field would yield an integer (e.g., 75) and `IsHostile` would yield a boolean (e.g., false).
+
+5. Parser Behavior Observation (LLamaSharp):
+   - LLamaSharp's GBNF parser (or the underlying llama.cpp version it uses) appears to be sensitive to how multi-line rule definitions are formatted.
+   - Rules are more reliably parsed if their entire definition (from the rule name and `::=` up to the final element of the rule's definition) is kept on a single logical line.
+   - If a rule definition spans multiple lines in the GBNF file, it can lead to parsing errors like "Expected '::=' at ...", where the parser misinterprets a continuation of a rule as an attempt to define a new rule.
+   - Condensing complex rules or ensuring very clean line continuation (if supported and understood by the specific parser version) is crucial.

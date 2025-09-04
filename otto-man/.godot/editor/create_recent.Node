@@ -1,7 +1,10 @@
+Button
 CollisionShape2D
 Area2D
-AnimatedSprite2D
 Node2D
+Label
+VBoxContainer
+ScrollContainer
 Sprite2D
 CanvasLayer
 ParallaxBackground

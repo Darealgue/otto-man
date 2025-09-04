@@ -1,9 +1,10 @@
-[gd_scene load_steps=15 format=3 uid="uid://ei73gvx0mn60"]
+[gd_scene load_steps=17 format=3 uid="uid://ei73gvx0mn60"]
 
 [ext_resource type="Script" path="res://village/scripts/Worker.gd" id="1_tpsik"]
 [ext_resource type="Texture2D" uid="uid://bhx36uh2enr56" path="res://assets/tools/walk_work_tool_axe.png" id="2_0eu48"]
 [ext_resource type="Texture2D" uid="uid://cy8rhs70y4u8h" path="res://assets/character_parts/mouth/mouth1_walk.png" id="5_s7exy"]
 [ext_resource type="Texture2D" uid="uid://dm7480yfyaknc" path="res://assets/character_parts/eyes/eyes1_walk.png" id="6_m1gwo"]
+[ext_resource type="PackedScene" uid="uid://byov2w28tgqc0" path="res://Ui/npc_window.tscn" id="7_a2l8b"]
 [ext_resource type="Texture2D" uid="uid://botduxqg661ye" path="res://assets/character_parts/beard/beard_style1_walk_gray.png" id="7_o5o4k"]
 [ext_resource type="Texture2D" uid="uid://wtnccajt6bj4" path="res://assets/character_parts/hair/hair_style1_walk_gray.png" id="8_7bdve"]
 
@@ -1636,7 +1637,10 @@ _data = {
 "walk_tool": SubResource("Animation_voufa")
 }
 
-[node name="Worker" type="Node2D"]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ev20y"]
+size = Vector2(29, 50)
+
+[node name="Worker" type="Node2D" groups=["NPC", "interactables"]]
 y_sort_enabled = true
 script = ExtResource("1_tpsik")
 
@@ -1684,3 +1688,45 @@ hframes = 12
 libraries = {
 "": SubResource("AnimationLibrary_6kd63")
 }
+
+[node name="NamePlate" type="Label" parent="."]
+layout_direction = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -50.0
+offset_top = -73.0
+offset_right = 50.0
+offset_bottom = -50.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(50, 0)
+text = "Name"
+horizontal_alignment = 1
+
+[node name="InteractionArea" type="Area2D" parent="." groups=["NPC", "interactables"]]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea"]
+position = Vector2(1.5, -25)
+shape = SubResource("RectangleShape2D_ev20y")
+
+[node name="InteractButton" type="Button" parent="."]
+visible = false
+offset_left = -10.0
+offset_top = -95.0
+offset_right = 13.0
+offset_bottom = -70.0
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 12
+text = "P"
+
+[node name="NpcWindow" parent="." instance=ExtResource("7_a2l8b")]
+visible = false
+offset_left = 45.0
+offset_top = -650.0
+offset_right = 45.64
+offset_bottom = -650.0
+
+[connection signal="pressed" from="InteractButton" to="." method="_on_interact_button_pressed"]

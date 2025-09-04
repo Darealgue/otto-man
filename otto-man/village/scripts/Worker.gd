@@ -1,5 +1,7 @@
 extends Node2D
 
+@export var NPC_Info : Dictionary 
+var NPCWindow = preload("res://Ui/npc_window.tscn")
 # <<< YENİ: Appearance Resource >>>
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 @export var appearance: VillagerAppearance:
@@ -7,7 +9,6 @@ const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd"
 		appearance = value
 		if is_node_ready(): # Eğer sahne hazırsa görselleri hemen güncelle
 			update_visuals()
-# <<< YENİ SONU >>>
 
 var worker_id: int = -1 # VillageManager tarafından atanacak
 
@@ -492,6 +493,7 @@ var walk_textures = {
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	randomize()
 	# <<< YENİ: Timer Oluşturma >>>
 	fetching_timer = Timer.new()
 	fetching_timer.one_shot = true
@@ -514,7 +516,7 @@ func _ready() -> void:
 	# <<< YENİ SONU >>>
 
 	# <<< DEBUG: HeldItemSprite kontrolü >>>
-	print("Worker %d - HeldItemSprite Node in _ready: " % worker_id, held_item_sprite)
+	#print("Worker %d - HeldItemSprite Node in _ready: " % worker_id, held_item_sprite)
 	# <<< DEBUG SONU >>>
 
 	# Başlangıçta görünür yapalım
@@ -541,7 +543,7 @@ func _ready() -> void:
 	if is_instance_valid(held_item_sprite):
 		# Eğer texture CanvasTexture değilse (veya null ise), yenisini ata.
 		if not held_item_sprite.texture is CanvasTexture:
-			#print("Worker %d: Initializing/Resetting HeldItemSprite texture to CanvasTexture." % worker_id) # Debug için
+			##print("Worker %d: Initializing/Resetting HeldItemSprite texture to CanvasTexture." % worker_id) # Debug için
 			held_item_sprite.texture = CanvasTexture.new()
 		# Her durumda başlangıçta gizli olduğundan emin ol
 		held_item_sprite.hide()
@@ -551,8 +553,36 @@ func _ready() -> void:
 	if appearance:
 		update_visuals()
 	# <<< YENİ SONU >>>
+	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
+
+func Save_Villager_Info():
+	VillagerAiInitializer.Saved_Villagers.append(NPC_Info)
+	
+#func Load_Villager_Info(VillagerInfo:Dictionary):
+	#NPC_Info = VillagerInfo
+	
+func Initialize_Existing_Villager(NPCInfo):
+		if NPCInfo.is_empty() == true:
+			Initialize_New_Villager()
+		else:
+			NPC_Info=NPCInfo
+			$NamePlate.text = NPCInfo["Info"]["Name"]
+			$NpcWindow.InitializeWindow(NPC_Info)
+func Initialize_New_Villager():
+	NPC_Info = VillagerAiInitializer.get_villager_info()
+	$NamePlate.text = NPC_Info["Info"]["Name"]
 
 func _physics_process(delta: float) -> void:
+	# AI kamili workerların sağa sola dönmesini spriteları döndürmek yerine
+	# tüm node'un X scale'ını değiştirerek yaptığı için böyle isim plakasını tersine çevirmemiz gerekti
+	if scale.x < 0:
+		$NamePlate.scale.x = -1
+		$InteractButton.scale.x = -1
+		$NpcWindow.scale.x = -1
+	else:
+		$NamePlate.scale.x = 1
+		$InteractButton.scale.x = 1
+		$NpcWindow.scale.x = 1
 	# <<< YENİ: Mevcut Duruma Göre Animasyon Belirleme >>>
 	var target_anim = "idle" # Varsayılan animasyon
 	var target_pos = Vector2(move_target_x, _target_global_y)
@@ -570,18 +600,18 @@ func _physics_process(delta: float) -> void:
 
 	# <<< YENİ DEBUG: Hareket Durumu Kontrolü >>>
 	# <<< DEĞİŞİKLİK: 180 Frame\'de bir yazdır >>>
-	if _debug_frame_counter % 180 == 0:
+	#if _debug_frame_counter % 180 == 0:
 		# <<< YENİ: Daha Detaylı Debug >>>
-		print("Worker %d [%s] - Pos: (%.1f, %.1f), Target: (%.1f, %.1f), Dist: %.1f, Moving: %s, Activity: %s, Job: %s" % [
-			worker_id,
-			State.keys()[current_state],
-			global_position.x, global_position.y,
-			move_target_x, _target_global_y,
-			distance,
-			moving,
-			_current_idle_activity,
-			assigned_job_type if assigned_job_type != "" else "None"
-		])
+		#print("Worker %d [%s] - Pos: (%.1f, %.1f), Target: (%.1f, %.1f), Dist: %.1f, Moving: %s, Activity: %s, Job: %s" % [
+			#worker_id,
+			#State.keys()[current_state],
+			#global_position.x, global_position.y,
+			#move_target_x, _target_global_y,
+			#distance,
+			#moving,
+			#_current_idle_activity,
+			#assigned_job_type if assigned_job_type != "" else "None"
+		#])
 	# <<< YENİ DEBUG SONU >>>
 
 	# Animasyon seçimi
@@ -635,16 +665,16 @@ func _physics_process(delta: float) -> void:
 			_:
 				target_anim = "idle" # Bilinmeyen hareketsiz state için varsayılan idle
 
-	# <<< DEBUG PRINT: Idle/Socializing Animasyon Seçimi >>>
+	# <<< DEBUG #print: Idle/Socializing Animasyon Seçimi >>>
 	_debug_frame_counter += 1
-	if current_state == State.AWAKE_IDLE or current_state == State.SOCIALIZING:
+	#if current_state == State.AWAKE_IDLE or current_state == State.SOCIALIZING:
 		# Sorunlu durumu yakala:
-		if not moving and target_anim == 'walk':
-			print("!!! Worker %d - PROBLEM? State: %s, Activity: '%s', Moving: False, TargetAnim: 'walk'" % [worker_id, State.keys()[current_state], _current_idle_activity])
-		# Genel durumu seyreltilmiş olarak yazdır:
-		elif _debug_frame_counter % 180 == 0: # <<< DEĞİŞİKLİK: Her 180 frame'de bir >>>
-			print("Worker %d - State: %s, Activity: '%s', Moving: %s, TargetAnim: '%s' (Frame: %d)" % [worker_id, State.keys()[current_state], _current_idle_activity, moving, target_anim, _debug_frame_counter])
-	# <<< DEBUG PRINT SONU >>>
+		#if not moving and target_anim == 'walk':
+			##print("!!! Worker %d - PROBLEM? State: %s, Activity: '%s', Moving: False, TargetAnim: 'walk'" % [worker_id, State.keys()[current_state], _current_idle_activity])
+		## Genel durumu seyreltilmiş olarak yazdır:
+		#elif _debug_frame_counter % 180 == 0: # <<< DEĞİŞİKLİK: Her 180 frame'de bir >>>
+			##print("Worker %d - State: %s, Activity: '%s', Moving: %s, TargetAnim: '%s' (Frame: %d)" % [worker_id, State.keys()[current_state], _current_idle_activity, moving, target_anim, _debug_frame_counter])
+	# <<< DEBUG #print SONU >>>
 
 	# Gizli state'ler dışındaysa görünür yap
 	if target_anim != "":
@@ -655,26 +685,26 @@ func _physics_process(delta: float) -> void:
 		# <<< DEĞİŞİKLİK: Use _current_animation_name for check >>>
 		if _current_animation_name != target_anim:
 			# <<< YENİ DEBUG formatı >>>
-			print("Worker %d - Physics calling play_animation('%s') because _current_animation_name is '%s'" % [worker_id, target_anim, _current_animation_name])
+			#print("Worker %d - Physics calling play_animation('%s') because _current_animation_name is '%s'" % [worker_id, target_anim, _current_animation_name])
 			play_animation(target_anim)
 		# else: # Already told player to play this animation
 			# pass # Do nothing if already commanded
 	else:
 		# Eğer animasyon yoksa (target_anim == ""), AnimationPlayer'ı durdur
 		if _current_animation_name != "" or animation_player.is_playing(): # Stop if we were playing something or player is active
-			# print("Physics: Stopping player because target_anim is empty.") # Debug
+			# #print("Physics: Stopping player because target_anim is empty.") # Debug
 			animation_player.stop()
 			_current_animation_name = "" # Reset tracked state
 
-	# <<< STATE DEĞİŞİNCE DEBUG PRINT >>>
+	# <<< STATE DEĞİŞİNCE DEBUG #print >>>
 	if current_state != _previous_state:
 		# State enum'ını string'e çevirmek için State.keys() kullan
 		var state_string = "Unknown"
 		if current_state >= 0 and current_state < State.size(): # Güvenlik kontrolü
 			state_string = State.keys()[current_state]
-		print("Worker %d - State Change -> %s, Moving: %s, TargetAnim: '%s'" % [worker_id, state_string, moving, target_anim])
-		_previous_state = current_state # Sadece print ettiğimizde güncelle
-	# <<< DEBUG PRINT SONU >>>
+		#print("Worker %d - State Change -> %s, Moving: %s, TargetAnim: '%s'" % [worker_id, state_string, moving, target_anim])
+		_previous_state = current_state # Sadece #print ettiğimizde güncelle
+	# <<< DEBUG #print SONU >>>
 
 	# Hedef X'e göre yön belirleme
 	var direction = 1.0 # Sağ
@@ -704,14 +734,14 @@ func _physics_process(delta: float) -> void:
 					move_target_x = global_position.x + randf_range(-wander_range, wander_range)
 					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 				else:
-					printerr("Worker %d: Housing node geçerli değil, başlangıç konumu ayarlanamadı!" % worker_id)
+					#printerr("Worker %d: Housing node geçerli değil, başlangıç konumu ayarlanamadı!" % worker_id)
 					move_target_x = global_position.x # Hedefi kendi konumu yap
 					_target_global_y = global_position.y # Hedef Y'yi mevcut Y yap
 					
 				_current_idle_activity = "" # Reset activity state on wake up
 				_is_briefly_idling = false # Reset flag
 				_start_next_idle_step() # Decide initial action
-				print("Worker %d uyandı!" % worker_id) # Debug
+				#print("Worker %d uyandı!" % worker_id) # Debug
 
 		State.AWAKE_IDLE:
 			# DEBUG: AWAKE_IDLE state'inde her frame kontrol
@@ -726,7 +756,7 @@ func _physics_process(delta: float) -> void:
 			# 1. Uyku Zamanı Kontrolü
 			if current_hour >= TimeManager.SLEEP_HOUR and current_minute >= sleep_minute_offset:
 				if is_instance_valid(housing_node):
-					print("Worker %d (Idle) uyumaya gidiyor." % worker_id)
+					#print("Worker %d (Idle) uyumaya gidiyor." % worker_id)
 					current_state = State.GOING_TO_SLEEP
 					move_target_x = housing_node.global_position.x
 					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
@@ -738,7 +768,7 @@ func _physics_process(delta: float) -> void:
 			# 2. İşe Gitme Zamanı Kontrolü
 			elif assigned_job_type != "" and is_instance_valid(assigned_building_node):
 				if current_hour == TimeManager.WORK_START_HOUR and current_minute >= work_start_minute_offset:
-					print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
+					#print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
 					current_state = State.GOING_TO_BUILDING_FIRST
 					move_target_x = assigned_building_node.global_position.x
 					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
@@ -776,18 +806,18 @@ func _physics_process(delta: float) -> void:
 					# Karara göre state değiştir
 					if go_inside:
 						# --- İÇERİDE ÇALIŞMA MANTIĞI ---
-						print("Worker %d entering building %s (Level %d, FirstWorker=%s) to work inside." % [
-							worker_id, building_node.name, building_node.level if "level" in building_node else 1, 
-							(true if ("assigned_worker_ids" in building_node and not building_node.assigned_worker_ids.is_empty() and worker_id == building_node.assigned_worker_ids[0]) else false)
-						]) # DEBUG <<< DEĞİŞTİ: LastWorker yerine FirstWorker
+						#print("Worker %d entering building %s (Level %d, FirstWorker=%s) to work inside." % [
+							#worker_id, building_node.name, building_node.level if "level" in building_node else 1, 
+							#(true if ("assigned_worker_ids" in building_node and not building_node.assigned_worker_ids.is_empty() and worker_id == building_node.assigned_worker_ids[0]) else false)
+						#]) # DEBUG <<< DEĞİŞTİ: LastWorker yerine FirstWorker
 						current_state = State.WORKING_INSIDE 
 						visible = false # İşçiyi gizle
 						global_position = building_node.global_position
 					else:
 						# --- DIŞARIDA ÇALIŞMA MANTIĞI (MEVCUT KOD) ---
-						print("Worker %d reached building %s (Level %d), going offscreen." % [
-							worker_id, building_node.name, building_node.level if "level" in building_node else 1
-						]) # DEBUG
+						#print("Worker %d reached building %s (Level %d), going offscreen." % [
+							#worker_id, building_node.name, building_node.level if "level" in building_node else 1
+						#]) # DEBUG
 						# <<< YENİ: Aleti Ayarla ve Göster >>>
 						if assigned_job_type in tool_textures and is_instance_valid(held_item_sprite):
 							# Texture ataması play_animation içine taşındı
@@ -805,7 +835,7 @@ func _physics_process(delta: float) -> void:
 							_target_global_y = global_position.y # Hedef Y'yi mevcut Y yapalım ki sadece X ekseninde gitsin
 				else:
 					# Bina geçerli değil veya scripti yoksa varsayılan davranış
-					printerr("Worker %d reached target, but assigned_building_node is invalid or has no script!" % worker_id)
+					#printerr("Worker %d reached target, but assigned_building_node is invalid or has no script!" % worker_id)
 					current_state = State.AWAKE_IDLE # Güvenli bir duruma geç
 
 				# <<< Reset idle flags on state change >>>
@@ -818,7 +848,7 @@ func _physics_process(delta: float) -> void:
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Ekran dışı hedefine vardıysa
 				# Ekran dışına ulaştı
-				print("Worker %d ekran dışına çıktı, çalışıyor (beklemede)." % worker_id)
+				#print("Worker %d ekran dışına çıktı, çalışıyor (beklemede)." % worker_id)
 				_offscreen_exit_x = global_position.x
 				if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 				visible = false
@@ -833,7 +863,7 @@ func _physics_process(delta: float) -> void:
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
 			if current_hour == TimeManager.WORK_END_HOUR and current_minute >= work_end_minute_offset:
-				print("Worker %d finished working inside building." % worker_id)
+				#print("Worker %d finished working inside building." % worker_id)
 				visible = true 
 				if not fetching_timer.is_stopped():
 					fetching_timer.stop()
@@ -846,13 +876,13 @@ func _physics_process(delta: float) -> void:
 
 				if current_hour >= TimeManager.SLEEP_HOUR:
 					if is_instance_valid(housing_node):
-						print("Worker %d going to sleep from inside building." % worker_id)
+						#print("Worker %d going to sleep from inside building." % worker_id)
 						current_state = State.GOING_TO_SLEEP
 						move_target_x = housing_node.global_position.x
 						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 						if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 					else:
-						print("Worker %d finished work, no housing, socializing." % worker_id)
+						#print("Worker %d finished work, no housing, socializing." % worker_id)
 						current_state = State.SOCIALIZING
 						_is_briefly_idling = false # <<< Reset flag >>>
 						_current_idle_activity = "" # <<< Reset activity >>>
@@ -862,7 +892,7 @@ func _physics_process(delta: float) -> void:
 						# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
 						if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 				else:
-					print("Worker %d finished work, socializing." % worker_id)
+					#print("Worker %d finished work, socializing." % worker_id)
 					current_state = State.SOCIALIZING
 					_is_briefly_idling = false # <<< Reset flag >>>
 					_current_idle_activity = "" # <<< Reset activity >>>
@@ -876,7 +906,7 @@ func _physics_process(delta: float) -> void:
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
 			if current_hour == TimeManager.WORK_END_HOUR and current_minute >= work_end_minute_offset:
-				print("Worker %d işten dönüyor." % worker_id)
+				#print("Worker %d işten dönüyor." % worker_id)
 				current_state = State.RETURNING_FROM_WORK
 				visible = true
 				var start_margin = 5.0
@@ -892,7 +922,7 @@ func _physics_process(delta: float) -> void:
 					move_target_x = assigned_building_node.global_position.x
 					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 				else:
-					printerr("Worker %d: Returning from work but building is invalid! Socializing." % worker_id)
+					#printerr("Worker %d: Returning from work but building is invalid! Socializing." % worker_id)
 					current_state = State.SOCIALIZING
 					_is_briefly_idling = false # <<< Reset flag >>>
 					_current_idle_activity = "" # <<< Reset activity >>>
@@ -905,7 +935,7 @@ func _physics_process(delta: float) -> void:
 			# Binaya doğru hareket et (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Binaya vardıysa
-				print("Worker %d reached building after returning from work, socializing." % worker_id)
+				#print("Worker %d reached building after returning from work, socializing." % worker_id)
 				current_state = State.SOCIALIZING
 				_is_briefly_idling = false # <<< Reset flag >>>
 				_current_idle_activity = "" # <<< Reset activity >>>
@@ -919,7 +949,7 @@ func _physics_process(delta: float) -> void:
 			# Uyku Zamanı Kontrolü
 			if current_hour >= TimeManager.SLEEP_HOUR:
 				if is_instance_valid(housing_node):
-					print("Worker %d uyumaya gidiyor." % worker_id)
+					#print("Worker %d uyumaya gidiyor." % worker_id)
 					current_state = State.GOING_TO_SLEEP
 					move_target_x = housing_node.global_position.x
 					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
@@ -927,8 +957,8 @@ func _physics_process(delta: float) -> void:
 					_is_briefly_idling = false # <<< Reset flag >>>
 					_current_idle_activity = "" # <<< Reset activity >>>
 					return
-				else:
-					printerr("Worker %d: Uyuyacak yer (housing_node) yok!" % worker_id)
+				#else:
+					#printerr("Worker %d: Uyuyacak yer (housing_node) yok!" % worker_id)
 
 			# Sosyalleşme/Boşta Aktivite Mantığı (Refactored)
 			# Check if reached wander destination AND ensure not already processing brief idle
@@ -939,7 +969,7 @@ func _physics_process(delta: float) -> void:
 			# Barınağa doğru hareket et (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Barınağa vardıysa
-				print("Worker %d barınağa ulaştı ve uykuya daldı." % worker_id)
+				#print("Worker %d barınağa ulaştı ve uykuya daldı." % worker_id)
 				current_state = State.SLEEPING
 				visible = false
 				idle_activity_timer.stop() # <<< Stop timer >>>
@@ -953,7 +983,7 @@ func _physics_process(delta: float) -> void:
 			# Hedef kaynak binasına git (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Hedefe vardıysa
-				print("Worker %d reached fetch destination, waiting..." % worker_id)
+				#print("Worker %d reached fetch destination, waiting..." % worker_id)
 				current_state = State.WAITING_AT_SOURCE
 				visible = false
 				wait_at_source_timer.start()
@@ -969,7 +999,7 @@ func _physics_process(delta: float) -> void:
 			# Binaya geri dön (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Binaya vardıysa
-				print("Worker %d returned to building after fetching." % worker_id)
+				#print("Worker %d returned to building after fetching." % worker_id)
 				current_state = State.WORKING_INSIDE
 				visible = false
 				# <<< Reset idle flags >>>
@@ -981,8 +1011,8 @@ func _physics_process(delta: float) -> void:
 					global_position = Vector2(assigned_building_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
 					if assigned_building_node.has_method("finished_fetching"):
 						assigned_building_node.finished_fetching()
-					else:
-						printerr("Worker %d: Building %s has no finished_fetching method!" % [worker_id, assigned_building_node.name])
+					#else:
+						#printerr("Worker %d: Building %s has no finished_fetching method!" % [worker_id, assigned_building_node.name])
 					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 
 		_:
@@ -1009,7 +1039,7 @@ func _physics_process(delta: float) -> void:
 # Bina yükseltmesi tamamlandığında çağrılır (eğer bu işçi ilk işçiyse ve dışarıdaysa)
 func switch_to_working_inside():
 	if current_state == State.WORKING_OFFSCREEN or current_state == State.WAITING_OFFSCREEN:
-		# print("Worker %d switching from OFFSCREEN to WORKING_INSIDE due to building upgrade." % worker_id) #<<< KALDIRILDI
+		# #print("Worker %d switching from OFFSCREEN to WORKING_INSIDE due to building upgrade." % worker_id) #<<< KALDIRILDI
 		current_state = State.WORKING_INSIDE
 		visible = false
 		# İsteğe bağlı: İşçiyi bina girişine yakın bir yere ışınlayabilir veya
@@ -1017,14 +1047,14 @@ func switch_to_working_inside():
 		#$AnimatedSprite2D.play("idle") # Veya uygun bir 'working_inside' animasyonu varsa o
 	#else:
 		# Zaten içerideyse veya başka bir durumdaysa işlem yapma
-		# print("Worker %d not switching state, current state: %s" % [worker_id, State.keys()[current_state]]) #<<< KALDIRILDI
+		# #print("Worker %d not switching state, current state: %s" % [worker_id, State.keys()[current_state]]) #<<< KALDIRILDI
 # <<< YENİ FONKSİYON BİTİŞ >>>
 
 # <<< YENİ FONKSİYON BAŞLANGIÇ: switch_to_working_offscreen >>>
 # İşçi içeride çalışırken (WORKING_INSIDE) dışarıda çalışmaya geçirmek için
 func switch_to_working_offscreen():
 	if current_state == State.WORKING_INSIDE:
-		# print("Worker %d switching from INSIDE to WORKING_OFFSCREEN." % worker_id) #<<< KALDIRILDI
+		# #print("Worker %d switching from INSIDE to WORKING_OFFSCREEN." % worker_id) #<<< KALDIRILDI
 		current_state = State.WORKING_OFFSCREEN
 		visible = true # Görünür yap
 		# Binanın konumuna göre ekran dışı hedefini belirle
@@ -1037,7 +1067,7 @@ func switch_to_working_offscreen():
 			global_position = assigned_building_node.global_position
 		else:
 			# Bina geçerli değilse, bulunduğu yerden rastgele bir yöne gitsin? Güvenli varsayım:
-			printerr("Worker %d switching to OFFSCREEN but building node is invalid. Using current pos." % worker_id)
+			#printerr("Worker %d switching to OFFSCREEN but building node is invalid. Using current pos." % worker_id)
 			if global_position.x < 960: 
 				move_target_x = -2500.0
 			else:
@@ -1046,7 +1076,7 @@ func switch_to_working_offscreen():
 		$AnimatedSprite2D.play("walk") # Yürüme animasyonunu başlat
 	#else:
 		# Zaten dışarıdaysa veya başka bir durumdaysa işlem yapma
-		# print("Worker %d not switching to OFFSCREEN, current state: %s" % [worker_id, State.keys()[current_state]]) #<<< KALDIRILDI
+		# #print("Worker %d not switching to OFFSCREEN, current state: %s" % [worker_id, State.keys()[current_state]]) #<<< KALDIRILDI
 # <<< YENİ FONKSİYON BİTİŞ >>>
 
 # <<< YENİ: Zamanlayıcı Sinyali İşleyici >>>
@@ -1058,7 +1088,7 @@ func _on_fetching_timer_timeout():
 	# <<< YENİ: İş Bitiş Saati Kontrolü >>>
 	var current_hour = TimeManager.get_hour()
 	if current_hour >= TimeManager.WORK_END_HOUR:
-		print("Worker %d stopping fetch timer, it's end of work time." % worker_id)
+		#print("Worker %d stopping fetch timer, it's end of work time." % worker_id)
 		# Fetch timer zaten doldu, tekrar başlatmaya gerek yok.
 		# Doğrudan iş bitiş mantığını çalıştır (WORKING_INSIDE'dan kopyalandı/uyarlandı)
 		visible = true # Görünür yap (eğer zaten değilse)
@@ -1070,12 +1100,12 @@ func _on_fetching_timer_timeout():
 		# Uyku vakti mi?
 		if current_hour >= TimeManager.SLEEP_HOUR:
 			if is_instance_valid(housing_node):
-				print("Worker %d going to sleep directly after fetch timer (work end time)." % worker_id)
+				#print("Worker %d going to sleep directly after fetch timer (work end time)." % worker_id)
 				current_state = State.GOING_TO_SLEEP
 				move_target_x = housing_node.global_position.x
 				if is_instance_valid(held_item_sprite): held_item_sprite.hide() # <<< YENİ: Fetch sonrası uykuya giderken aleti gizle
 			else:
-				print("Worker %d finished work (fetch timer), no housing, socializing." % worker_id)
+				#print("Worker %d finished work (fetch timer), no housing, socializing." % worker_id)
 				current_state = State.SOCIALIZING
 				var wander_range = 150.0
 				move_target_x = global_position.x + randf_range(-wander_range, wander_range)
@@ -1091,7 +1121,7 @@ func _on_fetching_timer_timeout():
 			required = assigned_building_node.get("required_resources")
 		
 		if required.is_empty():
-			printerr("Worker %d: Cannot determine required resources for %s! Aborting fetch." % [worker_id, assigned_building_node.name])
+			#printerr("Worker %d: Cannot determine required resources for %s! Aborting fetch." % [worker_id, assigned_building_node.name])
 			assigned_building_node.finished_fetching() # İzni geri ver
 			_start_fetching_timer() # Zamanlayıcıyı yeniden başlat
 			return
@@ -1104,13 +1134,13 @@ func _on_fetching_timer_timeout():
 		var target_pos = VillageManager.get_source_building_position(resource_to_fetch)
 		
 		if target_pos == Vector2.ZERO:
-			print("Worker %d: Could not find a source building for '%s'. Skipping fetch." % [worker_id, resource_to_fetch])
+			#print("Worker %d: Could not find a source building for '%s'. Skipping fetch." % [worker_id, resource_to_fetch])
 			assigned_building_node.finished_fetching() # İzni geri ver
 			_start_fetching_timer() # Zamanlayıcıyı yeniden başlat
 			return
 			
 		# 4. Hareketi başlat
-		print("Worker %d starting resource fetch for '%s' towards %s..." % [worker_id, resource_to_fetch, target_pos])
+		#print("Worker %d starting resource fetch for '%s' towards %s..." % [worker_id, resource_to_fetch, target_pos])
 		current_state = State.FETCHING_RESOURCE
 		visible = true
 		move_target_x = target_pos.x # Hedef X'i ayarla
@@ -1130,7 +1160,7 @@ func _start_fetching_timer():
 		if fetching_timer.is_stopped(): # Zaten çalışmıyorsa
 			var wait_time = randf_range(fetch_interval_min, fetch_interval_max)
 			fetching_timer.start(wait_time)
-			# print("Worker %d fetching timer started (%s sec)." % [worker_id, wait_time]) # Debug
+			# #print("Worker %d fetching timer started (%s sec)." % [worker_id, wait_time]) # Debug
 # <<< YENİ SONU >>>
 
 # YENİ Timer için timeout fonksiyonu
@@ -1139,14 +1169,14 @@ func _on_wait_at_source_timer_timeout():
 	if current_state != State.WAITING_AT_SOURCE:
 		return
 		
-	print("Worker %d finished waiting at source, returning to building." % worker_id)
+	#print("Worker %d finished waiting at source, returning to building." % worker_id)
 	current_state = State.RETURNING_FROM_FETCH
 	visible = true # Tekrar görünür yap
 	if is_instance_valid(assigned_building_node):
 		move_target_x = assigned_building_node.global_position.x
 	else:
 		# Bina yoksa? Güvenli bir yere git?
-		printerr("Worker %d: Building node invalid while returning from fetch!" % worker_id)
+		#printerr("Worker %d: Building node invalid while returning from fetch!" % worker_id)
 		move_target_x = global_position.x
 # <<< YENİ SONU >>>
 
@@ -1184,14 +1214,14 @@ func get_style_from_texture_path(path: String) -> String:
 # <<< YENİ: Animasyon Oynatma Fonksiyonu (Genişletilmiş) >>>
 func play_animation(anim_name: String):
 	if !is_instance_valid(animation_player):
-		printerr("Worker %d: AnimationPlayer bulunamadı!" % worker_id)
+		#printerr("Worker %d: AnimationPlayer bulunamadı!" % worker_id)
 		return
 
 	# <<< REMOVING CHECK AGAIN >>>
 	# if _current_animation_name == anim_name:
 	#	return 
 
-	print("Worker %d - Calling play_animation('%s') (Internal state was '%s')" % [worker_id, anim_name, _current_animation_name])
+	#print("Worker %d - Calling play_animation('%s') (Internal state was '%s')" % [worker_id, anim_name, _current_animation_name])
 	_current_animation_name = anim_name # Update tracked state *immediately*
 
 	# 1. Animasyonu Oynat
@@ -1214,12 +1244,12 @@ func play_animation(anim_name: String):
 			# Eğer bu sözlük yoksa veya adı farklıysa, burayı güncellemeniz gerekir.
 			texture_set_to_use = walk_textures 
 			# <<< YENİ DEBUG >>>
-			print("Worker %d - play_animation('%s'): Assigning texture set: walk_textures" % [worker_id, anim_name])
+			#print("Worker %d - play_animation('%s'): Assigning texture set: walk_textures" % [worker_id, anim_name])
 			# hide_held_item remains true
 		"walk_tool":
 			texture_set_to_use = walk_work_textures
 			# <<< YENİ DEBUG >>>
-			print("Worker %d - play_animation('%s'): Assigning texture set: walk_work_textures" % [worker_id, anim_name])
+			#print("Worker %d - play_animation('%s'): Assigning texture set: walk_work_textures" % [worker_id, anim_name])
 			hide_held_item = false
 		"sit":
 			texture_set_to_use = idle_sit_textures
@@ -1231,7 +1261,7 @@ func play_animation(anim_name: String):
 			texture_set_to_use = walk_work_textures # Needs verification
 			hide_held_item = true # Currently no visual item for walk_carry
 		_:
-			printerr("Worker %d: Unknown animation name '%s' in play_animation. Using default visuals." % [worker_id, anim_name])
+			#printerr("Worker %d: Unknown animation name '%s' in play_animation. Using default visuals." % [worker_id, anim_name])
 			texture_set_to_use = walk_work_textures # Fallback
 
 	# <<< REMOVED the old else block >>>
@@ -1277,7 +1307,7 @@ func play_animation(anim_name: String):
 					new_canvas_texture.diffuse_texture = textures["diffuse"]
 				else:
 					# If specific animation diffuse texture is missing, hide the part
-					# print("Hiding %s because diffuse is missing for %s style %s" % [part_name, anim_name, style]) # Debug
+					# #print("Hiding %s because diffuse is missing for %s style %s" % [part_name, anim_name, style]) # Debug
 					sprite.hide()
 					continue
 
@@ -1300,7 +1330,7 @@ func play_animation(anim_name: String):
 					sprite.frame = 0
 			else:
 				# Fallback: Use original texture from appearance if specific style/part not found in target set
-				# print("Using original texture for %s in %s because style %s not found in set" % [part_name, anim_name, style]) # Debug
+				# #print("Using original texture for %s in %s because style %s not found in set" % [part_name, anim_name, style]) # Debug
 				sprite.texture = original_canvas_texture
 				match part_name:
 					"body": sprite.modulate = appearance.body_tint
@@ -1318,7 +1348,7 @@ func play_animation(anim_name: String):
 		if anim_name == "walk_tool":
 			if is_instance_valid(held_item_sprite):
 				# <<< YENİ DEBUG: walk_tool içinde >>>
-				print("Worker %d - play_animation('walk_tool'): Checking job type: '%s'" % [worker_id, assigned_job_type])
+				#print("Worker %d - play_animation('walk_tool'): Checking job type: '%s'" % [worker_id, assigned_job_type])
 				# <<< YENİ DEBUG SONU >>>
 				if assigned_job_type in tool_textures and assigned_job_type in tool_normal_textures:
 					var tool_diffuse_tex = tool_textures[assigned_job_type]
@@ -1333,7 +1363,7 @@ func play_animation(anim_name: String):
 					hide_held_item = false
 				else:
 					# <<< YENİ DEBUG: Alet bulunamadı >>>
-					print("Worker %d - play_animation('walk_tool'): Job type '%s' not in tool_textures/tool_normal_textures. Hiding item." % [worker_id, assigned_job_type])
+					#print("Worker %d - play_animation('walk_tool'): Job type '%s' not in tool_textures/tool_normal_textures. Hiding item." % [worker_id, assigned_job_type])
 					# <<< YENİ DEBUG SONU >>>
 					held_item_sprite.hide()
 					hide_held_item = true
@@ -1342,16 +1372,16 @@ func play_animation(anim_name: String):
 		# --- Gizle (Eğer hide_held_item true ise) ---
 		if hide_held_item and is_instance_valid(held_item_sprite):
 			# <<< YENİ DEBUG >>>
-			print("Worker %d - play_animation('%s'): Hiding held item (hide_held_item=%s, sprite valid=%s)" % [worker_id, anim_name, hide_held_item, is_instance_valid(held_item_sprite)])
+			#print("Worker %d - play_animation('%s'): Hiding held item (hide_held_item=%s, sprite valid=%s)" % [worker_id, anim_name, hide_held_item, is_instance_valid(held_item_sprite)])
 			held_item_sprite.hide()
 			# <<< YENİ DEBUG >>>
-			print("Worker %d - play_animation('%s'): Held item hidden status: %s" % [worker_id, anim_name, not held_item_sprite.visible])
-		else:
+			#print("Worker %d - play_animation('%s'): Held item hidden status: %s" % [worker_id, anim_name, not held_item_sprite.visible])
+		#else:
 			# <<< YENİ DEBUG >>>
-			print("Worker %d - play_animation('%s'): NOT hiding held item (hide_held_item=%s, sprite valid=%s)" % [worker_id, anim_name, hide_held_item, is_instance_valid(held_item_sprite)])
-	else:
+			#print("Worker %d - play_animation('%s'): NOT hiding held item (hide_held_item=%s, sprite valid=%s)" % [worker_id, anim_name, hide_held_item, is_instance_valid(held_item_sprite)])
+	#else:
 		# Uyarı yazdır - bu bloğa hiç ulaşılmamalı normalde
-		printerr("Worker %d: Texture set was null for animation '%s'. Check play_animation logic." % [worker_id, anim_name])
+		#printerr("Worker %d: Texture set was null for animation '%s'. Check play_animation logic." % [worker_id, anim_name])
 
 	# 3. Frame Sayılarını Ayarla (Yeni yaklaşım - problematik else bloğundan kaçınır)
 	var default_hf = 12
@@ -1364,9 +1394,9 @@ func play_animation(anim_name: String):
 		var frames = animation_frame_counts[anim_name]
 		hf = frames["hframes"]
 		vf = frames["vframes"]
-	else:
+	#else:
 		# Özel ayar yoksa varsayılanları kullan ve uyarı ver
-		printerr("Worker %d: Frame count not found for animation '%s'. Using defaults." % [worker_id, anim_name])
+		#printerr("Worker %d: Frame count not found for animation '%s'. Using defaults." % [worker_id, anim_name])
 
 	# Tüm sprite'lar için frame sayılarını ayarla
 	var sprites_to_set_frames = [
@@ -1385,7 +1415,7 @@ func play_animation(anim_name: String):
 # Appearance resource'una göre sprite'ları günceller
 func update_visuals():
 	if not appearance:
-		printerr("Worker %d: Appearance resource atanmamış, görseller güncellenemiyor." % worker_id)
+		#printerr("Worker %d: Appearance resource atanmamış, görseller güncellenemiyor." % worker_id)
 		return
 	
 	# Görselleri güncellemek için mevcut duruma uygun animasyonu tekrar oynatmak
@@ -1393,21 +1423,21 @@ func update_visuals():
 	# Ancak _physics_process zaten her karede doğru animasyonu ayarlamaya çalışıyor.
 	# Belki burada sadece başlangıç durumunu ele almak yeterli?
 	# Şimdilik sadece bir uyarı yazdıralım, eğer sorun devam ederse burayı geliştirebiliriz.
-	print("Worker %d: update_visuals() çağrıldı." % worker_id)
+	#print("Worker %d: update_visuals() çağrıldı." % worker_id)
 	# Gerekirse: _determine_and_play_current_animation() gibi bir yardımcı fonksiyon çağırılabilir.
 	pass # play_animation zaten appearance kullanıyor, _physics_process tetikleyecek.
 
 # Boş zaman aktivite zamanlayıcısı dolduğunda çağrılır
 func _on_idle_activity_timer_timeout():
-	# print("Worker %d: Idle activity timer timeout." % worker_id) # Debug
+	# #print("Worker %d: Idle activity timer timeout." % worker_id) # Debug
 	# Aktivite bitti, bir sonraki adıma geç
 	_start_next_idle_step()
 
 # Bir sonraki boş zaman/sosyalleşme adımını başlatır
 func _start_next_idle_step():
-	# print("Worker %d: Starting next idle step..." % worker_id) # Debug
+	# #print("Worker %d: Starting next idle step..." % worker_id) # Debug
 	if not (current_state == State.AWAKE_IDLE or current_state == State.SOCIALIZING):
-		# print("Worker %d: Not in idle/socializing state, aborting _start_next_idle_step." % worker_id) # Debug
+		# #print("Worker %d: Not in idle/socializing state, aborting _start_next_idle_step." % worker_id) # Debug
 		return # Sadece bu durumlarda çalışmalı
 
 	idle_activity_timer.stop() # Önceki zamanlayıcıyı durdur
@@ -1415,14 +1445,14 @@ func _start_next_idle_step():
 	
 	# <<< YENİ: Fonksiyonun varlığını kontrol et >>>
 	if not has_method("_choose_next_idle_activity"):
-		printerr("Worker %d: _choose_next_idle_activity fonksiyonu bulunamadı!" % worker_id)
+		#printerr("Worker %d: _choose_next_idle_activity fonksiyonu bulunamadı!" % worker_id)
 		_current_idle_activity = "wandering" # Varsayılana dön
 	else:
 		# Bir sonraki aktiviteyi seç
 		_current_idle_activity = _choose_next_idle_activity()
 	# <<< YENİ SONU >>>
 
-	# print("Worker %d: Chose idle activity: %s" % [worker_id, _current_idle_activity]) # Debug
+	# #print("Worker %d: Chose idle activity: %s" % [worker_id, _current_idle_activity]) # Debug
 
 	if _current_idle_activity == "wandering":
 		# Yeni bir gezinme hedefi belirle
@@ -1432,7 +1462,7 @@ func _start_next_idle_step():
 		move_target_x = global_position.x + randf_range(-wander_range, wander_range)
 		# Hedef Y: 0 ile VERTICAL_RANGE_MAX arasında rastgele
 		_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
-		# print("Worker %d: New wander target: (%.1f, %.1f)" % [worker_id, move_target_x, _target_global_y]) # Debug
+		# #print("Worker %d: New wander target: (%.1f, %.1f)" % [worker_id, move_target_x, _target_global_y]) # Debug
 		# physics_process yürüme animasyonunu (walk) başlatacak
 	else:
 		# Diğer aktiviteler (sit, lie, drink) için animasyonu oynat ve zamanlayıcıyı başlat
@@ -1440,7 +1470,7 @@ func _start_next_idle_step():
 		play_animation(_current_idle_activity) # Animasyonu hemen başlat
 		var duration = randf_range(idle_activity_duration_min, idle_activity_duration_max)
 		idle_activity_timer.start(duration)
-		# print("Worker %d: Starting activity '%s' for %.1f seconds." % [worker_id, _current_idle_activity, duration]) # Debug
+		# #print("Worker %d: Starting activity '%s' for %.1f seconds." % [worker_id, _current_idle_activity, duration]) # Debug
 
 # <<< YENİ: _choose_next_idle_activity (Eğer yoksa eklenecek - önceki koddan alınabilir) >>>
 # Bu fonksiyonun var olduğunu varsayıyoruz, eğer yoksa eklenmesi gerekir.
@@ -1469,11 +1499,11 @@ func _choose_next_idle_activity():
 	var total_weight = 0.0
 	for key in activity_weights:
 		total_weight += activity_weights[key]
-	# if total_weight != 1.0: printerr("Worker %d: Idle activity weights do not sum to 1.0!" % worker_id)
+	# if total_weight != 1.0: #printerr("Worker %d: Idle activity weights do not sum to 1.0!" % worker_id)
 		
 	# Rastgele bir değer seç (0 ile toplam ağırlık arasında)
 	var rand_val = randf() * total_weight 
-	# Debug: print("Worker %d - Rand Val: %.2f / Total Weight: %.2f" % [worker_id, rand_val, total_weight])
+	# Debug: #print("Worker %d - Rand Val: %.2f / Total Weight: %.2f" % [worker_id, rand_val, total_weight])
 	
 	# Kümülatif ağırlığa göre aktivite seçimi
 	var chosen_activity = "wandering" # Varsayılan (eğer bir hata olursa)
@@ -1485,6 +1515,27 @@ func _choose_next_idle_activity():
 			break # Aktivite seçildi, döngüden çık
 			
 	# Seçilen aktiviteyi döndür
-	# Debug: print("Worker %d - Chosen Activity: %s" % [worker_id, chosen_activity])
+	# Debug: #print("Worker %d - Chosen Activity: %s" % [worker_id, chosen_activity])
 	return chosen_activity
 # <<< YENİ SONU >>>
+
+func ShowInteractButton():
+	$InteractButton.show()
+
+func HideInteractButton():
+	$InteractButton.hide()
+
+func _on_interact_button_pressed() -> void:
+	OpenNpcWindow()
+
+func OpenNpcWindow():
+	$NpcWindow.show()
+	NpcDialogueManager.dialogue_processed.connect(NpcAnswered)
+	
+func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
+	$NpcWindow.NPCDialogueProcessed(npc_name, new_state, generated_dialogue, was_significant)
+	
+func CloseNpcWindow():
+	$NpcWindow.hide()
+	NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
+	

@@ -22,6 +22,7 @@ func _ready():
 # npc_state: The complete NPC_Info dictionary
 # player_input: What the player said
 # npc_name: Name of the calling NPC (for response routing)
+
 func process_dialogue(npc_state: Dictionary, player_input: String, npc_name: String):
 	if not LlamaService.IsInitialized():
 		push_error("NPCDialogueManager: LlamaService not available or not initialized.")
@@ -110,7 +111,7 @@ func _on_llama_generation_complete(result_string: String):
 	
 	# Emit response to the NPC
 	dialogue_processed.emit(npc_name, new_state, generated_dialogue, was_significant)
-
+	
 # Internal: Construct the full prompt
 func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
 	var npc_name = state.get("Info", {}).get("Name", "NPC")
@@ -142,7 +143,7 @@ Rules for Significance & State Update:
 - IF SIGNIFICANT:
 	- If the dialogue provides new or superseding information directly impacting the NPC's *attributes* (those represented by the existing keys in the "Info" field like name, age, gender, mood, occupation, etc.), update the "Info" field in the output JSON. **CRITICAL RULE: You MUST only use the exact same set of keys for "Info" that were provided in the Input State's "Info" object. YOU ARE NOT ALLOWED TO ADD NEW KEYS to the "Info" object.** Change the values of the existing keys as appropriate. For example, if a title is bestowed and the Input State's "Info" object does NOT contain a 'Title' key, you MUST append the title to the existing "Name" value (e.g., Input "Name": "NPC" becomes Output "Name": "NPC the Brave"). If an existing key can logically store the new information (like "Mood", "Age", "Occupation"), update its value.
 	- ALWAYS append a short description of the significant event or new memory to the "History" array in the output JSON.
-	- ALWAYS add a new entry to "DialogueHistory" in the output JSON, summarizing this significant interaction. **CRITICAL: You MUST preserve ALL existing entries in "DialogueHistory" from the Input State and add the new entry alongside them. NEVER delete or omit existing DialogueHistory entries.** The key for this new entry should be a short, descriptive title for the dialogue turn. The value should be an object containing player and NPC lines (e.g., {"Player": "...", "%s": "..."}).
+	- ALWAYS add a new entry to "DialogueHistory" in the output JSON, summarizing this significant interaction. **CRITICAL: You MUST preserve ALL existing entries in "DialogueHistory" from the Input State and add the new entry alongside them. NEVER delete or omit existing DialogueHistory entries.** The key for this new entry should be a short, descriptive title for the dialogue turn. The value should be an object containing player and NPC lines (e.g., {"speaker": "...", "self": "..."}).
 - IF INSIGNIFICANT:
 	- The "Info", "History", AND "DialogueHistory" fields in the output JSON MUST be ABSOLUTELY IDENTICAL to the Input State provided.
 	- DO NOT add any new entries to "DialogueHistory".
@@ -160,7 +161,7 @@ Input State:
 
 Player Dialogue: "Player":"%s"
 """ % [info_json, history_json, dialogue_history_json, player_input.replace('"', '\"'), npc_name, info_json, history_json, dialogue_history_json, player_input.replace('"', '\"')]
-	
+	print("FULL PROMPT : ", full_prompt)
 	return full_prompt
 
 # Internal: Parse JSON response safely

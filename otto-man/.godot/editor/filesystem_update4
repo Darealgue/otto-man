@@ -1,14 +1,6 @@
-res://player/player.tscn
-res://Tile set/dungeon_master_tileset.tres
-res://village/scenes/VillageScene.tscn
-res://scenes/test_level.tscn
 res://scenes/testing.tscn
-res://enemy/miniboss/shield_captain/shield_captain.tscn
-res://scenes/tests/boss_test.tscn
-res://scenes/door.tscn
-res://chunks/dungeon/special/finish_chunk.tscn
-res://chunks/dungeon/special/start_chunk.tscn
-res://chunks/dungeon/special/boss_arena.tscn
-res://village/missions/MissionCenterScene.tscn
-res://village/scripts/Well.gd
-res://village/missions/MissionCenter.gd
+res://village/scenes/VillageScene.tscn
+res://player/player.tscn
+res://scenes/test_level.tscn
+res://Ui/npc_window.tscn
+res://village/scenes/Worker.tscn

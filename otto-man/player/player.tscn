@@ -47,6 +47,7 @@
 [ext_resource type="Texture2D" uid="uid://c4wc0vdsueec1" path="res://resources/player_normalmap resources/wall_slide_down.tres" id="43_bkg3i"]
 [ext_resource type="Texture2D" uid="uid://de4ssv6rg8c3w" path="res://resources/player_normalmap resources/attack1_n.tres" id="43_fifwf"]
 [ext_resource type="Texture2D" uid="uid://8q405fcb44ls" path="res://resources/player_normalmap resources/air_attack_n.tres" id="43_r0cly"]
+
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/attack_1_2_n.tres" id="44_attk12n"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/attack_1_3_n.tres" id="45_attk13n"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/up_light_n.tres" id="46_upln"]
@@ -54,6 +55,8 @@
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/up_heavy_n.tres" id="48_upheavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/down_light_n.tres" id="49_downln"]
 [ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
+
+
 [ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
 
 [sub_resource type="Animation" id="Animation_55col"]
