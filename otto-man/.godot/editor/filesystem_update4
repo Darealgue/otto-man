@@ -1,6 +1,4 @@
+res://scenes/test_level.tscn
+res://player/player.tscn
 res://scenes/testing.tscn
 res://village/scenes/VillageScene.tscn
-res://player/player.tscn
-res://scenes/test_level.tscn
-res://Ui/npc_window.tscn
-res://village/scenes/Worker.tscn
