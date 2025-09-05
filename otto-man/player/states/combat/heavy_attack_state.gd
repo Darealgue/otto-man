@@ -137,7 +137,7 @@ func update(delta: float):
 	_handle_movement(delta)
 	
 	# Listen for a quick confirm tap before impact to activate JUST bonus
-	if Input.is_action_just_pressed("heavy_attack"):
+	if Input.is_action_just_pressed("attack_heavy"):
 		just_input_timer = 0.12
 		just_bonus_ready = true
 	_update_hitbox_by_timing()

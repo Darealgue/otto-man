@@ -378,6 +378,40 @@ text = "Görev sonucu burada görünecek..."
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="MissionHistoryPanel" type="VBoxContainer" parent="MissionsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(800, 400)
+
+[node name="MissionHistoryTitle" type="Label" parent="MissionsPage/MissionHistoryPanel"]
+layout_mode = 2
+text = "📚 GÖREV GEÇMİŞİ"
+horizontal_alignment = 1
+
+[node name="MissionHistoryScroll" type="ScrollContainer" parent="MissionsPage/MissionHistoryPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(800, 300)
+
+[node name="MissionHistoryList" type="VBoxContainer" parent="MissionsPage/MissionHistoryPanel/MissionHistoryScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MissionHistoryStats" type="VBoxContainer" parent="MissionsPage/MissionHistoryPanel"]
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(800, 100)
+
+[node name="StatsTitle" type="Label" parent="MissionsPage/MissionHistoryPanel/MissionHistoryStats"]
+layout_mode = 2
+text = "📊 İSTATİSTİKLER"
+horizontal_alignment = 1
+
+[node name="StatsContent" type="Label" parent="MissionsPage/MissionHistoryPanel/MissionHistoryStats"]
+layout_mode = 2
+text = "Toplam Görev: 0 | Başarılı: 0 | Başarısız: 0 | Başarı Oranı: 0%"
+horizontal_alignment = 1
+
 [node name="ControlsPanel" type="HBoxContainer" parent="MissionsPage"]
 layout_mode = 2
 size_flags_horizontal = 4

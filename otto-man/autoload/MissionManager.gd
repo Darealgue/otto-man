@@ -147,28 +147,49 @@ func create_initial_concubines():
 
 # Görev ata
 func assign_mission_to_concubine(cariye_id: int, mission_id: String) -> bool:
+	print("=== MISSIONMANAGER ATAMA DEBUG ===")
+	print("🔄 Görev atanıyor: Cariye %d -> Görev %s" % [cariye_id, mission_id])
+	
 	if not concubines.has(cariye_id):
+		print("❌ Cariye bulunamadı: %d" % cariye_id)
 		return false
 	
 	if not missions.has(mission_id):
+		print("❌ Görev bulunamadı: %s" % mission_id)
 		return false
 	
 	var cariye = concubines[cariye_id]
 	var mission = missions[mission_id]
 	
+	print("✅ Cariye bulundu: %s (ID: %d)" % [cariye.name, cariye_id])
+	print("✅ Görev bulundu: %s (ID: %s)" % [mission.name, mission_id])
+	
 	# Cariye görev alabilir mi?
 	if not cariye.can_handle_mission(mission):
+		print("❌ Cariye görev alamaz: %s" % cariye.name)
+		print("   - Seviye: %d (Gerekli: %d)" % [cariye.level, mission.required_cariye_level])
+		print("   - Durum: %s (Gerekli: BOŞTA)" % Concubine.Status.keys()[cariye.status])
+		print("   - Sağlık: %d/%d (Min: %d)" % [cariye.health, cariye.max_health, cariye.max_health * 0.5])
+		print("   - Moral: %d/%d (Min: %d)" % [cariye.moral, cariye.max_moral, cariye.max_moral * 0.3])
 		return false
+	
+	print("✅ Cariye görev alabilir: %s" % cariye.name)
 	
 	# Görev başlat
 	if mission.start_mission(cariye_id):
 		cariye.start_mission(mission_id)
 		active_missions[cariye_id] = mission_id
 		
+		print("✅ Görev başlatıldı: %s -> %s" % [cariye.name, mission.name])
+		print("📋 Aktif görev sayısı: %d" % active_missions.size())
+		
 		mission_started.emit(cariye_id, mission_id)
 		return true
 	
+	print("❌ Görev başlatılamadı!")
 	return false
+	
+	print("==================================")
 
 # Görev iptal et
 func cancel_mission(cariye_id: int, mission_id: String) -> bool:
@@ -428,6 +449,8 @@ func _generate_intelligence_mission(mission: Mission):
 
 # Görevleri yenile (eski görevleri yeni görevlerle değiştir)
 func refresh_missions():
+	print("=== MISSIONMANAGER REFRESH DEBUG ===")
+	
 	# Mevcut görevleri temizle
 	var old_missions = []
 	for mission_id in missions:
@@ -435,16 +458,26 @@ func refresh_missions():
 		if mission.status == Mission.Status.MEVCUT:
 			old_missions.append(mission_id)
 	
+	print("🗑️ Silinecek eski görev sayısı: %d" % old_missions.size())
+	for mission_id in old_missions:
+		var mission = missions[mission_id]
+		print("   - %s (ID: %s)" % [mission.name, mission_id])
+	
 	# Eski görevleri sil
 	for mission_id in old_missions:
 		missions.erase(mission_id)
 	
+	print("✅ Eski görevler silindi")
+	
 	# Yeni görevler oluştur
 	var new_mission_count = 3 + randi() % 3  # 3-5 yeni görev
+	print("🆕 Oluşturulacak yeni görev sayısı: %d" % new_mission_count)
+	
 	for i in range(new_mission_count):
 		generate_new_mission()
 	
-	print("🔄 %d yeni görev oluşturuldu!" % new_mission_count)
+	print("✅ %d yeni görev oluşturuldu!" % new_mission_count)
+	print("=====================================")
 
 # Görev rotasyonu değişkenleri
 var mission_rotation_timer: float = 0.0
@@ -472,3 +505,12 @@ func get_idle_concubines() -> Array:
 # Aktif görevleri al
 func get_active_missions() -> Dictionary:
 	return active_missions.duplicate()
+
+# Tamamlanan görevleri al
+func get_completed_missions() -> Array:
+	var completed = []
+	for mission_id in missions:
+		var mission = missions[mission_id]
+		if mission.status == Mission.Status.TAMAMLANDI or mission.status == Mission.Status.BAŞARISIZ:
+			completed.append(mission)
+	return completed

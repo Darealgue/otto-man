@@ -1,4 +1,5 @@
-res://scenes/test_level.tscn
 res://player/player.tscn
 res://scenes/testing.tscn
+res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
+res://chunks/common/DoorInteraction.gd

@@ -37,7 +37,7 @@ var _spawn_config: SpawnConfig
 var _is_active: bool = false  # Whether this spawn point is active
 signal enemy_spawned(enemy: Node)
 
-const ENEMY_Z_INDEX = 5  # Ensure enemies appear above tiles
+const ENEMY_Z_INDEX = 1  # Ensure enemies appear above ground but below player
 
 func _ready() -> void:
 	# Load spawn configuration

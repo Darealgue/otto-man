@@ -174,8 +174,8 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 	# Sadece görsel, collision yok
 	node.set_meta("decoration_type", "background")
 	
-	# Z-index ayarla: breakable ile aynı seviyede (1)
-	node.z_index = 1
+	# Z-index ayarla: background decorations ground tile'larının üstünde (0)
+	node.z_index = 0
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
 	if sprite:
 		sprite.z_index = node.z_index
@@ -235,7 +235,7 @@ func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:
 	# Reuse pooled pickup logic signature
 	
 	# Altınlar oyuncunun üstünde görünsün
-	node.z_index = 5
+	node.z_index = 0
 	if sprite:
 		sprite.z_index = node.z_index
 	# Pickup alanı zaten merkezde; pooled loot ile aynı
@@ -312,7 +312,7 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 	
 	# Kırılabilir nesneler zemin üstünde dursun
 	# Breakables default draw order
-	node.z_index = 1
+	node.z_index = 0
 	print("[DecorationSpawner] BREAKABLE ready HP=", node.get_meta("hp", 0), " at ", node.global_position)
 
 	# Pot animasyonlarını hazırla (varsa)
@@ -484,7 +484,7 @@ func _break_breakable(node: Node2D) -> void:
 		body.freeze = false
 		body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 		body.apply_impulse(launch)
-		body.z_index = (node.z_index + 2) if node else 3
+		body.z_index = (node.z_index + 2) if node else 2
 		# Enable collection after a brief moment so they can visibly scatter
 		if collect:
 			var enable_timer := Timer.new()
@@ -722,7 +722,7 @@ func _setup_pot_animation(node: Node2D) -> void:
 	anim.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	node.add_child(anim)
 	# Hafif z-index düzeni
-	anim.z_index = 1
+	anim.z_index = 0
 
 func _play_pot_break_animation(node: Node2D) -> void:
 	var anim: AnimatedSprite2D = node.get_node_or_null("Anim") as AnimatedSprite2D

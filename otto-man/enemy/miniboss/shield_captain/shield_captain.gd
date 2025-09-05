@@ -67,7 +67,7 @@ var turn_cd_timer: float = 0.0
 func _ready() -> void:
 	super._ready()
 	# Ensure boss renders above ground tiles similar to other enemies
-	z_index = 5
+	z_index = 1
 	# Ensure we handle our own death visuals and cleanup
 	if has_signal("enemy_defeated"):
 		connect("enemy_defeated", Callable(self, "_on_self_defeated"))
@@ -344,7 +344,7 @@ func _do_call_guards() -> void:
 			get_parent().add_child(guard)
 			guard.global_position = floor_pos
 			if "z_index" in guard:
-				guard.z_index = 5
+				guard.z_index = 1
 			if guard.has_method("move_and_slide"):
 				guard.move_and_slide()
 			if guard.has_signal("enemy_defeated"):
