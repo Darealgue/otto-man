@@ -66,8 +66,7 @@ var turn_cd_timer: float = 0.0
 
 func _ready() -> void:
 	super._ready()
-	# Ensure boss renders above ground tiles similar to other enemies
-	z_index = 1
+	# Z-index is set by enemy_spawner.gd (ENEMY_Z_INDEX = 4)
 	# Ensure we handle our own death visuals and cleanup
 	if has_signal("enemy_defeated"):
 		connect("enemy_defeated", Callable(self, "_on_self_defeated"))
@@ -343,8 +342,13 @@ func _do_call_guards() -> void:
 			var guard = scene.instantiate()
 			get_parent().add_child(guard)
 			guard.global_position = floor_pos
+			# Z-index is set by enemy_spawner.gd (ENEMY_Z_INDEX = 4)
 			if "z_index" in guard:
-				guard.z_index = 1
+				guard.z_index = 4
+			# Also set sprite z_index if it exists
+			var guard_sprite = guard.get_node_or_null("AnimatedSprite2D")
+			if guard_sprite:
+				guard_sprite.z_index = 4
 			if guard.has_method("move_and_slide"):
 				guard.move_and_slide()
 			if guard.has_signal("enemy_defeated"):

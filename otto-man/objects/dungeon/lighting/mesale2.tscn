@@ -1,5 +1,6 @@
-[gd_scene load_steps=9 format=3 uid="uid://jd3pyam6x1c"]
+[gd_scene load_steps=10 format=3 uid="uid://jd3pyam6x1c"]
 
+[ext_resource type="Script" path="res://objects/dungeon/lighting/torch_controller.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://qb04iu0hfw4" path="res://objects/dungeon/lighting/mesale2.png" id="1_noogg"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_wp7v6"]
@@ -48,7 +49,8 @@ fill = 1
 fill_from = Vector2(0.495413, 0.5)
 
 [node name="Mesale" type="Node2D"]
-z_index = -2
+z_index = 2
+script = ExtResource("1_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_w7l8y")

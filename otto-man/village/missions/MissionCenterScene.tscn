@@ -75,6 +75,34 @@ text = "3"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="PageDot4" type="Panel" parent="PageIndicator"]
+layout_mode = 2
+custom_minimum_size = Vector2(20, 20)
+modulate = Color(0.5, 0.5, 0.5, 1)
+
+[node name="PageDot4Label" type="Label" parent="PageIndicator/PageDot4"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "4"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PageDot5" type="Panel" parent="PageIndicator"]
+layout_mode = 2
+custom_minimum_size = Vector2(20, 20)
+modulate = Color(0.5, 0.5, 0.5, 1)
+
+[node name="PageDot5Label" type="Label" parent="PageIndicator/PageDot5"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "5"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="PageLabel" type="Label" parent="."]
 visible = false
 anchors_preset = 8
@@ -412,6 +440,65 @@ layout_mode = 2
 text = "Toplam Görev: 0 | Başarılı: 0 | Başarısız: 0 | Başarı Oranı: 0%"
 horizontal_alignment = 1
 
+[node name="MissionChainsPanel" type="VBoxContainer" parent="MissionsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(800, 300)
+
+[node name="MissionChainsTitle" type="Label" parent="MissionsPage/MissionChainsPanel"]
+layout_mode = 2
+text = "🔗 GÖREV ZİNCİRLERİ"
+horizontal_alignment = 1
+
+[node name="MissionChainsScroll" type="ScrollContainer" parent="MissionsPage/MissionChainsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(800, 250)
+
+[node name="MissionChainsList" type="VBoxContainer" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ChainItem1" type="Panel" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList"]
+custom_minimum_size = Vector2(750, 100)
+layout_mode = 2
+
+[node name="ChainVBox1" type="VBoxContainer" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList/ChainItem1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ChainName1" type="Label" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList/ChainItem1/ChainVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "🔗 Kuzey Seferi (Sıralı)"
+
+[node name="ChainProgress1" type="Label" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList/ChainItem1/ChainVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 12
+text = "İlerleme: 1/3 (33%)"
+
+[node name="ChainDescription1" type="Label" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList/ChainItem1/ChainVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "Kuzey bölgesini keşfet, saldır ve kontrol et"
+
+[node name="ChainReward1" type="Label" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList/ChainItem1/ChainVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 10
+text = "Ödül: 1000 altın, 200 odun, 100 taş"
+
 [node name="ControlsPanel" type="HBoxContainer" parent="MissionsPage"]
 layout_mode = 2
 size_flags_horizontal = 4
@@ -530,6 +617,553 @@ Sol/Sağ: İşlem seçimi
 Yukarı/Aşağı: Kategori
 A: Seçim/Onay
 B: Geri"
+horizontal_alignment = 1
+
+[node name="NewsCenterPage" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 50.0
+offset_top = 120.0
+offset_right = -50.0
+offset_bottom = -100.0
+
+[node name="NewsHeader" type="HBoxContainer" parent="NewsCenterPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="NewsTitle" type="Label" parent="NewsCenterPage/NewsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "📰 HABER MERKEZİ"
+horizontal_alignment = 1
+
+[node name="NewsTimeLabel" type="Label" parent="NewsCenterPage/NewsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "🕐 Son Güncelleme: Şimdi"
+horizontal_alignment = 2
+
+[node name="NewsContent" type="HBoxContainer" parent="NewsCenterPage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="VillageNewsPanel" type="VBoxContainer" parent="NewsCenterPage/NewsContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(400, 300)
+
+[node name="VillageNewsTitle" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel"]
+layout_mode = 2
+text = "🏘️ KÖY HABERLERİ"
+horizontal_alignment = 1
+
+[node name="VillageNewsScroll" type="ScrollContainer" parent="NewsCenterPage/NewsContent/VillageNewsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="VillageNewsList" type="VBoxContainer" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VillageNewsItem1" type="Panel" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList"]
+custom_minimum_size = Vector2(350, 80)
+layout_mode = 2
+
+[node name="VillageNewsVBox1" type="VBoxContainer" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VillageNewsTitle1" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem1/VillageNewsVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "✅ Yeni Bina Tamamlandı"
+
+[node name="VillageNewsContent1" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem1/VillageNewsVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Oduncu kampı başarıyla inşa edildi. Artık odun üretimi başlayabilir."
+
+[node name="VillageNewsTime1" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem1/VillageNewsVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "2 dakika önce"
+
+[node name="VillageNewsItem2" type="Panel" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList"]
+custom_minimum_size = Vector2(350, 80)
+layout_mode = 2
+
+[node name="VillageNewsVBox2" type="VBoxContainer" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VillageNewsTitle2" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem2/VillageNewsVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "👥 İşçi Atandı"
+
+[node name="VillageNewsContent2" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem2/VillageNewsVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Yeni işçi kuyuya atandı. Su üretimi artacak."
+
+[node name="VillageNewsTime2" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem2/VillageNewsVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "5 dakika önce"
+
+[node name="WorldNewsPanel" type="VBoxContainer" parent="NewsCenterPage/NewsContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(400, 300)
+
+[node name="WorldNewsTitle" type="Label" parent="NewsCenterPage/NewsContent/WorldNewsPanel"]
+layout_mode = 2
+text = "🌍 DÜNYA HABERLERİ"
+horizontal_alignment = 1
+
+[node name="WorldNewsScroll" type="ScrollContainer" parent="NewsCenterPage/NewsContent/WorldNewsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="WorldNewsList" type="VBoxContainer" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="WorldNewsItem1" type="Panel" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList"]
+custom_minimum_size = Vector2(350, 80)
+layout_mode = 2
+
+[node name="WorldNewsVBox1" type="VBoxContainer" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="WorldNewsTitle1" type="Label" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem1/WorldNewsVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 14
+text = "⚠️ Kuzey Köyü Saldırıya Uğradı"
+
+[node name="WorldNewsContent1" type="Label" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem1/WorldNewsVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Haydutlar kuzey köyüne saldırdı. Ticaret yolları tehlikede."
+
+[node name="WorldNewsTime1" type="Label" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem1/WorldNewsVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "1 saat önce"
+
+[node name="WorldNewsItem2" type="Panel" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList"]
+custom_minimum_size = Vector2(350, 80)
+layout_mode = 2
+
+[node name="WorldNewsVBox2" type="VBoxContainer" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="WorldNewsTitle2" type="Label" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem2/WorldNewsVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 14
+text = "✅ Yeni Ticaret Yolu Açıldı"
+
+[node name="WorldNewsContent2" type="Label" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem2/WorldNewsVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "Doğu ticaret yolu güvenli hale geldi. Yeni fırsatlar doğdu."
+
+[node name="WorldNewsTime2" type="Label" parent="NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList/WorldNewsItem2/WorldNewsVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 10
+text = "3 saat önce"
+
+[node name="RandomEventsPanel" type="VBoxContainer" parent="NewsCenterPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(800, 150)
+
+[node name="RandomEventsTitle" type="Label" parent="NewsCenterPage/RandomEventsPanel"]
+layout_mode = 2
+text = "🎲 RASTGELE OLAYLAR"
+horizontal_alignment = 1
+
+[node name="RandomEventsScroll" type="ScrollContainer" parent="NewsCenterPage/RandomEventsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RandomEventsList" type="HBoxContainer" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RandomEventItem1" type="Panel" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList"]
+custom_minimum_size = Vector2(200, 100)
+layout_mode = 2
+
+[node name="RandomEventVBox1" type="VBoxContainer" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RandomEventTitle1" type="Label" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem1/RandomEventVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "🌧️ Kuraklık Başladı"
+horizontal_alignment = 1
+
+[node name="RandomEventContent1" type="Label" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem1/RandomEventVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "Su üretimi %20 azaldı"
+horizontal_alignment = 1
+
+[node name="RandomEventItem2" type="Panel" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList"]
+custom_minimum_size = Vector2(200, 100)
+layout_mode = 2
+
+[node name="RandomEventVBox2" type="VBoxContainer" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RandomEventTitle2" type="Label" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem2/RandomEventVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "👥 Göçmenler Geldi"
+horizontal_alignment = 1
+
+[node name="RandomEventContent2" type="Label" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem2/RandomEventVBox2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "Yeni işçi mevcut"
+horizontal_alignment = 1
+
+[node name="RandomEventItem3" type="Panel" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList"]
+custom_minimum_size = Vector2(200, 100)
+layout_mode = 2
+
+[node name="RandomEventVBox3" type="VBoxContainer" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RandomEventTitle3" type="Label" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem3/RandomEventVBox3"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "🐺 Kurt Sürüsü"
+horizontal_alignment = 1
+
+[node name="RandomEventContent3" type="Label" parent="NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList/RandomEventItem3/RandomEventVBox3"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 10
+text = "Avcılık tehlikeli"
+horizontal_alignment = 1
+
+[node name="NewsControls" type="Label" parent="NewsCenterPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "KONTROLLER: [Yukarı/Aşağı: Haber seçimi] [A: Detay] [B: Geri]"
+horizontal_alignment = 1
+
+[node name="ConcubineDetailsPage" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 50.0
+offset_top = 120.0
+offset_right = -50.0
+offset_bottom = -100.0
+
+[node name="ConcubineHeader" type="HBoxContainer" parent="ConcubineDetailsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="ConcubineTitle" type="Label" parent="ConcubineDetailsPage/ConcubineHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "👤 CARİYE DETAYLARI"
+horizontal_alignment = 1
+
+[node name="ConcubineBackButton" type="Label" parent="ConcubineDetailsPage/ConcubineHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "← Geri Dön"
+horizontal_alignment = 2
+
+[node name="ConcubineContent" type="HBoxContainer" parent="ConcubineDetailsPage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ConcubineListPanel" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(300, 400)
+
+[node name="ConcubineListTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel"]
+layout_mode = 2
+text = "📋 CARİYE LİSTESİ"
+horizontal_alignment = 1
+
+[node name="ConcubineListScroll" type="ScrollContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ConcubineList" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ConcubineListItem1" type="Panel" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList"]
+custom_minimum_size = Vector2(250, 100)
+layout_mode = 2
+
+[node name="ConcubineListVBox1" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList/ConcubineListItem1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ConcubineListName1" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList/ConcubineListItem1/ConcubineListVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Fatma (Lv.3)"
+
+[node name="ConcubineListStatus1" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList/ConcubineListItem1/ConcubineListVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 12
+text = "Durum: Boşta"
+
+[node name="ConcubineListSkills1" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList/ConcubineListItem1/ConcubineListVBox1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 10
+text = "En İyi: Savaş (75)"
+
+[node name="ConcubineDetailsPanel" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(500, 400)
+
+[node name="ConcubineDetailsTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel"]
+layout_mode = 2
+text = "📊 DETAYLI BİLGİLER"
+horizontal_alignment = 1
+
+[node name="ConcubineDetailsScroll" type="ScrollContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ConcubineDetailsContent" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BasicInfoPanel" type="Panel" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent"]
+custom_minimum_size = Vector2(450, 120)
+layout_mode = 2
+
+[node name="BasicInfoVBox" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 15.0
+offset_top = 15.0
+offset_right = -15.0
+offset_bottom = -15.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BasicInfoTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "👤 Temel Bilgiler"
+
+[node name="BasicInfoContent" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 14
+text = "İsim: Fatma
+Seviye: 3 (120/150 XP)
+Durum: Boşta
+Sağlık: 85/100
+Moral: 90/100"
+
+[node name="SkillsPanel" type="Panel" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent"]
+custom_minimum_size = Vector2(450, 150)
+layout_mode = 2
+
+[node name="SkillsVBox" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 15.0
+offset_top = 15.0
+offset_right = -15.0
+offset_bottom = -15.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SkillsTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel/SkillsVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "⚔️ Yetenekler"
+
+[node name="SkillsContent" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel/SkillsVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 14
+text = "🗡️ Savaş: 75/100
+🤝 Diplomasi: 45/100
+💰 Ticaret: 60/100
+📋 Bürokrasi: 40/100
+🔍 Keşif: 55/100"
+
+[node name="MissionHistoryPanel" type="Panel" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent"]
+custom_minimum_size = Vector2(450, 200)
+layout_mode = 2
+
+[node name="MissionHistoryVBox" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 15.0
+offset_top = 15.0
+offset_right = -15.0
+offset_bottom = -15.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MissionHistoryTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel/MissionHistoryVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "📚 Görev Geçmişi"
+
+[node name="MissionHistoryContent" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel/MissionHistoryVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 14
+text = "✅ Tamamlanan: 8 görev
+❌ Başarısız: 2 görev
+📊 Başarı Oranı: 80%
+🏆 Toplam Deneyim: 240 XP"
+
+[node name="AchievementsPanel" type="Panel" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent"]
+custom_minimum_size = Vector2(450, 120)
+layout_mode = 2
+
+[node name="AchievementsVBox" type="VBoxContainer" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/AchievementsPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 15.0
+offset_top = 15.0
+offset_right = -15.0
+offset_bottom = -15.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AchievementsTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/AchievementsPanel/AchievementsVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "🏆 Özel Başarılar"
+
+[node name="AchievementsContent" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/AchievementsPanel/AchievementsVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 14
+text = "🥇 İlk Savaş Zaferi
+💎 Büyük Ticaret Anlaşması
+🌟 5 Görev Üst Üste Başarı"
+
+[node name="ConcubineControls" type="Label" parent="ConcubineDetailsPage"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "KONTROLLER: [Yukarı/Aşağı: Cariye seçimi] [A: Detay] [B: Geri]"
 horizontal_alignment = 1
 
 [node name="ControlsLabel" type="Label" parent="."]

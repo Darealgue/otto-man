@@ -10,6 +10,9 @@ enum Difficulty { KOLAY, ORTA, ZOR, EFSANEVİ }
 # Görev durumları
 enum Status { MEVCUT, AKTİF, TAMAMLANDI, BAŞARISIZ, İPTAL }
 
+# Görev zinciri türleri
+enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
+
 # Temel görev bilgileri
 @export var id: String
 @export var name: String
@@ -32,6 +35,14 @@ enum Status { MEVCUT, AKTİF, TAMAMLANDI, BAŞARISIZ, İPTAL }
 @export var target_location: String = ""
 @export var distance: float = 0.0  # Gün cinsinden
 @export var risk_level: String = "Düşük"  # Düşük, Orta, Yüksek
+
+# Görev zinciri bilgileri
+@export var chain_id: String = ""  # Hangi zincire ait
+@export var chain_type: ChainType = ChainType.NONE  # Zincir türü
+@export var chain_order: int = 0  # Zincirdeki sıra
+@export var prerequisite_missions: Array = []  # Önkoşul görevler
+@export var unlocks_missions: Array = []  # Bu görev tamamlandığında açılacak görevler
+@export var chain_rewards: Dictionary = {}  # Zincir tamamlandığında verilecek ödüller
 
 # Görev durumu
 var status: Status = Status.MEVCUT
@@ -132,3 +143,49 @@ func get_status_name() -> String:
 		Status.BAŞARISIZ: return "Başarısız"
 		Status.İPTAL: return "İptal"
 		_: return "Bilinmeyen"
+
+# --- GÖREV ZİNCİRİ FONKSİYONLARI ---
+
+# Görev zincirinde mi?
+func is_part_of_chain() -> bool:
+	return chain_id != "" and chain_type != ChainType.NONE
+
+# Zincir türü adı
+func get_chain_type_name() -> String:
+	match chain_type:
+		ChainType.NONE: return "Bağımsız"
+		ChainType.SEQUENTIAL: return "Sıralı"
+		ChainType.PARALLEL: return "Paralel"
+		ChainType.CHOICE: return "Seçimli"
+		_: return "Bilinmeyen"
+
+# Önkoşul görevler tamamlandı mı?
+func are_prerequisites_met(completed_missions: Array[String]) -> bool:
+	if prerequisite_missions.is_empty():
+		return true
+	
+	for prereq_id in prerequisite_missions:
+		if prereq_id not in completed_missions:
+			return false
+	
+	return true
+
+# Bu görev tamamlandığında hangi görevler açılacak?
+func get_unlocked_missions() -> Array[String]:
+	return unlocks_missions
+
+# Zincir tamamlandı mı? (sadece sıralı zincirler için)
+func is_chain_complete(chain_missions: Array[Mission]) -> bool:
+	if chain_type != ChainType.SEQUENTIAL:
+		return false
+	
+	# Tüm zincir görevleri tamamlandı mı?
+	for mission in chain_missions:
+		if mission.chain_id == chain_id and mission.status != Status.TAMAMLANDI:
+			return false
+	
+	return true
+
+# Zincir ödüllerini al
+func get_chain_rewards() -> Dictionary:
+	return chain_rewards

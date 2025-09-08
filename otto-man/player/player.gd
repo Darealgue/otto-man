@@ -309,9 +309,9 @@ func _physics_process(delta):
 		was_on_floor = true
 		coyote_timer = COYOTE_TIME # Yere iner inmez coyote time'ı sıfırla
 	
-	# Z-Index'i Y pozisyonuna göre güncelle (Worker'lar gibi)
+	# Z-Index'i sabit tut (meşaleler z-index=2'de olduğu için player'ın üstünde olmalı)
 	if sprite:
-		sprite.z_index = int(global_position.y)
+		sprite.z_index = 5  # Sabit z-index, meşalelerin üstünde
 
 # No need to call physics_update explicitly, it's handled by _physics_process in the state machine
 
@@ -904,9 +904,9 @@ func get_foot_position() -> Vector2:
 	return global_position + Vector2(0, sprite_height / 2 + 5)
 
 func _set_player_z_index():
-	# Set player sprite z_index based on Y position (like workers)
+	# Set player sprite z_index to fixed value (above torches for normal map interaction)
 	if sprite:
-		sprite.z_index = int(global_position.y)  # Y düşük = önde
+		sprite.z_index = 5  # Fixed z-index, above torches (z-index=2)
 		print("Oyuncu z_index set to: ", sprite.z_index)
 	else:
 		print("Oyuncu sprite not found for z_index setting")

@@ -7,22 +7,42 @@ var missions: Dictionary = {}
 var concubines: Dictionary = {}
 var active_missions: Dictionary = {}
 
+# Görev zincirleri
+var mission_chains: Dictionary = {}  # chain_id -> chain_info
+var completed_missions: Array[String] = []  # Tamamlanan görev ID'leri
+
 # Görev ID sayaçları
 var next_mission_id: int = 1
 var next_concubine_id: int = 1
 
 # Görev üretimi
+var mission_rotation_timer: float = 0.0
+var mission_rotation_interval: float = 30.0  # 30 saniyede bir görev rotasyonu
+
+# Dinamik görev üretimi
+var dynamic_mission_templates: Dictionary = {}
+var world_events: Array[Dictionary] = []
+var player_reputation: int = 50  # 0-100 arası
+var world_stability: int = 70  # 0-100 arası
 
 # Sinyaller
 signal mission_completed(cariye_id: int, mission_id: String, successful: bool, results: Dictionary)
 signal mission_started(cariye_id: int, mission_id: String)
 signal mission_cancelled(cariye_id: int, mission_id: String)
 signal concubine_leveled_up(cariye_id: int, new_level: int)
+signal mission_chain_completed(chain_id: String, rewards: Dictionary)
+signal mission_unlocked(mission_id: String)
 
 func _ready():
 	# Başlangıç görevleri ve cariyeler oluştur
 	create_initial_missions()
 	create_initial_concubines()
+	
+	# Görev zincirlerini oluştur
+	create_mission_chains()
+	
+	# Başlangıçta sadece 2-3 görev olsun
+	limit_initial_missions()
 
 func _process(delta):
 	# Aktif görevleri kontrol et
@@ -35,6 +55,9 @@ func _process(delta):
 		# %30 şansla görevleri yenile
 		if randf() < 0.3:
 			refresh_missions()
+	
+	# Dünya olaylarını güncelle
+	update_world_events(delta)
 
 # Başlangıç görevleri oluştur
 func create_initial_missions():
@@ -272,28 +295,61 @@ func process_mission_results(cariye_id: int, mission_id: String, successful: boo
 				_apply_penalty(penalty_type, amount)
 
 # Ödül uygula
-func _apply_reward(reward_type: String, amount: int):
+func _apply_reward(reward_type: String, amount):
+	# Amount'u int'e dönüştür
+	var int_amount = 0
+	if amount is int:
+		int_amount = amount
+	elif amount is float:
+		int_amount = int(amount)
+	elif amount is String:
+		int_amount = int(amount)
+	else:
+		print("⚠️ Bilinmeyen ödül tipi: " + str(amount))
+		return
+	
 	match reward_type:
 		"gold":
 			var global_data = get_node_or_null("/root/GlobalPlayerData")
 			if global_data:
-				global_data.gold += amount
-				print("💰 +%d altın kazandın!" % amount)
+				global_data.gold += int_amount
+				print("💰 +%d altın kazandın!" % int_amount)
 		"wood", "stone", "food":
 			# Şimdilik diğer kaynak ödülleri devre dışı
-			print("📦 %s ödülü şimdilik devre dışı: +%d" % [reward_type, amount])
+			print("📦 %s ödülü şimdilik devre dışı: +%d" % [reward_type, int_amount])
+		"trade_bonus", "defense", "reputation", "stability_bonus":
+			# Özel ödüller - şimdilik sadece log
+			print("🎁 %s ödülü: +%s" % [reward_type, str(amount)])
+		"special_item", "building", "alliance", "trade_route":
+			# Özel öğeler - şimdilik sadece log
+			print("🏆 Özel ödül: %s" % str(amount))
 
 # Ceza uygula
-func _apply_penalty(penalty_type: String, amount: int):
+func _apply_penalty(penalty_type: String, amount):
+	# Amount'u int'e dönüştür
+	var int_amount = 0
+	if amount is int:
+		int_amount = amount
+	elif amount is float:
+		int_amount = int(amount)
+	elif amount is String:
+		int_amount = int(amount)
+	else:
+		print("⚠️ Bilinmeyen ceza tipi: " + str(amount))
+		return
+	
 	match penalty_type:
 		"gold":
 			var global_data = get_node_or_null("/root/GlobalPlayerData")
 			if global_data:
-				global_data.gold = max(0, global_data.gold + amount)  # amount negatif olacak
-				print("💸 %d altın kaybettin!" % abs(amount))
+				global_data.gold = max(0, global_data.gold + int_amount)  # amount negatif olacak
+				print("💸 %d altın kaybettin!" % abs(int_amount))
 		"wood", "stone", "food":
 			# Şimdilik diğer kaynak cezaları devre dışı
-			print("📦 %s cezası şimdilik devre dışı: %d" % [penalty_type, amount])
+			print("📦 %s cezası şimdilik devre dışı: %d" % [penalty_type, int_amount])
+		"reputation", "stability_penalty":
+			# Özel cezalar - şimdilik sadece log
+			print("⚠️ %s cezası: %s" % [penalty_type, str(amount)])
 
 # Yeni görev üret
 func generate_new_mission() -> Mission:
@@ -447,41 +503,9 @@ func _generate_intelligence_mission(mission: Mission):
 	mission.distance = 0.2 + randf() * 0.3
 	mission.risk_level = "Yüksek"
 
-# Görevleri yenile (eski görevleri yeni görevlerle değiştir)
-func refresh_missions():
-	print("=== MISSIONMANAGER REFRESH DEBUG ===")
-	
-	# Mevcut görevleri temizle
-	var old_missions = []
-	for mission_id in missions:
-		var mission = missions[mission_id]
-		if mission.status == Mission.Status.MEVCUT:
-			old_missions.append(mission_id)
-	
-	print("🗑️ Silinecek eski görev sayısı: %d" % old_missions.size())
-	for mission_id in old_missions:
-		var mission = missions[mission_id]
-		print("   - %s (ID: %s)" % [mission.name, mission_id])
-	
-	# Eski görevleri sil
-	for mission_id in old_missions:
-		missions.erase(mission_id)
-	
-	print("✅ Eski görevler silindi")
-	
-	# Yeni görevler oluştur
-	var new_mission_count = 3 + randi() % 3  # 3-5 yeni görev
-	print("🆕 Oluşturulacak yeni görev sayısı: %d" % new_mission_count)
-	
-	for i in range(new_mission_count):
-		generate_new_mission()
-	
-	print("✅ %d yeni görev oluşturuldu!" % new_mission_count)
-	print("=====================================")
+# Görevleri yenile (eski görevleri yeni görevlerle değiştir) - YENİ VERSİYON AŞAĞIDA
 
-# Görev rotasyonu değişkenleri
-var mission_rotation_timer: float = 0.0
-var mission_rotation_interval: float = 30.0  # 30 saniyede bir kontrol et
+# Görev rotasyonu değişkenleri (zaten yukarıda tanımlandı)
 
 
 # Mevcut görevleri al
@@ -490,7 +514,11 @@ func get_available_missions() -> Array:
 	for mission_id in missions:
 		var mission = missions[mission_id]
 		if mission.status == Mission.Status.MEVCUT:
-			available.append(mission)
+			# Önkoşulları kontrol et
+			if mission.are_prerequisites_met(completed_missions):
+				available.append(mission)
+			else:
+				print("🔒 Görev kilitli (önkoşul eksik): " + mission.name)
 	return available
 
 # Boşta cariyeleri al
@@ -507,10 +535,884 @@ func get_active_missions() -> Dictionary:
 	return active_missions.duplicate()
 
 # Tamamlanan görevleri al
-func get_completed_missions() -> Array:
-	var completed = []
+func get_completed_missions() -> Array[String]:
+	# Tamamlanan görev ID'lerini döndür
+	return completed_missions
+
+# --- GÖREV ZİNCİRİ YÖNETİMİ ---
+
+# Görev zinciri oluştur
+func create_mission_chain(chain_id: String, chain_name: String, chain_type: Mission.ChainType, chain_rewards: Dictionary = {}):
+	mission_chains[chain_id] = {
+		"name": chain_name,
+		"type": chain_type,
+		"rewards": chain_rewards,
+		"missions": [],
+		"completed": false
+	}
+
+# Görevi zincire ekle
+func add_mission_to_chain(mission_id: String, chain_id: String, chain_order: int = 0):
+	if mission_id in missions and chain_id in mission_chains:
+		var mission = missions[mission_id]
+		mission.chain_id = chain_id
+		mission.chain_type = mission_chains[chain_id]["type"]
+		mission.chain_order = chain_order
+		mission_chains[chain_id]["missions"].append(mission_id)
+
+# Görev önkoşullarını kontrol et
+func check_mission_prerequisites(mission_id: String) -> bool:
+	if mission_id not in missions:
+		return false
+	
+	var mission = missions[mission_id]
+	return mission.are_prerequisites_met(completed_missions)
+
+# Görev tamamlandığında zincir kontrolü
+func on_mission_completed(mission_id: String):
+	if mission_id not in missions:
+		return
+	
+	var mission = missions[mission_id]
+	
+	# Tamamlanan görevler listesine ekle
+	if mission_id not in completed_missions:
+		completed_missions.append(mission_id)
+	
+	# Zincirdeki görevlerin önkoşullarını kontrol et
+	check_chain_prerequisites(mission.chain_id)
+	
+	# Bu görev tamamlandığında açılacak görevleri kontrol et
+	check_unlocked_missions(mission_id)
+	
+	# Zincir tamamlandı mı kontrol et
+	check_chain_completion(mission.chain_id)
+
+# Zincir önkoşullarını kontrol et
+func check_chain_prerequisites(chain_id: String):
+	if chain_id == "" or chain_id not in mission_chains:
+		return
+	
+	var chain = mission_chains[chain_id]
+	for mission_id in chain["missions"]:
+		if mission_id in missions:
+			var mission = missions[mission_id]
+			if mission.status == Mission.Status.MEVCUT:
+				if mission.are_prerequisites_met(completed_missions):
+					# Görev artık yapılabilir
+					mission_unlocked.emit(mission_id)
+
+# Açılacak görevleri kontrol et
+func check_unlocked_missions(completed_mission_id: String):
+	if completed_mission_id not in missions:
+		return
+	
+	var mission = missions[completed_mission_id]
+	var unlocked_missions = mission.get_unlocked_missions()
+	
+	for unlocked_id in unlocked_missions:
+		if unlocked_id in missions:
+			var unlocked_mission = missions[unlocked_id]
+			if unlocked_mission.status == Mission.Status.MEVCUT:
+				mission_unlocked.emit(unlocked_id)
+
+# Zincir tamamlandı mı kontrol et
+func check_chain_completion(chain_id: String):
+	if chain_id == "" or chain_id not in mission_chains:
+		return
+	
+	var chain = mission_chains[chain_id]
+	if chain["completed"]:
+		return
+	
+	# Zincirdeki tüm görevler tamamlandı mı?
+	var all_completed = true
+	for mission_id in chain["missions"]:
+		if mission_id in missions:
+			var mission = missions[mission_id]
+			if mission.status != Mission.Status.TAMAMLANDI:
+				all_completed = false
+				break
+	
+	if all_completed:
+		chain["completed"] = true
+		mission_chain_completed.emit(chain_id, chain["rewards"])
+
+# Zincir bilgilerini al
+func get_chain_info(chain_id: String) -> Dictionary:
+	if chain_id in mission_chains:
+		return mission_chains[chain_id]
+	return {}
+
+# Zincirdeki görevleri al
+func get_chain_missions(chain_id: String) -> Array:
+	if chain_id not in mission_chains:
+		return []
+	
+	var chain_missions = []
+	for mission_id in mission_chains[chain_id]["missions"]:
+		if mission_id in missions:
+			chain_missions.append(missions[mission_id])
+	
+	return chain_missions
+
+# Zincir ilerlemesini al
+func get_chain_progress(chain_id: String) -> Dictionary:
+	if chain_id not in mission_chains:
+		return {"completed": 0, "total": 0, "percentage": 0.0}
+	
+	var chain = mission_chains[chain_id]
+	var completed = 0
+	var total = chain["missions"].size()
+	
+	for mission_id in chain["missions"]:
+		if mission_id in missions:
+			var mission = missions[mission_id]
+			if mission.status == Mission.Status.TAMAMLANDI:
+				completed += 1
+	
+	var percentage = (float(completed) / float(total)) * 100.0 if total > 0 else 0.0
+	
+	return {
+		"completed": completed,
+		"total": total,
+		"percentage": percentage
+	}
+
+# Örnek görev zincirleri oluştur
+func create_mission_chains():
+	# 1. Kuzey Seferi Zinciri (Sıralı)
+	create_mission_chain("kuzey_seferi", "Kuzey Seferi", Mission.ChainType.SEQUENTIAL, {
+		"gold": 1000,
+		"wood": 200,
+		"stone": 100
+	})
+	
+	# Kuzey Seferi görevlerini oluştur
+	var kesif_gorevi = Mission.new()
+	kesif_gorevi.id = "kuzey_kesif"
+	kesif_gorevi.name = "Kuzey Bölgesini Keşfet"
+	kesif_gorevi.description = "Kuzey bölgesini keşfet ve düşman güçlerini tespit et."
+	kesif_gorevi.mission_type = Mission.MissionType.KEŞİF
+	kesif_gorevi.difficulty = Mission.Difficulty.KOLAY
+	kesif_gorevi.duration = 8.0
+	kesif_gorevi.success_chance = 0.8
+	kesif_gorevi.required_cariye_level = 1
+	kesif_gorevi.rewards = {"gold": 150, "wood": 30}
+	kesif_gorevi.unlocks_missions.clear()
+	kesif_gorevi.unlocks_missions.append("kuzey_saldiri")
+	missions[kesif_gorevi.id] = kesif_gorevi
+	add_mission_to_chain(kesif_gorevi.id, "kuzey_seferi", 1)
+	
+	var saldiri_gorevi = Mission.new()
+	saldiri_gorevi.id = "kuzey_saldiri"
+	saldiri_gorevi.name = "Kuzey Köyüne Saldırı"
+	saldiri_gorevi.description = "Keşif sonuçlarına göre kuzey köyüne saldırı düzenle."
+	saldiri_gorevi.mission_type = Mission.MissionType.SAVAŞ
+	saldiri_gorevi.difficulty = Mission.Difficulty.ORTA
+	saldiri_gorevi.duration = 12.0
+	saldiri_gorevi.success_chance = 0.6
+	saldiri_gorevi.required_cariye_level = 2
+	saldiri_gorevi.required_army_size = 5
+	saldiri_gorevi.prerequisite_missions.clear()
+	saldiri_gorevi.prerequisite_missions.append("kuzey_kesif")
+	saldiri_gorevi.rewards = {"gold": 400, "wood": 80}
+	saldiri_gorevi.unlocks_missions.clear()
+	saldiri_gorevi.unlocks_missions.append("kuzey_kontrol")
+	missions[saldiri_gorevi.id] = saldiri_gorevi
+	add_mission_to_chain(saldiri_gorevi.id, "kuzey_seferi", 2)
+	
+	var kontrol_gorevi = Mission.new()
+	kontrol_gorevi.id = "kuzey_kontrol"
+	kontrol_gorevi.name = "Kuzey Bölgesini Kontrol Et"
+	kontrol_gorevi.description = "Kuzey bölgesini tamamen kontrol altına al ve güvenliği sağla."
+	kontrol_gorevi.mission_type = Mission.MissionType.BÜROKRASİ
+	kontrol_gorevi.difficulty = Mission.Difficulty.ZOR
+	kontrol_gorevi.duration = 15.0
+	kontrol_gorevi.success_chance = 0.5
+	kontrol_gorevi.required_cariye_level = 3
+	kontrol_gorevi.prerequisite_missions.clear()
+	kontrol_gorevi.prerequisite_missions.append("kuzey_saldiri")
+	kontrol_gorevi.rewards = {"gold": 600, "wood": 120, "stone": 60}
+	missions[kontrol_gorevi.id] = kontrol_gorevi
+	add_mission_to_chain(kontrol_gorevi.id, "kuzey_seferi", 3)
+	
+	# 2. Ticaret Ağı Zinciri (Paralel)
+	create_mission_chain("ticaret_agi", "Ticaret Ağı Kurma", Mission.ChainType.PARALLEL, {
+		"gold": 800,
+		"trade_bonus": 0.2
+	})
+	
+	# Ticaret Ağı görevlerini oluştur
+	var dogu_ticaret = Mission.new()
+	dogu_ticaret.id = "dogu_ticaret"
+	dogu_ticaret.name = "Doğu Köyü ile Ticaret"
+	dogu_ticaret.description = "Doğudaki köy ile ticaret anlaşması yap."
+	dogu_ticaret.mission_type = Mission.MissionType.TİCARET
+	dogu_ticaret.difficulty = Mission.Difficulty.ORTA
+	dogu_ticaret.duration = 10.0
+	dogu_ticaret.success_chance = 0.7
+	dogu_ticaret.required_cariye_level = 2
+	dogu_ticaret.rewards = {"gold": 300, "trade_route": "east"}
+	missions[dogu_ticaret.id] = dogu_ticaret
+	add_mission_to_chain(dogu_ticaret.id, "ticaret_agi", 1)
+	
+	var bati_ticaret = Mission.new()
+	bati_ticaret.id = "bati_ticaret"
+	bati_ticaret.name = "Batı Köyü ile Ticaret"
+	bati_ticaret.description = "Batıdaki köy ile ticaret anlaşması yap."
+	bati_ticaret.mission_type = Mission.MissionType.TİCARET
+	bati_ticaret.difficulty = Mission.Difficulty.ORTA
+	bati_ticaret.duration = 10.0
+	bati_ticaret.success_chance = 0.7
+	bati_ticaret.required_cariye_level = 2
+	bati_ticaret.rewards = {"gold": 300, "trade_route": "west"}
+	missions[bati_ticaret.id] = bati_ticaret
+	add_mission_to_chain(bati_ticaret.id, "ticaret_agi", 2)
+	
+	var guney_ticaret = Mission.new()
+	guney_ticaret.id = "guney_ticaret"
+	guney_ticaret.name = "Güney Köyü ile Ticaret"
+	guney_ticaret.description = "Güneydeki köy ile ticaret anlaşması yap."
+	guney_ticaret.mission_type = Mission.MissionType.TİCARET
+	guney_ticaret.difficulty = Mission.Difficulty.ORTA
+	guney_ticaret.duration = 10.0
+	guney_ticaret.success_chance = 0.7
+	guney_ticaret.required_cariye_level = 2
+	guney_ticaret.rewards = {"gold": 300, "trade_route": "south"}
+	missions[guney_ticaret.id] = guney_ticaret
+	add_mission_to_chain(guney_ticaret.id, "ticaret_agi", 3)
+	
+	# 3. Seçimli Görev Zinciri
+	create_mission_chain("savunma_secimi", "Savunma Stratejisi", Mission.ChainType.CHOICE, {
+		"gold": 500,
+		"defense_bonus": 0.3
+	})
+	
+	# Seçimli görevler (sadece biri yapılabilir)
+	var kale_yap = Mission.new()
+	kale_yap.id = "kale_yap"
+	kale_yap.name = "Kale İnşa Et"
+	kale_yap.description = "Güçlü bir kale inşa ederek savunmayı güçlendir."
+	kale_yap.mission_type = Mission.MissionType.BÜROKRASİ
+	kale_yap.difficulty = Mission.Difficulty.ZOR
+	kale_yap.duration = 20.0
+	kale_yap.success_chance = 0.6
+	kale_yap.required_cariye_level = 3
+	kale_yap.required_resources = {"gold": 800, "wood": 400, "stone": 200}
+	kale_yap.rewards = {"gold": 200, "building": "castle", "defense": 50}
+	missions[kale_yap.id] = kale_yap
+	add_mission_to_chain(kale_yap.id, "savunma_secimi", 1)
+	
+	var ittifak_yap = Mission.new()
+	ittifak_yap.id = "ittifak_yap"
+	ittifak_yap.name = "Savunma İttifakı"
+	ittifak_yap.description = "Komşu köylerle savunma ittifakı kur."
+	ittifak_yap.mission_type = Mission.MissionType.DİPLOMASİ
+	ittifak_yap.difficulty = Mission.Difficulty.ZOR
+	ittifak_yap.duration = 15.0
+	ittifak_yap.success_chance = 0.5
+	ittifak_yap.required_cariye_level = 3
+	ittifak_yap.rewards = {"gold": 200, "alliance": "defense", "defense": 30}
+	missions[ittifak_yap.id] = ittifak_yap
+	add_mission_to_chain(ittifak_yap.id, "savunma_secimi", 2)
+	
+	print("🔗 Görev zincirleri oluşturuldu:")
+	print("  - Kuzey Seferi (Sıralı): 3 görev")
+	print("  - Ticaret Ağı (Paralel): 3 görev")
+	print("  - Savunma Stratejisi (Seçimli): 2 görev")
+	
+	# Dinamik görev şablonlarını oluştur
+	create_dynamic_mission_templates()
+	
+	# Başlangıç dünya olaylarını oluştur
+	create_initial_world_events()
+
+# --- DİNAMİK GÖREV ÜRETİMİ ---
+
+# Dinamik görev şablonlarını oluştur
+func create_dynamic_mission_templates():
+	# Savaş görev şablonları
+	dynamic_mission_templates["savas"] = {
+		"names": [
+			"{location} Saldırısı",
+			"{enemy} ile Savaş",
+			"{location} Kuşatması",
+			"{enemy} Ordusunu Püskürt",
+			"{location} Yağması"
+		],
+		"descriptions": [
+			"{location} bölgesindeki {enemy} güçlerine saldırı düzenle.",
+			"{enemy} ile savaşarak bölgeyi güvence altına al.",
+			"{location} kalesini kuşat ve ele geçir.",
+			"{enemy} ordusunun saldırısını püskürt.",
+			"{location} köyünü yağmala ve ganimet topla."
+		],
+		"locations": ["Kuzey", "Güney", "Doğu", "Batı", "Merkez"],
+		"enemies": ["Düşman", "Haydut", "Rakip", "İsyancı", "Yabancı"],
+		"base_rewards": {"gold": 200, "wood": 50},
+		"base_penalties": {"gold": -100, "cariye_injured": true},
+		"difficulty_modifiers": {
+			Mission.Difficulty.KOLAY: {"success_chance": 0.8, "duration": 8.0, "reward_multiplier": 0.7},
+			Mission.Difficulty.ORTA: {"success_chance": 0.6, "duration": 12.0, "reward_multiplier": 1.0},
+			Mission.Difficulty.ZOR: {"success_chance": 0.4, "duration": 18.0, "reward_multiplier": 1.5},
+			Mission.Difficulty.EFSANEVİ: {"success_chance": 0.2, "duration": 25.0, "reward_multiplier": 2.0}
+		}
+	}
+	
+	# Keşif görev şablonları
+	dynamic_mission_templates["kesif"] = {
+		"names": [
+			"{location} Keşfi",
+			"{area} Bölgesini Araştır",
+			"{location} Gizemini Çöz",
+			"{area} Kaynaklarını Bul",
+			"{location} Haritasını Çıkar"
+		],
+		"descriptions": [
+			"{location} bölgesini keşfet ve bilinmeyen alanları araştır.",
+			"{area} bölgesindeki kaynakları ve tehlikeleri tespit et.",
+			"{location} gizemini çöz ve sırları ortaya çıkar.",
+			"{area} bölgesindeki değerli kaynakları bul.",
+			"{location} için detaylı harita çıkar."
+		],
+		"locations": ["Orman", "Dağ", "Çöl", "Göl", "Mağara"],
+		"areas": ["Bilinmeyen", "Terk Edilmiş", "Tehlikeli", "Gizemli", "Efsanevi"],
+		"base_rewards": {"gold": 150, "wood": 30, "stone": 20},
+		"base_penalties": {"gold": -50},
+		"difficulty_modifiers": {
+			Mission.Difficulty.KOLAY: {"success_chance": 0.9, "duration": 6.0, "reward_multiplier": 0.8},
+			Mission.Difficulty.ORTA: {"success_chance": 0.7, "duration": 10.0, "reward_multiplier": 1.0},
+			Mission.Difficulty.ZOR: {"success_chance": 0.5, "duration": 15.0, "reward_multiplier": 1.3},
+			Mission.Difficulty.EFSANEVİ: {"success_chance": 0.3, "duration": 20.0, "reward_multiplier": 1.8}
+		}
+	}
+	
+	# Ticaret görev şablonları
+	dynamic_mission_templates["ticaret"] = {
+		"names": [
+			"{location} ile Ticaret",
+			"{resource} Ticareti",
+			"{location} Pazarı",
+			"{resource} Anlaşması",
+			"{location} Ticaret Yolu"
+		],
+		"descriptions": [
+			"{location} ile karlı ticaret anlaşması yap.",
+			"{resource} ticareti için anlaşma sağla.",
+			"{location} pazarında ticaret yap.",
+			"{resource} için uzun vadeli anlaşma imzala.",
+			"{location} ile ticaret yolu kur."
+		],
+		"locations": ["Köy", "Şehir", "Kasaba", "Pazar", "Liman"],
+		"resources": ["Altın", "Odun", "Taş", "Gıda", "Silah"],
+		"base_rewards": {"gold": 300, "trade_bonus": 0.1},
+		"base_penalties": {"gold": -75, "reputation": -5},
+		"difficulty_modifiers": {
+			Mission.Difficulty.KOLAY: {"success_chance": 0.8, "duration": 8.0, "reward_multiplier": 0.8},
+			Mission.Difficulty.ORTA: {"success_chance": 0.6, "duration": 12.0, "reward_multiplier": 1.0},
+			Mission.Difficulty.ZOR: {"success_chance": 0.4, "duration": 16.0, "reward_multiplier": 1.4},
+			Mission.Difficulty.EFSANEVİ: {"success_chance": 0.2, "duration": 22.0, "reward_multiplier": 2.0}
+		}
+	}
+	
+	print("🎲 Dinamik görev şablonları oluşturuldu")
+
+# Başlangıç dünya olaylarını oluştur
+func create_initial_world_events():
+	world_events = [
+		{
+			"id": "kuraklik",
+			"name": "Kuraklık",
+			"description": "Bölgede kuraklık başladı. Su kaynakları azalıyor.",
+			"effect": "water_shortage",
+			"duration": 60.0,
+			"mission_modifiers": {"kesif": {"success_chance": -0.1, "duration": 2.0}}
+		},
+		{
+			"id": "gocmenler",
+			"name": "Göçmen Dalgası",
+			"description": "Savaştan kaçan göçmenler bölgeye geliyor.",
+			"effect": "population_increase",
+			"duration": 45.0,
+			"mission_modifiers": {"diplomasi": {"success_chance": 0.1, "rewards": {"gold": 50}}}
+		},
+		{
+			"id": "kurt_surusu",
+			"name": "Kurt Sürüsü",
+			"description": "Tehlikeli kurt sürüsü bölgede dolaşıyor.",
+			"effect": "danger_increase",
+			"duration": 30.0,
+			"mission_modifiers": {"kesif": {"success_chance": -0.2, "penalties": {"cariye_injured": true}}}
+		}
+	]
+	
+	print("🌍 Dünya olayları oluşturuldu")
+
+# Başlangıç görevlerini sınırla
+func limit_initial_missions():
+	print("🔧 Başlangıç görevleri sınırlanıyor...")
+	
+	# TÜM görevleri kaldır (zincir görevleri dahil)
+	var missions_to_remove = []
 	for mission_id in missions:
 		var mission = missions[mission_id]
-		if mission.status == Mission.Status.TAMAMLANDI or mission.status == Mission.Status.BAŞARISIZ:
-			completed.append(mission)
-	return completed
+		if mission.status == Mission.Status.MEVCUT:
+			missions_to_remove.append(mission_id)
+	
+	# Tüm görevleri sil
+	for mission_id in missions_to_remove:
+		missions.erase(mission_id)
+		print("🗑️ Başlangıç görevi kaldırıldı: " + mission_id)
+	
+	print("✅ Başlangıçta hiç görev yok - yavaş yavaş eklenecek")
+	
+	# İlk görevi 5 saniye sonra ekle
+	await get_tree().create_timer(5.0).timeout
+	add_first_mission()
+
+# İlk görevi ekle
+func add_first_mission():
+	print("🎯 İlk görev ekleniyor...")
+	
+	# Basit bir keşif görevi oluştur
+	var first_mission = Mission.new()
+	first_mission.id = "ilk_kesif"
+	first_mission.name = "Köy Çevresini Keşfet"
+	first_mission.description = "Köyün çevresindeki bölgeyi keşfet ve kaynakları tespit et."
+	first_mission.mission_type = Mission.MissionType.KEŞİF
+	first_mission.difficulty = Mission.Difficulty.KOLAY
+	first_mission.duration = 30.0
+	first_mission.required_cariye_level = 1
+	first_mission.required_army_size = 0
+	first_mission.required_resources = {}
+	first_mission.rewards = {"gold": 50, "experience": 20}
+	first_mission.penalties = {"gold": -10}
+	first_mission.status = Mission.Status.MEVCUT
+	
+	missions[first_mission.id] = first_mission
+	print("✅ İlk görev eklendi: " + first_mission.name)
+	
+	# İkinci görevi 30 saniye sonra ekle
+	await get_tree().create_timer(30.0).timeout
+	add_second_mission()
+
+# İkinci görevi ekle
+func add_second_mission():
+	print("🎯 İkinci görev ekleniyor...")
+	
+	# Zincir görevinin ilkini ekle
+	var chain_mission = Mission.new()
+	chain_mission.id = "kuzey_kesif_1"
+	chain_mission.name = "Kuzey Bölgesini Keşfet"
+	chain_mission.description = "Kuzey bölgesindeki gizemli yapıları keşfet."
+	chain_mission.mission_type = Mission.MissionType.KEŞİF
+	chain_mission.difficulty = Mission.Difficulty.ORTA
+	chain_mission.duration = 45.0
+	chain_mission.required_cariye_level = 2
+	chain_mission.required_army_size = 5
+	chain_mission.required_resources = {"food": 20}
+	chain_mission.rewards = {"gold": 100, "experience": 50, "special_item": "Antik Harita"}
+	chain_mission.penalties = {"gold": -25, "reputation": -5}
+	chain_mission.status = Mission.Status.MEVCUT
+	
+	# Zincir bilgileri
+	chain_mission.chain_id = "kuzey_kesif_chain"
+	chain_mission.chain_type = Mission.ChainType.SEQUENTIAL
+	chain_mission.chain_order = 1
+	chain_mission.unlocks_missions.clear()
+	chain_mission.unlocks_missions.append("kuzey_kesif_2")
+	
+	missions[chain_mission.id] = chain_mission
+	print("✅ Zincir görevi eklendi: " + chain_mission.name)
+
+# Dinamik görev oluştur
+func create_dynamic_mission(mission_type: String, difficulty: Mission.Difficulty = Mission.Difficulty.ORTA) -> Mission:
+	if mission_type not in dynamic_mission_templates:
+		return null
+	
+	var template = dynamic_mission_templates[mission_type]
+	var mission = Mission.new()
+	
+	# Benzersiz ID oluştur
+	mission.id = "dynamic_" + mission_type + "_" + str(next_mission_id)
+	next_mission_id += 1
+	
+	# Rastgele isim ve açıklama seç
+	var name_template = template["names"][randi() % template["names"].size()]
+	var desc_template = template["descriptions"][randi() % template["descriptions"].size()]
+	
+	# Şablon değişkenlerini doldur
+	mission.name = fill_template(name_template, template)
+	mission.description = fill_template(desc_template, template)
+	
+	# Görev türü
+	match mission_type:
+		"savas": mission.mission_type = Mission.MissionType.SAVAŞ
+		"kesif": mission.mission_type = Mission.MissionType.KEŞİF
+		"ticaret": mission.mission_type = Mission.MissionType.TİCARET
+	
+	# Zorluk ayarları
+	mission.difficulty = difficulty
+	var modifiers = template["difficulty_modifiers"][difficulty]
+	mission.success_chance = modifiers["success_chance"]
+	mission.duration = modifiers["duration"]
+	
+	# Dünya olaylarından etkilenme
+	apply_world_event_modifiers(mission, mission_type)
+	
+	# Ödüller ve cezalar
+	mission.rewards = calculate_rewards(template["base_rewards"], modifiers["reward_multiplier"])
+	mission.penalties = template["base_penalties"].duplicate()
+	
+	# Gereksinimler
+	mission.required_cariye_level = calculate_required_level(difficulty)
+	mission.required_army_size = calculate_required_army(mission_type, difficulty)
+	mission.required_resources = calculate_required_resources(mission_type, difficulty)
+	
+	# Hedef konum
+	mission.target_location = template.get("locations", ["Bilinmeyen"])[randi() % template.get("locations", ["Bilinmeyen"]).size()]
+	mission.distance = randf_range(1.0, 5.0)
+	mission.risk_level = calculate_risk_level(difficulty, mission_type)
+	
+	return mission
+
+# Şablon doldurma
+func fill_template(template: String, template_data: Dictionary) -> String:
+	var result = template
+	
+	# Konum değişkenleri
+	if "locations" in template_data:
+		var location = template_data["locations"][randi() % template_data["locations"].size()]
+		result = result.replace("{location}", location)
+	
+	# Düşman/alan değişkenleri
+	if "enemies" in template_data:
+		var enemy = template_data["enemies"][randi() % template_data["enemies"].size()]
+		result = result.replace("{enemy}", enemy)
+	
+	if "areas" in template_data:
+		var area = template_data["areas"][randi() % template_data["areas"].size()]
+		result = result.replace("{area}", area)
+	
+	if "resources" in template_data:
+		var resource = template_data["resources"][randi() % template_data["resources"].size()]
+		result = result.replace("{resource}", resource)
+	
+	return result
+
+# Dünya olayı etkilerini uygula
+func apply_world_event_modifiers(mission: Mission, mission_type: String):
+	for event in world_events:
+		if "mission_modifiers" in event and mission_type in event["mission_modifiers"]:
+			var modifiers = event["mission_modifiers"][mission_type]
+			
+			if "success_chance" in modifiers:
+				mission.success_chance += modifiers["success_chance"]
+				mission.success_chance = clamp(mission.success_chance, 0.1, 0.95)
+			
+			if "duration" in modifiers:
+				mission.duration += modifiers["duration"]
+				mission.duration = max(5.0, mission.duration)
+			
+			if "rewards" in modifiers:
+				for reward_type in modifiers["rewards"]:
+					if reward_type in mission.rewards:
+						mission.rewards[reward_type] += modifiers["rewards"][reward_type]
+					else:
+						mission.rewards[reward_type] = modifiers["rewards"][reward_type]
+			
+			if "penalties" in modifiers:
+				for penalty_type in modifiers["penalties"]:
+					mission.penalties[penalty_type] = modifiers["penalties"][penalty_type]
+
+# Ödül hesaplama
+func calculate_rewards(base_rewards: Dictionary, multiplier: float) -> Dictionary:
+	var rewards = {}
+	for reward_type in base_rewards:
+		rewards[reward_type] = int(base_rewards[reward_type] * multiplier)
+	return rewards
+
+# Gerekli seviye hesaplama
+func calculate_required_level(difficulty: Mission.Difficulty) -> int:
+	match difficulty:
+		Mission.Difficulty.KOLAY: return 1
+		Mission.Difficulty.ORTA: return 2
+		Mission.Difficulty.ZOR: return 3
+		Mission.Difficulty.EFSANEVİ: return 4
+		_: return 1
+
+# Gerekli ordu hesaplama
+func calculate_required_army(mission_type: String, difficulty: Mission.Difficulty) -> int:
+	var base_army = 0
+	match mission_type:
+		"savas": base_army = 3
+		"kesif": base_army = 0
+		"ticaret": base_army = 1
+	
+	var difficulty_multiplier = 1
+	match difficulty:
+		Mission.Difficulty.KOLAY: difficulty_multiplier = 1
+		Mission.Difficulty.ORTA: difficulty_multiplier = 2
+		Mission.Difficulty.ZOR: difficulty_multiplier = 3
+		Mission.Difficulty.EFSANEVİ: difficulty_multiplier = 4
+	
+	return base_army * difficulty_multiplier
+
+# Gerekli kaynak hesaplama
+func calculate_required_resources(mission_type: String, difficulty: Mission.Difficulty) -> Dictionary:
+	var resources = {}
+	
+	match mission_type:
+		"savas":
+			resources["gold"] = 100
+		"kesif":
+			resources["gold"] = 50
+		"ticaret":
+			resources["gold"] = 75
+	
+	# Zorluk çarpanı
+	var multiplier = 1
+	match difficulty:
+		Mission.Difficulty.KOLAY: multiplier = 1
+		Mission.Difficulty.ORTA: multiplier = 2
+		Mission.Difficulty.ZOR: multiplier = 3
+		Mission.Difficulty.EFSANEVİ: multiplier = 4
+	
+	for resource in resources:
+		resources[resource] *= multiplier
+	
+	return resources
+
+# Risk seviyesi hesaplama
+func calculate_risk_level(difficulty: Mission.Difficulty, mission_type: String) -> String:
+	var risk_score = 0
+	
+	# Zorluk etkisi
+	match difficulty:
+		Mission.Difficulty.KOLAY: risk_score += 1
+		Mission.Difficulty.ORTA: risk_score += 2
+		Mission.Difficulty.ZOR: risk_score += 3
+		Mission.Difficulty.EFSANEVİ: risk_score += 4
+	
+	# Görev türü etkisi
+	match mission_type:
+		"savas": risk_score += 2
+		"kesif": risk_score += 1
+		"ticaret": risk_score += 0
+	
+	# Dünya istikrarı etkisi
+	risk_score += int((100 - world_stability) / 25)
+	
+	if risk_score <= 2:
+		return "Düşük"
+	elif risk_score <= 4:
+		return "Orta"
+	else:
+		return "Yüksek"
+
+# Rastgele dinamik görev oluştur
+func generate_random_dynamic_mission() -> Mission:
+	var mission_types = ["savas", "kesif", "ticaret"]
+	var difficulties = [Mission.Difficulty.KOLAY, Mission.Difficulty.ORTA, Mission.Difficulty.ZOR]
+	
+	# Oyuncu seviyesine göre zorluk seçimi
+	var available_difficulties = []
+	var max_cariye_level = get_max_concubine_level()
+	
+	for diff in difficulties:
+		if calculate_required_level(diff) <= max_cariye_level:
+			available_difficulties.append(diff)
+	
+	if available_difficulties.is_empty():
+		available_difficulties = [Mission.Difficulty.KOLAY]
+	
+	var selected_type = mission_types[randi() % mission_types.size()]
+	var selected_difficulty = available_difficulties[randi() % available_difficulties.size()]
+	
+	return create_dynamic_mission(selected_type, selected_difficulty)
+
+# En yüksek cariye seviyesini al
+func get_max_concubine_level() -> int:
+	var max_level = 1
+	for cariye_id in concubines:
+		var cariye = concubines[cariye_id]
+		if cariye.level > max_level:
+			max_level = cariye.level
+	return max_level
+
+# Görev rotasyonu - eski görevleri kaldır, yenilerini ekle
+func refresh_missions():
+	print("🔄 Görev rotasyonu başlıyor...")
+	
+	# Mevcut görevlerden bazılarını kaldır (sadece MEVCUT olanlar)
+	var missions_to_remove = []
+	for mission_id in missions:
+		var mission = missions[mission_id]
+		if mission.status == Mission.Status.MEVCUT and not mission.is_part_of_chain():
+			missions_to_remove.append(mission_id)
+	
+	# %50 şansla görev kaldır
+	for mission_id in missions_to_remove:
+		if randf() < 0.5:
+			missions.erase(mission_id)
+	
+	# Yeni dinamik görevler ekle
+	var new_mission_count = randi_range(1, 3)
+	for i in range(new_mission_count):
+		var new_mission = generate_random_dynamic_mission()
+		if new_mission:
+			missions[new_mission.id] = new_mission
+			print("✨ Yeni dinamik görev: " + new_mission.name)
+	
+	print("🔄 Görev rotasyonu tamamlandı")
+
+# --- DÜNYA OLAYLARI YÖNETİMİ ---
+
+# Dünya olayları timer'ı
+var world_events_timer: float = 0.0
+var world_events_interval: float = 120.0  # 2 dakikada bir dünya olayı kontrolü
+
+# Dünya olaylarını güncelle
+func update_world_events(delta: float):
+	world_events_timer += delta
+	if world_events_timer >= world_events_interval:
+		world_events_timer = 0.0
+		process_world_events()
+
+# Dünya olaylarını işle
+func process_world_events():
+	# Aktif olayları kontrol et
+	var active_events = []
+	for event in world_events:
+		if "start_time" in event:
+			var elapsed = Time.get_unix_time_from_system() - event["start_time"]
+			if elapsed < event["duration"]:
+				active_events.append(event)
+			else:
+				# Olay süresi doldu
+				end_world_event(event)
+	
+	# Yeni olay başlatma şansı
+	if randf() < 0.3:  # %30 şans
+		start_random_world_event()
+
+# Rastgele dünya olayı başlat
+func start_random_world_event():
+	var available_events = []
+	
+	# Aktif olmayan olayları bul
+	for event in world_events:
+		if "start_time" not in event:
+			available_events.append(event)
+	
+	if available_events.is_empty():
+		return
+	
+	var selected_event = available_events[randi() % available_events.size()]
+	selected_event["start_time"] = Time.get_unix_time_from_system()
+	
+	print("🌍 Dünya olayı başladı: " + selected_event["name"])
+	print("   " + selected_event["description"])
+
+# Dünya olayını sonlandır
+func end_world_event(event: Dictionary):
+	print("🌍 Dünya olayı sona erdi: " + event["name"])
+	event.erase("start_time")
+
+# Aktif dünya olaylarını al
+func get_active_world_events() -> Array:
+	var active = []
+	for event in world_events:
+		if "start_time" in event:
+			var elapsed = Time.get_unix_time_from_system() - event["start_time"]
+			if elapsed < event["duration"]:
+				active.append(event)
+	return active
+
+# Oyuncu itibarını güncelle
+func update_player_reputation(change: int):
+	player_reputation += change
+	player_reputation = clamp(player_reputation, 0, 100)
+	print("📊 Oyuncu itibarı: " + str(player_reputation))
+
+# Dünya istikrarını güncelle
+func update_world_stability(change: int):
+	world_stability += change
+	world_stability = clamp(world_stability, 0, 100)
+	print("🌍 Dünya istikrarı: " + str(world_stability))
+
+# Oyuncu seviyesine göre dinamik görev üretimi
+func generate_level_appropriate_missions() -> Array:
+	var generated_missions = []
+	var max_level = get_max_concubine_level()
+	
+	# Seviyeye göre görev sayısı
+	var mission_count = 2 + (max_level / 2)  # Seviye arttıkça daha fazla görev
+	
+	for i in range(mission_count):
+		var mission = generate_random_dynamic_mission()
+		if mission:
+			generated_missions.append(mission)
+	
+	return generated_missions
+
+# Özel durum görevleri (nadir görevler)
+func generate_special_missions() -> Array:
+	var special_missions = []
+	
+	# Oyuncu itibarı yüksekse özel görevler
+	if player_reputation >= 80:
+		var special_mission = create_special_mission("elite_contract")
+		if special_mission:
+			special_missions.append(special_mission)
+	
+	# Dünya istikrarı düşükse acil görevler
+	if world_stability <= 30:
+		var emergency_mission = create_special_mission("emergency_response")
+		if emergency_mission:
+			special_missions.append(emergency_mission)
+	
+	return special_missions
+
+# Özel görev oluştur
+func create_special_mission(special_type: String) -> Mission:
+	var mission = Mission.new()
+	
+	match special_type:
+		"elite_contract":
+			mission.id = "special_elite_" + str(next_mission_id)
+			mission.name = "Elit Sözleşme"
+			mission.description = "Yüksek itibarınız sayesinde özel bir görev teklifi aldınız."
+			mission.mission_type = Mission.MissionType.SAVAŞ
+			mission.difficulty = Mission.Difficulty.EFSANEVİ
+			mission.duration = 30.0
+			mission.success_chance = 0.3
+			mission.required_cariye_level = 4
+			mission.required_army_size = 8
+			mission.required_resources = {"gold": 500}
+			mission.rewards = {"gold": 2000, "wood": 500, "stone": 200, "special_item": "elite_weapon"}
+			mission.penalties = {"gold": -300, "reputation": -20}
+			mission.target_location = "Elit Kalesi"
+			mission.distance = 8.0
+			mission.risk_level = "Yüksek"
+		
+		"emergency_response":
+			mission.id = "special_emergency_" + str(next_mission_id)
+			mission.name = "Acil Müdahale"
+			mission.description = "Dünya istikrarı tehlikede! Hemen harekete geçin."
+			mission.mission_type = Mission.MissionType.DİPLOMASİ
+			mission.difficulty = Mission.Difficulty.ZOR
+			mission.duration = 20.0
+			mission.success_chance = 0.4
+			mission.required_cariye_level = 3
+			mission.required_army_size = 4
+			mission.required_resources = {"gold": 200}
+			mission.rewards = {"gold": 800, "stability_bonus": 20, "reputation": 15}
+			mission.penalties = {"gold": -150, "stability_penalty": -10}
+			mission.target_location = "Kriz Merkezi"
+			mission.distance = 3.0
+			mission.risk_level = "Orta"
+	
+	next_mission_id += 1
+	return mission

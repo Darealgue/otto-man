@@ -149,6 +149,18 @@ const BACKGROUND_DECORS = {
             "res://assets/objects/dungeon/pipe2.png"
         ]
     },
+    "banner1": {
+        "weight": 8,
+        "locations": [SpawnLocation.FLOOR_CENTER],
+        # 1x4 tiles (vertical banner)
+        "width_tiles": 1,
+        "height_tiles": 4,
+        "grow_dir": "up",
+        "requires_background": true,
+        "sprites": [
+            "res://assets/objects/dungeon/banner1.png"
+        ]
+    },
     "sculpture1": {
         "weight": 6,
         "locations": [SpawnLocation.FLOOR_CENTER],
@@ -387,7 +399,7 @@ const PRIORITY_DECOR_RULES = {
         {
             "chance": 0.12,
             "decoration_type": DecorationType.BACKGROUND,
-            "decoration_names": ["spider_web", "box2", "gate1", "gate2", "pipe1", "pipe2", "sculpture1"],
+            "decoration_names": ["spider_web", "box2", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1"],
             "allowed_locations": [SpawnLocation.FLOOR_CENTER]
         },
 		{
@@ -416,7 +428,7 @@ const PRIORITY_DECOR_RULES = {
         {
             "chance": 0.04,
             "decoration_type": DecorationType.BACKGROUND,
-            "decoration_names": ["spider_web", "box2", "gate2", "pipe1", "pipe2", "sculpture1"]
+            "decoration_names": ["spider_web", "box2", "gate2", "pipe1", "pipe2", "banner1", "sculpture1"]
         },
 		{
 			"chance": 0.2, # %20 ihtimalle kırılabilir obje
@@ -438,6 +450,54 @@ const PRIORITY_DECOR_RULES = {
         }
 	]
 }
+
+# Z-Index kuralları - dekorasyonların görsel hiyerarşisi
+const Z_INDEX_RULES = {
+	# Duvar dekorları (en arkada - duvarda)
+	"wall": {
+		"z_index": 0,
+		"decorations": ["gate1", "gate2", "pipe1", "pipe2", "banner1"]
+	},
+	
+	# Traplar (duvar ile zemin arası)
+	"trap": {
+		"z_index": 0.5,
+		"decorations": ["spike_trap", "arrow_trap", "pressure_plate", "fire_trap"]
+	},
+	
+	# Zemin dekorları (orta seviye)
+	"floor": {
+		"z_index": 1,
+		"decorations": ["box1", "box2", "stone1", "small_pot", "wooden_barrel", "sculpture1"]
+	},
+	
+	# Dekoratif objeler (üst seviye)
+	"decorative": {
+		"z_index": 2,
+		"decorations": ["bone_pile", "spider_web"]
+	},
+	
+	# Değerli objeler (dekoratif objelerin üstünde)
+	"valuable": {
+		"z_index": 3,
+		"decorations": ["single_coin", "coin_pile"]
+	},
+	
+	# Düşmanlar (her şeyin üstünde - player dışında)
+	"enemy": {
+		"z_index": 4,
+		"decorations": ["heavy_enemy", "light_enemy", "ranged_enemy", "boss_enemy"]
+	}
+}
+
+# Bir dekorasyonun z-index'ini getirir
+func get_z_index_for_decoration(decoration_name: String) -> int:
+	for category in Z_INDEX_RULES:
+		if decoration_name in Z_INDEX_RULES[category]["decorations"]:
+			return Z_INDEX_RULES[category]["z_index"]
+	
+	# Varsayılan değer (eğer bulunamazsa)
+	return 1
 
 # Bir tile'ın custom data'sına göre öncelikli kural listesini getirir
 func get_priority_rules_for_tile_data(custom_data: String) -> Array:

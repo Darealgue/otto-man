@@ -1,7 +1,7 @@
 extends CanvasLayer
 
 # Sayfa türleri
-enum PageType { MISSIONS, ASSIGNMENT, CONSTRUCTION }
+enum PageType { MISSIONS, ASSIGNMENT, CONSTRUCTION, NEWS, CONCUBINE_DETAILS }
 
 # İnşaat menüsü için enum'lar
 enum ConstructionAction { BUILD, UPGRADE, DEMOLISH, INFO }
@@ -14,7 +14,7 @@ enum MenuState { İŞLEM_SEÇİMİ, KATEGORİ_SEÇİMİ, BİNA_SEÇİMİ }
 enum AssignmentMenuState { BİNA_LISTESİ, BİNA_DETAYI }
 
 # Görevler sayfası için menü durumları
-enum MissionMenuState { GÖREV_LISTESİ, CARİYE_SEÇİMİ, GÖREV_DETAYI, GÖREV_GEÇMİŞİ, GEÇMİŞ_DETAYI }
+enum MissionMenuState { GÖREV_LISTESİ, CARİYE_SEÇİMİ, GÖREV_DETAYI, GÖREV_GEÇMİŞİ, GEÇMİŞ_DETAYI, GÖREV_ZİNCİRLERİ }
 
 # Mevcut sayfa
 var current_page: PageType = PageType.MISSIONS
@@ -38,6 +38,9 @@ var current_active_mission_index: int = 0 # Aktif görev seçimi için index
 var current_history_index: int = 0 # Görev geçmişinde seçim için index
 var current_history_menu_state: MissionMenuState = MissionMenuState.GÖREV_LISTESİ # Görev geçmişi menü durumu
 
+# Cariye detay sayfası seçimleri
+var current_concubine_detail_index: int = 0 # Cariye detay sayfasında seçim için index
+
 # Görev sonucu gösterimi
 var showing_mission_result: bool = false
 var mission_result_timer: float = 0.0
@@ -50,16 +53,21 @@ var current_menu_state: MenuState = MenuState.İŞLEM_SEÇİMİ
 @onready var missions_page: Control = $MissionsPage
 @onready var assignment_page: Control = $AssignmentPage
 @onready var construction_page: Control = $ConstructionPage
+@onready var news_page: Control = $NewsCenterPage
+@onready var concubine_details_page: Control = $ConcubineDetailsPage
 @onready var page_label: Label = $PageLabel
 
 # Sayfa göstergesi referansları
 @onready var page_dot1: Panel = $PageIndicator/PageDot1
 @onready var page_dot2: Panel = $PageIndicator/PageDot2
 @onready var page_dot3: Panel = $PageIndicator/PageDot3
+@onready var page_dot4: Panel = $PageIndicator/PageDot4
+@onready var page_dot5: Panel = $PageIndicator/PageDot5
 
 # Görevler sayfası UI referansları
 @onready var idle_cariyeler_label: Label = $MissionsPage/MissionsHeader/IdleCariyelerLabel
 @onready var active_missions_list: VBoxContainer = $MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll/ActiveMissionsList
+@onready var available_missions_scroll: ScrollContainer = $MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll
 @onready var available_missions_list: VBoxContainer = $MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList
 @onready var cariye_selection_panel: VBoxContainer = $MissionsPage/CariyeSelectionPanel
 @onready var cariye_selection_list: VBoxContainer = $MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList
@@ -73,7 +81,7 @@ var current_menu_state: MenuState = MenuState.İŞLEM_SEÇİMİ
 @onready var stats_content: Label = $MissionsPage/MissionHistoryPanel/MissionHistoryStats/StatsContent
 
 # Sayfa isimleri
-var page_names: Array[String] = ["GÖREVLER", "ATAMALAR", "İNŞAAT"]
+var page_names: Array[String] = ["GÖREVLER", "ATAMALAR", "İNŞAAT", "HABERLER", "CARİYELER"]
 
 # Action ve Category isimleri
 var action_names: Array[String] = ["YAP", "YÜKSELT", "YIK", "BİLGİ"]
@@ -296,6 +304,39 @@ func _process(delta):
 				mission_result_panel.visible = false
 				showing_mission_result = false
 				mission_result_timer = 0.0  # Aktif görevlerin sürelerini güncelle
+	
+	# Cariye detay sayfasında D-pad navigasyonu
+	elif current_page == PageType.CONCUBINE_DETAILS:
+		handle_concubine_details_navigation()
+	
+	# Test kontrolleri (sadece geliştirme için)
+	if Input.is_action_just_pressed("ui_accept") and Input.is_key_pressed(KEY_CTRL):
+		# Ctrl + A: Dinamik görev oluştur
+		create_test_dynamic_mission()
+	
+	if Input.is_action_just_pressed("ui_cancel") and Input.is_key_pressed(KEY_CTRL):
+		# Ctrl + B: Dünya olayı tetikle
+		trigger_test_world_event()
+	
+	if Input.is_action_just_pressed("ui_up") and Input.is_key_pressed(KEY_CTRL):
+		# Ctrl + Yukarı: İtibar artır
+		update_test_reputation(10)
+	
+	if Input.is_action_just_pressed("ui_down") and Input.is_key_pressed(KEY_CTRL):
+		# Ctrl + Aşağı: İtibar azalt
+		update_test_reputation(-10)
+	
+	if Input.is_action_just_pressed("ui_left") and Input.is_key_pressed(KEY_CTRL):
+		# Ctrl + Sol: İstikrar artır
+		update_test_stability(10)
+	
+	if Input.is_action_just_pressed("ui_right") and Input.is_key_pressed(KEY_CTRL):
+		# Ctrl + Sağ: İstikrar azalt
+		update_test_stability(-10)
+	
+	if Input.is_action_just_pressed("ui_select") and Input.is_key_pressed(KEY_CTRL):
+		# Ctrl + Y: Dinamik görev bilgilerini göster
+		show_dynamic_mission_info()
 
 # Atama sayfasında D-pad navigasyonu
 func handle_assignment_navigation():
@@ -1052,6 +1093,8 @@ func show_page(page_index: int):
 	missions_page.visible = false
 	assignment_page.visible = false
 	construction_page.visible = false
+	news_page.visible = false
+	concubine_details_page.visible = false
 
 	print("Tüm sayfalar gizlendi")
 
@@ -1077,6 +1120,17 @@ func show_page(page_index: int):
 			current_menu_state = MenuState.İŞLEM_SEÇİMİ
 			current_building_index = 0
 			update_construction_ui()
+		PageType.NEWS:
+			news_page.visible = true
+			print("NewsPage gösterildi")
+			# Haber sayfası açıldığında güncelle
+			update_news_ui()
+		PageType.CONCUBINE_DETAILS:
+			concubine_details_page.visible = true
+			print("ConcubineDetailsPage gösterildi")
+			# Cariye detay sayfası açıldığında güncelle
+			current_concubine_detail_index = 0
+			update_concubine_details_ui()
 
 	page_label.text = page_names[page_index]
 
@@ -1359,12 +1413,14 @@ func handle_mission_list_selection():
 			if current_mission_index < 0:
 				current_mission_index = available_missions.size() - 1
 			update_missions_ui()
+			scroll_to_selected_mission()
 
 	elif Input.is_action_just_pressed("ui_down"):
 		var available_missions = get_available_missions_list()
 		if not available_missions.is_empty():
 			current_mission_index = (current_mission_index + 1) % available_missions.size()
 			update_missions_ui()
+			scroll_to_selected_mission()
 
 	# A tuşu kontrolü ana _process() fonksiyonunda
 
@@ -1483,7 +1539,33 @@ func get_idle_cariyeler_list():
 	return mission_manager.get_idle_concubines()
 
 func get_completed_missions_list():
-	return mission_manager.get_completed_missions()
+	# Tamamlanan görev objelerini döndür (UI için)
+	var completed = []
+	for mission_id in mission_manager.get_completed_missions():
+		if mission_id in mission_manager.missions:
+			completed.append(mission_manager.missions[mission_id])
+	return completed
+
+# Seçilen görevi scroll container'da görünür yap
+func scroll_to_selected_mission():
+	if not available_missions_scroll:
+		return
+	
+	var available_missions = get_available_missions_list()
+	if available_missions.is_empty() or current_mission_index >= available_missions.size():
+		return
+	
+	# Seçilen görev kartını bul
+	var mission_cards = available_missions_list.get_children()
+	if current_mission_index < mission_cards.size():
+		var selected_card = mission_cards[current_mission_index]
+		
+		# Scroll container'ı seçilen karta kaydır
+		var scroll_value = selected_card.position.y / (available_missions_list.size.y - available_missions_scroll.size.y)
+		scroll_value = clamp(scroll_value, 0.0, 1.0)
+		available_missions_scroll.scroll_vertical = int(scroll_value * available_missions_scroll.get_v_scroll_bar().max_value)
+		
+		print("📜 Scroll değeri: " + str(scroll_value) + " -> " + str(available_missions_scroll.scroll_vertical))
 
 # Görev tamamlandığında çağrılır
 func _on_mission_completed(cariye_id: int, gorev_id: String, successful: bool, results: Dictionary):
@@ -1988,6 +2070,9 @@ func update_missions_ui_cards():
 	if current_mission_menu_state == MissionMenuState.GÖREV_GEÇMİŞİ:
 		update_mission_history_cards()
 		update_mission_history_stats()
+		
+		# Görev zincirlerini güncelle
+		update_mission_chains_ui()
 
 # Aktif görevleri kart olarak güncelle
 func update_active_missions_cards():
@@ -2024,6 +2109,14 @@ func update_available_missions_cards():
 	print("📋 Mevcut görev sayısı: %d" % available_missions.size())
 	print("📋 Seçili görev index: %d" % current_mission_index)
 	print("📋 Menü durumu: %s" % MissionMenuState.keys()[current_mission_menu_state])
+	
+	# Tüm görevleri listele (kilitli olanlar dahil)
+	var all_missions = mission_manager.missions
+	print("📋 Toplam görev sayısı: %d" % all_missions.size())
+	for mission_id in all_missions:
+		var mission = all_missions[mission_id]
+		var status_text = "🔒 KİLİTLİ" if not mission.are_prerequisites_met(mission_manager.completed_missions) else "✅ AÇIK"
+		print("   - %s (%s)" % [mission.name, status_text])
 	
 	if available_missions.is_empty():
 		print("❌ Görev listesi boş!")
@@ -2170,6 +2263,8 @@ func update_page_indicator():
 	page_dot1.modulate = Color(0.5, 0.5, 0.5, 1)
 	page_dot2.modulate = Color(0.5, 0.5, 0.5, 1)
 	page_dot3.modulate = Color(0.5, 0.5, 0.5, 1)
+	page_dot4.modulate = Color(0.5, 0.5, 0.5, 1)
+	page_dot5.modulate = Color(0.5, 0.5, 0.5, 1)
 	
 	# Aktif sayfayı beyaz yap
 	match current_page:
@@ -2179,6 +2274,10 @@ func update_page_indicator():
 			page_dot2.modulate = Color(1, 1, 1, 1)
 		PageType.CONSTRUCTION:
 			page_dot3.modulate = Color(1, 1, 1, 1)
+		PageType.NEWS:
+			page_dot4.modulate = Color(1, 1, 1, 1)
+		PageType.CONCUBINE_DETAILS:
+			page_dot5.modulate = Color(1, 1, 1, 1)
 
 # StyleBox oluşturma fonksiyonları
 func create_selected_stylebox() -> StyleBoxFlat:
@@ -2208,3 +2307,234 @@ func create_normal_stylebox() -> StyleBoxFlat:
 	stylebox.corner_radius_bottom_left = 8
 	stylebox.corner_radius_bottom_right = 8
 	return stylebox
+
+# --- HABER MERKEZİ FONKSİYONLARI ---
+
+# Haber Merkezi UI'ını güncelle
+func update_news_ui():
+	if current_page != PageType.NEWS:
+		return
+	
+	# Şimdilik statik haberler göster
+	# Gelecekte dinamik haber sistemi eklenecek
+	print("📰 Haber Merkezi güncelleniyor...")
+
+# Haber Merkezi navigasyonu
+func handle_news_navigation():
+	# Şimdilik basit navigasyon
+	# Gelecekte haber seçimi ve detay görüntüleme eklenecek
+	pass
+
+# --- CARİYE DETAY SAYFASI FONKSİYONLARI ---
+
+# Cariye detay sayfası UI'ını güncelle
+func update_concubine_details_ui():
+	if current_page != PageType.CONCUBINE_DETAILS:
+		return
+	
+	print("👤 Cariye Detay Sayfası güncelleniyor...")
+	
+	# Cariye listesini güncelle
+	update_concubine_list()
+	
+	# Seçili cariyenin detaylarını güncelle
+	update_selected_concubine_details()
+
+# Cariye listesini güncelle
+func update_concubine_list():
+	# Şimdilik statik liste
+	# Gelecekte MissionManager'dan dinamik liste alınacak
+	print("📋 Cariye listesi güncelleniyor...")
+
+# Seçili cariyenin detaylarını güncelle
+func update_selected_concubine_details():
+	# Şimdilik statik detaylar
+	# Gelecekte seçili cariyenin gerçek verileri gösterilecek
+	print("📊 Seçili cariye detayları güncelleniyor...")
+
+# Cariye detay sayfası navigasyonu
+func handle_concubine_details_navigation():
+	# Yukarı/Aşağı D-pad: Cariye seçimi
+	if Input.is_action_just_pressed("ui_up"):
+		var all_concubines = get_all_concubines_list()
+		if not all_concubines.is_empty():
+			current_concubine_detail_index = (current_concubine_detail_index - 1) % all_concubines.size()
+			if current_concubine_detail_index < 0:
+				current_concubine_detail_index = all_concubines.size() - 1
+			update_concubine_details_ui()
+
+	elif Input.is_action_just_pressed("ui_down"):
+		var all_concubines = get_all_concubines_list()
+		if not all_concubines.is_empty():
+			current_concubine_detail_index = (current_concubine_detail_index + 1) % all_concubines.size()
+			update_concubine_details_ui()
+
+# Tüm cariyeleri al
+func get_all_concubines_list():
+	if not mission_manager:
+		return []
+	
+	# MissionManager'dan tüm cariyeleri al
+	var all_concubines = []
+	for cariye_id in mission_manager.concubines:
+		all_concubines.append(mission_manager.concubines[cariye_id])
+	
+	return all_concubines
+
+# --- GÖREV ZİNCİRLERİ FONKSİYONLARI ---
+
+# Görev zincirleri UI'ını güncelle
+func update_mission_chains_ui():
+	if not mission_manager:
+		return
+	
+	print("🔗 Görev zincirleri güncelleniyor...")
+	
+	# Görev zincirleri listesini temizle
+	var chains_list = $MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList
+	for child in chains_list.get_children():
+		child.queue_free()
+	
+	# Tüm zincirleri al ve göster
+	var chain_count = 0
+	for chain_id in mission_manager.mission_chains:
+		var chain_info = mission_manager.get_chain_info(chain_id)
+		var chain_progress = mission_manager.get_chain_progress(chain_id)
+		
+		# Zincir kartı oluştur
+		var chain_card = create_chain_card(chain_info, chain_progress)
+		chains_list.add_child(chain_card)
+		chain_count += 1
+	
+	print("📊 " + str(chain_count) + " görev zinciri gösterildi")
+
+# Zincir kartı oluştur
+func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Panel:
+	var card = Panel.new()
+	card.custom_minimum_size = Vector2(750, 100)
+	
+	# Arka plan stili
+	var stylebox = StyleBoxFlat.new()
+	stylebox.bg_color = Color(0.1, 0.1, 0.1, 0.8)
+	stylebox.border_width_left = 1
+	stylebox.border_width_right = 1
+	stylebox.border_width_top = 1
+	stylebox.border_width_bottom = 1
+	stylebox.border_color = Color(0.3, 0.3, 0.3, 1.0)
+	stylebox.corner_radius_top_left = 8
+	stylebox.corner_radius_top_right = 8
+	stylebox.corner_radius_bottom_left = 8
+	stylebox.corner_radius_bottom_right = 8
+	card.add_theme_stylebox_override("panel", stylebox)
+	
+	# Ana container
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 5)
+	card.add_child(vbox)
+	
+	# Zincir adı
+	var name_label = Label.new()
+	name_label.text = "🔗 " + chain_info.get("name", "Bilinmeyen Zincir")
+	name_label.add_theme_color_override("font_color", Color.WHITE)
+	name_label.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(name_label)
+	
+	# İlerleme
+	var progress_label = Label.new()
+	var progress_text = "İlerleme: %d/%d (%.0f%%)" % [
+		chain_progress.get("completed", 0),
+		chain_progress.get("total", 0),
+		chain_progress.get("percentage", 0.0)
+	]
+	progress_label.text = progress_text
+	progress_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	progress_label.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(progress_label)
+	
+	# Zincir türü
+	var type_label = Label.new()
+	var chain_type_name = get_chain_type_name(chain_info.get("type", Mission.ChainType.NONE))
+	type_label.text = "Tür: " + type_label
+	type_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	type_label.add_theme_font_size_override("font_size", 10)
+	vbox.add_child(type_label)
+	
+	# Ödüller
+	var rewards_label = Label.new()
+	var rewards_text = "Ödül: "
+	var rewards = chain_info.get("rewards", {})
+	var reward_parts = []
+	for reward_type in rewards:
+		reward_parts.append(str(rewards[reward_type]) + " " + reward_type)
+	rewards_label.text = rewards_text + ", ".join(reward_parts)
+	rewards_label.add_theme_color_override("font_color", Color.YELLOW)
+	rewards_label.add_theme_font_size_override("font_size", 10)
+	vbox.add_child(rewards_label)
+	
+	return card
+
+# Zincir türü adını al
+func get_chain_type_name(chain_type: Mission.ChainType) -> String:
+	match chain_type:
+		Mission.ChainType.NONE: return "Bağımsız"
+		Mission.ChainType.SEQUENTIAL: return "Sıralı"
+		Mission.ChainType.PARALLEL: return "Paralel"
+		Mission.ChainType.CHOICE: return "Seçimli"
+		_: return "Bilinmeyen"
+
+# --- DİNAMİK GÖREV SİSTEMİ UI ---
+
+# Dinamik görevleri UI'da göster
+func show_dynamic_mission_info():
+	if not mission_manager:
+		return
+	
+	print("🎲 Dinamik görev bilgileri:")
+	print("  - Oyuncu İtibarı: " + str(mission_manager.player_reputation))
+	print("  - Dünya İstikrarı: " + str(mission_manager.world_stability))
+	
+	# Aktif dünya olayları
+	var active_events = mission_manager.get_active_world_events()
+	if not active_events.is_empty():
+		print("  - Aktif Dünya Olayları:")
+		for event in active_events:
+			var remaining_time = event["duration"] - (Time.get_unix_time_from_system() - event["start_time"])
+			print("    * " + event["name"] + " (Kalan: " + str(int(remaining_time)) + "s)")
+	else:
+		print("  - Aktif dünya olayı yok")
+
+# Dinamik görev oluşturma butonu (test için)
+func create_test_dynamic_mission():
+	if not mission_manager:
+		return
+	
+	var new_mission = mission_manager.generate_random_dynamic_mission()
+	if new_mission:
+		mission_manager.missions[new_mission.id] = new_mission
+		print("✨ Test dinamik görev oluşturuldu: " + new_mission.name)
+		update_missions_ui()
+
+# Dünya olayı başlatma (test için)
+func trigger_test_world_event():
+	if not mission_manager:
+		return
+	
+	mission_manager.start_random_world_event()
+	print("🌍 Test dünya olayı tetiklendi")
+
+# Oyuncu itibarını güncelle (test için)
+func update_test_reputation(change: int):
+	if not mission_manager:
+		return
+	
+	mission_manager.update_player_reputation(change)
+	print("📊 Test itibar güncellemesi: " + str(change))
+
+# Dünya istikrarını güncelle (test için)
+func update_test_stability(change: int):
+	if not mission_manager:
+		return
+	
+	mission_manager.update_world_stability(change)
+	print("🌍 Test istikrar güncellemesi: " + str(change))

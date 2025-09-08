@@ -22,7 +22,7 @@ var _is_active: bool = false
 var spawn_marker: Node2D
 
 # Debug toggle for this spawner (console prints only; no on-screen labels)
-const DEBUG_DECOR: bool = false
+const DEBUG_DECOR: bool = true
 const DEBUG_LOOT: bool = true
 
 # Loot art paths
@@ -75,7 +75,7 @@ func _spawn_decoration() -> bool:
 	if available_decorations.is_empty():
 		if DEBUG_DECOR:
 			print("[DecorationSpawner] No decorations available for type: %s, location: %s" % [
-			DecorationConfig.DecorationType.keys()[decoration_type],
+			DecorationConfig.DecorationType.keys()[decoration_type], 
 			DecorationConfig.SpawnLocation.keys()[spawn_location]
 		])
 		return false
@@ -97,7 +97,11 @@ func _spawn_decoration() -> bool:
 	if not decoration_instance:
 		if DEBUG_DECOR:
 			print("[DecorationSpawner] Failed to create decoration instance: %s" % decoration_name)
+		last_spawned_decoration = null
 		return false
+	
+	# Store the spawned decoration for level_generator to access
+	last_spawned_decoration = decoration_instance
 	
 	# Sahneye ekle
 	get_parent().add_child(decoration_instance)
@@ -105,6 +109,23 @@ func _spawn_decoration() -> bool:
 	# Konumunu ayarla
 	var spawn_pos = global_position + spawn_offset
 	decoration_instance.global_position = spawn_pos
+	
+	# Gate, pipe ve banner dekorları için kapı kontrolü yap (GERÇEK spawn pozisyonu ile)
+	if decoration_name in ["gate1", "gate2", "pipe1", "pipe2", "banner1"]:
+		print("[DEBUG] Checking door proximity for: ", decoration_name)
+		var is_too_close = false
+		if decoration_name == "banner1":
+			is_too_close = _is_near_door_banner(spawn_pos)
+		else:
+			is_too_close = _is_near_door(spawn_pos)
+		
+		if is_too_close:
+			print("[DecorationSpawner] %s decoration too close to door, removing spawn" % decoration_name)
+			decoration_instance.queue_free()
+			last_spawned_decoration = null
+			_spawned_decoration = null
+			return false
+		print("[DEBUG] %s decoration is safe from doors" % decoration_name)
 	
 	# Referansı sakla
 	_spawned_decoration = decoration_instance
@@ -126,7 +147,8 @@ func create_decoration_instance(decoration_name: String, decoration_type: Decora
 	# Sprite ekle
 	var sprite = Sprite2D.new()
 	sprite.name = "Sprite"
-	sprite.z_index = 0
+	# Otomatik z-index atama sistemi
+	sprite.z_index = _decoration_config.get_z_index_for_decoration(decoration_name)
 	sprite.modulate = Color(1, 1, 1, 1)
 	# Rasgele sprite seç
 	var sprites = decoration_data.get("sprites", [])
@@ -174,16 +196,15 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 	# Sadece görsel, collision yok
 	node.set_meta("decoration_type", "background")
 	
-	# Z-index ayarla: background decorations ground tile'larının üstünde (0)
-	node.z_index = 0
+	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
 	if sprite:
-		sprite.z_index = node.z_index
+		node.z_index = sprite.z_index
 		# Random flip for visual variety
 		if randi() % 2 == 0:
 			sprite.flip_h = !sprite.flip_h
 		# For floor-based decors, align sprite bottom to node origin so it sits on the floor
-		if node.name == "box2" or node.name == "gate1" or node.name == "gate2" or node.name == "pipe1" or node.name == "pipe2" or node.name == "sculpture1" or String(node.get_meta("decor_name", "")) in ["box2", "gate1", "gate2", "pipe1", "pipe2", "sculpture1"]:
+		if node.name == "box2" or node.name == "gate1" or node.name == "gate2" or node.name == "pipe1" or node.name == "pipe2" or node.name == "banner1" or node.name == "sculpture1" or String(node.get_meta("decor_name", "")) in ["box2", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1"]:
 			sprite.centered = false
 			var h := 0
 			if sprite.texture:
@@ -191,10 +212,7 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 					h = (sprite.texture as Texture2D).get_height()
 			# Seat 5px lower for better grounding
 			sprite.position = Vector2(0, -h + 5)
-		# Gates, Pipes, Sculptures: keep them just behind other background decors but above tilemap
-		if node.name == "gate1" or node.name == "gate2" or node.name == "pipe1" or node.name == "pipe2" or node.name == "sculpture1" or String(node.get_meta("decor_name", "")) in ["gate1", "gate2", "pipe1", "pipe2", "sculpture1"]:
-			node.z_index = 0
-			sprite.z_index = node.z_index
+		# Gates, Pipes, Banners, Sculptures: z-index otomatik olarak ayarlandı
 	# Group for overlap checks
 	node.add_to_group("background_decor")
 
@@ -234,10 +252,9 @@ func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:
 	area.area_entered.connect(_on_gold_area_entered.bind(node, gold_value))
 	# Reuse pooled pickup logic signature
 	
-	# Altınlar oyuncunun üstünde görünsün
-	node.z_index = 0
+	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
 	if sprite:
-		sprite.z_index = node.z_index
+		node.z_index = sprite.z_index
 	# Pickup alanı zaten merkezde; pooled loot ile aynı
 	if DEBUG_DECOR:
 		print("[DecorationSpawner] GOLD ready at ", node.global_position, " value=", gold_value)
@@ -263,8 +280,10 @@ func _setup_platform_decoration(node: Node2D, data: Dictionary) -> void:
 	body.add_child(col)
 	node.add_child(body)
 	
-	# Platform zeminin üstünde kalsın
-	node.z_index = 0
+	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
+	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
+	if sprite:
+		node.z_index = sprite.z_index
 
 # Kırılabilir obje
 func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
@@ -310,9 +329,10 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 	hurt.area_entered.connect(_on_breakable_area_entered.bind(node))
 	hurt.body_entered.connect(_on_breakable_body_entered.bind(node))
 	
-	# Kırılabilir nesneler zemin üstünde dursun
-	# Breakables default draw order
-	node.z_index = 0
+	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
+	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
+	if sprite:
+		node.z_index = sprite.z_index
 	print("[DecorationSpawner] BREAKABLE ready HP=", node.get_meta("hp", 0), " at ", node.global_position)
 
 	# Pot animasyonlarını hazırla (varsa)
@@ -721,8 +741,8 @@ func _setup_pot_animation(node: Node2D) -> void:
 	# Improve crispness and avoid bleeding
 	anim.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	node.add_child(anim)
-	# Hafif z-index düzeni
-	anim.z_index = 0
+	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
+	anim.z_index = node.z_index
 
 func _play_pot_break_animation(node: Node2D) -> void:
 	var anim: AnimatedSprite2D = node.get_node_or_null("Anim") as AnimatedSprite2D
@@ -882,6 +902,112 @@ func _post_place_fixup(node: Node2D) -> void:
 	var pushed := _push_from_right_wall(node.global_position, half_w)
 	if pushed.ok:
 		node.global_position = pushed.pos
+
+var last_spawned_decoration: Node2D = null
+
+func get_last_spawned_decoration() -> Node2D:
+	return last_spawned_decoration
+
+func _is_near_door(spawn_position: Vector2) -> bool:
+	# YENİ YAKLAŞIM: Tile-based kontrol - mesafe değil, tile pozisyonu!
+	var spawner_tile_x = int(spawn_position.x / 32)
+	var spawner_tile_y = int(spawn_position.y / 32)
+	
+	print("[DoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
+	
+	# Sahnedeki tüm kapıları bul
+	var doors = get_tree().get_nodes_in_group("doors")
+	print("[DoorCheck] Found doors in group: ", doors.size())
+	
+	for door in doors:
+		if door and is_instance_valid(door):
+			var door_tile_x = int(door.global_position.x / 32)
+			var door_tile_y = int(door.global_position.y / 32)
+			
+			print("[DoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
+			
+			# 10 tile mesafe kontrolü (320 pixel)
+			var tile_distance_x = abs(spawner_tile_x - door_tile_x)
+			var tile_distance_y = abs(spawner_tile_y - door_tile_y)
+			
+			print("[DoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
+			
+			# Kapının tam önünde mi kontrol et (X mesafesi çok küçük)
+			if tile_distance_x <= 1 and tile_distance_y <= 5:
+				print("[DoorCheck] TOO CLOSE! Directly in front of door!")
+				return true
+			
+			# Banner1 için daha gevşek kontrol (3 tile), diğerleri için 5 tile
+			var max_distance = 5
+			if spawner_tile_x >= 0:  # Banner1 kontrolü için
+				# Eğer bu bir banner1 spawn'ı ise (bunu decoration_name'den anlayamayız burada)
+				# Bu yüzden genel olarak 3 tile yapalım
+				max_distance = 3
+			
+			# Genel mesafe kontrolü
+			if tile_distance_x <= max_distance or tile_distance_y <= max_distance:
+				print("[DoorCheck] TOO CLOSE! Within ", max_distance, " tiles of door!")
+				return true
+	
+	print("[DoorCheck] Safe distance from all doors")
+	return false
+
+func _is_near_door_banner(spawn_position: Vector2) -> bool:
+	# Banner1 için daha gevşek kapı kontrolü (sadece 2 tile mesafe)
+	var spawner_tile_x = int(spawn_position.x / 32)
+	var spawner_tile_y = int(spawn_position.y / 32)
+	
+	print("[BannerDoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
+	
+	# Sahnedeki tüm kapıları bul
+	var doors = get_tree().get_nodes_in_group("doors")
+	print("[BannerDoorCheck] Found doors in group: ", doors.size())
+	
+	for door in doors:
+		if door and is_instance_valid(door):
+			var door_tile_x = int(door.global_position.x / 32)
+			var door_tile_y = int(door.global_position.y / 32)
+			
+			print("[BannerDoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
+			
+			var tile_distance_x = abs(spawner_tile_x - door_tile_x)
+			var tile_distance_y = abs(spawner_tile_y - door_tile_y)
+			
+			print("[BannerDoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
+			
+			# Banner1 için sadece kapının tam önünde olmasını engelle (1 tile)
+			if tile_distance_x <= 1 and tile_distance_y <= 2:
+				print("[BannerDoorCheck] TOO CLOSE! Directly in front of door!")
+				return true
+			
+			# Banner1 için çok gevşek kontrol (sadece 2 tile)
+			if tile_distance_x <= 2 or tile_distance_y <= 2:
+				print("[BannerDoorCheck] TOO CLOSE! Within 2 tiles of door!")
+				return true
+	
+	print("[BannerDoorCheck] Safe distance from all doors")
+	return false
+
+func _find_doors_in_scene() -> Array:
+	# Sahnedeki tüm Door node'larını bul
+	var doors = []
+	var all_nodes = get_tree().get_nodes_in_group("doors")
+	
+	# Eğer group yoksa, manuel olarak ara
+	if all_nodes.is_empty():
+		var scene = get_tree().current_scene
+		if scene:
+			_find_doors_recursive(scene, doors)
+	
+	return doors
+
+func _find_doors_recursive(node: Node, doors: Array) -> void:
+	# Recursive olarak Door class'ına sahip node'ları bul
+	if node.has_method("get") and node.get_script() and node.get_script().get_global_name() == "Door":
+		doors.append(node)
+	
+	for child in node.get_children():
+		_find_doors_recursive(child, doors)
 
 func _estimate_visual_size(node: Node2D) -> Vector2:
 	var spr := node.get_node_or_null("Sprite") as Sprite2D

@@ -413,6 +413,7 @@ var transition_cooldown: float = 1.0
 
 var unified_terrain: UnifiedTerrain
 var placed_gate_positions: Array[Vector2] = []
+var door_positions: Array[Vector2] = []  # Kapı pozisyonlarını sakla
 
 class PathGenerator:
 	var astar := AStar2D.new()
@@ -604,6 +605,7 @@ func toggle_camera() -> void:
 
 func clear_level() -> void:
 	placed_gate_positions.clear()
+	door_positions.clear()  # Kapı pozisyonlarını temizle
 	# Store camera state and zoom
 	var player = get_node_or_null("Player")
 	var player_camera_zoom = Vector2.ONE
@@ -651,6 +653,8 @@ func generate_level() -> bool:
 	current_grid_height = BASE_GRID_HEIGHT + floor((current_level - 1) / 4) * 2 # Increase height by 2 every 4 levels
 	print("  Calculated current_grid_width:", current_grid_width)
 	print("  Calculated current_grid_height:", current_grid_height)
+	
+	# Door positions will be calculated after chunks are created
 	# ------------------------------------
 
 	if not level_config: # Check config after clearing and getting width
@@ -682,6 +686,8 @@ func generate_level() -> bool:
 			# --- END NEW STEP ---
 			
 			if populate_chunks():
+				# Calculate door positions after chunks are created
+				_calculate_door_positions()
 				# Verify if there's a valid path from start to finish
 				if verify_level_path():
 					print("Level generated successfully on attempt %d!" % (attempt + 1))
@@ -1621,19 +1627,20 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 					print("[GateDebug] SELECT tile=", cell, " names=", valid_decors)
 				if custom_data == "ceiling_surface" or custom_data == "wall_surface":
 					print("[WebDebug] Tile ", cell, " tag=", custom_data, " pool=", decoration_pool, " valid=", valid_decors, " selected=", selected_decor_name)
-				var did_spawn: bool = false
 				var spawner = DecorationSpawner.new()
+				# Add spawner to scene tree temporarily for door proximity check
+				add_child(spawner)
+				
+				var did_spawn = false
 				var decoration_instance = spawner.create_decoration_instance(selected_decor_name, rule.decoration_type)
-				if decoration_instance:
-					# Derive spawn location first for edge filtering
-					var spawn_loc: int = _derive_spawn_location_from_tile_data(custom_data, rule)
-					# did_spawn already declared in outer scope
-					# Optional clearance check for larger decorations
-					var needs_clearance: bool = false
-					var w_tiles: int = 1
-					var h_tiles: int = 1
-					var grow_dir: String = "up"
-					if selected_decor_name in decoration_pool:
+				# Derive spawn location first for edge filtering
+				var spawn_loc: int = _derive_spawn_location_from_tile_data(custom_data, rule)
+				# Optional clearance check for larger decorations
+				var needs_clearance: bool = false
+				var w_tiles: int = 1
+				var h_tiles: int = 1
+				var grow_dir: String = "up"
+				if selected_decor_name in decoration_pool:
 						var dd: Dictionary = decoration_pool.get(selected_decor_name, {})
 						if dd.has("width_tiles") and dd.width_tiles is int:
 							needs_clearance = true
@@ -1643,7 +1650,7 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 							h_tiles = int(dd.height_tiles)
 						if dd.has("grow_dir") and dd.grow_dir is String:
 							grow_dir = String(dd.grow_dir)
-					if needs_clearance:
+				if needs_clearance:
 						# Ensure base support uses at least the visual width in tiles
 						var vis_size_nc: Vector2 = _get_visual_size_from_instance(decoration_instance)
 						var tile_w_nc: float = float(tile_map.tile_set.tile_size.x)
@@ -1677,110 +1684,137 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 								decoration_instance.queue_free()
 								spawner.queue_free()
 								continue
-					# Skip cells near open chunk edges for floor-like placements
-					if _is_near_open_chunk_edge(tile_map, cell, chunk_node, spawn_loc, rule):
-						if custom_data == "ceiling_surface" or custom_data == "wall_surface":
-							print("[WebDebug] SKIP near edge tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
-						decoration_instance.queue_free()
-						spawner.queue_free()
-						continue
-					# Avoid outside L-shaped dead zones
-					if _is_outside_L_deadzone(tile_map, cell, spawn_loc):
-						if custom_data == "ceiling_surface" or custom_data == "wall_surface":
-							print("[WebDebug] SKIP outside L deadzone tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
-						decoration_instance.queue_free()
-						spawner.queue_free()
-						continue
-					add_child(decoration_instance)
-					# Keep the spawner alive as a child so signal targets remain valid
-					# (create_decoration_instance connects signals to spawner methods)
-					add_child(spawner)
-					var spawn_pos: Vector2 = _compute_decoration_spawn_position(tile_map, cell, spawn_loc)
-					# For clearance-based floor decors (box2, gate1), cancel global left bias to stay tile-aligned
-					if needs_clearance and (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER):
-						# Align X to exact multi-tile floor span center
-						var tile_size_v2: Vector2 = Vector2(tile_map.tile_set.tile_size)
-						var half_w_left := int(floor((w_tiles - 1) / 2.0))
-						var left_cell: Vector2i = cell + Vector2i(-half_w_left, 0)
-						var right_cell: Vector2i = left_cell + Vector2i(w_tiles - 1, 0)
-						var left_center: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell)) + tile_size_v2 / 2.0
-						var right_center: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell)) + tile_size_v2 / 2.0
-						var before := spawn_pos.x
-						spawn_pos.x = (left_center.x + right_center.x) * 0.5
-						if selected_decor_name == "gate1" or selected_decor_name == "box2":
-							print("[GateDebug] ALIGN cells=", left_cell, "..", right_cell, " left_center=", left_center.x, " right_center=", right_center.x, " beforeX=", before, " afterX=", spawn_pos.x)
-					# For clearance-based floor decors (box2, gate1), remove previous upward lift
-					var floor_based := (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
-					# No extra vertical offset; sprite bottom alignment will sit on floor
-					# Safety: skip placements that would hang over edges (half in air or inside wall)
-					var dec_type: String = ""
-					if decoration_instance.has_meta("decoration_type"):
-						dec_type = String(decoration_instance.get_meta("decoration_type"))
-					var needs_support: bool = (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER \
-						or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
-					if needs_support and (dec_type == "gold" or dec_type == "breakable" or dec_type == "background"):
-						var vis_size: Vector2 = _get_visual_size_from_instance(decoration_instance)
-						var tile_w: float = float(tile_map.tile_set.tile_size.x)
-						var half_w: float = min(max(4.0, vis_size.x * 0.5), tile_w * 0.45)
-						if needs_clearance:
-							# For clearance-based decors, we already verified base support tile-by-tile; skip span search
-							pass
-						else:
-							var adj: Dictionary = _find_supported_position(spawn_pos, half_w, 12.0, 3.0)
-							if selected_decor_name == "gate1" or selected_decor_name == "box2":
-								print("[GateDebug] SUPPORT half_w=", half_w, " spawn_pos=", spawn_pos, " adj=", adj)
-							if adj.has("ok") and bool(adj.ok):
-								spawn_pos = adj.pos
-					# Global fine-tune: only a slight vertical settle for small decors; no extra X nudge
-					var final_pos := spawn_pos
-					if not needs_clearance:
-						final_pos = spawn_pos + Vector2(0, 5)
-					# Prevent overlapping large decors: gates/pipes/sculptures
-					if (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "sculpture1") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
-						print("[GateDebug] SKIP overlap near existing gate at pos=", final_pos)
-						decoration_instance.queue_free()
-						spawner.queue_free()
-						# do not mark placed; allow next rules to try
-						continue
-					decoration_instance.global_position = final_pos
-					if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "box2":
-						print("[GateDebug] FINAL_POS ", selected_decor_name, " at ", final_pos)
-						# Compute visual vs tile-span extents for precise debug
-						var vis_sz: Vector2 = _get_visual_size_from_instance(decoration_instance)
-						var tile_size_dbg: Vector2 = Vector2(tile_map.tile_set.tile_size)
-						var half_w_left_dbg := int(floor((w_tiles - 1) / 2.0))
-						var left_cell_dbg: Vector2i = cell + Vector2i(-half_w_left_dbg, 0)
-						var right_cell_dbg: Vector2i = left_cell_dbg + Vector2i(w_tiles - 1, 0)
-						var left_center_dbg: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell_dbg)) + tile_size_dbg / 2.0
-						var right_center_dbg: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell_dbg)) + tile_size_dbg / 2.0
-						var span_left_x: float = left_center_dbg.x - tile_size_dbg.x * 0.5
-						var span_right_x: float = right_center_dbg.x + tile_size_dbg.x * 0.5
-						var sprite_left_x: float = final_pos.x - vis_sz.x * 0.5
-						var sprite_right_x: float = final_pos.x + vis_sz.x * 0.5
-						var diff_left := sprite_left_x - span_left_x
-						var diff_right := span_right_x - sprite_right_x
-						print("[GateDebug] EXTENTS ", selected_decor_name, " sprite_left=", sprite_left_x, " sprite_right=", sprite_right_x,
-							" span_left=", span_left_x, " span_right=", span_right_x,
-							" diff_left=", diff_left, " diff_right=", diff_right)
-						# Y taban hizası: zemin çizgisi vs sprite altı
-						var floor_center_dbg: Vector2 = (left_center_dbg + right_center_dbg) * 0.5
-						var floor_line_y: float = floor_center_dbg.y + tile_size_dbg.y * 0.5
-						var expected_bottom_y: float = floor_line_y + 5.0
-						var sprite_bottom_y: float = final_pos.y + vis_sz.y * 0.5
-						var diff_bottom_y: float = expected_bottom_y - sprite_bottom_y
-						print("[GateDebug] EXTENTS_Y ", selected_decor_name,
-							" sprite_bottom=", sprite_bottom_y,
-							" expected_bottom=", expected_bottom_y,
-							" diff_bottom=", diff_bottom_y)
-					# Track placed large decor positions to avoid same-pass overlaps
-					if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "sculpture1":
-						placed_gate_positions.append(final_pos)
-					if selected_decor_name == "gate1":
-						print("[GateDebug] SPAWNED at ", decoration_instance.global_position, " floor_based=", floor_based)
+				# Skip cells near open chunk edges for floor-like placements
+				if _is_near_open_chunk_edge(tile_map, cell, chunk_node, spawn_loc, rule):
 					if custom_data == "ceiling_surface" or custom_data == "wall_surface":
-						print("[WebDebug] SPAWNED ", selected_decor_name, " at ", decoration_instance.global_position)
-					print("[DecorPopulate] SUCCESS: Spawned decoration '%s' at tile %s (world pos: %s)" % [selected_decor_name, cell, decoration_instance.global_position])
-					did_spawn = true
+						print("[WebDebug] SKIP near edge tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
+					decoration_instance.queue_free()
+					spawner.queue_free()
+					continue
+				# Avoid outside L-shaped dead zones
+				if _is_outside_L_deadzone(tile_map, cell, spawn_loc):
+					if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+						print("[WebDebug] SKIP outside L deadzone tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
+					decoration_instance.queue_free()
+					spawner.queue_free()
+					continue
+				add_child(decoration_instance)
+				# Keep the spawner alive as a child so signal targets remain valid
+				# (create_decoration_instance connects signals to spawner methods)
+				add_child(spawner)
+				var spawn_pos: Vector2 = _compute_decoration_spawn_position(tile_map, cell, spawn_loc)
+				
+				# Check door proximity for gate, pipe and banner decorations (GERÇEK spawn pozisyonu ile)
+				if selected_decor_name in ["gate1", "gate2", "pipe1", "pipe2", "banner1"]:
+					print("[DEBUG] Checking door proximity for: ", selected_decor_name)
+					var is_too_close = false
+					if selected_decor_name == "banner1":
+						is_too_close = spawner._is_near_door_banner(spawn_pos)
+					else:
+						is_too_close = spawner._is_near_door(spawn_pos)
+					
+					if is_too_close:
+						print("[DecorationSpawner] %s decoration too close to door, removing spawn" % selected_decor_name)
+						decoration_instance.queue_free()
+						spawner.queue_free()
+						continue
+					else:
+						print("[DEBUG] %s decoration is safe from doors" % selected_decor_name)
+				
+				# For clearance-based floor decors (box2, gate1), cancel global left bias to stay tile-aligned
+				if needs_clearance and (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER):
+					# Align X to exact multi-tile floor span center
+					var tile_size_v2: Vector2 = Vector2(tile_map.tile_set.tile_size)
+					var half_w_left := int(floor((w_tiles - 1) / 2.0))
+					var left_cell: Vector2i = cell + Vector2i(-half_w_left, 0)
+					var right_cell: Vector2i = left_cell + Vector2i(w_tiles - 1, 0)
+					var left_center: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell)) + tile_size_v2 / 2.0
+					var right_center: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell)) + tile_size_v2 / 2.0
+					var before := spawn_pos.x
+					spawn_pos.x = (left_center.x + right_center.x) * 0.5
+					if selected_decor_name == "gate1" or selected_decor_name == "box2":
+						print("[GateDebug] ALIGN cells=", left_cell, "..", right_cell, " left_center=", left_center.x, " right_center=", right_center.x, " beforeX=", before, " afterX=", spawn_pos.x)
+				# For clearance-based floor decors (box2, gate1), remove previous upward lift
+				var floor_based := (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
+				# No extra vertical offset; sprite bottom alignment will sit on floor
+				# Safety: skip placements that would hang over edges (half in air or inside wall)
+				var dec_type: String = ""
+				if decoration_instance.has_meta("decoration_type"):
+					dec_type = String(decoration_instance.get_meta("decoration_type"))
+				var needs_support: bool = (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER \
+					or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
+				if needs_support and (dec_type == "gold" or dec_type == "breakable" or dec_type == "background"):
+					var vis_size: Vector2 = _get_visual_size_from_instance(decoration_instance)
+					var tile_w: float = float(tile_map.tile_set.tile_size.x)
+					var half_w: float = min(max(4.0, vis_size.x * 0.5), tile_w * 0.45)
+					if needs_clearance:
+						# For clearance-based decors, we already verified base support tile-by-tile; skip span search
+						pass
+					else:
+						var adj: Dictionary = _find_supported_position(spawn_pos, half_w, 12.0, 3.0)
+						if selected_decor_name == "gate1" or selected_decor_name == "box2":
+							print("[GateDebug] SUPPORT half_w=", half_w, " spawn_pos=", spawn_pos, " adj=", adj)
+						if adj.has("ok") and bool(adj.ok):
+							spawn_pos = adj.pos
+				# Global fine-tune: only a slight vertical settle for small decors; no extra X nudge
+				var final_pos := spawn_pos
+				if not needs_clearance:
+					final_pos = spawn_pos + Vector2(0, 5)
+				
+				# Set position for ALL decorations (not just gates/pipes)
+				decoration_instance.global_position = final_pos
+				print("[DECORATION_DEBUG] Spawned ", selected_decor_name, " at position ", final_pos, " spawn_pos=", spawn_pos)
+				var sprite = decoration_instance.get_node_or_null("Sprite")
+				if sprite:
+					print("[DECORATION_DEBUG] Sprite z_index=", sprite.z_index, " visible=", sprite.visible, " modulate=", sprite.modulate)
+				else:
+					print("[DECORATION_DEBUG] No Sprite found in ", selected_decor_name)
+				
+				# Prevent overlapping large decors: gates/pipes/banners/sculptures
+				if (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
+					print("[GateDebug] SKIP overlap near existing gate at pos=", final_pos)
+					decoration_instance.queue_free()
+					spawner.queue_free()
+					# do not mark placed; allow next rules to try
+					continue
+				if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "box2":
+					print("[GateDebug] FINAL_POS ", selected_decor_name, " at ", final_pos)
+					# Compute visual vs tile-span extents for precise debug
+					var vis_sz: Vector2 = _get_visual_size_from_instance(decoration_instance)
+					var tile_size_dbg: Vector2 = Vector2(tile_map.tile_set.tile_size)
+					var half_w_left_dbg := int(floor((w_tiles - 1) / 2.0))
+					var left_cell_dbg: Vector2i = cell + Vector2i(-half_w_left_dbg, 0)
+					var right_cell_dbg: Vector2i = left_cell_dbg + Vector2i(w_tiles - 1, 0)
+					var left_center_dbg: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell_dbg)) + tile_size_dbg / 2.0
+					var right_center_dbg: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell_dbg)) + tile_size_dbg / 2.0
+					var span_left_x: float = left_center_dbg.x - tile_size_dbg.x * 0.5
+					var span_right_x: float = right_center_dbg.x + tile_size_dbg.x * 0.5
+					var sprite_left_x: float = final_pos.x - vis_sz.x * 0.5
+					var sprite_right_x: float = final_pos.x + vis_sz.x * 0.5
+					var diff_left := sprite_left_x - span_left_x
+					var diff_right := span_right_x - sprite_right_x
+					print("[GateDebug] EXTENTS ", selected_decor_name, " sprite_left=", sprite_left_x, " sprite_right=", sprite_right_x,
+						" span_left=", span_left_x, " span_right=", span_right_x,
+						" diff_left=", diff_left, " diff_right=", diff_right)
+					# Y taban hizası: zemin çizgisi vs sprite altı
+					var floor_center_dbg: Vector2 = (left_center_dbg + right_center_dbg) * 0.5
+					var floor_line_y: float = floor_center_dbg.y + tile_size_dbg.y * 0.5
+					var expected_bottom_y: float = floor_line_y + 5.0
+					var sprite_bottom_y: float = final_pos.y + vis_sz.y * 0.5
+					var diff_bottom_y: float = expected_bottom_y - sprite_bottom_y
+					print("[GateDebug] EXTENTS_Y ", selected_decor_name,
+						" sprite_bottom=", sprite_bottom_y,
+						" expected_bottom=", expected_bottom_y,
+						" diff_bottom=", diff_bottom_y)
+				# Track placed large decor positions to avoid same-pass overlaps
+				if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1":
+					placed_gate_positions.append(final_pos)
+				if selected_decor_name == "gate1":
+					print("[GateDebug] SPAWNED at ", decoration_instance.global_position, " floor_based=", floor_based)
+				if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+					print("[WebDebug] SPAWNED ", selected_decor_name, " at ", decoration_instance.global_position)
+				print("[DecorPopulate] SUCCESS: Spawned decoration '%s' at tile %s (world pos: %s)" % [selected_decor_name, cell, decoration_instance.global_position])
+				did_spawn = true
 				# Do not free spawner here; it holds signal handlers for the decoration
 				if did_spawn:
 					break # Bir kural tuttuysa diğerlerini deneme
@@ -2407,13 +2441,16 @@ func setup_level_transitions() -> void:
 				start_door.door_opened.connect(_on_door_opened)
 			print("Connected to pre-placed start door")
 			
-			# Player'ı start kapısının pozisyonunda spawn et
-			var player = get_node_or_null("Player")
-			if player:
-				# StartDoor'un gerçek global pozisyonunu kullan
-				player.global_position = start_door.global_position + Vector2(0, -64)  # Kapının hemen üstünde
-				print("[LevelGenerator] Player spawned at StartDoor position: ", player.global_position)
-				print("[LevelGenerator] StartDoor actual position: ", start_door.global_position)
+		# Kapı pozisyonunu kaydet
+		door_positions.append(start_door.global_position)
+		
+		# Player'ı start kapısının pozisyonunda spawn et
+		var player = get_node_or_null("Player")
+		if player:
+			# StartDoor'un gerçek global pozisyonunu kullan
+			player.global_position = start_door.global_position + Vector2(0, -64)  # Kapının hemen üstünde
+			print("[LevelGenerator] Player spawned at StartDoor position: ", player.global_position)
+			print("[LevelGenerator] StartDoor actual position: ", start_door.global_position)
 		else:
 			print("WARNING: No StartDoor found in start chunk")
 	else:
@@ -2431,6 +2468,9 @@ func setup_level_transitions() -> void:
 		var finish_door = finish_chunk.get_node_or_null("FinishDoor")
 		
 		if finish_door:
+			# Kapı pozisyonunu kaydet
+			door_positions.append(finish_door.global_position)
+			
 			# Connect the pre-placed door to our signal handler
 			if not finish_door.door_opened.is_connected(_on_door_opened):
 				finish_door.door_opened.connect(_on_door_opened)
@@ -2471,6 +2511,31 @@ func _on_miniboss_spawned(enemy: Node, boss_chunk: Node2D) -> void:
 	# Wire defeat to enabling FinishZone under the boss arena chunk
 	if enemy and enemy.has_signal("enemy_defeated"):
 		enemy.connect("enemy_defeated", Callable(self, "_on_miniboss_defeated").bind(boss_chunk))
+
+func _calculate_door_positions() -> void:
+	# Kapı pozisyonlarını gerçek door pozisyonlarından al
+	door_positions.clear()
+	
+	# Gerçek door pozisyonlarını dinamik olarak al
+	var doors = get_tree().get_nodes_in_group("doors")
+	print("[DoorPositions] Found doors in group: ", doors.size())
+	
+	for door in doors:
+		if door and is_instance_valid(door):
+			var door_pos = door.global_position
+			door_positions.append(door_pos)
+			print("[DoorPositions] Added door at: ", door_pos)
+	
+	# Fallback: Eğer door bulunamazsa hata ver
+	if door_positions.is_empty():
+		print("[DoorPositions] ERROR: No doors found! This should not happen!")
+		push_error("No doors found in scene - door proximity check will fail!")
+	
+	print("[DoorPositions] Final door positions: ", door_positions)
+
+func get_door_positions() -> Array[Vector2]:
+	# Decoration spawner'lar için kapı pozisyonlarını döndür
+	return door_positions
 
 func _on_miniboss_defeated(boss_chunk: Node2D) -> void:
 	if not boss_chunk:

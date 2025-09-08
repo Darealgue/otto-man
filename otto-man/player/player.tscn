@@ -2098,7 +2098,7 @@ shape = SubResource("CapsuleShape2D_fm8kb")
 
 [node name="Camera2D" type="Camera2D" parent="." groups=["Camera Groups"]]
 position = Vector2(0, -30)
-zoom = Vector2(1.23, 1.23)
+zoom = Vector2(1.5, 1.5)
 limit_smoothed = true
 position_smoothing_speed = 50.0
 rotation_smoothing_speed = 0.5

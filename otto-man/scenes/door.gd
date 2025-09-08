@@ -29,6 +29,9 @@ var current_state: DoorState = DoorState.CLOSED
 @onready var interaction_prompt: Label = $InteractionPrompt
 
 func _ready() -> void:
+	# Add to doors group for decoration spawner to find
+	add_to_group("doors")
+	
 	# Set up collision detection
 	collision_layer = CollisionLayers.NONE
 	collision_mask = CollisionLayers.PLAYER

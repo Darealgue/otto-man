@@ -37,7 +37,7 @@ var _spawn_config: SpawnConfig
 var _is_active: bool = false  # Whether this spawn point is active
 signal enemy_spawned(enemy: Node)
 
-const ENEMY_Z_INDEX = 1  # Ensure enemies appear above ground but below player
+const ENEMY_Z_INDEX = 4  # Enemies appear above all decorations but below player
 
 func _ready() -> void:
 	# Load spawn configuration
@@ -119,8 +119,15 @@ func spawn_enemies() -> void:
 	
 	print("[EnemySpawner] Position set to: ", enemy.global_position)
 	
-	# Ensure enemy appears above tiles
+	# Ensure enemy appears above tiles - set both main node and sprite
 	enemy.z_index = ENEMY_Z_INDEX
+	# Also set sprite z_index if it exists
+	var enemy_sprite = enemy.get_node_or_null("AnimatedSprite2D")
+	if enemy_sprite:
+		enemy_sprite.z_index = ENEMY_Z_INDEX
+		print("[EnemySpawner] Set enemy sprite z_index to: ", ENEMY_Z_INDEX)
+	else:
+		print("[EnemySpawner] No AnimatedSprite2D found in enemy")
 	_spawned_enemies.append(enemy)
 	enemy_spawned.emit(enemy)
 	
