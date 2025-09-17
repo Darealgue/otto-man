@@ -9,7 +9,7 @@ script = ExtResource("1_mission_center")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0.1, 0.05, 0.02, 0.9)
+color = Color(0.1, 0.05, 0.02, 0.4)
 
 [node name="HeaderLabel" type="Label" parent="."]
 anchors_preset = 5
@@ -100,6 +100,73 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 text = "5"
+[node name="PageDot6" type="Panel" parent="PageIndicator"]
+layout_mode = 2
+custom_minimum_size = Vector2(20, 20)
+modulate = Color(0.5, 0.5, 0.5, 1)
+
+[node name="PageDot6Label" type="Label" parent="PageIndicator/PageDot6"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "6"
+horizontal_alignment = 1
+vertical_alignment = 1
+[node name="TradePage" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 50.0
+offset_top = 120.0
+offset_right = -50.0
+offset_bottom = -100.0
+
+[node name="TradeHeader" type="HBoxContainer" parent="TradePage"]
+layout_mode = 2
+
+[node name="TradeTitle" type="Label" parent="TradePage/TradeHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "💱 TİCARET"
+horizontal_alignment = 1
+
+[node name="TradeContent" type="HBoxContainer" parent="TradePage"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ActiveAgreementsPanel" type="VBoxContainer" parent="TradePage/TradeContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ActiveAgreementsTitle" type="Label" parent="TradePage/TradeContent/ActiveAgreementsPanel"]
+layout_mode = 2
+text = "📜 AKTİF ANLAŞMALAR"
+horizontal_alignment = 1
+
+[node name="ActiveAgreementsScroll" type="ScrollContainer" parent="TradePage/TradeContent/ActiveAgreementsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ActiveAgreementsList" type="VBoxContainer" parent="TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsScroll"]
+layout_mode = 2
+
+[node name="OffersPanel" type="VBoxContainer" parent="TradePage/TradeContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="OffersTitle" type="Label" parent="TradePage/TradeContent/OffersPanel"]
+layout_mode = 2
+text = "🧾 TEKLİFLER"
+horizontal_alignment = 1
+
+[node name="OffersScroll" type="ScrollContainer" parent="TradePage/TradeContent/OffersPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="OffersList" type="VBoxContainer" parent="TradePage/TradeContent/OffersPanel/OffersScroll"]
+layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 

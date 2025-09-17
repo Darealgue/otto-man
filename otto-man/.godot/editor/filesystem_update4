@@ -4,4 +4,8 @@ res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://chunks/dungeon/special/start_chunk.tscn
+res://village/missions/MissionSystemTestScene.tscn
+res://village/missions/MissionCenter.gd
 res://autoload/MissionManager.gd
+res://village/scripts/VillageManager.gd
+res://player/player.gd

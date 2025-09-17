@@ -25,13 +25,22 @@ var world_events: Array[Dictionary] = []
 var player_reputation: int = 50  # 0-100 arası
 var world_stability: int = 70  # 0-100 arası
 
+# Dünya haberleri ve oran modifikasyonları
+var trade_agreements: Array[Dictionary] = []  # [{partner, daily_gold, modifiers:{res:delta}, remaining_days, infinite, applied_ids: Array[int]}]
+var active_rate_modifiers: Array[Dictionary] = []  # [{resource, delta, expires_day, source}]
+var _last_tick_day: int = 0
+var available_trade_offers: Array[Dictionary] = []  # [{partner, daily_gold, mods:{res:delta}, days, infinite}]
+var settlements: Array[Dictionary] = []  # [{id, name, type, relation, wealth, stability, military, biases:{wood:int,stone:int,food:int}}]
+
 # Sinyaller
 signal mission_completed(cariye_id: int, mission_id: String, successful: bool, results: Dictionary)
 signal mission_started(cariye_id: int, mission_id: String)
 signal mission_cancelled(cariye_id: int, mission_id: String)
 signal concubine_leveled_up(cariye_id: int, new_level: int)
 signal mission_chain_completed(chain_id: String, rewards: Dictionary)
+signal news_posted(news: Dictionary)
 signal mission_unlocked(mission_id: String)
+signal trade_offers_updated()
 
 func _ready():
 	# Başlangıç görevleri ve cariyeler oluştur
@@ -43,6 +52,18 @@ func _ready():
 	
 	# Başlangıçta sadece 2-3 görev olsun
 	limit_initial_missions()
+
+	# Günlük tick başlangıcı
+	var tm = get_node_or_null("/root/TimeManager")
+	if tm and tm.has_method("get_day"):
+		_last_tick_day = tm.get_day()
+
+	# Yerleşimleri kur ve ilk teklifleri bunlara göre üret
+	create_settlements()
+	refresh_trade_offers("init")
+
+	# Başlangıç ticaret teklifleri
+	refresh_trade_offers("init")
 
 func _process(delta):
 	# Aktif görevleri kontrol et
@@ -58,6 +79,14 @@ func _process(delta):
 	
 	# Dünya olaylarını güncelle
 	update_world_events(delta)
+
+	# Günlük tick kontrolü
+	var tm = get_node_or_null("/root/TimeManager")
+	if tm and tm.has_method("get_day"):
+		var d = tm.get_day()
+		if d != _last_tick_day and d > 0:
+			_last_tick_day = d
+			_on_new_day(d)
 
 # Başlangıç görevleri oluştur
 func create_initial_missions():
@@ -314,6 +343,12 @@ func _apply_reward(reward_type: String, amount):
 			if global_data:
 				global_data.gold += int_amount
 				print("💰 +%d altın kazandın!" % int_amount)
+		"wood_rate":
+			_active_rate_add("wood", int_amount, 1, "Görev Ödülü")
+		"stone_rate":
+			_active_rate_add("stone", int_amount, 1, "Görev Ödülü")
+		"food_rate":
+			_active_rate_add("food", int_amount, 1, "Görev Ödülü")
 		"wood", "stone", "food":
 			# Şimdilik diğer kaynak ödülleri devre dışı
 			print("📦 %s ödülü şimdilik devre dışı: +%d" % [reward_type, int_amount])
@@ -344,6 +379,8 @@ func _apply_penalty(penalty_type: String, amount):
 			if global_data:
 				global_data.gold = max(0, global_data.gold + int_amount)  # amount negatif olacak
 				print("💸 %d altın kaybettin!" % abs(int_amount))
+		"food_rate":
+			_active_rate_add("food", int_amount, 1, "Görev Cezası")
 		"wood", "stone", "food":
 			# Şimdilik diğer kaynak cezaları devre dışı
 			print("📦 %s cezası şimdilik devre dışı: %d" % [penalty_type, int_amount])
@@ -1296,6 +1333,148 @@ func process_world_events():
 	# Yeni olay başlatma şansı
 	if randf() < 0.3:  # %30 şans
 		start_random_world_event()
+		# Olası ticaret etkisiyle birlikte yeni teklifler yenilenebilir
+		refresh_trade_offers("world_event")
+
+func post_news(category: String, title: String, content: String, color: Color = Color.WHITE):
+	var tm = get_node_or_null("/root/TimeManager")
+	var time_text = tm.get_time_string() if tm and tm.has_method("get_time_string") else "Şimdi"
+	var news = {
+		"category": category,
+		"title": title,
+		"content": content,
+		"time": time_text,
+		"color": color
+	}
+	news_posted.emit(news)
+
+func _on_new_day(day: int):
+	# Süresi dolan rate modifier'ları kaldır
+	var remaining: Array[Dictionary] = []
+	for m in active_rate_modifiers:
+		if not m.has("expires_day") or m["expires_day"] >= day:
+			remaining.append(m)
+		else:
+			post_news("Bilgi", "Etki Sona Erdi", "%s için %+d etki bitti" % [m.get("resource","?"), int(m.get("delta",0))], Color(0.8,0.8,0.8))
+	active_rate_modifiers = remaining
+
+	# Ticaret anlaşmalarını uygula (günlük peşin ödeme ve modlar)
+	var kept: Array[Dictionary] = []
+	for ta in trade_agreements:
+		var daily_gold = int(ta.get("daily_gold", 0))
+		if daily_gold > 0:
+			var gpd = get_node_or_null("/root/GlobalPlayerData")
+			if gpd and gpd.has_method("add_gold"):
+				gpd.add_gold(-daily_gold)
+		# Modifiers uygula (sonsuz için expires_day yok; süreliyse day+remaining_days)
+		var mods: Dictionary = ta.get("modifiers", {})
+		for res in mods.keys():
+			var delta = int(mods[res])
+			# Günlük etki: sadece bugünün sonunda sona ersin
+			var expires_day = day
+			active_rate_modifiers.append({"resource": res, "delta": delta, "expires_day": expires_day, "source": ta.get("partner","ticaret")})
+		# Gün sayısını azalt
+		if ta.get("infinite", false):
+			kept.append(ta)
+		else:
+			var rem = int(ta.get("remaining_days", 0)) - 1
+			if rem > 0:
+				ta["remaining_days"] = rem
+				kept.append(ta)
+			else:
+				post_news("Bilgi", "Ticaret Bitti", "%s ile anlaşma sona erdi" % ta.get("partner","?"), Color(0.8,0.8,1))
+	trade_agreements = kept
+
+	# Her gün yeni teklifler gelebilir
+	refresh_trade_offers("day_tick")
+
+	# İlişki ve istikrar değişimleri (küçük dalgalanmalar) + haberler
+	for s in settlements:
+		var drel = randi_range(-2, 2)
+		s["relation"] = clamp(int(s["relation"]) + drel, 0, 100)
+		var dstab = randi_range(-1, 1)
+		s["stability"] = clamp(int(s.get("stability",70)) + dstab, 0, 100)
+		if drel != 0:
+			var txt = "%s ile ilişkiler %s%d" % [s.get("name","?"), ("+" if drel>0 else ""), drel]
+			post_news("Bilgi", "Diplomasi Güncellemesi", txt, Color(0.9,0.9,1))
+
+	# Olası çatışmaları simüle et ve görevlere yansıt
+	_simulate_conflicts()
+
+func _simulate_conflicts():
+	if settlements.size() < 2:
+		return
+	# Çatışma olasılığı: düşük istikrar veya kötü ilişki
+	if randf() > 0.35:
+		return
+	# Saldıran: istikrarı düşük ya da askeri yüksek olanlardan biri
+	var attacker = settlements[randi() % settlements.size()]
+	for i in range(3):
+		var cand = settlements[randi() % settlements.size()]
+		if int(cand.get("stability", 50)) < int(attacker.get("stability", 50)) or int(cand.get("military", 30)) > int(attacker.get("military", 30)):
+			attacker = cand
+	# Savunmacı: saldıranla ilişkisi en düşük olanlardan biri
+	var defender = settlements[randi() % settlements.size()]
+	for i in range(4):
+		var cand2 = settlements[randi() % settlements.size()]
+		if cand2 == attacker:
+			continue
+		if int(cand2.get("relation", 50)) < int(defender.get("relation", 50)):
+			defender = cand2
+	if attacker == defender:
+		return
+	# İlişki azalt
+	attacker["relation"] = clamp(int(attacker.get("relation",50)) - 3, 0, 100)
+	defender["relation"] = clamp(int(defender.get("relation",50)) - 3, 0, 100)
+	# Haber
+	var title = "Çatışma Patlak Verdi"
+	var content = "%s, %s topraklarına baskın düzenliyor!" % [attacker.get("name","?"), defender.get("name","?")]
+	post_news("Uyarı", title, content, Color(1,0.8,0.8))
+	# Görev fırsatları oluştur
+	_create_conflict_missions(attacker, defender)
+
+func _create_conflict_missions(attacker: Dictionary, defender: Dictionary):
+	# Savunma görevi
+	var defend = Mission.new()
+	defend.id = "defend_%d" % Time.get_unix_time_from_system()
+	defend.name = "Savunma Yardımı: %s" % defender.get("name","?")
+	defend.description = "%s'nin saldırısına karşı %s'yi savun." % [attacker.get("name","?"), defender.get("name","?")]
+	defend.mission_type = Mission.MissionType.SAVAŞ
+	defend.difficulty = Mission.Difficulty.ORTA
+	defend.duration = 12.0
+	defend.success_chance = 0.6
+	defend.required_cariye_level = 2
+	defend.required_army_size = 4
+	defend.required_resources = {"gold": 80}
+	defend.rewards = {"gold": 250, "wood": 40}
+	defend.penalties = {"gold": -40}
+	defend.status = Mission.Status.MEVCUT
+	missions[defend.id] = defend
+
+	# Yağma görevi (fırsat)
+	var raid = Mission.new()
+	raid.id = "raid_%d" % (Time.get_unix_time_from_system() + 1)
+	raid.name = "Yağma Fırsatı: %s" % defender.get("name","?")
+	raid.description = "%s ve %s arasındaki kaostan faydalanarak kaynak yağmala." % [attacker.get("name","?"), defender.get("name","?")]
+	raid.mission_type = Mission.MissionType.SAVAŞ
+	raid.difficulty = Mission.Difficulty.KOLAY
+	raid.duration = 8.0
+	raid.success_chance = 0.7
+	raid.required_cariye_level = 1
+	raid.required_army_size = 3
+	raid.required_resources = {"gold": 50}
+	raid.rewards = {"gold": 180, "stone": 30}
+	raid.penalties = {"gold": -30, "reputation": -5}
+	raid.status = Mission.Status.MEVCUT
+	missions[raid.id] = raid
+	post_news("Bilgi", "Görev Fırsatı", "Savunma ve yağma görevleri listene eklendi", Color(0.8,1,0.8))
+
+func cancel_trade_agreement_by_index(idx: int):
+	if idx < 0 or idx >= trade_agreements.size():
+		return
+	var ta = trade_agreements[idx]
+	post_news("Uyarı", "Ticaret İptal", "%s ile anlaşma iptal edildi" % ta.get("partner","?"), Color(1,0.8,0.8))
+	trade_agreements.remove_at(idx)
 
 # Rastgele dünya olayı başlat
 func start_random_world_event():
@@ -1314,11 +1493,13 @@ func start_random_world_event():
 	
 	print("🌍 Dünya olayı başladı: " + selected_event["name"])
 	print("   " + selected_event["description"])
+	post_news("Uyarı", selected_event["name"], selected_event["description"], Color(1,0.8,0.8))
 
 # Dünya olayını sonlandır
 func end_world_event(event: Dictionary):
 	print("🌍 Dünya olayı sona erdi: " + event["name"])
 	event.erase("start_time")
+	post_news("Bilgi", event["name"] + " Sona Erdi", "Etki bitti.", Color(0.8,0.8,0.8))
 
 # Aktif dünya olaylarını al
 func get_active_world_events() -> Array:
@@ -1329,6 +1510,93 @@ func get_active_world_events() -> Array:
 			if elapsed < event["duration"]:
 				active.append(event)
 	return active
+
+func get_external_rate_delta(resource: String) -> int:
+	var tm = get_node_or_null("/root/TimeManager")
+	var day = tm.get_day() if tm and tm.has_method("get_day") else 0
+	var sum := 0
+	for m in active_rate_modifiers:
+		if m.get("resource", "") != resource:
+			continue
+		var exp = int(m.get("expires_day", 0))
+		if exp == 0 or exp >= day:
+			sum += int(m.get("delta", 0))
+	return sum
+
+func _active_rate_add(resource: String, delta: int, days: int, source: String):
+	var tm = get_node_or_null("/root/TimeManager")
+	var day = tm.get_day() if tm and tm.has_method("get_day") else 0
+	var expires = 0
+	if days > 0:
+		expires = day + days - 1
+	active_rate_modifiers.append({"resource": resource, "delta": delta, "expires_day": expires, "source": source})
+	var sign = "+" if delta >= 0 else ""
+	post_news("Bilgi", "Üretim Etkisi", "%s için %s%d (kaynak: %s)" % [resource, sign, delta, source], Color(0.8,0.8,1))
+
+func add_trade_agreement(partner: String, daily_gold: int, modifiers: Dictionary, days: int = 0, infinite: bool = false):
+	var ta = {"partner": partner, "daily_gold": daily_gold, "modifiers": modifiers, "infinite": infinite}
+	if not infinite:
+		ta["remaining_days"] = max(1, days)
+	trade_agreements.append(ta)
+	var mods_text = ""
+	for r in modifiers.keys():
+		var d = int(modifiers[r])
+		var s = "+" if d >= 0 else ""
+		mods_text += "%s%s %s  " % [s, d, r]
+	var title = "Ticaret Anlaşması"
+	var content = "%s ile %sAltın/gün karşılığı: %s%s" % [partner, str(daily_gold), mods_text, (" (Süresiz)" if infinite else "")] 
+	post_news("Başarı", title, content, Color(0.8,1,0.8))
+	# Anlaşma yapıldıktan sonra teklifler değişebilir
+	refresh_trade_offers("agreement_added")
+
+func get_trade_offers() -> Array[Dictionary]:
+	return available_trade_offers.duplicate(true)
+
+func refresh_trade_offers(reason: String = "manual"):
+	# Yerleşimlere dayalı üretici: ilişki, zenginlik ve önyargılara göre teklifler
+	var resources = ["food", "wood", "stone"]
+	var new_offers: Array[Dictionary] = []
+	if settlements.is_empty():
+		create_settlements()
+	for s in settlements:
+		# İlişki ve zenginliğe göre teklif sayısı ve koşullar
+		var rel:int = int(s.get("relation", 50))
+		var wealth:int = int(s.get("wealth", 50))
+		var bias:Dictionary = s.get("biases", {})
+		var num = 1
+		if rel >= 70:
+			num += 1
+		if wealth >= 70:
+			num += 1
+		for i in range(num):
+			var res = resources[randi() % resources.size()]
+			# bias etkisi
+			if randf() < 0.6:
+				for k in bias.keys():
+					if randf() < 0.5:
+						res = k
+						break
+			var delta = clamp(int(bias.get(res, 1)) + randi_range(0,2), 1, 4)
+			var base_price = 40 + randi() % 100
+			# ilişki arttıkça indirim
+			var price = int(base_price * (1.0 - (rel - 50) * 0.003))
+			var days = randi_range(2,5)
+			var infinite_flag = randf() < 0.2 and rel >= 65
+			var offer = {"partner": s.get("name","?"), "daily_gold": max(10, price), "mods": {res: delta}, "days": days, "infinite": infinite_flag}
+			new_offers.append(offer)
+	available_trade_offers = new_offers
+	trade_offers_updated.emit()
+	post_news("Bilgi", "Yeni Ticaret Teklifleri", "%d yeni teklif geldi (%s)" % [available_trade_offers.size(), reason], Color(0.8,0.9,1))
+
+func create_settlements():
+	# Basit başlangıç seti
+	settlements = [
+		{"id": "east_village", "name": "Doğu Köyü", "type": "village", "relation": 60, "wealth": 55, "stability": 65, "military": 20, "biases": {"food": 3}},
+		{"id": "west_town", "name": "Batı Kasabası", "type": "town", "relation": 50, "wealth": 70, "stability": 60, "military": 35, "biases": {"wood": 2}},
+		{"id": "south_city", "name": "Güney Şehri", "type": "city", "relation": 65, "wealth": 80, "stability": 75, "military": 50, "biases": {"stone": 2, "food": 1}},
+		{"id": "north_fort", "name": "Kuzey Kalesi", "type": "fort", "relation": 45, "wealth": 45, "stability": 55, "military": 80, "biases": {"stone": 3}}
+	]
+	post_news("Bilgi", "Komşular Tanımlandı", "%d yerleşim keşfedildi" % settlements.size(), Color(0.8,1,0.8))
 
 # Oyuncu itibarını güncelle
 func update_player_reputation(change: int):
@@ -1341,6 +1609,7 @@ func update_world_stability(change: int):
 	world_stability += change
 	world_stability = clamp(world_stability, 0, 100)
 	print("🌍 Dünya istikrarı: " + str(world_stability))
+	post_news("Bilgi", "İstikrar Değişti", "Yeni istikrar: %d" % world_stability, Color(0.8,1,0.8))
 
 # Oyuncu seviyesine göre dinamik görev üretimi
 func generate_level_appropriate_missions() -> Array:

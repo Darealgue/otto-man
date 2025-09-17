@@ -198,12 +198,20 @@ func get_resource_level(resource_type: String) -> int:
 					if "assigned_workers" in building:
 						total_workers_for_resource += building.assigned_workers
 
+		# Harici (ticaret/etki) modifikasyonlarını ekle
+		var mm = get_node_or_null("/root/MissionManager")
+		if mm and mm.has_method("get_external_rate_delta"):
+			total_workers_for_resource += int(mm.get_external_rate_delta(resource_type))
 		return total_workers_for_resource
 	else:
 		# Hayır, ikincil/gelişmiş kaynak (ekmek vb.). resource_levels'dan oku.
 		# Bu değer, register/unregister_advanced_production tarafından güncellenir.
 		# #print("DEBUG VillageManager: get_resource_level (advanced) for %s returning %s" % [resource_type, resource_levels.get(resource_type, 0)]) #<<< DEBUG
-		return resource_levels.get(resource_type, 0)
+		var base_val = resource_levels.get(resource_type, 0)
+		var mm2 = get_node_or_null("/root/MissionManager")
+		if mm2 and mm2.has_method("get_external_rate_delta"):
+			base_val += int(mm2.get_external_rate_delta(resource_type))
+		return base_val
 
 # Belirli bir kaynak seviyesinin ne kadarının kullanılabilir (kilitli olmayan) olduğunu döndürür
 func get_available_resource_level(resource_type: String) -> int:

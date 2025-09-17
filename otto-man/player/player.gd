@@ -88,6 +88,31 @@ var is_dashing: bool = false  # For Speed Demon powerup
 
 var facing_direction := 1.0  # 1 for right, -1 for left
 
+# UI lock: when true, movement and inputs are ignored (e.g., menus open)
+var _ui_locked: bool = false
+var _ui_lock_logged_once: bool = false
+var _ui_lock_last_reason: String = ""
+
+func _is_any_menu_open() -> bool:
+	var mcs = get_tree().get_first_node_in_group("mission_center")
+	if mcs and mcs.visible:
+		return true
+	return false
+
+func set_ui_locked(locked: bool) -> void:
+	_ui_locked = locked
+	_ui_lock_logged_once = false
+	_ui_lock_last_reason = "MissionCenter.set_ui_locked(%s)" % (locked)
+	# Hard lock: stop state machine and animations, zero velocity
+	if locked:
+		velocity = Vector2.ZERO
+	if state_machine:
+		state_machine.set_process(not locked)
+		state_machine.set_physics_process(not locked)
+	if animation_tree:
+		animation_tree.active = not locked
+	print("[Player] set_ui_locked -> ", locked)
+
 @onready var animation_tree = $AnimationTree
 @onready var animation_player = $AnimationPlayer
 @onready var sprite = $Sprite2D
@@ -160,10 +185,39 @@ func _ready():
 	# Initialize stats from PlayerStats
 	_sync_stats_from_player_stats()
 func _input(event: InputEvent) -> void:
+	# Debug: if locked, show which input attempted
+	if _ui_locked or _is_any_menu_open():
+		if event.is_pressed():
+			var act := ""
+			if event.is_action("move_left"): act = "move_left"
+			elif event.is_action("move_right"): act = "move_right"
+			elif event.is_action("jump"): act = "jump"
+			elif event.is_action("dash"): act = "dash"
+			elif event.is_action("attack"): act = "attack"
+			print("[Player] Input blocked due to UI lock -> ", act)
+		return
 	if VillageManager.active_dialogue_npc != null:
 		if event.is_action_pressed("interact"):
 			VillageManager.active_dialogue_npc._on_interact_button_pressed()
 func _physics_process(delta):
+	# Stop all player updates while UI is locked
+	var menu_open := _is_any_menu_open()
+	if _ui_locked or menu_open:
+		if not _ui_lock_logged_once:
+			var reason: String = ""
+			if _ui_locked:
+				reason = _ui_lock_last_reason
+			else:
+				reason = "MissionCenter visible"
+			print("[Player] UI lock active - movement halted (", reason, ")")
+			_ui_lock_logged_once = true
+		# Ensure we don't move
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
+	elif _ui_lock_logged_once:
+		print("[Player] UI lock released - controls restored")
+		_ui_lock_logged_once = false
 	# Update attack cooldown timer
 	if attack_cooldown_timer > 0:
 		attack_cooldown_timer -= delta

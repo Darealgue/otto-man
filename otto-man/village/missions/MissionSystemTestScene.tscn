@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://b8x7k2m3n4p5q"]
+
+[ext_resource type="Script" path="res://village/missions/MissionSystemTest.gd" id="1_test_script"]
+[ext_resource type="PackedScene" uid="uid://c5ne8mlwdnbrv" path="res://village/missions/MissionCenterScene.tscn" id="2_mission_center_scene"]
+
+[node name="MissionSystemTestScene" type="Node2D"]
+script = ExtResource("1_test_script")
+
+[node name="MissionCenter" parent="." instance=ExtResource("2_mission_center_scene")]
+
+[node name="TestLabel" type="Label" parent="."]
+offset_right = 400.0
+offset_bottom = 50.0
+text = "Mission System Test Scene
+Ctrl + A: Open Mission Center
+Ctrl + B: Close Mission Center"
+horizontal_alignment = 1
+vertical_alignment = 1
