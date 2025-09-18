@@ -48,6 +48,12 @@ var current_concubine_detail_index: int = 0 # Cariye detay sayfasında seçim i�
 
 # Görev sonucu gösterimi
 var showing_mission_result: bool = false
+
+# Haber kuyrukları - MissionCenter'da doğrudan sakla
+var village_news: Array[Dictionary] = []
+var world_news: Array[Dictionary] = []
+var news_queue_village: Array[Dictionary] = []
+var news_queue_world: Array[Dictionary] = []
 var mission_result_timer: float = 0.0
 var mission_result_duration: float = 5.0
 
@@ -157,8 +163,7 @@ var current_news_index_village: int = 0
 var current_news_index_world: int = 0
 var current_news_index_random: int = 0
 var news_detail_overlay: Panel = null
-var news_queue_village: Array = []
-var news_queue_world: Array = []
+# Haber kuyrukları artık MissionManager'da tutuluyor
 
 func _ready():
 	print("=== MISSION CENTER DEBUG ===")
@@ -3089,22 +3094,49 @@ func handle_news_input(event):
 		return
 
 func _on_news_posted(news: Dictionary):
-	# Kuyruklara ekle ve UI'ya render et (üstte olacak şekilde)
+	# Haberler MissionCenter'da doğrudan saklanıyor
 	var is_village = news.get("category", "") in ["Başarı", "Bilgi"]
+	print("📰 ===== YENİ HABER DEBUG =====")
+	print("📰 Yeni haber geldi: ", news.get("title", "Başlık yok"), " | Village: ", is_village)
+	print("📰 Mevcut sayfa: ", current_page, " | NEWS sayfası mı: ", current_page == PageType.NEWS)
+
+	# Haberleri MissionCenter'da doğrudan sakla
 	if is_village:
 		news_queue_village.push_front(news)
-		var list_node: VBoxContainer = get_node_or_null("NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList")
-		if list_node:
-			var card = create_news_card(news)
-			list_node.add_child(card)
+		# Kuyruk boyutunu sınırla (son 50 haber)
+		if news_queue_village.size() > 50:
+			news_queue_village = news_queue_village.slice(0, 50)
+		print("📰 ✅ Village haber MissionCenter'da saklandı: ", news_queue_village.size())
 	else:
 		news_queue_world.push_front(news)
-		var list_node2: VBoxContainer = get_node_or_null("NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList")
-		if list_node2:
-			var card2 = create_news_card(news)
-			list_node2.add_child(card2)
+		# Kuyruk boyutunu sınırla (son 50 haber)
+		if news_queue_world.size() > 50:
+			news_queue_world = news_queue_world.slice(0, 50)
+		print("📰 ✅ World haber MissionCenter'da saklandı: ", news_queue_world.size())
+
+	# Sadece haber sayfasındaysak UI'ya ekle
 	if current_page == PageType.NEWS:
+		print("📰 ✅ Haber sayfasındayız, UI'ya ekleniyor...")
+		if is_village:
+			var list_node: VBoxContainer = get_node_or_null("NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList")
+			if list_node:
+				var card = create_news_card(news)
+				list_node.add_child(card)
+				print("📰 ✅ Village haber kartı eklendi")
+			else:
+				print("📰 ❌ Village list node bulunamadı!")
+		else:
+			var list_node2: VBoxContainer = get_node_or_null("NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList")
+			if list_node2:
+				var card2 = create_news_card(news)
+				list_node2.add_child(card2)
+				print("📰 ✅ World haber kartı eklendi")
+			else:
+				print("📰 ❌ World list node bulunamadı!")
 		_news_refresh_selection_visual()
+	else:
+		print("📰 ⚠️ Haber sayfasında değiliz, UI'ya eklenmedi")
+	print("📰 ===== YENİ HABER DEBUG BİTTİ =====")
 
 func _open_trade_overlay():
 	if trade_overlay:
@@ -4092,26 +4124,76 @@ func create_normal_stylebox() -> StyleBoxFlat:
 
 # Haber Merkezi UI'ını güncelle
 func update_news_ui():
-	if current_page != PageType.NEWS:
+	print("📰 ===== HABER DEBUG BAŞLADI =====")
+	print("📰 Haber Merkezi güncelleniyor...")
+	
+	# MissionManager'dan haber kuyruklarını al
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		print("📰 ❌ MissionManager bulunamadı!")
 		return
 	
-	print("📰 Haber Merkezi güncelleniyor...")
-	# Kuyruktan çiz: önce temizle
+	print("📰 ✅ MissionManager bulundu")
+	print("📰 MissionManager type: ", mm.get_class())
+	print("📰 MissionManager script: ", mm.get_script())
+	
+	# MissionManager'dan haber kuyruklarını güvenli şekilde al
+	var village_news = []
+	var world_news = []
+	
+	# MissionManager'ın hazır olmasını bekle - daha güçlü yöntem
+	var attempts = 0
+	while not ("news_queue_village" in mm) and attempts < 10:
+		await get_tree().process_frame
+		attempts += 1
+		print("📰 MissionManager hazır bekleniyor... deneme: ", attempts)
+		print("📰 MissionManager script path: ", mm.get_script().resource_path if mm.get_script() else "No script")
+		print("📰 MissionManager properties: ", mm.get_property_list().map(func(p): return p.name))
+	
+	# MissionCenter'da doğrudan haber kuyruklarını kullan
+	print("📰 🔄 MissionCenter'da doğrudan haber kuyrukları kullanılıyor...")
+	
+	# Haber kuyruklarını MissionCenter'da doğrudan kullan
+	village_news = news_queue_village
+	world_news = news_queue_world
+	
+	print("📰 ✅ MissionCenter haber kuyrukları kullanıldı")
+	print("📰 Final Village haber sayısı: ", village_news.size())
+	print("📰 Final World haber sayısı: ", world_news.size())
+	print("📰 ===== HABER DEBUG BİTTİ =====")
+	
+	# Kuyruktan çiz: önce temizle, sonra doldur
 	var village_list = get_node_or_null("NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList")
 	var world_list = get_node_or_null("NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList")
-	if village_list:
+	
+	# Sadece gerçek haberler varsa listeyi güncelle
+	if village_news.size() > 0 and village_list:
+		print("📰 🔄 Village haber listesi güncelleniyor: ", village_news.size(), " haber")
 		for c in village_list.get_children():
 			c.queue_free()
-		for n in news_queue_village:
+		for n in village_news:
 			village_list.add_child(create_news_card(n))
-	if world_list:
+		print("📰 ✅ Village haber listesi güncellendi")
+	elif village_list:
+		print("📰 ⚠️ Village haber yok, liste temizleniyor")
+		for c in village_list.get_children():
+			c.queue_free()
+	
+	if world_news.size() > 0 and world_list:
+		print("📰 🔄 World haber listesi güncelleniyor: ", world_news.size(), " haber")
 		for c in world_list.get_children():
 			c.queue_free()
-		for n in news_queue_world:
+		for n in world_news:
 			world_list.add_child(create_news_card(n))
+		print("📰 ✅ World haber listesi güncellendi")
+	elif world_list:
+		print("📰 ⚠️ World haber yok, liste temizleniyor")
+		for c in world_list.get_children():
+			c.queue_free()
 	# Rastgele olay paneli şimdilik korunuyor (placeholder)
 	update_random_events()
-	_news_refresh_selection_visual()
+	if current_page == PageType.NEWS:
+		_news_refresh_selection_visual()
 
 # Haber Merkezi navigasyonu
 func handle_news_navigation():
@@ -4335,6 +4417,12 @@ func open_menu():
 	update_missions_ui()
 	update_active_missions_cards()
 	update_available_missions_cards()
+	
+	# Haber kuyruklarını yeniden yükle (yeni instance için)
+	print("🎯 ===== OPEN_MENU DEBUG =====")
+	print("🎯 MissionCenter açılıyor, haber kuyrukları yükleniyor...")
+	update_news_ui()
+	print("🎯 ===== OPEN_MENU DEBUG BİTTİ =====")
 
 # Mission Center menüsünü kapat
 func close_menu():
