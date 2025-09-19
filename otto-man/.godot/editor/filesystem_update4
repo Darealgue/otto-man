@@ -5,3 +5,5 @@ res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://chunks/dungeon/special/start_chunk.tscn
 res://village/missions/MissionSystemTestScene.tscn
+res://enemy/turtle/turtle_enemy.tscn
+res://components/enemy_hitbox.gd

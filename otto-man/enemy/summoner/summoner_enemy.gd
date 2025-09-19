@@ -276,6 +276,10 @@ func die() -> void:
 	# Change behavior to dead first
 	change_behavior("dead", true)
 	
+	# Set z_index above player (player z_index = 5)
+	if sprite:
+		sprite.z_index = 6
+	
 	# Disable ALL collision except with ground
 	collision_layer = CollisionLayers.NONE  # No collision with anything
 	collision_mask = CollisionLayers.WORLD  # Only collide with environment
@@ -295,16 +299,12 @@ func die() -> void:
 	emit_signal("enemy_defeated")
 	PowerupManager.on_enemy_killed()
 	
-	# Wait before starting fade out
-	await get_tree().create_timer(4.0).timeout  # Increased from 0 to 4.0 seconds
-	
-	# Start fade out and return to pool
-	var tween = create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 2.0)  # Increased from 2.0 to match heavy enemy
-	await tween.finished
-	
-	# Return to pool after fade out
-	queue_free()
+	# Don't fade out or queue_free - let corpse persist
+	# await get_tree().create_timer(4.0).timeout
+	# var tween = create_tween()
+	# tween.tween_property(self, "modulate:a", 0.0, 2.0)
+	# await tween.finished
+	# queue_free()
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
 	if current_behavior == "dead" or invulnerable:

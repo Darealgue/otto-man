@@ -22,6 +22,12 @@ const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effec
 @export var max_fall_speed: float = 2000.0
 @export var jump_cut_height: float = 0.5
 @export var max_jump_time: float = 0.4
+
+# Hollow Knight tarzı zıplama parametreleri
+@export var jump_apex_gravity_multiplier: float = 0.3  # Tepe noktasında çok zayıf yer çekimi
+@export var jump_fall_acceleration: float = 0.1  # Düşerken yer çekiminin artış hızı
+@export var max_fall_gravity_multiplier: float = 3.5  # Maksimum düşme yer çekimi
+@export var jump_apex_threshold: float = 0.1  # Tepe noktası eşiği (velocity.y'nin 0'a yakın olduğu alan)
 @export var jump_horizontal_dampening: float = 0.9
 @export var wall_slide_speed: float = 150.0
 @export var wall_jump_velocity: Vector2 = Vector2(450.0, -600.0)
@@ -52,6 +58,7 @@ var jump_timer: float = 0.0
 var is_jumping: bool = false
 var jump_buffer_timer: float = 0.0
 var current_gravity_multiplier: float = 1.0
+var jump_fall_gravity_progress: float = 0.0  # Düşerken yer çekimi artış progressi
 var is_wall_sliding: bool = false
 var wall_normal: Vector2 = Vector2.ZERO
 var can_wall_jump: bool = true
@@ -241,12 +248,23 @@ func _physics_process(delta):
 		$StateMachine.transition_to("Dash")
 		return
 	
+	# Handle hurt exit timer
+	if has_meta("hurt_exit_timer"):
+		var timer = get_meta("hurt_exit_timer")
+		timer -= delta
+		if timer <= 0:
+			remove_meta("hurt_exit_timer")
+		else:
+			set_meta("hurt_exit_timer", timer)
+	
 	# Handle sprite flipping
-	if not is_wall_jumping:  # Only auto-flip sprite when not wall jumping
-		if velocity.x < 0:
-			sprite.flip_h = true
-		elif velocity.x > 0:
-			sprite.flip_h = false
+	if not is_wall_jumping and not (state_machine and state_machine.current_state and state_machine.current_state.name == "Hurt"):  # Don't auto-flip during hurt state
+		# Don't auto-flip for a short time after hurt state to maintain facing direction
+		if not (has_meta("hurt_exit_timer") and get_meta("hurt_exit_timer") > 0):
+			if velocity.x < 0:
+				sprite.flip_h = true
+			elif velocity.x > 0:
+				sprite.flip_h = false
 	
 	# Handle jump buffering (disabled during Crouch)
 	var is_crouching := false
@@ -275,7 +293,7 @@ func _physics_process(delta):
 		if coyote_timer <= 0:
 			was_on_floor = false
 
-	# Handle variable jump height and gravity
+	# Handle variable jump height and Hollow Knight style gravity
 	if is_jumping:
 		jump_timer += delta
 		current_gravity_multiplier = 1.0
@@ -283,10 +301,12 @@ func _physics_process(delta):
 			is_jumping = false
 			if velocity.y < 0:  # Only cut jump height if still moving upward
 				velocity.y *= jump_cut_height
-				current_gravity_multiplier = fall_gravity_multiplier
+				# Reset Hollow Knight gravity progress when jump is cut
+				jump_fall_gravity_progress = 0.0
 	else:
-		# Apply stronger gravity when falling
-		current_gravity_multiplier = fall_gravity_multiplier if velocity.y > 0 else 1.0
+		# Use Hollow Knight style gravity calculation
+		current_gravity_multiplier = calculate_hollow_knight_gravity()
+		
 		# Apply air-combo float modifier while airborne
 		if not is_on_floor() and air_combo_float_timer > 0.0:
 			air_combo_float_timer = max(0.0, air_combo_float_timer - delta)
@@ -423,6 +443,33 @@ func apply_friction(delta: float, input_dir: float = 0.0, use_precision: bool = 
 	
 	velocity.x = move_toward(velocity.x, 0, current_friction * delta)
 
+func calculate_hollow_knight_gravity() -> float:
+	"""
+	Hollow Knight tarzı zıplama eğrisi hesaplar.
+	Yukarı çıkış: Normal yer çekimi
+	Tepe noktası: Çok zayıf yer çekimi (float hissi)
+	Düşüş: Yavaş yavaş artan yer çekimi, sonunda çok güçlü
+	"""
+	if is_on_floor():
+		return 1.0  # Yerde normal yer çekimi
+	
+	# Yukarı çıkış (velocity.y < 0)
+	if velocity.y < 0:
+		return 1.0  # Normal yer çekimi
+	
+	# Tepe noktası (velocity.y çok küçük pozitif değer)
+	if velocity.y <= jump_apex_threshold:
+		return jump_apex_gravity_multiplier  # Çok zayıf yer çekimi - float hissi
+	
+	# Düşüş (velocity.y > jump_apex_threshold)
+	# Yer çekimini yavaş yavaş artır
+	jump_fall_gravity_progress = min(1.0, jump_fall_gravity_progress + jump_fall_acceleration)
+	
+	# Smooth transition from apex gravity to max fall gravity
+	var current_gravity = lerp(jump_apex_gravity_multiplier, max_fall_gravity_multiplier, jump_fall_gravity_progress)
+	
+	return current_gravity
+
 func reset_jump_state():
 	is_jumping = false
 	has_double_jumped = false
@@ -434,10 +481,14 @@ func reset_jump_state():
 	was_on_floor = false
 	jump_buffer_timer = 0.0
 	current_gravity_multiplier = 1.0
+	jump_fall_gravity_progress = 0.0  # Reset Hollow Knight gravity progress
 
 func enable_double_jump():
 	can_double_jump = true
 	has_double_jumped = false
+
+# Fall attack bounce is handled in fall_attack_state.gd
+# No need for these functions here
 
 func take_damage(amount: float, show_damage_number: bool = true):
 	var player_stats = get_node("/root/PlayerStats")

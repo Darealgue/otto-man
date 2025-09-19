@@ -1,7 +1,7 @@
 extends State
 
 const FALL_ATTACK_SPEED := 1200.0
-const BOUNCE_VELOCITY := -900.0
+const BOUNCE_VELOCITY := -600.0
 const ATTACK_KNOCKBACK := 300.0
 const ATTACK_UP_FORCE := 300.0
 const IMPACT_SQUASH_SCALE := Vector2(1.3, 0.7)
@@ -140,5 +140,6 @@ func _on_animation_finished(anim_name: String):
 func _on_hitbox_area_entered(area: Area2D):
 	if area.is_in_group("hurtbox") and not has_hit_enemy:
 		has_hit_enemy = true
-		player.velocity.y = BOUNCE_VELOCITY
+		# Use stronger bounce velocity, but not too strong to avoid floating
+		player.velocity.y = player.jump_velocity * 0.9  # 90% of normal jump
 		start_impact()

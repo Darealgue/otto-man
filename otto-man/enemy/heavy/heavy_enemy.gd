@@ -696,17 +696,17 @@ func die() -> void:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
 	
-	# Start fade out
+	# Set z_index above player (player z_index = 5)
 	if sprite:
+		sprite.z_index = 6
 		sprite.modulate = Color(1, 1, 1, 1)
 	fade_out = true
 	
-	# Return to pool after delay
-	await get_tree().create_timer(2.0).timeout
-	# Get pool name based on scene filename
-	var scene_path = scene_file_path
-	var pool_name = scene_path.get_file().get_basename()
-	object_pool.return_object(self, pool_name)
+	# Don't return to pool - let corpses persist
+	# await get_tree().create_timer(2.0).timeout
+	# var scene_path = scene_file_path
+	# var pool_name = scene_path.get_file().get_basename()
+	# object_pool.return_object(self, pool_name)
 
 func _physics_process(delta: float) -> void:
 	# Skip all processing if position is invalid

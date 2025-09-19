@@ -4,7 +4,7 @@ const HURT_DURATION := 0.268  # Match animation length exactly
 const INVINCIBILITY_DURATION := 1.0  # Time player is invincible after getting hit
 const MIN_KNOCKBACK_FORCE := 500.0  # Base minimum knockback force (only used if knockback is present)
 const MIN_UP_FORCE := 300.0  # Base minimum upward force (only used if knockback is present)
-const KNOCKBACK_MULTIPLIER := 2.0  # Increased multiplier for more dramatic knockback
+const KNOCKBACK_MULTIPLIER := 1.0  # Normal multiplier for balanced knockback
 const HORIZONTAL_DECAY := 0.3  # Lower value = slower horizontal velocity decay
 const VERTICAL_DECAY := 1.0  # Normal gravity for vertical movement
 
@@ -47,6 +47,14 @@ func enter() -> void:
 		var dir = (player.global_position - player.last_hit_position).normalized()
 		knockback_direction = dir
 		
+		# Calculate direction TO enemy (opposite of knockback direction)
+		var to_enemy_dir = (player.last_hit_position - player.global_position).normalized()
+		
+		# Make player face the enemy (direction TO enemy)
+		# If enemy is on the left (to_enemy_dir.x < 0), player should face left (sprite.flip_h = true)
+		# If enemy is on the right (to_enemy_dir.x > 0), player should face right (sprite.flip_h = false)
+		player.sprite.flip_h = to_enemy_dir.x < 0
+		
 		# Use the enemy's knockback values with increased minimums and multiplier
 		var knockback_force = max(knockback_data.get("force", 0.0), MIN_KNOCKBACK_FORCE) * KNOCKBACK_MULTIPLIER
 		var up_force = max(knockback_data.get("up_force", 0.0), MIN_UP_FORCE) * KNOCKBACK_MULTIPLIER
@@ -81,8 +89,10 @@ func physics_update(delta: float) -> void:
 	hurt_timer -= delta
 	invincibility_timer -= delta
 	
-	# Force sprite to maintain original direction # <<< BU SATIR KALDIRILDI >>>
-	# player.sprite.flip_h = original_flip_h 
+	# Keep player facing the enemy during knockback
+	if has_knockback and player.last_hit_position:
+		var to_enemy_dir = (player.last_hit_position - player.global_position).normalized()
+		player.sprite.flip_h = to_enemy_dir.x < 0
 	
 	# Handle sprite flashing
 	flash_timer -= delta
@@ -114,6 +124,9 @@ func physics_update(delta: float) -> void:
 		
 		# <<< YENİ SATIR: State'ten çıkmadan cooldown başlat >>>
 		player.attack_cooldown_timer = 0.1 # Kısa bir bekleme süresi
+		
+		# Set timer to prevent auto-flipping for a short time after hurt state
+		player.set_meta("hurt_exit_timer", 0.5)  # 0.5 seconds
 		
 		if player.is_on_floor():
 			state_machine.transition_to("Idle")

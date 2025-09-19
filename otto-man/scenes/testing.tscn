@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=4 uid="uid://vu2wanoqyytf"]
+[gd_scene load_steps=16 format=4 uid="uid://vu2wanoqyytf"]
 
 [ext_resource type="Texture2D" uid="uid://cep2ia5jw0nf4" path="res://background/bulutlu dağlar/sky_fc.png" id="1_7xew5"]
 [ext_resource type="Texture2D" uid="uid://djoorlgrr8ip4" path="res://background/bulutlu dağlar/far_mountains_fc.png" id="2_mviok"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://b4yfkqn1hqv8q" path="res://enemy/heavy/heavy_enemy.tscn" id="8_27mkv"]
 [ext_resource type="PackedScene" uid="uid://dye3rnsr6hc0b" path="res://enemy/summoner/summoner_enemy.tscn" id="9_2cr2j"]
 [ext_resource type="PackedScene" uid="uid://c8q6y2g5x7n8m" path="res://platforms/moving_platform.tscn" id="10_pe5ap"]
+[ext_resource type="PackedScene" uid="uid://bqxv8k2j5x4qy" path="res://enemy/turtle/turtle_enemy.tscn" id="11_xi0ju"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jhvyb"]
 texture = ExtResource("6_2wj3m")
@@ -448,3 +449,6 @@ position = Vector2(594, 899)
 
 [node name="HeavyEnemy4" parent="." instance=ExtResource("8_27mkv")]
 position = Vector2(5526, 531)
+
+[node name="TurtleEnemy" parent="." instance=ExtResource("11_xi0ju")]
+position = Vector2(109, -308)

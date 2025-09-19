@@ -3,6 +3,11 @@ class_name EnemySpawner
 
 # Enemy scenes with their spawn weights
 const ENEMY_TYPES = {
+	"turtle": {
+		"scene": preload("res://enemy/turtle/turtle_enemy.tscn"),
+		"weight": 50,  # Higher weight = more common
+		"min_level": 1  # Minimum level to start spawning
+	},
 	"heavy": {
 		"scene": preload("res://enemy/heavy/heavy_enemy.tscn"),
 		"weight": 40,  # Higher weight = more common

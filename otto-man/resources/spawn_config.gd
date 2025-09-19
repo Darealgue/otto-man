@@ -18,19 +18,22 @@ const CHUNK_SPAWN_RULES = {
 # Enemy type weights per level
 const ENEMY_WEIGHTS = {
 	1: {
-		"heavy": 80,
-		"flying": 20,
+		"turtle": 60,
+		"heavy": 30,
+		"flying": 10,
 		"summoner": 0
 	},
 	3: {
-		"heavy": 60,
-		"flying": 25,
-		"summoner": 15
+		"turtle": 40,
+		"heavy": 35,
+		"flying": 20,
+		"summoner": 5
 	},
 	5: {
-		"heavy": 40,
-		"flying": 35,
-		"summoner": 25
+		"turtle": 25,
+		"heavy": 30,
+		"flying": 30,
+		"summoner": 15
 	}
 }
 

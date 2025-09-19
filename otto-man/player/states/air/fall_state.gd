@@ -124,13 +124,14 @@ func physics_update(delta: float):
 			# Only flip if explicitly moving away from the wall we detached from
 			player.sprite.flip_h = true  # Face left when moving left
 	
-	# Apply gravity with increased falling speed, except during double jump
+	# Apply gravity with Hollow Knight style, except during double jump
 	if is_double_jumping:
 		# Use normal gravity during double jump
 		player.velocity.y += player.gravity * delta
 	else:
-		# Use increased gravity for normal falling
-		player.velocity.y += player.gravity * delta * player.fall_gravity_multiplier
+		# Use Hollow Knight style gravity calculation
+		var gravity_multiplier = player.calculate_hollow_knight_gravity()
+		player.velocity.y += player.gravity * gravity_multiplier * delta
 	
 	# Apply maximum fall speed
 	if player.velocity.y > player.max_fall_speed:

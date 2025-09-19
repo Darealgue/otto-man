@@ -41,8 +41,8 @@ var health_bar = null  # Add health bar reference
 const GRAVITY: float = 980.0
 const FLOOR_SNAP: float = 32.0
 const HURT_FLASH_DURATION := 0.1  # Duration of the red flash
-const DEATH_KNOCKBACK_FORCE := 300.0  # Force applied when dying
-const DEATH_UP_FORCE := 200.0  # Upward force when dying
+const DEATH_KNOCKBACK_FORCE := 150.0  # Force applied when dying
+const DEATH_UP_FORCE := 100.0  # Upward force when dying
 const FALL_DELETE_TIME := 2.0  # Time after falling before deleting
 const DEATH_FADE_INTERVAL := 0.4  # How often to fade in/out
 const DEATH_FADE_MIN := 0.3  # Minimum opacity during fade
@@ -316,6 +316,8 @@ func die() -> void:
 	
 	if sprite:
 		sprite.play("death")
+		# Set z_index above player (player z_index = 5)
+		sprite.z_index = 6
 	
 	# Disable ALL collision to ensure falling through platforms
 	collision_layer = 0
@@ -327,19 +329,20 @@ func die() -> void:
 	if hurtbox:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
-		
+	
+	# Apply death knockback
+	_apply_death_knockback()
 	
 	# Start fade out
 	if sprite:
 		sprite.modulate = Color(1, 1, 1, 1)
 	fade_out = true
 	
-	# Return to pool after delay
-	await get_tree().create_timer(2.0).timeout
-	# Get pool name based on scene filename
-	var scene_path = scene_file_path
-	var pool_name = scene_path.get_file().get_basename()
-	object_pool.return_object(self, pool_name)
+	# Don't return to pool - let corpses persist
+	# await get_tree().create_timer(2.0).timeout
+	# var scene_path = scene_file_path
+	# var pool_name = scene_path.get_file().get_basename()
+	# object_pool.return_object(self, pool_name)
 
 func apply_gravity(delta: float) -> void:
 	if not is_on_floor():
@@ -350,12 +353,14 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == "dead" and not force:
 		return
 		
+	print("[BaseEnemy] Behavior change: ", current_behavior, " -> ", new_behavior)
 	current_behavior = new_behavior
 	behavior_timer = 0.0
 	
 	# Play appropriate animation if available
 	if sprite and sprite.has_method("play"):
 		sprite.play(new_behavior)
+		print("[BaseEnemy] Playing animation: ", new_behavior, " frame: ", sprite.frame, " progress: ", sprite.frame_progress)
 		
 	# Reset attack cooldown when changing behavior
 	if new_behavior != "attack":

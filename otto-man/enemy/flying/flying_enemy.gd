@@ -346,6 +346,8 @@ func die() -> void:
 	# Play death animation
 	if sprite:
 		sprite.play("dead")
+		# Set z_index above player (player z_index = 5)
+		sprite.z_index = 6
 	
 	# Set downward velocity for death fall
 	velocity = Vector2(0, 200)  # Start with a moderate downward speed
@@ -365,16 +367,13 @@ func die() -> void:
 	enemy_defeated.emit()
 	PowerupManager.on_enemy_killed()
 	
-	# Start fade out after a longer delay to allow for falling
-	await get_tree().create_timer(2.0).timeout  # Increased from 0.5 to 2.0 seconds
-	
-	var tween = create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 1.0)  # Increased fade duration from 0.5 to 1.0 seconds
-	await tween.finished
-	
-	# Return to object pool
-	var pool_name = scene_file_path.get_file().get_basename()
-	object_pool.return_object(self, pool_name)
+	# Don't fade out or return to pool - let corpses persist
+	# await get_tree().create_timer(2.0).timeout
+	# var tween = create_tween()
+	# tween.tween_property(self, "modulate:a", 0.0, 1.0)
+	# await tween.finished
+	# var pool_name = scene_file_path.get_file().get_basename()
+	# object_pool.return_object(self, pool_name)
 
 func _physics_process(delta: float) -> void:
 	# Handle invulnerability timer
