@@ -1,4 +1,4 @@
-[gd_scene load_steps=104 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=107 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -42,6 +42,7 @@
 [ext_resource type="Texture2D" uid="uid://dpmlusxxy11oa" path="res://resources/player_normalmap resources/ledgegrab_n.tres" id="36_ro6ey"]
 [ext_resource type="Texture2D" uid="uid://c47u647h31m3d" path="res://resources/player_normalmap resources/parry_n.tres" id="38_hm23w"]
 [ext_resource type="Texture2D" uid="uid://g8q1ryk4vn7t" path="res://resources/player_normalmap resources/slide_n.tres" id="39_4mjej"]
+[ext_resource type="Texture2D" uid="uid://bjtmysyurmwkv" path="res://assets/player/sprite/otto_idle_combat_border.png" id="39_jhfyw"]
 [ext_resource type="Texture2D" uid="uid://bk6n01ve7g1wd" path="res://resources/player_normalmap resources/walljump_n.tres" id="41_ge282"]
 [ext_resource type="Texture2D" uid="uid://vl3e1wjqxw8l" path="res://resources/player_normalmap resources/wallslide_n.tres" id="42_txonu"]
 [ext_resource type="Texture2D" uid="uid://c4wc0vdsueec1" path="res://resources/player_normalmap resources/wall_slide_down.tres" id="43_bkg3i"]
@@ -54,6 +55,7 @@
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/up_heavy_n.tres" id="48_upheavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/down_light_n.tres" id="49_downln"]
 [ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
+[ext_resource type="Texture2D" uid="uid://h2yeeqsq88j6" path="res://assets/player/normal/otto_idle_combat_border_n.png" id="idle_combat_normal"]
 [ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
 
 [sub_resource type="Animation" id="Animation_55col"]
@@ -1304,6 +1306,60 @@ tracks/2/keys = {
 "values": [ExtResource("16_vfpsv")]
 }
 
+[sub_resource type="Animation" id="Animation_idle_combat"]
+resource_name = "idle_combat"
+length = 1.4
+loop_mode = 1
+step = 0.067
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.0778, 0.1556, 0.2334, 0.3112, 0.389, 0.4668, 0.5446, 0.6224, 0.7002, 0.778, 0.8558, 0.9336, 1.0114, 1.0892, 1.167, 1.2448, 1.4),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 0,
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:hframes")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [18]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D:texture")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [ExtResource("39_jhfyw")]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Sprite2D:normal_map")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [ExtResource("idle_combat_normal")]
+}
+
 [sub_resource type="Animation" id="Animation_jump"]
 resource_name = "jump_prepare"
 length = 0.01
@@ -1951,6 +2007,7 @@ _data = {
 "heavy_neutral": SubResource("Animation_heavy_neutral"),
 "hurt": SubResource("Animation_hurt"),
 "idle": SubResource("Animation_idle"),
+"idle_combat": SubResource("Animation_idle_combat"),
 "jump_prepare": SubResource("Animation_jump"),
 "jump_to_fall": SubResource("Animation_l34g3"),
 "jump_upwards": SubResource("Animation_gl6ap"),
@@ -1993,6 +2050,13 @@ height = 42.0
 collision_layer = 2
 collision_mask = 5
 script = ExtResource("1_player")
+
+[node name="PlayerRenderLayer" type="CanvasLayer" parent="."]
+
+[node name="PlayerSprite" type="Sprite2D" parent="PlayerRenderLayer"]
+texture = ExtResource("16_2gbt3")
+hframes = 36
+vframes = 8
 
 [node name="StateMachine" type="Node" parent="."]
 script = ExtResource("2_state_machine")
@@ -2099,8 +2163,9 @@ shape = SubResource("CapsuleShape2D_fm8kb")
 [node name="Camera2D" type="Camera2D" parent="." groups=["Camera Groups"]]
 position = Vector2(0, -30)
 zoom = Vector2(1.5, 1.5)
-limit_smoothed = true
-position_smoothing_speed = 50.0
+process_callback = 0
+position_smoothing_enabled = true
+position_smoothing_speed = 10.0
 rotation_smoothing_speed = 0.5
 
 [node name="WallRayLeft" type="RayCast2D" parent="."]

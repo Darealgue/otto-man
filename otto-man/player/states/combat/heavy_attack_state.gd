@@ -35,6 +35,9 @@ func enter():
 	just_input_timer = 0.0
 	just_bonus_ready = false
 	
+	# Enter combat state when attacking
+	player.enter_combat_state()
+	
 	# Check if we came from crouch state
 	entered_from_crouch = (state_machine.previous_state.name == "Crouch")
 	

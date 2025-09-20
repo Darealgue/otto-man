@@ -22,8 +22,8 @@ var _is_active: bool = false
 var spawn_marker: Node2D
 
 # Debug toggle for this spawner (console prints only; no on-screen labels)
-const DEBUG_DECOR: bool = true
-const DEBUG_LOOT: bool = true
+const DEBUG_DECOR: bool = false
+const DEBUG_LOOT: bool = false
 
 # Loot art paths
 const COIN_SMALL_PATH: String = "res://assets/objects/dungeon/coin_small.png"

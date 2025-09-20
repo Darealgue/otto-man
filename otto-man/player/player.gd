@@ -72,6 +72,11 @@ var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
 var attack_cooldown_timer: float = 0.0 # <<< YENİ DEĞİŞKEN >>>
 
+# Combat state tracking for idle_combat animation
+var is_in_combat: bool = false
+var combat_timer: float = 0.0
+var combat_timeout: float = 3.0  # 3 seconds without combat actions before returning to normal idle
+
 # Air-combo float for player (stay airborne longer during juggles)
 @export var air_combo_float_duration: float = 0.35
 @export var air_combo_gravity_scale: float = 0.35
@@ -123,6 +128,8 @@ func set_ui_locked(locked: bool) -> void:
 @onready var animation_tree = $AnimationTree
 @onready var animation_player = $AnimationPlayer
 @onready var sprite = $Sprite2D
+@onready var player_sprite = $PlayerRenderLayer/PlayerSprite
+@onready var player_render_layer = $PlayerRenderLayer
 @onready var dash_state = $StateMachine/Dash as State
 @onready var hurtbox = $Hurtbox
 @onready var hitbox = $Hitbox
@@ -228,6 +235,13 @@ func _physics_process(delta):
 	# Update attack cooldown timer
 	if attack_cooldown_timer > 0:
 		attack_cooldown_timer -= delta
+	
+	# Update combat state timer
+	if is_in_combat:
+		combat_timer -= delta
+		if combat_timer <= 0:
+			is_in_combat = false
+			combat_timer = 0.0
 	# Decay counter window
 	if counter_window_timer > 0.0:
 		counter_window_timer -= delta
@@ -388,6 +402,21 @@ func _physics_process(delta):
 		sprite.z_index = 5  # Sabit z-index, meşalelerin üstünde
 
 # No need to call physics_update explicitly, it's handled by _physics_process in the state machine
+
+		# Multi-layer rendering: Sync player sprite with original sprite
+		if sprite and player_sprite:
+			player_sprite.frame = sprite.frame
+			player_sprite.flip_h = sprite.flip_h
+			player_sprite.modulate = sprite.modulate
+			player_sprite.visible = true  # Always visible
+			
+			# Position player sprite at player position (smooth, not affected by camera smoothing)
+			player_sprite.global_position = global_position + Vector2(1, -48)
+			print("[DEBUG] Player sprite sync - frame: ", sprite.frame, " visible: ", player_sprite.visible, " pos: ", global_position, " player_sprite_pos: ", player_sprite.global_position)
+		else:
+			print("[DEBUG] Missing sprites - sprite: ", sprite, " player_sprite: ", player_sprite)
+
+
 
 func can_jump() -> bool:
 	# Prevent jumping if pressing down
@@ -849,6 +878,21 @@ func drop_through_platform() -> void:
 
 func get_facing_direction() -> float:
 	return facing_direction
+
+# Combat state management functions
+func enter_combat_state() -> void:
+	"""Enter combat state - will use idle_combat animation instead of normal idle"""
+	is_in_combat = true
+	combat_timer = combat_timeout
+
+func exit_combat_state() -> void:
+	"""Exit combat state - will return to normal idle animation"""
+	is_in_combat = false
+	combat_timer = 0.0
+
+func is_in_combat_state() -> bool:
+	"""Check if player is currently in combat state"""
+	return is_in_combat
 
 # Input Handling (YENİ - physics_process yerine)
 func _unhandled_input(event: InputEvent) -> void:

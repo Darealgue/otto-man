@@ -9,18 +9,13 @@ var platform_detection_distance: float = 50.0  # Increased from 30.0
 func _ready() -> void:
 	super._ready()
 	
-	print("[Turtle] _ready() called")
-	
 	# Reset animation to start from beginning
 	if sprite:
 		sprite.frame = 0
 		sprite.frame_progress = 0.0
-		print("[Turtle] Animation reset - frame: ", sprite.frame, " progress: ", sprite.frame_progress)
-		print("[Turtle] Current animation: ", sprite.animation)
 	
 	# Start with patrol behavior
 	change_behavior("patrol")
-	print("[Turtle] Initial behavior set to: patrol")
 
 	# Enable hitbox for continuous contact damage
 	if hitbox:
@@ -28,12 +23,10 @@ func _ready() -> void:
 		# Set damage value
 		var damage = stats.attack_damage if stats else 15.0
 		hitbox.damage = damage
-		print("[Turtle] Hitbox enabled with damage: ", damage)
 	
 	# Add hurtbox to hurtbox group for fall attack bounce
 	if hurtbox:
 		hurtbox.add_to_group("hurtbox")
-		print("[Turtle] Hurtbox added to hurtbox group")
 
 func _handle_child_behavior(delta: float) -> void:
 	match current_behavior:
@@ -65,15 +58,12 @@ func handle_patrol(delta: float) -> void:
 	# Play walk animation
 	if sprite:
 		if sprite.animation != "walk":
-			print("[Turtle] PATROL: Starting walk animation")
 			sprite.play("walk")
 			sprite.frame = 0
 			sprite.frame_progress = 0.0
-			print("[Turtle] PATROL: Animation set - frame: ", sprite.frame, " progress: ", sprite.frame_progress)
 		else:
 			# Check if animation is stuck
 			if sprite.frame_progress == 0.0 and sprite.frame == 0:
-				print("[Turtle] PATROL: Animation seems stuck, forcing restart")
 				sprite.play("walk")
 				sprite.frame = 0
 				sprite.frame_progress = 0.0

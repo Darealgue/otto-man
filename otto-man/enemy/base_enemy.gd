@@ -353,14 +353,12 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == "dead" and not force:
 		return
 		
-	print("[BaseEnemy] Behavior change: ", current_behavior, " -> ", new_behavior)
 	current_behavior = new_behavior
 	behavior_timer = 0.0
 	
 	# Play appropriate animation if available
 	if sprite and sprite.has_method("play"):
 		sprite.play(new_behavior)
-		print("[BaseEnemy] Playing animation: ", new_behavior, " frame: ", sprite.frame, " progress: ", sprite.frame_progress)
 		
 	# Reset attack cooldown when changing behavior
 	if new_behavior != "attack":

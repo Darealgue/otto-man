@@ -27,17 +27,13 @@ var shockwave_type: int = 0
 @onready var collision: CollisionShape2D = $CollisionShape2D
 
 func _ready():
-	print("[Cannonball] _ready() called")
-	
 	# 4-frame rotating animation setup
 	if sprite:
-		print("[Cannonball] AnimatedSprite2D found, setting up animation")
 		sprite.sprite_frames = SpriteFrames.new()
 		sprite.sprite_frames.add_animation("rotate")
 		
 		var texture = preload("res://objects/dungeon/traps/cannon_trap_ball.png")
 		if texture:
-			print("[Cannonball] Texture loaded successfully: " + str(texture.get_size()))
 			var frame_width = texture.get_width() / 4
 			var frame_height = texture.get_height()
 			
@@ -49,17 +45,14 @@ func _ready():
 			
 			sprite.sprite_frames.set_animation_speed("rotate", 8.0)
 			sprite.play("rotate")
-			print("[Cannonball] Animation setup complete")
 			
 			# Direction-based flipping for smoke trail
 			if direction.x < 0:
 				sprite.scale.x = -1
 		else:
-			print("[Cannonball] ERROR: Failed to load texture!")
 			# Fallback: create a simple colored circle
 			_create_fallback_sprite()
 	else:
-		print("[Cannonball] ERROR: AnimatedSprite2D not found!")
 		# Create a simple sprite as fallback
 		_create_fallback_sprite()
 	
@@ -81,8 +74,6 @@ func _ready():
 	# Connect collision for both areas and bodies
 	area_entered.connect(_on_area_entered)
 	body_entered.connect(_on_body_entered)
-	
-	print("[Cannonball] Cannonball created with collision_mask: " + str(collision_mask))
 
 func _physics_process(delta):
 	position += velocity * delta
@@ -104,13 +95,11 @@ func _on_area_entered(area):
 	if has_hit_anything:
 		return # Çifte hasar önleme
 		
-	print("[Cannonball] Area collision with: " + str(area.name) + " (type: " + str(area.get_class()) + ") (groups: " + str(area.get_groups()) + ")")
 	
 	# Safe collision layer check
 	var area_collision_layer = 0
 	if area.has_method("get") and "collision_layer" in area:
 		area_collision_layer = area.collision_layer
-		print("[Cannonball] Area collision_layer: " + str(area_collision_layer))
 	
 	# Player hurtbox layer 4 (8) veya hurtbox grubunda olanları kontrol et
 	# But also verify the parent is actually a player
@@ -121,7 +110,6 @@ func _on_area_entered(area):
 							not area.get_parent().is_in_group("enemy"))
 	
 	if is_player_hurtbox:
-		print("[Cannonball] Direct hit on player hurtbox: " + str(area.get_parent().name))
 		
 		has_hit_anything = true
 		direct_hit_target = area.get_parent()
@@ -136,7 +124,6 @@ func _on_body_entered(body):
 	if has_hit_anything:
 		return # Çifte hasar önleme
 		
-	print("[Cannonball] Body collision with: " + str(body.name) + " (type: " + str(body.get_class()) + ") (groups: " + str(body.get_groups()) + ")")
 	
 	# Safe collision layer check - some objects like TileMap don't have collision_layer
 	var body_collision_layer = 0
@@ -149,7 +136,6 @@ func _on_body_entered(body):
 							not body.is_in_group("trap") and not body.is_in_group("enemy"))
 	
 	if body_collision_layer == CollisionLayers.PLAYER and is_actual_player:
-		print("[Cannonball] Direct hit on player body: " + str(body.name))
 		
 		has_hit_anything = true
 		direct_hit_target = body
@@ -161,7 +147,6 @@ func _on_body_entered(body):
 		_explode(body)
 	elif is_actual_player:
 		# Player detected by group even if collision_layer check failed
-		print("[Cannonball] Direct hit on player (detected by group): " + str(body.name))
 		
 		has_hit_anything = true
 		direct_hit_target = body
@@ -173,26 +158,20 @@ func _on_body_entered(body):
 		_explode(body)
 	else:
 		# Hit wall, ground, or any other body - explode
-		print("[Cannonball] Hit non-player object: " + str(body.name) + " - exploding")
 		has_hit_anything = true
 		_explode()
 
 func _apply_direct_hit_to_player(player: Node):
-	print("[Cannonball] Applying direct hit damage and knockback to: " + str(player.name))
-	
 	# Verify this is actually a player object
 	if not player.is_in_group("player") and player.name != "Player":
-		print("[Cannonball] Warning: _apply_direct_hit_to_player called on non-player object: " + str(player.name))
 		# Still apply damage if the object can take it
 		if player.has_method("take_damage"):
 			player.take_damage(DAMAGE)
-			print("[Cannonball] Damage applied to non-player object: " + str(DAMAGE))
 		return
 	
 	# Direct damage
 	if player.has_method("take_damage"):
 		player.take_damage(DAMAGE)
-		print("[Cannonball] Direct damage applied: " + str(DAMAGE))
 		
 		# Show damage number for direct hit (optional - comment out if causing issues)
 		# _show_damage_number(player.global_position, DAMAGE)
@@ -201,7 +180,6 @@ func _apply_direct_hit_to_player(player: Node):
 	_apply_player_knockback(player, 1.0)  # Full force for direct hit
 
 func _explode(excluded_target: Node = null):
-	print("[Cannonball] Exploding at position: " + str(global_position))
 	
 	# Create explosion effect
 	if explosion_scene:
@@ -227,7 +205,6 @@ func _explode(excluded_target: Node = null):
 	query.collision_mask = CollisionLayers.PLAYER_HURTBOX | CollisionLayers.PLAYER
 	
 	var results = space_state.intersect_shape(query)
-	print("[Cannonball] Found " + str(results.size()) + " targets in explosion radius")
 	
 	for result in results:
 		var body = result.collider
@@ -239,7 +216,6 @@ func _explode(excluded_target: Node = null):
 		if body.has_method("get") and "collision_layer" in body:
 			body_collision_layer = body.collision_layer
 			
-		print("[Cannonball] Explosion target: " + str(body.name) + " (type: " + str(body.get_class()) + ") (groups: " + str(body.get_groups()) + ") layer: " + str(body_collision_layer))
 		
 		# Check if it's player (by layer or group or name) - but be more specific
 		var is_player = ((body_collision_layer == CollisionLayers.PLAYER or body_collision_layer == CollisionLayers.PLAYER_HURTBOX or 
@@ -256,7 +232,6 @@ func _explode(excluded_target: Node = null):
 			var explosion_damage = DAMAGE * damage_multiplier
 			var knockback_force = _calculate_knockback_force(body) * damage_multiplier
 			
-			print("[Cannonball] Explosion damage to " + str(body.name) + ": " + str(explosion_damage))
 			
 			# Apply damage with knockback
 			if body.has_method("take_damage"):
@@ -285,17 +260,14 @@ func _calculate_knockback_force(target: Node) -> float:
 func _apply_player_knockback(player: Node, force_multiplier: float = 1.0):
 	# Verify this is actually a player object before applying knockback
 	if not player.is_in_group("player") and player.name != "Player":
-		print("[Cannonball] Warning: Attempted to apply player knockback to non-player object: " + str(player.name))
 		return
 	
 	# Check if player has the required knockback properties
 	if not player.has_method("set") or not player.has_method("get"):
-		print("[Cannonball] Player doesn't have required methods for knockback")
 		return
 	
 	# Check if player has the knockback properties we need
 	if not "last_hit_knockback" in player or not "last_hit_position" in player:
-		print("[Cannonball] Player missing knockback properties: " + str(player.name))
 		return
 	
 	# Knockback direction calculation
@@ -317,7 +289,6 @@ func _apply_player_knockback(player: Node, force_multiplier: float = 1.0):
 			knockback_direction.x * knockback_data.force,
 			-knockback_data.up_force  # Negative for upward force
 		)
-		print("[Cannonball] Velocity applied directly to player: " + str(player.velocity))
 	
 	# Force player into hurt state to process knockback properly
 	if player.has_method("get_node"):

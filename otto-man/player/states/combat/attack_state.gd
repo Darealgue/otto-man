@@ -40,6 +40,9 @@ func enter():
 	attack_buffer_timer = 0.0
 	effect_spawned = false
 	
+	# Enter combat state when attacking
+	player.enter_combat_state()
+	
 	# Check if we came from crouch state
 	entered_from_crouch = (state_machine.previous_state.name == "Crouch")
 	

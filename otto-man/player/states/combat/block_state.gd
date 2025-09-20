@@ -22,6 +22,8 @@ func _ready():
 	pass
 
 func enter():
+	# Enter combat state when blocking
+	player.enter_combat_state()
 	
 	# Get stamina bar reference
 	stamina_bar = get_tree().get_first_node_in_group("stamina_bar")

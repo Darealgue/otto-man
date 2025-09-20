@@ -6,4 +6,6 @@ res://village/scenes/VillageScene.tscn
 res://chunks/dungeon/special/start_chunk.tscn
 res://village/missions/MissionSystemTestScene.tscn
 res://enemy/turtle/turtle_enemy.tscn
-res://components/enemy_hitbox.gd
+res://player/player.gd
+res://chunks/dungeon/vertical/climbing_tower1.tscn
+res://resources/player_normalmap resources/idle_combat_normal.tres

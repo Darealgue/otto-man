@@ -2338,6 +2338,14 @@ func spawn_player() -> void:
 				player_camera.make_current()
 			else:
 				overview_camera.make_current()
+			
+			# Notify ScreenEffects that camera is now available
+			print("[LevelGenerator] Notifying ScreenEffects about camera availability")
+			if ScreenEffects:
+				print("[LevelGenerator] ScreenEffects found, calling _find_camera()")
+				ScreenEffects._find_camera()
+			else:
+				print("[LevelGenerator] ERROR: ScreenEffects not found!")
 
 func is_valid_direction(dir: int) -> bool:
 	return dir >= 0 and dir < 4  # Since we have 4 directions (LEFT=0, RIGHT=1, UP=2, DOWN=3)

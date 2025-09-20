@@ -5,8 +5,12 @@ func enter():
 		push_error("Player reference not set in idle state!")
 		return
 		
+	# Play appropriate idle animation based on combat state
 	if animation_player:
-		animation_player.play("idle")
+		if player.is_in_combat_state():
+			animation_player.play("idle_combat")
+		else:
+			animation_player.play("idle")
 	
 	if player.has_method("reset_jump_state"):
 		player.reset_jump_state()
@@ -55,8 +59,10 @@ func physics_update(delta: float):
 	player.velocity.x = move_toward(player.velocity.x, 0, player.friction * delta)
 	player.move_and_slide()
 	
-	if animation_player.current_animation != "idle":
-		animation_player.play("idle")
+	# Play appropriate idle animation based on combat state
+	var target_animation = "idle_combat" if player.is_in_combat_state() else "idle"
+	if animation_player.current_animation != target_animation:
+		animation_player.play(target_animation)
 
 func exit():
 	pass

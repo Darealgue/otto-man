@@ -99,25 +99,19 @@ func _determine_shoot_direction() -> void:
 			print("[CannonTrap] Vertical direction not allowed - forced to RIGHT →")
 		else:
 			shoot_direction = Vector2.LEFT
-			print("[CannonTrap] Vertical direction not allowed - forced to LEFT ←")
 	else:
 		# Default fallback - auto-detect based on position
 		var screen_center_x = 1920 / 2
 		if global_position.x < screen_center_x:
 			shoot_direction = Vector2.RIGHT
-			print("[CannonTrap] No direction set - auto-detected RIGHT →")
 		else:
 			shoot_direction = Vector2.LEFT
-			print("[CannonTrap] No direction set - auto-detected LEFT ←")
-	
-	print("[CannonTrap] Position: " + str(global_position) + ", Final Direction: " + str(shoot_direction))
 
 func _start_warning() -> void:
 	if not is_active:
 		return
 		
 	current_state = CannonState.WARNING
-	print("[CannonTrap] Warning phase started")
 	
 	# Show warning light
 	if warning_light:
@@ -138,7 +132,6 @@ func _shoot_cannonball() -> void:
 		return
 		
 	current_state = CannonState.SHOOTING
-	print("[CannonTrap] Shooting cannonball!")
 	
 	# Hide warning light
 	if warning_light:
@@ -165,7 +158,6 @@ func _wait_for_frame_and_fire(target_frame: int):
 	var frame_duration = 1.0 / 12.0  # Animation speed from _create_cannon_visual
 	var wait_time = (target_frame - 1) * frame_duration  # Frame 11 = index 10
 	
-	print("[CannonTrap] Waiting %.2f seconds for frame %d" % [wait_time, target_frame])
 	
 	# Wait for the specific frame timing
 	await get_tree().create_timer(wait_time).timeout
@@ -189,17 +181,13 @@ func _create_recoil_effect() -> void:
 		tween.tween_property(cannon_sprite, "position", cannon_sprite.position, 0.2)
 
 func _create_and_fire_cannonball() -> void:
-	print("[CannonTrap] Creating and firing cannonball...")
-	
 	# Create cannonball projectile
 	var cannonball = _create_cannonball(shoot_direction)
 	if not cannonball:
-		print("[CannonTrap] Failed to create cannonball")
 		return
 		
 	# Add cannonball to scene
 	get_tree().current_scene.add_child(cannonball)
-	print("[CannonTrap] Cannonball added to scene")
 	
 	# Position cannonball at cannon muzzle with fine-tuning
 	var muzzle_offset = shoot_direction * 35  # Forward offset
@@ -213,37 +201,28 @@ func _create_and_fire_cannonball() -> void:
 			vertical_offset = Vector2(0, -8)  # Fine-tune for left-facing
 	
 	cannonball.global_position = global_position + muzzle_offset + vertical_offset
-	print("[CannonTrap] Cannonball spawned at: %s (offset: %s)" % [cannonball.global_position, muzzle_offset + vertical_offset])
 	
 	# Set cannonball velocity
 	if cannonball.has_method("set_velocity"):
 		cannonball.set_velocity(shoot_direction * cannonball_speed)
 	elif cannonball.has_method("set_direction_and_speed"):
 		cannonball.set_direction_and_speed(shoot_direction, cannonball_speed)
-	
-	print("[CannonTrap] Cannonball fired at position: %s, direction: %s" % [cannonball.global_position, shoot_direction])
 
 func _create_cannonball(direction: Vector2) -> Node2D:
 	# Create cannonball projectile using scene file
 	var cannonball_scene = preload("res://traps/cannonball_projectile.tscn")
 	if not cannonball_scene:
-		print("[CannonTrap] ERROR: Failed to load cannonball scene!")
 		return null
 		
 	var cannonball = cannonball_scene.instantiate()
 	if not cannonball:
-		print("[CannonTrap] ERROR: Failed to instantiate cannonball!")
 		return null
 		
 	cannonball.name = "Cannonball"
-	print("[CannonTrap] Cannonball created successfully: " + str(cannonball))
 	
 	# Set direction for sprite flipping and movement
 	if cannonball.has_method("set_direction"):
 		cannonball.set_direction(direction)
-		print("[CannonTrap] Direction set to: " + str(direction))
-	else:
-		print("[CannonTrap] WARNING: Cannonball doesn't have set_direction method")
 	
 	return cannonball
 

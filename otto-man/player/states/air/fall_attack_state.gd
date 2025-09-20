@@ -35,6 +35,8 @@ static func set_was_double_jumping(value: bool) -> void:
 	was_double_jumping = value
 
 func enter():
+	# Enter combat state when performing fall attack
+	player.enter_combat_state()
 	
 	# Reset flags and state
 	has_hit_enemy = false
