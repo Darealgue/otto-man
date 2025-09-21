@@ -14,6 +14,7 @@ var last_wall_normal := Vector2.ZERO
 var wall_slide_state = null  # Store reference to wall slide state
 
 func enter():
+	print("[WALL_SLIDE_DEBUG] Fall State: ENTERING fall state")
 	wall_transition_timer = WALL_TRANSITION_DELAY
 	wall_contact_timer = 0.0
 	
@@ -66,13 +67,32 @@ func physics_update(delta: float):
 	if wall_detach_grace_timer > 0:
 		wall_detach_grace_timer -= delta
 	
-	# Check for normal attack input first, highest priority for responsive controls
+	# PRIORITY 1: Check for wall slide FIRST - highest priority for consistent wall sliding
+	if player.is_on_wall():
+		# Track wall contact time
+		wall_contact_timer += delta
+		print("[WALL_SLIDE_DEBUG] Fall State: Wall detected, contact_time: ", wall_contact_timer, " min_time: ", MIN_WALL_CONTACT_TIME)
+		
+		# Only transition if:
+		# 1. We've been in contact with the wall for minimum time
+		# 2. The wall slide state is available and can be entered (not on cooldown)
+		if wall_contact_timer >= MIN_WALL_CONTACT_TIME and wall_slide_state and wall_slide_state.can_enter():
+			print("[WALL_SLIDE_DEBUG] Fall State: Wall slide can enter, transitioning to WallSlide")
+			wall_slide_state.reset_cooldown()  # Reset cooldown before entering
+			state_machine.transition_to("WallSlide")
+			return
+		else:
+			print("[WALL_SLIDE_DEBUG] Fall State: Wall slide cannot enter - contact_time: ", wall_contact_timer, " wall_slide_state: ", wall_slide_state, " can_enter: ", wall_slide_state.can_enter() if wall_slide_state else "N/A")
+	else:
+		wall_contact_timer = 0.0
+	
+	# PRIORITY 2: Check for normal attack input - high priority for responsive controls
 	if Input.is_action_just_pressed("attack") and player.attack_cooldown_timer <= 0:
-		#print("[Fall State] Attack button pressed, transitioning to Attack state for air attack")
+		# print("[Fall State] Attack button pressed, transitioning to Attack state for air attack")
 		state_machine.transition_to("Attack")
 		return
 	
-	# Check for fall attack input second (special air attack)
+	# PRIORITY 3: Check for fall attack input (special air attack)
 	if Input.is_action_pressed("down"):
 		# Make fall attack easier to execute by checking for jump input more frequently
 		if Input.is_action_just_pressed("jump"):
@@ -141,32 +161,19 @@ func physics_update(delta: float):
 	
 	# Check for ledge grab first
 	var ledge_state = get_parent().get_node("LedgeGrab")
-	#print("[FallState] Checking can_ledge_grab...") # DEBUG
+	# print("[FallState] Checking can_ledge_grab...") # DEBUG
 	if ledge_state and ledge_state.can_ledge_grab():
-		#print("[FallState] LedgeGrab condition MET! Transitioning.") # DEBUG
+		# print("[FallState] LedgeGrab condition MET! Transitioning.") # DEBUG
 		state_machine.transition_to("LedgeGrab")
 		return
-	#else:
+	# else:
 		# DEBUG: Print why it failed if ledge_state exists
-		if ledge_state:
-			print("[FallState] LedgeGrab condition FAILED.")
-		else:
-			print("[FallState] LedgeGrab state node not found.")
+		# if ledge_state:
+			# print("[FallState] LedgeGrab condition FAILED.")
+		# else:
+			# print("[FallState] LedgeGrab state node not found.")
 	
-	# Then check for wall slide with improved logic
-	if player.is_on_wall():
-		# Track wall contact time
-		wall_contact_timer += delta
-		
-		# Only transition if:
-		# 1. We've been in contact with the wall for minimum time
-		# 2. The wall slide state is available and can be entered (not on cooldown)
-		if wall_contact_timer >= MIN_WALL_CONTACT_TIME and wall_slide_state and wall_slide_state.can_enter():
-			wall_slide_state.reset_cooldown()  # Reset cooldown before entering
-			state_machine.transition_to("WallSlide")
-			return
-	else:
-		wall_contact_timer = 0.0
+	# Wall slide check moved to top priority above
 	
 	# Finally check for landing
 	if player.is_on_floor():
@@ -193,6 +200,7 @@ func _on_animation_finished(anim_name: String):
 				animation_player.play("landing")
 
 func exit():
+	print("[WALL_SLIDE_DEBUG] Fall State: EXITING fall state")
 	is_double_jumping = false
 	double_jump_animation_finished = false
 	is_transitioning = false

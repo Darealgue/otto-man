@@ -9,7 +9,7 @@ const WALL_SLIDE_SPEED_MULTIPLIER := 0.5
 const WALL_DETACH_BUFFER := 0.1
 const INPUT_THRESHOLD := 0.5  # Only consider input above this threshold
 const PRESS_AWAY_GRACE := 0.3  # Increased grace period
-const REENTRY_COOLDOWN := 0.2  # Increased cooldown to prevent rapid re-entry
+const REENTRY_COOLDOWN := 0.05  # Reduced cooldown for more responsive wall sliding
 
 @onready var wall_ray_left: RayCast2D = $"../../WallRayLeft"
 @onready var wall_ray_right: RayCast2D = $"../../WallRayRight"
@@ -40,18 +40,22 @@ func is_on_cooldown() -> bool:
 func can_enter() -> bool:
 	# Don't allow re-entry if we're already wall sliding
 	if state_machine.current_state == self:
+		print("[WALL_SLIDE_DEBUG] WallSlide: Already wall sliding, cannot enter")
 		return false
 		
-	# Don't check cooldown if we're coming from Jump or Fall state
-	var skip_cooldown = state_machine.previous_state and (state_machine.previous_state.name == "Jump" or state_machine.previous_state.name == "Fall")
+	# Always skip cooldown for Jump, Fall, and Run states for immediate wall slide
+	var skip_cooldown = state_machine.previous_state and (state_machine.previous_state.name == "Jump" or state_machine.previous_state.name == "Fall" or state_machine.previous_state.name == "Run")
+	print("[WALL_SLIDE_DEBUG] WallSlide: Previous state: ", state_machine.previous_state.name if state_machine.previous_state else "None", " skip_cooldown: ", skip_cooldown)
 	
-	# If we're on cooldown and not coming from Jump/Fall, prevent entry
+	# If we're on cooldown and not coming from Jump/Fall/Run, prevent entry
 	if not skip_cooldown and is_on_cooldown():
+		print("[WALL_SLIDE_DEBUG] WallSlide: On cooldown, cannot enter")
 		return false
 	
 	# Check if we're actually on a wall
 	var left_wall = wall_ray_left.is_colliding()
 	var right_wall = wall_ray_right.is_colliding()
+	print("[WALL_SLIDE_DEBUG] WallSlide: Wall detection - left: ", left_wall, " right: ", right_wall)
 	
 	return left_wall or right_wall
 
@@ -62,13 +66,18 @@ func enter():
 	if !player:
 		return
 	
+	print("[WALL_SLIDE_DEBUG] WallSlide: ENTERING wall slide state")
+	
 	# Get wall normal from raycast and determine wall side
 	current_wall_normal = _get_wall_normal()
 	var left_colliding = wall_ray_left.is_colliding()
 	var right_colliding = wall_ray_right.is_colliding()
 	wall_side = -1 if left_colliding else 1
 	
+	print("[WALL_SLIDE_DEBUG] WallSlide: Wall normal: ", current_wall_normal, " wall_side: ", wall_side)
+	
 	if current_wall_normal == Vector2.ZERO:
+		print("[WALL_SLIDE_DEBUG] WallSlide: No wall normal found, transitioning to Fall")
 		state_machine.transition_to("Fall")
 		return
 	
@@ -232,4 +241,5 @@ func _end_wall_slide():
 	reentry_cooldown_timer = REENTRY_COOLDOWN
 
 func exit():
+	print("[WALL_SLIDE_DEBUG] WallSlide: EXITING wall slide state")
 	pass

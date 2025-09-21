@@ -19,7 +19,7 @@ const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effec
 @export var coyote_time: float = 0.15
 @export var jump_buffer_time: float = 0.1
 @export var fall_gravity_multiplier: float = 2.5
-@export var max_fall_speed: float = 2000.0
+@export var max_fall_speed: float = 1200.0
 @export var jump_cut_height: float = 0.5
 @export var max_jump_time: float = 0.4
 
@@ -123,7 +123,7 @@ func set_ui_locked(locked: bool) -> void:
 		state_machine.set_physics_process(not locked)
 	if animation_tree:
 		animation_tree.active = not locked
-	print("[Player] set_ui_locked -> ", locked)
+	# print("[Player] set_ui_locked -> ", locked)
 
 @onready var animation_tree = $AnimationTree
 @onready var animation_player = $AnimationPlayer
@@ -146,13 +146,13 @@ func _ready():
 	
 	# Collision layer ve mask'ı doğru şekilde ayarla
 	collision_layer = CollisionLayers.PLAYER  # Player layer
-	print("Oyuncu collision_layer: ", collision_layer)
+	# print("Oyuncu collision_layer: ", collision_layer)
 	
 	# Set up collision mask to detect both ground and platforms
 	collision_mask |= CollisionLayers.PLATFORM  # Add platform layer
 	collision_mask |= CollisionLayers.BUILDING_SLOT  # Add building slot layer
 	set_collision_mask_value(10, true)  # Ensure platform collision is enabled by default (kept as numeric for now)
-	print("Oyuncu collision_mask: ", collision_mask)
+	# print("Oyuncu collision_mask: ", collision_mask)
 	
 	animation_player.active = true
 	#animation_tree.active = false
@@ -208,7 +208,7 @@ func _input(event: InputEvent) -> void:
 			elif event.is_action("jump"): act = "jump"
 			elif event.is_action("dash"): act = "dash"
 			elif event.is_action("attack"): act = "attack"
-			print("[Player] Input blocked due to UI lock -> ", act)
+			# print("[Player] Input blocked due to UI lock -> ", act)
 		return
 	if VillageManager.active_dialogue_npc != null:
 		if event.is_action_pressed("interact"):
@@ -223,14 +223,14 @@ func _physics_process(delta):
 				reason = _ui_lock_last_reason
 			else:
 				reason = "MissionCenter visible"
-			print("[Player] UI lock active - movement halted (", reason, ")")
+			# print("[Player] UI lock active - movement halted (", reason, ")")
 			_ui_lock_logged_once = true
 		# Ensure we don't move
 		velocity = Vector2.ZERO
 		move_and_slide()
 		return
 	elif _ui_lock_logged_once:
-		print("[Player] UI lock released - controls restored")
+		# print("[Player] UI lock released - controls restored")
 		_ui_lock_logged_once = false
 	# Update attack cooldown timer
 	if attack_cooldown_timer > 0:
@@ -412,9 +412,10 @@ func _physics_process(delta):
 			
 			# Position player sprite at player position (smooth, not affected by camera smoothing)
 			player_sprite.global_position = global_position + Vector2(1, -48)
-			print("[DEBUG] Player sprite sync - frame: ", sprite.frame, " visible: ", player_sprite.visible, " pos: ", global_position, " player_sprite_pos: ", player_sprite.global_position)
+			# print("[DEBUG] Player sprite sync - frame: ", sprite.frame, " visible: ", player_sprite.visible, " pos: ", global_position, " player_sprite_pos: ", player_sprite.global_position)
 		else:
-			print("[DEBUG] Missing sprites - sprite: ", sprite, " player_sprite: ", player_sprite)
+			# print("[DEBUG] Missing sprites - sprite: ", sprite, " player_sprite: ", player_sprite)
+			pass
 
 
 
@@ -533,16 +534,21 @@ func heal(amount: float):
 
 func is_moving_away_from_wall() -> bool:
 	var input_dir = Input.get_axis("left", "right")
-	return input_dir * wall_normal.x > 0
+	var moving_away = input_dir * wall_normal.x > 0
+	print("[WALL_SLIDE_DEBUG] Player: Moving away check - input_dir: ", input_dir, " wall_normal.x: ", wall_normal.x, " moving_away: ", moving_away)
+	return moving_away
 
 func is_on_wall_slide() -> bool:
 	# Don't allow wall sliding if too close to ground
 	if is_on_floor() or position.y < wall_slide_min_height:
+		print("[WALL_SLIDE_DEBUG] Player: Cannot wall slide - on_floor: ", is_on_floor(), " position.y: ", position.y, " min_height: ", wall_slide_min_height)
 		return false
 		
 	# Basic wall slide conditions
 	var on_wall = is_on_wall()
 	var not_moving_away = not is_moving_away_from_wall()
+	
+	print("[WALL_SLIDE_DEBUG] Player: Wall slide check - on_wall: ", on_wall, " not_moving_away: ", not_moving_away, " is_wall_sliding: ", is_wall_sliding)
 	
 	# Only check current conditions if we're already wall sliding
 	if is_wall_sliding:
@@ -821,7 +827,7 @@ func update_dash_charges() -> void:
 	if dash_state and dash_state.has_method("set_dash_charges"):
 		dash_state.set_dash_charges(dash_charges)
 	
-	print("[Player] Updated dash charges: " + str(dash_charges))
+	# print("[Player] Updated dash charges: " + str(dash_charges))
 
 func apply_movement(delta: float, input_dir: float) -> void:
 	# Use different acceleration values for ground and air
@@ -910,11 +916,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			# Daha bilgilendirici hata mesajı
 			var node_name = interactable_node.name if interactable_node else "Bulunamadı"
-			print("Uyarı: Etkileşimli alanın ebeveyni ('%s' - Area: %s) 'interact' metoduna sahip değil veya ebeveyni yok." % [node_name, target_area.name])
+			# print("Uyarı: Etkileşimli alanın ebeveyni ('%s' - Area: %s) 'interact' metoduna sahip değil veya ebeveyni yok." % [node_name, target_area.name])
 
 # Handle hitbox hit events
 func _on_hitbox_hit(enemy: Node) -> void:
-	print("[Player] Hitbox hit enemy: ", enemy.name if enemy else "Unknown")
+	# print("[Player] Hitbox hit enemy: ", enemy.name if enemy else "Unknown")
+	pass
 
 func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
 	# (YENİ - fonksiyon içeriği)
@@ -923,7 +930,7 @@ func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
 			overlapping_interactables.push_back(area)
 			# İsteğe bağlı: Ekranda "Etkileşim için E'ye bas" gibi bir ipucu gösterebilirsin
 			var parent_node = area.get_parent()
-			print("Etkileşim alanına girildi:", parent_node.name if parent_node else "Ebeveynsiz Alan")
+			# print("Etkileşim alanına girildi:", parent_node.name if parent_node else "Ebeveynsiz Alan")
 			if parent_node.is_in_group("NPC"):
 				VillageManager.active_dialogue_npc = parent_node
 				VillageManager.dialogue_npcs.append(parent_node)
@@ -937,7 +944,7 @@ func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 			overlapping_interactables.remove_at(index)
 			# İsteğe bağlı: Etkileşim ipucunu gizleyebilirsin
 			var parent_node = area.get_parent()
-			print("Etkileşim alanından çıkıldı:", parent_node.name if parent_node else "Ebeveynsiz Alan")
+			# print("Etkileşim alanından çıkıldı:", parent_node.name if parent_node else "Ebeveynsiz Alan")
 			if parent_node.is_in_group("NPC"):
 				parent_node.HideInteractButton()
 				parent_node.CloseNpcWindow()
@@ -1056,6 +1063,7 @@ func _set_player_z_index():
 	# Set player sprite z_index to fixed value (above torches for normal map interaction)
 	if sprite:
 		sprite.z_index = 5  # Fixed z-index, above torches (z-index=2)
-		print("Oyuncu z_index set to: ", sprite.z_index)
+		# print("Oyuncu z_index set to: ", sprite.z_index)
 	else:
-		print("Oyuncu sprite not found for z_index setting")
+		# print("Oyuncu sprite not found for z_index setting")
+		pass

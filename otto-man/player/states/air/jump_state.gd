@@ -7,6 +7,7 @@ const WALL_JUMP_HORIZONTAL_DECAY := 0.95  # How much horizontal velocity is main
 var wall_jump_sprite_direction := false  # Store initial wall jump direction
 
 func enter():
+	print("[WALL_SLIDE_DEBUG] Jump State: ENTERING jump state")
 	# Connect animation signals
 	if not animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.connect("animation_finished", _on_animation_finished)
@@ -39,18 +40,31 @@ func physics_update(delta: float):
 	if wall_jump_grace_timer > 0:
 		wall_jump_grace_timer -= delta
 	
+	# PRIORITY 1: Check for wall slide FIRST - highest priority for consistent wall sliding
+	if player.is_on_wall():
+		print("[WALL_SLIDE_DEBUG] Jump State: Wall detected, checking wall slide state...")
+		var wall_slide_state = get_parent().get_node("WallSlide")
+		if wall_slide_state and wall_slide_state.can_enter():
+			print("[WALL_SLIDE_DEBUG] Jump State: Wall slide can enter, transitioning to WallSlide")
+			# Force reset any animation cooldowns that might interfere
+			wall_slide_state.reset_cooldown()
+			state_machine.transition_to("WallSlide")
+			return
+		else:
+			print("[WALL_SLIDE_DEBUG] Jump State: Wall slide cannot enter - wall_slide_state: ", wall_slide_state, " can_enter: ", wall_slide_state.can_enter() if wall_slide_state else "N/A")
+	
 	# Get input state
 	var input_dir = Input.get_axis("left", "right")
 	var down_pressed = Input.is_action_pressed("down")
 	var jump_pressed = Input.is_action_just_pressed("jump")
 	
-	# Check for attack input first - highest priority for responsive controls
+	# PRIORITY 2: Check for attack input - high priority for responsive controls
 	if Input.is_action_just_pressed("attack"):
-		print("[Jump State] Attack button pressed, transitioning to Attack state for air attack")
+		# print("[Jump State] Attack button pressed, transitioning to Attack state for air attack")
 		state_machine.transition_to("Attack")
 		return
 	
-	# Check for fall attack first - highest priority
+	# PRIORITY 3: Check for fall attack
 	if down_pressed and jump_pressed:
 		var fall_attack_state = get_parent().get_node("FallAttack")
 		if fall_attack_state:
@@ -58,20 +72,13 @@ func physics_update(delta: float):
 				fall_attack_state.reset_cooldown()  # Reset cooldown before transition
 				state_machine.transition_to("FallAttack")
 				return
-	# Only check for double jump if not trying to fall attack
+	# PRIORITY 4: Only check for double jump if not trying to fall attack
 	elif jump_pressed and not player.has_double_jumped and not down_pressed:
 		is_double_jumping = true
 		player.has_double_jumped = true
 		player.start_double_jump()
 		animation_player.play("double_jump")
 		return
-	
-	# Check for wall slide
-	if player.is_on_wall():
-		var wall_slide_state = get_parent().get_node("WallSlide")
-		if wall_slide_state and wall_slide_state.can_enter():
-			state_machine.transition_to("WallSlide")
-			return
 	
 	# Handle horizontal movement
 	if player.is_wall_jumping:
@@ -148,6 +155,7 @@ func _on_animation_finished(anim_name: String):
 			animation_player.play("jump_upwards")
 
 func exit():
+	print("[WALL_SLIDE_DEBUG] Jump State: EXITING jump state")
 	is_double_jumping = false
 	wall_jump_grace_timer = 0.0
 	if animation_player.is_connected("animation_finished", _on_animation_finished):
