@@ -11,6 +11,7 @@ const TILE_SIZE = 32
 var terrain_tileset: TileSet
 var source_chunk_map: TileMap
 var processed_positions = {}
+var darkness_controller: DarknessController
 
 func _init() -> void:
 	pass
@@ -19,6 +20,19 @@ func _ready() -> void:
 	collision_visibility_mode = TileMap.VISIBILITY_MODE_DEFAULT
 	modulate = Color(1, 1, 1, 1)
 	visible = true
+	
+	# Player spawn olduktan sonra darkness controller'ı initialize et
+	call_deferred("initialize_darkness_controller")
+
+func initialize_darkness_controller() -> void:
+	# Darkness controller'ı oluştur ve ekle
+	darkness_controller = DarknessController.new()
+	add_child(darkness_controller)
+	
+	# Shader'ı bu TileMap'e uygula
+	darkness_controller.apply_to_tilemap(self)
+	
+	print("[UnifiedTerrain] Darkness controller initialized and applied to TileMap")
 
 func unify_chunks(chunks: Array) -> void:
 	print("\n=== Starting Terrain Unification ===")

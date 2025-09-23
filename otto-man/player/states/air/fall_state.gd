@@ -35,7 +35,7 @@ func enter():
 	# If we're in the middle of a transition animation, let it finish
 	if current_anim == "jump_to_fall":
 		is_transitioning = true
-	elif current_anim == "double_jump":
+	elif current_anim == "double_jump" or current_anim == "double_jump_alt":
 		is_double_jumping = true
 	elif current_anim == "ledge_grab" or current_anim == "ledge_mount":
 		# Coming from ledge grab, check if we're on floor
@@ -44,7 +44,7 @@ func enter():
 			return
 		else:
 			animation_player.play("fall")
-	elif current_anim != "fall" and current_anim != "jump_upwards" and current_anim != "double_jump":
+	elif current_anim != "fall" and current_anim != "jump_upwards" and current_anim != "double_jump" and current_anim != "double_jump_alt":
 		animation_player.play("fall")
 	
 	# Enable double jump if we walked off a platform and have coyote time

@@ -563,10 +563,29 @@ signal level_completed
 signal level_started
 
 func _ready() -> void:
+	print("[LevelGenerator] _ready() called")
 	is_overview_active = true  # Start with overview camera
-	setup_camera()
+	
+	# Load level config if not set
+	if not level_config:
+		print("[LevelGenerator] Loading level config...")
+		level_config = load("res://resources/dungeon_config.tres")
+		if not level_config:
+			push_error("Failed to load dungeon_config.tres!")
+			return
+		print("[LevelGenerator] Level config loaded successfully")
+	else:
+		print("[LevelGenerator] Level config already set")
+	
+	print("[LevelGenerator] Starting level generation...")
 	generate_level()
+	print("[LevelGenerator] Setting up camera...")
+	setup_camera()
+	print("[LevelGenerator] Setting up level transitions...")
 	setup_level_transitions()
+	print("[LevelGenerator] Adding screen darkness controller...")
+	add_screen_darkness_controller()
+	print("[LevelGenerator] _ready() completed")
 
 func setup_camera() -> void:
 	overview_camera = Camera2D.new()
@@ -648,6 +667,11 @@ func generate_level() -> bool:
 	# Clear previous level first (before calculating new width or initializing grid)
 	clear_level()
 
+	# Check level_config first before using it
+	if not level_config:
+		push_error("Level configuration not set!")
+		return false
+	
 	# --- Calculate dynamic dimensions --- 
 	current_grid_width = level_config.get_length_for_level(current_level)
 	current_grid_height = BASE_GRID_HEIGHT + floor((current_level - 1) / 4) * 2 # Increase height by 2 every 4 levels
@@ -656,10 +680,6 @@ func generate_level() -> bool:
 	
 	# Door positions will be calculated after chunks are created
 	# ------------------------------------
-
-	if not level_config: # Check config after clearing and getting width
-		push_error("Level configuration not set!")
-		return false
 
 	# Make multiple attempts to generate a valid level if needed
 	var max_attempts = 5 # Increased attempts slightly
@@ -2449,16 +2469,18 @@ func setup_level_transitions() -> void:
 				start_door.door_opened.connect(_on_door_opened)
 			print("Connected to pre-placed start door")
 			
-		# Kapı pozisyonunu kaydet
-		door_positions.append(start_door.global_position)
-		
-		# Player'ı start kapısının pozisyonunda spawn et
-		var player = get_node_or_null("Player")
-		if player:
-			# StartDoor'un gerçek global pozisyonunu kullan
-			player.global_position = start_door.global_position + Vector2(0, -64)  # Kapının hemen üstünde
-			print("[LevelGenerator] Player spawned at StartDoor position: ", player.global_position)
-			print("[LevelGenerator] StartDoor actual position: ", start_door.global_position)
+			# Kapı pozisyonunu kaydet
+			door_positions.append(start_door.global_position)
+			
+			# Player'ı start kapısının pozisyonunda spawn et
+			var player = get_node_or_null("Player")
+			if player:
+				# StartDoor'un gerçek global pozisyonunu kullan
+				player.global_position = start_door.global_position + Vector2(0, -64)  # Kapının hemen üstünde
+				print("[LevelGenerator] Player spawned at StartDoor position: ", player.global_position)
+				print("[LevelGenerator] StartDoor actual position: ", start_door.global_position)
+			else:
+				print("WARNING: No Player found in scene")
 		else:
 			print("WARNING: No StartDoor found in start chunk")
 	else:
@@ -2670,13 +2692,40 @@ func unify_terrain() -> void:
 	# Process chunks in the unified terrain
 	unified_terrain.unify_chunks(chunks)
 	
-	# Hide original tilemaps
+	# Hide original tilemaps (except those containing dark tiles)
 	for chunk in chunks:
 		var chunk_map = chunk.get_node("TileMap")
 		if chunk_map:
-			chunk_map.visible = false
+			# Check if this chunk contains dark tiles
+			if not chunk_contains_dark_tiles(chunk_map):
+				chunk_map.visible = false
+			else:
+				print("Keeping chunk visible due to dark tiles: ", chunk.name)
 	
 	print("Terrain unification complete!")
+
+# Check if a chunk contains dark tiles that should remain visible
+func chunk_contains_dark_tiles(chunk_map: TileMap) -> bool:
+	# Dark tile coordinates that should be excluded from unification (local chunk coordinates)
+	var dark_tile_coordinates = [
+		Vector2i(4, 11), Vector2i(5, 11), Vector2i(6, 11),
+		Vector2i(4, 12), Vector2i(5, 12), Vector2i(6, 12),
+		Vector2i(4, 13), Vector2i(5, 13), Vector2i(6, 13),
+		Vector2i(8, 11), Vector2i(9, 11), Vector2i(10, 11),
+		Vector2i(8, 12), Vector2i(9, 12), Vector2i(10, 12),
+		Vector2i(8, 13), Vector2i(9, 13), Vector2i(10, 13)
+	]
+	
+	# Get all used cells in the chunk
+	var used_cells = chunk_map.get_used_cells(0)
+	
+	# Check if any of the used cells are at dark tile coordinates
+	for cell in used_cells:
+		if cell in dark_tile_coordinates:
+			print("Found dark tile at local coordinates: ", cell, " in chunk")
+			return true
+	
+	return false
 
 func generate_branch(branch_start: Vector2i, all_paths: Array) -> void:
 	# Skip if this is the start position or too close to finish
@@ -3133,4 +3182,110 @@ func fill_surrounding_walls() -> void:
 		# Walls don't need path IDs or connections set here.
 
 	print("Surrounding walls marked. Count: %d" % cells_to_make_wall.size()) # Updated print
-# --- END NEW FUNCTION --- 
+# --- END NEW FUNCTION ---
+
+# Screen darkness controller'ı ekle
+func add_screen_darkness_controller() -> void:
+	print("[LevelGenerator] Adding screen darkness controller...")
+	
+	# Deferred olarak ekle ki scene tree tamamen hazır olsun
+	call_deferred("_add_screen_darkness_controller_deferred")
+
+func _add_screen_darkness_controller_deferred() -> void:
+	print("[LevelGenerator] Adding screen darkness controller (deferred)...")
+	
+	# Screen darkness controller'ı oluştur - ColorRect kullanarak
+	var screen_darkness = ColorRect.new()
+	screen_darkness.name = "ScreenDarknessOverlay"
+	screen_darkness.color = Color(0.0, 0.0, 0.0, 0.0)  # Başlangıçta şeffaf
+	screen_darkness.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	
+	# Shader material oluştur
+	var shader = load("res://shaders/screen_darkness.gdshader")
+	if shader:
+		var shader_material = ShaderMaterial.new()
+		shader_material.shader = shader
+		screen_darkness.material = shader_material
+		
+		# Shader parametrelerini ayarla
+		shader_material.set_shader_parameter("max_darkness", 0.8)
+		shader_material.set_shader_parameter("light_radius", 800.0)  # 4 katına çıkarıldı (200 -> 800)
+		shader_material.set_shader_parameter("ambient_light", 0.2)
+		shader_material.set_shader_parameter("player_screen_position", Vector2(960, 540))  # Başlangıç pozisyonu
+		
+		print("[LevelGenerator] Shader applied to ColorRect successfully")
+	else:
+		print("[LevelGenerator] ERROR: Could not load screen_darkness.gdshader")
+	
+	# Player pozisyonunu güncelleyen script ekle
+	var update_script = GDScript.new()
+	update_script.source_code = """
+extends ColorRect
+
+var player: Node2D
+var camera: Camera2D
+var shader_material: ShaderMaterial
+
+func _ready():
+	# Player'ı bul
+	player = get_tree().get_first_node_in_group("player")
+	if player and player.has_node("Camera2D"):
+		camera = player.get_node("Camera2D")
+	
+	# Shader material'ı al
+	if material:
+		shader_material = material
+
+func _process(delta):
+	if not shader_material or not player or not camera:
+		return
+	
+	# Player'ın screen pozisyonunu hesapla - direkt oyuncuyu takip et
+	var viewport = get_viewport()
+	var player_world_pos = player.global_position
+	var camera_pos = camera.global_position
+	var camera_zoom = camera.zoom
+	var viewport_size = viewport.get_visible_rect().size
+	
+	# World pozisyonunu screen pozisyonuna çevir
+	# Camera'nın offset'ini dikkate al (camera.position)
+	var camera_offset = camera.position
+	var relative_pos = player_world_pos - camera_pos + camera_offset
+	var player_screen_pos = (relative_pos * camera_zoom) + viewport_size / 2.0
+	
+	# Shader'a gönder
+	shader_material.set_shader_parameter("player_screen_position", player_screen_pos)
+"""
+	screen_darkness.set_script(update_script)
+	
+	# DEBUG: Scene root'u kontrol et
+	var scene_root = get_tree().current_scene
+	print("[LevelGenerator] DEBUG: Scene root info:")
+	print("  - scene_root: ", scene_root)
+	print("  - scene_root class: ", scene_root.get_class() if scene_root else "null")
+	print("  - scene_root name: ", scene_root.name if scene_root else "null")
+	print("  - scene_root children count: ", scene_root.get_child_count() if scene_root else "null")
+	
+	# CanvasLayer oluştur ve ColorRect'i içine ekle
+	var canvas_layer = CanvasLayer.new()
+	canvas_layer.name = "ScreenDarknessLayer"
+	canvas_layer.layer = 100  # En üstte render edilsin
+	
+	# ColorRect'i CanvasLayer'e ekle
+	canvas_layer.add_child(screen_darkness)
+	
+	# CanvasLayer'i scene root'a ekle
+	scene_root.add_child(canvas_layer)
+	
+	# DEBUG: Ekledikten sonra durumu kontrol et
+	print("[LevelGenerator] DEBUG: After adding ColorRect to CanvasLayer:")
+	print("  - screen_darkness parent: ", screen_darkness.get_parent())
+	print("  - screen_darkness is_inside_tree: ", screen_darkness.is_inside_tree())
+	print("  - canvas_layer layer: ", canvas_layer.layer)
+	print("  - screen_darkness color: ", screen_darkness.color)
+	print("  - scene_root children count: ", scene_root.get_child_count())
+	
+	print("[LevelGenerator] Screen darkness controller added successfully")
+	print("[LevelGenerator] Screen darkness controller node: ", screen_darkness)
+	print("[LevelGenerator] Screen darkness controller parent: ", screen_darkness.get_parent())
+	print("[LevelGenerator] Screen darkness overlay added to CanvasLayer with layer 100") 

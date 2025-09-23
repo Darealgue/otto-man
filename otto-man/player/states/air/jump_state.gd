@@ -77,7 +77,10 @@ func physics_update(delta: float):
 		is_double_jumping = true
 		player.has_double_jumped = true
 		player.start_double_jump()
-		animation_player.play("double_jump")
+		# Randomly choose between two double jump animations
+		var double_jump_animations = ["double_jump", "double_jump_alt"]
+		var random_animation = double_jump_animations[randi() % double_jump_animations.size()]
+		animation_player.play(random_animation)
 		return
 	
 	# Handle horizontal movement
@@ -137,7 +140,7 @@ func _on_animation_finished(anim_name: String):
 				state_machine.transition_to("Fall")
 			else:
 				animation_player.play("jump_upwards")
-		"double_jump":
+		"double_jump", "double_jump_alt":
 			is_double_jumping = false
 			if player.velocity.y > 0:
 				animation_player.play("fall")
