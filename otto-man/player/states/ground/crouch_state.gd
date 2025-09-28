@@ -114,12 +114,12 @@ func can_stand_up() -> bool:
 	# Check multiple points around the player's collision shape to ensure no overlap
 	var check_points = [
 		Vector2.UP * original_height,  # Top center
-		Vector2.UP * original_height + Vector2.LEFT * 10,  # Top left
-		Vector2.UP * original_height + Vector2.RIGHT * 10,  # Top right
-		Vector2.LEFT * 10,  # Left side
-		Vector2.RIGHT * 10,  # Right side
-		Vector2.UP * original_height + Vector2.LEFT * 8,  # Top left corner (reduced from 20 to 8)
-		Vector2.UP * original_height + Vector2.RIGHT * 8   # Top right corner (reduced from 20 to 8)
+		Vector2.UP * original_height + Vector2.LEFT * 2,  # Top left (reduced to 2 pixels)
+		Vector2.UP * original_height + Vector2.RIGHT * 2,  # Top right (reduced to 2 pixels)
+		Vector2.LEFT * 2,  # Left side (reduced to 2 pixels)
+		Vector2.RIGHT * 2,  # Right side (reduced to 2 pixels)
+		Vector2.UP * original_height + Vector2.LEFT * 2,  # Top left corner (reduced to 2 pixels)
+		Vector2.UP * original_height + Vector2.RIGHT * 2   # Top right corner (reduced to 2 pixels)
 	]
 	
 	for check in check_points:

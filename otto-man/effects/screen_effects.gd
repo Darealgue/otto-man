@@ -12,7 +12,7 @@ var original_camera_offset: Vector2
 var shake_layer: CanvasLayer
 
 func _ready():
-	print("[ScreenEffects] _ready() called")
+	# print("[ScreenEffects] _ready() called")
 	# Start with effects disabled
 	time_slow_effect.visible = false
 	Engine.time_scale = 1.0  # Ensure we start with normal time scale
@@ -22,27 +22,27 @@ func _ready():
 	_setup_shake_layer()
 
 func _find_camera():
-	print("[ScreenEffects] _find_camera() called")
+	# print("[ScreenEffects] _find_camera() called")
 	# Try to find the camera in the scene
 	var cameras = get_tree().get_nodes_in_group("camera")
-	print("[ScreenEffects] Found cameras in 'camera' group: ", cameras.size())
+	# print("[ScreenEffects] Found cameras in 'camera' group: ", cameras.size())
 	if cameras.size() > 0:
 		camera = cameras[0] as Camera2D
-		print("[ScreenEffects] Using camera from 'camera' group: ", camera)
+		# print("[ScreenEffects] Using camera from 'camera' group: ", camera)
 	else:
 		# Fallback: search for Camera2D nodes
 		var all_cameras = []
 		_find_camera2d_recursive(get_tree().current_scene, all_cameras)
-		print("[ScreenEffects] Found cameras via recursive search: ", all_cameras.size())
+		# print("[ScreenEffects] Found cameras via recursive search: ", all_cameras.size())
 		if all_cameras.size() > 0:
 			camera = all_cameras[0]
-			print("[ScreenEffects] Using camera from recursive search: ", camera)
+			# print("[ScreenEffects] Using camera from recursive search: ", camera)
 	
 	if camera:
 		original_camera_position = camera.position
-		print("[ScreenEffects] Camera found and set! Position: ", original_camera_position)
+		# print("[ScreenEffects] Camera found and set! Position: ", original_camera_position)
 	else:
-		print("[ScreenEffects] ERROR: No camera found!")
+		pass
 
 func _setup_shake_layer():
 	# Create a CanvasLayer for screen shake that doesn't affect camera smoothing
@@ -50,7 +50,7 @@ func _setup_shake_layer():
 	shake_layer.name = "ShakeLayer"
 	shake_layer.layer = 1000  # High layer to be on top
 	add_child(shake_layer)
-	print("[ScreenEffects] Shake layer created")
+	# print("[ScreenEffects] Shake layer created")
 
 func _find_camera2d_recursive(node: Node, camera_list: Array):
 	if node is Camera2D:
@@ -91,13 +91,13 @@ func apply_time_slow_effect():
 
 # Screen shake functions
 func shake(duration: float, strength: float):
-	print("[ScreenEffects] shake() called - strength: ", strength, " duration: ", duration)
-	print("[ScreenEffects] Current camera: ", camera)
+	# print("[ScreenEffects] shake() called - strength: ", strength, " duration: ", duration)
+	# print("[ScreenEffects] Current camera: ", camera)
 	if not camera:
-		print("[ScreenEffects] No camera found, trying to find again...")
+		# print("[ScreenEffects] No camera found, trying to find again...")
 		_find_camera()  # Try to find camera again if not found
 		if not camera:
-			print("[ScreenEffects] ERROR: Still no camera found for screen shake!")
+			# print("[ScreenEffects] ERROR: Still no camera found for screen shake!")
 			return  # No camera found, can't shake
 	
 	shake_duration = duration
@@ -105,18 +105,18 @@ func shake(duration: float, strength: float):
 	shake_timer = duration
 	
 	# Use CanvasLayer for shake - this doesn't affect camera smoothing at all
-	print("[ScreenEffects] Screen shake started successfully! Strength: ", shake_strength, " Using CanvasLayer method")
+	# print("[ScreenEffects] Screen shake started successfully! Strength: ", shake_strength, " Using CanvasLayer method")
 
 func _process(delta: float):
 	if shake_timer > 0:
-		print("[ScreenEffects] _process: shake_timer=", shake_timer, " shake_strength=", shake_strength)
+		# print("[ScreenEffects] _process: shake_timer=", shake_timer, " shake_strength=", shake_strength)
 		shake_timer -= delta
 		
 		if shake_timer <= 0:
 			# Shake finished, reset CanvasLayer offset
 			if shake_layer:
 				shake_layer.offset = Vector2.ZERO
-				print("[ScreenEffects] Shake finished, reset CanvasLayer offset")
+				# print("[ScreenEffects] Shake finished, reset CanvasLayer offset")
 			shake_strength = 0.0
 		else:
 			# Apply shake using CanvasLayer offset
@@ -127,4 +127,4 @@ func _process(delta: float):
 					randf_range(-shake_amount, shake_amount)
 				)
 				shake_layer.offset = shake_offset
-				print("[ScreenEffects] Applied shake: offset=", shake_offset)
+				# print("[ScreenEffects] Applied shake: offset=", shake_offset)

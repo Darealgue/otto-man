@@ -1,9 +1,5 @@
 res://player/player.tscn
-res://Tile set/dungeon_master_tileset.tres
 res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
-res://chunks/dungeon/special/full.tscn
-res://chunks/dungeon/special/start_chunk.tscn
-res://scenes/level_generator.gd
-res://scripts/darkness_controller.gd
+res://village/missions/MissionCenter.gd

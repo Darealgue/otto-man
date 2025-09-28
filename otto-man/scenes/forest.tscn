@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://borm2xoovp62o"]
+
+[ext_resource type="TileSet" uid="uid://bck2wwctc1jbc" path="res://Tile set/dungeon_master_tileset.tres" id="1_brqby"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="TileMapLayer" type="TileMapLayer" parent="."]
+tile_set = ExtResource("1_brqby")

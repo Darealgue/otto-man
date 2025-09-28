@@ -57,6 +57,16 @@ var news_queue_world: Array[Dictionary] = []
 var mission_result_timer: float = 0.0
 var mission_result_duration: float = 5.0
 
+# Haber filtre çubuğu (dinamik oluşturulacak)
+var news_filter_bar: HBoxContainer = null
+var filter_village_label: Label = null
+var filter_world_label: Label = null
+ 
+# Alt kategori filtreleri
+var news_subcategory_bar: HBoxContainer = null
+var subcategory_labels: Array[Label] = []
+var current_subcategory: String = "all"  # all, critical, info, success, warning
+
 # Menü durumu (PlayStation mantığı)
 var current_menu_state: MenuState = MenuState.İŞLEM_SEÇİMİ
 
@@ -193,6 +203,101 @@ func _ready():
 	# MissionCenter'ı group'a ekle
 	add_to_group("mission_center")
 	print("✅ MissionCenter group'a eklendi")
+
+	# Unread rozeti başlat
+	_update_unread_badge()
+	# Haber filtre barı kurulumu
+	_ensure_news_filter_bar()
+	_ensure_news_subcategory_bar()
+
+func _update_unread_badge():
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm or not mm.has_method("get_unread_counts"):
+		return
+	var counts: Dictionary = mm.get_unread_counts()
+	var total: int = int(counts.get("total", 0))
+	# Header'da bir label varsa güncelle, yoksa PageDot4 üzerine küçük bir işaret ekleyebiliriz
+	if page_dot4 and total > 0:
+		page_dot4.modulate = Color(1, 0.9, 0.6, 1)
+	else:
+		# normal gösterim
+		if page_dot4:
+			page_dot4.modulate = Color(1,1,1,1)
+
+func _ensure_news_filter_bar():
+	if current_page != PageType.NEWS:
+		return
+	var parent: VBoxContainer = get_node_or_null("NewsCenterPage")
+	if not parent:
+		return
+	# İlk kez oluştur
+	if news_filter_bar == null:
+		news_filter_bar = HBoxContainer.new()
+		news_filter_bar.name = "NewsFilterBar"
+		news_filter_bar.add_theme_constant_override("separation", 16)
+		parent.add_child(news_filter_bar)
+		news_filter_bar.move_child(news_filter_bar, 1) # Header'dan hemen sonra
+		filter_village_label = Label.new()
+		filter_village_label.text = "🏘️ KÖY"
+		filter_village_label.add_theme_font_size_override("font_size", 12)
+		news_filter_bar.add_child(filter_village_label)
+		filter_world_label = Label.new()
+		filter_world_label.text = "🌍 DÜNYA"
+		filter_world_label.add_theme_font_size_override("font_size", 12)
+		news_filter_bar.add_child(filter_world_label)
+
+func _ensure_news_subcategory_bar():
+	if current_page != PageType.NEWS:
+		return
+	var parent: VBoxContainer = get_node_or_null("NewsCenterPage")
+	if not parent:
+		return
+	# İlk kez oluştur
+	if news_subcategory_bar == null:
+		news_subcategory_bar = HBoxContainer.new()
+		news_subcategory_bar.name = "NewsSubcategoryBar"
+		news_subcategory_bar.add_theme_constant_override("separation", 12)
+		parent.add_child(news_subcategory_bar)
+		# Filter bar'ın hemen altına yerleştir (varsayılan ekleme sırasıyla uyumlu)
+		var label_all = Label.new(); label_all.text = "TÜMÜ (Y)"; label_all.add_theme_font_size_override("font_size", 10); label_all.set_meta("category", "all"); news_subcategory_bar.add_child(label_all); subcategory_labels.append(label_all)
+		var label_crit = Label.new(); label_crit.text = "🚨 KRİTİK"; label_crit.add_theme_font_size_override("font_size", 10); label_crit.set_meta("category", "critical"); news_subcategory_bar.add_child(label_crit); subcategory_labels.append(label_crit)
+		var label_info = Label.new(); label_info.text = "ℹ️ BİLGİ"; label_info.add_theme_font_size_override("font_size", 10); label_info.set_meta("category", "info"); news_subcategory_bar.add_child(label_info); subcategory_labels.append(label_info)
+		var label_succ = Label.new(); label_succ.text = "✅ BAŞARI"; label_succ.add_theme_font_size_override("font_size", 10); label_succ.set_meta("category", "success"); news_subcategory_bar.add_child(label_succ); subcategory_labels.append(label_succ)
+		var label_warn = Label.new(); label_warn.text = "⚠️ UYARI"; label_warn.add_theme_font_size_override("font_size", 10); label_warn.set_meta("category", "warning"); news_subcategory_bar.add_child(label_warn); subcategory_labels.append(label_warn)
+
+func _update_news_subcategory_bar_visual():
+	if news_subcategory_bar == null:
+		return
+	for label in subcategory_labels:
+		if label and label.has_meta("category"):
+			var category = label.get_meta("category")
+			var is_selected = (category == current_subcategory)
+			label.add_theme_color_override("font_color", Color(1,1,1, 1.0 if is_selected else 0.5))
+			if is_selected:
+				label.add_theme_color_override("font_color", Color(1,1,0.5,1))
+
+func _news_passes_subcategory_filter(n: Dictionary) -> bool:
+	match current_subcategory:
+		"all":
+			return true
+		"critical":
+			return n.get("category", "") in ["Uyarı", "Dünya", "Kritik"]
+		"info":
+			return n.get("category", "") in ["Bilgi"]
+		"success":
+			return n.get("category", "") in ["Başarı"]
+		"warning":
+			return n.get("category", "") in ["Uyarı"]
+		_:
+			return true
+
+func _update_news_filter_bar_visual():
+	if news_filter_bar == null:
+		return
+	if filter_village_label:
+		filter_village_label.add_theme_color_override("font_color", Color(1,1,1, 1.0 if news_focus == "village" else 0.6))
+	if filter_world_label:
+		filter_world_label.add_theme_color_override("font_color", Color(1,1,1, 1.0 if news_focus == "world" else 0.6))
 	
 	# Başlangıç UI güncellemesi (deferred olarak çağır)
 	call_deferred("update_missions_ui")
@@ -2364,6 +2469,32 @@ func create_available_mission_card(mission: Mission, is_selected: bool) -> Panel
 	reqs_label.add_theme_font_size_override("font_size", 10)
 	reqs_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	vbox.add_child(reqs_label)
+
+	# Mesafe ve hedef
+	if mission.target_location != "" or mission.distance > 0.0:
+		var travel_label = Label.new()
+		var dist_text = "%.1f gün" % mission.distance if mission.distance > 0.0 else "-"
+		var tgt_text = mission.target_location if mission.target_location != "" else "Bilinmeyen"
+		travel_label.text = "Hedef: %s | Mesafe: %s" % [tgt_text, dist_text]
+		travel_label.add_theme_font_size_override("font_size", 10)
+		travel_label.add_theme_color_override("font_color", Color(0.85,0.85,0.85,1))
+		vbox.add_child(travel_label)
+
+	# Gerekli kaynaklar
+	if not mission.required_resources.is_empty():
+		var req_text = "Gerekli Kaynaklar: "
+		var first_req = true
+		for r in mission.required_resources.keys():
+			if not first_req:
+				req_text += ", "
+			req_text += "%s: %s" % [str(r), str(mission.required_resources[r])]
+			first_req = false
+		var req_label = Label.new()
+		req_label.text = req_text
+		req_label.add_theme_font_size_override("font_size", 10)
+		req_label.add_theme_color_override("font_color", Color(0.9,0.8,0.6,1))
+		req_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(req_label)
 	
 	return card
 
@@ -3057,7 +3188,8 @@ func handle_news_input(event):
 	# Navigasyon: Sol/Sağ ile panel değiştir, Yukarı/Aşağı ile öğe seç, A ile detay, B ile kapat
 	# Detay overlay açıksa öncelik kapatmadadır
 	if news_detail_overlay:
-		if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_accept"):
+		if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
+			# A veya B tuşu: Kapat
 			_news_close_detail()
 			return
 	if event.is_action_pressed("ui_left"):
@@ -3066,6 +3198,8 @@ func handle_news_input(event):
 		dpad_debounce_timer = dpad_debounce_delay
 		news_focus = "village" if news_focus == "world" else ("world" if news_focus == "random" else "village")
 		_news_refresh_selection_visual()
+		_update_news_filter_bar_visual()
+		_update_news_subcategory_bar_visual()
 		return
 	if event.is_action_pressed("ui_right"):
 		if dpad_debounce_timer > 0:
@@ -3073,6 +3207,8 @@ func handle_news_input(event):
 		dpad_debounce_timer = dpad_debounce_delay
 		news_focus = "world" if news_focus == "village" else ("random" if news_focus == "world" else "random")
 		_news_refresh_selection_visual()
+		_update_news_filter_bar_visual()
+		_update_news_subcategory_bar_visual()
 		return
 	if event.is_action_pressed("ui_up"):
 		if dpad_debounce_timer > 0:
@@ -3092,6 +3228,25 @@ func handle_news_input(event):
 	if event.is_action_pressed("ui_cancel"):
 		_news_close_detail()
 		return
+	# Hepsini okundu işaretle (Y veya Triangle benzeri - ui_select already used; use ui_focus_next?)
+	if event.is_action_pressed("mark_all_read"):
+		var mm = get_node_or_null("/root/MissionManager")
+		if mm and mm.has_method("mark_all_news_read"):
+			mm.mark_all_news_read("all")
+			_update_unread_badge()
+			# UI yenile
+			update_news_ui()
+		return
+	# Alt kategori değişimi: X/Square (ui_select)
+	if event.is_action_pressed("ui_select"):
+		var order = ["all", "critical", "info", "success", "warning"]
+		var idx = order.find(current_subcategory)
+		if idx == -1:
+			idx = 0
+		idx = (idx + 1) % order.size()
+		current_subcategory = order[idx]
+		_update_news_subcategory_bar_visual()
+		update_news_ui()
 
 func _on_news_posted(news: Dictionary):
 	# Haberler MissionCenter'da doğrudan saklanıyor
@@ -3137,6 +3292,8 @@ func _on_news_posted(news: Dictionary):
 	else:
 		print("📰 ⚠️ Haber sayfasında değiliz, UI'ya eklenmedi")
 	print("📰 ===== YENİ HABER DEBUG BİTTİ =====")
+	# Unread badge güncelle
+	_update_unread_badge()
 
 func _open_trade_overlay():
 	if trade_overlay:
@@ -3655,6 +3812,10 @@ func create_news_card(news: Dictionary) -> Panel:
 	var card = Panel.new()
 	card.custom_minimum_size = Vector2(350, 80)
 	card.focus_mode = Control.FOCUS_NONE
+	# Okunmamış haberi vurgula
+	var is_unread := not bool(news.get("read", false))
+	if is_unread:
+		card.modulate = Color(1, 1, 0.92, 1)
 	
 	var vbox = VBoxContainer.new()
 	card.add_child(vbox)
@@ -3672,6 +3833,9 @@ func create_news_card(news: Dictionary) -> Panel:
 		title_label.add_theme_color_override("font_color", news["color"])
 	else:
 		title_label.add_theme_color_override("font_color", Color.WHITE)
+	# Unread badge
+	if is_unread:
+		title_label.text = "● " + title_label.text
 	vbox.add_child(title_label)
 	
 	# Haber içeriği
@@ -3683,10 +3847,26 @@ func create_news_card(news: Dictionary) -> Panel:
 	
 	# Zaman
 	var time_label = Label.new()
-	time_label.text = news.get("time", "Zaman yok")
+	var time_text = _format_news_time(news.get("timestamp", 0))
+	if time_text == "":
+		time_text = news.get("time", "Zaman yok")
+	time_label.text = time_text
 	time_label.add_theme_font_size_override("font_size", 10)
 	time_label.add_theme_color_override("font_color", Color.GRAY)
 	vbox.add_child(time_label)
+
+	# Haber tıklanınca okundu işaretle
+	card.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			var mm = get_node_or_null("/root/MissionManager")
+			if mm and mm.has_method("mark_news_read"):
+				mm.mark_news_read(int(news.get("id", -1)))
+				# UI'da görsel güncelleme
+				card.modulate = Color(1,1,1,1)
+				if title_label.text.begins_with("● "):
+					title_label.text = title_label.text.substr(2)
+				_update_unread_badge()
+	)
 	
 	return card
 
@@ -3778,15 +3958,15 @@ func _show_news_detail(title: String, content: String):
 	if news_detail_overlay:
 		news_detail_overlay.queue_free()
 	news_detail_overlay = Panel.new()
-	news_detail_overlay.custom_minimum_size = Vector2(600, 300)
+	news_detail_overlay.custom_minimum_size = Vector2(600, 350)
 	news_detail_overlay.anchor_left = 0.5
 	news_detail_overlay.anchor_top = 0.5
 	news_detail_overlay.anchor_right = 0.5
 	news_detail_overlay.anchor_bottom = 0.5
 	news_detail_overlay.offset_left = -300
 	news_detail_overlay.offset_right = 300
-	news_detail_overlay.offset_top = -150
-	news_detail_overlay.offset_bottom = 150
+	news_detail_overlay.offset_top = -175
+	news_detail_overlay.offset_bottom = 175
 	var vb = VBoxContainer.new()
 	news_detail_overlay.add_child(vb)
 	vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3803,12 +3983,64 @@ func _show_news_detail(title: String, content: String):
 	c.add_theme_font_size_override("font_size", 13)
 	c.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(c)
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 20)
+	vb.add_child(spacer)
+	
+	# Buton alanı
+	var button_container = HBoxContainer.new()
+	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(button_container)
+	
+	# Spacer (buton kaldırıldı)
+	var button_spacer = Control.new()
+	button_spacer.custom_minimum_size = Vector2(40, 0)
+	button_container.add_child(button_spacer)
+	
+	# Geri butonu
+	var back_button = Label.new()
+	back_button.text = "⬅️ Geri (B)"
+	back_button.add_theme_font_size_override("font_size", 14)
+	back_button.add_theme_color_override("font_color", Color(1.0, 0.8, 0.8, 1))
+	button_container.add_child(back_button)
+	
+	# Alt kategori değiştirme bilgisi
+	var filter_info = Label.new()
+	filter_info.text = "Alt kategori: Y tuşu"
+	filter_info.add_theme_font_size_override("font_size", 10)
+	filter_info.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 1))
+	filter_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(filter_info)
+	
 	get_tree().get_root().add_child(news_detail_overlay)
 
 func _news_close_detail():
 	if news_detail_overlay:
 		news_detail_overlay.queue_free()
 		news_detail_overlay = null
+
+# Haber→görev dönüştürme özelliği kaldırıldı
+
+func _format_news_time(timestamp: int) -> String:
+	if timestamp <= 0:
+		return ""
+	
+	var current_time = int(Time.get_unix_time_from_system())
+	var diff = current_time - timestamp
+	
+	if diff < 60:
+		return str(diff) + " saniye önce"
+	elif diff < 3600:
+		var minutes = int(diff / 60)
+		return str(minutes) + " dakika önce"
+	elif diff < 86400:
+		var hours = int(diff / 3600)
+		return str(hours) + " saat önce"
+	else:
+		var days = int(diff / 86400)
+		return str(days) + " gün önce"
 
 # Rastgele olay kartı oluştur
 func create_random_event_card(event: Dictionary) -> Panel:
@@ -4085,6 +4317,7 @@ func update_page_indicator():
 			page_dot3.modulate = Color(1, 1, 1, 1)
 		PageType.NEWS:
 			page_dot4.modulate = Color(1, 1, 1, 1)
+			_update_unread_badge()
 		PageType.CONCUBINE_DETAILS:
 			page_dot5.modulate = Color(1, 1, 1, 1)
 		PageType.TRADE:
@@ -4137,31 +4370,39 @@ func update_news_ui():
 	print("📰 MissionManager type: ", mm.get_class())
 	print("📰 MissionManager script: ", mm.get_script())
 	
-	# MissionManager'dan haber kuyruklarını güvenli şekilde al
-	var village_news = []
-	var world_news = []
-	
-	# MissionManager'ın hazır olmasını bekle - daha güçlü yöntem
-	var attempts = 0
-	while not ("news_queue_village" in mm) and attempts < 10:
-		await get_tree().process_frame
-		attempts += 1
-		print("📰 MissionManager hazır bekleniyor... deneme: ", attempts)
-		print("📰 MissionManager script path: ", mm.get_script().resource_path if mm.get_script() else "No script")
-		print("📰 MissionManager properties: ", mm.get_property_list().map(func(p): return p.name))
-	
-	# MissionCenter'da doğrudan haber kuyruklarını kullan
-	print("📰 🔄 MissionCenter'da doğrudan haber kuyrukları kullanılıyor...")
-	
-	# Haber kuyruklarını MissionCenter'da doğrudan kullan
-	village_news = news_queue_village
-	world_news = news_queue_world
+	# Haber kuyruklarını yöneticiden çek (persist)
+	var village_news: Array = []
+	var world_news: Array = []
+	if mm and mm.has_method("get_village_news") and mm.has_method("get_world_news"):
+		village_news = mm.get_village_news()
+		world_news = mm.get_world_news()
+		# Ayrıca MissionCenter içindeki anlık kuyrukla birleştir (runtime gelenler kaybolmasın)
+		for n in news_queue_village:
+			village_news.append(n)
+		for n2 in news_queue_world:
+			world_news.append(n2)
+		# Son eklenen en önde kalsın
+		village_news.reverse()
+		world_news.reverse()
+	else:
+		# Yedek: MissionCenter'daki yerel kuyruklar
+		village_news = news_queue_village.duplicate(true)
+		world_news = news_queue_world.duplicate(true)
 	
 	print("📰 ✅ MissionCenter haber kuyrukları kullanıldı")
 	print("📰 Final Village haber sayısı: ", village_news.size())
 	print("📰 Final World haber sayısı: ", world_news.size())
 	print("📰 ===== HABER DEBUG BİTTİ =====")
 	
+	# Filtre çubuklarını hazırla (ilk sefer)
+	_ensure_news_filter_bar()
+	_ensure_news_subcategory_bar()
+	_update_news_filter_bar_visual()
+	_update_news_subcategory_bar_visual()
+	
+	# Başlıkta unread rozetini güncelle
+	_update_unread_badge()
+
 	# Kuyruktan çiz: önce temizle, sonra doldur
 	var village_list = get_node_or_null("NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList")
 	var world_list = get_node_or_null("NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList")
@@ -4172,6 +4413,8 @@ func update_news_ui():
 		for c in village_list.get_children():
 			c.queue_free()
 		for n in village_news:
+			if not _news_passes_subcategory_filter(n):
+				continue
 			village_list.add_child(create_news_card(n))
 		print("📰 ✅ Village haber listesi güncellendi")
 	elif village_list:
@@ -4184,6 +4427,8 @@ func update_news_ui():
 		for c in world_list.get_children():
 			c.queue_free()
 		for n in world_news:
+			if not _news_passes_subcategory_filter(n):
+				continue
 			world_list.add_child(create_news_card(n))
 		print("📰 ✅ World haber listesi güncellendi")
 	elif world_list:
@@ -4207,23 +4452,119 @@ func handle_news_navigation():
 func update_concubine_details_ui():
 	if current_page != PageType.CONCUBINE_DETAILS:
 		return
-	
 	print("👤 Cariye Detay Sayfası güncelleniyor...")
-	
-	# Cariye listesini güncelle
-	update_concubine_list()
-	
-	# Seçili cariyenin detaylarını güncelle
-	update_selected_concubine_details()
+	_update_concubine_list_dynamic()
+	_update_selected_concubine_details_dynamic()
 
 # Cariye listesini güncelle
-func update_concubine_list():
-	# Şimdilik statik liste
-	# Gelecekte MissionManager'dan dinamik liste alınacak
-	print("📋 Cariye listesi güncelleniyor...")
+func _update_concubine_list_dynamic():
+	var list_node: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList")
+	if not list_node:
+		return
+	for c in list_node.get_children():
+		c.queue_free()
+	if not mission_manager:
+		return
+	# concubines dictionary: id -> Concubine
+	var concs = mission_manager.concubines
+	var concubine_array: Array = []
+	for cid in concs.keys():
+		concubine_array.append(concs[cid])
+	# sort by name
+	concubine_array.sort_custom(func(a, b): return a.name < b.name)
+	for idx in range(concubine_array.size()):
+		var c: Concubine = concubine_array[idx]
+		var item = Panel.new()
+		item.custom_minimum_size = Vector2(250, 90)
+		var vb = VBoxContainer.new()
+		item.add_child(vb)
+		vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var name_l = Label.new()
+		name_l.text = "%s (Lv.%d)" % [c.name, c.level]
+		name_l.add_theme_font_size_override("font_size", 14)
+		name_l.add_theme_color_override("font_color", Color.WHITE)
+		vb.add_child(name_l)
+		var status_l = Label.new()
+		status_l.text = "Durum: %s" % c.get_status_name()
+		status_l.add_theme_font_size_override("font_size", 11)
+		status_l.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+		vb.add_child(status_l)
+		var best_skill = c.get_best_skill()
+		var skill_l = Label.new()
+		skill_l.text = "En İyi: %s (%d)" % [c.get_skill_name(best_skill), c.get_skill_level(best_skill)]
+		skill_l.add_theme_font_size_override("font_size", 11)
+		skill_l.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+		vb.add_child(skill_l)
+		list_node.add_child(item)
 
-# Seçili cariyenin detaylarını güncelle
-# Bu fonksiyon zaten yukarıda tanımlanmış, duplicate kaldırıldı
+func _update_selected_concubine_details_dynamic():
+	var details_root: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent")
+	if not details_root:
+		return
+	# temizle, panelleri yeniden doldur
+	for panel in details_root.get_children():
+		if panel is Panel:
+			for ch in panel.get_children():
+				ch.queue_free()
+	if not mission_manager:
+		return
+	# İlk cariyeyi göster (ileride seçim eklenecek)
+	var selected: Concubine = null
+	for cid in mission_manager.concubines.keys():
+		selected = mission_manager.concubines[cid]
+		break
+	if selected == null:
+		return
+	# BasicInfoPanel
+	var basic_vbox: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox")
+	if basic_vbox:
+		var title = Label.new()
+		title.text = "👤 Temel Bilgiler"
+		title.add_theme_font_size_override("font_size", 18)
+		title.add_theme_color_override("font_color", Color.WHITE)
+		basic_vbox.add_child(title)
+		var info = Label.new()
+		info.text = "İsim: %s\nSeviye: %d (%d/%d XP)\nDurum: %s\nSağlık: %d/%d\nMoral: %d/%d" % [
+			selected.name, selected.level, selected.experience, selected.max_experience,
+			selected.get_status_name(), selected.health, selected.max_health, selected.moral, selected.max_moral
+		]
+		info.add_theme_font_size_override("font_size", 14)
+		info.add_theme_color_override("font_color", Color(0.8,0.8,0.8,1))
+		basic_vbox.add_child(info)
+	# SkillsPanel
+	var skills_vb: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel/SkillsVBox")
+	if skills_vb:
+		var stitle = Label.new()
+		stitle.text = "⚔️ Yetenekler"
+		stitle.add_theme_font_size_override("font_size", 18)
+		stitle.add_theme_color_override("font_color", Color.WHITE)
+		skills_vb.add_child(stitle)
+		for s in selected.skills.keys():
+			var l = Label.new()
+			l.text = "• %s: %d" % [selected.get_skill_name(s), int(selected.skills[s])]
+			l.add_theme_font_size_override("font_size", 12)
+			l.add_theme_color_override("font_color", Color(0.8,0.9,1,1))
+			skills_vb.add_child(l)
+	# MissionHistoryPanel (cariye özel)
+	var hist_vb: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel/MissionHistoryVBox")
+	if hist_vb:
+		var htitle = Label.new()
+		htitle.text = "📚 Görev Geçmişi"
+		htitle.add_theme_font_size_override("font_size", 18)
+		htitle.add_theme_color_override("font_color", Color.WHITE)
+		hist_vb.add_child(htitle)
+		var history = mission_manager.get_mission_history_for_cariye(selected.id)
+		var sum_success := 0
+		for h in history:
+			if h.get("successful", false):
+				sum_success += 1
+		var content = Label.new()
+		content.text = "✅ Tamamlanan: %d\n❌ Başarısız: %d\n📊 Başarı Oranı: %d%%" % [
+			sum_success, history.size() - sum_success, int((float(max(0,sum_success)) / float(max(1,history.size()))) * 100.0)
+		]
+		content.add_theme_font_size_override("font_size", 14)
+		content.add_theme_color_override("font_color", Color(0.8,0.8,0.8,1))
+		hist_vb.add_child(content)
 
 # Cariye detay sayfası navigasyonu
 func handle_concubine_details_navigation():
@@ -4423,6 +4764,7 @@ func open_menu():
 	print("🎯 MissionCenter açılıyor, haber kuyrukları yükleniyor...")
 	update_news_ui()
 	print("🎯 ===== OPEN_MENU DEBUG BİTTİ =====")
+	_update_unread_badge()
 
 # Mission Center menüsünü kapat
 func close_menu():

@@ -535,20 +535,20 @@ func heal(amount: float):
 func is_moving_away_from_wall() -> bool:
 	var input_dir = Input.get_axis("left", "right")
 	var moving_away = input_dir * wall_normal.x > 0
-	print("[WALL_SLIDE_DEBUG] Player: Moving away check - input_dir: ", input_dir, " wall_normal.x: ", wall_normal.x, " moving_away: ", moving_away)
+	# print("[WALL_SLIDE_DEBUG] Player: Moving away check - input_dir: ", input_dir, " wall_normal.x: ", wall_normal.x, " moving_away: ", moving_away)
 	return moving_away
 
 func is_on_wall_slide() -> bool:
 	# Don't allow wall sliding if too close to ground
 	if is_on_floor() or position.y < wall_slide_min_height:
-		print("[WALL_SLIDE_DEBUG] Player: Cannot wall slide - on_floor: ", is_on_floor(), " position.y: ", position.y, " min_height: ", wall_slide_min_height)
+		# print("[WALL_SLIDE_DEBUG] Player: Cannot wall slide - on_floor: ", is_on_floor(), " position.y: ", position.y, " min_height: ", wall_slide_min_height)
 		return false
 		
 	# Basic wall slide conditions
 	var on_wall = is_on_wall()
 	var not_moving_away = not is_moving_away_from_wall()
 	
-	print("[WALL_SLIDE_DEBUG] Player: Wall slide check - on_wall: ", on_wall, " not_moving_away: ", not_moving_away, " is_wall_sliding: ", is_wall_sliding)
+	# print("[WALL_SLIDE_DEBUG] Player: Wall slide check - on_wall: ", on_wall, " not_moving_away: ", not_moving_away, " is_wall_sliding: ", is_wall_sliding)
 	
 	# Only check current conditions if we're already wall sliding
 	if is_wall_sliding:

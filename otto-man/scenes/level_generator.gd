@@ -1726,7 +1726,6 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 				
 				# Check door proximity for gate, pipe and banner decorations (GERÇEK spawn pozisyonu ile)
 				if selected_decor_name in ["gate1", "gate2", "pipe1", "pipe2", "banner1"]:
-					print("[DEBUG] Checking door proximity for: ", selected_decor_name)
 					var is_too_close = false
 					if selected_decor_name == "banner1":
 						is_too_close = spawner._is_near_door_banner(spawn_pos)
@@ -1734,12 +1733,9 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 						is_too_close = spawner._is_near_door(spawn_pos)
 					
 					if is_too_close:
-						print("[DecorationSpawner] %s decoration too close to door, removing spawn" % selected_decor_name)
 						decoration_instance.queue_free()
 						spawner.queue_free()
 						continue
-					else:
-						print("[DEBUG] %s decoration is safe from doors" % selected_decor_name)
 				
 				# For clearance-based floor decors (box2, gate1), cancel global left bias to stay tile-aligned
 				if needs_clearance and (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER):
@@ -1783,12 +1779,6 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 				
 				# Set position for ALL decorations (not just gates/pipes)
 				decoration_instance.global_position = final_pos
-				print("[DECORATION_DEBUG] Spawned ", selected_decor_name, " at position ", final_pos, " spawn_pos=", spawn_pos)
-				var sprite = decoration_instance.get_node_or_null("Sprite")
-				if sprite:
-					print("[DECORATION_DEBUG] Sprite z_index=", sprite.z_index, " visible=", sprite.visible, " modulate=", sprite.modulate)
-				else:
-					print("[DECORATION_DEBUG] No Sprite found in ", selected_decor_name)
 				
 				# Prevent overlapping large decors: gates/pipes/banners/sculptures
 				if (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
@@ -3258,15 +3248,8 @@ func _process(delta):
 """
 	screen_darkness.set_script(update_script)
 	
-	# DEBUG: Scene root'u kontrol et
-	var scene_root = get_tree().current_scene
-	print("[LevelGenerator] DEBUG: Scene root info:")
-	print("  - scene_root: ", scene_root)
-	print("  - scene_root class: ", scene_root.get_class() if scene_root else "null")
-	print("  - scene_root name: ", scene_root.name if scene_root else "null")
-	print("  - scene_root children count: ", scene_root.get_child_count() if scene_root else "null")
-	
 	# CanvasLayer oluştur ve ColorRect'i içine ekle
+	var scene_root = get_tree().current_scene
 	var canvas_layer = CanvasLayer.new()
 	canvas_layer.name = "ScreenDarknessLayer"
 	canvas_layer.layer = 100  # En üstte render edilsin
@@ -3275,17 +3258,4 @@ func _process(delta):
 	canvas_layer.add_child(screen_darkness)
 	
 	# CanvasLayer'i scene root'a ekle
-	scene_root.add_child(canvas_layer)
-	
-	# DEBUG: Ekledikten sonra durumu kontrol et
-	print("[LevelGenerator] DEBUG: After adding ColorRect to CanvasLayer:")
-	print("  - screen_darkness parent: ", screen_darkness.get_parent())
-	print("  - screen_darkness is_inside_tree: ", screen_darkness.is_inside_tree())
-	print("  - canvas_layer layer: ", canvas_layer.layer)
-	print("  - screen_darkness color: ", screen_darkness.color)
-	print("  - scene_root children count: ", scene_root.get_child_count())
-	
-	print("[LevelGenerator] Screen darkness controller added successfully")
-	print("[LevelGenerator] Screen darkness controller node: ", screen_darkness)
-	print("[LevelGenerator] Screen darkness controller parent: ", screen_darkness.get_parent())
-	print("[LevelGenerator] Screen darkness overlay added to CanvasLayer with layer 100") 
+	scene_root.add_child(canvas_layer) 

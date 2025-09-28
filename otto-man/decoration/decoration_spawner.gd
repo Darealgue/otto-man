@@ -112,7 +112,6 @@ func _spawn_decoration() -> bool:
 	
 	# Gate, pipe ve banner dekorları için kapı kontrolü yap (GERÇEK spawn pozisyonu ile)
 	if decoration_name in ["gate1", "gate2", "pipe1", "pipe2", "banner1"]:
-		print("[DEBUG] Checking door proximity for: ", decoration_name)
 		var is_too_close = false
 		if decoration_name == "banner1":
 			is_too_close = _is_near_door_banner(spawn_pos)
@@ -120,12 +119,10 @@ func _spawn_decoration() -> bool:
 			is_too_close = _is_near_door(spawn_pos)
 		
 		if is_too_close:
-			print("[DecorationSpawner] %s decoration too close to door, removing spawn" % decoration_name)
 			decoration_instance.queue_free()
 			last_spawned_decoration = null
 			_spawned_decoration = null
 			return false
-		print("[DEBUG] %s decoration is safe from doors" % decoration_name)
 	
 	# Referansı sakla
 	_spawned_decoration = decoration_instance

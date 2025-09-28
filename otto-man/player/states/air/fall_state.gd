@@ -14,7 +14,7 @@ var last_wall_normal := Vector2.ZERO
 var wall_slide_state = null  # Store reference to wall slide state
 
 func enter():
-	print("[WALL_SLIDE_DEBUG] Fall State: ENTERING fall state")
+	# print("[WALL_SLIDE_DEBUG] Fall State: ENTERING fall state")
 	wall_transition_timer = WALL_TRANSITION_DELAY
 	wall_contact_timer = 0.0
 	
@@ -71,18 +71,18 @@ func physics_update(delta: float):
 	if player.is_on_wall():
 		# Track wall contact time
 		wall_contact_timer += delta
-		print("[WALL_SLIDE_DEBUG] Fall State: Wall detected, contact_time: ", wall_contact_timer, " min_time: ", MIN_WALL_CONTACT_TIME)
+		# print("[WALL_SLIDE_DEBUG] Fall State: Wall detected, contact_time: ", wall_contact_timer, " min_time: ", MIN_WALL_CONTACT_TIME)
 		
 		# Only transition if:
 		# 1. We've been in contact with the wall for minimum time
 		# 2. The wall slide state is available and can be entered (not on cooldown)
 		if wall_contact_timer >= MIN_WALL_CONTACT_TIME and wall_slide_state and wall_slide_state.can_enter():
-			print("[WALL_SLIDE_DEBUG] Fall State: Wall slide can enter, transitioning to WallSlide")
+			# print("[WALL_SLIDE_DEBUG] Fall State: Wall slide can enter, transitioning to WallSlide")
 			wall_slide_state.reset_cooldown()  # Reset cooldown before entering
 			state_machine.transition_to("WallSlide")
 			return
 		else:
-			print("[WALL_SLIDE_DEBUG] Fall State: Wall slide cannot enter - contact_time: ", wall_contact_timer, " wall_slide_state: ", wall_slide_state, " can_enter: ", wall_slide_state.can_enter() if wall_slide_state else "N/A")
+			pass
 	else:
 		wall_contact_timer = 0.0
 	
@@ -200,7 +200,7 @@ func _on_animation_finished(anim_name: String):
 				animation_player.play("landing")
 
 func exit():
-	print("[WALL_SLIDE_DEBUG] Fall State: EXITING fall state")
+	# print("[WALL_SLIDE_DEBUG] Fall State: EXITING fall state")
 	is_double_jumping = false
 	double_jump_animation_finished = false
 	is_transitioning = false

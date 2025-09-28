@@ -41,7 +41,7 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 @export var chain_type: ChainType = ChainType.NONE  # Zincir türü
 @export var chain_order: int = 0  # Zincirdeki sıra
 @export var prerequisite_missions: Array = []  # Önkoşul görevler
-@export var unlocks_missions: Array = []  # Bu görev tamamlandığında açılacak görevler
+@export var unlocks_missions: Array[String] = []  # Bu görev tamamlandığında açılacak görevler
 @export var chain_rewards: Dictionary = {}  # Zincir tamamlandığında verilecek ödüller
 
 # Görev durumu

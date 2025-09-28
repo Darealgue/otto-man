@@ -21,15 +21,11 @@ var camera: Camera2D
 var update_timer: float = 0.0
 
 func _ready() -> void:
-	print("[DarknessController] _ready() called")
-	
 	# Shader'ı yükle
 	shader = load("res://shaders/distance_darkness.gdshader")
 	if not shader:
 		push_error("Distance darkness shader could not be loaded!")
 		return
-	
-	print("[DarknessController] Shader loaded successfully: ", shader.resource_path)
 	
 	# Shader material oluştur
 	shader_material = ShaderMaterial.new()
@@ -43,8 +39,6 @@ func _ready() -> void:
 	
 	# Camera'yı bul
 	find_camera()
-	
-	print("[DarknessController] Initialized with shader: ", shader.resource_path)
 
 func _process(delta: float) -> void:
 	update_timer += delta
@@ -59,17 +53,15 @@ func find_player() -> void:
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() > 0:
 		player = players[0]
-		print("[DarknessController] Player found: ", player.name)
 	else:
-		print("[DarknessController] Warning: No player found in 'player' group")
+		push_warning("No player found in 'player' group")
 
 func find_camera() -> void:
 	# Camera'yı bul
 	if player and player.has_node("Camera2D"):
 		camera = player.get_node("Camera2D")
-		print("[DarknessController] Camera found: ", camera.name)
 	else:
-		print("[DarknessController] Warning: No camera found")
+		push_warning("No camera found")
 
 func update_player_position() -> void:
 	if not shader_material:
@@ -94,10 +86,6 @@ func update_player_position() -> void:
 	
 	# Shader'a gönder
 	shader_material.set_shader_parameter("player_position", player_screen_pos)
-	
-	# Debug mesajı (sadece ilk birkaç kez)
-	if update_timer < 1.0:  # İlk saniye boyunca
-		print("[DarknessController] Updated player position: ", player_screen_pos, " (world: ", player_world_pos, ", camera: ", camera_pos, ", zoom: ", camera_zoom, ")")
 
 func update_shader_parameters() -> void:
 	if not shader_material:
@@ -110,20 +98,14 @@ func update_shader_parameters() -> void:
 	shader_material.set_shader_parameter("wall_shadow", wall_shadow)
 
 func apply_to_tilemap(tilemap: TileMap) -> void:
-	print("[DarknessController] apply_to_tilemap called for: ", tilemap.name)
-	
 	if not shader_material:
 		push_error("Shader material not initialized!")
 		return
 	
 	tilemap.material = shader_material
-	print("[DarknessController] Applied darkness shader to: ", tilemap.name)
-	print("[DarknessController] Shader material: ", shader_material)
-	print("[DarknessController] Shader: ", shader_material.shader)
 
 func remove_from_tilemap(tilemap: TileMap) -> void:
 	tilemap.material = null
-	print("[DarknessController] Removed darkness shader from: ", tilemap.name)
 
 # Parametreleri runtime'da değiştirmek için
 func set_max_darkness(value: float) -> void:

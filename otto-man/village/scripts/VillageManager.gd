@@ -45,6 +45,18 @@ var locked_resource_levels: Dictionary = {
 	"bread": 0 # Ekmek de kilitlenebilir mi? Şimdilik ekleyelim.
 }
 
+# --- ZAMAN BAZLI ÜRETİM (YENİ) ---
+# Temel kaynaklar için stok ve saat bazlı birikim ilerlemesi
+const BASE_RESOURCE_TYPES := ["wood", "stone", "food", "water", "metal"]
+const SECONDS_PER_RESOURCE_UNIT := 300.0 # 1 işçi-2saat == 1 kaynak (oyun içi 2 saat = 2 * 2.5 * 60 = 300 gerçek saniye)
+var base_production_progress: Dictionary = {
+	"wood": 0.0,
+	"stone": 0.0,
+	"food": 0.0,
+	"water": 0.0,
+	"metal": 0.0
+}
+
 # Sinyaller
 signal village_data_changed
 signal resource_produced(resource_type, amount)
@@ -164,6 +176,11 @@ func register_village_scene(scene: Node2D) -> void:
 		#
 	## --- Kaynak Seviyesi Hesaplama (YENİ) ---
 
+	# Zaman bazlı üretim ilerlemelerini güvenli başlat
+	for res in BASE_RESOURCE_TYPES:
+		if not base_production_progress.has(res):
+			base_production_progress[res] = 0.0
+
 # Belirli bir kaynak türünü üreten Tescilli Script Yolları
 # Bu, get_resource_level için gereklidir
 const RESOURCE_PRODUCER_SCRIPTS = {
@@ -175,43 +192,50 @@ const RESOURCE_PRODUCER_SCRIPTS = {
 	"bread": "res://village/scripts/Bakery.gd" #<<< YENİ
 }
 
-# Bir kaynak türü için toplam çalışan işçi sayısını (seviyeyi) veya üretici sayısını hesaplar
+# Bir kaynak türünün mevcut stok seviyesini döndürür (temel ve gelişmiş için ortak)
 func get_resource_level(resource_type: String) -> int:
-	# Kaynak birincil mi (işçi sayısıyla mı belirleniyor)?
-	if RESOURCE_PRODUCER_SCRIPTS.has(resource_type):
-		# Evet, birincil kaynak. İşçileri say.
-		if not village_scene_instance:
-			#printerr("VillageManager: get_resource_level (base) - VillageScene referansı yok!")
-			return 0
+	return resource_levels.get(resource_type, 0)
 
-		var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
-		if not placed_buildings:
-			#printerr("VillageManager: get_resource_level (base) - PlacedBuildings bulunamadı!")
-			return 0
+# İç yardımcı: Belirli bir temel kaynak için atanan toplam işçi sayısını sayar
+func _count_assigned_workers_for_resource(resource_type: String) -> int:
+	if not RESOURCE_PRODUCER_SCRIPTS.has(resource_type):
+		return 0
+	if not is_instance_valid(village_scene_instance):
+		return 0
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return 0
+	var target_script_path = RESOURCE_PRODUCER_SCRIPTS[resource_type]
+	var total_workers_for_resource = 0
+	for building in placed_buildings.get_children():
+		if building.has_method("get_script") and building.get_script() != null:
+			var building_script = building.get_script()
+			if building_script is GDScript and building_script.resource_path == target_script_path:
+				if "assigned_workers" in building:
+					total_workers_for_resource += int(building.assigned_workers)
+	return total_workers_for_resource
 
-		var target_script_path = RESOURCE_PRODUCER_SCRIPTS[resource_type]
-		var total_workers_for_resource = 0
-		for building in placed_buildings.get_children():
-			if building.has_method("get_script") and building.get_script() != null:
-				var building_script = building.get_script()
-				if building_script is GDScript and building_script.resource_path == target_script_path:
-					if "assigned_workers" in building:
-						total_workers_for_resource += building.assigned_workers
-
-		# Harici (ticaret/etki) modifikasyonlarını ekle
-		var mm = get_node_or_null("/root/MissionManager")
-		if mm and mm.has_method("get_external_rate_delta"):
-			total_workers_for_resource += int(mm.get_external_rate_delta(resource_type))
-		return total_workers_for_resource
-	else:
-		# Hayır, ikincil/gelişmiş kaynak (ekmek vb.). resource_levels'dan oku.
-		# Bu değer, register/unregister_advanced_production tarafından güncellenir.
-		# #print("DEBUG VillageManager: get_resource_level (advanced) for %s returning %s" % [resource_type, resource_levels.get(resource_type, 0)]) #<<< DEBUG
-		var base_val = resource_levels.get(resource_type, 0)
-		var mm2 = get_node_or_null("/root/MissionManager")
-		if mm2 and mm2.has_method("get_external_rate_delta"):
-			base_val += int(mm2.get_external_rate_delta(resource_type))
-		return base_val
+# İç yardımcı: Belirli bir temel kaynak için atanan işçi sayısını sayar (mesai saatlerinde sürekli çalışır)
+func _count_active_workers_for_resource(resource_type: String) -> int:
+	if not RESOURCE_PRODUCER_SCRIPTS.has(resource_type):
+		return 0
+	if not is_instance_valid(village_scene_instance):
+		return 0
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return 0
+	var target_script_path = RESOURCE_PRODUCER_SCRIPTS[resource_type]
+	var assigned_workers_for_resource = 0
+	
+	for building in placed_buildings.get_children():
+		if building.has_method("get_script") and building.get_script() != null:
+			var building_script = building.get_script()
+			if building_script is GDScript and building_script.resource_path == target_script_path:
+				# Bu binadaki atanan işçi sayısını al (aktif durum fark etmez)
+				if "assigned_workers" in building:
+					assigned_workers_for_resource += int(building.assigned_workers)
+	
+	return assigned_workers_for_resource
 
 # Belirli bir kaynak seviyesinin ne kadarının kullanılabilir (kilitli olmayan) olduğunu döndürür
 func get_available_resource_level(resource_type: String) -> int:
@@ -219,6 +243,66 @@ func get_available_resource_level(resource_type: String) -> int:
 	var locked_level = locked_resource_levels.get(resource_type, 0)
 	# #print("DEBUG VillageManager: get_available_resource_level(%s): Total=%d, Locked=%d, Available=%d" % [resource_type, total_level, locked_level, max(0, total_level - locked_level)]) #<<< DEBUG
 	return max(0, total_level - locked_level)
+
+# Her frame'de temel kaynakları zamanla biriktirir
+func _process(delta: float) -> void:
+	# Zaman ölçeğini uygula (TimeManager ile tutarlı olması için)
+	var scaled_delta = delta * Engine.time_scale
+	
+	# Debug: _process çağrıldığında delta değerini kontrol et
+	if Engine.time_scale >= 16.0 and delta > 0.1:
+		print("🕐 _process çağrıldı - Delta: %.3f, Scaled Delta: %.3f, Time Scale: %.1f" % [delta, scaled_delta, Engine.time_scale])
+	
+	# Çalışma saatleri kontrolü - sadece 7:00-18:00 arası üretim yapılır
+	if not TimeManager.is_work_time():
+		return # Çalışma saatleri dışında üretim yok
+	
+	var produced_any := false
+	for resource_type in BASE_RESOURCE_TYPES:
+		# Bu kaynağı üreten AKTIF çalışan işçi sayısını al
+		var active_workers := _count_active_workers_for_resource(resource_type)
+		if active_workers <= 0:
+			# Debug: İşçi yoksa neden üretim yok
+			if Engine.time_scale >= 16.0:
+				print("⚠️ %s için işçi yok (0 işçi)" % resource_type)
+			continue
+		
+		# Debug: İşçi sayısını kontrol et
+		if Engine.time_scale >= 16.0:
+			print("🔍 %s için %d işçi çalışıyor" % [resource_type, active_workers])
+		# İlerlemeyi artır (atanan işçi sayısı x geçen süre x oyun hızı)
+		# Engine.time_scale ile oyun hızlandırması kaynak üretimini de etkiler
+		# İşçiler mesai saatlerinde sürekli çalışır (aktif durum fark etmez)
+		var progress_increment = scaled_delta * float(active_workers)
+		base_production_progress[resource_type] = base_production_progress.get(resource_type, 0.0) + progress_increment
+		
+		# Debug: x16 hızlandırmada sorun tespiti
+		if Engine.time_scale >= 16.0 and progress_increment > 0:
+			print("DEBUG: %s - Delta: %.3f, Scaled Delta: %.3f, Workers: %d, Increment: %.3f, Progress: %.3f, Target: %.1f" % [
+				resource_type, delta, scaled_delta, active_workers, progress_increment, base_production_progress[resource_type], SECONDS_PER_RESOURCE_UNIT
+			])
+		# Tamamlanan birim sayısını hesapla
+		if base_production_progress[resource_type] >= SECONDS_PER_RESOURCE_UNIT:
+			var units := int(floor(base_production_progress[resource_type] / SECONDS_PER_RESOURCE_UNIT))
+			if units > 0:
+				resource_levels[resource_type] = resource_levels.get(resource_type, 0) + units
+				base_production_progress[resource_type] -= float(units) * SECONDS_PER_RESOURCE_UNIT
+				produced_any = true
+				print("VillageManager: %d %s üretildi! Toplam: %d (Hız: x%.1f)" % [units, resource_type, resource_levels[resource_type], Engine.time_scale])
+				# Debug: Üretim oranını kontrol et
+				var expected_production = (base_production_progress[resource_type] + float(units) * SECONDS_PER_RESOURCE_UNIT) / SECONDS_PER_RESOURCE_UNIT
+				print("📈 %s üretim oranı: %.2f kaynak/saat (beklenen: %.2f)" % [resource_type, expected_production, float(active_workers)])
+				# Toplam kaynakları göster
+				print("📊 TOPLAM KAYNAKLAR: Odun:%d, Taş:%d, Yiyecek:%d, Su:%d, Metal:%d, Ekmek:%d" % [
+					resource_levels.get("wood", 0),
+					resource_levels.get("stone", 0), 
+					resource_levels.get("food", 0),
+					resource_levels.get("water", 0),
+					resource_levels.get("metal", 0),
+					resource_levels.get("bread", 0)
+				])
+	if produced_any:
+		emit_signal("village_data_changed")
 
 # --- Seviye Kilitleme (Yükseltmeler ve Gelişmiş Üretim için) ---
 

@@ -24,10 +24,11 @@ func _ready() -> void:
 
 func activate(player: CharacterBody2D) -> void:
 	timer = duration
-	debug_print_activation(player)
+	# debug_print_activation(player)
 
 func deactivate(player: CharacterBody2D) -> void:
-	debug_print_deactivation(player)
+	# debug_print_deactivation(player)
+	pass
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if timer > 0:
@@ -35,7 +36,7 @@ func process(player: CharacterBody2D, delta: float) -> void:
 		if timer <= 0:
 			PowerupManager.deactivate_powerup(self)
 			
-	debug_print_process(player, delta)
+	# debug_print_process(player, delta)
 
 func conflicts_with(other: PowerupEffect) -> bool:
 	# By default, powerups of the same type conflict

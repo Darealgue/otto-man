@@ -22,14 +22,14 @@ func activate(player: CharacterBody2D) -> void:
 	current_multiplier = 1.0
 	var attack_manager = get_node("/root/AttackManager")
 	if attack_manager:
-		print("[DEBUG] Momentum Master - Initializing with no boost")
+		# print("[DEBUG] Momentum Master - Initializing with no boost")
 		attack_manager.add_damage_multiplier(player, 1.0, "momentum_master")
 
 func deactivate(player: CharacterBody2D) -> void:
 	if !is_instance_valid(player):
 		var attack_manager = get_node("/root/AttackManager")
 		if attack_manager:
-			print("[DEBUG] Momentum Master - Removing multiplier:", current_multiplier)
+			# print("[DEBUG] Momentum Master - Removing multiplier:", current_multiplier)
 			attack_manager.remove_damage_multiplier(player, current_multiplier, "momentum_master")
 		super.deactivate(player)
 
@@ -53,5 +53,5 @@ func update(player: CharacterBody2D, delta: float) -> void:
 				# Apply new multiplier
 				current_damage_boost = new_boost
 				current_multiplier = 1.0 + current_damage_boost
-				print("[DEBUG] Momentum Master - Updating multiplier:", current_multiplier, " (", current_damage_boost * 100, "% boost)")
+				# print("[DEBUG] Momentum Master - Updating multiplier:", current_multiplier, " (", current_damage_boost * 100, "% boost)")
 				attack_manager.add_damage_multiplier(player, current_multiplier, "momentum_master")

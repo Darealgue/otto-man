@@ -40,22 +40,22 @@ func is_on_cooldown() -> bool:
 func can_enter() -> bool:
 	# Don't allow re-entry if we're already wall sliding
 	if state_machine.current_state == self:
-		print("[WALL_SLIDE_DEBUG] WallSlide: Already wall sliding, cannot enter")
+		# print("[WALL_SLIDE_DEBUG] WallSlide: Already wall sliding, cannot enter")
 		return false
 		
 	# Always skip cooldown for Jump, Fall, and Run states for immediate wall slide
 	var skip_cooldown = state_machine.previous_state and (state_machine.previous_state.name == "Jump" or state_machine.previous_state.name == "Fall" or state_machine.previous_state.name == "Run")
-	print("[WALL_SLIDE_DEBUG] WallSlide: Previous state: ", state_machine.previous_state.name if state_machine.previous_state else "None", " skip_cooldown: ", skip_cooldown)
+	# print("[WALL_SLIDE_DEBUG] WallSlide: Previous state: ", state_machine.previous_state.name if state_machine.previous_state else "None", " skip_cooldown: ", skip_cooldown)
 	
 	# If we're on cooldown and not coming from Jump/Fall/Run, prevent entry
 	if not skip_cooldown and is_on_cooldown():
-		print("[WALL_SLIDE_DEBUG] WallSlide: On cooldown, cannot enter")
+		# print("[WALL_SLIDE_DEBUG] WallSlide: On cooldown, cannot enter")
 		return false
 	
 	# Check if we're actually on a wall
 	var left_wall = wall_ray_left.is_colliding()
 	var right_wall = wall_ray_right.is_colliding()
-	print("[WALL_SLIDE_DEBUG] WallSlide: Wall detection - left: ", left_wall, " right: ", right_wall)
+	# print("[WALL_SLIDE_DEBUG] WallSlide: Wall detection - left: ", left_wall, " right: ", right_wall)
 	
 	return left_wall or right_wall
 
@@ -66,7 +66,7 @@ func enter():
 	if !player:
 		return
 	
-	print("[WALL_SLIDE_DEBUG] WallSlide: ENTERING wall slide state")
+	# print("[WALL_SLIDE_DEBUG] WallSlide: ENTERING wall slide state")
 	
 	# Get wall normal from raycast and determine wall side
 	current_wall_normal = _get_wall_normal()
@@ -74,10 +74,10 @@ func enter():
 	var right_colliding = wall_ray_right.is_colliding()
 	wall_side = -1 if left_colliding else 1
 	
-	print("[WALL_SLIDE_DEBUG] WallSlide: Wall normal: ", current_wall_normal, " wall_side: ", wall_side)
+	# print("[WALL_SLIDE_DEBUG] WallSlide: Wall normal: ", current_wall_normal, " wall_side: ", wall_side)
 	
 	if current_wall_normal == Vector2.ZERO:
-		print("[WALL_SLIDE_DEBUG] WallSlide: No wall normal found, transitioning to Fall")
+		# print("[WALL_SLIDE_DEBUG] WallSlide: No wall normal found, transitioning to Fall")
 		state_machine.transition_to("Fall")
 		return
 	
@@ -146,10 +146,18 @@ func physics_update(delta: float):
 			if locked_sprite_direction:
 				player.sprite.flip_h = wall_side < 0
 
-	# Check for jump input first
+	# Check for jump input FIRST - if jumping, don't check for ledgegrab
 	if Input.is_action_just_pressed("jump"):
 		_perform_wall_jump(current_wall_normal)
 		return
+	
+	# --- Ledge Grab Check (only when not jumping) ---
+	var ledge_state = get_parent().get_node("LedgeGrab")
+	if ledge_state and ledge_state.can_ledge_grab():
+		_end_wall_slide() # Ensure wall slide cleanup happens
+		state_machine.transition_to("LedgeGrab")
+		return
+	# --- END Ledge Grab Check ---
 	
 	# Apply wall slide physics
 	player.velocity.y = min(player.velocity.y + player.gravity * delta * player.wall_slide_gravity_multiplier, 100.0)
@@ -187,14 +195,6 @@ func physics_update(delta: float):
 	if wall_stick_timer > 0:
 		wall_stick_timer -= delta
 	
-	# --- ADDED Ledge Grab Check ---
-	var ledge_state = get_parent().get_node("LedgeGrab")
-	if ledge_state and ledge_state.can_ledge_grab():
-		_end_wall_slide() # Ensure wall slide cleanup happens
-		state_machine.transition_to("LedgeGrab")
-		return
-	# --- END Ledge Grab Check ---
-	
 	# Exit check
 	var should_exit = false
 	if wall_detach_timer >= WALL_DETACH_BUFFER:
@@ -203,6 +203,8 @@ func physics_update(delta: float):
 		should_exit = true
 	
 	if should_exit:
+		# Set ledgegrab cooldown when exiting wallslide to prevent immediate ledgegrab
+		player.ledge_grab_cooldown_timer = 0.2  # 0.2 second cooldown
 		_end_wall_slide()
 		state_machine.transition_to("Fall")
 		return
@@ -230,6 +232,9 @@ func _perform_wall_jump(wall_normal: Vector2):
 	player.is_wall_jumping = true
 	player.wall_jump_direction = wall_normal.x
 	
+	# Set ledgegrab cooldown to prevent immediate ledgegrab after wall jump
+	player.ledge_grab_cooldown_timer = 0.2  # 0.2 second cooldown
+	
 	# When wall jumping, face AWAY from the wall
 	player.sprite.flip_h = wall_side > 0  # This stays > because we want to face AWAY for the jump
 	locked_sprite_direction = false  # Allow sprite direction to change after wall jump
@@ -241,5 +246,5 @@ func _end_wall_slide():
 	reentry_cooldown_timer = REENTRY_COOLDOWN
 
 func exit():
-	print("[WALL_SLIDE_DEBUG] WallSlide: EXITING wall slide state")
+	# print("[WALL_SLIDE_DEBUG] WallSlide: EXITING wall slide state")
 	pass

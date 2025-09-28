@@ -7,7 +7,7 @@ const WALL_JUMP_HORIZONTAL_DECAY := 0.95  # How much horizontal velocity is main
 var wall_jump_sprite_direction := false  # Store initial wall jump direction
 
 func enter():
-	print("[WALL_SLIDE_DEBUG] Jump State: ENTERING jump state")
+	# print("[WALL_SLIDE_DEBUG] Jump State: ENTERING jump state")
 	# Connect animation signals
 	if not animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.connect("animation_finished", _on_animation_finished)
@@ -42,16 +42,16 @@ func physics_update(delta: float):
 	
 	# PRIORITY 1: Check for wall slide FIRST - highest priority for consistent wall sliding
 	if player.is_on_wall():
-		print("[WALL_SLIDE_DEBUG] Jump State: Wall detected, checking wall slide state...")
+		# print("[WALL_SLIDE_DEBUG] Jump State: Wall detected, checking wall slide state...")
 		var wall_slide_state = get_parent().get_node("WallSlide")
 		if wall_slide_state and wall_slide_state.can_enter():
-			print("[WALL_SLIDE_DEBUG] Jump State: Wall slide can enter, transitioning to WallSlide")
+			# print("[WALL_SLIDE_DEBUG] Jump State: Wall slide can enter, transitioning to WallSlide")
 			# Force reset any animation cooldowns that might interfere
 			wall_slide_state.reset_cooldown()
 			state_machine.transition_to("WallSlide")
 			return
 		else:
-			print("[WALL_SLIDE_DEBUG] Jump State: Wall slide cannot enter - wall_slide_state: ", wall_slide_state, " can_enter: ", wall_slide_state.can_enter() if wall_slide_state else "N/A")
+			pass
 	
 	# Get input state
 	var input_dir = Input.get_axis("left", "right")
@@ -117,6 +117,12 @@ func physics_update(delta: float):
 	# Move the player
 	player.move_and_slide()
 	
+	# Check for ledge grab
+	var ledge_state = get_parent().get_node("LedgeGrab")
+	if ledge_state and ledge_state.can_ledge_grab():
+		state_machine.transition_to("LedgeGrab")
+		return
+	
 	# Check for landing
 	if player.is_on_floor():
 		# If we recently did a ledgegrab, transition to crouch to prevent getting stuck
@@ -158,7 +164,7 @@ func _on_animation_finished(anim_name: String):
 			animation_player.play("jump_upwards")
 
 func exit():
-	print("[WALL_SLIDE_DEBUG] Jump State: EXITING jump state")
+	# print("[WALL_SLIDE_DEBUG] Jump State: EXITING jump state")
 	is_double_jumping = false
 	wall_jump_grace_timer = 0.0
 	if animation_player.is_connected("animation_finished", _on_animation_finished):

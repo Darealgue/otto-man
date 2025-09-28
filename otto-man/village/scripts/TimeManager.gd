@@ -107,6 +107,10 @@ func get_continuous_hour_float() -> float:
 func get_current_day_count() -> int:
 	return days
 
+# Çalışma saatlerinde mi kontrol eder
+func is_work_time() -> bool:
+	return hours >= WORK_START_HOUR and hours < WORK_END_HOUR
+
 # сигналы
 signal hour_changed(new_hour: int)
 signal minute_changed(new_minute: int) # YENİ SİNYAL (Opsiyonel, gerekirse diye)

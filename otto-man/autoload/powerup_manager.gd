@@ -188,7 +188,7 @@ func activate_powerup(powerup_scene: PackedScene) -> void:
 	# Check for synergies
 	_check_synergies()
 	
-	debug_print_status()  # Print status after activation
+	# debug_print_status()  # Print status after activation
 
 # Debug function to print current powerup status
 func debug_print_status() -> void:
@@ -252,7 +252,7 @@ func deactivate_powerup(powerup: PowerupEffect) -> void:
 	# Recheck synergies after powerup removal
 	_check_synergies()
 	
-	debug_print_status()  # Print status after deactivation
+	# debug_print_status()  # Print status after deactivation
 
 func get_active_powerups() -> Array[PowerupEffect]:
 	return active_powerups
