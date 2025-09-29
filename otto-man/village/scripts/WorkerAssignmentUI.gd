@@ -169,11 +169,11 @@ func update_ui() -> void:
 		#print("WorkerAssignmentUI DEBUG: Cannot update idle_value_label because it is null.") # DEBUG
 	# --- IDLE LABEL DEBUG SONU ---
 	
-	wood_level_label.text = str(VillageManager.get_resource_level("wood"))
-	stone_level_label.text = str(VillageManager.get_resource_level("stone"))
-	food_level_label.text = str(VillageManager.get_resource_level("food"))
-	water_level_label.text = str(VillageManager.get_resource_level("water"))
-	metal_level_label.text = str(VillageManager.resource_levels["metal"])
+	wood_level_label.text = _level_with_cap("wood")
+	stone_level_label.text = _level_with_cap("stone")
+	food_level_label.text = _level_with_cap("food")
+	water_level_label.text = _level_with_cap("water")
+	metal_level_label.text = str(VillageManager.resource_levels["metal"]) # şimdilik kapasite yok
 
 	# Update Button States
 	var idle_available = VillageManager.idle_workers > 0
@@ -242,7 +242,7 @@ func update_ui() -> void:
 		upgrade_wood_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(wood_upgrade_reqs) if not wood_upgrade_reqs.is_empty() and not wood_is_max_level_check else ("Maks Seviye" if wood_is_max_level_check else "Yükseltilemez")
 
 		wood_level_indicator.text = "[Lv. %d]" % wood_current_level #<<< Güncel değişkeni kullan
-		wood_level_label.text = str(VillageManager.get_resource_level("wood"))
+		wood_level_label.text = _level_with_cap("wood")
 
 
 	# --- Stone Row Visibility & Buttons & Level ---
@@ -276,7 +276,7 @@ func update_ui() -> void:
 		upgrade_stone_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(stone_upgrade_reqs) if not stone_upgrade_reqs.is_empty() and not stone_is_max_level_check else ("Maks Seviye" if stone_is_max_level_check else "Yükseltilemez")
 
 		stone_level_indicator.text = "[Lv. %d]" % stone_current_level #<<< Güncel değişkeni kullan
-		stone_level_label.text = str(VillageManager.get_resource_level("stone"))
+		stone_level_label.text = _level_with_cap("stone")
 
 	# --- Food Row Visibility & Buttons & Level ---
 	var food_building_exists = food_building != null
@@ -309,7 +309,7 @@ func update_ui() -> void:
 		upgrade_food_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(food_upgrade_reqs) if not food_upgrade_reqs.is_empty() and not food_is_max_level_check else ("Maks Seviye" if food_is_max_level_check else "Yükseltilemez")
 
 		food_level_indicator.text = "[Lv. %d]" % food_current_level #<<< Güncel değişkeni kullan
-		food_level_label.text = str(VillageManager.get_resource_level("food"))
+		food_level_label.text = _level_with_cap("food")
 
 	# --- Water Row Visibility & Buttons & Level ---
 	var water_building_exists = water_building != null
@@ -342,7 +342,7 @@ func update_ui() -> void:
 		upgrade_water_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(water_upgrade_reqs) if not water_upgrade_reqs.is_empty() and not water_is_max_level_check else ("Maks Seviye" if water_is_max_level_check else "Yükseltilemez")
 
 		water_level_indicator.text = "[Lv. %d]" % water_current_level #<<< Güncel değişkeni kullan
-		water_level_label.text = str(VillageManager.get_resource_level("water"))
+		water_level_label.text = _level_with_cap("water")
 
 	# --- Metal Row Visibility & Buttons & Level ---
 	metal_hbox.visible = false
@@ -585,3 +585,11 @@ func show_centered() -> void:
 	update_ui()
 	# Periyodik güncelleme sayacını da sıfırla ki hemen tekrar güncellemesin
 	time_since_last_update = 0.0
+
+# --- Helper: Show level with capacity ---
+func _level_with_cap(resource_type: String) -> String:
+	var lvl := VillageManager.get_resource_level(resource_type)
+	var cap := VillageManager.get_storage_capacity_for(resource_type)
+	if cap > 0:
+		return "%d/%d" % [lvl, cap]
+	return str(lvl)

@@ -15,6 +15,10 @@ extends MarginContainer # .tscn dosyasındaki kök node türü
 @onready var water_label: Label = %WaterLabel
 @onready var metal_label: Label = %MetalLabel
 @onready var bread_label: Label = %BreadLabel
+# Events & Morale
+@onready var events_label: Label = %EventsLabel
+@onready var morale_label: Label = %MoraleLabel
+@onready var economy_stats_label: Label = %EconomyStatsLabel
 # İleride eklenecek diğer label'lar için @onready değişkenler...
 
 # --- Periyodik Güncelleme ---
@@ -29,6 +33,9 @@ func _ready() -> void:
 	   not bread_label:
 		printerr("VillageStatusUI Error: Label node'larından biri veya birkaçı bulunamadı! .tscn dosyasındaki isimleri (%NodeName%) veya 'Unique Name in Owner' ayarlarını kontrol edin.")
 		return
+
+	# Ek etiketler sahnede yoksa dinamik oluştur
+	_ensure_extra_labels()
 
 	# Sinyale Bağlanmayı Kaldır/Yorumla
 #	if VillageManager.has_signal("village_data_changed"):
@@ -67,6 +74,17 @@ func _update_labels() -> void:
 	gold_label.text = "Altın: %d" % GlobalPlayerData.gold
 	asker_label.text = "Asker: %d" % GlobalPlayerData.asker_sayisi
 	bread_label.text = "Ekmek: %d" % VillageManager.resource_levels.get("bread", 0)
+	# Morale (optional label)
+	if is_instance_valid(morale_label):
+		var m := VillageManager.get_morale()
+		morale_label.text = "Moral: %.0f" % m
+		if m >= 75.0:
+			morale_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+		elif m < 50.0:
+			morale_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.6))
+		else:
+			if morale_label.has_theme_color_override("font_color"):
+				morale_label.remove_theme_color_override("font_color")
 	# Diğer gelişmiş kaynaklar...
 
 	# VillageManager Verileri
@@ -79,11 +97,71 @@ func _update_labels() -> void:
 	_update_resource_label(water_label, "Su", "water")
 	_update_resource_label(metal_label, "Metal", "metal")
 
+	# Aktif olaylar
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
+	var summaries = VillageManager.get_active_events_summary(day)
+	if is_instance_valid(events_label):
+		if summaries.is_empty():
+			events_label.text = "Olay: Yok"
+		else:
+			var lines: Array[String] = []
+			for s in summaries:
+				lines.append("%s (%.0f%%, %dgün)" % [String(s["type"]).capitalize(), float(s["severity"]) * 100.0, int(s["days_left"])])
+			events_label.text = ", ".join(lines)
+
+	# Günlük ekonomi istatistikleri
+	if is_instance_valid(economy_stats_label):
+		var stats = VillageManager.get_economy_last_day_stats()
+		if stats.is_empty():
+			economy_stats_label.text = "Üretim/Gider/Net: -"
+		else:
+			var p := float(stats.get("total_production", 0.0))
+			var c := float(stats.get("total_consumption", 0.0))
+			var n := float(stats.get("net", 0.0))
+			economy_stats_label.text = "Üretim/Gider/Net: %.1f / %.1f / %.1f" % [p, c, n]
+			# Renk kodu
+			if n > 0.01:
+				economy_stats_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+			elif n < -0.01:
+				economy_stats_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.6))
+			else:
+				if economy_stats_label.has_theme_color_override("font_color"):
+					economy_stats_label.remove_theme_color_override("font_color")
+
+func _ensure_extra_labels() -> void:
+	# Sahnede yoksa MoraleLabel ve EventsLabel oluşturur
+	var container: Node = bread_label.get_parent() if bread_label and bread_label.get_parent() else self
+	if not is_instance_valid(morale_label):
+		morale_label = Label.new()
+		morale_label.name = "MoraleLabel"
+		container.add_child(morale_label)
+	if not is_instance_valid(events_label):
+		events_label = Label.new()
+		events_label.name = "EventsLabel"
+		container.add_child(events_label)
+	if not is_instance_valid(economy_stats_label):
+		economy_stats_label = Label.new()
+		economy_stats_label.name = "EconomyStatsLabel"
+		container.add_child(economy_stats_label)
+
 # Tek bir kaynak etiketini güncelleyen helper fonksiyonu
 func _update_resource_label(label_node: Label, resource_display_name: String, resource_key: String) -> void:
 	# Bu kontrol _update_labels içinde yapıldığı için burada tekrar gerekmeyebilir
 	# if not is_instance_valid(label_node): return
 
-	var total = VillageManager.resource_levels.get(resource_key, 0)
-	var available = VillageManager.get_available_resource_level(resource_key)
-	label_node.text = "%s: %d (%d)" % [resource_display_name, available, total]
+	var current: int = VillageManager.get_resource_level(resource_key)
+	var cap: int = VillageManager.get_storage_capacity_for(resource_key)
+	if cap > 0:
+		label_node.text = "%s: %d/%d" % [resource_display_name, current, cap]
+		# Highlight when full
+		var ratio := (float(current) / float(cap)) if cap > 0 else 0.0
+		if current >= cap:
+			label_node.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
+		elif ratio >= 0.8:
+			label_node.add_theme_color_override("font_color", Color(1.0, 0.95, 0.6))
+		else:
+			if label_node.has_theme_color_override("font_color"):
+				label_node.remove_theme_color_override("font_color")
+	else:
+		label_node.text = "%s: %d" % [resource_display_name, current]

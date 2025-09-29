@@ -12,7 +12,8 @@ const BUILDING_REQUIREMENTS = {
 	"res://village/buildings/Well.tscn": {"cost": {"gold": 10}},
 	# Gelişmiş binalar seviye ve altın isteyebilir (örnek)
 	"res://village/buildings/Bakery.tscn": {"requires_level": {"food": 1}, "cost": {"gold": 50}},
-	"res://village/buildings/House.tscn": {"cost": {"gold": 50,"wood": 1, "stone": 1}} #<<< YENİ EV MALİYETİ
+	"res://village/buildings/House.tscn": {"cost": {"gold": 50,"wood": 1, "stone": 1}}, #<<< YENİ EV MALİYETİ
+	"res://village/buildings/StorageBuilding.tscn": {"cost": {"gold": 80, "wood": 2, "stone": 1}}
 }
 
 # --- VillageScene Referansı ---
@@ -101,6 +102,46 @@ const STARTING_WORKER_COUNT = 3 # Başlangıç işçi sayısı (CampFire kapasit
 # ---------------------
 var active_dialogue_npc: Node = null
 var dialogue_npcs : Array
+
+# === Economy Scaffold (Feature-flagged, non-breaking) ===
+var economy_enabled: bool = true
+var production_per_worker_base: float = 4.0
+var building_bonus: float = 0.0
+var caregiver_bonus: float = 0.0
+var global_multiplier: float = 1.0
+var per_frame_production_enabled: bool = true
+
+var daily_water_per_pop: float = 0.5
+var daily_food_per_pop: float = 0.5
+var cariye_period_days: int = 7
+
+var resource_prod_multiplier: Dictionary = {"wood": 1.0, "stone": 1.0, "food": 1.0, "water": 1.0}
+
+var economy_stats_last_day: Dictionary = {
+	"day": 0,
+	"total_production": 0.0,
+	"total_consumption": 0.0,
+	"net": 0.0
+}
+var _daily_production_counter: Dictionary = {"wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0, "bread": 0}
+var village_morale: float = 80.0
+var _last_day_shortages: Dictionary = {"water": 0, "food": 0}
+
+var _last_econ_tick_day: int = 0
+
+# === Events scaffold (feature-flagged) ===
+var events_enabled: bool = true
+var daily_event_chance: float = 0.05
+var event_severity_min: float = 0.1
+var event_severity_max: float = 0.35
+var event_duration_min_days: int = 3
+var event_duration_max_days: int = 14
+var events_active: Array[Dictionary] = []
+var _event_cooldowns: Dictionary = {} # type -> day_until
+
+# === Storage (feature-flagged usage via economy) ===
+const STORAGE_PER_BASIC_BUILDING: int = 10
+
 func _ready() -> void:
 	# Oyun başlangıcında boşta işçi sayısını toplam işçi sayısına eşitle
 	# idle_workers = total_workers # Bu satırı kaldırıyoruz, çünkü total_workers başlangıçta 0
@@ -181,6 +222,12 @@ func register_village_scene(scene: Node2D) -> void:
 		if not base_production_progress.has(res):
 			base_production_progress[res] = 0.0
 
+	# Economy daily tick hookup (non-breaking)
+	var tm = get_node_or_null("/root/TimeManager")
+	if tm and tm.has_signal("day_changed"):
+		tm.connect("day_changed", Callable(self, "_on_day_changed"))
+		_last_econ_tick_day = tm.get_day() if tm.has_method("get_day") else 0
+
 # Belirli bir kaynak türünü üreten Tescilli Script Yolları
 # Bu, get_resource_level için gereklidir
 const RESOURCE_PRODUCER_SCRIPTS = {
@@ -190,6 +237,14 @@ const RESOURCE_PRODUCER_SCRIPTS = {
 	"water": "res://village/scripts/Well.gd",
 	"metal": "res://village/scripts/StoneMine.gd", # Veya ayrı metal madeni?
 	"bread": "res://village/scripts/Bakery.gd" #<<< YENİ
+}
+
+# Scene path mapping for robust counting (some checks rely on scene_file_path)
+const RESOURCE_PRODUCER_SCENES = {
+	"wood": "res://village/buildings/WoodcutterCamp.tscn",
+	"stone": "res://village/buildings/StoneMine.tscn",
+	"food": "res://village/buildings/HunterGathererHut.tscn",
+	"water": "res://village/buildings/Well.tscn"
 }
 
 # Bir kaynak türünün mevcut stok seviyesini döndürür (temel ve gelişmiş için ortak)
@@ -246,63 +301,49 @@ func get_available_resource_level(resource_type: String) -> int:
 
 # Her frame'de temel kaynakları zamanla biriktirir
 func _process(delta: float) -> void:
-	# Zaman ölçeğini uygula (TimeManager ile tutarlı olması için)
-	var scaled_delta = delta * Engine.time_scale
-	
-	# Debug: _process çağrıldığında delta değerini kontrol et
-	if Engine.time_scale >= 16.0 and delta > 0.1:
-		print("🕐 _process çağrıldı - Delta: %.3f, Scaled Delta: %.3f, Time Scale: %.1f" % [delta, scaled_delta, Engine.time_scale])
-	
-	# Çalışma saatleri kontrolü - sadece 7:00-18:00 arası üretim yapılır
-	if not TimeManager.is_work_time():
-		return # Çalışma saatleri dışında üretim yok
-	
-	var produced_any := false
-	for resource_type in BASE_RESOURCE_TYPES:
-		# Bu kaynağı üreten AKTIF çalışan işçi sayısını al
-		var active_workers := _count_active_workers_for_resource(resource_type)
-		if active_workers <= 0:
-			# Debug: İşçi yoksa neden üretim yok
-			if Engine.time_scale >= 16.0:
-				print("⚠️ %s için işçi yok (0 işçi)" % resource_type)
-			continue
-		
-		# Debug: İşçi sayısını kontrol et
-		if Engine.time_scale >= 16.0:
-			print("🔍 %s için %d işçi çalışıyor" % [resource_type, active_workers])
-		# İlerlemeyi artır (atanan işçi sayısı x geçen süre x oyun hızı)
-		# Engine.time_scale ile oyun hızlandırması kaynak üretimini de etkiler
-		# İşçiler mesai saatlerinde sürekli çalışır (aktif durum fark etmez)
-		var progress_increment = scaled_delta * float(active_workers)
-		base_production_progress[resource_type] = base_production_progress.get(resource_type, 0.0) + progress_increment
-		
-		# Debug: x16 hızlandırmada sorun tespiti
-		if Engine.time_scale >= 16.0 and progress_increment > 0:
-			print("DEBUG: %s - Delta: %.3f, Scaled Delta: %.3f, Workers: %d, Increment: %.3f, Progress: %.3f, Target: %.1f" % [
-				resource_type, delta, scaled_delta, active_workers, progress_increment, base_production_progress[resource_type], SECONDS_PER_RESOURCE_UNIT
-			])
-		# Tamamlanan birim sayısını hesapla
-		if base_production_progress[resource_type] >= SECONDS_PER_RESOURCE_UNIT:
-			var units := int(floor(base_production_progress[resource_type] / SECONDS_PER_RESOURCE_UNIT))
-			if units > 0:
-				resource_levels[resource_type] = resource_levels.get(resource_type, 0) + units
-				base_production_progress[resource_type] -= float(units) * SECONDS_PER_RESOURCE_UNIT
-				produced_any = true
-				print("VillageManager: %d %s üretildi! Toplam: %d (Hız: x%.1f)" % [units, resource_type, resource_levels[resource_type], Engine.time_scale])
-				# Debug: Üretim oranını kontrol et
-				var expected_production = (base_production_progress[resource_type] + float(units) * SECONDS_PER_RESOURCE_UNIT) / SECONDS_PER_RESOURCE_UNIT
-				print("📈 %s üretim oranı: %.2f kaynak/saat (beklenen: %.2f)" % [resource_type, expected_production, float(active_workers)])
-				# Toplam kaynakları göster
-				print("📊 TOPLAM KAYNAKLAR: Odun:%d, Taş:%d, Yiyecek:%d, Su:%d, Metal:%d, Ekmek:%d" % [
-					resource_levels.get("wood", 0),
-					resource_levels.get("stone", 0), 
-					resource_levels.get("food", 0),
-					resource_levels.get("water", 0),
-					resource_levels.get("metal", 0),
-					resource_levels.get("bread", 0)
-				])
-	if produced_any:
-		emit_signal("village_data_changed")
+	# Economy açıkken per-frame üretim opsiyonel
+	if economy_enabled and not per_frame_production_enabled:
+		# Sadece günlük tick fallback çalışsın
+		pass
+	else:
+		# Eski per-frame üretim (economy kapalıyken)
+		var scaled_delta: float = delta * Engine.time_scale
+		if not TimeManager.is_work_time():
+			return
+		var produced_any: bool = false
+		for resource_type in BASE_RESOURCE_TYPES:
+			var active_workers: int = _count_active_workers_for_resource(resource_type)
+			if active_workers <= 0:
+				continue
+			var morale_mult: float = _get_morale_multiplier()
+			var progress_increment: float = scaled_delta * float(active_workers) * morale_mult
+			base_production_progress[resource_type] = base_production_progress.get(resource_type, 0.0) + progress_increment
+			if base_production_progress[resource_type] >= SECONDS_PER_RESOURCE_UNIT:
+				var units: int = int(floor(base_production_progress[resource_type] / SECONDS_PER_RESOURCE_UNIT))
+				if units > 0:
+					# Storage cap clamp
+					var cap: int = _get_storage_capacity_for(resource_type)
+					if cap > 0:
+						var cur: int = int(resource_levels.get(resource_type, 0))
+						var allowed: int = max(0, cap - cur)
+						units = min(units, allowed)
+					if units > 0:
+						resource_levels[resource_type] = resource_levels.get(resource_type, 0) + units
+						# Daily counter (for stats consistency)
+						_daily_production_counter[resource_type] = int(_daily_production_counter.get(resource_type, 0)) + units
+					base_production_progress[resource_type] -= float(units) * SECONDS_PER_RESOURCE_UNIT
+					produced_any = true
+		if produced_any:
+			emit_signal("village_data_changed")
+
+	# Economy daily polling fallback (in case signal missed)
+	if economy_enabled:
+		var tm = get_node_or_null("/root/TimeManager")
+		if tm and tm.has_method("get_day"):
+			var d = tm.get_day()
+			if d != _last_econ_tick_day and d > 0:
+				_last_econ_tick_day = d
+				_daily_economy_tick(d)
 
 # --- Seviye Kilitleme (Yükseltmeler ve Gelişmiş Üretim için) ---
 
@@ -838,6 +879,449 @@ func notify_building_state_changed(building_node: Node) -> void:
 	emit_signal("building_state_changed", building_node)
 	# İsteğe bağlı: Genel UI güncellemesi için bunu da tetikleyebiliriz?
 	emit_signal("village_data_changed")
+	# Bina seviyeleri/varlığı değiştiyse günlük üretim bonusunu güncelle
+	_recalculate_building_bonus()
+
+# === Economy: daily tick handlers and helpers (feature-flagged) ===
+func _on_day_changed(new_day: int) -> void:
+	if not economy_enabled:
+		return
+	_last_econ_tick_day = new_day
+	# Gün başında bina bonusunu tazele (yükseltmeler etkilesin)
+	_recalculate_building_bonus()
+	_daily_economy_tick(new_day)
+
+func _daily_economy_tick(current_day: int) -> void:
+	# 1) Production
+	var produced: Dictionary = {}
+	var population := int(total_workers)
+	if per_frame_production_enabled:
+		# Use accumulated counters gathered during the day
+		produced = _daily_production_counter.duplicate(true)
+	else:
+		var prod_per_worker := production_per_worker_base * (1.0 + building_bonus + caregiver_bonus) * global_multiplier
+		var total_prod := float(population) * prod_per_worker * _get_morale_multiplier()
+		produced = _allocate_production(total_prod)
+		for r in produced.keys():
+			var mult := float(resource_prod_multiplier.get(r, 1.0))
+			var to_add := int(floor(produced[r] * mult))
+			produced[r] = to_add
+			# Apply to stocks with cap
+			if to_add > 0:
+				var cap: int = _get_storage_capacity_for(r)
+				if cap > 0:
+					var cur: int = int(resource_levels.get(r, 0))
+					var new_total: int = min(cap, cur + to_add)
+					resource_levels[r] = new_total
+				else:
+					resource_levels[r] = resource_levels.get(r, 0) + to_add
+
+	# 2) Consumption
+	var village_need := float(population) * (daily_water_per_pop + daily_food_per_pop)
+	var cariye_daily_equiv := _compute_cariye_daily_equiv()
+	var total_need := village_need + cariye_daily_equiv
+	_consume_for_village(village_need)
+	_consume_for_cariyes(cariye_daily_equiv)
+
+	# 3) Stats
+	var produced_sum := 0.0
+	for r2 in produced.keys():
+		produced_sum += float(produced[r2])
+	var net := produced_sum - total_need
+	economy_stats_last_day = {"day": current_day, "total_production": produced_sum, "total_consumption": total_need, "net": net}
+
+	# 4) Soft penalties (placeholder)
+	_check_shortages_and_apply_morale_penalties()
+	process_weekly_cariye_needs(current_day)
+
+	# 5) Events update (scaffold)
+	_update_events_for_new_day(current_day)
+
+	emit_signal("village_data_changed")
+	# Reset daily counters at end of day
+	_daily_production_counter = {"wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0, "bread": 0}
+
+func _get_storage_capacity_for(resource_type: String) -> int:
+	# Basic resources get capacity from number of corresponding buildings * STORAGE_PER_BASIC_BUILDING.
+	# Advanced resources currently uncapped (return 0).
+	match resource_type:
+		"wood", "stone", "food", "water":
+			var base_cap := _count_buildings_for_resource(resource_type) * STORAGE_PER_BASIC_BUILDING
+			var extra_cap := _count_storage_buildings_capacity(resource_type)
+			return base_cap + extra_cap
+		_:
+			return 0
+
+func _count_storage_buildings_capacity(resource_type: String) -> int:
+	# Sum capacity bonuses from any Storage buildings (generic or per-resource). Placeholder values.
+	if not is_instance_valid(village_scene_instance):
+		return 0
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return 0
+	var bonus: int = 0
+	for building in placed_buildings.get_children():
+		# Generic storage building could expose a method or property
+		if "provides_storage" in building and building.provides_storage == true:
+			# If building has a dictionary of caps per resource, use it; else use a flat bonus
+			if "storage_bonus" in building and building.storage_bonus is Dictionary:
+				bonus += int(building.storage_bonus.get(resource_type, 0))
+			elif "storage_bonus_all" in building:
+				bonus += int(building.storage_bonus_all)
+		# Alternatively, check by script/scene path if needed in the future
+	return bonus
+
+func _count_buildings_for_resource(resource_type: String) -> int:
+	if not RESOURCE_PRODUCER_SCRIPTS.has(resource_type):
+		return 0
+	if not is_instance_valid(village_scene_instance):
+		return 0
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return 0
+	var target_script_path = String(RESOURCE_PRODUCER_SCRIPTS[resource_type])
+	var target_scene_path = String(RESOURCE_PRODUCER_SCENES.get(resource_type, ""))
+	var count: int = 0
+	for building in placed_buildings.get_children():
+		# Prefer scene path match if available
+		if target_scene_path != "" and "scene_file_path" in building and building.scene_file_path == target_scene_path:
+			count += 1
+		else:
+			if building.has_method("get_script") and building.get_script() != null:
+				var building_script = building.get_script()
+				if building_script is GDScript and building_script.resource_path == target_script_path:
+					count += 1
+	return count
+
+func _allocate_production(total_prod: float) -> Dictionary:
+	# Actual allocation by worker assignments across basic resources
+	if total_prod <= 0.0:
+		return {}
+	var basic := ["wood", "stone", "food", "water"]
+	var assigned: Dictionary = {}
+	var total_assigned := 0
+	for r in basic:
+		var cnt := _count_active_workers_for_resource(r)
+		assigned[r] = cnt
+		total_assigned += cnt
+	var out: Dictionary = {}
+	if total_assigned <= 0:
+		# Fallback to equal split if no explicit assignments
+		var share := total_prod / float(basic.size())
+		for r in basic:
+			out[r] = share
+		return out
+	for r in basic:
+		var ratio := float(assigned[r]) / float(max(1, total_assigned))
+		out[r] = total_prod * ratio
+	return out
+
+func _compute_cariye_daily_equiv() -> float:
+	# Cariyelerin günlük su/yiyecek tüketimi yok; ihtiyaçlar haftalık ve lüks (ekmek, çay, sabun, giyim).
+	# Haftalık periyotlu ihtiyaçlar günlük eşdeğere çevrilebilir, fakat stok düşümü haftanın belirli gününde yapılır.
+	return 0.0
+
+func _consume_for_village(village_need: float) -> void:
+	# Öncelik: su ve yiyecekten ceil ile düş
+	var need := village_need
+	var water_need: float = ceil(need * 0.5)
+	var food_need: float = ceil(need * 0.5)
+	var take_water: int = min(int(water_need), int(resource_levels.get("water", 0)))
+	var take_food: int = min(int(food_need), int(resource_levels.get("food", 0)))
+	resource_levels["water"] = int(resource_levels.get("water", 0)) - take_water
+	resource_levels["food"] = int(resource_levels.get("food", 0)) - take_food
+	# Record shortages for morale penalties
+	_last_day_shortages["water"] = int(max(0, int(water_need) - take_water))
+	_last_day_shortages["food"] = int(max(0, int(food_need) - take_food))
+
+	# Optional bonus consumption by population tiers to raise morale (soft luxury)
+	var pop := int(total_workers)
+	var bonus_morale := 0.0
+	if pop >= 16 and pop <= 25:
+		# Bread bonus: try to consume up to ceil(pop * 0.1)
+		var want_bread: int = int(ceil(float(pop) * 0.1))
+		var have_bread: int = int(resource_levels.get("bread", 0))
+		var take_bread: int = min(want_bread, have_bread)
+		if take_bread > 0:
+			resource_levels["bread"] = have_bread - take_bread
+			bonus_morale += float(take_bread)
+	if pop >= 26 and pop <= 50:
+		# Medicine bonus
+		var want_med: int = int(ceil(float(pop) * 0.05))
+		var have_food: int = int(resource_levels.get("food", 0))
+		var have_water: int = int(resource_levels.get("water", 0))
+		var pairs: int = min(want_med, min(have_food, have_water))
+		if pairs > 0:
+			resource_levels["food"] = have_food - pairs
+			resource_levels["water"] = have_water - pairs
+			bonus_morale += float(pairs)
+	if pop >= 51:
+		# Tea bonus
+		var want_tea: int = int(ceil(float(pop) * 0.05))
+		var have_food2: int = int(resource_levels.get("food", 0))
+		var have_water2: int = int(resource_levels.get("water", 0))
+		var tea_pairs: int = min(want_tea, min(have_food2, have_water2))
+		if tea_pairs > 0:
+			resource_levels["food"] = have_food2 - tea_pairs
+			resource_levels["water"] = have_water2 - tea_pairs
+			bonus_morale += float(tea_pairs)
+	if bonus_morale > 0.0:
+		village_morale = min(100.0, village_morale + min(5.0, bonus_morale))
+
+func _consume_for_cariyes(cariye_daily_equiv: float) -> void:
+	# Günlük tüketimde cariye harcaması yapılmaz; haftalık role-based tüketim ayrı bir akışta uygulanacak.
+	return
+
+func process_weekly_cariye_needs(current_day: int) -> void:
+	# Every 7th day apply role-based needs (placeholder simple costs)
+	if cariye_period_days <= 0:
+		return
+	if current_day % cariye_period_days != 0:
+		return
+	# Example simple needs (can be extended per-role):
+	# Try to consume 1 bread and 1 tea equivalent per cariye weekly; if missing, apply small morale hit.
+	var cariye_count := int(cariyeler.size())
+	if cariye_count <= 0:
+		return
+	var missing_any := false
+	var missing_bread: int = 0
+	var missing_tea: int = 0
+	var to_consume_bread := cariye_count
+	var to_consume_tea := cariye_count
+	var have_bread := int(resource_levels.get("bread", 0))
+	var have_food := int(resource_levels.get("food", 0))
+	var have_water := int(resource_levels.get("water", 0))
+	# Bread preferred, fallback to food+water craft equivalence
+	var take_bread: int = min(to_consume_bread, have_bread)
+	resource_levels["bread"] = have_bread - take_bread
+	to_consume_bread -= take_bread
+	# Fallback: consume food+water pairs if bread missing
+	if to_consume_bread > 0:
+		var pairs: int = min(to_consume_bread, min(have_food, have_water))
+		resource_levels["food"] = have_food - pairs
+		resource_levels["water"] = have_water - pairs
+		to_consume_bread -= pairs
+		if to_consume_bread > 0:
+			missing_any = true
+			missing_bread = to_consume_bread
+	# Tea equivalence: food+water per unit
+	if to_consume_tea > 0:
+		have_food = int(resource_levels.get("food", 0))
+		have_water = int(resource_levels.get("water", 0))
+		var tea_pairs: int = min(to_consume_tea, min(have_food, have_water))
+		resource_levels["food"] = have_food - tea_pairs
+		resource_levels["water"] = have_water - tea_pairs
+		if tea_pairs < to_consume_tea:
+			missing_any = true
+			missing_tea = to_consume_tea - tea_pairs
+	if missing_any:
+		village_morale = max(0.0, village_morale - 2.0)
+		var mm = get_node_or_null("/root/MissionManager")
+		if mm and mm.has_method("post_news"):
+			var msg := "Eksik haftalık cariye ihtiyaçları: "
+			if missing_bread > 0:
+				msg += "Ekmek %d " % missing_bread
+			if missing_tea > 0:
+				msg += "Çay %d" % missing_tea
+			mm.post_news("village", "Cariye ihtiyaçları karşılanamadı", msg.strip_edges(), Color(1,0.6,0.2,1))
+
+func _check_shortages_and_apply_morale_penalties() -> void:
+	var penalty := 0.0
+	for k in _last_day_shortages.keys():
+		var missing := float(_last_day_shortages.get(k, 0))
+		if missing > 0.0:
+			penalty += 5.0 # -5 per missing type/day (simple)
+	if penalty > 0.0:
+		village_morale = max(0.0, village_morale - penalty)
+	else:
+		# Slow recovery
+		village_morale = min(100.0, village_morale + 1.0)
+	# Reset shortages for next day
+	_last_day_shortages = {"water": 0, "food": 0}
+
+func _get_morale_multiplier() -> float:
+	# Above 50, no penalty; below 50, linear down to 0.5 at morale 0
+	if village_morale >= 50.0:
+		return 1.0
+	var deficit := 50.0 - village_morale
+	return max(0.5, 1.0 - deficit * 0.01)
+
+func _update_events_for_new_day(current_day: int) -> void:
+	if not events_enabled:
+		return
+	# Expire old events
+	var remaining: Array[Dictionary] = []
+	for ev in events_active:
+		var ends_day := int(ev.get("ends_day", current_day))
+		if current_day <= ends_day:
+			remaining.append(ev)
+		else:
+			_remove_event_effects(ev)
+	events_active = remaining
+
+	# Maybe trigger new event
+	if randf() < daily_event_chance:
+		var ev = _pick_and_create_event(current_day)
+		if not ev.is_empty():
+			events_active.append(ev)
+			_apply_event_effects(ev)
+
+func _pick_and_create_event(current_day: int) -> Dictionary:
+	# cooldown check and simple pool
+	var pool := ["drought", "famine", "pest", "disease", "raid", "trade_opportunity"]
+	pool.shuffle()
+	for t in pool:
+		var cd_until := int(_event_cooldowns.get(t, 0))
+		if current_day < cd_until:
+			continue
+		var sev := randf_range(event_severity_min, event_severity_max)
+		var dur := randi_range(event_duration_min_days, event_duration_max_days)
+		var ev := {"type": t, "severity": sev, "ends_day": current_day + dur}
+		# simple cooldown: 30 days
+		_event_cooldowns[t] = current_day + 30
+		# Post news to MissionManager if available
+		var mm = get_node_or_null("/root/MissionManager")
+		if mm and mm.has_method("post_news"):
+			var title := "Yeni Olay: %s" % t.capitalize()
+			var msg := "Şiddet: %.0f%%, Süre: %d gün" % [sev * 100.0, dur]
+			mm.post_news("world", title, msg, Color.ORANGE)
+		return ev
+	return {}
+
+func _apply_event_effects(ev: Dictionary) -> void:
+	var t := String(ev.get("type", ""))
+	var sev := float(ev.get("severity", 0.0))
+	match t:
+		"drought":
+			resource_prod_multiplier["water"] = float(resource_prod_multiplier.get("water", 1.0)) * (1.0 - sev)
+		"famine":
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * (1.0 - sev)
+		"pest":
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * (1.0 - sev)
+		"disease":
+			village_morale = max(0.0, village_morale - sev * 10.0)
+		"raid":
+			# Steal a small amount of random basic resources
+			var basics := ["wood", "stone", "food", "water"]
+			basics.shuffle()
+			for r in basics:
+				var cur: int = int(resource_levels.get(r, 0))
+				if cur <= 0:
+					continue
+				var steal: int = max(1, int(round(sev * 5.0)))
+				resource_levels[r] = max(0, cur - steal)
+				break
+		"market_boom", "trade_opportunity":
+			# Temporary boost to food production
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * (1.0 + sev)
+		_:
+			pass # placeholder: other effects can be added later
+
+func _remove_event_effects(ev: Dictionary) -> void:
+	var t := String(ev.get("type", ""))
+	var sev := float(ev.get("severity", 0.0))
+	match t:
+		"drought":
+			resource_prod_multiplier["water"] = float(resource_prod_multiplier.get("water", 1.0)) / max(0.0001, (1.0 - sev))
+		"famine":
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, (1.0 - sev))
+		"pest":
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, (1.0 - sev))
+		"market_boom", "trade_opportunity":
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, (1.0 + sev))
+		_:
+			pass
+
+# === UI getters & toggles ===
+func get_economy_last_day_stats() -> Dictionary:
+	return economy_stats_last_day
+
+func get_active_events() -> Array:
+	return events_active
+
+func set_economy_enabled(enabled: bool) -> void:
+	economy_enabled = enabled
+
+func set_events_enabled(enabled: bool) -> void:
+	events_enabled = enabled
+
+# Storage UI helpers
+func get_storage_capacity_for(resource_type: String) -> int:
+	return _get_storage_capacity_for(resource_type)
+
+func get_storage_usage(resource_type: String) -> Dictionary:
+	var level := int(resource_levels.get(resource_type, 0))
+	var cap := _get_storage_capacity_for(resource_type)
+	return {"level": level, "capacity": cap}
+
+# --- Public helpers for UI/Debug ---
+func get_morale() -> float:
+	return village_morale
+
+func get_active_events_summary(current_day: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for ev in events_active:
+		var ends := int(ev.get("ends_day", current_day))
+		var days_left: int = max(0, ends - current_day)
+		out.append({
+			"type": String(ev.get("type", "")),
+			"severity": float(ev.get("severity", 0.0)),
+			"days_left": days_left
+		})
+	return out
+
+func trigger_random_event_debug() -> void:
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
+	var ev := _pick_and_create_event(day)
+	if not ev.is_empty():
+		events_active.append(ev)
+		_apply_event_effects(ev)
+
+func _recalculate_building_bonus() -> void:
+	# Compute average bonus across basic producer buildings: +0.25 per level above 1, capped at +0.5
+	var placed := 0
+	var bonus_sum := 0.0
+	if is_instance_valid(village_scene_instance):
+		var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+		if placed_buildings:
+			for b in placed_buildings.get_children():
+				if not is_instance_valid(b):
+					continue
+				# Only consider known producers
+				var is_producer := false
+				for r in ["wood", "stone", "food", "water"]:
+					if b.has_method("get_script") and b.get_script() != null and b.get_script().resource_path == String(RESOURCE_PRODUCER_SCRIPTS.get(r, "")):
+						is_producer = true
+						break
+				if not is_producer:
+					continue
+				var lvl := 1
+				if "level" in b and b.level != null:
+					lvl = int(b.level)
+				if lvl > 1:
+					bonus_sum += 0.25 * float(lvl - 1)
+				placed += 1
+	var avg_bonus := 0.0
+	if placed > 0:
+		avg_bonus = bonus_sum / float(placed)
+	building_bonus = clamp(avg_bonus, 0.0, 0.5)
+
+# === Weekly cariye need helpers ===
+func get_days_until_weekly_cariye_needs() -> int:
+	if cariye_period_days <= 0:
+		return 0
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
+	if day <= 0:
+		return cariye_period_days
+	var r := day % cariye_period_days
+	return 0 if r == 0 else cariye_period_days - r
+
+func get_next_weekly_cariye_day() -> int:
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
+	return day + get_days_until_weekly_cariye_needs()
 
 # Yeni bir işçi düğümü oluşturur, ID atar, listeye ekler, sayacı günceller ve barınak atar.
 # Başarılı olursa true, barınak bulunamazsa veya hata olursa false döner.

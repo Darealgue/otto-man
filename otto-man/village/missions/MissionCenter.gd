@@ -121,7 +121,7 @@ var category_names: Array[String] = ["ÜRETİM", "YAŞAM", "ORDU", "DEKORASYON"]
 # Bina türleri kategorilere göre (gerçek bina türleri)
 var building_categories: Dictionary = {
 	BuildingCategory.PRODUCTION: ["Kuyu", "Avcı", "Oduncu", "Taş Madeni", "Fırın"],
-	BuildingCategory.LIFE: ["Ev"],
+	BuildingCategory.LIFE: ["Ev", "Depo"],
 	BuildingCategory.MILITARY: ["Kale", "Kule"], # Gelecekte eklenecek
 	BuildingCategory.DECORATION: ["Çeşme", "Bahçe"] # Gelecekte eklenecek
 }
@@ -133,7 +133,8 @@ var building_scene_paths: Dictionary = {
 	"Oduncu": "res://village/buildings/WoodcutterCamp.tscn",
 	"Taş Madeni": "res://village/buildings/StoneMine.tscn",
 	"Fırın": "res://village/buildings/Bakery.tscn",
-	"Ev": "res://village/buildings/House.tscn"
+	"Ev": "res://village/buildings/House.tscn",
+	"Depo": "res://village/buildings/StorageBuilding.tscn"
 }
 
 # Player referansı
@@ -185,6 +186,10 @@ func _ready():
 		return
 	
 	print("✅ MissionManager bulundu")
+	# VillageManager referansını al (gerekli olacağı için başta çek)
+	village_manager = get_node_or_null("/root/VillageManager")
+	if not village_manager:
+		printerr("MissionCenter: VillageManager not found at _ready; will lazy-fetch when needed.")
 	
 	# MissionManager sinyallerini bağla
 	mission_manager.mission_completed.connect(_on_mission_completed)
@@ -854,7 +859,12 @@ func remove_worker_from_building(building_info: Dictionary) -> void:
 		var worker_id = building.assigned_worker_ids[0] if building.assigned_worker_ids.size() > 0 else -1
 		if worker_id != -1:
 			print("🔧 VillageManager'da işçi %d unregister ediliyor (bina scripti çağrılmadan önce)" % worker_id)
-			village_manager.unregister_generic_worker(worker_id)
+			if not village_manager:
+				village_manager = get_node_or_null("/root/VillageManager")
+			if village_manager and village_manager.has_method("unregister_generic_worker"):
+				village_manager.unregister_generic_worker(worker_id)
+			else:
+				printerr("MissionCenter: VillageManager unavailable or missing method 'unregister_generic_worker'. Skipping unregister.")
 		
 		var success = building.remove_worker()
 		if success:

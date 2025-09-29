@@ -62,7 +62,7 @@ func _advance_time(minutes_to_advance: int) -> void:
 		
 		if extra_days > 0:
 			days += extra_days
-			# emit_signal("day_changed", days) # Sinyal opsiyonel
+			emit_signal("day_changed", days) # Sinyal opsiyonel
 			# print("Yeni gün başladı: Gün ", days) # Debug
 
 # --- Public Getters ---
@@ -114,3 +114,4 @@ func is_work_time() -> bool:
 # сигналы
 signal hour_changed(new_hour: int)
 signal minute_changed(new_minute: int) # YENİ SİNYAL (Opsiyonel, gerekirse diye)
+signal day_changed(new_day: int)

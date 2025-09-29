@@ -6,6 +6,7 @@ var cariye_item_list: ItemList
 var mission_item_list: ItemList
 var assign_button: Button
 var close_button: Button
+var weekly_info_label: Label
 
 # Seçili cariye ve görevin ID'lerini tutmak için
 var selected_cariye_id: int = -1
@@ -204,6 +205,14 @@ func show_centered() -> void:
 		printerr("ERROR (show_centered): CloseButton node not found!")
 		return
 
+	# Add or fetch a small weekly info label under action bar
+	weekly_info_label = get_node_or_null("MarginContainer/MainVBox/WeeklyInfoLabel")
+	if weekly_info_label == null:
+		weekly_info_label = Label.new()
+		weekly_info_label.name = "WeeklyInfoLabel"
+		weekly_info_label.add_theme_font_size_override("font_size", 10)
+		get_node("MarginContainer/MainVBox").add_child(weekly_info_label)
+
 	# ItemList sinyallerini bağla (eğer bağlı değilse)
 	if not cariye_item_list.is_connected("item_selected", Callable(self, "_on_cariye_item_selected")):
 		cariye_item_list.item_selected.connect(_on_cariye_item_selected)
@@ -235,3 +244,12 @@ func show_centered() -> void:
 	populate_cariye_list()
 	populate_mission_list()
 	_update_assign_button_state()
+	_update_weekly_info()
+
+func _update_weekly_info() -> void:
+	if not weekly_info_label: return
+	var days_left := VillageManager.get_days_until_weekly_cariye_needs()
+	if days_left == 0:
+		weekly_info_label.text = "Cariyelerin haftalık ihtiyaç günü: bugün"
+	else:
+		weekly_info_label.text = "Cariyelerin haftalık ihtiyaçlarına: %d gün" % days_left
