@@ -120,7 +120,7 @@ var category_names: Array[String] = ["ÜRETİM", "YAŞAM", "ORDU", "DEKORASYON"]
 
 # Bina türleri kategorilere göre (gerçek bina türleri)
 var building_categories: Dictionary = {
-	BuildingCategory.PRODUCTION: ["Kuyu", "Avcı", "Oduncu", "Taş Madeni", "Fırın"],
+	BuildingCategory.PRODUCTION: ["Kuyu", "Avcı", "Oduncu", "Taş Madeni", "Fırın", "Demirci", "Silahçı", "Zırh Ustası", "Terzi", "Çayhane", "Sabuncu"],
 	BuildingCategory.LIFE: ["Ev", "Depo"],
 	BuildingCategory.MILITARY: ["Kale", "Kule"], # Gelecekte eklenecek
 	BuildingCategory.DECORATION: ["Çeşme", "Bahçe"] # Gelecekte eklenecek
@@ -134,7 +134,13 @@ var building_scene_paths: Dictionary = {
 	"Taş Madeni": "res://village/buildings/StoneMine.tscn",
 	"Fırın": "res://village/buildings/Bakery.tscn",
 	"Ev": "res://village/buildings/House.tscn",
-	"Depo": "res://village/buildings/StorageBuilding.tscn"
+	"Depo": "res://village/buildings/StorageBuilding.tscn",
+	"Demirci": "res://village/buildings/Blacksmith.tscn",
+	"Silahçı": "res://village/buildings/Gunsmith.tscn",
+	"Zırh Ustası": "res://village/buildings/Armorer.tscn",
+	"Terzi": "res://village/buildings/Tailor.tscn",
+	"Çayhane": "res://village/buildings/TeaHouse.tscn",
+	"Sabuncu": "res://village/buildings/SoapMaker.tscn"
 }
 
 # Player referansı
@@ -717,6 +723,11 @@ func get_building_type_name(building: Node) -> String:
 		"res://village/scripts/WoodcutterCamp.gd": return "Oduncu"
 		"res://village/scripts/StoneMine.gd": return "Taş Madeni"
 		"res://village/scripts/Bakery.gd": return "Fırın"
+		"res://village/scripts/Blacksmith.gd": return "Demirci"
+		"res://village/scripts/Armorer.gd": return "Zırh Ustası"
+		"res://village/scripts/Tailor.gd": return "Terzi"
+		"res://village/scripts/TeaHouse.gd": return "Çayhane"
+		"res://village/scripts/SoapMaker.gd": return "Sabuncu"
 		"res://village/scripts/House.gd": return "Ev"
 		_: return "Bilinmeyen"
 
@@ -992,7 +1003,10 @@ func get_building_status_info(building_type: String) -> String:
 		if building.has_method("get_next_upgrade_cost"):
 			var upgrade_cost = building.get_next_upgrade_cost()
 			if upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
-				info += " 💰" + str(upgrade_cost["gold"])
+				info += " 💰" + str(upgrade_cost["gold"]) 
+			# Süre bilgisi
+			if "upgrade_time_seconds" in building:
+				info += " ⏱" + str(int(building.upgrade_time_seconds)) + "sn"
 	
 	return info
 
@@ -1177,6 +1191,12 @@ func find_existing_buildings(building_type: String) -> Array:
 		"Oduncu": script_path = "res://village/scripts/WoodcutterCamp.gd"
 		"Taş Madeni": script_path = "res://village/scripts/StoneMine.gd"
 		"Fırın": script_path = "res://village/scripts/Bakery.gd"
+		"Demirci": script_path = "res://village/scripts/Blacksmith.gd"
+		"Silahçı": script_path = "res://village/scripts/Gunsmith.gd"
+		"Zırh Ustası": script_path = "res://village/scripts/Armorer.gd"
+		"Terzi": script_path = "res://village/scripts/Tailor.gd"
+		"Çayhane": script_path = "res://village/scripts/TeaHouse.gd"
+		"Sabuncu": script_path = "res://village/scripts/SoapMaker.gd"
 		"Ev": script_path = "res://village/scripts/House.gd"
 		"Kale": script_path = "res://village/scripts/Castle.gd"
 		"Kule": script_path = "res://village/scripts/Tower.gd"
@@ -3665,8 +3685,20 @@ func perform_construction_action():
 		ConstructionAction.UPGRADE:
 			print("=== YÜKSELTME İŞLEMİ ===")
 			print("Bina türü: %s" % building_name)
-			# Burada gerçek yükseltme işlemi yapılacak
-			print("✅ Bina yükseltildi!")
+			# Seçili türden sahnedeki ilk binayı bul ve start_upgrade çağır
+			var buildings := find_existing_buildings(building_name)
+			if buildings.is_empty():
+				printerr("Upgrade error: building not found for ", building_name)
+			else:
+				var b = buildings[0]
+				if b and b.has_method("start_upgrade"):
+					var ok = b.start_upgrade()
+					if ok:
+						print("✅ Yükseltme başlatıldı: ", b.name)
+					else:
+						print("❌ Yükseltme başlatılamadı: ", b.name)
+				else:
+					printerr("Upgrade error: start_upgrade missing on building")
 		
 		ConstructionAction.INFO:
 			print("=== BİLGİ GÖSTERİMİ ===")

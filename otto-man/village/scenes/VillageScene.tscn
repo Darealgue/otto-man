@@ -146,6 +146,24 @@ position = Vector2(1200, 0)
 [node name="BuildPlot6" type="Marker2D" parent="PlotMarkers"]
 position = Vector2(-1200, 0)
 
+[node name="BuildPlot7" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(1600, 0)
+
+[node name="BuildPlot8" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-1600, 0)
+
+[node name="BuildPlot9" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(2000, 0)
+
+[node name="BuildPlot10" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-2000, 0)
+
+[node name="BuildPlot11" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(2400, 0)
+
+[node name="BuildPlot12" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-2400, 0)
+
 [node name="WorkerAssignmentUI" parent="." instance=ExtResource("2_exr1e")]
 layer = 10
 visible = false

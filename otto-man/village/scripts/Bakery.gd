@@ -24,12 +24,39 @@ var bread_production_progress: float = 0.0
 const BREAD_PRODUCTION_TIME: float = 300.0 # 2 oyun saati (300 gerçek saniye) = 1 ekmek
 var is_producing: bool = false
 
+# --- INPUT FETCH/BUFFER ---
+var input_buffer: Dictionary = {"food": 0, "water": 0}
+var fetch_timer: Timer = null
+var fetch_target: String = ""
+const FETCH_TIME_PER_UNIT: float = 3.0
+
+# --- Upgrade State ---
+var is_upgrading: bool = false
+var upgrade_timer: Timer = null
+var upgrade_time_seconds: float = 12.0
+@export var max_level: int = 3
+const UPGRADE_COSTS = {
+	2: {"gold": 30},
+	3: {"gold": 60}
+}
+
 # --- UI Bağlantıları (Eğer varsa, yolları ayarla) ---
 # @onready var worker_label: Label = %WorkerLabel
 
 func _ready() -> void:
 	_update_ui()
 	print("%s hazır." % building_name)
+	# Upgrade timer kurulum
+	# Upgrade timer kurulum
+	upgrade_timer = Timer.new()
+	upgrade_timer.one_shot = true
+	upgrade_timer.timeout.connect(_on_upgrade_finished)
+	add_child(upgrade_timer)
+	# Fetch timer kurulum
+	fetch_timer = Timer.new()
+	fetch_timer.one_shot = true
+	fetch_timer.timeout.connect(_on_fetch_timeout)
+	add_child(fetch_timer)
 
 # Her frame'de ekmek üretimini kontrol et
 func _process(delta: float) -> void:
@@ -46,31 +73,48 @@ func _process(delta: float) -> void:
 	
 	if is_producing and assigned_workers > 0:
 		# Gerekli kaynaklar var mı kontrol et
-		var can_produce = true
-		for resource_name in required_resources:
-			var amount_needed = required_resources[resource_name]
-			if VillageManager.get_available_resource_level(resource_name) < amount_needed:
-				can_produce = false
-				break
+		# Önce yerel buffer'ı kontrol et; eksikse fetch başlat
+		for resource_name in required_resources.keys():
+			var need := int(required_resources[resource_name])
+			var have_local := int(input_buffer.get(resource_name, 0))
+			if have_local < need:
+				# Fetch koşulları: üretici varlığı ve global stok
+				if not is_fetcher_out and (not fetch_timer or not fetch_timer.is_stopped() == false):
+					pass # Zamanlayıcı durumunu normalleştirmek için
+				if not is_fetcher_out and (fetch_timer == null or fetch_timer.is_stopped()):
+					var global_have := int(VillageManager.get_available_resource_level(resource_name))
+					if global_have > 0:
+						# Fetch başlat
+						if can_i_fetch():
+							fetch_target = resource_name
+							fetch_timer.wait_time = FETCH_TIME_PER_UNIT
+							fetch_timer.start()
+							# Basit simülasyon: işçi binadan ayrıldı
+							break
 		
-		if can_produce:
-			# Üretim ilerlemesini artır (işçi atandığında sürekli çalışır)
-			bread_production_progress += scaled_delta
-			
-			# Debug: Ekmek üretim ilerlemesini göster
-			if Engine.time_scale >= 16.0 and bread_production_progress > 0:
-				print("🍞 Ekmek üretim ilerlemesi: %.2f/%.1f (%.1f%%)" % [bread_production_progress, BREAD_PRODUCTION_TIME, (bread_production_progress / BREAD_PRODUCTION_TIME) * 100])
+		# Üretim ilerlemesini artır: işçi sayısı kadar hız
+		bread_production_progress += scaled_delta * float(assigned_workers)
+		# Debug: Ekmek üretim ilerlemesini göster
+		if Engine.time_scale >= 16.0 and bread_production_progress > 0:
+			print("🍞 Ekmek üretim ilerlemesi: %.2f/%.1f (%.1f%%)" % [bread_production_progress, BREAD_PRODUCTION_TIME, (bread_production_progress / BREAD_PRODUCTION_TIME) * 100])
 			
 			# 1 ekmek üretildi mi?
 			if bread_production_progress >= BREAD_PRODUCTION_TIME:
-				# Kaynakları harca
-				for resource_name in required_resources:
-					var amount_needed = required_resources[resource_name]
-					VillageManager.lock_resource_level(resource_name, amount_needed)
-				
-				# Ekmek üret
-				VillageManager.resource_levels["bread"] = VillageManager.resource_levels.get("bread", 0) + 1
-				VillageManager.emit_signal("village_data_changed")
+				# Önce buffer yeterli mi?
+				var ok := true
+				for res in required_resources.keys():
+					var need := int(required_resources[res])
+					if int(input_buffer.get(res, 0)) < need:
+						ok = false
+						break
+				if ok:
+					# Buffer'dan tüket
+					for res2 in required_resources.keys():
+						var need2 := int(required_resources[res2])
+						input_buffer[res2] = int(input_buffer.get(res2, 0)) - need2
+					# Ekmek üret
+					VillageManager.resource_levels["bread"] = VillageManager.resource_levels.get("bread", 0) + 1
+					VillageManager.emit_signal("village_data_changed")
 				
 				# İlerlemeyi sıfırla
 				bread_production_progress = 0.0
@@ -85,9 +129,7 @@ func _process(delta: float) -> void:
 					VillageManager.resource_levels.get("metal", 0),
 					VillageManager.resource_levels.get("bread", 0)
 				])
-		else:
-			# Kaynak yoksa üretimi durdur
-			bread_production_progress = 0.0
+		# Not: Kaynak yoksa üretim ilerler ama çıkış için buffer beklenir
 
 # --- Worker Management --- 
 func add_worker() -> bool:
@@ -171,6 +213,64 @@ func _update_ui() -> void:
 	#    worker_label.text = "%d / %d" % [assigned_workers, max_workers]
 	pass # Label yoksa veya adı farklıysa hata vermesin
 
+func _on_fetch_timeout() -> void:
+	if fetch_target == "":
+		finished_fetching()
+		return
+	# Global stoktan 1 birim düş ve buffer'a ekle
+	var cur:int = int(VillageManager.resource_levels.get(fetch_target, 0))
+	if cur > 0:
+		VillageManager.resource_levels[fetch_target] = cur - 1
+		input_buffer[fetch_target] = int(input_buffer.get(fetch_target, 0)) + 1
+		VillageManager.emit_signal("village_data_changed")
+	finished_fetching()
+	fetch_target = ""
+
+# --- Upgrade API ---
+func get_next_upgrade_cost() -> Dictionary:
+	var next_level = level + 1
+	return UPGRADE_COSTS.get(next_level, {})
+
+signal upgrade_started
+signal upgrade_finished
+signal state_changed
+
+func start_upgrade() -> bool:
+	if is_upgrading:
+		print("Fırın: Zaten yükseltiliyor.")
+		return false
+	if level >= max_level:
+		print("Fırın: Zaten maksimum seviyede.")
+		return false
+	var cost = get_next_upgrade_cost()
+	if cost.is_empty():
+		print("Fırın: Bir sonraki seviye için maliyet tanımlanmamış.")
+		return false
+	var gold_cost = int(cost.get("gold", 0))
+	if GlobalPlayerData.gold < gold_cost:
+		print("Fırın: Yükseltme için yeterli altın yok. Gereken: %d, Mevcut: %d" % [gold_cost, GlobalPlayerData.gold])
+		return false
+	GlobalPlayerData.add_gold(-gold_cost)
+	print("Fırın: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %ds" % [level, level + 1, int(upgrade_time_seconds)])
+	is_upgrading = true
+	if upgrade_timer:
+		upgrade_timer.wait_time = upgrade_time_seconds
+		upgrade_timer.start()
+	upgrade_started.emit()
+	state_changed.emit()
+	return true
+
+func _on_upgrade_finished() -> void:
+	if not is_upgrading:
+		return
+	is_upgrading = false
+	level += 1
+	max_workers = level
+	upgrade_finished.emit()
+	state_changed.emit()
+	VillageManager.notify_building_state_changed(self)
+	print("Fırın: Yükseltme tamamlandı. Yeni seviye: %d" % level)
+
 # --- TODO: Yükseltme Mantığı ---
 # func upgrade():
 #    ...
@@ -193,3 +293,8 @@ func finished_fetching() -> void:
 		# Bu durumun olmaması lazım ama güvenlik için loglayalım
 		printerr("%s: finished_fetching called but no fetcher was out?" % building_name)
 # <<< YENİ SONU >>>
+
+# Basit üretim bilgisini döndürür (UI için)
+func get_production_info() -> String:
+	var level_info := "Lv." + str(level)
+	return level_info + " • İşçi:" + str(assigned_workers) + " • Ekmek: 1/" + str(int(BREAD_PRODUCTION_TIME / max(1.0, float(assigned_workers)))) + "sn"

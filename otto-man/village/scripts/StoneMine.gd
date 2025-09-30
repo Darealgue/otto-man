@@ -172,7 +172,9 @@ func start_upgrade() -> bool:
 	# 3. Yükseltmeyi Başlat
 	print("Taş Madeni: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_timer.wait_time])
 	is_upgrading = true
-	upgrade_timer.start() # Zamanlayıcıyı başlat
+	if upgrade_timer:
+		upgrade_timer.wait_time = upgrade_time_seconds
+		upgrade_timer.start()
 	emit_signal("upgrade_started")
 	emit_signal("state_changed") # Genel durum değişikliği sinyali
 	
@@ -206,3 +208,9 @@ func _update_ui() -> void:
 	# Bu fonksiyon, UI'yi güncellemek için kullanılabilir.
 	# Örneğin, bir UI elementini güncellemek için kullanılabilir.
 	pass
+
+# Basit üretim bilgisini döndürür (UI için)
+func get_production_info() -> String:
+	var workers: int = assigned_workers if "assigned_workers" in self else 0
+	var level_info := "Lv." + str(level)
+	return level_info + " • İşçi:" + str(workers) + " • Taş üretimi: " + str(workers) + "/tick"

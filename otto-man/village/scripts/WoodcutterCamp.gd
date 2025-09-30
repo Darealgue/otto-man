@@ -185,7 +185,10 @@ func start_upgrade() -> bool:
 	# 3. Yükseltmeyi Başlat
 	print("Oduncu Kampı: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_timer.wait_time])
 	is_upgrading = true
-	upgrade_timer.start() # Zamanlayıcıyı başlat
+	# Bekleme süresini ayarla ve zamanlayıcıyı başlat
+	if upgrade_timer:
+		upgrade_timer.wait_time = upgrade_time_seconds
+		upgrade_timer.start()
 	emit_signal("upgrade_started")
 	emit_signal("state_changed") # Genel durum değişikliği sinyali
 	
@@ -237,3 +240,9 @@ func finish_upgrade() -> void:
 func _update_ui() -> void:
 	# UI güncelleme işlemleri burada yapılabilir
 	pass
+
+# Basit üretim bilgisini döndürür (UI için)
+func get_production_info() -> String:
+	var workers: int = assigned_workers if "assigned_workers" in self else 0
+	var level_info := "Lv." + str(level)
+	return level_info + " • İşçi:" + str(workers) + " • Odun üretimi: " + str(workers) + "/tick"

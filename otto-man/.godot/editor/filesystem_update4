@@ -1,5 +1,5 @@
 res://player/player.tscn
-res://village/scripts/VillageManager.gd
 res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
+res://village/scripts/TeaHouse.gd

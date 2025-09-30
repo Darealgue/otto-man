@@ -21,6 +21,25 @@ extends MarginContainer # .tscn dosyasındaki kök node türü
 @onready var economy_stats_label: Label = %EconomyStatsLabel
 # İleride eklenecek diğer label'lar için @onready değişkenler...
 
+# Üretici script yolu eşlemeleri (sadece bu üreticiler yerleştirildiyse kaynak göster)
+const PRODUCER_SCRIPTS := {
+	"wood": "res://village/scripts/WoodcutterCamp.gd",
+	"stone": "res://village/scripts/StoneMine.gd",
+	"food": "res://village/scripts/HunterGathererHut.gd",
+	"water": "res://village/scripts/Well.gd",
+	"metal": "res://village/scripts/StoneMine.gd",
+	"bread": "res://village/scripts/Bakery.gd",
+	# Gelişmiş kaynaklar
+	"weapon": "res://village/scripts/Blacksmith.gd",
+	"armor": "res://village/scripts/Armorer.gd",
+	"garment": "res://village/scripts/Tailor.gd",
+	"tea": "res://village/scripts/TeaHouse.gd",
+	"soap": "res://village/scripts/SoapMaker.gd"
+}
+
+# Dinamik oluşturulan ek kaynak etiketleri
+var _extra_resource_labels: Dictionary = {}
+
 # --- Periyodik Güncelleme ---
 var update_interval: float = 0.5 # Saniyede 2 kez güncelle
 var time_since_last_update: float = 0.0
@@ -90,12 +109,20 @@ func _update_labels() -> void:
 	# VillageManager Verileri
 	worker_label.text = "İşçiler: %d / %d" % [VillageManager.idle_workers, VillageManager.total_workers]
 
-	# Temel Kaynaklar (Kullanılabilir / Toplam)
-	_update_resource_label(wood_label, "Odun", "wood")
-	_update_resource_label(stone_label, "Taş", "stone")
-	_update_resource_label(food_label, "Yiyecek", "food")
-	_update_resource_label(water_label, "Su", "water")
-	_update_resource_label(metal_label, "Metal", "metal")
+	# Temel Kaynaklar (Kullanılabilir / Toplam) - sadece üretici bina varsa göster
+	_set_resource_visible_and_update(wood_label, "Odun", "wood")
+	_set_resource_visible_and_update(stone_label, "Taş", "stone")
+	_set_resource_visible_and_update(food_label, "Yiyecek", "food")
+	_set_resource_visible_and_update(water_label, "Su", "water")
+	_set_resource_visible_and_update(metal_label, "Metal", "metal")
+
+	# Gelişmiş Kaynaklar (dinamik label oluştur)
+	_update_dynamic_resource_label("weapon", "Silah")
+	_update_dynamic_resource_label("armor", "Zırh")
+	_update_dynamic_resource_label("garment", "Giyim")
+	_update_dynamic_resource_label("tea", "Çay")
+	_update_dynamic_resource_label("soap", "Sabun")
+	_update_dynamic_resource_label("metal", "Metal")
 
 	# Aktif olaylar
 	var tm = get_node_or_null("/root/TimeManager")
@@ -165,3 +192,47 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 				label_node.remove_theme_color_override("font_color")
 	else:
 		label_node.text = "%s: %d" % [resource_display_name, current]
+
+# Helper: dinamik kaynak etiketi güncelle/oluştur
+func _update_dynamic_resource_label(resource_key: String, display_name: String) -> void:
+	var label := _get_or_create_resource_label(resource_key, display_name)
+	var has_prod := _producer_exists(resource_key)
+	label.visible = has_prod
+	if has_prod:
+		_update_resource_label(label, display_name, resource_key)
+
+# Helper: üretici bina var mı kontrol et
+func _producer_exists(resource_key: String) -> bool:
+	var script_path: String = String(PRODUCER_SCRIPTS.get(resource_key, ""))
+	if script_path == "":
+		return false
+	var scene = get_tree().current_scene
+	if not is_instance_valid(scene):
+		return false
+	var placed = scene.get_node_or_null("PlacedBuildings")
+	if not placed:
+		return false
+	for b in placed.get_children():
+		if b.has_method("get_script") and b.get_script() != null:
+			var sp = b.get_script().resource_path
+			if sp == script_path:
+				return true
+	return false
+
+# Helper: görünürlük + güncelleme
+func _set_resource_visible_and_update(label_node: Label, display_name: String, key: String) -> void:
+	var has_prod := _producer_exists(key)
+	label_node.visible = has_prod
+	if has_prod:
+		_update_resource_label(label_node, display_name, key)
+
+# Helper: ihtiyaç halinde label oluştur
+func _get_or_create_resource_label(resource_key: String, display_name: String) -> Label:
+	if _extra_resource_labels.has(resource_key):
+		return _extra_resource_labels[resource_key]
+	var container: Node = bread_label.get_parent() if bread_label and bread_label.get_parent() else self
+	var lbl := Label.new()
+	lbl.name = String(display_name) + "LabelDynamic"
+	container.add_child(lbl)
+	_extra_resource_labels[resource_key] = lbl
+	return lbl

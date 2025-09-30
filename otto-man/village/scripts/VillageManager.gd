@@ -10,10 +10,17 @@ const BUILDING_REQUIREMENTS = {
 	"res://village/buildings/StoneMine.tscn": {"cost": {"gold": 5}},
 	"res://village/buildings/HunterGathererHut.tscn": {"cost": {"gold": 5}},
 	"res://village/buildings/Well.tscn": {"cost": {"gold": 10}},
-	# Gelişmiş binalar seviye ve altın isteyebilir (örnek)
-	"res://village/buildings/Bakery.tscn": {"requires_level": {"food": 1}, "cost": {"gold": 50}},
+	# Gelişmiş binalar (Fırın için sadece altın gereksinimi)
+	"res://village/buildings/Bakery.tscn": {"cost": {"gold": 50}},
 	"res://village/buildings/House.tscn": {"cost": {"gold": 50,"wood": 1, "stone": 1}}, #<<< YENİ EV MALİYETİ
-	"res://village/buildings/StorageBuilding.tscn": {"cost": {"gold": 80, "wood": 2, "stone": 1}}
+	"res://village/buildings/StorageBuilding.tscn": {"cost": {"gold": 80, "wood": 2, "stone": 1}},
+	# Yeni üretim zinciri binaları (placeholder maliyetler)
+	"res://village/buildings/Blacksmith.tscn": {"cost": {"gold": 120, "wood": 2, "stone": 2}},
+	"res://village/buildings/Armorer.tscn": {"cost": {"gold": 120, "wood": 2, "stone": 2}},
+	"res://village/buildings/Tailor.tscn": {"cost": {"gold": 90, "wood": 1}},
+	"res://village/buildings/TeaHouse.tscn": {"cost": {"gold": 60}},
+	"res://village/buildings/SoapMaker.tscn": {"cost": {"gold": 80}},
+	"res://village/buildings/Gunsmith.tscn": {"cost": {"gold": 120, "wood": 2}}
 }
 
 # --- VillageScene Referansı ---
@@ -316,7 +323,10 @@ func _process(delta: float) -> void:
 			if active_workers <= 0:
 				continue
 			var morale_mult: float = _get_morale_multiplier()
-			var progress_increment: float = scaled_delta * float(active_workers) * morale_mult
+			# Seviyeye bağlı bina bonusu ve küresel çarpanları per-frame üretime de uygula
+			var prod_mult: float = (1.0 + building_bonus + caregiver_bonus) * global_multiplier
+			var res_mult: float = float(resource_prod_multiplier.get(resource_type, 1.0))
+			var progress_increment: float = scaled_delta * float(active_workers) * morale_mult * prod_mult * res_mult
 			base_production_progress[resource_type] = base_production_progress.get(resource_type, 0.0) + progress_increment
 			if base_production_progress[resource_type] >= SECONDS_PER_RESOURCE_UNIT:
 				var units: int = int(floor(base_production_progress[resource_type] / SECONDS_PER_RESOURCE_UNIT))
@@ -453,7 +463,14 @@ func find_free_building_plot() -> Vector2:
 			return marker_pos # Boş plot bulundu, pozisyonunu döndür
 
 	#print("VillageManager: Boş plot bulunamadı.")
-	return Vector2.INF # Hiç boş plot bulunamadı
+	# Fallback: Mevcut yerleşik binaların yanına ofsetle yerleştir
+	if placed_buildings:
+		var count:int = placed_buildings.get_child_count()
+		var base_pos: Vector2 = Vector2.ZERO
+		if plot_markers and plot_markers.get_child_count() > 0 and plot_markers.get_child(0) is Node2D:
+			base_pos = plot_markers.get_child(0).global_position
+		return base_pos + Vector2(56 * count, 0)
+	return Vector2.ZERO
 
 # Verilen bina sahnesini belirtilen pozisyona yerleştirir
 func place_building(building_scene_path: String, position: Vector2) -> bool:

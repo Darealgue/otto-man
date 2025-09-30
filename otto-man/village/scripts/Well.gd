@@ -143,6 +143,14 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	pass
 
+# Basit üretim bilgisini döndürür (UI için)
+func get_production_info() -> String:
+	var per_worker: float = 1.0
+	# Seviyeye bağlı kapasite bilgisi: işçi sayısı üretimi etkiler
+	var workers: int = assigned_workers if "assigned_workers" in self else 0
+	var level_info := "Lv." + str(level) if "level" in self else "Lv.?"
+	return level_info + " • İşçi:" + str(workers) + " • Su üretimi: " + str(workers) + "/tick"
+
 func get_next_upgrade_cost() -> Dictionary:
 	var next_level = level + 1
 	return UPGRADE_COSTS.get(next_level, {})
@@ -169,9 +177,11 @@ func start_upgrade() -> bool:
 	GlobalPlayerData.add_gold(-gold_cost)
 	print("Kuyu: Yükseltme maliyeti düşüldü: %d Altın" % gold_cost)
 
-	print("Kuyu: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_timer.wait_time])
+	print("Kuyu: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_time_seconds])
 	is_upgrading = true
-	upgrade_timer.start()
+	if upgrade_timer:
+		upgrade_timer.wait_time = upgrade_time_seconds
+		upgrade_timer.start()
 	emit_signal("upgrade_started")
 	emit_signal("state_changed")
 	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.YELLOW
