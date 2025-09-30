@@ -1,7 +1,7 @@
 extends CanvasLayer
 
 # Sayfa türleri
-enum PageType { MISSIONS, ASSIGNMENT, CONSTRUCTION, NEWS, CONCUBINE_DETAILS, TRADE }
+enum PageType { MISSIONS, ASSIGNMENT, CONSTRUCTION, NEWS, CONCUBINE_DETAILS, TRADE, DIPLOMACY }
 
 # İnşaat menüsü için enum'lar
 enum ConstructionAction { BUILD, UPGRADE, DEMOLISH, INFO }
@@ -83,6 +83,7 @@ var last_dpad_input: String = ""
 @onready var concubine_details_page: Control = $ConcubineDetailsPage
 @onready var trade_page: Control = $TradePage
 @onready var page_label: Label = $PageLabel
+@onready var page_indicator: Control = $PageIndicator
 
 # Sayfa göstergesi referansları
 @onready var page_dot1: Panel = $PageIndicator/PageDot1
@@ -91,6 +92,7 @@ var last_dpad_input: String = ""
 @onready var page_dot4: Panel = $PageIndicator/PageDot4
 @onready var page_dot5: Panel = $PageIndicator/PageDot5
 @onready var page_dot6: Panel = $PageIndicator/PageDot6
+var page_dot7: Panel = null
 
 # Görevler sayfası UI referansları
 @onready var idle_cariyeler_label: Label = $MissionsPage/MissionsHeader/IdleCariyelerLabel
@@ -112,11 +114,21 @@ var last_dpad_input: String = ""
 var mission_history_detail_label: RichTextLabel = null
 
 # Sayfa isimleri
-var page_names: Array[String] = ["GÖREVLER", "ATAMALAR", "İNŞAAT", "HABERLER", "CARİYELER", "TİCARET"]
+var page_names: Array[String] = ["GÖREVLER", "ATAMALAR", "İNŞAAT", "HABERLER", "CARİYELER", "TİCARET", "DİPLOMASİ"]
 
 # Action ve Category isimleri
 var action_names: Array[String] = ["YAP", "YÜKSELT", "YIK", "BİLGİ"]
 var category_names: Array[String] = ["ÜRETİM", "YAŞAM", "ORDU", "DEKORASYON"]
+
+# İnşaat sayfası için görsel progress bar (dinamik)
+var upgrade_progress_bar: ProgressBar = null
+ 
+# --- Diplomasi Paneli (hafif) ---
+var diplomacy_panel: VBoxContainer = null
+var diplomacy_list: VBoxContainer = null
+var diplomacy_action_label: Label = null
+var current_diplomacy_index: int = 0
+var current_diplomacy_action: int = 0 # 0:Hediye +5, 1:Tehdit -5
 
 # Bina türleri kategorilere göre (gerçek bina türleri)
 var building_categories: Dictionary = {
@@ -208,6 +220,8 @@ func _ready():
 		mission_manager.news_posted.connect(_on_news_posted)
 	if mission_manager.has_signal("trade_offers_updated"):
 		mission_manager.trade_offers_updated.connect(_on_trade_offers_updated)
+	if mission_manager.has_signal("mission_chain_progressed"):
+		mission_manager.mission_chain_progressed.connect(_on_chain_progressed)
 	
 	print("✅ MissionManager sinyalleri bağlandı")
 	
@@ -220,6 +234,21 @@ func _ready():
 	# Haber filtre barı kurulumu
 	_ensure_news_filter_bar()
 	_ensure_news_subcategory_bar()
+
+	# Diplomasi panelini oluştur (MissionsPage altında)
+	_ensure_diplomacy_panel()
+
+	# PageIndicator'a 7. nokta ekle (varsa atla)
+	if page_indicator and page_dot7 == null:
+		var existing = page_indicator.get_node_or_null("PageDot7")
+		if existing == null:
+			var dot = Panel.new()
+			dot.name = "PageDot7"
+			dot.custom_minimum_size = Vector2(10, 10)
+			page_indicator.add_child(dot)
+			page_dot7 = dot
+		else:
+			page_dot7 = existing
 
 func _update_unread_badge():
 	var mm = get_node_or_null("/root/MissionManager")
@@ -549,11 +578,9 @@ func handle_building_selection():
 
 	# A tuşu (ui_forward): Bina inşa et
 	elif Input.is_action_just_pressed("ui_forward"):
-		print("=== A TUŞU: Bina inşa ediliyor ===")
+		print("=== A TUŞU: İşlem çalıştırılıyor (kapatmadan devam) ===")
 		execute_build_action()
-		# İşlem tamamlandı, başa dön
-		current_menu_state = MenuState.İŞLEM_SEÇİMİ
-		current_building_index = 0  # Bina seçimini sıfırla
+		# Menüyü açık tut ve mevcut seçimleri koru
 		update_construction_ui()
 
 	# B tuşu: Geri dön, kategori seçimine
@@ -569,6 +596,15 @@ func update_construction_ui():
 		var action_label = construction_page.get_node_or_null("ActionRow/ActionLabel")
 		var category_label = construction_page.get_node_or_null("CategoryRow/CategoryLabel")
 		var buildings_label = construction_page.get_node_or_null("BuildingsLabel")
+		# Progress bar hazırla
+		if upgrade_progress_bar == null:
+			upgrade_progress_bar = ProgressBar.new()
+			upgrade_progress_bar.name = "UpgradeProgressBar"
+			upgrade_progress_bar.min_value = 0.0
+			upgrade_progress_bar.max_value = 1.0
+			upgrade_progress_bar.step = 0.0
+			upgrade_progress_bar.visible = false
+			construction_page.add_child(upgrade_progress_bar)
 		
 		# İşlem seçimi seviyesi
 		if current_menu_state == MenuState.İŞLEM_SEÇİMİ:
@@ -621,6 +657,28 @@ func update_construction_ui():
 						buildings_text += "\n[A tuşu ile bilgi göster] [B tuşu ile geri dön]"
 				
 				buildings_label.text = buildings_text
+				# Eğer yükseltme seçiliyse ve bina yükseltiliyorsa barı güncelle
+				var selected_building_name = buildings[current_building_index] if buildings.size() > 0 else ""
+				if current_construction_action == ConstructionAction.UPGRADE and selected_building_name != "":
+					var existing = find_existing_buildings(selected_building_name)
+					if not existing.is_empty():
+						var b = existing[0]
+						var show_bar := false
+						var ratio := 0.0
+						if ("is_upgrading" in b) and b.is_upgrading and ("upgrade_timer" in b) and b.upgrade_timer and ("upgrade_time_seconds" in b):
+							var total := float(b.upgrade_time_seconds)
+							if total > 0.0:
+								var left := float(b.upgrade_timer.time_left)
+								ratio = clamp((total - left) / total, 0.0, 1.0)
+								show_bar = true
+						if upgrade_progress_bar:
+							upgrade_progress_bar.visible = show_bar
+							if show_bar:
+								upgrade_progress_bar.max_value = 1.0
+								upgrade_progress_bar.value = ratio
+						else:
+							if upgrade_progress_bar:
+								upgrade_progress_bar.visible = false
 
 # Atama bina listesi seçimi
 func handle_assignment_building_list_selection():
@@ -991,6 +1049,14 @@ func get_building_status_info(building_type: String) -> String:
 	# Yükseltme durumu
 	if "is_upgrading" in building and building.is_upgrading:
 		info += " ⚡"
+		# Kalan süre ve yüzde
+		if ("upgrade_timer" in building) and building.upgrade_timer and ("upgrade_time_seconds" in building):
+			var total := float(building.upgrade_time_seconds)
+			if total > 0.0:
+				var left := float(building.upgrade_timer.time_left)
+				var ratio: float = clamp((total - left) / total, 0.0, 1.0)
+				var pct: int = int(round(ratio * 100.0))
+				info += " ⏳" + str(int(ceil(left))) + "sn (" + str(pct) + "%)"
 	elif "level" in building and "max_level" in building and building.level >= building.max_level:
 		info += " ✅"
 	
@@ -1007,6 +1073,10 @@ func get_building_status_info(building_type: String) -> String:
 			# Süre bilgisi
 			if "upgrade_time_seconds" in building:
 				info += " ⏱" + str(int(building.upgrade_time_seconds)) + "sn"
+			# Basit etki önizleme
+			if "max_workers" in building:
+				var cur_workers := int(building.max_workers)
+				info += " • Etki: İşçi " + str(cur_workers) + "→" + str(cur_workers + 1)
 	
 	return info
 
@@ -1126,7 +1196,15 @@ func get_building_detailed_info(building: Node, building_type: String) -> String
 	
 	# Yükseltme durumu
 	if "is_upgrading" in building and building.is_upgrading:
-		info += "⚡ Yükseltiliyor...\n"
+		info += "⚡ Yükseltiliyor..."
+		if ("upgrade_timer" in building) and building.upgrade_timer and ("upgrade_time_seconds" in building):
+			var total := float(building.upgrade_time_seconds)
+			if total > 0.0:
+				var left := float(building.upgrade_timer.time_left)
+				var ratio: float = clamp((total - left) / total, 0.0, 1.0)
+				var pct: int = int(round(ratio * 100.0))
+				info += " ⏳ Kalan: " + str(int(ceil(left))) + "sn (" + str(pct) + "%)"
+		info += "\n"
 	
 	# İşçi bilgileri
 	if "assigned_workers" in building and "max_workers" in building:
@@ -1138,6 +1216,15 @@ func get_building_detailed_info(building: Node, building_type: String) -> String
 		if upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
 			info += "💰 Yükseltme: " + str(upgrade_cost["gold"]) + " Altın\n"
 	
+	# Yükseltme süresi
+	if "upgrade_time_seconds" in building:
+		info += "⏱ Süre: " + str(int(building.upgrade_time_seconds)) + "sn\n"
+
+	# Basit etki önizleme
+	if "max_workers" in building:
+		var cur_workers := int(building.max_workers)
+		info += "✨ Etki: İşçi " + str(cur_workers) + "→" + str(cur_workers + 1) + "\n"
+
 	# Üretim bilgileri (eğer varsa)
 	if building.has_method("get_production_info"):
 		var production_info = building.get_production_info()
@@ -1324,6 +1411,12 @@ func show_page(page_index: int):
 				trade_page.visible = true
 				print("TradePage gösterildi")
 				update_trade_ui()
+		PageType.DIPLOMACY:
+			# Diplomasi: trade_page container'ını kullan
+			if trade_page:
+				trade_page.visible = true
+				print("DiplomasiPage gösterildi")
+				_update_diplomacy_ui()
 		PageType.CONCUBINE_DETAILS:
 			concubine_details_page.visible = true
 			print("ConcubineDetailsPage gösterildi")
@@ -2769,66 +2862,161 @@ func update_mission_chains_ui():
 
 # Görev zinciri kartı oluştur
 func create_mission_chain_card(chain_id: String, chain_info: Dictionary) -> Panel:
-	var card = Panel.new()
-	card.custom_minimum_size = Vector2(750, 100)
+	var panel := Panel.new()
+	panel.custom_minimum_size = Vector2(0, 64)
+	var vb := VBoxContainer.new()
+	panel.add_child(vb)
+
+	var title := Label.new()
+	title.text = "🧭 " + String(chain_info.get("name", chain_id))
+	vb.add_child(title)
+
+	var progress: Dictionary = mission_manager.get_chain_progress(chain_id)
+	var prog_label := Label.new()
+	prog_label.text = "İlerleme: %d/%d (%.0f%%)" % [int(progress.get("completed",0)), int(progress.get("total",0)), float(progress.get("percentage",0.0))]
+	vb.add_child(prog_label)
+
+	# Adımlar
+	var steps := HBoxContainer.new()
+	steps.custom_minimum_size = Vector2(0, 24)
+	vb.add_child(steps)
+	var missions_in_chain: Array = mission_manager.get_missions_in_chain(chain_id)
+	for mid in missions_in_chain:
+		var m = mission_manager.missions.get(mid, null)
+		if m != null:
+			var badge := Label.new()
+			var st: int = 0
+			if ("status" in m):
+				st = int(m.status)
+			var icon: String = "⏳" if st == 1 else ("✔" if st == 2 else "•")
+			badge.text = icon + " " + String(m.name)
+			steps.add_child(badge)
+
+	return panel
+
+# --- Diplomasi Paneli Oluşturma ve Güncelleme ---
+func _ensure_diplomacy_panel() -> void:
+	if diplomacy_panel != null:
+		return
+	# DİPLOMASİ sekmesi olarak TradePage ana container'ını kullanacağız
+	var parent := trade_page
+	if parent == null:
+		return
+	# Bölme: sol görevler, sağ diplomasi
+	var holder := parent.get_node_or_null("DiplomacyHolder")
+	if holder == null:
+		holder = VBoxContainer.new()
+		holder.name = "DiplomacyHolder"
+		parent.add_child(holder)
+		holder.move_child(holder, parent.get_child_count() - 1)
 	
-	var vbox = VBoxContainer.new()
-	card.add_child(vbox)
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("margin_left", 10)
-	vbox.add_theme_constant_override("margin_right", 10)
-	vbox.add_theme_constant_override("margin_top", 10)
-	vbox.add_theme_constant_override("margin_bottom", 10)
+	diplomacy_panel = VBoxContainer.new()
+	diplomacy_panel.name = "DiplomacyPanel"
+	var title := Label.new()
+	title.text = "🤝 Diplomasi"
+	title.add_theme_font_size_override("font_size", 14)
+	diplomacy_panel.add_child(title)
+
+	diplomacy_list = VBoxContainer.new()
+	diplomacy_panel.add_child(diplomacy_list)
+
+	holder.add_child(diplomacy_panel)
+	diplomacy_action_label = Label.new()
+	diplomacy_action_label.text = "[Sol/Sağ] Eylem: Hediye +5 | [A] Uygula | [B] Geri"
+	diplomacy_panel.add_child(diplomacy_action_label)
+	diplomacy_panel.visible = (current_page == PageType.TRADE)
+
+func _update_diplomacy_ui() -> void:
+	if diplomacy_list == null:
+		return
+	for c in diplomacy_list.get_children():
+		c.queue_free()
+	var wm = get_node_or_null("/root/WorldManager")
+	if wm == null:
+		return
+	var factions: Array = wm.factions if ("factions" in wm) else []
+	if current_diplomacy_index >= factions.size():
+		current_diplomacy_index = max(0, factions.size() - 1)
+	for f in factions:
+		if String(f) == "Köy":
+			continue
+		var row := HBoxContainer.new()
+		var name := Label.new()
+		name.text = String(f)
+		row.add_child(name)
+		var rel_val := 0
+		if wm.has_method("get_relation"):
+			rel_val = wm.get_relation("Köy", String(f))
+		var bar := ProgressBar.new()
+		bar.min_value = -100
+		bar.max_value = 100
+		bar.value = rel_val
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(bar)
+		# Kontrol gamepad ile olduğu için buton yerine seçili satır + A ile işlem yapacağız
+		# Seçili satırı vurgula
+		if diplomacy_list.get_child_count() == current_diplomacy_index:
+			row.add_theme_stylebox_override("panel", create_selected_stylebox())
+		else:
+			row.add_theme_stylebox_override("panel", create_normal_stylebox())
+		diplomacy_list.add_child(row)
+
+func handle_diplomacy_input(event):
+	# D-Pad debounce
+	if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right") or event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down"):
+		if dpad_debounce_timer > 0:
+			return
+		dpad_debounce_timer = dpad_debounce_delay
 	
-	# Zincir adı
-	var name_label = Label.new()
-	var chain_type_icon = "🔗"
-	match chain_info.get("type", Mission.ChainType.NONE):
-		Mission.ChainType.SEQUENTIAL: chain_type_icon = "🔗"
-		Mission.ChainType.PARALLEL: chain_type_icon = "🔀"
-		Mission.ChainType.CHOICE: chain_type_icon = "🔀"
-	
-	name_label.text = "%s %s" % [chain_type_icon, chain_info.get("name", "Bilinmeyen Zincir")]
-	name_label.add_theme_font_size_override("font_size", 16)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
-	vbox.add_child(name_label)
-	
-	# İlerleme
-	var progress = mission_manager.get_chain_progress(chain_id)
-	var progress_label = Label.new()
-	progress_label.text = "İlerleme: %d/%d (%d%%)" % [progress.completed, progress.total, progress.percentage]
-	progress_label.add_theme_font_size_override("font_size", 12)
-	progress_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
-	vbox.add_child(progress_label)
-	
-	# Açıklama (misyonlardan ilkini örnek olarak kullan)
-	var description_label = Label.new()
-	var missions_in_chain = mission_manager.get_chain_missions(chain_id)
-	var desc_text = ""
-	if missions_in_chain.size() > 0:
-		desc_text = missions_in_chain[0].description
-	else:
-		desc_text = "Zincir açıklaması"
-	description_label.text = desc_text
-	description_label.add_theme_font_size_override("font_size", 10)
-	description_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
-	vbox.add_child(description_label)
-	
-	# Ödüller
-	if chain_info.has("rewards"):
-		var rewards_text = "Ödül: "
-		for reward_type in chain_info["rewards"]:
-			var amount = chain_info["rewards"][reward_type]
-			rewards_text += "%s " % reward_type
-		rewards_text = rewards_text.strip_edges()
-		
-		var rewards_label = Label.new()
-		rewards_label.text = rewards_text
-		rewards_label.add_theme_font_size_override("font_size", 10)
-		rewards_label.add_theme_color_override("font_color", Color.YELLOW)
-		vbox.add_child(rewards_label)
-	
-	return card
+	var wm = get_node_or_null("/root/WorldManager")
+	if wm == null:
+		return
+	var factions: Array = wm.factions if ("factions" in wm) else []
+	# Yukarı/Aşağı: fraksiyon seçimi
+	if event.is_action_pressed("ui_up"):
+		current_diplomacy_index = max(0, current_diplomacy_index - 1)
+		_update_diplomacy_ui()
+		return
+	elif event.is_action_pressed("ui_down"):
+		current_diplomacy_index = min(max(0, factions.size() - 1), current_diplomacy_index + 1)
+		_update_diplomacy_ui()
+		return
+	# Sol/Sağ: eylem seçimi
+	elif event.is_action_pressed("ui_left"):
+		current_diplomacy_action = max(0, current_diplomacy_action - 1)
+		_update_diplomacy_footer()
+		return
+	elif event.is_action_pressed("ui_right"):
+		current_diplomacy_action = min(1, current_diplomacy_action + 1)
+		_update_diplomacy_footer()
+		return
+	# A: uygula
+	elif event.is_action_pressed("ui_accept"):
+		var target := ""
+		for f in factions:
+			if String(f) == "Köy":
+				continue
+			if current_diplomacy_index == 0:
+				target = String(f)
+				break
+			current_diplomacy_index -= 1
+		if target != "":
+			var cur_rel: int = wm.get_relation("Köy", target)
+			if current_diplomacy_action == 0:
+				wm.set_relation("Köy", target, cur_rel + 5)
+			else:
+				wm.set_relation("Köy", target, cur_rel - 5)
+			_update_diplomacy_ui()
+		return
+	# B: geri
+	elif event.is_action_pressed("ui_cancel"):
+		previous_page()
+		return
+
+func _update_diplomacy_footer() -> void:
+	if diplomacy_action_label:
+		var action_name := "Hediye +5" if current_diplomacy_action == 0 else "Tehdit -5"
+		diplomacy_action_label.text = "[Sol/Sağ] Eylem: %s | [A] Uygula | [B] Geri" % action_name
 
 # Zincir detay panelini güncelle
 func _update_chain_detail_panel():
@@ -2910,6 +3098,9 @@ func _input(event):
 			handle_concubine_details_input(event)
 		PageType.TRADE:
 			handle_trade_input(event)
+		PageType.DIPLOMACY:
+			# DİPLOMASİ kontrolleri
+			handle_diplomacy_input(event)
 
 # Görevler sayfası kontrolleri
 func handle_missions_input(event):
@@ -4348,6 +4539,8 @@ func update_page_indicator():
 	page_dot5.modulate = Color(0.5, 0.5, 0.5, 1)
 	if page_dot6:
 		page_dot6.modulate = Color(0.5, 0.5, 0.5, 1)
+	if page_dot7:
+		page_dot7.modulate = Color(0.5, 0.5, 0.5, 1)
 	
 	# Aktif sayfayı beyaz yap
 	match current_page:
@@ -4365,6 +4558,9 @@ func update_page_indicator():
 		PageType.TRADE:
 			if page_dot6:
 				page_dot6.modulate = Color(1, 1, 1, 1)
+		PageType.DIPLOMACY:
+			if page_dot7:
+				page_dot7.modulate = Color(1, 1, 1, 1)
 
 # StyleBox oluşturma fonksiyonları
 func create_selected_stylebox() -> StyleBoxFlat:
@@ -4825,3 +5021,7 @@ func close_menu():
 		player.process_mode = Node.PROCESS_MODE_INHERIT
 	# Input serbest
 	# (Gerekirse burada handled flag'ini temizlemeye gerek yok, bir frame sonra sıfırlanır)
+
+func _on_chain_progressed(chain_id: String, progress: Dictionary) -> void:
+	# UI'da zincir listesini tazele
+	update_mission_chains_ui()

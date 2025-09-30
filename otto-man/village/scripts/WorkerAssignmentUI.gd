@@ -53,6 +53,10 @@ extends PanelContainer
 
 @onready var close_button: Button = %CloseButton
 
+# --- Upgrade UI (info labels + progress bars) ---
+var upgrade_info_labels := {}
+var upgrade_progress_bars := {}
+
 # --- YENİ: Bina Sahne Yolları (BuildMenuUI ile aynı olmalı) ---
 const WOODCUTTER_SCENE = "res://village/buildings/WoodcutterCamp.tscn"
 const STONE_MINE_SCENE = "res://village/buildings/StoneMine.tscn"
@@ -98,6 +102,13 @@ func _ready() -> void:
 
 	close_button.pressed.connect(_on_close_button_pressed)
 	
+	# Ensure upgrade UI widgets exist per row (created programmatically if missing)
+	_ensure_upgrade_ui_for_row("wood", wood_hbox)
+	_ensure_upgrade_ui_for_row("stone", stone_hbox)
+	_ensure_upgrade_ui_for_row("food", food_hbox)
+	_ensure_upgrade_ui_for_row("water", water_hbox)
+	_ensure_upgrade_ui_for_row("bread", bread_hbox)
+	
 	# VillageManager'dan sinyal gelince UI'ı güncellemek için:
 	# --- BU BAĞLANTIYI KALDIRIYORUZ/YORUMLUYORUZ ---
 #	if VillageManager.has_signal("building_state_changed"):
@@ -124,6 +135,90 @@ func _ready() -> void:
 	# TODO: Diğer kaynaklar için benzer kontroller eklenebilir (food, water, bread)
 	elif close_button.visible and not close_button.disabled: # Hiçbiri uygun değilse kapat butonuna odaklan
 		close_button.grab_focus()
+
+# Create info label and progress bar for a given row if not present
+func _ensure_upgrade_ui_for_row(resource_type: String, row: HBoxContainer) -> void:
+	if not is_instance_valid(row):
+		return
+	var info_name := resource_type.capitalize() + "UpgradeInfo"
+	var bar_name := resource_type.capitalize() + "UpgradeProgress"
+	var info_label: Label = row.get_node_or_null(info_name)
+	if info_label == null:
+		info_label = Label.new()
+		info_label.name = info_name
+		info_label.visible = false
+		row.add_child(info_label)
+	upgrade_info_labels[resource_type] = info_label
+	var bar: ProgressBar = row.get_node_or_null(bar_name)
+	if bar == null:
+		bar = ProgressBar.new()
+		bar.name = bar_name
+		bar.min_value = 0.0
+		bar.max_value = 1.0
+		bar.step = 0.0
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.visible = false
+		row.add_child(bar)
+	upgrade_progress_bars[resource_type] = bar
+
+func _hide_upgrade_ui_for(resource_type: String) -> void:
+	var info_label: Label = upgrade_info_labels.get(resource_type, null)
+	if is_instance_valid(info_label):
+		info_label.visible = false
+	var bar: ProgressBar = upgrade_progress_bars.get(resource_type, null)
+	if is_instance_valid(bar):
+		bar.visible = false
+
+func _format_upgrade_info(building: Node) -> String:
+	var parts: Array[String] = []
+	if building and building.has_method("get_next_upgrade_cost"):
+		var cost: Dictionary = building.get_next_upgrade_cost()
+		var gold := int(cost.get("gold", 0))
+		if gold > 0:
+			parts.append("💰 %d Altın" % gold)
+	if building and ("upgrade_time_seconds" in building):
+		var secs := int(building.upgrade_time_seconds)
+		if secs > 0:
+			parts.append("⏱ %ds" % secs)
+	# Simple effect preview: max workers +1
+	if building and ("max_workers" in building):
+		var cur_workers := int(building.max_workers)
+		parts.append("Etki: İşçi %d→%d" % [cur_workers, cur_workers + 1])
+	return " • ".join(parts)
+
+func _update_upgrade_ui_for(resource_type: String, building: Node) -> void:
+	var info_label: Label = upgrade_info_labels.get(resource_type, null)
+	var bar: ProgressBar = upgrade_progress_bars.get(resource_type, null)
+	if not (is_instance_valid(info_label) and is_instance_valid(bar)):
+		return
+	# Info text
+	var info_text := ""
+	if is_instance_valid(building):
+		info_text = _format_upgrade_info(building)
+	info_label.text = info_text
+	info_label.visible = info_text != ""
+	# Progress
+	var upgrading := false
+	if is_instance_valid(building) and ("is_upgrading" in building):
+		upgrading = bool(building.is_upgrading)
+	if upgrading:
+		var total := 0.0
+		if ("upgrade_time_seconds" in building):
+			total = float(building.upgrade_time_seconds)
+		var ratio := 0.0
+		if total > 0.0 and ("upgrade_timer" in building) and building.upgrade_timer:
+			var left := float(building.upgrade_timer.time_left)
+			ratio = clamp((total - left) / total, 0.0, 1.0)
+			var percent := int(round(ratio * 100.0))
+			# Show remaining time and percent inline
+			var base := _format_upgrade_info(building)
+			info_label.text = "⏳ %ds (%d%%) • %s" % [int(ceil(left)), percent, base]
+			info_label.visible = true
+		bar.max_value = 1.0
+		bar.value = ratio
+		bar.visible = true
+	else:
+		bar.visible = false
 
 func _process(delta: float) -> void:
 	# Panel görünür değilse hiçbir şey yapma
@@ -243,6 +338,9 @@ func update_ui() -> void:
 
 		wood_level_indicator.text = "[Lv. %d]" % wood_current_level #<<< Güncel değişkeni kullan
 		wood_level_label.text = _level_with_cap("wood")
+		_update_upgrade_ui_for("wood", wood_building)
+	else:
+		_hide_upgrade_ui_for("wood")
 
 
 	# --- Stone Row Visibility & Buttons & Level ---
@@ -277,6 +375,9 @@ func update_ui() -> void:
 
 		stone_level_indicator.text = "[Lv. %d]" % stone_current_level #<<< Güncel değişkeni kullan
 		stone_level_label.text = _level_with_cap("stone")
+		_update_upgrade_ui_for("stone", stone_building)
+	else:
+		_hide_upgrade_ui_for("stone")
 
 	# --- Food Row Visibility & Buttons & Level ---
 	var food_building_exists = food_building != null
@@ -310,6 +411,9 @@ func update_ui() -> void:
 
 		food_level_indicator.text = "[Lv. %d]" % food_current_level #<<< Güncel değişkeni kullan
 		food_level_label.text = _level_with_cap("food")
+		_update_upgrade_ui_for("food", food_building)
+	else:
+		_hide_upgrade_ui_for("food")
 
 	# --- Water Row Visibility & Buttons & Level ---
 	var water_building_exists = water_building != null
@@ -343,6 +447,9 @@ func update_ui() -> void:
 
 		water_level_indicator.text = "[Lv. %d]" % water_current_level #<<< Güncel değişkeni kullan
 		water_level_label.text = _level_with_cap("water")
+		_update_upgrade_ui_for("water", water_building)
+	else:
+		_hide_upgrade_ui_for("water")
 
 	# --- Metal Row Visibility & Buttons & Level ---
 	metal_hbox.visible = false
@@ -375,6 +482,7 @@ func update_ui() -> void:
 		
 		# Ekmek seviyesi VillageManager'daki resource_levels'dan gelmeli
 		bread_level_label.text = str(VillageManager.get_resource_level("bread"))
+		_update_upgrade_ui_for("bread", bread_building)
 
 		# Add/Remove Butonları (Normal binalar gibi)
 		var can_add_bread = not bread_is_upgrading and bread_current_workers < bread_max_workers_val
@@ -384,6 +492,7 @@ func update_ui() -> void:
 	else: 
 		if is_instance_valid(bread_level_label):
 			bread_level_label.text = "0"
+		_hide_upgrade_ui_for("bread")
 
 	# print("DEBUG: --- update_ui FINISHED ---") # Debug print'leri kapattık
 

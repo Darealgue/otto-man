@@ -45,6 +45,7 @@ signal mission_started(cariye_id: int, mission_id: String)
 signal mission_cancelled(cariye_id: int, mission_id: String)
 signal concubine_leveled_up(cariye_id: int, new_level: int)
 signal mission_chain_completed(chain_id: String, rewards: Dictionary)
+signal mission_chain_progressed(chain_id: String, progress: Dictionary)
 signal news_posted(news: Dictionary)
 signal mission_unlocked(mission_id: String)
 signal trade_offers_updated()
@@ -690,6 +691,10 @@ func on_mission_completed(mission_id: String):
 	
 	# Zincir tamamlandı mı kontrol et
 	check_chain_completion(mission.chain_id)
+	# Zincir ilerleme sinyali gönder
+	if mission.chain_id != null and mission.chain_id != "":
+		var prog := get_chain_progress(mission.chain_id)
+		mission_chain_progressed.emit(mission.chain_id, prog)
 
 # Zincir önkoşullarını kontrol et
 func check_chain_prerequisites(chain_id: String):
@@ -824,6 +829,37 @@ func create_mission_chains():
 	saldiri_gorevi.unlocks_missions.append("kuzey_kontrol")
 	missions[saldiri_gorevi.id] = saldiri_gorevi
 	add_mission_to_chain(saldiri_gorevi.id, "kuzey_seferi", 2)
+
+	# 2. Barış Süreci Zinciri (Diplomasi odaklı)
+	create_mission_chain("baris_sureci", "Barış Süreci", Mission.ChainType.SEQUENTIAL, {"gold": 400, "reputation": 10})
+
+	var elci_gonder = Mission.new()
+	elci_gonder.id = "elci_gonder"
+	elci_gonder.name = "Elçi Gönder"
+	elci_gonder.description = "Komşu yerleşime barış teklifini ilet."
+	elci_gonder.mission_type = Mission.MissionType.DİPLOMASİ
+	elci_gonder.difficulty = Mission.Difficulty.KOLAY
+	elci_gonder.duration = 6.0
+	elci_gonder.success_chance = 0.85
+	elci_gonder.required_cariye_level = 1
+	elci_gonder.rewards = {"gold": 60}
+	missions[elci_gonder.id] = elci_gonder
+	add_mission_to_chain(elci_gonder.id, "baris_sureci", 1)
+
+	var baris_anlasmasi = Mission.new()
+	baris_anlasmasi.id = "baris_anlasmasi"
+	baris_anlasmasi.name = "Barış Anlaşması"
+	baris_anlasmasi.description = "Şartları müzakere et ve anlaşmayı imzala."
+	baris_anlasmasi.mission_type = Mission.MissionType.DİPLOMASİ
+	baris_anlasmasi.difficulty = Mission.Difficulty.ORTA
+	baris_anlasmasi.duration = 10.0
+	baris_anlasmasi.success_chance = 0.65
+	baris_anlasmasi.required_cariye_level = 2
+	baris_anlasmasi.rewards = {"gold": 120}
+	baris_anlasmasi.prerequisite_missions.clear()
+	baris_anlasmasi.prerequisite_missions.append("elci_gonder")
+	missions[baris_anlasmasi.id] = baris_anlasmasi
+	add_mission_to_chain(baris_anlasmasi.id, "baris_sureci", 2)
 	
 	var kontrol_gorevi = Mission.new()
 	kontrol_gorevi.id = "kuzey_kontrol"
