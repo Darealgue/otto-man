@@ -8,9 +8,8 @@ res://chunks/forest/start_2x1.tscn
 res://chunks/forest/linear_2x1.tscn
 res://chunks/forest/ramp_up_1x2.tscn
 res://chunks/forest/ramp_down_1x2.tscn
-res://levels/forest_level_generator.gd
-res://chunks/forest/forest_ramp_chunk.gd
 res://chunks/forest/ramp_down_2x2.tscn
 res://chunks/forest/ramp_up_2x2.tscn
-res://chunks/forest/ramp_up_1x2_half.tscn
-res://chunks/forest/ramp_down_1x2_half.tscn
+res://levels/forest_level_generator.gd
+res://village/scripts/CloudManager.gd
+res://levels/ForestCloudManager.gd

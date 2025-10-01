@@ -72,6 +72,8 @@ func _ready() -> void:
 
 	# Setup spawn timer
 	_spawn_timer = Timer.new()
+	# Keep ticking regardless of parent pause/state
+	_spawn_timer.process_mode = Node.PROCESS_MODE_ALWAYS
 	_spawn_timer.wait_time = randf_range(min_spawn_interval, max_spawn_interval)
 	_spawn_timer.one_shot = false # Keep repeating
 	_spawn_timer.timeout.connect(_on_spawn_timer_timeout)
@@ -84,7 +86,8 @@ func _ready() -> void:
 
 func _on_spawn_timer_timeout() -> void:
 	# Reset timer for next interval
-	_spawn_timer.wait_time = randf_range(min_spawn_interval, max_spawn_interval)
+	if is_instance_valid(_spawn_timer):
+		_spawn_timer.wait_time = randf_range(min_spawn_interval, max_spawn_interval)
 
 	if randf() > cloud_spawn_chance:
 		# print("CloudManager: Skipped spawning cloud due to chance.")

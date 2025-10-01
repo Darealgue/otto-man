@@ -1,7 +1,7 @@
 extends Node2D
 
-@export var speed_min: float = 20.0
-@export var speed_max: float = 50.0
+@export var speed_min: float = 10.0
+@export var speed_max: float = 25.0
 @export var fade_in_duration: float = 2.5
 @export var fade_out_duration: float = 2.5
 
@@ -51,18 +51,29 @@ func _process(delta: float) -> void:
 	# Check for despawn when off-screen
 	# The CloudManager will eventually handle spawning positions and more robust despawning.
 	# This is a basic self-cleanup.
-	var sprite_actual_width = cloud_sprite.texture.get_width() * cloud_sprite.scale.x
-	var global_sprite_left_edge = global_position.x - sprite_actual_width * cloud_sprite.get_rect().size.x * cloud_sprite.offset.x
-	var global_sprite_right_edge = global_sprite_left_edge + sprite_actual_width
+	var sprite_actual_width = cloud_sprite.texture.get_width() * max(cloud_sprite.scale.x, 1.0)
+	var left_edge = global_position.x - sprite_actual_width
+	var right_edge = global_position.x + sprite_actual_width
+
+	# Compute camera-aligned world bounds so despawn works away from origin
+	var vp_rect := get_viewport_rect()
+	var vp_size := vp_rect.size
+	var cam := get_viewport().get_camera_2d()
+	var cam_x := 0.0
+	if cam and cam is Camera2D:
+		cam_x = (cam as Camera2D).global_position.x
+	var half_w := vp_size.x * 0.5
+	var left_world_x := cam_x - half_w
+	var right_world_x := cam_x + half_w
 
 	var off_screen_buffer = 100.0 # pixels
 
 	if current_speed > 0: # Moving right
-		if global_sprite_left_edge > viewport_size.x + off_screen_buffer:
+		if left_edge > right_world_x + off_screen_buffer:
 			# print("Cloud off-screen right, removing: ", name)
 			queue_free()
 	elif current_speed < 0: # Moving left
-		if global_sprite_right_edge < -off_screen_buffer:
+		if right_edge < left_world_x - off_screen_buffer:
 			# print("Cloud off-screen left, removing: ", name)
 			queue_free()
 
