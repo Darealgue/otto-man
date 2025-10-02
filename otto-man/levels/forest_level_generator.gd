@@ -39,12 +39,38 @@ var _last_dbg_ms: int = 0
 var _last_dbg_text: String = ""
 
 var scenes := {
-	"start": preload("res://chunks/forest/start_2x1.tscn"),
-	"linear": preload("res://chunks/forest/linear_2x1.tscn"),
-	"ramp_up": preload("res://chunks/forest/ramp_up_1x2.tscn"),
-	"ramp_down": preload("res://chunks/forest/ramp_down_1x2.tscn"),
-	"ramp_up_wide": preload("res://chunks/forest/ramp_up_2x2.tscn"),
-	"ramp_down_wide": preload("res://chunks/forest/ramp_down_2x2.tscn")
+	# Each key holds an array of variants
+	"start": [preload("res://chunks/forest/start_2x1.tscn")],
+	"linear": [
+		preload("res://chunks/forest/linear_2x1.tscn"),
+		preload("res://chunks/forest/linear_2x1-2.tscn"),
+		preload("res://chunks/forest/linear_2x1-3.tscn"),
+		preload("res://chunks/forest/linear_2x1-4.tscn")
+	],
+	"ramp_up": [
+		preload("res://chunks/forest/ramp_up_1x2.tscn"),
+		preload("res://chunks/forest/ramp_up_1x2-2.tscn"),
+		preload("res://chunks/forest/ramp_up_1x2-3.tscn"),
+		preload("res://chunks/forest/ramp_up_1x2-4.tscn")
+	],
+	"ramp_down": [
+		preload("res://chunks/forest/ramp_down_1x2.tscn"),
+		preload("res://chunks/forest/ramp_down_1x2-2.tscn"),
+		preload("res://chunks/forest/ramp_down_1x2-3.tscn"),
+		preload("res://chunks/forest/ramp_down_1x2-4.tscn")
+	],
+	"ramp_up_wide": [
+		preload("res://chunks/forest/ramp_up_2x2.tscn"),
+		preload("res://chunks/forest/ramp_up_2x2-2.tscn"),
+		preload("res://chunks/forest/ramp_up_2x2-3.tscn"),
+		preload("res://chunks/forest/ramp_up_2x2-4.tscn")
+	],
+	"ramp_down_wide": [
+		preload("res://chunks/forest/ramp_down_2x2.tscn"),
+		preload("res://chunks/forest/ramp_down_2x2-2.tscn"),
+		preload("res://chunks/forest/ramp_down_2x2-3.tscn"),
+		preload("res://chunks/forest/ramp_down_2x2-4.tscn")
+	]
 }
 
 func _ready() -> void:
@@ -457,8 +483,18 @@ func _place_down_left(first: Node2D, row_est: int) -> void:
 	if debug_enabled:
 		_debug_dump_active_chunks("place_down_left")
 
+
 func _spawn_scene(key: String) -> Node2D:
-	var scene: PackedScene = scenes[key] as PackedScene
+	var scene: PackedScene = null
+	var arr = scenes.get(key, [])
+	if typeof(arr) == TYPE_ARRAY and (arr as Array).size() > 0:
+		var i := randi() % (arr as Array).size()
+		scene = (arr as Array)[i]
+	else:
+		# Backward compatibility if a single PackedScene was left
+		scene = scenes.get(key, null)
+		if typeof(scene) != TYPE_OBJECT:
+			return null
 	var inst: Node2D = scene.instantiate() as Node2D
 	add_child(inst)
 	# Force unit_size sync to avoid per-scene mismatches
@@ -586,7 +622,7 @@ func _setup_day_night_system() -> void:
 	# Stars layer
 	var stars_layer := ParallaxLayer.new()
 	stars_layer.name = "StarsLayer"
-	stars_layer.z_index = -10
+	stars_layer.z_index = -40
 	stars_layer.motion_scale = Vector2(0.001, 0.001)
 	stars_layer.position = Vector2(10, 642)
 	pb.add_child(stars_layer)
@@ -616,7 +652,7 @@ func _setup_day_night_system() -> void:
 	# Celestial path (sun/moon)
 	var celestial_layer := ParallaxLayer.new()
 	celestial_layer.name = "CelestialLayer"
-	celestial_layer.z_index = -8
+	celestial_layer.z_index = -30
 	celestial_layer.motion_scale = Vector2(0.001, 0.001)
 	celestial_layer.position = Vector2(10, 642)
 	pb.add_child(celestial_layer)
@@ -677,11 +713,69 @@ func _setup_day_night_system() -> void:
 	# Add to tree last -> triggers _ready with correct paths
 	add_child(dnc)
 
+	# --- Forest Parallax (mountains, trees) ---
+	# Mountains - far background
+	var mountains_layer := ParallaxLayer.new()
+	mountains_layer.name = "ForestMountains"
+	mountains_layer.z_index = -12
+	mountains_layer.position = Vector2(0, -200)
+	mountains_layer.motion_scale = Vector2(0.05, 0.0)
+	pb.add_child(mountains_layer)
+	var mountains_sprite := Sprite2D.new()
+	mountains_sprite.name = "MountainsSprite"
+	var mountains_tex := load("res://background/parallax/forest parallax/forest parallax mountain.png")
+	if mountains_tex:
+		mountains_sprite.texture = mountains_tex
+	mountains_sprite.centered = false
+	mountains_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	mountains_layer.add_child(mountains_sprite)
+	if mountains_tex and mountains_tex is Texture2D:
+		var mw := (mountains_tex as Texture2D).get_width()
+		mountains_layer.motion_mirroring = Vector2(float(mw), 0.0)
+
+	# Trees - nearer background
+	var trees_layer := ParallaxLayer.new()
+	trees_layer.name = "ForestTrees"
+	trees_layer.z_index = -9
+	trees_layer.position = Vector2(0, -350)
+	trees_layer.motion_scale = Vector2(0.15, 0.060)
+	pb.add_child(trees_layer)
+	var trees_sprite := Sprite2D.new()
+	trees_sprite.name = "TreesSprite"
+	var trees_tex := load("res://background/parallax/forest parallax/forest parallax trees.png")
+	if trees_tex:
+		trees_sprite.texture = trees_tex
+	trees_sprite.centered = false
+	trees_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	trees_layer.add_child(trees_sprite)
+	if trees_tex and trees_tex is Texture2D:
+		var tw := (trees_tex as Texture2D).get_width()
+		trees_layer.motion_mirroring = Vector2(float(tw), 0.0)
+
+	# Trees Front - nearest background strip with tiny vertical motion
+	var trees_front_layer := ParallaxLayer.new()
+	trees_front_layer.name = "ForestTreesFront"
+	trees_front_layer.z_index = -8
+	trees_front_layer.position = Vector2(0, -400)
+	trees_front_layer.motion_scale = Vector2(0.35, 0.100)
+	pb.add_child(trees_front_layer)
+	var trees_front_sprite := Sprite2D.new()
+	trees_front_sprite.name = "TreesFrontSprite"
+	var trees_front_tex := load("res://background/parallax/forest parallax/forest parallax trees_front.png")
+	if trees_front_tex:
+		trees_front_sprite.texture = trees_front_tex
+	trees_front_sprite.centered = false
+	trees_front_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	trees_front_layer.add_child(trees_front_sprite)
+	if trees_front_tex and trees_front_tex is Texture2D:
+		var tfw := (trees_front_tex as Texture2D).get_width()
+		trees_front_layer.motion_mirroring = Vector2(float(tfw), 0.0)
+
 	# Optional: simple clouds layer using same manager if available later
 	# Cloud parallax layers
-	var layer_far := ParallaxLayer.new(); layer_far.name = "ParallaxLayerFar"; layer_far.z_index = -7; layer_far.position = Vector2(0, -1); layer_far.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_far)
-	var layer_mid := ParallaxLayer.new(); layer_mid.name = "ParallaxLayerMid"; layer_mid.z_index = -6; layer_mid.position = Vector2(0, -1); layer_mid.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_mid)
-	var layer_near := ParallaxLayer.new(); layer_near.name = "ParallaxLayerNear"; layer_near.z_index = -5; layer_near.position = Vector2(0, -1); layer_near.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_near)
+	var layer_far := ParallaxLayer.new(); layer_far.name = "ParallaxLayerFar"; layer_far.z_index = -19; layer_far.position = Vector2(0, -1); layer_far.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_far)
+	var layer_mid := ParallaxLayer.new(); layer_mid.name = "ParallaxLayerMid"; layer_mid.z_index = -18; layer_mid.position = Vector2(0, -1); layer_mid.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_mid)
+	var layer_near := ParallaxLayer.new(); layer_near.name = "ParallaxLayerNear"; layer_near.z_index = -17; layer_near.position = Vector2(0, -1); layer_near.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_near)
 
 	# CloudManager from village
 	var cloud_manager := Node2D.new(); cloud_manager.name = "CloudManager"; cloud_manager.z_index = -3
@@ -724,7 +818,8 @@ func _record_entry(node: Node2D, key: String) -> int:
 		"down": _get_conn_local(node, "down"),
 		"seed": randi(), # keep per-entry seed if stochastic content appears later
 		"prev": -1,
-		"next": -1
+		"next": -1,
+		"scene_path": (node.get_scene_file_path() if node.has_method("get_scene_file_path") else "")
 	}
 	chunk_entries.append(entry)
 	var idx: int = chunk_entries.size() - 1
@@ -775,7 +870,14 @@ func _spawn_from_archive(idx: int) -> Node2D:
 			return cached
 	var entry: Dictionary = chunk_entries[idx]
 	var key: String = String(entry.get("key", "linear"))
-	var scene: PackedScene = scenes[key] as PackedScene
+	var scene: PackedScene = null
+	var stored_path: String = String(entry.get("scene_path", ""))
+	if stored_path != "":
+		scene = load(stored_path) as PackedScene
+	else:
+		var arr = scenes.get(key, [])
+		if typeof(arr) == TYPE_ARRAY and (arr as Array).size() > 0:
+			scene = (arr as Array)[randi() % (arr as Array).size()]
 	if not scene:
 		return null
 	var inst: Node2D = scene.instantiate() as Node2D
