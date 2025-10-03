@@ -179,6 +179,60 @@ const BACKGROUND_DECORS = {
 			"res://assets/decorations/crack_1.png",
 			"res://assets/decorations/crack_2.png"
 		]
+	},
+	# --- Forest background decors (3-tile wide) ---
+	"forest_bush": {
+		"weight": 40,
+		"locations": [SpawnLocation.FLOOR_CENTER],
+		"width_tiles": 3,
+		"height_tiles": 1,
+		"grow_dir": "up",
+		"sprites": [
+			"res://assets/forest assets/bush1.png",
+			"res://assets/forest assets/bush2.png",
+			"res://assets/forest assets/bush3.png",
+			"res://assets/forest assets/bush4.png",
+			"res://assets/forest assets/bush5.png"
+		]
+	},
+	"forest_grass": {
+		"weight": 45,
+		"locations": [SpawnLocation.FLOOR_CENTER],
+		"width_tiles": 3,
+		"height_tiles": 1,
+		"grow_dir": "up",
+		"sprites": [
+			"res://assets/forest assets/grass1.png",
+			"res://assets/forest assets/grass2.png",
+			"res://assets/forest assets/grass3.png",
+			"res://assets/forest assets/grass4.png",
+			"res://assets/forest assets/grass5.png"
+		]
+	},
+	"forest_trunk": {
+		"weight": 25,
+		"locations": [SpawnLocation.FLOOR_CENTER],
+		"width_tiles": 3,
+		"height_tiles": 2,
+		"grow_dir": "up",
+		"sprites": [
+			"res://assets/forest assets/trunk1.png",
+			"res://assets/forest assets/trunk2.png",
+			"res://assets/forest assets/trunk3.png",
+			"res://assets/forest assets/trunk4.png"
+		]
+	},
+	"forest_rock": {
+		"weight": 35,
+		"locations": [SpawnLocation.FLOOR_CENTER],
+		"width_tiles": 3,
+		"height_tiles": 1,
+		"grow_dir": "up",
+		"sprites": [
+			"res://assets/forest assets/rock1.png",
+			"res://assets/forest assets/rock2.png",
+			"res://assets/forest assets/rock3.png"
+		]
 	}
 }
 
@@ -448,6 +502,15 @@ const PRIORITY_DECOR_RULES = {
             "allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
             "allowed_decors": ["stone1", "box1"]
         }
+	],
+	# Forest-specific tile tag; set TileSet custom data decor_anchor="forest_floor_surface"
+	"forest_floor_surface": [
+		{
+			"chance": 0.2,
+			"decoration_type": DecorationType.BACKGROUND,
+			"decoration_names": ["forest_bush", "forest_grass", "forest_trunk", "forest_rock"],
+			"allowed_locations": [SpawnLocation.FLOOR_CENTER]
+		}
 	]
 }
 

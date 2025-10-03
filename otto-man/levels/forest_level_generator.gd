@@ -499,6 +499,8 @@ func _spawn_scene(key: String) -> Node2D:
 	add_child(inst)
 	# Force unit_size sync to avoid per-scene mismatches
 	_apply_unit_size(inst)
+	# Populate forest tile-based decorations for this chunk (deferred to ensure TileMap is ready)
+	call_deferred("_populate_forest_decorations_for_chunk", inst)
 	return inst
 
 func _get_size(node: Node2D) -> Vector2:
@@ -885,6 +887,8 @@ func _spawn_from_archive(idx: int) -> Node2D:
 	inst.position = entry.get("position", Vector2.ZERO)
 	inst.set_meta("entry_index", idx)
 	_apply_unit_size(inst)
+	# Rebuild forest decorations on restore as they are not archived
+	call_deferred("_populate_forest_decorations_for_chunk", inst)
 	# Optional future: apply stored seed to any stochastic sub-systems in the chunk
 	if inst.has_method("set_meta") and entry.has("seed"):
 		inst.set_meta("seed", entry["seed"]) 
@@ -1081,3 +1085,143 @@ func _get_conn_local(n: Node2D, name: String) -> Vector2:
 		"down":
 			return Vector2(sz.x * 0.5, sz.y)
 	return Vector2.ZERO
+
+# --- Forest tile-based decoration pass (3-tile wide footprint) ---
+func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
+	if chunk_node == null or not is_instance_valid(chunk_node):
+		return
+	# Ensure we only populate once per chunk lifetime
+	if chunk_node.get_meta("forest_decor_done", false):
+		return
+	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
+	if tile_map == null:
+		return
+	var tile_set: TileSet = null
+	if tile_map.has_method("get"): # access as property via get("tile_set") to support TileMapLayer/TileMap
+		tile_set = tile_map.get("tile_set")
+	if tile_set == null:
+		return
+	# Find custom data layer index for decor anchors
+	var decor_layer_name := "decor_anchor"
+	var decor_layer_index := -1
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == decor_layer_name:
+			decor_layer_index = i
+			break
+	if decor_layer_index == -1:
+		return
+	# Iterate cells and place forest decors on tagged anchors (TileMap layer 0)
+	var used_cells: Array[Vector2i] = tile_map.get_used_cells()
+	if used_cells.is_empty():
+		chunk_node.set_meta("forest_decor_done", true)
+		return
+	var rng_chance := 0.28 # overall placement chance per valid 3-tile span
+	var placed_spans := {} # key by center cell to avoid duplicates
+	for cell in used_cells:
+		var td: TileData = tile_map.get_cell_tile_data(cell) as TileData
+		if td == null:
+			continue
+		var tag = td.get_custom_data(decor_layer_name)
+		if typeof(tag) != TYPE_STRING:
+			continue
+		var tag_s := String(tag)
+		if tag_s != "forest_floor_surface" and tag_s != "floor_surface":
+			continue
+		# Validate 3-tile horizontal span centered at this cell
+		var left := cell + Vector2i(-1, 0)
+		var right := cell + Vector2i(1, 0)
+		if not _forest_cell_has_decor_tag(tile_map, left, decor_layer_name, tag_s):
+			continue
+		if not _forest_cell_has_decor_tag(tile_map, right, decor_layer_name, tag_s):
+			continue
+		# Optional vertical clearance for taller assets (e.g., trunks)
+		if not _forest_has_vertical_clearance(tile_map, cell, 3, 2):
+			# Still allow low-profile assets if ground-only clearance fails; keep trying others
+			pass
+		# Random gate to reduce density
+		if randf() > rng_chance:
+			continue
+		# Avoid double placement on the same span
+		var key := str(cell.x, ":", cell.y)
+		if placed_spans.has(key):
+			continue
+		placed_spans[key] = true
+		# Pick a forest decor
+		var decor_name: String = _forest_pick_decor_name()
+		if decor_name.is_empty():
+			continue
+		# Create decoration via DecorationSpawner factory to reuse visuals/anchors
+		var spawner := DecorationSpawner.new()
+		add_child(spawner) # keep signals alive if any
+		var decoration := spawner.create_decoration_instance(decor_name, DecorationConfig.DecorationType.BACKGROUND)
+		if decoration == null:
+			spawner.queue_free()
+			continue
+		add_child(decoration)
+		# Compute span-centered position and set; bottom-center anchoring will sit on ground; fixup will snap
+		var spawn_pos: Vector2 = _forest_compute_span_center(tile_map, left, right)
+		# Lift up by 45px per request
+		spawn_pos.y -= 30.0
+		decoration.global_position = spawn_pos
+		# Render behind tiles: negative z
+		if decoration is CanvasItem:
+			(decoration as CanvasItem).z_as_relative = true
+			(decoration as CanvasItem).z_index = -5
+		var spr: Sprite2D = decoration.get_node_or_null("Sprite") as Sprite2D
+		if spr:
+			spr.z_as_relative = true
+			spr.z_index = -5
+	# Mark done for this chunk
+	chunk_node.set_meta("forest_decor_done", true)
+
+func _forest_cell_has_decor_tag(tile_map, cell: Vector2i, layer_name: String, expected: String) -> bool:
+	var td: TileData = tile_map.get_cell_tile_data(cell) as TileData
+	if td == null:
+		return false
+	var tag = td.get_custom_data(layer_name)
+	if typeof(tag) != TYPE_STRING:
+		return false
+	var s := String(tag)
+	return (s == expected or s == "forest_floor_surface" or s == "floor_surface")
+
+func _forest_has_vertical_clearance(tile_map, center: Vector2i, w_tiles: int, h_tiles: int) -> bool:
+	# Ensure empty space above the base row for tall decors across the span
+	var half_left := int(floor((w_tiles - 1) / 2.0))
+	var half_right := w_tiles - 1 - half_left
+	for dy in range(1, h_tiles + 1):
+		for dx in range(-half_left, half_right + 1):
+			var c := center + Vector2i(dx, -dy)
+			var sid: int = int(tile_map.get_cell_source_id(c))
+			if sid != -1:
+				return false
+	return true
+
+func _forest_compute_span_center(tile_map, left_cell: Vector2i, right_cell: Vector2i) -> Vector2:
+	var ts: Vector2 = Vector2((tile_map.get("tile_set") as TileSet).tile_size)
+	var left_px: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell)) + ts * 0.5
+	var right_px: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell)) + ts * 0.5
+	var mid: Vector2 = (left_px + right_px) * 0.5
+	# Slight downward settle so bottom-anchored sprites hug the floor; fixup will refine
+	return mid + Vector2(0, 5)
+
+func _forest_pick_decor_name() -> String:
+	# Weighted random among registered forest background decors
+	var cfg := DecorationConfig.new()
+	var pool: Dictionary = cfg.get_decorations_for_type(DecorationConfig.DecorationType.BACKGROUND)
+	var names = ["forest_bush", "forest_grass", "forest_trunk", "forest_rock"]
+	var total := 0
+	for n in names:
+		if pool.has(n):
+			var d: Dictionary = pool.get(n, {})
+			total += int(d.get("weight", 1))
+	if total <= 0:
+		return ""
+	var roll := randi() % total
+	var acc := 0
+	for n in names:
+		if pool.has(n):
+			var d2: Dictionary = pool.get(n, {})
+			acc += int(d2.get("weight", 1))
+			if roll < acc:
+				return n
+	return names[0]
