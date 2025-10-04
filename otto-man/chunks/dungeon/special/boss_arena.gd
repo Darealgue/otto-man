@@ -16,8 +16,6 @@ func _on_boss_defeated() -> void:
 	# Unlock finish door when boss dies
 	if finish_door and finish_door.has_method("unlock_door"):
 		finish_door.unlock_door()
-		print("[BossArena] Boss defeated. FinishDoor unlocked.")
+		#print("[BossArena] Boss defeated. FinishDoor unlocked.")
 	else:
 		print("[BossArena] Boss defeated but no FinishDoor found.")
-
-

@@ -55,7 +55,7 @@
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/heavy_neutral_n.tres" id="47_heavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/up_heavy_n.tres" id="48_upheavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/down_light_n.tres" id="49_downln"]
-[ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
+[ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://Ui/health_display.tscn" id="health_display"]
 [ext_resource type="Texture2D" uid="uid://h2yeeqsq88j6" path="res://assets/player/normal/otto_idle_combat_border_n.png" id="idle_combat_normal"]
 [ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
 

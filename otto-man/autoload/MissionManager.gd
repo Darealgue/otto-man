@@ -51,17 +51,17 @@ signal mission_unlocked(mission_id: String)
 signal trade_offers_updated()
 
 func _ready():
-	print("🚀 ===== MISSIONMANAGER _READY BAŞLADI =====")
+	#print("🚀 ===== MISSIONMANAGER _READY BAŞLADI =====")
 	_initialize()
-	print("🚀 ===== MISSIONMANAGER _READY BİTTİ =====")
+	#print("🚀 ===== MISSIONMANAGER _READY BİTTİ =====")
 
 func _initialize():
-	print("🚀 ===== MISSIONMANAGER _INITIALIZE BAŞLADI =====")
+	#print("🚀 ===== MISSIONMANAGER _INITIALIZE BAŞLADI =====")
 	
 	# Haber kuyruklarını başlat
 	news_queue_village = []
 	news_queue_world = []
-	print("📰 Haber kuyrukları başlatıldı: village=", news_queue_village.size(), " world=", news_queue_world.size())
+	#print("📰 Haber kuyrukları başlatıldı: village=", news_queue_village.size(), " world=", news_queue_world.size())
 	
 	# Başlangıç görevleri ve cariyeler oluştur
 	create_initial_missions()
@@ -85,7 +85,7 @@ func _initialize():
 	# Başlangıç ticaret teklifleri
 	refresh_trade_offers("init")
 	
-	print("🚀 ===== MISSIONMANAGER _INITIALIZE BİTTİ =====")
+	#print("🚀 ===== MISSIONMANAGER _INITIALIZE BİTTİ =====")
 
 func _process(delta):
 	# Aktif görevleri kontrol et
@@ -1981,13 +1981,13 @@ func _create_aid_mission() -> void:
 func update_player_reputation(change: int):
 	player_reputation += change
 	player_reputation = clamp(player_reputation, 0, 100)
-	print("📊 Oyuncu itibarı: " + str(player_reputation))
+	#print("📊 Oyuncu itibarı: " + str(player_reputation))
 
 # Dünya istikrarını güncelle
 func update_world_stability(change: int):
 	world_stability += change
 	world_stability = clamp(world_stability, 0, 100)
-	print("🌍 Dünya istikrarı: " + str(world_stability))
+	#print("🌍 Dünya istikrarı: " + str(world_stability))
 	post_news("Bilgi", "İstikrar Değişti", "Yeni istikrar: %d" % world_stability, Color(0.8,1,0.8))
 
 # Oyuncu seviyesine göre dinamik görev üretimi

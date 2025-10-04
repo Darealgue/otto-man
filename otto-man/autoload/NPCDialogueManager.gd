@@ -81,7 +81,6 @@ func _on_llama_generation_complete(result_string: String):
 	
 	var new_info = parsed_result.get("Info", {}) as Dictionary
 	var new_history = parsed_result.get("History", []) as Array
-	var new_dialogue_history = parsed_result.get("DialogueHistory", {}) as Dictionary
 	var generated_dialogue = ""
 	if parsed_result.has("Generated Dialogue"):
 		generated_dialogue = parsed_result.get("Generated Dialogue", "")
@@ -91,12 +90,11 @@ func _on_llama_generation_complete(result_string: String):
 	if generated_dialogue.strip_edges() == "":
 		generated_dialogue = "..."
 	
-	var tentative_new_state = {"Info": new_info, "History": new_history, "DialogueHistory": new_dialogue_history}
+	var tentative_new_state = {"Info": new_info, "History": new_history}
 	var was_significant = _did_state_change(
 		_current_original_state.get("Info", {}),
 		_current_original_state.get("History", []),
-		_current_original_state.get("DialogueHistory", {}),
-		new_info, new_history, new_dialogue_history
+		new_info, new_history
 	)
 	print("NPCDialogueManager: Dialogue for %s was significant: %s" % [npc_name, was_significant])
 	
@@ -113,82 +111,44 @@ func _on_llama_generation_complete(result_string: String):
 func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
 	var info_json = JSON.stringify(state.get("Info", {}))
 	var history_json = JSON.stringify(state.get("History", []))
-	var dialogue_history_json = JSON.stringify(state.get("DialogueHistory", {}))
 	
 	var sanitized_input = str(player_input).replace("\"", "\\\"")
 	
 	var full_prompt = """
-Input State:
+Input State (BEFORE this dialogue turn):
 {
   "Info": %s,
   "History": %s,
-  "DialogueHistory": %s
+  "Player Dialogue": "%s"
 }
 
-Player Dialogue: "%s"
-
+Context:
+- Data above represents an Medieval themed game NPC's information and history as well as a piece of dialogue the Player has said. You are to represent this NPC and talk and act on it's behalf.
 Instructions:
-1. Evaluate the Player Dialogue in the context of the NPC's current Input State (Info, History, DialogueHistory).
-2. Determine if the dialogue is "Significant" or "Insignificant" based on the "Significance Criteria" and "Insignificant Dialogue" definitions below.
-3. If Significant: Update "Info" and/or append a new event to "History" in the output JSON, and add exactly one new entry to "DialogueHistory".
-4. If Insignificant: The "Info", "History", and "DialogueHistory" fields in the output JSON MUST be *exactly identical* to those in the Input State. Do not invent, remove, rename, or reformat entries.
-5. ALWAYS include the "Generated Dialogue" field with the NPC's spoken response.
-6. Provide ONLY the complete JSON output as specified by the GBNF grammar.
+- Read the NPC data above and understand it's information. This represents the NPC's current state BEFORE the player dialogue.
+- Read the Player Dialogue part and determine if this piece of dialogue would affect this NPC's Name, Occupation, Mood, Gender, Age or Health while keeping in mind it's History.
+- If it would change any of those values, respond WITHOUT changing the data structure, but updating the necessary values, appending new data or paraphrasing current data in History section as well as providing an actual answer to this Dialogue in Generated Dialogue part consistent with this NPC's information.
+- If it wouldn't change any of those values, respond WITHOUT changing anything, but still giving an answer in Generated Dialogue part consistent to this NPC's information.
+- Generate your response with Info, History, and Generated Dialogue fields only. Do NOT include Player Dialogue in your response.
+Critical: 
+- NEVER change the structure of the data.
+- IF ONLY the current dialogue contradicts earlier beliefs in the history section, paraphrase earlier history values with additional information or newly formed beliefs.
+- NEVER erase or delete history values completely if not paraphrasing with the addition of new data.
+- ALWAYS respond with the same data structure whether there are changes or not.
 
-Significance Decision (CRITICAL):
-- A dialogue is Significant ONLY if your OUTPUT "Info" or "History" differs from the INPUT.
-- Changes to "DialogueHistory" ALONE are NEVER sufficient to be Significant. If not Significant, copy "DialogueHistory" exactly from the INPUT with no changes.
+Examples:
+- Insignificant (identity when Name exists):
+  Input: {"Info": {"Name": "Cora", "Occupation": "Stablehand", "Mood": "Angry", "Gender": "Female", "Age": "51", "Health": "Burned"}, "History": ["Protected a child during the Harvest Famine", "Spent years training under a master in Red Hill", "Lost everything in the earthquake"], "Player Dialogue": "what's your name?"}
+  Output: {"Info": {"Name": "Cora", "Occupation": "Stablehand", "Mood": "Angry", "Gender": "Female", "Age": "51", "Health": "Burned"}, "History": ["Protected a child during the Harvest Famine", "Spent years training under a master in Red Hill", "Lost everything in the earthquake"], "Generated Dialogue": "I'm Cora."}
 
-Key naming (CRITICAL - use EXACT keys):
-- Use these exact keys in the top-level JSON: "Info", "History", "DialogueHistory", "Generated Dialogue" (with a space).
-- Do NOT use placeholders like <AGE> or template markers. If a value is unknown, keep the original value as-is from the Input State.
-- Do NOT add new keys to "Info". If a title is bestowed and there is no Title key, append it to the "Name" string (e.g., "Name": "NPC the Brave").
-
-Examples (GUIDANCE):
-- Insignificant (greeting / identity query when Name exists):
-  Input Info.Name = "Cora"; Player Dialogue: "what's your name?" -> OUTPUT Info, History, DialogueHistory are IDENTICAL to INPUT; "Generated Dialogue": "I'm Cora."
 - Significant (title bestowed):
-  Input Info.Name = "Kamil"; Player Dialogue: "I grant you the title Ironfist" -> OUTPUT Info.Name = "Kamil the Ironfist"; History APPEND: "Got a new title: the Ironfist"; DialogueHistory ADD ONE: {"Dialogue with Player": {"speaker": "I grant you the title Ironfist", "self": "Thank you..."}}; "Generated Dialogue" first-person.
+  Input: {"Info": {"Name": "Kamil", "Occupation": "Blacksmith", "Mood": "Content", "Gender": "Male", "Age": "35", "Health": "Healthy"}, "History": ["Worked for a cruel lord before escaping", "Helped rebuild a village after the Border Conflict"], "Player Dialogue": "I grant you the title Ironfist"}
+  Output: {"Info": {"Name": "Kamil the Ironfist", "Occupation": "Blacksmith", "Mood": "Content", "Gender": "Male", "Age": "35", "Health": "Healthy"}, "History": ["Worked for a cruel lord before escaping", "Helped rebuild a village after the Border Conflict", "Got a new title: the Ironfist"], "Generated Dialogue": "Thank you for this honor, my lord."}
+
 - Significant (contradiction):
-  Input History includes "Mother died"; Player Dialogue: "I saw your mother; she is alive" -> OUTPUT History REMOVES the superseded entry and APPENDS: "Correction: Previously believed mother died; now learned mother is alive."; DialogueHistory ADD ONE: {"Dialogue with Player": {"speaker": "I saw your mother; she is alive", "self": "..."}}.
-
-Generated Dialogue formatting (STRICT):
-- Output MUST be the NPC's first-person line (I, me, my), with no name prefix.
-- Do NOT include narration, descriptions, or stage directions; only the line the NPC says.
-- Do NOT include the NPC's name anywhere in the Generated Dialogue.
-
-DialogueHistory entry formatting (STRICT):
-- Only add a DialogueHistory entry when the dialogue is Significant.
-- You MUST NOT modify existing DialogueHistory entries; keep them BYTE-IDENTICAL to the Input State.
-- Add exactly one new entry whose key is a short title (e.g., "Dialogue with Player").
-- The new entry MUST be exactly: {"speaker": "<exact Player Dialogue>", "self": "<NPC first-person line>"}.
-
-History mutation policy (STRICT):
-- History represents the NPC's current believed facts and landmark personal events.
-- When new information contradicts a prior entry, REMOVE the superseded entry and APPEND a single concise correction entry that explicitly references the prior belief and the new belief (e.g., "Correction: Previously believed mother died; now learned mother is alive.").
-- Otherwise, when Significant, APPEND a new concise event describing what changed (e.g., "Got a new title: the Ironfist").
-- Do not reorder unrelated entries; keep chronological order of changes.
-
-Rules for Significance & State Update:
-- Significance Criteria: Dialogue is significant if it bestows titles, reveals major plot points, causes strong emotional reactions in the NPC, involves important actions/items/decisions relevant to the NPC, or makes the NPC reveal something deep about their unique history/personality.
-- Insignificant Dialogue: Simple greetings ("hello", "hi", "hey", "how are you?", etc.), basic identity queries (e.g., "what is your name?", "who are you?") when the Info already contains a Name, casual questions unrelated to core concerns, generic statements, or chit-chat that doesn't impact the NPC's state or understanding.
-- IF SIGNIFICANT:
-	- Update "Info" using only existing keys; append/update "History" per policy; and add exactly one new DialogueHistory entry per the strict format above.
-- IF INSIGNIFICANT:
-	- The "Info", "History", AND "DialogueHistory" fields MUST be ABSOLUTELY IDENTICAL (byte-for-byte) to the Input State provided.
-- The "Generated Dialogue" field MUST always be present and contain the NPC's direct response.
-
-NOW, PROCESS THE FOLLOWING INPUT AND PROVIDE ONLY THE JSON OUTPUT:
-
-Input State:
-{
-  "Info": %s,
-  "History": %s,
-  "DialogueHistory": %s
-}
-
-Player Dialogue: "%s"
-""" % [info_json, history_json, dialogue_history_json, sanitized_input, info_json, history_json, dialogue_history_json, sanitized_input]
+  Input: {"Info": {"Name": "Elena", "Occupation": "Herbalist", "Mood": "Sad", "Gender": "Female", "Age": "42", "Health": "Healthy"}, "History": ["Mother died in the plague", "Learned healing arts from grandmother", "Fled from the capital during the uprising"], "Player Dialogue": "I saw your mother; she is alive"}
+  Output: {"Info": {"Name": "Elena", "Occupation": "Herbalist", "Mood": "Hopeful", "Gender": "Female", "Age": "42", "Health": "Healthy"}, "History": ["Learned healing arts from grandmother", "Fled from the capital during the uprising", "Correction: Previously believed mother died in the plague; now learned mother is alive"], "Generated Dialogue": "What? My mother lives? Where is she? Please, tell me more!"}
+""" % [info_json, history_json, sanitized_input]
 	print("FULL PROMPT : ", full_prompt)
 	return full_prompt
 
@@ -237,8 +197,8 @@ func _compare_dialogue_histories(dh1: Dictionary, dh2: Dictionary) -> bool:
 	return false # No changes detected
 
 # Internal: Check if state changed (significance detection)
-func _did_state_change(old_info: Dictionary, old_history: Array, old_dialogue_history: Dictionary,
-				   new_info: Dictionary, new_history: Array, new_dialogue_history: Dictionary) -> bool:
+func _did_state_change(old_info: Dictionary, old_history: Array,
+				   new_info: Dictionary, new_history: Array) -> bool:
 	# Compare Info (with sorted keys)
 	var old_info_str = JSON.stringify(old_info, "\t", true)
 	var new_info_str = JSON.stringify(new_info, "\t", true)
@@ -253,12 +213,6 @@ func _did_state_change(old_info: Dictionary, old_history: Array, old_dialogue_hi
 		print("NPCDialogueManager: History changed")
 		return true
 	
-	# Compare DialogueHistory (order matters)
-	var old_dialogue_history_str = JSON.stringify(old_dialogue_history, "\t", false)
-	var new_dialogue_history_str = JSON.stringify(new_dialogue_history, "\t", false)
-	if old_dialogue_history_str != new_dialogue_history_str:
-		print("NPCDialogueManager: DialogueHistory changed")
-		return true
 	
 	# No significant changes detected
 	return false
@@ -271,7 +225,7 @@ func _reset_processing_state():
 
 # Internal: Emit error response
 func _emit_error_response(npc_name: String, error_dialogue: String):
-	var empty_state = {"Info": {}, "History": [], "DialogueHistory": {}}
+	var empty_state = {"Info": {}, "History": []}
 	dialogue_processed.emit(npc_name, empty_state, error_dialogue, false) 
 
 # Ensure state has correct shapes
@@ -282,20 +236,15 @@ func _normalize_state(state: Dictionary) -> Dictionary:
 	var history = state.get("History", [])
 	if typeof(history) != TYPE_ARRAY:
 		history = []
-	var dialogue_history = state.get("DialogueHistory", {})
-	if typeof(dialogue_history) != TYPE_DICTIONARY:
-		dialogue_history = {}
-	return {"Info": info, "History": history, "DialogueHistory": dialogue_history} 
+	return {"Info": info, "History": history} 
 
-# Merge/sanitize significant updates: keep Info key set identical, preserve DialogueHistory entries, and avoid history deletions
+# Merge/sanitize significant updates: keep Info key set identical and avoid history deletions
 func _sanitize_significant_state(old_state: Dictionary, new_state: Dictionary) -> Dictionary:
 	var old_info: Dictionary = old_state.get("Info", {})
 	var old_history: Array = old_state.get("History", [])
-	var old_dh: Dictionary = old_state.get("DialogueHistory", {})
 	
 	var in_info = new_state.get("Info", {})
 	var in_history = new_state.get("History", [])
-	var in_dh = new_state.get("DialogueHistory", {})
 	
 	# 1) Info: restrict to original keys only, fill missing with old values
 	var sanitized_info: Dictionary = {}
@@ -317,22 +266,4 @@ func _sanitize_significant_state(old_state: Dictionary, new_state: Dictionary) -
 	# Detect info change
 	var info_changed := JSON.stringify(old_info, "\t", true) != JSON.stringify(sanitized_info, "\t", true)
 	
-	# 3) DialogueHistory: preserve all original entries; only add exactly one new entry if Info or History changed and it matches the strict format
-	var sanitized_dh: Dictionary = {}
-	for key in old_dh.keys():
-		sanitized_dh[key] = old_dh[key]
-	if (info_changed or history_changed) and typeof(in_dh) == TYPE_DICTIONARY:
-		for key in in_dh.keys():
-			if not sanitized_dh.has(key):
-				var entry = in_dh[key]
-				var is_valid_entry = (
-					typeof(entry) == TYPE_DICTIONARY and
-					entry.has("speaker") and entry.has("self") and
-					str(entry["speaker"]) == _current_player_input and
-					str(entry["self"]) != _current_player_input
-				)
-				if is_valid_entry:
-					sanitized_dh[key] = entry
-					break
-	
-	return {"Info": sanitized_info, "History": sanitized_history, "DialogueHistory": sanitized_dh} 
+	return {"Info": sanitized_info, "History": sanitized_history} 

@@ -444,7 +444,7 @@ func _activate_synergy(synergy_id: String) -> void:
 		"aerial_boost":
 			_apply_aerial_boost_synergy()
 	
-	print("[SYNERGY] Activated: " + synergy.name + " - " + synergy.description)
+	#print("[SYNERGY] Activated: " + synergy.name + " - " + synergy.description)
 
 func _deactivate_synergy(synergy_id: String) -> void:
 	if not synergy_id in active_synergies:
@@ -466,7 +466,7 @@ func _deactivate_synergy(synergy_id: String) -> void:
 		"aerial_boost":
 			_remove_aerial_boost_synergy()
 	
-	print("[SYNERGY] Deactivated: " + synergy.name)
+	#print("[SYNERGY] Deactivated: " + synergy.name)
 
 # Synergy Effect Implementations
 func _apply_healing_boost_synergy() -> void:

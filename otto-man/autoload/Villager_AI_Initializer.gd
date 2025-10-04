@@ -15,13 +15,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Plague",
 			"Was imprisoned after being accused of murder",
 			"Worked for a cruel captain before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -36,13 +30,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of theft",
 			"Survived the ambush at Raventon",
 			"Helped rebuild a village after the Border Conflict"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -57,13 +45,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Raventon",
 			"Watched a loved one die during the Border Conflict",
 			"Helped rebuild a village after the Winter Siege"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -78,13 +60,7 @@ var Villager_Info_Pool : Array =[
 			"Spent years training under a master in Red Hill",
 			"Worked for a cruel captain before escaping",
 			"Protected a child during the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -99,13 +75,7 @@ var Villager_Info_Pool : Array =[
 			"Watched a loved one die during the Border Conflict",
 			"Worked for a cruel abbot before escaping",
 			"Was imprisoned after being accused of treason"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -120,13 +90,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Border Conflict",
 			"Worked for a cruel noblewoman before escaping",
 			"Survived the ambush at The Northern Pass"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -141,13 +105,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Stonewatch after fire",
 			"Lost everything in the earthquake",
 			"Stole food during the Fire of Greymoor and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -162,13 +120,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the earthquake",
 			"Spent years training under a master in Greymoor",
 			"Helped rebuild a village after the Border Conflict"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -183,13 +135,7 @@ var Villager_Info_Pool : Array =[
 			"Spent years training under a master in Stonewatch",
 			"Watched a loved one die during the Harvest Famine",
 			"Worked for a cruel abbot before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -204,13 +150,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel captain before escaping",
 			"Was imprisoned after being accused of treason",
 			"Stole food during the Plague and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -225,13 +165,7 @@ var Villager_Info_Pool : Array =[
 			"Spent years training under a master in Greymoor",
 			"Worked for a cruel captain before escaping",
 			"Stole food during the Fire of Greymoor and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -246,13 +180,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Winter Siege",
 			"Fled from Red Hill after flood",
 			"Survived the ambush at Stonewatch"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -267,13 +195,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of espionage",
 			"Worked for a cruel captain before escaping",
 			"Protected a child during the Winter Siege"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -288,13 +210,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Harvest Famine",
 			"Spent years training under a master in Red Hill",
 			"Lost everything in the earthquake"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -309,13 +225,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Winter Siege",
 			"Stole food during the Border Conflict and was punished",
 			"Lost everything in the earthquake"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -330,13 +240,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the fire",
 			"Worked for a cruel noblewoman before escaping",
 			"Stole food during the Fire of Greymoor and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -351,13 +255,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel captain before escaping",
 			"Fled from Raventon after earthquake",
 			"Watched a loved one die during the Border Conflict"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -372,13 +270,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of murder",
 			"Spent years training under a master in Raventon",
 			"Lost everything in the fire"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -393,13 +285,7 @@ var Villager_Info_Pool : Array =[
 			"Stole food during the Harvest Famine and was punished",
 			"Was imprisoned after being accused of theft",
 			"Survived the ambush at Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -414,13 +300,7 @@ var Villager_Info_Pool : Array =[
 			"Spent years training under a master in Stonewatch",
 			"Survived the ambush at Red Hill",
 			"Watched a loved one die during the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -435,13 +315,7 @@ var Villager_Info_Pool : Array =[
 			"Watched a loved one die during the Winter Siege",
 			"Worked for a cruel lord before escaping",
 			"Stole food during the Winter Siege and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -456,13 +330,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of murder",
 			"Helped rebuild a village after the Harvest Famine",
 			"Protected a child during the Border Conflict"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -477,13 +345,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of murder",
 			"Protected a child during the Plague",
 			"Helped rebuild a village after the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -498,13 +360,7 @@ var Villager_Info_Pool : Array =[
 			"Spent years training under a master in The Northern Pass",
 			"Stole food during the Border Conflict and was punished",
 			"Watched a loved one die during the Harvest Famine"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -519,13 +375,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from The Northern Pass after bandit raid",
 			"Watched a loved one die during the Plague",
 			"Stole food during the Fire of Greymoor and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -540,13 +390,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel lord before escaping",
 			"Helped rebuild a village after the Border Conflict",
 			"Spent years training under a master in Red Hill"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -561,13 +405,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel abbot before escaping",
 			"Lost everything in the flood",
 			"Survived the ambush at Red Hill"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -582,13 +420,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel captain before escaping",
 			"Was imprisoned after being accused of murder",
 			"Survived the ambush at Stonewatch"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -603,13 +435,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from The Northern Pass after flood",
 			"Protected a child during the Plague",
 			"Watched a loved one die during the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -624,13 +450,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Winter Siege",
 			"Fled from The Northern Pass after earthquake",
 			"Protected a child during the Winter Siege"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -645,13 +465,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of theft",
 			"Stole food during the Plague and was punished",
 			"Survived the ambush at The Northern Pass"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -666,13 +480,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the flood",
 			"Watched a loved one die during the Harvest Famine",
 			"Protected a child during the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -687,13 +495,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of treason",
 			"Lost everything in the bandit raid",
 			"Survived the ambush at Raventon"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -708,13 +510,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at The Northern Pass",
 			"Was imprisoned after being accused of treason",
 			"Helped rebuild a village after the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -729,13 +525,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of murder",
 			"Watched a loved one die during the Fire of Greymoor",
 			"Helped rebuild a village after the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -750,13 +540,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Stonewatch",
 			"Watched a loved one die during the Winter Siege",
 			"Was imprisoned after being accused of theft"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -771,13 +555,7 @@ var Villager_Info_Pool : Array =[
 			"Spent years training under a master in Stonewatch",
 			"Stole food during the Border Conflict and was punished",
 			"Survived the ambush at Stonewatch"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -792,13 +570,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Plague",
 			"Spent years training under a master in Red Hill",
 			"Fled from Red Hill after bandit raid"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -813,13 +585,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Border Conflict",
 			"Was imprisoned after being accused of murder",
 			"Watched a loved one die during the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -834,13 +600,7 @@ var Villager_Info_Pool : Array =[
 			"Watched a loved one die during the Plague",
 			"Protected a child during the Harvest Famine",
 			"Lost everything in the earthquake"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -855,13 +615,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Fire of Greymoor",
 			"Watched a loved one die during the Plague",
 			"Fled from Red Hill after fire"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -876,13 +630,7 @@ var Villager_Info_Pool : Array =[
 			"Spent years training under a master in The Northern Pass",
 			"Lost everything in the fire",
 			"Helped rebuild a village after the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -897,13 +645,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Harvest Famine",
 			"Watched a loved one die during the Harvest Famine",
 			"Survived the ambush at Raventon"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -918,13 +660,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Stonewatch after fire",
 			"Survived the ambush at Greymoor",
 			"Was imprisoned after being accused of treason"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -939,13 +675,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Harvest Famine",
 			"Survived the ambush at Red Hill",
 			"Lost everything in the earthquake"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -960,13 +690,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at The Northern Pass",
 			"Watched a loved one die during the Border Conflict",
 			"Worked for a cruel abbot before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -981,13 +705,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of murder",
 			"Watched a loved one die during the Winter Siege",
 			"Protected a child during the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1002,13 +720,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel noblewoman before escaping",
 			"Helped rebuild a village after the Winter Siege",
 			"Watched a loved one die during the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1023,13 +735,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Stonewatch after bandit raid",
 			"Protected a child during the Harvest Famine",
 			"Helped rebuild a village after the Winter Siege"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1044,13 +750,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Harvest Famine",
 			"Spent years training under a master in Greymoor",
 			"Worked for a cruel noblewoman before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1065,13 +765,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of espionage",
 			"Worked for a cruel noblewoman before escaping",
 			"Lost everything in the earthquake"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1086,13 +780,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of treason",
 			"Stole food during the Plague and was punished",
 			"Watched a loved one die during the Harvest Famine"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1107,13 +795,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of theft",
 			"Lost everything in the flood",
 			"Worked for a cruel abbot before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1128,13 +810,7 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of espionage",
 			"Protected a child during the Harvest Famine",
 			"Stole food during the Border Conflict and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1149,13 +825,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Fire of Greymoor",
 			"Was imprisoned after being accused of espionage",
 			"Survived the ambush at The Northern Pass"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1170,13 +840,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at The Northern Pass",
 			"Lost everything in the earthquake",
 			"Helped rebuild a village after the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1191,13 +855,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from The Northern Pass after earthquake",
 			"Lost everything in the earthquake",
 			"Watched a loved one die during the Winter Siege"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1212,13 +870,7 @@ var Villager_Info_Pool : Array =[
 			"Stole food during the Plague and was punished",
 			"Lost everything in the earthquake",
 			"Watched a loved one die during the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1233,13 +885,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Red Hill",
 			"Helped rebuild a village after the Plague",
 			"Spent years training under a master in Red Hill"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1254,13 +900,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Greymoor after flood",
 			"Was imprisoned after being accused of murder",
 			"Lost everything in the bandit raid"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1275,13 +915,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Stonewatch after flood",
 			"Watched a loved one die during the Border Conflict",
 			"Stole food during the Plague and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1296,13 +930,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Plague",
 			"Fled from Raventon after fire",
 			"Survived the ambush at The Northern Pass"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1317,13 +945,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Stonewatch after bandit raid",
 			"Worked for a cruel captain before escaping",
 			"Stole food during the Fire of Greymoor and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1338,13 +960,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Border Conflict",
 			"Spent years training under a master in Red Hill",
 			"Lost everything in the fire"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1359,13 +975,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Stonewatch",
 			"Stole food during the Border Conflict and was punished",
 			"Fled from Raventon after flood"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1380,13 +990,7 @@ var Villager_Info_Pool : Array =[
 			"Stole food during the Border Conflict and was punished",
 			"Watched a loved one die during the Fire of Greymoor",
 			"Protected a child during the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1401,13 +1005,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Greymoor after bandit raid",
 			"Survived the ambush at Raventon",
 			"Spent years training under a master in Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1422,13 +1020,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Fire of Greymoor",
 			"Stole food during the Plague and was punished",
 			"Was imprisoned after being accused of espionage"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1443,13 +1035,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Winter Siege",
 			"Lost everything in the earthquake",
 			"Spent years training under a master in Raventon"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1464,13 +1050,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Greymoor",
 			"Fled from Raventon after flood",
 			"Was imprisoned after being accused of theft"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1485,13 +1065,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Plague",
 			"Worked for a cruel abbot before escaping",
 			"Survived the ambush at Stonewatch"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1506,13 +1080,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Winter Siege",
 			"Watched a loved one die during the Winter Siege",
 			"Spent years training under a master in Raventon"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1527,13 +1095,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Raventon",
 			"Fled from Greymoor after bandit raid",
 			"Helped rebuild a village after the Harvest Famine"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1548,13 +1110,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the earthquake",
 			"Spent years training under a master in The Northern Pass",
 			"Survived the ambush at Stonewatch"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1569,13 +1125,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the flood",
 			"Survived the ambush at Red Hill",
 			"Worked for a cruel abbot before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1590,13 +1140,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the earthquake",
 			"Was imprisoned after being accused of murder",
 			"Protected a child during the Fire of Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1611,13 +1155,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the fire",
 			"Helped rebuild a village after the Harvest Famine",
 			"Protected a child during the Winter Siege"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1632,13 +1170,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Greymoor after fire",
 			"Helped rebuild a village after the Plague",
 			"Worked for a cruel abbot before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1653,13 +1185,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Greymoor",
 			"Lost everything in the flood",
 			"Worked for a cruel noblewoman before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1674,13 +1200,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Fire of Greymoor",
 			"Spent years training under a master in The Northern Pass",
 			"Fled from Raventon after fire"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1695,13 +1215,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Harvest Famine",
 			"Protected a child during the Plague",
 			"Spent years training under a master in Greymoor"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1716,13 +1230,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel noblewoman before escaping",
 			"Fled from The Northern Pass after flood",
 			"Was imprisoned after being accused of murder"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1737,13 +1245,7 @@ var Villager_Info_Pool : Array =[
 			"Stole food during the Winter Siege and was punished",
 			"Spent years training under a master in Greymoor",
 			"Lost everything in the bandit raid"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1758,13 +1260,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the bandit raid",
 			"Survived the ambush at The Northern Pass",
 			"Was imprisoned after being accused of theft"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1779,13 +1275,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Winter Siege",
 			"Helped rebuild a village after the Winter Siege",
 			"Fled from Raventon after bandit raid"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1800,13 +1290,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Plague",
 			"Survived the ambush at Greymoor",
 			"Worked for a cruel abbot before escaping"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1821,13 +1305,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at Red Hill",
 			"Lost everything in the earthquake",
 			"Fled from Red Hill after fire"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1842,13 +1320,7 @@ var Villager_Info_Pool : Array =[
 			"Protected a child during the Harvest Famine",
 			"Survived the ambush at Greymoor",
 			"Watched a loved one die during the Winter Siege"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1863,13 +1335,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel captain before escaping",
 			"Watched a loved one die during the Border Conflict",
 			"Helped rebuild a village after the Harvest Famine"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1884,13 +1350,7 @@ var Villager_Info_Pool : Array =[
 			"Survived the ambush at The Northern Pass",
 			"Spent years training under a master in Raventon",
 			"Helped rebuild a village after the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1905,13 +1365,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the earthquake",
 			"Stole food during the Harvest Famine and was punished",
 			"Spent years training under a master in Red Hill"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1926,13 +1380,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel lord before escaping",
 			"Helped rebuild a village after the Border Conflict",
 			"Survived the ambush at Red Hill"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1947,13 +1395,7 @@ var Villager_Info_Pool : Array =[
 			"Lost everything in the earthquake",
 			"Stole food during the Border Conflict and was punished",
 			"Protected a child during the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1968,13 +1410,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel noblewoman before escaping",
 			"Helped rebuild a village after the Border Conflict",
 			"Was imprisoned after being accused of treason"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -1989,13 +1425,7 @@ var Villager_Info_Pool : Array =[
 			"Watched a loved one die during the Plague",
 			"Lost everything in the earthquake",
 			"Spent years training under a master in The Northern Pass"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "They say you've seen things.",
-				"self": "Seeing is easy. It's forgetting that's hard."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -2010,13 +1440,7 @@ var Villager_Info_Pool : Array =[
 			"Stole food during the Harvest Famine and was punished",
 			"Worked for a cruel noblewoman before escaping",
 			"Watched a loved one die during the Plague"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You don't look like you're from around here.",
-				"self": "I\u2019ve been many places. None of them felt like home."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -2031,13 +1455,7 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Border Conflict",
 			"Spent years training under a master in Stonewatch",
 			"Fled from The Northern Pass after earthquake"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -2052,13 +1470,7 @@ var Villager_Info_Pool : Array =[
 			"Fled from Greymoor after fire",
 			"Survived the ambush at Greymoor",
 			"Stole food during the Fire of Greymoor and was punished"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "You ever think about the past?",
-				"self": "It never really left me. Some nights, it sleeps next to me."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -2073,13 +1485,7 @@ var Villager_Info_Pool : Array =[
 			"Worked for a cruel noblewoman before escaping",
 			"Helped rebuild a village after the Fire of Greymoor",
 			"Spent years training under a master in Stonewatch"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "Why are you always watching the road?",
-				"self": "Because something took my brother down it, and never came back."
-			}
-		}
+		]
 	},
 	{
 		"Info": {
@@ -2094,13 +1500,7 @@ var Villager_Info_Pool : Array =[
 			"Stole food during the Fire of Greymoor and was punished",
 			"Lost everything in the earthquake",
 			"Helped rebuild a village after the Harvest Famine"
-		],
-		"DialogueHistory": {
-			"Dialogue with Stranger": {
-				"speaker": "What happened to your hand?",
-				"self": "A mistake. Mine. And I paid for it in full."
-			}
-		}
+		]
 	}
 ]
 signal LoadComplete

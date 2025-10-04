@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("otto-man")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+04fefcbce7c527a945fce33b777484c423b62ab9")]
 [assembly: System.Reflection.AssemblyProductAttribute("otto-man")]
 [assembly: System.Reflection.AssemblyTitleAttribute("otto-man")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -745,10 +745,10 @@ func _physics_process(delta: float) -> void:
 
 		State.AWAKE_IDLE:
 			# DEBUG: AWAKE_IDLE state'inde her frame kontrol
-			if _debug_frame_counter % 60 == 0: # Her 60 frame'de bir
-				print("🔍 Worker %d AWAKE_IDLE state'inde - Visible: %s, Pos: %s, Activity: %s" % [
-					worker_id, visible, global_position, _current_idle_activity
-				])
+			#if _debug_frame_counter % 60 == 0: # Her 60 frame'de bir
+				#print("🔍 Worker %d AWAKE_IDLE state'inde - Visible: %s, Pos: %s, Activity: %s" % [
+				#	worker_id, visible, global_position, _current_idle_activity
+			#	])
 			
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()

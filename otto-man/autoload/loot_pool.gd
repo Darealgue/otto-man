@@ -148,5 +148,5 @@ func _make_loot(is_pouch: bool) -> RigidBody2D:
 	# Signals are expected to be connected by caller (DecorationSpawner)
 	rb.visible = false
 	# Debug print disabled to reduce console spam
-	# print("[LootPool] Created loot '", rb.name, "' layer=", rb.collision_layer, " mask=", rb.collision_mask)
+	# #print("[LootPool] Created loot '", rb.name, "' layer=", rb.collision_layer, " mask=", rb.collision_mask)
 	return rb

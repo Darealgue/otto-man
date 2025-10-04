@@ -8,8 +8,4 @@ string-array ::= "[" ws ( json-string (ws "," ws json-string)* )? ws "]"
 
 generic-string-map-object ::= "{" ws ( json-string ws ":" ws json-string (ws "," ws json-string ws ":" ws json-string)* )? ws "}"
 
-dialogue-entry ::= "{" ws "\"speaker\"" ws ":" ws json-string ws "," ws "\"self\"" ws ":" ws json-string ws "}"
-
-dialogue-history-object ::= "{" ws ( json-string ws ":" ws dialogue-entry (ws "," ws json-string ws ":" ws dialogue-entry)* )? ws "}"
-
-npc-final-output ::= "{" ws "\"Info\"" ws ":" ws generic-string-map-object ws "," ws "\"History\"" ws ":" ws string-array ws "," ws "\"DialogueHistory\"" ws ":" ws dialogue-history-object ws "," ws "\"Generated Dialogue\"" ws ":" ws json-string ws "}"
+npc-final-output ::= "{" ws "\"Info\"" ws ":" ws generic-string-map-object ws "," ws "\"History\"" ws ":" ws string-array ws "," ws "\"Generated Dialogue\"" ws ":" ws json-string ws "}"

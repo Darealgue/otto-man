@@ -14,83 +14,93 @@ Key Modules
 Data Model (per-NPC State)
 - Info (Dictionary<string, string>): current attributes; example keys used today: Name, Occupation, Mood, Gender, Age, Health. No new keys allowed; if a title is bestowed and there is no Title key, append it to Name (e.g., "Kamil the Ironfist").
 - History (Array<string>): chronological list of believed facts and landmark events. On contradiction, remove the superseded entry and append one explicit correction entry referencing old and new belief.
-- DialogueHistory (Dictionary<string, {speaker: string, self: string}>): map of short titles to dialogue turns. "speaker" is the exact non-NPC line (e.g., the Player’s raw text). "self" is the NPC’s first-person reply. Existing entries MUST be preserved byte-identically; add at most one new entry when Significant.
 
 GBNF (grammars/output.gbnf)
 - Enforces exact top-level order and keys:
-  { "Info": object, "History": string[], "DialogueHistory": { title: {"speaker": string, "self": string} }, "Generated Dialogue": string }
-- Forces DialogueHistory entries to exactly two fields: speaker + self (both strings).
+  { "Info": object, "History": string[], "Generated Dialogue": string }
 - Allows flexible whitespace (ws) but no placeholders like <AGE>.
 
 Prompt Contract (NPCDialogueManager.gd builds this)
 Input State:
 {
   "Info": <JSON from current NPC_Info.Info>,
-  "History": <JSON array from NPC_Info.History>,
-  "DialogueHistory": <JSON object from NPC_Info.DialogueHistory>
+  "History": <JSON array from NPC_Info.History>
 }
 
 Player Dialogue: "<raw player text>"
 
 Instructions (strict highlights):
-- The model must decide Significance strictly based on whether its OUTPUT Info or History differs from the INPUT. DialogueHistory-only changes NEVER make a turn Significant.
-- IF Significant: Update Info (only existing keys) and/or History (append, or replace a superseded entry then append a one-line correction). Also add exactly one new DialogueHistory entry with {"speaker": "<exact Player text>", "self": "<first-person NPC line>"}.
-- IF Insignificant: Info, History, and DialogueHistory MUST be byte-identical to INPUT; only Generated Dialogue changes.
+- The model must decide Significance strictly based on whether its OUTPUT Info or History differs from the INPUT.
+- IF Significant: Update Info (only existing keys) and/or History (append, or replace a superseded entry then append a one-line correction).
+- IF Insignificant: Info and History MUST be byte-identical to INPUT; only Generated Dialogue changes.
 - Generated Dialogue must be first-person NPC speech, no name prefix, no narration/stage directions.
-- NEVER modify or reformat existing DialogueHistory entries; only add a new one when Significant.
 - NEVER add new keys to Info.
 
 Examples
 - Insignificant (identity query when Name exists):
-  Input Info.Name = "Cora"; Player: "what's your name?" -> Output Info/History/DialogueHistory identical; Generated Dialogue: "I'm Cora."
+  Input Info.Name = "Cora"; Player: "what's your name?" -> Output Info/History identical; Generated Dialogue: "I'm Cora."
 - Significant (title bestowed):
-  Input Info.Name = "Kamil"; Player: "I grant you the title Ironfist" -> Output Info.Name = "Kamil the Ironfist"; History append: "Got a new title: the Ironfist"; DialogueHistory add one: {"Dialogue with Player": {"speaker": "I grant you the title Ironfist", "self": "Thank you..."}}; Generated Dialogue: first-person.
+  Input Info.Name = "Kamil"; Player: "I grant you the title Ironfist" -> Output Info.Name = "Kamil the Ironfist"; History append: "Got a new title: the Ironfist"; Generated Dialogue: first-person.
 - Significant (contradiction):
-  Input History contains "Mother died"; Player: "I saw your mother; she is alive" -> Output History removes the superseded entry and appends one correction: "Correction: Previously believed mother died; now learned mother is alive."; DialogueHistory add one with exact player text.
+  Input History contains "Mother died"; Player: "I saw your mother; she is alive" -> Output History removes the superseded entry and appends one correction: "Correction: Previously believed mother died; now learned mother is alive."
 
 Runtime Rules Enforced in Code (NPCDialogueManager.gd)
-- Significance is determined only by differences in Info or History between Input and Output (JSON-stringified comparisons). DialogueHistory-only changes are ignored for significance.
+- Significance is determined only by differences in Info or History between Input and Output (JSON-stringified comparisons).
 - Merge behavior on Significant:
   - Info: accept only for existing keys; fill missing keys from old Info.
   - History: accept model-provided authoritative array.
-  - DialogueHistory: preserve all prior entries verbatim, add at most one new entry if and only if speaker == raw player input and entry contains both speaker/self.
-- Merge behavior on Insignificant: return original Info/History/DialogueHistory exactly; only Generated Dialogue is used.
+- Merge behavior on Insignificant: return original Info/History exactly; only Generated Dialogue is used.
 - Generated Dialogue fallback to "..." if blank.
 
 Current Status (where we left off)
 - Grammar validated and loaded successfully by LLamaService; spaces in output are harmless.
 - Prompt explicitly teaches significance with positive and negative examples; identity queries are Insignificant when Name exists.
-- DialogueHistory corruption issues addressed: model is forbidden from modifying existing entries; merge layer will not accept malformed/new entries unless Info/History changed and speaker matches raw input.
 - UI chat window stable; button/Enter submission sends raw text; NPC replies appended to UI without re-looping requests.
 
 Next Steps
-- Apply returned new_state (Info/History/DialogueHistory) in Worker.gd immediately after dialogue_processed to persist NPC memory in-session (and ensure it’s saved to your JSON save pipeline on save events).
+- Apply returned new_state (Info/History) in Worker.gd immediately after dialogue_processed to persist NPC memory in-session (and ensure it's saved to your JSON save pipeline on save events).
 - Expand significant examples over time (e.g., mission offers, relationship changes) to improve model reliability.
 - Optional (later): Two-pass design or explicit "Significant": "true|false" flag in grammar if we ever need pre-commit decisions.
-- Future feature: NPC-to-NPC chat using the same structure ("speaker" is the other party; "self" is the current NPC’s line), orchestrated by a manager and stored under DialogueHistory with suitable titles.
 
 Project Structure Pointers
 - autoload/NPCDialogueManager.gd: Prompt builder, JSON parsing, significance logic, merge rules, emits dialogue_processed(npc_name, new_state, generated_dialogue, was_significant)
 - autoload/LlamaService.cs: Loads model, grammar; GenerateResponseAsync(prompt, maxNewTokens); emits GenerationComplete(result)
 - Ui/npc_window.gd: Sends text, appends to chat UI, disables Send until reply; receives NPCDialogueProcessed and re-enables Send
 - village/scripts/Worker.gd: Opens/closes NPC window; bridges to NPCDialogueManager; should write back updated NPC_Info with new state
-- grammars/output.gbnf: Grammar rules for exact JSON shape; dialogue-entry constraint
+- grammars/output.gbnf: Grammar rules for exact JSON shape
 
 Copy-Paste Ready Prompt Template (to generate a reply for one turn)
 Input State:
 {
   "Info": %INFO_JSON%,
-  "History": %HISTORY_JSON%,
-  "DialogueHistory": %DIALOGUE_HISTORY_JSON%
+  "History": %HISTORY_JSON%
 }
 
 Player Dialogue: "%PLAYER_TEXT%"
 
 Instructions:
-- A dialogue is Significant ONLY if your OUTPUT Info or History differs from the INPUT. DialogueHistory-only changes ALONE are NEVER sufficient.
-- IF Significant: Update Info (existing keys only) and/or History (append or perform contradiction correction). Add EXACTLY ONE new DialogueHistory entry {"<short title>": {"speaker": "%PLAYER_TEXT%", "self": "<first-person NPC line>"}}.
-- IF Insignificant: Copy Info, History, DialogueHistory EXACTLY from INPUT. Do NOT add any DialogueHistory entry.
+- A dialogue is Significant ONLY if your OUTPUT Info or History differs from the INPUT.
+- IF Significant: Update Info (existing keys only) and/or History (append or perform contradiction correction).
+- IF Insignificant: Copy Info, History EXACTLY from INPUT.
 - Generated Dialogue MUST be a first-person NPC line, no name prefix, no narration.
-- NEVER modify or reformat existing DialogueHistory entries; only add one new entry when Significant.
 - NEVER add new keys to Info.
-- Output ONLY JSON in this exact order: Info, History, DialogueHistory, Generated Dialogue.
+- Output ONLY JSON in this exact order: Info, History, Generated Dialogue.
+
+---
+Session Notes - DialogueHistory Removal
+- Removed DialogueHistory from GBNF grammar (output.gbnf)
+- Updated NPCDialogueManager.gd to remove DialogueHistory from prompt construction, parsing, and state management
+- Updated dev_session_prompt.txt to reflect DialogueHistory removal throughout documentation
+- Simplified JSON structure to: {"Info": object, "History": array, "Generated Dialogue": string}
+- Removed all DialogueHistory-related merge logic and validation
+- Updated examples to remove DialogueHistory references
+
+Open Alignment Items (No code changes made)
+- History contradiction policy:
+  - Current file notes favor paraphrasing/augmenting old beliefs instead of deleting them. Ensure this policy is consistently reflected in both the prompt text and merge behavior. Today, merge accepts the model-provided History; verify it never hard-deletes unless the paraphrase format preserves prior context.
+- Generated Dialogue:
+  - Continue enforcing first-person, no name prefix; optionally add a short test set to catch regressions.
+- Examples coverage:
+  - Consider adding one more example for non-identity, clearly insignificant small-talk (e.g., weather) to further anchor insignificance.
+- Temperature and tokens:
+  - If outputs drift, consider a slightly lower temperature or increasing max tokens; defer until (and if) needed.

@@ -169,7 +169,7 @@ func apply_critical_strike(player: Node, base_damage: float) -> float:
 	for crit_data in critical_strike_active[player]:
 		if randf() < crit_data["chance"]:
 			var final_damage = base_damage * crit_data["multiplier"]
-			print("[Critical Strike] CRITICAL HIT! Damage: " + str(base_damage) + " -> " + str(final_damage))
+			#print("[Critical Strike] CRITICAL HIT! Damage: " + str(base_damage) + " -> " + str(final_damage))
 			return final_damage
 	
 	return base_damage
@@ -189,13 +189,13 @@ func get_hitstop_duration(damage: float) -> float:
 func apply_hitstop(damage: float) -> void:
 	var hitstop_duration = get_hitstop_duration(damage)
 	if hitstop_duration <= 0:
-		print("[Hitstop] No hitstop applied for " + str(damage) + " damage (too low)")
+		#print("[Hitstop] No hitstop applied for " + str(damage) + " damage (too low)")
 		return
 	
 	# Debug prints disabled to reduce console spam
-	# print("[Hitstop] 🎯 STARTING HITSTOP!")
-	# print("[Hitstop] Damage: " + str(damage) + " | Duration: " + str(hitstop_duration) + "s")
-	# print("[Hitstop] Time scale changing from " + str(Engine.time_scale) + " to " + str(HITSTOP_TIME_SCALE))
+	# #print("[Hitstop] 🎯 STARTING HITSTOP!")
+	# #print("[Hitstop] Damage: " + str(damage) + " | Duration: " + str(hitstop_duration) + "s")
+	# #print("[Hitstop] Time scale changing from " + str(Engine.time_scale) + " to " + str(HITSTOP_TIME_SCALE))
 	
 	# Slow down time
 	Engine.time_scale = HITSTOP_TIME_SCALE
@@ -208,5 +208,5 @@ func _on_hitstop_finished() -> void:
 	# Restore normal time scale
 	Engine.time_scale = 1.0
 	# Debug prints disabled to reduce console spam
-	# print("[Hitstop] ✅ HITSTOP FINISHED!")
-	# print("[Hitstop] Time scale restored to " + str(Engine.time_scale)) 
+	# #print("[Hitstop] ✅ HITSTOP FINISHED!")
+	# #print("[Hitstop] Time scale restored to " + str(Engine.time_scale)) 

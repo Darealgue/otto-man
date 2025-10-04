@@ -28,7 +28,7 @@ func start_minigame(kind: String, context := {}):
 	if ps == null:
 		push_warning("[Router] PackedScene is null; aborting")
 		return
-	print("[Router] Instantiating minigame…")
+	#print("[Router] Instantiating minigame…")
 	_active_minigame = ps.instantiate()
 	_active_minigame.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	# Safely set optional 'context' property if it exists on the minigame
@@ -40,7 +40,7 @@ func start_minigame(kind: String, context := {}):
 	if _active_minigame.has_signal("completed"):
 		_active_minigame.connect("completed", Callable(self, "_on_minigame_completed"))
 	get_tree().root.add_child(_active_minigame)
-	print("[Router] Minigame added to tree; pausing game now")
+	#print("[Router] Minigame added to tree; pausing game now")
 	get_tree().paused = true
 
 func _on_minigame_completed(success: bool, payload := {}):

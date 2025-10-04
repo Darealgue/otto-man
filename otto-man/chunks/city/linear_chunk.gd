@@ -25,11 +25,11 @@ var chunk_type: String = "city"  # Base type for city chunks
 @onready var spawn_manager = $SpawnManager
 
 func _ready() -> void:
-	print("[LinearChunk] Initialized:", name)
-	print("  - Size:", get_chunk_size())
-	print("  - Actual size:", size)
-	print("  - Size in units:", size_in_units)
-	print("  - Connections:", get_connections())
+	#print("[LinearChunk] Initialized:", name)
+	#print("  - Size:", get_chunk_size())
+	#print("  - Actual size:", size)
+	#print("  - Size in units:", size_in_units)
+	#print("  - Connections:", get_connections())
 	
 	# Initialize spawn manager
 	if spawn_manager:
@@ -42,8 +42,8 @@ func _ready() -> void:
 		spawn_manager.initialize(chunk_type, level)
 
 func _initialize_chunk() -> void:
-	print("[LinearChunk] Initializing chunk: ", name)
-	print("  - Size: ", size_in_units)
+	#print("[LinearChunk] Initializing chunk: ", name)
+	#print("  - Size: ", size_in_units)
 	
 	# Setup connection points
 	_setup_connection_points()
@@ -55,7 +55,7 @@ func _setup_connection_points() -> void:
 	# Get the ConnectionPoints node
 	var points_node = get_node_or_null("ConnectionPoints")
 	if not points_node:
-		print("  - Warning: No ConnectionPoints node found")
+		#print("  - Warning: No ConnectionPoints node found")
 		return
 	
 	# Add connection points based on available connections
@@ -67,7 +67,7 @@ func _add_connection_point(points_node: Node, direction: Direction) -> void:
 	var point = points_node.get_node_or_null(point_name)
 	if point:
 		connection_points[direction] = point
-		print("  - Added connection point: ", point_name)
+		#print("  - Added connection point: ", point_name)
 
 func has_connection(direction: Direction) -> bool:
 	return direction in connections
@@ -104,6 +104,6 @@ func clear_enemies() -> void:
 
 # Get active spawn points
 func get_active_spawn_points() -> Array:
-    if spawn_manager and spawn_manager.has_method("get_active_spawn_points"):
-        return spawn_manager.get_active_spawn_points()
-    return [] 
+	if spawn_manager and spawn_manager.has_method("get_active_spawn_points"):
+		return spawn_manager.get_active_spawn_points()
+	return [] 

@@ -136,6 +136,5 @@ func _post_world_news(news: Dictionary) -> void:
 	if mm and mm.has_signal("news_posted"):
 		mm.news_posted.emit(news)
 	else:
-		print("[WORLD NEWS] ", news)
-
-
+		pass
+		#print("[WORLD NEWS] ", news)
