@@ -1,0 +1,37 @@
+[gd_scene load_steps=5 format=3 uid="uid://2ubu4snwjvma"]
+
+[ext_resource type="Texture2D" uid="uid://d2y8g85j8f4sn" path="res://assets/forest assets/tree3.png" id="1_74ab5"]
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_iqmdt"]
+a = Vector2(-71, 1)
+b = Vector2(41, 1)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_a0dd1"]
+a = Vector2(-59, 0)
+b = Vector2(48, 0)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_0s1o2"]
+a = Vector2(28, 0)
+b = Vector2(-68, 0)
+
+[node name="Tree3" type="Node2D"]
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("1_74ab5")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D15" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(-114, 518)
+shape = SubResource("SegmentShape2D_iqmdt")
+one_way_collision = true
+
+[node name="CollisionShape2D16" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(117, 402)
+shape = SubResource("SegmentShape2D_a0dd1")
+one_way_collision = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(-101, 269)
+shape = SubResource("SegmentShape2D_0s1o2")
+one_way_collision = true

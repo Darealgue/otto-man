@@ -138,24 +138,103 @@ func create_decoration_instance(decoration_name: String, decoration_type: Decora
 	if not _decoration_config:
 		_decoration_config = DecorationConfig.new()
 	var decoration_data = _decoration_config.get_decorations_for_type(decoration_type)[decoration_name]
-	# Temel node oluştur
+	# If a scene is provided for this decor, instantiate that scene instead of building a Node2D+Sprite
+	var scene_paths_array: Array[String] = []
+	var scene_paths_var = decoration_data.get("scene_paths", null)
+	if typeof(scene_paths_var) == TYPE_ARRAY:
+		for v in (scene_paths_var as Array):
+			scene_paths_array.append(String(v))
+	elif typeof(scene_paths_var) == TYPE_PACKED_STRING_ARRAY:
+		for v in (scene_paths_var as PackedStringArray):
+			scene_paths_array.append(v)
+	if scene_paths_array.size() > 0:
+		var scene_path: String = scene_paths_array[randi() % scene_paths_array.size()]
+		if ResourceLoader.exists(scene_path):
+			var packed: PackedScene = load(scene_path) as PackedScene
+			if packed:
+				var inst: Node2D = packed.instantiate() as Node2D
+				if inst:
+					inst.name = decoration_name
+					# Ensure a Sprite or visual child uses bottom-center anchoring so ground snap works
+					var spr_try: Sprite2D = inst.get_node_or_null("Sprite") as Sprite2D
+					if spr_try:
+						# Compute delta of sprite center before changing anchor, so we can keep collisions aligned
+						var was_centered := spr_try.centered
+						var h_px := 0
+						if spr_try.texture:
+							if spr_try.texture is AtlasTexture:
+								h_px = int((spr_try.texture as AtlasTexture).region.size.y)
+							else:
+								h_px = spr_try.texture.get_height()
+						if spr_try.vframes > 1:
+							h_px = int(floor(float(h_px) / float(max(1, spr_try.vframes))))
+						# Compute old center Y: if centered=false, center is position.y + h/2; if centered=true, center is position.y
+						var old_center_y := (spr_try.position.y + (h_px * 0.5)) if not was_centered else spr_try.position.y
+						_apply_bottom_center_to_sprite(spr_try)
+						# New sprite center after bottom-center align
+						var new_center_y := spr_try.position.y + h_px * 0.5
+						var delta_center_y := new_center_y - old_center_y
+						# Shift all CollisionObject2D children by -delta to preserve authored alignment
+						if abs(delta_center_y) > 0.01:
+							var queue: Array[Node] = [inst]
+							while queue.size() > 0:
+								var nn: Node = queue.pop_back()
+								for ch in nn.get_children():
+									queue.append(ch)
+									if ch is CollisionObject2D:
+										var co2 := ch as CollisionObject2D
+										# Move physics bodies by the same delta as sprite center so alignment is preserved
+										co2.position.y += delta_center_y
+					# Optional random horizontal flip including collisions for variety
+					if randi() % 2 == 0:
+						# Flip sprite visually (we're using bottom-center origin, so flip_h is enough)
+						if spr_try:
+							spr_try.flip_h = !spr_try.flip_h
+						# Mirror CollisionShape2D horizontally around the instance origin
+						var q: Array[Node] = [inst]
+						while q.size() > 0:
+							var n2: Node = q.pop_back()
+							for ch2 in n2.get_children():
+								q.append(ch2)
+								if ch2 is CollisionShape2D:
+									var cs := ch2 as CollisionShape2D
+									cs.scale.x = -abs(cs.scale.x)
+									# Also mirror local X position
+									cs.position.x = -cs.position.x
+					# Post-place fixup
+					inst.set_meta("decoration_type", DecorationConfig.DecorationType.keys()[decoration_type].to_lower())
+					call_deferred("_post_place_fixup", inst)
+					# Auto z-index if top-level sprite exists
+					var z_auto := _decoration_config.get_z_index_for_decoration(decoration_name)
+					inst.z_index = z_auto
+					# Ensure platform collisions are on the PLATFORM layer so the player can stand on them
+					var stack: Array[Node] = []
+					stack.append(inst)
+					while stack.size() > 0:
+						var n: Node = stack.pop_back()
+						for ch in n.get_children():
+							stack.append(ch)
+							if ch is CollisionObject2D:
+								var co := ch as CollisionObject2D
+								# Ensure the platform is detectable by the player and world
+								co.collision_layer = co.collision_layer | CollisionLayers.PLATFORM | CollisionLayers.WORLD
+								co.collision_mask = co.collision_mask | CollisionLayers.PLAYER
+								# Keep other existing masks untouched
+					return inst
+
+	# Fallback: build Node2D with Sprite
 	var decoration_node = Node2D.new()
 	decoration_node.name = decoration_name
-	# Sprite ekle
 	var sprite = Sprite2D.new()
 	sprite.name = "Sprite"
-	# Otomatik z-index atama sistemi
 	sprite.z_index = _decoration_config.get_z_index_for_decoration(decoration_name)
 	sprite.modulate = Color(1, 1, 1, 1)
-	# Rasgele sprite seç
 	var sprites = decoration_data.get("sprites", [])
 	var sprite_path = sprites[randi() % sprites.size()] if sprites.size() > 0 else ""
-	# Sprite yükle, yoksa placeholder oluştur
 	var texture = null
 	if sprite_path != "" and ResourceLoader.exists(sprite_path):
 		texture = load(sprite_path) as Texture2D
 	if not texture:
-		# Placeholder oluştur
 		var image = Image.create(16, 16, false, Image.FORMAT_RGB8)
 		match decoration_type:
 			DecorationConfig.DecorationType.GOLD:
@@ -173,8 +252,6 @@ func create_decoration_instance(decoration_name: String, decoration_type: Decora
 	sprite.texture = texture
 	_apply_bottom_center_to_sprite(sprite)
 	decoration_node.add_child(sprite)
-
-	# Post-place fixup to run after LevelGenerator sets global_position
 	decoration_node.set_meta("decoration_type", DecorationConfig.DecorationType.keys()[decoration_type].to_lower())
 	call_deferred("_post_place_fixup", decoration_node)
 	# Tip özel ayarları
@@ -863,16 +940,24 @@ func _apply_bottom_center_to_sprite(sprite: Sprite2D) -> void:
 		return
 	sprite.centered = false
 	var h := 0
+	var w := 0
 	if sprite.texture:
 		if sprite.texture is AtlasTexture:
-			h = int((sprite.texture as AtlasTexture).region.size.y)
+			var at := sprite.texture as AtlasTexture
+			h = int(at.region.size.y)
+			w = int(at.region.size.x)
 		else:
 			h = sprite.texture.get_height()
+			w = sprite.texture.get_width()
 	# If using hframes/vframes, divide height accordingly
 	if sprite.vframes > 1:
 		h = int(floor(float(h) / float(max(1, sprite.vframes))))
 	# Bottom-center pivot: position sprite so bottom sits at origin
-	sprite.position = Vector2(0, -h)
+	var half_w := 0
+	if sprite.hframes > 1:
+		w = int(floor(float(w) / float(max(1, sprite.hframes))))
+	half_w = int(floor(float(w) * 0.5))
+	sprite.position = Vector2(-half_w, -h)
 
 # --- Post placement safety adjustments (edge/wall) ---
 func _post_place_fixup(node: Node2D) -> void:

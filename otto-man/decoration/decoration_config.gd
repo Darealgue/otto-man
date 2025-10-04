@@ -233,6 +233,23 @@ const BACKGROUND_DECORS = {
 			"res://assets/forest assets/rock2.png",
 			"res://assets/forest assets/rock3.png"
 		]
+	},
+	# 6-tile wide tall forest trees
+	"forest_tree": {
+		"weight": 12,
+		"locations": [SpawnLocation.FLOOR_CENTER],
+		"width_tiles": 6,
+		"height_tiles": 20,
+		"grow_dir": "up",
+		"scene_paths": [
+			"res://decoration/forest/tree1.tscn",
+			"res://decoration/forest/tree2.tscn",
+			"res://decoration/forest/tree3.tscn"
+		],
+		"sprites": [
+			"res://assets/forest assets/tree1.png",
+			"res://assets/forest assets/tree2.png"
+		]
 	}
 }
 
@@ -505,6 +522,12 @@ const PRIORITY_DECOR_RULES = {
 	],
 	# Forest-specific tile tag; set TileSet custom data decor_anchor="forest_floor_surface"
 	"forest_floor_surface": [
+		{
+			"chance": 0.06,
+			"decoration_type": DecorationType.BACKGROUND,
+			"decoration_names": ["forest_tree"],
+			"allowed_locations": [SpawnLocation.FLOOR_CENTER]
+		},
 		{
 			"chance": 0.2,
 			"decoration_type": DecorationType.BACKGROUND,

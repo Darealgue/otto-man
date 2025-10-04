@@ -2207,7 +2207,9 @@ shape = SubResource("CapsuleShape2D_fm8kb")
 position = Vector2(0, -30)
 zoom = Vector2(1.5, 1.5)
 process_callback = 0
+position_smoothing_enabled = true
 position_smoothing_speed = 10.0
+rotation_smoothing_enabled = true
 rotation_smoothing_speed = 10.0
 
 [node name="WallRayLeft" type="RayCast2D" parent="."]

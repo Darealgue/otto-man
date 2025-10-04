@@ -37,6 +37,9 @@ var min_discovered_index: int = 0
 var max_discovered_index: int = -1
 var _last_dbg_ms: int = 0
 var _last_dbg_text: String = ""
+var _forest_tree_reserved_px: Array[Vector2] = [] # global x-range reservations for trees across chunks
+var _decor_spawn_queue: Array = [] # queued decoration spawn jobs to spread over frames
+var _decor_spawner: DecorationSpawner
 
 var scenes := {
 	# Each key holds an array of variants
@@ -79,6 +82,9 @@ func _ready() -> void:
 	_spawn_initial_path()
 	_setup_overview_camera()
 	_setup_day_night_system()
+	# Persistent spawner to avoid creating one per decoration
+	_decor_spawner = DecorationSpawner.new()
+	add_child(_decor_spawner)
 	_spawn_or_move_player_to_start()
 	level_started.emit()
 
@@ -90,6 +96,34 @@ func _physics_process(_delta: float) -> void:
 	_enforce_player_window()
 	if is_overview_active:
 		_update_overview_camera_fit()
+	# Process a small budget of decoration spawns per frame to avoid hitches
+	_process_decor_spawn_queue()
+
+func _process(_delta: float) -> void:
+	# Also run in _process for non-physics frames
+	_process_decor_spawn_queue()
+
+func _process_decor_spawn_queue() -> void:
+	var budget := 8
+	while budget > 0 and _decor_spawn_queue.size() > 0:
+		var job: Dictionary = _decor_spawn_queue.pop_front()
+		var name: String = String(job.get("name", ""))
+		var pos: Vector2 = job.get("pos", Vector2.ZERO)
+		if name.is_empty():
+			budget -= 1
+			continue
+		var node := _decor_spawner.create_decoration_instance(name, DecorationConfig.DecorationType.BACKGROUND)
+		if node:
+			add_child(node)
+			node.global_position = pos
+			if node is CanvasItem:
+				(node as CanvasItem).z_as_relative = true
+				(node as CanvasItem).z_index = -5
+			var spr: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
+			if spr:
+				spr.z_as_relative = true
+				spr.z_index = -5
+		budget -= 1
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_camera"):
@@ -1115,8 +1149,95 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 	if used_cells.is_empty():
 		chunk_node.set_meta("forest_decor_done", true)
 		return
+	# Prune old global reservations far behind the player
+	if player and is_instance_valid(player):
+		_forest_tree_prune_px(player.global_position.x - despawn_distance - float(unit_size) * 2.0)
+	# Two-pass: first place wide forest_tree (6 tiles), then 3-tile decors
+	var placed_span_centers := {} # key by center cell to avoid duplicates and avoid 3-wide overlapping with 6-wide
+	# Enforce spacing only for trees: keep at least 2 tiles gap between 6-wide trees on the same row
+	var tree_reserved_by_row := {} # row_y -> Array[Vector2i(start_x, end_x)] of reserved ranges
+	# --- PASS 1: 6-wide tall trees ---
+	for cell in used_cells:
+		var td6: TileData = tile_map.get_cell_tile_data(cell) as TileData
+		if td6 == null:
+			continue
+		var tag6 = td6.get_custom_data(decor_layer_name)
+		if typeof(tag6) != TYPE_STRING:
+			continue
+		var tag6s := String(tag6)
+		if tag6s != "forest_floor_surface" and tag6s != "floor_surface":
+			continue
+		# Need 6 consecutive cells: center +- 2 plus edges
+		var left2 := cell + Vector2i(-2, 0)
+		var left1 := cell + Vector2i(-1, 0)
+		var right1 := cell + Vector2i(1, 0)
+		var right2 := cell + Vector2i(2, 0)
+		var right3 := cell + Vector2i(3, 0)
+		# 6-wide span centered between cell and cell+1 (we'll anchor at cell+0.5)
+		if not _forest_cell_has_decor_tag(tile_map, left2, decor_layer_name, tag6s):
+			continue
+		if not _forest_cell_has_decor_tag(tile_map, left1, decor_layer_name, tag6s):
+			continue
+		if not _forest_cell_has_decor_tag(tile_map, right1, decor_layer_name, tag6s):
+			continue
+		if not _forest_cell_has_decor_tag(tile_map, right2, decor_layer_name, tag6s):
+			continue
+		if not _forest_cell_has_decor_tag(tile_map, right3, decor_layer_name, tag6s):
+			continue
+		# Vertical clearance ~20 tiles
+		if not _forest_has_vertical_clearance(tile_map, cell, 6, 20):
+			continue
+		# Spacing rule: ensure at least 2 tiles gap from previously placed trees around this row (±1)
+		var row_y := cell.y
+		var span_start_x := left2.x
+		var span_end_x := right3.x
+		var reserved_start_x := span_start_x - 2
+		var reserved_end_x := span_end_x + 2
+		var overlaps := false
+		for ry in [row_y - 1, row_y, row_y + 1]:
+			var existing_ranges: Array = tree_reserved_by_row.get(ry, [])
+			for r in existing_ranges:
+				if r is Vector2i:
+					var rs := (r as Vector2i).x
+					var re := (r as Vector2i).y
+					if not (reserved_end_x < rs or reserved_start_x > re):
+						overlaps = true
+						break
+			if overlaps:
+				break
+		if overlaps:
+			continue
+		# Global cross-chunk spacing in pixels (6 tiles width + 2-tile gap on both sides)
+		var ts_vec: Vector2 = Vector2((tile_map.get("tile_set") as TileSet).tile_size)
+		var center_left := left2
+		var center_right := right3
+		var center_px: Vector2 = _forest_compute_span_center(tile_map, center_left, center_right)
+		var total_half_width_px: float = (ts_vec.x * 6.0) * 0.5 + (ts_vec.x * 2.0)
+		var start_px: float = center_px.x - total_half_width_px
+		var end_px: float = center_px.x + total_half_width_px
+		if _forest_tree_overlaps_px(start_px, end_px):
+			continue
+		var key6 := str(cell.x, ":", cell.y, ":6")
+		if placed_span_centers.has(key6):
+			continue
+		# Random gate to keep density low
+		if randf() > 0.12:
+			continue
+		# Queue big tree spawn (pooled spawner, spread over frames)
+		var spawn6: Vector2 = center_px
+		spawn6.y -= 30.0
+		_decor_spawn_queue.append({"name": "forest_tree", "pos": spawn6})
+		placed_span_centers[key6] = true
+		# Global reserve this x-interval to prevent overlaps from adjacent chunks
+		_forest_tree_reserve_px(start_px, end_px)
+		# Record reserved range for spacing on this row
+		var row_ranges: Array = tree_reserved_by_row.get(row_y, [])
+		row_ranges.append(Vector2i(reserved_start_x, reserved_end_x))
+		tree_reserved_by_row[row_y] = row_ranges
+
+	# --- PASS 2: 3-wide decors ---
 	var rng_chance := 0.28 # overall placement chance per valid 3-tile span
-	var placed_spans := {} # key by center cell to avoid duplicates
+	var placed_spans := {} # track 3-wide only to avoid duplicates within this pass
 	for cell in used_cells:
 		var td: TileData = tile_map.get_cell_tile_data(cell) as TileData
 		if td == null:
@@ -1146,31 +1267,20 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 		if placed_spans.has(key):
 			continue
 		placed_spans[key] = true
+		# Also avoid overlap near previously placed 6-wide trees (simple center proximity check)
+		var key6a := str((cell.x - 1), ":", cell.y, ":6")
+		var key6b := str(cell.x, ":", cell.y, ":6")
+		var key6c := str((cell.x + 1), ":", cell.y, ":6")
+		if placed_span_centers.has(key6a) or placed_span_centers.has(key6b) or placed_span_centers.has(key6c):
+			continue
 		# Pick a forest decor
 		var decor_name: String = _forest_pick_decor_name()
 		if decor_name.is_empty():
 			continue
-		# Create decoration via DecorationSpawner factory to reuse visuals/anchors
-		var spawner := DecorationSpawner.new()
-		add_child(spawner) # keep signals alive if any
-		var decoration := spawner.create_decoration_instance(decor_name, DecorationConfig.DecorationType.BACKGROUND)
-		if decoration == null:
-			spawner.queue_free()
-			continue
-		add_child(decoration)
-		# Compute span-centered position and set; bottom-center anchoring will sit on ground; fixup will snap
+		# Queue 3-wide decoration spawn
 		var spawn_pos: Vector2 = _forest_compute_span_center(tile_map, left, right)
-		# Lift up by 45px per request
 		spawn_pos.y -= 30.0
-		decoration.global_position = spawn_pos
-		# Render behind tiles: negative z
-		if decoration is CanvasItem:
-			(decoration as CanvasItem).z_as_relative = true
-			(decoration as CanvasItem).z_index = -5
-		var spr: Sprite2D = decoration.get_node_or_null("Sprite") as Sprite2D
-		if spr:
-			spr.z_as_relative = true
-			spr.z_index = -5
+		_decor_spawn_queue.append({"name": decor_name, "pos": spawn_pos})
 	# Mark done for this chunk
 	chunk_node.set_meta("forest_decor_done", true)
 
@@ -1225,3 +1335,26 @@ func _forest_pick_decor_name() -> String:
 			if roll < acc:
 				return n
 	return names[0]
+
+# --- Global tree spacing helpers (pixel ranges across chunks) ---
+func _forest_tree_prune_px(left_limit_px: float) -> void:
+	var kept: Array[Vector2] = []
+	for r in _forest_tree_reserved_px:
+		if r is Vector2:
+			var a := (r as Vector2).x
+			var b := (r as Vector2).y
+			if b >= left_limit_px:
+				kept.append(r)
+	_forest_tree_reserved_px = kept
+
+func _forest_tree_overlaps_px(start_px: float, end_px: float) -> bool:
+	for r in _forest_tree_reserved_px:
+		if r is Vector2:
+			var a := (r as Vector2).x
+			var b := (r as Vector2).y
+			if not (end_px < a or start_px > b):
+				return true
+	return false
+
+func _forest_tree_reserve_px(start_px: float, end_px: float) -> void:
+	_forest_tree_reserved_px.append(Vector2(start_px, end_px))
