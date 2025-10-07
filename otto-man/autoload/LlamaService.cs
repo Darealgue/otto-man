@@ -143,7 +143,7 @@ public partial class LlamaService : Node, IDisposable
 	}
 
 	// --- Async Wrapper (Remains mostly the same) ---
-	public void GenerateResponseAsync(string prompt, int maxNewTokens = 1024)
+	public void GenerateResponseAsync(string prompt, int maxNewTokens = 350)
 	{
 		if (!_isInitialized || _isDisposed)
 		{
@@ -164,7 +164,7 @@ public partial class LlamaService : Node, IDisposable
 	}
 
 	// --- Core Inference (To be re-implemented with LLamaSharp) ---
-	private async Task<string> GenerateResponse(string prompt, int maxNewTokens = 1024)
+	private async Task<string> GenerateResponse(string prompt, int maxNewTokens = 350)
 	{
 		if (!_isInitialized || _isDisposed || _modelWeights == null || _parameters == null)
 		{

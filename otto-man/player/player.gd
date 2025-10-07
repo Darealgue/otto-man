@@ -137,6 +137,7 @@ func set_ui_locked(locked: bool) -> void:
 
 
 func _ready():
+	VillageManager.Village_Player = self
 	# Add to player group
 	add_to_group("player")
 	

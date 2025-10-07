@@ -1531,6 +1531,7 @@ func _on_interact_button_pressed() -> void:
 func OpenNpcWindow():
 	$NpcWindow.show()
 	NpcDialogueManager.dialogue_processed.connect(NpcAnswered)
+	VillageManager.Village_Player.set_ui_locked(true)
 	
 func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
 	$NpcWindow.NPCDialogueProcessed(npc_name, new_state, generated_dialogue, was_significant)
@@ -1538,4 +1539,4 @@ func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
 func CloseNpcWindow():
 	$NpcWindow.hide()
 	NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
-	
+	VillageManager.Village_Player.set_ui_locked(false)

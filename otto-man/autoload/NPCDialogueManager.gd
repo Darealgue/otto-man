@@ -34,19 +34,16 @@ func process_dialogue(npc_state: Dictionary, player_input: String, npc_name: Str
 		_emit_error_response(npc_name, "Please wait a moment...")
 		return
 	
-	# Normalize input state loaded from JSON to avoid malformed prompts
-	var normalized_state = _normalize_state(npc_state)
-	
 	print("NPCDialogueManager: Processing dialogue for %s" % npc_name)
 	print("NPCDialogueManager: Player said: %s" % player_input)
 	
 	# Store current processing context
 	_current_processing_npc = npc_name
 	_current_player_input = str(player_input)
-	_current_original_state = normalized_state.duplicate(true) # Deep copy for comparison
+	_current_original_state = npc_state.duplicate(true) # Deep copy for comparison
 	
 	# Construct the prompt
-	var prompt = _construct_full_prompt(normalized_state, player_input)
+	var prompt = _construct_full_prompt(npc_state, player_input)
 	if prompt.is_empty():
 		push_error("NPCDialogueManager: Failed to construct prompt for %s" % npc_name)
 		_reset_processing_state()
@@ -102,7 +99,7 @@ func _on_llama_generation_complete(result_string: String):
 	if not was_significant:
 		final_state = _current_original_state.duplicate(true)
 	else:
-		final_state = _sanitize_significant_state(_current_original_state, tentative_new_state)
+		final_state = tentative_new_state
 	
 	_reset_processing_state()
 	dialogue_processed.emit(npc_name, final_state, generated_dialogue, was_significant)
@@ -111,44 +108,50 @@ func _on_llama_generation_complete(result_string: String):
 func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
 	var info_json = JSON.stringify(state.get("Info", {}))
 	var history_json = JSON.stringify(state.get("History", []))
-	
-	var sanitized_input = str(player_input).replace("\"", "\\\"")
-	
+	var pd = str(player_input).replace('"', '\\"')
 	var full_prompt = """
-Input State (BEFORE this dialogue turn):
+Input State:
 {
-  "Info": %s,
-  "History": %s,
-  "Player Dialogue": "%s"
+  \"Info\": %s,
+  \"History\": %s
 }
 
-Context:
-- Data above represents an Medieval themed game NPC's information and history as well as a piece of dialogue the Player has said. You are to represent this NPC and talk and act on it's behalf.
+Player Dialogue: \"Player\":\"%s\"
+
 Instructions:
-- Read the NPC data above and understand it's information. This represents the NPC's current state BEFORE the player dialogue.
-- Read the Player Dialogue part and determine if this piece of dialogue would affect this NPC's Name, Occupation, Mood, Gender, Age or Health while keeping in mind it's History.
-- If it would change any of those values, respond WITHOUT changing the data structure, but updating the necessary values, appending new data or paraphrasing current data in History section as well as providing an actual answer to this Dialogue in Generated Dialogue part consistent with this NPC's information.
-- If it wouldn't change any of those values, respond WITHOUT changing anything, but still giving an answer in Generated Dialogue part consistent to this NPC's information.
-- Generate your response with Info, History, and Generated Dialogue fields only. Do NOT include Player Dialogue in your response.
-Critical: 
-- NEVER change the structure of the data.
-- IF ONLY the current dialogue contradicts earlier beliefs in the history section, paraphrase earlier history values with additional information or newly formed beliefs.
-- NEVER erase or delete history values completely if not paraphrasing with the addition of new data.
-- ALWAYS respond with the same data structure whether there are changes or not.
+1. Evaluate the Player Dialogue in the context of the NPC's current Input State (Info, History).
+2. Determine if the dialogue is \"Significant\" or \"Insignificant\" based on the criteria below.
+3. If Significant: Update \"Info\" (use only existing keys; do not add new keys) and append a short description to \"History\" reflecting the change. Include the \"Generated Dialogue\" as the NPC's reply.
+4. If Insignificant: The \"Info\" and \"History\" fields in the output JSON MUST be exactly identical to those in the Input State. Only \"Generated Dialogue\" may differ.
+5. Provide ONLY the complete JSON output as specified by the grammar.
 
-Examples:
-- Insignificant (identity when Name exists):
-  Input: {"Info": {"Name": "Cora", "Occupation": "Stablehand", "Mood": "Angry", "Gender": "Female", "Age": "51", "Health": "Burned"}, "History": ["Protected a child during the Harvest Famine", "Spent years training under a master in Red Hill", "Lost everything in the earthquake"], "Player Dialogue": "what's your name?"}
-  Output: {"Info": {"Name": "Cora", "Occupation": "Stablehand", "Mood": "Angry", "Gender": "Female", "Age": "51", "Health": "Burned"}, "History": ["Protected a child during the Harvest Famine", "Spent years training under a master in Red Hill", "Lost everything in the earthquake"], "Generated Dialogue": "I'm Cora."}
+Rules for Significance & State Update:
+- Significance Criteria: Dialogue is significant if it bestows titles, reveals important new facts, corrects prior beliefs, causes strong emotional reactions, or involves important actions/items relevant to the NPC.
+- Insignificant Dialogue: Simple greetings, casual questions unrelated to the NPC's concerns, or small talk that doesn't impact the NPC's state.
+- IF SIGNIFICANT:
+	- Output Info MUST contain exactly the same set of keys as the input Info (no additions or removals). Preserve any unchanged values byte-for-byte.
+	- If bestowing a title and there is no dedicated Title key, APPEND \" the <Title>\" to the existing Name value (e.g., \"Kamil the Iron Fist\").
+	- If the dialogue provides new or superseding information directly impacting the NPC's attributes (the existing keys in the \"Info\" object like Name, Age, Gender, Mood, Occupation, Health), update the values appropriately. Do NOT add new keys.
+	- ALWAYS append a short description of the significant event or new memory to the \"History\" array in the output JSON.
+- IF INSIGNIFICANT:
+	- The \"Info\" and \"History\" fields in the output JSON MUST be ABSOLUTELY IDENTICAL to the Input State provided.
+	- Make NO CHANGES WHATSOEVER to these two fields if the dialogue is insignificant.
 
-- Significant (title bestowed):
-  Input: {"Info": {"Name": "Kamil", "Occupation": "Blacksmith", "Mood": "Content", "Gender": "Male", "Age": "35", "Health": "Healthy"}, "History": ["Worked for a cruel lord before escaping", "Helped rebuild a village after the Border Conflict"], "Player Dialogue": "I grant you the title Ironfist"}
-  Output: {"Info": {"Name": "Kamil the Ironfist", "Occupation": "Blacksmith", "Mood": "Content", "Gender": "Male", "Age": "35", "Health": "Healthy"}, "History": ["Worked for a cruel lord before escaping", "Helped rebuild a village after the Border Conflict", "Got a new title: the Ironfist"], "Generated Dialogue": "Thank you for this honor, my lord."}
+Generated Dialogue Requirements:
+- A single first-person NPC line.
+- Do NOT prefix with the NPC's name (no \"Name: ...\").
+- No narration or stage directions.
 
-- Significant (contradiction):
-  Input: {"Info": {"Name": "Elena", "Occupation": "Herbalist", "Mood": "Sad", "Gender": "Female", "Age": "42", "Health": "Healthy"}, "History": ["Mother died in the plague", "Learned healing arts from grandmother", "Fled from the capital during the uprising"], "Player Dialogue": "I saw your mother; she is alive"}
-  Output: {"Info": {"Name": "Elena", "Occupation": "Herbalist", "Mood": "Hopeful", "Gender": "Female", "Age": "42", "Health": "Healthy"}, "History": ["Learned healing arts from grandmother", "Fled from the capital during the uprising", "Correction: Previously believed mother died in the plague; now learned mother is alive"], "Generated Dialogue": "What? My mother lives? Where is she? Please, tell me more!"}
-""" % [info_json, history_json, sanitized_input]
+NOW, PROCESS THE FOLLOWING INPUT AND PROVIDE ONLY THE JSON OUTPUT:
+
+Input State:
+{
+  \"Info\": %s,
+  \"History\": %s
+}
+
+Player Dialogue: \"Player\":\"%s\"
+""" % [info_json, history_json, pd, info_json, history_json, pd]
 	print("FULL PROMPT : ", full_prompt)
 	return full_prompt
 

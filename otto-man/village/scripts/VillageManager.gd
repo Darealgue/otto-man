@@ -148,7 +148,8 @@ var _event_cooldowns: Dictionary = {} # type -> day_until
 
 # === Storage (feature-flagged usage via economy) ===
 const STORAGE_PER_BASIC_BUILDING: int = 10
-
+#Player reference in village
+var Village_Player
 func _ready() -> void:
 	# Oyun başlangıcında boşta işçi sayısını toplam işçi sayısına eşitle
 	# idle_workers = total_workers # Bu satırı kaldırıyoruz, çünkü total_workers başlangıçta 0
