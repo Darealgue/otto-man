@@ -82,6 +82,7 @@ var last_dpad_input: String = ""
 @onready var news_page: Control = $NewsCenterPage
 @onready var concubine_details_page: Control = $ConcubineDetailsPage
 @onready var trade_page: Control = $TradePage
+var diplomacy_page: Control = null
 @onready var page_label: Label = $PageLabel
 @onready var page_indicator: Control = $PageIndicator
 
@@ -128,7 +129,8 @@ var diplomacy_panel: VBoxContainer = null
 var diplomacy_list: VBoxContainer = null
 var diplomacy_action_label: Label = null
 var current_diplomacy_index: int = 0
-var current_diplomacy_action: int = 0 # 0:Hediye +5, 1:Tehdit -5
+var current_diplomacy_action: int = 0 # 0:gift, 1:threat, 2:trade_agreement, 3:passage
+var diplomacy_manager: Node = null
 
 # Bina türleri kategorilere göre (gerçek bina türleri)
 var building_categories: Dictionary = {
@@ -222,6 +224,13 @@ func _ready():
 		mission_manager.trade_offers_updated.connect(_on_trade_offers_updated)
 	if mission_manager.has_signal("mission_chain_progressed"):
 		mission_manager.mission_chain_progressed.connect(_on_chain_progressed)
+
+	# WorldManager sinyalleri (lazy load destekli)
+	var wm = _get_world_manager()
+	if wm and wm.has_signal("relation_changed"):
+		wm.relation_changed.connect(_on_relation_changed)
+	if wm and wm.has_signal("world_event_started"):
+		wm.world_event_started.connect(_on_world_event_started)
 	
 	print("✅ MissionManager sinyalleri bağlandı")
 	
@@ -236,6 +245,17 @@ func _ready():
 	_ensure_news_subcategory_bar()
 
 	# Diplomasi panelini oluştur (MissionsPage altında)
+	# Diplomasi için ayrı bir sayfa kullan (TradePage yerine)
+	var existing_diplomacy = get_node_or_null("DiplomacyPage")
+	if existing_diplomacy == null:
+		diplomacy_page = Control.new()
+		diplomacy_page.name = "DiplomacyPage"
+		add_child(diplomacy_page)
+		diplomacy_page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		# Başlangıçta gizli
+		diplomacy_page.visible = false
+	else:
+		diplomacy_page = existing_diplomacy
 	_ensure_diplomacy_panel()
 
 	# PageIndicator'a 7. nokta ekle (varsa atla)
@@ -244,11 +264,69 @@ func _ready():
 		if existing == null:
 			var dot = Panel.new()
 			dot.name = "PageDot7"
-			dot.custom_minimum_size = Vector2(10, 10)
 			page_indicator.add_child(dot)
+			# Mevcut dot6 stilini klonla
+			if page_dot6:
+				dot.custom_minimum_size = page_dot6.custom_minimum_size
+				var sb = page_dot6.get_theme_stylebox("panel")
+				if sb:
+					dot.add_theme_stylebox_override("panel", sb.duplicate())
+			else:
+				var sbf := StyleBoxFlat.new()
+				sbf.bg_color = Color(1,1,1,0.6)
+				sbf.corner_radius_top_left = 4
+				sbf.corner_radius_top_right = 4
+				sbf.corner_radius_bottom_left = 4
+				sbf.corner_radius_bottom_right = 4
+				dot.add_theme_stylebox_override("panel", sbf)
 			page_dot7 = dot
 		else:
 			page_dot7 = existing
+
+	# PageIndicator'da gerekli nokta sayısını garanti et (sayfa sayısı kadar)
+	_ensure_page_indicator_dots(page_names.size())
+
+	# Başlangıç görünürlüklerini uygula
+	if diplomacy_page:
+		diplomacy_page.visible = false
+	if trade_page:
+		trade_page.visible = (current_page == PageType.TRADE)
+
+	# DiplomasiManager hazırla
+	diplomacy_manager = _get_diplomacy_manager()
+
+func _ensure_page_indicator_dots(target_count: int) -> void:
+	if page_indicator == null:
+		return
+	# Mevcut dot sayısını say
+	var existing_count := 0
+	for i in range(1, 21): # güvenli üst sınır
+		var n = page_indicator.get_node_or_null("PageDot%d" % i)
+		if n != null:
+			existing_count = i
+		else:
+			break
+	# Eksikleri oluştur
+	var base_dot: Panel = page_dot6 if page_dot6 else page_dot1
+	for i in range(existing_count + 1, target_count + 1):
+		var dot := Panel.new()
+		dot.name = "PageDot%d" % i
+		if base_dot:
+			dot.custom_minimum_size = base_dot.custom_minimum_size
+			var sb = base_dot.get_theme_stylebox("panel")
+			if sb:
+				dot.add_theme_stylebox_override("panel", sb.duplicate())
+		else:
+			var sbf := StyleBoxFlat.new()
+			sbf.bg_color = Color(1,1,1,0.6)
+			sbf.corner_radius_top_left = 4
+			sbf.corner_radius_top_right = 4
+			sbf.corner_radius_bottom_left = 4
+			sbf.corner_radius_bottom_right = 4
+			dot.add_theme_stylebox_override("panel", sbf)
+		page_indicator.add_child(dot)
+		if i == 7:
+			page_dot7 = dot
 
 func _update_unread_badge():
 	var mm = get_node_or_null("/root/MissionManager")
@@ -1069,7 +1147,7 @@ func get_building_status_info(building_type: String) -> String:
 		if building.has_method("get_next_upgrade_cost"):
 			var upgrade_cost = building.get_next_upgrade_cost()
 			if upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
-				info += " 💰" + str(upgrade_cost["gold"]) 
+				info += " 💰" + str(upgrade_cost["gold"])
 			# Süre bilgisi
 			if "upgrade_time_seconds" in building:
 				info += " ⏱" + str(int(building.upgrade_time_seconds)) + "sn"
@@ -1224,7 +1302,7 @@ func get_building_detailed_info(building: Node, building_type: String) -> String
 	if "max_workers" in building:
 		var cur_workers := int(building.max_workers)
 		info += "✨ Etki: İşçi " + str(cur_workers) + "→" + str(cur_workers + 1) + "\n"
-
+	
 	# Üretim bilgileri (eğer varsa)
 	if building.has_method("get_production_info"):
 		var production_info = building.get_production_info()
@@ -1374,6 +1452,8 @@ func show_page(page_index: int):
 	concubine_details_page.visible = false
 	if trade_page:
 		trade_page.visible = false
+	if diplomacy_page:
+		diplomacy_page.visible = false
 
 	print("Tüm sayfalar gizlendi")
 
@@ -1410,12 +1490,15 @@ func show_page(page_index: int):
 			if trade_page:
 				trade_page.visible = true
 				print("TradePage gösterildi")
+				_update_trade_diplomacy_visibility()
 				update_trade_ui()
 		PageType.DIPLOMACY:
-			# Diplomasi: trade_page container'ını kullan
-			if trade_page:
-				trade_page.visible = true
-				print("DiplomasiPage gösterildi")
+			# Diplomasi: ayrı sayfa
+			if diplomacy_page:
+				if trade_page:
+					trade_page.visible = false
+				diplomacy_page.visible = true
+				print("DiplomacyPage gösterildi")
 				_update_diplomacy_ui()
 		PageType.CONCUBINE_DETAILS:
 			concubine_details_page.visible = true
@@ -2880,7 +2963,7 @@ func create_mission_chain_card(chain_id: String, chain_info: Dictionary) -> Pane
 	var steps := HBoxContainer.new()
 	steps.custom_minimum_size = Vector2(0, 24)
 	vb.add_child(steps)
-	var missions_in_chain: Array = mission_manager.get_missions_in_chain(chain_id)
+	var missions_in_chain: Array = mission_manager.get_chain_missions(chain_id)
 	for mid in missions_in_chain:
 		var m = mission_manager.missions.get(mid, null)
 		if m != null:
@@ -2898,45 +2981,74 @@ func create_mission_chain_card(chain_id: String, chain_info: Dictionary) -> Pane
 func _ensure_diplomacy_panel() -> void:
 	if diplomacy_panel != null:
 		return
-	# DİPLOMASİ sekmesi olarak TradePage ana container'ını kullanacağız
-	var parent := trade_page
-	if parent == null:
+	if diplomacy_page == null:
 		return
-	# Bölme: sol görevler, sağ diplomasi
-	var holder := parent.get_node_or_null("DiplomacyHolder")
-	if holder == null:
-		holder = VBoxContainer.new()
-		holder.name = "DiplomacyHolder"
-		parent.add_child(holder)
-		holder.move_child(holder, parent.get_child_count() - 1)
-	
+	# Tam sayfa diplomasi paneli
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE)
+	margin.add_theme_constant_override("margin_left", 40)
+	margin.add_theme_constant_override("margin_top", 80)
+	margin.add_theme_constant_override("margin_right", 40)
+	margin.add_theme_constant_override("margin_bottom", 60)
+	diplomacy_page.add_child(margin)
+
 	diplomacy_panel = VBoxContainer.new()
 	diplomacy_panel.name = "DiplomacyPanel"
+	margin.add_child(diplomacy_panel)
+
 	var title := Label.new()
-	title.text = "🤝 Diplomasi"
-	title.add_theme_font_size_override("font_size", 14)
+	title.text = "🤝 DİPLOMASİ"
+	title.add_theme_font_size_override("font_size", 18)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	diplomacy_panel.add_child(title)
 
-	diplomacy_list = VBoxContainer.new()
-	diplomacy_panel.add_child(diplomacy_list)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	diplomacy_panel.add_child(scroll)
 
-	holder.add_child(diplomacy_panel)
+	diplomacy_list = VBoxContainer.new()
+	scroll.add_child(diplomacy_list)
+
 	diplomacy_action_label = Label.new()
-	diplomacy_action_label.text = "[Sol/Sağ] Eylem: Hediye +5 | [A] Uygula | [B] Geri"
+	diplomacy_action_label.text = "[Yukarı/Aşağı] Fraksiyon • [Sol/Sağ] Eylem • [A] Uygula • [B] Geri"
+	diplomacy_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	diplomacy_action_label.add_theme_font_size_override("font_size", 11)
 	diplomacy_panel.add_child(diplomacy_action_label)
-	diplomacy_panel.visible = (current_page == PageType.TRADE)
+
+func _update_trade_diplomacy_visibility() -> void:
+	if trade_page:
+		trade_page.visible = (current_page == PageType.TRADE)
+	if diplomacy_page:
+		diplomacy_page.visible = (current_page == PageType.DIPLOMACY)
 
 func _update_diplomacy_ui() -> void:
 	if diplomacy_list == null:
 		return
 	for c in diplomacy_list.get_children():
 		c.queue_free()
-	var wm = get_node_or_null("/root/WorldManager")
+	var wm = _get_world_manager()
 	if wm == null:
+		var info := Label.new()
+		info.text = "WorldManager bulunamadı. Diplomasi verisi mevcut değil."
+		info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		diplomacy_list.add_child(info)
+		_update_diplomacy_footer()
 		return
-	var factions: Array = wm.factions if ("factions" in wm) else []
+	var factions: Array = []
+	if ("factions" in wm):
+		if wm.factions is Array:
+			factions = wm.factions
+		elif wm.factions is Dictionary:
+			factions = wm.factions.keys()
 	if current_diplomacy_index >= factions.size():
 		current_diplomacy_index = max(0, factions.size() - 1)
+	if factions.is_empty():
+		var empty := Label.new()
+		empty.text = "Henüz tanımlı fraksiyon yok."
+		empty.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		diplomacy_list.add_child(empty)
+		_update_diplomacy_footer()
+		return
 	for f in factions:
 		if String(f) == "Köy":
 			continue
@@ -2953,13 +3065,57 @@ func _update_diplomacy_ui() -> void:
 		bar.value = rel_val
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(bar)
+		# stance label
+		var stance := Label.new()
+		var dm = _get_diplomacy_manager()
+		if dm and dm.has_method("get_stance"):
+			stance.text = dm.get_stance(rel_val)
+			stance.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+		row.add_child(stance)
 		# Kontrol gamepad ile olduğu için buton yerine seçili satır + A ile işlem yapacağız
 		# Seçili satırı vurgula
-		if diplomacy_list.get_child_count() == current_diplomacy_index:
-			row.add_theme_stylebox_override("panel", create_selected_stylebox())
-		else:
-			row.add_theme_stylebox_override("panel", create_normal_stylebox())
+		var idx := diplomacy_list.get_child_count()
+		row.modulate = Color(1,1,0.8,1) if idx == current_diplomacy_index else Color(1,1,1,1)
 		diplomacy_list.add_child(row)
+	_update_diplomacy_footer()
+
+func _get_world_manager():
+	var wm = get_node_or_null("/root/WorldManager")
+	if wm != null:
+		return wm
+	# Autoload yoksa temin etmeyi dene
+	var wm_res = load("res://autoload/WorldManager.gd")
+	if wm_res == null:
+		return null
+	var inst = wm_res.new()
+	inst.name = "WorldManager"
+	# Root'a ekle
+	get_tree().get_root().add_child(inst)
+	return inst
+
+func _get_diplomacy_manager():
+	if diplomacy_manager != null and is_instance_valid(diplomacy_manager):
+		return diplomacy_manager
+	var dm = get_node_or_null("/root/DiplomacyManager")
+	if dm != null:
+		diplomacy_manager = dm
+		return dm
+	var dm_res = load("res://autoload/DiplomacyManager.gd")
+	if dm_res == null:
+		return null
+	var inst = dm_res.new()
+	inst.name = "DiplomacyManager"
+	get_tree().get_root().add_child(inst)
+	diplomacy_manager = inst
+	return inst
+
+func _on_relation_changed(a: String, b: String, value: int) -> void:
+	if current_page == PageType.DIPLOMACY:
+		_update_diplomacy_ui()
+
+func _on_world_event_started(event_data: Dictionary) -> void:
+	if current_page == PageType.DIPLOMACY:
+		_update_diplomacy_ui()
 
 func handle_diplomacy_input(event):
 	# D-Pad debounce
@@ -2987,7 +3143,7 @@ func handle_diplomacy_input(event):
 		_update_diplomacy_footer()
 		return
 	elif event.is_action_pressed("ui_right"):
-		current_diplomacy_action = min(1, current_diplomacy_action + 1)
+		current_diplomacy_action = min(3, current_diplomacy_action + 1)
 		_update_diplomacy_footer()
 		return
 	# A: uygula
@@ -3001,11 +3157,16 @@ func handle_diplomacy_input(event):
 				break
 			current_diplomacy_index -= 1
 		if target != "":
-			var cur_rel: int = wm.get_relation("Köy", target)
-			if current_diplomacy_action == 0:
-				wm.set_relation("Köy", target, cur_rel + 5)
-			else:
-				wm.set_relation("Köy", target, cur_rel - 5)
+			var dm = _get_diplomacy_manager()
+			if dm and dm.has_method("perform_action"):
+				var action_name := "gift"
+				if current_diplomacy_action == 1:
+					action_name = "threat"
+				elif current_diplomacy_action == 2:
+					action_name = "trade_agreement"
+				elif current_diplomacy_action == 3:
+					action_name = "passage"
+				dm.perform_action("Köy", target, action_name)
 			_update_diplomacy_ui()
 		return
 	# B: geri
@@ -3015,7 +3176,17 @@ func handle_diplomacy_input(event):
 
 func _update_diplomacy_footer() -> void:
 	if diplomacy_action_label:
-		var action_name := "Hediye +5" if current_diplomacy_action == 0 else "Tehdit -5"
+		var dm = _get_diplomacy_manager()
+		var key := "gift"
+		if current_diplomacy_action == 1:
+			key = "threat"
+		elif current_diplomacy_action == 2:
+			key = "trade_agreement"
+		elif current_diplomacy_action == 3:
+			key = "passage"
+		var action_name := key
+		if dm and dm.has_method("get_action_label"):
+			action_name = dm.get_action_label(key)
 		diplomacy_action_label.text = "[Sol/Sağ] Eylem: %s | [A] Uygula | [B] Geri" % action_name
 
 # Zincir detay panelini güncelle
@@ -4640,7 +4811,7 @@ func update_news_ui():
 	
 	# Başlıkta unread rozetini güncelle
 	_update_unread_badge()
-
+	
 	# Kuyruktan çiz: önce temizle, sonra doldur
 	var village_list = get_node_or_null("NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList")
 	var world_list = get_node_or_null("NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList")
@@ -4693,8 +4864,8 @@ func update_concubine_details_ui():
 	print("👤 Cariye Detay Sayfası güncelleniyor...")
 	_update_concubine_list_dynamic()
 	_update_selected_concubine_details_dynamic()
-
-# Cariye listesini güncelle
+	
+	# Cariye listesini güncelle
 func _update_concubine_list_dynamic():
 	var list_node: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList")
 	if not list_node:

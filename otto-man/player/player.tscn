@@ -1,4 +1,4 @@
-[gd_scene load_steps=109 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=117 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -16,11 +16,14 @@
 [ext_resource type="Script" path="res://player/states/hurt_state.gd" id="10_hurt_state"]
 [ext_resource type="Script" path="res://player/states/air/fall_attack_state.gd" id="11_fall_attack"]
 [ext_resource type="Script" path="res://player/states/combat/heavy_attack_state.gd" id="12_heavy_attack"]
+[ext_resource type="Script" path="res://player/states/combat/air_attack_up_state.gd" id="13_air_attack_up"]
 [ext_resource type="Script" path="res://player/states/ground/crouch_state.gd" id="14_rdna1"]
 [ext_resource type="Script" path="res://player/states/ground/slide_state.gd" id="15_664su"]
 [ext_resource type="Texture2D" uid="uid://bkbdv0v7yc2sn" path="res://resources/player_normalmap resources/run_normal.tres" id="16_2gbt3"]
+[ext_resource type="Script" path="res://player/states/dodge_state.gd" id="16_dodge_state"]
 [ext_resource type="Texture2D" uid="uid://d4hrbe3xxy6cx" path="res://resources/player_normalmap resources/idle_normal.tres" id="16_vfpsv"]
 [ext_resource type="Texture2D" uid="uid://dh6xf0am66iad" path="res://resources/player_normalmap resources/block_normal.tres" id="17_3laji"]
+[ext_resource type="Texture2D" uid="uid://bk1wa6knysx34" path="res://assets/player/sprite/otto_dodge_border.png" id="17_dodge_sprite"]
 [ext_resource type="Texture2D" uid="uid://dis6l3abw2nsl" path="res://resources/player_normalmap resources/blockfinish_n.tres" id="18_q03wd"]
 [ext_resource type="Texture2D" uid="uid://c53d8uo2xee72" path="res://resources/player_normalmap resources/blockimpact_n.tres" id="19_nbxa7"]
 [ext_resource type="Texture2D" uid="uid://bt672sr02sn0e" path="res://resources/player_normalmap resources/blockprepare.tres" id="20_lyd8u"]
@@ -44,7 +47,9 @@
 [ext_resource type="Texture2D" uid="uid://c47u647h31m3d" path="res://resources/player_normalmap resources/parry_n.tres" id="38_hm23w"]
 [ext_resource type="Texture2D" uid="uid://g8q1ryk4vn7t" path="res://resources/player_normalmap resources/slide_n.tres" id="39_4mjej"]
 [ext_resource type="Texture2D" uid="uid://bjtmysyurmwkv" path="res://assets/player/sprite/otto_idle_combat_border.png" id="39_jhfyw"]
+[ext_resource type="Texture2D" uid="uid://x2ku6vsx5as6" path="res://assets/player/sprite/otto_air_attack_up1_border.png" id="40_up_attack1"]
 [ext_resource type="Texture2D" uid="uid://bk6n01ve7g1wd" path="res://resources/player_normalmap resources/walljump_n.tres" id="41_ge282"]
+[ext_resource type="Texture2D" uid="uid://sdtsrafcutc4" path="res://assets/player/sprite/otto_air_attack_up2_border.png" id="41_up_attack2"]
 [ext_resource type="Texture2D" uid="uid://vl3e1wjqxw8l" path="res://resources/player_normalmap resources/wallslide_n.tres" id="42_txonu"]
 [ext_resource type="Texture2D" uid="uid://c4wc0vdsueec1" path="res://resources/player_normalmap resources/wall_slide_down.tres" id="43_bkg3i"]
 [ext_resource type="Texture2D" uid="uid://de4ssv6rg8c3w" path="res://resources/player_normalmap resources/attack1_n.tres" id="43_fifwf"]
@@ -55,7 +60,7 @@
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/heavy_neutral_n.tres" id="47_heavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/up_heavy_n.tres" id="48_upheavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/down_light_n.tres" id="49_downln"]
-[ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://Ui/health_display.tscn" id="health_display"]
+[ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
 [ext_resource type="Texture2D" uid="uid://h2yeeqsq88j6" path="res://assets/player/normal/otto_idle_combat_border_n.png" id="idle_combat_normal"]
 [ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
 
@@ -286,6 +291,88 @@ tracks/3/keys = {
 "args": ["air_attack3"],
 "method": &"spawn_attack_effect_by_name"
 }]
+}
+
+[sub_resource type="Animation" id="Animation_air_attack_up1"]
+resource_name = "air_attack_up1"
+length = 0.4
+step = 0.067
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.067, 0.134, 0.201, 0.268, 0.335),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4, 5]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:hframes")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [6]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D:texture")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("40_up_attack1")]
+}
+
+[sub_resource type="Animation" id="Animation_air_attack_up2"]
+resource_name = "air_attack_up2"
+length = 0.4
+step = 0.067
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.067, 0.134, 0.201, 0.268, 0.335),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4, 5]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:hframes")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [6]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D:texture")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("41_up_attack2")]
 }
 
 [sub_resource type="Animation" id="Animation_air_heavy"]
@@ -892,6 +979,59 @@ tracks/2/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [ExtResource("24_nycdj")]
+}
+
+[sub_resource type="Animation" id="Animation_q80ox"]
+resource_name = "dodge"
+length = 0.45
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, -48)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:frame")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 0,
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D:texture")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("17_dodge_sprite")]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Sprite2D:hframes")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [9]
 }
 
 [sub_resource type="Animation" id="Animation_double_jump"]
@@ -2027,6 +2167,8 @@ _data = {
 "air_attack1": SubResource("Animation_inuxn"),
 "air_attack2": SubResource("Animation_bxqf1"),
 "air_attack3": SubResource("Animation_1a62c"),
+"air_attack_up1": SubResource("Animation_air_attack_up1"),
+"air_attack_up2": SubResource("Animation_air_attack_up2"),
 "air_heavy": SubResource("Animation_air_heavy"),
 "attack_1.1": SubResource("Animation_omgi3"),
 "attack_1.2": SubResource("Animation_cq4tr"),
@@ -2040,6 +2182,7 @@ _data = {
 "crouch": SubResource("Animation_6huh2"),
 "crouch_down": SubResource("Animation_jk2wq"),
 "dash": SubResource("Animation_vcjhh"),
+"dodge": SubResource("Animation_q80ox"),
 "double_jump": SubResource("Animation_double_jump"),
 "double_jump_alt": SubResource("Animation_double_jump_alt"),
 "down_heavy": SubResource("Animation_down_heavy"),
@@ -2122,6 +2265,9 @@ script = ExtResource("7_attack_state")
 [node name="HeavyAttack" type="Node" parent="StateMachine"]
 script = ExtResource("12_heavy_attack")
 
+[node name="AirAttackUp" type="Node" parent="StateMachine"]
+script = ExtResource("13_air_attack_up")
+
 [node name="Block" type="Node" parent="StateMachine"]
 script = ExtResource("8_block_state")
 
@@ -2133,6 +2279,9 @@ script = ExtResource("8_ledge_grab")
 
 [node name="Dash" type="Node" parent="StateMachine"]
 script = ExtResource("9_dash_state")
+
+[node name="Dodge" type="Node" parent="StateMachine"]
+script = ExtResource("16_dodge_state")
 
 [node name="Hurt" type="Node" parent="StateMachine"]
 script = ExtResource("10_hurt_state")

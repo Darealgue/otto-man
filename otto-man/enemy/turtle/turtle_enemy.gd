@@ -150,6 +150,10 @@ func die() -> void:
 		
 	current_behavior = "dead"
 	
+	# Can barını hemen gizle
+	if health_bar:
+		health_bar.hide_bar()
+	
 	enemy_defeated.emit()
 	
 	PowerupManager.on_enemy_killed()

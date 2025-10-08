@@ -6,10 +6,11 @@
 script = ExtResource("1_script")
 max_health = 50.0
 movement_speed = 80.0
+chase_speed = 150.0
 attack_damage = 25.0
 detection_range = 300.0
 attack_range = 25.0
-attack_cooldown = 2.5
+attack_cooldown = 1.2
 knockback_resistance = 0.8
 max_summon_count = 3
 summon_cooldown = 5.0

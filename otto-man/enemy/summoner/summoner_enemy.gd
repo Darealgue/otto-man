@@ -262,6 +262,9 @@ func _on_bird_died(bird: Node) -> void:
 		active_birds.erase(bird)
 
 func die() -> void:
+	# Can barını hemen gizle
+	if health_bar:
+		health_bar.hide_bar()
 	
 	# Reset summoning state
 	is_summoning = false

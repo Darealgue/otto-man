@@ -1,12 +1,19 @@
-[gd_scene load_steps=2 format=3 uid="uid://dbynhccjv3wjk"]
+[gd_scene load_steps=3 format=3 uid="uid://dbynhccjv3wjk"]
 
 [ext_resource type="Script" path="res://village/scripts/WoodcutterCamp.gd" id="1_20smd"]
+[ext_resource type="Texture2D" path="res://village/buildings/sprite/wood1.png" id="2_wood1"]
 
 [node name="WoodcutterCamp" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_20smd")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_wood1")
+z_index = 1
+offset = Vector2(0, 0)
 
 [node name="ColorRect" type="ColorRect" parent="."]
 offset_left = -20.0
 offset_top = -40.0
 offset_right = 20.0
 color = Color(0.413162, 0.257792, 1.44392e-07, 1)
+visible = false

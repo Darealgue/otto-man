@@ -60,12 +60,19 @@ func physics_update(delta: float):
 	
 	# PRIORITY 2: Check for attack input - high priority for responsive controls
 	if Input.is_action_just_pressed("attack"):
-		# print("[Jump State] Attack button pressed, transitioning to Attack state for air attack")
-		state_machine.transition_to("Attack")
-		return
+		# Check for up input to determine attack type
+		var up_strength = Input.get_action_strength("up")
+		if up_strength > 0.6:
+			# Up attack - transition to AirAttackUp state
+			state_machine.transition_to("AirAttackUp")
+			return
+		else:
+			# Normal air attack
+			state_machine.transition_to("Attack")
+			return
 	
 	# PRIORITY 3: Check for fall attack
-	if down_pressed and jump_pressed:
+	if down_pressed and jump_pressed and not player.jump_input_blocked and player.jump_block_timer <= 0:
 		var fall_attack_state = get_parent().get_node("FallAttack")
 		if fall_attack_state:
 			if not fall_attack_state.is_on_cooldown():
@@ -73,7 +80,7 @@ func physics_update(delta: float):
 				state_machine.transition_to("FallAttack")
 				return
 	# PRIORITY 4: Only check for double jump if not trying to fall attack
-	elif jump_pressed and not player.has_double_jumped and not down_pressed:
+	elif jump_pressed and not player.has_double_jumped and not down_pressed and not player.jump_input_blocked and player.jump_block_timer <= 0:
 		is_double_jumping = true
 		player.has_double_jumped = true
 		player.start_double_jump()

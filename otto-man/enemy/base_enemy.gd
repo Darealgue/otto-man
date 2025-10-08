@@ -265,6 +265,9 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	
 	# Check for death
 	if health <= 0:
+		# Can barını hemen gizle (die() fonksiyonundan önce)
+		if health_bar:
+			health_bar.hide_bar()
 		die()
 	else:
 		# Disable hurtbox briefly
@@ -309,6 +312,10 @@ func die() -> void:
 		return
 		
 	current_behavior = "dead"
+	
+	# Can barını hemen gizle
+	if health_bar:
+		health_bar.hide_bar()
 	
 	enemy_defeated.emit()
 	

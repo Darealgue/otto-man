@@ -3,6 +3,7 @@ extends CharacterBody2D
 signal health_changed(new_health: float)
 signal perfect_parry  # Signal for Perfect Guard powerup
 signal dash_started
+signal dodge_started  # Signal for dodge state
 signal fall_attack_performed  # Signal for Triple Strike powerup
 
 const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
@@ -71,6 +72,9 @@ var last_hit_knockback: Dictionary = {}
 var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
 var attack_cooldown_timer: float = 0.0 # <<< YENİ DEĞİŞKEN >>>
+var is_dodging: bool = false  # Track if player is currently dodging
+var jump_input_blocked: bool = false  # Block jump input during dodge
+var jump_block_timer: float = 0.0  # Timer to keep jump blocked after dodge
 
 # Combat state tracking for idle_combat animation
 var is_in_combat: bool = false
@@ -196,6 +200,14 @@ func _ready():
 			dash_state.connect("state_entered", _on_dash_state_entered)
 		if not dash_state.is_connected("state_exited", _on_dash_state_exited):
 			dash_state.connect("state_exited", _on_dash_state_exited)
+	
+	# Connect dodge state signals
+	var dodge_state = $StateMachine.get_node("Dodge")
+	if dodge_state:
+		if not dodge_state.is_connected("state_entered", _on_dodge_state_entered):
+			dodge_state.connect("state_entered", _on_dodge_state_entered)
+		if not dodge_state.is_connected("state_exited", _on_dodge_state_exited):
+			dodge_state.connect("state_exited", _on_dodge_state_exited)
 		
 	# Initialize stats from PlayerStats
 	_sync_stats_from_player_stats()
@@ -258,10 +270,19 @@ func _physics_process(delta):
 	if dash_state and dash_state.has_method("cooldown_update"):
 		dash_state.cooldown_update(delta)
 	
-	# Handle dash input
-	if Input.is_action_just_pressed("dash") and dash_state and dash_state.has_method("can_start_dash") and dash_state.can_start_dash():
-		$StateMachine.transition_to("Dash")
-		return
+	# Update dodge cooldown
+	var dodge_state = $StateMachine.get_node("Dodge")
+	if dodge_state and dodge_state.has_method("cooldown_update"):
+		dodge_state.cooldown_update(delta)
+	
+	# Update jump block timer
+	if jump_block_timer > 0:
+		jump_block_timer -= delta
+		if jump_block_timer <= 0:
+			jump_input_blocked = false
+			print("[Player] Jump input unblocked after timer")
+	
+	# Dash input removed - only dodge available until powerup upgrade
 	
 	# Handle hurt exit timer
 	if has_meta("hurt_exit_timer"):
@@ -281,13 +302,17 @@ func _physics_process(delta):
 			elif velocity.x > 0:
 				sprite.flip_h = false
 	
-	# Handle jump buffering (disabled during Crouch)
+	# Handle jump buffering (disabled during Crouch and Dodge)
 	var is_crouching := false
+	var is_dodging := false
 	if $StateMachine and $StateMachine.current_state:
 		is_crouching = $StateMachine.current_state.name == "Crouch"
+		is_dodging = $StateMachine.current_state.name == "Dodge"
 	if Input.is_action_just_pressed("jump"):
-		if not is_crouching:
+		if not is_crouching and not is_dodging and not jump_input_blocked and jump_block_timer <= 0:
 			jump_buffer_timer = jump_buffer_time
+		else:
+			print("[Player] Jump buffering BLOCKED - crouching:", is_crouching, " dodging:", is_dodging, " blocked:", jump_input_blocked, " timer:", jump_block_timer)
 	elif jump_buffer_timer > 0:
 		jump_buffer_timer -= delta
 	
@@ -295,11 +320,13 @@ func _physics_process(delta):
 	if is_on_floor():
 		coyote_timer = COYOTE_TIME
 		if jump_buffer_timer > 0:  # Execute buffered jump
-			# Do not execute buffered jump while crouching
+			# Do not execute buffered jump while crouching or dodging
 			var crouch_now := false
+			var dodge_now := false
 			if $StateMachine and $StateMachine.current_state:
 				crouch_now = $StateMachine.current_state.name == "Crouch"
-			if not crouch_now:
+				dodge_now = $StateMachine.current_state.name == "Dodge"
+			if not crouch_now and not dodge_now and not jump_input_blocked and jump_block_timer <= 0:
 				spawn_dust_cloud(get_foot_position(), "puff_up")
 				start_jump()
 				jump_buffer_timer = 0.0
@@ -696,6 +723,14 @@ func _on_dash_state_entered() -> void:
 
 func _on_dash_state_exited() -> void:
 	is_dashing = false
+
+# Update dodge state tracking
+func _on_dodge_state_entered() -> void:
+	is_dodging = true
+	emit_signal("dodge_started")
+
+func _on_dodge_state_exited() -> void:
+	is_dodging = false
 
 # Update perfect parry detection
 func _on_successful_parry() -> void:

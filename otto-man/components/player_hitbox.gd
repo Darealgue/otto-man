@@ -133,14 +133,24 @@ func _on_area_entered(area: Area2D) -> void:
 				attack_manager.apply_hitstop(damage)
 			else:
 				print("[PlayerHitbox] ❌ ERROR: attack_manager is null!")
-			# Spawn simple hit VFX if available
-			var fx_scene_path := "res://effects/hit_effect.tscn"
-			if ResourceLoader.exists(fx_scene_path):
-				var fx_scene := load(fx_scene_path)
+			# Spawn enemy hit VFX
+			var enemy_hit_fx_scene_path := "res://effects/enemy_hit_effect.tscn"
+			if ResourceLoader.exists(enemy_hit_fx_scene_path):
+				var fx_scene := load(enemy_hit_fx_scene_path)
 				if fx_scene:
 					var fx = fx_scene.instantiate()
 					get_tree().current_scene.add_child(fx)
-					fx.global_position = global_position
+					
+					# Düşmanın pozisyonunda spawnla
+					var enemy = area.get_parent()
+					if enemy:
+						fx.global_position = enemy.global_position
+					else:
+						fx.global_position = global_position  # Fallback
+					
+					# Saldırı türüne göre efekt ve boyut ayarla
+					var effect_data = _get_hit_effect_data()
+					fx.setup(Vector2(0, -20), effect_data.scale, effect_data.effect_type)
 			# Camera shake based on attack type and damage
 			_apply_screen_shake()
 			# Apply player air-combo float on successful hit while airborne
@@ -207,6 +217,28 @@ func _get_attack_type_modifier() -> Dictionary:
 			return {"duration": 1.1, "strength": 1.1}
 		_:
 			return {"duration": 1.0, "strength": 1.0}
+
+# Helper function for hit effect data based on attack type
+func _get_hit_effect_data() -> Dictionary:
+	match current_attack_name:
+		# Heavy attacks - büyük efekt (hit3), büyük boyut
+		"heavy_neutral", "up_heavy", "down_heavy", "counter_heavy", "air_heavy":
+			return {"effect_type": 2, "scale": 1.5}  # hit3, 1.5x boyut
+		# Counter attacks - orta efekt (hit2), orta boyut
+		"counter_light", "counter_heavy":
+			return {"effect_type": 1, "scale": 1.2}  # hit2, 1.2x boyut
+		# Air combo finishers - büyük efekt
+		"air_attack3", "fall_attack":
+			return {"effect_type": 2, "scale": 1.3}  # hit3, 1.3x boyut
+		# Up attacks - orta efekt (yukarı saldırı)
+		"air_attack_up1", "air_attack_up2":
+			return {"effect_type": 1, "scale": 1.1}  # hit2, 1.1x boyut
+		# Light attacks - küçük efekt (hit1), normal boyut
+		"attack_1", "attack_1.2", "attack_1.3", "attack_1.4", "air_attack1", "air_attack2":
+			return {"effect_type": 0, "scale": 1.0}  # hit1, normal boyut
+		# Default - rastgele efekt
+		_:
+			return {"effect_type": -1, "scale": 1.0}  # rastgele, normal boyut
 
 func _physics_process(_delta: float) -> void:
 	# Safety check - if not active but monitoring is on, disable it

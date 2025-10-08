@@ -2,7 +2,7 @@ extends "res://player/states/state.gd"
 
 const DASH_SPEED := 2500.0
 const DASH_DURATION := 0.1
-const DASH_COOLDOWN := 3.0
+const DASH_COOLDOWN := 0.0  # Cooldown kaldırıldı (stamina ile sınırlı)
 const DASH_END_SPEED_MULTIPLIER := 0.3  # Player will retain 30% of dash speed when ending
 var dash_timer := 0.0
 var cooldown_timer := 0.0
@@ -25,8 +25,7 @@ func enter():
 	# Call parent enter to emit signal
 	super.enter()
 	
-	# Use a dash charge
-	dash_charges = max(0, dash_charges - 1)
+	# Charges sistemi kaldırıldı - sadece stamina kontrolü
 	
 	# Store original collision settings
 	original_collision_mask = player.collision_mask
@@ -36,10 +35,20 @@ func enter():
 	player.collision_mask &= ~(1 << 2)  # Remove enemy collision mask (layer 3)
 	player.collision_layer &= ~(1 << 2)  # Remove enemy collision layer (layer 3)
 	
+	# Stamina tüket
+	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
+	if stamina_bar:
+		if stamina_bar.use_charge():
+			print("[Dash] Stamina consumed for dash")
+		else:
+			print("[Dash] ERROR: No stamina available!")
+			# Stamina yoksa dash yapamaz, idle'a dön
+			state_machine.transition_to("Idle")
+			return
+	
 	# Start dash
 	dash_timer = DASH_DURATION
-	cooldown_timer = DASH_COOLDOWN
-	can_dash = dash_charges > 0  # Can dash if we have charges left
+	can_dash = true  # Cooldown kaldırıldı, sadece stamina kontrolü
 	animation_player.play("dash")
 	
 	# Set initial dash velocity based on facing direction
@@ -70,21 +79,14 @@ func exit():
 	player.collision_layer = original_collision_layer
 
 func cooldown_update(delta: float):
-	if not can_dash:
-		cooldown_timer -= delta
-		if cooldown_timer <= 0:
-			# Refill dash charges
-			dash_charges = max_dash_charges
-			can_dash = true
-			cooldown_timer = 0.0
-			# Flash yellow when dash is ready
-			var tween = player.sprite.create_tween()
-			tween.tween_property(player.sprite, "modulate", Color(1.5, 1.5, 0.5), 0.1)
-			tween.tween_property(player.sprite, "modulate", Color(1, 1, 1), 0.1)
+	# Cooldown kaldırıldı - sadece stamina kontrolü
+	pass
 
 func can_start_dash() -> bool:
-	# Allow dash when on ground and we have charges
-	return can_dash and player.is_on_floor() and dash_charges > 0
+	# Allow dash when on ground and we have stamina (charges sistemi kaldırıldı)
+	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
+	var has_stamina = stamina_bar and stamina_bar.has_charges()
+	return can_dash and player.is_on_floor() and has_stamina
 
 func set_dash_charges(charges: int) -> void:
 	max_dash_charges = charges

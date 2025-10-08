@@ -343,6 +343,10 @@ func die() -> void:
 		
 	current_behavior = "dead"
 	
+	# Can barını hemen gizle
+	if health_bar:
+		health_bar.hide_bar()
+	
 	# Play death animation
 	if sprite:
 		sprite.play("dead")

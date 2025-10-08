@@ -10,7 +10,7 @@ extends Node2D
 var assigned_worker_ids: Array[int] = [] #<<< YENİ: Atanan işçi ID'leri
 
 @export var base_production_rate: float = 1.0 # Seviye başına üretim (opsiyonel)
-@export var max_level: int = 3 # Inspector'dan ayarlanabilir, varsayılan 3
+@export var max_level: int = 5 # Inspector'dan ayarlanabilir, varsayılan 5
 
 # Upgrade değişkenleri
 var is_upgrading: bool = false
@@ -21,7 +21,12 @@ var upgrade_time_seconds: float = 10.0 # Yükseltme süresi (örnek)
 # @onready var worker_label: Label = %WorkerLabel # Gerekirse eklenecek
 
 func _ready() -> void:
-	print("WoodcutterCamp hazır.")
+	print("WoodcutterCamp hazır - Seviye: ", level)
+	# Level'ı 1'e ayarla eğer ayarlanmamışsa
+	if level <= 0:
+		level = 1
+		print("WoodcutterCamp: Level 1'e ayarlandı")
+	_update_texture()
 	_update_ui()
 
 # --- Worker Management (YENİ) ---
@@ -119,7 +124,9 @@ func remove_worker() -> bool:
 # Yükseltme maliyetleri: Seviye -> {kaynak: maliyet}
 const UPGRADE_COSTS = {
 	2: {"gold": 20}, # Seviye 2 için altın maliyeti
-	3: {"gold": 40}  # Seviye 3 için altın maliyeti
+	3: {"gold": 40}, # Seviye 3 için altın maliyeti
+	4: {"gold": 80}, # Seviye 4 için altın maliyeti
+	5: {"gold": 160} # Seviye 5 için altın maliyeti
 }
 # Const for max workers per level (Optional)
 # const MAX_WORKERS_PER_LEVEL = { 1: 1, 2: 2, 3: 3 }
@@ -230,11 +237,54 @@ func finish_upgrade() -> void:
 	emit_signal("state_changed") # Genel durum değişikliği sinyali
 	VillageManager.notify_building_state_changed(self) # YENİ
 
-	# Görseli normale döndür
+	# Görseli normale döndür ve texture'ı güncelle
 	if get_node_or_null("Sprite2D") is Sprite2D:
 		get_node("Sprite2D").modulate = Color.WHITE
+	
+	# Texture'ı güncelle
+	_update_texture()
 
 	print("Oduncu Kampı: Yeni seviye: %d, Maks İşçi: %d" % [level, max_workers])
+
+# --- Texture Update ---
+func _update_texture() -> void:
+	print("WoodcutterCamp: _update_texture() çağrıldı - Seviye: ", level)
+	
+	var sprite = get_node_or_null("Sprite2D")
+	if not sprite:
+		print("WoodcutterCamp: Sprite2D bulunamadı!")
+		return
+	
+	print("WoodcutterCamp: Sprite2D bulundu, texture güncelleniyor...")
+	
+	# Seviyeye göre texture yolu belirle
+	var texture_path = ""
+	match level:
+		1: texture_path = "res://village/buildings/sprite/wood1.png"
+		2: texture_path = "res://village/buildings/sprite/wood2.png"
+		3: texture_path = "res://village/buildings/sprite/wood3.png"
+		4: texture_path = "res://village/buildings/sprite/wood4.png"
+		5: texture_path = "res://village/buildings/sprite/wood5.png"
+		_: 
+			print("WoodcutterCamp: Geçersiz seviye: ", level, " - Varsayılan olarak seviye 1 kullanılıyor")
+			texture_path = "res://village/buildings/sprite/wood1.png"
+	
+	print("WoodcutterCamp: Texture yolu: ", texture_path)
+	
+	# Texture'ı yükle ve uygula
+	if ResourceLoader.exists(texture_path):
+		var texture = load(texture_path)
+		if texture:
+			sprite.texture = texture
+			# Texture boyutunu ayarla (gerekirse)
+			sprite.scale = Vector2(1.0, 1.0)
+			# Texture'ı doğru pozisyona ayarla (alt kenara hizala)
+			sprite.offset = Vector2(0, -texture.get_height() / 2)
+			print("WoodcutterCamp: ✅ Texture başarıyla güncellendi - Seviye ", level, " (", texture_path, ")")
+		else:
+			print("WoodcutterCamp: ❌ Texture yüklenemedi: ", texture_path)
+	else:
+		print("WoodcutterCamp: ❌ Texture dosyası bulunamadı: ", texture_path)
 
 # --- UI Update ---
 func _update_ui() -> void:

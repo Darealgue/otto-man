@@ -10,3 +10,4 @@ tile_set = ExtResource("1_brqby")
 
 [node name="ForestLevelGenerator" type="Node2D" parent="."]
 script = ExtResource("2_gen")
+debug_enabled = true

@@ -16,8 +16,8 @@ const hurt_duration := 0.5
 const detection_range := 500.0  # How far the enemy can see
 const slam_range := 150.0      # Maximum distance for slam attack
 const charge_range := 400.0    # Maximum distance for charge attack
-const chase_duration := 4.0    # How long to chase before trying an attack
-const attack_cooldown := 2.0   # Time between attacks
+const chase_duration := 1.5    # How long to chase before trying an attack (çok agresif)
+const attack_cooldown := 0.8   # Time between attacks (çok daha hızlı saldırı)
 
 # Charge attack properties
 const charge_speed := 400.0    # Speed during charge attack
@@ -637,6 +637,12 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			air_float_timer = air_float_duration
 
 	if was_lethal:
+		# Can barını hemen gizle (die() fonksiyonundan önce)
+		if health_bar:
+			print("[HeavyEnemy] Hiding health bar on death")
+			health_bar.hide_bar()
+		else:
+			print("[HeavyEnemy] ERROR: health_bar is null!")
 		# Go straight to death after applying launch; keep vertical velocity so the corpse falls
 		die()
 	else:
@@ -674,6 +680,10 @@ func die() -> void:
 		return
 		
 	current_behavior = "dead"
+	
+	# Can barını hemen gizle
+	if health_bar:
+		health_bar.hide_bar()
 	
 	enemy_defeated.emit()
 	

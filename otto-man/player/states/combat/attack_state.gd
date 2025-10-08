@@ -2,11 +2,12 @@ extends State
 
 const ATTACK_SPEED_MULTIPLIER = 0.5  # 50% movement speed during attacks
 const MOMENTUM_PRESERVATION = 0.8     # Preserve 80% of previous momentum
-const ANIMATION_SPEED = 1.25         # 25% faster animations
+const ANIMATION_SPEED = 1.8          # 80% faster animations (Silksong style)
 const GROUND_ATTACK_ANIMATIONS = ["attack_1.1", "up_light", "down_light"]  # Ground variants
 const AIR_ATTACK_ANIMATIONS = ["air_attack1", "air_attack2", "air_attack3"]  # Attacks only available in air
-const LIGHT_COMBO_RESET_TIME := 0.6
-const AIR_COMBO_RESET_TIME := 0.8
+const UP_ATTACK_ANIMATIONS = ["air_attack_up1", "air_attack_up2"]  # Up attacks in air
+const LIGHT_COMBO_RESET_TIME := 0.4  # Faster combo timing (Silksong style)
+const AIR_COMBO_RESET_TIME := 0.5    # Faster air combo timing
 const DAMAGE_MULTIPLIER = 1  # Fixed damage multiplier for all attacks
 
 var current_attack := ""
@@ -52,6 +53,15 @@ func enter():
 	
 	# Store initial velocity for momentum preservation
 	initial_velocity = player.velocity
+	
+	# Reset hitbox CollisionShape2D position (in case coming from up attack)
+	var reset_hitbox = player.get_node_or_null("Hitbox")
+	if reset_hitbox and reset_hitbox is PlayerHitbox:
+		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
+		if collision_shape:
+			collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
+			print("[AttackState] Hitbox CollisionShape2D position reset to: ", collision_shape.position)
+	
 	# Debug print disabled to reduce console spam
 	# print("[AttackState] ENTER | on_floor=", player.is_on_floor())
 	
@@ -248,9 +258,16 @@ func update(delta: float):
 	
 	# Check for air attack input
 	if Input.is_action_just_pressed("attack") and not player.is_on_floor() and not _is_air_attack(current_attack):
-		# If player is in air and not already performing an air attack, transition to a new attack state
-		state_machine.transition_to("Attack")
-		return
+		# Check for up input to determine attack type
+		var up_strength = Input.get_action_strength("up")
+		if up_strength > 0.6:
+			# Up attack - transition to AirAttackUp state
+			state_machine.transition_to("AirAttackUp")
+			return
+		else:
+			# Normal air attack
+			state_machine.transition_to("Attack")
+			return
 	# General attack input buffer timer
 	if Input.is_action_just_pressed("attack"):
 		attack_buffer_timer = 0.2
@@ -280,7 +297,7 @@ func update(delta: float):
 
 # Helper function to check if the current attack is an air attack
 func _is_air_attack(attack_name: String) -> bool:
-	var is_air = AIR_ATTACK_ANIMATIONS.has(attack_name)
+	var is_air = AIR_ATTACK_ANIMATIONS.has(attack_name) or UP_ATTACK_ANIMATIONS.has(attack_name)
 	return is_air
 
 # Helper function to check if the current attack is a ground attack
@@ -300,18 +317,18 @@ func _update_hitbox():
 	if not hitbox or not hitbox is PlayerHitbox:
 		return
 	
-	# Tune windows per light variant
-	var start := 0.30
-	var finish := 0.40
+	# Tune windows per light variant (Silksong style - tighter timing)
+	var start := 0.35
+	var finish := 0.45
 	if current_attack == "up_light":
-		start = 0.26
-		finish = 0.42
-	elif current_attack == "down_light":
-		start = 0.32
-		finish = 0.46
-	elif current_attack == "attack_1.2":
-		start = 0.28
+		start = 0.30
 		finish = 0.45
+	elif current_attack == "down_light":
+		start = 0.35
+		finish = 0.50
+	elif current_attack == "attack_1.2":
+		start = 0.32
+		finish = 0.48
 	# Enable hitbox during tuned window
 	if anim_progress >= start and anim_progress <= finish and not hitbox_enabled:
 		hitbox.disable()  # Ensure it's disabled first
@@ -336,8 +353,8 @@ func _update_hitbox():
 		# Debug print disabled to reduce console spam
 		# print("[AttackState] HITBOX ON | ", current_attack, " at progress=", String.num(anim_progress, 2))
 		
-		# Set a timer to disable the hitbox after a short duration (Increased by 50%)
-		await get_tree().create_timer(0.15).timeout
+		# Set a timer to disable the hitbox after a short duration (Silksong style - faster)
+		await get_tree().create_timer(0.08).timeout
 		if hitbox and is_instance_valid(hitbox) and hitbox_enabled:
 			hitbox.disable()
 			hitbox_enabled = false
@@ -370,11 +387,13 @@ func _handle_movement(delta: float) -> void:
 	player.move_and_slide()
 
 func _check_cancel_conditions() -> bool:
-	# Cancel into dash
-	if Input.is_action_just_pressed("dash") and state_machine.has_node("Dash"):
-		_cancel_into_state("Dash")
-		print("[AttackState] CANCEL -> Dash")
-		return true
+	# Cancel into dodge (dash locked until powerup)
+	if Input.is_action_just_pressed("dash") and state_machine.has_node("Dodge"):
+		var dodge_state = state_machine.get_node("Dodge")
+		if dodge_state and dodge_state.can_start_dodge():
+			_cancel_into_state("Dodge")
+			print("[AttackState] CANCEL -> Dodge")
+			return true
 	
 	# Cancel into jump
 	if Input.is_action_just_pressed("jump") and state_machine.has_node("Jump") and (
@@ -405,9 +424,14 @@ func _cancel_into_state(state_name: String) -> void:
 func _update_hitbox_position(hitbox: Node2D) -> void:
 	var collision_shape = hitbox.get_node("CollisionShape2D")
 	if collision_shape:
-		var position = collision_shape.position
+		# Normal attack için orijinal pozisyonu kullan (oyuncunun önünde)
+		var original_position = Vector2(52.625, -22.5)  # Player scene'deki orijinal pozisyon
+		var position = original_position
+		# X pozisyonunu oyuncunun bakış yönüne göre ayarla (önüne koy)
 		position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
 		collision_shape.position = position
+		# Debug: Hitbox position set
+		print("[AttackState] Hitbox position set to: ", position, " facing: ", "left" if player.sprite.flip_h else "right")
 
 func _on_animation_player_animation_finished(anim_name: String):
 

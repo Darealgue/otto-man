@@ -570,13 +570,30 @@ func _spawn_or_move_player_to_start() -> void:
 		if player.has_node("Camera2D"):
 			var cam = player.get_node("Camera2D")
 			if cam and cam is Camera2D:
+				# Attach simple forest camera behavior if not already attached
+				if cam.get_script() == null or not String(cam.get_script().resource_path).ends_with("ForestSimpleCamera.gd"):
+					var cam_script := load("res://levels/ForestSimpleCamera.gd")
+					if cam_script:
+						cam.set_script(cam_script)
+						# Defaults tuned for forest
+						cam.set("bias_ground_y", -120.0)
+						cam.set("bias_air_y", -40.0)
+						cam.set("bias_jump_center_y", -10.0)
+						cam.set("smooth_speed", 6.0)
+						cam.set("offset_smooth_speed", 8.0)
+						# Ensure the runtime-attached script initializes
+						if cam.has_method("force_init"):
+							cam.call("force_init")
+						# Keep debug off for normal play
+						cam.set("debug", false)
 				(cam as Camera2D).enabled = true
 				(cam as Camera2D).make_current()
 
 func _setup_overview_camera() -> void:
 	overview_camera = Camera2D.new()
 	add_child(overview_camera)
-	overview_camera.enabled = true
+	# Do not enable by default to avoid stealing current camera; toggle via hotkey
+	overview_camera.enabled = false
 	_update_overview_camera_fit()
 	if is_overview_active:
 		overview_camera.make_current()

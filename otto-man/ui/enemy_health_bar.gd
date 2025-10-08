@@ -2,6 +2,8 @@ extends Control
 
 @onready var health_bar = $HealthBar
 @onready var delayed_bar = $DelayedBar
+@onready var background = $Background
+@onready var border_frame = $BorderFrame
 @onready var fade_timer = $FadeTimer
 
 const FADE_DELAY = 2.0  # Seconds before bar starts fading
@@ -60,12 +62,41 @@ func _update_bars() -> void:
 func show_bar() -> void:
 	is_visible = true
 	
+	# Tüm elementlerin rengini sıfırla
+	if health_bar:
+		health_bar.modulate = Color(1, 1, 1, 1.0)
+	if delayed_bar:
+		delayed_bar.modulate = Color(1, 1, 1, 1.0)
+	if background:
+		background.modulate = Color(1, 1, 1, 1.0)
+	if border_frame:
+		border_frame.modulate = Color(1, 1, 1, 1.0)
+	
 	# Create fade in tween
 	var tween = create_tween()
 	tween.tween_property(self, "modulate:a", 1.0, 0.2)
 	
 	# Reset fade timer
 	fade_timer.start(FADE_DELAY)
+
+func hide_bar() -> void:
+	is_visible = false
+	
+	# Stop fade timer
+	fade_timer.stop()
+	
+	# Anında gizle ve tüm alt elementleri de gizle (tween olmadan)
+	modulate = Color(1, 1, 1, 0.0)  # Ana container'ı şeffaf yap
+	
+	# Tüm elementleri gizle
+	if health_bar:
+		health_bar.modulate = Color(1, 1, 1, 0.0)
+	if delayed_bar:
+		delayed_bar.modulate = Color(1, 1, 1, 0.0)
+	if background:
+		background.modulate = Color(1, 1, 1, 0.0)
+	if border_frame:
+		border_frame.modulate = Color(1, 1, 1, 0.0)
 
 func _on_fade_timer_timeout() -> void:
 	# Create fade out tween

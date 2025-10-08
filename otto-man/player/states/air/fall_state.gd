@@ -29,6 +29,14 @@ func enter():
 	# Get reference to wall slide state
 	wall_slide_state = get_parent().get_node("WallSlide")
 	
+	# Reset hitbox CollisionShape2D position (in case coming from up attack)
+	var reset_hitbox = player.get_node_or_null("Hitbox")
+	if reset_hitbox and reset_hitbox is PlayerHitbox:
+		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
+		if collision_shape:
+			collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
+			print("[FallState] Hitbox CollisionShape2D position reset to: ", collision_shape.position)
+	
 	# Only play fall animation if we're not in a special animation
 	var current_anim = animation_player.current_animation
 	
@@ -86,16 +94,23 @@ func physics_update(delta: float):
 	else:
 		wall_contact_timer = 0.0
 	
-	# PRIORITY 2: Check for normal attack input - high priority for responsive controls
+	# PRIORITY 2: Check for attack input - high priority for responsive controls
 	if Input.is_action_just_pressed("attack") and player.attack_cooldown_timer <= 0:
-		# print("[Fall State] Attack button pressed, transitioning to Attack state for air attack")
-		state_machine.transition_to("Attack")
-		return
+		# Check for up input to determine attack type
+		var up_strength = Input.get_action_strength("up")
+		if up_strength > 0.6:
+			# Up attack - transition to AirAttackUp state
+			state_machine.transition_to("AirAttackUp")
+			return
+		else:
+			# Normal air attack
+			state_machine.transition_to("Attack")
+			return
 	
 	# PRIORITY 3: Check for fall attack input (special air attack)
 	if Input.is_action_pressed("down"):
 		# Make fall attack easier to execute by checking for jump input more frequently
-		if Input.is_action_just_pressed("jump"):
+		if Input.is_action_just_pressed("jump") and not player.jump_input_blocked and player.jump_block_timer <= 0:
 			var fall_attack_state = get_parent().get_node("FallAttack")
 			if fall_attack_state and not fall_attack_state.is_on_cooldown():
 				# Force immediate transition to fall attack
@@ -111,7 +126,8 @@ func physics_update(delta: float):
 				return
 	
 	# Handle jump during fall (if we have coyote time or can double jump)
-	if Input.is_action_just_pressed("jump"):
+	if Input.is_action_just_pressed("jump") and not player.jump_input_blocked and player.jump_block_timer <= 0:
+		print("[FallState] Jump input processed - transitioning to Jump")
 		if player.has_coyote_time() and not player.has_double_jumped:
 			player.start_jump()
 			state_machine.transition_to("Jump")
@@ -123,6 +139,8 @@ func physics_update(delta: float):
 			player.start_double_jump()
 			animation_player.play("double_jump")
 			return
+	elif Input.is_action_just_pressed("jump") and (player.jump_input_blocked or player.jump_block_timer > 0):
+		print("[FallState] Jump input BLOCKED by dodge state (blocked:", player.jump_input_blocked, "timer:", player.jump_block_timer, ")")
 	
 	# Get input for horizontal movement
 	var input_dir = Input.get_axis("left", "right")
