@@ -66,7 +66,7 @@ func _process(delta: float) -> void:
 	var left_world_x := cam_x - half_w
 	var right_world_x := cam_x + half_w
 
-	var off_screen_buffer = 100.0 # pixels
+	var off_screen_buffer = 200.0 # pixels - increased buffer to prevent premature despawning
 
 	if current_speed > 0: # Moving right
 		if left_edge > right_world_x + off_screen_buffer:

@@ -53,9 +53,9 @@ func perform_action(actor: String, target: String, action: String) -> bool:
 			return false
 		if gpd.has_method("add_gold"):
 			gpd.add_gold(-gold_cost)
-	# apply relation
+	# apply relation (no auto-news from WM since we post our own below)
 	var cur: int = wm.get_relation(actor, target)
-	wm.set_relation(actor, target, cur + delta)
+	wm.set_relation(actor, target, cur + delta, false)
 
 	# optional side effects
 	if action == "trade_agreement":

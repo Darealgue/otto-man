@@ -1184,6 +1184,99 @@ func _update_events_for_new_day(current_day: int) -> void:
 			events_active.append(ev)
 			_apply_event_effects(ev)
 
+# === World Event Effects Integration ===
+func apply_world_event_effects(event: Dictionary) -> void:
+	"""Apply effects from WorldManager events to village economy"""
+	var event_type := String(event.get("type", ""))
+	var effects: Dictionary = event.get("effects", {})
+	
+	match event_type:
+		"famine":
+			# Reduce food production
+			var food_mult := float(effects.get("food_production", 1.0))
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * food_mult
+			
+			# Apply morale penalty
+			var morale_penalty := float(effects.get("morale_penalty", 0))
+			village_morale = max(0.0, village_morale + morale_penalty)
+			
+		"plague":
+			# Reduce population health (affects production)
+			var health_mult := float(effects.get("population_health", 1.0))
+			global_multiplier *= health_mult
+			
+			# Production penalty
+			var prod_penalty := float(effects.get("production_penalty", 1.0))
+			for resource in resource_prod_multiplier.keys():
+				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) * prod_penalty
+				
+		"trade_boom":
+			# Increase gold income and trade bonuses
+			var gold_mult := float(effects.get("gold_multiplier", 1.0))
+			# This would need integration with GlobalPlayerData for gold income
+			# For now, just boost food production as trade benefit
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * gold_mult
+			
+		"war_declaration":
+			# Military focus reduces civilian production
+			var military_focus := float(effects.get("military_focus", 1.0))
+			var trade_disruption := float(effects.get("trade_disruption", 1.0))
+			
+			# Reduce all production due to military focus
+			for resource in resource_prod_multiplier.keys():
+				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) / military_focus
+			
+			# Trade disruption affects morale
+			village_morale = max(0.0, village_morale - (1.0 - trade_disruption) * 10.0)
+			
+		"rebellion":
+			# Stability penalty affects morale and production
+			var stability_penalty := float(effects.get("stability_penalty", 0))
+			var production_chaos := float(effects.get("production_chaos", 1.0))
+			
+			village_morale = max(0.0, village_morale + stability_penalty)
+			
+			# Chaotic production - random resource gets penalty
+			var resources: Array[String] = ["wood", "stone", "food", "water"]
+			var random_resource: String = resources[randi() % resources.size()]
+			resource_prod_multiplier[random_resource] = float(resource_prod_multiplier.get(random_resource, 1.0)) * production_chaos
+
+func remove_world_event_effects(event: Dictionary) -> void:
+	"""Remove effects from WorldManager events when they expire"""
+	var event_type := String(event.get("type", ""))
+	var effects: Dictionary = event.get("effects", {})
+	
+	match event_type:
+		"famine":
+			# Restore food production
+			var food_mult := float(effects.get("food_production", 1.0))
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, food_mult)
+			
+		"plague":
+			# Restore population health
+			var health_mult := float(effects.get("population_health", 1.0))
+			global_multiplier /= max(0.0001, health_mult)
+			
+			# Restore production
+			var prod_penalty := float(effects.get("production_penalty", 1.0))
+			for resource in resource_prod_multiplier.keys():
+				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) / max(0.0001, prod_penalty)
+				
+		"trade_boom":
+			# Remove trade bonuses
+			var gold_mult := float(effects.get("gold_multiplier", 1.0))
+			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, gold_mult)
+			
+		"war_declaration":
+			# Restore production
+			var military_focus := float(effects.get("military_focus", 1.0))
+			for resource in resource_prod_multiplier.keys():
+				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) * military_focus
+				
+		"rebellion":
+			# Effects are temporary and don't need explicit restoration
+			pass
+
 func _pick_and_create_event(current_day: int) -> Dictionary:
 	# cooldown check and simple pool
 	var pool := ["drought", "famine", "pest", "disease", "raid", "trade_opportunity"]

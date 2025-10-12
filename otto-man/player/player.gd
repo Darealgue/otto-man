@@ -75,6 +75,7 @@ var attack_cooldown_timer: float = 0.0 # <<< YENİ DEĞİŞKEN >>>
 var is_dodging: bool = false  # Track if player is currently dodging
 var jump_input_blocked: bool = false  # Block jump input during dodge
 var jump_block_timer: float = 0.0  # Timer to keep jump blocked after dodge
+var block_input_blocked_timer: float = 0.0  # Global timer to block block input after dodge
 
 # Combat state tracking for idle_combat animation
 var is_in_combat: bool = false
@@ -282,6 +283,12 @@ func _physics_process(delta):
 			jump_input_blocked = false
 			print("[Player] Jump input unblocked after timer")
 	
+	# Update block input block timer
+	if block_input_blocked_timer > 0:
+		block_input_blocked_timer -= delta
+		if block_input_blocked_timer <= 0:
+			print("[Player] Block input unblocked after timer")
+	
 	# Dash input removed - only dodge available until powerup upgrade
 	
 	# Handle hurt exit timer
@@ -419,8 +426,24 @@ func _physics_process(delta):
 	# Handle landing
 	var is_landing = is_on_floor() and not was_on_floor
 	if is_landing:
-		# Yere indiğimizde yapılacaklar (ses çalma vb.)
-		spawn_dust_cloud(get_foot_position(), "puff_down")
+		# Debug: Landing detection
+		var current_state_name = "UNKNOWN"
+		if $StateMachine and $StateMachine.current_state:
+			current_state_name = $StateMachine.current_state.name
+		
+		
+		# Dodge state'deyken toz efekti çıkmasın
+		if $StateMachine and $StateMachine.current_state:
+			is_dodging = $StateMachine.current_state.name == "Dodge"
+		
+		# Block state'deyken de toz efekti çıkmasın
+		var is_blocking = false
+		if $StateMachine and $StateMachine.current_state:
+			is_blocking = $StateMachine.current_state.name == "Block"
+		
+		if not is_dodging and not is_blocking:
+			# Yere indiğimizde yapılacaklar (ses çalma vb.)
+			spawn_dust_cloud(get_foot_position(), "puff_down")
 		# Yere indiğimizde was_on_floor'u hemen true yapabiliriz
 		was_on_floor = true
 		coyote_timer = COYOTE_TIME # Yere iner inmez coyote time'ı sıfırla

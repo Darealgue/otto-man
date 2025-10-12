@@ -655,10 +655,10 @@ func _setup_day_night_system() -> void:
 	grad_tex.fill_to = Vector2(0.5, 1.0)
 	sky_sprite.texture = grad_tex
 	# Keep parallax sky for compatibility, but also add a screen-space sky to guarantee coverage
-	# Parallax sprite (large, world-space)
+	# Parallax sprite (large, world-space) - match village size
 	sky_sprite.centered = false
-	sky_sprite.position = Vector2(-8192, -8192)
-	sky_sprite.scale = Vector2(16, 16)
+	sky_sprite.position = Vector2(-1, -748.501)
+	sky_sprite.scale = Vector2(124.844, 26.5781)
 	sky_layer.add_child(sky_sprite)
 	# Screen-space sky using CanvasLayer + TextureRect (fills viewport)
 	var sky_canvas := CanvasLayer.new()
@@ -825,10 +825,10 @@ func _setup_day_night_system() -> void:
 		trees_front_layer.motion_mirroring = Vector2(float(tfw), 0.0)
 
 	# Optional: simple clouds layer using same manager if available later
-	# Cloud parallax layers
-	var layer_far := ParallaxLayer.new(); layer_far.name = "ParallaxLayerFar"; layer_far.z_index = -19; layer_far.position = Vector2(0, -1); layer_far.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_far)
-	var layer_mid := ParallaxLayer.new(); layer_mid.name = "ParallaxLayerMid"; layer_mid.z_index = -18; layer_mid.position = Vector2(0, -1); layer_mid.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_mid)
-	var layer_near := ParallaxLayer.new(); layer_near.name = "ParallaxLayerNear"; layer_near.z_index = -17; layer_near.position = Vector2(0, -1); layer_near.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_near)
+	# Cloud parallax layers - behind forest parallax but in front of CanvasModulate
+	var layer_far := ParallaxLayer.new(); layer_far.name = "ParallaxLayerFar"; layer_far.z_index = -13; layer_far.position = Vector2(0, -1); layer_far.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_far)
+	var layer_mid := ParallaxLayer.new(); layer_mid.name = "ParallaxLayerMid"; layer_mid.z_index = -14; layer_mid.position = Vector2(0, -1); layer_mid.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_mid)
+	var layer_near := ParallaxLayer.new(); layer_near.name = "ParallaxLayerNear"; layer_near.z_index = -15; layer_near.position = Vector2(0, -1); layer_near.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_near)
 
 	# CloudManager from village
 	var cloud_manager := Node2D.new(); cloud_manager.name = "CloudManager"; cloud_manager.z_index = -3

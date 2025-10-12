@@ -106,7 +106,7 @@ func _spawn_cloud() -> void:
 	# Damp vertical parallax by anchoring to viewport top instead of following chunks closely
 
 	var sprite_width = (cloud_sprite.texture.get_width() if cloud_sprite.texture else 256.0) * max(cloud_sprite.scale.x, 1.0)
-	var off_screen_offset = sprite_width * 0.5 + 100.0
+	var off_screen_offset = sprite_width + 100.0 # Increased buffer to prevent premature despawning
 
 	# Add to layer first so setting global_position works in world-space
 	target_layer.add_child(new_cloud_instance)

@@ -419,8 +419,8 @@ func _initialize_components() -> void:
 	if not hurtbox:
 		push_error("Hurtbox node not found in enemy")
 		return
-	# Connect hurt signal if not already
-	if not hurtbox.hurt.is_connected(_on_hurtbox_hurt):
+	# Connect hurt signal if not already and if hurt signal exists
+	if hurtbox.has_signal("hurt") and not hurtbox.hurt.is_connected(_on_hurtbox_hurt):
 		hurtbox.hurt.connect(_on_hurtbox_hurt)
 		
 	hitbox = $Hitbox

@@ -8,7 +8,7 @@ var assigned_worker_ids: Array[int] = []
 var is_upgrading: bool = false
 var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 10.0
-@export var max_level: int = 3
+@export var max_level: int = 5
 
 @export var worker_stays_inside: bool = false
 
@@ -138,6 +138,7 @@ func _init():
 
 func _ready() -> void:
 	print("Well hazır.")
+	_update_texture()
 	_update_ui()
 
 func _process(delta: float) -> void:
@@ -201,7 +202,51 @@ func finish_upgrade() -> void:
 	VillageManager.notify_building_state_changed(self)
 	
 	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.WHITE
+	
+	# Texture'ı güncelle
+	_update_texture()
+	
 	print("Kuyu: Yeni seviye: %d" % level)
+
+# --- Texture Update ---
+func _update_texture() -> void:
+	print("Well: _update_texture() çağrıldı - Seviye: ", level)
+	
+	var sprite = get_node_or_null("Sprite2D")
+	if not sprite:
+		print("Well: Sprite2D bulunamadı!")
+		return
+	
+	print("Well: Sprite2D bulundu, texture güncelleniyor...")
+	
+	# Seviyeye göre texture yolu belirle
+	var texture_path = ""
+	match level:
+		1: texture_path = "res://village/buildings/sprite/well1.png"
+		2: texture_path = "res://village/buildings/sprite/well2.png"
+		3: texture_path = "res://village/buildings/sprite/well3.png"
+		4: texture_path = "res://village/buildings/sprite/well4.png"
+		5: texture_path = "res://village/buildings/sprite/well5.png"
+		_: 
+			print("Well: Geçersiz seviye: ", level, " - Varsayılan olarak seviye 1 kullanılıyor")
+			texture_path = "res://village/buildings/sprite/well1.png"
+	
+	print("Well: Texture yolu: ", texture_path)
+	
+	# Texture'ı yükle ve uygula
+	if ResourceLoader.exists(texture_path):
+		var texture = load(texture_path)
+		if texture:
+			sprite.texture = texture
+			# Texture boyutunu ayarla (gerekirse)
+			sprite.scale = Vector2(1.0, 1.0)
+			# Texture'ı doğru pozisyona ayarla (alt kenara hizala)
+			sprite.offset = Vector2(0, -texture.get_height() / 2)
+			print("Well: ✅ Texture başarıyla güncellendi - Seviye ", level, " (", texture_path, ")")
+		else:
+			print("Well: ❌ Texture yüklenemedi: ", texture_path)
+	else:
+		print("Well: ❌ Texture dosyası bulunamadı: ", texture_path)
 
 func _update_ui() -> void:
 	pass

@@ -1,4 +1,4 @@
-[gd_scene load_steps=50 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=48 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
@@ -46,15 +46,6 @@ colors = PackedColorArray(0, 0, 0, 1, 0, 1, 1, 1)
 gradient = SubResource("Gradient_xvddr")
 fill_from = Vector2(0.53211, 1)
 fill_to = Vector2(0.509174, 0)
-
-[sub_resource type="Gradient" id="Gradient_vpdyl"]
-interpolation_mode = 2
-colors = PackedColorArray(0.556863, 1, 1, 1, 0, 0.874031, 0.884127, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_c74ra"]
-gradient = SubResource("Gradient_vpdyl")
-fill_from = Vector2(0.509174, 0.00458716)
-fill_to = Vector2(0.509174, 1)
 
 [sub_resource type="Curve2D" id="Curve2D_i4un3"]
 bake_interval = 0.01
@@ -291,7 +282,7 @@ y_sort_enabled = true
 y_sort_enabled = true
 position = Vector2(-1, -748.501)
 scale = Vector2(124.844, 26.5781)
-texture = SubResource("GradientTexture2D_c74ra")
+texture = SubResource("GradientTexture2D_uvxvs")
 
 [node name="StarsLayer" type="ParallaxLayer" parent="ParallaxBackground"]
 z_index = -10

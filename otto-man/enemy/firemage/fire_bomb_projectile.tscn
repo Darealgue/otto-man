@@ -1,0 +1,37 @@
+[gd_scene load_steps=6 format=3 uid="uid://bjtfqcsig0ty0"]
+
+[ext_resource type="Script" path="res://enemy/firemage/fire_bomb_projectile.gd" id="1_xyz789"]
+[ext_resource type="Texture2D" uid="uid://2sfdsnaif3wk" path="res://enemy/firemage/sprite/fire_molotov.png" id="2_db183"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_otk2k"]
+atlas = ExtResource("2_db183")
+region = Rect2(0, 0, 50, 50)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_1"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_otk2k")
+}],
+"loop": true,
+"name": &"rotate",
+"speed": 8.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1"]
+radius = 11.0454
+
+[node name="FireBombProjectile" type="Area2D"]
+script = ExtResource("1_xyz789")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_1")
+animation = &"rotate"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 2)
+shape = SubResource("CircleShape2D_1")
+
+[node name="ExplosionTimer" type="Timer" parent="."]
+wait_time = 3.0
+autostart = true

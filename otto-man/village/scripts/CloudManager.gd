@@ -161,16 +161,25 @@ func _spawn_cloud() -> void:
 		# We should set this *before* adding to scene tree if its _ready() depends on it.
 		new_cloud_instance.set("move_left", move_left)
 
-
-	# 6. Set cloud's initial position (off-screen)
+	# 6. Set cloud's initial position (off-screen) - Use current camera position
 	var spawn_y = randf_range(cloud_y_position_min, cloud_y_position_max)
 	var sprite_width = cloud_sprite.texture.get_width() * cloud_sprite.scale.x # Use actual texture width
 	var off_screen_offset = sprite_width + 50 # Buffer to ensure it's fully off-screen. Increased buffer from sprite_width / 2 + 20
 
+	# Get current camera position for accurate spawning
+	var viewport = get_viewport()
+	var viewport_size = viewport.get_visible_rect().size
+	var cam := viewport.get_camera_2d()
+	var cam_x := 0.0
+	if cam and cam is Camera2D:
+		cam_x = (cam as Camera2D).global_position.x
+	var left_world_x = cam_x - (viewport_size.x * 0.5)
+	var right_world_x = cam_x + (viewport_size.x * 0.5)
+
 	if move_left: # Spawns on the right, moves left
-		new_cloud_instance.global_position = Vector2(_viewport_width + off_screen_offset, spawn_y)
+		new_cloud_instance.global_position = Vector2(right_world_x + off_screen_offset, spawn_y)
 	else: # Spawns on the left, moves right
-		new_cloud_instance.global_position = Vector2(-off_screen_offset, spawn_y)
+		new_cloud_instance.global_position = Vector2(left_world_x - off_screen_offset, spawn_y)
 	
 	# 7. Add the instanced cloud as a child to the chosen ParallaxLayer
 	# The ParallaxLayer will then manage its movement based on its own scroll speed.

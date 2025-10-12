@@ -16,12 +16,12 @@ func physics_update(delta: float):
 		state_machine.transition_to("HeavyAttack")
 		return
 		
-	# Check for block input
-	if Input.is_action_pressed("block"):
-		var block_state = state_machine.get_node("Block")
-		if block_state.current_stamina > 0:  # Only try to block if we have stamina
+	# Check for block input - sadece charge varsa işle
+	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
+	if stamina_bar and stamina_bar.has_charges():
+		if Input.is_action_just_pressed("block") or Input.is_action_pressed("block"):
 			state_machine.transition_to("Block")
-		return
+			return
 		
 	# Check for dodge input (only dodge available, dash locked until powerup)
 	if Input.is_action_just_pressed("dash"):

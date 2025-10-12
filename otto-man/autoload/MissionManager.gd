@@ -49,6 +49,8 @@ signal mission_chain_progressed(chain_id: String, progress: Dictionary)
 signal news_posted(news: Dictionary)
 signal mission_unlocked(mission_id: String)
 signal trade_offers_updated()
+signal battle_completed(battle_result: Dictionary)
+signal unit_losses_reported(unit_type: String, losses: int)
 
 func _ready():
 	#print("🚀 ===== MISSIONMANAGER _READY BAŞLADI =====")
@@ -84,6 +86,9 @@ func _initialize():
 
 	# Başlangıç ticaret teklifleri
 	refresh_trade_offers("init")
+	
+	# Combat system integration
+	_setup_combat_system()
 	
 	#print("🚀 ===== MISSIONMANAGER _INITIALIZE BİTTİ =====")
 
@@ -1444,17 +1449,49 @@ func process_world_events():
 	if settlements.size() >= 2 and randf() < 0.2:
 		_trigger_embargo_between_settlements()
 
-func post_news(category: String, title: String, content: String, color: Color = Color.WHITE):
+func post_news(category: String, title: String, content: String, color: Color = Color.WHITE, subcategory: String = "info"):
 	var tm = get_node_or_null("/root/TimeManager")
 	var time_text = tm.get_time_string() if tm and tm.has_method("get_time_string") else "Şimdi"
+	
+	# Determine priority and visual emphasis based on subcategory
+	var priority := 0
+	var emphasis_color := color
+	var emphasis_icon := ""
+	
+	match subcategory:
+		"critical":
+			priority = 3
+			emphasis_color = Color(1.0, 0.3, 0.3)  # Bright red
+			emphasis_icon = "🚨"
+		"warning":
+			priority = 2
+			emphasis_color = Color(1.0, 0.7, 0.3)  # Orange
+			emphasis_icon = "⚠️"
+		"success":
+			priority = 1
+			emphasis_color = Color(0.3, 1.0, 0.3)  # Bright green
+			emphasis_icon = "✅"
+		"info":
+			priority = 0
+			emphasis_color = color
+			emphasis_icon = "ℹ️"
+	
+	# Add icon to title if not already present
+	var final_title := title
+	if not title.begins_with(emphasis_icon):
+		final_title = emphasis_icon + " " + title
+	
 	var news = {
 		"id": _next_news_id,
 		"category": category,
-		"title": title,
+		"subcategory": subcategory,
+		"title": final_title,
 		"content": content,
 		"time": time_text,
 		"timestamp": int(Time.get_unix_time_from_system()),
-		"color": color,
+		"color": emphasis_color,
+		"original_color": color,
+		"priority": priority,
 		"read": false
 	}
 	_next_news_id += 1
@@ -2064,3 +2101,329 @@ func create_special_mission(special_type: String) -> Mission:
 	
 	next_mission_id += 1
 	return mission
+
+# === Combat System Integration ===
+func _setup_combat_system() -> void:
+	"""Setup combat system integration"""
+	var cr = get_node_or_null("/root/CombatResolver")
+	if cr:
+		# Connect combat signals
+		cr.connect("battle_resolved", Callable(self, "_on_battle_resolved"))
+		cr.connect("unit_losses", Callable(self, "_on_unit_losses"))
+		cr.connect("equipment_consumed", Callable(self, "_on_equipment_consumed"))
+
+func create_raid_mission(target_settlement: String, difficulty: String = "medium") -> Dictionary:
+	"""Create a raid mission against a settlement"""
+	var mission_id := "raid_" + target_settlement + "_" + str(next_mission_id)
+	var mission := {
+		"id": mission_id,
+		"type": "raid",
+		"name": "Baskın: " + target_settlement,
+		"description": target_settlement + " yerleşimine baskın düzenle",
+		"target": target_settlement,
+		"difficulty": difficulty,
+		"duration": 15.0,
+		"success_chance": 0.6,
+		"required_army_size": 3,
+		"required_resources": {"gold": 100, "weapon": 5, "armor": 3},
+		"rewards": {"gold": 300, "equipment": {"weapon": 2, "armor": 1}},
+		"penalties": {"gold": -50, "army_losses": 1},
+		"status": "available"
+	}
+	
+	missions[mission_id] = mission
+	next_mission_id += 1
+	
+	# Post news about raid opportunity
+	post_news("Görev", "Baskın Fırsatı", target_settlement + " yerleşimine baskın düzenleme fırsatı!", Color(1, 0.8, 0.8), "warning")
+	
+	return mission
+
+func create_defense_mission(attacker: String) -> Dictionary:
+	"""Create a defense mission against an attacker"""
+	var mission_id := "defense_" + attacker + "_" + str(next_mission_id)
+	var mission := {
+		"id": mission_id,
+		"type": "defense",
+		"name": "Savunma: " + attacker,
+		"description": attacker + " saldırısına karşı köyü savun",
+		"attacker": attacker,
+		"difficulty": "hard",
+		"duration": 10.0,
+		"success_chance": 0.7,
+		"required_army_size": 4,
+		"required_resources": {"gold": 50, "weapon": 3, "armor": 2},
+		"rewards": {"gold": 200, "stability_bonus": 15, "reputation": 10},
+		"penalties": {"gold": -100, "stability_penalty": -20, "army_losses": 2},
+		"status": "urgent"
+	}
+	
+	missions[mission_id] = mission
+	next_mission_id += 1
+	
+	# Post urgent news about defense
+	post_news("Acil", "Savunma Gerekli", attacker + " saldırısına karşı köyü savun!", Color(1, 0.3, 0.3), "critical")
+	
+	return mission
+
+func execute_battle_mission(mission_id: String, cariye_id: int) -> Dictionary:
+	"""Execute a battle mission using CombatResolver"""
+	var mission: Dictionary = missions.get(mission_id, {})
+	if mission.is_empty():
+		return {"error": "Mission not found"}
+	
+	var cr = get_node_or_null("/root/CombatResolver")
+	if not cr:
+		return {"error": "CombatResolver not available"}
+	
+	# Get player's military force
+	var player_force := _get_player_military_force()
+	
+	# Get target force based on mission type
+	var target_force := {}
+	if mission.type == "raid":
+		target_force = _get_settlement_defense_force(mission.target)
+	elif mission.type == "defense":
+		target_force = _get_attacker_force(mission.attacker)
+	
+	# Execute battle
+	var battle_result := {}
+	if mission.type == "raid":
+		battle_result = cr.simulate_raid(player_force, target_force)
+	elif mission.type == "defense":
+		battle_result = cr.simulate_skirmish(target_force, player_force)
+	
+	# Process battle results
+	_process_battle_results(mission, battle_result)
+	
+	return battle_result
+
+func _get_player_military_force() -> Dictionary:
+	"""Get player's current military force"""
+	# This would integrate with VillageManager or GlobalPlayerData
+	# For now, return a basic force
+	return {
+		"units": {"infantry": 5, "archers": 3, "cavalry": 2},
+		"equipment": {"weapon": 10, "armor": 8},
+		"supplies": {"bread": 20, "water": 15},
+		"gold": 500
+	}
+
+func _get_settlement_defense_force(settlement_name: String) -> Dictionary:
+	"""Get defense force for a settlement"""
+	# Find settlement in settlements array
+	var settlement := {}
+	for s in settlements:
+		if s.get("name", "") == settlement_name:
+			settlement = s
+			break
+	
+	if settlement.is_empty():
+		# Default defense force
+		return {
+			"units": {"infantry": 3, "archers": 2},
+			"equipment": {"weapon": 5, "armor": 4},
+			"supplies": {"bread": 10, "water": 8},
+			"gold": 200
+		}
+	
+	# Calculate defense force based on settlement stats
+	var military := int(settlement.get("military", 50))
+	var wealth := int(settlement.get("wealth", 50))
+	
+	var infantry := int(military / 20)
+	var archers := int(military / 30)
+	var cavalry := int(military / 40)
+	
+	return {
+		"units": {"infantry": infantry, "archers": archers, "cavalry": cavalry},
+		"equipment": {"weapon": int(wealth / 10), "armor": int(wealth / 15)},
+		"supplies": {"bread": int(wealth / 5), "water": int(wealth / 8)},
+		"gold": wealth
+	}
+
+func _get_attacker_force(attacker_name: String) -> Dictionary:
+	"""Get attacker force for defense missions"""
+	# Generate attacker force based on world stability
+	var stability := world_stability
+	var attacker_strength := int((100 - stability) / 10) + 2
+	
+	return {
+		"units": {"infantry": attacker_strength, "archers": int(attacker_strength / 2)},
+		"equipment": {"weapon": attacker_strength * 2, "armor": attacker_strength},
+		"supplies": {"bread": attacker_strength * 3, "water": attacker_strength * 2},
+		"gold": attacker_strength * 50
+	}
+
+func _process_battle_results(mission: Dictionary, battle_result: Dictionary) -> void:
+	"""Process the results of a battle"""
+	var victor: String = battle_result.get("victor", "defender")
+	var attacker_losses: int = battle_result.get("attacker_losses", 0)
+	var defender_losses: int = battle_result.get("defender_losses", 0)
+	var gains: Dictionary = battle_result.get("gains", {})
+	
+	# Determine if player won
+	var player_won := false
+	if mission.type == "raid" and victor == "attacker":
+		player_won = true
+	elif mission.type == "defense" and victor == "defender":
+		player_won = true
+	
+	# Apply results
+	if player_won:
+		# Apply gains
+		var gold_gain := int(gains.get("gold", 0))
+		if gold_gain > 0:
+			GlobalPlayerData.add_gold(gold_gain)
+		
+		# Apply equipment gains
+		var equipment_gains: Dictionary = gains.get("equipment", {})
+		for equipment_type in equipment_gains:
+			var amount := int(equipment_gains[equipment_type])
+			# This would need integration with equipment storage system
+			pass
+		
+		# Post success news
+		var title: String = "Savaş Zaferi"
+		var content: String = mission.name + " başarıyla tamamlandı! Kazanç: " + str(gold_gain) + " altın"
+		post_news("Başarı", title, content, Color(0.3, 1.0, 0.3), "success")
+		
+		# Update world stability
+		world_stability = min(100, world_stability + 5)
+		
+	else:
+		# Apply losses
+		var gold_loss := int(mission.get("penalties", {}).get("gold", 0))
+		if gold_loss > 0:
+			GlobalPlayerData.add_gold(-gold_loss)
+		
+		# Apply stability penalty
+		var stability_penalty := int(mission.get("penalties", {}).get("stability_penalty", 0))
+		if stability_penalty > 0:
+			world_stability = max(0, world_stability - stability_penalty)
+		
+		# Post failure news
+		var title: String = "Savaş Yenilgisi"
+		var content: String = mission.name + " başarısız oldu. Kayıp: " + str(gold_loss) + " altın"
+		post_news("Uyarı", title, content, Color(1.0, 0.3, 0.3), "critical")
+		
+		# Update world stability
+		world_stability = max(0, world_stability - 10)
+	
+	# Emit battle completed signal
+	battle_completed.emit(battle_result)
+
+func _on_battle_resolved(attacker: Dictionary, defender: Dictionary, result: Dictionary) -> void:
+	"""Handle battle resolution signal from CombatResolver"""
+	# This can be used for additional processing
+	pass
+
+func _on_unit_losses(unit_type: String, losses: int) -> void:
+	"""Handle unit losses signal from CombatResolver"""
+	unit_losses_reported.emit(unit_type, losses)
+	
+	# Post news about losses
+	if losses > 0:
+		post_news("Uyarı", "Asker Kaybı", str(losses) + " " + unit_type + " kaybedildi", Color(1.0, 0.7, 0.3), "warning")
+
+func _on_equipment_consumed(equipment_type: String, amount: int) -> void:
+	"""Handle equipment consumption signal from CombatResolver"""
+	# This would integrate with equipment storage system
+	pass
+
+# === Debug Functions for Testing ===
+func debug_create_test_raid() -> Dictionary:
+	"""Create a test raid mission for debugging"""
+	var test_mission := create_raid_mission("Test Yerleşimi", "medium")
+	print("🔍 Test baskın görevi oluşturuldu: ", test_mission.id)
+	return test_mission
+
+func debug_create_test_defense() -> Dictionary:
+	"""Create a test defense mission for debugging"""
+	var test_mission := create_defense_mission("Test Saldırgan")
+	print("🔍 Test savunma görevi oluşturuldu: ", test_mission.id)
+	return test_mission
+
+func debug_execute_test_battle(mission_id: String) -> Dictionary:
+	"""Execute a test battle for debugging"""
+	print("🔍 Test savaş başlatılıyor: ", mission_id)
+	var result := execute_battle_mission(mission_id, 1)  # Use cariye ID 1
+	print("🔍 Savaş sonucu: ", result)
+	return result
+
+func debug_create_test_forces() -> Dictionary:
+	"""Create test military forces for debugging"""
+	var cr = get_node_or_null("/root/CombatResolver")
+	if not cr:
+		print("❌ CombatResolver bulunamadı!")
+		return {}
+	
+	# Create test attacker force
+	var attacker: Dictionary = cr.create_force(
+		{"infantry": 5, "archers": 3, "cavalry": 2},
+		{"weapon": 10, "armor": 8},
+		{"bread": 20, "water": 15},
+		500
+	)
+	
+	# Create test defender force  
+	var defender: Dictionary = cr.create_force(
+		{"infantry": 4, "archers": 2, "cavalry": 1},
+		{"weapon": 6, "armor": 5},
+		{"bread": 12, "water": 10},
+		300
+	)
+	
+	print("🔍 Test kuvvetleri oluşturuldu:")
+	print("  Saldırgan: ", attacker)
+	print("  Savunan: ", defender)
+	
+	# Test battle
+	var battle_result: Dictionary = cr.simulate_raid(attacker, defender)
+	print("🔍 Test savaş sonucu: ", battle_result)
+	
+	return battle_result
+
+func debug_show_combat_stats() -> void:
+	"""Show current combat system stats"""
+	var cr = get_node_or_null("/root/CombatResolver")
+	if not cr:
+		print("❌ CombatResolver bulunamadı!")
+		return
+	
+	print("🔍 Savaş Sistemi İstatistikleri:")
+	print("  Savaş sistemi aktif: ", cr.war_enabled)
+	print("  Mevcut birlik türleri: ", cr.get_unit_types().keys())
+	print("  Dünya istikrarı: ", world_stability)
+	print("  Oyuncu itibarı: ", player_reputation)
+	
+	# Show player force
+	var player_force := _get_player_military_force()
+	print("  Oyuncu kuvveti: ", player_force)
+
+func debug_run_full_combat_test() -> void:
+	"""Run a complete combat system test"""
+	print("🚀 === SAVAŞ SİSTEMİ TAM TEST BAŞLIYOR ===")
+	
+	# 1. Show initial stats
+	debug_show_combat_stats()
+	
+	# 2. Create test forces and battle
+	print("\n🔍 Test kuvvetleri oluşturuluyor...")
+	debug_create_test_forces()
+	
+	# 3. Create and test raid mission
+	print("\n🔍 Baskın görevi test ediliyor...")
+	var raid_mission := debug_create_test_raid()
+	debug_execute_test_battle(raid_mission.id)
+	
+	# 4. Create and test defense mission
+	print("\n🔍 Savunma görevi test ediliyor...")
+	var defense_mission := debug_create_test_defense()
+	debug_execute_test_battle(defense_mission.id)
+	
+	# 5. Show final stats
+	print("\n🔍 Test sonrası istatistikler:")
+	debug_show_combat_stats()
+	
+	print("🚀 === SAVAŞ SİSTEMİ TAM TEST BİTTİ ===")

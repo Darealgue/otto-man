@@ -22,6 +22,7 @@ func _ready():
 	pass
 
 func enter():
+	
 	# Enter combat state when blocking
 	player.enter_combat_state()
 	
@@ -38,7 +39,6 @@ func enter():
 	is_blocking = false
 	can_parry = true
 	parry_timer = PARRY_WINDOW
-	print("[Block] ENTER | Parry window started=", PARRY_WINDOW)
 	is_in_impact_animation = false
 	is_transitioning = false
 	stamina_consumed_this_hit = false
@@ -52,7 +52,7 @@ func enter():
 		finish_timer.timeout.connect(_on_finish_timer_timeout)
 		add_child(finish_timer)
 	
-	# Play prepare animation
+	# Normal giriş - prepare animasyonu oynat
 	animation_player.play("block_prepare")
 	
 	# Connect to animation finished signal
@@ -84,6 +84,10 @@ func exit():
 		animation_player.animation_finished.disconnect(_on_animation_finished)
 	if player.hurtbox.is_connected("hurt", _on_hurtbox_hurt):
 		player.hurtbox.disconnect("hurt", _on_hurtbox_hurt)
+	
+	# Block state'den çıkarken was_on_floor'u true yap - landing tespit edilmesini engelle
+	if player.is_on_floor():
+		player.was_on_floor = true
 
 func physics_update(delta: float):
 	# Don't process input during transitions
@@ -138,6 +142,11 @@ func _start_finish_animation():
 	if is_transitioning:  # Don't start finish animation if already transitioning
 		return
 	is_transitioning = true
+	
+	# Block state'den çıkarken was_on_floor'u hemen true yap - landing tespit edilmesini engelle
+	if player.is_on_floor():
+		player.was_on_floor = true
+	
 	animation_player.play("block_finish")
 	# Start safety timer
 	finish_timer.start(0.25)  # Slightly longer than animation length

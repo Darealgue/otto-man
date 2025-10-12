@@ -40,29 +40,21 @@ func _on_new_day(day: int) -> void:
 		return
 	_last_tick_day = day
 	_simulate_day(day)
+	
+	# Apply world event effects to village economy
+	_apply_world_events_to_village(day)
 
 func _simulate_day(day: int) -> void:
-	# Very light placeholder simulation to avoid breaking gameplay
-	# 10% chance of a trade boom event on a random non-player faction
-	if randi() % 10 == 0 and factions.size() > 1:
+	# Dynamic world events simulation
+	# 15% chance of any event on a random non-player faction
+	if randi() % 100 < 15 and factions.size() > 1:
 		var idx := 1 + int(randi() % (factions.size() - 1))
 		var faction := factions[idx]
-		var ev := {
-			"type": "trade_boom",
-			"faction": faction,
-			"magnitude": 1.1,
-			"duration": 3,
-			"started_day": day
-		}
+		var event_type := _get_random_event_type()
+		var ev := _create_event(event_type, faction, day)
 		active_events.append(ev)
 		world_event_started.emit(ev)
-		_post_world_news({
-			"category": "world",
-			"subcategory": "info",
-			"title": "Ticaret Canlandı",
-			"content": "%s bölgesinde ticaret hareketlendi." % faction,
-			"day": day
-		})
+		_post_event_news(ev, day)
 
 	# Decay expired events
 	var remaining: Array[Dictionary] = []
@@ -73,10 +65,28 @@ func _simulate_day(day: int) -> void:
 			remaining.append(e)
 	active_events = remaining
 
-func set_relation(a: String, b: String, value: int) -> void:
+func set_relation(a: String, b: String, value: int, post_news: bool = false) -> void:
 	var key := _rel_key(a, b)
-	relations[key] = clamp(value, -100, 100)
-	relation_changed.emit(a, b, int(relations[key]))
+	var old_val: int = int(relations.get(key, 0))
+	var new_val: int = clamp(value, -100, 100)
+	relations[key] = new_val
+	relation_changed.emit(a, b, new_val)
+	
+	# Optionally post news if the relation significantly changed
+	if post_news and abs(new_val - old_val) >= 5:
+		var change: int = new_val - old_val
+		var subcategory: String = "info"
+		if change > 0:
+			subcategory = "success"
+		elif change < 0:
+			subcategory = "warning"
+		_post_world_news({
+			"category": "world",
+			"subcategory": subcategory,
+			"title": "İlişki Değişti",
+			"content": "%s ile %s arasındaki ilişki %s%d oldu." % [a, b, "+" if change > 0 else "", change],
+			"day": 0  # Will be filled by news system if needed
+		})
 
 func get_relation(a: String, b: String) -> int:
 	var key := _rel_key(a, b)
@@ -129,6 +139,130 @@ func set_state(state: Dictionary) -> void:
 		active_wars = state["active_wars"].duplicate(true)
 	if state.has("active_events"):
 		active_events = state["active_events"].duplicate(true)
+
+func _get_random_event_type() -> String:
+	var event_types := ["trade_boom", "famine", "plague", "war_declaration", "rebellion"]
+	return event_types[randi() % event_types.size()]
+
+func _create_event(type: String, faction: String, day: int) -> Dictionary:
+	match type:
+		"trade_boom":
+			return {
+				"type": "trade_boom",
+				"faction": faction,
+				"magnitude": 1.2,
+				"duration": 5,
+				"started_day": day,
+				"effects": {"gold_multiplier": 1.2, "trade_bonus": 10}
+			}
+		"famine":
+			return {
+				"type": "famine",
+				"faction": faction,
+				"magnitude": 0.8,
+				"duration": 7,
+				"started_day": day,
+				"effects": {"food_production": 0.5, "morale_penalty": -15}
+			}
+		"plague":
+			return {
+				"type": "plague",
+				"faction": faction,
+				"magnitude": 0.7,
+				"duration": 10,
+				"started_day": day,
+				"effects": {"population_health": 0.6, "production_penalty": 0.3}
+			}
+		"war_declaration":
+			return {
+				"type": "war_declaration",
+				"faction": faction,
+				"magnitude": 1.0,
+				"duration": 30,
+				"started_day": day,
+				"effects": {"military_focus": 1.5, "trade_disruption": 0.8}
+			}
+		"rebellion":
+			return {
+				"type": "rebellion",
+				"faction": faction,
+				"magnitude": 0.6,
+				"duration": 14,
+				"started_day": day,
+				"effects": {"stability_penalty": -20, "production_chaos": 0.4}
+			}
+		_:
+			return {"type": "unknown", "faction": faction, "magnitude": 1.0, "duration": 1, "started_day": day}
+
+func _post_event_news(event: Dictionary, day: int) -> void:
+	var type := String(event.get("type", "unknown"))
+	var faction := String(event.get("faction", "Bilinmeyen"))
+	var duration := int(event.get("duration", 0))
+	var subcategory := "info"
+	
+	match type:
+		"trade_boom":
+			subcategory = "success"
+		"famine", "plague", "rebellion":
+			subcategory = "critical"
+		"war_declaration":
+			subcategory = "warning"
+	
+	var title := ""
+	var content := ""
+	
+	match type:
+		"trade_boom":
+			title = "Ticaret Patlaması"
+			content = "%s bölgesinde ticaret canlandı! (%d gün)" % [faction, duration]
+		"famine":
+			title = "Kıtlık"
+			content = "%s bölgesinde kıtlık başladı! Gıda üretimi düştü. (%d gün)" % [faction, duration]
+		"plague":
+			title = "Salgın"
+			content = "%s bölgesinde salgın hastalık yayıldı! Nüfus sağlığı tehlikede. (%d gün)" % [faction, duration]
+		"war_declaration":
+			title = "Savaş İlanı"
+			content = "%s bölgesinde savaş patlak verdi! Ticaret kesintiye uğradı. (%d gün)" % [faction, duration]
+		"rebellion":
+			title = "İsyan"
+			content = "%s bölgesinde isyan çıktı! İstikrar sarsıldı. (%d gün)" % [faction, duration]
+	
+	# Post news with proper subcategory for visual emphasis
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm and mm.has_method("post_news"):
+		mm.post_news("Dünya", title, content, Color.WHITE, subcategory)
+	else:
+		# Fallback to old system
+		_post_world_news({
+			"category": "world",
+			"subcategory": subcategory,
+			"title": title,
+			"content": content,
+			"day": day
+		})
+
+func _apply_world_events_to_village(day: int) -> void:
+	"""Apply active world events to village economy"""
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm or not vm.has_method("apply_world_event_effects"):
+		return
+	
+	# Apply effects of all active events
+	for event in active_events:
+		vm.apply_world_event_effects(event)
+	
+	# Remove effects of expired events
+	var remaining: Array[Dictionary] = []
+	for event in active_events:
+		var started_day := int(event.get("started_day", day))
+		var duration := int(event.get("duration", 0))
+		if day - started_day < duration:
+			remaining.append(event)
+		else:
+			# Event expired, remove its effects
+			vm.remove_world_event_effects(event)
+	active_events = remaining
 
 func _post_world_news(news: Dictionary) -> void:
 	# Prefer MissionManager news pipeline if present

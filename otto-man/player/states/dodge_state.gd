@@ -83,9 +83,21 @@ func enter():
 func physics_update(delta: float):
 	dodge_timer -= delta
 	
+	
 	# Zıplama kontrolü: İlk yarıda zıplama engellensin, son yarıda serbest olsun
 	var dodge_progress = 1.0 - (dodge_timer / DODGE_DURATION)  # 0.0 = başlangıç, 1.0 = bitiş
 	var can_jump_during_dodge = dodge_progress >= 0.5  # Son yarıda zıplama serbest
+	
+	# Debug: Dodge state info
+	print("[DODGE_DEBUG] Progress: ", dodge_progress, " Timer: ", dodge_timer, " is_on_floor: ", player.is_on_floor(), " velocity: ", player.velocity, " gravity_active: ", dodge_timer < (DODGE_DURATION - 0.1), " block_blocked_timer: ", player.block_input_blocked_timer)
+	
+	# Block input'u engelle - sadece just_pressed ile (sürekli basılı kalmasını engelle)
+	# Özellikle yerçekimi devreye girdiği son 0.1 saniyede engelle
+	if Input.is_action_just_pressed("block"):
+		print("[Dodge] Block input blocked during dodge - progress: ", dodge_progress)
+		# Input'u tamamen tüket - diğer state'lerin görmesini engelle
+		get_viewport().set_input_as_handled()
+		return
 	
 	# Zıplama input kontrolü - EN YÜKSEK ÖNCELİK
 	if Input.is_action_just_pressed("jump"):
@@ -110,7 +122,8 @@ func physics_update(delta: float):
 	# Yer çekimi uygula (dodge sırasında da çalışsın)
 	# İlk 0.1 saniye yer çekimi yok (hafif yukarı zıplama efekti)
 	if not player.is_on_floor() and dodge_timer < (DODGE_DURATION - 0.1):
-		player.velocity.y += player.gravity * delta
+		# Dodge sırasında daha yumuşak gravity - normal gravity'nin %60'ı
+		player.velocity.y += player.gravity * 0.6 * delta
 	
 	if dodge_timer <= 0:
 		# Reduce speed when ending dodge to prevent excessive drift
@@ -138,6 +151,16 @@ func exit():
 	# Input buffering sorununu çözmek için 0.05 saniye daha engelle
 	player.jump_block_timer = 0.05
 	print("[Dodge] Jump input will be unblocked after 0.05s timer")
+	
+	# Block input'unu da kısa bir süre engelle (0.3 saniye) - global timer kullan
+	# Yerçekimi devreye girdiği son 0.1 saniye + ekstra güvenlik için 0.3 saniye
+	player.block_input_blocked_timer = 0.3
+	print("[Dodge] Block input will be blocked for 0.3s after dodge")
+	
+	# Eğer block tuşu hala basılıysa, input'u tüket
+	if Input.is_action_pressed("block"):
+		print("[Dodge] Consuming block input on exit")
+		get_viewport().set_input_as_handled()
 	
 	# Ensure collision settings are restored when exiting state
 	player.collision_mask = original_collision_mask

@@ -39,11 +39,16 @@ func _on_area_entered(hitbox: Area2D):
 		
 		# Check if parent is in block state BEFORE setting damage
 		var parent = get_parent()
-		if parent.has_node("StateMachine") and parent.state_machine.current_state.name == "Block":
-			# Let block state handle the damage value
-			await parent.state_machine.current_state._on_hurtbox_hurt(hitbox)
+		if parent.has_node("StateMachine") and parent.state_machine.has_method("get_current_state"):
+			var current_state = parent.state_machine.get_current_state()
+			if current_state and current_state.name == "Block":
+				# Let block state handle the damage value
+				await current_state._on_hurtbox_hurt(hitbox)
+			else:
+				# Normal damage handling
+				last_damage = hitbox.damage
 		else:
-			# Normal damage handling
+			# Normal damage handling (for enemies without state machine)
 			last_damage = hitbox.damage
 		
 		# Emit hurt signal after damage is determined

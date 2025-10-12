@@ -1,12 +1,23 @@
-[gd_scene load_steps=2 format=3 uid="uid://cqos6oeqcgvee"]
+[gd_scene load_steps=7 format=3 uid="uid://cqos6oeqcgvee"]
 
 [ext_resource type="Script" path="res://village/scripts/Well.gd" id="1_nmieb"]
+[ext_resource type="Texture2D" path="res://village/buildings/sprite/well1.png" id="2_well1"]
+[ext_resource type="Texture2D" path="res://village/buildings/sprite/well2.png" id="3_well2"]
+[ext_resource type="Texture2D" path="res://village/buildings/sprite/well3.png" id="4_well3"]
+[ext_resource type="Texture2D" path="res://village/buildings/sprite/well4.png" id="5_well4"]
+[ext_resource type="Texture2D" path="res://village/buildings/sprite/well5.png" id="6_well5"]
 
 [node name="Well" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_nmieb")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_well1")
+z_index = 1
+offset = Vector2(0, 0)
 
 [node name="ColorRect" type="ColorRect" parent="."]
 offset_left = -20.0
 offset_top = -40.0
 offset_right = 20.0
 color = Color(0.173713, 0.392006, 0.734552, 1)
+visible = false

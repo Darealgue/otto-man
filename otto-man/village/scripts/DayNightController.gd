@@ -108,8 +108,9 @@ func _process(delta: float) -> void:
 		var current_top_grad_color = grad.get_color(0)
 		var current_bottom_grad_color = grad.get_color(1)
 		
-		var target_top_grad_color = _target_bg_color 
-		var target_bottom_grad_color = _target_bg_color.lightened(0.3)
+		# Use _target_main_color for sky gradient to match the overall color scheme
+		var target_top_grad_color = _target_main_color 
+		var target_bottom_grad_color = _target_main_color.lightened(0.3)
 
 		grad.set_color(0, current_top_grad_color.lerp(target_top_grad_color, lerp_val))
 		grad.set_color(1, current_bottom_grad_color.lerp(target_bottom_grad_color, lerp_val))
