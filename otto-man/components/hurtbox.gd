@@ -6,7 +6,7 @@ var is_player := false
 var last_damage := 0.0
 var last_hitbox = null
 var debug_enabled := true  # Enable debug for tracking
-var hit_cooldown := 0.1  # Default cooldown between hits
+var hit_cooldown := 0.05  # Reduced cooldown for better hit detection
 var slam_hit_cooldown := 0.5  # Longer cooldown for slam attacks
 var recent_hits := {}  # Dictionary to track recent hits and their cooldowns
 

@@ -2,7 +2,7 @@ class_name FiremageEnemy
 extends "res://enemy/base_enemy.gd"
 
 # Firemage specific constants
-const HOVER_HEIGHT = 200.0  # Yerden yükseklik
+const HOVER_HEIGHT = 50.0  # Yerden yükseklik (daha az)
 const MAINTAIN_DISTANCE = 250.0  # Oyuncudan mesafe
 const FLY_SPEED = 200.0  # Uçuş hızı (daha hızlı)
 const WALL_AVOIDANCE_DISTANCE = 50.0  # Duvar kaçınma mesafesi
@@ -68,18 +68,17 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	
-	# Hurt state - havada kalması için hafif gravity
+	# Hurt state - normal physics
 	if current_behavior == "hurt":
 		if not is_sleeping:
 			handle_behavior(delta)
-		# Hurt sırasında çok hafif gravity uygula
-		if is_flying:
-			velocity.y += GRAVITY * 0.1 * delta
+		# Normal gravity uygula
+		velocity.y += GRAVITY * delta
 		move_and_slide()
 		return
 	
 	# Takeoff rise veya flying sırasında gravity uygulama
-	if current_behavior == "takeoff_rise" or is_flying:
+	if current_behavior == "takeoff_rise" or (is_flying and not is_on_floor()):
 		# Sadece behavior ve hareket
 		if not is_sleeping:
 			handle_behavior(delta)
@@ -151,8 +150,15 @@ func _handle_takeoff_rise_state(delta: float) -> void:
 	# Havada yükselme animasyonu (5 frame loop)
 	# Sadece bir kez zıplama yap
 	if not has_meta("takeoff_jumped"):
-		velocity.y = -350.0  # Yukarı doğru zıplama (çok daha hızlı yükselme)
-		velocity.x = 0.0  # Yatay hareket yok
+		velocity.y = -200.0  # Yukarı doğru zıplama (daha az yükseklik)
+		
+		# Add horizontal movement towards player
+		if target and is_instance_valid(target):
+			var direction_to_player = global_position.direction_to(target.global_position)
+			velocity.x = direction_to_player.x * 100.0  # Horizontal movement towards player
+		else:
+			velocity.x = 0.0  # No horizontal movement if no target
+		
 		set_meta("takeoff_jumped", true)
 		print("[Firemage] Takeoff Rise - Jumped! Velocity: ", velocity)
 		print("[Firemage] Takeoff Rise - Ceiling detector: ", ceiling_detector.is_colliding())
@@ -164,17 +170,17 @@ func _handle_takeoff_rise_state(delta: float) -> void:
 		print("[Firemage] Takeoff Rise - Velocity: ", velocity)
 		print("[Firemage] Takeoff Rise - Ceiling detector: ", ceiling_detector.is_colliding())
 	
-	# Minimum 0.5 saniye bekle, sonra ceiling kontrolü yap
-	if behavior_timer >= 0.5:
+	# Minimum 0.3 saniye bekle, sonra ceiling kontrolü yap
+	if behavior_timer >= 0.3:
 		# Tepesinde duvar varsa flying'e geç
 		if ceiling_detector.is_colliding():
-			print("[Firemage] Takeoff Rise - Ceiling detected after 0.5s, going to flying")
+			print("[Firemage] Takeoff Rise - Ceiling detected after 0.3s, going to flying")
 			is_flying = true
 			change_behavior("flying")
 			return
 	
-	# 0.5 saniye sonra flying'e geç
-	if behavior_timer >= 0.5:  # 0.5 saniye rise animasyonu
+	# 0.3 saniye sonra flying'e geç
+	if behavior_timer >= 0.3:  # 0.3 saniye rise animasyonu
 		print("[Firemage] Takeoff Rise - Timer finished, going to flying")
 		is_flying = true
 		# Meta flag'i temizle
@@ -187,6 +193,12 @@ func _handle_flying_state(delta: float) -> void:
 		change_behavior("fall")
 		return
 	
+	# Check if we're actually on the ground - if so, we're not flying anymore
+	if is_on_floor():
+		is_flying = false
+		change_behavior("idle")
+		return
+	
 	# Mesafe kontrolü - daha geniş range ile hysteresis
 	var distance_to_player = global_position.distance_to(target.global_position)
 	if distance_to_player > stats.detection_range * 2.0:  # Oyuncu çok uzaklaştı (2x range)
@@ -195,19 +207,28 @@ func _handle_flying_state(delta: float) -> void:
 	
 	# Hedef pozisyon hesapla
 	var target_pos = _calculate_target_position()
+
 	
 	# Yumuşak hareket - mevcut velocity'yi yavaşça hedefe doğru yönlendir
 	var direction = global_position.direction_to(target_pos)
 	var target_velocity = direction * FLY_SPEED
 	
+	# DEBUG: Movement calculation
+	if Engine.get_physics_frames() % 60 == 0:  # Print every second
+		print("[Firemage] Movement - Direction: ", direction, " Target velocity: ", target_velocity)
+		print("[Firemage] Movement - Current velocity: ", velocity, " Distance to target: ", global_position.distance_to(target_pos))
+	
 	# Yumuşak geçiş (lerp) - daha smooth
-	velocity = velocity.lerp(target_velocity, 2.0 * delta)
+	# Ensure horizontal movement is maintained
+	velocity = velocity.lerp(target_velocity, 3.0 * delta)
 	
 	# DEBUG: Flying state
 	if Engine.get_physics_frames() % 60 == 0:  # Print every second
 		print("[Firemage] Flying - Position: ", global_position)
+		print("[Firemage] Flying - Target: ", target_pos)
 		print("[Firemage] Flying - Velocity: ", velocity)
 		print("[Firemage] Flying - Is on floor: ", is_on_floor())
+		print("[Firemage] Flying - Is flying flag: ", is_flying)
 	
 	# Duvar kaçınma
 	_avoid_obstacles()
@@ -271,13 +292,13 @@ func _handle_hurt_state(delta: float) -> void:
 	# Hasar alma animasyonu (3 frame)
 	# 3 frame * 0.1 saniye = 0.3 saniye toplam animasyon
 	
-	# Havada kalması için hafif gravity uygula
-	if is_flying:
-		velocity.y += GRAVITY * 0.1 * delta  # Çok hafif gravity
-		move_and_slide()
+	# DEBUG: Hurt state info (reduced frequency)
+	if Engine.get_physics_frames() % 30 == 0:  # Print every 0.5 seconds
+		print("[Firemage] Hurt State - Timer: ", behavior_timer, " Is Flying: ", is_flying, " On Floor: ", is_on_floor(), " Velocity: ", velocity)
 	
 	# Behavior timer kontrolü
 	if behavior_timer >= 0.3:  # 3 frame sonra uçuşa dön
+		print("[Firemage] Hurt State - Transitioning. Is Flying: ", is_flying)
 		if is_flying:
 			change_behavior("flying")
 		else:
@@ -304,13 +325,35 @@ func _calculate_target_position() -> Vector2:
 	var direction_to_player = global_position.direction_to(player_pos)
 	var distance = global_position.distance_to(player_pos)
 	
-	# Yumuşak mesafe koruma - daha az agresif
+	# Hedef pozisyon: oyuncunun üstünde belirli bir yükseklikte
+	var target_height = player_pos.y - HOVER_HEIGHT  # Oyuncunun üstünde hover yüksekliği (negatif Y yukarı)
+	
+	# Maximum height limit - don't go too high above player
+	var max_height = player_pos.y - 200.0  # Maximum 200 pixels above player
+	if target_height < max_height:
+		target_height = max_height
+	
+	# Mesafe koruma - oyuncudan belirli mesafede kal
 	var target_distance = MAINTAIN_DISTANCE
 	var distance_error = distance - target_distance
 	
-	# Çok daha yumuşak düzeltme
-	var correction_factor = clamp(distance_error / (MAINTAIN_DISTANCE * 2.0), -0.2, 0.2)
-	var target_pos = global_position + direction_to_player * correction_factor * FLY_SPEED * 0.05
+	# Yumuşak düzeltme - oyuncudan uzaklaş/yaklaş
+	var correction_factor = clamp(distance_error / (MAINTAIN_DISTANCE * 2.0), -0.5, 0.5)
+	var target_x = player_pos.x + direction_to_player.x * correction_factor * target_distance
+	
+	# Limit horizontal distance to prevent flying too far away
+	var max_horizontal_distance = 400.0
+	var horizontal_distance = abs(target_x - player_pos.x)
+	if horizontal_distance > max_horizontal_distance:
+		target_x = player_pos.x + (target_x - player_pos.x) * (max_horizontal_distance / horizontal_distance)
+	
+	# DEBUG: Target position calculation (reduced frequency)
+	if Engine.get_physics_frames() % 120 == 0:  # Print every 2 seconds
+		print("[Firemage] Target calc - Player pos: ", player_pos, " Target height: ", target_height, " Hover height: ", HOVER_HEIGHT)
+		print("[Firemage] Target calc - Distance: ", distance, " Direction: ", direction_to_player)
+		print("[Firemage] Target calc - Correction factor: ", correction_factor, " Target X: ", target_x)
+	
+	var target_pos = Vector2(target_x, target_height)
 	
 	return target_pos
 
@@ -433,6 +476,19 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	change_behavior("hurt")
 	# Reset behavior timer for hurt state
 	behavior_timer = 0.0
+	
+	# Check if we're actually on the ground - if so, we're not flying anymore
+	print("[Firemage] Damage taken - Is on floor: ", is_on_floor(), " Is flying: ", is_flying, " Velocity: ", velocity)
+	if is_on_floor():
+		is_flying = false
+		print("[Firemage] Hit while on ground - no longer flying")
+	else:
+		# If we're in the air, keep flying but reduce velocity
+		if velocity.y > 0:  # Falling down
+			print("[Firemage] Falling but still in air - keeping flying flag")
+		else:
+			print("[Firemage] Still in air - keeping flying flag")
+	
 	print("[Firemage] Took damage: ", amount, " Health: ", health)
 
 func apply_gravity(_delta: float) -> void:
@@ -478,5 +534,8 @@ func die() -> void:
 	enemy_defeated.emit()
 	PowerupManager.on_enemy_killed()
 	
-	# Apply death knockback
-	velocity = Vector2(0, 200)
+	# Apply death knockback - if in air, don't add upward velocity
+	if is_on_floor():
+		velocity = Vector2(0, 200)  # Normal death knockback on ground
+	else:
+		velocity = Vector2(0, 50)   # Minimal knockback if already in air

@@ -242,9 +242,13 @@ func _perform_wall_jump(wall_normal: Vector2):
 	state_machine.transition_to("Jump")
 
 func _end_wall_slide():
+	# WALLSLIDE FIX: Wallslide bittiğinde zıplama haklarını koru
+	# Bu sayede ikinci, üçüncü wallslide'lerde de zıplama hakkı korunur
+	if not player.has_double_jumped:
+		player.enable_double_jump()
+	
 	player.end_wall_slide()
 	reentry_cooldown_timer = REENTRY_COOLDOWN
 
 func exit():
-	# print("[WALL_SLIDE_DEBUG] WallSlide: EXITING wall slide state")
 	pass

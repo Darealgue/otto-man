@@ -30,9 +30,15 @@ func _ready() -> void:
 	collision_layer = CollisionLayers.NONE
 	collision_mask = CollisionLayers.PLAYER | CollisionLayers.WORLD
 	
-	# Enable monitoring
+	# Enable monitoring and continuous collision detection
 	monitoring = true
 	monitorable = true
+	
+	# Enable continuous collision detection for fast-moving projectiles
+	if collision:
+		collision.shape = collision.shape  # Ensure shape is set
+		# Set continuous collision detection
+		set_physics_process_priority(1)  # Higher priority for physics
 	
 	# Connect signals for Area2D overlaps (fallback)
 	body_entered.connect(_on_body_entered)
@@ -50,10 +56,10 @@ func _ready() -> void:
 	hitbox.setup_attack("molotov", true, 0.0)  # parryable
 	hitbox.set_meta("owner_id", owner_id)
 	add_child(hitbox)
-	# small circle shape
+	# larger circle shape for better hit detection
 	var hshape := CollisionShape2D.new()
 	var hcircle := CircleShape2D.new()
-	hcircle.radius = 10
+	hcircle.radius = 20  # Increased from 10 to 20 for better hit detection
 	hshape.shape = hcircle
 	hitbox.add_child(hshape)
 	hitbox.enable()
@@ -181,7 +187,7 @@ func _deal_explosion_damage() -> void:
 	pass  # replaced by EnemyHitbox system
 
 func set_direction(dir: Vector2) -> void:
-	velocity = dir * 350.0  # a bit faster initial speed
+	velocity = dir * 250.0  # Slower initial speed for better hit detection
 
 func set_speed(speed: float) -> void:
 	velocity = velocity.normalized() * speed

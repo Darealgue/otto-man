@@ -14,7 +14,6 @@ var last_wall_normal := Vector2.ZERO
 var wall_slide_state = null  # Store reference to wall slide state
 
 func enter():
-	# print("[WALL_SLIDE_DEBUG] Fall State: ENTERING fall state")
 	wall_transition_timer = WALL_TRANSITION_DELAY
 	wall_contact_timer = 0.0
 	
@@ -22,9 +21,24 @@ func enter():
 	if state_machine.previous_state and state_machine.previous_state.name == "WallSlide":
 		wall_detach_grace_timer = WALL_DETACH_GRACE
 		last_wall_normal = player.wall_normal  # Store the wall normal we detached from
+		
+		# WALLSLIDE FIX: Wallslide'den geldiğinde zıplama haklarını düzelt
+		# Oyuncu hem normal zıplama hem de double jump hakkını kullanabilsin
+		player.enable_double_jump()  # Her zaman double jump'ı etkinleştir
+		player.has_double_jumped = false  # Double jump hakkını sıfırla
 	else:
 		wall_detach_grace_timer = 0.0
 		last_wall_normal = Vector2.ZERO
+	
+	# IMPROVED WALLSLIDE DETECTION: Wallslide'den geldiğini daha güvenilir şekilde tespit et
+	# Eğer wall_normal varsa ve is_wall_sliding false ise, wallslide'den geliyor demektir
+	if player.wall_normal != Vector2.ZERO and not player.is_wall_sliding:
+		wall_detach_grace_timer = WALL_DETACH_GRACE
+		last_wall_normal = player.wall_normal
+		
+		# Zıplama haklarını düzelt - her zaman sıfırla
+		player.enable_double_jump()  # Her zaman double jump'ı etkinleştir
+		player.has_double_jumped = false  # Double jump hakkını sıfırla
 	
 	# Get reference to wall slide state
 	wall_slide_state = get_parent().get_node("WallSlide")
@@ -127,7 +141,12 @@ func physics_update(delta: float):
 	
 	# Handle jump during fall (if we have coyote time or can double jump)
 	if Input.is_action_just_pressed("jump") and not player.jump_input_blocked and player.jump_block_timer <= 0:
-		print("[FallState] Jump input processed - transitioning to Jump")
+		# WALLSLIDE FIX: Wallslide'den geldiğinde özel zıplama kontrolü
+		var coming_from_wallslide = (state_machine.previous_state and state_machine.previous_state.name == "WallSlide")
+		# IMPROVED: Daha güvenilir wallslide detection
+		var has_wall_normal = (player.wall_normal != Vector2.ZERO and not player.is_wall_sliding)
+		var improved_wallslide_detection = coming_from_wallslide or has_wall_normal
+		
 		if player.has_coyote_time() and not player.has_double_jumped:
 			player.start_jump()
 			state_machine.transition_to("Jump")
@@ -139,8 +158,18 @@ func physics_update(delta: float):
 			player.start_double_jump()
 			animation_player.play("double_jump")
 			return
+		elif improved_wallslide_detection and not player.has_double_jumped:
+			# Wallslide'den geldiğinde double jump'ı zorla etkinleştir
+			player.enable_double_jump()
+			player.has_double_jumped = true
+			is_double_jumping = true
+			player.start_double_jump()
+			animation_player.play("double_jump")
+			return
 	elif Input.is_action_just_pressed("jump") and (player.jump_input_blocked or player.jump_block_timer > 0):
-		print("[FallState] Jump input BLOCKED by dodge state (blocked:", player.jump_input_blocked, "timer:", player.jump_block_timer, ")")
+		pass  # Jump input blocked
+	elif Input.is_action_just_pressed("jump"):
+		pass  # Jump input detected but conditions not met
 	
 	# Get input for horizontal movement
 	var input_dir = Input.get_axis("left", "right")
