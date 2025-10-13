@@ -1,13 +1,12 @@
-res://scenes/testing.tscn
-res://Tile set/dungeon_master_tileset.tres
 res://player/player.tscn
+res://Tile set/dungeon_master_tileset.tres
+res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://enemy/firemage/firemage_enemy.tscn
-res://enemy/turtle/turtle_enemy.tscn
-res://enemy/heavy/heavy_enemy.tscn
 res://enemy/firemage/fire_bomb_projectile.tscn
-res://enemy/firemage/firemage_stats.tres
 res://enemy/canonman/canonman_enemy.tscn
 res://enemy/canonman/cannon_shot_projectile.tscn
+res://enemy/canonman/cannon_shot_projectile.gd
+res://enemy/canonman/canonman_enemy.gd

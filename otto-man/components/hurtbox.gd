@@ -26,6 +26,11 @@ func _process(delta: float):
 
 func _on_area_entered(hitbox: Area2D):
 	if hitbox.is_in_group("hitbox"):
+		# Ignore self damage: compare owner_id meta
+		var my_owner = get_parent().get_instance_id() if is_instance_valid(get_parent()) else -1
+		var hb_owner = hitbox.get_meta("owner_id") if hitbox.has_meta("owner_id") else null
+		if hb_owner != null and hb_owner == my_owner:
+			return
 		# Check if this hitbox is on cooldown
 		if hitbox in recent_hits:
 			return

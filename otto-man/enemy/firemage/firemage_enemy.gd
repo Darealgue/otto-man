@@ -6,7 +6,7 @@ const HOVER_HEIGHT = 200.0  # Yerden yükseklik
 const MAINTAIN_DISTANCE = 250.0  # Oyuncudan mesafe
 const FLY_SPEED = 200.0  # Uçuş hızı (daha hızlı)
 const WALL_AVOIDANCE_DISTANCE = 50.0  # Duvar kaçınma mesafesi
-const BOMB_COOLDOWN = 4.0  # Bomba atma sıklığı (daha az sık)
+const BOMB_COOLDOWN = 2.0  # Bomba atma sıklığı (daha sık)
 const BOMB_SPEED = 300.0  # Bomba fırlatma hızı
 const BOMB_DAMAGE = 25.0  # Bomba hasarı
 const BOMB_RADIUS = 80.0  # Patlama yarıçapı
@@ -69,11 +69,12 @@ func _physics_process(delta: float) -> void:
 		return
 	
 	# Hurt state - havada kalması için hafif gravity
-	if current_behavior == "hurt" and is_flying:
+	if current_behavior == "hurt":
 		if not is_sleeping:
 			handle_behavior(delta)
 		# Hurt sırasında çok hafif gravity uygula
-		velocity.y += GRAVITY * 0.1 * delta
+		if is_flying:
+			velocity.y += GRAVITY * 0.1 * delta
 		move_and_slide()
 		return
 	
@@ -275,6 +276,7 @@ func _handle_hurt_state(delta: float) -> void:
 		velocity.y += GRAVITY * 0.1 * delta  # Çok hafif gravity
 		move_and_slide()
 	
+	# Behavior timer kontrolü
 	if behavior_timer >= 0.3:  # 3 frame sonra uçuşa dön
 		if is_flying:
 			change_behavior("flying")
@@ -336,6 +338,7 @@ func _throw_fire_bomb() -> void:
 	bomb.set_speed(bomb_speed)
 	bomb.set_damage(BOMB_DAMAGE)
 	bomb.set_radius(BOMB_RADIUS)
+	bomb.set_owner_id(get_instance_id())  # Set owner ID for self-damage filtering
 	
 	# Timer sıfırla
 	bomb_timer = 0.0
@@ -428,6 +431,8 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	
 	# Go to hurt state
 	change_behavior("hurt")
+	# Reset behavior timer for hurt state
+	behavior_timer = 0.0
 	print("[Firemage] Took damage: ", amount, " Health: ", health)
 
 func apply_gravity(_delta: float) -> void:

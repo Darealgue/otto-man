@@ -1,7 +1,9 @@
-[gd_scene load_steps=86 format=3 uid="uid://cgx07vsnpkhgr"]
+[gd_scene load_steps=88 format=3 uid="uid://cgx07vsnpkhgr"]
 
 [ext_resource type="Script" path="res://enemy/canonman/canonman_enemy.gd" id="1_canonman_script"]
+[ext_resource type="Texture2D" uid="uid://demom0rt0r6y6" path="res://assets/effects/enemy fx/cannon_smoke_launch.png" id="2_5sjio"]
 [ext_resource type="Script" path="res://components/hitbox.gd" id="2_hitbox_script"]
+[ext_resource type="Texture2D" uid="uid://cld7nnruwca3u" path="res://assets/effects/enemy fx/cannon_smoke_landing.png" id="3_8jvxg"]
 [ext_resource type="Script" path="res://components/hurtbox.gd" id="3_hurtbox_script"]
 [ext_resource type="Resource" path="res://enemy/canonman/canonman_stats.tres" id="4_canonman_stats"]
 [ext_resource type="Texture2D" uid="uid://oue827gx0h6t" path="res://enemy/canonman/sprite/cannonman_idle_border.png" id="5_idle"]
@@ -551,6 +553,8 @@ height = 62.0
 collision_layer = 4
 collision_mask = 517
 script = ExtResource("1_canonman_script")
+launch_smoke_texture = ExtResource("2_5sjio")
+landing_smoke_texture = ExtResource("3_8jvxg")
 stats = ExtResource("4_canonman_stats")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

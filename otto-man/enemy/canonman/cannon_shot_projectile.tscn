@@ -1,7 +1,28 @@
-[gd_scene load_steps=6 format=3 uid="uid://de6uourl284ne"]
+[gd_scene load_steps=12 format=3 uid="uid://de6uourl284ne"]
 
 [ext_resource type="Script" path="res://enemy/canonman/cannon_shot_projectile.gd" id="1_cannon_shot"]
+[ext_resource type="Texture2D" uid="uid://cvgneyahfmf5h" path="res://enemy/canonman/sprite/cannonball_break.png" id="2_4kbat"]
 [ext_resource type="Texture2D" uid="uid://ex2oeoo3e32x" path="res://enemy/canonman/sprite/cannonball.png" id="2_wd187"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ogijf"]
+atlas = ExtResource("2_4kbat")
+region = Rect2(0, 0, 50, 50)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hwrvb"]
+atlas = ExtResource("2_4kbat")
+region = Rect2(50, 0, 50, 50)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8wc0v"]
+atlas = ExtResource("2_4kbat")
+region = Rect2(100, 0, 50, 50)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_b20sy"]
+atlas = ExtResource("2_4kbat")
+region = Rect2(150, 0, 50, 50)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_t4m4c"]
+atlas = ExtResource("2_4kbat")
+region = Rect2(200, 0, 50, 50)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_prcvc"]
 atlas = ExtResource("2_wd187")
@@ -9,6 +30,26 @@ region = Rect2(0, 0, 50, 50)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_8aety"]
 animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ogijf")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hwrvb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8wc0v")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_b20sy")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_t4m4c")
+}],
+"loop": false,
+"name": &"canonball_break",
+"speed": 16.0
+}, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_prcvc")
@@ -27,6 +68,9 @@ script = ExtResource("1_cannon_shot")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_8aety")
+animation = &"canonball_break"
+frame = 4
+frame_progress = 1.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, 1)
