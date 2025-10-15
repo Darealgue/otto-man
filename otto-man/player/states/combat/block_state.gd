@@ -17,6 +17,7 @@ var finish_timer: Timer = null
 var stamina_consumed_this_hit := false  # Track if stamina was consumed for current hit
 var block_start_time: float = 0.0  # Track when block started
 var is_parrying := false  # Add this at the top with other vars
+const PARRY_IFRAME := 1.0  # Parry sonrası kısa dokunulmazlık
 
 func _ready():
 	pass
@@ -182,6 +183,9 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		
 		# Play parry animation
 		animation_player.play("parry")
+		# Grant brief i-frames via hurtbox invincibility
+		if player.hurtbox and player.hurtbox.has_method("set_invincible"):
+			player.hurtbox.set_invincible(PARRY_IFRAME)
 		
 		# Create parry effect
 		var parry_effect = preload("res://effects/parry_effect.tscn").instantiate()

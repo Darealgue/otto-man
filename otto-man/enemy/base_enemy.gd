@@ -121,13 +121,13 @@ func _physics_process(delta: float) -> void:
 		# Apply gravity and move
 		if not is_on_floor() and current_behavior != "dead":
 			var g_scale := 1.0
-			# Apply juggle float whenever timer is active, not only in hurt state
-			if air_float_timer > 0.0:
+			# Apply juggle float ONLY during hurt state to avoid slow fall elsewhere
+			if current_behavior == "hurt" and air_float_timer > 0.0:
 				g_scale = air_float_gravity_scale
 				air_float_timer = max(0.0, air_float_timer - delta)
 			velocity.y += GRAVITY * g_scale * delta
-			# Cap fall speed while float is active
-			if air_float_timer > 0.0:
+			# Cap fall speed only while float is active in hurt
+			if current_behavior == "hurt" and air_float_timer > 0.0:
 				velocity.y = min(velocity.y, air_float_max_fall_speed)
 		# When hurt and moving upward, don't instantly cancel vertical velocity on floor contact
 		if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
@@ -404,6 +404,9 @@ func is_on_screen() -> bool:
 		   global_position.y >= top_left.y - 100 and global_position.y <= bottom_right.y + 100
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
+	# Safety: enemies only take damage from PlayerHitbox, never from other enemies/projectiles
+	if not (hitbox is PlayerHitbox):
+		return
 	if current_behavior != "dead" and not invulnerable:
 		var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
 		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}

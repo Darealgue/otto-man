@@ -1,0 +1,83 @@
+[gd_scene load_steps=8 format=3 uid="uid://simple_spearman"]
+
+[ext_resource type="Script" path="res://enemy/spearman/spearman_enemy.gd" id="1_0x123"]
+[ext_resource type="Resource" path="res://enemy/spearman/spearman_enemy_stats.tres" id="2_0x456"]
+[ext_resource type="Script" path="res://components/hitbox.gd" id="3_0x789"]
+[ext_resource type="Script" path="res://components/hurtbox.gd" id="4_0xabc"]
+[ext_resource type="Texture2D" uid="uid://dow6kbno6j5n6" path="res://enemy/spearman/sprites/spear_idle_border.png" id="5_idle"]
+[ext_resource type="Texture2D" uid="uid://b5nmk4dnx25nn" path="res://enemy/spearman/sprites/spear_patrol_border.png" id="6_patrol"]
+[ext_resource type="Texture2D" uid="uid://drsvyagqcxjd7" path="res://enemy/spearman/sprites/spear_charge_border.png" id="7_charge"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
+radius = 15.0
+height = 58.0
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_simple"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("7_charge")
+}],
+"loop": true,
+"name": &"charge",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("5_idle")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("6_patrol")
+}],
+"loop": true,
+"name": &"patrol",
+"speed": 10.0
+}]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_hitbox"]
+radius = 20.0
+height = 50.0
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_hurtbox"]
+radius = 16.0
+height = 48.0
+
+[node name="SpearmanEnemy" type="CharacterBody2D" groups=["enemies"]]
+collision_layer = 8
+collision_mask = 3
+script = ExtResource("1_0x123")
+stats = ExtResource("2_0x456")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -2)
+shape = SubResource("CapsuleShape2D_1")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -75)
+sprite_frames = SubResource("SpriteFrames_simple")
+animation = &"idle"
+
+[node name="Hitbox" type="Area2D" parent="." groups=["hitbox"]]
+collision_layer = 16
+collision_mask = 8
+script = ExtResource("3_0x789")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
+shape = SubResource("CapsuleShape2D_hitbox")
+
+[node name="Hurtbox" type="Area2D" parent="." groups=["hurtbox"]]
+collision_layer = 32
+collision_mask = 16
+script = ExtResource("4_0xabc")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+shape = SubResource("CapsuleShape2D_hurtbox")
+
+[node name="StateMachine" type="Node" parent="."]
+
+[connection signal="hurt" from="Hurtbox" to="." method="_on_hurtbox_hurt"]

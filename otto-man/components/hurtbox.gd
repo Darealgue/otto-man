@@ -26,8 +26,12 @@ func _process(delta: float):
 
 func _on_area_entered(hitbox: Area2D):
 	if hitbox.is_in_group("hitbox"):
+		# If this hurtbox belongs to an enemy, only accept PlayerHitbox (block all others)
+		var parent = get_parent()
+		if is_instance_valid(parent) and parent.is_in_group("enemies") and not (hitbox is PlayerHitbox):
+			return
 		# Ignore self damage: compare owner_id meta
-		var my_owner = get_parent().get_instance_id() if is_instance_valid(get_parent()) else -1
+		var my_owner = parent.get_instance_id() if is_instance_valid(parent) else -1
 		var hb_owner = hitbox.get_meta("owner_id") if hitbox.has_meta("owner_id") else null
 		if hb_owner != null and hb_owner == my_owner:
 			return
@@ -43,7 +47,6 @@ func _on_area_entered(hitbox: Area2D):
 		recent_hits[hitbox] = cooldown
 		
 		# Check if parent is in block state BEFORE setting damage
-		var parent = get_parent()
 		if parent.has_node("StateMachine") and parent.state_machine.has_method("get_current_state"):
 			var current_state = parent.state_machine.get_current_state()
 			if current_state and current_state.name == "Block":

@@ -4,7 +4,5 @@ res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
-res://enemy/firemage/firemage_enemy.tscn
-res://enemy/firemage/fire_bomb_projectile.tscn
-res://enemy/canonman/canonman_enemy.tscn
-res://enemy/canonman/cannon_shot_projectile.tscn
+res://enemy/spearman/spearman_enemy.tscn
+res://enemy/base_enemy.gd

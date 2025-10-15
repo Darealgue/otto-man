@@ -516,7 +516,7 @@ func _spawn_explosion_hitbox(pos: Vector2) -> void:
 	hit.add_to_group("enemy_hitbox")
 	# Enemy attack vs player hurtbox
 	hit.collision_layer = CollisionLayers.ENEMY_HITBOX
-	hit.collision_mask = CollisionLayers.ALL
+	hit.collision_mask = CollisionLayers.PLAYER_HURTBOX  # Only target player, not other enemies
 	hit.setup_attack("rocket_explosion", true, 0.0)
 	# Kendi owner id'mizi ata ki kendimizi vurmayalım
 	hit.set_meta("owner_id", get_instance_id())
@@ -569,11 +569,13 @@ func _fire_cannon_shot() -> void:
 	
 	# Top sahneyi oluştur
 	var shot = cannon_shot_scene.instantiate()
-	get_tree().current_scene.add_child(shot)
 	
-	# Sahiplik bilgisini ilet
+	# Sahiplik bilgisini ilet (hitbox oluşturulmadan önce)
 	if shot.has_method("set_owner_id"):
-		shot.set_owner_id(get_instance_id())
+		var my_id = get_instance_id()
+		shot.set_owner_id(my_id)
+	
+	get_tree().current_scene.add_child(shot)
 	
 	# Top pozisyonu (düşmanın önünde)
 	var shot_offset = Vector2(30, -10) if not sprite.flip_h else Vector2(-30, -10)
@@ -624,11 +626,13 @@ func _choose_attack_type() -> void:
 func _fire_ground_shot() -> void:
 	# Yere doğru 45 derece atış
 	var shot = cannon_shot_scene.instantiate()
-	get_tree().current_scene.add_child(shot)
 	
-	# Sahiplik bilgisini ilet
+	# Sahiplik bilgisini ilet (hitbox oluşturulmadan önce)
 	if shot.has_method("set_owner_id"):
-		shot.set_owner_id(get_instance_id())
+		var my_id = get_instance_id()
+		shot.set_owner_id(my_id)
+	
+	get_tree().current_scene.add_child(shot)
 	
 	# Top pozisyonu (düşmanın önünde)
 	var shot_offset = Vector2(30, -10) if not sprite.flip_h else Vector2(-30, -10)

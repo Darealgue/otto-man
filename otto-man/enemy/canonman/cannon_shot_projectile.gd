@@ -58,11 +58,12 @@ func _ready() -> void:
 	hitbox.add_to_group("hitbox")
 	hitbox.add_to_group("enemy_hitbox")
 	hitbox.collision_layer = CollisionLayers.ENEMY_HITBOX
-	hitbox.collision_mask = CollisionLayers.PLAYER_HURTBOX
+	hitbox.collision_mask = CollisionLayers.PLAYER_HURTBOX  # Only target player, not other enemies
 	hitbox.setup_attack("cannonball", true, 0.0)
 	hitbox.set_meta("owner_id", owner_id)
 	add_child(hitbox)
 	hitbox.position = Vector2.ZERO
+	
 	
 	# When we hit the player hurtbox, play break animation and remove
 	hitbox.area_entered.connect(func(a: Area2D):

@@ -32,27 +32,24 @@ func get_knockback_data() -> Dictionary:
 func _on_area_entered(area: Area2D) -> void:
 	# Debug prints disabled to reduce console spam
 	# print("[EnemyHitbox] Area entered: " + str(area.name) + " (groups: " + str(area.get_groups()) + ")")
-	
+
 	if area.is_in_group("player_hurtbox"):
 		# print("[EnemyHitbox] ✅ Player hurtbox detected!")
 		var player = area.get_parent()
 		if player:
 			# print("[EnemyHitbox] 🎯 Player found: " + str(player.name))
 			# print("[EnemyHitbox] 📊 Enemy damage: " + str(damage))
-			
 			# Apply hitstop based on enemy damage
 			var attack_manager = get_node("/root/AttackManager")
 			if attack_manager:
-				# print("[EnemyHitbox] 🥊 ENEMY HIT! Damage: " + str(damage))
-				# print("[EnemyHitbox] Calling attack_manager.apply_hitstop(" + str(damage) + ")")
 				attack_manager.apply_hitstop(damage)
 			else:
 				print("[EnemyHitbox] ❌ ERROR: attack_manager is null!")
-			
 			# Apply screen shake when player gets hit
 			_apply_enemy_screen_shake()
-			
-			hit_player.emit(player)
+			# Only emit when not parried
+			if not is_parried:
+				hit_player.emit(player)
 		else:
 			print("[EnemyHitbox] ❌ ERROR: Player parent is null!")
 	# else:

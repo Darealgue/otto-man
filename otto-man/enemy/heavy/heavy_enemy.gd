@@ -723,15 +723,15 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(self) or global_position == Vector2.ZERO:
 		return
 	
-	# Always apply gravity (even when dead so corpse falls), with juggle float support
+	# Apply gravity; only use juggle float during hurt state
 	if not is_on_floor():
 		var g_scale := 1.0
-		if air_float_timer > 0.0:
+		if current_behavior == "hurt" and air_float_timer > 0.0:
 			g_scale = air_float_gravity_scale
 			air_float_timer = max(0.0, air_float_timer - delta)
 		velocity.y += GRAVITY * g_scale * delta
-		# Cap falling speed while float active
-		if air_float_timer > 0.0:
+		# Cap falling speed only while float active in hurt
+		if current_behavior == "hurt" and air_float_timer > 0.0:
 			velocity.y = minf(velocity.y, air_float_max_fall_speed)
 	elif is_on_floor():
 		# Do not zero out upward knockback during hurt; allow takeoff

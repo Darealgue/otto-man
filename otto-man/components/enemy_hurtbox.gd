@@ -9,10 +9,18 @@ func _ready():
 	collision_mask = CollisionLayers.PLAYER_HITBOX
 
 func _on_area_entered(hitbox: Area2D):
+	# Only accept hits from the player
 	if not hitbox is PlayerHitbox:
 		return
 		
 	if is_on_cooldown(hitbox):
+		return
+	
+	# Ignore self damage: compare owner_id meta
+	var my_owner = get_parent().get_instance_id() if is_instance_valid(get_parent()) else -1
+	var hb_owner = hitbox.get_meta("owner_id") if hitbox.has_meta("owner_id") else null
+	
+	if hb_owner != null and hb_owner == my_owner:
 		return
 	
 	# Store hit data

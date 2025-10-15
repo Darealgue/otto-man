@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://test_spearman"]
+
+[ext_resource type="PackedScene" uid="uid://b8x7y9z2a1b3c4d5" path="res://enemy/spearman/spearman_enemy.tscn" id="1_spearman"]
+
+[node name="SpearmanTest" type="Node2D"]
+
+[node name="SpearmanEnemy" parent="." instance=ExtResource("1_spearman")]
+position = Vector2(100, 200)

@@ -472,7 +472,17 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		die()
 		return
 	
-	# Go to hurt state
+	# Don't interrupt takeoff_rise state - let it continue rising
+	if current_behavior == "takeoff_rise":
+		print("[Firemage] Damage during takeoff_rise - continuing ascent, not switching to hurt")
+		# Just flash red but don't change behavior
+		if sprite:
+			sprite.modulate = Color(1, 0, 0, 1)
+			await get_tree().create_timer(0.1).timeout
+			sprite.modulate = Color(1, 1, 1, 1)
+		return
+	
+	# Go to hurt state for other behaviors
 	change_behavior("hurt")
 	# Reset behavior timer for hurt state
 	behavior_timer = 0.0

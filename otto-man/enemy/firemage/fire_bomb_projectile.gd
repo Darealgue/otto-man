@@ -49,7 +49,7 @@ func _ready() -> void:
 	hitbox.add_to_group("hitbox")
 	hitbox.add_to_group("enemy_hitbox")
 	hitbox.collision_layer = CollisionLayers.ENEMY_HITBOX
-	hitbox.collision_mask = CollisionLayers.PLAYER_HURTBOX
+	hitbox.collision_mask = CollisionLayers.PLAYER_HURTBOX  # Only target player, not other enemies
 	hitbox.damage = damage
 	hitbox.knockback_force = 200.0
 	hitbox.knockback_up_force = 120.0
@@ -159,7 +159,7 @@ func _explode() -> void:
 	eh.add_to_group("hitbox")
 	eh.add_to_group("enemy_hitbox")
 	eh.collision_layer = CollisionLayers.ENEMY_HITBOX
-	eh.collision_mask = CollisionLayers.PLAYER_HURTBOX
+	eh.collision_mask = CollisionLayers.PLAYER_HURTBOX  # Only target player, not other enemies
 	eh.damage = damage
 	eh.knockback_force = 300.0
 	eh.knockback_up_force = 180.0
