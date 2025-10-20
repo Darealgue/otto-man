@@ -292,11 +292,48 @@ func get_cell_terrain_type(cell: Vector2i) -> int:
 	if source_id == -1:
 		return -1
 		
-	# Get tile data to check collision layer
+	# Get tile data to check terrain type
 	var tile_data = get_cell_tile_data(0, cell)
-	if tile_data:
-		return source_id
-	return -1
+	if not tile_data:
+		return -1
+	
+	# Check if this is a dark tile (should not be treated as platform)
+	var atlas_coords = get_cell_atlas_coords(0, cell)
+	if is_dark_tile(atlas_coords):
+		print("DEBUG: get_cell_terrain_type(", cell, ") - Dark tile detected, returning 0")
+		return 0  # Dark tiles are terrain=0 but not platforms
+	
+	if tile_data.has_method("get_terrain"):
+		var terrain = tile_data.get_terrain()
+		print("DEBUG: get_cell_terrain_type(", cell, ") - Terrain from tile_data: ", terrain)
+		return terrain  # Get terrain type from tile data
+	else:
+		# Fallback: check if it's a one-way platform by looking at collision properties
+		var collision_polygon = tile_data.get_collision_polygon_points(0, 0)
+		if collision_polygon.size() > 0:
+			# Check if it has one-way collision
+			var is_one_way = tile_data.get_collision_polygon_one_way(0, 0)
+			if is_one_way:
+				print("DEBUG: get_cell_terrain_type(", cell, ") - One-way platform detected, returning 1")
+				return 1  # One-way platform
+		print("DEBUG: get_cell_terrain_type(", cell, ") - Regular wall, returning 0")
+		return 0  # Regular wall
+
+func is_dark_tile(atlas_coords: Vector2i) -> bool:
+	# Dark tile koordinatları - gerçek atlas koordinatları
+	var dark_coordinates = [
+		Vector2i(9, 12),  # Dark tile - debug çıktısından görülen koordinat
+		# Diğer dark tile koordinatları buraya eklenebilir
+	]
+	
+	# DEBUG: Dark tile kontrolü
+	var is_dark = atlas_coords in dark_coordinates
+	if is_dark:
+		print("DEBUG: is_dark_tile(", atlas_coords, ") = TRUE")
+	else:
+		print("DEBUG: is_dark_tile(", atlas_coords, ") = FALSE")
+	
+	return is_dark
 
 func update_boundary_cell(cell: Vector2i) -> bool:
 	var source_id = get_cell_source_id(0, cell)
@@ -423,90 +460,207 @@ func select_appropriate_tile(surroundings: Dictionary) -> Vector2i:
 	
 	return Vector2i(1, 1)  # Default to middle piece instead of blank
 
+
 func fix_terrain_connections() -> void:
-	var cells_to_update = []
-	var processed_cells = {}
-	var skipped_count = 0
-	
-	# First pass: collect all cells and their current states
-	for cell in get_used_cells(0):
-		var terrain = get_cell_terrain_type(cell)
-		if terrain != -1:
-			processed_cells[cell] = {
-				"terrain": terrain,
-				"atlas_coords": get_cell_atlas_coords(0, cell),
-				"source_id": get_cell_source_id(0, cell),
-				"alternative_tile": get_cell_alternative_tile(0, cell)
-			}
-			cells_to_update.append(cell)
-	
-	# Sort cells by Y coordinate to ensure consistent processing
-	cells_to_update.sort_custom(func(a, b): return a.y < b.y)
-	
+	print("Fixing terrain connections...")
+	var cells = get_used_cells(0)
 	var updated_count = 0
 	
-	# Second pass: update tiles based on surroundings
-	for cell in cells_to_update:
-		var terrain = processed_cells[cell].terrain
-		
-		# Get surrounding terrain information
-		var surroundings = {
-			"top": false, "right": false, "bottom": false, "left": false,
-			"top_right": false, "bottom_right": false, "bottom_left": false, "top_left": false
-		}
-		
-		# Check each neighbor
-		var neighbors = {
-			"top": cell + Vector2i(0, -1),
-			"right": cell + Vector2i(1, 0),
-			"bottom": cell + Vector2i(0, 1),
-			"left": cell + Vector2i(-1, 0),
-			"top_right": cell + Vector2i(1, -1),
-			"bottom_right": cell + Vector2i(1, 1),
-			"bottom_left": cell + Vector2i(-1, 1),
-			"top_left": cell + Vector2i(-1, -1)
-		}
-		
-		# Check each neighbor
-		for direction in neighbors:
-			var neighbor = neighbors[direction]
-			if processed_cells.has(neighbor):
-				var neighbor_terrain = processed_cells[neighbor].terrain
-				surroundings[direction] = (neighbor_terrain != -1 and neighbor_terrain == terrain)
-		
-		# Create debug pattern
-		var pattern = ""
-		pattern += "T" if surroundings["top"] else "_"
-		pattern += "R" if surroundings["right"] else "_"
-		pattern += "B" if surroundings["bottom"] else "_"
-		pattern += "L" if surroundings["left"] else "_"
-		
-		# Determine the appropriate tile based on connections
-		var atlas_coords = processed_cells[cell].atlas_coords
-		var new_coords = select_appropriate_tile(surroundings)
-		
-		if new_coords != atlas_coords:
-			# Check if this would create a duplicate connection
-			var would_create_duplicate = false
-			for direction in neighbors:
-				var neighbor = neighbors[direction]
-				if processed_cells.has(neighbor) and processed_cells[neighbor].atlas_coords == new_coords:
-					# Allow duplicates if they maintain vertical connections
-					if not (surroundings["top"] or surroundings["bottom"]):
-						would_create_duplicate = true
-						break
+	for cell in cells:
+		var source_id = get_cell_source_id(0, cell)
+		if source_id == -1:
+			continue
 			
-			if not would_create_duplicate:
-				set_cell(0, cell, processed_cells[cell].source_id, new_coords, processed_cells[cell].alternative_tile)
-				processed_cells[cell].atlas_coords = new_coords
+		var atlas_coords = get_cell_atlas_coords(0, cell)
+		var alternative = get_cell_alternative_tile(0, cell)
+		
+		# Dark tile'ları koru - onları değiştirme
+		if is_dark_tile(atlas_coords):
+			print("DEBUG: Found dark tile at ", cell, " with coords ", atlas_coords)
+			print("DEBUG: This tile should NOT be changed!")
+			continue
+		
+		# Dark tile'ların komşularını da koru - onları değiştirme
+		# Ama sadece dark tile'ların hemen yanındaki tile'ları koru
+		if is_dark_tile_immediate_neighbor(cell):
+			print("DEBUG: Found dark tile immediate neighbor at ", cell, " with coords ", atlas_coords)
+			print("DEBUG: This tile should NOT be changed!")
+			continue
+		
+		# Terrain type'ı belirle
+		var terrain_type = get_cell_terrain_type(cell)
+		
+		# Platform tile'ları için connection logic uygula
+		if terrain_type == 1:
+			var surroundings = get_surrounding_terrain_info(cell)
+			var new_coords = select_platform_tile(surroundings)
+			
+			if new_coords != atlas_coords:
+				set_cell(0, cell, source_id, new_coords, alternative)
 				updated_count += 1
+				print("DEBUG: Updated platform tile at ", cell, " from ", atlas_coords, " to ", new_coords)
+		
+		# Wall tile'ları için de connection logic uygula (chunk birleşmeleri için)
+		elif terrain_type == 0:
+			var surroundings = get_surrounding_terrain_info(cell)
+			
+			# Chunk sınırlarındaki köşe tile'ları için özel kontrol
+			if is_chunk_boundary_corner(cell):
+				var new_coords = select_chunk_boundary_tile(cell, surroundings)
+				if new_coords != atlas_coords:
+					set_cell(0, cell, source_id, new_coords, alternative)
+					updated_count += 1
+					print("DEBUG: Updated chunk boundary corner at ", cell, " from ", atlas_coords, " to ", new_coords)
 			else:
-				skipped_count += 1
+				var new_coords = select_appropriate_tile(surroundings)
+				
+				if new_coords != atlas_coords:
+					set_cell(0, cell, source_id, new_coords, alternative)
+					updated_count += 1
+					print("DEBUG: Updated wall tile at ", cell, " from ", atlas_coords, " to ", new_coords)
 	
-	print("\nTerrain Connection Summary:")
-	print("- Total cells processed: ", cells_to_update.size())
-	print("- Updates applied: ", updated_count)
-	print("- Updates skipped: ", skipped_count)
+	print("Terrain connection fixes complete. Updated ", updated_count, " tiles.")
+
+func is_dark_tile_immediate_neighbor(cell: Vector2i) -> bool:
+	# Dark tile'ların sadece 4 ana yöndeki komşularını kontrol et (diagonal değil)
+	var directions = [
+		Vector2i(0, -1),   # top
+		Vector2i(1, 0),    # right
+		Vector2i(0, 1),    # bottom
+		Vector2i(-1, 0),   # left
+	]
+	
+	for direction in directions:
+		var check_pos = cell + direction
+		var neighbor_source_id = get_cell_source_id(0, check_pos)
+		if neighbor_source_id != -1:
+			var neighbor_atlas_coords = get_cell_atlas_coords(0, check_pos)
+			if is_dark_tile(neighbor_atlas_coords):
+				return true
+	
+	return false
+
+func get_surrounding_terrain_info(cell: Vector2i) -> Dictionary:
+	# Önce bu tile'ın terrain türünü öğren
+	var current_tile_data = get_cell_tile_data(0, cell)
+	if not current_tile_data:
+		return {"top": false, "right": false, "bottom": false, "left": false, "top_right": false, "bottom_right": false, "bottom_left": false, "top_left": false}
+	
+	var current_terrain = current_tile_data.get_terrain() if current_tile_data.has_method("get_terrain") else 0
+	
+	var surroundings = {
+		"top": false, "right": false, "bottom": false, "left": false,
+		"top_right": false, "bottom_right": false, "bottom_left": false, "top_left": false
+	}
+	
+	# Komşu tile'ları kontrol et (8 yön)
+	var neighbors = [
+		{"dir": "top", "pos": cell + Vector2i(0, -1)},
+		{"dir": "right", "pos": cell + Vector2i(1, 0)},
+		{"dir": "bottom", "pos": cell + Vector2i(0, 1)},
+		{"dir": "left", "pos": cell + Vector2i(-1, 0)},
+		{"dir": "top_right", "pos": cell + Vector2i(1, -1)},
+		{"dir": "bottom_right", "pos": cell + Vector2i(1, 1)},
+		{"dir": "bottom_left", "pos": cell + Vector2i(-1, 1)},
+		{"dir": "top_left", "pos": cell + Vector2i(-1, -1)}
+	]
+	
+	for neighbor in neighbors:
+		var neighbor_source_id = get_cell_source_id(0, neighbor.pos)
+		if neighbor_source_id != -1:
+			var neighbor_data = get_cell_tile_data(0, neighbor.pos)
+			if neighbor_data and neighbor_data.has_method("get_terrain"):
+				var neighbor_terrain = neighbor_data.get_terrain()
+				# Sadece aynı terrain türündeki komşuları kabul et
+				surroundings[neighbor.dir] = (neighbor_terrain == current_terrain)
+			else:
+				# Tile data yoksa ama tile varsa, terrain type'ı manuel olarak belirle
+				var neighbor_terrain = get_cell_terrain_type(neighbor.pos)
+				if neighbor_terrain != -1:
+					surroundings[neighbor.dir] = (neighbor_terrain == current_terrain)
+	
+	return surroundings
+
+func select_appropriate_tile_for_terrain(surroundings: Dictionary, terrain_type: int) -> Vector2i:
+	if terrain_type == 1:  # Platform tile
+		# Platform için komşularına göre farklı tile'lar seç
+		return select_platform_tile(surroundings)
+	else:  # Wall tile
+		# Wall için orijinal bağlantı mantığı
+		return select_appropriate_tile(surroundings)
+
+func select_platform_tile(surroundings: Dictionary) -> Vector2i:
+	# Platform tile'ları için komşularına göre uygun tile seç
+	
+	# Yatay platformlar (sadece sol-sağ komşular)
+	if surroundings.left and surroundings.right and not surroundings.top and not surroundings.bottom:
+		# Sol ve sağda komşu var - orta parça
+		return Vector2i(1, 4)  # Orta yatay platform
+	elif surroundings.left and not surroundings.right and not surroundings.top and not surroundings.bottom:
+		# Sadece solda komşu var - sağ uç
+		return Vector2i(2, 4)  # Sağ uç yatay platform
+	elif surroundings.right and not surroundings.left and not surroundings.top and not surroundings.bottom:
+		# Sadece sağda komşu var - sol uç
+		return Vector2i(0, 4)  # Sol uç yatay platform
+	
+	# Dikey platformlar (sadece üst-alt komşular)
+	elif surroundings.top and surroundings.bottom and not surroundings.left and not surroundings.right:
+		# Üst ve altta komşu var - orta parça
+		return Vector2i(4, 1)  # Orta dikey platform
+	elif surroundings.top and not surroundings.bottom and not surroundings.left and not surroundings.right:
+		# Sadece üstte komşu var - alt uç
+		return Vector2i(4, 2)  # Alt uç dikey platform
+	elif surroundings.bottom and not surroundings.top and not surroundings.left and not surroundings.right:
+		# Sadece altta komşu var - üst uç
+		return Vector2i(4, 0)  # Üst uç dikey platform
+	
+	# Tek başına platform
+	else:
+		return Vector2i(4, 4)  # Tek başına platform tile
 
 func has_terrain_at(pos: Vector2i) -> bool:
 	return get_cell_source_id(0, pos) != -1
+
+func is_chunk_boundary_corner(cell: Vector2i) -> bool:
+	# Chunk sınırlarındaki köşe tile'larını tespit et
+	# Bu tile'lar chunk birleşmelerinde özel durumlar oluşturur
+	
+	# 4 ana yöndeki komşuları kontrol et
+	var top_neighbor = get_cell_source_id(0, cell + Vector2i(0, -1)) != -1
+	var right_neighbor = get_cell_source_id(0, cell + Vector2i(1, 0)) != -1
+	var bottom_neighbor = get_cell_source_id(0, cell + Vector2i(0, 1)) != -1
+	var left_neighbor = get_cell_source_id(0, cell + Vector2i(-1, 0)) != -1
+	
+	# Köşe durumları: sadece 2 komşu var ve bunlar dik açı oluşturuyor
+	var neighbor_count = 0
+	if top_neighbor: neighbor_count += 1
+	if right_neighbor: neighbor_count += 1
+	if bottom_neighbor: neighbor_count += 1
+	if left_neighbor: neighbor_count += 1
+	
+	# Köşe tile'ı: tam 2 komşu var ve bunlar dik açı oluşturuyor
+	if neighbor_count == 2:
+		# Dik açı kontrolü: üst-sağ, sağ-alt, alt-sol, sol-üst
+		return (top_neighbor and right_neighbor) or \
+			   (right_neighbor and bottom_neighbor) or \
+			   (bottom_neighbor and left_neighbor) or \
+			   (left_neighbor and top_neighbor)
+	
+	return false
+
+func select_chunk_boundary_tile(cell: Vector2i, surroundings: Dictionary) -> Vector2i:
+	# Chunk sınırlarındaki köşe tile'ları için özel tile seçimi
+	# Bu tile'lar chunk birleşmelerinde daha yumuşak geçişler sağlar
+	
+	# Köşe durumlarına göre özel tile'lar seç
+	if surroundings.top and surroundings.right:
+		return Vector2i(0, 2)  # Sol-alt köşe (üst-sağ komşu var)
+	elif surroundings.right and surroundings.bottom:
+		return Vector2i(0, 0)  # Sol-üst köşe (sağ-alt komşu var)
+	elif surroundings.bottom and surroundings.left:
+		return Vector2i(2, 0)  # Sağ-üst köşe (alt-sol komşu var)
+	elif surroundings.left and surroundings.top:
+		return Vector2i(2, 2)  # Sağ-alt köşe (sol-üst komşu var)
+	
+	# Fallback: normal tile seçimi
+	return select_appropriate_tile(surroundings)

@@ -1,6 +1,6 @@
 [gd_scene load_steps=8 format=4 uid="uid://b06sxkyvghvc6"]
 
-[ext_resource type="Script" path="res://chunks/base_chunk.gd" id="1_base"]
+[ext_resource type="Script" path="res://chunks/dungeon/dungeon_chunk.gd" id="1_base"]
 [ext_resource type="TileSet" uid="uid://bck2wwctc1jbc" path="res://Tile set/dungeon_master_tileset.tres" id="2_o8oun"]
 [ext_resource type="PackedScene" path="res://enemy/spawn_manager.tscn" id="3_67opo"]
 [ext_resource type="PackedScene" path="res://enemy/enemy_spawner.tscn" id="4_8suqf"]

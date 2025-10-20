@@ -9,6 +9,8 @@ var platform_detection_distance: float = 50.0  # Increased from 30.0
 func _ready() -> void:
 	super._ready()
 	
+	# Turtle collision behavior is working correctly
+	
 	# Reset animation to start from beginning
 	if sprite:
 		sprite.frame = 0

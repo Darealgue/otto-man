@@ -75,7 +75,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/basic/basic_platform.tscn",
 			"res://chunks/dungeon/basic/basic_platform1.tscn",
-			"res://chunks/dungeon/basic/basic_platform2.tscn"
+			"res://chunks/dungeon/basic/basic_platform2.tscn",
+			"res://chunks/dungeon/basic/basic_platform3.tscn",
+			"res://chunks/dungeon/basic/basic_platform4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -97,7 +99,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/l_corner_right_down.tscn",
 			"res://chunks/dungeon/hub/l_corner_right_down1.tscn",
-			"res://chunks/dungeon/hub/l_corner_right_down2.tscn"
+			"res://chunks/dungeon/hub/l_corner_right_down2.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down3.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
@@ -110,7 +114,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/l_corner_left_up.tscn",
 			"res://chunks/dungeon/hub/l_corner_left_up1.tscn",
-			"res://chunks/dungeon/hub/l_corner_left_up2.tscn"
+			"res://chunks/dungeon/hub/l_corner_left_up2.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up3.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -123,7 +129,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/l_corner_left_down.tscn",
 			"res://chunks/dungeon/hub/l_corner_left_down1.tscn",
-			"res://chunks/dungeon/hub/l_corner_left_down2.tscn"
+			"res://chunks/dungeon/hub/l_corner_left_down2.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down3.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -136,7 +144,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/l_corner_right_up.tscn",
 			"res://chunks/dungeon/hub/l_corner_right_up1.tscn",
-			"res://chunks/dungeon/hub/l_corner_right_up2.tscn"
+			"res://chunks/dungeon/hub/l_corner_right_up2.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up3.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
@@ -149,7 +159,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/t_junction_right.tscn",
 			"res://chunks/dungeon/hub/t_junction_right1.tscn",
-			"res://chunks/dungeon/hub/t_junction_right2.tscn"
+			"res://chunks/dungeon/hub/t_junction_right2.tscn",
+			"res://chunks/dungeon/hub/t_junction_right3.tscn",
+			"res://chunks/dungeon/hub/t_junction_right4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -162,7 +174,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/t_junction_left.tscn",
 			"res://chunks/dungeon/hub/t_junction_left1.tscn",
-			"res://chunks/dungeon/hub/t_junction_left2.tscn"
+			"res://chunks/dungeon/hub/t_junction_left2.tscn",
+			"res://chunks/dungeon/hub/t_junction_left3.tscn",
+			"res://chunks/dungeon/hub/t_junction_left4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
@@ -175,7 +189,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/t_junction_up.tscn",
 			"res://chunks/dungeon/hub/t_junction_up1.tscn",
-			"res://chunks/dungeon/hub/t_junction_up2.tscn"
+			"res://chunks/dungeon/hub/t_junction_up2.tscn",
+			"res://chunks/dungeon/hub/t_junction_up3.tscn",
+			"res://chunks/dungeon/hub/t_junction_up4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -188,7 +204,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/t_junction_down.tscn",
 			"res://chunks/dungeon/hub/t_junction_down1.tscn",
-			"res://chunks/dungeon/hub/t_junction_down2.tscn"
+			"res://chunks/dungeon/hub/t_junction_down2.tscn",
+			"res://chunks/dungeon/hub/t_junction_down3.tscn",
+			"res://chunks/dungeon/hub/t_junction_down4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -201,7 +219,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/hub/four_way_hub.tscn",
 			"res://chunks/dungeon/hub/four_way_hub1.tscn",
-			"res://chunks/dungeon/hub/four_way_hub2.tscn"
+			"res://chunks/dungeon/hub/four_way_hub2.tscn",
+			"res://chunks/dungeon/hub/four_way_hub3.tscn",
+			"res://chunks/dungeon/hub/four_way_hub4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -214,7 +234,9 @@ const CHUNKS = {
 		"scenes": [
 			"res://chunks/dungeon/vertical/climbing_tower.tscn",
 			"res://chunks/dungeon/vertical/climbing_tower1.tscn",
-			"res://chunks/dungeon/vertical/climbing_tower2.tscn"
+			"res://chunks/dungeon/vertical/climbing_tower2.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower3.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower4.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,

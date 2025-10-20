@@ -25,6 +25,7 @@ var aim_timer: float = 0.0
 var state_lock: float = 0.0  # State changes are blocked while > 0
 var attack_cooldown_timer: float = 0.0  # Prevent immediate attack switching
 var retreat_cooldown_timer: float = 0.0  # Prevent frequent retreats
+var explosion_cooldown_timer: float = 0.0  # Prevent double explosion damage
 
 # Node references
 @onready var wall_detector: RayCast2D = $WallDetector
@@ -101,6 +102,8 @@ func _physics_process(delta: float) -> void:
 		attack_cooldown_timer = max(0.0, attack_cooldown_timer - delta)
 	if retreat_cooldown_timer > 0.0:
 		retreat_cooldown_timer = max(0.0, retreat_cooldown_timer - delta)
+	if explosion_cooldown_timer > 0.0:
+		explosion_cooldown_timer = max(0.0, explosion_cooldown_timer - delta)
 	
 	# Hurt state - yerde kal
 	if current_behavior == "hurt":
@@ -495,6 +498,11 @@ func _spawn_smoke_generic(pos: Vector2, tex: Texture2D, frame_count_in: int, hor
 	, CONNECT_ONE_SHOT)
 
 func _create_rocket_explosion(pos: Vector2) -> void:
+	# Cooldown kontrolü - çok hızlı ardışık patlamaları önle
+	if explosion_cooldown_timer > 0.0:
+		print("[Canonman] Explosion cooldown active, skipping explosion")
+		return
+	
 	# Rocket patlama efekti oluştur (görsel)
 	var explosion = preload("res://effects/explosion_range_visual.tscn").instantiate()
 	get_tree().current_scene.add_child(explosion)
@@ -503,6 +511,9 @@ func _create_rocket_explosion(pos: Vector2) -> void:
 	
 	# Hasarı hitbox üzerinden uygula (parry/dodge uyumlu)
 	_spawn_explosion_hitbox(pos)
+	
+	# Cooldown başlat (0.5 saniye)
+	explosion_cooldown_timer = 0.5
 	
 	print("[Canonman] Rocket explosion at: ", pos)
 

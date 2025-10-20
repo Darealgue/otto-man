@@ -66,6 +66,33 @@ func _ready() -> void:
 	direction = 1
 	change_behavior("idle")
 
+func _set_enemy_body_collision(enabled: bool) -> void:
+	# Layer 3 is used as ENEMY body layer across enemies
+	set_collision_mask_value(3, enabled)
+
+func _is_position_safe(pos: Vector2) -> bool:
+	# Check if position is safe (not inside walls/ground)
+	var space_state = get_world_2d().direct_space_state
+	
+	# Check multiple points around the enemy
+	var check_points = [
+		pos,  # Center
+		pos + Vector2(-15, -15),  # Top-left
+		pos + Vector2(15, -15),   # Top-right
+		pos + Vector2(-15, 15),   # Bottom-left
+		pos + Vector2(15, 15)     # Bottom-right
+	]
+	
+	for point in check_points:
+		var query = PhysicsPointQueryParameters2D.new()
+		query.position = point
+		query.collision_mask = CollisionLayers.WORLD  # Only check world collision
+		var result = space_state.intersect_point(query)
+		if result:
+			return false  # Position is inside world geometry
+	
+	return true  # Position is safe
+
 func _physics_process(delta: float) -> void:
 	# Hurt özel
 	if current_behavior == "hurt":
@@ -338,6 +365,8 @@ func start_charge_towards(p: Node2D) -> void:
 		charge_dir_x = direction
 	direction = int(charge_dir_x)
 	change_behavior("charge")
+	# Allow passing through other enemies during charge
+	_set_enemy_body_collision(false)
 	# Sprite yönü sadece flip ile yönetilsin
 	if sprite:
 		sprite.flip_h = charge_dir_x < 0
@@ -370,6 +399,8 @@ func do_crash(cause: String = "timeout") -> void:
 	change_behavior("crash")
 	crash_time_left = STOP_TIME
 	crash_slide_left = STOP_SLIDE_PX
+	# Restore enemy collision immediately when charge ends
+	_set_enemy_body_collision(true)
 	# Hitbox'ı kapat
 	if hitbox:
 		hitbox.disable()

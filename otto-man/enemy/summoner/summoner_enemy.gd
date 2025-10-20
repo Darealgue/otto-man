@@ -33,6 +33,8 @@ func _ready() -> void:
 	
 	super._ready()
 	
+	# Summoner uses collision mask like Turtle - no debug needed
+	
 	# Add hurtbox to group with proper case
 	if hurtbox:
 		# Remove from any existing hurtbox groups to avoid duplicates
@@ -60,25 +62,55 @@ func _ready() -> void:
 	else:
 		push_error("Sprite node not found!")
 
-func _process(delta: float) -> void:
-	_update_animation()
-
 func _physics_process(delta: float) -> void:
-
-	# Rest of the timers and state handling
-	if invulnerability_timer > 0:
-		invulnerability_timer -= delta
-		if invulnerability_timer <= 0:
-			invulnerable = false
-			if hurtbox:
-				hurtbox.monitoring = true
-				hurtbox.monitorable = true
+	# Skip all processing if position is invalid
+	if global_position == Vector2.ZERO:
+		return
 	
+	# Only process movement and behavior if awake
+	if not is_sleeping:
+		# Handle invulnerability timer
+		if invulnerable:
+			invulnerability_timer -= delta
+			if invulnerability_timer <= 0:
+				invulnerable = false
+				# Make sure hurtbox is re-enabled
+				if hurtbox:
+					hurtbox.monitoring = true
+					hurtbox.monitorable = true
+		
+		# Handle Summoner's own behavior
+		_handle_summoner_behavior(delta)
+		
+		# Apply gravity and move
+		if not is_on_floor() and current_behavior != "dead":
+			var g_scale := 1.0
+			# Apply juggle float ONLY during hurt state to avoid slow fall elsewhere
+			if current_behavior == "hurt" and air_float_timer > 0.0:
+				g_scale = air_float_gravity_scale
+				air_float_timer = max(0.0, air_float_timer - delta)
+			velocity.y += GRAVITY * g_scale * delta
+			# Cap fall speed only while float is active in hurt
+			if current_behavior == "hurt" and air_float_timer > 0.0:
+				velocity.y = min(velocity.y, air_float_max_fall_speed)
+		# When hurt and moving upward, don't instantly cancel vertical velocity on floor contact
+		if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
+			# Skip vertical zeroing this frame to allow visible pop-up
+			pass
+		
+		# CRITICAL: Force collision mask to only WORLD and PLATFORM
+		# This ensures Summoner behaves like Turtle
+		collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+		
+		move_and_slide()
+
+func _handle_summoner_behavior(delta: float) -> void:
+	# Handle Summoner's own behavior logic
 	if return_cooldown_timer > 0:
 		return_cooldown_timer -= delta
 		if return_cooldown_timer <= 0:
 			can_summon = true
-
+	
 	# Always apply gravity (including during hurt) so launches arc properly
 	apply_gravity(delta)
 	
@@ -97,9 +129,10 @@ func _physics_process(delta: float) -> void:
 			_handle_run(delta)
 		"summon":
 			_handle_summon(delta)
-	
-	move_and_slide()
+
+func _process(delta: float) -> void:
 	_update_animation()
+
 
 func handle_hurt_behavior(delta: float) -> void:
 	behavior_timer += delta

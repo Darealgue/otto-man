@@ -22,7 +22,22 @@ const ENEMY_TYPES = {
 		"scene": preload("res://enemy/summoner/summoner_enemy.tscn"),
 		"weight": 25,
 		"min_level": 3
-	}
+	},
+	"canonman": {
+		"scene": preload("res://enemy/canonman/canonman_enemy.tscn"),
+		"weight": 30,
+		"min_level": 2
+	},
+	"firemage": {
+		"scene": preload("res://enemy/firemage/firemage_enemy.tscn"),
+		"weight": 20,
+		"min_level": 3
+	},
+	"spearman": {
+		"scene": preload("res://enemy/spearman/spearman_enemy.tscn"),
+		"weight": 30,
+		"min_level": 2
+	},
 }
 
 # Configuration
@@ -82,8 +97,17 @@ func spawn_enemies() -> void:
 	# Clear any existing enemies
 	clear_enemies()
 	
-	# Select enemy type based on level
-	var enemy_type = force_enemy_type if not force_enemy_type.is_empty() else _spawn_config.select_enemy_type(current_level)
+	# Select enemy type based on level and chunk type
+	var enemy_type = force_enemy_type if not force_enemy_type.is_empty() else _spawn_config.select_enemy_type(current_level, chunk_type)
+	
+	# Debug: Print spawn information
+	print("[EnemySpawner] Level: ", current_level, " Chunk Type: ", chunk_type)
+	print("[EnemySpawner] Selected enemy type: ", enemy_type)
+	
+	# Check if enemy type exists in ENEMY_TYPES
+	if not ENEMY_TYPES.has(enemy_type):
+		push_error("[EnemySpawner] Enemy type '" + enemy_type + "' not found in ENEMY_TYPES!")
+		return
 	
 	# Get the spawn position before instantiating
 	var spawn_pos = global_position

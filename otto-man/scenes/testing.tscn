@@ -427,7 +427,7 @@ tile_map_data = PackedByteArray("AAD6/w0AAAACAAQAAAD5/w0AAAABAAQAAAD4/w0AAAABAAQ
 tile_set = SubResource("TileSet_l35xa")
 
 [node name="Player" parent="." instance=ExtResource("7_6mvdn")]
-position = Vector2(622, 121)
+position = Vector2(-3037, 208)
 
 [node name="Bird Summoner" parent="." instance=ExtResource("9_2cr2j")]
 position = Vector2(4120, -245)
@@ -490,7 +490,7 @@ position = Vector2(-5636, 870)
 position = Vector2(-3871, 857)
 
 [node name="TurtleEnemy2" parent="." instance=ExtResource("11_xi0ju")]
-position = Vector2(-5367, 886)
+position = Vector2(-4892, 676)
 
 [node name="TurtleEnemy3" parent="." instance=ExtResource("11_xi0ju")]
-position = Vector2(-4113, 876)
+position = Vector2(-4114, 676)

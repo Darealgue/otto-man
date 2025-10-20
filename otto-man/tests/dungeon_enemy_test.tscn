@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=4 uid="uid://dungeon_enemy_test"]
+
+[ext_resource type="Script" path="res://tests/dungeon_enemy_test.gd" id="1_test"]
+
+[node name="DungeonEnemyTest" type="Node"]
+script = ExtResource("1_test")

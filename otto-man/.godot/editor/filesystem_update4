@@ -4,5 +4,8 @@ res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
-res://enemy/spearman/spearman_enemy.tscn
-res://enemy/base_enemy.gd
+res://chunks/dungeon/basic/basic_platform1.tscn
+res://scenes/unified_terrain.gd
+res://chunks/dungeon/special/start_chunk.tscn
+res://chunks/dungeon/basic/basic_platform4.tscn
+res://chunks/dungeon/special/full.tscn

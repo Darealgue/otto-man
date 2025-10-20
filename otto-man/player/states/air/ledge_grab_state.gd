@@ -192,6 +192,11 @@ func _get_ledge_position() -> Dictionary:
 	if player.is_on_floor():
 		# REMOVED Debug print for player on floor
 		return result
+	
+	# NEW: Simple check - if player is near any platform tiles, disable ledgegrab
+	if _is_player_near_platform_tiles_simple():
+		print("[LEDGEGRAB_DEBUG] Player near platform tiles, disabling ledgegrab")
+		return result
 
 	# Force shapecasts to update collision info - important before checking!
 	sctl.force_shapecast_update()
@@ -207,6 +212,18 @@ func _get_ledge_position() -> Dictionary:
 	if wl_colliding and not sc_tl_colliding:
 		# Additional check: Make sure there's actually a platform above the wall (real ledge)
 		var collision_point = wl.get_collision_point()
+		
+		# NEW: Check if there are any platform tiles nearby - if so, disable ledgegrab
+		if _has_platform_tiles_nearby(collision_point, -1):
+			print("[LEDGEGRAB_DEBUG] Left side - Platform tiles nearby, blocking ledgegrab")
+			return result  # Block ledgegrab if platform tiles are nearby
+		
+		# NEW: Check if player is near platform tiles - if so, disable ledgegrab
+		if _is_player_near_platform_tiles_simple():
+			print("[LEDGEGRAB_DEBUG] Left side - Player near platform tiles, blocking ledgegrab")
+			print("[LEDGEGRAB_DEBUG] Left side - RETURNING EARLY - NO LEDGEGRAB")
+			return result  # Block ledgegrab if player is near platform tiles
+		
 		var is_real = _is_real_ledge(collision_point, -1)  # -1 for left side
 		print("[LEDGEGRAB_DEBUG] Left side - collision_point: ", collision_point, " is_real_ledge: ", is_real)
 		if not is_real:
@@ -269,6 +286,18 @@ func _get_ledge_position() -> Dictionary:
 	if wr_colliding and not sc_tr_colliding:
 		# Additional check: Make sure there's actually a platform above the wall (real ledge)
 		var collision_point = wr.get_collision_point()
+		
+		# NEW: Check if there are any platform tiles nearby - if so, disable ledgegrab
+		if _has_platform_tiles_nearby(collision_point, 1):
+			print("[LEDGEGRAB_DEBUG] Right side - Platform tiles nearby, blocking ledgegrab")
+			return result  # Block ledgegrab if platform tiles are nearby
+		
+		# NEW: Check if player is near platform tiles - if so, disable ledgegrab
+		if _is_player_near_platform_tiles_simple():
+			print("[LEDGEGRAB_DEBUG] Right side - Player near platform tiles, blocking ledgegrab")
+			print("[LEDGEGRAB_DEBUG] Right side - RETURNING EARLY - NO LEDGEGRAB")
+			return result  # Block ledgegrab if player is near platform tiles
+		
 		var is_real = _is_real_ledge(collision_point, 1)  # 1 for right side
 		print("[LEDGEGRAB_DEBUG] Right side - collision_point: ", collision_point, " is_real_ledge: ", is_real)
 		if not is_real:
@@ -437,6 +466,11 @@ func _is_real_ledge(collision_point: Vector2, side: int) -> bool:
 		for x_offset in range(-8, 16, 4):  # Check from -8 to +12 pixels horizontally (wider range)
 			var check_pos = Vector2(collision_point.x + side * 4 + x_offset, collision_point.y - height)
 			
+			# NEW: Check if this position has a platform tile (terrain=1) - if so, skip entirely
+			if _is_platform_tile_at_position(check_pos):
+				print("[LEDGEGRAB_DEBUG] Platform tile (terrain=1) detected at ", check_pos, ", blocking ledgegrab")
+				continue  # Skip this position entirely
+			
 			# Check if there's a platform at this height and position
 			var q = PhysicsRayQueryParameters2D.new()
 			q.from = check_pos
@@ -445,6 +479,11 @@ func _is_real_ledge(collision_point: Vector2, side: int) -> bool:
 			var res = space_state.intersect_ray(q)
 			
 			if res:
+				# NEW: Check if this is a one-way platform - if so, don't allow ledgegrab
+				if _is_one_way_platform(res.collider):
+					print("[LEDGEGRAB_DEBUG] One-way platform detected, blocking ledgegrab")
+					continue  # Skip this platform, check others
+				
 				# Found a platform - check if it's substantial enough
 				var platform_width = 0
 				# Check platform width by scanning horizontally (wider scan)
@@ -496,6 +535,137 @@ func _is_real_ledge(collision_point: Vector2, side: int) -> bool:
 		print("[LEDGEGRAB_DEBUG] No real ledge found - max_platform_width: ", max_platform_width)
 	
 	return platform_found
+
+func _is_one_way_platform(collider: Node2D) -> bool:
+	# Check if the collider is a one-way platform
+	if not collider:
+		return false
+	
+	print("[LEDGEGRAB_DEBUG] Checking collider: ", collider.name, " class: ", collider.get_class())
+	
+	# Method 1: Check if it's a OneWayPlatform class
+	if collider.get_class() == "OneWayPlatform":
+		print("[LEDGEGRAB_DEBUG] Found OneWayPlatform class")
+		return true
+	
+	# Method 2: Check if it's in the one-way platform group
+	if collider.is_in_group("one_way_platforms"):
+		print("[LEDGEGRAB_DEBUG] Found one_way_platforms group")
+		return true
+	
+	# Method 3: Check if it's a TileMap with one-way collision
+	if collider is TileMap:
+		print("[LEDGEGRAB_DEBUG] Found TileMap, checking for one-way collision")
+		# Check if this TileMap has one-way collision enabled
+		# We'll check the collision at the specific position
+		var space_state = player.get_world_2d().direct_space_state
+		var query = PhysicsPointQueryParameters2D.new()
+		query.position = player.global_position
+		query.collision_mask = 1  # Ground layer
+		query.exclude = [player]
+		
+		var results = space_state.intersect_point(query)
+		for result in results:
+			if result.collider == collider:
+				# Check if this collision has one-way properties
+				if result.has("one_way_collision") and result.one_way_collision:
+					print("[LEDGEGRAB_DEBUG] Found one-way collision in TileMap")
+					return true
+				break
+	
+	# Method 4: Check collision shape for one-way collision
+	var collision_shape = collider.get_node_or_null("CollisionShape2D")
+	if collision_shape:
+		print("[LEDGEGRAB_DEBUG] Found CollisionShape2D, checking one-way collision")
+		if collision_shape.one_way_collision:
+			print("[LEDGEGRAB_DEBUG] Found one-way collision in CollisionShape2D")
+			return true
+	
+	# Method 5: Check if it's a platform with one-way collision margin
+	if collision_shape and collision_shape.one_way_collision_margin > 0:
+		print("[LEDGEGRAB_DEBUG] Found one-way collision margin: ", collision_shape.one_way_collision_margin)
+		return true
+	
+	print("[LEDGEGRAB_DEBUG] No one-way platform detected")
+	return false
+
+func _is_platform_tile_at_position(pos: Vector2) -> bool:
+	# Check if there's a platform tile (terrain=1) at the given position
+	var space_state = player.get_world_2d().direct_space_state
+	
+	# Use a small raycast to check for platform tiles
+	var query = PhysicsRayQueryParameters2D.new()
+	query.from = pos
+	query.to = pos + Vector2.DOWN * 4  # Small downward ray
+	query.collision_mask = 1  # Ground layer
+	query.exclude = [player]
+	
+	var result = space_state.intersect_ray(query)
+	if result:
+		# Check if this is a TileMap
+		if result.collider is TileMap:
+			var tilemap = result.collider as TileMap
+			var cell_pos = tilemap.local_to_map(result.position)
+			var tile_data = tilemap.get_cell_tile_data(0, cell_pos)
+			
+			if tile_data:
+				# Check if this tile has terrain=1 (platform)
+				if tile_data.has_method("get_terrain"):
+					var terrain = tile_data.get_terrain()
+					if terrain == 1:
+						print("[LEDGEGRAB_DEBUG] Found platform tile (terrain=1) at ", cell_pos)
+						return true
+				
+				# Check if this tile has one-way collision
+				if tile_data.has_method("get_collision_polygon_one_way"):
+					var is_one_way = tile_data.get_collision_polygon_one_way(0, 0)
+					if is_one_way:
+						print("[LEDGEGRAB_DEBUG] Found one-way collision tile at ", cell_pos)
+						return true
+	
+	return false
+
+func _has_platform_tiles_nearby(collision_point: Vector2, side: int) -> bool:
+	# Check if there are any platform tiles (terrain=1) nearby
+	var space_state = player.get_world_2d().direct_space_state
+	
+	# Check a wider area around the collision point for platform tiles
+	var check_radius = 64  # Check 64 pixels around the collision point
+	var check_positions = []
+	
+	# Check multiple positions around the collision point
+	for x_offset in range(-check_radius, check_radius + 1, 16):
+		for y_offset in range(-check_radius, check_radius + 1, 16):
+			var check_pos = collision_point + Vector2(x_offset, y_offset)
+			check_positions.append(check_pos)
+	
+	# Check each position for platform tiles
+	for pos in check_positions:
+		if _is_platform_tile_at_position(pos):
+			print("[LEDGEGRAB_DEBUG] Found platform tile at ", pos, " near collision point ", collision_point)
+			return true
+	
+	return false
+
+
+func _is_player_near_platform_tiles_simple() -> bool:
+	# Simple and fast check - only check a small area around player
+	var player_pos = player.global_position
+	var check_radius = 32  # Only check 32 pixels around player (much smaller)
+	
+	# Check only 4 positions around player (much faster)
+	var check_positions = [
+		player_pos + Vector2(-check_radius, 0),  # Left
+		player_pos + Vector2(check_radius, 0),   # Right
+		player_pos + Vector2(0, -check_radius),  # Up
+		player_pos + Vector2(0, check_radius)    # Down
+	]
+	
+	for pos in check_positions:
+		if _is_platform_tile_at_position(pos):
+			return true
+	
+	return false
 
 func _is_flat_wall_at_player_height(side: int) -> bool:
 	# Check for flat wall using horizontal raycast from player's collision height

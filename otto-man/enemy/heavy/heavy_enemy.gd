@@ -48,6 +48,29 @@ const CHARGE_END_THRESHOLD := 0.8
 @onready var raycast_left = $RayCastLeft
 @onready var raycast_right = $RayCastRight
 
+func _is_position_safe(pos: Vector2) -> bool:
+	# Check if position is safe (not inside walls/ground)
+	var space_state = get_world_2d().direct_space_state
+	
+	# Check multiple points around the enemy
+	var check_points = [
+		pos,  # Center
+		pos + Vector2(-20, -20),  # Top-left
+		pos + Vector2(20, -20),   # Top-right
+		pos + Vector2(-20, 20),   # Bottom-left
+		pos + Vector2(20, 20)     # Bottom-right
+	]
+	
+	for point in check_points:
+		var query = PhysicsPointQueryParameters2D.new()
+		query.position = point
+		query.collision_mask = CollisionLayers.WORLD  # Only check world collision
+		var result = space_state.intersect_point(query)
+		if result:
+			return false  # Position is inside world geometry
+	
+	return true  # Position is safe
+
 func _ready() -> void:
 	super._ready()
 	
@@ -218,12 +241,19 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 			velocity.x = 0
 		"charge_start":
 			sprite.play("charge_start")
+			# Only disable enemy collision if position is safe
+			if _is_position_safe(global_position):
+				set_collision_mask_value(3, false)
+			else:
+				print("[Heavy] Position not safe, keeping enemy collision during charge")
 		"charging":
 			sprite.play("charging")
 		"charge_end":
 			if sprite.animation != "charge_end":
 				sprite.play("charge_end")
 			velocity.x = 0
+			# Restore collision with enemies after charge
+			set_collision_mask_value(3, true)
 		"slam_prepare":
 			sprite.play("slam_prepare")
 			velocity.x = 0

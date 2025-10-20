@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=4 uid="uid://clnglguy57c23"]
 
-[ext_resource type="Script" path="res://chunks/base_chunk.gd" id="1_base"]
+[ext_resource type="Script" path="res://chunks/dungeon/dungeon_chunk.gd" id="1_base"]
 [ext_resource type="TileSet" uid="uid://bck2wwctc1jbc" path="res://Tile set/dungeon_master_tileset.tres" id="2_51j7d"]
 [ext_resource type="Texture2D" uid="uid://bttd14brqottw" path="res://Tile set/Dungeon wall bg2-sheet.png" id="3_stkvu"]
 
