@@ -9,6 +9,10 @@ var platform_detection_distance: float = 50.0  # Increased from 30.0
 func _ready() -> void:
 	super._ready()
 	
+	# Set sleep distances for performance optimization
+	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
+	wake_distance = 1200.0  # Distance at which enemy wakes up
+	
 	# Turtle collision behavior is working correctly
 	
 	# Reset animation to start from beginning

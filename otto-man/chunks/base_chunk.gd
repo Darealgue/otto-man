@@ -35,21 +35,9 @@ func _ready() -> void:
 	print("  - Size:", get_chunk_size())
 	print("  - Connections:", get_connections())
 	
-	# Initialize spawn manager (guarded)
-	spawn_manager = $SpawnManager
-	if spawn_manager:
-		var level = 1  # Default level
-		# Try to find level generator with a small delay to ensure it's added to group
-		await get_tree().process_frame
-		var level_generator = get_tree().get_first_node_in_group("level_generator")
-		if level_generator:
-			level = level_generator.current_level
-			print("[BaseChunk] Level generator found, current_level: ", level)
-		else:
-			print("[BaseChunk] No level generator found, using default level: ", level)
-		# Guard: only call if method exists
-		if spawn_manager.has_method("initialize"):
-			spawn_manager.initialize(chunk_type, level)
+	# SpawnManager is now handled by tile-based system in level generator
+	# No need to initialize SpawnManager here anymore
+	print("[BaseChunk] Using tile-based enemy spawn system")
 	
 	# Initialize trap manager
 	trap_manager = $TrapManager

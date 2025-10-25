@@ -36,4 +36,5 @@ func _on_area_entered(hitbox: Area2D):
 	print("[EnemyHurtbox:", enemy_name, "] hit by=", hitbox.name, " dmg=", dmg, " layer=", hitbox.collision_layer, " mask=", hitbox.collision_mask)
 	
 	# Emit hurt signal
+	print("[EnemyHurtbox] Emitting hurt signal for: ", enemy_name)
 	hurt.emit(hitbox) 

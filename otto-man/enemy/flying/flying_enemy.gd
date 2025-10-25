@@ -31,6 +31,10 @@ var return_timer: float = RETURN_COOLDOWN  # Track time before allowing return
 func _ready() -> void:
 	super._ready()
 	
+	# Set sleep distances for performance optimization
+	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
+	wake_distance = 1200.0  # Distance at which enemy wakes up
+	
 	# Initialize combat components with our own stats
 	if hitbox:
 		hitbox.damage = stats.attack_damage
@@ -108,9 +112,14 @@ func _handle_return_state(delta: float) -> void:
 	set_collision_layer_value(3, false)  # Layer 3 is typically for enemy collision
 	set_collision_mask_value(1, false)   # Layer 1 is typically for environment
 	
-	# Fly towards summoner
+	# Fly towards summoner - use stats-based speed
 	var direction = global_position.direction_to(summoner.global_position)
-	velocity = direction * RETURN_SPEED
+	var return_speed = stats.movement_speed * 2.0  # 2x normal speed for return
+	velocity = direction * return_speed
+	
+	# DEBUG: Print speed information (reduced frequency)
+	if randf() < 0.01:  # Only print 1% of the time
+		print("[FlyingEnemy] Return - Speed: %s" % return_speed)
 	# Use move_and_slide() without collision
 	position += velocity * delta
 	
@@ -135,7 +144,9 @@ func _handle_chase_state(delta: float) -> void:
 	
 	# Move towards circle position
 	var direction = global_position.direction_to(circle_pos)
-	velocity = direction * stats.movement_speed * CHASE_SPEED_MULTIPLIER
+	var final_speed = stats.movement_speed * CHASE_SPEED_MULTIPLIER
+	velocity = direction * final_speed
+	
 	
 	# Check for obstacles
 	if wall_detector.is_colliding() or ceiling_detector.is_colliding() or floor_detector.is_colliding():
@@ -176,7 +187,12 @@ func _handle_swoop_state(delta: float) -> void:
 		return
 		
 	var direction = global_position.direction_to(swoop_target_pos)
-	velocity = direction * stats.movement_speed * SWOOP_SPEED_MULTIPLIER
+	var final_speed = stats.movement_speed * SWOOP_SPEED_MULTIPLIER
+	velocity = direction * final_speed
+	
+	# DEBUG: Print speed information (reduced frequency)
+	if randf() < 0.01:  # Only print 1% of the time
+		print("[FlyingEnemy] Swoop - Base Speed: %s, Final Speed: %s" % [stats.movement_speed, final_speed])
 	
 	move_and_slide()
 	
@@ -193,7 +209,12 @@ func _handle_neutral_state(delta: float) -> void:
 		neutral_timer = 0.0
 		neutral_direction = Vector2(randf_range(-1, 1), -1).normalized()
 	
-	velocity = neutral_direction * NEUTRAL_SPEED
+	# Use stats-based speed instead of constant
+	velocity = neutral_direction * stats.movement_speed
+	
+	# DEBUG: Print speed information (reduced frequency)
+	if randf() < 0.01:  # Only print 1% of the time
+		print("[FlyingEnemy] Neutral - Speed: %s" % stats.movement_speed)
 	
 	# Check for obstacles
 	if wall_detector.is_colliding() or ceiling_detector.is_colliding() or floor_detector.is_colliding():
@@ -203,8 +224,14 @@ func _handle_neutral_state(delta: float) -> void:
 	sprite.flip_h = velocity.x < 0
 
 func _handle_escape_state(delta: float) -> void:
-	# Always fly upward and slightly to the side
-	velocity = Vector2(neutral_direction.x * ESCAPE_SPEED * 0.3, -ESCAPE_SPEED)
+	# Always fly upward and slightly to the side - use stats-based speed
+	var escape_speed = stats.movement_speed * 2.0  # 2x normal speed for escape
+	velocity = Vector2(neutral_direction.x * escape_speed * 0.3, -escape_speed)
+	
+	# DEBUG: Print speed information (reduced frequency)
+	if randf() < 0.01:  # Only print 1% of the time
+		print("[FlyingEnemy] Escape - Speed: %s" % escape_speed)
+	
 	move_and_slide()
 	
 	# Check if we're off screen
@@ -240,14 +267,16 @@ func handle_hurt_behavior(delta: float) -> void:
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
 	if current_behavior == "dead" or invulnerable:
 		return
-		
 	
+	# FlyingEnemy doesn't spawn blood (it's a bird), so we handle damage manually
 	# Update health
 	health -= amount
 	
 	# Update health bar
 	if health_bar:
 		health_bar.update_health(health)
+	# Emit health changed for external listeners
+	_health_emit_changed()
 	
 	# Spawn damage number
 	var damage_number = preload("res://effects/damage_number.tscn").instantiate()

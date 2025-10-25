@@ -58,6 +58,10 @@ func _ready() -> void:
 
 	super._ready()
 	
+	# Set sleep distances for performance optimization
+	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
+	wake_distance = 1200.0  # Distance at which enemy wakes up
+	
 	set_collision_layer_value(3, true)   # Enemy body on layer 3 (like other enemies)
 	set_collision_mask_value(1, true)    # Collide with world
 	set_collision_mask_value(2, false)   # Do NOT collide with player body (pass-through handled via hitboxes)

@@ -23,13 +23,13 @@ const CHUNK_SPAWN_RULES = {
 # Enemy type weights per level
 const ENEMY_WEIGHTS = {
 	1: {
-		"turtle": 50,
-		"heavy": 30,
-		"flying": 10,
-		"summoner": 0,
-		"canonman": 0,
-		"firemage": 0,
-		"spearman": 0
+		"turtle": 25,
+		"heavy": 20,
+		"flying": 0,
+		"summoner": 15,
+		"canonman": 20,
+		"firemage": 20,
+		"spearman": 20
 	},
 	2: {
 		"turtle": 35,

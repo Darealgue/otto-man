@@ -33,6 +33,10 @@ func _ready() -> void:
 	
 	super._ready()
 	
+	# Set sleep distances for performance optimization
+	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
+	wake_distance = 1200.0  # Distance at which enemy wakes up
+	
 	# Summoner uses collision mask like Turtle - no debug needed
 	
 	# Add hurtbox to group with proper case
@@ -343,70 +347,33 @@ func die() -> void:
 	# queue_free()
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
+	# Call base class take_damage to get blood particles and other effects
+	super.take_damage(amount, knockback_force, knockback_up_force)
+	
+	# Summoner-specific damage handling
 	if current_behavior == "dead" or invulnerable:
 		return
 		
-	
-	# Update health
-	health -= amount
-	
-	# Update health bar
-	if health_bar:
-		health_bar.update_health(health)
-	
-	# Spawn damage number
-	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-	add_child(damage_number)
-	damage_number.global_position = global_position + Vector2(0, -50)
-	damage_number.setup(int(amount))
-	
-	# Apply knockback
-	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		var player = players[0]
-		var dir = (global_position - player.global_position).normalized()
-		var up = -knockback_force * 0.5
-		if knockback_up_force >= 0.0:
-			up = -knockback_up_force
-		velocity = Vector2(dir.x * knockback_force, up)
-		# Start float if launched upward
-		if up < 0.0:
-			air_float_timer = air_float_duration
-		# If launched upward, start float window so player can juggle
-		if up < 0.0 and has_node("."):
-			if has_method("set"):
-				air_float_timer = air_float_duration
-		# If launched upward, briefly disable floor snap behavior so takeoff is visible
-		if up < 0.0:
-			var prev_snap = floor_snap_length
-			floor_snap_length = 0.0
-			var t = get_tree().create_timer(0.1)
-			t.timeout.connect(func():
-				if is_instance_valid(self):
-					floor_snap_length = prev_snap
-			)
+	# If launched upward, start float window so player can juggle
+	if knockback_up_force >= 0.0 and knockback_up_force > 0:
+		air_float_timer = air_float_duration
+	elif velocity.y < 0.0:
+		air_float_timer = air_float_duration
+		
+	# If launched upward, briefly disable floor snap behavior so takeoff is visible
+	if velocity.y < 0.0:
+		var prev_snap = floor_snap_length
+		floor_snap_length = 0.0
+		var t = get_tree().create_timer(0.1)
+		t.timeout.connect(func():
+			if is_instance_valid(self):
+				floor_snap_length = prev_snap
+		)
 	
 	# Enter hurt state and play animation
 	change_behavior("hurt", true)  # Force the behavior change
 	if sprite:
 		sprite.play("hurt")  # Explicitly play hurt animation
-	behavior_timer = 0.0
-	
-	# Brief invulnerability and disable hurtbox
-	invulnerable = true
-	invulnerability_timer = INVULNERABILITY_DURATION
-	if hurtbox:
-		hurtbox.monitoring = false
-		hurtbox.monitorable = false
-	
-	# Flash red
-	if sprite:
-		sprite.modulate = Color(1, 0, 0, 1)
-		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
-	
-	# Check for death
-	if health <= 0:
-		die()
 	
 
 func _on_animation_finished() -> void:

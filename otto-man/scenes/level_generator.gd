@@ -1594,6 +1594,12 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 
 	# TileMap tabanlı dekorasyonları oluştur
 	_populate_decorations_from_tilemap(chunk)
+	
+	# Remove old EnemySpawner nodes from chunk (legacy system)
+	_remove_legacy_enemy_spawners(chunk)
+	
+	# TileMap tabanlı düşmanları oluştur
+	_populate_enemies_from_tilemap(chunk)
 
 	print("Successfully placed " + chunk_type + " at " + str(pos)) # Improved logging
 	return true
@@ -2540,6 +2546,10 @@ func _on_door_opened(door_type: String) -> void:
 	elif door_type == "Finish" or door_type == "Boss":
 		print("Emitting level_completed signal")  # Debug print
 		is_transitioning = true
+		
+		# Clear all enemies from previous level before generating new level
+		_clear_all_enemies_from_previous_level()
+		
 		level_completed.emit()
 		current_level += 1
 		generate_level()  # Generate new level
@@ -3280,4 +3290,309 @@ func _process(delta):
 	canvas_layer.add_child(screen_darkness)
 	
 	# CanvasLayer'i scene root'a ekle
-	scene_root.add_child(canvas_layer) 
+	scene_root.add_child(canvas_layer)
+
+# ==============================================================================
+# TILE-BASED ENEMY SPAWN SYSTEM
+# ==============================================================================
+
+func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
+	# Tile-based enemy spawn system - similar to decoration system
+	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
+	
+	if not tile_map:
+		print("[EnemyPopulate] SKIPPING: Chunk '%s' does not have a child node named 'TileMapLayer'." % chunk_node.name)
+		return
+	
+	var tile_set = tile_map.tile_set
+	if not tile_set:
+		push_warning("TileMap in '%s' has no TileSet." % chunk_node.name)
+		return
+	
+	# Find enemy anchor custom data layer (use decor_anchor for now)
+	var enemy_layer_name = "decor_anchor"
+	var enemy_layer_index = -1
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == enemy_layer_name:
+			enemy_layer_index = i
+			break
+	
+	if enemy_layer_index == -1:
+		print("[EnemyPopulate] SKIPPING: TileSet in chunk '%s' does not have a custom data layer named '%s'." % [chunk_node.name, enemy_layer_name])
+		return
+	
+	var used_cells = tile_map.get_used_cells()
+	var enemy_spawn_count = 0
+	var spawned_positions: Array[Vector2] = []  # Track spawned positions
+	
+	print("[EnemyPopulate] Processing %d cells in chunk '%s'" % [used_cells.size(), chunk_node.name])
+	
+	# CHUNK DEBUG
+	print("[EnemyPopulate] === CHUNK DEBUG ===")
+	print("[EnemyPopulate] Chunk: %s" % chunk_node.name)
+	print("[EnemyPopulate] Chunk Global Pos: %s" % chunk_node.global_position)
+	print("[EnemyPopulate] TileMap Global Pos: %s" % tile_map.global_position)
+	print("[EnemyPopulate] ===================")
+	
+	# Process each cell to find 3-tile patterns
+	for cell in used_cells:
+		var tile_data = tile_map.get_cell_tile_data(cell)
+		if not tile_data:
+			continue
+		
+		var custom_data = tile_data.get_custom_data(enemy_layer_name)
+		if not custom_data:
+			continue
+		
+		# Check if this is a floor tile that can spawn enemies
+		if custom_data == "floor" or custom_data == "floor_surface":
+			# DEBUG: Check what tiles we're looking at
+			print("[EnemyPopulate] Checking floor tile at: %s" % cell)
+		# Check for 3-tile area pattern (like decorations)
+		if _check_three_by_three_area(tile_map, cell, enemy_layer_name):
+			# Spawn 2-3 enemies per chunk total (reduced from 4)
+			if enemy_spawn_count < 2:
+				print("[EnemyPopulate] Found 3-tile area at cell: %s (spawn count: %d)" % [cell, enemy_spawn_count])
+					# Spawn enemy at center of 3x3 area
+				var center_cell = cell  # Center of 3x3 area
+				var tile_size_v2: Vector2 = Vector2(tile_map.tile_set.tile_size)
+				var local_pos = tile_map.map_to_local(center_cell)
+				var tile_center: Vector2 = tile_map.to_global(local_pos) + tile_size_v2 / 2.0
+				
+				# Use same positioning as decorations (FLOOR_CENTER)
+				var floor_offset_y := 150.0  # Increased even more for heavy enemies
+				var bias_x := 0.0  # No X bias to prevent chunk boundary issues
+				var spawn_position = tile_center + Vector2(bias_x, -floor_offset_y)
+				
+				# Check if spawn position is within reasonable bounds (simple check)
+				var chunk_pos = chunk_node.global_position
+				var chunk_size = Vector2(1920, 1080)  # Standard chunk size
+				var spawn_local = spawn_position - chunk_pos
+				
+				if spawn_local.x < 0 or spawn_local.x > chunk_size.x or spawn_local.y < 0 or spawn_local.y > chunk_size.y:
+					print("[EnemyPopulate] SKIP: Spawn position %s is outside chunk bounds" % spawn_position)
+					continue
+				
+				# Check minimum distance from other spawned enemies (prevent clustering)
+				var min_distance = 200.0  # Minimum distance between enemies
+				var too_close = false
+				for existing_pos in spawned_positions:
+					if spawn_position.distance_to(existing_pos) < min_distance:
+						too_close = true
+						break
+				
+				if too_close:
+					print("[EnemyPopulate] SKIP: Spawn position %s too close to existing enemy" % spawn_position)
+					continue
+				
+				# DETAILED DEBUG (Normal level)
+				print("[EnemyPopulate] Spawning enemy at: %s" % spawn_position)
+				
+				# Create enemy spawner
+				var enemy_spawner_script = load("res://enemy/tile_enemy_spawner.gd")
+				var enemy_spawner = enemy_spawner_script.new()
+				enemy_spawner.global_position = spawn_position
+				enemy_spawner.current_level = current_level
+				enemy_spawner.chunk_type = _get_chunk_type_for_node(chunk_node)
+				enemy_spawner.spawn_chance = 0.6  # 60% chance to spawn (reduced from 100%)
+				
+				# DETAILED SPAWNER DEBUG (Reduced)
+				print("[EnemyPopulate] Spawner created at: %s" % enemy_spawner.global_position)
+				
+				# Add to chunk
+				chunk_node.add_child(enemy_spawner)
+				
+				# FIX: Reset position after add_child (parent-child transform issue)
+				enemy_spawner.global_position = spawn_position
+				
+				# DETAILED SPAWNER DEBUG AFTER ADD (Reduced)
+				print("[EnemyPopulate] Spawner added to: %s" % enemy_spawner.get_parent().name)
+				
+				# Activate spawner
+				enemy_spawner.activate()
+				
+				# Add visual marker for debug - show which tile was selected for spawning
+				print("[EnemyPopulate] Adding marker for tile: %s" % center_cell)
+				_add_spawn_tile_marker(tile_map, center_cell, chunk_node)
+				
+				# Track this spawn position
+				spawned_positions.append(spawn_position)
+				enemy_spawn_count += 1
+				print("[EnemyPopulate] Spawned enemy at 3-tile area: %s" % center_cell)
+	
+	print("[EnemyPopulate] Spawned %d enemies in chunk '%s'" % [enemy_spawn_count, chunk_node.name])
+
+# Add visual marker to show which tile was selected for enemy spawning
+func _add_spawn_tile_marker(tile_map: TileMapLayer, cell: Vector2i, chunk_node: Node2D) -> void:
+	# Get tile position for debugging
+	var tile_pos = tile_map.map_to_local(cell)
+	var world_pos = tile_map.to_global(tile_pos)
+	
+	# Console'da spawn pozisyonunu göster
+	print("🎯 SPAWN TILE: Cell(%s) -> World(%s) in chunk '%s'" % [cell, world_pos, chunk_node.name])
+	
+	# Label kullan - en basit çözüm (DISABLED)
+	# var label = Label.new()
+	# label.name = "SpawnMarker_%s_%s" % [cell.x, cell.y]
+	# label.text = "🎯 SPAWN 🎯"
+	# label.position = world_pos - Vector2(50, 50)
+	# label.size = Vector2(100, 100)
+	# label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# label.add_theme_color_override("font_color", Color.RED)
+	# label.add_theme_color_override("font_outline_color", Color.BLACK)
+	# label.add_theme_color_override("font_outline_size", 3)
+	# label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 
+	# # Label'ı main scene'e ekle
+	# get_tree().current_scene.add_child(label)
+	# print("✅ LABEL MARKER added at world pos: %s" % world_pos)
+	# 
+	# # Test marker ekle - sabit pozisyonda
+	# var test_label = Label.new()
+	# test_label.name = "TestMarker"
+	# test_label.text = "🔵 TEST 🔵"
+	# test_label.position = Vector2(50, 50)
+	# test_label.size = Vector2(200, 200)
+	# test_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# test_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# test_label.add_theme_color_override("font_color", Color.BLUE)
+	# test_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	# test_label.add_theme_color_override("font_outline_size", 3)
+	# test_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# get_tree().current_scene.add_child(test_label)
+	# print("🔵 TEST LABEL MARKER added at (50, 50)")
+
+func _check_three_by_three_area(tile_map: TileMapLayer, center_cell: Vector2i, layer_name: String) -> bool:
+	# Check if 3x3 area around center cell is clear (like decorations)
+	# Even more flexible: check center + 2 horizontal directions
+	var check_cells = [
+		center_cell,  # Center
+		center_cell + Vector2i(-1, 0),  # Left
+		center_cell + Vector2i(1, 0)    # Right
+	]
+	
+	# Check the 3 key tiles
+	for check_cell in check_cells:
+		var tile_data = tile_map.get_cell_tile_data(check_cell)
+		
+		# If any tile in the area is not floor, return false
+		if not tile_data:
+			return false
+		
+		var custom_data = tile_data.get_custom_data(layer_name)
+		if custom_data != "floor" and custom_data != "floor_surface":
+			return false
+	
+	# Check that center area is not on chunk boundary
+	if _is_on_chunk_outer_boundary(tile_map, center_cell):
+		return false
+	
+	# YÜKSEKLİK KONTROLÜ EKLE - Düşman için yeterli yükseklik var mı?
+	if not _check_spawn_height_clearance(tile_map, center_cell, layer_name):
+		return false
+	
+	return true
+
+# Yeni fonksiyon: Düşman spawn alanının üstünde yeterli yükseklik var mı kontrol et
+func _check_spawn_height_clearance(tile_map: TileMapLayer, center_cell: Vector2i, layer_name: String) -> bool:
+	# Düşman için minimum 4 tile yükseklik gerekli (daha güvenli)
+	var min_height = 4
+	
+	print("🔍 HEIGHT CHECK: Checking clearance above %s" % center_cell)
+	
+	# Spawn alanının üstündeki tile'ları kontrol et
+	for i in range(1, min_height + 1):
+		var check_cell = center_cell + Vector2i(0, -i)  # Yukarı doğru
+		var tile_data = tile_map.get_cell_tile_data(check_cell)
+		
+		print("  📍 Checking cell %s (height: %d)" % [check_cell, i])
+		
+		# Eğer üstte HERHANGİ BİR tile varsa, yeterli yükseklik yok
+		if tile_data:
+			var custom_data = tile_data.get_custom_data(layer_name)
+			print("    ❌ Found tile with data: '%s'" % custom_data)
+			
+			# Solid tile'lar: wall, ceiling, platform vb.
+			if custom_data in ["wall", "ceiling", "platform", "solid", "block", "terrain"]:
+				print("❌ HEIGHT CHECK FAILED: Solid tile at %s (height: %d, data: %s)" % [check_cell, i, custom_data])
+				return false
+			else:
+				# Eğer tile var ama solid değilse, yine de yükseklik yok
+				print("❌ HEIGHT CHECK FAILED: Any tile at %s (height: %d, data: %s)" % [check_cell, i, custom_data])
+				return false
+		else:
+			print("    ✅ No tile found - clear space")
+	
+	print("✅ HEIGHT CHECK PASSED: Clear space above %s (height: %d+)" % [center_cell, min_height])
+	return true
+
+func _get_chunk_type_for_node(chunk_node: Node2D) -> String:
+	# Determine chunk type based on chunk name or other properties
+	var chunk_name = chunk_node.name.to_lower()
+	if "combat" in chunk_name:
+		return "combat"
+	elif "dungeon" in chunk_name:
+		return "dungeon"
+	elif "boss" in chunk_name:
+		return "dungeon"  # Boss chunks are dungeon type
+	else:
+		return "basic"
+
+func _clear_all_enemies_from_previous_level() -> void:
+	print("[LevelGenerator] Clearing all enemies from previous level...")
+	
+	# Clear enemies from all chunks
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			var cell = grid[x][y]
+			if cell.chunk:
+				_clear_enemies_from_chunk(cell.chunk)
+	
+	# Clear enemies from unified terrain if it exists
+	if unified_terrain:
+		_clear_enemies_from_chunk(unified_terrain)
+	
+	print("[LevelGenerator] Enemy cleanup completed")
+
+func _clear_enemies_from_chunk(chunk_node: Node2D) -> void:
+	if not chunk_node:
+		return
+	
+	# Clear tile-based enemy spawners
+	var tile_enemy_spawners = chunk_node.find_children("*", "TileEnemySpawner", true, false)
+	for spawner in tile_enemy_spawners:
+		if spawner.has_method("clear_enemies"):
+			spawner.clear_enemies()
+		spawner.queue_free()
+	
+	# Clear old EnemySpawner nodes (legacy system)
+	var enemy_spawners = chunk_node.find_children("*", "EnemySpawner", true, false)
+	for spawner in enemy_spawners:
+		if spawner.has_method("clear_enemies"):
+			spawner.clear_enemies()
+		spawner.queue_free()
+	
+	# Clear any remaining enemy nodes
+	var enemies = chunk_node.find_children("*", "BaseEnemy", true, false)
+	for enemy in enemies:
+		if is_instance_valid(enemy):
+			enemy.queue_free()
+	
+	# Clear enemies from SpawnManager if it exists
+	var spawn_manager = chunk_node.find_child("SpawnManager", true, false)
+	if spawn_manager and spawn_manager.has_method("clear_all_enemies"):
+		spawn_manager.clear_all_enemies()
+
+func _remove_legacy_enemy_spawners(chunk_node: Node2D) -> void:
+	# Remove old EnemySpawner nodes from chunk (legacy system)
+	var enemy_spawners = chunk_node.find_children("*", "EnemySpawner", true, false)
+	for spawner in enemy_spawners:
+		print("[LevelGenerator] Removing legacy EnemySpawner: %s" % spawner.name)
+		spawner.queue_free()
+	
+	# Remove SpawnManager nodes as well
+	var spawn_managers = chunk_node.find_children("*", "SpawnManager", true, false)
+	for manager in spawn_managers:
+		print("[LevelGenerator] Removing legacy SpawnManager: %s" % manager.name)
+		manager.queue_free() 

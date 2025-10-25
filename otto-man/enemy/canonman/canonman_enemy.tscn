@@ -19,7 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://dnnt35o2rtoc3" path="res://enemy/canonman/sprite/cannonman_death_border.png" id="15_death"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
-radius = 16.0
+radius = 19.0
 height = 48.0
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ytjon"]
@@ -562,11 +562,9 @@ position = Vector2(0, -3)
 shape = SubResource("CapsuleShape2D_1")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
-position = Vector2(0, -79)
+position = Vector2(0, -78)
 sprite_frames = SubResource("SpriteFrames_1")
-animation = &"cannonman_hurt"
-frame = 1
-frame_progress = 1.0
+animation = &"cannonman_aim"
 
 [node name="Hitbox" type="Area2D" parent="." groups=["hitbox"]]
 collision_layer = 16

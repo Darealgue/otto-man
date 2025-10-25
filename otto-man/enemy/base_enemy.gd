@@ -4,6 +4,12 @@ extends CharacterBody2D
 # Preload autoloads
 @onready var object_pool = get_node("/root/ObjectPool")
 
+# Blood particle system (preloaded, can't be null)
+const BLOOD_PARTICLE_SCENE = preload("res://effects/blood_particle.tscn")
+const BLOOD_SPLATTER_SCENE = preload("res://effects/blood_splatter.tscn")
+@export var blood_particle_count: int = 16
+@export var blood_particle_force: float = 120.0
+
 signal enemy_defeated
 signal health_changed(new_health: float, max_health: float)
 
@@ -103,17 +109,12 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
+	# Check sleep state every frame
+	check_sleep_state()
+	
 	# Only process movement and behavior if awake
 	if not is_sleeping:
-		# Handle invulnerability timer
-		if invulnerable:
-			invulnerability_timer -= delta
-			if invulnerability_timer <= 0:
-				invulnerable = false
-				# Make sure hurtbox is re-enabled
-				if hurtbox:
-					hurtbox.monitoring = true
-					hurtbox.monitorable = true
+		# No invulnerability system - hurtbox always enabled
 		
 		# Handle behavior and movement
 		handle_behavior(delta)
@@ -222,7 +223,9 @@ func start_attack_cooldown() -> void:
 	attack_timer = stats.attack_cooldown if stats else 2.0
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
-	if current_behavior == "dead" or invulnerable:
+	print("[BaseEnemy] take_damage called with amount: ", amount)
+	if current_behavior == "dead":
+		print("[BaseEnemy] No damage: dead")
 		return
 		
 	health -= amount
@@ -254,14 +257,21 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	change_behavior("hurt")
 	behavior_timer = 0.0
 	
-	# Brief invulnerability
-	invulnerable = true
-	invulnerability_timer = INVULNERABILITY_DURATION
+	# No invulnerability - allow continuous damage
+	# invulnerable = true
+	# invulnerability_timer = INVULNERABILITY_DURATION
 	
 	# Flash red
 	if sprite:
 		sprite.modulate = Color(1, 0, 0, 1)
 		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
+	
+	# Spawn blood particles (exclude flying enemies and turtle)
+	if _should_spawn_blood():
+		print("[BaseEnemy] Spawning blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
+		_spawn_blood_particles(amount)
+	else:
+		print("[BaseEnemy] No blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
 	
 	# Check for death
 	if health <= 0:
@@ -270,10 +280,8 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			health_bar.hide_bar()
 		die()
 	else:
-		# Disable hurtbox briefly
-		if hurtbox:
-			hurtbox.monitoring = false
-			hurtbox.monitorable = false
+		# No hurtbox disabling - allow continuous damage
+		pass
 
 func _flash_hurt() -> void:
 	if sprite:
@@ -404,18 +412,74 @@ func is_on_screen() -> bool:
 		   global_position.y >= top_left.y - 100 and global_position.y <= bottom_right.y + 100
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
+	print("[BaseEnemy] _on_hurtbox_hurt called")
 	# Safety: enemies only take damage from PlayerHitbox, never from other enemies/projectiles
 	if not (hitbox is PlayerHitbox):
+		print("[BaseEnemy] Not PlayerHitbox, ignoring")
 		return
-	if current_behavior != "dead" and not invulnerable:
+	if current_behavior != "dead":
 		var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
 		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
 		print("[BaseEnemy:", enemy_id, "] hurt signal received dmg=", damage, " kb=", knockback_data.force)
+		print("[BaseEnemy] Calling take_damage...")
 		take_damage(damage, knockback_data.force, knockback_data.get("up_force", -1.0))
+	else:
+		print("[BaseEnemy] Dead or invulnerable, no damage")
 
 func _health_emit_changed() -> void:
 	var max_h = stats.max_health if stats else 100.0
 	health_changed.emit(health, max_h)
+
+# Blood particle system functions
+func _should_spawn_blood() -> bool:
+	# Don't spawn blood for flying enemies or turtle
+	if self is FlyingEnemy:
+		print("[BaseEnemy] No blood: FlyingEnemy")
+		return false
+	
+	# Check if this is a turtle enemy by checking the script name
+	var script_name = get_script().resource_path.get_file().get_basename().to_lower()
+	print("[BaseEnemy] Script name: ", script_name)
+	if "turtle" in script_name:
+		print("[BaseEnemy] No blood: turtle enemy")
+		return false
+		
+	print("[BaseEnemy] Should spawn blood: true")
+	return true
+
+func _spawn_blood_particles(damage_amount: float = 10.0) -> void:
+	# Get the nearest player to determine hit direction
+	var player = get_nearest_player()
+	var hit_direction = Vector2.RIGHT  # Default direction
+	
+	if player:
+		# Calculate direction from player to enemy
+		hit_direction = (global_position - player.global_position).normalized()
+	
+	# Calculate particle count based on damage (2-5 particles)
+	var particle_count = int(clamp(damage_amount / 5.0, 2, 5))  # 2 to 5 particles based on damage
+	
+	# Spawn blood particles around the enemy
+	for i in range(particle_count):
+		var particle = BLOOD_PARTICLE_SCENE.instantiate()
+		get_tree().current_scene.add_child(particle)
+		
+		# Position particle at enemy center with slight random offset
+		var offset = Vector2(
+			randf_range(-15, 15),  # Increased spread
+			randf_range(-10, 10)   # Increased spread
+		)
+		particle.global_position = global_position + offset
+		
+		# Set up blood splatter scene reference
+		if particle.has_method("set_blood_splatter_scene"):
+			particle.set_blood_splatter_scene(BLOOD_SPLATTER_SCENE)
+		
+		# Set hit direction and damage for the particle
+		if particle.has_method("set_hit_direction"):
+			particle.set_hit_direction(hit_direction)
+		if particle.has_method("set_damage_amount"):
+			particle.set_damage_amount(damage_amount)
  
 func _initialize_components() -> void:
 	hurtbox = $Hurtbox

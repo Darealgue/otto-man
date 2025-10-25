@@ -1,0 +1,35 @@
+[gd_scene load_steps=4 format=3 uid="uid://d1x2y3z4a5b6c"]
+
+[ext_resource type="PackedScene" path="res://effects/blood_particle.tscn" id="1_0x1y2"]
+[ext_resource type="PackedScene" path="res://effects/blood_splatter.tscn" id="2_1x2y3"]
+[ext_resource type="Script" path="res://tests/blood_system_test.gd" id="3_2x3y4"]
+
+[node name="BloodSystemTest" type="Node2D"]
+script = ExtResource("3_2x3y4")
+
+[node name="Ground" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+
+[node name="RectangleShape2D" type="RectangleShape2D" parent="Ground/CollisionShape2D"]
+size = Vector2(800, 50)
+
+[node name="TestEnemy" type="CharacterBody2D" parent="."]
+position = Vector2(400, 200)
+
+[node name="Sprite2D" type="Sprite2D" parent="TestEnemy"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TestEnemy"]
+
+[node name="RectangleShape2D" type="RectangleShape2D" parent="TestEnemy/CollisionShape2D"]
+size = Vector2(32, 32)
+
+[node name="BloodParticle" type="RigidBody2D" parent="."]
+script = ExtResource("1_0x1y2")
+particle_lifetime = 2.0
+splatter_chance = 0.7
+
+[node name="BloodSplatter" type="Node2D" parent="."]
+script = ExtResource("2_1x2y3")
+fade_duration = 10.0
+fade_start_time = 5.0

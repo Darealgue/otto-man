@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://b8x7y9z2a1b2c"]
+
+[ext_resource type="Script" path="res://effects/blood_particle.gd" id="1_0x8y9"]
+[ext_resource type="Script" path="res://effects/blood_particle_sprite.gd" id="2_1x2y3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1x2y3"]
+size = Vector2(4, 4)
+
+[node name="BloodParticle" type="RigidBody2D"]
+script = ExtResource("1_0x8y9")
+particle_lifetime = 2.0
+splatter_chance = 0.7
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1x2y3")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+script = ExtResource("2_1x2y3")
+modulate = Color(0.8, 0.2, 0.2, 1)

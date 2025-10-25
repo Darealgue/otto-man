@@ -51,6 +51,11 @@ const LAUNCH_SMOKE_CANDIDATE_PATHS := [
 
 func _ready() -> void:
 	super._ready()
+	
+	# Set sleep distances for performance optimization
+	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
+	wake_distance = 1200.0  # Distance at which enemy wakes up
+	
 	# Try to load smoke texture lazily to avoid preload errors
 	if launch_smoke_texture == null:
 		for p in LAUNCH_SMOKE_CANDIDATE_PATHS:
@@ -308,8 +313,8 @@ func _handle_rocket_fall_state(delta: float) -> void:
 	
 	# Yere değdi mi kontrol et
 	if is_on_floor():
-		# İniş noktasında patlama hasarı
-		_create_rocket_explosion(global_position)
+		# İniş noktasında patlama hasarı - sadece iniş dumanı, hasar yok
+		# _create_rocket_explosion(global_position)  # KALDIRILDI: Çift hasar önleme
 		# İniş dumanı
 		_spawn_landing_smoke(global_position)
 		change_behavior("rocket_land")
@@ -578,14 +583,15 @@ func _fire_cannon_shot() -> void:
 	if not target:
 		return
 	
-	# Top sahneyi oluştur
-	var shot = cannon_shot_scene.instantiate()
+	# Get projectile from pool instead of instantiating
+	var shot = ProjectilePool.get_projectile(cannon_shot_scene, "cannon_shot")
 	
 	# Sahiplik bilgisini ilet (hitbox oluşturulmadan önce)
 	if shot.has_method("set_owner_id"):
 		var my_id = get_instance_id()
 		shot.set_owner_id(my_id)
 	
+	# Add to scene tree
 	get_tree().current_scene.add_child(shot)
 	
 	# Top pozisyonu (düşmanın önünde)
@@ -781,25 +787,12 @@ func handle_chase(delta: float) -> void:
 	_handle_rocket_charge_state(delta)
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
+	# Call base class take_damage to get blood particles and other effects
+	super.take_damage(amount, knockback_force, knockback_up_force)
+	
+	# Canonman-specific damage handling
 	if current_behavior == "dead" or invulnerable:
 		return
-	
-	# Update health
-	health -= amount
-	health = max(0, health)
-	
-	# Emit health changed signal
-	health_changed.emit(health, stats.max_health)
-	
-	# Update health bar
-	if health_bar:
-		health_bar.update_health(health)
-	
-	# Spawn damage number
-	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-	add_child(damage_number)
-	damage_number.global_position = global_position + Vector2(0, -50)
-	damage_number.setup(int(amount))
 	
 	# Apply knockback - sadece yatay, dikey değil
 	if knockback_force > 0:
@@ -809,11 +802,6 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		
 		# Sadece yatay knockback, dikey yok
 		velocity.x = knockback_direction.x * knockback_force * 0.5
-	
-	# Check if dead
-	if health <= 0:
-		die()
-		return
 	
 	# Go to hurt state
 	change_behavior("hurt")

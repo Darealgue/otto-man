@@ -300,12 +300,10 @@ func get_cell_terrain_type(cell: Vector2i) -> int:
 	# Check if this is a dark tile (should not be treated as platform)
 	var atlas_coords = get_cell_atlas_coords(0, cell)
 	if is_dark_tile(atlas_coords):
-		print("DEBUG: get_cell_terrain_type(", cell, ") - Dark tile detected, returning 0")
 		return 0  # Dark tiles are terrain=0 but not platforms
 	
 	if tile_data.has_method("get_terrain"):
 		var terrain = tile_data.get_terrain()
-		print("DEBUG: get_cell_terrain_type(", cell, ") - Terrain from tile_data: ", terrain)
 		return terrain  # Get terrain type from tile data
 	else:
 		# Fallback: check if it's a one-way platform by looking at collision properties
@@ -314,9 +312,7 @@ func get_cell_terrain_type(cell: Vector2i) -> int:
 			# Check if it has one-way collision
 			var is_one_way = tile_data.get_collision_polygon_one_way(0, 0)
 			if is_one_way:
-				print("DEBUG: get_cell_terrain_type(", cell, ") - One-way platform detected, returning 1")
 				return 1  # One-way platform
-		print("DEBUG: get_cell_terrain_type(", cell, ") - Regular wall, returning 0")
 		return 0  # Regular wall
 
 func is_dark_tile(atlas_coords: Vector2i) -> bool:
@@ -326,13 +322,8 @@ func is_dark_tile(atlas_coords: Vector2i) -> bool:
 		# Diğer dark tile koordinatları buraya eklenebilir
 	]
 	
-	# DEBUG: Dark tile kontrolü
+	# Dark tile kontrolü
 	var is_dark = atlas_coords in dark_coordinates
-	if is_dark:
-		print("DEBUG: is_dark_tile(", atlas_coords, ") = TRUE")
-	else:
-		print("DEBUG: is_dark_tile(", atlas_coords, ") = FALSE")
-	
 	return is_dark
 
 func update_boundary_cell(cell: Vector2i) -> bool:
@@ -510,14 +501,12 @@ func fix_terrain_connections() -> void:
 				if new_coords != atlas_coords:
 					set_cell(0, cell, source_id, new_coords, alternative)
 					updated_count += 1
-					print("DEBUG: Updated chunk boundary corner at ", cell, " from ", atlas_coords, " to ", new_coords)
 			else:
 				var new_coords = select_appropriate_tile(surroundings)
 				
 				if new_coords != atlas_coords:
 					set_cell(0, cell, source_id, new_coords, alternative)
 					updated_count += 1
-					print("DEBUG: Updated wall tile at ", cell, " from ", atlas_coords, " to ", new_coords)
 	
 	print("Terrain connection fixes complete. Updated ", updated_count, " tiles.")
 

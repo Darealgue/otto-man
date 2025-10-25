@@ -138,7 +138,8 @@ func _physics_process(delta: float) -> void:
 			break_and_free()
 
 func _on_lifetime_timeout() -> void:
-	break_and_free()
+	if is_instance_valid(self):
+		_return_to_pool()
 
 func set_direction(new_direction: Vector2) -> void:
 	direction = new_direction.normalized()
@@ -158,6 +159,62 @@ func set_owner_id(id: int) -> void:
 	if is_instance_valid(hitbox):
 		hitbox.set_meta("owner_id", owner_id)
 
+# Return projectile to pool instead of freeing
+func _return_to_pool() -> void:
+	ProjectilePool.return_projectile(self, "cannon_shot")
+
+# Reset projectile state for pool reuse
+func reset_state() -> void:
+	# Reset all properties to default
+	direction = Vector2.RIGHT
+	speed = 400.0
+	damage = 30.0
+	lifetime = 3.0
+	knockback_force = 200.0
+	knockback_up_force = 100.0
+	owner_id = 0
+	bounce_count = 0
+	has_bounced = false
+	is_breaking = false
+	bounce_cooldown = 0.0
+	
+	# Reset velocity and position
+	velocity = Vector2.ZERO
+	global_position = Vector2(-10000, -10000)
+	
+	# Reset sprite - use same logic as _ready() to find correct animation
+	if is_instance_valid(sprite):
+		sprite.visible = true
+		sprite.rotation = 0.0
+		if sprite.sprite_frames:
+			var anim_to_play := ""
+			if sprite.sprite_frames.has_animation("cannonball"):
+				anim_to_play = "cannonball"
+			elif sprite.sprite_frames.has_animation("cannonball_fly"):
+				anim_to_play = "cannonball_fly"
+			elif sprite.sprite_frames.has_animation("default"):
+				anim_to_play = "default"
+			else:
+				# Pick the first animation that is not a break animation
+				for a in sprite.sprite_frames.get_animation_names():
+					if typeof(a) == TYPE_STRING and not String(a).contains("break"):
+						anim_to_play = a
+						break
+			if anim_to_play != "":
+				sprite.frame = 0
+				sprite.play(anim_to_play)
+	
+	# Reset hitbox
+	if is_instance_valid(hitbox):
+		hitbox.enable()
+		hitbox.damage = damage
+		if owner_id != 0:
+			hitbox.set_meta("owner_id", owner_id)
+	
+	# Disconnect any existing signals
+	if sprite and sprite.animation_finished.is_connected(_return_to_pool):
+		sprite.animation_finished.disconnect(_return_to_pool)
+
 func break_and_free() -> void:
 	if is_breaking:
 		return
@@ -168,7 +225,7 @@ func break_and_free() -> void:
 	if is_instance_valid(hitbox):
 		hitbox.disable()
 	
-	# Play break animation if it exists, then free
+	# Play break animation if it exists, then return to pool
 	var played := false
 	if is_instance_valid(sprite) and sprite.sprite_frames:
 		var break_anim := ""
@@ -187,10 +244,10 @@ func break_and_free() -> void:
 			sprite.frame = 0
 			sprite.play(break_anim)
 			print("[CannonShot] Playing break animation:", break_anim)
-			# Free after animation
+			# Return to pool after animation
 			sprite.animation_finished.connect(func():
 				if is_instance_valid(self):
-					queue_free()
+					_return_to_pool()
 			, CONNECT_ONE_SHOT)
 	
 	if not played:
@@ -198,5 +255,5 @@ func break_and_free() -> void:
 		var t := get_tree().create_timer(0.15)
 		t.timeout.connect(func():
 			if is_instance_valid(self):
-				queue_free()
+				_return_to_pool()
 		)

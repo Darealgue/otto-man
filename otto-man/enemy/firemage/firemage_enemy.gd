@@ -29,6 +29,10 @@ var fire_bomb_scene = preload("res://enemy/firemage/fire_bomb_projectile.tscn")
 func _ready() -> void:
 	super._ready()
 	
+	# Set sleep distances for performance optimization
+	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
+	wake_distance = 1200.0  # Distance at which enemy wakes up
+	
 	# DEBUG: Collision info
 	print("[Firemage] Collision Layer: ", collision_layer)
 	print("[Firemage] Collision Mask: ", collision_mask)
@@ -51,6 +55,13 @@ func _ready() -> void:
 		hurtbox = hurtbox_node
 		hurtbox.add_to_group("hurtbox")
 		hurtbox.add_to_group("HurtBox")
+		
+		# Connect hurt signal if not already connected
+		if hurtbox.has_signal("hurt") and not hurtbox.hurt.is_connected(_on_hurtbox_hurt):
+			hurtbox.hurt.connect(_on_hurtbox_hurt)
+	
+	# Call base class initialization to ensure all components are set up
+	_initialize_components()
 	
 	change_behavior("idle")
 
@@ -437,25 +448,20 @@ func handle_chase(delta: float) -> void:
 	_handle_flying_state(delta)
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
+	# Firemage-specific damage handling
 	if current_behavior == "dead" or invulnerable:
 		return
 	
-	# Update health
-	health -= amount
-	health = max(0, health)
+	# Call base class take_damage to get blood particles and other effects
+	super.take_damage(amount, knockback_force, knockback_up_force)
 	
-	# Emit health changed signal
-	health_changed.emit(health, stats.max_health)
+	# Don't continue if we're dead after base class damage
+	if current_behavior == "dead":
+		return
 	
-	# Update health bar
-	if health_bar:
-		health_bar.update_health(health)
-	
-	# Spawn damage number
-	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-	add_child(damage_number)
-	damage_number.global_position = global_position + Vector2(0, -50)
-	damage_number.setup(int(amount))
+	# Reset invulnerability to allow multiple hits
+	invulnerable = false
+	invulnerability_timer = 0.0
 	
 	# Apply knockback - sadece yatay, dikey değil (havada kalması için)
 	if knockback_force > 0:
@@ -466,11 +472,6 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		# Sadece yatay knockback, dikey yok (havada kalması için)
 		velocity.x = knockback_direction.x * knockback_force * 0.5  # Daha az güçlü
 		# velocity.y değiştirme - havada kalsın
-	
-	# Check if dead
-	if health <= 0:
-		die()
-		return
 	
 	# Don't interrupt takeoff_rise state - let it continue rising
 	if current_behavior == "takeoff_rise":

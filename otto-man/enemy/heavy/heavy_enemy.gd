@@ -98,8 +98,12 @@ func _ready() -> void:
 		raycast_right.collision_mask = CollisionLayers.WORLD
 		raycast_left.position = Vector2(-20, 0)  # Offset from center
 		raycast_right.position = Vector2(20, 0)
+	
 		raycast_left.target_position = Vector2(0, 100)  # Longer raycast
 		raycast_right.target_position = Vector2(0, 100)
+	
+	# Manually connect hurtbox signal to ensure it works
+	call_deferred("_connect_hurtbox_signal")
 	
 	# Store initial position for patrol points
 	var initial_pos = global_position
@@ -648,6 +652,10 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		# Flash red
 		_flash_hurt()
 		
+		# Spawn blood particles (call base class function)
+		if _should_spawn_blood():
+			_spawn_blood_particles(amount)
+		
 		# Don't exit early; we want to apply on-hit knockback even on lethal
 		was_lethal = health <= 0
 	
@@ -901,6 +909,44 @@ func check_wall() -> bool:
 			return true
 	
 	return false
+
+func _initialize_components() -> void:
+	print("[HeavyEnemy] _initialize_components called")
+	super._initialize_components()
+	
+	print("[HeavyEnemy] hurtbox is null: ", hurtbox == null)
+	if hurtbox:
+		print("[HeavyEnemy] hurtbox found, connecting signal")
+		# Disconnect base class signal first to avoid duplicates
+		if hurtbox.hurt.is_connected(_on_hurtbox_hurt):
+			hurtbox.hurt.disconnect(_on_hurtbox_hurt)
+		# Connect our custom signal
+		if not hurtbox.hurt.is_connected(_on_heavy_hurtbox_hurt):
+			hurtbox.hurt.connect(_on_heavy_hurtbox_hurt)
+			print("[HeavyEnemy] Connected custom hurtbox signal")
+		else:
+			print("[HeavyEnemy] Custom hurtbox signal already connected")
+	else:
+		print("[HeavyEnemy] hurtbox is null, cannot connect signal")
+
+func _connect_hurtbox_signal() -> void:
+	print("[HeavyEnemy] _connect_hurtbox_signal called")
+	if hurtbox:
+		print("[HeavyEnemy] Connecting hurtbox signal manually")
+		# Disconnect first to avoid duplicates
+		if hurtbox.hurt.is_connected(_on_heavy_hurtbox_hurt):
+			hurtbox.hurt.disconnect(_on_heavy_hurtbox_hurt)
+		# Connect the signal
+		hurtbox.hurt.connect(_on_heavy_hurtbox_hurt)
+		print("[HeavyEnemy] Hurtbox signal connected successfully")
+	else:
+		print("[HeavyEnemy] Hurtbox is null, cannot connect signal")
+
+func _on_heavy_hurtbox_hurt(hitbox: Area2D) -> void:
+	print("[HeavyEnemy] _on_heavy_hurtbox_hurt called with hitbox: ", hitbox.name)
+	# Call base class function directly
+	super._on_hurtbox_hurt(hitbox)
+
 
 func check_player_in_front() -> bool:
 	# Check if player is directly in front and too close
