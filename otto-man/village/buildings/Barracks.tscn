@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3 uid="uid://o2nd7awc1lea"]
+
+[ext_resource type="Script" path="res://village/scripts/Barracks.gd" id="1"]
+
+[node name="Barracks" type="Node2D" groups=["WorkBuildings"]]
+script = ExtResource("1")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_left = -20.0
+offset_top = -40.0
+offset_right = 20.0
+color = Color(0, 0, 0, 1)

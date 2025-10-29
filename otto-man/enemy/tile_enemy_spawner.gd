@@ -28,7 +28,7 @@ const ENEMY_TYPES = {
 	},
 	"heavy": {
 		"scene": preload("res://enemy/heavy/heavy_enemy.tscn"),
-		"weight": 40,
+		"weight": 100,
 		"min_level": 1
 	},
 	"flying": {

@@ -63,7 +63,20 @@ func _ready() -> void:
 	# Call base class initialization to ensure all components are set up
 	_initialize_components()
 	
-	change_behavior("idle")
+	# Reset animation to start from beginning
+	if sprite:
+		sprite.frame = 0
+		sprite.frame_progress = 0.0
+	
+	# Start with patrol behavior
+	change_behavior("patrol")
+	
+	# Normal map setup
+	_setup_normal_map_sync()
+	
+	# Connect frame changed signal for sync
+	if sprite and not sprite.frame_changed.is_connected(_sync_normal_map):
+		sprite.frame_changed.connect(_sync_normal_map)
 
 func _physics_process(delta: float) -> void:
 	# Skip all processing if position is invalid
@@ -248,6 +261,7 @@ func _handle_flying_state(delta: float) -> void:
 	
 	# Sprite yönü
 	sprite.flip_h = velocity.x < 0
+	update_sprite_direction()
 	
 	# Bomba atma kontrolü
 	bomb_timer += delta
@@ -550,3 +564,95 @@ func die() -> void:
 		velocity = Vector2(0, 200)  # Normal death knockback on ground
 	else:
 		velocity = Vector2(0, 50)   # Minimal knockback if already in air
+
+func _setup_normal_map_sync():
+	"""Setup normal map synchronization between main sprite and normal sprite"""
+	print("[FiremageEnemy] Setting up normal map shader...")
+	
+	# Find the normal sprite (it's a child of the main AnimatedSprite2D)
+	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
+	if not normal_sprite:
+		return
+	
+	print("[FiremageEnemy] Normal sprite found: ", normal_sprite.name)
+	
+	# Sync animation and frame with main sprite
+	normal_sprite.animation = sprite.animation
+	normal_sprite.frame = sprite.frame
+	
+	# Keep normal sprite invisible but ensure it's properly set up for normal mapping
+	normal_sprite.visible = false
+	
+	# Set up normal mapping on main sprite using ShaderMaterial
+	if sprite and not sprite.material:
+		var shader = load("res://enemy/normal_shader.gdshader")
+		if shader:
+			var material = ShaderMaterial.new()
+			material.shader = shader
+			sprite.material = material
+			print("[FiremageEnemy] Added normal map shader material to main sprite")
+			
+			# Debug: Check if normal texture is properly set
+			if normal_sprite.sprite_frames:
+				var test_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+				if test_texture:
+					print("[FiremageEnemy] Normal texture loaded successfully: ", test_texture.get_class())
+					print("[FiremageEnemy] Normal texture size: ", test_texture.get_size())
+				else:
+					print("[FiremageEnemy] ERROR: Normal texture is null!")
+			else:
+				print("[FiremageEnemy] ERROR: Normal sprite has no sprite_frames!")
+	
+	# Update normal texture from normal sprite
+	if sprite and sprite.material and normal_sprite.sprite_frames:
+		var material = sprite.material as ShaderMaterial
+		if material:
+			var current_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+			if current_texture:
+				material.set_shader_parameter("normal_texture", current_texture)
+			else:
+				print("[FiremageEnemy] ERROR: Normal texture is null for animation: ", normal_sprite.animation, " frame: ", normal_sprite.frame)
+
+func _sync_normal_map():
+	"""Sync normal map with current animation frame"""
+	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
+	if not normal_sprite:
+		return
+	
+	# Sync animation and frame with main sprite
+	normal_sprite.animation = sprite.animation
+	normal_sprite.frame = sprite.frame
+	
+	# Keep normal sprite invisible but ensure it's properly set up for normal mapping
+	normal_sprite.visible = false
+	
+	# Update normal texture from normal sprite
+	if sprite and sprite.material and normal_sprite.sprite_frames:
+		var material = sprite.material as ShaderMaterial
+		if material:
+			var current_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+			if current_texture:
+				material.set_shader_parameter("normal_texture", current_texture)
+			else:
+				print("[FiremageEnemy] ERROR: Normal texture is null for animation: ", normal_sprite.animation, " frame: ", normal_sprite.frame)
+
+func update_sprite_direction() -> void:
+	"""Update sprite direction based on movement and target position"""
+	if target:
+		var target_direction = sign(target.global_position.x - global_position.x)
+		if target_direction != 0:
+			direction = target_direction
+	elif velocity.x != 0:
+		direction = sign(velocity.x)
+	
+	# Flip sprite based on direction
+	if sprite:
+		sprite.flip_h = direction < 0
+		# Don't flip normal sprite - this breaks normal mapping
+		# Normal map direction will be handled in shader
+		
+		# Update shader with flip state
+		if sprite.material:
+			var material = sprite.material as ShaderMaterial
+			if material:
+				material.set_shader_parameter("sprite_flipped", direction < 0)

@@ -1,7 +1,7 @@
 [gd_scene load_steps=10 format=3 uid="uid://jd3pyam6x1c"]
 
-[ext_resource type="Script" path="res://objects/dungeon/lighting/torch_controller.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://qb04iu0hfw4" path="res://objects/dungeon/lighting/mesale2.png" id="1_noogg"]
+[ext_resource type="Script" path="res://objects/dungeon/lighting/torch_controller.gd" id="1_script"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_wp7v6"]
 atlas = ExtResource("1_noogg")
@@ -39,12 +39,12 @@ animations = [{
 "speed": 12.0
 }]
 
-[sub_resource type="Gradient" id="Gradient_5eems"]
+[sub_resource type="Gradient" id="Gradient_myhl8"]
 offsets = PackedFloat32Array(0, 0.707792)
 colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_a0sqj"]
-gradient = SubResource("Gradient_5eems")
+gradient = SubResource("Gradient_myhl8")
 fill = 1
 fill_from = Vector2(0.495413, 0.5)
 
@@ -53,11 +53,13 @@ z_index = 2
 script = ExtResource("1_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -61)
 sprite_frames = SubResource("SpriteFrames_w7l8y")
 animation = &"idle"
-frame_progress = 0.458046
+frame_progress = 0.24639
 
 [node name="PointLight2D" type="PointLight2D" parent="."]
+position = Vector2(0, -65)
 color = Color(0.989348, 0.81326, 1.15514e-06, 1)
 shadow_enabled = true
 texture = SubResource("GradientTexture2D_a0sqj")

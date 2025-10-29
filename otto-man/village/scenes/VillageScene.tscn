@@ -346,8 +346,9 @@ texture = SubResource("GradientTexture2D_3unvc")
 texture_scale = 5.76
 
 [node name="Mesale" parent="." instance=ExtResource("11_e0f34")]
+z_index = -1
 material = SubResource("ShaderMaterial_6j6n8")
-position = Vector2(-1, -8)
+position = Vector2(-1, 41)
 
 [node name="Water" type="Sprite2D" parent="."]
 material = SubResource("ShaderMaterial_86mrj")

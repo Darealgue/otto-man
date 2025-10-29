@@ -1,12 +1,64 @@
-[gd_scene load_steps=31 format=3 uid="uid://bqxv8k2j5x4qy"]
+[gd_scene load_steps=58 format=3 uid="uid://bqxv8k2j5x4qy"]
 
 [ext_resource type="Script" path="res://enemy/turtle/turtle_enemy.gd" id="1_0x4qy"]
 [ext_resource type="Texture2D" uid="uid://c52puh6l2wr1n" path="res://enemy/turtle/sprite/turtle_walk_border.png" id="2_0x4qy"]
+[ext_resource type="Texture2D" uid="uid://d1b2apfkndqvf" path="res://enemy/turtle/sprite/turtle_walk_border_n.png" id="2_n_0x4qy"]
 [ext_resource type="Texture2D" uid="uid://d3sdhscdnrdm1" path="res://enemy/turtle/sprite/turtle_hurt_border.png" id="3_0x4qy"]
+[ext_resource type="Texture2D" uid="uid://wpf77yihaldd" path="res://enemy/turtle/sprite/turtle_hurt_border_n.png" id="3_n_0x4qy"]
 [ext_resource type="Texture2D" uid="uid://bjlykcjysdphd" path="res://enemy/turtle/sprite/turtle_dead_border.png" id="4_0x4qy"]
+[ext_resource type="Texture2D" uid="uid://ywybj60hthx4" path="res://enemy/turtle/sprite/turtle_dead_border_n.png" id="4_n_0x4qy"]
 [ext_resource type="MissingResource" path="res://enemy/turtle/turtle_stats.tres" id="5_0x4qy"]
 [ext_resource type="Script" path="res://components/enemy_hurtbox.gd" id="6_hurtbox"]
 [ext_resource type="Script" path="res://components/enemy_hitbox.gd" id="7_hitbox"]
+
+[sub_resource type="Shader" id="Shader_normal"]
+code = "shader_type canvas_item;
+
+uniform sampler2D normal_texture : hint_normal;
+uniform bool sprite_flipped;
+
+void vertex() {
+	// Called for every vertex the material is visible on.
+}
+
+void fragment() {
+	// Called for every pixel the material is visible on.
+	COLOR = texture(TEXTURE, UV);
+}
+
+void light() {
+	// Normal map lighting
+	vec3 normal = texture(normal_texture, UV).rgb;
+	normal = normal * 2.0 - 1.0; // Convert from [0,1] to [-1,1]
+	
+	// Fix Y-axis inversion - normal maps typically have Y pointing down (+Y)
+	// but Godot uses Y pointing up (+Y), so we need to flip Y
+	normal.y *= -1.0;
+	
+	// Handle sprite flipping - if sprite is flipped horizontally,
+	// we need to flip the normal's X component
+	if (sprite_flipped) {
+		normal.x *= -1.0;
+	}
+	
+	// Calculate lighting
+	float NdotL = dot(normal, LIGHT_DIRECTION);
+	float light_intensity = max(0.0, NdotL);
+	
+	// Apply light color and intensity
+	vec3 light_color = LIGHT_COLOR.rgb;
+	vec3 final_color = COLOR.rgb * light_color * light_intensity;
+	
+	// Add ambient lighting
+	final_color += COLOR.rgb * 0.3;
+	
+	LIGHT = vec4(final_color, COLOR.a);
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_normal"]
+shader = SubResource("Shader_normal")
+shader_parameter/sprite_flipped = null
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_benjo"]
 atlas = ExtResource("4_0x4qy")
@@ -159,6 +211,157 @@ animations = [{
 "speed": 12.0
 }]
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_erxww"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bberv"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_krpl7"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xfu3d"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_t3jxo"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_unyg2"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lgr2h"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yabpj"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_upv4g"]
+atlas = ExtResource("4_n_0x4qy")
+region = Rect2(768, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_a0s66"]
+atlas = ExtResource("3_n_0x4qy")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dnm73"]
+atlas = ExtResource("3_n_0x4qy")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7nj48"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fapa6"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(96, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xic8k"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(192, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_h3ugk"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(288, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0ia0l"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(384, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pxtsq"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(480, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3wjj5"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(576, 0, 96, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3pdyv"]
+atlas = ExtResource("2_n_0x4qy")
+region = Rect2(672, 0, 96, 96)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_iiimi"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_erxww")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bberv")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_krpl7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xfu3d")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_t3jxo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_unyg2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lgr2h")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yabpj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_upv4g")
+}],
+"loop": false,
+"name": &"death",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_a0s66")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dnm73")
+}],
+"loop": false,
+"name": &"hurt",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7nj48")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fapa6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xic8k")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_h3ugk")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0ia0l")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pxtsq")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3wjj5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3pdyv")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 12.0
+}]
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_mbf0f"]
 size = Vector2(27, 15)
 
@@ -168,16 +371,30 @@ radius = 21.0
 [sub_resource type="CircleShape2D" id="CircleShape2D_3ccm2"]
 radius = 25.0
 
+[sub_resource type="Gradient" id="Gradient_5eems"]
+offsets = PackedFloat32Array(0, 0.707792)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_a3nyh"]
+gradient = SubResource("Gradient_5eems")
+fill = 1
+fill_from = Vector2(0.495413, 0.5)
+
 [node name="TurtleEnemy" type="CharacterBody2D"]
 collision_layer = 4
 script = ExtResource("1_0x4qy")
 stats = ExtResource("5_0x4qy")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+material = SubResource("ShaderMaterial_normal")
 position = Vector2(0, -34)
 sprite_frames = SubResource("SpriteFrames_0x4qy")
 animation = &"walk"
-frame_progress = 0.310589
+
+[node name="AnimatedSprite2D_normal" type="AnimatedSprite2D" parent="AnimatedSprite2D"]
+visible = false
+sprite_frames = SubResource("SpriteFrames_iiimi")
+animation = &"walk"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(-2.5, 6.5)
@@ -200,3 +417,14 @@ script = ExtResource("6_hurtbox")
 shape = SubResource("CircleShape2D_3ccm2")
 
 [node name="StateMachine" type="Node" parent="."]
+
+[node name="TorchLight" type="Node2D" parent="."]
+z_index = 1
+position = Vector2(0, -20)
+
+[node name="PointLight2D" type="PointLight2D" parent="TorchLight"]
+color = Color(0.988235, 0.631373, 0, 1)
+energy = 1.5
+shadow_enabled = true
+texture = SubResource("GradientTexture2D_a3nyh")
+texture_scale = 15.0

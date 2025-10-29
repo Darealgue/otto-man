@@ -250,6 +250,13 @@ const BACKGROUND_DECORS = {
 			"res://assets/forest assets/tree1.png",
 			"res://assets/forest assets/tree2.png"
 		]
+	},
+	"torch2": {
+		"weight": 15,
+		"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+		"scene_paths": [
+			"res://objects/dungeon/lighting/mesale2.tscn"
+		]
 	}
 }
 
@@ -470,7 +477,7 @@ const PRIORITY_DECOR_RULES = {
         {
             "chance": 0.12,
             "decoration_type": DecorationType.BACKGROUND,
-            "decoration_names": ["spider_web", "box2", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1"],
+            "decoration_names": ["spider_web", "box2", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "torch2"],
             "allowed_locations": [SpawnLocation.FLOOR_CENTER]
         },
 		{
@@ -517,7 +524,7 @@ const PRIORITY_DECOR_RULES = {
             "chance": 0.12,
             "decoration_type": DecorationType.BACKGROUND,
             "allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-            "allowed_decors": ["stone1", "box1"]
+            "allowed_decors": ["stone1", "box1", "torch2"]
         }
 	],
 	# Forest-specific tile tag; set TileSet custom data decor_anchor="forest_floor_surface"
@@ -554,7 +561,7 @@ const Z_INDEX_RULES = {
 	# Zemin dekorları (orta seviye)
 	"floor": {
 		"z_index": 1,
-		"decorations": ["box1", "box2", "stone1", "small_pot", "wooden_barrel", "sculpture1"]
+		"decorations": ["box1", "box2", "stone1", "small_pot", "wooden_barrel", "sculpture1", "torch2"]
 	},
 	
 	# Dekoratif objeler (üst seviye)

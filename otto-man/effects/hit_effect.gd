@@ -4,6 +4,9 @@ extends Node2D
 @onready var flash = $Flash
 
 func _ready() -> void:
+	# Set z-index to appear above decorations but behind player
+	z_index = 10
+	
 	# Start particles
 	particles.emitting = true
 	

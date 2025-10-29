@@ -20,7 +20,9 @@ const BUILDING_REQUIREMENTS = {
 	"res://village/buildings/Tailor.tscn": {"cost": {"gold": 90, "wood": 1}},
 	"res://village/buildings/TeaHouse.tscn": {"cost": {"gold": 60}},
 	"res://village/buildings/SoapMaker.tscn": {"cost": {"gold": 80}},
-	"res://village/buildings/Gunsmith.tscn": {"cost": {"gold": 120, "wood": 2}}
+	"res://village/buildings/Gunsmith.tscn": {"cost": {"gold": 120, "wood": 2}},
+	# Kışla (geçici olarak ücretsiz)
+	"res://village/buildings/Barracks.tscn": {"cost": {}}
 }
 
 # --- VillageScene Referansı ---
@@ -40,7 +42,9 @@ var resource_levels: Dictionary = {
 	"food": 0,
 	"water": 0,
 	"metal": 0,
-	"bread": 0
+	"bread": 0,
+	"weapon": 5,  # Silah (Blacksmith üretir) - Başlangıç: 5
+	"armor": 5    # Zırh (Armorer üretir) - Başlangıç: 5
 }
 
 # Kaynak SEVİYELERİNİN kilitlenen kısmı (Yükseltmeler ve Gelişmiş Üretim için)
@@ -122,7 +126,7 @@ var daily_water_per_pop: float = 0.5
 var daily_food_per_pop: float = 0.5
 var cariye_period_days: int = 7
 
-var resource_prod_multiplier: Dictionary = {"wood": 1.0, "stone": 1.0, "food": 1.0, "water": 1.0}
+var resource_prod_multiplier: Dictionary = {"wood": 1.0, "stone": 1.0, "food": 1.0, "water": 1.0, "metal": 1.0, "bread": 1.0}
 
 var economy_stats_last_day: Dictionary = {
 	"day": 0,
@@ -175,6 +179,36 @@ func _ready() -> void:
 	locked_resource_levels = { "wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0 }
 	_create_debug_cariyeler()
 	_create_debug_gorevler()
+
+	# --- WorldManager sinyallerini dinle ---
+	# Autoload yükleme sırası belirsiz olduğu için call_deferred kullan
+	call_deferred("_connect_world_manager_signals")
+
+func _connect_world_manager_signals() -> void:
+	"""WorldManager sinyallerini bağla (gecikmeli çağrı)"""
+	var wm = get_node_or_null("/root/WorldManager")
+	if wm:
+		if wm.has_signal("defense_deployment_started"):
+			if not wm.defense_deployment_started.is_connected(_on_defense_deployment_started):
+				wm.defense_deployment_started.connect(_on_defense_deployment_started)
+				print("[VillageManager] ✅ defense_deployment_started sinyali bağlandı")
+			else:
+				print("[VillageManager] ⚠️ defense_deployment_started sinyali zaten bağlı")
+		else:
+			print("[VillageManager] ❌ defense_deployment_started sinyali bulunamadı!")
+		if wm.has_signal("defense_battle_completed"):
+			if not wm.defense_battle_completed.is_connected(_on_defense_battle_completed):
+				wm.defense_battle_completed.connect(_on_defense_battle_completed)
+				print("[VillageManager] ✅ defense_battle_completed sinyali bağlandı")
+			else:
+				print("[VillageManager] ⚠️ defense_battle_completed sinyali zaten bağlı")
+		else:
+			print("[VillageManager] ❌ defense_battle_completed sinyali bulunamadı!")
+	else:
+		print("[VillageManager] ❌ WorldManager bulunamadı! Tekrar denenecek...")
+		# 1 saniye sonra tekrar dene
+		var timer = get_tree().create_timer(1.0)
+		timer.timeout.connect(_connect_world_manager_signals)
 
 	# --- YENİ DEBUG PRINT'LERİ ---
 	# Debug prints disabled to reduce console spam
@@ -244,7 +278,8 @@ const RESOURCE_PRODUCER_SCRIPTS = {
 	"food": "res://village/scripts/HunterGathererHut.gd", # Veya Tarla/Balıkçı vb.
 	"water": "res://village/scripts/Well.gd",
 	"metal": "res://village/scripts/StoneMine.gd", # Veya ayrı metal madeni?
-	"bread": "res://village/scripts/Bakery.gd" #<<< YENİ
+	"bread": "res://village/scripts/Bakery.gd", #<<< YENİ
+	"soldier": "res://village/scripts/Barracks.gd" # Asker işçi türü eklendi
 }
 
 # Scene path mapping for robust counting (some checks rely on scene_file_path)
@@ -405,7 +440,7 @@ func does_building_exist(building_scene_path: String) -> bool:
 func get_building_requirements(building_scene_path: String) -> Dictionary:
 	return BUILDING_REQUIREMENTS.get(building_scene_path, {})
 
-# Bina gereksinimlerinin karşılanıp karşılanmadığını kontrol eder (Altın ve Seviye)
+# Bina gereksinimlerinin karşılanıp karşılanmadığını kontrol eder (Altın, Kaynak ve Seviye)
 func can_meet_requirements(building_scene_path: String) -> bool:
 	var requirements = get_building_requirements(building_scene_path)
 	if requirements.is_empty():
@@ -416,34 +451,49 @@ func can_meet_requirements(building_scene_path: String) -> bool:
 	var cost = requirements.get("cost", {})
 	var gold_cost = cost.get("gold", 0)
 	if GlobalPlayerData.gold < gold_cost:
-		#print("DEBUG VillageManager: Yetersiz Altın (Gereken: %d, Mevcut: %d)" % [gold_cost, GlobalPlayerData.gold])
+		print("DEBUG VillageManager: Yetersiz Altın (Gereken: %d, Mevcut: %d)" % [gold_cost, GlobalPlayerData.gold])
 		return false
 
-	# 2. Gerekli Kaynak Seviyelerini Kontrol Et
+	# 2. Kaynak Maliyetlerini Kontrol Et
+	for resource_type in cost:
+		if resource_type == "gold":
+			continue # Altın zaten kontrol edildi
+		
+		var required_amount = cost.get(resource_type, 0)
+		if required_amount > 0:
+			var available_amount = resource_levels.get(resource_type, 0)
+			if available_amount < required_amount:
+				print("DEBUG VillageManager: Yetersiz %s (Gereken: %d, Mevcut: %d)" % [resource_type, required_amount, available_amount])
+				return false
+
+	# 3. Gerekli Kaynak Seviyelerini Kontrol Et
 	var required_levels = requirements.get("requires_level", {})
 	for resource_type in required_levels:
 		var required_level = required_levels[resource_type]
 		# Kullanılabilir (kilitli olmayan) seviyeyi kontrol et
 		var available_level = get_available_resource_level(resource_type)
 		if available_level < required_level:
-			#print("DEBUG VillageManager: Yetersiz %s Seviyesi (Gereken: %d, Mevcut Kullanılabilir: %d)" % [resource_type, required_level, available_level])
+			print("DEBUG VillageManager: Yetersiz %s Seviyesi (Gereken: %d, Mevcut Kullanılabilir: %d)" % [resource_type, required_level, available_level])
 			return false
 
-	##print("DEBUG VillageManager: Tüm gereksinimler karşılanıyor.")
+	print("DEBUG VillageManager: Tüm gereksinimler karşılanıyor.")
 	return true # Tüm gereksinimler tamam
 
 # Boş bir inşa alanı bulur ve pozisyonunu döndürür, yoksa INF döner
 func find_free_building_plot() -> Vector2:
 	if not village_scene_instance:
-		#printerr("VillageManager: find_free_building_plot - VillageScene referansı yok!")
+		print("DEBUG VillageManager: find_free_building_plot - VillageScene referansı yok!")
 		return Vector2.INF # Hata durumunu belirtmek için Vector2.INF iyi bir seçenek
 
 	# VillageScene'den plot marker ve yerleştirilmiş bina node'larını al
 	var plot_markers = village_scene_instance.get_node_or_null("PlotMarkers")
 	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
 
+	print("DEBUG VillageManager: PlotMarkers bulundu: ", plot_markers != null)
+	print("DEBUG VillageManager: PlacedBuildings bulundu: ", placed_buildings != null)
+
 	if not plot_markers or not placed_buildings:
-		#printerr("VillageManager: find_free_building_plot - PlotMarkers veya PlacedBuildings bulunamadı!")
+		print("DEBUG VillageManager: find_free_building_plot - PlotMarkers veya PlacedBuildings bulunamadı!")
 		return Vector2.INF
 
 	# Her plot marker'ını kontrol et
@@ -460,39 +510,88 @@ func find_free_building_plot() -> Vector2:
 				break # Bu plot dolu, sonraki marker'a geç
 
 		if not plot_occupied:
-			#print("VillageManager: Boş plot bulundu: ", marker.name, " at ", marker_pos)
+			print("DEBUG VillageManager: Boş plot bulundu: ", marker.name, " at ", marker_pos)
 			return marker_pos # Boş plot bulundu, pozisyonunu döndür
 
-	#print("VillageManager: Boş plot bulunamadı.")
+	print("DEBUG VillageManager: Boş plot bulunamadı.")
 	# Fallback: Mevcut yerleşik binaların yanına ofsetle yerleştir
 	if placed_buildings:
 		var count:int = placed_buildings.get_child_count()
 		var base_pos: Vector2 = Vector2.ZERO
 		if plot_markers and plot_markers.get_child_count() > 0 and plot_markers.get_child(0) is Node2D:
 			base_pos = plot_markers.get_child(0).global_position
-		return base_pos + Vector2(56 * count, 0)
+		var fallback_pos = base_pos + Vector2(56 * count, 0)
+		print("DEBUG VillageManager: Fallback pozisyon kullanılıyor: ", fallback_pos)
+		return fallback_pos
+	print("DEBUG VillageManager: Fallback de başarısız, Vector2.ZERO döndürülüyor")
 	return Vector2.ZERO
 
 # Verilen bina sahnesini belirtilen pozisyona yerleştirir
 func place_building(building_scene_path: String, position: Vector2) -> bool:
+	print("DEBUG VillageManager: place_building çağrıldı - Path: ", building_scene_path, " Position: ", position)
+	
 	if not village_scene_instance:
-		#printerr("VillageManager: place_building - VillageScene referansı yok!")
+		print("DEBUG VillageManager: place_building - VillageScene referansı yok!")
 		return false
 
 	var placed_buildings_node_ref = village_scene_instance.get_node_or_null("PlacedBuildings")
 	if not placed_buildings_node_ref:
-		#printerr("VillageManager: place_building - PlacedBuildings node bulunamadı!")
+		print("DEBUG VillageManager: place_building - PlacedBuildings node bulunamadı!")
 		return false
 
 	var building_scene = load(building_scene_path)
 	if not building_scene:
-		#printerr("VillageManager: Bina sahnesi yüklenemedi: %s" % building_scene_path)
+		print("DEBUG VillageManager: Bina sahnesi yüklenemedi: %s" % building_scene_path)
+		print("DEBUG VillageManager: Dosya var mı kontrol et: ", FileAccess.file_exists(building_scene_path))
+		# Fallback: Sahne yüklenemiyorsa minimal bina oluştur (Barracks için geçici çözüm)
+		if building_scene_path == "res://village/buildings/Barracks.tscn":
+			print("DEBUG VillageManager: Fallback Barracks node oluşturuluyor")
+			var new_building_fallback := Node2D.new()
+			new_building_fallback.name = "Barracks"
+			# Script ata
+			var barracks_script := load("res://village/scripts/Barracks.gd")
+			if barracks_script:
+				new_building_fallback.set_script(barracks_script)
+			# Görsel yer tutucu
+			var sprite := Sprite2D.new()
+			var tex_path := "res://village/buildings/sprite/wood1.png"
+			if ResourceLoader.exists(tex_path):
+				sprite.texture = load(tex_path)
+			new_building_fallback.add_child(sprite)
+			# Çarpışma alanı (opsiyonel)
+			var area := Area2D.new()
+			var col := CollisionShape2D.new()
+			var rect := RectangleShape2D.new()
+			rect.size = Vector2(64, 64)
+			col.shape = rect
+			area.add_child(col)
+			new_building_fallback.add_child(area)
+			# UI yapısı (scriptin @onready referansları için)
+			var ui := Control.new()
+			ui.name = "UI"
+			ui.visible = false
+			var vbox := VBoxContainer.new()
+			vbox.name = "VBox"
+			ui.add_child(vbox)
+			var lbl := Label.new()
+			lbl.name = "SoldierInfo"
+			vbox.add_child(lbl)
+			var btn1 := Button.new(); btn1.name = "RecruitButton"; vbox.add_child(btn1)
+			var btn2 := Button.new(); btn2.name = "AssignButton"; vbox.add_child(btn2)
+			var btn3 := Button.new(); btn3.name = "CloseButton"; vbox.add_child(btn3)
+			new_building_fallback.add_child(ui)
+			# Ağaca ekle
+			placed_buildings_node_ref.add_child(new_building_fallback)
+			new_building_fallback.global_position = position
+			print("DEBUG VillageManager: Fallback Barracks başarıyla eklendi: ", position)
+			emit_signal("village_data_changed")
+			return true
 		return false
 
 	var new_building = building_scene.instantiate()
 	placed_buildings_node_ref.add_child(new_building)
 	new_building.global_position = position
-	#print("VillageManager: Bina inşa edildi: ", new_building.name, " at ", position)
+	print("DEBUG VillageManager: Bina inşa edildi: ", new_building.name, " at ", position)
 	emit_signal("village_data_changed") # UI güncellensin
 	return true
 
@@ -516,13 +615,27 @@ func request_build_building(building_scene_path: String) -> bool:
 		#print("VillageManager: İnşa isteği reddedildi - Boş yer yok.")
 		return false
 
-	# 3. Altın Maliyetini Düş (varsa)
+	# 3. Maliyetleri Düş (Altın ve Kaynaklar)
 	var requirements = get_building_requirements(building_scene_path)
 	var cost = requirements.get("cost", {})
+	
+	# Altın maliyetini düş
 	var gold_cost = cost.get("gold", 0)
 	if gold_cost > 0:
 		GlobalPlayerData.add_gold(-gold_cost)
-		#print("VillageManager: Altın düşüldü: %d" % gold_cost)
+		print("VillageManager: Altın düşüldü: %d" % gold_cost)
+	
+	# Kaynak maliyetlerini düş
+	for resource_type in cost:
+		if resource_type == "gold":
+			continue # Altın zaten düşüldü
+		
+		var resource_cost = cost.get(resource_type, 0)
+		if resource_cost > 0:
+			var current_amount = resource_levels.get(resource_type, 0)
+			resource_levels[resource_type] = current_amount - resource_cost
+			print("VillageManager: %s düşüldü: %d (Kalan: %d)" % [resource_type, resource_cost, resource_levels[resource_type]])
+			emit_signal("village_data_changed") # UI güncellensin
 
 	# 4. Gerekli Seviyeleri Kilitle (Anlık inşaatta kilit yok)
 	# Şimdilik anlık inşaat varsaydığımız için seviye kilitlemiyoruz.
@@ -936,6 +1049,15 @@ func _daily_economy_tick(current_day: int) -> void:
 
 	# 2) Consumption
 	var village_need := float(population) * (daily_water_per_pop + daily_food_per_pop)
+	
+	# Soldiers: add extra daily need per soldier (bread/water) on top of base village consumption
+	var soldier_count := _count_active_soldiers()
+	if soldier_count > 0:
+		var soldier_extra_food_per := 0.5
+		var soldier_extra_water_per := 0.5
+		var extra_need := float(soldier_count) * (soldier_extra_food_per + soldier_extra_water_per)
+		_consume_for_soldiers(extra_need, soldier_extra_food_per, soldier_extra_water_per)
+
 	var cariye_daily_equiv := _compute_cariye_daily_equiv()
 	var total_need := village_need + cariye_daily_equiv
 	_consume_for_village(village_need)
@@ -1038,6 +1160,132 @@ func _compute_cariye_daily_equiv() -> float:
 	# Cariyelerin günlük su/yiyecek tüketimi yok; ihtiyaçlar haftalık ve lüks (ekmek, çay, sabun, giyim).
 	# Haftalık periyotlu ihtiyaçlar günlük eşdeğere çevrilebilir, fakat stok düşümü haftanın belirli gününde yapılır.
 	return 0.0
+
+# === DÜNYA OLAYLARI EKONOMİ ETKİLERİ ===
+func apply_world_event_effects(event: Dictionary) -> void:
+	"""Apply world event effects to village economy"""
+	if not events_enabled:
+		return
+	
+	var event_type := String(event.get("type", ""))
+	var effects: Dictionary = event.get("effects", {})
+	var magnitude := float(event.get("magnitude", 1.0))
+	
+	match event_type:
+		"trade_boom":
+			# Ticaret patlaması - altın çarpanı artışı
+			var gold_mult := float(effects.get("gold_multiplier", 1.0))
+			global_multiplier *= gold_mult
+			var trade_bonus := int(effects.get("trade_bonus", 0))
+			# Trade bonus'u MissionManager'a iletebiliriz
+			_post_event_notification("Ticaret patlaması! Altın kazançları artıyor.", "success")
+			
+		"famine":
+			# Kıtlık - gıda üretimi düşüşü
+			var food_mult := float(effects.get("food_production", 1.0))
+			resource_prod_multiplier["food"] *= food_mult
+			var morale_penalty := int(effects.get("morale_penalty", 0))
+			village_morale = max(0.0, village_morale + morale_penalty)
+			_post_event_notification("Kıtlık başladı! Gıda üretimi düştü.", "critical")
+			
+		"plague":
+			# Salgın - nüfus sağlığı ve üretim düşüşü
+			var health_mult := float(effects.get("population_health", 1.0))
+			var prod_penalty := float(effects.get("production_penalty", 1.0))
+			global_multiplier *= prod_penalty
+			# Sağlık etkisi için moral düşüşü
+			village_morale = max(0.0, village_morale - 20.0)
+			_post_event_notification("Salgın hastalık! Üretim ve moral düştü.", "critical")
+			
+		"war_declaration":
+			# Savaş ilanı - ticaret kesintisi, askeri odaklanma
+			var trade_disruption := float(effects.get("trade_disruption", 1.0))
+			var military_focus := float(effects.get("military_focus", 1.0))
+			global_multiplier *= trade_disruption
+			# Askeri odaklanma için weapon/armor üretimi artışı
+			if resource_prod_multiplier.has("metal"):
+				resource_prod_multiplier["metal"] *= military_focus
+			_post_event_notification("Savaş ilanı! Ticaret kesintiye uğradı.", "warning")
+			
+		"rebellion":
+			# İsyan - istikrar ve üretim kaosu
+			var stability_penalty := int(effects.get("stability_penalty", 0))
+			var production_chaos := float(effects.get("production_chaos", 1.0))
+			village_morale = max(0.0, village_morale + stability_penalty)
+			global_multiplier *= production_chaos
+			_post_event_notification("İsyan çıktı! Üretim kaosu ve moral düşüşü.", "critical")
+
+func remove_world_event_effects(event: Dictionary) -> void:
+	"""Remove world event effects when event expires"""
+	if not events_enabled:
+		return
+	
+	var event_type := String(event.get("type", ""))
+	var effects: Dictionary = event.get("effects", {})
+	
+	match event_type:
+		"trade_boom":
+			var gold_mult := float(effects.get("gold_multiplier", 1.0))
+			global_multiplier /= gold_mult
+			_post_event_notification("Ticaret patlaması sona erdi.", "info")
+			
+		"famine":
+			var food_mult := float(effects.get("food_production", 1.0))
+			resource_prod_multiplier["food"] /= food_mult
+			var morale_penalty := int(effects.get("morale_penalty", 0))
+			village_morale = min(100.0, village_morale - morale_penalty)
+			_post_event_notification("Kıtlık sona erdi.", "success")
+			
+		"plague":
+			var prod_penalty := float(effects.get("production_penalty", 1.0))
+			global_multiplier /= prod_penalty
+			village_morale = min(100.0, village_morale + 20.0)
+			_post_event_notification("Salgın hastalık sona erdi.", "success")
+			
+		"war_declaration":
+			var trade_disruption := float(effects.get("trade_disruption", 1.0))
+			var military_focus := float(effects.get("military_focus", 1.0))
+			global_multiplier /= trade_disruption
+			if resource_prod_multiplier.has("metal"):
+				resource_prod_multiplier["metal"] /= military_focus
+			_post_event_notification("Savaş sona erdi.", "success")
+			
+		"rebellion":
+			var stability_penalty := int(effects.get("stability_penalty", 0))
+			var production_chaos := float(effects.get("production_chaos", 1.0))
+			village_morale = min(100.0, village_morale - stability_penalty)
+			global_multiplier /= production_chaos
+			_post_event_notification("İsyan bastırıldı.", "success")
+
+func _post_event_notification(message: String, category: String) -> void:
+	"""Post event notification to news system"""
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm and mm.has_method("post_news"):
+		mm.post_news("Köy", "Dünya Olayı", message, Color.WHITE, category)
+
+# --- Soldiers extra consumption helpers ---
+func _count_active_soldiers() -> int:
+	if not is_instance_valid(village_scene_instance):
+		return 0
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return 0
+	var count := 0
+	for building in placed_buildings.get_children():
+		if building.has_method("get_military_force") and ("assigned_workers" in building):
+			count += int(building.assigned_workers)
+	return count
+
+func _consume_for_soldiers(extra_need: float, per_food: float, per_water: float) -> void:
+	# Split extra need into food/water portions and consume with shortage tracking
+	var water_need: float = ceil(extra_need * 0.5)
+	var food_need: float = ceil(extra_need * 0.5)
+	var take_water: int = min(int(water_need), int(resource_levels.get("water", 0)))
+	var take_food: int = min(int(food_need), int(resource_levels.get("food", 0)))
+	resource_levels["water"] = int(resource_levels.get("water", 0)) - take_water
+	resource_levels["food"] = int(resource_levels.get("food", 0)) - take_food
+	_last_day_shortages["soldier_water"] = int(max(0, int(water_need) - take_water))
+	_last_day_shortages["soldier_food"] = int(max(0, int(food_need) - take_food))
 
 func _consume_for_village(village_need: float) -> void:
 	# Öncelik: su ve yiyecekten ceil ile düş
@@ -1185,97 +1433,7 @@ func _update_events_for_new_day(current_day: int) -> void:
 			_apply_event_effects(ev)
 
 # === World Event Effects Integration ===
-func apply_world_event_effects(event: Dictionary) -> void:
-	"""Apply effects from WorldManager events to village economy"""
-	var event_type := String(event.get("type", ""))
-	var effects: Dictionary = event.get("effects", {})
-	
-	match event_type:
-		"famine":
-			# Reduce food production
-			var food_mult := float(effects.get("food_production", 1.0))
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * food_mult
-			
-			# Apply morale penalty
-			var morale_penalty := float(effects.get("morale_penalty", 0))
-			village_morale = max(0.0, village_morale + morale_penalty)
-			
-		"plague":
-			# Reduce population health (affects production)
-			var health_mult := float(effects.get("population_health", 1.0))
-			global_multiplier *= health_mult
-			
-			# Production penalty
-			var prod_penalty := float(effects.get("production_penalty", 1.0))
-			for resource in resource_prod_multiplier.keys():
-				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) * prod_penalty
-				
-		"trade_boom":
-			# Increase gold income and trade bonuses
-			var gold_mult := float(effects.get("gold_multiplier", 1.0))
-			# This would need integration with GlobalPlayerData for gold income
-			# For now, just boost food production as trade benefit
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * gold_mult
-			
-		"war_declaration":
-			# Military focus reduces civilian production
-			var military_focus := float(effects.get("military_focus", 1.0))
-			var trade_disruption := float(effects.get("trade_disruption", 1.0))
-			
-			# Reduce all production due to military focus
-			for resource in resource_prod_multiplier.keys():
-				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) / military_focus
-			
-			# Trade disruption affects morale
-			village_morale = max(0.0, village_morale - (1.0 - trade_disruption) * 10.0)
-			
-		"rebellion":
-			# Stability penalty affects morale and production
-			var stability_penalty := float(effects.get("stability_penalty", 0))
-			var production_chaos := float(effects.get("production_chaos", 1.0))
-			
-			village_morale = max(0.0, village_morale + stability_penalty)
-			
-			# Chaotic production - random resource gets penalty
-			var resources: Array[String] = ["wood", "stone", "food", "water"]
-			var random_resource: String = resources[randi() % resources.size()]
-			resource_prod_multiplier[random_resource] = float(resource_prod_multiplier.get(random_resource, 1.0)) * production_chaos
-
-func remove_world_event_effects(event: Dictionary) -> void:
-	"""Remove effects from WorldManager events when they expire"""
-	var event_type := String(event.get("type", ""))
-	var effects: Dictionary = event.get("effects", {})
-	
-	match event_type:
-		"famine":
-			# Restore food production
-			var food_mult := float(effects.get("food_production", 1.0))
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, food_mult)
-			
-		"plague":
-			# Restore population health
-			var health_mult := float(effects.get("population_health", 1.0))
-			global_multiplier /= max(0.0001, health_mult)
-			
-			# Restore production
-			var prod_penalty := float(effects.get("production_penalty", 1.0))
-			for resource in resource_prod_multiplier.keys():
-				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) / max(0.0001, prod_penalty)
-				
-		"trade_boom":
-			# Remove trade bonuses
-			var gold_mult := float(effects.get("gold_multiplier", 1.0))
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, gold_mult)
-			
-		"war_declaration":
-			# Restore production
-			var military_focus := float(effects.get("military_focus", 1.0))
-			for resource in resource_prod_multiplier.keys():
-				resource_prod_multiplier[resource] = float(resource_prod_multiplier.get(resource, 1.0)) * military_focus
-				
-		"rebellion":
-			# Effects are temporary and don't need explicit restoration
-			pass
+# (Duplicate functions removed - using the ones defined earlier)
 
 func _pick_and_create_event(current_day: int) -> Dictionary:
 	# cooldown check and simple pool
@@ -1724,9 +1882,27 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 	if not was_idle:
 		#print("VillageManager: Worker %d was working (%s). Unassigning from building." % [worker_id_to_remove, job_type]) # Debug
 		var building = worker_instance.assigned_building_node
-		if is_instance_valid(building) and "assigned_workers" in building:
-			building.assigned_workers = max(0, building.assigned_workers - 1)
-			notify_building_state_changed(building)
+		if is_instance_valid(building):
+			# Building'den worker'ı çıkar (eğer Barracks ise assigned_worker_ids listesinden de çıkar)
+			if building.has_method("get_military_force"):  # Barracks
+				# Barracks'taki listeden çıkar (eğer henüz çıkarılmadıysa)
+				if "assigned_worker_ids" in building:
+					var worker_ids = building.get("assigned_worker_ids")
+					if worker_ids is Array and worker_id_to_remove in worker_ids:
+						var idx = worker_ids.find(worker_id_to_remove)
+						if idx >= 0:
+							worker_ids.remove_at(idx)
+							print("[VillageManager] Worker %d Barracks listesinden çıkarıldı" % worker_id_to_remove)
+				
+				# Barracks'taki assigned_workers sayısını azalt
+				if "assigned_workers" in building:
+					building.assigned_workers = max(0, building.assigned_workers - 1)
+					print("[VillageManager] Barracks assigned_workers azaltıldı: %d" % building.assigned_workers)
+			else:
+				# Diğer binalar için
+				if "assigned_workers" in building:
+					building.assigned_workers = max(0, building.assigned_workers - 1)
+					notify_building_state_changed(building)
 		#else: # Debug için
 		#	#print("VillageManager: Building node for worker %d is invalid or lacks 'assigned_workers'." % worker_id_to_remove)
 
@@ -1748,6 +1924,52 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 	#print("VillageManager: Worker %d successfully removed from the village." % worker_id_to_remove)
 	# İsteğe bağlı: UI güncellemesi için sinyal yay
 	# emit_signal("village_data_changed") # Zaten periyodik güncelleniyor
+
+# --- WorldManager Defense Sinyalleri ---
+func _on_defense_deployment_started(attack_day: int) -> void:
+	"""Askerlerin savaşa deploy edilmesi için çağrılır"""
+	print("[VillageManager] _on_defense_deployment_started çağrıldı - Saldırı günü: %d" % attack_day)
+	# Kışla binasını bul ve askerleri deploy et
+	var barracks = _find_barracks()
+	if not barracks:
+		print("[VillageManager] ❌ Kışla bulunamadı!")
+		return
+	
+	if not barracks.has_method("deploy_soldiers"):
+		print("[VillageManager] ❌ Kışla deploy_soldiers metoduna sahip değil!")
+		return
+	
+	print("[VillageManager] ✅ Kışla bulundu, deploy_soldiers çağrılıyor...")
+	barracks.deploy_soldiers()
+
+func _on_defense_battle_completed(victor: String, losses: int) -> void:
+	"""Savaş bitince askerlerin geri çağrılması için çağrılır"""
+	# Kışla binasını bul ve askerleri geri çağır
+	var barracks = _find_barracks()
+	if barracks and barracks.has_method("recall_soldiers"):
+		barracks.recall_soldiers()
+
+func _find_barracks() -> Node:
+	"""Kışla binasını bul"""
+	if not village_scene_instance:
+		print("[VillageManager] _find_barracks: village_scene_instance null!")
+		return null
+	
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		print("[VillageManager] _find_barracks: PlacedBuildings node bulunamadı!")
+		return null
+	
+	var building_count = placed_buildings.get_child_count()
+	print("[VillageManager] _find_barracks: %d bina kontrol ediliyor..." % building_count)
+	
+	for building in placed_buildings.get_children():
+		if building.has_method("get_military_force"):  # Barracks-specific method
+			print("[VillageManager] _find_barracks: ✅ Kışla bulundu: %s" % building.name)
+			return building
+	
+	print("[VillageManager] _find_barracks: ❌ Kışla bulunamadı!")
+	return null
 
 # --- Helper Fonksiyonlar ---
 func get_active_worker_ids() -> Array[int]:

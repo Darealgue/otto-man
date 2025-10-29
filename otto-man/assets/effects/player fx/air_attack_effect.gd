@@ -19,5 +19,8 @@ func set_initial_velocity(initial_vel: Vector2):
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	# Set z-index to appear above decorations but behind player
+	z_index = 10
+	
 	animated_sprite.play("default") # Animasyon adını kontrol et
 	animated_sprite.animation_finished.connect(queue_free)

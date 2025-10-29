@@ -7,6 +7,8 @@ extends Node
 signal world_event_started(event: Dictionary)
 signal relation_changed(faction_a: String, faction_b: String, new_score: int)
 signal war_state_changed(faction_a: String, faction_b: String, at_war: bool)
+signal defense_deployment_started(attack_day: int)  # Askerlerin savaşa gitmesi için sinyal
+signal defense_battle_completed(victor: String, losses: int)  # Savaş bitince askerlerin geri dönmesi için sinyal
 
 # --- World State ---
 var factions: Array[String] = ["Köy", "Kuzey", "Güney", "Doğu", "Batı"]
@@ -14,6 +16,9 @@ var settlements: Array[Dictionary] = [] # { name:String, faction:String, pop:int
 var relations: Dictionary = {}          # key "A|B" -> int (-100..100)
 var active_wars: Array[Dictionary] = [] # { a:String, b:String, since_day:int }
 var active_events: Array[Dictionary] = [] # { type:String, faction:String, magnitude:float, duration:int, started_day:int }
+
+# Zamanlanmış saldırılar (köye gelecek saldırılar için uyarı + zamanlama)
+var pending_attacks: Array[Dictionary] = [] # { attacker:String, warning_day:int, warning_hour:float, attack_day:int, attack_hour:float, deployed:bool }
 
 # --- Internal ---
 var _last_tick_day: int = 0
@@ -30,6 +35,11 @@ func _ready() -> void:
 			var key := _rel_key(factions[i], factions[j])
 			relations[key] = 0
 
+func _process(_delta: float) -> void:
+	# Saat bazlı saldırı kontrolü için her frame kontrol et
+	if dynamic_world_enabled:
+		_check_pending_attacks()
+
 func _rel_key(a: String, b: String) -> String:
 	return a + "|" + b if a < b else b + "|" + a
 
@@ -45,13 +55,332 @@ func _on_new_day(day: int) -> void:
 	_apply_world_events_to_village(day)
 
 func _simulate_day(day: int) -> void:
+	# Rastgele olay başlatma şansı
+	if randf() < 0.1:  # %10 şans
+		var event_type = _get_random_event_type()
+		var faction = factions[randi() % factions.size()]
+		if faction != "Köy":  # Köy kendine olay başlatmasın
+			var event = _create_event(event_type, faction, day)
+			active_events.append(event)
+			_post_event_news(event, day)
+	
+	# Köy saldırıları kontrolü (yeni saldırı tetikleme)
+	_check_village_attacks(day)
+	
+	# Aktif olayları güncelle
+	_update_active_events(day)
+	# Not: Zamanlanmış saldırılar _process() içinde saat bazlı kontrol ediliyor
+
+func _check_village_attacks(day: int) -> void:
+	"""Köy saldırılarını kontrol et"""
+	# Düşman fraksiyonları kontrol et
+	for faction in factions:
+		if faction == "Köy":
+			continue
+		
+		var relation = get_relation("Köy", faction)
+		
+		# Düşman fraksiyonlar saldırı yapabilir
+		if relation < -30 and randf() < 0.05:  # %5 şans
+			_trigger_village_attack(faction, day)
+		
+		# Köy de saldırı yapabilir (oyuncu kontrolünde)
+		if relation < -50 and randf() < 0.02:  # %2 şans
+			_trigger_village_raid(faction, day)
+
+func _trigger_village_attack(attacker_faction: String, day: int) -> void:
+	"""Köye saldırı uyarısı ve zamanlaması - 6 saat sonra saldırı"""
+	var tm = get_node_or_null("/root/TimeManager")
+	if not tm:
+		return
+	
+	# Mevcut saat bilgisini al
+	var current_hour: float = 0.0
+	if tm.has_method("get_hour"):
+		current_hour = tm.get_hour()
+	
+	# Saldırı 6 saat sonra olacak
+	var attack_hour = current_hour + 6.0
+	var attack_day = day
+	var warning_day = day
+	var warning_hour = current_hour
+	
+	# Eğer 6 saat sonra gece yarısını geçiyorsa bir sonraki güne geç
+	if attack_hour >= 24.0:
+		attack_day += 1
+		attack_hour = attack_hour - 24.0
+	
+	# Uyarı haberini şimdi gönder
+	_post_world_news({
+		"category": "world",
+		"subcategory": "critical",
+		"title": "🚨 Saldırı Uyarısı!",
+		"content": "%s fraksiyonu köyümüze saldırı hazırlığı yapıyor! Saldırı 6 saat sonra bekleniyor. Askerlerinizi hazırlayın!" % attacker_faction,
+		"day": day
+	})
+	
+	# Zamanlanmış saldırıyı kaydet
+	pending_attacks.append({
+		"attacker": attacker_faction,
+		"warning_day": warning_day,
+		"warning_hour": warning_hour,
+		"attack_day": attack_day,
+		"attack_hour": attack_hour,
+		"deployed": false
+	})
+	
+	print("🛡️ Köye saldırı zamanlandı: %s -> 6 saat sonra (Gün %d, Saat %.1f)" % [attacker_faction, attack_day, attack_hour])
+
+func _check_pending_attacks() -> void:
+	"""Zamanlanmış saldırıları kontrol et ve gerçekleştir (saat bazlı)"""
+	var tm = get_node_or_null("/root/TimeManager")
+	if not tm:
+		return
+	
+	var current_day: int = 0
+	var current_hour: float = 0.0
+	
+	if tm.has_method("get_day"):
+		current_day = tm.get_day()
+	if tm.has_method("get_hour"):
+		current_hour = tm.get_hour()
+	
+	var remaining_attacks: Array[Dictionary] = []
+	
+	for attack in pending_attacks:
+		var attack_day = attack.get("attack_day", current_day)
+		var attack_hour: float = float(attack.get("attack_hour", 0.0))
+		var warning_day = attack.get("warning_day", current_day)
+		var warning_hour: float = float(attack.get("warning_hour", 0.0))
+		var deployed: bool = bool(attack.get("deployed", false))
+		
+		# Saldırıdan 3 saat önce askerleri deploy et (saldırıdan 6 saat sonra, deploy 3 saat önce = 3 saat sonra)
+		var deploy_time = attack_hour - 3.0
+		var deploy_day = attack_day
+		if deploy_time < 0.0:
+			deploy_time += 24.0
+			deploy_day -= 1
+		
+		var should_deploy = false
+		if current_day > deploy_day:
+			should_deploy = true
+		elif current_day == deploy_day and current_hour >= deploy_time:
+			should_deploy = true
+		
+		if not deployed and should_deploy:
+			defense_deployment_started.emit(attack_day)
+			attack["deployed"] = true
+			print("⚔️ Askerler savaşa hazırlanıyor, ekran dışına yürüyorlar (Saldırı: Gün %d, Saat %.1f)" % [attack_day, attack_hour])
+		
+		# Saldırı zamanı kontrolü
+		var attack_time_reached = false
+		if current_day > attack_day:
+			attack_time_reached = true
+		elif current_day == attack_day and current_hour >= attack_hour:
+			attack_time_reached = true
+		
+		if attack_time_reached:
+			# Saldırı zamanı geldi - otomatik savunma yap
+			var attacker = attack.get("attacker", "Bilinmeyen")
+			_execute_village_defense(attacker, current_day)
+		else:
+			# Henüz zamanı gelmedi
+			remaining_attacks.append(attack)
+	
+	pending_attacks = remaining_attacks
+
+func _execute_village_defense(attacker_faction: String, day: int) -> void:
+	"""Köyün otomatik savunmasını gerçekleştir"""
+	print("⚔️ Otomatik savunma başlıyor: %s saldırısı" % attacker_faction)
+	
+	# CombatResolver'ı bul
+	var cr = get_node_or_null("/root/CombatResolver")
+	if not cr:
+		print("❌ CombatResolver bulunamadı! Basit bir hesapla savaş çözümlenecek.")
+	
+	# Köyün askeri gücünü al
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		print("❌ MissionManager bulunamadı!")
+		return
+	
+	var defender_force = mm._get_player_military_force()
+	
+	# Saldırgan gücünü hesapla
+	var attacker_force = _get_attacker_force_for_defense(attacker_faction)
+	
+	# Savaşı çözümle
+	var battle_result: Dictionary = {}
+	if cr and cr.has_method("simulate_skirmish"):
+		battle_result = cr.simulate_skirmish(attacker_force, defender_force)
+	else:
+		# Fallback: basit oranla sonuçlandır
+		var atk_units: int = int(attacker_force.get("units", {}).get("infantry", 0)) + int(attacker_force.get("units", {}).get("archers", 0))
+		var def_units: int = int(defender_force.get("units", {}).get("soldiers", 0))
+		var atk_power: float = float(atk_units) * 1.0
+		var def_power: float = float(def_units) * 1.2  # Savunma bonusu
+		var defender_wins: bool = def_power >= atk_power * randf_range(0.8, 1.2)
+		battle_result = {
+			"victor": "defender" if defender_wins else "attacker",
+			"defender_losses": int(max(0, round(def_units * randf_range(0.1, 0.5)))) if def_units > 0 else 0,
+			"attacker_losses": int(max(0, round(atk_units * randf_range(0.2, 0.6))))
+		}
+	
+	# Sonuçları işle
+	_process_defense_result(attacker_faction, battle_result, day)
+
+func _get_attacker_force_for_defense(attacker_faction: String) -> Dictionary:
+	"""Savunma için saldırgan gücünü hesapla"""
+	# İlişkiye göre saldırgan gücü belirle
+	var relation = get_relation("Köy", attacker_faction)
+	var base_strength = 5 + abs(relation) / 10  # Daha düşman = daha güçlü saldırı
+	
+	return {
+		"units": {"infantry": int(base_strength), "archers": int(base_strength * 0.6)},
+		"equipment": {"weapon": int(base_strength * 1.5), "armor": int(base_strength)},
+		"supplies": {"bread": int(base_strength * 2), "water": int(base_strength * 1.5)},
+		"gold": int(base_strength * 20)
+	}
+
+func _process_defense_result(attacker_faction: String, battle_result: Dictionary, day: int) -> void:
+	"""Savunma sonuçlarını işle ve haber olarak bildir"""
+	var victor = battle_result.get("victor", "defender")
+	var defender_losses = battle_result.get("defender_losses", 0)
+	var attacker_losses = battle_result.get("attacker_losses", 0)
+	
+	var vm = get_node_or_null("/root/VillageManager")
+	var mm = get_node_or_null("/root/MissionManager")
+	var barracks = mm._find_barracks() if mm else null
+	
+	if victor == "defender":
+		# Köy savunmayı başardı
+		_post_world_news({
+			"category": "world",
+			"subcategory": "success",
+			"title": "✅ Savunma Başarılı",
+			"content": "%s saldırısı püskürtüldü! Kayıplar: %d asker. Köy zarar görmedi." % [attacker_faction, defender_losses],
+			"day": day
+		})
+		
+		# Ölü askerleri kaldır
+		if barracks and barracks.has_method("remove_soldiers"):
+			barracks.remove_soldiers(defender_losses)
+		
+		# Küçük moral bonusu
+		if vm:
+			vm.village_morale = min(100.0, vm.village_morale + 2.0)
+		
+		# Askerlerin geri dönmesi için sinyal gönder
+		defense_battle_completed.emit("defender", defender_losses)
+		
+	else:
+		# Köy yenildi - zarar gör
+		var gold_loss = randi_range(100, 300)
+		var morale_loss = randi_range(5, 15)
+		
+		# Kaynak kaybı
+		var gpd = get_node_or_null("/root/GlobalPlayerData")
+		if gpd:
+			gpd.gold = max(0, gpd.gold - gold_loss)
+		
+		# Moral kaybı
+		if vm:
+			vm.village_morale = max(0.0, vm.village_morale - morale_loss)
+		
+		# Ölü askerleri kaldır
+		if barracks and barracks.has_method("remove_soldiers"):
+			barracks.remove_soldiers(defender_losses)
+		
+		_post_world_news({
+			"category": "world",
+			"subcategory": "critical",
+			"title": "❌ Savunma Başarısız",
+			"content": "%s saldırısı köye zarar verdi! Kayıplar: %d asker, %d altın, %d moral." % [attacker_faction, defender_losses, gold_loss, morale_loss],
+			"day": day
+		})
+		
+		# Askerlerin geri dönmesi için sinyal gönder
+		defense_battle_completed.emit("attacker", defender_losses)
+
+func _trigger_village_raid(target_faction: String, day: int) -> void:
+	"""Köyden saldırı başlat"""
+	var raid_event = {
+		"type": "village_raid",
+		"attacker": "Köy",
+		"target": target_faction,
+		"day": day,
+		"severity": "moderate"
+	}
+	
+	# Saldırı haberini yayınla
+	_post_world_news({
+		"category": "world",
+		"subcategory": "warning",
+		"title": "Saldırı Fırsatı",
+		"content": "%s fraksiyonuna saldırı fırsatı doğdu!" % target_faction,
+		"day": day
+	})
+	
+	# Saldırıyı MissionManager'a bildir
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm and mm.has_method("create_raid_mission"):
+		mm.create_raid_mission(target_faction, day)
+
+func _update_active_events(day: int) -> void:
+	"""Aktif olayları güncelle"""
+	var remaining_events: Array[Dictionary] = []
+	
+	for event in active_events:
+		var started_day = event.get("started_day", day)
+		var duration = event.get("duration", 0)
+		
+		if day - started_day < duration:
+			remaining_events.append(event)
+		else:
+			# Olay süresi doldu
+			_post_event_end_news(event, day)
+	
+	active_events = remaining_events
+
+func _post_event_end_news(event: Dictionary, day: int) -> void:
+	"""Olay sona erdiğinde haber yayınla"""
+	var event_type = event.get("type", "")
+	var faction = event.get("faction", "")
+	
+	var title = ""
+	var content = ""
+	
+	match event_type:
+		"trade_boom":
+			title = "Ticaret Patlaması Sona Erdi"
+			content = "%s bölgesindeki ticaret patlaması sona erdi." % faction
+		"famine":
+			title = "Kıtlık Sona Erdi"
+			content = "%s bölgesindeki kıtlık sona erdi." % faction
+		"plague":
+			title = "Salgın Sona Erdi"
+			content = "%s bölgesindeki salgın sona erdi." % faction
+		"war_declaration":
+			title = "Savaş Sona Erdi"
+			content = "%s bölgesindeki savaş sona erdi." % faction
+		"rebellion":
+			title = "İsyan Bastırıldı"
+			content = "%s bölgesindeki isyan bastırıldı." % faction
+	
+	_post_world_news({
+		"category": "world",
+		"subcategory": "success",
+		"title": title,
+		"content": content,
+		"day": day
+	})
 	# Dynamic world events simulation
 	# 15% chance of any event on a random non-player faction
 	if randi() % 100 < 15 and factions.size() > 1:
 		var idx := 1 + int(randi() % (factions.size() - 1))
-		var faction := factions[idx]
-		var event_type := _get_random_event_type()
-		var ev := _create_event(event_type, faction, day)
+		var selected_faction := factions[idx]
+		var random_event_type := _get_random_event_type()
+		var ev := _create_event(random_event_type, selected_faction, day)
 		active_events.append(ev)
 		world_event_started.emit(ev)
 		_post_event_news(ev, day)
@@ -265,10 +594,22 @@ func _apply_world_events_to_village(day: int) -> void:
 	active_events = remaining
 
 func _post_world_news(news: Dictionary) -> void:
-	# Prefer MissionManager news pipeline if present
+	# MissionManager'ın post_news metodunu kullan
 	var mm = get_node_or_null("/root/MissionManager")
-	if mm and mm.has_signal("news_posted"):
-		mm.news_posted.emit(news)
+	if mm and mm.has_method("post_news"):
+		var category = news.get("category", "world")
+		var title = news.get("title", "Bilinmeyen")
+		var content = news.get("content", "")
+		var subcategory = news.get("subcategory", "info")
+		
+		# Category'yi MissionManager formatına çevir
+		if category == "world":
+			category = "Dünya"
+		
+		mm.post_news(category, title, content, Color.WHITE, subcategory)
 	else:
-		pass
-		#print("[WORLD NEWS] ", news)
+		# Fallback: sinyal emit et
+		if mm and mm.has_signal("news_posted"):
+			mm.news_posted.emit(news)
+		else:
+			print("[WORLD NEWS] ", news)

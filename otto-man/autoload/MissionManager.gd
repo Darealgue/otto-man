@@ -225,9 +225,9 @@ func create_initial_concubines():
 # Rastgele görev üret
 
 # Görev ata
-func assign_mission_to_concubine(cariye_id: int, mission_id: String) -> bool:
+func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_count: int = 0) -> bool:
 	print("=== MISSIONMANAGER ATAMA DEBUG ===")
-	print("🔄 Görev atanıyor: Cariye %d -> Görev %s" % [cariye_id, mission_id])
+	print("🔄 Görev atanıyor: Cariye %d -> Görev %s (Asker: %d)" % [cariye_id, mission_id, soldier_count])
 	
 	if not concubines.has(cariye_id):
 		print("❌ Cariye bulunamadı: %d" % cariye_id)
@@ -243,25 +243,51 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String) -> bool:
 	print("✅ Cariye bulundu: %s (ID: %d)" % [cariye.name, cariye_id])
 	print("✅ Görev bulundu: %s (ID: %s)" % [mission.name, mission_id])
 	
-	# Cariye görev alabilir mi?
-	if not cariye.can_handle_mission(mission):
-		print("❌ Cariye görev alamaz: %s" % cariye.name)
-		print("   - Seviye: %d (Gerekli: %d)" % [cariye.level, mission.required_cariye_level])
-		print("   - Durum: %s (Gerekli: BOŞTA)" % Concubine.Status.keys()[cariye.status])
-		print("   - Sağlık: %d/%d (Min: %d)" % [cariye.health, cariye.max_health, cariye.max_health * 0.5])
-		print("   - Moral: %d/%d (Min: %d)" % [cariye.moral, cariye.max_moral, cariye.max_moral * 0.3])
-		return false
+	# Dictionary görevleri için özel işlem (defense görevleri otomatik değil)
+	if mission is Dictionary:
+		var mission_type = mission.get("type", "")
+		if mission_type == "defense":
+			print("❌ Savunma görevleri otomatik gerçekleşir, cariye atanamaz!")
+			return false
+		
+		# Raid görevleri için asker sayısı kaydet
+		if mission_type == "raid" and soldier_count > 0:
+			mission["assigned_soldiers"] = soldier_count
+	
+	# Cariye görev alabilir mi? (Dictionary görevleri için kontrol yapma)
+	if not (mission is Dictionary):
+		if not cariye.can_handle_mission(mission):
+			print("❌ Cariye görev alamaz: %s" % cariye.name)
+			print("   - Seviye: %d (Gerekli: %d)" % [cariye.level, mission.required_cariye_level])
+			print("   - Durum: %s (Gerekli: BOŞTA)" % Concubine.Status.keys()[cariye.status])
+			print("   - Sağlık: %d/%d (Min: %d)" % [cariye.health, cariye.max_health, cariye.max_health * 0.5])
+			print("   - Moral: %d/%d (Min: %d)" % [cariye.moral, cariye.max_moral, cariye.max_moral * 0.3])
+			return false
 	
 	print("✅ Cariye görev alabilir: %s" % cariye.name)
 	
-	# Görev başlat
-	if mission.start_mission(cariye_id):
+	# Görev başlat (Mission objesi için)
+	if not (mission is Dictionary):
+		if mission.start_mission(cariye_id):
+			cariye.start_mission(mission_id)
+			active_missions[cariye_id] = mission_id
+			
+			print("✅ Görev başlatıldı: %s -> %s" % [cariye.name, mission.name])
+			print("📋 Aktif görev sayısı: %d" % active_missions.size())
+			
+			mission_started.emit(cariye_id, mission_id)
+			return true
+	else:
+		# Dictionary görevleri için basit atama
 		cariye.start_mission(mission_id)
 		active_missions[cariye_id] = mission_id
 		
-		print("✅ Görev başlatıldı: %s -> %s" % [cariye.name, mission.name])
-		print("📋 Aktif görev sayısı: %d" % active_missions.size())
+		# Raid görevleri için asker sayısını kaydet
+		if mission.get("type", "") == "raid":
+			mission["assigned_soldiers"] = soldier_count
+			print("⚔️ Raid görevi: %d asker atandı" % soldier_count)
 		
+		print("✅ Dictionary görev başlatıldı: %s -> %s" % [cariye.name, mission.get("name", mission_id)])
 		mission_started.emit(cariye_id, mission_id)
 		return true
 	
@@ -622,12 +648,29 @@ func get_available_missions() -> Array:
 	var available = []
 	for mission_id in missions:
 		var mission = missions[mission_id]
-		if mission.status == Mission.Status.MEVCUT:
-			# Önkoşulları kontrol et
-			if mission.are_prerequisites_met(completed_missions):
-				available.append(mission)
+		
+		# Mission objesi mi yoksa Dictionary mi kontrol et
+		var is_available = false
+		if mission is Dictionary:
+			# Dictionary görevleri için status kontrolü
+			var status = mission.get("status", "")
+			is_available = (status == "available" or status == "urgent" or status == "MEVCUT")
+		else:
+			# Mission objesi için normal kontrol
+			if mission.status == Mission.Status.MEVCUT:
+				is_available = true
+		
+		if is_available:
+			# Önkoşulları kontrol et (Mission objeleri için)
+			if not (mission is Dictionary) and mission.has_method("are_prerequisites_met"):
+				if mission.are_prerequisites_met(completed_missions):
+					available.append(mission)
+				else:
+					var mission_name = mission.name if mission.has("name") else mission_id
+					print("🔒 Görev kilitli (önkoşul eksik): " + str(mission_name))
 			else:
-				print("🔒 Görev kilitli (önkoşul eksik): " + mission.name)
+				# Dictionary görevleri için önkoşul kontrolü yapma, direkt ekle
+				available.append(mission)
 	return available
 
 # Boşta cariyeleri al
@@ -2112,7 +2155,7 @@ func _setup_combat_system() -> void:
 		cr.connect("unit_losses", Callable(self, "_on_unit_losses"))
 		cr.connect("equipment_consumed", Callable(self, "_on_equipment_consumed"))
 
-func create_raid_mission(target_settlement: String, difficulty: String = "medium") -> Dictionary:
+func create_raid_mission(target_settlement: String, day: int = 0, difficulty: String = "medium") -> Dictionary:
 	"""Create a raid mission against a settlement"""
 	var mission_id := "raid_" + target_settlement + "_" + str(next_mission_id)
 	var mission := {
@@ -2128,7 +2171,8 @@ func create_raid_mission(target_settlement: String, difficulty: String = "medium
 		"required_resources": {"gold": 100, "weapon": 5, "armor": 3},
 		"rewards": {"gold": 300, "equipment": {"weapon": 2, "armor": 1}},
 		"penalties": {"gold": -50, "army_losses": 1},
-		"status": "available"
+		"status": "available",
+		"day": day
 	}
 	
 	missions[mission_id] = mission
@@ -2137,9 +2181,11 @@ func create_raid_mission(target_settlement: String, difficulty: String = "medium
 	# Post news about raid opportunity
 	post_news("Görev", "Baskın Fırsatı", target_settlement + " yerleşimine baskın düzenleme fırsatı!", Color(1, 0.8, 0.8), "warning")
 	
+	print("⚔️ Baskın görevi oluşturuldu: %s (Gün: %d)" % [target_settlement, day])
+	
 	return mission
 
-func create_defense_mission(attacker: String) -> Dictionary:
+func create_defense_mission(attacker: String, day: int = 0) -> Dictionary:
 	"""Create a defense mission against an attacker"""
 	var mission_id := "defense_" + attacker + "_" + str(next_mission_id)
 	var mission := {
@@ -2155,7 +2201,8 @@ func create_defense_mission(attacker: String) -> Dictionary:
 		"required_resources": {"gold": 50, "weapon": 3, "armor": 2},
 		"rewards": {"gold": 200, "stability_bonus": 15, "reputation": 10},
 		"penalties": {"gold": -100, "stability_penalty": -20, "army_losses": 2},
-		"status": "urgent"
+		"status": "urgent",
+		"day": day
 	}
 	
 	missions[mission_id] = mission
@@ -2163,6 +2210,8 @@ func create_defense_mission(attacker: String) -> Dictionary:
 	
 	# Post urgent news about defense
 	post_news("Acil", "Savunma Gerekli", attacker + " saldırısına karşı köyü savun!", Color(1, 0.3, 0.3), "critical")
+	
+	print("🛡️ Savunma görevi oluşturuldu: %s (Gün: %d)" % [attacker, day])
 	
 	return mission
 
@@ -2198,16 +2247,39 @@ func execute_battle_mission(mission_id: String, cariye_id: int) -> Dictionary:
 	
 	return battle_result
 
+func _find_barracks() -> Node:
+	"""Kışla binasını bul"""
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm or not vm.village_scene_instance:
+		return null
+	
+	var placed_buildings = vm.village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return null
+	
+	for building in placed_buildings.get_children():
+		if building.has_method("get_military_force"): # Check for Barracks-specific method
+			return building
+	
+	return null
+
 func _get_player_military_force() -> Dictionary:
-	"""Get player's current military force"""
-	# This would integrate with VillageManager or GlobalPlayerData
-	# For now, return a basic force
+	"""Get player's current military force from Barracks"""
+	# Kışla binasını bul
+	var barracks = _find_barracks()
+	if barracks and barracks.has_method("get_military_force"):
+		return barracks.get_military_force()
+	
+	# Fallback: eski sistem
 	return {
 		"units": {"infantry": 5, "archers": 3, "cavalry": 2},
 		"equipment": {"weapon": 10, "armor": 8},
 		"supplies": {"bread": 20, "water": 15},
 		"gold": 500
 	}
+
+# === Köy Savunması ve Saldırı Görevleri ===
+# (Duplicate functions removed - using the ones defined earlier)
 
 func _get_settlement_defense_force(settlement_name: String) -> Dictionary:
 	"""Get defense force for a settlement"""
@@ -2334,13 +2406,17 @@ func _on_equipment_consumed(equipment_type: String, amount: int) -> void:
 # === Debug Functions for Testing ===
 func debug_create_test_raid() -> Dictionary:
 	"""Create a test raid mission for debugging"""
-	var test_mission := create_raid_mission("Test Yerleşimi", "medium")
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	var test_mission := create_raid_mission("Test Yerleşimi", current_day, "medium")
 	print("🔍 Test baskın görevi oluşturuldu: ", test_mission.id)
 	return test_mission
 
 func debug_create_test_defense() -> Dictionary:
 	"""Create a test defense mission for debugging"""
-	var test_mission := create_defense_mission("Test Saldırgan")
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	var test_mission := create_defense_mission("Test Saldırgan", current_day)
 	print("🔍 Test savunma görevi oluşturuldu: ", test_mission.id)
 	return test_mission
 
@@ -2427,3 +2503,65 @@ func debug_run_full_combat_test() -> void:
 	debug_show_combat_stats()
 	
 	print("🚀 === SAVAŞ SİSTEMİ TAM TEST BİTTİ ===")
+
+# --- CARİYE ROL YÖNETİMİ ---
+
+# Cariye rolü ata
+func set_concubine_role(cariye_id: int, role: Concubine.Role) -> bool:
+	if not concubines.has(cariye_id):
+		print("❌ Cariye bulunamadı: ", cariye_id)
+		return false
+	
+	var cariye = concubines[cariye_id]
+	
+	# Eğer aynı rol zaten atanmışsa, değişiklik yok
+	if cariye.role == role:
+		return true
+	
+	# Eski rolü temizle (eğer varsa)
+	if cariye.role != Concubine.Role.NONE:
+		_clear_concubine_role(cariye_id)
+	
+	# Yeni rolü ata
+	cariye.role = role
+	print("✅ Cariye rolü atandı: %s -> %s" % [cariye.name, cariye.get_role_name()])
+	
+	# Rol atama sinyali gönder
+	emit_signal("concubine_role_changed", cariye_id, role)
+	
+	return true
+
+# Cariye rolünü al
+func get_concubine_role(cariye_id: int) -> Concubine.Role:
+	if not concubines.has(cariye_id):
+		return Concubine.Role.NONE
+	
+	return concubines[cariye_id].role
+
+# Cariye rolünü temizle
+func clear_concubine_role(cariye_id: int) -> bool:
+	return set_concubine_role(cariye_id, Concubine.Role.NONE)
+
+# Özel rol temizleme (internal)
+func _clear_concubine_role(cariye_id: int):
+	var cariye = concubines[cariye_id]
+	var old_role = cariye.role
+	cariye.role = Concubine.Role.NONE
+	print("🧹 Cariye rolü temizlendi: %s -> %s" % [cariye.name, cariye.get_role_name()])
+
+# Belirli roldeki cariyeleri al
+func get_concubines_by_role(role: Concubine.Role) -> Array[Concubine]:
+	var result: Array[Concubine] = []
+	
+	for cariye in concubines.values():
+		if cariye.role == role:
+			result.append(cariye)
+	
+	return result
+
+# Komutan cariyeleri al
+func get_commander_concubines() -> Array[Concubine]:
+	return get_concubines_by_role(Concubine.Role.KOMUTAN)
+
+# Rol atama sinyali
+signal concubine_role_changed(cariye_id: int, new_role: Concubine.Role)

@@ -40,9 +40,9 @@ func _ready() -> void:
 	angular_damp = 0.8
 	
 	# Set collision layers and masks
-	# Blood particles should only collide with ground (layer 1), NOT with other blood particles
+	# Blood particles should collide with ground (layer 1) and walls (layer 2)
 	collision_layer = 32  # Layer 6 (blood particles)
-	collision_mask = 1  # Only ground (layer 1), no blood-to-blood collision
+	collision_mask = 1 | 2  # Ground (layer 1) and walls (layer 2)
 	
 	# Velocity will be set by set_hit_direction() when called
 	
@@ -64,9 +64,13 @@ func _physics_process(delta: float) -> void:
 	
 	# Check if particle has hit a surface and should create splatter
 	if not has_splattered:
-		# Only check for floor collision
-		if is_on_floor() and linear_velocity.length() < 50.0:
-			create_blood_splatter()
+		# Check for floor collision - only floor blood when actually on floor
+		if is_on_floor() and linear_velocity.length() < 100.0:
+			create_floor_blood_splatter()
+			has_splattered = true
+		# Some particles explode in mid-air to create wall blood effect
+		elif lifetime_timer > 0.4 and randf() < 0.01:  # 1% chance after 0.4 seconds
+			create_wall_blood_splatter()
 			has_splattered = true
 	
 	# Remove particle after lifetime
@@ -75,18 +79,24 @@ func _physics_process(delta: float) -> void:
 
 
 func is_on_floor() -> bool:
-	# Simple floor detection using raycast
+	# More reliable floor detection using raycast
 	var space_state = get_world_2d().direct_space_state
 	var query = PhysicsRayQueryParameters2D.create(
 		global_position,
-		global_position + Vector2(0, 20)
+		global_position + Vector2(0, 30)
 	)
 	query.collision_mask = 1  # Ground layer
 	
 	var result = space_state.intersect_ray(query)
-	return result.size() > 0
+	if result.size() > 0:
+		# Check if we're actually close to the ground
+		var distance = global_position.distance_to(result.position)
+		return distance < 25.0
+	
+	return false
 
-func create_blood_splatter() -> void:
+
+func create_floor_blood_splatter() -> void:
 	if has_splattered:
 		return
 		
@@ -94,9 +104,18 @@ func create_blood_splatter() -> void:
 	if randf() > splatter_chance:
 		return
 	
-	# Only create floor blood splatters
 	_create_floor_blood_splatter()
+	has_splattered = true
+
+func create_wall_blood_splatter() -> void:
+	if has_splattered:
+		return
+		
+	# Only create splatter with certain probability
+	if randf() > splatter_chance:
+		return
 	
+	_create_wall_blood_splatter()
 	has_splattered = true
 
 
@@ -125,6 +144,43 @@ func _create_floor_blood_splatter() -> void:
 	
 	# NO rotation - keep blood splatter flat on floor
 	splatter.rotation = 0.0
+	
+	# Random scale for variety
+	var scale_factor = randf_range(0.8, 1.2)
+	splatter.scale = Vector2(scale_factor, scale_factor)
+	
+	# Add fade out effect
+	var tween = create_tween()
+	tween.tween_property(splatter, "modulate:a", 0.0, 10.0)
+	tween.tween_callback(func(): splatter.queue_free())
+
+func _create_wall_blood_splatter() -> void:
+	# Create wall blood splatter using the new sprites
+	var splatter = Node2D.new()
+	get_tree().current_scene.add_child(splatter)
+	splatter.global_position = global_position
+	
+	# Add sprite
+	var sprite = Sprite2D.new()
+	splatter.add_child(sprite)
+	
+	# Set z-index to be behind ground tiles
+	sprite.z_index = -1  # Behind ground tiles
+	
+	# Choose random wall blood sprite
+	var wall_sprites = [
+		"res://assets/effects/blood fx/blood_wall1.png",
+		"res://assets/effects/blood fx/blood_wall2.png", 
+		"res://assets/effects/blood fx/blood_wall3.png",
+		"res://assets/effects/blood fx/blood_wall4.png"
+	]
+	var random_sprite = wall_sprites[randi() % wall_sprites.size()]
+	sprite.texture = load(random_sprite)
+	
+	# Rotate based on wall direction
+	var velocity_direction = linear_velocity.normalized()
+	var wall_angle = velocity_direction.angle()
+	splatter.rotation = wall_angle + PI/2  # Perpendicular to wall
 	
 	# Random scale for variety
 	var scale_factor = randf_range(0.8, 1.2)

@@ -13,6 +13,9 @@ var lifetime: float = 1.0
 
 func _ready() -> void:
 	initial_position = position
+	# Set high z-index to appear above everything
+	z_index = 1000
+	
 	# Random spread
 	direction = Vector2(
 		randf_range(-1, 1),  # Random X direction

@@ -91,7 +91,9 @@ func _update_labels() -> void:
 
 	# Global Veriler
 	gold_label.text = "Altın: %d" % GlobalPlayerData.gold
-	asker_label.text = "Asker: %d" % GlobalPlayerData.asker_sayisi
+	# Asker sayısını Barracks'tan al
+	var soldier_count = _get_soldier_count()
+	asker_label.text = "Asker: %d" % soldier_count
 	bread_label.text = "Ekmek: %d" % VillageManager.resource_levels.get("bread", 0)
 	# Morale (optional label)
 	if is_instance_valid(morale_label):
@@ -108,6 +110,31 @@ func _update_labels() -> void:
 
 	# VillageManager Verileri
 	worker_label.text = "İşçiler: %d / %d" % [VillageManager.idle_workers, VillageManager.total_workers]
+
+	# Asker ikmal durumu
+	var status_text: String = "Tam"
+	var used_shortage: bool = false
+	var shortages: Dictionary = {}
+	var v = VillageManager.get("_last_day_shortages")
+	if v != null and v is Dictionary:
+		shortages = v
+		if shortages.has("soldier_food") or shortages.has("soldier_water"):
+			var s_food: int = int(shortages.get("soldier_food", 0))
+			var s_water: int = int(shortages.get("soldier_water", 0))
+			status_text = ("Tam" if (s_food == 0 and s_water == 0) else "Eksik")
+			used_shortage = true
+	
+	# Gün daha tiklenmediyse stok bazlı öngörü: mevcut stok bu günü karşılıyor mu?
+	if not used_shortage:
+		var sc: int = soldier_count
+		var req_w: int = int(ceil(float(sc) * 0.5))
+		var req_f: int = int(ceil(float(sc) * 0.5))
+		var have_w: int = int(VillageManager.resource_levels.get("water", 0))
+		var have_f: int = int(VillageManager.resource_levels.get("food", 0))
+		if have_w < req_w or have_f < req_f:
+			status_text = "Eksik"
+	
+	asker_label.text += "  | İkmal: " + status_text
 
 	# Temel Kaynaklar (Kullanılabilir / Toplam) - sadece üretici bina varsa göster
 	_set_resource_visible_and_update(wood_label, "Odun", "wood")
@@ -225,6 +252,22 @@ func _set_resource_visible_and_update(label_node: Label, display_name: String, k
 	label_node.visible = has_prod
 	if has_prod:
 		_update_resource_label(label_node, display_name, key)
+
+# Helper: Barracks'tan asker sayısını al
+func _get_soldier_count() -> int:
+	var scene = get_tree().current_scene
+	if not is_instance_valid(scene):
+		return 0
+	var placed = scene.get_node_or_null("PlacedBuildings")
+	if not placed:
+		return 0
+	for building in placed.get_children():
+		if building.has_method("get_military_force"):  # Barracks-specific method
+			# assigned_workers property'sine direkt erişmeyi dene
+			if building.get("assigned_workers") != null:
+				return building.assigned_workers
+			return 0
+	return 0
 
 # Helper: ihtiyaç halinde label oluştur
 func _get_or_create_resource_label(resource_key: String, display_name: String) -> Label:

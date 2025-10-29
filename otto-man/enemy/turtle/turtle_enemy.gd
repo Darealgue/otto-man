@@ -6,6 +6,9 @@ var patrol_direction: int = 1
 var wall_detection_distance: float = 20.0
 var platform_detection_distance: float = 50.0  # Increased from 30.0
 
+# Torch light variables
+var torch_light: PointLight2D
+
 func _ready() -> void:
 	super._ready()
 	
@@ -33,6 +36,17 @@ func _ready() -> void:
 	# Add hurtbox to hurtbox group for fall attack bounce
 	if hurtbox:
 		hurtbox.add_to_group("hurtbox")
+	
+	# Get reference to torch light
+	torch_light = get_node_or_null("TorchLight/PointLight2D")
+	
+	# Normal map setup
+	_setup_normal_map_sync()
+	
+	# Connect frame changed signal for sync
+	if sprite and not sprite.frame_changed.is_connected(_sync_normal_map):
+		sprite.frame_changed.connect(_sync_normal_map)
+	
 
 func _handle_child_behavior(delta: float) -> void:
 	match current_behavior:
@@ -55,8 +69,7 @@ func handle_patrol(delta: float) -> void:
 	if should_turn:
 		patrol_direction *= -1
 		direction = patrol_direction
-		if sprite:
-			sprite.flip_h = direction < 0
+		update_sprite_direction()
 	
 	# Move in patrol direction
 	velocity.x = patrol_direction * movement_speed
@@ -100,8 +113,7 @@ func handle_chase(delta: float) -> void:
 	direction = player_direction
 	
 	# Update sprite direction
-	if sprite:
-		sprite.flip_h = direction < 0
+	update_sprite_direction()
 	
 	# Play walk animation
 	if sprite and sprite.animation != "walk":
@@ -193,6 +205,9 @@ func die() -> void:
 	# var scene_path = scene_file_path
 	# var pool_name = scene_path.get_file().get_basename()
 	# object_pool.return_object(self, pool_name)
+	
+	# Turn off torch light when turtle dies
+	_turn_off_torch_light()
 
 # Override _physics_process to ensure gravity is applied even when dead
 func _physics_process(delta: float) -> void:
@@ -225,3 +240,104 @@ func _physics_process(delta: float) -> void:
 	
 	# Apply movement
 	move_and_slide()
+
+
+func _turn_off_torch_light() -> void:
+	# Turn off the torch light when turtle dies
+	if torch_light:
+		# Fade out the light over time
+		var tween = create_tween()
+		tween.tween_property(torch_light, "energy", 0.0, 2.0)
+		tween.tween_callback(func(): 
+			if torch_light:
+				torch_light.queue_free()
+		)
+
+func _setup_normal_map_sync():
+	"""Setup normal map synchronization between main sprite and normal sprite"""
+	print("[TurtleEnemy] Setting up normal map shader...")
+	
+	# Find the normal sprite (it's a child of the main AnimatedSprite2D)
+	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
+	if not normal_sprite:
+		return
+	
+	print("[TurtleEnemy] Normal sprite found: ", normal_sprite.name)
+	
+	# Sync animation and frame with main sprite
+	normal_sprite.animation = sprite.animation
+	normal_sprite.frame = sprite.frame
+	
+	# Keep normal sprite invisible but ensure it's properly set up for normal mapping
+	normal_sprite.visible = false
+	
+	# Use the existing ShaderMaterial from scene (don't create new one)
+	if sprite and sprite.material:
+		var material = sprite.material as ShaderMaterial
+		if material:
+			print("[TurtleEnemy] Using existing shader material from scene")
+			
+			# Debug: Check if normal texture is properly set
+			if normal_sprite.sprite_frames:
+				var test_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+				if test_texture:
+					print("[TurtleEnemy] Normal texture loaded successfully: ", test_texture.get_class())
+					print("[TurtleEnemy] Normal texture size: ", test_texture.get_size())
+				else:
+					print("[TurtleEnemy] ERROR: Normal texture is null!")
+			else:
+				print("[TurtleEnemy] ERROR: Normal sprite has no sprite_frames!")
+	
+	# Update normal texture from normal sprite
+	if sprite and sprite.material and normal_sprite.sprite_frames:
+		var material = sprite.material as ShaderMaterial
+		if material:
+			var current_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+			if current_texture:
+				material.set_shader_parameter("normal_texture", current_texture)
+			else:
+				print("[TurtleEnemy] ERROR: Normal texture is null for animation: ", normal_sprite.animation, " frame: ", normal_sprite.frame)
+
+func _sync_normal_map():
+	"""Sync normal map with current animation frame"""
+	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
+	if not normal_sprite:
+		return
+	
+	# Sync animation and frame with main sprite
+	normal_sprite.animation = sprite.animation
+	normal_sprite.frame = sprite.frame
+	
+	# Keep normal sprite invisible but ensure it's properly set up for normal mapping
+	normal_sprite.visible = false
+	
+	# Update normal texture from normal sprite
+	if sprite and sprite.material and normal_sprite.sprite_frames:
+		var material = sprite.material as ShaderMaterial
+		if material:
+			var current_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+			if current_texture:
+				material.set_shader_parameter("normal_texture", current_texture)
+			else:
+				print("[TurtleEnemy] ERROR: Normal texture is null for animation: ", normal_sprite.animation, " frame: ", normal_sprite.frame)
+
+func update_sprite_direction() -> void:
+	"""Update sprite direction based on movement and target position"""
+	if target:
+		var target_direction = sign(target.global_position.x - global_position.x)
+		if target_direction != 0:
+			direction = target_direction
+	elif velocity.x != 0:
+		direction = sign(velocity.x)
+	
+	# Flip sprite based on direction
+	if sprite:
+		sprite.flip_h = direction < 0
+		# Don't flip normal sprite - this breaks normal mapping
+		# Normal map direction will be handled in shader
+		
+		# Update shader with flip state
+		if sprite.material:
+			var material = sprite.material as ShaderMaterial
+			if material:
+				material.set_shader_parameter("sprite_flipped", direction < 0)

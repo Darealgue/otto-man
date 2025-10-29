@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3 uid="uid://kppl7yjrg67q"]
+[gd_scene load_steps=21 format=3 uid="uid://kppl7yjrg67q"]
 
 [ext_resource type="Script" path="res://enemy/flying/flying_enemy.gd" id="1_j6iyu"]
 [ext_resource type="Texture2D" uid="uid://8vmlfuinkalh" path="res://enemy/flying/sprites/flying dusman_border-sheet.png" id="1_mf8d4"]
@@ -42,26 +42,6 @@ region = Rect2(384, 0, 96, 96)
 [sub_resource type="AtlasTexture" id="AtlasTexture_yvsqp"]
 atlas = ExtResource("1_mf8d4")
 region = Rect2(480, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_fmh6u"]
-atlas = ExtResource("1_mf8d4")
-region = Rect2(0, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_thrpn"]
-atlas = ExtResource("1_mf8d4")
-region = Rect2(96, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_3a5oj"]
-atlas = ExtResource("1_mf8d4")
-region = Rect2(192, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_1ydth"]
-atlas = ExtResource("1_mf8d4")
-region = Rect2(288, 0, 96, 96)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_1a75k"]
-atlas = ExtResource("1_mf8d4")
-region = Rect2(384, 0, 96, 96)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_0h8av"]
 atlas = ExtResource("1_mf8d4")
@@ -136,21 +116,6 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_fmh6u")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_thrpn")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_3a5oj")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_1ydth")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_1a75k")
-}, {
-"duration": 1.0,
 "texture": SubResource("AtlasTexture_0h8av")
 }],
 "loop": true,
@@ -175,7 +140,13 @@ stats = ExtResource("2_7548b")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(-3, -18)
 sprite_frames = SubResource("SpriteFrames_tm2ey")
-animation = &"chase"
+animation = &"swoop"
+
+[node name="AnimatedSprite2D_normal" type="AnimatedSprite2D" parent="AnimatedSprite2D"]
+visible = false
+position = Vector2(-3, -18)
+sprite_frames = SubResource("SpriteFrames_tm2ey")
+animation = &"swoop"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_tf0tv")

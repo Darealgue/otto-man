@@ -77,6 +77,7 @@ func _ready() -> void:
 	# Initialize attack variables
 	can_attack = true
 	
+	
 	# Add platform layer to collision mask
 	collision_mask |= 10  # Add platform layer (10) to existing collision mask
 	set_collision_mask_value(10, true)  # Ensure platform collision is enabled
@@ -97,10 +98,15 @@ func _ready() -> void:
 		raycast_left.collision_mask = CollisionLayers.WORLD  # Environment
 		raycast_right.collision_mask = CollisionLayers.WORLD
 		raycast_left.position = Vector2(-20, 0)  # Offset from center
-		raycast_right.position = Vector2(20, 0)
+		
 	
-		raycast_left.target_position = Vector2(0, 100)  # Longer raycast
-		raycast_right.target_position = Vector2(0, 100)
+	raycast_right.position = Vector2(20, 0)
+	
+	raycast_left.target_position = Vector2(0, 100)  # Longer raycast
+	raycast_right.target_position = Vector2(0, 100)
+	
+	# Setup normal map synchronization
+	_setup_normal_map_sync()
 	
 	# Manually connect hurtbox signal to ensure it works
 	call_deferred("_connect_hurtbox_signal")
@@ -273,6 +279,9 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 
 func handle_patrol(delta: float) -> void:
 	behavior_timer += delta
+	
+	# Update sprite direction
+	update_sprite_direction()
 	
 	# First check for player
 	var had_target = target != null
@@ -968,3 +977,104 @@ func check_player_in_front() -> bool:
 			return true
 	
 	return false
+
+
+
+func _setup_normal_map_sync():
+	"""Setup normal map synchronization between main sprite and normal sprite"""
+	print("[HeavyEnemy] Setting up normal map shader...")
+	
+	# Find the normal sprite (it's a child of the main AnimatedSprite2D)
+	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
+	if not normal_sprite:
+		# Try to find it by name
+		normal_sprite = sprite.get_node("AnimatedSprite2D")
+		if not normal_sprite:
+			print("[HeavyEnemy] Normal sprite not found!")
+			return
+	
+	print("[HeavyEnemy] Normal sprite found: ", normal_sprite.name)
+	
+	# Set up normal mapping on main sprite using ShaderMaterial
+	if sprite and not sprite.material:
+		var shader = load("res://enemy/normal_shader.gdshader")
+		if shader:
+			var material = ShaderMaterial.new()
+			material.shader = shader
+			sprite.material = material
+			print("[HeavyEnemy] Added normal map shader material to main sprite")
+	
+	# Connect to frame changed signal to sync normal map
+	if not sprite.frame_changed.is_connected(_sync_normal_map):
+		sprite.frame_changed.connect(_sync_normal_map)
+	
+	# Initial sync
+	_sync_normal_map()
+
+func _sync_normal_map():
+	"""Sync normal map texture with main sprite animation"""
+	# Find the normal sprite
+	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
+	if not normal_sprite:
+		normal_sprite = sprite.get_node("AnimatedSprite2D")
+		if not normal_sprite:
+			return
+	
+	# Sync animation and frame with main sprite
+	normal_sprite.animation = sprite.animation
+	normal_sprite.frame = sprite.frame
+	
+	# Keep normal sprite invisible but ensure it's properly set up for normal mapping
+	normal_sprite.visible = false
+	
+	# Set up normal mapping on main sprite using ShaderMaterial
+	if sprite and not sprite.material:
+		var shader = load("res://enemy/normal_shader.gdshader")
+		if shader:
+			var material = ShaderMaterial.new()
+			material.shader = shader
+			sprite.material = material
+			print("[HeavyEnemy] Added normal map shader material to main sprite")
+			
+			# Debug: Check if normal texture is properly set
+			if normal_sprite.sprite_frames:
+				var test_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+				if test_texture:
+					print("[HeavyEnemy] Normal texture loaded successfully: ", test_texture.get_class())
+					print("[HeavyEnemy] Normal texture size: ", test_texture.get_size())
+				else:
+					print("[HeavyEnemy] ERROR: Normal texture is null!")
+			else:
+				print("[HeavyEnemy] ERROR: Normal sprite has no sprite_frames!")
+	
+	# Update normal texture from normal sprite
+	if sprite and sprite.material and normal_sprite.sprite_frames:
+		var material = sprite.material as ShaderMaterial
+		if material:
+			var current_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
+			if current_texture:
+				material.set_shader_parameter("normal_texture", current_texture)
+			else:
+				print("[HeavyEnemy] ERROR: Normal texture is null for animation: ", normal_sprite.animation, " frame: ", normal_sprite.frame)
+	
+
+func update_sprite_direction() -> void:
+	"""Update sprite direction based on movement and target position"""
+	if target:
+		var target_direction = sign(target.global_position.x - global_position.x)
+		if target_direction != 0:
+			direction = target_direction
+	elif velocity.x != 0:
+		direction = sign(velocity.x)
+	
+	# Flip sprite based on direction
+	if sprite:
+		sprite.flip_h = direction < 0
+		# Don't flip normal sprite - this breaks normal mapping
+		# Normal map direction will be handled in shader
+		
+		# Update shader with flip state
+		if sprite.material:
+			var material = sprite.material as ShaderMaterial
+			if material:
+				material.set_shader_parameter("sprite_flipped", direction < 0)

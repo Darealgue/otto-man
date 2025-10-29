@@ -10,6 +10,9 @@ var hit_effect_textures = [
 ]
 
 func _ready() -> void:
+	# Set z-index to appear above decorations but behind player
+	z_index = 10
+	
 	# Rastgele bir hit efekt seç
 	var random_effect = hit_effect_textures[randi() % hit_effect_textures.size()]
 	sprite.texture = random_effect

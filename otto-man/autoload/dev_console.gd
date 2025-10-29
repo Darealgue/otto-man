@@ -77,6 +77,27 @@ func _on_command_submitted(command: String) -> void:
 			handle_god_command()
 		"reset":
 			handle_reset_command()
+		# === DÜNYA SİSTEMİ KOMUTLARI ===
+		"force_event":
+			handle_force_event_command(args)
+		"set_relation":
+			handle_set_relation_command(args)
+		"spawn_war":
+			handle_spawn_war_command(args)
+		"world_stats":
+			handle_world_stats_command()
+		"village_stats":
+			handle_village_stats_command()
+		"add_resources":
+			handle_add_resources_command(args)
+		"set_morale":
+			handle_set_morale_command(args)
+		"recruit_soldier":
+			handle_recruit_soldier_command(args)
+		"barracks_info":
+			handle_barracks_info_command()
+		"force_attack":
+			handle_force_attack_command(args)
 		_:
 			print_output("Unknown command: " + cmd)
 
@@ -146,6 +167,251 @@ func handle_reset_command() -> void:
 	get_tree().reload_current_scene()
 	print_output("Reset scene")
 
+# === DÜNYA SİSTEMİ KOMUT HANDLER'LARI ===
+func handle_force_event_command(args: Array) -> void:
+	if args.size() < 2:
+		print_output("Usage: force_event <type> <faction>")
+		print_output("Types: trade_boom, famine, plague, war_declaration, rebellion")
+		return
+	
+	var event_type: String = args[0]
+	var faction: String = args[1]
+	
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm:
+		print_output("WorldManager not found!")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	
+	var event: Dictionary = wm._create_event(event_type, faction, current_day)
+	wm.active_events.append(event)
+	wm._post_event_news(event, current_day)
+	
+	print_output("Forced event: %s in %s" % [event_type, faction])
+
+func handle_set_relation_command(args: Array) -> void:
+	if args.size() < 3:
+		print_output("Usage: set_relation <faction1> <faction2> <value>")
+		return
+	
+	var faction1: String = args[0]
+	var faction2: String = args[1]
+	var value: int = int(args[2])
+	
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm:
+		print_output("WorldManager not found!")
+		return
+	
+	wm.set_relation(faction1, faction2, value, true)
+	print_output("Set relation %s-%s to %d" % [faction1, faction2, value])
+
+func handle_spawn_war_command(args: Array) -> void:
+	if args.size() < 2:
+		print_output("Usage: spawn_war <faction1> <faction2>")
+		return
+	
+	var faction1: String = args[0]
+	var faction2: String = args[1]
+	
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm:
+		print_output("WorldManager not found!")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	
+	var success: bool = wm.start_war(faction1, faction2, current_day)
+	if success:
+		print_output("Started war between %s and %s" % [faction1, faction2])
+	else:
+		print_output("War already exists between %s and %s" % [faction1, faction2])
+
+func handle_world_stats_command() -> void:
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm:
+		print_output("WorldManager not found!")
+		return
+	
+	print_output("=== DÜNYA İSTATİSTİKLERİ ===")
+	print_output("Fraksiyonlar: %s" % str(wm.factions))
+	print_output("Aktif Savaşlar: %d" % wm.active_wars.size())
+	print_output("Aktif Olaylar: %d" % wm.active_events.size())
+	
+	# Ortalama ilişki skoru
+	var total_relations := 0
+	var relation_count := 0
+	for key in wm.relations.keys():
+		total_relations += wm.relations[key]
+		relation_count += 1
+	
+	if relation_count > 0:
+		var avg_relation := float(total_relations) / float(relation_count)
+		print_output("Ortalama İlişki: %.1f" % avg_relation)
+	
+	# Aktif olaylar detayı
+	if not wm.active_events.is_empty():
+		print_output("Aktif Olaylar:")
+		for event in wm.active_events:
+			var days_left: int = event.get("duration", 0) - (wm._last_tick_day - event.get("started_day", 0))
+			print_output("  - %s (%s): %d gün kaldı" % [event.get("type", ""), event.get("faction", ""), days_left])
+
+func handle_village_stats_command() -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	print_output("=== KÖY İSTATİSTİKLERİ ===")
+	print_output("Moral: %.1f" % vm.village_morale)
+	print_output("Küresel Çarpan: %.2f" % vm.global_multiplier)
+	print_output("Kaynak Çarpanları: %s" % str(vm.resource_prod_multiplier))
+	
+	# Kaynak seviyeleri
+	print_output("Kaynak Seviyeleri:")
+	for resource in vm.resource_levels.keys():
+		var level: int = vm.resource_levels[resource]
+		var cap: int = vm._get_storage_capacity_for(resource)
+		if cap > 0:
+			print_output("  %s: %d/%d" % [resource, level, cap])
+		else:
+			print_output("  %s: %d" % [resource, level])
+	
+	# Ekonomi istatistikleri
+	if vm.economy_stats_last_day.has("day"):
+		var stats: Dictionary = vm.economy_stats_last_day
+		print_output("Son Gün Ekonomi:")
+		print_output("  Üretim: %.1f" % stats.get("total_production", 0))
+		print_output("  Tüketim: %.1f" % stats.get("total_consumption", 0))
+		print_output("  Net: %.1f" % stats.get("net", 0))
+
+func handle_add_resources_command(args: Array) -> void:
+	if args.size() < 2:
+		print_output("Usage: add_resources <type> <amount>")
+		print_output("Types: gold, wood, stone, food, water, metal, bread")
+		return
+	
+	var resource_type: String = args[0]
+	var amount: int = int(args[1])
+	
+	match resource_type:
+		"gold":
+			GlobalPlayerData.add_gold(amount)
+			print_output("Added %d gold. Total: %d" % [amount, GlobalPlayerData.gold])
+		"wood", "stone", "food", "water", "metal", "bread":
+			var vm = get_node_or_null("/root/VillageManager")
+			if not vm:
+				print_output("VillageManager not found!")
+				return
+			
+			# Kaynak seviyesini artır
+			var current_level = vm.resource_levels.get(resource_type, 0)
+			vm.resource_levels[resource_type] = current_level + amount
+			print_output("Added %d %s. Total: %d" % [amount, resource_type, vm.resource_levels[resource_type]])
+			vm.emit_signal("village_data_changed")
+		_:
+			print_output("Unknown resource type: " + resource_type)
+
+func handle_set_morale_command(args: Array) -> void:
+	if args.is_empty():
+		print_output("Usage: set_morale <value>")
+		return
+	
+	var morale := float(args[0])
+	
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	vm.village_morale = clamp(morale, 0.0, 100.0)
+	print_output("Set village morale to %.1f" % vm.village_morale)
+	vm.emit_signal("village_data_changed")
+
+func handle_recruit_soldier_command(args: Array) -> void:
+	# Kışla binasını bul
+	var barracks = _find_barracks()
+	if not barracks:
+		print_output("Kışla binası bulunamadı!")
+		return
+	
+	if barracks.has_method("add_worker"):
+		var success = barracks.add_worker()
+		if success:
+			print_output("Köylü asker yapıldı!")
+		else:
+			print_output("Köylü asker yapılamadı!")
+	else:
+		print_output("Kışla binası köylü atama metoduna sahip değil!")
+
+func handle_barracks_info_command() -> void:
+	# Kışla binasını bul
+	var barracks = _find_barracks()
+	if not barracks:
+		print_output("Kışla binası bulunamadı!")
+		return
+	
+	print_output("=== KIŞLA BİLGİLERİ ===")
+	
+	if barracks.has_method("get_military_force"):
+		var force = barracks.get_military_force()
+		print_output("Asker Gücü:")
+		for unit_type in force.get("units", {}):
+			var count = force["units"][unit_type]
+			print_output("  %s: %d" % [unit_type, count])
+		
+		print_output("Ekipman:")
+		for equip_type in force.get("equipment", {}):
+			var count = force["equipment"][equip_type]
+			print_output("  %s: %d" % [equip_type, count])
+	
+	if barracks.has_method("current_soldiers") and barracks.has_method("max_soldiers"):
+		print_output("Kapasite: %d/%d" % [barracks.current_soldiers, barracks.max_soldiers])
+
+func handle_force_attack_command(args: Array) -> void:
+	if args.size() < 2:
+		print_output("Usage: force_attack <attacker> <target>")
+		return
+	
+	var attacker: String = args[0]
+	var target: String = args[1]
+	
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm:
+		print_output("WorldManager not found!")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	
+	if attacker == "Köy":
+		wm._trigger_village_raid(target, current_day)
+		print_output("Köyden %s'ye saldırı başlatıldı!" % target)
+	elif target == "Köy":
+		wm._trigger_village_attack(attacker, current_day)
+		print_output("%s'den köye saldırı başlatıldı!" % attacker)
+	else:
+		print_output("Sadece köy saldırıları destekleniyor!")
+
+func _find_barracks() -> Node:
+	"""Kışla binasını bul"""
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm or not vm.village_scene_instance:
+		return null
+	
+	var placed_buildings = vm.village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return null
+	
+	for building in placed_buildings.get_children():
+		if building.has_method("get_military_force"):
+			return building
+	
+	return null
+
 func show_help() -> void:
 	var help_text = """Available commands:
 	help - Show this help message
@@ -155,7 +421,21 @@ func show_help() -> void:
 	damage [amount] - Damage the player (default: 10)
 	kill - Instantly kill the player
 	god - Toggle god mode
-	reset - Reset the current scene"""
+	reset - Reset the current scene
+	
+	=== DÜNYA SİSTEMİ ===
+	force_event <type> <faction> - Force a world event
+	set_relation <f1> <f2> <value> - Set faction relation (-100 to 100)
+	spawn_war <f1> <f2> - Start war between factions
+	world_stats - Show world statistics
+	village_stats - Show village statistics
+	add_resources <type> <amount> - Add resources to village
+	set_morale <value> - Set village morale (0-100)
+	
+	=== ASKER SİSTEMİ ===
+	recruit_soldier - Assign a villager as soldier
+	barracks_info - Show barracks information
+	force_attack <attacker> <target> - Force an attack (Köy/Kuzey/Güney/etc)"""
 	print_output(help_text)
 
 func print_output(text: String) -> void:

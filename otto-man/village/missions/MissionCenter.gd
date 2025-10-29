@@ -1,5 +1,8 @@
 extends CanvasLayer
 
+var _assign_lr_cooldown_ms: int = 180 # Sol/Sağ atama cooldown (ms)
+var _assign_lr_last_ms: int = 0
+
 # Sayfa türleri
 enum PageType { MISSIONS, ASSIGNMENT, CONSTRUCTION, NEWS, CONCUBINE_DETAILS, TRADE, DIPLOMACY }
 
@@ -11,10 +14,10 @@ enum BuildingCategory { PRODUCTION, LIFE, MILITARY, DECORATION }
 enum MenuState { İŞLEM_SEÇİMİ, KATEGORİ_SEÇİMİ, BİNA_SEÇİMİ }
 
 # Atama sayfası için menü durumları
-enum AssignmentMenuState { BİNA_LISTESİ, BİNA_DETAYI }
+enum AssignmentMenuState { BİNA_LISTESİ, BİNA_DETAYI, ASKER_EKİPMAN }
 
 # Görevler sayfası için menü durumları
-enum MissionMenuState { GÖREV_LISTESİ, CARİYE_SEÇİMİ, GÖREV_DETAYI, GÖREV_GEÇMİŞİ, GEÇMİŞ_DETAYI, GÖREV_ZİNCİRLERİ }
+enum MissionMenuState { GÖREV_LISTESİ, CARİYE_SEÇİMİ, ASKER_SEÇİMİ, GÖREV_DETAYI, GÖREV_GEÇMİŞİ, GEÇMİŞ_DETAYI, GÖREV_ZİNCİRLERİ }
 
 # Mevcut sayfa
 var current_page: PageType = PageType.MISSIONS
@@ -27,11 +30,22 @@ var current_building_index: int = 0  # Bina seçimi için index
 # Atama seçimleri
 var current_assignment_building_index: int = 0 # Atama sayfasında bina seçimi için index
 var current_assignment_menu_state: AssignmentMenuState = AssignmentMenuState.BİNA_LISTESİ # Atama sayfasındaki menü durumu
+var current_soldier_index: int = 0 # Asker ekipman atama sayfasında asker seçimi için index
+var current_equipment_action: int = 0 # 0: weapon, 1: armor (sol/sağ ile değiştirilebilir)
+
+# Kışla ekipman pop-up menüsü
+var barracks_equipment_popup: Panel = null
+var barracks_equipment_popup_label: Label = null
+var barracks_equipment_popup_active: bool = false
+var barracks_equipment_selected_weapons: int = 0 # Dağıtılacak silah sayısı
+var barracks_equipment_selected_armors: int = 0 # Dağıtılacak zırh sayısı
+var barracks_equipment_selected_row: int = 0 # 0: weapon, 1: armor (yukarı/aşağı ile satır seçimi)
 
 # Görevler seçimleri
 var current_mission_index: int = 0 # Görevler sayfasında görev seçimi için index
 var current_mission_menu_state: MissionMenuState = MissionMenuState.GÖREV_LISTESİ # Görevler sayfasındaki menü durumu
 var current_cariye_index: int = 0 # Cariye seçimi için index
+var current_soldier_count: int = 0 # Raid görevleri için seçilen asker sayısı
 var current_active_mission_index: int = 0 # Aktif görev seçimi için index
 
 # Görev geçmişi seçimleri
@@ -45,6 +59,12 @@ var current_history_focus: String = "history" # "history" | "chains"
 
 # Cariye detay sayfası seçimleri
 var current_concubine_detail_index: int = 0 # Cariye detay sayfasında seçim için index
+
+# Cariye rol atama pop-up'ı
+var current_concubine_role_popup_open: bool = false
+var concubine_role_popup: Panel = null
+var concubine_role_popup_label: Label = null
+var current_concubine_role_selection: int = 0 # 0: NONE, 1: KOMUTAN, 2: AJAN, 3: DİPLOMAT, 4: TÜCCAR
 
 # Görev sonucu gösterimi
 var showing_mission_result: bool = false
@@ -136,7 +156,7 @@ var diplomacy_manager: Node = null
 var building_categories: Dictionary = {
 	BuildingCategory.PRODUCTION: ["Kuyu", "Avcı", "Oduncu", "Taş Madeni", "Fırın", "Demirci", "Silahçı", "Zırh Ustası", "Terzi", "Çayhane", "Sabuncu"],
 	BuildingCategory.LIFE: ["Ev", "Depo"],
-	BuildingCategory.MILITARY: ["Kale", "Kule"], # Gelecekte eklenecek
+	BuildingCategory.MILITARY: ["Kışla", "Kale", "Kule"], # Kışla eklendi
 	BuildingCategory.DECORATION: ["Çeşme", "Bahçe"] # Gelecekte eklenecek
 }
 
@@ -154,7 +174,8 @@ var building_scene_paths: Dictionary = {
 	"Zırh Ustası": "res://village/buildings/Armorer.tscn",
 	"Terzi": "res://village/buildings/Tailor.tscn",
 	"Çayhane": "res://village/buildings/TeaHouse.tscn",
-	"Sabuncu": "res://village/buildings/SoapMaker.tscn"
+	"Sabuncu": "res://village/buildings/SoapMaker.tscn",
+	"Kışla": "res://village/buildings/Barracks.tscn"
 }
 
 # Player referansı
@@ -558,14 +579,6 @@ func unlock_player():
 
 		print("=== PLAYER UNLOCK TAMAMLANDI ===")
 
-# Atama sayfasında D-pad navigasyonu
-func handle_assignment_navigation():
-	match current_assignment_menu_state:
-		AssignmentMenuState.BİNA_LISTESİ:
-			handle_assignment_building_list_selection()
-		AssignmentMenuState.BİNA_DETAYI:
-			handle_assignment_building_detail()
-
 # İnşaat sayfasında D-pad navigasyonu (PlayStation mantığı)
 func handle_construction_navigation():
 	# İnşaat sayfasında değilse çık
@@ -759,14 +772,14 @@ func update_construction_ui():
 								upgrade_progress_bar.visible = false
 
 # Atama bina listesi seçimi
-func handle_assignment_building_list_selection():
+func handle_assignment_building_list_selection(event):
 	var all_buildings = get_all_available_buildings()
 	if all_buildings.is_empty():
 		print("Atanabilir bina yok!")
 		return
 	
 	# Yukarı/Aşağı D-pad: Bina seçimi
-	if Input.is_action_just_pressed("ui_up"):
+	if event.is_action_pressed("ui_up"):
 		print("=== YUKARI D-PAD: Bina seçimi ===")
 		current_assignment_building_index = (current_assignment_building_index - 1) % all_buildings.size()
 		if current_assignment_building_index < 0:
@@ -774,28 +787,28 @@ func handle_assignment_building_list_selection():
 		print("Seçilen bina: ", all_buildings[current_assignment_building_index]["name"])
 		update_assignment_ui()
 
-	elif Input.is_action_just_pressed("ui_down"):
+	elif event.is_action_pressed("ui_down"):
 		print("=== AŞAĞI D-PAD: Bina seçimi ===")
 		current_assignment_building_index = (current_assignment_building_index + 1) % all_buildings.size()
 		print("Seçilen bina: ", all_buildings[current_assignment_building_index]["name"])
 		update_assignment_ui()
 
-	# Sol/Sağ D-pad: İşçi ekle/çıkar
-	elif Input.is_action_just_pressed("ui_left"):
-		print("=== SOL D-PAD: İşçi çıkarılıyor ===")
-		remove_worker_from_building(all_buildings[current_assignment_building_index])
+	# Sol/Sağ D-pad: İşçi ekle/çıkar (tekrar hızını sınırlamak için cooldown)
+	elif event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
+		var now_ms = Time.get_ticks_msec()
+		var elapsed = now_ms - _assign_lr_last_ms
+		if elapsed < _assign_lr_cooldown_ms:
+			return
+		_assign_lr_last_ms = now_ms
+
+		if event.is_action_pressed("ui_left"):
+			print("=== SOL D-PAD: İşçi çıkarılıyor ===")
+			remove_worker_from_building(all_buildings[current_assignment_building_index])
+		else:
+			print("=== SAĞ D-PAD: İşçi ekleniyor ===")
+			add_worker_to_building(all_buildings[current_assignment_building_index])
 		update_assignment_ui()
 
-	elif Input.is_action_just_pressed("ui_right"):
-		print("=== SAĞ D-PAD: İşçi ekleniyor ===")
-		add_worker_to_building(all_buildings[current_assignment_building_index])
-		update_assignment_ui()
-
-	# A tuşu (ui_forward): Bina detayına geç
-	elif Input.is_action_just_pressed("ui_forward"):
-		print("=== A TUŞU: Bina detayına geçiliyor ===")
-		current_assignment_menu_state = AssignmentMenuState.BİNA_DETAYI
-		update_assignment_ui()
 
 # Atama bina detayı
 func handle_assignment_building_detail():
@@ -807,6 +820,14 @@ func handle_assignment_building_detail():
 	var selected_building_info = all_buildings[current_assignment_building_index]
 	var building_node = selected_building_info["node"]
 	var building_type = selected_building_info["type"]
+	
+	# Eğer Kışla ise, asker ekipman menüsüne geç
+	if building_type == "Kışla" and building_node.has_method("get_military_force"):
+		current_assignment_menu_state = AssignmentMenuState.ASKER_EKİPMAN
+		current_soldier_index = 0
+		current_equipment_action = 0
+		update_assignment_ui()
+		return
 	
 	var info = get_building_detailed_info(building_node, building_type)
 	print("📋 Bina Detayları:")
@@ -827,26 +848,58 @@ func get_all_available_buildings() -> Array:
 			print("PlacedBuildings node'u bulunamadı! (Test sahnesi - normal)")
 		return all_buildings
 	
-	for building in placed_buildings.get_children():
-		if building.has_method("add_worker") or building.has_method("remove_worker"):
-			# Gerçek zamanlı verileri al
-			var assigned_workers = 0
-			var max_workers = 1
-			
-			if "assigned_workers" in building:
-				assigned_workers = building.assigned_workers
-			if "max_workers" in building:
-				max_workers = building.max_workers
-			
-			var building_info = {
-				"node": building,
-				"name": building.name,
-				"type": get_building_type_name(building),
-				"assigned_workers": assigned_workers,
-				"max_workers": max_workers
-			}
-			all_buildings.append(building_info)
+	print("[DEBUG] PlacedBuildings içinde %d child var" % placed_buildings.get_child_count())
 	
+	for building in placed_buildings.get_children():
+		# Node'un geçerli olup olmadığını kontrol et
+		if not is_instance_valid(building):
+			print("[DEBUG] Geçersiz node atlandı: ", building)
+			continue
+		
+		# Sadece gerçekten kurulu binaları göster - scene_file_path olmalı (gerçek bina sahnesi)
+		# scene_file_path olmayan veya boş olan node'ları atla (bunlar test amaçlı veya geçici node'lar olabilir)
+		var scene_path = building.get("scene_file_path")
+		if scene_path == null or scene_path == "":
+			print("[DEBUG] scene_file_path olmayan node atlandı: ", building.name, " (script: ", building.get_script().resource_path if building.get_script() else "none", ")")
+			continue
+		
+		# Script kontrolü - script'i olmayan veya bilinmeyen script'li binaları atla
+		if not building.has_method("get_script") or building.get_script() == null:
+			print("[DEBUG] Script olmayan node atlandı: ", building.name)
+			continue
+		
+		var building_type = get_building_type_name(building)
+		# "Bilinmeyen" tipindeki binaları atla
+		if building_type == "Bilinmeyen":
+			print("[DEBUG] Bilinmeyen tip node atlandı: ", building.name, " (script path: ", building.get_script().resource_path if building.get_script() else "none", ")")
+			continue
+		
+		# Sadece işçi atanabilir binaları ekle (add_worker veya remove_worker metodu olmalı)
+		if not (building.has_method("add_worker") or building.has_method("remove_worker")):
+			print("[DEBUG] add_worker/remove_worker metodu olmayan node atlandı: ", building.name, " (type: ", building_type, ")")
+			continue
+
+		# Gerçek zamanlı verileri al
+		var assigned_workers = 0
+		var max_workers = 1
+		
+		if building.get("assigned_workers") != null:
+			assigned_workers = building.assigned_workers
+		if building.get("max_workers") != null:
+			max_workers = building.max_workers
+		
+		print("[DEBUG] ✅ Bina eklendi: ", building.name, " (type: ", building_type, ", scene_file_path: ", scene_path, ")")
+		
+		var building_info = {
+			"node": building,
+			"name": building.name,
+			"type": building_type,
+			"assigned_workers": assigned_workers,
+			"max_workers": max_workers
+		}
+		all_buildings.append(building_info)
+	
+	print("[DEBUG] Toplam %d bina bulundu" % all_buildings.size())
 	return all_buildings
 
 # Bina türü adını al
@@ -865,6 +918,7 @@ func get_building_type_name(building: Node) -> String:
 		"res://village/scripts/TeaHouse.gd": return "Çayhane"
 		"res://village/scripts/SoapMaker.gd": return "Sabuncu"
 		"res://village/scripts/House.gd": return "Ev"
+		"res://village/scripts/Barracks.gd": return "Kışla"
 		_: return "Bilinmeyen"
 
 # Binaya işçi ekle
@@ -877,6 +931,17 @@ func add_worker_to_building(building_info: Dictionary) -> void:
 		print("❌ Bina node'u bulunamadı!")
 		return
 	
+	# Kışla binası için özel işlem
+	if building.has_method("add_worker") and building.get_script() and building.get_script().resource_path == "res://village/scripts/Barracks.gd":
+		var success = building.add_worker()
+		if success:
+			print("✅ Köylü asker yapıldı: ", building_info["name"])
+			update_assignment_ui()
+		else:
+			print("❌ Köylü asker yapılamadı: ", building_info["name"])
+		return
+	
+	# Diğer binalar için normal işlem
 	# 1. Maksimum işçi kontrolü (gerçek zamanlı veri)
 	var _assigned_val = building.get("assigned_workers")
 	var _max_val = building.get("max_workers")
@@ -992,6 +1057,19 @@ func remove_worker_from_building(building_info: Dictionary) -> void:
 		print("❌ Bina node'u bulunamadı!")
 		return
 	
+	# Kışla binası için özel işlem
+	if building.has_method("remove_worker") and building.get_script() and building.get_script().resource_path == "res://village/scripts/Barracks.gd":
+		var success = building.remove_worker()
+		if success:
+			print("✅ Asker köylü yapıldı: ", building_info["name"])
+			# EKSTRA KONTROL: İşçinin görünür olduğundan emin ol!
+			_ensure_worker_visibility_after_removal(building)
+			update_assignment_ui()
+		else:
+			print("❌ Asker köylü yapılamadı: ", building_info["name"])
+		return
+	
+	# Diğer binalar için normal işlem
 	# Gerçek zamanlı veri kontrolü
 	var current_assigned = building.assigned_workers if "assigned_workers" in building else 0
 	
@@ -1363,6 +1441,7 @@ func find_existing_buildings(building_type: String) -> Array:
 		"Çayhane": script_path = "res://village/scripts/TeaHouse.gd"
 		"Sabuncu": script_path = "res://village/scripts/SoapMaker.gd"
 		"Ev": script_path = "res://village/scripts/House.gd"
+		"Kışla": script_path = "res://village/scripts/Barracks.gd"
 		"Kale": script_path = "res://village/scripts/Castle.gd"
 		"Kule": script_path = "res://village/scripts/Tower.gd"
 		"Çeşme": script_path = "res://village/scripts/Fountain.gd"
@@ -1390,42 +1469,94 @@ func find_existing_buildings(building_type: String) -> Array:
 
 # Atama UI'ını güncelle
 func update_assignment_ui():
-	if current_page == PageType.ASSIGNMENT:
-		var category_label = assignment_page.get_node_or_null("CategoryRow/CategoryLabel")
-		var buildings_label = assignment_page.get_node_or_null("BuildingsLabel")
-		
-		# Bina listesi seviyesi
-		if current_assignment_menu_state == AssignmentMenuState.BİNA_LISTESİ:
-			if category_label:
-				category_label.text = "KATEGORİ: İŞÇİ ATAMALARI ← SEÇİLİ"
-			if buildings_label:
-				var all_buildings = get_all_available_buildings()
-				var buildings_text = "BİNALAR:\n"
-				
-				if all_buildings.is_empty():
-					buildings_text += "❌ Atanabilir bina yok!\n"
-					buildings_text += "Önce bina inşa edin."
+	"""Atama sayfası UI'ını güncelle"""
+	if not assignment_page:
+		return
+	
+	# Eski UI node'larını gizle (eğer varsa)
+	var category_row = assignment_page.get_node_or_null("CategoryRow")
+	if category_row:
+		category_row.visible = false
+	var buildings_label_old = assignment_page.get_node_or_null("BuildingsLabel")
+	if buildings_label_old:
+		buildings_label_old.visible = false
+	
+	# Assignment sayfası label'ını bul (varsa)
+	var assignment_label = assignment_page.get_node_or_null("AssignmentLabel")
+	if not assignment_label:
+		# Label yoksa oluştur
+		assignment_label = Label.new()
+		assignment_label.name = "AssignmentLabel"
+		assignment_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		assignment_page.add_child(assignment_label)
+	
+	assignment_label.visible = true
+	
+	var text = ""
+
+	match current_assignment_menu_state:
+		AssignmentMenuState.BİNA_LISTESİ:
+			var all_buildings = get_all_available_buildings()
+			if all_buildings.is_empty():
+				text = "Atanabilir bina yok"
+			else:
+				text = "=== BİNA LİSTESİ ===\n\n"
+				for i in range(all_buildings.size()):
+					var building_info = all_buildings[i]
+					var marker = "> " if i == current_assignment_building_index else "  "
+					text += marker + building_info["name"] + " (" + building_info["type"] + ")\n"
+					text += "     İşçiler: %d/%d\n\n" % [building_info["assigned_workers"], building_info["max_workers"]]
+				# Seçili bina tipine göre açıklama göster
+				if not all_buildings.is_empty() and current_assignment_building_index < all_buildings.size():
+					var selected_type = all_buildings[current_assignment_building_index]["type"]
+					if selected_type == "Kışla":
+						text += "\n[A tuşu: Ekipman] [Sol/Sağ: Asker Ekle/Çıkar] [B tuşu: Geri]"
+					else:
+						text += "\n[A tuşu: Detay] [Sol/Sağ: İşçi Ekle/Çıkar] [B tuşu: Geri]"
 				else:
-					for i in range(all_buildings.size()):
-						var building = all_buildings[i]
-						var selection_marker = " ← SEÇİLİ" if i == current_assignment_building_index else ""
-						buildings_text += "• " + building["type"] + " (" + str(building["assigned_workers"]) + "/" + str(building["max_workers"]) + ")" + selection_marker + "\n"
-				
-				buildings_text += "\n[Yukarı/Aşağı: Bina seçimi] [Sol/Sağ: İşçi ekle/çıkar] [A: Detay] [B: Geri]"
-				buildings_label.text = buildings_text
-		
-		# Bina detayı seviyesi
-		elif current_assignment_menu_state == AssignmentMenuState.BİNA_DETAYI:
-			if category_label:
-				category_label.text = "KATEGORİ: İŞÇİ ATAMALARI ✓"
-			if buildings_label:
-				var all_buildings = get_all_available_buildings()
-				if current_assignment_building_index < all_buildings.size():
-					var selected_building = all_buildings[current_assignment_building_index]
-					buildings_label.text = "BİNA: " + selected_building["type"] + " ✓\n\n" + get_building_detailed_info(selected_building["node"], selected_building["type"])
-					buildings_label.text += "\n[B: Geri dön]"
-				else:
-					buildings_label.text = "❌ Bina bulunamadı!\n\n[B: Geri dön]"
+					text += "\n[A tuşu: Detay] [Sol/Sağ: İşçi Ekle/Çıkar] [B tuşu: Geri]"
+
+		AssignmentMenuState.BİNA_DETAYI:
+			var all_buildings = get_all_available_buildings()
+			if all_buildings.is_empty():
+				text = "Atanabilir bina yok"
+			else:
+				var selected_building_info = all_buildings[current_assignment_building_index]
+				var building_node = selected_building_info["node"]
+				var building_type = selected_building_info["type"]
+				# Kışla için detay sayfasına geçme, direkt liste görünümünde kal
+				if building_type == "Kışla":
+					current_assignment_menu_state = AssignmentMenuState.BİNA_LISTESİ
+					update_assignment_ui()
+					return
+				var info = get_building_detailed_info(building_node, building_type)
+				text = "=== BİNA DETAYI ===\n\n" + info + "\n\n[B tuşu: Geri]"
+
+		AssignmentMenuState.ASKER_EKİPMAN:
+			var soldiers = get_barracks_soldiers()
+			var vm = get_node_or_null("/root/VillageManager")
+			var available_weapons = vm.resource_levels.get("weapon", 0) if vm else 0
+			var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
+			text = "=== ASKER EKİPMAN ATAMA ===\n\n"
+			text += "📦 Stok: Silah: %d | Zırh: %d\n\n" % [available_weapons, available_armors]
+			if soldiers.is_empty():
+				text += "Kışlada asker yok!\n\n[B tuşu: Geri]"
+			else:
+				text += "Yukarı/Aşağı: Asker seç\n"
+				text += "Sol/Sağ: Silah/Zırh seç\n"
+				text += "A tuşu: Ekipman Ver/Al\n\n"
+				var equipment_names = ["⚔️ Silah", "🛡️ Zırh"]
+				text += "Seçili Ekipman: %s\n\n" % equipment_names[current_equipment_action]
+				for i in range(soldiers.size()):
+					var soldier = soldiers[i]
+					var marker = "> " if i == current_soldier_index else "  "
+					var weapon_mark = "⚔️" if soldier["equipment"].get("weapon", false) else "  "
+					var armor_mark = "🛡️" if soldier["equipment"].get("armor", false) else "  "
+					text += marker + "Asker %d %s %s\n" % [soldier["worker_id"], weapon_mark, armor_mark]
+				text += "\n[B tuşu: Geri]"
+	
+	if assignment_label:
+		assignment_label.text = text
 
 func next_page():
 	print("next_page() çağrıldı!")
@@ -2568,7 +2699,73 @@ func _scroll_available_to_index(index: int):
 
 
 # Yapılabilir görev kartı oluştur
-func create_available_mission_card(mission: Mission, is_selected: bool) -> Panel:
+func create_available_mission_card(mission, is_selected: bool) -> Panel:
+	# Mission objesi mi yoksa Dictionary mi kontrol et
+	var is_dict = mission is Dictionary
+	var mission_name: String
+	var mission_type_str: String
+	var mission_type_emoji: String
+	var difficulty_name: String
+	var risk_level: String
+	var duration: float
+	var success_chance: float
+	var rewards: Dictionary
+	var required_level: int
+	var required_army: int
+	var required_resources: Dictionary
+	var target_location: String
+	var distance: float
+	
+	if is_dict:
+		# Dictionary görevleri için
+		mission_name = mission.get("name", "Bilinmeyen Görev")
+		mission_type_str = mission.get("type", "unknown")
+		difficulty_name = mission.get("difficulty", "medium")
+		risk_level = mission.get("risk_level", "Orta")
+		duration = float(mission.get("duration", 10.0))
+		success_chance = float(mission.get("success_chance", 0.5))
+		rewards = mission.get("rewards", {})
+		required_level = int(mission.get("required_cariye_level", 1))
+		required_army = int(mission.get("required_army_size", 0))
+		required_resources = mission.get("required_resources", {})
+		target_location = mission.get("target", mission.get("attacker", ""))
+		distance = float(mission.get("distance", 0.0))
+		
+		# Emoji belirleme
+		match mission_type_str:
+			"defense", "raid":
+				mission_type_emoji = "⚔️"
+			_:
+				mission_type_emoji = "📋"
+	else:
+		# Mission objesi için
+		mission_name = mission.name
+		mission_type_str = mission.get_mission_type_name()
+		difficulty_name = mission.get_difficulty_name()
+		risk_level = mission.risk_level
+		duration = mission.duration
+		success_chance = mission.success_chance
+		rewards = mission.rewards
+		required_level = mission.required_cariye_level
+		required_army = mission.required_army_size
+		required_resources = mission.required_resources
+		target_location = mission.target_location
+		distance = mission.distance
+		
+		# Emoji belirleme
+		if mission.mission_type == Mission.MissionType.SAVAŞ:
+			mission_type_emoji = "⚔️"
+		elif mission.mission_type == Mission.MissionType.KEŞİF:
+			mission_type_emoji = "🧭"
+		elif mission.mission_type == Mission.MissionType.DİPLOMASİ:
+			mission_type_emoji = "🤝"
+		elif mission.mission_type == Mission.MissionType.TİCARET:
+			mission_type_emoji = "💰"
+		elif mission.mission_type == Mission.MissionType.BÜROKRASİ:
+			mission_type_emoji = "📜"
+		else:
+			mission_type_emoji = "🕵️"
+	
 	var card = Panel.new()
 	card.custom_minimum_size = Vector2(300, 130)  # Minimum yükseklik
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2597,8 +2794,7 @@ func create_available_mission_card(mission: Mission, is_selected: bool) -> Panel
 	
 	# Görev başlığı
 	var title_label = Label.new()
-	var type_emoji = "⚔️" if mission.mission_type == Mission.MissionType.SAVAŞ else "🧭" if mission.mission_type == Mission.MissionType.KEŞİF else "🤝" if mission.mission_type == Mission.MissionType.DİPLOMASİ else "💰" if mission.mission_type == Mission.MissionType.TİCARET else "📜" if mission.mission_type == Mission.MissionType.BÜROKRASİ else "🕵️"
-	title_label.text = "%s %s" % [type_emoji, mission.name]
+	title_label.text = "%s %s" % [mission_type_emoji, mission_name]
 	title_label.add_theme_font_size_override("font_size", 16)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2609,35 +2805,43 @@ func create_available_mission_card(mission: Mission, is_selected: bool) -> Panel
 	badges.add_theme_constant_override("separation", 8)
 	vbox.add_child(badges)
 
-	# Zincir rozetini ekle (varsa)
-	if mission.is_part_of_chain():
+	# Zincir rozetini ekle (varsa - sadece Mission objeleri için)
+	if not is_dict and mission.has_method("is_part_of_chain") and mission.is_part_of_chain():
 		var chain_badge = Label.new()
 		chain_badge.text = "🔗 Zincir"
 		chain_badge.add_theme_font_size_override("font_size", 11)
 		chain_badge.add_theme_color_override("font_color", Color(0.9, 0.9, 0.5, 1))
 		badges.add_child(chain_badge)
+	
+	# Acil/Savunma rozeti (Dictionary görevleri için)
+	if is_dict and mission.get("status", "") == "urgent":
+		var urgent_badge = Label.new()
+		urgent_badge.text = "🚨 Acil"
+		urgent_badge.add_theme_font_size_override("font_size", 11)
+		urgent_badge.add_theme_color_override("font_color", Color(1, 0.3, 0.3, 1))
+		badges.add_child(urgent_badge)
 
 	var diff_badge = Label.new()
-	diff_badge.text = "🎯 %s" % mission.get_difficulty_name()
+	diff_badge.text = "🎯 %s" % difficulty_name
 	diff_badge.add_theme_font_size_override("font_size", 11)
 	diff_badge.add_theme_color_override("font_color", Color.LIGHT_BLUE)
 	badges.add_child(diff_badge)
 
 	var risk_badge = Label.new()
-	risk_badge.text = "⚠️ %s" % mission.risk_level
+	risk_badge.text = "⚠️ %s" % risk_level
 	risk_badge.add_theme_font_size_override("font_size", 11)
 	risk_badge.add_theme_color_override("font_color", Color(1, 0.7, 0.2, 1))
 	badges.add_child(risk_badge)
 
 	var duration_badge = Label.new()
-	duration_badge.text = "⏱️ %.1fs" % mission.duration
+	duration_badge.text = "⏱️ %.1fs" % duration
 	duration_badge.add_theme_font_size_override("font_size", 11)
 	duration_badge.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	badges.add_child(duration_badge)
 
 	# Görev bilgileri
 	var info_label = Label.new()
-	info_label.text = "Tür: %s | Süre: %.1fs" % [mission.get_mission_type_name(), mission.duration]
+	info_label.text = "Tür: %s | Süre: %.1fs" % [mission_type_str, duration]
 	info_label.add_theme_font_size_override("font_size", 12)
 	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2645,7 +2849,7 @@ func create_available_mission_card(mission: Mission, is_selected: bool) -> Panel
 	
 	# Başarı şansı
 	var success_label = Label.new()
-	success_label.text = "Başarı Şansı: %d%%" % (mission.success_chance * 100)
+	success_label.text = "Başarı Şansı: %d%%" % int(success_chance * 100)
 	success_label.add_theme_font_size_override("font_size", 12)
 	success_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
 	vbox.add_child(success_label)
@@ -2653,8 +2857,8 @@ func create_available_mission_card(mission: Mission, is_selected: bool) -> Panel
 	# Ödüller
 	var rewards_text = "Ödüller: "
 	var first = true
-	for reward_type in mission.rewards.keys():
-		var amount = mission.rewards[reward_type]
+	for reward_type in rewards.keys():
+		var amount = rewards[reward_type]
 		if not first:
 			rewards_text += ", "
 		rewards_text += "%s: %s" % [str(reward_type), str(amount)]
@@ -2671,29 +2875,29 @@ func create_available_mission_card(mission: Mission, is_selected: bool) -> Panel
 
 	# Gereksinimler
 	var reqs_label = Label.new()
-	reqs_label.text = "Min. Seviye: %d | Min. Ordu: %d" % [mission.required_cariye_level, mission.required_army_size]
+	reqs_label.text = "Min. Seviye: %d | Min. Ordu: %d" % [required_level, required_army]
 	reqs_label.add_theme_font_size_override("font_size", 10)
 	reqs_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	vbox.add_child(reqs_label)
 
 	# Mesafe ve hedef
-	if mission.target_location != "" or mission.distance > 0.0:
+	if target_location != "" or distance > 0.0:
 		var travel_label = Label.new()
-		var dist_text = "%.1f gün" % mission.distance if mission.distance > 0.0 else "-"
-		var tgt_text = mission.target_location if mission.target_location != "" else "Bilinmeyen"
+		var dist_text = "%.1f gün" % distance if distance > 0.0 else "-"
+		var tgt_text = target_location if target_location != "" else "Bilinmeyen"
 		travel_label.text = "Hedef: %s | Mesafe: %s" % [tgt_text, dist_text]
 		travel_label.add_theme_font_size_override("font_size", 10)
 		travel_label.add_theme_color_override("font_color", Color(0.85,0.85,0.85,1))
 		vbox.add_child(travel_label)
 
 	# Gerekli kaynaklar
-	if not mission.required_resources.is_empty():
+	if not required_resources.is_empty():
 		var req_text = "Gerekli Kaynaklar: "
 		var first_req = true
-		for r in mission.required_resources.keys():
+		for r in required_resources.keys():
 			if not first_req:
 				req_text += ", "
-			req_text += "%s: %s" % [str(r), str(mission.required_resources[r])]
+			req_text += "%s: %s" % [str(r), str(required_resources[r])]
 			first_req = false
 		var req_label = Label.new()
 		req_label.text = req_text
@@ -3273,6 +3477,58 @@ func _input(event):
 			# DİPLOMASİ kontrolleri
 			handle_diplomacy_input(event)
 
+# Atama sayfası kontrolleri
+func handle_assignment_input(event):
+	# Asker ekipman menüsü için özel input handler
+	if current_assignment_menu_state == AssignmentMenuState.ASKER_EKİPMAN:
+		handle_soldier_equipment_input(event)
+		return
+	
+	# D-Pad debounce kontrolü
+	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down"):
+		if dpad_debounce_timer > 0:
+			return
+		dpad_debounce_timer = dpad_debounce_delay
+	
+	match current_assignment_menu_state:
+		AssignmentMenuState.BİNA_LISTESİ:
+			# Pop-up açıksa önce pop-up'ı kapat
+			if barracks_equipment_popup_active:
+				handle_barracks_equipment_popup_input(event)
+				return
+			
+			var all_buildings = get_all_available_buildings()
+			if not all_buildings.is_empty():
+				var selected_building_info = all_buildings[current_assignment_building_index]
+				var building_type = selected_building_info["type"]
+				
+				# A tuşu: Kışla ise pop-up aç, değilse detay sayfasına geç
+				if event.is_action_pressed("ui_accept"):
+					if building_type == "Kışla":
+						# Kışla için direkt pop-up aç
+						open_barracks_equipment_popup()
+						return
+					else:
+						# Diğer binalar için detay sayfasına geç
+						current_assignment_menu_state = AssignmentMenuState.BİNA_DETAYI
+						update_assignment_ui()
+						return
+			
+			# Normal bina listesi kontrolleri
+			handle_assignment_building_list_selection(event)
+		
+		AssignmentMenuState.BİNA_DETAYI:
+			# B tuşu ile geri dön
+			if event.is_action_pressed("ui_back"):
+				current_assignment_menu_state = AssignmentMenuState.BİNA_LISTESİ
+				update_assignment_ui()
+			# A tuşu ile detay göster (sadece kışla olmayan binalar için)
+			elif event.is_action_pressed("ui_accept"):
+				handle_assignment_building_detail()
+		
+		AssignmentMenuState.ASKER_EKİPMAN:
+			handle_soldier_equipment_input(event)
+
 # Görevler sayfası kontrolleri
 func handle_missions_input(event):
 	# D-Pad debounce kontrolü
@@ -3304,6 +3560,20 @@ func handle_missions_input(event):
 				return
 			dpad_debounce_timer = dpad_debounce_delay
 			current_history_focus = "history" if event.is_action_pressed("ui_left") else "chains"
+			update_missions_ui()
+			return
+	
+	# Asker seçimi görünümünde sol/sağ ile asker sayısı ayarı
+	if current_mission_menu_state == MissionMenuState.ASKER_SEÇİMİ:
+		if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
+			if dpad_debounce_timer > 0:
+				return
+			dpad_debounce_timer = dpad_debounce_delay
+			var max_soldiers = _get_available_soldier_count()
+			if event.is_action_pressed("ui_left"):
+				current_soldier_count = max(1, current_soldier_count - 1)
+			else:
+				current_soldier_count = min(max_soldiers, current_soldier_count + 1)
 			update_missions_ui()
 			return
 
@@ -3350,6 +3620,13 @@ func handle_missions_up():
 				current_cariye_index = max(0, current_cariye_index - 1)
 				print("👥 Yeni cariye index: %d" % current_cariye_index)
 				update_missions_ui()
+		MissionMenuState.ASKER_SEÇİMİ:
+			# Sol/Sağ: Asker sayısını ayarla
+			print("⚔️ Asker seçimi - Mevcut sayı: %d" % current_soldier_count)
+			var max_soldiers = _get_available_soldier_count()
+			current_soldier_count = max(1, current_soldier_count - 1)
+			print("⚔️ Yeni asker sayısı: %d" % current_soldier_count)
+			update_missions_ui()
 		MissionMenuState.GÖREV_GEÇMİŞİ:
 			var completed_missions = mission_manager.get_completed_missions()
 			print("📜 Geçmiş - Mevcut index: %d, Toplam geçmiş: %d" % [current_history_index, completed_missions.size()])
@@ -3379,6 +3656,13 @@ func handle_missions_down():
 				current_cariye_index = min(idle_cariyeler.size() - 1, current_cariye_index + 1)
 				print("👥 Yeni cariye index: %d" % current_cariye_index)
 				update_missions_ui()
+		MissionMenuState.ASKER_SEÇİMİ:
+			# Sol/Sağ: Asker sayısını ayarla
+			print("⚔️ Asker seçimi - Mevcut sayı: %d" % current_soldier_count)
+			var max_soldiers = _get_available_soldier_count()
+			current_soldier_count = min(max_soldiers, current_soldier_count + 1)
+			print("⚔️ Yeni asker sayısı: %d" % current_soldier_count)
+			update_missions_ui()
 		MissionMenuState.GÖREV_GEÇMİŞİ:
 			var completed_missions = mission_manager.get_completed_missions()
 			print("📜 Geçmiş - Mevcut index: %d, Toplam geçmiş: %d" % [current_history_index, completed_missions.size()])
@@ -3399,8 +3683,30 @@ func handle_missions_accept():
 				current_cariye_index = 0
 				update_missions_ui()
 		MissionMenuState.CARİYE_SEÇİMİ:
-			# Cariye seçildi, görevi ata
-			assign_selected_mission()
+			# Cariye seçildi, görev tipine göre devam et
+			var available_missions = mission_manager.get_available_missions()
+			if current_mission_index < available_missions.size():
+				var mission = available_missions[current_mission_index]
+				
+				# Raid görevleri için asker seçimine geç
+				var is_raid = false
+				if mission is Dictionary:
+					is_raid = (mission.get("type", "") == "raid")
+				elif mission.has_method("get_mission_type_name"):
+					is_raid = (mission.get_mission_type_name() == "raid")
+				
+				if is_raid:
+					# Mevcut asker sayısını al ve minimumu ayarla
+					var max_soldiers = _get_available_soldier_count()
+					current_soldier_count = max(1, min(max_soldiers, mission.get("required_army_size", 1) if mission is Dictionary else mission.required_army_size))
+					current_mission_menu_state = MissionMenuState.ASKER_SEÇİMİ
+					update_missions_ui()
+				else:
+					# Normal görev: direkt ata
+					assign_selected_mission()
+		MissionMenuState.ASKER_SEÇİMİ:
+			# Asker sayısı seçildi, görevi ata
+			assign_selected_mission_with_soldiers()
 		MissionMenuState.GÖREV_GEÇMİŞİ:
 			# Görev geçmişi detayına geç
 			current_mission_menu_state = MissionMenuState.GEÇMİŞ_DETAYI
@@ -3419,8 +3725,8 @@ func handle_missions_select():
 			current_mission_menu_state = MissionMenuState.GÖREV_LISTESİ
 			update_missions_ui()
 
-# Seçili görevi ata
-func assign_selected_mission():
+# Seçili görevi asker sayısıyla ata
+func assign_selected_mission_with_soldiers():
 	var available_missions = mission_manager.get_available_missions()
 	var idle_cariyeler = mission_manager.get_idle_concubines()
 	
@@ -3429,6 +3735,51 @@ func assign_selected_mission():
 	
 	if current_mission_index >= available_missions.size() or current_cariye_index >= idle_cariyeler.size():
 		return
+	
+	var mission = available_missions[current_mission_index]
+	var cariye = idle_cariyeler[current_cariye_index]
+	
+	print("=== GÖREV ATAMA DEBUG (ASKERLERLE) ===")
+	print("Görev: %s (ID: %s)" % [mission.name, mission.id])
+	print("Cariye: %s (ID: %d)" % [cariye.name, cariye.id])
+	print("Asker sayısı: %d" % current_soldier_count)
+	
+	# MissionManager'a görev ata (asker sayısıyla)
+	var success = mission_manager.assign_mission_to_concubine(cariye.id, mission.id, current_soldier_count)
+	
+	if success:
+		print("✅ Görev başarıyla atandı!")
+		# Görev listesine geri dön
+		current_mission_menu_state = MissionMenuState.GÖREV_LISTESİ
+		current_soldier_count = 0
+		update_missions_ui()
+	else:
+		print("❌ Görev atanamadı!")
+	
+	print("========================")
+
+# Mevcut asker sayısını al
+func _get_available_soldier_count() -> int:
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		return 0
+	
+	var barracks = mm._find_barracks()
+	if barracks and barracks.has("assigned_workers"):
+		return barracks.assigned_workers
+	
+	return 0
+
+# Seçili görevi ata
+func assign_selected_mission():
+	var available_missions = mission_manager.get_available_missions()
+	var idle_cariyeler = mission_manager.get_idle_concubines()
+	
+	if available_missions.is_empty() or idle_cariyeler.is_empty():
+				return
+
+	if current_mission_index >= available_missions.size() or current_cariye_index >= idle_cariyeler.size():
+				return
 	
 	var mission = available_missions[current_mission_index]
 	var cariye = idle_cariyeler[current_cariye_index]
@@ -3450,55 +3801,6 @@ func assign_selected_mission():
 		print("❌ Görev atanamadı!")
 	
 	print("========================")
-
-# Atama sayfası kontrolleri
-func handle_assignment_input(event):
-	# Mevcut atanabilir binaları al
-	var all_buildings = get_all_available_buildings()
-	var has_buildings = not all_buildings.is_empty()
-
-	# Debounce
-	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down") or event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
-		if dpad_debounce_timer > 0:
-			return
-		dpad_debounce_timer = dpad_debounce_delay
-
-	match current_assignment_menu_state:
-		AssignmentMenuState.BİNA_LISTESİ:
-			if not has_buildings:
-				update_assignment_ui()
-				return
-			# Yukarı/Aşağı: Bina seçimi
-			if event.is_action_pressed("ui_up"):
-				current_assignment_building_index = max(0, current_assignment_building_index - 1)
-				update_assignment_ui()
-				return
-			if event.is_action_pressed("ui_down"):
-				current_assignment_building_index = min(all_buildings.size() - 1, current_assignment_building_index + 1)
-				update_assignment_ui()
-				return
-			# Sol/Sağ: İşçi çıkar/ekle
-			if event.is_action_pressed("ui_left"):
-				print("=== SOL D-PAD: İşçi çıkarılıyor ===")
-				remove_worker_from_building(all_buildings[current_assignment_building_index])
-				update_assignment_ui()
-				return
-			if event.is_action_pressed("ui_right"):
-				print("=== SAĞ D-PAD: İşçi ekleniyor ===")
-				add_worker_to_building(all_buildings[current_assignment_building_index])
-				update_assignment_ui()
-				return
-			# A: Detay
-			if event.is_action_pressed("ui_accept"):
-				current_assignment_menu_state = AssignmentMenuState.BİNA_DETAYI
-				update_assignment_ui()
-				return
-
-		AssignmentMenuState.BİNA_DETAYI:
-			if event.is_action_pressed("ui_cancel"):
-				current_assignment_menu_state = AssignmentMenuState.BİNA_LISTESİ
-				update_assignment_ui()
-				return
 
 # İnşaat sayfası kontrolleri
 func handle_construction_input(event):
@@ -3542,14 +3844,17 @@ func handle_construction_input(event):
 		MenuState.BİNA_SEÇİMİ:
 			# Sadece Yukarı/Aşağı D-Pad çalışır (bina seçimi)
 			if event.is_action_pressed("ui_up"):
-				print("⬆️ Yukarı D-Pad - Bina: %d -> %d" % [current_building_index, max(0, current_building_index - 1)])
-				current_building_index = max(0, current_building_index - 1)
-				update_construction_ui()
+				var buildings = building_categories.get(current_building_category, [])
+				if not buildings.is_empty():
+					print("⬆️ Yukarı D-Pad - Bina: %d -> %d" % [current_building_index, max(0, current_building_index - 1)])
+					current_building_index = max(0, current_building_index - 1)
+					update_construction_ui()
 			elif event.is_action_pressed("ui_down"):
 				var buildings = building_categories.get(current_building_category, [])
-				print("⬇️ Aşağı D-Pad - Bina: %d -> %d" % [current_building_index, min(buildings.size() - 1, current_building_index + 1)])
-				current_building_index = min(buildings.size() - 1, current_building_index + 1)
-				update_construction_ui()
+				if not buildings.is_empty():
+					print("⬇️ Aşağı D-Pad - Bina: %d -> %d" % [current_building_index, min(buildings.size() - 1, current_building_index + 1)])
+					current_building_index = min(buildings.size() - 1, current_building_index + 1)
+					update_construction_ui()
 			# Sol/Sağ D-Pad bu durumda çalışmaz
 	
 	# A tuşu her durumda çalışır
@@ -3772,21 +4077,29 @@ func _close_trade_overlay():
 
 # Cariye detay sayfası kontrolleri
 func handle_concubine_details_input(event):
-	if event.is_action_pressed("ui_up"):
+	# Rol atama pop-up'ı açıkken özel input handling
+	if current_concubine_role_popup_open:
+		handle_concubine_role_popup_input(event)
+		return
+	
+	# Not: just_pressed kullanarak hassas tekrarı önle
+	if Input.is_action_just_pressed("ui_up"):
+		print("[ConcubineDetails] UP pressed")
 		# Cariye yukarı
-		var concubine_count = mission_manager.concubines.size()
+		var concubine_count = _get_concubines_sorted_by_name().size()
 		if concubine_count > 0:
 			current_concubine_detail_index = max(0, current_concubine_detail_index - 1)
 			update_concubine_details_ui()
-	elif event.is_action_pressed("ui_down"):
+	elif Input.is_action_just_pressed("ui_down"):
+		print("[ConcubineDetails] DOWN pressed")
 		# Cariye aşağı
-		var concubine_count = mission_manager.concubines.size()
+		var concubine_count = _get_concubines_sorted_by_name().size()
 		if concubine_count > 0:
 			current_concubine_detail_index = min(concubine_count - 1, current_concubine_detail_index + 1)
 			update_concubine_details_ui()
-	elif event.is_action_pressed("ui_accept"):
-		# Cariye detayı
-		pass
+	elif event.is_action_pressed("ui_accept"):  # A tuşu
+		# Rol atama pop-up'ını aç
+		open_concubine_role_popup()
 
 # --- TİCARET SAYFASI ---
 func handle_trade_input(event):
@@ -4563,6 +4876,7 @@ func update_basic_info_panel(cariye: Concubine):
 	var info_text = "İsim: %s\n" % cariye.name
 	info_text += "Seviye: %d (%d/%d XP)\n" % [cariye.level, cariye.experience, cariye.max_experience]
 	info_text += "Durum: %s\n" % cariye.get_status_name()
+	info_text += "Rol: %s\n" % cariye.get_role_name()
 	info_text += "Sağlık: %d/%d\n" % [cariye.health, cariye.max_health]
 	info_text += "Moral: %d/%d" % [cariye.moral, cariye.max_moral]
 	
@@ -4874,13 +5188,8 @@ func _update_concubine_list_dynamic():
 		c.queue_free()
 	if not mission_manager:
 		return
-	# concubines dictionary: id -> Concubine
-	var concs = mission_manager.concubines
-	var concubine_array: Array = []
-	for cid in concs.keys():
-		concubine_array.append(concs[cid])
-	# sort by name
-	concubine_array.sort_custom(func(a, b): return a.name < b.name)
+	# concubines sorted by name for consistent ordering
+	var concubine_array: Array = _get_concubines_sorted_by_name()
 	for idx in range(concubine_array.size()):
 		var c: Concubine = concubine_array[idx]
 		var item = Panel.new()
@@ -4889,7 +5198,8 @@ func _update_concubine_list_dynamic():
 		item.add_child(vb)
 		vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		var name_l = Label.new()
-		name_l.text = "%s (Lv.%d)" % [c.name, c.level]
+		var marker = "> " if idx == current_concubine_detail_index else "  "
+		name_l.text = "%s%s (Lv.%d)" % [marker, c.name, c.level]
 		name_l.add_theme_font_size_override("font_size", 14)
 		name_l.add_theme_color_override("font_color", Color.WHITE)
 		vb.add_child(name_l)
@@ -4910,39 +5220,37 @@ func _update_selected_concubine_details_dynamic():
 	var details_root: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent")
 	if not details_root:
 		return
-	# temizle, panelleri yeniden doldur
-	for panel in details_root.get_children():
-		if panel is Panel:
-			for ch in panel.get_children():
-				ch.queue_free()
 	if not mission_manager:
 		return
-	# İlk cariyeyi göster (ileride seçim eklenecek)
+	# Seçili cariyeyi, ada göre sıralanmış listeden al
+	var concubine_array: Array = _get_concubines_sorted_by_name()
 	var selected: Concubine = null
-	for cid in mission_manager.concubines.keys():
-		selected = mission_manager.concubines[cid]
-		break
+	if not concubine_array.is_empty():
+		current_concubine_detail_index = clamp(current_concubine_detail_index, 0, concubine_array.size() - 1)
+		selected = concubine_array[current_concubine_detail_index]
 	if selected == null:
 		return
-	# BasicInfoPanel
-	var basic_vbox: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox")
-	if basic_vbox:
-		var title = Label.new()
-		title.text = "👤 Temel Bilgiler"
-		title.add_theme_font_size_override("font_size", 18)
-		title.add_theme_color_override("font_color", Color.WHITE)
-		basic_vbox.add_child(title)
-		var info = Label.new()
-		info.text = "İsim: %s\nSeviye: %d (%d/%d XP)\nDurum: %s\nSağlık: %d/%d\nMoral: %d/%d" % [
+
+	# 1) Temel Bilgiler: mevcut BasicInfoContent Label'ını doldur
+	var basic_info_content: Label = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/BasicInfoContent")
+	if basic_info_content:
+		basic_info_content.text = "İsim: %s\nSeviye: %d (%d/%d XP)\nDurum: %s\nRol: %s\nSağlık: %d/%d\nMoral: %d/%d" % [
 			selected.name, selected.level, selected.experience, selected.max_experience,
-			selected.get_status_name(), selected.health, selected.max_health, selected.moral, selected.max_moral
+			selected.get_status_name(), selected.get_role_name(), selected.health, selected.max_health, selected.moral, selected.max_moral
 		]
-		info.add_theme_font_size_override("font_size", 14)
-		info.add_theme_color_override("font_color", Color(0.8,0.8,0.8,1))
-		basic_vbox.add_child(info)
-	# SkillsPanel
-	var skills_vb: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel/SkillsVBox")
-	if skills_vb:
+
+	# 2) Yetenekler: SkillsVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
+	var skills_panel: Panel = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel")
+	if skills_panel:
+		var skills_vb: VBoxContainer = skills_panel.get_node_or_null("SkillsVBox")
+		if not skills_vb:
+			skills_vb = VBoxContainer.new()
+			skills_vb.name = "SkillsVBox"
+			skills_panel.add_child(skills_vb)
+		# Clear
+		for ch in skills_vb.get_children():
+			ch.queue_free()
+		# Refill
 		var stitle = Label.new()
 		stitle.text = "⚔️ Yetenekler"
 		stitle.add_theme_font_size_override("font_size", 18)
@@ -4954,9 +5262,19 @@ func _update_selected_concubine_details_dynamic():
 			l.add_theme_font_size_override("font_size", 12)
 			l.add_theme_color_override("font_color", Color(0.8,0.9,1,1))
 			skills_vb.add_child(l)
-	# MissionHistoryPanel (cariye özel)
-	var hist_vb: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel/MissionHistoryVBox")
-	if hist_vb:
+
+	# 3) Görev Geçmişi: MissionHistoryVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
+	var hist_panel: Panel = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel")
+	if hist_panel:
+		var hist_vb: VBoxContainer = hist_panel.get_node_or_null("MissionHistoryVBox")
+		if not hist_vb:
+			hist_vb = VBoxContainer.new()
+			hist_vb.name = "MissionHistoryVBox"
+			hist_panel.add_child(hist_vb)
+		# Clear
+		for ch in hist_vb.get_children():
+			ch.queue_free()
+		# Refill
 		var htitle = Label.new()
 		htitle.text = "📚 Görev Geçmişi"
 		htitle.add_theme_font_size_override("font_size", 18)
@@ -4974,6 +5292,27 @@ func _update_selected_concubine_details_dynamic():
 		content.add_theme_font_size_override("font_size", 14)
 		content.add_theme_color_override("font_color", Color(0.8,0.8,0.8,1))
 		hist_vb.add_child(content)
+
+	# 4) Kontrol metni: ControlsVBox varsa temizle, yoksa oluştur
+	var controls_panel: Panel = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/ControlsPanel")
+	if controls_panel:
+		var controls_vb: VBoxContainer = controls_panel.get_node_or_null("ControlsVBox")
+		if not controls_vb:
+			controls_vb = VBoxContainer.new()
+			controls_vb.name = "ControlsVBox"
+			controls_panel.add_child(controls_vb)
+		for ch in controls_vb.get_children():
+			ch.queue_free()
+		var ctitle = Label.new()
+		ctitle.text = "🎮 KONTROLLER"
+		ctitle.add_theme_font_size_override("font_size", 18)
+		ctitle.add_theme_color_override("font_color", Color.WHITE)
+		controls_vb.add_child(ctitle)
+		var controls_text = Label.new()
+		controls_text.text = "Yukarı/Aşağı: Cariye Seç\nA tuşu: Rol Ata\nB tuşu: Geri"
+		controls_text.add_theme_font_size_override("font_size", 14)
+		controls_text.add_theme_color_override("font_color", Color.YELLOW)
+		controls_vb.add_child(controls_text)
 
 # Cariye detay sayfası navigasyonu
 func handle_concubine_details_navigation():
@@ -5003,6 +5342,12 @@ func get_all_concubines_list():
 		all_concubines.append(mission_manager.concubines[cariye_id])
 	
 	return all_concubines
+
+# Ada göre sıralı cariye listesi (UI listesiyle aynı sıra)
+func _get_concubines_sorted_by_name() -> Array:
+	var arr: Array = get_all_concubines_list()
+	arr.sort_custom(func(a, b): return a.name < b.name)
+	return arr
 
 # --- GÖREV ZİNCİRLERİ FONKSİYONLARI ---
 
@@ -5196,3 +5541,612 @@ func close_menu():
 func _on_chain_progressed(chain_id: String, progress: Dictionary) -> void:
 	# UI'da zincir listesini tazele
 	update_mission_chains_ui()
+
+# === HABER FİLTRELEME VE RENK KODLU UYARI SİSTEMİ ===
+# (Duplicate functions removed - using the ones defined earlier)
+
+func _update_news_filter_highlighting() -> void:
+	"""Update filter bar button highlighting"""
+	if not filter_village_label or not filter_world_label:
+		return
+	
+	# Reset colors
+	filter_village_label.add_theme_color_override("font_color", Color.WHITE)
+	filter_world_label.add_theme_color_override("font_color", Color.WHITE)
+	
+	# Highlight current filter
+	match news_focus:
+		"village":
+			filter_village_label.add_theme_color_override("font_color", Color.YELLOW)
+		"world":
+			filter_world_label.add_theme_color_override("font_color", Color.YELLOW)
+
+func _update_subcategory_highlighting() -> void:
+	"""Update subcategory button highlighting"""
+	for label in subcategory_labels:
+		if not label:
+			continue
+		
+		var category_key = label.name.replace("Subcategory_", "")
+		var is_selected = (category_key == current_subcategory)
+		
+		# Reset to base color
+		var base_colors = {
+			"all": Color.WHITE,
+			"critical": Color.RED,
+			"warning": Color.ORANGE,
+			"success": Color.GREEN,
+			"info": Color.CYAN
+		}
+		
+		var base_color = base_colors.get(category_key, Color.WHITE)
+		var final_color = base_color if not is_selected else Color.YELLOW
+		label.add_theme_color_override("font_color", final_color)
+
+func _get_filtered_news() -> Array[Dictionary]:
+	"""Get news filtered by current settings"""
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		return []
+	
+	var all_news = []
+	
+	# Get news based on current filter
+	match news_focus:
+		"village":
+			all_news = mm.news_queue_village if mm.has_method("get_news_queue_village") else []
+		"world":
+			all_news = mm.news_queue_world if mm.has_method("get_news_queue_world") else []
+		_:
+			# Combine both
+			var village_news = mm.news_queue_village if mm.has_method("get_news_queue_village") else []
+			var world_news = mm.news_queue_world if mm.has_method("get_news_queue_world") else []
+			all_news = village_news + world_news
+	
+	# Filter by subcategory
+	if current_subcategory != "all":
+		var filtered = []
+		for news in all_news:
+			var news_subcat = news.get("subcategory", "info")
+			if news_subcat == current_subcategory:
+				filtered.append(news)
+		all_news = filtered
+	
+	return all_news
+
+func _display_news_with_colors(news_list: Array[Dictionary]) -> void:
+	"""Display news with color coding based on subcategory"""
+	# Find news display container
+	var news_display = get_node_or_null("NewsCenterPage/NewsDisplay")
+	if not news_display:
+		# Create news display container if it doesn't exist
+		news_display = VBoxContainer.new()
+		news_display.name = "NewsDisplay"
+		var news_container = get_node_or_null("NewsCenterPage")
+		if news_container:
+			news_container.add_child(news_display)
+	
+	# Clear existing news
+	for child in news_display.get_children():
+		child.queue_free()
+	
+	# Display news with color coding
+	for news in news_list:
+		var news_item = _create_colored_news_item(news)
+		news_display.add_child(news_item)
+
+func _create_colored_news_item(news: Dictionary) -> Panel:
+	"""Create a colored news item based on subcategory"""
+	var panel = Panel.new()
+	panel.custom_minimum_size = Vector2(750, 60)
+	
+	var vbox = VBoxContainer.new()
+	panel.add_child(vbox)
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("margin_left", 10)
+	vbox.add_theme_constant_override("margin_right", 10)
+	vbox.add_theme_constant_override("margin_top", 5)
+	vbox.add_theme_constant_override("margin_bottom", 5)
+	
+	# Title with color coding
+	var title_label = Label.new()
+	title_label.text = news.get("title", "Başlıksız Haber")
+	title_label.add_theme_font_size_override("font_size", 16)
+	
+	# Color based on subcategory
+	var subcategory = news.get("subcategory", "info")
+	var title_color = _get_subcategory_color(subcategory)
+	title_label.add_theme_color_override("font_color", title_color)
+	
+	vbox.add_child(title_label)
+	
+	# Content
+	var content_label = Label.new()
+	content_label.text = news.get("content", "")
+	content_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(content_label)
+	
+	# Background color based on subcategory
+	var bg_color = _get_subcategory_background_color(subcategory)
+	panel.add_theme_color_override("background_color", bg_color)
+	
+	return panel
+
+func _get_subcategory_color(subcategory: String) -> Color:
+	"""Get text color for subcategory"""
+	match subcategory:
+		"critical":
+			return Color.RED
+		"warning":
+			return Color.ORANGE
+		"success":
+			return Color.GREEN
+		"info":
+			return Color.CYAN
+		_:
+			return Color.WHITE
+
+func _get_subcategory_background_color(subcategory: String) -> Color:
+	"""Get background color for subcategory"""
+	match subcategory:
+		"critical":
+			return Color(0.3, 0.0, 0.0, 0.3)  # Dark red with transparency
+		"warning":
+			return Color(0.3, 0.15, 0.0, 0.3)  # Dark orange with transparency
+		"success":
+			return Color(0.0, 0.3, 0.0, 0.3)   # Dark green with transparency
+		"info":
+			return Color(0.0, 0.0, 0.3, 0.3)   # Dark blue with transparency
+		_:
+			return Color(0.1, 0.1, 0.1, 0.2)   # Dark gray with transparency
+
+# === ASKER EKİPMAN ATAMA SİSTEMİ ===
+
+func get_barracks_soldiers() -> Array:
+	"""Kışladaki askerleri ve ekipman durumlarını döndür"""
+	var all_buildings = get_all_available_buildings()
+	if all_buildings.is_empty():
+		return []
+	
+	# Kışla binasını bul
+	var barracks = null
+	for building_info in all_buildings:
+		if building_info["type"] == "Kışla":
+			barracks = building_info["node"]
+			break
+	
+	if not barracks or not barracks.has_method("get_military_force"):
+		return []
+	
+	# Asker listesini oluştur
+	var soldiers: Array = []
+	if "assigned_worker_ids" in barracks:
+		var vm = get_node_or_null("/root/VillageManager")
+		if not vm:
+			return []
+		
+		for worker_id in barracks.assigned_worker_ids:
+			var equip = {"weapon": false, "armor": false}
+			if "soldier_equipment" in barracks and barracks.soldier_equipment.has(worker_id):
+				equip = barracks.soldier_equipment[worker_id]
+			
+			soldiers.append({
+				"worker_id": worker_id,
+				"equipment": equip
+			})
+	
+	return soldiers
+
+func handle_soldier_equipment_input(event):
+	"""Asker ekipman atama menüsü için input handler"""
+	if current_assignment_menu_state != AssignmentMenuState.ASKER_EKİPMAN:
+		return
+	
+	var soldiers = get_barracks_soldiers()
+	if soldiers.is_empty():
+		# Eğer asker yoksa geri dön
+		if event.is_action_pressed("ui_back"):
+			current_assignment_menu_state = AssignmentMenuState.BİNA_DETAYI
+			update_assignment_ui()
+		return
+	
+	# Yukarı/Aşağı: Asker seçimi
+	if event.is_action_pressed("ui_up"):
+		current_soldier_index = (current_soldier_index - 1) % soldiers.size()
+		update_assignment_ui()
+	elif event.is_action_pressed("ui_down"):
+		current_soldier_index = (current_soldier_index + 1) % soldiers.size()
+		update_assignment_ui()
+	
+	# Sol/Sağ: Ekipman tipi seçimi (weapon/armor)
+	elif event.is_action_pressed("ui_left"):
+		current_equipment_action = 0  # weapon
+		update_assignment_ui()
+	elif event.is_action_pressed("ui_right"):
+		current_equipment_action = 1  # armor
+		update_assignment_ui()
+	
+	# A tuşu: Ekipman ver/al
+	elif event.is_action_pressed("ui_accept"):
+		if current_soldier_index < soldiers.size():
+			var soldier = soldiers[current_soldier_index]
+			var equipment_type = "weapon" if current_equipment_action == 0 else "armor"
+			var barracks = _get_current_barracks()
+			if barracks:
+				var has_equipment = soldier["equipment"].get(equipment_type, false)
+				if has_equipment:
+					# Ekipmanı kaldır
+					barracks.unequip_soldier(soldier["worker_id"], equipment_type)
+				else:
+					# Ekipmanı ver
+					barracks.equip_soldier(soldier["worker_id"], equipment_type)
+				update_assignment_ui()
+	
+	# B tuşu: Geri dön
+	elif event.is_action_pressed("ui_back"):
+		current_assignment_menu_state = AssignmentMenuState.BİNA_DETAYI
+		current_soldier_index = 0
+		update_assignment_ui()
+
+func _get_current_barracks() -> Node:
+	"""Şu anki seçili kışla binasını döndür"""
+	var all_buildings = get_all_available_buildings()
+	if all_buildings.is_empty() or current_assignment_building_index >= all_buildings.size():
+		return null
+	
+	var selected_building_info = all_buildings[current_assignment_building_index]
+	if selected_building_info["type"] == "Kışla":
+		return selected_building_info["node"]
+	return null
+
+# (Duplicate update_assignment_ui function removed - using the one defined earlier)
+
+# Kışla ekipman pop-up menüsü
+func open_barracks_equipment_popup():
+	"""Kışla ekipman pop-up menüsünü aç"""
+	if barracks_equipment_popup_active:
+		return
+	
+	# Pop-up panel oluştur
+	barracks_equipment_popup = Panel.new()
+	barracks_equipment_popup.name = "BarracksEquipmentPopup"
+	barracks_equipment_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var overlay_style := StyleBoxFlat.new()
+	overlay_style.bg_color = Color(0, 0, 0, 0.8)  # Yarı saydam siyah arka plan
+	barracks_equipment_popup.add_theme_stylebox_override("panel", overlay_style)
+	add_child(barracks_equipment_popup)
+	
+	# İçerik paneli (ortada)
+	var content_panel = Panel.new()
+	content_panel.name = "ContentPanel"
+	content_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	content_panel.offset_left = -300
+	content_panel.offset_right = 300
+	content_panel.offset_top = -200
+	content_panel.offset_bottom = 200
+	var content_style := StyleBoxFlat.new()
+	content_style.bg_color = Color(0.2, 0.2, 0.2, 1.0)
+	content_panel.add_theme_stylebox_override("panel", content_style)
+	barracks_equipment_popup.add_child(content_panel)
+	
+	# Label oluştur
+	barracks_equipment_popup_label = Label.new()
+	barracks_equipment_popup_label.name = "PopupLabel"
+	barracks_equipment_popup_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	barracks_equipment_popup_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	barracks_equipment_popup_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	content_panel.add_child(barracks_equipment_popup_label)
+	
+	# Başlangıç değerleri
+	barracks_equipment_selected_weapons = 0
+	barracks_equipment_selected_armors = 0
+	barracks_equipment_selected_row = 0
+	
+	barracks_equipment_popup_active = true
+	# Test kolaylığı: stoklar 0 ise başlangıç stoğu ver
+	var vm = get_node_or_null("/root/VillageManager")
+	if vm:
+		var w = int(vm.resource_levels.get("weapon", 0))
+		var a = int(vm.resource_levels.get("armor", 0))
+		if w == 0 and a == 0:
+			vm.resource_levels["weapon"] = 5
+			vm.resource_levels["armor"] = 5
+			vm.emit_signal("village_data_changed")
+	update_barracks_equipment_popup()
+
+func close_barracks_equipment_popup():
+	"""Kışla ekipman pop-up menüsünü kapat"""
+	if not barracks_equipment_popup_active:
+		return
+	
+	if barracks_equipment_popup:
+		barracks_equipment_popup.queue_free()
+		barracks_equipment_popup = null
+		barracks_equipment_popup_label = null
+	
+	barracks_equipment_popup_active = false
+	barracks_equipment_selected_weapons = 0
+	barracks_equipment_selected_armors = 0
+	barracks_equipment_selected_row = 0
+
+func update_barracks_equipment_popup():
+	"""Pop-up menü UI'ını güncelle"""
+	if not barracks_equipment_popup_active or not barracks_equipment_popup_label:
+		return
+	
+	var barracks = _get_current_barracks()
+	if not barracks:
+		barracks_equipment_popup_label.text = "Hata: Kışla bulunamadı!"
+		return
+	
+	var soldiers = get_barracks_soldiers()
+	var vm = get_node_or_null("/root/VillageManager")
+	var available_weapons = vm.resource_levels.get("weapon", 0) if vm else 0
+	var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
+	var soldier_count = soldiers.size()
+	
+	var text = "=== ASKER EKİPMAN DAĞITIMI ===\n\n"
+	text += "📦 Stok: Silah: %d | Zırh: %d\n" % [available_weapons, available_armors]
+	text += "👥 Asker Sayısı: %d\n\n" % soldier_count
+	
+	# Silah satırı
+	if barracks_equipment_selected_row == 0:
+		text += "> ⚔️ Silah: %d\n" % barracks_equipment_selected_weapons
+	else:
+		text += "  ⚔️ Silah: %d\n" % barracks_equipment_selected_weapons
+	
+	# Zırh satırı
+	if barracks_equipment_selected_row == 1:
+		text += "> 🛡️ Zırh: %d\n\n" % barracks_equipment_selected_armors
+	else:
+		text += "  🛡️ Zırh: %d\n\n" % barracks_equipment_selected_armors
+	
+	text += "Yukarı/Aşağı: Satır Seç\n"
+	text += "Sol/Sağ: Miktar Ayarla\n"
+	text += "A tuşu: Dağıt\n"
+	text += "B tuşu: İptal"
+	
+	barracks_equipment_popup_label.text = text
+
+# (duplicate stubs removed)
+
+func handle_barracks_equipment_popup_input(event):
+	"""Pop-up menü için input handler"""
+	if not barracks_equipment_popup_active:
+		return
+
+	# Zamanlayıcı: fazla tekrarları sınırlamak için
+	var now_ms = Time.get_ticks_msec()
+	
+	# Yukarı/Aşağı: Satır seçimi (Silah/Zırh)
+	if event.is_action_pressed("ui_up"):
+		barracks_equipment_selected_row = 0  # Silah satırı
+		update_barracks_equipment_popup()
+	elif event.is_action_pressed("ui_down"):
+		barracks_equipment_selected_row = 1  # Zırh satırı
+		update_barracks_equipment_popup()
+	
+	# Sol/Sağ: Seçili satırdaki miktarı ayarla
+	elif event.is_action_pressed("ui_right"):
+		if now_ms - _assign_lr_last_ms < _assign_lr_cooldown_ms:
+			return
+		_assign_lr_last_ms = now_ms
+		if barracks_equipment_selected_row == 0:
+			# Silah sayısını artır
+			var vm = get_node_or_null("/root/VillageManager")
+			var available_weapons = vm.resource_levels.get("weapon", 0) if vm else 0
+			var soldiers = get_barracks_soldiers()
+			var max_weapons = min(available_weapons, soldiers.size())
+			barracks_equipment_selected_weapons = min(max_weapons, barracks_equipment_selected_weapons + 1)
+		else:
+			# Zırh sayısını artır
+			var vm = get_node_or_null("/root/VillageManager")
+			var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
+			var soldiers = get_barracks_soldiers()
+			var max_armors = min(available_armors, soldiers.size())
+			barracks_equipment_selected_armors = min(max_armors, barracks_equipment_selected_armors + 1)
+		update_barracks_equipment_popup()
+	elif event.is_action_pressed("ui_left"):
+		if now_ms - _assign_lr_last_ms < _assign_lr_cooldown_ms:
+			return
+		_assign_lr_last_ms = now_ms
+		if barracks_equipment_selected_row == 0:
+			# Silah sayısını azalt
+			barracks_equipment_selected_weapons = max(0, barracks_equipment_selected_weapons - 1)
+		else:
+			# Zırh sayısını azalt
+			barracks_equipment_selected_armors = max(0, barracks_equipment_selected_armors - 1)
+		update_barracks_equipment_popup()
+	
+	# A tuşu: Dağıt
+	elif event.is_action_pressed("ui_accept"):
+		distribute_equipment_to_soldiers()
+		close_barracks_equipment_popup()
+		update_assignment_ui()
+	
+	# B tuşu: İptal
+	elif event.is_action_pressed("ui_back") or event.is_action_pressed("ui_cancel"):
+		close_barracks_equipment_popup()
+		update_assignment_ui()
+
+func distribute_equipment_to_soldiers():
+	"""Seçilen miktarda silah ve zırhı askerlere dağıt"""
+	var barracks = _get_current_barracks()
+	if not barracks:
+		print("❌ Kışla bulunamadı!")
+		return
+	
+	var soldiers = get_barracks_soldiers()
+	if soldiers.is_empty():
+		print("❌ Kışlada asker yok!")
+		return
+	
+	# Silah dağıtımı
+	var weapons_distributed = 0
+	for i in range(min(barracks_equipment_selected_weapons, soldiers.size())):
+		var soldier = soldiers[i]
+		if not soldier["equipment"].get("weapon", false):
+			if barracks.equip_soldier(soldier["worker_id"], "weapon"):
+				weapons_distributed += 1
+	
+	# Zırh dağıtımı
+	var armors_distributed = 0
+	for i in range(min(barracks_equipment_selected_armors, soldiers.size())):
+		var soldier = soldiers[i]
+		if not soldier["equipment"].get("armor", false):
+			if barracks.equip_soldier(soldier["worker_id"], "armor"):
+				armors_distributed += 1
+	
+	print("✅ Ekipman dağıtıldı: %d silah, %d zırh" % [weapons_distributed, armors_distributed])
+	
+	# VillageManager'a haber ver
+	var vm = get_node_or_null("/root/VillageManager")
+	if vm:
+		vm.emit_signal("village_data_changed")
+
+# --- CARİYE ROL ATAMA SİSTEMİ ---
+
+func open_concubine_role_popup():
+	"""Cariye rol atama pop-up'ını aç"""
+	if current_concubine_role_popup_open:
+		return
+	
+	# Seçili cariyeyi al
+	var all_concubines = get_all_concubines_list()
+	if all_concubines.is_empty() or current_concubine_detail_index >= all_concubines.size():
+		print("❌ Cariye bulunamadı!")
+		return
+	
+	var selected_concubine = all_concubines[current_concubine_detail_index]
+	
+	# Pop-up panel oluştur
+	concubine_role_popup = Panel.new()
+	concubine_role_popup.name = "ConcubineRolePopup"
+	concubine_role_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var overlay_style := StyleBoxFlat.new()
+	overlay_style.bg_color = Color(0, 0, 0, 0.8)  # Yarı saydam siyah arka plan
+	concubine_role_popup.add_theme_stylebox_override("panel", overlay_style)
+	add_child(concubine_role_popup)
+	
+	# İçerik paneli (ortada)
+	var content_panel = Panel.new()
+	content_panel.name = "ContentPanel"
+	content_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	content_panel.offset_left = -300
+	content_panel.offset_right = 300
+	content_panel.offset_top = -200
+	content_panel.offset_bottom = 200
+	var content_style := StyleBoxFlat.new()
+	content_style.bg_color = Color(0.2, 0.2, 0.2, 1.0)
+	content_panel.add_theme_stylebox_override("panel", content_style)
+	concubine_role_popup.add_child(content_panel)
+	
+	# Label oluştur
+	concubine_role_popup_label = Label.new()
+	concubine_role_popup_label.name = "PopupLabel"
+	concubine_role_popup_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	concubine_role_popup_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	concubine_role_popup_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	content_panel.add_child(concubine_role_popup_label)
+	
+	# Başlangıç değerleri - mevcut rolü seç
+	current_concubine_role_selection = int(selected_concubine.role)
+	
+	current_concubine_role_popup_open = true
+	update_concubine_role_popup()
+
+func close_concubine_role_popup():
+	"""Cariye rol atama pop-up'ını kapat"""
+	if not current_concubine_role_popup_open:
+		return
+	
+	if concubine_role_popup:
+		concubine_role_popup.queue_free()
+		concubine_role_popup = null
+		concubine_role_popup_label = null
+	
+	current_concubine_role_popup_open = false
+	current_concubine_role_selection = 0
+
+func update_concubine_role_popup():
+	"""Pop-up menü UI'ını güncelle"""
+	if not current_concubine_role_popup_open or not concubine_role_popup_label:
+		return
+	
+	# Seçili cariyeyi al
+	var all_concubines = get_all_concubines_list()
+	if all_concubines.is_empty() or current_concubine_detail_index >= all_concubines.size():
+		concubine_role_popup_label.text = "Hata: Cariye bulunamadı!"
+		return
+	
+	var selected_concubine = all_concubines[current_concubine_detail_index]
+	
+	var text = "=== CARİYE ROL ATAMA ===\n\n"
+	text += "👤 Cariye: %s\n" % selected_concubine.name
+	text += "📊 Mevcut Rol: %s\n\n" % selected_concubine.get_role_name()
+	
+	# Rol seçenekleri
+	var roles = [
+		{"id": 0, "name": "Rol Yok", "active": true},
+		{"id": 1, "name": "Komutan", "active": true},
+		{"id": 2, "name": "Ajan", "active": false},
+		{"id": 3, "name": "Diplomat", "active": false},
+		{"id": 4, "name": "Tüccar", "active": false}
+	]
+	
+	for role in roles:
+		var prefix = "> " if current_concubine_role_selection == role.id else "  "
+		var color = "" if role.active else " (Gelecekte)"
+		text += "%s%s%s\n" % [prefix, role.name, color]
+	
+	text += "\nYukarı/Aşağı: Rol Seç\n"
+	text += "A tuşu: Uygula\n"
+	text += "B tuşu: İptal"
+	
+	concubine_role_popup_label.text = text
+
+func handle_concubine_role_popup_input(event):
+	"""Pop-up menü için input handler"""
+	if not current_concubine_role_popup_open:
+		return
+	
+	# Yukarı/Aşağı: Rol seçimi (hassasiyet kontrolü ile)
+	if Input.is_action_just_pressed("ui_up"):
+		current_concubine_role_selection = max(0, current_concubine_role_selection - 1)
+		update_concubine_role_popup()
+	elif Input.is_action_just_pressed("ui_down"):
+		current_concubine_role_selection = min(4, current_concubine_role_selection + 1)
+		update_concubine_role_popup()
+	
+	# A tuşu: Rolü uygula
+	elif event.is_action_pressed("ui_accept"):
+		apply_concubine_role()
+		close_concubine_role_popup()
+		update_concubine_details_ui()
+	
+	# B tuşu: İptal
+	elif event.is_action_pressed("ui_back") or event.is_action_pressed("ui_cancel"):
+		close_concubine_role_popup()
+
+func apply_concubine_role():
+	"""Seçilen rolü cariyeye uygula"""
+	if not mission_manager:
+		print("❌ MissionManager bulunamadı!")
+		return
+	
+	# Seçili cariyeyi al
+	var all_concubines = get_all_concubines_list()
+	if all_concubines.is_empty() or current_concubine_detail_index >= all_concubines.size():
+		print("❌ Cariye bulunamadı!")
+		return
+	
+	var selected_concubine = all_concubines[current_concubine_detail_index]
+	var new_role = Concubine.Role.values()[current_concubine_role_selection]
+	
+	# Rolü ata
+	var success = mission_manager.set_concubine_role(selected_concubine.id, new_role)
+	if success:
+		print("✅ Cariye rolü güncellendi: %s -> %s" % [selected_concubine.name, selected_concubine.get_role_name()])
+	else:
+		print("❌ Cariye rolü güncellenemedi!")

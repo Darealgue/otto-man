@@ -7,6 +7,9 @@ enum Status { BOŞTA, GÖREVDE, YARALI, DİNLENİYOR }
 # Cariye yetenekleri
 enum Skill { SAVAŞ, DİPLOMASİ, TİCARET, BÜROKRASİ, KEŞİF }
 
+# Cariye rolleri
+enum Role { NONE, KOMUTAN, AJAN, DİPLOMAT, TÜCCAR }
+
 # Temel cariye bilgileri
 @export var id: int
 @export var name: String
@@ -30,6 +33,9 @@ var health: int = 100
 var max_health: int = 100
 var moral: int = 100
 var max_moral: int = 100
+
+# Rol bilgisi
+var role: Role = Role.NONE
 
 # Görev geçmişi
 var completed_missions: Array[String] = []
@@ -175,6 +181,16 @@ func get_status_name() -> String:
 		Status.GÖREVDE: return "Görevde"
 		Status.YARALI: return "Yaralı"
 		Status.DİNLENİYOR: return "Dinleniyor"
+		_: return "Bilinmeyen"
+
+# Rol adı
+func get_role_name() -> String:
+	match role:
+		Role.NONE: return "Rol Yok"
+		Role.KOMUTAN: return "Komutan"
+		Role.AJAN: return "Ajan"
+		Role.DİPLOMAT: return "Diplomat"
+		Role.TÜCCAR: return "Tüccar"
 		_: return "Bilinmeyen"
 
 # En yüksek yetenek

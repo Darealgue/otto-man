@@ -10,7 +10,7 @@ const ENEMY_TYPES = {
 	},
 	"heavy": {
 		"scene": preload("res://enemy/heavy/heavy_enemy.tscn"),
-		"weight": 40,  # Higher weight = more common
+		"weight": 100,  # Higher weight = more common
 		"min_level": 1  # Minimum level to start spawning
 	},
 	"flying": {

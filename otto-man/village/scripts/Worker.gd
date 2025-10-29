@@ -65,6 +65,7 @@ var current_state = State.AWAKE_IDLE # Başlangıç durumu (Tip otomatik çıkar
 var assigned_job_type: String = "" # "wood", "stone", etc. or "" for idle
 var assigned_building_node: Node2D = null # Atandığı binanın node'u
 var housing_node: Node2D = null # Kaldığı yer (CampFire veya House)
+var is_deployed: bool = false # Askerler için: savaş için deploy edildi mi?
 
 # Rutin Zamanlaması için Rastgele Farklar
 var wake_up_minute_offset: int = randi_range(0, 15) 
@@ -589,9 +590,25 @@ func _physics_process(delta: float) -> void:
 	# Hareket durumu hesaplama
 	var distance = global_position.distance_to(target_pos)
 	var moving = distance > 1.0 # <<< DÜZELTME: Eşiği 1.0 yaptık >>>
+	
+	# <<< YENİ: DEPLOY EDİLMİŞ ASKERLER İÇİN ÖZEL DAVRANIŞ >>>
+	if is_deployed and assigned_job_type == "soldier":
+		# Deploy edilmiş askerler ekran dışına yürümeli
+		if current_state != State.WORKING_OFFSCREEN and current_state != State.WAITING_OFFSCREEN:
+			current_state = State.WORKING_OFFSCREEN
+			# Hedef ekran dışına ayarla (sağ taraf) - çok uzakta
+			if global_position.x <= 1920.0:
+				move_target_x = global_position.x + 1500.0
+			else:
+				move_target_x = 4500.0
+			_target_global_y = global_position.y
+		# Hareket ederken görünür kalmalı, ekran dışına çıkınca gizlenecek
+		if current_state == State.WORKING_OFFSCREEN:
+			visible = true  # Hareket ederken görünür
+		moving = distance > 1.0  # Deploy edilmiş askerler hareket edebilir
 	# Eğer idle/socializing durumunda ve aktivite gezinme değilse, hareket etme
 	# <<< DEĞİŞİKLİK: Check _is_briefly_idling as well >>>
-	if (current_state == State.AWAKE_IDLE or current_state == State.SOCIALIZING) and (_current_idle_activity != "wandering" or _is_briefly_idling):
+	elif (current_state == State.AWAKE_IDLE or current_state == State.SOCIALIZING) and (_current_idle_activity != "wandering" or _is_briefly_idling):
 		moving = false
 	# Diğer hareketsiz durumlarda da hareket etme (Zaten moving = false olmalı ama garantiye alalım)
 	elif current_state == State.SLEEPING or current_state == State.WORKING_INSIDE or \
@@ -744,6 +761,17 @@ func _physics_process(delta: float) -> void:
 				#print("Worker %d uyandı!" % worker_id) # Debug
 
 		State.AWAKE_IDLE:
+			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler normal rutinlerine devam etmemeli
+			if is_deployed and assigned_job_type == "soldier":
+				current_state = State.WORKING_OFFSCREEN
+				visible = false
+				if global_position.x <= 1920.0:
+					move_target_x = global_position.x + 1500.0
+				else:
+					move_target_x = 3500.0
+				_target_global_y = global_position.y
+				return
+			
 			# DEBUG: AWAKE_IDLE state'inde her frame kontrol
 			#if _debug_frame_counter % 60 == 0: # Her 60 frame'de bir
 				#print("🔍 Worker %d AWAKE_IDLE state'inde - Visible: %s, Pos: %s, Activity: %s" % [
@@ -765,8 +793,8 @@ func _physics_process(delta: float) -> void:
 					_current_idle_activity = "" # <<< Reset activity >>>
 					return
 
-			# 2. İşe Gitme Zamanı Kontrolü
-			elif assigned_job_type != "" and is_instance_valid(assigned_building_node):
+			# 2. İşe Gitme Zamanı Kontrolü (ASKER İSTİSNASI: askerler gündüz köyde kalır)
+			elif assigned_job_type != "" and assigned_job_type != "soldier" and is_instance_valid(assigned_building_node):
 				if current_hour == TimeManager.WORK_START_HOUR and current_minute >= work_start_minute_offset:
 					#print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
 					current_state = State.GOING_TO_BUILDING_FIRST
@@ -784,6 +812,17 @@ func _physics_process(delta: float) -> void:
 				_start_next_idle_step() # Decide and initiate the next step
 
 		State.GOING_TO_BUILDING_FIRST:
+			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler binaya gitmemeli
+			if is_deployed and assigned_job_type == "soldier":
+				current_state = State.WORKING_OFFSCREEN
+				visible = false
+				if global_position.x <= 1920.0:
+					move_target_x = global_position.x + 1500.0
+				else:
+					move_target_x = 3500.0
+				_target_global_y = global_position.y
+				return
+			
 			# Binaya doğru hareket et (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Binaya vardıysa
@@ -791,6 +830,12 @@ func _physics_process(delta: float) -> void:
 				if is_instance_valid(assigned_building_node) and assigned_building_node.has_method("get_script"):
 					var building_node = assigned_building_node # Kısa isim
 					var go_inside = false # Varsayılan: dışarı çık
+					# ASKER İSTİSNASI: Askerler iş saatinde bina içine girmez, köyde kalır
+					if assigned_job_type == "soldier":
+						current_state = State.SOCIALIZING
+						_start_next_idle_step()
+						# Idle/socializing'e geçtiğimiz için daha fazla işlem yapma
+						return
 
 					# 1. worker_stays_inside özelliğini kontrol et
 					if "worker_stays_inside" in building_node and building_node.worker_stays_inside:
@@ -851,8 +896,18 @@ func _physics_process(delta: float) -> void:
 				#print("Worker %d ekran dışına çıktı, çalışıyor (beklemede)." % worker_id)
 				_offscreen_exit_x = global_position.x
 				if is_instance_valid(held_item_sprite): held_item_sprite.hide()
-				visible = false
-				current_state = State.WAITING_OFFSCREEN
+				# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler ekran dışında beklesin
+				if assigned_job_type == "soldier" and is_deployed:
+					# Deploy edilmiş askerler ekran dışında beklesin (görünmez olacaklar)
+					current_state = State.WAITING_OFFSCREEN
+					visible = false
+				# ASKER İSTİSNASI: Normal askerler ekran dışında beklemesin, köyde sosyalleşsin
+				elif assigned_job_type == "soldier":
+					current_state = State.SOCIALIZING
+					visible = true
+					_start_next_idle_step()
+				else:
+					current_state = State.WAITING_OFFSCREEN
 				# <<< Reset idle flags >>>
 				idle_activity_timer.stop()
 				_is_briefly_idling = false
@@ -903,6 +958,11 @@ func _physics_process(delta: float) -> void:
 					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 
 		State.WAITING_OFFSCREEN:
+			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler geri dönmemeli
+			if is_deployed and assigned_job_type == "soldier":
+				visible = false
+				return  # Deploy edilmiş askerler ekran dışında beklesin
+			
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
 			if current_hour == TimeManager.WORK_END_HOUR and current_minute >= work_end_minute_offset:
@@ -945,6 +1005,17 @@ func _physics_process(delta: float) -> void:
 				# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
 
 		State.SOCIALIZING:
+			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler SOCIALIZING'e geçmemeli
+			if is_deployed and assigned_job_type == "soldier":
+				current_state = State.WORKING_OFFSCREEN
+				visible = false
+				if global_position.x <= 1920.0:
+					move_target_x = global_position.x + 1500.0
+				else:
+					move_target_x = 3500.0
+				_target_global_y = global_position.y
+				return
+			
 			var current_hour = TimeManager.get_hour()
 			# Uyku Zamanı Kontrolü
 			if current_hour >= TimeManager.SLEEP_HOUR:

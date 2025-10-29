@@ -11,6 +11,13 @@ signal equipment_consumed(equipment_type: String, amount: int)
 
 # Unit types and their base stats
 const UNIT_TYPES = {
+	"soldiers": {  # Player's soldiers from Barracks
+		"base_attack": 10,
+		"base_defense": 12,
+		"base_morale": 50,
+		"equipment_cost": {"weapon": 1, "armor": 1},
+		"supply_cost": {"bread": 1, "water": 1}
+	},
 	"infantry": {
 		"base_attack": 10,
 		"base_defense": 12,
@@ -115,6 +122,16 @@ func _calculate_force_stats(force: Dictionary) -> Dictionary:
 		total_defense += effective_defense * count
 		total_morale += effective_morale * count
 		unit_count += count
+	
+	# Apply attack_bonus and defense_bonus if provided (from Barracks equipment bonuses)
+	var attack_bonus_multiplier = 1.0 + float(force.get("attack_bonus", 0.0))
+	var defense_bonus_multiplier = 1.0 + float(force.get("defense_bonus", 0.0))
+	total_attack *= attack_bonus_multiplier
+	total_defense *= defense_bonus_multiplier
+	
+	# Apply morale_multiplier if provided
+	var morale_multiplier = float(force.get("morale_multiplier", 1.0))
+	total_morale *= morale_multiplier
 	
 	# Calculate averages
 	var avg_morale := total_morale / max(1, unit_count)
