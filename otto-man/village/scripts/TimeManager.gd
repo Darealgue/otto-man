@@ -4,6 +4,8 @@ extends Node
 # 1 Oyun Günü = 24 * 60 = 1440 Oyun Dakikası
 # 1 Oyun Dakikası = 3600 / 1440 = 2.5 Gerçek Saniye
 const SECONDS_PER_GAME_MINUTE: float = 2.5
+const MINUTES_PER_HOUR: int = 60
+const HOURS_PER_DAY: int = 24
 
 # Mevcut Zaman
 var days: int = 1
@@ -24,8 +26,10 @@ var current_time_scale_index: int = 0 # 0: Normal, 1: x4, 2: x16
 var time_scales: Array[float] = [1.0, 4.0, 16.0]
 
 # Zaman ilerlemesini sağlayan sinyal (opsiyonel, gerekirse diğer scriptler bağlanabilir)
-# signal hour_changed(new_hour)
-# signal day_changed(new_day)
+signal hour_changed(new_hour: int)
+signal minute_changed(new_minute: int)
+signal day_changed(new_day: int)
+signal time_advanced(total_minutes: int, start_day: int, start_hour: int, start_minute: int)
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
@@ -49,21 +53,30 @@ func _process(delta: float) -> void:
 		_time_accumulator = fmod(_time_accumulator, SECONDS_PER_GAME_MINUTE)
 
 func _advance_time(minutes_to_advance: int) -> void:
-	minutes += minutes_to_advance
-	var extra_hours = floori(minutes / 60.0)
-	minutes = minutes % 60
-	emit_signal("minute_changed", minutes) # YENİ: Dakika değiştiğinde sinyal gönder
-	
-	if extra_hours > 0:
-		hours += extra_hours
-		var extra_days = floori(hours / 24.0)
-		hours = hours % 24
-		# emit_signal("hour_changed", hours) # Sinyal opsiyonel
-		
-		if extra_days > 0:
-			days += extra_days
-			emit_signal("day_changed", days) # Sinyal opsiyonel
-			# print("Yeni gün başladı: Gün ", days) # Debug
+	if minutes_to_advance <= 0:
+		return
+	var remaining := minutes_to_advance
+	while remaining > 0:
+		var step: int = min(remaining, MINUTES_PER_HOUR - minutes)
+		if step <= 0:
+			step = remaining
+		minutes += step
+		remaining -= step
+		if minutes >= MINUTES_PER_HOUR:
+			minutes -= MINUTES_PER_HOUR
+			emit_signal("minute_changed", minutes)
+			_increment_hour(1)
+		else:
+			emit_signal("minute_changed", minutes)
+
+func _increment_hour(count: int) -> void:
+	var new_hour := hours + count
+	var extra_days := new_hour / HOURS_PER_DAY
+	hours = new_hour % HOURS_PER_DAY
+	emit_signal("hour_changed", hours)
+	if extra_days > 0:
+		days += extra_days
+		emit_signal("day_changed", days)
 
 # --- Public Getters ---
 func get_hour() -> int:
@@ -111,7 +124,52 @@ func get_current_day_count() -> int:
 func is_work_time() -> bool:
 	return hours >= WORK_START_HOUR and hours < WORK_END_HOUR
 
-# сигналы
-signal hour_changed(new_hour: int)
-signal minute_changed(new_minute: int) # YENİ SİNYAL (Opsiyonel, gerekirse diye)
-signal day_changed(new_day: int)
+func advance_minutes(total_minutes: int) -> void:
+	# Validation: Check for invalid values
+	if total_minutes <= 0:
+		return
+	# Check for extremely large values (prevent performance issues)
+	# Max: 1000 days = 1000 * 24 * 60 = 1,440,000 minutes
+	var max_minutes: int = 1000 * HOURS_PER_DAY * MINUTES_PER_HOUR
+	if total_minutes > max_minutes:
+		push_warning("[TimeManager] ⚠️ Very large time skip detected: %d minutes (%.1f days). Capping to %d minutes." % [total_minutes, float(total_minutes) / float(MINUTES_PER_HOUR * HOURS_PER_DAY), max_minutes])
+		total_minutes = max_minutes
+	
+	var start_day := days
+	var start_hour := hours
+	var start_minute := minutes
+	_advance_time(total_minutes)
+	time_advanced.emit(total_minutes, start_day, start_hour, start_minute)
+
+func advance_hours(total_hours: float) -> void:
+	# Validation: Check for invalid values
+	if total_hours <= 0.0:
+		return
+	# Check for NaN or Infinity
+	if is_nan(total_hours) or is_inf(total_hours):
+		push_error("[TimeManager] ❌ Invalid time value: %f (NaN or Infinity). Skipping time advance." % total_hours)
+		return
+	# Check for extremely large values
+	var max_hours: float = 1000.0 * float(HOURS_PER_DAY)
+	if total_hours > max_hours:
+		push_warning("[TimeManager] ⚠️ Very large time skip detected: %.1f hours (%.1f days). Capping to %.1f hours." % [total_hours, total_hours / float(HOURS_PER_DAY), max_hours])
+		total_hours = max_hours
+	
+	var minutes_to_advance := int(round(total_hours * float(MINUTES_PER_HOUR)))
+	advance_minutes(minutes_to_advance)
+
+func advance_days(total_days: float) -> void:
+	# Validation: Check for invalid values
+	if total_days <= 0.0:
+		return
+	# Check for NaN or Infinity
+	if is_nan(total_days) or is_inf(total_days):
+		push_error("[TimeManager] ❌ Invalid time value: %f (NaN or Infinity). Skipping time advance." % total_days)
+		return
+	# Check for extremely large values (max 1000 days)
+	var max_days: float = 1000.0
+	if total_days > max_days:
+		push_warning("[TimeManager] ⚠️ Very large time skip detected: %.1f days. Capping to %.1f days." % [total_days, max_days])
+		total_days = max_days
+	
+	advance_hours(total_days * float(HOURS_PER_DAY))

@@ -154,7 +154,23 @@ var diplomacy_manager: Node = null
 
 # Bina türleri kategorilere göre (gerçek bina türleri)
 var building_categories: Dictionary = {
-	BuildingCategory.PRODUCTION: ["Kuyu", "Avcı", "Oduncu", "Taş Madeni", "Fırın", "Demirci", "Silahçı", "Zırh Ustası", "Terzi", "Çayhane", "Sabuncu"],
+	BuildingCategory.PRODUCTION: [
+		"Kuyu",
+		"Avcı",
+		"Oduncu",
+		"Taş Madeni",
+		"Kerestehane",
+		"Tuğla Ocağı",
+		"Fırın",
+		"Dokuma Tezgahı",
+		"Terzi",
+		"Demirci",
+		"Silahçı",
+		"Zırh Ustası",
+		"Çayhane",
+		"Sabuncu",
+		"Şifacı"
+	],
 	BuildingCategory.LIFE: ["Ev", "Depo"],
 	BuildingCategory.MILITARY: ["Kışla", "Kale", "Kule"], # Kışla eklendi
 	BuildingCategory.DECORATION: ["Çeşme", "Bahçe"] # Gelecekte eklenecek
@@ -166,7 +182,10 @@ var building_scene_paths: Dictionary = {
 	"Avcı": "res://village/buildings/HunterGathererHut.tscn",
 	"Oduncu": "res://village/buildings/WoodcutterCamp.tscn",
 	"Taş Madeni": "res://village/buildings/StoneMine.tscn",
+	"Kerestehane": "res://village/buildings/Sawmill.tscn",
+	"Tuğla Ocağı": "res://village/buildings/Brickworks.tscn",
 	"Fırın": "res://village/buildings/Bakery.tscn",
+	"Dokuma Tezgahı": "res://village/buildings/Weaver.tscn",
 	"Ev": "res://village/buildings/House.tscn",
 	"Depo": "res://village/buildings/StorageBuilding.tscn",
 	"Demirci": "res://village/buildings/Blacksmith.tscn",
@@ -175,7 +194,22 @@ var building_scene_paths: Dictionary = {
 	"Terzi": "res://village/buildings/Tailor.tscn",
 	"Çayhane": "res://village/buildings/TeaHouse.tscn",
 	"Sabuncu": "res://village/buildings/SoapMaker.tscn",
+	"Şifacı": "res://village/buildings/Herbalist.tscn",
 	"Kışla": "res://village/buildings/Barracks.tscn"
+}
+
+var building_recipe_texts: Dictionary = {
+	"Kerestehane": "Girdi: Odun + Su ⇒ Kereste",
+	"Tuğla Ocağı": "Girdi: Taş + Su ⇒ Tuğla",
+	"Fırın": "Girdi: Yiyecek + Su ⇒ Ekmek",
+	"Dokuma Tezgahı": "Girdi: Yiyecek + Su ⇒ Kumaş",
+	"Terzi": "Girdi: Kumaş x2 + Su ⇒ Giyim",
+	"Demirci": "Girdi: Taş + Odun ⇒ Metal",
+	"Silahçı": "Girdi: Metal + Odun + Su ⇒ Silah",
+	"Zırh Ustası": "Girdi: Metal x2 + Su ⇒ Zırh",
+	"Çayhane": "Girdi: Yiyecek + Su ⇒ Çay",
+	"Sabuncu": "Girdi: Yiyecek + Su x2 ⇒ Sabun",
+	"Şifacı": "Girdi: Yiyecek + Su ⇒ İlaç"
 }
 
 # Player referansı
@@ -585,13 +619,166 @@ func handle_construction_navigation():
 	if current_page != PageType.CONSTRUCTION:
 		return
 
-	match current_menu_state:
-		MenuState.İŞLEM_SEÇİMİ:
-			handle_action_selection()
-		MenuState.KATEGORİ_SEÇİMİ:
-			handle_category_selection()
-		MenuState.BİNA_SEÇİMİ:
-			handle_building_selection()
+	# Yeni akış: doğrudan kategori+bina listesi ekranı
+	current_menu_state = MenuState.BİNA_SEÇİMİ
+	_debug_construction("handle_construction_navigation -> init")
+	handle_building_selection()
+
+# _input(event) tarafından çağrılır
+func handle_construction_input(event):
+	if current_page != PageType.CONSTRUCTION:
+		return
+	# D-Pad debounce kontrolü (sol/sağ/yukarı/aşağı)
+	if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right") or event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down"):
+		if dpad_debounce_timer > 0:
+			return
+		dpad_debounce_timer = dpad_debounce_delay
+	current_menu_state = MenuState.BİNA_SEÇİMİ
+	# Yıkım onayı açıksa önce onu işle
+	if _demolish_confirm_open:
+		if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_forward"):
+			_debug_construction("Confirm DEMOLISH (input) -> YES")
+			_close_demolish_confirm_popup()
+			_demolish_selected_building()
+			update_construction_ui()
+			return
+		elif event.is_action_pressed("ui_cancel"):
+			_debug_construction("Confirm DEMOLISH (input) -> CANCEL")
+			_close_demolish_confirm_popup()
+			update_construction_ui()
+			return
+	# Sol/Sağ kategori
+	if event.is_action_pressed("ui_left"):
+		current_building_category = (current_building_category - 1) % category_names.size()
+		if current_building_category < 0:
+			current_building_category = category_names.size() - 1
+		current_building_index = 0
+		_debug_construction("LEFT(input) -> Cat:" + String(category_names[current_building_category]))
+		update_construction_ui()
+		return
+	elif event.is_action_pressed("ui_right"):
+		current_building_category = (current_building_category + 1) % category_names.size()
+		current_building_index = 0
+		_debug_construction("RIGHT(input) -> Cat:" + String(category_names[current_building_category]))
+		update_construction_ui()
+		return
+	# Yukarı/Aşağı liste
+	var buildings = building_categories.get(current_building_category, [])
+	if event.is_action_pressed("ui_up") and buildings.size() > 0:
+		current_building_index = (current_building_index - 1) % buildings.size()
+		if current_building_index < 0:
+			current_building_index = buildings.size() - 1
+		_debug_construction("UP(input) -> Idx:" + str(current_building_index))
+		update_construction_ui()
+		return
+	elif event.is_action_pressed("ui_down") and buildings.size() > 0:
+		current_building_index = (current_building_index + 1) % buildings.size()
+		_debug_construction("DOWN(input) -> Idx:" + str(current_building_index))
+		update_construction_ui()
+		return
+	# A: İnşa/Yükselt
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_forward"):
+		_debug_construction("A(input) -> build_or_upgrade")
+		_build_or_upgrade_selected()
+		update_construction_ui()
+		return
+	# Y: Bilgi
+	if event.is_action_pressed("ui_select"):
+		_debug_construction("Y(input) -> info_popup")
+		_open_building_info_popup()
+		return
+	# X: Yık onayı
+	if event.is_action_pressed("attack"):
+		_debug_construction("X(input) -> demolish_confirm_open")
+		_open_demolish_confirm_popup()
+		update_construction_ui()
+		return
+
+# Global input yakalama: İnşaat sayfasında yön ve tuşları doğrudan işle
+func _unhandled_input(event):
+	if current_page != PageType.CONSTRUCTION:
+		return
+	# D-Pad debounce kontrolü (just_pressed yönler)
+	if Input.is_action_just_pressed("ui_left") or Input.is_action_just_pressed("ui_right") or Input.is_action_just_pressed("ui_up") or Input.is_action_just_pressed("ui_down"):
+		if dpad_debounce_timer > 0:
+			return
+		dpad_debounce_timer = dpad_debounce_delay
+	# Önce açık bir yıkım onayı varsa onu işle (just_pressed ile)
+	if _demolish_confirm_open:
+		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+			get_viewport().set_input_as_handled()
+			_debug_construction("Confirm DEMOLISH -> YES")
+			_close_demolish_confirm_popup()
+			_demolish_selected_building()
+			update_construction_ui()
+			return
+		elif Input.is_action_just_pressed("ui_cancel"):
+			get_viewport().set_input_as_handled()
+			_debug_construction("Confirm DEMOLISH -> CANCEL")
+			_close_demolish_confirm_popup()
+			update_construction_ui()
+			return
+	# Kategori sola/sağa
+	if Input.is_action_just_pressed("ui_left"):
+		get_viewport().set_input_as_handled()
+		current_building_category = (current_building_category - 1) % category_names.size()
+		if current_building_category < 0:
+			current_building_category = category_names.size() - 1
+		current_building_index = 0
+		_debug_construction("LEFT -> Cat:" + String(category_names[current_building_category]))
+		update_construction_ui()
+		return
+	if Input.is_action_just_pressed("ui_right"):
+		get_viewport().set_input_as_handled()
+		current_building_category = (current_building_category + 1) % category_names.size()
+		current_building_index = 0
+		_debug_construction("RIGHT -> Cat:" + String(category_names[current_building_category]))
+		update_construction_ui()
+		return
+	# Liste yukarı/aşağı
+	var buildings = building_categories.get(current_building_category, [])
+	if Input.is_action_just_pressed("ui_up") and buildings.size() > 0:
+		get_viewport().set_input_as_handled()
+		current_building_index = (current_building_index - 1) % buildings.size()
+		if current_building_index < 0:
+			current_building_index = buildings.size() - 1
+		_debug_construction("UP -> Idx:" + str(current_building_index))
+		update_construction_ui()
+		return
+	if Input.is_action_just_pressed("ui_down") and buildings.size() > 0:
+		get_viewport().set_input_as_handled()
+		current_building_index = (current_building_index + 1) % buildings.size()
+		_debug_construction("DOWN -> Idx:" + str(current_building_index))
+		update_construction_ui()
+		return
+	# A: İnşa / Yükselt
+	if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+		get_viewport().set_input_as_handled()
+		_debug_construction("A -> build_or_upgrade")
+		_build_or_upgrade_selected()
+		update_construction_ui()
+		return
+	# Y: Bilgi
+	if Input.is_action_just_pressed("ui_select"):
+		get_viewport().set_input_as_handled()
+		_debug_construction("Y -> info_popup")
+		_open_building_info_popup()
+		return
+	# X: Yık
+	if Input.is_action_just_pressed("attack"):
+		get_viewport().set_input_as_handled()
+		_debug_construction("X -> demolish_confirm_open")
+		_open_demolish_confirm_popup()
+		update_construction_ui()
+		return
+	# B: Info popup kapat
+	if Input.is_action_just_pressed("ui_cancel"):
+		if _construction_info_popup:
+			get_viewport().set_input_as_handled()
+			_debug_construction("B -> close_info_popup")
+			_close_building_info_popup()
+			update_construction_ui()
+			return
 
 # İşlem seçimi seviyesi (YAP/YÜKSELT/YIK/BİLGİ)
 func handle_action_selection():
@@ -651,35 +838,61 @@ func handle_building_selection():
 	if buildings.is_empty():
 		print("Bu kategoride bina yok!")
 		return
+
+	# Yıkım onayı açıksa, yalnızca A/B işle
+	if _demolish_confirm_open:
+		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+			_close_demolish_confirm_popup()
+			_demolish_selected_building()
+			update_construction_ui()
+			return
+		elif Input.is_action_just_pressed("ui_cancel"):
+			_close_demolish_confirm_popup()
+			update_construction_ui()
+			return
 	
-	# Yukarı/Aşağı D-pad: Bina seçimi
+	# Sol/Sağ: Kategori değiştir
+	if Input.is_action_just_pressed("ui_left"):
+		current_building_category = (current_building_category - 1) % category_names.size()
+		if current_building_category < 0:
+			current_building_category = category_names.size() - 1
+		current_building_index = 0
+		update_construction_ui()
+		return
+	elif Input.is_action_just_pressed("ui_right"):
+		current_building_category = (current_building_category + 1) % category_names.size()
+		current_building_index = 0
+		update_construction_ui()
+		return
+
+	# Yukarı/Aşağı: Bina seçimi
 	if Input.is_action_just_pressed("ui_up"):
-		print("=== YUKARI D-PAD: Bina seçimi ===")
 		current_building_index = (current_building_index - 1) % buildings.size()
 		if current_building_index < 0:
 			current_building_index = buildings.size() - 1
-		print("Seçilen bina: ", buildings[current_building_index])
 		update_construction_ui()
-
+		return
 	elif Input.is_action_just_pressed("ui_down"):
-		print("=== AŞAĞI D-PAD: Bina seçimi ===")
 		current_building_index = (current_building_index + 1) % buildings.size()
-		print("Seçilen bina: ", buildings[current_building_index])
 		update_construction_ui()
+		return
 
-	# A tuşu (ui_forward): Bina inşa et
-	elif Input.is_action_just_pressed("ui_forward"):
-		print("=== A TUŞU: İşlem çalıştırılıyor (kapatmadan devam) ===")
-		execute_build_action()
-		# Menüyü açık tut ve mevcut seçimleri koru
+	# A: İnşa / Yükselt
+	if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+		_build_or_upgrade_selected()
 		update_construction_ui()
+		return
 
-	# B tuşu: Geri dön, kategori seçimine
-	elif Input.is_action_just_pressed("ui_cancel"):
-		print("=== B TUŞU: Geri dönülüyor, kategori seçimine ===")
-		current_menu_state = MenuState.KATEGORİ_SEÇİMİ
-		current_building_index = 0  # Bina seçimini sıfırla
+	# Y: Bilgi
+	if Input.is_action_just_pressed("ui_select"):
+		_open_building_info_popup()
+		return
+
+	# X: Yık (önce onay penceresi)
+	if Input.is_action_just_pressed("attack"):
+		_open_demolish_confirm_popup()
 		update_construction_ui()
+		return
 
 # İnşaat UI'ını güncelle (PlayStation mantığı)
 func update_construction_ui():
@@ -697,30 +910,14 @@ func update_construction_ui():
 			upgrade_progress_bar.visible = false
 			construction_page.add_child(upgrade_progress_bar)
 		
-		# İşlem seçimi seviyesi
-		if current_menu_state == MenuState.İŞLEM_SEÇİMİ:
+		# Tek akış: kategori + bina listesi
+		if current_menu_state != MenuState.BİNA_SEÇİMİ:
+			current_menu_state = MenuState.BİNA_SEÇİMİ
+		if current_menu_state == MenuState.BİNA_SEÇİMİ:
 			if action_label:
-				action_label.text = "> " + "İŞLEM: " + action_names[current_construction_action] + " ← SEÇİLİ"
+				action_label.text = "  Sol/Sağ: Kategori  |  Yukarı/Aşağı: Seçim  |  A: İnşa/Yükselt  X: Yık  Y: Bilgi"
 			if category_label:
-				category_label.text = "  " + "KATEGORİ: [A tuşu ile seç]"
-			if buildings_label:
-				buildings_label.text = "  " + "BİNALAR: [Önce işlem seçin]"
-		
-		# Kategori seçimi seviyesi
-		elif current_menu_state == MenuState.KATEGORİ_SEÇİMİ:
-			if action_label:
-				action_label.text = "  " + "İŞLEM: " + action_names[current_construction_action] + " ✓"
-			if category_label:
-				category_label.text = "> " + "KATEGORİ: " + category_names[current_building_category] + " ← SEÇİLİ"
-			if buildings_label:
-				buildings_label.text = "  " + "BİNALAR: [A tuşu ile seç]"
-		
-		# Bina seçimi seviyesi
-		elif current_menu_state == MenuState.BİNA_SEÇİMİ:
-			if action_label:
-				action_label.text = "  " + "İŞLEM: " + action_names[current_construction_action] + " ✓"
-			if category_label:
-				category_label.text = "  " + "KATEGORİ: " + category_names[current_building_category] + " ✓"
+				category_label.text = "> KATEGORİ: " + category_names[current_building_category]
 			if buildings_label:
 				var buildings = building_categories.get(current_building_category, [])
 				var buildings_text = "BİNALAR:\n"
@@ -735,22 +932,12 @@ func update_construction_ui():
 					else:
 						buildings_text += "  " + building_name + "\n"
 						buildings_text += "  " + building_info + "\n"
-				
-				# İşlem türüne göre farklı açıklamalar
-				match current_construction_action:
-					ConstructionAction.BUILD:
-						buildings_text += "\n[A tuşu ile inşa et] [B tuşu ile geri dön]"
-					ConstructionAction.UPGRADE:
-						buildings_text += "\n[A tuşu ile yükselt] [B tuşu ile geri dön]"
-					ConstructionAction.DEMOLISH:
-						buildings_text += "\n[A tuşu ile yık] [B tuşu ile geri dön]"
-					ConstructionAction.INFO:
-						buildings_text += "\n[A tuşu ile bilgi göster] [B tuşu ile geri dön]"
+				buildings_text += "\n[A: İnşa/Yükselt]  [X: Yık]  [Y: Bilgi]"
 				
 				buildings_label.text = buildings_text
-				# Eğer yükseltme seçiliyse ve bina yükseltiliyorsa barı güncelle
+				# Yükseltme ilerlemesi (varsa)
 				var selected_building_name = buildings[current_building_index] if buildings.size() > 0 else ""
-				if current_construction_action == ConstructionAction.UPGRADE and selected_building_name != "":
+				if selected_building_name != "":
 					var existing = find_existing_buildings(selected_building_name)
 					if not existing.is_empty():
 						var b = existing[0]
@@ -912,11 +1099,16 @@ func get_building_type_name(building: Node) -> String:
 		"res://village/scripts/WoodcutterCamp.gd": return "Oduncu"
 		"res://village/scripts/StoneMine.gd": return "Taş Madeni"
 		"res://village/scripts/Bakery.gd": return "Fırın"
+		"res://village/scripts/Sawmill.gd": return "Kerestehane"
+		"res://village/scripts/Brickworks.gd": return "Tuğla Ocağı"
 		"res://village/scripts/Blacksmith.gd": return "Demirci"
+		"res://village/scripts/Gunsmith.gd": return "Silahçı"
 		"res://village/scripts/Armorer.gd": return "Zırh Ustası"
+		"res://village/scripts/Weaver.gd": return "Dokuma Tezgahı"
 		"res://village/scripts/Tailor.gd": return "Terzi"
 		"res://village/scripts/TeaHouse.gd": return "Çayhane"
 		"res://village/scripts/SoapMaker.gd": return "Sabuncu"
+		"res://village/scripts/Herbalist.gd": return "Şifacı"
 		"res://village/scripts/House.gd": return "Ev"
 		"res://village/scripts/Barracks.gd": return "Kışla"
 		_: return "Bilinmeyen"
@@ -1233,6 +1425,11 @@ func get_building_status_info(building_type: String) -> String:
 			if "max_workers" in building:
 				var cur_workers := int(building.max_workers)
 				info += " • Etki: İşçi " + str(cur_workers) + "→" + str(cur_workers + 1)
+
+	if building_recipe_texts.has(building_type):
+		if info != "":
+			info += "\n"
+		info += building_recipe_texts[building_type]
 	
 	return info
 
@@ -1385,6 +1582,8 @@ func get_building_detailed_info(building: Node, building_type: String) -> String
 	if building.has_method("get_production_info"):
 		var production_info = building.get_production_info()
 		info += "📈 Üretim: " + production_info + "\n"
+	if building_recipe_texts.has(building_type):
+		info += "🧪 " + String(building_recipe_texts[building_type]) + "\n"
 	
 	return info
 
@@ -1433,13 +1632,17 @@ func find_existing_buildings(building_type: String) -> Array:
 		"Avcı": script_path = "res://village/scripts/HunterGathererHut.gd"
 		"Oduncu": script_path = "res://village/scripts/WoodcutterCamp.gd"
 		"Taş Madeni": script_path = "res://village/scripts/StoneMine.gd"
+		"Kerestehane": script_path = "res://village/scripts/Sawmill.gd"
+		"Tuğla Ocağı": script_path = "res://village/scripts/Brickworks.gd"
 		"Fırın": script_path = "res://village/scripts/Bakery.gd"
 		"Demirci": script_path = "res://village/scripts/Blacksmith.gd"
 		"Silahçı": script_path = "res://village/scripts/Gunsmith.gd"
 		"Zırh Ustası": script_path = "res://village/scripts/Armorer.gd"
+		"Dokuma Tezgahı": script_path = "res://village/scripts/Weaver.gd"
 		"Terzi": script_path = "res://village/scripts/Tailor.gd"
 		"Çayhane": script_path = "res://village/scripts/TeaHouse.gd"
 		"Sabuncu": script_path = "res://village/scripts/SoapMaker.gd"
+		"Şifacı": script_path = "res://village/scripts/Herbalist.gd"
 		"Ev": script_path = "res://village/scripts/House.gd"
 		"Kışla": script_path = "res://village/scripts/Barracks.gd"
 		"Kale": script_path = "res://village/scripts/Castle.gd"
@@ -1652,18 +1855,19 @@ func show_page(page_index: int):
 # B tuşu ile geri gitme
 func handle_back_button():
 	if current_page == PageType.CONSTRUCTION:
-		match current_menu_state:
-			MenuState.İŞLEM_SEÇİMİ:
-				print("Zaten en üst seviyede, geri gidilemez")
-			MenuState.KATEGORİ_SEÇİMİ:
-				print("Kategori seçiminden işlem seçimine geri dönülüyor")
-				current_menu_state = MenuState.İŞLEM_SEÇİMİ
-				update_construction_ui()
-			MenuState.BİNA_SEÇİMİ:
-				print("Bina seçiminden kategori seçimine geri dönülüyor")
-				current_menu_state = MenuState.KATEGORİ_SEÇİMİ
-				current_building_index = 0
-				update_construction_ui()
+		if _demolish_confirm_open:
+			_debug_construction("B -> cancel_demolish")
+			_close_demolish_confirm_popup()
+			update_construction_ui()
+			return
+		if _construction_info_popup:
+			_debug_construction("B -> close_info_popup")
+			_close_building_info_popup()
+			update_construction_ui()
+			return
+		_debug_construction("B -> back_to_missions")
+		show_page(PageType.MISSIONS)
+		return
 	elif current_page == PageType.ASSIGNMENT:
 		match current_assignment_menu_state:
 			AssignmentMenuState.BİNA_LISTESİ:
@@ -3802,8 +4006,8 @@ func assign_selected_mission():
 	
 	print("========================")
 
-# İnşaat sayfası kontrolleri
-func handle_construction_input(event):
+# İnşaat sayfası kontrolleri (v2)
+func handle_construction_input_v2(event):
 	# D-Pad debounce kontrolü
 	if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right") or event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down"):
 		print("🏗️ İnşaat D-Pad input geldi - Timer: %.2f, Menü Durumu: %s" % [dpad_debounce_timer, MenuState.keys()[current_menu_state]])
@@ -4304,89 +4508,157 @@ func _cancel_selected_trade_agreement():
 # İnşaat işlemini gerçekleştir
 func execute_construction():
 	print("=== İNŞAAT DEBUG ===")
-	print("İşlem: %s" % action_names[current_construction_action])
 	print("Kategori: %s" % category_names[current_building_category])
 	
 	# Menü durumuna göre işlem yap
-	match current_menu_state:
-		MenuState.İŞLEM_SEÇİMİ:
-			print("=== A TUŞU: İşlem seçildi, kategorilere geçiliyor ===")
-			current_menu_state = MenuState.KATEGORİ_SEÇİMİ
-			current_building_category = 0  # Kategori seçimine başla
-			update_construction_ui()
-		
-		MenuState.KATEGORİ_SEÇİMİ:
-			print("=== A TUŞU: Kategori seçildi, binalara geçiliyor ===")
-			current_menu_state = MenuState.BİNA_SEÇİMİ
-			current_building_index = 0  # Bina seçimine başla
-			update_construction_ui()
-		
-		MenuState.BİNA_SEÇİMİ:
-			print("=== A TUŞU: Bina inşa ediliyor ===")
-			perform_construction_action()
+	if current_menu_state != MenuState.BİNA_SEÇİMİ:
+		current_menu_state = MenuState.BİNA_SEÇİMİ
+	print("=== A TUŞU: Seçili bina için işlem (inşa/yükselt) ===")
+	_build_or_upgrade_selected()
 	
 	print("===================")
 
 # Gerçek inşaat işlemini gerçekleştir
-func perform_construction_action():
+func _build_or_upgrade_selected():
 	var building_name = building_categories[current_building_category][current_building_index]
-	print("Bina: %s" % building_name)
-	
-	match current_construction_action:
-		ConstructionAction.BUILD:
-			print("=== İNŞAAT İŞLEMİ ===")
-			print("Bina türü: %s" % building_name)
-			# Gerçek inşaat: VillageManager üzerinden yerleştir
-			var scene_path = building_scene_paths.get(building_name, "")
-			if scene_path.is_empty():
-				printerr("Build error: scene path not found for ", building_name)
+	var existing = find_existing_buildings(building_name)
+	if existing.is_empty():
+		# İnşa et
+		var scene_path = building_scene_paths.get(building_name, "")
+		if scene_path.is_empty():
+			printerr("Build error: scene path not found for ", building_name)
+			return
+		var vm = get_node_or_null("/root/VillageManager")
+		if vm and vm.has_method("request_build_building"):
+			var ok = vm.request_build_building(scene_path)
+			if ok:
+				print("✅ Bina inşa edildi: ", building_name)
+				if vm.has_signal("village_data_changed"):
+					vm.emit_signal("village_data_changed")
 			else:
-				var vm = get_node_or_null("/root/VillageManager")
-				if vm and vm.has_method("request_build_building"):
-					var ok = vm.request_build_building(scene_path)
-					if ok:
-						print("✅ Bina inşa edildi!")
-					else:
-						print("❌ İnşa başarısız (şartlar/yer yok)!")
-				else:
-					printerr("VillageManager not found or missing request_build_building")
-		
-		ConstructionAction.DEMOLISH:
-			print("=== YIKMA İŞLEMİ ===")
-			print("Bina türü: %s" % building_name)
-			# Burada gerçek yıkma işlemi yapılacak
-			print("✅ Bina yıkıldı!")
-		
-		ConstructionAction.UPGRADE:
-			print("=== YÜKSELTME İŞLEMİ ===")
-			print("Bina türü: %s" % building_name)
-			# Seçili türden sahnedeki ilk binayı bul ve start_upgrade çağır
-			var buildings := find_existing_buildings(building_name)
-			if buildings.is_empty():
-				printerr("Upgrade error: building not found for ", building_name)
+				print("❌ İnşa başarısız (şartlar/yer yok)!")
+		else:
+			printerr("VillageManager not found or missing request_build_building")
+	else:
+		# Yükselt
+		var b = existing[0]
+		if b and b.has_method("start_upgrade"):
+			var ok2 = b.start_upgrade()
+			if ok2:
+				print("✅ Yükseltme başlatıldı: ", b.name)
 			else:
-				var b = buildings[0]
-				if b and b.has_method("start_upgrade"):
-					var ok = b.start_upgrade()
-					if ok:
-						print("✅ Yükseltme başlatıldı: ", b.name)
-					else:
-						print("❌ Yükseltme başlatılamadı: ", b.name)
-				else:
-					printerr("Upgrade error: start_upgrade missing on building")
-		
-		ConstructionAction.INFO:
-			print("=== BİLGİ GÖSTERİMİ ===")
-			print("Bina türü: %s" % building_name)
-			# Burada bina bilgileri gösterilecek
-			print("ℹ️ Bina bilgileri gösterildi!")
-	
-	# İşlem tamamlandıktan sonra menü durumunu sıfırla
-	current_menu_state = MenuState.İŞLEM_SEÇİMİ
-	current_construction_action = 0
-	current_building_category = 0
-	current_building_index = 0
-	update_construction_ui()
+				print("❌ Yükseltme başlatılamadı: ", b.name)
+		else:
+			print("ℹ️ Bu bina için yükseltme mevcut değil: ", building_name)
+
+func _demolish_selected_building():
+	var building_name = building_categories[current_building_category][current_building_index]
+	var existing = find_existing_buildings(building_name)
+	if existing.is_empty():
+		print("ℹ️ Yıkılacak bina bulunamadı: ", building_name)
+		return
+	var b = existing[0]
+	if b and is_instance_valid(b):
+		b.queue_free()
+		print("🛠️ Bina yıkıldı: ", building_name)
+		var vm = get_node_or_null("/root/VillageManager")
+		if vm and vm.has_signal("village_data_changed"):
+			vm.emit_signal("village_data_changed")
+
+var _construction_info_popup: Panel = null
+var _construction_info_label: Label = null
+var _demolish_confirm_popup: Panel = null
+var _demolish_confirm_label: Label = null
+var _demolish_confirm_open: bool = false
+var _construction_debug_label: Label = null
+
+func _debug_construction(msg: String) -> void:
+	print("[CONSTRUCTION] ", msg)
+	if current_page == PageType.CONSTRUCTION:
+		if _construction_debug_label == null and construction_page != null:
+			_construction_debug_label = Label.new()
+			_construction_debug_label.name = "ConstructionDebugLabel"
+			_construction_debug_label.position = Vector2(20, 20)
+			_construction_debug_label.add_theme_color_override("font_color", Color(1,1,0.6))
+			construction_page.add_child(_construction_debug_label)
+		if _construction_debug_label:
+			var cat_name := String(category_names[current_building_category]) if typeof(category_names) != TYPE_NIL else "?"
+			_construction_debug_label.text = "%s\nCat:%s Idx:%d Open:%s" % [msg, cat_name, int(current_building_index), str(_demolish_confirm_open)]
+
+func _open_building_info_popup():
+	if _construction_info_popup:
+		return
+	var buildings = building_categories.get(current_building_category, [])
+	if buildings.is_empty():
+		return
+	var building_name = buildings[current_building_index]
+	_construction_info_popup = Panel.new()
+	_construction_info_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var overlay := StyleBoxFlat.new()
+	overlay.bg_color = Color(0,0,0,0.65)
+	_construction_info_popup.add_theme_stylebox_override("panel", overlay)
+	add_child(_construction_info_popup)
+	var inner = Panel.new()
+	inner.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	inner.offset_left = -300
+	inner.offset_right = 300
+	inner.offset_top = -180
+	inner.offset_bottom = 180
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.2,0.2,0.2,1)
+	inner.add_theme_stylebox_override("panel", sb)
+	_construction_info_popup.add_child(inner)
+	_construction_info_label = Label.new()
+	_construction_info_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_construction_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_construction_info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	inner.add_child(_construction_info_label)
+	var info_text = get_building_status_info(building_name)
+	_construction_info_label.text = building_name + "\n\n" + info_text + "\n\n[B ile kapat]"
+
+func _close_building_info_popup():
+	if _construction_info_popup:
+		_construction_info_popup.queue_free()
+		_construction_info_popup = null
+		_construction_info_label = null
+
+func _open_demolish_confirm_popup():
+	if _demolish_confirm_open:
+		return
+	_demolish_confirm_popup = Panel.new()
+	_demolish_confirm_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var overlay2 := StyleBoxFlat.new()
+	overlay2.bg_color = Color(0,0,0,0.65)
+	_demolish_confirm_popup.add_theme_stylebox_override("panel", overlay2)
+	add_child(_demolish_confirm_popup)
+	var inner2 := Panel.new()
+	inner2.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	inner2.offset_left = -260
+	inner2.offset_right = 260
+	inner2.offset_top = -110
+	inner2.offset_bottom = 110
+	var sb2 := StyleBoxFlat.new()
+	sb2.bg_color = Color(0.22,0.22,0.22,1)
+	inner2.add_theme_stylebox_override("panel", sb2)
+	_demolish_confirm_popup.add_child(inner2)
+	_demolish_confirm_label = Label.new()
+	_demolish_confirm_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_demolish_confirm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_demolish_confirm_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	inner2.add_child(_demolish_confirm_label)
+	var buildings = building_categories.get(current_building_category, [])
+	var name_text: String = ""
+	if buildings.size() > 0:
+		name_text = String(buildings[current_building_index])
+	_demolish_confirm_label.text = "\n" + name_text + "\n\nBu binayı yıkmak istiyor musun?\n\nA: Evet    B: Hayır"
+	_demolish_confirm_open = true
+
+func _close_demolish_confirm_popup():
+	if _demolish_confirm_popup:
+		_demolish_confirm_popup.queue_free()
+		_demolish_confirm_popup = null
+		_demolish_confirm_label = null
+	_demolish_confirm_open = false
 
 # --- EKSİK UI GÜNCELLEME FONKSİYONLARI ---
 

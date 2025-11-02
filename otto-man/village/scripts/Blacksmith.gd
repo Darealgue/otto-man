@@ -1,6 +1,6 @@
 extends Node2D
 
-# Demirci Atölyesi (Weapon)
+# Demirci Atölyesi (Metal)
 
 @export var level: int = 1
 @export var max_workers: int = 1
@@ -16,11 +16,11 @@ const UPGRADE_COSTS = {
 	3: {"gold": 80}
 }
 
-var required_resources: Dictionary = {"metal": 1}  # Weapon üretmek için metal gerekiyor
-var produced_resource: String = "weapon"
+var required_resources: Dictionary = {"stone": 1, "wood": 1}
+var produced_resource: String = "metal"
 
 # --- Fetch/Buffer Production ---
-var input_buffer: Dictionary = {"metal": 0}
+var input_buffer: Dictionary = {"stone": 0, "wood": 0}
 var production_progress: float = 0.0
 const PRODUCTION_TIME: float = 300.0
 var fetch_timer: Timer = null
@@ -116,7 +116,7 @@ func _on_upgrade_finished() -> void:
 	VillageManager.notify_building_state_changed(self)
 
 func get_production_info() -> String:
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Silah: (metal kullanarak)"
+	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Metal: (taş+odun)"
 
 # --- Worker Management (simple placeholder) ---
 var assigned_worker_ids: Array[int] = []

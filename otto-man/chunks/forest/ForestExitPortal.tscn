@@ -1,0 +1,28 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://village/scripts/PortalArea.gd" id="1_jc0h0"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_q3yfy"]
+size = Vector2(220, 320)
+
+[node name="ForestExitPortal" type="Node2D"]
+z_index = 2
+
+[node name="PortalArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 3
+script = ExtResource("1_jc0h0")
+destination = "village"
+payload_source = "forest"
+payload_reason = "forest_exit"
+hold_time_required = 0.2
+travel_hours_back = 1.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PortalArea"]
+shape = SubResource("RectangleShape2D_q3yfy")
+
+[node name="Info" type="Label" parent="."]
+position = Vector2(0, -220)
+horizontal_alignment = 1
+text = "⬆ Köye Dön"
+

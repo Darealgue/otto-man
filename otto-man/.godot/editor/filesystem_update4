@@ -5,7 +5,4 @@ res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
-res://village/missions/MissionCenter.gd
-res://village/scripts/Barracks.gd
-res://village/scripts/VillageManager.gd
-res://village/scripts/VillageStatusUI.gd
+res://scenes/MainMenu.tscn

@@ -10,6 +10,8 @@ const BUILDING_REQUIREMENTS = {
 	"res://village/buildings/StoneMine.tscn": {"cost": {"gold": 5}},
 	"res://village/buildings/HunterGathererHut.tscn": {"cost": {"gold": 5}},
 	"res://village/buildings/Well.tscn": {"cost": {"gold": 10}},
+	"res://village/buildings/Sawmill.tscn": {"cost": {"gold": 40, "wood": 1}},
+	"res://village/buildings/Brickworks.tscn": {"cost": {"gold": 40, "stone": 1}},
 	# Gelişmiş binalar (Fırın için sadece altın gereksinimi)
 	"res://village/buildings/Bakery.tscn": {"cost": {"gold": 50}},
 	"res://village/buildings/House.tscn": {"cost": {"gold": 50,"wood": 1, "stone": 1}}, #<<< YENİ EV MALİYETİ
@@ -18,6 +20,8 @@ const BUILDING_REQUIREMENTS = {
 	"res://village/buildings/Blacksmith.tscn": {"cost": {"gold": 120, "wood": 2, "stone": 2}},
 	"res://village/buildings/Armorer.tscn": {"cost": {"gold": 120, "wood": 2, "stone": 2}},
 	"res://village/buildings/Tailor.tscn": {"cost": {"gold": 90, "wood": 1}},
+	"res://village/buildings/Weaver.tscn": {"cost": {"gold": 70, "wood": 1}},
+	"res://village/buildings/Herbalist.tscn": {"cost": {"gold": 70}},
 	"res://village/buildings/TeaHouse.tscn": {"cost": {"gold": 60}},
 	"res://village/buildings/SoapMaker.tscn": {"cost": {"gold": 80}},
 	"res://village/buildings/Gunsmith.tscn": {"cost": {"gold": 120, "wood": 2}},
@@ -41,8 +45,15 @@ var resource_levels: Dictionary = {
 	"stone": 0,
 	"food": 0,
 	"water": 0,
+	"lumber": 0,
+	"brick": 0,
 	"metal": 0,
+	"cloth": 0,
+	"garment": 0,
 	"bread": 0,
+	"tea": 0,
+	"medicine": 0,
+	"soap": 0,
 	"weapon": 5,  # Silah (Blacksmith üretir) - Başlangıç: 5
 	"armor": 5    # Zırh (Armorer üretir) - Başlangıç: 5
 }
@@ -53,21 +64,30 @@ var locked_resource_levels: Dictionary = {
 	"stone": 0,
 	"food": 0,
 	"water": 0,
+	"lumber": 0,
+	"brick": 0,
 	"metal": 0,
-	"bread": 0 # Ekmek de kilitlenebilir mi? Şimdilik ekleyelim.
+	"cloth": 0,
+	"garment": 0,
+	"bread": 0,
+	"tea": 0,
+	"medicine": 0,
+	"soap": 0
 }
 
 # --- ZAMAN BAZLI ÜRETİM (YENİ) ---
 # Temel kaynaklar için stok ve saat bazlı birikim ilerlemesi
-const BASE_RESOURCE_TYPES := ["wood", "stone", "food", "water", "metal"]
+const BASE_RESOURCE_TYPES := ["wood", "stone", "food", "water"]
 const SECONDS_PER_RESOURCE_UNIT := 300.0 # 1 işçi-2saat == 1 kaynak (oyun içi 2 saat = 2 * 2.5 * 60 = 300 gerçek saniye)
 var base_production_progress: Dictionary = {
 	"wood": 0.0,
 	"stone": 0.0,
 	"food": 0.0,
-	"water": 0.0,
-	"metal": 0.0
+	"water": 0.0
 }
+
+var _time_signal_connected: bool = false
+var _time_advanced_connected: bool = false
 
 # Sinyaller
 signal village_data_changed
@@ -78,6 +98,7 @@ signal cariye_data_changed
 signal gorev_data_changed
 signal building_state_changed(building_node)
 signal mission_completed(cariye_id, gorev_id, successful, results)
+signal time_skip_completed(total_hours, produced_resources)  # total_hours: float, produced_resources: Dictionary
 
 # --- Diğer Değişkenler (Cariye, Görev vb.) ---
 # Cariyeleri saklayacağımız dictionary: { cariye_id: {veri} }
@@ -104,6 +125,1052 @@ var worker_id_counter: int = 0 # <<< YENİ: ID üretici
 var campfire_node: Node2D = null # Kamp ateşi referansı
 var workers_container: Node = null #<<< YENİ: workers_parent_node yerine
 
+var _saved_building_states: Array = []
+var _saved_worker_states: Array = []
+var _saved_resource_levels: Dictionary = {}  # Save resource levels when leaving village
+var _saved_base_production_progress: Dictionary = {}  # Save production progress
+var _saved_snapshot_time: Dictionary = {}  # Save time when snapshot is taken (day, hour, minute)
+var _pending_time_skip_notification: Dictionary = {}  # Pending notification data to show after scene loads
+var _is_leaving_village: bool = false  # Flag to prevent simulation when leaving village
+var _scene_signal_connected: bool = false
+
+# --- Village Event System ---
+var village_events_enabled: bool = true  # Enable/disable village-specific events
+var village_daily_event_chance: float = 0.15  # 15% chance per day for a village event
+var _village_event_cooldowns: Dictionary = {}  # Event type -> day when cooldown ends
+var _last_village_event_check_day: int = 0  # Track last day we checked for events
+# Note: events_enabled, daily_event_chance, events_active, _event_cooldowns are already defined below
+
+var _skip_next_snapshot: bool = false
+
+func _ready() -> void:
+	# Connect to SceneManager for scene change tracking
+	if is_instance_valid(SceneManager) and not _scene_signal_connected:
+		SceneManager.scene_change_started.connect(Callable(self, "_on_scene_change_started"))
+		_scene_signal_connected = true
+	
+	# Initialize resource levels (restore from saved if available)
+	if not _saved_resource_levels.is_empty():
+		resource_levels = _saved_resource_levels.duplicate(true)
+		# Ensure weapon/armor have default values if not in saved data
+		if not resource_levels.has("weapon"):
+			resource_levels["weapon"] = 5
+		if not resource_levels.has("armor"):
+			resource_levels["armor"] = 5
+	else:
+		resource_levels = {
+			"wood": 0,
+			"stone": 0,
+			"food": 0,
+			"water": 0,
+			"lumber": 0,
+			"brick": 0,
+			"metal": 0,
+			"cloth": 0,
+			"garment": 0,
+			"bread": 0,
+			"tea": 0,
+			"medicine": 0,
+			"soap": 0,
+			"weapon": resource_levels.get("weapon", 5),
+			"armor": resource_levels.get("armor", 5)
+		}
+	
+	# Restore production progress if available
+	if not _saved_base_production_progress.is_empty():
+		base_production_progress = _saved_base_production_progress.duplicate(true)
+	else:
+		for res in BASE_RESOURCE_TYPES:
+			if not base_production_progress.has(res):
+				base_production_progress[res] = 0.0
+	locked_resource_levels = {
+		"wood": 0,
+		"stone": 0,
+		"food": 0,
+		"water": 0,
+		"lumber": 0,
+		"brick": 0,
+		"metal": 0,
+		"cloth": 0,
+		"garment": 0,
+		"bread": 0,
+		"tea": 0,
+		"medicine": 0,
+		"soap": 0
+	}
+	_create_debug_cariyeler()
+	_create_debug_gorevler()
+	
+	# Connect WorldManager signals
+	call_deferred("_connect_world_manager_signals")
+
+func _on_scene_change_started(target_path: String) -> void:
+	if not is_instance_valid(SceneManager):
+		return
+	if SceneManager.current_scene_path != SceneManager.VILLAGE_SCENE:
+		return
+	# Set flag to prevent simulation during travel out (we're leaving village)
+	_is_leaving_village = true
+	# Save current time before taking snapshot (this is the time simulation should start from)
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager:
+		_saved_snapshot_time = {
+			"day": time_manager.get_day() if time_manager.has_method("get_day") else 0,
+			"hour": time_manager.get_hour() if time_manager.has_method("get_hour") else 0,
+			"minute": time_manager.get_minute() if time_manager.has_method("get_minute") else 0
+		}
+	snapshot_state_for_scene_exit()
+
+func schedule_skip_next_snapshot() -> void:
+	set("_skip_next_snapshot", true)
+	print("[VillageManager] ⏭️ DEBUG: Next snapshot will be skipped")
+
+func snapshot_state_for_scene_exit() -> void:
+	var skip_flag: bool = false
+	if "_skip_next_snapshot" in self:
+		skip_flag = bool(get("_skip_next_snapshot"))
+	if skip_flag:
+		print("[VillageManager] ⏭️ DEBUG: Skipping snapshot_state_for_scene_exit() as requested")
+		set("_skip_next_snapshot", false)
+		return
+	print("[VillageManager] 📸 DEBUG: Starting snapshot_state_for_scene_exit()")
+	if not is_instance_valid(village_scene_instance):
+		print("[VillageManager] ⚠️ DEBUG: village_scene_instance is not valid, skipping snapshot")
+		return
+
+	_saved_building_states.clear()
+	var placed_buildings := village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		print("[VillageManager] ⚠️ DEBUG: PlacedBuildings node not found!")
+		return
+	
+	var building_count = 0
+	print("[VillageManager] 🔍 DEBUG: Found PlacedBuildings node, scanning children...")
+	for building in placed_buildings.get_children():
+			if not (building is Node2D):
+				continue
+			var node2d := building as Node2D
+			var scene_path: String = building.scene_file_path
+			if scene_path.is_empty():
+				continue
+			var entry: Dictionary = {
+				"scene_path": scene_path,
+				"position": node2d.global_position,
+				"global_position": node2d.global_position,
+				"local_position": node2d.position,
+				"key": _make_building_snapshot_key(scene_path, node2d.global_position)
+			}
+			if "level" in building:
+				var level_val = building.get("level")
+				if level_val != null:
+					entry["level"] = int(level_val)
+					print("[VillageManager] 💾 DEBUG: Building %s - Level saved: %d" % [scene_path.get_file(), entry["level"]])
+			else:
+				print("[VillageManager] ⚠️ DEBUG: Building %s - No 'level' property found" % scene_path.get_file())
+			if "assigned_workers" in building:
+				entry["assigned_workers"] = int(building.assigned_workers)
+				print("[VillageManager] 💾 DEBUG: Building %s - Assigned workers saved: %d" % [scene_path.get_file(), entry["assigned_workers"]])
+			if "max_workers" in building:
+				entry["max_workers"] = int(building.max_workers)
+				print("[VillageManager] 💾 DEBUG: Building %s - Max workers saved: %d" % [scene_path.get_file(), entry["max_workers"]])
+			if "assigned_worker_ids" in building:
+				entry["assigned_worker_ids"] = (building.assigned_worker_ids as Array).duplicate(true)
+				print("[VillageManager] 💾 DEBUG: Building %s - Worker IDs saved: %s" % [scene_path.get_file(), entry["assigned_worker_ids"]])
+			if "produced_resource" in building:
+				entry["produced_resource"] = String(building.produced_resource)
+			if "required_resources" in building:
+				entry["required_resources"] = _copy_dictionary(building.required_resources)
+			if "input_buffer" in building:
+				entry["input_buffer"] = _copy_dictionary(building.input_buffer)
+			if "production_progress" in building:
+				entry["production_progress"] = float(building.production_progress)
+			if "PRODUCTION_TIME" in building:
+				entry["production_time"] = float(building.PRODUCTION_TIME)
+			if "FETCH_TIME_PER_UNIT" in building:
+				entry["fetch_time"] = float(building.FETCH_TIME_PER_UNIT)
+			if "fetch_target" in building:
+				entry["fetch_target"] = String(building.fetch_target)
+			if "is_fetcher_out" in building:
+				entry["is_fetcher_out"] = bool(building.is_fetcher_out)
+			if "fetch_timer" in building and building.fetch_timer:
+				entry["fetch_time_left"] = building.fetch_timer.time_left
+			if "is_upgrading" in building:
+				entry["is_upgrading"] = bool(building.is_upgrading)
+				if building.is_upgrading and "upgrade_timer" in building and building.upgrade_timer:
+					entry["upgrade_time_left"] = building.upgrade_timer.time_left
+			if "upgrade_time_seconds" in building:
+				entry["upgrade_time_total"] = float(building.upgrade_time_seconds)
+			entry["fetch_progress"] = entry.get("fetch_progress", {})
+			_saved_building_states.append(entry)
+			building_count += 1
+			print("[VillageManager] 💾 DEBUG: Snapshot entry created for building: %s at %s (key: %s)" % [scene_path.get_file(), str(node2d.global_position), entry.get("key", "")])
+	
+	print("[VillageManager] ✅ DEBUG: Snapshot complete - %d buildings saved" % building_count)
+	
+	# Save resource levels and production progress
+	_saved_resource_levels = resource_levels.duplicate(true)
+	_saved_base_production_progress = base_production_progress.duplicate(true)
+
+	_saved_worker_states.clear()
+	var worker_ids := all_workers.keys()
+	worker_ids.sort()
+	print("[VillageManager] 💾 DEBUG: Saving %d workers..." % worker_ids.size())
+	for worker_id in worker_ids:
+		var worker_data = all_workers.get(worker_id, {})
+		if not worker_data:
+			continue
+		var worker_instance: Node = worker_data.get("instance", null)
+		if not is_instance_valid(worker_instance):
+			continue
+		var npc_info_value = worker_instance.get("NPC_Info") if worker_instance else null
+		var npc_info: Dictionary = npc_info_value.duplicate(true) if npc_info_value is Dictionary else {}
+		var job_type_value = worker_instance.get("assigned_job_type") if worker_instance else null
+		var job_type: String = job_type_value if job_type_value is String else ""
+		var building_key := ""
+		var assigned_building = worker_instance.get("assigned_building_node") if worker_instance else null
+		if is_instance_valid(assigned_building) and assigned_building is Node2D:
+			var assigned_scene: String = assigned_building.scene_file_path
+			if not assigned_scene.is_empty():
+				building_key = _make_building_snapshot_key(assigned_scene, assigned_building.global_position)
+		var worker_entry: Dictionary = {
+			"worker_id": worker_id,
+			"npc_info": npc_info,
+			"job_type": job_type,
+			"building_key": building_key
+		}
+		_saved_worker_states.append(worker_entry)
+		print("[VillageManager] 💾 DEBUG: Worker %d saved - Job: %s, Building: %s" % [worker_id, job_type, building_key])
+	
+	print("[VillageManager] ✅ DEBUG: %d workers saved to snapshot" % _saved_worker_states.size())
+	print("[VillageManager] 💾 DEBUG: Resources saved: %s" % str(_saved_resource_levels))
+	
+	if is_instance_valid(VillagerAiInitializer):
+		VillagerAiInitializer.Saved_Villagers.clear()
+		for worker_entry in _saved_worker_states:
+			var info: Dictionary = worker_entry.get("npc_info", {}).duplicate(true)
+			VillagerAiInitializer.Saved_Villagers.append(info)
+
+func _make_building_snapshot_key(scene_path: String, position: Vector2) -> String:
+	return "%s|%s" % [scene_path, str(position)]
+
+func _to_vector2(value) -> Vector2:
+	if value is Vector2:
+		return value
+	if value is Dictionary:
+		var x = float(value.get("x", 0.0))
+		var y = float(value.get("y", 0.0))
+		return Vector2(x, y)
+	if value is Array and value.size() >= 2:
+		return Vector2(float(value[0]), float(value[1]))
+	return Vector2.ZERO
+
+func _reset_worker_runtime_data() -> void:
+	for worker_id in all_workers.keys():
+		var worker_data = all_workers[worker_id]
+		if worker_data and worker_data.has("instance"):
+			var worker_instance = worker_data["instance"]
+			if is_instance_valid(worker_instance) and worker_instance.get_parent():
+				worker_instance.queue_free()
+	all_workers.clear()
+	total_workers = 0
+	idle_workers = 0
+
+func _restore_saved_buildings() -> Dictionary:
+	print("[VillageManager] 🔄 DEBUG: Starting _restore_saved_buildings()")
+	var restored_map: Dictionary = {}
+	if not is_instance_valid(village_scene_instance):
+		print("[VillageManager] ⚠️ DEBUG: village_scene_instance is not valid, cannot restore buildings")
+		return restored_map
+	if _saved_building_states.is_empty():
+		print("[VillageManager] ⚠️ DEBUG: _saved_building_states is empty, nothing to restore")
+		return restored_map
+	print("[VillageManager] 🔍 DEBUG: Restoring %d buildings from snapshot" % _saved_building_states.size())
+	var placed_buildings := village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		print("[VillageManager] ⚠️ DEBUG: PlacedBuildings node not found!")
+		return restored_map
+	
+	var existing_count = placed_buildings.get_child_count()
+	print("[VillageManager] 🔍 DEBUG: Clearing %d existing buildings..." % existing_count)
+	for child in placed_buildings.get_children():
+		child.queue_free()
+	
+	var restored_count = 0
+	for entry in _saved_building_states:
+		var scene_path: String = entry.get("scene_path", "")
+		if scene_path.is_empty():
+			print("[VillageManager] ⚠️ DEBUG: Entry has empty scene_path, skipping")
+			continue
+		if not ResourceLoader.exists(scene_path):
+			print("[VillageManager] ⚠️ DEBUG: Scene path does not exist: %s" % scene_path)
+			continue
+		var packed := load(scene_path)
+		if not (packed is PackedScene):
+			print("[VillageManager] ⚠️ DEBUG: Loaded resource is not a PackedScene: %s" % scene_path)
+			continue
+		var building_instance = (packed as PackedScene).instantiate()
+		placed_buildings.add_child(building_instance)
+		print("[VillageManager] ✅ DEBUG: Building instance created: %s" % scene_path.get_file())
+		if building_instance is Node2D:
+			var node2d := building_instance as Node2D
+			var saved_global_pos: Vector2 = _to_vector2(entry.get("global_position", entry.get("position", Vector2.ZERO)))
+			var saved_local_pos = entry.get("local_position", null)
+			node2d.global_position = saved_global_pos
+			print("[VillageManager] 📍 DEBUG: Building %s positioned at global: %s" % [scene_path.get_file(), str(saved_global_pos)])
+			if saved_local_pos is Vector2:
+				node2d.position = saved_local_pos
+				print("[VillageManager] 📍 DEBUG: Using saved local position: %s" % str(saved_local_pos))
+			elif is_instance_valid(placed_buildings):
+				node2d.position = placed_buildings.to_local(saved_global_pos)
+				print("[VillageManager] 📍 DEBUG: Calculated local position: %s" % str(node2d.position))
+		if entry.has("level"):
+			var saved_level = entry.get("level")
+			if saved_level != null:
+				var level_int = int(saved_level)
+				if "level" in building_instance:
+					building_instance.set("level", level_int)
+					print("[VillageManager] ✅ DEBUG: Building %s level restored to: %d" % [scene_path.get_file(), level_int])
+					if building_instance.has_method("_update_texture"):
+						building_instance._update_texture()
+					elif building_instance.has_method("update_texture"):
+						building_instance.update_texture()
+				else:
+					print("[VillageManager] ⚠️ DEBUG: Building %s has no 'level' property, cannot restore level %d" % [scene_path.get_file(), level_int])
+			else:
+				print("[VillageManager] ⚠️ DEBUG: Entry has 'level' key but value is null")
+		else:
+			print("[VillageManager] ⚠️ DEBUG: Entry does not have 'level' key")
+		var max_workers_restored := false
+		if entry.has("max_workers"):
+			var saved_max_workers = entry.get("max_workers", null)
+			if saved_max_workers != null and "max_workers" in building_instance:
+				building_instance.max_workers = int(saved_max_workers)
+				max_workers_restored = true
+				print("[VillageManager] 👷 DEBUG: Building %s max_workers restored to: %d" % [scene_path.get_file(), int(saved_max_workers)])
+		elif "max_workers" in building_instance and "level" in building_instance:
+			building_instance.max_workers = max(int(building_instance.max_workers), int(building_instance.level))
+			print("[VillageManager] 👷 DEBUG: Building %s max_workers derived from level: %d" % [scene_path.get_file(), int(building_instance.max_workers)])
+		if entry.has("assigned_workers"):
+			var saved_workers = int(entry.get("assigned_workers", 0))
+			if "assigned_workers" in building_instance:
+				building_instance.assigned_workers = saved_workers
+				print("[VillageManager] 👷 DEBUG: Building %s assigned_workers restored to: %d" % [scene_path.get_file(), saved_workers])
+				if "max_workers" in building_instance:
+					building_instance.max_workers = max(int(building_instance.max_workers), saved_workers)
+					if not max_workers_restored:
+						print("[VillageManager] 👷 DEBUG: Building %s max_workers adjusted to accommodate assigned workers: %d" % [scene_path.get_file(), int(building_instance.max_workers)])
+			else:
+				print("[VillageManager] ⚠️ DEBUG: Building %s has no 'assigned_workers' property, cannot restore %d" % [scene_path.get_file(), saved_workers])
+		if entry.has("assigned_worker_ids"):
+			var saved_ids = entry.get("assigned_worker_ids", [])
+			if "assigned_worker_ids" in building_instance:
+				if saved_ids is Array:
+					var worker_ids_array: Array[int] = []
+					for id_val in saved_ids:
+						if id_val is int:
+							worker_ids_array.append(id_val)
+					building_instance.set("assigned_worker_ids", worker_ids_array)
+					print("[VillageManager] 👷 DEBUG: Building %s assigned_worker_ids restored: %s" % [scene_path.get_file(), str(worker_ids_array)])
+				else:
+					print("[VillageManager] ⚠️ DEBUG: Building %s saved_worker_ids is not Array: %s" % [scene_path.get_file(), str(saved_ids)])
+			else:
+				print("[VillageManager] ⚠️ DEBUG: Building %s has no 'assigned_worker_ids' property" % scene_path.get_file())
+		if entry.has("produced_resource") and "produced_resource" in building_instance:
+			building_instance.produced_resource = String(entry.get("produced_resource", ""))
+		if entry.has("required_resources") and "required_resources" in building_instance:
+			building_instance.required_resources = _copy_dictionary(entry.get("required_resources", {}))
+		if entry.has("input_buffer") and "input_buffer" in building_instance:
+			building_instance.input_buffer = _copy_dictionary(entry.get("input_buffer", {}))
+		if entry.has("production_progress") and "production_progress" in building_instance:
+			building_instance.production_progress = float(entry.get("production_progress", 0.0))
+		if entry.has("is_fetcher_out") and "is_fetcher_out" in building_instance:
+			building_instance.is_fetcher_out = bool(entry.get("is_fetcher_out", false))
+		if entry.has("fetch_target") and "fetch_target" in building_instance:
+			building_instance.fetch_target = String(entry.get("fetch_target", ""))
+		if entry.has("fetch_time_left") and "fetch_timer" in building_instance and building_instance.fetch_timer:
+			var fetch_timer: Timer = building_instance.fetch_timer
+			fetch_timer.stop()
+			var fetch_left := float(entry.get("fetch_time_left", 0.0))
+			if fetch_left > 0.0:
+				fetch_timer.wait_time = max(fetch_left, 0.001)
+				fetch_timer.start(fetch_left)
+		if entry.has("is_upgrading") and "is_upgrading" in building_instance:
+			building_instance.is_upgrading = bool(entry.get("is_upgrading", false))
+			if building_instance.is_upgrading and "upgrade_timer" in building_instance and building_instance.upgrade_timer:
+				var upgrade_timer: Timer = building_instance.upgrade_timer
+				upgrade_timer.stop()
+				var upgrade_left := float(entry.get("upgrade_time_left", 0.0))
+				var upgrade_total := float(entry.get("upgrade_time_total", upgrade_timer.wait_time))
+				if upgrade_total > 0.0:
+					upgrade_timer.wait_time = max(upgrade_total, upgrade_left)
+				if upgrade_left > 0.0:
+					upgrade_timer.start(upgrade_left)
+		if building_instance.has_method("_update_ui"):
+			building_instance._update_ui()
+		elif building_instance.has_method("update_ui"):
+			building_instance.update_ui()
+		var key: String = entry.get("key", "")
+		if key != "":
+			restored_map[key] = building_instance
+			print("[VillageManager] ✅ DEBUG: Building %s added to restored_map with key: %s" % [scene_path.get_file(), key])
+		else:
+			print("[VillageManager] ⚠️ DEBUG: Building %s has no key, not added to restored_map" % scene_path.get_file())
+		restored_count += 1
+	
+	print("[VillageManager] ✅ DEBUG: Restore complete - %d buildings restored, %d in restored_map" % [restored_count, restored_map.size()])
+	return restored_map
+
+func _on_time_advanced(total_minutes: int, start_day: int, start_hour: int, start_minute: int) -> void:
+	if total_minutes <= 0:
+		return
+	# Skip simulation if we're leaving village (only advancing time, no production)
+	if _is_leaving_village:
+		print("[VillageManager] ⏸️ Skipping simulation - leaving village (only advancing time)")
+		return
+	# Use snapshot time if available (when returning from forest/dungeon)
+	# Otherwise use the provided start time
+	var sim_start_day := start_day
+	var sim_start_hour := start_hour
+	var sim_start_minute := start_minute
+	if not _saved_snapshot_time.is_empty():
+		sim_start_day = int(_saved_snapshot_time.get("day", start_day))
+		sim_start_hour = int(_saved_snapshot_time.get("hour", start_hour))
+		sim_start_minute = int(_saved_snapshot_time.get("minute", start_minute))
+		print("[VillageManager] Using snapshot time for simulation: Day %d, %02d:%02d" % [sim_start_day, sim_start_hour, sim_start_minute])
+		# Clear after use
+		_saved_snapshot_time = {}
+	_simulate_time_skip(total_minutes, sim_start_day, sim_start_hour, sim_start_minute)
+
+func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, start_minute: int) -> void:
+	# Validation: Check for invalid input values
+	if total_minutes <= 0:
+		print("[VillageManager] ⚠️ Invalid total_minutes: %d. Skipping simulation." % total_minutes)
+		return
+	
+	# Check for extremely large values (prevent performance issues)
+	# Max: 1000 days = 1,440,000 minutes
+	var max_minutes: int = 1000 * TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR
+	if total_minutes > max_minutes:
+		push_warning("[VillageManager] ⚠️ Very large time skip detected: %d minutes (%.1f days). Capping to %d minutes." % [total_minutes, float(total_minutes) / float(TimeManager.MINUTES_PER_HOUR * TimeManager.HOURS_PER_DAY), max_minutes])
+		total_minutes = max_minutes
+	
+	# Validate start time
+	if start_day < 0:
+		push_warning("[VillageManager] ⚠️ Negative start_day detected: %d. Setting to 1." % start_day)
+		start_day = 1
+	if start_hour < 0 or start_hour >= TimeManager.HOURS_PER_DAY:
+		push_warning("[VillageManager] ⚠️ Invalid start_hour detected: %d. Setting to 0." % start_hour)
+		start_hour = 0
+	if start_minute < 0 or start_minute >= TimeManager.MINUTES_PER_HOUR:
+		push_warning("[VillageManager] ⚠️ Invalid start_minute detected: %d. Setting to 0." % start_minute)
+		start_minute = 0
+	
+	# Check if we have any workers (log warning if none)
+	var worker_maps := _build_worker_maps()
+	var resource_counts: Dictionary = worker_maps.get("resource_counts", {})
+	var building_worker_map: Dictionary = worker_maps.get("building_map", {})
+	var total_workers: int = 0
+	for count in resource_counts.values():
+		total_workers += int(count)
+	if total_workers == 0:
+		print("[VillageManager] ℹ️ No workers assigned to production during time skip. Resources will not increase.")
+	
+	# Save resource levels before simulation to calculate production
+	var resources_before: Dictionary = {}
+	for res in BASE_RESOURCE_TYPES:
+		resources_before[res] = resource_levels.get(res, 0)
+	# Also track advanced resources produced during simulation
+	var advanced_resources_before: Dictionary = {}
+	for res in ["lumber", "brick", "metal", "cloth", "garment", "bread", "tea", "medicine", "soap"]:
+		advanced_resources_before[res] = resource_levels.get(res, 0)
+	var seconds_per_minute: float = float(TimeManager.SECONDS_PER_GAME_MINUTE)
+	var work_start := TimeManager.WORK_START_HOUR
+	var work_end := TimeManager.WORK_END_HOUR
+	var minutes_per_hour := TimeManager.MINUTES_PER_HOUR
+	var hours_per_day := TimeManager.HOURS_PER_DAY
+
+	var current_hour := start_hour % hours_per_day
+	var current_minute := start_minute % minutes_per_hour
+	var current_day := start_day
+	var produced_basic := false
+	var advanced_changed := false
+	var upgrade_completed := false
+
+	var total_seconds := float(total_minutes) * seconds_per_minute
+	var total_hours := float(total_minutes) / float(minutes_per_hour)
+	
+	# Performance optimization: For long time skips (> 1 day), use hourly batch simulation
+	# For shorter skips (< 1 day), simulate minute by minute for accuracy
+	var use_batch_simulation: bool = total_minutes > minutes_per_hour * hours_per_day
+	var batch_size: int = minutes_per_hour if use_batch_simulation else 1  # 1 hour batches or 1 minute batches
+	var batch_iterations: int = total_minutes / batch_size if use_batch_simulation else total_minutes
+	var remaining_minutes: int = total_minutes % batch_size if use_batch_simulation else 0
+	var seconds_per_batch: float = float(batch_size) * seconds_per_minute
+	
+	if use_batch_simulation:
+		print("[VillageManager] ⚡ Using optimized batch simulation: %d hours (%d batches + %d minutes remainder)" % [int(total_hours), batch_iterations, remaining_minutes])
+	
+	# Simulate full batches
+	for i in range(batch_iterations):
+		# Check if current time is work time
+		var is_work_time := current_hour >= work_start and current_hour < work_end
+		if is_work_time:
+			# Simulate production for this batch
+			if use_batch_simulation:
+				# Hourly batch: simulate one hour's worth of production
+				if _simulate_basic_production_minute(seconds_per_batch, resource_counts):
+					produced_basic = true
+				if _simulate_advanced_buildings_minute(seconds_per_batch, building_worker_map):
+					advanced_changed = true
+			else:
+				# Minute by minute: accurate simulation for short skips
+				if _simulate_basic_production_minute(seconds_per_minute, resource_counts):
+					produced_basic = true
+				if _simulate_advanced_buildings_minute(seconds_per_minute, building_worker_map):
+					advanced_changed = true
+		
+		# Advance time by batch size
+		if use_batch_simulation:
+			# Advance by one hour
+			current_hour = (current_hour + 1) % hours_per_day
+			if current_hour == 0:
+				current_day += 1
+		else:
+			# Advance by one minute
+			current_minute += 1
+			if current_minute >= minutes_per_hour:
+				current_minute = 0
+				current_hour = (current_hour + 1) % hours_per_day
+				if current_hour == 0:
+					current_day += 1
+	
+	# Simulate remaining minutes (if using batch simulation and there's a remainder)
+	if use_batch_simulation and remaining_minutes > 0:
+		# Simulate remaining minutes minute by minute for accuracy
+		for i in range(remaining_minutes):
+			var is_work_time := current_hour >= work_start and current_hour < work_end
+			if is_work_time:
+				if _simulate_basic_production_minute(seconds_per_minute, resource_counts):
+					produced_basic = true
+				if _simulate_advanced_buildings_minute(seconds_per_minute, building_worker_map):
+					advanced_changed = true
+			# Advance time by one minute
+			current_minute += 1
+			if current_minute >= minutes_per_hour:
+				current_minute = 0
+				current_hour = (current_hour + 1) % hours_per_day
+				if current_hour == 0:
+					current_day += 1
+	
+	_simulate_upgrades_during_skip(total_seconds)
+	if _simulate_events_during_skip(total_minutes, start_day, current_day):
+		advanced_changed = true
+
+	if produced_basic or advanced_changed or upgrade_completed:
+		emit_signal("village_data_changed")
+	
+	# Calculate produced resources and emit notification signal
+	var produced_resources: Dictionary = {}
+	for res in BASE_RESOURCE_TYPES:
+		var before = resources_before.get(res, 0)
+		var after = resource_levels.get(res, 0)
+		var produced = after - before
+		if produced > 0:
+			produced_resources[res] = produced
+	for res in advanced_resources_before.keys():
+		var before = advanced_resources_before.get(res, 0)
+		var after = resource_levels.get(res, 0)
+		var produced = after - before
+		if produced > 0:
+			produced_resources[res] = produced
+	
+	if total_hours > 0.0:
+		print("[VillageManager] 📢 Emitting time_skip_completed signal: %.1f hours, resources: %s" % [total_hours, produced_resources])
+		# Check if village scene is loaded - if not, save notification for later
+		if is_instance_valid(village_scene_instance):
+			emit_signal("time_skip_completed", total_hours, produced_resources)
+		else:
+			# Scene not loaded yet, save notification for when scene loads
+			_pending_time_skip_notification = {
+				"total_hours": total_hours,
+				"produced_resources": produced_resources
+			}
+			print("[VillageManager] ⏸️ Village scene not loaded, saving notification for later: %.1f hours" % total_hours)
+	else:
+		print("[VillageManager] ⚠️ Not emitting time_skip_completed: total_hours = %.1f" % total_hours)
+
+func _simulate_basic_production_minute(game_seconds: float, resource_counts: Dictionary) -> bool:
+	var produced_any := false
+	var morale_mult: float = _get_morale_multiplier()
+	var prod_mult: float = (1.0 + building_bonus + caregiver_bonus) * global_multiplier
+	for resource_type in BASE_RESOURCE_TYPES:
+		var active_workers: int = int(resource_counts.get(resource_type, 0))
+		if active_workers <= 0:
+			continue
+		var res_mult: float = float(resource_prod_multiplier.get(resource_type, 1.0))
+		var progress_increment: float = game_seconds * float(active_workers) * morale_mult * prod_mult * res_mult
+		base_production_progress[resource_type] = base_production_progress.get(resource_type, 0.0) + progress_increment
+		if base_production_progress[resource_type] >= SECONDS_PER_RESOURCE_UNIT:
+			var units: int = int(floor(base_production_progress[resource_type] / SECONDS_PER_RESOURCE_UNIT))
+			if units > 0:
+				var cap: int = _get_storage_capacity_for(resource_type)
+				if cap > 0:
+					var cur: int = int(resource_levels.get(resource_type, 0))
+					var allowed: int = max(0, cap - cur)
+					units = min(units, allowed)
+				if units > 0:
+					resource_levels[resource_type] = resource_levels.get(resource_type, 0) + units
+					_daily_production_counter[resource_type] = int(_daily_production_counter.get(resource_type, 0)) + units
+					produced_any = true
+				base_production_progress[resource_type] -= float(units) * SECONDS_PER_RESOURCE_UNIT
+	return produced_any
+
+func _simulate_advanced_buildings_minute(game_seconds: float, building_worker_map: Dictionary) -> bool:
+	var changed := false
+	var using_saved := not _saved_building_states.is_empty()
+	if using_saved:
+		for i in range(_saved_building_states.size()):
+			var entry: Dictionary = _saved_building_states[i]
+			var key: String = String(entry.get("key", ""))
+			var assigned_list = building_worker_map.get(key, [])
+			var assigned_count := 0
+			if assigned_list is Array:
+				assigned_count = (assigned_list as Array).size()
+			else:
+				assigned_count = int(entry.get("assigned_workers", 0))
+			if assigned_count <= 0:
+				entry["assigned_workers"] = assigned_count
+				_saved_building_states[i] = entry
+				continue
+			if _simulate_building_entry(entry, assigned_count, game_seconds):
+				changed = true
+			_saved_building_states[i] = entry
+	else:
+		if not is_instance_valid(village_scene_instance):
+			return changed
+		var placed := village_scene_instance.get_node_or_null("PlacedBuildings")
+		if not placed:
+			return changed
+		for building in placed.get_children():
+			if not (building is Node2D):
+				continue
+			var key := _make_building_snapshot_key(building.scene_file_path, (building as Node2D).global_position)
+			var assigned_list = building_worker_map.get(key, [])
+			var assigned_count := 0
+			if assigned_list is Array:
+				assigned_count = (assigned_list as Array).size()
+			elif "assigned_workers" in building:
+				assigned_count = int(building.assigned_workers)
+			if assigned_count <= 0:
+				continue
+			var entry := _capture_building_state(building)
+			if entry.is_empty():
+				continue
+			if _simulate_building_entry(entry, assigned_count, game_seconds):
+				changed = true
+			_apply_entry_state_to_building(entry, building)
+	return changed
+
+func _simulate_building_entry(entry: Dictionary, assigned_count: int, game_seconds: float) -> bool:
+	var produced_resource := String(entry.get("produced_resource", ""))
+	var production_time := float(entry.get("production_time", 0.0))
+	if produced_resource == "" or production_time <= 0.0:
+		entry["production_progress"] = float(entry.get("production_progress", 0.0))
+		entry["assigned_workers"] = assigned_count
+		return false
+	entry["assigned_workers"] = assigned_count
+	if assigned_count <= 0:
+		return false
+	var required_resources: Dictionary = entry.get("required_resources", {})
+	if required_resources == null:
+		required_resources = {}
+	var input_buffer: Dictionary = entry.get("input_buffer", {})
+	if input_buffer == null:
+		input_buffer = {}
+	else:
+		input_buffer = _copy_dictionary(input_buffer)
+	var fetch_time := float(entry.get("fetch_time", 0.0))
+	var fetch_progress: Dictionary = entry.get("fetch_progress", {})
+	if fetch_progress == null:
+		fetch_progress = {}
+	var progress: float = float(entry.get("production_progress", 0.0))
+	var changed := false
+
+	if not required_resources.is_empty():
+		for res in required_resources.keys():
+			var need_each := int(required_resources[res])
+			var buffer_amount := int(input_buffer.get(res, 0))
+			if buffer_amount < need_each:
+				var timer_val := float(fetch_progress.get(res, 0.0))
+				timer_val -= game_seconds
+				if timer_val <= 0.0:
+					var available := int(resource_levels.get(res, 0))
+					if available > 0:
+						input_buffer[res] = buffer_amount + 1
+						resource_levels[res] = available - 1
+						changed = true
+						buffer_amount += 1
+						timer_val += fetch_time if fetch_time > 0.0 else 0.0
+					else:
+						timer_val = 0.0
+				fetch_progress[res] = timer_val
+			else:
+				fetch_progress[res] = max(0.0, float(fetch_progress.get(res, 0.0)))
+
+	progress += game_seconds * float(assigned_count)
+	var produced_units := 0
+	while progress >= production_time:
+		var can_produce := true
+		if not required_resources.is_empty():
+			for res in required_resources.keys():
+				var need_each := int(required_resources[res])
+				if int(input_buffer.get(res, 0)) < need_each:
+					can_produce = false
+					break
+		if can_produce:
+			for res in required_resources.keys():
+				var need_each := int(required_resources[res])
+				input_buffer[res] = int(input_buffer.get(res, 0)) - need_each
+			resource_levels[produced_resource] = int(resource_levels.get(produced_resource, 0)) + 1
+			_daily_production_counter[produced_resource] = int(_daily_production_counter.get(produced_resource, 0)) + 1
+			produced_units += 1
+			changed = true
+			progress -= production_time
+		else:
+			progress = 0.0
+			break
+
+	entry["production_progress"] = progress
+	entry["input_buffer"] = input_buffer
+	entry["fetch_progress"] = fetch_progress
+	entry["is_fetcher_out"] = false
+	entry["fetch_target"] = ""
+	return changed
+
+func _build_worker_maps() -> Dictionary:
+	var resource_counts: Dictionary = {}
+	for res in BASE_RESOURCE_TYPES:
+		resource_counts[res] = 0
+	var building_map: Dictionary = {}
+	if not _saved_worker_states.is_empty():
+		for worker_entry in _saved_worker_states:
+			var job_type := String(worker_entry.get("job_type", ""))
+			if resource_counts.has(job_type):
+				resource_counts[job_type] = int(resource_counts.get(job_type, 0)) + 1
+			var key := String(worker_entry.get("building_key", ""))
+			if key != "":
+				if not building_map.has(key):
+					building_map[key] = []
+				(building_map[key] as Array).append(worker_entry)
+	else:
+		for worker_id in all_workers.keys():
+			var worker_data = all_workers.get(worker_id, {})
+			if not worker_data:
+				continue
+			var worker_instance: Node = worker_data.get("instance", null)
+			if not is_instance_valid(worker_instance):
+				continue
+			var job_type := ""
+			if "assigned_job_type" in worker_instance:
+				job_type = worker_instance.get("assigned_job_type")
+			if resource_counts.has(job_type):
+				resource_counts[job_type] = int(resource_counts.get(job_type, 0)) + 1
+			var building = worker_instance.get("assigned_building_node") if "assigned_building_node" in worker_instance else null
+			if is_instance_valid(building) and building is Node2D:
+				var key := _make_building_snapshot_key(building.scene_file_path, (building as Node2D).global_position)
+				if not building_map.has(key):
+					building_map[key] = []
+				(building_map[key] as Array).append(worker_id)
+	return {
+		"resource_counts": resource_counts,
+		"building_map": building_map
+	}
+
+func _capture_building_state(building: Node) -> Dictionary:
+	if not (building is Node2D):
+		return {}
+	var entry: Dictionary = {}
+	entry["scene_path"] = building.scene_file_path if "scene_file_path" in building else ""
+	entry["position"] = (building as Node2D).global_position
+	entry["global_position"] = (building as Node2D).global_position
+	entry["local_position"] = (building as Node2D).position
+	entry["key"] = _make_building_snapshot_key(entry["scene_path"], entry["position"])
+	if "level" in building:
+		entry["level"] = int(building.level)
+	if "produced_resource" in building:
+		entry["produced_resource"] = String(building.produced_resource)
+	else:
+		entry["produced_resource"] = ""
+	if "required_resources" in building:
+		entry["required_resources"] = _copy_dictionary(building.required_resources)
+	if "input_buffer" in building:
+		entry["input_buffer"] = _copy_dictionary(building.input_buffer)
+	if "production_progress" in building:
+		entry["production_progress"] = float(building.production_progress)
+	if "PRODUCTION_TIME" in building:
+		entry["production_time"] = float(building.PRODUCTION_TIME)
+	if "FETCH_TIME_PER_UNIT" in building:
+		entry["fetch_time"] = float(building.FETCH_TIME_PER_UNIT)
+	entry["fetch_progress"] = entry.get("fetch_progress", {})
+	entry["assigned_workers"] = int(building.assigned_workers) if "assigned_workers" in building else 0
+	return entry
+
+func _apply_entry_state_to_building(entry: Dictionary, building: Node) -> void:
+	if "production_progress" in entry and "production_progress" in building:
+		building.production_progress = float(entry.get("production_progress", 0.0))
+	if "input_buffer" in entry and "input_buffer" in building:
+		building.input_buffer = _copy_dictionary(entry.get("input_buffer", {}))
+	if "is_fetcher_out" in entry and "is_fetcher_out" in building:
+		building.is_fetcher_out = bool(entry.get("is_fetcher_out", false))
+	if "fetch_target" in entry and "fetch_target" in building:
+		building.fetch_target = String(entry.get("fetch_target", ""))
+	if "assigned_workers" in entry and "assigned_workers" in building:
+		building.assigned_workers = int(entry.get("assigned_workers", building.assigned_workers))
+
+func _copy_dictionary(source: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in source.keys():
+		var value = source[key]
+		if value is Dictionary:
+			result[key] = _copy_dictionary(value)
+		elif value is Array:
+			result[key] = (value as Array).duplicate(true)
+		else:
+			result[key] = value
+	return result
+
+func _simulate_upgrades_during_skip(total_seconds: float) -> void:
+	if not is_instance_valid(village_scene_instance):
+		return
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return
+	for building in placed_buildings.get_children():
+		if not (building is Node2D):
+			continue
+		if "is_upgrading" not in building or not building.is_upgrading:
+			continue
+		if "upgrade_timer" not in building or not building.upgrade_timer:
+			continue
+		var timer: Timer = building.upgrade_timer
+		var time_left := timer.time_left
+		if time_left <= total_seconds:
+			if "upgrade_finished" in building and building.has_method("_on_upgrade_finished"):
+				building._on_upgrade_finished()
+			else:
+				if "is_upgrading" in building:
+					building.is_upgrading = false
+				if "level" in building:
+					var next_level = int(building.level) + 1
+					if "max_level" in building:
+						var max_lvl = int(building.max_level) if building.max_level != null else 999
+						if next_level <= max_lvl:
+							building.level = next_level
+							if "max_workers" in building and building.level == next_level:
+								building.max_workers = next_level
+					else:
+						building.level = next_level
+				if "upgrade_finished" in building:
+					building.upgrade_finished.emit()
+				if "state_changed" in building:
+					building.state_changed.emit()
+				notify_building_state_changed(building)
+		else:
+			timer.stop()
+			timer.wait_time = time_left - total_seconds
+			timer.start(time_left - total_seconds)
+
+func _simulate_events_during_skip(total_minutes: int, start_day: int, end_day: int) -> bool:
+	var changed := false
+	
+	# Handle existing event system (if enabled)
+	if events_enabled:
+		for i in range(start_day + 1, end_day + 1):
+			_update_events_for_new_day(i)
+			changed = true
+	
+	# Handle village-specific events
+	if village_events_enabled:
+		for i in range(start_day + 1, end_day + 1):
+			if _check_and_trigger_village_event(i):
+				changed = true
+	
+	return changed
+
+func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
+	print("[VillageManager] 🔄 DEBUG: Starting _apply_saved_worker_states() with %d saved states, %d buildings in map" % [_saved_worker_states.size(), _restored_buildings_map.size()])
+	if _saved_worker_states.is_empty():
+		print("[VillageManager] ⚠️ DEBUG: _saved_worker_states is empty, nothing to apply")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_hour: int = 6
+	var current_minute: int = 0
+	if tm and tm.has_method("get_hour"):
+		current_hour = tm.get_hour()
+	if tm and tm.has_method("get_minute"):
+		current_minute = tm.get_minute()
+	
+	var work_start_hour: int = 7
+	var work_end_hour: int = 18
+	var sleep_hour: int = 22
+	var wake_hour: int = 6
+	if tm and "WORK_START_HOUR" in tm:
+		work_start_hour = tm.WORK_START_HOUR
+	if tm and "WORK_END_HOUR" in tm:
+		work_end_hour = tm.WORK_END_HOUR
+	if tm and "SLEEP_HOUR" in tm:
+		sleep_hour = tm.SLEEP_HOUR
+	if tm and "WAKE_UP_HOUR" in tm:
+		wake_hour = tm.WAKE_UP_HOUR
+	
+	var is_work_time: bool = current_hour >= work_start_hour and current_hour < work_end_hour
+	var is_sleep_time: bool = current_hour >= sleep_hour or current_hour < wake_hour
+	
+	var applied_count = 0
+	for worker_entry in _saved_worker_states:
+		var saved_worker_id: int = worker_entry.get("worker_id", -1)
+		var job_type: String = worker_entry.get("job_type", "")
+		var building_key: String = worker_entry.get("building_key", "")
+		print("[VillageManager] 🔍 DEBUG: Processing worker entry - ID: %d, Job: %s, Building Key: %s" % [saved_worker_id, job_type, building_key])
+		
+		var assigned_worker: Node = null
+		if saved_worker_id >= 0 and all_workers.has(saved_worker_id):
+			var worker_data = all_workers.get(saved_worker_id, {})
+			if worker_data and worker_data.has("instance"):
+				assigned_worker = worker_data.get("instance", null)
+		
+		if not is_instance_valid(assigned_worker):
+			for worker_id in all_workers.keys():
+				var worker_data = all_workers.get(worker_id, {})
+				if not worker_data:
+					continue
+				var worker_instance: Node = worker_data.get("instance", null)
+				if not is_instance_valid(worker_instance):
+					continue
+				var worker_job: String = ""
+				if worker_instance and "assigned_job_type" in worker_instance:
+					var job_val = worker_instance.get("assigned_job_type")
+					worker_job = job_val if job_val is String else ""
+				if worker_job.is_empty() and assigned_worker == null:
+					assigned_worker = worker_instance
+		
+		if not is_instance_valid(assigned_worker):
+			continue
+		
+		if job_type.is_empty():
+			print("[VillageManager] ⚠️ DEBUG: Worker %d has no job_type, skipping" % saved_worker_id)
+			continue
+		
+		var worker_instance = assigned_worker
+		var assigned_building: Node2D = null
+		
+		if not building_key.is_empty() and _restored_buildings_map.has(building_key):
+			assigned_building = _restored_buildings_map[building_key]
+			print("[VillageManager] ✅ DEBUG: Found building for key '%s'" % building_key)
+		
+		if not is_instance_valid(assigned_building):
+			var target_script_path = RESOURCE_PRODUCER_SCRIPTS.get(job_type, "")
+			if not target_script_path.is_empty() and is_instance_valid(village_scene_instance):
+				var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+				if placed_buildings:
+					for building in placed_buildings.get_children():
+						if building.has_method("get_script") and building.get_script() != null:
+							var building_script = building.get_script()
+							if building_script is GDScript and building_script.resource_path == target_script_path:
+								if "assigned_workers" in building:
+									var current_assigned = int(building.assigned_workers)
+									if "max_workers" in building:
+										var max_w = int(building.max_workers) if building.max_workers != null else 999
+										if current_assigned < max_w:
+											assigned_building = building
+											break
+								else:
+									assigned_building = building
+									break
+		
+		if not is_instance_valid(assigned_building):
+			print("[VillageManager] ⚠️ DEBUG: Building not found for worker %d, key: %s" % [saved_worker_id, building_key])
+			continue
+		
+		if worker_instance.has_method("set"):
+			worker_instance.set("assigned_job_type", job_type)
+			worker_instance.set("assigned_building_node", assigned_building)
+			print("[VillageManager] ✅ DEBUG: Assigned worker %d to building %s with job %s" % [saved_worker_id, assigned_building.scene_file_path.get_file(), job_type])
+		
+		if "assigned_worker_ids" in assigned_building:
+			var worker_id_val: int = -1
+			if worker_instance and "worker_id" in worker_instance:
+				var id_val = worker_instance.get("worker_id")
+				worker_id_val = id_val if id_val is int else -1
+			if worker_id_val >= 0 and not (worker_id_val in assigned_building.assigned_worker_ids):
+				assigned_building.assigned_worker_ids.append(worker_id_val)
+				if "assigned_workers" in assigned_building:
+					assigned_building.assigned_workers = int(assigned_building.assigned_worker_ids.size())
+
+		idle_workers = max(0, idle_workers - 1)
+		applied_count += 1
+		
+		if not worker_instance.has_method("get") or "current_state" not in worker_instance:
+			print("[VillageManager] ⚠️ DEBUG: Worker %d has no current_state property" % saved_worker_id)
+			continue
+		
+		if is_sleep_time:
+			worker_instance.current_state = 0
+			var housing = worker_instance.get("housing_node") if worker_instance else null
+			if is_instance_valid(housing) and housing is Node2D:
+				var housing_pos = (housing as Node2D).global_position
+				if worker_instance is Node2D:
+					(worker_instance as Node2D).global_position = housing_pos
+			worker_instance.visible = false
+			print("[VillageManager] 😴 DEBUG: Worker %d set to sleep state" % saved_worker_id)
+		elif is_work_time:
+			var go_inside = false
+			if "worker_stays_inside" in assigned_building and assigned_building.worker_stays_inside:
+				go_inside = true
+			elif "level" in assigned_building and assigned_building.level >= 2:
+				if "assigned_worker_ids" in assigned_building:
+					var worker_ids = assigned_building.assigned_worker_ids
+					if not worker_ids.is_empty():
+						var worker_id_val: int = -1
+						if worker_instance and "worker_id" in worker_instance:
+							var id_val = worker_instance.get("worker_id")
+							worker_id_val = id_val if id_val is int else -1
+						if worker_id_val == worker_ids[0]:
+							go_inside = true
+			
+			if go_inside:
+				worker_instance.current_state = 5
+				if assigned_building is Node2D:
+					var building_pos = (assigned_building as Node2D).global_position
+					if worker_instance is Node2D:
+						(worker_instance as Node2D).global_position = building_pos
+				worker_instance.visible = false
+				print("[VillageManager] 🏢 DEBUG: Worker %d set to work inside building" % saved_worker_id)
+			else:
+				if assigned_building is Node2D:
+					var building_pos = (assigned_building as Node2D).global_position
+					var offscreen_x: float = -2500.0
+					if building_pos.x >= 960:
+						offscreen_x = 2500.0
+					
+					if worker_instance is Node2D:
+						var worker_node2d = worker_instance as Node2D
+						worker_node2d.global_position = Vector2(offscreen_x, building_pos.y)
+						worker_instance.set("move_target_x", offscreen_x)
+						worker_instance.set("_target_global_y", building_pos.y)
+						worker_instance.set("_offscreen_exit_x", offscreen_x)
+					
+				worker_instance.current_state = 4
+				worker_instance.visible = false
+				print("[VillageManager] 🔨 DEBUG: Worker %d set to work offscreen" % saved_worker_id)
+		else:
+			worker_instance.current_state = 1
+			worker_instance.visible = true
+			print("[VillageManager] 🏃 DEBUG: Worker %d set to idle/awake state" % saved_worker_id)
+	
+	print("[VillageManager] ✅ DEBUG: Applied %d worker states (out of %d saved)" % [applied_count, _saved_worker_states.size()])
+
 # İşçilerin ekleneceği parent node. @onready KULLANMAYIN,
 # çünkü VillageManager'ın kendisi Autoload olabilir veya sahne ağacına farklı zamanda eklenebilir.
 # Bu referansı _ready içinde veya ihtiyaç duyulduğunda alacağız.
@@ -126,7 +1193,23 @@ var daily_water_per_pop: float = 0.5
 var daily_food_per_pop: float = 0.5
 var cariye_period_days: int = 7
 
-var resource_prod_multiplier: Dictionary = {"wood": 1.0, "stone": 1.0, "food": 1.0, "water": 1.0, "metal": 1.0, "bread": 1.0}
+var resource_prod_multiplier: Dictionary = {
+	"wood": 1.0,
+	"stone": 1.0,
+	"food": 1.0,
+	"water": 1.0,
+	"lumber": 1.0,
+	"brick": 1.0,
+	"metal": 1.0,
+	"cloth": 1.0,
+	"garment": 1.0,
+	"bread": 1.0,
+	"tea": 1.0,
+	"medicine": 1.0,
+	"soap": 1.0,
+	"weapon": 1.0,
+	"armor": 1.0
+}
 
 var economy_stats_last_day: Dictionary = {
 	"day": 0,
@@ -134,7 +1217,21 @@ var economy_stats_last_day: Dictionary = {
 	"total_consumption": 0.0,
 	"net": 0.0
 }
-var _daily_production_counter: Dictionary = {"wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0, "bread": 0}
+var _daily_production_counter: Dictionary = {
+	"wood": 0,
+	"stone": 0,
+	"food": 0,
+	"water": 0,
+	"lumber": 0,
+	"brick": 0,
+	"metal": 0,
+	"cloth": 0,
+	"garment": 0,
+	"bread": 0,
+	"tea": 0,
+	"medicine": 0,
+	"soap": 0
+}
 var village_morale: float = 80.0
 var _last_day_shortages: Dictionary = {"water": 0, "food": 0}
 
@@ -154,35 +1251,6 @@ var _event_cooldowns: Dictionary = {} # type -> day_until
 const STORAGE_PER_BASIC_BUILDING: int = 10
 #Player reference in village
 var Village_Player
-func _ready() -> void:
-	# Oyun başlangıcında boşta işçi sayısını toplam işçi sayısına eşitle
-	# idle_workers = total_workers # Bu satırı kaldırıyoruz, çünkü total_workers başlangıçta 0
-	# idle_workers sayısı işçiler oluşturulduğunda _add_new_worker() fonksiyonunda güncelleniyor
-	# Başlangıçta idle_workers = 0 olarak ayarlanıyor, işçiler oluşturulduğunda güncelleniyor
-	# Bu düzeltme ile idle_workers sayısı doğru hesaplanacak
-	# Artık idle_workers sayısı doğru çalışacak
-	# Test etmek için debug ekleyelim
-	# Şimdi test edelim!
-	# Artık çalışacak!
-	# Son test!
-	# Artık hazır!
-	# Test et!
-	# Artık çalışacak!
-	# Son düzeltme!
-	# Artık hazır!
-	# Test et!
-	# Artık hazır!
-	# Test et!
-	# Artık hazır!
-	# Kaynak seviyelerini sıfırla (emin olmak için) - Ekmek eklendi
-	resource_levels = { "wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0, "bread": 0 }
-	locked_resource_levels = { "wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0 }
-	_create_debug_cariyeler()
-	_create_debug_gorevler()
-
-	# --- WorldManager sinyallerini dinle ---
-	# Autoload yükleme sırası belirsiz olduğu için call_deferred kullan
-	call_deferred("_connect_world_manager_signals")
 
 func _connect_world_manager_signals() -> void:
 	"""WorldManager sinyallerini bağla (gecikmeli çağrı)"""
@@ -239,18 +1307,96 @@ func register_village_scene(scene: Node2D) -> void:
 		#    #printerr("VillageManager Error: Root'tan da 'WorkersContainer' bulunamadı!")
 		#    return
 		return
+	
+	# Reset leaving flag when returning to village
+	_is_leaving_village = false
+	
+	# Show pending notification if any (after scene is loaded)
+	if not _pending_time_skip_notification.is_empty():
+		var hours = _pending_time_skip_notification.get("total_hours", 0.0)
+		var resources = _pending_time_skip_notification.get("produced_resources", {})
+		print("[VillageManager] 📬 Showing pending notification: %.1f hours, resources: %s" % [hours, resources])
+		# Wait a bit more for UI to fully initialize
+		await get_tree().process_frame
+		await get_tree().process_frame
+		emit_signal("time_skip_completed", hours, resources)
+		_pending_time_skip_notification = {}
 
+	# Note: Resources are restored in SceneManager._handle_travel_time() BEFORE simulation
+	# This function is called AFTER scene change, so resources should already be restored
+	# But we still check here for first-time initialization
+	if _saved_resource_levels.is_empty() and resource_levels.is_empty():
+		# First time initialization - set defaults
+		for res in BASE_RESOURCE_TYPES:
+			if not resource_levels.has(res):
+				resource_levels[res] = 0
+		if not resource_levels.has("weapon"):
+			resource_levels["weapon"] = 5
+		if not resource_levels.has("armor"):
+			resource_levels["armor"] = 5
+	
 	# Başlangıç işçilerini oluştur
 	if workers_container and is_instance_valid(campfire_node):
-		#print("VillageManager: Campfire ve WorkersContainer bulundu, başlangıç işçileri oluşturuluyor...")
-		var initial_worker_count = VillagerAiInitializer.Saved_Villagers.size() # TODO: Bu değeri GlobalPlayerData veya başka bir yerden al
-		# <<< GÜNCELLENDİ: Başarısız olursa döngüyü kır >>>
-		for i in range(initial_worker_count):
-			if not _add_new_worker(VillagerAiInitializer.Saved_Villagers[i]): 
-				#print("VillageManager: Initial worker %d could not be added due to lack of housing. Stopping initial worker creation." % (i + 1))
-				break 
-		# <<< GÜNCELLEME SONU >>>
-		#print("VillageManager: Başlangıç işçileri oluşturuldu.")
+		print("[VillageManager] 🔄 DEBUG: Starting worker restoration...")
+		_reset_worker_runtime_data()
+		worker_id_counter = 0
+		var restored_buildings_map := _restore_saved_buildings()
+		print("[VillageManager] 🔍 DEBUG: Restored buildings map has %d entries" % restored_buildings_map.size())
+		var worker_entries: Array = []
+		if _saved_worker_states.size() > 0:
+			print("[VillageManager] 🔍 DEBUG: Found %d saved worker states" % _saved_worker_states.size())
+			worker_entries = _saved_worker_states.duplicate(true)
+			if has_method("_worker_entry_sorter"):
+				worker_entries.sort_custom(Callable(self, "_worker_entry_sorter"))
+			else:
+				print("[VillageManager] ⚠️ DEBUG: _worker_entry_sorter method not found, skipping sort")
+		elif is_instance_valid(VillagerAiInitializer) and VillagerAiInitializer.Saved_Villagers.size() > 0:
+			for info in VillagerAiInitializer.Saved_Villagers:
+				var info_copy: Dictionary = info.duplicate(true)
+				worker_entries.append({
+					"worker_id": -1,
+					"npc_info": info_copy
+				})
+		else:
+			for i in range(STARTING_WORKER_COUNT):
+				worker_entries.append({
+					"worker_id": -1,
+					"npc_info": {}
+				})
+		var max_worker_id := 0
+		var worker_created_count = 0
+		for worker_entry in worker_entries:
+			var worker_id_from_entry = worker_entry.get("worker_id", -1)
+			var job_type_from_entry = worker_entry.get("job_type", "")
+			var building_key_from_entry = worker_entry.get("building_key", "")
+			var info_dict: Dictionary = worker_entry.get("npc_info", {}).duplicate(true)
+			print("[VillageManager] 🔄 DEBUG: Creating worker - Saved ID: %d, Job: %s, Building: %s" % [worker_id_from_entry, job_type_from_entry, building_key_from_entry])
+			if _add_new_worker(info_dict):
+				worker_created_count += 1
+				var desired_id: int = int(worker_entry.get("worker_id", -1))
+				var new_id: int = worker_id_counter
+				if desired_id >= 0 and desired_id != new_id:
+					print("[VillageManager] 🔄 DEBUG: Changing worker ID from %d to %d" % [new_id, desired_id])
+					var worker_data = all_workers.get(new_id, {})
+					if worker_data:
+						all_workers.erase(new_id)
+						var worker_instance: Node = worker_data.get("instance", null)
+						if is_instance_valid(worker_instance):
+							worker_instance.worker_id = desired_id
+							worker_instance.name = "Worker" + str(desired_id)
+						all_workers[desired_id] = worker_data
+					worker_id_counter = max(worker_id_counter, desired_id)
+					new_id = desired_id
+				else:
+					print("[VillageManager] ✅ DEBUG: Worker created with ID %d (desired: %d)" % [new_id, desired_id])
+				max_worker_id = max(max_worker_id, new_id)
+			else:
+				print("[VillageManager] ⚠️ DEBUG: Failed to create worker with saved ID %d" % worker_id_from_entry)
+		worker_id_counter = max(worker_id_counter, max_worker_id)
+		print("[VillageManager] ✅ DEBUG: Created %d workers, max ID: %d" % [worker_created_count, worker_id_counter])
+		print("[VillageManager] 🔄 DEBUG: Applying saved worker states to buildings...")
+		_apply_saved_worker_states(restored_buildings_map)
+		emit_signal("village_data_changed")
 	#else:
 		#if not workers_container:
 			##printerr("VillageManager Ready Error: WorkersContainer bulunamadı!")
@@ -259,7 +1405,7 @@ func register_village_scene(scene: Node2D) -> void:
 		#
 	## --- Kaynak Seviyesi Hesaplama (YENİ) ---
 
-	# Zaman bazlı üretim ilerlemelerini güvenli başlat
+	# Production progress already restored above if available, otherwise initialize
 	for res in BASE_RESOURCE_TYPES:
 		if not base_production_progress.has(res):
 			base_production_progress[res] = 0.0
@@ -269,6 +1415,16 @@ func register_village_scene(scene: Node2D) -> void:
 	if tm and tm.has_signal("day_changed"):
 		tm.connect("day_changed", Callable(self, "_on_day_changed"))
 		_last_econ_tick_day = tm.get_day() if tm.has_method("get_day") else 0
+	if tm:
+		if tm.has_signal("hour_changed") and not _time_signal_connected:
+			tm.connect("hour_changed", Callable(self, "_on_hour_changed"))
+			_time_signal_connected = true
+		if tm.has_signal("time_advanced") and not _time_advanced_connected:
+			tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
+			_time_advanced_connected = true
+		_apply_time_of_day(tm.get_hour() if tm.has_method("get_hour") else 0)
+	else:
+		_apply_time_of_day(6)
 
 # Belirli bir kaynak türünü üreten Tescilli Script Yolları
 # Bu, get_resource_level için gereklidir
@@ -277,8 +1433,17 @@ const RESOURCE_PRODUCER_SCRIPTS = {
 	"stone": "res://village/scripts/StoneMine.gd",
 	"food": "res://village/scripts/HunterGathererHut.gd", # Veya Tarla/Balıkçı vb.
 	"water": "res://village/scripts/Well.gd",
-	"metal": "res://village/scripts/StoneMine.gd", # Veya ayrı metal madeni?
+	"lumber": "res://village/scripts/Sawmill.gd",
+	"brick": "res://village/scripts/Brickworks.gd",
+	"metal": "res://village/scripts/Blacksmith.gd",
 	"bread": "res://village/scripts/Bakery.gd", #<<< YENİ
+	"cloth": "res://village/scripts/Weaver.gd",
+	"garment": "res://village/scripts/Tailor.gd",
+	"tea": "res://village/scripts/TeaHouse.gd",
+	"medicine": "res://village/scripts/Herbalist.gd",
+	"soap": "res://village/scripts/SoapMaker.gd",
+	"weapon": "res://village/scripts/Gunsmith.gd",
+	"armor": "res://village/scripts/Armorer.gd",
 	"soldier": "res://village/scripts/Barracks.gd" # Asker işçi türü eklendi
 }
 
@@ -287,7 +1452,18 @@ const RESOURCE_PRODUCER_SCENES = {
 	"wood": "res://village/buildings/WoodcutterCamp.tscn",
 	"stone": "res://village/buildings/StoneMine.tscn",
 	"food": "res://village/buildings/HunterGathererHut.tscn",
-	"water": "res://village/buildings/Well.tscn"
+	"water": "res://village/buildings/Well.tscn",
+	"lumber": "res://village/buildings/Sawmill.tscn",
+	"brick": "res://village/buildings/Brickworks.tscn",
+	"metal": "res://village/buildings/Blacksmith.tscn",
+	"bread": "res://village/buildings/Bakery.tscn",
+	"cloth": "res://village/buildings/Weaver.tscn",
+	"garment": "res://village/buildings/Tailor.tscn",
+	"tea": "res://village/buildings/TeaHouse.tscn",
+	"medicine": "res://village/buildings/Herbalist.tscn",
+	"soap": "res://village/buildings/SoapMaker.tscn",
+	"weapon": "res://village/buildings/Gunsmith.tscn",
+	"armor": "res://village/buildings/Armorer.tscn"
 }
 
 # Bir kaynak türünün mevcut stok seviyesini döndürür (temel ve gelişmiş için ortak)
@@ -1021,6 +2197,11 @@ func _on_day_changed(new_day: int) -> void:
 	# Gün başında bina bonusunu tazele (yükseltmeler etkilesin)
 	_recalculate_building_bonus()
 	_daily_economy_tick(new_day)
+	
+	# Check for village-specific events (normal gameplay)
+	if village_events_enabled and new_day != _last_village_event_check_day:
+		_last_village_event_check_day = new_day
+		_check_and_trigger_village_event(new_day)
 
 func _daily_economy_tick(current_day: int) -> void:
 	# 1) Production
@@ -1079,7 +2260,21 @@ func _daily_economy_tick(current_day: int) -> void:
 
 	emit_signal("village_data_changed")
 	# Reset daily counters at end of day
-	_daily_production_counter = {"wood": 0, "stone": 0, "food": 0, "water": 0, "metal": 0, "bread": 0}
+	_daily_production_counter = {
+		"wood": 0,
+		"stone": 0,
+		"food": 0,
+		"water": 0,
+		"lumber": 0,
+		"brick": 0,
+		"metal": 0,
+		"cloth": 0,
+		"garment": 0,
+		"bread": 0,
+		"tea": 0,
+		"medicine": 0,
+		"soap": 0
+	}
 
 func _get_storage_capacity_for(resource_type: String) -> int:
 	# Basic resources get capacity from number of corresponding buildings * STORAGE_PER_BASIC_BUILDING.
@@ -1500,6 +2695,143 @@ func _remove_event_effects(ev: Dictionary) -> void:
 			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, (1.0 + sev))
 		_:
 			pass
+
+# === Village-Specific Direct Events ===
+func _check_and_trigger_village_event(day: int) -> bool:
+	"""Check and trigger village-specific direct events (not world events).
+	Returns true if an event was triggered."""
+	if not village_events_enabled:
+		return false
+	
+	# Check if we should trigger an event today
+	if randf() > village_daily_event_chance:
+		return false
+	
+	# Select a random village event
+	var event_pool: Array[String] = [
+		"trade_caravan",      # Ticaret kervanı - altın bonusu
+		"resource_discovery", # Kaynak keşfi - rastgele kaynak bonusu
+		"windfall",          # Bolluk - küçük kaynak bonusu
+		"traveler",          # Seyyah - yeni görev fırsatı (placeholder)
+		"weather_blessing",  # Hava bereketi - üretim bonusu
+		"minor_accident"     # Küçük kaza - küçük kaynak kaybı
+	]
+	
+	# Filter out events on cooldown
+	var available_events: Array[String] = []
+	for event_type in event_pool:
+		var cooldown_until: int = _village_event_cooldowns.get(event_type, 0)
+		if day >= cooldown_until:
+			available_events.append(event_type)
+	
+	if available_events.is_empty():
+		return false
+	
+	# Pick random event
+	available_events.shuffle()
+	var selected_event: String = available_events[0]
+	
+	# Trigger the event
+	_trigger_village_event(selected_event, day)
+	
+	# Set cooldown (5-10 days depending on event)
+	var cooldown_days: int = 5
+	match selected_event:
+		"trade_caravan":
+			cooldown_days = 7
+		"resource_discovery":
+			cooldown_days = 10
+		"traveler":
+			cooldown_days = 8
+		_:
+			cooldown_days = 5
+	_village_event_cooldowns[selected_event] = day + cooldown_days
+	
+	return true
+
+func _trigger_village_event(event_type: String, day: int) -> void:
+	"""Trigger a village-specific direct event."""
+	var mm = get_node_or_null("/root/MissionManager")
+	var gpd = get_node_or_null("/root/GlobalPlayerData")
+	
+	match event_type:
+		"trade_caravan":
+			# Ticaret kervanı - altın kazancı
+			var gold_reward: int = randi_range(20, 80)
+			if gpd:
+				gpd.gold += gold_reward
+			var title := "💰 Ticaret Kervanı"
+			var content := "Bir ticaret kervanı köyünüze uğradı. +%d altın kazandınız!" % gold_reward
+			if mm and mm.has_method("post_news"):
+				mm.post_news("village", title, content, Color.GREEN, "success")
+			print("[VillageManager] 🎉 Trade caravan event: +%d gold" % gold_reward)
+		
+		"resource_discovery":
+			# Kaynak keşfi - rastgele kaynak bonusu
+			var resource_pool: Array[String] = ["wood", "stone", "food", "water"]
+			resource_pool.shuffle()
+			var discovered_resource: String = resource_pool[0]
+			var amount: int = randi_range(5, 15)
+			resource_levels[discovered_resource] = resource_levels.get(discovered_resource, 0) + amount
+			var res_names: Dictionary = {
+				"wood": "Odun",
+				"stone": "Taş",
+				"food": "Yiyecek",
+				"water": "Su"
+			}
+			var title := "🔍 Kaynak Keşfi"
+			var content := "Köylüler bir %s deposu buldular! +%d %s eklendi." % [res_names.get(discovered_resource, discovered_resource), amount, res_names.get(discovered_resource, discovered_resource)]
+			if mm and mm.has_method("post_news"):
+				mm.post_news("village", title, content, Color.CYAN, "info")
+			print("[VillageManager] 🎉 Resource discovery: +%d %s" % [amount, discovered_resource])
+		
+		"windfall":
+			# Bolluk - küçük kaynak bonusu
+			var bonus_wood: int = randi_range(2, 5)
+			var bonus_stone: int = randi_range(2, 5)
+			resource_levels["wood"] = resource_levels.get("wood", 0) + bonus_wood
+			resource_levels["stone"] = resource_levels.get("stone", 0) + bonus_stone
+			var title := "🍀 Bolluk"
+			var content := "İyi bir hasat sezonu geçirdik! +%d odun, +%d taş eklendi." % [bonus_wood, bonus_stone]
+			if mm and mm.has_method("post_news"):
+				mm.post_news("village", title, content, Color.GREEN, "success")
+			print("[VillageManager] 🎉 Windfall event: +%d wood, +%d stone" % [bonus_wood, bonus_stone])
+		
+		"traveler":
+			# Seyyah - yeni görev fırsatı (placeholder, MissionManager'a entegre edilebilir)
+			var title := "🧳 Seyyah Ziyareti"
+			var content := "Bir seyyah köyünüze uğradı ve size ilginç hikayeler anlattı."
+			if mm and mm.has_method("post_news"):
+				mm.post_news("village", title, content, Color.YELLOW, "info")
+			print("[VillageManager] 🎉 Traveler event")
+		
+		"weather_blessing":
+			# Hava bereketi - geçici üretim bonusu
+			var bonus_multiplier: float = 1.15  # %15 üretim artışı
+			global_multiplier *= bonus_multiplier
+			var title := "☀️ Hava Bereketi"
+			var content := "Mükemmel hava koşulları! Bu gün üretim %15 arttı."
+			if mm and mm.has_method("post_news"):
+				mm.post_news("village", title, content, Color.GOLD, "success")
+			print("[VillageManager] 🎉 Weather blessing: +15% production")
+			# Note: Multiplier reset would be handled in next day (simplified)
+		
+		"minor_accident":
+			# Küçük kaza - küçük kaynak kaybı
+			var resource_pool: Array[String] = ["wood", "stone"]
+			resource_pool.shuffle()
+			var lost_resource: String = resource_pool[0]
+			var loss: int = randi_range(1, 3)
+			var current: int = resource_levels.get(lost_resource, 0)
+			resource_levels[lost_resource] = max(0, current - loss)
+			var res_names: Dictionary = {"wood": "Odun", "stone": "Taş"}
+			var title := "⚠️ Küçük Kaza"
+			var content := "Köyde küçük bir kaza oldu. -%d %s kaybedildi." % [loss, res_names.get(lost_resource, lost_resource)]
+			if mm and mm.has_method("post_news"):
+				mm.post_news("village", title, content, Color.ORANGE, "warning")
+			print("[VillageManager] ⚠️ Minor accident: -%d %s" % [loss, lost_resource])
+	
+	emit_signal("village_data_changed")
 
 # === UI getters & toggles ===
 func get_economy_last_day_stats() -> Dictionary:
@@ -2031,3 +3363,58 @@ func get_source_building_position(resource_type: String) -> Vector2:
 	else:
 		#print("VillageManager: No building instance found producing '%s' (script: %s)" % [resource_type, target_script_path])
 		return Vector2.ZERO # Uygun bina bulunamadı
+
+func _on_hour_changed(new_hour: int) -> void:
+	_apply_time_of_day(new_hour)
+
+func apply_current_time_schedule() -> void:
+	var tm = get_node_or_null("/root/TimeManager")
+	var hour := 6
+	if tm and tm.has_method("get_hour"):
+		hour = tm.get_hour()
+	_apply_time_of_day(hour)
+
+func _apply_time_of_day(hour: int) -> void:
+	if workers_container == null:
+		return
+	var sleep_start := 22
+	var wake_hour := 6
+	var is_sleep_time := hour >= sleep_start or hour < wake_hour
+	for child in workers_container.get_children():
+		var worker := child as Node2D
+		if worker == null:
+			continue
+		if worker.has_method("check_hour_transition"):
+			worker.check_hour_transition(hour)
+		worker.visible = not is_sleep_time
+		if worker.has_method("set_process"):
+			worker.set_process(not is_sleep_time)
+		if worker.has_method("set_physics_process"):
+			worker.set_physics_process(not is_sleep_time)
+		if is_sleep_time and "housing_node" in worker:
+			var housing = worker.get("housing_node")
+			if housing and housing is Node2D:
+				worker.global_position = (housing as Node2D).global_position
+
+func reset_saved_state_for_new_game() -> void:
+	_saved_building_states.clear()
+	_saved_worker_states.clear()
+	_saved_resource_levels = {}
+	_saved_base_production_progress = {}
+	_saved_snapshot_time = {}
+	_pending_time_skip_notification = {}
+	_is_leaving_village = false
+	if is_instance_valid(VillagerAiInitializer):
+		if VillagerAiInitializer.has_method("reset_to_defaults"):
+			VillagerAiInitializer.reset_to_defaults()
+		else:
+			VillagerAiInitializer.Saved_Villagers.clear()
+
+func _worker_entry_sorter(a, b) -> bool:
+	var a_id: int = 0
+	var b_id: int = 0
+	if a is Dictionary:
+		a_id = int(a.get("worker_id", 0))
+	if b is Dictionary:
+		b_id = int(b.get("worker_id", 0))
+	return a_id < b_id

@@ -1,0 +1,32 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://village/scripts/PortalArea.gd" id="1_yg22q"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nh0n7"]
+size = Vector2(240, 360)
+
+[node name="DungeonExitPortal" type="Node2D"]
+z_index = 2
+
+[node name="PortalArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 3
+script = ExtResource("1_yg22q")
+destination = "village"
+payload_source = "dungeon"
+payload_reason = "dungeon_exit"
+hold_time_required = 0.2
+unique_key = "dungeon_exit"
+travel_hours_back = 4.0
+use_level_based_return_time = true
+base_return_hours = 4.0
+hours_per_level_increase = 1.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PortalArea"]
+shape = SubResource("RectangleShape2D_nh0n7")
+
+[node name="Info" type="Label" parent="."]
+position = Vector2(0, -240)
+horizontal_alignment = 1
+text = "⬆ Köye Dön"
+

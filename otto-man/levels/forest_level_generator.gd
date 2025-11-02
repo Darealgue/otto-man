@@ -19,6 +19,11 @@ signal level_completed
 @export var debug_enabled: bool = false
 @export var debug_rate_ms: int = 250
 
+const FOREST_EXIT_PORTAL_SCENE := preload("res://chunks/forest/ForestExitPortal.tscn")
+
+var _forest_exit_portal: Node2D = null
+var _forest_start_chunk: Node2D = null
+
 var player: Node2D
 var active_chunks: Array[Node2D] = []
 var current_row: int = 0
@@ -166,6 +171,7 @@ func _spawn_initial_path() -> void:
 	index_to_node.clear()
 	first_active_index = 0
 	last_active_index = -1
+	_forest_start_chunk = null
 	var start: Node2D = _spawn_scene("start")
 	start.position = Vector2(0, _row_to_y(current_row))
 	active_chunks.append(start)
@@ -175,9 +181,24 @@ func _spawn_initial_path() -> void:
 	min_discovered_index = 0
 	max_discovered_index = 0
 	last_end_x = start.position.x + _get_size(start).x
+	_forest_start_chunk = start
+	_attach_forest_exit_portal(start)
 	for i in range(spawn_ahead_count - 1):
 		_add_next_segment()
 	_sort_active_by_x()
+
+func _attach_forest_exit_portal(start_chunk: Node2D) -> void:
+	if FOREST_EXIT_PORTAL_SCENE == null:
+		return
+	if _forest_exit_portal and is_instance_valid(_forest_exit_portal):
+		_forest_exit_portal.queue_free()
+	_forest_exit_portal = FOREST_EXIT_PORTAL_SCENE.instantiate() as Node2D
+	if _forest_exit_portal == null:
+		return
+	add_child(_forest_exit_portal)
+	var base_position := start_chunk.global_position if start_chunk else Vector2.ZERO
+	var offset := Vector2(float(unit_size) * 0.25, -160.0)
+	_forest_exit_portal.global_position = base_position + offset
 
 func _spawn_ahead_as_needed() -> void:
 	var need_until: float = player.global_position.x + float(unit_size) * 6.0

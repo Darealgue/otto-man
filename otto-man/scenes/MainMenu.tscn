@@ -1,0 +1,78 @@
+[gd_scene load_steps=2 format=3 uid="uid://c7p43u1k0kbcr"]
+
+[ext_resource type="Script" path="res://scenes/MainMenu.gd" id="1_f7kum"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_f7kum")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0588235, 0.0705882, 0.0980392, 1)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Menu" type="VBoxContainer" parent="CenterContainer"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Title" type="Label" parent="CenterContainer/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.854902, 0.854902, 0.854902, 1)
+theme_override_font_sizes/font_size = 54
+text = "Rogue Harem"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="CenterContainer/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.721569, 0.721569, 0.721569, 1)
+theme_override_font_sizes/font_size = 20
+text = "Village & Expedition Beta"
+horizontal_alignment = 1
+
+[node name="Buttons" type="VBoxContainer" parent="CenterContainer/Menu"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="NewGameButton" type="Button" parent="CenterContainer/Menu/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Yeni Oyun"
+
+[node name="LoadGameButton" type="Button" parent="CenterContainer/Menu/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Oyunu Yükle"
+
+[node name="SettingsButton" type="Button" parent="CenterContainer/Menu/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Ayarlar"
+
+[node name="QuitButton" type="Button" parent="CenterContainer/Menu/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Çıkış"
+
+[node name="Footer" type="Label" parent="CenterContainer/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.556863, 0.556863, 0.556863, 1)
+text = "Beta Yapım Aşaması"
+horizontal_alignment = 1
+vertical_alignment = 1

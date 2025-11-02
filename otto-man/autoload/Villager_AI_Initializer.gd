@@ -1503,10 +1503,14 @@ var Villager_Info_Pool : Array =[
 		]
 	}
 ]
+var _original_pool: Array = []
+var _pool_loaded_from_save: bool = false
 signal LoadComplete
 
 func _ready() -> void:
 	randomize()
+	if _original_pool.is_empty():
+		_original_pool = _deep_duplicate(Villager_Info_Pool)
 
 func get_villager_info():
 	var ChosenInfo = Villager_Info_Pool.pick_random()
@@ -1531,10 +1535,18 @@ func save_array_to_json(array: Array, file_name: String) -> void:
 	else:
 		push_error("Failed to open file for writing: %s" % full_path)
 func Load_existing_villagers():
-	var ExistingVillagers = load_array_from_json("Saved_Villagers.json")
-	for NPCdata in ExistingVillagers:
-		Villager_Info_Pool.erase(NPCdata)
-	Saved_Villagers = ExistingVillagers
+	if _pool_loaded_from_save:
+		_pool_loaded_from_save = false
+		emit_signal("LoadComplete")
+		return
+	var existing_villagers = load_array_from_json("Saved_Villagers.json")
+	if existing_villagers.is_empty():
+		Saved_Villagers.clear()
+		emit_signal("LoadComplete")
+		return
+	for npc_data in existing_villagers:
+		Villager_Info_Pool.erase(npc_data)
+	Saved_Villagers = existing_villagers
 	
 func load_array_from_json(file_name: String) -> Array:
 	# Construct the full path for the file
@@ -1577,3 +1589,60 @@ func create_save_directory() -> void:
 		# Close the DirAccess instance
 	else:
 		push_error("Failed to open user:// directory.")
+
+func get_saved_villagers_copy() -> Array:
+	return _deep_duplicate(Saved_Villagers)
+
+func get_villager_pool_copy() -> Array:
+	return _deep_duplicate(Villager_Info_Pool)
+
+func set_saved_villagers_from_save(data: Array, remove_from_pool: bool = true) -> void:
+	Saved_Villagers.clear()
+	for entry in data:
+		if entry is Dictionary:
+			Saved_Villagers.append(_deep_duplicate(entry))
+	if remove_from_pool:
+		_remove_saved_from_pool()
+	_pool_loaded_from_save = true
+
+func set_villager_pool_from_save(pool: Array) -> void:
+	Villager_Info_Pool = []
+	for entry in pool:
+		if entry is Dictionary:
+			Villager_Info_Pool.append(_deep_duplicate(entry))
+	_pool_loaded_from_save = true
+
+func reset_to_defaults() -> void:
+	Saved_Villagers.clear()
+	if _original_pool.is_empty():
+		_original_pool = _deep_duplicate(Villager_Info_Pool)
+	Villager_Info_Pool = _deep_duplicate(_original_pool)
+	_pool_loaded_from_save = false
+	save_array_to_json(Saved_Villagers, "Saved_Villagers.json")
+
+func _remove_saved_from_pool() -> void:
+	if Villager_Info_Pool.is_empty() or Saved_Villagers.is_empty():
+		return
+	var pool_serialized: Array = []
+	for entry in Villager_Info_Pool:
+		pool_serialized.append(JSON.stringify(entry))
+	for saved in Saved_Villagers:
+		var saved_str = JSON.stringify(saved)
+		var idx = pool_serialized.find(saved_str)
+		if idx != -1:
+			pool_serialized.remove_at(idx)
+			Villager_Info_Pool.remove_at(idx)
+
+func _deep_duplicate(value):
+	if value is Array:
+		var arr: Array = []
+		for item in value:
+			arr.append(_deep_duplicate(item))
+		return arr
+	elif value is Dictionary:
+		var dict: Dictionary = {}
+		for key in value.keys():
+			dict[key] = _deep_duplicate(value[key])
+		return dict
+	else:
+		return value

@@ -1,0 +1,47 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/TimeSkipNotification.gd" id="1_timeskip"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_background"]
+bg_color = Color(0.1, 0.1, 0.15, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.5, 0.7, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="TimeSkipNotification" type="Control"]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.2
+anchor_right = 0.5
+anchor_bottom = 0.2
+offset_left = -300.0
+offset_right = 300.0
+offset_top = -100.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 0
+script = ExtResource("1_timeskip")
+
+[node name="BackgroundPanel" type="Panel" parent="."]
+layout_mode = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_background")
+
+[node name="NotificationLabel" type="RichTextLabel" parent="BackgroundPanel"]
+layout_mode = 1
+bbcode_enabled = true
+fit_content = false
+scroll_active = false
+autowrap_mode = 3
+text_direction = 0
+
+[node name="FadeTimer" type="Timer" parent="."]
+wait_time = 5.0
+one_shot = true
+

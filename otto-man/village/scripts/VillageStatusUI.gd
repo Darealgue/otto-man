@@ -27,14 +27,18 @@ const PRODUCER_SCRIPTS := {
 	"stone": "res://village/scripts/StoneMine.gd",
 	"food": "res://village/scripts/HunterGathererHut.gd",
 	"water": "res://village/scripts/Well.gd",
-	"metal": "res://village/scripts/StoneMine.gd",
+	"lumber": "res://village/scripts/Sawmill.gd",
+	"brick": "res://village/scripts/Brickworks.gd",
+	"metal": "res://village/scripts/Blacksmith.gd",
 	"bread": "res://village/scripts/Bakery.gd",
+	"cloth": "res://village/scripts/Weaver.gd",
 	# Gelişmiş kaynaklar
-	"weapon": "res://village/scripts/Blacksmith.gd",
+	"weapon": "res://village/scripts/Gunsmith.gd",
 	"armor": "res://village/scripts/Armorer.gd",
 	"garment": "res://village/scripts/Tailor.gd",
 	"tea": "res://village/scripts/TeaHouse.gd",
-	"soap": "res://village/scripts/SoapMaker.gd"
+	"soap": "res://village/scripts/SoapMaker.gd",
+	"medicine": "res://village/scripts/Herbalist.gd"
 }
 
 # Dinamik oluşturulan ek kaynak etiketleri
@@ -144,11 +148,15 @@ func _update_labels() -> void:
 	_set_resource_visible_and_update(metal_label, "Metal", "metal")
 
 	# Gelişmiş Kaynaklar (dinamik label oluştur)
+	_update_dynamic_resource_label("lumber", "Kereste")
+	_update_dynamic_resource_label("brick", "Tuğla")
 	_update_dynamic_resource_label("weapon", "Silah")
 	_update_dynamic_resource_label("armor", "Zırh")
 	_update_dynamic_resource_label("garment", "Giyim")
+	_update_dynamic_resource_label("cloth", "Kumaş")
 	_update_dynamic_resource_label("tea", "Çay")
 	_update_dynamic_resource_label("soap", "Sabun")
+	_update_dynamic_resource_label("medicine", "İlaç")
 	_update_dynamic_resource_label("metal", "Metal")
 
 	# Aktif olaylar

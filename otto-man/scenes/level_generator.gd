@@ -77,7 +77,8 @@ const CHUNKS = {
 			"res://chunks/dungeon/basic/basic_platform1.tscn",
 			"res://chunks/dungeon/basic/basic_platform2.tscn",
 			"res://chunks/dungeon/basic/basic_platform3.tscn",
-			"res://chunks/dungeon/basic/basic_platform4.tscn"
+			"res://chunks/dungeon/basic/basic_platform4.tscn",
+			"res://chunks/dungeon/basic/basic_platform_exit.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,

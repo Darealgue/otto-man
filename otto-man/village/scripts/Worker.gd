@@ -965,31 +965,32 @@ func _physics_process(delta: float) -> void:
 			
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
-			if current_hour == TimeManager.WORK_END_HOUR and current_minute >= work_end_minute_offset:
-				#print("Worker %d işten dönüyor." % worker_id)
-				current_state = State.RETURNING_FROM_WORK
-				visible = true
-				var start_margin = 5.0
-				var start_x = 0.0
-				if _offscreen_exit_x < 0:
-					start_x = _offscreen_exit_x - start_margin
-				else:
-					start_x = _offscreen_exit_x + start_margin
-				# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
-				global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
-				
-				if is_instance_valid(assigned_building_node):
-					move_target_x = assigned_building_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
-				else:
-					#printerr("Worker %d: Returning from work but building is invalid! Socializing." % worker_id)
-					current_state = State.SOCIALIZING
-					_is_briefly_idling = false # <<< Reset flag >>>
-					_current_idle_activity = "" # <<< Reset activity >>>
-					_start_next_idle_step() # Start socializing behavior
-					# var wander_range = 150.0 # Handled by _start_next_idle_step
-					# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-					# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+			if current_hour >= TimeManager.WORK_END_HOUR:
+				if current_hour > TimeManager.WORK_END_HOUR or current_minute >= work_end_minute_offset:
+					#print("Worker %d işten dönüyor." % worker_id)
+					current_state = State.RETURNING_FROM_WORK
+					visible = true
+					var start_margin = 5.0
+					var start_x = 0.0
+					if _offscreen_exit_x < 0:
+						start_x = _offscreen_exit_x - start_margin
+					else:
+						start_x = _offscreen_exit_x + start_margin
+					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
+					global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					
+					if is_instance_valid(assigned_building_node):
+						move_target_x = assigned_building_node.global_position.x
+						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+					else:
+						#printerr("Worker %d: Returning from work but building is invalid! Socializing." % worker_id)
+						current_state = State.SOCIALIZING
+						_is_briefly_idling = false # <<< Reset flag >>>
+						_current_idle_activity = "" # <<< Reset activity >>>
+						_start_next_idle_step() # Start socializing behavior
+						# var wander_range = 150.0 # Handled by _start_next_idle_step
+						# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+						# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
 
 		State.RETURNING_FROM_WORK:
 			# Binaya doğru hareket et (hareket _physics_process başında yapılıyor)
@@ -1503,6 +1504,103 @@ func _on_idle_activity_timer_timeout():
 	# #print("Worker %d: Idle activity timer timeout." % worker_id) # Debug
 	# Aktivite bitti, bir sonraki adıma geç
 	_start_next_idle_step()
+
+# Saat değişiminde state transition kontrolü (VillageManager'dan çağrılır)
+func check_hour_transition(new_hour: int) -> void:
+	if not is_instance_valid(TimeManager):
+		return
+	var current_minute: int = TimeManager.get_minute() if TimeManager.has_method("get_minute") else 0
+	
+	match current_state:
+		State.SLEEPING:
+			if new_hour == TimeManager.WAKE_UP_HOUR and current_minute >= wake_up_minute_offset:
+				current_state = State.AWAKE_IDLE
+				visible = true
+				if is_instance_valid(housing_node):
+					global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					var wander_range = 150.0
+					move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+				_current_idle_activity = ""
+				_is_briefly_idling = false
+				_start_next_idle_step()
+		
+		State.WAITING_OFFSCREEN:
+			if is_deployed and assigned_job_type == "soldier":
+				return
+			if new_hour >= TimeManager.WORK_END_HOUR:
+				var should_return = false
+				if new_hour > TimeManager.WORK_END_HOUR:
+					should_return = true
+				elif current_minute >= work_end_minute_offset:
+					should_return = true
+				if should_return:
+					current_state = State.RETURNING_FROM_WORK
+					visible = true
+					var start_margin = 5.0
+					var start_x = _offscreen_exit_x - start_margin if _offscreen_exit_x < 0 else _offscreen_exit_x + start_margin
+					global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					if is_instance_valid(assigned_building_node):
+						move_target_x = assigned_building_node.global_position.x
+						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					else:
+						current_state = State.SOCIALIZING
+						_is_briefly_idling = false
+						_current_idle_activity = ""
+						_start_next_idle_step()
+		
+		State.WORKING_INSIDE:
+			if new_hour >= TimeManager.WORK_END_HOUR:
+				var should_finish = false
+				if new_hour > TimeManager.WORK_END_HOUR:
+					should_finish = true
+				elif current_minute >= work_end_minute_offset:
+					should_finish = true
+				if should_finish:
+					visible = true
+					if is_instance_valid(assigned_building_node):
+						global_position = Vector2(assigned_building_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					if fetching_timer and not fetching_timer.is_stopped():
+						fetching_timer.stop()
+					if new_hour >= TimeManager.SLEEP_HOUR:
+						if is_instance_valid(housing_node):
+							current_state = State.GOING_TO_SLEEP
+							move_target_x = housing_node.global_position.x
+							_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+							if is_instance_valid(held_item_sprite):
+								held_item_sprite.hide()
+						else:
+							current_state = State.SOCIALIZING
+							_is_briefly_idling = false
+							_current_idle_activity = ""
+							_start_next_idle_step()
+							if is_instance_valid(held_item_sprite):
+								held_item_sprite.hide()
+					else:
+						current_state = State.SOCIALIZING
+						_is_briefly_idling = false
+						_current_idle_activity = ""
+						_start_next_idle_step()
+						if is_instance_valid(held_item_sprite):
+							held_item_sprite.hide()
+		
+		State.AWAKE_IDLE, State.SOCIALIZING:
+			if new_hour >= TimeManager.SLEEP_HOUR and current_minute >= sleep_minute_offset:
+				if is_instance_valid(housing_node):
+					current_state = State.GOING_TO_SLEEP
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+			elif new_hour == TimeManager.WORK_START_HOUR and current_minute >= work_start_minute_offset:
+				if assigned_job_type != "" and assigned_job_type != "soldier" and is_instance_valid(assigned_building_node):
+					current_state = State.GOING_TO_BUILDING_FIRST
+					move_target_x = assigned_building_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
 
 # Bir sonraki boş zaman/sosyalleşme adımını başlatır
 func _start_next_idle_step():

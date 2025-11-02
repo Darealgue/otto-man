@@ -1,8 +1,9 @@
-[gd_scene load_steps=48 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=53 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
 [ext_resource type="PackedScene" uid="uid://cwc4rjb3xwqx" path="res://village/scenes/WorkerAssignmentUI.tscn" id="2_exr1e"]
+[ext_resource type="Script" path="res://village/scripts/PortalArea.gd" id="2_v83n0"]
 [ext_resource type="PackedScene" uid="uid://dc45tnfhvti72" path="res://village/scenes/CariyeManagementUI.tscn" id="4_fbyh8"]
 [ext_resource type="PackedScene" uid="uid://dptamh04yqugv" path="res://village/scenes/VillageStatusUI.tscn" id="5_3scu2"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="6_nhirr"]
@@ -33,11 +34,19 @@
 [ext_resource type="Texture2D" uid="uid://omgoovyhyx5k" path="res://village/assets/clouds/cloud6.png" id="21_m600d"]
 [ext_resource type="Texture2D" uid="uid://dc08mlef3owti" path="res://village/assets/clouds/cloud7.png" id="22_t2fs4"]
 [ext_resource type="Texture2D" uid="uid://cajio6whwv6uy" path="res://village/assets/clouds/cloud8.png" id="23_8o2q3"]
+[ext_resource type="PackedScene" path="res://ui/TimeSkipNotification.tscn" id="51_timeskip"]
+[ext_resource type="PackedScene" path="res://ui/PauseMenu.tscn" id="52_pausemenu"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_pfood"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_ftls5"]
 radius = 50.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_forest_portal"]
+size = Vector2(200, 480)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_dungeon_portal"]
+size = Vector2(200, 480)
 
 [sub_resource type="Gradient" id="Gradient_xvddr"]
 colors = PackedColorArray(0, 0, 0, 1, 0, 1, 1, 1)
@@ -174,9 +183,9 @@ text = "Camp Fire"
 [node name="AddVillagerButton" type="Button" parent="."]
 z_index = 10
 offset_left = -51.0
-offset_top = 453.0
+offset_top = 419.0
 offset_right = 51.0
-offset_bottom = 484.0
+offset_bottom = 450.0
 text = "Köylü lütfen"
 
 [node name="OpenCariyeUIButton" type="Button" parent="."]
@@ -194,6 +203,35 @@ offset_top = 524.0
 offset_right = 29.0
 offset_bottom = 555.0
 text = "İnşaa"
+
+[node name="ForestPortalArea" type="Area2D" parent="."]
+position = Vector2(-3600, -120)
+scale = Vector2(10, 10)
+collision_layer = 0
+collision_mask = 3
+script = ExtResource("2_v83n0")
+hold_time_required = 0.2
+travel_hours_out = 1.0
+payload_source = "village"
+payload_reason = "portal_forest"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ForestPortalArea"]
+shape = SubResource("RectangleShape2D_forest_portal")
+
+[node name="DungeonPortalArea" type="Area2D" parent="."]
+position = Vector2(3600, -120)
+scale = Vector2(10, 10)
+collision_layer = 0
+collision_mask = 3
+script = ExtResource("2_v83n0")
+destination = "dungeon"
+hold_time_required = 0.2
+travel_hours_out = 4.0
+payload_source = "village"
+payload_reason = "portal_dungeon"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DungeonPortalArea"]
+shape = SubResource("RectangleShape2D_dungeon_portal")
 
 [node name="VillageStatusUI" parent="." instance=ExtResource("5_3scu2")]
 layer = 10
@@ -352,7 +390,7 @@ position = Vector2(-1, 41)
 
 [node name="Water" type="Sprite2D" parent="."]
 material = SubResource("ShaderMaterial_86mrj")
-position = Vector2(2, 258.25)
+position = Vector2(2, 282)
 scale = Vector2(50, 2.27188)
 texture = ExtResource("14_0rx2s")
 
@@ -366,3 +404,13 @@ min_spawn_interval = -10.0
 max_spawn_interval = 20.0
 cloud_y_position_min = -50.0
 cloud_y_position_max = 100.0
+
+[node name="TimeSkipNotification" parent="." instance=ExtResource("51_timeskip")]
+z_index = 100
+anchors_preset = -1
+
+[node name="PauseMenuLayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("52_pausemenu")]
+z_index = 200

@@ -1,9 +1,12 @@
-[gd_scene load_steps=3 format=3 uid="uid://borm2xoovp62o"]
+[gd_scene load_steps=5 format=3 uid="uid://borm2xoovp62o"]
 
 [ext_resource type="TileSet" uid="uid://bck2wwctc1jbc" path="res://Tile set/dungeon_master_tileset.tres" id="1_brqby"]
 [ext_resource type="Script" path="res://levels/forest_level_generator.gd" id="2_gen"]
+[ext_resource type="Script" path="res://scenes/SceneReturnHandler.gd" id="3_ret"]
+[ext_resource type="PackedScene" path="res://ui/PauseMenu.tscn" id="4_pausemenu"]
 
 [node name="Node2D" type="Node2D"]
+script = ExtResource("3_ret")
 
 [node name="TileMapLayer" type="TileMapLayer" parent="."]
 tile_set = ExtResource("1_brqby")
@@ -11,3 +14,9 @@ tile_set = ExtResource("1_brqby")
 [node name="ForestLevelGenerator" type="Node2D" parent="."]
 script = ExtResource("2_gen")
 debug_enabled = true
+
+[node name="PauseMenuLayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("4_pausemenu")]
+z_index = 200

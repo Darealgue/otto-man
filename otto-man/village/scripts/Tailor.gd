@@ -16,11 +16,11 @@ const UPGRADE_COSTS = {
 	3: {"gold": 60}
 }
 
-var required_resources: Dictionary = {"food": 1, "water": 1} # ör: basit kumaş eşdeğeri
+var required_resources: Dictionary = {"cloth": 2, "water": 1}
 var produced_resource: String = "garment"
 
 # --- Fetch/Buffer Production ---
-var input_buffer: Dictionary = {"food": 0, "water": 0}
+var input_buffer: Dictionary = {"cloth": 0, "water": 0}
 var production_progress: float = 0.0
 const PRODUCTION_TIME: float = 300.0
 var fetch_timer: Timer = null
@@ -81,7 +81,7 @@ func _on_upgrade_finished() -> void:
 	VillageManager.notify_building_state_changed(self)
 
 func get_production_info() -> String:
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Giyim: (placeholder)"
+	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Giyim: (kumaş x2 + su)"
 
 # --- Worker Management (simple placeholder) ---
 var assigned_worker_ids: Array[int] = []

@@ -22,12 +22,17 @@ var pending_attacks: Array[Dictionary] = [] # { attacker:String, warning_day:int
 
 # --- Internal ---
 var _last_tick_day: int = 0
+var _time_advanced_connected: bool = false
 
 func _ready() -> void:
 	# Connect to day changes
 	var tm = get_node_or_null("/root/TimeManager")
-	if tm and tm.has_signal("day_changed"):
-		tm.connect("day_changed", Callable(self, "_on_new_day"))
+	if tm:
+		if tm.has_signal("day_changed"):
+			tm.connect("day_changed", Callable(self, "_on_new_day"))
+		if tm.has_signal("time_advanced") and not _time_advanced_connected:
+			tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
+			_time_advanced_connected = true
 		_last_tick_day = tm.get_day() if tm.has_method("get_day") else 0
 	# Initialize basic relations as neutral
 	for i in range(factions.size()):
@@ -42,6 +47,68 @@ func _process(_delta: float) -> void:
 
 func _rel_key(a: String, b: String) -> String:
 	return a + "|" + b if a < b else b + "|" + a
+
+func _on_time_advanced(total_minutes: int, start_day: int, start_hour: int, start_minute: int) -> void:
+	if not dynamic_world_enabled:
+		return
+	var tm = get_node_or_null("/root/TimeManager")
+	if not tm:
+		return
+	var end_day: int = start_day
+	var end_hour: int = start_hour
+	if tm.has_method("get_day"):
+		end_day = tm.get_day()
+	if tm.has_method("get_hour"):
+		end_hour = tm.get_hour()
+	var minutes_per_hour: int = 60
+	var hours_per_day: int = 24
+	if "MINUTES_PER_HOUR" in tm:
+		minutes_per_hour = tm.MINUTES_PER_HOUR
+	if "HOURS_PER_DAY" in tm:
+		hours_per_day = tm.HOURS_PER_DAY
+	var current_day: int = start_day
+	var current_hour: int = start_hour
+	var current_minute: int = start_minute
+	var minutes_processed: int = 0
+	while minutes_processed < total_minutes:
+		current_minute += 1
+		minutes_processed += 1
+		if current_minute >= minutes_per_hour:
+			current_minute = 0
+			current_hour += 1
+			if current_hour >= hours_per_day:
+				current_hour = 0
+				current_day += 1
+				if current_day <= end_day:
+					_simulate_day(current_day)
+					_apply_world_events_to_village(current_day)
+		if current_day < end_day or (current_day == end_day and current_hour < end_hour):
+			_check_pending_attacks_during_skip(current_day, current_hour)
+
+func _check_pending_attacks_during_skip(day: int, hour: int) -> void:
+	var remaining_attacks: Array[Dictionary] = []
+	for attack in pending_attacks:
+		var attack_day = attack.get("attack_day", day)
+		var attack_hour: float = float(attack.get("attack_hour", 0.0))
+		var deploy_time = attack_hour - 3.0
+		var deploy_day = attack_day
+		if deploy_time < 0.0:
+			deploy_time += 24.0
+			deploy_day -= 1
+		var deployed: bool = bool(attack.get("deployed", false))
+		if not deployed:
+			if day > deploy_day or (day == deploy_day and float(hour) >= deploy_time):
+				defense_deployment_started.emit(attack_day)
+				attack["deployed"] = true
+		var attack_time_reached = false
+		if day > attack_day or (day == attack_day and float(hour) >= attack_hour):
+			attack_time_reached = true
+		if attack_time_reached:
+			var attacker = attack.get("attacker", "Bilinmeyen")
+			_execute_village_defense(attacker, day)
+		else:
+			remaining_attacks.append(attack)
+	pending_attacks = remaining_attacks
 
 func _on_new_day(day: int) -> void:
 	if not dynamic_world_enabled:

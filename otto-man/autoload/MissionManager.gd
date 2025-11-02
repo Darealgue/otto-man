@@ -32,6 +32,17 @@ var _last_tick_day: int = 0
 var available_trade_offers: Array[Dictionary] = []  # [{partner, daily_gold, mods:{res:delta}, days, infinite}]
 var settlements: Array[Dictionary] = []  # [{id, name, type, relation, wealth, stability, military, biases:{wood:int,stone:int,food:int}}]
 var mission_history: Array[Dictionary] = []  # En son gerçekleşen görev sonuçları (LIFO)
+
+# Kaydetme/Yükleme
+const SAVE_DIR := "user://otto-man-save/"
+const ROLES_FILE := "concubine_roles.json"
+
+# Faz 7 dengeleme sabitleri (kayıp etkileri)
+const LOSS_RESOURCE_PCT := 0.08        # Kaynakların yüzde kaçı gider (8%)
+const LOSS_GOLD_FLAT := 60             # Ek altın kaybı
+const LOSS_STABILITY_DELTA := 7        # Dünya istikrarı düşüşü
+const LOSS_MORALE_DELTA := 10          # Köy morali düşüşü (varsa)
+const LOSS_BUILDING_DAMAGE_CHANCE := 0.15  # Bir binanın hasar alma olasılığı
 var settlement_trade_modifiers: Array[Dictionary] = [] # [{partner:String, trade_multiplier:float, blocked:bool, expires_day:int, reason:String}]
 
 # Haber kuyrukları
@@ -68,6 +79,8 @@ func _initialize():
 	# Başlangıç görevleri ve cariyeler oluştur
 	create_initial_missions()
 	create_initial_concubines()
+	# Kaydedilmiş roller varsa yükle
+	_load_concubine_roles()
 	
 	# Görev zincirlerini oluştur
 	create_mission_chains()
@@ -77,8 +90,11 @@ func _initialize():
 
 	# Günlük tick başlangıcı
 	var tm = get_node_or_null("/root/TimeManager")
-	if tm and tm.has_method("get_day"):
-		_last_tick_day = tm.get_day()
+	if tm:
+		if tm.has_method("get_day"):
+			_last_tick_day = tm.get_day()
+		if tm.has_signal("time_advanced"):
+			tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
 
 	# Yerleşimleri kur ve ilk teklifleri bunlara göre üret
 	create_settlements()
@@ -1601,6 +1617,85 @@ func mark_news_read(news_id: int) -> bool:
 			return true
 	return false
 
+func _on_time_advanced(total_minutes: int, start_day: int, start_hour: int, start_minute: int) -> void:
+	var tm = get_node_or_null("/root/TimeManager")
+	if not tm:
+		return
+	var end_day: int = start_day
+	if tm.has_method("get_day"):
+		end_day = tm.get_day()
+	var minutes_per_hour: int = 60
+	var hours_per_day: int = 24
+	if "MINUTES_PER_HOUR" in tm:
+		minutes_per_hour = tm.MINUTES_PER_HOUR
+	if "HOURS_PER_DAY" in tm:
+		hours_per_day = tm.HOURS_PER_DAY
+	var total_hours: float = float(total_minutes) / float(minutes_per_hour)
+	var total_days: float = total_hours / float(hours_per_day)
+	var current_day: int = start_day
+	for i in range(int(total_days) + 1):
+		if current_day <= end_day:
+			_on_new_day(current_day)
+		current_day += 1
+	_update_active_missions_during_skip(total_hours)
+
+func _update_active_missions_during_skip(total_hours: float) -> void:
+	var completed_missions_list: Array = []
+	for cariye_id in active_missions.keys():
+		var mission_id = active_missions.get(cariye_id, "")
+		if mission_id.is_empty():
+			continue
+		if not missions.has(mission_id):
+			continue
+		var mission = missions.get(mission_id)
+		if not mission:
+			continue
+		if not mission.has_method("get_remaining_time"):
+			continue
+		var remaining_time = mission.get_remaining_time()
+		if remaining_time <= 0.0:
+			continue
+		var new_remaining = remaining_time - total_hours
+		if new_remaining <= 0.0:
+			new_remaining = 0.0
+			completed_missions_list.append({"cariye_id": cariye_id, "mission_id": mission_id})
+		if mission.has_method("set_remaining_time"):
+			mission.set_remaining_time(new_remaining)
+		elif "remaining_time" in mission:
+			mission.remaining_time = new_remaining
+	for entry in completed_missions_list:
+		var cariye_id: int = entry.get("cariye_id", -1)
+		var mission_id: String = entry.get("mission_id", "")
+		if cariye_id < 0 or mission_id.is_empty():
+			continue
+		if not missions.has(mission_id):
+			active_missions.erase(cariye_id)
+			continue
+		var mission = missions.get(mission_id)
+		if not mission:
+			active_missions.erase(cariye_id)
+			continue
+		if not concubines.has(cariye_id):
+			active_missions.erase(cariye_id)
+			continue
+		var cariye = concubines[cariye_id]
+		if not cariye:
+			active_missions.erase(cariye_id)
+			continue
+		var success_chance: float = 0.5
+		if cariye.has_method("calculate_mission_success_chance"):
+			success_chance = cariye.calculate_mission_success_chance(mission)
+		var successful: bool = randf() < success_chance
+		if mission.has_method("complete_mission"):
+			var results = mission.complete_mission(successful)
+			if cariye.has_method("complete_mission"):
+				cariye.complete_mission(successful, mission_id)
+			if has_method("process_mission_results"):
+				process_mission_results(cariye_id, mission_id, successful, results)
+			on_mission_completed(mission_id)
+			mission_completed.emit(cariye_id, mission_id, successful, results)
+		active_missions.erase(cariye_id)
+
 func _on_new_day(day: int):
 	# Süresi dolan rate modifier'ları kaldır
 	var remaining: Array[Dictionary] = []
@@ -2368,6 +2463,8 @@ func _process_battle_results(mission: Dictionary, battle_result: Dictionary) -> 
 		var gold_loss := int(mission.get("penalties", {}).get("gold", 0))
 		if gold_loss > 0:
 			GlobalPlayerData.add_gold(-gold_loss)
+		# Gelişmiş kayıp etkileri
+		_apply_village_defeat_effects(mission)
 		
 		# Apply stability penalty
 		var stability_penalty := int(mission.get("penalties", {}).get("stability_penalty", 0))
@@ -2528,6 +2625,9 @@ func set_concubine_role(cariye_id: int, role: Concubine.Role) -> bool:
 	
 	# Rol atama sinyali gönder
 	emit_signal("concubine_role_changed", cariye_id, role)
+
+	# Persist to disk
+	_save_concubine_roles()
 	
 	return true
 
@@ -2565,3 +2665,89 @@ func get_commander_concubines() -> Array[Concubine]:
 
 # Rol atama sinyali
 signal concubine_role_changed(cariye_id: int, new_role: Concubine.Role)
+
+# --- CARIYE ROL PERSISTENCE ---
+func _ensure_save_dir() -> void:
+	var dir := DirAccess.open("user://")
+	if dir and not dir.dir_exists("otto-man-save"):
+		var err := dir.make_dir("otto-man-save")
+		if err != OK:
+			push_error("[MissionManager] Save dir create failed: " + SAVE_DIR)
+
+func _save_concubine_roles() -> void:
+	_ensure_save_dir()
+	var roles: Dictionary = {}
+	for cariye_id in concubines.keys():
+		var c: Concubine = concubines[cariye_id]
+		roles[str(cariye_id)] = int(c.role)
+	var path := SAVE_DIR + ROLES_FILE
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(roles))
+		f.close()
+		print("[MissionManager] Cariye roller kaydedildi: ", path)
+	else:
+		push_error("[MissionManager] Kaydetme açılamadı: " + path)
+
+func _load_concubine_roles() -> void:
+	var path := SAVE_DIR + ROLES_FILE
+	if not FileAccess.file_exists(path):
+		return
+	var f := FileAccess.open(path, FileAccess.READ)
+	if not f:
+		return
+	var txt := f.get_as_text()
+	f.close()
+	var data = JSON.parse_string(txt)
+	if not (data is Dictionary):
+		return
+	for key in data.keys():
+		var cid := int(key)
+		if concubines.has(cid):
+			var role_val := int(data[key])
+			concubines[cid].role = Concubine.Role.values()[clamp(role_val, 0, Concubine.Role.values().size() - 1)]
+	print("[MissionManager] Cariye roller yüklendi (", data.size(), ")")
+
+# --- KÖY KAYIP ETKİLERİ ---
+func _apply_village_defeat_effects(mission: Dictionary) -> void:
+	# 1) Kaynak/altın kaybı
+	var vm = get_node_or_null("/root/VillageManager")
+	if vm and vm.has("resource_levels"):
+		var res: Dictionary = vm.resource_levels
+		for k in res.keys():
+			var cur := int(res[k])
+			var loss := int(round(float(cur) * LOSS_RESOURCE_PCT))
+			if loss > 0:
+				res[k] = max(0, cur - loss)
+		# Güncelleme sinyali
+		if vm.has_signal("village_data_changed"):
+			vm.emit_signal("village_data_changed")
+
+	# Ek altın kaybı
+	if LOSS_GOLD_FLAT > 0:
+		GlobalPlayerData.add_gold(-LOSS_GOLD_FLAT)
+
+	# 2) İstikrar/moral
+	world_stability = max(0, world_stability - LOSS_STABILITY_DELTA)
+
+	# İsteğe bağlı: VillageManager'da moral varsa düşür
+	if vm and vm.has("village_morale"):
+		vm.village_morale = max(0, int(vm.village_morale) - LOSS_MORALE_DELTA)
+
+	# 3) Bina hasarı (rasgele bir yerleşik bina)
+	if randf() < LOSS_BUILDING_DAMAGE_CHANCE and vm and vm.village_scene_instance:
+		var placed = vm.village_scene_instance.get_node_or_null("PlacedBuildings")
+		if placed and placed.get_child_count() > 0:
+			var idx: int = randi() % placed.get_child_count()
+			var b = placed.get_child(idx)
+			# Basit bir hasar alanı varsa düşür; yoksa sadece haber at
+			if b and b.has("health"):
+				b.health = max(1, int(b.health) - 1)
+				post_news("Uyarı", "Bina Hasar Aldı", "%s hasar aldı." % (b.name), Color(1,0.7,0.5), "warning")
+			else:
+				post_news("Uyarı", "Bina Zarar Gördü", "%s hasar gördü." % (b.name), Color(1,0.7,0.5), "warning")
+
+	# 4) Haber
+	var title := "Savunma Kaybı"
+	var content := "Düşman saldırısı püskürtülemedi. Kaynakların bir kısmı yağmalandı."
+	post_news("Uyarı", title, content, Color(1.0, 0.5, 0.4), "critical")
