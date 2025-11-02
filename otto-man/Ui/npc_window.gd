@@ -36,18 +36,31 @@ func _on_chat_line_edit_text_submitted(new_text: String) -> void:
 	send_button.disabled = true
 	NpcDialogueManager.process_dialogue(NpcInfo, new_text, NpcInfo["Info"]["Name"])
 
+func _sanitize_dialogue_text(text: String) -> String:
+	# Remove excessive newlines (replace multiple newlines/tabs with single space)
+	text = text.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+	# Remove excessive spaces (replace multiple spaces with single space)
+	var regex = RegEx.new()
+	regex.compile("\\s+")
+	text = regex.sub(text, " ")
+	# Trim leading and trailing whitespace
+	text = text.strip_edges()
+	return text
+
 func _add_chat_message(talker : String , message: String) -> void:
 	if message.strip_edges() == "":
 		return
-	# Add to session log
-	chat_history.append("%s: %s" % [talker, message])
+	# Sanitize the message before storing and displaying
+	var sanitized_message = _sanitize_dialogue_text(message)
+	# Add to session log (store sanitized version)
+	chat_history.append("%s: %s" % [talker, sanitized_message])
 	# Add to UI as a new Label
 	var label := Label.new()
-	label.text = "%s : %s" % [talker, message]
+	label.text = "%s : %s" % [talker, sanitized_message]
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	chat_vbox.add_child(label)
 	_scroll_chat_to_bottom()
-	
+
 func _scroll_chat_to_bottom() -> void:
 	await get_tree().process_frame
 	if is_instance_valid(chat_scroll) and chat_scroll.get_v_scroll_bar():
@@ -76,7 +89,9 @@ func _update_chat_ui_from_history():
 	# Rebuild from history
 	for entry in chat_history:
 		var label := Label.new()
-		label.text = str(entry)
+		# Sanitize the entry text in case history contains unsanitized data
+		var sanitized_entry = _sanitize_dialogue_text(str(entry))
+		label.text = sanitized_entry
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		chat_vbox.add_child(label)
 	_scroll_chat_to_bottom()
@@ -85,4 +100,9 @@ func _update_chat_ui_from_history():
 func NPCDialogueProcessed(npc_name: String, new_state: Dictionary, generated_dialogue: String, was_significant: bool):
 	# Append NPC reply to chat without resubmitting as player input
 	_add_chat_message(npc_name, generated_dialogue)
+	NpcInfo = new_state
+	get_parent().NPC_Info = new_state
+	get_parent().Update_Villager_Name()
+	# No need to rebuild from history - _add_chat_message already handles adding to UI correctly
+	
 	send_button.disabled = false

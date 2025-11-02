@@ -561,6 +561,8 @@ func Save_Villager_Info():
 	
 #func Load_Villager_Info(VillagerInfo:Dictionary):
 	#NPC_Info = VillagerInfo
+func Update_Villager_Name():
+	$NamePlate.text = NPC_Info["Info"]["Name"]
 	
 func Initialize_Existing_Villager(NPCInfo):
 		if NPCInfo.is_empty() == true:
