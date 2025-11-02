@@ -14,10 +14,26 @@ func _ready() -> void:
 	# text_submitted signal is connected via scene; keep both paths consistent
 	pass
 
+
+
 func InitializeWindow(Info):
 	NpcInfo = Info
+	$BackPanel/NamePlate.text = Info["Info"]["Name"]
+	# Clear existing history labels before adding new ones
+	var history_container = $BackPanel/DiaryWindow/ScrollContainer/VBoxContainer
+	for child in history_container.get_children():
+		history_container.remove_child(child)
+		child.queue_free()
+	# Add history items
+	for item in NpcInfo["History"]:
+		var historylabel = Label.new()
+		history_container.add_child(historylabel)
+		historylabel.autowrap_mode = 3
+		historylabel.text = item
+	print("INITIALIZED WORKER")
 	print("WindowInfo: ", Info)
-	
+
+
 
 func _on_send_button_pressed():
 	var text = chat_line_edit.text
@@ -103,6 +119,45 @@ func NPCDialogueProcessed(npc_name: String, new_state: Dictionary, generated_dia
 	NpcInfo = new_state
 	get_parent().NPC_Info = new_state
 	get_parent().Update_Villager_Name()
+	# Re-initialize history if it changed (clear and rebuild to avoid duplicates)
+	var history_container = $BackPanel/DiaryWindow/ScrollContainer/VBoxContainer
+	for child in history_container.get_children():
+		history_container.remove_child(child)
+		child.queue_free()
+	for item in NpcInfo["History"]:
+		var historylabel = Label.new()
+		history_container.add_child(historylabel)
+		historylabel.autowrap_mode = 3
+		historylabel.text = item
+	
 	# No need to rebuild from history - _add_chat_message already handles adding to UI correctly
 	
 	send_button.disabled = false
+
+
+func _on_diary_button_pressed() -> void:
+	$BackPanel/DutiesWindow.hide()
+	$BackPanel/MissionWindow.hide()
+	$BackPanel/DiaryWindow.show()
+	$BackPanel/DialogueWindow.hide()
+	
+	
+
+func _on_dialogue_button_pressed() -> void:
+	$BackPanel/DutiesWindow.hide()
+	$BackPanel/MissionWindow.hide()
+	$BackPanel/DiaryWindow.hide()
+	$BackPanel/DialogueWindow.show()
+	
+
+
+func _on_close_button_pressed() -> void:
+	# Close the window by calling the parent Worker's CloseNpcWindow method
+	if get_parent() and get_parent().has_method("CloseNpcWindow"):
+		get_parent().CloseNpcWindow()
+
+func _input(event: InputEvent) -> void:
+	# Allow ESC key to close the dialogue window
+	if visible and event.is_action_pressed("ui_back"):
+		_on_close_button_pressed()
+		get_viewport().set_input_as_handled()

@@ -1,6 +1,9 @@
-[gd_scene load_steps=3 format=3 uid="uid://byov2w28tgqc0"]
+[gd_scene load_steps=6 format=3 uid="uid://byov2w28tgqc0"]
 
 [ext_resource type="Script" path="res://Ui/npc_window.gd" id="1_3vyxj"]
+[ext_resource type="Texture2D" uid="uid://7e1epio8ua2m" path="res://assets/Icons/Journal.png" id="2_yo6qp"]
+[ext_resource type="Texture2D" uid="uid://t33el1tkk451" path="res://assets/Icons/JournalPressed.png" id="3_dv2j5"]
+[ext_resource type="Texture2D" uid="uid://cjgtrf45y3w7k" path="res://assets/Icons/JournalHover.png" id="4_uceul"]
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_kci28"]
 allow_unpress = true
@@ -8,9 +11,9 @@ allow_unpress = true
 [node name="NpcWindow" type="Control"]
 layout_mode = 3
 anchor_right = 0.208
-anchor_bottom = 0.556
+anchor_bottom = 0.489
 offset_right = 0.639984
-offset_bottom = -0.480042
+offset_bottom = -0.119995
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_3vyxj")
@@ -18,27 +21,44 @@ script = ExtResource("1_3vyxj")
 [node name="BackPanel" type="Panel" parent="."]
 layout_mode = 0
 offset_right = 400.0
-offset_bottom = 600.0
+offset_bottom = 525.0
 
-[node name="DiaryButton" type="Button" parent="BackPanel"]
-layout_mode = 0
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -90.0
+[node name="DiaryButton" type="TextureButton" parent="BackPanel"]
+layout_direction = 3
+layout_mode = 1
+offset_left = 54.0
 offset_top = 10.0
-offset_right = -10.0
+offset_right = 164.0
 offset_bottom = 50.0
 toggle_mode = true
 button_group = SubResource("ButtonGroup_kci28")
+texture_normal = ExtResource("2_yo6qp")
+texture_pressed = ExtResource("3_dv2j5")
+texture_hover = ExtResource("4_uceul")
+ignore_texture_size = true
+stretch_mode = 4
+
+[node name="Label" type="Label" parent="BackPanel/DiaryButton"]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -11.0
+offset_right = 71.0
+offset_bottom = 12.0
+grow_vertical = 2
 text = "Diary"
+horizontal_alignment = 1
 
 [node name="NamePlate" type="Label" parent="BackPanel"]
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 10
 anchor_right = 1.0
 offset_left = 10.0
 offset_top = 10.0
-offset_right = -100.0
+offset_right = -163.0
 offset_bottom = 50.0
+grow_horizontal = 2
 text = "NPC Name"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -80,7 +100,7 @@ anchor_right = 1.0
 offset_left = 10.0
 offset_top = 180.0
 offset_right = -10.0
-offset_bottom = 590.0
+offset_bottom = 506.0
 grow_horizontal = 2
 
 [node name="ChangeableWindow" type="VBoxContainer" parent="BackPanel/DialogueWindow"]
@@ -92,21 +112,21 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -190.0
-offset_top = -33.0
+offset_top = -172.0
 offset_right = 190.0
-offset_bottom = 33.0
+offset_bottom = 258.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="ScrollContainer" type="ScrollContainer" parent="BackPanel/DialogueWindow/ChangeableWindow"]
-custom_minimum_size = Vector2(0, 360)
+custom_minimum_size = Vector2(0, 270)
 layout_mode = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="BackPanel/DialogueWindow/ChangeableWindow/ScrollContainer"]
 layout_mode = 2
 
 [node name="Label" type="Label" parent="BackPanel/DialogueWindow/ChangeableWindow/ScrollContainer/VBoxContainer"]
-custom_minimum_size = Vector2(370, 360)
+custom_minimum_size = Vector2(370, 282.82)
 layout_mode = 2
 vertical_alignment = 2
 autowrap_mode = 3
@@ -153,4 +173,25 @@ offset_right = -10.0
 offset_bottom = 590.0
 grow_horizontal = 2
 
+[node name="ScrollContainer" type="ScrollContainer" parent="BackPanel/DiaryWindow"]
+custom_minimum_size = Vector2(0, 300)
+offset_left = 4.0
+offset_right = 378.0
+offset_bottom = 300.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BackPanel/DiaryWindow/ScrollContainer"]
+custom_minimum_size = Vector2(370, 300)
+layout_mode = 2
+
+[node name="CloseButton" type="Button" parent="."]
+layout_mode = 0
+offset_left = 368.0
+offset_top = 3.0
+offset_right = 397.0
+offset_bottom = 34.0
+text = "X"
+
+[connection signal="pressed" from="BackPanel/DiaryButton" to="." method="_on_diary_button_pressed"]
+[connection signal="pressed" from="BackPanel/ScrollContainer/VBoxButtons/DialogueButton" to="." method="_on_dialogue_button_pressed"]
 [connection signal="text_submitted" from="BackPanel/DialogueWindow/ChangeableWindow/ChatLineEdit" to="." method="_on_chat_line_edit_text_submitted"]
+[connection signal="pressed" from="CloseButton" to="." method="_on_close_button_pressed"]

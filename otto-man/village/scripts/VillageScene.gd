@@ -217,6 +217,10 @@ func _on_add_villager_button_pressed() -> void:
 # 		worker_assignment_ui.hide()
 
 func _input(event: InputEvent) -> void:
+	# Block time forwarding inputs when dialogue window is open
+	if VillageManager.active_dialogue_npc != null:
+		return
+	
 	# Sadece klavye tuş basımlarını dinle
 	if event is InputEventKey and event.pressed and not event.is_echo():
 		# 1 tuşu: Normal hız (x1)

@@ -574,8 +574,13 @@ func Initialize_Existing_Villager(NPCInfo):
 func Initialize_New_Villager():
 	NPC_Info = VillagerAiInitializer.get_villager_info()
 	$NamePlate.text = NPC_Info["Info"]["Name"]
+	$NpcWindow.InitializeWindow(NPC_Info)
 
 func _physics_process(delta: float) -> void:
+	# Stop worker processing when dialogue window is open
+	if $NpcWindow and $NpcWindow.visible:
+		return
+	
 	# AI kamili workerların sağa sola dönmesini spriteları döndürmek yerine
 	# tüm node'un X scale'ını değiştirerek yaptığı için böyle isim plakasını tersine çevirmemiz gerekti
 	if scale.x < 0:
@@ -1700,6 +1705,14 @@ func _on_interact_button_pressed() -> void:
 	OpenNpcWindow()
 
 func OpenNpcWindow():
+	# Safety check: Ensure NPC_Info is initialized before opening window
+	if NPC_Info.is_empty():
+		print("[Worker] ⚠️ NPC_Info is empty for worker %d, initializing new villager..." % worker_id)
+		Initialize_New_Villager()
+	# Only initialize window if it hasn't been initialized yet (check if NpcInfo is set)
+	elif not $NpcWindow.NpcInfo == null or $NpcWindow.NpcInfo.is_empty():
+		if $NpcWindow.has_method("InitializeWindow"):
+			$NpcWindow.InitializeWindow(NPC_Info)
 	$NpcWindow.show()
 	NpcDialogueManager.dialogue_processed.connect(NpcAnswered)
 	VillageManager.Village_Player.set_ui_locked(true)

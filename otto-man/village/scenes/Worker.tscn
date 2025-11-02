@@ -1725,8 +1725,8 @@ text = "P"
 [node name="NpcWindow" parent="." instance=ExtResource("7_a2l8b")]
 visible = false
 offset_left = 45.0
-offset_top = -650.0
+offset_top = -342.0
 offset_right = 45.64
-offset_bottom = -650.0
+offset_bottom = -342.0
 
 [connection signal="pressed" from="InteractButton" to="." method="_on_interact_button_pressed"]
