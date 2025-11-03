@@ -136,6 +136,10 @@ func _reset_player_on_scene_load() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
+	# Reset death state if player was dead
+	if player.has_method("reset_death_state"):
+		player.reset_death_state()
+	
 	# Check if player is in problematic state
 	var needs_reset = false
 	var current_state_name = ""

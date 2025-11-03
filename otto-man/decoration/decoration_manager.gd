@@ -273,8 +273,22 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 	if body.is_in_group("player"):
 		var gold_value = coin.get_meta("gold_value", 1)
 		
+		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
+		var scene_manager = get_node_or_null("/root/SceneManager")
+		var is_combat_scene = false
+		if scene_manager:
+			var current_scene = scene_manager.get("current_scene_path")
+			if current_scene:
+				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
+				var forest_scene = scene_manager.get("FOREST_SCENE")
+				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
+		
+		# Add to dungeon gold if in combat scene, otherwise to global gold
 		if GlobalPlayerData:
-			GlobalPlayerData.add_gold(gold_value)
+			if is_combat_scene:
+				GlobalPlayerData.add_dungeon_gold(gold_value)
+			else:
+				GlobalPlayerData.add_gold(gold_value)
 		
 		print("[DecorationManager] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 		coin.queue_free()

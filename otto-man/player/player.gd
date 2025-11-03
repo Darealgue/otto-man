@@ -141,6 +141,8 @@ func set_ui_locked(locked: bool) -> void:
 @onready var state_machine = $StateMachine
 
 
+var is_dead: bool = false
+
 func _ready():
 	VillageManager.Village_Player = self
 	# Add to player group
@@ -165,12 +167,15 @@ func _ready():
 	# Ensure counter animations exist even if scene file missed them
 	_ensure_counter_animations()
 	
-	# Initialize health from PlayerStats
-	var player_stats = get_node("/root/PlayerStats")
+	# Initialize health from PlayerStats and connect death signal
+	var player_stats = get_node_or_null("/root/PlayerStats")
 	if player_stats:
 		player_stats.health_changed.connect(_on_health_changed)
 		emit_signal("health_changed", player_stats.get_current_health())
 		player_stats.stat_changed.connect(_on_stat_changed)
+		# Connect death signal
+		if not player_stats.player_died.is_connected(_on_player_died):
+			player_stats.player_died.connect(_on_player_died)
 	
 	# Set up hitbox and hurtbox
 	if hitbox:
@@ -228,6 +233,12 @@ func _input(event: InputEvent) -> void:
 		if event.is_action_pressed("interact"):
 			VillageManager.active_dialogue_npc._on_interact_button_pressed()
 func _physics_process(delta):
+	# Stop all updates if dead
+	if is_dead:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
+	
 	# Stop all player updates while UI is locked
 	var menu_open := _is_any_menu_open()
 	if _ui_locked or menu_open:
@@ -796,6 +807,151 @@ func _on_stat_changed(stat_name: String, _old_value: float, new_value: float) ->
 
 func _on_health_changed(new_health: float) -> void:
 	emit_signal("health_changed", new_health)
+	
+	# Check for death
+	if new_health <= 0.0 and not is_dead:
+		_on_player_died()
+
+func _on_player_died() -> void:
+	if is_dead:
+		return  # Already dead, prevent multiple calls
+	
+	is_dead = true
+	print("[Player] 💀 Player died!")
+	
+	# Disable player controls
+	if state_machine:
+		state_machine.set_process(false)
+		state_machine.set_physics_process(false)
+	
+	# Stop movement
+	velocity = Vector2.ZERO
+	
+	# Disable hitbox and hurtbox
+	if hitbox:
+		hitbox.disable()
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
+	
+	# Play death animation if available
+	if animation_tree:
+		animation_tree.set("parameters/dead_transition/transition_request", "dead")
+	elif animation_player:
+		if animation_player.has_animation("death"):
+			animation_player.play("death")
+		else:
+			animation_player.stop()
+	
+	# Fade out sprite after a delay
+	call_deferred("_fade_out_on_death")
+	
+	# Auto-return to village after a delay (roguelike style)
+	await get_tree().create_timer(2.0).timeout
+	_return_to_village_on_death()
+
+func _fade_out_on_death() -> void:
+	if sprite:
+		var tween = create_tween()
+		tween.tween_property(sprite, "modulate:a", 0.0, 1.0)
+		tween.tween_callback(func(): visible = false)
+
+func _return_to_village_on_death() -> void:
+	print("[Player] 🏠 Returning to village after death...")
+	
+	# Apply roguelike mechanics before scene change
+	_apply_roguelike_mechanics_on_death()
+	
+	if is_instance_valid(SceneManager):
+		SceneManager.change_to_village({})
+	else:
+		push_error("[Player] SceneManager not available for death return!")
+
+func _apply_roguelike_mechanics_on_death() -> void:
+	"""Apply roguelike mechanics when player dies (before returning to village)."""
+	var powerup_manager = get_node_or_null("/root/PowerupManager")
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	var global_player_data = get_node_or_null("/root/GlobalPlayerData")
+	
+	# Clear powerups
+	if powerup_manager and powerup_manager.has_method("clear_all_powerups"):
+		powerup_manager.clear_all_powerups()
+		print("[Player] 🎮 Roguelike: All powerups cleared on death")
+	
+	# Clear inventory (death penalty)
+	if global_player_data and "envanter" in global_player_data:
+		var envanter: Array = global_player_data.get("envanter")
+		var lost_count = envanter.size()
+		global_player_data.set("envanter", [])
+		print("[Player] 💀 Roguelike: Inventory cleared on death (%d items lost)" % lost_count)
+	
+	# Reset health to max (will be applied in reset_death_state, but we do it here too)
+	if player_stats:
+		var max_health = player_stats.get_stat("max_health")
+		player_stats.current_health = max_health
+		if player_stats.has_signal("health_changed"):
+			player_stats.health_changed.emit(max_health)
+		print("[Player] 💚 Roguelike: Health reset to %.1f on death" % max_health)
+	
+	# Reset kill count
+	if powerup_manager and "enemy_kill_count" in powerup_manager:
+		powerup_manager.set("enemy_kill_count", 0)
+		print("[Player] 🎮 Roguelike: Kill count reset on death")
+
+func reset_death_state() -> void:
+	"""Reset player death state - called when returning to village."""
+	if not is_dead:
+		return  # Already alive
+	
+	is_dead = false
+	print("[Player] 🔄 Resetting death state...")
+	
+	# Reset health if it's 0 or very low (roguelike reset)
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	if player_stats:
+		var current_health = player_stats.get_current_health()
+		if current_health <= 0.0:
+			var max_health = player_stats.get_stat("max_health")
+			player_stats.current_health = max_health
+			if player_stats.has_signal("health_changed"):
+				player_stats.health_changed.emit(max_health)
+			print("[Player] 💚 Health reset to %.1f (was %.1f)" % [max_health, current_health])
+	
+	# Make visible again
+	visible = true
+	if sprite:
+		sprite.modulate.a = 1.0
+		sprite.modulate = Color(1, 1, 1, 1)
+	
+	# Re-enable state machine
+	if state_machine:
+		state_machine.set_process(true)
+		state_machine.set_physics_process(true)
+		# Reset to idle state
+		if state_machine.has_node("Idle"):
+			var idle_state = state_machine.get_node("Idle")
+			if state_machine.current_state:
+				state_machine.current_state.exit()
+			state_machine.current_state = idle_state
+			state_machine.current_state.enter()
+	
+	# Re-enable hitbox and hurtbox
+	if hitbox:
+		hitbox.enable()
+	if hurtbox:
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
+	
+	# Reset velocity
+	velocity = Vector2.ZERO
+	
+	# Reset animation
+	if animation_tree:
+		animation_tree.set("parameters/dead_transition/transition_request", "idle")
+	elif animation_player:
+		animation_player.play("idle")
+	
+	print("[Player] ✅ Death state reset complete")
 
 func get_max_health() -> float:
 	var player_stats = get_node("/root/PlayerStats")

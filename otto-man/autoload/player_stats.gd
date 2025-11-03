@@ -29,6 +29,7 @@ extends Node
 
 signal stat_changed(stat_name: String, old_value: float, new_value: float)
 signal health_changed(new_health: float)
+signal player_died()
 
 # Base stats
 var base_stats = {
@@ -158,6 +159,11 @@ func set_current_health(value: float, show_damage_number: bool = true) -> void:
 	var old_health = current_health
 	current_health = clamp(value, 0, get_max_health())
 	health_changed.emit(current_health)
+	
+	# Check for death
+	if current_health <= 0.0 and old_health > 0.0:
+		player_died.emit()
+		print("[PlayerStats] 💀 Player died (health: %.1f)" % current_health)
 	
 	if show_damage_number and current_health < old_health:
 		var player = get_tree().get_first_node_in_group("player")

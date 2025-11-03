@@ -28,6 +28,7 @@ var delayed_health: float = 100.0
 var player_stats: Node
 
 func _ready() -> void:
+	add_to_group("health_display")
 	
 	# Force visibility
 	show()
@@ -59,8 +60,13 @@ func _ready() -> void:
 	if !player_stats.stat_changed.is_connected(_on_stat_changed):
 		player_stats.stat_changed.connect(_on_stat_changed, CONNECT_DEFERRED)
 
+var _force_visible: bool = true  # Allow external control
+
 func _process(delta: float) -> void:
-	if !visible:
+	if !_force_visible:
+		return  # Don't force visibility if disabled
+	
+	if !visible and _force_visible:
 		show()
 		modulate.a = 1.0
 		return

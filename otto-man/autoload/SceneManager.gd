@@ -10,12 +10,14 @@ const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
+const LoadingScreenScene = preload("res://ui/LoadingScreen.tscn")
 const TimeManagerPath := "/root/TimeManager"
 
 var current_scene_path: String = ""
 var previous_scene_path: String = ""
 var current_payload: Dictionary = {}
 var _level_entry_time: Dictionary = {}  # {scene_path: {day, hour, minute}} - Track when player entered each level
+var _loading_screen_instance: CanvasLayer = null
 
 func _ready() -> void:
 	current_scene_path = _detect_initial_scene()
@@ -251,28 +253,263 @@ func _change_scene(target_path: String, force_reload: bool = false) -> void:
 	if same_scene and not force_reload:
 		print("[SceneManager] same scene request, ignoring", target_path)
 		return
-	if same_scene and force_reload:
+	
+	# Show loading screen
+	_show_loading_screen(_get_scene_name(target_path))
+	
+	# Use call_deferred to ensure loading screen is visible before heavy operations
+	call_deferred("_perform_scene_change", target_path, same_scene and force_reload)
+
+func _show_loading_screen(scene_name: String = "") -> void:
+	if not LoadingScreenScene:
+		return
+	
+	# Create loading screen instance if it doesn't exist
+	if not is_instance_valid(_loading_screen_instance):
+		_loading_screen_instance = LoadingScreenScene.instantiate() as CanvasLayer
+		get_tree().root.add_child(_loading_screen_instance)
+	
+	# Show loading screen
+	var loading_text = "Yükleniyor"
+	if not scene_name.is_empty():
+		loading_text += "... " + scene_name
+	else:
+		loading_text += "..."
+	
+	# Script is attached to CanvasLayer, so methods are directly accessible
+	if _loading_screen_instance.has_method("show_loading"):
+		_loading_screen_instance.show_loading(loading_text)
+	else:
+		push_error("[SceneManager] LoadingScreen.show_loading() method not found!")
+
+func _hide_loading_screen() -> void:
+	if is_instance_valid(_loading_screen_instance):
+		_loading_screen_instance.hide_loading()
+		# Don't remove the instance, keep it for next use
+		# The loading screen will handle its own fade out
+
+func _perform_scene_change(target_path: String, is_reload: bool) -> void:
+	# Allow the loading screen to render before heavy operations
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+
+	var same_scene := current_scene_path == target_path
+	
+	if same_scene and is_reload:
 		print("[SceneManager] reloading current scene ->", target_path)
 		scene_change_started.emit(target_path)
 		previous_scene_path = current_scene_path
 		Engine.time_scale = 1.0
+		
+		# Update progress
+		if is_instance_valid(_loading_screen_instance):
+			_loading_screen_instance.set_progress(25.0)
+		
 		var reload_err := get_tree().reload_current_scene()
 		if reload_err != OK:
 			push_error("SceneManager: Sahne yeniden yüklenemedi (%s)" % target_path)
+			_hide_loading_screen()
 			return
+		
+		# Wait a frame for scene to be ready
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		_hide_loading_screen()
 		scene_change_completed.emit(target_path)
 		return
+	
 	print("[SceneManager] changing scene ->", target_path)
 	scene_change_started.emit(target_path)
 	previous_scene_path = current_scene_path
 	current_scene_path = target_path
+	
+	# Update progress
+	if is_instance_valid(_loading_screen_instance):
+		_loading_screen_instance.set_progress(25.0)
+	
 	# Reset time scale before scene change to prevent player state issues
 	Engine.time_scale = 1.0
+	
+	# Change scene
 	var err := get_tree().change_scene_to_file(target_path)
 	if err != OK:
 		push_error("SceneManager: Sahne geçişi başarısız (%s)" % target_path)
+		_hide_loading_screen()
 		return
+	
+	# Wait for scene to be ready
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	
+	# Update progress and hide
+	if is_instance_valid(_loading_screen_instance):
+		_loading_screen_instance.set_progress(100.0)
+	
+	# Small delay for progress to be visible, then fade out
+	await get_tree().create_timer(0.2).timeout
+	_hide_loading_screen()
+	
+	# Wait for fade out to complete
+	if is_instance_valid(_loading_screen_instance):
+		await _loading_screen_instance.fade_out_complete
+	
+	# Update UI visibility based on scene
+	_update_ui_visibility(target_path)
+	
 	scene_change_completed.emit(target_path)
+
+func _update_ui_visibility(scene_path: String) -> void:
+	"""Show/hide health and stamina bars based on current scene."""
+	var is_combat_scene = (scene_path == DUNGEON_SCENE or scene_path == FOREST_SCENE)
+	var should_show_ui = is_combat_scene
+	
+	print("[SceneManager] 🎮 Updating UI visibility for scene: %s (show UI: %s)" % [scene_path, should_show_ui])
+	
+	# Wait a frame for scene to be fully loaded
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# Find health display and stamina bar from game_ui scene
+	var health_display = get_tree().get_first_node_in_group("health_display")
+	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
+	
+	# Also check for UI nodes in current scene
+	var current_scene = get_tree().current_scene
+	var player = null  # Declare outside if block
+	
+	if current_scene:
+		# Check for GameUI scene
+		var game_ui = current_scene.get_node_or_null("GameUI")
+		if game_ui:
+			var hd = game_ui.get_node_or_null("Container/HealthDisplay")
+			if hd and hd is Control:
+				if should_show_ui:
+					hd.show()
+				else:
+					hd.hide()
+			
+			var sb = game_ui.get_node_or_null("Container/StaminaBar")
+			if sb and sb is Control:
+				if should_show_ui:
+					sb.show()
+				else:
+					sb.hide()
+			
+			# Update DungeonGoldDisplay visibility
+			var dgd = game_ui.get_node_or_null("Container/DungeonGoldDisplay")
+			if dgd and dgd is Control:
+				# Visibility managed by DungeonGoldDisplay itself
+				pass
+		
+		# Check for player UI (player.tscn has UI as child)
+		player = current_scene.get_node_or_null("Player")
+		if not player:
+			# Try finding player in group
+			var players = get_tree().get_nodes_in_group("player")
+			if players.size() > 0:
+				player = players[0]
+		
+		if player:
+			var player_ui = player.get_node_or_null("UI")
+			if player_ui:
+				var hd_player = player_ui.get_node_or_null("HealthDisplay")
+				if hd_player and hd_player is Control:
+					if should_show_ui:
+						hd_player.show()
+					else:
+						hd_player.hide()
+				
+				var sb_player = player_ui.get_node_or_null("StaminaBar")
+				if sb_player and sb_player is Control:
+					if should_show_ui:
+						sb_player.show()
+					else:
+						sb_player.hide()
+	
+	# Update nodes found via groups (only if they are Control nodes)
+	if health_display and health_display is Control:
+		if "_force_visible" in health_display:
+			health_display._force_visible = should_show_ui
+		if should_show_ui:
+			health_display.show()
+		else:
+			health_display.hide()
+	
+	if stamina_bar and stamina_bar is Control:
+		if "_force_visible" in stamina_bar:
+			stamina_bar._force_visible = should_show_ui
+		if should_show_ui:
+			stamina_bar.show()
+		else:
+			stamina_bar.hide()
+	
+	# Update player UI nodes if found
+	if player and player.has_node("UI"):
+		var player_ui = player.get_node("UI")
+		var hd_player = player_ui.get_node_or_null("HealthDisplay")
+		if hd_player and hd_player is Control:
+			if "_force_visible" in hd_player:
+				hd_player._force_visible = should_show_ui
+			if should_show_ui:
+				hd_player.show()
+			else:
+				hd_player.hide()
+		
+		var sb_player = player_ui.get_node_or_null("StaminaBar")
+		if sb_player and sb_player is Control:
+			if "_force_visible" in sb_player:
+				sb_player._force_visible = should_show_ui
+			if should_show_ui:
+				sb_player.show()
+			else:
+				sb_player.hide()
+	
+	# Also update GameUI nodes
+	if current_scene:
+		var game_ui = current_scene.get_node_or_null("GameUI")
+		if game_ui:
+			var hd = game_ui.get_node_or_null("Container/HealthDisplay")
+			if hd and hd is Control:
+				if "_force_visible" in hd:
+					hd._force_visible = should_show_ui
+				if should_show_ui:
+					hd.show()
+				else:
+					hd.hide()
+			
+			var sb = game_ui.get_node_or_null("Container/StaminaBar")
+			if sb and sb is Control:
+				if "_force_visible" in sb:
+					sb._force_visible = should_show_ui
+				if should_show_ui:
+					sb.show()
+				else:
+					sb.hide()
+			
+			# Update DungeonGoldDisplay
+			var dgd = game_ui.get_node_or_null("Container/DungeonGoldDisplay")
+			if dgd and dgd is Control:
+				if should_show_ui:
+					# Visibility will be handled by DungeonGoldDisplay itself based on gold amount
+					pass
+				else:
+					dgd.hide()
+	
+	print("[SceneManager] ✅ UI visibility updated")
+
+func _get_scene_name(scene_path: String) -> String:
+	if scene_path == MAIN_MENU_SCENE:
+		return "Ana Menü"
+	elif scene_path == VILLAGE_SCENE:
+		return "Köy"
+	elif scene_path == DUNGEON_SCENE:
+		return "Zindan"
+	elif scene_path == FOREST_SCENE:
+		return "Orman"
+	else:
+		var filename = scene_path.get_file().get_basename()
+		return filename.capitalize()
 
 func _detect_initial_scene() -> String:
 	var scene := get_tree().current_scene

@@ -434,9 +434,22 @@ func _on_gold_collected(body: Node2D, node: Node2D, gold_value: int) -> void:
 	if _is_player_node(body):
 		print("[DecorationSpawner] Gold collected: %d at %s" % [gold_value, str(node.global_position)])
 		
-		# PlayerData'ya altın ekle (varsa)
+		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
+		var scene_manager = get_node_or_null("/root/SceneManager")
+		var is_combat_scene = false
+		if scene_manager:
+			var current_scene = scene_manager.get("current_scene_path")
+			if current_scene:
+				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
+				var forest_scene = scene_manager.get("FOREST_SCENE")
+				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
+		
+		# Add to dungeon gold if in combat scene, otherwise to global gold
 		if GlobalPlayerData:
-			GlobalPlayerData.add_gold(gold_value)
+			if is_combat_scene:
+				GlobalPlayerData.add_dungeon_gold(gold_value)
+			else:
+				GlobalPlayerData.add_gold(gold_value)
 		
 		# Altın toplama efekti
 		_create_collection_effect(node.global_position)
@@ -829,8 +842,24 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 		return
 	if body and _is_player_node(body):
 		var gold_value = int(coin.get_meta("gold_value", 1))
+		
+		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
+		var scene_manager = get_node_or_null("/root/SceneManager")
+		var is_combat_scene = false
+		if scene_manager:
+			var current_scene = scene_manager.get("current_scene_path")
+			if current_scene:
+				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
+				var forest_scene = scene_manager.get("FOREST_SCENE")
+				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
+		
+		# Add to dungeon gold if in combat scene, otherwise to global gold
 		if GlobalPlayerData:
-			GlobalPlayerData.add_gold(gold_value)
+			if is_combat_scene:
+				GlobalPlayerData.add_dungeon_gold(gold_value)
+			else:
+				GlobalPlayerData.add_gold(gold_value)
+		
 		print("[DecorationSpawner] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 		_create_collection_effect(coin.global_position)
 		if coin is RigidBody2D and get_node_or_null("/root/Loots"):

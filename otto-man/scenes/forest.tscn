@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://borm2xoovp62o"]
+[gd_scene load_steps=6 format=3 uid="uid://borm2xoovp62o"]
 
 [ext_resource type="TileSet" uid="uid://bck2wwctc1jbc" path="res://Tile set/dungeon_master_tileset.tres" id="1_brqby"]
 [ext_resource type="Script" path="res://levels/forest_level_generator.gd" id="2_gen"]
 [ext_resource type="Script" path="res://scenes/SceneReturnHandler.gd" id="3_ret"]
 [ext_resource type="PackedScene" path="res://ui/PauseMenu.tscn" id="4_pausemenu"]
+[ext_resource type="PackedScene" path="res://scenes/game_ui.tscn" id="5_gameui"]
 
 [node name="Node2D" type="Node2D"]
 script = ExtResource("3_ret")
@@ -20,3 +21,5 @@ layer = 100
 
 [node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("4_pausemenu")]
 z_index = 200
+
+[node name="GameUI" parent="." instance=ExtResource("5_gameui")]

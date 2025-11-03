@@ -1,0 +1,63 @@
+[gd_scene load_steps=3 format=3 uid="uid://dungeon_gold_display"]
+
+[ext_resource type="Script" path="res://ui/DungeonGoldDisplay.gd" id="1_dungeon_gold"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0, 0, 0, 0.7)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="DungeonGoldDisplay" type="Control"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -200.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 60.0
+grow_horizontal = 0
+grow_vertical = 2
+script = ExtResource("1_dungeon_gold")
+
+[node name="Background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+z_index = -1
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+z_index = 1
+visible = true
+theme_override_constants/separation = 10
+
+[node name="GoldIcon" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "💰"
+theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GoldLabel" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "0"
+theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(1, 0.843, 0, 1)
+horizontal_alignment = 1
+vertical_alignment = 1

@@ -26,8 +26,13 @@ func _ready():
 	show()
 	modulate.a = 1.0  # Start visible
 
+var _force_visible: bool = true  # Allow external control
+
 func _process(delta):
-	if !visible:
+	if !_force_visible:
+		return  # Don't force visibility if disabled
+		
+	if !visible and _force_visible:
 		show()
 		modulate.a = 1.0
 		return
