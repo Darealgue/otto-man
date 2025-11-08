@@ -36,7 +36,7 @@ func _on_body_exited(body: Node) -> void:
 func _process(_delta: float) -> void:
 	if _fired or not _player_overlapping:
 		return
-	if Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("ui_up"):
+	if InputManager.is_interact_just_pressed() or InputManager.is_ui_up_just_pressed():
 		_fired = true
 		print("[MiniTrigger] interact pressed → starting minigame kind=", minigame_kind)
 		MinigameRouter.start_minigame(minigame_kind, {"source": name})

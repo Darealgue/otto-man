@@ -20,16 +20,16 @@ func _input(event: InputEvent) -> void:
 	if !visible or is_processing_selection:
 		return
 		
-	# Navigate up with W key
-	if event.is_action_pressed("up"):
+	# Navigate up
+	if InputManager.is_ui_up_pressed():
 		selected_index = (selected_index - 1) % powerup_buttons.size()
 		if selected_index < 0:
 			selected_index = powerup_buttons.size() - 1
 		update_selection()
 		get_viewport().set_input_as_handled()
 		
-	# Navigate down with S key
-	elif event.is_action_pressed("down"):
+	# Navigate down
+	elif InputManager.is_ui_down_pressed():
 		selected_index = (selected_index + 1) % powerup_buttons.size()
 		update_selection()
 		get_viewport().set_input_as_handled()
@@ -38,7 +38,8 @@ func _process(delta: float) -> void:
 	if !visible or is_processing_selection:
 		return
 		
-	if Input.is_action_pressed("jump"):  # Using jump for selection
+	var selecting := InputManager.is_ui_accept_pressed() or InputManager.is_jump_pressed() or InputManager.is_interact_pressed()
+	if selecting:  # Using accept/jump for selection
 		selection_hold_time += delta
 		if selection_hold_time >= SELECTION_HOLD_DURATION:
 			if selected_index >= 0 and selected_index < powerup_buttons.size():

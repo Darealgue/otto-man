@@ -9,6 +9,7 @@ const MAX_SAVE_SLOTS: int = 5
 
 signal save_completed(slot_id: int, success: bool)
 signal load_completed(slot_id: int, success: bool)
+signal error_occurred(error_message: String, error_type: String)  # error_type: "save", "load", "validation"
 
 var _playtime_start: int = 0  # Time when game started (OS.get_ticks_msec())
 var _total_playtime_seconds: int = 0  # Accumulated playtime from loaded saves
@@ -70,13 +71,31 @@ func save_game(slot_id: int) -> bool:
 	var file_path = SAVE_DIR + "save_%d.json" % slot_id
 	var file = FileAccess.open(file_path, FileAccess.WRITE)
 	if not file:
+		var error_msg = "Kayıt dosyası açılamadı. Disk alanı yetersiz olabilir veya yazma izni olmayabilir."
 		push_error("[SaveManager] Failed to open file for writing: %s" % file_path)
+		error_occurred.emit(error_msg, "save")
 		save_completed.emit(slot_id, false)
 		return false
 	
 	var json_string = JSON.stringify(save_data, "\t")
+	if json_string.is_empty():
+		var error_msg = "Kayıt verisi JSON'a dönüştürülemedi."
+		push_error("[SaveManager] Failed to stringify save data")
+		error_occurred.emit(error_msg, "save")
+		file.close()
+		save_completed.emit(slot_id, false)
+		return false
+	
 	file.store_string(json_string)
+	var store_error = file.get_error()
 	file.close()
+	
+	if store_error != OK:
+		var error_msg = "Kayıt dosyasına yazılamadı. Disk alanı yetersiz olabilir."
+		push_error("[SaveManager] Failed to write to file: %s (error: %d)" % [file_path, store_error])
+		error_occurred.emit(error_msg, "save")
+		save_completed.emit(slot_id, false)
+		return false
 	
 	print("[SaveManager] ✅ Game saved to slot %d: %s" % [slot_id, file_path])
 	save_completed.emit(slot_id, true)
@@ -103,16 +122,37 @@ func load_game(slot_id: int) -> bool:
 	var json_string = file.get_as_text()
 	file.close()
 	
+	# Validate file is not empty
+	if json_string.is_empty():
+		var error_msg = "Kayıt dosyası boş. Dosya bozulmuş olabilir."
+		push_error("[SaveManager] %s" % error_msg)
+		error_occurred.emit(error_msg, "validation")
+		load_completed.emit(slot_id, false)
+		return false
+	
 	var json = JSON.new()
 	var parse_error = json.parse(json_string)
 	if parse_error != OK:
+		var error_msg = "Kayıt dosyası okunamıyor. JSON formatı hatalı olabilir."
 		push_error("[SaveManager] Failed to parse JSON: %s (error: %d)" % [file_path, parse_error])
+		error_occurred.emit(error_msg, "validation")
 		load_completed.emit(slot_id, false)
 		return false
 	
 	var save_data: Dictionary = json.get_data()
 	if not save_data is Dictionary:
+		var error_msg = "Kayıt dosyası formatı geçersiz. Dosya bozulmuş olabilir."
 		push_error("[SaveManager] Save data is not a dictionary: %s" % file_path)
+		error_occurred.emit(error_msg, "validation")
+		load_completed.emit(slot_id, false)
+		return false
+	
+	# Validate save data structure
+	var validation_result = _validate_save_data(save_data)
+	if not validation_result["valid"]:
+		var error_msg = validation_result.get("error", "Kayıt dosyası doğrulanamadı.")
+		push_error("[SaveManager] Validation failed: %s" % error_msg)
+		error_occurred.emit(error_msg, "validation")
 		load_completed.emit(slot_id, false)
 		return false
 	
@@ -120,7 +160,9 @@ func load_game(slot_id: int) -> bool:
 	var version = save_data.get("version", "0.0.0")
 	if version != SAVE_VERSION:
 		print("[SaveManager] ⚠️ Version mismatch: Save=%s, Current=%s" % [version, SAVE_VERSION])
-		# For now, we'll try to load anyway
+		# For now, we'll try to load anyway, but warn user
+		var version_warning = "Kayıt dosyası farklı bir oyun sürümünden. Yükleme denenecek."
+		print("[SaveManager] %s" % version_warning)
 	
 	# Load playtime
 	_total_playtime_seconds = save_data.get("playtime_seconds", 0)
@@ -739,3 +781,96 @@ func _format_datetime(datetime_dict: Dictionary) -> String:
 	var hour = datetime_dict.get("hour", 0)
 	var minute = datetime_dict.get("minute", 0)
 	return "%04d-%02d-%02dT%02d:%02d:00" % [year, month, day, hour, minute]
+
+# === VALIDATION FUNCTIONS ===
+
+func _validate_save_data(save_data: Dictionary) -> Dictionary:
+	"""
+	Validate save data structure and return validation result.
+	Returns: {"valid": bool, "error": String}
+	"""
+	# Check required top-level keys
+	var required_keys = ["version", "save_date"]
+	for key in required_keys:
+		if not save_data.has(key):
+			return {"valid": false, "error": "Kayıt dosyasında gerekli alan eksik: %s" % key}
+	
+	# Validate version format (should be "x.y.z")
+	var version = save_data.get("version", "")
+	if version.is_empty():
+		return {"valid": false, "error": "Kayıt dosyası sürüm bilgisi eksik."}
+	
+	# Check if critical data sections exist (allow empty but must be correct type)
+	var critical_sections = ["village", "missions", "world", "player", "time"]
+	
+	for section_name in critical_sections:
+		if save_data.has(section_name):
+			var section = save_data[section_name]
+			if not section is Dictionary:
+				return {"valid": false, "error": "Kayıt dosyasında '%s' bölümü yanlış formatta." % section_name}
+	
+	# Validate version compatibility (basic check)
+	if not _is_version_compatible(version):
+		return {"valid": false, "error": "Bu kayıt dosyası bu oyun sürümüyle uyumlu değil."}
+	
+	return {"valid": true, "error": ""}
+
+func _is_version_compatible(save_version: String) -> bool:
+	"""
+	Check if save version is compatible with current version.
+	For now, accepts same major.minor version (0.1.x)
+	"""
+	var save_parts = save_version.split(".")
+	var current_parts = SAVE_VERSION.split(".")
+	
+	if save_parts.size() < 2 or current_parts.size() < 2:
+		return false
+	
+	# Same major.minor is compatible (0.1.x)
+	if save_parts[0] == current_parts[0] and save_parts[1] == current_parts[1]:
+		return true
+	
+	# For now, reject other versions (can be made more flexible later)
+	return false
+
+func validate_save_file(slot_id: int) -> Dictionary:
+	"""
+	Public function to validate a save file without loading it.
+	Returns: {"valid": bool, "error": String, "metadata": Dictionary}
+	"""
+	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
+		return {"valid": false, "error": "Geçersiz kayıt slotu.", "metadata": {}}
+	
+	var file_path = SAVE_DIR + "save_%d.json" % slot_id
+	if not FileAccess.file_exists(file_path):
+		return {"valid": false, "error": "Kayıt dosyası bulunamadı.", "metadata": {}}
+	
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return {"valid": false, "error": "Kayıt dosyası açılamadı.", "metadata": {}}
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	if json_string.is_empty():
+		return {"valid": false, "error": "Kayıt dosyası boş.", "metadata": {}}
+	
+	var json = JSON.new()
+	var parse_error = json.parse(json_string)
+	if parse_error != OK:
+		return {"valid": false, "error": "JSON parse hatası.", "metadata": {}}
+	
+	var save_data: Dictionary = json.get_data()
+	if not save_data is Dictionary:
+		return {"valid": false, "error": "Geçersiz dosya formatı.", "metadata": {}}
+	
+	var validation = _validate_save_data(save_data)
+	var metadata = {}
+	if validation["valid"]:
+		metadata = get_save_metadata(slot_id)
+	
+	return {
+		"valid": validation["valid"],
+		"error": validation["error"],
+		"metadata": metadata
+	}

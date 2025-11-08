@@ -22,7 +22,7 @@ func _ready():
 func _process(_delta):
 	if _consumed:
 		return
-	if _player_overlapping and Input.is_action_just_pressed("interact"):
+	if _player_overlapping and InputManager.is_interact_just_pressed():
 		_start_minigame()
 
 func _on_input_event(_viewport, event, _shape_idx):

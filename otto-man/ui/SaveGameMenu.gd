@@ -7,6 +7,7 @@ signal back_requested()
 
 @onready var slots_container: VBoxContainer = $Panel/VBoxContainer/SlotsContainer
 @onready var back_button: Button = $Panel/VBoxContainer/BackButton
+@onready var status_label: Label = $Panel/VBoxContainer/StatusLabel
 @onready var confirm_dialog: Control = $ConfirmDialog
 
 const MAX_SLOTS: int = 5
@@ -117,6 +118,15 @@ func _setup_confirm_dialog() -> void:
 		confirm_dialog.cancelled.connect(_on_confirm_dialog_cancelled)
 
 func _on_slot_save_pressed(slot_id: int) -> void:
+	# Connect to error signal if not already connected
+	if SaveManager.has_signal("error_occurred"):
+		if not SaveManager.error_occurred.is_connected(_on_save_error):
+			SaveManager.error_occurred.connect(_on_save_error)
+	
+	# Connect to save completed to handle errors
+	if SaveManager.has_signal("save_completed"):
+		if not SaveManager.save_completed.is_connected(_on_save_completed):
+			SaveManager.save_completed.connect(_on_save_completed)
 	if not is_instance_valid(SaveManager):
 		push_error("[SaveGameMenu] SaveManager not available!")
 		return
@@ -138,8 +148,46 @@ func _on_slot_save_pressed(slot_id: int) -> void:
 		_do_save_slot(slot_id)
 
 func _do_save_slot(slot_id: int) -> void:
+	# Show saving message
+	_set_status("Kaydediliyor...", true)
 	print("[SaveGameMenu] Saving to slot %d..." % slot_id)
 	slot_selected.emit(slot_id)
+
+func _on_save_completed(slot_id: int, success: bool) -> void:
+	if not success:
+		_set_status("Kaydetme başarısız!", false)
+		_show_error("Kaydetme Başarısız", "Oyun kaydedilemedi. Disk alanı yetersiz olabilir veya dosya yazma izni olmayabilir.")
+	else:
+		_set_status("Kayıt tamamlandı!", true)
+		# Refresh slots to show updated metadata
+		_refresh_slots()
+		# Clear status after a delay
+		await get_tree().create_timer(1.0).timeout
+		_set_status("", false)
+
+func _on_save_error(error_message: String, error_type: String) -> void:
+	if error_type == "save":
+		_set_status("", false)  # Clear status on error
+		_show_error("Kaydetme Hatası", error_message)
+
+func _set_status(message: String, is_loading: bool = false) -> void:
+	"""Set status label message"""
+	if status_label:
+		status_label.text = message
+		if is_loading:
+			status_label.modulate = Color(1, 1, 1, 1)
+		else:
+			status_label.modulate = Color(1, 0.843, 0, 1)
+
+func _show_error(title: String, message: String) -> void:
+	"""Show error dialog"""
+	_set_status("", false)  # Clear status on error
+	var error_dialog_scene = load("res://ui/ErrorDialog.tscn")
+	if error_dialog_scene:
+		var error_dialog = error_dialog_scene.instantiate()
+		get_tree().root.add_child(error_dialog)
+		if error_dialog.has_method("show_error"):
+			error_dialog.show_error(title, message)
 
 func _on_confirm_dialog_confirmed() -> void:
 	if _pending_save_slot >= 0:

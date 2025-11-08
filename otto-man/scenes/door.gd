@@ -60,7 +60,10 @@ func _initialize_door() -> void:
 
 func _process(_delta: float) -> void:
 	# Handle interaction input
-	if is_player_in_range and Input.is_action_just_pressed("interact"):
+	if is_player_in_range and (
+		InputManager.is_interact_just_pressed()
+		or InputManager.is_portal_enter_just_pressed()
+	):
 		_interact_with_door()
 
 func _on_area_entered(area: Area2D) -> void:

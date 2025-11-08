@@ -699,27 +699,27 @@ func _unhandled_input(event):
 	if current_page != PageType.CONSTRUCTION:
 		return
 	# D-Pad debounce kontrolü (just_pressed yönler)
-	if Input.is_action_just_pressed("ui_left") or Input.is_action_just_pressed("ui_right") or Input.is_action_just_pressed("ui_up") or Input.is_action_just_pressed("ui_down"):
+	if InputManager.is_ui_left_just_pressed() or InputManager.is_ui_right_just_pressed() or InputManager.is_ui_up_just_pressed() or InputManager.is_ui_down_just_pressed():
 		if dpad_debounce_timer > 0:
 			return
 		dpad_debounce_timer = dpad_debounce_delay
 	# Önce açık bir yıkım onayı varsa onu işle (just_pressed ile)
 	if _demolish_confirm_open:
-		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+		if InputManager.is_ui_accept_just_pressed():
 			get_viewport().set_input_as_handled()
 			_debug_construction("Confirm DEMOLISH -> YES")
 			_close_demolish_confirm_popup()
 			_demolish_selected_building()
 			update_construction_ui()
 			return
-		elif Input.is_action_just_pressed("ui_cancel"):
+		elif InputManager.is_ui_cancel_just_pressed():
 			get_viewport().set_input_as_handled()
 			_debug_construction("Confirm DEMOLISH -> CANCEL")
 			_close_demolish_confirm_popup()
 			update_construction_ui()
 			return
 	# Kategori sola/sağa
-	if Input.is_action_just_pressed("ui_left"):
+	if InputManager.is_ui_left_just_pressed():
 		get_viewport().set_input_as_handled()
 		current_building_category = (current_building_category - 1) % category_names.size()
 		if current_building_category < 0:
@@ -728,7 +728,7 @@ func _unhandled_input(event):
 		_debug_construction("LEFT -> Cat:" + String(category_names[current_building_category]))
 		update_construction_ui()
 		return
-	if Input.is_action_just_pressed("ui_right"):
+	if InputManager.is_ui_right_just_pressed():
 		get_viewport().set_input_as_handled()
 		current_building_category = (current_building_category + 1) % category_names.size()
 		current_building_index = 0
@@ -737,7 +737,7 @@ func _unhandled_input(event):
 		return
 	# Liste yukarı/aşağı
 	var buildings = building_categories.get(current_building_category, [])
-	if Input.is_action_just_pressed("ui_up") and buildings.size() > 0:
+	if InputManager.is_ui_up_just_pressed() and buildings.size() > 0:
 		get_viewport().set_input_as_handled()
 		current_building_index = (current_building_index - 1) % buildings.size()
 		if current_building_index < 0:
@@ -745,34 +745,34 @@ func _unhandled_input(event):
 		_debug_construction("UP -> Idx:" + str(current_building_index))
 		update_construction_ui()
 		return
-	if Input.is_action_just_pressed("ui_down") and buildings.size() > 0:
+	if InputManager.is_ui_down_just_pressed() and buildings.size() > 0:
 		get_viewport().set_input_as_handled()
 		current_building_index = (current_building_index + 1) % buildings.size()
 		_debug_construction("DOWN -> Idx:" + str(current_building_index))
 		update_construction_ui()
 		return
 	# A: İnşa / Yükselt
-	if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+	if InputManager.is_ui_accept_just_pressed():
 		get_viewport().set_input_as_handled()
 		_debug_construction("A -> build_or_upgrade")
 		_build_or_upgrade_selected()
 		update_construction_ui()
 		return
 	# Y: Bilgi
-	if Input.is_action_just_pressed("ui_select"):
+	if InputManager.is_ui_select_just_pressed():
 		get_viewport().set_input_as_handled()
 		_debug_construction("Y -> info_popup")
 		_open_building_info_popup()
 		return
 	# X: Yık
-	if Input.is_action_just_pressed("attack"):
+	if InputManager.is_attack_just_pressed():
 		get_viewport().set_input_as_handled()
 		_debug_construction("X -> demolish_confirm_open")
 		_open_demolish_confirm_popup()
 		update_construction_ui()
 		return
 	# B: Info popup kapat
-	if Input.is_action_just_pressed("ui_cancel"):
+	if InputManager.is_ui_cancel_just_pressed():
 		if _construction_info_popup:
 			get_viewport().set_input_as_handled()
 			_debug_construction("B -> close_info_popup")
@@ -783,7 +783,7 @@ func _unhandled_input(event):
 # İşlem seçimi seviyesi (YAP/YÜKSELT/YIK/BİLGİ)
 func handle_action_selection():
 	# Sol/Sağ D-pad: İşlem seçimi
-	if Input.is_action_just_pressed("ui_left"):
+	if InputManager.is_ui_left_just_pressed():
 		print("=== SOL D-PAD: İşlem değiştiriliyor ===")
 		current_construction_action = (current_construction_action - 1) % action_names.size()
 		if current_construction_action < 0:
@@ -791,14 +791,14 @@ func handle_action_selection():
 		print("Yeni işlem: ", action_names[current_construction_action])
 		update_construction_ui()
 
-	elif Input.is_action_just_pressed("ui_right"):
+	elif InputManager.is_ui_right_just_pressed():
 		print("=== SAĞ D-PAD: İşlem değiştiriliyor ===")
 		current_construction_action = (current_construction_action + 1) % action_names.size()
 		print("Yeni işlem: ", action_names[current_construction_action])
 		update_construction_ui()
 
 	# A tuşu (ui_forward): İşlemi seç, kategorilere geç
-	elif Input.is_action_just_pressed("ui_forward"):
+	elif InputManager.is_ui_accept_just_pressed():
 		print("=== A TUŞU: İşlem seçildi, kategorilere geçiliyor ===")
 		current_menu_state = MenuState.KATEGORİ_SEÇİMİ
 		update_construction_ui()
@@ -806,7 +806,7 @@ func handle_action_selection():
 # Kategori seçimi seviyesi (ÜRETİM/YAŞAM/ORDU/DEKORASYON)
 func handle_category_selection():
 	# Sol/Sağ D-pad: Kategori seçimi
-	if Input.is_action_just_pressed("ui_left"):
+	if InputManager.is_ui_left_just_pressed():
 		print("=== SOL D-PAD: Kategori değiştiriliyor ===")
 		current_building_category = (current_building_category - 1) % category_names.size()
 		if current_building_category < 0:
@@ -814,20 +814,20 @@ func handle_category_selection():
 		print("Yeni kategori: ", category_names[current_building_category])
 		update_construction_ui()
 
-	elif Input.is_action_just_pressed("ui_right"):
+	elif InputManager.is_ui_right_just_pressed():
 		print("=== SAĞ D-PAD: Kategori değiştiriliyor ===")
 		current_building_category = (current_building_category + 1) % category_names.size()
 		print("Yeni kategori: ", category_names[current_building_category])
 		update_construction_ui()
 
 	# A tuşu (ui_forward): Kategoriyi seç, binalara geç
-	elif Input.is_action_just_pressed("ui_forward"):
+	elif InputManager.is_ui_accept_just_pressed():
 		print("=== A TUŞU: Kategori seçildi, binalara geçiliyor ===")
 		current_menu_state = MenuState.BİNA_SEÇİMİ
 		update_construction_ui()
 
 	# B tuşu: Geri dön, işlem seçimine
-	elif Input.is_action_just_pressed("ui_cancel"):
+	elif InputManager.is_ui_cancel_just_pressed():
 		print("=== B TUŞU: Geri dönülüyor, işlem seçimine ===")
 		current_menu_state = MenuState.İŞLEM_SEÇİMİ
 		update_construction_ui()
@@ -841,55 +841,55 @@ func handle_building_selection():
 
 	# Yıkım onayı açıksa, yalnızca A/B işle
 	if _demolish_confirm_open:
-		if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+		if InputManager.is_ui_accept_just_pressed():
 			_close_demolish_confirm_popup()
 			_demolish_selected_building()
 			update_construction_ui()
 			return
-		elif Input.is_action_just_pressed("ui_cancel"):
+		elif InputManager.is_ui_cancel_just_pressed():
 			_close_demolish_confirm_popup()
 			update_construction_ui()
 			return
 	
 	# Sol/Sağ: Kategori değiştir
-	if Input.is_action_just_pressed("ui_left"):
+	if InputManager.is_ui_left_just_pressed():
 		current_building_category = (current_building_category - 1) % category_names.size()
 		if current_building_category < 0:
 			current_building_category = category_names.size() - 1
 		current_building_index = 0
 		update_construction_ui()
 		return
-	elif Input.is_action_just_pressed("ui_right"):
+	elif InputManager.is_ui_right_just_pressed():
 		current_building_category = (current_building_category + 1) % category_names.size()
 		current_building_index = 0
 		update_construction_ui()
 		return
 
 	# Yukarı/Aşağı: Bina seçimi
-	if Input.is_action_just_pressed("ui_up"):
+	if InputManager.is_ui_up_just_pressed():
 		current_building_index = (current_building_index - 1) % buildings.size()
 		if current_building_index < 0:
 			current_building_index = buildings.size() - 1
 		update_construction_ui()
 		return
-	elif Input.is_action_just_pressed("ui_down"):
+	elif InputManager.is_ui_down_just_pressed():
 		current_building_index = (current_building_index + 1) % buildings.size()
 		update_construction_ui()
 		return
 
 	# A: İnşa / Yükselt
-	if Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("ui_forward"):
+	if InputManager.is_ui_accept_just_pressed():
 		_build_or_upgrade_selected()
 		update_construction_ui()
 		return
 
 	# Y: Bilgi
-	if Input.is_action_just_pressed("ui_select"):
+	if InputManager.is_ui_select_just_pressed():
 		_open_building_info_popup()
 		return
 
 	# X: Yık (önce onay penceresi)
-	if Input.is_action_just_pressed("attack"):
+	if InputManager.is_attack_just_pressed():
 		_open_demolish_confirm_popup()
 		update_construction_ui()
 		return
@@ -1712,12 +1712,16 @@ func update_assignment_ui():
 				# Seçili bina tipine göre açıklama göster
 				if not all_buildings.is_empty() and current_assignment_building_index < all_buildings.size():
 					var selected_type = all_buildings[current_assignment_building_index]["type"]
+					var accept_key = InputManager.get_accept_key_name()
+					var cancel_key = InputManager.get_cancel_key_name()
 					if selected_type == "Kışla":
-						text += "\n[A tuşu: Ekipman] [Sol/Sağ: Asker Ekle/Çıkar] [B tuşu: Geri]"
+						text += "\n[%s: Ekipman] [Sol/Sağ: Asker Ekle/Çıkar] [%s: Geri]" % [accept_key, cancel_key]
 					else:
-						text += "\n[A tuşu: Detay] [Sol/Sağ: İşçi Ekle/Çıkar] [B tuşu: Geri]"
+						text += "\n[%s: Detay] [Sol/Sağ: İşçi Ekle/Çıkar] [%s: Geri]" % [accept_key, cancel_key]
 				else:
-					text += "\n[A tuşu: Detay] [Sol/Sağ: İşçi Ekle/Çıkar] [B tuşu: Geri]"
+					var accept_key = InputManager.get_accept_key_name()
+					var cancel_key = InputManager.get_cancel_key_name()
+					text += "\n[%s: Detay] [Sol/Sağ: İşçi Ekle/Çıkar] [%s: Geri]" % [accept_key, cancel_key]
 
 		AssignmentMenuState.BİNA_DETAYI:
 			var all_buildings = get_all_available_buildings()
@@ -1733,7 +1737,8 @@ func update_assignment_ui():
 					update_assignment_ui()
 					return
 				var info = get_building_detailed_info(building_node, building_type)
-				text = "=== BİNA DETAYI ===\n\n" + info + "\n\n[B tuşu: Geri]"
+				var cancel_key = InputManager.get_cancel_key_name()
+				text = "=== BİNA DETAYI ===\n\n" + info + "\n\n[%s: Geri]" % cancel_key
 
 		AssignmentMenuState.ASKER_EKİPMAN:
 			var soldiers = get_barracks_soldiers()
@@ -1742,12 +1747,14 @@ func update_assignment_ui():
 			var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
 			text = "=== ASKER EKİPMAN ATAMA ===\n\n"
 			text += "📦 Stok: Silah: %d | Zırh: %d\n\n" % [available_weapons, available_armors]
+			var accept_key = InputManager.get_accept_key_name()
+			var cancel_key = InputManager.get_cancel_key_name()
 			if soldiers.is_empty():
-				text += "Kışlada asker yok!\n\n[B tuşu: Geri]"
+				text += "Kışlada asker yok!\n\n[%s: Geri]" % cancel_key
 			else:
 				text += "Yukarı/Aşağı: Asker seç\n"
 				text += "Sol/Sağ: Silah/Zırh seç\n"
-				text += "A tuşu: Ekipman Ver/Al\n\n"
+				text += "%s: Ekipman Ver/Al\n\n" % accept_key
 				var equipment_names = ["⚔️ Silah", "🛡️ Zırh"]
 				text += "Seçili Ekipman: %s\n\n" % equipment_names[current_equipment_action]
 				for i in range(soldiers.size()):
@@ -1756,7 +1763,7 @@ func update_assignment_ui():
 					var weapon_mark = "⚔️" if soldier["equipment"].get("weapon", false) else "  "
 					var armor_mark = "🛡️" if soldier["equipment"].get("armor", false) else "  "
 					text += marker + "Asker %d %s %s\n" % [soldier["worker_id"], weapon_mark, armor_mark]
-				text += "\n[B tuşu: Geri]"
+				text += "\n[%s: Geri]" % cancel_key
 	
 	if assignment_label:
 		assignment_label.text = text
@@ -3643,22 +3650,42 @@ func _input(event):
 		if action != "":
 			print("[MissionCenter] Input consumed: ", action)
 	
-	# B tuşu ile geri gitme (basılı tutma desteği)
+	# Windows tuşunu filtrele - hiçbir şey yapmasın
+	if event is InputEventKey:
+		var key_event = event as InputEventKey
+		if key_event.meta_pressed or key_event.keycode == KEY_META or key_event.physical_keycode == KEY_META:
+			return
+	
+	# ESC ve Dodge tuşu ile geri gitme (basılı tutma desteği)
+	var should_close := false
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
+		# Windows tuşunu kontrol et
+		if event is InputEventKey:
+			var key_event = event as InputEventKey
+			if not (key_event.meta_pressed or key_event.keycode == KEY_META or key_event.physical_keycode == KEY_META):
+				should_close = true
+		else:
+			should_close = true
+	
+	if event.is_action_pressed("dash"):
+		should_close = true
+	
+	if should_close:
 		b_button_pressed = true
 		b_button_timer = 0.0
 		handle_back_button()
 		return
-	if event.is_action_released("ui_cancel") or event.is_action_released("ui_back"):
+	
+	if event.is_action_released("ui_cancel") or event.is_action_released("ui_back") or event.is_action_released("dash"):
 		b_button_pressed = false
 	
 	# L2/R2 ile sayfa değiştirme
 	# Her iki aksiyon adını da destekle (proje: l2_trigger/r2_trigger)
-	if event.is_action_pressed("ui_page_left") or Input.is_action_just_pressed("l2_trigger"):
+	if event.is_action_pressed("ui_page_left") or InputManager.is_ui_page_left_just_pressed():
 		print("=== L2 TRIGGER ===")
 		previous_page()
 		return
-	if event.is_action_pressed("ui_page_right") or Input.is_action_just_pressed("r2_trigger"):
+	if event.is_action_pressed("ui_page_right") or InputManager.is_ui_page_right_just_pressed():
 		print("=== R2 TRIGGER ===")
 		next_page()
 		return

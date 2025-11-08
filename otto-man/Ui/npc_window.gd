@@ -158,6 +158,6 @@ func _on_close_button_pressed() -> void:
 
 func _input(event: InputEvent) -> void:
 	# Allow ESC key to close the dialogue window
-	if visible and event.is_action_pressed("ui_back"):
+	if visible and InputManager.is_ui_cancel_pressed():
 		_on_close_button_pressed()
 		get_viewport().set_input_as_handled()

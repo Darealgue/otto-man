@@ -1,0 +1,198 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/SettingsMenu.gd" id="1_ojs7q"]
+
+[node name="SettingsMenu" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_ojs7q")
+process_mode = 4
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7)
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_right = 320.0
+offset_top = -260.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Title" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Ayarlar"
+horizontal_alignment = 1
+
+[node name="TabContainer" type="TabContainer" parent="Panel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AudioTab" type="VBoxContainer" parent="Panel/VBoxContainer/TabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="MasterVolumeContainer" type="VBoxContainer" parent="Panel/VBoxContainer/TabContainer/AudioTab"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MasterVolumeLabel" type="Label" parent="Panel/VBoxContainer/TabContainer/AudioTab/MasterVolumeContainer"]
+layout_mode = 2
+text = "Ana Ses: 100%"
+
+[node name="MasterVolumeSlider" type="HSlider" parent="Panel/VBoxContainer/TabContainer/AudioTab/MasterVolumeContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+focus_mode = 2
+size_flags_horizontal = 3
+
+[node name="MusicVolumeContainer" type="VBoxContainer" parent="Panel/VBoxContainer/TabContainer/AudioTab"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MusicVolumeLabel" type="Label" parent="Panel/VBoxContainer/TabContainer/AudioTab/MusicVolumeContainer"]
+layout_mode = 2
+text = "Müzik Ses: 80%"
+
+[node name="MusicVolumeSlider" type="HSlider" parent="Panel/VBoxContainer/TabContainer/AudioTab/MusicVolumeContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 80.0
+focus_mode = 2
+size_flags_horizontal = 3
+
+[node name="SfxVolumeContainer" type="VBoxContainer" parent="Panel/VBoxContainer/TabContainer/AudioTab"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SfxVolumeLabel" type="Label" parent="Panel/VBoxContainer/TabContainer/AudioTab/SfxVolumeContainer"]
+layout_mode = 2
+text = "Efekt Sesleri: 100%"
+
+[node name="SfxVolumeSlider" type="HSlider" parent="Panel/VBoxContainer/TabContainer/AudioTab/SfxVolumeContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+focus_mode = 2
+size_flags_horizontal = 3
+
+[node name="VideoTab" type="VBoxContainer" parent="Panel/VBoxContainer/TabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="FullscreenCheckBox" type="CheckBox" parent="Panel/VBoxContainer/TabContainer/VideoTab"]
+layout_mode = 2
+text = "Tam Ekran"
+focus_mode = 2
+
+[node name="VSyncCheckBox" type="CheckBox" parent="Panel/VBoxContainer/TabContainer/VideoTab"]
+layout_mode = 2
+text = "VSync"
+focus_mode = 2
+
+[node name="GameTab" type="VBoxContainer" parent="Panel/VBoxContainer/TabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ShowDamageCheckBox" type="CheckBox" parent="Panel/VBoxContainer/TabContainer/GameTab"]
+layout_mode = 2
+text = "Hasar Sayıları Göster"
+focus_mode = 2
+
+[node name="ShowFPSCheckBox" type="CheckBox" parent="Panel/VBoxContainer/TabContainer/GameTab"]
+layout_mode = 2
+text = "FPS Göster"
+focus_mode = 2
+
+[node name="CameraShakeCheckBox" type="CheckBox" parent="Panel/VBoxContainer/TabContainer/GameTab"]
+layout_mode = 2
+text = "Kamera Titreşimi"
+focus_mode = 2
+
+[node name="ControlsTab" type="VBoxContainer" parent="Panel/VBoxContainer/TabContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PresetLabel" type="Label" parent="Panel/VBoxContainer/TabContainer/ControlsTab"]
+layout_mode = 2
+text = "Kontrol Preset'i"
+
+[node name="PresetOption" type="OptionButton" parent="Panel/VBoxContainer/TabContainer/ControlsTab"]
+layout_mode = 2
+focus_mode = 2
+size_flags_horizontal = 3
+
+[node name="PresetHelp" type="Label" parent="Panel/VBoxContainer/TabContainer/ControlsTab"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+text = "WASD + Numpad veya Ok Tuşları + QWEASD arasında geçiş yapabilirsin."
+autowrap_mode = 2
+
+[node name="ButtonContainer" type="HBoxContainer" parent="Panel/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="ApplyButton" type="Button" parent="Panel/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 1
+text = "Uygula"
+focus_mode = 2
+
+[node name="ResetButton" type="Button" parent="Panel/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 1
+text = "Varsayılan"
+focus_mode = 2
+
+[node name="BackButton" type="Button" parent="Panel/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 1
+text = "Geri"
+focus_mode = 2
+
+[node name="HintLabel" type="Label" parent="Panel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "[←/→] Değer | [Tab] Geçiş | [Q/E] Sekme | [ESC] Geri"
+horizontal_alignment = 1
+autowrap_mode = 2
+

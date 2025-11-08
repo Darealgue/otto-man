@@ -9,6 +9,7 @@ signal load_requested()
 signal settings_requested()
 signal main_menu_requested()
 
+@onready var main_panel: Panel = $Panel
 @onready var resume_button: Button = $Panel/VBoxContainer/ResumeButton
 @onready var save_button: Button = $Panel/VBoxContainer/SaveButton
 @onready var load_button: Button = $Panel/VBoxContainer/LoadButton
@@ -16,6 +17,7 @@ signal main_menu_requested()
 @onready var main_menu_button: Button = $Panel/VBoxContainer/MainMenuButton
 @onready var load_game_menu: Control = $LoadGameMenu
 @onready var save_game_menu: Control = $SaveGameMenu
+@onready var settings_menu: Control = $SettingsMenu
 @onready var confirm_dialog: Control = $ConfirmDialog
 
 var is_paused: bool = false
@@ -25,9 +27,10 @@ var _camera_smoothing_was_enabled: bool = false
 
 func _ready() -> void:
 	_ensure_nodes()
-	_connect_signals()
 	_setup_load_game_menu()
 	_setup_save_game_menu()
+	_setup_settings_menu()
+	_connect_signals()
 	_setup_confirm_dialog()
 	visible = false
 	# Force UI to ignore world transforms/cameras
@@ -53,6 +56,8 @@ func _ensure_nodes() -> void:
 		push_error("[PauseMenu] SettingsButton not found!")
 	if not main_menu_button:
 		push_error("[PauseMenu] MainMenuButton not found!")
+	if not settings_menu:
+		push_error("[PauseMenu] SettingsMenu not found!")
 
 func _connect_signals() -> void:
 	if resume_button:
@@ -65,6 +70,11 @@ func _connect_signals() -> void:
 		settings_button.pressed.connect(_on_settings_pressed)
 	if main_menu_button:
 		main_menu_button.pressed.connect(_on_main_menu_pressed)
+	if settings_menu:
+		if settings_menu.has_signal("back_requested") and not settings_menu.back_requested.is_connected(_on_settings_back):
+			settings_menu.back_requested.connect(_on_settings_back)
+		if settings_menu.has_signal("settings_applied") and not settings_menu.settings_applied.is_connected(_on_settings_applied):
+			settings_menu.settings_applied.connect(_on_settings_applied)
 
 func _setup_load_game_menu() -> void:
 	if not load_game_menu:
@@ -85,6 +95,20 @@ func _setup_load_game_menu() -> void:
 	
 	if load_game_menu.has_method("hide_menu"):
 		load_game_menu.hide_menu()
+
+func _setup_settings_menu() -> void:
+	if not settings_menu:
+		var settings_scene = load("res://ui/SettingsMenu.tscn")
+		if settings_scene:
+			settings_menu = settings_scene.instantiate()
+			settings_menu.name = "SettingsMenu"
+			add_child(settings_menu)
+		else:
+			push_warning("[PauseMenu] Failed to load SettingsMenu scene!")
+			return
+	
+	if settings_menu.has_method("hide_menu"):
+		settings_menu.hide_menu()
 
 func _setup_save_game_menu() -> void:
 	if not save_game_menu:
@@ -120,30 +144,54 @@ var _pending_main_menu_action: bool = false
 var _pending_save_slot: int = -1
 
 func _input(event: InputEvent) -> void:
-	# Check for pause input (ESC or Start button)
+	# Check for pause input (Start button only for opening)
 	# Only process if not already paused by tree
 	if get_tree().paused:
 		# If paused but menu not visible, ignore (another system paused)
 		if not visible and not is_paused:
 			return
 	
-	# ESC always toggles pause
-	if event.is_action_pressed("ui_cancel"):
-		if is_paused:
-			_close_menu()
-		else:
-			_open_menu()
-		return
+	# Windows tuşunu filtrele - hiçbir şey yapmasın
+	if event is InputEventKey:
+		var key_event = event as InputEventKey
+		if key_event.meta_pressed or key_event.keycode == KEY_META or key_event.physical_keycode == KEY_META:
+			return
 	
-	# Start button (gamepad) - button_index 6 or 10
-	if event is InputEventJoypadButton:
-		var joypad_event = event as InputEventJoypadButton
-		# Start button: 6 (most controllers) or 10 (some controllers)
-		if joypad_event.pressed and (joypad_event.button_index == 6 or joypad_event.button_index == 10):
+	# ESC tuşu (keyboard) - menüyü aç/kapat
+	if event is InputEventKey:
+		var key_event = event as InputEventKey
+		if (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE) and event.pressed:
 			if is_paused:
 				_close_menu()
 			else:
 				_open_menu()
+			return
+	
+	# Dodge/Dash tuşu (klavye ve gamepad) - SADECE menü açıkken kapat
+	# Menü kapalıyken dash oyun aksiyonu için kullanılmalı
+	if event.is_action_pressed("dash"):
+		if is_paused:
+			_close_menu()
+		return
+	
+	# Gamepad kontrolleri
+	if event is InputEventJoypadButton:
+		var joypad_event = event as InputEventJoypadButton
+		
+		# Start button (6 veya 9) - menüyü aç/kapat
+		if joypad_event.pressed and (joypad_event.button_index == 6 or joypad_event.button_index == 9):
+			if is_paused:
+				_close_menu()
+			else:
+				_open_menu()
+			return
+		
+		# B tuşu (button_index 1) - SADECE menü açıkken kapat
+		# Menü kapalıyken B tuşu oyun aksiyonları için kullanılmalı (dash)
+		if joypad_event.pressed and joypad_event.button_index == 1:
+			if is_paused:
+				_close_menu()
+			return
 
 func _open_menu() -> void:
 	if is_paused:
@@ -151,7 +199,15 @@ func _open_menu() -> void:
 	
 	is_paused = true
 	visible = true
-	get_tree().paused = true
+	if main_panel:
+		main_panel.visible = true
+	
+	# Use GameState to pause if available
+	if is_instance_valid(GameState) and GameState.has_method("pause"):
+		GameState.pause()
+	else:
+		get_tree().paused = true
+	
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	
 	# Center player camera when menu opens
@@ -328,7 +384,12 @@ func _close_menu() -> void:
 	
 	is_paused = false
 	visible = false
-	get_tree().paused = false
+	
+	# Use GameState to resume if available
+	if is_instance_valid(GameState) and GameState.has_method("resume"):
+		GameState.resume()
+	else:
+		get_tree().paused = false
 	
 	# Hide load game menu if open
 	if load_game_menu and load_game_menu.has_method("hide_menu"):
@@ -337,6 +398,13 @@ func _close_menu() -> void:
 	# Hide save game menu if open
 	if save_game_menu and save_game_menu.has_method("hide_menu"):
 		save_game_menu.hide_menu()
+	
+	# Hide settings menu if open
+	if settings_menu and settings_menu.has_method("hide_menu"):
+		settings_menu.hide_menu()
+	
+	if main_panel:
+		main_panel.visible = true
 	
 	print("[PauseMenu] Menu closed, game resumed")
 
@@ -387,8 +455,7 @@ func _on_load_pressed() -> void:
 func _on_settings_pressed() -> void:
 	_play_click()
 	settings_requested.emit()
-	# Placeholder - settings menu not implemented yet
-	print("[PauseMenu] Settings menu not implemented yet")
+	_show_settings_menu()
 
 func _on_main_menu_pressed() -> void:
 	_play_click()
@@ -410,9 +477,66 @@ func _show_load_menu() -> void:
 		load_game_menu.show_menu()
 		load_game_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
 
+func _show_settings_menu() -> void:
+	if main_panel:
+		main_panel.visible = false
+	# Disable focus on all pause menu buttons while settings is open
+	_disable_pause_menu_focus()
+	if settings_menu and settings_menu.has_method("show_menu"):
+		settings_menu.show_menu()
+		settings_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
+
+func _on_settings_back() -> void:
+	if settings_menu and settings_menu.has_method("hide_menu"):
+		settings_menu.hide_menu()
+	if main_panel:
+		main_panel.visible = true
+	# Re-enable focus on pause menu buttons
+	_enable_pause_menu_focus()
+	if settings_button:
+		settings_button.grab_focus()
+
+func _disable_pause_menu_focus() -> void:
+	# Disable focus on all buttons so they can't be navigated to while settings is open
+	if resume_button:
+		resume_button.focus_mode = Control.FOCUS_NONE
+	if save_button:
+		save_button.focus_mode = Control.FOCUS_NONE
+	if load_button:
+		load_button.focus_mode = Control.FOCUS_NONE
+	if settings_button:
+		settings_button.focus_mode = Control.FOCUS_NONE
+	if main_menu_button:
+		main_menu_button.focus_mode = Control.FOCUS_NONE
+
+func _enable_pause_menu_focus() -> void:
+	# Re-enable focus on all buttons
+	if resume_button:
+		resume_button.focus_mode = Control.FOCUS_ALL
+	if save_button:
+		save_button.focus_mode = Control.FOCUS_ALL
+	if load_button:
+		load_button.focus_mode = Control.FOCUS_ALL
+	if settings_button:
+		settings_button.focus_mode = Control.FOCUS_ALL
+	if main_menu_button:
+		main_menu_button.focus_mode = Control.FOCUS_ALL
+
+func _on_settings_applied(settings: Dictionary) -> void:
+	# Placeholder for reacting to applied settings (e.g., update game systems)
+	print("[PauseMenu] Settings applied: ", settings)
+
 func _on_load_game_slot_selected(slot_id: int) -> void:
 	print("[PauseMenu] Loading game from slot %d..." % slot_id)
 	if is_instance_valid(SaveManager):
+		# Connect to error signals if not already connected
+		if SaveManager.has_signal("error_occurred"):
+			if not SaveManager.error_occurred.is_connected(_on_save_manager_error):
+				SaveManager.error_occurred.connect(_on_save_manager_error)
+		if SaveManager.has_signal("load_completed"):
+			if not SaveManager.load_completed.is_connected(_on_load_completed):
+				SaveManager.load_completed.connect(_on_load_completed)
+		
 		# Unpause before loading (loading will change scenes)
 		get_tree().paused = false
 		if SaveManager.load_game(slot_id):
@@ -422,8 +546,10 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 			push_error("[PauseMenu] Failed to load game from slot %d" % slot_id)
 			# Re-pause if load failed
 			get_tree().paused = true
+			_show_error("Yükleme Başarısız", "Kayıt yüklenemedi.")
 	else:
 		push_error("[PauseMenu] SaveManager not available!")
+		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
 
 func _on_load_game_back() -> void:
 	if load_game_menu and load_game_menu.has_method("hide_menu"):
@@ -434,6 +560,14 @@ func _on_load_game_back() -> void:
 func _on_save_game_slot_selected(slot_id: int) -> void:
 	print("[PauseMenu] Saving game to slot %d..." % slot_id)
 	if is_instance_valid(SaveManager):
+		# Connect to error signals if not already connected
+		if SaveManager.has_signal("error_occurred"):
+			if not SaveManager.error_occurred.is_connected(_on_save_manager_error):
+				SaveManager.error_occurred.connect(_on_save_manager_error)
+		if SaveManager.has_signal("save_completed"):
+			if not SaveManager.save_completed.is_connected(_on_save_completed):
+				SaveManager.save_completed.connect(_on_save_completed)
+		
 		if SaveManager.save_game(slot_id):
 			print("[PauseMenu] ✅ Game saved successfully to slot %d" % slot_id)
 			# Show success message
@@ -447,11 +581,10 @@ func _on_save_game_slot_selected(slot_id: int) -> void:
 				resume_button.grab_focus()
 		else:
 			push_error("[PauseMenu] Failed to save game to slot %d" % slot_id)
-			# Show error message
-			if confirm_dialog and confirm_dialog.has_method("show_dialog"):
-				confirm_dialog.show_dialog("Hata", "Kayıt başarısız!", false)
+			_show_error("Kaydetme Başarısız", "Oyun kaydedilemedi.")
 	else:
 		push_error("[PauseMenu] SaveManager not available!")
+		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
 
 func _on_save_game_back() -> void:
 	if save_game_menu and save_game_menu.has_method("hide_menu"):
@@ -481,3 +614,26 @@ func _do_return_to_main_menu() -> void:
 func _play_click() -> void:
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_ui"):
 		SoundManager.play_ui("click")
+
+func _on_load_completed(slot_id: int, success: bool) -> void:
+	if not success:
+		_show_error("Yükleme Başarısız", "Kayıt yüklenemedi. Dosya bozulmuş olabilir.")
+
+func _on_save_completed(slot_id: int, success: bool) -> void:
+	if not success:
+		_show_error("Kaydetme Başarısız", "Oyun kaydedilemedi.")
+
+func _on_save_manager_error(error_message: String, error_type: String) -> void:
+	if error_type == "save":
+		_show_error("Kaydetme Hatası", error_message)
+	elif error_type == "load" or error_type == "validation":
+		_show_error("Yükleme Hatası", error_message)
+
+func _show_error(title: String, message: String) -> void:
+	"""Show error dialog"""
+	var error_dialog_scene = load("res://ui/ErrorDialog.tscn")
+	if error_dialog_scene:
+		var error_dialog = error_dialog_scene.instantiate()
+		get_tree().root.add_child(error_dialog)
+		if error_dialog.has_method("show_error"):
+			error_dialog.show_error(title, message)

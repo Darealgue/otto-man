@@ -45,15 +45,24 @@ func _process(_delta: float) -> void:
 		return
 	if _players_in_area.is_empty():
 		return
-	if travel_action != StringName(""):
-		if Input.is_action_pressed(travel_action):
-			_hold_timer += _delta
-			if _hold_timer < hold_time_required:
-				return
-		else:
-			_hold_timer = 0.0
+	if _is_travel_input_pressed():
+		_hold_timer += _delta
+		if _hold_timer < hold_time_required:
 			return
+	else:
+		_hold_timer = 0.0
+		return
 	_trigger_transition()
+
+func _is_travel_input_pressed() -> bool:
+	var logical_action := travel_action
+	if logical_action == StringName(""):
+		logical_action = StringName("portal_enter")
+	if logical_action == StringName("portal_enter") or logical_action == StringName("ui_up"):
+		return InputManager.is_portal_enter_pressed()
+	if logical_action == StringName("interact"):
+		return InputManager.is_interact_pressed()
+	return InputManager.is_pressed(logical_action)
 
 func _trigger_transition() -> void:
 	var player := _get_active_player()

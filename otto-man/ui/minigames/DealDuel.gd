@@ -138,7 +138,7 @@ func _update_visuals(v: float) -> void:
 	needle.offset_bottom = bottom
 
 func _handle_qte_input(v: float) -> void:
-	if Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("ui_accept"):
+	if InputManager.is_jump_just_pressed() or InputManager.is_ui_accept_just_pressed():
 		var d: float = abs(v - _window_center)
 		var delta: int = 0
 		# Freeze needle & show hit marker for ~1s at current position
@@ -255,11 +255,11 @@ func _enable_gamepad_navigation() -> void:
 	_set_selection(0)
 
 func _handle_gamepad_input() -> void:
-	if Input.is_action_just_pressed("ui_right"):
+	if InputManager.is_ui_right_just_pressed():
 		_set_selection(min(_sel + 1, 2))
-	elif Input.is_action_just_pressed("ui_left"):
+	elif InputManager.is_ui_left_just_pressed():
 		_set_selection(max(_sel - 1, 0))
-	elif Input.is_action_just_pressed("ui_accept") or Input.is_action_just_pressed("jump"):
+	elif InputManager.is_ui_accept_just_pressed() or InputManager.is_jump_just_pressed():
 		match _sel:
 			0: _attempt("offer")
 			1: _attempt("pressure")

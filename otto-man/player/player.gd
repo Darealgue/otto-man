@@ -1121,7 +1121,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _ui_locked or _is_any_menu_open():
 		return
 	
-	if event.is_action_pressed("interact") and not overlapping_interactables.is_empty():
+	# Hem interact hem ui_up tuşlarını destekle (klavye ve gamepad uyumluluğu için)
+	var should_interact := false
+	if event.is_action_pressed("interact") or event.is_action_pressed("ui_up"):
+		should_interact = true
+	
+	if should_interact and not overlapping_interactables.is_empty():
 		# En üstteki (genellikle en son girilen) etkileşimli nesneyi al
 		var target_area = overlapping_interactables.back()
 

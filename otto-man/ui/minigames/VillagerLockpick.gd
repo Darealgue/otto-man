@@ -40,7 +40,7 @@ func _process(delta):
 	_timer += delta * _speed
 	var v = fposmod(_timer, 1.0)
 	_update_visuals(v)
-	if Input.is_action_just_pressed("jump"):
+	if InputManager.is_jump_just_pressed():
 		var d = abs(v - _window_center)
 		if d <= _window_radius:
 			_hits += 1

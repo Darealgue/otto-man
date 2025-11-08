@@ -9,6 +9,7 @@ signal back_requested()
 
 @onready var slots_container: VBoxContainer = $Panel/VBoxContainer/SlotsContainer
 @onready var back_button: Button = $Panel/VBoxContainer/BackButton
+@onready var status_label: Label = $Panel/VBoxContainer/StatusLabel
 @onready var confirm_dialog: Control = $ConfirmDialog
 
 const MAX_SLOTS: int = 5
@@ -79,16 +80,22 @@ func _refresh_slots() -> void:
 	
 	for i in range(MAX_SLOTS):
 		var slot_id = i + 1
-		var metadata = SaveManager.get_save_metadata(slot_id)
+		var validation = SaveManager.validate_save_file(slot_id)
 		var label = slot_labels[i]
 		var load_button = slot_buttons[i]
 		
-		if metadata.is_empty():
-			# Empty slot
-			label.text = "Slot %d: (Boş)" % slot_id
+		if not validation["valid"]:
+			# Invalid or empty slot
+			var metadata = SaveManager.get_save_metadata(slot_id)
+			if metadata.is_empty():
+				label.text = "Slot %d: (Boş)" % slot_id
+			else:
+				# File exists but is invalid
+				label.text = "Slot %d: (Hatalı - Yüklenemez)" % slot_id
 			load_button.disabled = true
 		else:
-			# Populated slot
+			# Valid slot
+			var metadata = validation["metadata"]
 			var save_date = metadata.get("save_date", "")
 			var playtime = metadata.get("playtime_seconds", 0)
 			var scene = metadata.get("scene", "")
@@ -121,15 +128,70 @@ func _get_scene_name(scene_path: String) -> String:
 func _on_slot_load_pressed(slot_id: int) -> void:
 	if not is_instance_valid(SaveManager):
 		push_error("[LoadGameMenu] SaveManager not available!")
+		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
+		return
+	
+	# Validate save file before loading
+	var validation = SaveManager.validate_save_file(slot_id)
+	if not validation["valid"]:
+		_show_error("Kayıt Dosyası Hatalı", validation.get("error", "Bilinmeyen hata."))
 		return
 	
 	var metadata = SaveManager.get_save_metadata(slot_id)
 	if metadata.is_empty():
 		push_warning("[LoadGameMenu] Slot %d is empty!" % slot_id)
+		_show_error("Boş Kayıt", "Bu kayıt slotu boş.")
 		return
 	
+	# Show loading message
+	_set_status("Yükleniyor...", true)
+	
 	print("[LoadGameMenu] Loading slot %d..." % slot_id)
+	
+	# Connect to error signal if not already connected
+	if SaveManager.has_signal("error_occurred"):
+		if not SaveManager.error_occurred.is_connected(_on_save_error):
+			SaveManager.error_occurred.connect(_on_save_error)
+	
+	# Connect to load completed to handle errors
+	if SaveManager.has_signal("load_completed"):
+		if not SaveManager.load_completed.is_connected(_on_load_completed):
+			SaveManager.load_completed.connect(_on_load_completed)
+	
 	slot_selected.emit(slot_id)
+
+func _on_load_completed(slot_id: int, success: bool) -> void:
+	if not success:
+		_set_status("Yükleme başarısız!", false)
+		_show_error("Yükleme Başarısız", "Kayıt yüklenemedi. Dosya bozulmuş olabilir.")
+	else:
+		_set_status("Yükleme tamamlandı!", true)
+		# Clear status after a delay
+		await get_tree().create_timer(1.0).timeout
+		_set_status("", false)
+
+func _on_save_error(error_message: String, error_type: String) -> void:
+	if error_type == "load" or error_type == "validation":
+		_show_error("Yükleme Hatası", error_message)
+
+func _set_status(message: String, is_loading: bool = false) -> void:
+	"""Set status label message"""
+	if status_label:
+		status_label.text = message
+		if is_loading:
+			status_label.modulate = Color(1, 1, 1, 1)
+		else:
+			status_label.modulate = Color(1, 0.843, 0, 1)
+
+func _show_error(title: String, message: String) -> void:
+	"""Show error dialog"""
+	_set_status("", false)  # Clear status on error
+	var error_dialog_scene = load("res://ui/ErrorDialog.tscn")
+	if error_dialog_scene:
+		var error_dialog = error_dialog_scene.instantiate()
+		get_tree().root.add_child(error_dialog)
+		if error_dialog.has_method("show_error"):
+			error_dialog.show_error(title, message)
 
 func _setup_confirm_dialog() -> void:
 	if not confirm_dialog:

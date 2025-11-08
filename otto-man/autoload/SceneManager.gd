@@ -307,8 +307,10 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 		
 		var reload_err := get_tree().reload_current_scene()
 		if reload_err != OK:
-			push_error("SceneManager: Sahne yeniden yüklenemedi (%s)" % target_path)
+			var error_msg = "Sahne yeniden yüklenemedi: %s\nHata kodu: %d" % [target_path, reload_err]
+			push_error("SceneManager: %s" % error_msg)
 			_hide_loading_screen()
+			_handle_scene_load_error(error_msg, target_path)
 			return
 		
 		# Wait a frame for scene to be ready
@@ -333,8 +335,10 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	# Change scene
 	var err := get_tree().change_scene_to_file(target_path)
 	if err != OK:
-		push_error("SceneManager: Sahne geçişi başarısız (%s)" % target_path)
+		var error_msg = "Sahne yüklenemedi: %s\nHata kodu: %d" % [target_path, err]
+		push_error("SceneManager: %s" % error_msg)
 		_hide_loading_screen()
+		_handle_scene_load_error(error_msg, target_path)
 		return
 	
 	# Wait for scene to be ready
@@ -591,3 +595,41 @@ func _calculate_time_spent_in_level() -> float:
 func _clear_level_entry_time() -> void:
 	"""Clear entry time tracking when returning to village"""
 	_level_entry_time.clear()
+
+func _handle_scene_load_error(error_message: String, failed_scene_path: String) -> void:
+	"""Handle scene loading errors by showing error dialog and returning to village"""
+	push_error("[SceneManager] Scene load error: %s" % error_message)
+	
+	# Try to show error dialog
+	var error_dialog_scene = load("res://ui/ErrorDialog.tscn")
+	if error_dialog_scene:
+		var error_dialog = error_dialog_scene.instantiate()
+		get_tree().root.add_child(error_dialog)
+		if error_dialog.has_method("show_error"):
+			error_dialog.show_error(
+				"Sahne Yüklenemedi",
+				"Oyun sahnesi yüklenirken bir hata oluştu.\n\nKöye dönülüyor..."
+			)
+			# Wait for dialog to close, then return to village
+			if error_dialog.has_signal("dialog_closed"):
+				error_dialog.dialog_closed.connect(func(): _return_to_village_on_error())
+			else:
+				# Fallback: return to village after a delay
+				await get_tree().create_timer(2.0).timeout
+				_return_to_village_on_error()
+		else:
+			_return_to_village_on_error()
+	else:
+		# Fallback: just return to village
+		_return_to_village_on_error()
+
+func _return_to_village_on_error() -> void:
+	"""Return to village scene as fallback when scene loading fails"""
+	if ResourceLoader.exists(VILLAGE_SCENE):
+		print("[SceneManager] Returning to village due to scene load error")
+		current_scene_path = VILLAGE_SCENE
+		var err := get_tree().change_scene_to_file(VILLAGE_SCENE)
+		if err != OK:
+			push_error("[SceneManager] CRITICAL: Failed to return to village scene!")
+	else:
+		push_error("[SceneManager] CRITICAL: Village scene not found!")
