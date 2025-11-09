@@ -20,6 +20,10 @@ signal main_menu_requested()
 @onready var settings_menu: Control = $SettingsMenu
 @onready var confirm_dialog: Control = $ConfirmDialog
 
+const BUTTON_START := JOY_BUTTON_START
+const BUTTON_SELECT := JOY_BUTTON_BACK
+const BUTTON_B := JOY_BUTTON_B
+
 var is_paused: bool = false
 var _camera_frozen_pos: Vector2 = Vector2.ZERO
 var _camera_freeze_timer: Timer = null
@@ -153,14 +157,12 @@ func _input(event: InputEvent) -> void:
 	
 	# Windows tuşunu filtrele - hiçbir şey yapmasın
 	if event is InputEventKey:
-		var key_event = event as InputEventKey
+		var key_event := event as InputEventKey
 		if key_event.meta_pressed or key_event.keycode == KEY_META or key_event.physical_keycode == KEY_META:
 			return
-	
-	# ESC tuşu (keyboard) - menüyü aç/kapat
-	if event is InputEventKey:
-		var key_event = event as InputEventKey
-		if (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE) and event.pressed:
+		
+		# ESC tuşu (keyboard) - menüyü aç/kapat
+		if (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE) and key_event.pressed:
 			if is_paused:
 				_close_menu()
 			else:
@@ -169,26 +171,38 @@ func _input(event: InputEvent) -> void:
 	
 	# Dodge/Dash tuşu (klavye ve gamepad) - SADECE menü açıkken kapat
 	# Menü kapalıyken dash oyun aksiyonu için kullanılmalı
-	if event.is_action_pressed("dash"):
-		if is_paused:
-			_close_menu()
+	if InputManager.is_event_action_pressed(event, &"dash"):
+		if event is InputEventKey:
+			if is_paused:
+				_close_menu()
+		elif event is InputEventJoypadButton:
+			var dash_button := event as InputEventJoypadButton
+			if dash_button.pressed and dash_button.button_index == BUTTON_B and is_paused:
+				_close_menu()
 		return
 	
 	# Gamepad kontrolleri
 	if event is InputEventJoypadButton:
-		var joypad_event = event as InputEventJoypadButton
+		var joypad_event := event as InputEventJoypadButton
+		if not joypad_event.pressed:
+			return
 		
-		# Start button (6 veya 9) - menüyü aç/kapat
-		if joypad_event.pressed and (joypad_event.button_index == 6 or joypad_event.button_index == 9):
+		# Start tuşu - menüyü aç/kapat (tek yetkili tuş)
+		if joypad_event.button_index == BUTTON_START:
 			if is_paused:
 				_close_menu()
 			else:
 				_open_menu()
 			return
 		
-		# B tuşu (button_index 1) - SADECE menü açıkken kapat
-		# Menü kapalıyken B tuşu oyun aksiyonları için kullanılmalı (dash)
-		if joypad_event.pressed and joypad_event.button_index == 1:
+		# Back/Select tuşu - sadece menü açıksa kapat, aksi halde yok say
+		if joypad_event.button_index == BUTTON_SELECT:
+			if is_paused:
+				_close_menu()
+			return
+		
+		# B tuşu - SADECE menü açıkken kapat (oyun içi dash'e dokunmamak için üstte kontrol edildi)
+		if joypad_event.button_index == BUTTON_B:
 			if is_paused:
 				_close_menu()
 			return

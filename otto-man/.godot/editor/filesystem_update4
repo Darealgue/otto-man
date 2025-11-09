@@ -6,5 +6,3 @@ res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
-res://autoload/InputManager.gd
-res://ui/SettingsMenu.gd

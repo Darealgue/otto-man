@@ -18,10 +18,10 @@ const PRESET_ARROWS_QWEASD := StringName("arrows_qweasd")
 
 # Mantıksal aksiyon -> InputMap aksiyon listesi
 static var _ACTION_GROUPS := {
-	StringName("ui_up"): [StringName("ui_up")],
-	StringName("ui_down"): [StringName("ui_down")],
-	StringName("ui_left"): [StringName("ui_left")],
-	StringName("ui_right"): [StringName("ui_right")],
+	StringName("ui_up"): [StringName("ui_up"), StringName("up")],
+	StringName("ui_down"): [StringName("ui_down"), StringName("down")],
+	StringName("ui_left"): [StringName("ui_left"), StringName("left")],
+	StringName("ui_right"): [StringName("ui_right"), StringName("right")],
 	StringName("ui_accept"): [StringName("ui_accept"), StringName("ui_forward")],
 	StringName("ui_cancel"): [StringName("ui_cancel"), StringName("ui_back")],
 	StringName("ui_select"): [StringName("ui_select")],
@@ -246,6 +246,48 @@ static func is_block_just_pressed() -> bool:
 	return is_just_pressed(&"block")
 
 # -- Yardımcı API ------------------------------------------------------------------------------
+
+## Event'in belirtilen mantıksal aksiyona ait olup olmadığını kontrol eder
+## _input() callback'lerinde kullanım için
+static func is_event_action(event: InputEvent, logical_action: StringName) -> bool:
+	if not event:
+		return false
+	
+	# Mantıksal aksiyonun fiziksel aksiyonlarını al
+	var actions_to_check: Array[StringName] = []
+	if _ACTION_GROUPS.has(logical_action):
+		var source_array = _ACTION_GROUPS[logical_action]
+		for action in source_array:
+			actions_to_check.append(action as StringName)
+	else:
+		actions_to_check = [logical_action]
+	
+	# Event'in bu aksiyonlardan herhangi birine ait olup olmadığını kontrol et
+	for action_name in actions_to_check:
+		if event.is_action(action_name):
+			return true
+	
+	return false
+
+## Event'in belirtilen mantıksal aksiyon için basılı olup olmadığını kontrol eder
+## _input() callback'lerinde kullanım için
+## Not: Analog stick event'leri (InputEventJoypadMotion) için pressed kontrolü yapılmaz
+static func is_event_action_pressed(event: InputEvent, logical_action: StringName) -> bool:
+	if not event:
+		return false
+	
+	# Analog stick event'leri için pressed kontrolü yapma (bunların pressed property'si yok)
+	if event is InputEventJoypadMotion:
+		return is_event_action(event, logical_action)
+	# Mouse hareketi event'lerinde pressed özelliği yok, aksiyon tetiklemesin
+	if event is InputEventMouseMotion:
+		return false
+	
+	# Diğer event tipleri için (keyboard, gamepad button) pressed kontrolü yap
+	if not event.pressed:
+		return false
+	
+	return is_event_action(event, logical_action)
 
 static func add_alias(logical_action: StringName, physical_action: StringName) -> void:
 	# Runtime'da yeni alias eklemek için kullanılabilir (örn. tuş atama menüsü)

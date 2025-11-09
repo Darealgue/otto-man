@@ -12,6 +12,11 @@ var selection_hold_time := 0.0
 var scenes_to_show: Array[PackedScene] = []  # Store the selected scenes
 const SELECTION_HOLD_DURATION := 0.2  # Reduced from 0.4 to 0.2 seconds
 
+var navigation_repeat_timer_up := 0.0
+var navigation_repeat_timer_down := 0.0
+const NAVIGATION_INITIAL_DELAY := 0.25
+const NAVIGATION_REPEAT_DELAY := 0.12
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	show_ui(false)
@@ -19,27 +24,43 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if !visible or is_processing_selection:
 		return
-		
-	# Navigate up
-	if InputManager.is_ui_up_pressed():
-		selected_index = (selected_index - 1) % powerup_buttons.size()
-		if selected_index < 0:
-			selected_index = powerup_buttons.size() - 1
-		update_selection()
-		get_viewport().set_input_as_handled()
-		
-	# Navigate down
-	elif InputManager.is_ui_down_pressed():
-		selected_index = (selected_index + 1) % powerup_buttons.size()
-		update_selection()
+	
+	if InputManager.is_event_action(event, &"ui_up") or InputManager.is_event_action(event, &"ui_down"):
 		get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	if !visible or is_processing_selection:
 		return
-		
-	var selecting := InputManager.is_ui_accept_pressed() or InputManager.is_jump_pressed() or InputManager.is_interact_pressed()
-	if selecting:  # Using accept/jump for selection
+	
+	# Update navigation timers
+	if navigation_repeat_timer_up > 0.0:
+		navigation_repeat_timer_up -= delta
+	if navigation_repeat_timer_down > 0.0:
+		navigation_repeat_timer_down -= delta
+	
+	if InputManager.is_ui_up_just_pressed():
+		_move_selection(-1)
+		navigation_repeat_timer_up = NAVIGATION_INITIAL_DELAY
+	elif InputManager.is_ui_up_pressed():
+		if navigation_repeat_timer_up <= 0.0:
+			_move_selection(-1)
+			navigation_repeat_timer_up = NAVIGATION_REPEAT_DELAY
+	else:
+		navigation_repeat_timer_up = 0.0
+	
+	if InputManager.is_ui_down_just_pressed():
+		_move_selection(1)
+		navigation_repeat_timer_down = NAVIGATION_INITIAL_DELAY
+	elif InputManager.is_ui_down_pressed():
+		if navigation_repeat_timer_down <= 0.0:
+			_move_selection(1)
+			navigation_repeat_timer_down = NAVIGATION_REPEAT_DELAY
+	else:
+		navigation_repeat_timer_down = 0.0
+	
+	# Selection: Only use jump button (not interact or ui_accept to prevent conflicts)
+	var selecting := InputManager.is_jump_pressed()
+	if selecting:
 		selection_hold_time += delta
 		if selection_hold_time >= SELECTION_HOLD_DURATION:
 			if selected_index >= 0 and selected_index < powerup_buttons.size():
@@ -62,6 +83,8 @@ func setup_powerups(powerup_scenes: Array[PackedScene]) -> void:
 	is_processing_selection = false
 	selected_index = 0
 	selection_hold_time = 0.0
+	navigation_repeat_timer_up = 0.0
+	navigation_repeat_timer_down = 0.0
 	
 	# Randomly select 3 powerups
 	var available_scenes = powerup_scenes.duplicate()
@@ -97,6 +120,15 @@ func update_selection() -> void:
 	for i in powerup_buttons.size():
 		var button = powerup_buttons[i]
 		button.modulate = Color.WHITE if i != selected_index else Color(1, 0.8, 0)
+
+func _move_selection(direction: int) -> void:
+	if powerup_buttons.is_empty():
+		return
+	
+	var count := powerup_buttons.size()
+	selected_index = (selected_index + direction + count) % count
+	update_selection()
+	get_viewport().set_input_as_handled()
 
 func select_powerup(index: int) -> void:
 	if is_processing_selection:

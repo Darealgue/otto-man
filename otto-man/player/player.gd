@@ -1006,7 +1006,7 @@ func _ensure_counter_animations() -> void:
 		# method track for effect
 		var tm = anim_l.add_track(Animation.TYPE_METHOD)
 		anim_l.track_set_path(tm, NodePath("."))
-		anim_l.track_insert_key(tm, 0.216, {"method": "spawn_attack_effect_by_name", "args": ["counter_light"]})
+		anim_l.track_insert_key(tm, 0.0, {"method": "spawn_attack_effect_by_name", "args": ["counter_light"]})
 		lib.add_animation("counter_light", anim_l)
 	# Counter Heavy (7 frames)
 	if not animation_player.has_animation("counter_heavy"):
@@ -1031,7 +1031,7 @@ func _ensure_counter_animations() -> void:
 		# method track for effect
 		var hm = anim_h.add_track(Animation.TYPE_METHOD)
 		anim_h.track_set_path(hm, NodePath("."))
-		anim_h.track_insert_key(hm, 0.24, {"method": "spawn_attack_effect_by_name", "args": ["counter_heavy"]})
+		anim_h.track_insert_key(hm, 0.0, {"method": "spawn_attack_effect_by_name", "args": ["counter_heavy"]})
 		lib.add_animation("counter_heavy", anim_h)
 
 # Update dash charges for Double Dash powerup
