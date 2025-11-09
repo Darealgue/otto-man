@@ -143,7 +143,7 @@ public partial class LlamaService : Node, IDisposable
 	}
 
 	// --- Async Wrapper (Remains mostly the same) ---
-	public void GenerateResponseAsync(string prompt, int maxNewTokens = 350)
+	public void GenerateResponseAsync(string prompt, int maxNewTokens = 350, bool useGrammar = true)
 	{
 		if (!_isInitialized || _isDisposed)
 		{
@@ -154,7 +154,7 @@ public partial class LlamaService : Node, IDisposable
 
 		Task.Run(async () => {
 			try { 
-				string result = await GenerateResponse(prompt, maxNewTokens);
+				string result = await GenerateResponse(prompt, maxNewTokens, useGrammar);
 				// Print raw result for debugging
 				GD.Print($"<<< RAW LLM RESULT >>>:\n{result}\n<<< END RAW LLM RESULT >>>"); 
 				CallDeferred("emit_signal", SignalName.GenerationComplete, result ?? "");
@@ -164,7 +164,7 @@ public partial class LlamaService : Node, IDisposable
 	}
 
 	// --- Core Inference (To be re-implemented with LLamaSharp) ---
-	private async Task<string> GenerateResponse(string prompt, int maxNewTokens = 350)
+	private async Task<string> GenerateResponse(string prompt, int maxNewTokens = 350, bool useGrammar = true)
 	{
 		if (!_isInitialized || _isDisposed || _modelWeights == null || _parameters == null)
 		{
@@ -179,83 +179,87 @@ public partial class LlamaService : Node, IDisposable
 			var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 			GD.Print("GenerateResponse: Starting LLamaSharp inference...");
 
-			// 1. Load grammar content
+			// 1. Load grammar content (only if useGrammar is true)
 			string grammarContent = "";
-			string baseDir = OS.HasFeature("editor")
-				? ProjectSettings.GlobalizePath("res://").GetBaseDir()
-				: Path.GetDirectoryName(OS.GetExecutablePath());
-			GD.Print($"Attempting to load grammar from: {Path.Combine(baseDir, "grammars", "output.gbnf")}"); // Log path
-			if (!string.IsNullOrEmpty(baseDir))
-			{
-				string grammarPath = Path.Combine(baseDir, "grammars", "output.gbnf");
-				if (File.Exists(grammarPath))
-				{
-					GD.Print($"Grammar file exists. Last modified: {new System.IO.FileInfo(grammarPath).LastWriteTime}"); // Log modification time
-					grammarContent = File.ReadAllText(grammarPath);
-
-					// Attempt to sanitize the grammar content string
-					GD.Print("Original grammarContent loaded (first 100 chars): " + grammarContent.Substring(0, Math.Min(100, grammarContent.Length)));
-					grammarContent = grammarContent.Replace("\r\n", "\n"); // Normalize line endings
-					// Specifically look for the problematic pattern if it persists due to weird characters
-					// grammarContent = grammarContent.Replace("[ \t\n]*", "[ \t]*"); 
-					// grammarContent = grammarContent.Replace("[ \t\r\n]*", "[ \t]*"); 
-					GD.Print("Sanitized grammarContent for ws rule (first 100 chars): " + grammarContent.Substring(0, Math.Min(100, grammarContent.Length)));
-
-					// GD.Print("Full grammarContent (first 200 chars): " + grammarContent.Substring(0, Math.Min(200, grammarContent.Length)));
-					// int indexOfInfo = grammarContent.IndexOf("\"Info\""); // Look for "Info" with GBNF escapes
-					// GD.Print("IndexOf '\"Info\"': " + indexOfInfo);
-
-					// if (indexOfInfo != -1 && indexOfInfo + 10 <= grammarContent.Length) {
-					// 	GD.Print("Byte representation of key part: " + BitConverter.ToString(Encoding.UTF8.GetBytes(grammarContent.Substring(indexOfInfo, 10))));
-					// } else {
-					// 	GD.Print("Could not find '\"Info\"' or not enough length for byte representation.");
-					// }
-					// GD.Print("Grammar content length: " + grammarContent.Length);
-				}
-				else { GD.PrintErr($"Grammar file not found at {grammarPath}"); }
-			}
-			else { GD.PrintErr("Failed to determine base directory for grammar."); }
+			SafeLLamaGrammarHandle grammarHandle = null;
 			
-			if(string.IsNullOrEmpty(grammarContent)){
-				GD.PrintErr("Grammar content is empty, proceeding without grammar.");
-			}
-
-			// 2. Create an executor
-			var executor = new StatelessExecutor(_modelWeights, _parameters);
-
-			// 3. Define Inference Parameters (Assign Grammar Object Directly)
-			SafeLLamaGrammarHandle grammarHandle = null; 
-			if (!string.IsNullOrEmpty(grammarContent))
+			if (useGrammar)
 			{
-				try 
+				string baseDir = OS.HasFeature("editor")
+					? ProjectSettings.GlobalizePath("res://").GetBaseDir()
+					: Path.GetDirectoryName(OS.GetExecutablePath());
+				GD.Print($"Attempting to load grammar from: {Path.Combine(baseDir, "grammars", "output.gbnf")}"); // Log path
+				if (!string.IsNullOrEmpty(baseDir))
 				{
-					// Parse the grammar string
-					var parsedGrammar = LLama.Grammars.Grammar.Parse(grammarContent, "root"); 
-					GD.Print("Grammar parsed successfully.");
-
-					// Create an instance of the grammar - this directly returns the handle
-					grammarHandle = parsedGrammar.CreateInstance();
-					// GD.Print("Grammar instance created successfully."); // Redundant if CreateInstance IS the handle creation
-
-					// Access the GrammarHandle property from the GrammarInstance object
-					// grammarHandle = grammarInstance.GrammarHandle; // This line was incorrect
-
-					if (grammarHandle == null || grammarHandle.IsInvalid)
+					string grammarPath = Path.Combine(baseDir, "grammars", "output.gbnf");
+					if (File.Exists(grammarPath))
 					{
-						GD.PrintErr("Parsed grammar but CreateInstance() returned an invalid or null handle.");
-						grammarHandle = null; // Ensure it's null if invalid
+						GD.Print($"Grammar file exists. Last modified: {new System.IO.FileInfo(grammarPath).LastWriteTime}"); // Log modification time
+						grammarContent = File.ReadAllText(grammarPath);
+
+						// Attempt to sanitize the grammar content string
+						GD.Print("Original grammarContent loaded (first 100 chars): " + grammarContent.Substring(0, Math.Min(100, grammarContent.Length)));
+						grammarContent = grammarContent.Replace("\r\n", "\n"); // Normalize line endings
+						// Specifically look for the problematic pattern if it persists due to weird characters
+						// grammarContent = grammarContent.Replace("[ \t\n]*", "[ \t]*"); 
+						// grammarContent = grammarContent.Replace("[ \t\r\n]*", "[ \t]*"); 
+						GD.Print("Sanitized grammarContent for ws rule (first 100 chars): " + grammarContent.Substring(0, Math.Min(100, grammarContent.Length)));
+
+						// GD.Print("Full grammarContent (first 200 chars): " + grammarContent.Substring(0, Math.Min(200, grammarContent.Length)));
+						// int indexOfInfo = grammarContent.IndexOf("\"Info\""); // Look for "Info" with GBNF escapes
+						// GD.Print("IndexOf '\"Info\"': " + indexOfInfo);
+
+						// if (indexOfInfo != -1 && indexOfInfo + 10 <= grammarContent.Length) {
+						// 	GD.Print("Byte representation of key part: " + BitConverter.ToString(Encoding.UTF8.GetBytes(grammarContent.Substring(indexOfInfo, 10))));
+						// } else {
+						// 	GD.Print("Could not find '\"Info\"' or not enough length for byte representation.");
+						// }
+						// GD.Print("Grammar content length: " + grammarContent.Length);
 					}
-					else
-					{
-						GD.Print("Successfully obtained SafeLLamaGrammarHandle from parsedGrammar.CreateInstance().");
-					}
-				} 
-				catch (Exception grammarEx)
-				{
-					GD.PrintErr($"Failed to parse grammar or create instance/handle: {grammarEx.Message}");
-					GD.PrintErr(grammarEx.StackTrace);
-					grammarHandle = null; 
+					else { GD.PrintErr($"Grammar file not found at {grammarPath}"); }
 				}
+				else { GD.PrintErr("Failed to determine base directory for grammar."); }
+				
+				if(string.IsNullOrEmpty(grammarContent)){
+					GD.PrintErr("Grammar content is empty, proceeding without grammar.");
+				}
+				else
+				{
+					// 2. Parse grammar if content was loaded
+					try 
+					{
+						// Parse the grammar string
+						var parsedGrammar = LLama.Grammars.Grammar.Parse(grammarContent, "root"); 
+						GD.Print("Grammar parsed successfully.");
+
+						// Create an instance of the grammar - this directly returns the handle
+						grammarHandle = parsedGrammar.CreateInstance();
+						// GD.Print("Grammar instance created successfully."); // Redundant if CreateInstance IS the handle creation
+
+						// Access the GrammarHandle property from the GrammarInstance object
+						// grammarHandle = grammarInstance.GrammarHandle; // This line was incorrect
+
+						if (grammarHandle == null || grammarHandle.IsInvalid)
+						{
+							GD.PrintErr("Parsed grammar but CreateInstance() returned an invalid or null handle.");
+							grammarHandle = null; // Ensure it's null if invalid
+						}
+						else
+						{
+							GD.Print("Successfully obtained SafeLLamaGrammarHandle from parsedGrammar.CreateInstance().");
+						}
+					} 
+					catch (Exception grammarEx)
+					{
+						GD.PrintErr($"Failed to parse grammar or create instance/handle: {grammarEx.Message}");
+						GD.PrintErr(grammarEx.StackTrace);
+						grammarHandle = null; 
+					}
+				}
+			}
+			else
+			{
+				GD.Print("Grammar disabled for this generation request.");
 			}
 
 			// --- TEMPORARY TEST: Force grammarHandle to null to test inference without grammar ---
@@ -263,15 +267,19 @@ public partial class LlamaService : Node, IDisposable
 			// grammarHandle = null; // REVERTED
 			// --- END TEMPORARY TEST ---
 
+			// 3. Create an executor
+			var executor = new StatelessExecutor(_modelWeights, _parameters);
+
+			// 4. Define Inference Parameters (Assign Grammar Object Directly)
 			var inferenceParams = new InferenceParams()
 			{
 				Temperature = 0.8f, 
 				AntiPrompts = new List<string> { "Player:" }, 
 				MaxTokens = maxNewTokens,
-				Grammar = grammarHandle // Assign the SafeLLamaGrammarHandle
+				Grammar = grammarHandle // Assign the SafeLLamaGrammarHandle (null if grammar disabled)
 			};
 
-			// 4. Run Inference using await foreach
+			// 5. Run Inference using await foreach
 			StringBuilder resultBuilder = new StringBuilder();
 			// CancellationToken.None is used here; consider if you need a proper token for cancellation.
 			await foreach (var token_text in executor.InferAsync(prompt, inferenceParams, System.Threading.CancellationToken.None)) 

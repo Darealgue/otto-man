@@ -51,7 +51,7 @@ func process_dialogue(npc_state: Dictionary, player_input: String, npc_name: Str
 		return
 	
 	# Send to LLM
-	LlamaService.GenerateResponseAsync(prompt, 350)
+	LlamaService.GenerateResponseAsync(prompt, 350,true)
 	print("NPCDialogueManager: Sent prompt to LlamaService for %s" % npc_name)
 
 # Internal: Handle LLM response

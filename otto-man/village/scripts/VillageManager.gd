@@ -1272,6 +1272,14 @@ func _connect_world_manager_signals() -> void:
 				print("[VillageManager] ⚠️ defense_battle_completed sinyali zaten bağlı")
 		else:
 			print("[VillageManager] ❌ defense_battle_completed sinyali bulunamadı!")
+		if wm.has_signal("battle_story_generated"):
+			if not wm.battle_story_generated.is_connected(_on_battle_story_generated):
+				wm.battle_story_generated.connect(_on_battle_story_generated)
+				print("[VillageManager] ✅ battle_story_generated sinyali bağlandı")
+			else:
+				print("[VillageManager] ⚠️ battle_story_generated sinyali zaten bağlı")
+		else:
+			print("[VillageManager] ❌ battle_story_generated sinyali bulunamadı!")
 	else:
 		print("[VillageManager] ❌ WorldManager bulunamadı! Tekrar denenecek...")
 		# 1 saniye sonra tekrar dene
@@ -3280,6 +3288,18 @@ func _on_defense_battle_completed(victor: String, losses: int) -> void:
 	var barracks = _find_barracks()
 	if barracks and barracks.has_method("recall_soldiers"):
 		barracks.recall_soldiers()
+
+func _on_battle_story_generated(story: String, battle_data: Dictionary) -> void:
+	"""Handle generated battle story from WorldManager"""
+	print("[VillageManager] Battle story generated:")
+	print(story)
+	# You can add logic here to display the story in UI, save it, or post it as news
+	# For example, you could post it as a news item:
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm and mm.has_method("post_news"):
+		var attacker_faction = battle_data.get("attacker_faction", "Unknown")
+		var day = battle_data.get("day", 0)
+		mm.post_news("Dünya", "⚔️ Battle Report - Day %d" % day, story, Color.ORANGE, "battle")
 
 func _find_barracks() -> Node:
 	"""Kışla binasını bul"""

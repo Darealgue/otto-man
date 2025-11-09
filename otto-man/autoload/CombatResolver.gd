@@ -104,18 +104,18 @@ func _calculate_force_stats(force: Dictionary) -> Dictionary:
 		if count <= 0:
 			continue
 			
-		var unit_stats := UNIT_TYPES.get(unit_type, {})
+		var unit_stats = UNIT_TYPES.get(unit_type, {})
 		if unit_stats.is_empty():
 			continue
 			
 		# Calculate unit effectiveness based on equipment and supply
-		var equipment_bonus := _calculate_equipment_bonus(force, unit_type)
-		var supply_bonus := _calculate_supply_bonus(force, unit_type)
+		var equipment_bonus: float = _calculate_equipment_bonus(force, unit_type)
+		var supply_bonus: float = _calculate_supply_bonus(force, unit_type)
 		
 		# Apply bonuses to unit stats
-		var effective_attack := (unit_stats.get("base_attack", 0) + equipment_bonus) * supply_bonus
-		var effective_defense := (unit_stats.get("base_defense", 0) + equipment_bonus) * supply_bonus
-		var effective_morale := unit_stats.get("base_morale", 50) * supply_bonus
+		var effective_attack: float = (float(unit_stats.get("base_attack", 0)) + equipment_bonus) * supply_bonus
+		var effective_defense: float = (float(unit_stats.get("base_defense", 0)) + equipment_bonus) * supply_bonus
+		var effective_morale: float = float(unit_stats.get("base_morale", 50)) * supply_bonus
 		
 		# Add to totals
 		total_attack += effective_attack * count
@@ -134,7 +134,7 @@ func _calculate_force_stats(force: Dictionary) -> Dictionary:
 	total_morale *= morale_multiplier
 	
 	# Calculate averages
-	var avg_morale := total_morale / max(1, unit_count)
+	var avg_morale = total_morale / max(1, unit_count)
 	
 	return {
 		"total_attack": total_attack,
@@ -145,8 +145,8 @@ func _calculate_force_stats(force: Dictionary) -> Dictionary:
 
 func _calculate_equipment_bonus(force: Dictionary, unit_type: String) -> float:
 	"""Calculate equipment bonus for a unit type"""
-	var unit_stats := UNIT_TYPES.get(unit_type, {})
-	var equipment_cost := unit_stats.get("equipment_cost", {})
+	var unit_stats = UNIT_TYPES.get(unit_type, {})
+	var equipment_cost = unit_stats.get("equipment_cost", {})
 	var equipment_bonus := 0.0
 	
 	# Check if force has required equipment
@@ -160,8 +160,8 @@ func _calculate_equipment_bonus(force: Dictionary, unit_type: String) -> float:
 
 func _calculate_supply_bonus(force: Dictionary, unit_type: String) -> float:
 	"""Calculate supply bonus for a unit type"""
-	var unit_stats := UNIT_TYPES.get(unit_type, {})
-	var supply_cost := unit_stats.get("supply_cost", {})
+	var unit_stats = UNIT_TYPES.get(unit_type, {})
+	var supply_cost = unit_stats.get("supply_cost", {})
 	var supply_bonus := 0.0
 	
 	# Check if force has required supplies
@@ -205,8 +205,8 @@ func _calculate_equipment_ratio(force: Dictionary) -> float:
 	
 	for unit_type in force.get("units", {}):
 		var count := int(force.units[unit_type])
-		var unit_stats := UNIT_TYPES.get(unit_type, {})
-		var equipment_cost := unit_stats.get("equipment_cost", {})
+		var unit_stats = UNIT_TYPES.get(unit_type, {})
+		var equipment_cost = unit_stats.get("equipment_cost", {})
 		
 		for equipment_type in equipment_cost:
 			var required := int(equipment_cost[equipment_type]) * count
@@ -220,8 +220,8 @@ func _calculate_equipment_ratio(force: Dictionary) -> float:
 func _determine_battle_outcome(attacker_stats: Dictionary, defender_stats: Dictionary, battle_type: String) -> Dictionary:
 	"""Determine the outcome of a battle"""
 	# Calculate battle power
-	var attacker_power := attacker_stats.total_attack + attacker_stats.total_defense
-	var defender_power := defender_stats.total_attack + defender_stats.total_defense
+	var attacker_power = attacker_stats.total_attack + attacker_stats.total_defense
+	var defender_power = defender_stats.total_attack + defender_stats.total_defense
 	
 	# Add randomness (dice roll)
 	var attacker_roll := randi() % 20 + 1  # 1-20
@@ -257,8 +257,8 @@ func _determine_battle_outcome(attacker_stats: Dictionary, defender_stats: Dicti
 
 func _calculate_losses(attacker_stats: Dictionary, defender_stats: Dictionary, battle_result: Dictionary) -> Dictionary:
 	"""Calculate losses for both sides"""
-	var severity := battle_result.get("severity", "light")
-	var victor := battle_result.get("victor", "defender")
+	var severity = battle_result.get("severity", "light")
+	var victor = battle_result.get("victor", "defender")
 	
 	# Base loss rates by severity
 	var loss_rates := {
@@ -267,7 +267,7 @@ func _calculate_losses(attacker_stats: Dictionary, defender_stats: Dictionary, b
 		"heavy": {"victor": 0.20, "loser": 0.40}
 	}
 	
-	var rates := loss_rates.get(severity, loss_rates.light)
+	var rates = loss_rates.get(severity, loss_rates.light)
 	
 	# Calculate losses
 	var attacker_losses := 0
@@ -287,8 +287,8 @@ func _calculate_losses(attacker_stats: Dictionary, defender_stats: Dictionary, b
 
 func _calculate_gains(attacker: Dictionary, defender: Dictionary, battle_result: Dictionary) -> Dictionary:
 	"""Calculate gains for the victor"""
-	var victor := battle_result.get("victor", "defender")
-	var severity := battle_result.get("severity", "light")
+	var victor = battle_result.get("victor", "defender")
+	var severity = battle_result.get("severity", "light")
 	
 	if victor != "attacker":
 		return {"gold": 0, "equipment": {}, "supplies": {}}
@@ -302,14 +302,14 @@ func _calculate_gains(attacker: Dictionary, defender: Dictionary, battle_result:
 	gains.gold = int(base_gold * gold_multiplier.get(severity, 0.1))
 	
 	# Equipment gains (partial)
-	var defender_equipment := defender.get("equipment", {})
+	var defender_equipment = defender.get("equipment", {})
 	for equipment_type in defender_equipment:
 		var available := int(defender_equipment[equipment_type])
 		var gain_rate := {"light": 0.05, "moderate": 0.1, "heavy": 0.2}
 		gains.equipment[equipment_type] = int(available * gain_rate.get(severity, 0.05))
 	
 	# Supply gains (partial)
-	var defender_supplies := defender.get("supplies", {})
+	var defender_supplies = defender.get("supplies", {})
 	for supply_type in defender_supplies:
 		var available := int(defender_supplies[supply_type])
 		var gain_rate := {"light": 0.1, "moderate": 0.2, "heavy": 0.3}
@@ -337,9 +337,9 @@ func _calculate_equipment_consumption(force: Dictionary, losses: int) -> Diction
 	
 	# Calculate consumption based on unit types and their equipment costs
 	for unit_type in force.get("units", {}):
-		var unit_count := int(force.units[unit_type])
-		var unit_stats := UNIT_TYPES.get(unit_type, {})
-		var equipment_cost := unit_stats.get("equipment_cost", {})
+		var unit_count = int(force.units[unit_type])
+		var unit_stats = UNIT_TYPES.get(unit_type, {})
+		var equipment_cost = unit_stats.get("equipment_cost", {})
 		
 		# Calculate proportion of this unit type in losses
 		var total_units := 0

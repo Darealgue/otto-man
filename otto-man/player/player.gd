@@ -230,8 +230,12 @@ func _input(event: InputEvent) -> void:
 			# print("[Player] Input blocked due to UI lock -> ", act)
 		return
 	if VillageManager.active_dialogue_npc != null:
+		print("NULL DEĞİLDİR")
 		if event.is_action_pressed("interact"):
+			print("BASILMIŞTIR")
 			VillageManager.active_dialogue_npc._on_interact_button_pressed()
+	else:
+		print("NULLDUR")
 func _physics_process(delta):
 	# Stop all updates if dead
 	if is_dead:

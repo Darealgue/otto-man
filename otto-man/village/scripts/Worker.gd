@@ -554,6 +554,10 @@ func _ready() -> void:
 	if appearance:
 		update_visuals()
 	# <<< YENİ SONU >>>
+	
+	if $InteractButton:
+		var key_name = InputManager.get_interact_key_name()
+		$InteractButton.text = _format_key_name(key_name)
 	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
 
 func Save_Villager_Info():
@@ -1695,7 +1699,35 @@ func _choose_next_idle_activity():
 	return chosen_activity
 # <<< YENİ SONU >>>
 
+func _format_key_name(key_name: String) -> String:
+	# Convert numpad keys (KP 8, KP8, KP_8, etc.) to Num8 format
+	if key_name.begins_with("KP"):
+		var num_part = key_name.trim_prefix("KP")
+		# Remove spaces, underscores, and other separators
+		num_part = num_part.replace(" ", "").replace("_", "").strip_edges()
+		if num_part.is_valid_int():
+			return "Num" + num_part
+		# If it's not a valid int, try to extract just the number
+		var extracted_num = ""
+		for char in num_part:
+			if char.is_valid_int():
+				extracted_num += char
+		if extracted_num != "":
+			return "Num" + extracted_num
+		return "Num" + num_part
+	
+	# Convert arrow symbols to text
+	match key_name:
+		"↑": return "Up"
+		"↓": return "Down"
+		"←": return "Left"
+		"→": return "Right"
+		_: return key_name
+
 func ShowInteractButton():
+	if $InteractButton:
+		var key_name = InputManager.get_interact_key_name()
+		$InteractButton.text = _format_key_name(key_name)
 	$InteractButton.show()
 
 func HideInteractButton():

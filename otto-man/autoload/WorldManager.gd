@@ -9,6 +9,7 @@ signal relation_changed(faction_a: String, faction_b: String, new_score: int)
 signal war_state_changed(faction_a: String, faction_b: String, at_war: bool)
 signal defense_deployment_started(attack_day: int)  # Askerlerin savaşa gitmesi için sinyal
 signal defense_battle_completed(victor: String, losses: int)  # Savaş bitince askerlerin geri dönmesi için sinyal
+signal battle_story_generated(story: String, battle_data: Dictionary)  # Generated battle story
 
 # --- World State ---
 var factions: Array[String] = ["Köy", "Kuzey", "Güney", "Doğu", "Batı"]
@@ -23,6 +24,7 @@ var pending_attacks: Array[Dictionary] = [] # { attacker:String, warning_day:int
 # --- Internal ---
 var _last_tick_day: int = 0
 var _time_advanced_connected: bool = false
+var _pending_battle_story_data: Dictionary = {}  # Store battle data while waiting for LLM response
 
 func _ready() -> void:
 	# Connect to day changes
@@ -39,6 +41,11 @@ func _ready() -> void:
 		for j in range(i + 1, factions.size()):
 			var key := _rel_key(factions[i], factions[j])
 			relations[key] = 0
+	# Connect to LlamaService for battle story generation
+	if not LlamaService.is_connected("GenerationComplete", Callable(self, "_on_battle_story_generated")):
+		var error_code = LlamaService.connect("GenerationComplete", Callable(self, "_on_battle_story_generated"))
+		if error_code != OK:
+			printerr("WorldManager: Failed to connect to LlamaService for battle stories: Error ", error_code)
 
 func _process(_delta: float) -> void:
 	# Saat bazlı saldırı kontrolü için her frame kontrol et
@@ -293,8 +300,8 @@ func _execute_village_defense(attacker_faction: String, day: int) -> void:
 			"attacker_losses": int(max(0, round(atk_units * randf_range(0.2, 0.6))))
 		}
 	
-	# Sonuçları işle
-	_process_defense_result(attacker_faction, battle_result, day)
+	# Sonuçları işle (pass force information for story generation)
+	_process_defense_result(attacker_faction, battle_result, day, attacker_force, defender_force)
 
 func _get_attacker_force_for_defense(attacker_faction: String) -> Dictionary:
 	"""Savunma için saldırgan gücünü hesapla"""
@@ -309,11 +316,14 @@ func _get_attacker_force_for_defense(attacker_faction: String) -> Dictionary:
 		"gold": int(base_strength * 20)
 	}
 
-func _process_defense_result(attacker_faction: String, battle_result: Dictionary, day: int) -> void:
+func _process_defense_result(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary = {}, defender_force: Dictionary = {}) -> void:
 	"""Savunma sonuçlarını işle ve haber olarak bildir"""
 	var victor = battle_result.get("victor", "defender")
 	var defender_losses = battle_result.get("defender_losses", 0)
 	var attacker_losses = battle_result.get("attacker_losses", 0)
+	
+	# Generate battle story using LLM
+	_generate_battle_story(attacker_faction, battle_result, day, attacker_force, defender_force)
 	
 	var vm = get_node_or_null("/root/VillageManager")
 	var mm = get_node_or_null("/root/MissionManager")
@@ -680,3 +690,113 @@ func _post_world_news(news: Dictionary) -> void:
 			mm.news_posted.emit(news)
 		else:
 			print("[WORLD NEWS] ", news)
+
+func _generate_battle_story(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> void:
+	"""Generate a battle story using LLM without grammar constraints"""
+	if not LlamaService.IsInitialized():
+		print("WorldManager: LlamaService not available, skipping battle story generation")
+		return
+	
+	# Store battle data for when LLM response arrives
+	_pending_battle_story_data = {
+		"attacker_faction": attacker_faction,
+		"battle_result": battle_result,
+		"day": day,
+		"attacker_force": attacker_force,
+		"defender_force": defender_force
+	}
+	
+	# Construct prompt with battle information
+	var prompt = _construct_battle_story_prompt(attacker_faction, battle_result, day, attacker_force, defender_force)
+	
+	# Call LLM without grammar (useGrammar = false)
+	LlamaService.GenerateResponseAsync(prompt, 500, false)  # 500 tokens for longer story
+	print("WorldManager: Sent battle story generation request to LlamaService")
+
+func _construct_battle_story_prompt(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> String:
+	"""Construct a prompt for battle story generation"""
+	var victor = battle_result.get("victor", "defender")
+	var defender_losses = battle_result.get("defender_losses", 0)
+	var attacker_losses = battle_result.get("attacker_losses", 0)
+	var severity = battle_result.get("severity", "moderate")
+	
+	# Count units for each side
+	var attacker_units = attacker_force.get("units", {})
+	var defender_units = defender_force.get("units", {})
+	var attacker_total = 0
+	var defender_total = 0
+	for unit_type in attacker_units:
+		attacker_total += int(attacker_units[unit_type])
+	for unit_type in defender_units:
+		defender_total += int(defender_units[unit_type])
+	
+	var prompt = """You are a storyteller describing a medieval battle. Write a vivid, engaging narrative of the battle that just occurred.
+
+Battle Information:
+- Attacker: %s
+- Defender: Village (Köy)
+- Day: %d
+- Victor: %s
+- Attacker Forces: %d total units (Infantry: %d, Archers: %d)
+- Defender Forces: %d total units (Soldiers: %d)
+- Attacker Losses: %d units
+- Defender Losses: %d units
+- Battle Severity: %s
+
+Write a compelling 2-3 paragraph story describing:
+1. How the battle began and the initial clash
+2. The key moments and turning points
+3. The final outcome and its impact
+
+Make it dramatic, immersive, and appropriate for a medieval fantasy setting. Write in third person past tense. Do not include any JSON formatting or special markers - just write the story directly.""" % [
+		attacker_faction,
+		day,
+		"Village defenders" if victor == "defender" else attacker_faction,
+		attacker_total,
+		int(attacker_units.get("infantry", 0)),
+		int(attacker_units.get("archers", 0)),
+		defender_total,
+		int(defender_units.get("soldiers", 0)),
+		attacker_losses,
+		defender_losses,
+		severity
+	]
+	
+	return prompt
+
+func _on_battle_story_generated(story: String) -> void:
+	"""Handle LLM response for battle story generation"""
+	if _pending_battle_story_data.is_empty():
+		# This response might be for NPC dialogue, ignore it
+		return
+	
+	# Battle stories should be free text, not JSON
+	# If the response looks like JSON (starts with {), it's probably for NPC dialogue
+	var trimmed_story = story.strip_edges()
+	if trimmed_story.begins_with("{"):
+		# This is likely a JSON response for NPC dialogue, not a battle story
+		return
+	
+	if trimmed_story.is_empty():
+		print("WorldManager: Empty battle story received from LLM")
+		_pending_battle_story_data = {}
+		return
+	
+	var battle_data = _pending_battle_story_data.duplicate()
+	_pending_battle_story_data = {}
+	
+	print("WorldManager: Battle story generated: ", trimmed_story)
+	
+	# Emit signal with the generated story
+	battle_story_generated.emit(trimmed_story, battle_data)
+	
+	# Optionally, you could also post it as news or store it somewhere
+	# For now, we just emit the signal so other systems can use it
+
+# === DEBUG/TEST FUNCTION ===
+func test_battle(attacker_faction: String = "Kuzey") -> void:
+	"""Test function to immediately trigger a battle for testing battle story generation"""
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_day = tm.get_day() if tm and tm.has_method("get_day") else 1
+	print("🧪 TEST: Triggering immediate battle from %s" % attacker_faction)
+	_execute_village_defense(attacker_faction, current_day)

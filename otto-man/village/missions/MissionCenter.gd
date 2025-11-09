@@ -4871,7 +4871,7 @@ func create_news_card(news: Dictionary) -> Panel:
 	time_label.add_theme_color_override("font_color", Color.GRAY)
 	vbox.add_child(time_label)
 
-	# Haber tıklanınca okundu işaretle
+	# Haber tıklanınca okundu işaretle ve detay göster (özellikle battle stories için)
 	card.gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			var mm = get_node_or_null("/root/MissionManager")
@@ -4882,6 +4882,13 @@ func create_news_card(news: Dictionary) -> Panel:
 				if title_label.text.begins_with("● "):
 					title_label.text = title_label.text.substr(2)
 				_update_unread_badge()
+			
+			# Battle stories için detay görünümü göster (uzun içerik için)
+			var subcategory = news.get("subcategory", "")
+			if subcategory == "battle":
+				var title = news.get("title", "Battle Report")
+				var content = news.get("content", "")
+				_show_news_detail(title, content)
 	)
 	
 	return card
@@ -4974,31 +4981,63 @@ func _show_news_detail(title: String, content: String):
 	if news_detail_overlay:
 		news_detail_overlay.queue_free()
 	news_detail_overlay = Panel.new()
-	news_detail_overlay.custom_minimum_size = Vector2(600, 350)
+	# Larger size for battle stories (longer content)
+	var content_length = content.length()
+	var panel_height = 350
+	var panel_width = 600
+	if content_length > 500:  # Battle stories are typically longer
+		panel_height = 500
+		panel_width = 700
+	news_detail_overlay.custom_minimum_size = Vector2(panel_width, panel_height)
 	news_detail_overlay.anchor_left = 0.5
 	news_detail_overlay.anchor_top = 0.5
 	news_detail_overlay.anchor_right = 0.5
 	news_detail_overlay.anchor_bottom = 0.5
-	news_detail_overlay.offset_left = -300
-	news_detail_overlay.offset_right = 300
-	news_detail_overlay.offset_top = -175
-	news_detail_overlay.offset_bottom = 175
+	news_detail_overlay.offset_left = -panel_width / 2
+	news_detail_overlay.offset_right = panel_width / 2
+	news_detail_overlay.offset_top = -panel_height / 2
+	news_detail_overlay.offset_bottom = panel_height / 2
+	
+	# Add background style
+	var stylebox = StyleBoxFlat.new()
+	stylebox.bg_color = Color(0.1, 0.1, 0.15, 0.95)
+	stylebox.border_width_left = 2
+	stylebox.border_width_right = 2
+	stylebox.border_width_top = 2
+	stylebox.border_width_bottom = 2
+	stylebox.border_color = Color(0.5, 0.3, 0.1, 1.0)
+	stylebox.corner_radius_top_left = 8
+	stylebox.corner_radius_top_right = 8
+	stylebox.corner_radius_bottom_left = 8
+	stylebox.corner_radius_bottom_right = 8
+	news_detail_overlay.add_theme_stylebox_override("panel", stylebox)
+	
 	var vb = VBoxContainer.new()
 	news_detail_overlay.add_child(vb)
 	vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vb.add_theme_constant_override("margin_left", 16)
-	vb.add_theme_constant_override("margin_right", 16)
-	vb.add_theme_constant_override("margin_top", 16)
-	vb.add_theme_constant_override("margin_bottom", 16)
+	vb.add_theme_constant_override("margin_left", 20)
+	vb.add_theme_constant_override("margin_right", 20)
+	vb.add_theme_constant_override("margin_top", 20)
+	vb.add_theme_constant_override("margin_bottom", 20)
+	
 	var t = Label.new()
 	t.text = title
-	t.add_theme_font_size_override("font_size", 18)
+	t.add_theme_font_size_override("font_size", 20)
+	t.add_theme_color_override("font_color", Color(1.0, 0.8, 0.5))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(t)
+	
+	# Scroll container for long content (battle stories)
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, panel_height - 150)
+	vb.add_child(scroll)
+	
 	var c = Label.new()
 	c.text = content
 	c.add_theme_font_size_override("font_size", 13)
 	c.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(c)
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(c)
 	
 	# Spacer
 	var spacer = Control.new()
