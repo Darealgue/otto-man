@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://interactables/forest/TreeInteractable.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="Shape"]
+size = Vector2(64, 128)
+
+[node name="TreeInteractable" type="Area2D"]
+script = ExtResource("1")
+collision_layer = 4096
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape")
+
+[node name="TreeIdleSprite" type="AnimatedSprite2D" parent="."]
+centered = false
+position = Vector2(0, -300)

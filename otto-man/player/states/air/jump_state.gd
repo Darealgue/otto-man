@@ -23,7 +23,7 @@ func enter():
 		player.enable_double_jump()
 	else:
 		# For normal jumps, set sprite direction based on movement
-		var input_dir = Input.get_axis("left", "right")
+		var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 		if input_dir != 0:
 			player.sprite.flip_h = input_dir < 0
 		# Only start jump if not pressing down
@@ -54,7 +54,7 @@ func physics_update(delta: float):
 			pass
 	
 	# Get input state
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	var down_pressed = Input.is_action_pressed("down")
 	var jump_pressed = Input.is_action_just_pressed("jump")
 	

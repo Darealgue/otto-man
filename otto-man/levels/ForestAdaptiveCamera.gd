@@ -25,6 +25,8 @@ var _offset_y: float = 0.0
 var _last_current_cam: Camera2D = null
 var _time_on_ground: float = 0.0
 var _time_in_air: float = 0.0
+var _default_zoom: Vector2 = Vector2.ONE
+var _zoom_tween: Tween = null
 
 func _ready() -> void:
 	position_smoothing_enabled = true
@@ -35,6 +37,7 @@ func _ready() -> void:
 		_last_player_y = _player.global_position.y
 	# Initialize offset smoothing to current offset to avoid snap
 	_offset_y = offset.y
+	_default_zoom = zoom
 	if debug:
 		call_deferred("debug_dump_cameras")
 
@@ -47,6 +50,7 @@ func force_init() -> void:
 	if _player:
 		_last_player_y = _player.global_position.y
 	_offset_y = offset.y
+	_default_zoom = zoom
 
 func _process(delta: float) -> void:
 	if not _player or not is_instance_valid(_player):
@@ -163,3 +167,23 @@ func debug_dump_cameras() -> void:
 	for c in cams:
 		print("  - ", c.get_path(), " current=", (c == cur), " enabled=", c.enabled, " smoothing=", c.position_smoothing_enabled, 
 			" speed=", c.position_smoothing_speed)
+
+func zoom_to_factor(factor: float, duration: float = 0.25) -> void:
+	var clamped_factor := max(0.05, factor)
+	var target := _default_zoom * clamped_factor
+	_apply_zoom(target, duration)
+
+func zoom_to_vector(target: Vector2, duration: float = 0.25) -> void:
+	_apply_zoom(target, duration)
+
+func reset_zoom(duration: float = 0.25) -> void:
+	_apply_zoom(_default_zoom, duration)
+
+func _apply_zoom(target: Vector2, duration: float) -> void:
+	if _zoom_tween and _zoom_tween.is_running():
+		_zoom_tween.kill()
+	if duration <= 0.0:
+		zoom = target
+		return
+	_zoom_tween = create_tween()
+	_zoom_tween.tween_property(self, "zoom", target, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)

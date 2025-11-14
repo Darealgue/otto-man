@@ -52,7 +52,7 @@ func enter():
 	last_floor_position = player.position
 		
 	# Store the direction we're sliding in based on input or current velocity
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	if input_dir != 0:
 		slide_direction = sign(input_dir)
 	else:
@@ -132,7 +132,7 @@ func physics_update(delta: float):
 	
 	
 	# Get current input direction
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	
 	# Apply slide movement with more controlled deceleration
 	var current_speed = abs(player.velocity.x)

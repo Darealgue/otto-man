@@ -3,6 +3,9 @@ extends Node2D
 # --- Sahne Yolları ---
 const MISSION_CENTER_SCENE = "res://village/missions/MissionCenterScene.tscn"
 
+var _locked_player: Node = null
+var _active_panel: CanvasLayer = null
+
 # --- Ready Function ---
 func _ready() -> void:
 	# Housing grubuna ekle
@@ -31,14 +34,85 @@ func interact():
 
 # Belirtilen UI panelini açar
 func _open_or_show_ui_panel(scene_path: String) -> void:
+	if _active_panel and is_instance_valid(_active_panel):
+		if _active_panel.visible:
+			print("Campfire: Panel already active and visible, skipping new instance.")
+			return
+		print("Campfire: Reusing existing panel instance.")
+		_lock_player()
+		_active_panel.visible = true
+		if _active_panel.has_method("on_campfire_reopened"):
+			_active_panel.on_campfire_reopened()
+		return
 	print("Campfire: Creating new panel instance for: ", scene_path)
 	var panel_scene = load(scene_path)
 	if panel_scene:
 		var instance = panel_scene.instantiate()
+		if instance is CanvasLayer:
+			_active_panel = instance
+			_lock_player()
+			instance.tree_exiting.connect(_on_panel_tree_exiting)
+			var visibility_callable := Callable(self, "_on_panel_visibility_changed")
+			if not instance.visibility_changed.is_connected(visibility_callable):
+				instance.visibility_changed.connect(visibility_callable)
+			if instance.has_method("connect_close_signal"):
+				instance.connect_close_signal(_on_panel_closed)
+			elif instance.has_signal("menu_closed"):
+				instance.menu_closed.connect(_on_panel_closed)
+		else:
+			_lock_player()
 		get_tree().root.add_child(instance)
 		print("Campfire: Panel instance created successfully")
 	else:
 		printerr("Campfire: UI panel scene could not be loaded: %s" % scene_path)
+
+func _lock_player() -> void:
+	if _locked_player and is_instance_valid(_locked_player):
+		return
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("set_ui_locked"):
+		player.set_ui_locked(true)
+		_locked_player = player
+
+func _unlock_player() -> void:
+	if _locked_player and is_instance_valid(_locked_player):
+		_locked_player.set_ui_locked(false)
+		if InputMap.has_action("dash"):
+			Input.action_release("dash")
+		if InputMap.has_action("jump"):
+			Input.action_release("jump")
+		if InputMap.has_action("attack"):
+			Input.action_release("attack")
+		if InputMap.has_action("ui_accept"):
+			Input.action_release("ui_accept")
+		if InputMap.has_action("ui_forward"):
+			Input.action_release("ui_forward")
+		if InputMap.has_action("interact"):
+			Input.action_release("interact")
+		if InputMap.has_action("ui_left"):
+			Input.action_release("ui_left")
+		if InputMap.has_action("ui_right"):
+			Input.action_release("ui_right")
+		if InputMap.has_action("move_left"):
+			Input.action_release("move_left")
+		if InputMap.has_action("move_right"):
+			Input.action_release("move_right")
+		if InputMap.has_action("left"):
+			Input.action_release("left")
+		if InputMap.has_action("right"):
+			Input.action_release("right")
+	_locked_player = null
+
+func _on_panel_tree_exiting() -> void:
+	_active_panel = null
+	_unlock_player()
+
+func _on_panel_closed() -> void:
+	_unlock_player()
+
+func _on_panel_visibility_changed() -> void:
+	if _active_panel and not _active_panel.visible:
+		_on_panel_closed()
 
 # --- Kapasite Fonksiyonları ---
 # Bu kamp ateşinin bir işçi daha alıp alamayacağını kontrol eder

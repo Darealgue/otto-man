@@ -172,7 +172,7 @@ func physics_update(delta: float):
 		pass  # Jump input detected but conditions not met
 	
 	# Get input for horizontal movement
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	
 	# Handle horizontal movement using new air movement system
 	player.apply_movement(delta, input_dir)

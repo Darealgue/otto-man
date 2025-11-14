@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://olt7nlskpef2"]
+
+[ext_resource type="Texture2D" uid="uid://cjvmdddh45b2b" path="res://ui/minigames/wood/wood_piece.png" id="1_3pcya"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cv4uv"]
+size = Vector2(13, 3)
+
+[node name="WoodPiece" type="Node2D"]
+
+[node name="RigidBody2D" type="RigidBody2D" parent="."]
+collision_layer = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D"]
+position = Vector2(0.5, 0.5)
+shape = SubResource("RectangleShape2D_cv4uv")
+
+[node name="Sprite2D" type="Sprite2D" parent="RigidBody2D"]
+texture = ExtResource("1_3pcya")

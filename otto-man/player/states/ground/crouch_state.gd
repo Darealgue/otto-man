@@ -156,7 +156,7 @@ func physics_update(delta: float):
 	player.velocity.y += player.gravity * delta
 	
 	# Get movement input
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	
 	# If ceiling blocks standing, keep collider forced to crouch size (safety)
 	var head_blocked := not can_stand_up()

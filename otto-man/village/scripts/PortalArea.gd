@@ -98,6 +98,10 @@ func _trigger_transition() -> void:
 	
 	# Check mission status if returning to village
 	if destination == "village":
+		# Transfer carried resources from forest to village before mission check
+		if payload_source == "forest":
+			_transfer_forest_resources_to_village()
+		
 		if check_mission_status:
 			await _check_and_show_mission_result(payload)
 		else:
@@ -274,6 +278,25 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 		_:
 			push_warning("PortalArea: Unexpected destination after mission check: %s" % destination)
 	_hold_timer = 0.0
+
+func _transfer_forest_resources_to_village() -> void:
+	"""Transfer carried resources from PlayerStats to GameManager village resources.
+	Only called when returning from forest to village."""
+	var game_manager = get_node_or_null("/root/GameManager")
+	if !game_manager:
+		push_warning("[PortalArea] GameManager not found, cannot transfer resources")
+		return
+	var transferred = game_manager.transfer_carried_resources_to_village()
+	if transferred.is_empty():
+		return
+	# Log transferred resources
+	var log_parts := []
+	for type in transferred.keys():
+		var amount: int = int(transferred[type])
+		if amount > 0:
+			log_parts.append("%d %s" % [amount, type])
+	if log_parts.size() > 0:
+		print("[PortalArea] 🌲 Forest resources transferred to village: %s" % ", ".join(log_parts))
 
 func _apply_roguelike_mechanics(is_dead: bool) -> void:
 	"""

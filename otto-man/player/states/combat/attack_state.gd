@@ -368,7 +368,7 @@ func _update_hitbox():
 
 func _handle_movement(delta: float) -> void:
 	# Get horizontal movement only
-	var input_dir_x = Input.get_axis("ui_left", "ui_right")
+	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
 	
 	# Calculate velocity with attack speed multiplier
 	var target_velocity = Vector2(

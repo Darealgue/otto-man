@@ -131,6 +131,42 @@ static func _query_single_action(action_name: StringName, query_type: _QueryType
 			return Input.is_action_just_released(action_name)
 	return false
 
+static func _get_physical_actions(logical_action: StringName) -> Array[StringName]:
+	var result: Array[StringName] = []
+	if _ACTION_GROUPS.has(logical_action):
+		for action_name in _ACTION_GROUPS[logical_action]:
+			result.append(action_name as StringName)
+	else:
+		result.append(logical_action)
+	return result
+
+static func _get_combined_action_strength(logical_action: StringName) -> float:
+	var actions := _get_physical_actions(logical_action)
+	var strength := 0.0
+	for action_name in actions:
+		if not InputMap.has_action(action_name):
+			continue
+		strength = max(strength, Input.get_action_strength(action_name))
+	return strength
+
+static func get_flattened_axis(negative_action: StringName, positive_action: StringName, deadzone: float = 0.2) -> float:
+	var negative_pressed := is_pressed(negative_action)
+	var positive_pressed := is_pressed(positive_action)
+	
+	if negative_pressed and not positive_pressed:
+		return -1.0
+	if positive_pressed and not negative_pressed:
+		return 1.0
+	if negative_pressed and positive_pressed:
+		return 0.0
+	
+	var negative_strength := _get_combined_action_strength(negative_action)
+	var positive_strength := _get_combined_action_strength(positive_action)
+	var axis_value := positive_strength - negative_strength
+	if abs(axis_value) < deadzone:
+		return 0.0
+	return 1.0 if axis_value > 0.0 else -1.0
+
 # -- UI kısayollar -----------------------------------------------------------------------------
 
 static func is_ui_up_pressed() -> bool:

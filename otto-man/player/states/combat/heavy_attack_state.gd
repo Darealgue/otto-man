@@ -179,7 +179,7 @@ func _check_early_cancel() -> bool:
 		return false
 		
 	# Check for movement input (cancel attack)
-	var input_dir_x = Input.get_axis("ui_left", "ui_right")
+	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
 	if abs(input_dir_x) > 0.1:
 		print("[HeavyAttack] Early cancel due to movement input")
 		_cancel_attack()
@@ -218,7 +218,7 @@ func _handle_movement(_delta: float) -> void:
 		player.move_and_slide()
 		return
 		
-	var input_dir_x = Input.get_axis("ui_left", "ui_right")
+	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
 	var target_velocity = Vector2(
 		input_dir_x * player.speed * ATTACK_SPEED_MULTIPLIER,
 		player.velocity.y

@@ -1,0 +1,49 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/minigames/ResourceMinigamePlaceholder.gd" id="1"]
+
+[node name="FruitMinigame" type="CanvasLayer"]
+script = ExtResource("1")
+layer = 100
+resource_type = "food"
+base_amount = 3
+bonus_amount = 2
+title_text = "Meyve Toplama (Placeholder)"
+description_text = "Attack tuşu ile havadaki meyveleri yakala."
+failure_text = "Jump tuşu ile iptal et."
+
+[node name="Panel" type="Panel" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -140.0
+offset_right = 260.0
+offset_bottom = 140.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Panel/VBoxContainer"]
+text = "Meyve Toplama"
+horizontal_alignment = 1
+
+[node name="Description" type="Label" parent="Panel/VBoxContainer"]
+text = "Attack tuşu ile havadaki meyveleri yakala."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Hint" type="Label" parent="Panel/VBoxContainer"]
+text = "Jump tuşu ile iptal et."
+horizontal_alignment = 1
+autowrap_mode = 2
+

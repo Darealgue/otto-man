@@ -101,7 +101,7 @@ func physics_update(delta: float):
 		return
 	
 	# Handle letting go
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	if Input.is_action_just_pressed("down") or input_dir * facing_direction < 0:
 		player.velocity = Vector2.ZERO  # Reset velocity before falling
 		player.ledge_grab_cooldown_timer = LEDGE_GRAB_COOLDOWN  # Start cooldown

@@ -33,7 +33,7 @@ signal synergy_activated(synergy_name: String)
 var player: CharacterBody2D
 var active_powerups: Array[PowerupEffect] = []
 var enemy_kill_count: int = 0
-const KILLS_PER_POWERUP: int = 1
+const KILLS_PER_POWERUP: int = 10
 
 # Tree System Variables
 var tree_progress: Dictionary = {

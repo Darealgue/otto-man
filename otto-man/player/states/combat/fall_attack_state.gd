@@ -43,7 +43,7 @@ func physics_update(delta: float):
 		_handle_ground_impact()
 	
 	# Allow horizontal movement during fall
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	if input_dir != 0:
 		player.velocity.x = move_toward(player.velocity.x, player.speed * 0.5 * input_dir, player.acceleration * delta)
 		player.sprite.flip_h = input_dir < 0

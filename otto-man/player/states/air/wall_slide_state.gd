@@ -130,7 +130,7 @@ func physics_update(delta: float):
 		wall_detach_timer += delta
 		
 		# Only unlock sprite direction if explicitly moving in opposite direction
-		var input_dir = Input.get_axis("left", "right")
+		var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 		if abs(input_dir) >= INPUT_THRESHOLD:
 			var would_unlock = (wall_side < 0 and input_dir > 0) or (wall_side > 0 and input_dir < 0)
 			if would_unlock:
@@ -176,7 +176,7 @@ func physics_update(delta: float):
 		animation_player.play(target_animation)
 	
 	# Check if we should exit wall slide
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	var pressing_away = false
 	
 	if abs(input_dir) >= INPUT_THRESHOLD:

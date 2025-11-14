@@ -686,10 +686,7 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	if was_lethal:
 		# Can barını hemen gizle (die() fonksiyonundan önce)
 		if health_bar:
-			print("[HeavyEnemy] Hiding health bar on death")
 			health_bar.hide_bar()
-		else:
-			print("[HeavyEnemy] ERROR: health_bar is null!")
 		# Go straight to death after applying launch; keep vertical velocity so the corpse falls
 		die()
 	else:
@@ -914,45 +911,30 @@ func check_wall() -> bool:
 		# Check if the obstacle is close enough to be a problem
 		var distance = global_position.distance_to(result.position)
 		if distance < 35:  # If obstacle is within 35 pixels (reduced from 60)
-			print("[HeavyEnemy] Wall detected at distance: " + str(distance))
 			return true
 	
 	return false
 
 func _initialize_components() -> void:
-	print("[HeavyEnemy] _initialize_components called")
 	super._initialize_components()
 	
-	print("[HeavyEnemy] hurtbox is null: ", hurtbox == null)
 	if hurtbox:
-		print("[HeavyEnemy] hurtbox found, connecting signal")
 		# Disconnect base class signal first to avoid duplicates
 		if hurtbox.hurt.is_connected(_on_hurtbox_hurt):
 			hurtbox.hurt.disconnect(_on_hurtbox_hurt)
 		# Connect our custom signal
 		if not hurtbox.hurt.is_connected(_on_heavy_hurtbox_hurt):
 			hurtbox.hurt.connect(_on_heavy_hurtbox_hurt)
-			print("[HeavyEnemy] Connected custom hurtbox signal")
-		else:
-			print("[HeavyEnemy] Custom hurtbox signal already connected")
-	else:
-		print("[HeavyEnemy] hurtbox is null, cannot connect signal")
 
 func _connect_hurtbox_signal() -> void:
-	print("[HeavyEnemy] _connect_hurtbox_signal called")
 	if hurtbox:
-		print("[HeavyEnemy] Connecting hurtbox signal manually")
 		# Disconnect first to avoid duplicates
 		if hurtbox.hurt.is_connected(_on_heavy_hurtbox_hurt):
 			hurtbox.hurt.disconnect(_on_heavy_hurtbox_hurt)
 		# Connect the signal
 		hurtbox.hurt.connect(_on_heavy_hurtbox_hurt)
-		print("[HeavyEnemy] Hurtbox signal connected successfully")
-	else:
-		print("[HeavyEnemy] Hurtbox is null, cannot connect signal")
 
 func _on_heavy_hurtbox_hurt(hitbox: Area2D) -> void:
-	print("[HeavyEnemy] _on_heavy_hurtbox_hurt called with hitbox: ", hitbox.name)
 	# Call base class function directly
 	super._on_hurtbox_hurt(hitbox)
 
@@ -982,7 +964,6 @@ func check_player_in_front() -> bool:
 
 func _setup_normal_map_sync():
 	"""Setup normal map synchronization between main sprite and normal sprite"""
-	print("[HeavyEnemy] Setting up normal map shader...")
 	
 	# Find the normal sprite (it's a child of the main AnimatedSprite2D)
 	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
@@ -990,10 +971,7 @@ func _setup_normal_map_sync():
 		# Try to find it by name
 		normal_sprite = sprite.get_node("AnimatedSprite2D")
 		if not normal_sprite:
-			print("[HeavyEnemy] Normal sprite not found!")
 			return
-	
-	print("[HeavyEnemy] Normal sprite found: ", normal_sprite.name)
 	
 	# Set up normal mapping on main sprite using ShaderMaterial
 	if sprite and not sprite.material:
@@ -1002,7 +980,6 @@ func _setup_normal_map_sync():
 			var material = ShaderMaterial.new()
 			material.shader = shader
 			sprite.material = material
-			print("[HeavyEnemy] Added normal map shader material to main sprite")
 	
 	# Connect to frame changed signal to sync normal map
 	if not sprite.frame_changed.is_connected(_sync_normal_map):
@@ -1034,7 +1011,6 @@ func _sync_normal_map():
 			var material = ShaderMaterial.new()
 			material.shader = shader
 			sprite.material = material
-			print("[HeavyEnemy] Added normal map shader material to main sprite")
 			
 			# Debug: Check if normal texture is properly set
 			if normal_sprite.sprite_frames:

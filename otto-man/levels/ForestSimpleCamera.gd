@@ -32,6 +32,8 @@ var _ground_t: float = 0.0
 var _air_t: float = 0.0
 var _stable_on_floor: bool = false
 var _support_kind: String = "none" # none|ground|platform
+var _default_zoom: Vector2 = Vector2.ONE
+var _zoom_tween: Tween = null
 
 func _ready() -> void:
 	position_smoothing_enabled = true
@@ -41,6 +43,7 @@ func _ready() -> void:
 	_offset_y = offset.y
 	if _player:
 		_last_y = _player.global_position.y
+	_default_zoom = zoom
 	if debug:
 		call_deferred("debug_dump_cameras")
 
@@ -229,6 +232,26 @@ func debug_dump_cameras() -> void:
 	var active_cam: Camera2D = get_viewport().get_camera_2d()
 	if active_cam:
 		print("[SimpleCam] Viewport active camera:", active_cam.get_path())
+
+func zoom_to_factor(factor: float, duration: float = 0.25) -> void:
+	var clamped_factor: float = max(0.05, factor)
+	var target: Vector2 = _default_zoom * clamped_factor
+	_apply_zoom(target, duration)
+
+func zoom_to_vector(target: Vector2, duration: float = 0.25) -> void:
+	_apply_zoom(target, duration)
+
+func reset_zoom(duration: float = 0.25) -> void:
+	_apply_zoom(_default_zoom, duration)
+
+func _apply_zoom(target: Vector2, duration: float) -> void:
+	if _zoom_tween and _zoom_tween.is_running():
+		_zoom_tween.kill()
+	if duration <= 0.0:
+		zoom = target
+		return
+	_zoom_tween = create_tween()
+	_zoom_tween.tween_property(self, "zoom", target, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _find_player() -> void:
 	var list: Array = get_tree().get_nodes_in_group("player")

@@ -230,12 +230,8 @@ func _input(event: InputEvent) -> void:
 			# print("[Player] Input blocked due to UI lock -> ", act)
 		return
 	if VillageManager.active_dialogue_npc != null:
-		print("NULL DEĞİLDİR")
 		if event.is_action_pressed("interact"):
-			print("BASILMIŞTIR")
 			VillageManager.active_dialogue_npc._on_interact_button_pressed()
-	else:
-		print("NULLDUR")
 func _physics_process(delta):
 	# Stop all updates if dead
 	if is_dead:
@@ -389,7 +385,7 @@ func _physics_process(delta):
 	
 	# Handle wall jump momentum with better control
 	if is_wall_jumping:
-		var input_dir = Input.get_axis("left", "right")
+		var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 		
 		# Only allow input control after delay
 		if wall_jump_timer <= 0 and input_dir != 0:
@@ -423,16 +419,15 @@ func _physics_process(delta):
 	if invincibility_timer > 0:
 		invincibility_timer -= delta
 
-	# Apply speed multiplier to movement
-	if Input.is_action_pressed("right"):
-		velocity.x = move_toward(velocity.x, speed * speed_multiplier, acceleration * delta)
-	elif Input.is_action_pressed("left"):
-		velocity.x = move_toward(velocity.x, -speed * speed_multiplier, acceleration * delta)
+	# Apply speed multiplier to movement using flattened input
+	var grounded_input := InputManager.get_flattened_axis(&"left", &"right")
+	if grounded_input != 0:
+		velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier, acceleration * delta)
 	else:
 		apply_friction(delta)
 
 	# Update facing direction based on movement
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = grounded_input
 	if input_dir != 0:
 		facing_direction = sign(input_dir)
 		# Flip the sprite based on direction
@@ -509,7 +504,7 @@ func start_jump() -> void:
 	jump_timer = 0.0
 	velocity.y = jump_velocity
 	# Reduce horizontal boost for more predictable jumps
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	if input_dir != 0:
 		velocity.x += input_dir * speed * 0.2  # Reduced from 0.3
 
@@ -522,7 +517,7 @@ func start_double_jump():
 	jump_timer = 0.0
 	velocity.y = double_jump_velocity
 	# Reduce horizontal boost for double jump too
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	if input_dir != 0:
 		velocity.x += input_dir * speed * 0.25  # Reduced from 0.4
 
@@ -591,6 +586,8 @@ func take_damage(amount: float, show_damage_number: bool = true):
 	if player_stats:
 		var current_health = player_stats.get_current_health()
 		player_stats.set_current_health(current_health - amount, show_damage_number)
+		if amount > 0.0:
+			player_stats.lose_resources_on_damage()
 
 func heal(amount: float):
 	var player_stats = get_node("/root/PlayerStats")
@@ -599,7 +596,7 @@ func heal(amount: float):
 		player_stats.set_current_health(current_health + amount)
 
 func is_moving_away_from_wall() -> bool:
-	var input_dir = Input.get_axis("left", "right")
+	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	var moving_away = input_dir * wall_normal.x > 0
 	# print("[WALL_SLIDE_DEBUG] Player: Moving away check - input_dir: ", input_dir, " wall_normal.x: ", wall_normal.x, " moving_away: ", moving_away)
 	return moving_away

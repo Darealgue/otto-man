@@ -39,8 +39,13 @@ func _start_minigame():
 		if typeof(v) == TYPE_INT:
 			level = v
 	var ctx = {"room_path": get_parent().scene_file_path, "level": level}
-	MinigameRouter.minigame_finished.connect(_on_minigame_result, CONNECT_ONE_SHOT)
-	MinigameRouter.start_minigame(minigame_kind, ctx)
+	var callback := Callable(self, "_on_minigame_result")
+	if MinigameRouter.is_connected("minigame_finished", callback):
+		MinigameRouter.disconnect("minigame_finished", callback)
+	MinigameRouter.connect("minigame_finished", callback, CONNECT_ONE_SHOT)
+	var started := MinigameRouter.start_minigame(minigame_kind, ctx)
+	if not started and MinigameRouter.is_connected("minigame_finished", callback):
+		MinigameRouter.disconnect("minigame_finished", callback)
 
 func _on_minigame_result(result: Dictionary):
 	if result.get("success", false):
