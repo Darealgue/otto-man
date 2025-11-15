@@ -4,6 +4,7 @@ class_name TreeInteractable
 const ResourceType = preload("res://resources/resource_types.gd")
 const DEFAULT_SCENE_PATH := "res://interactables/forest/TreeInteractable.tscn"
 const TREE_IDLE_TEXTURE := preload("res://ui/minigames/wood/woodcut_tree_idle.png")
+const TREE_IDLE_HIGHLIGHT_TEXTURE := preload("res://ui/minigames/wood/woodcut_tree_idle_highlight.png")
 const TREE_HIT_TEXTURE := preload("res://ui/minigames/wood/woodcut_tree.png")
 const TREE_FALL_TEXTURE := preload("res://ui/minigames/wood/woodcut_tree_fall.png")
 const TREE_HIT_FRAMES := 5
@@ -19,13 +20,14 @@ const TREE_FALL_FPS := 12.0
 @export var initial_tempo_bpm: float = 96.0
 @export var placeholder_mode: bool = false
 @export var scene_path: String = DEFAULT_SCENE_PATH
-@export var gauge_offset: Vector2 = Vector2(0, -110)
+@export var gauge_offset: Vector2 = Vector2(0, 75)  # Bar aşağıda (ağacı kapatmamak için)
 @export var cancel_distance: float = 375.0
 
 var _placeholder_sprite: ColorRect = null
 var _placeholder_polygon: Polygon2D = null
 var _active_player_path: NodePath = NodePath("")
 var _tree_sprite: AnimatedSprite2D = null
+var _highlight_sprite: Sprite2D = null
 
 func _ready() -> void:
 	minigame_kind = "forest_woodcut"
@@ -57,11 +59,39 @@ func _on_player_enter(_player: Node) -> void:
 	print("[TreeInteractable] Player entered area, ready for interaction (press interact key)")
 	if _player and _player is Node:
 		_active_player_path = (_player as Node).get_path()
+	# Highlight'ı göster
+	if _highlight_sprite:
+		_highlight_sprite.visible = true
+
+func _on_player_exit(_player: Node) -> void:
+	# Oyuncu uzaklaştığında highlight'ı gizle
+	if _highlight_sprite:
+		_highlight_sprite.visible = false
+
+func _setup_highlight_sprite(width: float, height: float, base_x: float) -> void:
+	if _highlight_sprite == null or not is_instance_valid(_highlight_sprite):
+		_highlight_sprite = get_node_or_null("TreeHighlightSprite") as Sprite2D
+	if _highlight_sprite == null:
+		# Highlight sprite yoksa oluştur
+		_highlight_sprite = Sprite2D.new()
+		_highlight_sprite.name = "TreeHighlightSprite"
+		add_child(_highlight_sprite)
+	
+	if TREE_IDLE_HIGHLIGHT_TEXTURE:
+		_highlight_sprite.texture = TREE_IDLE_HIGHLIGHT_TEXTURE
+		_highlight_sprite.centered = false
+		_highlight_sprite.position = Vector2(base_x - width * 0.5, -height)
+		_highlight_sprite.visible = false  # Başlangıçta gizli
+		if _tree_sprite:
+			_highlight_sprite.z_index = _tree_sprite.z_index + 1  # Tree sprite'ın üstünde
 
 func _on_minigame_started() -> void:
 	print("[TreeInteractable] Minigame started!")
 	if _placeholder_polygon and is_instance_valid(_placeholder_polygon):
 		_placeholder_polygon.visible = false
+	# Minigame başladığında highlight'ı gizle
+	if _highlight_sprite:
+		_highlight_sprite.visible = false
 
 func _on_minigame_failed_to_start() -> void:
 	print("[TreeInteractable] ERROR: Failed to start minigame!")
@@ -178,6 +208,9 @@ func _setup_idle_tree_visual() -> void:
 	_tree_sprite.position = Vector2(base_x - max_width * 0.5, -max_height)
 	_tree_sprite.play("idle")
 	_tree_sprite.visible = true
+	
+	# Highlight sprite'ı oluştur ve ayarla
+	_setup_highlight_sprite(max_width, max_height, base_x)
 
 func _build_idle_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()

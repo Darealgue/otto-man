@@ -1,8 +1,9 @@
-[gd_scene load_steps=24 format=3 uid="uid://bclcfw6kl2ufq"]
+[gd_scene load_steps=26 format=3 uid="uid://bclcfw6kl2ufq"]
 
 [ext_resource type="Script" path="res://ui/minigames/wood/minigame_wood_marker.gd" id="1"]
 [ext_resource type="Texture2D" uid="uid://cqn0yktwore68" path="res://ui/minigames/wood/woodcut_tree_fall.png" id="2_1upbw"]
 [ext_resource type="Texture2D" uid="uid://45bjwbr3ttsd" path="res://ui/minigames/wood/woodcut_tree.png" id="3_fs53k"]
+[ext_resource type="Texture2D" uid="uid://be8pvgupeic4u" path="res://ui/minigames/wood/woodcut_tree_idle_highlight.png" id="3_qs1t7"]
 [ext_resource type="Texture2D" uid="uid://dl1cbog5qn8s2" path="res://ui/minigames/wood/woodcut_tree_idle.png" id="4_7jkr7"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_eqg7o"]
@@ -52,6 +53,10 @@ region = Rect2(7000, 0, 700, 600)
 [sub_resource type="AtlasTexture" id="AtlasTexture_67nuq"]
 atlas = ExtResource("2_1upbw")
 region = Rect2(7700, 0, 700, 600)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_da8ip"]
+atlas = ExtResource("3_qs1t7")
+region = Rect2(0, 0, 700, 600)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_r6vx7"]
 atlas = ExtResource("3_fs53k")
@@ -122,6 +127,14 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_da8ip")
+}],
+"loop": true,
+"name": &"highlight",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_r6vx7")
 }, {
 "duration": 1.0,
@@ -154,6 +167,4 @@ script = ExtResource("1")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_nvk8w")
-animation = &"hit"
-frame = 4
-frame_progress = 1.0
+animation = &"highlight"

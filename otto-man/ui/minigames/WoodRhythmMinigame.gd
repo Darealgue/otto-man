@@ -13,7 +13,7 @@ const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
 @export var min_indicator_speed: float = 0.45
 @export var sweet_width_easy: float = 0.28
 @export var sweet_width_hard: float = 0.16
-@export var anchor_offset_default: Vector2 = Vector2(0, -110)
+@export var anchor_offset_default: Vector2 = Vector2(0, 75)  # Bar aşağıda (ağacı kapatmamak için)
 @export var success_feedback_color: Color = Color(0.4, 0.9, 0.6, 1.0)
 @export var fail_feedback_color: Color = Color(0.95, 0.35, 0.35, 1.0)
 @export var neutral_feedback_color: Color = Color(0.85, 0.85, 0.85, 1.0)
@@ -135,7 +135,7 @@ func _attempt_heavy_strike(_hitbox: PlayerHitbox) -> void:
 		_misses += 1
 		if _gauge:
 			_gauge.set_hits(_hits, _required_hits)
-			_gauge.set_feedback("Iska!", fail_feedback_color)
+			_gauge.set_feedback("Iska! (%d/%d)" % [_misses, _max_misses], fail_feedback_color)
 			_gauge.flash_fail_region()
 		_reset_indicator(false)
 		if _misses >= _max_misses:
