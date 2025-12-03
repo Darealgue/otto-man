@@ -39,31 +39,35 @@ func _enter_tree() -> void:
 		cloud_y_position_max = 320.0
 
 func _spawn_cloud() -> void:
+	print("[ForestCloudManager] _spawn_cloud() called")
 	if _parallax_layers.is_empty() or not cloud_scene or cloud_textures.is_empty():
+		print("[ForestCloudManager] Resources missing, refreshing...")
 		# Try refreshing parallax layers once in case they were not ready at _ready
 		_parallax_layers.clear()
 		for path in parallax_layer_paths:
 			var layer = get_node_or_null(path)
 			if layer is ParallaxLayer:
 				_parallax_layers.append(layer)
+				print("[ForestCloudManager] Found layer: ", layer.name, " at path: ", path)
 		if _parallax_layers.is_empty() or not cloud_scene or cloud_textures.is_empty():
-			printerr("CloudManager: Cannot spawn cloud, essential resources missing.")
+			printerr("[ForestCloudManager] Cannot spawn cloud, essential resources missing. Layers: ", _parallax_layers.size(), " Scene: ", cloud_scene != null, " Textures: ", cloud_textures.size())
 			return
 
 	var target_layer: ParallaxLayer = _parallax_layers.pick_random()
 	if not is_instance_valid(target_layer):
-		printerr("CloudManager: Picked ParallaxLayer is not valid.")
+		printerr("[ForestCloudManager] Picked ParallaxLayer is not valid.")
 		return
+	print("[ForestCloudManager] Selected layer: ", target_layer.name)
 
 	var new_cloud_instance = cloud_scene.instantiate()
 	if not new_cloud_instance is Node2D:
-		printerr("CloudManager: Instanced cloud scene is not a Node2D.")
+		printerr("[ForestCloudManager] Instanced cloud scene is not a Node2D.")
 		queue_free_instance(new_cloud_instance)
 		return
 
 	var cloud_sprite_node = new_cloud_instance.get_node_or_null("CloudSprite")
 	if not cloud_sprite_node is Sprite2D:
-		printerr("CloudManager: 'CloudSprite' node not found or not a Sprite2D in the instanced cloud scene.")
+		printerr("[ForestCloudManager] 'CloudSprite' node not found or not a Sprite2D in the instanced cloud scene.")
 		queue_free_instance(new_cloud_instance)
 		return
 	var cloud_sprite: Sprite2D = cloud_sprite_node
@@ -82,7 +86,7 @@ func _spawn_cloud() -> void:
 	elif allow_right_moving_clouds:
 		move_left = false
 	else:
-		printerr("CloudManager: No cloud movement direction allowed (check allow_left/right_moving_clouds).")
+		printerr("[ForestCloudManager] No cloud movement direction allowed (check allow_left/right_moving_clouds).")
 		queue_free_instance(new_cloud_instance)
 		return
 
@@ -91,31 +95,82 @@ func _spawn_cloud() -> void:
 	else:
 		new_cloud_instance.set("move_left", move_left)
 
-	# Compute Y relative to current camera center so clouds are on-screen in forest
+	# Forest için hızı ayarla (kendi hızıyla gitmeli ama çok hızlı olmamalı)
+	if new_cloud_instance.has_method("set"):
+		new_cloud_instance.set("speed_min", 10.0)
+		new_cloud_instance.set("speed_max", 25.0)
+		new_cloud_instance.set("fade_in_duration", 1.0)
+
+	# Compute position relative to SCREEN (Viewport), ignoring world coordinates/player height
 	var viewport = get_viewport()
 	var viewport_size = viewport.get_visible_rect().size
-	var cam := viewport.get_camera_2d()
-	var cam_y := 0.0
-	if cam and cam is Camera2D:
-		cam_y = (cam as Camera2D).global_position.y
-	# spawn_y offset within top strip
-	# Keep clouds near top regardless of player vertical movement
-	var spawn_y = randf_range(cloud_y_position_min, cloud_y_position_max)
-	# Force clouds high: offset from camera top + extra 700px
-	var world_y = cam_y - (viewport_size.y * 0.5) + spawn_y - 400.0
-	# Damp vertical parallax by anchoring to viewport top instead of following chunks closely
-
-	var sprite_width = (cloud_sprite.texture.get_width() if cloud_sprite.texture else 256.0) * max(cloud_sprite.scale.x, 1.0)
-	var off_screen_offset = sprite_width + 100.0 # Increased buffer to prevent premature despawning
-
-	# Add to layer first so setting global_position works in world-space
+	print("[ForestCloudManager] Viewport size: ", viewport_size)
+	
+	# Add to layer first so we can set local position
 	target_layer.add_child(new_cloud_instance)
+	print("[ForestCloudManager] Cloud added to layer: ", target_layer.name)
 
-	# Place cloud relative to current camera view edges so it starts just off-screen
-	var cam_x: float = 0.0
-	if cam and cam is Camera2D:
-		cam_x = (cam as Camera2D).global_position.x
-	var left_world_x: float = cam_x - (viewport_size.x * 0.5)
-	var right_world_x: float = cam_x + (viewport_size.x * 0.5)
-	var spawn_world_x: float = (right_world_x + off_screen_offset) if move_left else (left_world_x - off_screen_offset)
-	new_cloud_instance.global_position = Vector2(spawn_world_x, world_y)
+	# Use Village approach: direct screen coordinates when motion_scale.x = 0
+	# Convert negative Y offsets to positive offsets from top of screen
+	var spawn_y_offset_raw = randf_range(cloud_y_position_min, cloud_y_position_max)
+	var spawn_y = abs(spawn_y_offset_raw) - 100.0  # Convert -275 to -175 range to 175 to 275 range, then move 100px up
+	print("[ForestCloudManager] Y calculation: min=", cloud_y_position_min, " max=", cloud_y_position_max, " raw_offset=", spawn_y_offset_raw, " spawn_y=", spawn_y)
+
+	# Adjust offscreen offset for scaled sprite width
+	var sprite_width = (cloud_sprite.texture.get_width() if cloud_sprite.texture else 256.0) * max(new_cloud_instance.scale.x, 1.0)
+	var off_screen_offset = sprite_width * 0.6 
+	print("[ForestCloudManager] Sprite width: ", sprite_width, " off_screen_offset: ", off_screen_offset)
+
+	# Use direct screen coordinates like Village does (motion_scale.x = 0 means fixed to screen)
+	var left_screen_x = -200.0  # Extended 200px to the left
+	var right_screen_x = viewport_size.x
+	
+	var spawn_x: float
+	if move_left:  # Spawns on the right, moves left
+		spawn_x = right_screen_x + off_screen_offset
+	else:  # Spawns on the left, moves right
+		spawn_x = left_screen_x - off_screen_offset
+	print("[ForestCloudManager] X calculation: left=", left_screen_x, " right=", right_screen_x, " spawn_x=", spawn_x, " move_left=", move_left)
+	
+	# Set position using direct screen coordinates (like Village does)
+	new_cloud_instance.position = Vector2(spawn_x, spawn_y)
+	
+	# Debug: Check cloud visibility and position (after being added to scene tree)
+	var global_pos = new_cloud_instance.global_position
+	var screen_pos = new_cloud_instance.get_global_transform_with_canvas().origin if new_cloud_instance.is_inside_tree() else Vector2.ZERO
+	var is_visible = new_cloud_instance.visible
+	var modulate_val = cloud_sprite.modulate if cloud_sprite else Color.WHITE
+	
+	print("[ForestCloudManager] ✅ Cloud spawned at LOCAL position: ", new_cloud_instance.position, " on layer: ", target_layer.name)
+	print("[ForestCloudManager] 🌍 Cloud GLOBAL position: ", global_pos)
+	print("[ForestCloudManager] 📺 Cloud SCREEN position: ", screen_pos)
+	print("[ForestCloudManager] 👁️ Cloud visible: ", is_visible, " modulate: ", modulate_val)
+	print("[ForestCloudManager] 📏 Layer motion_scale: ", target_layer.motion_scale, " layer position: ", target_layer.position, " layer global_pos: ", target_layer.global_position)
+	print("[ForestCloudManager] 🎨 Cloud sprite scale: ", cloud_sprite.scale, " cloud instance scale: ", new_cloud_instance.scale)
+	print("[ForestCloudManager] 🔍 Viewport visible rect: ", viewport.get_visible_rect())
+	
+	# Deferred debug check after one frame
+	call_deferred("_debug_cloud_after_frame", new_cloud_instance.get_path())
+
+func _debug_cloud_after_frame(cloud_path: NodePath) -> void:
+	var cloud = get_node_or_null(cloud_path)
+	if not cloud:
+		print("[ForestCloudManager] ⚠️ Cloud not found at path: ", cloud_path)
+		return
+	
+	var cloud_sprite = cloud.get_node_or_null("CloudSprite")
+	if not cloud_sprite:
+		print("[ForestCloudManager] ⚠️ CloudSprite not found in cloud")
+		return
+	
+	var global_pos = cloud.global_position
+	var screen_pos = cloud.get_global_transform_with_canvas().origin
+	var viewport = get_viewport()
+	var viewport_rect = viewport.get_visible_rect()
+	var is_on_screen = viewport_rect.has_point(screen_pos) or viewport_rect.intersects(Rect2(screen_pos - Vector2(100, 100), Vector2(200, 200)))
+	
+	print("[ForestCloudManager] 🔍 [AFTER FRAME] Cloud at path: ", cloud_path)
+	print("[ForestCloudManager] 🌍 Global pos: ", global_pos, " Screen pos: ", screen_pos)
+	print("[ForestCloudManager] 📺 Viewport rect: ", viewport_rect, " Is on screen: ", is_on_screen)
+	print("[ForestCloudManager] 👁️ Visible: ", cloud.visible, " Modulate: ", cloud_sprite.modulate if cloud_sprite else "N/A")
+	print("[ForestCloudManager] 📏 Parent layer: ", cloud.get_parent().name if cloud.get_parent() else "N/A")

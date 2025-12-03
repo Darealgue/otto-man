@@ -16,6 +16,7 @@ var _minigame_scenes := {
 	"forest_stone": "res://ui/minigames/ForestStoneMinigame.tscn",
 	"forest_water": "res://ui/minigames/ForestWaterMinigame.tscn",
 	"forest_fruit": "res://ui/minigames/ForestFruitMinigame.tscn",
+	"forest_food": "res://ui/minigames/ForestFoodMinigame.tscn",
 }
 
 func register_minigame(kind: String, scene_path: String) -> void:

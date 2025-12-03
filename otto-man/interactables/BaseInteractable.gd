@@ -66,7 +66,13 @@ func _on_body_exited(body: Node) -> void:
 	_player_overlapping = not _tracked_players.is_empty()
 
 func _trigger_interaction() -> void:
-	if _disabled or _awaiting_result:
+	print("[BaseInteractable] _trigger_interaction() called for: ", name, " class=", get_class())
+	print("[BaseInteractable] Current state: _disabled=", _disabled, " _awaiting_result=", _awaiting_result, " monitoring=", monitoring, " monitorable=", monitorable)
+	if _disabled:
+		print("[BaseInteractable] BLOCKED: _disabled is true")
+		return
+	if _awaiting_result:
+		print("[BaseInteractable] BLOCKED: _awaiting_result is true (minigame already active)")
 		return
 	var kind := get_minigame_kind()
 	if kind.is_empty():
@@ -75,16 +81,20 @@ func _trigger_interaction() -> void:
 	if !MinigameRouter.has_minigame(kind):
 		push_warning("[BaseInteractable] Unknown minigame kind: %s" % kind)
 		return
+	print("[BaseInteractable] Starting minigame: ", kind)
 	var callback := Callable(self, "_on_router_minigame_finished")
 	if MinigameRouter.is_connected("minigame_finished", callback):
 		# Should not happen, but disconnect to be safe
+		print("[BaseInteractable] WARNING: Already connected to minigame_finished, disconnecting")
 		MinigameRouter.disconnect("minigame_finished", callback)
 	MinigameRouter.connect("minigame_finished", callback, CONNECT_ONE_SHOT)
 	var started := MinigameRouter.start_minigame(kind, _build_minigame_context())
 	if started:
+		print("[BaseInteractable] Minigame started successfully, setting _awaiting_result=true")
 		_awaiting_result = true
 		_on_minigame_started()
 	else:
+		print("[BaseInteractable] Minigame failed to start")
 		if MinigameRouter.is_connected("minigame_finished", callback):
 			MinigameRouter.disconnect("minigame_finished", callback)
 		_on_minigame_failed_to_start()
@@ -104,6 +114,8 @@ func _on_router_minigame_finished(result: Dictionary) -> void:
 	_on_minigame_completed(result)
 
 func set_interactable_enabled(enabled: bool) -> void:
+	print("[BaseInteractable] set_interactable_enabled(", enabled, ") called for: ", name, " class=", get_class())
+	print("[BaseInteractable] BEFORE: _disabled=", _disabled, " monitoring=", monitoring, " monitorable=", monitorable, " process=", is_processing())
 	_disabled = not enabled
 	monitoring = enabled
 	monitorable = enabled
@@ -111,6 +123,7 @@ func set_interactable_enabled(enabled: bool) -> void:
 	if not enabled:
 		_player_overlapping = false
 		_tracked_players.clear()
+	print("[BaseInteractable] AFTER: _disabled=", _disabled, " monitoring=", monitoring, " monitorable=", monitorable, " process=", is_processing())
 
 func is_interactable_enabled() -> bool:
 	return not _disabled

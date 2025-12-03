@@ -1,4 +1,4 @@
-[gd_scene load_steps=53 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=67 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
@@ -8,8 +8,6 @@
 [ext_resource type="PackedScene" uid="uid://dptamh04yqugv" path="res://village/scenes/VillageStatusUI.tscn" id="5_3scu2"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="6_nhirr"]
 [ext_resource type="PackedScene" uid="uid://ip73ci5ccf8t" path="res://village/scenes/TimeDisplayUI.tscn" id="7_miuw4"]
-[ext_resource type="Texture2D" uid="uid://c0tlebkwmqbqu" path="res://village/assets/ChatGPT Image 12 Nis 2025 00_22_18.png" id="8_8if1x"]
-[ext_resource type="Texture2D" uid="uid://d1g551y8ufkjn" path="res://village/assets/ChatGPT Image 12 Nis 2025 00_27_55.png" id="9_hgedo"]
 [ext_resource type="Texture2D" uid="uid://c4dwqep5smpnx" path="res://village/assets/sun,moon/sun.png" id="10_2gs62"]
 [ext_resource type="Script" path="res://village/scripts/DayNightController.gd" id="10_m5lc0"]
 [ext_resource type="Texture2D" uid="uid://cu6stnnma6v6m" path="res://village/assets/sun,moon/moon.png" id="11_1l1b1"]
@@ -24,8 +22,10 @@
 [ext_resource type="Texture2D" uid="uid://6iqi6f8skqob" path="res://village/assets/clouds/cloud1.png" id="16_88r1r"]
 [ext_resource type="Texture2D" uid="uid://drwgm31fkfly1" path="res://village/assets/sun,moon/moon5.png" id="16_snc6m"]
 [ext_resource type="Texture2D" uid="uid://bmnmdtwihbgyo" path="res://village/assets/sun,moon/moon6.png" id="17_0c6vd"]
+[ext_resource type="Texture2D" uid="uid://1wgse07pucst" path="res://village/assets/green_ground.png" id="17_6vpkr"]
 [ext_resource type="Texture2D" uid="uid://ovv2scpaar6d" path="res://village/assets/clouds/cloud2.png" id="17_wo2s6"]
 [ext_resource type="Texture2D" uid="uid://byyjn8h44nc2b" path="res://village/assets/sun,moon/moon7.png" id="18_2p3e8"]
+[ext_resource type="Texture2D" uid="uid://bl0w20yp7fhdm" path="res://village/assets/trees_front.png" id="18_batp3"]
 [ext_resource type="Texture2D" uid="uid://dlrgkd4ah0k1l" path="res://village/assets/clouds/cloud3.png" id="18_gsrlf"]
 [ext_resource type="Script" path="res://village/scripts/StarsContainer.gd" id="19_n5th4"]
 [ext_resource type="Texture2D" uid="uid://eoh0admg8sh1" path="res://village/assets/clouds/cloud4.png" id="19_vllej"]
@@ -34,6 +34,20 @@
 [ext_resource type="Texture2D" uid="uid://omgoovyhyx5k" path="res://village/assets/clouds/cloud6.png" id="21_m600d"]
 [ext_resource type="Texture2D" uid="uid://dc08mlef3owti" path="res://village/assets/clouds/cloud7.png" id="22_t2fs4"]
 [ext_resource type="Texture2D" uid="uid://cajio6whwv6uy" path="res://village/assets/clouds/cloud8.png" id="23_8o2q3"]
+[ext_resource type="Texture2D" uid="uid://bcds8wv8c05d8" path="res://village/assets/trees_front1.png" id="26_8udtl"]
+[ext_resource type="Texture2D" uid="uid://ue2ki3m5fjam" path="res://village/assets/bush_front.png" id="27_kb7vg"]
+[ext_resource type="Texture2D" uid="uid://ceh1ir7rcwhil" path="res://assets/forest assets/grass1.png" id="28_vkvbx"]
+[ext_resource type="Texture2D" uid="uid://y66y0jop1245" path="res://assets/forest assets/grass5.png" id="29_842wn"]
+[ext_resource type="Texture2D" uid="uid://bstupfeu5u5fh" path="res://assets/forest assets/grass2.png" id="30_4isib"]
+[ext_resource type="Texture2D" uid="uid://cu6ltmpjdi76n" path="res://assets/forest assets/grass3.png" id="31_d7b2t"]
+[ext_resource type="Texture2D" uid="uid://d0kd6lchbjupk" path="res://assets/forest assets/grass4.png" id="32_nokj2"]
+[ext_resource type="Texture2D" uid="uid://fq7alwubkksc" path="res://assets/forest assets/bush1.png" id="37_1oku1"]
+[ext_resource type="Texture2D" uid="uid://dniw8gmdy781m" path="res://assets/forest assets/bush2.png" id="38_iu58k"]
+[ext_resource type="Texture2D" uid="uid://d1gkg2jh8jbog" path="res://assets/forest assets/bush3.png" id="39_8vjjl"]
+[ext_resource type="Texture2D" uid="uid://ikuoinjd3xnm" path="res://assets/forest assets/bush4.png" id="40_eq2dm"]
+[ext_resource type="Texture2D" uid="uid://c74rkqeyabmvc" path="res://assets/forest assets/bush5.png" id="41_1dydq"]
+[ext_resource type="Texture2D" uid="uid://bo5ewd5ulq62h" path="res://assets/forest assets/rock1.png" id="42_cj3l7"]
+[ext_resource type="Texture2D" uid="uid://dhwjk5f5xpd1q" path="res://assets/forest assets/trunk2.png" id="43_en1ad"]
 [ext_resource type="PackedScene" path="res://ui/TimeSkipNotification.tscn" id="51_timeskip"]
 [ext_resource type="PackedScene" path="res://ui/PauseMenu.tscn" id="52_pausemenu"]
 
@@ -53,8 +67,8 @@ colors = PackedColorArray(0, 0, 0, 1, 0, 1, 1, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_uvxvs"]
 gradient = SubResource("Gradient_xvddr")
-fill_from = Vector2(0.53211, 1)
-fill_to = Vector2(0.509174, 0)
+fill_from = Vector2(0.545872, 0.642202)
+fill_to = Vector2(0.536697, 0)
 
 [sub_resource type="Curve2D" id="Curve2D_i4un3"]
 bake_interval = 0.01
@@ -87,6 +101,7 @@ shader = ExtResource("13_puagf")
 shader_parameter/water_color = Color(0.286692, 0.501014, 1, 1)
 
 [sub_resource type="Gradient" id="Gradient_1g4th"]
+offsets = PackedFloat32Array(0, 0.418033)
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_g76y5"]
 noise_type = 3
@@ -102,7 +117,7 @@ noise = SubResource("FastNoiseLite_g76y5")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_86mrj"]
 shader = ExtResource("13_puagf")
-shader_parameter/water_color = Color(0, 0.133333, 0.305882, 1)
+shader_parameter/water_color = Color(6.257e-07, 0.191358, 0.269568, 1)
 shader_parameter/wave_noise = SubResource("NoiseTexture2D_633bs")
 
 [node name="VillageScene" type="Node2D"]
@@ -253,10 +268,7 @@ layer = 10
 [node name="DayNightController" type="CanvasModulate" parent="."]
 script = ExtResource("10_m5lc0")
 night_color = Color(0.337406, 0.445476, 0.853101, 1)
-bg_dawn_color = Color(0.966041, 0.807165, 0.708426, 1)
-bg_morning_color = Color(0.938541, 0.787111, 0.639753, 1)
-bg_day_color = Color(0.774224, 0.953272, 1, 1)
-bg_dusk_color = Color(0.95377, 0.74717, 0.617033, 1)
+bg_day_color = Color(0.65, 0.8, 1, 1)
 sky_gradient_resource = SubResource("GradientTexture2D_uvxvs")
 transition_speed = 0.3
 sun_follower_path = NodePath("../ParallaxBackground/CelestialLayer/SunMoonPath/SunFollower")
@@ -278,36 +290,200 @@ z_index = -1
 y_sort_enabled = true
 position = Vector2(670, 242)
 
-[node name="ChatGptImage12Nis2025002218" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+[node name="1" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
 z_index = -1
 y_sort_enabled = true
-position = Vector2(-670, -869)
-scale = Vector2(1, 0.800781)
-texture = ExtResource("8_8if1x")
+position = Vector2(-670, -1041)
+texture = ExtResource("17_6vpkr")
 centered = false
 
-[node name="ChatGptImage12Nis2025002755" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+[node name="2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
 z_index = -1
 y_sort_enabled = true
-position = Vector2(-2205, -785)
-scale = Vector2(1, 0.6875)
-texture = ExtResource("9_hgedo")
+position = Vector2(-2205, -1041)
+texture = ExtResource("17_6vpkr")
 centered = false
+
+[node name="5" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+y_sort_enabled = true
+position = Vector2(-5277, -1041)
+texture = ExtResource("17_6vpkr")
+centered = false
+
+[node name="3" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+y_sort_enabled = true
+position = Vector2(-3741, -1041)
+texture = ExtResource("17_6vpkr")
+centered = false
+
+[node name="4" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+y_sort_enabled = true
+position = Vector2(866, -1041)
+texture = ExtResource("17_6vpkr")
+centered = false
+
+[node name="Bush3" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-1707, -383)
+texture = ExtResource("39_8vjjl")
+
+[node name="Bush5" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-1863, -386)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush6" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+position = Vector2(-2010, -384)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush7" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+position = Vector2(-2062, -379)
+texture = ExtResource("39_8vjjl")
+
+[node name="Bush8" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2174, -385)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush9" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+position = Vector2(-2288, -386)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush10" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-1273, -372)
+texture = ExtResource("39_8vjjl")
+
+[node name="Bush11" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2637, -378)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush12" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2784, -371)
+texture = ExtResource("40_eq2dm")
+
+[node name="Bush13" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2514, -354)
+texture = ExtResource("37_1oku1")
+
+[node name="Bush15" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-1753, -324)
+texture = ExtResource("37_1oku1")
+
+[node name="Bush16" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-3090, -371)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush17" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2947, -361)
+texture = ExtResource("40_eq2dm")
+
+[node name="Bush18" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-3340, -383)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush19" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-3580, -381)
+texture = ExtResource("37_1oku1")
+
+[node name="Rock1" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2871, -380)
+texture = ExtResource("42_cj3l7")
+
+[node name="Trunk2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-3221, -381)
+texture = ExtResource("43_en1ad")
+
+[node name="TreesFront1" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2064, -613)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront3" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2549, -599)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront4" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2310, -613)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront5" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-3005, -619)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront8" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-3674, -617)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -2
+position = Vector2(-2891, -516)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -2
+position = Vector2(-2023, -530)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront7" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -2
+position = Vector2(-3760, -529)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront6" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -2
+position = Vector2(-2901, -525)
+texture = ExtResource("18_batp3")
+
+[node name="BushFront2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+position = Vector2(-2555, -563)
+texture = ExtResource("27_kb7vg")
+
+[node name="BushFront" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+z_index = -1
+position = Vector2(-3733, -563)
+texture = ExtResource("27_kb7vg")
+
+[node name="Grass1" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2340, -371)
+texture = ExtResource("28_vkvbx")
+
+[node name="Grass5" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2009, -371)
+texture = ExtResource("29_842wn")
+
+[node name="Grass2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2995, -379)
+texture = ExtResource("30_4isib")
+
+[node name="Grass3" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-2663, -377)
+texture = ExtResource("31_d7b2t")
+
+[node name="Grass6" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-3723, -378)
+texture = ExtResource("29_842wn")
+
+[node name="Grass4" type="Sprite2D" parent="ParallaxBackground"]
+position = Vector2(-2533, -138)
+texture = ExtResource("32_nokj2")
 
 [node name="ParallaxLayerNear" type="ParallaxLayer" parent="ParallaxBackground"]
 z_index = -5
 position = Vector2(0, -1)
-motion_scale = Vector2(0.18, 0.1)
+motion_scale = Vector2(0, 0.1)
 
 [node name="ParallaxLayerMid" type="ParallaxLayer" parent="ParallaxBackground"]
 z_index = -6
 position = Vector2(0, -1)
-motion_scale = Vector2(0.14, 0.1)
+motion_scale = Vector2(0, 0.1)
 
 [node name="ParallaxLayerFar" type="ParallaxLayer" parent="ParallaxBackground"]
 z_index = -7
 position = Vector2(0, -1)
-motion_scale = Vector2(0.1, 0.1)
+motion_scale = Vector2(0, 0.1)
 
 [node name="BackgroundTint" type="CanvasModulate" parent="ParallaxBackground"]
 z_index = -1
@@ -318,8 +494,8 @@ y_sort_enabled = true
 
 [node name="Sky" type="Sprite2D" parent="ParallaxBackground/sky"]
 y_sort_enabled = true
-position = Vector2(-1, -748.501)
-scale = Vector2(124.844, 26.5781)
+position = Vector2(-1, -1331)
+scale = Vector2(124.844, 44.875)
 texture = SubResource("GradientTexture2D_uvxvs")
 
 [node name="StarsLayer" type="ParallaxLayer" parent="ParallaxBackground"]
@@ -389,9 +565,10 @@ material = SubResource("ShaderMaterial_6j6n8")
 position = Vector2(-1, 41)
 
 [node name="Water" type="Sprite2D" parent="."]
+z_index = 20
 material = SubResource("ShaderMaterial_86mrj")
-position = Vector2(2, 282)
-scale = Vector2(50, 2.27188)
+position = Vector2(2, 214.625)
+scale = Vector2(50, 1.45469)
 texture = ExtResource("14_0rx2s")
 
 [node name="CloudManager" type="Node2D" parent="."]

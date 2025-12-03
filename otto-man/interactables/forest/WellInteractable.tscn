@@ -8,15 +8,23 @@ size = Vector2(90, 140)
 
 [node name="WellInteractable" type="Area2D"]
 script = ExtResource("2")
-collision_layer = 0
-collision_mask = 0
+collision_layer = 4096
+collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_d1s0v")
 position = Vector2(0, -40)
 
+[node name="WellIdleSprite" type="AnimatedSprite2D" parent="."]
+centered = false
+
+[node name="WellHighlightSprite" type="Sprite2D" parent="."]
+centered = false
+visible = false
+
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("1")
 offset = Vector2(-45, -120)
 centered = false
+visible = false
 

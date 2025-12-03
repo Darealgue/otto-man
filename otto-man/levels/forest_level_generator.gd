@@ -24,6 +24,11 @@ signal level_completed
 @onready var _rock_interactable_scene: PackedScene = load("res://interactables/forest/RockInteractable.tscn")
 @onready var _well_interactable_scene: PackedScene = load("res://interactables/forest/WellInteractable.tscn")
 @onready var _fruit_tree_interactable_scene: PackedScene = load("res://interactables/forest/FruitTreeInteractable.tscn")
+@onready var _bush_interactable_scene: PackedScene = load("res://interactables/forest/BushInteractable.tscn")
+
+# Resource spawning
+var _resource_spawn_timer: int = 0
+var _resource_scenes: Array[PackedScene] = []
 
 var _forest_exit_portal: Node2D = null
 var _forest_start_chunk: Node2D = null
@@ -88,6 +93,18 @@ var scenes := {
 func _ready() -> void:
 	add_to_group("level_generator")
 	player = get_tree().get_first_node_in_group("player")
+	
+	# Initialize resource scenes
+	_resource_scenes = [
+		_tree_interactable_scene,
+		_rock_interactable_scene,
+		_bush_interactable_scene,
+		_well_interactable_scene,
+		# _fruit_tree_interactable_scene # Excluded for now or add if ready
+	]
+	# Initialize timer with random value (4-6 chunks)
+	_resource_spawn_timer = randi_range(4, 6)
+	
 	_spawn_initial_path()
 	_setup_overview_camera()
 	_setup_day_night_system()
@@ -118,12 +135,27 @@ func _process_decor_spawn_queue() -> void:
 		var job: Dictionary = _decor_spawn_queue.pop_front()
 		var name: String = String(job.get("name", ""))
 		var pos: Vector2 = job.get("pos", Vector2.ZERO)
+		var parent_node = job.get("parent", null)
+		
 		if name.is_empty():
 			budget -= 1
 			continue
+			
+		# If parent is specified but invalid (freed), skip spawning
+		if parent_node != null and not is_instance_valid(parent_node):
+			continue
+			
 		var node := _decor_spawner.create_decoration_instance(name, DecorationConfig.DecorationType.BACKGROUND)
 		if node:
-			add_child(node)
+			if parent_node != null and is_instance_valid(parent_node):
+				parent_node.add_child(node)
+			elif parent_node == null:
+				add_child(node)
+			else:
+				# Parent became invalid between check and usage
+				node.queue_free()
+				continue
+				
 			node.global_position = pos
 			if node is CanvasItem:
 				(node as CanvasItem).z_as_relative = true
@@ -211,6 +243,107 @@ func _attach_forest_exit_portal(start_chunk: Node2D) -> void:
 	var offset := Vector2(float(unit_size) * 0.25, -160.0)
 	_forest_exit_portal.global_position = base_position + offset
 
+func _spawn_random_resource(chunk: Node2D) -> void:
+	print("[ForestGenerator] Attempting to spawn random resource in chunk: ", chunk.name)
+	if _resource_scenes.is_empty():
+		print("[ForestGenerator] FAIL: _resource_scenes is empty")
+		return
+	
+	# Get TileMap and TileSet to scan used cells (decoration style)
+	var tile_map = chunk.find_child("TileMapLayer", true, false)
+	if not tile_map:
+		print("[ForestGenerator] FAIL: TileMapLayer not found in chunk")
+		return
+	
+	var tile_set = tile_map.get("tile_set") as TileSet
+	if not tile_set:
+		print("[ForestGenerator] FAIL: TileSet not found")
+		return
+
+	# Find custom data layer index for decor anchors
+	var decor_layer_name := "decor_anchor"
+	var decor_layer_index := -1
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == decor_layer_name:
+			decor_layer_index = i
+			break
+	
+	if decor_layer_index == -1:
+		print("[ForestGenerator] FAIL: 'decor_anchor' custom data layer not found in TileSet")
+		return
+
+	# Collect all valid floor cells
+	var valid_floor_cells: Array[Vector2i] = []
+	var used_cells = tile_map.get_used_cells()
+	var chunk_size := _get_size(chunk)
+	var min_x_local := 400.0
+	var max_x_local := chunk_size.x - 400.0
+
+	for cell in used_cells:
+		var td: TileData = tile_map.get_cell_tile_data(cell)
+		if not td:
+			continue
+		
+		var tag = td.get_custom_data(decor_layer_name)
+		if typeof(tag) != TYPE_STRING:
+			continue
+			
+		var tag_s := String(tag)
+		if tag_s == "forest_floor_surface" or tag_s == "floor_surface":
+			# Check if cell local position is within padding limits
+			var cell_local_pos = tile_map.map_to_local(cell)
+			if cell_local_pos.x >= min_x_local and cell_local_pos.x <= max_x_local:
+				# Check if there is space above (empty tiles)
+				var cell_above = cell + Vector2i(0, -1)
+				var cell_above2 = cell + Vector2i(0, -2)
+				if tile_map.get_cell_source_id(cell_above) == -1 and tile_map.get_cell_source_id(cell_above2) == -1:
+					valid_floor_cells.append(cell)
+
+	if valid_floor_cells.is_empty():
+		print("[ForestGenerator] FAIL: No valid floor cells found in chunk via tag scan")
+		return
+
+	# Pick a random valid cell
+	var target_cell = valid_floor_cells.pick_random()
+	var target_local_pos = tile_map.map_to_local(target_cell)
+	
+	# Pick a random resource scene
+	var scene: PackedScene = _resource_scenes.pick_random()
+	if not scene:
+		print("[ForestGenerator] FAIL: picked scene is null")
+		return
+		
+	var resource_node = scene.instantiate() as Node2D
+	if not resource_node:
+		print("[ForestGenerator] FAIL: failed to instantiate resource")
+		return
+	
+	chunk.add_child(resource_node)
+	# Position at the bottom center of the tile (TileMap map_to_local returns center)
+	# Resources usually have pivot at bottom. Tiles are usually 64x64.
+	# map_to_local returns center. Top of tile would be center.y - 32.
+	# Resources need to be placed on top of the floor tile.
+	# The previous logic placed them at 'floor_y', which was derived from tile center.
+	
+	# Decoration logic uses: spawn_pos.y -= 30.0 (from span center)
+	# If the resource pivot is at the bottom, we want it to sit on the top surface of the floor tile.
+	# map_to_local gives center. Top surface is center.y - tile_size.y/2.
+	# But typically, sprites are anchored. Let's assume standard placement.
+	# If the tile is 64x64, center is at (32, 32). Top is at 0.
+	# Previous code used: floor_y = tile_center.y - tile_size.y - 5.0.
+	# Let's calculate the top of the tile.
+	
+	var tile_size = tile_set.tile_size
+	var spawn_pos = target_local_pos
+	spawn_pos.y -= tile_size.y * 0.5 # Move to top edge of the tile
+	
+	# Slightly adjust to embed or sit perfectly
+	spawn_pos.y += 10.0 # Small adjustment down so it doesn't float
+	
+	resource_node.position = spawn_pos
+	
+	print("[ForestGenerator] SUCCESS: Spawned resource ", resource_node.name, " in chunk ", chunk.name, " at local ", resource_node.position)
+
 func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
 	print("[ForestDebug] 🔧 _spawn_debug_resource_nodes called")
 	if start_chunk == null:
@@ -284,7 +417,7 @@ func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
 		{"scene_path": "res://interactables/forest/TreeInteractable.tscn", "pos": Vector2(320, floor_y), "color": "brown"},
 		{"scene_path": "res://interactables/forest/RockInteractable.tscn", "pos": Vector2(640, floor_y), "color": "gray"},
 		{"scene_path": "res://interactables/forest/WellInteractable.tscn", "pos": Vector2(960, floor_y), "color": "blue"},
-		{"scene_path": "res://interactables/forest/FruitTreeInteractable.tscn", "pos": Vector2(1280, floor_y), "color": "orange"},
+		{"scene_path": "res://interactables/forest/BushInteractable.tscn", "pos": Vector2(1280, floor_y), "color": "green"},
 	]
 	
 	print("[ForestDebug] 📋 Spawning ", placements.size(), " placeholder interactables...")
@@ -870,6 +1003,18 @@ func _place_continue(prev: Node2D) -> void:
 	if prev_idx != -1:
 		_link_after(prev_idx, new_idx)
 	last_end_x = next.position.x + _get_size(next).x
+	
+	# Try to spawn resource in this linear chunk
+	_resource_spawn_timer -= 1
+	if debug_enabled:
+		print("[ForestGenerator] _place_continue: spawn_timer decreased to ", _resource_spawn_timer)
+	
+	if _resource_spawn_timer <= 0:
+		_spawn_random_resource(next)
+		_resource_spawn_timer = randi_range(4, 6)
+		if debug_enabled:
+			print("[ForestGenerator] Timer reset to ", _resource_spawn_timer)
+	
 	if debug_enabled:
 		_debug_dump_active_chunks("place_continue")
 
@@ -1307,9 +1452,10 @@ func _setup_day_night_system() -> void:
 
 	# Optional: simple clouds layer using same manager if available later
 	# Cloud parallax layers - behind forest parallax but in front of CanvasModulate
+	# Spawn behind mountains (-12)
 	var layer_far := ParallaxLayer.new(); layer_far.name = "ParallaxLayerFar"; layer_far.z_index = -13; layer_far.position = Vector2(0, -1); layer_far.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_far)
-	var layer_mid := ParallaxLayer.new(); layer_mid.name = "ParallaxLayerMid"; layer_mid.z_index = -14; layer_mid.position = Vector2(0, -1); layer_mid.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_mid)
-	var layer_near := ParallaxLayer.new(); layer_near.name = "ParallaxLayerNear"; layer_near.z_index = -15; layer_near.position = Vector2(0, -1); layer_near.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_near)
+	var layer_mid := ParallaxLayer.new(); layer_mid.name = "ParallaxLayerMid"; layer_mid.z_index = -13; layer_mid.position = Vector2(0, -1); layer_mid.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_mid)
+	var layer_near := ParallaxLayer.new(); layer_near.name = "ParallaxLayerNear"; layer_near.z_index = -13; layer_near.position = Vector2(0, -1); layer_near.motion_scale = Vector2(0.0, 0.02); pb.add_child(layer_near)
 
 	# CloudManager from village
 	var cloud_manager := Node2D.new(); cloud_manager.name = "CloudManager"; cloud_manager.z_index = -3
@@ -1334,8 +1480,8 @@ func _setup_day_night_system() -> void:
 		])
 		cloud_manager.set("min_spawn_interval", 5.0)
 		cloud_manager.set("max_spawn_interval", 20.0)
-		cloud_manager.set("cloud_y_position_min", 50.0)
-		cloud_manager.set("cloud_y_position_max", 200.0)
+		cloud_manager.set("cloud_y_position_min", -275.0)
+		cloud_manager.set("cloud_y_position_max", -175.0)
 	add_child(cloud_manager)
 	# Kick one immediate spawn to verify visibility without relying on timer init
 	cloud_manager.call_deferred("_spawn_cloud")
@@ -1648,6 +1794,18 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 			break
 	if decor_layer_index == -1:
 		return
+		
+	# Setup deterministic RNG
+	var chunk_seed: int = 0
+	if chunk_node.has_meta("seed"):
+		chunk_seed = int(chunk_node.get_meta("seed"))
+	else:
+		chunk_seed = randi()
+		chunk_node.set_meta("seed", chunk_seed)
+		
+	var rng = RandomNumberGenerator.new()
+	rng.seed = chunk_seed
+		
 	# Iterate cells and place forest decors on tagged anchors (TileMap layer 0)
 	var used_cells: Array[Vector2i] = tile_map.get_used_cells()
 	if used_cells.is_empty():
@@ -1725,12 +1883,12 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 		if placed_span_centers.has(key6):
 			continue
 		# Random gate to keep density low
-		if randf() > 0.12:
+		if rng.randf() > 0.12:
 			continue
 		# Queue big tree spawn (pooled spawner, spread over frames)
 		var spawn6: Vector2 = center_px
 		spawn6.y -= 30.0
-		_decor_spawn_queue.append({"name": "forest_tree", "pos": spawn6})
+		_decor_spawn_queue.append({"name": "forest_tree", "pos": spawn6, "parent": chunk_node})
 		placed_span_centers[key6] = true
 		# Global reserve this x-interval to prevent overlaps from adjacent chunks
 		_forest_tree_reserve_px(start_px, end_px)
@@ -1764,7 +1922,7 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 			# Still allow low-profile assets if ground-only clearance fails; keep trying others
 			pass
 		# Random gate to reduce density
-		if randf() > rng_chance:
+		if rng.randf() > rng_chance:
 			continue
 		# Avoid double placement on the same span
 		var key := str(cell.x, ":", cell.y)
@@ -1778,13 +1936,13 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 		if placed_span_centers.has(key6a) or placed_span_centers.has(key6b) or placed_span_centers.has(key6c):
 			continue
 		# Pick a forest decor
-		var decor_name: String = _forest_pick_decor_name()
+		var decor_name: String = _forest_pick_decor_name(rng)
 		if decor_name.is_empty():
 			continue
 		# Queue 3-wide decoration spawn
 		var spawn_pos: Vector2 = _forest_compute_span_center(tile_map, left, right)
 		spawn_pos.y -= 30.0
-		_decor_spawn_queue.append({"name": decor_name, "pos": spawn_pos})
+		_decor_spawn_queue.append({"name": decor_name, "pos": spawn_pos, "parent": chunk_node})
 	# Mark done for this chunk
 	chunk_node.set_meta("forest_decor_done", true)
 
@@ -1818,7 +1976,7 @@ func _forest_compute_span_center(tile_map, left_cell: Vector2i, right_cell: Vect
 	# Slight downward settle so bottom-anchored sprites hug the floor; fixup will refine
 	return mid + Vector2(0, 5)
 
-func _forest_pick_decor_name() -> String:
+func _forest_pick_decor_name(rng: RandomNumberGenerator = null) -> String:
 	# Weighted random among registered forest background decors
 	var cfg := DecorationConfig.new()
 	var pool: Dictionary = cfg.get_decorations_for_type(DecorationConfig.DecorationType.BACKGROUND)
@@ -1830,7 +1988,11 @@ func _forest_pick_decor_name() -> String:
 			total += int(d.get("weight", 1))
 	if total <= 0:
 		return ""
-	var roll := randi() % total
+	var roll: int
+	if rng:
+		roll = rng.randi() % total
+	else:
+		roll = randi() % total
 	var acc := 0
 	for n in names:
 		if pool.has(n):

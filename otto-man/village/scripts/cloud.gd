@@ -33,10 +33,12 @@ func _ready() -> void:
 		current_speed = abs(current_speed)  # Ensure speed is positive
 
 	# Initial state: invisible for fade-in. Preserve original color, only change alpha.
-	var original_color = cloud_sprite.modulate
-	original_color.a = 0.0
-	cloud_sprite.modulate = original_color
-
+	# Make clouds fully white to stand out against the sky
+	# Using values > 1.0 can cause glow/bloom but keeps it white. 
+	# If previous 1.5 was "ice blue", it means the texture itself has blue tints or the environment modulates it blue.
+	# Setting modulate to high values (e.g. 2.0, 2.0, 2.0) usually results in pure white overexposure.
+	cloud_sprite.modulate = Color(2.0, 2.0, 2.0, 0.0)
+	
 	var tween_fade_in = create_tween()
 	# Target the original alpha value (presumably 1.0 if fully opaque)
 	tween_fade_in.tween_property(cloud_sprite, "modulate:a", 1.0, fade_in_duration).from(0.0)
@@ -51,30 +53,26 @@ func _process(delta: float) -> void:
 	# Check for despawn when off-screen
 	# The CloudManager will eventually handle spawning positions and more robust despawning.
 	# This is a basic self-cleanup.
+	
+	# Use screen-space position for robust checking regardless of parallax/camera movement
+	# global_position might be world space or canvas layer space depending on parent,
+	# but get_global_transform_with_canvas().origin gives us the actual pixel position on screen.
+	var screen_pos = get_global_transform_with_canvas().origin
+	var screen_x = screen_pos.x
+	
 	var sprite_actual_width = cloud_sprite.texture.get_width() * max(cloud_sprite.scale.x, 1.0)
-	var left_edge = global_position.x - sprite_actual_width
-	var right_edge = global_position.x + sprite_actual_width
-
-	# Compute camera-aligned world bounds so despawn works away from origin
-	var vp_rect := get_viewport_rect()
-	var vp_size := vp_rect.size
-	var cam := get_viewport().get_camera_2d()
-	var cam_x := 0.0
-	if cam and cam is Camera2D:
-		cam_x = (cam as Camera2D).global_position.x
-	var half_w := vp_size.x * 0.5
-	var left_world_x := cam_x - half_w
-	var right_world_x := cam_x + half_w
-
-	var off_screen_buffer = 200.0 # pixels - increased buffer to prevent premature despawning
+	var vp_size := get_viewport_rect().size
+	var off_screen_buffer = sprite_actual_width + 100.0 
 
 	if current_speed > 0: # Moving right
-		if left_edge > right_world_x + off_screen_buffer:
-			# print("Cloud off-screen right, removing: ", name)
+		# Check if left edge is past the right edge of viewport
+		if screen_x - sprite_actual_width * 0.5 > vp_size.x + off_screen_buffer:
+			# print("Cloud off-screen right (screen_x=", screen_x, "), removing: ", name)
 			queue_free()
 	elif current_speed < 0: # Moving left
-		if right_edge < left_world_x - off_screen_buffer:
-			# print("Cloud off-screen left, removing: ", name)
+		# Check if right edge is past the left edge of viewport
+		if screen_x + sprite_actual_width * 0.5 < -off_screen_buffer:
+			# print("Cloud off-screen left (screen_x=", screen_x, "), removing: ", name)
 			queue_free()
 
 # This function can be called by a CloudManager to gracefully remove the cloud

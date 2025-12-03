@@ -6,6 +6,6 @@ res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
-res://ui/minigames/ForestStoneMinigame.gd
-res://interactables/forest/RockInteractable.tscn
-res://ui/minigames/wood/minigame_wood_marker.tscn
+res://interactables/forest/BushInteractable.gd
+res://ui/minigames/food/Fruit.gd
+res://ui/minigames/food/Fruit.tscn
