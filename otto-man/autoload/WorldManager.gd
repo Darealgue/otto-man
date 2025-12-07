@@ -635,9 +635,8 @@ func _post_event_news(event: Dictionary, day: int) -> void:
 			content = "%s bölgesinde isyan çıktı! İstikrar sarsıldı. (%d gün)" % [faction, duration]
 	
 	# Post news with proper subcategory for visual emphasis
-	var mm = get_node_or_null("/root/MissionManager")
-	if mm and mm.has_method("post_news"):
-		mm.post_news("Dünya", title, content, Color.WHITE, subcategory)
+	if MissionManager and MissionManager.has_method("post_news"):
+		MissionManager.post_news("Dünya", title, content, Color.WHITE, subcategory)
 	else:
 		# Fallback to old system
 		_post_world_news({
@@ -650,13 +649,12 @@ func _post_event_news(event: Dictionary, day: int) -> void:
 
 func _apply_world_events_to_village(day: int) -> void:
 	"""Apply active world events to village economy"""
-	var vm = get_node_or_null("/root/VillageManager")
-	if not vm or not vm.has_method("apply_world_event_effects"):
+	if not VillageManager or not VillageManager.has_method("apply_world_event_effects"):
 		return
 	
 	# Apply effects of all active events
 	for event in active_events:
-		vm.apply_world_event_effects(event)
+		VillageManager.apply_world_event_effects(event)
 	
 	# Remove effects of expired events
 	var remaining: Array[Dictionary] = []
@@ -667,13 +665,12 @@ func _apply_world_events_to_village(day: int) -> void:
 			remaining.append(event)
 		else:
 			# Event expired, remove its effects
-			vm.remove_world_event_effects(event)
+			VillageManager.remove_world_event_effects(event)
 	active_events = remaining
 
 func _post_world_news(news: Dictionary) -> void:
 	# MissionManager'ın post_news metodunu kullan
-	var mm = get_node_or_null("/root/MissionManager")
-	if mm and mm.has_method("post_news"):
+	if MissionManager and MissionManager.has_method("post_news"):
 		var category = news.get("category", "world")
 		var title = news.get("title", "Bilinmeyen")
 		var content = news.get("content", "")
@@ -683,11 +680,11 @@ func _post_world_news(news: Dictionary) -> void:
 		if category == "world":
 			category = "Dünya"
 		
-		mm.post_news(category, title, content, Color.WHITE, subcategory)
+		MissionManager.post_news(category, title, content, Color.WHITE, subcategory)
 	else:
 		# Fallback: sinyal emit et
-		if mm and mm.has_signal("news_posted"):
-			mm.news_posted.emit(news)
+		if MissionManager and MissionManager.has_signal("news_posted"):
+			MissionManager.news_posted.emit(news)
 		else:
 			print("[WORLD NEWS] ", news)
 

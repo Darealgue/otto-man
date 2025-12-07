@@ -1714,6 +1714,7 @@ shape = SubResource("RectangleShape2D_ev20y")
 
 [node name="InteractButton" type="Button" parent="."]
 visible = false
+z_index = 20
 offset_left = -10.0
 offset_top = -95.0
 offset_right = 13.0
@@ -1724,6 +1725,7 @@ text = "P"
 
 [node name="NpcWindow" parent="." instance=ExtResource("7_a2l8b")]
 visible = false
+z_index = 20
 offset_left = 45.0
 offset_top = -342.0
 offset_right = 45.64

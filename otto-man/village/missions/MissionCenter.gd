@@ -4190,6 +4190,7 @@ func _on_news_posted(news: Dictionary):
 		if news_queue_village.size() > 50:
 			news_queue_village = news_queue_village.slice(0, 50)
 		print("📰 ✅ Village haber MissionCenter'da saklandı: ", news_queue_village.size())
+			
 	else:
 		news_queue_world.push_front(news)
 		# Kuyruk boyutunu sınırla (son 50 haber)
@@ -5422,21 +5423,20 @@ func update_news_ui():
 	print("📰 Haber Merkezi güncelleniyor...")
 	
 	# MissionManager'dan haber kuyruklarını al
-	var mm = get_node_or_null("/root/MissionManager")
-	if not mm:
+	if not MissionManager:
 		print("📰 ❌ MissionManager bulunamadı!")
 		return
 	
 	print("📰 ✅ MissionManager bulundu")
-	print("📰 MissionManager type: ", mm.get_class())
-	print("📰 MissionManager script: ", mm.get_script())
+	print("📰 MissionManager type: ", MissionManager.get_class())
+	print("📰 MissionManager script: ", MissionManager.get_script())
 	
 	# Haber kuyruklarını yöneticiden çek (persist)
 	var village_news: Array = []
 	var world_news: Array = []
-	if mm and mm.has_method("get_village_news") and mm.has_method("get_world_news"):
-		village_news = mm.get_village_news()
-		world_news = mm.get_world_news()
+	if MissionManager and MissionManager.has_method("get_village_news") and MissionManager.has_method("get_world_news"):
+		village_news = MissionManager.get_village_news()
+		world_news = MissionManager.get_world_news()
 		# Ayrıca MissionCenter içindeki anlık kuyrukla birleştir (runtime gelenler kaybolmasın)
 		for n in news_queue_village:
 			village_news.append(n)

@@ -494,7 +494,21 @@ var walk_textures = {
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	add_to_group("Villagers") # Register for global updates like news
 	randomize()
+	
+	# Debug: Print initialization state
+	if NPC_Info.is_empty():
+		print("Worker %d _ready: NPC_Info is EMPTY" % worker_id)
+	else:
+		print("Worker %d _ready: NPC_Info has %d keys. Info present: %s" % [
+			worker_id, 
+			NPC_Info.size(), 
+			NPC_Info.has("Info")
+		])
+		if NPC_Info.has("Info"):
+			print("Worker %d _ready: Info keys: %s" % [worker_id, NPC_Info["Info"].keys()])
+	
 	# <<< YENİ: Timer Oluşturma >>>
 	fetching_timer = Timer.new()
 	fetching_timer.one_shot = true
@@ -560,25 +574,55 @@ func _ready() -> void:
 		$InteractButton.text = _format_key_name(key_name)
 	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
 
+func update_news(news_string: String) -> void:
+	if NPC_Info.is_empty():
+		return
+	if not NPC_Info.has("Latest_news") or typeof(NPC_Info["Latest_news"]) != TYPE_ARRAY:
+		NPC_Info["Latest_news"] = []
+	
+	NPC_Info["Latest_news"].push_front(news_string)
+	if NPC_Info["Latest_news"].size() > 15:
+		NPC_Info["Latest_news"] = NPC_Info["Latest_news"].slice(0, 15)
+	# print("Worker %d received news: %s" % [worker_id, news_string])
+
 func Save_Villager_Info():
 	VillagerAiInitializer.Saved_Villagers.append(NPC_Info)
 	
 #func Load_Villager_Info(VillagerInfo:Dictionary):
 	#NPC_Info = VillagerInfo
 func Update_Villager_Name():
-
-	$NamePlate.text = NPC_Info["Info"]["Name"]
+	if NPC_Info.has("Info") and NPC_Info["Info"].has("Name"):
+		$NamePlate.text = NPC_Info["Info"]["Name"]
+	else:
+		print("[Worker] ⚠️ Cannot update name: NPC_Info missing 'Info' or 'Name' key. Info keys: ", NPC_Info.keys())
 	
 func Initialize_Existing_Villager(NPCInfo):
+		print("Worker %d Initialize_Existing_Villager called with data size: %d" % [worker_id, NPCInfo.size()])
 		if NPCInfo.is_empty() == true:
+			print("Worker %d: Initialize_Existing_Villager received EMPTY data. Falling back to new villager." % worker_id)
 			Initialize_New_Villager()
 		else:
 			NPC_Info=NPCInfo
-			$NamePlate.text = NPCInfo["Info"]["Name"]
+			if not NPC_Info.has("Latest_news"):
+				NPC_Info["Latest_news"] = []
+			elif typeof(NPC_Info["Latest_news"]) == TYPE_STRING:
+				NPC_Info["Latest_news"] = [NPC_Info["Latest_news"]] if NPC_Info["Latest_news"] != "" else []
+			
+			Update_Villager_Name() # Safe update
 			$NpcWindow.InitializeWindow(NPC_Info)
+			
 func Initialize_New_Villager():
+	print("Worker %d Initialize_New_Villager called" % worker_id)
 	NPC_Info = VillagerAiInitializer.get_villager_info()
-	$NamePlate.text = NPC_Info["Info"]["Name"]
+	if NPC_Info.is_empty():
+		printerr("Worker %d: VillagerAiInitializer returned EMPTY info!" % worker_id)
+		return
+		
+	# Verify structure
+	if not NPC_Info.has("Info"):
+		printerr("Worker %d: New NPC_Info missing 'Info' key!" % worker_id)
+		
+	Update_Villager_Name() # Use the safe update function
 	$NpcWindow.InitializeWindow(NPC_Info)
 
 func _physics_process(delta: float) -> void:

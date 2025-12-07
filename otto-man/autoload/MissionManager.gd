@@ -1557,6 +1557,14 @@ func post_news(category: String, title: String, content: String, color: Color = 
 	
 	# Haberleri kuyruklara ekle
 	var is_village = category in ["Başarı", "Bilgi"]
+	
+	# <<< YENİ: Haberi hemen NPC'lere dağıt >>>
+	if VillagerAiInitializer:
+		# Send news without icon to save context
+		var news_str = "%s: %s" % [title, content]
+		print("MissionManager: Sending news to NPCs: ", news_str)
+		VillagerAiInitializer.update_latest_news(news_str)
+	
 	if is_village:
 		news_queue_village.push_front(news)
 		# Kuyruk boyutunu sınırla (son 50 haber)

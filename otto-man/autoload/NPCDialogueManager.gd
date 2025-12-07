@@ -78,6 +78,16 @@ func _on_llama_generation_complete(result_string: String):
 	
 	var new_info = parsed_result.get("Info", {}) as Dictionary
 	var new_history = parsed_result.get("History", []) as Array
+	
+	# Parse latest_news as array
+	var latest_news = []
+	if parsed_result.has("Latest_news"):
+		var ln = parsed_result.get("Latest_news")
+		if typeof(ln) == TYPE_ARRAY:
+			latest_news = ln
+		elif typeof(ln) == TYPE_STRING:
+			latest_news = [ln] if ln != "" else []
+	
 	var generated_dialogue = ""
 	if parsed_result.has("Generated Dialogue"):
 		generated_dialogue = parsed_result.get("Generated Dialogue", "")
@@ -87,7 +97,7 @@ func _on_llama_generation_complete(result_string: String):
 	if generated_dialogue.strip_edges() == "":
 		generated_dialogue = "..."
 	
-	var tentative_new_state = {"Info": new_info, "History": new_history}
+	var tentative_new_state = {"Info": new_info, "History": new_history, "Latest_news": latest_news}
 	var was_significant = _did_state_change(
 		_current_original_state.get("Info", {}),
 		_current_original_state.get("History", []),
@@ -108,22 +118,30 @@ func _on_llama_generation_complete(result_string: String):
 func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
 	var info_json = JSON.stringify(state.get("Info", {}))
 	var history_json = JSON.stringify(state.get("History", []))
+	var latest_news_raw = state.get("Latest_news", [])
+	# Ensure Latest_news is an array
+	if typeof(latest_news_raw) == TYPE_STRING:
+		latest_news_raw = [latest_news_raw] if latest_news_raw != "" else []
+	var latest_news_json = JSON.stringify(latest_news_raw)
+	
 	var pd = str(player_input).replace('"', '\\"')
 	var full_prompt = """
 Input State:
 {
   \"Info\": %s,
-  \"History\": %s
+  \"History\": %s,
+  \"Latest_news\": %s
 }
 
 Player Dialogue: \"Player\":\"%s\"
 
 Instructions:
-1. Evaluate the Player Dialogue in the context of the NPC's current Input State (Info, History).
+1. Evaluate the Player Dialogue in the context of the NPC's current Input State (Info, History, Latest_news).
 2. Determine if the dialogue is \"Significant\" or \"Insignificant\" based on the criteria below.
 3. If Significant: Update \"Info\" (use only existing keys; do not add new keys) and append a short description to \"History\" reflecting the change. Include the \"Generated Dialogue\" as the NPC's reply.
 4. If Insignificant: The \"Info\" and \"History\" fields in the output JSON MUST be exactly identical to those in the Input State. Only \"Generated Dialogue\" may differ.
 5. Provide ONLY the complete JSON output as specified by the grammar.
+6. The \"Latest_news\" field contains recent world and village events. Use these events to inform your dialogue and reactions, but DO NOT modify this field in the output.
 
 Rules for Significance & State Update:
 - Significance Criteria: Dialogue is significant if it bestows titles, reveals important new facts, corrects prior beliefs, causes strong emotional reactions, or involves important actions/items relevant to the NPC.
@@ -141,17 +159,19 @@ Generated Dialogue Requirements:
 - A single first-person NPC line.
 - Do NOT prefix with the NPC's name (no \"Name: ...\").
 - No narration or stage directions.
+- If relevant news exists in \"Latest_news\", mention it naturally if appropriate to the conversation context.
 
 NOW, PROCESS THE FOLLOWING INPUT AND PROVIDE ONLY THE JSON OUTPUT:
 
 Input State:
 {
   \"Info\": %s,
-  \"History\": %s
+  \"History\": %s,
+  \"Latest_news\": %s
 }
 
 Player Dialogue: \"Player\":\"%s\"
-""" % [info_json, history_json, pd, info_json, history_json, pd]
+""" % [info_json, history_json, latest_news_json, pd, info_json, history_json, latest_news_json, pd]
 	print("FULL PROMPT : ", full_prompt)
 	return full_prompt
 
@@ -239,15 +259,25 @@ func _normalize_state(state: Dictionary) -> Dictionary:
 	var history = state.get("History", [])
 	if typeof(history) != TYPE_ARRAY:
 		history = []
-	return {"Info": info, "History": history} 
+	var latest_news = state.get("Latest_news", [])
+	if typeof(latest_news) != TYPE_ARRAY:
+		if typeof(latest_news) == TYPE_STRING:
+			latest_news = [latest_news] if latest_news != "" else []
+		else:
+			latest_news = []
+	return {"Info": info, "History": history, "Latest_news": latest_news} 
 
 # Merge/sanitize significant updates: keep Info key set identical and avoid history deletions
 func _sanitize_significant_state(old_state: Dictionary, new_state: Dictionary) -> Dictionary:
 	var old_info: Dictionary = old_state.get("Info", {})
 	var old_history: Array = old_state.get("History", [])
+	var old_news = old_state.get("Latest_news", [])
+	if typeof(old_news) != TYPE_ARRAY: old_news = []
 	
 	var in_info = new_state.get("Info", {})
 	var in_history = new_state.get("History", [])
+	var in_news = new_state.get("Latest_news", [])
+	if typeof(in_news) != TYPE_ARRAY: in_news = []
 	
 	# 1) Info: restrict to original keys only, fill missing with old values
 	var sanitized_info: Dictionary = {}
@@ -269,4 +299,7 @@ func _sanitize_significant_state(old_state: Dictionary, new_state: Dictionary) -
 	# Detect info change
 	var info_changed := JSON.stringify(old_info, "\t", true) != JSON.stringify(sanitized_info, "\t", true)
 	
-	return {"Info": sanitized_info, "History": sanitized_history} 
+	# Use new news if provided, else old
+	var final_news = in_news if not in_news.is_empty() else old_news
+	
+	return {"Info": sanitized_info, "History": sanitized_history, "Latest_news": final_news} 

@@ -15,7 +15,8 @@ var Villager_Info_Pool : Array =[
 			"Helped rebuild a village after the Plague",
 			"Was imprisoned after being accused of murder",
 			"Worked for a cruel captain before escaping"
-		]
+		],
+		"Latest_news": []
 	},
 	{
 		"Info": {
@@ -30,7 +31,8 @@ var Villager_Info_Pool : Array =[
 			"Was imprisoned after being accused of theft",
 			"Survived the ambush at Raventon",
 			"Helped rebuild a village after the Border Conflict"
-		]
+		],
+		"Latest_news": []
 	},
 	{
 		"Info": {
@@ -1509,12 +1511,55 @@ signal LoadComplete
 
 func _ready() -> void:
 	randomize()
+	# Ensure all villagers in pool have Latest_news field
+	for villager in Villager_Info_Pool:
+		if not villager.has("Latest_news"):
+			villager["Latest_news"] = []
+		elif typeof(villager["Latest_news"]) == TYPE_STRING:
+			# Migrate string to array if needed
+			villager["Latest_news"] = [villager["Latest_news"]] if villager["Latest_news"] != "" else []
+			
 	if _original_pool.is_empty():
 		_original_pool = _deep_duplicate(Villager_Info_Pool)
+	
+	pass
+
+func update_latest_news(news_string: String) -> void:
+	# 1. Update Saved_Villagers
+	for villager in Saved_Villagers:
+		if not villager.has("Latest_news"):
+			villager["Latest_news"] = []
+		# Add new news to the front
+		villager["Latest_news"].push_front(news_string)
+		# Limit to last 15 news items
+		if villager["Latest_news"].size() > 15:
+			villager["Latest_news"] = villager["Latest_news"].slice(0, 15)
+	
+	# 2. Update Villager_Info_Pool (so new villagers know the news)
+	for villager in Villager_Info_Pool:
+		if not villager.has("Latest_news"):
+			villager["Latest_news"] = []
+		villager["Latest_news"].push_front(news_string)
+		if villager["Latest_news"].size() > 15:
+			villager["Latest_news"] = villager["Latest_news"].slice(0, 15)
+		
+	# 3. Update active Workers
+	get_tree().call_group("Villagers", "update_news", news_string)
+	
+	# Save changes
+	save_array_to_json(Saved_Villagers, "Saved_Villagers.json")
+	print("VillagerAIInitializer: Updated latest news for all villagers: ", news_string)
 
 func get_villager_info():
 	var ChosenInfo = Villager_Info_Pool.pick_random()
 	Villager_Info_Pool.erase(ChosenInfo)
+	
+	# Ensure Latest_news field exists and is an array
+	if not ChosenInfo.has("Latest_news"):
+		ChosenInfo["Latest_news"] = []
+	elif typeof(ChosenInfo["Latest_news"]) == TYPE_STRING:
+		ChosenInfo["Latest_news"] = [ChosenInfo["Latest_news"]] if ChosenInfo["Latest_news"] != "" else []
+		
 	return ChosenInfo
 	
 const SAVE_DIR = "user://otto-man-save/"
@@ -1545,6 +1590,11 @@ func Load_existing_villagers():
 		emit_signal("LoadComplete")
 		return
 	for npc_data in existing_villagers:
+		# Migration: Ensure Latest_news exists and is array
+		if not npc_data.has("Latest_news"):
+			npc_data["Latest_news"] = []
+		elif typeof(npc_data["Latest_news"]) == TYPE_STRING:
+			npc_data["Latest_news"] = [npc_data["Latest_news"]] if npc_data["Latest_news"] != "" else []
 		Villager_Info_Pool.erase(npc_data)
 	Saved_Villagers = existing_villagers
 	
@@ -1562,8 +1612,22 @@ func load_array_from_json(file_name: String) -> Array:
 		var json_string = file.get_as_text()
 		file.close()
 		var result = JSON.parse_string(json_string)
+		
+		# Validation: Check if result is valid array
+		if result == null:
+			push_error("Failed to parse JSON from: %s" % full_path)
+			return []
+			
 		if result is Array:
-			print("Successfully loaded data from: %s" % full_path)
+			# Validate array contents (basic check)
+			var valid_count = 0
+			for item in result:
+				if item is Dictionary and item.has("Info"):
+					valid_count += 1
+				else:
+					push_warning("Invalid item in loaded JSON (missing Info): %s" % item)
+			
+			print("Successfully loaded data from: %s. Valid entries: %d/%d" % [full_path, valid_count, result.size()])
 			emit_signal("LoadComplete")
 			return result
 		else:
