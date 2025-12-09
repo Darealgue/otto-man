@@ -83,12 +83,9 @@ func generate_random_appearance() -> VillagerAppearance:
 		var body_normal_path = derive_normal_path(body_path)
 		# <<< YENİ: CanvasTexture Oluşturma >>>
 		var body_canvas_texture = CanvasTexture.new()
-		if FileAccess.file_exists(body_path):
-			body_canvas_texture.diffuse_texture = load(body_path)
-		else:
-			printerr("AppearanceDB: Body texture not found at ", body_path)
-		if FileAccess.file_exists(body_normal_path):
-			body_canvas_texture.normal_texture = load(body_normal_path)
+		body_canvas_texture.diffuse_texture = load(body_path)
+		
+		body_canvas_texture.normal_texture = load(body_normal_path)
 		# <<< YENİ SONU >>>
 		new_appearance.body_texture = body_canvas_texture #<<< DEĞİŞTİ
 		
@@ -101,12 +98,8 @@ func generate_random_appearance() -> VillagerAppearance:
 		var pants_normal_path = derive_normal_path(pants_path)
 		# <<< YENİ: CanvasTexture Oluşturma >>>
 		var pants_canvas_texture = CanvasTexture.new()
-		if FileAccess.file_exists(pants_path):
-			pants_canvas_texture.diffuse_texture = load(pants_path)
-		else:
-			printerr("AppearanceDB: Pants texture not found at ", pants_path)
-		if FileAccess.file_exists(pants_normal_path):
-			pants_canvas_texture.normal_texture = load(pants_normal_path)
+		pants_canvas_texture.diffuse_texture = load(pants_path)
+		pants_canvas_texture.normal_texture = load(pants_normal_path)
 		# <<< YENİ SONU >>>
 		new_appearance.pants_texture = pants_canvas_texture #<<< DEĞİŞTİ
 		
@@ -119,12 +112,9 @@ func generate_random_appearance() -> VillagerAppearance:
 		var clothes_normal_path = derive_normal_path(clothes_path)
 		# <<< YENİ: CanvasTexture Oluşturma >>>
 		var clothes_canvas_texture = CanvasTexture.new()
-		if FileAccess.file_exists(clothes_path):
-			clothes_canvas_texture.diffuse_texture = load(clothes_path)
-		else:
-			printerr("AppearanceDB: Clothing texture not found at ", clothes_path)
-		if FileAccess.file_exists(clothes_normal_path):
-			clothes_canvas_texture.normal_texture = load(clothes_normal_path)
+		clothes_canvas_texture.diffuse_texture = load(clothes_path)
+		
+		clothes_canvas_texture.normal_texture = load(clothes_normal_path)
 		# <<< YENİ SONU >>>
 		new_appearance.clothing_texture = clothes_canvas_texture #<<< DEĞİŞTİ
 		
@@ -137,12 +127,10 @@ func generate_random_appearance() -> VillagerAppearance:
 		var mouth_normal_path = derive_normal_path(mouth_path)
 		# <<< YENİ: CanvasTexture Oluşturma >>>
 		var mouth_canvas_texture = CanvasTexture.new()
-		if FileAccess.file_exists(mouth_path):
-			mouth_canvas_texture.diffuse_texture = load(mouth_path)
-		else:
-			printerr("AppearanceDB: Mouth texture not found at ", mouth_path)
-		if FileAccess.file_exists(mouth_normal_path):
-			mouth_canvas_texture.normal_texture = load(mouth_normal_path)
+		
+		mouth_canvas_texture.diffuse_texture = load(mouth_path)
+		
+		mouth_canvas_texture.normal_texture = load(mouth_normal_path)
 		# <<< YENİ SONU >>>
 		new_appearance.mouth_texture = mouth_canvas_texture #<<< DEĞİŞTİ
 
@@ -152,12 +140,9 @@ func generate_random_appearance() -> VillagerAppearance:
 		var eyes_normal_path = derive_normal_path(eyes_path)
 		# <<< YENİ: CanvasTexture Oluşturma >>>
 		var eyes_canvas_texture = CanvasTexture.new()
-		if FileAccess.file_exists(eyes_path):
-			eyes_canvas_texture.diffuse_texture = load(eyes_path)
-		else:
-			printerr("AppearanceDB: Eyes texture not found at ", eyes_path)
-		if FileAccess.file_exists(eyes_normal_path):
-			eyes_canvas_texture.normal_texture = load(eyes_normal_path)
+		eyes_canvas_texture.diffuse_texture = load(eyes_path)
+		
+		eyes_canvas_texture.normal_texture = load(eyes_normal_path)
 		# <<< YENİ SONU >>>
 		new_appearance.eyes_texture = eyes_canvas_texture #<<< DEĞİŞTİ
 
@@ -167,12 +152,9 @@ func generate_random_appearance() -> VillagerAppearance:
 		var beard_normal_path = derive_normal_path(beard_path)
 		# <<< YENİ: CanvasTexture Oluşturma >>>
 		var beard_canvas_texture = CanvasTexture.new()
-		if FileAccess.file_exists(beard_path):
-			beard_canvas_texture.diffuse_texture = load(beard_path)
-		else:
-			printerr("AppearanceDB: Beard texture not found at ", beard_path)
-		if FileAccess.file_exists(beard_normal_path):
-			beard_canvas_texture.normal_texture = load(beard_normal_path)
+		beard_canvas_texture.diffuse_texture = load(beard_path)
+		
+		beard_canvas_texture.normal_texture = load(beard_normal_path)
 		# <<< YENİ SONU >>>
 		new_appearance.beard_texture = beard_canvas_texture #<<< DEĞİŞTİ
 		
@@ -185,12 +167,8 @@ func generate_random_appearance() -> VillagerAppearance:
 		var hair_normal_path = derive_normal_path(hair_path)
 		# <<< YENİ: CanvasTexture Oluşturma >>>
 		var hair_canvas_texture = CanvasTexture.new()
-		if FileAccess.file_exists(hair_path):
-			hair_canvas_texture.diffuse_texture = load(hair_path)
-		else:
-			printerr("AppearanceDB: Hair texture not found at ", hair_path)
-		if FileAccess.file_exists(hair_normal_path):
-			hair_canvas_texture.normal_texture = load(hair_normal_path)
+		hair_canvas_texture.diffuse_texture = load(hair_path)
+		hair_canvas_texture.normal_texture = load(hair_normal_path)
 		# <<< YENİ SONU >>>
 		new_appearance.hair_texture = hair_canvas_texture #<<< DEĞİŞTİ
 		

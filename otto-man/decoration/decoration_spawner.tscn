@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://decoration_spawner_base"]
+[gd_scene load_steps=2 format=3 uid="uid://05qjyeiiu0j6"]
 
 [ext_resource type="Script" path="res://decoration/decoration_spawner.gd" id="1_decoration_spawner"]
 
@@ -6,7 +6,7 @@
 script = ExtResource("1_decoration_spawner")
 
 [node name="SpawnMarker" type="Node2D" parent="."]
+
 [node name="Sprite2D" type="Sprite2D" parent="SpawnMarker"]
-texture = preload("res://icon.svg")
+modulate = Color(1, 1, 0, 0.7)
 scale = Vector2(0.2, 0.2)
-modulate = Color(1, 1, 0, 0.7) 

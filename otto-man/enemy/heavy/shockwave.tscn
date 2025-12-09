@@ -1,7 +1,6 @@
 [gd_scene load_steps=9 format=3 uid="uid://fagn4l68hcmn"]
 
 [ext_resource type="Texture2D" uid="uid://r7yqxx3lltqh" path="res://effects/effectk sprites/shockwave.png" id="1_4y08n"]
-[ext_resource type="Script" path="res://enemy/heavy/shockwave.gd" id="1_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_xxxxx"]
 size = Vector2(32, 82)
@@ -46,7 +45,6 @@ animations = [{
 position = Vector2(0, 91)
 collision_layer = 256
 collision_mask = 8
-script = ExtResource("1_script")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -41)

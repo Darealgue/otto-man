@@ -1,7 +1,7 @@
 extends Node2D
 
 @export var NPC_Info : Dictionary 
-var NPCWindow = preload("res://Ui/npc_window.tscn")
+var NPCWindow = preload("res://ui/npc_window.tscn")
 # <<< YENİ: Appearance Resource >>>
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 @export var appearance: VillagerAppearance:

@@ -1,8 +1,8 @@
 [gd_scene load_steps=6 format=3 uid="uid://byov2w28tgqc0"]
 
-[ext_resource type="Script" path="res://Ui/npc_window.gd" id="1_3vyxj"]
+[ext_resource type="Script" path="res://ui/npc_window.gd" id="1_3vyxj"]
 [ext_resource type="Texture2D" uid="uid://7e1epio8ua2m" path="res://assets/Icons/Journal.png" id="2_yo6qp"]
-[ext_resource type="Texture2D" uid="uid://t33el1tkk451" path="res://assets/Icons/JournalPressed.png" id="3_dv2j5"]
+[ext_resource type="Texture2D" uid="uid://6h4mwf5nmkyc" path="res://assets/Icons/JournalPressed.png" id="3_dv2j5"]
 [ext_resource type="Texture2D" uid="uid://cjgtrf45y3w7k" path="res://assets/Icons/JournalHover.png" id="4_uceul"]
 
 [sub_resource type="ButtonGroup" id="ButtonGroup_kci28"]
@@ -175,6 +175,7 @@ grow_horizontal = 2
 
 [node name="ScrollContainer" type="ScrollContainer" parent="BackPanel/DiaryWindow"]
 custom_minimum_size = Vector2(0, 300)
+layout_mode = 0
 offset_left = 4.0
 offset_right = 378.0
 offset_bottom = 300.0

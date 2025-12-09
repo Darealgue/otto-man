@@ -69,7 +69,34 @@ func _on_llama_generation_complete(result_string: String):
 		_emit_error_response(npc_name, "I... don't know what to say.")
 		return
 	
-	var parsed_result = _parse_json_response(trimmed_result)
+	# Strip any text before the first '{' (LLM sometimes adds "Output JSON:" or similar prefixes)
+	var json_start_index = trimmed_result.find("{")
+	if json_start_index == -1:
+		push_error("NPCDialogueManager: No JSON object found in response for %s" % npc_name)
+		_reset_processing_state()
+		_emit_error_response(npc_name, "My thoughts are scrambled...")
+		return
+	
+	var cleaned_json = trimmed_result.substr(json_start_index)
+	
+	# Find the last '}' to handle cases where LLM adds comments or text after the JSON
+	# We need to find the matching closing brace for the root object
+	var brace_count = 0
+	var json_end_index = -1
+	for i in range(cleaned_json.length()):
+		var char = cleaned_json[i]
+		if char == "{":
+			brace_count += 1
+		elif char == "}":
+			brace_count -= 1
+			if brace_count == 0:
+				json_end_index = i
+				break
+	
+	if json_end_index != -1:
+		cleaned_json = cleaned_json.substr(0, json_end_index + 1)
+	
+	var parsed_result = _parse_json_response(cleaned_json)
 	if parsed_result == null:
 		push_error("NPCDialogueManager: Failed to parse JSON response for %s" % npc_name)
 		_reset_processing_state()
@@ -93,6 +120,8 @@ func _on_llama_generation_complete(result_string: String):
 		generated_dialogue = parsed_result.get("Generated Dialogue", "")
 	elif parsed_result.has("GeneratedDialogue"):
 		generated_dialogue = parsed_result.get("GeneratedDialogue", "")
+	elif parsed_result.has("Generated_Dialogue"):
+		generated_dialogue = parsed_result.get("Generated_Dialogue", "")
 	generated_dialogue = str(generated_dialogue)
 	if generated_dialogue.strip_edges() == "":
 		generated_dialogue = "..."
@@ -139,28 +168,29 @@ Instructions:
 1. Evaluate the Player Dialogue in the context of the NPC's current Input State (Info, History, Latest_news).
 2. Determine if the dialogue is \"Significant\" or \"Insignificant\" based on the criteria below.
 3. If Significant: Update \"Info\" (use only existing keys; do not add new keys) and append a short description to \"History\" reflecting the change. Include the \"Generated Dialogue\" as the NPC's reply.
-4. If Insignificant: The \"Info\" and \"History\" fields in the output JSON MUST be exactly identical to those in the Input State. Only \"Generated Dialogue\" may differ.
-5. Provide ONLY the complete JSON output as specified by the grammar.
-6. The \"Latest_news\" field contains recent world and village events. Use these events to inform your dialogue and reactions, but DO NOT modify this field in the output.
+4. If Insignificant: The \"Info\", \"History\", and \"Latest_news\" fields in the output JSON MUST be exactly identical to those in the Input State. Only \"Generated Dialogue\" may differ.
+5. Provide ONLY the complete JSON output as specified by the grammar: Info, History, Latest_news, Generated Dialogue.
+6. The \"Latest_news\" field contains recent world and village events. Use these events to inform your dialogue and reactions, but DO NOT modify this field in the output. Just copy it exactly.
 
 Rules for Significance & State Update:
-- Significance Criteria: Dialogue is significant if it bestows titles, reveals important new facts, corrects prior beliefs, causes strong emotional reactions, or involves important actions/items relevant to the NPC.
-- Insignificant Dialogue: Simple greetings, casual questions unrelated to the NPC's concerns, or small talk that doesn't impact the NPC's state.
+- Significance Criteria: Dialogue is significant ONLY if it bestows titles, reveals important new facts about the Player or NPC, corrects prior beliefs, causes strong emotional reactions, or involves important actions/items relevant to the NPC.
+- Insignificant Dialogue: Simple greetings, casual questions, small talk, OR discussing events already known from "Latest_news".
+- DO NOT add "Latest_news" items to "History". Discussing news is normal conversation, not a state change.
 - IF SIGNIFICANT:
 	- Output Info MUST contain exactly the same set of keys as the input Info (no additions or removals). Preserve any unchanged values byte-for-byte.
 	- If bestowing a title and there is no dedicated Title key, APPEND \" the <Title>\" to the existing Name value (e.g., \"Kamil the Iron Fist\").
 	- If the dialogue provides new or superseding information directly impacting the NPC's attributes (the existing keys in the \"Info\" object like Name, Age, Gender, Mood, Occupation, Health), update the values appropriately. Do NOT add new keys.
 	- ALWAYS append a short description of the significant event or new memory to the \"History\" array in the output JSON.
 - IF INSIGNIFICANT:
-	- The \"Info\" and \"History\" fields in the output JSON MUST be ABSOLUTELY IDENTICAL to the Input State provided.
-	- Make NO CHANGES WHATSOEVER to these two fields if the dialogue is insignificant.
+	- The \"Info\", \"History\", and \"Latest_news\" fields in the output JSON MUST be ABSOLUTELY IDENTICAL to the Input State provided.
+	- Make NO CHANGES WHATSOEVER to these three fields if the dialogue is insignificant.
 
 Generated Dialogue Requirements:
 - A single first-person NPC line.
 - Do NOT prefix with the NPC's name (no \"Name: ...\").
 - No narration or stage directions.
 - If relevant news exists in \"Latest_news\", mention it naturally if appropriate to the conversation context.
-
+- Do not add anything other than actual dialogue
 NOW, PROCESS THE FOLLOWING INPUT AND PROVIDE ONLY THE JSON OUTPUT:
 
 Input State:

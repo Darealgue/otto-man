@@ -169,8 +169,8 @@ func debug_dump_cameras() -> void:
 			" speed=", c.position_smoothing_speed)
 
 func zoom_to_factor(factor: float, duration: float = 0.25) -> void:
-	var clamped_factor := max(0.05, factor)
-	var target := _default_zoom * clamped_factor
+	var clamped_factor = max(0.05, factor)
+	var target = _default_zoom * clamped_factor
 	_apply_zoom(target, duration)
 
 func zoom_to_vector(target: Vector2, duration: float = 0.25) -> void:

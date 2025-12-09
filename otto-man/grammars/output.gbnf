@@ -8,4 +8,4 @@ string-array ::= "[" ws ( json-string (ws "," ws json-string)* )? ws "]"
 
 generic-string-map-object ::= "{" ws ( json-string ws ":" ws json-string (ws "," ws json-string ws ":" ws json-string)* )? ws "}"
 
-npc-final-output ::= "{" ws json-string ws ":" ws generic-string-map-object ws "," ws json-string ws ":" ws string-array ws "," ws json-string ws ":" ws json-string ws "}"
+npc-final-output ::= "{" ws json-string ws ":" ws generic-string-map-object ws "," ws json-string ws ":" ws string-array ws "," ws json-string ws ":" ws string-array ws "," ws json-string ws ":" ws json-string ws "}"

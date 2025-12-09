@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://bhx36uh2enr56" path="res://assets/tools/walk_work_tool_axe.png" id="2_0eu48"]
 [ext_resource type="Texture2D" uid="uid://cy8rhs70y4u8h" path="res://assets/character_parts/mouth/mouth1_walk.png" id="5_s7exy"]
 [ext_resource type="Texture2D" uid="uid://dm7480yfyaknc" path="res://assets/character_parts/eyes/eyes1_walk.png" id="6_m1gwo"]
-[ext_resource type="PackedScene" uid="uid://byov2w28tgqc0" path="res://Ui/npc_window.tscn" id="7_a2l8b"]
+[ext_resource type="PackedScene" uid="uid://byov2w28tgqc0" path="res://ui/npc_window.tscn" id="7_a2l8b"]
 [ext_resource type="Texture2D" uid="uid://botduxqg661ye" path="res://assets/character_parts/beard/beard_style1_walk_gray.png" id="7_o5o4k"]
 [ext_resource type="Texture2D" uid="uid://wtnccajt6bj4" path="res://assets/character_parts/hair/hair_style1_walk_gray.png" id="8_7bdve"]
 
