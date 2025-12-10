@@ -4,6 +4,7 @@ using System.Text; // Required for Encoding, StringBuilder
 using System.Threading.Tasks; // Required for async operations
 using System.IO; // Add this for Path operations
 using System.Collections.Generic; // Added for List
+using System.Runtime.InteropServices; // For P/Invoke
 
 // <<< Add LLamaSharp usings >>>
 using LLama;
@@ -13,6 +14,16 @@ using LLama.Native;
 using LLama.Sampling; // <<< Add this >>>
 using LLama.Extensions; // <<< Add this for potential extension methods >>>
 // <<< End LLamaSharp usings >>>
+
+// Win32 API for short path conversion
+internal static class NativeMethods
+{
+	[DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+	internal static extern int GetShortPathName(
+		[MarshalAs(UnmanagedType.LPTStr)] string path,
+		[MarshalAs(UnmanagedType.LPTStr)] StringBuilder shortPath,
+		int shortPathLength);
+}
 
 public partial class LlamaService : Node, IDisposable
 {
@@ -76,23 +87,81 @@ public partial class LlamaService : Node, IDisposable
 				if (string.IsNullOrEmpty(exeDir)) { throw new Exception("Failed to get executable directory!"); }
 				modelLoadPath = Path.Combine(exeDir, modelFilename);
 				GD.Print($"Exported Mode: Model path: {modelLoadPath}");
+				
+				// Fallback: If model not found in exe directory and path contains non-ASCII characters,
+				// try loading from C:\otto_exp\ (simple path without Turkish characters)
+				if (!File.Exists(modelLoadPath)) {
+					string fallbackPath = Path.Combine("C:\\otto_exp", modelFilename);
+					if (File.Exists(fallbackPath)) {
+						GD.Print($"Model not found in exe directory, using fallback path: {fallbackPath}");
+						modelLoadPath = fallbackPath;
+					}
+				}
 			}
+			
+			// Normalize path to absolute path and verify
+			modelLoadPath = Path.GetFullPath(modelLoadPath);
+			GD.Print($"Normalized model path: {modelLoadPath}");
+			GD.Print($"Path length: {modelLoadPath.Length} characters");
+			GD.Print($"Path exists: {File.Exists(modelLoadPath)}");
+			
 			if (!File.Exists(modelLoadPath)) {
 				throw new Exception($"Model file not found at: {modelLoadPath}");
 			}
+			
+			// Verify file is readable
+			try {
+				var fileInfo = new FileInfo(modelLoadPath);
+				GD.Print($"Model file size: {fileInfo.Length / (1024.0 * 1024.0 * 1024.0):F2} GB");
+				GD.Print($"Model file readable: {fileInfo.IsReadOnly == false}");
+			} catch (Exception ex) {
+				GD.PrintErr($"Error checking model file: {ex.Message}");
+			}
+			
+			// Convert to short path (8.3 format) to avoid Unicode/encoding issues with native DLLs
+			// This is especially important when path contains non-ASCII characters (e.g., Turkish characters)
+			string originalPath = modelLoadPath;
+			try {
+				// Use Win32 API to get short path
+				var shortPath = new System.Text.StringBuilder(260);
+				int result = NativeMethods.GetShortPathName(modelLoadPath, shortPath, shortPath.Capacity);
+				if (result > 0 && result < shortPath.Capacity) {
+					string shortPathStr = shortPath.ToString();
+					if (!string.IsNullOrEmpty(shortPathStr) && File.Exists(shortPathStr)) {
+						GD.Print($"Short path (8.3 format): {shortPathStr}");
+						GD.Print($"Short path length: {shortPathStr.Length} characters");
+						// Use short path for native DLL calls
+						modelLoadPath = shortPathStr;
+					} else {
+						GD.PushWarning($"Short path conversion failed or file not found at short path, using original: {modelLoadPath}");
+					}
+				} else {
+					int errorCode = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+					GD.PushWarning($"GetShortPathName failed (error code: {errorCode}), using original path");
+				}
+			} catch (Exception ex) {
+				GD.PrintErr($"Exception during short path conversion: {ex.Message}");
+				GD.PrintErr($"Stack trace: {ex.StackTrace}");
+				GD.PushWarning("Using original path due to exception");
+			}
+			
+			GD.Print($"Final model path to use: {modelLoadPath}");
 
 			// 2. Define Model Parameters
 			_parameters = new ModelParams(modelLoadPath)
 			{
 				ContextSize = 4096, // Match original context size
-				GpuLayerCount = 99, // Use GPU (LLamaSharp handles backend selection)
+				GpuLayerCount = 32, // Mistral 7B has 32 layers, use all for GPU acceleration
 				UseMemoryLock = false, // Corresponds to use_mlock
-				UseMemorymap = false // Corresponds to use_mmap
+				UseMemorymap = true // Enable memory mapping for better performance with large models
 				// Add other parameters here if needed (e.g., Seed, Threads)
 			};
 			GD.Print($"Loading model with LLamaSharp: {modelLoadPath}, GpuLayerCount={_parameters.GpuLayerCount}");
+			GD.Print($"ModelParams path check: {_parameters.ModelPath}");
+			GD.Print($"ModelParams path length: {_parameters.ModelPath?.Length ?? 0}");
 
 			// 3. Load Model Weights
+			GD.Print("Calling LLamaWeights.LoadFromFile...");
 			_modelWeights = LLamaWeights.LoadFromFile(_parameters);
 			GD.Print("LLamaSharp Model Weights Loaded.");
 

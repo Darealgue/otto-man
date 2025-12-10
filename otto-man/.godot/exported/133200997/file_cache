@@ -1,0 +1,333 @@
+res://assets/effects/player fx/air_attack_effect_1.tscn::c772ca32f6e9481c8ac6f110b3edc9d6::1762729204::res://.godot/exported/133200997/export-db9e92596454e03e76bbe4388b8011f9-air_attack_effect_1.scn
+res://assets/effects/player fx/air_attack_effect_2.tscn::b84f27653abb4e6494260503fbc22e14::1762729204::res://.godot/exported/133200997/export-1850ca9ebd1f1ea1e121a8bd6d30c335-air_attack_effect_2.scn
+res://assets/effects/player fx/air_attack_effect_3.tscn::7f05ac7118627b0166732ac8ea05e806::1762729204::res://.godot/exported/133200997/export-02255723f36467713d7f746ef9b73771-air_attack_effect_3.scn
+res://assets/effects/player fx/attack_1_1_effect.tscn::494017fdf98277f7ab90983325c94bd8::1762729204::res://.godot/exported/133200997/export-de7a98feae997d662de4240ce505c8ea-attack_1_1_effect.scn
+res://assets/effects/player fx/attack_1_2_effect.tscn::a81f7f942e7f8b7b4986036436c01182::1762729204::res://.godot/exported/133200997/export-dbb362d99065321514ff3179cfb829da-attack_1_2_effect.scn
+res://assets/effects/player fx/dust_cloud_effect.tscn::c8e44abdf2167a62253ea8be79d6d27f::1746888652::res://.godot/exported/133200997/export-70825ea363cb1946295a71d9ff296d44-dust_cloud_effect.scn
+res://chunks/city/neighborhoods/middle/middle_house_1.tscn::21329eb4b152607f784ca608e1036ba4::1743203337::res://.godot/exported/133200997/export-e323645b947e93cd3c40712b3224687d-middle_house_1.scn
+res://chunks/city/neighborhoods/middle/middle_house_template.tscn::a30e643e40319d72eb1e55d12265a543::1741378432::res://.godot/exported/133200997/export-b272745e0460be7f3d8fe43d2bff8c36-middle_house_template.scn
+res://chunks/city/neighborhoods/middle/orta1.tscn::bad4a0ff101496cc14c34aea142ca8f7::1743203337::res://.godot/exported/133200997/export-1eeaa3bb5d5c390671e225a9f620cfae-orta1.scn
+res://chunks/city/neighborhoods/middle/orta2.tscn::3850c47fd2df65508e4edc30ae581a9f::1741390352::res://.godot/exported/133200997/export-ce02c577161c0b9330068e0bff6343d4-orta2.scn
+res://chunks/city/neighborhoods/middle/orta3.tscn::be4cc6304f395be4b94b0e3b785b020a::1743203337::res://.godot/exported/133200997/export-330a12d5900ac2bf77cc17c0f66e770d-orta3.scn
+res://chunks/city/neighborhoods/poor/fakir1.tscn::f4db78ffe31758dad1621511a7570b21::1743203337::res://.godot/exported/133200997/export-2778072b14179c1575b10f0b46146dce-fakir1.scn
+res://chunks/city/neighborhoods/poor/orta4.tscn::4eefd68ed68cde9f022029968eacb54e::1743203337::res://.godot/exported/133200997/export-0ba6b4b68407046e45d7211382c36637-orta4.scn
+res://chunks/city/neighborhoods/poor/poor_house_1.tscn::50c0a59b8f3aa610aa4a17d86381c7a4::1743630039::res://.godot/exported/133200997/export-a00e176f10ad712ba94c175907a63bb5-poor_house_1.scn
+res://chunks/city/neighborhoods/poor/poor_house_template.tscn::fae6fb14ecc7003088c6460bbbbc6b0c::1741378397::res://.godot/exported/133200997/export-fd7f29bda8706e5fb1bc667f7746215a-poor_house_template.scn
+res://chunks/city/neighborhoods/rich/rich_house_1.tscn::a6cd9105b67332fef3df83ee6c37baff::1743203337::res://.godot/exported/133200997/export-7aa1fa8208a403c2fd29edbfab210968-rich_house_1.scn
+res://chunks/city/neighborhoods/rich/rich_house_template.tscn::c5cf710c2e78b88b98421f7063709f6b::1741378449::res://.godot/exported/133200997/export-d63796152e3402fbc56cbfef44347561-rich_house_template.scn
+res://chunks/city/neighborhoods/rich/zengin1.tscn::6682d182a1b984245da5ed3e4d8173f0::1743203337::res://.godot/exported/133200997/export-bcb0a4dade918f226b5843dcfba1b867-zengin1.scn
+res://chunks/city/neighborhoods/rich/zengin2.tscn::ecdbb4408ca1e79c57b74b8dadd03ec7::1743203337::res://.godot/exported/133200997/export-7dcbe64c63b6b12b70ecdb24e89dd336-zengin2.scn
+res://chunks/city/neighborhoods/rich/zengin3.tscn::3ce803baa4c52205e884c8c421ca8aae::1743203338::res://.godot/exported/133200997/export-5b08f1304f8b5dda574f6c3b1c32c8e4-zengin3.scn
+res://chunks/city/special/bridge_template.tscn::b7c1c55a74faa78c2bebba5cf0188cb6::1743203338::res://.godot/exported/133200997/export-6dea9464f82aa71b4d5e78ff830e07e6-bridge_template.scn
+res://chunks/city/special/canal_template.tscn::14286e14ddd530df820e47d92a969f9a::1741378507::res://.godot/exported/133200997/export-59d312dd15fa2b4bb746f20c47ff3c9d-canal_template.scn
+res://chunks/city/city_chunk_template.tscn::23aeae7d044085f3c483b8df4f69d47e::1742936736::res://.godot/exported/133200997/export-e788274c9f3832484743fe786b268489-city_chunk_template.scn
+res://chunks/dungeon/basic/basic_platform1.tscn::cff3c13f8317b36607f22e1a135f28cc::1761394484::res://.godot/exported/133200997/export-9c3ac02b8cd33b0c630b5c1543907538-basic_platform1.scn
+res://chunks/dungeon/basic/basic_platform2.tscn::68283dc6f34a6112793075d0d421658d::1761394495::res://.godot/exported/133200997/export-62a5e2bdc518a953d7f9ace99a36da2e-basic_platform2.scn
+res://chunks/dungeon/basic/basic_platform3.tscn::17497ccefec5184c1c94405810d94bb9::1761394504::res://.godot/exported/133200997/export-f31dbf11b6761c10d2a458c011b7f25e-basic_platform3.scn
+res://chunks/dungeon/basic/basic_platform4.tscn::a285408d51e44f2cf383f863849c0aa3::1761394511::res://.godot/exported/133200997/export-ad11f229f3e678bc5432be79c34f0487-basic_platform4.scn
+res://chunks/dungeon/basic/basic_platform.tscn::1a7c6c2438375d90e914d4c3ebcb36b4::1761401430::res://.godot/exported/133200997/export-ed6ed4dc9193d0764860eec5a2bef9f3-basic_platform.scn
+res://chunks/dungeon/basic/basic_platform_exit.tscn::a12d9f24f29e6c0d47b0800065ad041b::1761922028::res://.godot/exported/133200997/export-1aecd5aeaa253c836388433ad312ec3d-basic_platform_exit.scn
+res://chunks/dungeon/hub/four_way_hub1.tscn::7edf4b6b833b03dd022a188e8cadf97f::1761394573::res://.godot/exported/133200997/export-a4e147f858e48d1cd8c5fa2e2ee62453-four_way_hub1.scn
+res://chunks/dungeon/hub/four_way_hub2.tscn::f86508343013fd7713f858955e301ecd::1761394590::res://.godot/exported/133200997/export-fcd11418b228b5711551bc7efced5c07-four_way_hub2.scn
+res://chunks/dungeon/hub/four_way_hub3.tscn::6c5cbe80434873e7f57bc4194fb4651f::1761394671::res://.godot/exported/133200997/export-51f6ab6b51cbed570bc8819be5e73e36-four_way_hub3.scn
+res://chunks/dungeon/hub/four_way_hub4.tscn::00c6f29e268476870dc7e9e4a89e465e::1761394678::res://.godot/exported/133200997/export-d89530f1c868d0429fd7e75189ad2f2d-four_way_hub4.scn
+res://chunks/dungeon/hub/four_way_hub.tscn::ae90fa5b1b274812cf045a6db64b554e::1761394688::res://.godot/exported/133200997/export-fdbdcd6b9eb974dd2b16ccb069ba66ff-four_way_hub.scn
+res://chunks/dungeon/hub/l_corner_left_down1.tscn::d1ce846e723b9b1e3f575b2a55037f93::1761394698::res://.godot/exported/133200997/export-157e0ed1afdf6d7b789187327d8598e2-l_corner_left_down1.scn
+res://chunks/dungeon/hub/l_corner_left_down2.tscn::55636e13896469b66ed2456e0634e2b4::1761394708::res://.godot/exported/133200997/export-df24d57256edcabb008f0aef1b9c112e-l_corner_left_down2.scn
+res://chunks/dungeon/hub/l_corner_left_down3.tscn::b675d1b889163275f49324292e8f8a78::1761394716::res://.godot/exported/133200997/export-05c4ac796be76afd95c32f23ffe3fd5b-l_corner_left_down3.scn
+res://chunks/dungeon/hub/l_corner_left_down4.tscn::50d0f482ee6c93783962514f5e0c40ab::1761394724::res://.godot/exported/133200997/export-07c22e2e1cdd8dc7d117550cc88a45e2-l_corner_left_down4.scn
+res://chunks/dungeon/hub/l_corner_left_down.tscn::f3c9f649f2d6eb2515124a014a1e5643::1761394734::res://.godot/exported/133200997/export-5678fcb74e485484f4707245dcf688bb-l_corner_left_down.scn
+res://chunks/dungeon/hub/l_corner_left_up1.tscn::4732cc2205f1bef1373cc99e186340d2::1761394743::res://.godot/exported/133200997/export-2f03fa5d124380302b2e946b4568115a-l_corner_left_up1.scn
+res://chunks/dungeon/hub/l_corner_left_up2.tscn::008cb154cf07a4b663ff73a05c8d3a56::1761394754::res://.godot/exported/133200997/export-0a4ab67afa0a6a0bc2cb6815fc9effa4-l_corner_left_up2.scn
+res://chunks/dungeon/hub/l_corner_left_up3.tscn::3a8a30f92602580da1c3b381ddc664f5::1761395421::res://.godot/exported/133200997/export-68d8124dfdde4184e06de57a4be10c86-l_corner_left_up3.scn
+res://chunks/dungeon/hub/l_corner_left_up4.tscn::8af79c430713eaef22ba0e8d3004e882::1761395395::res://.godot/exported/133200997/export-ada2ed96b6ffb875221d48b75c56dc7b-l_corner_left_up4.scn
+res://chunks/dungeon/hub/l_corner_left_up.tscn::51ae059bfd53a367a239e64b2c6554fa::1761394778::res://.godot/exported/133200997/export-f9bdace3f6a4dbc3d5de4adc21eaafbb-l_corner_left_up.scn
+res://chunks/dungeon/hub/l_corner_right_down1.tscn::7918329a99b53eabfb742145d4ddda82::1761394787::res://.godot/exported/133200997/export-b8721294724d09046bd1ae2539b89fee-l_corner_right_down1.scn
+res://chunks/dungeon/hub/l_corner_right_down2.tscn::4861f4a0d78a4b9d2c14d18589cfaf4f::1761394796::res://.godot/exported/133200997/export-757445b2dde9c7b96e6b8f43c151d7de-l_corner_right_down2.scn
+res://chunks/dungeon/hub/l_corner_right_down3.tscn::43fff0b342138591b3496cbffe937d8b::1761394804::res://.godot/exported/133200997/export-fa82f50d5806a9f409cdce71205cc302-l_corner_right_down3.scn
+res://chunks/dungeon/hub/l_corner_right_down4.tscn::2f4279d9e0d3f061f682a4d6cf1a4c18::1761394810::res://.godot/exported/133200997/export-605ebfbb08c71fae0c2462e0e2da5717-l_corner_right_down4.scn
+res://chunks/dungeon/hub/l_corner_right_down.tscn::63af0ba4cb93ba2c70115fe7a65b0f03::1761394819::res://.godot/exported/133200997/export-8f92d03f8f3d84fb20ea9fd4865d85ab-l_corner_right_down.scn
+res://chunks/dungeon/hub/l_corner_right_up1.tscn::643407f79880bdaacf5944ab884e7421::1761394828::res://.godot/exported/133200997/export-33e05cac367095e03cf7ca5c48e37330-l_corner_right_up1.scn
+res://chunks/dungeon/hub/l_corner_right_up2.tscn::763d977a83640e029719740f4c085b50::1761394837::res://.godot/exported/133200997/export-07aa6e99cf57d0f3897add26ab98708d-l_corner_right_up2.scn
+res://chunks/dungeon/hub/l_corner_right_up3.tscn::cf6cd633ee90f32679c04d6f7b629326::1761394844::res://.godot/exported/133200997/export-7b666040949d08eb83d4a49f6d307698-l_corner_right_up3.scn
+res://chunks/dungeon/hub/l_corner_right_up4.tscn::7ff0b3ddec1940eade82eeae2bf7856b::1761394852::res://.godot/exported/133200997/export-708ffd3302cef49dac9ad3395ff16904-l_corner_right_up4.scn
+res://chunks/dungeon/hub/l_corner_right_up.tscn::418877958f0234f19496648845bd4926::1761394860::res://.godot/exported/133200997/export-e48f5306b2981500190514cfafdb8172-l_corner_right_up.scn
+res://chunks/dungeon/hub/t_junction_down1.tscn::28da88a892f91cbf4328ec00c3ec7027::1761394869::res://.godot/exported/133200997/export-a6dc55c2670f64d64acbef7533b40fa9-t_junction_down1.scn
+res://chunks/dungeon/hub/t_junction_down2.tscn::bbe993f6fbbc2f6b4a75230b28293b65::1761394878::res://.godot/exported/133200997/export-cb97c74c494110be169fcf9162ac9b44-t_junction_down2.scn
+res://chunks/dungeon/hub/t_junction_down3.tscn::9050348c276c85d91fe9a9580f75203a::1761394885::res://.godot/exported/133200997/export-823a5c52e7272ade801b62f8d48a084e-t_junction_down3.scn
+res://chunks/dungeon/hub/t_junction_down4.tscn::eb03373b66c523dd8f0ae15547627421::1761394891::res://.godot/exported/133200997/export-d49346c33749a45b92d1c5152552b2bd-t_junction_down4.scn
+res://chunks/dungeon/hub/t_junction_down.tscn::d3765418d21c0678efaf6ef621676b93::1761394900::res://.godot/exported/133200997/export-485263b1e246d11e0885fefc6f3f8901-t_junction_down.scn
+res://chunks/dungeon/hub/t_junction_left1.tscn::95ed58a3c9c99ab0b592a94ea7fa3368::1761394908::res://.godot/exported/133200997/export-37da2cee55efb74f37a1701d46c7c824-t_junction_left1.scn
+res://chunks/dungeon/hub/t_junction_left2.tscn::15586cede10ca1398ffe7b4aee5e3ca6::1761394916::res://.godot/exported/133200997/export-fb4d20dc8e67d9827843ee4ff1c42bc3-t_junction_left2.scn
+res://chunks/dungeon/hub/t_junction_left3.tscn::1cb6bc5d5dedae95c629f9ef19526ce0::1761394923::res://.godot/exported/133200997/export-093828fda8c0706a9883eea8833af147-t_junction_left3.scn
+res://chunks/dungeon/hub/t_junction_left4.tscn::17674a41537cbccad88b3eb997f27846::1761394930::res://.godot/exported/133200997/export-775c6be0ed0f59218f0db0092b7c0707-t_junction_left4.scn
+res://chunks/dungeon/hub/t_junction_left.tscn::709c73004513a589d6efadd8c4fe189e::1761394939::res://.godot/exported/133200997/export-0d414b51ba4718da08fb75e2ce440581-t_junction_left.scn
+res://chunks/dungeon/hub/t_junction_right1.tscn::2f242a6fd6d1181ce2e65a4726b79c28::1761394962::res://.godot/exported/133200997/export-9286af330a74d741c7bf0dd90da2e56c-t_junction_right1.scn
+res://chunks/dungeon/hub/t_junction_right2.tscn::5c790b68490bfcd55301f97c16f8f1b1::1761394971::res://.godot/exported/133200997/export-98f77f24ba5b5878d03511f344c40adb-t_junction_right2.scn
+res://chunks/dungeon/hub/t_junction_right3.tscn::b268e5d5410d9b402456ee435f692eaf::1761394978::res://.godot/exported/133200997/export-2812cf0a770667b8c72355c426739f46-t_junction_right3.scn
+res://chunks/dungeon/hub/t_junction_right4.tscn::0d3ba6d3d19aa76b5e1cdde2f64465a2::1761394985::res://.godot/exported/133200997/export-30efc2275b8f57b2fa37c78fa06cc27c-t_junction_right4.scn
+res://chunks/dungeon/hub/t_junction_right.tscn::6e3100861f5dedf681903f485f7ef6e8::1761394994::res://.godot/exported/133200997/export-db0020e9ca7eaaf6ace3538dfec1abe8-t_junction_right.scn
+res://chunks/dungeon/hub/t_junction_up1.tscn::9820a75304e6899e59f7166af914959b::1761395002::res://.godot/exported/133200997/export-e6f7222fd33c94dd503aada9e04029f4-t_junction_up1.scn
+res://chunks/dungeon/hub/t_junction_up2.tscn::2aa891bc5d2ad5537400967aa9b32ae9::1761395010::res://.godot/exported/133200997/export-787e505e8c85d614da9dbb96476a0125-t_junction_up2.scn
+res://chunks/dungeon/hub/t_junction_up3.tscn::c8d9d45042bf16561ec5212ed6cda396::1761395017::res://.godot/exported/133200997/export-303380b95266b0e2b385e9e89266bb98-t_junction_up3.scn
+res://chunks/dungeon/hub/t_junction_up4.tscn::42ac928052d0f6657eb72d6beb6d55b0::1761395024::res://.godot/exported/133200997/export-2946f851523ef57063c1501458746f37-t_junction_up4.scn
+res://chunks/dungeon/hub/t_junction_up.tscn::39fc45ee1cce4748b17cf68671e49f2f::1761395032::res://.godot/exported/133200997/export-31c2b0b580282278a1292dc510112e95-t_junction_up.scn
+res://chunks/dungeon/special/boss_arena.tscn::a7b3e42e2c92b4a2bd9e22c3d5e2f889::1761395246::res://.godot/exported/133200997/export-1905e9f8ddbc00bad8da16936e481696-boss_arena.scn
+res://chunks/dungeon/special/challenge_room.tscn::5961014623f80901a824f0986759c049::1754086028::res://.godot/exported/133200997/export-9c59e0bf3e6082e57b29a8603b439bcd-challenge_room.scn
+res://chunks/dungeon/special/combat_arena.tscn::938e716d30e2a26d1973a1ea2fb92e7c::1761395235::res://.godot/exported/133200997/export-076085576185010a477a007c77dcc13f-combat_arena.scn
+res://chunks/dungeon/special/dead_end_down.tscn::62e7dd74352e3aa3fd67242d63d63284::1761395225::res://.godot/exported/133200997/export-a926772a15955b6d126c57df8eb2c320-dead_end_down.scn
+res://chunks/dungeon/special/dead_end_left.tscn::7d1961d6ca2eabf3037c91bc21ae9c92::1761395217::res://.godot/exported/133200997/export-380c42ca0cff11bc0b00bb9d44d4055d-dead_end_left.scn
+res://chunks/dungeon/special/dead_end_right.tscn::f57b8a3e1383070780048ba07a573898::1761395209::res://.godot/exported/133200997/export-36c7964444ab312f55022e81c783204c-dead_end_right.scn
+res://chunks/dungeon/special/dead_end_up.tscn::1d1e4e50a1b4fb792fb11227dd689309::1761395202::res://.godot/exported/133200997/export-7a2eb2b132a324a3b218f7bb17012a08-dead_end_up.scn
+res://chunks/dungeon/special/finish_chunk.tscn::4c58b224015e13d43c0a3a0e4810153b::1761395171::res://.godot/exported/133200997/export-a501074edab2204579792a7612659665-finish_chunk.scn
+res://chunks/dungeon/special/full.tscn::430be7c7109ae86ceb8290d3e70a4eb4::1761394198::res://.godot/exported/133200997/export-b76b4dd2c7002c727d164a0680832164-full.scn
+res://chunks/dungeon/special/start_chunk.tscn::acbe84d0912c9e3247fe5bbf1d1fd304::1761395164::res://.godot/exported/133200997/export-80078c0bb67db866a6099fff2238ecf2-start_chunk.scn
+res://chunks/dungeon/special/treasure_room.tscn::de18e2a1f9245a3723a94519a8983201::1761395155::res://.godot/exported/133200997/export-3c274757f9498dc477df900f383a58d7-treasure_room.scn
+res://chunks/dungeon/special/villager_dead_end_left.tscn::7874a02e6242dca783e9dd3527bde64c::1761395146::res://.godot/exported/133200997/export-9158baba11e2256972007afd19307914-villager_dead_end_left.scn
+res://chunks/dungeon/special/villager_dead_end_right.tscn::6aa3dcc1bd067d33b324d3d16cddff3f::1761395138::res://.godot/exported/133200997/export-c7d32a18dfc2865f291371ec05333b52-villager_dead_end_right.scn
+res://chunks/dungeon/special/vip_dead_end_left.tscn::9cdb68b43363e37e97e13be8ae7808d0::1761395130::res://.godot/exported/133200997/export-ca08bfd502d518f6ce6e4c135dec29a6-vip_dead_end_left.scn
+res://chunks/dungeon/special/vip_dead_end_right.tscn::31b40e2aa761b0147a6eb4191d203279::1761395121::res://.godot/exported/133200997/export-78c7228aaffa572e1dd4e9333e2c6b79-vip_dead_end_right.scn
+res://chunks/dungeon/vertical/climbing_tower1.tscn::ea7b8069f55b0ca8f7897668b21a67ac::1761395113::res://.godot/exported/133200997/export-27cae219b78a4e3ce310f0854029ad89-climbing_tower1.scn
+res://chunks/dungeon/vertical/climbing_tower2.tscn::aa63ecfd58058c844e8952d8e62799d8::1761395105::res://.godot/exported/133200997/export-2edd3c01ab2b6a14ae204a244d72a8d5-climbing_tower2.scn
+res://chunks/dungeon/vertical/climbing_tower3.tscn::9eaec7515fd5126d87205b57b72bc0e6::1761395097::res://.godot/exported/133200997/export-912b5d857c31155a98809ed3d66bf8d5-climbing_tower3.scn
+res://chunks/dungeon/vertical/climbing_tower4.tscn::f62f3b93ef6d2240583ef462f15a9750::1761395091::res://.godot/exported/133200997/export-d161b03d82a863550b517f94d0c44dfb-climbing_tower4.scn
+res://chunks/dungeon/vertical/climbing_tower.tscn::ac0e5f5db14ec9ba20c0589d8f70b67a::1761395084::res://.godot/exported/133200997/export-a600ae0b9c3c2a4592d0f2ca8fd68b5e-climbing_tower.scn
+res://chunks/dungeon/DungeonExitPortal.tscn::dd7c8f2ce5ea2fa028fb3832be65128b::1762031575::res://.godot/exported/133200997/export-356198ab453a692a918f4c309832b9e9-DungeonExitPortal.scn
+res://chunks/forest/ForestExitPortal.tscn::c825f4248740fb78d57e3f7edd3a2166::1761926725::res://.godot/exported/133200997/export-9f86d39a364a5e410978156cb3ef87f8-ForestExitPortal.scn
+res://chunks/forest/linear_2x1-2.tscn::e761c87fca57304edda997f1b0708b41::1759412797::res://.godot/exported/133200997/export-d0aa52d28ad12d2f8e2654f1fe69b5a3-linear_2x1-2.scn
+res://chunks/forest/linear_2x1-3.tscn::e32a3725ed67704c3a1a46caeb95a83b::1759412820::res://.godot/exported/133200997/export-15d7d0ffe0a41860ba6232f2f6129810-linear_2x1-3.scn
+res://chunks/forest/linear_2x1-4.tscn::dab4ae03e2b3a2bca4540befa00fa8a6::1759412877::res://.godot/exported/133200997/export-ed2cc28d7eb207d10a8408966df8b857-linear_2x1-4.scn
+res://chunks/forest/linear_2x1.tscn::fd913a8d4aec77745267f0b02ad82555::1759352955::res://.godot/exported/133200997/export-2025c97b364bdd84e87832c61316f0ab-linear_2x1.scn
+res://chunks/forest/ramp_down_1x2-2.tscn::ebcdd5469645172a482f1525621d9f8a::1759413003::res://.godot/exported/133200997/export-02e7c7e4cb7191c27ea7fad7b28348d9-ramp_down_1x2-2.scn
+res://chunks/forest/ramp_down_1x2-3.tscn::434f35af15b85c9924b17431a6dfffb1::1759413127::res://.godot/exported/133200997/export-c1272a549408c77892c997a31b00f9eb-ramp_down_1x2-3.scn
+res://chunks/forest/ramp_down_1x2-4.tscn::5aaf47df17dfd42a1f2c7589fade85a8::1759413514::res://.godot/exported/133200997/export-76e67316b29d753272bee1c881e3ce2f-ramp_down_1x2-4.scn
+res://chunks/forest/ramp_down_1x2.tscn::396472461cf0f786900fe2f9caec182f::1759352955::res://.godot/exported/133200997/export-227a81502149d52228fd2a9edb77e258-ramp_down_1x2.scn
+res://chunks/forest/ramp_down_2x2-2.tscn::1ab245293119ed732dd50bf8ee7334ed::1759413298::res://.godot/exported/133200997/export-0f5c38ac1ad0ba81d9970dbed1d0cc22-ramp_down_2x2-2.scn
+res://chunks/forest/ramp_down_2x2-3.tscn::602c371f1cfe0ad3269db10d87720545::1759413412::res://.godot/exported/133200997/export-2f7358a29a73e73120b1af2cd0f7872c-ramp_down_2x2-3.scn
+res://chunks/forest/ramp_down_2x2-4.tscn::51ffa47b2f6508d41f8be3e4d07a222c::1759413440::res://.godot/exported/133200997/export-bd8b8101d2ef27fedc853c938a334b7f-ramp_down_2x2-4.scn
+res://chunks/forest/ramp_down_2x2.tscn::ca256fa8d26fb09d51f5878117c5e5ae::1759352955::res://.godot/exported/133200997/export-0e19ee5054bf59768eedebb1056c7233-ramp_down_2x2.scn
+res://chunks/forest/ramp_up_1x2-2.tscn::411683adba973ba71c5421dfa0103d78::1759413607::res://.godot/exported/133200997/export-11ce81b14471c6139954a55678b5a1a7-ramp_up_1x2-2.scn
+res://chunks/forest/ramp_up_1x2-3.tscn::1dbff22104aeabbd309648af3013b3b6::1759413683::res://.godot/exported/133200997/export-a0ffdc697e4ac2e53b302667d7b3b49d-ramp_up_1x2-3.scn
+res://chunks/forest/ramp_up_1x2-4.tscn::1aa98d9e8d9eecc35f54e5806dee164f::1759413841::res://.godot/exported/133200997/export-8ec89ac226e1086f0995e975c699800f-ramp_up_1x2-4.scn
+res://chunks/forest/ramp_up_1x2.tscn::22d08f587de527c03dcf90ed2a7ed637::1759352955::res://.godot/exported/133200997/export-a5223968d70a29b13e2a52a7acedbdb8-ramp_up_1x2.scn
+res://chunks/forest/ramp_up_2x2-2.tscn::c88f755c168617b2702df8a91338c7dc::1759413958::res://.godot/exported/133200997/export-dacfc9d3c4af401fc84f2d321101579d-ramp_up_2x2-2.scn
+res://chunks/forest/ramp_up_2x2-3.tscn::3d4ff25ecda54797d68eb9f793a76a8e::1759414088::res://.godot/exported/133200997/export-e37486fdf4462f5c340382c9c5080ac1-ramp_up_2x2-3.scn
+res://chunks/forest/ramp_up_2x2-4.tscn::c12d5c723144b690f77c3e1440b9c409::1759427801::res://.godot/exported/133200997/export-f931bc193d79182427beb36b96f6fdfb-ramp_up_2x2-4.scn
+res://chunks/forest/ramp_up_2x2.tscn::3ecca2325cb9681337f4505a89a6cc26::1759352955::res://.godot/exported/133200997/export-c13673a28eed59a547b946ce664fdd3e-ramp_up_2x2.scn
+res://chunks/forest/start_2x1.tscn::9bc90148a8a90465eb08a3d22b0ffc9b::1761921658::res://.godot/exported/133200997/export-a14d1ad97fc3d14ea7837ae336186793-start_2x1.scn
+res://components/hitbox.tscn::ceb4f7954885959e19f79d910116503d::1735341764::res://.godot/exported/133200997/export-b2341dee687fbb8fa985e52dab686a3c-hitbox.scn
+res://components/hurtbox.tscn::cf7391c93b4946c78f3331a3d9c3c118::1735341764::res://.godot/exported/133200997/export-19af685d2ea4eb792b99e57c02b3a3a3-hurtbox.scn
+res://decoration/forest/tree1.tscn::08b08042966ee32ae91ace4ae3665ad3::1759881591::res://.godot/exported/133200997/export-7e4e1bcea3c0dff1d47be64b7b10435b-tree1.scn
+res://decoration/forest/tree2.tscn::7879ad4b2c20330c892499b161edd10a::1759881591::res://.godot/exported/133200997/export-73bf7c70228b442b91692a63b1c31dd1-tree2.scn
+res://decoration/forest/tree3.tscn::eba2ecdb4f440a1e52593f8b75c3eab6::1759881591::res://.godot/exported/133200997/export-f6688084c1ff5f09963ea8f8c6c5c998-tree3.scn
+res://decoration/decoration_spawner.tscn::e0f78392ed9107322ffe4d361eff4916::1765316111::res://.godot/exported/133200997/export-885a713f0a1acbff5f31bddf1f1a9782-decoration_spawner.scn
+res://effects/blood_particle.tscn::c672e25d35d8bdb151d577350f315c6a::1761295179::res://.godot/exported/133200997/export-21c763e3e4abc2318f5276c8d01daff0-blood_particle.scn
+res://effects/blood_splatter.tscn::b8be6c2228a6ad5237613a25c346077d::1761295179::res://.godot/exported/133200997/export-261b0312f64b2aa5f7cc843c8b14dda7-blood_splatter.scn
+res://effects/damage_number.tscn::ff6f268c60ed14a67b396c5ee8e8527c::1736075158::res://.godot/exported/133200997/export-9e97783f81b07050d7ba71130acc79ea-damage_number.scn
+res://effects/enemy_hit_effect.tscn::84528ba13e98361fc08ff76474ac9ef9::1759881608::res://.godot/exported/133200997/export-6198ecbda0b21d4a5baa28dff6ea09e0-enemy_hit_effect.scn
+res://effects/explosion_multi_shockwave.tscn::16e243afc8ea1b8776334aecd8b7064f::1751113941::res://.godot/exported/133200997/export-d8212f7f0bc89649e52242379b3d28fa-explosion_multi_shockwave.scn
+res://effects/explosion_range_visual.tscn::f8a40001c7db3f02e00448bac3db1cda::1751112625::res://.godot/exported/133200997/export-8ee05440c24d1482f50c08b00b31ac1e-explosion_range_visual.scn
+res://effects/explosion_shockwave.tscn::a9ce3aedf4b408898058a608ab344fd4::1751113904::res://.godot/exported/133200997/export-78086743dbe1c0fd08489969db2e13ef-explosion_shockwave.scn
+res://effects/hit_effect.tscn::f9bda24c5ee8adf230a7936e58c53729::1735911005::res://.godot/exported/133200997/export-9d2bb04f1e5b79142cba2e8dac26f24f-hit_effect.scn
+res://effects/parry_effect.tscn::29d9fa39f89c48b8bb74e0c2ab269648::1736075387::res://.godot/exported/133200997/export-cd986dd937e0fefa13da9263baf2f17a-parry_effect.scn
+res://effects/screen_effects.tscn::23f4c7e100eacda6d162333c61fcedee::1735501010::res://.godot/exported/133200997/export-98a49908b8a4848d1d46b95e904ecb51-screen_effects.scn
+res://effects/shockwave.tscn::326de8557cd6b82fe2265a652f8b71fb::1735341764::res://.godot/exported/133200997/export-a2a98af43150c7c608bc8811c1cd3457-shockwave.scn
+res://enemy/canonman/cannon_shot_projectile.tscn::fed483f202b78f4bcf1ad2188345fc79::1760441672::res://.godot/exported/133200997/export-e7e42b2a0f26629bc3b94f7067337020-cannon_shot_projectile.scn
+res://enemy/canonman/canonman_enemy.tscn::e498bbefed3161440b92612e0d2dc02f::1761683131::res://.godot/exported/133200997/export-7a860e38548ef05f075802ad92ba2e60-canonman_enemy.scn
+res://enemy/canonman/canonman_stats.tres::f834f974b0801d0262bb35800b4868fb::1760295719::res://.godot/exported/133200997/export-8e9799840b1a8b890bb5e9e7c7961201-canonman_stats.res
+res://enemy/firemage/firemage_enemy.tscn::6e5cb5f6330aa96eff94e622beae8df2::1761683131::res://.godot/exported/133200997/export-7f9af49e29a44009273508d309769252-firemage_enemy.scn
+res://enemy/firemage/firemage_stats.tres::7b620d906fe8f81675266fa718203944::1761227406::res://.godot/exported/133200997/export-249d80d4b7f7f0aabe1b7984150118be-firemage_stats.res
+res://enemy/firemage/fire_bomb_projectile.tscn::f404be3d57428897e968ca501e37e5d9::1760441672::res://.godot/exported/133200997/export-e4bfcc3059cc37a89ee44ab001c81823-fire_bomb_projectile.scn
+res://enemy/flying/flying_enemy.tscn::63d54339622e0224f7bb423e6d25d4dd::1761683131::res://.godot/exported/133200997/export-6f39cc25421322f9b5f9134e19253e08-flying_enemy.scn
+res://enemy/flying/flying_enemy_stats.tres::521ffb39d1745d13a25f42fc6a28fb0b::1761227406::res://.godot/exported/133200997/export-652dd8c690543a05073bbc8f97346135-flying_enemy_stats.res
+res://enemy/heavy/heavy_enemy.tscn::2acfa675c33f94a7d744f4b0bc679e55::1761683131::res://.godot/exported/133200997/export-189e80ac114ac129a255ecb0a152e354-heavy_enemy.scn
+res://enemy/heavy/heavy_enemy_stats.tres::adc24645e0d06f378741cbd9884a176a::1761227406::res://.godot/exported/133200997/export-e455d3b45ae8de9084bf567047c31824-heavy_enemy_stats.res
+res://enemy/heavy/shockwave.tscn::3b254e83c740fa9e4d690d9e2a293afc::1765316111::res://.godot/exported/133200997/export-99d5066ca1d311378f124f244b44d5eb-shockwave.scn
+res://enemy/hunter/hunter_enemy.tscn::a57569824c907cd789f3fa20b47daca8::1743203337::res://.godot/exported/133200997/export-f9b9512b75db2828a625ae4a73b6843b-hunter_enemy.scn
+res://enemy/hunter/hunter_enemy_stats.tres::a0d678fa9442ceb004a383ff53737673::1761227340::res://.godot/exported/133200997/export-b0cf38cbfeb2f7821c2293b0b96331a4-hunter_enemy_stats.res
+res://enemy/miniboss/shield_captain/shield_captain.tscn::7e527f4ec7610b478a9c41625f4c5b2b::1756996176::res://.godot/exported/133200997/export-077bbad41d4e0ffb8ba5a8f1ca7aed56-shield_captain.scn
+res://enemy/spearman/spearman_enemy.tscn::3863eb0c6affa52df0a6ea5bfc692a77::1760794819::res://.godot/exported/133200997/export-3bfcef6af3d94816f75e31bbc6508a5f-spearman_enemy.scn
+res://enemy/spearman/spearman_enemy_stats.tres::fcfe0e03f1562dfb78321a789e39378e::1761227406::res://.godot/exported/133200997/export-31db7fdd688490ef5fb0573331dbc95f-spearman_enemy_stats.res
+res://enemy/spearman/spearman_simple.tscn::ea4683b88178338b232aed3e4142a474::1760474592::res://.godot/exported/133200997/export-1ded2b87825d0ca237619ed2a8d7c023-spearman_simple.scn
+res://enemy/spearman/spearman_test.tscn::8c2fcd13e5228b00bbd2693ca8e1ae73::1760473442::res://.godot/exported/133200997/export-cece0b407ceb5a5c062575f751f84556-spearman_test.scn
+res://enemy/summoner/summoner_enemy.tscn::3fdd788569b86adfe9beed02492c3ac0::1760710743::res://.godot/exported/133200997/export-b648504ef125005ff5c568aaece68082-summoner_enemy.scn
+res://enemy/summoner/summoner_enemy_stats.tres::32bf95502f405ee82ae3de91170ebfcc::1761227406::res://.godot/exported/133200997/export-7c5e63aebd9350cd23d1429da7605ee1-summoner_enemy_stats.res
+res://enemy/turtle/turtle_enemy.tscn::bd634bb64e7e341944d83b0154a1d841::1761683131::res://.godot/exported/133200997/export-a221bda5e025a888e02b34c7641ac003-turtle_enemy.scn
+res://enemy/turtle/turtle_sprite_frames.tres::71f9bd27102cf532e81a68349ed17b80::1761405662::res://.godot/exported/133200997/export-9bd8f7f22cd70371c6ade1cb3d75861c-turtle_sprite_frames.res
+res://enemy/turtle/turtle_stats.tres::93239f2c93f5908e4cb6493343480830::1758308940::res://.godot/exported/133200997/export-86bfacd7b5226d56c2f91ba2f2dc0a22-turtle_stats.res
+res://enemy/enemy_spawner.tscn::7d737e26c9310b5be199afdf8530fc5f::1738109255::res://.godot/exported/133200997/export-58d2077d210dd74c4d30cb31e03e7a32-enemy_spawner.scn
+res://enemy/spawn_manager.tscn::d30440553fdd92fa4066ac0213625a3f::1738160659::res://.godot/exported/133200997/export-b2aaf74424316ca80ecba0b2218b7c33-spawn_manager.scn
+res://gameplay/platform_highlight_manager.tscn::0c16d722ecfb1804c1a8bed4ff226c20::1741445214::res://.godot/exported/133200997/export-b3c48a927ceb2d9d577181a87758ba46-platform_highlight_manager.scn
+res://interactables/forest/BushInteractable.tscn::21bc76daa2a743376752ff00eb8d7a26::1764784140::res://.godot/exported/133200997/export-7e070e91166d53a13b6ef99031d5cf61-BushInteractable.scn
+res://interactables/forest/FruitTreeInteractable.tscn::9c08f36017edce0ade8bd2e072803336::1762792958::res://.godot/exported/133200997/export-8009fa2c555daa9c0fa0e51d69b4807f-FruitTreeInteractable.scn
+res://interactables/forest/RockInteractable.tscn::036bacb74de3d0c6db3e8ea7527e15f7::1763379797::res://.godot/exported/133200997/export-0738381ed2d92a554dacd6ef81df6804-RockInteractable.scn
+res://interactables/forest/TreeInteractable.tscn::c138a3426f70ae69d0055b06e423dd5d::1762965943::res://.godot/exported/133200997/export-f3152e2bf9bc63622fc05c539b899e0b-TreeInteractable.scn
+res://interactables/forest/WellInteractable.tscn::27c2f737a5d0f4c911699f874101b545::1764797764::res://.godot/exported/133200997/export-ed05d1377949e61349fcf7265aad4546-WellInteractable.scn
+res://levels/testing.tscn::53c0aa3562810ccf552947eb8a08c897::1765316111::res://.godot/exported/133200997/export-edad8ade34084e84f9431c370eedc1a2-testing.scn
+res://objects/dungeon/lighting/mesale2.tscn::6f3b1c9e059c5b7dc967c51d7eceeb07::1761564469::res://.godot/exported/133200997/export-5cdf2aa9f9c7a41dc3431a004ffa5599-mesale2.scn
+res://objects/dungeon/lighting/mesale3.tscn::19c041f4ac17d475e2adcb0cb6fa6e79::1757198271::res://.godot/exported/133200997/export-62785c8617055a622b54eeb1a04f41bc-mesale3.scn
+res://objects/dungeon/lighting/mum2.tscn::49786b249815313c2cfdc9bbce1c0a35::1757198271::res://.godot/exported/133200997/export-bc1c1a0f410ccf2e18ccf38e384ed990-mum2.scn
+res://objects/dungeon/lighting/mum.tscn::11e3b90b865c4fe4e554e22ba78424ce::1757198271::res://.godot/exported/133200997/export-e912d5fa9810a9459de42b4ec625c5c6-mum.scn
+res://platforms/moving_platform.tscn::632305232647bac5ff32a62e0df92bb5::1739053728::res://.godot/exported/133200997/export-ae639f86901189e247755d35db0cc15f-moving_platform.scn
+res://platforms/one_way_platform.tscn::92550b5a73e58aab2c5eae53a92c6324::1737303410::res://.godot/exported/133200997/export-24c107d7894aa0ac9c0f1ea802f84439-one_way_platform.scn
+res://player/game_ui.tscn::695100274c56f95c95dde4f1b9001f94::1735909231::res://.godot/exported/133200997/export-e210b716264b8c5cc54beee4b9374a45-game_ui.scn
+res://player/player.tscn::5ef9c60619634878553aeafff2fbbd3a::1765316550::res://.godot/exported/133200997/export-753d15e03e0182f9d550ac833b42bb41-player.scn
+res://resources/level_configs/level_1.tres::64af81cc2f65f3803246211e21ea968f::1743203230::res://.godot/exported/133200997/export-d5c644a90fe9c12356321ce3b49b4d58-level_1.res
+res://resources/level_configs/level_5.tres::8c5803d2d87c4053b7d82a0ca926b548::1743203230::res://.godot/exported/133200997/export-f6e23e339d8175cdbdbbf638260d433a-level_5.res
+res://resources/level_configs/level_10.tres::fa6c0bf50423cda4c9a27fecebac7cf4::1743203230::res://.godot/exported/133200997/export-17ab9b26a109ebf9ce8c51a2aecc80fd-level_10.res
+res://resources/player_normalmap resources/air_attack_n.tres::164b4b96fce9cd544b980f5d7ce36532::1746385287::res://.godot/exported/133200997/export-152e149ef4ab88044659a2f8d4048569-air_attack_n.res
+res://resources/player_normalmap resources/attack1_n.tres::4c8118b6c8a923725b0b1c324c7e0c4c::1744054238::res://.godot/exported/133200997/export-8cca330b5925939eb495a36240c5e2f0-attack1_n.res
+res://resources/player_normalmap resources/attack_1_2_n.tres::6fcb8bd5fcd0b1e34ed58f6b48b5fa98::1756301853::res://.godot/exported/133200997/export-5ccabb12b1f98df63446df5bfbd4a0a1-attack_1_2_n.res
+res://resources/player_normalmap resources/attack_1_3_n.tres::e3a2eebdf160faee748263ebe32f7278::1756301853::res://.godot/exported/133200997/export-e72079828b565e66517a49d056380b13-attack_1_3_n.res
+res://resources/player_normalmap resources/blockfinish_n.tres::c4680ee24b826db6fabaaa1b4a415ae4::1744054238::res://.godot/exported/133200997/export-ddde1291ef27eec27c9a8e1c187357db-blockfinish_n.res
+res://resources/player_normalmap resources/blockimpact_n.tres::d4da74bb6acc6f0b3457abbd7a97ec78::1744054238::res://.godot/exported/133200997/export-de33575951eb5511c4ff362ad15208c1-blockimpact_n.res
+res://resources/player_normalmap resources/blockprepare.tres::980339596a62949b4be700ff181f9806::1744054238::res://.godot/exported/133200997/export-f70d3cf4b7e96e03fd2cd4df7407f5d3-blockprepare.res
+res://resources/player_normalmap resources/block_normal.tres::35cc9d1998126862a2491f6e876acbcf::1744054238::res://.godot/exported/133200997/export-99e3881ca93b447af213f8ec29c49aa0-block_normal.res
+res://resources/player_normalmap resources/counter_heavy_n.tres::305f45cc4fb9a4b54064e68b3a86d6dc::1756319535::res://.godot/exported/133200997/export-43412865d1928a8f65d03ff48b432ad3-counter_heavy_n.res
+res://resources/player_normalmap resources/counter_light_n.tres::a75f4415511ca33ce550a92b5f5af529::1756319535::res://.godot/exported/133200997/export-11dcacc6b3d2f4ed5c0194a4a597a9ae-counter_light_n.res
+res://resources/player_normalmap resources/crawl_n.tres::5a6fcb5e8edb612e1fe5a804f2b29ded::1744054238::res://.godot/exported/133200997/export-db61fc759a5dd6ab189072903102db3f-crawl_n.res
+res://resources/player_normalmap resources/crouchdown_n.tres::a7477a9e308bc201ad5749c454203ef3::1744054238::res://.godot/exported/133200997/export-7e12996c50eb2c6ef51c4de2131868b1-crouchdown_n.res
+res://resources/player_normalmap resources/crouch_n.tres::c4af216460eedba73a814c3c9a4fe412::1744054238::res://.godot/exported/133200997/export-202dcfc0014d24ad3f2599c835cf02b1-crouch_n.res
+res://resources/player_normalmap resources/dash_n.tres::8d28df41a031baa853646ad8c775c86f::1744054238::res://.godot/exported/133200997/export-1f27a9e210143520ce27ad573a3349a3-dash_n.res
+res://resources/player_normalmap resources/doublejump_n.tres::aafd9c643cff11ac1981ad1756de2850::1744054238::res://.godot/exported/133200997/export-052b1ec06015fb82f61e56fe3bb4dde8-doublejump_n.res
+res://resources/player_normalmap resources/down_light_n.tres::788c5c561858ab437fdd25a6882bd8ef::1756341440::res://.godot/exported/133200997/export-d33961892f815a8989bbdb52bac1c775-down_light_n.res
+res://resources/player_normalmap resources/fallattackstart_n.tres::e439af4aa9fc98efd9532b48c5ce7cc5::1744054238::res://.godot/exported/133200997/export-198e9695ad72ec2eb75052c12dab7674-fallattackstart_n.res
+res://resources/player_normalmap resources/fallattack_n.tres::296c03dafc7322181cc13df590f9c25c::1744054238::res://.godot/exported/133200997/export-9cabbed2f2978fb899b1dcd281c76290-fallattack_n.res
+res://resources/player_normalmap resources/fall_n.tres::2d9f744b13a5b4c26587dd9d0e255513::1744748495::res://.godot/exported/133200997/export-a087e8ace668e043323ea207c0f62961-fall_n.res
+res://resources/player_normalmap resources/heavy_neutral_n.tres::5f06ae62a7091bc7509182d967b6617c::1756341440::res://.godot/exported/133200997/export-1d6bc3938af698390e905894203d68d9-heavy_neutral_n.res
+res://resources/player_normalmap resources/idle_normal.tres::3581c729d982f869b7c0f3b52ba90434::1744054238::res://.godot/exported/133200997/export-a121c44b0aa0dd07325e1fda2a89a616-idle_normal.res
+res://resources/player_normalmap resources/jumpprepare_n.tres::19fed198cb9300fafae0daaf92d5d5ec::1744054238::res://.godot/exported/133200997/export-87fb0fe27d26f657b38d605f5320a1da-jumpprepare_n.res
+res://resources/player_normalmap resources/jumptofall_n.tres::07ba91771296d771dd2055289a6382b2::1744054238::res://.godot/exported/133200997/export-9fbe70ee8fe1a71fd3df2a2d6eb0edd3-jumptofall_n.res
+res://resources/player_normalmap resources/jumpupwards_n.tres::6b2c17a72161354c0e03418e1d6a7806::1744054238::res://.godot/exported/133200997/export-f4d21b3c21a76d05c449d54cca7f5e08-jumpupwards_n.res
+res://resources/player_normalmap resources/landing_n.tres::bf7a716948b125002e356afe6e6489c3::1744054238::res://.godot/exported/133200997/export-d6369312fedb23011f9861467a609f32-landing_n.res
+res://resources/player_normalmap resources/ledgegrab_n.tres::af8b5657d73be3d6f3a6b5c9830d2412::1744054238::res://.godot/exported/133200997/export-85a1dce8c19c7227ce5dcd40fd0c79f2-ledgegrab_n.res
+res://resources/player_normalmap resources/lightattack_n.tres::7b83fdc300fe58e9b3231c338d6a4d8d::1743629879::res://.godot/exported/133200997/export-a943466e46f4ffb21890da14fa383a4d-lightattack_n.res
+res://resources/player_normalmap resources/ottohurt_n.tres::ba92856f53c64a55b33f4d53bd3e6574::1744054238::res://.godot/exported/133200997/export-b071129fc7beb9dd08ece3c69ff58f19-ottohurt_n.res
+res://resources/player_normalmap resources/parry_n.tres::14aa9152062e1a22dcea5dc7d2cf5525::1744054238::res://.godot/exported/133200997/export-39c4ac81f78a4a1a3a5169a7e65b6127-parry_n.res
+res://resources/player_normalmap resources/run_normal.tres::a8b7b8d477c9934888e110837b94da07::1744054238::res://.godot/exported/133200997/export-d22e7a2b9e5cf83d8f97955e9c485344-run_normal.res
+res://resources/player_normalmap resources/slide_n.tres::0f223626f1718806a9a8ff3f8cdb303f::1744054238::res://.godot/exported/133200997/export-e592b6e9e148fb5da0a6b1c06904deac-slide_n.res
+res://resources/player_normalmap resources/up_heavy_n.tres::dd968c8e9c895dba78f580d8a99c2be9::1756341440::res://.godot/exported/133200997/export-9566e44412fb25799fa6989dadd9f29e-up_heavy_n.res
+res://resources/player_normalmap resources/up_light_n.tres::162151fe1cf7d1b9159a06edf07c9957::1756301853::res://.godot/exported/133200997/export-8f1defb34bf1b320c0e9e16282d395db-up_light_n.res
+res://resources/player_normalmap resources/walljump_n.tres::802c8c5dc0d828499dea1b88e8f036eb::1744054238::res://.godot/exported/133200997/export-26e5a1733c13ccf3640a2768527c3967-walljump_n.res
+res://resources/player_normalmap resources/wallslide_n.tres::3eb2bc5851be10cbad87396876342fa5::1746385287::res://.godot/exported/133200997/export-40e6adeb9ee1827d595add95bc51330e-wallslide_n.res
+res://resources/player_normalmap resources/wall_slide_down.tres::c8e741369e22d0a6c39c7f801deaeac1::1746385287::res://.godot/exported/133200997/export-f182924cdf296c512b9f8c5d2eae47c5-wall_slide_down.res
+res://resources/powerups/scenes/aerial_assassin.tscn::016bbac27d4bf4948bb52bf9ec1b28ad::1756133725::res://.godot/exported/133200997/export-e12f3fc114ec0ab0875a74c94ea2c991-aerial_assassin.scn
+res://resources/powerups/scenes/berserker_gambit.tscn::20e7ea7f136cb7af952d38e8378c1a3b::1736164314::res://.godot/exported/133200997/export-a604bb3a5f824fcec5b23d75cbf6a2fc-berserker_gambit.scn
+res://resources/powerups/scenes/bloodthirsty.tscn::bde59ad28b424dbdc46f51ec28848178::1756130186::res://.godot/exported/133200997/export-633595d7ddd7af47c774135bd0cad806-bloodthirsty.scn
+res://resources/powerups/scenes/critical_strike.tscn::2683bb3ff01d25bf75dec25a7fc80ad8::1756130186::res://.godot/exported/133200997/export-da22036a67a5101c7ae8f2f8f07cdaf7-critical_strike.scn
+res://resources/powerups/scenes/damage_boost.tscn::f9ef4c7fb246d7b8d2b6a817dc13a4c3::1736164314::res://.godot/exported/133200997/export-a647513e0637751c07c8842af2db156b-damage_boost.scn
+res://resources/powerups/scenes/double_dash.tscn::fff9ee3fea33894be89ba880fbe3b97a::1756130186::res://.godot/exported/133200997/export-a54373018c48e696fa20ec0d220a521f-double_dash.scn
+res://resources/powerups/scenes/endurance.tscn::38743a57f4881c3f73826b218342b62f::1756133725::res://.godot/exported/133200997/export-260a9b1fbb3d240d108a451c247c5758-endurance.scn
+res://resources/powerups/scenes/fire_trail.tscn::e0cb7e994fdadb75960dd814357e96b3::1765316111::res://.godot/exported/133200997/export-25d0037592230304adc952259350baa0-fire_trail.scn
+res://resources/powerups/scenes/fire_trail_effect.tscn::aa4babd2fe9dc73cae00096da050698d::1765316111::res://.godot/exported/133200997/export-9695c96846a157793a85f55850b8e981-fire_trail_effect.scn
+res://resources/powerups/scenes/guard_master.tscn::d43d3b88110c7b7f8b4983ea8b0a93eb::1756133725::res://.godot/exported/133200997/export-b52f68aacb197ad999c56d3056ef8e23-guard_master.scn
+res://resources/powerups/scenes/health_boost.tscn::e2ef8d350dd9d52bb5d1c394d1cc0ab2::1736164314::res://.godot/exported/133200997/export-501a92d07f1116db2a028cf9cf9965af-health_boost.scn
+res://resources/powerups/scenes/momentum_master.tscn::00acad0efb00454b0478d855a413e406::1736164314::res://.godot/exported/133200997/export-57cb5bf84424897956e3e50ba327c2be-momentum_master.scn
+res://resources/powerups/scenes/perfect_guard.tscn::f6d1bdabc18662e6101d97f608806724::1736164314::res://.godot/exported/133200997/export-fc9b183102f3ca4b186153141298fd35-perfect_guard.scn
+res://resources/powerups/scenes/regeneration.tscn::0f5c29b6f9b6fb987cc226fca2e272ce::1756130186::res://.godot/exported/133200997/export-87f8216d918e56c1e9bdbf4e530e39ca-regeneration.scn
+res://resources/powerups/scenes/speed_demon.tscn::f8555eaecff141238b054d540315eb03::1736164314::res://.godot/exported/133200997/export-184ba6e4a2dff2f22c64f880d2385c30-speed_demon.scn
+res://resources/powerups/scenes/time_slow_effect.tscn::99ec801f1cdd3d01bff9ce6bac395503::1735496103::res://.godot/exported/133200997/export-4ed2cfc437a81ccbc7aa3215d94e5fb3-time_slow_effect.scn
+res://resources/powerups/scenes/triple_strike.tscn::5e92fd4ff9266f61cc384a83be2f8670::1756133725::res://.godot/exported/133200997/export-aa0f83692d9c58c66084adfaf5152ddc-triple_strike.scn
+res://resources/dungeon_config.tres::4c16f183427fdb71af8b7259b7472131::1745699203::res://.godot/exported/133200997/export-5d7f4e9bfa737cc1245743639ce181bb-dungeon_config.res
+res://scenes/tests/boss_test.tscn::8083b2e966192e85b8df58d5bd4dec8d::1756996176::res://.godot/exported/133200997/export-0919e8756a29c8fc838386ade5bdd3c3-boss_test.scn
+res://scenes/door.tscn::0e34fc405e103d238f1a34fdb4cac0c9::1756996176::res://.godot/exported/133200997/export-3370694a3d56567dea5c3bf0058a536d-door.scn
+res://scenes/door_test.tscn::287c3c3b85da5214f583db4673a10699::1756643962::res://.godot/exported/133200997/export-8302f97e7607fd5178b39c10674137cc-door_test.scn
+res://scenes/forest.tscn::0a7e6ee0709392ab0a6d92033e16eea1::1765316551::res://.godot/exported/133200997/export-3aa35002fd37dc00e3e79d85fc7a0741-forest.scn
+res://scenes/game_ui.tscn::4f8fb88d86224b9ff08acd5bad38e235::1763144584::res://.godot/exported/133200997/export-b1dc3a39ca5bc4d3f22bdf9178299c50-game_ui.scn
+res://scenes/level_transition_zone.tscn::00ecad63bd2090bfc28ca357d881bfff::1743630039::res://.godot/exported/133200997/export-96db9c4f5dbd3c57eaeaf2e240a3881c-level_transition_zone.scn
+res://scenes/MainMenu.tscn::1c1d1d83ef2d65e514f4718be0e129bb::1765316551::res://.godot/exported/133200997/export-23c8b2a48d59a0cd018bd8ad5ce7794c-MainMenu.scn
+res://scenes/node_2d.tscn::9532faa22c8062ac135f9776ab8268c8::1745865982::res://.godot/exported/133200997/export-7936cb3314e92baa208a95fc6f151298-node_2d.scn
+res://scenes/procedural_level.tscn::d9079b20946d9c6a12ed9a9f66f6176f::1737560702::res://.godot/exported/133200997/export-3456fc7d170327a206e1a49bdf390cfc-procedural_level.scn
+res://scenes/testing.tscn::da22bd220ff7f5f20f75cb83edd25bcc::1765316550::res://.godot/exported/133200997/export-498ca290cef43f67515dbfad47005463-testing.scn
+res://scenes/test_level.tscn::05384ef7638508ed3823f42314503cdc::1765316551::res://.godot/exported/133200997/export-7416c34946b4d969d354a1f25ed3ee62-test_level.scn
+res://tests/blood_system_test.tscn::3f517c63039bd666b0ff5040543c6a50::1761295179::res://.godot/exported/133200997/export-b43d1ffbf4595dc966be3353f3d223fe-blood_system_test.scn
+res://tests/dungeon_enemy_test.tscn::18bab9c442499667ed178a0a4f976bc1::1760714351::res://.godot/exported/133200997/export-0a8e7e376204079f63124ce3a0dae82a-dungeon_enemy_test.scn
+res://tests/MinigameTest_Villager.tscn::6e1d234e4edaa7225f32562e3a63907f::1756554506::res://.godot/exported/133200997/export-4a215c75d65cc35aabdf16b427f6135b-MinigameTest_Villager.scn
+res://tests/MinigameTest_VIP.tscn::55d1f4d6a9afecc0b5bd2d646af1ba36::1756554506::res://.godot/exported/133200997/export-d0ba4344f6584badf51869d97e86629c-MinigameTest_VIP.scn
+res://tests/spawn_debug_test.tscn::e09af5035e9ccde94c0ccc7428685769::1760716228::res://.godot/exported/133200997/export-96a86eb5f98de67bb36e82eab6fe0a90-spawn_debug_test.scn
+res://Tile set/dungeon_master_tileset.tres::a820b80487832cceba095a04fe60ccea::1765316166::res://.godot/exported/133200997/export-afe379999b0b53c105943f98b497686a-dungeon_master_tileset.res
+res://traps/ceiling/pendulum_axe.tscn::b382593a010cdc2f3f6e58c36d127430::1754059115::res://.godot/exported/133200997/export-55484f00b77d8581040e1a6c494b5b6d-pendulum_axe.scn
+res://traps/ground/fire_geyser.tscn::4c827e95437e9c1cab17da6447c872b2::1750712444::res://.godot/exported/133200997/export-e1b5a90dfe7f4e58506013e398c366c4-fire_geyser.scn
+res://traps/ground/spike_trap.tscn::d0a4e36077f4ff1b154bbb1a35705a28::1750712444::res://.godot/exported/133200997/export-7a87de76e704b02c9d82d82b51509a16-spike_trap.scn
+res://traps/wall/arrow_shooter.tscn::632b4fb595cd126a40c3d3b50b215143::1751198306::res://.godot/exported/133200997/export-301364a3c8ccbe2a45d37996a84b550c-arrow_shooter.scn
+res://traps/wall/cannon_trap.tscn::a7057f3c72db46641cc02d73f3474592::1750699697::res://.godot/exported/133200997/export-c3b3f31ca3c6376b6c8b79de8f8ca28b-cannon_trap.scn
+res://traps/base_trap.tscn::f92270bc8b2de92714af3e69a7892b2f::1750540591::res://.godot/exported/133200997/export-e9750bba670e9687ff0f35a1733fbf51-base_trap.scn
+res://traps/cannonball_projectile.tscn::8f8cc514f5e79aee41ea32e71a9a18c1::1750712024::res://.godot/exported/133200997/export-e68ae376667221047540a76df4241204-cannonball_projectile.scn
+res://traps/ceiling_trap_spawner.tscn::63d557f03fe18dcd482f8b43d4d4dc18::1750364122::res://.godot/exported/133200997/export-8858184136623240e50fdc871b7aadb8-ceiling_trap_spawner.scn
+res://traps/ground_trap_spawner.tscn::337897d066a4243e5ac6afcbc2a459af::1750364135::res://.godot/exported/133200997/export-e867756dcf7d307d4e53eb9be8895f2b-ground_trap_spawner.scn
+res://traps/trap_manager.tscn::2f4cffbb25e93c9935f4e850ebdede45::1750372385::res://.godot/exported/133200997/export-34e500dba192c39c860b10441fc19b9e-trap_manager.scn
+res://traps/trap_spawner.tscn::90f257f922878692ba2768188ada60e2::1750272833::res://.godot/exported/133200997/export-3c52fec9229adfb392da9ad307bfe920-trap_spawner.scn
+res://traps/wall_trap_spawner.tscn::63beba2a00d28934eb75da43fbbabd4e::1750365428::res://.godot/exported/133200997/export-54905c6fba0a0e681a6883d6263ba10e-wall_trap_spawner.scn
+res://ui/minigames/food/Fruit.tscn::f392d56cee05a932755177fdb563ec49::1765316551::res://.godot/exported/133200997/export-71d9ae913cc025abcb66c53e55c2f503-Fruit.scn
+res://ui/minigames/stone/rock_piece.tscn::52d14c0d10cb8cdf8659f1105abd6d31::1763223113::res://.godot/exported/133200997/export-9ee5abebb0c40d87da5377ad5cae5543-rock_piece.scn
+res://ui/minigames/wood/falling_leaf.tscn::af5e03f13e22f807bc8b630f858ef47c::1763145297::res://.godot/exported/133200997/export-ee3dc160e2c8175f6e0577b03275d403-falling_leaf.scn
+res://ui/minigames/wood/minigame_wood_marker.tscn::28948c93d23d191ca83cb1ed014c5cc1::1763379797::res://.godot/exported/133200997/export-2355372b1370abc40339c543c9547434-minigame_wood_marker.scn
+res://ui/minigames/wood/wood_piece.tscn::6f17b6aec5fd910d0fe403c59b58605c::1763145297::res://.godot/exported/133200997/export-b2eb97d99235bf72af983b39844c408c-wood_piece.scn
+res://ui/minigames/DealDuel.tscn::fdd170e1758df7a9974ac8ba5b157950::1756069656::res://.godot/exported/133200997/export-f74ebd520ef4e39b2ab43a4f7201090f-DealDuel.scn
+res://ui/minigames/ForestFoodMinigame.tscn::4fa62212a6b0f558c6e7dfccf06cb64c::1764776828::res://.godot/exported/133200997/export-b81d1748b0550ff34b2c5dadb53e63ef-ForestFoodMinigame.scn
+res://ui/minigames/ForestFruitMinigame.tscn::ed5f65a8ff01d7c716c0869c3ec2b67e::1762903900::res://.godot/exported/133200997/export-7a1dccd774d473b1c0f371d34d2576a5-ForestFruitMinigame.scn
+res://ui/minigames/ForestStoneMinigame.tscn::aa8ca9c91526e06a01be51b2f4d93ab8::1763215010::res://.godot/exported/133200997/export-17fdcb9e7ac222d434725986d8790bf5-ForestStoneMinigame.scn
+res://ui/minigames/ForestWaterMinigame.tscn::fb24597e1c1e33f10203d54721542304::1764791649::res://.godot/exported/133200997/export-de057d7d780c9ad651b01a011eb37a8e-ForestWaterMinigame.scn
+res://ui/minigames/ForestWoodcutMinigame.tscn::bbaf97da35305b47ad775a4e76af2724::1762944524::res://.godot/exported/133200997/export-918bcdd800f402e0a38b6f56da344261-ForestWoodcutMinigame.scn
+res://ui/minigames/VillagerLockpick.tscn::7102f7dc9f1aa4eb355fc9fc6191d9d3::1756071751::res://.godot/exported/133200997/export-92ceffe40733cb50d8e8b53aace22e4d-VillagerLockpick.scn
+res://ui/boss_health_bar.tscn::abda6b72b36b92e930ce1818cf05a750::1755302810::res://.godot/exported/133200997/export-c027ac8a578b62847822bbe62f45d620-boss_health_bar.scn
+res://ui/CarriedResourcesDisplay.tscn::f1fb06a131bfc6370ba7a50017c9a7a5::1763144584::res://.godot/exported/133200997/export-3afb2e0ecd01ed875b546a6d836df65a-CarriedResourcesDisplay.scn
+res://ui/ConfirmDialog.tscn::62015a4cc97ea93d50343d80f5bac85f::1762081053::res://.godot/exported/133200997/export-83386c733b270aae8333d2644e8ccd3d-ConfirmDialog.scn
+res://ui/damage_number.tscn::c4a261f6b4b219ff1b29eec23f5ee3b7::1735399229::res://.godot/exported/133200997/export-8040fcb4863c72e9b537e6c5ac41dd93-damage_number.scn
+res://ui/dev_console.tscn::b7a492c620de5493d5bf4bc8e805d97c::1735590173::res://.godot/exported/133200997/export-468a8bfe36a1b0eeea6d93568cab231a-dev_console.scn
+res://ui/DungeonGoldDisplay.tscn::d966b8d51c2f1adc696462e136b31be1::1762202634::res://.godot/exported/133200997/export-feffc8266667843108fb43d10f3f4095-DungeonGoldDisplay.scn
+res://ui/enemy_health_bar.tscn::6c48b9846337c01614ed8e8ddf6b46b1::1735399035::res://.godot/exported/133200997/export-5837bf63e3d496764328e6194a7e03d5-enemy_health_bar.scn
+res://ui/ErrorDialog.tscn::0447afe9bf69a079247d5aa736ce9da9::1762362244::res://.godot/exported/133200997/export-9e6668a7164351bd8f2c54b34f16f628-ErrorDialog.scn
+res://ui/gemini_test.tscn::19224f9252ea650472c78836892131f0::1765316111::res://.godot/exported/133200997/export-57bd2c6d60a894a1343af4cc52c4a6b4-gemini_test.scn
+res://ui/general_ui.tscn::2a73f2d7c07847b63b1edc2e76fa646e::1734558791::res://.godot/exported/133200997/export-815684f4ff0a9657f3981a82c561930b-general_ui.scn
+res://ui/health_display.tscn::39dddad0fb19fedbb0b896361aed65ef::1738261265::res://.godot/exported/133200997/export-ae4534eedb04f89b9514ecf69e5086e3-health_display.scn
+res://ui/LoadGameMenu.tscn::a3ce1b8c539a1644bb6d05025add3208::1762362244::res://.godot/exported/133200997/export-b8c4a291fdbfd4c98fdb348f174d79c9-LoadGameMenu.scn
+res://ui/LoadingScreen.tscn::0882492107301d9309d27e3c727da8ee::1762189703::res://.godot/exported/133200997/export-5aa97230d97474bd1e2b589f3ef67a59-LoadingScreen.scn
+res://ui/MissionResultDialog.tscn::7ab9f41cd408fbdc7fa447bc656d99d5::1762190534::res://.godot/exported/133200997/export-de13c554a679ceffcf29c8e6e55d613b-MissionResultDialog.scn
+res://ui/npc_window.tscn::2569d517b7741c89285bfda9f1cef6e9::1765316111::res://.godot/exported/133200997/export-c6442da2e7f80d2a3803f433d1c48fce-npc_window.scn
+res://ui/PauseMenu.tscn::bf9916a124bdc8c40d136ab3a36b864e::1762611903::res://.godot/exported/133200997/export-ce455868cee1b2d137dc62b08a47bea7-PauseMenu.scn
+res://ui/powerup_button.tscn::e5559cd51c0eb99e194a02380d07e423::1735590762::res://.godot/exported/133200997/export-f23365b22475067ccc97a116f63ab7f0-powerup_button.scn
+res://ui/powerup_selection.tscn::1ba123144bc22eea2b5780cd32f876ed::1756130186::res://.godot/exported/133200997/export-ef50033d2fc42d0c3446ffc92e3fdd55-powerup_selection.scn
+res://ui/ResourceDisplay.tscn::5e05a8b16cd288556a2c27492684df02::1734558791::res://.godot/exported/133200997/export-73643191a302a7e40db2a0e76d105668-ResourceDisplay.scn
+res://ui/SaveGameMenu.tscn::4120615f344bb0d287a20fe52623cc34::1762362244::res://.godot/exported/133200997/export-9688c3e5332ea68db4fcd0a23e53234a-SaveGameMenu.scn
+res://ui/SettingsMenu.tscn::9bf259b383cfb742aa0ea2febf793d3a::1762614821::res://.godot/exported/133200997/export-897fd4a82ac07de12d977b7242b93040-SettingsMenu.scn
+res://ui/stamina_bar.tscn::11d5f3fc13d740cfb2ce4b804c3a6748::1756150167::res://.godot/exported/133200997/export-7aff12ad93933cc39f5b4a77bd3db9f2-stamina_bar.scn
+res://ui/TimeSkipNotification.tscn::3429aaa5ea276e09b630a499b847768a::1762028997::res://.godot/exported/133200997/export-63097ef88025a3ed23c0bba4fdd8abb1-TimeSkipNotification.scn
+res://village/buildings/Armorer.tscn::bac5da5d670214e1844c41b6e2928ce5::1759224937::res://.godot/exported/133200997/export-1715c1eac21d095baa43f3e56f0555fd-Armorer.scn
+res://village/buildings/Bakery.tscn::8d94b6e79b94c4f73fbcd7ba57bd7a74::1744748593::res://.godot/exported/133200997/export-0ae24887255040350d045a1ea574f6c7-Bakery.scn
+res://village/buildings/Barracks.tscn::fe35bf31c9e0a2918927412ce5574276::1761683131::res://.godot/exported/133200997/export-2a92e1e2939e7251ab573ba05d93364c-Barracks.scn
+res://village/buildings/Blacksmith.tscn::d5e1e5cc5076c814b2799c47ce4d5d5c::1761683131::res://.godot/exported/133200997/export-fa2106116cad9fdb3299bc4993300d4b-Blacksmith.scn
+res://village/buildings/Brickworks.tscn::040431f9c28d936e35967bd717ff5ef5::1761904555::res://.godot/exported/133200997/export-d40ca9cb61d578410a293abf9957de5a-Brickworks.scn
+res://village/buildings/Gunsmith.tscn::aaf249c724bb1e64fc0828086ca1e3c9::1759230847::res://.godot/exported/133200997/export-9ac5bfe58d24a1265451176927e4fdd5-Gunsmith.scn
+res://village/buildings/Herbalist.tscn::89c8677008cb3b3662b3b057641587c8::1761904555::res://.godot/exported/133200997/export-46b7178600436967e3800bdc369ac0c3-Herbalist.scn
+res://village/buildings/House.tscn::e3961b3ed8be6376f2692ec5a664ec89::1744748594::res://.godot/exported/133200997/export-d6e1f79fb45e46c8c023f74cd636c76f-House.scn
+res://village/buildings/HunterGathererHut.tscn::92183afd1531470f67718975b48231c2::1744748593::res://.godot/exported/133200997/export-d019426f7dac1c03bc0432155815f37e-HunterGathererHut.scn
+res://village/buildings/Sawmill.tscn::5d83e49215c8ad566235fff27971873e::1761904555::res://.godot/exported/133200997/export-c7fcc0cddbbe0f508f295cf7d9cb9345-Sawmill.scn
+res://village/buildings/SoapMaker.tscn::9800729934c7bbb38685262a2a25bb47::1759224937::res://.godot/exported/133200997/export-66dd3c6fcf2d019581d8ff1000c369c7-SoapMaker.scn
+res://village/buildings/StoneMine.tscn::d248eb87d9f5416bdc87903ae551d81e::1744748593::res://.godot/exported/133200997/export-16726c2f2d6d43c8540e012a1d36a191-StoneMine.scn
+res://village/buildings/StorageBuilding.tscn::6b3c677b2a6f69813e0a3d46232a5bbf::1759187594::res://.godot/exported/133200997/export-3ba05f3037f705de0ba5d5f35a021760-StorageBuilding.scn
+res://village/buildings/Tailor.tscn::bca2beeb2ef1779dd747c7501f3e4ae1::1759224937::res://.godot/exported/133200997/export-b092b1114ac3adc54a2e686f6d5a2345-Tailor.scn
+res://village/buildings/TeaHouse.tscn::216813830ec8cb483fb210e8e9215f73::1759224937::res://.godot/exported/133200997/export-accc05a65c8a4826f1cfbd49aca548c7-TeaHouse.scn
+res://village/buildings/Weaver.tscn::053f7bad948268d49a1fb493ddd3cd90::1761904555::res://.godot/exported/133200997/export-c3080597ffed59e021a234272acbd0c6-Weaver.scn
+res://village/buildings/Well.tscn::b9c00ede6c081ff8ee833aaa3e864b17::1760117423::res://.godot/exported/133200997/export-e9867dd4432f50b50201430c0491818d-Well.scn
+res://village/buildings/WoodcutterCamp.tscn::0bfe5aa924bb09281b17f520ae7461d7::1759881608::res://.godot/exported/133200997/export-00e3658daad57746372c8095d657b770-WoodcutterCamp.scn
+res://village/missions/MissionCenterScene.tscn::4dcbf78a1276aeaa0010c5ea350678ea::1759048634::res://.godot/exported/133200997/export-bf82bb0c16a26397538adce3495533a7-MissionCenterScene.scn
+res://village/missions/MissionCenterTest.tscn::bce6173346ab465a19d6c932b7a177e1::1757515257::res://.godot/exported/133200997/export-608b507cd25e55583e9e1d95c89bf472-MissionCenterTest.scn
+res://village/missions/MissionSystemTestScene.tscn::5d0f68a401d84d18ea6a7ee183ef53ea::1758566754::res://.godot/exported/133200997/export-3e1e2ccdefbe26329deec649ced03bde-MissionSystemTestScene.scn
+res://village/scenes/BuildMenuUI.tscn::ad3de48a81eba0d28f9415418f664517::1744748594::res://.godot/exported/133200997/export-e9cc94e177625fcd89446dc49f425c4e-BuildMenuUI.scn
+res://village/scenes/CampFire.tscn::eab4062fe4a4588d7dca1cb611d1e554::1744748593::res://.godot/exported/133200997/export-92e493678c677936ba1ec44a10357572-CampFire.scn
+res://village/scenes/CariyeManagementUI.tscn::4c633747f9f9b1628f94e81ea76adecf::1744748593::res://.godot/exported/133200997/export-68e5b8188e74adf6543d4e09f937dcbf-CariyeManagementUI.scn
+res://village/scenes/cloud.tscn::7fc8f48d802d52407ba9cd8b6a6585c5::1746904384::res://.godot/exported/133200997/export-447c63bc08ebd9defb3398859e53cc8a-cloud.scn
+res://village/scenes/TimeDisplayUI.tscn::4451937e6f0e477ffc6062662fd8feec::1744748594::res://.godot/exported/133200997/export-9c8dc1703bf4cf8ee196e22dd015beb3-TimeDisplayUI.scn
+res://village/scenes/VillageScene.tscn::8b370027089abe423874fcd69b7e2dbf::1765316551::res://.godot/exported/133200997/export-b5a92e9d9d4436b5dc40931f5d09981c-VillageScene.scn
+res://village/scenes/VillageStatusUI.tscn::abf204694a137ef0e546ab9f42802a11::1744748593::res://.godot/exported/133200997/export-dc272e840d2a0e08c3dfcf68626808da-VillageStatusUI.scn
+res://village/scenes/Worker.tscn::ba66c725d5f93e5cc8bf3945a9f3dc91::1765316111::res://.godot/exported/133200997/export-484ef829e247c8cd267a2cf3aa408f9f-Worker.scn
+res://village/scenes/WorkerAssignmentUI.tscn::703c2ed327ab705310080d2679c386b2::1744748593::res://.godot/exported/133200997/export-a0bc395079a261b1c5b4ee7458d0a85a-WorkerAssignmentUI.scn
+res://village_battlesim/ArcherStats.tres::663b632a0506c13c5a68e5eebad2415b::1746385287::res://.godot/exported/133200997/export-f8ed6acf3add6cf3410ed927962c4cfc-ArcherStats.res
+res://village_battlesim/arrow.tscn::25cc119c7e048fe756137011041e0e1e::1745529910::res://.godot/exported/133200997/export-d426428b03fc1846335dcdc0550b678b-arrow.scn
+res://village_battlesim/BattleScene.tscn::e27425b017265f12e36fdc710027985e::1754164974::res://.godot/exported/133200997/export-a7388fcdc22938e70b88e36eec38b7db-BattleScene.scn
+res://village_battlesim/Cavalry.tres::98b0e51b614abc9010930a9cd09b0d9c::1746385287::res://.godot/exported/133200997/export-339596b66d3ac1568829c16a030d3ad6-Cavalry.res
+res://village_battlesim/shieldbearer.tres::d609d8aee8e54a5e8db00ca691f15ff3::1754164609::res://.godot/exported/133200997/export-d1c7bb21e4fef29fae3ef0c64ae4f0f5-shieldbearer.res
+res://village_battlesim/spearman.tres::d41c989b4bfc4f54ef9a71836ca9512b::1746385287::res://.godot/exported/133200997/export-b8bcf0b0c2a21362b4663e8dde52dd8f-spearman.res
+res://village_battlesim/SwordsmanStats.tres::b74bb85a9718926e01ed72120e8cf932::1746903996::res://.godot/exported/133200997/export-e87db1402a21788e5f1949c6c837f397-SwordsmanStats.res
+res://village_battlesim/Unit.tscn::6f271b72dd4488011c4f81e9fbe28a88::1746888652::res://.godot/exported/133200997/export-51ecb87492dc17c68758d96fa9d00a9c-Unit.scn
