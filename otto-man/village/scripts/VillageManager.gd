@@ -94,6 +94,7 @@ signal village_data_changed
 signal resource_produced(resource_type, amount)
 signal worker_assigned(building_node, resource_type)
 signal worker_removed(building_node, resource_type)
+signal worker_list_changed  # Worker listesi değiştiğinde UI'yi güncellemek için
 signal cariye_data_changed
 signal gorev_data_changed
 signal building_state_changed(building_node)
@@ -1421,7 +1422,9 @@ func register_village_scene(scene: Node2D) -> void:
 	# Economy daily tick hookup (non-breaking)
 	var tm = get_node_or_null("/root/TimeManager")
 	if tm and tm.has_signal("day_changed"):
-		tm.connect("day_changed", Callable(self, "_on_day_changed"))
+		# Check if already connected to prevent duplicate connections
+		if not tm.day_changed.is_connected(Callable(self, "_on_day_changed")):
+			tm.connect("day_changed", Callable(self, "_on_day_changed"))
 		_last_econ_tick_day = tm.get_day() if tm.has_method("get_day") else 0
 	if tm:
 		if tm.has_signal("hour_changed") and not _time_signal_connected:
@@ -2953,22 +2956,25 @@ func _add_new_worker(NPC_Info = {}) -> bool: # <<< Dönüş tipi eklendi
 		#printerr("VillageManager: Worker instance does not have 'update_visuals' method!")
 	# <<< YENİ SONU >>>
 
-	# <<< GÜNCELLENDİ: Barınak ataması başarısız olursa işçiyi ekleme >>>
+	# <<< GÜNCELLENDİ: Önce WorkersContainer'a ekle, sonra barınak ataması yap >>>
+	# Worker'ı önce WorkersContainer'a ekle (housing atamasından önce)
+	if not workers_container:
+		#printerr("VillageManager: WorkersContainer not found! Cannot add worker to scene.")
+		worker_instance.queue_free() # Oluşturulan instance'ı sil
+		return false # Başarısız
+	
+	workers_container.add_child(worker_instance)
+	
 	# Barınak atamaya çalış (bu fonksiyon housing_node ve start_x_pos ayarlar)
+	# Worker artık WorkersContainer'da olduğu için housing sadece referans tutacak
 	if not _assign_housing(worker_instance):
 		#printerr("VillageManager: Yeni işçi (ID: %d) İÇİN BARINAK BULUNAMADI, işçi eklenmiyor." % worker_id_counter) 
 		worker_instance.queue_free() # Oluşturulan instance'ı sil
 		# ID sayacını geri almalı mıyız? Şimdilik almıyoruz, ID'ler atlanmış olacak.
 		return false # Başarısız
 
-	# Barınak bulunduysa sahneye ve listeye ekle
-	if workers_container:
-		workers_container.add_child(worker_instance)
-		worker_instance.Initialize_Existing_Villager(NPC_Info)
-	else:
-		#printerr("VillageManager: WorkersContainer not found! Cannot add worker to scene.")
-		worker_instance.queue_free() # Oluşturulan instance'ı sil
-		return false # Başarısız
+	# Barınak bulunduysa initialize et ve listeye ekle
+	worker_instance.Initialize_Existing_Villager(NPC_Info)
 		
 	# Yeni işçiyi listeye ekle (Sadece sahneye eklendiyse)
 	var worker_data = {

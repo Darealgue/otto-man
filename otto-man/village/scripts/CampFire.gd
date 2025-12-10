@@ -135,9 +135,14 @@ func add_occupant(worker: Node) -> bool:
 	if not can_add_occupant():
 		return false
 	
-	# İşçiyi ekle
-	add_child(worker)
-	print("Campfire: Occupant added. Current: %d/%d" % [get_occupant_count(), get_max_capacity()])
+	# İşçiyi ekle - eğer zaten bir parent'ı varsa (örn. WorkersContainer) child olarak ekleme
+	# Sadece referans tut (housing_node zaten set edilmiş)
+	if worker.get_parent() == null:
+		add_child(worker)
+		print("Campfire: Occupant added as child. Current: %d/%d" % [get_occupant_count(), get_max_capacity()])
+	else:
+		# Worker zaten WorkersContainer'da, sadece referans tut
+		print("Campfire: Occupant added (already has parent: %s). Current: %d/%d" % [worker.get_parent().name, get_occupant_count(), get_max_capacity()])
 	return true
 
 # Bir işçiyi çıkarır

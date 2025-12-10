@@ -30,8 +30,10 @@ var enemy_id: String = ""
 # Node references
 @onready var sprite = $AnimatedSprite2D
 @onready var hitbox = $Hitbox
-@onready var hurtbox = $Hurtbox
-@onready var state_machine = $StateMachine
+# Hurtbox can be HurtBox or Hurtbox (case sensitivity)
+var hurtbox: Area2D = null
+# StateMachine is optional - not all enemies have it
+var state_machine: Node = null
 
 # Basic state tracking
 var current_behavior: String = "idle"
@@ -93,9 +95,10 @@ func _ready() -> void:
 	# Notify initial health for external UI (e.g., boss bar)
 	_health_emit_changed()
 	
-	call_deferred("_initialize_components")
-	
+	# Initialize components - wait one frame for @onready vars to be initialized
+	# Then call _initialize_components directly (not deferred) to ensure it runs
 	await get_tree().process_frame
+	_initialize_components()
 	
 	if global_position.is_equal_approx(Vector2.ZERO):
 		push_warning("[Enemy:%s] Enemy initialized at origin (0,0)" % enemy_id)
@@ -482,9 +485,12 @@ func _spawn_blood_particles(damage_amount: float = 10.0) -> void:
 			particle.set_damage_amount(damage_amount)
  
 func _initialize_components() -> void:
-	hurtbox = $Hurtbox
+	# Try both HurtBox and Hurtbox (case sensitivity issue)
+	hurtbox = get_node_or_null("HurtBox")
 	if not hurtbox:
-		push_error("Hurtbox node not found in enemy")
+		hurtbox = get_node_or_null("Hurtbox")
+	if not hurtbox:
+		push_error("Hurtbox node not found in enemy (tried HurtBox and Hurtbox)")
 		return
 	# Connect hurt signal if not already and if hurt signal exists
 	if hurtbox.has_signal("hurt") and not hurtbox.hurt.is_connected(_on_hurtbox_hurt):
@@ -495,10 +501,13 @@ func _initialize_components() -> void:
 		push_error("Hitbox node not found in enemy")
 		return
 		
-	state_machine = $StateMachine
-	if not state_machine:
-		push_error("StateMachine node not found in enemy")
-		return
+	# StateMachine is optional - not all enemies have it
+	# Check if StateMachine exists, but don't error if it doesn't
+	state_machine = get_node_or_null("StateMachine")
+	if state_machine:
+		# StateMachine found, can be used
+		pass
+	# If state_machine is null, that's fine - not all enemies use it
 
 func reset() -> void:
 	# Reset all state when reusing from pool

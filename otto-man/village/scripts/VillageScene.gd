@@ -53,9 +53,10 @@ func _ready() -> void:
 
 	# <<< YENİ: Set up example NPCs after the scene is fully loaded >>>
 	# Use call_deferred to ensure all workers are created first
-	call_deferred("setup_example_npcs")
-	# Print instructions for testing
-	call_deferred("print_dialogue_test_instructions")
+	# Note: These methods are for debug/testing only, skip in exported builds
+	if OS.has_feature("debug") or OS.has_feature("editor"):
+		call_deferred("setup_example_npcs")
+		call_deferred("print_dialogue_test_instructions")
 	# <<< YENİ SONU >>>
 	Load_Existing_Villagers()
 	VillageManager.apply_current_time_schedule()
@@ -261,3 +262,13 @@ func _input(event: InputEvent) -> void:
 			else:
 				print("DEBUG: 'M' key pressed, but no active workers to remove.")
 		
+# Debug methods for testing NPCs (only in editor/debug builds)
+func setup_example_npcs() -> void:
+	# This method is intentionally empty - it's for debug/testing only
+	# In exported builds, this won't be called due to OS.has_feature check
+	pass
+
+func print_dialogue_test_instructions() -> void:
+	# This method is intentionally empty - it's for debug/testing only
+	# In exported builds, this won't be called due to OS.has_feature check
+	pass

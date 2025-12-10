@@ -26,8 +26,14 @@ func can_add_occupant() -> bool:
 func add_occupant(worker: Node) -> bool:
 	if can_add_occupant():
 		current_occupants += 1
-		add_child(worker)
-		print("House %s: Occupant added. Current: %d/%d" % [name, current_occupants, max_occupants])
+		# İşçiyi ekle - eğer zaten bir parent'ı varsa (örn. WorkersContainer) child olarak ekleme
+		# Sadece referans tut (housing_node zaten set edilmiş)
+		if worker.get_parent() == null:
+			add_child(worker)
+			print("House %s: Occupant added as child. Current: %d/%d" % [name, current_occupants, max_occupants])
+		else:
+			# Worker zaten WorkersContainer'da, sadece referans tut
+			print("House %s: Occupant added (already has parent: %s). Current: %d/%d" % [name, worker.get_parent().name, current_occupants, max_occupants])
 		return true
 	else:
 		print("House %s: Cannot add occupant, house is full! (%d/%d)" % [name, current_occupants, max_occupants])

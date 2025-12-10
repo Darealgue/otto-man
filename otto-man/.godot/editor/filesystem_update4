@@ -7,4 +7,3 @@ res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
 res://ui/minigames/food/Fruit.tscn
-res://autoload/LlamaService.cs

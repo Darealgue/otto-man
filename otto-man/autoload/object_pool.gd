@@ -59,15 +59,27 @@ func _initialize_pool(pool_name: String, scene: PackedScene) -> void:
 	add_child(pool_container)
 	
 	# Pre-instantiate objects
+	var instances = []
 	for i in range(max_size):
 		var instance = scene.instantiate()
 		if instance:
-			instance.process_mode = Node.PROCESS_MODE_DISABLED  # Disable until needed
+			# Add to scene tree first so _ready() can be called
 			pool_container.add_child(instance)
-			instance.hide()
+			instances.append(instance)
 			pools[pool_name].append(instance)
 		else:
 			push_error("[ObjectPool] Failed to instantiate instance for " + pool_name)
+	
+	# Wait for frames to ensure all _ready() functions are called and @onready vars are initialized
+	# This is critical for child nodes like Hurtbox and StateMachine to be found
+	# We need to wait 2 frames because _ready() uses call_deferred("_initialize_components")
+	if instances.size() > 0:
+		await get_tree().process_frame  # First frame: _ready() is called
+		await get_tree().process_frame  # Second frame: call_deferred functions execute
+		# Now disable processing for all instances
+		for instance in instances:
+			instance.process_mode = Node.PROCESS_MODE_DISABLED
+			instance.hide()
 	
 
 func get_object(pool_name: String) -> Node:

@@ -3390,12 +3390,17 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				print("[EnemyPopulate] Spawning enemy at: %s" % spawn_position)
 				
 				# Create enemy spawner
+				# In Godot 4, we can't use .new() on a script directly
+				# Instead, create a Node2D and set its script
+				var enemy_spawner = Node2D.new()
 				var enemy_spawner_script = load("res://enemy/tile_enemy_spawner.gd")
-				var enemy_spawner = enemy_spawner_script.new()
+				enemy_spawner.set_script(enemy_spawner_script)
+				# After set_script(), export variables need to be set using set() method
+				# or we need to wait a frame. Using set() is more reliable.
+				enemy_spawner.set("current_level", current_level)
+				enemy_spawner.set("chunk_type", _get_chunk_type_for_node(chunk_node))
+				enemy_spawner.set("spawn_chance", 0.6)  # 60% chance to spawn (reduced from 100%)
 				enemy_spawner.global_position = spawn_position
-				enemy_spawner.current_level = current_level
-				enemy_spawner.chunk_type = _get_chunk_type_for_node(chunk_node)
-				enemy_spawner.spawn_chance = 0.6  # 60% chance to spawn (reduced from 100%)
 				
 				# DETAILED SPAWNER DEBUG (Reduced)
 				print("[EnemyPopulate] Spawner created at: %s" % enemy_spawner.global_position)
@@ -3409,8 +3414,9 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				# DETAILED SPAWNER DEBUG AFTER ADD (Reduced)
 				print("[EnemyPopulate] Spawner added to: %s" % enemy_spawner.get_parent().name)
 				
-				# Activate spawner
-				enemy_spawner.activate()
+				# Activate spawner - use call_deferred to ensure script is fully loaded
+				# Script needs to be fully initialized before calling methods
+				enemy_spawner.call_deferred("activate")
 				
 				# Add visual marker for debug - show which tile was selected for spawning
 				print("[EnemyPopulate] Adding marker for tile: %s" % center_cell)

@@ -1799,5 +1799,7 @@ func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
 	
 func CloseNpcWindow():
 	$NpcWindow.hide()
-	NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
+	# Only disconnect if connected to prevent errors
+	if NpcDialogueManager.dialogue_processed.is_connected(NpcAnswered):
+		NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
 	VillageManager.Village_Player.set_ui_locked(false)

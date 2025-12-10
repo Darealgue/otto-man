@@ -20,39 +20,40 @@ var spawn_marker: Node2D
 const DEBUG_ENEMY: bool = true
 
 # Enemy scenes with their spawn weights (same as EnemySpawner)
-const ENEMY_TYPES = {
+# Use load() instead of preload() for better export compatibility
+var ENEMY_TYPES = {
 	"turtle": {
-		"scene": preload("res://enemy/turtle/turtle_enemy.tscn"),
+		"scene_path": "res://enemy/turtle/turtle_enemy.tscn",
 		"weight": 50,
 		"min_level": 1
 	},
 	"heavy": {
-		"scene": preload("res://enemy/heavy/heavy_enemy.tscn"),
+		"scene_path": "res://enemy/heavy/heavy_enemy.tscn",
 		"weight": 100,
 		"min_level": 1
 	},
 	"flying": {
-		"scene": preload("res://enemy/flying/flying_enemy.tscn"),
+		"scene_path": "res://enemy/flying/flying_enemy.tscn",
 		"weight": 35,
 		"min_level": 2
 	},
 	"summoner": {
-		"scene": preload("res://enemy/summoner/summoner_enemy.tscn"),
+		"scene_path": "res://enemy/summoner/summoner_enemy.tscn",
 		"weight": 25,
 		"min_level": 3
 	},
 	"canonman": {
-		"scene": preload("res://enemy/canonman/canonman_enemy.tscn"),
+		"scene_path": "res://enemy/canonman/canonman_enemy.tscn",
 		"weight": 30,
 		"min_level": 2
 	},
 	"firemage": {
-		"scene": preload("res://enemy/firemage/firemage_enemy.tscn"),
+		"scene_path": "res://enemy/firemage/firemage_enemy.tscn",
 		"weight": 20,
 		"min_level": 3
 	},
 	"spearman": {
-		"scene": preload("res://enemy/spearman/spearman_enemy.tscn"),
+		"scene_path": "res://enemy/spearman/spearman_enemy.tscn",
 		"weight": 30,
 		"min_level": 2
 	}
@@ -117,13 +118,22 @@ func _spawn_enemy() -> bool:
 			print("[TileEnemySpawner] Enemy type '%s' requires level %d, current level %d" % [selected_enemy_type, ENEMY_TYPES[selected_enemy_type].min_level, current_level])
 		return false
 	
-	# Create enemy instance
-	var enemy_scene = ENEMY_TYPES[selected_enemy_type].scene
+	# Create enemy instance - load scene at runtime for export compatibility
+	var enemy_scene_path = ENEMY_TYPES[selected_enemy_type].scene_path
+	var enemy_scene = load(enemy_scene_path)
+	if not enemy_scene:
+		push_error("[TileEnemySpawner] Failed to load enemy scene: %s" % enemy_scene_path)
+		return false
+	
+	# Verify it's a valid PackedScene
+	if not enemy_scene is PackedScene:
+		push_error("[TileEnemySpawner] Loaded resource is not a PackedScene: %s (type: %s)" % [enemy_scene_path, typeof(enemy_scene)])
+		return false
+	
 	var enemy = enemy_scene.instantiate()
 	
 	if not enemy:
-		if DEBUG_ENEMY:
-			print("[TileEnemySpawner] Failed to instantiate enemy: %s" % selected_enemy_type)
+		push_error("[TileEnemySpawner] Failed to instantiate enemy: %s" % selected_enemy_type)
 		return false
 	
 	# Add to scene
@@ -146,18 +156,23 @@ func _spawn_enemy() -> bool:
 	_spawned_enemies.append(enemy)
 	
 	# Scale enemy stats to current level
-	if enemy.has_method("get") and enemy.get("stats"):
-		var stats = enemy.get("stats")
-		if stats and stats.has_method("scale_to_level"):
-			stats.scale_to_level(current_level - 1)
-		
-		# Apply additional scaling for summoners
-		if selected_enemy_type == "summoner":
-			var summoner_scale = _spawn_config.get_summoner_scaling(current_level)
-			if enemy.has_method("set") and enemy.get("max_summons") != null:
-				enemy.set("max_summons", summoner_scale.max_summons)
-			if enemy.has_method("set") and enemy.get("summon_interval") != null:
-				enemy.set("summon_interval", summoner_scale.summon_interval)
+	# stats is an @export var in BaseEnemy, so it should always exist (but may be null)
+	# get() returns null if property doesn't exist, so we can use it directly
+	var stats = enemy.get("stats")
+	if stats and stats.has_method("scale_to_level"):
+		stats.scale_to_level(current_level - 1)
+	elif not stats:
+		push_warning("[TileEnemySpawner] Enemy %s has no stats resource assigned!" % selected_enemy_type)
+	
+	# Apply additional scaling for summoners
+	if selected_enemy_type == "summoner":
+		var summoner_scale = _spawn_config.get_summoner_scaling(current_level)
+		var max_summons = enemy.get("max_summons")
+		var summon_interval = enemy.get("summon_interval")
+		if max_summons != null:
+			enemy.set("max_summons", summoner_scale.max_summons)
+		if summon_interval != null:
+			enemy.set("summon_interval", summoner_scale.summon_interval)
 	
 	if DEBUG_ENEMY:
 		print("[TileEnemySpawner] Enemy spawn complete at: %s" % enemy.global_position)
