@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://dbk166axs4ir2"]
+
+[ext_resource type="Texture2D" uid="uid://bjtmysyurmwkv" path="res://assets/player/sprite/otto_idle_combat_border.png" id="1_idle_combat"]
+[ext_resource type="Texture2D" uid="uid://h2yeeqsq88j6" path="res://assets/player/normal/otto_idle_combat_border_n.png" id="2_idle_combat_n"]
+
+[resource]
+diffuse_texture = ExtResource("1_idle_combat")
+normal_texture = ExtResource("2_idle_combat_n")

@@ -7,3 +7,5 @@ res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
 res://ui/minigames/food/Fruit.tscn
+res://resources/player_normalmap resources/idle_combat_normal.tres
+res://resources/player_normalmap resources/doublejump_alt_normal.tres

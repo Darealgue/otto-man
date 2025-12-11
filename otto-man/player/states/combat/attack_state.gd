@@ -371,8 +371,10 @@ func _handle_movement(delta: float) -> void:
 	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
 	
 	# Calculate velocity with attack speed multiplier
+	# Only slow down movement when on ground, preserve full speed in air
+	var movement_speed_multiplier = ATTACK_SPEED_MULTIPLIER if player.is_on_floor() else 1.0
 	var target_velocity = Vector2(
-		input_dir_x * player.speed * ATTACK_SPEED_MULTIPLIER,
+		input_dir_x * player.speed * movement_speed_multiplier,
 		player.velocity.y  # Keep vertical velocity unchanged
 	)
 	
@@ -382,6 +384,7 @@ func _handle_movement(delta: float) -> void:
 	# Update player facing direction if moving
 	if input_dir_x != 0:
 		player.sprite.flip_h = input_dir_x < 0
+		player.facing_direction = sign(input_dir_x)
 	
 	# Apply movement
 	player.move_and_slide()

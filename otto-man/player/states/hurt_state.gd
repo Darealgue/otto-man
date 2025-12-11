@@ -13,6 +13,7 @@ var invincibility_timer := 0.0
 var knockback_direction := Vector2.ZERO
 var flash_timer := 0.0
 const FLASH_INTERVAL := 0.1
+var is_red_flash := true  # Track current flash state
 var original_flip_h := false
 var is_charge_knockback := false  # Track if this is from a charge attack
 var has_knockback := false  # Track if this hit should apply knockback at all
@@ -36,6 +37,7 @@ func enter() -> void:
 	hurt_timer = HURT_DURATION
 	invincibility_timer = INVINCIBILITY_DURATION
 	flash_timer = 0.0
+	is_red_flash = true  # Start with red flash
 	
 	# Get knockback data from the last hit
 	var knockback_data = player.last_hit_knockback
@@ -82,8 +84,17 @@ func enter() -> void:
 	# Force the sprite to keep its original direction # <<< BU SATIR KALDIRILDI >>>
 	# player.sprite.flip_h = original_flip_h
 	
-	# Flash the sprite red
+	# Start with red flash and ensure sprite is visible
+	player.sprite.visible = true
 	player.sprite.modulate = Color(1, 0, 0, 1)
+	
+	# Apply screen shake when taking damage
+	_apply_screen_shake()
+
+func update(delta: float) -> void:
+	# Hit stun: Block all input during hurt state
+	# Input handling is disabled - player cannot act during hit stun
+	pass
 
 func physics_update(delta: float) -> void:
 	hurt_timer -= delta
@@ -94,11 +105,16 @@ func physics_update(delta: float) -> void:
 		var to_enemy_dir = (player.last_hit_position - player.global_position).normalized()
 		player.sprite.flip_h = to_enemy_dir.x < 0
 	
-	# Handle sprite flashing
+	# Handle red flashing effect (keep sprite visible, toggle between red and white)
 	flash_timer -= delta
 	if flash_timer <= 0:
 		flash_timer = FLASH_INTERVAL
-		player.sprite.visible = !player.sprite.visible
+		# Toggle between red and white
+		is_red_flash = !is_red_flash
+		if is_red_flash:
+			player.sprite.modulate = Color(1, 0, 0, 1)  # Red
+		else:
+			player.sprite.modulate = Color(1, 1, 1, 1)  # White
 	
 	# Apply different physics based on knockback type
 	if has_knockback:
@@ -145,3 +161,29 @@ func exit() -> void:
 	
 	# Keep invincibility timer in player for other states to check
 	player.invincibility_timer = invincibility_timer
+
+func _apply_screen_shake() -> void:
+	# Apply screen shake when player takes damage
+	var screen_fx = get_node_or_null("/root/ScreenEffects")
+	if not screen_fx or not screen_fx.has_method("shake"):
+		return
+	
+	# Get damage from last hit to scale shake intensity
+	var damage = 15.0  # Default damage value
+	if player.hurtbox:
+		# last_damage is a property of BaseHurtbox/PlayerHurtbox
+		if player.hurtbox.last_damage > 0:
+			damage = player.hurtbox.last_damage
+	
+	# Scale shake based on damage (similar to enemy hitbox system)
+	var shake_duration: float
+	var shake_strength: float
+	
+	if damage >= 31:
+		shake_duration = 0.2
+		shake_strength = 6.0
+	else:
+		shake_duration = 0.15
+		shake_strength = 4.0
+	
+	screen_fx.shake(shake_duration, shake_strength)

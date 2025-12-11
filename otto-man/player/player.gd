@@ -419,19 +419,27 @@ func _physics_process(delta):
 	if invincibility_timer > 0:
 		invincibility_timer -= delta
 
-	# Apply speed multiplier to movement using flattened input
-	var grounded_input := InputManager.get_flattened_axis(&"left", &"right")
-	if grounded_input != 0:
-		velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier, acceleration * delta)
-	else:
-		apply_friction(delta)
+	# Skip default movement handling if in attack state or hurt state (these states handle their own movement)
+	var is_attacking := false
+	var is_hurt := false
+	if $StateMachine and $StateMachine.current_state:
+		is_attacking = $StateMachine.current_state.name == "Attack"
+		is_hurt = $StateMachine.current_state.name == "Hurt"
+	
+	if not is_attacking and not is_hurt:
+		# Apply speed multiplier to movement using flattened input
+		var grounded_input := InputManager.get_flattened_axis(&"left", &"right")
+		if grounded_input != 0:
+			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier, acceleration * delta)
+		else:
+			apply_friction(delta)
 
-	# Update facing direction based on movement
-	var input_dir = grounded_input
-	if input_dir != 0:
-		facing_direction = sign(input_dir)
-		# Flip the sprite based on direction
-		sprite.flip_h = facing_direction < 0
+		# Update facing direction based on movement
+		var input_dir = grounded_input
+		if input_dir != 0:
+			facing_direction = sign(input_dir)
+			# Flip the sprite based on direction
+			sprite.flip_h = facing_direction < 0
 
 	# Handle landing
 	var is_landing = is_on_floor() and not was_on_floor

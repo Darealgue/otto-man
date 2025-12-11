@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://bpeaxtp1tglj3"]
+
+[ext_resource type="Texture2D" uid="uid://dpso7b1f8cvx" path="res://assets/player/sprite/otto_doublejump2_border.png" id="1_doublejump_alt"]
+[ext_resource type="Texture2D" uid="uid://bv5ech4d86t17" path="res://assets/player/normal/ottodoublejump2deneme23-sheet_n.png" id="2_doublejump_alt_n"]
+
+[resource]
+diffuse_texture = ExtResource("1_doublejump_alt")
+normal_texture = ExtResource("2_doublejump_alt_n")

@@ -23,6 +23,10 @@ func _ready() -> void:
 		sprite.frame = 0
 		sprite.frame_progress = 0.0
 	
+	# Initialize direction and sprite direction
+	direction = patrol_direction
+	update_sprite_direction()
+	
 	# Start with patrol behavior
 	change_behavior("patrol")
 
@@ -68,8 +72,10 @@ func handle_patrol(delta: float) -> void:
 	var should_turn = _should_turn_around()
 	if should_turn:
 		patrol_direction *= -1
-		direction = patrol_direction
-		update_sprite_direction()
+	
+	# Always sync direction with patrol_direction and update sprite
+	direction = patrol_direction
+	update_sprite_direction()
 	
 	# Move in patrol direction
 	velocity.x = patrol_direction * movement_speed
@@ -329,6 +335,7 @@ func update_sprite_direction() -> void:
 			direction = target_direction
 	elif velocity.x != 0:
 		direction = sign(velocity.x)
+	# If direction is already set (e.g., from patrol_direction), use it directly
 	
 	# Flip sprite based on direction
 	if sprite:

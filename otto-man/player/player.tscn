@@ -1,4 +1,4 @@
-[gd_scene load_steps=117 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=116 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -32,7 +32,6 @@
 [ext_resource type="Texture2D" uid="uid://cwtswq0ece6fr" path="res://resources/player_normalmap resources/crouchdown_n.tres" id="23_rplfb"]
 [ext_resource type="Texture2D" uid="uid://dx8hwlwxl1a2o" path="res://resources/player_normalmap resources/dash_n.tres" id="24_nycdj"]
 [ext_resource type="Texture2D" uid="uid://ddktru40wykal" path="res://resources/player_normalmap resources/doublejump_n.tres" id="25_3drps"]
-[ext_resource type="Texture2D" uid="uid://dpso7b1f8cvx" path="res://assets/player/sprite/otto_doublejump2_border.png" id="25_doublejump2"]
 [ext_resource type="Texture2D" uid="uid://bbvw3ufxte60e" path="res://resources/player_normalmap resources/fall_n.tres" id="26_4wl23"]
 [ext_resource type="Texture2D" uid="uid://dr83wmjlhpi01" path="res://resources/player_normalmap resources/fallattack_n.tres" id="27_qmtqi"]
 [ext_resource type="Texture2D" uid="uid://defjon7dwlbxq" path="res://resources/player_normalmap resources/fallattackstart_n.tres" id="28_g7qst"]
@@ -46,7 +45,6 @@
 [ext_resource type="Texture2D" uid="uid://dpmlusxxy11oa" path="res://resources/player_normalmap resources/ledgegrab_n.tres" id="36_ro6ey"]
 [ext_resource type="Texture2D" uid="uid://c47u647h31m3d" path="res://resources/player_normalmap resources/parry_n.tres" id="38_hm23w"]
 [ext_resource type="Texture2D" uid="uid://g8q1ryk4vn7t" path="res://resources/player_normalmap resources/slide_n.tres" id="39_4mjej"]
-[ext_resource type="Texture2D" uid="uid://bjtmysyurmwkv" path="res://assets/player/sprite/otto_idle_combat_border.png" id="39_jhfyw"]
 [ext_resource type="Texture2D" uid="uid://x2ku6vsx5as6" path="res://assets/player/sprite/otto_air_attack_up1_border.png" id="40_up_attack1"]
 [ext_resource type="Texture2D" uid="uid://bk6n01ve7g1wd" path="res://resources/player_normalmap resources/walljump_n.tres" id="41_ge282"]
 [ext_resource type="Texture2D" uid="uid://sdtsrafcutc4" path="res://assets/player/sprite/otto_air_attack_up2_border.png" id="41_up_attack2"]
@@ -60,8 +58,9 @@
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/heavy_neutral_n.tres" id="47_heavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/up_heavy_n.tres" id="48_upheavyn"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/down_light_n.tres" id="49_downln"]
+[ext_resource type="Texture2D" uid="uid://bpeaxtp1tglj3" path="res://resources/player_normalmap resources/doublejump_alt_normal.tres" id="doublejump_alt_normal_tres"]
 [ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
-[ext_resource type="Texture2D" uid="uid://h2yeeqsq88j6" path="res://assets/player/normal/otto_idle_combat_border_n.png" id="idle_combat_normal"]
+[ext_resource type="Texture2D" uid="uid://dbk166axs4ir2" path="res://resources/player_normalmap resources/idle_combat_normal.tres" id="idle_combat_normal_tres"]
 [ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
 
 [sub_resource type="Animation" id="Animation_55col"]
@@ -1112,8 +1111,8 @@ tracks/2/loop_wrap = true
 tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [ExtResource("25_doublejump2")]
+"update": 0,
+"values": [ExtResource("doublejump_alt_normal_tres")]
 }
 
 [sub_resource type="Animation" id="Animation_down_heavy"]
@@ -1527,19 +1526,7 @@ tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [ExtResource("39_jhfyw")]
-}
-tracks/3/type = "value"
-tracks/3/imported = false
-tracks/3/enabled = true
-tracks/3/path = NodePath("Sprite2D:normal_map")
-tracks/3/interp = 1
-tracks/3/loop_wrap = true
-tracks/3/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [ExtResource("idle_combat_normal")]
+"values": [ExtResource("idle_combat_normal_tres")]
 }
 
 [sub_resource type="Animation" id="Animation_jump"]
