@@ -71,6 +71,9 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
+	# Check sleep state every frame (like base class)
+	check_sleep_state()
+	
 	# Only process movement and behavior if awake
 	if not is_sleeping:
 		# Handle invulnerability timer

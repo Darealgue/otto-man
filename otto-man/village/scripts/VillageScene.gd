@@ -17,6 +17,12 @@ const BakeryScene = preload("res://village/buildings/Bakery.tscn")
 @onready var time_manager: TimeManager = get_node("/root/TimeManager") # Veya doğru yolu kullanın
 @onready var time_skip_notification = $TimeSkipNotification
 
+## Kamera sınırları - Village sahnesinde oyuncu bu sınırlar dışına çıktığında kamera takibi durur
+## Bu değerleri Godot editöründe VillageScene.tscn'de ayarlayabilirsiniz
+## Veya sahne içinde "CameraLeftLimit" ve "CameraRightLimit" isimli Marker2D node'ları varsa onların pozisyonları kullanılır
+@export var camera_left_limit: float = -2000.0
+@export var camera_right_limit: float = 2000.0
+
 
 
 func _ready() -> void:
@@ -48,6 +54,9 @@ func _ready() -> void:
 	worker_assignment_ui.hide()
 	cariye_management_ui.hide()
 	# Açma butonlarını göster
+	
+	# Kamera sınırlarını ayarla
+	_setup_camera_limits()
 	open_worker_ui_button.show()
 	open_cariye_ui_button.show()
 
@@ -63,6 +72,9 @@ func _ready() -> void:
 	
 	# Reset player state after scene load (fix fall state bug)
 	call_deferred("_reset_player_on_scene_load")
+	
+	# Kamera sınırlarını ayarla (oyuncu yüklendikten sonra)
+	call_deferred("_setup_camera_limits")
 # --- UI Açma / Kapatma Fonksiyonları ---
 
 func Load_Existing_Villagers():
@@ -270,5 +282,59 @@ func setup_example_npcs() -> void:
 
 func print_dialogue_test_instructions() -> void:
 	# This method is intentionally empty - it's for debug/testing only
+	pass
+
+# --- Kamera Sınırları ---
+func _setup_camera_limits() -> void:
+	# Önce Marker2D node'larını kontrol et (görsel sınır belirleme için)
+	# Marker'lar CameraLimits node'unun altında
+	var left_marker = get_node_or_null("CameraLimits/CameraLeftLimit")
+	var right_marker = get_node_or_null("CameraLimits/CameraRightLimit")
+	
+	# Eğer Marker2D node'ları varsa, onların pozisyonlarını kullan
+	var final_left_limit = camera_left_limit
+	var final_right_limit = camera_right_limit
+	
+	if left_marker and left_marker is Marker2D:
+		final_left_limit = left_marker.global_position.x
+		print("[VillageScene] Using CameraLeftLimit Marker2D position: ", final_left_limit)
+	
+	if right_marker and right_marker is Marker2D:
+		final_right_limit = right_marker.global_position.x
+		print("[VillageScene] Using CameraRightLimit Marker2D position: ", final_right_limit)
+	
+	# Oyuncuyu bul
+	var player = get_node_or_null("Player")
+	if not player:
+		print("[VillageScene] Warning: Player not found for camera limits setup")
+		return
+	
+	# Oyuncunun kamerasını bul
+	var camera = player.get_node_or_null("Camera2D")
+	if not camera:
+		print("[VillageScene] Warning: Player Camera2D not found")
+		return
+	
+	# Eğer kamera zaten VillageCameraController scriptine sahipse, sadece limitleri güncelle
+	if camera.get_script() and camera.get_script().resource_path.ends_with("VillageCameraController.gd"):
+		camera.left_limit = final_left_limit
+		camera.right_limit = final_right_limit
+		print("[VillageScene] Updated camera limits: left=", final_left_limit, " right=", final_right_limit)
+		return
+	
+	# VillageCameraController scriptini ekle
+	var camera_script = load("res://village/scripts/VillageCameraController.gd")
+	if camera_script:
+		camera.set_script(camera_script)
+		# Script eklendikten sonra limitleri ayarla ve _ready()'nin çalışması için bekle
+		await get_tree().process_frame
+		camera.left_limit = final_left_limit
+		camera.right_limit = final_right_limit
+		# _initialize_player'ı manuel çağır (eğer _ready() çalışmadıysa)
+		if camera.has_method("_initialize_player"):
+			camera.call_deferred("_initialize_player")
+		print("[VillageScene] Added VillageCameraController to player camera with limits: left=", final_left_limit, " right=", final_right_limit)
+	else:
+		print("[VillageScene] Error: Could not load VillageCameraController.gd")
 	# In exported builds, this won't be called due to OS.has_feature check
 	pass

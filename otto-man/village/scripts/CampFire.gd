@@ -6,12 +6,76 @@ const MISSION_CENTER_SCENE = "res://village/missions/MissionCenterScene.tscn"
 var _locked_player: Node = null
 var _active_panel: CanvasLayer = null
 
+# --- Light System Variables ---
+@export var light_intensity_min: float = 0.5
+@export var light_intensity_max: float = 1.5
+@export var flicker_speed: float = 0.8
+@export var flicker_variation: float = 0.5
+@export var range_variation: float = 0.15
+
+# Day/Night light multipliers
+@export var day_energy_multiplier: float = 0.3  # Sabah/gündüz için enerji çarpanı
+@export var day_range_multiplier: float = 0.5   # Sabah/gündüz için mesafe çarpanı
+@export var night_energy_multiplier: float = 1.0  # Gece için enerji çarpanı
+@export var night_range_multiplier: float = 1.0    # Gece için mesafe çarpanı
+
+var point_light: PointLight2D
+var animated_sprite: AnimatedSprite2D
+var base_energy: float
+var base_texture_scale: float
+var time: float = 0.0
+var random_offset: float = 0.0
+var noise: FastNoiseLite
+var day_night_controller: Node = null
+
 # --- Ready Function ---
 func _ready() -> void:
 	# Housing grubuna ekle
 	if not is_in_group("Housing"):
 		add_to_group("Housing")
 		print("Campfire %s added to Housing group via code." % name)
+	
+	# AnimatedSprite2D'yi bul ve animasyonu başlat
+	animated_sprite = get_node_or_null("AnimatedSprite2D")
+	if animated_sprite:
+		animated_sprite.play("default")
+		print("Campfire: Animation started")
+	else:
+		print("Campfire: AnimatedSprite2D not found!")
+	
+	# PointLight2D'yi bul
+	point_light = get_node_or_null("PointLight2D")
+	if point_light:
+		base_energy = point_light.energy
+		base_texture_scale = point_light.texture_scale
+		# Zemin aydınlatması için z_index = -1 olan objeleri de aydınlat
+		# Light'ın z_index'ini 0 yap (Light2D kendi z_index'inden düşük veya eşit z_index'leri aydınlatır)
+		point_light.z_index = 0
+		point_light.range_z_min = -1  # z_index = -1'den başla (zemin)
+		point_light.range_z_max = 10   # Yüksek z_index'leri de aydınlat (oyuncu, NPC'ler)
+		# ParallaxBackground layer'larını aydınlatmak için range_layer ayarları
+		point_light.range_layer_min = -1  # ParallaxBackground layer = -1
+		point_light.range_layer_max = 1   # Normal layer'ları da aydınlat
+		print("Campfire: Found PointLight2D with base energy: ", base_energy, " base scale: ", base_texture_scale, " z_index: ", point_light.z_index, " z_range: ", point_light.range_z_min, " to ", point_light.range_z_max, " layer range: ", point_light.range_layer_min, " to ", point_light.range_layer_max)
+	else:
+		print("Campfire: Warning: No PointLight2D found!")
+	
+	# DayNightController'ı bul
+	day_night_controller = get_tree().get_first_node_in_group("DayNightController")
+	if not day_night_controller:
+		# Alternatif: VillageScene'den bul
+		var village_scene = get_tree().get_first_node_in_group("VillageScene")
+		if village_scene:
+			day_night_controller = village_scene.get_node_or_null("DayNightController")
+	
+	# Create random offset for flickering
+	random_offset = randf() * 10.0
+	
+	# Initialize Perlin noise for natural flickering
+	noise = FastNoiseLite.new()
+	noise.seed = randi()
+	noise.frequency = 0.15
+	noise.noise_type = FastNoiseLite.TYPE_PERLIN
 
 # --- Etkileşim Alanı ---
 func _on_interaction_area_body_entered(body: Node2D) -> void:
@@ -157,3 +221,47 @@ func remove_occupant(worker: Node) -> bool:
 		# İşçi zaten başka yerde (binaya atanmış), ama yine de başarılı sayalım
 		print("Campfire: Occupant was already moved to building, but removal successful. Current: %d/%d" % [get_occupant_count(), get_max_capacity()])
 		return true
+
+# --- Light System Functions ---
+func _process(delta: float) -> void:
+	time += delta
+	
+	if not point_light:
+		return
+	
+	# Get day/night multiplier based on time
+	var energy_multiplier = night_energy_multiplier
+	var range_multiplier = night_range_multiplier
+	
+	if TimeManager and TimeManager.has_method("get_continuous_hour_float"):
+		var current_hour = TimeManager.get_continuous_hour_float()
+		# Sabah 6-18 arası gündüz, diğerleri gece
+		if current_hour >= 6.0 and current_hour < 18.0:
+			# Gündüz - interpolate between day and night based on hour
+			var day_progress = 1.0
+			if current_hour < 9.0:  # 6-9 arası sabah (geceden gündüze geçiş)
+				day_progress = remap(current_hour, 6.0, 9.0, 0.0, 1.0)
+			elif current_hour >= 15.0:  # 15-18 arası akşam (gündüzden geceye geçiş)
+				day_progress = remap(current_hour, 15.0, 18.0, 1.0, 0.0)
+			
+			energy_multiplier = lerp(night_energy_multiplier, day_energy_multiplier, day_progress)
+			range_multiplier = lerp(night_range_multiplier, day_range_multiplier, day_progress)
+	
+	# Use Perlin noise for more natural, random flickering
+	var noise_value = noise.get_noise_1d(time * flicker_speed + random_offset)
+	var flicker = noise_value * flicker_variation
+	
+	# Add some additional randomness for more chaotic effect
+	var random_variation = randf_range(-0.05, 0.05)
+	
+	# Calculate new energy with flickering and day/night multiplier
+	var flicker_energy = base_energy + flicker + random_variation
+	flicker_energy = clamp(flicker_energy, light_intensity_min, light_intensity_max)
+	point_light.energy = flicker_energy * energy_multiplier
+	
+	# Vary the texture scale (range) with different noise pattern and day/night multiplier
+	var range_noise = noise.get_noise_1d((time + random_offset * 1.7) * flicker_speed * 0.3)
+	var range_variation_amount = range_noise * range_variation
+	var range_random = randf_range(-0.03, 0.03)
+	var scale_variation = 1.0 + range_variation_amount + range_random
+	point_light.texture_scale = base_texture_scale * scale_variation * range_multiplier

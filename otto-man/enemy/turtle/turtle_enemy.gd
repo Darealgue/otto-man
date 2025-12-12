@@ -221,6 +221,9 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(self) or global_position == Vector2.ZERO:
 		return
 	
+	# Check sleep state every frame (like base class)
+	check_sleep_state()
+	
 	# Always apply gravity (even when dead so corpse falls)
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
@@ -229,8 +232,8 @@ func _physics_process(delta: float) -> void:
 		if not (current_behavior == "hurt" and velocity.y < 0.0):
 			velocity.y = 0
 	
-	# Only process behavior if not dead
-	if current_behavior != "dead":
+	# Only process behavior if not dead and not sleeping
+	if current_behavior != "dead" and not is_sleeping:
 		# Handle invulnerability timer
 		if invulnerable:
 			invulnerability_timer -= delta

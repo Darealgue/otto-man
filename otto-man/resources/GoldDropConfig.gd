@@ -11,8 +11,8 @@ class_name GoldDropConfig
 @export var max_items: int = 6
 
 # Candidate piece values (in gold units)
-@export var coin_values: Array[int] = [1, 2, 5]
-@export var pouch_values: Array[int] = [10, 15, 25]
+@export var coin_values: Array[int] = [1, 2, 3]
+@export var pouch_values: Array[int] = [5, 10, 15]  # Lowered threshold to allow pouches for smaller drops
 
 # Lifetime and physics sleep
 @export var despawn_seconds: float = 60.0
@@ -31,8 +31,8 @@ func compose_items_for_total(total_value: int) -> Array[int]:
 	var remaining: int = max(0, total_value)
 	var result: Array[int] = []
 
-	# Prefer pouches for larger totals
-	while remaining >= 10 and result.size() < max_items:
+	# Prefer pouches for larger totals (lowered threshold from 10 to 5)
+	while remaining >= 5 and result.size() < max_items:
 		var p: int = pouch_values[randi() % pouch_values.size()]
 		if p <= remaining:
 			result.append(p)

@@ -83,6 +83,9 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
+	# Check sleep state every frame (like base class)
+	check_sleep_state()
+	
 	# Death state - yavaşça düş
 	if current_behavior == "dead":
 		if not is_sleeping:
@@ -92,10 +95,13 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	
+	# Only process movement and behavior if awake
+	if is_sleeping:
+		return
+	
 	# Hurt state - normal physics
 	if current_behavior == "hurt":
-		if not is_sleeping:
-			handle_behavior(delta)
+		handle_behavior(delta)
 		# Normal gravity uygula
 		velocity.y += GRAVITY * delta
 		move_and_slide()
@@ -104,14 +110,12 @@ func _physics_process(delta: float) -> void:
 	# Takeoff rise veya flying sırasında gravity uygulama
 	if current_behavior == "takeoff_rise" or (is_flying and not is_on_floor()):
 		# Sadece behavior ve hareket
-		if not is_sleeping:
-			handle_behavior(delta)
+		handle_behavior(delta)
 		# Sadece hareket et, gravity uygulama
 		move_and_slide()
 	elif current_behavior == "bombard":
 		# Bombard sırasında hafif gravity uygula (çok yükseğe çıkmasın)
-		if not is_sleeping:
-			handle_behavior(delta)
+		handle_behavior(delta)
 		# Hafif gravity
 		velocity.y += GRAVITY * 0.3 * delta
 		move_and_slide()

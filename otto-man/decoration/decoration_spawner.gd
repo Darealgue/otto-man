@@ -518,21 +518,43 @@ func _break_breakable(node: Node2D) -> void:
 
 	# Havuz tabanlı drop
 	var cfg: GoldDropConfig = GoldDropConfig.new()
-	var total: int = int(node.get_meta("gold_value", 10))
+	var total: int = 0
+	
+	# Önce gold_value meta'sını kontrol et (eski sistem için)
+	if node.has_meta("gold_value"):
+		total = int(node.get_meta("gold_value", 0))
+	
+	# Eğer gold_value yoksa veya 0 ise, gold_drop meta'sını kullan
 	if total <= 0:
-		total = cfg.pick_total_from_range(cfg.total_value_min, cfg.total_value_max)
+		var gold_drop: Dictionary = node.get_meta("gold_drop", {})
+		if gold_drop.has("min") and gold_drop.has("max"):
+			total = cfg.pick_total_from_range(gold_drop["min"], gold_drop["max"])
+		else:
+			# Fallback: default değerler
+			total = cfg.pick_total_from_range(cfg.total_value_min, cfg.total_value_max)
+	
 	var parts: Array[int] = cfg.compose_items_for_total(total)
 	var loot_pool: Node = get_node_or_null("/root/Loots")
+	if not loot_pool:
+		print("[DecorationSpawner] ERROR: Loots autoload not found! Cannot spawn loot.")
+		return
+	if DEBUG_DECOR:
+		print("[DecorationSpawner] Breaking breakable, total gold: ", total, " parts: ", parts)
+	print("[DecorationSpawner] Spawning ", parts.size(), " loot items from breakable")
 	for v in parts:
 		var is_pouch: bool = v > 5
 		var body: RigidBody2D = null
 		if loot_pool:
 			body = loot_pool.call("acquire", is_pouch)
 		if body == null:
+			print("[DecorationSpawner] WARNING: Failed to acquire loot body for value ", v)
 			continue
 		if not body:
+			print("[DecorationSpawner] WARNING: Acquired body is null for value ", v)
 			continue
+		print("[DecorationSpawner] Acquired loot body for value ", v, " at position ", body.global_position, " visible=", body.visible)
 		body.set_meta("gold_value", v)
+		body.set_meta("collected", false)  # Flag to prevent double collection
 		var spr: Sprite2D = body.get_node_or_null("Sprite") as Sprite2D
 		_apply_gold_visual(spr, v, false)
 		# Loot visuals should align to physics/area center (RigidBody origin)
@@ -576,7 +598,9 @@ func _break_breakable(node: Node2D) -> void:
 		# Ensure non-blocking vs player; only collide with world/platform
 		body.collision_layer = CollisionLayers.ITEM
 		body.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
-		body.global_position = node.global_position
+		# Spawn slightly above breakable to avoid spawning inside walls
+		var spawn_offset = Vector2(randf_range(-10, 10), randf_range(-20, -10))
+		body.global_position = node.global_position + spawn_offset
 		get_tree().current_scene.add_child(body)
 		# Launch: differentiate coin vs pouch behavior
 		var launch: Vector2
@@ -599,14 +623,19 @@ func _break_breakable(node: Node2D) -> void:
 			enable_timer.wait_time = (0.15 if v <= 5 else 0.25)
 			body.add_child(enable_timer)
 			enable_timer.timeout.connect(func():
-				if is_instance_valid(collect):
+				if is_instance_valid(collect) and is_instance_valid(body):
 					collect.monitoring = true
+					# Double-check that monitoring is actually enabled
+					if not collect.monitoring:
+						print("[DecorationSpawner] WARNING: Failed to enable collection monitoring for loot at ", body.global_position)
 			)
 			enable_timer.start()
 		# Sleep & despawn scheduling via pool helpers
 		if loot_pool:
 			loot_pool.call("schedule_ground_sleep", body, cfg.ground_sleep_after_s)
 			loot_pool.call("schedule_despawn", body, cfg.despawn_seconds)
+			# Don't enforce cap immediately - let despawn timer handle cleanup
+			# Cap enforcement was causing newly spawned loot to disappear
 			if DEBUG_LOOT:
 				var dbg := Timer.new()
 				dbg.one_shot = true
@@ -840,7 +869,13 @@ func _play_pot_break_animation(node: Node2D) -> void:
 func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 	if not coin:
 		return
+	# Prevent double collection
+	if coin.get_meta("collected", false):
+		return
 	if body and _is_player_node(body):
+		# Mark as collected immediately to prevent double collection
+		coin.set_meta("collected", true)
+		
 		var gold_value = int(coin.get_meta("gold_value", 1))
 		
 		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
@@ -862,6 +897,14 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 		
 		print("[DecorationSpawner] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 		_create_collection_effect(coin.global_position)
+		
+		# Disconnect signals to prevent further collection attempts
+		var collect: Area2D = coin.get_node_or_null("CollectArea")
+		if collect:
+			_disconnect_all_signals(collect, "body_entered")
+			_disconnect_all_signals(collect, "area_entered")
+			collect.monitoring = false
+		
 		if coin is RigidBody2D and get_node_or_null("/root/Loots"):
 			get_node("/root/Loots").call("release", coin)
 		else:
@@ -870,6 +913,9 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 func _on_dropped_gold_area_entered(area: Area2D, coin: Node2D) -> void:
 	# Filter strictly for player owner areas
 	if not area:
+		return
+	# Prevent double collection
+	if coin.get_meta("collected", false):
 		return
 	var owner := area.get_parent()
 	if owner and owner.is_in_group("player"):

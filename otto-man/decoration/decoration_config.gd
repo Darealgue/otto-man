@@ -24,22 +24,22 @@ enum SpawnLocation {
 const GOLD_TYPES = {
 	"single_coin": {
 		"weight": 70,
-		"gold_value": 5,
+		"gold_value": 1,  # Changed from 5 to 1
 		"sprites": ["res://assets/gold/single_coin.png"]
 	},
 	"small_pile": {
 		"weight": 20,
-		"gold_value": 15,
+		"gold_value": 5,  # Changed from 15 to 5
 		"sprites": ["res://assets/gold/small_pile.png"]
 	},
 	"large_pile": {
 		"weight": 8,
-		"gold_value": 30,
+		"gold_value": 10,  # Changed from 30 to 10
 		"sprites": ["res://assets/gold/large_pile.png"]
 	},
 	"gold_pouch": {
 		"weight": 2,
-		"gold_value": 100,
+		"gold_value": 25,  # Changed from 100 to 25
 		"sprites": ["res://assets/gold/gold_pouch.png"]
 	}
 }

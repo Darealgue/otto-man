@@ -10,7 +10,7 @@ script = ExtResource("2_ret")
 
 [node name="LevelGenerator" type="Node2D" parent="."]
 script = ExtResource("1_gen")
-current_level = 3
+current_level = 5
 
 [node name="PauseMenuLayer" type="CanvasLayer" parent="."]
 layer = 100

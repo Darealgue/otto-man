@@ -32,18 +32,26 @@ func acquire(is_pouch: bool) -> RigidBody2D:
 	body.freeze = false
 	body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 	body.angular_damp = 1.0
-	_enforce_cap()
+	# Don't enforce cap here - let the caller add it to scene first
+	# This prevents newly spawned loot from being immediately released
 	return body
 
 func release(body: RigidBody2D) -> void:
 	if not body:
 		return
+	if not is_instance_valid(body):
+		return
+	# Debug: print when loot is released (only if visible and not collected, meaning it was just spawned)
+	if body.visible and not body.get_meta("collected", false):
+		print("[LootPool] Releasing visible loot at ", body.global_position, " value=", body.get_meta("gold_value", 0))
 	if _active.has(body):
 		_active.erase(body)
 	body.linear_velocity = Vector2.ZERO
 	body.angular_velocity = 0.0
 	body.visible = false
 	body.global_position = Vector2(-10000, -10000)
+	# Reset collected flag for reuse
+	body.set_meta("collected", false)
 	var is_pouch: bool = int(body.get_meta("gold_value", 1)) > 5
 	if is_pouch:
 		_free_pouches.append(body)
@@ -87,9 +95,37 @@ func schedule_ground_sleep(body: RigidBody2D, delay: float) -> void:
 func _enforce_cap() -> void:
 	if active_cap <= 0:
 		return
-	while _active.size() > active_cap:
-		var victim := _active[0]
-		release(victim)
+	# DISABLED: This was causing newly spawned loot to disappear immediately
+	# Let despawn timers handle cleanup instead
+	# Only release loot that has been spawned for at least 5 seconds
+	# This prevents newly spawned loot from being immediately released
+	var to_release := []
+	for i in range(_active.size()):
+		if i >= active_cap:
+			var victim := _active[i]
+			if not is_instance_valid(victim):
+				continue
+			# Check if loot has been in scene for at least 5 seconds
+			# by checking if it has a despawn timer with elapsed time >= 5 seconds
+			var has_despawn_timer := false
+			var timer_age := 0.0
+			if victim.is_inside_tree():
+				for child in victim.get_children():
+					if child is Timer and child.one_shot:
+						# Check if this is the despawn timer (should have wait_time around 60s)
+						if child.wait_time > 10.0:  # Despawn timer is usually 60s
+							has_despawn_timer = true
+							timer_age = child.wait_time - child.time_left
+							break
+			# If it doesn't have a despawn timer yet, or timer is too new (< 5 seconds), skip it
+			if not has_despawn_timer or timer_age < 5.0:
+				continue
+			to_release.append(victim)
+	
+	for victim in to_release:
+		if is_instance_valid(victim):
+			print("[LootPool] _enforce_cap releasing old loot at ", victim.global_position)
+			release(victim)
 
 func _make_loot(is_pouch: bool) -> RigidBody2D:
 	var rb := RigidBody2D.new()

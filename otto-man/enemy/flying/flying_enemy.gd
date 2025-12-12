@@ -409,6 +409,13 @@ func die() -> void:
 	# object_pool.return_object(self, pool_name)
 
 func _physics_process(delta: float) -> void:
+	# Skip all processing if position is invalid
+	if global_position == Vector2.ZERO:
+		return
+	
+	# Check sleep state every frame (like base class)
+	check_sleep_state()
+	
 	# Handle invulnerability timer
 	if invulnerability_timer > 0:
 		invulnerability_timer -= delta
@@ -418,6 +425,10 @@ func _physics_process(delta: float) -> void:
 			if hurtbox:
 				hurtbox.monitoring = true
 				hurtbox.monitorable = true
+	
+	# Only process movement and behavior if awake
+	if is_sleeping:
+		return
 	
 	match current_behavior:
 		"dead":
