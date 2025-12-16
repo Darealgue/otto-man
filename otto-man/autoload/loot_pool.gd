@@ -23,10 +23,17 @@ func _prewarm() -> void:
 func acquire(is_pouch: bool) -> RigidBody2D:
 	var arr := _free_pouches if is_pouch else _free_coins
 	var body: RigidBody2D = null
-	if arr.size() > 0:
+	# Try to get a valid body from the pool
+	while arr.size() > 0:
 		body = arr.pop_back()
-	else:
+		if is_instance_valid(body):
+			break
+		body = null
+	
+	# If no valid body found, create a new one
+	if body == null:
 		body = _make_loot(is_pouch)
+	
 	_active.append(body)
 	body.visible = true
 	body.freeze = false

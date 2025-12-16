@@ -224,29 +224,23 @@ func _on_scene_change_started(target_path: String) -> void:
 
 func schedule_skip_next_snapshot() -> void:
 	set("_skip_next_snapshot", true)
-	print("[VillageManager] ⏭️ DEBUG: Next snapshot will be skipped")
 
 func snapshot_state_for_scene_exit() -> void:
 	var skip_flag: bool = false
 	if "_skip_next_snapshot" in self:
 		skip_flag = bool(get("_skip_next_snapshot"))
 	if skip_flag:
-		print("[VillageManager] ⏭️ DEBUG: Skipping snapshot_state_for_scene_exit() as requested")
 		set("_skip_next_snapshot", false)
 		return
-	print("[VillageManager] 📸 DEBUG: Starting snapshot_state_for_scene_exit()")
+	
 	if not is_instance_valid(village_scene_instance):
-		print("[VillageManager] ⚠️ DEBUG: village_scene_instance is not valid, skipping snapshot")
 		return
 
 	_saved_building_states.clear()
 	var placed_buildings := village_scene_instance.get_node_or_null("PlacedBuildings")
 	if not placed_buildings:
-		print("[VillageManager] ⚠️ DEBUG: PlacedBuildings node not found!")
 		return
 	
-	var building_count = 0
-	print("[VillageManager] 🔍 DEBUG: Found PlacedBuildings node, scanning children...")
 	for building in placed_buildings.get_children():
 			if not (building is Node2D):
 				continue
@@ -265,18 +259,12 @@ func snapshot_state_for_scene_exit() -> void:
 				var level_val = building.get("level")
 				if level_val != null:
 					entry["level"] = int(level_val)
-					print("[VillageManager] 💾 DEBUG: Building %s - Level saved: %d" % [scene_path.get_file(), entry["level"]])
-			else:
-				print("[VillageManager] ⚠️ DEBUG: Building %s - No 'level' property found" % scene_path.get_file())
 			if "assigned_workers" in building:
 				entry["assigned_workers"] = int(building.assigned_workers)
-				print("[VillageManager] 💾 DEBUG: Building %s - Assigned workers saved: %d" % [scene_path.get_file(), entry["assigned_workers"]])
 			if "max_workers" in building:
 				entry["max_workers"] = int(building.max_workers)
-				print("[VillageManager] 💾 DEBUG: Building %s - Max workers saved: %d" % [scene_path.get_file(), entry["max_workers"]])
 			if "assigned_worker_ids" in building:
 				entry["assigned_worker_ids"] = (building.assigned_worker_ids as Array).duplicate(true)
-				print("[VillageManager] 💾 DEBUG: Building %s - Worker IDs saved: %s" % [scene_path.get_file(), entry["assigned_worker_ids"]])
 			if "produced_resource" in building:
 				entry["produced_resource"] = String(building.produced_resource)
 			if "required_resources" in building:
@@ -303,10 +291,6 @@ func snapshot_state_for_scene_exit() -> void:
 				entry["upgrade_time_total"] = float(building.upgrade_time_seconds)
 			entry["fetch_progress"] = entry.get("fetch_progress", {})
 			_saved_building_states.append(entry)
-			building_count += 1
-			print("[VillageManager] 💾 DEBUG: Snapshot entry created for building: %s at %s (key: %s)" % [scene_path.get_file(), str(node2d.global_position), entry.get("key", "")])
-	
-	print("[VillageManager] ✅ DEBUG: Snapshot complete - %d buildings saved" % building_count)
 	
 	# Save resource levels and production progress
 	_saved_resource_levels = resource_levels.duplicate(true)
@@ -315,7 +299,6 @@ func snapshot_state_for_scene_exit() -> void:
 	_saved_worker_states.clear()
 	var worker_ids := all_workers.keys()
 	worker_ids.sort()
-	print("[VillageManager] 💾 DEBUG: Saving %d workers..." % worker_ids.size())
 	for worker_id in worker_ids:
 		var worker_data = all_workers.get(worker_id, {})
 		if not worker_data:
@@ -340,10 +323,6 @@ func snapshot_state_for_scene_exit() -> void:
 			"building_key": building_key
 		}
 		_saved_worker_states.append(worker_entry)
-		print("[VillageManager] 💾 DEBUG: Worker %d saved - Job: %s, Building: %s" % [worker_id, job_type, building_key])
-	
-	print("[VillageManager] ✅ DEBUG: %d workers saved to snapshot" % _saved_worker_states.size())
-	print("[VillageManager] 💾 DEBUG: Resources saved: %s" % str(_saved_resource_levels))
 	
 	if is_instance_valid(VillagerAiInitializer):
 		VillagerAiInitializer.Saved_Villagers.clear()
@@ -377,91 +356,62 @@ func _reset_worker_runtime_data() -> void:
 	idle_workers = 0
 
 func _restore_saved_buildings() -> Dictionary:
-	print("[VillageManager] 🔄 DEBUG: Starting _restore_saved_buildings()")
 	var restored_map: Dictionary = {}
 	if not is_instance_valid(village_scene_instance):
-		print("[VillageManager] ⚠️ DEBUG: village_scene_instance is not valid, cannot restore buildings")
 		return restored_map
 	if _saved_building_states.is_empty():
-		print("[VillageManager] ⚠️ DEBUG: _saved_building_states is empty, nothing to restore")
-		return restored_map
-	print("[VillageManager] 🔍 DEBUG: Restoring %d buildings from snapshot" % _saved_building_states.size())
-	var placed_buildings := village_scene_instance.get_node_or_null("PlacedBuildings")
-	if not placed_buildings:
-		print("[VillageManager] ⚠️ DEBUG: PlacedBuildings node not found!")
 		return restored_map
 	
-	var existing_count = placed_buildings.get_child_count()
-	print("[VillageManager] 🔍 DEBUG: Clearing %d existing buildings..." % existing_count)
+	var placed_buildings := village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return restored_map
+	
 	for child in placed_buildings.get_children():
 		child.queue_free()
 	
 	var restored_count = 0
 	for entry in _saved_building_states:
 		var scene_path: String = entry.get("scene_path", "")
-		if scene_path.is_empty():
-			print("[VillageManager] ⚠️ DEBUG: Entry has empty scene_path, skipping")
-			continue
-		if not ResourceLoader.exists(scene_path):
-			print("[VillageManager] ⚠️ DEBUG: Scene path does not exist: %s" % scene_path)
+		if scene_path.is_empty() or not ResourceLoader.exists(scene_path):
 			continue
 		var packed := load(scene_path)
 		if not (packed is PackedScene):
-			print("[VillageManager] ⚠️ DEBUG: Loaded resource is not a PackedScene: %s" % scene_path)
 			continue
 		var building_instance = (packed as PackedScene).instantiate()
 		placed_buildings.add_child(building_instance)
-		print("[VillageManager] ✅ DEBUG: Building instance created: %s" % scene_path.get_file())
 		if building_instance is Node2D:
 			var node2d := building_instance as Node2D
 			var saved_global_pos: Vector2 = _to_vector2(entry.get("global_position", entry.get("position", Vector2.ZERO)))
 			var saved_local_pos = entry.get("local_position", null)
 			node2d.global_position = saved_global_pos
-			print("[VillageManager] 📍 DEBUG: Building %s positioned at global: %s" % [scene_path.get_file(), str(saved_global_pos)])
 			if saved_local_pos is Vector2:
 				node2d.position = saved_local_pos
-				print("[VillageManager] 📍 DEBUG: Using saved local position: %s" % str(saved_local_pos))
 			elif is_instance_valid(placed_buildings):
 				node2d.position = placed_buildings.to_local(saved_global_pos)
-				print("[VillageManager] 📍 DEBUG: Calculated local position: %s" % str(node2d.position))
 		if entry.has("level"):
 			var saved_level = entry.get("level")
 			if saved_level != null:
 				var level_int = int(saved_level)
 				if "level" in building_instance:
 					building_instance.set("level", level_int)
-					print("[VillageManager] ✅ DEBUG: Building %s level restored to: %d" % [scene_path.get_file(), level_int])
 					if building_instance.has_method("_update_texture"):
 						building_instance._update_texture()
 					elif building_instance.has_method("update_texture"):
 						building_instance.update_texture()
-				else:
-					print("[VillageManager] ⚠️ DEBUG: Building %s has no 'level' property, cannot restore level %d" % [scene_path.get_file(), level_int])
-			else:
-				print("[VillageManager] ⚠️ DEBUG: Entry has 'level' key but value is null")
-		else:
-			print("[VillageManager] ⚠️ DEBUG: Entry does not have 'level' key")
 		var max_workers_restored := false
 		if entry.has("max_workers"):
 			var saved_max_workers = entry.get("max_workers", null)
 			if saved_max_workers != null and "max_workers" in building_instance:
 				building_instance.max_workers = int(saved_max_workers)
 				max_workers_restored = true
-				print("[VillageManager] 👷 DEBUG: Building %s max_workers restored to: %d" % [scene_path.get_file(), int(saved_max_workers)])
 		elif "max_workers" in building_instance and "level" in building_instance:
 			building_instance.max_workers = max(int(building_instance.max_workers), int(building_instance.level))
-			print("[VillageManager] 👷 DEBUG: Building %s max_workers derived from level: %d" % [scene_path.get_file(), int(building_instance.max_workers)])
 		if entry.has("assigned_workers"):
 			var saved_workers = int(entry.get("assigned_workers", 0))
 			if "assigned_workers" in building_instance:
 				building_instance.assigned_workers = saved_workers
-				print("[VillageManager] 👷 DEBUG: Building %s assigned_workers restored to: %d" % [scene_path.get_file(), saved_workers])
 				if "max_workers" in building_instance:
 					building_instance.max_workers = max(int(building_instance.max_workers), saved_workers)
-					if not max_workers_restored:
-						print("[VillageManager] 👷 DEBUG: Building %s max_workers adjusted to accommodate assigned workers: %d" % [scene_path.get_file(), int(building_instance.max_workers)])
-			else:
-				print("[VillageManager] ⚠️ DEBUG: Building %s has no 'assigned_workers' property, cannot restore %d" % [scene_path.get_file(), saved_workers])
 		if entry.has("assigned_worker_ids"):
 			var saved_ids = entry.get("assigned_worker_ids", [])
 			if "assigned_worker_ids" in building_instance:
@@ -471,11 +421,6 @@ func _restore_saved_buildings() -> Dictionary:
 						if id_val is int:
 							worker_ids_array.append(id_val)
 					building_instance.set("assigned_worker_ids", worker_ids_array)
-					print("[VillageManager] 👷 DEBUG: Building %s assigned_worker_ids restored: %s" % [scene_path.get_file(), str(worker_ids_array)])
-				else:
-					print("[VillageManager] ⚠️ DEBUG: Building %s saved_worker_ids is not Array: %s" % [scene_path.get_file(), str(saved_ids)])
-			else:
-				print("[VillageManager] ⚠️ DEBUG: Building %s has no 'assigned_worker_ids' property" % scene_path.get_file())
 		if entry.has("produced_resource") and "produced_resource" in building_instance:
 			building_instance.produced_resource = String(entry.get("produced_resource", ""))
 		if entry.has("required_resources") and "required_resources" in building_instance:
@@ -513,12 +458,8 @@ func _restore_saved_buildings() -> Dictionary:
 		var key: String = entry.get("key", "")
 		if key != "":
 			restored_map[key] = building_instance
-			print("[VillageManager] ✅ DEBUG: Building %s added to restored_map with key: %s" % [scene_path.get_file(), key])
-		else:
-			print("[VillageManager] ⚠️ DEBUG: Building %s has no key, not added to restored_map" % scene_path.get_file())
 		restored_count += 1
 	
-	print("[VillageManager] ✅ DEBUG: Restore complete - %d buildings restored, %d in restored_map" % [restored_count, restored_map.size()])
 	return restored_map
 
 func _on_time_advanced(total_minutes: int, start_day: int, start_hour: int, start_minute: int) -> void:
@@ -1631,76 +1572,64 @@ func get_building_requirements(building_scene_path: String) -> Dictionary:
 func can_meet_requirements(building_scene_path: String) -> bool:
 	var requirements = get_building_requirements(building_scene_path)
 	if requirements.is_empty():
-		#printerr("VillageManager: Bilinmeyen bina gereksinimi: ", building_scene_path)
 		return false
 
 	# 1. Altın Maliyetini Kontrol Et
 	var cost = requirements.get("cost", {})
 	var gold_cost = cost.get("gold", 0)
 	if GlobalPlayerData.gold < gold_cost:
-		print("DEBUG VillageManager: Yetersiz Altın (Gereken: %d, Mevcut: %d)" % [gold_cost, GlobalPlayerData.gold])
 		return false
 
 	# 2. Kaynak Maliyetlerini Kontrol Et
 	for resource_type in cost:
 		if resource_type == "gold":
-			continue # Altın zaten kontrol edildi
+			continue
 		
 		var required_amount = cost.get(resource_type, 0)
 		if required_amount > 0:
 			var available_amount = resource_levels.get(resource_type, 0)
 			if available_amount < required_amount:
-				print("DEBUG VillageManager: Yetersiz %s (Gereken: %d, Mevcut: %d)" % [resource_type, required_amount, available_amount])
 				return false
 
 	# 3. Gerekli Kaynak Seviyelerini Kontrol Et
 	var required_levels = requirements.get("requires_level", {})
 	for resource_type in required_levels:
 		var required_level = required_levels[resource_type]
-		# Kullanılabilir (kilitli olmayan) seviyeyi kontrol et
 		var available_level = get_available_resource_level(resource_type)
 		if available_level < required_level:
-			print("DEBUG VillageManager: Yetersiz %s Seviyesi (Gereken: %d, Mevcut Kullanılabilir: %d)" % [resource_type, required_level, available_level])
 			return false
 
-	print("DEBUG VillageManager: Tüm gereksinimler karşılanıyor.")
-	return true # Tüm gereksinimler tamam
+	return true
 
 # Boş bir inşa alanı bulur ve pozisyonunu döndürür, yoksa INF döner
 func find_free_building_plot() -> Vector2:
 	if not village_scene_instance:
-		print("DEBUG VillageManager: find_free_building_plot - VillageScene referansı yok!")
-		return Vector2.INF # Hata durumunu belirtmek için Vector2.INF iyi bir seçenek
+		push_warning("[VillageManager] find_free_building_plot - VillageScene referansı yok!")
+		return Vector2.INF
 
-	# VillageScene'den plot marker ve yerleştirilmiş bina node'larını al
 	var plot_markers = village_scene_instance.get_node_or_null("PlotMarkers")
 	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
 
-	print("DEBUG VillageManager: PlotMarkers bulundu: ", plot_markers != null)
-	print("DEBUG VillageManager: PlacedBuildings bulundu: ", placed_buildings != null)
-
 	if not plot_markers or not placed_buildings:
-		print("DEBUG VillageManager: find_free_building_plot - PlotMarkers veya PlacedBuildings bulunamadı!")
+		push_warning("[VillageManager] find_free_building_plot - PlotMarkers veya PlacedBuildings bulunamadı!")
 		return Vector2.INF
 
 	# Her plot marker'ını kontrol et
 	for marker in plot_markers.get_children():
-		if not marker is Marker2D: continue # Sadece Marker2D'leri dikkate al
+		if not marker is Marker2D: continue
 
 		var marker_pos = marker.global_position
 		var plot_occupied = false
 
 		# Bu pozisyonda zaten bina var mı diye kontrol et
 		for building in placed_buildings.get_children():
-			if building is Node2D and building.global_position.distance_to(marker_pos) < 1.0: # Küçük bir tolerans
+			if building is Node2D and building.global_position.distance_to(marker_pos) < 1.0:
 				plot_occupied = true
-				break # Bu plot dolu, sonraki marker'a geç
+				break
 
 		if not plot_occupied:
-			print("DEBUG VillageManager: Boş plot bulundu: ", marker.name, " at ", marker_pos)
-			return marker_pos # Boş plot bulundu, pozisyonunu döndür
+			return marker_pos
 
-	print("DEBUG VillageManager: Boş plot bulunamadı.")
 	# Fallback: Mevcut yerleşik binaların yanına ofsetle yerleştir
 	if placed_buildings:
 		var count:int = placed_buildings.get_child_count()
@@ -1708,99 +1637,54 @@ func find_free_building_plot() -> Vector2:
 		if plot_markers and plot_markers.get_child_count() > 0 and plot_markers.get_child(0) is Node2D:
 			base_pos = plot_markers.get_child(0).global_position
 		var fallback_pos = base_pos + Vector2(56 * count, 0)
-		print("DEBUG VillageManager: Fallback pozisyon kullanılıyor: ", fallback_pos)
 		return fallback_pos
-	print("DEBUG VillageManager: Fallback de başarısız, Vector2.ZERO döndürülüyor")
 	return Vector2.ZERO
 
 # Verilen bina sahnesini belirtilen pozisyona yerleştirir
 func place_building(building_scene_path: String, position: Vector2) -> bool:
-	print("DEBUG VillageManager: place_building çağrıldı - Path: ", building_scene_path, " Position: ", position)
-	
 	if not village_scene_instance:
-		print("DEBUG VillageManager: place_building - VillageScene referansı yok!")
+		push_warning("[VillageManager] place_building - VillageScene referansı yok!")
 		return false
 
 	var placed_buildings_node_ref = village_scene_instance.get_node_or_null("PlacedBuildings")
 	if not placed_buildings_node_ref:
-		print("DEBUG VillageManager: place_building - PlacedBuildings node bulunamadı!")
+		push_warning("[VillageManager] place_building - PlacedBuildings node bulunamadı!")
 		return false
 
 	var building_scene = load(building_scene_path)
 	if not building_scene:
-		print("DEBUG VillageManager: Bina sahnesi yüklenemedi: %s" % building_scene_path)
-		print("DEBUG VillageManager: Dosya var mı kontrol et: ", FileAccess.file_exists(building_scene_path))
-		# Fallback: Sahne yüklenemiyorsa minimal bina oluştur (Barracks için geçici çözüm)
-		if building_scene_path == "res://village/buildings/Barracks.tscn":
-			print("DEBUG VillageManager: Fallback Barracks node oluşturuluyor")
-			var new_building_fallback := Node2D.new()
-			new_building_fallback.name = "Barracks"
-			# Script ata
-			var barracks_script := load("res://village/scripts/Barracks.gd")
-			if barracks_script:
-				new_building_fallback.set_script(barracks_script)
-			# Görsel yer tutucu
-			var sprite := Sprite2D.new()
-			var tex_path := "res://village/buildings/sprite/wood1.png"
-			if ResourceLoader.exists(tex_path):
-				sprite.texture = load(tex_path)
-			new_building_fallback.add_child(sprite)
-			# Çarpışma alanı (opsiyonel)
-			var area := Area2D.new()
-			var col := CollisionShape2D.new()
-			var rect := RectangleShape2D.new()
-			rect.size = Vector2(64, 64)
-			col.shape = rect
-			area.add_child(col)
-			new_building_fallback.add_child(area)
-			# UI yapısı (scriptin @onready referansları için)
-			var ui := Control.new()
-			ui.name = "UI"
-			ui.visible = false
-			var vbox := VBoxContainer.new()
-			vbox.name = "VBox"
-			ui.add_child(vbox)
-			var lbl := Label.new()
-			lbl.name = "SoldierInfo"
-			vbox.add_child(lbl)
-			var btn1 := Button.new(); btn1.name = "RecruitButton"; vbox.add_child(btn1)
-			var btn2 := Button.new(); btn2.name = "AssignButton"; vbox.add_child(btn2)
-			var btn3 := Button.new(); btn3.name = "CloseButton"; vbox.add_child(btn3)
-			new_building_fallback.add_child(ui)
-			# Ağaca ekle
-			placed_buildings_node_ref.add_child(new_building_fallback)
-			new_building_fallback.global_position = position
-			print("DEBUG VillageManager: Fallback Barracks başarıyla eklendi: ", position)
-			emit_signal("village_data_changed")
-			return true
+		push_error("[VillageManager] Bina sahnesi yüklenemedi: %s" % building_scene_path)
 		return false
 
 	var new_building = building_scene.instantiate()
 	placed_buildings_node_ref.add_child(new_building)
 	new_building.global_position = position
-	print("DEBUG VillageManager: Bina inşa edildi: ", new_building.name, " at ", position)
-	emit_signal("village_data_changed") # UI güncellensin
+	emit_signal("village_data_changed")
 	return true
 
 # İnşa isteğini işler (Düzeltilmiş - Her türden sadece 1 bina)
 func request_build_building(building_scene_path: String) -> bool:
-	#print("DEBUG VillageManager: request_build_building çağrıldı: ", building_scene_path)
+	print("[VillageManager] 🏗️ İnşa isteği: %s" % building_scene_path.get_file())
 	
-	# 0. Bu Türden Bina Zaten Var Mı Kontrol Et (YENİ KURAL)
+	# 0. Bu Türden Bina Zaten Var Mı Kontrol Et
 	if does_building_exist(building_scene_path):
-		#print("VillageManager: İnşa isteği reddedildi - Bu türden bir bina zaten mevcut: %s" % building_scene_path)
+		print("[VillageManager] ❌ İnşa reddedildi - Bu türden bina zaten var")
 		return false
 	
-	# 1. Gereksinimleri Kontrol Et (Seviye ve Altın)
+	# 1. Gereksinimleri Kontrol Et
 	if not can_meet_requirements(building_scene_path):
-		#print("VillageManager: İnşa isteği reddedildi - Gereksinimler karşılanmıyor.")
+		print("[VillageManager] ❌ İnşa reddedildi - Gereksinimler karşılanmıyor")
+		var reqs = get_building_requirements(building_scene_path)
+		print("[VillageManager]    Gereksinimler: %s" % reqs)
 		return false
 
-	# 2. Boş Yer Bul (Hala gerekli, belki max bina sayısı olabilir ileride)
+	# 2. Boş Yer Bul
 	var placement_position = find_free_building_plot()
-	if placement_position == Vector2.INF:
-		#print("VillageManager: İnşa isteği reddedildi - Boş yer yok.")
+	if placement_position == Vector2.INF or placement_position == Vector2.ZERO:
+		print("[VillageManager] ❌ İnşa reddedildi - Boş yer bulunamadı (pos: %s)" % placement_position)
 		return false
+
+	print("[VillageManager] ✅ Yer bulundu: %s" % placement_position)
 
 	# 3. Maliyetleri Düş (Altın ve Kaynaklar)
 	var requirements = get_building_requirements(building_scene_path)
@@ -1810,40 +1694,30 @@ func request_build_building(building_scene_path: String) -> bool:
 	var gold_cost = cost.get("gold", 0)
 	if gold_cost > 0:
 		GlobalPlayerData.add_gold(-gold_cost)
-		print("VillageManager: Altın düşüldü: %d" % gold_cost)
+		print("[VillageManager] 💰 Altın düşüldü: %d (Kalan: %d)" % [gold_cost, GlobalPlayerData.gold])
 	
 	# Kaynak maliyetlerini düş
 	for resource_type in cost:
 		if resource_type == "gold":
-			continue # Altın zaten düşüldü
+			continue
 		
 		var resource_cost = cost.get(resource_type, 0)
 		if resource_cost > 0:
 			var current_amount = resource_levels.get(resource_type, 0)
 			resource_levels[resource_type] = current_amount - resource_cost
-			print("VillageManager: %s düşüldü: %d (Kalan: %d)" % [resource_type, resource_cost, resource_levels[resource_type]])
-			emit_signal("village_data_changed") # UI güncellensin
+			print("[VillageManager] 📦 %s düşüldü: %d (Kalan: %d)" % [resource_type, resource_cost, resource_levels[resource_type]])
+			emit_signal("village_data_changed")
 
-	# 4. Gerekli Seviyeleri Kilitle (Anlık inşaatta kilit yok)
-	# Şimdilik anlık inşaat varsaydığımız için seviye kilitlemiyoruz.
-	# var required_levels = requirements.get("requires_level", {})
-	# for resource_type in required_levels:
-	#    lock_resource_level(resource_type, required_levels[resource_type])
-
-	# 5. Binayı Yerleştir
+	# 4. Binayı Yerleştir
 	if place_building(building_scene_path, placement_position):
-		#print("VillageManager: Bina inşa süreci başarıyla tamamlandı.")
-		# İnşaat bittiğinde seviyeleri aç (Eğer kilitlenmiş olsaydı)
-		# for resource_type in required_levels:
-		#    unlock_resource_level(resource_type, required_levels[resource_type])
+		print("[VillageManager] ✅ Bina başarıyla inşa edildi: %s" % building_scene_path.get_file())
 		return true
 	else:
 		# Yerleştirme başarısız olduysa altını iade et!
 		if gold_cost > 0:
 			GlobalPlayerData.add_gold(gold_cost)
-			#print("VillageManager: Altın iade edildi: %d" % gold_cost)
-		# Seviye kilitleri de açılmalıydı
-		#printerr("VillageManager: Bina yerleştirme başarısız oldu! Maliyetler iade edildi (eğer varsa).")
+			print("[VillageManager] 💰 Altın iade edildi: %d" % gold_cost)
+		push_error("[VillageManager] ❌ Bina yerleştirme başarısız oldu!")
 		return false
 
 # --- Diğer Fonksiyonlar (Cariye, Görev vb.) ---

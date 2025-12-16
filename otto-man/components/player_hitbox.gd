@@ -158,6 +158,9 @@ func _on_area_entered(area: Area2D) -> void:
 			if player_node:
 				# Refresh or extend float duration on each hit
 				player_node.air_combo_float_timer = max(player_node.air_combo_float_timer, player_node.air_combo_float_duration)
+				
+				# Recoil disabled - player no longer gets knockback from hitting enemies
+				# _apply_player_hit_recoil(player_node, area)
 			
 			hit_enemy.emit(area.get_parent())
 			
@@ -239,6 +242,70 @@ func _get_hit_effect_data() -> Dictionary:
 		# Default - rastgele efekt
 		_:
 			return {"effect_type": -1, "scale": 1.0}  # rastgele, normal boyut
+
+func _apply_player_hit_recoil(player: Node, enemy_hurtbox: Area2D) -> void:
+	"""Apply slight knockback to player when hitting an enemy for better hit feedback.
+	Player stays facing the enemy but moves backward slightly (like Hollow Knight Silksong)."""
+	if not player or not enemy_hurtbox:
+		print("[PlayerHitbox] DEBUG: _apply_player_hit_recoil - player or enemy_hurtbox is null")
+		return
+	
+	# Player must be CharacterBody2D to have velocity
+	if not player is CharacterBody2D:
+		print("[PlayerHitbox] DEBUG: _apply_player_hit_recoil - player is not CharacterBody2D")
+		return
+	
+	var player_body: CharacterBody2D = player as CharacterBody2D
+	
+	# Get enemy position to ensure player faces the enemy
+	var enemy = enemy_hurtbox.get_parent()
+	if not enemy:
+		print("[PlayerHitbox] DEBUG: _apply_player_hit_recoil - enemy is null")
+		return
+	
+	var player_pos: Vector2 = player_body.global_position
+	
+	# Get current facing direction (don't change it)
+	var current_facing: float = 1.0
+	if "facing_direction" in player:
+		current_facing = player.facing_direction
+	else:
+		# Fallback: use sprite flip
+		if "sprite" in player and player.sprite:
+			current_facing = -1.0 if player.sprite.flip_h else 1.0
+	
+	# Recoil direction is opposite of current facing direction (backward)
+	var recoil_direction: Vector2 = Vector2(-current_facing, 0.0)
+	
+	# Calculate recoil force based on attack type
+	# Pure horizontal recoil - no vertical component to keep player grounded for combos
+	var recoil_force: float = 80.0  # Base recoil force (horizontal only)
+	var recoil_up: float = 0.0      # No upward component - keep player grounded
+	
+	# Heavy attacks have more recoil
+	if current_attack_name.find("heavy") != -1:
+		recoil_force = 120.0  # Stronger horizontal recoil
+		recoil_up = 0.0       # Still no vertical component
+	# Down attacks have more recoil (still horizontal)
+	elif current_attack_name.find("down") != -1:
+		recoil_force = 100.0
+		recoil_up = 0.0       # No vertical component
+	# Up attacks have more recoil (still horizontal)
+	elif current_attack_name.find("up") != -1:
+		recoil_force = 90.0
+		recoil_up = 0.0       # No vertical component
+	
+	# Apply recoil to player velocity (backward relative to facing direction)
+	# Only apply horizontal recoil, preserve vertical velocity (gravity, jump, etc.)
+	var current_velocity: Vector2 = player_body.velocity
+	var recoil_velocity: Vector2 = recoil_direction * recoil_force
+	player_body.velocity.x = current_velocity.x + recoil_velocity.x
+	# Don't modify vertical velocity - let gravity and other systems handle it
+	
+	# Clamp horizontal recoil to prevent excessive knockback (but preserve vertical velocity)
+	var max_horizontal_recoil: float = 150.0
+	if abs(player_body.velocity.x) > max_horizontal_recoil:
+		player_body.velocity.x = sign(player_body.velocity.x) * max_horizontal_recoil
 
 func _physics_process(_delta: float) -> void:
 	# Safety check - if not active but monitoring is on, disable it

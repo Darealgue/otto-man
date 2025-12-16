@@ -1,10 +1,10 @@
-res://village/scenes/VillageScene.tscn
+res://player/player.tscn
 res://Tile set/dungeon_master_tileset.tres
 res://enemy/normal_shader.gdshader
-res://effects/screen_effects.gd
-res://player/player.tscn
 res://scenes/testing.tscn
 res://scenes/test_level.tscn
+res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
 res://village/scenes/CampFire.tscn
+res://ui/minigames/WellRhythmMinigame.gd

@@ -51,9 +51,10 @@ colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_campfire"]
 gradient = SubResource("Gradient_campfire")
+width = 256
 fill = 1
-fill_from = Vector2(0.5, 0.495413)
-fill_to = Vector2(0.816514, 0.238532)
+fill_from = Vector2(0.518349, 0.509899)
+fill_to = Vector2(0.775229, 0.275229)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_b8a2o"]
 radius = 30.0
@@ -71,10 +72,10 @@ sprite_frames = SubResource("SpriteFrames_4tcdk")
 frame_progress = 0.684173
 
 [node name="PointLight2D" type="PointLight2D" parent="."]
-position = Vector2(5, -24)
+position = Vector2(5, 11)
 color = Color(1, 0.580392, 0.196078, 1)
 range_z_min = -1
-range_z_max = 10
+range_z_max = 100
 range_layer_min = -1
 range_layer_max = 1
 shadow_enabled = true

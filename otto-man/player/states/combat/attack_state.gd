@@ -29,11 +29,31 @@ var air_combo_step := 0
 var air_combo_timer := 0.0
 var attack_buffer_timer := 0.0
 var effect_spawned := false
+var rng := RandomNumberGenerator.new()  # RNG for random combo selection
+
+# Light attack pool - all available light attacks for random combo
+var LIGHT_ATTACK_POOL := ["attack_1.1", "attack_1.2", "attack_1.3", "attack_1.4"]
+
+func _ready() -> void:
+	rng.randomize()
+
+func _choose_random_light_attack(exclude_current: bool = true) -> String:
+	# Randomly choose from light attack pool
+	var available_attacks := LIGHT_ATTACK_POOL.duplicate()
+	
+	# Exclude current attack if requested (to avoid immediate repetition)
+	if exclude_current and current_attack in available_attacks:
+		available_attacks.erase(current_attack)
+	
+	# If no attacks available (shouldn't happen), fallback to first attack
+	if available_attacks.is_empty():
+		available_attacks = LIGHT_ATTACK_POOL.duplicate()
+	
+	return available_attacks[rng.randi() % available_attacks.size()]
 
 func _choose_second_hit() -> String:
-	# Randomly choose between legacy second hit (attack_1.2) and the paired variant (attack_1.4)
-	var pool := ["attack_1.2", "attack_1.4"]
-	return pool[randi() % pool.size()]
+	# Use random selection for combo
+	return _choose_random_light_attack(true)
 
 func enter():
 	hitbox_start_time = 0.0
@@ -83,8 +103,8 @@ func enter():
 	
 	
 	# Use queued attack if available, otherwise choose based on input/counter
-	if next_attack_queued == "attack_1.2" and can_use_attack_1_2:
-		current_attack = "attack_1.2"
+	if next_attack_queued.begins_with("attack_1.") and can_use_attack_1_2:
+		current_attack = next_attack_queued
 		next_attack_queued = ""
 		can_use_attack_1_2 = false
 		can_use_attack_1_3 = true
@@ -128,8 +148,8 @@ func enter():
 				state_machine.transition_to("Fall")
 				return
 		
-		# Reset attack_1.2 availability unless we're doing attack_1.1
-		if current_attack == "attack_1.1":
+		# Enable combo continuation for any light attack
+		if current_attack.begins_with("attack_1."):
 			can_use_attack_1_2 = true
 			await_release_for_second = true
 		else:
@@ -213,48 +233,44 @@ func update(delta: float):
 	# Handle movement during attack
 	_handle_movement(delta)
 	
-	# Check for attack_1.2 input if we just performed attack_1.1 and still on ground
+	# Random combo system: any light attack can follow any other light attack
 	# First, detect release between presses to avoid auto-chaining on a single press
 	if can_use_attack_1_2 and await_release_for_second and Input.is_action_just_released("attack"):
 		await_release_for_second = false
 		# Debug print disabled to reduce console spam
-		# print("[AttackState] Release detected; second hit now allowed")
+		# print("[AttackState] Release detected; next hit now allowed")
+	# Queue next random light attack after any light attack
 	if can_use_attack_1_2 and not await_release_for_second and Input.is_action_just_pressed("attack") and player.is_on_floor():
-		var next2 := _choose_second_hit()
-		next_attack_queued = next2
+		var next_attack := _choose_random_light_attack(true)
+		next_attack_queued = next_attack
 		# Debug print disabled to reduce console spam
-		# print("[AttackState] Input buffered for second hit: ", next2)
-	# Fallback queue: if release algısı kaçtıysa, 1.1 sırasında basılı tutulan saldırıyı yine sıraya al
+		# print("[AttackState] Input buffered for next hit: ", next_attack)
+	# Fallback queue: if release detection missed, queue attack during current animation
 	if can_use_attack_1_2 and not await_release_for_second and player.is_on_floor():
-		if current_attack == "attack_1.1" and next_attack_queued == "":
+		if current_attack.begins_with("attack_1.") and next_attack_queued == "":
 			var len: float = animation_player.current_animation_length
 			if len > 0.0:
 				var prog: float = animation_player.current_animation_position / len
 				if prog >= 0.2 and prog <= 0.9 and Input.is_action_pressed("attack"):
-					var next2b := _choose_second_hit()
-					next_attack_queued = next2b
-					print("[AttackState] Fallback buffer -> ", next2b, " during 1.1")
-	# Third hit buffer (requires release again)
+					var next_attack := _choose_random_light_attack(true)
+					next_attack_queued = next_attack
+					print("[AttackState] Fallback buffer -> ", next_attack, " during ", current_attack)
+	# Third hit buffer (requires release again) - now works for any light attack
 	if can_use_attack_1_3 and await_release_for_third and Input.is_action_just_released("attack"):
 		await_release_for_third = false
-		print("[AttackState] Release detected; third hit now allowed")
-	# Only allow queuing 1.3 after 1.2 progressed enough
-	var allow_third := false
-	if animation_player.current_animation == "attack_1.2":
+		print("[AttackState] Release detected; next hit now allowed")
+	# Allow queuing next attack after any light attack progressed enough
+	var allow_next := false
+	if current_attack.begins_with("attack_1."):
 		var len3: float = animation_player.current_animation_length
 		if len3 > 0.0:
 			var prog3: float = animation_player.current_animation_position / len3
-			allow_third = prog3 >= 0.35
-	if can_use_attack_1_3 and not await_release_for_third and allow_third and Input.is_action_just_pressed("attack") and player.is_on_floor():
-		# Down basılıysa eski 1.2 (yeni 1.4) tercih edilsin, aksi halde 1.3
-		var want_old_second := Input.is_action_pressed("down")
-		var next_name := "attack_1.3"
-		if want_old_second and animation_player.has_animation("attack_1.4"):
-			next_name = "attack_1.4"
-		elif not animation_player.has_animation("attack_1.3") and animation_player.has_animation("attack_1.4"):
-			next_name = "attack_1.4"
-		next_attack_queued = next_name
-		print("[AttackState] Input buffered for third hit: ", next_attack_queued)
+			allow_next = prog3 >= 0.35
+	if can_use_attack_1_3 and not await_release_for_third and allow_next and Input.is_action_just_pressed("attack") and player.is_on_floor():
+		# Randomly choose next light attack
+		var next_attack := _choose_random_light_attack(true)
+		next_attack_queued = next_attack
+		print("[AttackState] Input buffered for next hit: ", next_attack_queued)
 	
 	# Check for air attack input
 	if Input.is_action_just_pressed("attack") and not player.is_on_floor() and not _is_air_attack(current_attack):
@@ -381,10 +397,12 @@ func _handle_movement(delta: float) -> void:
 	# Apply momentum preservation
 	player.velocity.x = lerp(player.velocity.x, target_velocity.x, 1.0 - MOMENTUM_PRESERVATION)
 	
-	# Update player facing direction if moving
-	if input_dir_x != 0:
+	# Update player facing direction if moving (but not during hit recoil)
+	if input_dir_x != 0 and player.hit_recoil_lock_timer <= 0.0:
 		player.sprite.flip_h = input_dir_x < 0
 		player.facing_direction = sign(input_dir_x)
+	elif player.hit_recoil_lock_timer > 0.0:
+		print("[AttackState] DEBUG: Facing direction update BLOCKED in _handle_movement - hit_recoil_lock_timer: %f" % player.hit_recoil_lock_timer)
 	
 	# Apply movement
 	player.move_and_slide()
@@ -431,10 +449,18 @@ func _update_hitbox_position(hitbox: Node2D) -> void:
 		var original_position = Vector2(52.625, -22.5)  # Player scene'deki orijinal pozisyon
 		var position = original_position
 		# X pozisyonunu oyuncunun bakış yönüne göre ayarla (önüne koy)
-		position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
+		# Use facing_direction instead of sprite.flip_h to respect recoil lock
+		var facing_left = false
+		if player.hit_recoil_lock_timer > 0.0:
+			# During recoil, use facing_direction to maintain correct facing
+			facing_left = player.facing_direction < 0
+		else:
+			# Normal behavior: use sprite flip
+			facing_left = player.sprite.flip_h
+		position.x = abs(position.x) * (-1 if facing_left else 1)
 		collision_shape.position = position
 		# Debug: Hitbox position set
-		print("[AttackState] Hitbox position set to: ", position, " facing: ", "left" if player.sprite.flip_h else "right")
+		print("[AttackState] Hitbox position set to: ", position, " facing: ", "left" if facing_left else "right")
 
 func _on_animation_player_animation_finished(anim_name: String):
 
@@ -449,26 +475,18 @@ func _on_animation_player_animation_finished(anim_name: String):
 				# Debug print disabled to reduce console spam
 				# print("[AttackState] FINISH | forced hitbox off")
 		
-		# If we have a queued attack_1.2/1.3/1.4 and still on ground, transition to it
-		if (
-			next_attack_queued == "attack_1.2" and can_use_attack_1_2 and player.is_on_floor()
-		) or (
-			next_attack_queued == "attack_1.3" and player.is_on_floor()
-		) or (
-			next_attack_queued == "attack_1.4" and player.is_on_floor()
-		):
+		# If we have a queued light attack and still on ground, transition to it
+		if next_attack_queued.begins_with("attack_1.") and player.is_on_floor():
 			# Avoid transitioning through the state machine to prevent animation glitches
 			# Just play the new animation directly
 			# Debug print disabled to reduce console spam
 			# print("[AttackState] Queued combo -> playing ", next_attack_queued)
 			current_attack = next_attack_queued
 			next_attack_queued = ""
-			if current_attack == "attack_1.2":
-				can_use_attack_1_2 = false
-				can_use_attack_1_3 = true
-				await_release_for_third = true
-			else:
-				can_use_attack_1_3 = false
+			# Enable next combo step for any light attack
+			can_use_attack_1_2 = false
+			can_use_attack_1_3 = true
+			await_release_for_third = true
 			
 			# Reset hitbox state for new attack
 			hitbox_enabled = false

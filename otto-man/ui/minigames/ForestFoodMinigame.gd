@@ -40,6 +40,9 @@ var _anchor_path: NodePath = NodePath("")
 var _anchor_offset: Vector2 = Vector2.ZERO
 var _bush_node: Node2D = null
 var _bush_path: NodePath = NodePath("")
+var _player_path: NodePath = NodePath("")
+var _player_node: Node2D = null
+var _cancel_distance: float = 375.0
 var _hurtbox: FoodHurtbox = null
 var _rng := RandomNumberGenerator.new()
 
@@ -65,8 +68,10 @@ func _on_minigame_ready() -> void:
 	_perfect_bonus = int(get_context_value("perfect_bonus", 2))
 	_resource_type = String(get_context_value("resource_type", ResourceType.FOOD))
 	_bush_path = _node_path_from_value(get_context_value("bush_path", NodePath("")))
+	_player_path = _node_path_from_value(get_context_value("player_path", NodePath("")))
 	_anchor_offset = Vector2(get_context_value("anchor_offset", anchor_offset_default))
 	_max_misses = int(get_context_value("max_misses", 3))
+	_cancel_distance = float(get_context_value("cancel_distance", 375.0))
 	
 	# Node'ları bul
 	_setup_nodes()
@@ -93,6 +98,13 @@ func _setup_nodes() -> void:
 			print("[FoodMinigame] Bush node found: %s" % _bush_node.name)
 		else:
 			print("[FoodMinigame] Warning: Bush node not found at path: %s" % _bush_path)
+	# Oyuncu node'unu bul
+	if not _player_path.is_empty():
+		_player_node = get_node_or_null(_player_path)
+	if _player_node == null:
+		var players := get_tree().get_nodes_in_group("player")
+		if players.size() > 0 and players[0] is Node2D:
+			_player_node = players[0] as Node2D
 
 func _setup_anchor() -> void:
 	# Anchor node'unu bul (çalının üstünde bar göstermek için)
@@ -139,6 +151,8 @@ func _setup_hurtbox() -> void:
 
 func _process(delta: float) -> void:
 	if is_finished():
+		return
+	if _handle_distance_check():
 		return
 	
 	# Bar dolum/boşalma animasyonu (sadece meyveler havada değilken)
@@ -192,8 +206,33 @@ func _is_heavy_hit(hitbox: PlayerHitbox) -> bool:
 	var attack_name := String(hitbox.current_attack_name)
 	return attack_name.find("heavy") != -1
 
+func _handle_distance_check() -> bool:
+	_setup_nodes()
+	if !_bush_node or !is_instance_valid(_bush_node):
+		emit_result(false, {"resource_type": _resource_type, "amount": 0, "fruits_collected": _fruits_collected, "misses": _misses, "bush_missing": true})
+		return true
+	if !_player_node or !is_instance_valid(_player_node):
+		return false
+	var distance: float = _bush_node.global_position.distance_to(_player_node.global_position)
+	if distance > _cancel_distance:
+		if _gauge:
+			_cleanup_gauge()
+		_reset_camera_zoom()
+		emit_result(false, {
+			"resource_type": _resource_type,
+			"amount": 0,
+			"fruits_collected": _fruits_collected,
+			"misses": _misses,
+			"distance_cancelled": true,
+			"distance": distance,
+		})
+		return true
+	return false
+
 func _attempt_hit() -> void:
 	if is_finished():
+		return
+	if _handle_distance_check():
 		return
 	
 	# Eğer meyveler hala havadaysa, yeni vuruş yapma

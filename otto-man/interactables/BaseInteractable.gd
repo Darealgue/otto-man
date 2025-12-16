@@ -103,13 +103,15 @@ func _on_router_minigame_finished(result: Dictionary) -> void:
 	_awaiting_result = false
 	var success: bool = bool(result.get("success", false))
 	var payload: Dictionary = result.get("payload", {})
+	var cancelled: bool = bool(payload.get("distance_cancelled", false))
 	if success:
 		_on_minigame_success(payload)
 		if auto_disable_on_success:
 			set_interactable_enabled(false)
 	else:
 		_on_minigame_failure(payload)
-		if auto_disable_on_failure:
+		# Uzaklaşma durumunda (cancelled) auto_disable_on_failure'ı atla
+		if auto_disable_on_failure and not cancelled:
 			set_interactable_enabled(false)
 	_on_minigame_completed(result)
 

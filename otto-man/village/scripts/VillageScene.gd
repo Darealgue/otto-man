@@ -70,6 +70,9 @@ func _ready() -> void:
 	Load_Existing_Villagers()
 	VillageManager.apply_current_time_schedule()
 	
+	# Transfer forest resources to village if returning from forest
+	call_deferred("_check_and_transfer_forest_resources")
+	
 	# Reset player state after scene load (fix fall state bug)
 	call_deferred("_reset_player_on_scene_load")
 	
@@ -132,6 +135,48 @@ func _show_notification_deferred(total_hours: float, produced_resources: Diction
 		return
 	print("[VillageScene] ✅ Showing notification...")
 	time_skip_notification.show_time_skip_notification(total_hours, produced_resources)
+
+func _check_and_transfer_forest_resources() -> void:
+	"""Check if player is returning from forest and transfer carried resources to village."""
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if not scene_manager:
+		print("[VillageScene] ⚠️ SceneManager not found")
+		return
+	
+	var payload = scene_manager.get_current_payload()
+	var source = payload.get("source", "")
+	
+	print("[VillageScene] 🔍 Checking for forest resources transfer. Payload source: '%s', payload: %s" % [source, payload])
+	
+	# Check PlayerStats for carried resources before transfer
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	if player_stats:
+		var carried = player_stats.get_carried_resources()
+		print("[VillageScene] 📦 Carried resources before transfer: %s" % carried)
+	
+	if source == "forest":
+		var game_manager = get_node_or_null("/root/GameManager")
+		if not game_manager:
+			push_warning("[VillageScene] GameManager not found, cannot transfer resources")
+			return
+		
+		print("[VillageScene] 🌲 Transferring forest resources to village...")
+		var transferred = game_manager.transfer_carried_resources_to_village()
+		
+		if transferred.is_empty():
+			print("[VillageScene] ⚠️ No resources transferred (transferred dict is empty)")
+		else:
+			var log_parts := []
+			for type in transferred.keys():
+				var amount: int = int(transferred[type])
+				if amount > 0:
+					log_parts.append("%d %s" % [amount, type])
+			if log_parts.size() > 0:
+				print("[VillageScene] ✅ Forest resources transferred to village: %s" % ", ".join(log_parts))
+			else:
+				print("[VillageScene] ⚠️ Transferred dict not empty but no positive amounts found: %s" % transferred)
+	else:
+		print("[VillageScene] ℹ️ Not returning from forest (source: '%s'), skipping resource transfer" % source)
 
 func _reset_player_on_scene_load() -> void:
 	# Ensure time scale is normal (critical fix)

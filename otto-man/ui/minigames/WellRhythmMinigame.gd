@@ -33,6 +33,9 @@ var _gauge: WellGauge = null
 var _rng := RandomNumberGenerator.new()
 var _well_path: NodePath = NodePath("")
 var _well_node: Node2D = null
+var _player_path: NodePath = NodePath("")
+var _player_node: Node2D = null
+var _cancel_distance: float = 375.0
 var _hurtbox: WellHurtbox = null
 
 func _on_minigame_ready() -> void:
@@ -46,7 +49,9 @@ func _on_minigame_ready() -> void:
 	var difficulty_level: int = clampi(int(get_context_value("difficulty", 1)), 1, 5)
 	_anchor_offset = Vector2(get_context_value("anchor_offset", anchor_offset_default))
 	_max_misses = int(get_context_value("max_misses", 3))  # 3 miss hakkı var
+	_cancel_distance = float(get_context_value("cancel_distance", 375.0))
 	_well_path = _node_path_from_value(get_context_value("well_path", NodePath("")))
+	_player_path = _node_path_from_value(get_context_value("player_path", NodePath("")))
 	_ensure_nodes()
 	_update_sweet_width(difficulty_level)
 	_setup_anchor()
@@ -60,6 +65,8 @@ func _on_minigame_ready() -> void:
 
 func _process(delta: float) -> void:
 	if is_finished():
+		return
+	if _handle_distance_check():
 		return
 	_indicator_value += _indicator_direction * _indicator_speed * delta
 	if _indicator_value <= 0.0:
@@ -163,6 +170,12 @@ func _ensure_nodes() -> void:
 			print("[WellRhythmMinigame] Well node found: %s" % _well_node.name)
 		else:
 			print("[WellRhythmMinigame] Warning: Well node not found at path: %s" % _well_path)
+	if not _player_path.is_empty():
+		_player_node = _resolve_node2d(_player_path)
+	if _player_node == null:
+		var players := get_tree().get_nodes_in_group("player")
+		if players.size() > 0 and players[0] is Node2D:
+			_player_node = players[0] as Node2D
 
 func _setup_anchor() -> void:
 	_anchor_path = _well_path
@@ -269,6 +282,27 @@ func _update_gauge_state() -> void:
 		_gauge.set_hits(_hits, _required_hits)
 		_gauge.set_sweet_spot(_sweet_center, _sweet_width)
 
+func _handle_distance_check() -> bool:
+	_ensure_nodes()
+	if !_well_node or !is_instance_valid(_well_node):
+		emit_result(false, {"resource_type": _resource_type, "amount": 0, "hits": _hits, "misses": _misses, "well_missing": true})
+		return true
+	if !_player_node or !is_instance_valid(_player_node):
+		return false
+	var distance: float = _well_node.global_position.distance_to(_player_node.global_position)
+	if distance > _cancel_distance:
+		_cleanup_gauge()
+		emit_result(false, {
+			"resource_type": _resource_type,
+			"amount": 0,
+			"hits": _hits,
+			"misses": _misses,
+			"distance_cancelled": true,
+			"distance": distance,
+		})
+		return true
+	return false
+
 func _show_resource_gain_text(amount: int) -> void:
 	# Kuyunun tepesinde "+X" floating text göster
 	if not _well_node or not is_instance_valid(_well_node):
@@ -301,4 +335,3 @@ func _show_resource_gain_text(amount: int) -> void:
 				damage_number.setup(amount, false, false)
 			label.text = "+" + str(amount)
 			label.modulate = Color(0.2, 0.6, 1.0)  # Mavi renk
-

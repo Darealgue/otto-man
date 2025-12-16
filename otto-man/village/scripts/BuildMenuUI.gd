@@ -84,7 +84,6 @@ func _update_button_states() -> void:
 	if not visible: 
 		return
 	
-	print("DEBUG BuildMenuUI: _update_button_states çağrıldı.")
 	# Her bina türü için kontrol et
 	_update_single_button_state(build_woodcutter_button, WOODCUTTER_SCENE)
 	_update_single_button_state(build_stone_mine_button, STONE_MINE_SCENE)
@@ -123,12 +122,8 @@ func _update_single_button_state(button: Button, scene_path: String):
 
 # İnşa butonuna basıldığında
 func _on_build_button_pressed(building_scene_path: String) -> void:
-	print("DEBUG BuildMenuUI: _on_build_button_pressed tetiklendi. Sahne: ", building_scene_path)
-	# VillageManager'a inşa isteği gönder
+	print("[BuildMenuUI] 🏗️ İnşa butonu basıldı: %s" % building_scene_path.get_file())
 	emit_signal("build_requested", building_scene_path)
-	# İnşa isteği sonrası menüyü kapatabiliriz veya açık bırakabiliriz
-	# visible = false 
-	# emit_signal("close_requested") 
 
 # Kapat butonuna basıldığında
 func _on_close_button_pressed() -> void:

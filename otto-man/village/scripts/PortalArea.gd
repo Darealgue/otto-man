@@ -98,9 +98,9 @@ func _trigger_transition() -> void:
 	
 	# Check mission status if returning to village
 	if destination == "village":
-		# Transfer carried resources from forest to village before mission check
-		if payload_source == "forest":
-			_transfer_forest_resources_to_village()
+		# Note: Resource transfer is now handled in VillageScene._ready() to ensure
+		# it happens after scene is fully loaded. We just ensure payload_source is set.
+		# Transfer will happen in VillageScene based on payload["source"]
 		
 		if check_mission_status:
 			await _check_and_show_mission_result(payload)

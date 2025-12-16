@@ -45,6 +45,9 @@ var _anchor_path: NodePath = NodePath("")
 var _anchor_offset: Vector2 = Vector2.ZERO
 var _rock_node: Node2D = null
 var _rock_path: NodePath = NodePath("")
+var _player_path: NodePath = NodePath("")
+var _player_node: Node2D = null
+var _cancel_distance: float = 375.0
 var _hurtbox: StoneHurtbox = null
 var _rng := RandomNumberGenerator.new()
 
@@ -60,8 +63,10 @@ func _on_minigame_ready() -> void:
 	_resource_type = String(get_context_value("resource_type", ResourceType.STONE))
 	_tier = clampi(int(get_context_value("tier", 1)), 1, 5)
 	_rock_path = _node_path_from_value(get_context_value("rock_path", NodePath("")))
+	_player_path = _node_path_from_value(get_context_value("player_path", NodePath("")))
 	_anchor_offset = Vector2(get_context_value("anchor_offset", anchor_offset_default))
 	_max_misses = int(get_context_value("max_misses", max(2, ceil(float(_required_hits) * 0.6))))
+	_cancel_distance = float(get_context_value("cancel_distance", 375.0))
 	
 	# Hız ayarlarını tier'a göre ayarla
 	_fill_speed = fill_speed_base + (fill_speed_per_tier * (_tier - 1))
@@ -85,6 +90,13 @@ func _setup_nodes() -> void:
 			print("[StoneMinigame] Rock node found: %s" % _rock_node.name)
 		else:
 			print("[StoneMinigame] Warning: Rock node not found at path: %s" % _rock_path)
+	# Oyuncu node'unu bul
+	if not _player_path.is_empty():
+		_player_node = get_node_or_null(_player_path)
+	if _player_node == null:
+		var players := get_tree().get_nodes_in_group("player")
+		if players.size() > 0 and players[0] is Node2D:
+			_player_node = players[0] as Node2D
 
 func _setup_anchor() -> void:
 	# Anchor node'unu bul (taşın üstünde bar göstermek için)
@@ -132,6 +144,8 @@ func _setup_hurtbox() -> void:
 func _process(delta: float) -> void:
 	if is_finished():
 		return
+	if _handle_distance_check():
+		return
 	
 	# Bar dolum/boşalma animasyonu
 	_fill_value += _fill_direction * _fill_speed * delta
@@ -167,8 +181,32 @@ func _is_heavy_hit(hitbox: PlayerHitbox) -> bool:
 	var attack_name := String(hitbox.current_attack_name)
 	return attack_name.find("heavy") != -1
 
+func _handle_distance_check() -> bool:
+	_setup_nodes()
+	if !_rock_node or !is_instance_valid(_rock_node):
+		emit_result(false, {"resource_type": _resource_type, "amount": 0, "hits": _current_hits, "misses": _misses, "rock_missing": true})
+		return true
+	if !_player_node or !is_instance_valid(_player_node):
+		return false
+	var distance: float = _rock_node.global_position.distance_to(_player_node.global_position)
+	if distance > _cancel_distance:
+		if _gauge:
+			_cleanup_gauge()
+		emit_result(false, {
+			"resource_type": _resource_type,
+			"amount": 0,
+			"hits": _current_hits,
+			"misses": _misses,
+			"distance_cancelled": true,
+			"distance": distance,
+		})
+		return true
+	return false
+
 func _attempt_hit() -> void:
 	if is_finished():
+		return
+	if _handle_distance_check():
 		return
 	
 	# Bar'ın sağ tarafı (fill_value 1.0 = sağ)

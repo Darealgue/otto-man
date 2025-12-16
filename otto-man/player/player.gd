@@ -73,6 +73,7 @@ var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
 var attack_cooldown_timer: float = 0.0 # <<< YENİ DEĞİŞKEN >>>
 var is_dodging: bool = false  # Track if player is currently dodging
+var hit_recoil_lock_timer: float = 0.0  # Lock facing direction during hit recoil
 var jump_input_blocked: bool = false  # Block jump input during dodge
 var jump_block_timer: float = 0.0  # Timer to keep jump blocked after dodge
 var block_input_blocked_timer: float = 0.0  # Global timer to block block input after dodge
@@ -261,6 +262,10 @@ func _physics_process(delta):
 	if attack_cooldown_timer > 0:
 		attack_cooldown_timer -= delta
 	
+	# Update hit recoil lock timer
+	if hit_recoil_lock_timer > 0:
+		hit_recoil_lock_timer -= delta
+	
 	# Update combat state timer
 	if is_in_combat:
 		combat_timer -= delta
@@ -311,10 +316,11 @@ func _physics_process(delta):
 		else:
 			set_meta("hurt_exit_timer", timer)
 	
-	# Handle sprite flipping
+	# Handle sprite flipping (but not during hit recoil)
 	if not is_wall_jumping and not (state_machine and state_machine.current_state and state_machine.current_state.name == "Hurt"):  # Don't auto-flip during hurt state
 		# Don't auto-flip for a short time after hurt state to maintain facing direction
-		if not (has_meta("hurt_exit_timer") and get_meta("hurt_exit_timer") > 0):
+		# Also don't auto-flip during hit recoil to maintain facing direction toward enemy
+		if not (has_meta("hurt_exit_timer") and get_meta("hurt_exit_timer") > 0) and hit_recoil_lock_timer <= 0.0:
 			if velocity.x < 0:
 				sprite.flip_h = true
 			elif velocity.x > 0:
@@ -434,12 +440,18 @@ func _physics_process(delta):
 		else:
 			apply_friction(delta)
 
-		# Update facing direction based on movement
+		# Update facing direction based on movement (but not during hit recoil)
 		var input_dir = grounded_input
 		if input_dir != 0:
-			facing_direction = sign(input_dir)
-			# Flip the sprite based on direction
-			sprite.flip_h = facing_direction < 0
+			if hit_recoil_lock_timer > 0.0:
+				print("[Player] DEBUG: Facing direction update BLOCKED - hit_recoil_lock_timer: %f, input_dir: %f, current facing: %f" % [hit_recoil_lock_timer, input_dir, facing_direction])
+			else:
+				var old_facing = facing_direction
+				facing_direction = sign(input_dir)
+				# Flip the sprite based on direction
+				sprite.flip_h = facing_direction < 0
+				if old_facing != facing_direction:
+					print("[Player] DEBUG: Facing direction changed from %f to %f (input_dir: %f)" % [old_facing, facing_direction, input_dir])
 
 	# Handle landing
 	var is_landing = is_on_floor() and not was_on_floor

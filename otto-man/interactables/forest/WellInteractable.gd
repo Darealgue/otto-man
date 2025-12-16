@@ -94,8 +94,6 @@ func _on_minigame_started() -> void:
 	# Minigame başladığında highlight'ı gizle
 	if _highlight_sprite:
 		_highlight_sprite.visible = false
-	# Minigame başladığında hemen devre dışı bırak (bir daha oynanamaz)
-	set_interactable_enabled(false)
 	# Hit animasyonu sadece vuruş yapıldığında oynanmalı, burada değil
 
 func _on_minigame_success(_payload: Dictionary) -> void:
@@ -103,10 +101,13 @@ func _on_minigame_success(_payload: Dictionary) -> void:
 	_play_success_animation()
 	# Kuyu zaten _on_minigame_started'da devre dışı bırakıldı
 
-func _on_minigame_failure(_payload: Dictionary) -> void:
+func _on_minigame_failure(payload: Dictionary) -> void:
+	# Uzaklaşma durumunda fail animasyonunu oynatma, idle sprite'ına geri dön
+	if payload.get("distance_cancelled", false):
+		_setup_idle_well_visual()
+		return
 	# Fail animasyonunu oynat
 	_play_fail_animation()
-	# Kuyu zaten _on_minigame_started'da devre dışı bırakıldı
 
 func set_placeholder_mode(enabled: bool) -> void:
 	placeholder_mode = enabled

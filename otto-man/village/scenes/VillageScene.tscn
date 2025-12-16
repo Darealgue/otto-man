@@ -484,6 +484,22 @@ texture = ExtResource("32_nokj2")
 position = Vector2(-3723, -378)
 texture = ExtResource("29_842wn")
 
+[node name="Bush14" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-4353, -379)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-4181, -373)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush4" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-4457, -382)
+texture = ExtResource("40_eq2dm")
+
+[node name="Bush20" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(-4672, -381)
+texture = ExtResource("38_iu58k")
+
 [node name="greenbacground" type="ParallaxLayer" parent="ParallaxBackground"]
 z_index = -2
 position = Vector2(0, -1)

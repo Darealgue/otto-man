@@ -73,20 +73,17 @@ func _on_minigame_started() -> void:
 	# Minigame başladığında highlight'ı gizle
 	if _highlight_sprite:
 		_highlight_sprite.visible = false
-	# Çalıya bir kez vurulduğunda hemen devre dışı bırak (bir daha oynanamaz)
-	print("[BushInteractable] Disabling interactable BEFORE set_interactable_enabled(false)")
-	print("[BushInteractable] Current state: disabled=", _disabled, " monitoring=", monitoring, " monitorable=", monitorable)
-	set_interactable_enabled(false)
-	print("[BushInteractable] Disabling interactable AFTER set_interactable_enabled(false)")
-	print("[BushInteractable] New state: disabled=", _disabled, " monitoring=", monitoring, " monitorable=", monitorable)
 
 func _on_minigame_success(payload: Dictionary) -> void:
 	_apply_end_visual()
 	# Çalı zaten _on_minigame_started'da devre dışı bırakıldı
 
-func _on_minigame_failure(_payload: Dictionary) -> void:
+func _on_minigame_failure(payload: Dictionary) -> void:
+	# Uzaklaşma durumunda end visual'ı uygulama, idle sprite'ına geri dön
+	if payload.get("distance_cancelled", false):
+		_setup_idle_bush_visual()
+		return
 	_apply_end_visual()
-	# Çalı zaten _on_minigame_started'da devre dışı bırakıldı
 
 func _apply_end_visual() -> void:
 	# Minigame bitince bush_end sprite'ını göster
