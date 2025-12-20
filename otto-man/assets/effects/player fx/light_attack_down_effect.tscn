@@ -1,0 +1,48 @@
+[gd_scene load_steps=8 format=3 uid="uid://dereynajt43q5"]
+
+[ext_resource type="Script" path="res://assets/effects/player fx/air_attack_effect.gd" id="1_down_effect"]
+[ext_resource type="Texture2D" uid="uid://dp18r4xe5cb2" path="res://assets/effects/player fx/otto_lightattack_down_fx.png" id="2_down_sprite"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_iwu4t"]
+atlas = ExtResource("2_down_sprite")
+region = Rect2(0, 0, 384, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_wxh6d"]
+atlas = ExtResource("2_down_sprite")
+region = Rect2(384, 0, 384, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yp8sr"]
+atlas = ExtResource("2_down_sprite")
+region = Rect2(768, 0, 384, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_m28vt"]
+atlas = ExtResource("2_down_sprite")
+region = Rect2(1152, 0, 384, 96)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_down"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_iwu4t")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wxh6d")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yp8sr")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_m28vt")
+}],
+"loop": false,
+"name": &"default",
+"speed": 20.0
+}]
+
+[node name="light_attack_down_effect" type="Node2D"]
+script = ExtResource("1_down_effect")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -73)
+sprite_frames = SubResource("SpriteFrames_down")
+offset = Vector2(0, 15)

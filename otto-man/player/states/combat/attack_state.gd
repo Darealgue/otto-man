@@ -2,7 +2,8 @@ extends State
 
 const ATTACK_SPEED_MULTIPLIER = 0.5  # 50% movement speed during attacks
 const MOMENTUM_PRESERVATION = 0.8     # Preserve 80% of previous momentum
-const ANIMATION_SPEED = 1.8          # 80% faster animations (Silksong style)
+const ANIMATION_SPEED = 1.3          # 30% faster animations (slowed down for better visibility)
+const ATTACK_FORWARD_MOMENTUM = 80.0  # Forward momentum applied at start of ground attacks
 const GROUND_ATTACK_ANIMATIONS = ["attack_1.1", "up_light", "down_light"]  # Ground variants
 const AIR_ATTACK_ANIMATIONS = ["air_attack1", "air_attack2", "air_attack3"]  # Attacks only available in air
 const UP_ATTACK_ANIMATIONS = ["air_attack_up1", "air_attack_up2"]  # Up attacks in air
@@ -33,6 +34,10 @@ var rng := RandomNumberGenerator.new()  # RNG for random combo selection
 
 # Light attack pool - all available light attacks for random combo
 var LIGHT_ATTACK_POOL := ["attack_1.1", "attack_1.2", "attack_1.3", "attack_1.4"]
+# Up combo attacks - only available during combo (not as first attack)
+var UP_COMBO_ATTACKS := ["attack_up1", "attack_up2", "attack_up3"]
+# Down combo attacks - only available during combo (not as first attack)
+var DOWN_COMBO_ATTACKS := ["attack_down1", "attack_down2"]
 
 func _ready() -> void:
 	rng.randomize()
@@ -54,6 +59,16 @@ func _choose_random_light_attack(exclude_current: bool = true) -> String:
 func _choose_second_hit() -> String:
 	# Use random selection for combo
 	return _choose_random_light_attack(true)
+
+func _choose_random_up_combo_attack() -> String:
+	# Randomly choose from up combo attack pool
+	var available_attacks := UP_COMBO_ATTACKS.duplicate()
+	return available_attacks[rng.randi() % available_attacks.size()]
+
+func _choose_random_down_combo_attack() -> String:
+	# Randomly choose from down combo attack pool
+	var available_attacks := DOWN_COMBO_ATTACKS.duplicate()
+	return available_attacks[rng.randi() % available_attacks.size()]
 
 func enter():
 	hitbox_start_time = 0.0
@@ -148,8 +163,8 @@ func enter():
 				state_machine.transition_to("Fall")
 				return
 		
-		# Enable combo continuation for any light attack
-		if current_attack.begins_with("attack_1."):
+		# Enable combo continuation for any light attack, up combo attack, or down combo attack
+		if current_attack.begins_with("attack_1.") or current_attack.begins_with("attack_up") or current_attack.begins_with("attack_down"):
 			can_use_attack_1_2 = true
 			await_release_for_second = true
 		else:
@@ -160,11 +175,8 @@ func enter():
 	
 	# Ensure animation player is reset before playing new animation
 	animation_player.stop()
-	# Per-move speed tuning (up_light felt too fast)
-	if current_attack == "up_light":
-		animation_player.speed_scale = 0.9
-	else:
-		animation_player.speed_scale = ANIMATION_SPEED
+	# Per-move speed tuning - all attacks use the same slower speed
+	animation_player.speed_scale = ANIMATION_SPEED
 	
 	# Check if animation exists before playing
 	if animation_player.has_animation(current_attack):
@@ -190,6 +202,13 @@ func enter():
 	light_combo_timer = LIGHT_COMBO_RESET_TIME
 	if _is_air_attack(current_attack):
 		air_combo_timer = AIR_COMBO_RESET_TIME
+	
+	# Apply forward momentum for ground attacks (not air attacks)
+	if player.is_on_floor() and _is_ground_attack(current_attack):
+		var forward_direction = player.facing_direction
+		if forward_direction == 0:
+			forward_direction = 1.0  # Default to right if no facing direction
+		player.velocity.x = forward_direction * ATTACK_FORWARD_MOMENTUM
 	
 	# Set up hitbox for current attack and make sure it's disabled at start
 	var hitbox = player.get_node_or_null("Hitbox")
@@ -239,36 +258,69 @@ func update(delta: float):
 		await_release_for_second = false
 		# Debug print disabled to reduce console spam
 		# print("[AttackState] Release detected; next hit now allowed")
-	# Queue next random light attack after any light attack
+	# Queue next attack after any light attack - check for up/down input first
 	if can_use_attack_1_2 and not await_release_for_second and Input.is_action_just_pressed("attack") and player.is_on_floor():
-		var next_attack := _choose_random_light_attack(true)
+		var up_strength = Input.get_action_strength("up")
+		var down_strength = Input.get_action_strength("down")
+		var next_attack: String
+		if up_strength > 0.6:
+			# Up combo attack - randomly choose from up combo pool
+			next_attack = _choose_random_up_combo_attack()
+		elif down_strength > 0.6:
+			# Down combo attack - randomly choose from down combo pool
+			next_attack = _choose_random_down_combo_attack()
+		else:
+			# Normal light attack
+			next_attack = _choose_random_light_attack(true)
 		next_attack_queued = next_attack
 		# Debug print disabled to reduce console spam
 		# print("[AttackState] Input buffered for next hit: ", next_attack)
 	# Fallback queue: if release detection missed, queue attack during current animation
 	if can_use_attack_1_2 and not await_release_for_second and player.is_on_floor():
-		if current_attack.begins_with("attack_1.") and next_attack_queued == "":
+		if (current_attack.begins_with("attack_1.") or current_attack.begins_with("attack_up") or current_attack.begins_with("attack_down")) and next_attack_queued == "":
 			var len: float = animation_player.current_animation_length
 			if len > 0.0:
 				var prog: float = animation_player.current_animation_position / len
 				if prog >= 0.2 and prog <= 0.9 and Input.is_action_pressed("attack"):
-					var next_attack := _choose_random_light_attack(true)
+					var up_strength = Input.get_action_strength("up")
+					var down_strength = Input.get_action_strength("down")
+					var next_attack: String
+					if up_strength > 0.6:
+						# Up combo attack
+						next_attack = _choose_random_up_combo_attack()
+					elif down_strength > 0.6:
+						# Down combo attack
+						next_attack = _choose_random_down_combo_attack()
+					else:
+						# Normal light attack
+						next_attack = _choose_random_light_attack(true)
 					next_attack_queued = next_attack
 					print("[AttackState] Fallback buffer -> ", next_attack, " during ", current_attack)
 	# Third hit buffer (requires release again) - now works for any light attack
 	if can_use_attack_1_3 and await_release_for_third and Input.is_action_just_released("attack"):
 		await_release_for_third = false
 		print("[AttackState] Release detected; next hit now allowed")
-	# Allow queuing next attack after any light attack progressed enough
+	# Allow queuing next attack after any light attack, up combo attack, or down combo attack progressed enough
 	var allow_next := false
-	if current_attack.begins_with("attack_1."):
+	if current_attack.begins_with("attack_1.") or current_attack.begins_with("attack_up") or current_attack.begins_with("attack_down"):
 		var len3: float = animation_player.current_animation_length
 		if len3 > 0.0:
 			var prog3: float = animation_player.current_animation_position / len3
 			allow_next = prog3 >= 0.35
 	if can_use_attack_1_3 and not await_release_for_third and allow_next and Input.is_action_just_pressed("attack") and player.is_on_floor():
-		# Randomly choose next light attack
-		var next_attack := _choose_random_light_attack(true)
+		# Check for up/down input first
+		var up_strength = Input.get_action_strength("up")
+		var down_strength = Input.get_action_strength("down")
+		var next_attack: String
+		if up_strength > 0.6:
+			# Up combo attack
+			next_attack = _choose_random_up_combo_attack()
+		elif down_strength > 0.6:
+			# Down combo attack
+			next_attack = _choose_random_down_combo_attack()
+		else:
+			# Randomly choose next light attack
+			next_attack = _choose_random_light_attack(true)
 		next_attack_queued = next_attack
 		print("[AttackState] Input buffered for next hit: ", next_attack_queued)
 	
@@ -318,7 +370,7 @@ func _is_air_attack(attack_name: String) -> bool:
 
 # Helper function to check if the current attack is a ground attack
 func _is_ground_attack(attack_name: String) -> bool:
-	var is_ground = GROUND_ATTACK_ANIMATIONS.has(attack_name) or attack_name == "attack_1.2" or attack_name == "attack_1.3" or attack_name == "attack_1.4"
+	var is_ground = GROUND_ATTACK_ANIMATIONS.has(attack_name) or attack_name == "attack_1.2" or attack_name == "attack_1.3" or attack_name == "attack_1.4" or attack_name.begins_with("attack_up") or attack_name.begins_with("attack_down")
 	return is_ground
 
 func _update_hitbox():
@@ -339,7 +391,15 @@ func _update_hitbox():
 	if current_attack == "up_light":
 		start = 0.30
 		finish = 0.45
+	elif current_attack.begins_with("attack_up"):
+		# Up combo attacks - similar timing to up_light
+		start = 0.30
+		finish = 0.45
 	elif current_attack == "down_light":
+		start = 0.35
+		finish = 0.50
+	elif current_attack.begins_with("attack_down"):
+		# Down combo attacks - similar timing to down_light
 		start = 0.35
 		finish = 0.50
 	elif current_attack == "attack_1.2":
@@ -383,26 +443,37 @@ func _update_hitbox():
 	_update_hitbox_position(hitbox)
 
 func _handle_movement(delta: float) -> void:
-	# Get horizontal movement only
-	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
-	
-	# Calculate velocity with attack speed multiplier
-	# Only slow down movement when on ground, preserve full speed in air
-	var movement_speed_multiplier = ATTACK_SPEED_MULTIPLIER if player.is_on_floor() else 1.0
-	var target_velocity = Vector2(
-		input_dir_x * player.speed * movement_speed_multiplier,
-		player.velocity.y  # Keep vertical velocity unchanged
-	)
-	
-	# Apply momentum preservation
-	player.velocity.x = lerp(player.velocity.x, target_velocity.x, 1.0 - MOMENTUM_PRESERVATION)
-	
-	# Update player facing direction if moving (but not during hit recoil)
-	if input_dir_x != 0 and player.hit_recoil_lock_timer <= 0.0:
-		player.sprite.flip_h = input_dir_x < 0
-		player.facing_direction = sign(input_dir_x)
-	elif player.hit_recoil_lock_timer > 0.0:
-		print("[AttackState] DEBUG: Facing direction update BLOCKED in _handle_movement - hit_recoil_lock_timer: %f" % player.hit_recoil_lock_timer)
+	# For ground attacks: disable input-based movement, only apply attack momentum
+	# For air attacks: allow normal movement
+	if player.is_on_floor() and _is_ground_attack(current_attack):
+		# Ground attacks: no input-based movement, only momentum decay
+		# Apply gradual momentum decay (friction-like effect)
+		player.velocity.x = lerp(player.velocity.x, 0.0, delta * 3.0)  # Decay momentum over time
+		
+		# Update facing direction based on current velocity direction (not input)
+		if abs(player.velocity.x) > 10.0 and player.hit_recoil_lock_timer <= 0.0:
+			player.sprite.flip_h = player.velocity.x < 0
+			player.facing_direction = sign(player.velocity.x)
+	else:
+		# Air attacks: allow normal input-based movement
+		var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
+		
+		# Calculate velocity with attack speed multiplier
+		var movement_speed_multiplier = ATTACK_SPEED_MULTIPLIER if player.is_on_floor() else 1.0
+		var target_velocity = Vector2(
+			input_dir_x * player.speed * movement_speed_multiplier,
+			player.velocity.y  # Keep vertical velocity unchanged
+		)
+		
+		# Apply momentum preservation
+		player.velocity.x = lerp(player.velocity.x, target_velocity.x, 1.0 - MOMENTUM_PRESERVATION)
+		
+		# Update player facing direction if moving (but not during hit recoil)
+		if input_dir_x != 0 and player.hit_recoil_lock_timer <= 0.0:
+			player.sprite.flip_h = input_dir_x < 0
+			player.facing_direction = sign(input_dir_x)
+		elif player.hit_recoil_lock_timer > 0.0:
+			print("[AttackState] DEBUG: Facing direction update BLOCKED in _handle_movement - hit_recoil_lock_timer: %f" % player.hit_recoil_lock_timer)
 	
 	# Apply movement
 	player.move_and_slide()
@@ -475,8 +546,8 @@ func _on_animation_player_animation_finished(anim_name: String):
 				# Debug print disabled to reduce console spam
 				# print("[AttackState] FINISH | forced hitbox off")
 		
-		# If we have a queued light attack and still on ground, transition to it
-		if next_attack_queued.begins_with("attack_1.") and player.is_on_floor():
+		# If we have a queued attack (light, up combo, or down combo) and still on ground, transition to it
+		if (next_attack_queued.begins_with("attack_1.") or next_attack_queued.begins_with("attack_up") or next_attack_queued.begins_with("attack_down")) and player.is_on_floor():
 			# Avoid transitioning through the state machine to prevent animation glitches
 			# Just play the new animation directly
 			# Debug print disabled to reduce console spam
@@ -496,6 +567,13 @@ func _on_animation_player_animation_finished(anim_name: String):
 				hitbox.disable()
 				hitbox.disable_combo()
 				hitbox.enable_combo(current_attack, DAMAGE_MULTIPLIER)
+			
+			# Apply forward momentum for ground combo attacks
+			if player.is_on_floor() and _is_ground_attack(current_attack):
+				var forward_direction = player.facing_direction
+				if forward_direction == 0:
+					forward_direction = 1.0  # Default to right if no facing direction
+				player.velocity.x = forward_direction * ATTACK_FORWARD_MOMENTUM
 			
 			# Play the new animation
 			animation_player.stop()

@@ -65,7 +65,15 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 	if attack_name == "up_light":
 		knockback_force = 120.0
 		knockback_up_force = 220.0
+	elif attack_name.begins_with("attack_up"):
+		# Up combo attacks - launch enemies upward
+		knockback_force = 120.0
+		knockback_up_force = 220.0
 	elif attack_name == "down_light":
+		knockback_force = 180.0
+		knockback_up_force = 40.0
+	elif attack_name.begins_with("attack_down"):
+		# Down combo attacks - no upward launch, similar to down_light
 		knockback_force = 180.0
 		knockback_up_force = 40.0
 	elif attack_name == "up_heavy":
@@ -234,10 +242,10 @@ func _get_hit_effect_data() -> Dictionary:
 		"air_attack3", "fall_attack":
 			return {"effect_type": 2, "scale": 1.3}  # hit3, 1.3x boyut
 		# Up attacks - orta efekt (yukarı saldırı)
-		"air_attack_up1", "air_attack_up2":
+		"air_attack_up1", "air_attack_up2", "attack_up1", "attack_up2", "attack_up3":
 			return {"effect_type": 1, "scale": 1.1}  # hit2, 1.1x boyut
 		# Light attacks - küçük efekt (hit1), normal boyut
-		"attack_1", "attack_1.2", "attack_1.3", "attack_1.4", "air_attack1", "air_attack2":
+		"attack_1", "attack_1.2", "attack_1.3", "attack_1.4", "air_attack1", "air_attack2", "attack_down1", "attack_down2":
 			return {"effect_type": 0, "scale": 1.0}  # hit1, normal boyut
 		# Default - rastgele efekt
 		_:

@@ -7,4 +7,5 @@ res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
 res://village/scenes/CampFire.tscn
-res://ui/minigames/WellRhythmMinigame.gd
+res://assets/effects/player fx/light_attack_up_effect.tscn
+res://assets/effects/player fx/light_attack_down_effect.tscn

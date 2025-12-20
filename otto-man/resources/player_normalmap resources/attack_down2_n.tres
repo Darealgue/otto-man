@@ -1,0 +1,9 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" uid="uid://k05ow3xtvvk4" path="res://assets/player/sprite/otto_lightattack_down2_border.png" id="1_diff"]
+[ext_resource type="Texture2D" uid="uid://bwp1gm5rr0orn" path="res://assets/player/normal/otto_lightattack_down2_border_n.png" id="2_norm"]
+
+[resource]
+diffuse_texture = ExtResource("1_diff")
+normal_texture = ExtResource("2_norm")
+
