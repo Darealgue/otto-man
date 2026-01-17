@@ -11,11 +11,13 @@ const BakeryScene = preload("res://village/buildings/Bakery.tscn")
 @onready var cariye_management_ui = $CariyeManagementUI # YENİ PANEL
 @onready var open_worker_ui_button = $OpenWorkerUIButton
 @onready var open_cariye_ui_button = $OpenCariyeUIButton # YENİ BUTON
+@onready var open_build_ui_button = $OpenBuildUIButton
 @onready var add_villager_button = $AddVillagerButton
 @onready var placed_buildings_node = $PlacedBuildings
 @onready var plot_markers_node = $PlotMarkers
 @onready var time_manager: TimeManager = get_node("/root/TimeManager") # Veya doğru yolu kullanın
 @onready var time_skip_notification = $TimeSkipNotification
+@onready var build_menu_ui = $BuildMenuLayer/BuildMenuUI
 
 ## Kamera sınırları - Village sahnesinde oyuncu bu sınırlar dışına çıktığında kamera takibi durur
 ## Bu değerleri Godot editöründe VillageScene.tscn'de ayarlayabilirsiniz
@@ -32,10 +34,17 @@ func _ready() -> void:
 	# Sinyalleri bağla (Eski inşa buton bağlantıları kaldırıldı)
 	open_worker_ui_button.pressed.connect(_on_open_worker_ui_button_pressed)
 	open_cariye_ui_button.pressed.connect(_on_open_cariye_ui_button_pressed)
+	open_build_ui_button.pressed.connect(_on_open_build_ui_button_pressed)
 	add_villager_button.pressed.connect(VillageManager.add_villager)
 	# UI görünürlük sinyallerini bağla
 	worker_assignment_ui.visibility_changed.connect(_on_worker_ui_visibility_changed)
 	cariye_management_ui.visibility_changed.connect(_on_cariye_ui_visibility_changed) # Yeni panel bağlandı
+	if build_menu_ui:
+		build_menu_ui.visibility_changed.connect(_on_build_menu_visibility_changed)
+		if build_menu_ui.has_signal("build_requested"):
+			build_menu_ui.build_requested.connect(_on_build_menu_build_requested)
+		if build_menu_ui.has_signal("close_requested"):
+			build_menu_ui.close_requested.connect(_on_build_menu_close_requested)
 	
 	# Connect time skip notification signal
 	if not VillageManager.time_skip_completed.is_connected(_on_time_skip_completed):
@@ -53,12 +62,15 @@ func _ready() -> void:
 	# Başlangıçta UI'ları gizle
 	worker_assignment_ui.hide()
 	cariye_management_ui.hide()
+	if build_menu_ui:
+		build_menu_ui.hide()
 	# Açma butonlarını göster
 	
 	# Kamera sınırlarını ayarla
 	_setup_camera_limits()
 	open_worker_ui_button.show()
 	open_cariye_ui_button.show()
+	open_build_ui_button.show()
 
 	# <<< YENİ: Set up example NPCs after the scene is fully loaded >>>
 	# Use call_deferred to ensure all workers are created first
@@ -101,6 +113,13 @@ func _on_open_cariye_ui_button_pressed() -> void:
 	worker_assignment_ui.hide()
 	cariye_management_ui.show()
 
+func _on_open_build_ui_button_pressed() -> void:
+	# Diğer panelleri kapat
+	worker_assignment_ui.hide()
+	cariye_management_ui.hide()
+	if build_menu_ui:
+		build_menu_ui.show_centered()
+
 func _on_worker_ui_visibility_changed() -> void:
 	# İşçi paneli kapandığında butonu göster, açıksa gizle
 	open_worker_ui_button.visible = not worker_assignment_ui.visible
@@ -114,6 +133,23 @@ func _on_cariye_ui_visibility_changed() -> void:
 	# Eğer cariye paneli açıldıysa, işçi butonunu da göster
 	if cariye_management_ui.visible:
 		open_worker_ui_button.show()
+
+func _on_build_menu_visibility_changed() -> void:
+	if not build_menu_ui:
+		return
+	open_build_ui_button.visible = not build_menu_ui.visible
+	if build_menu_ui.visible:
+		open_worker_ui_button.show()
+		open_cariye_ui_button.show()
+
+func _on_build_menu_build_requested(building_scene_path: String) -> void:
+	if VillageManager.request_build_building(building_scene_path):
+		if build_menu_ui:
+			build_menu_ui.hide()
+
+func _on_build_menu_close_requested() -> void:
+	if build_menu_ui:
+		build_menu_ui.hide()
 
 func _on_time_skip_completed(total_hours: float, produced_resources: Dictionary) -> void:
 	print("[VillageScene] _on_time_skip_completed called: %.1f hours, resources: %s" % [total_hours, produced_resources])

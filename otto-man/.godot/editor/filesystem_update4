@@ -1,4 +1,5 @@
 res://player/player.tscn
+res://resources/medieval_theme.tres
 res://Tile set/dungeon_master_tileset.tres
 res://enemy/normal_shader.gdshader
 res://scenes/testing.tscn
@@ -6,6 +7,4 @@ res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
-res://village/scenes/CampFire.tscn
-res://assets/effects/player fx/light_attack_up_effect.tscn
-res://assets/effects/player fx/light_attack_down_effect.tscn
+res://village/missions/MissionCenter.gd

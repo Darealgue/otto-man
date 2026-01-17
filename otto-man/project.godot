@@ -62,6 +62,10 @@ interactables=""
 Housing=""
 WorkBuildings=""
 
+[gui]
+
+theme/custom="res://resources/medieval_theme.tres"
+
 [input]
 
 ui_accept={

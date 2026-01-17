@@ -494,6 +494,10 @@ func set_relation(a: String, b: String, value: int, post_news: bool = false) -> 
 			"day": 0  # Will be filled by news system if needed
 		})
 
+func change_relation(a: String, b: String, delta: int, post_news: bool = true) -> void:
+	var current = get_relation(a, b)
+	set_relation(a, b, current + delta, post_news)
+
 func get_relation(a: String, b: String) -> int:
 	var key := _rel_key(a, b)
 	return int(relations.get(key, 0))

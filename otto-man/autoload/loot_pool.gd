@@ -23,6 +23,15 @@ func _prewarm() -> void:
 func acquire(is_pouch: bool) -> RigidBody2D:
 	var arr := _free_pouches if is_pouch else _free_coins
 	var body: RigidBody2D = null
+	
+	# Clean up invalid instances from array first
+	var valid_items: Array[RigidBody2D] = []
+	for item in arr:
+		if is_instance_valid(item):
+			valid_items.append(item)
+	arr.clear()
+	arr.append_array(valid_items)
+	
 	# Try to get a valid body from the pool
 	while arr.size() > 0:
 		body = arr.pop_back()

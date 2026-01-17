@@ -15,6 +15,8 @@ extends MarginContainer # .tscn dosyasındaki kök node türü
 @onready var water_label: Label = %WaterLabel
 @onready var metal_label: Label = %MetalLabel
 @onready var bread_label: Label = %BreadLabel
+@onready var summary_container: HBoxContainer = %SummaryHBox
+@onready var resource_list_container: VBoxContainer = %ResourceList
 # Events & Morale
 @onready var events_label: Label = %EventsLabel
 @onready var morale_label: Label = %MoraleLabel
@@ -41,8 +43,10 @@ const PRODUCER_SCRIPTS := {
 	"medicine": "res://village/scripts/Herbalist.gd"
 }
 
-# Dinamik oluşturulan ek kaynak etiketleri
 var _extra_resource_labels: Dictionary = {}
+
+# Icon sizing for resource rows
+const RESOURCE_ICON_SIZE := Vector2(25, 25)
 
 # --- Periyodik Güncelleme ---
 var update_interval: float = 0.5 # Saniyede 2 kez güncelle
@@ -56,6 +60,16 @@ func _ready() -> void:
 	   not bread_label:
 		printerr("VillageStatusUI Error: Label node'larından biri veya birkaçı bulunamadı! .tscn dosyasındaki isimleri (%NodeName%) veya 'Unique Name in Owner' ayarlarını kontrol edin.")
 		return
+	if not summary_container or not resource_list_container:
+		printerr("VillageStatusUI Warning: SummaryHBox veya ResourceList bulunamadı! Düzen yerleşimini kontrol edin.")
+
+	# Wrap static labels with icons if icons exist
+	_wrap_label_with_icon(wood_label, "wood")
+	_wrap_label_with_icon(stone_label, "stone")
+	_wrap_label_with_icon(food_label, "food")
+	_wrap_label_with_icon(water_label, "water")
+	_wrap_label_with_icon(metal_label, "metal")
+	_wrap_label_with_icon(bread_label, "bread")
 
 	# Ek etiketler sahnede yoksa dinamik oluştur
 	_ensure_extra_labels()
@@ -98,7 +112,6 @@ func _update_labels() -> void:
 	# Asker sayısını Barracks'tan al
 	var soldier_count = _get_soldier_count()
 	asker_label.text = "Asker: %d" % soldier_count
-	bread_label.text = "Ekmek: %d" % VillageManager.resource_levels.get("bread", 0)
 	# Morale (optional label)
 	if is_instance_valid(morale_label):
 		var m := VillageManager.get_morale()
@@ -140,12 +153,14 @@ func _update_labels() -> void:
 	
 	asker_label.text += "  | İkmal: " + status_text
 
-	# Temel Kaynaklar (Kullanılabilir / Toplam) - sadece üretici bina varsa göster
-	_set_resource_visible_and_update(wood_label, "Odun", "wood")
-	_set_resource_visible_and_update(stone_label, "Taş", "stone")
-	_set_resource_visible_and_update(food_label, "Yiyecek", "food")
-	_set_resource_visible_and_update(water_label, "Su", "water")
-	_set_resource_visible_and_update(metal_label, "Metal", "metal")
+	# Temel Kaynaklar (Kullanılabilir / Toplam) - her zaman görünür
+	_set_resource_visible_and_update(wood_label, "Odun", "wood", true)
+	_set_resource_visible_and_update(stone_label, "Taş", "stone", true)
+	_set_resource_visible_and_update(food_label, "Yiyecek", "food", true)
+	_set_resource_visible_and_update(water_label, "Su", "water", true)
+	# Diğerleri sadece envanterde varsa görünür
+	_set_resource_visible_and_update(metal_label, "Metal", "metal", false, true)
+	_set_resource_visible_and_update(bread_label, "Ekmek", "bread", false, true)
 
 	# Gelişmiş Kaynaklar (dinamik label oluştur)
 	_update_dynamic_resource_label("lumber", "Kereste")
@@ -154,10 +169,9 @@ func _update_labels() -> void:
 	_update_dynamic_resource_label("armor", "Zırh")
 	_update_dynamic_resource_label("garment", "Giyim")
 	_update_dynamic_resource_label("cloth", "Kumaş")
-	_update_dynamic_resource_label("tea", "Çay")
-	_update_dynamic_resource_label("soap", "Sabun")
+	_update_dynamic_resource_label("tea", "Kahve")
+	_update_dynamic_resource_label("soap", "Parfüm")
 	_update_dynamic_resource_label("medicine", "İlaç")
-	_update_dynamic_resource_label("metal", "Metal")
 
 	# Aktif olaylar
 	var tm = get_node_or_null("/root/TimeManager")
@@ -193,7 +207,7 @@ func _update_labels() -> void:
 
 func _ensure_extra_labels() -> void:
 	# Sahnede yoksa MoraleLabel ve EventsLabel oluşturur
-	var container: Node = bread_label.get_parent() if bread_label and bread_label.get_parent() else self
+	var container: Node = summary_container if is_instance_valid(summary_container) else (bread_label.get_parent() if bread_label and bread_label.get_parent() else self)
 	if not is_instance_valid(morale_label):
 		morale_label = Label.new()
 		morale_label.name = "MoraleLabel"
@@ -209,13 +223,19 @@ func _ensure_extra_labels() -> void:
 
 # Tek bir kaynak etiketini güncelleyen helper fonksiyonu
 func _update_resource_label(label_node: Label, resource_display_name: String, resource_key: String) -> void:
-	# Bu kontrol _update_labels içinde yapıldığı için burada tekrar gerekmeyebilir
-	# if not is_instance_valid(label_node): return
+	if not is_instance_valid(label_node):
+		return
 
 	var current: int = VillageManager.get_resource_level(resource_key)
 	var cap: int = VillageManager.get_storage_capacity_for(resource_key)
+	var icon_only := label_node.has_meta("icon_only") and bool(label_node.get_meta("icon_only"))
+	
 	if cap > 0:
-		label_node.text = "%s: %d/%d" % [resource_display_name, current, cap]
+		if icon_only:
+			label_node.text = "%d/%d" % [current, cap]
+		else:
+			label_node.text = "%s: %d/%d" % [resource_display_name, current, cap]
+			
 		# Highlight when full
 		var ratio := (float(current) / float(cap)) if cap > 0 else 0.0
 		if current >= cap:
@@ -226,14 +246,23 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 			if label_node.has_theme_color_override("font_color"):
 				label_node.remove_theme_color_override("font_color")
 	else:
-		label_node.text = "%s: %d" % [resource_display_name, current]
+		if icon_only:
+			label_node.text = "%d" % current
+		else:
+			label_node.text = "%s: %d" % [resource_display_name, current]
 
 # Helper: dinamik kaynak etiketi güncelle/oluştur
 func _update_dynamic_resource_label(resource_key: String, display_name: String) -> void:
 	var label := _get_or_create_resource_label(resource_key, display_name)
-	var has_prod := _producer_exists(resource_key)
-	label.visible = has_prod
-	if has_prod:
+	if not is_instance_valid(label):
+		return
+	var current: int = VillageManager.get_resource_level(resource_key)
+	var should_show = current > 0
+	
+	# Gizle/göster işlemini parent container'a uygula
+	_set_container_visibility(label, should_show)
+	
+	if should_show:
 		_update_resource_label(label, display_name, resource_key)
 
 # Helper: üretici bina var mı kontrol et
@@ -255,11 +284,28 @@ func _producer_exists(resource_key: String) -> bool:
 	return false
 
 # Helper: görünürlük + güncelleme
-func _set_resource_visible_and_update(label_node: Label, display_name: String, key: String) -> void:
-	var has_prod := _producer_exists(key)
-	label_node.visible = has_prod
-	if has_prod:
+func _set_resource_visible_and_update(label_node: Label, display_name: String, key: String, force_visible: bool, show_when_nonzero: bool = false) -> void:
+	if not is_instance_valid(label_node):
+		return
+	var current: int = VillageManager.get_resource_level(key)
+	var visible_by_stock := show_when_nonzero and current > 0
+	var should_show = force_visible or visible_by_stock
+	
+	# Gizle/göster işlemini parent container'a uygula
+	if is_instance_valid(label_node):
+		_set_container_visibility(label_node, should_show)
+	
+	if should_show:
 		_update_resource_label(label_node, display_name, key)
+
+# Helper: Parent container'ı (Row) gizle/göster
+func _set_container_visibility(label_node: Label, visible: bool) -> void:
+	if not is_instance_valid(label_node):
+		return
+	label_node.visible = visible
+	var parent = label_node.get_parent()
+	if is_instance_valid(parent) and (parent is HBoxContainer) and (parent.name.ends_with("Row") or parent.name.ends_with("RowDynamic")):
+		parent.visible = visible
 
 # Helper: Barracks'tan asker sayısını al
 func _get_soldier_count() -> int:
@@ -281,9 +327,89 @@ func _get_soldier_count() -> int:
 func _get_or_create_resource_label(resource_key: String, display_name: String) -> Label:
 	if _extra_resource_labels.has(resource_key):
 		return _extra_resource_labels[resource_key]
-	var container: Node = bread_label.get_parent() if bread_label and bread_label.get_parent() else self
-	var lbl := Label.new()
-	lbl.name = String(display_name) + "LabelDynamic"
-	container.add_child(lbl)
+	var container: Node = resource_list_container if is_instance_valid(resource_list_container) else (bread_label.get_parent() if bread_label and bread_label.get_parent() else self)
+	var lbl := _create_resource_row_with_icon(resource_key, display_name, container)
 	_extra_resource_labels[resource_key] = lbl
 	return lbl
+
+func _create_resource_row_with_icon(resource_key: String, display_name: String, container: Node) -> Label:
+	var row := HBoxContainer.new()
+	row.name = resource_key.capitalize() + "RowDynamic"
+	row.layout_mode = 2
+	row.add_theme_constant_override("separation", 6)
+
+	var icon_path := _get_icon_path_for_resource(resource_key)
+	if icon_path != "":
+		var icon := TextureRect.new()
+		icon.name = resource_key.capitalize() + "Icon"
+		icon.layout_mode = 2
+		icon.custom_minimum_size = RESOURCE_ICON_SIZE
+		icon.texture = load(icon_path)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row.add_child(icon)
+
+	var lbl := Label.new()
+	lbl.name = String(display_name) + "LabelDynamic"
+	lbl.layout_mode = 2
+	lbl.set_meta("icon_only", true)
+	lbl.text = "-"
+	row.add_child(lbl)
+
+	container.add_child(row)
+	return lbl
+
+func _get_icon_path_for_resource(resource_key: String) -> String:
+	var candidates: Array[String] = []
+	if resource_key == "tea":
+		candidates = [
+			"res://assets/Icons/coffee_icon.png",
+			"res://assets/Icons/coffe_icon.png",
+			"res://assets/Icons/tea_icon.png"
+		]
+	elif resource_key == "soap":
+		candidates = [
+			"res://assets/Icons/perfume_icon.png",
+			"res://assets/Icons/soap_icon.png"
+		]
+	else:
+		candidates = ["res://assets/Icons/%s_icon.png" % resource_key]
+	for path in candidates:
+		if ResourceLoader.exists(path):
+			return path
+	return ""
+
+func _wrap_label_with_icon(label_node: Label, resource_key: String) -> void:
+	if not is_instance_valid(label_node):
+		return
+	# Force icon_only meta to ensure text is formatted correctly (just number)
+	label_node.set_meta("icon_only", true)
+	
+	var parent := label_node.get_parent()
+	if not is_instance_valid(parent):
+		return
+	# Already wrapped with an icon?
+	if parent is HBoxContainer:
+		for child in parent.get_children():
+			if child is TextureRect:
+				return
+	var icon_path := _get_icon_path_for_resource(resource_key)
+	if icon_path == "":
+		return
+	var index: int = parent.get_children().find(label_node)
+	if index < 0:
+		return
+	parent.remove_child(label_node)
+	var row := HBoxContainer.new()
+	row.name = resource_key.capitalize() + "Row"
+	row.layout_mode = 2
+	row.add_theme_constant_override("separation", 6)
+	var icon := TextureRect.new()
+	icon.name = resource_key.capitalize() + "Icon"
+	icon.layout_mode = 2
+	icon.custom_minimum_size = RESOURCE_ICON_SIZE
+	icon.texture = load(icon_path)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(icon)
+	row.add_child(label_node)
+	parent.add_child(row)
+	parent.move_child(row, index)

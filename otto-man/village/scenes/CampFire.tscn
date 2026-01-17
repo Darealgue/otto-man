@@ -63,6 +63,7 @@ radius = 30.0
 size = Vector2(36, 13.5)
 
 [node name="CampFire" type="Node2D"]
+z_index = 5
 script = ExtResource("1_m4h0u")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]

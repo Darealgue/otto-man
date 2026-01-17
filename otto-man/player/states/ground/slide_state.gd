@@ -20,6 +20,7 @@ var original_hurtbox_height: float = 44.0  # Actual hurtbox height from scene
 var original_hurtbox_position_y: float = -22.0  # Actual hurtbox position from scene
 var has_initialized := false
 var last_floor_position: Vector2
+var slide_fx_sequence_id := 0
 
 func can_enter() -> bool:
 	# Allow entry from run state or when player has sufficient speed
@@ -93,6 +94,7 @@ func enter():
 	
 	# Play slide animation
 	animation_player.play("slide")
+	_play_slide_dust_fx()
 
 func exit():
 	if !player:
@@ -169,3 +171,30 @@ func physics_update(delta: float):
 			return
 	
 	player.move_and_slide() 
+
+func _play_slide_dust_fx() -> void:
+	slide_fx_sequence_id += 1
+	var fx_id = slide_fx_sequence_id
+	while _can_spawn_slide_dust(fx_id):
+		_spawn_slide_dust_if_valid(fx_id)
+		await get_tree().create_timer(0.1).timeout
+
+func _spawn_slide_dust_if_valid(fx_id: int) -> void:
+	if not player:
+		return
+	if slide_fx_sequence_id != fx_id:
+		return
+	if not state_machine or not state_machine.current_state:
+		return
+	if state_machine.current_state.name != "Slide":
+		return
+	player.spawn_dust_cloud(player.get_foot_position(), "puff_down")
+
+func _can_spawn_slide_dust(fx_id: int) -> bool:
+	if not player:
+		return false
+	if slide_fx_sequence_id != fx_id:
+		return false
+	if not state_machine or not state_machine.current_state:
+		return false
+	return state_machine.current_state.name == "Slide"

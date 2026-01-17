@@ -105,7 +105,11 @@ func _open_or_show_ui_panel(scene_path: String) -> void:
 		print("Campfire: Reusing existing panel instance.")
 		_lock_player()
 		_active_panel.visible = true
-		if _active_panel.has_method("on_campfire_reopened"):
+		# Mission Center için open_menu() metodunu çağır
+		if _active_panel.has_method("open_menu"):
+			print("Campfire: Calling open_menu() on existing Mission Center")
+			_active_panel.open_menu()
+		elif _active_panel.has_method("on_campfire_reopened"):
 			_active_panel.on_campfire_reopened()
 		return
 	print("Campfire: Creating new panel instance for: ", scene_path)
@@ -127,6 +131,14 @@ func _open_or_show_ui_panel(scene_path: String) -> void:
 			_lock_player()
 		get_tree().root.add_child(instance)
 		print("Campfire: Panel instance created successfully")
+		
+		# Mission Center için open_menu() metodunu çağır
+		if instance.has_method("open_menu"):
+			print("Campfire: Calling open_menu() on Mission Center")
+			instance.open_menu()
+		else:
+			# Diğer paneller için sadece görünür yap
+			instance.visible = true
 	else:
 		printerr("Campfire: UI panel scene could not be loaded: %s" % scene_path)
 

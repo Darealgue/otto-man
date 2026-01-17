@@ -12,6 +12,7 @@ signal close_requested
 @onready var build_bakery_button: Button = %BuildBakeryButton
 @onready var build_house_button: Button = %BuildHouseButton
 @onready var close_button: Button = %CloseButton
+@onready var build_menu_panel: Control = %BuildMenuPanel
 
 # Bina Sahne Yolları (WorkerAssignmentUI ile aynı olmalı)
 const WOODCUTTER_SCENE = "res://village/buildings/WoodcutterCamp.tscn"
@@ -70,13 +71,21 @@ func show_centered() -> void:
 	visible = true 
 	# Viewport ve panel boyutlarını al
 	var viewport_size = get_viewport().get_visible_rect().size
-	var panel_size = size
-	# Ortalanmış pozisyonu hesapla
-	var centered_pos = (viewport_size - panel_size) / 2
-	# Pozisyonu ayarla
-	position = centered_pos
+	if build_menu_panel:
+		var panel_size = build_menu_panel.size
+		var centered_pos = (viewport_size - panel_size) / 2
+		build_menu_panel.position = centered_pos
+	
 	# Buton durumlarını da güncelle (gösterilirken en güncel hali görünsün)
 	_update_button_states()
+	
+	# İlk butona odaklan (Klavye/Gamepad navigasyonu için)
+	if build_woodcutter_button and not build_woodcutter_button.disabled:
+		build_woodcutter_button.grab_focus()
+	elif build_stone_mine_button and not build_stone_mine_button.disabled:
+		build_stone_mine_button.grab_focus()
+	elif build_hunter_hut_button:
+		build_hunter_hut_button.grab_focus()
 
 # Buton durumlarını güncelle (gereksinimlere göre aktif/pasif yap)
 func _update_button_states() -> void:

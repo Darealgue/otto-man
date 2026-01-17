@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://cwc4rjb3xwqx"]
+[gd_scene load_steps=3 format=3 uid="uid://cwc4rjb3xwqx"]
 
 [ext_resource type="Script" path="res://village/scripts/WorkerAssignmentUI.gd" id="1_6u0ag"]
+[ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="2_theme_medieval"]
 
 [node name="CanvasLayer" type="CanvasLayer"]
 
@@ -18,6 +19,7 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+theme = ExtResource("2_theme_medieval")
 script = ExtResource("1_6u0ag")
 
 [node name="MarginContainer" type="MarginContainer" parent="WorkerAssignmentUI"]

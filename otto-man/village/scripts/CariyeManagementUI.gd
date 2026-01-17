@@ -210,7 +210,7 @@ func show_centered() -> void:
 	if weekly_info_label == null:
 		weekly_info_label = Label.new()
 		weekly_info_label.name = "WeeklyInfoLabel"
-		weekly_info_label.add_theme_font_size_override("font_size", 10)
+		# weekly_info_label.add_theme_font_size_override("font_size", 10)
 		get_node("MarginContainer/MainVBox").add_child(weekly_info_label)
 
 	# ItemList sinyallerini bağla (eğer bağlı değilse)

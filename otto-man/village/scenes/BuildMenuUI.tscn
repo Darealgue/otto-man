@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://d1hjdmbn1joxm"]
+[gd_scene load_steps=3 format=3 uid="uid://d1hjdmbn1joxm"]
 
 [ext_resource type="Script" path="res://village/scripts/BuildMenuUI.gd" id="1_1y8x3"]
+[ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="2_theme_medieval"]
 
 [node name="BuildMenuUI" type="Control"]
 layout_mode = 3
@@ -9,44 +10,93 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2_theme_medieval")
 script = ExtResource("1_1y8x3")
 
-[node name="HBoxContainer" type="VBoxContainer" parent="."]
-layout_mode = 0
-offset_right = 290.0
-offset_bottom = 206.0
+[node name="BuildMenuPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -250.0
+offset_right = 400.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme_medieval")
 
-[node name="BuildWoodcutterButton" type="Button" parent="HBoxContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="BuildMenuPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BuildMenuPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="BuildMenuPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "İnşaat"
+horizontal_alignment = 1
+
+[node name="BuildScroll" type="ScrollContainer" parent="BuildMenuPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BuildList" type="GridContainer" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 3
+
+[node name="BuildWoodcutterButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Odun Kampı inşaa et"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Odun Kampı"
 
-[node name="BuildStoneMineButton" type="Button" parent="HBoxContainer"]
+[node name="BuildStoneMineButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Taş Ocağı inşaa et"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Taş Ocağı"
 
-[node name="BuildWellButton" type="Button" parent="HBoxContainer"]
+[node name="BuildWellButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Kuyu inşaa et"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Kuyu"
 
-[node name="BuildHunterHutButton" type="Button" parent="HBoxContainer"]
+[node name="BuildHunterHutButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Avcı/Toplayıcı inşaa et"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Avcı/Toplayıcı"
 
-[node name="BuildBakeryButton" type="Button" parent="HBoxContainer"]
+[node name="BuildBakeryButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Fırın inşaa et"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Fırın"
 
-[node name="BuildHouseButton" type="Button" parent="HBoxContainer"]
+[node name="BuildHouseButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Ev inşaa et"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "Ev"
 
-[node name="CloseButton" type="Button" parent="HBoxContainer"]
+[node name="CloseButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Kapat"

@@ -45,4 +45,6 @@ script = ExtResource("1_down_effect")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -73)
 sprite_frames = SubResource("SpriteFrames_down")
+frame = 3
+frame_progress = 1.0
 offset = Vector2(0, 15)

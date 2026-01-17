@@ -124,4 +124,6 @@ script = ExtResource("1_gxoy7")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -100)
 sprite_frames = SubResource("SpriteFrames_epahh")
-animation = &"puff_up"
+animation = &"puff_down"
+frame = 6
+frame_progress = 1.0

@@ -147,18 +147,75 @@ func _on_area_entered(area: Area2D) -> void:
 				var fx_scene := load(enemy_hit_fx_scene_path)
 				if fx_scene:
 					var fx = fx_scene.instantiate()
-					get_tree().current_scene.add_child(fx)
 					
-					# Düşmanın pozisyonunda spawnla
+					# Düşmanın merkezinde spawnla
 					var enemy = area.get_parent()
-					if enemy:
-						fx.global_position = enemy.global_position
+					var spawn_position = global_position  # Fallback
+					
+					if enemy and is_instance_valid(enemy):
+						# Düşmanın sprite'ını bul ve merkezini hesapla
+						var enemy_sprite = enemy.get_node_or_null("AnimatedSprite2D")
+						if not enemy_sprite:
+							enemy_sprite = enemy.get_node_or_null("Sprite2D")
+						
+						if enemy_sprite and is_instance_valid(enemy_sprite):
+							# Sprite'ın global pozisyonunu al
+							spawn_position = enemy_sprite.global_position
+							
+							# Sprite'ın görsel merkezini hesapla (centered = false ise offset ekle)
+							var texture_size = Vector2.ZERO
+							var is_centered = true
+							
+							if enemy_sprite is AnimatedSprite2D:
+								var anim_sprite = enemy_sprite as AnimatedSprite2D
+								is_centered = anim_sprite.centered
+								if anim_sprite.sprite_frames and anim_sprite.animation:
+									var current_texture = anim_sprite.sprite_frames.get_frame_texture(anim_sprite.animation, anim_sprite.frame)
+									if current_texture:
+										texture_size = current_texture.get_size()
+							elif enemy_sprite is Sprite2D:
+								var sprite = enemy_sprite as Sprite2D
+								is_centered = sprite.centered
+								if sprite.texture:
+									texture_size = sprite.texture.get_size()
+									if sprite.hframes > 1:
+										texture_size.x = texture_size.x / sprite.hframes
+									if sprite.vframes > 1:
+										texture_size.y = texture_size.y / sprite.vframes
+							
+							# Eğer sprite centered değilse, görsel merkeze getirmek için offset ekle
+							if not is_centered and texture_size != Vector2.ZERO:
+								# Sprite'ın local position'ı zaten global_position'a dahil
+								# Texture boyutunun yarısını ekleyerek merkeze getir
+								spawn_position += Vector2(texture_size.x * 0.5, -texture_size.y * 0.5)
+							
+							print("[PlayerHitbox] DEBUG: Enemy sprite found, global_pos: ", enemy_sprite.global_position, " centered: ", is_centered, " texture_size: ", texture_size, " final_spawn: ", spawn_position)
+						else:
+							# Sprite bulunamazsa düşmanın global_position'ını kullan
+							spawn_position = enemy.global_position
+							print("[PlayerHitbox] DEBUG: Enemy sprite NOT found, using enemy.global_position: ", spawn_position)
 					else:
-						fx.global_position = global_position  # Fallback
+						print("[PlayerHitbox] DEBUG: Enemy is null or invalid, using fallback: ", spawn_position)
+					
+					# Efektin sprite'ının da merkezini dikkate al (centered = false olduğu için)
+					# Efektin sprite'ı _ready()'de yüklenecek, bu yüzden texture boyutunu tahmin ediyoruz
+					# Hit efektleri genellikle 64x64 veya 128x128 boyutunda
+					# _ready() tamamlandıktan sonra efektin sprite'ının texture boyutunu alıp merkeze getireceğiz
+					
+					print("[PlayerHitbox] DEBUG: Final spawn_position: ", spawn_position)
 					
 					# Saldırı türüne göre efekt ve boyut ayarla
 					var effect_data = _get_hit_effect_data()
-					fx.setup(Vector2(0, -20), effect_data.scale, effect_data.effect_type)
+					
+					# Sahneye ekle (add_child çağrıldığında _ready() otomatik çağrılır)
+					get_tree().current_scene.add_child(fx)
+					
+					# Setup'ı çağır ve pozisyonu direkt parametre olarak geç
+					fx.setup(Vector2.ZERO, effect_data.scale, effect_data.effect_type, spawn_position)
+					
+					# Pozisyonu _ready() tamamlandıktan sonra ayarla ve efektin sprite merkezini dikkate al
+					fx.call_deferred("_adjust_position_to_center", spawn_position)
+					print("[PlayerHitbox] DEBUG: FX global_position will be adjusted to center (deferred): ", spawn_position)
 			# Camera shake based on attack type and damage
 			_apply_screen_shake()
 			# Apply player air-combo float on successful hit while airborne
