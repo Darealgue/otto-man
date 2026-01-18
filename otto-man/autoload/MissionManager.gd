@@ -207,6 +207,9 @@ func create_initial_concubines():
 	cariye1.skills[Concubine.Skill.TİCARET] = 30
 	cariye1.skills[Concubine.Skill.BÜROKRASİ] = 20
 	cariye1.skills[Concubine.Skill.KEŞİF] = 60
+	# <<< YENİ: Görünüm Ata >>>
+	cariye1.appearance = AppearanceDB.generate_random_concubine_appearance()
+	# <<< YENİ SONU >>>
 	concubines[cariye1.id] = cariye1
 	
 	# Cariye 2 - Diplomasi uzmanı
@@ -221,6 +224,9 @@ func create_initial_concubines():
 	cariye2.skills[Concubine.Skill.TİCARET] = 70
 	cariye2.skills[Concubine.Skill.BÜROKRASİ] = 60
 	cariye2.skills[Concubine.Skill.KEŞİF] = 40
+	# <<< YENİ: Görünüm Ata >>>
+	cariye2.appearance = AppearanceDB.generate_random_concubine_appearance()
+	# <<< YENİ SONU >>>
 	concubines[cariye2.id] = cariye2
 	
 	# Cariye 3 - Keşif uzmanı
@@ -235,6 +241,9 @@ func create_initial_concubines():
 	cariye3.skills[Concubine.Skill.TİCARET] = 45
 	cariye3.skills[Concubine.Skill.BÜROKRASİ] = 35
 	cariye3.skills[Concubine.Skill.KEŞİF] = 90
+	# <<< YENİ: Görünüm Ata >>>
+	cariye3.appearance = AppearanceDB.generate_random_concubine_appearance()
+	# <<< YENİ SONU >>>
 	concubines[cariye3.id] = cariye3
 	
 

@@ -1,6 +1,9 @@
 extends Resource
 class_name Concubine
 
+# <<< YENİ: Appearance Resource >>>
+const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
+
 # Cariye durumları
 enum Status { BOŞTA, GÖREVDE, YARALI, DİNLENİYOR }
 
@@ -44,6 +47,10 @@ var total_experience_gained: int = 0
 
 # Özel başarılar
 var special_achievements: Array[String] = []
+
+# <<< YENİ: Görünüm Bilgisi >>>
+@export var appearance: VillagerAppearance = null
+# <<< YENİ SONU >>>
 
 func _init():
 	# Varsayılan değerler

@@ -87,6 +87,10 @@ var news_subcategory_bar: HBoxContainer = null
 var subcategory_labels: Array[Label] = []
 var current_subcategory: String = "all"  # all, critical, info, success, warning
 
+# Portre instance'ları için görünmeyen container (sahnenin dışında)
+var portrait_instances_container: Node2D = null
+var portrait_instances: Dictionary = {}  # concubine_id -> concubine_instance
+
 # Menü durumu (PlayStation mantığı)
 var current_menu_state: MenuState = MenuState.İŞLEM_SEÇİMİ
 
@@ -293,6 +297,9 @@ func _ready():
 		wm.relation_changed.connect(_on_relation_changed)
 	if wm and wm.has_signal("world_event_started"):
 		wm.world_event_started.connect(_on_world_event_started)
+	
+	# Portre instance'ları için görünmeyen container oluştur
+	_setup_portrait_instances()
 	
 	print("✅ MissionManager sinyalleri bağlandı")
 	
@@ -5578,9 +5585,174 @@ func update_selected_concubine_details():
 
 # Temel bilgiler panelini güncelle
 func update_basic_info_panel(cariye: Concubine):
-	var basic_info_content = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/BasicInfoContent")
-	if not basic_info_content:
+	print("[MissionCenter] DEBUG: update_basic_info_panel çağrıldı - cariye: %s" % (cariye.name if cariye else "null"))
+	var basic_info_vbox = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox")
+	if not basic_info_vbox:
+		print("[MissionCenter] DEBUG: BasicInfoVBox bulunamadı!")
 		return
+	print("[MissionCenter] DEBUG: BasicInfoVBox bulundu")
+	
+	# Eski BasicInfoContent'ı temizle (artık InfoVBox içinde olacak)
+	var old_basic_info_content = basic_info_vbox.get_node_or_null("BasicInfoContent")
+	if old_basic_info_content:
+		old_basic_info_content.queue_free()
+	
+	# BasicInfoTitle'ı bul (container'ı onun altına ekleyeceğiz ama üst kenara dayanacak)
+	var basic_info_title = basic_info_vbox.get_node_or_null("BasicInfoTitle")
+	
+	# Portre için HBoxContainer oluştur veya bul
+	var portrait_container = basic_info_vbox.get_node_or_null("PortraitContainer")
+	if not portrait_container:
+		portrait_container = HBoxContainer.new()
+		portrait_container.name = "PortraitContainer"
+		portrait_container.custom_minimum_size = Vector2(0, 200)  # Minimum yükseklik artırıldı (portre için, üst kenara dayanması için)
+		portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Container'ın üst ve alt kenarlara dayanması için
+		portrait_container.clip_contents = false  # Clipping'i kapat
+		portrait_container.visible = true
+		portrait_container.modulate = Color.WHITE
+		# BasicInfoTitle'dan sonra ekle (ama container'ın üst kenara dayanması için)
+		var title_index = 0
+		if basic_info_title:
+			for i in range(basic_info_vbox.get_child_count()):
+				if basic_info_vbox.get_child(i).name == "BasicInfoTitle":
+					title_index = i + 1
+					break
+		basic_info_vbox.add_child(portrait_container)
+		basic_info_vbox.move_child(portrait_container, title_index)
+		# Container'ın üst kenara dayanması için margin'leri negatif yap (title'ın üstüne taş)
+		portrait_container.add_theme_constant_override("margin_top", -100)  # Title'ın üstüne taş (üst kenara dayan)
+		portrait_container.add_theme_constant_override("margin_bottom", 0)
+		print("[MissionCenter] DEBUG: PortraitContainer oluşturuldu ve eklendi")
+	else:
+		print("[MissionCenter] DEBUG: PortraitContainer zaten var, temizleniyor...")
+		# Mevcut container'ın ayarlarını güncelle
+		portrait_container.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Container'ın üst ve alt kenarlara dayanması için
+		portrait_container.clip_contents = false
+		portrait_container.visible = true
+		portrait_container.modulate = Color.WHITE
+		# Container'ın üst kenara dayanması için margin'leri negatif yap (yukarı kaydır)
+		portrait_container.add_theme_constant_override("margin_top", -30)  # 30 piksel yukarı kaydır
+		portrait_container.add_theme_constant_override("margin_bottom", 0)
+		# Eski child'ları hemen kaldır (queue_free yerine remove_child kullan)
+		# Önce viewport'ları temizle (eğer varsa)
+		var children_to_remove = []
+		for child in portrait_container.get_children():
+			children_to_remove.append(child)
+		for child in children_to_remove:
+			# Eğer child bir TextureRect ise ve viewport referansı varsa, önce viewport'u temizle
+			if child is TextureRect:
+				var old_viewport = child.get_meta("viewport_ref", null) if child.has_meta("viewport_ref") else null
+				var old_instance = child.get_meta("instance_ref", null) if child.has_meta("instance_ref") else null
+				if old_viewport and is_instance_valid(old_viewport):
+					if old_instance and is_instance_valid(old_instance) and old_instance.get_parent() == old_viewport:
+						old_viewport.remove_child(old_instance)
+						old_instance.queue_free()
+					old_viewport.queue_free()
+			portrait_container.remove_child(child)
+			child.queue_free()
+	
+	# Bilgiler için VBoxContainer (önce ekle - sol taraf)
+	var info_vbox = VBoxContainer.new()
+	info_vbox.name = "InfoVBox"
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL  # Sol taraf genişler
+	portrait_container.add_child(info_vbox)
+	print("[MissionCenter] DEBUG: InfoVBox oluşturuldu ve eklendi, container children: %d" % portrait_container.get_child_count())
+	
+	# Portre TextureRect oluştur (sonra ekle - sağ taraf)
+	var portrait_rect = TextureRect.new()
+	portrait_rect.name = "Portrait"
+	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED  # Aspect ratio'yu koru
+	portrait_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL  # expand_mode gerekli olabilir
+	portrait_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL  # Çerçeve içinde tam doldur
+	portrait_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Çerçeve içinde tam doldur
+	portrait_rect.visible = true  # Görünürlüğü aç
+	portrait_rect.modulate = Color.WHITE  # Tam opaklık
+	portrait_rect.self_modulate = Color.WHITE  # Tam opaklık
+	portrait_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Mouse etkileşimini kapat
+	portrait_rect.z_index = 1  # Z-index'i artır
+	portrait_rect.z_as_relative = false  # Z-index'i mutlak yap
+	
+	# Debug: TextureRect'in render edilip edilmediğini kontrol et
+	print("[MissionCenter] DEBUG: TextureRect oluşturuldu - size: %s, visible: %s, modulate: %s, expand_mode: %s, stretch_mode: %s" % [
+		portrait_rect.size,
+		portrait_rect.visible,
+		portrait_rect.modulate,
+		portrait_rect.expand_mode,
+		portrait_rect.stretch_mode
+	])
+	
+	# Portre texture'ı oluştur (async) - InfoVBox'tan SONRA ekle (sağda görünsün)
+	# Çerçeve için PanelContainer ekle - container'ın sağ tarafını tamamen kaplar
+	var frame_container = PanelContainer.new()
+	frame_container.name = "PortraitFrame"
+	# Container'ın sağ tarafını tamamen kaplar, TÜM kenarlara (üst, alt, sağ) dayanır
+	frame_container.size_flags_horizontal = Control.SIZE_SHRINK_END  # Sağa hizala
+	frame_container.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Üst ve alt kenarlara dayan (tam yükseklik)
+	# Minimum genişlik (portre için yeterli, yükseklik container'a göre ayarlanacak)
+	frame_container.custom_minimum_size = Vector2(180, 0)  # Genişlik artırıldı, yükseklik 0 (container'a göre)
+	# Margin'leri negatif yap - container'ın üst kenarına dayanması için yukarı kaydır
+	frame_container.add_theme_constant_override("margin_left", -1)  # 1 piksel sola kaydır
+	frame_container.add_theme_constant_override("margin_right", 0)
+	frame_container.add_theme_constant_override("margin_top", -100)  # 100 piksel yukarı kaydır (üst kenara dayan)
+	frame_container.add_theme_constant_override("margin_bottom", 0)
+	
+	# Çerçeve stili için StyleBoxFlat oluştur
+	var frame_style = StyleBoxFlat.new()
+	frame_style.bg_color = Color(0.2, 0.2, 0.2, 0.8)  # Koyu gri arka plan
+	frame_style.border_color = Color(0.8, 0.6, 0.4, 1.0)  # Altın rengi çerçeve
+	frame_style.border_width_left = 2
+	frame_style.border_width_top = 2
+	frame_style.border_width_right = 2
+	frame_style.border_width_bottom = 2
+	frame_style.corner_radius_top_left = 4
+	frame_style.corner_radius_top_right = 4
+	frame_style.corner_radius_bottom_left = 4
+	frame_style.corner_radius_bottom_right = 4
+	frame_container.add_theme_stylebox_override("panel", frame_style)
+	
+	# TextureRect'i çerçeve içine ekle
+	frame_container.add_child(portrait_rect)
+	portrait_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	
+	# Çerçeveyi container'a ekle
+	portrait_container.add_child(frame_container)
+	print("[MissionCenter] DEBUG: PortraitFrame ve PortraitRect eklendi, frame parent: %s, rect parent: %s, visible: %s, size: %s" % [
+		frame_container.get_parent().name if frame_container.get_parent() else "null",
+		portrait_rect.get_parent().name if portrait_rect.get_parent() else "null",
+		portrait_rect.visible,
+		portrait_rect.size
+	])
+	
+	# Child sırasını kontrol et
+	for i in range(portrait_container.get_child_count()):
+		var child = portrait_container.get_child(i)
+		print("[MissionCenter] DEBUG: Container child %d: %s" % [i, child.name])
+	
+	# Birkaç frame bekle ve layout'u zorla güncelle
+	await get_tree().process_frame
+	portrait_container.queue_redraw()  # Container'ı yeniden çiz
+	portrait_rect.queue_redraw()  # TextureRect'i yeniden çiz
+	await get_tree().process_frame
+	await get_tree().process_frame  # Ekstra frame bekle
+	
+	print("[MissionCenter] DEBUG: PortraitRect kontrol (3 frame sonra) - visible: %s, size: %s, rect: %s, parent visible: %s, parent size: %s, parent rect: %s" % [
+		portrait_rect.visible,
+		portrait_rect.size,
+		portrait_rect.get_rect(),
+		portrait_rect.get_parent().visible if portrait_rect.get_parent() else "null",
+		portrait_rect.get_parent().size if portrait_rect.get_parent() else "null",
+		portrait_rect.get_parent().get_rect() if portrait_rect.get_parent() else "null"
+	])
+	
+	_generate_concubine_portrait_async(cariye, portrait_rect)
+	
+	# Eski BasicInfoContent'ı bul veya oluştur
+	var basic_info_content = info_vbox.get_node_or_null("BasicInfoContent")
+	if not basic_info_content:
+		basic_info_content = Label.new()
+		basic_info_content.name = "BasicInfoContent"
+		info_vbox.add_child(basic_info_content)
 	
 	var info_text = "İsim: %s\n" % cariye.name
 	info_text += "Seviye: %d (%d/%d XP)\n" % [cariye.level, cariye.experience, cariye.max_experience]
@@ -5604,6 +5776,359 @@ func update_skills_panel(cariye: Concubine):
 	skills_text += "🔍 Keşif: %d/100" % cariye.get_skill_level(Concubine.Skill.KEŞİF)
 	
 	skills_content.text = skills_text
+
+# Cariye portresi oluştur (idle frame 1 yakınlaştırılmış) - async versiyon
+# Portre instance'ları için görünmeyen container ve instance'ları oluştur
+func _setup_portrait_instances():
+	print("[MissionCenter] DEBUG: Portre instance'ları oluşturuluyor...")
+	
+	# Görünmeyen container oluştur (sahnenin dışında - ekranın çok altında)
+	if not portrait_instances_container:
+		portrait_instances_container = Node2D.new()
+		portrait_instances_container.name = "PortraitInstancesContainer"
+		# Ekranın çok altında, oyuncunun asla göremeyeceği bir yerde
+		# CanvasLayer kullanıyoruz, bu yüzden position kullanıyoruz
+		portrait_instances_container.position = Vector2(0, 100000)  # Çok çok aşağıda (ekran dışında)
+		portrait_instances_container.z_index = -10000  # En arkada
+		portrait_instances_container.visible = false  # Görünmez yap (animasyonlar process_mode ile çalışacak)
+		portrait_instances_container.process_mode = Node.PROCESS_MODE_ALWAYS  # Her zaman işle (animasyonlar için)
+		# CanvasLayer'ın altına ekle (UI layer'ın dışında)
+		add_child(portrait_instances_container)
+		print("[MissionCenter] DEBUG: PortraitInstancesContainer oluşturuldu ve eklendi (y: 100000, visible: false, process_mode: ALWAYS)")
+	
+	# Tüm cariyeler için instance oluştur
+	if not mission_manager:
+		print("[MissionCenter] DEBUG: MissionManager bulunamadı, portre instance'ları oluşturulamadı")
+		return
+	
+	# concubines property'sine direkt eriş (has() kullanma - Godot 4'te yok)
+	var concubines = mission_manager.concubines if mission_manager.concubines else null
+	if not concubines:
+		print("[MissionCenter] DEBUG: MissionManager'da concubines bulunamadı veya boş, portre instance'ları oluşturulamadı")
+		return
+	if not concubines:
+		print("[MissionCenter] DEBUG: Cariye yok, portre instance'ları oluşturulamadı")
+		return
+	
+	# Concubine scene'ini yükle
+	var concubine_scene = preload("res://village/scenes/Concubine.tscn")
+	if not concubine_scene:
+		printerr("[MissionCenter] Concubine scene bulunamadı!")
+		return
+	
+	# Her cariye için instance oluştur
+	for concubine_id in concubines:
+		var cariye = concubines[concubine_id]
+		if not cariye:
+			continue
+		
+		# Eğer zaten varsa atla
+		if concubine_id in portrait_instances:
+			print("[MissionCenter] DEBUG: Cariye %d için portre instance zaten var, atlanıyor" % concubine_id)
+			continue
+		
+		# Instance oluştur
+		var instance = concubine_scene.instantiate()
+		if not instance:
+			printerr("[MissionCenter] Cariye %d için instance oluşturulamadı!" % concubine_id)
+			continue
+		
+		# Appearance'ı ata
+		instance.appearance = cariye.appearance
+		
+		# Görünmeyen yere yerleştir (her instance farklı x pozisyonunda, y aynı)
+		# Ekranın çok altında, oyuncunun asla göremeyeceği bir yerde
+		instance.position = Vector2(concubine_id * 200, 0)  # Her instance yan yana
+		instance.global_position = Vector2(concubine_id * 200, 100000)  # Ekranın çok çok altında
+		instance.z_index = -10000  # En arkada
+		
+		# Sola bakar pozisyonda sabitle (scale.x = -1)
+		instance.scale.x = -1.0  # Sola bakar
+		instance.scale.y = 1.0
+		
+		# Hareket etmesin - tamamen sabit
+		instance.move_target_x = instance.global_position.x  # Hedef = mevcut pozisyon
+		instance._target_global_y = instance.global_position.y  # Hedef = mevcut pozisyon
+		
+		# Container'a ekle
+		portrait_instances_container.add_child(instance)
+		
+		# Dictionary'ye ekle
+		portrait_instances[concubine_id] = instance
+		
+		# Birkaç frame bekle (instance'ın hazır olması için)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		
+		# Hareket etmesin - _physics_process'i devre dışı bırak
+		instance.set_physics_process(false)
+		
+		# Idle animasyonunu sürekli oynat
+		if instance.has_method("play_animation"):
+			instance.play_animation("idle")
+			print("[MissionCenter] DEBUG: play_animation('idle') çağrıldı - Cariye %d" % concubine_id)
+		
+		# AnimationPlayer ile idle animasyonunu başlat
+		var animation_player = instance.get_node_or_null("AnimationPlayer")
+		if animation_player:
+			if animation_player.has_animation("idle"):
+				animation_player.play("idle")
+				# Animasyonu durdurma - sürekli oynasın
+				print("[MissionCenter] DEBUG: AnimationPlayer.play('idle') çağrıldı - Cariye %d, is_playing: %s, current_animation: %s" % [
+					concubine_id,
+					animation_player.is_playing(),
+					animation_player.current_animation
+				])
+			else:
+				print("[MissionCenter] DEBUG: UYARI - Cariye %d için 'idle' animasyonu bulunamadı!" % concubine_id)
+		else:
+			print("[MissionCenter] DEBUG: UYARI - Cariye %d için AnimationPlayer bulunamadı!" % concubine_id)
+		
+		print("[MissionCenter] DEBUG: Cariye %d (%s) için portre instance oluşturuldu - pozisyon: %s, scale: %s, physics_process: false" % [
+			concubine_id, 
+			cariye.name,
+			instance.global_position,
+			instance.scale
+		])
+	
+	print("[MissionCenter] DEBUG: Toplam %d portre instance oluşturuldu" % portrait_instances.size())
+
+func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: TextureRect):
+	print("[MissionCenter] DEBUG: Portre oluşturuluyor - cariye: %s (ID: %d), appearance: %s" % [
+		cariye.name if cariye else "null",
+		cariye.id if cariye else -1,
+		"var" if cariye and cariye.appearance else "null"
+	])
+	
+	if not cariye or not cariye.appearance:
+		print("[MissionCenter] DEBUG: Cariye veya appearance yok, fallback texture kullanılıyor")
+		# Fallback: boş texture
+		var empty_texture = ImageTexture.new()
+		var empty_image = Image.create(128, 128, false, Image.FORMAT_RGB8)
+		empty_image.fill(Color(0.2, 0.2, 0.2, 1))
+		empty_texture.create_from_image(empty_image)
+		portrait_rect.texture = empty_texture
+		return
+	
+	# Görünmeyen portre instance'ını kullan (eğer varsa)
+	var concubine_instance = null
+	if cariye.id in portrait_instances:
+		concubine_instance = portrait_instances[cariye.id]
+		print("[MissionCenter] DEBUG: Mevcut portre instance kullanılıyor (ID: %d)" % cariye.id)
+	else:
+		print("[MissionCenter] DEBUG: UYARI: Cariye %d için portre instance bulunamadı, yeni oluşturuluyor..." % cariye.id)
+		# Instance yoksa oluştur (geçici çözüm)
+		var concubine_scene = preload("res://village/scenes/Concubine.tscn")
+		if concubine_scene:
+			concubine_instance = concubine_scene.instantiate()
+			if concubine_instance:
+				concubine_instance.appearance = cariye.appearance
+				# Geçici olarak viewport'a ekleyeceğiz
+	
+	if not concubine_instance:
+		printerr("[MissionCenter] Concubine instance oluşturulamadı!")
+		return
+	
+	# Appearance'ı güncelle (kıyafet değişiklikleri için)
+	concubine_instance.appearance = cariye.appearance
+	
+	print("[MissionCenter] DEBUG: Viewport oluşturuluyor...")
+	# Viewport oluştur - daha yüksek çözünürlük (flu görüntüyü önlemek için)
+	var viewport = SubViewport.new()
+	viewport.size = Vector2i(1024, 1024)  # 512'den 1024'e çıkardık (daha net görüntü için)
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	viewport.snap_2d_transforms_to_pixel = true  # Pixel-perfect rendering
+	viewport.snap_2d_vertices_to_pixel = true
+	viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST  # Pixel-perfect
+	
+	# Scene tree'ye ekle (render için gerekli)
+	add_child(viewport)
+	print("[MissionCenter] DEBUG: Viewport scene tree'ye eklendi")
+	
+	# Instance'ı viewport'a ekle (duplicate et çünkü görünmeyen instance zaten başka bir yerde)
+	var viewport_instance = concubine_instance.duplicate()
+	viewport.add_child(viewport_instance)
+	
+	# Bir frame bekle (instance'ın hazır olması için)
+	await get_tree().process_frame
+	
+	# Duplicate'ın appearance'ını güncelle
+	viewport_instance.appearance = cariye.appearance
+	
+	# Duplicate instance için _physics_process'i devre dışı bırak (hareket kontrolü yapmasın)
+	viewport_instance.set_physics_process(false)
+	
+	# Duplicate instance'ın hareket hedeflerini mevcut pozisyonuna eşitle (idle'da kalsın)
+	if "move_target_x" in viewport_instance:
+		viewport_instance.move_target_x = viewport_instance.global_position.x
+	if "_target_global_y" in viewport_instance:
+		viewport_instance._target_global_y = viewport_instance.global_position.y
+	if "_current_animation_name" in viewport_instance:
+		viewport_instance._current_animation_name = "idle"
+	
+	# Duplicate'ın idle animasyonunu başlat
+	if viewport_instance.has_method("play_animation"):
+		viewport_instance.play_animation("idle")
+		print("[MissionCenter] DEBUG: Duplicate için play_animation('idle') çağrıldı")
+	
+	# Bir frame bekle (play_animation'ın uygulanması için)
+	await get_tree().process_frame
+	
+	var viewport_animation_player = viewport_instance.get_node_or_null("AnimationPlayer")
+	if viewport_animation_player:
+		if viewport_animation_player.has_animation("idle"):
+			viewport_animation_player.play("idle")
+			print("[MissionCenter] DEBUG: Duplicate için AnimationPlayer.play('idle') çağrıldı, is_playing: %s" % viewport_animation_player.is_playing())
+		else:
+			print("[MissionCenter] DEBUG: UYARI - Duplicate için 'idle' animasyonu bulunamadı!")
+	else:
+		print("[MissionCenter] DEBUG: UYARI - Duplicate için AnimationPlayer bulunamadı!")
+	
+	# Artık viewport_instance kullan
+	concubine_instance = viewport_instance
+	
+	print("[MissionCenter] DEBUG: ===== PORTRE OLUŞTURMA BAŞLADI - Cariye: %s =====" % cariye.name)
+	
+	# Concubine instance'ın pozisyonunu TAMAMEN SABİTLE (viewport içinde)
+	concubine_instance.position = Vector2(0, 0)
+	concubine_instance.global_position = Vector2(0, 0)
+	print("[MissionCenter] DEBUG: Concubine instance pozisyonu: %s, global_position: %s" % [concubine_instance.position, concubine_instance.global_position])
+	
+	# Tüm sprite'ların pozisyonlarını SABİTLE (her cariye için aynı)
+	# Sprite'lar scene'de Vector2(0, -48) pozisyonunda olmalı
+	var sprite_names = ["BodySprite", "PantsSprite", "ClothingSprite", "MouthSprite", "EyesSprite", "HairSprite"]
+	for sprite_name in sprite_names:
+		var sprite = concubine_instance.get_node_or_null(sprite_name)
+		if sprite:
+			var old_pos = sprite.position
+			sprite.position = Vector2(0, -48)  # Scene'deki sabit pozisyon
+			sprite.centered = true  # Merkez hizalama garantisi
+			print("[MissionCenter] DEBUG: %s - Eski pozisyon: %s, Yeni pozisyon: %s, Texture: %s, hframes: %d, vframes: %d, frame: %d" % [
+				sprite_name, 
+				old_pos, 
+				sprite.position,
+				sprite.texture.get_path() if sprite.texture else "null",
+				sprite.hframes,
+				sprite.vframes,
+				sprite.frame
+			])
+		else:
+			print("[MissionCenter] DEBUG: UYARI: %s bulunamadı!" % sprite_name)
+	
+	print("[MissionCenter] DEBUG: Concubine instance ve tüm sprite'lar sabitlendi")
+	
+	# Birkaç frame bekle (sprite'ların yüklenmesi için)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# SPRITE DURUMU KONTROLÜ (play_animation öncesi)
+	print("[MissionCenter] DEBUG: === SPRITE DURUMU (play_animation ÖNCESİ) ===")
+	for sprite_name in sprite_names:
+		var sprite = concubine_instance.get_node_or_null(sprite_name)
+		if sprite:
+			print("[MissionCenter] DEBUG: %s - Pozisyon: %s, frame: %d, hframes: %d, vframes: %d" % [
+				sprite_name, sprite.position, sprite.frame, sprite.hframes, sprite.vframes
+			])
+	
+	# Idle animasyonu zaten görünmeyen instance'da oynuyor olmalı
+	# Sadece emin olmak için kontrol et
+	var animation_player = concubine_instance.get_node_or_null("AnimationPlayer")
+	if animation_player:
+		if animation_player.has_animation("idle"):
+			# Eğer oynamıyorsa başlat
+			if not animation_player.is_playing() or animation_player.current_animation != "idle":
+				animation_player.play("idle")
+				print("[MissionCenter] DEBUG: Idle animasyonu başlatıldı (viewport için)")
+		else:
+			print("[MissionCenter] DEBUG: UYARI: 'idle' animasyonu bulunamadı!")
+	else:
+		print("[MissionCenter] DEBUG: UYARI: AnimationPlayer bulunamadı!")
+	
+	# Bir frame bekle (seek'in uygulanması için)
+	await get_tree().process_frame
+	
+	# SPRITE DURUMU KONTROLÜ (seek sonrası)
+	print("[MissionCenter] DEBUG: === SPRITE DURUMU (seek SONRASI) ===")
+	for sprite_name in sprite_names:
+		var sprite = concubine_instance.get_node_or_null(sprite_name)
+		if sprite:
+			print("[MissionCenter] DEBUG: %s - Pozisyon: %s, frame: %d, hframes: %d, vframes: %d, texture_path: %s" % [
+				sprite_name, 
+				sprite.position, 
+				sprite.frame, 
+				sprite.hframes, 
+				sprite.vframes,
+				sprite.texture.resource_path if sprite.texture and "resource_path" in sprite.texture else "N/A"
+			])
+	
+	# Birkaç frame bekle (sprite'ların render olması için)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# SON SPRITE DURUMU KONTROLÜ (render öncesi)
+	print("[MissionCenter] DEBUG: === SON SPRITE DURUMU (render ÖNCESİ) ===")
+	for sprite_name in sprite_names:
+		var sprite = concubine_instance.get_node_or_null(sprite_name)
+		if sprite:
+			print("[MissionCenter] DEBUG: %s - Pozisyon: %s, frame: %d, hframes: %d, vframes: %d" % [
+				sprite_name, sprite.position, sprite.frame, sprite.hframes, sprite.vframes
+			])
+	
+	# Sprite'ların görsel merkez noktası - TAMAMEN SABIT (tüm cariyeler için aynı)
+	# Sprite'lar Vector2(0, -48) pozisyonunda, portre için başın merkez noktası
+	# Kamera pozisyonunu daha aşağı al (daha iyi çerçeveleme için)
+	var head_center = Vector2(0, -40)  # Sabit pozisyon (portre için baş merkezi - daha aşağı)
+	print("[MissionCenter] DEBUG: Sabit head_center kullanılıyor: %s (tüm cariyeler için aynı)" % head_center)
+	
+	# Camera2D ekle (yakınlaştırma için) - hesaplanan merkez noktasına odaklan
+	var camera = Camera2D.new()
+	camera.zoom = Vector2(48.0, 48.0)  # 48x yakınlaştırma (12'den 4 kat daha yakın)
+	camera.position = head_center  # Hesaplanan baş merkez noktasına odaklan
+	viewport.add_child(camera)
+	camera.make_current()
+	print("[MissionCenter] DEBUG: Camera eklendi ve aktif, position: %s, zoom: %s" % [camera.position, camera.zoom])
+	
+	# Render için birkaç frame bekle (viewport'un render olması için)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("[MissionCenter] DEBUG: Frame'ler beklendi, viewport texture bağlanıyor...")
+	
+	# Viewport'u sürekli güncelle (animasyon için)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	
+	# ViewportTexture kullan (animasyonlu görüntü için)
+	# Bu sayede viewport sürekli güncellenir ve animasyon görünür
+	var viewport_texture = viewport.get_texture()
+	if viewport_texture:
+		print("[MissionCenter] DEBUG: Viewport texture bulundu, TextureRect'e bağlanıyor...")
+		# ViewportTexture'ı direkt TextureRect'e bağla (animasyonlu)
+		portrait_rect.texture = viewport_texture
+		portrait_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # Pixel-perfect (flu değil)
+		portrait_rect.visible = true  # Görünürlüğü zorla aç
+		portrait_rect.queue_redraw()  # Zorla yeniden çiz
+		
+		# Viewport'u sakla (temizlik için - portrait_rect silindiğinde temizlenecek)
+		portrait_rect.set_meta("viewport_ref", viewport)
+		portrait_rect.set_meta("instance_ref", concubine_instance)
+		
+		print("[MissionCenter] DEBUG: ViewportTexture TextureRect'e bağlandı, animasyon aktif")
+	else:
+		print("[MissionCenter] DEBUG: Viewport texture bulunamadı!")
+		# Fallback texture
+		var empty_image = Image.create(128, 128, false, Image.FORMAT_RGBA8)
+		empty_image.fill(Color(0, 1, 0, 1))  # Yeşil - debug için
+		var empty_texture = ImageTexture.create_from_image(empty_image)
+		portrait_rect.texture = empty_texture
+		portrait_rect.queue_redraw()  # Zorla yeniden çiz
+	
+	# Viewport'u temizleme - artık TextureRect viewport'u kullanıyor
+	# Temizlik işlemi portrait_rect silindiğinde (update_basic_info_panel'de) yapılacak
+	print("[MissionCenter] DEBUG: ViewportTexture bağlandı, viewport ve instance saklandı (temizlik portrait_rect silindiğinde yapılacak)")
 
 # Cariye görev geçmişini güncelle
 func update_concubine_mission_history(cariye: Concubine):
@@ -5941,13 +6466,8 @@ func _update_selected_concubine_details_dynamic():
 	if selected == null:
 		return
 
-	# 1) Temel Bilgiler: mevcut BasicInfoContent Label'ını doldur
-	var basic_info_content: Label = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/BasicInfoContent")
-	if basic_info_content:
-		basic_info_content.text = "İsim: %s\nSeviye: %d (%d/%d XP)\nDurum: %s\nRol: %s\nSağlık: %d/%d\nMoral: %d/%d" % [
-			selected.name, selected.level, selected.experience, selected.max_experience,
-			selected.get_status_name(), selected.get_role_name(), selected.health, selected.max_health, selected.moral, selected.max_moral
-		]
+	# 1) Temel Bilgiler: update_basic_info_panel fonksiyonunu kullan (portre dahil)
+	update_basic_info_panel(selected)
 
 	# 2) Yetenekler: SkillsVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
 	var skills_panel: Control = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel")

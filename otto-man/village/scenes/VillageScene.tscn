@@ -308,6 +308,9 @@ position = Vector2(2, -70)
 [node name="WorkersContainer" type="Node2D" parent="."]
 y_sort_enabled = true
 
+[node name="ConcubinesContainer" type="Node2D" parent="."]
+y_sort_enabled = true
+
 [node name="TimeDisplayUi" parent="." instance=ExtResource("7_miuw4")]
 layer = 10
 

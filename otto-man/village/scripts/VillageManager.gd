@@ -126,6 +126,10 @@ var worker_id_counter: int = 0 # <<< YENİ: ID üretici
 var campfire_node: Node2D = null # Kamp ateşi referansı
 var workers_container: Node = null #<<< YENİ: workers_parent_node yerine
 
+# --- Cariye Yönetimi ---
+var concubine_scene: PackedScene = preload("res://village/scenes/Concubine.tscn")
+var concubines_container: Node = null
+
 var _saved_building_states: Array = []
 var _saved_worker_states: Array = []
 var _saved_resource_levels: Dictionary = {}  # Save resource levels when leaving village
@@ -1257,6 +1261,15 @@ func register_village_scene(scene: Node2D) -> void:
 		#    #printerr("VillageManager Error: Root'tan da 'WorkersContainer' bulunamadı!")
 		#    return
 		return
+	
+	# ConcubinesContainer'ı bul
+	concubines_container = scene.get_node_or_null("ConcubinesContainer")
+	if concubines_container == null:
+		#printerr("VillageManager Error (in register_village_scene): Kaydedilen sahnede 'ConcubinesContainer' node'u bulunamadı!")
+		return
+	
+	# Cariyeleri sahneye ekle
+	_spawn_concubines_in_scene()
 	
 	# Reset leaving flag when returning to village
 	_is_leaving_village = false
@@ -2875,6 +2888,100 @@ func _add_new_worker(NPC_Info = {}) -> bool: # <<< Dönüş tipi eklendi
 	# WorkerAssignmentUI'yi güncellemek için sinyal gönder
 	emit_signal("worker_list_changed")
 	return true # Başarılı
+
+# Cariyeleri sahneye ekle
+func _spawn_concubines_in_scene() -> void:
+	if not concubine_scene:
+		printerr("VillageManager: Concubine scene not loaded!")
+		return
+	
+	if not concubines_container:
+		printerr("VillageManager: ConcubinesContainer not found!")
+		return
+	
+	# MissionManager'dan cariyeleri al
+	var mission_manager = get_node_or_null("/root/MissionManager")
+	if not mission_manager:
+		printerr("VillageManager: MissionManager not found!")
+		return
+	
+	# MissionManager'dan concubines dictionary'sini al
+	var concubines_dict = mission_manager.concubines
+	
+	# Debug: Kaç tane cariye var?
+	print("VillageManager: MissionManager'da %d cariye bulundu." % concubines_dict.size())
+	
+	# Zaten sahneye eklenmiş cariyeleri kontrol et ve görünümlerini güncelle
+	var existing_concubine_ids = {}
+	var existing_concubine_instances = {}
+	for child in concubines_container.get_children():
+		# concubine_id property'sini kontrol et (get() null dönerse property yok demektir)
+		var child_id = child.get("concubine_id")
+		if child_id != null:
+			existing_concubine_ids[child_id] = true
+			existing_concubine_instances[child_id] = child
+	
+	print("VillageManager: Sahneye zaten eklenmiş %d cariye var." % existing_concubine_ids.size())
+	
+	# Mevcut cariyelerin görünümlerini güncelle (sadece appearance yoksa)
+	for concubine_id in existing_concubine_ids:
+		if concubine_id in concubines_dict:
+			var concubine_data: Concubine = concubines_dict[concubine_id]
+			var existing_instance = existing_concubine_instances[concubine_id]
+			if concubine_data and existing_instance:
+				# Eğer appearance yoksa veya null ise generate et, yoksa mevcut appearance'ı kullan
+				if concubine_data.appearance == null:
+					concubine_data.appearance = AppearanceDB.generate_random_concubine_appearance()
+					existing_instance.appearance = concubine_data.appearance
+					if existing_instance.has_method("update_visuals"):
+						existing_instance.update_visuals()
+					print("VillageManager: Cariye (ID: %d) görünümü oluşturuldu." % concubine_id)
+				else:
+					# Mevcut appearance'ı kullan (renkler sabit kalır)
+					existing_instance.appearance = concubine_data.appearance
+					if existing_instance.has_method("update_visuals"):
+						existing_instance.update_visuals()
+	
+	# Her cariye için sahneye ekle (sadece daha önce eklenmemişse)
+	var spawned_count = 0
+	for concubine_id in concubines_dict:
+		# Eğer bu ID'ye sahip bir cariye zaten varsa, atla
+		if concubine_id in existing_concubine_ids:
+			continue
+		
+		var concubine_data: Concubine = concubines_dict[concubine_id]
+		if not concubine_data:
+			continue
+		
+		# Cariye NPC'sini oluştur
+		var concubine_instance = concubine_scene.instantiate()
+		concubine_instance.name = "Concubine" + str(concubine_id)
+		
+		# Cariye ID'sini ve verisini ata
+		concubine_instance.concubine_id = concubine_id
+		concubine_instance.concubine_data = concubine_data
+		
+		# Görünüm bilgisini ata - Sadece appearance yoksa generate et (renkler sabit kalmalı)
+		if concubine_data.appearance == null:
+			concubine_data.appearance = AppearanceDB.generate_random_concubine_appearance()
+		concubine_instance.appearance = concubine_data.appearance  # Mevcut appearance'ı kullan
+		
+		# Görünümü güncelle
+		if concubine_instance.has_method("update_visuals"):
+			concubine_instance.update_visuals()
+		
+		# Rastgele pozisyon ayarla (köy içinde)
+		var random_x = randf_range(-200, 200)
+		var random_y = randf_range(-50, 50)
+		concubine_instance.global_position = Vector2(random_x, random_y)
+		
+		# Container'a ekle
+		concubines_container.add_child(concubine_instance)
+		spawned_count += 1
+		
+		print("VillageManager: Cariye (ID: %d, Name: %s) sahneye eklendi." % [concubine_id, concubine_data.name])
+	
+	print("VillageManager: Toplam %d yeni cariye sahneye eklendi." % spawned_count)
 
 # Verilen işçiye uygun bir barınak bulup atar ve evin sayacını günceller
 func _assign_housing(worker_instance: Node2D) -> bool:

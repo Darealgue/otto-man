@@ -540,8 +540,9 @@ func _ready() -> void:
 	global_position.y = randf_range(0.0, VERTICAL_RANGE_MAX)
 	_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
 	
-	# Z-Index'i Y pozisyonuna göre ayarla (Y düşük = önde)
-	z_index = int(global_position.y)
+	# Z-Index'i ayak pozisyonuna göre ayarla (Y düşük = önde)
+	var foot_y = get_foot_y_position()
+	z_index = int(foot_y)
 	# <<< YENİ SONU >>>
 
 	# <<< YENİ: Başlangıç Hedefini Ayarla >>>
@@ -1146,10 +1147,33 @@ func _physics_process(delta: float) -> void:
 		_:
 			pass # Bilinmeyen veya henüz işlenmeyen durumlar
 	
-	# Z-Index'i Y pozisyonuna göre güncelle (Y düşük = önde)
-	var new_z_index = int(global_position.y)
+	# Z-Index'i ayak pozisyonuna göre güncelle (Y düşük = önde)
+	# Sprite'lar position = Vector2(0, -48) offset'ine sahip, bu yüzden ayaklar daha aşağıda
+	var foot_y = get_foot_y_position()
+	var new_z_index = int(foot_y)
 	if z_index != new_z_index:
 		z_index = new_z_index
+
+# Ayak pozisyonunu hesapla (sprite offset'i ve yüksekliğini hesaba katarak)
+func get_foot_y_position() -> float:
+	# Sprite'lar position = Vector2(0, -48) offset'ine sahip
+	# Bu demek oluyor ki sprite'ın merkezi global_position'dan 48 piksel yukarıda
+	# Ayaklar sprite'ın alt kısmında, yani global_position.y + offset_y + (sprite_height / 2)
+	var sprite_offset_y = 48.0  # Sprite offset'i
+	
+	# Body sprite'ın texture yüksekliğini al
+	var sprite_height = 96.0  # Varsayılan yükseklik
+	if is_instance_valid(body_sprite) and body_sprite.texture:
+		var texture = body_sprite.texture
+		if texture is CanvasTexture:
+			var canvas_texture = texture as CanvasTexture
+			if is_instance_valid(canvas_texture.diffuse_texture):
+				sprite_height = canvas_texture.diffuse_texture.get_height()
+		elif texture is Texture2D:
+			sprite_height = texture.get_height()
+	
+	# Ayak pozisyonu = global_position.y + sprite_offset + sprite'ın alt yarısı
+	return global_position.y + sprite_offset_y + (sprite_height / 2.0)
 
 # Worker'ın scriptine set fonksiyonları eklemek daha güvenli olabilir:
 # --- Worker.gd içine eklenecek opsiyonel set fonksiyonları ---
