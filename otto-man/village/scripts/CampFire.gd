@@ -28,6 +28,10 @@ var random_offset: float = 0.0
 var noise: FastNoiseLite
 var day_night_controller: Node = null
 
+# --- Kapasite Yönetimi ---
+@export var max_capacity: int = 3  # Maksimum işçi kapasitesi (varsayılan 3, kaydedilebilir)
+var _occupants: Array = []  # Kamp ateşindeki worker'ları takip et
+
 # --- Ready Function ---
 func _ready() -> void:
 	# Housing grubuna ekle
@@ -197,41 +201,85 @@ func can_add_occupant() -> bool:
 
 # Mevcut işçi sayısını döndürür
 func get_occupant_count() -> int:
-	# İşçiler artık WorkersContainer'da, bu yüzden VillageManager'dan sayıyı al
-	if VillageManager and "total_workers" in VillageManager:
-		return VillageManager.total_workers
-	return 0
+	# _occupants listesindeki geçerli worker'ları say
+	var count = 0
+	var to_remove: Array = []
+	
+	for occupant in _occupants:
+		if is_instance_valid(occupant):
+			# Worker hala SLEEPING state'indeyse say
+			# Worker.gd'de current_state property'si var, direkt eriş
+			var current_state = occupant.current_state
+			if current_state == 0:  # State.SLEEPING = 0
+				count += 1
+			else:
+				# Artık uyumuyor (başka bir state'de), listeden çıkarılacak
+				to_remove.append(occupant)
+		else:
+			# Geçersiz referans, listeden çıkarılacak
+			to_remove.append(occupant)
+	
+	# Geçersiz olanları listeden çıkar
+	for occupant in to_remove:
+		var index = _occupants.find(occupant)
+		if index >= 0:
+			_occupants.remove_at(index)
+	
+	return count
 
-# Maksimum kapasiteyi döndürür (şimdilik 3)
+# Maksimum kapasiteyi döndürür
 func get_max_capacity() -> int:
-	return 3
+	return max_capacity
 
 # Yeni bir işçi ekler
 func add_occupant(worker: Node) -> bool:
 	if not can_add_occupant():
 		return false
 	
+	# Worker zaten listede mi kontrol et
+	if worker in _occupants:
+		return true
+	
+	# İşçiyi listeye ekle
+	_occupants.append(worker)
+	# Debug: Only log if needed
+	# print("[CampFire DEBUG] Worker listeye eklendi. Yeni sayı: %d/%d" % [get_occupant_count(), get_max_capacity()])
+	
 	# İşçiyi ekle - eğer zaten bir parent'ı varsa (örn. WorkersContainer) child olarak ekleme
 	# Sadece referans tut (housing_node zaten set edilmiş)
 	if worker.get_parent() == null:
 		add_child(worker)
-		print("Campfire: Occupant added as child. Current: %d/%d" % [get_occupant_count(), get_max_capacity()])
-	else:
+		# Debug: Only log if needed
+		# print("[CampFire DEBUG] Worker child olarak eklendi. Mevcut: %d/%d" % [get_occupant_count(), get_max_capacity()])
+	# else:
 		# Worker zaten WorkersContainer'da, sadece referans tut
-		print("Campfire: Occupant added (already has parent: %s). Current: %d/%d" % [worker.get_parent().name, get_occupant_count(), get_max_capacity()])
+		# print("[CampFire DEBUG] Worker zaten parent'a sahip (%s). Sadece referans tutuluyor. Mevcut: %d/%d" % [worker.get_parent().name, get_occupant_count(), get_max_capacity()])
 	return true
 
 # Bir işçiyi çıkarır
 func remove_occupant(worker: Node) -> bool:
+	# Debug: Only log errors, not normal operations
+	# print("[CampFire DEBUG] remove_occupant çağrıldı - worker: %s, mevcut: %d/%d" % [worker.name if worker else "null", get_occupant_count(), get_max_capacity()])
+	# Listeden çıkar
+	if worker in _occupants:
+		_occupants.erase(worker)
+		# Debug: Only log if needed
+		# print("[CampFire DEBUG] Worker listeden çıkarıldı. Yeni sayı: %d/%d" % [get_occupant_count(), get_max_capacity()])
+	# else:
+		# Worker listede yok - bu normal olabilir (worker zaten başka yerde)
+		# print("[CampFire DEBUG] Worker listede yok! Mevcut: %d/%d" % [get_occupant_count(), get_max_capacity()])
+	
 	# İşçi zaten binaya atanmış olabilir, bu durumda parent'ı değişmiş olabilir
 	# Ama hala bu CampFire'da kayıtlı olabilir
 	if worker.get_parent() == self:
 		remove_child(worker)
-		print("Campfire: Occupant removed. Current: %d/%d" % [get_occupant_count(), get_max_capacity()])
+		# Debug: Only log if needed
+		# print("[CampFire DEBUG] Worker child olarak çıkarıldı. Mevcut: %d/%d" % [get_occupant_count(), get_max_capacity()])
 		return true
 	else:
 		# İşçi zaten başka yerde (binaya atanmış), ama yine de başarılı sayalım
-		print("Campfire: Occupant was already moved to building, but removal successful. Current: %d/%d" % [get_occupant_count(), get_max_capacity()])
+		# Debug: This is normal, don't log
+		# print("[CampFire DEBUG] Worker zaten başka parent'a sahip (%s). Mevcut: %d/%d" % [worker.get_parent().name if worker.get_parent() else "null", get_occupant_count(), get_max_capacity()])
 		return true
 
 # --- Light System Functions ---

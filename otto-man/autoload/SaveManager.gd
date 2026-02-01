@@ -299,6 +299,14 @@ func _save_village_state() -> Dictionary:
 		state["village_event_cooldowns"] = VillageManager.get("_village_event_cooldowns").duplicate(true)
 	else:
 		state["village_event_cooldowns"] = {}
+	# Aktif köy event'leri (bandit_activity vb.) - yüklemede effect'ler yeniden uygulanacak
+	state["events_active"] = []
+	if "events_active" in VillageManager:
+		var ev_arr = VillageManager.get("events_active")
+		if ev_arr is Array:
+			for ev in ev_arr:
+				if ev is Dictionary:
+					state["events_active"].append(ev.duplicate(true))
 	
 	# Save snapshot/meta data
 	if VillageManager._saved_snapshot_time is Dictionary and not VillageManager._saved_snapshot_time.is_empty():
@@ -349,16 +357,36 @@ func _save_mission_state() -> Dictionary:
 				else:
 					state["completed_missions"].append(str(mission))
 	
-	# Concubines (cariyeler)
+	# Concubines (cariyeler) - Tam statları kaydet
 	state["concubines"] = []
 	if "concubines" in MissionManager:
 		var concubines_dict = MissionManager.concubines
 		for cariye_id in concubines_dict.keys():
 			var cariye = concubines_dict[cariye_id]
-			if cariye.has_method("to_dict") or "name" in cariye:
+			if cariye.has_method("to_dict"):
+				# Debug: Save edilmeden önce görünüm durumunu kontrol et
+				if cariye.appearance == null:
+					printerr("[SaveManager] ⚠️ Cariye %d görünümü NULL (save edilmeden önce)! Bu bir sorun!" % cariye_id)
+				else:
+					print("[SaveManager] 🔍 Cariye %d görünümü var, to_dict() çağrılıyor..." % cariye_id)
+				
+				var cariye_data = cariye.to_dict()
+				
+				# Debug: Appearance kaydediliyor mu kontrol et
+				if cariye.appearance != null:
+					if not cariye_data.has("appearance"):
+						printerr("[SaveManager] ⚠️ Cariye %d görünümü to_dict() sonrası dict'te yok!" % cariye_id)
+					elif cariye_data["appearance"] == null:
+						printerr("[SaveManager] ⚠️ Cariye %d görünümü to_dict() sonrası null!" % cariye_id)
+					else:
+						print("[SaveManager] ✅ Cariye %d görünümü kaydedildi (dict size: %d)" % [cariye_id, cariye_data["appearance"].size() if cariye_data["appearance"] is Dictionary else 0])
+				else:
+					printerr("[SaveManager] ⚠️ Cariye %d görünümü null, kaydedilemiyor!" % cariye_id)
+				state["concubines"].append({"id": cariye_id, "data": cariye_data})
+			elif "name" in cariye:
+				# Fallback: Eski format
 				var cariye_data: Dictionary = {}
-				if "name" in cariye:
-					cariye_data["name"] = cariye.name
+				cariye_data["name"] = cariye.name
 				if "role" in cariye:
 					cariye_data["role"] = int(cariye.role) if cariye.role is int else 0
 				state["concubines"].append({"id": cariye_id, "data": cariye_data})
@@ -560,6 +588,14 @@ func _load_village_state(state: Dictionary) -> void:
 		VillageManager.set("village_events_enabled", state["village_events_enabled"])
 	if state.has("village_event_cooldowns"):
 		VillageManager.set("_village_event_cooldowns", state["village_event_cooldowns"].duplicate(true))
+	if state.has("events_active") and state["events_active"] is Array:
+		VillageManager.events_active.clear()
+		for ev in state["events_active"]:
+			if ev is Dictionary:
+				VillageManager.events_active.append(ev.duplicate(true))
+		# Bandit Activity vb. için MissionManager flag'leri ve Haydut Temizliği görevini yeniden uygula
+		if VillageManager.has_method("reapply_active_event_effects"):
+			VillageManager.reapply_active_event_effects()
 
 func _load_mission_state(state: Dictionary) -> void:
 	if not is_instance_valid(MissionManager):
@@ -604,8 +640,45 @@ func _load_mission_state(state: Dictionary) -> void:
 							break
 			MissionManager.set("completed_missions", completed_array)
 	
-	# Concubines (restoration might need special handling)
-	# This is a simplified version - MissionManager might need its own load logic
+	# Concubines (cariyeler) - Tam statları yükle
+	if state.has("concubines"):
+		var loaded_concubines = state["concubines"]
+		if loaded_concubines is Array and loaded_concubines.size() > 0:
+			# Önce mevcut cariyeleri temizle (yeni oyun başlatılıyorsa)
+			if "concubines" in MissionManager:
+				MissionManager.concubines.clear()
+			
+			for concubine_entry in loaded_concubines:
+				if concubine_entry is Dictionary and "id" in concubine_entry and "data" in concubine_entry:
+					# JSON'dan gelen id float (1.0) olabilir; MissionManager int anahtar kullanıyor
+					var cariye_id_raw = concubine_entry["id"]
+					var cariye_id: int = int(cariye_id_raw) if cariye_id_raw != null else 0
+					var cariye_data = concubine_entry["data"]
+					
+					# Yeni cariye oluştur
+					var cariye = Concubine.new()
+					if cariye.has_method("from_dict"):
+						cariye.from_dict(cariye_data)
+					
+					# Debug: Appearance yüklendi mi kontrol et
+					if cariye_data.has("appearance"):
+						if cariye.appearance == null:
+							printerr("[SaveManager] ⚠️ Cariye %d görünümü yüklenemedi! Data: %s" % [cariye_id, str(cariye_data.get("appearance"))])
+						else:
+							print("[SaveManager] ✅ Cariye %d görünümü yüklendi" % cariye_id)
+					else:
+						printerr("[SaveManager] ⚠️ Cariye %d görünümü save'de yok!" % cariye_id)
+					
+					# MissionManager'a ekle (anahtar her zaman int olmalı, load sonrası atama çalışsın)
+					if "concubines" in MissionManager:
+						MissionManager.concubines[cariye_id] = cariye
+						# next_concubine_id'yi güncelle
+						if "next_concubine_id" in MissionManager:
+							var next_id = MissionManager.get("next_concubine_id")
+							if next_id is int:
+								MissionManager.set("next_concubine_id", max(next_id, cariye_id + 1))
+			
+			print("[SaveManager] ✅ %d cariye yüklendi" % loaded_concubines.size())
 	
 	# Trade agreements
 	if state.has("trade_agreements"):
@@ -753,19 +826,73 @@ func get_save_metadata(slot_id: int) -> Dictionary:
 func delete_save(slot_id: int) -> bool:
 	"""Delete a save slot"""
 	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
+		push_error("[SaveManager] Invalid slot_id for delete: %d" % slot_id)
 		return false
 	
 	var file_path = SAVE_DIR + "save_%d.json" % slot_id
-	if FileAccess.file_exists(file_path):
-		var dir = DirAccess.open("user://")
-		if dir:
-			var error = dir.remove("otto-man-save/save_%d.json" % slot_id)
-			if error == OK:
-				print("[SaveManager] ✅ Deleted save slot %d" % slot_id)
+	if not FileAccess.file_exists(file_path):
+		print("[SaveManager] Save slot %d does not exist, nothing to delete" % slot_id)
+		return true  # Already deleted/non-existent, consider it success
+	
+	# Open user:// directory
+	var dir = DirAccess.open("user://")
+	if not dir:
+		push_error("[SaveManager] Failed to open user:// directory")
+		return false
+	
+	# Try multiple methods to delete the file
+	var filename = "save_%d.json" % slot_id
+	var relative_path = "otto-man-save/" + filename
+	
+	# Method 1: Try to change to directory and remove
+	var change_error = dir.change_dir("otto-man-save")
+	if change_error == OK:
+		var error = dir.remove(filename)
+		if error == OK:
+			print("[SaveManager] ✅ Deleted save slot %d: %s" % [slot_id, filename])
+			return true
+		else:
+			push_error("[SaveManager] Method 1 failed: Failed to remove file (error: %d)" % error)
+	else:
+		push_error("[SaveManager] Method 1 failed: Failed to change directory (error: %d)" % change_error)
+	
+	# Method 2: Try to remove with relative path from user://
+	dir = DirAccess.open("user://")  # Reopen to reset
+	if dir:
+		var error = dir.remove(relative_path)
+		if error == OK:
+			print("[SaveManager] ✅ Deleted save slot %d (method 2): %s" % [slot_id, relative_path])
+			return true
+		else:
+			push_error("[SaveManager] Method 2 failed: Failed to remove with relative path (error: %d)" % error)
+	
+	# Method 3: Try using OS.move_to_trash (platform dependent, but might work)
+	# Convert user:// path to absolute path
+	var user_data_dir = OS.get_user_data_dir()
+	# Build path with proper separators
+	var absolute_path = user_data_dir + "/otto-man-save/save_%d.json" % slot_id
+	
+	# Check if file exists before trying to move to trash
+	if FileAccess.file_exists(absolute_path):
+		var trash_result = OS.move_to_trash(absolute_path)
+		if trash_result == OK:
+			print("[SaveManager] ✅ Moved save slot %d to trash (method 3): %s" % [slot_id, absolute_path])
+			return true
+		else:
+			push_error("[SaveManager] Method 3 failed: move_to_trash returned error: %d" % trash_result)
+	else:
+		# File doesn't exist at absolute path, try alternative path construction
+		# On Windows, user data dir might be different
+		var alt_path = user_data_dir + "\\otto-man-save\\save_%d.json" % slot_id
+		if FileAccess.file_exists(alt_path):
+			var trash_result = OS.move_to_trash(alt_path)
+			if trash_result == OK:
+				print("[SaveManager] ✅ Moved save slot %d to trash (method 3b): %s" % [slot_id, alt_path])
 				return true
-			else:
-				push_error("[SaveManager] Failed to delete save slot %d (error: %d)" % [slot_id, error])
-				return false
+	
+	push_error("[SaveManager] All methods failed to delete save slot %d" % slot_id)
+	push_error("[SaveManager] File path checked: %s" % file_path)
+	push_error("[SaveManager] Absolute path checked: %s" % absolute_path)
 	return false
 
 func _calculate_current_playtime() -> int:

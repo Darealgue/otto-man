@@ -290,6 +290,8 @@ func _ready():
 		mission_manager.trade_offers_updated.connect(_on_trade_offers_updated)
 	if mission_manager.has_signal("mission_chain_progressed"):
 		mission_manager.mission_chain_progressed.connect(_on_chain_progressed)
+	if mission_manager.has_signal("mission_list_changed"):
+		mission_manager.mission_list_changed.connect(_on_mission_list_changed)
 
 	# WorldManager sinyalleri (lazy load destekli)
 	var wm = _get_world_manager()
@@ -559,6 +561,11 @@ func _on_mission_unlocked(mission_id: String):
 	
 	# UI'ı güncelle
 	update_missions_ui()
+
+func _on_mission_list_changed() -> void:
+	# Yeni görev eklendi (örn. Haydut Temizliği); görev listesini yenile
+	if current_page == PageType.MISSIONS:
+		update_available_missions_cards()
 
 	print("=========================")
 
@@ -1476,8 +1483,14 @@ func execute_build_action():
 		print("Bu kategoride bina yok!")
 		return
 	
-	# Seçili binayı al
-	var selected_building = buildings[current_building_index]
+	# Seçili binayı al (index kontrolü ile)
+	var selected_building = ""
+	if current_building_index >= 0 and current_building_index < buildings.size():
+		selected_building = buildings[current_building_index]
+	else:
+		# Index geçersizse ilk binayı seç
+		selected_building = buildings[0] if buildings.size() > 0 else ""
+		current_building_index = 0  # Index'i düzelt
 	
 	# İşlem türüne göre farklı işlemler yap
 	match current_construction_action:
@@ -2831,7 +2844,8 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	
 	# Kalan süre
 	var time_label = Label.new()
-	time_label.text = "⏱️ %.1f saniye kaldı" % remaining_time
+	var time_text = _format_game_time_minutes(remaining_time)
+	time_label.text = "⏱️ %s kaldı" % time_text
 	time_label.add_theme_font_size_override("font_size", 14)
 	time_label.add_theme_color_override("font_color", Color.YELLOW)
 	vbox.add_child(time_label)
@@ -3180,14 +3194,16 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	badges.add_child(risk_badge)
 
 	var duration_badge = Label.new()
-	duration_badge.text = "⏱️ %.1fs" % duration
+	var duration_text = _format_game_time_minutes(duration)
+	duration_badge.text = "⏱️ %s" % duration_text
 	# duration_badge.add_theme_font_size_override("font_size", 11)
 	duration_badge.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	badges.add_child(duration_badge)
 
 	# Görev bilgileri
 	var info_label = Label.new()
-	info_label.text = "Tür: %s | Süre: %.1fs" % [mission_type_str, duration]
+	duration_text = _format_game_time_minutes(duration)  # duration_text zaten yukarıda tanımlı
+	info_label.text = "Tür: %s | Süre: %s" % [mission_type_str, duration_text]
 	# info_label.add_theme_font_size_override("font_size", 12)
 	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3260,6 +3276,12 @@ func update_cariye_selection_cards():
 		print("⚠️ update_cariye_selection_cards: cariye_selection_list is null!")
 		return
 	clear_list(cariye_selection_list)
+	
+	var max_soldiers = _get_available_soldier_count()
+	var soldier_label = Label.new()
+	soldier_label.text = "Yanında asker: %d / %d  (Sol/Sağ ile değiştir)" % [current_soldier_count, max_soldiers]
+	soldier_label.add_theme_color_override("font_color", Color.WHITE)
+	cariye_selection_list.add_child(soldier_label)
 	
 	var idle_cariyeler = mission_manager.get_idle_concubines()
 	if idle_cariyeler.is_empty():
@@ -4145,7 +4167,21 @@ func handle_missions_input(event):
 			update_missions_ui()
 			return
 	
-	# Asker seçimi görünümünde sol/sağ ile asker sayısı ayarı
+	# Cariye seçimi görünümünde sol/sağ ile yanında götürülecek asker sayısı (0..max)
+	if current_mission_menu_state == MissionMenuState.CARİYE_SEÇİMİ:
+		if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
+			if dpad_debounce_timer > 0:
+				return
+			dpad_debounce_timer = dpad_debounce_delay
+			var max_soldiers = _get_available_soldier_count()
+			if event.is_action_pressed("ui_left"):
+				current_soldier_count = max(0, current_soldier_count - 1)
+			else:
+				current_soldier_count = min(max_soldiers, current_soldier_count + 1)
+			update_missions_ui()
+			return
+
+	# Asker seçimi görünümünde sol/sağ ile asker sayısı ayarı (raid için eski akış, artık cariye ekranında yapılıyor)
 	if current_mission_menu_state == MissionMenuState.ASKER_SEÇİMİ:
 		if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
 			if dpad_debounce_timer > 0:
@@ -4258,34 +4294,16 @@ func handle_missions_down():
 func handle_missions_accept():
 	match current_mission_menu_state:
 		MissionMenuState.GÖREV_LISTESİ:
-			# Görev seçildi, cariye seçimine geç
+			# Görev seçildi, cariye seçimine geç (asker sayısı cariye ekranında sol/sağ ile ayarlanır)
 			var available_missions = mission_manager.get_available_missions()
 			if not available_missions.is_empty() and current_mission_index < available_missions.size():
 				current_mission_menu_state = MissionMenuState.CARİYE_SEÇİMİ
 				current_cariye_index = 0
+				current_soldier_count = 0  # Varsayılan 0; sol/sağ ile artırılır
 				update_missions_ui()
 		MissionMenuState.CARİYE_SEÇİMİ:
-			# Cariye seçildi, görev tipine göre devam et
-			var available_missions = mission_manager.get_available_missions()
-			if current_mission_index < available_missions.size():
-				var mission = available_missions[current_mission_index]
-				
-				# Raid görevleri için asker seçimine geç
-				var is_raid = false
-				if mission is Dictionary:
-					is_raid = (mission.get("type", "") == "raid")
-				elif mission.has_method("get_mission_type_name"):
-					is_raid = (mission.get_mission_type_name() == "raid")
-				
-				if is_raid:
-					# Mevcut asker sayısını al ve minimumu ayarla
-					var max_soldiers = _get_available_soldier_count()
-					current_soldier_count = max(1, min(max_soldiers, mission.get("required_army_size", 1) if mission is Dictionary else mission.required_army_size))
-					current_mission_menu_state = MissionMenuState.ASKER_SEÇİMİ
-					update_missions_ui()
-				else:
-					# Normal görev: direkt ata
-					assign_selected_mission()
+			# Cariye seçildi, görevi seçilen asker sayısıyla ata (sol/sağ ile ayarlandı)
+			assign_selected_mission_with_soldiers()
 		MissionMenuState.ASKER_SEÇİMİ:
 			# Asker sayısı seçildi, görevi ata
 			assign_selected_mission_with_soldiers()
@@ -4340,17 +4358,21 @@ func assign_selected_mission_with_soldiers():
 	
 	print("========================")
 
-# Mevcut asker sayısını al
+# Mevcut asker sayısını al (görevde olan askerler düşülür; 4 asker varken 2 görevdeyse en fazla 2 atanabilir)
 func _get_available_soldier_count() -> int:
 	var mm = get_node_or_null("/root/MissionManager")
 	if not mm:
 		return 0
 	
 	var barracks = mm._find_barracks()
-	if barracks and barracks.has("assigned_workers"):
-		return barracks.assigned_workers
+	if not barracks or not "assigned_workers" in barracks:
+		return 0
 	
-	return 0
+	var total = barracks.assigned_workers
+	var on_mission = mm.get_total_soldiers_on_mission()
+	var available = max(0, total - on_mission)
+	print("[RAID_DEBUG] _get_available_soldier_count: total=%d on_mission=%d available=%d" % [total, on_mission, available])
+	return available
 
 # Seçili görevi ata
 func assign_selected_mission():
@@ -4958,6 +4980,10 @@ func _build_or_upgrade_selected():
 
 func _demolish_selected_building():
 	if all_buildings_flat.is_empty(): return
+	# Index kontrolü - array sınırlarını aşmaması için
+	if current_building_index < 0 or current_building_index >= all_buildings_flat.size():
+		print("⚠️ Geçersiz bina index'i: ", current_building_index, " (Array boyutu: ", all_buildings_flat.size(), ")")
+		current_building_index = 0  # Index'i düzelt
 	var building_name = all_buildings_flat[current_building_index]
 	var existing = find_existing_buildings(building_name)
 	if existing.is_empty():
@@ -5054,7 +5080,12 @@ func _open_demolish_confirm_popup():
 	var buildings = building_categories.get(current_building_category, [])
 	var name_text: String = ""
 	if buildings.size() > 0:
-		name_text = String(buildings[current_building_index])
+		# Index kontrolü - array sınırlarını aşmaması için
+		if current_building_index >= 0 and current_building_index < buildings.size():
+			name_text = String(buildings[current_building_index])
+		else:
+			# Index geçersizse ilk binayı göster veya boş bırak
+			name_text = String(buildings[0]) if buildings.size() > 0 else ""
 	_demolish_confirm_label.text = "\n" + name_text + "\n\nBu binayı yıkmak istiyor musun?\n\nA: Evet    B: Hayır"
 	_demolish_confirm_open = true
 
@@ -5241,7 +5272,7 @@ func create_news_card(news: Dictionary) -> Panel:
 	
 	# Zaman
 	var time_label = Label.new()
-	var time_text = _format_news_time(news.get("timestamp", 0))
+	var time_text = _format_news_time(news.get("timestamp", 0), news)
 	if time_text == "":
 		time_text = news.get("time", "Zaman yok")
 	time_label.text = time_text
@@ -5456,10 +5487,55 @@ func _news_close_detail():
 
 # Haber→görev dönüştürme özelliği kaldırıldı
 
-func _format_news_time(timestamp: int) -> String:
+# Oyun dakikasını saat/dakika formatına çevir (örn: 180 -> "3 saat", 210 -> "3 saat 30 dakika")
+func _format_game_time_minutes(minutes: float) -> String:
+	var total_minutes = int(minutes)
+	if total_minutes <= 0:
+		return "Tamamlandı"
+	
+	var hours = total_minutes / 60
+	var remaining_minutes = total_minutes % 60
+	
+	if hours > 0 and remaining_minutes > 0:
+		return "%d saat %d dakika" % [hours, remaining_minutes]
+	elif hours > 0:
+		return "%d saat" % hours
+	else:
+		return "%d dakika" % remaining_minutes
+
+func _format_news_time(timestamp: int, news_dict: Dictionary = {}) -> String:
 	if timestamp <= 0:
 		return ""
 	
+	# Oyun içi saatle göster
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager and time_manager.has_method("get_total_game_minutes"):
+		var diff_game_minutes = 0.0
+		
+		# Eğer haber dictionary'sinde oyun zamanı varsa, onu kullan
+		if news_dict.has("game_time_minutes") and news_dict["game_time_minutes"] > 0:
+			var current_game_time = time_manager.get_total_game_minutes()
+			diff_game_minutes = current_game_time - news_dict["game_time_minutes"]
+		else:
+			# Eski haberler için: gerçek zaman timestamp'ini oyun zamanına çevir
+			var current_real_time = int(Time.get_unix_time_from_system())
+			var diff_real_seconds = current_real_time - timestamp
+			# Gerçek saniyeyi oyun dakikasına çevir (1 oyun dakikası = 2.5 gerçek saniyesi)
+			diff_game_minutes = diff_real_seconds / 2.5
+		
+		if diff_game_minutes < 1:
+			return "Az önce"
+		elif diff_game_minutes < 60:
+			return "%d dakika önce" % int(diff_game_minutes)
+		else:
+			var hours = int(diff_game_minutes / 60)
+			var minutes = int(diff_game_minutes) % 60
+			if minutes > 0:
+				return "%d saat %d dakika önce" % [hours, minutes]
+			else:
+				return "%d saat önce" % hours
+	
+	# Fallback: gerçek zaman (eski sistem)
 	var current_time = int(Time.get_unix_time_from_system())
 	var diff = current_time - timestamp
 	
@@ -5923,6 +5999,10 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 			concubine_instance = concubine_scene.instantiate()
 			if concubine_instance:
 				concubine_instance.appearance = cariye.appearance
+				# Scale'i ayarla - portreler sola bakmalı (scale.x = -1)
+				concubine_instance.scale.x = -1.0
+				concubine_instance.scale.y = 1.0
+				print("[MissionCenter] DEBUG: Yeni instance scale ayarlandı: %s" % concubine_instance.scale)
 				# Geçici olarak viewport'a ekleyeceğiz
 	
 	if not concubine_instance:
@@ -5955,6 +6035,11 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	
 	# Duplicate'ın appearance'ını güncelle
 	viewport_instance.appearance = cariye.appearance
+	
+	# Scale'i ayarla - portreler sola bakmalı (scale.x = -1)
+	viewport_instance.scale.x = -1.0
+	viewport_instance.scale.y = 1.0
+	print("[MissionCenter] DEBUG: Duplicate instance scale ayarlandı: %s" % viewport_instance.scale)
 	
 	# Duplicate instance için _physics_process'i devre dışı bırak (hareket kontrolü yapmasın)
 	viewport_instance.set_physics_process(false)
@@ -5993,7 +6078,10 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	# Concubine instance'ın pozisyonunu TAMAMEN SABİTLE (viewport içinde)
 	concubine_instance.position = Vector2(0, 0)
 	concubine_instance.global_position = Vector2(0, 0)
-	print("[MissionCenter] DEBUG: Concubine instance pozisyonu: %s, global_position: %s" % [concubine_instance.position, concubine_instance.global_position])
+	# Scale'i tekrar ayarla (duplicate sonrası kaybolmuş olabilir)
+	concubine_instance.scale.x = -1.0
+	concubine_instance.scale.y = 1.0
+	print("[MissionCenter] DEBUG: Concubine instance pozisyonu: %s, global_position: %s, scale: %s" % [concubine_instance.position, concubine_instance.global_position, concubine_instance.scale])
 	
 	# Tüm sprite'ların pozisyonlarını SABİTLE (her cariye için aynı)
 	# Sprite'lar scene'de Vector2(0, -48) pozisyonunda olmalı
@@ -6158,10 +6246,18 @@ func update_achievements_panel(cariye: Concubine):
 	
 	var achievements_text = ""
 	if cariye.special_achievements.is_empty():
-		achievements_text = "Henüz özel başarı yok"
+		achievements_text = "🌟 Henüz başarı kazanılmadı\n\nBaşarılar görev tamamlama, seviye atlama ve yetenek geliştirme ile kazanılır."
 	else:
+		achievements_text = "🏆 Toplam %d Başarı Kazanıldı\n\n" % cariye.special_achievements.size()
 		for achievement in cariye.special_achievements:
-			achievements_text += "🏆 %s\n" % achievement
+			# Başarı ismini ve açıklamasını ayır (varsa)
+			var achievement_parts = achievement.split(" - ", false, 1)
+			if achievement_parts.size() == 2:
+				# İsim ve açıklama var
+				achievements_text += "%s\n   └─ %s\n\n" % [achievement_parts[0], achievement_parts[1]]
+			else:
+				# Sadece isim var
+				achievements_text += "%s\n\n" % achievement
 	
 	achievements_content.text = achievements_text
 
@@ -6469,7 +6565,10 @@ func _update_selected_concubine_details_dynamic():
 	# 1) Temel Bilgiler: update_basic_info_panel fonksiyonunu kullan (portre dahil)
 	update_basic_info_panel(selected)
 
-	# 2) Yetenekler: SkillsVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
+	# 2) Başarılar: update_achievements_panel fonksiyonunu kullan
+	update_achievements_panel(selected)
+
+	# 3) Yetenekler: SkillsVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
 	var skills_panel: Control = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel")
 	if skills_panel:
 		var skills_vb: VBoxContainer = skills_panel.get_node_or_null("SkillsVBox")
@@ -6493,7 +6592,7 @@ func _update_selected_concubine_details_dynamic():
 			l.add_theme_color_override("font_color", Color(0.8,0.9,1,1))
 			skills_vb.add_child(l)
 
-	# 3) Görev Geçmişi: MissionHistoryVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
+	# 4) Görev Geçmişi: MissionHistoryVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
 	var hist_panel: Control = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel")
 	if hist_panel:
 		var hist_vb: VBoxContainer = hist_panel.get_node_or_null("MissionHistoryVBox")
@@ -6523,7 +6622,7 @@ func _update_selected_concubine_details_dynamic():
 		content.add_theme_color_override("font_color", Color(0.8,0.8,0.8,1))
 		hist_vb.add_child(content)
 
-	# 4) Kontrol metni: ControlsVBox varsa temizle, yoksa oluştur
+	# 5) Kontrol metni: ControlsVBox varsa temizle, yoksa oluştur
 	var controls_panel: Control = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/ControlsPanel")
 	if controls_panel:
 		var controls_vb: VBoxContainer = controls_panel.get_node_or_null("ControlsVBox")

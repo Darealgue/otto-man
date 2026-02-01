@@ -1,7 +1,7 @@
+ParallaxLayer
 CollisionShape2D
 Area2D
 AnimatedSprite2D
-ParallaxLayer
 Sprite2D
 Node
 StaticBody2D

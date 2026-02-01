@@ -31,7 +31,15 @@ func add_worker() -> bool:
 	worker_instance.assigned_job_type = "food"
 	worker_instance.assigned_building_node = self
 	worker_instance.move_target_x = self.global_position.x
-	worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
+	
+	# Mesai saatleri kontrolü: Mesai saatleri dışındaysa beklemeli
+	var current_hour = TimeManager.get_hour()
+	var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
+	if is_work_time:
+		worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
+	else:
+		# Mesai saatleri dışında, beklemeli (AWAKE_IDLE'da kalır, mesai başlayınca gider)
+		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 
 	print("Avcı Kulübesi: İşçi (ID: %d) atandı (%d/%d)." % [
 		worker_instance.worker_id, assigned_workers, max_workers

@@ -32,6 +32,10 @@ var idle_activity_duration_max: float = 30.0 # Max aktivite süresi (saniye) - �
 var _current_animation_name: String = "" # Track the animation we told the player to play
 var _pending_wander_target: Vector2 = Vector2.ZERO # Store target during brief idle
 var _is_briefly_idling: bool = false # Flag for brief idle state
+# <<< YENİ: Uyku Denemesi Başarısız Flag >>>
+var _sleep_attempt_failed: bool = false # Kapasite dolu olduğunda tekrar denemeyi engelle
+var _sleep_retry_timer: Timer # Uyku denemesi başarısız olduğunda bekleme zamanlayıcısı
+var _sleep_retry_delay: float = 30.0 # 30 saniye bekle, sonra tekrar dene
 # <<< YENİ SONU >>>
 
 # <<< YENİ: Dikey Hareket İçin >>>
@@ -57,7 +61,9 @@ enum State {
 	GOING_TO_SLEEP,   # Uyumak için barınağa gidiyor
 	FETCHING_RESOURCE, # Kaynak almaya gidiyor (görsel)
 	WAITING_AT_SOURCE, # Kaynak binasında bekliyor (görünmez)
-	RETURNING_FROM_FETCH # Kaynaktan binaya dönüyor (görsel)
+	RETURNING_FROM_FETCH, # Kaynaktan binaya dönüyor (görsel)
+	SICK,              # Hasta (evde yatıyor, görünmez)
+	GOING_HOME_SICK    # Hasta olunca evine gidiyor
 } 
 var current_state = State.AWAKE_IDLE # Başlangıç durumu (Tip otomatik çıkarılacak)
 
@@ -66,9 +72,13 @@ var assigned_job_type: String = "" # "wood", "stone", etc. or "" for idle
 var assigned_building_node: Node2D = null # Atandığı binanın node'u
 var housing_node: Node2D = null # Kaldığı yer (CampFire veya House)
 var is_deployed: bool = false # Askerler için: savaş için deploy edildi mi?
+var is_sick: bool = false # Hasta mı? (evden çıkmaz, çalışamaz)
+var sick_since_day: int = -1 # Hangi günden beri hasta (iyileşme kontrolü için)
+var previous_job_type: String = "" # Hastalanmadan önceki iş (iyileşince dönmek için)
+var previous_building_node: Node2D = null # Hastalanmadan önceki bina (iyileşince dönmek için)
 
 # Rutin Zamanlaması için Rastgele Farklar
-var wake_up_minute_offset: int = randi_range(0, 15) 
+var wake_up_minute_offset: int = randi_range(0, 20) # 0-20 dakika arası rastgelelik (daha doğal görünsün)
 var work_start_minute_offset: int = randi_range(0, 30)
 var work_end_minute_offset: int = randi_range(0, 30) # 0-30 dk arası rastgelelik
 var sleep_minute_offset: int = randi_range(0, 60) #<<< YENİ IDLE UYKU OFFSETİ
@@ -529,6 +539,14 @@ func _ready() -> void:
 	add_child(idle_activity_timer)
 	_current_idle_activity = "wandering" # Başlangıçta gezin
 	# <<< YENİ SONU >>>
+	
+	# <<< YENİ: Uyku Denemesi Başarısız Zamanlayıcısı >>>
+	_sleep_retry_timer = Timer.new()
+	_sleep_retry_timer.one_shot = true
+	_sleep_retry_timer.wait_time = _sleep_retry_delay
+	_sleep_retry_timer.timeout.connect(_on_sleep_retry_timer_timeout)
+	add_child(_sleep_retry_timer)
+	# <<< YENİ SONU >>>
 
 	# <<< DEBUG: HeldItemSprite kontrolü >>>
 	#print("Worker %d - HeldItemSprite Node in _ready: " % worker_id, held_item_sprite)
@@ -573,6 +591,10 @@ func _ready() -> void:
 	if $InteractButton:
 		var key_name = InputManager.get_interact_key_name()
 		$InteractButton.text = _format_key_name(key_name)
+	
+	# NamePlate'i varsayılan olarak görünmez yap (sadece en yakın NPC'nin ismi görünecek)
+	if $NamePlateContainer:
+		$NamePlateContainer.visible = false
 	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
 
 func update_news(news_string: String) -> void:
@@ -593,9 +615,15 @@ func Save_Villager_Info():
 	#NPC_Info = VillagerInfo
 func Update_Villager_Name():
 	if NPC_Info.has("Info") and NPC_Info["Info"].has("Name"):
-		$NamePlate.text = NPC_Info["Info"]["Name"]
+		var name_label = $NamePlateContainer.get_node_or_null("NamePlate")
+		if name_label:
+			name_label.text = NPC_Info["Info"]["Name"]
 	else:
 		print("[Worker] ⚠️ Cannot update name: NPC_Info missing 'Info' or 'Name' key. Info keys: ", NPC_Info.keys())
+	
+	# NamePlate'i varsayılan olarak görünmez yap (sadece en yakın NPC'nin ismi görünecek)
+	if $NamePlateContainer:
+		$NamePlateContainer.visible = false
 	
 func Initialize_Existing_Villager(NPCInfo):
 		print("Worker %d Initialize_Existing_Villager called with data size: %d" % [worker_id, NPCInfo.size()])
@@ -634,11 +662,11 @@ func _physics_process(delta: float) -> void:
 	# AI kamili workerların sağa sola dönmesini spriteları döndürmek yerine
 	# tüm node'un X scale'ını değiştirerek yaptığı için böyle isim plakasını tersine çevirmemiz gerekti
 	if scale.x < 0:
-		$NamePlate.scale.x = -1
+		$NamePlateContainer.scale.x = -1
 		$InteractButton.scale.x = -1
 		$NpcWindow.scale.x = -1
 	else:
-		$NamePlate.scale.x = 1
+		$NamePlateContainer.scale.x = 1
 		$InteractButton.scale.x = 1
 		$NpcWindow.scale.x = 1
 	# <<< YENİ: Mevcut Duruma Göre Animasyon Belirleme >>>
@@ -653,11 +681,12 @@ func _physics_process(delta: float) -> void:
 		# Deploy edilmiş askerler ekran dışına yürümeli
 		if current_state != State.WORKING_OFFSCREEN and current_state != State.WAITING_OFFSCREEN:
 			current_state = State.WORKING_OFFSCREEN
-			# Hedef ekran dışına ayarla (sağ taraf) - çok uzakta
-			if global_position.x <= 1920.0:
-				move_target_x = global_position.x + 1500.0
-			else:
-				move_target_x = 4500.0
+			# Hedef zaten raid/görev tarafından set edildiyse (sola/sağa 4800) üzerine yazma
+			if abs(move_target_x) < 3000.0:
+				if global_position.x <= 1920.0:
+					move_target_x = global_position.x + 1500.0
+				else:
+					move_target_x = 4500.0
 			_target_global_y = global_position.y
 		# Hareket ederken görünür kalmalı, ekran dışına çıkınca gizlenecek
 		if current_state == State.WORKING_OFFSCREEN:
@@ -787,17 +816,84 @@ func _physics_process(delta: float) -> void:
 	scale.x = direction
 	
 	# <<< YENİ: Vector2 ile Hareket (Sadece Gerekliyse) >>>
+	# HASTA KONTROLÜ: Hasta işçiler için özel hız (GOING_HOME_SICK state'inde)
 	if moving: # Sadece moving true ise hareket et
-		global_position = global_position.move_toward(target_pos, move_speed * delta)
+		var actual_move_speed = move_speed
+		if current_state == State.GOING_HOME_SICK:
+			# Hasta işçiler normal hızın %75'i ile yürür
+			actual_move_speed = move_speed * 0.75
+		global_position = global_position.move_toward(target_pos, actual_move_speed * delta)
 	# <<< YENİ SONU >>>
 	
 	match current_state:
+		State.GOING_HOME_SICK:
+			# Hasta işçi evine gidiyor (barakaya/kamp ateşine GİRMEZ, sadece pozisyonunu alır)
+			if not is_instance_valid(housing_node):
+				# Ev yoksa direkt SICK state'ine geç
+				current_state = State.SICK
+				visible = false
+				return
+			
+			# Evine vardı mı kontrol et (housing_node'un pozisyonuna yakın olmalı)
+			var distance_to_home = global_position.distance_to(housing_node.global_position)
+			# Eve vardı: yürünebilir banttaysa mesafe ile, değilse (kamp ateşi) yatay mesafe ile
+			var housing_y = housing_node.global_position.y
+			var housing_outside_walkable_home = housing_y < 0.0 or housing_y > VERTICAL_RANGE_MAX
+			var horizontal_dist_home = abs(global_position.x - housing_node.global_position.x)
+			var at_home = (distance_to_home < 10.0) if not housing_outside_walkable_home else (horizontal_dist_home < 40.0)
+			if at_home:
+				current_state = State.SICK
+				visible = false
+				global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+				return
+			else:
+				# Eve doğru hareket et; barınak yürünebilir bantta değilse hedef Y yürünebilir bantta
+				move_target_x = housing_node.global_position.x
+				if housing_outside_walkable_home:
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+				else:
+					_target_global_y = housing_y + randf_range(-8.0, 8.0)
+				target_pos = Vector2(move_target_x, _target_global_y)
+				if not moving:
+					moving = true
+			return
+		
+		State.SICK:
+			# Hasta işçiler evde kalır, hiçbir şey yapmaz
+			# İyileşme kontrolü VillageManager tarafından günlük yapılır
+			visible = false
+			if is_instance_valid(housing_node):
+				global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+			return
+		
 		State.SLEEPING:
 			# Uyanma zamanı geldi mi kontrol et
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
 			# WAKE_UP_HOUR sabitine ve işçiye özel offset'e göre kontrol
-			if current_hour == TimeManager.WAKE_UP_HOUR and current_minute >= wake_up_minute_offset:
+			# Sadece gündüz saatlerinde (WAKE_UP_HOUR ile SLEEP_HOUR arası) uyan
+			# Gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uyanma
+			var should_wake = false
+			# Gündüz saatleri: 6-22 arası
+			if current_hour >= wake_hour and current_hour < sleep_hour:
+				# WAKE_UP_HOUR'dan sonra veya tam WAKE_UP_HOUR'da offset geçmişse uyan
+				if current_hour > wake_hour:
+					should_wake = true
+				elif current_hour == wake_hour and current_minute >= wake_up_minute_offset:
+					should_wake = true
+			
+			if should_wake:
+				# Debug: Wake up (commented out)
+				# print("[Worker DEBUG] Worker %d: Uyanma zamanı geldi, SLEEPING'den çıkıyor" % worker_id)
+				# Barınaktan çıkar (CampFire veya House)
+				if is_instance_valid(housing_node) and housing_node.has_method("remove_occupant"):
+					# Debug: Remove occupant (commented out)
+					# print("[Worker DEBUG] Worker %d: remove_occupant çağrılıyor" % worker_id)
+					# Hem CampFire hem House için worker parametresi geç (House artık parametre alıyor)
+					housing_node.remove_occupant(self)
+				
 				# Uyandır!
 				current_state = State.AWAKE_IDLE # Şimdilik direkt idle yapalım
 				visible = true
@@ -816,8 +912,27 @@ func _physics_process(delta: float) -> void:
 				_is_briefly_idling = false # Reset flag
 				_start_next_idle_step() # Decide initial action
 				#print("Worker %d uyandı!" % worker_id) # Debug
+			else:
+				# Hala uyku zamanı, SLEEPING state'inde kal
+				pass
 
 		State.AWAKE_IDLE:
+			# HASTALIK KONTROLÜ: Hasta işçiler evden çıkmaz, çalışamaz
+			if is_sick:
+				# Eğer evine gitmediyse git
+				if is_instance_valid(housing_node):
+					var distance_to_home = global_position.distance_to(housing_node.global_position)
+					if distance_to_home > 10.0:
+						current_state = State.GOING_HOME_SICK
+						visible = true
+						return
+				# Evdeyse SICK state'ine geç
+				current_state = State.SICK
+				visible = false
+				if is_instance_valid(housing_node):
+					global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+				return
+			
 			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler normal rutinlerine devam etmemeli
 			if is_deployed and assigned_job_type == "soldier":
 				current_state = State.WORKING_OFFSCREEN
@@ -839,20 +954,37 @@ func _physics_process(delta: float) -> void:
 			var current_minute = TimeManager.get_minute()
 			
 			# 1. Uyku Zamanı Kontrolü
-			if current_hour >= TimeManager.SLEEP_HOUR and current_minute >= sleep_minute_offset:
-				if is_instance_valid(housing_node):
-					#print("Worker %d (Idle) uyumaya gidiyor." % worker_id)
-					current_state = State.GOING_TO_SLEEP
-					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
-					idle_activity_timer.stop() # Aktiviteyi durdur
-					_is_briefly_idling = false # <<< Reset flag >>>
-					_current_idle_activity = "" # <<< Reset activity >>>
-					return
+			# HASTA KONTROLÜ: Hasta işçiler uykuya gitmez, GOING_HOME_SICK olmalı
+			if not is_sick:
+				# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+				# Gündüz saatlerinde (WAKE_UP_HOUR ile SLEEP_HOUR arası) uyku kontrolü yapma
+				var wake_hour = TimeManager.WAKE_UP_HOUR
+				var sleep_hour = TimeManager.SLEEP_HOUR
+				var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+				# Sadece gece saatlerinde (22-6 arası) ve henüz uyumamışsa uykuya git
+				if not is_daytime and current_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+					# Worker zaten uyuyorsa veya uyumaya gidiyorsa tekrar kontrol etme
+					if current_state != State.SLEEPING and current_state != State.GOING_TO_SLEEP:
+						if is_instance_valid(housing_node):
+							#print("Worker %d (Idle) uyumaya gidiyor." % worker_id)
+							current_state = State.GOING_TO_SLEEP
+							move_target_x = housing_node.global_position.x
+							_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+							idle_activity_timer.stop() # Aktiviteyi durdur
+							_is_briefly_idling = false # <<< Reset flag >>>
+							_current_idle_activity = "" # <<< Reset activity >>>
+							return
 
 			# 2. İşe Gitme Zamanı Kontrolü (ASKER İSTİSNASI: askerler gündüz köyde kalır)
-			elif assigned_job_type != "" and assigned_job_type != "soldier" and is_instance_valid(assigned_building_node):
-				if current_hour == TimeManager.WORK_START_HOUR and current_minute >= work_start_minute_offset:
+			# HASTALIK KONTROLÜ: Hasta işçiler çalışamaz
+			elif assigned_job_type != "" and assigned_job_type != "soldier" and is_instance_valid(assigned_building_node) and not is_sick:
+				# Çalışma saatleri içindeyse işe git (WORK_START_HOUR ile WORK_END_HOUR arası)
+				var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
+				var is_work_start_hour = current_hour == TimeManager.WORK_START_HOUR
+				var passed_offset = current_minute >= work_start_minute_offset
+				
+				# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
+				if is_work_time and (not is_work_start_hour or passed_offset):
 					#print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
 					current_state = State.GOING_TO_BUILDING_FIRST
 					move_target_x = assigned_building_node.global_position.x
@@ -879,6 +1011,29 @@ func _physics_process(delta: float) -> void:
 					move_target_x = 3500.0
 				_target_global_y = global_position.y
 				return
+			
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var current_hour_building = TimeManager.get_hour()
+			var current_minute_building = TimeManager.get_minute()
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = current_hour_building >= wake_hour and current_hour_building < sleep_hour
+			if not is_daytime and current_hour_building >= sleep_hour and current_minute_building >= sleep_minute_offset:
+				# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP yerine GOING_HOME_SICK olmalı
+				if is_sick:
+					current_state = State.GOING_HOME_SICK
+					visible = true
+				elif is_instance_valid(housing_node):
+					#print("Worker %d going to sleep while going to building." % worker_id)
+					current_state = State.GOING_TO_SLEEP
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+					return
 			
 			# Binaya doğru hareket et (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
@@ -929,11 +1084,17 @@ func _physics_process(delta: float) -> void:
 							if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 						# <<< YENİ SONU >>>
 						current_state = State.WORKING_OFFSCREEN
-						if global_position.x < 960:
-							move_target_x = -2500.0
+						# Kamp ateşini merkez alarak sağa ve sola 4800 piksel mesafe
+						var campfire_x = 960.0  # Varsayılan ekran merkezi, kamp ateşi bulunursa güncellenir
+						var campfire_node = get_tree().get_first_node_in_group("Housing")
+						if is_instance_valid(campfire_node):
+							campfire_x = campfire_node.global_position.x
+						
+						if global_position.x < campfire_x:
+							move_target_x = campfire_x - 4800.0
 							_target_global_y = global_position.y # Hedef Y'yi mevcut Y yapalım ki sadece X ekseninde gitsin
 						else:
-							move_target_x = 2500.0
+							move_target_x = campfire_x + 4800.0
 							_target_global_y = global_position.y # Hedef Y'yi mevcut Y yapalım ki sadece X ekseninde gitsin
 				else:
 					# Bina geçerli değil veya scripti yoksa varsayılan davranış
@@ -946,6 +1107,30 @@ func _physics_process(delta: float) -> void:
 				_current_idle_activity = ""
 
 		State.WORKING_OFFSCREEN:
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var current_hour_offscreen = TimeManager.get_hour()
+			var current_minute_offscreen = TimeManager.get_minute()
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = current_hour_offscreen >= wake_hour and current_hour_offscreen < sleep_hour
+			if not is_daytime and current_hour_offscreen >= sleep_hour and current_minute_offscreen >= sleep_minute_offset:
+				# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP yerine GOING_HOME_SICK olmalı
+				if is_sick:
+					current_state = State.GOING_HOME_SICK
+					visible = true
+				elif is_instance_valid(housing_node):
+					#print("Worker %d going to sleep while working offscreen." % worker_id)
+					current_state = State.GOING_TO_SLEEP
+					visible = true
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+					return
+			
 			# Ekran dışına doğru hareket et
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Ekran dışı hedefine vardıysa
@@ -986,8 +1171,17 @@ func _physics_process(delta: float) -> void:
 				else:
 					pass 
 
-				if current_hour >= TimeManager.SLEEP_HOUR:
-					if is_instance_valid(housing_node):
+				# Sadece gece saatlerinde uykuya git
+				var wake_hour = TimeManager.WAKE_UP_HOUR
+				var sleep_hour = TimeManager.SLEEP_HOUR
+				var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+				if not is_daytime and current_hour >= sleep_hour:
+					# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP yerine GOING_HOME_SICK olmalı
+					if is_sick:
+						current_state = State.GOING_HOME_SICK
+						visible = true
+						if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+					elif is_instance_valid(housing_node):
 						#print("Worker %d going to sleep from inside building." % worker_id)
 						current_state = State.GOING_TO_SLEEP
 						move_target_x = housing_node.global_position.x
@@ -1022,17 +1216,63 @@ func _physics_process(delta: float) -> void:
 			
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
+			
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+			if not is_daytime and current_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+				# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP yerine GOING_HOME_SICK olmalı
+				if is_sick:
+					current_state = State.GOING_HOME_SICK
+					visible = true
+				elif is_instance_valid(housing_node):
+					#print("Worker %d going to sleep while waiting offscreen." % worker_id)
+					current_state = State.GOING_TO_SLEEP
+					visible = true
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+					return
+			
 			if current_hour >= TimeManager.WORK_END_HOUR:
 				if current_hour > TimeManager.WORK_END_HOUR or current_minute >= work_end_minute_offset:
 					#print("Worker %d işten dönüyor." % worker_id)
 					current_state = State.RETURNING_FROM_WORK
 					visible = true
-					var start_margin = 5.0
+					
+					# Eğer _offscreen_exit_x kaydedilmemişse, kamp ateşine göre hesapla
+					if _offscreen_exit_x == 0.0:
+						# Kamp ateşini merkez alarak sağa veya sola 4800 piksel mesafe
+						var campfire_x = 960.0  # Varsayılan ekran merkezi
+						var campfire_node = get_tree().get_first_node_in_group("Housing")
+						if is_instance_valid(campfire_node):
+							campfire_x = campfire_node.global_position.x
+						
+						# Binanın konumuna göre hangi taraftan çıktığını tahmin et
+						if is_instance_valid(assigned_building_node):
+							if assigned_building_node.global_position.x < campfire_x:
+								_offscreen_exit_x = campfire_x - 4800.0
+							else:
+								_offscreen_exit_x = campfire_x + 4800.0
+						else:
+							# Bina yoksa rastgele bir taraf seç
+							_offscreen_exit_x = campfire_x - 4800.0 if randf() < 0.5 else campfire_x + 4800.0
+					
+					# Ekranın dışından başla (100 piksel margin ile)
+					var start_margin = 100.0
 					var start_x = 0.0
 					if _offscreen_exit_x < 0:
+						# Soldan çıkmıştı, soldan gir (ekranın dışından)
 						start_x = _offscreen_exit_x - start_margin
 					else:
+						# Sağdan çıkmıştı, sağdan gir (ekranın dışından)
 						start_x = _offscreen_exit_x + start_margin
+					
 					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
 					global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
 					
@@ -1050,6 +1290,30 @@ func _physics_process(delta: float) -> void:
 						# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
 
 		State.RETURNING_FROM_WORK:
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var current_hour = TimeManager.get_hour()
+			var current_minute = TimeManager.get_minute()
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+			if not is_daytime and current_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+				# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP yerine GOING_HOME_SICK olmalı
+				if is_sick:
+					current_state = State.GOING_HOME_SICK
+					visible = true
+					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+				elif is_instance_valid(housing_node):
+					#print("Worker %d going to sleep while returning from work." % worker_id)
+					current_state = State.GOING_TO_SLEEP
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+					return
+			
 			# Binaya doğru hareket et (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Binaya vardıysa
@@ -1066,7 +1330,7 @@ func _physics_process(delta: float) -> void:
 			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler SOCIALIZING'e geçmemeli
 			if is_deployed and assigned_job_type == "soldier":
 				current_state = State.WORKING_OFFSCREEN
-				visible = false
+				visible = true
 				if global_position.x <= 1920.0:
 					move_target_x = global_position.x + 1500.0
 				else:
@@ -1075,17 +1339,42 @@ func _physics_process(delta: float) -> void:
 				return
 			
 			var current_hour = TimeManager.get_hour()
+			var current_minute_social = TimeManager.get_minute()
 			# Uyku Zamanı Kontrolü
-			if current_hour >= TimeManager.SLEEP_HOUR:
-				if is_instance_valid(housing_node):
-					#print("Worker %d uyumaya gidiyor." % worker_id)
-					current_state = State.GOING_TO_SLEEP
-					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
-					idle_activity_timer.stop() # Aktiviteyi durdur
-					_is_briefly_idling = false # <<< Reset flag >>>
-					_current_idle_activity = "" # <<< Reset activity >>>
-					return
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			# Gündüz saatlerinde (WAKE_UP_HOUR ile SLEEP_HOUR arası) uyku kontrolü yapma
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+			# <<< YENİ: Başarısız deneme flag'ini kontrol et >>>
+			# Sadece gece saatlerinde (22-6 arası) ve henüz uyumamışsa uykuya git
+			if not is_daytime and current_hour >= sleep_hour and current_minute_social >= sleep_minute_offset and not _sleep_attempt_failed:
+				# Worker zaten uyuyorsa veya uyumaya gidiyorsa tekrar kontrol etme
+				if current_state != State.SLEEPING and current_state != State.GOING_TO_SLEEP and current_state != State.GOING_HOME_SICK:
+					# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP yerine GOING_HOME_SICK olmalı
+					if is_sick:
+						current_state = State.GOING_HOME_SICK
+						visible = true
+						idle_activity_timer.stop()
+						_is_briefly_idling = false
+						_current_idle_activity = ""
+						return
+					elif is_instance_valid(housing_node):
+						# Debug: State transition (commented out)
+						# print("[Worker DEBUG] Worker %d: SOCIALIZING'den GOING_TO_SLEEP'e geçiyor, saat: %d:%d" % [worker_id, current_hour, current_minute_social])
+						current_state = State.GOING_TO_SLEEP
+						move_target_x = housing_node.global_position.x
+						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+						idle_activity_timer.stop() # Aktiviteyi durdur
+						_is_briefly_idling = false # <<< Reset flag >>>
+						_current_idle_activity = "" # <<< Reset activity >>>
+						return
+				# else:
+				# 	print("[Worker DEBUG] Worker %d: SOCIALIZING'de ama zaten SLEEPING veya GOING_TO_SLEEP state'inde (state: %d)" % [worker_id, current_state])
+			elif _sleep_attempt_failed:
+				# Debug: Sleep attempt failed (commented out)
+				# print("[Worker DEBUG] Worker %d: SOCIALIZING'de ama _sleep_attempt_failed=true, uykuya gitmiyor" % worker_id)
+				pass
 				#else:
 					#printerr("Worker %d: Uyuyacak yer (housing_node) yok!" % worker_id)
 
@@ -1095,18 +1384,81 @@ func _physics_process(delta: float) -> void:
 				_start_next_idle_step() # Decide and initiate the next step
 
 		State.GOING_TO_SLEEP:
-			# Barınağa doğru hareket et (hareket _physics_process başında yapılıyor)
-			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
-			if not moving: # Barınağa vardıysa
-				#print("Worker %d barınağa ulaştı ve uykuya daldı." % worker_id)
-				current_state = State.SLEEPING
-				visible = false
-				idle_activity_timer.stop() # <<< Stop timer >>>
-				_is_briefly_idling = false # <<< Reset flag >>>
-				_current_idle_activity = "" # <<< Reset activity >>>
-				if is_instance_valid(housing_node):
-					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
-					global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+			# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP state'ine geçmemeli, GOING_HOME_SICK olmalı
+			if is_sick:
+				current_state = State.GOING_HOME_SICK
+				return
+			
+			# NOT: GOING_TO_SLEEP state'inde sabah kontrolü YAPILMAMALI
+			# Çünkü worker henüz eve varmamış, bu yüzden uyandırılmamalı
+			# Sabah kontrolü sadece SLEEPING state'inde yapılmalı
+			
+			# Hedef: barınak yürünebilir bantta değilse (örn. kamp ateşi y=-26) hedef Y'yi yürünebilir bantta tut (0..VERTICAL_RANGE_MAX)
+			if is_instance_valid(housing_node):
+				move_target_x = housing_node.global_position.x
+				var housing_y = housing_node.global_position.y
+				if housing_y < 0.0 or housing_y > VERTICAL_RANGE_MAX:
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+				else:
+					_target_global_y = housing_y + randf_range(-8.0, 8.0)
+			
+			var distance_to_housing = 9999.0
+			var horizontal_dist_to_housing = 9999.0
+			if is_instance_valid(housing_node):
+				distance_to_housing = global_position.distance_to(housing_node.global_position)
+				horizontal_dist_to_housing = abs(global_position.x - housing_node.global_position.x)
+			
+			# Barınak yürünebilir bantta değilse (kamp ateşi gibi) "vardı" = yatay mesafe yeterince küçük (worker yürünebilir Y'de kalır)
+			var housing_outside_walkable = is_instance_valid(housing_node) and (housing_node.global_position.y < 0.0 or housing_node.global_position.y > VERTICAL_RANGE_MAX)
+			var arrived = false
+			if housing_outside_walkable:
+				arrived = horizontal_dist_to_housing < 40.0
+			else:
+				arrived = distance_to_housing < 25.0
+			
+			if arrived:
+				# Uyku saati kontrolü: Eğer hala uyku saati içindeyse SLEEPING state'ine geç
+				var current_hour_sleep = TimeManager.get_hour()
+				var wake_hour = TimeManager.WAKE_UP_HOUR
+				var sleep_hour = TimeManager.SLEEP_HOUR
+				var is_sleep_time = current_hour_sleep >= sleep_hour or current_hour_sleep < wake_hour
+				
+				if is_sleep_time:
+					var can_sleep = true
+					if is_instance_valid(housing_node) and housing_node.has_method("add_occupant"):
+						var add_result = housing_node.add_occupant(self)
+						if not add_result:
+							can_sleep = false
+							_sleep_attempt_failed = true
+							_sleep_retry_timer.start()
+							current_state = State.SOCIALIZING
+							visible = true
+							_is_briefly_idling = false
+							_current_idle_activity = ""
+							_start_next_idle_step()
+							return
+					
+					if can_sleep:
+						current_state = State.SLEEPING
+						_sleep_attempt_failed = false
+						_sleep_retry_timer.stop()
+					visible = false
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					if is_instance_valid(housing_node):
+						global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+				else:
+					current_state = State.AWAKE_IDLE
+					visible = true
+					if is_instance_valid(housing_node):
+						global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+						var wander_range = 150.0
+						move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_current_idle_activity = ""
+					_is_briefly_idling = false
+					_start_next_idle_step()
 
 		State.FETCHING_RESOURCE:
 			# Hedef kaynak binasına git (hareket _physics_process başında yapılıyor)
@@ -1190,6 +1542,12 @@ func get_foot_y_position() -> float:
 # <<< YENİ FONKSİYON BAŞLANGIÇ >>>
 # Bina yükseltmesi tamamlandığında çağrılır (eğer bu işçi ilk işçiyse ve dışarıdaysa)
 func switch_to_working_inside():
+	# Worker instance'ın ve scene tree'in geçerli olduğundan emin ol
+	if not is_inside_tree():
+		return
+	if not is_instance_valid(self):
+		return
+	
 	if current_state == State.WORKING_OFFSCREEN or current_state == State.WAITING_OFFSCREEN:
 		# #print("Worker %d switching from OFFSCREEN to WORKING_INSIDE due to building upgrade." % worker_id) #<<< KALDIRILDI
 		current_state = State.WORKING_INSIDE
@@ -1205,27 +1563,46 @@ func switch_to_working_inside():
 # <<< YENİ FONKSİYON BAŞLANGIÇ: switch_to_working_offscreen >>>
 # İşçi içeride çalışırken (WORKING_INSIDE) dışarıda çalışmaya geçirmek için
 func switch_to_working_offscreen():
+	# Worker instance'ın ve scene tree'in geçerli olduğundan emin ol
+	if not is_inside_tree():
+		return
+	if not is_instance_valid(self):
+		return
+	
 	if current_state == State.WORKING_INSIDE:
 		# #print("Worker %d switching from INSIDE to WORKING_OFFSCREEN." % worker_id) #<<< KALDIRILDI
 		current_state = State.WORKING_OFFSCREEN
 		visible = true # Görünür yap
+		# Kamp ateşini merkez alarak sağa ve sola 4800 piksel mesafe
+		var campfire_x = 960.0  # Varsayılan ekran merkezi, kamp ateşi bulunursa güncellenir
+		var campfire_node = get_tree().get_first_node_in_group("Housing")
+		if is_instance_valid(campfire_node):
+			campfire_x = campfire_node.global_position.x
+		
 		# Binanın konumuna göre ekran dışı hedefini belirle
 		if is_instance_valid(assigned_building_node):
-			if assigned_building_node.global_position.x < 960: # Kabaca ekran merkezi
-				move_target_x = -2500.0
+			if assigned_building_node.global_position.x < campfire_x:
+				move_target_x = campfire_x - 4800.0
 			else:
-				move_target_x = 2500.0
+				move_target_x = campfire_x + 4800.0
 			# Pozisyonu bina konumu yap ki oradan yürümeye başlasın
 			global_position = assigned_building_node.global_position
 		else:
 			# Bina geçerli değilse, bulunduğu yerden rastgele bir yöne gitsin? Güvenli varsayım:
 			#printerr("Worker %d switching to OFFSCREEN but building node is invalid. Using current pos." % worker_id)
-			if global_position.x < 960: 
-				move_target_x = -2500.0
+			if global_position.x < campfire_x: 
+				move_target_x = campfire_x - 4800.0
 			else:
-				move_target_x = 2500.0
+				move_target_x = campfire_x + 4800.0
 		
-		$AnimatedSprite2D.play("walk") # Yürüme animasyonunu başlat
+		# AnimatedSprite2D node'unun geçerli olduğundan emin ol
+		var animated_sprite = get_node_or_null("AnimatedSprite2D")
+		if is_instance_valid(animated_sprite):
+			animated_sprite.play("walk") # Yürüme animasyonunu başlat
+		else:
+			# Alternatif olarak play_animation metodunu kullan (eğer varsa)
+			if has_method("play_animation"):
+				play_animation("walk")
 	#else:
 		# Zaten dışarıdaysa veya başka bir durumdaysa işlem yapma
 		# #print("Worker %d not switching to OFFSCREEN, current state: %s" % [worker_id, State.keys()[current_state]]) #<<< KALDIRILDI
@@ -1249,9 +1626,17 @@ func _on_fetching_timer_timeout():
 		if is_instance_valid(assigned_building_node):
 			global_position = assigned_building_node.global_position
 		
-		# Uyku vakti mi?
-		if current_hour >= TimeManager.SLEEP_HOUR:
-			if is_instance_valid(housing_node):
+		# Uyku vakti mi? Sadece gece saatlerinde
+		var wake_hour = TimeManager.WAKE_UP_HOUR
+		var sleep_hour = TimeManager.SLEEP_HOUR
+		var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+		if not is_daytime and current_hour >= sleep_hour:
+			# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP yerine GOING_HOME_SICK olmalı
+			if is_sick:
+				current_state = State.GOING_HOME_SICK
+				visible = true
+				if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+			elif is_instance_valid(housing_node):
 				#print("Worker %d going to sleep directly after fetch timer (work end time)." % worker_id)
 				current_state = State.GOING_TO_SLEEP
 				move_target_x = housing_node.global_position.x
@@ -1585,6 +1970,11 @@ func _on_idle_activity_timer_timeout():
 	# Aktivite bitti, bir sonraki adıma geç
 	_start_next_idle_step()
 
+# Uyku denemesi başarısız olduktan sonra timer dolduğunda çağrılır
+func _on_sleep_retry_timer_timeout():
+	# <<< YENİ: Timer doldu, tekrar denemeyi serbest bırak >>>
+	_sleep_attempt_failed = false
+
 # Saat değişiminde state transition kontrolü (VillageManager'dan çağrılır)
 func check_hour_transition(new_hour: int) -> void:
 	if not is_instance_valid(TimeManager):
@@ -1593,7 +1983,22 @@ func check_hour_transition(new_hour: int) -> void:
 	
 	match current_state:
 		State.SLEEPING:
-			if new_hour == TimeManager.WAKE_UP_HOUR and current_minute >= wake_up_minute_offset:
+			# Uyanma kontrolü: Sadece sabah 6'da (WAKE_UP_HOUR) uyan
+			# Gündüz saatlerinde (WAKE_UP_HOUR ile SLEEP_HOUR arası) tekrar uyanma kontrolü yapma
+			var should_wake = false
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			# Sadece tam WAKE_UP_HOUR'da uyan (gündüz saatlerinde tekrar uyanma kontrolü yapma)
+			if new_hour == wake_hour and current_minute >= wake_up_minute_offset:
+				should_wake = true
+			# Eğer saat WAKE_UP_HOUR'dan sonra ama SLEEP_HOUR'dan önceyse, zaten uyanmış olmalı
+			# Bu durumda tekrar uyanma kontrolü yapma
+			
+			if should_wake:
+				# Barınaktan çıkar (CampFire veya House)
+				if is_instance_valid(housing_node) and housing_node.has_method("remove_occupant"):
+					housing_node.remove_occupant(self)
+				
 				current_state = State.AWAKE_IDLE
 				visible = true
 				if is_instance_valid(housing_node):
@@ -1608,6 +2013,21 @@ func check_hour_transition(new_hour: int) -> void:
 		State.WAITING_OFFSCREEN:
 			if is_deployed and assigned_job_type == "soldier":
 				return
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+			if not is_daytime and new_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+				if is_instance_valid(housing_node):
+					current_state = State.GOING_TO_SLEEP
+					visible = true
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					return
 			if new_hour >= TimeManager.WORK_END_HOUR:
 				var should_return = false
 				if new_hour > TimeManager.WORK_END_HOUR:
@@ -1629,6 +2049,42 @@ func check_hour_transition(new_hour: int) -> void:
 						_current_idle_activity = ""
 						_start_next_idle_step()
 		
+		State.RETURNING_FROM_WORK:
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+			if not is_daytime and new_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+				if is_instance_valid(housing_node):
+					current_state = State.GOING_TO_SLEEP
+					visible = true
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					if is_instance_valid(held_item_sprite):
+						held_item_sprite.hide()
+		
+		State.WORKING_OFFSCREEN:
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+			if not is_daytime and new_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+				if is_instance_valid(housing_node):
+					current_state = State.GOING_TO_SLEEP
+					visible = true
+					move_target_x = housing_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					idle_activity_timer.stop()
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					if is_instance_valid(held_item_sprite):
+						held_item_sprite.hide()
+		
 		State.WORKING_INSIDE:
 			if new_hour >= TimeManager.WORK_END_HOUR:
 				var should_finish = false
@@ -1642,7 +2098,11 @@ func check_hour_transition(new_hour: int) -> void:
 						global_position = Vector2(assigned_building_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
 					if fetching_timer and not fetching_timer.is_stopped():
 						fetching_timer.stop()
-					if new_hour >= TimeManager.SLEEP_HOUR:
+					# Sadece gece saatlerinde uykuya git
+					var wake_hour = TimeManager.WAKE_UP_HOUR
+					var sleep_hour = TimeManager.SLEEP_HOUR
+					var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+					if not is_daytime and new_hour >= sleep_hour:
 						if is_instance_valid(housing_node):
 							current_state = State.GOING_TO_SLEEP
 							move_target_x = housing_node.global_position.x
@@ -1664,8 +2124,13 @@ func check_hour_transition(new_hour: int) -> void:
 						if is_instance_valid(held_item_sprite):
 							held_item_sprite.hide()
 		
-		State.AWAKE_IDLE, State.SOCIALIZING:
-			if new_hour >= TimeManager.SLEEP_HOUR and current_minute >= sleep_minute_offset:
+		State.GOING_TO_BUILDING_FIRST:
+			# Uyku zamanı kontrolü (öncelikli)
+			# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+			if not is_daytime and new_hour >= sleep_hour and current_minute >= sleep_minute_offset:
 				if is_instance_valid(housing_node):
 					current_state = State.GOING_TO_SLEEP
 					move_target_x = housing_node.global_position.x
@@ -1673,14 +2138,46 @@ func check_hour_transition(new_hour: int) -> void:
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
-			elif new_hour == TimeManager.WORK_START_HOUR and current_minute >= work_start_minute_offset:
+					if is_instance_valid(held_item_sprite):
+						held_item_sprite.hide()
+		
+		State.GOING_TO_SLEEP:
+			# GOING_TO_SLEEP state'inde hiçbir şey yapma, worker zaten eve gidiyor
+			# Sadece sabah olduysa uyan (yukarıda zaten kontrol ediliyor)
+			pass
+		
+		State.AWAKE_IDLE, State.SOCIALIZING:
+			# Uyku kontrolü: Sadece uyku saati içindeyse ve henüz uyumamışsa
+			# SLEEPING veya GOING_TO_SLEEP state'indeki worker'lar bu kontrole takılmamalı
+			# <<< YENİ: Sabah saatlerinde (WAKE_UP_HOUR ile SLEEP_HOUR arası) uyku kontrolü yapma >>>
+			var wake_hour = TimeManager.WAKE_UP_HOUR
+			var sleep_hour = TimeManager.SLEEP_HOUR
+			var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+			# Sadece gece saatlerinde (22-6 arası) uyku kontrolü yap
+			if not is_daytime and new_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+				# Worker zaten uyuyorsa veya uyumaya gidiyorsa tekrar GOING_TO_SLEEP'e geçirme
+				if current_state != State.SLEEPING and current_state != State.GOING_TO_SLEEP:
+					if is_instance_valid(housing_node) and not _sleep_attempt_failed:
+						current_state = State.GOING_TO_SLEEP
+						move_target_x = housing_node.global_position.x
+						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						idle_activity_timer.stop()
+						_is_briefly_idling = false
+						_current_idle_activity = ""
+			# Çalışma saatleri kontrolü: WORK_START_HOUR ile WORK_END_HOUR arası
+			elif new_hour >= TimeManager.WORK_START_HOUR and new_hour < TimeManager.WORK_END_HOUR:
 				if assigned_job_type != "" and assigned_job_type != "soldier" and is_instance_valid(assigned_building_node):
-					current_state = State.GOING_TO_BUILDING_FIRST
-					move_target_x = assigned_building_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
-					idle_activity_timer.stop()
-					_is_briefly_idling = false
-					_current_idle_activity = ""
+					# İlk çalışma saatinde ise dakika kontrolü de yap (offset'e göre)
+					var is_work_start_hour = new_hour == TimeManager.WORK_START_HOUR
+					var passed_offset = current_minute >= work_start_minute_offset
+					# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
+					if not is_work_start_hour or passed_offset:
+						current_state = State.GOING_TO_BUILDING_FIRST
+						move_target_x = assigned_building_node.global_position.x
+						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						idle_activity_timer.stop()
+						_is_briefly_idling = false
+						_current_idle_activity = ""
 
 # Bir sonraki boş zaman/sosyalleşme adımını başlatır
 func _start_next_idle_step():

@@ -44,11 +44,17 @@ const LOSS_STABILITY_DELTA := 7        # Dünya istikrarı düşüşü
 const LOSS_MORALE_DELTA := 10          # Köy morali düşüşü (varsa)
 const LOSS_BUILDING_DAMAGE_CHANCE := 0.15  # Bir binanın hasar alma olasılığı
 var settlement_trade_modifiers: Array[Dictionary] = [] # [{partner:String, trade_multiplier:float, blocked:bool, expires_day:int, reason:String}]
+var bandit_activity_active: bool = false  # Bandit Activity event aktif mi?
+var bandit_trade_multiplier: float = 1.0  # Ticaret çarpanı (bandit activity için)
+var bandit_risk_level: int = 0  # Risk seviyesi artışı (0=LOW, 1=MEDIUM, 2=HIGH)
 
 # Haber kuyrukları
 var news_queue_village: Array[Dictionary] = []
 var news_queue_world: Array[Dictionary] = []
 var _next_news_id: int = 1
+# Raid görevlerinde cariye+asker çıkışı: mission_id -> { mission_exit_x, assigned_soldier_worker_ids }
+# Mission (Resource) set/get güvenilir olmadığı için burada tutuyoruz
+var _raid_mission_extra: Dictionary = {}
 
 # Sinyaller
 signal mission_completed(cariye_id: int, mission_id: String, successful: bool, results: Dictionary)
@@ -59,6 +65,7 @@ signal mission_chain_completed(chain_id: String, rewards: Dictionary)
 signal mission_chain_progressed(chain_id: String, progress: Dictionary)
 signal news_posted(news: Dictionary)
 signal mission_unlocked(mission_id: String)
+signal mission_list_changed()  # Yeni görev eklendiğinde (örn. Haydut Temizliği) UI yenilensin
 signal trade_offers_updated()
 signal battle_completed(battle_result: Dictionary)
 signal unit_losses_reported(unit_type: String, losses: int)
@@ -71,14 +78,28 @@ func _ready():
 func _initialize():
 	#print("🚀 ===== MISSIONMANAGER _INITIALIZE BAŞLADI =====")
 	
+	# Random seed'i ayarla (her oyun başında farklı isimler için)
+	randomize()
+	
 	# Haber kuyruklarını başlat
 	news_queue_village = []
 	news_queue_world = []
 	#print("📰 Haber kuyrukları başlatıldı: village=", news_queue_village.size(), " world=", news_queue_world.size())
 	
-	# Başlangıç görevleri ve cariyeler oluştur
-	create_initial_missions()
-	create_initial_concubines()
+	# Kullanılan isimleri sıfırla
+	_used_names.clear()
+	
+	# Başlangıç görevleri ve cariyeler oluştur (sadece yoksa - save'den yüklenmemişse)
+	# SaveManager load işlemi _initialize()'dan önce çağrılırsa concubines dolu olabilir
+	if concubines.is_empty():
+		create_initial_missions()
+		create_initial_concubines()
+	else:
+		# Yüklenen cariyelerin isimlerini kullanılan listesine ekle
+		for cariye in concubines.values():
+			if cariye.name in CONCUBINE_NAMES and not cariye.name in _used_names:
+				_used_names.append(cariye.name)
+	
 	# Kaydedilmiş roller varsa yükle
 	_load_concubine_roles()
 	
@@ -109,6 +130,10 @@ func _initialize():
 	#print("🚀 ===== MISSIONMANAGER _INITIALIZE BİTTİ =====")
 
 func _process(delta):
+	# Oyun pause'da ise görev ilerlemesi durdur
+	if get_tree().paused:
+		return
+	
 	# Aktif görevleri kontrol et
 	check_active_missions()
 	
@@ -122,7 +147,7 @@ func _process(delta):
 	
 	# Dünya olaylarını güncelle
 	update_world_events(delta)
-
+	
 	# Günlük tick kontrolü
 	var tm = get_node_or_null("/root/TimeManager")
 	if tm and tm.has_method("get_day"):
@@ -141,7 +166,7 @@ func create_initial_missions():
 	savas_gorevi.description = "Kuzeydeki düşman köyüne saldırı düzenle. Ganimet topla ve düşmanı zayıflat."
 	savas_gorevi.mission_type = Mission.MissionType.SAVAŞ
 	savas_gorevi.difficulty = Mission.Difficulty.ORTA
-	savas_gorevi.duration = 15.0
+	savas_gorevi.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 	savas_gorevi.success_chance = 0.6
 	savas_gorevi.required_cariye_level = 2
 	savas_gorevi.required_army_size = 5
@@ -160,7 +185,7 @@ func create_initial_missions():
 	kesif_gorevi.description = "Batıdaki bilinmeyen ormanları keşfet. Yeni kaynaklar ve ticaret yolları bul."
 	kesif_gorevi.mission_type = Mission.MissionType.KEŞİF
 	kesif_gorevi.difficulty = Mission.Difficulty.KOLAY
-	kesif_gorevi.duration = 10.0
+	kesif_gorevi.duration = 180.0  # 180 oyun dakikası (3 saat, test için)
 	kesif_gorevi.success_chance = 0.8
 	kesif_gorevi.required_cariye_level = 1
 	kesif_gorevi.required_army_size = 0
@@ -179,7 +204,7 @@ func create_initial_missions():
 	diplomasi_gorevi.description = "Güneydeki köy ile dostluk anlaşması yap. Ticaret yolları aç ve güvenlik sağla."
 	diplomasi_gorevi.mission_type = Mission.MissionType.DİPLOMASİ
 	diplomasi_gorevi.difficulty = Mission.Difficulty.ORTA
-	diplomasi_gorevi.duration = 12.0
+	diplomasi_gorevi.duration = 240.0  # 240 saniye (4 dakika, test için)
 	diplomasi_gorevi.success_chance = 0.7
 	diplomasi_gorevi.required_cariye_level = 2
 	diplomasi_gorevi.required_army_size = 0
@@ -192,59 +217,95 @@ func create_initial_missions():
 	missions[diplomasi_gorevi.id] = diplomasi_gorevi
 	
 
-# Başlangıç cariyeler oluştur
+# Cariye isim havuzu (Türkçe kadın isimleri)
+const CONCUBINE_NAMES: Array[String] = [
+	# Osmanlı dönemi cariye isimleri - Klasik ve geleneksel isimler
+	"Ayşe", "Fatma", "Hatice", "Zeynep", "Emine", "Şerife", "Hanife", "Rukiye",
+	"Gülsüm", "Havva", "Meryem", "Rabia", "Safiye", "Ümmügülsüm", "Zübeyde", "Şehrazat",
+	"Leyla", "Mecnun", "Dilşad", "Gülşah", "Nigar", "Peri", "Şirin", "Tahire",
+	"Azize", "Cemile", "Fadime", "Gülnar", "Hamide", "İclal", "Kadriye", "Latife",
+	"Mihri", "Nazife", "Özlem", "Pakize", "Rahime", "Saniye", "Tevhide", "Ümran",
+	"Vesile", "Yasemin", "Zehra", "Adile", "Behiye", "Cemile", "Dürdane", "Esma",
+	"Feride", "Gülizar", "Hacer", "İffet", "Kamer", "Lütfiye", "Mihriban", "Naciye",
+	"Özge", "Pembe", "Rana", "Safiye", "Tuba", "Ülkü", "Vildan", "Yeliz",
+	"Zümrüt", "Arzu", "Banu", "Cemre", "Duygu", "Eda", "Fulya", "Gül"
+]
+
+# Kullanılan isimleri takip et (aynı ismin tekrar kullanılmasını önlemek için)
+var _used_names: Array[String] = []
+
+# Rastgele cariye oluştur
+func create_random_concubine() -> Concubine:
+	var cariye = Concubine.new()
+	cariye.id = next_concubine_id
+	next_concubine_id += 1
+	
+	# Rastgele isim seç (havuzdan, kullanılan isimleri atla)
+	var available_names = CONCUBINE_NAMES.duplicate()
+	# Kullanılan isimleri listeden çıkar
+	for used_name in _used_names:
+		var index = available_names.find(used_name)
+		if index >= 0:
+			available_names.remove_at(index)
+	
+	# Eğer tüm isimler kullanıldıysa, listeyi sıfırla
+	if available_names.is_empty():
+		available_names = CONCUBINE_NAMES.duplicate()
+		_used_names.clear()
+	
+	# Rastgele bir isim seç
+	var random_index = randi() % available_names.size()
+	cariye.name = available_names[random_index]
+	_used_names.append(cariye.name)
+	
+	# Rastgele seviye (1-3 arası)
+	cariye.level = randi_range(1, 3)
+	
+	# Rastgele deneyim (seviyeye göre)
+	if cariye.level == 1:
+		cariye.experience = randi_range(0, 50)
+	elif cariye.level == 2:
+		cariye.experience = randi_range(0, 100)
+	else:  # level 3
+		cariye.experience = randi_range(0, 150)
+	
+	# Rastgele statlar oluştur
+	# Her stat için 20-80 arası rastgele değer
+	# Bir ana stat 60-90 arası olacak (uzmanlık alanı)
+	var all_skills = [
+		Concubine.Skill.SAVAŞ,
+		Concubine.Skill.DİPLOMASİ,
+		Concubine.Skill.TİCARET,
+		Concubine.Skill.BÜROKRASİ,
+		Concubine.Skill.KEŞİF
+	]
+	
+	# Önce tüm statları 20-50 arası rastgele değerlerle başlat
+	for skill in all_skills:
+		cariye.skills[skill] = randi_range(20, 50)
+	
+	# Bir rastgele ana stat seç ve 60-90 arası yap (uzmanlık alanı)
+	var main_skill = all_skills[randi() % all_skills.size()]
+	cariye.skills[main_skill] = randi_range(60, 90)
+	
+	# İkinci bir statı da 50-70 arası yap (ikincil yetenek)
+	var remaining_skills = all_skills.duplicate()
+	remaining_skills.erase(main_skill)
+	var secondary_skill = remaining_skills[randi() % remaining_skills.size()]
+	cariye.skills[secondary_skill] = randi_range(50, 70)
+	
+	# Görünüm rastgele oluştur
+	cariye.appearance = AppearanceDB.generate_random_concubine_appearance()
+	
+	return cariye
+
+# Başlangıç cariyeler oluştur (rastgele)
 func create_initial_concubines():
-	
-	# Cariye 1 - Savaş uzmanı
-	var cariye1 = Concubine.new()
-	cariye1.id = next_concubine_id
-	next_concubine_id += 1
-	cariye1.name = "Ayla"
-	cariye1.level = 2
-	cariye1.experience = 50
-	cariye1.skills[Concubine.Skill.SAVAŞ] = 80
-	cariye1.skills[Concubine.Skill.DİPLOMASİ] = 40
-	cariye1.skills[Concubine.Skill.TİCARET] = 30
-	cariye1.skills[Concubine.Skill.BÜROKRASİ] = 20
-	cariye1.skills[Concubine.Skill.KEŞİF] = 60
-	# <<< YENİ: Görünüm Ata >>>
-	cariye1.appearance = AppearanceDB.generate_random_concubine_appearance()
-	# <<< YENİ SONU >>>
-	concubines[cariye1.id] = cariye1
-	
-	# Cariye 2 - Diplomasi uzmanı
-	var cariye2 = Concubine.new()
-	cariye2.id = next_concubine_id
-	next_concubine_id += 1
-	cariye2.name = "Zeynep"
-	cariye2.level = 1
-	cariye2.experience = 25
-	cariye2.skills[Concubine.Skill.SAVAŞ] = 30
-	cariye2.skills[Concubine.Skill.DİPLOMASİ] = 85
-	cariye2.skills[Concubine.Skill.TİCARET] = 70
-	cariye2.skills[Concubine.Skill.BÜROKRASİ] = 60
-	cariye2.skills[Concubine.Skill.KEŞİF] = 40
-	# <<< YENİ: Görünüm Ata >>>
-	cariye2.appearance = AppearanceDB.generate_random_concubine_appearance()
-	# <<< YENİ SONU >>>
-	concubines[cariye2.id] = cariye2
-	
-	# Cariye 3 - Keşif uzmanı
-	var cariye3 = Concubine.new()
-	cariye3.id = next_concubine_id
-	next_concubine_id += 1
-	cariye3.name = "Fatma"
-	cariye3.level = 1
-	cariye3.experience = 10
-	cariye3.skills[Concubine.Skill.SAVAŞ] = 40
-	cariye3.skills[Concubine.Skill.DİPLOMASİ] = 50
-	cariye3.skills[Concubine.Skill.TİCARET] = 45
-	cariye3.skills[Concubine.Skill.BÜROKRASİ] = 35
-	cariye3.skills[Concubine.Skill.KEŞİF] = 90
-	# <<< YENİ: Görünüm Ata >>>
-	cariye3.appearance = AppearanceDB.generate_random_concubine_appearance()
-	# <<< YENİ SONU >>>
-	concubines[cariye3.id] = cariye3
+	# 3 rastgele cariye oluştur
+	for i in range(3):
+		var cariye = create_random_concubine()
+		concubines[cariye.id] = cariye
+		print("MissionManager: Rastgele cariye oluşturuldu - ID: %d, İsim: %s, Seviye: %d" % [cariye.id, cariye.name, cariye.level])
 	
 
 # Rastgele görev üret
@@ -275,9 +336,16 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 			print("❌ Savunma görevleri otomatik gerçekleşir, cariye atanamaz!")
 			return false
 		
-		# Raid görevleri için asker sayısı kaydet
+		# Raid görevleri için asker sayısı ve göreve giden askerlerin worker ID'leri
 		if mission_type == "raid" and soldier_count > 0:
 			mission["assigned_soldiers"] = soldier_count
+			var barracks = _find_barracks()
+			if barracks and "assigned_worker_ids" in barracks and barracks.assigned_worker_ids.size() > 0:
+				var n = min(soldier_count, barracks.assigned_worker_ids.size())
+				var worker_ids: Array = []
+				for i in range(n):
+					worker_ids.append(barracks.assigned_worker_ids[i])
+				mission["assigned_soldier_worker_ids"] = worker_ids
 	
 	# Cariye görev alabilir mi? (Dictionary görevleri için kontrol yapma)
 	if not (mission is Dictionary):
@@ -296,7 +364,20 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 		if mission.start_mission(cariye_id):
 			cariye.start_mission(mission_id)
 			active_missions[cariye_id] = mission_id
-			
+			# Asker atanan her görev (escort, raid vb.): çıkış yönü ve asker worker ID'leri
+			if soldier_count >= 0:
+				var exit_distance := 4800.0
+				var exit_x = -exit_distance if randf() < 0.5 else exit_distance
+				var worker_ids: Array = []
+				if soldier_count > 0:
+					var barracks = _find_barracks()
+					if barracks and "assigned_worker_ids" in barracks and barracks.assigned_worker_ids.size() > 0:
+						var available_ids = _get_available_soldier_worker_ids_for_mission(barracks, mission_id)
+						var n = min(soldier_count, available_ids.size())
+						for i in range(n):
+							worker_ids.append(available_ids[i])
+				_raid_mission_extra[mission_id] = { "mission_exit_x": exit_x, "assigned_soldier_worker_ids": worker_ids }
+				print("[RAID_DEBUG] Mission objesi (askerli): mission_id=%s exit_x=%.0f worker_ids=%s" % [mission_id, exit_x, str(worker_ids)])
 			print("✅ Görev başlatıldı: %s -> %s" % [cariye.name, mission.name])
 			print("📋 Aktif görev sayısı: %d" % active_missions.size())
 			
@@ -307,10 +388,25 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 		cariye.start_mission(mission_id)
 		active_missions[cariye_id] = mission_id
 		
-		# Raid görevleri için asker sayısını kaydet
-		if mission.get("type", "") == "raid":
+		# Asker atanan her görev (raid, escort vb.): çıkış yönü ve asker ID'leri
+		if mission.get("type", "") == "raid" or soldier_count > 0:
+			var exit_distance := 4800.0
+			var exit_x = -exit_distance if randf() < 0.5 else exit_distance
+			mission["mission_exit_x"] = exit_x
 			mission["assigned_soldiers"] = soldier_count
-			print("⚔️ Raid görevi: %d asker atandı" % soldier_count)
+			var worker_ids: Array = []
+			if soldier_count > 0:
+				var barracks = _find_barracks()
+				if barracks and "assigned_worker_ids" in barracks and barracks.assigned_worker_ids.size() > 0:
+					var available_ids = _get_available_soldier_worker_ids_for_mission(barracks, mission_id)
+					var n = min(soldier_count, available_ids.size())
+					for i in range(n):
+						worker_ids.append(available_ids[i])
+					mission["assigned_soldier_worker_ids"] = worker_ids
+			_raid_mission_extra[mission_id] = { "mission_exit_x": exit_x, "assigned_soldier_worker_ids": worker_ids }
+			print("[RAID_DEBUG] Dictionary (askerli/raid): mission_id=%s exit_x=%.0f worker_ids=%s" % [mission_id, exit_x, str(worker_ids)])
+			if mission.get("type", "") == "raid":
+				print("⚔️ Raid görevi: %d asker atandı" % soldier_count)
 		
 		print("✅ Dictionary görev başlatıldı: %s -> %s" % [cariye.name, mission.get("name", mission_id)])
 		mission_started.emit(cariye_id, mission_id)
@@ -560,7 +656,7 @@ func _generate_combat_mission(mission: Mission):
 	
 	mission.name = combat_names[randi() % combat_names.size()]
 	mission.description = "Düşman güçlerle savaş ve bölgeyi güvence altına al."
-	mission.duration = 15.0 + (randf() * 10.0)  # 15-25 saniye
+	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.6 + (randf() * 0.3)  # 60-90%
 	mission.required_cariye_level = 1 + randi() % 3  # 1-3 seviye
 	mission.required_army_size = 10 + randi() % 20  # 10-30 asker
@@ -583,7 +679,7 @@ func _generate_exploration_mission(mission: Mission):
 	
 	mission.name = exploration_names[randi() % exploration_names.size()]
 	mission.description = "Bilinmeyen bölgeleri keşfet ve yeni kaynaklar bul."
-	mission.duration = 10.0 + (randf() * 8.0)  # 10-18 saniye
+	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.7 + (randf() * 0.2)  # 70-90%
 	mission.required_cariye_level = 1 + randi() % 2  # 1-2 seviye
 	mission.required_army_size = 5 + randi() % 10  # 5-15 asker
@@ -606,7 +702,7 @@ func _generate_trade_mission(mission: Mission):
 	
 	mission.name = trade_names[randi() % trade_names.size()]
 	mission.description = "Ticaret yaparak altın kazan ve ekonomiyi güçlendir."
-	mission.duration = 8.0 + (randf() * 6.0)  # 8-14 saniye
+	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.8 + (randf() * 0.15)  # 80-95%
 	mission.required_cariye_level = 1 + randi() % 2  # 1-2 seviye
 	mission.required_army_size = 0  # Ticaret için asker gerekmez
@@ -629,7 +725,7 @@ func _generate_diplomacy_mission(mission: Mission):
 	
 	mission.name = diplomacy_names[randi() % diplomacy_names.size()]
 	mission.description = "Diplomatik ilişkiler kurarak barışı sağla."
-	mission.duration = 12.0 + (randf() * 8.0)  # 12-20 saniye
+	mission.duration = 200.0 + (randf() * 100.0)  # 200-300 oyun dakikası (3.3-5 saat, test için)
 	mission.success_chance = 0.65 + (randf() * 0.25)  # 65-90%
 	mission.required_cariye_level = 2 + randi() % 2  # 2-3 seviye
 	mission.required_army_size = 0  # Diplomasi için asker gerekmez
@@ -652,7 +748,7 @@ func _generate_intelligence_mission(mission: Mission):
 	
 	mission.name = intelligence_names[randi() % intelligence_names.size()]
 	mission.description = "Gizli bilgi toplayarak düşman hakkında istihbarat elde et."
-	mission.duration = 6.0 + (randf() * 4.0)  # 6-10 saniye
+	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.5 + (randf() * 0.3)  # 50-80%
 	mission.required_cariye_level = 2 + randi() % 2  # 2-3 seviye
 	mission.required_army_size = 0  # İstihbarat için asker gerekmez
@@ -876,7 +972,7 @@ func create_mission_chains():
 	kesif_gorevi.description = "Kuzey bölgesini keşfet ve düşman güçlerini tespit et."
 	kesif_gorevi.mission_type = Mission.MissionType.KEŞİF
 	kesif_gorevi.difficulty = Mission.Difficulty.KOLAY
-	kesif_gorevi.duration = 8.0
+	kesif_gorevi.duration = 70.0  # 70 saniye (test için)
 	kesif_gorevi.success_chance = 0.8
 	kesif_gorevi.required_cariye_level = 1
 	kesif_gorevi.rewards = {"gold": 150, "wood": 30}
@@ -891,7 +987,7 @@ func create_mission_chains():
 	saldiri_gorevi.description = "Keşif sonuçlarına göre kuzey köyüne saldırı düzenle."
 	saldiri_gorevi.mission_type = Mission.MissionType.SAVAŞ
 	saldiri_gorevi.difficulty = Mission.Difficulty.ORTA
-	saldiri_gorevi.duration = 12.0
+	saldiri_gorevi.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 	saldiri_gorevi.success_chance = 0.6
 	saldiri_gorevi.required_cariye_level = 2
 	saldiri_gorevi.required_army_size = 5
@@ -912,7 +1008,7 @@ func create_mission_chains():
 	elci_gonder.description = "Komşu yerleşime barış teklifini ilet."
 	elci_gonder.mission_type = Mission.MissionType.DİPLOMASİ
 	elci_gonder.difficulty = Mission.Difficulty.KOLAY
-	elci_gonder.duration = 6.0
+	elci_gonder.duration = 180.0  # 180 saniye (3 dakika, test için)
 	elci_gonder.success_chance = 0.85
 	elci_gonder.required_cariye_level = 1
 	elci_gonder.rewards = {"gold": 60}
@@ -925,7 +1021,7 @@ func create_mission_chains():
 	baris_anlasmasi.description = "Şartları müzakere et ve anlaşmayı imzala."
 	baris_anlasmasi.mission_type = Mission.MissionType.DİPLOMASİ
 	baris_anlasmasi.difficulty = Mission.Difficulty.ORTA
-	baris_anlasmasi.duration = 10.0
+	baris_anlasmasi.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 	baris_anlasmasi.success_chance = 0.65
 	baris_anlasmasi.required_cariye_level = 2
 	baris_anlasmasi.rewards = {"gold": 120}
@@ -940,7 +1036,7 @@ func create_mission_chains():
 	kontrol_gorevi.description = "Kuzey bölgesini tamamen kontrol altına al ve güvenliği sağla."
 	kontrol_gorevi.mission_type = Mission.MissionType.BÜROKRASİ
 	kontrol_gorevi.difficulty = Mission.Difficulty.ZOR
-	kontrol_gorevi.duration = 15.0
+	kontrol_gorevi.duration = 300.0  # 300 oyun dakikası (5 saat, test için)
 	kontrol_gorevi.success_chance = 0.5
 	kontrol_gorevi.required_cariye_level = 3
 	kontrol_gorevi.prerequisite_missions.clear()
@@ -962,7 +1058,7 @@ func create_mission_chains():
 	dogu_ticaret.description = "Doğudaki köy ile ticaret anlaşması yap."
 	dogu_ticaret.mission_type = Mission.MissionType.TİCARET
 	dogu_ticaret.difficulty = Mission.Difficulty.ORTA
-	dogu_ticaret.duration = 10.0
+	dogu_ticaret.duration = 200.0  # 200 saniye (3.3 dakika, test için)
 	dogu_ticaret.success_chance = 0.7
 	dogu_ticaret.required_cariye_level = 2
 	dogu_ticaret.rewards = {"gold": 300, "trade_route": "east"}
@@ -975,7 +1071,7 @@ func create_mission_chains():
 	bati_ticaret.description = "Batıdaki köy ile ticaret anlaşması yap."
 	bati_ticaret.mission_type = Mission.MissionType.TİCARET
 	bati_ticaret.difficulty = Mission.Difficulty.ORTA
-	bati_ticaret.duration = 10.0
+	bati_ticaret.duration = 200.0  # 200 oyun dakikası (3.3 saat, test için)
 	bati_ticaret.success_chance = 0.7
 	bati_ticaret.required_cariye_level = 2
 	bati_ticaret.rewards = {"gold": 300, "trade_route": "west"}
@@ -988,7 +1084,7 @@ func create_mission_chains():
 	guney_ticaret.description = "Güneydeki köy ile ticaret anlaşması yap."
 	guney_ticaret.mission_type = Mission.MissionType.TİCARET
 	guney_ticaret.difficulty = Mission.Difficulty.ORTA
-	guney_ticaret.duration = 10.0
+	guney_ticaret.duration = 200.0  # 200 saniye (3.3 dakika, test için)
 	guney_ticaret.success_chance = 0.7
 	guney_ticaret.required_cariye_level = 2
 	guney_ticaret.rewards = {"gold": 300, "trade_route": "south"}
@@ -1022,7 +1118,7 @@ func create_mission_chains():
 	ittifak_yap.description = "Komşu köylerle savunma ittifakı kur."
 	ittifak_yap.mission_type = Mission.MissionType.DİPLOMASİ
 	ittifak_yap.difficulty = Mission.Difficulty.ZOR
-	ittifak_yap.duration = 15.0
+	ittifak_yap.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 	ittifak_yap.success_chance = 0.5
 	ittifak_yap.required_cariye_level = 3
 	ittifak_yap.rewards = {"gold": 200, "alliance": "defense", "defense": 30}
@@ -1194,7 +1290,7 @@ func add_first_mission():
 	first_mission.description = "Köyün çevresindeki bölgeyi keşfet ve kaynakları tespit et."
 	first_mission.mission_type = Mission.MissionType.KEŞİF
 	first_mission.difficulty = Mission.Difficulty.KOLAY
-	first_mission.duration = 30.0
+	first_mission.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 	first_mission.required_cariye_level = 1
 	first_mission.required_army_size = 0
 	first_mission.required_resources = {}
@@ -1220,7 +1316,7 @@ func add_second_mission():
 	chain_mission.description = "Kuzey bölgesindeki gizemli yapıları keşfet."
 	chain_mission.mission_type = Mission.MissionType.KEŞİF
 	chain_mission.difficulty = Mission.Difficulty.ORTA
-	chain_mission.duration = 45.0
+	chain_mission.duration = 300.0  # 300 oyun dakikası (5 saat, test için)
 	chain_mission.required_cariye_level = 2
 	chain_mission.required_army_size = 5
 	chain_mission.required_resources = {"food": 20}
@@ -1325,7 +1421,7 @@ func apply_world_event_modifiers(mission: Mission, mission_type: String):
 			
 			if "duration" in modifiers:
 				mission.duration += modifiers["duration"]
-				mission.duration = max(5.0, mission.duration)
+				mission.duration = max(180.0, mission.duration)  # En az 180 oyun dakikası (3 saat, test için)
 			
 			if "rewards" in modifiers:
 				for reward_type in modifiers["rewards"]:
@@ -1415,6 +1511,10 @@ func calculate_risk_level(difficulty: Mission.Difficulty, mission_type: String) 
 	
 	# Dünya istikrarı etkisi
 	risk_score += int((100 - world_stability) / 25)
+	
+	# Bandit Activity etkisi: Tüm görevler daha tehlikeli
+	if bandit_activity_active:
+		risk_score += (bandit_risk_level + 1)  # +1 (LOW), +2 (MEDIUM), +3 (HIGH)
 	
 	if risk_score <= 2:
 		return "Düşük"
@@ -1549,6 +1649,11 @@ func post_news(category: String, title: String, content: String, color: Color = 
 	if not title.begins_with(emphasis_icon):
 		final_title = emphasis_icon + " " + title
 	
+	# Oyun zamanını da sakla (oyun dakikası cinsinden)
+	var game_time_minutes = 0
+	if tm and tm.has_method("get_total_game_minutes"):
+		game_time_minutes = tm.get_total_game_minutes()
+	
 	var news = {
 		"id": _next_news_id,
 		"category": category,
@@ -1556,7 +1661,8 @@ func post_news(category: String, title: String, content: String, color: Color = 
 		"title": final_title,
 		"content": content,
 		"time": time_text,
-		"timestamp": int(Time.get_unix_time_from_system()),
+		"timestamp": int(Time.get_unix_time_from_system()),  # Geriye dönük uyumluluk için
+		"game_time_minutes": game_time_minutes,  # Oyun zamanı (oyun dakikası)
 		"color": emphasis_color,
 		"original_color": color,
 		"priority": priority,
@@ -1854,7 +1960,7 @@ func _create_conflict_missions(attacker: Dictionary, defender: Dictionary):
 	defend.description = "%s'nin saldırısına karşı %s'yi savun." % [attacker.get("name","?"), defender.get("name","?")]
 	defend.mission_type = Mission.MissionType.SAVAŞ
 	defend.difficulty = Mission.Difficulty.ORTA
-	defend.duration = 12.0
+	defend.duration = 240.0  # 240 saniye (4 dakika, test için)
 	defend.success_chance = 0.6
 	defend.required_cariye_level = 2
 	defend.required_army_size = 4
@@ -1871,7 +1977,7 @@ func _create_conflict_missions(attacker: Dictionary, defender: Dictionary):
 	raid.description = "%s ve %s arasındaki kaostan faydalanarak kaynak yağmala." % [attacker.get("name","?"), defender.get("name","?")]
 	raid.mission_type = Mission.MissionType.SAVAŞ
 	raid.difficulty = Mission.Difficulty.KOLAY
-	raid.duration = 8.0
+	raid.duration = 180.0  # 180 oyun dakikası (3 saat, test için)
 	raid.success_chance = 0.7
 	raid.required_cariye_level = 1
 	raid.required_army_size = 3
@@ -2015,12 +2121,25 @@ func refresh_trade_offers(reason: String = "manual"):
 
 # Yerleşim ticaret modunu getir
 func _get_trade_modifier_for_partner(partner: String, day: int) -> Dictionary:
+	var base_mod: Dictionary = {"trade_multiplier": 1.0, "blocked": false}
+	
+	# Önce yerleşim-spesifik modifikasyonları kontrol et
 	for m in settlement_trade_modifiers:
 		var exp = int(m.get("expires_day", 0))
 		if m.get("partner", "") == partner:
 			if exp == 0 or exp >= day:
-				return m
-	return {"trade_multiplier": 1.0, "blocked": false}
+				base_mod = m
+				break
+	
+	# Bandit Activity aktifse tüm yerleşimler için ticaret çarpanını uygula
+	if bandit_activity_active:
+		var current_mult = float(base_mod.get("trade_multiplier", 1.0))
+		base_mod["trade_multiplier"] = current_mult * bandit_trade_multiplier
+		# Eğer çarpan çok düşükse ticareti blokla
+		if base_mod["trade_multiplier"] < 0.1:
+			base_mod["blocked"] = true
+	
+	return base_mod
 
 # Süresi dolan yerleşim ticaret modlarını temizle
 func _clean_expired_settlement_modifiers(day: int) -> void:
@@ -2124,7 +2243,7 @@ func _create_escort_mission(partner: String) -> void:
 	m.description = "%s'den gelen kervanı güvenli şekilde pazara ulaştır." % partner
 	m.mission_type = Mission.MissionType.SAVAŞ
 	m.difficulty = Mission.Difficulty.ORTA
-	m.duration = 10.0
+	m.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 	m.success_chance = 0.65
 	m.required_cariye_level = 2
 	m.required_army_size = 4
@@ -2133,16 +2252,31 @@ func _create_escort_mission(partner: String) -> void:
 	m.penalties = {"gold": -40}
 	m.status = Mission.Status.MEVCUT
 	missions[m.id] = m
+	mission_list_changed.emit()
 	post_news("Bilgi", "Görev: Kervan Eskortu", "Yeni görev listene eklendi.", Color(0.8,1,0.8))
 
 func _create_bandit_missions() -> void:
+	_add_bandit_clear_mission()
+
+# VillageManager bandit_activity event uyguladığında çağırır; "Haydut Temizliği" görevini ekler (yoksa).
+func add_bandit_clear_mission() -> void:
+	if not bandit_activity_active:
+		return
+	_add_bandit_clear_mission()
+
+# Bandit Activity event aktifken çağrılır; "Haydut Temizliği" görevini listeye ekler (yoksa).
+# Görev başarıyla tamamlanınca VillageManager bandit_activity event'ini kapatır.
+func _add_bandit_clear_mission() -> void:
+	for id in missions:
+		if id.begins_with("bandit_clear_"):
+			return  # Zaten var
 	var clear = Mission.new()
 	clear.id = "bandit_clear_%d" % Time.get_unix_time_from_system()
 	clear.name = "Haydut Temizliği"
-	clear.description = "Yollardaki haydutları temizle ve güvenliği sağla."
+	clear.description = "Yollardaki haydutları temizle ve güvenliği sağla. Başarılı olursa haydut faaliyeti sona erer."
 	clear.mission_type = Mission.MissionType.SAVAŞ
 	clear.difficulty = Mission.Difficulty.ORTA
-	clear.duration = 9.0
+	clear.duration = 200.0  # 200 saniye (3.3 dakika, test için)
 	clear.success_chance = 0.6
 	clear.required_cariye_level = 2
 	clear.required_army_size = 4
@@ -2151,6 +2285,8 @@ func _create_bandit_missions() -> void:
 	clear.penalties = {"gold": -30}
 	clear.status = Mission.Status.MEVCUT
 	missions[clear.id] = clear
+	mission_list_changed.emit()
+	post_news("Bilgi", "Haydut Temizliği", "Yollardaki haydutları temizlemek için görev listene eklendi. Asker ve cariye ile gönder.", Color(0.9, 0.9, 1.0))
 
 func _create_aid_mission() -> void:
 	var aid = Mission.new()
@@ -2159,7 +2295,7 @@ func _create_aid_mission() -> void:
 	aid.description = "Salgından etkilenen bölgelere yardım ulaştır."
 	aid.mission_type = Mission.MissionType.DİPLOMASİ
 	aid.difficulty = Mission.Difficulty.ORTA
-	aid.duration = 12.0
+	aid.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 	aid.success_chance = 0.6
 	aid.required_cariye_level = 2
 	aid.required_army_size = 2
@@ -2243,7 +2379,7 @@ func create_special_mission(special_type: String) -> Mission:
 			mission.description = "Dünya istikrarı tehlikede! Hemen harekete geçin."
 			mission.mission_type = Mission.MissionType.DİPLOMASİ
 			mission.difficulty = Mission.Difficulty.ZOR
-			mission.duration = 20.0
+			mission.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
 			mission.success_chance = 0.4
 			mission.required_cariye_level = 3
 			mission.required_army_size = 4
@@ -2374,6 +2510,45 @@ func _find_barracks() -> Node:
 			return building
 	
 	return null
+
+func _get_available_soldier_worker_ids_for_mission(barracks: Node, exclude_mission_id: String) -> Array:
+	"""Görevde olmayan asker worker ID'lerini döndür (başka raid'de kullanılanları çıkar)."""
+	var busy: Array = []
+	for mid in _raid_mission_extra:
+		if mid == exclude_mission_id:
+			continue
+		var extra = _raid_mission_extra[mid]
+		var wids = extra.get("assigned_soldier_worker_ids", [])
+		if wids is Array:
+			for w in wids:
+				busy.append(int(w) if w is float else w)
+	var available: Array = []
+	for wid in barracks.assigned_worker_ids:
+		var id_val = int(wid) if wid is float else wid
+		if id_val not in busy:
+			available.append(id_val)
+	print("[RAID_DEBUG] _get_available_soldier_worker_ids: barracks_ids=%s busy=%s available=%s" % [
+		str(barracks.assigned_worker_ids), str(busy), str(available)
+	])
+	return available
+
+func get_raid_mission_extra(mission_id: String) -> Dictionary:
+	"""Raid görevi için çıkış yönü ve asker worker ID'leri (VillageManager/ConcubineNPC okur)."""
+	return _raid_mission_extra.get(mission_id, {})
+
+func clear_raid_mission_extra(mission_id: String) -> void:
+	"""Görev bitince/iptal edilince çağrılır."""
+	_raid_mission_extra.erase(mission_id)
+
+func get_total_soldiers_on_mission() -> int:
+	"""Şu an görevde olan toplam asker sayısı (mevcut asker hesabı için)."""
+	var total := 0
+	for mid in _raid_mission_extra:
+		var extra = _raid_mission_extra[mid]
+		var wids = extra.get("assigned_soldier_worker_ids", [])
+		if wids is Array:
+			total += wids.size()
+	return total
 
 func _get_player_military_force() -> Dictionary:
 	"""Get player's current military force from Barracks"""

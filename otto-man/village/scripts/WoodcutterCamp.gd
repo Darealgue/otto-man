@@ -48,7 +48,15 @@ func add_worker() -> bool:
 	worker_instance.assigned_job_type = "wood"
 	worker_instance.assigned_building_node = self
 	worker_instance.move_target_x = self.global_position.x
-	worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
+	
+	# Mesai saatleri kontrolü: Mesai saatleri dışındaysa beklemeli
+	var current_hour = TimeManager.get_hour()
+	var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
+	if is_work_time:
+		worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
+	else:
+		# Mesai saatleri dışında, beklemeli (AWAKE_IDLE'da kalır, mesai başlayınca gider)
+		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 
 	print("WoodcutterCamp: İşçi (ID: %d) atandı (%d/%d)." % [
 		worker_instance.worker_id, assigned_workers, max_workers
@@ -103,7 +111,7 @@ func remove_worker() -> bool:
 			var remaining_worker_instance = null
 			if VillageManager.all_workers.has(last_remaining_worker_id):
 				remaining_worker_instance = VillageManager.all_workers[last_remaining_worker_id]["instance"]
-			if is_instance_valid(remaining_worker_instance):
+			if is_instance_valid(remaining_worker_instance) and remaining_worker_instance.is_inside_tree():
 				if remaining_worker_instance.current_state == remaining_worker_instance.State.WORKING_INSIDE:
 					remaining_worker_instance.switch_to_working_offscreen()
 		else: # 2 veya daha fazla işçi kaldı
@@ -111,7 +119,7 @@ func remove_worker() -> bool:
 			var last_worker_instance = null
 			if VillageManager.all_workers.has(new_last_worker_id):
 				last_worker_instance = VillageManager.all_workers[new_last_worker_id]["instance"]
-			if is_instance_valid(last_worker_instance):
+			if is_instance_valid(last_worker_instance) and last_worker_instance.is_inside_tree():
 				if last_worker_instance.current_state == last_worker_instance.State.WORKING_OFFSCREEN or \
 				   last_worker_instance.current_state == last_worker_instance.State.WAITING_OFFSCREEN:
 					last_worker_instance.switch_to_working_inside()

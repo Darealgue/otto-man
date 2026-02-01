@@ -12,11 +12,36 @@ const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd"
 var concubine_id: int = -1
 var concubine_data: Concubine = null
 
+# Durum sistemi (Worker'dan alındı)
+enum State {
+	IDLE,              # Boşta geziyor
+	GOING_TO_SLEEP,    # Kamp ateşine gidiyor
+	SLEEPING,          # Kamp ateşinde yatıyor
+	GOING_TO_MISSION,  # Göreve gidiyor (ekran dışına)
+	ON_MISSION,        # Görevde (ekran dışında)
+	RETURNING_FROM_MISSION  # Görevden dönüyor
+}
+var current_state = State.IDLE
+
+# Rutin Zamanlaması için Rastgele Farklar (Worker sistemindeki gibi)
+var wake_up_hour_offset: int = 2 # Worker'lardan 2 saat daha geç uyan (8:00'da başla)
+var wake_up_minute_offset: int = randi_range(15, 30) # 15-30 dakika arası (8:15-8:30 arası uyan)
+var sleep_minute_offset: int = randi_range(0, 60) # 0-60 dakika arası (worker'lar gibi)
+
+# Uyku denemesi başarısız olduğunda tekrar denemeyi engellemek için (Worker sistemindeki gibi)
+var _sleep_attempt_failed: bool = false
+var _sleep_retry_timer: Timer
+var _sleep_retry_delay: float = 30.0 # 30 saniye sonra tekrar dene
+
+# Kamp ateşi referansı
+var campfire_node: Node2D = null
+
 # Hareket Değişkenleri
 var move_target_x: float = 0.0
 var move_speed: float = randf_range(40.0, 60.0) # Pixel per second
 var _target_global_y: float = 0.0
 const VERTICAL_RANGE_MAX: float = 25.0
+var _offscreen_exit_x: float = 0.0  # Ekrandan çıktığı X pozisyonu
 
 # Animasyon takibi
 var _current_animation_name: String = ""
@@ -32,6 +57,8 @@ var _wander_interval_max: float = 15.0
 @onready var mouth_sprite: Sprite2D = $MouthSprite
 @onready var eyes_sprite: Sprite2D = $EyesSprite
 @onready var hair_sprite: Sprite2D = $HairSprite
+@onready var name_plate_container: PanelContainer = $NamePlateContainer
+@onready var name_plate: Label = $NamePlateContainer/NamePlate
 
 # <<< YENİ: Walk Texture Setleri (Worker'dan alındı, Cariye asset'leri eklendi) >>>
 var walk_textures = {
@@ -220,6 +247,19 @@ func _ready() -> void:
 	add_to_group("Villagers")
 	randomize()
 	
+	# Kamp ateşini bul
+	campfire_node = get_tree().get_first_node_in_group("Housing")
+	
+	# MissionManager sinyallerini dinle
+	var mission_manager = get_node_or_null("/root/MissionManager")
+	if mission_manager:
+		if not mission_manager.mission_started.is_connected(_on_mission_started):
+			mission_manager.mission_started.connect(_on_mission_started)
+		if not mission_manager.mission_completed.is_connected(_on_mission_completed):
+			mission_manager.mission_completed.connect(_on_mission_completed)
+		if not mission_manager.mission_cancelled.is_connected(_on_mission_cancelled):
+			mission_manager.mission_cancelled.connect(_on_mission_cancelled)
+	
 	# Başlangıç pozisyonu
 	global_position.y = randf_range(0.0, VERTICAL_RANGE_MAX)
 	_target_global_y = global_position.y  # Başlangıçta aynı y pozisyonunda
@@ -232,6 +272,13 @@ func _ready() -> void:
 	
 	# Gezinme zamanlayıcısı
 	_wander_timer = Timer.new()
+	
+	# Uyku retry timer'ı oluştur (Worker sistemindeki gibi)
+	_sleep_retry_timer = Timer.new()
+	_sleep_retry_timer.wait_time = _sleep_retry_delay
+	_sleep_retry_timer.one_shot = true
+	_sleep_retry_timer.timeout.connect(_on_sleep_retry_timer_timeout)
+	add_child(_sleep_retry_timer)
 	_wander_timer.one_shot = true
 	_wander_timer.timeout.connect(_on_wander_timer_timeout)
 	add_child(_wander_timer)
@@ -245,6 +292,46 @@ func _ready() -> void:
 		update_visuals()
 	else:
 		play_animation("idle")
+	
+	# İsmi güncelle
+	update_concubine_name()
+	
+	# NamePlate scale'ini başlangıçta ayarla
+	if name_plate_container:
+		if scale.x < 0:
+			name_plate_container.scale.x = -1
+		else:
+			name_plate_container.scale.x = 1
+	
+	# Sahne yeniden yüklendiğinde (örn. ormandan dönüş): bu cariye hâlâ görevdeyse ekranda gösterme
+	# active_missions anahtarları int; save/load sonrası concubine_id float (1.0) olabildiği için int ile kontrol et
+	if mission_manager and "active_missions" in mission_manager and concubine_id >= 0:
+		var active = mission_manager.get("active_missions")
+		if active is Dictionary and active.has(int(concubine_id)):
+			current_state = State.ON_MISSION
+			visible = false
+			_wander_timer.stop()
+
+# Cariye ismini güncelle (Worker'daki Update_Villager_Name gibi)
+func update_concubine_name() -> void:
+	if not name_plate:
+		return
+	
+	if concubine_data and concubine_data.name:
+		name_plate.text = concubine_data.name
+	else:
+		name_plate.text = "İsimsiz Cariye"
+		if concubine_data:
+			printerr("[ConcubineNPC] Cariye (ID: %d) için isim bulunamadı!" % concubine_id)
+	
+	# NamePlate'i varsayılan olarak görünmez yap (sadece en yakın NPC'nin ismi görünecek)
+	if name_plate_container:
+		name_plate_container.visible = false
+
+# Uyku denemesi başarısız olduktan sonra timer dolduğunda çağrılır
+func _on_sleep_retry_timer_timeout():
+	# <<< YENİ: Timer doldu, tekrar denemeyi serbest bırak >>>
+	_sleep_attempt_failed = false
 
 func _on_wander_timer_timeout():
 	# Yeni bir hedef seç
@@ -258,14 +345,33 @@ func _start_wander_timer():
 	_wander_timer.start()
 
 func _physics_process(delta: float) -> void:
-	# Hareket hesaplama
-	var target_pos = Vector2(move_target_x, _target_global_y)
-	var distance = global_position.distance_to(target_pos)
+	# Hareket hesaplama (önce hesapla, sonra state handler'larda kullan)
+	# X ve Y eksenlerinde ayrı ayrı kontrol et (Worker sistemindeki gibi)
+	var x_distance = abs(global_position.x - move_target_x)
+	var y_distance = abs(global_position.y - _target_global_y)
+	var moving = (x_distance > 1.0) or (y_distance > 1.0)  # Herhangi bir eksende hareket varsa moving = true
+	
+	# Durum bazlı davranış
+	match current_state:
+		State.IDLE:
+			_handle_idle_state(delta)
+		State.GOING_TO_SLEEP:
+			_handle_going_to_sleep_state(delta, moving)
+		State.SLEEPING:
+			_handle_sleeping_state()
+		State.GOING_TO_MISSION:
+			_handle_going_to_mission_state(delta, moving)
+		State.ON_MISSION:
+			_handle_on_mission_state()
+		State.RETURNING_FROM_MISSION:
+			_handle_returning_from_mission_state(delta)
+	
+	# SLEEPING ve ON_MISSION state'lerinde hareket etme
+	if current_state == State.SLEEPING or current_state == State.ON_MISSION:
+		return
 	
 	# Y ekseni hareketi (yumuşak)
-	var y_moving = false
-	if abs(global_position.y - _target_global_y) > 0.5:
-		y_moving = true
+	if y_distance > 1.0:  # Threshold 1.0 (X ile aynı)
 		var y_dir = sign(_target_global_y - global_position.y)
 		global_position.y += y_dir * move_speed * 0.5 * delta
 		# Z-Index'i ayak pozisyonuna göre güncelle
@@ -273,9 +379,7 @@ func _physics_process(delta: float) -> void:
 		z_index = int(foot_y)
 	
 	# X ekseni hareketi
-	var x_moving = false
-	if abs(global_position.x - move_target_x) > 1.0:
-		x_moving = true
+	if x_distance > 1.0:
 		var direction = sign(move_target_x - global_position.x)
 		global_position.x += direction * move_speed * delta
 		
@@ -283,29 +387,33 @@ func _physics_process(delta: float) -> void:
 		if direction != 0:
 			scale.x = direction
 	
+	# NamePlate scale kontrolü (Worker sistemindeki gibi)
+	# Karakter sola dönünce (scale.x < 0) NamePlate'i tersine çevir ki isim düzgün okunsun
+	if name_plate_container:
+		if scale.x < 0:
+			name_plate_container.scale.x = -1
+		else:
+			name_plate_container.scale.x = 1
+	
 	# Animasyon seçimi - X veya Y ekseninde hareket varsa walk, yoksa idle
-	# Distance threshold'u biraz artıralım (1.0 yerine 3.0) - daha kesin idle için
-	var x_distance = abs(global_position.x - move_target_x)
-	var y_distance = abs(global_position.y - _target_global_y)
+	# (x_distance ve y_distance zaten yukarıda hesaplandı)
 	var actually_moving = (x_distance > 3.0) or (y_distance > 3.0)
 	
 	var target_anim = "idle" if not actually_moving else "walk"
 	
-	# Animasyon kontrolü
-	if target_anim != _current_animation_name:
-		print("[ConcubineNPC] DEBUG: Animasyon değişiyor: %s -> %s" % [_current_animation_name, target_anim])
-		play_animation(target_anim)
-		_current_animation_name = target_anim
-		# Walk'a geçerken idle flag'ini reset et
-		if target_anim == "walk":
-			_idle_initialized = false
-	elif target_anim == "idle":
-		# İlk kez idle'a geçiyorsa play_animation çağır
-		if not _idle_initialized:
-			play_animation("idle")
-			_idle_initialized = true
-		# Idle animasyonu zaten oynuyor, bir şey yapmaya gerek yok
-	# else: Animasyon aynı kalıyor, debug mesajı kaldırıldı
+	# Animasyon kontrolü (SLEEPING ve ON_MISSION state'lerinde animasyon değişmesin)
+	if current_state != State.SLEEPING and current_state != State.ON_MISSION:
+		if target_anim != _current_animation_name:
+			play_animation(target_anim)
+			_current_animation_name = target_anim
+			# Walk'a geçerken idle flag'ini reset et
+			if target_anim == "walk":
+				_idle_initialized = false
+		elif target_anim == "idle":
+			# İlk kez idle'a geçiyorsa play_animation çağır
+			if not _idle_initialized:
+				play_animation("idle")
+				_idle_initialized = true
 
 # Stil adı çıkarma (Worker'dan alındı, Cariye desteği eklendi)
 # Ayak pozisyonunu hesapla (sprite offset'i ve yüksekliğini hesaba katarak)
@@ -328,6 +436,293 @@ func get_foot_y_position() -> float:
 	
 	# Ayak pozisyonu = global_position.y + sprite_offset + sprite'ın alt yarısı
 	return global_position.y + sprite_offset_y + (sprite_height / 2.0)
+
+# State handler fonksiyonları
+func _handle_idle_state(delta: float) -> void:
+	# Gece kontrolü - kamp ateşine git
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager and is_instance_valid(campfire_node):
+		var current_hour = time_manager.get_hour()
+		var current_minute = time_manager.get_minute() if time_manager.has_method("get_minute") else 0
+		var wake_hour = time_manager.WAKE_UP_HOUR
+		var sleep_hour = time_manager.SLEEP_HOUR
+		# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+		# <<< YENİ: Başarısız deneme flag'ini kontrol et >>>
+		var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+		if not is_daytime and current_hour >= sleep_hour and current_minute >= sleep_minute_offset and not _sleep_attempt_failed:
+			current_state = State.GOING_TO_SLEEP
+			move_target_x = campfire_node.global_position.x
+			_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+			_wander_timer.stop()
+			return
+	
+	# Normal idle davranışı - wander timer çalışıyor (hareket _physics_process'te yapılıyor)
+
+func _handle_going_to_sleep_state(delta: float, moving: bool) -> void:
+	# NOT: GOING_TO_SLEEP state'inde sabah kontrolü YAPILMAMALI
+	# Çünkü cariye henüz kamp ateşine varmamış, bu yüzden uyandırılmamalı
+	# Sabah kontrolü sadece SLEEPING state'inde yapılmalı
+	
+	# Kamp ateşine doğru yürü (hareket _physics_process'te yapılıyor)
+	# Kamp ateşine vardı mı? (Worker sistemindeki gibi - hareket etmiyorsa varmış demektir)
+	# Ayrıca kamp ateşine yakınlık kontrolü de ekle (mesafe < 50.0)
+	var distance_to_campfire = 9999.0
+	if is_instance_valid(campfire_node):
+		distance_to_campfire = global_position.distance_to(campfire_node.global_position)
+	
+	if (not moving or distance_to_campfire < 50.0) and is_instance_valid(campfire_node):
+		# Kamp ateşine vardı, add_occupant kontrolü yap (Worker sistemindeki gibi)
+		var time_manager = get_node_or_null("/root/TimeManager")
+		var is_sleep_time = true
+		if time_manager:
+			var current_hour = time_manager.get_hour()
+			var wake_hour = time_manager.WAKE_UP_HOUR
+			var sleep_hour = time_manager.SLEEP_HOUR
+			is_sleep_time = current_hour >= sleep_hour or current_hour < wake_hour
+		
+		if is_sleep_time:
+			# Kamp ateşine eklemeyi dene
+			var can_sleep = true
+			if campfire_node.has_method("add_occupant"):
+				var add_result = campfire_node.add_occupant(self)
+				if not add_result:
+					# Eklenemedi (kapasite dolu), uyuyamaz - IDLE'e dön
+					can_sleep = false
+					# <<< YENİ: Başarısız deneme flag'ini set et ve timer başlat >>>
+					_sleep_attempt_failed = true
+					_sleep_retry_timer.start()
+					current_state = State.IDLE
+					visible = true
+					_start_wander_timer()
+					return
+			
+			if can_sleep:
+				# <<< YENİ: Başarılı oldu, flag'i reset et >>>
+				_sleep_attempt_failed = false
+				_sleep_retry_timer.stop()
+				current_state = State.SLEEPING
+				visible = false  # Görünmez ol (kamp ateşine girdi)
+				_wander_timer.stop()
+				# Kamp ateşinin pozisyonuna yerleştir
+				global_position = Vector2(campfire_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+				move_target_x = global_position.x  # Dur
+				_target_global_y = global_position.y
+
+func _handle_sleeping_state() -> void:
+	# Kamp ateşinde yatıyor - görünmez ve hareketsiz
+	# Uyanma kontrolü (Worker sistemindeki gibi, ama 2 saat daha geç)
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if time_manager:
+		var current_hour = time_manager.get_hour()
+		var current_minute = time_manager.get_minute() if time_manager.has_method("get_minute") else 0
+		var wake_hour = time_manager.WAKE_UP_HOUR + wake_up_hour_offset # 8:00'da başla
+		var sleep_hour = time_manager.SLEEP_HOUR
+		# WAKE_UP_HOUR + 2 saat'te offset'e göre uyan (sabah 8:15-8:30 arası)
+		# Worker sistemindeki gibi: Sadece gündüz saatlerinde (wake_hour ile sleep_hour arası) uyan
+		var should_wake = false
+		if current_hour >= wake_hour and current_hour < sleep_hour:
+			# wake_hour'dan sonra veya tam wake_hour'da offset geçmişse uyan
+			if current_hour > wake_hour:
+				should_wake = true
+			elif current_hour == wake_hour and current_minute >= wake_up_minute_offset:
+				should_wake = true
+		
+		if should_wake:
+			# Barınaktan çıkar (CampFire)
+			if is_instance_valid(campfire_node) and campfire_node.has_method("remove_occupant"):
+				campfire_node.remove_occupant(self)
+			
+			current_state = State.IDLE
+			visible = true  # Görünür ol
+			# Kamp ateşinden çık (Worker sistemindeki gibi)
+			if is_instance_valid(campfire_node):
+				global_position = Vector2(campfire_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+				var wander_range = 150.0
+				move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+				_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+			_start_wander_timer()
+
+func _handle_going_to_mission_state(delta: float, moving: bool) -> void:
+	# Göreve gidiyor - ekran dışına doğru yürü (hareket _physics_process'te yapılıyor)
+	# Gerçekten ekranın dışına çıktığından emin ol
+	var viewport_rect = get_viewport().get_visible_rect()
+	var is_offscreen = global_position.x < viewport_rect.position.x - 100.0 or global_position.x > viewport_rect.position.x + viewport_rect.size.x + 100.0
+	
+	# Hedefe vardı mı VE ekranın dışına çıktı mı?
+	if not moving and is_offscreen:
+		# Ekran dışına çıktı
+		_offscreen_exit_x = global_position.x
+		current_state = State.ON_MISSION
+		visible = false
+
+func _handle_on_mission_state() -> void:
+	# Görevde - ekran dışında bekliyor
+	# MissionManager'dan görev bitiş sinyali gelecek
+	pass
+
+func _handle_returning_from_mission_state(delta: float) -> void:
+	# Görevden dönüyor - ekrandan girdiği yerden geri geliyor (hareket _physics_process'te yapılıyor)
+	# Kamp ateşine vardı mı?
+	if is_instance_valid(campfire_node):
+		var distance_to_campfire = global_position.distance_to(campfire_node.global_position)
+		if distance_to_campfire < 100.0:  # Kamp ateşine yakınsa
+			# Gece kontrolü - gece ise direkt uykuya git
+			var time_manager = get_node_or_null("/root/TimeManager")
+			if time_manager:
+				var current_hour = time_manager.get_hour()
+				var current_minute = time_manager.get_minute() if time_manager.has_method("get_minute") else 0
+				var wake_hour = time_manager.WAKE_UP_HOUR
+				var sleep_hour = time_manager.SLEEP_HOUR
+				# Sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+				var is_daytime = current_hour >= wake_hour and current_hour < sleep_hour
+				if not is_daytime and current_hour >= sleep_hour and current_minute >= sleep_minute_offset:
+					# Gece - direkt uykuya git
+					current_state = State.GOING_TO_SLEEP
+					move_target_x = campfire_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_wander_timer.stop()
+				else:
+					# Gündüz - normal idle
+					current_state = State.IDLE
+					_start_wander_timer()
+			else:
+				# TimeManager yoksa normal idle
+				current_state = State.IDLE
+				_start_wander_timer()
+
+# Mission signal handler'ları
+func _on_mission_started(cariye_id: int, mission_id: String) -> void:
+	# Bu cariyenin görevi başladı - IDLE, RETURNING_FROM_MISSION veya GOING_TO_SLEEP durumlarında göreve gidebilir
+	if cariye_id == concubine_id and (current_state == State.IDLE or current_state == State.RETURNING_FROM_MISSION or current_state == State.GOING_TO_SLEEP):
+		# Bu cariyenin görevi başladı - ekran dışına git (askerlerle aynı yön: mission_exit_x)
+		current_state = State.GOING_TO_MISSION
+		_wander_timer.stop()
+		
+		var exit_x: float = 0.0
+		var mm = get_node_or_null("/root/MissionManager")
+		if mm:
+			var extra = mm.get_raid_mission_extra(mission_id)
+			var ex = extra.get("mission_exit_x", 0)
+			if ex != null and ex != 0:
+				exit_x = float(ex)
+		if exit_x == 0.0:
+			var exit_distance = 4800.0
+			exit_x = -exit_distance if randf() < 0.5 else exit_distance
+		move_target_x = exit_x
+		_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+
+func _on_mission_completed(cariye_id: int, mission_id: String, successful: bool, results: Dictionary) -> void:
+	# Görev tamamlandı - hem GOING_TO_MISSION hem de ON_MISSION durumlarını kontrol et
+	if cariye_id == concubine_id and (current_state == State.ON_MISSION or current_state == State.GOING_TO_MISSION):
+		# Görev tamamlandı - geri dön
+		current_state = State.RETURNING_FROM_MISSION
+		visible = true
+		
+		# Eğer henüz ekranın dışına çıkmadıysa, şu anki pozisyonu kullan
+		if _offscreen_exit_x == 0.0:
+			# Henüz ekranın dışına çıkmamış, şu anki pozisyonu kullan
+			var viewport_rect = get_viewport().get_visible_rect()
+			if global_position.x < viewport_rect.position.x:
+				_offscreen_exit_x = viewport_rect.position.x - 100.0
+			else:
+				_offscreen_exit_x = viewport_rect.position.x + viewport_rect.size.x + 100.0
+		
+		# Ekrandan çıktığı yerden geri gir - ekranın dışından başla
+		var screen_width = get_viewport().get_visible_rect().size.x
+		var start_x = 0.0
+		if _offscreen_exit_x < 0:
+			# Soldan çıkmıştı, soldan gir (ekranın dışından)
+			start_x = _offscreen_exit_x - 100.0
+		else:
+			# Sağdan çıkmıştı, sağdan gir (ekranın dışından)
+			start_x = _offscreen_exit_x + 100.0
+		
+		global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+		
+		# Kamp ateşine doğru git
+		if is_instance_valid(campfire_node):
+			move_target_x = campfire_node.global_position.x
+			_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+		
+
+func _on_mission_cancelled(cariye_id: int, mission_id: String) -> void:
+	if cariye_id == concubine_id and (current_state == State.GOING_TO_MISSION or current_state == State.ON_MISSION):
+		# Görev iptal edildi - geri dön
+		current_state = State.RETURNING_FROM_MISSION
+		visible = true
+		
+		# Ekrandan çıktığı yerden geri gir - ekranın dışından başla
+		var start_x = 0.0
+		if _offscreen_exit_x < 0:
+			# Soldan çıkmıştı, soldan gir (ekranın dışından)
+			start_x = _offscreen_exit_x - 100.0
+		else:
+			# Sağdan çıkmıştı, sağdan gir (ekranın dışından)
+			start_x = _offscreen_exit_x + 100.0
+		
+		global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+		
+		# Kamp ateşine doğru git
+		if is_instance_valid(campfire_node):
+			move_target_x = campfire_node.global_position.x
+			_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+		
+
+# Saat değişiminde state transition kontrolü (VillageManager'dan çağrılır)
+func check_hour_transition(new_hour: int) -> void:
+	var time_manager = get_node_or_null("/root/TimeManager")
+	if not time_manager:
+		return
+	
+	var current_minute: int = time_manager.get_minute() if time_manager.has_method("get_minute") else 0
+	
+	match current_state:
+		State.SLEEPING:
+			# Uyanma kontrolü - Sadece tam wake_hour'da offset'e göre uyan
+			# Gündüz saatlerinde (wake_hour ile SLEEP_HOUR arası) tekrar uyanma kontrolü yapma
+			var wake_hour = time_manager.WAKE_UP_HOUR + wake_up_hour_offset # 8:00'da başla
+			var sleep_hour = time_manager.SLEEP_HOUR
+			# Sadece tam wake_hour'da uyan (gündüz saatlerinde tekrar uyanma kontrolü yapma)
+			var should_wake = false
+			if new_hour == wake_hour and current_minute >= wake_up_minute_offset:
+				should_wake = true
+			# Eğer saat wake_hour'dan sonra ama SLEEP_HOUR'dan önceyse, zaten uyanmış olmalı
+			# Bu durumda tekrar uyanma kontrolü yapma
+			
+			if should_wake:
+				# Barınaktan çıkar (CampFire)
+				if is_instance_valid(campfire_node) and campfire_node.has_method("remove_occupant"):
+					campfire_node.remove_occupant(self)
+				
+				current_state = State.IDLE
+				visible = true
+				# Kamp ateşinden çık
+				if is_instance_valid(campfire_node):
+					global_position = Vector2(campfire_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					var wander_range = 150.0
+					move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+				_start_wander_timer()
+		
+		State.IDLE, State.RETURNING_FROM_MISSION:
+			# Uyku zamanı kontrolü - sadece gece saatlerinde (SLEEP_HOUR ile WAKE_UP_HOUR arası) uykuya git
+			# <<< YENİ: Başarısız deneme flag'ini kontrol et >>>
+			var wake_hour = time_manager.WAKE_UP_HOUR
+			var sleep_hour = time_manager.SLEEP_HOUR
+			var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+			if not is_daytime and new_hour >= sleep_hour and current_minute >= sleep_minute_offset and not _sleep_attempt_failed:
+				if is_instance_valid(campfire_node):
+					current_state = State.GOING_TO_SLEEP
+					move_target_x = campfire_node.global_position.x
+					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_wander_timer.stop()
+		
+		State.GOING_TO_MISSION, State.ON_MISSION:
+			# Görevdeyken gece kontrolü yapma (görev bitince zaten kontrol edilecek)
+			pass
+		
+		State.GOING_TO_SLEEP:
+			pass
 
 func get_style_from_texture_path(path: String) -> String:
 	if path.is_empty(): return "default"
@@ -464,10 +859,8 @@ func play_animation(anim_name: String):
 							if not ResourceLoader.exists(path_to_use) and anim_name == "walk":
 								if "bottom0" in item_type:
 									path_to_use = path_to_use.replace("bottom0", "bottom1")
-									print("[ConcubineNPC] DEBUG: bottom0 -> bottom1 fallback: %s" % path_to_use)
 								elif "top0" in item_type:
 									path_to_use = path_to_use.replace("top0", "top1")
-									print("[ConcubineNPC] DEBUG: top0 -> top1 fallback: %s" % path_to_use)
 						
 						if path_to_use.is_empty():
 							path_to_use = original_diffuse_path  # Fallback: orijinal path
@@ -475,9 +868,6 @@ func play_animation(anim_name: String):
 						if ResourceLoader.exists(path_to_use):
 							diffuse_texture = load(path_to_use)
 							textures["diffuse"] = diffuse_texture  # Cache için
-							print("[ConcubineNPC] DEBUG: Runtime texture yüklendi: anim=%s, original=%s, loaded=%s" % [anim_name, original_diffuse_path, path_to_use])
-						else:
-							print("[ConcubineNPC] DEBUG: Texture bulunamadı: %s (original: %s)" % [path_to_use, original_diffuse_path])
 				
 				if textures.has("diffuse") and textures["diffuse"] != null:
 					new_canvas_texture.diffuse_texture = textures["diffuse"]
@@ -492,8 +882,6 @@ func play_animation(anim_name: String):
 				var frames = animation_frame_counts.get(anim_name, {"hframes": 12, "vframes": 1})
 				sprite.hframes = frames["hframes"]
 				sprite.vframes = frames["vframes"]
-				if part_name == "pants" or part_name == "clothing":
-					print("[ConcubineNPC] DEBUG: %s için frame sayıları ayarlandı: anim=%s, hframes=%d, vframes=%d, current_frame=%d" % [part_name, anim_name, frames["hframes"], frames["vframes"], sprite.frame])
 				
 				sprite.texture = new_canvas_texture
 				

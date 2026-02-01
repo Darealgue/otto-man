@@ -183,7 +183,17 @@ func _update_labels() -> void:
 		else:
 			var lines: Array[String] = []
 			for s in summaries:
-				lines.append("%s (%.0f%%, %dgün)" % [String(s["type"]).capitalize(), float(s["severity"]) * 100.0, int(s["days_left"])])
+				var level_name: String = s.get("level_name", "")
+				if level_name.is_empty():
+					# Geriye dönük uyumluluk: severity'den level_name oluştur
+					var sev = float(s.get("severity", 0.0))
+					if sev < 0.2:
+						level_name = "Düşük"
+					elif sev < 0.3:
+						level_name = "Orta"
+					else:
+						level_name = "Yüksek"
+				lines.append("%s (%s, %dgün)" % [String(s["type"]).capitalize(), level_name, int(s["days_left"])])
 			events_label.text = ", ".join(lines)
 
 	# Günlük ekonomi istatistikleri
@@ -228,7 +238,21 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 
 	var current: int = VillageManager.get_resource_level(resource_key)
 	var cap: int = VillageManager.get_storage_capacity_for(resource_key)
-	var icon_only := label_node.has_meta("icon_only") and bool(label_node.get_meta("icon_only"))
+	# Check if label has icon_only meta, or if it's in a Row container with an icon
+	var icon_only := false
+	if label_node.has_meta("icon_only"):
+		icon_only = bool(label_node.get_meta("icon_only"))
+	else:
+		# Check if parent is a Row container with TextureRect (icon)
+		var parent = label_node.get_parent()
+		if is_instance_valid(parent) and parent is HBoxContainer:
+			if parent.name.ends_with("Row") or parent.name.ends_with("RowDynamic"):
+				for child in parent.get_children():
+					if child is TextureRect:
+						icon_only = true
+						# Set meta for future checks
+						label_node.set_meta("icon_only", true)
+						break
 	
 	if cap > 0:
 		if icon_only:
@@ -381,17 +405,18 @@ func _get_icon_path_for_resource(resource_key: String) -> String:
 func _wrap_label_with_icon(label_node: Label, resource_key: String) -> void:
 	if not is_instance_valid(label_node):
 		return
-	# Force icon_only meta to ensure text is formatted correctly (just number)
-	label_node.set_meta("icon_only", true)
 	
 	var parent := label_node.get_parent()
 	if not is_instance_valid(parent):
 		return
-	# Already wrapped with an icon?
-	if parent is HBoxContainer:
+	# Already wrapped with an icon? Check if parent is a Row container and has TextureRect
+	if parent is HBoxContainer and (parent.name.ends_with("Row") or parent.name.ends_with("RowDynamic")):
 		for child in parent.get_children():
 			if child is TextureRect:
+				# Already wrapped, just ensure icon_only meta is set
+				label_node.set_meta("icon_only", true)
 				return
+	
 	var icon_path := _get_icon_path_for_resource(resource_key)
 	if icon_path == "":
 		return
@@ -413,3 +438,5 @@ func _wrap_label_with_icon(label_node: Label, resource_key: String) -> void:
 	row.add_child(label_node)
 	parent.add_child(row)
 	parent.move_child(row, index)
+	# Force icon_only meta to ensure text is formatted correctly (just number)
+	label_node.set_meta("icon_only", true)

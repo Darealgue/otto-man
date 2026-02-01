@@ -65,10 +65,10 @@ size = Vector2(389.479, 11645)
 radius = 50.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_forest_portal"]
-size = Vector2(200, 480)
+size = Vector2(173.9, 480)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dungeon_portal"]
-size = Vector2(200, 480)
+size = Vector2(165.4, 480)
 
 [sub_resource type="Gradient" id="Gradient_xvddr"]
 colors = PackedColorArray(0, 0, 0, 1, 0, 1, 1, 1)
@@ -105,24 +105,25 @@ fill = 1
 fill_from = Vector2(0.509174, 0.522936)
 
 [sub_resource type="Gradient" id="Gradient_1g4th"]
-offsets = PackedFloat32Array(0, 0.885246)
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_g76y5"]
-noise_type = 3
-frequency = 0.0227
-fractal_octaves = 9
-fractal_weighted_strength = 0.66
+noise_type = 2
+frequency = 0.1154
+fractal_type = 2
+fractal_octaves = 8
+fractal_gain = 0.2
+domain_warp_type = 2
 
 [sub_resource type="NoiseTexture2D" id="NoiseTexture2D_633bs"]
+seamless = true
 seamless_blend_skirt = 1.0
-as_normal_map = true
 bump_strength = 32.0
 color_ramp = SubResource("Gradient_1g4th")
 noise = SubResource("FastNoiseLite_g76y5")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_86mrj"]
 shader = ExtResource("13_puagf")
-shader_parameter/water_color = Color(6.257e-07, 0.191358, 0.269568, 1)
+shader_parameter/water_color = Color(2.11775e-06, 0.344346, 0.471124, 1)
 shader_parameter/wave_noise = SubResource("NoiseTexture2D_633bs")
 
 [node name="VillageScene" type="Node2D"]
@@ -213,6 +214,30 @@ position = Vector2(2800, 0)
 [node name="BuildPlot14" type="Marker2D" parent="PlotMarkers"]
 position = Vector2(-2800, 0)
 
+[node name="BuildPlot15" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(3200, 0)
+
+[node name="BuildPlot16" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-3200, 0)
+
+[node name="BuildPlot17" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(3600, 0)
+
+[node name="BuildPlot18" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-3600, 0)
+
+[node name="BuildPlot19" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(4000, 0)
+
+[node name="BuildPlot20" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-4000, 0)
+
+[node name="BuildPlot21" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(4400, 0)
+
+[node name="BuildPlot22" type="Marker2D" parent="PlotMarkers"]
+position = Vector2(-4400, 0)
+
 [node name="WorkerAssignmentUI" parent="." instance=ExtResource("2_exr1e")]
 layer = 10
 visible = false
@@ -275,7 +300,7 @@ payload_source = "village"
 payload_reason = "portal_forest"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ForestPortalArea"]
-position = Vector2(-150, -147.4)
+position = Vector2(-163.05, -147.4)
 shape = SubResource("RectangleShape2D_forest_portal")
 
 [node name="DungeonPortalArea" type="Area2D" parent="."]
@@ -291,7 +316,7 @@ payload_source = "village"
 payload_reason = "portal_dungeon"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DungeonPortalArea"]
-position = Vector2(150, -147.4)
+position = Vector2(167.3, -147.4)
 shape = SubResource("RectangleShape2D_dungeon_portal")
 
 [node name="VillageStatusUI" parent="." instance=ExtResource("5_3scu2")]
@@ -436,44 +461,14 @@ texture = ExtResource("26_8udtl")
 position = Vector2(-3674, -617)
 texture = ExtResource("26_8udtl")
 
-[node name="TreesFront2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
-z_index = -2
-position = Vector2(-2891, -435)
-texture = ExtResource("18_batp3")
-
-[node name="TreesFront" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
-z_index = -2
-position = Vector2(-2023, -437)
-texture = ExtResource("18_batp3")
-
-[node name="TreesFront7" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
-z_index = -2
-position = Vector2(-3760, -529)
-texture = ExtResource("18_batp3")
-
-[node name="TreesFront9" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
-z_index = -2
-position = Vector2(-4611, -528)
-texture = ExtResource("18_batp3")
-
-[node name="TreesFront10" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
-z_index = -2
-position = Vector2(-5228, -527)
-texture = ExtResource("18_batp3")
-
-[node name="TreesFront6" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
-z_index = -2
-position = Vector2(-2901, -525)
-texture = ExtResource("18_batp3")
-
 [node name="BushFront2" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
 z_index = -1
-position = Vector2(-2555, -563)
+position = Vector2(-4890, -559)
 texture = ExtResource("27_kb7vg")
 
 [node name="BushFront" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
 z_index = -1
-position = Vector2(-3733, -563)
+position = Vector2(-5459, -556)
 texture = ExtResource("27_kb7vg")
 
 [node name="Grass1" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
@@ -515,6 +510,40 @@ texture = ExtResource("40_eq2dm")
 [node name="Bush20" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
 position = Vector2(-4672, -381)
 texture = ExtResource("38_iu58k")
+
+[node name="Treesfront" type="ParallaxLayer" parent="ParallaxBackground"]
+position = Vector2(670, 242)
+motion_scale = Vector2(0.95, 0.99)
+
+[node name="TreesFront2" type="Sprite2D" parent="ParallaxBackground/Treesfront"]
+z_index = -2
+position = Vector2(-2891, -435)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront" type="Sprite2D" parent="ParallaxBackground/Treesfront"]
+z_index = -2
+position = Vector2(-2023, -437)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront7" type="Sprite2D" parent="ParallaxBackground/Treesfront"]
+z_index = -2
+position = Vector2(-3760, -529)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront9" type="Sprite2D" parent="ParallaxBackground/Treesfront"]
+z_index = -2
+position = Vector2(-4611, -528)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront10" type="Sprite2D" parent="ParallaxBackground/Treesfront"]
+z_index = -2
+position = Vector2(-5228, -527)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront6" type="Sprite2D" parent="ParallaxBackground/Treesfront"]
+z_index = -2
+position = Vector2(-2901, -525)
+texture = ExtResource("18_batp3")
 
 [node name="greenbacground" type="ParallaxLayer" parent="ParallaxBackground"]
 z_index = -2
@@ -656,6 +685,189 @@ energy = 1.3
 range_z_max = 0
 texture = SubResource("GradientTexture2D_3unvc")
 texture_scale = 5.76
+
+[node name="treesfront" type="ParallaxLayer" parent="ParallaxBackground"]
+y_sort_enabled = true
+position = Vector2(670, 242)
+
+[node name="1" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -1
+y_sort_enabled = true
+position = Vector2(-6000, -1041)
+texture = ExtResource("17_6vpkr")
+centered = false
+
+[node name="Bush3" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-1707, -383)
+texture = ExtResource("39_8vjjl")
+
+[node name="Bush5" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-1863, -386)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush6" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -1
+position = Vector2(-2010, -384)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush7" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -1
+position = Vector2(-2062, -379)
+texture = ExtResource("39_8vjjl")
+
+[node name="Bush8" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2174, -385)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush9" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -1
+position = Vector2(-2288, -386)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush10" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-1273, -372)
+texture = ExtResource("39_8vjjl")
+
+[node name="Bush11" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2637, -378)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush12" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2784, -371)
+texture = ExtResource("40_eq2dm")
+
+[node name="Bush13" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2514, -354)
+texture = ExtResource("37_1oku1")
+
+[node name="Bush15" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-1753, -324)
+texture = ExtResource("37_1oku1")
+
+[node name="Bush16" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3090, -371)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush17" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2947, -361)
+texture = ExtResource("40_eq2dm")
+
+[node name="Bush18" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3340, -383)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush19" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3580, -381)
+texture = ExtResource("37_1oku1")
+
+[node name="Rock1" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2871, -380)
+texture = ExtResource("42_cj3l7")
+
+[node name="Trunk2" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3221, -381)
+texture = ExtResource("43_en1ad")
+
+[node name="TreesFront1" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2064, -613)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront3" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2549, -599)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront4" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2310, -613)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront5" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3005, -619)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront8" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3674, -617)
+texture = ExtResource("26_8udtl")
+
+[node name="TreesFront2" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -2
+position = Vector2(-2891, -435)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -2
+position = Vector2(-2023, -437)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront7" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -2
+position = Vector2(-3760, -529)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront9" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -2
+position = Vector2(-4611, -528)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront10" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -2
+position = Vector2(-5228, -527)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront6" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+visible = false
+z_index = -2
+position = Vector2(-2901, -525)
+texture = ExtResource("18_batp3")
+
+[node name="BushFront2" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -1
+position = Vector2(-2555, -563)
+texture = ExtResource("27_kb7vg")
+
+[node name="BushFront" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -1
+position = Vector2(-3733, -563)
+texture = ExtResource("27_kb7vg")
+
+[node name="Grass1" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2340, -371)
+texture = ExtResource("28_vkvbx")
+
+[node name="Grass5" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2009, -371)
+texture = ExtResource("29_842wn")
+
+[node name="Grass2" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2995, -379)
+texture = ExtResource("30_4isib")
+
+[node name="Grass3" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-2663, -377)
+texture = ExtResource("31_d7b2t")
+
+[node name="Grass4" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3203, -380)
+texture = ExtResource("32_nokj2")
+
+[node name="Grass6" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-3723, -378)
+texture = ExtResource("29_842wn")
+
+[node name="Bush14" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-4353, -379)
+texture = ExtResource("41_1dydq")
+
+[node name="Bush2" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-4181, -373)
+texture = ExtResource("38_iu58k")
+
+[node name="Bush4" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-4457, -382)
+texture = ExtResource("40_eq2dm")
+
+[node name="Bush20" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+position = Vector2(-4672, -381)
+texture = ExtResource("38_iu58k")
 
 [node name="Water" type="Sprite2D" parent="."]
 z_index = 20

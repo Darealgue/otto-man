@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://ei73gvx0mn60"]
+[gd_scene load_steps=18 format=3 uid="uid://ei73gvx0mn60"]
 
 [ext_resource type="Script" path="res://village/scripts/Worker.gd" id="1_tpsik"]
 [ext_resource type="Texture2D" uid="uid://bhx36uh2enr56" path="res://assets/tools/walk_work_tool_axe.png" id="2_0eu48"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://byov2w28tgqc0" path="res://ui/npc_window.tscn" id="7_a2l8b"]
 [ext_resource type="Texture2D" uid="uid://botduxqg661ye" path="res://assets/character_parts/beard/beard_style1_walk_gray.png" id="7_o5o4k"]
 [ext_resource type="Texture2D" uid="uid://wtnccajt6bj4" path="res://assets/character_parts/hair/hair_style1_walk_gray.png" id="8_7bdve"]
+[ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="9_theme"]
 
 [sub_resource type="CanvasTexture" id="CanvasTexture_28vps"]
 
@@ -1689,20 +1690,24 @@ libraries = {
 "": SubResource("AnimationLibrary_6kd63")
 }
 
-[node name="NamePlate" type="Label" parent="."]
+[node name="NamePlateContainer" type="PanelContainer" parent="."]
 layout_direction = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -50.0
-offset_top = -73.0
-offset_right = 50.0
-offset_bottom = -50.0
+offset_left = -60.0
+offset_top = -100.0
+offset_right = 60.0
+offset_bottom = -70.0
 grow_horizontal = 2
 grow_vertical = 2
-pivot_offset = Vector2(50, 0)
+pivot_offset = Vector2(60, 0)
+theme = ExtResource("9_theme")
+
+[node name="NamePlate" type="Label" parent="NamePlateContainer"]
+layout_mode = 2
 text = "Name"
 horizontal_alignment = 1
 
@@ -1716,9 +1721,9 @@ shape = SubResource("RectangleShape2D_ev20y")
 visible = false
 z_index = 20
 offset_left = -10.0
-offset_top = -95.0
+offset_top = -120.0
 offset_right = 13.0
-offset_bottom = -70.0
+offset_bottom = -95.0
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 12
 text = "P"

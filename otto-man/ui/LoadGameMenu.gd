@@ -198,41 +198,75 @@ func _setup_confirm_dialog() -> void:
 		push_warning("[LoadGameMenu] ConfirmDialog not found!")
 		return
 	
+	print("[LoadGameMenu] Setting up confirm dialog...")
 	if confirm_dialog.has_signal("confirmed"):
-		confirm_dialog.confirmed.connect(_on_confirm_dialog_confirmed)
+		if not confirm_dialog.confirmed.is_connected(_on_confirm_dialog_confirmed):
+			confirm_dialog.confirmed.connect(_on_confirm_dialog_confirmed)
+			print("[LoadGameMenu] ✅ Connected confirmed signal")
+		else:
+			print("[LoadGameMenu] ⚠️ confirmed signal already connected")
+	else:
+		push_error("[LoadGameMenu] ConfirmDialog has no 'confirmed' signal!")
+	
 	if confirm_dialog.has_signal("cancelled"):
-		confirm_dialog.cancelled.connect(_on_confirm_dialog_cancelled)
+		if not confirm_dialog.cancelled.is_connected(_on_confirm_dialog_cancelled):
+			confirm_dialog.cancelled.connect(_on_confirm_dialog_cancelled)
+			print("[LoadGameMenu] ✅ Connected cancelled signal")
+		else:
+			print("[LoadGameMenu] ⚠️ cancelled signal already connected")
+	else:
+		push_error("[LoadGameMenu] ConfirmDialog has no 'cancelled' signal!")
 
 func _on_slot_delete_pressed(slot_id: int) -> void:
+	print("[LoadGameMenu] 🔴 DELETE BUTTON PRESSED for slot %d" % slot_id)
+	
 	if not is_instance_valid(SaveManager):
 		push_error("[LoadGameMenu] SaveManager not available!")
+		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
 		return
 	
 	var metadata = SaveManager.get_save_metadata(slot_id)
 	if metadata.is_empty():
 		push_warning("[LoadGameMenu] Slot %d is already empty!" % slot_id)
+		_set_status("Slot %d zaten boş!" % slot_id, false)
+		await get_tree().create_timer(1.0).timeout
+		_set_status("", false)
 		return
 	
 	# Show confirmation dialog
 	_pending_delete_slot = slot_id
+	print("[LoadGameMenu] Showing confirm dialog for slot %d" % slot_id)
 	if confirm_dialog and confirm_dialog.has_method("show_dialog"):
 		confirm_dialog.show_dialog("Kayıt Sil", "Slot %d'yı silmek istediğinizden emin misiniz?" % slot_id, true)
+		print("[LoadGameMenu] Confirm dialog shown")
 	else:
+		print("[LoadGameMenu] ⚠️ ConfirmDialog not available, proceeding with delete directly")
 		# Fallback: proceed with delete
 		_do_delete_slot(slot_id)
 
 func _do_delete_slot(slot_id: int) -> void:
+	print("[LoadGameMenu] Attempting to delete slot %d..." % slot_id)
 	if SaveManager.delete_save(slot_id):
 		print("[LoadGameMenu] ✅ Deleted slot %d" % slot_id)
+		_set_status("Slot %d silindi!" % slot_id, false)
 		_refresh_slots()
+		# Clear status after a delay
+		await get_tree().create_timer(1.5).timeout
+		_set_status("", false)
 	else:
+		var error_msg = "Slot %d silinemedi. Dosya kilitli olabilir veya izin hatası olabilir." % slot_id
 		push_error("[LoadGameMenu] Failed to delete slot %d" % slot_id)
+		_show_error("Silme Başarısız", error_msg)
 
 func _on_confirm_dialog_confirmed() -> void:
+	print("[LoadGameMenu] ✅ Confirm dialog confirmed!")
 	if _pending_delete_slot >= 0:
 		var slot_id = _pending_delete_slot
 		_pending_delete_slot = -1
+		print("[LoadGameMenu] Proceeding to delete slot %d" % slot_id)
 		_do_delete_slot(slot_id)
+	else:
+		print("[LoadGameMenu] ⚠️ No pending delete slot!")
 
 func _on_confirm_dialog_cancelled() -> void:
 	_pending_delete_slot = -1

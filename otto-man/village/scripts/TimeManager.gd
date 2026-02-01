@@ -120,6 +120,10 @@ func get_continuous_hour_float() -> float:
 func get_current_day_count() -> int:
 	return days
 
+# Oyun zamanını toplam dakika cinsinden döndürür (görev süresi takibi için)
+func get_total_game_minutes() -> int:
+	return days * HOURS_PER_DAY * MINUTES_PER_HOUR + hours * MINUTES_PER_HOUR + minutes
+
 # Çalışma saatlerinde mi kontrol eder
 func is_work_time() -> bool:
 	return hours >= WORK_START_HOUR and hours < WORK_END_HOUR

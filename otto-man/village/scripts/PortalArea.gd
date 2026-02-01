@@ -217,12 +217,6 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 			if health is float or health is int:
 				is_dead = float(health) <= 0.0
 	
-	# Check active missions
-	var active_missions: Dictionary = {}
-	var mission_manager = get_node_or_null("/root/MissionManager")
-	if mission_manager and mission_manager.has_method("get_active_missions"):
-		active_missions = mission_manager.get_active_missions()
-	
 	# Determine result type
 	var result_type: String = ""
 	var mission_name: String = ""
@@ -241,27 +235,8 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 		mission_name = "Ölüm"
 		# Store inventory count for death message
 		payload["lost_items_count"] = inventory_count_before_death
-	elif not active_missions.is_empty():
-		# Manual return - mission cancelled
-		result_type = "cancelled"
-		# Get first active mission info
-		var first_cariye_id = active_missions.keys()[0]
-		var first_mission_id = active_missions[first_cariye_id]
-		
-		if mission_manager and "missions" in mission_manager:
-			var missions_dict = mission_manager.get("missions")
-			if missions_dict is Dictionary and first_mission_id in missions_dict:
-				var mission = missions_dict[first_mission_id]
-				if mission is Dictionary:
-					mission_name = mission.get("name", first_mission_id)
-					penalties = mission.get("penalties", {})
-				elif mission.has_method("get"):
-					mission_name = mission.get("name") if "name" in mission else first_mission_id
-					penalties = mission.get("penalties", {}) if "penalties" in mission else {}
-		
-		# Cancel the mission
-		if mission_manager and mission_manager.has_method("cancel_mission"):
-			mission_manager.cancel_mission(first_cariye_id, first_mission_id)
+	# Ormandan köye dönüşte MissionManager'daki "aktif görevler" cariye görevleridir (eskort, baskın vb.);
+	# bunlar oyuncunun ormandan dönmesiyle iptal edilmemeli, atlanıyor.
 	
 	# Show dialog if there's a result (before applying roguelike mechanics)
 	if not result_type.is_empty():

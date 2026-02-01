@@ -21,6 +21,9 @@ func _ready() -> void:
 	set_as_top_level(true)
 	global_position = Vector2.ZERO
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Ensure dialog is on top of everything
+	z_index = 1000  # Very high z-index to be on top
+	mouse_filter = Control.MOUSE_FILTER_STOP  # Ensure it can receive mouse input
 
 func _ensure_nodes() -> void:
 	if not title_label:
@@ -34,11 +37,25 @@ func _ensure_nodes() -> void:
 
 func _connect_signals() -> void:
 	if confirm_button:
-		confirm_button.pressed.connect(_on_confirm_pressed)
+		if not confirm_button.pressed.is_connected(_on_confirm_pressed):
+			confirm_button.pressed.connect(_on_confirm_pressed)
+			print("[ConfirmDialog] ✅ Connected confirm_button.pressed signal")
+		else:
+			print("[ConfirmDialog] ⚠️ confirm_button.pressed already connected")
+	else:
+		push_error("[ConfirmDialog] confirm_button is null!")
+	
 	if cancel_button:
-		cancel_button.pressed.connect(_on_cancel_pressed)
+		if not cancel_button.pressed.is_connected(_on_cancel_pressed):
+			cancel_button.pressed.connect(_on_cancel_pressed)
+			print("[ConfirmDialog] ✅ Connected cancel_button.pressed signal")
+		else:
+			print("[ConfirmDialog] ⚠️ cancel_button.pressed already connected")
+	else:
+		push_error("[ConfirmDialog] cancel_button is null!")
 
 func show_dialog(title: String, message: String, show_cancel: bool = true) -> void:
+	print("[ConfirmDialog] show_dialog called: title='%s', message='%s', show_cancel=%s" % [title, message, show_cancel])
 	if not title_label or not message_label:
 		push_error("[ConfirmDialog] Nodes not ready!")
 		return
@@ -47,27 +64,77 @@ func show_dialog(title: String, message: String, show_cancel: bool = true) -> vo
 	message_label.text = message
 	cancel_button.visible = show_cancel
 	
+	# Ensure confirm button is always visible and enabled
+	if confirm_button:
+		confirm_button.visible = true
+		confirm_button.disabled = false
+		confirm_button.process_mode = Node.PROCESS_MODE_ALWAYS
+		print("[ConfirmDialog] Confirm button: visible=%s, disabled=%s, process_mode=%s" % [confirm_button.visible, confirm_button.disabled, confirm_button.process_mode])
+	
+	if cancel_button:
+		cancel_button.process_mode = Node.PROCESS_MODE_ALWAYS
+		print("[ConfirmDialog] Cancel button: visible=%s, disabled=%s, process_mode=%s" % [cancel_button.visible, cancel_button.disabled, cancel_button.process_mode])
+	
 	_result = false
 	_waiting_for_result = true
-	visible = true
 	
-	# Focus management
-	if show_cancel:
-		cancel_button.grab_focus()
-	else:
+	# Ensure process mode is ALWAYS so it works even when game is paused
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	z_index = 1000  # Ensure it's on top
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# Make sure dialog is visible and on top
+	visible = true
+	show()  # Force show
+	
+	# Ensure it's in the viewport and on top
+	var viewport = get_viewport()
+	if viewport:
+		# If we're a child of another node, we might need to reparent to viewport
+		# But set_as_top_level should handle this
+		# Just ensure we're visible and on top
+		z_index = 1000
+		# Make sure we cover the entire screen
+		if get_parent() != viewport:
+			# Reparent to viewport if needed (but set_as_top_level should handle this)
+			pass
+	
+	# Ensure size covers the viewport
+	if viewport:
+		size = viewport.get_visible_rect().size
+		global_position = Vector2.ZERO
+	
+	print("[ConfirmDialog] Dialog visible set to true, process_mode: %s, z_index: %d" % [process_mode, z_index])
+	print("[ConfirmDialog] Dialog size: %s, position: %s" % [size, global_position])
+	print("[ConfirmDialog] Dialog parent: %s" % get_parent())
+	print("[ConfirmDialog] Dialog is_visible_in_tree: %s" % is_visible_in_tree())
+	
+	# Focus management - Always focus confirm button first, then cancel if shown
+	# This ensures confirm button is accessible
+	if confirm_button:
 		confirm_button.grab_focus()
+		print("[ConfirmDialog] Focus set to confirm button")
+	if show_cancel and cancel_button:
+		# Cancel button will get focus after confirm (for keyboard navigation)
+		pass
 
 func _on_confirm_pressed() -> void:
+	print("[ConfirmDialog] 🔵 CONFIRM BUTTON PRESSED!")
 	_result = true
 	_waiting_for_result = false
 	visible = false
+	print("[ConfirmDialog] Emitting confirmed signal...")
 	confirmed.emit()
+	print("[ConfirmDialog] ✅ Confirmed signal emitted")
 
 func _on_cancel_pressed() -> void:
+	print("[ConfirmDialog] 🔴 CANCEL BUTTON PRESSED!")
 	_result = false
 	_waiting_for_result = false
 	visible = false
+	print("[ConfirmDialog] Emitting cancelled signal...")
 	cancelled.emit()
+	print("[ConfirmDialog] ✅ Cancelled signal emitted")
 
 func hide_dialog() -> void:
 	visible = false

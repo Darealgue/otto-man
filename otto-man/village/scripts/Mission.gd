@@ -19,7 +19,7 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 @export var description: String
 @export var mission_type: MissionType
 @export var difficulty: Difficulty
-@export var duration: float  # Saniye cinsinden
+@export var duration: float  # Oyun dakikası cinsinden
 @export var success_chance: float  # 0.0 - 1.0 arası
 
 # Gereksinimler
@@ -47,8 +47,8 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 # Görev durumu
 var status: Status = Status.MEVCUT
 var assigned_cariye_id: int = -1
-var start_time: float = 0.0
-var end_time: float = 0.0
+var start_time: int = 0  # Oyun zamanı (dakika cinsinden)
+var end_time: int = 0  # Oyun zamanı (dakika cinsinden)
 
 # Görev sonuçları
 var completed_successfully: bool = false
@@ -62,7 +62,7 @@ func _init():
 	description = "Görev açıklaması yok"
 	mission_type = MissionType.KEŞİF
 	difficulty = Difficulty.KOLAY
-	duration = 10.0
+	duration = 180.0  # 180 oyun dakikası (3 saat) varsayılan
 	success_chance = 0.7
 
 # Görev başlat
@@ -72,8 +72,26 @@ func start_mission(cariye_id: int) -> bool:
 	
 	status = Status.AKTİF
 	assigned_cariye_id = cariye_id
-	start_time = Time.get_unix_time_from_system()
-	end_time = start_time + duration
+	
+	# Oyun zamanını kullan (dakika cinsinden)
+	# Resource sınıfında scene tree'ye erişmek için Engine.get_main_loop() kullanıyoruz
+	var time_manager = null
+	var main_loop = Engine.get_main_loop()
+	if main_loop:
+		var scene_tree = main_loop as SceneTree
+		if scene_tree:
+			time_manager = scene_tree.root.get_node_or_null("TimeManager")
+	
+	if time_manager and time_manager.has_method("get_total_game_minutes"):
+		start_time = time_manager.get_total_game_minutes()
+		# duration zaten oyun dakikası cinsinden, direkt kullan
+		var duration_in_game_minutes = roundi(duration)
+		end_time = start_time + duration_in_game_minutes
+	else:
+		# Fallback: gerçek zaman (eski sistem)
+		start_time = int(Time.get_unix_time_from_system())
+		end_time = start_time + int(duration)
+	
 	return true
 
 # Görev tamamla
@@ -107,13 +125,31 @@ func cancel_mission() -> bool:
 func is_completed() -> bool:
 	return status == Status.TAMAMLANDI or status == Status.BAŞARISIZ or status == Status.İPTAL
 
-# Kalan süre
+# Kalan süre (oyun dakikası cinsinden)
 func get_remaining_time() -> float:
 	if status != Status.AKTİF:
 		return 0.0
 	
-	var current_time = Time.get_unix_time_from_system()
-	return max(0.0, end_time - current_time)
+	# Oyun zamanını kullan
+	# Resource sınıfında scene tree'ye erişmek için Engine.get_main_loop() kullanıyoruz
+	var time_manager = null
+	var main_loop = Engine.get_main_loop()
+	if main_loop:
+		var scene_tree = main_loop as SceneTree
+		if scene_tree:
+			time_manager = scene_tree.root.get_node_or_null("TimeManager")
+	
+	if time_manager and time_manager.has_method("get_total_game_minutes"):
+		var current_time = time_manager.get_total_game_minutes()
+		var remaining_minutes = end_time - current_time
+		# Oyun dakikası cinsinden döndür
+		return max(0.0, float(remaining_minutes))
+	else:
+		# Fallback: gerçek zaman (eski sistem) - gerçek saniyeyi oyun dakikasına çevir
+		var current_time = Time.get_unix_time_from_system()
+		var remaining_real_seconds = max(0.0, float(end_time) - current_time)
+		# Gerçek saniyeyi oyun dakikasına çevir (1 oyun dakikası = 2.5 gerçek saniyesi)
+		return remaining_real_seconds / 2.5
 
 # Görev türü adı
 func get_mission_type_name() -> String:

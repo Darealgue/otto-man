@@ -95,6 +95,8 @@ func show_result(result_type: String, mission_name: String = "", rewards: Dictio
 		confirm_button.grab_focus()
 
 func _on_confirm_pressed() -> void:
+	if not visible:
+		return  # Zaten kapatıldıysa tekrar işlem yapma (sonsuz özyinelemeyi önler)
 	visible = false
 	confirmed.emit()
 
@@ -104,6 +106,5 @@ func _input(event: InputEvent) -> void:
 	
 	# Block all input except UI
 	if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()  # Önce event'i tüket ki butona da gitmesin
 		_on_confirm_pressed()
-		get_viewport().set_input_as_handled()
-

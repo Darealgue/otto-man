@@ -100,6 +100,25 @@ func _on_command_submitted(command: String) -> void:
 			handle_force_attack_command(args)
 		"test_battle":
 			handle_test_battle_command(args)
+		# === VILLAGE EVENT KOMUTLARI ===
+		"trigger_village_event":
+			handle_trigger_village_event_command(args)
+		"trigger_world_event":
+			handle_trigger_world_event_command(args)
+		"set_event_chance":
+			handle_set_event_chance_command(args)
+		"list_active_events":
+			handle_list_active_events_command()
+		"list_event_types":
+			handle_list_event_types_command()
+		"clear_event":
+			handle_clear_event_command(args)
+		"event_info":
+			handle_event_info_command(args)
+		"show_multipliers":
+			handle_show_multipliers_command()
+		"show_event_effects":
+			handle_show_event_effects_command()
 		_:
 			print_output("Unknown command: " + cmd)
 
@@ -412,12 +431,316 @@ func show_help() -> void:
 	recruit_soldier - Assign a villager as soldier
 	barracks_info - Show barracks information
 	force_attack <attacker> <target> - Force an attack (Köy/Kuzey/Güney/etc)
-	test_battle [attacker] - Immediately trigger a battle for testing (default: Kuzey)"""
+	test_battle [attacker] - Immediately trigger a battle for testing (default: Kuzey)
+	
+	=== VILLAGE EVENT SİSTEMİ ===
+	trigger_village_event [type] - Trigger a village event (random if no type)
+	trigger_world_event [type] [low|medium|high] [duration] - Trigger a world event (random if no type)
+	set_event_chance <world|village> <chance> - Set event chance (0.0-1.0)
+	list_active_events - List all active events
+	list_event_types - List all available event types
+	clear_event [type] - Clear a specific active event (or all if no type)
+	event_info [type] - Show detailed info about an event type
+	show_multipliers - Show current production multipliers
+	show_event_effects - Show detailed effects of active events"""
 	print_output(help_text)
 
 func print_output(text: String) -> void:
 	if output:
 		output.add_text(text + "\n")
+
+func handle_trigger_village_event_command(args: Array) -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	
+	if args.is_empty():
+		# Rastgele village event tetikle
+		var event_pool: Array[String] = ["trade_caravan", "resource_discovery", "windfall", "traveler", "minor_accident", "immigration_wave"]
+		event_pool.shuffle()
+		var event_type: String = event_pool[0]
+		vm._trigger_village_event(event_type, day)
+		print_output("Triggered random village event: %s" % event_type)
+	else:
+		# Belirli bir event tetikle
+		var event_type: String = args[0]
+		vm._trigger_village_event(event_type, day)
+		print_output("Triggered village event: %s" % event_type)
+
+func handle_trigger_world_event_command(args: Array) -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	if args.is_empty():
+		# Rastgele world event tetikle
+		vm.trigger_random_event_debug()
+		print_output("Triggered random world event")
+	else:
+		# Belirli bir world event tetikle
+		var event_type: String = args[0].to_lower()
+		var severity: float = -1.0
+		var duration: int = -1
+		var level_str: String = ""
+		
+		if args.size() >= 2:
+			# İkinci parametre level (low/medium/high) veya severity olabilir
+			var arg2 = args[1].to_lower()
+			if arg2 == "low" or arg2 == "düşük":
+				severity = 0.1  # Low seviyesi için
+			elif arg2 == "medium" or arg2 == "orta":
+				severity = 0.2  # Medium seviyesi için
+			elif arg2 == "high" or arg2 == "yüksek":
+				severity = 0.3  # High seviyesi için
+			else:
+				severity = float(args[1])  # Eski sistem: sayısal severity
+		if args.size() >= 3:
+			duration = int(args[2])
+		
+		var success = vm.trigger_specific_world_event(event_type, severity, duration)
+		if success:
+			var info = "Triggered world event: %s" % event_type
+			if severity >= 0.0:
+				if severity < 0.2:
+					info += " (Seviye: Düşük)"
+				elif severity < 0.3:
+					info += " (Seviye: Orta)"
+				else:
+					info += " (Seviye: Yüksek)"
+			if duration > 0:
+				info += " (duration: %d days)" % duration
+			print_output(info)
+		else:
+			print_output("Invalid event type: %s" % event_type)
+			print_output("Valid types: drought, famine, pest, disease, raid, wolf_attack, severe_storm, weather_blessing, worker_strike, bandit_activity")
+			print_output("Usage: trigger_world_event <type> [low|medium|high] [duration]")
+
+func handle_set_event_chance_command(args: Array) -> void:
+	if args.size() < 2:
+		print_output("Usage: set_event_chance <world|village> <chance>")
+		print_output("Example: set_event_chance world 1.0 (100% chance)")
+		return
+	
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	var event_type: String = args[0].to_lower()
+	var chance: float = float(args[1])
+	
+	if event_type == "world":
+		vm.daily_event_chance = clamp(chance, 0.0, 1.0)
+		print_output("World event chance set to: %.0f%%" % (chance * 100.0))
+	elif event_type == "village":
+		vm.village_daily_event_chance = clamp(chance, 0.0, 1.0)
+		print_output("Village event chance set to: %.0f%%" % (chance * 100.0))
+	else:
+		print_output("Invalid event type. Use 'world' or 'village'")
+
+func handle_list_active_events_command() -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	
+	var active_events = vm.get_active_events_summary(day)
+	if active_events.is_empty():
+		print_output("No active events")
+	else:
+		print_output("=== ACTIVE EVENTS ===")
+		for ev in active_events:
+			var type_str: String = String(ev.get("type", "unknown"))
+			var level_name: String = ev.get("level_name", "Bilinmeyen")
+			var days_left: int = int(ev.get("days_left", 0))
+			var info = "%s - Seviye: %s, Days left: %d" % [type_str.capitalize(), level_name, days_left]
+			
+			# Worker strike için ek bilgi
+			var full_events = vm.get_active_events()
+			for full_ev in full_events:
+				if String(full_ev.get("type", "")) == type_str:
+					if full_ev.has("strike_resource"):
+						info += " (Resource: %s)" % full_ev["strike_resource"]
+					break
+			
+			print_output(info)
+
+func handle_list_event_types_command() -> void:
+	print_output("=== WORLD EVENTS (3 Seviye: Düşük/Orta/Yüksek) ===")
+	print_output("drought - Su üretimi azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
+	print_output("famine - Yiyecek üretimi azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
+	print_output("pest - Odun üretimi azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
+	print_output("disease - Moral düşer (Düşük: -15, Orta: -25, Yüksek: -40)")
+	print_output("raid - Baskın saldırısı (1-2 gün sonra)")
+	print_output("wolf_attack - Taş üretimi azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
+	print_output("severe_storm - Tüm üretim azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
+	print_output("weather_blessing - Tüm üretim artar (Düşük: +20%, Orta: +40%, Yüksek: +60%)")
+	print_output("worker_strike - Belirli kaynak üretimi durur")
+	print_output("disease - İşçiler hastalanır, çalışamazlar. İlaç varsa 1 günde iyileşir, yoksa moral düşer.")
+	print_output("bandit_activity - Ticaret aksar, cariye görevleri daha tehlikeli. Asker göndermek çözüm.")
+	print_output("")
+	print_output("=== VILLAGE EVENTS ===")
+	print_output("trade_caravan - Altın kazancı")
+	print_output("resource_discovery - Rastgele kaynak bonusu")
+	print_output("windfall - Odun ve taş bonusu")
+	print_output("traveler - Seyyah ziyareti (placeholder)")
+	print_output("minor_accident - Küçük kaynak kaybı")
+	print_output("immigration_wave - Bedava işçi ekler")
+
+func handle_clear_event_command(args: Array) -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	var event_type: String = ""
+	if not args.is_empty():
+		event_type = args[0].to_lower()
+	
+	var cleared_count = vm.clear_event(event_type)
+	if event_type.is_empty():
+		print_output("Cleared all events (%d)" % cleared_count)
+	else:
+		if cleared_count > 0:
+			print_output("Cleared event: %s (%d)" % [event_type, cleared_count])
+		else:
+			print_output("Event not found: %s" % event_type)
+
+func handle_event_info_command(args: Array) -> void:
+	if args.is_empty():
+		print_output("Usage: event_info <type>")
+		print_output("Use 'list_event_types' to see all available types")
+		return
+	
+	var event_type: String = args[0].to_lower()
+	var info: Dictionary = {
+		"drought": "Kuraklık - Su üretimini azaltır. Düşük: -20%, Orta: -40%, Yüksek: -60%",
+		"famine": "Kıtlık - Yiyecek üretimini azaltır. Düşük: -20%, Orta: -40%, Yüksek: -60%",
+		"pest": "Zararlı - Odun üretimini azaltır (ağaç zararlıları). Düşük: -20%, Orta: -40%, Yüksek: -60%",
+		"disease": "Hastalık - İşçiler hastalanır, çalışamazlar, evden çıkmazlar. İlaç varsa 1 günde iyileşir, yoksa moral düşer. Düşük: %20 işçi, Orta: %35 işçi, Yüksek: %50 işçi hasta.",
+		"bandit_activity": "Haydut Faaliyeti - Ticaret aksar (Düşük: -30%, Orta: -50%, Yüksek: -70%), cariye görevleri daha tehlikeli. Asker göndermek çözüm.",
+		"raid": "Baskın - 1-2 gün sonra saldırı gerçekleşir. Askerler deploy edilir ve savaş yapılır.",
+		"wolf_attack": "Kurt Saldırısı - Taş üretimini azaltır. Düşük: -20%, Orta: -40%, Yüksek: -60%",
+		"severe_storm": "Şiddetli Fırtına - Tüm üretimi azaltır. Düşük: -20%, Orta: -40%, Yüksek: -60%",
+		"weather_blessing": "Hava Bereketi - Tüm üretimi artırır. Düşük: +20%, Orta: +40%, Yüksek: +60%",
+		"worker_strike": "İşçi Grevi - Belirli bir kaynak tipinde üretim tamamen durur (wood/stone/food/water).",
+		"trade_caravan": "Ticaret Kervanı - 20-80 altın kazancı.",
+		"resource_discovery": "Kaynak Keşfi - Rastgele temel kaynaktan 5-15 bonus.",
+		"windfall": "Bolluk - 2-5 odun ve 2-5 taş bonusu.",
+		"traveler": "Seyyah - Yeni görev fırsatı (placeholder).",
+		"minor_accident": "Küçük Kaza - Odun veya taştan 1-3 kayıp.",
+		"immigration_wave": "Göç Dalgası - 2-5 bedava işçi ekler."
+	}
+	
+	if info.has(event_type):
+		print_output("=== %s ===" % event_type.capitalize())
+		print_output(info[event_type])
+	else:
+		print_output("Unknown event type: %s" % event_type)
+		print_output("Use 'list_event_types' to see all available types")
+
+func handle_show_multipliers_command() -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	var multipliers = vm.get_production_multipliers()
+	print_output("=== PRODUCTION MULTIPLIERS ===")
+	print_output("Global multiplier: %.2f" % multipliers["global"])
+	print_output("Morale: %.1f" % multipliers["morale"])
+	print_output("")
+	print_output("Resource multipliers:")
+	var res_mult = multipliers["resource"]
+	var basic_resources = ["wood", "stone", "food", "water"]
+	for res in basic_resources:
+		var mult = float(res_mult.get(res, 1.0))
+		var status = ""
+		if mult == 0.0:
+			status = " (STOPPED)"
+		elif mult < 1.0:
+			status = " (REDUCED)"
+		elif mult > 1.0:
+			status = " (BOOSTED)"
+		print_output("  %s: %.2f%s" % [res.capitalize(), mult, status])
+
+func handle_show_event_effects_command() -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	
+	var active_events = vm.get_active_events_summary(day)
+	if active_events.is_empty():
+		print_output("No active events")
+		return
+	
+	var multipliers = vm.get_production_multipliers()
+	
+	print_output("=== ACTIVE EVENT EFFECTS ===")
+	for ev_summary in active_events:
+		var type_str: String = String(ev_summary.get("type", "unknown"))
+		var level_name: String = ev_summary.get("level_name", "Bilinmeyen")
+		var days_left: int = int(ev_summary.get("days_left", 0))
+		
+		print_output("")
+		print_output("Event: %s" % type_str.capitalize())
+		print_output("  Seviye: %s" % level_name)
+		print_output("  Days left: %d" % days_left)
+		
+		# Show specific effects
+		match type_str:
+			"drought":
+				var mult = float(multipliers["resource"].get("water", 1.0))
+				var reduction = (1.0 - mult) * 100.0
+				print_output("  Effect: Water production multiplier = %.2f (%.0f%% reduction)" % [mult, reduction])
+			"famine":
+				var mult = float(multipliers["resource"].get("food", 1.0))
+				var reduction = (1.0 - mult) * 100.0
+				print_output("  Effect: Food production multiplier = %.2f (%.0f%% reduction)" % [mult, reduction])
+			"pest":
+				var mult = float(multipliers["resource"].get("wood", 1.0))
+				var reduction = (1.0 - mult) * 100.0
+				print_output("  Effect: Wood production multiplier = %.2f (%.0f%% reduction)" % [mult, reduction])
+			"wolf_attack":
+				var mult = float(multipliers["resource"].get("stone", 1.0))
+				var reduction = (1.0 - mult) * 100.0
+				print_output("  Effect: Stone production multiplier = %.2f (%.0f%% reduction)" % [mult, reduction])
+			"severe_storm":
+				var mult = multipliers["global"]
+				var reduction = (1.0 - mult) * 100.0
+				print_output("  Effect: Global multiplier = %.2f (%.0f%% reduction)" % [mult, reduction])
+			"weather_blessing":
+				var mult = multipliers["global"]
+				var increase = (mult - 1.0) * 100.0
+				print_output("  Effect: Global multiplier = %.2f (%.0f%% increase)" % [mult, increase])
+			"worker_strike":
+				var full_events = vm.get_active_events()
+				var strike_resource = "unknown"
+				for full_ev in full_events:
+					if String(full_ev.get("type", "")) == type_str:
+						strike_resource = String(full_ev.get("strike_resource", "unknown"))
+						break
+				var mult = float(multipliers["resource"].get(strike_resource, 1.0))
+				print_output("  Effect: %s production multiplier = %.2f (PRODUCTION STOPPED)" % [strike_resource.capitalize(), mult])
+			"disease":
+				var morale = multipliers["morale"]
+				print_output("  Effect: Morale = %.1f" % morale)
+			"raid":
+				print_output("  Effect: Resources stolen, gold stolen, possible building damage")
+			_:
+				print_output("  Effect: Unknown")
 
 func navigate_history(direction: int) -> void:
 	if command_history.is_empty() or !line_edit:

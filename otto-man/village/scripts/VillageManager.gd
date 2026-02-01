@@ -154,6 +154,16 @@ func _ready() -> void:
 		SceneManager.scene_change_started.connect(Callable(self, "_on_scene_change_started"))
 		_scene_signal_connected = true
 	
+	# Bandit Activity + göreve giden askerlerin ekrandan çıkması
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm:
+		if not mm.mission_completed.is_connected(_on_mission_manager_mission_completed):
+			mm.mission_completed.connect(_on_mission_manager_mission_completed)
+		if not mm.mission_started.is_connected(_on_mission_manager_mission_started):
+			mm.mission_started.connect(_on_mission_manager_mission_started)
+		if not mm.mission_cancelled.is_connected(_on_mission_manager_mission_cancelled):
+			mm.mission_cancelled.connect(_on_mission_manager_mission_cancelled)
+	
 	# Initialize resource levels (restore from saved if available)
 	if not _saved_resource_levels.is_empty():
 		resource_levels = _saved_resource_levels.duplicate(true)
@@ -296,6 +306,17 @@ func snapshot_state_for_scene_exit() -> void:
 			entry["fetch_progress"] = entry.get("fetch_progress", {})
 			_saved_building_states.append(entry)
 	
+	# Kamp ateşinin kapasitesini kaydet (PlacedBuildings'de değil, doğrudan sahne içinde)
+	if is_instance_valid(campfire_node) and "max_capacity" in campfire_node:
+		var campfire_entry: Dictionary = {
+			"scene_path": campfire_node.scene_file_path if campfire_node.scene_file_path != "" else "res://village/scenes/CampFire.tscn",
+			"position": campfire_node.global_position,
+			"global_position": campfire_node.global_position,
+			"is_campfire": true,  # Kamp ateşi işareti
+			"max_capacity": int(campfire_node.max_capacity)
+		}
+		_saved_building_states.append(campfire_entry)
+	
 	# Save resource levels and production progress
 	_saved_resource_levels = resource_levels.duplicate(true)
 	_saved_base_production_progress = base_production_progress.duplicate(true)
@@ -320,11 +341,27 @@ func snapshot_state_for_scene_exit() -> void:
 			var assigned_scene: String = assigned_building.scene_file_path
 			if not assigned_scene.is_empty():
 				building_key = _make_building_snapshot_key(assigned_scene, assigned_building.global_position)
+		
+		# Housing node referansını kaydet (kamp ateşi veya ev)
+		var housing_key := ""
+		var housing_node = worker_instance.get("housing_node") if worker_instance else null
+		if is_instance_valid(housing_node) and housing_node is Node2D:
+			var housing_scene: String = housing_node.scene_file_path if housing_node.scene_file_path != "" else "res://village/scenes/CampFire.tscn"
+			housing_key = _make_building_snapshot_key(housing_scene, housing_node.global_position)
+		
+		# Askerler için is_deployed durumunu kaydet
+		var is_deployed_value = false
+		if worker_instance and "is_deployed" in worker_instance:
+			var deployed_val = worker_instance.get("is_deployed")
+			is_deployed_value = deployed_val if deployed_val is bool else false
+		
 		var worker_entry: Dictionary = {
 			"worker_id": worker_id,
 			"npc_info": npc_info,
 			"job_type": job_type,
-			"building_key": building_key
+			"building_key": building_key,
+			"housing_key": housing_key,  # Housing node referansı
+			"is_deployed": is_deployed_value  # Askerler için deploy durumu
 		}
 		_saved_worker_states.append(worker_entry)
 	
@@ -373,8 +410,33 @@ func _restore_saved_buildings() -> Dictionary:
 	for child in placed_buildings.get_children():
 		child.queue_free()
 	
+	# Önce kamp ateşinin kapasitesini yükle (eğer kaydedilmişse)
+	if is_instance_valid(campfire_node):
+		for entry in _saved_building_states:
+			if entry.get("is_campfire", false) and "max_capacity" in entry:
+				var saved_capacity = int(entry.get("max_capacity", 3))
+				if "max_capacity" in campfire_node:
+					campfire_node.max_capacity = saved_capacity
+					print("[VillageManager] ✅ DEBUG: Campfire max_capacity restored to %d" % saved_capacity)
+				break
+	
+	# Önce kamp ateşinin kapasitesini yükle (eğer kaydedilmişse)
+	# Bu, worker'lar yüklenmeden önce yapılmalı
+	if is_instance_valid(campfire_node):
+		for entry in _saved_building_states:
+			if entry.get("is_campfire", false) and "max_capacity" in entry:
+				var saved_capacity = int(entry.get("max_capacity", 3))
+				if "max_capacity" in campfire_node:
+					campfire_node.max_capacity = saved_capacity
+					print("[VillageManager] ✅ DEBUG: Campfire max_capacity restored to %d" % saved_capacity)
+				break
+	
 	var restored_count = 0
 	for entry in _saved_building_states:
+		# Kamp ateşini atla (zaten yüklendi)
+		if entry.get("is_campfire", false):
+			continue
+		
 		var scene_path: String = entry.get("scene_path", "")
 		if scene_path.is_empty() or not ResourceLoader.exists(scene_path):
 			continue
@@ -1042,7 +1104,11 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 		if worker_instance.has_method("set"):
 			worker_instance.set("assigned_job_type", job_type)
 			worker_instance.set("assigned_building_node", assigned_building)
-			print("[VillageManager] ✅ DEBUG: Assigned worker %d to building %s with job %s" % [saved_worker_id, assigned_building.scene_file_path.get_file(), job_type])
+			# Askerler için is_deployed durumunu restore et
+			if job_type == "soldier" and worker_entry.has("is_deployed"):
+				var saved_is_deployed = worker_entry.get("is_deployed", false)
+				worker_instance.set("is_deployed", saved_is_deployed)
+			print("[VillageManager] ✅ DEBUG: Assigned worker %d to building %s with job %s (is_deployed: %s)" % [saved_worker_id, assigned_building.scene_file_path.get_file(), job_type, worker_instance.get("is_deployed") if "is_deployed" in worker_instance else "N/A"])
 		
 		if "assigned_worker_ids" in assigned_building:
 			var worker_id_val: int = -1
@@ -1071,51 +1137,180 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 			worker_instance.visible = false
 			print("[VillageManager] 😴 DEBUG: Worker %d set to sleep state" % saved_worker_id)
 		elif is_work_time:
-			var go_inside = false
-			if "worker_stays_inside" in assigned_building and assigned_building.worker_stays_inside:
-				go_inside = true
-			elif "level" in assigned_building and assigned_building.level >= 2:
-				if "assigned_worker_ids" in assigned_building:
-					var worker_ids = assigned_building.assigned_worker_ids
-					if not worker_ids.is_empty():
-						var worker_id_val: int = -1
-						if worker_instance and "worker_id" in worker_instance:
-							var id_val = worker_instance.get("worker_id")
-							worker_id_val = id_val if id_val is int else -1
-						if worker_id_val == worker_ids[0]:
-							go_inside = true
-			
-			if go_inside:
-				worker_instance.current_state = 5
-				if assigned_building is Node2D:
-					var building_pos = (assigned_building as Node2D).global_position
-					if worker_instance is Node2D:
-						(worker_instance as Node2D).global_position = building_pos
-				worker_instance.visible = false
-				print("[VillageManager] 🏢 DEBUG: Worker %d set to work inside building" % saved_worker_id)
+			# ASKER İSTİSNASI: Askerler köyde geziniyorlar (deploy edilmedikleri sürece)
+			if job_type == "soldier":
+				# Askerler için is_deployed kontrolü yap (save'den restore edilmiş olabilir)
+				var is_deployed_val = worker_instance.get("is_deployed") if "is_deployed" in worker_instance else false
+				if is_deployed_val:
+					# Deploy edilmiş askerler ekran dışında
+					worker_instance.current_state = 4  # WAITING_OFFSCREEN
+					worker_instance.visible = false
+					print("[VillageManager] ⚔️ DEBUG: Soldier %d is deployed (offscreen)" % saved_worker_id)
+				else:
+					# Deploy edilmemiş askerler köyde geziniyor
+					worker_instance.current_state = 7  # SOCIALIZING
+					worker_instance.visible = true
+					# Askerleri kışla yakınına yerleştir
+					if assigned_building is Node2D:
+						var building_pos = (assigned_building as Node2D).global_position
+						if worker_instance is Node2D:
+							var worker_node2d = worker_instance as Node2D
+							# Kışla yakınında rastgele bir pozisyon
+							worker_node2d.global_position = Vector2(
+								building_pos.x + randf_range(-100.0, 100.0),
+								building_pos.y + randf_range(-50.0, 50.0)
+							)
+							worker_node2d.move_target_x = worker_node2d.global_position.x
+					print("[VillageManager] ⚔️ DEBUG: Soldier %d set to socializing (village patrol)" % saved_worker_id)
 			else:
-				if assigned_building is Node2D:
-					var building_pos = (assigned_building as Node2D).global_position
-					var offscreen_x: float = -2500.0
-					if building_pos.x >= 960:
-						offscreen_x = 2500.0
+				# Normal işçiler için çalışma mantığı
+				var go_inside = false
+				if "worker_stays_inside" in assigned_building and assigned_building.worker_stays_inside:
+					go_inside = true
+				elif "level" in assigned_building and assigned_building.level >= 2:
+					if "assigned_worker_ids" in assigned_building:
+						var worker_ids = assigned_building.assigned_worker_ids
+						if not worker_ids.is_empty():
+							var worker_id_val: int = -1
+							if worker_instance and "worker_id" in worker_instance:
+								var id_val = worker_instance.get("worker_id")
+								worker_id_val = id_val if id_val is int else -1
+							if worker_id_val == worker_ids[0]:
+								go_inside = true
+				
+				if go_inside:
+					worker_instance.current_state = 5
+					if assigned_building is Node2D:
+						var building_pos = (assigned_building as Node2D).global_position
+						if worker_instance is Node2D:
+							(worker_instance as Node2D).global_position = building_pos
+					worker_instance.visible = false
+					print("[VillageManager] 🏢 DEBUG: Worker %d set to work inside building" % saved_worker_id)
+				else:
+					if assigned_building is Node2D:
+						var building_pos = (assigned_building as Node2D).global_position
+						var offscreen_x: float = -2500.0
+						if building_pos.x >= 960:
+							offscreen_x = 2500.0
+						
+						if worker_instance is Node2D:
+							var worker_node2d = worker_instance as Node2D
+							worker_node2d.global_position = Vector2(offscreen_x, building_pos.y)
+							worker_instance.set("move_target_x", offscreen_x)
+							worker_instance.set("_target_global_y", building_pos.y)
+							worker_instance.set("_offscreen_exit_x", offscreen_x)
 					
-					if worker_instance is Node2D:
-						var worker_node2d = worker_instance as Node2D
-						worker_node2d.global_position = Vector2(offscreen_x, building_pos.y)
-						worker_instance.set("move_target_x", offscreen_x)
-						worker_instance.set("_target_global_y", building_pos.y)
-						worker_instance.set("_offscreen_exit_x", offscreen_x)
-					
-				worker_instance.current_state = 4
-				worker_instance.visible = false
-				print("[VillageManager] 🔨 DEBUG: Worker %d set to work offscreen" % saved_worker_id)
+					worker_instance.current_state = 4
+					worker_instance.visible = false
+					print("[VillageManager] 🔨 DEBUG: Worker %d set to work offscreen" % saved_worker_id)
 		else:
-			worker_instance.current_state = 1
-			worker_instance.visible = true
-			print("[VillageManager] 🏃 DEBUG: Worker %d set to idle/awake state" % saved_worker_id)
+			# Ne uyku ne de çalışma saati (örneğin sabah 6-7 arası veya akşam 18-22 arası)
+			# ASKER İSTİSNASI: Askerler köyde geziniyorlar
+			if job_type == "soldier":
+				# Askerler için is_deployed kontrolü yap (save'den restore edilmiş olabilir)
+				var is_deployed_val = worker_instance.get("is_deployed") if "is_deployed" in worker_instance else false
+				if is_deployed_val:
+					worker_instance.current_state = 4  # WAITING_OFFSCREEN
+					worker_instance.visible = false
+					print("[VillageManager] ⚔️ DEBUG: Soldier %d is deployed (offscreen, non-work time)" % saved_worker_id)
+				else:
+					worker_instance.current_state = 7  # SOCIALIZING
+					worker_instance.visible = true
+					# Askerleri kışla yakınına yerleştir
+					if assigned_building is Node2D:
+						var building_pos = (assigned_building as Node2D).global_position
+						if worker_instance is Node2D:
+							var worker_node2d = worker_instance as Node2D
+							worker_node2d.global_position = Vector2(
+								building_pos.x + randf_range(-100.0, 100.0),
+								building_pos.y + randf_range(-50.0, 50.0)
+							)
+							worker_node2d.move_target_x = worker_node2d.global_position.x
+					print("[VillageManager] ⚔️ DEBUG: Soldier %d set to socializing (non-work time)" % saved_worker_id)
+			else:
+				# Normal işçiler için AWAKE_IDLE state'ine ayarla
+				worker_instance.current_state = 1
+				worker_instance.visible = true
+			
+			# Eğer worker'ın bir işi varsa ve çalışma saati yakınsa, işe gitmesi için kontrol et
+			# Bu, yükleme sonrası çalışma saati geldiğinde worker'ların işe gitmesini sağlar
+			if job_type != "" and job_type != "soldier" and is_instance_valid(assigned_building):
+				# Çalışma saati kontrolü: WORK_START_HOUR ile WORK_END_HOUR arası
+				var is_work_start_hour = current_hour == work_start_hour
+				var work_start_minute_offset = 0
+				# Worker instance'ından work_start_minute_offset değerini güvenli şekilde al
+				if worker_instance.has_method("get"):
+					var offset_val = worker_instance.get("work_start_minute_offset")
+					work_start_minute_offset = offset_val if offset_val is int else 0
+				var passed_offset = current_minute >= work_start_minute_offset
+				
+				# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
+				if current_hour >= work_start_hour and current_hour < work_end_hour:
+					if not is_work_start_hour or passed_offset:
+						worker_instance.current_state = 2  # GOING_TO_BUILDING_FIRST
+						if assigned_building is Node2D:
+							var building_pos = (assigned_building as Node2D).global_position
+							if worker_instance is Node2D:
+								var worker_node2d = worker_instance as Node2D
+								worker_node2d.move_target_x = building_pos.x
+								worker_node2d._target_global_y = randf_range(0.0, 25.0)  # VERTICAL_RANGE_MAX değeri
+						print("[VillageManager] 🏃 DEBUG: Worker %d set to go to work (after load, work time check)" % saved_worker_id)
+			
+			print("[VillageManager] ☀️ DEBUG: Worker %d set to awake idle state" % saved_worker_id)
 	
 	print("[VillageManager] ✅ DEBUG: Applied %d worker states (out of %d saved)" % [applied_count, _saved_worker_states.size()])
+
+func _sync_soldiers_with_missions() -> void:
+	"""Görev ormandayken tamamlandıysa askerler geri çağrılmamış olabilir (sahne yoktu).
+	Şu an aktif görevde olmayan ama is_deployed=true kalan askerleri köye geri getir."""
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm or not mm.has_method("get_raid_mission_extra"):
+		return
+	var on_mission_wids: Dictionary = {}  # worker_id -> true
+	for cariye_id in mm.active_missions:
+		var mission_id = mm.active_missions[cariye_id]
+		var extra = mm.get_raid_mission_extra(mission_id)
+		var wids = extra.get("assigned_soldier_worker_ids", [])
+		if wids is Array:
+			for w in wids:
+				var wid = int(w) if w is float else w
+				on_mission_wids[wid] = true
+	var barracks = _find_barracks()
+	var return_x: float = 0.0
+	if is_instance_valid(barracks):
+		return_x = barracks.global_position.x
+	elif campfire_node and is_instance_valid(campfire_node):
+		return_x = campfire_node.global_position.x
+	var brought_back = 0
+	for wid in all_workers:
+		var worker_data = all_workers.get(wid, {})
+		var inst = worker_data.get("instance", null)
+		if not is_instance_valid(inst):
+			continue
+		var job = inst.get("assigned_job_type") if "assigned_job_type" in inst else ""
+		if job != "soldier":
+			continue
+		var deployed = inst.get("is_deployed") if "is_deployed" in inst else false
+		if not deployed:
+			continue
+		if on_mission_wids.has(wid):
+			continue
+		inst.set("is_deployed", false)
+		# Görev sen köyde değilken bitti; köye vardığında zaten kışla civarında idle olmalılar
+		inst.set("current_state", 7)  # Worker.State.SOCIALIZING (kışla yakınında oturuyorlar)
+		if inst is Node2D and is_instance_valid(barracks):
+			var node2d := inst as Node2D
+			var building_pos = barracks.global_position
+			node2d.global_position = Vector2(
+				building_pos.x + randf_range(-100.0, 100.0),
+				building_pos.y + randf_range(-50.0, 50.0)
+			)
+			node2d.set("move_target_x", node2d.global_position.x)
+			node2d.set("_target_global_y", node2d.global_position.y)
+		inst.visible = true
+		brought_back += 1
+	if brought_back > 0:
+		print("[VillageManager] ⚔️ _sync_soldiers_with_missions: %d asker geri getirildi (görev ormandayken tamamlanmıştı, kışla civarında idle)" % brought_back)
 
 # İşçilerin ekleneceği parent node. @onready KULLANMAYIN,
 # çünkü VillageManager'ın kendisi Autoload olabilir veya sahne ağacına farklı zamanda eklenebilir.
@@ -1186,12 +1381,37 @@ var _last_econ_tick_day: int = 0
 # === Events scaffold (feature-flagged) ===
 var events_enabled: bool = true
 var daily_event_chance: float = 0.05
-var event_severity_min: float = 0.1
-var event_severity_max: float = 0.35
+var event_severity_min: float = 0.1  # Deprecated: artık kullanılmıyor, level sistemi kullanılıyor
+var event_severity_max: float = 0.35  # Deprecated: artık kullanılmıyor, level sistemi kullanılıyor
 var event_duration_min_days: int = 3
 var event_duration_max_days: int = 14
 var events_active: Array[Dictionary] = []
 var _event_cooldowns: Dictionary = {} # type -> day_until
+
+# Event seviyeleri ve çarpanları (fark edilir etkiler için)
+enum EventLevel {
+	LOW,      # Düşük: %20 azalma/artış
+	MEDIUM,   # Orta: %40 azalma/artış
+	HIGH      # Yüksek: %60 azalma/artış
+}
+
+const EVENT_LEVEL_MULTIPLIERS := {
+	EventLevel.LOW: 0.8,      # %20 azalma (negatif eventler için)
+	EventLevel.MEDIUM: 0.6,   # %40 azalma
+	EventLevel.HIGH: 0.4      # %60 azalma
+}
+
+const EVENT_LEVEL_BONUS_MULTIPLIERS := {
+	EventLevel.LOW: 1.2,      # %20 artış (pozitif eventler için)
+	EventLevel.MEDIUM: 1.4,  # %40 artış
+	EventLevel.HIGH: 1.6     # %60 artış
+}
+
+const EVENT_LEVEL_NAMES := {
+	EventLevel.LOW: "Düşük",
+	EventLevel.MEDIUM: "Orta",
+	EventLevel.HIGH: "Yüksek"
+}
 
 # === Storage (feature-flagged usage via economy) ===
 const STORAGE_PER_BASIC_BUILDING: int = 10
@@ -1271,6 +1491,9 @@ func register_village_scene(scene: Node2D) -> void:
 	# Cariyeleri sahneye ekle
 	_spawn_concubines_in_scene()
 	
+	# İlk isim görünürlük kontrolünü yap
+	call_deferred("_update_nearest_npc_name_visibility")
+	
 	# Reset leaving flag when returning to village
 	_is_leaving_village = false
 	
@@ -1305,6 +1528,15 @@ func register_village_scene(scene: Node2D) -> void:
 		worker_id_counter = 0
 		var restored_buildings_map := _restore_saved_buildings()
 		print("[VillageManager] 🔍 DEBUG: Restored buildings map has %d entries" % restored_buildings_map.size())
+		
+		# Kamp ateşinin kapasitesini yükle (eğer kaydedilmişse) - worker'lar yüklenmeden önce
+		for entry in _saved_building_states:
+			if entry.get("is_campfire", false) and "max_capacity" in entry:
+				var saved_capacity = int(entry.get("max_capacity", 3))
+				if "max_capacity" in campfire_node:
+					campfire_node.max_capacity = saved_capacity
+					print("[VillageManager] ✅ DEBUG: Campfire max_capacity restored to %d (before workers)" % saved_capacity)
+				break
 		var worker_entries: Array = []
 		if _saved_worker_states.size() > 0:
 			print("[VillageManager] 🔍 DEBUG: Found %d saved worker states" % _saved_worker_states.size())
@@ -1332,8 +1564,12 @@ func register_village_scene(scene: Node2D) -> void:
 			var worker_id_from_entry = worker_entry.get("worker_id", -1)
 			var job_type_from_entry = worker_entry.get("job_type", "")
 			var building_key_from_entry = worker_entry.get("building_key", "")
+			var housing_key_from_entry = worker_entry.get("housing_key", "")  # Housing node referansı
 			var info_dict: Dictionary = worker_entry.get("npc_info", {}).duplicate(true)
-			print("[VillageManager] 🔄 DEBUG: Creating worker - Saved ID: %d, Job: %s, Building: %s" % [worker_id_from_entry, job_type_from_entry, building_key_from_entry])
+			print("[VillageManager] 🔄 DEBUG: Creating worker - Saved ID: %d, Job: %s, Building: %s, Housing: %s" % [worker_id_from_entry, job_type_from_entry, building_key_from_entry, housing_key_from_entry])
+			
+			# Worker'ı oluştur, ama housing_node'yu kaydet (sonra geri yükleyeceğiz)
+			var saved_housing_key = housing_key_from_entry
 			if _add_new_worker(info_dict):
 				worker_created_count += 1
 				var desired_id: int = int(worker_entry.get("worker_id", -1))
@@ -1352,6 +1588,36 @@ func register_village_scene(scene: Node2D) -> void:
 					new_id = desired_id
 				else:
 					print("[VillageManager] ✅ DEBUG: Worker created with ID %d (desired: %d)" % [new_id, desired_id])
+				
+				# Housing node'u geri yükle (eğer kaydedilmişse)
+				# Not: _add_new_worker içinde _assign_housing çağrılıyor, bu da yeni bir housing atıyor
+				# Bu yüzden önceki housing'ı geri yüklemeliyiz
+				if not saved_housing_key.is_empty():
+					var worker_data = all_workers.get(new_id, {})
+					var worker_instance: Node = worker_data.get("instance", null)
+					if is_instance_valid(worker_instance):
+						# Önce _assign_housing tarafından atanan housing'ı kaldır
+						var current_housing = worker_instance.get("housing_node")
+						if is_instance_valid(current_housing) and current_housing.has_method("remove_occupant"):
+							# CampFire için worker argümanı gerekli, House için gerekli değil
+							if current_housing.get_script() and current_housing.get_script().resource_path.ends_with("CampFire.gd"):
+								# CampFire için worker instance'ı geç
+								current_housing.remove_occupant(worker_instance)
+							else:
+								# House ve diğerleri için argüman geçme
+								current_housing.remove_occupant()
+						
+						# Kaydedilmiş housing node'u bul ve geri yükle
+						var housing_node = _find_housing_by_key(saved_housing_key)
+						if is_instance_valid(housing_node):
+							worker_instance.housing_node = housing_node
+							# Housing node'un occupant sayısını güncelle (eğer method varsa)
+							if housing_node.has_method("add_occupant"):
+								housing_node.add_occupant(worker_instance)
+							print("[VillageManager] ✅ DEBUG: Restored housing_node for worker %d (key: %s)" % [new_id, saved_housing_key])
+						else:
+							print("[VillageManager] ⚠️ DEBUG: Housing node not found for key: %s" % saved_housing_key)
+				
 				max_worker_id = max(max_worker_id, new_id)
 			else:
 				print("[VillageManager] ⚠️ DEBUG: Failed to create worker with saved ID %d" % worker_id_from_entry)
@@ -1359,6 +1625,8 @@ func register_village_scene(scene: Node2D) -> void:
 		print("[VillageManager] ✅ DEBUG: Created %d workers, max ID: %d" % [worker_created_count, worker_id_counter])
 		print("[VillageManager] 🔄 DEBUG: Applying saved worker states to buildings...")
 		_apply_saved_worker_states(restored_buildings_map)
+		# Görev ormandayken tamamlandıysa askerler geri çağrılmamış olabilir; yükleme sonrası senkronize et
+		call_deferred("_sync_soldiers_with_missions")
 		emit_signal("village_data_changed")
 	#else:
 		#if not workers_container:
@@ -1493,6 +1761,8 @@ func _process(delta: float) -> void:
 		# Eski per-frame üretim (economy kapalıyken)
 		var scaled_delta: float = delta * Engine.time_scale
 		if not TimeManager.is_work_time():
+			# En yakın NPC'nin ismini göster (work time olmasa bile)
+			_update_nearest_npc_name_visibility()
 			return
 		var produced_any: bool = false
 		for resource_type in BASE_RESOURCE_TYPES:
@@ -1515,6 +1785,15 @@ func _process(delta: float) -> void:
 						var allowed: int = max(0, cap - cur)
 						units = min(units, allowed)
 					if units > 0:
+						# Debug: Eğer çarpan 1.0'dan farklıysa logla
+						if res_mult != 1.0:
+							# Üretim hızını hesapla (birim/saniye)
+							var progress_per_second = (scaled_delta * float(active_workers) * morale_mult * prod_mult * res_mult) / scaled_delta
+							var seconds_per_unit = SECONDS_PER_RESOURCE_UNIT / progress_per_second if progress_per_second > 0 else 0.0
+							var normal_progress_per_second = float(active_workers) * morale_mult * prod_mult * 1.0
+							var normal_seconds_per_unit = SECONDS_PER_RESOURCE_UNIT / normal_progress_per_second if normal_progress_per_second > 0 else 0.0
+							var speed_reduction_pct = (1.0 - res_mult) * 100.0
+							print("[PRODUCTION DEBUG] %s: %d birim üretildi | Çarpan: %.2f (%+.0f%% hız değişimi) | Normal: %.1fs/birim → Şu an: %.1fs/birim (%.1fx daha yavaş)" % [resource_type, units, res_mult, -speed_reduction_pct, normal_seconds_per_unit, seconds_per_unit, 1.0 / res_mult])
 						resource_levels[resource_type] = resource_levels.get(resource_type, 0) + units
 						# Daily counter (for stats consistency)
 						_daily_production_counter[resource_type] = int(_daily_production_counter.get(resource_type, 0)) + units
@@ -1531,6 +1810,9 @@ func _process(delta: float) -> void:
 			if d != _last_econ_tick_day and d > 0:
 				_last_econ_tick_day = d
 				_daily_economy_tick(d)
+	
+	# En yakın NPC'nin ismini göster, diğerlerini gizle
+	_update_nearest_npc_name_visibility()
 
 # --- Seviye Kilitleme (Yükseltmeler ve Gelişmiş Üretim için) ---
 
@@ -1742,7 +2024,11 @@ func register_generic_worker() -> Node: #<<< BU AYNI KALIYOR
 	for worker_id in all_workers:
 		var worker = all_workers[worker_id]["instance"]
 		if is_instance_valid(worker) and worker.assigned_job_type == "":
-
+			# HASTA KONTROLÜ: Hasta işçiler atanamaz
+			if "is_sick" in worker and worker.is_sick:
+				print("VillageManager: Worker %d hasta, atanamaz!" % worker_id)
+				continue
+			
 			print("VillageManager: Found idle worker (ID: %d), registering." % worker_id) # Debug
 			idle_workers = max(0, idle_workers - 1) # Boşta işçi sayısını azalt (negatif olmasın)
 
@@ -1809,17 +2095,17 @@ func unregister_generic_worker(worker_id: int):
 		var current_housing = worker_instance.housing_node
 		if is_instance_valid(current_housing):
 			if current_housing.has_method("remove_occupant"):
-				# CampFire için worker argümanı gerekli, House için gerekli değil
-				var success = false
+				# CampFire ve House için worker instance'ı geç (her ikisi de kabul ediyor)
 				if current_housing.get_script() and current_housing.get_script().resource_path.ends_with("CampFire.gd"):
 					# CampFire için worker instance'ı geç
-					success = current_housing.remove_occupant(worker_instance)
+					current_housing.remove_occupant(worker_instance)
 				else:
-					# House ve diğerleri için argüman geçme
-					success = current_housing.remove_occupant()
+					# House için de worker instance'ı geç (artık kabul ediyor)
+					current_housing.remove_occupant(worker_instance)
 				
-				if not success:
-					printerr("VillageManager: Failed to remove occupant from %s for worker %d." % [current_housing.name, worker_id])
+				# remove_occupant artık her zaman true döner (worker listede yoksa bile normal)
+				# if not success:
+				# 	printerr("VillageManager: Failed to remove occupant from %s for worker %d." % [current_housing.name, worker_id])
 			else:
 				printerr("VillageManager: Housing node %s does not have remove_occupant method!" % current_housing.name)
 
@@ -2518,6 +2804,9 @@ func _update_events_for_new_day(current_day: int) -> void:
 			_remove_event_effects(ev)
 	events_active = remaining
 
+	# Hastalık kontrolü: Her gün hasta işçileri kontrol et
+	_check_and_heal_sick_workers(current_day)
+
 	# Maybe trigger new event
 	if randf() < daily_event_chance:
 		var ev = _pick_and_create_event(current_day)
@@ -2530,67 +2819,388 @@ func _update_events_for_new_day(current_day: int) -> void:
 
 func _pick_and_create_event(current_day: int) -> Dictionary:
 	# cooldown check and simple pool
-	var pool := ["drought", "famine", "pest", "disease", "raid", "trade_opportunity"]
+	var pool := ["drought", "famine", "pest", "disease", "raid", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike", "bandit_activity"]
 	pool.shuffle()
 	for t in pool:
 		var cd_until := int(_event_cooldowns.get(t, 0))
 		if current_day < cd_until:
 			continue
-		var sev := randf_range(event_severity_min, event_severity_max)
+		
+		# 3 seviyeli sistem: Düşük, Orta, Yüksek (rastgele seç)
+		var level_weights := [0.4, 0.4, 0.2]  # %40 düşük, %40 orta, %20 yüksek
+		var rand_val := randf()
+		var event_level: int = EventLevel.LOW
+		if rand_val < level_weights[0]:
+			event_level = EventLevel.LOW
+		elif rand_val < level_weights[0] + level_weights[1]:
+			event_level = EventLevel.MEDIUM
+		else:
+			event_level = EventLevel.HIGH
+		
 		var dur := randi_range(event_duration_min_days, event_duration_max_days)
-		var ev := {"type": t, "severity": sev, "ends_day": current_day + dur}
+		var ev := {"type": t, "level": event_level, "severity": float(event_level) / 3.0, "ends_day": current_day + dur}  # severity geriye dönük uyumluluk için
+		
+		# Raid için özel zamanlama - 1-2 gün sonra saldırı olacak
+		if t == "raid":
+			var warning_days: int = randi_range(1, 2)  # 1-2 gün önce haber
+			var attack_day: int = current_day + warning_days
+			ev["raid_attack_day"] = attack_day
+			ev["raid_warning_day"] = current_day
+			# Event'in bitiş günü saldırı günü olsun
+			ev["ends_day"] = attack_day
+			# Raid için saldırgan fraksiyonu belirle (seviyeye göre)
+			var attacker_names: Array[String] = ["Bilinmeyen Haydutlar", "Eşkıya Grubu", "Yağmacılar", "Brigand Çetesi"]
+			if event_level >= EventLevel.MEDIUM:
+				attacker_names = ["Güçlü Eşkıyalar", "Profesyonel Yağmacılar", "Savaşçı Çetesi", "Tehlikeli Haydutlar"]
+			attacker_names.shuffle()
+			ev["raid_attacker"] = attacker_names[0]
+		
+		# Worker Strike için özel sebep belirleme
+		if t == "worker_strike":
+			# Grev sebebi: düşük moral, kaynak eksikliği veya genel hoşnutsuzluk
+			var strike_reason: String = ""
+			var current_morale: float = village_morale
+			var food_shortage: int = _last_day_shortages.get("food", 0)
+			var water_shortage: int = _last_day_shortages.get("water", 0)
+			
+			if current_morale < 40.0:
+				strike_reason = "düşük_moral"
+			elif food_shortage > 0 or water_shortage > 0:
+				strike_reason = "kaynak_eksikliği"
+			else:
+				strike_reason = "genel_hoşnutsuzluk"
+			
+			# Grev yapılacak kaynak tipini seç (temel kaynaklardan biri)
+			var resource_types: Array[String] = ["wood", "stone", "food", "water"]
+			resource_types.shuffle()
+			ev["strike_resource"] = resource_types[0]
+			ev["strike_reason"] = strike_reason
+		
 		# simple cooldown: 30 days
 		_event_cooldowns[t] = current_day + 30
 		# Post news to MissionManager if available
 		var mm = get_node_or_null("/root/MissionManager")
 		if mm and mm.has_method("post_news"):
+			var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
 			var title := "Yeni Olay: %s" % t.capitalize()
-			var msg := "Şiddet: %.0f%%, Süre: %d gün" % [sev * 100.0, dur]
+			var msg := "Seviye: %s, Süre: %d gün" % [level_name, dur]
+			if t == "raid" and ev.has("raid_attack_day"):
+				var days_until = ev["raid_attack_day"] - current_day
+				var attacker = ev.get("raid_attacker", "Bilinmeyen Haydutlar")
+				msg = "%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!" % [attacker, days_until]
+				title = "🚨 Baskın Uyarısı!"
+			elif t == "worker_strike" and ev.has("strike_resource"):
+				var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
+				var reason_names: Dictionary = {"düşük_moral": "Düşük Moral", "kaynak_eksikliği": "Kaynak Eksikliği", "genel_hoşnutsuzluk": "Genel Hoşnutsuzluk"}
+				msg = "%s - %s üretimi durdu (%s)" % [msg, res_names.get(ev["strike_resource"], ev["strike_resource"]), reason_names.get(ev.get("strike_reason", ""), "")]
 			mm.post_news("world", title, msg, Color.ORANGE)
 		return ev
 	return {}
 
 func _apply_event_effects(ev: Dictionary) -> void:
 	var t := String(ev.get("type", ""))
-	var sev := float(ev.get("severity", 0.0))
+	var tm = get_node_or_null("/root/TimeManager")
+	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
+	
+	# Seviyeyi al (geriye dönük uyumluluk için severity'den de çevirebiliriz)
+	var event_level: int = ev.get("level", EventLevel.MEDIUM)
+	if not ev.has("level") and ev.has("severity"):
+		# Eski sistem: severity'yi level'a çevir
+		var sev = float(ev.get("severity", 0.0))
+		if sev < 0.2:
+			event_level = EventLevel.LOW
+		elif sev < 0.3:
+			event_level = EventLevel.MEDIUM
+		else:
+			event_level = EventLevel.HIGH
+	
+	var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
+	var multiplier: float = EVENT_LEVEL_MULTIPLIERS.get(event_level, 0.8)
+	var bonus_multiplier: float = EVENT_LEVEL_BONUS_MULTIPLIERS.get(event_level, 1.2)
+	
+	print("[EVENT DEBUG] 🔴 Applying event: %s (Seviye: %s)" % [t, level_name])
+	
 	match t:
 		"drought":
-			resource_prod_multiplier["water"] = float(resource_prod_multiplier.get("water", 1.0)) * (1.0 - sev)
+			var old_val = float(resource_prod_multiplier.get("water", 1.0))
+			resource_prod_multiplier["water"] = old_val * multiplier
+			var new_val = resource_prod_multiplier["water"]
+			var reduction_pct = (1.0 - multiplier) * 100.0
+			print("[EVENT DEBUG]   Water multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
 		"famine":
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * (1.0 - sev)
+			var old_val = float(resource_prod_multiplier.get("food", 1.0))
+			resource_prod_multiplier["food"] = old_val * multiplier
+			var new_val = resource_prod_multiplier["food"]
+			var reduction_pct = (1.0 - multiplier) * 100.0
+			print("[EVENT DEBUG]   Food multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
 		"pest":
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * (1.0 - sev)
+			# Pest (zararlı) - odun üretimini azaltır (ağaç zararlıları)
+			var old_val = float(resource_prod_multiplier.get("wood", 1.0))
+			resource_prod_multiplier["wood"] = old_val * multiplier
+			var new_val = resource_prod_multiplier["wood"]
+			var reduction_pct = (1.0 - multiplier) * 100.0
+			print("[EVENT DEBUG]   Wood multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
+		"wolf_attack":
+			# Wolf Attack (kurt saldırısı) - taş üretimini azaltır
+			var old_val = float(resource_prod_multiplier.get("stone", 1.0))
+			resource_prod_multiplier["stone"] = old_val * multiplier
+			var new_val = resource_prod_multiplier["stone"]
+			var reduction_pct = (1.0 - multiplier) * 100.0
+			print("[EVENT DEBUG]   Stone multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
+		"severe_storm":
+			# Severe Storm (şiddetli fırtına) - tüm üretim azalır
+			var old_val = global_multiplier
+			global_multiplier *= multiplier
+			var reduction_pct = (1.0 - multiplier) * 100.0
+			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, global_multiplier, reduction_pct])
+		"weather_blessing":
+			# Weather Blessing (hava bereketi) - tüm üretim artar
+			var old_val = global_multiplier
+			global_multiplier *= bonus_multiplier
+			var increase_pct = (bonus_multiplier - 1.0) * 100.0
+			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (%.0f%% increase)" % [old_val, global_multiplier, increase_pct])
+		"worker_strike":
+			# Worker Strike (işçi grevi) - belirli bir kaynak tipinde üretim durur
+			var strike_resource: String = String(ev.get("strike_resource", "wood"))
+			var old_val = float(resource_prod_multiplier.get(strike_resource, 1.0))
+			resource_prod_multiplier[strike_resource] = 0.0  # Üretim tamamen durur
+			print("[EVENT DEBUG]   %s multiplier: %.2f → 0.00 (PRODUCTION STOPPED)" % [strike_resource.capitalize(), old_val])
+			if ev.has("strike_reason"):
+				print("[EVENT DEBUG]   Strike reason: %s" % ev["strike_reason"])
 		"disease":
-			village_morale = max(0.0, village_morale - sev * 10.0)
-		"raid":
-			# Steal a small amount of random basic resources
-			var basics := ["wood", "stone", "food", "water"]
-			basics.shuffle()
-			for r in basics:
-				var cur: int = int(resource_levels.get(r, 0))
-				if cur <= 0:
+			# Disease (hastalık) - işçileri hasta yapar
+			# tm ve current_day zaten fonksiyonun başında tanımlı
+			
+			# Seviyeye göre kaç işçi hasta olacak
+			var total_worker_count: int = all_workers.size()
+			var sick_count: int = 0
+			match event_level:
+				EventLevel.LOW:
+					sick_count = max(1, int(total_worker_count * 0.2))  # %20 işçi hasta
+				EventLevel.MEDIUM:
+					sick_count = max(1, int(total_worker_count * 0.35))  # %35 işçi hasta
+				EventLevel.HIGH:
+					sick_count = max(1, int(total_worker_count * 0.5))  # %50 işçi hasta
+			
+			# Tüm işçileri hasta yapabilir (askerler dahil)
+			var worker_ids_list: Array = []
+			for worker_id in all_workers.keys():
+				var worker_data = all_workers.get(worker_id, {})
+				if not worker_data:
 					continue
-				var steal: int = max(1, int(round(sev * 5.0)))
-				resource_levels[r] = max(0, cur - steal)
-				break
-		"market_boom", "trade_opportunity":
-			# Temporary boost to food production
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) * (1.0 + sev)
+				var worker_instance = worker_data.get("instance", null)
+				if not is_instance_valid(worker_instance):
+					continue
+				worker_ids_list.append(worker_id)
+			
+			worker_ids_list.shuffle()
+			var actually_sick: int = 0
+			for i in range(min(sick_count, worker_ids_list.size())):
+				var worker_id = worker_ids_list[i]
+				var worker_data = all_workers.get(worker_id, {})
+				if not worker_data:
+					continue
+				var worker_instance = worker_data.get("instance", null)
+				if not is_instance_valid(worker_instance):
+					continue
+				
+				# Eski iş bilgilerini kaydet (iyileşince dönmek için)
+				var old_job_type: String = ""
+				var old_building: Node2D = null
+				if "assigned_job_type" in worker_instance:
+					old_job_type = worker_instance.assigned_job_type
+				if "assigned_building_node" in worker_instance:
+					old_building = worker_instance.assigned_building_node
+				
+				worker_instance.previous_job_type = old_job_type
+				worker_instance.previous_building_node = old_building
+				
+				# İşçiyi binadan çıkar
+				if is_instance_valid(old_building):
+					_make_worker_sick_and_unassign(worker_instance, worker_id, old_building)
+				
+				# İşçiyi hasta yap
+				worker_instance.is_sick = true
+				worker_instance.sick_since_day = current_day
+				
+				# Eğer uykudaysa direkt SICK state'ine geç, değilse evine git
+				if worker_instance.current_state == 0:  # State.SLEEPING
+					worker_instance.current_state = 12  # State.SICK (enum değeri: 12)
+					worker_instance.visible = false
+				else:
+					# Evine gitmesi için GOING_HOME_SICK state'ine geç
+					worker_instance.current_state = 13  # State.GOING_HOME_SICK (enum değeri: 13)
+					worker_instance.visible = true  # Evine giderken görünür
+				
+				actually_sick += 1
+			
+			# Event'e hasta işçi sayısını kaydet (iyileşme kontrolü için)
+			ev["sick_worker_ids"] = worker_ids_list.slice(0, actually_sick)
+			print("[EVENT DEBUG]   Disease: %d işçi hasta oldu (Seviye: %s)" % [actually_sick, level_name])
+		"raid":
+			# Raid (baskın) - WorldManager'a saldırı zamanlaması ekle
+			# Direkt kaynak çalma yapmak yerine, mevcut savunma sistemini kullan
+			var wm = get_node_or_null("/root/WorldManager")
+			if not wm:
+				print("[EVENT DEBUG]   Raid: WorldManager bulunamadı!")
+				return
+			
+			# tm zaten fonksiyonun başında tanımlı
+			if not tm:
+				print("[EVENT DEBUG]   Raid: TimeManager bulunamadı!")
+				return
+			
+			var attack_day: int = int(ev.get("raid_attack_day", current_day + 1))
+			var attacker: String = String(ev.get("raid_attacker", "Bilinmeyen Haydutlar"))
+			var current_hour: float = tm.get_hour() if tm.has_method("get_hour") else 12.0
+			
+			print("[EVENT DEBUG]   Raid: %s saldırısı %d. günde gerçekleşecek (Seviye: %s)" % [attacker, attack_day, level_name])
+			
+			# WorldManager'a saldırı zamanlaması ekle
+			# Raid event'i için özel zamanlama: 1-2 gün sonra saldırı
+			# Saldırı günü öğlen saatinde (12:00) olacak
+			var attack_hour: float = 12.0
+			var warning_day: int = current_day
+			var warning_hour: float = current_hour
+			
+			# WorldManager'ın pending_attacks array'ine direkt ekle
+			if "pending_attacks" in wm:
+				var pending_attack = {
+					"attacker": attacker,
+					"warning_day": warning_day,
+					"warning_hour": warning_hour,
+					"attack_day": attack_day,
+					"attack_hour": attack_hour,
+					"deployed": false,
+					"is_raid_event": true,  # Raid event'inden geldiğini işaretle
+					"severity": float(event_level) / 3.0,  # Geriye dönük uyumluluk için
+					"level": event_level  # Seviyeyi sakla
+				}
+				wm.pending_attacks.append(pending_attack)
+				print("[EVENT DEBUG]   Raid: Saldırı zamanlaması WorldManager'a eklendi (Gün %d, Saat %.1f)" % [attack_day, attack_hour])
+			else:
+				print("[EVENT DEBUG]   Raid: WorldManager.pending_attacks bulunamadı!")
+		"bandit_activity":
+			# Bandit Activity (haydut faaliyeti) - ticaret aksar, cariye görevleri daha tehlikeli
+			var mm = get_node_or_null("/root/MissionManager")
+			if not mm:
+				print("[EVENT DEBUG]   Bandit Activity: MissionManager bulunamadı!")
+				return
+			
+			# Ticaret modifikasyonu: Tüm yerleşimler için ticaret zorlaşır
+			var trade_multiplier: float = 1.0
+			match event_level:
+				EventLevel.LOW:
+					trade_multiplier = 0.7  # %30 azalma
+				EventLevel.MEDIUM:
+					trade_multiplier = 0.5  # %50 azalma
+				EventLevel.HIGH:
+					trade_multiplier = 0.3  # %70 azalma
+			
+			ev["bandit_trade_multiplier"] = trade_multiplier
+			ev["bandit_risk_bonus"] = event_level
+			
+			# MissionManager'a doğrudan ata (set() bazen eksik kalabiliyor)
+			mm.bandit_activity_active = true
+			mm.bandit_trade_multiplier = trade_multiplier
+			mm.bandit_risk_level = event_level
+			if mm.has_method("add_bandit_clear_mission"):
+				mm.add_bandit_clear_mission()
+			
+			print("[EVENT DEBUG]   Bandit Activity: Ticaret çarpanı %.2f, Haydut Temizliği görevi eklendi (Seviye: %s)" % [trade_multiplier, level_name])
 		_:
 			pass # placeholder: other effects can be added later
 
 func _remove_event_effects(ev: Dictionary) -> void:
 	var t := String(ev.get("type", ""))
-	var sev := float(ev.get("severity", 0.0))
+	
+	# Seviyeyi al (geriye dönük uyumluluk için)
+	var event_level: int = ev.get("level", EventLevel.MEDIUM)
+	if not ev.has("level") and ev.has("severity"):
+		var sev = float(ev.get("severity", 0.0))
+		if sev < 0.2:
+			event_level = EventLevel.LOW
+		elif sev < 0.3:
+			event_level = EventLevel.MEDIUM
+		else:
+			event_level = EventLevel.HIGH
+	
+	var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
+	var multiplier: float = EVENT_LEVEL_MULTIPLIERS.get(event_level, 0.8)
+	var bonus_multiplier: float = EVENT_LEVEL_BONUS_MULTIPLIERS.get(event_level, 1.2)
+	
+	print("[EVENT DEBUG] 🟢 Removing event: %s (Seviye: %s)" % [t, level_name])
+	
 	match t:
 		"drought":
-			resource_prod_multiplier["water"] = float(resource_prod_multiplier.get("water", 1.0)) / max(0.0001, (1.0 - sev))
+			var old_val = float(resource_prod_multiplier.get("water", 1.0))
+			resource_prod_multiplier["water"] = old_val / multiplier
+			var new_val = resource_prod_multiplier["water"]
+			print("[EVENT DEBUG]   Water multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
 		"famine":
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, (1.0 - sev))
+			var old_val = float(resource_prod_multiplier.get("food", 1.0))
+			resource_prod_multiplier["food"] = old_val / multiplier
+			var new_val = resource_prod_multiplier["food"]
+			print("[EVENT DEBUG]   Food multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
 		"pest":
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, (1.0 - sev))
-		"market_boom", "trade_opportunity":
-			resource_prod_multiplier["food"] = float(resource_prod_multiplier.get("food", 1.0)) / max(0.0001, (1.0 + sev))
+			var old_val = float(resource_prod_multiplier.get("wood", 1.0))
+			resource_prod_multiplier["wood"] = old_val / multiplier
+			var new_val = resource_prod_multiplier["wood"]
+			print("[EVENT DEBUG]   Wood multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
+		"wolf_attack":
+			var old_val = float(resource_prod_multiplier.get("stone", 1.0))
+			resource_prod_multiplier["stone"] = old_val / multiplier
+			var new_val = resource_prod_multiplier["stone"]
+			print("[EVENT DEBUG]   Stone multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
+		"severe_storm":
+			var old_val = global_multiplier
+			global_multiplier /= multiplier
+			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (restored)" % [old_val, global_multiplier])
+		"weather_blessing":
+			var old_val = global_multiplier
+			global_multiplier /= bonus_multiplier
+			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (restored)" % [old_val, global_multiplier])
+		"worker_strike":
+			# Grev bittiğinde üretim normale döner
+			var strike_resource: String = String(ev.get("strike_resource", "wood"))
+			var old_val = float(resource_prod_multiplier.get(strike_resource, 0.0))
+			resource_prod_multiplier[strike_resource] = 1.0
+			print("[EVENT DEBUG]   %s multiplier: %.2f → 1.00 (PRODUCTION RESUMED)" % [strike_resource.capitalize(), old_val])
+		"disease":
+			# Disease event'i bittiğinde kalan hasta işçileri iyileştir
+			var sick_worker_ids = ev.get("sick_worker_ids", [])
+			var healed_count: int = 0
+			for worker_id in sick_worker_ids:
+				var worker_data = all_workers.get(worker_id, {})
+				if not worker_data:
+					continue
+				var worker_instance = worker_data.get("instance", null)
+				if not is_instance_valid(worker_instance):
+					continue
+				if "is_sick" in worker_instance and worker_instance.is_sick:
+					worker_instance.is_sick = false
+					worker_instance.sick_since_day = -1
+					
+					# Eski işine dönmeyi dene
+					_restore_worker_to_previous_job(worker_instance)
+					
+					healed_count += 1
+			print("[EVENT DEBUG]   Disease event sona erdi: %d işçi iyileşti" % healed_count)
+		"bandit_activity":
+			# Bandit Activity event'i bittiğinde ticaret normale döner
+			var mm = get_node_or_null("/root/MissionManager")
+			if mm:
+				if "bandit_activity_active" in mm:
+					mm.set("bandit_activity_active", false)
+				if "bandit_trade_multiplier" in mm:
+					mm.set("bandit_trade_multiplier", 1.0)
+				if "bandit_risk_level" in mm:
+					mm.set("bandit_risk_level", 0)
+			print("[EVENT DEBUG]   Bandit Activity event sona erdi: Ticaret normale döndü")
+		"raid":
+			# Raid event'i için özel kaldırma işlemi yok
+			# Savaş zaten WorldManager tarafından yönetiliyor ve sonuçları işleniyor
+			print("[EVENT DEBUG]   Raid event sona erdi (savaş WorldManager tarafından yönetildi)")
 		_:
 			pass
 
@@ -2611,8 +3221,8 @@ func _check_and_trigger_village_event(day: int) -> bool:
 		"resource_discovery", # Kaynak keşfi - rastgele kaynak bonusu
 		"windfall",          # Bolluk - küçük kaynak bonusu
 		"traveler",          # Seyyah - yeni görev fırsatı (placeholder)
-		"weather_blessing",  # Hava bereketi - üretim bonusu
-		"minor_accident"     # Küçük kaza - küçük kaynak kaybı
+		"minor_accident",    # Küçük kaza - küçük kaynak kaybı
+		"immigration_wave"   # Göç dalgası - bedava işçi ekler
 	]
 	
 	# Filter out events on cooldown
@@ -2641,6 +3251,8 @@ func _check_and_trigger_village_event(day: int) -> bool:
 			cooldown_days = 10
 		"traveler":
 			cooldown_days = 8
+		"immigration_wave":
+			cooldown_days = 15  # Göç dalgası nadir olmalı
 		_:
 			cooldown_days = 5
 	_village_event_cooldowns[selected_event] = day + cooldown_days
@@ -2703,16 +3315,6 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 				mm.post_news("village", title, content, Color.YELLOW, "info")
 			print("[VillageManager] 🎉 Traveler event")
 		
-		"weather_blessing":
-			# Hava bereketi - geçici üretim bonusu
-			var bonus_multiplier: float = 1.15  # %15 üretim artışı
-			global_multiplier *= bonus_multiplier
-			var title := "☀️ Hava Bereketi"
-			var content := "Mükemmel hava koşulları! Bu gün üretim %15 arttı."
-			if mm and mm.has_method("post_news"):
-				mm.post_news("village", title, content, Color.GOLD, "success")
-			print("[VillageManager] 🎉 Weather blessing: +15% production")
-			# Note: Multiplier reset would be handled in next day (simplified)
 		
 		"minor_accident":
 			# Küçük kaza - küçük kaynak kaybı
@@ -2728,6 +3330,25 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			if mm and mm.has_method("post_news"):
 				mm.post_news("village", title, content, Color.ORANGE, "warning")
 			print("[VillageManager] ⚠️ Minor accident: -%d %s" % [loss, lost_resource])
+		
+		"immigration_wave":
+			# Göç dalgası - bedava işçi ekler
+			var worker_count: int = randi_range(2, 5)  # 2-5 işçi
+			var added_count: int = 0
+			for i in range(worker_count):
+				if _add_new_worker({}):  # Boş NPC info ile yeni işçi ekle
+					added_count += 1
+			
+			if added_count > 0:
+				var title := "👥 Göç Dalgası"
+				var content := "%d yeni köylü köyünüze yerleşti!" % added_count
+				if mm and mm.has_method("post_news"):
+					mm.post_news("village", title, content, Color.CYAN, "success")
+				print("[VillageManager] 🎉 Immigration wave: +%d workers" % added_count)
+			else:
+				# Barınak yetersizse haber gönderme (opsiyonel)
+				if mm and mm.has_method("post_news"):
+					mm.post_news("village", "Göç Dalgası", "Göçmenler geldi ama barınak yetersiz olduğu için geri döndüler.", Color.YELLOW, "info")
 	
 	emit_signal("village_data_changed")
 
@@ -2737,6 +3358,283 @@ func get_economy_last_day_stats() -> Dictionary:
 
 func get_active_events() -> Array:
 	return events_active
+
+func reapply_active_event_effects() -> void:
+	"""Kayıt yüklemeden sonra çağrılır: Aktif event'lerin effect'lerini yeniden uygular (Bandit Activity → Haydut Temizliği görevi vb.)."""
+	for ev in events_active:
+		_apply_event_effects(ev)
+
+func clear_event(event_type: String = "") -> int:
+	"""Clear active events. If event_type is empty, clears all events.
+	Returns the number of events cleared."""
+	var cleared_count = 0
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
+	
+	if event_type.is_empty():
+		# Clear all events
+		print("[EVENT DEBUG] 🗑️ Clearing all events (%d active)" % events_active.size())
+		for ev in events_active:
+			_remove_event_effects(ev)
+			cleared_count += 1
+		events_active.clear()
+	else:
+		# Clear specific event type
+		var remaining: Array[Dictionary] = []
+		for ev in events_active:
+			if String(ev.get("type", "")) == event_type:
+				_remove_event_effects(ev)
+				cleared_count += 1
+			else:
+				remaining.append(ev)
+		events_active = remaining
+	
+	return cleared_count
+
+func _on_mission_manager_mission_started(_cariye_id: int, mission_id: String) -> void:
+	# Göreve giden askerleri cariyeyle aynı yöne yürüyerek ekrandan çıkar (raid savunması gibi)
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		print("[RAID_DEBUG] VillageManager mission_started: MissionManager yok")
+		return
+	var extra = mm.get_raid_mission_extra(mission_id)
+	var exit_x: float = float(extra.get("mission_exit_x", 0))
+	var worker_ids: Array = []
+	var wids = extra.get("assigned_soldier_worker_ids", [])
+	if wids is Array:
+		worker_ids = wids
+	print("[RAID_DEBUG] VillageManager mission_started: mission_id=%s extra_keys=%s exit_x=%.0f worker_ids=%s all_workers_keys_count=%d" % [
+		mission_id, str(extra.keys()), exit_x, str(worker_ids), all_workers.size()
+	])
+	if worker_ids.is_empty():
+		print("[RAID_DEBUG] VillageManager: worker_ids boş, çıkılıyor")
+		return
+	# Worker.State.WORKING_OFFSCREEN = 3 (enum sırası)
+	const STATE_WORKING_OFFSCREEN := 3
+	var set_count := 0
+	for w in worker_ids:
+		var wid = int(w) if w is float else w
+		if not all_workers.has(wid):
+			print("[RAID_DEBUG]   wid=%s all_workers'da yok" % wid)
+			continue
+		var worker_data = all_workers[wid]
+		var inst = worker_data.get("instance", null)
+		if not is_instance_valid(inst):
+			print("[RAID_DEBUG]   wid=%s instance geçersiz" % wid)
+			continue
+		var job = inst.get("assigned_job_type")
+		if job == null:
+			job = ""
+		if job != "soldier":
+			print("[RAID_DEBUG]   wid=%s job='%s' (soldier değil)" % [wid, job])
+			continue
+		inst.set("is_deployed", true)
+		inst.set("current_state", STATE_WORKING_OFFSCREEN)
+		inst.visible = true
+		inst.set("move_target_x", exit_x)
+		inst.set("_target_global_y", inst.global_position.y)
+		set_count += 1
+		print("[RAID_DEBUG]   wid=%s -> deployed, state=WORKING_OFFSCREEN, move_target_x=%.0f" % [wid, exit_x])
+	print("[RAID_DEBUG] VillageManager: %d asker deploy edildi" % set_count)
+
+func _on_mission_manager_mission_cancelled(_cariye_id: int, mission_id: String) -> void:
+	# İptal edilen görevdeki askerleri tekrar göster
+	_show_soldiers_back_from_mission(mission_id)
+
+func _show_soldiers_back_from_mission(mission_id: String) -> void:
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		return
+	var extra = mm.get_raid_mission_extra(mission_id)
+	var worker_ids: Array = []
+	var wids = extra.get("assigned_soldier_worker_ids", [])
+	if wids is Array:
+		worker_ids = wids
+	var barracks = _find_barracks()
+	var return_x: float = 0.0
+	if is_instance_valid(barracks):
+		return_x = barracks.global_position.x
+	elif campfire_node and is_instance_valid(campfire_node):
+		return_x = campfire_node.global_position.x
+	for w in worker_ids:
+		var wid = int(w) if w is float else w
+		if not all_workers.has(wid):
+			continue
+		var worker_data = all_workers[wid]
+		var inst = worker_data.get("instance", null)
+		if not is_instance_valid(inst):
+			continue
+		inst.set("is_deployed", false)
+		inst.set("current_state", 6)  # Worker.State.RETURNING_FROM_WORK
+		inst.visible = true
+		inst.set("move_target_x", return_x)
+		inst.set("_target_global_y", inst.global_position.y)
+	# Temizlik: MissionManager'daki raid ek verisini sil
+	mm.clear_raid_mission_extra(mission_id)
+	print("[RAID_DEBUG] _show_soldiers_back_from_mission: mission_id=%s %d asker geri çağrıldı" % [mission_id, worker_ids.size()])
+
+func _on_mission_manager_mission_completed(_cariye_id: int, mission_id: String, successful: bool, _results: Dictionary) -> void:
+	# Görevdeki askerleri tekrar ekranda göster
+	_show_soldiers_back_from_mission(mission_id)
+	# Haydut Temizliği görevi başarıyla bitince bandit_activity event'ini kapat
+	if mission_id.begins_with("bandit_clear_") and successful:
+		var n = clear_event("bandit_activity")
+		if n > 0:
+			print("[EVENT DEBUG] Haydut Temizliği başarılı: bandit_activity event sona erdirildi.")
+
+func get_production_multipliers() -> Dictionary:
+	"""Get current production multipliers for debugging."""
+	return {
+		"global": global_multiplier,
+		"resource": resource_prod_multiplier.duplicate(true),
+		"morale": village_morale
+	}
+
+func _make_worker_sick_and_unassign(worker_instance: Node, worker_id: int, building: Node2D) -> void:
+	"""İşçiyi binadan çıkar ve hasta yap (hastalık event'i için)"""
+	if not is_instance_valid(building):
+		return
+	
+	# Binadan işçiyi çıkar
+	if "assigned_worker_ids" in building:
+		var worker_ids = building.get("assigned_worker_ids")
+		if worker_ids is Array and worker_id in worker_ids:
+			var idx = worker_ids.find(worker_id)
+			if idx >= 0:
+				worker_ids.remove_at(idx)
+	
+	# Bina sayacını azalt
+	if "assigned_workers" in building:
+		building.assigned_workers = max(0, building.assigned_workers - 1)
+		notify_building_state_changed(building)
+	
+	# İşçinin atamasını kaldır
+	var was_working: bool = not worker_instance.assigned_job_type.is_empty()
+	worker_instance.assigned_job_type = ""
+	worker_instance.assigned_building_node = null
+	
+	# Idle sayısını artır (eğer çalışıyorsa)
+	if was_working:
+		idle_workers += 1
+
+func _check_and_heal_sick_workers(current_day: int) -> void:
+	"""Her gün hasta işçileri kontrol et: İlaç varsa iyileştir, yoksa moral düşür."""
+	var sick_workers: Array = []
+	var total_sick: int = 0
+	
+	# Tüm hasta işçileri bul
+	for worker_id in all_workers.keys():
+		var worker_data = all_workers.get(worker_id, {})
+		if not worker_data:
+			continue
+		var worker_instance = worker_data.get("instance", null)
+		if not is_instance_valid(worker_instance):
+			continue
+		
+		if "is_sick" in worker_instance and worker_instance.is_sick:
+			total_sick += 1
+			sick_workers.append(worker_instance)
+	
+	if total_sick == 0:
+		return  # Hasta işçi yok
+	
+	# İlaç kontrolü
+	var medicine_count: int = int(resource_levels.get("medicine", 0))
+	var healed_count: int = 0
+	var morale_loss: float = 0.0
+	
+	# İlaç varsa hasta işçileri iyileştir (1 günde iyileşir)
+	if medicine_count > 0:
+		for worker_instance in sick_workers:
+			var sick_since: int = -1
+			if "sick_since_day" in worker_instance:
+				sick_since = worker_instance.sick_since_day
+			if sick_since >= 0 and current_day > sick_since:  # En az 1 gün geçmişse
+				# İlaç kullan ve iyileştir
+				resource_levels["medicine"] = max(0, medicine_count - 1)
+				medicine_count -= 1
+				worker_instance.is_sick = false
+				worker_instance.sick_since_day = -1
+				
+				# Eski işine dönmeyi dene
+				_restore_worker_to_previous_job(worker_instance)
+				
+				healed_count += 1
+				
+				if medicine_count <= 0:
+					break  # İlaç bitti
+	
+	# İyileşemeyen hasta işçiler için moral düşüşü
+	var still_sick: int = total_sick - healed_count
+	if still_sick > 0:
+		# Her hasta işçi için -2 moral (günlük)
+		morale_loss = float(still_sick) * 2.0
+		village_morale = max(0.0, village_morale - morale_loss)
+		print("[DISEASE DEBUG] %d işçi hala hasta, moral düştü: -%.1f (Toplam hasta: %d, İyileşen: %d)" % [still_sick, morale_loss, total_sick, healed_count])
+	
+	if healed_count > 0:
+		print("[DISEASE DEBUG] %d işçi ilaçla iyileşti (Kalan ilaç: %d)" % [healed_count, medicine_count])
+
+func _restore_worker_to_previous_job(worker_instance: Node) -> void:
+	"""İyileşen işçiyi eski işine geri döndürmeyi dene"""
+	if not is_instance_valid(worker_instance):
+		return
+	
+	var prev_job: String = ""
+	var prev_building: Node2D = null
+	
+	if "previous_job_type" in worker_instance:
+		prev_job = worker_instance.previous_job_type
+	if "previous_building_node" in worker_instance:
+		prev_building = worker_instance.previous_building_node
+	
+	# Eski iş bilgisi yoksa açıkta kalır
+	if prev_job.is_empty() or not is_instance_valid(prev_building):
+		worker_instance.current_state = 1  # State.AWAKE_IDLE
+		worker_instance.visible = true
+		worker_instance.previous_job_type = ""
+		worker_instance.previous_building_node = null
+		idle_workers += 1
+		return
+	
+	# Bina hala geçerli mi ve yer var mı kontrol et
+	var max_workers: int = 0
+	var current_workers: int = 0
+	
+	if "max_workers" in prev_building:
+		max_workers = prev_building.max_workers
+	if "assigned_workers" in prev_building:
+		current_workers = prev_building.assigned_workers
+	
+	# Yer varsa eski işine dön
+	if current_workers < max_workers:
+		worker_instance.assigned_job_type = prev_job
+		worker_instance.assigned_building_node = prev_building
+		
+		# Binaya ekle
+		if "assigned_worker_ids" in prev_building:
+			var worker_ids = prev_building.get("assigned_worker_ids")
+			if worker_ids is Array:
+				if not worker_instance.worker_id in worker_ids:
+					worker_ids.append(worker_instance.worker_id)
+		
+		if "assigned_workers" in prev_building:
+			prev_building.assigned_workers = current_workers + 1
+			notify_building_state_changed(prev_building)
+		
+		worker_instance.current_state = 1  # State.AWAKE_IDLE
+		worker_instance.visible = true
+		print("[DISEASE DEBUG] İşçi %d eski işine (%s) döndü" % [worker_instance.worker_id, prev_job])
+	else:
+		# Yer yoksa açıkta kalır
+		worker_instance.current_state = 1  # State.AWAKE_IDLE
+		worker_instance.visible = true
+		idle_workers += 1
+		print("[DISEASE DEBUG] İşçi %d iyileşti ama eski işinde (%s) yer yok, açıkta kaldı" % [worker_instance.worker_id, prev_job])
+	
+	# Eski iş bilgilerini temizle
+	worker_instance.previous_job_type = ""
+	worker_instance.previous_building_node = null
 
 func set_economy_enabled(enabled: bool) -> void:
 	economy_enabled = enabled
@@ -2762,9 +3660,13 @@ func get_active_events_summary(current_day: int) -> Array[Dictionary]:
 	for ev in events_active:
 		var ends := int(ev.get("ends_day", current_day))
 		var days_left: int = max(0, ends - current_day)
+		var event_level: int = ev.get("level", EventLevel.MEDIUM)
+		var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
 		out.append({
 			"type": String(ev.get("type", "")),
-			"severity": float(ev.get("severity", 0.0)),
+			"severity": float(ev.get("severity", 0.0)),  # Geriye dönük uyumluluk için
+			"level": event_level,
+			"level_name": level_name,
 			"days_left": days_left
 		})
 	return out
@@ -2776,6 +3678,98 @@ func trigger_random_event_debug() -> void:
 	if not ev.is_empty():
 		events_active.append(ev)
 		_apply_event_effects(ev)
+
+func trigger_specific_world_event(event_type: String, severity: float = -1.0, duration_days: int = -1) -> bool:
+	"""Trigger a specific world event for testing.
+	Returns true if event was successfully triggered."""
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
+	
+	# Valid event types (dev console trigger_world_event ile test için)
+	var valid_types: Array[String] = ["drought", "famine", "pest", "disease", "raid", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike", "bandit_activity"]
+	if not event_type in valid_types:
+		return false
+	
+	# Seviye belirleme (severity parametresi varsa onu kullan, yoksa rastgele)
+	var event_level: int = EventLevel.MEDIUM
+	if severity >= 0.0:
+		# Severity'yi level'a çevir (test için)
+		if severity < 0.2:
+			event_level = EventLevel.LOW
+		elif severity < 0.3:
+			event_level = EventLevel.MEDIUM
+		else:
+			event_level = EventLevel.HIGH
+	else:
+		# Rastgele seviye seç
+		var rand_val := randf()
+		if rand_val < 0.4:
+			event_level = EventLevel.LOW
+		elif rand_val < 0.8:
+			event_level = EventLevel.MEDIUM
+		else:
+			event_level = EventLevel.HIGH
+	
+	var dur: int = duration_days if duration_days > 0 else randi_range(event_duration_min_days, event_duration_max_days)
+	var ev := {"type": event_type, "level": event_level, "severity": float(event_level) / 3.0, "ends_day": day + dur}  # severity geriye dönük uyumluluk için
+	
+	# Raid için özel zamanlama - 1-2 gün sonra saldırı olacak
+	if event_type == "raid":
+		var warning_days: int = randi_range(1, 2)  # 1-2 gün önce haber
+		var attack_day: int = day + warning_days
+		ev["raid_attack_day"] = attack_day
+		ev["raid_warning_day"] = day
+		# Event'in bitiş günü saldırı günü olsun
+		ev["ends_day"] = attack_day
+		# Raid için saldırgan fraksiyonu belirle (seviyeye göre)
+		var attacker_names: Array[String] = ["Bilinmeyen Haydutlar", "Eşkıya Grubu", "Yağmacılar", "Brigand Çetesi"]
+		if event_level >= EventLevel.MEDIUM:
+			attacker_names = ["Güçlü Eşkıyalar", "Profesyonel Yağmacılar", "Savaşçı Çetesi", "Tehlikeli Haydutlar"]
+		attacker_names.shuffle()
+		ev["raid_attacker"] = attacker_names[0]
+	
+	# Worker Strike için özel sebep belirleme
+	if event_type == "worker_strike":
+		var strike_reason: String = ""
+		var current_morale: float = village_morale
+		var food_shortage: int = _last_day_shortages.get("food", 0)
+		var water_shortage: int = _last_day_shortages.get("water", 0)
+		
+		if current_morale < 40.0:
+			strike_reason = "düşük_moral"
+		elif food_shortage > 0 or water_shortage > 0:
+			strike_reason = "kaynak_eksikliği"
+		else:
+			strike_reason = "genel_hoşnutsuzluk"
+		
+		var resource_types: Array[String] = ["wood", "stone", "food", "water"]
+		resource_types.shuffle()
+		ev["strike_resource"] = resource_types[0]
+		ev["strike_reason"] = strike_reason
+	
+	# Cooldown'u atla (test için)
+	# _event_cooldowns[event_type] = day + 30
+	
+	# Post news
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm and mm.has_method("post_news"):
+		var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
+		var title := "Yeni Olay: %s" % event_type.capitalize()
+		var msg := "Seviye: %s, Süre: %d gün" % [level_name, dur]
+		if event_type == "raid" and ev.has("raid_attack_day"):
+			var days_until = ev["raid_attack_day"] - day
+			var attacker = ev.get("raid_attacker", "Bilinmeyen Haydutlar")
+			msg = "%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!" % [attacker, days_until]
+			title = "🚨 Baskın Uyarısı!"
+		elif event_type == "worker_strike" and ev.has("strike_resource"):
+			var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
+			var reason_names: Dictionary = {"düşük_moral": "Düşük Moral", "kaynak_eksikliği": "Kaynak Eksikliği", "genel_hoşnutsuzluk": "Genel Hoşnutsuzluk"}
+			msg = "%s - %s üretimi durdu (%s)" % [msg, res_names.get(ev["strike_resource"], ev["strike_resource"]), reason_names.get(ev.get("strike_reason", ""), "")]
+		mm.post_news("world", title, msg, Color.ORANGE)
+	
+	events_active.append(ev)
+	_apply_event_effects(ev)
+	return true
 
 func _recalculate_building_bonus() -> void:
 	# Compute average bonus across basic producer buildings: +0.25 per level above 1, capped at +0.5
@@ -2929,18 +3923,22 @@ func _spawn_concubines_in_scene() -> void:
 			var concubine_data: Concubine = concubines_dict[concubine_id]
 			var existing_instance = existing_concubine_instances[concubine_id]
 			if concubine_data and existing_instance:
-				# Eğer appearance yoksa veya null ise generate et, yoksa mevcut appearance'ı kullan
+				# Mevcut appearance'ı kullan (save'den yüklenmiş olmalı)
 				if concubine_data.appearance == null:
+					printerr("VillageManager: Cariye (ID: %d) görünümü null! Save/load sisteminde sorun var. Geçici görünüm oluşturuluyor." % concubine_id)
+					# Geçici çözüm: Görünüm null ise yeni görünüm oluştur (ama bu her load'da farklı görünümlere neden olabilir)
 					concubine_data.appearance = AppearanceDB.generate_random_concubine_appearance()
 					existing_instance.appearance = concubine_data.appearance
 					if existing_instance.has_method("update_visuals"):
 						existing_instance.update_visuals()
-					print("VillageManager: Cariye (ID: %d) görünümü oluşturuldu." % concubine_id)
 				else:
-					# Mevcut appearance'ı kullan (renkler sabit kalır)
+					# Mevcut appearance'ı kullan (save'den yüklenmiş)
 					existing_instance.appearance = concubine_data.appearance
 					if existing_instance.has_method("update_visuals"):
 						existing_instance.update_visuals()
+					# İsmi güncelle
+					if existing_instance.has_method("update_concubine_name"):
+						existing_instance.update_concubine_name()
 	
 	# Her cariye için sahneye ekle (sadece daha önce eklenmemişse)
 	var spawned_count = 0
@@ -2961,10 +3959,18 @@ func _spawn_concubines_in_scene() -> void:
 		concubine_instance.concubine_id = concubine_id
 		concubine_instance.concubine_data = concubine_data
 		
-		# Görünüm bilgisini ata - Sadece appearance yoksa generate et (renkler sabit kalmalı)
+		# İsmi güncelle
+		if concubine_instance.has_method("update_concubine_name"):
+			concubine_instance.update_concubine_name()
+		
+		# Görünüm bilgisini ata (save'den yüklenmiş olmalı)
 		if concubine_data.appearance == null:
+			printerr("VillageManager: Yeni spawn edilen cariye (ID: %d) görünümü null! Save/load sisteminde sorun var. Geçici görünüm oluşturuluyor." % concubine_id)
+			# Geçici çözüm: Görünüm null ise yeni görünüm oluştur (ama bu her load'da farklı görünümlere neden olabilir)
 			concubine_data.appearance = AppearanceDB.generate_random_concubine_appearance()
-		concubine_instance.appearance = concubine_data.appearance  # Mevcut appearance'ı kullan
+			concubine_instance.appearance = concubine_data.appearance
+		else:
+			concubine_instance.appearance = concubine_data.appearance  # Mevcut appearance'ı kullan
 		
 		# Görünümü güncelle
 		if concubine_instance.has_method("update_visuals"):
@@ -2982,6 +3988,34 @@ func _spawn_concubines_in_scene() -> void:
 		print("VillageManager: Cariye (ID: %d, Name: %s) sahneye eklendi." % [concubine_id, concubine_data.name])
 	
 	print("VillageManager: Toplam %d yeni cariye sahneye eklendi." % spawned_count)
+	
+	# Ormandan dönüş vb. sahne yüklemesinde: MissionManager'da hâlâ görevde olan cariyeleri
+	# ekran dışında tut (ON_MISSION + visible = false). Deferred ile tüm _ready tamamlansın.
+	call_deferred("_sync_concubines_on_mission")
+
+func _sync_concubines_on_mission() -> void:
+	if not concubines_container:
+		return
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm or not ("active_missions" in mm):
+		return
+	var active = mm.get("active_missions")
+	if not (active is Dictionary) or active.is_empty():
+		return
+	for child in concubines_container.get_children():
+		var cid = child.get("concubine_id")
+		if cid == null:
+			continue
+		var cid_int := int(cid)
+		if cid_int < 0 or not active.has(cid_int):
+			continue
+		child.set("current_state", 4)  # ConcubineNPC.State.ON_MISSION = 4
+		child.visible = false
+		if child.has_method("get") and child.get("_wander_timer"):
+			var wt = child.get("_wander_timer")
+			if wt and wt.has_method("stop"):
+				wt.stop()
+		print("VillageManager: Cariye (ID: %d) görevde senkronize edildi (sahne dışında)." % cid_int)
 
 # Verilen işçiye uygun bir barınak bulup atar ve evin sayacını günceller
 func _assign_housing(worker_instance: Node2D) -> bool:
@@ -3012,6 +4046,39 @@ func _assign_housing(worker_instance: Node2D) -> bool:
 	else:
 		# #printerr("VillageManager: No available housing found for %s." % worker_instance.name) # Hata mesajını _add_new_worker'da veriyoruz
 		return false
+
+# Housing key'e göre housing node'u bulur (kayıt/yükleme için)
+func _find_housing_by_key(housing_key: String) -> Node2D:
+	if housing_key.is_empty():
+		return null
+	
+	# Key'i parse et: "scene_path|position"
+	var parts = housing_key.split("|")
+	if parts.size() < 2:
+		return null
+	
+	var scene_path = parts[0]
+	var position_str = parts[1]
+	
+	# Position'ı Vector2'ye çevir
+	var pos_parts = position_str.replace("(", "").replace(")", "").split(",")
+	if pos_parts.size() < 2:
+		return null
+	var pos = Vector2(float(pos_parts[0]), float(pos_parts[1]))
+	
+	# Housing node'ları bul (Housing grubundaki tüm node'lar)
+	var housing_nodes = get_tree().get_nodes_in_group("Housing")
+	for node in housing_nodes:
+		if node is Node2D:
+			var node2d = node as Node2D
+			# Pozisyon ve scene path'e göre eşleştir
+			var node_scene = node2d.scene_file_path if node2d.scene_file_path != "" else "res://village/scenes/CampFire.tscn"
+			if node_scene == scene_path or (scene_path == "res://village/scenes/CampFire.tscn" and node.is_in_group("Housing")):
+				# Pozisyon yakınsa (10 piksel tolerans) eşleştir
+				if node2d.global_position.distance_to(pos) < 10.0:
+					return node2d
+	
+	return null
 
 # Boş kapasitesi olan bir barınak (önce Ev, sonra CampFire) arar
 func _find_available_housing() -> Node2D:
@@ -3068,6 +4135,10 @@ func assign_idle_worker_to_job(job_type: String) -> bool:
 	for worker_id in all_workers:
 		var worker = all_workers[worker_id]["instance"]
 		if is_instance_valid(worker) and worker.assigned_job_type == "":
+			# HASTA KONTROLÜ: Hasta işçiler atanamaz
+			if "is_sick" in worker and worker.is_sick:
+				continue
+			
 			idle_worker_instance = worker
 			idle_worker_id = worker_id
 			break # İlk boşta işçiyi bulduk
@@ -3182,20 +4253,22 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 	# 2. Barınaktan Çıkar (Eğer Ev veya CampFire İse)
 	var housing = worker_instance.housing_node
 	if is_instance_valid(housing):
-		print("VillageManager: Removing worker %d from housing %s" % [worker_id_to_remove, housing.name]) # Debug
+		# Debug: Only log errors
+		# print("VillageManager: Removing worker %d from housing %s" % [worker_id_to_remove, housing.name])
 		
 		if housing.has_method("remove_occupant"):
-			# CampFire için worker argümanı gerekli, House için gerekli değil
+			# CampFire ve House için worker instance'ı geç (her ikisi de kabul ediyor)
 			var success = false
 			if housing.get_script() and housing.get_script().resource_path.ends_with("CampFire.gd"):
 				# CampFire için worker instance'ı geç
 				success = housing.remove_occupant(worker_instance)
 			else:
-				# House ve diğerleri için argüman geçme
-				success = housing.remove_occupant()
+				# House için de worker instance'ı geç (artık kabul ediyor)
+				success = housing.remove_occupant(worker_instance)
 			
-			if not success:
-				printerr("VillageManager: Failed to remove worker %d from housing %s" % [worker_id_to_remove, housing.name])
+			# remove_occupant artık her zaman true döner (worker listede yoksa bile normal)
+			# if not success:
+			# 	printerr("VillageManager: Failed to remove worker %d from housing %s" % [worker_id_to_remove, housing.name])
 		else:
 			printerr("VillageManager: Housing %s does not have remove_occupant method!" % housing.name)
 	#else: # Debug için
@@ -3382,26 +4455,89 @@ func apply_current_time_schedule() -> void:
 	_apply_time_of_day(hour)
 
 func _apply_time_of_day(hour: int) -> void:
-	if workers_container == null:
-		return
 	var sleep_start := 22
 	var wake_hour := 6
 	var is_sleep_time := hour >= sleep_start or hour < wake_hour
-	for child in workers_container.get_children():
-		var worker := child as Node2D
-		if worker == null:
-			continue
-		if worker.has_method("check_hour_transition"):
-			worker.check_hour_transition(hour)
-		worker.visible = not is_sleep_time
-		if worker.has_method("set_process"):
-			worker.set_process(not is_sleep_time)
-		if worker.has_method("set_physics_process"):
-			worker.set_physics_process(not is_sleep_time)
-		if is_sleep_time and "housing_node" in worker:
-			var housing = worker.get("housing_node")
-			if housing and housing is Node2D:
-				worker.global_position = (housing as Node2D).global_position
+	
+	# Worker'lar için saat kontrolü
+	if workers_container != null:
+		for child in workers_container.get_children():
+			var worker := child as Node2D
+			if worker == null:
+				continue
+			# Önce check_hour_transition çağır (worker kendi state'ini ayarlasın)
+			if worker.has_method("check_hour_transition"):
+				worker.check_hour_transition(hour)
+			
+			# Worker'ın state'ine göre görünürlüğü ayarla
+			# GOING_TO_SLEEP state'indeyse görünür olmalı (eve yürüyor)
+			if worker.has_method("get") and "current_state" in worker:
+				var current_state = worker.get("current_state")
+				var going_to_sleep_state = 8  # State.GOING_TO_SLEEP
+				var sleeping_state = 0  # State.SLEEPING
+				var awake_idle_state = 1  # State.AWAKE_IDLE
+				var socializing_state = 7  # State.SOCIALIZING
+				
+				if current_state == going_to_sleep_state:
+					# Eve yürüyor, görünür olmalı
+					worker.visible = true
+					if worker.has_method("set_process"):
+						worker.set_process(true)
+					if worker.has_method("set_physics_process"):
+						worker.set_physics_process(true)
+				elif current_state == sleeping_state:
+					# Uyuyor, görünmez olmalı
+					worker.visible = false
+					# Uyanma kontrolü için physics_process'i açık tut (uyanma kontrolü _physics_process içinde yapılıyor)
+					# Ama process'i kapatabiliriz (görsel güncelleme gerekmez)
+					if worker.has_method("set_process"):
+						worker.set_process(false)
+					# Physics process'i açık tut ki uyanma kontrolü çalışsın
+					if worker.has_method("set_physics_process"):
+						worker.set_physics_process(true)
+					# Pozisyonu housing'a taşı
+					if "housing_node" in worker:
+						var housing = worker.get("housing_node")
+						if housing and housing is Node2D:
+							worker.global_position = (housing as Node2D).global_position
+				elif current_state == awake_idle_state or current_state == socializing_state:
+					# Uyanık ve boşta, kesinlikle görünür olmalı
+					worker.visible = true
+					if worker.has_method("set_process"):
+						worker.set_process(true)
+					if worker.has_method("set_physics_process"):
+						worker.set_physics_process(true)
+				else:
+					# Diğer state'lerde (çalışma, işe gitme vb.) worker'ın kendi görünürlük kontrolüne bırak
+					# Ama genel olarak görünür olmalılar (WORKING_INSIDE ve WAITING_OFFSCREEN hariç)
+					var working_inside_state = 5  # State.WORKING_INSIDE
+					var waiting_offscreen_state = 4  # State.WAITING_OFFSCREEN
+					if current_state != working_inside_state and current_state != waiting_offscreen_state:
+						worker.visible = true
+						if worker.has_method("set_process"):
+							worker.set_process(true)
+						if worker.has_method("set_physics_process"):
+							worker.set_physics_process(true)
+			else:
+				# Fallback: Eski davranış (sadece uyku saati kontrolü)
+				worker.visible = not is_sleep_time
+				if worker.has_method("set_process"):
+					worker.set_process(not is_sleep_time)
+				if worker.has_method("set_physics_process"):
+					worker.set_physics_process(not is_sleep_time)
+				if is_sleep_time and "housing_node" in worker:
+					var housing = worker.get("housing_node")
+					if housing and housing is Node2D:
+						worker.global_position = (housing as Node2D).global_position
+	
+	# Cariyeler için saat kontrolü
+	if concubines_container != null:
+		for child in concubines_container.get_children():
+			var concubine := child as Node2D
+			if concubine == null:
+				continue
+			if concubine.has_method("check_hour_transition"):
+				concubine.check_hour_transition(hour)
 
 func reset_saved_state_for_new_game() -> void:
 	_saved_building_states.clear()
@@ -3425,3 +4561,84 @@ func _worker_entry_sorter(a, b) -> bool:
 	if b is Dictionary:
 		b_id = int(b.get("worker_id", 0))
 	return a_id < b_id
+
+# En yakın NPC'nin ismini göster, diğerlerini gizle
+func _update_nearest_npc_name_visibility() -> void:
+	# Container'lar yoksa çık
+	if not workers_container and not concubines_container:
+		return
+	
+	# Oyuncuyu bul
+	var player = get_tree().get_first_node_in_group("player")
+	if not player or not is_instance_valid(player):
+		# Oyuncu yoksa tüm isimleri gizle
+		_hide_all_npc_names()
+		return
+	
+	var player_pos = player.global_position
+	var nearest_npc: Node2D = null
+	var nearest_distance: float = INF
+	
+	# Tüm NPC'leri topla ve en yakını bul
+	var all_npcs: Array[Node2D] = []
+	
+	# Worker'ları ekle
+	if workers_container:
+		for child in workers_container.get_children():
+			if child is Node2D:
+				var name_plate_container = child.get_node_or_null("NamePlateContainer")
+				if name_plate_container:
+					all_npcs.append(child)
+	
+	# Cariyeleri ekle
+	if concubines_container:
+		for child in concubines_container.get_children():
+			if child is Node2D:
+				var name_plate_container = child.get_node_or_null("NamePlateContainer")
+				if name_plate_container:
+					all_npcs.append(child)
+	
+	# En yakın NPC'yi bul (maksimum mesafe: num8 etkileşim mesafesiyle aynı - yaklaşık 35 piksel)
+	const MAX_NAME_DISTANCE: float = 35.0
+	for npc in all_npcs:
+		if not is_instance_valid(npc):
+			continue
+		# NPC görünmezse (uyuyor vb.) atla
+		if not npc.visible:
+			continue
+		var distance = player_pos.distance_to(npc.global_position)
+		if distance < nearest_distance and distance <= MAX_NAME_DISTANCE:
+			nearest_distance = distance
+			nearest_npc = npc
+	
+	# Tüm NPC'lerin isimlerini gizle
+	for npc in all_npcs:
+		if not is_instance_valid(npc):
+			continue
+		var name_plate_container = npc.get_node_or_null("NamePlateContainer")
+		if name_plate_container:
+			name_plate_container.visible = false
+	
+	# En yakın NPC'nin ismini göster
+	if nearest_npc and is_instance_valid(nearest_npc):
+		var name_plate_container = nearest_npc.get_node_or_null("NamePlateContainer")
+		if name_plate_container:
+			name_plate_container.visible = true
+
+# Tüm NPC isimlerini gizle (oyuncu yoksa)
+func _hide_all_npc_names() -> void:
+	# Worker'ları gizle
+	if workers_container:
+		for child in workers_container.get_children():
+			if child is Node2D:
+				var name_plate_container = child.get_node_or_null("NamePlateContainer")
+				if name_plate_container:
+					name_plate_container.visible = false
+	
+	# Cariyeleri gizle
+	if concubines_container:
+		for child in concubines_container.get_children():
+			if child is Node2D:
+				var name_plate_container = child.get_node_or_null("NamePlateContainer")
+				if name_plate_container:
+					name_plate_container.visible = false

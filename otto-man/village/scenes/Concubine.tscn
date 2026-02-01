@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://concubine_scene"]
+[gd_scene load_steps=7 format=3 uid="uid://concubine_scene"]
 
 [ext_resource type="Script" path="res://village/scripts/ConcubineNPC.gd" id="1_concubine"]
 [ext_resource type="Texture2D" uid="uid://cy8rhs70y4u8h" path="res://assets/character_parts/mouth/mouth1_walk.png" id="2_mouth"]
 [ext_resource type="Texture2D" uid="uid://dm7480yfyaknc" path="res://assets/character_parts/eyes/eyes1_walk.png" id="3_eyes"]
 [ext_resource type="Texture2D" uid="uid://wtnccajt6bj4" path="res://assets/character_parts/hair/hair_style1_walk_gray.png" id="4_hair"]
+[ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="5_theme"]
 
 [sub_resource type="CanvasTexture" id="CanvasTexture_1"]
 
@@ -494,3 +495,24 @@ hframes = 12
 libraries = {
 "": SubResource("AnimationLibrary_1")
 }
+
+[node name="NamePlateContainer" type="PanelContainer" parent="."]
+layout_direction = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -60.0
+offset_top = -100.0
+offset_right = 60.0
+offset_bottom = -70.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(60, 0)
+theme = ExtResource("5_theme")
+
+[node name="NamePlate" type="Label" parent="NamePlateContainer"]
+layout_mode = 2
+text = "Name"
+horizontal_alignment = 1

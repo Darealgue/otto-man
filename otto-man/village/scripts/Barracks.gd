@@ -66,6 +66,7 @@ func add_worker() -> bool:
 	# Köylüyü asker olarak işaretle
 	worker_instance.assigned_job_type = "soldier"
 	worker_instance.assigned_building_node = self
+	# Askerler için state kontrolü gerekmez (askerler köyde geziniyorlar, mesai kontrolü yok)
 	
 	# Worker ID'yi bul ve listede tut
 	var worker_id := _get_worker_id(vm, worker_instance)
@@ -273,8 +274,8 @@ func get_military_force() -> Dictionary:
 	var defense_bonus = float(equipped_armors) * 0.2
 	
 	# Köy morali bonusu (VillageManager'dan)
-	var morale_multiplier = vm.get("village_morale") if vm.has("village_morale") else 1.0
-	morale_multiplier = (morale_multiplier / 100.0) * 0.5 + 0.5  # 0-100 morale -> 0.5-1.0 multiplier
+	var morale_value = vm.get("village_morale") if "village_morale" in vm else 80.0
+	var morale_multiplier = (morale_value / 100.0) * 0.5 + 0.5  # 0-100 morale -> 0.5-1.0 multiplier
 	
 	var force = {
 		"units": {"soldiers": assigned_workers},

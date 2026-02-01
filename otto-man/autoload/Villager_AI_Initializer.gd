@@ -1,13 +1,52 @@
 extends Node
 
+# Osmanlı dönemi erkek isim havuzu (Türk, Rum, Ermeni, Yahudi, Slav, Arap kökenli)
+const MALE_NAMES_OTTOMAN: Array[String] = [
+	# Türk isimleri (5 katına çıkarıldı - 160 isim)
+	"Mehmet", "Ahmet", "Ali", "Hasan", "Hüseyin", "İbrahim", "Mustafa", "Osman",
+	"Yusuf", "Süleyman", "Halil", "İsmail", "Ömer", "Abdullah", "Recep", "Ramazan",
+	"Kemal", "Selim", "Murat", "Bayram", "Cemal", "Salih", "Nuri", "Şaban",
+	"Hamza", "Bekir", "Veli", "Derviş", "Emin", "Fikret", "Gazi", "Hacı",
+	"Mehmet", "Ahmet", "Ali", "Hasan", "Hüseyin", "İbrahim", "Mustafa", "Osman",
+	"Yusuf", "Süleyman", "Halil", "İsmail", "Ömer", "Abdullah", "Recep", "Ramazan",
+	"Kemal", "Selim", "Murat", "Bayram", "Cemal", "Salih", "Nuri", "Şaban",
+	"Hamza", "Bekir", "Veli", "Derviş", "Emin", "Fikret", "Gazi", "Hacı",
+	"Mehmet", "Ahmet", "Ali", "Hasan", "Hüseyin", "İbrahim", "Mustafa", "Osman",
+	"Yusuf", "Süleyman", "Halil", "İsmail", "Ömer", "Abdullah", "Recep", "Ramazan",
+	"Kemal", "Selim", "Murat", "Bayram", "Cemal", "Salih", "Nuri", "Şaban",
+	"Hamza", "Bekir", "Veli", "Derviş", "Emin", "Fikret", "Gazi", "Hacı",
+	"Mehmet", "Ahmet", "Ali", "Hasan", "Hüseyin", "İbrahim", "Mustafa", "Osman",
+	"Yusuf", "Süleyman", "Halil", "İsmail", "Ömer", "Abdullah", "Recep", "Ramazan",
+	"Kemal", "Selim", "Murat", "Bayram", "Cemal", "Salih", "Nuri", "Şaban",
+	"Hamza", "Bekir", "Veli", "Derviş", "Emin", "Fikret", "Gazi", "Hacı",
+	"Mehmet", "Ahmet", "Ali", "Hasan", "Hüseyin", "İbrahim", "Mustafa", "Osman",
+	"Yusuf", "Süleyman", "Halil", "İsmail", "Ömer", "Abdullah", "Recep", "Ramazan",
+	"Kemal", "Selim", "Murat", "Bayram", "Cemal", "Salih", "Nuri", "Şaban",
+	"Hamza", "Bekir", "Veli", "Derviş", "Emin", "Fikret", "Gazi", "Hacı",
+	# Rum (Yunan) isimleri
+	"Dimitri", "Yannis", "Konstantin", "Nikolaos", "Andreas", "Georgios", "Ioannis", "Petros",
+	"Vasilis", "Christos", "Stavros", "Panagiotis", "Theodoros", "Alexandros", "Michalis", "Spyros",
+	# Ermeni isimleri
+	"Garabed", "Hagop", "Krikor", "Sarkis", "Vartan", "Aram", "Arsen", "Bedros",
+	"Dikran", "Gevorg", "Hrant", "Karekin", "Levon", "Nerses", "Raffi", "Tigran",
+	# Yahudi isimleri
+	"Avram", "Yakov", "Yosef", "David", "Shmuel", "Moshe", "Yitzhak", "Yaakov",
+	"Reuven", "Shimon", "Levi", "Yehuda", "Dan", "Naftali", "Gad", "Asher",
+	# Slav isimleri (Balkanlar)
+	"Ivan", "Petar", "Stefan", "Nikola", "Marko", "Jovan", "Milan", "Dragan",
+	"Branko", "Zoran", "Vladimir", "Boris", "Miroslav", "Radovan", "Slobodan", "Vuk",
+	# Arap kökenli isimler
+	"Abdurrahman", "Abdülaziz", "Abdülhamit", "Abdülmecit", "Emin", "Fahri", "Hamit", "Kazım"
+]
+
 var Saved_Villagers : Array = []
 var Villager_Info_Pool : Array =[
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Angry",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "44",
 			"Health": "Scarred"
 		},
@@ -20,10 +59,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Beatrice",
+			"Name": "",
 			"Occupation": "Carpenter",
 			"Mood": "Angry",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "65",
 			"Health": "Burned"
 		},
@@ -36,10 +75,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Delilah",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Content",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "29",
 			"Health": "Burned"
 		},
@@ -51,7 +90,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Gareth",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Nervous",
 			"Gender": "Male",
@@ -66,7 +105,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Gareth",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -81,10 +120,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Junia",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "44",
 			"Health": "Bruised"
 		},
@@ -96,7 +135,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Resigned",
 			"Gender": "Male",
@@ -111,10 +150,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Merchant",
 			"Mood": "Resigned",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "22",
 			"Health": "Limping"
 		},
@@ -126,10 +165,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Greta",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Content",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "62",
 			"Health": "Healthy"
 		},
@@ -141,7 +180,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Paranoid",
 			"Gender": "Male",
@@ -156,10 +195,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isla",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Lonely",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "70",
 			"Health": "Limping"
 		},
@@ -171,10 +210,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elise",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Hopeful",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "59",
 			"Health": "Burned"
 		},
@@ -186,10 +225,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "61",
 			"Health": "Scarred"
 		},
@@ -201,10 +240,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Angry",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "51",
 			"Health": "Burned"
 		},
@@ -216,10 +255,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Lonely",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "19",
 			"Health": "Scarred"
 		},
@@ -231,7 +270,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -246,10 +285,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Junia",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Calm",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "68",
 			"Health": "Burned"
 		},
@@ -261,7 +300,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Nervous",
 			"Gender": "Male",
@@ -276,10 +315,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Nervous",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "49",
 			"Health": "Bruised"
 		},
@@ -291,10 +330,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Beatrice",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Resigned",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "37",
 			"Health": "Scarred"
 		},
@@ -306,7 +345,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elias",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Worried",
 			"Gender": "Male",
@@ -321,7 +360,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Dorian",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Paranoid",
 			"Gender": "Male",
@@ -336,7 +375,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isaac",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -351,7 +390,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -366,7 +405,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Content",
 			"Gender": "Male",
@@ -381,7 +420,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cedric",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Worried",
 			"Gender": "Male",
@@ -396,7 +435,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Dorian",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -411,7 +450,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Finn",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Lonely",
 			"Gender": "Male",
@@ -426,10 +465,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Junia",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Hopeful",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "63",
 			"Health": "Weak"
 		},
@@ -441,7 +480,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Jude",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Paranoid",
 			"Gender": "Male",
@@ -456,7 +495,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isaac",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Calm",
 			"Gender": "Male",
@@ -471,7 +510,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Resigned",
 			"Gender": "Male",
@@ -486,7 +525,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Dorian",
+			"Name": "",
 			"Occupation": "Carpenter",
 			"Mood": "Hopeful",
 			"Gender": "Male",
@@ -501,10 +540,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Anya",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Resigned",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "25",
 			"Health": "Healthy"
 		},
@@ -516,10 +555,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Delilah",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Paranoid",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "46",
 			"Health": "Limping"
 		},
@@ -531,7 +570,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cedric",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Worried",
 			"Gender": "Male",
@@ -546,10 +585,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Worried",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "38",
 			"Health": "Limping"
 		},
@@ -561,10 +600,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Carpenter",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "37",
 			"Health": "Burned"
 		},
@@ -576,10 +615,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isla",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "24",
 			"Health": "Burned"
 		},
@@ -591,10 +630,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Freya",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Paranoid",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "28",
 			"Health": "Weak"
 		},
@@ -606,7 +645,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Lonely",
 			"Gender": "Male",
@@ -621,7 +660,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cedric",
+			"Name": "",
 			"Occupation": "Carpenter",
 			"Mood": "Nervous",
 			"Gender": "Male",
@@ -636,10 +675,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Anya",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "66",
 			"Health": "Limping"
 		},
@@ -651,7 +690,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Finn",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Worried",
 			"Gender": "Male",
@@ -666,7 +705,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Jude",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Lonely",
 			"Gender": "Male",
@@ -681,10 +720,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Beatrice",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Calm",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "36",
 			"Health": "Injured"
 		},
@@ -696,7 +735,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Dorian",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Paranoid",
 			"Gender": "Male",
@@ -711,10 +750,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Freya",
+			"Name": "",
 			"Occupation": "Carpenter",
 			"Mood": "Paranoid",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "29",
 			"Health": "Healthy"
 		},
@@ -726,10 +765,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Anya",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "66",
 			"Health": "Healthy"
 		},
@@ -741,7 +780,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Finn",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Paranoid",
 			"Gender": "Male",
@@ -756,7 +795,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Dorian",
+			"Name": "",
 			"Occupation": "Merchant",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -771,10 +810,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Delilah",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Angry",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "52",
 			"Health": "Weak"
 		},
@@ -786,7 +825,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Nervous",
 			"Gender": "Male",
@@ -801,10 +840,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isla",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Nervous",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "67",
 			"Health": "Healthy"
 		},
@@ -816,7 +855,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elias",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Resigned",
 			"Gender": "Male",
@@ -831,7 +870,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elias",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -846,7 +885,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Bran",
+			"Name": "",
 			"Occupation": "Carpenter",
 			"Mood": "Calm",
 			"Gender": "Male",
@@ -861,7 +900,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elias",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Paranoid",
 			"Gender": "Male",
@@ -876,7 +915,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Worried",
 			"Gender": "Male",
@@ -891,10 +930,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "22",
 			"Health": "Limping"
 		},
@@ -906,7 +945,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Gareth",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Content",
 			"Gender": "Male",
@@ -921,10 +960,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Junia",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Hopeful",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "32",
 			"Health": "Healthy"
 		},
@@ -936,7 +975,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Merchant",
 			"Mood": "Calm",
 			"Gender": "Male",
@@ -951,10 +990,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Greta",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Resigned",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "38",
 			"Health": "Limping"
 		},
@@ -966,10 +1005,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Greta",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Hopeful",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "20",
 			"Health": "Injured"
 		},
@@ -981,7 +1020,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Gareth",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Worried",
 			"Gender": "Male",
@@ -996,10 +1035,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elise",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Paranoid",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "38",
 			"Health": "Weak"
 		},
@@ -1011,10 +1050,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elise",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Hopeful",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "24",
 			"Health": "Weak"
 		},
@@ -1026,10 +1065,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Junia",
+			"Name": "",
 			"Occupation": "Carpenter",
 			"Mood": "Nervous",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "37",
 			"Health": "Healthy"
 		},
@@ -1041,7 +1080,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isaac",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Calm",
 			"Gender": "Male",
@@ -1056,10 +1095,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Calm",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "57",
 			"Health": "Bruised"
 		},
@@ -1071,7 +1110,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cedric",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Lonely",
 			"Gender": "Male",
@@ -1086,10 +1125,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Teacher",
 			"Mood": "Lonely",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "37",
 			"Health": "Bruised"
 		},
@@ -1101,7 +1140,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -1116,7 +1155,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cedric",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Content",
 			"Gender": "Male",
@@ -1131,10 +1170,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Nervous",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "44",
 			"Health": "Burned"
 		},
@@ -1146,10 +1185,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Angry",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "45",
 			"Health": "Limping"
 		},
@@ -1161,7 +1200,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Merchant",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -1176,10 +1215,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Worried",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "39",
 			"Health": "Scarred"
 		},
@@ -1191,10 +1230,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Greta",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Content",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "39",
 			"Health": "Scarred"
 		},
@@ -1206,10 +1245,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Anya",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Resigned",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "55",
 			"Health": "Weak"
 		},
@@ -1221,10 +1260,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isla",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Angry",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "27",
 			"Health": "Weak"
 		},
@@ -1236,10 +1275,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Freya",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Haunted",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "64",
 			"Health": "Burned"
 		},
@@ -1251,10 +1290,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Beatrice",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Paranoid",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "49",
 			"Health": "Burned"
 		},
@@ -1266,7 +1305,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Jude",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Hopeful",
 			"Gender": "Male",
@@ -1281,7 +1320,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Elias",
+			"Name": "",
 			"Occupation": "Hunter",
 			"Mood": "Resigned",
 			"Gender": "Male",
@@ -1296,7 +1335,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Jude",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Haunted",
 			"Gender": "Male",
@@ -1311,7 +1350,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Harlan",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Worried",
 			"Gender": "Male",
@@ -1326,7 +1365,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Jude",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -1341,7 +1380,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Content",
 			"Gender": "Male",
@@ -1356,10 +1395,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Cora",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Hopeful",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "19",
 			"Health": "Bruised"
 		},
@@ -1371,10 +1410,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Anya",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Calm",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "28",
 			"Health": "Healthy"
 		},
@@ -1386,7 +1425,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isaac",
+			"Name": "",
 			"Occupation": "Fisherman",
 			"Mood": "Angry",
 			"Gender": "Male",
@@ -1401,7 +1440,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Bran",
+			"Name": "",
 			"Occupation": "Weaver",
 			"Mood": "Nervous",
 			"Gender": "Male",
@@ -1416,10 +1455,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Hazel",
+			"Name": "",
 			"Occupation": "Soldier",
 			"Mood": "Nervous",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "30",
 			"Health": "Limping"
 		},
@@ -1431,7 +1470,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Jude",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Calm",
 			"Gender": "Male",
@@ -1446,7 +1485,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Isaac",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Content",
 			"Gender": "Male",
@@ -1461,10 +1500,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Junia",
+			"Name": "",
 			"Occupation": "Blacksmith",
 			"Mood": "Content",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "64",
 			"Health": "Healthy"
 		},
@@ -1476,7 +1515,7 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Alden",
+			"Name": "",
 			"Occupation": "Stablehand",
 			"Mood": "Nervous",
 			"Gender": "Male",
@@ -1491,10 +1530,10 @@ var Villager_Info_Pool : Array =[
 	},
 	{
 		"Info": {
-			"Name": "Anya",
+			"Name": "",
 			"Occupation": "Herbalist",
 			"Mood": "Calm",
-			"Gender": "Female",
+			"Gender": "Male",
 			"Age": "35",
 			"Health": "Scarred"
 		},
@@ -1559,6 +1598,22 @@ func get_villager_info():
 		ChosenInfo["Latest_news"] = []
 	elif typeof(ChosenInfo["Latest_news"]) == TYPE_STRING:
 		ChosenInfo["Latest_news"] = [ChosenInfo["Latest_news"]] if ChosenInfo["Latest_news"] != "" else []
+	
+	# Eğer villager erkekse, ismini Osmanlı dönemi isim havuzundan seç
+	if ChosenInfo.has("Info") and ChosenInfo["Info"].has("Gender"):
+		var gender = ChosenInfo["Info"]["Gender"]
+		if gender == "Male" and MALE_NAMES_OTTOMAN.size() > 0:
+			var random_name = MALE_NAMES_OTTOMAN[randi() % MALE_NAMES_OTTOMAN.size()]
+			ChosenInfo["Info"]["Name"] = random_name
+			print("[VillagerAIInitializer] Erkek villager için Osmanlı dönemi ismi seçildi: %s" % random_name)
+		else:
+			# Gender "Male" değilse veya isim havuzu boşsa, yine de bir isim atanmalı (fallback)
+			if not ChosenInfo["Info"].has("Name") or ChosenInfo["Info"]["Name"] == "":
+				if MALE_NAMES_OTTOMAN.size() > 0:
+					var random_name = MALE_NAMES_OTTOMAN[randi() % MALE_NAMES_OTTOMAN.size()]
+					ChosenInfo["Info"]["Name"] = random_name
+					ChosenInfo["Info"]["Gender"] = "Male"  # Gender'ı da düzelt
+					print("[VillagerAIInitializer] İsimsiz villager için Osmanlı dönemi ismi seçildi: %s" % random_name)
 		
 	return ChosenInfo
 	
