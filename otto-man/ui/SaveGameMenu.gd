@@ -138,6 +138,11 @@ func _on_slot_save_pressed(slot_id: int) -> void:
 		var save_date = metadata.get("save_date", "")
 		var message = "Slot %d'de zaten bir kayıt var:\n%s\n\nÜzerine kaydetmek istediğinizden emin misiniz?" % [slot_id, save_date]
 		_pending_save_slot = slot_id
+		# Release focus from any button before showing dialog
+		var current_focus = get_viewport().gui_get_focus_owner()
+		if current_focus:
+			current_focus.release_focus()
+			print("[SaveGameMenu] Released focus from: %s" % current_focus.name)
 		if confirm_dialog and confirm_dialog.has_method("show_dialog"):
 			confirm_dialog.show_dialog("Kayıt Üzerine Yaz", message, true)
 		else:
@@ -194,9 +199,12 @@ func _on_confirm_dialog_confirmed() -> void:
 		var slot_id = _pending_save_slot
 		_pending_save_slot = -1
 		_do_save_slot(slot_id)
+		# Save işlemi başladı, focus SaveGameMenu'de kalabilir (PauseMenu'ye dönecek)
 
 func _on_confirm_dialog_cancelled() -> void:
 	_pending_save_slot = -1
+	# GENEL ÇÖZÜM: Confirm dialog cancelled olduğunda SaveGameMenu'ye focus'u geri ver
+	call_deferred("_set_save_menu_focus")
 
 func _on_back_pressed() -> void:
 	back_requested.emit()
@@ -204,8 +212,17 @@ func _on_back_pressed() -> void:
 func show_menu() -> void:
 	visible = true
 	_refresh_slots()
+	# Use call_deferred to ensure UI is ready before grabbing focus
 	if slot_buttons.size() > 0:
-		slot_buttons[0].grab_focus()
+		call_deferred("_set_save_menu_focus")
+
+func _set_save_menu_focus() -> void:
+	# Set focus to first slot button when menu is ready
+	if slot_buttons.size() > 0:
+		var first_button = slot_buttons[0]
+		if first_button and first_button.visible and first_button.focus_mode != Control.FOCUS_NONE:
+			first_button.grab_focus()
+			print("[SaveGameMenu] ✅ Focus set to first slot button")
 
 func hide_menu() -> void:
 	visible = false

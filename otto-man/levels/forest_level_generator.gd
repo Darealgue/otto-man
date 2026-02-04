@@ -1485,6 +1485,27 @@ func _setup_day_night_system() -> void:
 	add_child(cloud_manager)
 	# Kick one immediate spawn to verify visibility without relying on timer init
 	cloud_manager.call_deferred("_spawn_cloud")
+	
+	# RainEffect ekle (yağmur sistemi için)
+	var rain_effect_scene := load("res://village/scenes/RainEffect.tscn") as PackedScene
+	if rain_effect_scene:
+		var rain_effect: Node2D = rain_effect_scene.instantiate() as Node2D
+		if rain_effect:
+			rain_effect.name = "RainEffect"
+			rain_effect.position = Vector2(0, -800)  # Köy sahnesindekiyle aynı pozisyon
+			add_child(rain_effect)
+			print("[ForestLevelGenerator] RainEffect added to forest scene")
+	
+	# Uçuşan yapraklar (rüzgar yönüne uygun; leaf_textures leaves klasöründen otomatik yüklenir)
+	var fl_script := load("res://village/scripts/FlyingLeavesController.gd") as GDScript
+	var leaf_scene := load("res://village/scenes/FlyingLeaf.tscn") as PackedScene
+	if fl_script and leaf_scene:
+		var fl_controller := Node2D.new()
+		fl_controller.name = "FlyingLeavesController"
+		fl_controller.set_script(fl_script)
+		fl_controller.set("leaf_scene", leaf_scene)
+		fl_controller.z_index = 22
+		add_child(fl_controller)
 
 # --- Backtracking helpers ---
 func _record_entry(node: Node2D, key: String) -> int:

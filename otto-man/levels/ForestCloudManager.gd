@@ -38,6 +38,37 @@ func _enter_tree() -> void:
 		cloud_y_position_min = 200.0
 		cloud_y_position_max = 320.0
 
+func _ready() -> void:
+	# Base CloudManager._ready() çağrılır ve _spawn_initial_clouds() otomatik çağrılır
+	# Ama parallax layer'lar hazır olmayabilir, bu yüzden bir frame bekleyip tekrar dene
+	super._ready()
+	# Parallax layer'lar hazır olmayabilir, bir frame bekleyip başlangıç bulutlarını spawn et
+	call_deferred("_ensure_initial_clouds")
+
+func _ensure_initial_clouds() -> void:
+	# Eğer başlangıç bulutları spawn olmadıysa (parallax layer'lar hazır değildi), tekrar dene
+	if _parallax_layers.is_empty():
+		# Parallax layer'ları tekrar kontrol et
+		_parallax_layers.clear()
+		for path in parallax_layer_paths:
+			var layer = get_node_or_null(path)
+			if layer is ParallaxLayer:
+				_parallax_layers.append(layer)
+	
+	# Eğer hala layer'lar yoksa, bir kez daha dene (scene tree tam hazır olmayabilir)
+	if _parallax_layers.is_empty():
+		await get_tree().process_frame
+		_parallax_layers.clear()
+		for path in parallax_layer_paths:
+			var layer = get_node_or_null(path)
+			if layer is ParallaxLayer:
+				_parallax_layers.append(layer)
+	
+	# Şimdi başlangıç bulutlarını spawn et (eğer daha önce spawn olmadıysa)
+	if not _parallax_layers.is_empty() and WeatherManager:
+		_spawn_initial_clouds()
+		print("[ForestCloudManager] Initial clouds spawned: ", _parallax_layers.size(), " layers available")
+
 func _spawn_cloud() -> void:
 	print("[ForestCloudManager] _spawn_cloud() called")
 	if _parallax_layers.is_empty() or not cloud_scene or cloud_textures.is_empty():

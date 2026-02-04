@@ -67,6 +67,9 @@ func save_game(slot_id: int) -> bool:
 	# Time state
 	save_data["time"] = _save_time_state()
 	
+	# Weather state
+	save_data["weather"] = _save_weather_state()
+	
 	# Save to file
 	var file_path = SAVE_DIR + "save_%d.json" % slot_id
 	var file = FileAccess.open(file_path, FileAccess.WRITE)
@@ -179,6 +182,7 @@ func load_game(slot_id: int) -> bool:
 	_load_world_state(save_data.get("world", {}))
 	_load_player_state(save_data.get("player", {}))
 	_load_time_state(save_data.get("time", {}))
+	_load_weather_state(save_data.get("weather", {}))
 	
 	# Change to saved scene
 	if not scene_path.is_empty() and is_instance_valid(SceneManager):
@@ -457,6 +461,18 @@ func _save_time_state() -> Dictionary:
 		state["days"] = TimeManager.days if "days" in TimeManager else 1
 		state["hours"] = TimeManager.hours if "hours" in TimeManager else 0
 		state["minutes"] = TimeManager.minutes if "minutes" in TimeManager else 0
+	
+	return state
+
+func _save_weather_state() -> Dictionary:
+	var state: Dictionary = {}
+	
+	if is_instance_valid(WeatherManager):
+		state["storm_active"] = WeatherManager.storm_active
+		state["storm_level"] = WeatherManager.storm_level
+		state["rain_intensity"] = WeatherManager.rain_intensity
+		state["wind_strength"] = WeatherManager.wind_strength
+		state["wind_direction_angle"] = WeatherManager.wind_direction_angle
 	
 	return state
 
@@ -756,6 +772,44 @@ func _load_time_state(state: Dictionary) -> void:
 		TimeManager.hours = int(state["hours"])
 	if state.has("minutes"):
 		TimeManager.minutes = int(state["minutes"])
+
+func _load_weather_state(state: Dictionary) -> void:
+	if not is_instance_valid(WeatherManager):
+		push_warning("[SaveManager] WeatherManager not available")
+		return
+	
+	# Eğer state boşsa veya storm_active yoksa, storm'u tamamen sıfırla
+	if state.is_empty() or not state.has("storm_active"):
+		# Yeni oyun veya eski save dosyası - storm'u tamamen sıfırla
+		if WeatherManager.storm_active:
+			WeatherManager.reset_storm_completely()
+		return
+	
+	# Save dosyasından weather state'i yükle
+	var storm_active: bool = state.get("storm_active", false)
+	var storm_level: int = state.get("storm_level", 1)
+	
+	# ÖNEMLİ: Önce mevcut storm'u tamamen sıfırla (eğer varsa)
+	if WeatherManager.storm_active:
+		WeatherManager.reset_storm_completely()
+	
+	# Eğer save dosyasında storm aktifse, storm'u başlat
+	if storm_active:
+		WeatherManager.set_storm_active(true, storm_level)
+		# Save dosyasından weather değerlerini yükle
+		if state.has("rain_intensity"):
+			WeatherManager.rain_intensity = float(state["rain_intensity"])
+		if state.has("wind_strength"):
+			WeatherManager.wind_strength = float(state["wind_strength"])
+		if state.has("wind_direction_angle"):
+			WeatherManager.wind_direction_angle = float(state["wind_direction_angle"])
+	else:
+		# Save dosyasında storm yoksa, weather değerlerini sıfırla
+		WeatherManager.rain_intensity = 0.0
+		WeatherManager.wind_strength = 0.0
+		WeatherManager.wind_direction_angle = 0.0
+	
+	print("[SaveManager] ✅ Weather state loaded: storm_active=%s, storm_level=%d, rain_intensity=%.3f" % [storm_active, storm_level, WeatherManager.rain_intensity])
 
 func _to_vector2(value) -> Vector2:
 	if value is Vector2:

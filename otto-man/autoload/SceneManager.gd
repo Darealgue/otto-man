@@ -28,6 +28,11 @@ func start_new_game() -> void:
 	previous_scene_path = ""
 	if is_instance_valid(VillageManager) and VillageManager.has_method("reset_saved_state_for_new_game"):
 		VillageManager.reset_saved_state_for_new_game()
+	# Yeni oyun başlatıldığında WeatherManager'ı tamamen reset et (storm'u kapat)
+	if is_instance_valid(WeatherManager):
+		if WeatherManager.storm_active:
+			WeatherManager.reset_storm_completely()
+		print("[SceneManager] WeatherManager reset for new game")
 	_change_scene(VILLAGE_SCENE, true)
 
 func return_to_main_menu() -> void:

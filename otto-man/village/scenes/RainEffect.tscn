@@ -1,0 +1,46 @@
+[gd_scene load_steps=4 format=3 uid="uid://rain_effect_01"]
+
+[ext_resource type="Script" path="res://village/scripts/RainController.gd" id="1_script"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rain"]
+particle_flag_disable_z = true
+emission_shape = 2
+emission_box_extents = Vector3(6000, 20, 1)
+direction = Vector3(0, 1, 0)
+spread = 8.0
+gravity = Vector3(0, 80, 0)
+initial_velocity_min = 320.0
+initial_velocity_max = 400.0
+scale_min = 0.4
+scale_max = 0.7
+color = Color(0.85, 0.9, 1.0, 0.75)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rain_overlap"]
+particle_flag_disable_z = true
+emission_shape = 2
+emission_box_extents = Vector3(6000, 20, 1)
+direction = Vector3(0, 1, 0)
+spread = 8.0
+gravity = Vector3(0, 80, 0)
+initial_velocity_min = 320.0
+initial_velocity_max = 400.0
+scale_min = 0.4
+scale_max = 0.7
+color = Color(0.85, 0.9, 1.0, 0.75)
+
+[node name="RainEffect" type="Node2D"]
+z_index = 25
+script = ExtResource("1_script")
+
+[node name="GPUParticles2D" type="GPUParticles2D" parent="."]
+amount = 0
+lifetime = 2.0
+process_material = SubResource("ParticleProcessMaterial_rain")
+visibility_rect = Rect2(-7000, -500, 14000, 5000)
+
+[node name="GPUParticles2DOverlap" type="GPUParticles2D" parent="."]
+z_index = 24
+amount = 0
+lifetime = 2.0
+process_material = SubResource("ParticleProcessMaterial_rain_overlap")
+visibility_rect = Rect2(-7000, -500, 14000, 5000)

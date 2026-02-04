@@ -236,6 +236,11 @@ func _on_slot_delete_pressed(slot_id: int) -> void:
 	# Show confirmation dialog
 	_pending_delete_slot = slot_id
 	print("[LoadGameMenu] Showing confirm dialog for slot %d" % slot_id)
+	# Release focus from any button before showing dialog
+	var current_focus = get_viewport().gui_get_focus_owner()
+	if current_focus:
+		current_focus.release_focus()
+		print("[LoadGameMenu] Released focus from: %s" % current_focus.name)
 	if confirm_dialog and confirm_dialog.has_method("show_dialog"):
 		confirm_dialog.show_dialog("Kayıt Sil", "Slot %d'yı silmek istediğinizden emin misiniz?" % slot_id, true)
 		print("[LoadGameMenu] Confirm dialog shown")
@@ -265,11 +270,17 @@ func _on_confirm_dialog_confirmed() -> void:
 		_pending_delete_slot = -1
 		print("[LoadGameMenu] Proceeding to delete slot %d" % slot_id)
 		_do_delete_slot(slot_id)
+		# Delete işlemi sonrası focus'u geri ver
+		call_deferred("_set_load_menu_focus")
 	else:
 		print("[LoadGameMenu] ⚠️ No pending delete slot!")
+		# Yine de focus'u geri ver
+		call_deferred("_set_load_menu_focus")
 
 func _on_confirm_dialog_cancelled() -> void:
 	_pending_delete_slot = -1
+	# GENEL ÇÖZÜM: Confirm dialog cancelled olduğunda LoadGameMenu'ye focus'u geri ver
+	call_deferred("_set_load_menu_focus")
 
 func _on_back_pressed() -> void:
 	back_requested.emit()
@@ -277,8 +288,20 @@ func _on_back_pressed() -> void:
 func show_menu() -> void:
 	visible = true
 	_refresh_slots()
-	if slot_buttons.size() > 0 and not slot_buttons[0].disabled:
-		slot_buttons[0].grab_focus()
+	# Use call_deferred to ensure UI is ready before grabbing focus
+	call_deferred("_set_load_menu_focus")
+
+func _set_load_menu_focus() -> void:
+	# Set focus to first enabled slot button when menu is ready
+	for button in slot_buttons:
+		if button and button.visible and not button.disabled and button.focus_mode != Control.FOCUS_NONE:
+			button.grab_focus()
+			print("[LoadGameMenu] ✅ Focus set to first enabled slot button")
+			return
+	# If no enabled button, focus back button
+	if back_button and back_button.visible and back_button.focus_mode != Control.FOCUS_NONE:
+		back_button.grab_focus()
+		print("[LoadGameMenu] ✅ Focus set to back button")
 
 func hide_menu() -> void:
 	visible = false

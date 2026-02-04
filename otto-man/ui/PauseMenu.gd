@@ -164,6 +164,20 @@ func _input(event: InputEvent) -> void:
 		# ESC tuşu (keyboard) - menüyü aç/kapat
 		if (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE) and key_event.pressed:
 			if is_paused:
+				# Eğer alt menüler açıksa önce onları kapat
+				if load_game_menu and load_game_menu.visible:
+					_on_load_game_back()
+					get_viewport().set_input_as_handled()
+					return
+				if save_game_menu and save_game_menu.visible:
+					_on_save_game_back()
+					get_viewport().set_input_as_handled()
+					return
+				if settings_menu and settings_menu.visible and settings_menu.has_method("is_visible") and settings_menu.is_visible():
+					_on_settings_back()
+					get_viewport().set_input_as_handled()
+					return
+				# Alt menü yoksa ana menüyü kapat
 				_close_menu()
 			else:
 				_open_menu()
@@ -227,10 +241,20 @@ func _open_menu() -> void:
 	# Center player camera when menu opens
 	_center_player_camera()
 	
+	# Ensure pause menu buttons have focus enabled
+	_enable_pause_menu_focus()
+	
+	# Focus'u deferred olarak ayarla (UI hazır olduktan sonra)
 	if resume_button:
-		resume_button.grab_focus()
+		call_deferred("_set_initial_focus")
 	
 	print("[PauseMenu] Menu opened, game paused")
+
+func _set_initial_focus() -> void:
+	# Pause menu açıldığında ilk button'a focus ver
+	if resume_button and resume_button.visible and resume_button.focus_mode != Control.FOCUS_NONE:
+		resume_button.grab_focus()
+		print("[PauseMenu] Focus set to resume_button")
 
 func _center_player_camera() -> void:
 	print("[PauseMenu] 🔍 DEBUG: Starting camera setup...")
@@ -379,6 +403,16 @@ func _find_all_cameras(node: Node) -> Array[Camera2D]:
 	return cameras
 
 func _close_menu() -> void:
+	# Eğer alt menüler açıksa önce onları kapat
+	if load_game_menu and load_game_menu.visible:
+		_on_load_game_back()
+		return
+	if save_game_menu and save_game_menu.visible:
+		_on_save_game_back()
+		return
+	if settings_menu and settings_menu.visible and settings_menu.has_method("is_visible") and settings_menu.is_visible():
+		_on_settings_back()
+		return
 	if not is_paused:
 		return
 	
@@ -419,6 +453,9 @@ func _close_menu() -> void:
 	
 	if main_panel:
 		main_panel.visible = true
+	
+	# Ensure pause menu buttons have focus enabled when menu is closed
+	_enable_pause_menu_focus()
 	
 	print("[PauseMenu] Menu closed, game resumed")
 
@@ -473,6 +510,13 @@ func _on_settings_pressed() -> void:
 
 func _on_main_menu_pressed() -> void:
 	_play_click()
+	# Pause menu button'larının focus'unu devre dışı bırak (ConfirmDialog açılacak)
+	_disable_pause_menu_focus()
+	# Release focus from any pause menu button before showing dialog
+	var current_focus = get_viewport().gui_get_focus_owner()
+	if current_focus:
+		current_focus.release_focus()
+		print("[PauseMenu] Released focus from: %s" % current_focus.name)
 	# Show confirmation dialog
 	_pending_main_menu_action = true
 	if confirm_dialog and confirm_dialog.has_method("show_dialog"):
@@ -482,11 +526,15 @@ func _on_main_menu_pressed() -> void:
 		_do_return_to_main_menu()
 
 func _show_save_slots() -> void:
+	# Pause menu button'larının focus'unu devre dışı bırak
+	_disable_pause_menu_focus()
 	if save_game_menu and save_game_menu.has_method("show_menu"):
 		save_game_menu.show_menu()
 		save_game_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
 
 func _show_load_menu() -> void:
+	# Pause menu button'larının focus'unu devre dışı bırak
+	_disable_pause_menu_focus()
 	if load_game_menu and load_game_menu.has_method("show_menu"):
 		load_game_menu.show_menu()
 		load_game_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
@@ -568,8 +616,10 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 func _on_load_game_back() -> void:
 	if load_game_menu and load_game_menu.has_method("hide_menu"):
 		load_game_menu.hide_menu()
-	if resume_button:
-		resume_button.grab_focus()
+	# Pause menu button'larının focus'unu tekrar etkinleştir
+	_enable_pause_menu_focus()
+	# Focus'u deferred olarak ayarla
+	call_deferred("_restore_pause_menu_focus")
 
 func _on_save_game_slot_selected(slot_id: int) -> void:
 	print("[PauseMenu] Saving game to slot %d..." % slot_id)
@@ -584,15 +634,20 @@ func _on_save_game_slot_selected(slot_id: int) -> void:
 		
 		if SaveManager.save_game(slot_id):
 			print("[PauseMenu] ✅ Game saved successfully to slot %d" % slot_id)
+			# Hide save menu after successful save
+			if save_game_menu and save_game_menu.has_method("hide_menu"):
+				save_game_menu.hide_menu()
+			# Pause menu button'larının focus'unu devre dışı bırak (ConfirmDialog açılacak)
+			_disable_pause_menu_focus()
+			# Release focus from any pause menu button before showing dialog
+			var current_focus = get_viewport().gui_get_focus_owner()
+			if current_focus:
+				current_focus.release_focus()
+				print("[PauseMenu] Released focus from: %s" % current_focus.name)
 			# Show success message
 			if confirm_dialog and confirm_dialog.has_method("show_dialog"):
 				confirm_dialog.show_dialog("Başarılı", "Oyun slot %d'ye kaydedildi!" % slot_id, false)
 				_pending_save_slot = slot_id
-			# Hide save menu after successful save
-			if save_game_menu and save_game_menu.has_method("hide_menu"):
-				save_game_menu.hide_menu()
-			if resume_button:
-				resume_button.grab_focus()
 		else:
 			push_error("[PauseMenu] Failed to save game to slot %d" % slot_id)
 			_show_error("Kaydetme Başarısız", "Oyun kaydedilemedi.")
@@ -603,19 +658,42 @@ func _on_save_game_slot_selected(slot_id: int) -> void:
 func _on_save_game_back() -> void:
 	if save_game_menu and save_game_menu.has_method("hide_menu"):
 		save_game_menu.hide_menu()
-	if resume_button:
-		resume_button.grab_focus()
+	# Pause menu button'larının focus'unu tekrar etkinleştir
+	_enable_pause_menu_focus()
+	# Focus'u deferred olarak ayarla
+	call_deferred("_restore_pause_menu_focus")
 
 func _on_confirm_dialog_confirmed() -> void:
 	if _pending_main_menu_action:
 		_pending_main_menu_action = false
 		_do_return_to_main_menu()
+		return
 	elif _pending_save_slot >= 0:
 		_pending_save_slot = -1
-		# Just acknowledge the save success, nothing else to do
+		# Save success dialog kapandı - pause menu'ye geri dön
+	
+	# GENEL ÇÖZÜM: Confirm dialog kapandığında HER ZAMAN pause menu'ye focus'u geri ver
+	_restore_focus_after_dialog()
+
+func _restore_pause_menu_focus() -> void:
+	# Pause menu'ye focus'u geri ver
+	if main_panel and main_panel.visible:
+		if resume_button and resume_button.visible and resume_button.focus_mode != Control.FOCUS_NONE:
+			resume_button.grab_focus()
+			print("[PauseMenu] ✅ Focus restored to resume_button")
+
+func _restore_focus_after_dialog() -> void:
+	# Confirm dialog kapandıktan sonra focus'u pause menu'ye geri ver
+	# Bu fonksiyon hem confirmed hem cancelled için kullanılır
+	_enable_pause_menu_focus()
+	call_deferred("_restore_pause_menu_focus")
 
 func _on_confirm_dialog_cancelled() -> void:
 	_pending_main_menu_action = false
+	_pending_save_slot = -1
+	
+	# GENEL ÇÖZÜM: Confirm dialog cancelled olduğunda HER ZAMAN pause menu'ye focus'u geri ver
+	_restore_focus_after_dialog()
 	_pending_save_slot = -1
 
 func _do_return_to_main_menu() -> void:

@@ -69,11 +69,13 @@ func show_dialog(title: String, message: String, show_cancel: bool = true) -> vo
 		confirm_button.visible = true
 		confirm_button.disabled = false
 		confirm_button.process_mode = Node.PROCESS_MODE_ALWAYS
-		print("[ConfirmDialog] Confirm button: visible=%s, disabled=%s, process_mode=%s" % [confirm_button.visible, confirm_button.disabled, confirm_button.process_mode])
+		confirm_button.focus_mode = Control.FOCUS_ALL  # Ensure focus is enabled
+		print("[ConfirmDialog] Confirm button: visible=%s, disabled=%s, process_mode=%s, focus_mode=%s" % [confirm_button.visible, confirm_button.disabled, confirm_button.process_mode, confirm_button.focus_mode])
 	
 	if cancel_button:
 		cancel_button.process_mode = Node.PROCESS_MODE_ALWAYS
-		print("[ConfirmDialog] Cancel button: visible=%s, disabled=%s, process_mode=%s" % [cancel_button.visible, cancel_button.disabled, cancel_button.process_mode])
+		cancel_button.focus_mode = Control.FOCUS_ALL  # Ensure focus is enabled
+		print("[ConfirmDialog] Cancel button: visible=%s, disabled=%s, process_mode=%s, focus_mode=%s" % [cancel_button.visible, cancel_button.disabled, cancel_button.process_mode, cancel_button.focus_mode])
 	
 	_result = false
 	_waiting_for_result = true
@@ -111,12 +113,22 @@ func show_dialog(title: String, message: String, show_cancel: bool = true) -> vo
 	
 	# Focus management - Always focus confirm button first, then cancel if shown
 	# This ensures confirm button is accessible
+	# Use call_deferred twice to ensure UI is ready and all focus changes are complete
 	if confirm_button:
+		call_deferred("call_deferred", "_set_dialog_focus")
+		print("[ConfirmDialog] Focus will be set to confirm button (double deferred)")
+
+func _set_dialog_focus() -> void:
+	# Set focus to confirm button when dialog is ready
+	# Force focus even if something else has it
+	if confirm_button and confirm_button.visible and confirm_button.focus_mode != Control.FOCUS_NONE:
+		# Release focus from any other control first
+		var current_focus = get_viewport().gui_get_focus_owner()
+		if current_focus:
+			current_focus.release_focus()
+		# Now grab focus
 		confirm_button.grab_focus()
-		print("[ConfirmDialog] Focus set to confirm button")
-	if show_cancel and cancel_button:
-		# Cancel button will get focus after confirm (for keyboard navigation)
-		pass
+		print("[ConfirmDialog] ✅ Focus set to confirm button (previous focus: %s)" % (current_focus.name if current_focus else "none"))
 
 func _on_confirm_pressed() -> void:
 	print("[ConfirmDialog] 🔵 CONFIRM BUTTON PRESSED!")

@@ -98,19 +98,28 @@ func _process(delta: float) -> void:
 	
 	_current_hour = floori(current_time_float)
 	
+	# Yağmur karartması: rain_intensity'e göre gökyüzü koyulaşır
+	var rain_darken: float = 0.0
+	var rain_tint: Color = Color(0.6, 0.65, 0.7, 1.0)  # Yağmurlu gökyüzü tonu (gri-mavi)
+	if WeatherManager:
+		rain_darken = WeatherManager.rain_intensity * 0.4  # Max %40 karartma
+	
 	var lerp_val = delta * transition_speed
-	self.color = self.color.lerp(_target_main_color, lerp_val)
+	var final_main_color = _target_main_color.lerp(rain_tint.darkened(rain_darken), rain_darken)
+	var final_bg_color = _target_bg_color.lerp(rain_tint.darkened(rain_darken), rain_darken)
+	
+	self.color = self.color.lerp(final_main_color, lerp_val)
 	if background_modulate:
-		background_modulate.color = background_modulate.color.lerp(_target_bg_color, lerp_val)
+		background_modulate.color = background_modulate.color.lerp(final_bg_color, lerp_val)
 
 	if sky_gradient_resource and sky_gradient_resource.gradient:
 		var grad = sky_gradient_resource.gradient
 		var current_top_grad_color = grad.get_color(0)
 		var current_bottom_grad_color = grad.get_color(1)
 		
-		# Use _target_main_color for sky gradient to match the overall color scheme
-		var target_top_grad_color = _target_main_color 
-		var target_bottom_grad_color = _target_main_color.lightened(0.3)
+		# Yağmur karartması ile gökyüzü gradient'i
+		var target_top_grad_color = final_bg_color
+		var target_bottom_grad_color = final_bg_color.lightened(0.3)
 
 		grad.set_color(0, current_top_grad_color.lerp(target_top_grad_color, lerp_val))
 		grad.set_color(1, current_bottom_grad_color.lerp(target_bottom_grad_color, lerp_val))

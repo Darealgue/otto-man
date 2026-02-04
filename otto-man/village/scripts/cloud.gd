@@ -11,6 +11,11 @@ extends Node2D
 
 var current_speed: float
 
+# Fırtına/sağanakta bulut grileşmesi: hedef rengi yumuşak geçiş için cache
+const NORMAL_CLOUD_COLOR: Vector3 = Vector3(2.0, 2.0, 2.0)  # Parlak beyaz (mevcut görünüm)
+const STORM_CLOUD_COLOR: Vector3 = Vector3(0.48, 0.50, 0.55)  # Koyu gri (fırtına/sağanak)
+const CLOUD_DARKEN_LERP: float = 0.004  # Çok yavaş geçiş; oyuncu zor fark eder
+
 # Make sure you have a Sprite2D node named "CloudSprite" as a child of this node in your cloud.tscn
 @onready var cloud_sprite: Sprite2D = $CloudSprite 
 @onready var viewport_size: Vector2 = get_viewport_rect().size
@@ -32,23 +37,43 @@ func _ready() -> void:
 	else:
 		current_speed = abs(current_speed)  # Ensure speed is positive
 
-	# Initial state: invisible for fade-in. Preserve original color, only change alpha.
-	# Make clouds fully white to stand out against the sky
-	# Using values > 1.0 can cause glow/bloom but keeps it white. 
-	# If previous 1.5 was "ice blue", it means the texture itself has blue tints or the environment modulates it blue.
-	# Setting modulate to high values (e.g. 2.0, 2.0, 2.0) usually results in pure white overexposure.
-	cloud_sprite.modulate = Color(2.0, 2.0, 2.0, 0.0)
-	
-	var tween_fade_in = create_tween()
-	# Target the original alpha value (presumably 1.0 if fully opaque)
-	tween_fade_in.tween_property(cloud_sprite, "modulate:a", 1.0, fade_in_duration).from(0.0)
-	tween_fade_in.play()
+	# Başlangıç bulutları fade-in skip edebilir (meta ile kontrol)
+	var skip_fade = has_meta("skip_fade_in") and get_meta("skip_fade_in") == true
+	if skip_fade:
+		cloud_sprite.modulate = Color(2.0, 2.0, 2.0, 1.0)
+	else:
+		# Initial state: invisible for fade-in. Preserve original color, only change alpha.
+		cloud_sprite.modulate = Color(2.0, 2.0, 2.0, 0.0)
+		var tween_fade_in = create_tween()
+		tween_fade_in.tween_property(cloud_sprite, "modulate:a", 1.0, fade_in_duration).from(0.0)
+		tween_fade_in.play()
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(cloud_sprite) or not cloud_sprite.texture:
 		return # Wait for texture or if sprite is somehow gone
 
-	position.x += current_speed * delta
+	# Rüzgar güçlüyse bulut hızını artır (storm'da rüzgar hissi)
+	var wind_multiplier: float = 1.0
+	if WeatherManager:
+		var wind_strength: float = WeatherManager.wind_strength
+		wind_multiplier = 1.0 + wind_strength * 0.6  # Rüzgar güçlüyken %60'a kadar hızlanır
+	
+	position.x += current_speed * delta * wind_multiplier
+
+	# Fırtına ve sağanak yağmurda bulutları grileştir
+	if WeatherManager:
+		var weather_darken: float = 0.0
+		if WeatherManager.storm_active:
+			weather_darken = 1.0
+		elif WeatherManager.rain_intensity >= 0.65:
+			weather_darken = 0.95  # Sağanak
+		elif WeatherManager.rain_intensity >= 0.35:
+			weather_darken = lerp(0.2, 0.8, (WeatherManager.rain_intensity - 0.35) / 0.3)  # Orta → yoğun
+		var target_rgb: Vector3 = NORMAL_CLOUD_COLOR.lerp(STORM_CLOUD_COLOR, weather_darken)
+		var current_rgb := Vector3(cloud_sprite.modulate.r, cloud_sprite.modulate.g, cloud_sprite.modulate.b)
+		var new_rgb := current_rgb.lerp(target_rgb, CLOUD_DARKEN_LERP)
+		var a: float = cloud_sprite.modulate.a
+		cloud_sprite.modulate = Color(new_rgb.x, new_rgb.y, new_rgb.z, a)
 
 	# Check for despawn when off-screen
 	# The CloudManager will eventually handle spawning positions and more robust despawning.

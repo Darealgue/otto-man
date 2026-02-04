@@ -15,13 +15,16 @@ extends Node
 @export var parallax_layer_paths: Array[NodePath] = []
 
 # SPAWNING PARAMETERS
-## Minimum time (seconds) between cloud spawn attempts
+## Minimum time (seconds) between cloud spawn attempts (yağmur yokken base değerler kullanılır)
 @export var min_spawn_interval: float = 3.0
-## Maximum time (seconds) between cloud spawn attempts
+## Maximum time (seconds) between cloud spawn attempts (yağmur yokken base değerler kullanılır)
 @export var max_spawn_interval: float = 8.0
 ## Chance (0.0 to 1.0) to actually spawn a cloud when the timer triggers
 ## This helps create days with fewer or no clouds.
 @export var cloud_spawn_chance: float = 0.75
+## Base spawn interval (yağmur yokken). Yağmur başladığında bu değer azalır (daha sık spawn).
+@export var base_min_spawn_interval: float = 3.0
+@export var base_max_spawn_interval: float = 8.0
 ## Minimum Y position for spawning clouds (relative to viewport top)
 @export var cloud_y_position_min: float = 50.0
 ## Maximum Y position for spawning clouds (relative to viewport top, or a bit above for variety)
@@ -37,6 +40,7 @@ extends Node
 var _parallax_layers: Array[Node] = []
 var _spawn_timer: Timer
 var _viewport_width: float = 0.0
+var _last_rain_intensity: float = 0.0  # Yağmur başlangıcını tespit etmek için
 
 
 func _ready() -> void:
@@ -69,6 +73,16 @@ func _ready() -> void:
 		return
 		
 	_viewport_width = get_viewport().get_visible_rect().size.x
+	base_min_spawn_interval = min_spawn_interval
+	base_max_spawn_interval = max_spawn_interval
+
+	# Hava durumuna göre başlangıç bulutlarını spawn et (gökyüzü bomboş başlamasın)
+	_spawn_initial_clouds()
+	
+	# Storm ve yağmur başladığında bulut patlaması için sinyal dinle
+	if WeatherManager:
+		WeatherManager.storm_changed.connect(_on_storm_changed)
+		WeatherManager.weather_changed.connect(_on_weather_changed)
 
 	# Setup spawn timer
 	_spawn_timer = Timer.new()
@@ -85,12 +99,31 @@ func _ready() -> void:
 
 
 func _on_spawn_timer_timeout() -> void:
+	# Yağmur şiddetine göre spawn interval'i ayarla (yağmur varsa daha sık spawn)
+	var effective_min: float = base_min_spawn_interval
+	var effective_max: float = base_max_spawn_interval
+	var effective_chance: float = cloud_spawn_chance
+	
+	if WeatherManager:
+		var rain_intensity: float = WeatherManager.rain_intensity
+		if rain_intensity > 0.02:
+			# Yağmur varsa spawn interval'i azalt (daha sık bulut)
+			var rain_multiplier: float = 1.0 - (rain_intensity * 0.7)  # Max %70 azalma
+			effective_min = base_min_spawn_interval * rain_multiplier
+			effective_max = base_max_spawn_interval * rain_multiplier
+			effective_chance = min(1.0, cloud_spawn_chance + rain_intensity * 0.25)  # Yağmurda daha yüksek şans
+		
+		# Storm'da ekstra sık spawn
+		if WeatherManager.storm_active:
+			effective_min *= 0.3
+			effective_max *= 0.3
+			effective_chance = 1.0  # Storm'da her zaman spawn
+	
 	# Reset timer for next interval
 	if is_instance_valid(_spawn_timer):
-		_spawn_timer.wait_time = randf_range(min_spawn_interval, max_spawn_interval)
+		_spawn_timer.wait_time = randf_range(effective_min, effective_max)
 
-	if randf() > cloud_spawn_chance:
-		# print("CloudManager: Skipped spawning cloud due to chance.")
+	if randf() > effective_chance:
 		return
 
 	_spawn_cloud()
@@ -206,6 +239,134 @@ func _spawn_cloud() -> void:
 func queue_free_instance(instance: Node) -> void:
 	if is_instance_valid(instance):
 		instance.queue_free()
+
+## Hava durumuna göre başlangıç bulutlarını spawn et. Bulutlar ekranın solundan ortaya kadar
+## rastgele pozisyonlarda başlar, böylece gökyüzü hava durumuna uygun şekilde dolu görünür.
+func _spawn_initial_clouds() -> void:
+	if not WeatherManager:
+		return
+	
+	var rain_intensity: float = WeatherManager.rain_intensity
+	var wind_strength: float = WeatherManager.wind_strength if WeatherManager else 0.0
+	
+	# Hava durumuna göre bulut sayısı belirle
+	var initial_count: int = 0
+	if rain_intensity > 0.5:
+		# Yağmurlu: bol bulutlu
+		initial_count = randi_range(8, 12)
+	elif rain_intensity > 0.2:
+		# Hafif yağmur: orta bulutlu
+		initial_count = randi_range(4, 7)
+	else:
+		# Açık: seyrek bulutlu
+		initial_count = randi_range(1, 3)
+	
+	if initial_count <= 0:
+		return
+	
+	var viewport = get_viewport()
+	var viewport_size = viewport.get_visible_rect().size
+	var cam := viewport.get_camera_2d()
+	var cam_x := 0.0
+	if cam and cam is Camera2D:
+		cam_x = (cam as Camera2D).global_position.x
+	
+	# Bulutları ekranın solundan ortaya kadar rastgele pozisyonlarda spawn et
+	for i in range(initial_count):
+		var target_layer: ParallaxLayer = _parallax_layers.pick_random()
+		if not is_instance_valid(target_layer):
+			continue
+		
+		var new_cloud = cloud_scene.instantiate()
+		if not new_cloud is Node2D:
+			queue_free_instance(new_cloud)
+			continue
+		
+		var cloud_sprite = new_cloud.get_node_or_null("CloudSprite")
+		if not cloud_sprite is Sprite2D:
+			queue_free_instance(new_cloud)
+			continue
+		
+		cloud_sprite.texture = cloud_textures.pick_random()
+		if randi() % 2 == 0:
+			cloud_sprite.flip_h = true
+		
+		# Rastgele yön (sol veya sağ)
+		var move_left = false
+		if allow_left_moving_clouds and allow_right_moving_clouds:
+			move_left = randi() % 2 == 0
+		elif allow_left_moving_clouds:
+			move_left = true
+		elif allow_right_moving_clouds:
+			move_left = false
+		else:
+			queue_free_instance(new_cloud)
+			continue
+		
+		new_cloud.set("move_left", move_left)
+		
+		# Rüzgar güçlüyse hızı artır (cloud.gd'de _ready() çağrılmadan önce set ediyoruz)
+		# cloud.gd'nin speed_min/max'ını override etmek için meta kullanabiliriz veya
+		# cloud.gd'ye rüzgar desteği ekleriz. Şimdilik normal hızla başlasın.
+		
+		target_layer.add_child(new_cloud)
+		
+		# Pozisyon: ekranın solundan ortaya kadar (-viewport_width/2 ile +viewport_width/2 arası)
+		var spawn_y = randf_range(cloud_y_position_min, cloud_y_position_max)
+		var spawn_x_range_start: float
+		var spawn_x_range_end: float
+		
+		if is_zero_approx(target_layer.motion_scale.x):
+			# Screen space
+			spawn_x_range_start = -viewport_size.x * 0.5
+			spawn_x_range_end = viewport_size.x * 0.5
+			var spawn_x = randf_range(spawn_x_range_start, spawn_x_range_end)
+			new_cloud.position = Vector2(spawn_x, spawn_y)
+		else:
+			# World space
+			spawn_x_range_start = cam_x - viewport_size.x * 0.5
+			spawn_x_range_end = cam_x + viewport_size.x * 0.5
+			var spawn_x = randf_range(spawn_x_range_start, spawn_x_range_end)
+			new_cloud.global_position = Vector2(spawn_x, spawn_y)
+		
+		# Fade-in'i skip et veya çok hızlı yap (zaten görünür başlasın)
+		if cloud_sprite.has_method("set_modulate"):
+			cloud_sprite.modulate = Color(2.0, 2.0, 2.0, 1.0)  # Direkt görünür
+		else:
+			# cloud.gd'nin fade-in tween'ini iptal etmek için meta ekle
+			new_cloud.set_meta("skip_fade_in", true)
+
+
+## Storm başladığında çağrılır: bulut patlaması spawn'ı.
+func _on_storm_changed(active: bool) -> void:
+	if active:
+		# Storm başladığında hemen 8-12 bulut spawn et (gökyüzü hızla bulutlanır, yağmurdan önce)
+		var burst_count: int = randi_range(8, 12)
+		for i in range(burst_count):
+			call_deferred("_spawn_cloud_delayed", randf_range(0.05, 0.3))
+
+
+## Yağmur başladığında çağrılır: bulutlar önce spawn olsun.
+func _on_weather_changed() -> void:
+	if not WeatherManager:
+		return
+	
+	var rain_intensity: float = WeatherManager.rain_intensity
+	
+	# Yağmur yeni başladıysa (0'dan >0.02'ye geçti) bulutları spawn et
+	if _last_rain_intensity <= 0.02 and rain_intensity > 0.02:
+		# Yağmur başlangıç aşamasında: 3-6 bulut spawn et (gökyüzü bulutlanır, yağmurdan önce)
+		var burst_count: int = randi_range(3, 6)
+		for i in range(burst_count):
+			call_deferred("_spawn_cloud_delayed", randf_range(0.1, 0.4))
+	
+	_last_rain_intensity = rain_intensity
+
+
+func _spawn_cloud_delayed(delay: float) -> void:
+	await get_tree().create_timer(delay).timeout
+	_spawn_cloud()
+
 
 # Optional: A function to clear all currently managed clouds
 func clear_all_clouds() -> void:

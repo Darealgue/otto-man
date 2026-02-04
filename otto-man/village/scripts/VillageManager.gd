@@ -2948,11 +2948,13 @@ func _apply_event_effects(ev: Dictionary) -> void:
 			var reduction_pct = (1.0 - multiplier) * 100.0
 			print("[EVENT DEBUG]   Stone multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
 		"severe_storm":
-			# Severe Storm (şiddetli fırtına) - tüm üretim azalır
+			# Severe Storm (şiddetli fırtına) - tüm üretim azalır; hava durumuna yoğun yağmur + güçlü rüzgar
 			var old_val = global_multiplier
 			global_multiplier *= multiplier
 			var reduction_pct = (1.0 - multiplier) * 100.0
 			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, global_multiplier, reduction_pct])
+			if WeatherManager:
+				WeatherManager.set_storm_active(true, event_level)
 		"weather_blessing":
 			# Weather Blessing (hava bereketi) - tüm üretim artar
 			var old_val = global_multiplier
@@ -3156,6 +3158,8 @@ func _remove_event_effects(ev: Dictionary) -> void:
 			var old_val = global_multiplier
 			global_multiplier /= multiplier
 			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (restored)" % [old_val, global_multiplier])
+			if WeatherManager:
+				WeatherManager.set_storm_active(false)
 		"weather_blessing":
 			var old_val = global_multiplier
 			global_multiplier /= bonus_multiplier
