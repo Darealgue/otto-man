@@ -244,10 +244,37 @@ var current_mission_result: Dictionary = {}
 var trade_mode: bool = false
 var trade_overlay: Panel = null
 var trade_offers_vbox: VBoxContainer = null
-var current_trade_index: int = 0
-var current_offer_index: int = 0
-var available_trade_offers: Array = []
+var current_trade_index: int = 0  # Gelen tüccarlar için
+var current_trader_mission_index: int = 0  # Tüccar cariye görevleri için
+var active_traders: Array = []  # Aktif tüccarlar listesi
+
+# Tüccar satın alma pop-up
+var trader_buy_popup: Panel = null
+var trader_buy_grid: GridContainer = null
+var current_trader_buy_index: int = 0
+var selected_trader: Dictionary = {}
+var trader_buy_popup_open: bool = false
+const TRADER_BUY_GRID_COLUMNS: int = 4
 var current_focus_panel: String = "active" # "active" or "offers"
+
+# Tüccar cariye görev pop-up
+var trader_mission_popup: Panel = null
+var trader_mission_popup_open: bool = false
+var trader_mission_step: int = 0  # 0: köy seçimi, 1: asker sayısı, 2: mal seçimi
+var trader_mission_selected_route_index: int = 0
+var trader_mission_selected_route: Dictionary = {}
+var trader_mission_soldier_count: int = 0
+var trader_mission_selected_products: Dictionary = {}  # {resource: quantity}
+var trader_mission_current_product_index: int = 0
+var trader_mission_selected_concubine: Concubine = null
+const TRADER_MISSION_PRODUCT_COLUMNS: int = 4
+const TRADEABLE_RESOURCES: Array[String] = ["wood", "stone", "food", "water"]
+# Miktar alt pop-up (mal seçiminde A ile açılır)
+var trader_mission_quantity_popup_open: bool = false
+var trader_mission_quantity_editing_resource: String = ""
+var trader_mission_quantity_temp_value: int = 0
+var trader_mission_quantity_panel: Panel = null
+var trader_mission_quantity_label: Label = null
 
 # Haber merkezi navigasyonu durumu
 var news_focus: String = "village" # "village" | "world" | "random"
@@ -287,7 +314,8 @@ func _ready():
 	if mission_manager.has_signal("news_posted"):
 		mission_manager.news_posted.connect(_on_news_posted)
 	if mission_manager.has_signal("trade_offers_updated"):
-		mission_manager.trade_offers_updated.connect(_on_trade_offers_updated)
+		if mission_manager.has_signal("active_traders_updated"):
+			mission_manager.active_traders_updated.connect(_on_active_traders_updated)
 	if mission_manager.has_signal("mission_chain_progressed"):
 		mission_manager.mission_chain_progressed.connect(_on_chain_progressed)
 	if mission_manager.has_signal("mission_list_changed"):
@@ -1933,7 +1961,17 @@ func show_page(page_index: int):
 				trade_page.visible = true
 				# print("TradePage gösterildi")
 				_update_trade_diplomacy_visibility()
+				# Başlıkları güncelle
+				var active_title = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsTitle")
+				if active_title:
+					active_title.text = "💰 GELEN TÜCCARLAR"
+				var offers_title = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersTitle")
+				if offers_title:
+					offers_title.text = "👤 TÜCCAR CARİYE GÖREVLERİ"
 				update_trade_ui()
+				# Pop-up açıksa göster
+				if trader_buy_popup_open and trader_buy_popup:
+					trader_buy_popup.visible = true
 		PageType.DIPLOMACY:
 			# Diplomasi: ayrı sayfa
 			if diplomacy_page:
@@ -3914,6 +3952,19 @@ func _input(event):
 			return
 	
 	# ESC ve Dodge tuşu ile geri gitme (basılı tutma desteği)
+	# Önce açık alt pop-up'ları kapat (B tuşu tek basışta pop-up'ı kapatsın)
+	var back_or_dash = event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back") or event.is_action_pressed("dash")
+	if back_or_dash:
+		if trader_mission_quantity_popup_open:
+			_close_trader_mission_quantity_popup()
+			return
+		if trader_mission_popup_open:
+			_close_trader_mission_popup()
+			return
+		if trader_buy_popup_open:
+			_close_trader_buy_popup()
+			return
+	
 	var should_close := false
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
 		# Windows tuşunu kontrol et
@@ -4597,88 +4648,8 @@ func _on_news_posted(news: Dictionary):
 	# Unread badge güncelle
 	_update_unread_badge()
 
-func _open_trade_overlay():
-	if trade_overlay:
-		trade_overlay.visible = true
-		return
-	# Basit overlay
-	trade_overlay = Panel.new()
-	trade_overlay.name = "TradeOverlay"
-	trade_overlay.custom_minimum_size = Vector2(600, 360)
-	trade_overlay.anchor_left = 0.5
-	trade_overlay.anchor_top = 0.5
-	trade_overlay.anchor_right = 0.5
-	trade_overlay.anchor_bottom = 0.5
-	trade_overlay.offset_left = -300
-	trade_overlay.offset_right = 300
-	trade_overlay.offset_top = -180
-	trade_overlay.offset_bottom = 180
-	
-	var root = get_tree().get_root()
-	root.add_child(trade_overlay)
-	
-	var vb = VBoxContainer.new()
-	trade_overlay.add_child(vb)
-	vb.anchor_left = 0
-	vb.anchor_top = 0
-	vb.anchor_right = 1
-	vb.anchor_bottom = 1
-	vb.offset_left = 16
-	vb.offset_right = -16
-	vb.offset_top = 16
-	vb.offset_bottom = -16
-
-	var title = Label.new()
-	title.text = "Ticaret Anlaşmaları"
-	title.add_theme_font_size_override("font_size", 18)
-	vb.add_child(title)
-
-	trade_offers_vbox = VBoxContainer.new()
-	trade_offers_vbox.add_theme_constant_override("separation", 8)
-	vb.add_child(trade_offers_vbox)
-
-	# Örnek teklif listesi (ileride MissionManager'dan dinamik)
-	available_trade_offers = [
-		{"partner": "Doğu Köyü", "daily_gold": 100, "mods": {"food": 3}, "infinite": true},
-		{"partner": "Batı Kasabası", "daily_gold": 60, "mods": {"wood": 2}, "days": 3, "infinite": false}
-	]
-	current_trade_index = 0
-	_update_trade_overlay()
-	trade_mode = true
-
-func _update_trade_overlay():
-	if not trade_offers_vbox:
-		return
-	for c in trade_offers_vbox.get_children():
-		c.queue_free()
-	for i in range(available_trade_offers.size()):
-		var t = available_trade_offers[i]
-		var row = HBoxContainer.new()
-		trade_offers_vbox.add_child(row)
-		var mark = Label.new()
-		mark.text = ">" if i == current_trade_index else "  "
-		row.add_child(mark)
-		var lbl = Label.new()
-		var mods_text = ""
-		for r in t.get("mods", {}).keys():
-			var d = int(t["mods"][r])
-			mods_text += "%s%s %s  " % ["+" if d>=0 else "", d, r]
-		lbl.text = "%s | %d altın/gün | %s%s" % [t.get("partner","?"), int(t.get("daily_gold",0)), mods_text, (" (Süresiz)" if t.get("infinite",false) else "")]
-		row.add_child(lbl)
-
-func _apply_selected_trade_offer():
-	if available_trade_offers.is_empty():
-		return
-	var sel = available_trade_offers[current_trade_index]
-	var mm = get_node_or_null("/root/MissionManager")
-	if mm and mm.has_method("add_trade_agreement"):
-		mm.add_trade_agreement(sel.get("partner","?"), int(sel.get("daily_gold",0)), sel.get("mods",{}), int(sel.get("days",0)), bool(sel.get("infinite",false)))
-	_close_trade_overlay()
-
-func _close_trade_overlay():
-	trade_mode = false
-	if trade_overlay:
-		trade_overlay.visible = false
+# ESKİ OVERLAY SİSTEMİ KALDIRILDI - Artık ticaret sekmesi kullanılıyor
+# Bu fonksiyonlar yeni sistemde kullanılmıyor
 
 # Cariye detay sayfası kontrolleri
 func handle_concubine_details_input(event):
@@ -4708,6 +4679,26 @@ func handle_concubine_details_input(event):
 
 # --- TİCARET SAYFASI ---
 func handle_trade_input(event):
+	# Pop-up açıksa SADECE pop-up input'larını işle, diğerlerini engelle
+	if trader_buy_popup_open:
+		var handled = handle_trader_buy_popup_input(event)
+		if handled:
+			return
+		# Pop-up açıkken diğer input'ları engelle
+		return
+	
+	# Tüccar cariye görev pop-up açıksa (önce miktar alt pop-up kontrolü)
+	if trader_mission_popup_open:
+		if trader_mission_quantity_popup_open:
+			var handled = handle_trader_mission_quantity_popup_input(event)
+			if handled:
+				return
+		var handled = handle_trader_mission_popup_input(event)
+		if handled:
+			return
+		# Pop-up açıkken diğer input'ları engelle
+		return
+	
 	# Sol panel (aktif) ile sağ panel (teklifler) arasında LEFT/RIGHT ile geçiş yapalım
 	var focus_offers = (current_focus_panel == "offers")
 	var allow_step = dpad_debounce_timer <= 0
@@ -4735,7 +4726,7 @@ func handle_trade_input(event):
 		if current_focus_panel == "active":
 			current_trade_index = max(0, current_trade_index - 1)
 		else:
-			current_offer_index = max(0, current_offer_index - 1)
+			current_trader_mission_index = max(0, current_trader_mission_index - 1)
 		update_trade_ui()
 		return
 	# DOWN
@@ -4745,191 +4736,1226 @@ func handle_trade_input(event):
 		dpad_debounce_timer = dpad_debounce_delay
 		if current_focus_panel == "active":
 			var mm = get_node_or_null("/root/MissionManager")
-			var size = mm.trade_agreements.size() if (mm and "trade_agreements" in mm) else 0
+			var size = active_traders.size() if mm else 0
 			current_trade_index = min(max(0,size-1), current_trade_index + 1)
 		else:
-			current_offer_index = min(max(0,available_trade_offers.size()-1), current_offer_index + 1)
+			var mm = get_node_or_null("/root/MissionManager")
+			var trader_concubines = []
+			if mm:
+				for cariye in mm.concubines.values():
+					if cariye.role == Concubine.Role.TÜCCAR and cariye.status == Concubine.Status.BOŞTA:
+						trader_concubines.append(cariye)
+			current_trader_mission_index = min(max(0,trader_concubines.size()-1), current_trader_mission_index + 1)
 		update_trade_ui()
 		_scroll_trade_selection()
 		return
 	if event.is_action_pressed("ui_accept"):
 		if current_focus_panel == "active":
-			_cancel_selected_trade_agreement()
+			_open_trader_buy_menu()
 		else:
-			_apply_selected_trade_offer_gamepad()
+			_open_trader_mission_menu()
 		return
 
 func update_trade_ui():
 	if current_page != PageType.TRADE:
 		return
-	var active_list = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsScroll/ActiveAgreementsList")
-	var offers_list = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersScroll/OffersList")
+	
+	# Sol panel: Gelen Tüccarlar
+	var traders_list = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsScroll/ActiveAgreementsList")
+	# Sağ panel: Tüccar Cariye Görevleri (eski OffersPanel'i kullanıyoruz)
+	var missions_list = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersScroll/OffersList")
+	
 	# Navigation indices clamp
 	if current_trade_index < 0:
 		current_trade_index = 0
-	if current_offer_index < 0:
-		current_offer_index = 0
-	if active_list:
-		for c in active_list.get_children():
+	if current_trader_mission_index < 0:
+		current_trader_mission_index = 0
+	
+	# === SOL PANEL: GELEN TÜCCARLAR ===
+	if traders_list:
+		for c in traders_list.get_children():
 			c.queue_free()
+		
 		var mm = get_node_or_null("/root/MissionManager")
-		if mm and "trade_agreements" in mm:
-			for i in range(mm.trade_agreements.size()):
-				var ta = mm.trade_agreements[i]
+		if mm and mm.has_method("get_active_traders"):
+			active_traders = mm.get_active_traders()
+			
+			if active_traders.is_empty():
+				var empty_label = Label.new()
+				empty_label.text = "Şu anda köyde tüccar yok.\nTüccarlar zaman zaman köye gelecek."
+				empty_label.add_theme_font_size_override("font_size", 14)
+				empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+				traders_list.add_child(empty_label)
+			else:
+				for i in range(active_traders.size()):
+					var trader = active_traders[i]
+					var card = PanelContainer.new()
+					card.custom_minimum_size = Vector2(0, 100)
+					var style = StyleBoxFlat.new()
+					style.corner_radius_top_left = 4
+					style.corner_radius_top_right = 4
+					style.corner_radius_bottom_left = 4
+					style.corner_radius_bottom_right = 4
+					
+					if i == current_trade_index:
+						style.border_width_left = 2
+						style.border_width_top = 2
+						style.border_width_right = 2
+						style.border_width_bottom = 2
+						style.border_color = Color(0.6, 0.5, 0.3, 1)
+						style.bg_color = Color(0.2, 0.18, 0.15, 1.0)
+					else:
+						style.bg_color = Color(0.15, 0.13, 0.1, 0.85)
+					
+					card.add_theme_stylebox_override("panel", style)
+					traders_list.add_child(card)
+					
+					var vb = VBoxContainer.new()
+					card.add_child(vb)
+					
+					var title = Label.new()
+					title.text = "💰 %s" % trader.get("name", "Tüccar")
+					title.add_theme_font_size_override("font_size", 14)
+					vb.add_child(title)
+					
+					var origin = Label.new()
+					origin.text = "📍 %s'den geldi" % trader.get("origin_settlement", "?")
+					origin.add_theme_font_size_override("font_size", 12)
+					origin.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+					vb.add_child(origin)
+					
+					# Ürünler (her ürün ayrı satırda)
+					var products = trader.get("products", [])
+					if not products.is_empty():
+						var products_title = Label.new()
+						products_title.text = "Satıyor:"
+						products_title.add_theme_font_size_override("font_size", 11)
+						products_title.add_theme_color_override("font_color", Color(0.8, 0.9, 0.8))
+						vb.add_child(products_title)
+						
+						# Her ürün için ayrı satır (max 2-3 ürün göster, fazlası için "...")
+						var max_show = 3
+						for idx in range(min(products.size(), max_show)):
+							var p = products[idx]
+							var res_name = _get_resource_display_name(p.get("resource", "?"))
+							var price = p.get("price_per_unit", 0)
+							var product_line = Label.new()
+							product_line.text = "  • %s (%d altın)" % [res_name, price]
+							product_line.add_theme_font_size_override("font_size", 10)
+							product_line.add_theme_color_override("font_color", Color(0.7, 0.85, 0.7))
+							vb.add_child(product_line)
+						
+						if products.size() > max_show:
+							var more_label = Label.new()
+							more_label.text = "  ... ve %d ürün daha" % (products.size() - max_show)
+							more_label.add_theme_font_size_override("font_size", 9)
+							more_label.add_theme_color_override("font_color", Color(0.6, 0.7, 0.6))
+							vb.add_child(more_label)
+					
+					# Kalan günler
+					var tm = get_node_or_null("/root/TimeManager")
+					var current_day = tm.get_day() if (tm and tm.has_method("get_day")) else 0
+					var leaves_day = trader.get("leaves_day", current_day + 1)
+					var days_left = max(0, leaves_day - current_day)
+					
+					var days_label = Label.new()
+					days_label.text = "⏳ %d gün sonra ayrılacak" % days_left
+					days_label.add_theme_font_size_override("font_size", 10)
+					days_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.5))
+					vb.add_child(days_label)
+					
+					var hint = Label.new()
+					hint.text = "A: Ürünleri Gör" if i == current_trade_index else ""
+					hint.add_theme_font_size_override("font_size", 10)
+					hint.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+					vb.add_child(hint)
+	
+	# === SAĞ PANEL: TÜCCAR CARİYE GÖREVLERİ ===
+	if missions_list:
+		for c in missions_list.get_children():
+			c.queue_free()
+		
+		# Tüccar rolündeki cariyeleri bul
+		var mm = get_node_or_null("/root/MissionManager")
+		if not mm:
+			return
+		
+		var trader_concubines = []
+		for cariye in mm.concubines.values():
+			if cariye.role == Concubine.Role.TÜCCAR and cariye.status == Concubine.Status.BOŞTA:
+				trader_concubines.append(cariye)
+		
+		if trader_concubines.is_empty():
+			var empty_label = Label.new()
+			empty_label.text = "Tüccar rolünde boşta cariye yok.\nCariye yönetiminden rol atayabilirsiniz."
+			empty_label.add_theme_font_size_override("font_size", 14)
+			empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+			missions_list.add_child(empty_label)
+		else:
+			# Yerleşimler listesi (ticaret görevleri için)
+			var settlements = mm.settlements if mm else []
+			if settlements.is_empty() and mm.has_method("create_settlements"):
+				mm.create_settlements()
+				settlements = mm.settlements if mm else []
+			
+			for i in range(trader_concubines.size()):
+				var cariye = trader_concubines[i]
 				var card = PanelContainer.new()
-				card.custom_minimum_size = Vector2(0, 72)
+				card.custom_minimum_size = Vector2(0, 80)
 				var style = StyleBoxFlat.new()
 				style.corner_radius_top_left = 4
 				style.corner_radius_top_right = 4
 				style.corner_radius_bottom_left = 4
 				style.corner_radius_bottom_right = 4
 				
-				# Tema renklerini kullan
-				if i == current_trade_index:
+				if i == current_trader_mission_index:
 					style.border_width_left = 2
 					style.border_width_top = 2
 					style.border_width_right = 2
 					style.border_width_bottom = 2
-					style.border_color = Color(0.6, 0.5, 0.3, 1) # Gold/Bronz
-					style.bg_color = Color(0.2, 0.18, 0.15, 1.0) # Seçili
+					style.border_color = Color(0.6, 0.5, 0.3, 1)
+					style.bg_color = Color(0.2, 0.18, 0.15, 1.0)
 				else:
-					style.bg_color = Color(0.15, 0.13, 0.1, 0.85) # Normal
-					
-				card.add_theme_stylebox_override("panel", style)
+					style.bg_color = Color(0.15, 0.13, 0.1, 0.85)
 				
-				active_list.add_child(card)
+				card.add_theme_stylebox_override("panel", style)
+				missions_list.add_child(card)
+				
 				var vb = VBoxContainer.new()
 				card.add_child(vb)
-				# VBox ayarları PanelContainer içinde otomatiktir, manual anchor ayarı gerekmez
 				
 				var title = Label.new()
-				title.text = "🤝 %s" % ta.get("partner","?")
+				title.text = "👤 %s (Tüccar)" % cariye.name
 				title.add_theme_font_size_override("font_size", 14)
 				vb.add_child(title)
+				
 				var info = Label.new()
-				var mods_text = ""
-				for r in ta.get("modifiers", {}).keys():
-					var d = int(ta["modifiers"][r])
-					mods_text += "%s%s %s  " % ["+" if d>=0 else "", d, r]
-				var tail = " (Süresiz)" if ta.get("infinite",false) else ""
-				var days_text = ""
-				if not ta.get("infinite", false):
-					var rd = int(ta.get("remaining_days", 0))
-					days_text = "   ⏳ %d gün" % rd
-				info.text = "💰 %d altın/gün   |   %s%s%s" % [int(ta.get("daily_gold",0)), mods_text, tail, days_text]
+				info.text = "Ticaret yeteneği: %d | Seviye: %d" % [cariye.get_skill_level(Concubine.Skill.TİCARET), cariye.level]
 				info.add_theme_font_size_override("font_size", 12)
 				info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 				vb.add_child(info)
-				# İptal butonu yerine gamepad ile A: iptal için highlight kullanacağız; görsel ipucu için küçük etiket
-				var hint = Label.new()
-				hint.text = "A: İptal" if i == current_trade_index else ""
-				hint.add_theme_font_size_override("font_size", 10)
-				hint.add_theme_color_override("font_color", Color(0.9,0.6,0.6))
-				vb.add_child(hint)
-	if offers_list:
-		for c in offers_list.get_children():
-			c.queue_free()
-		# MissionManager'dan teklifler
-		var mm2 = get_node_or_null("/root/MissionManager")
-		available_trade_offers = mm2.get_trade_offers() if (mm2 and mm2.has_method("get_trade_offers")) else []
-		for i in range(available_trade_offers.size()):
-			var t = available_trade_offers[i]
-			var card2 = PanelContainer.new()
-			card2.custom_minimum_size = Vector2(0, 72)
-			var style2 = StyleBoxFlat.new()
-			style2.corner_radius_top_left = 4
-			style2.corner_radius_top_right = 4
-			style2.corner_radius_bottom_left = 4
-			style2.corner_radius_bottom_right = 4
-			
-			# Tema renklerini kullan
-			if i == current_offer_index:
-				style2.border_width_left = 2
-				style2.border_width_top = 2
-				style2.border_width_right = 2
-				style2.border_width_bottom = 2
-				style2.border_color = Color(0.6, 0.5, 0.3, 1) # Gold/Bronz
-				style2.bg_color = Color(0.2, 0.18, 0.15, 1.0) # Seçili
-			else:
-				style2.bg_color = Color(0.15, 0.13, 0.1, 0.85) # Normal
 				
-			card2.add_theme_stylebox_override("panel", style2)
-			
-			offers_list.add_child(card2)
-			var hb = HBoxContainer.new()
-			card2.add_child(hb)
-			# HBox PanelContainer içinde otomatiktir
-			
-			var vb2 = VBoxContainer.new()
-			hb.add_child(vb2)
-			vb2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			var title2 = Label.new()
-			title2.text = "📜 %s" % t.get("partner","?")
-			title2.add_theme_font_size_override("font_size", 14)
-			vb2.add_child(title2)
-			var info2 = Label.new()
-			var mods2 = ""
-			for r in t.get("mods", {}).keys():
-				var d2 = int(t["mods"][r])
-				mods2 += "%s%s %s  " % ["+" if d2>=0 else "", d2, r]
-			info2.text = "💰 %d altın/gün   |   %s%s" % [int(t.get("daily_gold",0)), mods2, (" (Süresiz)" if t.get("infinite",false) else "")]
-			info2.add_theme_font_size_override("font_size", 12)
-			info2.add_theme_color_override("font_color", Color.LIGHT_GRAY)
-			vb2.add_child(info2)
-			# A: Oluştur (gamepad); ipucu etiketi
-			var hint2 = Label.new()
-			hint2.text = "A: Oluştur" if i == current_offer_index else ""
-			hint2.add_theme_font_size_override("font_size", 10)
-			hint2.add_theme_color_override("font_color", Color(0.6,0.9,0.6))
-			hb.add_child(hint2)
-
+				var hint = Label.new()
+				hint.text = "A: Görev Gönder" if i == current_trader_mission_index else ""
+				hint.add_theme_font_size_override("font_size", 10)
+				hint.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+				vb.add_child(hint)
+	
 	# Seçimler görünür kalsın
 	_scroll_trade_selection()
 
-func _on_trade_offer_accept(index: int):
-	if index < 0 or index >= available_trade_offers.size():
-		return
-	var sel = available_trade_offers[index]
-	var mm = get_node_or_null("/root/MissionManager")
-	if mm and mm.has_method("add_trade_agreement"):
-		mm.add_trade_agreement(sel.get("partner","?"), int(sel.get("daily_gold",0)), sel.get("mods",{}), int(sel.get("days",0)), bool(sel.get("infinite",false)))
-	update_trade_ui()
+# Kaynak isimlerini Türkçe'ye çevir
+func _get_resource_display_name(resource: String) -> String:
+	match resource:
+		"food": return "Yemek"
+		"wood": return "Odun"
+		"stone": return "Taş"
+		"water": return "Su"
+		_: return resource.capitalize()
+
+# ESKİ FONKSİYON KALDIRILDI - Artık tüccardan satın alma sistemi kullanılıyor
 
 func _scroll_trade_selection():
-	# Aktif anlaşmalar
-	var active_scroll: ScrollContainer = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsScroll")
-	var active_list: VBoxContainer = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsScroll/ActiveAgreementsList")
-	if active_scroll and active_list and current_trade_index >= 0 and current_trade_index < active_list.get_child_count():
-		var ctrl := active_list.get_child(current_trade_index)
+	# Gelen Tüccarlar
+	var traders_scroll: ScrollContainer = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsScroll")
+	var traders_list: VBoxContainer = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsScroll/ActiveAgreementsList")
+	if traders_scroll and traders_list and current_trade_index >= 0 and current_trade_index < traders_list.get_child_count():
+		var ctrl := traders_list.get_child(current_trade_index)
 		if ctrl is Control:
-			active_scroll.ensure_control_visible(ctrl)
-	# Teklifler
-	var offers_scroll: ScrollContainer = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersScroll")
-	var offers_list: VBoxContainer = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersScroll/OffersList")
-	if offers_scroll and offers_list and current_offer_index >= 0 and current_offer_index < offers_list.get_child_count():
-		var ctrl2 := offers_list.get_child(current_offer_index)
+			traders_scroll.ensure_control_visible(ctrl)
+	# Tüccar Cariye Görevleri
+	var missions_scroll: ScrollContainer = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersScroll")
+	var missions_list: VBoxContainer = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersScroll/OffersList")
+	if missions_scroll and missions_list and current_trader_mission_index >= 0 and current_trader_mission_index < missions_list.get_child_count():
+		var ctrl2 := missions_list.get_child(current_trader_mission_index)
 		if ctrl2 is Control:
-			offers_scroll.ensure_control_visible(ctrl2)
+			missions_scroll.ensure_control_visible(ctrl2)
 
-func _on_trade_offers_updated():
+func _on_active_traders_updated():
 	if current_page == PageType.TRADE:
 		update_trade_ui()
 
-func _apply_selected_trade_offer_gamepad():
-	if current_offer_index < 0 or current_offer_index >= available_trade_offers.size():
+# Tüccardan satın alma menüsü aç
+func _open_trader_buy_menu():
+	if current_trade_index < 0 or current_trade_index >= active_traders.size():
 		return
-	_on_trade_offer_accept(current_offer_index)
+	
+	var trader = active_traders[current_trade_index]
+	var products = trader.get("products", [])
+	if products.is_empty():
+		return
+	
+	selected_trader = trader
+	current_trader_buy_index = 0
+	
+	# Pop-up oluştur veya göster
+	if not trader_buy_popup:
+		_create_trader_buy_popup()
+	
+	# Pop-up'ı göster ve aktif et
+	trader_buy_popup_open = true
+	if trader_buy_popup:
+		trader_buy_popup.visible = true
+		trader_buy_popup.z_index = 1000
+		# Top-level değil, MissionCenter içinde olduğu için anchor'lar otomatik merkezler
+		
+		_update_trader_buy_popup()
+		print("[TRADER_BUY] ✅ Pop-up açıldı: %s, Ürün sayısı: %d, Visible: %s" % [trader.get("name", "Tüccar"), products.size(), trader_buy_popup.visible])
+	else:
+		print("[TRADER_BUY] ❌ Pop-up oluşturulamadı!")
 
-func _cancel_selected_trade_agreement():
+# Tüccar satın alma pop-up'ı oluştur
+func _create_trader_buy_popup():
+	# Pop-up'ı MissionCenter'a ekle (CanvasLayer içinde, diğer UI'lar gibi)
+	trader_buy_popup = Panel.new()
+	trader_buy_popup.name = "TraderBuyPopup"
+	trader_buy_popup.custom_minimum_size = Vector2(800, 600)
+	# Anchor'ları merkeze ayarla
+	trader_buy_popup.anchor_left = 0.5
+	trader_buy_popup.anchor_top = 0.5
+	trader_buy_popup.anchor_right = 0.5
+	trader_buy_popup.anchor_bottom = 0.5
+	trader_buy_popup.offset_left = -400
+	trader_buy_popup.offset_right = 400
+	trader_buy_popup.offset_top = -300
+	trader_buy_popup.offset_bottom = 300
+	trader_buy_popup.visible = false  # Başlangıçta gizli
+	trader_buy_popup.z_index = 1000  # En üstte görünsün
+	trader_buy_popup.mouse_filter = Control.MOUSE_FILTER_STOP  # Mouse event'lerini yakala
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)
+	style.border_width_left = 3
+	style.border_width_top = 3
+	style.border_width_right = 3
+	style.border_width_bottom = 3
+	style.border_color = Color(0.6, 0.5, 0.3, 1)
+	trader_buy_popup.add_theme_stylebox_override("panel", style)
+	
+	# MissionCenter'a ekle (top-level değil, CanvasLayer içinde)
+	add_child(trader_buy_popup)
+	
+	var vbox = VBoxContainer.new()
+	vbox.name = "VBoxContainer"
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.offset_left = 16
+	vbox.offset_right = -16
+	vbox.offset_top = 16
+	vbox.offset_bottom = -16
+	trader_buy_popup.add_child(vbox)
+	
+	# Başlık (dinamik olarak güncellenecek)
+	var title_label = Label.new()
+	title_label.name = "TraderBuyTitle"
+	title_label.text = "💰 Tüccardan Satın Al"
+	title_label.add_theme_font_size_override("font_size", 20)
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_label)
+	
+	var origin_label = Label.new()
+	origin_label.name = "TraderBuyOrigin"
+	origin_label.text = "📍 Tüccar bilgisi"
+	origin_label.add_theme_font_size_override("font_size", 14)
+	origin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	origin_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	vbox.add_child(origin_label)
+	
+	# Grid Container
+	var scroll = ScrollContainer.new()
+	scroll.name = "ScrollContainer"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+	
+	var center = CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
+	
+	trader_buy_grid = GridContainer.new()
+	trader_buy_grid.columns = TRADER_BUY_GRID_COLUMNS
+	trader_buy_grid.add_theme_constant_override("h_separation", 10)
+	trader_buy_grid.add_theme_constant_override("v_separation", 10)
+	center.add_child(trader_buy_grid)
+	
+	# Alt bilgi
+	var info_label = Label.new()
+	info_label.name = "TraderBuyInfoLabel"
+	info_label.text = "Yön Tuşları: Seçim  |  A: Satın Al  |  B: Kapat"
+	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_label.add_theme_font_size_override("font_size", 12)
+	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	vbox.add_child(info_label)
+
+# Tüccar satın alma pop-up'ını güncelle
+func _update_trader_buy_popup():
+	if not trader_buy_popup or not trader_buy_grid:
+		return
+	
+	# Başlık ve origin'i güncelle
+	var title_label = trader_buy_popup.get_node_or_null("VBoxContainer/TraderBuyTitle")
+	if title_label:
+		title_label.text = "💰 Tüccardan Satın Al: %s" % selected_trader.get("name", "Tüccar")
+	
+	var origin_label = trader_buy_popup.get_node_or_null("VBoxContainer/TraderBuyOrigin")
+	if origin_label:
+		origin_label.text = "📍 %s'den geldi" % selected_trader.get("origin_settlement", "?")
+	
+	# Grid'i temizle
+	for child in trader_buy_grid.get_children():
+		child.queue_free()
+	
+	var products = selected_trader.get("products", [])
+	if products.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "Bu tüccarın satacak ürünü yok."
+		trader_buy_grid.add_child(empty_label)
+		return
+	
+	# Her ürün için grid item oluştur
+	for i in range(products.size()):
+		var product = products[i]
+		var is_selected = (i == current_trader_buy_index)
+		
+		var panel = PanelContainer.new()
+		panel.custom_minimum_size = Vector2(180, 180)
+		
+		var style = StyleBoxFlat.new()
+		style.corner_radius_top_left = 4
+		style.corner_radius_top_right = 4
+		style.corner_radius_bottom_left = 4
+		style.corner_radius_bottom_right = 4
+		
+		if is_selected:
+			style.bg_color = Color(0.2, 0.18, 0.15, 1.0)
+			style.border_width_left = 2
+			style.border_width_top = 2
+			style.border_width_right = 2
+			style.border_width_bottom = 2
+			style.border_color = Color(0.6, 0.5, 0.3, 1)
+		else:
+			style.bg_color = Color(0.15, 0.13, 0.1, 0.85)
+		
+		panel.add_theme_stylebox_override("panel", style)
+		
+		var vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		panel.add_child(vbox)
+		
+		# Ürün ikonu (emoji)
+		var icon_label = Label.new()
+		var resource = product.get("resource", "")
+		icon_label.text = _get_resource_icon(resource)
+		icon_label.add_theme_font_size_override("font_size", 48)
+		icon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(icon_label)
+		
+		# Ürün ismi
+		var name_label = Label.new()
+		name_label.text = _get_resource_display_name(resource)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.add_theme_font_size_override("font_size", 14)
+		vbox.add_child(name_label)
+		
+		# Fiyat
+		var price_label = Label.new()
+		var price = product.get("price_per_unit", 0)
+		price_label.text = "%d altın/birim" % price
+		price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		price_label.add_theme_font_size_override("font_size", 12)
+		price_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+		vbox.add_child(price_label)
+		
+		# Miktar bilgisi (tüccarın elinde sınırsız varsayıyoruz)
+		var stock_label = Label.new()
+		stock_label.text = "Sınırsız"
+		stock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		stock_label.add_theme_font_size_override("font_size", 10)
+		stock_label.add_theme_color_override("font_color", Color(0.7, 0.9, 0.7))
+		vbox.add_child(stock_label)
+		
+		# Seçim göstergesi ve miktar bilgisi
+		if is_selected:
+			var select_label = Label.new()
+			select_label.text = "> SEÇİLİ <"
+			select_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			select_label.add_theme_font_size_override("font_size", 10)
+			select_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
+			vbox.add_child(select_label)
+			
+			var quantity_label = Label.new()
+			quantity_label.text = "1 birim satın alınacak"
+			quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			quantity_label.add_theme_font_size_override("font_size", 9)
+			quantity_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
+			vbox.add_child(quantity_label)
+		
+		trader_buy_grid.add_child(panel)
+	
+	# Seçili item'ı görünür yap
+	_ensure_trader_buy_selection_visible()
+
+# Kaynak ikonu
+func _get_resource_icon(resource: String) -> String:
+	match resource:
+		"food": return "🍞"
+		"wood": return "🪵"
+		"stone": return "🪨"
+		"water": return "💧"
+		_: return "📦"
+
+# Seçili item'ı görünür yap
+func _ensure_trader_buy_selection_visible():
+	if not trader_buy_popup or not trader_buy_grid:
+		return
+	
+	var scroll = trader_buy_popup.get_node_or_null("VBoxContainer/ScrollContainer")
+	if not scroll:
+		return
+	
+	var children = trader_buy_grid.get_children()
+	if current_trader_buy_index >= 0 and current_trader_buy_index < children.size():
+		var selected_panel = children[current_trader_buy_index]
+		if selected_panel is Control:
+			scroll.ensure_control_visible(selected_panel)
+
+# Tüccar satın alma pop-up input handling
+func handle_trader_buy_popup_input(event):
+	if not trader_buy_popup_open or not trader_buy_popup:
+		return false
+	
+	var products = selected_trader.get("products", [])
+	if products.is_empty():
+		return false
+	
+	var allow_step = dpad_debounce_timer <= 0
+	
+	# Grid navigasyonu
+	if event.is_action_pressed("ui_left"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		current_trader_buy_index = max(0, current_trader_buy_index - 1)
+		_update_trader_buy_popup()
+		return true
+	elif event.is_action_pressed("ui_right"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		current_trader_buy_index = min(products.size() - 1, current_trader_buy_index + 1)
+		_update_trader_buy_popup()
+		return true
+	elif event.is_action_pressed("ui_up"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		var new_index = current_trader_buy_index - TRADER_BUY_GRID_COLUMNS
+		if new_index < 0:
+			new_index = products.size() - 1
+		current_trader_buy_index = new_index
+		_update_trader_buy_popup()
+		return true
+	elif event.is_action_pressed("ui_down"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		var new_index = current_trader_buy_index + TRADER_BUY_GRID_COLUMNS
+		if new_index >= products.size():
+			new_index = 0
+		current_trader_buy_index = new_index
+		_update_trader_buy_popup()
+		return true
+	elif event.is_action_pressed("ui_accept"):
+		# Satın al
+		_execute_trader_buy()
+		return true
+	elif event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
+		# Kapat (ESC veya Dodge tuşu)
+		_close_trader_buy_popup()
+		return true
+	
+	return false
+
+# Tüccar satın alma işlemini gerçekleştir
+func _execute_trader_buy():
+	if selected_trader.is_empty():
+		print("[TRADER_BUY] ❌ Seçili tüccar yok!")
+		return
+	
+	var products = selected_trader.get("products", [])
+	if products.is_empty():
+		print("[TRADER_BUY] ❌ Tüccarın ürünü yok!")
+		return
+	
+	if current_trader_buy_index < 0 or current_trader_buy_index >= products.size():
+		print("[TRADER_BUY] ❌ Geçersiz ürün index'i: %d (Toplam: %d)" % [current_trader_buy_index, products.size()])
+		return
+	
+	var product = products[current_trader_buy_index]
+	var resource = product.get("resource", "")
+	var price = product.get("price_per_unit", 0)
+	var res_name = _get_resource_display_name(resource)
+	
+	print("[TRADER_BUY] Satın alınıyor: %d x %s (%d altın)" % [1, res_name, price])
+	
+	# Şimdilik 1 birim satın al (ileride miktar seçimi eklenebilir)
 	var mm = get_node_or_null("/root/MissionManager")
-	if not (mm and "trade_agreements" in mm):
+	if mm and mm.has_method("buy_from_trader"):
+		var success = mm.buy_from_trader(selected_trader.get("id", ""), resource, 1)
+		if success:
+			print("[TRADER_BUY] ✅ Satın alma başarılı!")
+			update_trade_ui()
+			# Pop-up'ı kapatma, kullanıcı tekrar satın alabilir
+			_update_trader_buy_popup()
+		else:
+			print("[TRADER_BUY] ❌ Satın alma başarısız!")
+	else:
+		print("[TRADER_BUY] ❌ MissionManager bulunamadı veya buy_from_trader metodu yok!")
+
+# Tüccar satın alma pop-up'ını kapat
+func _close_trader_buy_popup():
+	trader_buy_popup_open = false
+	if trader_buy_popup:
+		trader_buy_popup.visible = false
+
+# === TÜCCAR CARİYE GÖREV POP-UP SİSTEMİ ===
+
+# Tüccar cariye görev pop-up'ı oluştur
+func _create_trader_mission_popup():
+	trader_mission_popup = Panel.new()
+	trader_mission_popup.name = "TraderMissionPopup"
+	trader_mission_popup.custom_minimum_size = Vector2(800, 600)
+	trader_mission_popup.anchor_left = 0.5
+	trader_mission_popup.anchor_top = 0.5
+	trader_mission_popup.anchor_right = 0.5
+	trader_mission_popup.anchor_bottom = 0.5
+	trader_mission_popup.offset_left = -400
+	trader_mission_popup.offset_right = 400
+	trader_mission_popup.offset_top = -300
+	trader_mission_popup.offset_bottom = 300
+	trader_mission_popup.visible = false
+	trader_mission_popup.z_index = 1000
+	trader_mission_popup.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)
+	style.border_width_left = 3
+	style.border_width_top = 3
+	style.border_width_right = 3
+	style.border_width_bottom = 3
+	style.border_color = Color(0.3, 0.6, 0.5, 1)  # Yeşilimsi renk (ticaret için)
+	trader_mission_popup.add_theme_stylebox_override("panel", style)
+	
+	add_child(trader_mission_popup)
+	
+	var vbox = VBoxContainer.new()
+	vbox.name = "VBoxContainer"
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.offset_left = 16
+	vbox.offset_right = -16
+	vbox.offset_top = 16
+	vbox.offset_bottom = -16
+	trader_mission_popup.add_child(vbox)
+	
+	# Başlık
+	var title_label = Label.new()
+	title_label.name = "TraderMissionTitle"
+	title_label.text = "🚚 Ticaret Görevi Oluştur"
+	title_label.add_theme_font_size_override("font_size", 20)
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_label)
+	
+	# Cariye bilgisi
+	var cariye_label = Label.new()
+	cariye_label.name = "TraderMissionCariye"
+	cariye_label.text = "👤 Cariye: "
+	cariye_label.add_theme_font_size_override("font_size", 14)
+	cariye_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cariye_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	vbox.add_child(cariye_label)
+	
+	# İçerik alanı (scroll container)
+	var scroll = ScrollContainer.new()
+	scroll.name = "ScrollContainer"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+	
+	var content_vbox = VBoxContainer.new()
+	content_vbox.name = "ContentVBox"
+	scroll.add_child(content_vbox)
+	
+	# Alt bilgi
+	var info_label = Label.new()
+	info_label.name = "TraderMissionInfo"
+	info_label.text = "Yön Tuşları: Seçim  |  A: Onayla  |  B: Geri/İptal"
+	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_label.add_theme_font_size_override("font_size", 12)
+	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	vbox.add_child(info_label)
+
+# Tüccar cariye görev pop-up'ını güncelle
+func _update_trader_mission_popup():
+	if not trader_mission_popup or not trader_mission_selected_concubine:
 		return
-	if current_trade_index < 0 or current_trade_index >= mm.trade_agreements.size():
+	
+	var content_vbox = trader_mission_popup.get_node_or_null("VBoxContainer/ScrollContainer/ContentVBox")
+	if not content_vbox:
 		return
-	if mm.has_method("cancel_trade_agreement_by_index"):
-		mm.cancel_trade_agreement_by_index(current_trade_index)
-	current_trade_index = max(0, current_trade_index - 1)
-	update_trade_ui()
+	
+	# İçeriği temizle
+	for child in content_vbox.get_children():
+		child.queue_free()
+	
+	# Başlık ve cariye bilgisini güncelle
+	var title_label = trader_mission_popup.get_node_or_null("VBoxContainer/TraderMissionTitle")
+	if title_label:
+		var step_names = ["📍 Köy Seçimi", "⚔️ Asker Sayısı", "📦 Ticaret Malları"]
+		title_label.text = "🚚 Ticaret Görevi: %s" % step_names[trader_mission_step]
+	
+	var cariye_label = trader_mission_popup.get_node_or_null("VBoxContainer/TraderMissionCariye")
+	if cariye_label:
+		cariye_label.text = "👤 Cariye: %s" % trader_mission_selected_concubine.name
+	
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		return
+	
+	match trader_mission_step:
+		0:  # Köy seçimi
+			_update_trader_mission_step_village(content_vbox, mm)
+		1:  # Asker sayısı
+			_update_trader_mission_step_soldiers(content_vbox)
+		2:  # Mal seçimi
+			_update_trader_mission_step_products(content_vbox)
+
+# Adım 0: Köy seçimi
+func _update_trader_mission_step_village(content_vbox: VBoxContainer, mm: Node):
+	var routes = mm.get_active_trade_routes() if mm.has_method("get_active_trade_routes") else []
+	
+	if routes.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "Aktif ticaret rotası yok!"
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content_vbox.add_child(empty_label)
+		return
+	
+	# Rotaları listele
+	for i in range(routes.size()):
+		var route = routes[i]
+		var route_label = Label.new()
+		var prefix = "> " if i == trader_mission_selected_route_index else "  "
+		var route_name = "%s → %s" % [route.get("from_name", "?"), route.get("to_name", "?")]
+		var distance = route.get("distance", 0.0)
+		var risk = route.get("risk", "?")
+		var relation = route.get("relation", 50)
+		
+		route_label.text = "%s%s (Mesafe: %.1f, Risk: %s, İlişki: %d)" % [prefix, route_name, distance, risk, relation]
+		route_label.add_theme_font_size_override("font_size", 16)
+		if i == trader_mission_selected_route_index:
+			route_label.add_theme_color_override("font_color", Color.YELLOW)
+		content_vbox.add_child(route_label)
+	
+	# Bilgi
+	var info = Label.new()
+	info.text = "\nYukarı/Aşağı: Rota Seç\nA: Devam Et"
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	content_vbox.add_child(info)
+
+# Adım 1: Asker sayısı
+func _update_trader_mission_step_soldiers(content_vbox: VBoxContainer):
+	var vm = get_node_or_null("/root/VillageManager")
+	var max_soldiers = 0
+	if vm:
+		# Kışladaki asker sayısını al
+		var all_buildings = get_all_available_buildings()
+		for building_info in all_buildings:
+			if building_info["type"] == "Kışla":
+				var barracks = building_info["node"]
+				# assigned_workers property'sini kullan (sayı döndürür)
+				if "assigned_workers" in barracks:
+					max_soldiers = barracks.assigned_workers
+				# Alternatif: assigned_worker_ids.size() kullan
+				elif "assigned_worker_ids" in barracks:
+					max_soldiers = barracks.assigned_worker_ids.size()
+				break
+	
+	var soldier_label = Label.new()
+	soldier_label.text = "Asker Sayısı: %d / %d" % [trader_mission_soldier_count, max_soldiers]
+	soldier_label.add_theme_font_size_override("font_size", 18)
+	soldier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if trader_mission_soldier_count > 0:
+		soldier_label.add_theme_color_override("font_color", Color.YELLOW)
+	content_vbox.add_child(soldier_label)
+	
+	var info = Label.new()
+	info.text = "\nSol/Sağ: Miktar Ayarla\nA: Devam Et"
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	content_vbox.add_child(info)
+
+# Adım 2: Mal seçimi
+func _update_trader_mission_step_products(content_vbox: VBoxContainer):
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		return
+	
+	# Grid container oluştur
+	var grid = GridContainer.new()
+	grid.columns = TRADER_MISSION_PRODUCT_COLUMNS
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	content_vbox.add_child(grid)
+	
+	# Her kaynak için grid item oluştur
+	for i in range(TRADEABLE_RESOURCES.size()):
+		var resource = TRADEABLE_RESOURCES[i]
+		var available = vm.get_resource_level(resource) if vm.has_method("get_resource_level") else 0
+		var selected_qty = trader_mission_selected_products.get(resource, 0)
+		
+		var item_panel = PanelContainer.new()
+		var item_vbox = VBoxContainer.new()
+		item_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		item_vbox.add_theme_constant_override("separation", 5)
+		item_panel.add_child(item_vbox)
+		
+		# Seçili mi kontrolü
+		var is_selected = (i == trader_mission_current_product_index)
+		var panel_style = StyleBoxFlat.new()
+		if is_selected:
+			panel_style.bg_color = Color(0.2, 0.3, 0.2, 0.8)
+			panel_style.border_width_left = 3
+			panel_style.border_width_right = 3
+			panel_style.border_width_top = 3
+			panel_style.border_width_bottom = 3
+			panel_style.border_color = Color.YELLOW
+		else:
+			panel_style.bg_color = Color(0.15, 0.15, 0.15, 0.8)
+		item_panel.add_theme_stylebox_override("panel", panel_style)
+		item_panel.custom_minimum_size = Vector2(150, 120)
+		
+		# İkon (basit emoji)
+		var icon_label = Label.new()
+		var icon_map = {"wood": "🪵", "stone": "🪨", "food": "🍞", "water": "💧"}
+		icon_label.text = icon_map.get(resource, "📦")
+		icon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon_label.add_theme_font_size_override("font_size", 32)
+		item_vbox.add_child(icon_label)
+		
+		# İsim
+		var name_label = Label.new()
+		var name_map = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
+		name_label.text = name_map.get(resource, resource)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.add_theme_font_size_override("font_size", 14)
+		item_vbox.add_child(name_label)
+		
+		# Miktar
+		var qty_label = Label.new()
+		qty_label.text = "Seçili: %d / %d" % [selected_qty, available]
+		qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		qty_label.add_theme_font_size_override("font_size", 12)
+		if selected_qty > 0:
+			qty_label.add_theme_color_override("font_color", Color.GREEN)
+		item_vbox.add_child(qty_label)
+		
+		# Seçili işareti
+		if is_selected:
+			var selected_label = Label.new()
+			selected_label.text = "> SEÇİLİ <"
+			selected_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			selected_label.add_theme_color_override("font_color", Color.YELLOW)
+			item_vbox.add_child(selected_label)
+		
+		grid.add_child(item_panel)
+	
+	# Bilgi
+	var info = Label.new()
+	info.text = "\nYön Tuşları: Ürün Seç  |  A: Miktar Ayarla  |  X: Görevi Başlat"
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	content_vbox.add_child(info)
+	selected_trader = {}
+	current_trader_buy_index = 0
+	print("[TRADER_BUY] Pop-up kapatıldı")
+
+# Tüccar cariye görev menüsü aç
+func _open_trader_mission_menu():
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		return
+	
+	var trader_concubines = []
+	for cariye in mm.concubines.values():
+		if cariye.role == Concubine.Role.TÜCCAR and cariye.status == Concubine.Status.BOŞTA:
+			trader_concubines.append(cariye)
+	
+	if current_trader_mission_index < 0 or current_trader_mission_index >= trader_concubines.size():
+		return
+	
+	var cariye = trader_concubines[current_trader_mission_index]
+	
+	# Pop-up menüyü aç
+	trader_mission_selected_concubine = cariye
+	trader_mission_step = 0
+	trader_mission_selected_route_index = 0
+	trader_mission_soldier_count = 0
+	trader_mission_selected_products = {}
+	trader_mission_current_product_index = 0
+	
+	if not trader_mission_popup:
+		_create_trader_mission_popup()
+	
+	trader_mission_popup_open = true
+	if trader_mission_popup:
+		trader_mission_popup.visible = true
+		_update_trader_mission_popup()
+		print("[TRADER_MISSION] ✅ Pop-up açıldı: %s" % cariye.name)
+
+# Tüccar cariye görev pop-up input handler
+func handle_trader_mission_popup_input(event) -> bool:
+	if not trader_mission_popup_open or not trader_mission_popup:
+		return false
+	
+	var allow_step = dpad_debounce_timer <= 0
+	
+	match trader_mission_step:
+		0:  # Köy seçimi
+			return _handle_trader_mission_step_village_input(event, allow_step)
+		1:  # Asker sayısı
+			return _handle_trader_mission_step_soldiers_input(event, allow_step)
+		2:  # Mal seçimi
+			return _handle_trader_mission_step_products_input(event, allow_step)
+	
+	return false
+
+# Adım 0 input handler
+func _handle_trader_mission_step_village_input(event, allow_step: bool) -> bool:
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		return false
+	
+	var routes = mm.get_active_trade_routes() if mm.has_method("get_active_trade_routes") else []
+	if routes.is_empty():
+		return false
+	
+	if event.is_action_pressed("ui_up"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		trader_mission_selected_route_index = max(0, trader_mission_selected_route_index - 1)
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_down"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		trader_mission_selected_route_index = min(routes.size() - 1, trader_mission_selected_route_index + 1)
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_accept"):
+		# Rota seçildi, bir sonraki adıma geç
+		if trader_mission_selected_route_index < routes.size():
+			trader_mission_selected_route = routes[trader_mission_selected_route_index]
+			trader_mission_step = 1
+			_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
+		_close_trader_mission_popup()
+		return true
+	
+	return false
+
+# Adım 1 input handler
+func _handle_trader_mission_step_soldiers_input(event, allow_step: bool) -> bool:
+	var vm = get_node_or_null("/root/VillageManager")
+	var max_soldiers = 0
+	if vm:
+		var all_buildings = get_all_available_buildings()
+		for building_info in all_buildings:
+			if building_info["type"] == "Kışla":
+				var barracks = building_info["node"]
+				# assigned_workers property'sini kullan (sayı döndürür)
+				if "assigned_workers" in barracks:
+					max_soldiers = barracks.assigned_workers
+				# Alternatif: assigned_worker_ids.size() kullan
+				elif "assigned_worker_ids" in barracks:
+					max_soldiers = barracks.assigned_worker_ids.size()
+				break
+	
+	if event.is_action_pressed("ui_left"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		trader_mission_soldier_count = max(0, trader_mission_soldier_count - 1)
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_right"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		trader_mission_soldier_count = min(max_soldiers, trader_mission_soldier_count + 1)
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_accept"):
+		# Asker sayısı seçildi, bir sonraki adıma geç
+		trader_mission_step = 2
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_back"):
+		# Önceki adıma dön
+		trader_mission_step = 0
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_cancel"):
+		_close_trader_mission_popup()
+		return true
+	
+	return false
+
+# Adım 2 input handler
+func _handle_trader_mission_step_products_input(event, allow_step: bool) -> bool:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		return false
+	
+	# Grid navigasyonu
+	if event.is_action_pressed("ui_left"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		trader_mission_current_product_index = max(0, trader_mission_current_product_index - 1)
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_right"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		trader_mission_current_product_index = min(TRADEABLE_RESOURCES.size() - 1, trader_mission_current_product_index + 1)
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_up"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		var new_index = trader_mission_current_product_index - TRADER_MISSION_PRODUCT_COLUMNS
+		if new_index < 0:
+			new_index = TRADEABLE_RESOURCES.size() - 1
+		trader_mission_current_product_index = new_index
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_down"):
+		if event.is_echo() or not allow_step:
+			return true
+		dpad_debounce_timer = dpad_debounce_delay
+		var new_index = trader_mission_current_product_index + TRADER_MISSION_PRODUCT_COLUMNS
+		if new_index >= TRADEABLE_RESOURCES.size():
+			new_index = 0
+		trader_mission_current_product_index = new_index
+		_update_trader_mission_popup()
+		return true
+	
+	var selected_resource = TRADEABLE_RESOURCES[trader_mission_current_product_index] if trader_mission_current_product_index < TRADEABLE_RESOURCES.size() else ""
+	
+	# Zıplama (jump) veya ui_accept: Seçili ürün için miktar pop-up'ı aç
+	var press_jump = event.is_action_pressed("jump") if InputMap.has_action("jump") else false
+	var press_accept = event.is_action_pressed("ui_accept")
+	if press_jump or press_accept:
+		if selected_resource != "":
+			_open_trader_mission_quantity_popup(selected_resource)
+		return true
+	# Saldırı (attack) veya ui_select: Görevi başlat
+	var press_attack = event.is_action_pressed("attack") if InputMap.has_action("attack") else false
+	var press_select = event.is_action_pressed("ui_select")
+	if press_attack or press_select:
+		_execute_trader_mission()
+		return true
+	elif event.is_action_pressed("ui_back"):
+		# Önceki adıma dön
+		trader_mission_step = 1
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_cancel"):
+		_close_trader_mission_popup()
+		return true
+	
+	return false
+
+# Pop-up'ı kapat
+func _close_trader_mission_popup():
+	if trader_mission_quantity_popup_open:
+		_close_trader_mission_quantity_popup()
+	trader_mission_popup_open = false
+	if trader_mission_popup:
+		trader_mission_popup.visible = false
+	trader_mission_selected_concubine = null
+	trader_mission_step = 0
+	trader_mission_selected_route_index = 0
+	trader_mission_selected_route = {}
+	trader_mission_soldier_count = 0
+	trader_mission_selected_products = {}
+	trader_mission_current_product_index = 0
+
+# Miktar alt pop-up'ı aç (mal seçiminde A ile)
+func _open_trader_mission_quantity_popup(resource: String):
+	var vm = get_node_or_null("/root/VillageManager")
+	var available = vm.get_resource_level(resource) if vm and vm.has_method("get_resource_level") else 0
+	trader_mission_quantity_editing_resource = resource
+	trader_mission_quantity_temp_value = trader_mission_selected_products.get(resource, 0)
+	trader_mission_quantity_temp_value = clampi(trader_mission_quantity_temp_value, 0, available)
+	trader_mission_quantity_popup_open = true
+	
+	if not trader_mission_quantity_panel:
+		_create_trader_mission_quantity_popup()
+	if trader_mission_quantity_panel:
+		trader_mission_quantity_panel.visible = true
+		_update_trader_mission_quantity_popup()
+
+func _create_trader_mission_quantity_popup():
+	trader_mission_quantity_panel = Panel.new()
+	trader_mission_quantity_panel.name = "TraderMissionQuantityPopup"
+	trader_mission_quantity_panel.custom_minimum_size = Vector2(400, 220)
+	trader_mission_quantity_panel.anchor_left = 0.5
+	trader_mission_quantity_panel.anchor_top = 0.5
+	trader_mission_quantity_panel.anchor_right = 0.5
+	trader_mission_quantity_panel.anchor_bottom = 0.5
+	trader_mission_quantity_panel.offset_left = -200
+	trader_mission_quantity_panel.offset_right = 200
+	trader_mission_quantity_panel.offset_top = -110
+	trader_mission_quantity_panel.offset_bottom = 110
+	trader_mission_quantity_panel.z_index = 1100
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.2, 0.18, 0.98)
+	style.border_width_left = 3
+	style.border_width_right = 3
+	style.border_width_top = 3
+	style.border_width_bottom = 3
+	style.border_color = Color(0.4, 0.7, 0.5, 1)
+	trader_mission_quantity_panel.add_theme_stylebox_override("panel", style)
+	
+	trader_mission_quantity_label = Label.new()
+	trader_mission_quantity_label.name = "QuantityLabel"
+	trader_mission_quantity_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	trader_mission_quantity_label.offset_left = 20
+	trader_mission_quantity_label.offset_right = -20
+	trader_mission_quantity_label.offset_top = 20
+	trader_mission_quantity_label.offset_bottom = -20
+	trader_mission_quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	trader_mission_quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	trader_mission_quantity_label.add_theme_font_size_override("font_size", 18)
+	trader_mission_quantity_panel.add_child(trader_mission_quantity_label)
+	
+	if trader_mission_popup:
+		trader_mission_popup.add_child(trader_mission_quantity_panel)
+	else:
+		add_child(trader_mission_quantity_panel)
+
+func _update_trader_mission_quantity_popup():
+	if not trader_mission_quantity_label:
+		return
+	var name_map = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
+	var res_name = name_map.get(trader_mission_quantity_editing_resource, trader_mission_quantity_editing_resource)
+	var vm = get_node_or_null("/root/VillageManager")
+	var available = vm.get_resource_level(trader_mission_quantity_editing_resource) if vm and vm.has_method("get_resource_level") else 0
+	trader_mission_quantity_label.text = "📦 %s\n\nMiktar: %d / %d\n\nSol/Sağ: Değiştir\nA: Onayla  |  B: İptal" % [res_name, trader_mission_quantity_temp_value, available]
+
+func _close_trader_mission_quantity_popup():
+	trader_mission_quantity_popup_open = false
+	trader_mission_quantity_editing_resource = ""
+	trader_mission_quantity_temp_value = 0
+	if trader_mission_quantity_panel:
+		trader_mission_quantity_panel.visible = false
+
+func handle_trader_mission_quantity_popup_input(event) -> bool:
+	if not trader_mission_quantity_popup_open:
+		return false
+	var vm = get_node_or_null("/root/VillageManager")
+	var available = vm.get_resource_level(trader_mission_quantity_editing_resource) if vm and vm.has_method("get_resource_level") else 0
+	
+	if event.is_action_pressed("ui_left"):
+		trader_mission_quantity_temp_value = max(0, trader_mission_quantity_temp_value - 1)
+		_update_trader_mission_quantity_popup()
+		return true
+	elif event.is_action_pressed("ui_right"):
+		trader_mission_quantity_temp_value = min(available, trader_mission_quantity_temp_value + 1)
+		_update_trader_mission_quantity_popup()
+		return true
+	# Onayla: miktarı kaydet (ui_accept veya zıplama)
+	var confirm_qty = event.is_action_pressed("ui_accept") or (InputMap.has_action("jump") and event.is_action_pressed("jump"))
+	if confirm_qty:
+		if trader_mission_quantity_temp_value > 0:
+			trader_mission_selected_products[trader_mission_quantity_editing_resource] = trader_mission_quantity_temp_value
+		else:
+			trader_mission_selected_products.erase(trader_mission_quantity_editing_resource)
+		_close_trader_mission_quantity_popup()
+		_update_trader_mission_popup()
+		return true
+	elif event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
+		_close_trader_mission_quantity_popup()
+		_update_trader_mission_popup()
+		return true
+	return false
+
+# Görevi oluştur ve başlat
+func _execute_trader_mission():
+	if not trader_mission_selected_concubine or trader_mission_selected_route.is_empty():
+		print("[TRADER_MISSION] ❌ Eksik bilgi: cariye veya rota seçilmedi!")
+		return
+	
+	# En az bir mal seçilmeli
+	if trader_mission_selected_products.is_empty():
+		print("[TRADER_MISSION] ❌ En az bir ticaret malı seçmelisiniz!")
+		return
+	
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm or not mm.has_method("create_trade_mission_for_route"):
+		print("[TRADER_MISSION] ❌ MissionManager bulunamadı!")
+		return
+	
+	# Kaynakları kontrol et ve eksikse uyar
+	var vm = get_node_or_null("/root/VillageManager")
+	if vm:
+		for resource in trader_mission_selected_products:
+			var qty = trader_mission_selected_products[resource]
+			var available = vm.get_resource_level(resource) if vm.has_method("get_resource_level") else 0
+			if qty > available:
+				print("[TRADER_MISSION] ❌ Yetersiz kaynak: %s (İhtiyaç: %d, Mevcut: %d)" % [resource, qty, available])
+				return
+	
+	# Görevi oluştur
+	var route_id = trader_mission_selected_route.get("id", "")
+	var mission = mm.create_trade_mission_for_route(
+		trader_mission_selected_concubine.id,
+		route_id,
+		trader_mission_selected_products,
+		trader_mission_soldier_count
+	)
+	
+	if not mission:
+		print("[TRADER_MISSION] ❌ Görev oluşturulamadı!")
+		return
+	
+	# Görevi sözlüğe ekleyip ata (MissionManager.start_mission yok, assign_mission_to_concubine kullanılır)
+	mm.missions[mission.id] = mission
+	var success = mm.assign_mission_to_concubine(
+		trader_mission_selected_concubine.id,
+		mission.id,
+		trader_mission_soldier_count
+	)
+	if success:
+		# Kaynakları harca
+		if vm:
+			for resource in trader_mission_selected_products:
+				var qty = trader_mission_selected_products[resource]
+				if vm.has_method("get_resource_level"):
+					var current = vm.get_resource_level(resource)
+					vm.resource_levels[resource] = max(0, current - qty)
+		print("[TRADER_MISSION] ✅ Görev başlatıldı: %s → %s" % [
+			trader_mission_selected_route.get("from_name", "?"),
+			trader_mission_selected_route.get("to_name", "?")
+		])
+		_close_trader_mission_popup()
+		update_trade_ui()
+	else:
+		print("[TRADER_MISSION] ❌ Görev başlatılamadı!")
 
 # İnşaat işlemini gerçekleştir
 func execute_construction():
@@ -6871,6 +7897,13 @@ func open_menu():
 # Mission Center menüsünü kapat
 func close_menu():
 	print("🎯 Mission Center kapanıyor...")
+	# Açık tüccar pop-up'larını kapat (menü kapandığında kalmasın)
+	if trader_mission_quantity_popup_open:
+		_close_trader_mission_quantity_popup()
+	if trader_mission_popup_open:
+		_close_trader_mission_popup()
+	if trader_buy_popup_open:
+		_close_trader_buy_popup()
 	visible = false
 	unlock_player()
 	# Fallback pause kapat
@@ -7434,13 +8467,13 @@ func update_concubine_role_popup():
 	text += "👤 Cariye: %s\n" % selected_concubine.name
 	text += "📊 Mevcut Rol: %s\n\n" % selected_concubine.get_role_name()
 	
-	# Rol seçenekleri
+	# Rol seçenekleri (Tüccar etkin - ticaret görevleri için)
 	var roles = [
 		{"id": 0, "name": "Rol Yok", "active": true},
 		{"id": 1, "name": "Komutan", "active": true},
 		{"id": 2, "name": "Ajan", "active": false},
 		{"id": 3, "name": "Diplomat", "active": false},
-		{"id": 4, "name": "Tüccar", "active": false}
+		{"id": 4, "name": "Tüccar", "active": true}
 	]
 	
 	for role in roles:

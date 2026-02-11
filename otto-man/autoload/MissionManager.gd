@@ -26,11 +26,13 @@ var player_reputation: int = 50  # 0-100 arası
 var world_stability: int = 70  # 0-100 arası
 
 # Dünya haberleri ve oran modifikasyonları
-var trade_agreements: Array[Dictionary] = []  # [{partner, daily_gold, modifiers:{res:delta}, remaining_days, infinite, applied_ids: Array[int]}]
+# ESKİ SİSTEM KALDIRILDI: trade_agreements ve available_trade_offers artık kullanılmıyor
+# YENİ SİSTEM: Aktif tüccarlar (köye gelen tüccarlar)
+var active_traders: Array[Dictionary] = []  # [{id, name, origin_settlement, products:[{resource, price_per_unit}], arrives_day, leaves_day, relation_multiplier}]
 var active_rate_modifiers: Array[Dictionary] = []  # [{resource, delta, expires_day, source}]
 var _last_tick_day: int = 0
-var available_trade_offers: Array[Dictionary] = []  # [{partner, daily_gold, mods:{res:delta}, days, infinite}]
 var settlements: Array[Dictionary] = []  # [{id, name, type, relation, wealth, stability, military, biases:{wood:int,stone:int,food:int}}]
+var trade_routes: Array[Dictionary] = []  # [{from, to, products:[], distance, risk, active, relation}]
 var mission_history: Array[Dictionary] = []  # En son gerçekleşen görev sonuçları (LIFO)
 
 # Kaydetme/Yükleme
@@ -66,7 +68,7 @@ signal mission_chain_progressed(chain_id: String, progress: Dictionary)
 signal news_posted(news: Dictionary)
 signal mission_unlocked(mission_id: String)
 signal mission_list_changed()  # Yeni görev eklendiğinde (örn. Haydut Temizliği) UI yenilensin
-signal trade_offers_updated()
+signal active_traders_updated()  # Aktif tüccarlar değiştiğinde
 signal battle_completed(battle_result: Dictionary)
 signal unit_losses_reported(unit_type: String, losses: int)
 
@@ -85,6 +87,9 @@ func _initialize():
 	news_queue_village = []
 	news_queue_world = []
 	#print("📰 Haber kuyrukları başlatıldı: village=", news_queue_village.size(), " world=", news_queue_world.size())
+	
+	# Aktif tüccarları başlat
+	active_traders = []
 	
 	# Kullanılan isimleri sıfırla
 	_used_names.clear()
@@ -117,12 +122,11 @@ func _initialize():
 		if tm.has_signal("time_advanced"):
 			tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
 
-	# Yerleşimleri kur ve ilk teklifleri bunlara göre üret
+	# Yerleşimleri kur
 	create_settlements()
-	refresh_trade_offers("init")
-
-	# Başlangıç ticaret teklifleri
-	refresh_trade_offers("init")
+	
+	# Ticaret rotalarını başlat
+	_initialize_trade_routes()
 	
 	# Combat system integration
 	_setup_combat_system()
@@ -305,7 +309,12 @@ func create_initial_concubines():
 	for i in range(3):
 		var cariye = create_random_concubine()
 		concubines[cariye.id] = cariye
-		print("MissionManager: Rastgele cariye oluşturuldu - ID: %d, İsim: %s, Seviye: %d" % [cariye.id, cariye.name, cariye.level])
+		# İlk cariyeye Tüccar rolü ver (ticaret görevlerini denemek için)
+		if i == 0:
+			cariye.role = Concubine.Role.TÜCCAR
+			print("MissionManager: Rastgele cariye oluşturuldu - ID: %d, İsim: %s, Seviye: %d, Rol: Tüccar" % [cariye.id, cariye.name, cariye.level])
+		else:
+			print("MissionManager: Rastgele cariye oluşturuldu - ID: %d, İsim: %s, Seviye: %d" % [cariye.id, cariye.name, cariye.level])
 	
 
 # Rastgele görev üret
@@ -522,6 +531,11 @@ func process_mission_results(cariye_id: int, mission_id: String, successful: boo
 	var cariye = concubines[cariye_id]
 	var mission = missions[mission_id]
 	
+	# Ticaret görevleri için özel işleme
+	if mission.mission_type == Mission.MissionType.TİCARET and mission.has_meta("trade_route_id"):
+		_process_trade_mission_completion(cariye_id, mission_id, successful, mission)
+		return
+	
 	if successful:
 		# Ödülleri ver
 		for reward_type in mission.rewards:
@@ -541,6 +555,67 @@ func process_mission_results(cariye_id: int, mission_id: String, successful: boo
 				print("⚠️ %s yaralandı!" % cariye.name)
 			else:
 				_apply_penalty(penalty_type, amount)
+
+# Ticaret görevi tamamlama işlemi
+func _process_trade_mission_completion(cariye_id: int, mission_id: String, successful: bool, mission: Mission):
+	if not successful:
+		# Başarısız ticaret görevi - cezaları uygula
+		for penalty_type in mission.penalties:
+			var amount = mission.penalties[penalty_type]
+			if penalty_type == "cariye_injured":
+				var cariye = concubines[cariye_id]
+				cariye.take_damage(30)
+			else:
+				_apply_penalty(penalty_type, amount)
+		return
+	
+	var cariye = concubines[cariye_id]
+	var route = mission.get_meta("trade_route", {})
+	if route.is_empty():
+		return
+	
+	var products = mission.required_resources  # Götürülen mallar
+	
+	# Kâr hesaplama (zaten mission.rewards içinde hesaplanmış)
+	var total_profit = mission.rewards.get("gold", 0)
+	
+	# Altın ekle
+	var gpd = get_node_or_null("/root/GlobalPlayerData")
+	if gpd:
+		gpd.gold += total_profit
+	
+	# İlişki artışı (yetenek bonuslu)
+	var trade_skill = cariye.get_skill_level(Concubine.Skill.TİCARET)
+	var base_relation_gain = 2 + randi_range(0, 3)  # 2-5 temel
+	var skill_relation_bonus = 1.0
+	
+	if trade_skill >= 90:
+		skill_relation_bonus = 1.5  # %50 bonus
+	elif trade_skill >= 80:
+		skill_relation_bonus = 1.25  # %25 bonus
+	
+	var final_relation_gain = int(base_relation_gain * skill_relation_bonus)
+	_increase_settlement_relation(route.get("to", ""), final_relation_gain)
+	
+	# Cariye deneyim kazancı (ticaret görevleri için özel)
+	var exp_gain = 30 + (trade_skill / 2)  # Yetenek arttıkça daha fazla exp
+	var leveled_up = cariye.add_experience(int(exp_gain))
+	if leveled_up:
+		concubine_leveled_up.emit(cariye_id, cariye.level)
+	
+	# Haber
+	var skill_text = ""
+	if trade_skill >= 100:
+		skill_text = " (Efsanevi Ticaret Ustası!)"
+	elif trade_skill >= 90:
+		skill_text = " (Ticaret Efendisi)"
+	elif trade_skill >= 80:
+		skill_text = " (Pazarlık Ustası)"
+	
+	var settlement_name = route.get("to_name", "?")
+	post_news("Başarı", "Ticaret Başarılı%s" % skill_text, 
+		"%s %s'ye ticaret görevini tamamladı. +%d altın kazandınız, +%d ilişki artışı." % [cariye.name, settlement_name, total_profit, final_relation_gain],
+		Color(0.8,1,0.8))
 
 # Ödül uygula
 func _apply_reward(reward_type: String, amount):
@@ -1608,8 +1683,6 @@ func process_world_events():
 	# Yeni olay başlatma şansı
 	if randf() < 0.3:  # %30 şans
 		start_random_world_event()
-		# Olası ticaret etkisiyle birlikte yeni teklifler yenilenebilir
-		refresh_trade_offers("world_event")
 
 	# Koşullu nadir olaylar
 	if world_stability < 35 and randf() < 0.25:
@@ -1829,38 +1902,21 @@ func _on_new_day(day: int):
 			post_news("Bilgi", "Etki Sona Erdi", "%s için %+d etki bitti" % [m.get("resource","?"), int(m.get("delta",0))], Color(0.8,0.8,0.8))
 	active_rate_modifiers = remaining
 
-	# Ticaret anlaşmalarını uygula (günlük peşin ödeme ve modlar)
-	var kept: Array[Dictionary] = []
-	for ta in trade_agreements:
-		var daily_gold = int(ta.get("daily_gold", 0))
-		if daily_gold > 0:
-			var gpd = get_node_or_null("/root/GlobalPlayerData")
-			if gpd and gpd.has_method("add_gold"):
-				gpd.add_gold(-daily_gold)
-		# Modifiers uygula (sonsuz için expires_day yok; süreliyse day+remaining_days)
-		var mods: Dictionary = ta.get("modifiers", {})
-		for res in mods.keys():
-			var delta = int(mods[res])
-			# Günlük etki: sadece bugünün sonunda sona ersin
-			var expires_day = day
-			active_rate_modifiers.append({"resource": res, "delta": delta, "expires_day": expires_day, "source": ta.get("partner","ticaret")})
-		# Gün sayısını azalt
-		if ta.get("infinite", false):
-			kept.append(ta)
+	# Süresi dolan tüccarları kaldır
+	var remaining_traders: Array[Dictionary] = []
+	for trader in active_traders:
+		var leaves_day = int(trader.get("leaves_day", day + 1))
+		if leaves_day > day:
+			remaining_traders.append(trader)
 		else:
-			var rem = int(ta.get("remaining_days", 0)) - 1
-			if rem > 0:
-				ta["remaining_days"] = rem
-				kept.append(ta)
-			else:
-				post_news("Bilgi", "Ticaret Bitti", "%s ile anlaşma sona erdi" % ta.get("partner","?"), Color(0.8,0.8,1))
-	trade_agreements = kept
+			var trader_name = trader.get("name", "Tüccar")
+			post_news("Bilgi", "Tüccar Ayrıldı", "%s köyden ayrıldı." % trader_name, Color(0.8,0.8,1))
+	active_traders = remaining_traders
+	if active_traders.size() != remaining_traders.size():
+		active_traders_updated.emit()
 
 	# Yerleşim ticaret modları süresi dolanları temizle
 	_clean_expired_settlement_modifiers(day)
-
-	# Her gün yeni teklifler gelebilir
-	refresh_trade_offers("day_tick")
 
 	# İlişki ve istikrar değişimleri (küçük dalgalanmalar) + haberler
 	for s in settlements:
@@ -1950,7 +2006,6 @@ func _simulate_conflicts():
 	_create_conflict_missions(attacker, defender)
 	if attacker_wins and randf() < 0.4:
 		_add_settlement_trade_modifier(df_name, 1.25, 2, true, "conflict")
-		refresh_trade_offers("conflict")
 
 func _create_conflict_missions(attacker: Dictionary, defender: Dictionary):
 	# Savunma görevi
@@ -1988,12 +2043,8 @@ func _create_conflict_missions(attacker: Dictionary, defender: Dictionary):
 	missions[raid.id] = raid
 	post_news("Bilgi", "Görev Fırsatı", "Savunma ve yağma görevleri listene eklendi", Color(0.8,1,0.8))
 
-func cancel_trade_agreement_by_index(idx: int):
-	if idx < 0 or idx >= trade_agreements.size():
-		return
-	var ta = trade_agreements[idx]
-	post_news("Uyarı", "Ticaret İptal", "%s ile anlaşma iptal edildi" % ta.get("partner","?"), Color(1,0.8,0.8))
-	trade_agreements.remove_at(idx)
+# ESKİ FONKSİYON KALDIRILDI: cancel_trade_agreement_by_index
+# Artık ticaret anlaşmaları yok, sadece aktif tüccarlar var
 
 # Rastgele dünya olayı başlat
 func start_random_world_event():
@@ -2052,72 +2103,266 @@ func _active_rate_add(resource: String, delta: int, days: int, source: String):
 	var sign = "+" if delta >= 0 else ""
 	post_news("Bilgi", "Üretim Etkisi", "%s için %s%d (kaynak: %s)" % [resource, sign, delta, source], Color(0.8,0.8,1))
 
-func add_trade_agreement(partner: String, daily_gold: int, modifiers: Dictionary, days: int = 0, infinite: bool = false):
-	var ta = {"partner": partner, "daily_gold": daily_gold, "modifiers": modifiers, "infinite": infinite}
-	if not infinite:
-		ta["remaining_days"] = max(1, days)
-	trade_agreements.append(ta)
-	var mods_text = ""
-	for r in modifiers.keys():
-		var d = int(modifiers[r])
-		var s = "+" if d >= 0 else ""
-		mods_text += "%s%s %s  " % [s, d, r]
-	var title = "Ticaret Anlaşması"
-	var content = "%s ile %sAltın/gün karşılığı: %s%s" % [partner, str(daily_gold), mods_text, (" (Süresiz)" if infinite else "")] 
-	post_news("Başarı", title, content, Color(0.8,1,0.8))
-	# Anlaşma yapıldıktan sonra teklifler değişebilir
-	refresh_trade_offers("agreement_added")
+# === YENİ TÜCCAR SİSTEMİ ===
 
-func get_trade_offers() -> Array[Dictionary]:
-	return available_trade_offers.duplicate(true)
+# Tüccar tipleri
+enum TraderType { NORMAL, RICH, POOR, SPECIAL, NOMAD }
 
-# Haber→görev dönüştürme özelliği kaldırıldı
-
-func refresh_trade_offers(reason: String = "manual"):
-	# Yerleşimlere dayalı üretici: ilişki, zenginlik ve önyargılara göre teklifler
-	var resources = ["food", "wood", "stone"]
-	var new_offers: Array[Dictionary] = []
+# Köye yeni bir tüccar ekle (event tarafından çağrılır)
+func add_active_trader(origin_settlement: Dictionary, arrives_day: int, stays_days: int = 3, trader_type: TraderType = TraderType.NORMAL) -> Dictionary:
 	if settlements.is_empty():
 		create_settlements()
-	var tm = get_node_or_null("/root/TimeManager")
-	var day = tm.get_day() if tm and tm.has_method("get_day") else 0
+	
+	var settlement_name = origin_settlement.get("name", "Bilinmeyen Köy")
+	var relation = int(origin_settlement.get("relation", 50))
+	
+	# Tüccar tipine göre konfigürasyon al
+	var trader_config = _get_trader_config(trader_type, relation, origin_settlement)
+	
+	# Tüccar ismi oluştur (tipine göre)
+	var trader_name = _generate_trader_name(trader_type)
+	
+	# Tüccarın sattığı ürünler (tipine göre)
+	var products = _generate_trader_products(trader_type, relation, origin_settlement, trader_config)
+	
+	var trader = {
+		"id": "trader_%d" % Time.get_unix_time_from_system(),
+		"name": trader_name,
+		"type": trader_type,
+		"origin_settlement": settlement_name,
+		"origin_settlement_id": origin_settlement.get("id", ""),
+		"products": products,
+		"arrives_day": arrives_day,
+		"leaves_day": arrives_day + trader_config["stays_days"],
+		"relation_multiplier": trader_config["relation_multiplier"],
+		"relation": relation
+	}
+	
+	active_traders.append(trader)
+	active_traders_updated.emit()
+	
+	var product_text = ""
+	for p in products:
+		var res_name = _get_resource_display_name(p["resource"])
+		product_text += "%s (%d altın), " % [res_name, p["price_per_unit"]]
+	product_text = product_text.substr(0, product_text.length() - 2)  # Son virgülü kaldır
+	
+	var type_name = _get_trader_type_name(trader_type)
+	post_news("Başarı", "💰 %s Geldi" % type_name, "%s köyünüze geldi! Satıyor: %s" % [trader_name, product_text], Color(0.8,1,0.8))
+	
+	return trader
+
+# Tüccar tipine göre konfigürasyon al
+func _get_trader_config(trader_type: TraderType, relation: int, origin_settlement: Dictionary) -> Dictionary:
+	match trader_type:
+		TraderType.RICH:
+			return {
+				"stays_days": 3,
+				"relation_multiplier": 1.0 - ((relation - 50) * 0.004),  # Daha fazla indirim
+				"product_count": randi_range(3, 4),
+				"price_range": [80, 150]  # Daha pahalı
+			}
+		TraderType.POOR:
+			return {
+				"stays_days": 2,
+				"relation_multiplier": 1.0 - ((relation - 50) * 0.002),  # Daha az indirim
+				"product_count": randi_range(1, 2),
+				"price_range": [30, 70]  # Daha ucuz
+			}
+		TraderType.SPECIAL:
+			var special_resource = _get_settlement_special_resource(origin_settlement)
+			return {
+				"stays_days": 3,
+				"relation_multiplier": 1.0 - ((relation - 50) * 0.005),  # Çok fazla indirim
+				"product_count": randi_range(2, 3),
+				"price_range": [40, 100],
+				"special_resource": special_resource
+			}
+		TraderType.NOMAD:
+			return {
+				"stays_days": randi_range(4, 6),
+				"relation_multiplier": 1.0 - ((relation - 50) * 0.003),
+				"product_count": randi_range(4, 5),
+				"price_range": [50, 120]
+			}
+		_:  # NORMAL
+			return {
+				"stays_days": 3,
+				"relation_multiplier": 1.0 - ((relation - 50) * 0.003),
+				"product_count": randi_range(2, 3),
+				"price_range": [50, 130]
+			}
+
+# Yerleşimin özel kaynağını al (bias'a göre)
+func _get_settlement_special_resource(settlement: Dictionary) -> String:
+	var biases = settlement.get("biases", {})
+	if biases.is_empty():
+		return "food"  # Varsayılan
+	
+	# En yüksek bias'a sahip kaynağı bul
+	var max_bias = 0
+	var special_resource = "food"
+	for resource in biases.keys():
+		var bias_value = int(biases[resource])
+		if bias_value > max_bias:
+			max_bias = bias_value
+			special_resource = resource
+	
+	return special_resource
+
+# Tüccar ismi oluştur (tipine göre)
+func _generate_trader_name(trader_type: TraderType) -> String:
+	var prefixes: Array[String] = []
+	var first_names = ["Ahmet", "Mehmet", "Ali", "Hasan", "Hüseyin", "İbrahim", "Mustafa", "Osman"]
+	
+	match trader_type:
+		TraderType.RICH:
+			prefixes = ["Zengin", "Varlıklı", "Büyük", "Ünlü"]
+		TraderType.POOR:
+			prefixes = ["Fakir", "Küçük", "Seyyar", "Yoksul"]
+		TraderType.SPECIAL:
+			prefixes = ["Uzman", "Özel", "Nadir", "Değerli"]
+		TraderType.NOMAD:
+			prefixes = ["Gezgin", "Göçebe", "Seyyah", "Dolaşan"]
+		_:  # NORMAL
+			prefixes = ["Normal"]
+	
+	first_names.shuffle()
+	prefixes.shuffle()
+	return prefixes[0] + " " + first_names[0] + " Tüccar"
+
+# Tüccar ürünleri oluştur
+func _generate_trader_products(trader_type: TraderType, relation: int, origin_settlement: Dictionary, config: Dictionary) -> Array[Dictionary]:
+	var products: Array[Dictionary] = []
+	var available_resources = ["food", "wood", "stone"]
+	available_resources.shuffle()
+	
+	var product_count = config.get("product_count", 2)
+	var price_range = config.get("price_range", [50, 130])
+	var relation_multiplier = config.get("relation_multiplier", 1.0)
+	
+	# Özel tüccar için özel ürün ekle
+	if trader_type == TraderType.SPECIAL:
+		var special_resource = config.get("special_resource", "food")
+		if not special_resource in available_resources:
+			available_resources.append(special_resource)
+		# Özel ürünü başa ekle
+		available_resources.erase(special_resource)
+		available_resources.insert(0, special_resource)
+	
+	for i in range(min(product_count, available_resources.size())):
+		var resource = available_resources[i]
+		var base_price = price_range[0] + randi_range(0, price_range[1] - price_range[0])
+		
+		# Özel tüccar için özel ürün indirimli
+		if trader_type == TraderType.SPECIAL and resource == config.get("special_resource", ""):
+			base_price = int(base_price * 0.7)  # %30 indirim
+		
+		var final_price = int(base_price * relation_multiplier)
+		
+		products.append({
+			"resource": resource,
+			"price_per_unit": final_price,
+			"base_price": base_price
+		})
+	
+	return products
+
+# Tüccar tipi ismini al
+func _get_trader_type_name(trader_type: TraderType) -> String:
+	match trader_type:
+		TraderType.RICH: return "Zengin Tüccar"
+		TraderType.POOR: return "Fakir Tüccar"
+		TraderType.SPECIAL: return "Özel Ürün Tüccarı"
+		TraderType.NOMAD: return "Gezgin Tüccar"
+		_: return "Tüccar"
+
+# Aktif tüccarları al
+func get_active_traders() -> Array[Dictionary]:
+	return active_traders.duplicate(true)
+
+# Tüccardan ürün satın al
+func buy_from_trader(trader_id: String, resource: String, quantity: int) -> bool:
+	var trader: Dictionary = {}
+	for t in active_traders:
+		if t.get("id") == trader_id:
+			trader = t
+			break
+	
+	if trader.is_empty():
+		return false
+	
+	# Ürünü bul
+	var product: Dictionary = {}
+	for p in trader.get("products", []):
+		if p.get("resource") == resource:
+			product = p
+			break
+	
+	if product.is_empty():
+		return false
+	
+	var price_per_unit = int(product.get("price_per_unit", 0))
+	var total_cost = price_per_unit * quantity
+	
+	# Altın kontrolü
+	var gpd = get_node_or_null("/root/GlobalPlayerData")
+	if not gpd or gpd.gold < total_cost:
+		return false
+	
+	# Ödeme yap
+	gpd.gold -= total_cost
+	
+	# Kaynak ekle
+	var vm = get_node_or_null("/root/VillageManager")
+	if vm:
+		var current = vm.resource_levels.get(resource, 0)
+		vm.resource_levels[resource] = current + quantity
+	
+	# İlişki artışı (satın alma sonrası)
+	var settlement_id = trader.get("origin_settlement_id", "")
+	var relation_gain = 1  # Temel +1 ilişki
+	
+	# Büyük alımlar bonus ilişki verir
+	if quantity >= 25:
+		relation_gain += 2  # +2 bonus
+	elif quantity >= 10:
+		relation_gain += 1  # +1 bonus
+	
+	_increase_settlement_relation(settlement_id, relation_gain)
+	
+	var res_name = _get_resource_display_name(resource)
+	var relation_text = ""
+	if relation_gain > 1:
+		relation_text = " (+%d ilişki)" % relation_gain
+	post_news("Başarı", "Satın Alındı", "%d %s satın alındı (%d altın)%s" % [quantity, res_name, total_cost, relation_text], Color(0.8,1,0.8))
+	
+	return true
+
+# Yerleşim ilişkisini artır
+func _increase_settlement_relation(settlement_id: String, amount: int):
+	if settlement_id.is_empty():
+		return
+	
 	for s in settlements:
-		# İlişki ve zenginliğe göre teklif sayısı ve koşullar
-		var rel:int = int(s.get("relation", 50))
-		var wealth:int = int(s.get("wealth", 50))
-		var bias:Dictionary = s.get("biases", {})
-		var num = 1
-		if rel >= 70:
-			num += 1
-		if wealth >= 70:
-			num += 1
-		# Yerleşim ticaret modifikasyonu
-		var partner_name = s.get("name","?")
-		var mod = _get_trade_modifier_for_partner(partner_name, day)
-		if mod.get("blocked", false):
-			continue
-		for i in range(num):
-			var res = resources[randi() % resources.size()]
-			# bias etkisi
-			if randf() < 0.6:
-				for k in bias.keys():
-					if randf() < 0.5:
-						res = k
-						break
-			var delta = clamp(int(bias.get(res, 1)) + randi_range(0,2), 1, 4)
-			var base_price = 40 + randi() % 100
-			# ilişki arttıkça indirim
-			var price = int(base_price * (1.0 - (rel - 50) * 0.003))
-			# Yerel modifikasyon: festival/embargo etkisi
-			var mult: float = float(mod.get("trade_multiplier", 1.0))
-			price = int(float(price) * mult)
-			var days = randi_range(2,5)
-			var infinite_flag = randf() < 0.2 and rel >= 65
-			var offer = {"partner": s.get("name","?"), "daily_gold": max(10, price), "mods": {res: delta}, "days": days, "infinite": infinite_flag}
-			new_offers.append(offer)
-	available_trade_offers = new_offers
-	trade_offers_updated.emit()
-	post_news("Bilgi", "Yeni Ticaret Teklifleri", "%d yeni teklif geldi (%s)" % [available_trade_offers.size(), reason], Color(0.8,0.9,1))
+		if s.get("id") == settlement_id:
+			var old_relation = s.get("relation", 50)
+			s["relation"] = clamp(old_relation + amount, 0, 100)
+			
+			# İlişki değişikliği haberi (sadece artış varsa)
+			if amount > 0:
+				var settlement_name = s.get("name", "?")
+				post_news("Bilgi", "İlişki Artışı", "%s ile ilişkiler +%d arttı (Yeni: %d)" % [settlement_name, amount, s["relation"]], Color(0.8,1,0.8))
+			break
+
+# Kaynak isimlerini Türkçe'ye çevir
+func _get_resource_display_name(resource: String) -> String:
+	match resource:
+		"food": return "Yemek"
+		"wood": return "Odun"
+		"stone": return "Taş"
+		"water": return "Su"
+		_: return resource.capitalize()
 
 # Yerleşim ticaret modunu getir
 func _get_trade_modifier_for_partner(partner: String, day: int) -> Dictionary:
@@ -2166,7 +2411,6 @@ func _add_settlement_trade_modifier(partner: String, trade_multiplier: float, da
 	})
 	var effect_text = "Ambargo" if blocked else ("İndirim x" + str(trade_multiplier))
 	post_news("Bilgi", "Ticaret Modu (%s)" % partner, "%s: %s gün" % [effect_text, str(days)], Color(0.9,0.95,1))
-	refresh_trade_offers(reason)
 
 func create_settlements():
 	# Basit başlangıç seti
@@ -2177,23 +2421,222 @@ func create_settlements():
 		{"id": "north_fort", "name": "Kuzey Kalesi", "type": "fort", "relation": 45, "wealth": 45, "stability": 55, "military": 80, "biases": {"stone": 3}}
 	]
 	post_news("Bilgi", "Komşular Tanımlandı", "%d yerleşim keşfedildi" % settlements.size(), Color(0.8,1,0.8))
-	# İlk karavan/teklif canlandırması için küçük bir olasılık
-	if randf() < 0.5:
-		_trigger_trade_caravan()
+	# İlk karavan eventi artık VillageManager tarafından yönetiliyor
+
+# Ticaret rotalarını başlat
+func _initialize_trade_routes():
+	trade_routes = []
+	
+	# Yerleşimler arası rotalar oluştur
+	if settlements.size() < 2:
+		return
+	
+	for i in range(settlements.size()):
+		for j in range(i + 1, settlements.size()):
+			var from_settlement = settlements[i]
+			var to_settlement = settlements[j]
+			
+			# Rota oluştur (ilişkiye göre aktif/pasif)
+			var relation_from = from_settlement.get("relation", 50)
+			var relation_to = to_settlement.get("relation", 50)
+			var avg_relation = (relation_from + relation_to) / 2.0
+			
+			var route = {
+				"id": "route_%s_%s" % [from_settlement.get("id", ""), to_settlement.get("id", "")],
+				"from": from_settlement.get("id", ""),
+				"from_name": from_settlement.get("name", ""),
+				"to": to_settlement.get("id", ""),
+				"to_name": to_settlement.get("name", ""),
+				"products": _get_route_products(from_settlement, to_settlement),
+				"distance": randf_range(1.0, 5.0),
+				"risk": _calculate_route_risk(avg_relation),
+				"active": avg_relation >= 30,  # 30+ ilişki gerekli
+				"relation": avg_relation
+			}
+			
+			trade_routes.append(route)
+
+# Rota ürünlerini belirle
+func _get_route_products(from_settlement: Dictionary, to_settlement: Dictionary) -> Array[String]:
+	# Her yerleşimin bias'ına göre ürünler
+	var from_biases = from_settlement.get("biases", {})
+	var to_biases = to_settlement.get("biases", {})
+	
+	var products: Array[String] = []
+	
+	# From'dan To'ya giden ürünler (from'un fazla ürettiği)
+	for resource in from_biases.keys():
+		if from_biases[resource] > 1:
+			products.append(resource)
+	
+	# To'dan From'a giden ürünler (to'nun fazla ürettiği)
+	for resource in to_biases.keys():
+		if to_biases[resource] > 1 and not resource in products:
+			products.append(resource)
+	
+	# En az 1 ürün olsun
+	if products.is_empty():
+		products = ["food", "wood", "stone"]
+	
+	return products
+
+# Rota risk seviyesini hesapla
+func _calculate_route_risk(relation: float) -> String:
+	if relation >= 70:
+		return "Düşük"
+	elif relation >= 50:
+		return "Orta"
+	elif relation >= 30:
+		return "Yüksek"
+	else:
+		return "Çok Yüksek"
+
+# Aktif rotaları al
+func get_active_trade_routes() -> Array[Dictionary]:
+	var active_routes: Array[Dictionary] = []
+	for route in trade_routes:
+		if route.get("active", false):
+			active_routes.append(route)
+	return active_routes
+
+# Rota bul (ID ile)
+func _find_route_by_id(route_id: String) -> Dictionary:
+	for route in trade_routes:
+		if route.get("id") == route_id:
+			return route
+	return {}
+
+# Ticaret görevi oluştur (rota ve ürünlerle)
+func create_trade_mission_for_route(cariye_id: int, route_id: String, products: Dictionary, soldier_count: int = 0) -> Mission:
+	var route = _find_route_by_id(route_id)
+	if route.is_empty():
+		return null
+	
+	# Rota aktif mi kontrol et
+	if not route.get("active", false):
+		return null
+	
+	var mission = Mission.new()
+	mission.id = "trade_route_%d" % Time.get_unix_time_from_system()
+	mission.name = "Ticaret: %s → %s" % [route.get("from_name", "?"), route.get("to_name", "?")]
+	mission.description = "%s'ye ticaret malı götür." % route.get("to_name", "?")
+	mission.mission_type = Mission.MissionType.TİCARET
+	mission.difficulty = _get_route_difficulty(route)
+	mission.duration = route.get("distance", 2.0) * 60.0  # Mesafe * 60 dakika
+	mission.success_chance = _calculate_trade_success_chance(route, cariye_id)
+	mission.required_cariye_level = 1
+	mission.required_army_size = soldier_count
+	mission.required_resources = products  # Götürülecek mallar
+	mission.rewards = _calculate_trade_rewards(route, products, cariye_id)
+	mission.penalties = _calculate_trade_penalties(route)
+	mission.target_location = route.get("to_name", "?")
+	mission.distance = route.get("distance", 2.0)
+	mission.risk_level = route.get("risk", "Orta")
+	
+	# Rota bilgisini mission'a ekle (tamamlama için)
+	mission.set_meta("trade_route_id", route_id)
+	mission.set_meta("trade_route", route)
+	
+	return mission
+
+# Rota zorluğunu belirle
+func _get_route_difficulty(route: Dictionary) -> Mission.Difficulty:
+	var risk = route.get("risk", "Orta")
+	match risk:
+		"Düşük": return Mission.Difficulty.KOLAY
+		"Orta": return Mission.Difficulty.ORTA
+		"Yüksek": return Mission.Difficulty.ZOR
+		"Çok Yüksek": return Mission.Difficulty.EFSANEVİ
+		_: return Mission.Difficulty.ORTA
+
+# Ticaret başarı şansını hesapla
+func _calculate_trade_success_chance(route: Dictionary, cariye_id: int) -> float:
+	var base_chance = 0.8  # %80 temel şans
+	
+	# Rota riskine göre düşüş
+	var risk = route.get("risk", "Orta")
+	match risk:
+		"Düşük": base_chance = 0.9
+		"Orta": base_chance = 0.8
+		"Yüksek": base_chance = 0.7
+		"Çok Yüksek": base_chance = 0.6
+	
+	# Cariye yeteneği bonusu
+	if concubines.has(cariye_id):
+		var cariye = concubines[cariye_id]
+		var trade_skill = cariye.get_skill_level(Concubine.Skill.TİCARET)
+		var skill_bonus = (trade_skill - 50) * 0.002  # Her 1 yetenek = %0.2 bonus
+		base_chance += skill_bonus
+	
+	return clamp(base_chance, 0.5, 0.95)  # Min %50, Max %95
+
+# Ticaret ödüllerini hesapla
+func _calculate_trade_rewards(route: Dictionary, products: Dictionary, cariye_id: int) -> Dictionary:
+	var rewards: Dictionary = {}
+	var total_profit = 0
+	
+	# Temel kâr hesaplama
+	for resource in products.keys():
+		var quantity = products[resource]
+		var base_value = _get_resource_base_value(resource)
+		var route_multiplier = 1.2 + (route.get("relation", 50) - 50) * 0.01  # İlişkiye göre kâr
+		total_profit += int(base_value * quantity * route_multiplier)
+	
+	# Cariye yeteneği bonusu
+	if concubines.has(cariye_id):
+		var cariye = concubines[cariye_id]
+		var trade_skill = cariye.get_skill_level(Concubine.Skill.TİCARET)
+		var level = cariye.level
+		
+		var skill_bonus_multiplier = 1.0 + (trade_skill * 0.005)  # Her 1 yetenek = %0.5 bonus
+		var level_bonus_multiplier = 1.0 + (level * 0.02)  # Her 1 seviye = %2 bonus
+		
+		# Özel yetenekler
+		if trade_skill >= 100:
+			skill_bonus_multiplier *= 1.1  # %10 ekstra (Efsane)
+		elif trade_skill >= 90:
+			skill_bonus_multiplier *= 1.05  # %5 ekstra (Efendi)
+		elif trade_skill >= 80:
+			skill_bonus_multiplier *= 1.02  # %2 ekstra (Usta)
+		
+		total_profit = int(total_profit * skill_bonus_multiplier * level_bonus_multiplier)
+	
+	rewards["gold"] = total_profit
+	return rewards
+
+# Ticaret cezalarını hesapla
+func _calculate_trade_penalties(route: Dictionary) -> Dictionary:
+	var penalties: Dictionary = {}
+	var risk = route.get("risk", "Orta")
+	
+	match risk:
+		"Düşük":
+			penalties["gold"] = -50
+		"Orta":
+			penalties["gold"] = -100
+		"Yüksek":
+			penalties["gold"] = -150
+		"Çok Yüksek":
+			penalties["gold"] = -200
+			penalties["cariye_injured"] = 1
+	
+	return penalties
+
+# Kaynak temel değeri
+func _get_resource_base_value(resource: String) -> int:
+	match resource:
+		"food": return 40
+		"wood": return 35
+		"stone": return 45
+		"water": return 30
+		_: return 40
 
 # --- ZENGİN OLAYLAR ---
 
 func _trigger_trade_caravan() -> void:
-	if settlements.is_empty():
-		return
-	var s = settlements[randi() % settlements.size()]
-	var partner = s.get("name","?")
-	post_news("Başarı", "Kervan Geldi", "%s'den ticaret kervanı köy yakınlarında." % partner, Color(0.8,1,0.8))
-	# Geçici indirim etkisi ve yeni teklifler
-	_add_settlement_trade_modifier(partner, 0.85, 3, false, "caravan")
-	refresh_trade_offers("caravan")
-	# Eskort görevi üret
-	_create_escort_mission(partner)
+	# ESKİ SİSTEM: Artık kullanılmıyor, VillageManager'daki event sistemi kullanılacak
+	# Bu fonksiyon sadece geriye dönük uyumluluk için bırakıldı
+	pass
 
 func _trigger_bandit_activity() -> void:
 	post_news("Uyarı", "Haydut Faaliyeti", "Yollarda haydutlar arttı. Ticaret riskli.", Color(1,0.8,0.8))
@@ -2232,7 +2675,6 @@ func _trigger_embargo_between_settlements() -> void:
 	post_news("Uyarı", "Ticaret Ambargosu", "%s ile %s arasında ticaret askıya alındı." % [pa, pb], Color(1,0.8,0.8))
 	_add_settlement_trade_modifier(pa, 1.0, 3, true, "embargo")
 	_add_settlement_trade_modifier(pb, 1.0, 3, true, "embargo")
-	refresh_trade_offers("embargo")
 
 # --- Olay kaynaklı görevler ---
 

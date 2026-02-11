@@ -1,0 +1,34 @@
+[gd_scene load_steps=6 format=3 uid="uid://trader_village_npc"]
+
+[ext_resource type="Script" path="res://village/scripts/TraderVillageNPC.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/NPC/trader/Trader_idle_border.png" id="2_idle"]
+[ext_resource type="Texture2D" path="res://assets/NPC/trader/Trader_walk_border.png" id="3_walk"]
+[ext_resource type="Texture2D" path="res://assets/NPC/trader/Trader_sit_border.png" id="4_sit"]
+[ext_resource type="Texture2D" path="res://assets/NPC/trader/Trader_sleep_border.png" id="5_sleep"]
+
+[node name="TraderVillageNPC" type="Node2D"]
+y_sort_enabled = true
+script = ExtResource("1_script")
+
+[node name="IdleSprite" type="Sprite2D" parent="."]
+position = Vector2(0, -48)
+texture = ExtResource("2_idle")
+hframes = 10
+visible = false
+
+[node name="WalkSprite" type="Sprite2D" parent="."]
+position = Vector2(0, -48)
+texture = ExtResource("3_walk")
+hframes = 14
+
+[node name="SitSprite" type="Sprite2D" parent="."]
+position = Vector2(0, -48)
+texture = ExtResource("4_sit")
+hframes = 10
+visible = false
+
+[node name="SleepSprite" type="Sprite2D" parent="."]
+position = Vector2(0, -48)
+texture = ExtResource("5_sleep")
+hframes = 10
+visible = false

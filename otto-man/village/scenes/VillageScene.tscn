@@ -128,7 +128,7 @@ noise = SubResource("FastNoiseLite_g76y5")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_86mrj"]
 shader = ExtResource("13_puagf")
-shader_parameter/water_color = Color(2.11775e-06, 0.344346, 0.471124, 1)
+shader_parameter/water_color = Color(5.05373e-07, 0.148499, 0.213102, 1)
 shader_parameter/wave_noise = SubResource("NoiseTexture2D_633bs")
 
 [node name="VillageScene" type="Node2D"]
@@ -339,6 +339,9 @@ position = Vector2(2, -70)
 y_sort_enabled = true
 
 [node name="ConcubinesContainer" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="TradersContainer" type="Node2D" parent="."]
 y_sort_enabled = true
 
 [node name="TimeDisplayUi" parent="." instance=ExtResource("7_miuw4")]

@@ -1,6 +1,16 @@
 class_name StoneMine
 extends Node2D
 
+const CollisionLayers = preload("res://resources/CollisionLayers.gd")
+
+# Tüm seviyeler için sadece CollisionLevel1 aktif
+const COLLISION_NAMES_BY_LEVEL: Dictionary = {
+	1: ["CollisionLevel1"],
+	2: ["CollisionLevel1"],
+	3: ["CollisionLevel1"],
+	4: ["CollisionLevel1"]
+}
+
 @export var worker_stays_inside: bool = false
 
 # --- Mevcut Değişkenler ---
@@ -9,16 +19,16 @@ extends Node2D
 @export var assigned_workers: int = 0
 var assigned_worker_ids: Array[int] = []
 var is_upgrading: bool = false
-var upgrade_timer: Timer = null #<<< YENİDEN EKLENDİ
-var upgrade_time_seconds: float = 10.0 # Örnek
-@export var max_level: int = 3 # Inspector'dan ayarlanabilir, varsayılan 3
+var upgrade_timer: Timer = null
+var upgrade_time_seconds: float = 10.0
+@export var max_level: int = 4
+var _collision_original_positions: Dictionary = {}
 
-# Yükseltme maliyetleri: Seviye -> {kaynak: maliyet}
+# Yükseltme maliyetleri (4 seviye)
 const UPGRADE_COSTS = {
-	2: {"gold": 30}, # Seviye 2 için altın maliyeti
-	3: {"gold": 60},  # Seviye 3 için altın maliyeti
-	4: {"gold": 100}, # Seviye 4 için altın maliyeti
-	5: {"gold": 150}  # Seviye 5 için altın maliyeti
+	2: {"gold": 30},
+	3: {"gold": 60},
+	4: {"gold": 100}
 }
 # Const for max workers per level (Optional)
 # const MAX_WORKERS_PER_LEVEL = { 1: 1, 2: 2, 3: 3 }
@@ -44,6 +54,10 @@ func _init(): # _ready yerine _init'te oluşturmak daha güvenli olabilir
 
 func _ready() -> void:
 	print("StoneMine hazır.")
+	_store_collision_original_positions()
+	_setup_platform_collision()
+	_update_texture()
+	call_deferred("_update_collision")
 	_update_ui()
 
 # --- Worker Management (YENİ) ---
@@ -207,11 +221,79 @@ func finish_upgrade() -> void:
 	emit_signal("state_changed") # Genel durum değişikliği sinyali
 	VillageManager.notify_building_state_changed(self)
 	
-	# Görseli normale döndür
 	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.WHITE
+	_update_texture()
+	_update_collision()
 	print("Taş Madeni: Yeni seviye: %d, Maks İşçi: %d" % [level, max_workers])
 
-# --- UI Update (Boş veya varsa) ---
+# --- Texture (stone1..stone4) ---
+func _update_texture() -> void:
+	var sprite = get_node_or_null("Sprite2D")
+	if not sprite:
+		return
+	var texture_path = ""
+	match level:
+		1: texture_path = "res://village/buildings/sprite/stone1.png"
+		2: texture_path = "res://village/buildings/sprite/stone2.png"
+		3: texture_path = "res://village/buildings/sprite/stone3.png"
+		4: texture_path = "res://village/buildings/sprite/stone4.png"
+		_: texture_path = "res://village/buildings/sprite/stone1.png"
+	if ResourceLoader.exists(texture_path):
+		var texture = load(texture_path)
+		if texture:
+			sprite.texture = texture
+			sprite.scale = Vector2(1.0, 1.0)
+			sprite.offset = Vector2(0, -texture.get_height() / 2)
+
+# --- Collision (Well/WoodcutterCamp ile aynı mantık) ---
+func _store_collision_original_positions() -> void:
+	if not _collision_original_positions.is_empty():
+		return
+	var body = get_node_or_null("StaticBody2D")
+	if not body:
+		return
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			_collision_original_positions[child.name] = child.position
+
+func _apply_collision_sprite_offset() -> void:
+	var sprite = get_node_or_null("Sprite2D")
+	var body = get_node_or_null("StaticBody2D")
+	if not sprite or not body or _collision_original_positions.is_empty():
+		return
+	var offset_y: float = sprite.offset.y if sprite.texture else 0.0
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			var orig: Vector2 = _collision_original_positions.get(child.name, child.position)
+			child.position = orig + Vector2(0, offset_y)
+
+func _setup_platform_collision() -> void:
+	var body = get_node_or_null("StaticBody2D")
+	if not body is StaticBody2D:
+		return
+	body.collision_layer = CollisionLayers.PLATFORM
+	body.collision_mask = CollisionLayers.NONE
+	body.add_to_group("one_way_platforms")
+	for child in body.get_children():
+		if child is CollisionShape2D:
+			child.one_way_collision = true
+			child.one_way_collision_margin = 12.0
+
+func _update_collision() -> void:
+	var body = get_node_or_null("StaticBody2D")
+	if not body:
+		return
+	_apply_collision_sprite_offset()
+	var names_to_enable: Array = COLLISION_NAMES_BY_LEVEL.get(level, ["CollisionLevel1"])
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			child.disabled = true
+	for node_name in names_to_enable:
+		var col = body.get_node_or_null(node_name)
+		if col is CollisionShape2D:
+			col.disabled = false
+
+# --- UI Update ---
 func _update_ui() -> void:
 	# Bu fonksiyon, UI'yi güncellemek için kullanılabilir.
 	# Örneğin, bir UI elementini güncellemek için kullanılabilir.

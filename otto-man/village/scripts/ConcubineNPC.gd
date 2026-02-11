@@ -264,8 +264,9 @@ func _ready() -> void:
 	global_position.y = randf_range(0.0, VERTICAL_RANGE_MAX)
 	_target_global_y = global_position.y  # Başlangıçta aynı y pozisyonunda
 	# Z-Index'i ayak pozisyonuna göre ayarla
+	# Su yansımasında görünmesi için z_index'i su sprite'ının z_index'inden (20) düşük tutmalıyız
 	var foot_y = get_foot_y_position()
-	z_index = int(foot_y)
+	z_index = _calculate_z_index_from_foot_y(foot_y)
 	
 	# Başlangıç hedefi - mevcut pozisyona eşitle (idle başlasın)
 	move_target_x = global_position.x
@@ -375,8 +376,9 @@ func _physics_process(delta: float) -> void:
 		var y_dir = sign(_target_global_y - global_position.y)
 		global_position.y += y_dir * move_speed * 0.5 * delta
 		# Z-Index'i ayak pozisyonuna göre güncelle
+		# Su yansımasında görünmesi için z_index'i su sprite'ının z_index'inden (20) düşük tutmalıyız
 		var foot_y = get_foot_y_position()
-		z_index = int(foot_y)
+		z_index = _calculate_z_index_from_foot_y(foot_y)
 	
 	# X ekseni hareketi
 	if x_distance > 1.0:
@@ -415,13 +417,36 @@ func _physics_process(delta: float) -> void:
 				play_animation("idle")
 				_idle_initialized = true
 
+	# Köylüler birbirine çok girmesin (cariye/worker/trader arası mesafe)
+	if visible:
+		_apply_villager_separation()
+
+# Köy NPC'leri arası çok hafif mesafe (neredeyse üst üste gelince hafifçe it, alan dışına çıkmasın)
+func _apply_villager_separation() -> void:
+	const MIN_SPACING: float = 10.0
+	const STRENGTH: float = 0.06
+	var villagers = get_tree().get_nodes_in_group("Villagers")
+	var separation = Vector2.ZERO
+	for other in villagers:
+		if other == self or not is_instance_valid(other):
+			continue
+		if not other is Node2D:
+			continue
+		var other_pos = (other as Node2D).global_position
+		var dist = global_position.distance_to(other_pos)
+		if dist < MIN_SPACING and dist > 0.01:
+			var away = (global_position - other_pos).normalized()
+			separation += away * (MIN_SPACING - dist)
+	if separation.length_squared() > 0.0:
+		global_position += separation * STRENGTH
+
 # Stil adı çıkarma (Worker'dan alındı, Cariye desteği eklendi)
 # Ayak pozisyonunu hesapla (sprite offset'i ve yüksekliğini hesaba katarak)
 func get_foot_y_position() -> float:
 	# Sprite'lar position = Vector2(0, -48) offset'ine sahip
-	# Bu demek oluyor ki sprite'ın merkezi global_position'dan 48 piksel yukarıda
-	# Ayaklar sprite'ın alt kısmında, yani global_position.y + offset_y + (sprite_height / 2)
-	var sprite_offset_y = 48.0  # Sprite offset'i
+	# Sprite merkezi global_position'dan 48 piksel yukarıda → merkez_y = global_position.y - 48
+	# Ayaklar = sprite merkezi + sprite_height/2 → foot_y = global_position.y - 48 + (sprite_height / 2)
+	var sprite_offset_y = 48.0  # Sprite offset'i (negatif = yukarı)
 	
 	# Body sprite'ın texture yüksekliğini al
 	var sprite_height = 96.0  # Varsayılan yükseklik
@@ -434,8 +459,45 @@ func get_foot_y_position() -> float:
 		elif texture is Texture2D:
 			sprite_height = texture.get_height()
 	
-	# Ayak pozisyonu = global_position.y + sprite_offset + sprite'ın alt yarısı
-	return global_position.y + sprite_offset_y + (sprite_height / 2.0)
+	# Ayak pozisyonu = global_position.y - offset + sprite'ın alt yarısı
+	return global_position.y - sprite_offset_y + (sprite_height / 2.0)
+
+# Z-index'i ayak pozisyonuna göre normalize et (su yansımasında görünmesi için 0-19 aralığında)
+func _calculate_z_index_from_foot_y(foot_y: float) -> int:
+	# foot_y'yi normalize et: VERTICAL_RANGE_MAX + sprite_offset + sprite_height/2 maksimum değer olabilir
+	# Yaklaşık maksimum foot_y: 25 + 48 + 96 = 169, minimum: 0 + 48 + 48 = 96
+	# NPC'lerin z_index'lerini 6-19 aralığına normalize et (kamp ateşinden yüksek, su sprite'ından düşük)
+	# Oyuncuyla aynı aralıkta olmalı ki pozisyona göre doğru sorting yapılsın
+	const CAMPFIRE_Z_INDEX: int = 5  # Kamp ateşinin z_index'i
+	const WATER_Z_INDEX: int = 20  # Su sprite'ının z_index'i
+	const MIN_Z_INDEX: int = CAMPFIRE_Z_INDEX + 1  # Kamp ateşinden yüksek (6)
+	const MAX_Z_INDEX: int = WATER_Z_INDEX - 1  # Su sprite'ından düşük (19)
+	
+	var sprite_offset_y = 48.0
+	var sprite_height = 96.0  # Varsayılan yükseklik
+	if is_instance_valid(body_sprite) and body_sprite.texture:
+		var texture = body_sprite.texture
+		if texture is CanvasTexture:
+			var canvas_texture = texture as CanvasTexture
+			if is_instance_valid(canvas_texture.diffuse_texture):
+				sprite_height = canvas_texture.diffuse_texture.get_height()
+		elif texture is Texture2D:
+			sprite_height = texture.get_height()
+	
+	# foot_y = global_position.y - 48 + height/2 → yaklaşık 0 (y=0) ile VERTICAL_RANGE_MAX (y=25) arası
+	var max_foot_y = VERTICAL_RANGE_MAX - sprite_offset_y + (sprite_height / 2.0)
+	var min_foot_y = 0.0 - sprite_offset_y + (sprite_height / 2.0)
+	var range_foot_y = max_foot_y - min_foot_y
+	
+	# Division by zero kontrolü
+	if range_foot_y <= 0.0:
+		return (MIN_Z_INDEX + MAX_Z_INDEX) / 2  # Varsayılan orta değer (12-13)
+	
+	var normalized_foot_y = (foot_y - min_foot_y) / range_foot_y
+	normalized_foot_y = clamp(normalized_foot_y, 0.0, 1.0)  # 0-1 aralığına sınırla
+	# 6-19 aralığına normalize et (kamp ateşinden yüksek, su sprite'ından düşük)
+	var z_index_range = MAX_Z_INDEX - MIN_Z_INDEX
+	return MIN_Z_INDEX + int(normalized_foot_y * z_index_range)
 
 # State handler fonksiyonları
 func _handle_idle_state(delta: float) -> void:

@@ -1,16 +1,28 @@
 class_name HunterGathererHut
 extends Node2D
-#asdasd
+
+const CollisionLayers = preload("res://resources/CollisionLayers.gd")
+
+# Seviyeye göre collision: 1→col1, 2→col2, 3→col3, 4→col4 (editörde ayarlayabilirsin)
+# Seviye 1: Col1, 2: Col2, 3: Col2+Col3, 4: Col2+Col4
+const COLLISION_NAMES_BY_LEVEL: Dictionary = {
+	1: ["CollisionLevel1"],
+	2: ["CollisionLevel2"],
+	3: ["CollisionLevel2", "CollisionLevel3"],
+	4: ["CollisionLevel2", "CollisionLevel4"]
+}
+
 # Bu binaya özgü değişkenler
 var assigned_workers: int = 0
-var max_workers: int = 1 # Şimdilik her kamp 1 işçi alabilsin
-var assigned_worker_ids: Array[int] = [] #<<< YENİ
+var max_workers: int = 1
+var assigned_worker_ids: Array[int] = []
 var is_upgrading: bool = false
-var upgrade_timer: Timer = null #<<< YENİDEN EKLENDİ
-var upgrade_time_seconds: float = 10.0 # Örnek
-@export var max_level: int = 3 # Inspector'dan ayarlanabilir, varsayılan 3
+var upgrade_timer: Timer = null
+var upgrade_time_seconds: float = 10.0
+@export var max_level: int = 4
+var _collision_original_positions: Dictionary = {}
 
-@export var worker_stays_inside: bool = false #<<< YENİ
+@export var worker_stays_inside: bool = false
 
 # Bu bina için bir işçi atamaya çalışır
 func add_worker() -> bool:
@@ -113,13 +125,11 @@ func remove_worker() -> bool:
 var level: int = 1
 var upgrade_duration: float = 4.0 # Örnek süre
 
-# Const defining the upgrade costs for each level
+# Yükseltme maliyetleri (4 seviye)
 const UPGRADE_COSTS = {
-	2: {"gold": 25}, # Cost to upgrade TO level 2
-	3: {"gold": 50},  # Cost to upgrade TO level 3
-	4: {"gold": 75},  # Cost to upgrade TO level 4
-	5: {"gold": 100}  # Cost to upgrade TO level 5
-	# Add more levels as needed
+	2: {"gold": 25},
+	3: {"gold": 50},
+	4: {"gold": 75}
 }
 # Const for max workers per level (Optional)
 # const MAX_WORKERS_PER_LEVEL = { 1: 1, 2: 2, 3: 3 }
@@ -135,6 +145,10 @@ func _init(): # _ready yerine _init'te oluşturmak daha güvenli olabilir
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	print("HunterGathererHut hazır.")
+	_store_collision_original_positions()
+	_setup_platform_collision()
+	_update_texture()
+	call_deferred("_update_collision")
 	_update_ui()
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
@@ -175,10 +189,11 @@ func start_upgrade() -> bool:
 	print("Avcı Kulübesi: Yükseltme maliyeti düşüldü: %d Altın" % gold_cost)
 	# TODO: Diğer kaynak maliyetlerini düş
 
-	# 3. Yükseltmeyi Başlat
-	print("Avcı Kulübesi: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_timer.wait_time])
+	print("Avcı Kulübesi: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_time_seconds])
 	is_upgrading = true
-	upgrade_timer.start() # Zamanlayıcıyı başlat
+	if upgrade_timer:
+		upgrade_timer.wait_time = upgrade_time_seconds
+		upgrade_timer.start()
 	emit_signal("upgrade_started")
 	emit_signal("state_changed") # Genel durum değişikliği sinyali
 	# Görsel geribildirim (opsiyonel)
@@ -203,9 +218,77 @@ func finish_upgrade() -> void:
 	emit_signal("state_changed") # Genel durum değişikliği sinyali
 	VillageManager.notify_building_state_changed(self)
 	
-	# Görsel geribildirimi geri al (opsiyonel)
 	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.WHITE
+	_update_texture()
+	_update_collision()
 	print("Avcı Kulübesi: Yeni seviye: %d" % level)
+
+# --- Texture (food1..food4) ---
+func _update_texture() -> void:
+	var sprite = get_node_or_null("Sprite2D")
+	if not sprite:
+		return
+	var texture_path = ""
+	match level:
+		1: texture_path = "res://village/buildings/sprite/food1.png"
+		2: texture_path = "res://village/buildings/sprite/food2.png"
+		3: texture_path = "res://village/buildings/sprite/food3.png"
+		4: texture_path = "res://village/buildings/sprite/food4.png"
+		_: texture_path = "res://village/buildings/sprite/food1.png"
+	if ResourceLoader.exists(texture_path):
+		var texture = load(texture_path)
+		if texture:
+			sprite.texture = texture
+			sprite.scale = Vector2(1.0, 1.0)
+			sprite.offset = Vector2(0, -texture.get_height() / 2)
+
+# --- Collision (Well/Wood/Stone ile aynı mantık) ---
+func _store_collision_original_positions() -> void:
+	if not _collision_original_positions.is_empty():
+		return
+	var body = get_node_or_null("StaticBody2D")
+	if not body:
+		return
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			_collision_original_positions[child.name] = child.position
+
+func _apply_collision_sprite_offset() -> void:
+	var sprite = get_node_or_null("Sprite2D")
+	var body = get_node_or_null("StaticBody2D")
+	if not sprite or not body or _collision_original_positions.is_empty():
+		return
+	var offset_y: float = sprite.offset.y if sprite.texture else 0.0
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			var orig: Vector2 = _collision_original_positions.get(child.name, child.position)
+			child.position = orig + Vector2(0, offset_y)
+
+func _setup_platform_collision() -> void:
+	var body = get_node_or_null("StaticBody2D")
+	if not body is StaticBody2D:
+		return
+	body.collision_layer = CollisionLayers.PLATFORM
+	body.collision_mask = CollisionLayers.NONE
+	body.add_to_group("one_way_platforms")
+	for child in body.get_children():
+		if child is CollisionShape2D:
+			child.one_way_collision = true
+			child.one_way_collision_margin = 12.0
+
+func _update_collision() -> void:
+	var body = get_node_or_null("StaticBody2D")
+	if not body:
+		return
+	_apply_collision_sprite_offset()
+	var names_to_enable: Array = COLLISION_NAMES_BY_LEVEL.get(level, ["CollisionLevel1"])
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			child.disabled = true
+	for node_name in names_to_enable:
+		var col = body.get_node_or_null(node_name)
+		if col is CollisionShape2D:
+			col.disabled = false
 
 # --- UI Update ---
 func _update_ui() -> void:

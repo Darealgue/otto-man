@@ -1,19 +1,49 @@
-[gd_scene load_steps=3 format=3 uid="uid://dbynhccjv3wjk"]
+[gd_scene load_steps=6 format=3 uid="uid://dbynhccjv3wjk"]
 
 [ext_resource type="Script" path="res://village/scripts/WoodcutterCamp.gd" id="1_20smd"]
-[ext_resource type="Texture2D" path="res://village/buildings/sprite/wood1.png" id="2_wood1"]
+[ext_resource type="Texture2D" uid="uid://vtuvxqrgcx3t" path="res://village/buildings/sprite/wood4.png" id="2_lcrar"]
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_wood1"]
+a = Vector2(-50, 0)
+b = Vector2(46, 0)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_wood2"]
+a = Vector2(-50, 0)
+b = Vector2(193, 0)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_wood3"]
+a = Vector2(-50, 0)
+b = Vector2(138, 0)
 
 [node name="WoodcutterCamp" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_20smd")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("2_wood1")
 z_index = 1
-offset = Vector2(0, 0)
+texture = ExtResource("2_lcrar")
 
 [node name="ColorRect" type="ColorRect" parent="."]
+visible = false
 offset_left = -20.0
 offset_top = -40.0
 offset_right = 20.0
 color = Color(0.413162, 0.257792, 1.44392e-07, 1)
-visible = false
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+
+[node name="CollisionLevel1" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(48, 123)
+shape = SubResource("SegmentShape2D_wood1")
+one_way_collision = true
+
+[node name="CollisionLevel2" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(-99, 124)
+shape = SubResource("SegmentShape2D_wood2")
+disabled = true
+one_way_collision = true
+
+[node name="CollisionLevel3" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(-106, 8)
+shape = SubResource("SegmentShape2D_wood3")
+disabled = true
+one_way_collision = true

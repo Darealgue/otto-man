@@ -56,6 +56,11 @@ var ENEMY_TYPES = {
 		"scene_path": "res://enemy/spearman/spearman_enemy.tscn",
 		"weight": 30,
 		"min_level": 2
+	},
+	"basic": {
+		"scene_path": "res://enemy/basic/basic_enemy.tscn",
+		"weight": 150,  # High weight for common spawning
+		"min_level": 1  # Available from level 1
 	}
 }
 

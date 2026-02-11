@@ -129,6 +129,14 @@ var workers_container: Node = null #<<< YENİ: workers_parent_node yerine
 # --- Cariye Yönetimi ---
 var concubine_scene: PackedScene = preload("res://village/scenes/Concubine.tscn")
 var concubines_container: Node = null
+# Tüccar sprite'ları (köye yürüyerek girer, merkezde bekler, süre bitince yürüyerek çıkar)
+var traders_container: Node2D = null
+var trader_npc_by_id: Dictionary = {}  # trader_id -> TraderVillageNPC
+const TraderVillageNPCScene = preload("res://village/scenes/TraderVillageNPC.tscn")
+const TRADER_ENTRY_X: float = -2800.0
+const TRADER_CENTER_X: float = 0.0
+const TRADER_EXIT_X: float = 2800.0
+const TRADER_CENTER_Y: float = -26.0
 
 var _saved_building_states: Array = []
 var _saved_worker_states: Array = []
@@ -464,6 +472,8 @@ func _restore_saved_buildings() -> Dictionary:
 						building_instance._update_texture()
 					elif building_instance.has_method("update_texture"):
 						building_instance.update_texture()
+					if building_instance.has_method("_update_collision"):
+						building_instance._update_collision()
 		var max_workers_restored := false
 		if entry.has("max_workers"):
 			var saved_max_workers = entry.get("max_workers", null)
@@ -1487,6 +1497,15 @@ func register_village_scene(scene: Node2D) -> void:
 	if concubines_container == null:
 		#printerr("VillageManager Error (in register_village_scene): Kaydedilen sahnede 'ConcubinesContainer' node'u bulunamadı!")
 		return
+	
+	# TradersContainer'ı bul ve tüccar NPC sinyalini bağla
+	traders_container = scene.get_node_or_null("TradersContainer")
+	if traders_container != null:
+		var mm = get_node_or_null("/root/MissionManager")
+		if mm and mm.has_signal("active_traders_updated"):
+			if not mm.active_traders_updated.is_connected(_sync_trader_npcs):
+				mm.active_traders_updated.connect(_sync_trader_npcs)
+			call_deferred("_sync_trader_npcs")
 	
 	# Cariyeleri sahneye ekle
 	_spawn_concubines_in_scene()
@@ -3215,7 +3234,34 @@ func _check_and_trigger_village_event(day: int) -> bool:
 	if not village_events_enabled:
 		return false
 	
-	# Check if we should trigger an event today
+	# İlişkiye göre tüccar gelme şansı (dinamik)
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm:
+		# settlements property'sine direkt erişim (MissionManager'da tanımlı)
+		var settlements = mm.settlements
+		if settlements and not settlements.is_empty():
+			# En yüksek ilişkiye sahip yerleşimden tüccar gelme şansı
+			var best_settlement = null
+			var best_relation = 0
+			for s in settlements:
+				var rel = s.get("relation", 50)
+				if rel > best_relation:
+					best_relation = rel
+					best_settlement = s
+			
+			if best_settlement:
+				# İlişkiye göre şans hesapla
+				var base_chance = village_daily_event_chance  # Temel şans
+				var relation_bonus = (best_relation - 50) * 0.01  # Her 1 ilişki = %1 bonus
+				var final_chance = clamp(base_chance + relation_bonus, 0.05, 0.5)  # Min %5, Max %50
+				
+				# Sadece tüccar eventi için özel şans
+				if randf() < final_chance:
+					# Tüccar eventi tetikle
+					_trigger_village_event("trade_caravan", day)
+					return true
+	
+	# Diğer eventler için normal şans kontrolü
 	if randf() > village_daily_event_chance:
 		return false
 	
@@ -3270,15 +3316,32 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 	
 	match event_type:
 		"trade_caravan":
-			# Ticaret kervanı - altın kazancı
-			var gold_reward: int = randi_range(20, 80)
-			if gpd:
-				gpd.gold += gold_reward
-			var title := "💰 Ticaret Kervanı"
-			var content := "Bir ticaret kervanı köyünüze uğradı. +%d altın kazandınız!" % gold_reward
-			if mm and mm.has_method("post_news"):
-				mm.post_news("village", title, content, Color.GREEN, "success")
-			print("[VillageManager] 🎉 Trade caravan event: +%d gold" % gold_reward)
+			# YENİ SİSTEM: Köye tüccar geliyor
+			if not mm:
+				return
+			
+			# MissionManager'dan yerleşimleri al
+			if not mm.has_method("create_settlements"):
+				return
+			
+			# settlements property'sine direkt erişim
+			var settlements = mm.settlements
+			if not settlements or settlements.is_empty():
+				if mm.has_method("create_settlements"):
+					mm.create_settlements()
+				settlements = mm.settlements
+			
+			if settlements.is_empty():
+				return
+			
+			# En yüksek ilişkiye sahip yerleşimden tüccar gelir (veya rastgele)
+			var settlement = _select_settlement_for_trader(settlements)
+			var trader_type = _select_trader_type_by_relation(settlement)
+			
+			# MissionManager'a tüccar ekle
+			if mm.has_method("add_active_trader"):
+				mm.add_active_trader(settlement, day, 3, trader_type)
+			print("[VillageManager] 🎉 Tüccar geldi: %s'den (Tip: %d)" % [settlement.get("name", "?"), trader_type])
 		
 		"resource_discovery":
 			# Kaynak keşfi - rastgele kaynak bonusu
@@ -3319,7 +3382,6 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 				mm.post_news("village", title, content, Color.YELLOW, "info")
 			print("[VillageManager] 🎉 Traveler event")
 		
-		
 		"minor_accident":
 			# Küçük kaza - küçük kaynak kaybı
 			var resource_pool: Array[String] = ["wood", "stone"]
@@ -3355,6 +3417,53 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 					mm.post_news("village", "Göç Dalgası", "Göçmenler geldi ama barınak yetersiz olduğu için geri döndüler.", Color.YELLOW, "info")
 	
 	emit_signal("village_data_changed")
+
+# Yerleşim seçimi (ilişkiye göre ağırlıklandırılmış)
+func _select_settlement_for_trader(settlements: Array) -> Dictionary:
+	# İyi ilişkilere sahip yerleşimlerden daha sık tüccar gelir
+	var weighted_settlements: Array = []
+	for s in settlements:
+		var relation = s.get("relation", 50)
+		var weight = max(1, relation / 10)  # İlişki/10 = ağırlık (min 1)
+		for i in range(int(weight)):
+			weighted_settlements.append(s)
+	
+	if weighted_settlements.is_empty():
+		return settlements[randi() % settlements.size()]
+	
+	weighted_settlements.shuffle()
+	return weighted_settlements[randi() % weighted_settlements.size()]
+
+# İlişkiye göre tüccar tipi seç
+func _select_trader_type_by_relation(settlement: Dictionary) -> int:
+	var relation = settlement.get("relation", 50)
+	var rand_val = randf()
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm:
+		return 0  # NORMAL
+	
+	# İyi ilişkilerde daha iyi tüccarlar gelir
+	if relation >= 70:
+		if rand_val < 0.3:
+			return mm.TraderType.RICH
+		elif rand_val < 0.5:
+			return mm.TraderType.SPECIAL
+		elif rand_val < 0.7:
+			return mm.TraderType.NOMAD
+		else:
+			return mm.TraderType.NORMAL
+	elif relation >= 40:
+		if rand_val < 0.2:
+			return mm.TraderType.SPECIAL
+		elif rand_val < 0.4:
+			return mm.TraderType.NOMAD
+		else:
+			return mm.TraderType.NORMAL
+	else:
+		if rand_val < 0.3:
+			return mm.TraderType.POOR
+		else:
+			return mm.TraderType.NORMAL
 
 # === UI getters & toggles ===
 func get_economy_last_day_stats() -> Dictionary:
@@ -3886,6 +3995,36 @@ func _add_new_worker(NPC_Info = {}) -> bool: # <<< Dönüş tipi eklendi
 	# WorkerAssignmentUI'yi güncellemek için sinyal gönder
 	emit_signal("worker_list_changed")
 	return true # Başarılı
+
+# Tüccar listesi değiştiğinde köydeki tüccar sprite'larını senkronize et (girme / bekleme / çıkma)
+func _sync_trader_npcs() -> void:
+	if not is_instance_valid(traders_container):
+		return
+	var mm = get_node_or_null("/root/MissionManager")
+	if not mm or not mm.has_method("get_active_traders"):
+		return
+	var active = mm.get_active_traders()
+	var active_ids: Dictionary = {}
+	for t in active:
+		var tid = t.get("id", "")
+		if tid.is_empty():
+			continue
+		active_ids[tid] = true
+		if not trader_npc_by_id.has(tid):
+			var npc = TraderVillageNPCScene.instantiate()
+			if npc.has_method("setup"):
+				npc.setup(tid, TRADER_ENTRY_X, TRADER_CENTER_X, TRADER_EXIT_X, TRADER_CENTER_Y)
+			npc.trader_id = tid
+			traders_container.add_child(npc)
+			trader_npc_by_id[tid] = npc
+	for tid in trader_npc_by_id.keys():
+		if not active_ids.has(tid):
+			var npc = trader_npc_by_id[tid]
+			trader_npc_by_id.erase(tid)
+			if is_instance_valid(npc) and npc.has_method("start_leaving"):
+				npc.start_leaving()
+		elif not is_instance_valid(trader_npc_by_id[tid]):
+			trader_npc_by_id.erase(tid)
 
 # Cariyeleri sahneye ekle
 func _spawn_concubines_in_scene() -> void:

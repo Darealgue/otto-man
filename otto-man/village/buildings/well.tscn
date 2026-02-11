@@ -1,23 +1,57 @@
 [gd_scene load_steps=7 format=3 uid="uid://cqos6oeqcgvee"]
 
 [ext_resource type="Script" path="res://village/scripts/Well.gd" id="1_nmieb"]
-[ext_resource type="Texture2D" path="res://village/buildings/sprite/well1.png" id="2_well1"]
-[ext_resource type="Texture2D" path="res://village/buildings/sprite/well2.png" id="3_well2"]
-[ext_resource type="Texture2D" path="res://village/buildings/sprite/well3.png" id="4_well3"]
-[ext_resource type="Texture2D" path="res://village/buildings/sprite/well4.png" id="5_well4"]
-[ext_resource type="Texture2D" path="res://village/buildings/sprite/well5.png" id="6_well5"]
+[ext_resource type="Texture2D" uid="uid://dvojlfjq0khbn" path="res://village/buildings/sprite/well4.png" id="2_kysxv"]
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_pfu1w"]
+a = Vector2(-44, 93)
+b = Vector2(56, 93)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_iv35i"]
+a = Vector2(-110, 0)
+b = Vector2(95, 0)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_kt6ke"]
+a = Vector2(-117, 0)
+b = Vector2(88, 0)
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_level4"]
+a = Vector2(-93, 0)
+b = Vector2(65, 0)
 
 [node name="Well" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_nmieb")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("2_well1")
 z_index = 1
-offset = Vector2(0, 0)
+texture = ExtResource("2_kysxv")
 
 [node name="ColorRect" type="ColorRect" parent="."]
+visible = false
 offset_left = -20.0
 offset_top = -40.0
 offset_right = 20.0
 color = Color(0.173713, 0.392006, 0.734552, 1)
-visible = false
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+collision_mask = 3
+
+[node name="CollisionLevel1" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(-63, 33)
+shape = SubResource("SegmentShape2D_pfu1w")
+one_way_collision = true
+
+[node name="CollisionLevel2" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(1, 126)
+shape = SubResource("SegmentShape2D_iv35i")
+one_way_collision = true
+
+[node name="CollisionLevel3" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(8, 10)
+shape = SubResource("SegmentShape2D_kt6ke")
+one_way_collision = true
+
+[node name="CollisionLevel4" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(8, -82)
+shape = SubResource("SegmentShape2D_level4")
+one_way_collision = true

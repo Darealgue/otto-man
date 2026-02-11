@@ -95,7 +95,6 @@ func enter():
 		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
 			collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-			print("[AttackState] Hitbox CollisionShape2D position reset to: ", collision_shape.position)
 	
 	# Debug print disabled to reduce console spam
 	# print("[AttackState] ENTER | on_floor=", player.is_on_floor())
@@ -295,11 +294,9 @@ func update(delta: float):
 						# Normal light attack
 						next_attack = _choose_random_light_attack(true)
 					next_attack_queued = next_attack
-					print("[AttackState] Fallback buffer -> ", next_attack, " during ", current_attack)
 	# Third hit buffer (requires release again) - now works for any light attack
 	if can_use_attack_1_3 and await_release_for_third and Input.is_action_just_released("attack"):
 		await_release_for_third = false
-		print("[AttackState] Release detected; next hit now allowed")
 	# Allow queuing next attack after any light attack, up combo attack, or down combo attack progressed enough
 	var allow_next := false
 	if current_attack.begins_with("attack_1.") or current_attack.begins_with("attack_up") or current_attack.begins_with("attack_down"):
@@ -322,7 +319,6 @@ func update(delta: float):
 			# Randomly choose next light attack
 			next_attack = _choose_random_light_attack(true)
 		next_attack_queued = next_attack
-		print("[AttackState] Input buffered for next hit: ", next_attack_queued)
 	
 	# Check for air attack input
 	if Input.is_action_just_pressed("attack") and not player.is_on_floor() and not _is_air_attack(current_attack):
@@ -472,8 +468,7 @@ func _handle_movement(delta: float) -> void:
 		if input_dir_x != 0 and player.hit_recoil_lock_timer <= 0.0:
 			player.sprite.flip_h = input_dir_x < 0
 			player.facing_direction = sign(input_dir_x)
-		elif player.hit_recoil_lock_timer > 0.0:
-			print("[AttackState] DEBUG: Facing direction update BLOCKED in _handle_movement - hit_recoil_lock_timer: %f" % player.hit_recoil_lock_timer)
+		# During hit recoil, don't update facing direction
 	
 	# Apply movement
 	player.move_and_slide()
@@ -484,7 +479,6 @@ func _check_cancel_conditions() -> bool:
 		var dodge_state = state_machine.get_node("Dodge")
 		if dodge_state and dodge_state.can_start_dodge():
 			_cancel_into_state("Dodge")
-			print("[AttackState] CANCEL -> Dodge")
 			return true
 	
 	# Cancel into jump
@@ -492,13 +486,11 @@ func _check_cancel_conditions() -> bool:
 		(player.is_on_floor()) or jump_cancel_enabled
 	):
 		_cancel_into_state("Jump")
-		print("[AttackState] CANCEL -> Jump")
 		return true
 	
 	# Cancel into block
 	if Input.is_action_just_pressed("block") and state_machine.has_node("Block"):
 		_cancel_into_state("Block")
-		print("[AttackState] CANCEL -> Block")
 		return true
 	
 	return false
@@ -530,8 +522,6 @@ func _update_hitbox_position(hitbox: Node2D) -> void:
 			facing_left = player.sprite.flip_h
 		position.x = abs(position.x) * (-1 if facing_left else 1)
 		collision_shape.position = position
-		# Debug: Hitbox position set
-		print("[AttackState] Hitbox position set to: ", position, " facing: ", "left" if facing_left else "right")
 
 func _on_animation_player_animation_finished(anim_name: String):
 
@@ -667,7 +657,19 @@ func _is_player_forced_to_crouch() -> bool:
 		
 		var result = space_state.intersect_ray(query)
 		if result:
-			# If any check hits something, player is forced to crouch
+			# Check if the hit object is a dead enemy - if so, ignore it
+			var collider = result.get("collider")
+			if collider:
+				# Check if collider is part of a dead enemy
+				var parent = collider.get_parent() if collider else null
+				if parent and "health" in parent:
+					if parent.health <= 0:
+						continue  # Ignore dead enemies
+				# Also check if collider itself is a dead enemy (CharacterBody2D)
+				elif "health" in collider:
+					if collider.health <= 0:
+						continue  # Ignore dead enemies
+			# If any check hits something (that's not a dead enemy), player is forced to crouch
 			return true
 	
 	return false

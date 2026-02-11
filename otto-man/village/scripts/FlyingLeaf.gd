@@ -25,7 +25,6 @@ func _ready() -> void:
 	# Görünürlüğü tekrar kontrol et
 	if not leaf_sprite.visible:
 		leaf_sprite.visible = true
-	# Debug print'i kaldırdık - çok fazla log üretiyordu
 	
 	# Bekleyen animation data varsa uygula
 	if _pending_sprite_frames and _pending_anim_name != "":
@@ -37,12 +36,6 @@ func _ready() -> void:
 			leaf_sprite.play()
 		_pending_sprite_frames = null
 		_pending_anim_name = ""
-	
-	# Debug: İlk birkaç yaprak için görünürlük kontrolü
-	var debug_count: int = get_meta("debug_count", 0) as int
-	if debug_count < 3:
-		set_meta("debug_count", debug_count + 1)
-		print("[FlyingLeaf] ✅ _ready: pos=(%.1f, %.1f), visible=%s, modulate=%s, z_index=%d, sprite_frames=%s, animation=%s" % [global_position.x, global_position.y, leaf_sprite.visible, leaf_sprite.modulate, z_index, leaf_sprite.sprite_frames != null, leaf_sprite.animation])
 
 
 var _wind_angle: float = 90.0  # Varsayılan dikey açı
@@ -64,7 +57,6 @@ func set_wind_angle(angle_deg: float) -> void:
 	if leaf_sprite:
 		if leaf_sprite.sprite_frames:
 			leaf_sprite.play()
-		# Debug print'i kaldırdık - çok fazla log üretiyordu
 
 
 func set_animation_data(sprite_frames: SpriteFrames, anim_name: String) -> void:
@@ -75,19 +67,16 @@ func set_animation_data(sprite_frames: SpriteFrames, anim_name: String) -> void:
 		# _ready() çağrılmış, direkt ayarla
 		leaf_sprite.sprite_frames = sprite_frames
 		leaf_sprite.animation = anim_name
-		# Debug print'i kaldırdık - çok fazla log üretiyordu
 	else:
 		# _ready() henüz çağrılmamış, bekle
 		_pending_sprite_frames = sprite_frames
 		_pending_anim_name = anim_name
-		# Debug print'i kaldırdık - çok fazla log üretiyordu
 
 
 func set_scale_size(scale_factor: float) -> void:
 	_pending_scale = scale_factor
 	if leaf_sprite:
 		leaf_sprite.scale = Vector2(scale_factor, scale_factor)
-		# Debug print'i kaldırdık - çok fazla log üretiyordu
 
 
 func _process(delta: float) -> void:

@@ -1,10 +1,15 @@
 res://player/player.tscn
 res://resources/medieval_theme.tres
-res://Tile set/dungeon_master_tileset.tres
 res://village/scenes/water_reflection.gdshader
+res://Tile set/dungeon_master_tileset.tres
 res://enemy/normal_shader.gdshader
 res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/forest.tscn
 res://scenes/MainMenu.tscn
+res://village/buildings/Well.tscn
+res://village/buildings/WoodcutterCamp.tscn
+res://village/buildings/StoneMine.tscn
+res://village/buildings/HunterGathererHut.tscn
+res://enemy/basic/basic_enemy.tscn

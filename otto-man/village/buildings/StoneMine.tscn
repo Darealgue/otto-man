@@ -1,12 +1,29 @@
-[gd_scene load_steps=2 format=3 uid="uid://ddu3q4ghhjrom"]
+[gd_scene load_steps=4 format=3 uid="uid://ddu3q4ghhjrom"]
 
 [ext_resource type="Script" path="res://village/scripts/StoneMine.gd" id="1_qi42m"]
+[ext_resource type="Texture2D" uid="uid://dnxwbc5tjq7oa" path="res://village/buildings/sprite/stone2.png" id="2_mlnqr"]
+
+[sub_resource type="SegmentShape2D" id="SegmentShape2D_stone1"]
+a = Vector2(-50, 0)
+b = Vector2(46, 0)
 
 [node name="StoneMine" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_qi42m")
 
+[node name="Sprite2D" type="Sprite2D" parent="."]
+z_index = 1
+texture = ExtResource("2_mlnqr")
+
 [node name="ColorRect" type="ColorRect" parent="."]
+visible = false
 offset_left = -20.0
 offset_top = -40.0
 offset_right = 20.0
 color = Color(0.403922, 0.403922, 0.403922, 1)
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+
+[node name="CollisionLevel1" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(-99, 124)
+shape = SubResource("SegmentShape2D_stone1")
+one_way_collision = true

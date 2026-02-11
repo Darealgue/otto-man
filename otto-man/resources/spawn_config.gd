@@ -14,9 +14,9 @@ const CHUNK_SPAWN_RULES = {
 		5: { "min_spawns": 3, "max_spawns": 5 }
 	},
 	"dungeon": {
-		1: { "min_spawns": 2, "max_spawns": 3 },
-		3: { "min_spawns": 3, "max_spawns": 4 },
-		5: { "min_spawns": 3, "max_spawns": 5 }
+		1: { "min_spawns": 6, "max_spawns": 12 },  # Much more spawns for basic enemies - fill rooms!
+		3: { "min_spawns": 8, "max_spawns": 15 },
+		5: { "min_spawns": 10, "max_spawns": 18 }
 	}
 }
 
@@ -29,7 +29,8 @@ const ENEMY_WEIGHTS = {
 		"summoner": 15,
 		"canonman": 20,
 		"firemage": 20,
-		"spearman": 20
+		"spearman": 20,
+		"basic": 0  # Not spawned in regular levels
 	},
 	2: {
 		"turtle": 35,
@@ -38,7 +39,8 @@ const ENEMY_WEIGHTS = {
 		"summoner": 0,
 		"canonman": 15,
 		"firemage": 0,
-		"spearman": 15
+		"spearman": 15,
+		"basic": 0
 	},
 	3: {
 		"turtle": 25,
@@ -47,7 +49,8 @@ const ENEMY_WEIGHTS = {
 		"summoner": 5,
 		"canonman": 15,
 		"firemage": 5,
-		"spearman": 10
+		"spearman": 10,
+		"basic": 0
 	},
 	4: {
 		"turtle": 15,
@@ -56,7 +59,8 @@ const ENEMY_WEIGHTS = {
 		"summoner": 10,
 		"canonman": 15,
 		"firemage": 15,
-		"spearman": 10
+		"spearman": 10,
+		"basic": 0
 	},
 	5: {
 		"turtle": 10,
@@ -65,7 +69,8 @@ const ENEMY_WEIGHTS = {
 		"summoner": 15,
 		"canonman": 15,
 		"firemage": 15,
-		"spearman": 10
+		"spearman": 10,
+		"basic": 0
 	}
 }
 
@@ -76,52 +81,57 @@ const SUMMONER_SCALING = {
 	5: { "max_summons": 3, "summon_interval": 3.0 }
 }
 
-# Dungeon-specific enemy weights (more challenging enemies)
+# Dungeon-specific enemy weights (basic enemies dominate - they're the cannon fodder)
 const DUNGEON_ENEMY_WEIGHTS = {
 	1: {
-		"turtle": 25,
-		"heavy": 20,
-		"flying": 15,
+		"turtle": 5,
+		"heavy": 5,
+		"flying": 5,
 		"summoner": 0,
-		"canonman": 25,
+		"canonman": 8,
 		"firemage": 0,
-		"spearman": 15
+		"spearman": 5,
+		"basic": 150  # VERY high weight - basic enemies should dominate dungeon level 1
 	},
 	2: {
-		"turtle": 15,
-		"heavy": 15,
-		"flying": 15,
+		"turtle": 5,
+		"heavy": 8,
+		"flying": 8,
 		"summoner": 0,
-		"canonman": 25,
-		"firemage": 10,
-		"spearman": 20
+		"canonman": 10,
+		"firemage": 5,
+		"spearman": 10,
+		"basic": 120  # Still very high - basic enemies are the main threat
 	},
 	3: {
-		"turtle": 10,
-		"heavy": 15,
-		"flying": 15,
-		"summoner": 10,
-		"canonman": 20,
-		"firemage": 15,
-		"spearman": 15
+		"turtle": 8,
+		"heavy": 10,
+		"flying": 10,
+		"summoner": 8,
+		"canonman": 12,
+		"firemage": 10,
+		"spearman": 10,
+		"basic": 100  # High weight - basic enemies still common
 	},
 	4: {
-		"turtle": 8,
-		"heavy": 12,
-		"flying": 15,
-		"summoner": 15,
-		"canonman": 20,
-		"firemage": 20,
-		"spearman": 10
-	},
-	5: {
 		"turtle": 5,
 		"heavy": 10,
-		"flying": 15,
-		"summoner": 20,
-		"canonman": 20,
-		"firemage": 20,
-		"spearman": 10
+		"flying": 12,
+		"summoner": 12,
+		"canonman": 15,
+		"firemage": 15,
+		"spearman": 8,
+		"basic": 80  # Still high but more balanced
+	},
+	5: {
+		"turtle": 3,
+		"heavy": 8,
+		"flying": 12,
+		"summoner": 15,
+		"canonman": 15,
+		"firemage": 15,
+		"spearman": 8,
+		"basic": 60  # Less dominant but still common
 	}
 }
 

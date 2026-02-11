@@ -3298,6 +3298,18 @@ func _process(delta):
 # ==============================================================================
 
 func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
+	# CRITICAL: Don't spawn enemies in start or finish chunks
+	var chunk_name = chunk_node.name.to_lower()
+	var scene_path = chunk_node.scene_file_path.to_lower() if chunk_node.scene_file_path else ""
+	
+	if "start" in chunk_name or "start_chunk" in scene_path:
+		print("[EnemyPopulate] SKIPPING: Start chunk - no enemies spawn here")
+		return
+	
+	if "finish" in chunk_name or "finish_chunk" in scene_path:
+		print("[EnemyPopulate] SKIPPING: Finish chunk - no enemies spawn here")
+		return
+	
 	# Tile-based enemy spawn system - similar to decoration system
 	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
 	
@@ -3326,7 +3338,27 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 	var enemy_spawn_count = 0
 	var spawned_positions: Array[Vector2] = []  # Track spawned positions
 	
-	print("[EnemyPopulate] Processing %d cells in chunk '%s'" % [used_cells.size(), chunk_node.name])
+	# Determine chunk type to set spawn limits (do this once before the loop)
+	var chunk_type_str = _get_chunk_type_for_node(chunk_node)
+	var max_spawns = 2  # Default for regular chunks
+	var spawn_chance_value = 0.6  # Default spawn chance
+	
+	# Dungeon chunks get many more enemies - basic enemies are cannon fodder
+	if chunk_type_str == "dungeon":
+		# Use spawn config to get proper spawn count for dungeon
+		var spawn_config = SpawnConfig.new()
+		var spawn_rules = spawn_config.get_spawn_count("dungeon", current_level)
+		max_spawns = spawn_rules.max_spawns  # Use max_spawns from config (8-12)
+		spawn_chance_value = 1.0  # 100% chance for dungeon chunks - ensure enemies spawn!
+		print("[EnemyPopulate] Dungeon chunk detected - max_spawns: %d, spawn_chance: %.1f" % [max_spawns, spawn_chance_value])
+		print("[EnemyPopulate] Chunk name: %s, detected type: %s" % [chunk_node.name, chunk_type_str])
+	else:
+		max_spawns = 2  # Regular chunks get fewer enemies
+		spawn_chance_value = 0.6  # 60% chance for regular chunks
+		print("[EnemyPopulate] Regular chunk detected - max_spawns: %d, spawn_chance: %.1f" % [max_spawns, spawn_chance_value])
+		print("[EnemyPopulate] Chunk name: %s, detected type: %s" % [chunk_node.name, chunk_type_str])
+	
+	print("[EnemyPopulate] Processing %d cells in chunk '%s' (type: %s)" % [used_cells.size(), chunk_node.name, chunk_type_str])
 	
 	# CHUNK DEBUG
 	print("[EnemyPopulate] === CHUNK DEBUG ===")
@@ -3351,8 +3383,8 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 			print("[EnemyPopulate] Checking floor tile at: %s" % cell)
 		# Check for 3-tile area pattern (like decorations)
 		if _check_three_by_three_area(tile_map, cell, enemy_layer_name):
-			# Spawn 2-3 enemies per chunk total (reduced from 4)
-			if enemy_spawn_count < 2:
+			# Spawn enemies up to the limit for this chunk type
+			if enemy_spawn_count < max_spawns:
 				print("[EnemyPopulate] Found 3-tile area at cell: %s (spawn count: %d)" % [cell, enemy_spawn_count])
 					# Spawn enemy at center of 3x3 area
 				var center_cell = cell  # Center of 3x3 area
@@ -3375,7 +3407,8 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 					continue
 				
 				# Check minimum distance from other spawned enemies (prevent clustering)
-				var min_distance = 200.0  # Minimum distance between enemies
+				# Reduced distance for dungeon chunks to allow more enemies
+				var min_distance = 150.0 if chunk_type_str == "dungeon" else 200.0  # Closer spacing for dungeon
 				var too_close = false
 				for existing_pos in spawned_positions:
 					if spawn_position.distance_to(existing_pos) < min_distance:
@@ -3398,8 +3431,9 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				# After set_script(), export variables need to be set using set() method
 				# or we need to wait a frame. Using set() is more reliable.
 				enemy_spawner.set("current_level", current_level)
-				enemy_spawner.set("chunk_type", _get_chunk_type_for_node(chunk_node))
-				enemy_spawner.set("spawn_chance", 0.6)  # 60% chance to spawn (reduced from 100%)
+				enemy_spawner.set("chunk_type", chunk_type_str)
+				# Use dynamic spawn chance based on chunk type (set above)
+				enemy_spawner.set("spawn_chance", spawn_chance_value)
 				enemy_spawner.global_position = spawn_position
 				
 				# DETAILED SPAWNER DEBUG (Reduced)
@@ -3535,16 +3569,34 @@ func _check_spawn_height_clearance(tile_map: TileMapLayer, center_cell: Vector2i
 	return true
 
 func _get_chunk_type_for_node(chunk_node: Node2D) -> String:
-	# Determine chunk type based on chunk name or other properties
+	# Determine chunk type based on chunk name, scene path, or other properties
 	var chunk_name = chunk_node.name.to_lower()
+	var scene_path = chunk_node.scene_file_path.to_lower() if chunk_node.scene_file_path else ""
+	
+	print("[LevelGenerator] Checking chunk type for: %s (path: %s)" % [chunk_node.name, scene_path])
+	
+	# Check chunk name first
 	if "combat" in chunk_name:
+		print("[LevelGenerator] Detected as combat chunk (by name)")
 		return "combat"
-	elif "dungeon" in chunk_name:
+	elif "dungeon" in chunk_name or "zindan" in chunk_name or "boss" in chunk_name:
+		print("[LevelGenerator] Detected as dungeon chunk (by name)")
 		return "dungeon"
-	elif "boss" in chunk_name:
-		return "dungeon"  # Boss chunks are dungeon type
-	else:
-		return "basic"
+	
+	# Check scene path - if it contains "dungeon", it's a dungeon chunk
+	if scene_path != "":
+		if "dungeon" in scene_path:
+			print("[LevelGenerator] Detected as dungeon chunk (by scene path)")
+			return "dungeon"
+		elif "combat" in scene_path:
+			print("[LevelGenerator] Detected as combat chunk (by scene path)")
+			return "combat"
+	
+	# If chunk is in chunks/dungeon/ directory, it's a dungeon chunk
+	# All chunks in this game are dungeon chunks unless explicitly marked otherwise
+	# Default to dungeon for all chunks since we're in dungeon levels
+	print("[LevelGenerator] Defaulting to dungeon chunk (all chunks are dungeon chunks)")
+	return "dungeon"
 
 func _clear_all_enemies_from_previous_level() -> void:
 	print("[LevelGenerator] Clearing all enemies from previous level...")

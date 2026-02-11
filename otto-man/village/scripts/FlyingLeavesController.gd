@@ -18,7 +18,6 @@ const LEAF_ANIM_NAMES: Array[String] = ["leaf1", "leaf2", "leaf3"]
 const FRAMES_PER_LEAF: int = 4
 
 func _ready() -> void:
-	print("[FlyingLeavesController] _ready() başladı")
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_current_interval = base_spawn_interval
 	_sprite_frames = _build_leaf_sprite_frames()
@@ -30,8 +29,6 @@ func _ready() -> void:
 		set_process(false)
 		printerr("[FlyingLeavesController] Yaprak texture'ları yüklenemedi (res://assets/effects/leaf/).")
 		return
-	var anim_count: int = _sprite_frames.get_animation_names().size()
-	print("[FlyingLeavesController] ✅ Hazır: %d animasyon, leaf_scene=%s" % [anim_count, leaf_scene])
 
 
 func _build_leaf_sprite_frames() -> SpriteFrames:
@@ -40,26 +37,21 @@ func _build_leaf_sprite_frames() -> SpriteFrames:
 		var path: String = LEAF_ANIMATION_FOLDER.path_join(LEAF_ANIM_NAMES[i] + ".png")
 		var tex := load(path) as Texture2D
 		if not tex:
-			print("[FlyingLeavesController] ⚠️ Texture yüklenemedi: %s" % path)
 			continue
 		var anim_name: String = LEAF_ANIM_NAMES[i]
 		sf.add_animation(anim_name)
 		var w: float = float(tex.get_width()) / float(FRAMES_PER_LEAF)
 		var h: float = float(tex.get_height())
-		print("[FlyingLeavesController] 📄 Texture yüklendi: %s, boyut: %dx%d, frame boyutu: %dx%d" % [path, tex.get_width(), tex.get_height(), w, h])
 		for frame_idx in range(FRAMES_PER_LEAF):
 			var atlas_tex := AtlasTexture.new()
 			atlas_tex.atlas = tex
 			atlas_tex.region = Rect2(frame_idx * w, 0, w, h)
 			sf.add_frame(anim_name, atlas_tex, 0.35)  # Animasyonu yavaşlattık (0.12 -> 0.35)
-	var anim_count = sf.get_animation_names().size()
-	print("[FlyingLeavesController] 📊 Toplam %d animasyon oluşturuldu: %s" % [anim_count, sf.get_animation_names()])
 	
 	# "default" animasyonunu kaldır (eğer varsa ve boşsa)
 	if "default" in sf.get_animation_names():
 		if sf.get_frame_count("default") == 0:
 			sf.remove_animation("default")
-			print("[FlyingLeavesController] 🗑️ Boş 'default' animasyonu kaldırıldı")
 	
 	return sf if not sf.get_animation_names().is_empty() else null
 
@@ -119,11 +111,6 @@ func _process(delta: float) -> void:
 	# wind=1.0 -> 4-5 yaprak
 	var spawn_count: int = max(1, int(pow(wind, 1.5) * 5.0 + 1.0))
 	spawn_count = min(spawn_count, 5)  # Maksimum 5 yaprak bir seferde (daha seyrek)
-	
-	# Debug: İlk birkaç frame'de rüzgar gücünü logla
-	if not has_meta("wind_logged"):
-		set_meta("wind_logged", true)
-		print("[FlyingLeavesController] 💨 Rüzgar durumu: strength=%.4f, storm=%s, interval=%.2f, max_leaves=%d, spawn_count=%d" % [wind, storm, dynamic_interval, dynamic_max_leaves, spawn_count])
 
 	_spawn_timer += delta
 	if _spawn_timer < _current_interval:
@@ -166,7 +153,6 @@ func _spawn_one_leaf() -> void:
 			valid_anims.append(anim)
 	
 	if valid_anims.is_empty():
-		print("[FlyingLeavesController] ⚠️ Geçerli animasyon bulunamadı!")
 		leaf.queue_free()
 		return
 	
@@ -284,20 +270,10 @@ func _spawn_one_leaf() -> void:
 			var y_section_vertical: int = spawn_index % y_sections_vertical
 			var y_spawn_range: float = spawn_range / y_sections_vertical
 			spawn_y = cam_bottom + margin + y_section_vertical * y_spawn_range + randf_range(0, y_spawn_range * 0.5)
-	
-	# Debug: İlk birkaç spawn'da pozisyonu logla
-	var spawn_count_debug: int = get_meta("spawn_count_debug", 0) as int
-	if spawn_count_debug < 5:
-		set_meta("spawn_count_debug", spawn_count_debug + 1)
-		print("[FlyingLeavesController] 🍃 Spawn #%d: pos=(%.1f, %.1f), cam=(%.1f, %.1f), wind_dir=(%.2f, %.2f), vp=(%.1f, %.1f)" % [spawn_count_debug + 1, spawn_x, spawn_y, cam_pos.x, cam_pos.y, wind_dir.x, wind_dir.y, vp.x, vp.y])
 
 	add_child(leaf)
 	leaf.global_position = Vector2(spawn_x, spawn_y)
 	leaf.z_index = 50  # Yüksek z_index - NPC ve oyuncunun üstünde görünsün
-	
-	# Debug: İlk birkaç yaprak için detaylı bilgi (aynı değişkeni kullan)
-	if spawn_count_debug < 5:
-		print("[FlyingLeavesController] ✅ Yaprak eklendi: pos=(%.1f, %.1f), z_index=%d, anim=%s, scale=%.2f, velocity=(%.1f, %.1f)" % [spawn_x, spawn_y, z_index, anim_name, scale_factor, velocity.x, velocity.y])
 	
 	if leaf.has_method("set_animation_data"):
 		leaf.set_animation_data(_sprite_frames, anim_name)

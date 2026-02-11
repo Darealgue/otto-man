@@ -41,7 +41,6 @@ func enter():
 		if animation_player.has_animation(current_attack):
 			animation_player.play(current_attack)
 			animation_player.speed_scale = ANIMATION_SPEED
-			print("[AirAttackUp] Starting up attack: ", current_attack)
 		else:
 			print("[AirAttackUp] ERROR: Animation not found: ", current_attack)
 			state_machine.transition_to("Fall")
@@ -54,7 +53,6 @@ func enter():
 func update(delta: float):
 	# Yere değme kontrolü - up attack sırasında yere değerse iptal et
 	if player.is_on_floor():
-		print("[AirAttackUp] Player landed during up attack, canceling attack")
 		# Hitbox'ı temizle
 		if hitbox_enabled:
 			var hitbox = player.get_node_or_null("Hitbox")
@@ -63,7 +61,6 @@ func update(delta: float):
 				var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 				if collision_shape:
 					collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-					print("[AirAttackUp] Hitbox position reset on landing: ", collision_shape.position)
 				
 				hitbox.disable()
 		state_machine.transition_to("Idle")
@@ -107,7 +104,6 @@ func _update_hitbox():
 		# Hitbox'ı aktif et
 		hitbox_enabled = true
 		has_activated_hitbox = true
-		print("[AirAttackUp] Hitbox activated at frame 3")
 		
 		# Hitbox'ı player'ın üstünde konumlandır ve bakış yönüne göre ayarla
 		var hitbox = player.get_node_or_null("Hitbox")
@@ -136,7 +132,6 @@ func _update_hitbox():
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
 				collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-				print("[AirAttackUp] Hitbox position reset to: ", collision_shape.position)
 			
 			hitbox.disable()
 
@@ -153,7 +148,6 @@ func exit():
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
 				collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-				print("[AirAttackUp] Hitbox position reset to: ", collision_shape.position)
 			
 			hitbox.disable()
 	
@@ -161,7 +155,6 @@ func exit():
 	if up_attack_timer > 0.0:
 		up_attack_step = (up_attack_step + 1) % UP_ATTACK_ANIMATIONS.size()
 		up_attack_timer = up_attack_reset_time
-		print("[AirAttackUp] Up attack combo step: ", up_attack_step)
 
 func _on_animation_finished(anim_name: String):
 	if anim_name == current_attack:
@@ -208,4 +201,3 @@ func _update_hitbox_position():
 func _on_enemy_hit(enemy: Node):
 	if not has_activated_hitbox:
 		has_activated_hitbox = true
-		print("[AirAttackUp] Hit enemy: ", enemy.name)

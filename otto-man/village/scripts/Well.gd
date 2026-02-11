@@ -1,6 +1,16 @@
 class_name Well
 extends Node2D
 
+const CollisionLayers = preload("res://resources/CollisionLayers.gd")
+
+# Seviyeye göre collision: 1→sadece 1, 2→sadece 2, 3→2+3, 4→2+3+4 (alt katlar açık kalır)
+const COLLISION_NAMES_BY_LEVEL: Dictionary = {
+	1: ["CollisionLevel1"],
+	2: ["CollisionLevel2"],
+	3: ["CollisionLevel2", "CollisionLevel3"],
+	4: ["CollisionLevel2", "CollisionLevel3", "CollisionLevel4"]
+}
+
 # Bu binaya özgü değişkenler
 var assigned_workers: int = 0
 var max_workers: int = 1
@@ -8,7 +18,17 @@ var assigned_worker_ids: Array[int] = []
 var is_upgrading: bool = false
 var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 10.0
-@export var max_level: int = 5
+@export var max_level: int = 4
+
+# Test için: true yaparsan one-way kapatılır (çift yönlü collision). Çalışıyorsa segment a/b yönünü ters çevirmen gerekir.
+@export var collision_debug_twoway: bool = false
+
+# Inspector'da true yap: collision kurulumu ve periyodik durum Output'a yazılır
+@export var debug_collision: bool = false
+var _debug_collision_timer: float = 0.0
+
+# Editörde ayarladığın collision konumları (sprite offset uygulanmadan önce); script bunları saklayıp sadece sprite ile aynı dikey kaymayı ekler
+var _collision_original_positions: Dictionary = {}
 
 @export var worker_stays_inside: bool = false
 
@@ -129,12 +149,11 @@ func remove_worker() -> bool:
 var level: int = 1
 var upgrade_duration: float = 4.0
 
-# Const defining the upgrade costs for each level
+# Const defining the upgrade costs for each level (3 seviye: 1, 2, 3)
 const UPGRADE_COSTS = {
 	2: {"gold": 25},
 	3: {"gold": 50},
-	4: {"gold": 75},
-	5: {"gold": 100}
+	4: {"gold": 75}
 }
 
 # --- Zamanlayıcı (Timer) ---
@@ -146,11 +165,19 @@ func _init():
 
 func _ready() -> void:
 	print("Well hazır.")
+	_store_collision_original_positions()
+	_setup_platform_collision()
 	_update_texture()
+	# Collision'ı bir frame ertede uygula; physics tam hazır olsun (özellikle runtime'da eklenen binalar için)
+	call_deferred("_update_collision")
 	_update_ui()
 
 func _process(delta: float) -> void:
-	pass
+	if debug_collision:
+		_debug_collision_timer += delta
+		if _debug_collision_timer >= 2.0:
+			_debug_collision_timer = 0.0
+			_print_collision_debug()
 
 # Basit üretim bilgisini döndürür (UI için)
 func get_production_info() -> String:
@@ -211,9 +238,9 @@ func finish_upgrade() -> void:
 	
 	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.WHITE
 	
-	# Texture'ı güncelle
+	# Texture ve seviyeye göre collision'ı güncelle
 	_update_texture()
-	
+	_update_collision()
 	print("Kuyu: Yeni seviye: %d" % level)
 
 # --- Texture Update ---
@@ -227,15 +254,14 @@ func _update_texture() -> void:
 	
 	print("Well: Sprite2D bulundu, texture güncelleniyor...")
 	
-	# Seviyeye göre texture yolu belirle
+	# Seviyeye göre texture yolu belirle (3 seviye)
 	var texture_path = ""
 	match level:
 		1: texture_path = "res://village/buildings/sprite/well1.png"
 		2: texture_path = "res://village/buildings/sprite/well2.png"
 		3: texture_path = "res://village/buildings/sprite/well3.png"
 		4: texture_path = "res://village/buildings/sprite/well4.png"
-		5: texture_path = "res://village/buildings/sprite/well5.png"
-		_: 
+		_:
 			print("Well: Geçersiz seviye: ", level, " - Varsayılan olarak seviye 1 kullanılıyor")
 			texture_path = "res://village/buildings/sprite/well1.png"
 	
@@ -255,6 +281,129 @@ func _update_texture() -> void:
 			print("Well: ❌ Texture yüklenemedi: ", texture_path)
 	else:
 		print("Well: ❌ Texture dosyası bulunamadı: ", texture_path)
+
+# Sadece PLATFORM (layer 10) kullan: böylece oyuncu "aşağı + zıplama" ile platformdan inebilir
+# (drop_through_platform() layer 10 maskesini kapatır; WORLD olsaydı inemezdi)
+func _setup_platform_collision() -> void:
+	var body = get_node_or_null("StaticBody2D")
+	if not body is StaticBody2D:
+		if debug_collision:
+			print("[Well DEBUG] StaticBody2D bulunamadı!")
+		return
+	body.collision_layer = CollisionLayers.PLATFORM
+	body.collision_mask = CollisionLayers.NONE
+	body.add_to_group("one_way_platforms")
+	var count := 0
+	for child in body.get_children():
+		if child is CollisionShape2D:
+			child.one_way_collision = !collision_debug_twoway
+			child.one_way_collision_margin = 12.0
+			count += 1
+	# Her zaman kısa özet (kuyu runtime'da eklendiğinde Inspector'da debug açılamaz)
+	print("[Well] Platform: pos=%s layer=%d mask=%d shapes=%d one_way=%s" % [
+		global_position, body.collision_layer, body.collision_mask, count, !collision_debug_twoway
+	])
+	if debug_collision:
+		print("[Well DEBUG] _setup_platform_collision: body=%s layer=%d mask=%d shapes=%d one_way=%s" % [
+			body.get_path(), body.collision_layer, body.collision_mask, count, !collision_debug_twoway
+		])
+		for child in body.get_children():
+			if child is CollisionShape2D:
+				var sh = child.shape
+				var shape_info := "no_shape"
+				if sh is SegmentShape2D:
+					shape_info = "Segment a=%s b=%s" % [sh.a, sh.b]
+				elif sh:
+					shape_info = sh.get_class()
+				print("  - %s disabled=%s one_way=%s pos=%s shape=%s" % [
+					child.name, child.disabled, child.one_way_collision, child.position, shape_info
+				])
+
+# Editördeki collision konumlarını sakla (sadece ilk yüklemede; sprite offset buna göre sonradan eklenir)
+func _store_collision_original_positions() -> void:
+	if not _collision_original_positions.is_empty():
+		return
+	var body = get_node_or_null("StaticBody2D")
+	if not body:
+		return
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			_collision_original_positions[child.name] = child.position
+
+# Sprite'a uygulanan dikey offset'i collision'lara da uygula; böylece editörde gördüğün hizada kalırlar
+func _apply_collision_sprite_offset() -> void:
+	var sprite = get_node_or_null("Sprite2D")
+	var body = get_node_or_null("StaticBody2D")
+	if not sprite or not body or _collision_original_positions.is_empty():
+		return
+	var offset_y: float = sprite.offset.y if sprite.texture else 0.0
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			var orig: Vector2 = _collision_original_positions.get(child.name, child.position)
+			child.position = orig + Vector2(0, offset_y)
+
+# Seviyeye göre hangi collision shape'lerin aktif olacağını ayarla (seviye 3'te 2 segment).
+# Önce editör konumları + sprite offset uygulanır, sonra sadece ilgili seviyenin shape'leri açılır.
+func _update_collision() -> void:
+	var body = get_node_or_null("StaticBody2D")
+	if not body:
+		if debug_collision:
+			print("[Well DEBUG] _update_collision: StaticBody2D yok")
+		return
+	_apply_collision_sprite_offset()
+	var names_to_enable: Array = COLLISION_NAMES_BY_LEVEL.get(level, ["CollisionLevel1"])
+	if debug_collision:
+		print("[Well DEBUG] _update_collision: level=%d enable=%s" % [level, names_to_enable])
+	# Önce CollisionLevel* ile başlayan tüm shape'leri kapat
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			child.disabled = true
+	# Sonra bu seviyeye ait olanları aç
+	for node_name in names_to_enable:
+		var col = body.get_node_or_null(node_name)
+		if col is CollisionShape2D:
+			col.disabled = false
+			if debug_collision:
+				print("  -> %s ENABLED" % node_name)
+		elif debug_collision:
+			print("  -> %s BULUNAMADI" % node_name)
+	# Her zaman kısa özet (segment global koordinatları = oyuncu pozisyonuyla karşılaştır)
+	var active_list: Array[String] = []
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel") and not child.disabled:
+			active_list.append(child.name)
+	print("[Well] Collision: level=%d active=%s well_global=%s" % [level, active_list, global_position])
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			if child.shape is SegmentShape2D:
+				var s_seg: SegmentShape2D = child.shape as SegmentShape2D
+				var ga_vec: Vector2 = child.global_position + s_seg.a
+				var gb_vec: Vector2 = child.global_position + s_seg.b
+				print("  %s disabled=%s segment_global: %s .. %s" % [child.name, child.disabled, ga_vec, gb_vec])
+			else:
+				print("  %s disabled=%s" % [child.name, child.disabled])
+	if debug_collision:
+		for child in body.get_children():
+			if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+				print("  son durum: %s disabled=%s global_pos=%s" % [child.name, child.disabled, child.global_position])
+
+func _print_collision_debug() -> void:
+	var body = get_node_or_null("StaticBody2D")
+	if not body:
+		print("[Well DEBUG] (periyodik) StaticBody2D yok")
+		return
+	print("[Well DEBUG] --- Well global_pos=%s level=%d body_layer=%d body_global=%s" % [
+		global_position, level, body.collision_layer, body.global_position
+	])
+	for child in body.get_children():
+		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
+			var seg := ""
+			if child.shape is SegmentShape2D:
+				var s: SegmentShape2D = child.shape as SegmentShape2D
+				var ga: Vector2 = child.global_position + s.a
+				var gb: Vector2 = child.global_position + s.b
+				seg = " segment_global: %s .. %s" % [ga, gb]
+			print("  %s disabled=%s global_pos=%s%s" % [child.name, child.disabled, child.global_position, seg])
 
 func _update_ui() -> void:
 	pass

@@ -66,9 +66,9 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 		knockback_force = 120.0
 		knockback_up_force = 220.0
 	elif attack_name.begins_with("attack_up"):
-		# Up combo attacks - launch enemies upward
+		# Up combo attacks - launch enemies upward (stronger than single up_light)
 		knockback_force = 120.0
-		knockback_up_force = 220.0
+		knockback_up_force = 280.0  # Increased from 220.0 for better combo launching
 	elif attack_name == "down_light":
 		knockback_force = 180.0
 		knockback_up_force = 40.0
@@ -189,20 +189,18 @@ func _on_area_entered(area: Area2D) -> void:
 								# Texture boyutunun yarısını ekleyerek merkeze getir
 								spawn_position += Vector2(texture_size.x * 0.5, -texture_size.y * 0.5)
 							
-							print("[PlayerHitbox] DEBUG: Enemy sprite found, global_pos: ", enemy_sprite.global_position, " centered: ", is_centered, " texture_size: ", texture_size, " final_spawn: ", spawn_position)
 						else:
 							# Sprite bulunamazsa düşmanın global_position'ını kullan
 							spawn_position = enemy.global_position
-							print("[PlayerHitbox] DEBUG: Enemy sprite NOT found, using enemy.global_position: ", spawn_position)
 					else:
-						print("[PlayerHitbox] DEBUG: Enemy is null or invalid, using fallback: ", spawn_position)
+						# Enemy is null or invalid, use fallback position
+						spawn_position = global_position
 					
 					# Efektin sprite'ının da merkezini dikkate al (centered = false olduğu için)
 					# Efektin sprite'ı _ready()'de yüklenecek, bu yüzden texture boyutunu tahmin ediyoruz
 					# Hit efektleri genellikle 64x64 veya 128x128 boyutunda
 					# _ready() tamamlandıktan sonra efektin sprite'ının texture boyutunu alıp merkeze getireceğiz
 					
-					print("[PlayerHitbox] DEBUG: Final spawn_position: ", spawn_position)
 					
 					# Saldırı türüne göre efekt ve boyut ayarla
 					var effect_data = _get_hit_effect_data()
@@ -215,7 +213,6 @@ func _on_area_entered(area: Area2D) -> void:
 					
 					# Pozisyonu _ready() tamamlandıktan sonra ayarla ve efektin sprite merkezini dikkate al
 					fx.call_deferred("_adjust_position_to_center", spawn_position)
-					print("[PlayerHitbox] DEBUG: FX global_position will be adjusted to center (deferred): ", spawn_position)
 			# Camera shake based on attack type and damage
 			_apply_screen_shake()
 			# Apply player air-combo float on successful hit while airborne
@@ -312,12 +309,10 @@ func _apply_player_hit_recoil(player: Node, enemy_hurtbox: Area2D) -> void:
 	"""Apply slight knockback to player when hitting an enemy for better hit feedback.
 	Player stays facing the enemy but moves backward slightly (like Hollow Knight Silksong)."""
 	if not player or not enemy_hurtbox:
-		print("[PlayerHitbox] DEBUG: _apply_player_hit_recoil - player or enemy_hurtbox is null")
 		return
 	
 	# Player must be CharacterBody2D to have velocity
 	if not player is CharacterBody2D:
-		print("[PlayerHitbox] DEBUG: _apply_player_hit_recoil - player is not CharacterBody2D")
 		return
 	
 	var player_body: CharacterBody2D = player as CharacterBody2D
@@ -325,7 +320,6 @@ func _apply_player_hit_recoil(player: Node, enemy_hurtbox: Area2D) -> void:
 	# Get enemy position to ensure player faces the enemy
 	var enemy = enemy_hurtbox.get_parent()
 	if not enemy:
-		print("[PlayerHitbox] DEBUG: _apply_player_hit_recoil - enemy is null")
 		return
 	
 	var player_pos: Vector2 = player_body.global_position

@@ -49,7 +49,6 @@ func enter():
 		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
 			collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-			print("[FallState] Hitbox CollisionShape2D position reset to: ", collision_shape.position)
 	
 	# Only play fall animation if we're not in a special animation
 	var current_anim = animation_player.current_animation

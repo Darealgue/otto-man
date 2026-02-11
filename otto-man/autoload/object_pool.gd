@@ -10,6 +10,7 @@ const MAX_POOL_SIZE = {
 	"flying_enemy": 50,
 	"summoner_enemy": 10,
 	"heavy_enemy": 10,  # Add size for heavy enemy
+	"basic_enemy": 100,  # High pool size for basic enemies (spawned in large numbers)
 	"chunk": 5,
 	"effect": 30
 }
@@ -25,6 +26,7 @@ func _ready() -> void:
 		"flying_enemy": [],
 		"summoner_enemy": [],
 		"heavy_enemy": [],
+		"basic_enemy": [],
 		"effect": []
 	}
 	
@@ -32,6 +34,7 @@ func _ready() -> void:
 		"flying_enemy": [],
 		"summoner_enemy": [],
 		"heavy_enemy": [],
+		"basic_enemy": [],
 		"effect": []
 	}
 	
@@ -39,11 +42,13 @@ func _ready() -> void:
 	var flying_enemy_scene = load("res://enemy/flying/flying_enemy.tscn")
 	var summoner_enemy_scene = load("res://enemy/summoner/summoner_enemy.tscn")
 	var heavy_enemy_scene = load("res://enemy/heavy/heavy_enemy.tscn")
+	var basic_enemy_scene = load("res://enemy/basic/basic_enemy.tscn")
 	
 	# Initialize pools with scenes (removed the size parameter as it's in MAX_POOL_SIZE)
 	_initialize_pool("flying_enemy", flying_enemy_scene)
 	_initialize_pool("summoner_enemy", summoner_enemy_scene)
 	_initialize_pool("heavy_enemy", heavy_enemy_scene)
+	_initialize_pool("basic_enemy", basic_enemy_scene)
 
 func _initialize_pool(pool_name: String, scene: PackedScene) -> void:
 	if not scene:

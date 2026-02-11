@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ckv8x38abt2t7"
-path="res://.godot/imported/well5.png-f204a408b1def5f2ecaedcf3642b1f40.ctex"
+uid="uid://buelqqbchmv75"
+path="res://.godot/imported/basic_get_up_border.png-77fa9ee81954cdd67a6c3259a86767b5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://village/buildings/sprite/well5.png"
-dest_files=["res://.godot/imported/well5.png-f204a408b1def5f2ecaedcf3642b1f40.ctex"]
+source_file="res://enemy/basic/sprite/basic_get_up_border.png"
+dest_files=["res://.godot/imported/basic_get_up_border.png-77fa9ee81954cdd67a6c3259a86767b5.ctex"]
 
 [params]
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=4 uid="uid://vu2wanoqyytf"]
+[gd_scene load_steps=24 format=4 uid="uid://vu2wanoqyytf"]
 
 [ext_resource type="Texture2D" uid="uid://cep2ia5jw0nf4" path="res://background/bulutlu dağlar/sky_fc.png" id="1_7xew5"]
 [ext_resource type="Texture2D" uid="uid://djoorlgrr8ip4" path="res://background/bulutlu dağlar/far_mountains_fc.png" id="2_mviok"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://cgx07vsnpkhgr" path="res://enemy/canonman/canonman_enemy.tscn" id="13_hxn4q"]
 [ext_resource type="PackedScene" uid="uid://bybmn8q8hjp7u" path="res://enemy/spearman/spearman_enemy.tscn" id="14_esqh1"]
 [ext_resource type="PackedScene" uid="uid://jd3pyam6x1c" path="res://objects/dungeon/lighting/mesale2.tscn" id="16_f1kkd"]
+[ext_resource type="PackedScene" uid="uid://blm2rku8ivg17" path="res://enemy/basic/basic_enemy.tscn" id="17_euwxu"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jhvyb"]
 texture = ExtResource("6_2wj3m")
@@ -659,7 +660,7 @@ tile_map_data = PackedByteArray("AAAEAA8AAgACAAUAAAAFAA8AAgAAAAUAAAAFAA4AAgACAAE
 tile_set = SubResource("TileSet_0m83y")
 
 [node name="Player" parent="." instance=ExtResource("7_6mvdn")]
-position = Vector2(375, -353)
+position = Vector2(-236, 391)
 
 [node name="Bird Summoner" parent="." instance=ExtResource("9_2cr2j")]
 position = Vector2(4120, -245)
@@ -686,7 +687,7 @@ position = Vector2(594, 899)
 position = Vector2(5526, 531)
 
 [node name="TurtleEnemy" parent="." instance=ExtResource("11_xi0ju")]
-position = Vector2(109, -308)
+position = Vector2(54, -340)
 
 [node name="FiremageEnemy" parent="." instance=ExtResource("12_ai8sj")]
 position = Vector2(-1064, -387)
@@ -704,7 +705,7 @@ position = Vector2(-5196, 200)
 position = Vector2(-4399, 200)
 
 [node name="SpearmanEnemy" parent="." instance=ExtResource("14_esqh1")]
-position = Vector2(-340, 688)
+position = Vector2(1070, 938)
 
 [node name="SpearmanEnemy2" parent="." instance=ExtResource("14_esqh1")]
 position = Vector2(-5154, 887)
@@ -739,3 +740,18 @@ position = Vector2(-1777, 600)
 
 [node name="FiremageEnemy2" parent="." instance=ExtResource("12_ai8sj")]
 position = Vector2(-2147, 621)
+
+[node name="BasicEnemy" parent="." instance=ExtResource("17_euwxu")]
+position = Vector2(-285, 685)
+
+[node name="BasicEnemy2" parent="." instance=ExtResource("17_euwxu")]
+position = Vector2(393, 696)
+
+[node name="BasicEnemy3" parent="." instance=ExtResource("17_euwxu")]
+position = Vector2(140, 674)
+
+[node name="BasicEnemy4" parent="." instance=ExtResource("17_euwxu")]
+position = Vector2(-524, 661)
+
+[node name="BasicEnemy5" parent="." instance=ExtResource("17_euwxu")]
+position = Vector2(-34, 685)

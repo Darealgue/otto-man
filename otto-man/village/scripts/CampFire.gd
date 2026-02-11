@@ -56,7 +56,7 @@ func _ready() -> void:
 		# Light'ın z_index'ini 0 yap (Light2D kendi z_index'inden düşük veya eşit z_index'leri aydınlatır)
 		point_light.z_index = 0
 		point_light.range_z_min = -1  # z_index = -1'den başla (zemin)
-		point_light.range_z_max = 10   # Yüksek z_index'leri de aydınlat (oyuncu, NPC'ler)
+		point_light.range_z_max = 20  # Oyuncu ve NPC'ler z_index 6-19'da; su (20) öncesine kadar aydınlat
 		# ParallaxBackground layer'larını aydınlatmak için range_layer ayarları
 		point_light.range_layer_min = -1  # ParallaxBackground layer = -1
 		point_light.range_layer_max = 1   # Normal layer'ları da aydınlat

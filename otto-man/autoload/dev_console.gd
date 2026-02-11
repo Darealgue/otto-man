@@ -103,6 +103,8 @@ func _on_command_submitted(command: String) -> void:
 		# === VILLAGE EVENT KOMUTLARI ===
 		"trigger_village_event":
 			handle_trigger_village_event_command(args)
+		"spawn_trader":
+			handle_spawn_trader_command(args)
 		"trigger_world_event":
 			handle_trigger_world_event_command(args)
 		"set_event_chance":
@@ -470,6 +472,20 @@ func handle_trigger_village_event_command(args: Array) -> void:
 		var event_type: String = args[0]
 		vm._trigger_village_event(event_type, day)
 		print_output("Triggered village event: %s" % event_type)
+
+func handle_spawn_trader_command(args: Array) -> void:
+	"""Tüccar getir komutu"""
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		print_output("VillageManager not found!")
+		return
+	
+	var tm = get_node_or_null("/root/TimeManager")
+	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
+	
+	# Direkt trade_caravan event'ini tetikle
+	vm._trigger_village_event("trade_caravan", day)
+	print_output("✅ Tüccar getirildi! (trade_caravan event tetiklendi)")
 
 func handle_trigger_world_event_command(args: Array) -> void:
 	var vm = get_node_or_null("/root/VillageManager")
