@@ -29,6 +29,18 @@ var _original_collision_layer: int = 4
 
 # Track previous frame's floor state to detect ground impact
 var _was_in_air: bool = false
+var _previous_velocity_y: float = 0.0  # Track velocity before landing to calculate bounce
+
+# Bounce system for hurt enemies
+var _bounce_count: int = 0  # How many times enemy has bounced
+var _max_bounces: int = 1  # Maximum bounces (calculated based on fall velocity)
+const MIN_BOUNCE_VELOCITY: float = 250.0  # Minimum fall velocity to trigger bounce
+const HIGH_FALL_VELOCITY: float = 500.0  # Velocity threshold for 2 bounces
+const BOUNCE_FORCE_MULTIPLIER: float = 0.5  # How much velocity is converted to upward bounce
+var _is_bouncing: bool = false  # Track if currently bouncing
+var _just_bounced: bool = false  # Prevent multiple bounces in same landing frame
+var _bounce_cooldown: float = 0.0  # Cooldown to prevent rapid bounce loops
+const BOUNCE_COOLDOWN_DURATION: float = 0.1  # Minimum time between bounces
 
 # Direction change throttle to prevent flip-flopping
 var _direction_change_cooldown_timer: float = 0.0
@@ -39,11 +51,39 @@ var _last_direction: int = 1  # Track last direction
 var _wall_hit_timer: float = 0.0
 const WALL_HIT_DURATION: float = 0.5  # How long to stay in "wall hit" state
 var _is_wall_hit: bool = false  # Track if we're currently in wall hit state
+var _backing_off_timer: float = 0.0  # Timer for backing off from wall
+const BACK_OFF_DURATION: float = 0.2  # How long to back off from wall after turning
+
+# Spawn state tracking
+var _should_transition_to_patrol: bool = false  # Flag to transition to patrol after landing
 
 func _ready() -> void:
 	super._ready()
+	# Initialize bounce variables
+	_bounce_count = 0
+	_max_bounces = 1
+	_is_bouncing = false
+	_just_bounced = false
+	_bounce_cooldown = 0.0
+	# Initialize wall hit variables
+	_backing_off_timer = 0.0
 	
-	# Initialize floor tracking
+	# CRITICAL: Force floor detection on spawn - ensure we're on floor before initializing
+	# This prevents fall animation from playing when spawning in air (level 2+ issue)
+	if not is_on_floor():
+		# Try to detect floor below us
+		var space_state = get_world_2d().direct_space_state
+		var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * 500.0)
+		query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+		var result = space_state.intersect_ray(query)
+		
+		if result:
+			# Place on floor
+			global_position = result.position - Vector2(0, 32)
+			# Force physics update
+			move_and_slide()
+	
+	# Initialize floor tracking AFTER ensuring we're on floor
 	_was_in_air = not is_on_floor()
 	
 	# Initialize direction tracking
@@ -100,11 +140,25 @@ func _ready() -> void:
 		patrol_point_left = initial_pos.x - patrol_range
 		patrol_point_right = initial_pos.x + patrol_range
 	
-	# Start with patrol behavior
-	current_behavior = "patrol"
-	if sprite:
-		sprite.play("idle")
-	behavior_timer = 0.0
+	# CRITICAL: Ensure we're on floor before setting behavior
+	# Wait a frame for physics to settle, then check floor
+	await get_tree().process_frame
+	if not is_on_floor():
+		# Still in air - wait for landing before setting behavior
+		# This prevents fall animation from playing on spawn
+		current_behavior = "idle"  # Use idle instead of patrol to prevent BaseEnemy from playing fall
+		if sprite:
+			sprite.play("idle")
+		behavior_timer = 0.0
+		# Set a flag to transition to patrol once we land
+		_should_transition_to_patrol = true
+	else:
+		# On floor - set patrol behavior normally
+		current_behavior = "patrol"
+		if sprite:
+			sprite.play("idle")
+		behavior_timer = 0.0
+		_should_transition_to_patrol = false
 	
 	# Basic enemy has simple collision - smaller than heavy enemy
 	# Collision shape is set in scene file
@@ -141,6 +195,20 @@ func _handle_child_behavior(delta: float) -> void:
 			if health <= 0:
 				return
 			handle_patrol(delta)
+		"idle":
+			# Idle state - check if we should transition to patrol (spawn landing)
+			if _should_transition_to_patrol and is_on_floor():
+				_should_transition_to_patrol = false
+				current_behavior = "patrol"
+				if sprite:
+					sprite.play("idle")
+				behavior_timer = 0.0
+			elif not _should_transition_to_patrol:
+				# Normal idle - transition to patrol
+				current_behavior = "patrol"
+				if sprite:
+					sprite.play("idle")
+				behavior_timer = 0.0
 		"chase":
 			# Don't chase if dead
 			if health <= 0:
@@ -159,6 +227,19 @@ func _handle_child_behavior(delta: float) -> void:
 func handle_patrol(delta: float) -> void:
 	# Don't patrol if dead
 	if health <= 0:
+		return
+	
+	# Check if we should transition to patrol (after landing from spawn)
+	if _should_transition_to_patrol and is_on_floor():
+		_should_transition_to_patrol = false
+		current_behavior = "patrol"
+		if sprite:
+			sprite.play("idle")
+		behavior_timer = 0.0
+		return
+	
+	# If still in air and should transition, wait
+	if _should_transition_to_patrol:
 		return
 		
 	behavior_timer += delta
@@ -195,40 +276,77 @@ func handle_patrol(delta: float) -> void:
 			behavior_timer = 0.0
 	else:
 		# Move towards patrol point
-		# Update wall hit timer
+		# Update timers
 		_wall_hit_timer = max(0.0, _wall_hit_timer - delta)
+		_backing_off_timer = max(0.0, _backing_off_timer - delta)
 		
 		# Check if we hit a wall - use debounce to prevent flickering
 		var currently_on_wall = is_on_wall()
 		
-		if currently_on_wall:
+		# DEBUG: Wall stuck detection
+		if currently_on_wall and _backing_off_timer <= 0.0 and _wall_hit_timer <= 0.0:
+			print("[BasicEnemy] WALL STUCK DEBUG (patrol):")
+			print("  pos: ", global_position)
+			print("  direction: ", direction)
+			print("  velocity.x: ", velocity.x)
+			print("  is_on_wall(): ", currently_on_wall)
+			print("  _is_wall_hit: ", _is_wall_hit)
+			print("  _wall_hit_timer: ", _wall_hit_timer)
+			print("  _backing_off_timer: ", _backing_off_timer)
+			print("  behavior_timer: ", behavior_timer)
+		
+		# If we're backing off from wall, don't check for new wall hits
+		if _backing_off_timer > 0.0:
+			# Backing off - move away from wall
+			var move_speed = (stats.movement_speed if stats else 80.0) * 0.7
+			velocity.x = direction * move_speed
+			if sprite and sprite.animation != "walk":
+				sprite.play("walk")
+			# Once we're no longer on wall, exit backing off state
+			if not currently_on_wall:
+				print("[BasicEnemy] Backing off SUCCESS - no longer on wall (patrol)")
+				_backing_off_timer = 0.0
+				_is_wall_hit = false
+				_wall_hit_timer = 0.0
+				# Note: In patrol, direction will naturally update when we reach patrol point
+		elif currently_on_wall:
 			# Just hit wall - start wall hit state
 			if not _is_wall_hit:
+				print("[BasicEnemy] Wall hit detected (patrol) - starting wall hit state")
 				_is_wall_hit = true
 				_wall_hit_timer = WALL_HIT_DURATION
 				behavior_timer = 0.0  # Reset behavior timer
-		
-		# Stay in wall hit state for the duration
-		if _is_wall_hit and _wall_hit_timer > 0.0:
-			velocity.x = 0
-			if sprite and sprite.animation != "idle":
-				sprite.play("idle")
-			# Turn around after wall hit duration
-			if behavior_timer >= 0.3:  # Wait 0.3s before turning
-				direction *= -1
-				if sprite:
-					sprite.flip_h = direction < 0
-				behavior_timer = 0.0
-				_is_wall_hit = false  # Exit wall hit state
-				_wall_hit_timer = 0.0
-				# Immediately try to move in new direction (don't stay stuck)
-				var move_speed = (stats.movement_speed if stats else 80.0) * 0.7
-				velocity.x = direction * move_speed
-				if sprite:
-					sprite.play("walk")
-		elif not currently_on_wall and _wall_hit_timer <= 0.0:
-			# Not blocked and wall hit timer expired, move normally
+			
+			# Stay in wall hit state for the duration
+			if _is_wall_hit:
+				if _wall_hit_timer > 0.0:
+					velocity.x = 0
+					if sprite and sprite.animation != "idle":
+						sprite.play("idle")
+					# Turn around after wall hit duration
+					if behavior_timer >= 0.3:  # Wait 0.3s before turning
+						print("[BasicEnemy] Turning around (patrol) - starting back off")
+						direction *= -1
+						if sprite:
+							sprite.flip_h = direction < 0
+						behavior_timer = 0.0
+						# Start backing off from wall
+						_backing_off_timer = BACK_OFF_DURATION
+						_is_wall_hit = false  # Exit wall hit state, enter backing off state
+				else:
+					# Timer expired but still on wall - force turn around
+					print("[BasicEnemy] Timer expired but still on wall (patrol) - forcing turn")
+					direction *= -1
+					if sprite:
+						sprite.flip_h = direction < 0
+					behavior_timer = 0.0
+					_backing_off_timer = BACK_OFF_DURATION
+					_is_wall_hit = false
+		else:
+			# Not blocked - exit wall hit state and move normally
 			_is_wall_hit = false
+			_wall_hit_timer = 0.0
+			_backing_off_timer = 0.0
 			if sprite and sprite.animation != "walk":
 				sprite.play("walk")
 			var move_speed = (stats.movement_speed if stats else 80.0) * 0.7  # Slower patrol speed
@@ -261,64 +379,126 @@ func handle_chase(delta: float) -> void:
 	# Update direction cooldown timer
 	_direction_change_cooldown_timer = max(0.0, _direction_change_cooldown_timer - delta)
 	
-	# Update direction towards player with throttle to prevent flip-flopping
+	# Calculate direction to player (needed for both direction update and backing off)
 	var dir_to_player = sign(target.global_position.x - global_position.x)
 	
-	# Only change direction if:
-	# 1. Player is not directly above/below (horizontal distance > threshold)
-	# 2. Enough time has passed since last direction change
-	# 3. Direction actually changed
-	var horizontal_distance = abs(target.global_position.x - global_position.x)
+	# Check if we're on wall - if so, don't update direction (prevent flickering)
+	var is_in_wall_hit_state = _is_wall_hit or _backing_off_timer > 0.0
 	
-	# If player is directly above/below (horizontal distance < 30px), don't change direction
-	if horizontal_distance > 30.0 and dir_to_player != 0:
-		# Check if direction actually changed and cooldown passed
-		if dir_to_player != _last_direction and _direction_change_cooldown_timer <= 0.0:
-			direction = dir_to_player
-			_last_direction = direction
-			_direction_change_cooldown_timer = DIRECTION_CHANGE_COOLDOWN  # Reset cooldown
-			if sprite:
-				sprite.flip_h = direction < 0
-		elif dir_to_player == _last_direction:
-			# Same direction, just update sprite flip
-			if sprite:
-				sprite.flip_h = direction < 0
+	# Only update direction if not stuck on wall
+	if not is_in_wall_hit_state:
+		# Update direction towards player with throttle to prevent flip-flopping
+		
+		# Only change direction if:
+		# 1. Player is not directly above/below (horizontal distance > threshold)
+		# 2. Enough time has passed since last direction change
+		# 3. Direction actually changed
+		var horizontal_distance = abs(target.global_position.x - global_position.x)
+		
+		# If player is directly above/below (horizontal distance < 30px), don't change direction
+		if horizontal_distance > 30.0 and dir_to_player != 0:
+			# Check if direction actually changed and cooldown passed
+			if dir_to_player != _last_direction and _direction_change_cooldown_timer <= 0.0:
+				direction = dir_to_player
+				_last_direction = direction
+				_direction_change_cooldown_timer = DIRECTION_CHANGE_COOLDOWN  # Reset cooldown
+				if sprite:
+					sprite.flip_h = direction < 0
+			elif dir_to_player == _last_direction:
+				# Same direction, just update sprite flip (only if not already correct)
+				if sprite and sprite.flip_h != (direction < 0):
+					sprite.flip_h = direction < 0
 	
 	# Move towards player (only if on floor)
 	if is_on_floor():
-		# Update wall hit timer
+		# Update timers
 		_wall_hit_timer = max(0.0, _wall_hit_timer - delta)
+		_backing_off_timer = max(0.0, _backing_off_timer - delta)
 		
 		# Check if we hit a wall - use debounce to prevent flickering
 		var currently_on_wall = is_on_wall()
 		
-		if currently_on_wall:
+		# DEBUG: Wall stuck detection
+		if currently_on_wall and _backing_off_timer <= 0.0 and _wall_hit_timer <= 0.0:
+			print("[BasicEnemy] WALL STUCK DEBUG (chase):")
+			print("  pos: ", global_position)
+			print("  direction: ", direction)
+			print("  velocity.x: ", velocity.x)
+			print("  is_on_wall(): ", currently_on_wall)
+			print("  _is_wall_hit: ", _is_wall_hit)
+			print("  _wall_hit_timer: ", _wall_hit_timer)
+			print("  _backing_off_timer: ", _backing_off_timer)
+			print("  behavior_timer: ", behavior_timer)
+		
+		# If we're backing off from wall, don't check for new wall hits
+		if _backing_off_timer > 0.0:
+			# Backing off - move away from wall
+			var chase_speed = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
+			velocity.x = direction * chase_speed * 0.5  # Slower when backing off
+			if sprite:
+				if sprite.sprite_frames.has_animation("chase"):
+					sprite.play("chase")
+				else:
+					sprite.play("walk")
+			# Once we're no longer on wall, exit backing off state and update direction to player
+			if not currently_on_wall:
+				print("[BasicEnemy] Backing off SUCCESS - no longer on wall")
+				_backing_off_timer = 0.0
+				_is_wall_hit = false
+				_wall_hit_timer = 0.0
+				# Reset direction cooldown and update direction to player immediately
+				_direction_change_cooldown_timer = 0.0
+				_last_direction = 0  # Reset to force direction update
+				# Update direction to face player (use existing dir_to_player from above)
+				if dir_to_player != 0:
+					direction = dir_to_player
+					_last_direction = direction
+					if sprite:
+						sprite.flip_h = direction < 0
+		elif currently_on_wall:
 			# Just hit wall - start wall hit state
 			if not _is_wall_hit:
+				print("[BasicEnemy] Wall hit detected (chase) - starting wall hit state")
 				_is_wall_hit = true
 				_wall_hit_timer = WALL_HIT_DURATION
 				behavior_timer = 0.0  # Reset behavior timer
-		
-		# Stay in wall hit state for the duration
-		if _is_wall_hit and _wall_hit_timer > 0.0:
-			velocity.x = 0
-			if sprite and sprite.animation != "idle":
-				sprite.play("idle")
-			# After wall hit duration, try to move away from wall
-			if behavior_timer >= 0.5:  # Wait 0.5s then try to unstick
-				# Try moving away from wall
-				direction *= -1
-				if sprite:
-					sprite.flip_h = direction < 0
-				behavior_timer = 0.0
-				_is_wall_hit = false  # Exit wall hit state
-				_wall_hit_timer = 0.0
-				# Try to move away
-				var chase_speed = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
-				velocity.x = direction * chase_speed * 0.5  # Slower when backing off
-		elif not currently_on_wall and _wall_hit_timer <= 0.0:
-			# Not blocked and wall hit timer expired, move normally
+			
+			# Stay in wall hit state for the duration
+			if _is_wall_hit:
+				if _wall_hit_timer > 0.0:
+					velocity.x = 0
+					# Keep idle animation - don't flicker between animations
+					if sprite:
+						if sprite.animation != "idle":
+							sprite.play("idle")
+						# Lock sprite direction to prevent flickering
+						if sprite.flip_h != (direction < 0):
+							sprite.flip_h = direction < 0
+					# After wall hit duration, try to move away from wall
+					if behavior_timer >= 0.5:  # Wait 0.5s then try to unstick
+						print("[BasicEnemy] Turning around (chase) - starting back off")
+						# Try moving away from wall
+						direction *= -1
+						if sprite:
+							sprite.flip_h = direction < 0
+						behavior_timer = 0.0
+						# Start backing off from wall
+						_backing_off_timer = BACK_OFF_DURATION
+						_is_wall_hit = false  # Exit wall hit state, enter backing off state
+				else:
+					# Timer expired but still on wall - force turn around
+					print("[BasicEnemy] Timer expired but still on wall (chase) - forcing turn")
+					direction *= -1
+					if sprite:
+						sprite.flip_h = direction < 0
+					behavior_timer = 0.0
+					_backing_off_timer = BACK_OFF_DURATION
+					_is_wall_hit = false
+		else:
+			# Not blocked - exit wall hit state and move normally
 			_is_wall_hit = false
+			_wall_hit_timer = 0.0
+			_backing_off_timer = 0.0
 			if sprite and sprite.animation != "chase":
 				# Use chase animation if available, otherwise walk
 				if sprite.sprite_frames.has_animation("chase"):
@@ -433,6 +613,9 @@ func handle_attack(delta: float) -> void:
 func handle_hurt_behavior(delta: float) -> void:
 	behavior_timer += delta
 	
+	# Update bounce cooldown
+	_bounce_cooldown = max(0.0, _bounce_cooldown - delta)
+	
 	# CRITICAL: Always ensure fall animation is NOT playing when in hurt state
 	# Check every frame and aggressively stop it
 	if sprite:
@@ -446,6 +629,15 @@ func handle_hurt_behavior(delta: float) -> void:
 		if hurtbox:
 			hurtbox.monitoring = true
 			hurtbox.monitorable = true
+		
+		# Check for wall bounce (dead enemies can bounce off walls)
+		if is_on_wall():
+			# Bounce off wall - reverse horizontal velocity
+			var wall_bounce_force = abs(velocity.x) * 0.6  # 60% of horizontal velocity
+			velocity.x = -velocity.x * 0.6  # Reverse and reduce
+			# Small upward component for visual interest
+			if velocity.y > -50.0:  # Only if not already rising fast
+				velocity.y = min(velocity.y, -100.0)  # Small upward boost
 		
 		if not is_on_floor():
 			# CRITICAL: Stop fall animation immediately if it's playing
@@ -474,10 +666,46 @@ func handle_hurt_behavior(delta: float) -> void:
 		return
 	
 	# Check if we just hit ground (was in air, now on ground)
-	if _was_in_air and is_on_floor():
-		# Just landed - check if dead or alive
-		if health <= 0:
-			# Dead - play death animation immediately, don't play hurt_ground
+	# IMPORTANT: Only check bounce if we weren't just bouncing and cooldown expired
+	if _was_in_air and is_on_floor() and not _just_bounced and _bounce_cooldown <= 0.0:
+		# Just landed - check fall velocity for bounce
+		var fall_velocity = abs(_previous_velocity_y)
+		
+		# Determine max bounces based on fall velocity
+		if fall_velocity >= HIGH_FALL_VELOCITY:
+			_max_bounces = 2  # High fall = 2 bounces
+		elif fall_velocity >= MIN_BOUNCE_VELOCITY:
+			_max_bounces = 1  # Medium fall = 1 bounce
+		else:
+			_max_bounces = 0  # Low fall = no bounce
+		
+		# Check if we should bounce
+		if health <= 0 and fall_velocity >= MIN_BOUNCE_VELOCITY and _bounce_count < _max_bounces:
+			# Dead but should bounce - play ground hurt and bounce
+			_bounce_count += 1
+			_is_bouncing = true
+			_just_bounced = true  # Set flag to prevent immediate re-trigger
+			_bounce_cooldown = BOUNCE_COOLDOWN_DURATION  # Set cooldown
+			behavior_timer = 0.0
+			
+			# Play ground hurt animation
+			if sprite and sprite.sprite_frames.has_animation("hurt_ground"):
+				sprite.play("hurt_ground")
+			
+			# Calculate bounce force based on fall velocity
+			var bounce_force = fall_velocity * BOUNCE_FORCE_MULTIPLIER
+			# Cap bounce force for gameplay feel
+			bounce_force = min(bounce_force, 400.0)
+			velocity.y = -bounce_force  # Apply upward bounce
+			
+			# Small horizontal bounce variation for visual interest
+			velocity.x *= 0.5  # Reduce horizontal velocity on bounce
+			
+			_was_in_air = true  # Still in air after bounce
+			return
+		elif health <= 0:
+			# Dead and no more bounces - play death animation
+			_just_bounced = false  # Reset flag
 			die()
 			return
 		else:
@@ -489,12 +717,23 @@ func handle_hurt_behavior(delta: float) -> void:
 				elif sprite.sprite_frames.has_animation("get_up"):
 					sprite.play("get_up")
 					behavior_timer = 0.0  # Reset timer for get_up animation
-		_was_in_air = false
+			_was_in_air = false
+			_is_bouncing = false
+			_just_bounced = false  # Reset flag
 	
 	# Normal hurt behavior (not dead)
 	# Determine which hurt animation to play based on velocity
 	# IMPORTANT: Always play hurt animations when in hurt state, never fall animation
 	if not is_on_floor():
+		# Check for wall bounce (hurt enemies can bounce off walls)
+		if is_on_wall():
+			# Bounce off wall - reverse horizontal velocity
+			var wall_bounce_force = abs(velocity.x) * 0.6  # 60% of horizontal velocity
+			velocity.x = -velocity.x * 0.6  # Reverse and reduce
+			# Small upward component for visual interest
+			if velocity.y > -50.0:  # Only if not already rising fast
+				velocity.y = min(velocity.y, -100.0)  # Small upward boost
+		
 		# CRITICAL: Stop fall animation immediately if playing (check every frame)
 		if sprite:
 			if sprite.animation == "fall":
@@ -514,10 +753,46 @@ func handle_hurt_behavior(delta: float) -> void:
 		_was_in_air = true  # Track that we're in air
 	else:
 		# On ground - check if we just landed (was in air, now on ground)
-		if _was_in_air:
-			# Just hit ground - check if dead first
-			if health <= 0:
-				# Dead - play death animation immediately
+		# IMPORTANT: Only check bounce if we weren't just bouncing and cooldown expired
+		if _was_in_air and not _just_bounced and _bounce_cooldown <= 0.0:
+			# Just hit ground - check fall velocity for bounce
+			var fall_velocity = abs(_previous_velocity_y)
+			
+			# Determine max bounces based on fall velocity
+			if fall_velocity >= HIGH_FALL_VELOCITY:
+				_max_bounces = 2  # High fall = 2 bounces
+			elif fall_velocity >= MIN_BOUNCE_VELOCITY:
+				_max_bounces = 1  # Medium fall = 1 bounce
+			else:
+				_max_bounces = 0  # Low fall = no bounce
+			
+			# Check if we should bounce
+			if health <= 0 and fall_velocity >= MIN_BOUNCE_VELOCITY and _bounce_count < _max_bounces:
+				# Dead but should bounce - play ground hurt and bounce
+				_bounce_count += 1
+				_is_bouncing = true
+				_just_bounced = true  # Set flag to prevent immediate re-trigger
+				_bounce_cooldown = BOUNCE_COOLDOWN_DURATION  # Set cooldown
+				behavior_timer = 0.0
+				
+				# Play ground hurt animation
+				if sprite and sprite.sprite_frames.has_animation("hurt_ground"):
+					sprite.play("hurt_ground")
+				
+				# Calculate bounce force based on fall velocity
+				var bounce_force = fall_velocity * BOUNCE_FORCE_MULTIPLIER
+				# Cap bounce force for gameplay feel
+				bounce_force = min(bounce_force, 400.0)
+				velocity.y = -bounce_force  # Apply upward bounce
+				
+				# Small horizontal bounce variation for visual interest
+				velocity.x *= 0.5  # Reduce horizontal velocity on bounce
+				
+				_was_in_air = true  # Still in air after bounce
+				return
+			elif health <= 0:
+				# Dead and no more bounces - play death animation
+				_just_bounced = false  # Reset flag
 				die()
 				return
 			else:
@@ -530,12 +805,17 @@ func handle_hurt_behavior(delta: float) -> void:
 						sprite.play("get_up")
 						behavior_timer = 0.0  # Reset timer for get_up animation
 			_was_in_air = false
+			_just_bounced = false  # Reset flag
 		
 		# On ground - check if we're dead (double check)
+		# BUT: Only call die() if we're actually on ground AND not going upward
+		# If velocity.y < 0, we're still going up, so don't die yet
 		if health <= 0:
-			# We hit ground while dead - now play death animation
-			die()
-			return
+			# Check if we're actually on ground and not being launched upward
+			if velocity.y >= 0.0:  # Not going up (0 or positive = falling or on ground)
+				# We hit ground while dead - now play death animation
+				die()
+				return
 		
 		# On ground and alive - play hurt_ground or get_up (if not already playing)
 		if sprite:
@@ -631,11 +911,20 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 				# Don't play anything here to prevent fall animation from playing
 				pass
 			"dead":
-				sprite.play("death")
+				# Only play death animation if on ground
+				# If in air, wait until we hit ground (handled in handle_hurt_behavior)
+				if is_on_floor():
+					sprite.play("death")
+				# If in air, don't play death animation yet - let hurt animations play
 			_:
 				sprite.play("idle")
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, source_hitbox: Area2D = null) -> void:
+	# Reset bounce count when taking new damage (new hit = new bounce opportunity)
+	_bounce_count = 0
+	_max_bounces = 1
+	_just_bounced = false  # Reset bounce flag on new damage
+	_bounce_cooldown = 0.0  # Reset cooldown
 	# Store if we're in air before taking damage
 	var was_in_air = not is_on_floor()
 	
@@ -695,8 +984,15 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	
 	# If dead but still in air, allow even more knockback (punching bag mode)
 	# But cap upward force to prevent infinite flight
-	if health <= 0 and not is_on_floor():
-		final_up_force *= 1.3  # Extra boost when dead in air
+	# IMPORTANT: When death is deferred, we need stronger knockback to match normal death behavior
+	if health <= 0:
+		# Boost upward force significantly for death - this compensates for not calling die()
+		# Normal death would apply DEATH_UP_FORCE (100.0), but we're using attack knockback
+		# So boost it to match or exceed normal death knockback
+		if is_up_attack:
+			final_up_force *= 1.5  # Extra boost for up attacks on death
+		else:
+			final_up_force *= 1.4  # Extra boost for other attacks on death
 		# Higher cap for dead enemies - they should fly higher for combos
 		final_up_force = min(final_up_force, 600.0)  # Cap at 600 for dead enemies (higher)
 	
@@ -708,10 +1004,74 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	velocity.x = -direction * final_knockback_force
 	velocity.y = -final_up_force  # Direct assignment - don't let anything override
 	
-	# Basic enemy has extended air float for juggling (only if alive)
-	# Don't reset float timer if dead - let gravity work normally
-	if velocity.y < 0.0 and health > 0:
-		air_float_timer = air_float_duration_override
+	# Basic enemy has extended air float for juggling
+	# IMPORTANT: Also apply air float for dead enemies being launched upward
+	# This prevents them from falling too fast and allows proper juggling
+	if velocity.y < 0.0:
+		if health > 0:
+			air_float_timer = air_float_duration_override
+		elif health <= 0:
+			# Dead enemies also get air float when launched upward
+			# This helps them fly higher and allows for air combos
+			air_float_timer = air_float_duration_override * 0.7  # 70% of normal float time
+	
+	# Check for death BEFORE entering hurt state
+	# If we're being launched upward, don't die immediately
+	var should_defer_death = false
+	if health <= 0:
+		# Can barını hemen gizle
+		if health_bar:
+			health_bar.hide_bar()
+		
+		# IMPORTANT: If we're being launched upward (up attack), don't die immediately
+		# Check if velocity indicates upward movement (negative y means upward)
+		# OR if this is an up attack with significant force
+		# Use velocity.y as the primary check - if it's negative, we're going up
+		var is_being_launched_upward = velocity.y < 0.0  # Any upward velocity (negative y = up)
+		var will_be_launched_upward = is_up_attack or (knockback_up_force > 50.0) or (final_up_force > 50.0)
+		
+		# ALWAYS defer death if we're in air OR being launched upward OR will be launched upward
+		# Primary check: velocity.y < 0 means we're going up, so defer death
+		should_defer_death = not is_on_floor() or is_being_launched_upward or will_be_launched_upward
+		
+		# If we should defer death, don't call die() at all - just stay in hurt state
+		if should_defer_death:
+			# Enter hurt state but don't die yet
+			change_behavior("hurt")
+			behavior_timer = 0.0
+			
+			# Flash red
+			if sprite:
+				sprite.modulate = Color(1, 0, 0, 1)
+				create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
+			
+			# Spawn blood particles
+			if _should_spawn_blood():
+				_spawn_blood_particles(amount)
+			
+			# Keep hurtbox enabled so player can keep hitting in air (punching bag effect)
+			if hurtbox:
+				hurtbox.monitoring = true
+				hurtbox.monitorable = true
+			
+			# IMPORTANT: Disable air float timer for dead enemies
+			# Dead enemies should fall naturally, not float
+			air_float_timer = 0.0
+			
+			# Play correct hurt animation based on velocity (hurt_rise or hurt_fall)
+			if sprite:
+				if velocity.y < -10.0:
+					# Rising - play hurt_rise
+					if sprite.sprite_frames.has_animation("hurt_rise"):
+						sprite.play("hurt_rise")
+				else:
+					# Falling or slow upward - play hurt_fall
+					if sprite.sprite_frames.has_animation("hurt_fall"):
+						sprite.play("hurt_fall")
+			
+			# Don't call die() - stay in hurt state until we hit ground
+			# This allows player to continue juggling dead enemies
+			return
 	
 	# Enter hurt state
 	change_behavior("hurt")
@@ -726,42 +1086,10 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	if _should_spawn_blood():
 		_spawn_blood_particles(amount)
 	
-	# Check for death - but don't die immediately if in air
+	# Check for death - but don't die immediately if in air OR if being launched upward
 	if health <= 0:
-		# Can barını hemen gizle
-		if health_bar:
-			health_bar.hide_bar()
-		
-		# IMPORTANT: If we're in air (now, not just before), wait until we hit ground
-		# This allows player to juggle dead enemies in air
-		if not is_on_floor():
-			# Keep hurt state, die() will be called when we hit ground in handle_hurt_behavior()
-			# Keep hurtbox enabled so player can keep hitting in air (punching bag effect)
-			if hurtbox:
-				hurtbox.monitoring = true
-				hurtbox.monitorable = true
-			
-			# IMPORTANT: Disable air float timer for dead enemies
-			# Dead enemies should fall naturally, not float
-			air_float_timer = 0.0
-			
-			# Play correct hurt animation based on velocity (hurt_rise or hurt_fall)
-			# Don't let change_behavior() play generic "hurt" animation
-			if sprite:
-				if velocity.y < -10.0:
-					# Rising - play hurt_rise
-					if sprite.sprite_frames.has_animation("hurt_rise"):
-						sprite.play("hurt_rise")
-				else:
-					# Falling or slow upward - play hurt_fall
-					if sprite.sprite_frames.has_animation("hurt_fall"):
-						sprite.play("hurt_fall")
-			
-			# Don't call die() - stay in hurt state until we hit ground
-			# This allows player to continue juggling dead enemies
-		else:
-			# On ground, die immediately
-			die()
+		# On ground and not being launched upward, die immediately
+		die()
 
 func _physics_process(delta: float) -> void:
 	# Skip if sleeping or invalid position
@@ -820,6 +1148,15 @@ func _physics_process(delta: float) -> void:
 						else:
 							if sprite.sprite_frames.has_animation("hurt_fall"):
 								sprite.play("hurt_fall")
+		
+		# Track velocity before applying gravity (for bounce calculation)
+		_previous_velocity_y = velocity.y
+		
+		# Reset _just_bounced flag when we're actually in air (not on floor)
+		# This allows bounce to trigger again on next landing
+		if not is_on_floor() and _just_bounced:
+			# We're in air now, so reset the flag to allow next bounce check
+			_just_bounced = false
 		
 		# Apply gravity with air float for juggling
 		# Check both current_behavior and health to determine if dead
@@ -904,18 +1241,37 @@ func _physics_process(delta: float) -> void:
 
 func update_sprite_direction() -> void:
 	"""Update sprite direction based on movement and target"""
+	# Don't update direction if in wall hit state (prevents flickering)
+	if _is_wall_hit or _backing_off_timer > 0.0:
+		return
+	
 	if target:
 		var target_direction = sign(target.global_position.x - global_position.x)
 		if target_direction != 0:
-			direction = target_direction
+			# Only update direction if it actually changed
+			if direction != target_direction:
+				direction = target_direction
+				if sprite:
+					sprite.flip_h = direction < 0
 	elif velocity.x != 0:
-		direction = sign(velocity.x)
-	
-	# Flip sprite based on direction
-	if sprite:
-		sprite.flip_h = direction < 0
+		var vel_direction = sign(velocity.x)
+		# Only update direction if it actually changed
+		if direction != vel_direction:
+			direction = vel_direction
+			if sprite:
+				sprite.flip_h = direction < 0
+	else:
+		# No movement and no target - keep current direction, just update sprite if needed
+		if sprite and sprite.flip_h != (direction < 0):
+			sprite.flip_h = direction < 0
 
 func die() -> void:
+	# Reset bounce state on death
+	_bounce_count = 0
+	_max_bounces = 0
+	_is_bouncing = false
+	_just_bounced = false
+	_bounce_cooldown = 0.0
 	# Override die to stop velocity immediately
 	if current_behavior == "dead":
 		return
@@ -947,19 +1303,28 @@ func die() -> void:
 	
 	# IMPORTANT: Play death animation BEFORE calling super.die()
 	# super.die() sets fade_out = true which might hide sprite immediately
+	# BUT: Only play death animation if on ground - if in air, keep playing hurt animations
 	if sprite:
 		# Ensure sprite is visible
 		sprite.visible = true
 		sprite.modulate = Color(1, 1, 1, 1)  # Reset modulate
-		# Play death animation if available
-		if sprite.sprite_frames.has_animation("death"):
-			sprite.play("death")
-		elif sprite.sprite_frames.has_animation("hurt_fall"):
-			# Fallback to hurt_fall if death animation doesn't exist
-			sprite.play("hurt_fall")
+		# Play death animation only if on ground
+		# If in air, don't play death animation - let handle_hurt_behavior() handle it when we land
+		if is_on_floor():
+			# Play death animation if available
+			if sprite.sprite_frames.has_animation("death"):
+				sprite.play("death")
+			elif sprite.sprite_frames.has_animation("hurt_fall"):
+				# Fallback to hurt_fall if death animation doesn't exist
+				sprite.play("hurt_fall")
+		# If in air, don't change animation - keep playing hurt_rise or hurt_fall
 	
-	# Stop all movement before calling super
-	velocity = Vector2.ZERO
+	# Stop all movement before calling super - BUT only if on ground
+	# If in air, keep velocity so enemy can fall naturally
+	# IMPORTANT: Check velocity.y instead of is_on_floor() because velocity might be set but not applied yet
+	if is_on_floor() and velocity.y >= 0.0:
+		velocity = Vector2.ZERO
+	# If in air or going up, don't zero velocity - let enemy fall naturally
 	
 	# IMPORTANT: Prevent fade_out from hiding sprite immediately
 	# BasicEnemy corpses should remain visible - NEVER fade out or disappear
@@ -971,8 +1336,17 @@ func die() -> void:
 	collision_layer = CollisionLayers.ENEMY_HURTBOX  # Layer player doesn't detect
 	collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Collide with tiles/platforms
 	
+	# IMPORTANT: Save velocity BEFORE calling super.die() because it calls _apply_death_knockback()
+	# which will override our velocity. We want to keep the velocity from the attack.
+	var saved_velocity = velocity
+	
 	# Call base class die AFTER setting collision (base class sets collision_layer = 0)
 	super.die()
+	
+	# IMPORTANT: Restore velocity if we're in air (being launched upward)
+	# Don't let super.die() override our attack velocity
+	if not is_on_floor() or saved_velocity.y < -50.0:
+		velocity = saved_velocity
 	
 	# IMPORTANT: Re-apply collision settings after super.die() (it sets collision_layer = 0)
 	collision_layer = CollisionLayers.ENEMY_HURTBOX  # Layer player doesn't detect
@@ -993,12 +1367,19 @@ func die() -> void:
 		hitbox.queue_free()
 		hitbox = null
 	
-	# Ensure velocity stays zero after death (override death knockback)
-	velocity = Vector2.ZERO
+	# Ensure velocity stays zero after death (override death knockback) - BUT only if on ground
+	# If in air, keep velocity so enemy can fall naturally
+	if is_on_floor() and saved_velocity.y >= -50.0:
+		velocity = Vector2.ZERO
+	# If in air or being launched upward, keep saved velocity
 
 func _apply_death_knockback() -> void:
 	# Override to prevent upward flight - basic enemies just fall down
-	velocity = Vector2.ZERO
+	# BUT: If we're being launched upward (from up attack), keep that velocity
+	# Only zero velocity if we're on ground and not being launched upward
+	if is_on_floor() and velocity.y >= -50.0:
+		velocity = Vector2.ZERO
+	# If in air or being launched upward, keep current velocity (don't override)
 	
 	# CRITICAL: Don't start fall delete timer - BasicEnemy corpses should NEVER disappear
 	# Do NOT call _on_fall_timer_timeout - corpses stay forever
@@ -1142,7 +1523,9 @@ func _on_animation_changed() -> void:
 						sprite.play("hurt_fall")
 			else:
 				# On ground - play hurt_ground or death
-				if health <= 0:
+				# IMPORTANT: Only play death animation if we're actually dead AND on ground
+				# Don't play death animation if we're still in air (handled in handle_hurt_behavior)
+				if health <= 0 and is_on_floor():
 					if sprite.sprite_frames.has_animation("death"):
 						sprite.play("death")
 				elif sprite.sprite_frames.has_animation("hurt_ground"):

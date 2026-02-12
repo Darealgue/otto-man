@@ -64,11 +64,11 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 	# Knockback tuning per attack
 	if attack_name == "up_light":
 		knockback_force = 120.0
-		knockback_up_force = 220.0
+		knockback_up_force = 110.0  # Reduced from 220.0 (50% of original)
 	elif attack_name.begins_with("attack_up"):
 		# Up combo attacks - launch enemies upward (stronger than single up_light)
 		knockback_force = 120.0
-		knockback_up_force = 280.0  # Increased from 220.0 for better combo launching
+		knockback_up_force = 140.0  # Reduced from 280.0 (50% of original)
 	elif attack_name == "down_light":
 		knockback_force = 180.0
 		knockback_up_force = 40.0
@@ -78,10 +78,18 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 		knockback_up_force = 40.0
 	elif attack_name == "up_heavy":
 		knockback_force = 160.0
-		knockback_up_force = 380.0
+		knockback_up_force = 190.0  # Reduced from 380.0 (50% of original)
+	elif attack_name == "air_attack_up1" or attack_name == "air_attack_up2":
+		# Air up attacks - reduced upward force
+		knockback_force = 120.0
+		knockback_up_force = 110.0  # Same as up_light (50% of what would be default)
 	elif attack_name == "down_heavy":
 		knockback_force = 260.0
 		knockback_up_force = 60.0
+	elif attack_name == "air_attack_down1" or attack_name == "air_attack_down2":
+		# Air down attacks - apply downward force to enemies
+		knockback_force = 150.0
+		knockback_up_force = -200.0  # Negative value for downward force
 	else:
 		# default light/heavy derived from AttackManager if needed later
 		pass
@@ -297,6 +305,9 @@ func _get_hit_effect_data() -> Dictionary:
 			return {"effect_type": 2, "scale": 1.3}  # hit3, 1.3x boyut
 		# Up attacks - orta efekt (yukarı saldırı)
 		"air_attack_up1", "air_attack_up2", "attack_up1", "attack_up2", "attack_up3":
+			return {"effect_type": 1, "scale": 1.1}  # hit2, 1.1x boyut
+		# Down attacks - orta efekt (aşağı saldırı)
+		"air_attack_down1", "air_attack_down2":
 			return {"effect_type": 1, "scale": 1.1}  # hit2, 1.1x boyut
 		# Light attacks - küçük efekt (hit1), normal boyut
 		"attack_1", "attack_1.2", "attack_1.3", "attack_1.4", "air_attack1", "air_attack2", "attack_down1", "attack_down2":

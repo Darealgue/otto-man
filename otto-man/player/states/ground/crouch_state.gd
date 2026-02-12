@@ -130,19 +130,15 @@ func can_stand_up() -> bool:
 		
 		var result = space_state.intersect_ray(query)
 		if result:
-			# Check if the hit object is a dead enemy - if so, ignore it
+			# Ignore enemies (alive or dead) – they must not force crouch when on top of player
 			var collider = result.get("collider")
 			if collider:
-				# Check if collider is part of a dead enemy
 				var parent = collider.get_parent() if collider else null
 				if parent and "health" in parent:
-					if parent.health <= 0:
-						continue  # Ignore dead enemies
-				# Also check if collider itself is a dead enemy (CharacterBody2D)
-				elif "health" in collider:
-					if collider.health <= 0:
-						continue  # Ignore dead enemies
-			# If any check hits something (that's not a dead enemy), we can't stand up
+					continue  # Ignore any enemy (ceiling check is for world/platform only)
+				if "health" in collider:
+					continue  # Ignore any enemy
+			# If any check hits something that's not an enemy, we can't stand up
 			return false
 	
 	# If all checks pass, we can stand up

@@ -109,11 +109,16 @@ func physics_update(delta: float):
 	
 	# PRIORITY 2: Check for attack input - high priority for responsive controls
 	if Input.is_action_just_pressed("attack") and player.attack_cooldown_timer <= 0:
-		# Check for up input to determine attack type
+		# Check for up/down input to determine attack type
 		var up_strength = Input.get_action_strength("up")
+		var down_strength = Input.get_action_strength("down")
 		if up_strength > 0.6:
 			# Up attack - transition to AirAttackUp state
 			state_machine.transition_to("AirAttackUp")
+			return
+		elif down_strength > 0.6:
+			# Down attack - transition to AirAttackDown state
+			state_machine.transition_to("AirAttackDown")
 			return
 		else:
 			# Normal air attack

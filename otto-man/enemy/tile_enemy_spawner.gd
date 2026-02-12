@@ -144,12 +144,30 @@ func _spawn_enemy() -> bool:
 	# Add to scene
 	get_parent().add_child(enemy)
 	
-	# Set position using the same system as decorations
-	# Use spawner position directly (already calculated correctly in level_generator)
+	# Set initial position
 	enemy.global_position = global_position
 	
+	# Ensure enemy is on the floor by raycasting down (like EnemySpawner does)
+	var space_state = get_world_2d().direct_space_state
+	var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * 500.0)
+	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Check both world and platform layers
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		# Place slightly above the ground to ensure proper floor detection
+		enemy.global_position = result.position - Vector2(0, 32)  # Offset up by 32 pixels
+		if DEBUG_ENEMY:
+			print("[TileEnemySpawner] Adjusted enemy position to floor: %s (was: %s)" % [enemy.global_position, global_position])
+		
+		# Force an immediate physics update to ensure floor detection
+		enemy.call_deferred("move_and_slide")
+	else:
+		if DEBUG_ENEMY:
+			push_warning("[TileEnemySpawner] Could not find floor below spawn point at: %s" % global_position)
+	
 	# DETAILED DEBUG (Reduced)
-	print("[TileEnemySpawner] Spawned %s at: %s" % [enemy_type, enemy.global_position])
+	if DEBUG_ENEMY:
+		print("[TileEnemySpawner] Spawned %s at: %s" % [selected_enemy_type, enemy.global_position])
 	
 	# Set z-index
 	enemy.z_index = ENEMY_Z_INDEX

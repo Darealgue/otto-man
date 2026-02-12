@@ -322,11 +322,16 @@ func update(delta: float):
 	
 	# Check for air attack input
 	if Input.is_action_just_pressed("attack") and not player.is_on_floor() and not _is_air_attack(current_attack):
-		# Check for up input to determine attack type
+		# Check for up/down input to determine attack type
 		var up_strength = Input.get_action_strength("up")
+		var down_strength = Input.get_action_strength("down")
 		if up_strength > 0.6:
 			# Up attack - transition to AirAttackUp state
 			state_machine.transition_to("AirAttackUp")
+			return
+		elif down_strength > 0.6:
+			# Down attack - transition to AirAttackDown state
+			state_machine.transition_to("AirAttackDown")
 			return
 		else:
 			# Normal air attack
@@ -361,7 +366,7 @@ func update(delta: float):
 
 # Helper function to check if the current attack is an air attack
 func _is_air_attack(attack_name: String) -> bool:
-	var is_air = AIR_ATTACK_ANIMATIONS.has(attack_name) or UP_ATTACK_ANIMATIONS.has(attack_name)
+	var is_air = AIR_ATTACK_ANIMATIONS.has(attack_name) or UP_ATTACK_ANIMATIONS.has(attack_name) or attack_name.begins_with("air_attack_down")
 	return is_air
 
 # Helper function to check if the current attack is a ground attack
@@ -443,10 +448,8 @@ func _handle_movement(delta: float) -> void:
 	# For air attacks: allow normal movement
 	if player.is_on_floor() and _is_ground_attack(current_attack):
 		# Ground attacks: no input-based movement, only momentum decay
-		# Apply gradual momentum decay (friction-like effect)
+		# Don't turn during the attack – facing is updated when this attack finishes (in animation_finished)
 		player.velocity.x = lerp(player.velocity.x, 0.0, delta * 3.0)  # Decay momentum over time
-		
-		# Update facing direction based on current velocity direction (not input)
 		if abs(player.velocity.x) > 10.0 and player.hit_recoil_lock_timer <= 0.0:
 			player.sprite.flip_h = player.velocity.x < 0
 			player.facing_direction = sign(player.velocity.x)
@@ -526,7 +529,12 @@ func _update_hitbox_position(hitbox: Node2D) -> void:
 func _on_animation_player_animation_finished(anim_name: String):
 
 	if anim_name == current_attack:
-		
+		# Current attack finished – now allow turn from input (so next hit or idle faces the right way)
+		var input_dir_x = InputManager.get_flattened_axis(&"left", &"right")
+		if input_dir_x != 0 and player.hit_recoil_lock_timer <= 0.0:
+			player.sprite.flip_h = input_dir_x < 0
+			player.facing_direction = sign(input_dir_x)
+
 		# Disable hitbox if still active
 		if hitbox_enabled:
 			var hitbox = player.get_node_or_null("Hitbox")
@@ -657,19 +665,15 @@ func _is_player_forced_to_crouch() -> bool:
 		
 		var result = space_state.intersect_ray(query)
 		if result:
-			# Check if the hit object is a dead enemy - if so, ignore it
+			# Ignore enemies (alive or dead) – they must not force crouch when on top of player
 			var collider = result.get("collider")
 			if collider:
-				# Check if collider is part of a dead enemy
 				var parent = collider.get_parent() if collider else null
 				if parent and "health" in parent:
-					if parent.health <= 0:
-						continue  # Ignore dead enemies
-				# Also check if collider itself is a dead enemy (CharacterBody2D)
-				elif "health" in collider:
-					if collider.health <= 0:
-						continue  # Ignore dead enemies
-			# If any check hits something (that's not a dead enemy), player is forced to crouch
+					continue  # Ignore any enemy (ceiling check is for world/platform only)
+				if "health" in collider:
+					continue  # Ignore any enemy
+			# If any check hits something that's not an enemy, player is forced to crouch
 			return true
 	
 	return false

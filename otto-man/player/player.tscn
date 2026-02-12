@@ -1,4 +1,4 @@
-[gd_scene load_steps=126 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=131 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -17,6 +17,7 @@
 [ext_resource type="Script" path="res://player/states/air/fall_attack_state.gd" id="11_fall_attack"]
 [ext_resource type="Script" path="res://player/states/combat/heavy_attack_state.gd" id="12_heavy_attack"]
 [ext_resource type="Script" path="res://player/states/combat/air_attack_up_state.gd" id="13_air_attack_up"]
+[ext_resource type="Script" path="res://player/states/combat/air_attack_down_state.gd" id="14_air_attack_down"]
 [ext_resource type="Script" path="res://player/states/ground/crouch_state.gd" id="14_rdna1"]
 [ext_resource type="Script" path="res://player/states/ground/slide_state.gd" id="15_664su"]
 [ext_resource type="Texture2D" uid="uid://bkbdv0v7yc2sn" path="res://resources/player_normalmap resources/run_normal.tres" id="16_2gbt3"]
@@ -48,8 +49,10 @@
 [ext_resource type="Texture2D" uid="uid://x2ku6vsx5as6" path="res://assets/player/sprite/otto_air_attack_up1_border.png" id="40_up_attack1"]
 [ext_resource type="Texture2D" uid="uid://bk6n01ve7g1wd" path="res://resources/player_normalmap resources/walljump_n.tres" id="41_ge282"]
 [ext_resource type="Texture2D" uid="uid://sdtsrafcutc4" path="res://assets/player/sprite/otto_air_attack_up2_border.png" id="41_up_attack2"]
+[ext_resource type="Texture2D" uid="uid://by30666d058e" path="res://assets/player/sprite/otto_air_attack_down1_border.png" id="42_down_attack1"]
 [ext_resource type="Texture2D" uid="uid://vl3e1wjqxw8l" path="res://resources/player_normalmap resources/wallslide_n.tres" id="42_txonu"]
 [ext_resource type="Texture2D" uid="uid://c4wc0vdsueec1" path="res://resources/player_normalmap resources/wall_slide_down.tres" id="43_bkg3i"]
+[ext_resource type="Texture2D" uid="uid://dswb3lm3p0h1i" path="res://assets/player/sprite/otto_air_attack_down2_border.png" id="43_down_attack2"]
 [ext_resource type="Texture2D" uid="uid://de4ssv6rg8c3w" path="res://resources/player_normalmap resources/attack1_n.tres" id="43_fifwf"]
 [ext_resource type="Texture2D" uid="uid://8q405fcb44ls" path="res://resources/player_normalmap resources/air_attack_n.tres" id="43_r0cly"]
 [ext_resource type="Texture2D" path="res://resources/player_normalmap resources/attack_1_2_n.tres" id="44_attk12n"]
@@ -377,6 +380,116 @@ tracks/2/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [ExtResource("41_up_attack2")]
+}
+
+[sub_resource type="Animation" id="Animation_air_attack_down1"]
+resource_name = "air_attack_down1"
+length = 0.4
+step = 0.067
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.067, 0.134, 0.201, 0.268, 0.335),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4, 4]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:hframes")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [5]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D:texture")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("42_down_attack1")]
+}
+tracks/3/type = "method"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": ["air_attack_down1"],
+"method": &"spawn_attack_effect_by_name"
+}]
+}
+
+[sub_resource type="Animation" id="Animation_air_attack_down2"]
+resource_name = "air_attack_down2"
+length = 0.4
+step = 0.067
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.067, 0.134, 0.201, 0.268, 0.335),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4, 4]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:hframes")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [5]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D:texture")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [ExtResource("43_down_attack2")]
+}
+tracks/3/type = "method"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath(".")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"values": [{
+"args": ["air_attack_down2"],
+"method": &"spawn_attack_effect_by_name"
+}]
 }
 
 [sub_resource type="Animation" id="Animation_air_heavy"]
@@ -2434,6 +2547,8 @@ _data = {
 "air_attack1": SubResource("Animation_inuxn"),
 "air_attack2": SubResource("Animation_bxqf1"),
 "air_attack3": SubResource("Animation_1a62c"),
+"air_attack_down1": SubResource("Animation_air_attack_down1"),
+"air_attack_down2": SubResource("Animation_air_attack_down2"),
 "air_attack_up1": SubResource("Animation_air_attack_up1"),
 "air_attack_up2": SubResource("Animation_air_attack_up2"),
 "air_heavy": SubResource("Animation_air_heavy"),
@@ -2539,6 +2654,9 @@ script = ExtResource("12_heavy_attack")
 
 [node name="AirAttackUp" type="Node" parent="StateMachine"]
 script = ExtResource("13_air_attack_up")
+
+[node name="AirAttackDown" type="Node" parent="StateMachine"]
+script = ExtResource("14_air_attack_down")
 
 [node name="Block" type="Node" parent="StateMachine"]
 script = ExtResource("8_block_state")

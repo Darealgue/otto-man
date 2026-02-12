@@ -358,6 +358,10 @@ func can_ledge_grab() -> bool:
 	# Check cooldown first
 	if player.ledge_grab_cooldown_timer > 0:
 		return false
+	
+	# Ledge grab sadece korunma tuşuna basıldığında çalışır
+	if not Input.is_action_pressed("block"):
+		return false
 		
 	var ledge = _get_ledge_position()
 	var can_grab = ledge.direction != 0 and ledge.position != Vector2.ZERO

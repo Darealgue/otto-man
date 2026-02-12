@@ -359,7 +359,15 @@ func _is_player_forced_to_crouch() -> bool:
 		
 		var result = space_state.intersect_ray(query)
 		if result:
-			# If any check hits something, player is forced to crouch
+			# Ignore enemies (alive or dead) – they must not force crouch when on top of player
+			var collider = result.get("collider")
+			if collider:
+				var parent = collider.get_parent() if collider else null
+				if parent and "health" in parent:
+					continue  # Ignore any enemy (ceiling check is for world/platform only)
+				if "health" in collider:
+					continue  # Ignore any enemy
+			# If any check hits something that's not an enemy, player is forced to crouch
 			return true
 	
 	return false

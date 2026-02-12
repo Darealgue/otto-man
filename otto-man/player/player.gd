@@ -1256,6 +1256,9 @@ func spawn_attack_effect_by_name(attack_name: String):
 		"attack_down1", "attack_down2":
 			effect_scene_path = "res://assets/effects/player fx/light_attack_down_effect.tscn"
 			effect_offset = Vector2(50 * current_visual_direction, 10)
+		"air_attack_down1", "air_attack_down2":
+			effect_scene_path = "res://assets/effects/player fx/light_attack_down_effect.tscn"
+			effect_offset = Vector2(50 * current_visual_direction, 20)  # Aşağı saldırı için biraz daha aşağı
 		_:
 			push_error("Bilinmeyen saldırı adı için efekt oluşturulamaz: " + attack_name)
 			return

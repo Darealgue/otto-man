@@ -1,22 +1,23 @@
 extends State
 
-const ATTACK_SPEED_MULTIPLIER = 0.7  # Biraz yavaş hareket yukarı saldırıda
+const ATTACK_SPEED_MULTIPLIER = 0.7  # Biraz yavaş hareket aşağı saldırıda
 const MOMENTUM_PRESERVATION = 0.9     # Momentum'u daha iyi koru
 const ANIMATION_SPEED = 1.3          # 30% faster animations (same as other attacks)
-const UP_ATTACK_ANIMATIONS = ["air_attack_up1", "air_attack_up2"]  # Up attack varyasyonları
+const DOWN_ATTACK_ANIMATIONS = ["air_attack_down1", "air_attack_down2"]  # Down attack varyasyonları
 
 var current_attack := ""
 var hitbox_enabled := false
 var initial_velocity := Vector2.ZERO
 var has_activated_hitbox := false
-var up_attack_step := 0
-var up_attack_timer := 0.0
-var up_attack_reset_time := 0.8
+var rng := RandomNumberGenerator.new()  # RNG for random attack selection
 
 func enter():
 	hitbox_enabled = false
 	has_activated_hitbox = false
 	initial_velocity = player.velocity
+	
+	# Randomize RNG for random attack selection
+	rng.randomize()
 	
 	# Enter combat state when attacking
 	player.enter_combat_state()
@@ -28,13 +29,11 @@ func enter():
 	# Connect animation finished signal
 	animation_player.animation_finished.connect(_on_animation_finished)
 	
-	# Up input kontrolü
-	var up_strength = Input.get_action_strength("up")
-	if up_strength > 0.6:
-		# Up attack varyasyonu seç
-		if up_attack_timer <= 0.0:
-			up_attack_step = 0
-		current_attack = UP_ATTACK_ANIMATIONS[min(up_attack_step, UP_ATTACK_ANIMATIONS.size() - 1)]
+	# Down input kontrolü
+	var down_strength = Input.get_action_strength("down")
+	if down_strength > 0.6:
+		# Down attack varyasyonu rastgele seç
+		current_attack = DOWN_ATTACK_ANIMATIONS[rng.randi() % DOWN_ATTACK_ANIMATIONS.size()]
 		
 		# Animasyonu başlat
 		animation_player.stop()
@@ -42,16 +41,16 @@ func enter():
 			animation_player.play(current_attack)
 			animation_player.speed_scale = ANIMATION_SPEED
 		else:
-			print("[AirAttackUp] ERROR: Animation not found: ", current_attack)
+			print("[AirAttackDown] ERROR: Animation not found: ", current_attack)
 			state_machine.transition_to("Fall")
 			return
 	else:
-		# Up input yoksa normal air attack'a geç
+		# Down input yoksa normal air attack'a geç
 		state_machine.transition_to("Attack")
 		return
 
 func update(delta: float):
-	# Yere değme kontrolü - up attack sırasında yere değerse iptal et
+	# Yere değme kontrolü - down attack sırasında yere değerse iptal et
 	if player.is_on_floor():
 		# Hitbox'ı temizle
 		if hitbox_enabled:
@@ -66,10 +65,10 @@ func update(delta: float):
 		state_machine.transition_to("Idle")
 		return
 	
-	# Up input kontrolü - sürekli up basılı tutulmalı
-	var up_strength = Input.get_action_strength("up")
-	if up_strength <= 0.6:
-		# Up input bırakıldıysa normal fall state'e geç
+	# Down input kontrolü - sürekli down basılı tutulmalı
+	var down_strength = Input.get_action_strength("down")
+	if down_strength <= 0.6:
+		# Down input bırakıldıysa normal fall state'e geç
 		state_machine.transition_to("Fall")
 		return
 	
@@ -82,9 +81,6 @@ func update(delta: float):
 	# Hitbox aktifse pozisyonunu güncelle (yön değişiklikleri için)
 	if hitbox_enabled:
 		_update_hitbox_position()
-	
-	# Up attack combo timer
-	up_attack_timer = max(0.0, up_attack_timer - delta)
 
 func _update_hitbox():
 	if not animation_player.has_animation(current_attack):
@@ -96,7 +92,7 @@ func _update_hitbox():
 	
 	var progress = animation_player.current_animation_position / anim_length
 	
-	# 3. frame hit frame (yaklaşık %40-50 arası)
+	# Hit frame (yaklaşık %40-50 arası)
 	var hit_start = 0.4
 	var hit_end = 0.6
 	
@@ -105,23 +101,25 @@ func _update_hitbox():
 		hitbox_enabled = true
 		has_activated_hitbox = true
 		
-		# Hitbox'ı player'ın üstünde konumlandır ve bakış yönüne göre ayarla
+		# Hitbox'ı player'ın altında konumlandır ve bakış yönüne göre ayarla
 		var hitbox = player.get_node_or_null("Hitbox")
 		if hitbox and hitbox is PlayerHitbox:
 			# CollisionShape2D pozisyonunu ayarla
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				# Up attack için özel pozisyon (yukarı ve merkez)
-				var base_position = Vector2(-10, -60)  # Base pozisyon (sağa bakarken)
+				# Down attack için özel pozisyon (aşağı ve öne)
+				var base_position = Vector2(25, 5)  # 25 piksel öne, 25 piksel yukarı (30-25=5)
 				var position = base_position
 				
 				# Oyuncunun bakış yönüne göre X pozisyonunu ayarla
 				position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
 				collision_shape.position = position
-				
-				# Debug: Hitbox positioned
-				# print("[AirAttackUp] Hitbox positioned - facing: ", "left" if player.sprite.flip_h else "right", " x: ", position.x, " y: ", position.y, " collision_shape.position: ", collision_shape.position)
 			
+			# Enable combo with current attack
+			hitbox.enable_combo(current_attack, 1.0)
+			# Connect hit_enemy signal if not already connected
+			if not hitbox.hit_enemy.is_connected(_on_enemy_hit):
+				hitbox.hit_enemy.connect(_on_enemy_hit)
 			hitbox.enable()
 	elif progress > hit_end and hitbox_enabled:
 		# Hitbox'ı deaktif et
@@ -150,15 +148,10 @@ func exit():
 				collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
 			
 			hitbox.disable()
-	
-	# Up attack combo step'i ilerlet
-	if up_attack_timer > 0.0:
-		up_attack_step = (up_attack_step + 1) % UP_ATTACK_ANIMATIONS.size()
-		up_attack_timer = up_attack_reset_time
 
 func _on_animation_finished(anim_name: String):
 	if anim_name == current_attack:
-		# Up attack bitti, fall state'e geç
+		# Down attack bitti, fall state'e geç
 		state_machine.transition_to("Fall")
 
 func _handle_movement(delta: float) -> void:
@@ -187,16 +180,13 @@ func _update_hitbox_position():
 	if hitbox and hitbox is PlayerHitbox and hitbox_enabled:
 		var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			# Up attack için özel pozisyon (yukarı ve merkez)
-			var base_position = Vector2(-10, -60)  # Base pozisyon (sağa bakarken)
+			# Down attack için özel pozisyon (aşağı ve öne)
+			var base_position = Vector2(25, 5)  # 25 piksel öne, 25 piksel yukarı (30-25=5)
 			var position = base_position
 			
 			# Oyuncunun bakış yönüne göre X pozisyonunu ayarla
 			position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
 			collision_shape.position = position
-			
-			# Debug: Hitbox position updated
-			# print("[AirAttackUp] Hitbox position updated: x=", position.x, ", y=", position.y, " facing: ", "left" if player.sprite.flip_h else "right", " collision_shape.position: ", collision_shape.position)
 
 func _on_enemy_hit(enemy: Node):
 	if not has_activated_hitbox:
