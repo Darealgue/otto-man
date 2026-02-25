@@ -475,7 +475,9 @@ func die() -> void:
 	if health_bar:
 		health_bar.hide_bar()
 	enemy_defeated.emit()
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
 	if sprite:
 		sprite.play("death")
 		sprite.z_index = 6

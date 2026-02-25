@@ -16,6 +16,10 @@ func _on_area_entered(hitbox: Area2D):
 	if is_on_cooldown(hitbox):
 		return
 	
+	# Only one enemy can be hit per attack (first overlap wins); area-attack items can extend later
+	if hitbox.has_method("try_register_hit") and not hitbox.try_register_hit(self):
+		return
+	
 	# Ignore self damage: compare owner_id meta
 	var my_owner = get_parent().get_instance_id() if is_instance_valid(get_parent()) else -1
 	var hb_owner = hitbox.get_meta("owner_id") if hitbox.has_meta("owner_id") else null
@@ -36,5 +40,5 @@ func _on_area_entered(hitbox: Area2D):
 	print("[EnemyHurtbox:", enemy_name, "] hit by=", hitbox.name, " dmg=", dmg, " layer=", hitbox.collision_layer, " mask=", hitbox.collision_mask)
 	
 	# Emit hurt signal
-	print("[EnemyHurtbox] Emitting hurt signal for: ", enemy_name)
+	# print("[EnemyHurtbox] Emitting hurt signal for: ", enemy_name)
 	hurt.emit(hitbox) 

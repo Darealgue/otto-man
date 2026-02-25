@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://parry_ustasi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/parry_ustasi.gd" id="1_parry_ustasi"]
+
+[node name="ParryUstasi" type="Node"]
+script = ExtResource("1_parry_ustasi")

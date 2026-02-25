@@ -23,8 +23,15 @@ func physics_update(delta: float):
 			state_machine.transition_to("Block")
 			return
 		
-	# Check for dodge input (only dodge available, dash locked until powerup)
+	# Check for dodge/dash input (dash if item allows, otherwise dodge)
 	if Input.is_action_just_pressed("dash"):
+		# Check if dash item is active (Rüzgar Hançeri)
+		var dash_state = state_machine.get_node_or_null("Dash")
+		if dash_state and dash_state.has_method("can_start_dash") and dash_state.can_start_dash():
+			state_machine.transition_to("Dash")
+			return
+		
+		# Otherwise use dodge
 		var dodge_state = state_machine.get_node("Dodge")
 		if dodge_state and dodge_state.can_start_dodge():
 			state_machine.transition_to("Dodge")
@@ -40,7 +47,7 @@ func physics_update(delta: float):
 		return
 		
 	if Input.is_action_just_pressed("jump") and not player.jump_input_blocked and player.jump_block_timer <= 0:
-		print("[RunState] Jump input processed - transitioning to Jump")
+		# print("[RunState] Jump input processed - transitioning to Jump")
 		state_machine.transition_to("Jump")
 		return
 	elif Input.is_action_just_pressed("jump") and (player.jump_input_blocked or player.jump_block_timer > 0):
@@ -53,8 +60,8 @@ func physics_update(delta: float):
 		
 	# Check if we're running into a wall
 	var was_on_wall = player.is_on_wall()
-	player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed, player.acceleration * delta)
-	player.move_and_slide()
+	player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed * player.speed_multiplier * player.extra_speed_multiplier, player.acceleration * delta)
+	player.apply_move_and_slide()
 	
 	# If we hit a wall, stop the run animation and play idle
 	if not was_on_wall and player.is_on_wall():

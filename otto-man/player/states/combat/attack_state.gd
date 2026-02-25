@@ -2,14 +2,20 @@ extends State
 
 const ATTACK_SPEED_MULTIPLIER = 0.5  # 50% movement speed during attacks
 const MOMENTUM_PRESERVATION = 0.8     # Preserve 80% of previous momentum
-const ANIMATION_SPEED = 1.3          # 30% faster animations (slowed down for better visibility)
+const DEFAULT_ANIMATION_SPEED = 1.3  # Default animation speed (30% faster animations)
 const ATTACK_FORWARD_MOMENTUM = 80.0  # Forward momentum applied at start of ground attacks
+
+# Dynamic value that can be modified by items
+var ANIMATION_SPEED := DEFAULT_ANIMATION_SPEED
 const GROUND_ATTACK_ANIMATIONS = ["attack_1.1", "up_light", "down_light"]  # Ground variants
 const AIR_ATTACK_ANIMATIONS = ["air_attack1", "air_attack2", "air_attack3"]  # Attacks only available in air
 const UP_ATTACK_ANIMATIONS = ["air_attack_up1", "air_attack_up2"]  # Up attacks in air
 const LIGHT_COMBO_RESET_TIME := 0.4  # Faster combo timing (Silksong style)
 const AIR_COMBO_RESET_TIME := 0.5    # Faster air combo timing
-const DAMAGE_MULTIPLIER = 1  # Fixed damage multiplier for all attacks
+const DEFAULT_DAMAGE_MULTIPLIER = 1  # Default damage multiplier for all attacks
+
+# Dynamic value that can be modified by items
+var DAMAGE_MULTIPLIER := DEFAULT_DAMAGE_MULTIPLIER
 
 var current_attack := ""
 var hitbox_enabled := false
@@ -89,12 +95,14 @@ func enter():
 	# Store initial velocity for momentum preservation
 	initial_velocity = player.velocity
 	
-	# Reset hitbox CollisionShape2D position (in case coming from up attack)
+	# Reset hitbox position ve rotasyon (air up/down veya up/down attack sonrası)
 	var reset_hitbox = player.get_node_or_null("Hitbox")
 	if reset_hitbox and reset_hitbox is PlayerHitbox:
+		reset_hitbox.position = Vector2.ZERO
+		reset_hitbox.rotation = 0.0
 		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
+			collision_shape.position = Vector2(52.625, -22.5)
 	
 	# Debug print disabled to reduce console spam
 	# print("[AttackState] ENTER | on_floor=", player.is_on_floor())
@@ -175,7 +183,10 @@ func enter():
 	# Ensure animation player is reset before playing new animation
 	animation_player.stop()
 	# Per-move speed tuning - all attacks use the same slower speed
-	animation_player.speed_scale = ANIMATION_SPEED
+	var anim_speed = ANIMATION_SPEED * player.attack_speed_multiplier
+	if current_attack.find("heavy") == -1 and has_node("/root/ItemManager") and ItemManager.has_active_item("uzun_menzil"):
+		anim_speed *= 0.72  # Uzun menzil: light saldırı hızı belirgin düşüş (denge)
+	animation_player.speed_scale = anim_speed
 	
 	# Check if animation exists before playing
 	if animation_player.has_animation(current_attack):
@@ -216,11 +227,15 @@ func enter():
 		
 		# Prepare the attack type based on whether it's an air attack or ground attack
 		var attack_type = "light"
-		hitbox.enable_combo(current_attack, DAMAGE_MULTIPLIER) 
+		var dmg_mult_enter: float = DAMAGE_MULTIPLIER * player.light_attack_damage_multiplier * player.olumcul_sukut_next_light_bonus * player.topuk_kirici_next_hit_bonus
+		player.olumcul_sukut_next_light_bonus = 1.0
+		player.topuk_kirici_next_hit_bonus = 1.0
+		hitbox.enable_combo(current_attack, dmg_mult_enter)
 		_update_hitbox_position(hitbox)
 		if hitbox.hit_enemy.is_connected(_on_enemy_hit):
 			hitbox.hit_enemy.disconnect(_on_enemy_hit)
 		hitbox.hit_enemy.connect(_on_enemy_hit)
+		# Projectile sinyali vuruş anında _update_hitbox() içinde emit edilir (combo dahil); uzun_menzil aktifken melee kapalı
 		# Debug print disabled to reduce console spam
 		# print("[AttackState] HITBOX PREP | name=", current_attack)
 
@@ -406,12 +421,14 @@ func _update_hitbox():
 	elif current_attack == "attack_1.2":
 		start = 0.32
 		finish = 0.48
-	# Enable hitbox during tuned window
+	# Enable hitbox during tuned window (veya uzun_menzil aktifse sadece projectile sinyali)
 	if anim_progress >= start and anim_progress <= finish and not hitbox_enabled:
 		hitbox.disable()  # Ensure it's disabled first
 		
-		# Counter window bonus after parry
-		var dmg_mult := DAMAGE_MULTIPLIER
+		# Counter window bonus after parry + Ölümcül Sükût / Topuk Kırıcı
+		var dmg_mult: float = DAMAGE_MULTIPLIER * player.light_attack_damage_multiplier * player.olumcul_sukut_next_light_bonus * player.topuk_kirici_next_hit_bonus
+		player.olumcul_sukut_next_light_bonus = 1.0
+		player.topuk_kirici_next_hit_bonus = 1.0
 		var kb_mult := 1.0
 		var kb_up_mult := 1.0
 		if player.has_method("is_counter_window_active") and player.is_counter_window_active():
@@ -421,24 +438,47 @@ func _update_hitbox():
 			kb_up_mult *= (1.0 + player.counter_knockback_bonus)
 			print("[Counter] Light counter bonus applied")
 			player.consume_counter_window()
-		# Update the hitbox with the current attack type
+		# Update the hitbox with the current attack type (hasar hesaplanır; uzun_menzilde melee açılmaz)
 		hitbox.enable_combo(current_attack, dmg_mult, kb_mult, kb_up_mult)
 		
-		hitbox.enable()
+		var use_ranged_only := current_attack.find("heavy") == -1 and has_node("/root/ItemManager") and ItemManager.has_active_item("uzun_menzil")
+		if use_ranged_only:
+			# Projectile dikdörtgenin oyuncuya bakan kısa kenarından (sağa bakarken sol kenar)
+			_update_hitbox_position(hitbox)
+			var dir := _get_light_attack_direction()
+			var spawn_center: Vector2 = player.global_position + dir * 32.0
+			var cs = hitbox.get_node_or_null("CollisionShape2D")
+			if cs:
+				var shape_center_local: Vector2 = cs.position
+				var player_local: Vector2 = hitbox.to_local(player.global_position)
+				var to_player_local: Vector2 = (player_local - shape_center_local).normalized()
+				const HALF_X := 52.375
+				const HALF_Y := 24.5
+				# Merkezden oyuncuya doğru olan yüz = kısa sol/sağ kenar veya üst/alt (hangisi oyuncu tarafındaysa)
+				var face_offset: Vector2
+				if abs(to_player_local.x) >= abs(to_player_local.y):
+					face_offset = Vector2(HALF_X * sign(to_player_local.x), 0.0)
+				else:
+					face_offset = Vector2(0.0, HALF_Y * sign(to_player_local.y))
+				spawn_center = hitbox.to_global(shape_center_local + face_offset)
+			if player.has_signal("player_light_attack_performed"):
+				player.emit_signal("player_light_attack_performed", dir, spawn_center, hitbox.damage)
+		else:
+			hitbox.enable()
+		# Karagöz/Hacivat: saldırı yapıldı (vursa da vurmasa da)
+		if player.has_signal("player_attack_performed"):
+			player.emit_signal("player_attack_performed", current_attack, hitbox.damage)
+		
 		hitbox_enabled = true
 		hitbox_start_time = Time.get_ticks_msec() / 1000.0
-		# Debug print disabled to reduce console spam
-		# print("[AttackState] HITBOX ON | ", current_attack, " at progress=", String.num(anim_progress, 2))
 		
 		# Set a timer to disable the hitbox after a short duration (Silksong style - faster)
 		await get_tree().create_timer(0.08).timeout
 		if hitbox and is_instance_valid(hitbox) and hitbox_enabled:
-			hitbox.disable()
+			if not use_ranged_only:
+				hitbox.disable()
 			hitbox_enabled = false
 			hitbox_end_time = Time.get_ticks_msec() / 1000.0
-			var duration = hitbox_end_time - hitbox_start_time
-			# Debug print disabled to reduce console spam
-			# print("[AttackState] HITBOX OFF | duration=", String.num(duration, 2))
 	
 	# Update hitbox position
 	_update_hitbox_position(hitbox)
@@ -474,15 +514,23 @@ func _handle_movement(delta: float) -> void:
 		# During hit recoil, don't update facing direction
 	
 	# Apply movement
-	player.move_and_slide()
+	player.apply_move_and_slide()
 
 func _check_cancel_conditions() -> bool:
-	# Cancel into dodge (dash locked until powerup)
-	if Input.is_action_just_pressed("dash") and state_machine.has_node("Dodge"):
-		var dodge_state = state_machine.get_node("Dodge")
-		if dodge_state and dodge_state.can_start_dodge():
-			_cancel_into_state("Dodge")
+	# Cancel into dodge/dash (dash if item allows, otherwise dodge)
+	if Input.is_action_just_pressed("dash"):
+		# Check if dash item is active (Rüzgar Hançeri)
+		var dash_state = state_machine.get_node_or_null("Dash")
+		if dash_state and dash_state.has_method("can_start_dash") and dash_state.can_start_dash():
+			_cancel_into_state("Dash")
 			return true
+		
+		# Otherwise use dodge
+		if state_machine.has_node("Dodge"):
+			var dodge_state = state_machine.get_node("Dodge")
+			if dodge_state and dodge_state.can_start_dodge():
+				_cancel_into_state("Dodge")
+				return true
 	
 	# Cancel into jump
 	if Input.is_action_just_pressed("jump") and state_machine.has_node("Jump") and (
@@ -491,8 +539,8 @@ func _check_cancel_conditions() -> bool:
 		_cancel_into_state("Jump")
 		return true
 	
-	# Cancel into block
-	if Input.is_action_just_pressed("block") and state_machine.has_node("Block"):
+	# Cancel into block - ONLY if on ground (havadayken block sadece ledge grab için kullanılır)
+	if Input.is_action_just_pressed("block") and state_machine.has_node("Block") and player.is_on_floor():
 		_cancel_into_state("Block")
 		return true
 	
@@ -509,22 +557,49 @@ func _cancel_into_state(state_name: String) -> void:
 	state_machine.transition_to(state_name)
 
 func _update_hitbox_position(hitbox: Node2D) -> void:
-	var collision_shape = hitbox.get_node("CollisionShape2D")
+	var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
+	var facing_sign := 1.0
 	if collision_shape:
-		# Normal attack için orijinal pozisyonu kullan (oyuncunun önünde)
-		var original_position = Vector2(52.625, -22.5)  # Player scene'deki orijinal pozisyon
-		var position = original_position
-		# X pozisyonunu oyuncunun bakış yönüne göre ayarla (önüne koy)
-		# Use facing_direction instead of sprite.flip_h to respect recoil lock
-		var facing_left = false
-		if player.hit_recoil_lock_timer > 0.0:
-			# During recoil, use facing_direction to maintain correct facing
-			facing_left = player.facing_direction < 0
+		# Yukarı saldırı: yerde 20 px aşağı, havada normal; hepsi önde (88)
+		var is_ground_up = current_attack == "up_light" or current_attack.begins_with("attack_up")
+		var is_air_up = current_attack.begins_with("air_attack_up")
+		var original_position: Vector2
+		if is_ground_up:
+			original_position = Vector2(88.0, 2.5)   # yerdeki yukarı: 20 px aşağı
+		elif is_air_up:
+			original_position = Vector2(88.0, -22.5)
 		else:
-			# Normal behavior: use sprite flip
-			facing_left = player.sprite.flip_h
-		position.x = abs(position.x) * (-1 if facing_left else 1)
-		collision_shape.position = position
+			original_position = Vector2(52.625, -22.5)
+		var pos = original_position
+		var facing_left = player.facing_direction < 0 if player.hit_recoil_lock_timer > 0.0 else player.sprite.flip_h
+		facing_sign = -1.0 if facing_left else 1.0
+		pos.x = abs(pos.x) * (-1 if facing_left else 1)
+		collision_shape.position = pos
+	# Yukarı/aşağı: açı sağa bakarken doğru; sola bakarken işaret ters (hitbox solda olduğu için)
+	if hitbox is Node2D:
+		hitbox.rotation = deg_to_rad(_get_hitbox_rotation_degrees() * facing_sign)
+	return
+
+func _get_hitbox_rotation_degrees() -> float:
+	# Sağa bakarken: yukarı -45°, aşağı +45°
+	if current_attack == "up_light" or current_attack.begins_with("attack_up") or current_attack.begins_with("air_attack_up"):
+		return -45.0
+	if current_attack == "down_light" or current_attack.begins_with("attack_down") or current_attack.begins_with("air_attack_down"):
+		return 45.0
+	return 0.0
+
+# Projectile ve item'lar için: yatay / 45° yukarı / 45° aşağı yön vektörü
+func _get_light_attack_direction() -> Vector2:
+	var facing := 1.0
+	if player.hit_recoil_lock_timer > 0.0:
+		facing = player.facing_direction
+	else:
+		facing = -1.0 if player.sprite.flip_h else 1.0
+	if current_attack == "up_light" or current_attack.begins_with("attack_up") or current_attack.begins_with("air_attack_up"):
+		return Vector2(facing, -1.0).normalized()
+	if current_attack == "down_light" or current_attack.begins_with("attack_down") or current_attack.begins_with("air_attack_down"):
+		return Vector2(facing, 1.0).normalized()
+	return Vector2(facing, 0.0)
 
 func _on_animation_player_animation_finished(anim_name: String):
 
@@ -564,7 +639,10 @@ func _on_animation_player_animation_finished(anim_name: String):
 			if hitbox and hitbox is PlayerHitbox:
 				hitbox.disable()
 				hitbox.disable_combo()
-				hitbox.enable_combo(current_attack, DAMAGE_MULTIPLIER)
+				var dmg_combo: float = DAMAGE_MULTIPLIER * player.light_attack_damage_multiplier * player.olumcul_sukut_next_light_bonus * player.topuk_kirici_next_hit_bonus
+				player.olumcul_sukut_next_light_bonus = 1.0
+				player.topuk_kirici_next_hit_bonus = 1.0
+				hitbox.enable_combo(current_attack, dmg_combo)
 			
 			# Apply forward momentum for ground combo attacks
 			if player.is_on_floor() and _is_ground_attack(current_attack):
@@ -575,7 +653,7 @@ func _on_animation_player_animation_finished(anim_name: String):
 			
 			# Play the new animation
 			animation_player.stop()
-			animation_player.speed_scale = ANIMATION_SPEED
+			animation_player.speed_scale = ANIMATION_SPEED * player.attack_speed_multiplier
 			if animation_player.has_animation(current_attack):
 				animation_player.play(current_attack)
 				animation_player.seek(0.0, true)
@@ -610,6 +688,22 @@ func _on_animation_player_animation_finished(anim_name: String):
 			state_machine.transition_to("Fall")
 
 func _on_enemy_hit(enemy: Node):
+	# Emit signal for items
+	if player.has_signal("player_attack_landed"):
+		var hitbox = player.get_node_or_null("Hitbox")
+		var attack_type = "normal"  # Default
+		if current_attack.begins_with("attack_1") or current_attack.begins_with("attack_up") or current_attack.begins_with("attack_down"):
+			attack_type = "normal"
+		elif current_attack.begins_with("heavy"):
+			attack_type = "heavy"
+		elif current_attack.begins_with("fall"):
+			attack_type = "fall"
+		
+		var damage = hitbox.get_damage() if hitbox else 0.0
+		var targets = [enemy] if enemy else []
+		player.emit_signal("player_attack_landed", attack_type, damage, targets, player.position, "all")
+	
+	# Original function continues...
 	if not has_activated_hitbox:
 		has_activated_hitbox = true
 		# Enable brief jump-cancel on up_light

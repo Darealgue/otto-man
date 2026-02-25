@@ -1,7 +1,11 @@
 extends State
 
-const PARRY_WINDOW := 0.2  # Wider parry window (seconds)
-const BLOCK_DAMAGE_REDUCTION := 0.5  # 50% damage reduction when blocking
+const DEFAULT_PARRY_WINDOW := 0.2  # Default parry window (seconds)
+const DEFAULT_BLOCK_DAMAGE_REDUCTION := 0.5  # 50% damage reduction when blocking
+
+# Dynamic values that can be modified by items
+var PARRY_WINDOW := DEFAULT_PARRY_WINDOW
+var BLOCK_DAMAGE_REDUCTION := DEFAULT_BLOCK_DAMAGE_REDUCTION
 const STAMINA_RECHARGE_TIME := 5.0  # Time to recharge one stamina segment
 const PARRY_DAMAGE_MULTIPLIER := 1.5  # 50% more damage reflected on successful parry
 
@@ -121,7 +125,7 @@ func physics_update(delta: float):
 		parry_timer -= delta
 		if parry_timer <= 0:
 			can_parry = false
-			print("[Block] Parry window closed")
+			# print("[Block] Parry window closed")
 			if not is_blocking and not is_in_impact_animation and not is_parrying:
 				is_blocking = true
 				animation_player.play("block")
@@ -130,14 +134,14 @@ func physics_update(delta: float):
 	# Allow tap-parry: during active parry window, ignore block release
 	var can_end_block := parry_timer <= 0.0 and not is_parrying
 	if can_end_block and (not Input.is_action_pressed("block") or (stamina_bar and not stamina_bar.has_charges() and not is_in_impact_animation)):
-		print("[Block] Exiting block (release or no stamina), parry window over")
+		# print("[Block] Exiting block (release or no stamina), parry window over")
 		_start_finish_animation()
 		return
 	
 	# Ensure player stays in place while blocking
 	player.velocity.x = 0
 	player.velocity.y = 0
-	player.move_and_slide()
+	player.apply_move_and_slide()
 
 func _start_finish_animation():
 	if is_transitioning:  # Don't start finish animation if already transitioning
@@ -203,21 +207,42 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	else:
 		# Consume stamina for normal blocks if not already consumed for this hit
 		if not stamina_consumed_this_hit and stamina_bar:
-			if stamina_bar.use_charge():
+			# Check for stamina save chance from items
+			var stamina_save_chance = 0.0
+			if has_meta("stamina_save_chance"):
+				stamina_save_chance = get_meta("stamina_save_chance")
+			
+			var should_save_stamina = randf() < stamina_save_chance
+			
+			if should_save_stamina:
+				# Save stamina but still block the damage
 				stamina_consumed_this_hit = true
+				print("[Block] Stamina saved by item!")
 			else:
-				# If no stamina, take full damage
-				player.hurtbox.last_damage = hitbox.get_damage()
-				_start_finish_animation()
-				return
+				# Normal stamina consumption
+				if stamina_bar.use_charge():
+					stamina_consumed_this_hit = true
+				else:
+					# If no stamina, take full damage
+					player.hurtbox.last_damage = hitbox.get_damage()
+					_start_finish_animation()
+					return
 		
 		# Apply reduced damage if we had stamina
+		var blocked_damage = 0.0
 		if stamina_consumed_this_hit:
 			var reduced_damage = hitbox.get_damage() * (1.0 - BLOCK_DAMAGE_REDUCTION)
+			blocked_damage = hitbox.get_damage() - reduced_damage  # How much was blocked
 			player.hurtbox.last_damage = reduced_damage
 		else:
 			var full_damage = hitbox.get_damage()
 			player.hurtbox.last_damage = full_damage  # Full damage if no stamina
+		
+		# Emit signal for items (only if we actually blocked damage)
+		if stamina_consumed_this_hit and blocked_damage > 0:
+			var attacker = hitbox.get_parent() if hitbox else null
+			if player.has_signal("player_blocked"):
+				player.emit_signal("player_blocked", blocked_damage, attacker)
 		
 		is_in_impact_animation = true
 		animation_player.play("block_impact")

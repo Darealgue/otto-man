@@ -1,7 +1,12 @@
 extends Control
 
-const RECHARGE_RATE = 5.0  # Time in seconds to recharge one segment
+signal stamina_depleted  # Emitted when the last charge is used
+
+const DEFAULT_RECHARGE_RATE = 5.0  # Default time in seconds to recharge one segment
 const MAX_SEGMENTS = 6  # Maximum number of segments we can show
+
+# Dynamic recharge rate that can be modified by items
+var RECHARGE_RATE := DEFAULT_RECHARGE_RATE
 
 var charges = [1.0, 1.0, 1.0]  # Current value of each charge (0.0 to 1.0)
 var recharging_index = -1  # Which segment is currently recharging (-1 if none)
@@ -74,6 +79,9 @@ func use_charge():
 						break
 			show_bar()
 			update_segments()
+			# Emit if that was the last full charge
+			if !has_charges():
+				stamina_depleted.emit()
 			return true
 	return false
 
@@ -157,7 +165,7 @@ func _sync_with_player_stats() -> void:
 	var block_charges = int(player_stats.get_stat("block_charges"))
 	var new_segments = max(1, block_charges)  # Minimum 1 segment
 	
-	print("[StaminaBar] Syncing with PlayerStats - block_charges: " + str(block_charges) + ", new_segments: " + str(new_segments))
+	# print("[StaminaBar] Syncing with PlayerStats - block_charges: " + str(block_charges) + ", new_segments: " + str(new_segments))
 	
 	# Resize charges array if needed
 	if charges.size() != new_segments:
@@ -175,7 +183,7 @@ func _sync_with_player_stats() -> void:
 	_update_segments_ui()
 	update_segments()
 	
-	print("[StaminaBar] Sync complete - charges: " + str(charges))
+	# print("[StaminaBar] Sync complete - charges: " + str(charges))
 
 func _update_segments_ui() -> void:
 	# Hide/show segments based on block_charges
@@ -207,13 +215,61 @@ func _create_segment() -> void:
 	new_segment.show_percentage = false
 	
 	# Apply the same styling as existing segments
-	var style_bg = segments[0].get_theme_stylebox("background").duplicate()
-	var style_fill = segments[0].get_theme_stylebox("fill").duplicate()
-	new_segment.add_theme_stylebox_override("background", style_bg)
-	new_segment.add_theme_stylebox_override("fill", style_fill)
+	if segments.size() > 0:
+		var style_bg = segments[0].get_theme_stylebox("background").duplicate()
+		var style_fill = segments[0].get_theme_stylebox("fill").duplicate()
+		new_segment.add_theme_stylebox_override("background", style_bg)
+		new_segment.add_theme_stylebox_override("fill", style_fill)
 	
 	# Add to container
 	segments_container.add_child(new_segment)
 	segments.append(new_segment)
 	
-	print("[StaminaBar] Created new segment, total: " + str(segments.size())) 
+	# print("[StaminaBar] Created new segment, total: " + str(segments.size()))
+
+func add_max_charge(count: int) -> void:
+	# Increase block_charges stat in PlayerStats
+	if player_stats:
+		var current_charges = int(player_stats.get_stat("block_charges"))
+		player_stats.add_stat_bonus("block_charges", float(count))
+		# print("[StaminaBar] Added ", count, " max charge(s). New total: ", int(player_stats.get_stat("block_charges")))
+		_sync_with_player_stats()
+
+func remove_max_charge(count: int) -> void:
+	# Decrease block_charges stat in PlayerStats
+	if player_stats:
+		var current_charges = int(player_stats.get_stat("block_charges"))
+		player_stats.add_stat_bonus("block_charges", float(-count))
+		print("[StaminaBar] Removed ", count, " max charge(s). New total: ", int(player_stats.get_stat("block_charges")))
+		_sync_with_player_stats()
+
+func restore_partial_charge(amount: float) -> void:
+	# Restore partial stamina (0.0 to 1.0)
+	# Find the lowest charge value and add to it
+	var block_charges = int(player_stats.get_stat("block_charges")) if player_stats else 3
+	var visible_segments = min(block_charges, segments.size())
+	
+	if visible_segments == 0 or charges.size() == 0:
+		return
+	
+	# Find the lowest charge value
+	var lowest_index = 0
+	var lowest_value = charges[0]
+	for i in range(1, min(visible_segments, charges.size())):
+		if charges[i] < lowest_value:
+			lowest_value = charges[i]
+			lowest_index = i
+	
+	# Add the restore amount (cap at 1.0)
+	charges[lowest_index] = min(charges[lowest_index] + amount, 1.0)
+	
+	# If this charge is now full and was recharging, stop recharging
+	if charges[lowest_index] >= 1.0 and recharging_index == lowest_index:
+		recharging_index = -1
+		# Find next empty segment to recharge
+		for j in range(visible_segments):
+			if j < charges.size() and charges[j] < 1.0:
+				recharging_index = j
+				break
+	
+	update_segments() 

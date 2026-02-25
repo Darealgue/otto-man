@@ -40,7 +40,7 @@ func enter():
 		animation_player.stop()
 		if animation_player.has_animation(current_attack):
 			animation_player.play(current_attack)
-			animation_player.speed_scale = ANIMATION_SPEED
+			animation_player.speed_scale = ANIMATION_SPEED * player.attack_speed_multiplier
 		else:
 			print("[AirAttackUp] ERROR: Animation not found: ", current_attack)
 			state_machine.transition_to("Fall")
@@ -51,17 +51,15 @@ func enter():
 		return
 
 func update(delta: float):
-	# Yere değme kontrolü - up attack sırasında yere değerse iptal et
 	if player.is_on_floor():
-		# Hitbox'ı temizle
 		if hitbox_enabled:
 			var hitbox = player.get_node_or_null("Hitbox")
 			if hitbox and hitbox is PlayerHitbox:
-				# CollisionShape2D pozisyonunu sıfırla
+				hitbox.position = Vector2.ZERO
+				hitbox.rotation = 0.0
 				var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 				if collision_shape:
-					collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-				
+					collision_shape.position = Vector2(52.625, -22.5)
 				hitbox.disable()
 		state_machine.transition_to("Idle")
 		return
@@ -105,34 +103,38 @@ func _update_hitbox():
 		hitbox_enabled = true
 		has_activated_hitbox = true
 		
-		# Hitbox'ı player'ın üstünde konumlandır ve bakış yönüne göre ayarla
+		# Yer yukarı saldırı (up_light) ile aynı konum: önde 70px + 45° yukarı
 		var hitbox = player.get_node_or_null("Hitbox")
 		if hitbox and hitbox is PlayerHitbox:
-			# CollisionShape2D pozisyonunu ayarla
+			hitbox.position = Vector2.ZERO
+			var facing_left = player.sprite.flip_h
+			var facing_sign = -1.0 if facing_left else 1.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				# Up attack için özel pozisyon (yukarı ve merkez)
-				var base_position = Vector2(-10, -60)  # Base pozisyon (sağa bakarken)
-				var position = base_position
-				
-				# Oyuncunun bakış yönüne göre X pozisyonunu ayarla
-				position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
-				collision_shape.position = position
-				
-				# Debug: Hitbox positioned
-				# print("[AirAttackUp] Hitbox positioned - facing: ", "left" if player.sprite.flip_h else "right", " x: ", position.x, " y: ", position.y, " collision_shape.position: ", collision_shape.position)
-			
-			hitbox.enable()
+				var pos = Vector2(88.0, -22.5)  # attack_state up ile aynı, daha önde
+				pos.x = abs(pos.x) * (-1 if facing_left else 1)
+				collision_shape.position = pos
+			hitbox.rotation = deg_to_rad(-45.0 * facing_sign)
+			hitbox.enable_combo(current_attack, player.light_attack_damage_multiplier)
+			var use_ranged_only := has_node("/root/ItemManager") and ItemManager.has_active_item("uzun_menzil")
+			if use_ranged_only and player.has_signal("player_light_attack_performed"):
+				var facing := -1.0 if facing_left else 1.0
+				var dir := Vector2(facing, -1.0).normalized()
+				var spawn_center: Vector2 = _get_projectile_spawn_near_edge(hitbox, collision_shape)
+				player.emit_signal("player_light_attack_performed", dir, spawn_center, hitbox.damage)
+			else:
+				hitbox.enable()
+			if player.has_signal("player_attack_performed"):
+				player.emit_signal("player_attack_performed", current_attack, hitbox.damage)
 	elif progress > hit_end and hitbox_enabled:
-		# Hitbox'ı deaktif et
 		hitbox_enabled = false
 		var hitbox = player.get_node_or_null("Hitbox")
 		if hitbox and hitbox is PlayerHitbox:
-			# CollisionShape2D pozisyonunu sıfırla
+			hitbox.position = Vector2.ZERO
+			hitbox.rotation = 0.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-			
+				collision_shape.position = Vector2(52.625, -22.5)
 			hitbox.disable()
 
 func exit():
@@ -140,15 +142,14 @@ func exit():
 	if animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.animation_finished.disconnect(_on_animation_finished)
 	
-	# Hitbox'ı temizle
 	if hitbox_enabled:
 		var hitbox = player.get_node_or_null("Hitbox")
 		if hitbox and hitbox is PlayerHitbox:
-			# CollisionShape2D pozisyonunu sıfırla
+			hitbox.position = Vector2.ZERO
+			hitbox.rotation = 0.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
-			
+				collision_shape.position = Vector2(52.625, -22.5)
 			hitbox.disable()
 	
 	# Up attack combo step'i ilerlet
@@ -179,25 +180,38 @@ func _handle_movement(delta: float) -> void:
 		player.sprite.flip_h = input_dir_x < 0
 	
 	# Apply movement
-	player.move_and_slide()
+	player.apply_move_and_slide()
 
 func _update_hitbox_position():
-	# Hitbox pozisyonunu oyuncunun bakış yönüne göre güncelle
 	var hitbox = player.get_node_or_null("Hitbox")
 	if hitbox and hitbox is PlayerHitbox and hitbox_enabled:
+		hitbox.position = Vector2.ZERO
+		var facing_left = player.sprite.flip_h
+		var facing_sign = -1.0 if facing_left else 1.0
 		var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			# Up attack için özel pozisyon (yukarı ve merkez)
-			var base_position = Vector2(-10, -60)  # Base pozisyon (sağa bakarken)
-			var position = base_position
-			
-			# Oyuncunun bakış yönüne göre X pozisyonunu ayarla
-			position.x = abs(position.x) * (-1 if player.sprite.flip_h else 1)
-			collision_shape.position = position
-			
-			# Debug: Hitbox position updated
-			# print("[AirAttackUp] Hitbox position updated: x=", position.x, ", y=", position.y, " facing: ", "left" if player.sprite.flip_h else "right", " collision_shape.position: ", collision_shape.position)
+			var pos = Vector2(88.0, -22.5)
+			pos.x = abs(pos.x) * (-1 if facing_left else 1)
+			collision_shape.position = pos
+		hitbox.rotation = deg_to_rad(-45.0 * facing_sign)
+
+func _get_projectile_spawn_near_edge(hitbox: Node2D, collision_shape: Node2D) -> Vector2:
+	if not collision_shape:
+		return hitbox.global_position
+	var player_node: Node = hitbox.get_parent()
+	var shape_center_local: Vector2 = collision_shape.position
+	var player_local: Vector2 = hitbox.to_local(player_node.global_position)
+	var to_player_local: Vector2 = (player_local - shape_center_local).normalized()
+	const HALF_X := 52.375
+	const HALF_Y := 24.5
+	var face_offset: Vector2
+	if abs(to_player_local.x) >= abs(to_player_local.y):
+		face_offset = Vector2(52.375 * sign(to_player_local.x), 0.0)
+	else:
+		face_offset = Vector2(0.0, 24.5 * sign(to_player_local.y))
+	return hitbox.to_global(shape_center_local + face_offset)
 
 func _on_enemy_hit(enemy: Node):
 	if not has_activated_hitbox:
 		has_activated_hitbox = true
+

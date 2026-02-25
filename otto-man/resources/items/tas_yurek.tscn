@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://tas_yurek_001"]
+
+[ext_resource type="Script" path="res://resources/items/tas_yurek.gd" id="1_script"]
+
+[node name="TasYurek" type="Node"]
+script = ExtResource("1_script")

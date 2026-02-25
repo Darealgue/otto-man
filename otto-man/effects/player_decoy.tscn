@@ -1,0 +1,42 @@
+[gd_scene load_steps=5 format=3 uid="uid://c8k2playerdecoy01"]
+
+[ext_resource type="Script" path="res://effects/player_decoy.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://dk7ij7ifw1k24" path="res://assets/player/sprite/otto2deneme1-Sheet.png" id="2_tex"]
+[ext_resource type="Script" path="res://components/player_hitbox.gd" id="3_hitbox"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_decoy"]
+radius = 9.0
+height = 44.0
+
+[sub_resource type="RectangleShape2D" id="Rect_decoy_hitbox"]
+size = Vector2(104.75, 49)
+
+[node name="PlayerDecoy" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(1, -48)
+texture = ExtResource("2_tex")
+hframes = 36
+frame = 6
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(0, -22)
+shape = SubResource("CapsuleShape2D_decoy")
+
+[node name="DecoyHitbox" type="Area2D" parent="." groups=["hitbox"]]
+collision_layer = 16
+collision_mask = 32
+monitoring = false
+monitorable = false
+script = ExtResource("3_hitbox")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DecoyHitbox"]
+position = Vector2(52.625, -22.5)
+shape = SubResource("Rect_decoy_hitbox")

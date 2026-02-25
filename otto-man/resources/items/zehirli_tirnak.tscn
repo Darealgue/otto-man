@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://zehirli_tirnak_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/zehirli_tirnak.gd" id="1_zehirli_tirnak"]
+
+[node name="ZehirliTirnak" type="Node"]
+script = ExtResource("1_zehirli_tirnak")

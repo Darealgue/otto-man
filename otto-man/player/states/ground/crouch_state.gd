@@ -2,7 +2,8 @@ extends "../state.gd"
 
 const CEILING_CHECK_OFFSET := 44.0  # Height to check for ceiling (should match player's standing height)
 const CROUCH_HEIGHT_RATIO := 0.5  # How much to reduce height during crouch
-const CRAWL_SPEED := 150.0  # Speed while crawling
+const DEFAULT_CRAWL_SPEED := 150.0  # Default speed while crawling
+var CRAWL_SPEED := DEFAULT_CRAWL_SPEED  # Speed while crawling (can be modified by items)
 const MIN_SPEED_TO_SLIDE := 200.0  # Minimum speed required to initiate a slide
 const POST_SLIDE_CROUCH_DURATION := 0.1  # Duration to stay crouched after slide
 const POST_LEDGEGRAB_CROUCH_DURATION := 0.1  # Duration to stay crouched after ledgegrab
@@ -86,7 +87,9 @@ func enter():
 func exit():
 	if !player:
 		return
-		
+	# Topuk Kırıcı: crouch'tan çıkınca ilk vuruş bonusu
+	if has_node("/root/ItemManager") and ItemManager.has_active_item("topuk_kirici"):
+		player.topuk_kirici_next_hit_bonus = 1.5
 	# Restore original collision shape and hurtbox height and position
 	var collision_shape = player.get_node("CollisionShape2D")
 	var hurtbox_shape = player.get_node("Hurtbox/CollisionShape2D")
@@ -101,7 +104,7 @@ func exit():
 		hurtbox_shape.position.y = original_hurtbox_position_y
 		
 		# Simple physics update to ensure proper collision detection
-		player.move_and_slide()
+		player.apply_move_and_slide()
 		
 
 func can_stand_up() -> bool:
@@ -226,7 +229,7 @@ func physics_update(delta: float):
 			# Only log occasionally to avoid spam
 			pass # print("[Crouch] Stand blocked: ceiling present. can_stand=", can_stand)
 	
-	player.move_and_slide() 
+	player.apply_move_and_slide() 
 
 func force_crouch(duration: float) -> void:
 	# Extend crouch hold time (used by LedgeGrab mount)

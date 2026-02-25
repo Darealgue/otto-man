@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://atesli_yumruk_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/atesli_yumruk.gd" id="1_atesli"]
+
+[node name="AtesliYumruk" type="Node"]
+script = ExtResource("1_atesli")

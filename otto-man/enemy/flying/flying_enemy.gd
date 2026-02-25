@@ -264,26 +264,15 @@ func handle_hurt_behavior(delta: float) -> void:
 			hurtbox.monitoring = true
 			hurtbox.monitorable = true
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
-	if current_behavior == "dead" or invulnerable:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
+	if current_behavior == "dead":
 		return
-	
-	# FlyingEnemy doesn't spawn blood (it's a bird), so we handle damage manually
-	# Update health
-	health -= amount
-	
-	# Update health bar
-	if health_bar:
-		health_bar.update_health(health)
-	# Emit health changed for external listeners
-	_health_emit_changed()
-	
-	# Spawn damage number
-	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-	add_child(damage_number)
-	damage_number.global_position = global_position + Vector2(0, -50)
-	damage_number.setup(int(amount))
-	
+	# Projectile / DoT base'de işlenir; biz sadece melee knockback ve hurt
+	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
+	if not apply_knockback:
+		return
+	if invulnerable:
+		return
 	# Apply knockback
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() > 0:
@@ -295,26 +284,16 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		velocity = Vector2(dir.x * knockback_force, up)
 		if up < 0.0:
 			air_float_timer = air_float_duration
-	
-	# Enter hurt state
 	change_behavior("hurt")
 	behavior_timer = 0.0
-	
-	# Brief invulnerability and disable hurtbox
 	invulnerable = true
 	invulnerability_timer = INVULNERABILITY_DURATION
 	if hurtbox:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
-	
-	# Flash red
 	if sprite:
 		sprite.modulate = Color(1, 0, 0, 1)
 		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
-	
-	# Check for death
-	if health <= 0:
-		die()
 	
 
 func _update_animation_state() -> void:
@@ -398,7 +377,9 @@ func die() -> void:
 	
 	# Emit signals and notify systems
 	enemy_defeated.emit()
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
 	
 	# Don't fade out or return to pool - let corpses persist
 	# await get_tree().create_timer(2.0).timeout

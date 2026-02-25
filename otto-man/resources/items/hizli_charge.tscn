@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://hizli_charge_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/hizli_charge.gd" id="1_hizli_charge"]
+
+[node name="HizliCharge" type="Node"]
+script = ExtResource("1_hizli_charge")

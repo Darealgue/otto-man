@@ -197,6 +197,9 @@ func _spawn_enemy() -> bool:
 		if summon_interval != null:
 			enemy.set("summon_interval", summoner_scale.summon_interval)
 	
+	if "enemy_level" in enemy:
+		enemy.enemy_level = current_level
+	
 	if DEBUG_ENEMY:
 		print("[TileEnemySpawner] Enemy spawn complete at: %s" % enemy.global_position)
 	

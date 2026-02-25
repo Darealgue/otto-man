@@ -634,41 +634,16 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
 		take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0))
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
-	# Don't take damage if already dead
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	if current_behavior == "dead":
 		return
-		
-	# List of states where enemy should be uninterruptible
+	# Projectile / DoT tek yerden base'de işlenir; biz sadece melee knockback ve hurt
+	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
+	if not apply_knockback:
+		return
+	if current_behavior == "dead":
+		return
 	var uninterruptible_states = ["charge_prepare", "charging", "slam_prepare", "slam"]
-	
-	# Track if this hit kills the enemy (always define var)
-	var was_lethal = false
-	# Apply damage and effects
-	if stats:
-		health -= amount
-		
-		# Update health bar
-		if health_bar:
-			health_bar.update_health(health)
-		
-		# Spawn damage number
-		var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-		add_child(damage_number)
-		damage_number.global_position = position + Vector2(0, -50)
-		damage_number.setup(int(amount))
-		
-		# Flash red
-		_flash_hurt()
-		
-		# Spawn blood particles (call base class function)
-		if _should_spawn_blood():
-			_spawn_blood_particles(amount)
-		
-		# Don't exit early; we want to apply on-hit knockback even on lethal
-		was_lethal = health <= 0
-	
-	# Handle knockback and state changes (apply knockback even on lethal)
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() > 0:
 		var player = players[0]
@@ -677,27 +652,16 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		if knockback_up_force >= 0.0:
 			up = -knockback_up_force
 		velocity = Vector2(dir.x * knockback_force, up)
-		# If launched upward, ensure we are not clamped by floor snap immediately
 		if up < 0.0:
-			# Temporarily clear floor snap so launch takes effect
 			floor_snap_length = 0.0
 			air_float_timer = air_float_duration
-
-	if was_lethal:
-		# Can barını hemen gizle (die() fonksiyonundan önce)
-		if health_bar:
-			health_bar.hide_bar()
-		# Go straight to death after applying launch; keep vertical velocity so the corpse falls
-		die()
-	else:
-		if not uninterruptible_states.has(current_behavior):
-			# Change to hurt state and restore floor snap shortly after
-			change_behavior("hurt", true)
-			var t := get_tree().create_timer(0.1)
-			t.timeout.connect(func():
-				if is_instance_valid(self):
-					floor_snap_length = 32.0
-			)
+	if health > 0 and not uninterruptible_states.has(current_behavior):
+		change_behavior("hurt", true)
+		var t := get_tree().create_timer(0.1)
+		t.timeout.connect(func():
+			if is_instance_valid(self):
+				floor_snap_length = 32.0
+		)
 
 func reset() -> void:
 	super.reset()
@@ -731,7 +695,9 @@ func die() -> void:
 	
 	enemy_defeated.emit()
 	
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
 	
 	if sprite:
 		sprite.play("dead")

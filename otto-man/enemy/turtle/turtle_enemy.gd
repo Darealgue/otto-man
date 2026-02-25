@@ -1,5 +1,5 @@
 class_name TurtleEnemy
-extends BaseEnemy
+extends "res://enemy/base_enemy.gd"
 
 # Turtle-specific behavior
 var patrol_direction: int = 1
@@ -180,7 +180,10 @@ func die() -> void:
 	
 	enemy_defeated.emit()
 	
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	# Notify ItemManager (base_enemy.die() already calls this, but keeping for safety)
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
 	
 	if sprite:
 		sprite.play("death")

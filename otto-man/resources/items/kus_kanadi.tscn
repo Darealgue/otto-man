@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://kus_kanadi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/kus_kanadi.gd" id="1_kus_kanadi"]
+
+[node name="KusKanadi" type="Node"]
+script = ExtResource("1_kus_kanadi")

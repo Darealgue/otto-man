@@ -801,12 +801,14 @@ func handle_alert(delta: float) -> void:
 func handle_chase(delta: float) -> void:
 	_handle_rocket_charge_state(delta)
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	# Call base class take_damage to get blood particles and other effects
-	super.take_damage(amount, knockback_force, knockback_up_force)
+	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
 	
 	# Canonman-specific damage handling
 	if current_behavior == "dead" or invulnerable:
+		return
+	if not apply_knockback:
 		return
 	
 	# Apply knockback - sadece yatay, dikey değil
@@ -854,7 +856,10 @@ func die() -> void:
 	
 	# Emit signals
 	enemy_defeated.emit()
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	# Notify ItemManager
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
 	
 	# Apply death knockback - yavaşça düş
 	velocity = Vector2(0, -100)  # Hafif yukarı, sonra gravity ile düşer

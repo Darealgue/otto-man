@@ -92,7 +92,7 @@ func _update_display() -> void:
 	if gold_label:
 		gold_label.text = str(_current_gold)
 		gold_label.show()  # Ensure label is visible
-		print("[DungeonGoldDisplay] Gold label updated: %s" % gold_label.text)
+		# print("[DungeonGoldDisplay] Gold label updated: %s" % gold_label.text)
 	
 	if gold_icon:
 		gold_icon.show()  # Ensure icon is visible

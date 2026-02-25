@@ -5,6 +5,23 @@ signal perfect_parry  # Signal for Perfect Guard powerup
 signal dash_started
 signal dodge_started  # Signal for dodge state
 signal fall_attack_performed  # Signal for Triple Strike powerup
+signal fall_attack_impacted(position: Vector2)  # Fall attack yere veya düşmana değdi (zehir bulutu vb.)
+signal decoy_fall_attack_impacted(position: Vector2)  # Gölge konumunda fall-attack efekti (zehir bulutu vb.)
+
+# New signals for Item system
+signal player_dodged(direction: int, start_pos: Vector2, end_pos: Vector2)
+signal player_slid(distance: float, duration: float)
+signal player_blocked(blocked_damage: float, attacker: Node2D)
+# effect_filter: "all" = oyuncu vurdu; "physical_only" = Karagöz gölgesi (sadece fiziksel itemler); "elemental_only" = Hacivat gölgesi (sadece elemental itemler)
+signal player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String)
+signal player_light_attack_performed(direction: Vector2, position: Vector2, damage: float)
+signal heavy_attack_performed  # Heavy attack başladı (vurmadan da)
+signal heavy_attack_impact(attack_name: String)  # Heavy attack tam hasar karesi; attack_name: heavy_neutral, up_heavy, down_heavy, air_heavy
+signal decoy_heavy_attack_impact(position: Vector2, attack_name: String, facing: float)  # Gölge heavy vurduğunda (zehirli dev vb.)
+signal heavy_attack_hit(enemy: Node)  # Heavy attack düşmana isabet etti
+signal player_attack_performed(attack_name: String, damage: float)  # Saldırı yapıldı (vursa da vurmasa da); attack_name: up_light, down_light, attack_1.2, fall, vb.
+signal player_took_damage(amount: float, attacker: Node2D)  # Hasar yediğinde (blok olsun olmasın), item'lar yansıtma yapabilir
+signal nazar_shield_consumed  # Nazar Boncuğu: ilk hasar bloklandı, cooldown başlasın
 
 const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
 
@@ -97,11 +114,40 @@ var counter_knockback_bonus: float = 0.35  # +35% knockback during counter
 # Etkileşim için değişkenler (YENİ - physics_process'e dokunmadan)
 var overlapping_interactables: Array[Area2D] = []
 
+# Zaman yavaşladığında oyuncu daha az yavaşlar (Zaman Durdurucu: 1.5 = %50 daha az yavaş)
+var time_slow_player_multiplier: float = 1.0
+
 # Stats multipliers for powerups
 var damage_multiplier: float = 1.0
 var speed_multiplier: float = 1.0
 var base_damage: float = 15.0  # Base damage value
+# Light attack damage multiplier (e.g. Combo Ustası item)
+var light_attack_damage_multiplier: float = 1.0
+# Heavy / fall attack damage multipliers (items)
+var heavy_attack_damage_multiplier: float = 1.0
+var fall_attack_damage_multiplier: float = 1.0
 var damage_multipliers: Array[float] = []  # Array to store all active multipliers
+# Berserker Ruhu: can azaldıkça verilen hasar artar (0-1 bonus), alınan hasar artar
+var berserker_damage_bonus: float = 0.0  # 0 = normal, 1 = +%100 verilen hasar
+var incoming_damage_multiplier: float = 1.0  # 1 = normal, >1 = daha fazla hasar alır
+# Nazar Boncuğu: aktifken ilk gelen hasar bloklanır
+var nazar_shield_active: bool = false
+# Taş Yürek: can %25 altındayken gelen hasar çarpanı (0.5 = %50 azalma)
+var tas_yurek_reduction: float = 0.0
+# Kan Tadı: saldırı/hareket hızı bonusu (item tarafından set edilir)
+var attack_speed_multiplier: float = 1.0
+var extra_speed_multiplier: float = 1.0  # hareket hızı ek çarpan (Kan Tadı)
+# Ölümcül Sükût: parry/block sonrası ilk light attack hasar çarpanı (1.0 = yok, >1 = bonus)
+var olumcul_sukut_next_light_bonus: float = 1.0
+# Topuk Kırıcı: crouch/slide çıkışı sonrası ilk vuruş hasar çarpanı
+var topuk_kirici_next_hit_bonus: float = 1.0
+# Görünmezlik Pelerini: görünmezken ilk vuruş çarpanı (3.0 = 3x)
+var gorunmezlik_first_attack_mult: float = 1.0
+# Flank Avantajı: arkadan vuruş çarpanı (1.5 = +50%)
+var flank_damage_mult: float = 1.0
+# Elemental Odak: elemental/fiziksel çarpanlar
+var elemental_damage_mult: float = 1.0
+var physical_damage_mult: float = 1.0
 var is_dashing: bool = false  # For Speed Demon powerup
 
 var facing_direction := 1.0  # 1 for right, -1 for left
@@ -197,6 +243,10 @@ func _ready():
 	# Register with PowerupManager and RoomManager
 	PowerupManager.register_player(self)
 	
+	# Register with ItemManager
+	if has_node("/root/ItemManager"):
+		ItemManager.register_player(self)
+	
 	# Initialize stats
 	damage_multiplier = 1.0
 	speed_multiplier = 1.0
@@ -237,7 +287,7 @@ func _physics_process(delta):
 	# Stop all updates if dead
 	if is_dead:
 		velocity = Vector2.ZERO
-		move_and_slide()
+		apply_move_and_slide()
 		return
 	
 	# Stop all player updates while UI is locked
@@ -253,7 +303,7 @@ func _physics_process(delta):
 			_ui_lock_logged_once = true
 		# Ensure we don't move
 		velocity = Vector2.ZERO
-		move_and_slide()
+		apply_move_and_slide()
 		return
 	elif _ui_lock_logged_once:
 		# print("[Player] UI lock released - controls restored")
@@ -433,12 +483,13 @@ func _physics_process(delta):
 		is_hurt = $StateMachine.current_state.name == "Hurt"
 	
 	if not is_attacking and not is_hurt:
-		# Apply speed multiplier to movement using flattened input
+		# Zaman yavaşken oyuncu daha az yavaşlar (time_slow_player_multiplier > 1)
+		var effective_delta: float = delta * time_slow_player_multiplier
 		var grounded_input := InputManager.get_flattened_axis(&"left", &"right")
 		if grounded_input != 0:
-			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier, acceleration * delta)
+			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier * extra_speed_multiplier, acceleration * effective_delta)
 		else:
-			apply_friction(delta)
+			apply_friction(effective_delta)
 
 		# Update facing direction based on movement (but not during hit recoil)
 		var input_dir = grounded_input
@@ -451,7 +502,8 @@ func _physics_process(delta):
 				# Flip the sprite based on direction
 				sprite.flip_h = facing_direction < 0
 				if old_facing != facing_direction:
-					print("[Player] DEBUG: Facing direction changed from %f to %f (input_dir: %f)" % [old_facing, facing_direction, input_dir])
+					pass  # Facing direction changed
+					# print("[Player] DEBUG: Facing direction changed from %f to %f (input_dir: %f)" % [old_facing, facing_direction, input_dir])
 
 	# Handle landing
 	var is_landing = is_on_floor() and not was_on_floor
@@ -560,6 +612,16 @@ func apply_friction(delta: float, input_dir: float = 0.0, use_precision: bool = 
 	
 	velocity.x = move_toward(velocity.x, 0, current_friction * delta)
 
+# Zaman yavaşken hareketi düzeltmek için: state'ler move_and_slide yerine bunu kullanmalı.
+func apply_move_and_slide() -> bool:
+	var mult: float = time_slow_player_multiplier
+	if mult != 1.0:
+		velocity *= mult
+	var result: bool = move_and_slide()
+	if mult != 1.0:
+		velocity /= mult
+	return result
+
 func calculate_hollow_knight_gravity() -> float:
 	"""
 	Hollow Knight tarzı zıplama eğrisi hesaplar.
@@ -607,13 +669,29 @@ func enable_double_jump():
 # Fall attack bounce is handled in fall_attack_state.gd
 # No need for these functions here
 
-func take_damage(amount: float, show_damage_number: bool = true):
+func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2D = null):
+	# Nazar Boncuğu: ilk hasarı tamamen blokla
+	if amount > 0 and nazar_shield_active:
+		nazar_shield_active = false
+		if has_signal("nazar_shield_consumed"):
+			emit_signal("nazar_shield_consumed")
+		return
+	amount *= incoming_damage_multiplier
+	# Taş Yürek: can %25 altındayken gelen hasarı azalt
+	if tas_yurek_reduction > 0:
+		var ps = get_node_or_null("/root/PlayerStats")
+		if ps:
+			var ratio = ps.get_current_health() / ps.get_max_health()
+			if ratio <= 0.25:
+				amount *= (1.0 - tas_yurek_reduction)
 	var player_stats = get_node("/root/PlayerStats")
 	if player_stats:
 		var current_health = player_stats.get_current_health()
 		player_stats.set_current_health(current_health - amount, show_damage_number)
 		if amount > 0.0:
 			player_stats.lose_resources_on_damage()
+			if has_signal("player_took_damage"):
+				emit_signal("player_took_damage", amount, attacker)
 
 func heal(amount: float):
 	var player_stats = get_node("/root/PlayerStats")
@@ -693,16 +771,17 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	if hitbox.has_method("get_knockback_data"):
 		last_hit_knockback = hitbox.get_knockback_data()
 	
+	var attacker = hitbox.get_parent() if hitbox else null  # Enemy that hit us (for damage reflection items)
 	# Check if we're in block state
 	if state_machine and state_machine.current_state.name == "Block":
 		# Use the damage value set by block state (0 for parry, reduced for block)
 		var is_parry = hurtbox.last_damage == 0  # Check if this was a parry
-		take_damage(hurtbox.last_damage, !is_parry)  # Only show damage number if not a parry
+		take_damage(hurtbox.last_damage, !is_parry, attacker)
 	else:
 		# Normal damage handling
 		if hitbox.has_method("get_damage"):
 			var damage = hitbox.get_damage()
-			take_damage(damage)  # Show damage number for normal hits
+			take_damage(damage, true, attacker)
 
 	# Only transition to hurt state if not blocking
 	if state_machine and state_machine.has_node("Hurt") and state_machine.current_state.name != "Block":
@@ -719,6 +798,9 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		sprite.modulate = Color(1, 0, 0, 1)
 		await get_tree().create_timer(0.1).timeout
 		sprite.modulate = Color(1, 1, 1, 1)
+		
+		# Spawn player hit effect
+		_spawn_player_hit_effect()
 
 func has_coyote_time() -> bool:
 	return coyote_timer > 0.0
@@ -742,7 +824,10 @@ func modify_damage_multiplier(multiplier: float) -> void:
 	
 	# Update hitbox damage using base damage from PlayerStats
 	if hitbox:
-		hitbox.damage = base_damage * damage_multiplier
+		hitbox.damage = base_damage * get_effective_damage_multiplier()
+
+func get_effective_damage_multiplier() -> float:
+	return damage_multiplier * (1.0 + berserker_damage_bonus)
 
 func remove_damage_multiplier(multiplier: float) -> void:
 	# Convert multiplier to bonus before removing
@@ -759,7 +844,7 @@ func remove_damage_multiplier(multiplier: float) -> void:
 	
 	# Update hitbox damage using base damage
 	if hitbox:
-		hitbox.damage = base_damage * damage_multiplier
+		hitbox.damage = base_damage * get_effective_damage_multiplier()
 
 func modify_speed(multiplier: float) -> void:
 	# This function is now just for temporary speed modifications (like dash)
@@ -771,9 +856,9 @@ func get_stats() -> Dictionary:
 		"current_health": get_current_health(),
 		"max_health": get_max_health(),
 		"damage_multiplier": damage_multiplier,
-		"movement_speed": speed * speed_multiplier,
+		"movement_speed": speed * speed_multiplier * extra_speed_multiplier,
 		"base_damage": base_damage,
-		"total_damage": base_damage * damage_multiplier,
+		"total_damage": base_damage * get_effective_damage_multiplier(),
 		"speed_multiplier": speed_multiplier
 	}
 
@@ -830,7 +915,7 @@ func _on_stat_changed(stat_name: String, _old_value: float, new_value: float) ->
 		"base_damage":
 			base_damage = new_value
 			if hitbox:
-				hitbox.damage = base_damage * damage_multiplier
+				hitbox.damage = base_damage * get_effective_damage_multiplier()
 
 func _on_health_changed(new_health: float) -> void:
 	emit_signal("health_changed", new_health)
@@ -904,6 +989,11 @@ func _apply_roguelike_mechanics_on_death() -> void:
 	if powerup_manager and powerup_manager.has_method("clear_all_powerups"):
 		powerup_manager.clear_all_powerups()
 		print("[Player] 🎮 Roguelike: All powerups cleared on death")
+	
+	# Tüm item etkilerini sıfırla (aktif itemlar kaldırılsın, köyde etki kalmasın)
+	if has_node("/root/ItemManager") and ItemManager.has_method("clear_all_items"):
+		ItemManager.clear_all_items()
+		print("[Player] 🎒 Roguelike: All item effects cleared on death")
 	
 	# Clear inventory (death penalty)
 	if global_player_data and "envanter" in global_player_data:
@@ -1211,6 +1301,9 @@ func HandleDialogueNpcWindows(last_npc):
 			
 # <<< YENİ FONKSİYON: Animasyondan çağırmak için >>>
 func spawn_attack_effect_by_name(attack_name: String):
+	# Projectile item (uzun_menzil) aktifken normal vuruş efektlerini gösterme
+	if has_node("/root/ItemManager") and ItemManager.has_active_item("uzun_menzil"):
+		return
 	# Debug print disabled to reduce console spam
 	# print("[Player] spawn_attack_effect_by_name -> ", attack_name)
 	var effect_scene_path = ""
@@ -1306,6 +1399,24 @@ func spawn_attack_effect_by_name(attack_name: String):
 	else:
 		push_warning("Efekt script'i 'set_initial_velocity' metoduna sahip değil.")
 
+	# Ana sahneye ekle
+	get_tree().current_scene.add_child(effect_instance)
+
+func _spawn_player_hit_effect() -> void:
+	# Player hit efektini spawn et
+	var player_hit_effect_scene = preload("res://effects/player_hit_effect.tscn")
+	if not player_hit_effect_scene:
+		push_warning("Player hit effect scene bulunamadı")
+		return
+	
+	var effect_instance = player_hit_effect_scene.instantiate()
+	if not effect_instance:
+		push_warning("Player hit effect instantiate edilemedi")
+		return
+	
+	# Efekt pozisyonunu player pozisyonuna ayarla
+	effect_instance.global_position = global_position
+	
 	# Ana sahneye ekle
 	get_tree().current_scene.add_child(effect_instance)
 

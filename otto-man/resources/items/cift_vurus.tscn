@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cift_vurus_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/cift_vurus.gd" id="1_cift_vurus"]
+
+[node name="CiftVurus" type="Node"]
+script = ExtResource("1_cift_vurus")

@@ -58,6 +58,18 @@ func _on_command_submitted(command: String) -> void:
 	var cmd = args[0].to_lower()
 	args = args.slice(1)
 	
+	# item_N: index ile item aktifleştir (debug)
+	if cmd.begins_with("item_"):
+		var num_str := cmd.trim_prefix("item_")
+		if num_str.is_valid_int():
+			handle_item_command(int(num_str))
+		else:
+			print_output("Kullanım: item_<sayı> (örn. item_0, item_1). Komut 'items' ile listeyi gör.")
+		return
+	if cmd == "items":
+		handle_items_list_command()
+		return
+	
 	match cmd:
 		"help":
 			show_help()
@@ -409,10 +421,51 @@ func _find_barracks() -> Node:
 	
 	return null
 
+func handle_item_command(index: int) -> void:
+	var im = get_node_or_null("/root/ItemManager")
+	if !im:
+		print_output("ItemManager bulunamadı!")
+		return
+	if !im.player:
+		print_output("ItemManager'da oyuncu yok (sahneye girip tekrar dene).")
+		return
+	var ids: Array = im.ITEM_SCENES.keys()
+	if index < 0 or index >= ids.size():
+		print_output("Geçersiz index: %d. 0-%d arası veya 'items' ile listele." % [index, ids.size() - 1])
+		return
+	var item_id: String = ids[index]
+	if im.has_active_item(item_id):
+		print_output("Zaten aktif: [%d] %s" % [index, item_id])
+		return
+	var scene: PackedScene = im.ITEM_SCENES[item_id]
+	im.activate_item(scene)
+	var inst = scene.instantiate()
+	var name_str: String = inst.item_name if inst.get("item_name") else item_id
+	inst.queue_free()
+	print_output("Aktif edildi: [%d] %s (%s)" % [index, item_id, name_str])
+
+func handle_items_list_command() -> void:
+	var im = get_node_or_null("/root/ItemManager")
+	if !im:
+		print_output("ItemManager bulunamadı!")
+		return
+	var ids: Array = im.ITEM_SCENES.keys()
+	print_output("Item listesi (item_<sayı> ile aktifleştir):")
+	for i in ids.size():
+		var item_id: String = ids[i]
+		var scene: PackedScene = im.ITEM_SCENES[item_id]
+		var inst = scene.instantiate()
+		var name_str: String = inst.item_name if inst.get("item_name") else item_id
+		inst.queue_free()
+		var active_str: String = " [AKTİF]" if im.has_active_item(item_id) else ""
+		print_output("  %d: %s - %s%s" % [i, item_id, name_str, active_str])
+
 func show_help() -> void:
 	var help_text = """Available commands:
 	help - Show this help message
 	clear - Clear console output
+	item_<N> - Activate item by index (e.g. item_0, item_1). Use 'items' to list.
+	items - List all item indices and names
 	powerup <name> - Activate a powerup
 	heal [amount] - Heal the player (default: 50)
 	damage [amount] - Damage the player (default: 10)

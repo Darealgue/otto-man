@@ -44,6 +44,7 @@ var health: float
 var direction: int = 1
 var behavior_timer: float = 0.0  # Timer for behavior state changes
 var health_bar = null  # Add health bar reference
+var enemy_level: int = 1  # Zindan seviyesi (spawner atar), can barında "Lv X" olarak gösterilir
 
 # Constants
 const GRAVITY: float = 980.0
@@ -77,6 +78,29 @@ var air_float_timer: float = 0.0
 @export var air_float_gravity_scale: float = 0.35
 @export var air_float_max_fall_speed: float = 420.0
 
+# Poison DoT system
+var poison_stacks: int = 0
+var poison_tick_timer: float = 0.0
+var poison_damage_per_stack: float = 1.0
+var poison_tick_interval: float = 2.0  # Default 2 seconds
+
+# Burn DoT: 1 dmg/s, 3 tick per stack, max 3 stacks (9 tick total)
+var burn_remaining_ticks: int = 0
+var burn_tick_timer: float = 0.0
+const BURN_TICK_INTERVAL: float = 1.0
+
+# Frost slow: stacks 1-5 → %20, 6-10 → %40, 11-15 → %60; decay 1/s
+var frost_stacks: int = 0
+var frost_decay_timer: float = 0.0
+const FROST_DECAY_INTERVAL: float = 1.0
+
+# Zemin debuff: buz/ateş zemininde duran düşman 1 stack'ın altına inemez
+var standing_on_ice_ground: bool = false
+var standing_on_fire_ground: bool = false
+
+# Zehir + ateş = patlama (bu düşman merkezli AoE)
+const POISON_FIRE_EXPLOSION_SCENE = preload("res://effects/poison_fire_explosion.tscn")
+
 func _ready() -> void:
 	add_to_group("enemies")
 	enemy_id = "%s_%d" % [get_script().resource_path.get_file().get_basename(), get_instance_id()]
@@ -92,6 +116,7 @@ func _ready() -> void:
 	add_child(health_bar)
 	health_bar.position = Vector2(0, -60)
 	health_bar.setup(health)
+	health_bar.show_bar()  # Bar ve Lv yazısı spawn anından itibaren görünsün
 	# Notify initial health for external UI (e.g., boss bar)
 	_health_emit_changed()
 	
@@ -106,6 +131,50 @@ func _ready() -> void:
 	
 	last_position = global_position
 	last_behavior = "idle"
+
+func _process(delta: float) -> void:
+	# Zehir DoT - _process'te çalıştır ki her sahnede kesin tetiklensin
+	if poison_stacks > 0:
+		if current_behavior == "dead":
+			poison_stacks = 0
+			poison_tick_timer = 0.0
+		else:
+			poison_tick_timer += delta
+			if poison_tick_timer >= poison_tick_interval:
+				var total_damage = poison_stacks * poison_damage_per_stack * _get_elemental_damage_mult()
+				take_damage(total_damage, 0.0, 0.0, false)
+				poison_tick_timer = 0.0
+				print("[BaseEnemy:", enemy_id, "] ✅ Zehir hasarı: ", total_damage, " (", poison_stacks, " stack x ", poison_damage_per_stack, ")")
+	
+	# Burn DoT: 1 hasar/saniye, 3 tick per stack, max 3 stack
+	if burn_remaining_ticks > 0 and current_behavior != "dead":
+		burn_tick_timer += delta
+		if burn_tick_timer >= BURN_TICK_INTERVAL:
+			burn_tick_timer = 0.0
+			var burn_dmg = 1.0 * _get_elemental_damage_mult()
+			take_damage(burn_dmg, 0.0, 0.0, false)
+			# Ateş zeminindeyken 1 stack (3 tick) altına inme
+			if standing_on_fire_ground:
+				burn_remaining_ticks = maxi(3, burn_remaining_ticks - 1)
+			else:
+				burn_remaining_ticks -= 1
+	
+	# Frost decay: her saniye 1 stack azalır; buz zeminindeyken 1 altına inme
+	if frost_stacks > 0:
+		frost_decay_timer += delta
+		if frost_decay_timer >= FROST_DECAY_INTERVAL:
+			frost_decay_timer = 0.0
+			if standing_on_ice_ground:
+				frost_stacks = maxi(1, frost_stacks - 1)
+			else:
+				frost_stacks = max(0, frost_stacks - 1)
+	
+	# Can barı üstünde seviye ve zehir/ateş/buz ikonlarını güncelle
+	if health_bar and current_behavior != "dead":
+		if health_bar.has_method("set_level"):
+			health_bar.set_level(enemy_level)
+		if health_bar.has_method("update_status_effects"):
+			health_bar.update_status_effects(poison_stacks, burn_remaining_ticks, frost_stacks)
 
 func _physics_process(delta: float) -> void:
 	# Skip all processing if position is invalid
@@ -137,6 +206,9 @@ func _physics_process(delta: float) -> void:
 		if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
 			# Skip vertical zeroing this frame to allow visible pop-up
 			pass
+		# Frost slow (buzlu kılıç): hareket hızını stack'e göre düşür
+		if frost_stacks > 0:
+			velocity.x *= get_frost_speed_multiplier()
 		move_and_slide()
 
 func handle_behavior(delta: float) -> void:
@@ -225,8 +297,60 @@ func start_attack_cooldown() -> void:
 	can_attack = false
 	attack_timer = stats.attack_cooldown if stats else 2.0
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
-	print("[BaseEnemy] take_damage called with amount: ", amount)
+func _get_elemental_damage_mult() -> float:
+	var im = get_node_or_null("/root/ItemManager")
+	if not im or not im.get("player"):
+		return 1.0
+	var p = im.player
+	return p.get("elemental_damage_mult") if p and p.get("elemental_damage_mult") else 1.0
+
+func add_poison_stack(max_stacks: int, damage_per_stack: float, tick_interval: float) -> void:
+	# Add poison stack (cap at max_stacks)
+	poison_stacks = min(poison_stacks + 1, max_stacks)
+	poison_damage_per_stack = damage_per_stack
+	poison_tick_interval = tick_interval
+	# Reset tick timer when new stack is added
+	poison_tick_timer = 0.0
+
+func add_burn_stack() -> void:
+	# Zehir + ateş = patlama: üzerinde zehir varken ateş alırsa AoE patlama (düşman + oyuncu hasar alabilir)
+	if poison_stacks > 0:
+		var explosion = POISON_FIRE_EXPLOSION_SCENE.instantiate()
+		get_tree().current_scene.add_child(explosion)
+		explosion.global_position = global_position
+	# 3 tick per stack, max 3 stacks (9 tick), 1 dmg per tick per second
+	burn_remaining_ticks = mini(burn_remaining_ticks + 3, 9)
+	burn_tick_timer = 0.0
+
+func add_frost_stack(amount: int = 1) -> void:
+	frost_stacks = mini(frost_stacks + amount, 15)
+	frost_decay_timer = 0.0
+
+func set_standing_on_ice_ground(on: bool) -> void:
+	standing_on_ice_ground = on
+
+func set_standing_on_fire_ground(on: bool) -> void:
+	standing_on_fire_ground = on
+
+func get_frost_speed_multiplier() -> float:
+	if frost_stacks <= 0:
+		return 1.0
+	if frost_stacks <= 5:
+		return 0.80
+	if frost_stacks <= 10:
+		return 0.60
+	return 0.40
+
+# Alt sınıflar override edebilir: lethal hasar sonrası die() hemen mi çağrılsın?
+# Örn. BasicEnemy havada/knockback'te ölümü erteler, yere inince die() çağrılır.
+func _should_die_now_on_lethal() -> bool:
+	return true
+
+# Tüm düşmanlar için tek kaynak: apply_knockback=false (projectile, zehir vb.) burada işlenir.
+# Hasar + çok hafif itme + hurt yok + gerekirse die(). Alt sınıflar super.take_damage çağırıp
+# apply_knockback false ise return etmeli; böylece yeni düşmanlar da aynı davranışı otomatik alır.
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
+	# print("[BaseEnemy] take_damage called with amount: ", amount)
 	if current_behavior == "dead":
 		print("[BaseEnemy] No damage: dead")
 		return
@@ -246,19 +370,24 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	damage_number.global_position = global_position + Vector2(0, -50)
 	damage_number.setup(int(amount))
 	
-	# Apply knockback (use explicit up_force if provided)
-	velocity.x = -direction * knockback_force
-	if knockback_up_force >= 0.0:
-		velocity.y = -knockback_up_force
+	# Apply knockback only if requested (skip for poison DoT / projectile)
+	if apply_knockback:
+		# Apply knockback (use explicit up_force if provided)
+		velocity.x = -direction * knockback_force
+		if knockback_up_force >= 0.0:
+			velocity.y = -knockback_up_force
+		else:
+			velocity.y = -knockback_force * 0.5
+		# If we have upward velocity from hit, start float window for juggle
+		if velocity.y < 0.0:
+			air_float_timer = air_float_duration
+		
+		# Enter hurt state only if knockback is applied
+		change_behavior("hurt")
+		behavior_timer = 0.0
 	else:
-		velocity.y = -knockback_force * 0.5
-	# If we have upward velocity from hit, start float window for juggle
-	if velocity.y < 0.0:
-		air_float_timer = air_float_duration
-	
-	# Enter hurt state
-	change_behavior("hurt")
-	behavior_timer = 0.0
+		# Çok hafif geri itme (projectile vb.), hurt animasyonu yok
+		velocity.x = -direction * 18.0
 	
 	# No invulnerability - allow continuous damage
 	# invulnerable = true
@@ -276,14 +405,13 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	else:
 		print("[BaseEnemy] No blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
 	
-	# Check for death
+	# Check for death (alt sınıf havada/knockback'te erteleyebilir)
 	if health <= 0:
-		# Can barını hemen gizle (die() fonksiyonundan önce)
 		if health_bar:
 			health_bar.hide_bar()
-		die()
+		if _should_die_now_on_lethal():
+			die()
 	else:
-		# No hurtbox disabling - allow continuous damage
 		pass
 
 func _flash_hurt() -> void:
@@ -330,7 +458,13 @@ func die() -> void:
 	
 	enemy_defeated.emit()
 	
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	
+	# Notify ItemManager
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
+	else:
+		push_warning("[BaseEnemy] ItemManager not found!")
 	
 	if sprite:
 		sprite.play("death")
@@ -415,19 +549,28 @@ func is_on_screen() -> bool:
 		   global_position.y >= top_left.y - 100 and global_position.y <= bottom_right.y + 100
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
-	print("[BaseEnemy] _on_hurtbox_hurt called")
+	# print("[BaseEnemy] _on_hurtbox_hurt called")
 	# Safety: enemies only take damage from PlayerHitbox, never from other enemies/projectiles
 	if not (hitbox is PlayerHitbox):
 		print("[BaseEnemy] Not PlayerHitbox, ignoring")
 		return
 	if current_behavior != "dead":
-		var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
-		var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
-		print("[BaseEnemy:", enemy_id, "] hurt signal received dmg=", damage, " kb=", knockback_data.force)
-		print("[BaseEnemy] Calling take_damage...")
-		take_damage(damage, knockback_data.force, knockback_data.get("up_force", -1.0))
+		var elemental_only: bool = hitbox.get_meta("elemental_only_no_physical", false)
+		if not elemental_only:
+			var damage: float = 10.0
+			if hitbox.has_method("get_damage_for_target"):
+				damage = hitbox.get_damage_for_target(self)
+			elif hitbox.has_method("get_damage"):
+				damage = hitbox.get_damage()
+			var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
+			take_damage(damage, knockback_data.force, knockback_data.get("up_force", -1.0))
+		# Elemental efekt (decoy Hacivat vb.): hitbox'ta element meta varsa uygula
+		var elem: String = hitbox.get_meta("element", "")
+		if elem and elem.length() > 0 and has_node("/root/ElementalEffects"):
+			ElementalEffects.apply_to_enemy(self, elem)
 	else:
-		print("[BaseEnemy] Dead or invulnerable, no damage")
+		pass  # Dead or invulnerable, no damage
+		# print("[BaseEnemy] Dead or invulnerable, no damage")
 
 func _health_emit_changed() -> void:
 	var max_h = stats.max_health if stats else 100.0
@@ -442,12 +585,12 @@ func _should_spawn_blood() -> bool:
 	
 	# Check if this is a turtle enemy by checking the script name
 	var script_name = get_script().resource_path.get_file().get_basename().to_lower()
-	print("[BaseEnemy] Script name: ", script_name)
+	# print("[BaseEnemy] Script name: ", script_name)
 	if "turtle" in script_name:
 		print("[BaseEnemy] No blood: turtle enemy")
 		return false
 		
-	print("[BaseEnemy] Should spawn blood: true")
+	# print("[BaseEnemy] Should spawn blood: true")
 	return true
 
 func _spawn_blood_particles(damage_amount: float = 10.0) -> void:

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://gok_gurultusu_001"]
+
+[ext_resource type="Script" path="res://resources/items/gok_gurultusu.gd" id="1_script"]
+
+[node name="GokGurultusu" type="Node"]
+script = ExtResource("1_script")

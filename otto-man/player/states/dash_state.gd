@@ -20,12 +20,17 @@ func _ready() -> void:
 		if !is_connected("state_exited", player._on_dash_state_exited):
 			connect("state_exited", player._on_dash_state_exited)
 
+var dash_start_position := Vector2.ZERO
+
 func enter():
 	
 	# Call parent enter to emit signal
 	super.enter()
 	
 	# Charges sistemi kaldırıldı - sadece stamina kontrolü
+	
+	# Store dash start position for bomb
+	dash_start_position = player.position
 	
 	# Store original collision settings
 	original_collision_mask = player.collision_mask
@@ -60,6 +65,12 @@ func physics_update(delta: float):
 	dash_timer -= delta
 	
 	if dash_timer <= 0:
+		# Emit player_dodged signal for items (like Dodge Bombası)
+		var dash_end_pos = player.position
+		var dash_dir = -1 if player.sprite.flip_h else 1
+		if player.has_signal("player_dodged"):
+			player.emit_signal("player_dodged", dash_dir, dash_start_position, dash_end_pos)
+		
 		# Reduce speed when ending dash to prevent excessive drift
 		player.velocity.x *= DASH_END_SPEED_MULTIPLIER
 		# Restore collision settings and end dash
@@ -68,7 +79,7 @@ func physics_update(delta: float):
 		state_machine.transition_to("Fall")
 		return
 	
-	player.move_and_slide()
+	player.apply_move_and_slide()
 
 func exit():
 	# Call parent exit to emit signal
@@ -83,10 +94,27 @@ func cooldown_update(delta: float):
 	pass
 
 func can_start_dash() -> bool:
-	# Allow dash when on ground and we have stamina (charges sistemi kaldırıldı)
+	# Dash sadece Rüzgar Hançeri item'i varken kullanılabilir
+	var im = get_node_or_null("/root/ItemManager")
+	if im == null or not im.has_method("has_item"):
+		return false
+	if not im.has_item("ruzgar_hanceri"):
+		return false
+	
+	# Allow dash when on ground (or in air if item allows) and we have stamina
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
 	var has_stamina = stamina_bar and stamina_bar.has_charges()
-	return can_dash and player.is_on_floor() and has_stamina
+	var allow_air = has_meta("allow_air_dash") and get_meta("allow_air_dash") == true
+	var on_ground_or_allowed = player.is_on_floor() or allow_air
+	
+	if not can_dash:
+		return false
+	if not has_stamina:
+		return false
+	if not on_ground_or_allowed:
+		return false
+	
+	return true
 
 func set_dash_charges(charges: int) -> void:
 	max_dash_charges = charges

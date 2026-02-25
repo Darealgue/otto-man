@@ -8,6 +8,8 @@ var combo_multiplier: float = 1.0
 var is_combo_hit: bool = false
 var current_attack_name: String = ""
 var has_hit_enemy: bool = false  # Track if we've hit during this attack
+var max_targets_per_attack: int = 1  # Max enemies per attack (items can set e.g. 2 for fall attack)
+var _registered_hit_target_ids: Array = []  # Instance IDs of enemies that can take this hit
 var base_damage: float = 15.0  # Base damage value
 var combo_enabled: bool = false  # Added missing property
 
@@ -107,11 +109,37 @@ func disable_combo():
 	current_attack_name = ""
 	has_hit_enemy = false
 
+## Decoy için: player hitbox'tan state kopyala (aynı hasar, hedef limiti, knockback, collision shape)
+func sync_from_player_hitbox(source: PlayerHitbox) -> void:
+	damage = source.damage
+	knockback_force = source.knockback_force
+	knockback_up_force = source.knockback_up_force
+	current_attack_name = source.current_attack_name
+	max_targets_per_attack = source.max_targets_per_attack
+	combo_enabled = true
+	# Collision shape pozisyonunu da kopyala (up/down/normal varyantları için)
+	var src_cs = source.get_node_or_null("CollisionShape2D")
+	var dst_cs = get_node_or_null("CollisionShape2D")
+	if src_cs and dst_cs:
+		dst_cs.position = src_cs.position
+
+## Hedeften hasar alırken flank/gorunmezlik çarpanlarını uygula (DamageModifiers merkezi)
+## Mirror modunda: damage_source ve attacker_position_override meta ile decoy desteği
+func get_damage_for_target(enemy: Node) -> float:
+	var player: Node = get_meta("damage_source") if has_meta("damage_source") else get_parent()
+	var attacker_pos: Vector2 = get_meta("attacker_position_override") if has_meta("attacker_position_override") else (player.global_position if player else global_position)
+	if not player:
+		return damage
+	if has_node("/root/DamageModifiers"):
+		return DamageModifiers.apply_player_modifiers(player, damage, enemy, attacker_pos, false)
+	return damage
+
 func enable():
 	is_active = true
 	monitoring = true
 	monitorable = true
 	has_hit_enemy = false  # Reset hit flag when enabling hitbox
+	_registered_hit_target_ids.clear()
 	# Debug prints disabled to reduce console spam
 	# print("[PlayerHitbox] ENABLE name=", name, " dmg=", damage)
 	# print("[PlayerHitbox]    current_attack=", current_attack_name, " combo_enabled=", combo_enabled)
@@ -120,6 +148,19 @@ func enable():
 		# Make hitbox more visible when active
 		get_node("CollisionShape2D").debug_color = Color(0, 1, 0, 0.5)  # Green when active
 		
+
+## Returns true if this hurtbox/enemy is allowed to take the hit (up to max_targets_per_attack).
+func try_register_hit(hurtbox: Area2D) -> bool:
+	var enemy = hurtbox.get_parent() if hurtbox else null
+	if not is_instance_valid(enemy):
+		return false
+	var eid = enemy.get_instance_id()
+	if eid in _registered_hit_target_ids:
+		return true  # Already registered this attack
+	if _registered_hit_target_ids.size() >= max_targets_per_attack:
+		return false
+	_registered_hit_target_ids.append(eid)
+	return true
 
 func disable():
 	is_active = false
@@ -223,10 +264,9 @@ func _on_area_entered(area: Area2D) -> void:
 					fx.call_deferred("_adjust_position_to_center", spawn_position)
 			# Camera shake based on attack type and damage
 			_apply_screen_shake()
-			# Apply player air-combo float on successful hit while airborne
-			var player_node = get_parent()
-			if player_node:
-				# Refresh or extend float duration on each hit
+			# Apply player air-combo float on successful hit while airborne (decoy vurursa da player'a yansır)
+			var player_node = get_meta("damage_source") if has_meta("damage_source") else get_parent()
+			if player_node and player_node.get("air_combo_float_timer") != null:
 				player_node.air_combo_float_timer = max(player_node.air_combo_float_timer, player_node.air_combo_float_duration)
 				
 				# Recoil disabled - player no longer gets knockback from hitting enemies

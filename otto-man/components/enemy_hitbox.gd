@@ -37,17 +37,17 @@ func _on_area_entered(area: Area2D) -> void:
 		# print("[EnemyHitbox] ✅ Player hurtbox detected!")
 		var player = area.get_parent()
 		if player:
-			# print("[EnemyHitbox] 🎯 Player found: " + str(player.name))
-			# print("[EnemyHitbox] 📊 Enemy damage: " + str(damage))
-			# Apply hitstop based on enemy damage
-			var attack_manager = get_node("/root/AttackManager")
-			if attack_manager:
-				attack_manager.apply_hitstop(damage)
-			else:
-				print("[EnemyHitbox] ❌ ERROR: attack_manager is null!")
-			# Apply screen shake when player gets hit
-			_apply_enemy_screen_shake()
-			# Only emit when not parried
+			var is_decoy = player.has_method("is_decoy") and player.is_decoy()
+			if not is_decoy:
+				# print("[EnemyHitbox] 🎯 Player found: " + str(player.name))
+				# Apply hitstop based on enemy damage
+				var attack_manager = get_node("/root/AttackManager")
+				if attack_manager:
+					attack_manager.apply_hitstop(damage)
+				else:
+					print("[EnemyHitbox] ❌ ERROR: attack_manager is null!")
+				_apply_enemy_screen_shake()
+			# Emit so enemies can track target; decoy has take_damage() no-op
 			if not is_parried:
 				hit_player.emit(player)
 		else:

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://guc_kayasi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/guc_kayasi.gd" id="1_guc_kayasi"]
+
+[node name="GucKayasi" type="Node"]
+script = ExtResource("1_guc_kayasi")

@@ -172,9 +172,16 @@ func get_current_health() -> float:
 
 func set_current_health(value: float, show_damage_number: bool = true) -> void:
 	var old_health = current_health
-	current_health = clamp(value, 0, get_max_health())
+	var new_health = clamp(value, 0, get_max_health())
+	# İkinci Nefes: ölüm anında item tek seferlik diriltebilir
+	if new_health <= 0.0 and old_health > 0.0:
+		var im = get_node_or_null("/root/ItemManager")
+		if im and im.has_method("try_revive_player") and im.try_revive_player():
+			current_health = 1.0
+			health_changed.emit(1.0)
+			return
+	current_health = new_health
 	health_changed.emit(current_health)
-	
 	# Check for death
 	if current_health <= 0.0 and old_health > 0.0:
 		player_died.emit()

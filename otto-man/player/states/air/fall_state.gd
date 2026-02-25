@@ -43,12 +43,14 @@ func enter():
 	# Get reference to wall slide state
 	wall_slide_state = get_parent().get_node("WallSlide")
 	
-	# Reset hitbox CollisionShape2D position (in case coming from up attack)
+	# Reset hitbox position ve rotasyon (air up/down sonrası)
 	var reset_hitbox = player.get_node_or_null("Hitbox")
 	if reset_hitbox and reset_hitbox is PlayerHitbox:
+		reset_hitbox.position = Vector2.ZERO
+		reset_hitbox.rotation = 0.0
 		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			collision_shape.position = Vector2(52.625, -22.5)  # Orijinal pozisyona döndür
+			collision_shape.position = Vector2(52.625, -22.5)
 	
 	# Only play fall animation if we're not in a special animation
 	var current_anim = animation_player.current_animation
@@ -106,6 +108,20 @@ func physics_update(delta: float):
 			pass
 	else:
 		wall_contact_timer = 0.0
+	
+	# PRIORITY 1.5: Check for dodge/dash input (dash if item allows, otherwise air dodge)
+	if Input.is_action_just_pressed("dash"):
+		# Check if dash item is active (Rüzgar Hançeri)
+		var dash_state = state_machine.get_node_or_null("Dash")
+		if dash_state and dash_state.has_method("can_start_dash") and dash_state.can_start_dash():
+			state_machine.transition_to("Dash")
+			return
+		
+		# Otherwise check for air dodge
+		var dodge_state = state_machine.get_node("Dodge")
+		if dodge_state and dodge_state.can_start_dodge():
+			state_machine.transition_to("Dodge")
+			return
 	
 	# PRIORITY 2: Check for attack input - high priority for responsive controls
 	if Input.is_action_just_pressed("attack") and player.attack_cooldown_timer <= 0:
@@ -170,6 +186,24 @@ func physics_update(delta: float):
 			player.start_double_jump()
 			animation_player.play("double_jump")
 			return
+		elif player.has_double_jumped and player.get_meta("cift_ziplama_available", false) and has_node("/root/ItemManager") and ItemManager.has_active_item("cift_ziplama"):
+			# Çift Zıplama: 3. zıplama - patlama altında + can gider
+			player.set_meta("cift_ziplama_available", false)
+			var tree = get_tree()
+			if tree and tree.current_scene:
+				var explosion_pos = player.global_position + Vector2(0, 28)
+				var expl = Node2D.new()
+				expl.set_script(load("res://effects/third_jump_explosion.gd") as GDScript)
+				tree.current_scene.add_child(expl)
+				expl.global_position = explosion_pos
+			var stats = get_tree().root.get_node_or_null("PlayerStats")
+			if stats:
+				var cost = max(1.0, stats.get_max_health() * 0.08)
+				stats.set_current_health(stats.get_current_health() - cost, false)
+			player.start_double_jump()
+			is_double_jumping = true
+			animation_player.play("double_jump")
+			return
 	elif Input.is_action_just_pressed("jump") and (player.jump_input_blocked or player.jump_block_timer > 0):
 		pass  # Jump input blocked
 	elif Input.is_action_just_pressed("jump"):
@@ -200,15 +234,17 @@ func physics_update(delta: float):
 		# Use normal gravity during double jump
 		player.velocity.y += player.gravity * delta
 	else:
-		# Use Hollow Knight style gravity calculation
 		var gravity_multiplier = player.calculate_hollow_knight_gravity()
+		# Havada Kal: jump basılıyken düşerken süzülme (düşük yer çekimi)
+		if player.velocity.y > 0 and Input.is_action_pressed("jump") and has_node("/root/ItemManager") and ItemManager.has_active_item("havada_kal"):
+			gravity_multiplier *= 0.28
 		player.velocity.y += player.gravity * gravity_multiplier * delta
 	
 	# Apply maximum fall speed
 	if player.velocity.y > player.max_fall_speed:
 		player.velocity.y = player.max_fall_speed
 	
-	player.move_and_slide()
+	player.apply_move_and_slide()
 	
 	# Check for ledge grab first
 	var ledge_state = get_parent().get_node("LedgeGrab")

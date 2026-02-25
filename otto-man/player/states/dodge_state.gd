@@ -11,6 +11,7 @@ var dodge_charges := 1  # Number of available dodge charges
 var max_dodge_charges := 1  # Maximum dodge charges
 var original_collision_mask := 0  # Store original collision mask
 var original_collision_layer := 0  # Store original collision layer
+var dodge_start_position := Vector2.ZERO  # Store start position for signal
 
 func _ready() -> void:
 	await owner.ready  # Wait for owner to be ready
@@ -57,6 +58,7 @@ func enter():
 	# Start dodge
 	dodge_timer = DODGE_DURATION
 	can_dodge = true  # Cooldown kaldırıldı, sadece stamina kontrolü
+	dodge_start_position = player.position  # Store start position
 	# Play dodge animation
 	var anim_player = player.get_node("AnimationPlayer")
 	if anim_player:
@@ -79,6 +81,8 @@ func enter():
 	player.velocity.x = DODGE_SPEED * dodge_direction
 	# Yer çekimi çalışmaya devam etsin (dash'ten farklı olarak)
 	# player.velocity.y = 0  # Bu satırı kaldırdık
+	
+	# Store start position for signal (already stored above)
 
 func physics_update(delta: float):
 	dodge_timer -= delta
@@ -126,6 +130,15 @@ func physics_update(delta: float):
 		player.velocity.y += player.gravity * 0.6 * delta
 	
 	if dodge_timer <= 0:
+		# Emit signal for items
+		var end_pos = player.position
+		var dodge_dir = -1 if player.sprite.flip_h else 1
+		if player.has_signal("player_dodged"):
+			print("[Dodge] Emitting player_dodged signal: dir=", dodge_dir, " start=", dodge_start_position, " end=", end_pos)
+			player.emit_signal("player_dodged", dodge_dir, dodge_start_position, end_pos)
+		else:
+			print("[Dodge] ❌ player_dodged signal yok!")
+		
 		# Reduce speed when ending dodge to prevent excessive drift
 		player.velocity.x *= DODGE_END_SPEED_MULTIPLIER
 		# Restore collision settings and end dodge
@@ -141,7 +154,7 @@ func physics_update(delta: float):
 			state_machine.transition_to("Fall")
 		return
 	
-	player.move_and_slide()
+	player.apply_move_and_slide()
 
 func exit():
 	# Call parent exit to emit signal
@@ -177,10 +190,14 @@ func cooldown_update(delta: float):
 	pass
 
 func can_start_dodge() -> bool:
-	# Allow dodge when on ground and we have stamina (charges sistemi kaldırıldı)
+	# Check if item allows air dodge
+	var allow_air = has_meta("allow_air_dodge") and get_meta("allow_air_dodge") == true
+	
+	# Allow dodge when on ground (or in air if item allows) and we have stamina
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
 	var has_stamina = stamina_bar and stamina_bar.has_charges()
-	return can_dodge and player.is_on_floor() and has_stamina
+	var on_ground_or_allowed = player.is_on_floor() or allow_air
+	return can_dodge and on_ground_or_allowed and has_stamina
 
 func set_dodge_charges(charges: int) -> void:
 	max_dodge_charges = charges

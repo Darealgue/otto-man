@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://topuk_kirici_001"]
+
+[ext_resource type="Script" path="res://resources/items/topuk_kirici.gd" id="1_script"]
+
+[node name="TopukKirici" type="Node"]
+script = ExtResource("1_script")

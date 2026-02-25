@@ -2,7 +2,8 @@ extends State
 
 const ATTACK_SPEED_MULTIPLIER = 0.65
 const MOMENTUM_PRESERVATION = 0.85
-const ANIMATION_SPEED = 1.0
+const DEFAULT_ANIMATION_SPEED = 1.0
+var ANIMATION_SPEED := DEFAULT_ANIMATION_SPEED  # Dynamic value that can be modified by items
 const DAMAGE_MULTIPLIER = 2.0
 const JUST_WINDOW_START = 0.0   # relative to active window start
 const JUST_WINDOW_LENGTH = 0.06 # 60ms perfect window
@@ -15,6 +16,7 @@ const AIR_HEAVY_ANIMATIONS = ["air_heavy"]
 var current_attack := ""
 var hitbox_enabled := false
 var has_activated_hitbox := false
+var has_emitted_impact := false  # Zehirli Dev: hasar karesinde tek sefer emit
 var initial_velocity := Vector2.ZERO
 var entered_from_crouch := false  # Track if we came from crouch state
 
@@ -32,6 +34,7 @@ func enter():
 	initial_velocity = player.velocity
 	hitbox_enabled = false
 	has_activated_hitbox = false
+	has_emitted_impact = false
 	just_input_timer = 0.0
 	just_bonus_ready = false
 	
@@ -89,7 +92,7 @@ func enter():
 	else:
 		current_attack = AIR_HEAVY_ANIMATIONS[0]
 	animation_player.stop()
-	animation_player.speed_scale = ANIMATION_SPEED
+	animation_player.speed_scale = ANIMATION_SPEED * player.attack_speed_multiplier
 	if animation_player.has_animation(current_attack):
 		animation_player.play(current_attack)
 		animation_player.seek(0.0, true)
@@ -100,15 +103,20 @@ func enter():
 			target_state = "Fall"
 		state_machine.transition_to(target_state)
 		return
-	# prep hitbox
+	# prep hitbox (Topuk Kırıcı: crouch/slide sonrası ilk vuruş bonusu)
+	var heavy_dmg_mult: float = DAMAGE_MULTIPLIER * player.heavy_attack_damage_multiplier * player.topuk_kirici_next_hit_bonus
+	player.topuk_kirici_next_hit_bonus = 1.0
 	var hitbox = player.get_node_or_null("Hitbox")
 	if hitbox and hitbox is PlayerHitbox:
 		hitbox.disable()
-		hitbox.enable_combo(current_attack, DAMAGE_MULTIPLIER)
+		hitbox.enable_combo(current_attack, heavy_dmg_mult)
 		_update_hitbox_facing(hitbox)
 		if hitbox.hit_enemy.is_connected(_on_enemy_hit):
 			hitbox.hit_enemy.disconnect(_on_enemy_hit)
 		hitbox.hit_enemy.connect(_on_enemy_hit)
+		# Zehirli Dev vb.: heavy attack başladığında tetikle (vurmadan da zehir saçılsın)
+		if player.has_signal("heavy_attack_performed"):
+			player.emit_signal("heavy_attack_performed")
 		print("[HeavyAttack] HITBOX PREP | ", current_attack)
 
 func exit():
@@ -215,7 +223,7 @@ func _handle_movement(_delta: float) -> void:
 	# If movement is locked, don't allow horizontal movement
 	if movement_locked:
 		player.velocity.x = lerp(player.velocity.x, 0.0, 0.8)  # Gradually stop
-		player.move_and_slide()
+		player.apply_move_and_slide()
 		return
 		
 	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
@@ -226,7 +234,7 @@ func _handle_movement(_delta: float) -> void:
 	player.velocity.x = lerp(player.velocity.x, target_velocity.x, 1.0 - MOMENTUM_PRESERVATION)
 	if input_dir_x != 0:
 		player.sprite.flip_h = input_dir_x < 0
-	player.move_and_slide()
+	player.apply_move_and_slide()
 
 func _update_hitbox_by_timing() -> void:
 	if has_activated_hitbox:
@@ -250,7 +258,7 @@ func _update_hitbox_by_timing() -> void:
 	if progress >= window_start and progress <= window_end and not hitbox_enabled:
 		hitbox.disable()
 		# Priority 1: parry counter window
-		var dmg_mult := DAMAGE_MULTIPLIER
+		var dmg_mult: float = DAMAGE_MULTIPLIER * player.heavy_attack_damage_multiplier
 		var kb_mult := 1.0
 		var kb_up_mult := 1.0
 		if player.has_method("is_counter_window_active") and player.is_counter_window_active():
@@ -273,6 +281,14 @@ func _update_hitbox_by_timing() -> void:
 		hitbox.enable_combo(current_attack, dmg_mult, kb_mult, kb_up_mult)
 		hitbox.enable()
 		hitbox_enabled = true
+		# Zehirli Dev: vursa da vurmasa da tam bu karede partiküller fırlasın
+		if not has_emitted_impact and player.has_signal("heavy_attack_impact"):
+			player.emit_signal("heavy_attack_impact", current_attack)
+			has_emitted_impact = true
+		# Karagöz/Hacivat: saldırı yapıldı (vursa da vurmasa da)
+		if player.has_signal("player_attack_performed"):
+			var dmg = hitbox.damage if hitbox else 15.0
+			player.emit_signal("player_attack_performed", current_attack, dmg)
 		await get_tree().create_timer(0.18).timeout
 		if is_instance_valid(hitbox):
 			hitbox.disable()
@@ -280,14 +296,29 @@ func _update_hitbox_by_timing() -> void:
 	_update_hitbox_facing(hitbox)
 
 func _update_hitbox_facing(hitbox: Node2D) -> void:
-	var collision_shape = hitbox.get_node("CollisionShape2D")
+	var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 	if collision_shape:
-		var pos = collision_shape.position
-		if player.sprite.flip_h:
-			pos.x = -abs(pos.x)
+		var facing_left = player.sprite.flip_h
+		var facing_sign = -1.0 if facing_left else 1.0
+		# Yukarı heavy: light up ile aynı konum (88, 2.5) + -45°
+		var original_position: Vector2
+		if current_attack == "up_heavy":
+			original_position = Vector2(88.0, 2.5)
+		elif current_attack == "down_heavy":
+			original_position = Vector2(52.625, -22.5)
 		else:
-			pos.x = abs(pos.x)
+			original_position = Vector2(52.625, -22.5)
+		var pos = original_position
+		pos.x = abs(pos.x) * (-1 if facing_left else 1)
 		collision_shape.position = pos
+	# Yukarı/aşağı heavy: light ile aynı açı
+	if hitbox is Node2D:
+		var rot_deg: float = 0.0
+		if current_attack == "up_heavy":
+			rot_deg = -45.0 * (-1.0 if player.sprite.flip_h else 1.0)
+		elif current_attack == "down_heavy":
+			rot_deg = 45.0 * (-1.0 if player.sprite.flip_h else 1.0)
+		hitbox.rotation = deg_to_rad(rot_deg)
 
 func _on_anim_finished(anim_name: String) -> void:
 	if anim_name != current_attack:
@@ -305,7 +336,19 @@ func _on_anim_finished(anim_name: String) -> void:
 	
 	state_machine.transition_to(target_state)
 
-func _on_enemy_hit(_enemy: Node) -> void:
+func _on_enemy_hit(enemy: Node) -> void:
+	# Zehirli Dev: partiküller hasar anında fırlasın
+	if player.has_signal("heavy_attack_hit"):
+		player.emit_signal("heavy_attack_hit", enemy)
+	# Emit signal for items
+	if player.has_signal("player_attack_landed"):
+		var hitbox = player.get_node_or_null("Hitbox")
+		var attack_type = "heavy"
+		var damage = hitbox.get_damage() if hitbox else 0.0
+		var targets = [enemy] if enemy else []
+		player.emit_signal("player_attack_landed", attack_type, damage, targets, player.position, "all")
+	
+	# Original function continues...
 	has_activated_hitbox = true
 	if current_attack == "up_heavy":
 		allow_jump_cancel = true

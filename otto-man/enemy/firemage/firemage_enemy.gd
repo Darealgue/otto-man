@@ -465,16 +465,18 @@ func handle_alert(delta: float) -> void:
 func handle_chase(delta: float) -> void:
 	_handle_flying_state(delta)
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	# Firemage-specific damage handling
 	if current_behavior == "dead" or invulnerable:
 		return
 	
 	# Call base class take_damage to get blood particles and other effects
-	super.take_damage(amount, knockback_force, knockback_up_force)
+	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
 	
 	# Don't continue if we're dead after base class damage
 	if current_behavior == "dead":
+		return
+	if not apply_knockback:
 		return
 	
 	# Reset invulnerability to allow multiple hits
@@ -561,7 +563,9 @@ func die() -> void:
 	
 	# Emit signals
 	enemy_defeated.emit()
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
 	
 	# Apply death knockback - if in air, don't add upward velocity
 	if is_on_floor():

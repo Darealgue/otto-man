@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://kum_saati_001"]
+
+[ext_resource type="Script" path="res://resources/items/kum_saati.gd" id="1_kum"]
+
+[node name="KumSaati" type="Node"]
+script = ExtResource("1_kum")

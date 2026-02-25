@@ -295,6 +295,8 @@ func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:
 	node.set_meta("decoration_type", "gold")
 	var gold_value: int = data.get("gold_value", 1)
 	node.set_meta("gold_value", gold_value)
+	if not node.is_in_group("collectible_gold"):
+		node.add_to_group("collectible_gold")  # Mıknatıs: level tile üstündeki paraları da çeker
 	
 	var area: Area2D = Area2D.new()
 	area.name = "CollectArea"
@@ -432,7 +434,7 @@ func _is_player_node(n: Node) -> bool:
 
 func _on_gold_collected(body: Node2D, node: Node2D, gold_value: int) -> void:
 	if _is_player_node(body):
-		print("[DecorationSpawner] Gold collected: %d at %s" % [gold_value, str(node.global_position)])
+		# print("[DecorationSpawner] Gold collected: %d at %s" % [gold_value, str(node.global_position)])
 		
 		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
 		var scene_manager = get_node_or_null("/root/SceneManager")
@@ -477,7 +479,7 @@ func _on_breakable_area_entered(area: Area2D, node: Node2D) -> void:
 	if area.has_method("is_enabled") and not area.is_enabled():
 		return
 	var damage: int = int(area.get_damage())
-	print("[DecorationSpawner] BREAKABLE hit by ", area.name, " damage=", damage)
+	# print("[DecorationSpawner] BREAKABLE hit by ", area.name, " damage=", damage)
 	_apply_breakable_damage(node, damage)
 
 func _on_breakable_body_entered(body: Node2D, node: Node2D) -> void:
@@ -540,7 +542,7 @@ func _break_breakable(node: Node2D) -> void:
 		return
 	if DEBUG_DECOR:
 		print("[DecorationSpawner] Breaking breakable, total gold: ", total, " parts: ", parts)
-	print("[DecorationSpawner] Spawning ", parts.size(), " loot items from breakable")
+	# print("[DecorationSpawner] Spawning ", parts.size(), " loot items from breakable")
 	for v in parts:
 		var is_pouch: bool = v > 5
 		var body: RigidBody2D = null
@@ -552,9 +554,11 @@ func _break_breakable(node: Node2D) -> void:
 		if not body:
 			print("[DecorationSpawner] WARNING: Acquired body is null for value ", v)
 			continue
-		print("[DecorationSpawner] Acquired loot body for value ", v, " at position ", body.global_position, " visible=", body.visible)
+		# print("[DecorationSpawner] Acquired loot body for value ", v, " at position ", body.global_position, " visible=", body.visible)
 		body.set_meta("gold_value", v)
 		body.set_meta("collected", false)  # Flag to prevent double collection
+		if not body.is_in_group("collectible_gold"):
+			body.add_to_group("collectible_gold")  # Mıknatıs itemi bu grubu çeker
 		var spr: Sprite2D = body.get_node_or_null("Sprite") as Sprite2D
 		_apply_gold_visual(spr, v, false)
 		# Loot visuals should align to physics/area center (RigidBody origin)
@@ -895,7 +899,7 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 			else:
 				GlobalPlayerData.add_gold(gold_value)
 		
-		print("[DecorationSpawner] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
+		# print("[DecorationSpawner] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 		_create_collection_effect(coin.global_position)
 		
 		# Disconnect signals to prevent further collection attempts

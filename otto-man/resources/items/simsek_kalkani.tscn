@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://simsek_kalkani_001"]
+
+[ext_resource type="Script" path="res://resources/items/simsek_kalkani.gd" id="1_simsek"]
+
+[node name="SimsekKalkani" type="Node"]
+script = ExtResource("1_simsek")

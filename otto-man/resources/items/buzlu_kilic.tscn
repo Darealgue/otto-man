@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://buzlu_kilic_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/buzlu_kilic.gd" id="1_buzlu"]
+
+[node name="BuzluKilic" type="Node"]
+script = ExtResource("1_buzlu")

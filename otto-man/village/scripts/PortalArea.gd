@@ -291,6 +291,11 @@ func _apply_roguelike_mechanics(is_dead: bool) -> void:
 		powerup_manager.clear_all_powerups()
 		print("[PortalArea] 🎮 Roguelike: All powerups cleared")
 	
+	# Zindan itemlarının etkilerini temizle (köyde kalmasın; hem ölüm hem çıkış kapısı)
+	if has_node("/root/ItemManager") and ItemManager.has_method("clear_all_items"):
+		ItemManager.clear_all_items()
+		print("[PortalArea] 🎒 Roguelike: All item effects cleared on return to village")
+	
 	# Reset health (always)
 	if player_stats:
 		var max_health = player_stats.get_stat("max_health")

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ayran_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/ayran.gd" id="1_ayran"]
+
+[node name="Ayran" type="Node"]
+script = ExtResource("1_ayran")

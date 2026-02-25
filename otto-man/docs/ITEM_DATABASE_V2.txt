@@ -1,0 +1,366 @@
+================================================================================
+                    OTTO-MAN ITEM DATABASE - V2
+                    Mekanik Odaklı + Güçlendirme Odaklı
+                    (Trade-off sadece nadir/güçlü itemlerde)
+================================================================================
+Format: [Item ID] | İsim | Kategori | Rarity | Artı | Eksi (sadece nadirlerde)
+Rarity: COMMON, UNCOMMON, RARE, LEGENDARY
+================================================================================
+
+--- IMPLEMENTE EDİLEN İTEMLER (son kararlar) ---
+[baklava]     +1 stamina bar
+[simit]       Stamina sıfırlanınca 5 sn 2x regen (Ayran'dan farklı)
+[ayran]       Stamina regen +%50
+[hizli_el]    Light attack hızı +%25 (attack_state.ANIMATION_SPEED)
+[combo_ustasi] Combo (light attack) hasarı +%20 (player.light_attack_damage_multiplier)
+[zeytinyagi]  Slide süresi +%80, friction azalır (mesafe artar)
+[ruzgar_hanceri] Dodge → Dash, havada da kullanılabilir
+[yansitici_kalkan] Block: gelen hasarın yansıması (player_blocked → attacker.take_damage)
+[kalkan_ustasi] %25 şansla block stamina tüketmez (block_state meta: stamina_save_chance)
+================================================================================
+
+=== STAMINA İTEMLERİ (Sadece Güçlendirme) ===
+
+[baklava] Baklava | STAMINA | COMMON
+  Artı: +1 stamina bar
+  Eksi: Yok
+  Flavor: "Tatlı ama ağır değil, sadece enerji verir"
+
+[ayran] Ayran | STAMINA | COMMON
+  Artı: Stamina regen +%50
+  Eksi: Yok
+  Flavor: "Serinletici ve ferahlatıcı"
+
+[simit] Simit | STAMINA | COMMON
+  Artı: Stamina sıfırlanınca 5 sn %100 (2x) hızlı regen
+  Eksi: Yok
+  Flavor: "Simitçi geçti!"
+
+--------------------------------------------------------------------------------
+
+=== BLOCK İTEMLERİ ===
+
+[kalkan_ustasi] Kalkan Ustası | BLOCK | COMMON
+  Artı: %25 şansla block stamina tüketmez
+  Eksi: Yok
+  Flavor: "Daha uzun koruma"
+
+[demir_kalkan] Demir Kalkan | BLOCK | COMMON
+  Artı: Block charges +1
+  Eksi: Yok
+  Flavor: "Ekstra savunma hakkı"
+
+[yansitici_kalkan] Yansıtıcı Kalkan | BLOCK | UNCOMMON
+  Artı: Block sırasında gelen hasarın %50'si düşmana yansır
+  Eksi: Yok
+  Flavor: "Savunma = saldırı"
+
+[simsek_kalkani] Şimşek Kalkanı | BLOCK | RARE
+  Artı: Block başarılı → bloklanan hasarın %80'i şimşek olarak saldırgana
+  Eksi: Block süresi -%20
+  Flavor: "Elektrikli savunma"
+
+[dikenli_kalkan] Dikenli Kalkan | BLOCK | UNCOMMON
+  Artı: Block sırasında temas eden düşmanlara hasar
+  Eksi: Yok
+  Flavor: "Dikenli savunma"
+
+--------------------------------------------------------------------------------
+
+=== PARRY İTEMLERİ ===
+
+[parry_ustasi] Parry Ustası | PARRY | COMMON
+  Artı: Perfect parry penceresi +%40
+  Eksi: Yok
+  Flavor: "Daha kolay parry"
+
+[ters_darbe] Ters Darbe | PARRY | UNCOMMON
+  Artı: Perfect parry sonrası otomatik karşı saldırı
+  Eksi: Yok
+  Flavor: "Savunma = saldırı"
+
+[zaman_durdurucu] Zaman Durdurucu | PARRY | RARE
+  Artı: Perfect parry sonrası zaman yavaşlar (2 saniye)
+  Eksi: Parry penceresi -%15
+  Flavor: "Zamanı kontrol et"
+
+[parry_ruhu] Parry Ruhu | PARRY | UNCOMMON
+  Artı: Perfect parry sonrası stamina restore +1
+  Eksi: Yok
+  Flavor: "Parry ile enerji"
+
+--------------------------------------------------------------------------------
+
+=== LIGHT ATTACK İTEMLERİ ===
+
+[hizli_el] Hızlı El | LIGHT_ATTACK | COMMON
+  Artı: Light attack hızı +%25
+  Eksi: Yok
+  Flavor: "Daha hızlı vuruşlar"
+
+[combo_ustasi] Combo Ustası | LIGHT_ATTACK | COMMON
+  Artı: Combo hasarı +%20
+  Eksi: Yok
+  Flavor: "Kombo gücü"
+
+[cift_vurus] Çift Vuruş | LIGHT_ATTACK | UNCOMMON
+  Artı: Her light attack 2 kez vurur
+  Eksi: Yok
+  Flavor: "İkili vuruş"
+
+[zehirli_tirnak] Zehirli Tırnak | LIGHT_ATTACK | UNCOMMON
+  Artı: Light attack'lar zehir DoT verir
+  Eksi: Yok
+  Flavor: "Zehirli dokunuş"
+
+[atesli_yumruk] Ateşli Yumruk | LIGHT_ATTACK | UNCOMMON
+  Artı: Light attack'lar yakar
+  Eksi: Yok
+  Flavor: "Ateşli yumruk"
+
+[buzlu_kilic] Buzlu Kılıç | LIGHT_ATTACK | UNCOMMON
+  Artı: Light attack'lar yavaşlatır/dondurur
+  Eksi: Yok
+  Flavor: "Buzlu dokunuş"
+
+[simsek_parmagi] Şimşek Parmak | LIGHT_ATTACK | RARE
+  Artı: Light attack'lar şimşek çakar, düşmanlar arası sıçrar
+  Eksi: Attack hızı -%10
+  Flavor: "Elektrikli parmaklar"
+
+--------------------------------------------------------------------------------
+
+=== HEAVY ATTACK İTEMLERİ ===
+
+[guc_kayasi] Güç Kayası | HEAVY_ATTACK | COMMON
+  Artı: Heavy attack hasarı +%30
+  Eksi: Yok
+  Flavor: "Daha güçlü vuruş"
+
+[hizli_charge] Hızlı Charge | HEAVY_ATTACK | COMMON
+  Artı: Heavy attack charge süresi -%25
+  Eksi: Yok
+  Flavor: "Daha hızlı hazırlık"
+
+[zehirli_dev] Zehirli Dev | HEAVY_ATTACK | UNCOMMON
+  Artı: Heavy attack zehir püskürtür (AoE)
+  Eksi: Yok
+  Flavor: "Zehirli patlama"
+
+[gok_gurultusu] Gök Gürültüsü | HEAVY_ATTACK | UNCOMMON
+  Artı: Heavy attack şimşek indirir
+  Eksi: Yok
+  Flavor: "Gök gürültüsü"
+
+[lav_cekici] Lav Çekici | HEAVY_ATTACK | UNCOMMON
+  Artı: Heavy attack alev dalgası
+  Eksi: Yok
+  Flavor: "Ateşli dalga"
+
+[donma_cekici] Donma Çekici | HEAVY_ATTACK | UNCOMMON
+  Artı: Heavy attack donma AoE
+  Eksi: Yok
+  Flavor: "Buz dalgası"
+
+[patlama_topuzu] Patlama Topuzu | HEAVY_ATTACK | RARE
+  Artı: Heavy attack patlama yaratır, yakındaki düşmanlara hasar
+  Eksi: Charge süresi +%30
+  Flavor: "Patlayıcı güç"
+
+--------------------------------------------------------------------------------
+
+=== FALL ATTACK İTEMLERİ ===
+
+[gokten_dusus] Gökten Düşüş | FALL_ATTACK | COMMON
+  Artı: Fall attack hasarı +%30
+  Eksi: Yok
+  Flavor: "Daha güçlü düşüş"
+
+[genis_dusus] Geniş Düşüş | FALL_ATTACK | COMMON
+  Artı: Fall attack alanı +%50
+  Eksi: Yok
+  Flavor: "Daha geniş etki"
+
+[zehirli_dusus] Zehirli Düşüş | FALL_ATTACK | UNCOMMON
+  Artı: Fall attack zehir bulutu bırakır
+  Eksi: Yok
+  Flavor: "Zehirli düşüş"
+
+[yildirim_dususu] Yıldırım Düşüşü | FALL_ATTACK | UNCOMMON
+  Artı: Fall attack şimşek çakar
+  Eksi: Yok
+  Flavor: "Şimşekli düşüş"
+
+[ates_topu_dususu] Ateş Topu Düşüşü | FALL_ATTACK | UNCOMMON
+  Artı: Fall attack alev patlaması
+  Eksi: Yok
+  Flavor: "Ateşli düşüş"
+
+[buz_cagi] Buz Çağı | FALL_ATTACK | UNCOMMON
+  Artı: Fall attack donma dalgası
+  Eksi: Yok
+  Flavor: "Buzlu düşüş"
+
+--------------------------------------------------------------------------------
+
+=== WALL SLIDE İTEMLERİ ===
+
+--------------------------------------------------------------------------------
+
+=== SLIDE İTEMLERİ ===
+
+[zeytinyagi] Zeytinyağı | SLIDE | COMMON
+  Artı: Slide mesafesi +%80
+  Eksi: Yok
+  Flavor: "Kaygan zemin"
+
+[kaygan_yag] Kaygan Yağ | SLIDE | UNCOMMON
+  Artı: Slide mesafesi +%100, slide sırasında düşmanlardan geçebilirsin
+  Eksi: Yok
+  Flavor: "Süper kaygan"
+
+[slide_simsegi] Slide Şimşeği | SLIDE | RARE
+  Artı: Slide sırasında şimşek çakar, yakındaki düşmanlara hasar
+  Eksi: Slide kontrolü -%20
+  Flavor: "Elektrikli kayma"
+
+--------------------------------------------------------------------------------
+
+=== CROUCH İTEMLERİ ===
+
+[tunel_ustasi] Tünel Ustası | CROUCH | COMMON
+  Artı: Crawl hızı +%50
+  Eksi: Yok
+  Flavor: "Daha hızlı sürünme"
+
+--------------------------------------------------------------------------------
+
+=== JUMP İTEMLERİ ===
+
+[kus_kanadi] Kuş Kanadı | JUMP | COMMON
+  Artı: Triple jump (3 zıplama)
+  Eksi: Yok
+  Flavor: "Kuş gibi zıplama"
+
+[cift_zıplama] Çift Zıplama | JUMP | COMMON
+  Artı: Double jump hakkı +1 (toplam 3 zıplama); 3. zıplama oyuncunun biraz altında patlama yaratır
+  Eksi: 3. zıplamada can gider
+  Flavor: "Ekstra zıplama"
+
+[havada_kal] Havada Kal | JUMP | UNCOMMON
+  Artı: Zıplama sonrası havada kısa süre kalabilirsin (glide)
+  Eksi: Yok
+  Flavor: "Havada süzülme"
+
+[ziplama_zehiri] Zıplama Zehiri | JUMP | UNCOMMON
+  Artı: Zıplama sırasında zehir trail bırakırsın
+  Eksi: Yok
+  Flavor: "Zehirli zıplama"
+
+--------------------------------------------------------------------------------
+
+=== DODGE İTEMLERİ ===
+
+[ruzgar_hanceri] Rüzgar Hançeri | DODGE | UNCOMMON
+  Artı: Dodge roll → Dash'e dönüşür, havada kullanılabilir
+  Eksi: Yok
+  Flavor: "Rüzgar gibi geç"
+
+[yildirim_adimi] Yıldırım Adımı | DODGE | UNCOMMON
+  Artı: Dodge hızı +%50, dodge sonrası kısa süre hız bonusu
+  Eksi: Yok
+  Flavor: "Şimşek hızı"
+
+[gorunmezlik_pelerini] Görünmezlik Pelerini | DODGE | RARE
+  Artı: Dodge sırasında görünmez olursun, düşmanlar hedeflemez
+  Eksi: Dodge süresi -%20
+  Flavor: "Görünmez kaçış"
+
+[dodge_bombasi] Dodge Bombası | DODGE | UNCOMMON
+  Artı: Dodge kullandığında arkanda bomba bırakırsın
+  Eksi: Yok
+  Flavor: "Patlayıcı kaçış"
+
+[dodge_zehiri] Dodge Zehiri | DODGE | UNCOMMON
+  Artı: Dodge kullandığında arkanda zehir trail bırakırsın
+  Eksi: Yok
+  Flavor: "Zehirli kaçış"
+
+--------------------------------------------------------------------------------
+
+=== ÖZEL / NADİR İTEMLER (Trade-off ile) ===
+
+[ortaoyunu] Ortaoyunu | SPECIAL | LEGENDARY
+  Artı: Oyuncunun kopyası spawn olur, seninle birlikte saldırır
+  Eksi: Kopya seni de vurabilir (friendly fire riski)
+  Flavor: "Hacivat ve Karagöz birlikte!"
+
+[zaman_kristali] Zaman Kristali | SPECIAL | LEGENDARY
+  Artı: Saldırı butonuna basılı tutunca zaman yavaşlar
+  Eksi: Saldırıyı bırakınca kısa stun
+  Flavor: "Zamanı kontrol et"
+
+[hayalet_el] Hayalet El | SPECIAL | RARE
+  Artı: Saldırıların bazen "hayalet" ikinci vuruşu olur
+  Eksi: Hayalet vuruş gecikmeli, kolay kaçırılır
+  Flavor: "Hayalet vuruş"
+
+[kan_pakti] Kan Paktı | SPECIAL | RARE
+  Artı: Block yerine health ile hasar öde (alternatif savunma)
+  Eksi: Her block'ta can kaybedersin
+  Flavor: "Kanla korunma"
+
+[berserker_ruhu] Berserker Ruhu | SPECIAL | RARE
+  Artı: Canın düştükçe hasarın artar (max +%100)
+  Eksi: Savunma zayıf, daha fazla hasar alırsın
+  Flavor: "Öfke gücü"
+
+[fedai] Fedai | SPECIAL | LEGENDARY
+  Artı: Canın 0'a indiğinde patlarsın, son vuruşu yapan düşman ölür
+  Eksi: Sen de ölürsün (ama İkinci Nefes ile kombinlenebilir)
+  Flavor: "Son vuruş"
+
+[ikinci_nefes] İkinci Nefes | SPECIAL | RARE
+  Artı: İlk ölümde 1 canla dirilirsin
+  Eksi: Sadece 1 kez, sonra normal
+  Flavor: "İkinci şans"
+
+[ruh_avcisi] Ruh Avcısı | SPECIAL | UNCOMMON
+  Artı: Öldürdüğün düşmandan kısa süreli hayalet minion
+  Eksi: Yok
+  Flavor: "Ruh ordusu"
+
+[patlama_zinciri] Patlama Zinciri | SPECIAL | UNCOMMON
+  Artı: Öldürülen düşman patlar, yakındakilere hasar
+  Eksi: Yok
+  Flavor: "Zincir patlama"
+
+[elemental_amplifier] Elemental Güçlendirici | SYNERGY | RARE
+  Artı: Tüm elemental hasarlar (zehir, ateş, buz, şimşek) +%50
+  Eksi: Fiziksel hasar -%10
+  Flavor: "Elemental güç"
+
+[elemental_cekilme] Elemental Çekilme | SYNERGY | RARE
+  Artı: Spawn ettiğin elemental efektler 2. kez tetiklenir
+  Eksi: Elemental olmayan hasar -%15
+  Flavor: "İkiz element"
+
+[simsek_sicramasi] Şimşek Sıçraması | SYNERGY | RARE
+  Artı: Şimşek düşmanlar arası sıçrar (zincir)
+  Eksi: Şimşek hasarı -%20
+  Flavor: "Zincir şimşek"
+
+[zehir_yayilimi] Zehir Yayılımı | SYNERGY | RARE
+  Artı: Zehirli düşman ölür → yakındaki 2 düşmana zehir bulaşır
+  Eksi: Zehir hasarı -%15
+  Flavor: "Zehir yayılımı"
+
+================================================================================
+ÖZET:
+- COMMON: Sadece güçlendirme, trade-off yok (~25 item)
+- UNCOMMON: Güçlendirme + özel efekt, trade-off yok (~30 item)
+- RARE: Güçlendirme + trade-off (küçük eksi) (~12 item)
+- LEGENDARY: Çok güçlü + trade-off (belirgin eksi) (~3 item)
+
+Toplam: ~70 item
+================================================================================

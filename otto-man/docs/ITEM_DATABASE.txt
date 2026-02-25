@@ -1,0 +1,437 @@
+================================================================================
+                    OTTO-MAN ITEM DATABASE - TASLAK
+                    (İnce ayar için referans - v1.0)
+================================================================================
+Format: [Item ID] | İsim | Kategori | Tip | Artı | Eksi | Notlar
+Kategori: MOVEMENT, ATTACK, DEFENSE, PASSIVE_AURA, PASSIVE_ON_KILL, PASSIVE_ON_HIT, PASSIVE_CHAOS, PASSIVE_SURVIVAL
+Tip: ACTIVE (mekanik değiştirir), PASSIVE (sürekli etkili)
+================================================================================
+
+=== HAREKET MEKANİKLERİ (ACTIVE) ===
+
+[barut_kesesi] Barut Kesesi | MOVEMENT | ACTIVE
+  Artı: Dodge kullandığında arkanda patlayıcı bırakır, düşmanlara hasar
+  Eksi: Bomba oyuncuya da hasar verir
+  modifies_mechanic: dodge
+  conflicts_with: agir_zirh
+
+[kus_kanadi] Kuş Kanadı | MOVEMENT | ACTIVE
+  Artı: Triple jump - 3 kez zıplayabilirsin
+  Eksi: Her 3. zıplamadan sonra kısa stun
+  modifies_mechanic: jump
+
+[agir_zirh] Ağır Zırh | MOVEMENT | ACTIVE
+  Artı: Dodge yerine kısa süreli block (yerinde kalır, daha güçlü savunma)
+  Eksi: Dodge yok, sadece yerinde blok
+  modifies_mechanic: dodge
+  conflicts_with: barut_kesesi
+
+[ruzgar_pabucu] Rüzgar Pabucu | MOVEMENT | ACTIVE
+  Artı: Dodge havada kalırken ekstra bir dash yapabilirsin
+  Eksi: Her dodge sonrası 0.5 sn yavaşlama
+  modifies_mechanic: dodge
+
+[gorunmezlik_pelerini] Görünmezlik Pelerini | MOVEMENT | ACTIVE
+  Artı: Dodge sırasında kısa süre görünmez olursun, düşmanlar hedeflemez
+  Eksi: Görünmezken saldırı yapamazsın
+  modifies_mechanic: dodge
+
+[yercekimi_tersi] Yerçekimi Tersi | MOVEMENT | ACTIVE
+  Artı: Zıplama yerine kısa süre yukarı süzülme
+  Eksi: Yere inerken küçük hasar alırsın
+  modifies_mechanic: jump
+
+--------------------------------------------------------------------------------
+
+=== SALDIRI MEKANİKLERİ (ACTIVE) ===
+
+[uzun_mizrak] Uzun Mızrak | ATTACK | ACTIVE
+  Artı: Saldırılar ranged - mızrak fırlatma, uzaktan vurma
+  Eksi: Hasar -%40, mermi/projektil sınırı
+  modifies_mechanic: attack
+
+[cift_yonlu_kilic] Çift Yönlü Kılıç | ATTACK | ACTIVE
+  Artı: Her saldırıda hem öne hem arkaya vuruş
+  Eksi: Saldırı süresi uzar, daha savunmasız
+  modifies_mechanic: attack
+
+[zincirli_topuz] Zincirli Topuz | ATTACK | ACTIVE
+  Artı: Saldırılar bumerang gibi geri döner, iki kez hasar
+  Eksi: Geri dönerken oyuncuya da hasar verebilir
+  modifies_mechanic: attack
+
+[atesli_kilic] Ateşli Kılıç | ATTACK | ACTIVE
+  Artı: Her 3. vuruşta alev patlaması, AoE hasar
+  Eksi: Patlama oyuncuyu da hafif itebilir
+  modifies_mechanic: attack
+
+[zehirli_hancer] Zehirli Hançer | ATTACK | ACTIVE
+  Artı: Saldırılar DoT (zehir) verir
+  Eksi: Kendi zehirin sana da uygulanabilir (yanlış temas)
+  modifies_mechanic: attack
+
+[yansitici_kalkan] Yansıtıcı Kalkan | DEFENSE | ACTIVE
+  Artı: Block sırasında gelen hasarın bir kısmı düşmana yansır
+  Eksi: Block süresi kısalır
+  modifies_mechanic: block
+
+[delici_mizrak] Delici Mızrak | ATTACK | ACTIVE
+  Artı: Saldırılar düşmanları delip geçer (pierce), birden fazla düşmana
+  Eksi: Tek düşmana hasar -%25
+  modifies_mechanic: attack
+
+--------------------------------------------------------------------------------
+
+=== SAVUNMA MEKANİKLERİ (ACTIVE) ===
+
+[dikenli_zirh] Dikenli Zırh | DEFENSE | ACTIVE
+  Artı: Block sırasında temas eden düşmanlara hasar
+  Eksi: Block süresi kısalır
+  modifies_mechanic: block
+
+[ters_darbe] Ters Darbe | DEFENSE | ACTIVE
+  Artı: Perfect parry sonrası otomatik karşı saldırı
+  Eksi: Parry penceresi daralır
+  modifies_mechanic: parry
+
+[kirilgan_kalkan] Kırılgan Kalkan | DEFENSE | ACTIVE
+  Artı: Block yerine tek kullanımlık kalkan (1 hit tam bloklar)
+  Eksi: Sonra uzun cooldown
+  modifies_mechanic: block
+
+[kan_pakti] Kan Paktı | DEFENSE | ACTIVE
+  Artı: Block yerine health ile hasar öde (alternatif savunma)
+  Eksi: Her block'ta can kaybedersin
+  modifies_mechanic: block
+
+--------------------------------------------------------------------------------
+
+=== ÖZEL MEKANİKLER (ACTIVE) ===
+
+[zaman_kristali] Zaman Kristali | ATTACK | ACTIVE
+  Artı: Saldırı butonuna basılı tutunca zaman yavaşlar, planlama
+  Eksi: Saldırıyı bırakınca kısa stun
+  modifies_mechanic: attack
+
+[hayalet_el] Hayalet El | ATTACK | ACTIVE
+  Artı: Saldırılar "hayalet" olarak tekrar oynar (delay'li ikinci vuruş)
+  Eksi: Timing zor, kolay kaçırılır
+  modifies_mechanic: attack
+
+[kan_bagi] Kan Bağı | ATTACK | ACTIVE
+  Artı: Düşman öldürünce kısa süreli minion spawn
+  Eksi: Minion seni de vurabilir (friendly fire)
+  modifies_mechanic: on_kill
+
+[kaos_yuzugu] Kaos Yüzüğü | PASSIVE_CHAOS | ACTIVE
+  Artı: Her odada rastgele bir mekanik değişir
+  Eksi: Bazen dezavantajlı kombinasyon
+  modifies_mechanic: random
+
+[ayna] Ayna | ATTACK | ACTIVE
+  Artı: Düşmanların saldırılarını kopyalarsın
+  Eksi: Bazen kendine zarar veren saldırılar
+  modifies_mechanic: attack
+
+[yer_degistirme] Yer Değiştirme | MOVEMENT | ACTIVE
+  Artı: Dodge düşmanla yer değiştirir
+  Eksi: Bazen tehlikeli yere geçersin
+  modifies_mechanic: dodge
+
+================================================================================
+
+=== PASİF - ÇEVRE / ALAN ETKİLERİ ===
+
+[kanli_ayak_izleri] Kanlı Ayak İzleri | PASSIVE_AURA | PASSIVE
+  Artı: Yürüdüğün yerde hasar veren trail bırakırsın
+  Eksi: Trail seni de yakabilir / alanı kapatır
+  signal: player_moved
+
+[dondurucu_nefes] Dondurucu Nefes | PASSIVE_AURA | PASSIVE
+  Artı: Etrafındaki düşmanlar yavaşlar
+  Eksi: Sen de biraz yavaşlarsın
+  signal: player_near_enemies
+
+[alev_halesi] Alev Halesi | PASSIVE_AURA | PASSIVE
+  Artı: Yakınındaki düşmanlara sürekli hasar
+  Eksi: Yakındaki patlayıcılar tetiklenebilir
+  signal: player_near_enemies
+
+[zehir_bulutu] Zehir Bulutu | PASSIVE_AURA | PASSIVE
+  Artı: Arkanda zehirli iz bırakırsın
+  Eksi: Kendi zehirin sana da zarar verir
+  signal: player_moved
+
+[yercekimi_cekirdegi] Yerçekimi Çekirdeği | PASSIVE_AURA | PASSIVE
+  Artı: Düşmanlar yavaşça sana doğru çekilir
+  Eksi: Çok düşman birikince tehlikeli
+  signal: player_near_enemies
+
+--------------------------------------------------------------------------------
+
+=== PASİF - VURMA / ÖLDÜRME SONRASI ===
+
+[kan_emici] Kan Emici | PASSIVE_ON_KILL | PASSIVE
+  Artı: Vurduğun düşmandan can emersin
+  Eksi: Emme miktarı sınırlı veya cooldown'lu
+  signal: player_attacked, player_killed_enemy
+
+[ruh_avcisi] Ruh Avcısı | PASSIVE_ON_KILL | PASSIVE
+  Artı: Öldürdüğün düşmandan kısa süreli hayalet minion
+  Eksi: Minion friendly fire yapabilir
+  signal: player_killed_enemy
+
+[patlama_zinciri] Patlama Zinciri | PASSIVE_ON_KILL | PASSIVE
+  Artı: Öldürülen düşman patlar, yakındakilere hasar
+  Eksi: Patlama seni de etkileyebilir
+  signal: player_killed_enemy
+
+[altin_dokunus] Altın Dokunuş | PASSIVE_ON_KILL | PASSIVE
+  Artı: Öldürdüğün düşman geçici altına dönüşür (ekstra gold?)
+  Eksi: Altın düşman hala hareket edebilir
+  signal: player_killed_enemy
+
+[lanet_mirasi] Lanet Mirası | PASSIVE_ON_KILL | PASSIVE
+  Artı: Öldürdüğün düşmanın bir özelliğini geçici alırsın
+  Eksi: Bazen kötü özellik geçer
+  signal: player_killed_enemy
+
+--------------------------------------------------------------------------------
+
+=== PASİF - SAVUNMA / TEMAS ===
+
+[dikenli_deri] Dikenli Deri | PASSIVE_ON_HIT | PASSIVE
+  Artı: Sana temas eden düşman hasar alır
+  Eksi: Dokunma hasarı düşük
+  signal: enemy_touched_player
+
+[yansitici_ayna] Yansıtıcı Ayna | PASSIVE_ON_HIT | PASSIVE
+  Artı: Aldığın hasarın bir kısmı saldırgana döner
+  Eksi: Yansıma oranı sınırlı
+  signal: player_took_damage
+
+[donma_dokunusu] Donma Dokunuşu | PASSIVE_ON_HIT | PASSIVE
+  Artı: Sana vuran düşman kısa süre donar
+  Eksi: Donma süresi kısa
+  signal: player_took_damage, enemy_touched_player
+
+[kan_bagi_pasif] Kan Bağı (Pasif) | PASSIVE_ON_HIT | PASSIVE
+  Artı: Canın düşükken düşmanlar da yavaşça can kaybeder
+  Eksi: Sen de ekstra savunmasızsın
+  signal: player_near_enemies (can < %30 koşulu)
+
+--------------------------------------------------------------------------------
+
+=== PASİF - RASTGELE / KAOTİK ===
+
+[sansin_kirbaci] Şansın Kırbacı | PASSIVE_CHAOS | PASSIVE
+  Artı: Rastgele olaylar - ekstra crit, düşman miss, sen miss
+  Eksi: İyi ve kötü şans dengeli
+  signal: random_proc
+
+[hayalet_el_pasif] Hayalet El (Pasif) | PASSIVE_CHAOS | PASSIVE
+  Artı: Saldırıların bazen "hayalet" ikinci vuruşu olur
+  Eksi: Hayalet vuruş gecikmeli, kaçırılabilir
+  signal: player_attacked
+
+[titreyen_el] Titreyen El | PASSIVE_CHAOS | PASSIVE
+  Artı: Bazen saldırılar yanlış yöne gider (sürpriz!)
+  Eksi: Yanlış yön seni de vurabilir
+  signal: player_attacked
+
+--------------------------------------------------------------------------------
+
+=== PASİF - BOYUT / FİZİK ===
+
+[dev_iksiri] Dev İksiri | PASSIVE_AURA | PASSIVE
+  Artı: %30 daha büyüksün, daha fazla presence
+  Eksi: Hareket yavaşlar, hitbox büyür
+  stat_modifier: size
+
+[cuce_tozu] Cüce Tozu | PASSIVE_AURA | PASSIVE
+  Artı: %25 daha küçüksün, daha az hedef
+  Eksi: Hasar azalır
+  stat_modifier: size
+
+[agirlik_kemeri] Ağırlık Kemeri | PASSIVE_AURA | PASSIVE
+  Artı: Yerçekimin artar, daha hızlı düşersin
+  Eksi: Fall damage artar
+  stat_modifier: gravity
+
+[tuy] Tüy | PASSIVE_AURA | PASSIVE
+  Artı: Yerçekimin azalır, yavaş düşersin
+  Eksi: Kontrol zorlaşır
+  stat_modifier: gravity
+
+--------------------------------------------------------------------------------
+
+=== PASİF - KAYNAK / EKONOMİ ===
+
+[manyetik_cuzdan] Manyetik Cüzdan | PASSIVE_AURA | PASSIVE
+  Artı: Pickup'lar sana doğru çekilir
+  Eksi: Çekim mesafesi sınırlı
+  signal: always_on
+
+[ac_gozlu] Aç Gözlü | PASSIVE_AURA | PASSIVE
+  Artı: Daha fazla gold drop
+  Eksi: Aldığın hasar artar
+  stat_modifier: gold_drop, damage_taken
+
+[comert_ruh] Cömert Ruh | PASSIVE_ON_KILL | PASSIVE
+  Artı: Düşmanlar bazen ekstra item drop eder
+  Eksi: Drop şansı düşük
+  signal: player_killed_enemy
+
+[lanetli_altin] Lanetli Altın | PASSIVE_AURA | PASSIVE
+  Artı: Sürekli gold kazanırsın
+  Eksi: Taşıdığın gold arttıkça hasar alırsın
+  stat_modifier: gold_curse
+
+--------------------------------------------------------------------------------
+
+=== PASİF - HAYATTA KALMA ===
+
+[ikinci_nefes] İkinci Nefes | PASSIVE_SURVIVAL | PASSIVE
+  Artı: İlk ölümde 1 canla dirilirsin
+  Eksi: Sadece 1 kez, sonra normal
+  signal: player_died
+
+[son_damla] Son Damla | PASSIVE_SURVIVAL | PASSIVE
+  Artı: 1 cana düşünce kısa süre dokunulmaz
+  Eksi: Uzun cooldown
+  signal: health_changed (health == 1)
+
+[berserker_ruhu] Berserker Ruhu | PASSIVE_SURVIVAL | PASSIVE
+  Artı: Canın düştükçe hasarın artar
+  Eksi: Savunma zayıf
+  stat_modifier: damage_scaling_by_health
+
+[fedai] Fedai | PASSIVE_SURVIVAL | PASSIVE
+  Artı: Canın 0'a indiğinde patlarsın, son vuruşu yapan düşman ölür
+  Eksi: Sen de ölürsün
+  signal: player_died
+
+================================================================================
+
+=== SİNERJİ TANIMLARI (Taslak) ===
+
+[saray_mutfagi] Baklava + Lokum + Çay (yiyecek itemleri - henüz tanımlı değil)
+  Efekt: +1 stamina, +%10 health
+
+[yeniceri_ruhu] Yatağan + Kaftan (silah + zırh - henüz tanımlı değil)
+  Efekt: +%15 damage, +%10 block
+
+[patlama_kombo] Barut Kesesi + Patlama Zinciri
+  Efekt: Dodge bombası öldürürse zincir patlaması tetiklenir
+
+[homing_combo] Uzun Mızrak + Manyetik Cüzdan
+  Efekt: Mızrak düşmana doğru hafif çekilir (homing)
+
+[ucgen_hasar] Çift Yönlü Kılıç + Dikenli Deri
+  Efekt: Önden + arkadan + temas = üçlü hasar kaynağı
+
+[havada_kal] Kuş Kanadı + Tüy
+  Efekt: Havada çok uzun süre kalma
+
+================================================================================
+
+=== UYGULANACAK SİGNAL LİSTESİ (Game Core'a eklenecek) ===
+
+Player:
+  - player_dodged(direction, start_pos, end_pos)
+  - player_jumped(jump_count, position)
+  - player_attacked(direction, damage, hit_targets)
+  - player_blocked(blocked_damage, attacker)
+  - player_parried(parry_direction)
+  - player_moved(position, delta)
+
+Combat/Damage:
+  - player_took_damage(amount, source, position)
+  - player_killed_enemy(enemy, position)
+  - enemy_touched_player(enemy, contact_point)
+
+State:
+  - player_near_enemies(enemies_array)
+  - health_changed(current, max)
+  - player_died()
+
+================================================================================
+
+=== SALDIRI TİPİ → ELEMENT DÖNÜŞTÜRÜCÜ İTEMLER ===
+(Normal attack, Heavy attack, Fall attack → Zehir/Ateş/Buz/Şimşek)
+
+[zehirli_tirnak] Zehirli Tırnak | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: normal_attack → elemental_poison
+  Artı: Normal vuruşlar zehir DoT verir
+  Eksi: Normal hasar -%15
+  converts: normal_attack, element: poison
+
+[atesli_yumruk] Ateşli Yumruk | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: normal_attack → elemental_fire
+  Artı: Normal vuruşlar yakar
+  Eksi: Yanma süresi kısa
+  converts: normal_attack, element: fire
+
+[buzlu_kilic] Buzlu Kılıç | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: normal_attack → elemental_ice
+  Artı: Normal vuruşlar yavaşlatır/dondurur
+  Eksi: Hasar -%10
+  converts: normal_attack, element: ice
+
+[simsek_parmagi] Şimşek Parmak | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: normal_attack → elemental_lightning
+  Artı: Normal vuruşlar şimşek çakar
+  Eksi: Cooldown artar
+  converts: normal_attack, element: lightning
+
+[zehirli_dev] Zehirli Dev | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: heavy_attack → elemental_poison
+  Artı: Heavy vuruş zehir püskürtür (AoE)
+  Eksi: Heavy charge süresi +%20
+  converts: heavy_attack, element: poison
+
+[gok_gurultusu] Gök Gürültüsü | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: heavy_attack → elemental_lightning
+  Artı: Heavy vuruş şimşek indirir
+  Eksi: Stamina maliyeti artar
+  converts: heavy_attack, element: lightning
+
+[lav_cekici] Lav Çekici | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: heavy_attack → elemental_fire
+  Artı: Heavy vuruş alev dalgası
+  Eksi: Hareket -%5
+  converts: heavy_attack, element: fire
+
+[donma_cekici] Donma Çekici | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: heavy_attack → elemental_ice
+  Artı: Heavy vuruş donma AoE
+  Eksi: Heavy cooldown uzar
+  converts: heavy_attack, element: ice
+
+[zehirli_dusus] Zehirli Düşüş | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: fall_attack → elemental_poison
+  Artı: Fall attack zehir bulutu bırakır
+  Eksi: Fall damage riski
+  converts: fall_attack, element: poison
+
+[yildirim_dususu] Yıldırım Düşüşü | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: fall_attack → elemental_lightning
+  Artı: Fall attack şimşek çakar
+  Eksi: Fall attack süresi uzar
+  converts: fall_attack, element: lightning
+
+[ates_topu_dususu] Ateş Topu Düşüşü | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: fall_attack → elemental_fire
+  Artı: Fall attack alev patlaması
+  Eksi: Patlama oyuncuyu da iter
+  converts: fall_attack, element: fire
+
+[buz_cagi] Buz Çağı | ATTACK_CONVERSION | ACTIVE
+  Dönüştürür: fall_attack → elemental_ice
+  Artı: Fall attack donma dalgası
+  Eksi: Yere inince kısa yavaşlama
+  converts: fall_attack, element: ice
+
+================================================================================
+SON GÜNCELLEME: Taslak v1.1 - Saldırı dönüştürücü itemler eklendi
+================================================================================

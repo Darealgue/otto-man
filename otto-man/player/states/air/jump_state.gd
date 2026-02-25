@@ -12,6 +12,18 @@ func enter():
 	if not animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.connect("animation_finished", _on_animation_finished)
 	
+	# Track jump count for triple jump (Kuş Kanadı)
+	var can_triple_jump = player.has_meta("kus_kanadi_active")
+	var current_jump_count = 0
+	if can_triple_jump:
+		# Reset jump count if jumping from ground (first jump)
+		if player.is_on_floor():
+			player.set_meta("kus_kanadi_jump_count", 0)
+			current_jump_count = 0
+		else:
+			current_jump_count = player.get_meta("kus_kanadi_jump_count", 0)
+		# Don't increment yet - we need to check the count first for animation selection
+	
 	# If wall jumping, face away from the wall
 	if player.is_wall_jumping:
 		wall_jump_grace_timer = WALL_JUMP_GRACE_PERIOD
@@ -21,6 +33,9 @@ func enter():
 		player.sprite.flip_h = wall_jump_sprite_direction
 		# Enable double jump immediately after wall jump
 		player.enable_double_jump()
+		# Increment jump count after animation selection (for wall jump, always increment)
+		if can_triple_jump:
+			player.set_meta("kus_kanadi_jump_count", current_jump_count + 1)
 	else:
 		# For normal jumps, set sprite direction based on movement
 		var input_dir = InputManager.get_flattened_axis(&"left", &"right")
@@ -28,9 +43,20 @@ func enter():
 			player.sprite.flip_h = input_dir < 0
 		# Only start jump if not pressing down
 		if not Input.is_action_pressed("down"):
-			# Play jump prepare animation first
-			animation_player.play("jump_prepare")
+			# Check if this is a double/triple jump (2nd or 3rd jump) - BEFORE incrementing
+			if can_triple_jump and current_jump_count > 0:
+				# This is 2nd or 3rd jump - play double jump animation immediately
+				var double_jump_animations = ["double_jump", "double_jump_alt"]
+				var random_animation = double_jump_animations[randi() % double_jump_animations.size()]
+				animation_player.play(random_animation)
+				is_double_jumping = true
+			else:
+				# First jump - play jump prepare animation
+				animation_player.play("jump_prepare")
 			player.enable_double_jump()
+			# Increment jump count AFTER animation selection
+			if can_triple_jump:
+				player.set_meta("kus_kanadi_jump_count", current_jump_count + 1)
 		else:
 			# If pressing down, transition to fall state
 			state_machine.transition_to("Fall")
@@ -57,6 +83,20 @@ func physics_update(delta: float):
 	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	var down_pressed = Input.is_action_pressed("down")
 	var jump_pressed = Input.is_action_just_pressed("jump")
+	
+	# PRIORITY 1.5: Check for dodge/dash input (dash if item allows, otherwise air dodge)
+	if Input.is_action_just_pressed("dash"):
+		# Check if dash item is active (Rüzgar Hançeri)
+		var dash_state = get_parent().get_node_or_null("Dash")
+		if dash_state and dash_state.has_method("can_start_dash") and dash_state.can_start_dash():
+			state_machine.transition_to("Dash")
+			return
+		
+		# Otherwise check for air dodge
+		var dodge_state = get_parent().get_node_or_null("Dodge")
+		if dodge_state and dodge_state.has_method("can_start_dodge") and dodge_state.can_start_dodge():
+			state_machine.transition_to("Dodge")
+			return
 	
 	# PRIORITY 2: Check for attack input - high priority for responsive controls
 	if Input.is_action_just_pressed("attack"):
@@ -85,15 +125,26 @@ func physics_update(delta: float):
 				state_machine.transition_to("FallAttack")
 				return
 	# PRIORITY 4: Only check for double jump if not trying to fall attack
-	elif jump_pressed and not player.has_double_jumped and not down_pressed and not player.jump_input_blocked and player.jump_block_timer <= 0:
-		is_double_jumping = true
-		player.has_double_jumped = true
-		player.start_double_jump()
-		# Randomly choose between two double jump animations
-		var double_jump_animations = ["double_jump", "double_jump_alt"]
-		var random_animation = double_jump_animations[randi() % double_jump_animations.size()]
-		animation_player.play(random_animation)
-		return
+	elif jump_pressed and not down_pressed and not player.jump_input_blocked and player.jump_block_timer <= 0:
+		# Check for triple jump item (Kuş Kanadı)
+		var can_triple_jump = player.has_meta("kus_kanadi_active")
+		var jump_count = player.get_meta("kus_kanadi_jump_count", 0) if can_triple_jump else 0
+		
+		# Allow jump if: normal double jump OR (triple jump item AND jump count < 2, meaning max 3 jumps: 0, 1, 2)
+		if not player.has_double_jumped or (can_triple_jump and jump_count < 2):
+			is_double_jumping = true
+			if can_triple_jump:
+				# Jump count will be incremented in enter() function
+				# Don't set has_double_jumped to allow third jump
+				pass
+			else:
+				player.has_double_jumped = true
+			player.start_double_jump()
+			# Randomly choose between two double jump animations
+			var double_jump_animations = ["double_jump", "double_jump_alt"]
+			var random_animation = double_jump_animations[randi() % double_jump_animations.size()]
+			animation_player.play(random_animation)
+			return
 	
 	# Handle horizontal movement
 	if player.is_wall_jumping:
@@ -110,7 +161,7 @@ func physics_update(delta: float):
 			else:
 				player.velocity.x *= WALL_JUMP_HORIZONTAL_DECAY
 	else:
-		# Normal air movement
+		# Normal air movement (air control already reduced by item if active)
 		player.apply_movement(delta, input_dir)
 		if input_dir != 0:
 			player.sprite.flip_h = input_dir < 0
@@ -127,7 +178,7 @@ func physics_update(delta: float):
 		player.velocity.y += player.gravity * gravity_multiplier * delta
 	
 	# Move the player
-	player.move_and_slide()
+	player.apply_move_and_slide()
 	
 	# Check for ledge grab
 	var ledge_state = get_parent().get_node("LedgeGrab")
@@ -137,6 +188,10 @@ func physics_update(delta: float):
 	
 	# Check for landing
 	if player.is_on_floor():
+		# Reset triple jump tracking
+		if player.has_meta("kus_kanadi_jump_count"):
+			player.remove_meta("kus_kanadi_jump_count")
+		
 		# If we recently did a ledgegrab, transition to crouch to prevent getting stuck
 		if player.ledge_grab_cooldown_timer > 0:
 			state_machine.transition_to("Crouch")

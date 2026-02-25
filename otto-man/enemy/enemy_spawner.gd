@@ -175,6 +175,9 @@ func spawn_enemies() -> void:
 			enemy.max_summons = summoner_scale.max_summons
 			enemy.summon_interval = summoner_scale.summon_interval
 	
+	if "enemy_level" in enemy:
+		enemy.enemy_level = current_level
+	
 	print("[EnemySpawner] Enemy spawn complete at: ", enemy.global_position)
 
 func get_spawned_enemies() -> Array[Node]:

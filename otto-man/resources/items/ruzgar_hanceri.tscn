@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ruzgar_hanceri_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/ruzgar_hanceri.gd" id="1_ruzgar_hanceri"]
+
+[node name="RuzgarHanceri" type="Node"]
+script = ExtResource("1_ruzgar_hanceri")

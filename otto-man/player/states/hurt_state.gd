@@ -130,7 +130,7 @@ func physics_update(delta: float) -> void:
 		# No knockback, just apply normal gravity
 		player.velocity.y += player.gravity * delta
 	
-	player.move_and_slide()
+	player.apply_move_and_slide()
 	
 	# Only transition after both the animation and hurt timer are done
 	if hurt_timer <= 0:

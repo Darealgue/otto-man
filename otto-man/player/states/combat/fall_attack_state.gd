@@ -15,10 +15,10 @@ func enter() -> void:
 	# Get attack configuration with player's damage multiplier
 	var config = attack_config_instance.get_attack_config(AttackConfigClass.AttackType.FALL, player.damage_multiplier)
 	
-	# Set up hitbox
+	# Set up hitbox (Berserker Ruhu: can azaldıkça hasar artar)
 	var hitbox = player.get_node_or_null("FallAttack")
 	if hitbox:
-		hitbox.damage = config.damage
+		hitbox.damage = config.damage * (1.0 + player.berserker_damage_bonus)
 		hitbox.knockback_force = config.knockback_force
 		hitbox.knockback_up_force = config.knockback_up_force
 		hitbox_enabled = true
@@ -36,7 +36,7 @@ func physics_update(delta: float):
 		# Keep applying downward force until we hit something
 		player.velocity.y = minf(player.velocity.y + player.gravity * delta, 600.0)
 	
-	player.move_and_slide()
+	player.apply_move_and_slide()
 	
 	# Check for ground collision
 	if player.is_on_floor() and not has_hit_ground:

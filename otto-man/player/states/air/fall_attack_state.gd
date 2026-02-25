@@ -64,16 +64,21 @@ func enter():
 		if not fall_attack_hitbox.is_connected("area_entered", _on_hitbox_area_entered):
 			fall_attack_hitbox.area_entered.connect(_on_hitbox_area_entered)
 		
-		# Set hitbox properties
-		var fall_damage = PlayerStats.get_fall_attack_damage()
+		# Enable the hitbox first (this sets base damage from PlayerStats)
+		fall_attack_hitbox.enable_combo("fall_attack", 1.0)
+		
+		# Then override damage with multiplier applied
+		var fall_damage = PlayerStats.get_fall_attack_damage() * player.fall_attack_damage_multiplier
 		fall_attack_hitbox.damage = fall_damage
 		fall_attack_hitbox.knockback_force = ATTACK_KNOCKBACK
 		fall_attack_hitbox.knockback_up_force = ATTACK_UP_FORCE
 		
 		# Enable the hitbox
-		fall_attack_hitbox.enable_combo("fall_attack", 1.0)
 		fall_attack_hitbox.enable()
 		hitbox_enabled = true
+		# Karagöz/Hacivat: saldırı yapıldı (vursa da vurmasa da)
+		if player.has_signal("player_attack_performed"):
+			player.emit_signal("player_attack_performed", "fall_attack", fall_damage)
 	
 	# Set initial fall attack velocity
 	player.velocity.y = FALL_ATTACK_SPEED
@@ -103,6 +108,16 @@ func start_impact():
 	player.sprite.scale = IMPACT_SQUASH_SCALE
 	player.sprite.position = original_sprite_position + IMPACT_OFFSET
 	
+	if player.has_signal("fall_attack_impacted"):
+		player.emit_signal("fall_attack_impacted", player.global_position)
+	# Gölgelerde fall-attack efektini tekrarla (zehir bulutu vb.)
+	if player.has_signal("decoy_fall_attack_impacted"):
+		var tree = player.get_tree()
+		if tree:
+			for decoy in tree.get_nodes_in_group("player_decoy"):
+				if is_instance_valid(decoy) and decoy.is_inside_tree():
+					player.emit_signal("decoy_fall_attack_impacted", decoy.global_position)
+	
 	# Disable hitbox on impact
 	var fall_attack_hitbox = player.get_node_or_null("FallAttack")
 	if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:
@@ -130,7 +145,7 @@ func physics_update(delta: float):
 		return
 	
 	# Move the player
-	player.move_and_slide()
+	player.apply_move_and_slide()
 	
 	# Update cooldown
 	update_cooldown(delta)
@@ -142,6 +157,19 @@ func _on_animation_finished(anim_name: String):
 func _on_hitbox_area_entered(area: Area2D):
 	if area.is_in_group("hurtbox") and not has_hit_enemy:
 		has_hit_enemy = true
+		
+		# Emit signal for items
+		if player.has_signal("player_attack_landed"):
+			var fall_attack_hitbox = player.get_node_or_null("FallAttack")
+			var damage = 0.0
+			if fall_attack_hitbox and fall_attack_hitbox.has_method("get_damage"):
+				damage = fall_attack_hitbox.get_damage()
+			elif fall_attack_hitbox and "damage" in fall_attack_hitbox:
+				damage = fall_attack_hitbox.damage
+			var enemy = area.get_parent() if area else null
+			var targets = [enemy] if enemy else []
+			player.emit_signal("player_attack_landed", "fall", damage, targets, player.position, "all")
+		
 		# Use stronger bounce velocity, but not too strong to avoid floating
 		player.velocity.y = player.jump_velocity * 0.9  # 90% of normal jump
 		start_impact()

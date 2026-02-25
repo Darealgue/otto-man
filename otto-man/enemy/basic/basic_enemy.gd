@@ -54,6 +54,12 @@ var _is_wall_hit: bool = false  # Track if we're currently in wall hit state
 var _backing_off_timer: float = 0.0  # Timer for backing off from wall
 const BACK_OFF_DURATION: float = 0.2  # How long to back off from wall after turning
 
+# Birbirini itme (separation): iç içe geçmeyi azaltır, duvara itmez
+const SEPARATION_RADIUS: float = 90.0  # Bu mesafenin altındaki düşmanlardan itilir (erken başla)
+const SEPARATION_FORCE: float = 380.0  # Saniyede ek hız (güçlü itme)
+const SEPARATION_CLOSE_RADIUS: float = 35.0  # Bu kadar yakınsa ek güçlü itme
+const SEPARATION_WALL_CHECK: float = 32.0  # Duvar bu mesafedeyse itme kısıtlanır
+
 # Spawn state tracking
 var _should_transition_to_patrol: bool = false  # Flag to transition to patrol after landing
 
@@ -165,17 +171,15 @@ func _ready() -> void:
 
 func handle_behavior(delta: float) -> void:
 	"""Override BaseEnemy's handle_behavior to prevent fall animation in hurt state."""
-	# Skip if sleeping
 	if is_sleeping:
 		return
-	
-	# CRITICAL: If in hurt state or dead, handle it ourselves
-	# Don't let BaseEnemy's handle_behavior call change_behavior("chase") which triggers fall animation
+	# Ölü ceset: hurt mantığı çalışmasın, hurtbox tekrar açılmasın
+	if current_behavior == "dead":
+		return
+	# Hurt veya ölüme giderken (henüz dead değil) hurt mantığı
 	if current_behavior == "hurt" or health <= 0:
 		handle_hurt_behavior(delta)
 		return
-	
-	# For other behaviors, use our own implementation
 	_handle_child_behavior(delta)
 
 func _handle_child_behavior(delta: float) -> void:
@@ -195,6 +199,8 @@ func _handle_child_behavior(delta: float) -> void:
 			if health <= 0:
 				return
 			handle_patrol(delta)
+			if is_on_floor() and not _is_wall_hit and _backing_off_timer <= 0.0:
+				_apply_separation(delta)
 		"idle":
 			# Idle state - check if we should transition to patrol (spawn landing)
 			if _should_transition_to_patrol and is_on_floor():
@@ -214,6 +220,8 @@ func _handle_child_behavior(delta: float) -> void:
 			if health <= 0:
 				return
 			handle_chase(delta)
+			if is_on_floor() and not _is_wall_hit and _backing_off_timer <= 0.0:
+				_apply_separation(delta)
 		"attack":
 			# Don't attack if dead
 			if health <= 0:
@@ -223,6 +231,50 @@ func _handle_child_behavior(delta: float) -> void:
 			handle_hurt_behavior(delta)
 		"dead":
 			return
+
+func _apply_separation(delta: float) -> void:
+	var tree = get_tree()
+	if not tree:
+		return
+	var my_pos = global_position
+	var push_x := 0.0
+	for node in tree.get_nodes_in_group("enemies"):
+		if node == self or not is_instance_valid(node):
+			continue
+		if node.get("current_behavior") == "dead":
+			continue
+		var other_pos = node.global_position
+		var d = my_pos.distance_to(other_pos)
+		if d <= 0.0 or d > SEPARATION_RADIUS:
+			continue
+		var away = (my_pos - other_pos).normalized()
+		var strength = 1.0 - (d / SEPARATION_RADIUS)
+		if d < SEPARATION_CLOSE_RADIUS:
+			strength += 1.2
+		push_x += away.x * strength
+	if abs(push_x) < 0.01:
+		return
+	var sep_speed = sign(push_x) * min(abs(push_x) * SEPARATION_FORCE, SEPARATION_FORCE)
+	var space = get_world_2d().direct_space_state
+	var check_pos = my_pos + Vector2(sign(sep_speed) * SEPARATION_WALL_CHECK, 0.0)
+	var query = PhysicsRayQueryParameters2D.create(my_pos, check_pos)
+	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	var hit = space.intersect_ray(query)
+	var scale := 1.0
+	if not hit.is_empty():
+		var wall_dist = my_pos.distance_to(hit.position)
+		if wall_dist <= 10.0:
+			scale = 0.0
+		else:
+			scale = (wall_dist - 10.0) / (SEPARATION_WALL_CHECK - 10.0)
+			scale = clamp(scale, 0.0, 1.0)
+	velocity.x += sep_speed * delta * scale
+	var base_speed = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
+	var max_speed = base_speed * 1.8
+	if abs(velocity.x) > max_speed:
+		velocity.x = sign(velocity.x) * max_speed
 
 func handle_patrol(delta: float) -> void:
 	# Don't patrol if dead
@@ -283,18 +335,6 @@ func handle_patrol(delta: float) -> void:
 		# Check if we hit a wall - use debounce to prevent flickering
 		var currently_on_wall = is_on_wall()
 		
-		# DEBUG: Wall stuck detection
-		if currently_on_wall and _backing_off_timer <= 0.0 and _wall_hit_timer <= 0.0:
-			print("[BasicEnemy] WALL STUCK DEBUG (patrol):")
-			print("  pos: ", global_position)
-			print("  direction: ", direction)
-			print("  velocity.x: ", velocity.x)
-			print("  is_on_wall(): ", currently_on_wall)
-			print("  _is_wall_hit: ", _is_wall_hit)
-			print("  _wall_hit_timer: ", _wall_hit_timer)
-			print("  _backing_off_timer: ", _backing_off_timer)
-			print("  behavior_timer: ", behavior_timer)
-		
 		# If we're backing off from wall, don't check for new wall hits
 		if _backing_off_timer > 0.0:
 			# Backing off - move away from wall
@@ -304,7 +344,6 @@ func handle_patrol(delta: float) -> void:
 				sprite.play("walk")
 			# Once we're no longer on wall, exit backing off state
 			if not currently_on_wall:
-				print("[BasicEnemy] Backing off SUCCESS - no longer on wall (patrol)")
 				_backing_off_timer = 0.0
 				_is_wall_hit = false
 				_wall_hit_timer = 0.0
@@ -312,7 +351,6 @@ func handle_patrol(delta: float) -> void:
 		elif currently_on_wall:
 			# Just hit wall - start wall hit state
 			if not _is_wall_hit:
-				print("[BasicEnemy] Wall hit detected (patrol) - starting wall hit state")
 				_is_wall_hit = true
 				_wall_hit_timer = WALL_HIT_DURATION
 				behavior_timer = 0.0  # Reset behavior timer
@@ -325,7 +363,6 @@ func handle_patrol(delta: float) -> void:
 						sprite.play("idle")
 					# Turn around after wall hit duration
 					if behavior_timer >= 0.3:  # Wait 0.3s before turning
-						print("[BasicEnemy] Turning around (patrol) - starting back off")
 						direction *= -1
 						if sprite:
 							sprite.flip_h = direction < 0
@@ -335,7 +372,6 @@ func handle_patrol(delta: float) -> void:
 						_is_wall_hit = false  # Exit wall hit state, enter backing off state
 				else:
 					# Timer expired but still on wall - force turn around
-					print("[BasicEnemy] Timer expired but still on wall (patrol) - forcing turn")
 					direction *= -1
 					if sprite:
 						sprite.flip_h = direction < 0
@@ -418,18 +454,6 @@ func handle_chase(delta: float) -> void:
 		# Check if we hit a wall - use debounce to prevent flickering
 		var currently_on_wall = is_on_wall()
 		
-		# DEBUG: Wall stuck detection
-		if currently_on_wall and _backing_off_timer <= 0.0 and _wall_hit_timer <= 0.0:
-			print("[BasicEnemy] WALL STUCK DEBUG (chase):")
-			print("  pos: ", global_position)
-			print("  direction: ", direction)
-			print("  velocity.x: ", velocity.x)
-			print("  is_on_wall(): ", currently_on_wall)
-			print("  _is_wall_hit: ", _is_wall_hit)
-			print("  _wall_hit_timer: ", _wall_hit_timer)
-			print("  _backing_off_timer: ", _backing_off_timer)
-			print("  behavior_timer: ", behavior_timer)
-		
 		# If we're backing off from wall, don't check for new wall hits
 		if _backing_off_timer > 0.0:
 			# Backing off - move away from wall
@@ -442,7 +466,6 @@ func handle_chase(delta: float) -> void:
 					sprite.play("walk")
 			# Once we're no longer on wall, exit backing off state and update direction to player
 			if not currently_on_wall:
-				print("[BasicEnemy] Backing off SUCCESS - no longer on wall")
 				_backing_off_timer = 0.0
 				_is_wall_hit = false
 				_wall_hit_timer = 0.0
@@ -458,7 +481,6 @@ func handle_chase(delta: float) -> void:
 		elif currently_on_wall:
 			# Just hit wall - start wall hit state
 			if not _is_wall_hit:
-				print("[BasicEnemy] Wall hit detected (chase) - starting wall hit state")
 				_is_wall_hit = true
 				_wall_hit_timer = WALL_HIT_DURATION
 				behavior_timer = 0.0  # Reset behavior timer
@@ -476,7 +498,6 @@ func handle_chase(delta: float) -> void:
 							sprite.flip_h = direction < 0
 					# After wall hit duration, try to move away from wall
 					if behavior_timer >= 0.5:  # Wait 0.5s then try to unstick
-						print("[BasicEnemy] Turning around (chase) - starting back off")
 						# Try moving away from wall
 						direction *= -1
 						if sprite:
@@ -487,7 +508,6 @@ func handle_chase(delta: float) -> void:
 						_is_wall_hit = false  # Exit wall hit state, enter backing off state
 				else:
 					# Timer expired but still on wall - force turn around
-					print("[BasicEnemy] Timer expired but still on wall (chase) - forcing turn")
 					direction *= -1
 					if sprite:
 						sprite.flip_h = direction < 0
@@ -611,18 +631,14 @@ func handle_attack(delta: float) -> void:
 				change_behavior("patrol")
 
 func handle_hurt_behavior(delta: float) -> void:
+	# Ölü ceset burada işlenmez (handle_behavior'da dead ise çağrılmıyor); yine de güvenlik
+	if current_behavior == "dead":
+		return
 	behavior_timer += delta
-	
-	# Update bounce cooldown
 	_bounce_cooldown = max(0.0, _bounce_cooldown - delta)
-	
-	# CRITICAL: Always ensure fall animation is NOT playing when in hurt state
-	# Check every frame and aggressively stop it
-	if sprite:
-		if sprite.animation == "fall":
-			sprite.stop()
-	
-	# Check if we're dead but still in air - wait for ground impact
+	if sprite and sprite.animation == "fall":
+		sprite.stop()
+	# Ölü ama hâlâ havada - yere çarpmayı bekle (punching bag)
 	if health <= 0 and not is_on_floor():
 		# Keep playing hurt animations until we hit ground
 		# Keep hurtbox enabled so player can keep hitting (punching bag)
@@ -807,15 +823,10 @@ func handle_hurt_behavior(delta: float) -> void:
 			_was_in_air = false
 			_just_bounced = false  # Reset flag
 		
-		# On ground - check if we're dead (double check)
-		# BUT: Only call die() if we're actually on ground AND not going upward
-		# If velocity.y < 0, we're still going up, so don't die yet
-		if health <= 0:
-			# Check if we're actually on ground and not being launched upward
-			if velocity.y >= 0.0:  # Not going up (0 or positive = falling or on ground)
-				# We hit ground while dead - now play death animation
-				die()
-				return
+		# Ölüyse ve yerdeyse mutlaka die() (takılı kalmayı önle)
+		if health <= 0 and is_on_floor():
+			die()
+			return
 		
 		# On ground and alive - play hurt_ground or get_up (if not already playing)
 		if sprite:
@@ -919,33 +930,30 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 			_:
 				sprite.play("idle")
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, source_hitbox: Area2D = null) -> void:
-	# Reset bounce count when taking new damage (new hit = new bounce opportunity)
+# Havada veya fırlatılmışken ölümü ertele; yere inince (ve sekme sonrası) die() handle_hurt_behavior'da çağrılır
+func _should_die_now_on_lethal() -> bool:
+	if not is_on_floor():
+		return false
+	# Yerdeyiz ama az önce knockback uygulandı (velocity henüz büyük) -> ertele
+	if abs(velocity.x) > 15.0 or velocity.y < -15.0:
+		return false
+	return true
+
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true, source_hitbox: Area2D = null) -> void:
 	_bounce_count = 0
 	_max_bounces = 1
-	_just_bounced = false  # Reset bounce flag on new damage
-	_bounce_cooldown = 0.0  # Reset cooldown
-	# Store if we're in air before taking damage
+	_just_bounced = false
+	_bounce_cooldown = 0.0
 	var was_in_air = not is_on_floor()
-	
-	# Apply damage manually (override base class to prevent immediate death in air)
 	if current_behavior == "dead":
 		return
-		
-	health -= amount
-	
-	# Update health bar
-	if health_bar:
-		health_bar.update_health(health)
-	# Emit health changed for external listeners
-	_health_emit_changed()
-	
-	# Spawn damage number
-	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
-	add_child(damage_number)
-	damage_number.global_position = global_position + Vector2(0, -50)
-	damage_number.setup(int(amount))
-	
+	# Projectile / DoT base'de işlenir; biz sadece melee knockback ve hurt
+	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
+	if not apply_knockback:
+		return
+	# Base zaten lethal hasarda die() çağırdıysa devam etme (state/hurtbox ezilmesin)
+	if current_behavior == "dead":
+		return
 	# Apply knockback - BasicEnemy is a punching bag, so stronger knockback
 	# Start with base knockback values
 	var final_knockback_force = knockback_force
@@ -1102,6 +1110,11 @@ func _physics_process(delta: float) -> void:
 		death_fade_timer = 0.0
 		if sprite:
 			sprite.modulate = Color(1, 1, 1, 1)  # Keep full opacity
+	
+	# Ölü ceset: hurtbox her kare kapalı (yaşayan düşmana vurmayı engellemesin)
+	if current_behavior == "dead" and hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
 	
 	# CRITICAL: Check animation FIRST, before any other processing
 	# This ensures fall animation is stopped immediately if it starts playing
@@ -1303,28 +1316,33 @@ func die() -> void:
 	
 	# IMPORTANT: Play death animation BEFORE calling super.die()
 	# super.die() sets fade_out = true which might hide sprite immediately
-	# BUT: Only play death animation if on ground - if in air, keep playing hurt animations
+	# BUT: Only play death animation if on ground AND no knockback - if in air or has knockback, keep playing hurt animations
 	if sprite:
 		# Ensure sprite is visible
 		sprite.visible = true
 		sprite.modulate = Color(1, 1, 1, 1)  # Reset modulate
-		# Play death animation only if on ground
-		# If in air, don't play death animation - let handle_hurt_behavior() handle it when we land
-		if is_on_floor():
+		# Check if we have knockback from attack
+		var has_knockback = abs(velocity.x) > 10.0 or velocity.y < -10.0
+		# Play death animation only if on ground AND no knockback (enemy dies in place)
+		# If in air or has knockback, don't play death animation - let handle_hurt_behavior() handle it when we land
+		if is_on_floor() and not has_knockback:
 			# Play death animation if available
 			if sprite.sprite_frames.has_animation("death"):
 				sprite.play("death")
 			elif sprite.sprite_frames.has_animation("hurt_fall"):
 				# Fallback to hurt_fall if death animation doesn't exist
 				sprite.play("hurt_fall")
-		# If in air, don't change animation - keep playing hurt_rise or hurt_fall
+		# If in air or has knockback, don't change animation - keep playing hurt_rise or hurt_fall
 	
-	# Stop all movement before calling super - BUT only if on ground
+	# Stop all movement before calling super - BUT only if on ground AND no knockback was applied
 	# If in air, keep velocity so enemy can fall naturally
 	# IMPORTANT: Check velocity.y instead of is_on_floor() because velocity might be set but not applied yet
-	if is_on_floor() and velocity.y >= 0.0:
+	# IMPORTANT: Don't zero velocity if we have significant knockback (from attack) - let enemy fly
+	# Only zero velocity if we're on ground AND velocity is very small (no knockback)
+	var has_knockback = abs(velocity.x) > 10.0 or velocity.y < -10.0
+	if is_on_floor() and velocity.y >= 0.0 and not has_knockback:
 		velocity = Vector2.ZERO
-	# If in air or going up, don't zero velocity - let enemy fall naturally
+	# If in air or going up or has knockback, don't zero velocity - let enemy fly/fall naturally
 	
 	# IMPORTANT: Prevent fade_out from hiding sprite immediately
 	# BasicEnemy corpses should remain visible - NEVER fade out or disappear
@@ -1343,9 +1361,10 @@ func die() -> void:
 	# Call base class die AFTER setting collision (base class sets collision_layer = 0)
 	super.die()
 	
-	# IMPORTANT: Restore velocity if we're in air (being launched upward)
+	# IMPORTANT: Restore velocity if we have knockback from attack (being launched)
 	# Don't let super.die() override our attack velocity
-	if not is_on_floor() or saved_velocity.y < -50.0:
+	# Always restore if we have significant velocity (knockback from attack)
+	if abs(saved_velocity.x) > 10.0 or saved_velocity.y < -10.0 or not is_on_floor():
 		velocity = saved_velocity
 	
 	# IMPORTANT: Re-apply collision settings after super.die() (it sets collision_layer = 0)
@@ -1462,8 +1481,8 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		
 		return
 	
-	# Normal damage handling - pass hitbox to take_damage
-	take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0), hitbox)
+	# Normal damage handling - pass hitbox to take_damage (apply_knockback=true for physical hits)
+	take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0), true, hitbox)
 
 func reset() -> void:
 	super.reset()

@@ -72,7 +72,16 @@ func enter():
 	current_wall_normal = _get_wall_normal()
 	var left_colliding = wall_ray_left.is_colliding()
 	var right_colliding = wall_ray_right.is_colliding()
-	wall_side = -1 if left_colliding else 1
+	
+	# Eğer her iki raycast de çarpışıyorsa, wall_normal'a göre wall_side'ı belirle
+	if left_colliding and right_colliding:
+		# Her iki duvara da çarpışıyor - wall_normal'a göre hangi duvara yapışık olduğunu belirle
+		if current_wall_normal.x > 0:  # Vector2.RIGHT - sol duvara yakın
+			wall_side = -1
+		else:  # Vector2.LEFT - sağ duvara yakın
+			wall_side = 1
+	else:
+		wall_side = -1 if left_colliding else 1
 	
 	# print("[WALL_SLIDE_DEBUG] WallSlide: Wall normal: ", current_wall_normal, " wall_side: ", wall_side)
 	
@@ -140,9 +149,24 @@ func physics_update(delta: float):
 		wall_stick_timer = WALL_STICK_DURATION
 		
 		# Verify wall side hasn't changed
-		var current_side = -1 if left_colliding else 1
-		if current_side != wall_side:
+		# Eğer her iki raycast de çarpışıyorsa, wall_normal'a göre wall_side'ı belirle
+		var current_side = 0
+		if left_colliding and right_colliding:
+			# Her iki duvara da çarpışıyor - wall_normal'a göre hangi duvara yapışık olduğunu belirle
+			var new_wall_normal = _get_wall_normal()
+			if new_wall_normal.x > 0:  # Vector2.RIGHT - sol duvara yakın
+				current_side = -1
+			else:  # Vector2.LEFT - sağ duvara yakın
+				current_side = 1
+		elif left_colliding:
+			current_side = -1
+		elif right_colliding:
+			current_side = 1
+		
+		if current_side != 0 and current_side != wall_side:
 			wall_side = current_side
+			current_wall_normal = _get_wall_normal()  # Wall normal'i de güncelle
+			player.wall_normal = current_wall_normal  # Player'ın wall_normal'ını da güncelle
 			if locked_sprite_direction:
 				player.sprite.flip_h = wall_side < 0
 
@@ -209,13 +233,36 @@ func physics_update(delta: float):
 		state_machine.transition_to("Fall")
 		return
 	
-	player.move_and_slide()
+	player.apply_move_and_slide()
 
 func _get_wall_normal() -> Vector2:
-	if wall_ray_left.is_colliding():
+	var left_colliding = wall_ray_left.is_colliding()
+	var right_colliding = wall_ray_right.is_colliding()
+	
+	# Eğer her iki raycast de çarpışıyorsa, oyuncunun hangi duvara daha yakın olduğunu kontrol et
+	if left_colliding and right_colliding:
+		# Her iki duvara da çarpışıyor - hangisine daha yakın olduğunu belirle
+		var left_distance = 0.0
+		var right_distance = 0.0
+		
+		if wall_ray_left.is_colliding():
+			var left_collision_point = wall_ray_left.get_collision_point()
+			left_distance = abs(player.global_position.x - left_collision_point.x)
+		
+		if wall_ray_right.is_colliding():
+			var right_collision_point = wall_ray_right.get_collision_point()
+			right_distance = abs(player.global_position.x - right_collision_point.x)
+		
+		# Daha yakın olan duvara yapış
+		if left_distance < right_distance:
+			return Vector2.RIGHT  # Sol duvara yakın, sağa bakmalı
+		else:
+			return Vector2.LEFT   # Sağ duvara yakın, sola bakmalı
+	elif left_colliding:
 		return Vector2.RIGHT
-	elif wall_ray_right.is_colliding():
+	elif right_colliding:
 		return Vector2.LEFT
+	
 	return Vector2.ZERO
 
 func _perform_wall_jump(wall_normal: Vector2):

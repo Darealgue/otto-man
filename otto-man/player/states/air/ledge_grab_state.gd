@@ -2,7 +2,7 @@ extends State
 
 const LEDGE_GRAB_DURATION := 0.2
 const CLIMB_FORCE := Vector2(0, -400)
-const LEDGE_OFFSET := Vector2(-6, 36)  # Adjusted X offset (-9 + 3 = -6) to move player 3px closer to the wall
+const LEDGE_OFFSET := Vector2(-4, 36)  # Adjusted X offset to move player even closer to the wall for better grab
 const GRAB_DISTANCE := 20.0
 const MOUNT_OFFSET := Vector2(0, -5)  # Vertical offset to move player down (negative = down)
 const MOUNT_FORWARD_OFFSET := 20  # How many pixels to move forward onto the platform
@@ -75,7 +75,7 @@ func physics_update(delta: float):
 		if result:
 			player.global_position.y = result.position.y - 1
 			player.velocity.y = 5
-			player.move_and_slide()
+			player.apply_move_and_slide()
 		
 		# print("[LedgeGrab] After snap+slide: ", player.global_position, " on_floor=", player.is_on_floor())
 		
@@ -193,9 +193,10 @@ func _get_ledge_position() -> Dictionary:
 		# REMOVED Debug print for player on floor
 		return result
 	
-	# NEW: Simple check - if player is near any platform tiles, disable ledgegrab
-	if _is_player_near_platform_tiles_simple():
-		print("[LEDGEGRAB_DEBUG] Player near platform tiles, disabling ledgegrab")
+	# NEW: Simple check - if player is VERY CLOSE to platform tiles, disable ledgegrab
+	# Gevşetilmiş kontrol - sadece çok yakınsa engelle
+	if _is_player_very_close_to_platform_tiles():
+		print("[LEDGEGRAB_DEBUG] Player very close to platform tiles, disabling ledgegrab")
 		return result
 
 	# Force shapecasts to update collision info - important before checking!
@@ -208,26 +209,49 @@ func _get_ledge_position() -> Dictionary:
 	# REMOVED ShapeCast Collision Details (Left)
 	
 	# Check left side
-	# Condition: Wall detected on the left AND no collision directly above the left ledge point AND the shapecast is not colliding (clear space above)
+	# Condition: Wall detected on the left AND shapecast is not heavily colliding - more lenient for better detection
+	# Allow ledge grab even if shapecast is slightly colliding (more forgiving)
 	if wl_colliding and not sc_tl_colliding:
 		# Additional check: Make sure there's actually a platform above the wall (real ledge)
 		var collision_point = wl.get_collision_point()
 		
-		# NEW: Check if there are any platform tiles nearby - if so, disable ledgegrab
-		if _has_platform_tiles_nearby(collision_point, -1):
-			print("[LEDGEGRAB_DEBUG] Left side - Platform tiles nearby, blocking ledgegrab")
-			return result  # Block ledgegrab if platform tiles are nearby
+		print("[LEDGEGRAB_DEBUG] ===== LEFT SIDE CHECK =====")
+		print("[LEDGEGRAB_DEBUG] Player position: ", player.global_position)
+		print("[LEDGEGRAB_DEBUG] Collision point: ", collision_point)
+		print("[LEDGEGRAB_DEBUG] Wall ray left colliding: ", wl_colliding)
+		print("[LEDGEGRAB_DEBUG] ShapeCast top left colliding: ", sc_tl_colliding)
 		
-		# NEW: Check if player is near platform tiles - if so, disable ledgegrab
-		if _is_player_near_platform_tiles_simple():
-			print("[LEDGEGRAB_DEBUG] Left side - Player near platform tiles, blocking ledgegrab")
-			print("[LEDGEGRAB_DEBUG] Left side - RETURNING EARLY - NO LEDGEGRAB")
-			return result  # Block ledgegrab if player is near platform tiles
+		# NEW: Check if there are any platform tiles VERY CLOSE - if so, disable ledgegrab
+		# Gevşetilmiş kontrol - sadece çok yakınsa engelle
+		if _has_platform_tiles_very_close(collision_point, -1):
+			print("[LEDGEGRAB_DEBUG] Left side - Platform tiles very close, blocking ledgegrab")
+			return result  # Block ledgegrab if platform tiles are very close
 		
+		# NEW: Check if player is VERY CLOSE to platform tiles - if so, disable ledgegrab
+		# Gevşetilmiş kontrol - sadece çok yakınsa engelle
+		if _is_player_very_close_to_platform_tiles():
+			print("[LEDGEGRAB_DEBUG] Left side - Player very close to platform tiles, blocking ledgegrab")
+			return result  # Block ledgegrab if player is very close to platform tiles
+		
+		# Check for flat wall at player height - CRITICAL for preventing grab on flat walls
+		# İYİLEŞTİRME: Flat wall kontrolünü platform kontrolünden SONRA yap
+		# Önce platform var mı kontrol et, sonra flat wall kontrolü yap
 		var is_real = _is_real_ledge(collision_point, -1)  # -1 for left side
-		print("[LEDGEGRAB_DEBUG] Left side - collision_point: ", collision_point, " is_real_ledge: ", is_real)
+		
+		# Eğer gerçek bir ledge bulunduysa, flat wall kontrolü yap
+		# Bu, gerçek köşelerin flat wall olarak algılanmasını önler
+		if is_real:
+			# Gerçek ledge bulundu - flat wall kontrolü yapma, direkt geç
+			pass
+		elif _is_flat_wall_at_player_height(-1):
+			print("[LEDGEGRAB_DEBUG] Left side - FLAT WALL detected at player height, BLOCKING ledgegrab")
+			return result  # Flat wall detected, skip
+		print("[LEDGEGRAB_DEBUG] Left side - is_real_ledge: ", is_real)
 		if not is_real:
+			print("[LEDGEGRAB_DEBUG] Left side - NOT a real ledge, skipping")
 			return result  # Not a real ledge, skip
+		
+		print("[LEDGEGRAB_DEBUG] Left side - VALID LEDGE FOUND!")
 		
 		# NEW: Check for flat wall using horizontal raycast from player's collision height
 		# TEMPORARILY DISABLED FOR TESTING
@@ -242,8 +266,8 @@ func _get_ledge_position() -> Dictionary:
 		var space_state = player.get_world_2d().direct_space_state
 		var found_surface = false
 		
-		# Start from a reasonable distance above the collision point (max 32px, not 100px)
-		for i in range(32):  # reduced scan range to 32px upwards
+		# Start from a reasonable distance above the collision point (increased range for better detection)
+		for i in range(48):  # increased scan range to 48px upwards for better ledge detection
 			var check_query = PhysicsRayQueryParameters2D.new()
 			check_query.from = Vector2(collision_point.x + 4, collision_point.y - i - 2)
 			check_query.to = Vector2(collision_point.x + 4, collision_point.y - i)
@@ -282,26 +306,49 @@ func _get_ledge_position() -> Dictionary:
 	# REMOVED ShapeCast Collision Details (Right)
 	
 	# Check right side
-	# Condition: Wall detected on the right AND no collision directly above the right ledge point AND the shapecast is not colliding (clear space above)
+	# Condition: Wall detected on the right AND shapecast is not heavily colliding - more lenient for better detection
+	# Allow ledge grab even if shapecast is slightly colliding (more forgiving)
 	if wr_colliding and not sc_tr_colliding:
 		# Additional check: Make sure there's actually a platform above the wall (real ledge)
 		var collision_point = wr.get_collision_point()
 		
-		# NEW: Check if there are any platform tiles nearby - if so, disable ledgegrab
-		if _has_platform_tiles_nearby(collision_point, 1):
-			print("[LEDGEGRAB_DEBUG] Right side - Platform tiles nearby, blocking ledgegrab")
-			return result  # Block ledgegrab if platform tiles are nearby
+		print("[LEDGEGRAB_DEBUG] ===== RIGHT SIDE CHECK =====")
+		print("[LEDGEGRAB_DEBUG] Player position: ", player.global_position)
+		print("[LEDGEGRAB_DEBUG] Collision point: ", collision_point)
+		print("[LEDGEGRAB_DEBUG] Wall ray right colliding: ", wr_colliding)
+		print("[LEDGEGRAB_DEBUG] ShapeCast top right colliding: ", sc_tr_colliding)
 		
-		# NEW: Check if player is near platform tiles - if so, disable ledgegrab
-		if _is_player_near_platform_tiles_simple():
-			print("[LEDGEGRAB_DEBUG] Right side - Player near platform tiles, blocking ledgegrab")
-			print("[LEDGEGRAB_DEBUG] Right side - RETURNING EARLY - NO LEDGEGRAB")
-			return result  # Block ledgegrab if player is near platform tiles
+		# NEW: Check if there are any platform tiles VERY CLOSE - if so, disable ledgegrab
+		# Gevşetilmiş kontrol - sadece çok yakınsa engelle
+		if _has_platform_tiles_very_close(collision_point, 1):
+			print("[LEDGEGRAB_DEBUG] Right side - Platform tiles very close, blocking ledgegrab")
+			return result  # Block ledgegrab if platform tiles are very close
 		
+		# NEW: Check if player is VERY CLOSE to platform tiles - if so, disable ledgegrab
+		# Gevşetilmiş kontrol - sadece çok yakınsa engelle
+		if _is_player_very_close_to_platform_tiles():
+			print("[LEDGEGRAB_DEBUG] Right side - Player very close to platform tiles, blocking ledgegrab")
+			return result  # Block ledgegrab if player is very close to platform tiles
+		
+		# Check for flat wall at player height - CRITICAL for preventing grab on flat walls
+		# İYİLEŞTİRME: Flat wall kontrolünü platform kontrolünden SONRA yap
+		# Önce platform var mı kontrol et, sonra flat wall kontrolü yap
 		var is_real = _is_real_ledge(collision_point, 1)  # 1 for right side
-		print("[LEDGEGRAB_DEBUG] Right side - collision_point: ", collision_point, " is_real_ledge: ", is_real)
+		
+		# Eğer gerçek bir ledge bulunduysa, flat wall kontrolü yapma
+		# Bu, gerçek köşelerin flat wall olarak algılanmasını önler
+		if is_real:
+			# Gerçek ledge bulundu - flat wall kontrolü yapma, direkt geç
+			pass
+		elif _is_flat_wall_at_player_height(1):
+			print("[LEDGEGRAB_DEBUG] Right side - FLAT WALL detected at player height, BLOCKING ledgegrab")
+			return result  # Flat wall detected, skip
+		print("[LEDGEGRAB_DEBUG] Right side - is_real_ledge: ", is_real)
 		if not is_real:
+			print("[LEDGEGRAB_DEBUG] Right side - NOT a real ledge, skipping")
 			return result  # Not a real ledge, skip
+		
+		print("[LEDGEGRAB_DEBUG] Right side - VALID LEDGE FOUND!")
 		
 		# NEW: Check for flat wall using horizontal raycast from player's collision height
 		# TEMPORARILY DISABLED FOR TESTING
@@ -315,8 +362,8 @@ func _get_ledge_position() -> Dictionary:
 		var space_state = player.get_world_2d().direct_space_state
 		var found_surface = false
 		
-		# Start from a reasonable distance above the collision point (max 32px, not 100px)
-		for i in range(32):  # reduced scan range to 32px upwards
+		# Start from a reasonable distance above the collision point (increased range for better detection)
+		for i in range(48):  # increased scan range to 48px upwards for better ledge detection
 			var check_query = PhysicsRayQueryParameters2D.new()
 			check_query.from = Vector2(collision_point.x - 4, collision_point.y - i - 2)
 			check_query.to = Vector2(collision_point.x - 4, collision_point.y - i)
@@ -460,20 +507,17 @@ func _is_real_ledge(collision_point: Vector2, side: int) -> bool:
 	# Check if there's actually a platform above the wall (real ledge)
 	var space_state = player.get_world_2d().direct_space_state
 	
-	# Very strict check: Look for substantial platform above the wall
-	var platform_found = false
+	# İYİLEŞTİRME: Tüm geçerli platformları topla, sonra en uygun olanı seç
+	# Bu, köşenin 1 tile altındaki platformları engeller
+	var valid_platforms = []  # Array of dictionaries: {height, width, x_offset, gap_size}
 	var max_platform_width = 0
 	
 	# Check for platform above the wall at multiple heights and positions
-	for height in range(16, 48, 8):  # Check from 16px to 40px above wall
+	# Increased range for better detection
+	for height in range(12, 56, 6):  # Check from 12px to 54px above wall (wider range)
 		# Check multiple X positions to ensure it's a real platform, not just a corner
-		for x_offset in range(-8, 16, 4):  # Check from -8 to +12 pixels horizontally (wider range)
+		for x_offset in range(-12, 20, 4):  # Check from -12 to +16 pixels horizontally (wider range)
 			var check_pos = Vector2(collision_point.x + side * 4 + x_offset, collision_point.y - height)
-			
-			# NEW: Check if this position has a platform tile (terrain=1) - if so, skip entirely
-			if _is_platform_tile_at_position(check_pos):
-				print("[LEDGEGRAB_DEBUG] Platform tile (terrain=1) detected at ", check_pos, ", blocking ledgegrab")
-				continue  # Skip this position entirely
 			
 			# Check if there's a platform at this height and position
 			var q = PhysicsRayQueryParameters2D.new()
@@ -491,7 +535,7 @@ func _is_real_ledge(collision_point: Vector2, side: int) -> bool:
 				# Found a platform - check if it's substantial enough
 				var platform_width = 0
 				# Check platform width by scanning horizontally (wider scan)
-				for width_check in range(-12, 24, 4):  # Wider scan range
+				for width_check in range(-16, 32, 4):  # Even wider scan range for better detection
 					var width_pos = Vector2(check_pos.x + width_check, check_pos.y)
 					var width_q = PhysicsRayQueryParameters2D.new()
 					width_q.from = width_pos
@@ -503,42 +547,79 @@ func _is_real_ledge(collision_point: Vector2, side: int) -> bool:
 				
 				max_platform_width = max(max_platform_width, platform_width)
 				
-				# CRITICAL: Check if this platform is actually ABOVE the wall, not the wall itself
-				# We need to ensure there's substantial empty space between the wall and the platform
-				var has_gap = false
-				var gap_size = 0
-				for gap_check in range(1, 24):  # Check 1-23 pixels below the platform (increased range)
-					var gap_pos = Vector2(check_pos.x, check_pos.y + gap_check)
-					var gap_q = PhysicsRayQueryParameters2D.new()
-					gap_q.from = gap_pos
-					gap_q.to = gap_pos + Vector2.DOWN * 4
-					gap_q.exclude = [player]
-					var gap_res = space_state.intersect_ray(gap_q)
-					if not gap_res:  # No collision = empty space
-						gap_size += 1
-					else:
-						break  # Hit something, stop counting
+				# CRITICAL: Check if platform is actually ABOVE the collision point
+				# Platform should be at least 8 pixels above the collision point to be a real ledge
+				var platform_height_above_wall = height  # check_pos.y zaten collision_point.y - height
+				var platform_above_collision = platform_height_above_wall >= 8
 				
-				# No gap requirement - just check platform width
-				has_gap = true  # Always true now
+				# Gap kontrolü: Platform'un collision point'e göre yüksekliği = gap_size
+				var gap_size = platform_height_above_wall  # Platform'un collision point'e olan mesafesi = gap
 				
-				# Only consider it a real ledge if:
-				# 1. Platform is wide enough (at least 12px - ultra flexible)
-				# 2. No gap requirement (removed for maximum reliability)
-				if platform_width >= 12 and has_gap:
-					platform_found = true
-					print("[LEDGEGRAB_DEBUG] Found real ledge - height: ", height, " x_offset: ", x_offset, " platform_width: ", platform_width, " gap_size: ", gap_size)
-					break
+				print("[LEDGEGRAB_DEBUG] Platform check - height: ", height, " platform_height_above_wall: ", platform_height_above_wall, " platform_above_collision: ", platform_above_collision, " platform_width: ", platform_width, " gap_size: ", gap_size)
+				
+				# Only consider it a valid platform if:
+				# 1. Platform is wide enough (at least 8px)
+				# 2. Platform is actually ABOVE the collision point (not at the same level)
+				# 3. Platform collision point'in üstünde olmalı (gap_size > 0)
+				if platform_width >= 8 and platform_above_collision and gap_size > 0:
+					# İYİLEŞTİRME: Platform'u listeye ekle, hemen durma
+					valid_platforms.append({
+						"height": height,
+						"width": platform_width,
+						"x_offset": x_offset,
+						"gap_size": gap_size,
+						"platform_above": platform_above_collision
+					})
+					print("[LEDGEGRAB_DEBUG] ✓ Found VALID platform candidate - height: ", height, " x_offset: ", x_offset, " platform_width: ", platform_width, " gap_size: ", gap_size)
 				else:
-					print("[LEDGEGRAB_DEBUG] Platform found but not valid - width: ", platform_width, " gap_size: ", gap_size)
+					print("[LEDGEGRAB_DEBUG] ✗ Platform found but NOT valid - width: ", platform_width, " gap_size: ", gap_size, " platform_above: ", platform_above_collision, " (need: width>=8, gap>0, above=true)")
+	
+	# İYİLEŞTİRME: En uygun platformu seç
+	# Öncelik sırası:
+	# 1. En yakın platform (en küçük height/gap_size) - ama çok yakın değilse (12-24px ideal)
+	# 2. En geniş platform (en büyük width)
+	# 3. Köşenin 1 tile altındaki platformları engelle (height > 24px olanları daha düşük öncelik)
+	if valid_platforms.size() > 0:
+		var best_platform = null
+		var best_score = -999999.0
 		
-		if platform_found:
-			break
+		for platform in valid_platforms:
+			var height = platform.height
+			var width = platform.width
+			var gap_size = platform.gap_size
+			
+			# Score hesaplama:
+			# - İdeal yükseklik: 12-24px (köşeye yakın ama çok yakın değil)
+			# - Çok yüksek platformlar (30px+) köşenin altındaki platformlar olabilir, düşük skor
+			# - Geniş platformlar daha iyi
+			var height_score = 0.0
+			if height >= 12 and height <= 24:
+				height_score = 100.0  # İdeal aralık
+			elif height < 12:
+				height_score = 50.0 - (12 - height) * 5.0  # Çok yakın, düşük skor
+			else:
+				height_score = 100.0 - (height - 24) * 3.0  # Çok uzak, düşük skor
+			
+			var width_score = width * 2.0  # Geniş platformlar daha iyi
+			
+			var total_score = height_score + width_score
+			
+			print("[LEDGEGRAB_DEBUG] Platform candidate score - height: ", height, " width: ", width, " height_score: ", height_score, " width_score: ", width_score, " total: ", total_score)
+			
+			if total_score > best_score:
+				best_score = total_score
+				best_platform = platform
+		
+		if best_platform:
+			print("[LEDGEGRAB_DEBUG] ✓✓✓ BEST PLATFORM SELECTED - height: ", best_platform.height, " width: ", best_platform.width, " gap_size: ", best_platform.gap_size, " score: ", best_score)
+			return true
 	
-	if not platform_found:
-		print("[LEDGEGRAB_DEBUG] No real ledge found - max_platform_width: ", max_platform_width)
+	if valid_platforms.size() == 0:
+		print("[LEDGEGRAB_DEBUG] ✗✗✗ NO REAL LEDGE FOUND - max_platform_width: ", max_platform_width, " collision_point: ", collision_point)
+		return false
 	
-	return platform_found
+	# En uygun platform zaten seçildi ve true döndürüldü
+	return true
 
 func _is_one_way_platform(collider: Node2D) -> bool:
 	# Check if the collider is a one-way platform
@@ -651,6 +732,29 @@ func _has_platform_tiles_nearby(collision_point: Vector2, side: int) -> bool:
 	
 	return false
 
+func _has_platform_tiles_very_close(collision_point: Vector2, side: int) -> bool:
+	# Very strict check - only disable if platform tiles are VERY close
+	# This allows ledge grab even when somewhat near platforms
+	var space_state = player.get_world_2d().direct_space_state
+	
+	# Check a very small area around the collision point for platform tiles
+	var check_radius = 24  # Check only 24 pixels around the collision point (very close)
+	var check_positions = []
+	
+	# Check fewer positions for performance
+	for x_offset in range(-check_radius, check_radius + 1, 12):
+		for y_offset in range(-check_radius, check_radius + 1, 12):
+			var check_pos = collision_point + Vector2(x_offset, y_offset)
+			check_positions.append(check_pos)
+	
+	# Check each position for platform tiles
+	for pos in check_positions:
+		if _is_platform_tile_at_position(pos):
+			print("[LEDGEGRAB_DEBUG] Found platform tile very close at ", pos, " near collision point ", collision_point)
+			return true
+	
+	return false
+
 
 func _is_player_near_platform_tiles_simple() -> bool:
 	# Simple and fast check - only check a small area around player
@@ -671,23 +775,53 @@ func _is_player_near_platform_tiles_simple() -> bool:
 	
 	return false
 
+func _is_player_very_close_to_platform_tiles() -> bool:
+	# Very strict check - only disable if player is VERY close to platform tiles
+	# This allows ledge grab even when somewhat near platforms
+	var player_pos = player.global_position
+	var check_radius = 16  # Only check 16 pixels around player (very close)
+	
+	# Check only 4 positions around player
+	var check_positions = [
+		player_pos + Vector2(-check_radius, 0),  # Left
+		player_pos + Vector2(check_radius, 0),   # Right
+		player_pos + Vector2(0, -check_radius),  # Up
+		player_pos + Vector2(0, check_radius)    # Down
+	]
+	
+	for pos in check_positions:
+		if _is_platform_tile_at_position(pos):
+			return true
+	
+	return false
+
 func _is_flat_wall_at_player_height(side: int) -> bool:
 	# Check for flat wall using horizontal raycast from player's collision height
+	# This prevents grabbing flat walls (walls without a platform above)
+	# İYİLEŞTİRME: Flat wall kontrolü artık sadece platform kontrolünden SONRA yapılmalı
+	# Ama şimdilik burada kalıyor, sadece daha az agresif yapıyoruz
+	
 	var space_state = player.get_world_2d().direct_space_state
 	
 	# Get player's collision height (approximately 22 pixels from bottom)
 	var player_collision_height = player.global_position.y - 22
 	
-	# Check multiple heights around player's collision area
-	for height_offset in range(-5, 15, 5):  # Check from -5 to +10 pixels around collision height
+	print("[LEDGEGRAB_DEBUG] Checking flat wall - side: ", side, " player_collision_height: ", player_collision_height)
+	
+	# İYİLEŞTİRME: Sadece player'ın tam yüksekliğinde kontrol et, geniş bir aralıkta değil
+	# Bu, gerçek köşeleri daha az reddetmesini sağlar
+	var wall_hits = 0
+	var total_checks = 0
+	
+	# İYİLEŞTİRME: Flat wall kontrolü artık daha az agresif
+	# Sadece player'ın tam yüksekliğinde ve birkaç piksel yukarıda kontrol et
+	# Daha az kontrol noktası = daha az agresif
+	for height_offset in range(0, 8, 3):  # Sadece 0, 3, 6 piksel yukarıda kontrol et (3 nokta)
 		var check_height = player_collision_height + height_offset
 		
 		# Cast horizontal ray from player position towards the wall
 		var from_pos = Vector2(player.global_position.x, check_height)
-		var to_pos = Vector2(player.global_position.x + side * 20, check_height)  # 20 pixels towards wall
-		
-		# DEBUG: Print raycast info
-		print("[LEDGEGRAB_DEBUG] Raycast from: ", from_pos, " to: ", to_pos, " height_offset: ", height_offset)
+		var to_pos = Vector2(player.global_position.x + side * 20, check_height)  # 20 pixels towards wall (daha kısa)
 		
 		var q = PhysicsRayQueryParameters2D.new()
 		q.from = from_pos
@@ -695,11 +829,21 @@ func _is_flat_wall_at_player_height(side: int) -> bool:
 		q.exclude = [player]
 		var res = space_state.intersect_ray(q)
 		
+		total_checks += 1
 		if res:
-			# Found wall at this height - this is likely a flat wall
-			print("[LEDGEGRAB_DEBUG] Flat wall detected at height: ", check_height, " side: ", side, " hit_pos: ", res.position)
-			return true
+			wall_hits += 1
+			print("[LEDGEGRAB_DEBUG] Wall hit at height: ", check_height, " hit_pos: ", res.position, " height_offset: ", height_offset)
 	
-	# No wall found at player collision height - this is likely a real ledge
-	print("[LEDGEGRAB_DEBUG] No flat wall detected at player height, side: ", side)
+	# If wall is detected at most heights, it's likely a flat wall
+	var wall_ratio = float(wall_hits) / float(total_checks) if total_checks > 0 else 0.0
+	print("[LEDGEGRAB_DEBUG] Flat wall check - wall_hits: ", wall_hits, " total_checks: ", total_checks, " ratio: ", wall_ratio)
+	
+	# İYİLEŞTİRME: Threshold'u %100'e çıkar - sadece TÜM kontrollerde duvar varsa flat wall kabul et
+	# Bu, gerçek köşeleri daha az reddetmesini sağlar
+	# Ayrıca, platform kontrolünden SONRA çağrıldığı için bu kontrol daha az önemli
+	if wall_ratio >= 1.0:  # Sadece TÜM kontrollerde duvar varsa flat wall
+		print("[LEDGEGRAB_DEBUG] FLAT WALL DETECTED - ratio: ", wall_ratio, " (threshold: 1.0 - all checks must hit)")
+		return true
+	
+	print("[LEDGEGRAB_DEBUG] No flat wall detected - ratio: ", wall_ratio)
 	return false

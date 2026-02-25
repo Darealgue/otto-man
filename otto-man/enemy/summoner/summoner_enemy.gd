@@ -338,9 +338,11 @@ func die() -> void:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
 	
-	# Emit signal and notify PowerupManager
+	# Emit signal and notify ItemManager
 	emit_signal("enemy_defeated")
-	PowerupManager.on_enemy_killed()
+	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
+	if has_node("/root/ItemManager"):
+		ItemManager.on_enemy_killed(self)
 	
 	# Don't fade out or queue_free - let corpse persist
 	# await get_tree().create_timer(4.0).timeout
@@ -349,12 +351,14 @@ func die() -> void:
 	# await tween.finished
 	# queue_free()
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	# Call base class take_damage to get blood particles and other effects
-	super.take_damage(amount, knockback_force, knockback_up_force)
+	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
 	
 	# Summoner-specific damage handling
 	if current_behavior == "dead" or invulnerable:
+		return
+	if not apply_knockback:
 		return
 		
 	# If launched upward, start float window so player can juggle

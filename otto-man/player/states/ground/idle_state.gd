@@ -45,8 +45,15 @@ func physics_update(delta: float):
 			state_machine.transition_to("Block")
 			return
 		
-	# Check for dodge input (only dodge available, dash locked until powerup)
+	# Check for dodge/dash input (dash if item allows, otherwise dodge)
 	if Input.is_action_just_pressed("dash"):
+		# Check if dash item is active (Rüzgar Hançeri)
+		var dash_state = state_machine.get_node_or_null("Dash")
+		if dash_state and dash_state.has_method("can_start_dash") and dash_state.can_start_dash():
+			state_machine.transition_to("Dash")
+			return
+		
+		# Otherwise use dodge
 		var dodge_state = state_machine.get_node("Dodge")
 		if dodge_state and dodge_state.can_start_dodge():
 			state_machine.transition_to("Dodge")
@@ -62,7 +69,7 @@ func physics_update(delta: float):
 		return
 		
 	if Input.is_action_just_pressed("jump") and not player.jump_input_blocked and player.jump_block_timer <= 0:
-		print("[IdleState] Jump input processed - transitioning to Jump")
+		# print("[IdleState] Jump input processed - transitioning to Jump")
 		state_machine.transition_to("Jump")
 		return
 	elif Input.is_action_just_pressed("jump") and (player.jump_input_blocked or player.jump_block_timer > 0):
@@ -74,7 +81,7 @@ func physics_update(delta: float):
 		return
 		
 	player.velocity.x = move_toward(player.velocity.x, 0, player.friction * delta)
-	player.move_and_slide()
+	player.apply_move_and_slide()
 	
 	# Play appropriate idle animation based on combat state
 	var target_animation = "idle_combat" if player.is_in_combat_state() else "idle"

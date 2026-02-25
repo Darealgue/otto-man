@@ -431,7 +431,7 @@ func _get_incoming_hit_position() -> Vector2:
 	var p = get_nearest_player()
 	return p.global_position if p else global_position
 
-func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0) -> void:
+func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	# Ignore further hits if already dead
 	if current_behavior == "dead":
 		return
@@ -458,7 +458,7 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	# During guard break do normal damage
 	if in_guard_break:
 		print("[ShieldCaptain] GUARD BREAK, passing to BaseEnemy dmg=", amount)
-		super(amount, knockback_force, knockback_up_force)
+		super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
 		return
 
 	# Directional block: any front hit consumes guard instead of health
@@ -485,7 +485,7 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	# Play hurt and protect it from immediate override for the full anim duration
 	_play_anim_safe("hurt")
 	hurt_anim_timer = 0.06 * anim_time_scale * 4.0
-	super(dmg, knock, knockback_up_force)
+	super.take_damage(dmg, knock, knockback_up_force, apply_knockback)
 
 func _guard_break() -> void:
 	in_guard_break = true

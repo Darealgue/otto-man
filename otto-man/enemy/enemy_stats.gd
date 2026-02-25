@@ -1,5 +1,5 @@
-extends Resource
 class_name EnemyStats
+extends Resource
 
 # Base stats
 @export var max_health: float = 100.0

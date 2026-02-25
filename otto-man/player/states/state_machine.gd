@@ -29,11 +29,14 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if current_state:
-		current_state.update(delta)
+		# Zaman yavaşken oyuncu daha az yavaşlar (Zaman Durdurucu)
+		var d: float = delta * owner.time_slow_player_multiplier
+		current_state.update(d)
 
 func _physics_process(delta: float) -> void:
 	if current_state:
-		current_state.physics_update(delta)
+		var d: float = delta * owner.time_slow_player_multiplier
+		current_state.physics_update(d)
 
 func transition_to(target_state_name: String, force: bool = false) -> void:
 	if not has_node(target_state_name):

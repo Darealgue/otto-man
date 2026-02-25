@@ -1,15 +1,20 @@
 extends "../state.gd"
 
-const SLIDE_DURATION := 0.5  # Duration of slide in seconds
+const DEFAULT_SLIDE_DURATION := 0.5  # Default duration of slide in seconds
 const MIN_SPEED_TO_SLIDE := 200.0  # Minimum speed required to slide
-const SLIDE_FRICTION := 1000.0  # Increased friction for faster slowdown
-const INITIAL_SLIDE_SPEED := 800.0  # Initial speed when starting slide
+const DEFAULT_SLIDE_FRICTION := 1000.0  # Default friction for faster slowdown
+const DEFAULT_INITIAL_SLIDE_SPEED := 800.0  # Default initial speed when starting slide
 const FLOOR_CHECK_DELAY := 0.15  # Increased delay before checking floor state
 const SLIDE_GRAVITY_MULTIPLIER := 0.5  # Reduced gravity during slide
 const DOWN_FORCE := 200.0  # Force to keep player grounded
 const SLIDE_HEIGHT_RATIO := 0.5  # How much to reduce height during slide
 const MIN_SLIDE_SPEED := 100.0  # Minimum speed to maintain slide
 const EXIT_SPEED := 150.0  # Speed to set when exiting slide
+
+# Dynamic values that can be modified by items
+var SLIDE_DURATION := DEFAULT_SLIDE_DURATION
+var SLIDE_FRICTION := DEFAULT_SLIDE_FRICTION
+var INITIAL_SLIDE_SPEED := DEFAULT_INITIAL_SLIDE_SPEED
 
 var slide_timer := 0.0
 var floor_check_timer := 0.0
@@ -21,6 +26,8 @@ var original_hurtbox_position_y: float = -22.0  # Actual hurtbox position from s
 var has_initialized := false
 var last_floor_position: Vector2
 var slide_fx_sequence_id := 0
+var slide_start_time := 0.0
+var slide_start_position := Vector2.ZERO
 
 func can_enter() -> bool:
 	# Allow entry from run state or when player has sufficient speed
@@ -48,6 +55,8 @@ func enter():
 	# Reset timers
 	slide_timer = 0.0
 	floor_check_timer = 0.0
+	slide_start_time = Time.get_ticks_msec() / 1000.0
+	slide_start_position = player.position
 	
 	# Store initial floor position
 	last_floor_position = player.position
@@ -99,7 +108,9 @@ func enter():
 func exit():
 	if !player:
 		return
-		
+	# Topuk Kırıcı: slide'dan çıkınca ilk vuruş bonusu
+	if has_node("/root/ItemManager") and ItemManager.has_active_item("topuk_kirici"):
+		player.topuk_kirici_next_hit_bonus = 1.5
 	# Restore original collision shape and hurtbox height and position
 	var collision_shape = player.get_node("CollisionShape2D")
 	var hurtbox_shape = player.get_node("Hurtbox/CollisionShape2D")
@@ -150,6 +161,12 @@ func physics_update(delta: float):
 	
 	# Check if we should exit slide
 	if slide_timer >= SLIDE_DURATION or current_speed < MIN_SLIDE_SPEED:
+		# Emit signal for items
+		var slide_distance = (player.position - slide_start_position).length()
+		var slide_duration = Time.get_ticks_msec() / 1000.0 - slide_start_time
+		if player.has_signal("player_slid"):
+			player.emit_signal("player_slid", slide_distance, slide_duration)
+		
 		if Input.is_action_pressed("crouch"):
 			# Set velocity to prevent immediate re-slide
 			player.velocity.x = sign(player.velocity.x) * min(abs(player.velocity.x), EXIT_SPEED)
@@ -170,7 +187,7 @@ func physics_update(delta: float):
 			state_machine.transition_to("Fall")
 			return
 	
-	player.move_and_slide() 
+	player.apply_move_and_slide() 
 
 func _play_slide_dust_fx() -> void:
 	slide_fx_sequence_id += 1

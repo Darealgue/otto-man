@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ters_darbe_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/ters_darbe.gd" id="1_ters_darbe"]
+
+[node name="TersDarbe" type="Node"]
+script = ExtResource("1_ters_darbe")

@@ -294,10 +294,11 @@ func on_enemy_killed(enemy: Node2D = null) -> void:
 			powerup.on_enemy_killed(enemy)
 	
 	# Check if we've reached the kill threshold for a powerup
-	if enemy_kill_count % KILLS_PER_POWERUP == 0:
-		# Minimal delay before showing powerup selection
-		await get_tree().create_timer(0.2).timeout
-		show_powerup_selection()
+	# DISABLED: Using new Item system instead
+	# if enemy_kill_count % KILLS_PER_POWERUP == 0:
+	# 	# Minimal delay before showing powerup selection
+	# 	await get_tree().create_timer(0.2).timeout
+	# 	show_powerup_selection()
 
 func show_powerup_selection() -> void:
 	if !player:

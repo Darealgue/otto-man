@@ -52,7 +52,7 @@ func change_asker_sayisi(change: int) -> void:
 func add_dungeon_gold(amount: int) -> void:
 	"""Add gold to dungeon inventory (temporary, until successful exit)."""
 	dungeon_gold += amount
-	print("GlobalPlayerData: Dungeon gold updated to ", dungeon_gold)
+	# print("GlobalPlayerData: Dungeon gold updated to ", dungeon_gold)
 	# Emit signal for UI update
 	if has_signal("dungeon_gold_changed"):
 		dungeon_gold_changed.emit(dungeon_gold)

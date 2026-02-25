@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://tunel_ustasi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/tunel_ustasi.gd" id="1_tunel_ustasi"]
+
+[node name="TunelUstasi" type="Node"]
+script = ExtResource("1_tunel_ustasi")
