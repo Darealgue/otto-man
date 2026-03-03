@@ -224,34 +224,36 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(self) or global_position == Vector2.ZERO:
 		return
 	
-	# Check sleep state every frame (like base class)
-	check_sleep_state()
+	# Check sleep state every frame (delta for per-enemy spawn grace)
+	check_sleep_state(delta)
 	
 	# Always apply gravity (even when dead so corpse falls)
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
 	elif is_on_floor():
-		# Do not zero out upward knockback during hurt; allow takeoff
 		if not (current_behavior == "hurt" and velocity.y < 0.0):
 			velocity.y = 0
 	
 	# Only process behavior if not dead and not sleeping
 	if current_behavior != "dead" and not is_sleeping:
-		# Handle invulnerability timer
 		if invulnerable:
 			invulnerability_timer -= delta
 			if invulnerability_timer <= 0:
 				invulnerable = false
-				# Make sure hurtbox is re-enabled
 				if hurtbox:
 					hurtbox.monitoring = true
 					hurtbox.monitorable = true
 		
-		# Handle behavior and movement
 		_handle_child_behavior(delta)
 	
 	# Apply movement
 	move_and_slide()
+	
+	# Sleeping enemy just landed: fall→idle
+	if is_sleeping and is_on_floor() and sprite and "fall" in sprite.animation:
+		sprite.play("idle")
+		if sprite.has_method("pause"):
+			sprite.pause()
 
 
 func _turn_off_torch_light() -> void:

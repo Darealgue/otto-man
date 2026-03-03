@@ -394,8 +394,8 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
-	# Check sleep state every frame (like base class)
-	check_sleep_state()
+	# Check sleep state every frame (delta for per-enemy spawn grace)
+	check_sleep_state(delta)
 	
 	# Handle invulnerability timer
 	if invulnerability_timer > 0:

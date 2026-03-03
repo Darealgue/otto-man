@@ -141,6 +141,13 @@ func _spawn_enemy() -> bool:
 		push_error("[TileEnemySpawner] Failed to instantiate enemy: %s" % selected_enemy_type)
 		return false
 	
+	# Configure BasicEnemy-specific ambient start BEFORE adding to scene (so _ready sees it)
+	if selected_enemy_type == "basic" and enemy is BasicEnemy:
+		var basic_enemy: BasicEnemy = enemy
+		# ~1/5 of basic enemies start in an ambient pose at spawn
+		if randf() < 0.20:
+			basic_enemy.start_in_ambient_pose = true
+	
 	# Add to scene
 	get_parent().add_child(enemy)
 	

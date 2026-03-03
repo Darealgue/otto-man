@@ -4,7 +4,7 @@ extends "res://enemy/base_enemy.gd"
 # Basic enemy - simple AI, low HP, optimized for juggling/combos
 # Designed to be spawned in large numbers in dungeons
 
-# Patrol properties
+# Patrol / movement properties
 var patrol_point_left: float
 var patrol_point_right: float
 var patrol_range: float = 150.0  # How far to patrol from spawn point
@@ -12,6 +12,19 @@ var patrol_range: float = 150.0  # How far to patrol from spawn point
 # Behavior timers
 var patrol_wait_time: float = 1.0  # Wait time at patrol points
 var chase_speed_multiplier: float = 1.8  # Chase significantly faster than patrol
+
+# Chase behavior tuning (to reduce flicker)
+@export var chase_start_distance: float = 260.0  # Distance to START chasing
+@export var chase_stop_distance: float = 320.0   # Distance to STOP chasing (should be > start)
+@export var min_chase_time: float = 0.4          # Minimum time to stay in chase before giving up
+var _chase_time: float = 0.0                     # Time spent in current chase
+
+# Step / small-climb settings
+@export var can_step_climb: bool = true
+@export var max_step_height: float = 32.0        # 1 tile by default
+@export var step_check_distance: float = 12.0    # How far ahead to look for a step
+@export var step_jump_force: float = 360.0       # Upward force for auto step jump (needs to clear 1 tile)
+var _is_step_jumping: bool = false                # True while in air from step-climb; use jump anim instead of fall
 
 # Attack properties
 var attack_range: float = 40.0  # Distance to start attack
@@ -53,6 +66,51 @@ const WALL_HIT_DURATION: float = 0.5  # How long to stay in "wall hit" state
 var _is_wall_hit: bool = false  # Track if we're currently in wall hit state
 var _backing_off_timer: float = 0.0  # Timer for backing off from wall
 const BACK_OFF_DURATION: float = 0.2  # How long to back off from wall after turning
+# Require wall to be "clear" for this long before exiting wall-hit (stops chase/idle flicker at ledges)
+var _wall_clear_time: float = 0.0
+const WALL_CLEAR_DEBOUNCE: float = 0.14
+
+# Corner-stuck safety (prevents endless ground-hit loop on tile corners)
+var _corner_stuck_timer: float = 0.0
+const CORNER_STUCK_THRESHOLD: float = 0.45  # React faster so loop doesn't drag on
+const CORNER_STUCK_POSITION_TOLERANCE: float = 14.0  # Consider "same place" if moved less than this
+const CORNER_STUCK_VELOCITY_TOLERANCE: float = 25.0  # Consider "barely moving" if velocity below this
+const CORNER_UNSTUCK_NUDGE: float = 14.0  # Pixels to push away from wall
+var _last_stuck_position: Vector2 = Vector2.ZERO
+
+# One-time spawn floor fix per enemy (prevents infinite fall hover on bad spawn positions)
+var _spawn_floor_fix_applied: bool = false
+var _spawn_floor_fix_time_left: float = 1.5
+const SPAWN_FLOOR_RAYCAST_LENGTH: float = 320.0
+
+# Continuous airborne safety: if alive enemy stays airborne too long, force-snap to floor
+var _airborne_time: float = 0.0
+const AIRBORNE_SAFETY_THRESHOLD: float = 3.0
+
+# Ledge / attack helpers
+const MAX_ATTACK_VERTICAL_DIFF: float = 40.0  # Max vertical diff to allow melee attack
+const LEDGE_CHECK_DISTANCE: float = 18.0      # How far ahead to look for floor
+const LEDGE_CHECK_DEPTH: float = 32.0         # How far down to raycast for floor
+
+# Patrol wall/ledge turn debounce (prevents rapid left-right spam at walls)
+var _patrol_turn_cooldown: float = 0.0
+const PATROL_TURN_COOLDOWN_TIME: float = 0.25
+
+# Ambient (visual flavor) system
+@export var ambient_enabled: bool = true
+@export var ambient_min_delay: float = 1.5
+@export var ambient_max_delay: float = 3.0
+@export_range(0.0, 1.0) var ambient_start_chance: float = 0.15
+@export var ambient_spawn_grace: float = 2.0  # Short grace; don't block AI for long
+var _ambient_timer: float = 0.0
+var _ambient_playing: bool = false
+var _ambient_anim: String = ""
+var _ambient_spawn_grace_timer: float = 0.0
+@export var ambient_profile_randomize: bool = true
+var _ambient_profile_roll: float = -1.0
+
+# Some enemies can be explicitly flagged (via scene or spawner) to start in ambient pose
+@export var start_in_ambient_pose: bool = false
 
 # Birbirini itme (separation): iç içe geçmeyi azaltır, duvara itmez
 const SEPARATION_RADIUS: float = 90.0  # Bu mesafenin altındaki düşmanlardan itilir (erken başla)
@@ -62,6 +120,23 @@ const SEPARATION_WALL_CHECK: float = 32.0  # Duvar bu mesafedeyse itme kısıtla
 
 # Spawn state tracking
 var _should_transition_to_patrol: bool = false  # Flag to transition to patrol after landing
+
+# Chase blocked at wall: don't apply separation so we stay put (avoids push-away then run-again loop)
+var _chase_blocked_at_wall: bool = false
+# Debounce: stay "blocked" briefly after wall is no longer detected (stops sit->chase->idle flicker)
+var _chase_blocked_clear_timer: float = 0.0
+const CHASE_BLOCKED_CLEAR_TIME: float = 0.4
+
+# After corner-stuck forces patrol, briefly don't re-enter chase (stops attack->patrol->chase loop at wall)
+var _chase_after_wall_cooldown: float = 0.0
+var _chase_cooldown_just_set: bool = false  # Skip decrement on first patrol frame so chase is blocked
+const CHASE_AFTER_WALL_COOLDOWN_TIME: float = 1.8
+
+# Debug chase/wall loop (enable in Inspector under Basic Enemy)
+@export var debug_chase_wall: bool = false
+var _debug_chase_timer: float = 0.0
+const _DEBUG_CHASE_INTERVAL: float = 0.25
+var _debug_was_blocked_last_frame: bool = false
 
 func _ready() -> void:
 	super._ready()
@@ -73,23 +148,16 @@ func _ready() -> void:
 	_bounce_cooldown = 0.0
 	# Initialize wall hit variables
 	_backing_off_timer = 0.0
+	_corner_stuck_timer = 0.0
+	_last_stuck_position = global_position
 	
-	# CRITICAL: Force floor detection on spawn - ensure we're on floor before initializing
-	# This prevents fall animation from playing when spawning in air (level 2+ issue)
-	if not is_on_floor():
-		# Try to detect floor below us
-		var space_state = get_world_2d().direct_space_state
-		var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * 500.0)
-		query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
-		var result = space_state.intersect_ray(query)
-		
-		if result:
-			# Place on floor
-			global_position = result.position - Vector2(0, 32)
-			# Force physics update
-			move_and_slide()
+	# Ensure chase stop distance is never smaller than start distance
+	if chase_stop_distance < chase_start_distance:
+		chase_stop_distance = chase_start_distance + 40.0
 	
-	# Initialize floor tracking AFTER ensuring we're on floor
+	# NOTE: Rely on spawners/level generator to place enemies on the floor.
+	# Extra floor raycasts here caused double-snapping and hover issues in some chunks.
+	# Initialize floor tracking based on current position.
 	_was_in_air = not is_on_floor()
 	
 	# Initialize direction tracking
@@ -139,6 +207,28 @@ func _ready() -> void:
 	
 	# Store original collision layer for dynamic adjustment
 	_original_collision_layer = collision_layer
+
+	# Optional: per-enemy ambient "personality" so everyone oturup kalkmasın
+	if ambient_profile_randomize:
+		_ambient_profile_roll = randf()
+		if _ambient_profile_roll < 0.6:
+			# Pure patrol guard (~60%): never uses ambient
+			ambient_enabled = false
+		elif _ambient_profile_roll < 0.85:
+			# Chill ama çok tembel değil (~25%): ara sıra oturur
+			ambient_enabled = true
+			ambient_start_chance = 0.25
+			ambient_min_delay = 4.0
+			ambient_max_delay = 8.0
+		else:
+			# Tam tembel (~15%): sık sık oturur / yatar
+			ambient_enabled = true
+			ambient_start_chance = 0.6
+			ambient_min_delay = 2.0
+			ambient_max_delay = 4.0
+	
+	# Initialize ambient timer
+	_reset_ambient_timer()
 	
 	# Set up patrol points around spawn position
 	var initial_pos = global_position
@@ -146,40 +236,89 @@ func _ready() -> void:
 		patrol_point_left = initial_pos.x - patrol_range
 		patrol_point_right = initial_pos.x + patrol_range
 	
-	# CRITICAL: Ensure we're on floor before setting behavior
-	# Wait a frame for physics to settle, then check floor
-	await get_tree().process_frame
-	if not is_on_floor():
-		# Still in air - wait for landing before setting behavior
-		# This prevents fall animation from playing on spawn
-		current_behavior = "idle"  # Use idle instead of patrol to prevent BaseEnemy from playing fall
-		if sprite:
-			sprite.play("idle")
-		behavior_timer = 0.0
-		# Set a flag to transition to patrol once we land
-		_should_transition_to_patrol = true
+	if debug_enabled or debug_chase_wall:
+		print("[BasicEnemy] Debug ENABLED | name=%s path=%s" % [name, get_path()])
+	
+	# Spawn debug: log ambient-related configuration for this enemy instance
+	if debug_enabled:
+		var scene_path := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
+		print("[BasicEnemy][Spawn] pos=%s scene=%s ambient_enabled=%s start_chance=%.2f start_in_ambient_pose=%s" % [
+			str(global_position),
+			scene_path,
+			str(ambient_enabled),
+			ambient_start_chance,
+			str(start_in_ambient_pose),
+		])
+	
+	# Pool nesneleri (0,0)'da _ready çalıştırır; snap/floor kontrolü yapmadan patrol'e geç.
+	# Gerçek pozisyona taşındığında _physics_process gravity + floor_snap ile halleder.
+	current_behavior = "patrol"
+	if sprite:
+		sprite.play("idle")
+	behavior_timer = 0.0
+
+	# Optionally start some enemies already sitting/relaxed when the scene loads.
+	# This can be forced via start_in_ambient_pose, or random via ambient_start_chance.
+	var want_ambient_start: bool = start_in_ambient_pose
+	if not want_ambient_start and ambient_enabled and ambient_start_chance > 0.0:
+		var roll := randf()
+		if roll < ambient_start_chance:
+			want_ambient_start = true
+		print("[BasicEnemy][Ambient] spawn roll=%.2f chance=%.2f -> %s" % [roll, ambient_start_chance, str(want_ambient_start)])
 	else:
-		# On floor - set patrol behavior normally
-		current_behavior = "patrol"
-		if sprite:
-			sprite.play("idle")
-		behavior_timer = 0.0
+		print("[BasicEnemy][Ambient] spawn flag start_in_ambient_pose=%s" % [str(start_in_ambient_pose)])
+	if want_ambient_start:
+		print("[BasicEnemy][Ambient] starting in ambient pose at %s" % [str(global_position)])
+		_start_initial_ambient_pose()
+		_ambient_spawn_grace_timer = ambient_spawn_grace
 		_should_transition_to_patrol = false
 	
 	# Basic enemy has simple collision - smaller than heavy enemy
 	# Collision shape is set in scene file
 
+# Spawn fall fix: aşağıda zemin varsa zemine snap'le. _physics_process'ten çağrılır.
+func _try_spawn_floor_snap() -> bool:
+	var space_state = get_world_2d().direct_space_state
+	if not space_state:
+		return false
+	var from_pos: Vector2 = global_position
+	var to_pos: Vector2 = global_position + Vector2.DOWN * SPAWN_FLOOR_RAYCAST_LENGTH
+	var query := PhysicsRayQueryParameters2D.create(from_pos, to_pos)
+	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	query.exclude = [get_rid()]
+	var result = space_state.intersect_ray(query)
+	if result.is_empty():
+		return false
+	global_position = result.position - Vector2(0, 32)
+	velocity = Vector2.ZERO
+	move_and_slide()
+	if debug_enabled:
+		print("[BasicEnemy][SpawnFloorFix] snap from %s to %s floor=%s" % [str(from_pos), str(global_position), is_on_floor()])
+	return true
+
 func handle_behavior(delta: float) -> void:
-	"""Override BaseEnemy's handle_behavior to prevent fall animation in hurt state."""
+	"""Override BaseEnemy's handle_behavior to prevent fall animation in hurt state,
+	while still preserving base detection/behavior timer semantics."""
 	if is_sleeping:
 		return
-	# Ölü ceset: hurt mantığı çalışmasın, hurtbox tekrar açılmasın
+	
+	# Advance behavior timer like in BaseEnemy
+	behavior_timer += delta
+	
+	# Update target detection each frame (needed for chase + ambient cancel)
+	# Keep this simple and robust: always use detection range, don't hard-block with spawn grace.
+	target = get_nearest_player_in_range()
+	
+	# Dead corpses: don't run normal behavior, let physics/juggle handle them
 	if current_behavior == "dead":
 		return
+	
 	# Hurt veya ölüme giderken (henüz dead değil) hurt mantığı
 	if current_behavior == "hurt" or health <= 0:
 		handle_hurt_behavior(delta)
 		return
+	
+	# Patrol / chase / attack logic
 	_handle_child_behavior(delta)
 
 func _handle_child_behavior(delta: float) -> void:
@@ -201,6 +340,7 @@ func _handle_child_behavior(delta: float) -> void:
 			handle_patrol(delta)
 			if is_on_floor() and not _is_wall_hit and _backing_off_timer <= 0.0:
 				_apply_separation(delta)
+			_process_ambient(delta)
 		"idle":
 			# Idle state - check if we should transition to patrol (spawn landing)
 			if _should_transition_to_patrol and is_on_floor():
@@ -220,8 +360,14 @@ func _handle_child_behavior(delta: float) -> void:
 			if health <= 0:
 				return
 			handle_chase(delta)
-			if is_on_floor() and not _is_wall_hit and _backing_off_timer <= 0.0:
+			var do_separation: bool = is_on_floor() and not _is_wall_hit and _backing_off_timer <= 0.0 and not _chase_blocked_at_wall
+			if do_separation:
 				_apply_separation(delta)
+			if debug_enabled or debug_chase_wall:
+				_debug_chase_timer += delta
+				if _debug_chase_timer >= _DEBUG_CHASE_INTERVAL:
+					_debug_chase_timer = 0.0
+					print("[BasicEnemy] chase | sep=%s blocked=%s on_wall=%s vel.x=%.0f anim=%s" % [do_separation, _chase_blocked_at_wall, is_on_wall(), velocity.x, sprite.animation if sprite else "n/a"])
 		"attack":
 			# Don't attack if dead
 			if health <= 0:
@@ -231,6 +377,133 @@ func _handle_child_behavior(delta: float) -> void:
 			handle_hurt_behavior(delta)
 		"dead":
 			return
+
+func _has_floor_ahead(dir: int) -> bool:
+	if dir == 0:
+		return true
+	var start := global_position + Vector2(dir * LEDGE_CHECK_DISTANCE, 0)
+	var end := start + Vector2(0, LEDGE_CHECK_DEPTH)
+	var space_state := get_world_2d().direct_space_state
+	var query := PhysicsRayQueryParameters2D.create(start, end)
+	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	var result := space_state.intersect_ray(query)
+	return not result.is_empty()
+
+func _process_ambient(delta: float) -> void:
+	if not ambient_enabled or not sprite:
+		return
+	
+	# Count down initial spawn grace timer (while enemy is allowed to ignore detection)
+	if _ambient_spawn_grace_timer > 0.0:
+		_ambient_spawn_grace_timer = max(0.0, _ambient_spawn_grace_timer - delta)
+	
+	# If we're playing an ambient anim but state is no longer safe, cancel it.
+	if _ambient_playing:
+		var unsafe := current_behavior != "patrol" or not is_on_floor() \
+			or (_ambient_spawn_grace_timer <= 0.0 and target != null)
+		if unsafe:
+			print("[BasicEnemy][Ambient] CANCEL ambient anim=%s reason=unsafe state=%s" % [_ambient_anim, current_behavior])
+			_ambient_playing = false
+			if sprite.sprite_frames.has_animation("idle"):
+				sprite.play("idle")
+			return
+		
+		# If ambient animation finished or changed, exit ambient mode.
+		if not sprite.is_playing() or sprite.animation != _ambient_anim:
+			_ambient_playing = false
+			if sprite.sprite_frames.has_animation("idle"):
+				sprite.play("idle")
+		return
+	
+	# Only consider starting ambient in patrol, when truly relaxed.
+	if current_behavior != "patrol":
+		_ambient_timer = 0.0
+		return
+	
+	# Ambient should depend on player distance, not full detection range.
+	# Compute a local distance to the nearest player and require them to be "far enough".
+	var player := get_nearest_player()
+	var player_far_enough := true
+	if player:
+		var dist := global_position.distance_to(player.global_position)
+		var block_radius := 180.0  # Within ~3 tiles, don't sit
+		player_far_enough = dist > block_radius
+		if debug_enabled and Engine.get_physics_frames() % 180 == 0:
+			print("[BasicEnemy][Ambient] dist=%.1f block_radius=%.1f far_enough=%s state=%s vel=%.1f" % [
+				dist, block_radius, str(player_far_enough), current_behavior, velocity.x,
+			])
+	
+	# In dungeon, patrol hızı zaten sabit (~movement_speed*0.7). Burada ekstra yavaşlama
+	# şartı koymak ambient'i neredeyse imkânsız hale getiriyor. Güvenlik için sadece:
+	# zeminde ol, duvarda olma, oyuncu uzakta olsun yeter.
+	var safe_for_ambient: bool = is_on_floor() \
+		and not is_on_wall() \
+		and player_far_enough
+	
+	if not safe_for_ambient:
+		if debug_enabled and Engine.get_physics_frames() % 240 == 0:
+			print("[BasicEnemy][Ambient] NOT SAFE (floor=%s wall=%s far=%s vel=%.1f state=%s)" % [
+				str(is_on_floor()),
+				str(is_on_wall()),
+				str(player_far_enough),
+				velocity.x,
+				current_behavior,
+			])
+		_ambient_timer = 0.0
+		return
+	
+	if _ambient_timer > 0.0:
+		_ambient_timer -= delta
+		return
+	
+	# Choose an ambient animation if available
+	var options: Array = []
+	if sprite.sprite_frames.has_animation("sit"):
+		options.append("sit")
+	if sprite.sprite_frames.has_animation("sit2"):
+		options.append("sit2")
+	if sprite.sprite_frames.has_animation("sit3"):
+		options.append("sit3")
+	if sprite.sprite_frames.has_animation("lay"):
+		options.append("lay")
+	
+	if options.is_empty():
+		_reset_ambient_timer()
+		return
+	
+	_ambient_anim = options[randi() % options.size()]
+	print("[BasicEnemy][Ambient] START ambient anim=%s at %s" % [_ambient_anim, str(global_position)])
+	sprite.play(_ambient_anim)
+	_ambient_playing = true
+	_reset_ambient_timer()
+
+func _reset_ambient_timer() -> void:
+	# Ensure valid range
+	if ambient_max_delay <= ambient_min_delay:
+		ambient_max_delay = ambient_min_delay + 1.0
+	_ambient_timer = randf_range(ambient_min_delay, ambient_max_delay)
+
+func _start_initial_ambient_pose() -> void:
+	if not sprite:
+		return
+	
+	# Reuse the same ambient options logic
+	var options: Array = []
+	if sprite.sprite_frames.has_animation("sit"):
+		options.append("sit")
+	if sprite.sprite_frames.has_animation("sit2"):
+		options.append("sit2")
+	if sprite.sprite_frames.has_animation("sit3"):
+		options.append("sit3")
+	if sprite.sprite_frames.has_animation("lay"):
+		options.append("lay")
+	
+	if options.is_empty():
+		return
+	
+	_ambient_anim = options[randi() % options.size()]
+	sprite.play(_ambient_anim)
+	_ambient_playing = true
 
 func _apply_separation(delta: float) -> void:
 	var tree = get_tree()
@@ -281,6 +554,15 @@ func handle_patrol(delta: float) -> void:
 	if health <= 0:
 		return
 	
+	# If an ambient animation is playing, stay in place and let ambient system drive the sprite.
+	if _ambient_playing:
+		velocity.x = 0
+		return
+	
+	# Cooldown for patrol wall/ledge turns (prevents rapid left-right flicker)
+	if _patrol_turn_cooldown > 0.0:
+		_patrol_turn_cooldown = max(0.0, _patrol_turn_cooldown - delta)
+	
 	# Check if we should transition to patrol (after landing from spawn)
 	if _should_transition_to_patrol and is_on_floor():
 		_should_transition_to_patrol = false
@@ -299,15 +581,26 @@ func handle_patrol(delta: float) -> void:
 	# Update sprite direction
 	update_sprite_direction()
 	
-	# Check for player first
-	target = get_nearest_player_in_range()
-	if target:
+	# After being forced to patrol from wall/corner-stuck, wait before re-entering chase
+	if _chase_after_wall_cooldown > 0.0:
+		if _chase_cooldown_just_set:
+			_chase_cooldown_just_set = false  # First patrol frame: block chase, don't decrement yet
+		else:
+			_chase_after_wall_cooldown -= delta
+	
+	# Check for player first (with hysteresis-aware target selection) - never chase while cooldown active
+	target = _get_chase_target()
+	if target and _chase_after_wall_cooldown <= 0.0:
 		change_behavior("chase")
 		return
 	
-	# Only patrol if on floor
+	# Only patrol if on floor; in air during step-climb drift forward
 	if not is_on_floor():
-		velocity.x = move_toward(velocity.x, 0, (stats.movement_speed if stats else 80.0) * delta)
+		if _is_step_jumping:
+			var drift_speed = (stats.movement_speed if stats else 80.0) * 0.6
+			velocity.x = direction * drift_speed
+		else:
+			velocity.x = move_toward(velocity.x, 0, (stats.movement_speed if stats else 80.0) * delta)
 		return
 	
 	# Determine target patrol point
@@ -315,10 +608,9 @@ func handle_patrol(delta: float) -> void:
 	var at_patrol_point = abs(global_position.x - target_x) < 15
 	
 	if at_patrol_point:
-		# At patrol point, wait a bit
+		# At patrol point, wait a bit. Skip sit when we just left wall (avoids sit-then-chase when turning)
 		velocity.x = 0
-		if sprite and sprite.animation != "idle":
-			sprite.play("idle")
+		_play_idle_or_sit(_chase_after_wall_cooldown <= 0.0)
 		
 		# After waiting, turn around
 		if behavior_timer >= patrol_wait_time:
@@ -327,96 +619,90 @@ func handle_patrol(delta: float) -> void:
 				sprite.flip_h = direction < 0
 			behavior_timer = 0.0
 	else:
-		# Move towards patrol point
-		# Update timers
-		_wall_hit_timer = max(0.0, _wall_hit_timer - delta)
-		_backing_off_timer = max(0.0, _backing_off_timer - delta)
-		
-		# Check if we hit a wall - use debounce to prevent flickering
+		# Simple wall/ledge-aware patrol movement
+		var move_speed = (stats.movement_speed if stats else 80.0) * 0.7
 		var currently_on_wall = is_on_wall()
+		var has_floor_ahead = _has_floor_ahead(direction)
 		
-		# If we're backing off from wall, don't check for new wall hits
-		if _backing_off_timer > 0.0:
-			# Backing off - move away from wall
-			var move_speed = (stats.movement_speed if stats else 80.0) * 0.7
-			velocity.x = direction * move_speed
-			if sprite and sprite.animation != "walk":
-				sprite.play("walk")
-			# Once we're no longer on wall, exit backing off state
-			if not currently_on_wall:
-				_backing_off_timer = 0.0
-				_is_wall_hit = false
-				_wall_hit_timer = 0.0
-				# Note: In patrol, direction will naturally update when we reach patrol point
-		elif currently_on_wall:
-			# Just hit wall - start wall hit state
-			if not _is_wall_hit:
-				_is_wall_hit = true
-				_wall_hit_timer = WALL_HIT_DURATION
-				behavior_timer = 0.0  # Reset behavior timer
+		# Treat ledge (no floor ahead) always as a hard boundary.
+		var boundary_hit: bool = not has_floor_ahead
+		
+		# For real walls, first try step-climb; only if that fails, treat as boundary.
+		if currently_on_wall and has_floor_ahead:
+			if _try_step_climb():
+				# Successful 1-tile step climb; let gravity/physics handle movement this frame.
+				return
+			boundary_hit = true
+		
+		# Treat wall or ledge edge as a patrol boundary, but only flip direction
+		# when cooldown has expired to avoid rapid left-right spam.
+		if boundary_hit and _patrol_turn_cooldown <= 0.0:
+			direction *= -1
+			if sprite:
+				sprite.flip_h = direction < 0
+			_patrol_turn_cooldown = PATROL_TURN_COOLDOWN_TIME
 			
-			# Stay in wall hit state for the duration
-			if _is_wall_hit:
-				if _wall_hit_timer > 0.0:
-					velocity.x = 0
-					if sprite and sprite.animation != "idle":
-						sprite.play("idle")
-					# Turn around after wall hit duration
-					if behavior_timer >= 0.3:  # Wait 0.3s before turning
-						direction *= -1
-						if sprite:
-							sprite.flip_h = direction < 0
-						behavior_timer = 0.0
-						# Start backing off from wall
-						_backing_off_timer = BACK_OFF_DURATION
-						_is_wall_hit = false  # Exit wall hit state, enter backing off state
-				else:
-					# Timer expired but still on wall - force turn around
-					direction *= -1
-					if sprite:
-						sprite.flip_h = direction < 0
-					behavior_timer = 0.0
-					_backing_off_timer = BACK_OFF_DURATION
-					_is_wall_hit = false
-		else:
-			# Not blocked - exit wall hit state and move normally
+			# Reset any wall-related state so patrol doesn't get stuck
 			_is_wall_hit = false
-			_wall_hit_timer = 0.0
 			_backing_off_timer = 0.0
-			if sprite and sprite.animation != "walk":
-				sprite.play("walk")
-			var move_speed = (stats.movement_speed if stats else 80.0) * 0.7  # Slower patrol speed
-			velocity.x = direction * move_speed
+			_wall_hit_timer = 0.0
+			_wall_clear_time = 0.0
+			behavior_timer = 0.0
+		
+		# Always try to walk in the current patrol direction; move_and_slide/ledge check
+		# plus the boundary flip above will keep us within safe bounds.
+		velocity.x = direction * move_speed
+		if sprite and sprite.animation != "walk":
+			sprite.play("walk")
 
 func handle_chase(delta: float) -> void:
 	# Don't chase if dead
 	if health <= 0:
 		return
 		
+	# Track time spent in chase (for min_chase_time)
+	_chase_time += delta
+		
 	# Update attack cooldown
 	if attack_cooldown_timer > 0.0:
 		attack_cooldown_timer -= delta
 	
-	# Get current target
-	target = get_nearest_player_in_range()
+	# Get current target with hysteresis-aware logic
+	target = _get_chase_target()
 	
 	if not target:
-		# Lost target, return to patrol
+		# Lost target - optionally keep chasing a bit to avoid flicker
+		if _chase_time < min_chase_time:
+			# Keep moving in current direction for a short grace period
+			if is_on_floor():
+				var chase_speed_grace = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
+				velocity.x = direction * chase_speed_grace
+			return
+		
+		# Grace period over, return to patrol
 		change_behavior("patrol")
 		return
 	
+	# Calculate direction to player (needed for both direction update and backing off)
+	var dir_to_player = sign(target.global_position.x - global_position.x)
+	
 	# Check if we're in attack range (with buffer distance for better feel)
+	# Smarter melee: only attack when player is roughly on same vertical level and in front
 	var distance_to_target = global_position.distance_to(target.global_position)
 	var attack_range_with_buffer = attack_range + 30.0  # Add 30px buffer for better attack start
-	if distance_to_target <= attack_range_with_buffer and attack_cooldown_timer <= 0.0 and is_on_floor():
+	var vertical_diff = abs(target.global_position.y - global_position.y)
+	var facing_player = (dir_to_player == direction and dir_to_player != 0)
+	if distance_to_target <= attack_range_with_buffer \
+			and attack_cooldown_timer <= 0.0 \
+			and is_on_floor() \
+			and not _chase_blocked_at_wall \
+			and vertical_diff <= MAX_ATTACK_VERTICAL_DIFF \
+			and facing_player:
 		change_behavior("attack")
 		return
 	
 	# Update direction cooldown timer
 	_direction_change_cooldown_timer = max(0.0, _direction_change_cooldown_timer - delta)
-	
-	# Calculate direction to player (needed for both direction update and backing off)
-	var dir_to_player = sign(target.global_position.x - global_position.x)
 	
 	# Check if we're on wall - if so, don't update direction (prevent flickering)
 	var is_in_wall_hit_state = _is_wall_hit or _backing_off_timer > 0.0
@@ -453,13 +739,24 @@ func handle_chase(delta: float) -> void:
 		
 		# Check if we hit a wall - use debounce to prevent flickering
 		var currently_on_wall = is_on_wall()
+		if currently_on_wall:
+			_wall_clear_time = 0.0
+			_chase_blocked_clear_timer = CHASE_BLOCKED_CLEAR_TIME  # Reset debounce while on wall
+		else:
+			_wall_clear_time += delta
+			_chase_blocked_clear_timer -= delta
+			if _chase_blocked_clear_timer <= 0.0:
+				_chase_blocked_at_wall = false
 		
 		# If we're backing off from wall, don't check for new wall hits
 		if _backing_off_timer > 0.0:
 			# Backing off - move away from wall
 			var chase_speed = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
 			velocity.x = direction * chase_speed * 0.5  # Slower when backing off
-			if sprite:
+			if _is_blocked_cannot_move_forward():
+				# In chase, never sit when blocked; just idle
+				_play_idle_or_sit(false)
+			elif sprite:
 				if sprite.sprite_frames.has_animation("chase"):
 					sprite.play("chase")
 				else:
@@ -479,59 +776,72 @@ func handle_chase(delta: float) -> void:
 					if sprite:
 						sprite.flip_h = direction < 0
 		elif currently_on_wall:
-			# Just hit wall - start wall hit state
-			if not _is_wall_hit:
-				_is_wall_hit = true
-				_wall_hit_timer = WALL_HIT_DURATION
-				behavior_timer = 0.0  # Reset behavior timer
-			
-			# Stay in wall hit state for the duration
-			if _is_wall_hit:
-				if _wall_hit_timer > 0.0:
-					velocity.x = 0
-					# Keep idle animation - don't flicker between animations
-					if sprite:
-						if sprite.animation != "idle":
-							sprite.play("idle")
-						# Lock sprite direction to prevent flickering
-						if sprite.flip_h != (direction < 0):
-							sprite.flip_h = direction < 0
-					# After wall hit duration, try to move away from wall
-					if behavior_timer >= 0.5:  # Wait 0.5s then try to unstick
-						# Try moving away from wall
-						direction *= -1
-						if sprite:
-							sprite.flip_h = direction < 0
-						behavior_timer = 0.0
-						# Start backing off from wall
-						_backing_off_timer = BACK_OFF_DURATION
-						_is_wall_hit = false  # Exit wall hit state, enter backing off state
-				else:
-					# Timer expired but still on wall - force turn around
-					direction *= -1
-					if sprite:
-						sprite.flip_h = direction < 0
-					behavior_timer = 0.0
-					_backing_off_timer = BACK_OFF_DURATION
-					_is_wall_hit = false
-		else:
-			# Not blocked - exit wall hit state and move normally
+			# If player is behind us (other side of wall / below), turn and move — don't stay blocked
+			if dir_to_player != 0 and dir_to_player != direction:
+				_chase_blocked_at_wall = false
+				_chase_blocked_clear_timer = 0.0
+				_direction_change_cooldown_timer = 0.0
+				direction = dir_to_player
+				_last_direction = direction
+				if sprite:
+					sprite.flip_h = direction < 0
+				var chase_speed = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
+				velocity.x = direction * chase_speed
+				_debug_was_blocked_last_frame = false
+				return
+			# First, try to climb a small step (1 tile) instead of treating as full wall
+			if _try_step_climb():
+				_is_wall_hit = false
+				_wall_hit_timer = 0.0
+				_backing_off_timer = 0.0
+				return
+			# Chase blocked at wall (can't reach player): stay put, idle only (no sit, no separation push)
+			_chase_blocked_at_wall = true
+			_chase_blocked_clear_timer = CHASE_BLOCKED_CLEAR_TIME
 			_is_wall_hit = false
 			_wall_hit_timer = 0.0
 			_backing_off_timer = 0.0
-			if sprite and sprite.animation != "chase":
-				# Use chase animation if available, otherwise walk
-				if sprite.sprite_frames.has_animation("chase"):
-					sprite.play("chase")
-				else:
-					sprite.play("walk")
-			
-			var chase_speed = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
-			velocity.x = direction * chase_speed
+			velocity.x = 0
+			_play_idle_or_sit(false)
+			if (debug_enabled or debug_chase_wall) and not _debug_was_blocked_last_frame:
+				print("[BasicEnemy] CHASE BLOCKED AT WALL (idle, no separation)")
+			_debug_was_blocked_last_frame = true
+			if sprite and sprite.flip_h != (direction < 0):
+				sprite.flip_h = direction < 0
+			return
+		else:
+			# Not blocked - only exit wall-hit after debounce to prevent ledge flicker
+			_debug_was_blocked_last_frame = false
+			# Stay idle while chase-blocked debounce is active (stops sit->run->idle flicker at wall)
+			if _chase_blocked_at_wall:
+				velocity.x = 0
+				_play_idle_or_sit(false)
+			elif _wall_clear_time >= WALL_CLEAR_DEBOUNCE:
+				_is_wall_hit = false
+				_wall_hit_timer = 0.0
+				_backing_off_timer = 0.0
+				if _is_blocked_cannot_move_forward():
+					# In chase, when blocked while trying to move, use idle (no sit flicker)
+					_play_idle_or_sit(false)
+				elif sprite and sprite.animation != "chase":
+					if sprite.sprite_frames.has_animation("chase"):
+						sprite.play("chase")
+					else:
+						sprite.play("walk")
+				var chase_speed = (stats.movement_speed if stats else 80.0) * chase_speed_multiplier
+				velocity.x = direction * chase_speed
+			else:
+				# Still in debounce: keep idle/sit so we don't flicker
+				velocity.x = 0
+				# In chase, debounce near wall should be idle only
+				_play_idle_or_sit(false)
 	else:
-		# In air, slow down horizontal movement
-		# CRITICAL: Don't play fall animation here - it will be handled by hurt state if needed
-		velocity.x = move_toward(velocity.x, 0, (stats.movement_speed if stats else 80.0) * delta)
+		# In air: during step-climb drift forward so we clear the ledge; otherwise slow down
+		if _is_step_jumping:
+			var drift_speed = (stats.movement_speed if stats else 80.0) * 0.7
+			velocity.x = direction * drift_speed
+		else:
+			velocity.x = move_toward(velocity.x, 0, (stats.movement_speed if stats else 80.0) * delta)
 		# Ensure fall animation is NOT playing when in chase state and in air
 		if sprite and sprite.animation == "fall":
 			sprite.stop()
@@ -876,6 +1186,9 @@ func handle_hurt_behavior(delta: float) -> void:
 func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == new_behavior and not force:
 		return
+	var was_attack: bool = (current_behavior == "attack")
+	if debug_enabled or debug_chase_wall:
+		print("[BasicEnemy] change_behavior: %s -> %s (force=%s)" % [current_behavior, new_behavior, force])
 	
 	# IMPORTANT: Don't allow changing to patrol/chase/attack if dead or dying
 	# Dead enemies should stay in hurt state until they hit ground
@@ -889,8 +1202,17 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == "dead" and not force:
 		return
 		
+	# When entering chase, reset chase timer
+	if new_behavior == "chase":
+		_chase_time = 0.0
+	
 	current_behavior = new_behavior
 	behavior_timer = 0.0
+	
+	# When forced to patrol or leaving attack for patrol, delay re-entering chase (stops wall loop)
+	if new_behavior == "patrol" and (force or was_attack):
+		_chase_after_wall_cooldown = CHASE_AFTER_WALL_COOLDOWN_TIME
+		_chase_cooldown_just_set = true
 	
 	# IMPORTANT: Override BaseEnemy's automatic animation playing for hurt state
 	# BaseEnemy tries to play "hurt" animation which doesn't exist, causing fall animation
@@ -1116,6 +1438,28 @@ func _physics_process(delta: float) -> void:
 		hurtbox.monitoring = false
 		hurtbox.monitorable = false
 	
+	# Dead + grounded: ensure death animation plays (may have been skipped if knockback was active during die())
+	if current_behavior == "dead" and is_on_floor() and sprite:
+		if sprite.animation != "death":
+			if sprite.sprite_frames.has_animation("death"):
+				sprite.play("death")
+	
+	# Spawn floor fix: zemine ilk temas olduğunda işaretle ve patrol noktalarını kur.
+	# Süre dolarsa ve hâlâ havadaysa raycast ile zemine snap yap.
+	if not _spawn_floor_fix_applied:
+		if is_on_floor():
+			_spawn_floor_fix_applied = true
+			patrol_point_left = global_position.x - patrol_range
+			patrol_point_right = global_position.x + patrol_range
+		else:
+			_spawn_floor_fix_time_left -= delta
+			if _spawn_floor_fix_time_left <= 0.0:
+				if current_behavior != "hurt" and current_behavior != "dead" and health > 0:
+					_try_spawn_floor_snap()
+				_spawn_floor_fix_applied = true
+				patrol_point_left = global_position.x - patrol_range
+				patrol_point_right = global_position.x + patrol_range
+	
 	# CRITICAL: Check animation FIRST, before any other processing
 	# This ensures fall animation is stopped immediately if it starts playing
 	if sprite:
@@ -1132,8 +1476,8 @@ func _physics_process(delta: float) -> void:
 						if sprite.sprite_frames.has_animation("hurt_fall"):
 							sprite.play("hurt_fall")
 	
-	# Check sleep state
-	check_sleep_state()
+	# Check sleep state (delta for per-enemy spawn grace)
+	check_sleep_state(delta)
 	
 	# CRITICAL: Disable hitbox if in air or hurt state - enemy can't attack while being juggled
 	if hitbox:
@@ -1142,88 +1486,65 @@ func _physics_process(delta: float) -> void:
 				hitbox.disable()
 			is_attacking = false
 	
-	# Only process if awake
+	# Gravity (always, so airborne sleeping enemies land)
+	if not is_on_floor():
+		var is_dead = current_behavior == "dead" or health <= 0
+		if not is_dead:
+			var g_scale := 1.0
+			if current_behavior == "hurt" and air_float_timer > 0.0 and health > 0:
+				g_scale = air_float_gravity_scale
+				air_float_timer = max(0.0, air_float_timer - delta)
+			velocity.y += GRAVITY * g_scale * delta
+			if current_behavior == "hurt" and air_float_timer > 0.0 and health > 0:
+				velocity.y = min(velocity.y, air_float_max_fall_speed)
+		else:
+			velocity.y += GRAVITY * delta
+			if velocity.y < -800.0:
+				velocity.y += GRAVITY * 0.3 * delta
+	
+	if current_behavior == "dead" and is_on_floor():
+		velocity = Vector2.ZERO
+	
+	if collision_layer != CollisionLayers.ENEMY_HURTBOX:
+		collision_layer = CollisionLayers.ENEMY_HURTBOX
+	
+	if is_on_floor() and velocity.y >= 0.0:
+		_is_step_jumping = false
+	
+	# Airborne safety: alive enemy stuck in the air for too long → force-snap to floor
+	if not is_on_floor() and current_behavior != "hurt" and current_behavior != "dead" and health > 0:
+		_airborne_time += delta
+		if _airborne_time >= AIRBORNE_SAFETY_THRESHOLD:
+			if _try_spawn_floor_snap():
+				_airborne_time = 0.0
+				_spawn_floor_fix_applied = true
+				if is_sleeping:
+					wake_up()
+				if current_behavior != "patrol" and current_behavior != "chase":
+					current_behavior = "patrol"
+				if sprite and sprite.animation == "fall":
+					sprite.play("idle")
+			else:
+				_airborne_time = 0.0
+	else:
+		_airborne_time = 0.0
+	
+	# Only process behavior/AI if awake
 	if not is_sleeping:
 		# Handle behavior
 		handle_behavior(delta)
 		
-		# CRITICAL: Check animation AGAIN after handle_behavior
-		# handle_behavior might trigger animations that we need to override
-		if sprite:
-			if current_behavior == "hurt" or health <= 0:
-				if sprite.animation == "fall":
-					sprite.stop()
-					# Immediately play correct hurt animation
-					if not is_on_floor():
-						if velocity.y < -10.0:
-							if sprite.sprite_frames.has_animation("hurt_rise"):
-								sprite.play("hurt_rise")
-						else:
-							if sprite.sprite_frames.has_animation("hurt_fall"):
-								sprite.play("hurt_fall")
-		
-		# Track velocity before applying gravity (for bounce calculation)
+		# Track velocity before move (for bounce calculation)
 		_previous_velocity_y = velocity.y
 		
-		# Reset _just_bounced flag when we're actually in air (not on floor)
-		# This allows bounce to trigger again on next landing
 		if not is_on_floor() and _just_bounced:
-			# We're in air now, so reset the flag to allow next bounce check
 			_just_bounced = false
 		
-		# Apply gravity with air float for juggling
-		# Check both current_behavior and health to determine if dead
-		var is_dead = current_behavior == "dead" or health <= 0
-		
-		if not is_on_floor() and not is_dead:
-			var g_scale := 1.0
-			# Extended air float during hurt state for combos (ONLY if alive)
-			# Dead enemies always use normal gravity - no float
-			if current_behavior == "hurt" and air_float_timer > 0.0 and health > 0:
-				g_scale = air_float_gravity_scale
-				air_float_timer = max(0.0, air_float_timer - delta)
-			# Always apply gravity
-			velocity.y += GRAVITY * g_scale * delta
-			
-			# Cap fall speed during air float (only if alive and float active)
-			if current_behavior == "hurt" and air_float_timer > 0.0 and health > 0:
-				velocity.y = min(velocity.y, air_float_max_fall_speed)
-		elif not is_on_floor() and is_dead:
-			# Dead in air - ALWAYS use normal gravity, no float
-			# Apply normal gravity to dead enemies (they should fall naturally)
-			# BUT preserve upward velocity from hits (don't override it)
-			velocity.y += GRAVITY * delta
-			
-			# Don't apply extra gravity too aggressively - let them fly high for combos
-			# Only apply extra gravity if velocity is extremely high (prevent infinite flight)
-			if velocity.y < -800.0:  # Increased threshold to allow higher flight
-				# Extremely high upward velocity - apply extra gravity to bring it down
-				velocity.y += GRAVITY * 0.3 * delta  # Reduced extra gravity
-		
-		# Stop all movement when dead and on ground ONLY
-		# Don't stop movement if dead in air - allow juggling
-		if current_behavior == "dead" and is_on_floor():
-			velocity = Vector2.ZERO
-		
-		
-		# IMPORTANT: BasicEnemy should NEVER collide with player
-		# Always use ENEMY_HURTBOX layer so player can pass through (prevents pushing player into tiles/walls)
-		# This allows player to move freely even when enemies are running at them
-		# This applies to both ground and air - BasicEnemy is a "punching bag" enemy
-		if collision_layer != CollisionLayers.ENEMY_HURTBOX:
-			collision_layer = CollisionLayers.ENEMY_HURTBOX
-		
-		# CRITICAL: Prevent fall animation when in hurt state or dead
-		# Fall animation should ONLY play when NOT hurt and NOT dead
-		# This check runs EVERY frame to aggressively prevent fall animation
-		# (Note: First check is at the top of _physics_process for immediate response)
+		# Hurt/dead animation overrides
 		if sprite:
-			# If we're in hurt state or dead, NEVER play fall animation
 			if current_behavior == "hurt" or health <= 0:
-				# Force stop fall animation if playing (check every frame)
 				if sprite.animation == "fall":
 					sprite.stop()
-					# Immediately play correct hurt animation
 					if not is_on_floor():
 						if velocity.y < -10.0:
 							if sprite.sprite_frames.has_animation("hurt_rise"):
@@ -1231,26 +1552,91 @@ func _physics_process(delta: float) -> void:
 						else:
 							if sprite.sprite_frames.has_animation("hurt_fall"):
 								sprite.play("hurt_fall")
-				# Always ensure correct hurt animation is playing when in air
 				elif not is_on_floor():
 					if velocity.y < -10.0:
-						# Rising - play hurt_rise
 						if sprite.sprite_frames.has_animation("hurt_rise"):
 							if sprite.animation != "hurt_rise":
 								sprite.play("hurt_rise")
 					else:
-						# Falling - play hurt_fall
 						if sprite.sprite_frames.has_animation("hurt_fall"):
 							if sprite.animation != "hurt_fall":
 								sprite.play("hurt_fall")
-			# Only play fall animation if NOT hurt and NOT dead
 			elif not is_on_floor() and current_behavior != "hurt" and current_behavior != "dead" and health > 0:
-				if sprite.sprite_frames.has_animation("fall"):
-					# Only play fall if not already playing hurt animations
+				if _is_step_jumping:
+					if velocity.y < -10.0:
+						if sprite.sprite_frames.has_animation("jump") and sprite.animation != "jump":
+							sprite.play("jump")
+					else:
+						if sprite.sprite_frames.has_animation("fall") and sprite.animation != "fall":
+							sprite.play("fall")
+				elif sprite.sprite_frames.has_animation("fall"):
 					if sprite.animation != "fall" and sprite.animation != "hurt_fall" and sprite.animation != "hurt_rise":
 						sprite.play("fall")
+	
+	move_and_slide()
+	
+	# Sleeping enemy landed: switch from fall animation to idle so it doesn't look stuck
+	if is_sleeping and is_on_floor() and sprite and sprite.animation == "fall":
+		sprite.play("idle")
+		if sprite.has_method("pause"):
+			sprite.pause()
+	
+	# Corner-stuck safety: prevent endless loops at tile corners (hurt, dead, or alive patrol/chase)
+	if is_on_floor() and is_on_wall():
+		var barely_moving: bool = abs(velocity.x) < CORNER_STUCK_VELOCITY_TOLERANCE and abs(velocity.y) < CORNER_STUCK_VELOCITY_TOLERANCE
+		var same_place: bool = _last_stuck_position.distance_to(global_position) < CORNER_STUCK_POSITION_TOLERANCE
+		if barely_moving and same_place:
+			_corner_stuck_timer += delta
+		else:
+			_corner_stuck_timer = 0.0
+			_last_stuck_position = global_position
+	else:
+		_corner_stuck_timer = 0.0
+		_last_stuck_position = global_position
+	
+	if _corner_stuck_timer >= CORNER_STUCK_THRESHOLD:
+		var allow_nudge := (current_behavior == "hurt" or current_behavior == "dead" \
+			or (current_behavior == "chase" and not _chase_blocked_at_wall))
 		
-		move_and_slide()
+		if not allow_nudge:
+			_corner_stuck_timer = 0.0
+			_last_stuck_position = global_position
+		else:
+			if current_behavior == "chase" and _chase_blocked_at_wall:
+				_corner_stuck_timer = 0.0
+				_last_stuck_position = global_position
+			else:
+				var push_dir: int = -direction if direction != 0 else 1
+				global_position.x += float(push_dir) * CORNER_UNSTUCK_NUDGE
+				velocity = Vector2.ZERO
+				_corner_stuck_timer = 0.0
+				_was_in_air = false
+				_just_bounced = false
+				_bounce_cooldown = 0.0
+				_is_wall_hit = false
+				_wall_hit_timer = 0.0
+				_backing_off_timer = 0.0
+				_wall_clear_time = 0.0
+				
+				if health <= 0:
+					die()
+				else:
+					_chase_after_wall_cooldown = CHASE_AFTER_WALL_COOLDOWN_TIME
+					_chase_cooldown_just_set = true
+					change_behavior("patrol", true)
+
+# When blocked at wall or waiting, play sit if available else idle (avoids walk stutter)
+func _play_idle_or_sit(use_sit: bool = false) -> void:
+	# For BasicEnemy, always use idle here.
+	# Sit caused too many brief flickers at walls/turns; we keep behavior simple.
+	if not sprite:
+		return
+	if sprite.animation != "idle":
+		sprite.play("idle")
+
+# True when against wall and not actually moving (so we should show idle/sit, not walk/chase)
+func _is_blocked_cannot_move_forward() -> bool:
+	return is_on_wall() and abs(velocity.x) < 18.0
 
 func update_sprite_direction() -> void:
 	"""Update sprite direction based on movement and target"""
@@ -1266,7 +1652,7 @@ func update_sprite_direction() -> void:
 				direction = target_direction
 				if sprite:
 					sprite.flip_h = direction < 0
-	elif velocity.x != 0:
+	elif abs(velocity.x) > 18.0:
 		var vel_direction = sign(velocity.x)
 		# Only update direction if it actually changed
 		if direction != vel_direction:
@@ -1423,7 +1809,13 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	
 	# Get knockback data
 	var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
-	var damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 10.0
+	var damage: float
+	if hitbox.has_method("get_damage_for_target"):
+		damage = hitbox.get_damage_for_target(self)
+	elif hitbox.has_method("get_damage"):
+		damage = hitbox.get_damage()
+	else:
+		damage = 10.0
 	
 	# If dead in air, allow damage but don't reduce health further
 	if health <= 0 and not is_on_floor():
@@ -1483,6 +1875,13 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	
 	# Normal damage handling - pass hitbox to take_damage (apply_knockback=true for physical hits)
 	take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0), true, hitbox)
+
+func go_to_sleep() -> void:
+	# Clear ambient state before sleeping so enemy doesn't freeze in sit/lay animation
+	if _ambient_playing:
+		_ambient_playing = false
+		_ambient_timer = 0.0
+	super.go_to_sleep()
 
 func reset() -> void:
 	super.reset()
@@ -1555,3 +1954,72 @@ func _on_animation_changed() -> void:
 		air_float_duration = air_float_duration_override
 		air_float_gravity_scale = air_float_gravity_override
 		air_float_max_fall_speed = 200.0
+
+
+# Helper: hysteresis-aware chase target selection
+func _get_chase_target() -> Node2D:
+	var player = get_nearest_player()
+	if not player:
+		return null
+	
+	var distance = global_position.distance_to(player.global_position)
+	var detection_range = stats.detection_range if stats else 300.0
+	
+	# Never chase beyond overall detection range
+	if distance > detection_range:
+		return null
+	
+	# Use different thresholds depending on whether we're already chasing
+	if current_behavior == "chase":
+		return player if distance <= chase_stop_distance else null
+	else:
+		return player if distance <= chase_start_distance else null
+
+
+# Helper: attempt to auto-climb a small step (1 tile by default)
+func _try_step_climb() -> bool:
+	if not can_step_climb:
+		return false
+	if not is_on_floor():
+		return false
+	if direction == 0:
+		return false
+	
+	var space_state = get_world_2d().direct_space_state
+	if not space_state:
+		return false
+	
+	# Slightly ahead so we detect the ledge when touching it (collision can be 1–2 px inside)
+	var check_dist := maxf(step_check_distance, 18.0)
+	var forward := Vector2(direction * check_dist, 0.0)
+	var exclude := [get_rid()]
+	
+	# 1) Horizontal ray in front at foot level to hit the step vertical face
+	var foot_from := global_position + Vector2(0.0, 8.0)
+	var foot_to := foot_from + forward
+	var foot_query := PhysicsRayQueryParameters2D.create(foot_from, foot_to)
+	foot_query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	foot_query.collide_with_areas = false
+	foot_query.exclude = exclude
+	var foot_hit = space_state.intersect_ray(foot_query)
+	if foot_hit.is_empty():
+		return false
+	
+	# 2) From hit point cast UP; hit within step height = tall wall (band just above step top so we don’t hit the step surface)
+	var wall_check_from: Vector2 = foot_hit.position
+	var wall_check_to: Vector2 = foot_hit.position + Vector2(0.0, -(max_step_height + 14.0))
+	var wall_query := PhysicsRayQueryParameters2D.create(wall_check_from, wall_check_to)
+	wall_query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	wall_query.collide_with_areas = false
+	wall_query.exclude = exclude
+	var wall_up_hit = space_state.intersect_ray(wall_query)
+	if not wall_up_hit.is_empty():
+		return false  # Obstacle continues upward = tall wall, not a step
+	
+	# Step jump: mostly up; horizontal movement applied in air so we drift over the ledge
+	_is_step_jumping = true
+	velocity.y = -step_jump_force
+	velocity.x = 0.0  # Will be set each frame while in air
+	if sprite and sprite.sprite_frames.has_animation("jump"):
+		sprite.play("jump")
+	return true

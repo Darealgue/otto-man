@@ -385,12 +385,10 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 	# Hasar algılama için Area2D (hitbox'larla çakışır)
 	var hurt: Area2D = Area2D.new()
 	hurt.name = "BreakableHurtbox"
-	# Player hitbox'ı Layer 5 (16) ve Mask 6 (32) kullanıyor.
-	# Burada kırılabilir hurtbox'ı Layer 6 (32), Mask 5 (16) yapıyoruz ki iki yönlü temas oluşsun.
+	# Player hitbox Layer 5 (16), enemy hitbox Layer 7 (64).
+	# Sadece oyuncu kırabilmeli — mask yalnızca PLAYER_HITBOX (16).
 	hurt.collision_layer = CollisionLayers.ENEMY_HURTBOX
-	# Detect everything (özellikle player hitbox katmanı 5=16 dahil)
-	hurt.collision_mask = 0
-	hurt.collision_mask = CollisionLayers.ALL
+	hurt.collision_mask = CollisionLayers.PLAYER_HITBOX
 	hurt.monitoring = true
 	hurt.monitorable = true
 	# Hem area_entered hem body_entered bağla (bazı saldırılar body olabilir)
@@ -470,16 +468,16 @@ func _on_gold_area_entered(area: Area2D, node: Node2D, gold_value: int) -> void:
 
 # Hitbox çarpınca kırılabilir objeye hasar uygula
 func _on_breakable_area_entered(area: Area2D, node: Node2D) -> void:
-	# Hitbox grubu zorunlu değil; has_method yeterli
 	if not area:
 		return
-	# Yalnızca saldırı hitbox'larını kabul et: get_damage var ve etkin ise
+	# Sadece oyuncu hitbox katmanından gelen saldırılar breakable'ı kırabilir
+	if not (area.collision_layer & CollisionLayers.PLAYER_HITBOX):
+		return
 	if not area.has_method("get_damage"):
 		return
 	if area.has_method("is_enabled") and not area.is_enabled():
 		return
 	var damage: int = int(area.get_damage())
-	# print("[DecorationSpawner] BREAKABLE hit by ", area.name, " damage=", damage)
 	_apply_breakable_damage(node, damage)
 
 func _on_breakable_body_entered(body: Node2D, node: Node2D) -> void:

@@ -71,45 +71,44 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
-	# Check sleep state every frame (like base class)
-	check_sleep_state()
+	# Check sleep state every frame (delta for per-enemy spawn grace)
+	check_sleep_state(delta)
 	
-	# Only process movement and behavior if awake
+	# Gravity + move_and_slide (airborne sleeping enemies still land)
+	if not is_on_floor() and current_behavior != "dead":
+		var g_scale := 1.0
+		if current_behavior == "hurt" and air_float_timer > 0.0:
+			g_scale = air_float_gravity_scale
+			air_float_timer = max(0.0, air_float_timer - delta)
+		velocity.y += GRAVITY * g_scale * delta
+		if current_behavior == "hurt" and air_float_timer > 0.0:
+			velocity.y = min(velocity.y, air_float_max_fall_speed)
+	if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
+		pass
+	
+	collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	move_and_slide()
+	
+	# Sleeping enemy just landed: fall→idle
+	if is_sleeping and is_on_floor() and sprite and "fall" in sprite.animation:
+		sprite.play("idle")
+		if sprite.has_method("pause"):
+			sprite.pause()
+		return
+	
+	# Only process behavior/AI if awake
 	if not is_sleeping:
 		# Handle invulnerability timer
 		if invulnerable:
 			invulnerability_timer -= delta
 			if invulnerability_timer <= 0:
 				invulnerable = false
-				# Make sure hurtbox is re-enabled
 				if hurtbox:
 					hurtbox.monitoring = true
 					hurtbox.monitorable = true
-		
+
 		# Handle Summoner's own behavior
 		_handle_summoner_behavior(delta)
-		
-		# Apply gravity and move
-		if not is_on_floor() and current_behavior != "dead":
-			var g_scale := 1.0
-			# Apply juggle float ONLY during hurt state to avoid slow fall elsewhere
-			if current_behavior == "hurt" and air_float_timer > 0.0:
-				g_scale = air_float_gravity_scale
-				air_float_timer = max(0.0, air_float_timer - delta)
-			velocity.y += GRAVITY * g_scale * delta
-			# Cap fall speed only while float is active in hurt
-			if current_behavior == "hurt" and air_float_timer > 0.0:
-				velocity.y = min(velocity.y, air_float_max_fall_speed)
-		# When hurt and moving upward, don't instantly cancel vertical velocity on floor contact
-		if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
-			# Skip vertical zeroing this frame to allow visible pop-up
-			pass
-		
-		# CRITICAL: Force collision mask to only WORLD and PLATFORM
-		# This ensures Summoner behaves like Turtle
-		collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
-		
-		move_and_slide()
 
 func _handle_summoner_behavior(delta: float) -> void:
 	# Handle Summoner's own behavior logic

@@ -190,10 +190,17 @@ func set_ui_locked(locked: bool) -> void:
 
 var is_dead: bool = false
 
+var status_effects: StatusEffectManager
+
 func _ready():
 	VillageManager.Village_Player = self
 	# Add to player group
 	add_to_group("player")
+	
+	# Status effect system (burn, poison DOT)
+	status_effects = StatusEffectManager.new()
+	status_effects.name = "StatusEffectManager"
+	add_child(status_effects)
 	
 	# Set player z_index to appear above ground traps but below flying objects
 	# Use call_deferred to ensure sprite is ready

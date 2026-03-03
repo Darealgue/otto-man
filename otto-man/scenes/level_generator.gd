@@ -734,7 +734,8 @@ func generate_level() -> bool:
 				# Verify if there's a valid path from start to finish
 				if verify_level_path():
 					print("Level generated successfully on attempt %d!" % (attempt + 1))
-					unify_terrain()  
+					unify_terrain()
+					_populate_traps_on_unified_terrain()
 					setup_level_transitions()
 					spawn_player()
 					return true # Success!
@@ -1601,6 +1602,8 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 	
 	# TileMap tabanlı düşmanları oluştur
 	_populate_enemies_from_tilemap(chunk)
+
+	# NOTE: Trap population moved to after unify_terrain() — see _populate_traps_on_unified_terrain()
 
 	print("Successfully placed " + chunk_type + " at " + str(pos)) # Improved logging
 	return true
@@ -3607,12 +3610,14 @@ func _clear_all_enemies_from_previous_level() -> void:
 			var cell = grid[x][y]
 			if cell.chunk:
 				_clear_enemies_from_chunk(cell.chunk)
+				_clear_traps_from_chunk(cell.chunk)
 	
 	# Clear enemies from unified terrain if it exists
 	if unified_terrain:
 		_clear_enemies_from_chunk(unified_terrain)
+		_clear_traps_from_chunk(unified_terrain)
 	
-	print("[LevelGenerator] Enemy cleanup completed")
+	print("[LevelGenerator] Enemy & trap cleanup completed")
 
 func _clear_enemies_from_chunk(chunk_node: Node2D) -> void:
 	if not chunk_node:
@@ -3654,4 +3659,529 @@ func _remove_legacy_enemy_spawners(chunk_node: Node2D) -> void:
 	var spawn_managers = chunk_node.find_children("*", "SpawnManager", true, false)
 	for manager in spawn_managers:
 		print("[LevelGenerator] Removing legacy SpawnManager: %s" % manager.name)
-		manager.queue_free() 
+		manager.queue_free()
+
+# ==============================================================================
+# TRAP POPULATION (V2 tile-based system)
+# ==============================================================================
+
+func _populate_traps_on_unified_terrain() -> void:
+	if not unified_terrain:
+		push_error("[TrapPopulate] unified_terrain is null — cannot spawn traps")
+		return
+
+	var ts: TileSet = unified_terrain.tile_set
+	if not ts:
+		push_error("[TrapPopulate] unified_terrain has no tile_set")
+		return
+
+	# Determine which custom data layer to read
+	var surface_layer_name := ""
+	var use_dedicated_layer := false
+	for i in range(ts.get_custom_data_layers_count()):
+		if ts.get_custom_data_layer_name(i) == "trap_surface":
+			surface_layer_name = "trap_surface"
+			use_dedicated_layer = true
+			break
+	if surface_layer_name == "":
+		for i in range(ts.get_custom_data_layers_count()):
+			if ts.get_custom_data_layer_name(i) == "decor_anchor":
+				surface_layer_name = "decor_anchor"
+				break
+	if surface_layer_name == "":
+		print("[TrapPopulate] No trap-eligible custom data layer in unified_terrain")
+		return
+
+	# Build exclusion rects for start / finish / boss chunks (no traps there)
+	var exclude_rects: Array[Rect2] = _build_excluded_chunk_rects()
+
+	# Accept both "_surface" and short names; include common typo "lef_wall_surface" (missing t)
+	var trap_surface_tags := ["floor_surface", "ceiling_surface", "left_wall_surface", "lef_wall_surface", "right_wall_surface", "floor", "ceiling", "left_wall", "right_wall"]
+
+	# 1. Collect all eligible cells grouped by surface tag
+	var surface_cells: Dictionary = {}  # tag_string -> Array[Vector2i]
+	for cell in unified_terrain.get_used_cells(0):
+		var td: TileData = unified_terrain.get_cell_tile_data(0, cell)
+		if not td:
+			continue
+		var stype = td.get_custom_data(surface_layer_name)
+		if not stype or stype == "":
+			continue
+		if not use_dedicated_layer and stype not in trap_surface_tags:
+			continue
+
+		# Convert cell to world position to check against exclusion rects
+		var world_pos: Vector2 = unified_terrain.map_to_local(cell) + unified_terrain.global_position
+		var excluded := false
+		for r in exclude_rects:
+			if r.has_point(world_pos):
+				excluded = true
+				break
+		if excluded:
+			continue
+
+		if not surface_cells.has(stype):
+			surface_cells[stype] = []
+		surface_cells[stype].append(cell)
+
+	if surface_cells.is_empty():
+		print("[TrapPopulate] No trap-eligible tiles in unified_terrain")
+		return
+
+	# 2. Build contiguous runs per surface type (fixed order: left wall before right so both get rounds)
+	var surface_run_queues: Array = []
+	var surface_order: Array[String] = ["floor_surface", "ceiling_surface", "left_wall_surface", "lef_wall_surface", "left_wall", "right_wall_surface", "right_wall"]
+	for stype_str in surface_order:
+		if not surface_cells.has(stype_str):
+			continue
+		var surface := TrapConfigV2.surface_from_string(stype_str)
+		var cells: Array = surface_cells[stype_str]
+		var runs: Array = _find_contiguous_runs(cells, surface)
+		runs.shuffle()
+		if not runs.is_empty():
+			surface_run_queues.append({
+				"surface": surface,
+				"stype_str": stype_str,
+				"runs": runs,
+				"index": 0
+			})
+
+	# 3. Round-robin spawn across surface types
+	var trap_spawn_count: int = 0
+	var max_trap_groups: int = _get_max_trap_groups_for_level(current_level)
+	var spawned_trap_positions: Array[Vector2] = []
+	var half_tile := Vector2(ts.tile_size) * 0.5
+	var queue_idx: int = 0
+	var stall_counter: int = 0
+	var max_stall: int = surface_run_queues.size() * 3
+
+	while trap_spawn_count < max_trap_groups and not surface_run_queues.is_empty():
+		if stall_counter >= max_stall:
+			break
+		var q: Dictionary = surface_run_queues[queue_idx % surface_run_queues.size()]
+		var runs: Array = q.runs
+		var ri: int = q.index
+
+		if ri >= runs.size():
+			queue_idx += 1
+			stall_counter += 1
+			continue
+
+		var run: Array = runs[ri]
+		q.index = ri + 1
+
+		if randf() > _get_trap_spawn_chance():
+			queue_idx += 1
+			stall_counter += 1
+			continue
+
+		stall_counter = 0
+		var surface: TrapConfigV2.SurfaceType = q.surface
+		var stype_str: String = q.stype_str
+
+		var size_range := TrapConfigV2.get_group_size_range(current_level)
+		var max_possible: int = mini(size_range.y, run.size())
+		var min_possible: int = mini(size_range.x, max_possible)
+		var group_size: int = randi_range(min_possible, max_possible)
+		if group_size <= 0:
+			queue_idx += 1
+			continue
+
+		var max_start: int = maxi(0, run.size() - group_size)
+		var start_idx: int = randi_range(0, max_start)
+
+		var trap_type := TrapConfigV2.select_random_trap(surface, current_level)
+
+		var first_cell: Vector2i = run[start_idx]
+		var first_world_pos: Vector2 = unified_terrain.map_to_local(first_cell) + unified_terrain.global_position
+		var too_close := false
+		for existing_pos in spawned_trap_positions:
+			if first_world_pos.distance_to(existing_pos) < 128.0:
+				too_close = true
+				break
+		if too_close:
+			queue_idx += 1
+			continue
+
+		var spawned_any := false
+		for i in range(group_size):
+			var cell: Vector2i = run[start_idx + i]
+
+			if not _is_valid_trap_tile_unified(cell, surface, surface_layer_name):
+				continue
+
+			var local_pos: Vector2 = unified_terrain.map_to_local(cell)
+			var world_pos: Vector2 = local_pos + unified_terrain.global_position
+
+			match surface:
+				TrapConfigV2.SurfaceType.FLOOR:
+					world_pos.y -= half_tile.y
+				TrapConfigV2.SurfaceType.CEILING:
+					world_pos.y += half_tile.y
+				TrapConfigV2.SurfaceType.LEFT_WALL:
+					world_pos.x += half_tile.x
+				TrapConfigV2.SurfaceType.RIGHT_WALL:
+					world_pos.x -= half_tile.x
+
+			var spawner := Node2D.new()
+			var spawner_script = load("res://traps_v2/tile_trap_spawner.gd")
+			spawner.set_script(spawner_script)
+			spawner.set("trap_type", trap_type)
+			spawner.set("surface_type", surface)
+			spawner.set("current_level", current_level)
+			spawner.global_position = world_pos
+			unified_terrain.add_child(spawner)
+			spawner.global_position = world_pos
+			spawner.call_deferred("activate")
+			spawned_any = true
+
+		if not spawned_any:
+			queue_idx += 1
+			continue
+
+		spawned_trap_positions.append(first_world_pos)
+		trap_spawn_count += 1
+		queue_idx += 1
+
+func _build_excluded_chunk_rects() -> Array[Rect2]:
+	var rects: Array[Rect2] = []
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			if x < 0 or x >= grid.size():
+				continue
+			if y < 0 or y >= grid[x].size():
+				continue
+			var chunk = grid[x][y].chunk
+			if not chunk:
+				continue
+			var path: String = chunk.scene_file_path.to_lower() if chunk.scene_file_path else ""
+			var cname: String = chunk.name.to_lower()
+			if "start" in cname or "start_chunk" in path or "finish" in cname or "finish_chunk" in path or "boss" in cname or "boss_arena" in path:
+				var rect := Rect2(chunk.global_position, CHUNK_SIZE)
+				rects.append(rect)
+	return rects
+
+func _is_valid_trap_tile_unified(cell: Vector2i, surface: TrapConfigV2.SurfaceType, layer_name: String) -> bool:
+	var this_tile: TileData = unified_terrain.get_cell_tile_data(0, cell)
+	if not this_tile:
+		return false
+
+	var check_offset: Vector2i
+	match surface:
+		TrapConfigV2.SurfaceType.FLOOR:
+			check_offset = Vector2i(0, -1)
+		TrapConfigV2.SurfaceType.CEILING:
+			check_offset = Vector2i(0, 1)
+		TrapConfigV2.SurfaceType.LEFT_WALL:
+			check_offset = Vector2i(1, 0)
+		TrapConfigV2.SurfaceType.RIGHT_WALL:
+			check_offset = Vector2i(-1, 0)
+		_:
+			return true
+
+	var neighbor_cell := cell + check_offset
+	var neighbor_data: TileData = unified_terrain.get_cell_tile_data(0, neighbor_cell)
+
+	if neighbor_data:
+		var neighbor_tag = neighbor_data.get_custom_data(layer_name)
+		if neighbor_tag and neighbor_tag != "":
+			return false
+		if neighbor_data.get_collision_polygons_count(0) > 0:
+			return false
+
+	return true
+
+# ---------- LEGACY chunk-based trap populate (no longer used) ----------
+func _populate_traps_from_tilemap(chunk_node: Node2D) -> void:
+	var chunk_name = chunk_node.name.to_lower()
+	var scene_path = chunk_node.scene_file_path.to_lower() if chunk_node.scene_file_path else ""
+
+	if "start" in chunk_name or "start_chunk" in scene_path:
+		return
+	if "finish" in chunk_name or "finish_chunk" in scene_path:
+		return
+
+	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
+	if not tile_map:
+		return
+
+	var tile_set = tile_map.tile_set
+	if not tile_set:
+		return
+
+	# Look for a dedicated "trap_surface" custom data layer first.
+	# Fallback to "decor_anchor" with _surface tags if trap_surface doesn't exist.
+	var surface_layer_name := ""
+	var use_dedicated_layer := false
+
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == "trap_surface":
+			surface_layer_name = "trap_surface"
+			use_dedicated_layer = true
+			break
+
+	if surface_layer_name == "":
+		for i in range(tile_set.get_custom_data_layers_count()):
+			if tile_set.get_custom_data_layer_name(i) == "decor_anchor":
+				surface_layer_name = "decor_anchor"
+				break
+
+	if surface_layer_name == "":
+		return
+
+	# When using decor_anchor as fallback, only consider these specific tags
+	var trap_surface_tags := ["floor_surface", "ceiling_surface", "left_wall_surface", "right_wall_surface"]
+
+	# 1. Collect all cells grouped by surface_type (only trap-eligible tags)
+	var surface_cells: Dictionary = {}  # surface_tag -> Array[Vector2i]
+	for cell in tile_map.get_used_cells():
+		var tile_data = tile_map.get_cell_tile_data(cell)
+		if not tile_data:
+			continue
+		var stype = tile_data.get_custom_data(surface_layer_name)
+		if not stype or stype == "":
+			continue
+		# If using dedicated layer, accept all non-empty values
+		# If using decor_anchor fallback, only accept trap-specific tags
+		if not use_dedicated_layer and stype not in trap_surface_tags:
+			continue
+		if not surface_cells.has(stype):
+			surface_cells[stype] = []
+		surface_cells[stype].append(cell)
+
+	# DEBUG: show what we found
+	for tag in surface_cells:
+		print("[TrapPopulate] Found %d cells with tag '%s' in chunk '%s' (layer: %s)" % [surface_cells[tag].size(), tag, chunk_node.name, surface_layer_name])
+
+	if surface_cells.is_empty():
+		print("[TrapPopulate] No trap-eligible tiles in chunk '%s'" % chunk_node.name)
+		return
+
+	# 2. Build a list of (surface, shuffled_runs) per surface type
+	var surface_run_queues: Array = []  # Array of { surface: SurfaceType, stype_str: String, runs: Array }
+	for stype_str in surface_cells:
+		var surface := TrapConfigV2.surface_from_string(stype_str)
+		var cells: Array = surface_cells[stype_str]
+		var runs: Array = _find_contiguous_runs(cells, surface)
+		runs.shuffle()
+		if not runs.is_empty():
+			surface_run_queues.append({
+				"surface": surface,
+				"stype_str": stype_str,
+				"runs": runs,
+				"index": 0
+			})
+
+	# Round-robin across surface types so each gets fair representation
+	var trap_spawn_count: int = 0
+	var max_trap_groups: int = _get_max_trap_groups_for_level(current_level)
+	var spawned_trap_positions: Array[Vector2] = []
+	var half_tile := Vector2(tile_set.tile_size) * 0.5
+	var queue_idx: int = 0
+	var stall_counter: int = 0
+	var max_stall: int = surface_run_queues.size() * 3
+
+	while trap_spawn_count < max_trap_groups and not surface_run_queues.is_empty():
+		if stall_counter >= max_stall:
+			break
+		var q: Dictionary = surface_run_queues[queue_idx % surface_run_queues.size()]
+		var runs: Array = q.runs
+		var ri: int = q.index
+
+		if ri >= runs.size():
+			queue_idx += 1
+			stall_counter += 1
+			continue
+
+		var run: Array = runs[ri]
+		q.index = ri + 1
+
+		# Spawn chance per group
+		if randf() > _get_trap_spawn_chance():
+			queue_idx += 1
+			stall_counter += 1
+			continue
+
+		stall_counter = 0
+		var surface: TrapConfigV2.SurfaceType = q.surface
+		var stype_str: String = q.stype_str
+
+		var size_range := TrapConfigV2.get_group_size_range(current_level)
+		var max_possible: int = mini(size_range.y, run.size())
+		var min_possible: int = mini(size_range.x, max_possible)
+		var group_size: int = randi_range(min_possible, max_possible)
+		if group_size <= 0:
+			queue_idx += 1
+			continue
+
+		var max_start: int = maxi(0, run.size() - group_size)
+		var start_idx: int = randi_range(0, max_start)
+
+		var trap_type := TrapConfigV2.select_random_trap(surface, current_level)
+
+		var first_cell: Vector2i = run[start_idx]
+		var first_world_pos: Vector2 = tile_map.to_global(tile_map.map_to_local(first_cell))
+		var too_close := false
+		for existing_pos in spawned_trap_positions:
+			if first_world_pos.distance_to(existing_pos) < 128.0:
+				too_close = true
+				break
+		if too_close:
+			queue_idx += 1
+			continue
+
+		var spawned_any := false
+		for i in range(group_size):
+			var cell: Vector2i = run[start_idx + i]
+
+			# Validate: the adjacent tile in the open direction must be empty
+			if not _is_valid_trap_tile(tile_map, cell, surface, surface_layer_name):
+				continue
+
+			var local_pos: Vector2 = tile_map.map_to_local(cell)
+			var world_pos: Vector2 = tile_map.to_global(local_pos)
+
+			match surface:
+				TrapConfigV2.SurfaceType.FLOOR:
+					world_pos.y -= half_tile.y
+				TrapConfigV2.SurfaceType.CEILING:
+					world_pos.y += half_tile.y
+				TrapConfigV2.SurfaceType.LEFT_WALL:
+					world_pos.x += half_tile.x
+				TrapConfigV2.SurfaceType.RIGHT_WALL:
+					world_pos.x -= half_tile.x
+
+			var spawner := Node2D.new()
+			var spawner_script = load("res://traps_v2/tile_trap_spawner.gd")
+			spawner.set_script(spawner_script)
+			spawner.set("trap_type", trap_type)
+			spawner.set("surface_type", surface)
+			spawner.set("current_level", current_level)
+			spawner.global_position = world_pos
+			chunk_node.add_child(spawner)
+			spawner.global_position = world_pos
+			spawner.call_deferred("activate")
+			spawned_any = true
+
+		if not spawned_any:
+			queue_idx += 1
+			continue
+
+		spawned_trap_positions.append(first_world_pos)
+		trap_spawn_count += 1
+		print("[TrapPopulate] Spawned group of %d %s at %s (surface: %s)" % [
+			group_size,
+			TrapConfigV2.TrapType.keys()[trap_type],
+			first_world_pos,
+			stype_str
+		])
+		queue_idx += 1
+
+	print("[TrapPopulate] Total trap groups in chunk '%s': %d" % [chunk_node.name, trap_spawn_count])
+
+func _find_contiguous_runs(cells: Array, surface: TrapConfigV2.SurfaceType) -> Array:
+	## Find groups of adjacent cells along the appropriate axis.
+	## Floor/ceiling: horizontal runs (same y, consecutive x).
+	## Walls: vertical runs (same x, consecutive y).
+	var is_horizontal := (surface == TrapConfigV2.SurfaceType.FLOOR or surface == TrapConfigV2.SurfaceType.CEILING)
+
+	# Build a set for O(1) lookup
+	var cell_set: Dictionary = {}
+	for c in cells:
+		cell_set[c] = true
+
+	var visited: Dictionary = {}
+	var runs: Array = []
+
+	for c in cells:
+		if visited.has(c):
+			continue
+		# Walk along the axis to build a run
+		var run: Array[Vector2i] = []
+		var current: Vector2i = c
+		while cell_set.has(current) and not visited.has(current):
+			visited[current] = true
+			run.append(current)
+			if is_horizontal:
+				current = Vector2i(current.x + 1, current.y)
+			else:
+				current = Vector2i(current.x, current.y + 1)
+		if run.size() > 0:
+			runs.append(run)
+
+	return runs
+
+func _get_max_trap_groups_for_level(level: int) -> int:
+	var per_chunk: int
+	match level:
+		1: per_chunk = 3
+		2: per_chunk = 4
+		3: per_chunk = 5
+		4: per_chunk = 6
+		_: per_chunk = 7
+	# Count actual populated chunks (exclude start/finish/boss)
+	var chunk_count: int = 0
+	for x in range(current_grid_width):
+		if x < 0 or x >= grid.size(): continue
+		for y in range(current_grid_height):
+			if y < 0 or y >= grid[x].size(): continue
+			var c = grid[x][y].chunk
+			if c:
+				var p: String = c.scene_file_path.to_lower() if c.scene_file_path else ""
+				var n: String = c.name.to_lower()
+				if "start" in n or "finish" in n or "boss" in n:
+					continue
+				chunk_count += 1
+	return per_chunk * maxi(1, chunk_count)
+
+func _get_trap_spawn_chance() -> float:
+	return 0.5
+
+func _clear_traps_from_chunk(chunk_node: Node2D) -> void:
+	if not chunk_node:
+		return
+	var trap_spawners = chunk_node.find_children("*", "TileTrapSpawner", true, false)
+	for spawner in trap_spawners:
+		if spawner.has_method("clear_trap"):
+			spawner.clear_trap()
+		spawner.queue_free()
+
+func _is_valid_trap_tile(tile_map: Node, cell: Vector2i, surface: TrapConfigV2.SurfaceType, layer_name: String) -> bool:
+	## Check that the tile is solid AND the adjacent tile in the open direction is empty.
+	## Floor trap: tile below player's feet — the cell above must be empty (air).
+	## Ceiling trap: tile above player's head — the cell below must be empty.
+	## Wall trap: the cell in the shoot direction must be empty.
+
+	# First, verify this cell itself has tile data
+	var this_tile: TileData = tile_map.get_cell_tile_data(cell)
+	if not this_tile:
+		return false
+
+	# Determine which neighbor must be empty
+	var check_offset: Vector2i
+	match surface:
+		TrapConfigV2.SurfaceType.FLOOR:
+			check_offset = Vector2i(0, -1)  # cell above must be air
+		TrapConfigV2.SurfaceType.CEILING:
+			check_offset = Vector2i(0, 1)   # cell below must be air
+		TrapConfigV2.SurfaceType.LEFT_WALL:
+			check_offset = Vector2i(1, 0)   # cell to the right must be air
+		TrapConfigV2.SurfaceType.RIGHT_WALL:
+			check_offset = Vector2i(-1, 0)  # cell to the left must be air
+		_:
+			return true
+
+	var neighbor_cell := cell + check_offset
+	var neighbor_data: TileData = tile_map.get_cell_tile_data(neighbor_cell)
+
+	# Neighbor must be empty (no tile) or at least not a solid surface tile
+	if neighbor_data:
+		var neighbor_tag = neighbor_data.get_custom_data(layer_name)
+		# If neighbor also has a surface tag, it's solid — not a valid open space
+		if neighbor_tag and neighbor_tag != "":
+			return false
+		# Even without a tag, if there's tile data with collision, it's solid
+		if neighbor_data.get_collision_polygons_count(0) > 0:
+			return false
+
+	return true

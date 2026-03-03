@@ -122,6 +122,13 @@ func spawn_enemies() -> void:
 	var enemy_scene = ENEMY_TYPES[enemy_type].scene
 	var enemy = enemy_scene.instantiate()
 	
+	# Configure BasicEnemy-specific ambient start BEFORE adding to scene (so _ready sees it)
+	if enemy_type == "basic" and enemy is BasicEnemy:
+		var basic_enemy: BasicEnemy = enemy
+		# Roughly 1/3 of basic enemies start in an ambient pose
+		if randf() < 0.33:
+			basic_enemy.start_in_ambient_pose = true
+	
 	# Add to scene
 	add_child(enemy)
 	

@@ -1,0 +1,99 @@
+[gd_scene load_steps=14 format=3 uid="uid://cwceflj8w274"]
+
+[ext_resource type="Script" path="res://traps_v2/ceiling/poison_pool.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://bbaayrn486nwt" path="res://traps_v2/ceiling/Acid_pool.png" id="2_ysg2q"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rpc7u"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(0, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jvbcv"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(0, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_47h4u"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(150, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fft4y"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(300, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ed3r6"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(450, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nxv0e"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(600, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ijutf"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(750, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7gfmc"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(900, 0, 150, 150)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q6tht"]
+atlas = ExtResource("2_ysg2q")
+region = Rect2(1050, 0, 150, 150)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_lwrtj"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rpc7u")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jvbcv")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_47h4u")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fft4y")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ed3r6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nxv0e")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ijutf")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7gfmc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_q6tht")
+}],
+"loop": false,
+"name": &"impact",
+"speed": 12.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jrb62"]
+size = Vector2(17, 6)
+
+[node name="PoisonPool" type="Area2D"]
+collision_layer = 0
+collision_mask = 3
+script = ExtResource("1")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(-8, -10)
+sprite_frames = SubResource("SpriteFrames_lwrtj")
+animation = &"impact"
+frame = 7
+frame_progress = 1.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-0.5, 3)
+shape = SubResource("RectangleShape2D_jrb62")

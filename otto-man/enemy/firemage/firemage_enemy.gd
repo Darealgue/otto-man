@@ -83,8 +83,8 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
-	# Check sleep state every frame (like base class)
-	check_sleep_state()
+	# Check sleep state every frame (delta for per-enemy spawn grace)
+	check_sleep_state(delta)
 	
 	# Death state - yavaşça düş
 	if current_behavior == "dead":
@@ -95,8 +95,21 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	
-	# Only process movement and behavior if awake
+	# Uyuyor olsa bile gravity + move_and_slide çalışsın (havada asılı kalmasın)
 	if is_sleeping:
+		if not is_on_floor():
+			velocity.y += GRAVITY * delta
+			move_and_slide()
+		if is_on_floor() and sprite and "fall" in sprite.animation:
+			var idle_anim := "idle"
+			if sprite.sprite_frames and not sprite.sprite_frames.has_animation("idle"):
+				for a in sprite.sprite_frames.get_animation_names():
+					if "idle" in a:
+						idle_anim = a
+						break
+			sprite.play(idle_anim)
+			if sprite.has_method("pause"):
+				sprite.pause()
 		return
 	
 	# Hurt state - normal physics
@@ -127,6 +140,8 @@ func _handle_child_behavior(delta: float) -> void:
 	match current_behavior:
 		"idle":
 			_handle_idle_state()
+		"patrol":
+			_handle_idle_state()
 		"takeoff_prepare":
 			_handle_takeoff_prepare_state(delta)
 		"takeoff_rise":
@@ -151,8 +166,8 @@ func _handle_child_behavior(delta: float) -> void:
 	_update_animation_state()
 
 func _handle_idle_state() -> void:
-	# Yerdeyken hareket etme
-	velocity = Vector2.ZERO
+	# Yatay hareketi durdur; dikey velocity'ye (gravity) dokunma
+	velocity.x = 0
 	
 	# Hysteresis: sadece yakın mesafede tespit et
 	var player = get_nearest_player()
@@ -166,7 +181,7 @@ func _handle_idle_state() -> void:
 func _handle_takeoff_prepare_state(delta: float) -> void:
 	# Yerde hazırlık animasyonu (3 frame)
 	# 3 frame * 0.1 saniye = 0.3 saniye toplam animasyon
-	velocity = Vector2.ZERO  # Yerde kal
+	velocity.x = 0  # Yatay hareketi durdur; gravity devam etsin
 	
 	if behavior_timer >= 0.3:  # 3 frame sonra rise state'e geç
 		# Meta flag'i temizle

@@ -23,6 +23,8 @@ var sleep_distance: float = 1000.0  # Distance at which enemy goes to sleep
 var wake_distance: float = 800.0    # Distance at which enemy wakes up
 var last_position: Vector2          # Store position when going to sleep
 var last_behavior: String          # Store behavior when going to sleep
+# Spawn sonrası grace süresini sıfırla: sahne açılışında uzak düşmanlar hemen sleep'e girebilsin
+var _sleep_grace_remaining: float = 0.0
 
 # Debug ID
 var enemy_id: String = ""
@@ -105,6 +107,10 @@ func _ready() -> void:
 	add_to_group("enemies")
 	enemy_id = "%s_%d" % [get_script().resource_path.get_file().get_basename(), get_instance_id()]
 	
+	# Zemin yapışması: spawn'da hafif yukarıda olan düşmanlar move_and_slide ile zemine snap olur (fall state takılmasını önler)
+	floor_snap_length = 32.0
+	up_direction = Vector2.UP
+	
 	if stats:
 		health = stats.max_health
 	else:
@@ -120,14 +126,7 @@ func _ready() -> void:
 	# Notify initial health for external UI (e.g., boss bar)
 	_health_emit_changed()
 	
-	# Initialize components - wait one frame for @onready vars to be initialized
-	# Then call _initialize_components directly (not deferred) to ensure it runs
-	await get_tree().process_frame
 	_initialize_components()
-	
-	if global_position.is_equal_approx(Vector2.ZERO):
-		push_warning("[Enemy:%s] Enemy initialized at origin (0,0)" % enemy_id)
-		return
 	
 	last_position = global_position
 	last_behavior = "idle"
@@ -181,35 +180,40 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
-	# Check sleep state every frame
-	check_sleep_state()
+	# Check sleep state every frame (delta for per-enemy spawn grace)
+	check_sleep_state(delta)
 	
-	# Only process movement and behavior if awake
+	# Gravity (always, so airborne sleeping enemies land)
+	if not is_on_floor() and current_behavior != "dead":
+		var g_scale := 1.0
+		if current_behavior == "hurt" and air_float_timer > 0.0:
+			g_scale = air_float_gravity_scale
+			air_float_timer = max(0.0, air_float_timer - delta)
+		velocity.y += GRAVITY * g_scale * delta
+		if current_behavior == "hurt" and air_float_timer > 0.0:
+			velocity.y = min(velocity.y, air_float_max_fall_speed)
+	if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
+		pass
+	if frost_stacks > 0:
+		velocity.x *= get_frost_speed_multiplier()
+	move_and_slide()
+	
+	# Sleeping enemy just landed: fall→idle then freeze sprite
+	if is_sleeping and is_on_floor() and sprite and "fall" in sprite.animation:
+		var idle_anim := "idle"
+		if sprite.sprite_frames and not sprite.sprite_frames.has_animation("idle"):
+			for a in sprite.sprite_frames.get_animation_names():
+				if "idle" in a:
+					idle_anim = a
+					break
+		sprite.play(idle_anim)
+		if sprite.has_method("pause"):
+			sprite.pause()
+		return
+	
+	# Only process behavior/AI if awake
 	if not is_sleeping:
-		# No invulnerability system - hurtbox always enabled
-		
-		# Handle behavior and movement
 		handle_behavior(delta)
-		
-		# Apply gravity and move
-		if not is_on_floor() and current_behavior != "dead":
-			var g_scale := 1.0
-			# Apply juggle float ONLY during hurt state to avoid slow fall elsewhere
-			if current_behavior == "hurt" and air_float_timer > 0.0:
-				g_scale = air_float_gravity_scale
-				air_float_timer = max(0.0, air_float_timer - delta)
-			velocity.y += GRAVITY * g_scale * delta
-			# Cap fall speed only while float is active in hurt
-			if current_behavior == "hurt" and air_float_timer > 0.0:
-				velocity.y = min(velocity.y, air_float_max_fall_speed)
-		# When hurt and moving upward, don't instantly cancel vertical velocity on floor contact
-		if is_on_floor() and current_behavior == "hurt" and velocity.y < 0.0:
-			# Skip vertical zeroing this frame to allow visible pop-up
-			pass
-		# Frost slow (buzlu kılıç): hareket hızını stack'e göre düşür
-		if frost_stacks > 0:
-			velocity.x *= get_frost_speed_multiplier()
-		move_and_slide()
 
 func handle_behavior(delta: float) -> void:
 	# Remove sleep check from here since we're doing it in _physics_process
@@ -287,8 +291,16 @@ func get_nearest_player_in_range() -> Node2D:
 	
 	# Only print when detection status changes
 	var is_in_range = distance <= detection_range
-	
 	if is_in_range != _was_in_range:
+		if debug_enabled:
+			print("[BaseEnemy:%s] detection in_range=%s dist=%.1f range=%.1f pos=%s player=%s" % [
+				enemy_id,
+				str(is_in_range),
+				distance,
+				detection_range,
+				str(global_position),
+				str(player.global_position),
+			])
 		_was_in_range = is_in_range
 	
 	return player if is_in_range else null
@@ -708,22 +720,19 @@ func handle_hurt_behavior(_delta: float) -> void:
 			hurtbox.monitoring = true
 			hurtbox.monitorable = true
 
-func check_sleep_state() -> void:
+func check_sleep_state(delta: float = 0.0) -> void:
 	if current_behavior == "dead" or not is_instance_valid(self):
 		return
-		
+	# Her düşman kendi spawn'ından sonra grace süresi dolana kadar uyuyamaz (chunk'ta geç spawn = hemen sleep bug'ı önlenir)
+	if _sleep_grace_remaining > 0.0:
+		_sleep_grace_remaining -= delta
 	var player = get_nearest_player()
 	if !player:
 		return
-		
 	var distance = global_position.distance_to(player.global_position)
-	
 	if is_sleeping and distance <= wake_distance:
 		wake_up()
-	elif !is_sleeping and distance >= sleep_distance:
-		# Don't go to sleep if we just spawned (give a grace period)
-		if Engine.get_physics_frames() < 60:  # About 1 second grace period
-			return
+	elif !is_sleeping and distance >= sleep_distance and _sleep_grace_remaining <= 0.0:
 		go_to_sleep()
 
 func go_to_sleep() -> void:
@@ -745,8 +754,15 @@ func go_to_sleep() -> void:
 		hurtbox.set_deferred("monitoring", false)
 		hurtbox.set_deferred("monitorable", false)
 	
-	if sprite and sprite.has_method("pause"):
-		sprite.pause()
+	if sprite:
+		if sprite.animation == "fall" and is_on_floor():
+			sprite.play("idle")
+		elif sprite.animation in ["sit", "sit2", "sit3", "lay"]:
+			# Don't freeze in ambient animation - show idle when sleeping
+			if sprite.sprite_frames.has_animation("idle"):
+				sprite.play("idle")
+		if sprite.has_method("pause"):
+			sprite.pause()
 
 func wake_up() -> void:
 	if !is_sleeping or current_behavior == "dead":

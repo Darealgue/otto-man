@@ -21,6 +21,12 @@ var is_rocket_jumping: bool = false
 var rocket_landing_position: Vector2
 var cannon_ready: bool = true
 var aim_timer: float = 0.0
+# Spawn sonrası kısa süre fall override uygulanmasın (yere yakın spawn'da fall'da takılmayı önler)
+var _spawn_grace_timer: float = 1.5
+# Debug: idle/patrol takılma sebebini görmek için (Inspector'dan aç)
+@export var debug_canon_ai: bool = false
+var _debug_canon_timer: float = 0.0
+const _DEBUG_CANON_INTERVAL: float = 0.6
 # var reload_timer: float = 0.0  # KALDIRILDI
 var state_lock: float = 0.0  # State changes are blocked while > 0
 var attack_cooldown_timer: float = 0.0  # Prevent immediate attack switching
@@ -123,12 +129,14 @@ func _physics_process(delta: float) -> void:
 	if explosion_cooldown_timer > 0.0:
 		explosion_cooldown_timer = max(0.0, explosion_cooldown_timer - delta)
 	
-	# Hurt state - yerde kal
+	# Hurt state
 	if current_behavior == "hurt":
 		if not is_sleeping:
 			handle_behavior(delta)
-		# Hurt sırasında hareket etme
-		velocity = Vector2.ZERO
+		# Yatay hareketi sönümle; dikeyde gravity etkili olsun (havada hurt alırsa yere düşsün)
+		velocity.x = move_toward(velocity.x, 0.0, 800.0 * delta)
+		if not is_on_floor():
+			velocity.y += GRAVITY * delta
 		move_and_slide()
 		return
 	
@@ -157,6 +165,26 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 	
+	# Spawn grace: ilk saniyelerde fall override'ı atlamak için
+	if _spawn_grace_timer > 0.0:
+		_spawn_grace_timer -= delta
+	
+	# Debug: periyodik AI durumu (idle/patrol takılma teşhisi)
+	if debug_canon_ai:
+		_debug_canon_timer += delta
+		if _debug_canon_timer >= _DEBUG_CANON_INTERVAL:
+			_debug_canon_timer = 0.0
+			var player = get_nearest_player()
+			var dist_str := "no_player"
+			var det_range: float = stats.detection_range if stats else 0.0
+			if player and is_instance_valid(player):
+				var d = global_position.distance_to(player.global_position)
+				dist_str = "%.0f (detect=%s)" % [d, det_range]
+			print("[Canonman DEBUG] name=%s sleeping=%s behavior=%s target_ok=%s player_dist=%s state_lock=%.2f sleep_grace=%.2f on_floor=%s" % [
+				name, is_sleeping, current_behavior, (target != null and is_instance_valid(target)),
+				dist_str, state_lock, _sleep_grace_remaining, is_on_floor()
+			])
+	
 	# Normal base enemy physics
 	super._physics_process(delta)
 
@@ -179,6 +207,9 @@ func handle_behavior(delta: float) -> void:
 func _handle_child_behavior(delta: float) -> void:
 	match current_behavior:
 		"idle":
+			_handle_idle_state()
+		"patrol":
+			# patrol = idle gibi oyuncu tespit et, walk/attack'e geç (başlangıç state'i "patrol" olduğu için bu şart)
 			_handle_idle_state()
 		"walk":
 			_handle_walk_state(delta)
@@ -217,8 +248,8 @@ func _handle_child_behavior(delta: float) -> void:
 	_update_animation_state()
 
 func _handle_idle_state() -> void:
-	# Yerdeyken hareket etme
-	velocity = Vector2.ZERO
+	# Yatay hareketi durdur; dikey velocity'ye (gravity) dokunma
+	velocity.x = 0
 	
 	# Oyuncu tespit et
 	var player = get_nearest_player()
@@ -752,6 +783,8 @@ func _update_animation_state() -> void:
 	match current_behavior:
 		"idle":
 			animation_name = "cannonman_idle"
+		"patrol":
+			animation_name = "cannonman_idle"
 		"walk":
 			animation_name = "cannonman_walk"
 		"chase":
@@ -782,9 +815,10 @@ func _update_animation_state() -> void:
 		"dead":
 			animation_name = "cannonman_death"
 
-	# Global fall override: yüksekten düşerken fall animasyonu oynat
+	# Global fall override: yüksekten düşerken fall animasyonu oynat (spawn grace sırasında idle/walk'ta atla)
 	var is_in_rocket := current_behavior.begins_with("rocket_")
-	if not is_on_floor() and velocity.y > 120.0 and not is_in_rocket and current_behavior not in ["dead", "hurt"]:
+	var in_spawn_grace := _spawn_grace_timer > 0.0 and current_behavior in ["idle", "walk", "patrol"]
+	if not is_on_floor() and velocity.y > 120.0 and not is_in_rocket and current_behavior not in ["dead", "hurt"] and not in_spawn_grace:
 		animation_name = "cannonman_fall"
 	
 	# Debug: Animasyon değişikliklerini logla ve sadece değiştiyse başlat

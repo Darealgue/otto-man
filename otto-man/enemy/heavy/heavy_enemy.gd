@@ -749,22 +749,18 @@ func _physics_process(delta: float) -> void:
 			velocity.y = 0
 	
 	
-	# Check if we should wake up
-	if is_sleeping:
-		var nearest_player = get_nearest_player()
-		if nearest_player:
-			var distance = global_position.distance_to(nearest_player.global_position)
-			if distance <= wake_distance:
-				wake_up()
-		return
+	# Check sleep/wake
+	check_sleep_state(delta)
 	
-	# Check if we should go to sleep
-	var nearest_player = get_nearest_player()
-	if nearest_player:
-		var distance = global_position.distance_to(nearest_player.global_position)
-		if distance >= sleep_distance and current_behavior != "hurt" and current_behavior != "dead":
-			go_to_sleep()
-			return
+	# Always apply movement so sleeping enemies still land
+	move_and_slide()
+	
+	# Sleeping enemy just landed: fall→idle
+	if is_sleeping and is_on_floor() and sprite and "fall" in sprite.animation:
+		sprite.play("idle")
+		if sprite.has_method("pause"):
+			sprite.pause()
+		return
 	
 	# Only proceed with normal processing if we're awake
 	if not is_sleeping:
@@ -773,9 +769,6 @@ func _physics_process(delta: float) -> void:
 		
 		# Handle behavior and movement
 		_handle_child_behavior(delta)
-		
-		# Apply movement
-		move_and_slide()
 		
 		# Check if we're stuck in the air
 		if not is_on_floor() and current_behavior != "dead":
