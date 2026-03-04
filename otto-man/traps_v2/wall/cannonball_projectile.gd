@@ -18,6 +18,7 @@ const KNOCKBACK_UP_FORCE: float = 420.0
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
+	add_to_group("trap_projectile")
 	if velocity.length_squared() > 0:
 		rotation = velocity.angle()
 	if anim and anim.sprite_frames:

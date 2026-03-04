@@ -6,13 +6,11 @@ res://scenes/test_level.tscn
 res://scenes/forest.tscn
 res://scenes/testing.tscn
 res://enemy/basic/basic_enemy.tscn
-res://traps_v2/ground/fire_trap.tscn
-res://traps_v2/ceiling/poison_drop_projectile.tscn
-res://traps_v2/ceiling/poison_drip.tscn
 res://traps_v2/ceiling/poison_pool.tscn
-res://traps_v2/wall/arrow_projectile.tscn
 res://traps_v2/wall/arrow_shooter.tscn
-res://traps_v2/ceiling/poison_pool.gd
+res://traps_v2/wall/arrow_projectile.tscn
 res://traps_v2/ground/spike_trap.tscn
-res://traps_v2/wall/cannonball_projectile.tscn
 res://traps_v2/wall/cannon_trap.tscn
+res://traps_v2/wall/cannonball_projectile.tscn
+res://objects/dungeon/lighting/mesale2.tscn
+res://objects/dungeon/lighting/mum.tscn

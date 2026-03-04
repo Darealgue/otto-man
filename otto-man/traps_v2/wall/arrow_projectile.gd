@@ -18,6 +18,7 @@ const KNOCKBACK_UP_FORCE: float = 280.0
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
+	add_to_group("trap_projectile")
 	# Point arrow sprite in flight direction (add PI if your arrow art points the other way)
 	if velocity.length_squared() > 0:
 		rotation = velocity.angle() + PI

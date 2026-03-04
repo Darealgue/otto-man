@@ -13,6 +13,7 @@ var _hit: bool = false
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
+	add_to_group("trap_projectile")
 	if sprite and sprite.sprite_frames:
 		# Play default loop animation for the drop
 		if sprite.sprite_frames.has_animation("default"):

@@ -124,6 +124,7 @@ func _create_floor_blood_splatter() -> void:
 	var splatter = Node2D.new()
 	get_tree().current_scene.add_child(splatter)
 	splatter.global_position = global_position + Vector2(0, -5)  # 5 pixels up
+	splatter.add_to_group("blood_splatter")
 	
 	# Add sprite
 	var sprite = Sprite2D.new()
@@ -159,6 +160,7 @@ func _create_wall_blood_splatter() -> void:
 	var splatter = Node2D.new()
 	get_tree().current_scene.add_child(splatter)
 	splatter.global_position = global_position
+	splatter.add_to_group("blood_splatter")
 	
 	# Add sprite
 	var sprite = Sprite2D.new()

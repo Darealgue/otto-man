@@ -86,22 +86,37 @@ const BACKGROUND_DECORS = {
         ]
     },
     "box1": {
-        "weight": 18,
-        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-        "sprites": [
-            "res://assets/objects/dungeon/box1.png"
-        ]
+    	"weight": 18,
+    	"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+    	# 2x2 tile footprint, grows upward from floor
+    	"width_tiles": 2,
+    	"height_tiles": 2,
+    	"grow_dir": "up",
+    	"sprites": [
+    		"res://assets/objects/dungeon/box1.png"
+    	]
     },
     "box2": {
-        "weight": 10,
-        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-        # 2x2 tile footprint, grows upward from floor
-        "width_tiles": 2,
-        "height_tiles": 2,
-        "grow_dir": "up",
-        "sprites": [
-            "res://assets/objects/dungeon/box2.png"
-        ]
+    	"weight": 10,
+    	"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+    	# 3x3 tile footprint, grows upward from floor
+    	"width_tiles": 3,
+    	"height_tiles": 3,
+    	"grow_dir": "up",
+    	"sprites": [
+    		"res://assets/objects/dungeon/box2.png"
+    	]
+    },
+    "box3": {
+    	"weight": 8,
+    	"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+    	# 3x5 tile footprint, grows upward from floor
+    	"width_tiles": 3,
+    	"height_tiles": 5,
+    	"grow_dir": "up",
+    	"sprites": [
+    		"res://assets/objects/dungeon/box3.png"
+    	]
     },
     "gate1": {
         "weight": 4,
@@ -162,15 +177,60 @@ const BACKGROUND_DECORS = {
         ]
     },
     "sculpture1": {
-        "weight": 6,
-        "locations": [SpawnLocation.FLOOR_CENTER],
-        # 3x5 tiles, grows upward from floor
-        "width_tiles": 3,
-        "height_tiles": 5,
-        "grow_dir": "up",
-        "sprites": [
-            "res://assets/objects/dungeon/sculpture1.png"
-        ]
+    	"weight": 6,
+    	"locations": [SpawnLocation.FLOOR_CENTER],
+    	# Taller version (~1.5x original height)
+    	# 3x8 tiles, grows upward from floor
+    	"width_tiles": 3,
+    	"height_tiles": 8,
+    	"grow_dir": "up",
+    	"sprites": [
+    		"res://assets/objects/dungeon/sculpture1.png"
+    	]
+    },
+    "sculpture2": {
+    	"weight": 6,
+    	"locations": [SpawnLocation.FLOOR_CENTER],
+    	# Same footprint as sculpture1
+    	"width_tiles": 3,
+    	"height_tiles": 8,
+    	"grow_dir": "up",
+    	"sprites": [
+    		"res://assets/objects/dungeon/sculpture2.png"
+    	]
+    },
+    "camp1": {
+    	"weight": 5,
+    	"locations": [SpawnLocation.FLOOR_CENTER],
+    	# Approx. 4x3 tiles, grows upward from floor
+    	"width_tiles": 4,
+    	"height_tiles": 3,
+    	"grow_dir": "up",
+    	"sprites": [
+    		"res://assets/objects/dungeon/camp1.png"
+    	]
+    },
+    "camp2": {
+    	"weight": 5,
+    	"locations": [SpawnLocation.FLOOR_CENTER],
+    	# Approx. 4x3 tiles, grows upward from floor (animated 3-frame fire)
+    	"width_tiles": 4,
+    	"height_tiles": 3,
+    	"grow_dir": "up",
+    	"sprites": [
+    		"res://assets/objects/dungeon/camp2.png"
+    	]
+    },
+    "mum": {
+    	"weight": 10,
+    	"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+    	# 1x1 tile footprint, grows upward from floor
+    	"width_tiles": 1,
+    	"height_tiles": 1,
+    	"grow_dir": "up",
+    	"scene_paths": [
+    		"res://objects/dungeon/lighting/mum.tscn"
+    	]
     },
 	"wall_cracks": {
 		"weight": 10,
@@ -249,13 +309,6 @@ const BACKGROUND_DECORS = {
 		"sprites": [
 			"res://assets/forest assets/tree1.png",
 			"res://assets/forest assets/tree2.png"
-		]
-	},
-	"torch2": {
-		"weight": 15,
-		"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-		"scene_paths": [
-			"res://objects/dungeon/lighting/mesale2.tscn"
 		]
 	}
 }
@@ -440,7 +493,7 @@ const TILE_DECOR_RULES = {
 		"chance": 0.15, # Bu tile üzerinde dekorasyon spawn olma ihtimali
 		"decoration_type": DecorationType.BACKGROUND, # Hangi dekor listesinden seçilecek
 		"allowed_locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH], # Hangi pozisyonlara spawn olabilir
-		"allowed_decors": ["moss_patch", "wall_cracks", "hanging_chains", "spider_web"] # İzin verilen spesifik dekorlar
+		"allowed_decors": ["moss_patch", "wall_cracks", "hanging_chains", "spider_web", "torch2"] # İzin verilen spesifik dekorlar
 	},
 	"floor_surface": {
 		"chance": 0.05,
@@ -477,7 +530,7 @@ const PRIORITY_DECOR_RULES = {
         {
             "chance": 0.12,
             "decoration_type": DecorationType.BACKGROUND,
-            "decoration_names": ["spider_web", "box2", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "torch2"],
+            "decoration_names": ["spider_web", "box2", "box3", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "sculpture2", "camp1", "camp2", "mum"],
             "allowed_locations": [SpawnLocation.FLOOR_CENTER]
         },
 		{
@@ -506,7 +559,7 @@ const PRIORITY_DECOR_RULES = {
         {
             "chance": 0.04,
             "decoration_type": DecorationType.BACKGROUND,
-            "decoration_names": ["spider_web", "box2", "gate2", "pipe1", "pipe2", "banner1", "sculpture1"]
+            "decoration_names": ["spider_web", "box2", "box3", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "sculpture2", "camp1", "camp2", "mum"]
         },
 		{
 			"chance": 0.2, # %20 ihtimalle kırılabilir obje
@@ -524,7 +577,7 @@ const PRIORITY_DECOR_RULES = {
             "chance": 0.12,
             "decoration_type": DecorationType.BACKGROUND,
             "allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-            "allowed_decors": ["stone1", "box1", "torch2"]
+            "allowed_decors": ["stone1", "box1", "mum"]
         }
 	],
 	# Forest-specific tile tag; set TileSet custom data decor_anchor="forest_floor_surface"
@@ -561,13 +614,13 @@ const Z_INDEX_RULES = {
 	# Zemin dekorları (orta seviye)
 	"floor": {
 		"z_index": 1,
-		"decorations": ["box1", "box2", "stone1", "small_pot", "wooden_barrel", "sculpture1", "torch2"]
+		"decorations": ["box1", "box2", "box3", "stone1", "sculpture1", "sculpture2", "torch2"]
 	},
 	
 	# Dekoratif objeler (üst seviye)
 	"decorative": {
 		"z_index": 2,
-		"decorations": ["bone_pile", "spider_web"]
+		"decorations": ["bone_pile", "spider_web", "camp1", "camp2", "small_pot", "wooden_barrel", "mum", "torch2"]
 	},
 	
 	# Değerli objeler (dekoratif objelerin üstünde)

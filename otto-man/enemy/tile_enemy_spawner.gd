@@ -140,6 +140,10 @@ func _spawn_enemy() -> bool:
 	if not enemy:
 		push_error("[TileEnemySpawner] Failed to instantiate enemy: %s" % selected_enemy_type)
 		return false
+
+	# Mark which level this enemy belongs to for debug in BasicEnemy
+	if "set_meta" in enemy:
+		enemy.set_meta("spawned_level", current_level)
 	
 	# Configure BasicEnemy-specific ambient start BEFORE adding to scene (so _ready sees it)
 	if selected_enemy_type == "basic" and enemy is BasicEnemy:
@@ -151,20 +155,45 @@ func _spawn_enemy() -> bool:
 	# Add to scene
 	get_parent().add_child(enemy)
 	
-	# Set initial position
+	# Set initial position (spawner tile center)
 	enemy.global_position = global_position
+	if DEBUG_ENEMY:
+		print("[TileEnemySpawner] Spawn DEBUG -> level=%d chunk_type=%s spawner_pos=%s" % [
+			current_level, chunk_type, global_position
+		])
 	
 	# Ensure enemy is on the floor by raycasting down (like EnemySpawner does)
 	var space_state = get_world_2d().direct_space_state
-	var query = PhysicsRayQueryParameters2D.create(global_position, global_position + Vector2.DOWN * 500.0)
+	var ray_from: Vector2 = global_position
+	var ray_to: Vector2 = global_position + Vector2.DOWN * 500.0
+	var query = PhysicsRayQueryParameters2D.create(ray_from, ray_to)
 	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Check both world and platform layers
 	var result = space_state.intersect_ray(query)
 	
 	if result:
-		# Place slightly above the ground to ensure proper floor detection
-		enemy.global_position = result.position - Vector2(0, 32)  # Offset up by 32 pixels
 		if DEBUG_ENEMY:
-			print("[TileEnemySpawner] Adjusted enemy position to floor: %s (was: %s)" % [enemy.global_position, global_position])
+			print("[TileEnemySpawner] Raycast hit at %s (from=%s to=%s, collider=%s normal=%s)" % [
+				result.position, ray_from, ray_to, str(result.collider), str(result.normal)
+			])
+		# Ignore hits that are not mostly floor (avoid snapping into walls/ceilings)
+		var normal: Vector2 = result.normal
+		if normal.y > 0.5:
+			# Compute vertical offset from enemy's own collision shape instead of magic 32px.
+			var feet_offset: float = 32.0
+			var col_shape_node := enemy.get_node_or_null("CollisionShape2D") as CollisionShape2D
+			if col_shape_node and col_shape_node.shape:
+				var shape := col_shape_node.shape
+				if shape is CapsuleShape2D:
+					var cap := shape as CapsuleShape2D
+					feet_offset = cap.height * 0.5
+				elif shape is RectangleShape2D:
+					var rect := shape as RectangleShape2D
+					feet_offset = rect.size.y * 0.5
+			# Place enemy so collider bottom sits just above the floor hit point.
+			var snapped_pos: Vector2 = result.position - Vector2(0, feet_offset)
+			enemy.global_position = snapped_pos
+			if DEBUG_ENEMY:
+				print("[TileEnemySpawner] Adjusted enemy position to floor: %s (offset=%.1f)" % [snapped_pos, feet_offset])
 		
 		# Force an immediate physics update to ensure floor detection
 		enemy.call_deferred("move_and_slide")

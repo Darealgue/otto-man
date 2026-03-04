@@ -1,56 +1,42 @@
-[gd_scene load_steps=12 format=3 uid="uid://mu33gmkvxnte"]
+[gd_scene load_steps=10 format=3 uid="uid://mu33gmkvxnte"]
 
 [ext_resource type="Script" path="res://objects/dungeon/lighting/torch_controller.gd" id="1_script"]
-[ext_resource type="Texture2D" uid="uid://bujbvde2gc6tt" path="res://objects/dungeon/lighting/mum.png" id="1_tf82g"]
+[ext_resource type="Texture2D" uid="uid://djcjjia3jygl5" path="res://objects/dungeon/lighting/lamba.png" id="2_nra8h"]
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_ur4ml"]
-atlas = ExtResource("1_tf82g")
-region = Rect2(0, 0, 32, 32)
+[sub_resource type="AtlasTexture" id="AtlasTexture_lp07l"]
+atlas = ExtResource("2_nra8h")
+region = Rect2(0, 0, 100, 100)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_ytpw0"]
-atlas = ExtResource("1_tf82g")
-region = Rect2(32, 0, 32, 32)
+[sub_resource type="AtlasTexture" id="AtlasTexture_i06qa"]
+atlas = ExtResource("2_nra8h")
+region = Rect2(100, 0, 100, 100)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_6ehi2"]
-atlas = ExtResource("1_tf82g")
-region = Rect2(64, 0, 32, 32)
+[sub_resource type="AtlasTexture" id="AtlasTexture_7n7cl"]
+atlas = ExtResource("2_nra8h")
+region = Rect2(200, 0, 100, 100)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_4tevq"]
-atlas = ExtResource("1_tf82g")
-region = Rect2(96, 0, 32, 32)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_ys2vv"]
-atlas = ExtResource("1_tf82g")
-region = Rect2(128, 0, 32, 32)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_cw484"]
-atlas = ExtResource("1_tf82g")
-region = Rect2(160, 0, 32, 32)
+[sub_resource type="AtlasTexture" id="AtlasTexture_6gi53"]
+atlas = ExtResource("2_nra8h")
+region = Rect2(300, 0, 100, 100)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_w7l8y"]
 animations = [{
 "frames": [{
-"duration": 2.0,
-"texture": SubResource("AtlasTexture_ur4ml")
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lp07l")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_ytpw0")
-}, {
-"duration": 2.0,
-"texture": SubResource("AtlasTexture_6ehi2")
+"texture": SubResource("AtlasTexture_i06qa")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_4tevq")
+"texture": SubResource("AtlasTexture_7n7cl")
 }, {
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_ys2vv")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_cw484")
+"texture": SubResource("AtlasTexture_6gi53")
 }],
 "loop": true,
 "name": &"idle",
-"speed": 16.0
+"speed": 12.0
 }]
 
 [sub_resource type="Gradient" id="Gradient_5eems"]
@@ -67,12 +53,15 @@ z_index = 2
 script = ExtResource("1_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -45)
 sprite_frames = SubResource("SpriteFrames_w7l8y")
 animation = &"idle"
-frame = 4
-frame_progress = 0.541133
+frame_progress = 0.533321
 
 [node name="PointLight2D" type="PointLight2D" parent="."]
+position = Vector2(0, -13)
 color = Color(1, 0.580392, 0.196078, 1)
+energy = 0.5
+shadow_enabled = true
 texture = SubResource("GradientTexture2D_a0sqj")
-texture_scale = 4.33
+texture_scale = 10.0

@@ -124,12 +124,44 @@ func _spawn_decoration() -> bool:
 			_spawned_decoration = null
 			return false
 	
+	# Kamp dekorları için yakın çevrede aynı kamp'tan fazla tekrar olmasını engelle
+	if not _should_keep_camp_decoration(decoration_instance):
+		decoration_instance.queue_free()
+		last_spawned_decoration = null
+		_spawned_decoration = null
+		_is_active = false
+		return false
+	
 	# Referansı sakla
 	_spawned_decoration = decoration_instance
 	_is_active = true
 	
 	if DEBUG_DECOR:
 		print("[DecorationSpawner] Spawned %s at position %s" % [decoration_name, spawn_pos])
+	return true
+
+func _should_keep_camp_decoration(node: Node2D) -> bool:
+	if not node:
+		return false
+	if node.name != "camp1" and node.name != "camp2":
+		return true
+	
+	var max_same_in_radius := 2
+	var radius := 200.0
+	var same_count := 0
+	
+	for other in get_tree().get_nodes_in_group("background_decor"):
+		if other == node:
+			continue
+		if not (other is Node2D):
+			continue
+		var on := other as Node2D
+		if on.name != node.name:
+			continue
+		if on.global_position.distance_to(node.global_position) <= radius:
+			same_count += 1
+			if same_count >= max_same_in_radius:
+				return false
 	return true
 
 func create_decoration_instance(decoration_name: String, decoration_type: DecorationConfig.DecorationType) -> Node2D:
@@ -274,11 +306,19 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
 	if sprite:
 		node.z_index = sprite.z_index
-		# Random flip for visual variety
+		
+		# Special handling for animated campfire decor
+		if node.name == "camp2":
+			_setup_campfire_background(node, sprite)
+			# Group for overlap checks
+			node.add_to_group("background_decor")
+			return
+		
+		# Random flip for visual variety (non-camp decors)
 		if randi() % 2 == 0:
 			sprite.flip_h = !sprite.flip_h
 		# For floor-based decors, align sprite bottom to node origin so it sits on the floor
-		if node.name == "box2" or node.name == "gate1" or node.name == "gate2" or node.name == "pipe1" or node.name == "pipe2" or node.name == "banner1" or node.name == "sculpture1" or String(node.get_meta("decor_name", "")) in ["box2", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1"]:
+		if node.name == "box1" or node.name == "box2" or node.name == "box3" or node.name == "gate1" or node.name == "gate2" or node.name == "pipe1" or node.name == "pipe2" or node.name == "banner1" or node.name == "sculpture1" or node.name == "sculpture2" or node.name == "camp1" or String(node.get_meta("decor_name", "")) in ["box1", "box2", "box3", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "sculpture2", "camp1"]:
 			sprite.centered = false
 			var h := 0
 			if sprite.texture:
@@ -289,6 +329,69 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 		# Gates, Pipes, Banners, Sculptures: z-index otomatik olarak ayarlandı
 	# Group for overlap checks
 	node.add_to_group("background_decor")
+
+func _setup_campfire_background(node: Node2D, sprite: Sprite2D) -> void:
+	if not sprite or not sprite.texture:
+		return
+	var tex: Texture2D = sprite.texture
+	var w := tex.get_width()
+	var h := tex.get_height()
+	if w <= 0 or h <= 0:
+		return
+	var frames := 3
+	var frame_w := int(floor(float(w) / float(frames)))
+	if frame_w <= 0:
+		return
+	
+	var frames_res := SpriteFrames.new()
+	frames_res.add_animation("idle")
+	frames_res.set_animation_loop("idle", true)
+	# Faster campfire flicker (similar to torch speed)
+	frames_res.set_animation_speed("idle", 12.0)
+	for i in range(frames):
+		var at := AtlasTexture.new()
+		at.atlas = tex
+		at.region = Rect2(i * frame_w, 0, (frame_w if i < frames - 1 else (w - i * frame_w)), h)
+		at.filter_clip = true
+		frames_res.add_frame("idle", at)
+	
+	var anim := AnimatedSprite2D.new()
+	anim.name = "Anim"
+	anim.sprite_frames = frames_res
+	anim.centered = false
+	# Bottom-center align similar to other floor decors (with slight 5px grounding offset)
+	anim.position = Vector2(-frame_w * 0.5, -h + 5)
+	anim.play("idle")
+	
+	# Replace original static sprite
+	var old_z := sprite.z_index
+	node.remove_child(sprite)
+	sprite.queue_free()
+	node.add_child(anim)
+	anim.z_index = old_z
+	
+	# Add warm point light on the fire (torch-like gradient texture)
+	var light := PointLight2D.new()
+	light.color = Color(0.99, 0.85, 0.4, 1.0)
+	light.energy = 1.2
+	light.enabled = true
+	var grad := Gradient.new()
+	var grad_colors := PackedColorArray()
+	grad_colors.append(Color(1.0, 1.0, 1.0, 1.0))
+	grad_colors.append(Color(0.0, 0.0, 0.0, 1.0))
+	grad.colors = grad_colors
+	var grad_offsets := PackedFloat32Array()
+	grad_offsets.append(0.0)
+	grad_offsets.append(0.7)
+	grad.offsets = grad_offsets
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill = GradientTexture2D.FILL_RADIAL
+	gtex.fill_from = Vector2(0.5, 0.5)
+	light.texture = gtex
+	light.texture_scale = 15.0
+	light.position = Vector2(0, -h * 0.5)
+	node.add_child(light)
 
 # Altın için Area2D oluşturur ve toplama sinyalini bağlar
 func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:

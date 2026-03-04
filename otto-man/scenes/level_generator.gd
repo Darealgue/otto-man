@@ -753,6 +753,7 @@ func generate_level() -> bool:
 	print("\nFailed to generate level after ", max_attempts, " attempts!")
 	return false # Explicitly return false if all attempts fail
 
+
 func verify_level_path() -> bool:
 	print("Verifying path from start to finish...")
 	
@@ -1600,7 +1601,7 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 	# Remove old EnemySpawner nodes from chunk (legacy system)
 	_remove_legacy_enemy_spawners(chunk)
 	
-	# TileMap tabanlı düşmanları oluştur
+	# TileMap tabanlı düşmanları oluştur (V1 - chunk bazlı sistem)
 	_populate_enemies_from_tilemap(chunk)
 
 	# NOTE: Trap population moved to after unify_terrain() — see _populate_traps_on_unified_terrain()
@@ -1813,7 +1814,7 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 				decoration_instance.global_position = final_pos
 				
 				# Prevent overlapping large decors: gates/pipes/banners/sculptures
-				if (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
+				if (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1" or selected_decor_name == "sculpture2") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
 					print("[GateDebug] SKIP overlap near existing gate at pos=", final_pos)
 					decoration_instance.queue_free()
 					spawner.queue_free()
@@ -1849,7 +1850,7 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 						" expected_bottom=", expected_bottom_y,
 						" diff_bottom=", diff_bottom_y)
 				# Track placed large decor positions to avoid same-pass overlaps
-				if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1":
+				if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1" or selected_decor_name == "sculpture2":
 					placed_gate_positions.append(final_pos)
 				if selected_decor_name == "gate1":
 					print("[GateDebug] SPAWNED at ", decoration_instance.global_position, " floor_based=", floor_based)
@@ -1975,7 +1976,7 @@ func _has_clearance_tiles(tile_map, anchor: Vector2i, w_tiles: int, h_tiles: int
 				print("[GateDebug] OCCUPIED at ", c, " for ", name)
 			return false
 	# Additional side clearance on the right to avoid hugging walls for wide floor decors
-	if grow_dir == "up" and (name == "box2" or name == "gate1"):
+	if grow_dir == "up" and (name == "box2" or name == "gate1" or name == "box1"):
 		var half_w_left_side := int(floor((w_tiles - 1) / 2.0))
 		var half_w_right_side := int(ceil((w_tiles - 1) / 2.0))
 		var right_pad_x := half_w_right_side + 1
@@ -2182,7 +2183,7 @@ func _has_vertical_wall_on_right(tile_map, cell: Vector2i) -> bool:
 func _is_near_existing_gate(pos: Vector2, min_dx: float) -> bool:
 	var existing := get_tree().get_nodes_in_group("background_decor")
 	for n in existing:
-		if n is Node2D and ((n as Node2D).name == "gate1" or (n as Node2D).name == "gate2" or (n as Node2D).name == "pipe1" or (n as Node2D).name == "pipe2" or (n as Node2D).name == "sculpture1"):
+		if n is Node2D and ((n as Node2D).name == "gate1" or (n as Node2D).name == "gate2" or (n as Node2D).name == "pipe1" or (n as Node2D).name == "pipe2" or (n as Node2D).name == "sculpture1" or (n as Node2D).name == "sculpture2"):
 			var d := (n as Node2D).global_position.distance_to(pos)
 			if d < min_dx:
 				return true
@@ -2556,12 +2557,21 @@ func _on_door_opened(door_type: String) -> void:
 		
 		level_completed.emit()
 		current_level += 1
-		generate_level()  # Generate new level
+		# IMPORTANT: Defer level generation to next frame so that all queue_free()
+		# calls from clear_level / enemy cleanup are fully processed and old
+		# TileMap/UnifiedTerrain colliders are gone before we raycast for
+		# new enemy/trap positions.
+		call_deferred("_generate_next_level_after_cleanup")
 		
 		# Reset transition flag after cooldown
 		var timer = get_tree().create_timer(transition_cooldown)
 		timer.timeout.connect(func(): is_transitioning = false)
 		# Player will be automatically spawned at the start of new level
+
+func _generate_next_level_after_cleanup() -> void:
+	# This is called via call_deferred from _on_door_opened after cleanup.
+	# At this point, old chunks and unified_terrain should be fully freed.
+	generate_level()  # Generate new level
 
 func _on_miniboss_spawned(enemy: Node, boss_chunk: Node2D) -> void:
 	# Wire defeat to enabling FinishZone under the boss arena chunk
@@ -3616,7 +3626,22 @@ func _clear_all_enemies_from_previous_level() -> void:
 	if unified_terrain:
 		_clear_enemies_from_chunk(unified_terrain)
 		_clear_traps_from_chunk(unified_terrain)
-	
+
+	# Clear trap projectiles that might still be flying around
+	for proj in get_tree().get_nodes_in_group("trap_projectile"):
+		if is_instance_valid(proj):
+			proj.queue_free()
+
+	# Clear blood splatters from previous fights
+	for splatter in get_tree().get_nodes_in_group("blood_splatter"):
+		if is_instance_valid(splatter):
+			splatter.queue_free()
+
+	# Clear poison pools (acid puddles) left from previous level
+	for pool in get_tree().get_nodes_in_group("poison_pools"):
+		if is_instance_valid(pool):
+			pool.queue_free()
+
 	print("[LevelGenerator] Enemy & trap cleanup completed")
 
 func _clear_enemies_from_chunk(chunk_node: Node2D) -> void:
@@ -3842,6 +3867,104 @@ func _populate_traps_on_unified_terrain() -> void:
 		spawned_trap_positions.append(first_world_pos)
 		trap_spawn_count += 1
 		queue_idx += 1
+
+func _populate_enemies_on_unified_terrain() -> void:
+	if not unified_terrain:
+		push_error("[EnemyPopulate] unified_terrain is null — cannot spawn enemies")
+		return
+
+	var ts: TileSet = unified_terrain.tile_set
+	if not ts:
+		push_error("[EnemyPopulate] unified_terrain has no tile_set")
+		return
+
+	var enemy_layer_name := "decor_anchor"
+	var has_enemy_layer := false
+	for i in range(ts.get_custom_data_layers_count()):
+		if ts.get_custom_data_layer_name(i) == enemy_layer_name:
+			has_enemy_layer = true
+			break
+	if not has_enemy_layer:
+		print("[EnemyPopulate] No '%s' custom data layer on unified_terrain" % enemy_layer_name)
+		return
+
+	var exclude_rects: Array[Rect2] = _build_excluded_chunk_rects()
+
+	var used_cells := unified_terrain.get_used_cells(0)
+	if used_cells.is_empty():
+		print("[EnemyPopulate] No used cells on unified_terrain")
+		return
+
+	# Basitleştirilmiş sistem: SpawnConfig'e bağlı kalmadan,
+	# unified terrain'deki floor/floor_surface anchor'larından
+	# rastgele birkaç düşman spawnla.
+	var floor_cells: Array[Vector2i] = []
+	for cell in used_cells:
+		var td: TileData = unified_terrain.get_cell_tile_data(0, cell)
+		if not td:
+			continue
+		var stype = td.get_custom_data(enemy_layer_name)
+		if not stype or stype == "":
+			continue
+		var s := String(stype)
+		if s != "floor" and s != "floor_surface":
+			continue
+		# Exclusion rect'lerin dışında mı?
+		var world_pos: Vector2 = unified_terrain.map_to_local(cell) + unified_terrain.global_position
+		var excluded := false
+		for r in exclude_rects:
+			if r.has_point(world_pos):
+				excluded = true
+				break
+		if excluded:
+			continue
+		floor_cells.append(cell)
+
+	if floor_cells.is_empty():
+		print("[EnemyPopulate] No floor anchors on unified_terrain")
+		return
+
+	floor_cells.shuffle()
+
+	var max_spawns: int = min(12, floor_cells.size())
+	var spawned_positions: Array[Vector2] = []
+	var tile_size_v2: Vector2 = Vector2(ts.tile_size)
+	var half_tile := tile_size_v2 * 0.5
+
+	print("[EnemyPopulate] floor_cells=%d, will spawn up to %d enemies (level=%d)" % [
+		floor_cells.size(), max_spawns, current_level
+	])
+
+	for i in range(max_spawns):
+		var cell: Vector2i = floor_cells[i]
+		var local_pos = unified_terrain.map_to_local(cell)
+		var tile_center: Vector2 = unified_terrain.to_global(local_pos) + half_tile
+
+		var floor_offset_y = 150.0
+		var spawn_position = tile_center + Vector2(0.0, -floor_offset_y)
+
+		var min_distance = 150.0
+		var too_close = false
+		for existing_pos in spawned_positions:
+			if spawn_position.distance_to(existing_pos) < min_distance:
+				too_close = true
+				break
+		if too_close:
+			continue
+
+		var enemy_spawner := Node2D.new()
+		var enemy_spawner_script = load("res://enemy/tile_enemy_spawner.gd")
+		enemy_spawner.set_script(enemy_spawner_script)
+		enemy_spawner.set("current_level", current_level)
+		enemy_spawner.set("chunk_type", "dungeon")
+		enemy_spawner.set("spawn_chance", 1.0)
+		enemy_spawner.global_position = spawn_position
+		add_child(enemy_spawner)
+		enemy_spawner.call_deferred("activate")
+
+		spawned_positions.append(spawn_position)
+
+	print("[EnemyPopulate] Spawned %d enemies on unified terrain" % spawned_positions.size())
 
 func _build_excluded_chunk_rects() -> Array[Rect2]:
 	var rects: Array[Rect2] = []

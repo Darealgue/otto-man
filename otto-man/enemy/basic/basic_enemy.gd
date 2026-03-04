@@ -288,12 +288,48 @@ func _try_spawn_floor_snap() -> bool:
 	query.exclude = [get_rid()]
 	var result = space_state.intersect_ray(query)
 	if result.is_empty():
+		if debug_enabled:
+			print("[BasicEnemy][SpawnFloorFix] no hit (level=%s) from=%s to=%s" % [
+				str(get_meta("spawned_level") if has_meta("spawned_level") else "unknown"),
+				str(from_pos),
+				str(to_pos),
+			])
 		return false
-	global_position = result.position - Vector2(0, 32)
+	# Ignore non-floor hits (normali yukarı bakmayan yüzeyler), duvar i&ccedil;i snap'leri engelle
+	var normal: Vector2 = result.normal
+	if normal.y <= 0.5:
+		if debug_enabled:
+			print("[BasicEnemy][SpawnFloorFix] non-floor normal=%s, skipping (level=%s from=%s to=%s)" % [
+				str(normal),
+				str(get_meta("spawned_level") if has_meta("spawned_level") else "unknown"),
+				str(from_pos),
+				str(to_pos),
+			])
+		return false
+	# Compute vertical offset from our own collision shape instead of magic 32 px
+	var feet_offset: float = 32.0
+	var col_shape_node := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col_shape_node and col_shape_node.shape:
+		var shape := col_shape_node.shape
+		if shape is CapsuleShape2D:
+			var cap := shape as CapsuleShape2D
+			feet_offset = cap.height * 0.5
+		elif shape is RectangleShape2D:
+			var rect := shape as RectangleShape2D
+			feet_offset = rect.size.y * 0.5
+	var hit_pos: Vector2 = result.position
+	global_position = hit_pos - Vector2(0, feet_offset)
 	velocity = Vector2.ZERO
 	move_and_slide()
 	if debug_enabled:
-		print("[BasicEnemy][SpawnFloorFix] snap from %s to %s floor=%s" % [str(from_pos), str(global_position), is_on_floor()])
+		print("[BasicEnemy][SpawnFloorFix] level=%s from=%s hit=%s offset=%.1f to=%s floor=%s" % [
+			str(get_meta("spawned_level") if has_meta("spawned_level") else "unknown"),
+			str(from_pos),
+			str(hit_pos),
+			feet_offset,
+			str(global_position),
+			is_on_floor(),
+		])
 	return true
 
 func handle_behavior(delta: float) -> void:
