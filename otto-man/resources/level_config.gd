@@ -35,10 +35,31 @@ func get_combat_chance_for_level(level: int) -> float:
 @export var combat_room_chance: float = 0.3  # Chance for a basic platform to be a combat room
 @export var description: String = ""  # Optional description of this level configuration
 
+## Seviyeye göre altın çarpanı (zindan tier risk-ödül). Seviye 1 daha az, 9'a doğru artar.
+@export var gold_multiplier_base: float = 0.8
+@export var gold_multiplier_per_level: float = 0.22
+
+func get_gold_multiplier(level: int) -> float:
+    if level < 1:
+        return gold_multiplier_base
+    return gold_multiplier_base + (level - 1) * gold_multiplier_per_level
+
+## Seviye arttıkça dead end'in kurtarma odası (köylü/cariye) olma olasılığı artar (0.0–1.0)
+@export var rescue_room_chance_base: float = 0.12
+@export var rescue_room_chance_per_level: float = 0.08
+
+func get_rescue_room_chance(level: int) -> float:
+    if level < 1:
+        return rescue_room_chance_base
+    return clampf(rescue_room_chance_base + (level - 1) * rescue_room_chance_per_level, 0.0, 0.85)
+
+## Debug: Her levelda en az bir köylü + bir cariye kurtarma odası garanti et (test için)
+@export var debug_force_rescue_rooms_in_every_level: bool = false
+
 func get_num_main_paths_for_level(level: int) -> int:
     # Every 4 levels, add one more main path
     # Level 1-4: 1 path
     # Level 5-8: 2 paths
     # Level 9-12: 3 paths
     # And so on...
-    return (level - 1) / 4 + 1 
+    return (level - 1) / 4 + 1

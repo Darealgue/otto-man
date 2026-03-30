@@ -100,6 +100,7 @@ signal gorev_data_changed
 signal building_state_changed(building_node)
 signal mission_completed(cariye_id, gorev_id, successful, results)
 signal time_skip_completed(total_hours, produced_resources)  # total_hours: float, produced_resources: Dictionary
+signal morale_game_over  # Köy morali 0'a düştüğünde (oyun kaybı)
 
 # --- Diğer Değişkenler (Cariye, Görev vb.) ---
 # Cariyeleri saklayacağımız dictionary: { cariye_id: {veri} }
@@ -221,8 +222,11 @@ func _ready() -> void:
 		"medicine": 0,
 		"soap": 0
 	}
-	_create_debug_cariyeler()
-	_create_debug_gorevler()
+	# DEBUG cariye/görev üretimi sadece çok eski prototip içindi; gerçek oyunda kullanmayalım.
+	# Artık cariyeler yalnızca MissionManager.create_initial_concubines ve
+	# add_concubine_from_rescue akışlarıyla oluşacak.
+	# _create_debug_cariyeler()
+	# _create_debug_gorevler()
 	
 	# Connect WorldManager signals
 	call_deferred("_connect_world_manager_signals")
@@ -1015,10 +1019,14 @@ func _simulate_events_during_skip(total_minutes: int, start_day: int, end_day: i
 	
 	return changed
 
+const DEBUG_VILLAGE_MANAGER: bool = false
+
 func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
-	print("[VillageManager] 🔄 DEBUG: Starting _apply_saved_worker_states() with %d saved states, %d buildings in map" % [_saved_worker_states.size(), _restored_buildings_map.size()])
+	if DEBUG_VILLAGE_MANAGER:
+		print("[VillageManager] 🔄 DEBUG: Starting _apply_saved_worker_states() with %d saved states, %d buildings in map" % [_saved_worker_states.size(), _restored_buildings_map.size()])
 	if _saved_worker_states.is_empty():
-		print("[VillageManager] ⚠️ DEBUG: _saved_worker_states is empty, nothing to apply")
+		if DEBUG_VILLAGE_MANAGER:
+			print("[VillageManager] ⚠️ DEBUG: _saved_worker_states is empty, nothing to apply")
 		return
 	
 	var tm = get_node_or_null("/root/TimeManager")
@@ -1542,11 +1550,13 @@ func register_village_scene(scene: Node2D) -> void:
 	
 	# Başlangıç işçilerini oluştur
 	if workers_container and is_instance_valid(campfire_node):
-		print("[VillageManager] 🔄 DEBUG: Starting worker restoration...")
+		if DEBUG_VILLAGE_MANAGER:
+			print("[VillageManager] 🔄 DEBUG: Starting worker restoration...")
 		_reset_worker_runtime_data()
 		worker_id_counter = 0
 		var restored_buildings_map := _restore_saved_buildings()
-		print("[VillageManager] 🔍 DEBUG: Restored buildings map has %d entries" % restored_buildings_map.size())
+		if DEBUG_VILLAGE_MANAGER:
+			print("[VillageManager] 🔍 DEBUG: Restored buildings map has %d entries" % restored_buildings_map.size())
 		
 		# Kamp ateşinin kapasitesini yükle (eğer kaydedilmişse) - worker'lar yüklenmeden önce
 		for entry in _saved_building_states:
@@ -1558,12 +1568,14 @@ func register_village_scene(scene: Node2D) -> void:
 				break
 		var worker_entries: Array = []
 		if _saved_worker_states.size() > 0:
-			print("[VillageManager] 🔍 DEBUG: Found %d saved worker states" % _saved_worker_states.size())
+			if DEBUG_VILLAGE_MANAGER:
+				print("[VillageManager] 🔍 DEBUG: Found %d saved worker states" % _saved_worker_states.size())
 			worker_entries = _saved_worker_states.duplicate(true)
 			if has_method("_worker_entry_sorter"):
 				worker_entries.sort_custom(Callable(self, "_worker_entry_sorter"))
 			else:
-				print("[VillageManager] ⚠️ DEBUG: _worker_entry_sorter method not found, skipping sort")
+				if DEBUG_VILLAGE_MANAGER:
+					print("[VillageManager] ⚠️ DEBUG: _worker_entry_sorter method not found, skipping sort")
 		elif is_instance_valid(VillagerAiInitializer) and VillagerAiInitializer.Saved_Villagers.size() > 0:
 			for info in VillagerAiInitializer.Saved_Villagers:
 				var info_copy: Dictionary = info.duplicate(true)
@@ -1585,7 +1597,8 @@ func register_village_scene(scene: Node2D) -> void:
 			var building_key_from_entry = worker_entry.get("building_key", "")
 			var housing_key_from_entry = worker_entry.get("housing_key", "")  # Housing node referansı
 			var info_dict: Dictionary = worker_entry.get("npc_info", {}).duplicate(true)
-			print("[VillageManager] 🔄 DEBUG: Creating worker - Saved ID: %d, Job: %s, Building: %s, Housing: %s" % [worker_id_from_entry, job_type_from_entry, building_key_from_entry, housing_key_from_entry])
+			if DEBUG_VILLAGE_MANAGER:
+				print("[VillageManager] 🔄 DEBUG: Creating worker - Saved ID: %d, Job: %s, Building: %s, Housing: %s" % [worker_id_from_entry, job_type_from_entry, building_key_from_entry, housing_key_from_entry])
 			
 			# Worker'ı oluştur, ama housing_node'yu kaydet (sonra geri yükleyeceğiz)
 			var saved_housing_key = housing_key_from_entry
@@ -1594,7 +1607,8 @@ func register_village_scene(scene: Node2D) -> void:
 				var desired_id: int = int(worker_entry.get("worker_id", -1))
 				var new_id: int = worker_id_counter
 				if desired_id >= 0 and desired_id != new_id:
-					print("[VillageManager] 🔄 DEBUG: Changing worker ID from %d to %d" % [new_id, desired_id])
+					if DEBUG_VILLAGE_MANAGER:
+						print("[VillageManager] 🔄 DEBUG: Changing worker ID from %d to %d" % [new_id, desired_id])
 					var worker_data = all_workers.get(new_id, {})
 					if worker_data:
 						all_workers.erase(new_id)
@@ -1606,7 +1620,8 @@ func register_village_scene(scene: Node2D) -> void:
 					worker_id_counter = max(worker_id_counter, desired_id)
 					new_id = desired_id
 				else:
-					print("[VillageManager] ✅ DEBUG: Worker created with ID %d (desired: %d)" % [new_id, desired_id])
+					if DEBUG_VILLAGE_MANAGER:
+						print("[VillageManager] ✅ DEBUG: Worker created with ID %d (desired: %d)" % [new_id, desired_id])
 				
 				# Housing node'u geri yükle (eğer kaydedilmişse)
 				# Not: _add_new_worker içinde _assign_housing çağrılıyor, bu da yeni bir housing atıyor
@@ -1633,20 +1648,29 @@ func register_village_scene(scene: Node2D) -> void:
 							# Housing node'un occupant sayısını güncelle (eğer method varsa)
 							if housing_node.has_method("add_occupant"):
 								housing_node.add_occupant(worker_instance)
-							print("[VillageManager] ✅ DEBUG: Restored housing_node for worker %d (key: %s)" % [new_id, saved_housing_key])
+							if DEBUG_VILLAGE_MANAGER:
+								print("[VillageManager] ✅ DEBUG: Restored housing_node for worker %d (key: %s)" % [new_id, saved_housing_key])
 						else:
-							print("[VillageManager] ⚠️ DEBUG: Housing node not found for key: %s" % saved_housing_key)
+							if DEBUG_VILLAGE_MANAGER:
+								print("[VillageManager] ⚠️ DEBUG: Housing node not found for key: %s" % saved_housing_key)
 				
 				max_worker_id = max(max_worker_id, new_id)
 			else:
-				print("[VillageManager] ⚠️ DEBUG: Failed to create worker with saved ID %d" % worker_id_from_entry)
+				if DEBUG_VILLAGE_MANAGER:
+					print("[VillageManager] ⚠️ DEBUG: Failed to create worker with saved ID %d" % worker_id_from_entry)
 		worker_id_counter = max(worker_id_counter, max_worker_id)
-		print("[VillageManager] ✅ DEBUG: Created %d workers, max ID: %d" % [worker_created_count, worker_id_counter])
-		print("[VillageManager] 🔄 DEBUG: Applying saved worker states to buildings...")
+		if DEBUG_VILLAGE_MANAGER:
+			print("[VillageManager] ✅ DEBUG: Created %d workers, max ID: %d" % [worker_created_count, worker_id_counter])
+			print("[VillageManager] 🔄 DEBUG: Applying saved worker states to buildings...")
 		_apply_saved_worker_states(restored_buildings_map)
 		# Görev ormandayken tamamlandıysa askerler geri çağrılmamış olabilir; yükleme sonrası senkronize et
 		call_deferred("_sync_soldiers_with_missions")
 		emit_signal("village_data_changed")
+		# Worker restoration tamamlandıktan sonra, varsa zindandan kurtarılan köylü/cariyeleri uygula
+		if is_instance_valid(village_scene_instance) and village_scene_instance.has_method("_apply_dungeon_rescued"):
+			if DEBUG_VILLAGE_MANAGER:
+				print("[VillageManager] 🔁 DEBUG: Calling VillageScene._apply_dungeon_rescued() after restoration")
+			village_scene_instance.call_deferred("_apply_dungeon_rescued")
 	#else:
 		#if not workers_container:
 			##printerr("VillageManager Ready Error: WorkersContainer bulunamadı!")
@@ -2192,6 +2216,41 @@ func unregister_advanced_production(produced_resource: String, required_resource
 # 	...
 # ---------------------------------------------------
 
+# --- Zindan kapasite önbelleği (köy sahnesi yüklü değilken kullanılır) ---
+var _cached_can_add_villager: bool = true
+var _cached_can_add_cariye: bool = true
+
+# --- Debug: Kapasite override (kurtarma minigame test için; DevConsole ile değiştirilebilir) ---
+var debug_force_villager_capacity_full: bool = false   ## true ise can_add_villager false döner
+var debug_force_villager_has_space: bool = false       ## true ise can_add_villager true döner
+var debug_force_cariye_capacity_full: bool = false
+var debug_force_cariye_has_space: bool = false
+
+## Köye yeni köylü eklenebilir mi? (Barınak kapasitesi)
+func can_add_villager() -> bool:
+	if debug_force_villager_capacity_full:
+		return false
+	if debug_force_villager_has_space:
+		return true
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.get("current_scene_path") == "res://village/scenes/VillageScene.tscn":
+		return _find_available_housing() != null
+	return _cached_can_add_villager
+
+## Köye yeni cariye eklenebilir mi? (Şu an sınırsız; ileride kapasite eklenebilir)
+func can_add_cariye() -> bool:
+	if debug_force_cariye_capacity_full:
+		return false
+	if debug_force_cariye_has_space:
+		return true
+	return _cached_can_add_cariye
+
+## Zindana girmeden önce çağrılır; köy kapasitesini önbelleğe alır.
+func record_village_capacity_for_dungeon() -> void:
+	_cached_can_add_villager = _find_available_housing() != null
+	# Cariye için şu an limit yok
+	_cached_can_add_cariye = true
+
 # --- Yeni Köylü Ekleme Fonksiyonu ---
 func add_villager() -> void:
 	# Barınak kontrolü yap - _add_new_worker() fonksiyonunu kullan
@@ -2200,6 +2259,50 @@ func add_villager() -> void:
 		emit_signal("village_data_changed") # UI güncellensin
 	else:
 		print("VillageManager: Yeni köylü eklenemedi - yeterli barınak yok!")
+
+## Zindandan kurtarılan köylüyü belirli isim ve görünümle ekler. data boşsa rastgele köylü ekler.
+func add_villager_with_data(data: Dictionary) -> void:
+	if data.is_empty():
+		add_villager()
+		return
+	if not worker_scene:
+		return
+	var worker_instance = worker_scene.instantiate()
+	worker_id_counter += 1
+	worker_instance.worker_id = worker_id_counter
+	worker_instance.name = "Worker" + str(worker_id_counter)
+	if data.has("appearance") and data.appearance is Dictionary and data.appearance.size() > 0:
+		var app = VillagerAppearance.new()
+		if app.has_method("from_dict"):
+			app.from_dict(data.appearance)
+		worker_instance.appearance = app
+	else:
+		worker_instance.appearance = AppearanceDB.generate_random_appearance()
+	var npc_info := {
+		"Info": {"Name": data.get("name", "Köylü")},
+		"Latest_news": [],
+		# NpcWindow.InitializeWindow beklediği için boş History alanını da ekleyelim
+		"History": []
+	}
+	if not workers_container:
+		worker_instance.queue_free()
+		return
+	workers_container.add_child(worker_instance)
+	if not _assign_housing(worker_instance):
+		worker_instance.queue_free()
+		return
+	worker_instance.Initialize_Existing_Villager(npc_info)
+	var worker_data = {
+		"instance": worker_instance,
+		"status": "idle",
+		"assigned_building": null,
+		"housing_node": worker_instance.housing_node
+	}
+	all_workers[worker_id_counter] = worker_data
+	total_workers += 1
+	idle_workers += 1
+	emit_signal("village_data_changed")
+	print("VillageManager: Kurtarılan köylü eklendi: %s. Toplam: %d" % [npc_info["Info"]["Name"], total_workers])
 
 
 # Yeni bir cariye ekler (örn. zindandan kurtarıldığında)
@@ -2213,6 +2316,14 @@ func add_cariye(cariye_data: Dictionary) -> void:
 	# Debug print disabled to reduce console spam
 	# print("VillageManager: Yeni cariye eklendi: ", cariye_data.get("isim", "İsimsiz"), " (ID: ", id, ")")
 
+	emit_signal("cariye_data_changed")
+
+## Belirli bir ID ile cariye ekler (MissionManager ile senkron için; zindan kurtarma).
+func add_cariye_with_id(id: int, cariye_data: Dictionary) -> void:
+	cariyeler[id] = cariye_data.duplicate(true)
+	cariyeler[id]["durum"] = "boşta"
+	if id >= next_cariye_id:
+		next_cariye_id = id + 1
 	emit_signal("cariye_data_changed")
 
 # Yeni bir görev tanımı ekler
@@ -2612,6 +2723,7 @@ func apply_world_event_effects(event: Dictionary) -> void:
 			village_morale = max(0.0, village_morale + stability_penalty)
 			global_multiplier *= production_chaos
 			_post_event_notification("İsyan çıktı! Üretim kaosu ve moral düşüşü.", "critical")
+	_check_morale_game_over()
 
 func remove_world_event_effects(event: Dictionary) -> void:
 	"""Remove world event effects when event expires"""
@@ -2654,6 +2766,7 @@ func remove_world_event_effects(event: Dictionary) -> void:
 			village_morale = min(100.0, village_morale - stability_penalty)
 			global_multiplier /= production_chaos
 			_post_event_notification("İsyan bastırıldı.", "success")
+	_check_morale_game_over()
 
 func _post_event_notification(message: String, category: String) -> void:
 	"""Post event notification to news system"""
@@ -2731,6 +2844,7 @@ func _consume_for_village(village_need: float) -> void:
 			bonus_morale += float(tea_pairs)
 	if bonus_morale > 0.0:
 		village_morale = min(100.0, village_morale + min(5.0, bonus_morale))
+	_check_morale_game_over()
 
 func _consume_for_cariyes(cariye_daily_equiv: float) -> void:
 	# Günlük tüketimde cariye harcaması yapılmaz; haftalık role-based tüketim ayrı bir akışta uygulanacak.
@@ -2780,6 +2894,7 @@ func process_weekly_cariye_needs(current_day: int) -> void:
 			missing_tea = to_consume_tea - tea_pairs
 	if missing_any:
 		village_morale = max(0.0, village_morale - 2.0)
+		_check_morale_game_over()
 		var mm = get_node_or_null("/root/MissionManager")
 		if mm and mm.has_method("post_news"):
 			var msg := "Eksik haftalık cariye ihtiyaçları: "
@@ -2800,6 +2915,7 @@ func _check_shortages_and_apply_morale_penalties() -> void:
 	else:
 		# Slow recovery
 		village_morale = min(100.0, village_morale + 1.0)
+	_check_morale_game_over()
 	# Reset shortages for next day
 	_last_day_shortages = {"water": 0, "food": 0}
 
@@ -3683,6 +3799,7 @@ func _check_and_heal_sick_workers(current_day: int) -> void:
 		# Her hasta işçi için -2 moral (günlük)
 		morale_loss = float(still_sick) * 2.0
 		village_morale = max(0.0, village_morale - morale_loss)
+		_check_morale_game_over()
 		print("[DISEASE DEBUG] %d işçi hala hasta, moral düştü: -%.1f (Toplam hasta: %d, İyileşen: %d)" % [still_sick, morale_loss, total_sick, healed_count])
 	
 	if healed_count > 0:
@@ -3767,6 +3884,11 @@ func get_storage_usage(resource_type: String) -> Dictionary:
 # --- Public helpers for UI/Debug ---
 func get_morale() -> float:
 	return village_morale
+
+func _check_morale_game_over() -> void:
+	if village_morale <= 0.0:
+		morale_game_over.emit()
+		print("[VillageManager] Moral 0 - oyun kaybı (morale_game_over)")
 
 func get_active_events_summary(current_day: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -4035,6 +4157,11 @@ func _spawn_concubines_in_scene() -> void:
 	if not concubines_container:
 		printerr("VillageManager: ConcubinesContainer not found!")
 		return
+	
+	# Her çağrıda sahnedeki eski cariye instance'larını temizle ki
+	# MissionManager.concubines'deki her ID için SADECE bir NPC olsun.
+	for child in concubines_container.get_children():
+		child.queue_free()
 	
 	# MissionManager'dan cariyeleri al
 	var mission_manager = get_node_or_null("/root/MissionManager")

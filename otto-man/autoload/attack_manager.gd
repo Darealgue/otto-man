@@ -89,25 +89,10 @@ func calculate_attack_damage(player: Node, attack_type: String, attack_name: Str
 	
 	# Apply powerup multipliers to base damage first
 	var modified_base = base_damage * total_powerup_multiplier
-	
-	# Check if the attack name is an air attack
-	if attack_name.begins_with("air_attack"):
-		# Check if we have a specific multiplier for this air attack
-		if BASE_CONFIG.has(attack_type) and BASE_CONFIG[attack_type].has("combo_multipliers") and BASE_CONFIG[attack_type]["combo_multipliers"].has(attack_name):
-			var damage_multiplier = BASE_CONFIG[attack_type]["combo_multipliers"][attack_name]["damage"]
-			var final_damage = modified_base * damage_multiplier
-			# Apply critical strike
-			return apply_critical_strike(player, final_damage)
-		else:
-			# Since no specific multiplier was found, use the general air attack multiplier of 1.2
-			var final_damage = modified_base * 1.2  # Default air attack bonus
-			# Apply critical strike
-			return apply_critical_strike(player, final_damage)
-	
-	# Always use a damage multiplier of 1.0 for other attacks
-	var final_damage = modified_base * 1.0
-	
-	# Apply critical strike
+	# IMPORTANT: Air attacks should not get extra combo damage by default.
+	# All light attacks (ground or air) use the same base damage here;
+	# any differences must come from explicit multipliers (items, heavy, etc.).
+	var final_damage = modified_base
 	return apply_critical_strike(player, final_damage)
 
 # Calculate knockback for an attack

@@ -253,13 +253,8 @@ func _process(_delta: float) -> void:
 		_debug_log_timer += _delta
 		if should_emit != _debug_last_should_emit:
 			_debug_last_should_emit = should_emit
-			if t - _debug_last_flip_log >= _debug_interval:
-				_debug_last_flip_log = t
-				print("[RainDEBUG] should_emit FLIP intensity=%.3f -> should_emit=%s (eşik 0.02)" % [intensity, should_emit])
-		if _debug_log_timer >= 5.0:
-			_debug_log_timer = 0.0
-			print("[RainDEBUG] durum intensity=%.3f should_emit=%s main.emitting=%s overlap.emitting=%s overlap_active=%s amount=%d" % [
-				intensity, should_emit, particles.emitting, particles_overlap.emitting if particles_overlap else false, _overlap_active, _current_particles_amount])
+	if _debug_log_timer >= 5.0:
+		_debug_log_timer = 0.0
 	
 	# KRİTİK: amount değerini sadece gerçekten değiştiğinde güncelle
 	# Godot'da amount değiştiğinde partikül sistemi resetlenir ve partiküller kaybolur

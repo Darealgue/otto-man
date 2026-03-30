@@ -8,6 +8,7 @@ signal settings_menu_requested
 const MAIN_MENU_SCENE: String = "res://scenes/MainMenu.tscn"
 const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
+const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
 const LoadingScreenScene = preload("res://ui/LoadingScreen.tscn")
@@ -45,7 +46,19 @@ func open_load_menu() -> void:
 func open_settings() -> void:
 	settings_menu_requested.emit()
 
+const DUNGEON_SUCCESS_MORALE_BONUS: float = 2.0
+
 func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	# Köye dönüşte zindan run'ını her zaman bitir (ölüm veya kamp çıkışı fark etmez)
+	var drs = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("end_run"):
+		drs.end_run()
+	# Zindandan sağ çıkış (kamp veya portal): hafif moral artışı (ölümde payload boş gelir, ceza player.gd'de)
+	if payload.get("source", "") == "dungeon":
+		var vm = get_node_or_null("/root/VillageManager")
+		if is_instance_valid(vm) and "village_morale" in vm:
+			var m: float = float(vm.get("village_morale"))
+			vm.set("village_morale", minf(100.0, m + DUNGEON_SUCCESS_MORALE_BONUS))
 	# Calculate time spent in previous level (forest/dungeon)
 	var time_spent = _calculate_time_spent_in_level()
 	if time_spent > 0.0:
@@ -56,15 +69,40 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 	_change_scene(VILLAGE_SCENE, force_reload)
 
 func change_to_dungeon(payload: Dictionary = {}, force_reload: bool = false) -> void:
-	# When going TO dungeon, only advance travel time, don't simulate production
-	# (because village production should continue while player is away)
-	_handle_travel_time_out_only(payload)
+	var source: String = str(payload.get("source", ""))
+	var from_camp: bool = bool(payload.get("from_camp", false))
+	var selected_tier: int = int(payload.get("selected_tier", 0))
+	# Yeni zindan run'ı: sadece köyden ilk çıkışta pending'i sıfırla ve kapasite kaydet
+	if not from_camp and source != "dungeon":
+		var drs = get_node_or_null("/root/DungeonRunState")
+		if is_instance_valid(drs) and drs.has_method("clear_pending_rescued"):
+			drs.clear_pending_rescued()
+		# Köy kapasitesini önbelleğe al (zindanda kurtarma minigame'inde "Köy dolu" kontrolü için)
+		var vm = get_node_or_null("/root/VillageManager")
+		if is_instance_valid(vm) and vm.has_method("record_village_capacity_for_dungeon"):
+			vm.record_village_capacity_for_dungeon()
+		# Köyden zindana çıkarken sadece zamanı ilerlet (üretim simülasyonu yok)
+		_handle_travel_time_out_only(payload)
+	# Her yeni zindan girişinde benzersiz portal anahtarını resetle
 	if PortalAreaScript:
 		PortalAreaScript.reset_unique("dungeon_exit")
 	current_payload = payload.duplicate(true)
-	# Record entry time AFTER travel time has been applied (so we track time inside the level)
-	_record_level_entry_time(DUNGEON_SCENE)
-	_change_scene(DUNGEON_SCENE, force_reload)
+	# Kamp sahnesinden gelen çağrı: gerçek zindan sahnesine git ve level entry time kaydet
+	if from_camp:
+		# Kamp sahnesinden geliniyor; seçilen tier'a göre LevelGenerator.current_level ayarlanacak
+		_record_level_entry_time(DUNGEON_SCENE)
+		_change_scene(DUNGEON_SCENE, force_reload)
+		# Seçilen zindan seviyesiyle LevelGenerator'ı ayarla
+		if selected_tier > 0:
+			call_deferred("_apply_selected_tier_to_level_generator", selected_tier)
+	else:
+		# Köyden ilk geçiş: önce kamp sahnesine uğra
+		_change_scene(CAMP_SCENE, force_reload)
+
+func change_to_camp(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	## Zindan seviyesi bittikten sonra kamp sahnesine geçiş (köye değil).
+	current_payload = payload.duplicate(true)
+	_change_scene(CAMP_SCENE, force_reload)
 
 func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	# When going TO forest, only advance travel time, don't simulate production
@@ -370,7 +408,7 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 
 func _update_ui_visibility(scene_path: String) -> void:
 	"""Show/hide health and stamina bars based on current scene."""
-	var is_combat_scene = (scene_path == DUNGEON_SCENE or scene_path == FOREST_SCENE)
+	var is_combat_scene = (scene_path == DUNGEON_SCENE or scene_path == FOREST_SCENE or scene_path == CAMP_SCENE)
 	var should_show_ui = is_combat_scene
 	
 	print("[SceneManager] 🎮 Updating UI visibility for scene: %s (show UI: %s)" % [scene_path, should_show_ui])
@@ -519,6 +557,20 @@ func _get_scene_name(scene_path: String) -> String:
 	else:
 		var filename = scene_path.get_file().get_basename()
 		return filename.capitalize()
+
+func _apply_selected_tier_to_level_generator(tier: int) -> void:
+	# TestLevel sahnesindeki LevelGenerator node'unun current_level değerini,
+	# kamp sahnesinde seçilen tier ile eşitle.
+	var current_scene = get_tree().current_scene
+	if not current_scene:
+		return
+	var level_gen: Node = current_scene.get_node_or_null("LevelGenerator")
+	if not level_gen:
+		# Gerekirse sahne ağacında rekürsif ara
+		level_gen = current_scene.find_child("LevelGenerator", true, false)
+	if level_gen and "current_level" in level_gen:
+		level_gen.set("current_level", tier)
+		print("[SceneManager] Applied selected tier %d to LevelGenerator.current_level" % tier)
 
 func _detect_initial_scene() -> String:
 	var scene := get_tree().current_scene

@@ -1,6 +1,8 @@
 extends Area2D
 class_name ArrowProjectile
 
+const DEBUG_ARROW_PROJECTILE: bool = false
+
 var velocity: Vector2 = Vector2.ZERO
 var damage: float = 20.0
 var max_distance: float = 500.0
@@ -17,7 +19,8 @@ func _ready():
 	collision_layer = CollisionLayers.NONE  # Arrow doesn't need to be detected by others
 	collision_mask = CollisionLayers.PLAYER   # Detect player by named layer
 	
-	print("[Arrow] Arrow created with collision_mask: " + str(collision_mask))
+	if DEBUG_ARROW_PROJECTILE:
+		print("[Arrow] Arrow created with collision_mask: " + str(collision_mask))
 	
 func set_velocity(vel: Vector2):
 	velocity = vel
@@ -42,42 +45,51 @@ func _physics_process(delta):
 			queue_free()
 
 func _on_body_entered(body):
-	print("[Arrow] Body collision detected with: " + str(body.name))
-	print("[Arrow] Body groups: " + str(body.get_groups()))
+	if DEBUG_ARROW_PROJECTILE:
+		print("[Arrow] Body collision detected with: " + str(body.name))
+		print("[Arrow] Body groups: " + str(body.get_groups()))
 	_handle_collision(body)
 
 func _on_area_entered(area):
-	print("[Arrow] Area collision detected with: " + str(area.name))
-	print("[Arrow] Area groups: " + str(area.get_groups()))
+	if DEBUG_ARROW_PROJECTILE:
+		print("[Arrow] Area collision detected with: " + str(area.name))
+		print("[Arrow] Area groups: " + str(area.get_groups()))
 	
 	# Check if area belongs to player
 	var parent = area.get_parent()
 	if parent:
-		print("[Arrow] Area parent: " + str(parent.name))
+		if DEBUG_ARROW_PROJECTILE:
+			print("[Arrow] Area parent: " + str(parent.name))
 		_handle_collision(parent)
 
 func _handle_collision(node):
 	# Prevent double damage
 	if has_hit_target:
-		print("[Arrow] Already hit target, ignoring collision")
+		if DEBUG_ARROW_PROJECTILE:
+			print("[Arrow] Already hit target, ignoring collision")
 		return
 	
 	if node.is_in_group("player"):
-		print("[Arrow] Player detected!")
+		if DEBUG_ARROW_PROJECTILE:
+			print("[Arrow] Player detected!")
 		if node.has_method("take_damage"):
-			print("[Arrow] Player has take_damage method - dealing " + str(damage) + " damage")
+			if DEBUG_ARROW_PROJECTILE:
+				print("[Arrow] Player has take_damage method - dealing " + str(damage) + " damage")
 			has_hit_target = true  # Mark as hit
 			node.take_damage(damage)
 		else:
-			print("[Arrow] Player does NOT have take_damage method!")
+			if DEBUG_ARROW_PROJECTILE:
+				print("[Arrow] Player does NOT have take_damage method!")
 		queue_free()
 	elif node.is_in_group("enemy"):
-		print("[Arrow] Enemy detected - ignoring")
+		if DEBUG_ARROW_PROJECTILE:
+			print("[Arrow] Enemy detected - ignoring")
 		# Arrows don't hit enemies
 		pass
 	else:
 		# Hit wall or obstacle
-		print("[Arrow] Hit obstacle: " + str(node.name) + " - destroying arrow")
+		if DEBUG_ARROW_PROJECTILE:
+			print("[Arrow] Hit obstacle: " + str(node.name) + " - destroying arrow")
 		has_hit_target = true  # Mark as hit
 		queue_free() 
  

@@ -262,9 +262,6 @@ func update(delta: float):
 	# Maintain crouch collision if we came from crouch
 	if entered_from_crouch:
 		_maintain_crouch_collision()
-		
-	# Handle movement during attack
-	_handle_movement(delta)
 	
 	# Random combo system: any light attack can follow any other light attack
 	# First, detect release between presses to avoid auto-chaining on a single press
@@ -378,6 +375,32 @@ func update(delta: float):
 	# Air combo chaining after each air attack ends
 	if _is_air_attack(current_attack):
 		air_combo_timer = max(0.0, air_combo_timer - delta)
+
+func physics_update(delta: float) -> void:
+	# Keep physics deterministic; movement + gravity live here (not in update()).
+	if get_tree().paused:
+		return
+	
+	_handle_movement(delta)
+	
+	# Apply gravity while airborne (air attacks must not cancel gravity).
+	if not player.is_on_floor():
+		if player.get("air_hit_freeze_timer") != null and player.air_hit_freeze_timer > 0.0:
+			player.velocity.y = 0.0
+		else:
+			var gravity_multiplier: float = player.calculate_hollow_knight_gravity()
+			if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+				gravity_multiplier *= player.air_combo_gravity_scale
+			if player.velocity.y > 0 and Input.is_action_pressed("jump") and has_node("/root/ItemManager") and ItemManager.has_active_item("havada_kal"):
+				gravity_multiplier *= 0.28
+			player.velocity.y += player.gravity * gravity_multiplier * delta
+			var max_fall = player.max_fall_speed
+			if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+				max_fall = min(max_fall, player.air_combo_max_fall_speed)
+			if player.velocity.y > max_fall:
+				player.velocity.y = max_fall
+	
+	player.apply_move_and_slide()
 
 # Helper function to check if the current attack is an air attack
 func _is_air_attack(attack_name: String) -> bool:
@@ -512,9 +535,7 @@ func _handle_movement(delta: float) -> void:
 			player.sprite.flip_h = input_dir_x < 0
 			player.facing_direction = sign(input_dir_x)
 		# During hit recoil, don't update facing direction
-	
-	# Apply movement
-	player.apply_move_and_slide()
+	# NOTE: movement is applied in physics_update()
 
 func _check_cancel_conditions() -> bool:
 	# Cancel into dodge/dash (dash if item allows, otherwise dodge)

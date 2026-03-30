@@ -2,6 +2,9 @@
 extends Node2D
 class_name BaseChunk
 
+# Chunk/scene initialization logs are extremely spammy during dungeon generation.
+const DEBUG_BASE_CHUNK: bool = false
+
 # Possible connection directions
 enum Direction {
 	LEFT,
@@ -31,13 +34,15 @@ var decoration_manager: DecorationManager
 
 # Called when the node enters the scene tree
 func _ready() -> void:
-	print("[BaseChunk] Initialized:", name)
-	print("  - Size:", get_chunk_size())
-	print("  - Connections:", get_connections())
+	if DEBUG_BASE_CHUNK:
+		print("[BaseChunk] Initialized:", name)
+		print("  - Size:", get_chunk_size())
+		print("  - Connections:", get_connections())
 	
 	# SpawnManager is now handled by tile-based system in level generator
 	# No need to initialize SpawnManager here anymore
-	print("[BaseChunk] Using tile-based enemy spawn system")
+	if DEBUG_BASE_CHUNK:
+		print("[BaseChunk] Using tile-based enemy spawn system")
 	
 	# Initialize trap manager
 	trap_manager = $TrapManager

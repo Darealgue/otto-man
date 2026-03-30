@@ -17,6 +17,8 @@ signal health_changed(new_health: float, max_health: float)
 @export var stats: EnemyStats
 @export var debug_enabled: bool = false
 
+const GLOBAL_ENEMY_DEBUG: bool = false
+
 # Sleep state management
 var is_sleeping: bool = false
 var sleep_distance: float = 1000.0  # Distance at which enemy goes to sleep
@@ -74,9 +76,9 @@ const DEBUG_PRINT_INTERVAL: int = 60  # Print every 60 frames
 # Add static variable at class level
 var _was_in_range := false
 
-# Air hitstun float (juggle) settings
+# Air hitstun float (juggle) - artık sadece freeze için kullanılmıyor, eski davranış
 var air_float_timer: float = 0.0
-@export var air_float_duration: float = 0.25
+@export var air_float_duration: float = 0.5
 @export var air_float_gravity_scale: float = 0.35
 @export var air_float_max_fall_speed: float = 420.0
 
@@ -106,6 +108,9 @@ const POISON_FIRE_EXPLOSION_SCENE = preload("res://effects/poison_fire_explosion
 func _ready() -> void:
 	add_to_group("enemies")
 	enemy_id = "%s_%d" % [get_script().resource_path.get_file().get_basename(), get_instance_id()]
+	
+	if not GLOBAL_ENEMY_DEBUG:
+		debug_enabled = false
 	
 	# Zemin yapışması: spawn'da hafif yukarıda olan düşmanlar move_and_slide ile zemine snap olur (fall state takılmasını önler)
 	floor_snap_length = 32.0
@@ -390,9 +395,11 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			velocity.y = -knockback_up_force
 		else:
 			velocity.y = -knockback_force * 0.5
-		# If we have upward velocity from hit, start float window for juggle
+		# Havada vurulunca kısa float (juggle için)
 		if velocity.y < 0.0:
 			air_float_timer = air_float_duration
+		elif not is_on_floor():
+			air_float_timer = air_float_duration * 0.5
 		
 		# Enter hurt state only if knockback is applied
 		change_behavior("hurt")
@@ -412,10 +419,12 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	
 	# Spawn blood particles (exclude flying enemies and turtle)
 	if _should_spawn_blood():
-		print("[BaseEnemy] Spawning blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
+		if GLOBAL_ENEMY_DEBUG:
+			print("[BaseEnemy] Spawning blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
 		_spawn_blood_particles(amount)
 	else:
-		print("[BaseEnemy] No blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
+		if GLOBAL_ENEMY_DEBUG:
+			print("[BaseEnemy] No blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
 	
 	# Check for death (alt sınıf havada/knockback'te erteleyebilir)
 	if health <= 0:
@@ -560,6 +569,20 @@ func is_on_screen() -> bool:
 	return global_position.x >= top_left.x - 100 and global_position.x <= bottom_right.x + 100 and \
 		   global_position.y >= top_left.y - 100 and global_position.y <= bottom_right.y + 100
 
+## Ceset vurulunca çağrılır (fall attack ramp, heavy vb.). Death animasyonunu frame 5'ten oynat.
+func play_corpse_hit_animation() -> void:
+	if not sprite or not sprite is AnimatedSprite2D:
+		return
+	var anim_sprite = sprite as AnimatedSprite2D
+	if not anim_sprite.sprite_frames:
+		return
+	var anim_name = "death" if anim_sprite.sprite_frames.has_animation("death") else ("dead" if anim_sprite.sprite_frames.has_animation("dead") else "")
+	if anim_name.is_empty():
+		return
+	anim_sprite.play(anim_name)
+	var frame_count = anim_sprite.sprite_frames.get_frame_count(anim_name)
+	anim_sprite.frame = mini(5, frame_count - 1) if frame_count > 0 else 0
+
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# print("[BaseEnemy] _on_hurtbox_hurt called")
 	# Safety: enemies only take damage from PlayerHitbox, never from other enemies/projectiles
@@ -576,6 +599,9 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 				damage = hitbox.get_damage()
 			var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
 			take_damage(damage, knockback_data.force, knockback_data.get("up_force", -1.0))
+			# Hit stop + screen shake tek yerden (yaşayan veya öldürücü vuruş; ceset vurulunca bu blok çalışmaz)
+			if hitbox is PlayerHitbox and hitbox.has_method("apply_killing_blow_effects"):
+				hitbox.apply_killing_blow_effects(damage)
 		# Elemental efekt (decoy Hacivat vb.): hitbox'ta element meta varsa uygula
 		var elem: String = hitbox.get_meta("element", "")
 		if elem and elem.length() > 0 and has_node("/root/ElementalEffects"):

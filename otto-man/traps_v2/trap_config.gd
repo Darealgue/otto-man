@@ -94,13 +94,18 @@ static func select_random_trap(surface: SurfaceType, level: int) -> TrapType:
 			return t
 	return available[0]
 
+# Seviye 1–2 tek diken; ilerledikçe yan yana 2–3 (ani 3–4’lü gruplar olmasın)
 static func get_group_size_range(level: int) -> Vector2i:
 	match level:
-		1: return Vector2i(1, 2)
-		2: return Vector2i(1, 3)
-		3: return Vector2i(2, 4)
-		4: return Vector2i(2, 5)
-		_: return Vector2i(3, 6)
+		0: return Vector2i(0, 0)
+		1: return Vector2i(1, 1)
+		2: return Vector2i(1, 1)
+		3: return Vector2i(1, 2)
+		4: return Vector2i(1, 2)
+		5: return Vector2i(2, 3)
+		6, 7: return Vector2i(2, 4)
+		8, 9: return Vector2i(2, 5)
+		_: return Vector2i(3, 5)
 
 static func get_scene_path(trap_type: TrapType) -> String:
 	return TRAP_DATA[trap_type].scene_path

@@ -33,8 +33,6 @@ func _setup_swayable_sprites() -> void:
 	
 	# ParallaxBackground altındaki tüm Sprite2D node'larını bul
 	_find_and_setup_sprites_recursive(scene_root)
-	
-	print("[WindSwayController] %d sprite'a sallanma script'i eklendi" % _found_count)
 
 func _find_and_setup_sprites_recursive(node: Node) -> void:
 	# Sprite2D node'larını kontrol et
@@ -66,9 +64,6 @@ func _find_and_setup_sprites_recursive(node: Node) -> void:
 				# Runtime'da script eklendiğinde _ready() otomatik çağrılmaz, deferred olarak çağırmalıyız
 				sprite.call_deferred("_ready")
 				_found_count += 1
-				print("[WindSwayController] ✅ Script eklendi: %s (parent: %s)" % [node_name, sprite.get_parent().name if sprite.get_parent() else "null"])
-			else:
-				print("[WindSwayController] ⚠️ Script zaten var: %s" % node_name)
 	
 	# Child node'ları recursive olarak kontrol et
 	for child in node.get_children():

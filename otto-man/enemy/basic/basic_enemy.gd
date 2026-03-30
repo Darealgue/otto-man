@@ -33,8 +33,8 @@ var attack_cooldown: float = 1.5  # Time between attacks
 var is_attacking: bool = false
 
 # Air juggle optimization
-@export var extended_air_float: bool = true  # Extended air float for combos
-@export var air_float_duration_override: float = 0.5  # Longer float window
+@export var extended_air_float: bool = true  # Yaşayan + ceset kombo için havada asılı kalma
+@export var air_float_duration_override: float = 0.55  # Havada vurulunca float süresi (yaşayan/ceset)
 @export var air_float_gravity_override: float = 0.25  # Slower fall during juggle
 
 # Store original collision layer for dynamic adjustment
@@ -264,11 +264,14 @@ func _ready() -> void:
 		var roll := randf()
 		if roll < ambient_start_chance:
 			want_ambient_start = true
-		print("[BasicEnemy][Ambient] spawn roll=%.2f chance=%.2f -> %s" % [roll, ambient_start_chance, str(want_ambient_start)])
+		if debug_enabled:
+			print("[BasicEnemy][Ambient] spawn roll=%.2f chance=%.2f -> %s" % [roll, ambient_start_chance, str(want_ambient_start)])
 	else:
-		print("[BasicEnemy][Ambient] spawn flag start_in_ambient_pose=%s" % [str(start_in_ambient_pose)])
+		if debug_enabled:
+			print("[BasicEnemy][Ambient] spawn flag start_in_ambient_pose=%s" % [str(start_in_ambient_pose)])
 	if want_ambient_start:
-		print("[BasicEnemy][Ambient] starting in ambient pose at %s" % [str(global_position)])
+		if debug_enabled:
+			print("[BasicEnemy][Ambient] starting in ambient pose at %s" % [str(global_position)])
 		_start_initial_ambient_pose()
 		_ambient_spawn_grace_timer = ambient_spawn_grace
 		_should_transition_to_patrol = false
@@ -438,7 +441,8 @@ func _process_ambient(delta: float) -> void:
 		var unsafe := current_behavior != "patrol" or not is_on_floor() \
 			or (_ambient_spawn_grace_timer <= 0.0 and target != null)
 		if unsafe:
-			print("[BasicEnemy][Ambient] CANCEL ambient anim=%s reason=unsafe state=%s" % [_ambient_anim, current_behavior])
+			if debug_enabled:
+				print("[BasicEnemy][Ambient] CANCEL ambient anim=%s reason=unsafe state=%s" % [_ambient_anim, current_behavior])
 			_ambient_playing = false
 			if sprite.sprite_frames.has_animation("idle"):
 				sprite.play("idle")
@@ -508,7 +512,8 @@ func _process_ambient(delta: float) -> void:
 		return
 	
 	_ambient_anim = options[randi() % options.size()]
-	print("[BasicEnemy][Ambient] START ambient anim=%s at %s" % [_ambient_anim, str(global_position)])
+	if debug_enabled:
+		print("[BasicEnemy][Ambient] START ambient anim=%s at %s" % [_ambient_anim, str(global_position)])
 	sprite.play(_ambient_anim)
 	_ambient_playing = true
 	_reset_ambient_timer()
@@ -1340,46 +1345,37 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			is_up_attack = true
 			final_up_force *= 2.0  # 100% boost if up_force is high
 	
-	# If we're already in air (being juggled), boost upward force significantly
-	if was_in_air or not is_on_floor():
-		# Boost upward force for better juggling - BasicEnemy is designed for air combos
-		if final_up_force > 0:
-			final_up_force *= 1.3  # 30% boost for air juggling
-		else:
-			final_up_force = knockback_force * 1.0  # Strong upward force even if no up_force
-	
-	# If dead but still in air, allow even more knockback (punching bag mode)
-	# But cap upward force to prevent infinite flight
-	# IMPORTANT: When death is deferred, we need stronger knockback to match normal death behavior
-	if health <= 0:
-		# Boost upward force significantly for death - this compensates for not calling die()
-		# Normal death would apply DEATH_UP_FORCE (100.0), but we're using attack knockback
-		# So boost it to match or exceed normal death knockback
-		if is_up_attack:
-			final_up_force *= 1.5  # Extra boost for up attacks on death
-		else:
-			final_up_force *= 1.4  # Extra boost for other attacks on death
-		# Higher cap for dead enemies - they should fly higher for combos
-		final_up_force = min(final_up_force, 600.0)  # Cap at 600 for dead enemies (higher)
-	
-	# Ensure minimum upward force for BasicEnemy (they should always launch)
-	if final_up_force < 100.0 and knockback_up_force < 0.0:
-		# If no explicit up_force and result is too low, apply minimum
-		final_up_force = max(final_up_force, 150.0)
+	# Kombo kilidi: düz havada vuruş (air_attack1/2/3) düşmanı yakında tutar; boost uygulama
+	var is_combo_lock_attack = attack_name == "air_attack1" or attack_name == "air_attack2" or attack_name == "air_attack3"
+	if not is_combo_lock_attack:
+		# If we're already in air (being juggled), boost upward force significantly
+		if was_in_air or not is_on_floor():
+			if final_up_force > 0:
+				final_up_force *= 1.3  # 30% boost for air juggling
+			else:
+				final_up_force = knockback_force * 1.0  # Strong upward force even if no up_force
+		# If dead but still in air, allow even more knockback (punching bag mode)
+		if health <= 0:
+			if is_up_attack:
+				final_up_force *= 1.5  # Extra boost for up attacks on death
+			else:
+				final_up_force *= 1.4  # Extra boost for other attacks on death
+			final_up_force = min(final_up_force, 600.0)  # Cap at 600 for dead enemies (higher)
+		# Ensure minimum upward force (sadece kombo kilidi değilse)
+		if final_up_force < 100.0 and knockback_up_force < 0.0:
+			final_up_force = max(final_up_force, 150.0)
 	
 	velocity.x = -direction * final_knockback_force
 	velocity.y = -final_up_force  # Direct assignment - don't let anything override
 	
-	# Basic enemy has extended air float for juggling
-	# IMPORTANT: Also apply air float for dead enemies being launched upward
-	# This prevents them from falling too fast and allows proper juggling
+	# Havada vurulunca kısa float (juggle / kombo için)
 	if velocity.y < 0.0:
 		if health > 0:
 			air_float_timer = air_float_duration_override
-		elif health <= 0:
-			# Dead enemies also get air float when launched upward
-			# This helps them fly higher and allows for air combos
-			air_float_timer = air_float_duration_override * 0.7  # 70% of normal float time
+		else:
+			air_float_timer = air_float_duration_override * 0.7
+	elif not is_on_floor():
+		air_float_timer = air_float_duration_override * 0.5
 	
 	# Check for death BEFORE entering hurt state
 	# If we're being launched upward, don't die immediately
@@ -1420,9 +1416,8 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 				hurtbox.monitoring = true
 				hurtbox.monitorable = true
 			
-			# IMPORTANT: Disable air float timer for dead enemies
-			# Dead enemies should fall naturally, not float
-			air_float_timer = 0.0
+			# Havada ceset: float (juggle için)
+			air_float_timer = air_float_duration_override * 0.6
 			
 			# Play correct hurt animation based on velocity (hurt_rise or hurt_fall)
 			if sprite:
@@ -1468,11 +1463,6 @@ func _physics_process(delta: float) -> void:
 		death_fade_timer = 0.0
 		if sprite:
 			sprite.modulate = Color(1, 1, 1, 1)  # Keep full opacity
-	
-	# Ölü ceset: hurtbox her kare kapalı (yaşayan düşmana vurmayı engellemesin)
-	if current_behavior == "dead" and hurtbox:
-		hurtbox.monitoring = false
-		hurtbox.monitorable = false
 	
 	# Dead + grounded: ensure death animation plays (may have been skipped if knockback was active during die())
 	if current_behavior == "dead" and is_on_floor() and sprite:
@@ -1525,16 +1515,16 @@ func _physics_process(delta: float) -> void:
 	# Gravity (always, so airborne sleeping enemies land)
 	if not is_on_floor():
 		var is_dead = current_behavior == "dead" or health <= 0
+		var g_scale := 1.0
+		if air_float_timer > 0.0:
+			g_scale = air_float_gravity_scale
+			air_float_timer = max(0.0, air_float_timer - delta)
 		if not is_dead:
-			var g_scale := 1.0
-			if current_behavior == "hurt" and air_float_timer > 0.0 and health > 0:
-				g_scale = air_float_gravity_scale
-				air_float_timer = max(0.0, air_float_timer - delta)
 			velocity.y += GRAVITY * g_scale * delta
-			if current_behavior == "hurt" and air_float_timer > 0.0 and health > 0:
+			if air_float_timer > 0.0:
 				velocity.y = min(velocity.y, air_float_max_fall_speed)
 		else:
-			velocity.y += GRAVITY * delta
+			velocity.y += GRAVITY * g_scale * delta
 			if velocity.y < -800.0:
 				velocity.y += GRAVITY * 0.3 * delta
 	
@@ -1783,6 +1773,9 @@ func die() -> void:
 	# Call base class die AFTER setting collision (base class sets collision_layer = 0)
 	super.die()
 	
+	# Basic enemy cesetlerinde hurtbox KAPALI kalsın (ceset zıplama sadece elit düşmanlarda)
+	# super.die() zaten hurtbox'ı kapatıyor, tekrar açmıyoruz
+	
 	# IMPORTANT: Restore velocity if we have knockback from attack (being launched)
 	# Don't let super.die() override our attack velocity
 	# Always restore if we have significant velocity (knockback from attack)
@@ -1890,8 +1883,8 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		velocity.x = -direction * final_knockback_force
 		velocity.y = -final_up_force  # Direct assignment for upward force
 		
-		# IMPORTANT: Ensure air float timer is disabled for dead enemies
-		air_float_timer = 0.0
+		# Havada ceset: float (juggle için)
+		air_float_timer = air_float_duration_override * 0.6
 		
 		# Play hurt animation based on velocity
 		if sprite:
@@ -1911,6 +1904,9 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	
 	# Normal damage handling - pass hitbox to take_damage (apply_knockback=true for physical hits)
 	take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0), true, hitbox)
+	# Hit stop + screen shake tek yerden (yaşayan veya öldürücü vuruş; ceset vurulunca bu branch'e gelinmez)
+	if hitbox is PlayerHitbox and hitbox.has_method("apply_killing_blow_effects"):
+		hitbox.apply_killing_blow_effects(damage)
 
 func go_to_sleep() -> void:
 	# Clear ambient state before sleeping so enemy doesn't freeze in sit/lay animation

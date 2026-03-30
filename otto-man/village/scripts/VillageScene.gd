@@ -19,6 +19,9 @@ const BakeryScene = preload("res://village/buildings/Bakery.tscn")
 @onready var time_skip_notification = $TimeSkipNotification
 @onready var build_menu_ui = $BuildMenuLayer/BuildMenuUI
 
+## Zindandan dönüşte kurtarılan NPC'leri sadece BİR KEZ uygulamak için guard
+var _dungeon_rescue_applied: bool = false
+
 ## Kamera sınırları - Village sahnesinde oyuncu bu sınırlar dışına çıktığında kamera takibi durur
 ## Bu değerleri Godot editöründe VillageScene.tscn'de ayarlayabilirsiniz
 ## Veya sahne içinde "CameraLeftLimit" ve "CameraRightLimit" isimli Marker2D node'ları varsa onların pozisyonları kullanılır
@@ -45,14 +48,21 @@ func _ready() -> void:
 			build_menu_ui.build_requested.connect(_on_build_menu_build_requested)
 		if build_menu_ui.has_signal("close_requested"):
 			build_menu_ui.close_requested.connect(_on_build_menu_close_requested)
-	
+
 	# Connect time skip notification signal
 	if not VillageManager.time_skip_completed.is_connected(_on_time_skip_completed):
 		VillageManager.time_skip_completed.connect(_on_time_skip_completed)
 		print("[VillageScene] ✅ Connected time_skip_completed signal")
 	else:
 		print("[VillageScene] Signal already connected")
-	
+	if not VillageManager.morale_game_over.is_connected(_on_morale_game_over):
+		VillageManager.morale_game_over.connect(_on_morale_game_over)
+
+	# Moral 0 = oyun kaybı (köye girerken veya köyde düşerse)
+	if VillageManager.get_morale() <= 0.0:
+		_on_morale_game_over()
+		return
+
 	# Debug: Check notification node
 	if time_skip_notification:
 		print("[VillageScene] ✅ TimeSkipNotification node found: ", time_skip_notification)
@@ -81,7 +91,6 @@ func _ready() -> void:
 	# <<< YENİ SONU >>>
 	Load_Existing_Villagers()
 	VillageManager.apply_current_time_schedule()
-	
 	# Transfer forest resources to village if returning from forest
 	call_deferred("_check_and_transfer_forest_resources")
 	
@@ -172,6 +181,12 @@ func _show_notification_deferred(total_hours: float, produced_resources: Diction
 	print("[VillageScene] ✅ Showing notification...")
 	time_skip_notification.show_time_skip_notification(total_hours, produced_resources)
 
+func _on_morale_game_over() -> void:
+	"""Köy morali 0'a düştü - ana menüye dön (oyun kaybı)."""
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm and sm.has_method("return_to_main_menu"):
+		sm.return_to_main_menu()
+
 func _check_and_transfer_forest_resources() -> void:
 	"""Check if player is returning from forest and transfer carried resources to village."""
 	var scene_manager = get_node_or_null("/root/SceneManager")
@@ -213,6 +228,42 @@ func _check_and_transfer_forest_resources() -> void:
 				print("[VillageScene] ⚠️ Transferred dict not empty but no positive amounts found: %s" % transferred)
 	else:
 		print("[VillageScene] ℹ️ Not returning from forest (source: '%s'), skipping resource transfer" % source)
+
+func _apply_dungeon_rescued() -> void:
+	"""Zindandan sağ çıkışta kurtarılan köylü ve cariyeleri köye ekler."""
+	if _dungeon_rescue_applied:
+		print("[VillageScene] ⚠️ Dungeon rescued already applied once, skipping.")
+		return
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if not scene_manager:
+		return
+	var payload = scene_manager.get_current_payload()
+	if payload.get("source", "") != "dungeon":
+		return
+	var villagers: Array = payload.get("rescued_villagers", [])
+	var cariyes: Array = payload.get("rescued_cariyes", [])
+	if villagers.is_empty() and cariyes.is_empty():
+		print("[VillageScene] ⚠️ Dungeon payload has no villagers/cariyes, skipping.")
+		return
+	var vm = get_node_or_null("/root/VillageManager")
+	var mm = get_node_or_null("/root/MissionManager")
+	if not vm or not mm:
+		print("[VillageScene] ⚠️ Cannot apply dungeon rescued; vm=%s mm=%s" % [str(vm), str(mm)])
+		return
+	print("[VillageScene] 🔄 Applying dungeon rescued AFTER worker restoration. villagers=%d, cariyes=%d" % [villagers.size(), cariyes.size()])
+	for villager_data in villagers:
+		if villager_data is Dictionary and vm.has_method("add_villager_with_data"):
+			vm.add_villager_with_data(villager_data)
+		else:
+			vm.add_villager()
+	for cariye_data in cariyes:
+		if cariye_data is Dictionary:
+			var cid = mm.add_concubine_from_rescue(cariye_data)
+			vm.add_cariye_with_id(cid, cariye_data)
+	if vm.has_method("_spawn_concubines_in_scene"):
+		vm._spawn_concubines_in_scene()
+	print("[VillageScene] ✅ Dungeon rescued applied: %d villagers, %d cariyes" % [villagers.size(), cariyes.size()])
+	_dungeon_rescue_applied = true
 
 func _reset_player_on_scene_load() -> void:
 	# Ensure time scale is normal (critical fix)

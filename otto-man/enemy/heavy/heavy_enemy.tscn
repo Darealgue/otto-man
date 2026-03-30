@@ -452,7 +452,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_ccold")
 }, {
-"duration": 10.0,
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_ldiba")
 }],
 "loop": false,
@@ -1236,7 +1236,9 @@ debug_enabled = true
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -16)
 sprite_frames = SubResource("SpriteFrames_enemy")
-animation = &"charge_end"
+animation = &"dead"
+frame = 14
+frame_progress = 1.0
 
 [node name="AnimatedSprite2D_normal" type="AnimatedSprite2D" parent="AnimatedSprite2D"]
 visible = false

@@ -229,20 +229,30 @@ func physics_update(delta: float):
 			# Only flip if explicitly moving away from the wall we detached from
 			player.sprite.flip_h = true  # Face left when moving left
 	
-	# Apply gravity with Hollow Knight style, except during double jump
-	if is_double_jumping:
-		# Use normal gravity during double jump
-		player.velocity.y += player.gravity * delta
+	# Vuruş anında kısa sabitlenme (Street Fighter) - gravity uygulama
+	if player.get("air_hit_freeze_timer") != null and player.air_hit_freeze_timer > 0.0:
+		player.velocity.y = 0.0
 	else:
-		var gravity_multiplier = player.calculate_hollow_knight_gravity()
-		# Havada Kal: jump basılıyken düşerken süzülme (düşük yer çekimi)
-		if player.velocity.y > 0 and Input.is_action_pressed("jump") and has_node("/root/ItemManager") and ItemManager.has_active_item("havada_kal"):
-			gravity_multiplier *= 0.28
-		player.velocity.y += player.gravity * gravity_multiplier * delta
-	
-	# Apply maximum fall speed
-	if player.velocity.y > player.max_fall_speed:
-		player.velocity.y = player.max_fall_speed
+		# Apply gravity with Hollow Knight style, except during double jump
+		if is_double_jumping:
+			# Use normal gravity during double jump
+			player.velocity.y += player.gravity * delta
+		else:
+			var gravity_multiplier = player.calculate_hollow_knight_gravity()
+			# Air-combo float (only after successful hit).
+			if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+				gravity_multiplier *= player.air_combo_gravity_scale
+			# Havada Kal: jump basılıyken düşerken süzülme (düşük yer çekimi)
+			if player.velocity.y > 0 and Input.is_action_pressed("jump") and has_node("/root/ItemManager") and ItemManager.has_active_item("havada_kal"):
+				gravity_multiplier *= 0.28
+			player.velocity.y += player.gravity * gravity_multiplier * delta
+		
+		# Apply maximum fall speed
+		var max_fall = player.max_fall_speed
+		if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+			max_fall = min(max_fall, player.air_combo_max_fall_speed)
+		if player.velocity.y > max_fall:
+			player.velocity.y = max_fall
 	
 	player.apply_move_and_slide()
 	

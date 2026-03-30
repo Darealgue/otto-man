@@ -276,12 +276,17 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
 		var scene_manager = get_node_or_null("/root/SceneManager")
 		var is_combat_scene = false
+		var is_dungeon = false
 		if scene_manager:
 			var current_scene = scene_manager.get("current_scene_path")
 			if current_scene:
 				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
 				var forest_scene = scene_manager.get("FOREST_SCENE")
 				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
+				is_dungeon = (current_scene == dungeon_scene)
+		
+		# Zindanda toplanan altın ham değerle yazılır; çarpan sadece köye çıkışta (CampScene çıkış kapısı) uygulanır
+		# if is_combat_scene and is_dungeon: gold_value = _apply_dungeon_gold_multiplier(gold_value)  # Kaldırıldı
 		
 		# Add to dungeon gold if in combat scene, otherwise to global gold
 		if GlobalPlayerData:
@@ -292,6 +297,17 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 		
 		print("[DecorationManager] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 		coin.queue_free()
+
+func _apply_dungeon_gold_multiplier(base_value: int) -> int:
+	var lg = get_tree().get_first_node_in_group("level_generator")
+	if not lg or not lg.get("level_config"):
+		return base_value
+	var cfg = lg.get("level_config")
+	var lvl: int = int(lg.get("current_level"))
+	if not cfg.has_method("get_gold_multiplier"):
+		return base_value
+	var mult: float = cfg.get_gold_multiplier(lvl)
+	return maxi(1, int(floorf(float(base_value) * mult)))
 
 func _create_break_effect(pos: Vector2) -> void:
 	# Basit kırılma efekti

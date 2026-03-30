@@ -709,12 +709,14 @@ func die() -> void:
 	collision_layer = CollisionLayers.NONE
 	collision_mask = CollisionLayers.WORLD
 	
-	# Disable components
+	# Disable hitbox, ama hurtbox AÇIK kalsın (fall attack ramp için)
 	if hitbox:
 		hitbox.disable()
 	if hurtbox:
-		hurtbox.monitoring = false
-		hurtbox.monitorable = false
+		hurtbox.monitoring = true
+		hurtbox.monitorable = true
+		# Ceset hurtbox'ı 1/3 boyutuna küçült (yerde yatan cesede uygun)
+		_shrink_hurtbox_for_corpse()
 	
 	# Set z_index above player (player z_index = 5)
 	if sprite:
@@ -727,6 +729,40 @@ func die() -> void:
 	# var scene_path = scene_file_path
 	# var pool_name = scene_path.get_file().get_basename()
 	# object_pool.return_object(self, pool_name)
+
+func _shrink_hurtbox_for_corpse() -> void:
+	var cs = hurtbox.get_node_or_null("CollisionShape2D") if hurtbox else null
+	if not cs or not cs.shape:
+		return
+	var scale_factor = 1.0 / 3.0
+	var old_pos: Vector2 = cs.position
+	if cs.shape is RectangleShape2D:
+		var rect = cs.shape as RectangleShape2D
+		var old_size = rect.size
+		var new_shape = RectangleShape2D.new()
+		new_shape.size = old_size * scale_factor
+		var new_size = new_shape.size
+		cs.shape = new_shape
+		# Alt kenarı yere değecek şekilde aşağı kaydır (bottom sabit kalsın)
+		cs.position.y = old_pos.y + (old_size.y - new_size.y) / 2.0
+	elif cs.shape is CircleShape2D:
+		var circle = cs.shape as CircleShape2D
+		var old_radius = circle.radius
+		var new_shape = CircleShape2D.new()
+		new_shape.radius = old_radius * scale_factor
+		cs.shape = new_shape
+		# Alt kenar (merkez - radius) sabit kalsın
+		cs.position.y = old_pos.y + (old_radius - new_shape.radius)
+	elif cs.shape is CapsuleShape2D:
+		var cap = cs.shape as CapsuleShape2D
+		var old_height = cap.height
+		var old_radius = cap.radius
+		var new_shape = CapsuleShape2D.new()
+		new_shape.radius = old_radius * scale_factor
+		new_shape.height = old_height * scale_factor
+		cs.shape = new_shape
+		# Alt kenar sabit kalsın (capsule: bottom = center + height/2 + radius)
+		cs.position.y = old_pos.y + (old_height - new_shape.height) / 2.0 + (old_radius - new_shape.radius)
 
 func _physics_process(delta: float) -> void:
 	# Skip all processing if position is invalid

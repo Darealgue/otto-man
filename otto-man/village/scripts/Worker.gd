@@ -11,6 +11,22 @@ const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd"
 			update_visuals()
 
 var worker_id: int = -1 # VillageManager tarafından atanacak
+var is_dungeon_prisoner: bool = false # Zindan kurtarma odasında sadece görsel; AI yok
+# Zindan mahkûmu: yerçekimi + basit platformer hareketi
+var dungeon_floor_y: float = -1.0   # -1 = henüz ayarlanmadı (sadece fallback)
+var dungeon_spawn_x: float = 0.0   # Yatay hareket merkezi
+const DUNGEON_PRISONER_WANDER_RANGE: float = 80.0
+const DUNGEON_PRISONER_GRAVITY: float = 450.0
+const DUNGEON_PRISONER_MOVE_SPEED: float = 42.0
+var dungeon_ground_ray: RayCast2D = null
+var dungeon_wall_ray: RayCast2D = null
+var dungeon_ledge_ray: RayCast2D = null
+var dungeon_move_dir: int = 1
+var dungeon_idle_timer: float = 0.0
+var dungeon_idle_duration: float = 0.0
+var dungeon_is_idling: bool = false
+var dungeon_walk_timer: float = 0.0
+var dungeon_walk_duration: float = 0.0
 
 # <<< YENİ: Kenardan Başlama Pozisyonu >>>
 var start_x_pos: float = 0.0 # VillageManager._assign_housing tarafından ayarlanacak
@@ -504,6 +520,9 @@ var walk_textures = {
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	if is_dungeon_prisoner:
+		_ready_dungeon_prisoner()
+		return
 	add_to_group("Villagers") # Register for global updates like news
 	randomize()
 	
@@ -598,6 +617,131 @@ func _ready() -> void:
 		$NamePlateContainer.visible = false
 	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
 
+func _ready_dungeon_prisoner() -> void:
+	visible = true
+	if appearance:
+		update_visuals()
+	if NPC_Info.has("Info") and NPC_Info["Info"].has("Name"):
+		Update_Villager_Name()
+	if $NamePlateContainer:
+		$NamePlateContainer.visible = true
+		# Görsel olarak biraz daha aşağı dursun (fizik pozisyonu bozmadan)
+		$BodySprite.position.y += 3
+		$PantsSprite.position.y += 3
+		$ClothingSprite.position.y += 3
+		if is_instance_valid($MouthSprite):
+			$MouthSprite.position.y += 3
+		if is_instance_valid($EyesSprite):
+			$EyesSprite.position.y += 3
+		if is_instance_valid($BeardSprite):
+			$BeardSprite.position.y += 3
+		if is_instance_valid($HairSprite):
+			$HairSprite.position.y += 3
+	# Zindanda konuşma/etkileşim yok: etkileşim butonunu gizle ve devre dışı bırak
+	if $InteractButton:
+		$InteractButton.hide()
+		$InteractButton.set_process_unhandled_input(false)
+	move_target_x = position.x  # İlk hedef kendi konumu
+	dungeon_spawn_x = global_position.x  # Yatay hareket merkezi başlangıç pozisyonu olsun
+	dungeon_move_dir = 1 if randf() < 0.5 else -1
+	dungeon_is_idling = true
+	dungeon_idle_timer = 0.0
+	dungeon_idle_duration = randf_range(30.0, 45.0) # Uzun oturma süresi
+	dungeon_walk_timer = 0.0
+	dungeon_walk_duration = randf_range(2.0, 3.0) # Kısa yürüyüşler
+	# Zemin / duvar / uçurum için raycast'leri oluştur
+	if dungeon_ground_ray == null:
+		dungeon_ground_ray = RayCast2D.new()
+		dungeon_ground_ray.target_position = Vector2(0, 96) # 1–2 tile aşağı bak
+		dungeon_ground_ray.collision_mask = 1
+		dungeon_ground_ray.enabled = true
+		add_child(dungeon_ground_ray)
+	if dungeon_wall_ray == null:
+		dungeon_wall_ray = RayCast2D.new()
+		dungeon_wall_ray.target_position = Vector2(24, -8) # Öne doğru, hafif yukarı
+		dungeon_wall_ray.collision_mask = 1
+		dungeon_wall_ray.enabled = true
+		add_child(dungeon_wall_ray)
+	if dungeon_ledge_ray == null:
+		dungeon_ledge_ray = RayCast2D.new()
+		dungeon_ledge_ray.target_position = Vector2(24, 64) # Öne ve aşağı, uçurum kontrolü
+		dungeon_ledge_ray.collision_mask = 1
+		dungeon_ledge_ray.enabled = true
+		add_child(dungeon_ledge_ray)
+	# Z-index'i düşmanlarla aynı seviyeye sabitle (ENEMY_Z_INDEX = 4, player ~5)
+	z_index = 4
+	if has_method("play_animation"):
+		play_animation("idle")
+ 
+func _physics_process_dungeon_prisoner(delta: float) -> void:
+	# Yer çekimi + zemine oturtma
+	if dungeon_ground_ray:
+		dungeon_ground_ray.global_position = global_position
+		dungeon_ground_ray.force_raycast_update()
+		if dungeon_ground_ray.is_colliding():
+			var hit_pos: Vector2 = dungeon_ground_ray.get_collision_point()
+			# Çarpışma noktasının biraz üzerinde dur (tile'ın içine girmesin)
+			global_position.y = hit_pos.y - 4.0
+		else:
+			global_position.y += DUNGEON_PRISONER_GRAVITY * delta
+	# Duvar ve uçurum ray'lerini yönüne göre hizala
+	if dungeon_wall_ray:
+		dungeon_wall_ray.global_position = global_position
+		dungeon_wall_ray.target_position.x = 24 * dungeon_move_dir
+		dungeon_wall_ray.force_raycast_update()
+	if dungeon_ledge_ray:
+		dungeon_ledge_ray.global_position = global_position
+		dungeon_ledge_ray.target_position.x = 24 * dungeon_move_dir
+		dungeon_ledge_ray.force_raycast_update()
+	# Basit AI: çoğunlukla idle, arada kısa yürüyüş
+	if dungeon_is_idling:
+		dungeon_idle_timer += delta
+		if _current_animation_name != "sit":
+			play_animation("sit")
+		if dungeon_idle_timer >= dungeon_idle_duration:
+			# Idle bitti, kısa bir yürüyüşe geç
+			dungeon_is_idling = false
+			dungeon_idle_timer = 0.0
+			dungeon_walk_timer = 0.0
+			dungeon_walk_duration = randf_range(2.0, 3.0)
+	else:
+		var hit_wall := dungeon_wall_ray and dungeon_wall_ray.is_colliding()
+		var no_ground_ahead := dungeon_ledge_ray and not dungeon_ledge_ray.is_colliding()
+		if hit_wall or no_ground_ahead:
+			# Duvar veya uçurum: yön değiştir
+			dungeon_move_dir *= -1
+			# Duvara çarpınca bazen yürüyüşü hemen kesip idle'e geri dön
+			if randf() < 0.5:
+				dungeon_is_idling = true
+				dungeon_idle_timer = 0.0
+				dungeon_idle_duration = randf_range(30.0, 45.0)
+				if _current_animation_name != "sit":
+					play_animation("sit")
+		else:
+			# Yatay hareket
+			global_position.x += float(dungeon_move_dir) * DUNGEON_PRISONER_MOVE_SPEED * delta
+			scale.x = dungeon_move_dir
+			if $NamePlateContainer:
+				$NamePlateContainer.scale.x = -1.0 if scale.x < 0 else 1.0
+			if _current_animation_name != "walk":
+				play_animation("walk")
+		# Yürüme süresi dolunca tekrar idle'e dön
+		dungeon_walk_timer += delta
+		if dungeon_walk_timer >= dungeon_walk_duration:
+			dungeon_is_idling = true
+			dungeon_idle_timer = 0.0
+			dungeon_idle_duration = randf_range(30.0, 45.0)
+			if _current_animation_name != "sit":
+				play_animation("sit")
+	# Wander aralığının dışına çok çıkmasın, duvar ray'ı kaçırsa bile geri dönsün
+	var dx_center = global_position.x - dungeon_spawn_x
+	if abs(dx_center) > DUNGEON_PRISONER_WANDER_RANGE:
+		var edge_dir = sign(dx_center)
+		global_position.x = dungeon_spawn_x + DUNGEON_PRISONER_WANDER_RANGE * edge_dir
+		dungeon_move_dir = -edge_dir
+	# Zindanda sabit z_index (player'dan geride)
+	z_index = 4
+
 func update_news(news_string: String) -> void:
 	if NPC_Info.is_empty():
 		return
@@ -622,8 +766,8 @@ func Update_Villager_Name():
 	else:
 		print("[Worker] ⚠️ Cannot update name: NPC_Info missing 'Info' or 'Name' key. Info keys: ", NPC_Info.keys())
 	
-	# NamePlate'i varsayılan olarak görünmez yap (sadece en yakın NPC'nin ismi görünecek)
-	if $NamePlateContainer:
+	# NamePlate'i varsayılan olarak görünmez yap (zindan mahkûmunda görünür bırak)
+	if $NamePlateContainer and not is_dungeon_prisoner:
 		$NamePlateContainer.visible = false
 	
 func Initialize_Existing_Villager(NPCInfo):
@@ -656,6 +800,9 @@ func Initialize_New_Villager():
 	$NpcWindow.InitializeWindow(NPC_Info)
 
 func _physics_process(delta: float) -> void:
+	if is_dungeon_prisoner:
+		_physics_process_dungeon_prisoner(delta)
+		return
 	# Stop worker processing when dialogue window is open
 	if $NpcWindow and $NpcWindow.visible:
 		return
@@ -2353,36 +2500,53 @@ func _format_key_name(key_name: String) -> String:
 		_: return key_name
 
 func ShowInteractButton():
+	if is_dungeon_prisoner:
+		return
 	if $InteractButton:
 		var key_name = InputManager.get_interact_key_name()
 		$InteractButton.text = _format_key_name(key_name)
-	$InteractButton.show()
+		$InteractButton.show()
 
 func HideInteractButton():
-	$InteractButton.hide()
+	if $InteractButton:
+		$InteractButton.hide()
 
 func _on_interact_button_pressed() -> void:
+	if is_dungeon_prisoner:
+		return
 	OpenNpcWindow()
 
 func OpenNpcWindow():
-	# Safety check: Ensure NPC_Info is initialized before opening window
-	if NPC_Info.is_empty():
-		print("[Worker] ⚠️ NPC_Info is empty for worker %d, initializing new villager..." % worker_id)
-		Initialize_New_Villager()
-	# Only initialize window if it hasn't been initialized yet (check if NpcInfo is set)
-	elif not $NpcWindow.NpcInfo == null or $NpcWindow.NpcInfo.is_empty():
-		if $NpcWindow.has_method("InitializeWindow"):
-			$NpcWindow.InitializeWindow(NPC_Info)
-	$NpcWindow.show()
+	if is_dungeon_prisoner:
+		return
+	var nw = $NpcWindow if has_node("NpcWindow") else null
+	if not is_instance_valid(nw):
+		return
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm or not vm.get("Village_Player"):
+		return
+	if not NPC_Info is Dictionary or NPC_Info.is_empty():
+		return
+	var npc_info_ref = nw.get("NpcInfo") if nw else null
+	if npc_info_ref == null or (npc_info_ref is Dictionary and npc_info_ref.is_empty()):
+		if nw.has_method("InitializeWindow"):
+			nw.InitializeWindow(NPC_Info)
+	nw.show()
+	if NpcDialogueManager.dialogue_processed.is_connected(NpcAnswered):
+		NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
 	NpcDialogueManager.dialogue_processed.connect(NpcAnswered)
-	VillageManager.Village_Player.set_ui_locked(true)
-	
+	vm.Village_Player.set_ui_locked(true)
+
 func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
 	$NpcWindow.NPCDialogueProcessed(npc_name, new_state, generated_dialogue, was_significant)
 	
 func CloseNpcWindow():
-	$NpcWindow.hide()
-	# Only disconnect if connected to prevent errors
+	if is_dungeon_prisoner:
+		return
+	if has_node("NpcWindow"):
+		$NpcWindow.hide()
 	if NpcDialogueManager.dialogue_processed.is_connected(NpcAnswered):
 		NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
-	VillageManager.Village_Player.set_ui_locked(false)
+	var vm = get_node_or_null("/root/VillageManager")
+	if vm and vm.get("Village_Player"):
+		vm.Village_Player.set_ui_locked(false)

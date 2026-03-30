@@ -5,6 +5,7 @@ class_name CannonTrapV2
 ## Direction from surface_type (same logic as ArrowShooterV2).
 ## 1 tile size (32x32), placed on wall tiles.
 
+const DEBUG_TRAP: bool = false
 const CANNONBALL_SCENE_PATH := "res://traps_v2/wall/cannonball_projectile.tscn"
 
 @export var fire_interval: float = 5.0
@@ -59,8 +60,9 @@ func _on_initialized() -> void:
 
 	if _active_sprite and _active_sprite.sprite_frames and _active_sprite.sprite_frames.has_animation("idle"):
 		_active_sprite.play("idle")
-
-	print("[CannonTrapV2] Direction set: %s (surface: %s)" % [_shoot_direction, TrapConfigV2.SurfaceType.keys()[surface_type]])
+	
+	if DEBUG_TRAP:
+		print("[CannonTrapV2] Direction set: %s (surface: %s)" % [_shoot_direction, TrapConfigV2.SurfaceType.keys()[surface_type]])
 
 func _fire() -> void:
 	if is_sleeping:

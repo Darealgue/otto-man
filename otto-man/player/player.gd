@@ -100,11 +100,18 @@ var is_in_combat: bool = false
 var combat_timer: float = 0.0
 var combat_timeout: float = 3.0  # 3 seconds without combat actions before returning to normal idle
 
-# Air-combo float for player (stay airborne longer during juggles)
+# Havada vurduğunda kısa asılı kalma (sadece vuruşlar sırasında)
 @export var air_combo_float_duration: float = 0.35
-@export var air_combo_gravity_scale: float = 0.35
-@export var air_combo_max_fall_speed: float = 620.0
+@export var air_combo_gravity_scale: float = 0.12
+@export var air_combo_max_fall_speed: float = 280.0
 var air_combo_float_timer: float = 0.0
+
+# Vuruş anında kısa donma (beat 'em up - sadece o an havada don, sonra normal)
+@export var air_hit_freeze_duration: float = 0.06
+var air_hit_freeze_timer: float = 0.0
+
+# Havada vurduğunda hafif yukarı kalkma (Enemy Step tarzı - DMC/Bayonetta)
+@export var air_hit_lift_velocity: float = -200.0
 
 # Counter window after perfect parry
 var counter_window_timer: float = 0.0
@@ -399,6 +406,9 @@ func _physics_process(delta):
 	
 	# Handle coyote time
 	if is_on_floor():
+		# Yere inince havada asılma sayacını sıfırla (sonraki zıplama normal olsun)
+		air_combo_float_timer = 0.0
+		air_hit_freeze_timer = 0.0
 		coyote_timer = COYOTE_TIME
 		if jump_buffer_timer > 0:  # Execute buffered jump
 			# Do not execute buffered jump while crouching or dodging
@@ -416,6 +426,12 @@ func _physics_process(delta):
 		if coyote_timer <= 0:
 			was_on_floor = false
 
+	# Havada vuruş anında kısa sabitlenme (Street Fighter tarzı)
+	if air_hit_freeze_timer > 0.0:
+		air_hit_freeze_timer = max(0.0, air_hit_freeze_timer - delta)
+		velocity = Vector2.ZERO
+		# Aşağıdaki gravity/movement state'te uygulanır; freeze varken state de sıfır tutacak
+	
 	# Handle variable jump height and Hollow Knight style gravity
 	if is_jumping:
 		jump_timer += delta
@@ -429,14 +445,13 @@ func _physics_process(delta):
 	else:
 		# Use Hollow Knight style gravity calculation
 		current_gravity_multiplier = calculate_hollow_knight_gravity()
-		
-		# Apply air-combo float modifier while airborne
-		if not is_on_floor() and air_combo_float_timer > 0.0:
+		# Havada vurduğunda kısa asılı kalma (sadece vuruş anında, takip vuruşu için)
+		if not is_on_floor() and air_combo_float_timer > 0.0 and air_hit_freeze_timer <= 0.0:
 			air_combo_float_timer = max(0.0, air_combo_float_timer - delta)
 			current_gravity_multiplier *= air_combo_gravity_scale
 	
-	# Apply maximum fall speed with the new higher limit
-	var max_fall := max_fall_speed
+	# Apply maximum fall speed
+	var max_fall = max_fall_speed
 	if air_combo_float_timer > 0.0:
 		max_fall = min(max_fall_speed, air_combo_max_fall_speed)
 	if velocity.y > max_fall:
@@ -584,7 +599,9 @@ func start_jump() -> void:
 	# Don't start jump if pressing down
 	if Input.is_action_pressed("down"):
 		return
-		
+	# Zeminden zıplarken havada asılma sayacı kalmasın (normal zıplama)
+	air_combo_float_timer = 0.0
+	air_hit_freeze_timer = 0.0
 	is_jumping = true
 	jump_timer = 0.0
 	velocity.y = jump_velocity
@@ -975,8 +992,21 @@ func _fade_out_on_death() -> void:
 		tween.tween_property(sprite, "modulate:a", 0.0, 1.0)
 		tween.tween_callback(func(): visible = false)
 
+const DUNGEON_DEATH_MORALE_PENALTY: float = 10.0
+
 func _return_to_village_on_death() -> void:
 	print("[Player] 🏠 Returning to village after death...")
+	
+	# Zindanda ölüm: köy morali düşer
+	var tree = get_tree()
+	if tree and tree.current_scene:
+		var path: String = tree.current_scene.scene_file_path
+		if path.contains("test_level"):
+			var vm = get_node_or_null("/root/VillageManager")
+			if is_instance_valid(vm) and "village_morale" in vm:
+				var before: float = float(vm.get("village_morale"))
+				vm.set("village_morale", maxf(0.0, before - DUNGEON_DEATH_MORALE_PENALTY))
+				print("[Player] 📉 Dungeon death: village morale %.1f -> %.1f" % [before, vm.get("village_morale")])
 	
 	# Apply roguelike mechanics before scene change
 	_apply_roguelike_mechanics_on_death()
@@ -1002,6 +1032,11 @@ func _apply_roguelike_mechanics_on_death() -> void:
 		ItemManager.clear_all_items()
 		print("[Player] 🎒 Roguelike: All item effects cleared on death")
 	
+	# Clear dungeon gold (ölümde tüm run altını kaybet)
+	if global_player_data and global_player_data.has_method("clear_dungeon_gold"):
+		global_player_data.clear_dungeon_gold()
+		print("[Player] 🪙 Roguelike: Cleared dungeon gold on death")
+
 	# Clear inventory (death penalty)
 	if global_player_data and "envanter" in global_player_data:
 		var envanter: Array = global_player_data.get("envanter")

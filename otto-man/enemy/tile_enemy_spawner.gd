@@ -17,7 +17,7 @@ var _is_active: bool = false
 var spawn_marker: Node2D
 
 # Debug toggle
-const DEBUG_ENEMY: bool = true
+const DEBUG_ENEMY: bool = false
 
 # Enemy scenes with their spawn weights (same as EnemySpawner)
 # Use load() instead of preload() for better export compatibility

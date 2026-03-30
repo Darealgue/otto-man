@@ -11,6 +11,24 @@ const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd"
 # Cariye referansı
 var concubine_id: int = -1
 var concubine_data: Concubine = null
+# Zindan kurtarma odasında sadece görsel; MissionManager yok, AI yok
+var is_dungeon_prisoner: bool = false
+var display_name: String = ""  # is_dungeon_prisoner iken gösterilecek isim
+# Zindan mahkûmu: yerçekimi + basit platformer hareketi
+var dungeon_floor_y: float = -1.0
+var dungeon_spawn_x: float = 0.0
+const DUNGEON_PRISONER_WANDER_RANGE: float = 80.0
+const DUNGEON_PRISONER_GRAVITY: float = 450.0
+const DUNGEON_PRISONER_MOVE_SPEED: float = 40.0
+var dungeon_ground_ray: RayCast2D = null
+var dungeon_wall_ray: RayCast2D = null
+var dungeon_ledge_ray: RayCast2D = null
+var dungeon_move_dir: int = 1
+var dungeon_idle_timer: float = 0.0
+var dungeon_idle_duration: float = 0.0
+var dungeon_is_idling: bool = false
+var dungeon_walk_timer: float = 0.0
+var dungeon_walk_duration: float = 0.0
 
 # Durum sistemi (Worker'dan alındı)
 enum State {
@@ -244,6 +262,9 @@ var animation_frame_counts = {
 }
 
 func _ready() -> void:
+	if is_dungeon_prisoner:
+		_ready_dungeon_prisoner()
+		return
 	add_to_group("Villagers")
 	randomize()
 	
@@ -313,21 +334,139 @@ func _ready() -> void:
 			visible = false
 			_wander_timer.stop()
 
+func _ready_dungeon_prisoner() -> void:
+	visible = true
+	if appearance:
+		update_visuals()
+	else:
+		play_animation("idle")
+	update_concubine_name()
+	if name_plate_container:
+		name_plate_container.visible = true
+		# Görsel olarak biraz daha aşağı dursun (fizik pozisyonu bozmadan)
+		if is_instance_valid(body_sprite):
+			body_sprite.position.y += 3
+		if is_instance_valid(pants_sprite):
+			pants_sprite.position.y += 3
+		if is_instance_valid(clothing_sprite):
+			clothing_sprite.position.y += 3
+		if is_instance_valid(mouth_sprite):
+			mouth_sprite.position.y += 3
+		if is_instance_valid(eyes_sprite):
+			eyes_sprite.position.y += 3
+		if is_instance_valid(hair_sprite):
+			hair_sprite.position.y += 3
+	move_target_x = position.x
+	dungeon_spawn_x = global_position.x  # Yatay hareket merkezi başlangıç pozisyonu olsun
+	dungeon_move_dir = 1 if randf() < 0.5 else -1
+	dungeon_is_idling = true
+	dungeon_idle_timer = 0.0
+	dungeon_idle_duration = randf_range(1.5, 3.0)
+	dungeon_walk_timer = 0.0
+	dungeon_walk_duration = randf_range(0.3, 0.7)
+	if dungeon_ground_ray == null:
+		dungeon_ground_ray = RayCast2D.new()
+		dungeon_ground_ray.target_position = Vector2(0, 96)
+		dungeon_ground_ray.collision_mask = 1
+		dungeon_ground_ray.enabled = true
+		add_child(dungeon_ground_ray)
+	if dungeon_wall_ray == null:
+		dungeon_wall_ray = RayCast2D.new()
+		dungeon_wall_ray.target_position = Vector2(24, -8)
+		dungeon_wall_ray.collision_mask = 1
+		dungeon_wall_ray.enabled = true
+		add_child(dungeon_wall_ray)
+	if dungeon_ledge_ray == null:
+		dungeon_ledge_ray = RayCast2D.new()
+		dungeon_ledge_ray.target_position = Vector2(24, 64)
+		dungeon_ledge_ray.collision_mask = 1
+		dungeon_ledge_ray.enabled = true
+		add_child(dungeon_ledge_ray)
+	# Z-index'i düşmanlarla aynı seviyeye sabitle (ENEMY_Z_INDEX = 4, player ~5)
+	z_index = 4
+	if has_method("play_animation"):
+		play_animation("idle")
+
+func _physics_process_dungeon_prisoner(delta: float) -> void:
+	if dungeon_ground_ray:
+		dungeon_ground_ray.global_position = global_position
+		dungeon_ground_ray.force_raycast_update()
+		if dungeon_ground_ray.is_colliding():
+			var hit_pos: Vector2 = dungeon_ground_ray.get_collision_point()
+			# Çarpışma noktasının biraz üzerinde dur (tile'ın içine girmesin)
+			global_position.y = hit_pos.y - 4.0
+		else:
+			global_position.y += DUNGEON_PRISONER_GRAVITY * delta
+	if dungeon_wall_ray:
+		dungeon_wall_ray.global_position = global_position
+		dungeon_wall_ray.target_position.x = 24 * dungeon_move_dir
+		dungeon_wall_ray.force_raycast_update()
+	if dungeon_ledge_ray:
+		dungeon_ledge_ray.global_position = global_position
+		dungeon_ledge_ray.target_position.x = 24 * dungeon_move_dir
+		dungeon_ledge_ray.force_raycast_update()
+	# Basit AI: çoğunlukla idle, arada kısa yürüyüş
+	if dungeon_is_idling:
+		dungeon_idle_timer += delta
+		if _current_animation_name != "idle":
+			play_animation("idle")
+		if dungeon_idle_timer >= dungeon_idle_duration:
+			dungeon_is_idling = false
+			dungeon_idle_timer = 0.0
+			dungeon_walk_timer = 0.0
+			dungeon_walk_duration = randf_range(0.3, 0.7)
+	else:
+		var hit_wall := dungeon_wall_ray and dungeon_wall_ray.is_colliding()
+		var no_ground_ahead := dungeon_ledge_ray and not dungeon_ledge_ray.is_colliding()
+		if hit_wall or no_ground_ahead:
+			dungeon_move_dir *= -1
+			if randf() < 0.5:
+				dungeon_is_idling = true
+				dungeon_idle_timer = 0.0
+				dungeon_idle_duration = randf_range(1.5, 3.0)
+				if _current_animation_name != "idle":
+					play_animation("idle")
+		else:
+			global_position.x += float(dungeon_move_dir) * DUNGEON_PRISONER_MOVE_SPEED * delta
+			scale.x = dungeon_move_dir
+			if name_plate_container:
+				name_plate_container.scale.x = -1.0 if scale.x < 0 else 1.0
+			if _current_animation_name != "walk":
+				play_animation("walk")
+		# Yürüme süresi dolunca tekrar idle'e dön
+		dungeon_walk_timer += delta
+		if dungeon_walk_timer >= dungeon_walk_duration:
+			dungeon_is_idling = true
+			dungeon_idle_timer = 0.0
+			dungeon_idle_duration = randf_range(1.5, 3.0)
+			if _current_animation_name != "idle":
+				play_animation("idle")
+	# Wander aralığının dışına çok çıkmasın, duvar ray'ı kaçırsa bile geri dönsün
+	var dx_center = global_position.x - dungeon_spawn_x
+	if abs(dx_center) > DUNGEON_PRISONER_WANDER_RANGE:
+		var edge_dir = sign(dx_center)
+		global_position.x = dungeon_spawn_x + DUNGEON_PRISONER_WANDER_RANGE * edge_dir
+		dungeon_move_dir = -edge_dir
+	# Zindanda sabit z_index (player'dan geride)
+	z_index = 4
+
 # Cariye ismini güncelle (Worker'daki Update_Villager_Name gibi)
 func update_concubine_name() -> void:
 	if not name_plate:
 		return
 	
-	if concubine_data and concubine_data.name:
+	if is_dungeon_prisoner and display_name != "":
+		name_plate.text = display_name
+	elif concubine_data and concubine_data.name:
 		name_plate.text = concubine_data.name
 	else:
 		name_plate.text = "İsimsiz Cariye"
 		if concubine_data:
 			printerr("[ConcubineNPC] Cariye (ID: %d) için isim bulunamadı!" % concubine_id)
 	
-	# NamePlate'i varsayılan olarak görünmez yap (sadece en yakın NPC'nin ismi görünecek)
+	# NamePlate'i varsayılan olarak görünmez yap (sadece en yakın NPC'nin ismi görünecek). Zindan mahkûmunda görünür yap
 	if name_plate_container:
-		name_plate_container.visible = false
+		name_plate_container.visible = is_dungeon_prisoner
 
 # Uyku denemesi başarısız olduktan sonra timer dolduğunda çağrılır
 func _on_sleep_retry_timer_timeout():
@@ -346,6 +485,9 @@ func _start_wander_timer():
 	_wander_timer.start()
 
 func _physics_process(delta: float) -> void:
+	if is_dungeon_prisoner:
+		_physics_process_dungeon_prisoner(delta)
+		return
 	# Hareket hesaplama (önce hesapla, sonra state handler'larda kullan)
 	# X ve Y eksenlerinde ayrı ayrı kontrol et (Worker sistemindeki gibi)
 	var x_distance = abs(global_position.x - move_target_x)

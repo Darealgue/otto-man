@@ -5,13 +5,16 @@ extends Control
 
 var _current_gold: int = 0
 
+const DEBUG_DUNGEON_GOLD_DISPLAY: bool = false
+
 func _ready() -> void:
 	# Work in absolute screen coordinates; anchors handled manually
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
 	position = Vector2.ZERO
 	size = Vector2.ZERO
 
-	print("[DungeonGoldDisplay] _ready() called")
+	if DEBUG_DUNGEON_GOLD_DISPLAY:
+		print("[DungeonGoldDisplay] _ready() called")
 	
 	# Connect to GlobalPlayerData signal
 	var global_player_data = get_node_or_null("/root/GlobalPlayerData")
@@ -36,16 +39,17 @@ func _ready() -> void:
 		viewport.size_changed.connect(_on_viewport_size_changed)
 
 	# Debug: Check initial node state
-	print("[DungeonGoldDisplay] 🔍 Initial node state:")
-	print("  - self.visible: %s" % visible)
-	print("  - self.modulate: %s" % modulate)
-	print("  - self.size: %s" % size)
-	print("  - parent: %s" % get_parent())
-	if get_parent():
-		print("  - parent.visible: %s" % get_parent().visible)
-		if get_parent() is Control:
-			print("  - parent.modulate: %s" % get_parent().modulate)
-			print("  - parent.size: %s" % get_parent().size)
+	if DEBUG_DUNGEON_GOLD_DISPLAY:
+		print("[DungeonGoldDisplay] 🔍 Initial node state:")
+		print("  - self.visible: %s" % visible)
+		print("  - self.modulate: %s" % modulate)
+		print("  - self.size: %s" % size)
+		print("  - parent: %s" % get_parent())
+		if get_parent():
+			print("  - parent.visible: %s" % get_parent().visible)
+			if get_parent() is Control:
+				print("  - parent.modulate: %s" % get_parent().modulate)
+				print("  - parent.size: %s" % get_parent().size)
 	
 	# Ensure all children are visible initially
 	var hbox = get_node_or_null("HBoxContainer")
@@ -161,7 +165,7 @@ func _update_visibility() -> void:
 			gold_icon.show()
 		
 		# Debug: Check node state (only once when gold is collected)
-		if _current_gold > 0 and _current_gold <= 5:
+		if DEBUG_DUNGEON_GOLD_DISPLAY and _current_gold > 0 and _current_gold <= 5:
 			print("[DungeonGoldDisplay] 🔍 DEBUG - Node state:")
 			print("  - visible: %s" % visible)
 			print("  - modulate: %s" % modulate)
@@ -179,7 +183,7 @@ func _update_visibility() -> void:
 		hide()
 	
 	# Only log when visibility changes
-	if should_be_visible != visible:
+	if DEBUG_DUNGEON_GOLD_DISPLAY and should_be_visible != visible:
 		print("[DungeonGoldDisplay] Visibility update - is_combat: %s, gold: %d, visible: %s" % [is_combat_scene, _current_gold, visible])
 
 func _update_position() -> void:

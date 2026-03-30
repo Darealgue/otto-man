@@ -5,12 +5,8 @@ res://village/scenes/VillageScene.tscn
 res://scenes/test_level.tscn
 res://scenes/forest.tscn
 res://scenes/testing.tscn
-res://enemy/basic/basic_enemy.tscn
-res://traps_v2/ceiling/poison_pool.tscn
-res://traps_v2/wall/arrow_shooter.tscn
-res://traps_v2/wall/arrow_projectile.tscn
-res://traps_v2/ground/spike_trap.tscn
-res://traps_v2/wall/cannon_trap.tscn
-res://traps_v2/wall/cannonball_projectile.tscn
-res://objects/dungeon/lighting/mesale2.tscn
-res://objects/dungeon/lighting/mum.tscn
+res://chunks/dungeon/special/start_chunk.tscn
+res://enemy/heavy/heavy_enemy.tscn
+res://scenes/CampScene.tscn
+res://scenes/CampDoor.tscn
+res://scenes/CampFountain.tscn

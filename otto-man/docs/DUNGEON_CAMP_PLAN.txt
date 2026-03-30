@@ -1,0 +1,300 @@
+KAMP SAHNESİ VE ZİNDAN SEVİYE SİSTEMİ – YOL PLANI
+
+Bu doküman, zindan koşularında kullanılacak kamp sahnesi, seviye seçimi ve kısmi ödül/çıkış mekaniği için yol planını içerir.
+
+--------------------------------------------------
+1. GENEL TASARIM ÖZETİ
+--------------------------------------------------
+
+- Her zindan koşusu (run) 3 seviyeye kadar sürebilir, ama seviyeler oyuncunun seçimine göre değişir.
+- Oyuncu köyden zindana girdiğinde önce bir kamp sahnesine (CampScene) düşer.
+- Kamp sahnesinde:
+  - Kapılar aracılığıyla zindan seviyesi seçilir (1, 2, 3…).
+  - Her kamp sahnesinde ortada bir çeşme olur; etkileşimle can doldurur.
+  - Kapıların konumu sabit spotlardan gelir, görselleri rastgele kapı prefab’larından seçilir; böylece her kamp alanı görsel olarak farklı hissedilir.
+- Zindanı başarıyla bitiren oyuncu tekrar kamp sahnesine döner:
+  - Bir kapı dışarı çıkış (kısmi ödülle dönüş),
+  - Diğer kapılar daha yüksek zindan seviyelerine gitme imkânı sunar (daha zor ama daha çok ödül).
+
+--------------------------------------------------
+2. ZİNDAN SEVİYE SİSTEMİ
+--------------------------------------------------
+
+- Zindan seviyeleri (tier’lar) sayısal olarak temsil edilir: 1, 2, 3, 4, 5, ...
+- Her seviye:
+  - Zindanın boyutunu (oda/chunk sayısı),
+  - Düşman zorluğunu,
+  - Altın ve loot çarpanlarını,
+  - Kurtarılabilecek köylü/cariye kalitesini/sayısını etkiler.
+- Öneri: Her seviye için bir config girdisi (muhtemelen dungeon_config.tres veya benzeri):
+  - id (int) – seviye numarası
+  - scene_path – o seviyeye karşılık gelen zindan sahnesi / generator ayarları
+  - size_modifier – zindan büyüklüğü
+  - enemy_strength_multiplier – düşman gücü çarpanı
+  - gold_multiplier_base – temel altın çarpanı
+  - rescue_bonus_base – kurtarma odalarının kalitesi/sıklığı
+
+--------------------------------------------------
+3. RUN STATE – DUNGEONRUNSTATE.AUTLOAD
+--------------------------------------------------
+
+Zindan koşusu boyunca durumun tutulacağı bir autoload (DungeonRunState.gd) genişletilir veya eklenir.
+
+Tutulacak alanlar:
+
+- current_tier: int
+  - Şu anda oynanan zindan seviyesi.
+- max_tier: int
+  - Oyunda tanımlı maksimum seviye (şimdilik 5).
+- run_started: bool
+  - Aktif bir zindan koşusu var mı.
+- pending_gold: int
+  - Bu run’da toplanmış ama henüz köye aktarılmamış altın.
+- extracted_gold: int
+  - Run sonunda köye aktarılacak altın (çıkış kapısından geçince hesaplanır).
+- rescued_characters: Array
+  - Bu run’da kurtarılan köylü/cariye verileri.
+- extracted_characters: Array
+  - Çıkışta köye başarıyla ulaşan köylü/cariyeler (yolda kayıp hesabından sonra).
+- start_from_village: bool
+  - Run’ın köyden mi başlatıldığı bilgisini tutmak için (gerekirse).
+
+Temel fonksiyonlar:
+
+- start_run_from_village():
+  - run_started = true
+  - current_tier = 0 (ilk kamp için başlangıç durumu)
+  - pending_gold = 0
+  - rescued_characters temizlenir.
+  - SceneManager üzerinden kamp sahnesine geçilir (ilk seçim ekranı).
+
+- choose_initial_tier(tier: int):
+  - current_tier = tier
+  - İlgili zindan seviyesi load edilir (load_dungeon_for_tier(tier)).
+
+- on_dungeon_cleared():
+  - Zindan başarıyla tamamlanınca tekrar kamp sahnesine dönülür.
+  - Bu sefer kamp sahnesi “mid_run_selection” modunda açılır (çıkış + daha zor seviyeler).
+
+- exit_run_with_partial_rewards():
+  - extracted_gold = floor(pending_gold * 0.25)
+  - rescued_characters içindeki her karakter için:
+    - %50 şansla hayatta kalıp extracted_characters içine alınır,
+    - Diğerleri “yolda kayboldu” sayılır.
+  - Köy datasına extracted_gold ve extracted_characters aktarılır.
+  - run_started = false
+  - Köy sahnesine dönülür.
+
+- go_to_next_tier(next_tier: int):
+  - current_tier = next_tier
+  - İlgili seviye için zindan sahnesi yüklenir.
+
+--------------------------------------------------
+4. KAMP SAHNESİ (CAMPSCENE.TSCN) – İSKELET
+--------------------------------------------------
+
+Node yapısı (öneri):
+
+- CampScene (Node2D)
+  - Spots/Doors (Node2D)
+    - DoorSpot1 (Position2D)
+    - DoorSpot2
+    - DoorSpot3
+    - DoorSpot4 (opsiyonel, esneklik için)
+  - Spots/FountainSpot (Position2D)
+  - DoorContainer (Node2D) – instancelanan kapılar buraya eklenecek
+  - FountainContainer (Node2D)
+  - UI (Label’lar, açıklama yazıları vb.)
+
+CampScene.gd içi temel alanlar:
+
+- mode: String
+  - "initial_selection" – Köyden zindana ilk girişte, 1/2/3 seviye seçimi.
+  - "mid_run_selection" – Zindanı bitirdikten sonra, çıkış + daha zor seviye seçenekleri.
+- available_tiers: Array[int]
+  - Bu kamp sahnesinde sunulacak seviye numaraları.
+- has_exit_option: bool
+  - Sahneye çıkış kapısının dahil olup olmayacağını belirler.
+- @export var door_scenes: Array[PackedScene]
+  - Farklı kapı görselleri (prefab’lar).
+- @export var fountain_scene: PackedScene
+  - Çeşme prefab’ı.
+
+Spawn akışı:
+
+- _ready():
+  - _spawn_fountain()
+  - _spawn_doors()
+  - _configure_doors_logic()
+
+Çeşme spawn:
+
+- FountainSpot’tan pozisyon alınır, fountain_scene.instantiate() edilip FountainContainer’a eklenir.
+
+Kapı spawn:
+
+- DoorSpot’lar bir diziye toplanır (DoorSpot1–4).
+- Kaç kapı gösterileceği mode’a göre belirlenir:
+  - initial_selection: 3 kapı (seviye 1–3).
+  - mid_run_selection: 1 çıkış + 3 seviye = 4 kapı (örnek akış).
+- Spotlar shuffle edilir, her birine rastgele bir door_scene instantiate edilip konumlandırılır.
+- Her kapıya meta veya script üzerinden bir door_index atanır; böylece etkileşimde hangi logic’e denk geldiği bilinir.
+
+Kapı logic’inin bağlanması:
+
+- mode == "initial_selection":
+  - Kapılar doğrudan available_tiers dizisine göre zindan seviye seçimi yapar.
+  - Örn: 1, 2, 3.
+  - Etkileşim: DungeonRunState.choose_initial_tier(seçilen_tier).
+
+- mode == "mid_run_selection":
+  - has_exit_option true ise:
+    - Bir kapı çıkış görevi görür.
+    - Diğer kapılar higher tiers (current_tier + 1, +2, +3 gibi).
+  - Etkileşim:
+    - Çıkış kapısı: DungeonRunState.exit_run_with_partial_rewards().
+    - Diğer kapılar: DungeonRunState.go_to_next_tier(seçilen_tier).
+
+--------------------------------------------------
+5. SEVİYE SEÇİMİ – İLK KAMP VE SONRAKİ KAMPLAR
+--------------------------------------------------
+
+İlk kamp (köyden zindana giriş):
+
+- SceneManager köyden zindana geçerken:
+  - DungeonRunState.start_run_from_village() çağrılır.
+  - CampScene yüklenir.
+  - CampScene.setup_initial_from_village():
+    - mode = "initial_selection"
+    - available_tiers = [1, 2, 3] (veya tasarıma göre)
+    - has_exit_option = false
+  - Kapıların üstünde:
+    - Seviye 1: temel zindan, normal ödül
+    - Seviye 2: daha zor; altın çarpanı > 1, belki bonus kurtarma şansı
+    - Seviye 3: daha da zor; daha yüksek çarpan, cariye garantisi vb.
+
+Zindan bitince kamp (mid-run camp):
+
+- Zindan başarıyla temizlendiğinde:
+  - DungeonRunState.on_dungeon_cleared() çağrılır.
+  - CampScene tekrar yüklenir.
+  - CampScene.setup_mid_run(current_tier):
+    - mode = "mid_run_selection"
+    - has_exit_option = true
+    - Kapı 1: dışarı çıkış
+    - Kapı 2–4: daha yüksek seviyeler (örnek: current_tier 2 ise 3, 4, 5)
+    - Tüm seviyeler max_tier ile clamp’lenir (5’i geçmez).
+
+--------------------------------------------------
+6. ÖDÜL VE CEZA MANTIKLARI
+--------------------------------------------------
+
+Altın:
+
+- Tüm run boyunca toplanan altın DungeonRunState.pending_gold içinde tutulur.
+- Çıkış kapısından geçilirse:
+  - extracted_gold = floor(pending_gold * 0.25)
+  - Bu miktar köy ekonomisine eklenir.
+- Ölüm durumunda:
+  - pending_gold kaybedilir veya büyük oranda (örneğin %80–100) silinir.
+
+Kurtarılan köylü/cariyeler:
+
+- DungeonRunState.rescued_characters içinde tutulur.
+- Çıkış kapısından geçilince:
+  - Her karakter için %50 şansla yolda kaybolur, kalanlar extracted_characters’e eklenir.
+  - extracted_characters köy veri yapısına eklenir (VillageManager vb. üzerinden).
+- Ölüm durumunda:
+  - rescued_characters temizlenir; köye kimse dönmez.
+
+Zindan seviyesine bağlı risk-ödül:
+
+- Daha yüksek tier’lar:
+  - Daha büyük altın çarpanı.
+  - Daha kaliteli/nadir loot.
+  - Daha fazla veya daha değerli kurtarılabilir karakterler.
+  - Ölümde köy morali için daha ağır ceza (ileride moral sistemi ile entegre edilecek).
+
+--------------------------------------------------
+7. ÇEŞME MEKANİĞİ
+--------------------------------------------------
+
+- CampScene’de FountainSpot’a bir çeşme sahnesi instantiate edilir.
+- Çeşme (fountain_scene.gd):
+  - Area2D + etkileşim (örneğin “E’ye bas – Su iç”).
+  - Kullanıldığında oyuncunun canını belirli bir miktar veya yüzde kadar yeniler.
+  - İsteğe bağlı: run başına veya kamp başına 1 kullanım limiti:
+    - DungeonRunState veya CampScene içinde bir flag ile tutulabilir (örn. fountain_used_in_this_camp).
+
+--------------------------------------------------
+8. KAPI GÖRSELLERİ VE SPOT TABANLI YERLEŞİM
+--------------------------------------------------
+
+- Kapıların mantığı DungeonRunState + CampScene tarafından belirlenir.
+- Görsel çeşitlilik için:
+  - door_scenes: farklı kapı sprite/animasyonlarına sahip PackedScene listesi.
+  - Her CampScene yüklenişinde:
+    - DoorSpot’lar shuffle edilir (her run farklı dizilim).
+    - Her spot için rastgele bir door_scene seçilip instantiate edilir.
+  - Böylece:
+    - Kapıların işlevi aynı kalırken, görsel yerleşim ve kapı tipleri değişir.
+    - Oyuncu her kamp alanında farklı bir kompozisyon hissi alır.
+
+--------------------------------------------------
+9. UYGULAMA SIRASI (ROADMAP)
+--------------------------------------------------
+
+1) Zindan seviye config’i:
+   - dungeon_config.tres veya level_config içinde her seviye için:
+     - scene_path
+     - gold_multiplier_base
+     - enemy_strength_multiplier
+     - rescue_bonus_base
+   - En az seviye 1–5 arası tanımla.
+
+2) DungeonRunState.gd genişletmesi:
+   - current_tier, max_tier, run_started, pending_gold, extracted_gold,
+     rescued_characters, extracted_characters alanlarını ekle.
+   - start_run_from_village, choose_initial_tier, on_dungeon_cleared,
+     exit_run_with_partial_rewards, go_to_next_tier fonksiyonlarını yaz.
+
+3) CampScene.tscn ve CampScene.gd oluşturma:
+   - DoorSpot ve FountainSpot noktalarını yerleştir.
+   - DoorContainer ve FountainContainer node’larını ekle.
+   - door_scenes ve fountain_scene export değişkenlerini tanımla.
+   - _spawn_fountain, _spawn_doors, _configure_doors_logic fonksiyonlarını yaz.
+   - setup_initial_from_village (initial_selection) ve
+     setup_mid_run (mid_run_selection) fonksiyonlarını ekle.
+
+4) Köy → zindan akışı entegrasyonu:
+   - Köyden zindana geçerken:
+     - DungeonRunState.start_run_from_village() çağır.
+     - Doğrudan zindan yerine CampScene’i yükle.
+   - Zindan temizlenince:
+     - DungeonRunState.on_dungeon_cleared() ile CampScene’e geri dön.
+
+5) Ödüllerin bağlanması:
+   - Düşman/loot script’lerinde altın kazandıran yerlerde
+     DungeonRunState.pending_gold += amount kullan.
+   - Kurtarma sisteminde (mevcut rescue plan’a göre):
+     - Kurtarılan köylü/cariyeleri DungeonRunState.rescued_characters içine ekle.
+
+6) Çıkış ve ölüm akışının köyle entegrasyonu:
+   - Çıkış kapısı:
+     - DungeonRunState.exit_run_with_partial_rewards() çağırır,
+       ardından VillageScene veya VillageManager’a altın ve karakterler aktarılır.
+   - Ölüm:
+     - pending_gold ve rescued_characters temizlenir.
+     - Köy moral/diğer cezalar daha sonra bu noktaya bağlanır.
+
+7) Balans ve iterasyon:
+   - İlk versiyonda basit sayılarla başla (örn. altın %25 çıkış, %50 character kaybı).
+   - Zindan seviye çarpanlarını oyun testlerine göre ayarla.
+   - Kamp kapılarının vaatlerini (altın çarpanı, cariye garantisi, nadir loot) oynayarak netleştir.
+
+Bu plan uygulandığında:
+- Oyuncu köyden zindana girdiğinde önce kamp sahnesinde zorluk seviyesini seçer.
+- Zindanı bitirdikçe tekrar kamp sahnesine dönerek:
+  - İster kısmi ödülle riski azaltarak çıkış yapar,
+  - İster daha büyük ödüller için daha yüksek seviye kapılarından geçerek risk alır.
+- Kapıların yerleşimi spot ve rastgele kapı görselleri ile her run’da farklı hissedilir.

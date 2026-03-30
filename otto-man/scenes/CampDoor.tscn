@@ -1,0 +1,106 @@
+[gd_scene load_steps=13 format=3 uid="uid://bbrhn084xyxgw"]
+
+[ext_resource type="Script" path="res://scenes/CampDoor.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://bx3pjrbtrk28x" path="res://assets/objects/dungeon/door_1.png" id="2"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q2hur"]
+atlas = ExtResource("2")
+region = Rect2(0, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ulbnn"]
+atlas = ExtResource("2")
+region = Rect2(192, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fp43f"]
+atlas = ExtResource("2")
+region = Rect2(384, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nhv2l"]
+atlas = ExtResource("2")
+region = Rect2(576, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_x8hxl"]
+atlas = ExtResource("2")
+region = Rect2(768, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ogswu"]
+atlas = ExtResource("2")
+region = Rect2(960, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xu1mx"]
+atlas = ExtResource("2")
+region = Rect2(1152, 0, 192, 192)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_knxrl"]
+atlas = ExtResource("2")
+region = Rect2(1344, 0, 192, 192)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_8w1b7"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_q2hur")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ulbnn")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fp43f")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nhv2l")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_x8hxl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ogswu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xu1mx")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_knxrl")
+}],
+"loop": false,
+"name": &"open",
+"speed": 10.0
+}]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(80, 140)
+
+[node name="CampDoor" type="Area2D"]
+z_index = -1
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1")
+
+[node name="Sprite2D" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -97)
+sprite_frames = SubResource("SpriteFrames_8w1b7")
+animation = &"open"
+frame = 7
+frame_progress = 1.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -71)
+shape = SubResource("1")
+
+[node name="Label" type="RichTextLabel" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -220.0
+offset_right = 80.0
+offset_bottom = -170.0
+bbcode_enabled = true
+text = "Kapı"
+fit_content = true
+scroll_active = false
+
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]
+[connection signal="body_exited" from="." to="." method="_on_body_exited"]

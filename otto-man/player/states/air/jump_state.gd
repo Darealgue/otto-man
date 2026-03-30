@@ -166,15 +166,18 @@ func physics_update(delta: float):
 		if input_dir != 0:
 			player.sprite.flip_h = input_dir < 0
 	
-	# Apply gravity with Hollow Knight style
-	if player.is_wall_jumping:
+	# Apply gravity with Hollow Knight style (skip during air hit freeze)
+	if player.get("air_hit_freeze_timer") != null and player.air_hit_freeze_timer > 0.0:
+		player.velocity.y = 0.0
+	elif player.is_wall_jumping:
 		player.velocity.y += player.gravity * 0.7 * delta
 		if player.velocity.y > 0:
 			player.is_wall_jumping = false
 			animation_player.play("jump_to_fall")
 	else:
-		# Use Hollow Knight style gravity calculation
 		var gravity_multiplier = player.calculate_hollow_knight_gravity()
+		if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+			gravity_multiplier *= player.air_combo_gravity_scale
 		player.velocity.y += player.gravity * gravity_multiplier * delta
 	
 	# Move the player

@@ -1587,7 +1587,6 @@ func update_latest_news(news_string: String) -> void:
 	
 	# Save changes
 	save_array_to_json(Saved_Villagers, "Saved_Villagers.json")
-	print("VillagerAIInitializer: Updated latest news for all villagers: ", news_string)
 
 func get_villager_info():
 	var ChosenInfo = Villager_Info_Pool.pick_random()

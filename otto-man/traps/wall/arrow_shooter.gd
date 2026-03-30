@@ -1,6 +1,8 @@
 extends BaseTrap
 class_name ArrowShooter
 
+const DEBUG_ARROW_SHOOTER: bool = false
+
 # Arrow shooter specific configuration
 @export var arrow_interval: float = 2.0  # Time between arrows
 @export var arrow_speed: float = 400.0  # Arrow velocity
@@ -85,7 +87,8 @@ func _ready() -> void:
 		warning_timer.timeout.connect(_shoot_arrow)
 		add_child(warning_timer)
 	
-	print("[ArrowShooter] Ready - interval: %.1fs, damage: %.1f, speed: %.1f" % [arrow_interval, arrow_damage, arrow_speed])
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Ready - interval: %.1fs, damage: %.1f, speed: %.1f" % [arrow_interval, arrow_damage, arrow_speed])
 
 # Override base trap initialize to add direction determination
 func initialize(level: int, spawner_position: Vector2) -> void:
@@ -99,39 +102,48 @@ func initialize(level: int, spawner_position: Vector2) -> void:
 
 func _determine_shoot_direction() -> void:
 	# Debug current property values
-	print("[ArrowShooter] Direction properties: R=%s L=%s U=%s D=%s" % [shoot_right, shoot_left, shoot_up, shoot_down])
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Direction properties: R=%s L=%s U=%s D=%s" % [shoot_right, shoot_left, shoot_up, shoot_down])
 	
 	# Determine direction based on bool settings
 	if shoot_right:
 		shoot_direction = Vector2.RIGHT
-		print("[ArrowShooter] Direction set to RIGHT →")
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Direction set to RIGHT →")
 	elif shoot_left:
 		shoot_direction = Vector2.LEFT
-		print("[ArrowShooter] Direction set to LEFT ←")
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Direction set to LEFT ←")
 	elif shoot_up:
 		shoot_direction = Vector2.UP
-		print("[ArrowShooter] Direction set to UP ↑")
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Direction set to UP ↑")
 	elif shoot_down:
 		shoot_direction = Vector2.DOWN
-		print("[ArrowShooter] Direction set to DOWN ↓")
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Direction set to DOWN ↓")
 	else:
 		# Default fallback - auto-detect based on position
 		var screen_center_x = 1920 / 2
 		if global_position.x < screen_center_x:
 			shoot_direction = Vector2.RIGHT
-			print("[ArrowShooter] No direction set - auto-detected RIGHT →")
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] No direction set - auto-detected RIGHT →")
 		else:
 			shoot_direction = Vector2.LEFT
-			print("[ArrowShooter] No direction set - auto-detected LEFT ←")
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] No direction set - auto-detected LEFT ←")
 	
-	print("[ArrowShooter] Position: " + str(global_position) + ", Final Direction: " + str(shoot_direction))
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Position: " + str(global_position) + ", Final Direction: " + str(shoot_direction))
 
 func _start_warning() -> void:
 	if not is_active:
 		return
 		
 	current_state = ShooterState.WARNING
-	print("[ArrowShooter] Warning phase started")
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Warning phase started")
 	
 	# Play tension animation with slight delay for more natural feel
 	if shooter_sprite:
@@ -151,7 +163,8 @@ func _shoot_arrow() -> void:
 		return
 		
 	current_state = ShooterState.SHOOTING
-	print("[ArrowShooter] Shooting arrow!")
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Shooting arrow!")
 	
 	# Play shoot animation
 	if shooter_sprite:
@@ -174,7 +187,8 @@ func _create_and_fire_arrow() -> void:
 	# Create arrow projectile
 	var arrow = _create_arrow()
 	if not arrow:
-		print("[ArrowShooter] Failed to create arrow")
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Failed to create arrow")
 		return
 		
 	# Add arrow to scene
@@ -193,7 +207,8 @@ func _create_and_fire_arrow() -> void:
 	elif arrow.has_method("set_direction_and_speed"):
 		arrow.set_direction_and_speed(shoot_direction, arrow_speed)
 	
-	print("[ArrowShooter] Arrow fired at position: %s, direction: %s" % [arrow.global_position, shoot_direction])
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Arrow fired at position: %s, direction: %s" % [arrow.global_position, shoot_direction])
 	
 	# If arrow has a sprite child, apply same z-index
 	var arrow_sprite = arrow.get_node_or_null("ArrowSprite")
@@ -281,8 +296,9 @@ func _create_arrow() -> Node2D:
 	arrow.set_damage(arrow_damage)
 	arrow.set_range(arrow_range)
 	
-	print("[ArrowShooter] Arrow created with collision size: " + str(shape.size) + " for direction: " + str(shoot_direction))
-	print("[ArrowShooter] Sprite centered: " + str(sprite.centered) + ", position: " + str(sprite.position))
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Arrow created with collision size: " + str(shape.size) + " for direction: " + str(shoot_direction))
+		print("[ArrowShooter] Sprite centered: " + str(sprite.centered) + ", position: " + str(sprite.position))
 	
 	return arrow
 
@@ -305,31 +321,38 @@ func _load_textures() -> void:
 	# Check what files exist
 	for path in possible_paths:
 		if ResourceLoader.exists(path):
-			print("[ArrowShooter] Found: " + path)
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] Found: " + path)
 	
 	# Try to load arrow trap texture
 	for path in possible_paths:
 		if ResourceLoader.exists(path):
 			arrow_trap_texture = load(path)
-			print("[ArrowShooter] ✅ Loaded arrow_trap texture from: " + path)
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] ✅ Loaded arrow_trap texture from: " + path)
 			break
 	
 	# Try to load arrow texture  
 	for path in arrow_possible_paths:
 		if ResourceLoader.exists(path):
 			arrow_trap_arrow_texture = load(path)
-			print("[ArrowShooter] ✅ Loaded arrow_trap_arrow texture from: " + path)
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] ✅ Loaded arrow_trap_arrow texture from: " + path)
 			break
 	
 	if not arrow_trap_texture:
-		print("[ArrowShooter] WARNING: arrow_trap.png not found in any location, using fallback")
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] WARNING: arrow_trap.png not found in any location, using fallback")
 	else:
-		print("[ArrowShooter] Arrow trap texture loaded successfully: " + str(arrow_trap_texture.get_size()))
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Arrow trap texture loaded successfully: " + str(arrow_trap_texture.get_size()))
 		
 	if not arrow_trap_arrow_texture:
-		print("[ArrowShooter] WARNING: arrow_trap_arrow.png not found in any location, using fallback")
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] WARNING: arrow_trap_arrow.png not found in any location, using fallback")
 	else:
-		print("[ArrowShooter] Arrow texture loaded successfully: " + str(arrow_trap_arrow_texture.get_size()))
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Arrow texture loaded successfully: " + str(arrow_trap_arrow_texture.get_size()))
 
 func _create_shooter_visual() -> void:
 	# Remove existing shooter sprite if any
@@ -354,22 +377,26 @@ func _create_shooter_visual() -> void:
 			shooter_sprite.rotation_degrees = 0
 			shooter_sprite.scale.x = 1
 			shooter_sprite.position = crossbow_offset_right
-			print("[ArrowShooter] Crossbow oriented for RIGHT → at offset: " + str(crossbow_offset_right))
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] Crossbow oriented for RIGHT → at offset: " + str(crossbow_offset_right))
 		Vector2.LEFT:
 			shooter_sprite.rotation_degrees = 0
 			shooter_sprite.scale.x = -1  # Flip horizontally for left
 			shooter_sprite.position = crossbow_offset_left
-			print("[ArrowShooter] Crossbow oriented for LEFT ← at offset: " + str(crossbow_offset_left))
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] Crossbow oriented for LEFT ← at offset: " + str(crossbow_offset_left))
 		Vector2.UP:
 			shooter_sprite.rotation_degrees = -90
 			shooter_sprite.scale.x = 1
 			shooter_sprite.position = crossbow_offset_up
-			print("[ArrowShooter] Crossbow oriented for UP ↑ at offset: " + str(crossbow_offset_up))
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] Crossbow oriented for UP ↑ at offset: " + str(crossbow_offset_up))
 		Vector2.DOWN:
 			shooter_sprite.rotation_degrees = 90
 			shooter_sprite.scale.x = 1
 			shooter_sprite.position = crossbow_offset_down
-			print("[ArrowShooter] Crossbow oriented for DOWN ↓ at offset: " + str(crossbow_offset_down))
+			if DEBUG_ARROW_SHOOTER:
+				print("[ArrowShooter] Crossbow oriented for DOWN ↓ at offset: " + str(crossbow_offset_down))
 	
 	add_child(shooter_sprite)
 	
@@ -433,10 +460,10 @@ func _setup_arrow_trap_animations() -> void:
 	shooter_sprite.sprite_frames.set_animation_loop("tension", false)  # Don't loop tension
 	shooter_sprite.sprite_frames.set_animation_loop("shoot", false)    # Don't loop shoot
 	
-	print("[ArrowShooter] Tension animation set to " + str(tension_fps) + " FPS for " + str(warning_duration) + "s duration")
-	print("[ArrowShooter] This means all 8 frames will play in " + str(8.0 / tension_fps) + " seconds")
-	
-	print("[ArrowShooter] Arrow trap animations setup complete")
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Tension animation set to " + str(tension_fps) + " FPS for " + str(warning_duration) + "s duration")
+		print("[ArrowShooter] This means all 8 frames will play in " + str(8.0 / tension_fps) + " seconds")
+		print("[ArrowShooter] Arrow trap animations setup complete")
 
 func _setup_fallback_animations() -> void:
 	# Create simple colored rectangles as fallback
@@ -457,7 +484,8 @@ func _setup_fallback_animations() -> void:
 	shooter_sprite.sprite_frames.set_animation_speed("tension", 2.0)
 	shooter_sprite.sprite_frames.set_animation_speed("shoot", 5.0)
 	
-	print("[ArrowShooter] Fallback animations setup complete")
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Fallback animations setup complete")
 
 func _create_simple_crossbow_texture(color: Color) -> ImageTexture:
 	var texture = ImageTexture.new()
@@ -496,12 +524,14 @@ func _setup_arrow_sprite_animation(sprite: AnimatedSprite2D) -> void:
 		else:
 			frame_count = 1  # Single frame
 		
-		print("[ArrowShooter] Auto-detected frame count: " + str(frame_count) + " from texture size: " + str(texture_width) + "x" + str(texture_height))
+		if DEBUG_ARROW_SHOOTER:
+			print("[ArrowShooter] Auto-detected frame count: " + str(frame_count) + " from texture size: " + str(texture_width) + "x" + str(texture_height))
 	
 	var frame_width = arrow_trap_arrow_texture.get_width() / frame_count
 	var frame_height = arrow_trap_arrow_texture.get_height()
 	
-	print("[ArrowShooter] Individual frame size: " + str(frame_width) + "x" + str(frame_height))
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Individual frame size: " + str(frame_width) + "x" + str(frame_height))
 	
 	# Add frames for flying animation
 	for i in range(frame_count):
@@ -514,7 +544,8 @@ func _setup_arrow_sprite_animation(sprite: AnimatedSprite2D) -> void:
 	sprite.sprite_frames.set_animation_loop("fly", true)
 	sprite.play("fly")
 	
-	print("[ArrowShooter] Arrow sprite animation setup complete")
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Arrow sprite animation setup complete")
 
 func _setup_fallback_arrow_sprite(sprite: AnimatedSprite2D) -> void:
 	sprite.sprite_frames = SpriteFrames.new()
@@ -538,7 +569,8 @@ func _setup_fallback_arrow_sprite(sprite: AnimatedSprite2D) -> void:
 	sprite.sprite_frames.set_animation_speed("fly", 1.0)
 	sprite.play("fly")
 	
-	print("[ArrowShooter] Fallback arrow sprite setup complete")
+	if DEBUG_ARROW_SHOOTER:
+		print("[ArrowShooter] Fallback arrow sprite setup complete")
 
 func _create_editor_preview() -> void:
 	# Determine direction for preview

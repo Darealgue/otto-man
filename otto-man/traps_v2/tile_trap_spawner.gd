@@ -14,7 +14,7 @@ class_name TileTrapSpawner
 var _spawned_trap: BaseTrapV2 = null
 var _is_active: bool = false
 
-const DEBUG_TRAP: bool = true
+const DEBUG_TRAP: bool = false
 
 func _ready() -> void:
 	add_to_group("TileTrapSpawner")

@@ -133,6 +133,18 @@ func _on_command_submitted(command: String) -> void:
 			handle_show_multipliers_command()
 		"show_event_effects":
 			handle_show_event_effects_command()
+		"rescue_debug":
+			handle_rescue_debug_command(args)
+		"rescue_force_rooms":
+			handle_rescue_force_rooms_command(args)
+		"rescue_villager_cap":
+			handle_rescue_villager_cap_command(args)
+		"rescue_cariye_cap":
+			handle_rescue_cariye_cap_command(args)
+		"rescue_cap_reset":
+			handle_rescue_cap_reset_command()
+		"dungeon_exit":
+			handle_dungeon_exit_command(args)
 		_:
 			print_output("Unknown command: " + cmd)
 
@@ -460,6 +472,112 @@ func handle_items_list_command() -> void:
 		var active_str: String = " [AKTİF]" if im.has_active_item(item_id) else ""
 		print_output("  %d: %s - %s%s" % [i, item_id, name_str, active_str])
 
+# === Zindan kurtarma debug komutları ===
+func handle_rescue_debug_command(_args: Array) -> void:
+	var drs = get_node_or_null("/root/DungeonRunState")
+	var vm = get_node_or_null("/root/VillageManager")
+	print_output("=== KURTARMA DEBUG ===")
+	if is_instance_valid(drs):
+		print_output("Force rescue rooms (her levelda odalar): %s" % drs.get("debug_force_rescue_rooms"))
+	else:
+		print_output("DungeonRunState yok")
+	if is_instance_valid(vm):
+		print_output("Köylü kapasite: full=%s space=%s -> can_add=%s" % [
+			vm.get("debug_force_villager_capacity_full"),
+			vm.get("debug_force_villager_has_space"),
+			vm.can_add_villager() if vm.has_method("can_add_villager") else "?"
+		])
+		print_output("Cariye kapasite: full=%s space=%s -> can_add=%s" % [
+			vm.get("debug_force_cariye_capacity_full"),
+			vm.get("debug_force_cariye_has_space"),
+			vm.can_add_cariye() if vm.has_method("can_add_cariye") else "?"
+		])
+	else:
+		print_output("VillageManager yok")
+	print_output("Komutlar: rescue_force_rooms on|off, rescue_villager_cap full|space|normal, rescue_cariye_cap full|space|normal, rescue_cap_reset")
+
+func handle_rescue_force_rooms_command(args: Array) -> void:
+	var drs = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs):
+		print_output("DungeonRunState yok")
+		return
+	var on_off = args[0].to_lower() if args.size() > 0 else ""
+	if on_off == "on" or on_off == "1" or on_off == "true":
+		drs.debug_force_rescue_rooms = true
+		print_output("Her levelda köylü+cariye kurtarma odası AÇIK (sonraki zindan girişinden itibaren)")
+	elif on_off == "off" or on_off == "0" or on_off == "false":
+		drs.debug_force_rescue_rooms = false
+		print_output("Force rescue odaları KAPALI")
+	else:
+		print_output("Kullanım: rescue_force_rooms on|off (şu an: %s)" % drs.debug_force_rescue_rooms)
+
+func handle_rescue_villager_cap_command(args: Array) -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not is_instance_valid(vm) or not vm.has_method("set"):
+		print_output("VillageManager yok")
+		return
+	var mode = args[0].to_lower() if args.size() > 0 else ""
+	vm.debug_force_villager_capacity_full = (mode == "full")
+	vm.debug_force_villager_has_space = (mode == "space")
+	if mode == "normal" or mode == "":
+		vm.debug_force_villager_capacity_full = false
+		vm.debug_force_villager_has_space = false
+	print_output("Köylü kapasitesi: %s (can_add_villager=%s)" % [mode if mode != "" else "normal", vm.can_add_villager()])
+
+func handle_rescue_cariye_cap_command(args: Array) -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not is_instance_valid(vm):
+		print_output("VillageManager yok")
+		return
+	var mode = args[0].to_lower() if args.size() > 0 else ""
+	vm.debug_force_cariye_capacity_full = (mode == "full")
+	vm.debug_force_cariye_has_space = (mode == "space")
+	if mode == "normal" or mode == "":
+		vm.debug_force_cariye_capacity_full = false
+		vm.debug_force_cariye_has_space = false
+	print_output("Cariye kapasitesi: %s (can_add_cariye=%s)" % [mode if mode != "" else "normal", vm.can_add_cariye()])
+
+func handle_rescue_cap_reset_command() -> void:
+	var vm = get_node_or_null("/root/VillageManager")
+	if is_instance_valid(vm):
+		vm.debug_force_villager_capacity_full = false
+		vm.debug_force_villager_has_space = false
+		vm.debug_force_cariye_capacity_full = false
+		vm.debug_force_cariye_has_space = false
+		print_output("Tüm kapasite override'ları sıfırlandı (normal gerçek kapasite)")
+	else:
+		print_output("VillageManager yok")
+
+func handle_dungeon_exit_command(args: Array) -> void:
+	# Kullanım: dungeon_exit [gold]
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	var drs = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(scene_manager):
+		print_output("SceneManager yok, dungeon_exit çalışmadı")
+		return
+	if not is_instance_valid(drs):
+		print_output("DungeonRunState yok, dungeon_exit çalışmadı")
+		return
+	# Opsiyonel: altın ekle
+	if args.size() > 0:
+		var gold_to_add := int(args[0])
+		var vm = get_node_or_null("/root/VillageManager")
+		if is_instance_valid(vm) and vm.has("gold"):
+			vm.gold += gold_to_add
+			print_output("Köye debug altın eklendi: " + str(gold_to_add))
+	# Zindandan sağ çıkmış gibi pending kurtarılanları payload ile VillageScene'e taşı
+	var rescued = drs.get_and_clear_pending_rescued()
+	var payload := {
+		"source": "dungeon",
+		"rescued_villagers": rescued.get("villagers", []),
+		"rescued_cariyes": rescued.get("cariyes", [])
+	}
+	print_output("DungeonExit: villagers=%d, cariyes=%d" % [
+		payload["rescued_villagers"].size(),
+		payload["rescued_cariyes"].size()
+	])
+	scene_manager.change_to_village(payload, false)
+
 func show_help() -> void:
 	var help_text = """Available commands:
 	help - Show this help message
@@ -497,7 +615,14 @@ func show_help() -> void:
 	clear_event [type] - Clear a specific active event (or all if no type)
 	event_info [type] - Show detailed info about an event type
 	show_multipliers - Show current production multipliers
-	show_event_effects - Show detailed effects of active events"""
+	show_event_effects - Show detailed effects of active events
+	
+	=== ZİNDAN KURTARMA DEBUG ===
+	rescue_debug - Kurtarma debug durumu (kapasite override + force_rooms)
+	rescue_force_rooms [on|off] - Her levelda köylü+cariye kurtarma odası zorla (on/off)
+	rescue_villager_cap [full|space|normal] - Köylü kapasitesi: full=köy dolu, space=yer var, normal=gerçek
+	rescue_cariye_cap [full|space|normal] - Cariye kapasitesi: full=dolu, space=yer var, normal=gerçek
+	rescue_cap_reset - Tüm kapasite override'ları sıfırla"""
 	print_output(help_text)
 
 func print_output(text: String) -> void:

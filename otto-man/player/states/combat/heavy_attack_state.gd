@@ -144,9 +144,6 @@ func update(delta: float):
 		if _check_early_cancel():
 			return
 	
-	# Handle movement (respects lock)
-	_handle_movement(delta)
-	
 	# Listen for a quick confirm tap before impact to activate JUST bonus
 	if Input.is_action_just_pressed("attack_heavy"):
 		just_input_timer = 0.12
@@ -168,6 +165,31 @@ func update(delta: float):
 		print("[HeavyAttack] Jump-cancel!")
 		state_machine.transition_to("Jump")
 		return
+
+func physics_update(delta: float) -> void:
+	# Movement + gravity must run in physics for consistent feel.
+	if get_tree().paused:
+		return
+	
+	_handle_movement(delta)
+	
+	if not player.is_on_floor():
+		if player.get("air_hit_freeze_timer") != null and player.air_hit_freeze_timer > 0.0:
+			player.velocity.y = 0.0
+		else:
+			var gravity_multiplier: float = player.calculate_hollow_knight_gravity()
+			if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+				gravity_multiplier *= player.air_combo_gravity_scale
+			if player.velocity.y > 0 and Input.is_action_pressed("jump") and has_node("/root/ItemManager") and ItemManager.has_active_item("havada_kal"):
+				gravity_multiplier *= 0.28
+			player.velocity.y += player.gravity * gravity_multiplier * delta
+			var max_fall = player.max_fall_speed
+			if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+				max_fall = min(max_fall, player.air_combo_max_fall_speed)
+			if player.velocity.y > max_fall:
+				player.velocity.y = max_fall
+	
+	player.apply_move_and_slide()
 
 func _check_movement_lock() -> void:
 	var length: float = animation_player.current_animation_length
@@ -223,7 +245,6 @@ func _handle_movement(_delta: float) -> void:
 	# If movement is locked, don't allow horizontal movement
 	if movement_locked:
 		player.velocity.x = lerp(player.velocity.x, 0.0, 0.8)  # Gradually stop
-		player.apply_move_and_slide()
 		return
 		
 	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
@@ -234,7 +255,7 @@ func _handle_movement(_delta: float) -> void:
 	player.velocity.x = lerp(player.velocity.x, target_velocity.x, 1.0 - MOMENTUM_PRESERVATION)
 	if input_dir_x != 0:
 		player.sprite.flip_h = input_dir_x < 0
-	player.apply_move_and_slide()
+	# NOTE: movement is applied in physics_update()
 
 func _update_hitbox_by_timing() -> void:
 	if has_activated_hitbox:

@@ -89,9 +89,13 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 		knockback_force = 260.0
 		knockback_up_force = 60.0
 	elif attack_name == "air_attack_down1" or attack_name == "air_attack_down2":
-		# Air down attacks - apply downward force to enemies
+		# Air down attacks - apply downward force to enemies (fırlatır)
 		knockback_force = 150.0
 		knockback_up_force = -200.0  # Negative value for downward force
+	elif attack_name == "air_attack1" or attack_name == "air_attack2" or attack_name == "air_attack3":
+		# Düz havada vuruş - kombo kilidi, düşman yakında kalsın (uzağa fırlamasın)
+		knockback_force = 28.0
+		knockback_up_force = 22.0
 	else:
 		# default light/heavy derived from AttackManager if needed later
 		pass
@@ -173,114 +177,165 @@ func disable():
 		get_node("CollisionShape2D").debug_color = Color(1, 0, 0, 0.5)  # Red when disabled
 		
 
+## Tüm overlap eden hurtbox'lardan en iyi hedefi seç: yaşayan düşman öncelikli.
+func _pick_best_hurtbox_target(overlapping: Array) -> Area2D:
+	var hurtboxes: Array[Area2D] = []
+	for a in overlapping:
+		if a.is_in_group("hurtbox"):
+			hurtboxes.append(a)
+	if hurtboxes.is_empty():
+		return null
+	var living: Array[Area2D] = []
+	var corpses: Array[Area2D] = []
+	for hb in hurtboxes:
+		var enemy = hb.get_parent() if hb else null
+		if not is_instance_valid(enemy):
+			continue
+		var is_dead = enemy.get("current_behavior") == "dead" or (enemy.get("health") != null and enemy.health <= 0)
+		if is_dead:
+			corpses.append(hb)
+		else:
+			living.append(hb)
+	if not living.is_empty():
+		return living[0]
+	if not corpses.is_empty():
+		return corpses[0]
+	return null
+
 func _on_area_entered(area: Area2D) -> void:
-	if area.is_in_group("hurtbox"):
-		# Debug print disabled to reduce console spam
-		# print("[PlayerHitbox] overlapped with hurtbox area=", area.name)
-		if not has_hit_enemy:
-			has_hit_enemy = true
-			
-			# Debug prints disabled to reduce console spam
-			# print("[PlayerHitbox] 🥊 HIT CONFIRMED! Damage: " + str(damage))
-			# print("[PlayerHitbox] DEBUG | attack=", current_attack_name, " kb=", knockback_force, "/", knockback_up_force)
-			
-			# Apply hitstop based on damage
+	if not area.is_in_group("hurtbox"):
+		return
+	if has_hit_enemy:
+		return
+	var overlapping = get_overlapping_areas()
+	var best_hurtbox = _pick_best_hurtbox_target(overlapping)
+	if not best_hurtbox:
+		return
+	var enemy = best_hurtbox.get_parent() if best_hurtbox else null
+	if not is_instance_valid(enemy):
+		return
+	if has_method("try_register_hit") and not try_register_hit(best_hurtbox):
+		return
+	has_hit_enemy = true
+	var is_corpse = enemy.get("current_behavior") == "dead" or (enemy.get("health") != null and enemy.health <= 0)
+	if is_corpse:
+		# Havada ölü (punching bag): hit stop + screen shake + kısa havada asılı kalma (Street Fighter tarzı)
+		if not (enemy.has_method("is_on_floor") and enemy.is_on_floor()):
 			if attack_manager:
-				# print("[PlayerHitbox] Calling attack_manager.apply_hitstop(" + str(damage) + ")")
 				attack_manager.apply_hitstop(damage)
-			else:
-				print("[PlayerHitbox] ❌ ERROR: attack_manager is null!")
-			# Spawn enemy hit VFX
-			var enemy_hit_fx_scene_path := "res://effects/enemy_hit_effect.tscn"
-			if ResourceLoader.exists(enemy_hit_fx_scene_path):
-				var fx_scene := load(enemy_hit_fx_scene_path)
-				if fx_scene:
-					var fx = fx_scene.instantiate()
-					
-					# Düşmanın merkezinde spawnla
-					var enemy = area.get_parent()
-					var spawn_position = global_position  # Fallback
-					
-					if enemy and is_instance_valid(enemy):
-						# Düşmanın sprite'ını bul ve merkezini hesapla
-						var enemy_sprite = enemy.get_node_or_null("AnimatedSprite2D")
-						if not enemy_sprite:
-							enemy_sprite = enemy.get_node_or_null("Sprite2D")
-						
-						if enemy_sprite and is_instance_valid(enemy_sprite):
-							# Sprite'ın global pozisyonunu al
-							spawn_position = enemy_sprite.global_position
-							
-							# Sprite'ın görsel merkezini hesapla (centered = false ise offset ekle)
-							var texture_size = Vector2.ZERO
-							var is_centered = true
-							
-							if enemy_sprite is AnimatedSprite2D:
-								var anim_sprite = enemy_sprite as AnimatedSprite2D
-								is_centered = anim_sprite.centered
-								if anim_sprite.sprite_frames and anim_sprite.animation:
-									var current_texture = anim_sprite.sprite_frames.get_frame_texture(anim_sprite.animation, anim_sprite.frame)
-									if current_texture:
-										texture_size = current_texture.get_size()
-							elif enemy_sprite is Sprite2D:
-								var sprite = enemy_sprite as Sprite2D
-								is_centered = sprite.centered
-								if sprite.texture:
-									texture_size = sprite.texture.get_size()
-									if sprite.hframes > 1:
-										texture_size.x = texture_size.x / sprite.hframes
-									if sprite.vframes > 1:
-										texture_size.y = texture_size.y / sprite.vframes
-							
-							# Eğer sprite centered değilse, görsel merkeze getirmek için offset ekle
-							if not is_centered and texture_size != Vector2.ZERO:
-								# Sprite'ın local position'ı zaten global_position'a dahil
-								# Texture boyutunun yarısını ekleyerek merkeze getir
-								spawn_position += Vector2(texture_size.x * 0.5, -texture_size.y * 0.5)
-							
-						else:
-							# Sprite bulunamazsa düşmanın global_position'ını kullan
-							spawn_position = enemy.global_position
-					else:
-						# Enemy is null or invalid, use fallback position
-						spawn_position = global_position
-					
-					# Efektin sprite'ının da merkezini dikkate al (centered = false olduğu için)
-					# Efektin sprite'ı _ready()'de yüklenecek, bu yüzden texture boyutunu tahmin ediyoruz
-					# Hit efektleri genellikle 64x64 veya 128x128 boyutunda
-					# _ready() tamamlandıktan sonra efektin sprite'ının texture boyutunu alıp merkeze getireceğiz
-					
-					
-					# Saldırı türüne göre efekt ve boyut ayarla
-					var effect_data = _get_hit_effect_data()
-					
-					# Sahneye ekle (add_child çağrıldığında _ready() otomatik çağrılır)
-					get_tree().current_scene.add_child(fx)
-					
-					# Setup'ı çağır ve pozisyonu direkt parametre olarak geç
-					fx.setup(Vector2.ZERO, effect_data.scale, effect_data.effect_type, spawn_position)
-					
-					# Pozisyonu _ready() tamamlandıktan sonra ayarla ve efektin sprite merkezini dikkate al
-					fx.call_deferred("_adjust_position_to_center", spawn_position)
-			# Camera shake based on attack type and damage
 			_apply_screen_shake()
-			# Apply player air-combo float on successful hit while airborne (decoy vurursa da player'a yansır)
-			var player_node = get_meta("damage_source") if has_meta("damage_source") else get_parent()
-			if player_node and player_node.get("air_combo_float_timer") != null:
-				player_node.air_combo_float_timer = max(player_node.air_combo_float_timer, player_node.air_combo_float_duration)
-				
-				# Recoil disabled - player no longer gets knockback from hitting enemies
-				# _apply_player_hit_recoil(player_node, area)
-			
-			hit_enemy.emit(area.get_parent())
-			
+			_apply_air_combo_float()
+		# Sadece yerde yatan ceset vurulunca tekmelenme animasyonu (frame 5'ten)
+		if enemy.has_method("is_on_floor") and enemy.is_on_floor():
+			if enemy.has_method("play_corpse_hit_animation"):
+				enemy.play_corpse_hit_animation()
+			else:
+				_play_corpse_death_from_frame(enemy, 5)
+		hit_enemy.emit(enemy)
+		return
+	# Yaşayan düşman: hit stop + screen shake düşman tarafında uygulanıyor (apply_killing_blow_effects)
+	var spawn_position = _get_enemy_effect_position(enemy)
+	var enemy_hit_fx_scene_path = "res://effects/enemy_hit_effect.tscn"
+	if ResourceLoader.exists(enemy_hit_fx_scene_path):
+		var fx_scene = load(enemy_hit_fx_scene_path)
+		if fx_scene:
+			var fx = fx_scene.instantiate()
+			get_tree().current_scene.add_child(fx)
+			var effect_data = _get_hit_effect_data()
+			fx.setup(Vector2.ZERO, effect_data.scale, effect_data.effect_type, spawn_position)
+			fx.call_deferred("_adjust_position_to_center", spawn_position)
+	_apply_air_combo_float()
+	hit_enemy.emit(enemy)
+
+func _get_enemy_effect_position(enemy: Node) -> Vector2:
+	var spawn_position = global_position
+	if not enemy or not is_instance_valid(enemy):
+		return spawn_position
+	var enemy_sprite = enemy.get_node_or_null("AnimatedSprite2D")
+	if not enemy_sprite:
+		enemy_sprite = enemy.get_node_or_null("Sprite2D")
+	if not enemy_sprite or not is_instance_valid(enemy_sprite):
+		return enemy.global_position
+	spawn_position = enemy_sprite.global_position
+	var texture_size = Vector2.ZERO
+	var is_centered = true
+	if enemy_sprite is AnimatedSprite2D:
+		var anim_sprite = enemy_sprite as AnimatedSprite2D
+		is_centered = anim_sprite.centered
+		if anim_sprite.sprite_frames and anim_sprite.animation:
+			var current_texture = anim_sprite.sprite_frames.get_frame_texture(anim_sprite.animation, anim_sprite.frame)
+			if current_texture:
+				texture_size = current_texture.get_size()
+	elif enemy_sprite is Sprite2D:
+		var spr = enemy_sprite as Sprite2D
+		is_centered = spr.centered
+		if spr.texture:
+			texture_size = spr.texture.get_size()
+			if spr.hframes > 1:
+				texture_size.x = texture_size.x / spr.hframes
+			if spr.vframes > 1:
+				texture_size.y = texture_size.y / spr.vframes
+	if not is_centered and texture_size != Vector2.ZERO:
+		spawn_position += Vector2(texture_size.x * 0.5, -texture_size.y * 0.5)
+	return spawn_position
+
+## Ceset vurulunca death animasyonunu frame 5'ten oynat (tekmelenme hissi)
+func _play_corpse_death_from_frame(enemy: Node, start_frame: int) -> void:
+	var spr = enemy.get_node_or_null("AnimatedSprite2D")
+	if not spr or not spr is AnimatedSprite2D:
+		return
+	var anim_sprite = spr as AnimatedSprite2D
+	if not anim_sprite.sprite_frames:
+		return
+	var anim_name = "death" if anim_sprite.sprite_frames.has_animation("death") else ("dead" if anim_sprite.sprite_frames.has_animation("dead") else "")
+	if anim_name.is_empty():
+		return
+	anim_sprite.play(anim_name)
+	var frame_count = anim_sprite.sprite_frames.get_frame_count(anim_name)
+	anim_sprite.frame = mini(start_frame, frame_count - 1) if frame_count > 0 else 0
+
+## Havada düşmana/cesede vurduğunda: kısa donma + kısa asılı kalma (sadece vuruşlar sırasında, takip vuruşu için).
+func _apply_air_combo_float() -> void:
+	var player_node = get_meta("damage_source") if has_meta("damage_source") else null
+	if not player_node or player_node.get("air_hit_freeze_timer") == null:
+		var p = get_parent()
+		while p:
+			if p.get("air_hit_freeze_timer") != null:
+				player_node = p
+				break
+			p = p.get_parent()
+	if not player_node or player_node.get("air_hit_freeze_timer") == null:
+		return
+	if player_node.has_method("is_on_floor") and player_node.is_on_floor():
+		return
+	# Vuruş anında kısa donma
+	if player_node.get("air_hit_freeze_duration") != null:
+		player_node.air_hit_freeze_timer = player_node.air_hit_freeze_duration
+	# Hemen sonra kısa asılı kalma (bir vuruş daha atabilsin diye)
+	if player_node.get("air_combo_float_timer") != null and player_node.get("air_combo_float_duration") != null:
+		player_node.air_combo_float_timer = max(player_node.air_combo_float_timer, player_node.air_combo_float_duration)
+	# Enemy Step tarzı: havada vurduğunda hafif yukarı kalkma (DMC/Bayonetta)
+	if player_node.get("air_hit_lift_velocity") != null and player_node.get("velocity") != null:
+		var lift: float = player_node.air_hit_lift_velocity
+		if player_node.velocity.y > lift:
+			player_node.velocity.y = lift
+
+## Öldürücü vuruşta çağrılır (düşman tarafında); ceset vurulduğunda çağrılmaz.
+func apply_killing_blow_effects(damage_amount: float) -> void:
+	if attack_manager:
+		attack_manager.apply_hitstop(damage_amount)
+	_apply_screen_shake_with_damage(damage_amount)
+
 func _apply_screen_shake():
+	_apply_screen_shake_with_damage(damage)
+
+func _apply_screen_shake_with_damage(dmg: float) -> void:
 	var screen_fx = get_node_or_null("/root/ScreenEffects")
 	if not screen_fx or not screen_fx.has_method("shake"):
 		return
 	
 	# Get hitstop duration based on damage (same logic as AttackManager)
-	var hitstop_duration = _get_hitstop_duration(damage)
+	var hitstop_duration = _get_hitstop_duration(dmg)
 	
 	# Scale shake duration and strength based on hitstop level
 	var shake_duration: float
@@ -297,10 +352,11 @@ func _apply_screen_shake():
 		shake_duration = 0.08
 		shake_strength = 2.0
 	
-	# Apply attack type modifiers for variety
-	var attack_modifier = _get_attack_type_modifier()
-	shake_duration *= attack_modifier.duration
-	shake_strength *= attack_modifier.strength
+	# Apply attack type modifiers for variety (only when we have current_attack_name)
+	if current_attack_name != "":
+		var attack_modifier = _get_attack_type_modifier()
+		shake_duration *= attack_modifier.duration
+		shake_strength *= attack_modifier.strength
 	
 	screen_fx.shake(shake_duration, shake_strength)
 

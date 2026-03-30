@@ -96,6 +96,26 @@ func _trigger_transition() -> void:
 	if not payload_reason.is_empty():
 		payload["reason"] = payload_reason
 	
+	# Zindandan köye değil kampa git (mid-run): run başlamışsa ve oyuncu ölmediyse
+	if destination == "village" and payload_source == "dungeon":
+		var player_stats = get_node_or_null("/root/PlayerStats")
+		var is_dead: bool = false
+		if player_stats:
+			if "current_health" in player_stats:
+				var health = player_stats.get("current_health")
+				if health is float or health is int:
+					is_dead = float(health) <= 0.0
+			elif "health" in player_stats:
+				var health = player_stats.get("health")
+				if health is float or health is int:
+					is_dead = float(health) <= 0.0
+		var drs = get_node_or_null("/root/DungeonRunState")
+		if not is_dead and is_instance_valid(drs) and drs.get("run_started") == true:
+			print("[PortalArea] Dungeon level complete -> Camp (mid-run), not village")
+			SceneManager.change_to_camp(payload)
+			_hold_timer = 0.0
+			return
+	
 	# Check mission status if returning to village
 	if destination == "village":
 		# Note: Resource transfer is now handled in VillageScene._ready() to ensure
@@ -235,6 +255,10 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 		mission_name = "Ölüm"
 		# Store inventory count for death message
 		payload["lost_items_count"] = inventory_count_before_death
+		# Ölümde kurtarılanları köye ekleme; listeyi temizle
+		var drs = get_node_or_null("/root/DungeonRunState")
+		if is_instance_valid(drs) and drs.has_method("clear_pending_rescued"):
+			drs.clear_pending_rescued()
 	# Ormandan köye dönüşte MissionManager'daki "aktif görevler" cariye görevleridir (eskort, baskın vb.);
 	# bunlar oyuncunun ormandan dönmesiyle iptal edilmemeli, atlanıyor.
 	
@@ -245,6 +269,14 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 	
 	# Apply roguelike mechanics AFTER dialog (clear inventory, powerups, reset health)
 	_apply_roguelike_mechanics(is_dead)
+	
+	# Zindandan sağ çıkış: kurtarılanları payload'a ekle (köy sahnesinde uygulanacak)
+	if not is_dead and payload.get("source", "") == "dungeon":
+		var drs = get_node_or_null("/root/DungeonRunState")
+		if is_instance_valid(drs) and drs.has_method("get_and_clear_pending_rescued"):
+			var rescued = drs.get_and_clear_pending_rescued()
+			payload["rescued_villagers"] = rescued.get("villagers", [])
+			payload["rescued_cariyes"] = rescued.get("cariyes", [])
 	
 	# Proceed with transition
 	match destination:

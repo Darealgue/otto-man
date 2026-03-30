@@ -510,7 +510,8 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
 	if sprite:
 		node.z_index = sprite.z_index
-	print("[DecorationSpawner] BREAKABLE ready HP=", node.get_meta("hp", 0), " at ", node.global_position)
+	if DEBUG_DOOR_CHECK:
+		print("[DecorationSpawner] BREAKABLE ready HP=", node.get_meta("hp", 0), " at ", node.global_position)
 
 	# Pot animasyonlarını hazırla (varsa)
 	_setup_pot_animation(node)
@@ -535,18 +536,20 @@ func _is_player_node(n: Node) -> bool:
 
 func _on_gold_collected(body: Node2D, node: Node2D, gold_value: int) -> void:
 	if _is_player_node(body):
-		# print("[DecorationSpawner] Gold collected: %d at %s" % [gold_value, str(node.global_position)])
-		
 		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
 		var scene_manager = get_node_or_null("/root/SceneManager")
 		var is_combat_scene = false
+		var is_dungeon = false
 		if scene_manager:
 			var current_scene = scene_manager.get("current_scene_path")
 			if current_scene:
 				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
 				var forest_scene = scene_manager.get("FOREST_SCENE")
 				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
-		
+				is_dungeon = (current_scene == dungeon_scene)
+		# Zindanda toplanan altın ham değerle yazılır; çarpan sadece köye çıkışta uygulanır
+		# if is_combat_scene and is_dungeon: gold_value = _apply_dungeon_gold_multiplier(gold_value)  # Kaldırıldı
+
 		# Add to dungeon gold if in combat scene, otherwise to global gold
 		if GlobalPlayerData:
 			if is_combat_scene:
@@ -568,6 +571,17 @@ func _on_gold_area_entered(area: Area2D, node: Node2D, gold_value: int) -> void:
 	var owner: Node = area.get_parent()
 	if owner and _is_player_node(owner):
 		_on_gold_collected(owner, node, gold_value)
+
+func _apply_dungeon_gold_multiplier(base_value: int) -> int:
+	var lg = get_tree().get_first_node_in_group("level_generator")
+	if not lg or not lg.get("level_config"):
+		return base_value
+	var cfg = lg.get("level_config")
+	var lvl: int = int(lg.get("current_level"))
+	if not cfg.has_method("get_gold_multiplier"):
+		return base_value
+	var mult: float = cfg.get_gold_multiplier(lvl)
+	return maxi(1, int(floorf(float(base_value) * mult)))
 
 # Hitbox çarpınca kırılabilir objeye hasar uygula
 func _on_breakable_area_entered(area: Area2D, node: Node2D) -> void:
@@ -986,21 +1000,23 @@ func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
 		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
 		var scene_manager = get_node_or_null("/root/SceneManager")
 		var is_combat_scene = false
+		var is_dungeon = false
 		if scene_manager:
 			var current_scene = scene_manager.get("current_scene_path")
 			if current_scene:
 				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
 				var forest_scene = scene_manager.get("FOREST_SCENE")
 				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
-		
+				is_dungeon = (current_scene == dungeon_scene)
+		# Zindanda toplanan altın ham değerle yazılır; çarpan sadece köye çıkışta uygulanır
+		# if is_combat_scene and is_dungeon: gold_value = _apply_dungeon_gold_multiplier(gold_value)  # Kaldırıldı
+
 		# Add to dungeon gold if in combat scene, otherwise to global gold
 		if GlobalPlayerData:
 			if is_combat_scene:
 				GlobalPlayerData.add_dungeon_gold(gold_value)
 			else:
 				GlobalPlayerData.add_gold(gold_value)
-		
-		# print("[DecorationSpawner] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 		_create_collection_effect(coin.global_position)
 		
 		# Disconnect signals to prevent further collection attempts
@@ -1170,33 +1186,40 @@ var last_spawned_decoration: Node2D = null
 func get_last_spawned_decoration() -> Node2D:
 	return last_spawned_decoration
 
+const DEBUG_DOOR_CHECK: bool = false
+
 func _is_near_door(spawn_position: Vector2) -> bool:
 	# YENİ YAKLAŞIM: Tile-based kontrol - mesafe değil, tile pozisyonu!
 	var spawner_tile_x = int(spawn_position.x / 32)
 	var spawner_tile_y = int(spawn_position.y / 32)
 	
-	print("[DoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
+	if DEBUG_DOOR_CHECK:
+		print("[DoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
 	
 	# Sahnedeki tüm kapıları bul
 	var doors = get_tree().get_nodes_in_group("doors")
-	print("[DoorCheck] Found doors in group: ", doors.size())
+	if DEBUG_DOOR_CHECK:
+		print("[DoorCheck] Found doors in group: ", doors.size())
 	
 	for door in doors:
 		if door and is_instance_valid(door):
 			var door_tile_x = int(door.global_position.x / 32)
 			var door_tile_y = int(door.global_position.y / 32)
 			
-			print("[DoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
+			if DEBUG_DOOR_CHECK:
+				print("[DoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
 			
 			# 10 tile mesafe kontrolü (320 pixel)
 			var tile_distance_x = abs(spawner_tile_x - door_tile_x)
 			var tile_distance_y = abs(spawner_tile_y - door_tile_y)
 			
-			print("[DoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
+			if DEBUG_DOOR_CHECK:
+				print("[DoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
 			
 			# Kapının tam önünde mi kontrol et (X mesafesi çok küçük)
 			if tile_distance_x <= 1 and tile_distance_y <= 5:
-				print("[DoorCheck] TOO CLOSE! Directly in front of door!")
+				if DEBUG_DOOR_CHECK:
+					print("[DoorCheck] TOO CLOSE! Directly in front of door!")
 				return true
 			
 			# Banner1 için daha gevşek kontrol (3 tile), diğerleri için 5 tile
@@ -1208,10 +1231,12 @@ func _is_near_door(spawn_position: Vector2) -> bool:
 			
 			# Genel mesafe kontrolü
 			if tile_distance_x <= max_distance or tile_distance_y <= max_distance:
-				print("[DoorCheck] TOO CLOSE! Within ", max_distance, " tiles of door!")
+				if DEBUG_DOOR_CHECK:
+					print("[DoorCheck] TOO CLOSE! Within ", max_distance, " tiles of door!")
 				return true
 	
-	print("[DoorCheck] Safe distance from all doors")
+	if DEBUG_DOOR_CHECK:
+		print("[DoorCheck] Safe distance from all doors")
 	return false
 
 func _is_near_door_banner(spawn_position: Vector2) -> bool:
@@ -1219,35 +1244,42 @@ func _is_near_door_banner(spawn_position: Vector2) -> bool:
 	var spawner_tile_x = int(spawn_position.x / 32)
 	var spawner_tile_y = int(spawn_position.y / 32)
 	
-	print("[BannerDoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
+	if DEBUG_DOOR_CHECK:
+		print("[BannerDoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
 	
 	# Sahnedeki tüm kapıları bul
 	var doors = get_tree().get_nodes_in_group("doors")
-	print("[BannerDoorCheck] Found doors in group: ", doors.size())
+	if DEBUG_DOOR_CHECK:
+		print("[BannerDoorCheck] Found doors in group: ", doors.size())
 	
 	for door in doors:
 		if door and is_instance_valid(door):
 			var door_tile_x = int(door.global_position.x / 32)
 			var door_tile_y = int(door.global_position.y / 32)
 			
-			print("[BannerDoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
+			if DEBUG_DOOR_CHECK:
+				print("[BannerDoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
 			
 			var tile_distance_x = abs(spawner_tile_x - door_tile_x)
 			var tile_distance_y = abs(spawner_tile_y - door_tile_y)
 			
-			print("[BannerDoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
+			if DEBUG_DOOR_CHECK:
+				print("[BannerDoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
 			
 			# Banner1 için sadece kapının tam önünde olmasını engelle (1 tile)
 			if tile_distance_x <= 1 and tile_distance_y <= 2:
-				print("[BannerDoorCheck] TOO CLOSE! Directly in front of door!")
+				if DEBUG_DOOR_CHECK:
+					print("[BannerDoorCheck] TOO CLOSE! Directly in front of door!")
 				return true
 			
 			# Banner1 için çok gevşek kontrol (sadece 2 tile)
 			if tile_distance_x <= 2 or tile_distance_y <= 2:
-				print("[BannerDoorCheck] TOO CLOSE! Within 2 tiles of door!")
+				if DEBUG_DOOR_CHECK:
+					print("[BannerDoorCheck] TOO CLOSE! Within 2 tiles of door!")
 				return true
 	
-	print("[BannerDoorCheck] Safe distance from all doors")
+	if DEBUG_DOOR_CHECK:
+		print("[BannerDoorCheck] Safe distance from all doors")
 	return false
 
 func _find_doors_in_scene() -> Array:

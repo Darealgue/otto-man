@@ -1,6 +1,8 @@
 class_name EnemyHurtbox
 extends BaseHurtbox
 
+const DEBUG_ENEMY_HURTBOX: bool = false
+
 var slam_hit_cooldown := 0.5  # Longer cooldown for slam attacks
 
 func _ready():
@@ -37,7 +39,8 @@ func _on_area_entered(hitbox: Area2D):
 	# Debug: log incoming hit
 	var enemy_name = get_parent().name if get_parent() != null else name
 	var dmg = hitbox.get_damage() if hitbox.has_method("get_damage") else -1
-	print("[EnemyHurtbox:", enemy_name, "] hit by=", hitbox.name, " dmg=", dmg, " layer=", hitbox.collision_layer, " mask=", hitbox.collision_mask)
+	if DEBUG_ENEMY_HURTBOX:
+		print("[EnemyHurtbox:", enemy_name, "] hit by=", hitbox.name, " dmg=", dmg, " layer=", hitbox.collision_layer, " mask=", hitbox.collision_mask)
 	
 	# Emit hurt signal
 	# print("[EnemyHurtbox] Emitting hurt signal for: ", enemy_name)

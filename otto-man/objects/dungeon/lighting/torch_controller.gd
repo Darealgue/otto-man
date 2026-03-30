@@ -1,6 +1,8 @@
 extends Node2D
 class_name TorchController
 
+const DEBUG_TORCH: bool = false
+
 @export var light_intensity_min: float = 0.5
 @export var light_intensity_max: float = 1.5
 @export var flicker_speed: float = 0.8
@@ -32,16 +34,20 @@ func _ready():
 	if point_light:
 		base_energy = point_light.energy
 		base_texture_scale = point_light.texture_scale
-		print("[TorchController] Found PointLight2D with base energy: ", base_energy, " base scale: ", base_texture_scale)
+		if DEBUG_TORCH:
+			print("[TorchController] Found PointLight2D with base energy: ", base_energy, " base scale: ", base_texture_scale)
 	else:
-		print("[TorchController] Warning: No PointLight2D found!")
+		if DEBUG_TORCH:
+			print("[TorchController] Warning: No PointLight2D found!")
 	
 	if animated_sprite:
 		# Start the animation
 		animated_sprite.play("idle")
-		print("[TorchController] Started torch animation")
+		if DEBUG_TORCH:
+			print("[TorchController] Started torch animation")
 	else:
-		print("[TorchController] Warning: No AnimatedSprite2D found!")
+		if DEBUG_TORCH:
+			print("[TorchController] Warning: No AnimatedSprite2D found!")
 
 func _process(delta):
 	time += delta

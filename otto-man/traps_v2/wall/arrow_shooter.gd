@@ -7,6 +7,8 @@ class_name ArrowShooterV2
 ##   right_wall → shoots LEFT
 ## 1 tile size (32x32), placed on wall tiles.
 
+const DEBUG_TRAP: bool = false
+
 const ARROW_SCENE_PATH := "res://traps_v2/wall/arrow_projectile.tscn"
 
 @export var fire_interval: float = 2.5
@@ -80,8 +82,9 @@ func _on_initialized() -> void:
 			_active_sprite.play("idle_right")
 		elif _active_sprite.sprite_frames.has_animation("idle"):
 			_active_sprite.play("idle")
-
-	print("[ArrowShooterV2] Direction set: %s (surface: %s)" % [_shoot_direction, TrapConfigV2.SurfaceType.keys()[surface_type]])
+	
+	if DEBUG_TRAP:
+		print("[ArrowShooterV2] Direction set: %s (surface: %s)" % [_shoot_direction, TrapConfigV2.SurfaceType.keys()[surface_type]])
 
 func _fire() -> void:
 	if is_sleeping:

@@ -2,6 +2,8 @@ extends Node
 
 # Görev yöneticisi - autoload singleton
 
+const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
+
 # Görevler ve cariyeler
 var missions: Dictionary = {}
 var concubines: Dictionary = {}
@@ -94,11 +96,11 @@ func _initialize():
 	# Kullanılan isimleri sıfırla
 	_used_names.clear()
 	
-	# Başlangıç görevleri ve cariyeler oluştur (sadece yoksa - save'den yüklenmemişse)
+	# Başlangıç görevleri oluştur (sadece yoksa - save'den yüklenmemişse)
+	# NOT: Artık yeni oyunda otomatik başlangıç cariyesi yok; köy 3 işçi + 0 cariye ile başlar.
 	# SaveManager load işlemi _initialize()'dan önce çağrılırsa concubines dolu olabilir
 	if concubines.is_empty():
 		create_initial_missions()
-		create_initial_concubines()
 	else:
 		# Yüklenen cariyelerin isimlerini kullanılan listesine ekle
 		for cariye in concubines.values():
@@ -302,6 +304,41 @@ func create_random_concubine() -> Concubine:
 	cariye.appearance = AppearanceDB.generate_random_concubine_appearance()
 	
 	return cariye
+
+## Zindandan kurtarılan cariyeyi MissionManager'a ekler (köy sahnesinde spawn + save için).
+## cariye_data: { isim, leverage?, appearance (VillagerAppearance veya dict) }
+## Döndürür: yeni cariye id (VillageManager.add_cariye_with_id ile senkron için).
+func add_concubine_from_rescue(cariye_data: Dictionary) -> int:
+	var cariye = Concubine.new()
+	cariye.id = next_concubine_id
+	next_concubine_id += 1
+	cariye.name = cariye_data.get("isim", "İsimsiz")
+	cariye.level = 1
+	cariye.experience = 0
+	cariye.max_experience = 100
+	var all_skills = [
+		Concubine.Skill.SAVAŞ,
+		Concubine.Skill.DİPLOMASİ,
+		Concubine.Skill.TİCARET,
+		Concubine.Skill.BÜROKRASİ,
+		Concubine.Skill.KEŞİF
+	]
+	for skill in all_skills:
+		cariye.skills[skill] = 50
+	if cariye_data.has("appearance"):
+		var app = cariye_data["appearance"]
+		if app is Dictionary and app.size() > 0:
+			cariye.appearance = VillagerAppearance.new()
+			if cariye.appearance.has_method("from_dict"):
+				cariye.appearance.from_dict(app)
+		elif is_instance_of(app, VillagerAppearance):
+			cariye.appearance = app
+	if cariye.appearance == null:
+		cariye.appearance = AppearanceDB.generate_random_concubine_appearance()
+	if cariye.name in CONCUBINE_NAMES and not cariye.name in _used_names:
+		_used_names.append(cariye.name)
+	concubines[cariye.id] = cariye
+	return cariye.id
 
 # Başlangıç cariyeler oluştur (rastgele)
 func create_initial_concubines():

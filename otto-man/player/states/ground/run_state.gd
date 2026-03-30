@@ -1,6 +1,8 @@
 extends "../state.gd"
 
 func enter():
+	# Önceki state (air attack vb.) speed_scale bırakmış olabilir; koşu her zaman 1.0
+	animation_player.speed_scale = 1.0
 	animation_player.play("run")
 
 func physics_update(delta: float):

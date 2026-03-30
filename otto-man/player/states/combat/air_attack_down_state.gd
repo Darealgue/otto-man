@@ -70,15 +70,37 @@ func update(delta: float):
 		state_machine.transition_to("Fall")
 		return
 	
-	# Normal air attack hareket sistemi kullan
-	_handle_movement(delta)
-	
 	# Hitbox kontrolü ve pozisyon güncelleme
 	_update_hitbox()
 	
 	# Hitbox aktifse pozisyonunu güncelle (yön değişiklikleri için)
 	if hitbox_enabled:
 		_update_hitbox_position()
+
+func physics_update(delta: float) -> void:
+	# Movement + gravity must run in physics for consistent feel.
+	if get_tree().paused:
+		return
+	
+	_handle_movement(delta)
+	
+	if not player.is_on_floor():
+		if player.get("air_hit_freeze_timer") != null and player.air_hit_freeze_timer > 0.0:
+			player.velocity.y = 0.0
+		else:
+			var gravity_multiplier: float = player.calculate_hollow_knight_gravity()
+			if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+				gravity_multiplier *= player.air_combo_gravity_scale
+			if player.velocity.y > 0 and Input.is_action_pressed("jump") and has_node("/root/ItemManager") and ItemManager.has_active_item("havada_kal"):
+				gravity_multiplier *= 0.28
+			player.velocity.y += player.gravity * gravity_multiplier * delta
+			var max_fall = player.max_fall_speed
+			if player.get("air_combo_float_timer") != null and player.air_combo_float_timer > 0.0:
+				max_fall = min(max_fall, player.air_combo_max_fall_speed)
+			if player.velocity.y > max_fall:
+				player.velocity.y = max_fall
+	
+	player.apply_move_and_slide()
 
 func _update_hitbox():
 	if not animation_player.has_animation(current_attack):
@@ -140,6 +162,9 @@ func exit():
 	if animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.animation_finished.disconnect(_on_animation_finished)
 	
+	# Koşu animasyonu hızlanma bug'ını önle: speed_scale sıfırla
+	animation_player.speed_scale = 1.0
+	
 	if hitbox_enabled:
 		var hitbox = player.get_node_or_null("Hitbox")
 		if hitbox and hitbox is PlayerHitbox:
@@ -171,9 +196,7 @@ func _handle_movement(delta: float) -> void:
 	# Update player facing direction if moving
 	if input_dir_x != 0:
 		player.sprite.flip_h = input_dir_x < 0
-	
-	# Apply movement
-	player.apply_move_and_slide()
+	# NOTE: movement is applied in physics_update()
 
 func _update_hitbox_position():
 	var hitbox = player.get_node_or_null("Hitbox")

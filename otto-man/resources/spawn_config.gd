@@ -1,7 +1,8 @@
 extends Resource
 class_name SpawnConfig
 
-# Spawn point activation rules per chunk type
+# Spawn point activation rules per chunk type (1–9 seviye: 1. seviye hafif, ilerledikçe artar)
+const DEBUG_SPAWN_CONFIG: bool = false
 const CHUNK_SPAWN_RULES = {
 	"basic": {
 		1: { "min_spawns": 1, "max_spawns": 2 },
@@ -14,9 +15,15 @@ const CHUNK_SPAWN_RULES = {
 		5: { "min_spawns": 3, "max_spawns": 5 }
 	},
 	"dungeon": {
-		1: { "min_spawns": 6, "max_spawns": 12 },  # Much more spawns for basic enemies - fill rooms!
-		3: { "min_spawns": 8, "max_spawns": 15 },
-		5: { "min_spawns": 10, "max_spawns": 18 }
+		1: { "min_spawns": 2, "max_spawns": 5 },
+		2: { "min_spawns": 3, "max_spawns": 6 },
+		3: { "min_spawns": 4, "max_spawns": 8 },
+		4: { "min_spawns": 5, "max_spawns": 10 },
+		5: { "min_spawns": 6, "max_spawns": 12 },
+		6: { "min_spawns": 7, "max_spawns": 14 },
+		7: { "min_spawns": 8, "max_spawns": 15 },
+		8: { "min_spawns": 9, "max_spawns": 16 },
+		9: { "min_spawns": 10, "max_spawns": 18 }
 	}
 }
 
@@ -81,7 +88,7 @@ const SUMMONER_SCALING = {
 	5: { "max_summons": 3, "summon_interval": 3.0 }
 }
 
-# Dungeon-specific enemy weights (basic enemies dominate - they're the cannon fodder)
+# Dungeon-specific enemy weights (1–9: seviye 1 çoğunlukla basic, ilerledikçe çeşit artar)
 const DUNGEON_ENEMY_WEIGHTS = {
 	1: {
 		"turtle": 5,
@@ -91,7 +98,7 @@ const DUNGEON_ENEMY_WEIGHTS = {
 		"canonman": 8,
 		"firemage": 0,
 		"spearman": 5,
-		"basic": 150  # VERY high weight - basic enemies should dominate dungeon level 1
+		"basic": 150
 	},
 	2: {
 		"turtle": 5,
@@ -101,7 +108,7 @@ const DUNGEON_ENEMY_WEIGHTS = {
 		"canonman": 10,
 		"firemage": 5,
 		"spearman": 10,
-		"basic": 120  # Still very high - basic enemies are the main threat
+		"basic": 120
 	},
 	3: {
 		"turtle": 8,
@@ -111,7 +118,7 @@ const DUNGEON_ENEMY_WEIGHTS = {
 		"canonman": 12,
 		"firemage": 10,
 		"spearman": 10,
-		"basic": 100  # High weight - basic enemies still common
+		"basic": 100
 	},
 	4: {
 		"turtle": 5,
@@ -121,7 +128,7 @@ const DUNGEON_ENEMY_WEIGHTS = {
 		"canonman": 15,
 		"firemage": 15,
 		"spearman": 8,
-		"basic": 80  # Still high but more balanced
+		"basic": 80
 	},
 	5: {
 		"turtle": 3,
@@ -131,7 +138,47 @@ const DUNGEON_ENEMY_WEIGHTS = {
 		"canonman": 15,
 		"firemage": 15,
 		"spearman": 8,
-		"basic": 60  # Less dominant but still common
+		"basic": 60
+	},
+	6: {
+		"turtle": 3,
+		"heavy": 10,
+		"flying": 14,
+		"summoner": 18,
+		"canonman": 16,
+		"firemage": 18,
+		"spearman": 10,
+		"basic": 50
+	},
+	7: {
+		"turtle": 2,
+		"heavy": 10,
+		"flying": 16,
+		"summoner": 20,
+		"canonman": 18,
+		"firemage": 20,
+		"spearman": 10,
+		"basic": 40
+	},
+	8: {
+		"turtle": 2,
+		"heavy": 12,
+		"flying": 18,
+		"summoner": 22,
+		"canonman": 20,
+		"firemage": 22,
+		"spearman": 12,
+		"basic": 35
+	},
+	9: {
+		"turtle": 2,
+		"heavy": 12,
+		"flying": 20,
+		"summoner": 25,
+		"canonman": 22,
+		"firemage": 25,
+		"spearman": 12,
+		"basic": 30
 	}
 }
 
@@ -212,28 +259,35 @@ func select_enemy_type(level: int, chunk_type: String = "basic") -> String:
 	var weights: Dictionary
 	if chunk_type == "dungeon":
 		weights = get_dungeon_enemy_weights(level)
-		print("[SpawnConfig] Using dungeon weights for level ", level, ": ", weights)
+		if DEBUG_SPAWN_CONFIG:
+			print("[SpawnConfig] Using dungeon weights for level ", level, ": ", weights)
 	else:
 		weights = get_enemy_weights(level)
-		print("[SpawnConfig] Using regular weights for level ", level, ": ", weights)
+		if DEBUG_SPAWN_CONFIG:
+			print("[SpawnConfig] Using regular weights for level ", level, ": ", weights)
 	
 	var total_weight = 0
 	for weight in weights.values():
 		total_weight += weight
 	
-	print("[SpawnConfig] Total weight: ", total_weight)
+	if DEBUG_SPAWN_CONFIG:
+		print("[SpawnConfig] Total weight: ", total_weight)
 	
 	var roll = randf_range(0, total_weight)
 	var current_weight = 0
 	
-	print("[SpawnConfig] Roll: ", roll)
+	if DEBUG_SPAWN_CONFIG:
+		print("[SpawnConfig] Roll: ", roll)
 	
 	for enemy_type in weights:
 		current_weight += weights[enemy_type]
-		print("[SpawnConfig] Checking ", enemy_type, " (weight: ", weights[enemy_type], ", current: ", current_weight, ")")
+		if DEBUG_SPAWN_CONFIG:
+			print("[SpawnConfig] Checking ", enemy_type, " (weight: ", weights[enemy_type], ", current: ", current_weight, ")")
 		if roll <= current_weight:
-			print("[SpawnConfig] Selected: ", enemy_type)
+			if DEBUG_SPAWN_CONFIG:
+				print("[SpawnConfig] Selected: ", enemy_type)
 			return enemy_type
 	
-	print("[SpawnConfig] Fallback to heavy")
+	if DEBUG_SPAWN_CONFIG:
+		print("[SpawnConfig] Fallback to heavy")
 	return "heavy"  # Fallback to heavy enemy 
