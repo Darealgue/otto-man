@@ -153,10 +153,87 @@ func enable():
 		get_node("CollisionShape2D").debug_color = Color(0, 1, 0, 0.5)  # Green when active
 		
 
+func _enemy_is_dead(enemy: Node) -> bool:
+	if not is_instance_valid(enemy):
+		return true
+	if enemy.get("current_behavior") == "dead":
+		return true
+	if enemy.get("health") != null and float(enemy.health) <= 0.0:
+		return true
+	return false
+
+
+## Oyuncuya göre yakınlık (vuruş alanı çoğu zaman önde; "bana yakın" hissi için karakter merkezi).
+func _hit_priority_anchor() -> Vector2:
+	var p := get_parent()
+	if p is Node2D:
+		return (p as Node2D).global_position
+	return global_position
+
+
+func _distance_squared_to_anchor(hb: Area2D) -> float:
+	return hb.global_position.distance_squared_to(_hit_priority_anchor())
+
+
+func _is_enemy_hurtbox_candidate(a: Area2D) -> bool:
+	if a.is_in_group("hurtbox"):
+		return true
+	var p := a.get_parent()
+	return is_instance_valid(p) and p.is_in_group("enemies")
+
+
+func _living_hurtboxes_nearest_first(overlapping: Array) -> Array[Area2D]:
+	var living: Array[Area2D] = []
+	for a in overlapping:
+		if not a is Area2D:
+			continue
+		var area2d := a as Area2D
+		if not _is_enemy_hurtbox_candidate(area2d):
+			continue
+		var en: Node = area2d.get_parent()
+		if not is_instance_valid(en):
+			continue
+		if _enemy_is_dead(en):
+			continue
+		living.append(area2d)
+	living.sort_custom(func(a: Area2D, b: Area2D) -> bool:
+		return _distance_squared_to_anchor(a) < _distance_squared_to_anchor(b)
+	)
+	return living
+
+
 ## Returns true if this hurtbox/enemy is allowed to take the hit (up to max_targets_per_attack).
+## Ölü düşmanlar kotaya sayılmaz. Yaşayanlarda area_entered sırası önemsiz: örtüşenler arasından
+## oyuncuya en yakın (max_targets kadar) hedef kabul edilir; uzaktaki yanlışlıkla önce sinyal verse bile reddedilir.
 func try_register_hit(hurtbox: Area2D) -> bool:
 	var enemy = hurtbox.get_parent() if hurtbox else null
 	if not is_instance_valid(enemy):
+		return false
+	if _enemy_is_dead(enemy):
+		return true
+	# Aynı frame'de hurtbox sinyali geldiğinde hitbox tarafında overlap listesi bazen henüz dolmuyor;
+	# çağıran hurtbox'ı mutlaka aday listesine ekle (aksi halde hasar hiç uygulanmıyordu).
+	var areas: Array[Area2D] = []
+	for x in get_overlapping_areas():
+		if x is Area2D:
+			areas.append(x as Area2D)
+	var caller_included := false
+	for x in areas:
+		if x == hurtbox:
+			caller_included = true
+			break
+	if not caller_included:
+		areas.append(hurtbox)
+	var living_sorted := _living_hurtboxes_nearest_first(areas)
+	if living_sorted.is_empty():
+		return false
+	var take_n: int = mini(max_targets_per_attack, living_sorted.size())
+	var in_topk := false
+	for i in range(take_n):
+		if living_sorted[i] == hurtbox:
+			in_topk = true
+			break
+	if not in_topk:
 		return false
 	var eid = enemy.get_instance_id()
 	if eid in _registered_hit_target_ids:
@@ -177,12 +254,30 @@ func disable():
 		get_node("CollisionShape2D").debug_color = Color(1, 0, 0, 0.5)  # Red when disabled
 		
 
-## Tüm overlap eden hurtbox'lardan en iyi hedefi seç: yaşayan düşman öncelikli.
+func _nearest_hurtbox_in(candidates: Array[Area2D]) -> Area2D:
+	if candidates.is_empty():
+		return null
+	var best: Area2D = candidates[0]
+	var best_d2: float = _distance_squared_to_anchor(best)
+	for i in range(1, candidates.size()):
+		var hb: Area2D = candidates[i]
+		var d2 := _distance_squared_to_anchor(hb)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = hb
+	return best
+
+
+## Tüm overlap eden hurtbox'lardan en iyi hedefi seç: yaşayan düşman öncelikli, sonra vuruşa en yakın.
 func _pick_best_hurtbox_target(overlapping: Array) -> Area2D:
 	var hurtboxes: Array[Area2D] = []
 	for a in overlapping:
-		if a.is_in_group("hurtbox"):
-			hurtboxes.append(a)
+		if not a is Area2D:
+			continue
+		var area2d := a as Area2D
+		if not _is_enemy_hurtbox_candidate(area2d):
+			continue
+		hurtboxes.append(area2d)
 	if hurtboxes.is_empty():
 		return null
 	var living: Array[Area2D] = []
@@ -191,15 +286,14 @@ func _pick_best_hurtbox_target(overlapping: Array) -> Area2D:
 		var enemy = hb.get_parent() if hb else null
 		if not is_instance_valid(enemy):
 			continue
-		var is_dead = enemy.get("current_behavior") == "dead" or (enemy.get("health") != null and enemy.health <= 0)
-		if is_dead:
+		if _enemy_is_dead(enemy):
 			corpses.append(hb)
 		else:
 			living.append(hb)
 	if not living.is_empty():
-		return living[0]
+		return _nearest_hurtbox_in(living)
 	if not corpses.is_empty():
-		return corpses[0]
+		return _nearest_hurtbox_in(corpses)
 	return null
 
 func _on_area_entered(area: Area2D) -> void:
@@ -217,14 +311,15 @@ func _on_area_entered(area: Area2D) -> void:
 	if has_method("try_register_hit") and not try_register_hit(best_hurtbox):
 		return
 	has_hit_enemy = true
-	var is_corpse = enemy.get("current_behavior") == "dead" or (enemy.get("health") != null and enemy.health <= 0)
-	if is_corpse:
+	if _enemy_is_dead(enemy):
 		# Havada ölü (punching bag): hit stop + screen shake + kısa havada asılı kalma (Street Fighter tarzı)
 		if not (enemy.has_method("is_on_floor") and enemy.is_on_floor()):
 			if attack_manager:
 				attack_manager.apply_hitstop(damage)
 			_apply_screen_shake()
-			_apply_air_combo_float()
+			# Fall attack bounce + impact fall_attack_state'te; air_hit_freeze burada velocity'yi sıfırlayıp asılı bırakıyordu
+			if current_attack_name != "fall_attack":
+				_apply_air_combo_float()
 		# Sadece yerde yatan ceset vurulunca tekmelenme animasyonu (frame 5'ten)
 		if enemy.has_method("is_on_floor") and enemy.is_on_floor():
 			if enemy.has_method("play_corpse_hit_animation"):
@@ -244,7 +339,8 @@ func _on_area_entered(area: Area2D) -> void:
 			var effect_data = _get_hit_effect_data()
 			fx.setup(Vector2.ZERO, effect_data.scale, effect_data.effect_type, spawn_position)
 			fx.call_deferred("_adjust_position_to_center", spawn_position)
-	_apply_air_combo_float()
+	if current_attack_name != "fall_attack":
+		_apply_air_combo_float()
 	hit_enemy.emit(enemy)
 
 func _get_enemy_effect_position(enemy: Node) -> Vector2:

@@ -48,8 +48,8 @@ func _process(_delta: float) -> void:
 	if not _player_in_range or _opening:
 		_hold_timer = 0.0
 		return
-	# Oyuncu yukarı / portal tuşuna BASILI tutuyor mu?
-	if InputManager.is_portal_enter_pressed():
+	# Sadece yukarı (ui_up); portal_enter interact içerdiği için zıplama (Space/ui_forward) ile çakışıyordu
+	if InputManager.is_ui_up_pressed():
 		_hold_timer += _delta
 		if _hold_timer >= hold_time_required:
 			_start_open()

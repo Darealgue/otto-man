@@ -59,11 +59,8 @@ func _initialize_door() -> void:
 		_open_door_immediately()
 
 func _process(_delta: float) -> void:
-	# Handle interaction input
-	if is_player_in_range and (
-		InputManager.is_interact_just_pressed()
-		or InputManager.is_portal_enter_just_pressed()
-	):
+	# Sadece ui_up (W / yön tuşu yukarı); interact Space/ui_forward ile zıplama çakışmasın
+	if is_player_in_range and InputManager.is_ui_up_just_pressed():
 		_interact_with_door()
 
 func _on_area_entered(area: Area2D) -> void:
@@ -86,7 +83,7 @@ func _player_entered_range() -> void:
 	is_player_in_range = true
 	if interaction_prompt:
 		interaction_prompt.visible = true
-		interaction_prompt.text = "E - Etkileşim"
+		interaction_prompt.text = "↑ Yukarı"
 
 func _player_exited_range() -> void:
 	is_player_in_range = false
@@ -124,7 +121,7 @@ func _handle_locked_door() -> void:
 		interaction_prompt.text = "Kilitli!"
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
-			interaction_prompt.text = "E - Etkileşim"
+			interaction_prompt.text = "↑ Yukarı"
 
 func _handle_missing_key() -> void:
 	print("Door requires key: ", key_id)
@@ -135,7 +132,7 @@ func _handle_missing_key() -> void:
 		interaction_prompt.text = "Anahtar gerekli!"
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
-			interaction_prompt.text = "E - Etkileşim"
+			interaction_prompt.text = "↑ Yukarı"
 
 func _handle_boss_door_locked() -> void:
 	print("Boss door is locked! Defeat the boss first.")
@@ -146,7 +143,7 @@ func _handle_boss_door_locked() -> void:
 		interaction_prompt.text = "Boss'u yen!"
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
-			interaction_prompt.text = "E - Etkileşim"
+			interaction_prompt.text = "↑ Yukarı"
 
 func _has_required_key() -> bool:
 	# TODO: Implement key checking logic
@@ -220,7 +217,7 @@ func _close_door() -> void:
 	
 	# Update interaction prompt
 	if interaction_prompt and is_player_in_range:
-		interaction_prompt.text = "E - Etkileşim"
+		interaction_prompt.text = "↑ Yukarı"
 
 func _update_door_appearance() -> void:
 	if not sprite:

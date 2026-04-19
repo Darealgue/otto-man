@@ -24,6 +24,10 @@ signal player_took_damage(amount: float, attacker: Node2D)  # Hasar yediğinde (
 signal nazar_shield_consumed  # Nazar Boncuğu: ilk hasar bloklandı, cooldown başlasın
 
 const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
+const BLOOD_PARTICLE_SCENE := preload("res://effects/blood_particle.tscn")
+const BLOOD_SPLATTER_SCENE := preload("res://effects/blood_splatter.tscn")
+## Sprite2D sahne varsayılanı (player.tscn). Fall attack squash/offset veya yarım kalan animasyon takılınca ayak hizası bozulmasın.
+const SPRITE_DEFAULT_LOCAL_POSITION := Vector2(1, -48)
 
 @export var speed: float = 400.0
 @export var jump_velocity: float = -600.0  # Changed to -600 for higher jump
@@ -690,6 +694,12 @@ func enable_double_jump():
 	can_double_jump = true
 	has_double_jumped = false
 
+func reset_sprite_visual_to_default() -> void:
+	if not sprite:
+		return
+	sprite.position = SPRITE_DEFAULT_LOCAL_POSITION
+	sprite.scale = Vector2.ONE
+
 # Fall attack bounce is handled in fall_attack_state.gd
 # No need for these functions here
 
@@ -716,12 +726,42 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 			player_stats.lose_resources_on_damage()
 			if has_signal("player_took_damage"):
 				emit_signal("player_took_damage", amount, attacker)
+			_spawn_player_blood_particles(amount, attacker)
 
 func heal(amount: float):
 	var player_stats = get_node("/root/PlayerStats")
 	if player_stats:
 		var current_health = player_stats.get_current_health()
 		player_stats.set_current_health(current_health + amount)
+
+
+func _spawn_player_blood_particles(damage_amount: float, attacker: Node2D = null) -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	var scene_root: Node = tree.current_scene
+	if scene_root == null:
+		return
+	var hit_direction := Vector2.RIGHT
+	if attacker is Node2D and is_instance_valid(attacker):
+		hit_direction = (global_position - (attacker as Node2D).global_position).normalized()
+	elif last_hit_position != Vector2.ZERO:
+		hit_direction = (global_position - last_hit_position).normalized()
+	else:
+		hit_direction = Vector2(randf_range(-1.0, 1.0), randf_range(0.15, 1.0)).normalized()
+	if hit_direction == Vector2.ZERO:
+		hit_direction = Vector2.RIGHT
+	var particle_count: int = int(clampf(damage_amount / 5.0, 2.0, 5.0))
+	for _i in particle_count:
+		var particle: Node = BLOOD_PARTICLE_SCENE.instantiate()
+		scene_root.add_child(particle)
+		particle.global_position = global_position + Vector2(randf_range(-14.0, 14.0), randf_range(-22.0, 10.0))
+		if particle.has_method("set_blood_splatter_scene"):
+			particle.call("set_blood_splatter_scene", BLOOD_SPLATTER_SCENE)
+		if particle.has_method("set_hit_direction"):
+			particle.call("set_hit_direction", hit_direction)
+		if particle.has_method("set_damage_amount"):
+			particle.call("set_damage_amount", damage_amount)
 
 func is_moving_away_from_wall() -> bool:
 	var input_dir = InputManager.get_flattened_axis(&"left", &"right")

@@ -88,99 +88,10 @@ const SUMMONER_SCALING = {
 	5: { "max_summons": 3, "summon_interval": 3.0 }
 }
 
-# Dungeon-specific enemy weights (1–9: seviye 1 çoğunlukla basic, ilerledikçe çeşit artar)
-const DUNGEON_ENEMY_WEIGHTS = {
-	1: {
-		"turtle": 5,
-		"heavy": 5,
-		"flying": 5,
-		"summoner": 0,
-		"canonman": 8,
-		"firemage": 0,
-		"spearman": 5,
-		"basic": 150
-	},
-	2: {
-		"turtle": 5,
-		"heavy": 8,
-		"flying": 8,
-		"summoner": 0,
-		"canonman": 10,
-		"firemage": 5,
-		"spearman": 10,
-		"basic": 120
-	},
-	3: {
-		"turtle": 8,
-		"heavy": 10,
-		"flying": 10,
-		"summoner": 8,
-		"canonman": 12,
-		"firemage": 10,
-		"spearman": 10,
-		"basic": 100
-	},
-	4: {
-		"turtle": 5,
-		"heavy": 10,
-		"flying": 12,
-		"summoner": 12,
-		"canonman": 15,
-		"firemage": 15,
-		"spearman": 8,
-		"basic": 80
-	},
-	5: {
-		"turtle": 3,
-		"heavy": 8,
-		"flying": 12,
-		"summoner": 15,
-		"canonman": 15,
-		"firemage": 15,
-		"spearman": 8,
-		"basic": 60
-	},
-	6: {
-		"turtle": 3,
-		"heavy": 10,
-		"flying": 14,
-		"summoner": 18,
-		"canonman": 16,
-		"firemage": 18,
-		"spearman": 10,
-		"basic": 50
-	},
-	7: {
-		"turtle": 2,
-		"heavy": 10,
-		"flying": 16,
-		"summoner": 20,
-		"canonman": 18,
-		"firemage": 20,
-		"spearman": 10,
-		"basic": 40
-	},
-	8: {
-		"turtle": 2,
-		"heavy": 12,
-		"flying": 18,
-		"summoner": 22,
-		"canonman": 20,
-		"firemage": 22,
-		"spearman": 12,
-		"basic": 35
-	},
-	9: {
-		"turtle": 2,
-		"heavy": 12,
-		"flying": 20,
-		"summoner": 25,
-		"canonman": 22,
-		"firemage": 25,
-		"spearman": 12,
-		"basic": 30
-	}
-}
+# Zindan düşman ağırlıkları artık get_dungeon_enemy_weights() ile seviyeye göre sürekli aralıkta
+# hesaplanıyor (tablo atlama yok); erken seviye basic+ağır, sonra mızrak/uçan/topol/charger/summoner/fire.
+const DUNGEON_WEIGHT_TOTAL := 160.0
+const DUNGEON_BASIC_FLOOR := 25
 
 # Get spawn count for a chunk at given level
 func get_spawn_count(chunk_type: String, level: int) -> Dictionary:
@@ -204,14 +115,34 @@ func get_enemy_weights(level: int) -> Dictionary:
 	
 	return ENEMY_WEIGHTS[applicable_level]
 
-# Get dungeon-specific enemy weights for a given level
+static func _smoothstep01(t: float) -> float:
+	t = clampf(t, 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
+
+# Her tür için: hangi seviyede görünmeye başlar, kaç seviyede tam ağırlığa yaklaşır, tavan ağırlık.
+# canonman = charger hissi. Toplam specialty + basic ≈ DUNGEON_WEIGHT_TOTAL (yumuşak geçiş).
 func get_dungeon_enemy_weights(level: int) -> Dictionary:
-	var applicable_level = 1
-	for weight_level in DUNGEON_ENEMY_WEIGHTS:
-		if weight_level <= level and weight_level > applicable_level:
-			applicable_level = weight_level
-	
-	return DUNGEON_ENEMY_WEIGHTS[applicable_level]
+	var L := float(maxi(level, 1))
+	var heavy := 10.0 + 13.0 * _smoothstep01((L - 1.0) / 7.0)
+	var spearman := 12.0 * _smoothstep01((L - 2.0) / 5.0)
+	var flying := 16.0 * _smoothstep01((L - 3.0) / 6.0)
+	var turtle := 8.0 * _smoothstep01((L - 4.0) / 6.0)
+	var canonman := 16.0 * _smoothstep01((L - 4.0) / 7.0)
+	var summoner := 20.0 * _smoothstep01((L - 5.0) / 7.0)
+	var firemage := 18.0 * _smoothstep01((L - 6.0) / 7.0)
+	var specialty := heavy + spearman + flying + turtle + canonman + summoner + firemage
+	var basic := maxf(float(DUNGEON_BASIC_FLOOR), DUNGEON_WEIGHT_TOTAL - specialty)
+	return {
+		"basic": int(round(basic)),
+		"heavy": int(round(heavy)),
+		"spearman": int(round(spearman)),
+		"flying": int(round(flying)),
+		"turtle": int(round(turtle)),
+		"canonman": int(round(canonman)),
+		"summoner": int(round(summoner)),
+		"firemage": int(round(firemage))
+	}
 
 # Get summoner abilities for a given level
 func get_summoner_scaling(level: int) -> Dictionary:

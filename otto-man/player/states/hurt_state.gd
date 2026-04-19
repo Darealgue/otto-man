@@ -31,6 +31,8 @@ func enter() -> void:
 	
 	# Always play hurt animation first
 	animation_player.stop()  # Stop any current animation
+	# Fall attack squash/offset veya kısılmış animasyon sprite'ı kaydırabiliyor; hurt animu position track etmiyor.
+	player.reset_sprite_visual_to_default()
 	animation_player.play("hurt")
 	
 	# Start timers
@@ -155,6 +157,7 @@ func exit() -> void:
 	knockback_direction = Vector2.ZERO
 	player.sprite.visible = true
 	player.sprite.modulate = Color(1, 1, 1, 1)
+	player.reset_sprite_visual_to_default()
 	
 	# Ensure we keep the original facing direction # <<< BU SATIR KALDIRILDI >>>
 	# player.sprite.flip_h = original_flip_h

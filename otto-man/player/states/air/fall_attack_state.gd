@@ -44,10 +44,9 @@ func enter():
 	impact_timer = 0.0
 	hitbox_enabled = false
 	
-	# Reset sprite position and scale
+	# Önce varsayılan hizaya dön (önceki fall attack veya başka state'ten kalan offset kalmasın)
+	player.reset_sprite_visual_to_default()
 	original_sprite_position = player.sprite.position
-	player.sprite.scale = Vector2.ONE
-	player.sprite.position = original_sprite_position
 	
 	# Stop any current animation and play fall attack
 	animation_player.stop()

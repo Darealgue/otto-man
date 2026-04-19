@@ -444,7 +444,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 					sb.hide()
 			
 			# Update DungeonGoldDisplay visibility
-			var dgd = game_ui.get_node_or_null("Container/DungeonGoldDisplay")
+			var dgd = game_ui.get_node_or_null("DungeonGoldDisplay")
 			if dgd and dgd is Control:
 				# Visibility managed by DungeonGoldDisplay itself
 				pass
@@ -535,7 +535,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 					sb.hide()
 			
 			# Update DungeonGoldDisplay
-			var dgd = game_ui.get_node_or_null("Container/DungeonGoldDisplay")
+			var dgd = game_ui.get_node_or_null("DungeonGoldDisplay")
 			if dgd and dgd is Control:
 				if should_show_ui:
 					# Visibility will be handled by DungeonGoldDisplay itself based on gold amount

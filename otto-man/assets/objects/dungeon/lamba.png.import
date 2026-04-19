@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b44yl3g84awvf"
-path="res://.godot/imported/coin_small.png-b004af57984d0983ab2d6a5e99d87a75.ctex"
+uid="uid://dlrvsok6mlc7s"
+path="res://.godot/imported/lamba.png-bce36b8b1a13e8c71f35c9316924342f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/objects/dungeon/coin_small.png"
-dest_files=["res://.godot/imported/coin_small.png-b004af57984d0983ab2d6a5e99d87a75.ctex"]
+source_file="res://assets/objects/dungeon/lamba.png"
+dest_files=["res://.godot/imported/lamba.png-bce36b8b1a13e8c71f35c9316924342f.ctex"]
 
 [params]
 

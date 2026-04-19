@@ -264,39 +264,38 @@ func _spawn_gold_drops(pos: Vector2, amount: int) -> void:
 		# Gold value
 		coin.set_meta("gold_value", 1)
 		
-		# Collection signal
-		area.body_entered.connect(_on_dropped_gold_collected.bind(coin))
+		var cap_coin: Node2D = coin
+		area.body_entered.connect(func(entering: Node2D) -> void:
+			_on_dm_dropped_gold_pickup(entering, cap_coin)
+		)
 		
 		get_parent().add_child(coin)
 
-func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
-	if body.is_in_group("player"):
-		var gold_value = coin.get_meta("gold_value", 1)
-		
-		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
-		var scene_manager = get_node_or_null("/root/SceneManager")
-		var is_combat_scene = false
-		var is_dungeon = false
-		if scene_manager:
-			var current_scene = scene_manager.get("current_scene_path")
-			if current_scene:
-				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
-				var forest_scene = scene_manager.get("FOREST_SCENE")
-				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
-				is_dungeon = (current_scene == dungeon_scene)
-		
-		# Zindanda toplanan altın ham değerle yazılır; çarpan sadece köye çıkışta (CampScene çıkış kapısı) uygulanır
-		# if is_combat_scene and is_dungeon: gold_value = _apply_dungeon_gold_multiplier(gold_value)  # Kaldırıldı
-		
-		# Add to dungeon gold if in combat scene, otherwise to global gold
-		if GlobalPlayerData:
-			if is_combat_scene:
-				GlobalPlayerData.add_dungeon_gold(gold_value)
-			else:
-				GlobalPlayerData.add_gold(gold_value)
-		
-		print("[DecorationManager] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
-		coin.queue_free()
+func _on_dm_dropped_gold_pickup(entering: Node2D, coin: Node2D) -> void:
+	if not entering or not entering.is_in_group("player"):
+		return
+	if not coin or not is_instance_valid(coin):
+		return
+	if coin.get_meta("collected", false):
+		return
+	coin.set_meta("collected", true)
+	var gold_value: int = int(coin.get_meta("gold_value", 1))
+	var scene_manager := get_node_or_null("/root/SceneManager")
+	var is_combat_scene: bool = false
+	if scene_manager:
+		var current_scene = scene_manager.get("current_scene_path")
+		if current_scene:
+			var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
+			var forest_scene = scene_manager.get("FOREST_SCENE")
+			is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
+	if GlobalPlayerData:
+		if is_combat_scene:
+			GlobalPlayerData.add_dungeon_gold(gold_value)
+		else:
+			GlobalPlayerData.add_gold(gold_value)
+		GlobalPlayerData.show_gold_pickup_popup_at(coin.global_position, gold_value)
+	print("[DecorationManager] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
+	coin.queue_free()
 
 func _apply_dungeon_gold_multiplier(base_value: int) -> int:
 	var lg = get_tree().get_first_node_in_group("level_generator")

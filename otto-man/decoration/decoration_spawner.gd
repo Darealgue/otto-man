@@ -27,10 +27,14 @@ const DEBUG_LOOT: bool = false
 
 # Loot art paths
 const COIN_SMALL_PATH: String = "res://assets/objects/dungeon/coin_small.png"
+## Yatay şerit: genişlik bu kadar bölünebilir ve kare en az COIN_FRAME_MIN_PX genişlikteyse 8 kare döngüsü + CoinAnimDriver eklenir.
+const COIN_SPIN_FRAME_COUNT: int = 8
+const COIN_FRAME_MIN_PX: int = 6
 const POUCH_PATH: String = "res://assets/objects/dungeon/pouch.png"  # 2 frames: 0=air, 1=ground
 const POT_SHEET_PATH: String = "res://assets/objects/dungeon/pot1.png"  # H-frames: first idle, last broken
 
 func _ready() -> void:
+	add_to_group("decoration_spawner")
 	# DecorationConfig'i yükle
 	_decoration_config = DecorationConfig.new()
 	
@@ -426,9 +430,15 @@ func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:
 		if randi() % 3 == 0:
 			sprite.flip_h = !sprite.flip_h
 	
-	# Sinyaller: hem body hem area ile toplanmayı destekle
-	area.body_entered.connect(_on_gold_collected.bind(node, gold_value))
-	area.area_entered.connect(_on_gold_area_entered.bind(node, gold_value))
+	# Sinyaller: bind(node, gv) argüman sırasını bozuyordu; lambda ile doğru sıra.
+	var cap_gnode: Node2D = node
+	var cap_gv: int = gold_value
+	area.body_entered.connect(func(b: Node2D) -> void:
+		_on_gold_collected(b, cap_gnode, cap_gv)
+	)
+	area.area_entered.connect(func(a: Area2D) -> void:
+		_on_gold_area_entered(a, cap_gnode, cap_gv)
+	)
 	# Reuse pooled pickup logic signature
 	
 	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
@@ -516,6 +526,20 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 	# Pot animasyonlarını hazırla (varsa)
 	_setup_pot_animation(node)
 
+## Düşen altın CollectArea: area_entered ile gelen hitbox/hurtbox'ları yok say.
+## Kırılan obje yanında saldırı/hurtbox alanı coin ile üst üste binince altın bir kare görünüp anında toplanıyordu.
+func _should_ignore_area_for_loot_pickup(area: Area2D) -> bool:
+	if area == null:
+		return true
+	if area.is_in_group("hitbox"):
+		return true
+	if area.is_in_group("hurtbox"):
+		return true
+	if area.is_in_group("player_hurtbox"):
+		return true
+	return false
+
+
 func _is_player_node(n: Node) -> bool:
 	if n == null:
 		return false
@@ -535,38 +559,38 @@ func _is_player_node(n: Node) -> bool:
 	return false
 
 func _on_gold_collected(body: Node2D, node: Node2D, gold_value: int) -> void:
-	if _is_player_node(body):
-		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
-		var scene_manager = get_node_or_null("/root/SceneManager")
-		var is_combat_scene = false
-		var is_dungeon = false
-		if scene_manager:
-			var current_scene = scene_manager.get("current_scene_path")
-			if current_scene:
-				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
-				var forest_scene = scene_manager.get("FOREST_SCENE")
-				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
-				is_dungeon = (current_scene == dungeon_scene)
-		# Zindanda toplanan altın ham değerle yazılır; çarpan sadece köye çıkışta uygulanır
-		# if is_combat_scene and is_dungeon: gold_value = _apply_dungeon_gold_multiplier(gold_value)  # Kaldırıldı
-
-		# Add to dungeon gold if in combat scene, otherwise to global gold
-		if GlobalPlayerData:
-			if is_combat_scene:
-				GlobalPlayerData.add_dungeon_gold(gold_value)
-			else:
-				GlobalPlayerData.add_gold(gold_value)
-		
-		# Altın toplama efekti
-		_create_collection_effect(node.global_position)
-		
-		# Node'u sil
-		node.queue_free()
-		_spawned_decoration = null
+	if not node or not is_instance_valid(node):
+		return
+	if node.get_meta("collected", false):
+		return
+	if not _is_player_node(body):
+		return
+	node.set_meta("collected", true)
+	# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
+	var scene_manager := get_node_or_null("/root/SceneManager")
+	var is_combat_scene: bool = false
+	var is_dungeon: bool = false
+	if scene_manager:
+		var current_scene = scene_manager.get("current_scene_path")
+		if current_scene:
+			var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
+			var forest_scene = scene_manager.get("FOREST_SCENE")
+			is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
+			is_dungeon = (current_scene == dungeon_scene)
+	if GlobalPlayerData:
+		if is_combat_scene:
+			GlobalPlayerData.add_dungeon_gold(gold_value)
+		else:
+			GlobalPlayerData.add_gold(gold_value)
+		GlobalPlayerData.show_gold_pickup_popup_at(node.global_position, gold_value)
+	_create_collection_effect(node.global_position)
+	node.queue_free()
+	_spawned_decoration = null
 
 func _on_gold_area_entered(area: Area2D, node: Node2D, gold_value: int) -> void:
-	# Player'ın altındaki etkileşim alanı veya hurtbox gibi alanlarla da toplanabilsin
 	if not area:
+		return
+	if _should_ignore_area_for_loot_pickup(area):
 		return
 	var owner: Node = area.get_parent()
 	if owner and _is_player_node(owner):
@@ -609,6 +633,49 @@ func _on_breakable_body_entered(body: Node2D, node: Node2D) -> void:
 	print("[DecorationSpawner] BREAKABLE body hit by ", body.name, " damage=", damage)
 	_apply_breakable_damage(node, damage)
 
+
+## Havuzdan gelen RigidBody üzerindeki Timer.timeout, queue_free sonrası bile kuyrukta kalıp
+## yanlış anda monitoring açabiliyordu (log: collect_monitor_ON pos ~-10000). SceneTree timer + spawn id doğrulaması.
+func _deferred_enable_breakable_collect(loot_rb: RigidBody2D, loot_area: Area2D, gv: int, expected_spawn_id: int, lp: Node) -> void:
+	if lp == null or not is_instance_valid(loot_rb) or not is_instance_valid(loot_area):
+		if lp and lp.has_method("loot_log"):
+			lp.call("loot_log", "collect_defer ABORT invalid_node")
+		return
+	var cur_sid: int = int(loot_rb.get_meta("loot_spawn_id", -99999))
+	var iid: int = loot_rb.get_instance_id()
+	var pos: Vector2 = loot_rb.global_position
+	var par: Node = loot_rb.get_parent()
+	var pname: String = str(par.name) if par else "null"
+	var vis: bool = loot_rb.visible
+	var collected: bool = bool(loot_rb.get_meta("collected", false))
+	var in_active: bool = false
+	if lp.has_method("is_loot_in_active"):
+		in_active = lp.call("is_loot_in_active", loot_rb) as bool
+	if cur_sid != expected_spawn_id:
+		lp.call("loot_log", "collect_defer SKIP_STALE expected_id=%d cur_id=%d iid=%d pos=%s par=%s vis=%s" % [
+			expected_spawn_id, cur_sid, iid, str(pos), pname, str(vis)
+		])
+		return
+	if not in_active:
+		# Havuza dönen / serbest bırakılmış parça: eski SceneTree timer veya yarış.
+		lp.call("loot_log", "collect_defer SKIP_NOT_IN_LOOT_ACTIVE id=%d iid=%d pos=%s vis=%s col=%s" % [
+			cur_sid, iid, str(pos), str(vis), str(collected)
+		])
+		return
+	if collected:
+		lp.call("loot_log", "collect_defer SKIP_COLLECTED id=%d iid=%d pos=%s" % [cur_sid, iid, str(pos)])
+		return
+	if not vis:
+		lp.call("loot_log", "collect_defer SKIP_INVISIBLE id=%d iid=%d pos=%s" % [cur_sid, iid, str(pos)])
+		return
+	loot_area.monitoring = true
+	lp.call("loot_log", "collect_monitor_ON id=%d gv=%d pos=%s ok=%s iid=%d par=%s in_active=%s" % [
+		cur_sid, gv, str(pos), str(loot_area.monitoring), iid, pname, str(in_active)
+	])
+	if not loot_area.monitoring:
+		print("[DecorationSpawner] WARNING: Failed to enable collection monitoring for loot at ", pos)
+
+
 # --- Breakable damage & break helpers (local, manager bağımsız) ---
 func _apply_breakable_damage(node: Node2D, damage: int) -> void:
 	if not node:
@@ -650,16 +717,43 @@ func _break_breakable(node: Node2D) -> void:
 			# Fallback: default değerler
 			total = cfg.pick_total_from_range(cfg.total_value_min, cfg.total_value_max)
 	
+	total = maxi(1, total)
+	total = _apply_dungeon_gold_multiplier(total)
 	var parts: Array[int] = cfg.compose_items_for_total(total)
+	if DEBUG_DECOR:
+		print("[DecorationSpawner] Breaking breakable, scaled total gold: ", total, " parts: ", parts)
+	_spawn_physical_loot_parts(node.global_position, parts, node.z_index + 2, cfg)
+	# Pot sahnede kalsın; kırık halde görünmeye devam etsin
+
+
+## Seviye çarpanı sonrası toplam değer (düşman drop'u için dışarıdan da kullanılır).
+func get_scaled_dungeon_gold(base: int) -> int:
+	return _apply_dungeon_gold_multiplier(maxi(1, base))
+
+
+## Düşman ölümü vb.: breakable ile aynı fiziksel loot (havuz + toplama).
+## elite_pouch_weighted: heavy/summoner vb. — poşet (5–15) parçalara ağırlık, kalan bozukluk, karışık sıra.
+func spawn_enemy_gold_burst(world_pos: Vector2, total_gold: int, elite_pouch_weighted: bool = false) -> void:
+	if not is_inside_tree() or get_tree() == null:
+		return
+	if total_gold <= 0:
+		return
+	var cfg: GoldDropConfig = GoldDropConfig.new()
+	var parts: Array[int]
+	if elite_pouch_weighted:
+		parts = cfg.compose_items_elite_pouch_weighted(total_gold)
+	else:
+		parts = cfg.compose_items_for_total(total_gold)
+	_spawn_physical_loot_parts(world_pos, parts, 6, cfg)
+
+
+func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base: int, cfg: GoldDropConfig) -> void:
 	var loot_pool: Node = get_node_or_null("/root/Loots")
 	if not loot_pool:
 		print("[DecorationSpawner] ERROR: Loots autoload not found! Cannot spawn loot.")
 		return
-	if DEBUG_DECOR:
-		print("[DecorationSpawner] Breaking breakable, total gold: ", total, " parts: ", parts)
-	# print("[DecorationSpawner] Spawning ", parts.size(), " loot items from breakable")
 	for v in parts:
-		var is_pouch: bool = v > 5
+		var is_pouch: bool = v >= 5
 		var body: RigidBody2D = null
 		if loot_pool:
 			body = loot_pool.call("acquire", is_pouch)
@@ -669,31 +763,31 @@ func _break_breakable(node: Node2D) -> void:
 		if not body:
 			print("[DecorationSpawner] WARNING: Acquired body is null for value ", v)
 			continue
-		# print("[DecorationSpawner] Acquired loot body for value ", v, " at position ", body.global_position, " visible=", body.visible)
 		body.set_meta("gold_value", v)
-		body.set_meta("collected", false)  # Flag to prevent double collection
+		body.set_meta("collected", false)
 		if not body.is_in_group("collectible_gold"):
-			body.add_to_group("collectible_gold")  # Mıknatıs itemi bu grubu çeker
+			body.add_to_group("collectible_gold")
 		var spr: Sprite2D = body.get_node_or_null("Sprite") as Sprite2D
 		_apply_gold_visual(spr, v, false)
-		# Loot visuals should align to physics/area center (RigidBody origin)
 		if spr:
 			spr.centered = true
 			spr.position = Vector2.ZERO
 		var collect: Area2D = body.get_node_or_null("CollectArea") as Area2D
 		if collect == null:
-			# Fallback: first Area2D child
 			for child in body.get_children():
 				if child is Area2D:
 					collect = child
 					break
-		# Reuse-safe: remove previous connections from pooled node
 		if collect:
 			_disconnect_all_signals(collect, "body_entered")
 			_disconnect_all_signals(collect, "area_entered")
-			collect.body_entered.connect(_on_dropped_gold_collected.bind(body))
-			collect.area_entered.connect(_on_dropped_gold_area_entered.bind(body))
-			# Delay monitoring to prevent instant pickup from initial overlaps
+			var cap_coin: Node2D = body
+			collect.body_entered.connect(func(entering: Node2D) -> void:
+				_execute_dropped_gold_pickup(entering, cap_coin)
+			)
+			collect.area_entered.connect(func(a: Area2D) -> void:
+				_on_dropped_gold_area_entered(a, cap_coin)
+			)
 			collect.monitoring = false
 			collect.monitorable = true
 			if collect is CollisionObject2D:
@@ -709,76 +803,67 @@ func _break_breakable(node: Node2D) -> void:
 		_disconnect_all_signals(body, "body_entered")
 		_disconnect_all_signals(body, "body_exited")
 		if spr:
-			# Ensure the rigidbody reports contacts
 			body.contact_monitor = true
 			body.max_contacts_reported = 4
 			body.body_entered.connect(_on_dropped_gold_body_entered.bind(spr, body))
 			body.body_exited.connect(_on_dropped_gold_body_exited.bind(spr, body))
-		# Ensure non-blocking vs player; only collide with world/platform
 		body.collision_layer = CollisionLayers.ITEM
 		body.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
-		# Spawn slightly above breakable to avoid spawning inside walls
-		var spawn_offset = Vector2(randf_range(-10, 10), randf_range(-20, -10))
-		body.global_position = node.global_position + spawn_offset
+		var spawn_offset := Vector2(randf_range(-10, 10), randf_range(-20, -10))
+		body.global_position = origin + spawn_offset
 		get_tree().current_scene.add_child(body)
-		# Launch: differentiate coin vs pouch behavior
+		loot_pool.call("loot_log", "loot_spawn id=%s iid=%s gv=%d pos=%s mon=%s" % [
+			str(body.get_meta("loot_spawn_id", -1)), str(body.get_instance_id()), v, str(body.global_position),
+			str((collect.monitoring if collect else false))
+		])
 		var launch: Vector2
-		if v <= 5:
-			# Coins: more lively scatter with higher bounce feel
+		if v < 5:
 			launch = Vector2(randf_range(-180.0, 180.0), randf_range(-280.0, -160.0))
 			body.angular_damp = 0.8
 		else:
-			# Pouches: subdued throw, land quickly
 			launch = Vector2(randf_range(-90.0, 90.0), randf_range(-200.0, -140.0))
 			body.angular_damp = 3.0
 		body.freeze = false
 		body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 		body.apply_impulse(launch)
-		body.z_index = (node.z_index + 2) if node else 2
-		# Enable collection after a brief moment so they can visibly scatter
+		body.z_index = z_index_base
 		if collect:
-			var enable_timer := Timer.new()
-			enable_timer.one_shot = true
-			enable_timer.wait_time = (0.15 if v <= 5 else 0.25)
-			body.add_child(enable_timer)
-			enable_timer.timeout.connect(func():
-				if is_instance_valid(collect) and is_instance_valid(body):
-					collect.monitoring = true
-					# Double-check that monitoring is actually enabled
-					if not collect.monitoring:
-						print("[DecorationSpawner] WARNING: Failed to enable collection monitoring for loot at ", body.global_position)
+			var gv_for_timer: int = v
+			var cap_body: RigidBody2D = body
+			var cap_collect: Area2D = collect
+			var cap_lp: Node = loot_pool
+			var expect_sid: int = int(cap_body.get_meta("loot_spawn_id", -1))
+			var wait_collect: float = (0.22 if v < 5 else 0.28)
+			get_tree().create_timer(wait_collect).timeout.connect(
+				_deferred_enable_breakable_collect.bind(cap_body, cap_collect, gv_for_timer, expect_sid, cap_lp)
 			)
-			enable_timer.start()
-		# Sleep & despawn scheduling via pool helpers
 		if loot_pool:
 			loot_pool.call("schedule_ground_sleep", body, cfg.ground_sleep_after_s)
 			loot_pool.call("schedule_despawn", body, cfg.despawn_seconds)
-			# Don't enforce cap immediately - let despawn timer handle cleanup
-			# Cap enforcement was causing newly spawned loot to disappear
 			if DEBUG_LOOT:
+				var dbg_body: RigidBody2D = body
 				var dbg := Timer.new()
 				dbg.one_shot = true
 				dbg.wait_time = 0.25
-				body.add_child(dbg)
+				dbg_body.add_child(dbg)
 				dbg.timeout.connect(func():
-					if not is_instance_valid(body):
+					if not is_instance_valid(dbg_body):
 						return
-					var area := (body.get_node_or_null("CollectArea") as Area2D)
+					var area := (dbg_body.get_node_or_null("CollectArea") as Area2D)
 					if area == null:
-						for c in body.get_children():
+						for c in dbg_body.get_children():
 							if c is Area2D:
 								area = c
 								break
 					var bcnt := (area.get_overlapping_bodies().size() if area else -1)
 					var acnt := (area.get_overlapping_areas().size() if area else -1)
 					var player := get_tree().get_first_node_in_group("player")
-					var dist := (body.global_position.distance_to(player.global_position) if player else -1.0)
-					print("[LootDebug] +0.25s ", body.name, " pos=", body.global_position, " lv=", body.linear_velocity,
-						" freeze=", body.freeze, " sleeping=", body.sleeping,
+					var dist := (dbg_body.global_position.distance_to(player.global_position) if player else -1.0)
+					print("[LootDebug] +0.25s ", dbg_body.name, " pos=", dbg_body.global_position, " lv=", dbg_body.linear_velocity,
+						" freeze=", dbg_body.freeze, " sleeping=", dbg_body.sleeping,
 						" overlaps bodies=", bcnt, " areas=", acnt, " dist_to_player=", dist)
 				)
 				dbg.start()
-	# Pot sahnede kalsın; kırık halde görünmeye devam etsin
 
 
 # Helper: disconnect all connections for a given signal name on an Object
@@ -984,63 +1069,59 @@ func _play_pot_break_animation(node: Node2D) -> void:
 	if anim:
 		anim.play("break")
 
-# Dropped coin collection handler (local)
-func _on_dropped_gold_collected(body: Node2D, coin: Node2D) -> void:
-	if not coin:
+## Tek giriş noktası: body_entered ve area_entered buraya gelir; collected hemen işaretlenir (çift altın önlenir).
+func _execute_dropped_gold_pickup(player_node: Node2D, coin: Node2D) -> void:
+	if not coin or not is_instance_valid(coin):
 		return
-	# Prevent double collection
 	if coin.get_meta("collected", false):
 		return
-	if body and _is_player_node(body):
-		# Mark as collected immediately to prevent double collection
-		coin.set_meta("collected", true)
-		
-		var gold_value = int(coin.get_meta("gold_value", 1))
-		
-		# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
-		var scene_manager = get_node_or_null("/root/SceneManager")
-		var is_combat_scene = false
-		var is_dungeon = false
-		if scene_manager:
-			var current_scene = scene_manager.get("current_scene_path")
-			if current_scene:
-				var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
-				var forest_scene = scene_manager.get("FOREST_SCENE")
-				is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
-				is_dungeon = (current_scene == dungeon_scene)
-		# Zindanda toplanan altın ham değerle yazılır; çarpan sadece köye çıkışta uygulanır
-		# if is_combat_scene and is_dungeon: gold_value = _apply_dungeon_gold_multiplier(gold_value)  # Kaldırıldı
-
-		# Add to dungeon gold if in combat scene, otherwise to global gold
-		if GlobalPlayerData:
-			if is_combat_scene:
-				GlobalPlayerData.add_dungeon_gold(gold_value)
-			else:
-				GlobalPlayerData.add_gold(gold_value)
-		_create_collection_effect(coin.global_position)
-		
-		# Disconnect signals to prevent further collection attempts
-		var collect: Area2D = coin.get_node_or_null("CollectArea")
-		if collect:
-			_disconnect_all_signals(collect, "body_entered")
-			_disconnect_all_signals(collect, "area_entered")
-			collect.monitoring = false
-		
-		if coin is RigidBody2D and get_node_or_null("/root/Loots"):
-			get_node("/root/Loots").call("release", coin)
+	if not player_node or not _is_player_node(player_node):
+		return
+	coin.set_meta("collected", true)
+	var lp_pick := get_node_or_null("/root/Loots")
+	if lp_pick:
+		lp_pick.call("loot_log", "PICKUP_player id=%s gv=%s pos=%s" % [
+			str(coin.get_meta("loot_spawn_id", -1)), str(coin.get_meta("gold_value", 1)), str(coin.global_position)
+		])
+	var gold_value: int = int(coin.get_meta("gold_value", 1))
+	var scene_manager := get_node_or_null("/root/SceneManager")
+	var is_combat_scene: bool = false
+	var is_dungeon: bool = false
+	if scene_manager:
+		var current_scene = scene_manager.get("current_scene_path")
+		if current_scene:
+			var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
+			var forest_scene = scene_manager.get("FOREST_SCENE")
+			is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
+			is_dungeon = (current_scene == dungeon_scene)
+	if GlobalPlayerData:
+		if is_combat_scene:
+			GlobalPlayerData.add_dungeon_gold(gold_value)
 		else:
-			coin.queue_free()
+			GlobalPlayerData.add_gold(gold_value)
+		GlobalPlayerData.show_gold_pickup_popup_at(coin.global_position, gold_value)
+	_create_collection_effect(coin.global_position)
+	var collect: Area2D = coin.get_node_or_null("CollectArea")
+	if collect:
+		_disconnect_all_signals(collect, "body_entered")
+		_disconnect_all_signals(collect, "area_entered")
+		collect.monitoring = false
+	if coin is RigidBody2D and get_node_or_null("/root/Loots"):
+		get_node("/root/Loots").call("release", coin, "player_collected")
+	else:
+		coin.queue_free()
+
 
 func _on_dropped_gold_area_entered(area: Area2D, coin: Node2D) -> void:
-	# Filter strictly for player owner areas
 	if not area:
 		return
-	# Prevent double collection
 	if coin.get_meta("collected", false):
 		return
+	if _should_ignore_area_for_loot_pickup(area):
+		return
 	var owner := area.get_parent()
-	if owner and owner.is_in_group("player"):
-		_on_dropped_gold_collected(owner, coin)
+	if owner and _is_player_node(owner):
+		_execute_dropped_gold_pickup(owner, coin)
 
 func _create_collection_effect(pos: Vector2) -> void:
 	# 4 yöne açılan çizgi-parlama (retro çizgi film hissi)
@@ -1116,14 +1197,57 @@ func _on_dropped_gold_body_exited(_other: Node, sprite: Sprite2D, body: RigidBod
 		body.angular_damp = 1.0
 
 # --- Visual helpers ---
+func _remove_coin_anim_driver(host: Node) -> void:
+	if not host:
+		return
+	var d := host.get_node_or_null("CoinAnimDriver")
+	if d:
+		d.queue_free()
+
+
+func _sync_coin_spin_driver(host: Node, sprite: Sprite2D) -> void:
+	_remove_coin_anim_driver(host)
+	if not sprite or not sprite.texture:
+		return
+	if sprite.hframes < 2:
+		return
+	var d := Node.new()
+	d.name = "CoinAnimDriver"
+	d.set_script(preload("res://decoration/dungeon_gold_coin_anim_driver.gd"))
+	host.add_child(d)
+
+
+func _configure_coin_strip(sprite: Sprite2D) -> void:
+	# Tek PNG'te 8 kare yan yana; eski tek kare (küçük genişlik) ile uyum için otomatik düşer.
+	sprite.hframes = 1
+	sprite.vframes = 1
+	sprite.frame = 0
+	if not sprite.texture is Texture2D:
+		return
+	var tex: Texture2D = sprite.texture as Texture2D
+	var w: int = tex.get_width()
+	var h: int = tex.get_height()
+	if w <= 0 or h <= 0:
+		return
+	if w % COIN_SPIN_FRAME_COUNT != 0:
+		return
+	var frame_w: int = w / COIN_SPIN_FRAME_COUNT
+	if frame_w < COIN_FRAME_MIN_PX:
+		return
+	sprite.hframes = COIN_SPIN_FRAME_COUNT
+	sprite.vframes = 1
+	sprite.frame = 0
+
+
 func _apply_gold_visual(sprite: Sprite2D, gold_value: int, on_ground: bool) -> void:
-	if gold_value <= 5:
+	var host: Node = sprite.get_parent() as Node
+	if gold_value < 5:
 		if ResourceLoader.exists(COIN_SMALL_PATH):
 			sprite.texture = load(COIN_SMALL_PATH)
-		sprite.hframes = 1
-		sprite.vframes = 1
-		sprite.frame = 0
+		_configure_coin_strip(sprite)
+		_sync_coin_spin_driver(host, sprite)
 	else:
+		_remove_coin_anim_driver(host)
 		if ResourceLoader.exists(POUCH_PATH):
 			sprite.texture = load(POUCH_PATH)
 		sprite.hframes = 2

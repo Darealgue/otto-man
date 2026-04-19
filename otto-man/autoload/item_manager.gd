@@ -270,10 +270,114 @@ func clear_all_items() -> void:
 	enemy_kill_count = 0  # Sonraki zindan run için sıfırla
 	print("[ItemManager] 🗑️ All items cleared")
 
+## Zindan/orman/test_level: ölen düşmandan bazen fiziksel altın (seviye çarpanı ile).
+const ENEMY_GOLD_DROP_CHANCE_NORMAL := 0.25
+const ENEMY_GOLD_DROP_CHANCE_PREMIUM := 0.50
+
+## Daha zor türler: %50 şans, daha yüksek taban altın (çarpan aynı).
+## (PackedStringArray() const ifadesi değil; düz dizi sabit kullan.)
+const PREMIUM_ENEMY_PATH_MARKERS: Array[String] = [
+	"heavy/",
+	"summoner/",
+	"canonman/",
+	"firemage/",
+	"hunter/",
+]
+
+
+func _enemy_loot_script_path(enemy: Node2D) -> String:
+	var sc: Variant = enemy.get_script()
+	if sc is Script:
+		var rp: String = (sc as Script).resource_path
+		if rp.is_empty():
+			return ""
+		return rp.to_lower()
+	if enemy.scene_file_path:
+		return str(enemy.scene_file_path).to_lower()
+	return ""
+
+
+func _is_turtle_enemy_for_loot(enemy: Node2D) -> bool:
+	if enemy is TurtleEnemy:
+		return true
+	return _enemy_loot_script_path(enemy).find("turtle") != -1
+
+
+func _is_summoner_spawned_flying_for_loot(enemy: Node2D) -> bool:
+	if not (enemy is FlyingEnemy):
+		return false
+	return bool(enemy.get_meta("summoner_summoned_bird", false))
+
+
+func _is_premium_enemy_for_loot(enemy: Node2D) -> bool:
+	var p: String = _enemy_loot_script_path(enemy)
+	if p.is_empty():
+		return false
+	for m in PREMIUM_ENEMY_PATH_MARKERS:
+		if m in p:
+			return true
+	return false
+
+
+func _is_dungeon_like_for_loot() -> bool:
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm:
+		var cur = sm.get("current_scene_path")
+		if cur:
+			var cur_s := str(cur)
+			var ds = sm.get("DUNGEON_SCENE")
+			var fs = sm.get("FOREST_SCENE")
+			if cur_s == ds or cur_s == fs:
+				return true
+	var scene := get_tree().current_scene
+	if scene and scene.scene_file_path:
+		var fp: String = scene.scene_file_path
+		if "test_level" in fp or "forest" in fp:
+			return true
+	return false
+
+
+func _find_decoration_spawner_for_loot() -> DecorationSpawner:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	for n in tree.get_nodes_in_group("decoration_spawner"):
+		if n is DecorationSpawner and (n as Node).is_inside_tree():
+			return n as DecorationSpawner
+	return null
+
+
+func _try_spawn_enemy_dungeon_gold(enemy: Node2D) -> void:
+	if enemy == null or not is_instance_valid(enemy):
+		return
+	if not _is_dungeon_like_for_loot():
+		return
+	if _is_turtle_enemy_for_loot(enemy):
+		return
+	if _is_summoner_spawned_flying_for_loot(enemy):
+		return
+	var premium: bool = _is_premium_enemy_for_loot(enemy)
+	var chance: float = ENEMY_GOLD_DROP_CHANCE_PREMIUM if premium else ENEMY_GOLD_DROP_CHANCE_NORMAL
+	if randf() > chance:
+		return
+	var sp := _find_decoration_spawner_for_loot()
+	if sp == null:
+		return
+	var base: int
+	if premium:
+		base = randi_range(5, 10)
+	else:
+		base = randi_range(1, 3)
+	var total: int = sp.get_scaled_dungeon_gold(base)
+	var pos: Vector2 = enemy.global_position
+	sp.call_deferred("spawn_enemy_gold_burst", pos, total, premium)
+
+
 # Called when an enemy is killed
 func on_enemy_killed(enemy: Node2D = null) -> void:
 	enemy_kill_count += 1
-	
+	_try_spawn_enemy_dungeon_gold(enemy)
+
 	# Notify items that listen to enemy kills
 	for item in active_items:
 		if item.has_method("on_enemy_killed"):

@@ -57,3 +57,58 @@ func compose_items_for_total(total_value: int) -> Array[int]:
 	if result.is_empty():
 		result.append(1)
 	return result
+
+
+## Elit düşman drop'u: aynı toplam; 5–15 arası "poşet" parçalara yüksek ağırlık, kalan madeni, sıra karışık.
+func compose_items_elite_pouch_weighted(total_value: int) -> Array[int]:
+	var cap: int = maxi(0, total_value)
+	if cap == 0:
+		return [1]
+	var remaining: int = cap
+	var result: Array[int] = []
+	const POUCH_BIAS := 0.82
+	const POUCH_MAX := 15
+	const POUCH_MIN := 5
+
+	while remaining > 0 and result.size() < max_items:
+		if remaining < POUCH_MIN:
+			var coin_opts: Array[int] = []
+			for x in coin_values:
+				if x <= remaining:
+					coin_opts.append(x)
+			if coin_opts.is_empty():
+				break
+			var c: int = coin_opts[randi() % coin_opts.size()]
+			result.append(c)
+			remaining -= c
+			continue
+
+		if randf() <= POUCH_BIAS:
+			var hi: int = mini(POUCH_MAX, remaining)
+			var chunk: int = randi_range(POUCH_MIN, hi)
+			result.append(chunk)
+			remaining -= chunk
+		else:
+			var coin_opts2: Array[int] = []
+			for x in coin_values:
+				if x <= remaining:
+					coin_opts2.append(x)
+			var c2: int = coin_opts2[randi() % coin_opts2.size()]
+			result.append(c2)
+			remaining -= c2
+
+	if remaining != 0:
+		if result.is_empty():
+			result.append(cap)
+		else:
+			result[result.size() - 1] = result[result.size() - 1] + remaining
+
+	while result.size() > max_items:
+		var last: int = result.pop_back()
+		result[result.size() - 1] = result[result.size() - 1] + last
+
+	if result.is_empty():
+		result.append(maxi(1, cap))
+
+	result.shuffle()
+	return result

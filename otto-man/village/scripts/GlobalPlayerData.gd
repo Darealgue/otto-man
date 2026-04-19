@@ -1,5 +1,8 @@
 extends Node
 
+## Konsolda zindan altını akışını izlemek için (false yap kapat).
+const DEBUG_DUNGEON_GOLD: bool = false
+
 signal dungeon_gold_changed(new_amount: int)
 
 # Oyuncu Verileri
@@ -52,7 +55,8 @@ func change_asker_sayisi(change: int) -> void:
 func add_dungeon_gold(amount: int) -> void:
 	"""Add gold to dungeon inventory (temporary, until successful exit)."""
 	dungeon_gold += amount
-	# print("GlobalPlayerData: Dungeon gold updated to ", dungeon_gold)
+	if DEBUG_DUNGEON_GOLD:
+		print("[DungeonGold] add_dungeon_gold(+%s) -> total=%s, emit dungeon_gold_changed" % [amount, dungeon_gold])
 	# Emit signal for UI update
 	if has_signal("dungeon_gold_changed"):
 		dungeon_gold_changed.emit(dungeon_gold)
@@ -75,3 +79,44 @@ func clear_dungeon_gold() -> void:
 	print("GlobalPlayerData: Cleared %d dungeon gold (death penalty)" % lost)
 	if has_signal("dungeon_gold_changed"):
 		dungeon_gold_changed.emit(0)
+
+
+## Dünya uzayında toplanan altın miktarını sarı yazı + beyaz kontür ile yukarı süzülüp sildirir.
+func show_gold_pickup_popup_at(world_pos: Vector2, amount: int) -> void:
+	if amount <= 0:
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var scene: Node = tree.current_scene
+	if scene == null:
+		return
+	var holder := Node2D.new()
+	holder.name = "GoldPickupPopup"
+	holder.z_as_relative = false
+	holder.z_index = 1200
+	scene.add_child(holder)
+	holder.global_position = world_pos + Vector2(0, -26)
+	var lbl := Label.new()
+	holder.add_child(lbl)
+	lbl.text = "+%d" % amount
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ls := LabelSettings.new()
+	ls.font_color = Color(1.0, 0.92, 0.2, 1.0)
+	ls.font_size = 22
+	ls.outline_size = 5
+	ls.outline_color = Color.WHITE
+	lbl.label_settings = ls
+	lbl.reset_size()
+	lbl.position = Vector2(-lbl.size.x * 0.5, -lbl.size.y * 0.5)
+	lbl.modulate.a = 1.0
+	var tw: Tween = scene.create_tween()
+	tw.set_parallel(true)
+	tw.set_trans(Tween.TRANS_QUAD)
+	tw.set_ease(Tween.EASE_OUT)
+	var rise := holder.global_position + Vector2(0, -70)
+	tw.tween_property(holder, "global_position", rise, 0.72)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.72)
+	tw.finished.connect(holder.queue_free)

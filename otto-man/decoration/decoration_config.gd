@@ -232,6 +232,16 @@ const BACKGROUND_DECORS = {
     		"res://objects/dungeon/lighting/mum.tscn"
     	]
     },
+	"torch2": {
+		"weight": 14,
+		"locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH],
+		"width_tiles": 1,
+		"height_tiles": 1,
+		"grow_dir": "up",
+		"scene_paths": [
+			"res://objects/dungeon/lighting/mesale2.tscn"
+		]
+	},
 	"wall_cracks": {
 		"weight": 10,
 		"locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH],
@@ -481,6 +491,32 @@ func get_decoration_density(chunk_type: String) -> Dictionary:
 	return DECORATION_DENSITY.get(chunk_type, DECORATION_DENSITY["basic"])
 
 # ==============================================================================
+# Zindan aydınlatma (chunk tile spawn): daha sık deneme, aynı chunk’ta üst üste binmeyi azaltma
+# ==============================================================================
+## Bu id’ler spawn sonrası “ışık” sayılır; level_generator aynı chunk’ta aralarında min. mesafe uygular.
+const DUNGEON_LIGHTING_DECOR_IDS: Array[String] = ["mum", "torch2", "camp1", "camp2"]
+## Kural şansı (rule.chance) çarpanı: yalnızca bu listeden en az biri seçilebilen kurallarda uygulanır (1.0 = değişmez).
+const DUNGEON_LIGHTING_SPAWN_CHANCE_MULTIPLIER: float = 2.12
+## Aynı chunk içinde iki aydınlatma dekorunun merkezleri arası minimum mesafe (piksel). 0 veya negatif = kontrol kapalı.
+const DUNGEON_LIGHTING_MIN_DISTANCE_PX: float = 220.0
+
+
+static func is_dungeon_lighting_decor(decor_name: String) -> bool:
+	return decor_name in DUNGEON_LIGHTING_DECOR_IDS
+
+
+static func dungeon_lighting_too_close(world_pos: Vector2, placed: Array) -> bool:
+	var d := DUNGEON_LIGHTING_MIN_DISTANCE_PX
+	if d <= 0.0:
+		return false
+	var d2 := d * d
+	for p in placed:
+		if (p as Vector2).distance_squared_to(world_pos) < d2:
+			return true
+	return false
+
+
+# ==============================================================================
 # TILE-BASED DECORATION RULES
 # ==============================================================================
 # Bu kurallar, TileMap'teki custom data layer'larına göre çalışır.
@@ -526,11 +562,25 @@ func get_rule_for_tile_data(custom_data: String) -> Dictionary:
 # önceliklendirilmiş bir kural listesi tanımlıyoruz. Kodda sırayla denenir, biri tutarsa diğerleri atlanır.
 
 const PRIORITY_DECOR_RULES = {
+	"wall_surface": [
+		{
+			"chance": 0.36,
+			"decoration_type": DecorationType.BACKGROUND,
+			"decoration_names": ["torch2", "moss_patch", "wall_cracks", "hanging_chains", "spider_web"],
+			"allowed_locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH]
+		}
+	],
     "floor_surface": [
+		{
+			"chance": 0.24,
+			"decoration_type": DecorationType.BACKGROUND,
+			"decoration_names": ["mum", "camp1", "camp2"],
+			"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER]
+		},
         {
-            "chance": 0.12,
+            "chance": 0.18,
             "decoration_type": DecorationType.BACKGROUND,
-            "decoration_names": ["spider_web", "box2", "box3", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "sculpture2", "camp1", "camp2", "mum"],
+            "decoration_names": ["spider_web", "box2", "box3", "gate1", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "sculpture2"],
             "allowed_locations": [SpawnLocation.FLOOR_CENTER]
         },
 		{
@@ -556,10 +606,16 @@ const PRIORITY_DECOR_RULES = {
         }
 	],
     "floor": [
+		{
+			"chance": 0.21,
+			"decoration_type": DecorationType.BACKGROUND,
+			"decoration_names": ["mum", "camp1", "camp2"],
+			"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER]
+		},
         {
-            "chance": 0.04,
+            "chance": 0.12,
             "decoration_type": DecorationType.BACKGROUND,
-            "decoration_names": ["spider_web", "box2", "box3", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "sculpture2", "camp1", "camp2", "mum"]
+            "decoration_names": ["spider_web", "box2", "box3", "gate2", "pipe1", "pipe2", "banner1", "sculpture1", "sculpture2"]
         },
 		{
 			"chance": 0.2, # %20 ihtimalle kırılabilir obje

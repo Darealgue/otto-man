@@ -3,6 +3,12 @@ extends Node
 const COIN_TYPE := "coin"
 const POUCH_TYPE := "pouch"
 
+## Godot: Autoload (Loots) seçili → Inspector’da işaretle veya kodda `Loots.debug_loot_lifecycle = true` (repro sırasında).
+## Konsolda [LootLifecycle] … breakable altını kim/hangi nedenle havuza döndüğünü gösterir.
+@export var debug_loot_lifecycle: bool = false
+
+var _loot_spawn_seq: int = 0
+
 @export var prewarm_coin: int = 24
 @export var prewarm_pouch: int = 12
 @export var active_cap: int = 40
@@ -13,6 +19,31 @@ var _active: Array[RigidBody2D] = []
 
 func _ready() -> void:
 	_prewarm()
+
+
+func loot_log(msg: String) -> void:
+	if debug_loot_lifecycle:
+		print("[LootLifecycle] ", msg)
+
+
+## Havuzdan çıkan / iade edilen loot üzerinde kalan Timer'lar (despawn, ground_sleep, enable vb.)
+## bir sonraki kullanımda tetiklenip parayı görünmez yapıyordu; oyuncu toplamadan kayboluyordu.
+func _clear_loot_timers(body: Node) -> void:
+	if not body or not is_instance_valid(body):
+		return
+	var to_free: Array[Node] = []
+	for c in body.get_children():
+		if c is Timer:
+			to_free.append(c)
+	for c in to_free:
+		if not is_instance_valid(c):
+			continue
+		if debug_loot_lifecycle and c is Timer:
+			var tm := c as Timer
+			loot_log("timer_clear name=%s wait=%.3f left=%.3f on=%s id=%s" % [
+				tm.name, tm.wait_time, tm.time_left, body.name, str(body.get_meta("loot_spawn_id", -1))
+			])
+		c.queue_free()
 
 func _prewarm() -> void:
 	for i in range(prewarm_coin):
@@ -44,6 +75,12 @@ func acquire(is_pouch: bool) -> RigidBody2D:
 		body = _make_loot(is_pouch)
 	
 	_active.append(body)
+	_clear_loot_timers(body)
+	_loot_spawn_seq += 1
+	body.set_meta("loot_spawn_id", _loot_spawn_seq)
+	loot_log("acquire id=%s iid=%s pouch=%s in_tree=%s timers_cleared_above pos=%s" % [
+		str(_loot_spawn_seq), str(body.get_instance_id()), str(is_pouch), str(body.is_inside_tree()), str(body.global_position)
+	])
 	body.visible = true
 	body.freeze = false
 	body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
@@ -52,41 +89,69 @@ func acquire(is_pouch: bool) -> RigidBody2D:
 	# This prevents newly spawned loot from being immediately released
 	return body
 
-func release(body: RigidBody2D) -> void:
+func release(body: RigidBody2D, reason: String = "") -> void:
 	if not body:
 		return
 	if not is_instance_valid(body):
 		return
-	# Debug: print when loot is released (only if visible and not collected, meaning it was just spawned)
-	if body.visible and not body.get_meta("collected", false):
-		print("[LootPool] Releasing visible loot at ", body.global_position, " value=", body.get_meta("gold_value", 0))
+	# Çift release aynı gövdeyi _free listesinde iki kez tutar → acquire aynı RigidBody'yi iki kez verir.
+	if not _active.has(body) and (_free_coins.has(body) or _free_pouches.has(body)):
+		loot_log("release DUPLICATE_ignored reason=%s id=%s" % [reason, str(body.get_meta("loot_spawn_id", -1))])
+		return
+	var sid := str(body.get_meta("loot_spawn_id", -1))
+	var vis := body.visible
+	var col := bool(body.get_meta("collected", false))
+	var in_active := _active.has(body)
+	loot_log("release BEGIN reason=%s id=%s visible=%s collected=%s in_active=%s pos=%s gv=%s" % [
+		reason, sid, str(vis), str(col), str(in_active), str(body.global_position), str(body.get_meta("gold_value", 0))
+	])
+	_clear_loot_timers(body)
+	# Eski çağrılar reason vermez; gerçek repro'da bu satır işe yarar.
+	if vis and not col and reason == "":
+		push_warning("[LootPool] release without reason (legacy call?) id=%s pos=%s" % [sid, str(body.global_position)])
 	if _active.has(body):
 		_active.erase(body)
 	body.linear_velocity = Vector2.ZERO
 	body.angular_velocity = 0.0
 	body.visible = false
 	body.global_position = Vector2(-10000, -10000)
+	if body.is_in_group("collectible_gold"):
+		body.remove_from_group("collectible_gold")
+	var coin_anim := body.get_node_or_null("CoinAnimDriver")
+	if coin_anim:
+		coin_anim.queue_free()
 	# Reset collected flag for reuse
 	body.set_meta("collected", false)
-	var is_pouch: bool = int(body.get_meta("gold_value", 1)) > 5
+	var is_pouch: bool = int(body.get_meta("gold_value", 1)) >= 5
 	if is_pouch:
-		_free_pouches.append(body)
+		if not _free_pouches.has(body):
+			_free_pouches.append(body)
 	else:
-		_free_coins.append(body)
+		if not _free_coins.has(body):
+			_free_coins.append(body)
+		loot_log("release END reason=%s id=%s -> pool (free coin=%s)" % [reason, sid, str(int(body.get_meta("gold_value", 1)) < 5)])
 
 func active_count() -> int:
 	return _active.size()
+
+
+func is_loot_in_active(body: RigidBody2D) -> bool:
+	return body != null and is_instance_valid(body) and _active.has(body)
 
 func schedule_despawn(body: RigidBody2D, seconds: float) -> void:
 	if not body:
 		return
 	var t := Timer.new()
 	t.one_shot = true
-	t.wait_time = max(0.1, seconds)
+	# max(0.1, 0) = 0.1 sn → parça anında havuza dönüyordu; anlamlı bir taban kullan
+	var wt: float = maxf(10.0, maxf(0.0, seconds))
+	t.wait_time = wt
+	t.name = "DespawnTimer"
 	body.add_child(t)
+	loot_log("schedule_despawn id=%s wait=%.2fs" % [str(body.get_meta("loot_spawn_id", -1)), wt])
 	t.timeout.connect(func():
 		if is_instance_valid(body):
-			release(body)
+			release(body, "despawn_timer")
 	)
 	t.start()
 
@@ -94,6 +159,7 @@ func schedule_ground_sleep(body: RigidBody2D, delay: float) -> void:
 	if not body:
 		return
 	var t := Timer.new()
+	t.name = "GroundSleepTimer"
 	t.one_shot = true
 	t.wait_time = max(0.05, delay)
 	body.add_child(t)
@@ -141,7 +207,7 @@ func _enforce_cap() -> void:
 	for victim in to_release:
 		if is_instance_valid(victim):
 			print("[LootPool] _enforce_cap releasing old loot at ", victim.global_position)
-			release(victim)
+			release(victim, "enforce_cap")
 
 func _make_loot(is_pouch: bool) -> RigidBody2D:
 	var rb := RigidBody2D.new()

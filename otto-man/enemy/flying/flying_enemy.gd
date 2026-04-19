@@ -340,6 +340,9 @@ func set_neutral_state() -> void:
 
 func set_summoner(new_summoner: Node2D) -> void:
 	summoner = new_summoner
+	# Tile’da doğan kuşlar meta almaz; sadece summoner çağırınca altın drop’u kapatılır.
+	if new_summoner != null:
+		set_meta("summoner_summoned_bird", true)
 
 func apply_gravity(_delta: float) -> void:
 	# Override to prevent gravity from affecting flying enemies
