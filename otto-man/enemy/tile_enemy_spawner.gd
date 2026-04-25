@@ -104,6 +104,15 @@ func deactivate() -> void:
 	if DEBUG_ENEMY:
 		print("[TileEnemySpawner] Deactivated")
 
+func _min_level_required(enemy_key: String) -> int:
+	# Forest uses distance-based scaling; allow all roster types from the first chunk so weights stay honest.
+	if chunk_type == "forest":
+		return 1
+	if not ENEMY_TYPES.has(enemy_key):
+		return 999
+	return int(ENEMY_TYPES[enemy_key].min_level)
+
+
 func _spawn_enemy() -> bool:
 	# Select enemy type based on level and chunk type
 	var selected_enemy_type = enemy_type if not enemy_type.is_empty() else _spawn_config.select_enemy_type(current_level, chunk_type)
@@ -118,9 +127,10 @@ func _spawn_enemy() -> bool:
 		return false
 	
 	# Check minimum level requirement
-	if ENEMY_TYPES[selected_enemy_type].min_level > current_level:
+	var min_lv := _min_level_required(selected_enemy_type)
+	if min_lv > current_level:
 		if DEBUG_ENEMY:
-			print("[TileEnemySpawner] Enemy type '%s' requires level %d, current level %d" % [selected_enemy_type, ENEMY_TYPES[selected_enemy_type].min_level, current_level])
+			print("[TileEnemySpawner] Enemy type '%s' requires level %d, current level %d" % [selected_enemy_type, min_lv, current_level])
 		return false
 	
 	# Create enemy instance - load scene at runtime for export compatibility

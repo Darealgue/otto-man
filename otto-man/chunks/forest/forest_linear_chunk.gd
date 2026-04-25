@@ -11,7 +11,7 @@ enum Direction {
 
 @export var size_in_units: Vector2i = Vector2i(2, 1) # 2x1 by default for linear
 @export var unit_size: int = 2048 # square unit size in pixels; adjust as needed per art scale
-@export var debug_draw: bool = true
+@export var debug_draw: bool = false
 
 var size: Vector2:
 	get: return Vector2(size_in_units.x * unit_size, size_in_units.y * unit_size)

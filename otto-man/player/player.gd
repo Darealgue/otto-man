@@ -733,10 +733,19 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 		var current_health = player_stats.get_current_health()
 		player_stats.set_current_health(current_health - amount, show_damage_number)
 		if amount > 0.0:
-			player_stats.lose_resources_on_damage()
+			if _should_apply_damage_resource_penalty(attacker):
+				player_stats.lose_resources_on_damage()
+				player_stats.lose_dungeon_gold_on_damage()
 			if has_signal("player_took_damage"):
 				emit_signal("player_took_damage", amount, attacker)
 			_spawn_player_blood_particles(amount, attacker)
+
+func _should_apply_damage_resource_penalty(attacker: Node2D) -> bool:
+	# Flying enemies are frequent chip-damage sources; skip resource/gold loss for those hits.
+	if attacker != null and is_instance_valid(attacker):
+		if attacker is FlyingEnemy:
+			return false
+	return true
 
 func heal(amount: float):
 	var player_stats = get_node("/root/PlayerStats")

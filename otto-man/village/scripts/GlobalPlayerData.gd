@@ -80,6 +80,19 @@ func clear_dungeon_gold() -> void:
 	if has_signal("dungeon_gold_changed"):
 		dungeon_gold_changed.emit(0)
 
+func lose_dungeon_gold_by_fraction(fraction: float) -> int:
+	"""Lose a fraction of currently carried dungeon gold. Returns lost amount."""
+	fraction = clampf(fraction, 0.0, 1.0)
+	if fraction <= 0.0 or dungeon_gold <= 0:
+		return 0
+	var loss := int(floor(float(dungeon_gold) * fraction))
+	if loss <= 0:
+		return 0
+	dungeon_gold = max(0, dungeon_gold - loss)
+	if has_signal("dungeon_gold_changed"):
+		dungeon_gold_changed.emit(dungeon_gold)
+	return loss
+
 
 ## Dünya uzayında toplanan altın miktarını sarı yazı + beyaz kontür ile yukarı süzülüp sildirir.
 func show_gold_pickup_popup_at(world_pos: Vector2, amount: int) -> void:

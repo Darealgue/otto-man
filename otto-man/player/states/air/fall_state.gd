@@ -256,9 +256,8 @@ func physics_update(delta: float):
 	
 	player.apply_move_and_slide()
 	
-	# Check for ledge grab first
+	# Check for ledge grab (LedgeGrab.can_ledge_grab filters velocity + block + geometry)
 	var ledge_state = get_parent().get_node("LedgeGrab")
-	# print("[FallState] Checking can_ledge_grab...") # DEBUG
 	if ledge_state and ledge_state.can_ledge_grab():
 		# print("[FallState] LedgeGrab condition MET! Transitioning.") # DEBUG
 		state_machine.transition_to("LedgeGrab")

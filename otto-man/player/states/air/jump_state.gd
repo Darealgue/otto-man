@@ -195,7 +195,7 @@ func physics_update(delta: float):
 	# Move the player
 	player.apply_move_and_slide()
 	
-	# Check for ledge grab
+	# Ledge grab: can_ledge_grab() enforces block + upward-velocity cap + geometry checks
 	var ledge_state = get_parent().get_node("LedgeGrab")
 	if ledge_state and ledge_state.can_ledge_grab():
 		state_machine.transition_to("LedgeGrab")

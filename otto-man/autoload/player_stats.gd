@@ -38,6 +38,7 @@ static var RESOURCE_TYPES := ResourceType.all()
 
 var resource_loss_fraction_on_hit := 0.2
 var min_resource_loss_per_hit := 1
+var dungeon_gold_loss_fraction_on_hit := 0.2
 
 # Base stats
 var base_stats = {
@@ -313,3 +314,9 @@ func configure_resource_loss_on_hit(fraction: float, min_loss: int) -> void:
 
 func lose_resources_on_damage() -> Dictionary:
 	return lose_carried_resources_by_fraction(resource_loss_fraction_on_hit, min_resource_loss_per_hit)
+
+func lose_dungeon_gold_on_damage() -> int:
+	var gpd := get_node_or_null("/root/GlobalPlayerData")
+	if gpd and gpd.has_method("lose_dungeon_gold_by_fraction"):
+		return int(gpd.lose_dungeon_gold_by_fraction(dungeon_gold_loss_fraction_on_hit))
+	return 0

@@ -9,6 +9,11 @@ const CHUNK_SPAWN_RULES = {
 		3: { "min_spawns": 2, "max_spawns": 3 },
 		5: { "min_spawns": 2, "max_spawns": 4 }
 	},
+	"forest": {
+		1: { "min_spawns": 1, "max_spawns": 3 },
+		3: { "min_spawns": 2, "max_spawns": 4 },
+		5: { "min_spawns": 3, "max_spawns": 5 }
+	},
 	"combat": {
 		1: { "min_spawns": 2, "max_spawns": 3 },
 		3: { "min_spawns": 3, "max_spawns": 4 },
@@ -81,6 +86,41 @@ const ENEMY_WEIGHTS = {
 	}
 }
 
+# Forest biome uses a themed distribution: more flying + firemage,
+# while still allowing all current enemy types for variety.
+const FOREST_ENEMY_WEIGHTS = {
+	1: {
+		"basic": 26,
+		"flying": 22,
+		"firemage": 18,
+		"canonman": 14,
+		"turtle": 8,
+		"heavy": 5,
+		"spearman": 5,
+		"summoner": 2
+	},
+	3: {
+		"basic": 20,
+		"flying": 24,
+		"firemage": 20,
+		"canonman": 14,
+		"turtle": 7,
+		"heavy": 5,
+		"spearman": 6,
+		"summoner": 4
+	},
+	5: {
+		"basic": 17,
+		"flying": 24,
+		"firemage": 22,
+		"canonman": 14,
+		"turtle": 6,
+		"heavy": 5,
+		"spearman": 6,
+		"summoner": 6
+	}
+}
+
 # Summoner ability scaling
 const SUMMONER_SCALING = {
 	1: { "max_summons": 1, "summon_interval": 5.0 },
@@ -114,6 +154,13 @@ func get_enemy_weights(level: int) -> Dictionary:
 			applicable_level = weight_level
 	
 	return ENEMY_WEIGHTS[applicable_level]
+
+func get_forest_enemy_weights(level: int) -> Dictionary:
+	var applicable_level = 1
+	for weight_level in FOREST_ENEMY_WEIGHTS:
+		if weight_level <= level and weight_level > applicable_level:
+			applicable_level = weight_level
+	return FOREST_ENEMY_WEIGHTS[applicable_level]
 
 static func _smoothstep01(t: float) -> float:
 	t = clampf(t, 0.0, 1.0)
@@ -192,6 +239,10 @@ func select_enemy_type(level: int, chunk_type: String = "basic") -> String:
 		weights = get_dungeon_enemy_weights(level)
 		if DEBUG_SPAWN_CONFIG:
 			print("[SpawnConfig] Using dungeon weights for level ", level, ": ", weights)
+	elif chunk_type == "forest":
+		weights = get_forest_enemy_weights(level)
+		if DEBUG_SPAWN_CONFIG:
+			print("[SpawnConfig] Using forest weights for level ", level, ": ", weights)
 	else:
 		weights = get_enemy_weights(level)
 		if DEBUG_SPAWN_CONFIG:

@@ -14,7 +14,7 @@ enum Direction {
 @export var is_up: bool = true # true: ramp_up (moves one row up), false: ramp_down
 @export var size_in_units: Vector2i = Vector2i(1, 2) # 1x2 for ramp
 @export var unit_size: int = 2048
-@export var debug_draw: bool = true
+@export var debug_draw: bool = false
 
 var size: Vector2:
 	get: return Vector2(size_in_units.x * unit_size, size_in_units.y * unit_size)

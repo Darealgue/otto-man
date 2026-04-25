@@ -8,9 +8,9 @@ signal level_completed
 @export var unit_size: int = 2048
 @export var spawn_ahead_count: int = 6
 @export var despawn_distance: float = 8192.0
-@export var prob_continue: float = 0.6
-@export var prob_up: float = 0.2
-@export var prob_down: float = 0.2
+@export var prob_continue: float = 0.84
+@export var prob_up: float = 0.08
+@export var prob_down: float = 0.08
 @export var min_row: int = -2
 @export var max_row: int = 2
 @export var window_left_count: int = 3
@@ -18,6 +18,19 @@ signal level_completed
 @export var prob_wide_ramp: float = 0.5
 @export var debug_enabled: bool = false
 @export var debug_rate_ms: int = 250
+@export var forest_enemy_spawn_chance: float = 1.0
+@export var forest_enemy_min_distance: float = 170.0
+## How many "chunk widths" away from the forest start (either direction) before enemy level increases by 1.
+@export var forest_chunks_per_enemy_level: int = 3
+## Approximate horizontal size of one forest segment for distance→level (linear 2x1 uses 2 * unit_size).
+@export var forest_enemy_chunk_width_px: float = 0.0
+@export var forest_enemy_max_level: int = 12
+## Gatherable resources (wood/stone/water/food): expect one spawn every N chunks on average.
+@export var forest_resource_spawn_min_chunks: int = 2
+@export var forest_resource_spawn_max_chunks: int = 3
+@export var chunk_postprocess_per_frame: int = 1
+@export var chunk_postprocess_min_distance_px: float = 1024.0
+@export var ramp_cooldown_segments: int = 2
 
 @onready var _forest_exit_portal_scene: PackedScene = load("res://chunks/forest/ForestExitPortal.tscn")
 @onready var _tree_interactable_scene: PackedScene = load("res://interactables/forest/TreeInteractable.tscn")
@@ -53,7 +66,14 @@ var _last_dbg_ms: int = 0
 var _last_dbg_text: String = ""
 var _forest_tree_reserved_px: Array[Vector2] = [] # global x-range reservations for trees across chunks
 var _decor_spawn_queue: Array = [] # queued decoration spawn jobs to spread over frames
+var _chunk_postprocess_queue: Array[Dictionary] = [] # { "node": Node2D, "phase": int }
 var _decor_spawner: DecorationSpawner
+var _spawn_config: SpawnConfig
+var _ramp_cooldown_next: int = 0
+var _ramp_cooldown_prev: int = 0
+
+const DEBUG_FOREST_ENEMIES: bool = false
+const FOREST_ENEMY_LAYER_NAME := "decor_anchor"
 
 var scenes := {
 	# Each key holds an array of variants
@@ -93,6 +113,7 @@ var scenes := {
 func _ready() -> void:
 	add_to_group("level_generator")
 	player = get_tree().get_first_node_in_group("player")
+	_spawn_config = SpawnConfig.new()
 	
 	# Initialize resource scenes
 	_resource_scenes = [
@@ -102,8 +123,10 @@ func _ready() -> void:
 		_well_interactable_scene,
 		# _fruit_tree_interactable_scene # Excluded for now or add if ready
 	]
-	# Initialize timer with random value (4-6 chunks)
-	_resource_spawn_timer = randi_range(4, 6)
+	_resource_spawn_timer = randi_range(
+		mini(forest_resource_spawn_min_chunks, forest_resource_spawn_max_chunks),
+		maxi(forest_resource_spawn_min_chunks, forest_resource_spawn_max_chunks)
+	)
 	
 	_spawn_initial_path()
 	_setup_overview_camera()
@@ -124,10 +147,12 @@ func _physics_process(_delta: float) -> void:
 		_update_overview_camera_fit()
 	# Process a small budget of decoration spawns per frame to avoid hitches
 	_process_decor_spawn_queue()
+	_process_chunk_postprocess_queue()
 
 func _process(_delta: float) -> void:
 	# Also run in _process for non-physics frames
 	_process_decor_spawn_queue()
+	_process_chunk_postprocess_queue()
 
 func _process_decor_spawn_queue() -> void:
 	var budget := 8
@@ -164,6 +189,80 @@ func _process_decor_spawn_queue() -> void:
 			if spr:
 				spr.z_as_relative = true
 				spr.z_index = -5
+		budget -= 1
+
+func _queue_chunk_postprocess(chunk_node: Node2D) -> void:
+	if chunk_node == null or not is_instance_valid(chunk_node):
+		return
+	for entry in _chunk_postprocess_queue:
+		if not (entry is Dictionary):
+			continue
+		var existing = entry.get("node", null)
+		if existing != null and existing == chunk_node:
+			return
+	_chunk_postprocess_queue.append({ "node": chunk_node, "phase": 0 })
+
+func _chunk_distance_to_player_x(chunk_node: Node2D) -> float:
+	if chunk_node == null or not is_instance_valid(chunk_node):
+		return INF
+	if player == null or not is_instance_valid(player):
+		return 0.0
+	var px := player.global_position.x
+	var start_x := chunk_node.global_position.x
+	var end_x := start_x + _get_size(chunk_node).x
+	if px >= start_x and px <= end_x:
+		return 0.0
+	if px < start_x:
+		return start_x - px
+	return px - end_x
+
+func _process_chunk_postprocess_queue() -> void:
+	var budget := maxi(1, chunk_postprocess_per_frame)
+	while budget > 0 and _chunk_postprocess_queue.size() > 0:
+		# Always process the nearest queued chunk first to avoid visible pop-in.
+		var best_idx := 0
+		var best_dist := INF
+		for i in range(_chunk_postprocess_queue.size()):
+			var candidate = _chunk_postprocess_queue[i]
+			if not (candidate is Dictionary):
+				continue
+			var candidate_node = (candidate as Dictionary).get("node", null)
+			if candidate_node == null or not is_instance_valid(candidate_node):
+				continue
+			if not (candidate_node is Node2D):
+				continue
+			var cn: Node2D = candidate_node
+			var d := _chunk_distance_to_player_x(cn)
+			if d < best_dist:
+				best_dist = d
+				best_idx = i
+		var raw_entry = _chunk_postprocess_queue.pop_at(best_idx)
+		if not (raw_entry is Dictionary):
+			budget -= 1
+			continue
+		var entry: Dictionary = raw_entry
+		var raw_node = entry.get("node", null)
+		if raw_node == null or not is_instance_valid(raw_node):
+			budget -= 1
+			continue
+		if not (raw_node is Node2D):
+			budget -= 1
+			continue
+		var chunk_node: Node2D = raw_node
+		# If chunk is still far from player, postpone heavy scans.
+		if player != null and is_instance_valid(player):
+			var near_enough := _chunk_distance_to_player_x(chunk_node) <= chunk_postprocess_min_distance_px
+			if not near_enough:
+				_chunk_postprocess_queue.append(entry)
+				budget -= 1
+				continue
+		var phase := int(entry.get("phase", 0))
+		# Split heavy processing across frames: decor first, enemies next.
+		if phase <= 0:
+			_populate_forest_decorations_for_chunk(chunk_node)
+			_chunk_postprocess_queue.append({ "node": chunk_node, "phase": 1 })
+		else:
+			_populate_forest_enemies_for_chunk(chunk_node)
 		budget -= 1
 
 func _input(event: InputEvent) -> void:
@@ -224,8 +323,7 @@ func _spawn_initial_path() -> void:
 	last_end_x = start.position.x + _get_size(start).x
 	_forest_start_chunk = start
 	_attach_forest_exit_portal(start)
-	# Decoration spawn'ları aktif - artık x=500-1500 aralığında da spawn olabilir
-	_spawn_debug_resource_nodes(start)  # Test için: Her mini oyun için placeholder spawn
+	# Start chunk test resource spawns disabled; resources now come from runtime spawn rules.
 	for i in range(spawn_ahead_count - 1):
 		_add_next_segment()
 	_sort_active_by_x()
@@ -243,22 +341,74 @@ func _attach_forest_exit_portal(start_chunk: Node2D) -> void:
 	var offset := Vector2(float(unit_size) * 0.25, -160.0)
 	_forest_exit_portal.global_position = base_position + offset
 
-func _spawn_random_resource(chunk: Node2D) -> void:
+func _forest_on_resource_spawn_chunk(chunk: Node2D) -> void:
+	if chunk == null or not is_instance_valid(chunk):
+		return
+	if chunk.get_meta("is_start_chunk", false):
+		return
+	_resource_spawn_timer -= 1
+	if debug_enabled:
+		print("[ForestGenerator] resource chunks until spawn: ", _resource_spawn_timer)
+	if _resource_spawn_timer > 0:
+		return
+	var lo := mini(forest_resource_spawn_min_chunks, forest_resource_spawn_max_chunks)
+	var hi := maxi(forest_resource_spawn_min_chunks, forest_resource_spawn_max_chunks)
+	if _spawn_random_resource(chunk):
+		_resource_spawn_timer = randi_range(lo, hi)
+	else:
+		_resource_spawn_timer = 1
+
+func _forest_collect_resource_floor_cells(
+	tile_map: Node,
+	tile_set: TileSet,
+	chunk: Node2D,
+	decor_layer_name: String,
+	min_x_pad: float,
+	max_x_pad: float
+) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var used_cells = tile_map.get_used_cells()
+	var chunk_size := _get_size(chunk)
+	var min_x_local := min_x_pad
+	var max_x_local := chunk_size.x - max_x_pad
+	if max_x_local < min_x_local + 32.0:
+		min_x_local = 32.0
+		max_x_local = maxf(min_x_local + 32.0, chunk_size.x - 32.0)
+
+	for cell in used_cells:
+		var td: TileData = tile_map.get_cell_tile_data(cell)
+		if not td:
+			continue
+		var tag = td.get_custom_data(decor_layer_name)
+		if typeof(tag) != TYPE_STRING:
+			continue
+		var tag_s := String(tag)
+		if tag_s == "forest_floor_surface" or tag_s == "floor_surface" or tag_s == "floor":
+			var cell_local_pos = tile_map.map_to_local(cell)
+			if cell_local_pos.x >= min_x_local and cell_local_pos.x <= max_x_local:
+				var cell_above = cell + Vector2i(0, -1)
+				var cell_above2 = cell + Vector2i(0, -2)
+				if tile_map.get_cell_source_id(cell_above) == -1 and tile_map.get_cell_source_id(cell_above2) == -1:
+					out.append(cell)
+	return out
+
+
+func _spawn_random_resource(chunk: Node2D) -> bool:
 	print("[ForestGenerator] Attempting to spawn random resource in chunk: ", chunk.name)
 	if _resource_scenes.is_empty():
 		print("[ForestGenerator] FAIL: _resource_scenes is empty")
-		return
+		return false
 	
 	# Get TileMap and TileSet to scan used cells (decoration style)
 	var tile_map = chunk.find_child("TileMapLayer", true, false)
 	if not tile_map:
 		print("[ForestGenerator] FAIL: TileMapLayer not found in chunk")
-		return
+		return false
 	
 	var tile_set = tile_map.get("tile_set") as TileSet
 	if not tile_set:
 		print("[ForestGenerator] FAIL: TileSet not found")
-		return
+		return false
 
 	# Find custom data layer index for decor anchors
 	var decor_layer_name := "decor_anchor"
@@ -270,38 +420,19 @@ func _spawn_random_resource(chunk: Node2D) -> void:
 	
 	if decor_layer_index == -1:
 		print("[ForestGenerator] FAIL: 'decor_anchor' custom data layer not found in TileSet")
-		return
+		return false
 
-	# Collect all valid floor cells
-	var valid_floor_cells: Array[Vector2i] = []
-	var used_cells = tile_map.get_used_cells()
-	var chunk_size := _get_size(chunk)
-	var min_x_local := 400.0
-	var max_x_local := chunk_size.x - 400.0
-
-	for cell in used_cells:
-		var td: TileData = tile_map.get_cell_tile_data(cell)
-		if not td:
-			continue
-		
-		var tag = td.get_custom_data(decor_layer_name)
-		if typeof(tag) != TYPE_STRING:
-			continue
-			
-		var tag_s := String(tag)
-		if tag_s == "forest_floor_surface" or tag_s == "floor_surface":
-			# Check if cell local position is within padding limits
-			var cell_local_pos = tile_map.map_to_local(cell)
-			if cell_local_pos.x >= min_x_local and cell_local_pos.x <= max_x_local:
-				# Check if there is space above (empty tiles)
-				var cell_above = cell + Vector2i(0, -1)
-				var cell_above2 = cell + Vector2i(0, -2)
-				if tile_map.get_cell_source_id(cell_above) == -1 and tile_map.get_cell_source_id(cell_above2) == -1:
-					valid_floor_cells.append(cell)
+	var valid_floor_cells: Array[Vector2i] = _forest_collect_resource_floor_cells(
+		tile_map, tile_set, chunk, decor_layer_name, 280.0, 280.0
+	)
+	if valid_floor_cells.is_empty():
+		valid_floor_cells = _forest_collect_resource_floor_cells(
+			tile_map, tile_set, chunk, decor_layer_name, 32.0, 32.0
+		)
 
 	if valid_floor_cells.is_empty():
 		print("[ForestGenerator] FAIL: No valid floor cells found in chunk via tag scan")
-		return
+		return false
 
 	# Pick a random valid cell
 	var target_cell = valid_floor_cells.pick_random()
@@ -311,12 +442,12 @@ func _spawn_random_resource(chunk: Node2D) -> void:
 	var scene: PackedScene = _resource_scenes.pick_random()
 	if not scene:
 		print("[ForestGenerator] FAIL: picked scene is null")
-		return
+		return false
 		
 	var resource_node = scene.instantiate() as Node2D
 	if not resource_node:
 		print("[ForestGenerator] FAIL: failed to instantiate resource")
-		return
+		return false
 	
 	chunk.add_child(resource_node)
 	# Position at the bottom center of the tile (TileMap map_to_local returns center)
@@ -337,12 +468,14 @@ func _spawn_random_resource(chunk: Node2D) -> void:
 	var spawn_pos = target_local_pos
 	spawn_pos.y -= tile_size.y * 0.5 # Move to top edge of the tile
 	
-	# Slightly adjust to embed or sit perfectly
-	spawn_pos.y += 10.0 # Small adjustment down so it doesn't float
+	# Slightly adjust to embed or sit perfectly.
+	# Was +10 and looked too low; keep it a bit higher.
+	spawn_pos.y += 5.0
 	
 	resource_node.position = spawn_pos
 	
 	print("[ForestGenerator] SUCCESS: Spawned resource ", resource_node.name, " in chunk ", chunk.name, " at local ", resource_node.position)
+	return true
 
 func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
 	print("[ForestDebug] 🔧 _spawn_debug_resource_nodes called")
@@ -891,6 +1024,10 @@ func _cleanup_behind() -> void:
 func _add_next_segment() -> void:
 	_sort_active_by_x()
 	var prev: Node2D = active_chunks.back()
+	if _ramp_cooldown_next > 0:
+		_ramp_cooldown_next -= 1
+		_place_continue(prev)
+		return
 	# Derive the current row from the last chunk's y to avoid drift after window removals
 	current_row = int(round(prev.position.y / float(unit_size)))
 	var roll: float = randf()
@@ -915,6 +1052,10 @@ func _add_prev_segment() -> void:
 		return
 	_sort_active_by_x()
 	var first: Node2D = active_chunks[0]
+	if _ramp_cooldown_prev > 0:
+		_ramp_cooldown_prev -= 1
+		_place_continue_left(first, int(round(first.position.y / float(unit_size))))
+		return
 	# Use first's row to keep path flat unless a ramp is chosen
 	var row_est: int = int(round(first.position.y / float(unit_size)))
 	var roll: float = randf()
@@ -1004,16 +1145,7 @@ func _place_continue(prev: Node2D) -> void:
 		_link_after(prev_idx, new_idx)
 	last_end_x = next.position.x + _get_size(next).x
 	
-	# Try to spawn resource in this linear chunk
-	_resource_spawn_timer -= 1
-	if debug_enabled:
-		print("[ForestGenerator] _place_continue: spawn_timer decreased to ", _resource_spawn_timer)
-	
-	if _resource_spawn_timer <= 0:
-		_spawn_random_resource(next)
-		_resource_spawn_timer = randi_range(4, 6)
-		if debug_enabled:
-			print("[ForestGenerator] Timer reset to ", _resource_spawn_timer)
+	_forest_on_resource_spawn_chunk(next)
 	
 	if debug_enabled:
 		_debug_dump_active_chunks("place_continue")
@@ -1029,6 +1161,7 @@ func _place_continue_left(first: Node2D, row_est: int) -> void:
 	var next_idx := _record_entry(next, "linear")
 	if first_idx != -1:
 		_link_before(first_idx, next_idx)
+	_forest_on_resource_spawn_chunk(next)
 	if debug_enabled:
 		_debug_dump_active_chunks("place_continue_left")
 
@@ -1052,11 +1185,14 @@ func _place_up(prev: Node2D) -> void:
 	if prev_idx != -1:
 		_link_after(prev_idx, ramp_idx)
 	_link_after(ramp_idx, next_idx)
+	_forest_on_resource_spawn_chunk(ramp)
+	_forest_on_resource_spawn_chunk(next)
 	# Debug messages disabled for cleaner logs
 	# if debug_enabled:
 	#	var expected_y := _get_conn_global(ramp, "right").y - _get_conn_local(next, "left").y + next.position.y
 	#	print("[PlaceUp] prev_y=", prev.position.y, " ramp=", ramp_key, " next_y=", next.position.y)
 	current_row -= 1
+	_ramp_cooldown_next = maxi(_ramp_cooldown_next, ramp_cooldown_segments)
 	last_end_x = next.position.x + _get_size(next).x
 	if debug_enabled:
 		_debug_dump_active_chunks("place_up")
@@ -1082,11 +1218,14 @@ func _place_up_left(first: Node2D, row_est: int) -> void:
 		# Link spatially: next (leftmost) -> ramp -> first
 		_link_before(first_idx, next_idx)
 		_link_before(first_idx, ramp_idx)
+	_forest_on_resource_spawn_chunk(next)
+	_forest_on_resource_spawn_chunk(ramp)
 	# Debug messages disabled for cleaner logs
 	# if debug_enabled:
 	#	print("[PlaceUpLeft] first_y=", first.position.y, " ramp=", ramp_key, " next_y=", next.position.y)
 	if debug_enabled:
 		_debug_dump_active_chunks("place_up_left")
+	_ramp_cooldown_prev = maxi(_ramp_cooldown_prev, ramp_cooldown_segments)
 
 func _place_down(prev: Node2D) -> void:
 	var ramp_key: String = ("ramp_down_wide" if randf() < prob_wide_ramp else "ramp_down")
@@ -1108,10 +1247,13 @@ func _place_down(prev: Node2D) -> void:
 	if prev_idx != -1:
 		_link_after(prev_idx, ramp_idx)
 	_link_after(ramp_idx, next_idx)
+	_forest_on_resource_spawn_chunk(ramp)
+	_forest_on_resource_spawn_chunk(next)
 	# Debug messages disabled for cleaner logs
 	# if debug_enabled:
 	#	print("[PlaceDown] prev_y=", prev.position.y, " ramp=", ramp_key, " next_y=", next.position.y)
 	current_row += 1
+	_ramp_cooldown_next = maxi(_ramp_cooldown_next, ramp_cooldown_segments)
 	last_end_x = next.position.x + _get_size(next).x
 	if debug_enabled:
 		_debug_dump_active_chunks("place_down")
@@ -1137,11 +1279,14 @@ func _place_down_left(first: Node2D, row_est: int) -> void:
 		# Link spatially: next (leftmost) -> ramp -> first
 		_link_before(first_idx, next_idx)
 		_link_before(first_idx, ramp_idx)
+	_forest_on_resource_spawn_chunk(next)
+	_forest_on_resource_spawn_chunk(ramp)
 	# Debug messages disabled for cleaner logs
 	# if debug_enabled:
 	#	print("[PlaceDownLeft] prev_y=", first.position.y, " ramp=", ramp_key, " next_y=", next.position.y)
 	if debug_enabled:
 		_debug_dump_active_chunks("place_down_left")
+	_ramp_cooldown_prev = maxi(_ramp_cooldown_prev, ramp_cooldown_segments)
 
 
 func _spawn_scene(key: String) -> Node2D:
@@ -1159,8 +1304,8 @@ func _spawn_scene(key: String) -> Node2D:
 	add_child(inst)
 	# Force unit_size sync to avoid per-scene mismatches
 	_apply_unit_size(inst)
-	# Populate forest tile-based decorations for this chunk (deferred to ensure TileMap is ready)
-	call_deferred("_populate_forest_decorations_for_chunk", inst)
+	# Queue expensive chunk setup to be processed with per-frame budget.
+	_queue_chunk_postprocess(inst)
 	return inst
 
 func _get_size(node: Node2D) -> Vector2:
@@ -1586,8 +1731,8 @@ func _spawn_from_archive(idx: int) -> Node2D:
 	inst.position = entry.get("position", Vector2.ZERO)
 	inst.set_meta("entry_index", idx)
 	_apply_unit_size(inst)
-	# Rebuild forest decorations on restore as they are not archived
-	call_deferred("_populate_forest_decorations_for_chunk", inst)
+	# Rebuild archived chunk content gradually to avoid frame spikes.
+	_queue_chunk_postprocess(inst)
 	# Optional future: apply stored seed to any stochastic sub-systems in the chunk
 	if inst.has_method("set_meta") and entry.has("seed"):
 		inst.set_meta("seed", entry["seed"]) 
@@ -2022,6 +2167,152 @@ func _forest_pick_decor_name(rng: RandomNumberGenerator = null) -> String:
 			if roll < acc:
 				return n
 	return names[0]
+
+## Enemy level rises with horizontal distance from the start chunk (left or right), so streaming
+## forest maps still scale difficulty without relying on global dungeon level.
+func _forest_effective_enemy_level(chunk_node: Node2D) -> int:
+	if chunk_node == null or not is_instance_valid(chunk_node):
+		return 1
+	if _forest_start_chunk == null or not is_instance_valid(_forest_start_chunk):
+		return maxi(1, current_level)
+	var start_sz := _get_size(_forest_start_chunk)
+	var start_mid_x := _forest_start_chunk.global_position.x + start_sz.x * 0.5
+	var ch_sz := _get_size(chunk_node)
+	var chunk_mid_x := chunk_node.global_position.x + ch_sz.x * 0.5
+	var dist_px := absf(chunk_mid_x - start_mid_x)
+	var step := forest_enemy_chunk_width_px
+	if step <= 0.0:
+		step = float(unit_size) * 2.0
+	if step < 1.0:
+		step = 1.0
+	var chunks_equiv := int(floor(dist_px / step))
+	var per := maxi(1, forest_chunks_per_enemy_level)
+	# Level 1 near the village/start; each `per` chunk-widths of travel (either direction) +1.
+	var from_distance := 1 + (chunks_equiv / per)
+	return clampi(from_distance, 1, maxi(1, forest_enemy_max_level))
+
+func _populate_forest_enemies_for_chunk(chunk_node: Node2D) -> void:
+	if chunk_node == null or not is_instance_valid(chunk_node):
+		return
+	if chunk_node.get_meta("forest_enemy_populated", false):
+		return
+
+	var chunk_name := chunk_node.name.to_lower()
+	var scene_path := chunk_node.scene_file_path.to_lower() if chunk_node.scene_file_path else ""
+	if "start" in chunk_name or "start" in scene_path:
+		chunk_node.set_meta("forest_enemy_populated", true)
+		return
+
+	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
+	if tile_map == null:
+		chunk_node.set_meta("forest_enemy_populated", true)
+		return
+
+	var tile_set: TileSet = tile_map.get("tile_set")
+	if tile_set == null:
+		chunk_node.set_meta("forest_enemy_populated", true)
+		return
+
+	var used_cells: Array[Vector2i] = tile_map.get_used_cells()
+	if used_cells.is_empty():
+		chunk_node.set_meta("forest_enemy_populated", true)
+		return
+
+	var candidate_cells: Array[Vector2i] = []
+	for cell in used_cells:
+		var tile_data: TileData = tile_map.get_cell_tile_data(cell) as TileData
+		if tile_data == null:
+			continue
+		var custom_data = tile_data.get_custom_data(FOREST_ENEMY_LAYER_NAME)
+		if typeof(custom_data) != TYPE_STRING:
+			continue
+		var tag := String(custom_data)
+		if tag != "forest_floor_surface" and tag != "floor_surface" and tag != "floor":
+			continue
+		if not _forest_enemy_has_spawn_span(tile_map, cell):
+			continue
+		if not _forest_enemy_has_height_clearance(tile_map, cell, 4):
+			continue
+		candidate_cells.append(cell)
+
+	if candidate_cells.is_empty():
+		chunk_node.set_meta("forest_enemy_populated", true)
+		return
+
+	var eff_level := _forest_effective_enemy_level(chunk_node)
+	var spawn_rules := _spawn_config.get_spawn_count("forest", eff_level)
+	var min_spawns := int(spawn_rules.get("min_spawns", 2))
+	var max_spawns := int(spawn_rules.get("max_spawns", 4))
+	var target_count := randi_range(min_spawns, max_spawns)
+	# Scale with chunk surface density so streaming forest chunks feel populated.
+	var density_bonus := int(floor(float(candidate_cells.size()) / 24.0))
+	target_count += clampi(density_bonus, 0, 2)
+	target_count = mini(target_count, candidate_cells.size())
+
+	candidate_cells.shuffle()
+	var spawned_positions: Array[Vector2] = []
+	var spawned_count := 0
+	var enemy_spawner_script: Script = load("res://enemy/tile_enemy_spawner.gd")
+
+	for cell in candidate_cells:
+		if spawned_count >= target_count:
+			break
+
+		var tile_size_v2: Vector2 = Vector2(tile_set.tile_size)
+		var local_pos: Vector2 = tile_map.map_to_local(cell)
+		var tile_center: Vector2 = tile_map.to_global(local_pos) + tile_size_v2 * 0.5
+		var spawn_position := tile_center + Vector2(0.0, -150.0)
+
+		var too_close := false
+		for existing in spawned_positions:
+			if spawn_position.distance_to(existing) < forest_enemy_min_distance:
+				too_close = true
+				break
+		if too_close:
+			continue
+
+		var enemy_spawner := Node2D.new()
+		enemy_spawner.set_script(enemy_spawner_script)
+		enemy_spawner.set("current_level", eff_level)
+		enemy_spawner.set("chunk_type", "forest")
+		enemy_spawner.set("spawn_chance", forest_enemy_spawn_chance)
+		enemy_spawner.global_position = spawn_position
+		chunk_node.add_child(enemy_spawner)
+		enemy_spawner.global_position = spawn_position
+		enemy_spawner.call_deferred("activate")
+
+		spawned_positions.append(spawn_position)
+		spawned_count += 1
+
+	if DEBUG_FOREST_ENEMIES:
+		print("[ForestEnemy] Chunk ", chunk_node.name, " spawned ", spawned_count, " / ", target_count, " enemies")
+
+	chunk_node.set_meta("forest_enemy_populated", true)
+
+func _forest_enemy_has_spawn_span(tile_map, center_cell: Vector2i) -> bool:
+	var check_cells := [
+		center_cell + Vector2i(-1, 0),
+		center_cell,
+		center_cell + Vector2i(1, 0)
+	]
+	for check_cell in check_cells:
+		var tile_data: TileData = tile_map.get_cell_tile_data(check_cell) as TileData
+		if tile_data == null:
+			return false
+		var custom_data = tile_data.get_custom_data(FOREST_ENEMY_LAYER_NAME)
+		if typeof(custom_data) != TYPE_STRING:
+			return false
+		var tag := String(custom_data)
+		if tag != "forest_floor_surface" and tag != "floor_surface" and tag != "floor":
+			return false
+	return true
+
+func _forest_enemy_has_height_clearance(tile_map, center_cell: Vector2i, min_height: int) -> bool:
+	for i in range(1, min_height + 1):
+		var check_cell := center_cell + Vector2i(0, -i)
+		if tile_map.get_cell_source_id(check_cell) != -1:
+			return false
+	return true
 
 # --- Global tree spacing helpers (pixel ranges across chunks) ---
 func _forest_tree_prune_px(left_limit_px: float) -> void:

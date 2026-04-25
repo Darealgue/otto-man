@@ -274,4 +274,18 @@ func apply_crouch_shape_now() -> void:
 		collision_shape.shape.height = new_height
 		collision_shape.position.y = original_position_y + (original_height - new_height) * 0.5
 		hurtbox_shape.shape.height = new_hurtbox_height
-		hurtbox_shape.position.y = original_hurtbox_position_y + (original_hurtbox_height - new_hurtbox_height) * 0.5 
+		hurtbox_shape.position.y = original_hurtbox_position_y + (original_hurtbox_height - new_hurtbox_height) * 0.5
+
+
+## Restore standing capsule/hurtbox without leaving current state (e.g. ledge climb aborted after apply_crouch_shape_now).
+func restore_standing_shape_now() -> void:
+	if !player:
+		return
+	var collision_shape = player.get_node("CollisionShape2D")
+	var hurtbox_shape = player.get_node("Hurtbox/CollisionShape2D")
+	if collision_shape and collision_shape.shape is CapsuleShape2D and hurtbox_shape and hurtbox_shape.shape is CapsuleShape2D:
+		if has_initialized:
+			collision_shape.shape.height = original_height
+			collision_shape.position.y = original_position_y
+			hurtbox_shape.shape.height = original_hurtbox_height
+			hurtbox_shape.position.y = original_hurtbox_position_y

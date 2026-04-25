@@ -176,6 +176,7 @@ func physics_update(delta: float):
 		return
 	
 	# --- Ledge Grab Check (only when not jumping) ---
+	# can_ledge_grab() already rejects strong upward velocity and invalid geometry
 	var ledge_state = get_parent().get_node("LedgeGrab")
 	if ledge_state and ledge_state.can_ledge_grab():
 		_end_wall_slide() # Ensure wall slide cleanup happens
