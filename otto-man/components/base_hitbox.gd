@@ -4,6 +4,8 @@ extends Area2D
 @export var damage: float = 0.0
 @export var knockback_force: float = 0.0
 @export var knockback_up_force: float = 0.0
+@export var knockback_profile: String = "normal" # normal | launch
+@export var can_air_recover: bool = true
 @export var debug_enabled: bool = false
 
 var is_active: bool = false
@@ -44,7 +46,9 @@ func get_damage() -> float:
 func get_knockback_data() -> Dictionary:
 	return {
 		"force": knockback_force,
-		"up_force": knockback_up_force
+		"up_force": knockback_up_force,
+		"profile": knockback_profile,
+		"can_air_recover": can_air_recover
 	} 
 
 func _process(_delta: float) -> void:

@@ -45,17 +45,6 @@ func setup_initial_from_village() -> void:
 	has_exit_option = false
 	_clear_spawned()
 	_current_doors = _get_generator().generate_doors(true)
-	# İlk kamp: Normal kapı gerçekten "basesiz artış" olsun (ilk zindan Lv1 kalsın)
-	# Bu yüzden 0. kapının deltasını sıfırlıyoruz (sadece ilk kampta geçerli)
-	if _current_doors.size() > 0:
-		var normal := _current_doors[0]
-		normal["enemy_level_delta"] = 0
-		normal["enemy_count_delta"] = 0
-		normal["trap_level_delta"] = 0
-		normal["trap_count_delta"] = 0
-		normal["dungeon_size_delta"] = 0
-		normal["gold_multiplier_delta"] = 0.0
-		_current_doors[0] = normal
 	_spawn_entrance_door_and_fountain()
 	_spawn_doors()
 
@@ -63,10 +52,18 @@ func setup_mid_run() -> void:
 	mode = "mid_run_selection"
 	has_exit_option = true
 	_clear_spawned()
-	var generated: Array = _get_generator().generate_doors(false)
-	# Sıra: [0]=Çıkış (DoorSpot0), [1]=Normal (DoorSpot1), [2..]=prosedürel (DoorSpot2-5)
-	_current_doors = [{"is_exit": true, "label_short": "Köye dön"}]
-	_current_doors.append_array(generated)
+
+	var drs = _get_dungeon_run_state()
+	var run_complete: bool = drs and drs.is_run_complete()
+
+	if run_complete:
+		# 3 segment tamamlandı — sadece çıkış kapısı, devam yok
+		_current_doors = [{"is_exit": true, "label_short": "[color=green]Köye Dön — Zafer![/color]"}]
+	else:
+		var generated: Array = _get_generator().generate_doors(false)
+		_current_doors = [{"is_exit": true, "label_short": "[color=green]Köye Dön[/color]"}]
+		_current_doors.append_array(generated)
+
 	_spawn_entrance_door_and_fountain()
 	_spawn_doors()
 
@@ -274,47 +271,14 @@ func _get_scene_manager() -> Node:
 func _sort_spots_by_x(a: Node2D, b: Node2D) -> bool:
 	return a.position.x < b.position.x
 
-## Dizi elemanlarını sep ile birleştirir (Array.join uyumluluğu için)
-func _str_join(parts: Array, sep: String) -> String:
-	var s := ""
-	for i in range(parts.size()):
-		if i > 0:
-			s += sep
-		s += str(parts[i])
-	return s
 
-## Kapı etiketi: cezalar kırmızı, ödüller yeşil (BBCode)
+## Kapı etiketi: generator'dan gelen minimal label veya çıkış metni
 func _build_door_label_bbcode(challenge: Dictionary) -> String:
 	if bool(challenge.get("is_exit", false)):
-		return "Köye dön"
-	if bool(challenge.get("is_normal", false)):
-		return "Normal (standart artan zorluk)"
-	var red_parts: Array = []
-	if int(challenge.get("enemy_level_delta", 0)) > 0:
-		red_parts.append("+%d düşman seviyesi" % int(challenge["enemy_level_delta"]))
-	if int(challenge.get("enemy_count_delta", 0)) > 0:
-		red_parts.append("+%d düşman yoğunluğu" % int(challenge["enemy_count_delta"]))
-	if int(challenge.get("trap_level_delta", 0)) > 0:
-		red_parts.append("+%d tuzak seviyesi" % int(challenge["trap_level_delta"]))
-	if int(challenge.get("trap_count_delta", 0)) > 0:
-		red_parts.append("+%d tuzak yoğunluğu" % int(challenge["trap_count_delta"]))
-	if int(challenge.get("dungeon_size_delta", 0)) > 0:
-		red_parts.append("+%d zindan boyutu" % int(challenge["dungeon_size_delta"]))
-	var green_parts: Array = []
-	if float(challenge.get("gold_multiplier_delta", 0.0)) > 0.0:
-		green_parts.append("altın x+%.2f" % float(challenge["gold_multiplier_delta"]))
-	if bool(challenge.get("guaranteed_rescue", false)):
-		green_parts.append("garanti kurtarma odası")
-	var out: Array = []
-	if not red_parts.is_empty():
-		out.append("[color=red]%s[/color]" % _str_join(red_parts, ", "))
-	if not green_parts.is_empty():
-		out.append("[color=green]%s[/color]" % _str_join(green_parts, ", "))
-	if out.is_empty():
-		return "Hafif risk"
-	return _str_join(out, "  ")
+		return "[color=green]Köye Dön[/color]"
+	return str(challenge.get("label_short", ""))
 
-## Kamp ortasında mevcut run birikimini gösteren panel (multiplier, düşman seviyesi vb.)
+## Kamp ortasında oyuncu dostu durum göstergesi
 func _setup_run_stats_ui() -> void:
 	if _run_stats_panel:
 		return
@@ -323,18 +287,16 @@ func _setup_run_stats_ui() -> void:
 	add_child(layer)
 	var panel := Panel.new()
 	panel.name = "RunStatsPanel"
-	# Ekran üst-orta, biraz aşağıda
 	var viewport_w: int = get_viewport().get_visible_rect().size.x
-	var viewport_h: int = get_viewport().get_visible_rect().size.y
 	panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	panel.set_anchor(SIDE_LEFT, 0.0)
 	panel.set_anchor(SIDE_TOP, 0.0)
 	panel.set_anchor(SIDE_RIGHT, 1.0)
 	panel.set_anchor(SIDE_BOTTOM, 0.0)
-	panel.offset_left = viewport_w * 0.25
-	panel.offset_right = -viewport_w * 0.25
+	panel.offset_left = viewport_w * 0.3
+	panel.offset_right = -viewport_w * 0.3
 	panel.offset_top = 12.0
-	panel.offset_bottom = 120.0
+	panel.offset_bottom = 72.0
 	layer.add_child(panel)
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -344,11 +306,20 @@ func _setup_run_stats_ui() -> void:
 	vbox.offset_bottom = -6.0
 	vbox.add_theme_constant_override("separation", 4)
 	panel.add_child(vbox)
-	var title := Label.new()
+	var title := RichTextLabel.new()
 	title.name = "Title"
-	title.text = "Run birikimi (şu ana kadar)"
-	title.add_theme_font_size_override("font_size", 14)
+	title.bbcode_enabled = true
+	title.fit_content = true
+	title.scroll_active = false
+	title.add_theme_font_size_override("normal_font_size", 14)
 	vbox.add_child(title)
+	var detail := RichTextLabel.new()
+	detail.name = "Detail"
+	detail.bbcode_enabled = true
+	detail.fit_content = true
+	detail.scroll_active = false
+	detail.add_theme_font_size_override("normal_font_size", 12)
+	vbox.add_child(detail)
 	_run_stats_panel = panel
 	_update_run_stats_ui()
 
@@ -358,32 +329,77 @@ func _update_run_stats_ui() -> void:
 	var vbox: VBoxContainer = _run_stats_panel.get_child(0) as VBoxContainer
 	if not vbox:
 		return
+	var title_lbl: RichTextLabel = vbox.get_node_or_null("Title") as RichTextLabel
+	var detail_lbl: RichTextLabel = vbox.get_node_or_null("Detail") as RichTextLabel
+	if not title_lbl or not detail_lbl:
+		return
+
 	var drs = _get_dungeon_run_state()
-	var lines: PackedStringArray = PackedStringArray()
-	if drs and drs.run_started:
-		lines.append("Altın çarpanı: x%.2f (1 + %.2f)" % [1.0 + drs.gold_multiplier_accumulated, drs.gold_multiplier_accumulated])
-		lines.append("Düşman seviyesi: +%d" % drs.enemy_level_offset)
-		lines.append("Tuzak seviyesi: +%d" % drs.trap_level_offset)
-		lines.append("Düşman yoğunluğu: +%d" % drs.enemy_count_offset)
-		lines.append("Tuzak yoğunluğu: +%d" % drs.trap_count_offset)
-		lines.append("Zindan boyutu: +%d" % drs.dungeon_size_offset)
-		if drs.guaranteed_rescue_next:
-			lines.append("Sonraki bölüm: garanti kurtarma odası")
+	if not drs or not drs.run_started or drs.run_segment_count == 0:
+		title_lbl.text = "İlk giriş — bir kapı seç"
+		detail_lbl.text = ""
+		return
+
+	if drs.is_run_complete():
+		title_lbl.text = "[color=green]Zindan tamamlandı![/color]"
+		detail_lbl.text = "Ganimetlerinle köye dönebilirsin."
+		return
+
+	var total_risk: int = drs.enemy_level_offset + drs.enemy_count_offset \
+		+ drs.trap_level_offset + drs.trap_count_offset + drs.dungeon_size_offset * 2
+	var tier: int = _risk_score_to_tier(total_risk)
+	var tier_name: String = _risk_tier_display_name(tier)
+	var tier_color: String = _risk_tier_display_color(tier)
+
+	var skull := "\u2620"
+	var skull_display := ""
+	if tier <= 0:
+		skull_display = "Güvenli"
 	else:
-		lines.append("Henüz birikim yok (ilk kamp)")
-	# vbox: 0 = title, 1.. = stat satırları
-	var idx: int = 1
-	for line in lines:
-		var lbl: Label
-		if idx < vbox.get_child_count():
-			lbl = vbox.get_child(idx) as Label
-		else:
-			lbl = Label.new()
-			lbl.add_theme_font_size_override("font_size", 12)
-			vbox.add_child(lbl)
-		if lbl:
-			lbl.text = line
-		idx += 1
-	# Fazla Label'ları sondan sil
-	for i in range(vbox.get_child_count() - 1, idx - 1, -1):
-		vbox.get_child(i).queue_free()
+		skull_display = skull.repeat(tier)
+	title_lbl.text = "[color=%s]Tehlike: %s[/color]" % [tier_color, skull_display]
+
+	var coin := "\u2742"
+	var heart := "\u2665"
+	var details: Array = []
+	if drs.gold_multiplier_accumulated > 0.0:
+		var coin_count: int = 1
+		if drs.gold_multiplier_accumulated >= 1.5:
+			coin_count = 3
+		elif drs.gold_multiplier_accumulated >= 0.75:
+			coin_count = 2
+		details.append("[color=yellow]%s[/color]" % coin.repeat(coin_count))
+	if drs.guaranteed_rescue_next:
+		details.append("[color=green]%s[/color]" % heart)
+	details.append("Bölüm %d/%d" % [drs.run_segment_count, drs.MAX_SEGMENTS])
+	detail_lbl.text = "  ".join(details)
+
+func _risk_score_to_tier(score: int) -> int:
+	if score <= 0:
+		return 0
+	elif score <= 2:
+		return 1
+	elif score <= 4:
+		return 2
+	elif score <= 7:
+		return 3
+	else:
+		return 4
+
+func _risk_tier_display_name(tier: int) -> String:
+	match tier:
+		0: return "Güvenli"
+		1: return "Düşük"
+		2: return "Orta"
+		3: return "Yüksek"
+		4: return "Aşırı"
+		_: return "Bilinmeyen"
+
+func _risk_tier_display_color(tier: int) -> String:
+	match tier:
+		0: return "white"
+		1: return "green"
+		2: return "yellow"
+		3: return "orange"
+		4: return "red"
+		_: return "white"

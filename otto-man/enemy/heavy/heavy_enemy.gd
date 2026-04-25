@@ -648,8 +648,13 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	if players.size() > 0:
 		var player = players[0]
 		var dir = (position - player.global_position).normalized()
-		var up = -knockback_force * 0.5
-		if knockback_up_force >= 0.0:
+		var up: float = -knockback_force * 0.5
+		if knockback_up_force == -1.0:
+			up = -knockback_force * 0.5
+		elif knockback_up_force >= 0.0:
+			up = -knockback_up_force
+		else:
+			# Negatif = aşağı çakma (air down); velocity.y pozitif = aşağı
 			up = -knockback_up_force
 		velocity = Vector2(dir.x * knockback_force, up)
 		if up < 0.0:

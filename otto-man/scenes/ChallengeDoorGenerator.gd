@@ -7,20 +7,37 @@ class_name ChallengeDoorGenerator
 const MIN_EXTRA_DOORS: int = 2
 const MAX_EXTRA_DOORS: int = 4
 
+## Risk kademe eşikleri (toplam risk puanına göre)
+enum RiskTier { SAFE, LOW, MEDIUM, HIGH, EXTREME }
+
+const RISK_TIER_NAMES: Dictionary = {
+	RiskTier.SAFE: "Güvenli",
+	RiskTier.LOW: "Düşük Risk",
+	RiskTier.MEDIUM: "Orta Risk",
+	RiskTier.HIGH: "Yüksek Risk",
+	RiskTier.EXTREME: "Aşırı Risk",
+}
+
+const RISK_TIER_COLORS: Dictionary = {
+	RiskTier.SAFE: "white",
+	RiskTier.LOW: "green",
+	RiskTier.MEDIUM: "yellow",
+	RiskTier.HIGH: "orange",
+	RiskTier.EXTREME: "red",
+}
+
 func generate_doors(is_initial: bool) -> Array[Dictionary]:
 	var doors: Array[Dictionary] = []
 
-	# 0: Normal kapı (sabit)
-	doors.append(_make_normal_door())
+	# İlk kapı: Güvenli giriş (delta yok, ekstra zorluk eklemez)
+	doors.append(_make_safe_door(is_initial))
 
-	# Kaç adet ekstra prosedürel kapı?
 	var extra_count := randi_range(MIN_EXTRA_DOORS, MAX_EXTRA_DOORS)
 	if is_initial:
 		extra_count = 2
 
 	for i in range(extra_count):
 		var data := _make_procedural_door()
-		# Aynı kamp içinde birebir aynı kapı olmasın
 		var retries := 0
 		while _exists_same_challenge(doors, data) and retries < 5:
 			data = _make_procedural_door()
@@ -29,18 +46,20 @@ func generate_doors(is_initial: bool) -> Array[Dictionary]:
 
 	return doors
 
-func _make_normal_door() -> Dictionary:
+func _make_safe_door(is_initial: bool) -> Dictionary:
 	var data: Dictionary = {
-		"enemy_level_delta": 1,
-		"enemy_count_delta": 1,
-		"trap_level_delta": 1,
-		"trap_count_delta": 1,
+		"enemy_level_delta": 0 if is_initial else 1,
+		"enemy_count_delta": 0 if is_initial else 1,
+		"trap_level_delta": 0 if is_initial else 1,
+		"trap_count_delta": 0 if is_initial else 1,
 		"gold_multiplier_delta": 0.0,
 		"dungeon_size_delta": 0,
 		"guaranteed_rescue": false,
 		"is_normal": true,
 	}
-	data["label_short"] = "Normal (standart artan zorluk)"
+	data["risk_score"] = _calc_risk_score(data)
+	data["risk_tier"] = _get_risk_tier(data["risk_score"])
+	data["label_short"] = _build_minimal_label(data)
 	return data
 
 func _make_procedural_door() -> Dictionary:
@@ -48,7 +67,6 @@ func _make_procedural_door() -> Dictionary:
 	var risk_pool: Array = risk_keys.duplicate()
 	risk_pool.shuffle()
 
-	# En az 2 ceza + her zaman ödül: kapıda hem kırmızı hem yeşil görünsün
 	var risk_count := randi_range(2, 3)
 	var data: Dictionary = {
 		"enemy_level_delta": 0,
@@ -73,11 +91,8 @@ func _make_procedural_door() -> Dictionary:
 			"dungeon_size_delta":
 				data[key] = randi_range(0, 1)
 
-	# Ödüller
-	var total_risk: int = int(data["enemy_level_delta"]) + int(data["enemy_count_delta"]) \
-		+ int(data["trap_level_delta"]) + int(data["trap_count_delta"]) + int(data["dungeon_size_delta"])
+	var total_risk: int = _calc_risk_score(data)
 
-	# Prosedürel kapıda en az bir ödül olsun (yeşil yazı görünsün)
 	var reward_count := randi_range(1, 2)
 	var use_rescue := false
 	if reward_count > 0 and randf() < 0.45:
@@ -93,34 +108,63 @@ func _make_procedural_door() -> Dictionary:
 		gold_delta = _pick_from([0.5, 0.75, 1.0])
 	data["gold_multiplier_delta"] = gold_delta
 
-	data["label_short"] = _build_label_for_data(data, use_rescue)
+	data["risk_score"] = total_risk
+	data["risk_tier"] = _get_risk_tier(total_risk)
+	data["label_short"] = _build_minimal_label(data)
 	return data
 
-func _build_label_for_data(data: Dictionary, use_rescue: bool) -> String:
-	var parts: Array = []
-	if int(data["enemy_level_delta"]) > 0:
-		parts.append("+%d düşman seviyesi" % int(data["enemy_level_delta"]))
-	if int(data["enemy_count_delta"]) > 0:
-		parts.append("+%d düşman yoğunluğu" % int(data["enemy_count_delta"]))
-	if int(data["trap_level_delta"]) > 0:
-		parts.append("+%d tuzak seviyesi" % int(data["trap_level_delta"]))
-	if int(data["trap_count_delta"]) > 0:
-		parts.append("+%d tuzak yoğunluğu" % int(data["trap_count_delta"]))
-	if int(data["dungeon_size_delta"]) > 0:
-		parts.append("+%d zindan boyutu" % int(data["dungeon_size_delta"]))
-	if float(data["gold_multiplier_delta"]) > 0.0:
-		parts.append("altın x+%.2f" % float(data["gold_multiplier_delta"]))
-	if bool(data["guaranteed_rescue"]):
-		parts.append("garanti kurtarma odası")
+## Toplam risk puanı: ağırlıklı toplam
+func _calc_risk_score(data: Dictionary) -> int:
+	return int(data.get("enemy_level_delta", 0)) \
+		+ int(data.get("enemy_count_delta", 0)) \
+		+ int(data.get("trap_level_delta", 0)) \
+		+ int(data.get("trap_count_delta", 0)) \
+		+ int(data.get("dungeon_size_delta", 0)) * 2
 
-	if parts.is_empty():
-		return "Hafif risk"
-	var s := ""
-	for i in range(parts.size()):
-		if i > 0:
-			s += ", "
-		s += str(parts[i])
-	return s
+## Risk puanını kademeye çevir
+func _get_risk_tier(score: int) -> int:
+	if score <= 0:
+		return RiskTier.SAFE
+	elif score <= 2:
+		return RiskTier.LOW
+	elif score <= 4:
+		return RiskTier.MEDIUM
+	elif score <= 7:
+		return RiskTier.HIGH
+	else:
+		return RiskTier.EXTREME
+
+const SKULL := "\u2620"
+const COIN := "\u2742"
+const HEART := "\u2665"
+
+## Oyuncuya gösterilecek minimal etiket: kurukafalar (risk) + semboller (ödül)
+func _build_minimal_label(data: Dictionary) -> String:
+	var tier: int = int(data.get("risk_tier", RiskTier.SAFE))
+	var tier_color: String = RISK_TIER_COLORS.get(tier, "white")
+
+	var skull_count: int = tier
+	var skull_text := ""
+	if skull_count <= 0:
+		skull_text = "[color=%s]Güvenli[/color]" % tier_color
+	else:
+		skull_text = "[color=%s]%s[/color]" % [tier_color, SKULL.repeat(skull_count)]
+
+	var reward_parts: Array = []
+	if float(data.get("gold_multiplier_delta", 0.0)) > 0.0:
+		var gold_icons: int = 1
+		var gd_val: float = float(data.get("gold_multiplier_delta", 0.0))
+		if gd_val >= 0.75:
+			gold_icons = 3
+		elif gd_val >= 0.5:
+			gold_icons = 2
+		reward_parts.append("[color=yellow]%s[/color]" % COIN.repeat(gold_icons))
+	if bool(data.get("guaranteed_rescue", false)):
+		reward_parts.append("[color=green]%s[/color]" % HEART)
+
+	if reward_parts.is_empty():
+		return skull_text
+	return skull_text + "  " + "  ".join(reward_parts)
 
 func _exists_same_challenge(existing: Array, candidate: Dictionary) -> bool:
 	for e in existing:

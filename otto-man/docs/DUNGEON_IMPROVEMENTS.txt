@@ -1,0 +1,67 @@
+ZINDAN SİSTEMİ GELİŞTİRME PLANI
+=================================
+
+Durum: [ ] = Yapılacak, [X] = Tamamlandı, [-] = İptal
+
+──────────────────────────────────────────────
+BÖLÜM 1: ACİL DÜZELTMELER (düşük efor, yüksek etki)
+──────────────────────────────────────────────
+
+[X] 1. İlk segment kolaylığı bağlanacak
+      Sorun: DungeonRunState.first_segment_played hiçbir yerde true yapılmıyor.
+      "İlk giriş daha kolay, az tuzak, az düşman" vaadi kodda bağlı değil.
+      Yapılacak: İlk segmentte tuzak ve düşman sayısını azaltan mantığı
+      level_generator'a bağla, segment bitince first_segment_played = true yap.
+
+[X] 2. Altın API karmaşasını temizle
+      Sorun: DungeonRunState'te pending_gold/add_gold/extracted_gold var
+      ama gerçek akış GlobalPlayerData.dungeon_gold üzerinden gidiyor.
+      İki paralel sistem — birisi silinmeli.
+      Yapılacak: Tek altın kaynağı seç, diğerini kaldır, referansları temizle.
+
+[X] 3. Debug bayraklarını kapat
+      Sorun: DungeonRunState.debug_force_rescue_rooms = true
+      Her seviyede garanti kurtarma odası üretiyor (test için açılmıştı).
+      Yapılacak: false yap, gerekirse dev_console'dan açılabilir bırak.
+
+──────────────────────────────────────────────
+BÖLÜM 2: ORTA VADELİ GELİŞTİRMELER (oynanışı zenginleştirir)
+──────────────────────────────────────────────
+
+[ ] 4. Boss arena sistemini aç
+      Durum: DUNGEON_BOSS_ARENAS_ENABLED = false — Shield Captain miniboss'u,
+      arena chunk'ı ve sağlık barı hazır ama kapalı.
+      Yapılacak: Bayrağı aç, 3. segmentin sonunda boss savaşı olsun,
+      run'a epik bir final versin. Test et, dengeleme yap.
+
+[ ] 5. Zorluk eğrisi — segment ilerledikçe kapılar zorlaşsın
+      Sorun: 1. ve 3. segmentteki prosedürel kapılar aynı havuzdan üretiliyor.
+      Yapılacak: ChallengeDoorGenerator'a segment sayısını parametre olarak ver,
+      ilerledikçe minimum risk tabanını yükselt ve ödülleri büyüt.
+
+[ ] 6. Kapılara item ödülü ekle
+      Durum: 69 item var ama kapı seçiminde sadece altın çarpanı ve kurtarma var.
+      Yapılacak: Yüksek riskli kapılara "nadir eşya garantili" ödül katmanı ekle,
+      kapı seçimini daha anlamlı yap.
+
+[ ] 7. Legacy tuzak sistemi temizliği
+      Sorun: traps/ (eski) ve traps_v2/ (yeni) paralel duruyor.
+      Zindan sadece traps_v2 kullanıyor.
+      Yapılacak: Eski traps/ sistemini arşivle veya sil, bakımı kolaylaştır.
+
+──────────────────────────────────────────────
+BÖLÜM 3: UZUN VADELİ FİKİRLER
+──────────────────────────────────────────────
+
+[ ] 8. Özel oda türleri / olaylar
+      Fikir: Tüccar odası (zindan içinde eşya satışı), tuzak bulmacası
+      (savaşsız mekanik zorluk), lore odası (hikaye parçası).
+      Chunk kütüphanesi hazır, yeni türler eklenebilir.
+
+[ ] 9. Major boss türü
+      Durum: Boss schedule'da "major" tanımlı ama yerleştirme kodu yok.
+      Yapılacak: Shield Captain dışında ikinci bir boss tasarla ve kodla.
+
+[ ] 10. Hunter düşmanını zindana ekle
+       Durum: hunter_enemy.gd ve patrol noktaları var ama spawn tablosuna eklenmemiş.
+       Yapılacak: Zindan koridorlarında devriye gezen düşman olarak tabloya ekle.

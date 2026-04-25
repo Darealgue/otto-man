@@ -19,6 +19,7 @@ var _opening: bool = false
 
 func _ready() -> void:
 	if _label:
+		_label.bbcode_enabled = true
 		_label.text = label_text
 	if _sprite:
 		if entrance_only:
@@ -40,6 +41,7 @@ func _ready() -> void:
 func set_label_text(text: String) -> void:
 	label_text = text
 	if _label:
+		_label.bbcode_enabled = true
 		_label.text = label_text
 
 func _process(_delta: float) -> void:

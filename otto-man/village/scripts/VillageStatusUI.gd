@@ -21,6 +21,7 @@ extends MarginContainer # .tscn dosyasındaki kök node türü
 @onready var events_label: Label = %EventsLabel
 @onready var morale_label: Label = %MoraleLabel
 @onready var economy_stats_label: Label = %EconomyStatsLabel
+var housing_label: Label = null
 # İleride eklenecek diğer label'lar için @onready değişkenler...
 
 # Üretici script yolu eşlemeleri (sadece bu üreticiler yerleştirildiyse kaynak göster)
@@ -127,6 +128,24 @@ func _update_labels() -> void:
 
 	# VillageManager Verileri
 	worker_label.text = "İşçiler: %d / %d" % [VillageManager.idle_workers, VillageManager.total_workers]
+	var projected_nets: Dictionary = {}
+	if VillageManager.has_method("get_projected_daily_resource_nets"):
+		projected_nets = VillageManager.get_projected_daily_resource_nets()
+
+	# Barınma kapasitesi göstergesi
+	# Gösterim: "Barınma: X / Y" — X = evlerdeki kayıtlı köylü sayısı, Y = toplam ev kapasitesi.
+	# İşçi işte olsa bile ev ona atanmış sayılır (kamp ateşi bu sayıma dahil değil).
+	if is_instance_valid(housing_label) and VillageManager.has_method("get_housing_summary"):
+		var hs: Dictionary = VillageManager.get_housing_summary()
+		var h_occ: int = int(hs.get("house_occupied", 0))
+		var h_cap: int = int(hs.get("house_capacity", 0))
+		housing_label.text = "Barınma: %d / %d" % [h_occ, h_cap]
+		# Tüm ev slotları doluysa sarıya çevir
+		if h_cap > 0 and h_occ >= h_cap:
+			housing_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
+		else:
+			if housing_label.has_theme_color_override("font_color"):
+				housing_label.remove_theme_color_override("font_color")
 
 	# Asker ikmal durumu
 	var status_text: String = "Tam"
@@ -154,24 +173,24 @@ func _update_labels() -> void:
 	asker_label.text += "  | İkmal: " + status_text
 
 	# Temel Kaynaklar (Kullanılabilir / Toplam) - her zaman görünür
-	_set_resource_visible_and_update(wood_label, "Odun", "wood", true)
-	_set_resource_visible_and_update(stone_label, "Taş", "stone", true)
-	_set_resource_visible_and_update(food_label, "Yiyecek", "food", true)
-	_set_resource_visible_and_update(water_label, "Su", "water", true)
+	_set_resource_visible_and_update(wood_label, "Odun", "wood", true, false, projected_nets)
+	_set_resource_visible_and_update(stone_label, "Taş", "stone", true, false, projected_nets)
+	_set_resource_visible_and_update(food_label, "Yiyecek", "food", true, false, projected_nets)
+	_set_resource_visible_and_update(water_label, "Su", "water", true, false, projected_nets)
 	# Diğerleri sadece envanterde varsa görünür
-	_set_resource_visible_and_update(metal_label, "Metal", "metal", false, true)
-	_set_resource_visible_and_update(bread_label, "Ekmek", "bread", false, true)
+	_set_resource_visible_and_update(metal_label, "Metal", "metal", false, true, projected_nets)
+	_set_resource_visible_and_update(bread_label, "Ekmek", "bread", false, true, projected_nets)
 
 	# Gelişmiş Kaynaklar (dinamik label oluştur)
-	_update_dynamic_resource_label("lumber", "Kereste")
-	_update_dynamic_resource_label("brick", "Tuğla")
-	_update_dynamic_resource_label("weapon", "Silah")
-	_update_dynamic_resource_label("armor", "Zırh")
-	_update_dynamic_resource_label("garment", "Giyim")
-	_update_dynamic_resource_label("cloth", "Kumaş")
-	_update_dynamic_resource_label("tea", "Kahve")
-	_update_dynamic_resource_label("soap", "Parfüm")
-	_update_dynamic_resource_label("medicine", "İlaç")
+	_update_dynamic_resource_label("lumber", "Kereste", projected_nets)
+	_update_dynamic_resource_label("brick", "Tuğla", projected_nets)
+	_update_dynamic_resource_label("weapon", "Silah", projected_nets)
+	_update_dynamic_resource_label("armor", "Zırh", projected_nets)
+	_update_dynamic_resource_label("garment", "Giyim", projected_nets)
+	_update_dynamic_resource_label("cloth", "Kumaş", projected_nets)
+	_update_dynamic_resource_label("tea", "Kahve", projected_nets)
+	_update_dynamic_resource_label("soap", "Parfüm", projected_nets)
+	_update_dynamic_resource_label("medicine", "İlaç", projected_nets)
 
 	# Aktif olaylar
 	var tm = get_node_or_null("/root/TimeManager")
@@ -230,14 +249,24 @@ func _ensure_extra_labels() -> void:
 		economy_stats_label = Label.new()
 		economy_stats_label.name = "EconomyStatsLabel"
 		container.add_child(economy_stats_label)
+	if not is_instance_valid(housing_label):
+		housing_label = Label.new()
+		housing_label.name = "HousingLabel"
+		var worker_parent: Node = worker_label.get_parent() if is_instance_valid(worker_label) else container
+		worker_parent.add_child(housing_label)
+		var wl_idx: int = worker_parent.get_children().find(worker_label)
+		if wl_idx >= 0:
+			worker_parent.move_child(housing_label, wl_idx + 1)
 
 # Tek bir kaynak etiketini güncelleyen helper fonksiyonu
-func _update_resource_label(label_node: Label, resource_display_name: String, resource_key: String) -> void:
+func _update_resource_label(label_node: Label, resource_display_name: String, resource_key: String, projected_nets: Dictionary = {}) -> void:
 	if not is_instance_valid(label_node):
 		return
 
 	var current: int = VillageManager.get_resource_level(resource_key)
 	var cap: int = VillageManager.get_storage_capacity_for(resource_key)
+	var net_per_day := float(projected_nets.get(resource_key, 0.0))
+	var net_text := " (%s%.1f/g)" % ["+" if net_per_day >= 0.0 else "", net_per_day]
 	# Check if label has icon_only meta, or if it's in a Row container with an icon
 	var icon_only := false
 	if label_node.has_meta("icon_only"):
@@ -256,9 +285,9 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 	
 	if cap > 0:
 		if icon_only:
-			label_node.text = "%d/%d" % [current, cap]
+			label_node.text = "%d/%d%s" % [current, cap, net_text]
 		else:
-			label_node.text = "%s: %d/%d" % [resource_display_name, current, cap]
+			label_node.text = "%s: %d/%d%s" % [resource_display_name, current, cap, net_text]
 			
 		# Highlight when full
 		var ratio := (float(current) / float(cap)) if cap > 0 else 0.0
@@ -271,12 +300,12 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 				label_node.remove_theme_color_override("font_color")
 	else:
 		if icon_only:
-			label_node.text = "%d" % current
+			label_node.text = "%d%s" % [current, net_text]
 		else:
-			label_node.text = "%s: %d" % [resource_display_name, current]
+			label_node.text = "%s: %d%s" % [resource_display_name, current, net_text]
 
 # Helper: dinamik kaynak etiketi güncelle/oluştur
-func _update_dynamic_resource_label(resource_key: String, display_name: String) -> void:
+func _update_dynamic_resource_label(resource_key: String, display_name: String, projected_nets: Dictionary = {}) -> void:
 	var label := _get_or_create_resource_label(resource_key, display_name)
 	if not is_instance_valid(label):
 		return
@@ -287,7 +316,7 @@ func _update_dynamic_resource_label(resource_key: String, display_name: String) 
 	_set_container_visibility(label, should_show)
 	
 	if should_show:
-		_update_resource_label(label, display_name, resource_key)
+		_update_resource_label(label, display_name, resource_key, projected_nets)
 
 # Helper: üretici bina var mı kontrol et
 func _producer_exists(resource_key: String) -> bool:
@@ -308,7 +337,7 @@ func _producer_exists(resource_key: String) -> bool:
 	return false
 
 # Helper: görünürlük + güncelleme
-func _set_resource_visible_and_update(label_node: Label, display_name: String, key: String, force_visible: bool, show_when_nonzero: bool = false) -> void:
+func _set_resource_visible_and_update(label_node: Label, display_name: String, key: String, force_visible: bool, show_when_nonzero: bool = false, projected_nets: Dictionary = {}) -> void:
 	if not is_instance_valid(label_node):
 		return
 	var current: int = VillageManager.get_resource_level(key)
@@ -320,7 +349,7 @@ func _set_resource_visible_and_update(label_node: Label, display_name: String, k
 		_set_container_visibility(label_node, should_show)
 	
 	if should_show:
-		_update_resource_label(label_node, display_name, key)
+		_update_resource_label(label_node, display_name, key, projected_nets)
 
 # Helper: Parent container'ı (Row) gizle/göster
 func _set_container_visibility(label_node: Label, visible: bool) -> void:

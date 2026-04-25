@@ -1,5 +1,7 @@
 extends Node2D
 
+class_name CampFire
+
 # --- Sahne Yolları ---
 const MISSION_CENTER_SCENE = "res://village/missions/MissionCenterScene.tscn"
 
@@ -199,32 +201,16 @@ func _on_panel_visibility_changed() -> void:
 func can_add_occupant() -> bool:
 	return get_occupant_count() < get_max_capacity()
 
-# Mevcut işçi sayısını döndürür
+# Mevcut işçi sayısını döndürür (işe gitseler de ateşe kayıtlı sakin sayılır)
 func get_occupant_count() -> int:
-	# _occupants listesindeki geçerli worker'ları say
-	var count = 0
-	var to_remove: Array = []
-	
-	for occupant in _occupants:
-		if is_instance_valid(occupant):
-			# Worker hala SLEEPING state'indeyse say
-			# Worker.gd'de current_state property'si var, direkt eriş
-			var current_state = occupant.current_state
-			if current_state == 0:  # State.SLEEPING = 0
-				count += 1
-			else:
-				# Artık uyumuyor (başka bir state'de), listeden çıkarılacak
-				to_remove.append(occupant)
+	var count := 0
+	var i := _occupants.size() - 1
+	while i >= 0:
+		if is_instance_valid(_occupants[i]):
+			count += 1
 		else:
-			# Geçersiz referans, listeden çıkarılacak
-			to_remove.append(occupant)
-	
-	# Geçersiz olanları listeden çıkar
-	for occupant in to_remove:
-		var index = _occupants.find(occupant)
-		if index >= 0:
-			_occupants.remove_at(index)
-	
+			_occupants.remove_at(i)  # sadece geçersiz referansları temizle
+		i -= 1
 	return count
 
 # Maksimum kapasiteyi döndürür

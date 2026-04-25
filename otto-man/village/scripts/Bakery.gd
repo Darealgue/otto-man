@@ -97,38 +97,38 @@ func _process(delta: float) -> void:
 		# Debug: Ekmek üretim ilerlemesini göster
 		if Engine.time_scale >= 16.0 and bread_production_progress > 0:
 			print("🍞 Ekmek üretim ilerlemesi: %.2f/%.1f (%.1f%%)" % [bread_production_progress, BREAD_PRODUCTION_TIME, (bread_production_progress / BREAD_PRODUCTION_TIME) * 100])
+
+		# 1 ekmek üretildi mi?
+		if bread_production_progress >= BREAD_PRODUCTION_TIME:
+			# Önce buffer yeterli mi?
+			var ok := true
+			for res in required_resources.keys():
+				var need := int(required_resources[res])
+				if int(input_buffer.get(res, 0)) < need:
+					ok = false
+					break
+			if ok:
+				# Buffer'dan tüket
+				for res2 in required_resources.keys():
+					var need2 := int(required_resources[res2])
+					input_buffer[res2] = int(input_buffer.get(res2, 0)) - need2
+				# Ekmek üret
+				VillageManager.resource_levels["bread"] = VillageManager.resource_levels.get("bread", 0) + 1
+				VillageManager.emit_signal("village_data_changed")
 			
-			# 1 ekmek üretildi mi?
-			if bread_production_progress >= BREAD_PRODUCTION_TIME:
-				# Önce buffer yeterli mi?
-				var ok := true
-				for res in required_resources.keys():
-					var need := int(required_resources[res])
-					if int(input_buffer.get(res, 0)) < need:
-						ok = false
-						break
-				if ok:
-					# Buffer'dan tüket
-					for res2 in required_resources.keys():
-						var need2 := int(required_resources[res2])
-						input_buffer[res2] = int(input_buffer.get(res2, 0)) - need2
-					# Ekmek üret
-					VillageManager.resource_levels["bread"] = VillageManager.resource_levels.get("bread", 0) + 1
-					VillageManager.emit_signal("village_data_changed")
-				
-				# İlerlemeyi sıfırla
-				bread_production_progress = 0.0
-				
-				print("%s: 1 ekmek üretildi! Toplam ekmek: %d" % [building_name, VillageManager.resource_levels.get("bread", 0)])
-				# Toplam kaynakları göster
-				print("📊 TOPLAM KAYNAKLAR: Odun:%d, Taş:%d, Yiyecek:%d, Su:%d, Metal:%d, Ekmek:%d" % [
-					VillageManager.resource_levels.get("wood", 0),
-					VillageManager.resource_levels.get("stone", 0), 
-					VillageManager.resource_levels.get("food", 0),
-					VillageManager.resource_levels.get("water", 0),
-					VillageManager.resource_levels.get("metal", 0),
-					VillageManager.resource_levels.get("bread", 0)
-				])
+			# İlerlemeyi sıfırla
+			bread_production_progress = 0.0
+			
+			print("%s: 1 ekmek üretildi! Toplam ekmek: %d" % [building_name, VillageManager.resource_levels.get("bread", 0)])
+			# Toplam kaynakları göster
+			print("📊 TOPLAM KAYNAKLAR: Odun:%d, Taş:%d, Yiyecek:%d, Su:%d, Metal:%d, Ekmek:%d" % [
+				VillageManager.resource_levels.get("wood", 0),
+				VillageManager.resource_levels.get("stone", 0), 
+				VillageManager.resource_levels.get("food", 0),
+				VillageManager.resource_levels.get("water", 0),
+				VillageManager.resource_levels.get("metal", 0),
+				VillageManager.resource_levels.get("bread", 0)
+			])
 		# Not: Kaynak yoksa üretim ilerler ama çıkış için buffer beklenir
 
 # --- Worker Management --- 
@@ -151,7 +151,12 @@ func add_worker() -> bool:
 	worker_instance.assigned_job_type = "bread"
 	worker_instance.assigned_building_node = self
 	worker_instance.move_target_x = self.global_position.x
-	worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
+	var current_hour = TimeManager.get_hour()
+	var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
+	if is_work_time:
+		worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
+	else:
+		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 	
 	# Üretimi başlat
 	is_producing = true

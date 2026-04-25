@@ -11,6 +11,7 @@ const FIRST_ATTACK_MULT := 3.0  # Görünmezken ilk vuruş 3x
 var _player: CharacterBody2D = null
 var _invis_timer := 0.0
 var _saved_modulate: Color = Color(1, 1, 1, 1)
+var _is_invisible := false
 var _first_attack_ready := false
 
 func _init():
@@ -43,6 +44,7 @@ func deactivate(player: CharacterBody2D):
 			_player.disconnect("dash_started", _on_dash_started)
 		_player = null
 	_invis_timer = 0.0
+	_is_invisible = false
 
 func _on_dodge_started():
 	_start_invisibility()
@@ -53,22 +55,28 @@ func _on_dash_started():
 func _start_invisibility():
 	if not _player or not is_instance_valid(_player):
 		return
+	if _is_invisible:
+		_invis_timer = INVIS_DURATION
+		return
 	_saved_modulate = _player.modulate
 	var c := _saved_modulate
 	_player.modulate = Color(c.r, c.g, c.b, c.a * INVIS_ALPHA)
 	_player.remove_from_group("player")
 	_invis_timer = INVIS_DURATION
+	_is_invisible = true
 	_first_attack_ready = true
 	_player.gorunmezlik_first_attack_mult = FIRST_ATTACK_MULT
 
 func _end_invisibility():
 	if not _player or not is_instance_valid(_player):
+		_is_invisible = false
 		return
 	_player.modulate = _saved_modulate
 	_player.gorunmezlik_first_attack_mult = 1.0
 	if not _player.is_in_group("player"):
 		_player.add_to_group("player")
 	_invis_timer = 0.0
+	_is_invisible = false
 	_first_attack_ready = false
 
 func process(player: CharacterBody2D, delta: float) -> void:

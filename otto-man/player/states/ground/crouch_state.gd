@@ -18,6 +18,8 @@ var post_slide_timer := 0.0  # Timer for post-slide crouch duration
 var post_ledgegrab_timer := 0.0  # Timer for post-ledgegrab crouch duration
 var entered_from_ledgegrab := false  # Track if we entered from ledgegrab
 var floor_grace_timer := 0.0  # small grace to avoid immediate fall after teleport
+const DEBUG_HURT_RECOVERY_CROUCH: bool = false
+var _debug_enter_elapsed: float = 0.0
 
 func _ready() -> void:
 	# Initialize dimensions when the state is ready
@@ -55,6 +57,14 @@ func enter():
 	# Reset post-ledgegrab timer if entering from ledgegrab
 	if entered_from_ledgegrab:
 		post_ledgegrab_timer = max(post_ledgegrab_timer, POST_LEDGEGRAB_CROUCH_DURATION)
+	
+	# Hurt recovery should use exactly the same flow/timing as normal slide exit crouch.
+	if player.has_meta("hurt_recovery_use_slide_exit"):
+		player.remove_meta("hurt_recovery_use_slide_exit")
+		force_crouch(POST_SLIDE_CROUCH_DURATION)
+		if DEBUG_HURT_RECOVERY_CROUCH:
+			print("[CrouchDebug] enter from hurt recovery (force_crouch mode) | post_ledgegrab=", post_ledgegrab_timer)
+	_debug_enter_elapsed = 0.0
 		
 	# Initialize dimensions if not done yet
 	var collision_shape = player.get_node("CollisionShape2D")
@@ -83,6 +93,8 @@ func enter():
 	
 	# Play initial crouch animation
 	animation_player.play("crouch")
+	if DEBUG_HURT_RECOVERY_CROUCH:
+		print("[CrouchDebug] enter complete | prev=", state_machine.previous_state.name if state_machine and state_machine.previous_state else "<none>", " current_anim=", animation_player.current_animation)
 
 func exit():
 	if !player:
@@ -150,6 +162,7 @@ func can_stand_up() -> bool:
 func physics_update(delta: float):
 	if !player:
 		return
+	_debug_enter_elapsed += delta
 		
 	# Update post-slide timer
 	if post_slide_timer > 0:
@@ -195,13 +208,12 @@ func physics_update(delta: float):
 		# Return to crouch animation if not moving
 		if animation_player.current_animation != "crouch":
 			animation_player.play("crouch")
-	
-	
+
 	# Check for state transitions
 	if floor_grace_timer <= 0 and not player.is_on_floor():
 		state_machine.transition_to("Fall")
 		return
-		
+
 	# Check for attack input while crouched (enables down_light)
 	if Input.is_action_just_pressed("attack"):
 		# Debug print disabled to reduce console spam
@@ -218,9 +230,13 @@ func physics_update(delta: float):
 	# Check if we should stand up
 	# Don't allow standing up during post-slide or post-ledgegrab crouch periods
 	var can_stand := can_stand_up()
+	if DEBUG_HURT_RECOVERY_CROUCH and _debug_enter_elapsed <= 0.35:
+		print("[CrouchDebug] tick t=", snapped(_debug_enter_elapsed, 0.001), " anim=", animation_player.current_animation, " post_slide=", snapped(post_slide_timer, 0.001), " post_ledgegrab=", snapped(post_ledgegrab_timer, 0.001), " can_stand=", can_stand, " crouch_pressed=", Input.is_action_pressed("crouch"), " vel=", player.velocity)
 	if not Input.is_action_pressed("crouch") and can_stand and post_slide_timer <= 0 and post_ledgegrab_timer <= 0:
 		# Debug print disabled to reduce console spam
 		# print("[Crouch] Standing up to Idle. can_stand=", can_stand, " timers slide=", post_slide_timer, " ledge=", post_ledgegrab_timer)
+		if DEBUG_HURT_RECOVERY_CROUCH and entered_from_ledgegrab:
+			print("[CrouchDebug] transition to Idle | can_stand=", can_stand, " post_slide=", post_slide_timer, " post_ledgegrab=", post_ledgegrab_timer, " crouch_pressed=", Input.is_action_pressed("crouch"))
 		state_machine.transition_to("Idle")
 		return
 	else:

@@ -1037,14 +1037,12 @@ func _physics_process(delta: float) -> void:
 					should_wake = true
 			
 			if should_wake:
-				# Debug: Wake up (commented out)
-				# print("[Worker DEBUG] Worker %d: Uyanma zamanı geldi, SLEEPING'den çıkıyor" % worker_id)
-				# Barınaktan çıkar (CampFire veya House)
+				# Barınaktan çıkar — SADECE CampFire için slot serbest bırakılır.
+				# ResidentialHousing (ev) köylüyü kalıcı kiracı olarak tutar;
+				# remove_occupant çağrısı yapılmaz, aksi hâlde gündüz sayaç 0'a düşer.
 				if is_instance_valid(housing_node) and housing_node.has_method("remove_occupant"):
-					# Debug: Remove occupant (commented out)
-					# print("[Worker DEBUG] Worker %d: remove_occupant çağrılıyor" % worker_id)
-					# Hem CampFire hem House için worker parametresi geç (House artık parametre alıyor)
-					housing_node.remove_occupant(self)
+					if not (housing_node is ResidentialHousing):
+						housing_node.remove_occupant(self)
 				
 				# Uyandır!
 				current_state = State.AWAKE_IDLE # Şimdilik direkt idle yapalım

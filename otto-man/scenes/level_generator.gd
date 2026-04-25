@@ -2700,7 +2700,6 @@ func _on_door_opened(door_type: String) -> void:
 		print("Emitting level_started signal")  # Debug print
 		level_started.emit()
 	elif door_type == "Finish" or door_type == "Boss":
-		# Kamp akışı: run başlamışsa önce kampa git (can/yükseltmeler PlayerStats'ta kalır)
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if is_instance_valid(drs) and drs.get("run_started") == true:
 			is_transitioning = true
@@ -2709,6 +2708,29 @@ func _on_door_opened(door_type: String) -> void:
 			payload["source"] = "dungeon"
 			payload["travel_hours_back"] = 2.0
 			var sm = get_node_or_null("/root/SceneManager")
+
+			if drs.is_run_complete():
+				# 3 segment tamamlandı — tüm ödüllerle köye dön
+				var gpd = get_node_or_null("/root/GlobalPlayerData")
+				if is_instance_valid(gpd) and "dungeon_gold" in gpd:
+					var dungeon_gold: int = int(gpd.dungeon_gold)
+					var mult: float = 1.0 + float(drs.gold_multiplier_accumulated)
+					var extracted: int = int(floor(float(dungeon_gold) * mult))
+					if extracted > 0 and gpd.has_method("add_gold"):
+						gpd.add_gold(extracted)
+					if gpd.has_method("clear_dungeon_gold"):
+						gpd.clear_dungeon_gold()
+				var rescued: Dictionary = drs.get_and_clear_pending_rescued()
+				payload["rescued_villagers"] = rescued.get("villagers", [])
+				payload["rescued_cariyes"] = rescued.get("cariyes", [])
+				drs.end_run()
+				print("[LevelGenerator] Run complete (%d segments) -> Village with full rewards" % drs.MAX_SEGMENTS)
+				if sm and sm.has_method("change_to_village"):
+					sm.change_to_village(payload)
+				else:
+					is_transitioning = false
+				return
+
 			if sm and sm.has_method("change_to_camp"):
 				print("[LevelGenerator] Finish/Boss -> Camp (mid-run), player state preserved via PlayerStats")
 				sm.change_to_camp(payload)
@@ -3580,14 +3602,15 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 	
 	# Dungeon chunks get many more enemies - basic enemies are cannon fodder
 	if chunk_type_str == "dungeon":
-		# Use spawn config to get proper spawn count for dungeon + challenge enemy_count_offset
 		var spawn_config = SpawnConfig.new()
 		var spawn_rules = spawn_config.get_spawn_count("dungeon", current_level)
 		max_spawns = spawn_rules.max_spawns
 		var drs_chunk = get_node_or_null("/root/DungeonRunState")
 		if drs_chunk and drs_chunk.run_started:
 			max_spawns += drs_chunk.enemy_count_offset * 2
-		spawn_chance_value = 1.0  # 100% chance for dungeon chunks - ensure enemies spawn!
+			if drs_chunk.is_first_segment():
+				max_spawns = maxi(1, max_spawns / 2)
+		spawn_chance_value = 1.0
 		if DEBUG_ENEMY_TILES:
 			print("[EnemyPopulate] Dungeon chunk detected - max_spawns: %d, spawn_chance: %.1f" % [max_spawns, spawn_chance_value])
 			print("[EnemyPopulate] Chunk name: %s, detected type: %s" % [chunk_node.name, chunk_type_str])
@@ -4177,11 +4200,12 @@ func _populate_enemies_on_unified_terrain() -> void:
 
 	floor_cells.shuffle()
 
-	# Seviyeye göre unified terrain düşman sayısı + challenge enemy_count_offset
 	var level_cap: int = _get_max_unified_enemies_for_level(current_level)
 	var drs = get_node_or_null("/root/DungeonRunState")
 	if drs and drs.run_started:
 		level_cap += drs.enemy_count_offset * 2
+		if drs.is_first_segment():
+			level_cap = maxi(1, level_cap / 2)
 	var max_spawns: int = mini(level_cap, floor_cells.size())
 	var spawned_positions: Array[Vector2] = []
 	var tile_size_v2: Vector2 = Vector2(ts.tile_size)
@@ -4524,10 +4548,12 @@ func _get_max_trap_groups_for_level(level: int) -> int:
 					continue
 				chunk_count += 1
 	var total: int = per_chunk * maxi(1, chunk_count)
-	# Challenge trap_count_offset: toplamda birkaç grup ekle, chunk sayısıyla çarpmayalım
 	var drs = get_node_or_null("/root/DungeonRunState")
-	if drs and drs.run_started and drs.trap_count_offset > 0:
-		total += drs.trap_count_offset * 2
+	if drs and drs.run_started:
+		if drs.trap_count_offset > 0:
+			total += drs.trap_count_offset * 2
+		if drs.is_first_segment():
+			total = maxi(0, total / 2)
 	return total
 
 func _get_trap_spawn_chance() -> float:

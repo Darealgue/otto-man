@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gq7bsbr8ehpn"
-path="res://.godot/imported/turtle_hurt_border_n.png-04a0285d17e84823d93b70f3f406ee44.ctex"
+uid="uid://ulnpxkkb2hqt"
+path="res://.godot/imported/tailor1.png-692d7e2224f6ce9db243c7fcfc0e020e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://objects/dungeon/lighting/turtle_hurt_border_n.png"
-dest_files=["res://.godot/imported/turtle_hurt_border_n.png-04a0285d17e84823d93b70f3f406ee44.ctex"]
+source_file="res://village/buildings/sprite/tailor1.png"
+dest_files=["res://.godot/imported/tailor1.png-692d7e2224f6ce9db243c7fcfc0e020e.ctex"]
 
 [params]
 

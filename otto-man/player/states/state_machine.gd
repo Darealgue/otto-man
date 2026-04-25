@@ -2,6 +2,7 @@ extends Node
 
 var current_state: State
 var previous_state: State
+const DEBUG_STATE_TRANSITIONS: bool = false
 
 @onready var state: State = get_child(0)
 
@@ -49,6 +50,13 @@ func transition_to(target_state_name: String, force: bool = false) -> void:
 	var target_state = get_node(target_state_name)
 	if target_state:
 		var prev_name = current_state.name if current_state else "<none>"
+		if DEBUG_STATE_TRANSITIONS:
+			var anim_name := "<no_anim>"
+			if owner and owner.has_node("AnimationPlayer"):
+				var ap = owner.get_node("AnimationPlayer")
+				if ap:
+					anim_name = ap.current_animation
+			print("[StateMachineDebug] ", prev_name, " -> ", target_state_name, " force=", force, " anim=", anim_name, " vel=", owner.velocity if owner and "velocity" in owner else Vector2.ZERO)
 		if current_state:
 			current_state.exit()
 		previous_state = current_state

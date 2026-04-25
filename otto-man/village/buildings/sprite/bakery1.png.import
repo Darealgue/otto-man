@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bbap1unx7xc3d"
-path="res://.godot/imported/turtle_walk_border_n.png-8934cba7c0d4106fb155e5bb23ab2976.ctex"
+uid="uid://dgo4oqhaa4kx4"
+path="res://.godot/imported/bakery1.png-a5155204f0c85d97a661b7c0864934e2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://objects/dungeon/lighting/turtle_walk_border_n.png"
-dest_files=["res://.godot/imported/turtle_walk_border_n.png-8934cba7c0d4106fb155e5bb23ab2976.ctex"]
+source_file="res://village/buildings/sprite/bakery1.png"
+dest_files=["res://.godot/imported/bakery1.png-a5155204f0c85d97a661b7c0864934e2.ctex"]
 
 [params]
 

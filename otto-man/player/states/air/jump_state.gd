@@ -11,6 +11,18 @@ func enter():
 	# Connect animation signals
 	if not animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.connect("animation_finished", _on_animation_finished)
+
+	# Hurt-air-recover: always consume double jump and play its animation.
+	if player.has_meta("force_recovery_double_jump") and bool(player.get_meta("force_recovery_double_jump", false)):
+		player.remove_meta("force_recovery_double_jump")
+		player.enable_double_jump()
+		player.has_double_jumped = true
+		player.start_double_jump()
+		is_double_jumping = true
+		var recovery_double_jump_animations = ["double_jump", "double_jump_alt"]
+		var recovery_anim = recovery_double_jump_animations[randi() % recovery_double_jump_animations.size()]
+		animation_player.play(recovery_anim)
+		return
 	
 	# Track jump count for triple jump (Kuş Kanadı)
 	var can_triple_jump = player.has_meta("kus_kanadi_active")

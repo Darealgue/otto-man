@@ -49,10 +49,18 @@ func open_settings() -> void:
 const DUNGEON_SUCCESS_MORALE_BONUS: float = 2.0
 
 func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	# Köye dönüş simülasyonu bayrağı (köyden çıkışta true kalmış olabilir; time_advanced önce sıfırlanmalı)
+	var vm0 := get_node_or_null("/root/VillageManager")
+	if is_instance_valid(vm0) and vm0.has_method("mark_arriving_to_village_from_travel"):
+		vm0.mark_arriving_to_village_from_travel()
 	# Köye dönüşte zindan run'ını her zaman bitir (ölüm veya kamp çıkışı fark etmez)
 	var drs = get_node_or_null("/root/DungeonRunState")
 	if is_instance_valid(drs) and drs.has_method("end_run"):
 		drs.end_run()
+	# Zindan itemlarının etkilerini temizle (köyde kalmasın; hangi yoldan gelirse gelsin)
+	var im = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("clear_all_items"):
+		im.clear_all_items()
 	# Zindandan sağ çıkış (kamp veya portal): hafif moral artışı (ölümde payload boş gelir, ceza player.gd'de)
 	if payload.get("source", "") == "dungeon":
 		var vm = get_node_or_null("/root/VillageManager")
@@ -82,6 +90,8 @@ func change_to_dungeon(payload: Dictionary = {}, force_reload: bool = false) -> 
 		if is_instance_valid(vm) and vm.has_method("record_village_capacity_for_dungeon"):
 			vm.record_village_capacity_for_dungeon()
 		# Köyden zindana çıkarken sadece zamanı ilerlet (üretim simülasyonu yok)
+		if is_instance_valid(vm) and vm.has_method("mark_leaving_village_for_travel_out"):
+			vm.mark_leaving_village_for_travel_out()
 		_handle_travel_time_out_only(payload)
 	# Her yeni zindan girişinde benzersiz portal anahtarını resetle
 	if PortalAreaScript:
@@ -107,6 +117,9 @@ func change_to_camp(payload: Dictionary = {}, force_reload: bool = false) -> voi
 func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	# When going TO forest, only advance travel time, don't simulate production
 	# (because village production should continue while player is away)
+	var vmf := get_node_or_null("/root/VillageManager")
+	if is_instance_valid(vmf) and vmf.has_method("mark_leaving_village_for_travel_out"):
+		vmf.mark_leaving_village_for_travel_out()
 	_handle_travel_time_out_only(payload)
 	current_payload = payload.duplicate(true)
 	# Record entry time AFTER travel time has been applied (so we track time inside the level)

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://35dprvu7dei7"
-path="res://.godot/imported/turtle_dead_border_n.png-dafd13102173377a1c5750745cd75696.ctex"
+uid="uid://brjlnx773fmtx"
+path="res://.godot/imported/floor_ground.png-5fc8253a42d5c35c9e2207508c13ee82.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://objects/dungeon/lighting/turtle_dead_border_n.png"
-dest_files=["res://.godot/imported/turtle_dead_border_n.png-dafd13102173377a1c5750745cd75696.ctex"]
+source_file="res://village/buildings/sprite/house/floor_ground.png"
+dest_files=["res://.godot/imported/floor_ground.png-5fc8253a42d5c35c9e2207508c13ee82.ctex"]
 
 [params]
 

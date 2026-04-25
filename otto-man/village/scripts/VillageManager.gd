@@ -1,33 +1,50 @@
 extends Node
 
-const HouseScript = preload("res://village/scripts/House.gd")
+const HOUSE_SCENE_PATH := "res://village/buildings/House.tscn"
+const RESIDENTIAL_EXTENSION_NODE := "ResidentialHousingExtension"
+const RESIDENTIAL_MAX_FLOORS := 4
+const RESIDENTIAL_CAPACITY_PER_FLOOR := 2
+# Dükkan üst kenarının matematiksel Y'sine eklenen piksel miktarı.
+# Ev katı görseli tam sprite üst kenarından değil, birkaç piksel aşağıdan başlar;
+# bu sabit, dükkan-ev arasındaki görsel boşluğu kapatır.
+const RESIDENTIAL_EXTENSION_OVERLAP_PX: float = 10.0
+const RESIDENTIAL_BASE_EXCLUDED_SCENES := [
+	"res://village/buildings/WoodcutterCamp.tscn",
+	"res://village/buildings/StoneMine.tscn",
+	"res://village/buildings/HunterGathererHut.tscn",
+	"res://village/buildings/Well.tscn"
+]
 
 # --- YENİ: Bina Gereksinimleri --- (COSTS yerine REQUIREMENTS)
 const BUILDING_REQUIREMENTS = {
-	# Temel binalar için sadece altın maliyeti (veya 0)
-	# Doğru yollar kullanılıyor: village/buildings/
-	"res://village/buildings/WoodcutterCamp.tscn": {"cost": {"gold": 5}}, # Örnek - AYARLA!
-	"res://village/buildings/StoneMine.tscn": {"cost": {"gold": 5}},
-	"res://village/buildings/HunterGathererHut.tscn": {"cost": {"gold": 5}},
-	"res://village/buildings/Well.tscn": {"cost": {"gold": 10}},
-	"res://village/buildings/Sawmill.tscn": {"cost": {"gold": 40, "wood": 1}},
-	"res://village/buildings/Brickworks.tscn": {"cost": {"gold": 40, "stone": 1}},
-	# Gelişmiş binalar (Fırın için sadece altın gereksinimi)
-	"res://village/buildings/Bakery.tscn": {"cost": {"gold": 50}},
-	"res://village/buildings/House.tscn": {"cost": {"gold": 50,"wood": 1, "stone": 1}}, #<<< YENİ EV MALİYETİ
+	# Katman 1 - Temel kurulum
+	"res://village/buildings/WoodcutterCamp.tscn": {"cost": {"gold": 5, "wood": 1}},
+	"res://village/buildings/StoneMine.tscn": {"cost": {"gold": 5, "wood": 1}},
+	"res://village/buildings/HunterGathererHut.tscn": {"cost": {"gold": 8, "wood": 1}},
+	"res://village/buildings/Well.tscn": {"cost": {"gold": 10, "wood": 1, "stone": 1}},
+	"res://village/buildings/House.tscn": {"cost": {"gold": 20, "wood": 2, "stone": 1}},
+	# Katman 2 - İlk işleme
+	"res://village/buildings/Sawmill.tscn": {"cost": {"gold": 35, "wood": 2, "stone": 1}},
+	"res://village/buildings/Brickworks.tscn": {"cost": {"gold": 35, "wood": 1, "stone": 2}},
+	"res://village/buildings/Bakery.tscn": {"cost": {"gold": 45, "wood": 1, "stone": 1, "water": 1}},
+	# Destek binası
 	"res://village/buildings/StorageBuilding.tscn": {"cost": {"gold": 80, "wood": 2, "stone": 1}},
-	# Yeni üretim zinciri binaları (placeholder maliyetler)
-	"res://village/buildings/Blacksmith.tscn": {"cost": {"gold": 120, "wood": 2, "stone": 2}},
-	"res://village/buildings/Armorer.tscn": {"cost": {"gold": 120, "wood": 2, "stone": 2}},
-	"res://village/buildings/Tailor.tscn": {"cost": {"gold": 90, "wood": 1}},
-	"res://village/buildings/Weaver.tscn": {"cost": {"gold": 70, "wood": 1}},
-	"res://village/buildings/Herbalist.tscn": {"cost": {"gold": 70}},
-	"res://village/buildings/TeaHouse.tscn": {"cost": {"gold": 60}},
-	"res://village/buildings/SoapMaker.tscn": {"cost": {"gold": 80}},
-	"res://village/buildings/Gunsmith.tscn": {"cost": {"gold": 120, "wood": 2}},
-	# Kışla (geçici olarak ücretsiz)
-	"res://village/buildings/Barracks.tscn": {"cost": {}}
+	# Katman 3-4 - Uzmanlaşma
+	"res://village/buildings/Weaver.tscn": {"cost": {"gold": 60, "lumber": 2, "brick": 1}},
+	"res://village/buildings/Tailor.tscn": {"cost": {"gold": 75, "lumber": 2, "brick": 2, "cloth": 1}},
+	"res://village/buildings/TeaHouse.tscn": {"cost": {"gold": 65, "lumber": 2, "brick": 1}},
+	"res://village/buildings/SoapMaker.tscn": {"cost": {"gold": 70, "lumber": 1, "brick": 2}},
+	"res://village/buildings/Blacksmith.tscn": {"cost": {"gold": 95, "lumber": 2, "brick": 2, "stone": 1}},
+	"res://village/buildings/Herbalist.tscn": {"cost": {"gold": 85, "lumber": 2, "brick": 2}},
+	# Katman 5 - Geç oyun
+	"res://village/buildings/Gunsmith.tscn": {"cost": {"gold": 130, "lumber": 2, "brick": 2, "metal": 2}},
+	"res://village/buildings/Armorer.tscn": {"cost": {"gold": 125, "lumber": 2, "brick": 2, "metal": 2}},
+	"res://village/buildings/Barracks.tscn": {"cost": {"gold": 110, "lumber": 3, "brick": 2, "metal": 1}}
 }
+
+# Test akışı: tüm binaların seviye kilitlerini yok say.
+# Maliyet kontrolleri çalışmaya devam eder.
+const UNLOCK_ALL_BUILDINGS_FOR_TESTING := false
 
 # --- VillageScene Referansı ---
 var village_scene_instance: Node2D = null
@@ -88,6 +105,39 @@ var base_production_progress: Dictionary = {
 
 var _time_signal_connected: bool = false
 var _time_advanced_connected: bool = false
+var _last_construction_total_minutes: int = -1
+var pending_constructions: Array = []
+var reserved_build_plots: Array[Vector2] = []
+## Kayıttan yüklenecek inşaat kuyruğu (sahne hazır olunca uygulanır)
+var _pending_constructions_load_buffer: Array = []
+const MAX_PARALLEL_CONSTRUCTIONS: int = 3
+const PARALLEL_BUILD_GOLD_MULT_PER_PENDING: float = 0.12
+const PARALLEL_BUILD_GOLD_MULT_MAX: float = 1.48
+var _active_upgrade_vfx_ids: Dictionary = {}
+
+const CONSTRUCTION_TIER_BY_SCENE := {
+	"res://village/buildings/WoodcutterCamp.tscn": 1,
+	"res://village/buildings/StoneMine.tscn": 1,
+	"res://village/buildings/HunterGathererHut.tscn": 1,
+	"res://village/buildings/Well.tscn": 1,
+	"res://village/buildings/House.tscn": 1,
+	"res://village/buildings/Sawmill.tscn": 2,
+	"res://village/buildings/Brickworks.tscn": 2,
+	"res://village/buildings/Bakery.tscn": 2,
+	"res://village/buildings/StorageBuilding.tscn": 2,
+	"res://village/buildings/Weaver.tscn": 3,
+	"res://village/buildings/Tailor.tscn": 3,
+	"res://village/buildings/TeaHouse.tscn": 3,
+	"res://village/buildings/SoapMaker.tscn": 3,
+	"res://village/buildings/Blacksmith.tscn": 4,
+	"res://village/buildings/Herbalist.tscn": 4,
+	"res://village/buildings/Gunsmith.tscn": 5,
+	"res://village/buildings/Armorer.tscn": 5,
+	"res://village/buildings/Barracks.tscn": 5
+}
+const CONSTRUCTION_HOURS_BY_TIER := {1: 1.5, 2: 3.0, 3: 6.0, 4: 10.0, 5: 14.0}
+const UPGRADE_BASE_HOURS_BY_TIER := {1: 1.0, 2: 2.0, 3: 4.0, 4: 7.0, 5: 10.0}
+const MAX_BUILD_OR_UPGRADE_HOURS := 24.0
 
 # Sinyaller
 signal village_data_changed
@@ -99,8 +149,10 @@ signal cariye_data_changed
 signal gorev_data_changed
 signal building_state_changed(building_node)
 signal mission_completed(cariye_id, gorev_id, successful, results)
-signal time_skip_completed(total_hours, produced_resources)  # total_hours: float, produced_resources: Dictionary
+signal time_skip_completed(total_hours, produced_resources, construction_footnote)
 signal morale_game_over  # Köy morali 0'a düştüğünde (oyun kaybı)
+signal construction_started(scene_path, total_minutes)
+signal construction_completed(scene_path)
 
 # --- Diğer Değişkenler (Cariye, Görev vb.) ---
 # Cariyeleri saklayacağımız dictionary: { cariye_id: {veri} }
@@ -147,6 +199,15 @@ var _saved_snapshot_time: Dictionary = {}  # Save time when snapshot is taken (d
 var _pending_time_skip_notification: Dictionary = {}  # Pending notification data to show after scene loads
 var _is_leaving_village: bool = false  # Flag to prevent simulation when leaving village
 var _scene_signal_connected: bool = false
+
+## SceneManager: köyden çıkışta yolculuk süresi TimeManager'a yazılmadan hemen önce çağrılır.
+## Böylece time_advanced ile _simulate_time_skip (köy üretimi) çift sayılmaz.
+func mark_leaving_village_for_travel_out() -> void:
+	_is_leaving_village = true
+
+## SceneManager: köye dönüşte _handle_travel_time / simülasyondan hemen önce çağrılır.
+func mark_arriving_to_village_from_travel() -> void:
+	_is_leaving_village = false
 
 # --- Village Event System ---
 var village_events_enabled: bool = true  # Enable/disable village-specific events
@@ -315,6 +376,11 @@ func snapshot_state_for_scene_exit() -> void:
 					entry["upgrade_time_left"] = building.upgrade_timer.time_left
 			if "upgrade_time_seconds" in building:
 				entry["upgrade_time_total"] = float(building.upgrade_time_seconds)
+			var housing_node = _get_or_create_residential_housing_for_building(node2d, false)
+			if is_instance_valid(housing_node):
+				entry["residential_floors"] = int(housing_node.get_current_floors())
+				entry["residential_max_floors"] = int(housing_node.max_floors)
+				entry["residential_capacity_per_floor"] = int(housing_node.capacity_per_floor)
 			entry["fetch_progress"] = entry.get("fetch_progress", {})
 			_saved_building_states.append(entry)
 	
@@ -354,11 +420,23 @@ func snapshot_state_for_scene_exit() -> void:
 			if not assigned_scene.is_empty():
 				building_key = _make_building_snapshot_key(assigned_scene, assigned_building.global_position)
 		
-		# Housing node referansını kaydet (kamp ateşi veya ev)
+		# Housing node referansını kaydet (kamp ateşi veya konut birimi)
 		var housing_key := ""
 		var housing_node = worker_instance.get("housing_node") if worker_instance else null
 		if is_instance_valid(housing_node) and housing_node is Node2D:
-			var housing_scene: String = housing_node.scene_file_path if housing_node.scene_file_path != "" else "res://village/scenes/CampFire.tscn"
+			var housing_scene: String = ""
+			if housing_node.has_method("get_housing_snapshot_scene_path"):
+				housing_scene = String(housing_node.get_housing_snapshot_scene_path())
+			elif housing_node.scene_file_path != "":
+				housing_scene = housing_node.scene_file_path
+			elif housing_node.get_script() and housing_node.get_script().resource_path.ends_with("CampFire.gd"):
+				housing_scene = "res://village/scenes/CampFire.tscn"
+			else:
+				var housing_parent = housing_node.get_parent()
+				if housing_parent is Node2D and (housing_parent as Node2D).scene_file_path != "":
+					housing_scene = "%s#housing" % (housing_parent as Node2D).scene_file_path
+				else:
+					housing_scene = "res://village/buildings/House.tscn#housing"
 			housing_key = _make_building_snapshot_key(housing_scene, housing_node.global_position)
 		
 		# Askerler için is_deployed durumunu kaydet
@@ -386,6 +464,38 @@ func snapshot_state_for_scene_exit() -> void:
 func _make_building_snapshot_key(scene_path: String, position: Vector2) -> String:
 	return "%s|%s" % [scene_path, str(position)]
 
+func _find_building_by_snapshot_key(key: String) -> Node2D:
+	if key.is_empty() or not is_instance_valid(village_scene_instance):
+		return null
+	var placed: Node = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not is_instance_valid(placed):
+		return null
+	for building in placed.get_children():
+		if not building is Node2D:
+			continue
+		var n := building as Node2D
+		var sp := String(n.scene_file_path)
+		if sp.is_empty():
+			continue
+		if _make_building_snapshot_key(sp, n.global_position) == key:
+			return n
+	return null
+
+func _apply_pending_construction_completion(entry: Dictionary) -> bool:
+	var scene_path := String(entry.get("scene_path", ""))
+	var pos := Vector2(entry.get("position", Vector2.ZERO))
+	if String(entry.get("pending_kind", "")) == "house_floor":
+		var host_key := String(entry.get("host_building_key", ""))
+		var host := _find_building_by_snapshot_key(host_key)
+		if not is_instance_valid(host):
+			push_warning("[VillageManager] Ev katı tamamlanamadı: ana bina bulunamadı (%s)" % host_key)
+			return false
+		var housing := _get_or_create_residential_housing_for_building(host as Node2D, true)
+		if not is_instance_valid(housing):
+			return false
+		return housing.add_floor()
+	return place_building(scene_path, pos)
+
 func _to_vector2(value) -> Vector2:
 	if value is Vector2:
 		return value
@@ -407,6 +517,13 @@ func _reset_worker_runtime_data() -> void:
 	all_workers.clear()
 	total_workers = 0
 	idle_workers = 0
+	# queue_free() deferred çalıştığından silinen işçiler aynı frame'de
+	# hâlâ geçerli görünür. Barınak listelerini şimdi temizle; aksi takdirde
+	# hemen ardından çalışan worker yaratma döngüsü "kamp ateşi dolu" hatası alır.
+	if get_tree() != null:
+		for _h in get_tree().get_nodes_in_group("Housing"):
+			if is_instance_valid(_h) and "_occupants" in _h:
+				_h._occupants.clear()
 
 func _restore_saved_buildings() -> Dictionary:
 	var restored_map: Dictionary = {}
@@ -531,6 +648,12 @@ func _restore_saved_buildings() -> Dictionary:
 					upgrade_timer.wait_time = max(upgrade_total, upgrade_left)
 				if upgrade_left > 0.0:
 					upgrade_timer.start(upgrade_left)
+		if entry.has("residential_floors"):
+			var housing_node = _get_or_create_residential_housing_for_building(building_instance as Node2D, true)
+			if is_instance_valid(housing_node):
+				var saved_max_floors = int(entry.get("residential_max_floors", RESIDENTIAL_MAX_FLOORS))
+				var saved_per_floor = int(entry.get("residential_capacity_per_floor", RESIDENTIAL_CAPACITY_PER_FLOOR))
+				housing_node.configure_for_host(building_instance as Node2D, int(entry.get("residential_floors", 0)), saved_max_floors, saved_per_floor)
 		if building_instance.has_method("_update_ui"):
 			building_instance._update_ui()
 		elif building_instance.has_method("update_ui"):
@@ -586,6 +709,8 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 	if start_minute < 0 or start_minute >= TimeManager.MINUTES_PER_HOUR:
 		push_warning("[VillageManager] ⚠️ Invalid start_minute detected: %d. Setting to 0." % start_minute)
 		start_minute = 0
+	
+	var had_pending_construction: bool = not pending_constructions.is_empty()
 	
 	# Check if we have any workers (log warning if none)
 	var worker_maps := _build_worker_maps()
@@ -707,15 +832,19 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 			produced_resources[res] = produced
 	
 	if total_hours > 0.0:
+		var construction_footnote: String = ""
+		if had_pending_construction:
+			construction_footnote = "Devam eden şantiyeler oyun saatiyle ilerledi; tamamlananlar köye döndüğünde görünür."
 		print("[VillageManager] 📢 Emitting time_skip_completed signal: %.1f hours, resources: %s" % [total_hours, produced_resources])
 		# Check if village scene is loaded - if not, save notification for later
 		if is_instance_valid(village_scene_instance):
-			emit_signal("time_skip_completed", total_hours, produced_resources)
+			emit_signal("time_skip_completed", total_hours, produced_resources, construction_footnote)
 		else:
 			# Scene not loaded yet, save notification for when scene loads
 			_pending_time_skip_notification = {
 				"total_hours": total_hours,
-				"produced_resources": produced_resources
+				"produced_resources": produced_resources,
+				"construction_footnote": construction_footnote
 			}
 			print("[VillageManager] ⏸️ Village scene not loaded, saving notification for later: %.1f hours" % total_hours)
 	else:
@@ -935,6 +1064,11 @@ func _capture_building_state(building: Node) -> Dictionary:
 		entry["fetch_time"] = float(building.FETCH_TIME_PER_UNIT)
 	entry["fetch_progress"] = entry.get("fetch_progress", {})
 	entry["assigned_workers"] = int(building.assigned_workers) if "assigned_workers" in building else 0
+	var housing_node = _get_or_create_residential_housing_for_building(building as Node2D, false)
+	if is_instance_valid(housing_node):
+		entry["residential_floors"] = int(housing_node.get_current_floors())
+		entry["residential_max_floors"] = int(housing_node.max_floors)
+		entry["residential_capacity_per_floor"] = int(housing_node.capacity_per_floor)
 	return entry
 
 func _apply_entry_state_to_building(entry: Dictionary, building: Node) -> void:
@@ -1348,7 +1482,7 @@ var caregiver_bonus: float = 0.0
 var global_multiplier: float = 1.0
 var per_frame_production_enabled: bool = true
 
-var daily_water_per_pop: float = 0.5
+var daily_water_per_pop: float = 0.6
 var daily_food_per_pop: float = 0.5
 var cariye_period_days: int = 7
 
@@ -1482,9 +1616,17 @@ func register_village_scene(scene: Node2D) -> void:
 	#print("VillageManager: VillageScene kaydedildi.")
 
 	# --- İşçi Yönetimi Kurulumu (Buraya Taşındı) ---
-	# CampFire'ı bul
+	# CampFire'ı bul.
+	# Not: ResidentialHousing/House node'ları da "Housing" grubundadır; bu yüzden
+	# get_first_node_in_group("Housing") yanlış node döndürebilir.
+	# CampFire'ı script yolundan kesin olarak ayırt et.
 	await get_tree().process_frame # Grupların güncel olduğundan emin ol
-	campfire_node = get_tree().get_first_node_in_group("Housing")
+	campfire_node = null
+	for _housing_node in get_tree().get_nodes_in_group("Housing"):
+		if _housing_node.get_script() and \
+				String(_housing_node.get_script().resource_path).ends_with("CampFire.gd"):
+			campfire_node = _housing_node
+			break
 	if campfire_node == null:
 		#printerr("VillageManager Error (in register_village_scene): 'Housing' grubunda CampFire bulunamadı!")
 		return
@@ -1528,11 +1670,12 @@ func register_village_scene(scene: Node2D) -> void:
 	if not _pending_time_skip_notification.is_empty():
 		var hours = _pending_time_skip_notification.get("total_hours", 0.0)
 		var resources = _pending_time_skip_notification.get("produced_resources", {})
+		var cfoot: String = String(_pending_time_skip_notification.get("construction_footnote", ""))
 		print("[VillageManager] 📬 Showing pending notification: %.1f hours, resources: %s" % [hours, resources])
 		# Wait a bit more for UI to fully initialize
 		await get_tree().process_frame
 		await get_tree().process_frame
-		emit_signal("time_skip_completed", hours, resources)
+		emit_signal("time_skip_completed", hours, resources, cfoot)
 		_pending_time_skip_notification = {}
 
 	# Note: Resources are restored in SceneManager._handle_travel_time() BEFORE simulation
@@ -1666,6 +1809,10 @@ func register_village_scene(scene: Node2D) -> void:
 		# Görev ormandayken tamamlandıysa askerler geri çağrılmamış olabilir; yükleme sonrası senkronize et
 		call_deferred("_sync_soldiers_with_missions")
 		emit_signal("village_data_changed")
+		_apply_pending_constructions_from_load_buffer()
+		_resync_pending_construction_sites_after_scene_load()
+		_rebuild_reserved_plots_from_pending_positions()
+		_finalize_awaiting_construction_placements()
 		# Worker restoration tamamlandıktan sonra, varsa zindandan kurtarılan köylü/cariyeleri uygula
 		if is_instance_valid(village_scene_instance) and village_scene_instance.has_method("_apply_dungeon_rescued"):
 			if DEBUG_VILLAGE_MANAGER:
@@ -1692,6 +1839,8 @@ func register_village_scene(scene: Node2D) -> void:
 			tm.connect("day_changed", Callable(self, "_on_day_changed"))
 		_last_econ_tick_day = tm.get_day() if tm.has_method("get_day") else 0
 	if tm:
+		if tm.has_method("get_total_game_minutes"):
+			_last_construction_total_minutes = int(tm.get_total_game_minutes())
 		if tm.has_signal("hour_changed") and not _time_signal_connected:
 			tm.connect("hour_changed", Callable(self, "_on_hour_changed"))
 			_time_signal_connected = true
@@ -1794,8 +1943,90 @@ func get_available_resource_level(resource_type: String) -> int:
 	# #print("DEBUG VillageManager: get_available_resource_level(%s): Total=%d, Locked=%d, Available=%d" % [resource_type, total_level, locked_level, max(0, total_level - locked_level)]) #<<< DEBUG
 	return max(0, total_level - locked_level)
 
+# Günlük net kaynak tahmini döndürür.
+# Not: Üretim sadece çalışma saatleri için hesaplanır (24 saat varsayımı yoktur).
+# Pozitif değer artış, negatif değer azalış anlamına gelir.
+func get_projected_daily_resource_nets() -> Dictionary:
+	var nets: Dictionary = {}
+	for key in resource_levels.keys():
+		nets[key] = 0.0
+
+	var game_minutes_per_hour: float = 60.0
+	var seconds_per_game_minute: float = 2.5
+	var work_start_hour: int = 7
+	var work_end_hour: int = 18
+	if TimeManager:
+		if "MINUTES_PER_HOUR" in TimeManager:
+			game_minutes_per_hour = float(TimeManager.MINUTES_PER_HOUR)
+		if "SECONDS_PER_GAME_MINUTE" in TimeManager:
+			seconds_per_game_minute = float(TimeManager.SECONDS_PER_GAME_MINUTE)
+		if "WORK_START_HOUR" in TimeManager:
+			work_start_hour = int(TimeManager.WORK_START_HOUR)
+		if "WORK_END_HOUR" in TimeManager:
+			work_end_hour = int(TimeManager.WORK_END_HOUR)
+	var work_hours_per_day: int = max(0, work_end_hour - work_start_hour)
+	var work_day_seconds: float = float(work_hours_per_day) * game_minutes_per_hour * seconds_per_game_minute
+
+	var morale_mult: float = _get_morale_multiplier()
+	var prod_mult: float = (1.0 + building_bonus + caregiver_bonus) * global_multiplier
+
+	# Temel kaynak üretimi: işçi atamasına göre.
+	for res in BASE_RESOURCE_TYPES:
+		var workers: int = _count_active_workers_for_resource(res)
+		if workers <= 0:
+			continue
+		var res_mult: float = float(resource_prod_multiplier.get(res, 1.0))
+		var per_sec := (float(workers) / SECONDS_PER_RESOURCE_UNIT) * morale_mult * prod_mult * res_mult
+		nets[res] = float(nets.get(res, 0.0)) + (per_sec * work_day_seconds)
+
+	# İşleme binaları: output üretimi + input tüketimi.
+	var placed_buildings = null
+	if is_instance_valid(village_scene_instance):
+		placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if placed_buildings:
+		for building in placed_buildings.get_children():
+			if not ("assigned_workers" in building):
+				continue
+			var workers_assigned := int(building.assigned_workers)
+			if workers_assigned <= 0:
+				continue
+			var production_time := 0.0
+			if "PRODUCTION_TIME" in building:
+				production_time = float(building.PRODUCTION_TIME)
+			elif "BREAD_PRODUCTION_TIME" in building:
+				production_time = float(building.BREAD_PRODUCTION_TIME)
+			if production_time <= 0.0:
+				continue
+			var cycles_per_day := (work_day_seconds / production_time) * float(workers_assigned)
+
+			if "produced_resource" in building:
+				var produced_key := String(building.produced_resource)
+				if produced_key != "":
+					nets[produced_key] = float(nets.get(produced_key, 0.0)) + cycles_per_day
+
+			if "required_resources" in building and building.required_resources is Dictionary:
+				var reqs: Dictionary = building.required_resources
+				for req_key in reqs.keys():
+					var req_amount := float(reqs[req_key])
+					nets[req_key] = float(nets.get(req_key, 0.0)) - (cycles_per_day * req_amount)
+
+	# Köylü temel tüketimi (günlük)
+	var population := int(total_workers)
+	nets["food"] = float(nets.get("food", 0.0)) - (float(population) * daily_food_per_pop)
+	nets["water"] = float(nets.get("water", 0.0)) - (float(population) * daily_water_per_pop)
+
+	# Asker ek tüketimi (günlük)
+	var soldier_count := _count_active_soldiers()
+	if soldier_count > 0:
+		nets["food"] = float(nets.get("food", 0.0)) - (float(soldier_count) * 0.5)
+		nets["water"] = float(nets.get("water", 0.0)) - (float(soldier_count) * 0.5)
+
+	return nets
+
 # Her frame'de temel kaynakları zamanla biriktirir
 func _process(delta: float) -> void:
+	_tick_pending_constructions_from_clock()
+	_sync_upgrade_vfx()
 	# Economy açıkken per-frame üretim opsiyonel
 	if economy_enabled and not per_frame_production_enabled:
 		# Sadece günlük tick fallback çalışsın
@@ -1886,6 +2117,8 @@ func unlock_resource_level(resource_type: String, level_to_unlock: int) -> void:
 # --- Bina Yönetimi ---
 # Belirtilen sahne yoluna sahip bir binanın zaten var olup olmadığını kontrol eder
 func does_building_exist(building_scene_path: String) -> bool:
+	if has_pending_construction(building_scene_path):
+		return true
 	if not village_scene_instance:
 		#printerr("VillageManager: does_building_exist - VillageScene referansı yok!")
 		return false # Hata durumu, var kabul etmeyelim?
@@ -1930,12 +2163,13 @@ func can_meet_requirements(building_scene_path: String) -> bool:
 				return false
 
 	# 3. Gerekli Kaynak Seviyelerini Kontrol Et
-	var required_levels = requirements.get("requires_level", {})
-	for resource_type in required_levels:
-		var required_level = required_levels[resource_type]
-		var available_level = get_available_resource_level(resource_type)
-		if available_level < required_level:
-			return false
+	if not UNLOCK_ALL_BUILDINGS_FOR_TESTING:
+		var required_levels = requirements.get("requires_level", {})
+		for resource_type in required_levels:
+			var required_level = required_levels[resource_type]
+			var available_level = get_available_resource_level(resource_type)
+			if available_level < required_level:
+				return false
 
 	return true
 
@@ -1947,6 +2181,7 @@ func find_free_building_plot() -> Vector2:
 
 	var plot_markers = village_scene_instance.get_node_or_null("PlotMarkers")
 	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	var construction_sites = village_scene_instance.get_node_or_null("ConstructionSites")
 
 	if not plot_markers or not placed_buildings:
 		push_warning("[VillageManager] find_free_building_plot - PlotMarkers veya PlacedBuildings bulunamadı!")
@@ -1965,7 +2200,7 @@ func find_free_building_plot() -> Vector2:
 				plot_occupied = true
 				break
 
-		if not plot_occupied:
+		if not plot_occupied and not _plot_blocked_by_construction_sites(marker_pos, construction_sites) and not _is_plot_reserved(marker_pos):
 			return marker_pos
 
 	# Fallback: Mevcut yerleşik binaların yanına ofsetle yerleştir
@@ -1975,7 +2210,8 @@ func find_free_building_plot() -> Vector2:
 		if plot_markers and plot_markers.get_child_count() > 0 and plot_markers.get_child(0) is Node2D:
 			base_pos = plot_markers.get_child(0).global_position
 		var fallback_pos = base_pos + Vector2(56 * count, 0)
-		return fallback_pos
+		if not _plot_blocked_by_construction_sites(fallback_pos, construction_sites) and not _is_plot_reserved(fallback_pos):
+			return fallback_pos
 	return Vector2.ZERO
 
 # Verilen bina sahnesini belirtilen pozisyona yerleştirir
@@ -1997,15 +2233,19 @@ func place_building(building_scene_path: String, position: Vector2) -> bool:
 	var new_building = building_scene.instantiate()
 	placed_buildings_node_ref.add_child(new_building)
 	new_building.global_position = position
+	if new_building is Node2D and String(building_scene_path) == HOUSE_SCENE_PATH:
+		var housing_node = _get_or_create_residential_housing_for_building(new_building as Node2D, true)
+		if is_instance_valid(housing_node):
+			housing_node.configure_for_host(new_building as Node2D, 1, RESIDENTIAL_MAX_FLOORS, RESIDENTIAL_CAPACITY_PER_FLOOR)
 	emit_signal("village_data_changed")
 	return true
 
 # İnşa isteğini işler (Düzeltilmiş - Her türden sadece 1 bina)
 func request_build_building(building_scene_path: String) -> bool:
 	print("[VillageManager] 🏗️ İnşa isteği: %s" % building_scene_path.get_file())
-	
-	# 0. Bu Türden Bina Zaten Var Mı Kontrol Et
-	if does_building_exist(building_scene_path):
+
+	# 0. Ev dışındaki binalar için tekil bina kuralı devam eder.
+	if building_scene_path != HOUSE_SCENE_PATH and does_building_exist(building_scene_path):
 		print("[VillageManager] ❌ İnşa reddedildi - Bu türden bina zaten var")
 		return false
 	
@@ -2016,25 +2256,28 @@ func request_build_building(building_scene_path: String) -> bool:
 		print("[VillageManager]    Gereksinimler: %s" % reqs)
 		return false
 
-	# 2. Boş Yer Bul
-	var placement_position = find_free_building_plot()
-	if placement_position == Vector2.INF or placement_position == Vector2.ZERO:
-		print("[VillageManager] ❌ İnşa reddedildi - Boş yer bulunamadı (pos: %s)" % placement_position)
+	# Yeni parsel kuyruğu gerektiren inşa: paralel şantiye limiti (ev yeni parsel dahil)
+	if building_scene_path != HOUSE_SCENE_PATH:
+		if pending_constructions.size() >= MAX_PARALLEL_CONSTRUCTIONS:
+			print("[VillageManager] ❌ İnşa reddedildi — en fazla %d paralel şantiye" % MAX_PARALLEL_CONSTRUCTIONS)
+			return false
+
+	var requirements: Dictionary = get_building_requirements(building_scene_path)
+	var cost: Dictionary = requirements.get("cost", {})
+	var gold_cost_raw: int = int(cost.get("gold", 0))
+	var gold_mult: float = 1.0
+	if building_scene_path != HOUSE_SCENE_PATH:
+		gold_mult = get_pending_construction_gold_multiplier()
+	var gold_charged: int = int(ceil(float(gold_cost_raw) * gold_mult)) if gold_cost_raw > 0 else 0
+	if gold_charged > GlobalPlayerData.gold:
+		print("[VillageManager] ❌ İnşa reddedildi — paralel şantiye altın çarpanı sonrası altın yetmiyor (gerekli %d)" % gold_charged)
 		return false
 
-	print("[VillageManager] ✅ Yer bulundu: %s" % placement_position)
-
-	# 3. Maliyetleri Düş (Altın ve Kaynaklar)
-	var requirements = get_building_requirements(building_scene_path)
-	var cost = requirements.get("cost", {})
+	# 2. Maliyetleri Düş (Altın ve Kaynaklar)
+	if gold_charged > 0:
+		GlobalPlayerData.add_gold(-gold_charged)
+		print("[VillageManager] 💰 Altın düşüldü: %d (çarpan %.2f, Kalan: %d)" % [gold_charged, gold_mult, GlobalPlayerData.gold])
 	
-	# Altın maliyetini düş
-	var gold_cost = cost.get("gold", 0)
-	if gold_cost > 0:
-		GlobalPlayerData.add_gold(-gold_cost)
-		print("[VillageManager] 💰 Altın düşüldü: %d (Kalan: %d)" % [gold_cost, GlobalPlayerData.gold])
-	
-	# Kaynak maliyetlerini düş
 	for resource_type in cost:
 		if resource_type == "gold":
 			continue
@@ -2046,17 +2289,590 @@ func request_build_building(building_scene_path: String) -> bool:
 			print("[VillageManager] 📦 %s düşüldü: %d (Kalan: %d)" % [resource_type, resource_cost, resource_levels[resource_type]])
 			emit_signal("village_data_changed")
 
-	# 4. Binayı Yerleştir
-	if place_building(building_scene_path, placement_position):
-		print("[VillageManager] ✅ Bina başarıyla inşa edildi: %s" % building_scene_path.get_file())
-		return true
+	# 3. Eylem: ev — kat eklenebilecek hedef varsa şantiye kuyruğu (duman + süre), yoksa yeni parsel
+	var build_success := false
+	if building_scene_path == HOUSE_SCENE_PATH:
+		var floor_host: Node2D = _find_residential_floor_target()
+		if is_instance_valid(floor_host):
+			if pending_constructions.size() >= MAX_PARALLEL_CONSTRUCTIONS:
+				print("[VillageManager] ❌ Ev inşaatı reddedildi — paralel şantiye limiti (%d)" % MAX_PARALLEL_CONSTRUCTIONS)
+				build_success = false
+			else:
+				var host_key := _make_building_snapshot_key(String(floor_host.scene_file_path), floor_host.global_position)
+				print("[VillageManager] 🏠 Konut katı şantiyeye alındı (hedef: %s)" % floor_host.name)
+				build_success = _queue_construction(building_scene_path, floor_host.global_position, {
+					"pending_kind": "house_floor",
+					"host_building_key": host_key
+				}, floor_host)
+		else:
+			if pending_constructions.size() >= MAX_PARALLEL_CONSTRUCTIONS:
+				print("[VillageManager] ❌ Ev inşaatı reddedildi — paralel şantiye limiti (%d)" % MAX_PARALLEL_CONSTRUCTIONS)
+				build_success = false
+			else:
+				var placement_position = find_free_building_plot()
+				if placement_position == Vector2.INF or placement_position == Vector2.ZERO:
+					print("[VillageManager] ❌ İnşa reddedildi - Boş yer bulunamadı (pos: %s)" % placement_position)
+				else:
+					print("[VillageManager] ✅ Yer bulundu: %s" % placement_position)
+					build_success = _queue_construction(building_scene_path, placement_position)
 	else:
-		# Yerleştirme başarısız olduysa altını iade et!
-		if gold_cost > 0:
-			GlobalPlayerData.add_gold(gold_cost)
-			print("[VillageManager] 💰 Altın iade edildi: %d" % gold_cost)
-		push_error("[VillageManager] ❌ Bina yerleştirme başarısız oldu!")
+		var placement_position = find_free_building_plot()
+		if placement_position == Vector2.INF or placement_position == Vector2.ZERO:
+			print("[VillageManager] ❌ İnşa reddedildi - Boş yer bulunamadı (pos: %s)" % placement_position)
+		else:
+			print("[VillageManager] ✅ Yer bulundu: %s" % placement_position)
+			build_success = _queue_construction(building_scene_path, placement_position)
+
+	if build_success:
+		print("[VillageManager] ✅ Bina başarıyla inşa edildi: %s" % building_scene_path.get_file())
+		# Yeni barınak oluşturulduysa kamp ateşindeki köylüleri eve taşı
+		_reassign_campfire_workers_to_houses()
+		return true
+
+	# Yerleştirme başarısız olduysa maliyetleri iade et
+	if gold_charged > 0:
+		GlobalPlayerData.add_gold(gold_charged)
+		print("[VillageManager] 💰 Altın iade edildi: %d" % gold_charged)
+	for resource_type in cost:
+		if resource_type == "gold":
+			continue
+		var resource_cost = int(cost.get(resource_type, 0))
+		if resource_cost > 0:
+			resource_levels[resource_type] = int(resource_levels.get(resource_type, 0)) + resource_cost
+	push_error("[VillageManager] ❌ Bina yerleştirme başarısız oldu!")
+	emit_signal("village_data_changed")
+	return false
+
+func get_building_tier(scene_path: String) -> int:
+	return int(CONSTRUCTION_TIER_BY_SCENE.get(scene_path, 1))
+
+func get_build_duration_hours(scene_path: String) -> float:
+	var tier := get_building_tier(scene_path)
+	var base_hours := float(CONSTRUCTION_HOURS_BY_TIER.get(tier, 3.0))
+	return clamp(base_hours, 1.0, MAX_BUILD_OR_UPGRADE_HOURS)
+
+func get_upgrade_duration_hours_for_building(building: Node) -> float:
+	if not is_instance_valid(building):
+		return 1.0
+	var scene_path := ""
+	if "scene_file_path" in building:
+		scene_path = String(building.scene_file_path)
+	var tier := get_building_tier(scene_path)
+	var level := int(building.get("level")) if building.get("level") != null else 1
+	var base_hours := float(UPGRADE_BASE_HOURS_BY_TIER.get(tier, 2.0))
+	var scaled := base_hours * pow(1.7, max(0, level - 1))
+	return clamp(scaled, 1.0, MAX_BUILD_OR_UPGRADE_HOURS)
+
+func get_upgrade_duration_seconds_for_building(building: Node) -> float:
+	return _game_hours_to_real_seconds(get_upgrade_duration_hours_for_building(building))
+
+func prepare_building_upgrade(building: Node) -> void:
+	if not is_instance_valid(building):
+		return
+	if not ("upgrade_time_seconds" in building):
+		return
+	building.upgrade_time_seconds = get_upgrade_duration_seconds_for_building(building)
+
+func _game_hours_to_real_seconds(game_hours: float) -> float:
+	var seconds_per_game_minute := 2.5
+	if TimeManager and "SECONDS_PER_GAME_MINUTE" in TimeManager:
+		seconds_per_game_minute = float(TimeManager.SECONDS_PER_GAME_MINUTE)
+	return game_hours * 60.0 * seconds_per_game_minute
+
+func has_pending_construction(scene_path: String) -> bool:
+	for entry in pending_constructions:
+		if String(entry.get("scene_path", "")) == scene_path:
+			return true
+	return false
+
+func get_pending_construction_minutes(scene_path: String) -> int:
+	for entry in pending_constructions:
+		if String(entry.get("scene_path", "")) == scene_path:
+			return int(ceil(float(entry.get("remaining_minutes", 0.0))))
+	return 0
+
+func _queue_construction(scene_path: String, position: Vector2, extra: Dictionary = {}, vfx_vertical_anchor: Node2D = null) -> bool:
+	var build_hours: float = get_build_duration_hours(scene_path)
+	var total_minutes: float = max(1.0, build_hours * 60.0)
+	if not _reserve_build_plot(position):
 		return false
+	var rooftop_vfx: bool = (String(extra.get("pending_kind", "")) == "house_floor") and is_instance_valid(vfx_vertical_anchor)
+	var site: Node2D = _spawn_construction_site(scene_path, position, vfx_vertical_anchor, rooftop_vfx)
+	var entry: Dictionary = {
+		"scene_path": scene_path,
+		"position": position,
+		"remaining_minutes": total_minutes,
+		"total_minutes": total_minutes,
+		"site_path": site.get_path() if is_instance_valid(site) else NodePath("")
+	}
+	for ek in extra.keys():
+		entry[ek] = extra[ek]
+	pending_constructions.append(entry)
+	emit_signal("construction_started", scene_path, int(round(total_minutes)))
+	emit_signal("village_data_changed")
+	return true
+
+func _spawn_construction_site(scene_path: String, position: Vector2, vfx_vertical_ref: Node = null, rooftop_construction: bool = false) -> Node2D:
+	if not is_instance_valid(village_scene_instance):
+		return null
+	var parent := village_scene_instance.get_node_or_null("ConstructionSites")
+	if parent == null:
+		parent = Node2D.new()
+		parent.name = "ConstructionSites"
+		village_scene_instance.add_child(parent)
+	var site := Node2D.new()
+	site.name = "ConstructionSite_" + scene_path.get_file().trim_suffix(".tscn")
+	site.global_position = position
+	parent.add_child(site)
+	var info := Label.new()
+	info.name = "Info"
+	info.text = "İnşaat başlıyor..."
+	var vfx_node: Node = vfx_vertical_ref if is_instance_valid(vfx_vertical_ref) else null
+	var offsets := _get_vfx_offsets_for_target(vfx_node, rooftop_construction)
+	info.position = Vector2(-80, float(offsets.get("info_y", -190.0)))
+	info.z_index = 10
+	site.add_child(info)
+	# Kullanıcı sonradan sprite_frames ekleyebilir: SmokeVFX / ToolVFX
+	var smoke := AnimatedSprite2D.new()
+	smoke.name = "SmokeVFX"
+	smoke.position = Vector2(0, float(offsets.get("smoke_y", -129.0)))
+	smoke.z_index = 5
+	site.add_child(smoke)
+	_setup_construction_fx_animation(smoke, "res://village/assets/fx/build_smoke_fx.png", 8, 10.0)
+	var tool := AnimatedSprite2D.new()
+	tool.name = "ToolVFX"
+	tool.position = Vector2(0, float(offsets.get("tool_y", -154.0)))
+	tool.z_index = 6
+	site.add_child(tool)
+	_setup_construction_fx_animation(tool, "res://village/assets/fx/tool_fx.png", 8, 12.0)
+	return site
+
+func _setup_construction_fx_animation(sprite: AnimatedSprite2D, texture_path: String, frame_count: int, fps: float) -> void:
+	if not is_instance_valid(sprite):
+		return
+	if not ResourceLoader.exists(texture_path):
+		return
+	var tex: Texture2D = load(texture_path)
+	if tex == null:
+		return
+	var safe_frames: int = max(1, frame_count)
+	var frame_w: int = int(tex.get_width() / safe_frames)
+	var frame_h: int = tex.get_height()
+	if frame_w <= 0 or frame_h <= 0:
+		return
+	var frames := SpriteFrames.new()
+	frames.add_animation("default")
+	frames.set_animation_speed("default", fps)
+	frames.set_animation_loop("default", true)
+	for i in range(safe_frames):
+		var region := Rect2(i * frame_w, 0, frame_w, frame_h)
+		var atlas := AtlasTexture.new()
+		atlas.atlas = tex
+		atlas.region = region
+		frames.add_frame("default", atlas)
+	sprite.sprite_frames = frames
+	sprite.animation = "default"
+	sprite.play("default")
+
+func _tick_pending_constructions_from_clock() -> void:
+	if not TimeManager or not TimeManager.has_method("get_total_game_minutes"):
+		return
+	var now_total := int(TimeManager.get_total_game_minutes())
+	# Kuyruk boşken de oyun saatini takip et; aksi halde biriken (now - last) dakikası
+	# bir sonraki inşa başlatıldığında tek seferde düşer ve bina anında biter.
+	if pending_constructions.is_empty():
+		_last_construction_total_minutes = now_total
+		return
+	if _last_construction_total_minutes < 0:
+		_last_construction_total_minutes = now_total
+		return
+	var delta_minutes := now_total - _last_construction_total_minutes
+	if delta_minutes <= 0:
+		return
+	_last_construction_total_minutes = now_total
+	_advance_pending_constructions(float(delta_minutes))
+
+func _advance_pending_constructions(delta_minutes: float) -> void:
+	if delta_minutes <= 0.0 or pending_constructions.is_empty():
+		return
+	var village_ready: bool = is_instance_valid(village_scene_instance) and village_scene_instance.is_inside_tree()
+	for i in range(pending_constructions.size() - 1, -1, -1):
+		var entry: Dictionary = pending_constructions[i]
+		if bool(entry.get("awaiting_placement", false)):
+			continue
+		var remaining: float = float(entry.get("remaining_minutes", 0.0)) - delta_minutes
+		entry["remaining_minutes"] = max(0.0, remaining)
+		_update_construction_site_ui(entry)
+		if remaining <= 0.0:
+			var scene_path := String(entry.get("scene_path", ""))
+			var pos := Vector2(entry.get("position", Vector2.ZERO))
+			if village_ready:
+				_remove_construction_site(entry)
+				var built_ok := _apply_pending_construction_completion(entry)
+				_release_build_plot(pos)
+				if built_ok:
+					emit_signal("construction_completed", scene_path)
+					_reassign_campfire_workers_to_houses()
+				pending_constructions.remove_at(i)
+			else:
+				# Köyde değilken süre bitti: parsel rezervi kalır, bina köye dönünce konur
+				entry["remaining_minutes"] = 0.0
+				entry["awaiting_placement"] = true
+				_remove_construction_site(entry)
+				pending_constructions[i] = entry
+		else:
+			pending_constructions[i] = entry
+	emit_signal("village_data_changed")
+
+func _finalize_awaiting_construction_placements() -> void:
+	if not is_instance_valid(village_scene_instance) or not village_scene_instance.is_inside_tree():
+		return
+	for i in range(pending_constructions.size() - 1, -1, -1):
+		var entry: Dictionary = pending_constructions[i]
+		if not bool(entry.get("awaiting_placement", false)):
+			continue
+		var scene_path := String(entry.get("scene_path", ""))
+		var pos := Vector2(entry.get("position", Vector2.ZERO))
+		var built_ok := _apply_pending_construction_completion(entry)
+		_release_build_plot(pos)
+		if built_ok:
+			emit_signal("construction_completed", scene_path)
+			_reassign_campfire_workers_to_houses()
+		pending_constructions.remove_at(i)
+	emit_signal("village_data_changed")
+
+func _update_construction_site_ui(entry: Dictionary) -> void:
+	var site_path: NodePath = entry.get("site_path", NodePath(""))
+	if site_path == NodePath("") or not is_instance_valid(village_scene_instance):
+		return
+	var site = village_scene_instance.get_node_or_null(site_path)
+	if not is_instance_valid(site):
+		return
+	var info: Label = site.get_node_or_null("Info")
+	if is_instance_valid(info):
+		var rem: float = max(0.0, float(entry.get("remaining_minutes", 0.0)))
+		var total: float = max(1.0, float(entry.get("total_minutes", 1.0)))
+		var pct := int(round(((total - rem) / total) * 100.0))
+		var rem_hours: float = rem / 60.0
+		info.text = "İnşaat: %d%% (%.1f saat)" % [pct, rem_hours]
+
+func _remove_construction_site(entry: Dictionary) -> void:
+	var site_path: NodePath = entry.get("site_path", NodePath(""))
+	if site_path == NodePath("") or not is_instance_valid(village_scene_instance):
+		return
+	var site = village_scene_instance.get_node_or_null(site_path)
+	if is_instance_valid(site):
+		site.queue_free()
+
+func _reserve_build_plot(pos: Vector2) -> bool:
+	if _is_plot_reserved(pos):
+		return false
+	reserved_build_plots.append(pos)
+	return true
+
+func _release_build_plot(pos: Vector2) -> void:
+	var idx := reserved_build_plots.size() - 1
+	while idx >= 0:
+		if reserved_build_plots[idx].distance_to(pos) < 1.0:
+			reserved_build_plots.remove_at(idx)
+		idx -= 1
+
+func _is_plot_reserved(pos: Vector2) -> bool:
+	for p in reserved_build_plots:
+		if p.distance_to(pos) < 1.0:
+			return true
+	for entry in pending_constructions:
+		var p2 := Vector2(entry.get("position", Vector2.ZERO))
+		if p2.distance_to(pos) < 1.0:
+			return true
+	return false
+
+func _plot_blocked_by_construction_sites(pos: Vector2, sites_root: Node) -> bool:
+	if not is_instance_valid(sites_root):
+		return false
+	for child in sites_root.get_children():
+		if child is Node2D and (child as Node2D).global_position.distance_to(pos) < 1.0:
+			return true
+	return false
+
+func get_max_parallel_constructions() -> int:
+	return MAX_PARALLEL_CONSTRUCTIONS
+
+func get_pending_construction_gold_multiplier() -> float:
+	var n: int = pending_constructions.size()
+	return clampf(1.0 + PARALLEL_BUILD_GOLD_MULT_PER_PENDING * float(n), 1.0, PARALLEL_BUILD_GOLD_MULT_MAX)
+
+func get_pending_construction_display_lines() -> Array[String]:
+	var lines: Array[String] = []
+	if pending_constructions.is_empty():
+		lines.append("Aktif şantiye yok.")
+		lines.append("Paralel limit: %d şantiye" % MAX_PARALLEL_CONSTRUCTIONS)
+		return lines
+	for entry in pending_constructions:
+		var sp := String(entry.get("scene_path", ""))
+		var fn := sp.get_file().trim_suffix(".tscn")
+		if fn.is_empty():
+			fn = sp
+		if bool(entry.get("awaiting_placement", false)):
+			if String(entry.get("pending_kind", "")) == "house_floor":
+				lines.append("Konut katı — tamamlandı, köye dönünce yerleşecek")
+			else:
+				lines.append("%s — tamamlandı, köye dönünce yerleşecek" % fn)
+			continue
+		var rem_h: float = float(entry.get("remaining_minutes", 0.0)) / 60.0
+		if String(entry.get("pending_kind", "")) == "house_floor":
+			lines.append("Konut katı — ~%.1f saat kaldı" % rem_h)
+		else:
+			lines.append("%s — ~%.1f saat kaldı" % [fn, rem_h])
+	lines.append("Paralel: %d / %d" % [pending_constructions.size(), MAX_PARALLEL_CONSTRUCTIONS])
+	return lines
+
+func get_pending_constructions_save_data() -> Array:
+	var out: Array = []
+	for entry in pending_constructions:
+		if not entry is Dictionary:
+			continue
+		var pos := Vector2((entry as Dictionary).get("position", Vector2.ZERO))
+		var ed2: Dictionary = entry as Dictionary
+		var row: Dictionary = {
+			"scene_path": String(ed2.get("scene_path", "")),
+			"position": {"x": pos.x, "y": pos.y},
+			"remaining_minutes": float(ed2.get("remaining_minutes", 0.0)),
+			"total_minutes": float(ed2.get("total_minutes", 0.0)),
+			"awaiting_placement": bool(ed2.get("awaiting_placement", false))
+		}
+		if ed2.has("pending_kind"):
+			row["pending_kind"] = String(ed2.get("pending_kind", ""))
+		if ed2.has("host_building_key"):
+			row["host_building_key"] = String(ed2.get("host_building_key", ""))
+		out.append(row)
+	return out
+
+func _apply_pending_constructions_from_load_buffer() -> void:
+	if _pending_constructions_load_buffer.is_empty():
+		return
+	pending_constructions.clear()
+	reserved_build_plots.clear()
+	for raw in _pending_constructions_load_buffer:
+		if raw is Dictionary:
+			_restore_one_pending_from_save_dict(raw as Dictionary)
+	_pending_constructions_load_buffer.clear()
+	emit_signal("village_data_changed")
+
+func _restore_one_pending_from_save_dict(d: Dictionary) -> void:
+	var scene_path := String(d.get("scene_path", ""))
+	if scene_path.is_empty() or not ResourceLoader.exists(scene_path):
+		return
+	var pos := _to_vector2(d.get("position", Vector2.ZERO))
+	var rem: float = float(d.get("remaining_minutes", 0.0))
+	var tot: float = float(d.get("total_minutes", 0.0))
+	if tot < 1.0:
+		tot = maxf(1.0, rem)
+	if rem < 0.0:
+		rem = 0.0
+	var awaiting: bool = bool(d.get("awaiting_placement", false))
+	var pkind := String(d.get("pending_kind", ""))
+	var hkey := String(d.get("host_building_key", ""))
+	if not is_instance_valid(village_scene_instance):
+		var row_off: Dictionary = {
+			"scene_path": scene_path,
+			"position": pos,
+			"remaining_minutes": rem,
+			"total_minutes": tot,
+			"site_path": NodePath(""),
+			"awaiting_placement": awaiting
+		}
+		if pkind != "":
+			row_off["pending_kind"] = pkind
+		if hkey != "":
+			row_off["host_building_key"] = hkey
+		pending_constructions.append(row_off)
+		return
+	if awaiting:
+		var row_aw: Dictionary = {
+			"scene_path": scene_path,
+			"position": pos,
+			"remaining_minutes": 0.0,
+			"total_minutes": tot,
+			"site_path": NodePath(""),
+			"awaiting_placement": true
+		}
+		if pkind != "":
+			row_aw["pending_kind"] = pkind
+		if hkey != "":
+			row_aw["host_building_key"] = hkey
+		pending_constructions.append(row_aw)
+		return
+	var vfx_host: Node2D = null
+	if pkind == "house_floor" and not hkey.is_empty():
+		vfx_host = _find_building_by_snapshot_key(hkey)
+	var rooftop_vfx: bool = pkind == "house_floor" and is_instance_valid(vfx_host)
+	var site: Node2D = _spawn_construction_site(scene_path, pos, vfx_host, rooftop_vfx)
+	var row_ok: Dictionary = {
+		"scene_path": scene_path,
+		"position": pos,
+		"remaining_minutes": rem,
+		"total_minutes": tot,
+		"site_path": site.get_path() if is_instance_valid(site) else NodePath("")
+	}
+	if pkind != "":
+		row_ok["pending_kind"] = pkind
+	if hkey != "":
+		row_ok["host_building_key"] = hkey
+	pending_constructions.append(row_ok)
+
+func on_village_scene_tree_exiting(scene: Node2D) -> void:
+	if village_scene_instance != scene:
+		return
+	for entry in pending_constructions:
+		if entry is Dictionary:
+			(entry as Dictionary)["site_path"] = NodePath("")
+	village_scene_instance = null
+
+func _resync_pending_construction_sites_after_scene_load() -> void:
+	if pending_constructions.is_empty() or not is_instance_valid(village_scene_instance):
+		return
+	for entry in pending_constructions:
+		if not entry is Dictionary:
+			continue
+		var ed := entry as Dictionary
+		if bool(ed.get("awaiting_placement", false)):
+			continue
+		var scene_path := String(ed.get("scene_path", ""))
+		var pos := Vector2(ed.get("position", Vector2.ZERO))
+		var pkind2 := String(ed.get("pending_kind", ""))
+		var hkey2 := String(ed.get("host_building_key", ""))
+		var vfx_host2: Node2D = null
+		if pkind2 == "house_floor" and not hkey2.is_empty():
+			vfx_host2 = _find_building_by_snapshot_key(hkey2)
+		var rooftop2: bool = pkind2 == "house_floor" and is_instance_valid(vfx_host2)
+		var path: NodePath = ed.get("site_path", NodePath("")) as NodePath
+		var need_spawn := true
+		if path != NodePath(""):
+			var n = village_scene_instance.get_node_or_null(path)
+			if is_instance_valid(n):
+				need_spawn = false
+		if need_spawn and not scene_path.is_empty():
+			var site: Node2D = _spawn_construction_site(scene_path, pos, vfx_host2, rooftop2)
+			ed["site_path"] = site.get_path() if is_instance_valid(site) else NodePath("")
+		_update_construction_site_ui(ed)
+
+func _rebuild_reserved_plots_from_pending_positions() -> void:
+	reserved_build_plots.clear()
+	for entry in pending_constructions:
+		if entry is Dictionary:
+			var pos := Vector2((entry as Dictionary).get("position", Vector2.ZERO))
+			reserved_build_plots.append(pos)
+
+func _sync_upgrade_vfx() -> void:
+	if not is_instance_valid(village_scene_instance):
+		return
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not is_instance_valid(placed_buildings):
+		return
+	var currently_upgrading_ids: Dictionary = {}
+	for building in placed_buildings.get_children():
+		if not is_instance_valid(building):
+			continue
+		if not ("is_upgrading" in building):
+			continue
+		var upgrading: bool = bool(building.get("is_upgrading"))
+		if not upgrading:
+			continue
+		var bid: int = int(building.get_instance_id())
+		currently_upgrading_ids[bid] = true
+		_ensure_upgrade_vfx_for_building(building)
+		_update_upgrade_vfx_for_building(building)
+	for bid_key in _active_upgrade_vfx_ids.keys():
+		var bid: int = int(bid_key)
+		if currently_upgrading_ids.has(bid):
+			continue
+		var node_path: NodePath = _active_upgrade_vfx_ids.get(bid, NodePath(""))
+		if node_path != NodePath(""):
+			var node = get_node_or_null(node_path)
+			if is_instance_valid(node):
+				node.queue_free()
+		_active_upgrade_vfx_ids.erase(bid)
+
+func _ensure_upgrade_vfx_for_building(building: Node) -> void:
+	var bid: int = int(building.get_instance_id())
+	if _active_upgrade_vfx_ids.has(bid):
+		var existing_path: NodePath = _active_upgrade_vfx_ids.get(bid, NodePath(""))
+		if existing_path != NodePath("") and is_instance_valid(get_node_or_null(existing_path)):
+			return
+	var root := Node2D.new()
+	root.name = "UpgradeVFXRoot"
+	if building is Node2D:
+		root.position = Vector2.ZERO
+	building.add_child(root)
+	var offsets := _get_vfx_offsets_for_target(building, false)
+	var info := Label.new()
+	info.name = "Info"
+	info.text = "Yükseltiliyor..."
+	info.position = Vector2(-80, float(offsets.get("info_y", -190.0)))
+	info.z_index = 10
+	root.add_child(info)
+	var smoke := AnimatedSprite2D.new()
+	smoke.name = "SmokeVFX"
+	smoke.position = Vector2(0, float(offsets.get("smoke_y", -129.0)))
+	smoke.z_index = 5
+	root.add_child(smoke)
+	_setup_construction_fx_animation(smoke, "res://village/assets/fx/build_smoke_fx.png", 8, 10.0)
+	var tool := AnimatedSprite2D.new()
+	tool.name = "ToolVFX"
+	tool.position = Vector2(0, float(offsets.get("tool_y", -154.0)))
+	tool.z_index = 6
+	root.add_child(tool)
+	_setup_construction_fx_animation(tool, "res://village/assets/fx/tool_fx.png", 8, 12.0)
+	_active_upgrade_vfx_ids[bid] = root.get_path()
+
+func _update_upgrade_vfx_for_building(building: Node) -> void:
+	var bid: int = int(building.get_instance_id())
+	if not _active_upgrade_vfx_ids.has(bid):
+		return
+	var root_path: NodePath = _active_upgrade_vfx_ids.get(bid, NodePath(""))
+	if root_path == NodePath(""):
+		return
+	var root = get_node_or_null(root_path)
+	if not is_instance_valid(root):
+		return
+	var info: Label = root.get_node_or_null("Info")
+	if not is_instance_valid(info):
+		return
+	var text := "Yükseltiliyor..."
+	if "upgrade_timer" in building and building.get("upgrade_timer") != null:
+		var timer: Timer = building.get("upgrade_timer")
+		var left: float = max(0.0, float(timer.time_left))
+		text = "Yükseltme: %.1f saat" % [left / 60.0]
+	info.text = text
+
+func _get_vfx_offsets_for_target(target: Node, for_rooftop_construction: bool = false) -> Dictionary:
+	var base_smoke: float = -129.0
+	var base_tool: float = -154.0
+	var base_info: float = -190.0
+	var extra_lift: float = 0.0
+	if is_instance_valid(target):
+		# House/ResidentialHousing: yükseltme VFX'i (for_rooftop=false) mevcut üst katın altında hizalanır;
+		# yeni kat şantiyesi (for_rooftop=true) dumanı mevcut çatı hizasına (üstte çalışma) taşır.
+		if target.has_method("get_current_floors") and target.get("floor_height") != null:
+			var floors := int(target.call("get_current_floors"))
+			var floor_h := float(target.get("floor_height"))
+			if for_rooftop_construction:
+				extra_lift = max(0.0, float(floors) * floor_h)
+			else:
+				extra_lift = max(0.0, float(floors - 1) * floor_h)
+		# Dükkan üstü konut eklentisi (ResidentialHousingExtension) varsa oradan hesapla.
+		var ext = target.get_node_or_null("ResidentialHousingExtension")
+		if is_instance_valid(ext) and ext.has_method("get_current_floors"):
+			var ext_floors := int(ext.call("get_current_floors"))
+			var ext_floor_h := float(ext.get("floor_height")) if ext.get("floor_height") != null else 123.0
+			var ext_lift: float = max(0.0, float(ext_floors) * ext_floor_h)
+			extra_lift = max(extra_lift, ext_lift)
+	return {
+		"smoke_y": base_smoke - extra_lift,
+		"tool_y": base_tool - extra_lift,
+		"info_y": base_info - extra_lift
+	}
 
 # --- Diğer Fonksiyonlar (Cariye, Görev vb.) ---
 
@@ -2225,6 +3041,92 @@ var debug_force_villager_capacity_full: bool = false   ## true ise can_add_villa
 var debug_force_villager_has_space: bool = false       ## true ise can_add_villager true döner
 var debug_force_cariye_capacity_full: bool = false
 var debug_force_cariye_has_space: bool = false
+
+## Köydeki tüm barınakların toplam sakin/kapasite bilgisini döndürür.
+## Dönüş:
+##   "occupied"          — tüm barınaklardaki kayıtlı sakin sayısı (kamp ateşi dahil)
+##   "capacity"          — tüm barınakların toplam kapasitesi
+##   "houses"            — ev (ResidentialHousing) sayısı
+##   "house_occupied"    — evlerdeki kayıtlı sakin sayısı (kamp ateşi hariç)
+##   "house_capacity"    — evlerin toplam kapasitesi (kamp ateşi hariç)
+##   "house_units_total" — ev birimi sayısı
+##   "house_units_occupied" — içinde en az 1 sakin olan ev sayısı
+func get_housing_summary() -> Dictionary:
+	var occupied: int = 0
+	var capacity: int = 0
+	var houses: int = 0
+	var house_occupied: int = 0
+	var house_capacity: int = 0
+	var house_units_total: int = 0
+	var house_units_occupied: int = 0
+	var housing_nodes := get_tree().get_nodes_in_group("Housing")
+	for node in housing_nodes:
+		if not is_instance_valid(node):
+			continue
+		var is_house_unit := node is ResidentialHousing
+		var occ := 0
+		var cap := 0
+		if node.has_method("get_max_capacity"):
+			cap = int(node.get_max_capacity())
+		if node.has_method("get_occupant_count"):
+			occ = int(node.get_occupant_count())
+		occupied += occ
+		capacity += cap
+		if is_house_unit:
+			houses += 1
+			house_occupied += occ
+			house_capacity += cap
+			house_units_total += 1
+			if occ > 0:
+				house_units_occupied += 1
+	return {
+		"occupied": occupied,
+		"capacity": capacity,
+		"houses": houses,
+		"house_occupied": house_occupied,
+		"house_capacity": house_capacity,
+		"house_units_total": house_units_total,
+		"house_units_occupied": house_units_occupied,
+	}
+
+## Kamp ateşine atanmış köylüleri, boş kapasitesi olan evlere taşır.
+## Yeni ev inşa edildiğinde çağrılır.
+func _reassign_campfire_workers_to_houses() -> void:
+	if not is_instance_valid(campfire_node):
+		return
+	# Kamp ateşine atanmış tüm geçerli işçileri topla
+	var workers_to_reassign: Array = []
+	for wid in all_workers:
+		var entry: Dictionary = all_workers[wid]
+		var w = entry.get("instance")
+		if not is_instance_valid(w):
+			continue
+		var wh = w.get("housing_node") if "housing_node" in w else null
+		if is_instance_valid(wh) and wh == campfire_node:
+			workers_to_reassign.append(w)
+	if workers_to_reassign.is_empty():
+		return
+	for worker in workers_to_reassign:
+		# Kamp ateşi dışında boş yer var mı?
+		var house_node := _find_available_housing()
+		if not is_instance_valid(house_node) or house_node == campfire_node:
+			break  # Boş ev kalmadı
+		# Kamp ateşinden çıkar
+		if campfire_node.has_method("remove_occupant"):
+			campfire_node.remove_occupant(worker)
+		# Eve taşı
+		worker.housing_node = house_node
+		if house_node.has_method("add_occupant"):
+			house_node.add_occupant(worker)
+		# Uykuya gidiş noktasını güncelle
+		var viewport_width := get_tree().root.get_viewport().get_visible_rect().size.x
+		if house_node.global_position.x < viewport_width / 2.0:
+			worker.start_x_pos = -2500.0
+		else:
+			worker.start_x_pos = 2500.0
+		print("[VillageManager] 🏠 Köylü kamp ateşinden eve taşındı: %s → %s" % [worker.name, house_node.name])
+	if has_signal("village_data_changed"):
+		emit_signal("village_data_changed")
 
 ## Köye yeni köylü eklenebilir mi? (Barınak kapasitesi)
 func can_add_villager() -> bool:
@@ -4287,6 +5189,129 @@ func _sync_concubines_on_mission() -> void:
 				wt.stop()
 		print("VillageManager: Cariye (ID: %d) görevde senkronize edildi (sahne dışında)." % cid_int)
 
+func _try_add_residential_floor() -> bool:
+	var target := _find_residential_floor_target()
+	if not is_instance_valid(target):
+		print("[VillageManager] ⚠️ Kat eklenecek uygun bina bulunamadı")
+		return false
+	print("[VillageManager] 🎯 Kat ekleme hedefi: %s (%s)" % [target.name, target.scene_file_path])
+	var housing := _get_or_create_residential_housing_for_building(target, true)
+	if not is_instance_valid(housing):
+		print("[VillageManager] ❌ ResidentialHousing bileşeni oluşturulamadı (hedef=%s)" % target.name)
+		return false
+	var success: bool = housing.add_floor()
+	if not success:
+		print("[VillageManager] ❌ add_floor() başarısız (hedef=%s, kat=%d/%d)" % [target.name, housing.get_current_floors(), housing.max_floors])
+	return success
+
+func _find_residential_floor_target() -> Node2D:
+	if not is_instance_valid(village_scene_instance):
+		print("[VillageManager] _find_residential_floor_target: village_scene_instance yok")
+		return null
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		print("[VillageManager] _find_residential_floor_target: PlacedBuildings yok")
+		return null
+
+	var with_existing_floors: Array = []
+	var without_floors: Array = []
+	var total_checked := 0
+	for building in placed_buildings.get_children():
+		if not (building is Node2D):
+			continue
+		total_checked += 1
+		var building_node := building as Node2D
+		if not _can_build_residential_on(building_node):
+			continue
+		var housing = _get_or_create_residential_housing_for_building(building_node, false)
+		if is_instance_valid(housing):
+			if not housing.can_add_floor():
+				continue
+			if housing.get_current_floors() > 0:
+				with_existing_floors.append(building_node)
+			else:
+				without_floors.append(building_node)
+		else:
+			without_floors.append(building_node)
+
+	print("[VillageManager] _find_residential_floor_target: toplam=%d, mevcut katı olan=%d, katı olmayan=%d" % [total_checked, with_existing_floors.size(), without_floors.size()])
+	if not with_existing_floors.is_empty():
+		return with_existing_floors[0]
+	if not without_floors.is_empty():
+		return without_floors[0]
+	return null
+
+func _can_build_residential_on(building: Node2D) -> bool:
+	if not is_instance_valid(building):
+		return false
+	var scene_path := String(building.scene_file_path)
+	if scene_path.is_empty():
+		return false
+	if scene_path in RESIDENTIAL_BASE_EXCLUDED_SCENES:
+		return false
+	return true
+
+func _get_or_create_residential_housing_for_building(building: Node2D, create_if_missing: bool) -> Node2D:
+	if not is_instance_valid(building):
+		return null
+	if building is House:
+		var house_housing := building as House
+		if house_housing.max_floors != RESIDENTIAL_MAX_FLOORS or house_housing.capacity_per_floor != RESIDENTIAL_CAPACITY_PER_FLOOR:
+			house_housing.configure_for_host(building, max(1, house_housing.get_current_floors()), RESIDENTIAL_MAX_FLOORS, RESIDENTIAL_CAPACITY_PER_FLOOR)
+		return house_housing
+
+	var existing = building.get_node_or_null(RESIDENTIAL_EXTENSION_NODE)
+	if existing and existing is ResidentialHousing:
+		return existing
+	if not create_if_missing:
+		return null
+
+	# Dükkan / diğer bina üstüne ev katı ekleniyor: görsel House sahnesi kullan.
+	var house_scene: PackedScene = load(HOUSE_SCENE_PATH)
+	if house_scene:
+		var extension: Node2D = house_scene.instantiate()
+		extension.name = RESIDENTIAL_EXTENSION_NODE
+		# Binanın görsel üstüne konumlandır
+		extension.position = Vector2(0.0, _get_building_residential_y_offset(building))
+		# Dükkanın üstüne gelen ilk kat kapılı zemin değil; pencereli üst kat olmalı.
+		# is_extension=true → _sync_floor_instances() her katı upper_floor_scene ile oluşturur.
+		# Bu bayrak _ready()'den önce set edilmeli.
+		extension.set("is_extension", true)
+		building.add_child(extension)
+		# configure_for_host floors=0 → _sync_floor_instances _ready'de oluşan katı kaldırır;
+		# ardından _try_add_residential_floor add_floor() çağırarak ilk katı ekler.
+		if extension.has_method("configure_for_host"):
+			extension.configure_for_host(building, 0, RESIDENTIAL_MAX_FLOORS, RESIDENTIAL_CAPACITY_PER_FLOOR)
+		return extension
+	else:
+		# Fallback: görsel yoksa salt kapasite node'u
+		var fallback := ResidentialHousing.new()
+		fallback.name = RESIDENTIAL_EXTENSION_NODE
+		fallback.position = Vector2.ZERO
+		building.add_child(fallback)
+		fallback.configure_for_host(building, 0, RESIDENTIAL_MAX_FLOORS, RESIDENTIAL_CAPACITY_PER_FLOOR)
+		return fallback
+
+## Binanın Sprite2D yüksekliğine bakarak, ev katlarının başlayacağı Y ofsetini döndürür.
+## Negatif değer = binanın üstü.
+func _get_building_residential_y_offset(building: Node2D) -> float:
+	var best_top: float = INF
+	for child in building.get_children():
+		if child is Sprite2D:
+			var spr := child as Sprite2D
+			if spr.texture == null:
+				continue
+			var tex_h: float = float(spr.texture.get_height()) * abs(spr.scale.y)
+			# Sprite2D merkezi position'da; üst kenar = position.y - tex_h/2
+			var top_y: float = spr.position.y - tex_h / 2.0
+			if top_y < best_top:
+				best_top = top_y
+	if best_top < INF:
+		# RESIDENTIAL_EXTENSION_OVERLAP_PX kadar aşağı kaydırarak kat görselini
+		# dükkan üst kenarıyla hizalarız (sprite kenarında şeffaf piksel payı).
+		return best_top + RESIDENTIAL_EXTENSION_OVERLAP_PX
+	return -100.0  # makul varsayılan
+
 # Verilen işçiye uygun bir barınak bulup atar ve evin sayacını günceller
 func _assign_housing(worker_instance: Node2D) -> bool:
 	var housing_node = _find_available_housing()
@@ -4342,8 +5367,18 @@ func _find_housing_by_key(housing_key: String) -> Node2D:
 		if node is Node2D:
 			var node2d = node as Node2D
 			# Pozisyon ve scene path'e göre eşleştir
-			var node_scene = node2d.scene_file_path if node2d.scene_file_path != "" else "res://village/scenes/CampFire.tscn"
-			if node_scene == scene_path or (scene_path == "res://village/scenes/CampFire.tscn" and node.is_in_group("Housing")):
+			var node_scene: String = ""
+			if node2d.has_method("get_housing_snapshot_scene_path"):
+				node_scene = String(node2d.get_housing_snapshot_scene_path())
+			elif node2d.scene_file_path != "":
+				node_scene = node2d.scene_file_path
+			elif node2d.get_script() and node2d.get_script().resource_path.ends_with("CampFire.gd"):
+				node_scene = "res://village/scenes/CampFire.tscn"
+			else:
+				var node_parent = node2d.get_parent()
+				if node_parent is Node2D and (node_parent as Node2D).scene_file_path != "":
+					node_scene = "%s#housing" % (node_parent as Node2D).scene_file_path
+			if node_scene == scene_path:
 				# Pozisyon yakınsa (10 piksel tolerans) eşleştir
 				if node2d.global_position.distance_to(pos) < 10.0:
 					return node2d
@@ -4356,22 +5391,14 @@ func _find_available_housing() -> Node2D:
 	var housing_nodes = get_tree().get_nodes_in_group("Housing")
 	# #print("DEBUG VillageManager: Found %d nodes in Housing group." % housing_nodes.size()) #<<< Yorumlandı
 
-	# Önce Evleri kontrol et
+	# Önce kamp ateşi dışındaki tüm konut node'larını kontrol et
 	for node in housing_nodes:
-		# #print("DEBUG VillageManager: Checking node: %s" % node.name) #<<< Yorumlandı
-		# <<< DEĞİŞTİRİLDİ: Sadece House ise kapasiteyi kontrol et >>>
-		if node.has_method("get_script") and node.get_script() == HouseScript:
-			# print("DEBUG VillageManager:   Node is House. Checking capacity (%d/%d)" % [node.current_occupants, node.max_occupants]) #<<< Yorumlandı
-			if node.can_add_occupant():
-				# print("DEBUG VillageManager:   Found available House: %s. Returning this node." % node.name) #<<< Yorumlandı
-
-				return node # Boş ev bulundu
-			# else: # Ev doluysa (debug için)
-				# #print("DEBUG VillageManager:   House %s is full." % node.name) #<<< Yorumlandı
-		# <<< DEĞİŞİKLİK SONU >>>
-		# else: # Eğer scripti HouseScript değilse (örn. CampFire) veya scripti yoksa, bu döngüde atla
-			# #print("DEBUG VillageManager:   Node %s is not a House, skipping capacity check in this loop." % node.name) # Debug
-			# pass # Bu else bloğu artık gereksiz
+		if not is_instance_valid(node):
+			continue
+		if node == campfire_node:
+			continue
+		if node.has_method("can_add_occupant") and node.can_add_occupant():
+			return node
 
 	# Boş ev yoksa, CampFire'ı kontrol et (varsa)
 	# #print("DEBUG VillageManager: No available house found. Checking for CampFire...") #<<< Yorumlandı
@@ -4758,17 +5785,15 @@ func _apply_time_of_day(hour: int) -> void:
 				elif current_state == sleeping_state:
 					# Uyuyor, görünmez olmalı
 					worker.visible = false
-					# Uyanma kontrolü için physics_process'i açık tut (uyanma kontrolü _physics_process içinde yapılıyor)
-					# Ama process'i kapatabiliriz (görsel güncelleme gerekmez)
 					if worker.has_method("set_process"):
 						worker.set_process(false)
 					# Physics process'i açık tut ki uyanma kontrolü çalışsın
 					if worker.has_method("set_physics_process"):
 						worker.set_physics_process(true)
-					# Pozisyonu housing'a taşı
+					# Pozisyonu housing'a taşı — SADECE uyku state'inde
 					if "housing_node" in worker:
 						var housing = worker.get("housing_node")
-						if housing and housing is Node2D:
+						if is_instance_valid(housing) and housing is Node2D:
 							worker.global_position = (housing as Node2D).global_position
 				elif current_state == awake_idle_state or current_state == socializing_state:
 					# Uyanık ve boşta, kesinlikle görünür olmalı
@@ -4815,6 +5840,10 @@ func reset_saved_state_for_new_game() -> void:
 	_saved_resource_levels = {}
 	_saved_base_production_progress = {}
 	_saved_snapshot_time = {}
+	pending_constructions.clear()
+	reserved_build_plots.clear()
+	_pending_constructions_load_buffer.clear()
+	_last_construction_total_minutes = -1
 	_pending_time_skip_notification = {}
 	_is_leaving_village = false
 	if is_instance_valid(VillagerAiInitializer):

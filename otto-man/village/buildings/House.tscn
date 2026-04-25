@@ -4,9 +4,6 @@
 
 [node name="House" type="Node2D" groups=["Housing"]]
 script = ExtResource("1_8xofj")
+max_floors = 3
 
-[node name="ColorRect" type="ColorRect" parent="."]
-offset_left = -20.0
-offset_top = -40.0
-offset_right = 20.0
-color = Color(0.260692, 0.445081, 0.189714, 1)
+[node name="FloorsContainer" type="Node2D" parent="."]

@@ -55,6 +55,8 @@ func _ready() -> void:
 		print("[VillageScene] ✅ Connected time_skip_completed signal")
 	else:
 		print("[VillageScene] Signal already connected")
+	if not VillageManager.construction_completed.is_connected(_on_construction_completed_toast):
+		VillageManager.construction_completed.connect(_on_construction_completed_toast)
 	if not VillageManager.morale_game_over.is_connected(_on_morale_game_over):
 		VillageManager.morale_game_over.connect(_on_morale_game_over)
 
@@ -108,6 +110,10 @@ func VillagersLoaded():
 	VillageManager.register_village_scene(self)
 	call_deferred("_refresh_npc_schedule")
 
+func _exit_tree() -> void:
+	if is_instance_valid(VillageManager) and VillageManager.has_method("on_village_scene_tree_exiting"):
+		VillageManager.on_village_scene_tree_exiting(self)
+
 func _refresh_npc_schedule() -> void:
 	if is_instance_valid(VillageManager):
 		VillageManager.apply_current_time_schedule()
@@ -160,12 +166,12 @@ func _on_build_menu_close_requested() -> void:
 	if build_menu_ui:
 		build_menu_ui.hide()
 
-func _on_time_skip_completed(total_hours: float, produced_resources: Dictionary) -> void:
+func _on_time_skip_completed(total_hours: float, produced_resources: Dictionary, construction_footnote: String = "") -> void:
 	print("[VillageScene] _on_time_skip_completed called: %.1f hours, resources: %s" % [total_hours, produced_resources])
 	# Use call_deferred to ensure scene is fully loaded
-	call_deferred("_show_notification_deferred", total_hours, produced_resources)
+	call_deferred("_show_notification_deferred", total_hours, produced_resources, construction_footnote)
 
-func _show_notification_deferred(total_hours: float, produced_resources: Dictionary) -> void:
+func _show_notification_deferred(total_hours: float, produced_resources: Dictionary, construction_footnote: String = "") -> void:
 	if not time_skip_notification:
 		print("[VillageScene] ⚠️ time_skip_notification node not found!")
 		# Try to find it manually
@@ -179,7 +185,18 @@ func _show_notification_deferred(total_hours: float, produced_resources: Diction
 		print("[VillageScene] ⚠️ time_skip_notification doesn't have show_time_skip_notification method!")
 		return
 	print("[VillageScene] ✅ Showing notification...")
-	time_skip_notification.show_time_skip_notification(total_hours, produced_resources)
+	time_skip_notification.show_time_skip_notification(total_hours, produced_resources, construction_footnote)
+
+func _on_construction_completed_toast(scene_path: String) -> void:
+	var disp := String(scene_path).get_file().trim_suffix(".tscn")
+	call_deferred("_show_build_complete_toast_deferred", disp)
+
+func _show_build_complete_toast_deferred(building_display_name: String) -> void:
+	if not time_skip_notification:
+		time_skip_notification = get_node_or_null("TimeSkipNotification")
+	if not time_skip_notification or not time_skip_notification.has_method("show_simple_toast"):
+		return
+	time_skip_notification.show_simple_toast("İnşaat tamamlandı", building_display_name)
 
 func _on_morale_game_over() -> void:
 	"""Köy morali 0'a düştü - ana menüye dön (oyun kaybı)."""

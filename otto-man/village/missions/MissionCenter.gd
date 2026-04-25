@@ -303,6 +303,13 @@ func _ready():
 	village_manager = get_node_or_null("/root/VillageManager")
 	if not village_manager:
 		printerr("MissionCenter: VillageManager not found at _ready; will lazy-fetch when needed.")
+	elif village_manager:
+		if village_manager.has_signal("village_data_changed") and not village_manager.village_data_changed.is_connected(_on_village_manager_data_changed_construction):
+			village_manager.village_data_changed.connect(_on_village_manager_data_changed_construction)
+		if village_manager.has_signal("construction_started") and not village_manager.construction_started.is_connected(_on_village_manager_data_changed_construction):
+			village_manager.construction_started.connect(_on_village_manager_data_changed_construction)
+		if village_manager.has_signal("construction_completed") and not village_manager.construction_completed.is_connected(_on_village_manager_data_changed_construction):
+			village_manager.construction_completed.connect(_on_village_manager_data_changed_construction)
 	
 	# MissionManager sinyallerini bağla
 	mission_manager.mission_completed.connect(_on_mission_completed)
@@ -949,10 +956,67 @@ func handle_building_selection():
 		update_construction_ui()
 		return
 
+func _on_village_manager_data_changed_construction(_a = null, _b = null) -> void:
+	if current_page == PageType.CONSTRUCTION:
+		update_construction_ui()
+
+func _mc_get_or_create_active_construction_banner_lines() -> VBoxContainer:
+	if not construction_page:
+		return null
+	var wrap := construction_page.get_node_or_null("ActiveConstructionSummary") as PanelContainer
+	if wrap == null:
+		wrap = PanelContainer.new()
+		wrap.name = "ActiveConstructionSummary"
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.14, 0.12, 0.1, 0.96)
+		sb.set_content_margin_all(10)
+		wrap.add_theme_stylebox_override("panel", sb)
+		var outer := VBoxContainer.new()
+		var title := Label.new()
+		title.text = "Devam eden şantiyeler"
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.add_theme_font_size_override("font_size", 12)
+		outer.add_child(title)
+		var lines := VBoxContainer.new()
+		lines.name = "ConstructionLines"
+		outer.add_child(lines)
+		wrap.add_child(outer)
+		var scroll_node := construction_page.get_node_or_null("ConstructionScroll")
+		var insert_idx := 2
+		if scroll_node:
+			insert_idx = scroll_node.get_index()
+		construction_page.add_child(wrap)
+		construction_page.move_child(wrap, insert_idx)
+		return lines
+	var outer_node := wrap.get_child(0) as VBoxContainer
+	if outer_node == null:
+		return null
+	return outer_node.get_node_or_null("ConstructionLines") as VBoxContainer
+
+func _mc_refresh_active_construction_banner() -> void:
+	var line_host := _mc_get_or_create_active_construction_banner_lines()
+	if line_host == null:
+		return
+	for c in line_host.get_children():
+		c.queue_free()
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.has_method("get_pending_construction_display_lines"):
+		var arr: Array = vm.get_pending_construction_display_lines()
+		for line_text in arr:
+			var lab := Label.new()
+			lab.text = String(line_text)
+			lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			lab.add_theme_font_size_override("font_size", 11)
+			lab.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78))
+			line_host.add_child(lab)
+
 # İnşaat UI'ını güncelle (PlayStation mantığı)
 func update_construction_ui():
 	if current_page != PageType.CONSTRUCTION:
 		return
+	
+	_mc_refresh_active_construction_banner()
 		
 	var action_label = construction_page.get_node_or_null("ActionRow/ActionLabel")
 	if action_label:
@@ -1006,20 +1070,145 @@ func update_construction_ui():
 		
 		# Durum bilgisi (Var mı?)
 		var existing = find_existing_buildings(building_name)
+		var vm = get_node_or_null("/root/VillageManager")
+		var scene_path: String = String(building_scene_paths.get(building_name, ""))
 		var status_label = Label.new()
 		status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		status_label.add_theme_font_size_override("font_size", 10)
 		
 		if existing.is_empty():
-			status_label.text = "İnşa Edilmedi"
-			status_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+			var pending := false
+			var remaining_min := 0
+			if vm and scene_path != "" and vm.has_method("has_pending_construction"):
+				pending = bool(vm.has_pending_construction(scene_path))
+				if pending and vm.has_method("get_pending_construction_minutes"):
+					remaining_min = int(vm.get_pending_construction_minutes(scene_path))
+			if pending:
+				status_label.text = "İnşa Halinde (%.1fsa)" % [float(remaining_min) / 60.0]
+				status_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.45))
+			else:
+				status_label.text = "İnşa Edilmedi"
+				status_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		else:
 			status_label.text = "Mevcut"
 			status_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
 			
 		vbox.add_child(status_label)
+
+		# Maliyet bilgisi
+		var reqs: Dictionary = {}
+		if vm and scene_path != "" and vm.has_method("get_building_requirements"):
+			reqs = vm.get_building_requirements(scene_path)
+		var cost_label = Label.new()
+		cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cost_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cost_label.add_theme_font_size_override("font_size", 10)
+		cost_label.text = _mc_format_build_cost(reqs.get("cost", {}))
+		cost_label.add_theme_color_override("font_color", Color(0.95, 0.86, 0.55))
+		vbox.add_child(cost_label)
+
+		var duration_label = Label.new()
+		duration_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		duration_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		duration_label.add_theme_font_size_override("font_size", 10)
+		if vm and scene_path != "":
+			var build_hours := float(vm.get_build_duration_hours(scene_path)) if vm.has_method("get_build_duration_hours") else 1.0
+			var upg_hours := build_hours
+			if not existing.is_empty() and vm.has_method("get_upgrade_duration_hours_for_building"):
+				upg_hours = float(vm.get_upgrade_duration_hours_for_building(existing[0]))
+			duration_label.text = "Süre: İnşa %.1fsa | Yükselt %.1fsa" % [build_hours, upg_hours]
+		else:
+			duration_label.text = "Süre: -"
+		duration_label.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+		vbox.add_child(duration_label)
+
+		# Neden inşa edilemedi bilgisi (yalnızca seçili kartta göster)
+		if is_selected and existing.is_empty() and vm and scene_path != "":
+			var can_build: bool = true
+			if vm.has_method("can_meet_requirements"):
+				can_build = bool(vm.can_meet_requirements(scene_path))
+			if not can_build:
+				var missing_label = Label.new()
+				missing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				missing_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				missing_label.add_theme_font_size_override("font_size", 10)
+				missing_label.text = _mc_format_missing_requirements(reqs)
+				missing_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.6))
+				vbox.add_child(missing_label)
 		
 		construction_grid.add_child(panel)
+
+func _mc_format_build_cost(cost: Dictionary) -> String:
+	if cost.is_empty():
+		return "Maliyet: Yok"
+	var ordered := []
+	if cost.has("gold"):
+		ordered.append("gold")
+	for key in cost.keys():
+		if key == "gold":
+			continue
+		ordered.append(key)
+	var parts := []
+	for key in ordered:
+		var key_str: String = String(key)
+		var amount := int(cost.get(key_str, 0))
+		if amount <= 0:
+			continue
+		parts.append("%s: %d" % [_mc_resource_name(key_str), amount])
+	if parts.is_empty():
+		return "Maliyet: Yok"
+	return "Maliyet: " + ", ".join(parts)
+
+func _mc_format_missing_requirements(requirements: Dictionary) -> String:
+	var vm = get_node_or_null("/root/VillageManager")
+	if not vm:
+		return "Eksik: -"
+	var missing_cost := []
+	var cost: Dictionary = requirements.get("cost", {})
+	for key in cost.keys():
+		var key_str: String = String(key)
+		var required := int(cost.get(key_str, 0))
+		if required <= 0:
+			continue
+		var current := int(GlobalPlayerData.gold) if key_str == "gold" else int(vm.get_resource_level(key_str))
+		if current < required:
+			missing_cost.append("%s %d/%d" % [_mc_resource_name(key_str), current, required])
+	var missing_levels := []
+	var levels: Dictionary = requirements.get("requires_level", {})
+	for key in levels.keys():
+		var key_str: String = String(key)
+		var req_lvl := int(levels.get(key_str, 0))
+		var cur_lvl := int(vm.get_available_resource_level(key_str))
+		if cur_lvl < req_lvl:
+			missing_levels.append("%s Sv %d/%d" % [_mc_resource_name(key_str), cur_lvl, req_lvl])
+	var out := []
+	if not missing_cost.is_empty():
+		out.append("Eksik maliyet: " + ", ".join(missing_cost))
+	if not missing_levels.is_empty():
+		out.append("Eksik seviye: " + ", ".join(missing_levels))
+	if out.is_empty():
+		return "Eksik: -"
+	return "\n".join(out)
+
+func _mc_resource_name(resource_key: String) -> String:
+	match resource_key:
+		"gold": return "Altın"
+		"wood": return "Odun"
+		"stone": return "Taş"
+		"food": return "Yiyecek"
+		"water": return "Su"
+		"lumber": return "Kereste"
+		"brick": return "Tuğla"
+		"metal": return "Metal"
+		"cloth": return "Kumaş"
+		"garment": return "Giysi"
+		"bread": return "Ekmek"
+		"tea": return "Çay"
+		"soap": return "Sabun"
+		"medicine": return "İlaç"
+		"weapon": return "Silah"
+		"armor": return "Zırh"
+		_: return resource_key.capitalize()
 
 # Atama bina listesi seçimi
 func handle_assignment_building_list_selection(event):
@@ -1690,6 +1879,9 @@ func execute_upgrade_action(building_type: String):
 	
 	# Binanın yükseltme metodunu çağır
 	if building_to_upgrade.has_method("start_upgrade"):
+		var vm = get_node_or_null("/root/VillageManager")
+		if vm and vm.has_method("prepare_building_upgrade"):
+			vm.prepare_building_upgrade(building_to_upgrade)
 		var success = building_to_upgrade.start_upgrade()
 		if success:
 			print("✅ Yükseltme başlatıldı: ", building_to_upgrade.name)
@@ -1737,13 +1929,20 @@ func find_existing_buildings(building_type: String) -> Array:
 			_logged_missing_placed_buildings = true
 			print("PlacedBuildings node'u bulunamadı! (Test sahnesi - normal)")
 		return buildings
-	
+
 	for building in placed_buildings.get_children():
 		if building.has_method("get_script") and building.get_script() != null:
 			var building_script = building.get_script()
 			if building_script is GDScript and building_script.resource_path == script_path:
 				buildings.append(building)
-	
+		# Ev türü için: dükkan gibi binaların üstüne eklenen extension House'ları da ara.
+		if building_type == "Ev":
+			for sub in building.get_children():
+				if sub.has_method("get_script") and sub.get_script() != null:
+					var sub_scr = sub.get_script()
+					if sub_scr is GDScript and sub_scr.resource_path == script_path:
+						buildings.append(sub)
+
 	print("Bulunan binalar: ", buildings.size(), " adet")
 	return buildings
 
@@ -5993,9 +6192,26 @@ func _build_or_upgrade_selected():
 		else:
 			printerr("VillageManager not found or missing request_build_building")
 	else:
-		# Yükselt
+		# Ev gibi "katlanabilir" binalarda yükselme = yeni kat eklemedir.
+		# Ev: request_build_building konut katı veya yeni parselde şantiye kuyruğunu kullanır.
+		var vm = get_node_or_null("/root/VillageManager")
+		var scene_path = building_scene_paths.get(building_name, "")
+		var is_house = scene_path == "res://village/buildings/House.tscn"
+		if is_house and vm and vm.has_method("request_build_building"):
+			var ok_floor = vm.request_build_building(scene_path)
+			if ok_floor:
+				print("✅ Eve yeni kat eklendi: ", building_name)
+				if vm.has_signal("village_data_changed"):
+					vm.emit_signal("village_data_changed")
+			else:
+				print("❌ Yeni kat eklenemedi (kaynak/alan/kat limiti): ", building_name)
+			return
+
+		# Diğer binalarda klasik yükseltme akışı
 		var b = existing[0]
 		if b and b.has_method("start_upgrade"):
+			if vm and vm.has_method("prepare_building_upgrade"):
+				vm.prepare_building_upgrade(b)
 			var ok2 = b.start_upgrade()
 			if ok2:
 				print("✅ Yükseltme başlatıldı: ", b.name)
@@ -6017,7 +6233,12 @@ func _demolish_selected_building():
 		return
 	var b = existing[0]
 	if b and is_instance_valid(b):
-		b.queue_free()
+		# demolish() varsa onu çağır (sakinleri temizler, kat-kat yıkım yapar).
+		# Yoksa doğrudan queue_free().
+		if b.has_method("demolish"):
+			b.demolish()
+		else:
+			b.queue_free()
 		print("🛠️ Bina yıkıldı: ", building_name)
 		var vm = get_node_or_null("/root/VillageManager")
 		if vm and vm.has_signal("village_data_changed"):

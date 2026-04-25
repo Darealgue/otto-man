@@ -654,37 +654,45 @@ const PRIORITY_DECOR_RULES = {
 }
 
 # Z-Index kuralları - dekorasyonların görsel hiyerarşisi
+# Katman sırası:  bg(-1) → wall(0) → trap(0) → floor(1) → lighting(2)
+#                 → breakable(3) / valuable(3) → enemy(4) → player(5)
 const Z_INDEX_RULES = {
 	# Duvar dekorları (en arkada - duvarda)
 	"wall": {
 		"z_index": 0,
-		"decorations": ["gate1", "gate2", "pipe1", "pipe2", "banner1"]
+		"decorations": ["gate1", "gate2", "pipe1", "pipe2", "banner1", "wall_cracks", "moss_patch"]
 	},
-	
+
 	# Traplar (duvar ile zemin arası)
 	"trap": {
-		"z_index": 0.5,
+		"z_index": 0,
 		"decorations": ["spike_trap", "arrow_trap", "pressure_plate", "fire_trap"]
 	},
-	
-	# Zemin dekorları (orta seviye)
+
+	# Zemin dekorları — kutular, heykeller, kemikler, ağ, zincir
 	"floor": {
 		"z_index": 1,
-		"decorations": ["box1", "box2", "box3", "stone1", "sculpture1", "sculpture2", "torch2"]
+		"decorations": ["box1", "box2", "box3", "stone1", "sculpture1", "sculpture2", "bone_pile", "spider_web", "hanging_chains"]
 	},
-	
-	# Dekoratif objeler (üst seviye)
-	"decorative": {
+
+	# Aydınlatma — meşale, mum, kamp ateşi (kutu/iskeletin önünde)
+	"lighting": {
 		"z_index": 2,
-		"decorations": ["bone_pile", "spider_web", "camp1", "camp2", "small_pot", "wooden_barrel", "mum", "torch2"]
+		"decorations": ["mum", "torch2", "camp1", "camp2"]
 	},
-	
-	# Değerli objeler (dekoratif objelerin üstünde)
+
+	# Kırılabilir objeler (aydınlatma ve zemin dekorlarının önünde)
+	"breakable": {
+		"z_index": 3,
+		"decorations": ["small_pot", "wooden_barrel", "treasure_chest", "crystal_formation"]
+	},
+
+	# Değerli objeler (breakable ile aynı katman)
 	"valuable": {
 		"z_index": 3,
-		"decorations": ["single_coin", "coin_pile"]
+		"decorations": ["single_coin", "small_pile", "large_pile", "gold_pouch", "coin_pile"]
 	},
-	
+
 	# Düşmanlar (her şeyin üstünde - player dışında)
 	"enemy": {
 		"z_index": 4,

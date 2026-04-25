@@ -132,6 +132,13 @@ func add_worker() -> bool:
 	assigned_worker_ids.append(w.worker_id)
 	w.assigned_job_type = "brick"
 	w.assigned_building_node = self
+	w.move_target_x = global_position.x
+	var current_hour = TimeManager.get_hour()
+	var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
+	if is_work_time:
+		w.current_state = w.State.GOING_TO_BUILDING_FIRST
+	else:
+		w.current_state = w.State.AWAKE_IDLE
 	VillageManager.notify_building_state_changed(self)
 	return true
 
@@ -145,6 +152,13 @@ func remove_worker() -> bool:
 		if is_instance_valid(w):
 			w.assigned_job_type = ""
 			w.assigned_building_node = null
+			w.move_target_x = w.global_position.x
+			if w.current_state == w.State.WORKING_OFFSCREEN or \
+			   w.current_state == w.State.WAITING_OFFSCREEN or \
+			   w.current_state == w.State.GOING_TO_BUILDING_FIRST or \
+			   w.current_state == w.State.WORKING_INSIDE:
+				w.current_state = w.State.AWAKE_IDLE
+				w.visible = true
 	VillageManager.notify_building_state_changed(self)
 	return true
 

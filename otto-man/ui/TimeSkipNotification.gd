@@ -39,7 +39,7 @@ func _ready() -> void:
 	visible = false
 	modulate.a = 0.0
 
-func show_time_skip_notification(total_hours: float, produced_resources: Dictionary) -> void:
+func show_time_skip_notification(total_hours: float, produced_resources: Dictionary, construction_footnote: String = "") -> void:
 	print("[TimeSkipNotification] show_time_skip_notification called: %.1f hours, resources: %s" % [total_hours, produced_resources])
 	print("[TimeSkipNotification] Node state - visible: %s, modulate.a: %.2f" % [visible, modulate.a])
 	
@@ -85,6 +85,9 @@ func show_time_skip_notification(total_hours: float, produced_resources: Diction
 			var res_name = resource_names.get(res, res)
 			var amount = produced_resources[res]
 			text_parts.append("%s: +%d" % [res_name, amount])
+	if construction_footnote != "":
+		text_parts.append("")
+		text_parts.append(construction_footnote)
 	
 	var text: String = ""
 	for i in range(text_parts.size()):
@@ -123,6 +126,28 @@ func show_time_skip_notification(total_hours: float, produced_resources: Diction
 		print("[TimeSkipNotification] ✅ Fade timer started (%.1f seconds)" % display_duration)
 	else:
 		print("[TimeSkipNotification] ⚠️ Fade timer is null!")
+
+func show_simple_toast(title: String, subtitle: String = "") -> void:
+	if not notification_label:
+		return
+	notification_label.bbcode_enabled = true
+	notification_label.add_theme_font_size_override("font_size", 16)
+	notification_label.add_theme_color_override("default_color", Color.WHITE)
+	var body := "[center]%s" % title
+	if subtitle != "":
+		body += "\n%s" % subtitle
+	body += "[/center]"
+	notification_label.text = body
+	notification_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	notification_label.custom_minimum_size = Vector2(400, 120)
+	visible = true
+	modulate.a = 1.0
+	set_process_mode(Node.PROCESS_MODE_ALWAYS)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if get_parent():
+		move_to_front()
+	if fade_timer:
+		fade_timer.start(display_duration)
 
 func _on_fade_timer_timeout() -> void:
 	# Fade out animation

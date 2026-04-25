@@ -5,5 +5,5 @@ res://village/scenes/VillageScene.tscn
 res://scenes/test_level.tscn
 res://scenes/forest.tscn
 res://scenes/testing.tscn
-res://scenes/CampScene.tscn
-res://chunks/dungeon/basic/basic_platform1.tscn
+res://village/buildings/House.tscn
+res://player/player.tscn

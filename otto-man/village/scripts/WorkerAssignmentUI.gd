@@ -63,6 +63,16 @@ const STONE_MINE_SCENE = "res://village/buildings/StoneMine.tscn"
 const HUNTER_HUT_SCENE = "res://village/buildings/HunterGathererHut.tscn"
 const WELL_SCENE = "res://village/buildings/Well.tscn"
 const BAKERY_SCENE = "res://village/buildings/Bakery.tscn"
+const BLACKSMITH_SCENE = "res://village/buildings/Blacksmith.tscn"
+const SAWMILL_SCENE = "res://village/buildings/Sawmill.tscn"
+const BRICKWORKS_SCENE = "res://village/buildings/Brickworks.tscn"
+const WEAVER_SCENE = "res://village/buildings/Weaver.tscn"
+const TAILOR_SCENE = "res://village/buildings/Tailor.tscn"
+const HERBALIST_SCENE = "res://village/buildings/Herbalist.tscn"
+const TEAHOUSE_SCENE = "res://village/buildings/TeaHouse.tscn"
+const SOAPMAKER_SCENE = "res://village/buildings/SoapMaker.tscn"
+const GUNSMITH_SCENE = "res://village/buildings/Gunsmith.tscn"
+const ARMORER_SCENE = "res://village/buildings/Armorer.tscn"
 
 # Eski Script Yolu Sabitleri (Sadece add/remove buton bağlantıları için kalabilir)
 const WOOD_SCRIPT = "res://village/scripts/WoodcutterCamp.gd"
@@ -70,6 +80,50 @@ const STONE_SCRIPT = "res://village/scripts/StoneMine.gd"
 const FOOD_SCRIPT = "res://village/scripts/HunterGathererHut.gd"
 const WATER_SCRIPT = "res://village/scripts/Well.gd"
 const BREAD_SCRIPT = "res://village/scripts/Bakery.gd"
+
+const EXTRA_PROCESSING_ORDER := [
+	"lumber",
+	"brick",
+	"cloth",
+	"garment",
+	"medicine",
+	"tea",
+	"soap",
+	"weapon",
+	"armor"
+]
+
+const RESOURCE_SCENE_MAP := {
+	"wood": WOODCUTTER_SCENE,
+	"stone": STONE_MINE_SCENE,
+	"food": HUNTER_HUT_SCENE,
+	"water": WELL_SCENE,
+	"bread": BAKERY_SCENE,
+	"metal": BLACKSMITH_SCENE,
+	"lumber": SAWMILL_SCENE,
+	"brick": BRICKWORKS_SCENE,
+	"cloth": WEAVER_SCENE,
+	"garment": TAILOR_SCENE,
+	"medicine": HERBALIST_SCENE,
+	"tea": TEAHOUSE_SCENE,
+	"soap": SOAPMAKER_SCENE,
+	"weapon": GUNSMITH_SCENE,
+	"armor": ARMORER_SCENE
+}
+
+const RESOURCE_LABEL_MAP := {
+	"lumber": "Kereste:",
+	"brick": "Tuğla:",
+	"cloth": "Kumaş:",
+	"garment": "Giysi:",
+	"medicine": "İlaç:",
+	"tea": "Çay:",
+	"soap": "Sabun:",
+	"weapon": "Silah:",
+	"armor": "Zırh:"
+}
+
+var dynamic_rows: Dictionary = {}
 
 # --- Periyodik Güncelleme ---
 var update_interval: float = 0.5 # Saniyede 2 kez güncelle
@@ -90,6 +144,8 @@ func _ready() -> void:
 	remove_food_button.pressed.connect(_on_remove_worker_pressed.bind("food")) 
 	add_water_button.pressed.connect(_on_add_worker_pressed.bind("water")) 
 	remove_water_button.pressed.connect(_on_remove_worker_pressed.bind("water"))
+	add_metal_button.pressed.connect(_on_add_worker_pressed.bind("metal"))
+	remove_metal_button.pressed.connect(_on_remove_worker_pressed.bind("metal"))
 	add_bread_button.pressed.connect(_on_add_worker_pressed.bind("bread"))
 	remove_bread_button.pressed.connect(_on_remove_worker_pressed.bind("bread"))
 
@@ -98,7 +154,8 @@ func _ready() -> void:
 	upgrade_stone_button.pressed.connect(_on_upgrade_button_pressed.bind(STONE_MINE_SCENE))
 	upgrade_food_button.pressed.connect(_on_upgrade_button_pressed.bind(HUNTER_HUT_SCENE))
 	upgrade_water_button.pressed.connect(_on_upgrade_button_pressed.bind(WELL_SCENE))
-	upgrade_bread_button.pressed.connect(_on_upgrade_button_pressed.bind(BAKERY_SCENE)) # Ekmek için de bağlayalım (ama buton hala pasif)
+	upgrade_bread_button.pressed.connect(_on_upgrade_button_pressed.bind(BAKERY_SCENE))
+	upgrade_metal_button.pressed.connect(_on_upgrade_button_pressed.bind(BLACKSMITH_SCENE))
 
 	close_button.pressed.connect(_on_close_button_pressed)
 	
@@ -107,7 +164,9 @@ func _ready() -> void:
 	_ensure_upgrade_ui_for_row("stone", stone_hbox)
 	_ensure_upgrade_ui_for_row("food", food_hbox)
 	_ensure_upgrade_ui_for_row("water", water_hbox)
+	_ensure_upgrade_ui_for_row("metal", metal_hbox)
 	_ensure_upgrade_ui_for_row("bread", bread_hbox)
+	_create_dynamic_processing_rows()
 	
 	# VillageManager'dan sinyal gelince UI'ı güncellemek için:
 	# --- BU BAĞLANTIYI KALDIRIYORUZ/YORUMLUYORUZ ---
@@ -160,6 +219,54 @@ func _ensure_upgrade_ui_for_row(resource_type: String, row: HBoxContainer) -> vo
 		bar.visible = false
 		row.add_child(bar)
 	upgrade_progress_bars[resource_type] = bar
+
+func _create_dynamic_processing_rows() -> void:
+	var root_vbox: VBoxContainer = get_node_or_null("MarginContainer/VBoxContainer")
+	if not root_vbox:
+		return
+	var close_idx := close_button.get_index() if is_instance_valid(close_button) else root_vbox.get_child_count()
+	for resource_type in EXTRA_PROCESSING_ORDER:
+		if dynamic_rows.has(resource_type):
+			continue
+		var row := HBoxContainer.new()
+		row.name = resource_type.capitalize() + "HBox"
+		row.visible = false
+		var label := Label.new()
+		label.text = RESOURCE_LABEL_MAP.get(resource_type, resource_type.capitalize() + ":")
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var level_indicator := Label.new()
+		level_indicator.text = "[Lv. -]"
+		level_indicator.tooltip_text = "Bina Seviyesi"
+		var level_label := Label.new()
+		level_label.text = "0"
+		level_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		var upgrade_button := Button.new()
+		upgrade_button.text = "↑"
+		upgrade_button.pressed.connect(_on_upgrade_button_pressed.bind(String(RESOURCE_SCENE_MAP.get(resource_type, ""))))
+		var add_button := Button.new()
+		add_button.text = "+"
+		add_button.pressed.connect(_on_add_worker_pressed.bind(resource_type))
+		var remove_button := Button.new()
+		remove_button.text = "-"
+		remove_button.pressed.connect(_on_remove_worker_pressed.bind(resource_type))
+		row.add_child(label)
+		row.add_child(level_indicator)
+		row.add_child(level_label)
+		row.add_child(upgrade_button)
+		row.add_child(add_button)
+		row.add_child(remove_button)
+		root_vbox.add_child(row)
+		root_vbox.move_child(row, close_idx)
+		dynamic_rows[resource_type] = {
+			"row": row,
+			"level_indicator": level_indicator,
+			"level_label": level_label,
+			"upgrade_button": upgrade_button,
+			"add_button": add_button,
+			"remove_button": remove_button
+		}
+		_ensure_upgrade_ui_for_row(resource_type, row)
 
 func _hide_upgrade_ui_for(resource_type: String) -> void:
 	var info_label: Label = upgrade_info_labels.get(resource_type, null)
@@ -291,6 +398,7 @@ func update_ui() -> void:
 	#print("DEBUG update_ui: Finding bread building...") # DEBUG
 	var bread_building = _find_first_building(BAKERY_SCENE, current_building_plots_node)
 	#print("DEBUG update_ui: bread_building result: ", bread_building) # DEBUG
+	var metal_building = _find_first_building(BLACKSMITH_SCENE, current_building_plots_node)
 
 	# --- Wood Row Visibility & Buttons & Level ---
 	var wood_building_exists = wood_building != null
@@ -452,66 +560,99 @@ func update_ui() -> void:
 		_hide_upgrade_ui_for("water")
 
 	# --- Metal Row Visibility & Buttons & Level ---
-	metal_hbox.visible = false
-	#print("DEBUG update_ui: metal_hbox.visible set to: ", metal_hbox.visible) # DEBUG
-	# Metal butonları/seviyesi için kod (bina eklenince)... 
+	var metal_building_exists = metal_building != null
+	metal_hbox.visible = metal_building_exists
+	if metal_building_exists:
+		_update_generic_row_from_building("metal", metal_building, idle_available, metal_hbox, metal_level_indicator, metal_level_label, upgrade_metal_button, add_metal_button, remove_metal_button)
+	else:
+		_hide_upgrade_ui_for("metal")
 
 	# --- Bread Row Visibility & Buttons & Level (Yeni) ---
 	var bread_building_exists = bread_building != null
 	bread_hbox.visible = bread_building_exists
 	#print("DEBUG update_ui: bread_hbox.visible set to: ", bread_hbox.visible) # DEBUG
 	if bread_building_exists:
-		# --- Null Kontrolleri Eklendi --- 
-		# Bakery'nin kendine özgü değişkenleri olabilir (örn. üretim durumu)
-		var bread_is_upgrading = bread_building.is_upgrading if "is_upgrading" in bread_building else false # Yükseltme varsa
-		var bread_current_workers = bread_building.assigned_workers if "assigned_workers" in bread_building and bread_building.assigned_workers != null else 0
-		var bread_max_workers_val = bread_building.max_workers if "max_workers" in bread_building and bread_building.max_workers != null else 1 # Bakery için max worker önemli
-		# Bakery'nin level/max_level'ı olmayabilir, varsayılanları dikkatli seçelim veya hiç kullanmayalım
-		var bread_current_level = bread_building.level if "level" in bread_building and bread_building.level != null else 1 
-		var bread_max_level_val = bread_building.max_level if "max_level" in bread_building and bread_building.max_level != null else 1
-		# --- Kontroller Sonu ---
-
-		# Bakery'nin upgrade mekanizması farklı olabilir, şimdilik upgrade butonunu gizleyelim
-		upgrade_bread_button.visible = false # Veya true yapıp disabled edebiliriz
-		# upgrade_bread_button.disabled = true
-		# upgrade_bread_button.tooltip_text = "Fırın yükseltilemez"
-
-		# Fırın seviyesi göstergesi belki gereksiz? Şimdilik gizleyelim.
-		bread_level_indicator.visible = false 
-		# bread_level_indicator.text = "" 
-		
-		# Ekmek seviyesi VillageManager'daki resource_levels'dan gelmeli
-		bread_level_label.text = str(VillageManager.get_resource_level("bread"))
-		_update_upgrade_ui_for("bread", bread_building)
-
-		# Add/Remove Butonları (Normal binalar gibi)
-		var can_add_bread = not bread_is_upgrading and bread_current_workers < bread_max_workers_val
-		var can_remove_bread = not bread_is_upgrading and bread_current_workers > 0
-		add_bread_button.disabled = not (idle_available and can_add_bread)
-		remove_bread_button.disabled = not can_remove_bread
+		upgrade_bread_button.visible = true
+		bread_level_indicator.visible = true
+		_update_generic_row_from_building("bread", bread_building, idle_available, bread_hbox, bread_level_indicator, bread_level_label, upgrade_bread_button, add_bread_button, remove_bread_button)
 	else: 
 		if is_instance_valid(bread_level_label):
 			bread_level_label.text = "0"
 		_hide_upgrade_ui_for("bread")
 
+	for resource_type in EXTRA_PROCESSING_ORDER:
+		var widgets: Dictionary = dynamic_rows.get(resource_type, {})
+		if widgets.is_empty():
+			continue
+		var scene_path := String(RESOURCE_SCENE_MAP.get(resource_type, ""))
+		var building = _find_first_building(scene_path, current_building_plots_node)
+		var row: HBoxContainer = widgets.get("row", null)
+		if row == null:
+			continue
+		var exists := building != null
+		row.visible = exists
+		if exists:
+			_update_generic_row_from_building(
+				resource_type,
+				building,
+				idle_available,
+				row,
+				widgets.get("level_indicator", null),
+				widgets.get("level_label", null),
+				widgets.get("upgrade_button", null),
+				widgets.get("add_button", null),
+				widgets.get("remove_button", null)
+			)
+		else:
+			_hide_upgrade_ui_for(resource_type)
+
 	# print("DEBUG: --- update_ui FINISHED ---") # Debug print'leri kapattık
 
+func _update_generic_row_from_building(
+	resource_type: String,
+	building: Node,
+	idle_available: bool,
+	_row: HBoxContainer,
+	level_indicator: Label,
+	level_label: Label,
+	upgrade_button: Button,
+	add_button: Button,
+	remove_button: Button
+) -> void:
+	var is_upgrading = bool(building.is_upgrading) if "is_upgrading" in building else false
+	var current_workers = int(building.assigned_workers) if "assigned_workers" in building else 0
+	var max_workers_value = int(building.max_workers) if "max_workers" in building else 1
+	var current_level = int(building.level) if "level" in building else 1
+	var max_level_value = int(building.max_level) if "max_level" in building else 1
+	var can_add = not is_upgrading and current_workers < max_workers_value
+	var can_remove = not is_upgrading and current_workers > 0
+	add_button.disabled = not (idle_available and can_add)
+	remove_button.disabled = not can_remove
+	var is_max_level = current_level >= max_level_value
+	var scene_path := String(RESOURCE_SCENE_MAP.get(resource_type, ""))
+	var can_upgrade = false
+	if scene_path != "" and not is_max_level:
+		can_upgrade = VillageManager.can_meet_requirements(scene_path)
+	upgrade_button.disabled = is_upgrading or is_max_level or not can_upgrade
+	upgrade_button.text = "Yükseltiliyor..." if is_upgrading else "↑"
+	var reqs = VillageManager.get_building_requirements(scene_path)
+	upgrade_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(reqs) if not reqs.is_empty() and not is_max_level else ("Maks Seviye" if is_max_level else "Yükseltilemez")
+	if is_instance_valid(level_indicator):
+		level_indicator.visible = true
+		level_indicator.text = "[Lv. %d]" % current_level
+	if is_instance_valid(level_label):
+		level_label.text = _level_with_cap(resource_type)
+	_update_upgrade_ui_for(resource_type, building)
 
 # "+" butonuna basıldığında çalışır
 func _on_add_worker_pressed(resource_type: String) -> void:
 	print("UI: İşçi atama isteği gönderiliyor: ", resource_type) # Debug
 
 	# 1. İlgili bina türünün sahne yolunu al
-	var target_building_scene_path = ""
-	match resource_type:
-		"wood": target_building_scene_path = WOODCUTTER_SCENE
-		"stone": target_building_scene_path = STONE_MINE_SCENE
-		"food": target_building_scene_path = HUNTER_HUT_SCENE
-		"water": target_building_scene_path = WELL_SCENE
-		"bread": target_building_scene_path = BAKERY_SCENE
-		_: # Bilinmeyen kaynak türü
-			printerr("UI Error: Bilinmeyen kaynak türü için işçi eklenemiyor: ", resource_type)
-			return
+	var target_building_scene_path = String(RESOURCE_SCENE_MAP.get(resource_type, ""))
+	if target_building_scene_path == "":
+		printerr("UI Error: Bilinmeyen kaynak türü için işçi eklenemiyor: ", resource_type)
+		return
 
 	# 2. Sahnedeki o türden ilk binayı bul
 	var building_node = _find_first_building(target_building_scene_path, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
@@ -536,16 +677,10 @@ func _on_remove_worker_pressed(resource_type: String) -> void:
 	print("UI: İşçi çıkarma isteği gönderiliyor: ", resource_type) # Debug
 
 	# 1. İlgili bina türünün sahne yolunu al
-	var target_building_scene_path = ""
-	match resource_type:
-		"wood": target_building_scene_path = WOODCUTTER_SCENE
-		"stone": target_building_scene_path = STONE_MINE_SCENE
-		"food": target_building_scene_path = HUNTER_HUT_SCENE
-		"water": target_building_scene_path = WELL_SCENE
-		"bread": target_building_scene_path = BAKERY_SCENE
-		_: # Bilinmeyen kaynak türü
-			printerr("UI Error: Bilinmeyen kaynak türü için işçi çıkarılamıyor: ", resource_type)
-			return
+	var target_building_scene_path = String(RESOURCE_SCENE_MAP.get(resource_type, ""))
+	if target_building_scene_path == "":
+		printerr("UI Error: Bilinmeyen kaynak türü için işçi çıkarılamıyor: ", resource_type)
+		return
 
 	# 2. Sahnedeki o türden ilk binayı bul
 	var building_node = _find_first_building(target_building_scene_path, get_tree().current_scene.get_node_or_null("PlacedBuildings"))
@@ -647,6 +782,8 @@ func _on_upgrade_button_pressed(building_scene_path: String) -> void:
 	if building_to_upgrade:
 		# Binanın kendi yükseltme fonksiyonunu çağır
 		if building_to_upgrade.has_method("start_upgrade"):
+			if VillageManager.has_method("prepare_building_upgrade"):
+				VillageManager.prepare_building_upgrade(building_to_upgrade)
 			if building_to_upgrade.start_upgrade():
 				print("UI: %s yükseltmesi başlatıldı." % building_scene_path.get_file())
 				# Yükseltme başladığı için UI'ı hemen güncelle

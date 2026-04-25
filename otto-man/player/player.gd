@@ -200,6 +200,7 @@ func set_ui_locked(locked: bool) -> void:
 
 
 var is_dead: bool = false
+var pending_death: bool = false
 
 var status_effects: StatusEffectManager
 
@@ -231,6 +232,8 @@ func _ready():
 	#animation_tree.active = false
 	# Ensure counter animations exist even if scene file missed them
 	_ensure_counter_animations()
+	# Ensure knockback recovery animations exist (hurt_rise/fall/lie/get_up)
+	_ensure_knockback_recovery_animations()
 	
 	# Initialize health from PlayerStats and connect death signal
 	var player_stats = get_node_or_null("/root/PlayerStats")
@@ -397,11 +400,14 @@ func _physics_process(delta):
 	# Handle jump buffering (disabled during Crouch and Dodge)
 	var is_crouching := false
 	var is_dodging := false
+	var is_hurt_state := false
 	if $StateMachine and $StateMachine.current_state:
 		is_crouching = $StateMachine.current_state.name == "Crouch"
 		is_dodging = $StateMachine.current_state.name == "Dodge"
+		is_hurt_state = $StateMachine.current_state.name == "Hurt"
 	if Input.is_action_just_pressed("jump"):
-		if not is_crouching and not is_dodging and not jump_input_blocked and jump_block_timer <= 0:
+		var jump_locked_by_hurt := is_hurt_state or pending_death or is_dead
+		if not is_crouching and not is_dodging and not jump_locked_by_hurt and not jump_input_blocked and jump_block_timer <= 0:
 			jump_buffer_timer = jump_buffer_time
 		else:
 			print("[Player] Jump buffering BLOCKED - crouching:", is_crouching, " dodging:", is_dodging, " blocked:", jump_input_blocked, " timer:", jump_block_timer)
@@ -418,10 +424,13 @@ func _physics_process(delta):
 			# Do not execute buffered jump while crouching or dodging
 			var crouch_now := false
 			var dodge_now := false
+			var hurt_now := false
 			if $StateMachine and $StateMachine.current_state:
 				crouch_now = $StateMachine.current_state.name == "Crouch"
 				dodge_now = $StateMachine.current_state.name == "Dodge"
-			if not crouch_now and not dodge_now and not jump_input_blocked and jump_block_timer <= 0:
+				hurt_now = $StateMachine.current_state.name == "Hurt"
+			var jump_locked_by_hurt_now := hurt_now or pending_death or is_dead
+			if not crouch_now and not dodge_now and not jump_locked_by_hurt_now and not jump_input_blocked and jump_block_timer <= 0:
 				spawn_dust_cloud(get_foot_position(), "puff_up")
 				start_jump()
 				jump_buffer_timer = 0.0
@@ -699,6 +708,7 @@ func reset_sprite_visual_to_default() -> void:
 		return
 	sprite.position = SPRITE_DEFAULT_LOCAL_POSITION
 	sprite.scale = Vector2.ONE
+	sprite.rotation = 0.0
 
 # Fall attack bounce is handled in fall_attack_state.gd
 # No need for these functions here
@@ -989,11 +999,36 @@ func _on_health_changed(new_health: float) -> void:
 		_on_player_died()
 
 func _on_player_died() -> void:
-	if is_dead:
+	if is_dead or pending_death:
 		return  # Already dead, prevent multiple calls
-	
-	is_dead = true
+	pending_death = true
 	print("[Player] 💀 Player died!")
+
+	# Stop taking new hits while dying on ground.
+	if hurtbox:
+		hurtbox.monitoring = false
+		hurtbox.monitorable = false
+
+	# Let hurt/knockback sequence finish the death on ground.
+	if state_machine and state_machine.has_node("Hurt"):
+		var hurt_state = state_machine.get_node("Hurt")
+		if state_machine.current_state != hurt_state:
+			if state_machine.current_state:
+				state_machine.current_state.exit()
+			state_machine.current_state = hurt_state
+			state_machine.current_state.enter()
+		if hurt_state and hurt_state.has_method("begin_lethal_sequence"):
+			hurt_state.begin_lethal_sequence()
+		return
+
+	# Fallback for unexpected setups.
+	_finalize_player_death()
+
+func _finalize_player_death() -> void:
+	if is_dead:
+		return
+	is_dead = true
+	pending_death = false
 	
 	# Disable player controls
 	if state_machine:
@@ -1103,6 +1138,7 @@ func reset_death_state() -> void:
 		return  # Already alive
 	
 	is_dead = false
+	pending_death = false
 	print("[Player] 🔄 Resetting death state...")
 	
 	# Reset health if it's 0 or very low (roguelike reset)
@@ -1228,6 +1264,105 @@ func _ensure_counter_animations() -> void:
 		anim_h.track_set_path(hm, NodePath("."))
 		anim_h.track_insert_key(hm, 0.0, {"method": "spawn_attack_effect_by_name", "args": ["counter_heavy"]})
 		lib.add_animation("counter_heavy", anim_h)
+
+func _ensure_knockback_recovery_animations() -> void:
+	if not animation_player:
+		return
+	var lib_obj = animation_player.get_animation_library("")
+	if lib_obj == null:
+		lib_obj = AnimationLibrary.new()
+		animation_player.add_animation_library("", lib_obj)
+	var lib: AnimationLibrary = lib_obj
+
+	if lib.has_animation("hurt_rise"):
+		lib.remove_animation("hurt_rise")
+	var anim_rise = Animation.new()
+	anim_rise.length = 0.16
+	var r0 = anim_rise.add_track(Animation.TYPE_VALUE)
+	anim_rise.track_set_path(r0, NodePath("Sprite2D:hframes"))
+	anim_rise.track_insert_key(r0, 0.0, 2)
+	var tex_rise = load("res://assets/player/sprite/otto_hurt_rise_border.png")
+	if tex_rise:
+		var r1 = anim_rise.add_track(Animation.TYPE_VALUE)
+		anim_rise.track_set_path(r1, NodePath("Sprite2D:texture"))
+		anim_rise.track_insert_key(r1, 0.0, tex_rise)
+	var r2 = anim_rise.add_track(Animation.TYPE_VALUE)
+	anim_rise.track_set_path(r2, NodePath("Sprite2D:frame"))
+	anim_rise.track_insert_key(r2, 0.0, 0)
+	anim_rise.track_insert_key(r2, 0.08, 1)
+	lib.add_animation("hurt_rise", anim_rise)
+
+	if lib.has_animation("hurt_fall"):
+		lib.remove_animation("hurt_fall")
+	var anim_fall = Animation.new()
+	anim_fall.length = 0.18
+	anim_fall.loop_mode = Animation.LOOP_LINEAR
+	var f0 = anim_fall.add_track(Animation.TYPE_VALUE)
+	anim_fall.track_set_path(f0, NodePath("Sprite2D:hframes"))
+	anim_fall.track_insert_key(f0, 0.0, 2)
+	var tex_fall = load("res://assets/player/sprite/otto_hurt_fall_border.png")
+	if tex_fall:
+		var f1 = anim_fall.add_track(Animation.TYPE_VALUE)
+		anim_fall.track_set_path(f1, NodePath("Sprite2D:texture"))
+		anim_fall.track_insert_key(f1, 0.0, tex_fall)
+	var f2 = anim_fall.add_track(Animation.TYPE_VALUE)
+	anim_fall.track_set_path(f2, NodePath("Sprite2D:frame"))
+	anim_fall.track_insert_key(f2, 0.0, 0)
+	anim_fall.track_insert_key(f2, 0.09, 1)
+	lib.add_animation("hurt_fall", anim_fall)
+
+	if lib.has_animation("lie_down"):
+		lib.remove_animation("lie_down")
+	var anim_lie = Animation.new()
+	anim_lie.length = 0.12
+	var l0 = anim_lie.add_track(Animation.TYPE_VALUE)
+	anim_lie.track_set_path(l0, NodePath("Sprite2D:hframes"))
+	anim_lie.track_insert_key(l0, 0.0, 1)
+	var tex_lie = load("res://assets/player/sprite/otto_hurt_lie_border.png")
+	if tex_lie:
+		var l1 = anim_lie.add_track(Animation.TYPE_VALUE)
+		anim_lie.track_set_path(l1, NodePath("Sprite2D:texture"))
+		anim_lie.track_insert_key(l1, 0.0, tex_lie)
+	var l2 = anim_lie.add_track(Animation.TYPE_VALUE)
+	anim_lie.track_set_path(l2, NodePath("Sprite2D:frame"))
+	anim_lie.track_insert_key(l2, 0.0, 0)
+	lib.add_animation("lie_down", anim_lie)
+
+	if lib.has_animation("lie_slide"):
+		lib.remove_animation("lie_slide")
+	var anim_lie_slide = Animation.new()
+	anim_lie_slide.length = 0.16
+	anim_lie_slide.loop_mode = Animation.LOOP_LINEAR
+	var ls0 = anim_lie_slide.add_track(Animation.TYPE_VALUE)
+	anim_lie_slide.track_set_path(ls0, NodePath("Sprite2D:hframes"))
+	anim_lie_slide.track_insert_key(ls0, 0.0, 2)
+	var tex_lie_slide = load("res://assets/player/sprite/otto_hurt_slide_border.png")
+	if tex_lie_slide:
+		var ls1 = anim_lie_slide.add_track(Animation.TYPE_VALUE)
+		anim_lie_slide.track_set_path(ls1, NodePath("Sprite2D:texture"))
+		anim_lie_slide.track_insert_key(ls1, 0.0, tex_lie_slide)
+	var ls2 = anim_lie_slide.add_track(Animation.TYPE_VALUE)
+	anim_lie_slide.track_set_path(ls2, NodePath("Sprite2D:frame"))
+	anim_lie_slide.track_insert_key(ls2, 0.0, 0)
+	anim_lie_slide.track_insert_key(ls2, 0.08, 1)
+	lib.add_animation("lie_slide", anim_lie_slide)
+
+	if not animation_player.has_animation("get_up"):
+		var anim_get_up = Animation.new()
+		anim_get_up.length = 0.35
+		var g0 = anim_get_up.add_track(Animation.TYPE_VALUE)
+		anim_get_up.track_set_path(g0, NodePath("Sprite2D:hframes"))
+		anim_get_up.track_insert_key(g0, 0.0, 1)
+		var tex_get_up = load("res://resources/player_normalmap resources/idle_normal.tres")
+		if tex_get_up:
+			var g1 = anim_get_up.add_track(Animation.TYPE_VALUE)
+			anim_get_up.track_set_path(g1, NodePath("Sprite2D:texture"))
+			anim_get_up.track_insert_key(g1, 0.0, tex_get_up)
+		var g2 = anim_get_up.add_track(Animation.TYPE_VALUE)
+		anim_get_up.track_set_path(g2, NodePath("Sprite2D:rotation_degrees"))
+		anim_get_up.track_insert_key(g2, 0.0, 90.0)
+		anim_get_up.track_insert_key(g2, 0.35, 0.0)
+		lib.add_animation("get_up", anim_get_up)
 
 # Update dash charges for Double Dash powerup
 func update_dash_charges() -> void:

@@ -318,6 +318,11 @@ func _save_village_state() -> Dictionary:
 	else:
 		state["snapshot_time"] = {}
 	
+	if is_instance_valid(VillageManager) and VillageManager.has_method("get_pending_constructions_save_data"):
+		state["pending_constructions"] = VillageManager.get_pending_constructions_save_data()
+	else:
+		state["pending_constructions"] = []
+	
 	return state
 
 func _save_mission_state() -> Dictionary:
@@ -549,6 +554,26 @@ func _load_village_state(state: Dictionary) -> void:
 	else:
 		print("[SaveManager] ⚠️ DEBUG: State has no 'buildings' key")
 		VillageManager._saved_building_states = []
+	
+	if state.has("pending_constructions"):
+		var raw_pc = state["pending_constructions"]
+		if raw_pc is Array:
+			var converted_pc: Array = []
+			for i in range(raw_pc.size()):
+				var raw_e = raw_pc[i]
+				if raw_e is Dictionary:
+					var pe: Dictionary = (raw_e as Dictionary).duplicate(true)
+					if pe.has("position"):
+						pe["position"] = _to_vector2(pe.get("position"))
+					converted_pc.append(pe)
+			if VillageManager:
+				VillageManager.set("_pending_constructions_load_buffer", converted_pc)
+		else:
+			if VillageManager:
+				VillageManager.set("_pending_constructions_load_buffer", [])
+	else:
+		if VillageManager:
+			VillageManager.set("_pending_constructions_load_buffer", [])
 	
 	# Worker states
 	var villager_infos: Array = []

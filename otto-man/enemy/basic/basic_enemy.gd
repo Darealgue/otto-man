@@ -1320,7 +1320,14 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	# Apply knockback - BasicEnemy is a punching bag, so stronger knockback
 	# Start with base knockback values
 	var final_knockback_force = knockback_force
-	var final_up_force = knockback_up_force if knockback_up_force >= 0.0 else knockback_force * 0.5
+	# -1.0 = ayarlanmadı; anlamlı negatif = aşağı çakma (PlayerHitbox air down); >=0 = yukarı
+	var final_up_force: float
+	if knockback_up_force == -1.0:
+		final_up_force = knockback_force * 0.5
+	elif knockback_up_force < 0.0:
+		final_up_force = knockback_up_force
+	else:
+		final_up_force = knockback_up_force
 	
 	# Check if this is an upward attack by checking attack name from hitbox
 	var is_up_attack = false
@@ -1345,12 +1352,19 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			is_up_attack = true
 			final_up_force *= 2.0  # 100% boost if up_force is high
 	
+	var is_down_spike_attack: bool = (
+		attack_name == "air_attack_down1"
+		or attack_name == "air_attack_down2"
+	)
+	
 	# Kombo kilidi: düz havada vuruş (air_attack1/2/3) düşmanı yakında tutar; boost uygulama
 	var is_combo_lock_attack = attack_name == "air_attack1" or attack_name == "air_attack2" or attack_name == "air_attack3"
 	if not is_combo_lock_attack:
 		# If we're already in air (being juggled), boost upward force significantly
 		if was_in_air or not is_on_floor():
-			if final_up_force > 0:
+			if is_down_spike_attack:
+				pass
+			elif final_up_force > 0:
 				final_up_force *= 1.3  # 30% boost for air juggling
 			else:
 				final_up_force = knockback_force * 1.0  # Strong upward force even if no up_force
@@ -1361,8 +1375,8 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			else:
 				final_up_force *= 1.4  # Extra boost for other attacks on death
 			final_up_force = min(final_up_force, 600.0)  # Cap at 600 for dead enemies (higher)
-		# Ensure minimum upward force (sadece kombo kilidi değilse)
-		if final_up_force < 100.0 and knockback_up_force < 0.0:
+		# Yukarı asgari: aşağı spike'ı asla yukarı çekme (eski: knockback_up_force<0 iken 150'ye zıplatıyordu)
+		if not is_down_spike_attack and knockback_up_force >= 0.0 and final_up_force < 100.0:
 			final_up_force = max(final_up_force, 150.0)
 	
 	velocity.x = -direction * final_knockback_force

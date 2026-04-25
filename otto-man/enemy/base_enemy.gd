@@ -277,6 +277,9 @@ func get_nearest_player() -> Node2D:
 	for player in players:
 		if not is_instance_valid(player) or not player.is_inside_tree():
 			continue
+		# Do not aggro dead/dying players.
+		if ("is_dead" in player and bool(player.is_dead)) or ("pending_death" in player and bool(player.pending_death)):
+			continue
 			
 		var distance = global_position.distance_to(player.global_position)
 		if distance < min_distance:

@@ -630,12 +630,17 @@ texture = ExtResource("18_batp3")
 
 [node name="TreesFront9" type="Sprite2D" parent="ParallaxBackground/treesfront"]
 z_index = -4
-position = Vector2(-4611, -528)
+position = Vector2(-4536, -528)
+texture = ExtResource("18_batp3")
+
+[node name="TreesFront12" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+z_index = -3
+position = Vector2(-5871, -531)
 texture = ExtResource("18_batp3")
 
 [node name="TreesFront10" type="Sprite2D" parent="ParallaxBackground/treesfront"]
 z_index = -3
-position = Vector2(-5228, -527)
+position = Vector2(-5184, -527)
 texture = ExtResource("18_batp3")
 
 [node name="TreesFront11" type="Sprite2D" parent="ParallaxBackground/treesfront"]

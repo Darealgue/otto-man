@@ -240,9 +240,10 @@ func create_decoration_instance(decoration_name: String, decoration_type: Decora
 					# Post-place fixup
 					inst.set_meta("decoration_type", DecorationConfig.DecorationType.keys()[decoration_type].to_lower())
 					call_deferred("_post_place_fixup", inst)
-					# Auto z-index if top-level sprite exists
 					var z_auto := _decoration_config.get_z_index_for_decoration(decoration_name)
 					inst.z_index = z_auto
+					if spr_try:
+						spr_try.z_index = 0
 					# Ensure platform collisions are on the PLATFORM layer so the player can stand on them
 					var stack: Array[Node] = []
 					stack.append(inst)
@@ -263,7 +264,6 @@ func create_decoration_instance(decoration_name: String, decoration_type: Decora
 	decoration_node.name = decoration_name
 	var sprite = Sprite2D.new()
 	sprite.name = "Sprite"
-	sprite.z_index = _decoration_config.get_z_index_for_decoration(decoration_name)
 	sprite.modulate = Color(1, 1, 1, 1)
 	var sprites = decoration_data.get("sprites", [])
 	var sprite_path = sprites[randi() % sprites.size()] if sprites.size() > 0 else ""
@@ -288,6 +288,7 @@ func create_decoration_instance(decoration_name: String, decoration_type: Decora
 	sprite.texture = texture
 	_apply_bottom_center_to_sprite(sprite)
 	decoration_node.add_child(sprite)
+	decoration_node.z_index = _decoration_config.get_z_index_for_decoration(decoration_name)
 	decoration_node.set_meta("decoration_type", DecorationConfig.DecorationType.keys()[decoration_type].to_lower())
 	call_deferred("_post_place_fixup", decoration_node)
 	# Tip özel ayarları
@@ -306,10 +307,10 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 	# Sadece görsel, collision yok
 	node.set_meta("decoration_type", "background")
 	
-	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
 	if sprite:
-		node.z_index = sprite.z_index
+		node.z_index = _decoration_config.get_z_index_for_decoration(node.name)
+		sprite.z_index = 0
 		
 		# Special handling for animated campfire decor
 		if node.name == "camp2":
@@ -368,11 +369,10 @@ func _setup_campfire_background(node: Node2D, sprite: Sprite2D) -> void:
 	anim.play("idle")
 	
 	# Replace original static sprite
-	var old_z := sprite.z_index
 	node.remove_child(sprite)
 	sprite.queue_free()
 	node.add_child(anim)
-	anim.z_index = old_z
+	anim.z_index = 0
 	
 	# Add warm point light on the fire (torch-like gradient texture)
 	var light := PointLight2D.new()
@@ -441,9 +441,9 @@ func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:
 	)
 	# Reuse pooled pickup logic signature
 	
-	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
 	if sprite:
-		node.z_index = sprite.z_index
+		node.z_index = _decoration_config.get_z_index_for_decoration(node.name)
+		sprite.z_index = 0
 	# Pickup alanı zaten merkezde; pooled loot ile aynı
 	if DEBUG_DECOR:
 		print("[DecorationSpawner] GOLD ready at ", node.global_position, " value=", gold_value)
@@ -469,10 +469,10 @@ func _setup_platform_decoration(node: Node2D, data: Dictionary) -> void:
 	body.add_child(col)
 	node.add_child(body)
 	
-	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
 	if sprite:
-		node.z_index = sprite.z_index
+		node.z_index = _decoration_config.get_z_index_for_decoration(node.name)
+		sprite.z_index = 0
 
 # Kırılabilir obje
 func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
@@ -516,10 +516,10 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 	hurt.area_entered.connect(_on_breakable_area_entered.bind(node))
 	hurt.body_entered.connect(_on_breakable_body_entered.bind(node))
 	
-	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
 	var sprite: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
 	if sprite:
-		node.z_index = sprite.z_index
+		node.z_index = _decoration_config.get_z_index_for_decoration(node.name)
+		sprite.z_index = 0
 	if DEBUG_DOOR_CHECK:
 		print("[DecorationSpawner] BREAKABLE ready HP=", node.get_meta("hp", 0), " at ", node.global_position)
 
@@ -744,10 +744,11 @@ func spawn_enemy_gold_burst(world_pos: Vector2, total_gold: int, elite_pouch_wei
 		parts = cfg.compose_items_elite_pouch_weighted(total_gold)
 	else:
 		parts = cfg.compose_items_for_total(total_gold)
-	_spawn_physical_loot_parts(world_pos, parts, 6, cfg)
+	_spawn_physical_loot_parts(world_pos, parts, 6, cfg, true)
 
 
-func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base: int, cfg: GoldDropConfig) -> void:
+## enemy_burst: düşman drop'u — çoğunlukla yukarı, dar yatay; breakable eski geniş impulse.
+func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base: int, cfg: GoldDropConfig, enemy_burst: bool = false) -> void:
 	var loot_pool: Node = get_node_or_null("/root/Loots")
 	if not loot_pool:
 		print("[DecorationSpawner] ERROR: Loots autoload not found! Cannot spawn loot.")
@@ -809,7 +810,11 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 			body.body_exited.connect(_on_dropped_gold_body_exited.bind(spr, body))
 		body.collision_layer = CollisionLayers.ITEM
 		body.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
-		var spawn_offset := Vector2(randf_range(-10, 10), randf_range(-20, -10))
+		var spawn_offset: Vector2
+		if enemy_burst:
+			spawn_offset = Vector2(randf_range(-16.0, 16.0), randf_range(-12.0, 4.0))
+		else:
+			spawn_offset = Vector2(randf_range(-10, 10), randf_range(-20, -10))
 		body.global_position = origin + spawn_offset
 		get_tree().current_scene.add_child(body)
 		loot_pool.call("loot_log", "loot_spawn id=%s iid=%s gv=%d pos=%s mon=%s" % [
@@ -817,7 +822,21 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 			str((collect.monitoring if collect else false))
 		])
 		var launch: Vector2
-		if v < 5:
+		if enemy_burst:
+			# Yukarı doğru konsantre fırlatma; hafif sağ/sol (~±32°), poşet biraz daha kısa.
+			var spread: float = randf_range(-0.55, 0.55)
+			var base_up: float = -PI * 0.5
+			var ang: float = base_up + spread
+			var mag: float
+			if v < 5:
+				mag = randf_range(260.0, 440.0)
+				body.angular_damp = 0.8
+			else:
+				mag = randf_range(200.0, 340.0)
+				body.angular_damp = 3.0
+			launch = Vector2(cos(ang), sin(ang)) * mag
+			launch.x += randf_range(-22.0, 22.0)
+		elif v < 5:
 			launch = Vector2(randf_range(-180.0, 180.0), randf_range(-280.0, -160.0))
 			body.angular_damp = 0.8
 		else:
@@ -1061,8 +1080,7 @@ func _setup_pot_animation(node: Node2D) -> void:
 	# Improve crispness and avoid bleeding
 	anim.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	node.add_child(anim)
-	# Z-index otomatik olarak create_decoration_instance'da ayarlandı
-	anim.z_index = node.z_index
+	anim.z_index = 0
 
 func _play_pot_break_animation(node: Node2D) -> void:
 	var anim: AnimatedSprite2D = node.get_node_or_null("Anim") as AnimatedSprite2D
