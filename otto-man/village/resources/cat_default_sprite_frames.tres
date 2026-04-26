@@ -1,0 +1,79 @@
+[gd_resource type="SpriteFrames" load_steps=11 format=3 uid="uid://bu4i8vk45tqis"]
+
+[sub_resource type="Gradient" id="Gradient_idle"]
+colors = PackedColorArray(0.3, 0.28, 0.34, 1, 0.18, 0.17, 0.22, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_idle"]
+gradient = SubResource("Gradient_idle")
+width = 28
+height = 22
+
+[sub_resource type="Gradient" id="Gradient_jump"]
+colors = PackedColorArray(0.45, 0.38, 0.32, 1, 0.28, 0.24, 0.22, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_jump"]
+gradient = SubResource("Gradient_jump")
+width = 28
+height = 22
+
+[sub_resource type="Gradient" id="Gradient_sleep"]
+colors = PackedColorArray(0.14, 0.12, 0.2, 1, 0.22, 0.2, 0.28, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_sleep"]
+gradient = SubResource("Gradient_sleep")
+width = 28
+height = 22
+
+[sub_resource type="Gradient" id="Gradient_walk_a"]
+colors = PackedColorArray(0.36, 0.32, 0.38, 1, 0.24, 0.22, 0.28, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_walk_a"]
+gradient = SubResource("Gradient_walk_a")
+width = 28
+height = 22
+
+[sub_resource type="Gradient" id="Gradient_walk_b"]
+colors = PackedColorArray(0.28, 0.26, 0.32, 1, 0.4, 0.36, 0.42, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_walk_b"]
+gradient = SubResource("Gradient_walk_b")
+width = 28
+height = 22
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("GradientTexture2D_idle")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 4.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("GradientTexture2D_jump")
+}],
+"loop": true,
+"name": &"jump",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("GradientTexture2D_sleep")
+}],
+"loop": true,
+"name": &"sleep",
+"speed": 3.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("GradientTexture2D_walk_a")
+}, {
+"duration": 1.0,
+"texture": SubResource("GradientTexture2D_walk_b")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 8.0
+}]

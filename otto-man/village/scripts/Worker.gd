@@ -56,7 +56,8 @@ var _sleep_retry_delay: float = 30.0 # 30 saniye bekle, sonra tekrar dene
 
 # <<< YENİ: Dikey Hareket İçin >>>
 var _target_global_y: float = 0.0 # Hedef global Y konumu
-const VERTICAL_RANGE_MAX: float = 25.0 # Y ekseninde hareket aralığı (0 ile bu değer arası)
+const VERTICAL_RANGE_MIN: float = 5.0 # Yürünebilir bandın üst sınırı (aşağı kaydırıldı)
+const VERTICAL_RANGE_MAX: float = 30.0 # Y ekseninde hareket aralığı (MIN ile bu değer arası)
 # <<< YENİ SONU >>>
 
 # <<< YENİ: Debug Sayaç >>>
@@ -574,8 +575,8 @@ func _ready() -> void:
 	# Başlangıçta görünür yapalım
 	visible = true
 	# <<< YENİ: Başlangıç Y Konumunu ve Hedefini Ayarla >>>
-	global_position.y = randf_range(0.0, VERTICAL_RANGE_MAX)
-	_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+	global_position.y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+	_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 	
 	# Z-Index'i ayak pozisyonuna göre ayarla (Y düşük = önde)
 	# Su yansımasında görünmesi için z_index'i su sprite'ının z_index'inden (20) düşük tutmalıyız
@@ -990,19 +991,19 @@ func _physics_process(delta: float) -> void:
 			var distance_to_home = global_position.distance_to(housing_node.global_position)
 			# Eve vardı: yürünebilir banttaysa mesafe ile, değilse (kamp ateşi) yatay mesafe ile
 			var housing_y = housing_node.global_position.y
-			var housing_outside_walkable_home = housing_y < 0.0 or housing_y > VERTICAL_RANGE_MAX
+			var housing_outside_walkable_home = housing_y < VERTICAL_RANGE_MIN or housing_y > VERTICAL_RANGE_MAX
 			var horizontal_dist_home = abs(global_position.x - housing_node.global_position.x)
 			var at_home = (distance_to_home < 10.0) if not housing_outside_walkable_home else (horizontal_dist_home < 40.0)
 			if at_home:
 				current_state = State.SICK
 				visible = false
-				global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+				global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 				return
 			else:
 				# Eve doğru hareket et; barınak yürünebilir bantta değilse hedef Y yürünebilir bantta
 				move_target_x = housing_node.global_position.x
 				if housing_outside_walkable_home:
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 				else:
 					_target_global_y = housing_y + randf_range(-8.0, 8.0)
 				target_pos = Vector2(move_target_x, _target_global_y)
@@ -1015,7 +1016,7 @@ func _physics_process(delta: float) -> void:
 			# İyileşme kontrolü VillageManager tarafından günlük yapılır
 			visible = false
 			if is_instance_valid(housing_node):
-				global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+				global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 			return
 		
 		State.SLEEPING:
@@ -1049,10 +1050,10 @@ func _physics_process(delta: float) -> void:
 				visible = true
 				if is_instance_valid(housing_node): # Güvenlik kontrolü
 					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
-					global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 					var wander_range = 150.0
 					move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 				else:
 					#printerr("Worker %d: Housing node geçerli değil, başlangıç konumu ayarlanamadı!" % worker_id)
 					move_target_x = global_position.x # Hedefi kendi konumu yap
@@ -1080,7 +1081,7 @@ func _physics_process(delta: float) -> void:
 				current_state = State.SICK
 				visible = false
 				if is_instance_valid(housing_node):
-					global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 				return
 			
 			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler normal rutinlerine devam etmemeli
@@ -1119,7 +1120,7 @@ func _physics_process(delta: float) -> void:
 							#print("Worker %d (Idle) uyumaya gidiyor." % worker_id)
 							current_state = State.GOING_TO_SLEEP
 							move_target_x = housing_node.global_position.x
-							_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+							_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 							idle_activity_timer.stop() # Aktiviteyi durdur
 							_is_briefly_idling = false # <<< Reset flag >>>
 							_current_idle_activity = "" # <<< Reset activity >>>
@@ -1138,7 +1139,7 @@ func _physics_process(delta: float) -> void:
 					#print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
 					current_state = State.GOING_TO_BUILDING_FIRST
 					move_target_x = assigned_building_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 					idle_activity_timer.stop() # Aktiviteyi durdur
 					_is_briefly_idling = false # <<< Reset flag >>>
 					_current_idle_activity = "" # <<< Reset activity >>>
@@ -1178,7 +1179,7 @@ func _physics_process(delta: float) -> void:
 					#print("Worker %d going to sleep while going to building." % worker_id)
 					current_state = State.GOING_TO_SLEEP
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -1274,7 +1275,7 @@ func _physics_process(delta: float) -> void:
 					current_state = State.GOING_TO_SLEEP
 					visible = true
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -1317,7 +1318,7 @@ func _physics_process(delta: float) -> void:
 				
 				if is_instance_valid(assigned_building_node):
 					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
-					global_position = Vector2(assigned_building_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					global_position = Vector2(assigned_building_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 				else:
 					pass 
 
@@ -1335,7 +1336,7 @@ func _physics_process(delta: float) -> void:
 						#print("Worker %d going to sleep from inside building." % worker_id)
 						current_state = State.GOING_TO_SLEEP
 						move_target_x = housing_node.global_position.x
-						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 						if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 					else:
 						#print("Worker %d finished work, no housing, socializing." % worker_id)
@@ -1345,7 +1346,7 @@ func _physics_process(delta: float) -> void:
 						_start_next_idle_step() # Start socializing behavior
 						# var wander_range = 150.0 # Handled by _start_next_idle_step
 						# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-						# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						# _target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 						if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 				else:
 					#print("Worker %d finished work, socializing." % worker_id)
@@ -1355,7 +1356,7 @@ func _physics_process(delta: float) -> void:
 					_start_next_idle_step() # Start socializing behavior
 					# var wander_range = 150.0 # Handled by _start_next_idle_step
 					# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-					# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					# _target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 
 		State.WAITING_OFFSCREEN:
@@ -1382,7 +1383,7 @@ func _physics_process(delta: float) -> void:
 					current_state = State.GOING_TO_SLEEP
 					visible = true
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -1424,11 +1425,11 @@ func _physics_process(delta: float) -> void:
 						start_x = _offscreen_exit_x + start_margin
 					
 					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
-					global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					global_position = Vector2(start_x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 					
 					if is_instance_valid(assigned_building_node):
 						move_target_x = assigned_building_node.global_position.x
-						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 					else:
 						#printerr("Worker %d: Returning from work but building is invalid! Socializing." % worker_id)
 						current_state = State.SOCIALIZING
@@ -1437,7 +1438,7 @@ func _physics_process(delta: float) -> void:
 						_start_next_idle_step() # Start socializing behavior
 						# var wander_range = 150.0 # Handled by _start_next_idle_step
 						# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-						# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						# _target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 
 		State.RETURNING_FROM_WORK:
 			# Uyku zamanı kontrolü (öncelikli)
@@ -1457,7 +1458,7 @@ func _physics_process(delta: float) -> void:
 					#print("Worker %d going to sleep while returning from work." % worker_id)
 					current_state = State.GOING_TO_SLEEP
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -1474,7 +1475,7 @@ func _physics_process(delta: float) -> void:
 				_start_next_idle_step() # Start socializing behavior
 				# var wander_range = 150.0 # Handled by _start_next_idle_step
 				# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-				# _target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+				# _target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 
 		State.SOCIALIZING:
 			# DEPLOY EDİLMİŞ ASKER İSTİSNASI: Deploy edilmiş askerler SOCIALIZING'e geçmemeli
@@ -1514,7 +1515,7 @@ func _physics_process(delta: float) -> void:
 						# print("[Worker DEBUG] Worker %d: SOCIALIZING'den GOING_TO_SLEEP'e geçiyor, saat: %d:%d" % [worker_id, current_hour, current_minute_social])
 						current_state = State.GOING_TO_SLEEP
 						move_target_x = housing_node.global_position.x
-						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 						idle_activity_timer.stop() # Aktiviteyi durdur
 						_is_briefly_idling = false # <<< Reset flag >>>
 						_current_idle_activity = "" # <<< Reset activity >>>
@@ -1543,12 +1544,12 @@ func _physics_process(delta: float) -> void:
 			# Çünkü worker henüz eve varmamış, bu yüzden uyandırılmamalı
 			# Sabah kontrolü sadece SLEEPING state'inde yapılmalı
 			
-			# Hedef: barınak yürünebilir bantta değilse (örn. kamp ateşi y=-26) hedef Y'yi yürünebilir bantta tut (0..VERTICAL_RANGE_MAX)
+			# Hedef: barınak yürünebilir bantta değilse (örn. kamp ateşi y=-26) hedef Y'yi yürünebilir bantta tut (MIN..MAX)
 			if is_instance_valid(housing_node):
 				move_target_x = housing_node.global_position.x
 				var housing_y = housing_node.global_position.y
-				if housing_y < 0.0 or housing_y > VERTICAL_RANGE_MAX:
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+				if housing_y < VERTICAL_RANGE_MIN or housing_y > VERTICAL_RANGE_MAX:
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 				else:
 					_target_global_y = housing_y + randf_range(-8.0, 8.0)
 			
@@ -1559,7 +1560,7 @@ func _physics_process(delta: float) -> void:
 				horizontal_dist_to_housing = abs(global_position.x - housing_node.global_position.x)
 			
 			# Barınak yürünebilir bantta değilse (kamp ateşi gibi) "vardı" = yatay mesafe yeterince küçük (worker yürünebilir Y'de kalır)
-			var housing_outside_walkable = is_instance_valid(housing_node) and (housing_node.global_position.y < 0.0 or housing_node.global_position.y > VERTICAL_RANGE_MAX)
+			var housing_outside_walkable = is_instance_valid(housing_node) and (housing_node.global_position.y < VERTICAL_RANGE_MIN or housing_node.global_position.y > VERTICAL_RANGE_MAX)
 			var arrived = false
 			if housing_outside_walkable:
 				arrived = horizontal_dist_to_housing < 40.0
@@ -1597,15 +1598,15 @@ func _physics_process(delta: float) -> void:
 					_is_briefly_idling = false
 					_current_idle_activity = ""
 					if is_instance_valid(housing_node):
-						global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+						global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 				else:
 					current_state = State.AWAKE_IDLE
 					visible = true
 					if is_instance_valid(housing_node):
-						global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+						global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 						var wander_range = 150.0
 						move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					_current_idle_activity = ""
 					_is_briefly_idling = false
 					_start_next_idle_step()
@@ -1639,7 +1640,7 @@ func _physics_process(delta: float) -> void:
 				_current_idle_activity = "" # No longer idling
 				if is_instance_valid(assigned_building_node):
 					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
-					global_position = Vector2(assigned_building_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					global_position = Vector2(assigned_building_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 					if assigned_building_node.has_method("finished_fetching"):
 						assigned_building_node.finished_fetching()
 					#else:
@@ -1649,6 +1650,9 @@ func _physics_process(delta: float) -> void:
 		_:
 			pass # Bilinmeyen veya henüz işlenmeyen durumlar
 	
+	# Koylu yurunebilir bant sinirlarini her karede zorla.
+	_enforce_walkable_vertical_band()
+
 	# Z-Index'i ayak pozisyonuna göre güncelle (Y düşük = önde)
 	# Sprite'lar position = Vector2(0, -48) offset'ine sahip, bu yüzden ayaklar daha aşağıda
 	# Su yansımasında görünmesi için z_index'i su sprite'ının z_index'inden (20) düşük tutmalıyız
@@ -1656,6 +1660,11 @@ func _physics_process(delta: float) -> void:
 	var new_z_index = _calculate_z_index_from_foot_y(foot_y)
 	if z_index != new_z_index:
 		z_index = new_z_index
+
+
+func _enforce_walkable_vertical_band() -> void:
+	global_position.y = clampf(global_position.y, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+	_target_global_y = clampf(_target_global_y, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 
 # Ayak pozisyonunu hesapla (sprite offset'i ve yüksekliğini hesaba katarak)
 func get_foot_y_position() -> float:
@@ -1700,9 +1709,9 @@ func _calculate_z_index_from_foot_y(foot_y: float) -> int:
 		elif texture is Texture2D:
 			sprite_height = texture.get_height()
 	
-	# foot_y = global_position.y - 48 + height/2 → yaklaşık 0 (y=0) ile VERTICAL_RANGE_MAX (y=25) arası
+	# foot_y = global_position.y - 48 + height/2 → yaklaşık y=MIN ile y=MAX arası
 	var max_foot_y = VERTICAL_RANGE_MAX - sprite_offset_y + (sprite_height / 2.0)
-	var min_foot_y = 0.0 - sprite_offset_y + (sprite_height / 2.0)
+	var min_foot_y = VERTICAL_RANGE_MIN - sprite_offset_y + (sprite_height / 2.0)
 	var range_foot_y = max_foot_y - min_foot_y
 	
 	# Division by zero kontrolü
@@ -2209,10 +2218,10 @@ func check_hour_transition(new_hour: int) -> void:
 				current_state = State.AWAKE_IDLE
 				visible = true
 				if is_instance_valid(housing_node):
-					global_position = Vector2(housing_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 					var wander_range = 150.0
 					move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 				_current_idle_activity = ""
 				_is_briefly_idling = false
 				_start_next_idle_step()
@@ -2230,7 +2239,7 @@ func check_hour_transition(new_hour: int) -> void:
 					current_state = State.GOING_TO_SLEEP
 					visible = true
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -2246,10 +2255,10 @@ func check_hour_transition(new_hour: int) -> void:
 					visible = true
 					var start_margin = 5.0
 					var start_x = _offscreen_exit_x - start_margin if _offscreen_exit_x < 0 else _offscreen_exit_x + start_margin
-					global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+					global_position = Vector2(start_x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 					if is_instance_valid(assigned_building_node):
 						move_target_x = assigned_building_node.global_position.x
-						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					else:
 						current_state = State.SOCIALIZING
 						_is_briefly_idling = false
@@ -2267,7 +2276,7 @@ func check_hour_transition(new_hour: int) -> void:
 					current_state = State.GOING_TO_SLEEP
 					visible = true
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -2285,7 +2294,7 @@ func check_hour_transition(new_hour: int) -> void:
 					current_state = State.GOING_TO_SLEEP
 					visible = true
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -2302,7 +2311,7 @@ func check_hour_transition(new_hour: int) -> void:
 				if should_finish:
 					visible = true
 					if is_instance_valid(assigned_building_node):
-						global_position = Vector2(assigned_building_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+						global_position = Vector2(assigned_building_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 					if fetching_timer and not fetching_timer.is_stopped():
 						fetching_timer.stop()
 					# Sadece gece saatlerinde uykuya git
@@ -2313,7 +2322,7 @@ func check_hour_transition(new_hour: int) -> void:
 						if is_instance_valid(housing_node):
 							current_state = State.GOING_TO_SLEEP
 							move_target_x = housing_node.global_position.x
-							_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+							_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 							if is_instance_valid(held_item_sprite):
 								held_item_sprite.hide()
 						else:
@@ -2341,7 +2350,7 @@ func check_hour_transition(new_hour: int) -> void:
 				if is_instance_valid(housing_node):
 					current_state = State.GOING_TO_SLEEP
 					move_target_x = housing_node.global_position.x
-					_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
 					_current_idle_activity = ""
@@ -2367,7 +2376,7 @@ func check_hour_transition(new_hour: int) -> void:
 					if is_instance_valid(housing_node) and not _sleep_attempt_failed:
 						current_state = State.GOING_TO_SLEEP
 						move_target_x = housing_node.global_position.x
-						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 						idle_activity_timer.stop()
 						_is_briefly_idling = false
 						_current_idle_activity = ""
@@ -2381,7 +2390,7 @@ func check_hour_transition(new_hour: int) -> void:
 					if not is_work_start_hour or passed_offset:
 						current_state = State.GOING_TO_BUILDING_FIRST
 						move_target_x = assigned_building_node.global_position.x
-						_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 						idle_activity_timer.stop()
 						_is_briefly_idling = false
 						_current_idle_activity = ""
@@ -2413,8 +2422,8 @@ func _start_next_idle_step():
 		var wander_range = 300.0 # Ne kadar uzağa gidebilir - Önceki: 150.0
 		# Hedef X: Mevcut X +/- wander_range
 		move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-		# Hedef Y: 0 ile VERTICAL_RANGE_MAX arasında rastgele
-		_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
+		# Hedef Y: VERTICAL_RANGE_MIN ile VERTICAL_RANGE_MAX arasında rastgele
+		_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 		# #print("Worker %d: New wander target: (%.1f, %.1f)" % [worker_id, move_target_x, _target_global_y]) # Debug
 		# physics_process yürüme animasyonunu (walk) başlatacak
 	else:

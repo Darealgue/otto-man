@@ -5759,6 +5759,8 @@ func _apply_time_of_day(hour: int) -> void:
 	# Worker'lar için saat kontrolü
 	if workers_container != null:
 		for child in workers_container.get_children():
+			if child.is_in_group("cats"):
+				continue
 			var worker := child as Node2D
 			if worker == null:
 				continue
@@ -5884,6 +5886,8 @@ func _update_nearest_npc_name_visibility() -> void:
 	# Worker'ları ekle
 	if workers_container:
 		for child in workers_container.get_children():
+			if child.is_in_group("cats"):
+				continue
 			if child is Node2D:
 				var name_plate_container = child.get_node_or_null("NamePlateContainer")
 				if name_plate_container:
@@ -5929,6 +5933,8 @@ func _hide_all_npc_names() -> void:
 	# Worker'ları gizle
 	if workers_container:
 		for child in workers_container.get_children():
+			if child.is_in_group("cats"):
+				continue
 			if child is Node2D:
 				var name_plate_container = child.get_node_or_null("NamePlateContainer")
 				if name_plate_container:

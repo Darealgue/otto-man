@@ -1,4 +1,4 @@
-[gd_scene load_steps=77 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=79 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
@@ -60,6 +60,8 @@
 [ext_resource type="Script" path="res://village/scripts/WindSwayController.gd" id="55_windsway"]
 [ext_resource type="Script" path="res://village/scripts/FlyingLeavesController.gd" id="56_fleaves"]
 [ext_resource type="PackedScene" uid="uid://cl10qm6gmpk7a" path="res://village/scenes/FlyingLeaf.tscn" id="57_fleaf"]
+[ext_resource type="Script" path="res://village/scripts/VillageCatsController.gd" id="58_catscript"]
+[ext_resource type="PackedScene" uid="uid://cxyn815633j7p" path="res://village/scenes/CatPrototype.tscn" id="59_cat"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_pfood"]
 
@@ -337,6 +339,10 @@ position = Vector2(2, -70)
 
 [node name="WorkersContainer" type="Node2D" parent="."]
 y_sort_enabled = true
+
+[node name="VillageCatsController" type="Node2D" parent="."]
+script = ExtResource("58_catscript")
+cat_scene = ExtResource("59_cat")
 
 [node name="ConcubinesContainer" type="Node2D" parent="."]
 y_sort_enabled = true
