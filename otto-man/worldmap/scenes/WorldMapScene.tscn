@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://worldmap/scripts/WorldMapScene.gd" id="1_world_map"]
+
+[node name="WorldMapScene" type="Node2D"]
+script = ExtResource("1_world_map")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+enabled = true
+zoom = Vector2(1.6, 1.6)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="StatusLabel" type="Label" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 900.0
+offset_bottom = 220.0
+theme_override_font_sizes/font_size = 20
+text = "Harita hazirlaniyor..."
+autowrap_mode = 3

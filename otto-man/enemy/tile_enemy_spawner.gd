@@ -155,12 +155,11 @@ func _spawn_enemy() -> bool:
 	if "set_meta" in enemy:
 		enemy.set_meta("spawned_level", current_level)
 	
-	# Configure BasicEnemy-specific ambient start BEFORE adding to scene (so _ready sees it)
-	if selected_enemy_type == "basic" and enemy is BasicEnemy:
-		var basic_enemy: BasicEnemy = enemy
+	# Configure basic enemy ambient start BEFORE adding to scene (parser-safe, class_name bagimsiz)
+	if selected_enemy_type == "basic" and "start_in_ambient_pose" in enemy:
 		# ~1/5 of basic enemies start in an ambient pose at spawn
 		if randf() < 0.20:
-			basic_enemy.start_in_ambient_pose = true
+			enemy.set("start_in_ambient_pose", true)
 	
 	# Add to scene
 	get_parent().add_child(enemy)

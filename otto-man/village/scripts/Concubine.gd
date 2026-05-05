@@ -11,7 +11,7 @@ enum Status { BOŞTA, GÖREVDE, YARALI, DİNLENİYOR }
 enum Skill { SAVAŞ, DİPLOMASİ, TİCARET, BÜROKRASİ, KEŞİF }
 
 # Cariye rolleri
-enum Role { NONE, KOMUTAN, AJAN, DİPLOMAT, TÜCCAR }
+enum Role { NONE, KOMUTAN, AJAN, DİPLOMAT, TÜCCAR, ALIM, TIBBIYECI }
 
 # Temel cariye bilgileri
 @export var id: int
@@ -223,6 +223,8 @@ func get_role_name() -> String:
 		Role.AJAN: return "Ajan"
 		Role.DİPLOMAT: return "Diplomat"
 		Role.TÜCCAR: return "Tüccar"
+		Role.ALIM: return "Alim"
+		Role.TIBBIYECI: return "Tibbiyeci"
 		_: return "Bilinmeyen"
 
 # En yüksek yetenek

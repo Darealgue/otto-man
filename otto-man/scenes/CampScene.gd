@@ -224,26 +224,11 @@ func _handle_mid_run_selection(index: int) -> void:
 		return
 	var sm = _get_scene_manager()
 
-	# İlk kapı çıkış ise: toplam altın * (1.0 + biriken gold multiplier) köye aktarılır
+	# İlk kapı çıkış ise: ödülleri teslim ETME, dünya haritasına taşı.
 	if has_exit_option and index == 0:
-		var gpd = get_node_or_null("/root/GlobalPlayerData")
-		if is_instance_valid(gpd) and "dungeon_gold" in gpd:
-			var dungeon_gold: int = int(gpd.dungeon_gold)
-			var mult: float = 1.0 + float(drs.gold_multiplier_accumulated)
-			var extracted: int = int(floor(float(dungeon_gold) * mult))
-			if extracted > 0 and gpd.has_method("add_gold"):
-				gpd.add_gold(extracted)
-			if gpd.has_method("clear_dungeon_gold"):
-				gpd.clear_dungeon_gold()
-		var rescued: Dictionary = drs.get_partial_exit_rescued(0.5)
-		var payload: Dictionary = {}
-		payload["source"] = "dungeon"
-		payload["rescued_villagers"] = rescued.get("villagers", [])
-		payload["rescued_cariyes"] = rescued.get("cariyes", [])
-		payload["travel_hours_back"] = 2.0
-		drs.end_run()
-		if sm and sm.has_method("change_to_village"):
-			sm.change_to_village(payload)
+		var payload: Dictionary = {"source": "dungeon", "return_reason": "dungeon_exit"}
+		if sm and sm.has_method("change_to_world_map"):
+			sm.change_to_world_map(payload)
 		return
 
 	# Çıkış kapısı (index 0) yukarıda işlendi; diğer kapılar challenge uygular

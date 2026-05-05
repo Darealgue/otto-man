@@ -64,7 +64,7 @@ var current_concubine_detail_index: int = 0 # Cariye detay sayfasında seçim i�
 var current_concubine_role_popup_open: bool = false
 var concubine_role_popup: Panel = null
 var concubine_role_popup_label: Label = null
-var current_concubine_role_selection: int = 0 # 0: NONE, 1: KOMUTAN, 2: AJAN, 3: DİPLOMAT, 4: TÜCCAR
+var current_concubine_role_selection: int = 0 # Concubine.Role enum degeri (NONE..TIBBIYECI)
 
 # Görev sonucu gösterimi
 var showing_mission_result: bool = false
@@ -137,6 +137,10 @@ var page_dot7: Panel = null
 
 # Görev geçmişi detay alanı (dinamik oluşturulacak)
 var mission_history_detail_label: RichTextLabel = null
+
+# Seçili görev özet şeridi (kodla eklenir; kart listesiyle aynı kaynak)
+var mission_detail_panel: PanelContainer = null
+var mission_detail_label: Label = null
 
 # Sayfa isimleri
 var page_names: Array[String] = ["GÖREVLER", "ATAMALAR", "İNŞAAT", "HABERLER", "CARİYELER", "TİCARET", "DİPLOMASİ"]
@@ -600,7 +604,7 @@ func _on_mission_unlocked(mission_id: String):
 func _on_mission_list_changed() -> void:
 	# Yeni görev eklendi (örn. Haydut Temizliği); görev listesini yenile
 	if current_page == PageType.MISSIONS:
-		update_available_missions_cards()
+		update_missions_ui()
 
 	print("=========================")
 
@@ -2270,6 +2274,162 @@ func update_missions_ui():
 	else:
 		print("[DEBUG_MC] update_missions_ui: current_page MISSIONS değil, çıkılıyor")
 
+func _mission_display_name(m) -> String:
+	if m == null:
+		return "?"
+	if m is Mission:
+		return m.name
+	if m is Dictionary:
+		return str(m.get("name", "?"))
+	return str(m)
+
+func _mission_id_text(m) -> String:
+	if m is Mission:
+		return m.id
+	if m is Dictionary:
+		return str(m.get("id", ""))
+	return ""
+
+func _mission_unique_id(m) -> String:
+	return _mission_id_text(m)
+
+func _get_merged_available_missions() -> Array:
+	if not mission_manager:
+		return []
+	var pool: Array = mission_manager.get_available_missions()
+	var chain_missions_to_show: Array = []
+	if "mission_chains" in mission_manager:
+		for chain_id in mission_manager.mission_chains.keys():
+			var chain_missions = mission_manager.get_chain_missions(chain_id)
+			for m in chain_missions:
+				if m.status == Mission.Status.MEVCUT and m.are_prerequisites_met(mission_manager.get_completed_missions()):
+					chain_missions_to_show.append(m)
+	var unique_ids: Dictionary = {}
+	var merged: Array = []
+	for mission in pool:
+		var uid: String = _mission_unique_id(mission)
+		if uid.is_empty():
+			continue
+		if not unique_ids.has(uid):
+			unique_ids[uid] = true
+			merged.append(mission)
+	for mission in chain_missions_to_show:
+		var uid2: String = _mission_unique_id(mission)
+		if uid2.is_empty():
+			continue
+		if not unique_ids.has(uid2):
+			unique_ids[uid2] = true
+			merged.append(mission)
+	return merged
+
+func _active_mission_remaining_display(m) -> String:
+	if m is Mission and m.has_method("get_remaining_time"):
+		return "%.1f dk" % m.get_remaining_time()
+	if m is Dictionary:
+		return "?"
+	return "?"
+
+func _build_mission_detail_text(m) -> String:
+	if m == null:
+		return ""
+	if m is Mission:
+		var lines: Array = []
+		lines.append("Tür: %s" % m.get_mission_type_name())
+		lines.append("Zorluk: %s" % m.get_difficulty_name())
+		lines.append("Süre: %s" % _format_game_time_minutes(m.duration))
+		lines.append("Başarı şansı: %d%%" % int(m.success_chance * 100))
+		if String(m.completes_incident_id).length() > 0:
+			var hx = String(m.world_hex_key)
+			if hx.is_empty():
+				lines.append("Köprü: yerleşim krizi → %s" % m.target_location)
+			else:
+				lines.append("Köprü: kriz çözümü | %s (%s)" % [m.target_location, hx])
+		elif String(m.completes_alliance_aid_settlement_id).length() > 0:
+			var hxa = String(m.world_hex_key)
+			if hxa.is_empty():
+				lines.append("Köprü: muttefik yardım çağrısı → %s" % m.target_location)
+			else:
+				lines.append("Köprü: muttefik yardım | %s (%s)" % [m.target_location, hxa])
+		elif String(m.world_hex_key).length() > 0:
+			lines.append("Harita hedefi: %s — Kendin git veya cariye gönder." % m.world_hex_key)
+		if String(m.description).length() > 0:
+			lines.append("")
+			lines.append(String(m.description))
+		if not m.rewards.is_empty():
+			lines.append("")
+			lines.append("Ödüller: %s" % str(m.rewards))
+		if not m.penalties.is_empty():
+			lines.append("Cezalar: %s" % str(m.penalties))
+		return _join_detail_lines(lines)
+	if m is Dictionary:
+		var d: Dictionary = m
+		var lines2: Array = []
+		lines2.append("Tür: %s" % str(d.get("type", "?")))
+		lines2.append("Süre: %s" % str(d.get("duration", "?")))
+		var tgt = str(d.get("target", d.get("name", "")))
+		if tgt.length() > 0:
+			lines2.append("Hedef: %s" % tgt)
+		if String(d.get("completes_incident_id", "")).length() > 0:
+			lines2.append("Köprü: komşu yerleşim krizi")
+		elif String(d.get("completes_alliance_aid_settlement_id", "")).length() > 0:
+			lines2.append("Köprü: muttefik yardım çağrısı")
+		return _join_detail_lines(lines2)
+	return str(m)
+
+func _join_detail_lines(lines: Array) -> String:
+	var out := ""
+	for i in range(lines.size()):
+		if i > 0:
+			out += "\n"
+		out += str(lines[i])
+	return out
+
+func _ensure_mission_detail_strip() -> void:
+	if mission_detail_label != null and is_instance_valid(mission_detail_label):
+		return
+	if not missions_page:
+		return
+	var panel := PanelContainer.new()
+	panel.name = "SelectedMissionDetailStrip"
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.11, 0.09, 0.92)
+	sb.set_content_margin_all(8)
+	sb.corner_radius_top_left = 4
+	sb.corner_radius_top_right = 4
+	sb.corner_radius_bottom_left = 4
+	sb.corner_radius_bottom_right = 4
+	panel.add_theme_stylebox_override("panel", sb)
+	var lbl := Label.new()
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(0.88, 0.86, 0.78))
+	lbl.text = ""
+	mission_detail_label = lbl
+	panel.add_child(lbl)
+	mission_detail_panel = panel
+	missions_page.add_child(panel)
+	if missions_page.get_child_count() > 2:
+		missions_page.move_child(panel, 1)
+
+func _refresh_mission_selection_detail() -> void:
+	_ensure_mission_detail_strip()
+	if mission_detail_panel == null or mission_detail_label == null:
+		return
+	var hide_strip := showing_mission_result
+	if current_mission_menu_state == MissionMenuState.GÖREV_GEÇMİŞİ or current_mission_menu_state == MissionMenuState.GEÇMİŞ_DETAYI:
+		hide_strip = true
+	mission_detail_panel.visible = not hide_strip and current_page == PageType.MISSIONS
+	if hide_strip or current_page != PageType.MISSIONS:
+		return
+	var m = get_selected_mission()
+	if m == null:
+		mission_detail_label.text = "Yapılabilir görev yok. Liste güncellenince tekrar deneyin."
+		return
+	var title := _mission_display_name(m)
+	var body := _build_mission_detail_text(m)
+	mission_detail_label.text = "%s\n%s" % [title, body]
+
 # Görev listesi UI'ını güncelle
 func update_mission_list_ui(content_label: Label):
 	if not content_label:
@@ -2283,23 +2443,25 @@ func update_mission_list_ui(content_label: Label):
 		text += "📋 AKTİF GÖREVLER:\n"
 		for cariye_id in active_missions:
 			var mission_id = active_missions[cariye_id]
+			if not mission_manager.missions.has(mission_id):
+				continue
 			var mission = mission_manager.missions[mission_id]
 			var cariye = mission_manager.concubines[cariye_id]
 			
-			var remaining_time = mission.get_remaining_time()
-			text += "• %s → %s (%.1fs kaldı)\n" % [cariye.name, mission.name, remaining_time]
+			var rem = _active_mission_remaining_display(mission)
+			text += "• %s → %s (%s kaldı)\n" % [cariye.name, _mission_display_name(mission), rem]
 		text += "\n"
 	else:
 		text += "📋 AKTİF GÖREV YOK\n\n"
 	
-	# Mevcut görevler (MissionManager'dan)
-	var available_missions = mission_manager.get_available_missions()
+	# Mevcut görevler (birleşik liste — kartlarla aynı)
+	var available_missions = _get_merged_available_missions()
 	if not available_missions.is_empty():
 		text += "📝 YAPILABİLİR GÖREVLER:\n"
 		for i in range(available_missions.size()):
 			var mission = available_missions[i]
 			var selection_marker = " ← SEÇİLİ" if i == current_mission_index else ""
-			text += "• %s%s\n" % [mission.name, selection_marker]
+			text += "• %s%s\n" % [_mission_display_name(mission), selection_marker]
 		text += "\n"
 	else:
 		text += "📝 YAPILABİLİR GÖREV YOK\n\n"
@@ -2324,7 +2486,7 @@ func update_cariye_selection_ui(content_label: Label):
 		return
 	
 	var text = "👥 CARİYE SEÇİMİ:\n\n"
-	text += "Görev: %s\n\n" % selected_mission.name
+	text += "Görev: %s\n\n" % _mission_display_name(selected_mission)
 	
 	# Boşta cariyeler (MissionManager'dan)
 	var idle_cariyeler = mission_manager.get_idle_concubines()
@@ -2351,35 +2513,16 @@ func update_mission_detail_ui(content_label: Label):
 		content_label.text = "❌ Görev bulunamadı!\n\n[B: Geri]"
 		return
 	
+	var title = _mission_display_name(selected_mission)
 	var text = "📋 GÖREV DETAYI:\n\n"
-	text += "İsim: %s\n" % selected_mission.get("isim", "İsimsiz")
-	text += "Tür: %s\n" % selected_mission.get("tur", "Bilinmiyor")
-	text += "Süre: %.1f saniye\n" % selected_mission.get("sure", 0.0)
-	text += "Başarı Şansı: %d%%\n\n" % (selected_mission.get("basari_sansi", 0.7) * 100)
-	
-	# Ödüller
-	var oduller = selected_mission.get("odul", {})
-	if not oduller.is_empty():
-		text += "🎁 ÖDÜLLER:\n"
-		for key in oduller:
-			text += "• %s: %s\n" % [key, oduller[key]]
-		text += "\n"
-	
-	# Cezalar
-	var cezalar = selected_mission.get("ceza", {})
-	if not cezalar.is_empty():
-		text += "⚠️ CEZALAR:\n"
-		for key in cezalar:
-			text += "• %s: %s\n" % [key, cezalar[key]]
-		text += "\n"
-	
-	text += "[B: Geri]"
+	text += "%s\n\n" % title
+	text += _build_mission_detail_text(selected_mission)
+	text += "\n\n[B: Geri]"
 	content_label.text = text
 
 # Seçili görevi döndür
 func get_selected_mission():
-	var available_missions = mission_manager.get_available_missions()
-	
+	var available_missions = _get_merged_available_missions()
 	if current_mission_index < available_missions.size():
 		return available_missions[current_mission_index]
 	return null
@@ -2393,7 +2536,7 @@ func assign_mission_to_cariye():
 		print("❌ Seçili görev bulunamadı!")
 		return false
 	
-	print("✅ Seçili görev: %s (ID: %s)" % [selected_mission.name, selected_mission.id])
+	print("✅ Seçili görev: %s (ID: %s)" % [_mission_display_name(selected_mission), _mission_id_text(selected_mission)])
 	
 	# Boşta cariyeler (MissionManager'dan)
 	var idle_cariyeler = mission_manager.get_idle_concubines()
@@ -2585,7 +2728,7 @@ func cancel_selected_active_mission():
 
 # Yardımcı fonksiyonlar
 func get_available_missions_list():
-	return mission_manager.get_available_missions()
+	return _get_merged_available_missions()
 
 func get_idle_cariyeler_list():
 	return mission_manager.get_idle_concubines()
@@ -2654,7 +2797,7 @@ func show_level_up_notification(cariye: Concubine, new_level: int):
 	showing_mission_result = true
 
 # Görev sonucu içeriğini güncelle
-func update_mission_result_content(cariye: Concubine, mission: Mission, successful: bool, results: Dictionary):
+func update_mission_result_content(cariye: Concubine, mission, successful: bool, results: Dictionary):
 	if not mission_result_content:
 		return
 	
@@ -2683,7 +2826,7 @@ func update_mission_result_content(cariye: Concubine, mission: Mission, successf
 	
 	# Cariye ve görev bilgisi
 	var info_label = Label.new()
-	info_label.text = "👤 %s → 🎯 %s" % [cariye.name, mission.name]
+	info_label.text = "👤 %s → 🎯 %s" % [cariye.name, _mission_display_name(mission)]
 	# info_label.add_theme_font_size_override("font_size", 18)
 	info_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2712,7 +2855,20 @@ func update_mission_result_content(cariye: Concubine, mission: Mission, successf
 	main_container.add_child(spacer3)
 	
 	# Ödüller/Cezalar
-	if successful and mission.rewards.size() > 0:
+	var rewards_dict: Dictionary = {}
+	var penalties_dict: Dictionary = {}
+	if mission is Mission:
+		rewards_dict = mission.rewards
+		penalties_dict = mission.penalties
+	elif mission is Dictionary:
+		var rd = mission.get("rewards", {})
+		var pd = mission.get("penalties", {})
+		if rd is Dictionary:
+			rewards_dict = rd
+		if pd is Dictionary:
+			penalties_dict = pd
+	
+	if successful and rewards_dict.size() > 0:
 		var rewards_label = Label.new()
 		rewards_label.text = "💰 ÖDÜLLER:"
 		# rewards_label.add_theme_font_size_override("font_size", 16)
@@ -2720,8 +2876,8 @@ func update_mission_result_content(cariye: Concubine, mission: Mission, successf
 		rewards_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(rewards_label)
 		
-		for reward_type in mission.rewards:
-			var amount = mission.rewards[reward_type]
+		for reward_type in rewards_dict:
+			var amount = rewards_dict[reward_type]
 			var reward_text = "  • %s: +%d" % [reward_type, amount]
 			var reward_label = Label.new()
 			reward_label.text = reward_text
@@ -2730,7 +2886,7 @@ func update_mission_result_content(cariye: Concubine, mission: Mission, successf
 			reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			main_container.add_child(reward_label)
 	
-	if not successful and mission.penalties.size() > 0:
+	if not successful and penalties_dict.size() > 0:
 		var penalties_label = Label.new()
 		penalties_label.text = "⚠️ CEZALAR:"
 		# penalties_label.add_theme_font_size_override("font_size", 16)
@@ -2738,8 +2894,8 @@ func update_mission_result_content(cariye: Concubine, mission: Mission, successf
 		penalties_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(penalties_label)
 		
-		for penalty_type in mission.penalties:
-			var amount = mission.penalties[penalty_type]
+		for penalty_type in penalties_dict:
+			var amount = penalties_dict[penalty_type]
 			var penalty_text = "  • %s: %d" % [penalty_type, amount]
 			var penalty_label = Label.new()
 			penalty_label.text = penalty_text
@@ -3168,6 +3324,7 @@ func update_missions_ui_cards():
 			cariye_selection_panel.visible = false
 		if mission_result_content:
 			update_mission_result_ui(mission_result_content)
+		_refresh_mission_selection_detail()
 		return
 	else:
 		if mission_result_panel:
@@ -3208,6 +3365,8 @@ func update_missions_ui_cards():
 		var chains_panel = get_node_or_null("MissionsPage/MissionChainsPanel")
 		if chains_panel:
 			chains_panel.visible = false
+	
+	_refresh_mission_selection_detail()
 
 # Yapılabilir görevleri kart olarak güncelle
 
@@ -3225,34 +3384,11 @@ func update_available_missions_cards():
 		print("⚠️ [DEBUG_MC] update_available_missions_cards: mission_manager is null!")
 		return
 		
-	var available_missions = mission_manager.get_available_missions()
-	print("[DEBUG_MC] update_available_missions_cards: Ham görev sayısı: ", available_missions.size())
-	
-	# Zincirlerden yapılabilir görevleri de ekle
-	var chain_missions_to_show: Array = []
-	if mission_manager and "mission_chains" in mission_manager:
-		for chain_id in mission_manager.mission_chains.keys():
-			var chain_missions = mission_manager.get_chain_missions(chain_id)
-			for m in chain_missions:
-				# Sadece henüz tamamlanmamış ve MEVCUT olanlar listelensin
-				if m.status == Mission.Status.MEVCUT and m.are_prerequisites_met(mission_manager.get_completed_missions()):
-					chain_missions_to_show.append(m)
-	print("[DEBUG_MC] update_available_missions_cards: Zincir görev sayısı: ", chain_missions_to_show.size())
-	
-	# Ana listeyle birleştir (aynı ID'yi iki kez ekleme)
-	var unique_ids := {}
-	var merged: Array = []
-	for mission in available_missions:
-		if mission.id not in unique_ids:
-			unique_ids[mission.id] = true
-			merged.append(mission)
-	for mission in chain_missions_to_show:
-		if mission.id not in unique_ids:
-			unique_ids[mission.id] = true
-			merged.append(mission)
-	# Merged listeyi kullan
-	available_missions = merged
+	var available_missions = _get_merged_available_missions()
 	print("[DEBUG_MC] update_available_missions_cards: Final görev sayısı: ", available_missions.size())
+	
+	if not available_missions.is_empty() and current_mission_index >= available_missions.size():
+		current_mission_index = max(0, available_missions.size() - 1)
 	
 	if available_missions.is_empty():
 		print("[DEBUG_MC] update_available_missions_cards: Liste boş, 'Yok' etiketi ekleniyor")
@@ -3300,6 +3436,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	var required_resources: Dictionary
 	var target_location: String
 	var distance: float
+	var is_world_map_order: bool = false
 	
 	if is_dict:
 		# Dictionary görevleri için
@@ -3315,6 +3452,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		required_resources = mission.get("required_resources", {})
 		target_location = mission.get("target", mission.get("attacker", ""))
 		distance = float(mission.get("distance", 0.0))
+		is_world_map_order = String(mission.get("source", "")) == "world_map"
 		
 		# Emoji belirleme
 		match mission_type_str:
@@ -3336,6 +3474,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		required_resources = mission.required_resources
 		target_location = mission.target_location
 		distance = mission.distance
+		is_world_map_order = String(mission.id).begins_with("worldmap_") or String(mission.name).begins_with("Harita ")
 		
 		# Emoji belirleme
 		if mission.mission_type == Mission.MissionType.SAVAŞ:
@@ -3397,6 +3536,35 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(title_label)
 	
+	var relief_line: String = ""
+	if is_dict:
+		var cid_dict: String = String(mission.get("completes_incident_id", ""))
+		var tl_dict: String = String(mission.get("target_location", mission.get("name", "")))
+		if not cid_dict.is_empty():
+			relief_line = "Komsu kriz | %s" % tl_dict
+		elif String(mission.get("completes_alliance_aid_settlement_id", "")).length() > 0:
+			relief_line = "Muttefik yardim cagrisi | %s" % tl_dict
+	else:
+		if String(mission.completes_incident_id).length() > 0:
+			var hex_hint: String = String(mission.world_hex_key)
+			if hex_hint.is_empty():
+				relief_line = "Komsu kriz yardimi | %s" % mission.target_location
+			else:
+				relief_line = "Komsu kriz yardimi | %s (%s)" % [mission.target_location, hex_hint]
+		elif String(mission.completes_alliance_aid_settlement_id).length() > 0:
+			var hex_a: String = String(mission.world_hex_key)
+			if hex_a.is_empty():
+				relief_line = "Muttefik yardim cagrisi | %s" % mission.target_location
+			else:
+				relief_line = "Muttefik yardim cagrisi | %s (%s)" % [mission.target_location, hex_a]
+	if not relief_line.is_empty():
+		var relief_label = Label.new()
+		relief_label.text = relief_line
+		relief_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+		relief_label.add_theme_font_size_override("font_size", 12)
+		relief_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(relief_label)
+	
 	# Rozetler: Zorluk, Risk, Süre
 	var badges = HBoxContainer.new()
 	badges.add_theme_constant_override("separation", 8)
@@ -3417,6 +3585,34 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		# urgent_badge.add_theme_font_size_override("font_size", 11)
 		urgent_badge.add_theme_color_override("font_color", Color(1, 0.3, 0.3, 1))
 		badges.add_child(urgent_badge)
+	
+	# Harita emri rozeti
+	if is_world_map_order:
+		var map_badge = Label.new()
+		map_badge.text = "🗺️ Harita Emri"
+		map_badge.add_theme_color_override("font_color", Color(0.72, 0.95, 1.0, 1.0))
+		badges.add_child(map_badge)
+	
+	if is_dict and String(mission.get("completes_incident_id", "")).length() > 0:
+		var relief_badge = Label.new()
+		relief_badge.text = "🏘️ Komşu Yardım"
+		relief_badge.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0, 1.0))
+		badges.add_child(relief_badge)
+	elif is_dict and (String(mission.get("id", "")).begins_with("ally_relief_") or String(mission.get("completes_alliance_aid_settlement_id", "")).length() > 0):
+		var ally_badge_d = Label.new()
+		ally_badge_d.text = "🤝 Muttefik Yardım"
+		ally_badge_d.add_theme_color_override("font_color", Color(0.82, 0.95, 0.88, 1.0))
+		badges.add_child(ally_badge_d)
+	elif not is_dict and (String(mission.id).begins_with("relief_") or String(mission.completes_incident_id).length() > 0):
+		var relief_badge2 = Label.new()
+		relief_badge2.text = "🏘️ Komşu Yardım"
+		relief_badge2.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0, 1.0))
+		badges.add_child(relief_badge2)
+	elif not is_dict and (String(mission.id).begins_with("ally_relief_") or String(mission.completes_alliance_aid_settlement_id).length() > 0):
+		var ally_badge = Label.new()
+		ally_badge.text = "🤝 Muttefik Yardım"
+		ally_badge.add_theme_color_override("font_color", Color(0.82, 0.95, 0.88, 1.0))
+		badges.add_child(ally_badge)
 
 	var diff_badge = Label.new()
 	diff_badge.text = "🎯 %s" % difficulty_name
@@ -3484,7 +3680,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		var travel_label = Label.new()
 		var dist_text = "%.1f gün" % distance if distance > 0.0 else "-"
 		var tgt_text = target_location if target_location != "" else "Bilinmeyen"
-		travel_label.text = "Hedef: %s | Mesafe: %s" % [tgt_text, dist_text]
+		travel_label.text = "Hedef Yerlesim: %s | Mesafe: %s" % [tgt_text, dist_text]
 		# travel_label.add_theme_font_size_override("font_size", 10)
 		travel_label.add_theme_color_override("font_color", Color(0.85,0.85,0.85,1))
 		vbox.add_child(travel_label)
@@ -4475,7 +4671,7 @@ func handle_missions_up():
 	print("📋 handle_missions_up() çağrıldı - Menü durumu: %s" % MissionMenuState.keys()[current_mission_menu_state])
 	match current_mission_menu_state:
 		MissionMenuState.GÖREV_LISTESİ:
-			var available_missions = mission_manager.get_available_missions()
+			var available_missions = _get_merged_available_missions()
 			print("📋 Görev listesi - Mevcut index: %d, Toplam görev: %d" % [current_mission_index, available_missions.size()])
 			if not available_missions.is_empty():
 				current_mission_index = max(0, current_mission_index - 1)
@@ -4509,7 +4705,7 @@ func handle_missions_down():
 	print("📋 handle_missions_down() çağrıldı - Menü durumu: %s" % MissionMenuState.keys()[current_mission_menu_state])
 	match current_mission_menu_state:
 		MissionMenuState.GÖREV_LISTESİ:
-			var available_missions = mission_manager.get_available_missions()
+			var available_missions = _get_merged_available_missions()
 			print("📋 Görev listesi - Mevcut index: %d, Toplam görev: %d" % [current_mission_index, available_missions.size()])
 			if not available_missions.is_empty():
 				current_mission_index = min(available_missions.size() - 1, current_mission_index + 1)
@@ -4545,7 +4741,7 @@ func handle_missions_accept():
 	match current_mission_menu_state:
 		MissionMenuState.GÖREV_LISTESİ:
 			# Görev seçildi, cariye seçimine geç (asker sayısı cariye ekranında sol/sağ ile ayarlanır)
-			var available_missions = mission_manager.get_available_missions()
+			var available_missions = _get_merged_available_missions()
 			if not available_missions.is_empty() and current_mission_index < available_missions.size():
 				current_mission_menu_state = MissionMenuState.CARİYE_SEÇİMİ
 				current_cariye_index = 0
@@ -4577,7 +4773,7 @@ func handle_missions_select():
 
 # Seçili görevi asker sayısıyla ata
 func assign_selected_mission_with_soldiers():
-	var available_missions = mission_manager.get_available_missions()
+	var available_missions = _get_merged_available_missions()
 	var idle_cariyeler = mission_manager.get_idle_concubines()
 	
 	if available_missions.is_empty() or idle_cariyeler.is_empty():
@@ -4588,14 +4784,17 @@ func assign_selected_mission_with_soldiers():
 	
 	var mission = available_missions[current_mission_index]
 	var cariye = idle_cariyeler[current_cariye_index]
+	var mid: String = _mission_id_text(mission)
+	if mid.is_empty():
+		return
 	
 	print("=== GÖREV ATAMA DEBUG (ASKERLERLE) ===")
-	print("Görev: %s (ID: %s)" % [mission.name, mission.id])
+	print("Görev: %s (ID: %s)" % [_mission_display_name(mission), mid])
 	print("Cariye: %s (ID: %d)" % [cariye.name, cariye.id])
 	print("Asker sayısı: %d" % current_soldier_count)
 	
 	# MissionManager'a görev ata (asker sayısıyla)
-	var success = mission_manager.assign_mission_to_concubine(cariye.id, mission.id, current_soldier_count)
+	var success = mission_manager.assign_mission_to_concubine(cariye.id, mid, current_soldier_count)
 	
 	if success:
 		print("✅ Görev başarıyla atandı!")
@@ -4626,7 +4825,7 @@ func _get_available_soldier_count() -> int:
 
 # Seçili görevi ata
 func assign_selected_mission():
-	var available_missions = mission_manager.get_available_missions()
+	var available_missions = _get_merged_available_missions()
 	var idle_cariyeler = mission_manager.get_idle_concubines()
 	
 	if available_missions.is_empty() or idle_cariyeler.is_empty():
@@ -4637,13 +4836,16 @@ func assign_selected_mission():
 	
 	var mission = available_missions[current_mission_index]
 	var cariye = idle_cariyeler[current_cariye_index]
+	var mid2: String = _mission_id_text(mission)
+	if mid2.is_empty():
+		return
 	
 	print("=== GÖREV ATAMA DEBUG ===")
-	print("Görev: %s (ID: %s)" % [mission.name, mission.id])
+	print("Görev: %s (ID: %s)" % [_mission_display_name(mission), mid2])
 	print("Cariye: %s (ID: %d)" % [cariye.name, cariye.id])
 	
 	# MissionManager'a görev ata
-	var success = mission_manager.assign_mission_to_concubine(cariye.id, mission.id)
+	var success = mission_manager.assign_mission_to_concubine(cariye.id, mid2)
 	
 	if success:
 		print("✅ Görev başarıyla atandı!")
@@ -4800,26 +5002,11 @@ func handle_news_input(event):
 		update_news_ui()
 
 func _on_news_posted(news: Dictionary):
-	# Haberler MissionCenter'da doğrudan saklanıyor
+	# Tek kaynak: MissionManager.post_news kuyrukları (yinelenen giriş yapılmaz)
 	var is_village = news.get("category", "") in ["Başarı", "Bilgi"]
 	print("📰 ===== YENİ HABER DEBUG =====")
 	print("📰 Yeni haber geldi: ", news.get("title", "Başlık yok"), " | Village: ", is_village)
 	print("📰 Mevcut sayfa: ", current_page, " | NEWS sayfası mı: ", current_page == PageType.NEWS)
-
-	# Haberleri MissionCenter'da doğrudan sakla
-	if is_village:
-		news_queue_village.push_front(news)
-		# Kuyruk boyutunu sınırla (son 50 haber)
-		if news_queue_village.size() > 50:
-			news_queue_village = news_queue_village.slice(0, 50)
-		print("📰 ✅ Village haber MissionCenter'da saklandı: ", news_queue_village.size())
-			
-	else:
-		news_queue_world.push_front(news)
-		# Kuyruk boyutunu sınırla (son 50 haber)
-		if news_queue_world.size() > 50:
-			news_queue_world = news_queue_world.slice(0, 50)
-		print("📰 ✅ World haber MissionCenter'da saklandı: ", news_queue_world.size())
 
 	# Sadece haber sayfasındaysak UI'ya ekle
 	if current_page == PageType.NEWS:
@@ -7677,14 +7864,6 @@ func update_news_ui():
 	if MissionManager and MissionManager.has_method("get_village_news") and MissionManager.has_method("get_world_news"):
 		village_news = MissionManager.get_village_news()
 		world_news = MissionManager.get_world_news()
-		# Ayrıca MissionCenter içindeki anlık kuyrukla birleştir (runtime gelenler kaybolmasın)
-		for n in news_queue_village:
-			village_news.append(n)
-		for n2 in news_queue_world:
-			world_news.append(n2)
-		# Son eklenen en önde kalsın
-		village_news.reverse()
-		world_news.reverse()
 	else:
 		# Yedek: MissionCenter'daki yerel kuyruklar
 		village_news = news_queue_village.duplicate(true)
@@ -8694,7 +8873,9 @@ func update_concubine_role_popup():
 		{"id": 1, "name": "Komutan", "active": true},
 		{"id": 2, "name": "Ajan", "active": false},
 		{"id": 3, "name": "Diplomat", "active": false},
-		{"id": 4, "name": "Tüccar", "active": true}
+		{"id": 4, "name": "Tüccar", "active": true},
+		{"id": 5, "name": "Alim", "active": true},
+		{"id": 6, "name": "Tibbiyeci", "active": true}
 	]
 	
 	for role in roles:
@@ -8718,7 +8899,7 @@ func handle_concubine_role_popup_input(event):
 		current_concubine_role_selection = max(0, current_concubine_role_selection - 1)
 		update_concubine_role_popup()
 	elif Input.is_action_just_pressed("ui_down"):
-		current_concubine_role_selection = min(4, current_concubine_role_selection + 1)
+		current_concubine_role_selection = min(int(Concubine.Role.TIBBIYECI), current_concubine_role_selection + 1)
 		update_concubine_role_popup()
 	
 	# A tuşu: Rolü uygula

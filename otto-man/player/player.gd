@@ -743,9 +743,25 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 func _should_apply_damage_resource_penalty(attacker: Node2D) -> bool:
 	# Flying enemies are frequent chip-damage sources; skip resource/gold loss for those hits.
 	if attacker != null and is_instance_valid(attacker):
-		if attacker is FlyingEnemy:
+		if _is_flying_enemy_attacker(attacker):
 			return false
 	return true
+
+func _is_flying_enemy_attacker(attacker: Node2D) -> bool:
+	# Parser-safe kontrol: class type referansi kullanma.
+	if attacker == null or not is_instance_valid(attacker):
+		return false
+	if attacker.has_method("is_returning"):
+		return true
+	var scene_path := String(attacker.scene_file_path).to_lower()
+	if "flying" in scene_path or "bird" in scene_path:
+		return true
+	var sc: Variant = attacker.get_script()
+	if sc is Script:
+		var script_path := String((sc as Script).resource_path).to_lower()
+		if "flying" in script_path or "bird" in script_path:
+			return true
+	return false
 
 func heal(amount: float):
 	var player_stats = get_node("/root/PlayerStats")

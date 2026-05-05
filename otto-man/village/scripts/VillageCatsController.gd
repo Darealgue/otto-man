@@ -2,6 +2,19 @@ extends Node2D
 
 @export var cat_scene: PackedScene
 @export var max_cats: int = 3
+## Aciksa kedi sayisini köylü nüfusuna göre dinamik hesaplar (tam kesin oran degil).
+@export var scale_cats_with_population: bool = true
+## Yaklasik oran: bu kadar köylüye 1 kedi (rastgele sapma ile).
+@export var workers_per_cat_mean: float = 5.0
+## Orana eklenecek rastgele sapma payi (daha "asagi yukari" dagilim).
+@export var workers_per_cat_jitter: float = 1.6
+## Nüfustan bagimsiz taban kedi katkisi.
+@export var base_cat_bias: float = 0.35
+## Hesaplanan hedefe eklenecek rastgele kedi sapmasi.
+@export var target_cat_jitter: float = 0.7
+## Dinamik hedef alt/ust sinirlari.
+@export var dynamic_min_cats: int = 1
+@export var dynamic_max_cats: int = 9
 @export var spawn_threshold: float = 0.60
 @export var despawn_threshold: float = 0.40
 @export var min_spawn_interval: float = 3.0
@@ -32,6 +45,11 @@ var _resource_poll_timer: float = 0.0
 var _prosperity_score: float = 0.0
 var _cached_roof_points: Array[Dictionary] = []
 var _roof_scan_timer: float = 0.0
+var _population_target_update_timer: float = 0.0
+var _cached_population_target_cats: int = 1
+var _cat_profiles: Dictionary = {}
+var _active_cat_profile_ids: Dictionary = {}
+var _next_cat_profile_seq: int = 1
 
 var _cats_container: Node2D
 
@@ -46,6 +64,8 @@ func _ready() -> void:
 		cat_scene = preload("res://village/scenes/CatPrototype.tscn")
 	_spawn_timer = randf_range(min_spawn_interval, max_spawn_interval)
 	_cat_social_timer = randf_range(cat_play_interval_min, cat_play_interval_max)
+	_cached_population_target_cats = _compute_population_target_cats()
+	_population_target_update_timer = randf_range(2.0, 4.0)
 
 func _process(delta: float) -> void:
 	if _cats_container == null:
@@ -54,9 +74,15 @@ func _process(delta: float) -> void:
 	_roof_scan_timer -= delta
 	_spawn_timer -= delta
 	_cat_social_timer -= delta
+	_population_target_update_timer -= delta
+
+	if _population_target_update_timer <= 0.0:
+		_population_target_update_timer = randf_range(2.0, 4.0)
+		_cached_population_target_cats = _compute_population_target_cats()
 
 	if _resource_poll_timer <= 0.0:
 		_resource_poll_timer = 1.0
+		_refresh_active_cat_profile_ids()
 		_prosperity_score = _compute_prosperity_score()
 		_sync_cat_roam_bounds()
 		if debug_cat_controller:
@@ -67,9 +93,12 @@ func _process(delta: float) -> void:
 		_roof_scan_timer = 2.5
 		_cached_roof_points = _collect_roof_points()
 
-	if _prosperity_score >= spawn_threshold:
+	var current_cats: int = _count_cats_in_workers_container()
+	var target_cats: int = _get_target_cat_count()
+
+	if _prosperity_score >= spawn_threshold and current_cats < target_cats:
 		_try_spawn_cat()
-	elif _prosperity_score <= despawn_threshold:
+	elif _prosperity_score <= despawn_threshold and current_cats > target_cats:
 		_despawn_one_cat()
 
 	_update_cats_roof_intent(delta)
@@ -81,12 +110,17 @@ func _process(delta: float) -> void:
 		_try_trigger_cat_play_social()
 
 func _try_spawn_cat() -> void:
-	if _spawn_timer > 0.0 or _count_cats_in_workers_container() >= max_cats:
+	var hard_cap: int = _get_spawn_cap()
+	if _spawn_timer > 0.0 or _count_cats_in_workers_container() >= hard_cap:
 		return
 	if cat_scene == null:
 		return
 
 	var cat := cat_scene.instantiate()
+	var profile_id: String = _acquire_profile_id_for_spawn()
+	var profile_data: Dictionary = _cat_profiles.get(profile_id, {})
+	if profile_data.has("color") and cat.has_method("set_persistent_identity"):
+		cat.set_persistent_identity(profile_id, profile_data.get("color", Color(1.0, 1.0, 1.0, 1.0)))
 	var roam_bounds := _get_roam_bounds()
 	if cat.has_method("set_roam_bounds"):
 		cat.set_roam_bounds(roam_bounds)
@@ -98,11 +132,19 @@ func _try_spawn_cat() -> void:
 		cat.set_spawn_position(spawn_pos)
 	cat.debug_motion = debug_cat_controller
 	_cats_container.add_child(cat)
+	_active_cat_profile_ids[profile_id] = true
+	if not profile_data.has("color") and cat.has_method("get_current_color_variant"):
+		_cat_profiles[profile_id] = {
+			"color": cat.get_current_color_variant()
+		}
 	_spawn_timer = randf_range(min_spawn_interval, max_spawn_interval)
 
 func _despawn_one_cat() -> void:
 	for child in _cats_container.get_children():
 		if child.is_in_group("cats"):
+			var profile_id: String = _get_profile_id_from_cat(child)
+			if not profile_id.is_empty():
+				_active_cat_profile_ids.erase(profile_id)
 			child.queue_free()
 			break
 	_spawn_timer = randf_range(min_spawn_interval, max_spawn_interval)
@@ -206,6 +248,95 @@ func _count_cats_in_workers_container() -> int:
 		if c.is_in_group("cats"):
 			n += 1
 	return n
+
+
+func _count_workers_in_workers_container() -> int:
+	if _cats_container == null:
+		return 0
+	var n := 0
+	for c in _cats_container.get_children():
+		if c.is_in_group("cats"):
+			continue
+		if c is Node2D:
+			n += 1
+	return n
+
+
+func _get_target_cat_count() -> int:
+	if not scale_cats_with_population:
+		return max(0, max_cats)
+	return _cached_population_target_cats
+
+
+func _get_spawn_cap() -> int:
+	if not scale_cats_with_population:
+		return max(0, max_cats)
+	# Dinamik hedef ustune cikmasin; ama editor max_cats de mutlak tavan gibi calissin.
+	var dynamic_cap: int = max(0, dynamic_max_cats)
+	var editor_cap: int = max(0, max_cats)
+	var target_cap: int = max(0, _cached_population_target_cats)
+	return min(dynamic_cap, max(editor_cap, target_cap))
+
+
+func _compute_population_target_cats() -> int:
+	if not scale_cats_with_population:
+		return max(0, max_cats)
+	var workers: int = _count_workers_in_workers_container()
+	var ratio: float = maxf(1.5, workers_per_cat_mean + randf_range(-workers_per_cat_jitter, workers_per_cat_jitter))
+	var base: float = (float(workers) / ratio) + base_cat_bias
+	var target_f: float = base + randf_range(-target_cat_jitter, target_cat_jitter)
+	var target_i: int = int(round(target_f))
+	return clampi(target_i, dynamic_min_cats, dynamic_max_cats)
+
+
+func _acquire_profile_id_for_spawn() -> String:
+	var inactive_ids: Array[String] = []
+	for key in _cat_profiles.keys():
+		var id: String = str(key)
+		if not _active_cat_profile_ids.has(id):
+			inactive_ids.append(id)
+	if not inactive_ids.is_empty():
+		return inactive_ids[randi() % inactive_ids.size()]
+	return _create_new_profile_id()
+
+
+func _create_new_profile_id() -> String:
+	var new_id := "cat_%03d" % _next_cat_profile_seq
+	_next_cat_profile_seq += 1
+	_cat_profiles[new_id] = {}
+	return new_id
+
+
+func _get_profile_id_from_cat(cat_node: Node) -> String:
+	if cat_node == null:
+		return ""
+	if cat_node.has_method("get_persistent_cat_id"):
+		return str(cat_node.get_persistent_cat_id())
+	return ""
+
+
+func _refresh_active_cat_profile_ids() -> void:
+	_active_cat_profile_ids.clear()
+	if _cats_container == null:
+		return
+	for child in _cats_container.get_children():
+		if not child.is_in_group("cats"):
+			continue
+		var profile_id: String = _get_profile_id_from_cat(child)
+		if profile_id.is_empty():
+			profile_id = _create_new_profile_id()
+			var fallback_color := Color(1.0, 1.0, 1.0, 1.0)
+			if _cat_profiles.has(profile_id) and _cat_profiles[profile_id] is Dictionary:
+				var existing: Dictionary = _cat_profiles[profile_id]
+				if existing.has("color"):
+					fallback_color = existing.get("color", fallback_color)
+			elif child.has_method("get_current_color_variant"):
+				fallback_color = child.get_current_color_variant()
+			if child.has_method("set_persistent_identity"):
+				child.set_persistent_identity(profile_id, fallback_color)
+			if not _cat_profiles.has(profile_id):
+				_cat_profiles[profile_id] = {"color": fallback_color}
+		_active_cat_profile_ids[profile_id] = true
 
 
 func _get_roam_bounds() -> Rect2:

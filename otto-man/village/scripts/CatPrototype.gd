@@ -182,6 +182,9 @@ var _arrivals_without_idle: int = 0
 var _force_descend_anim_until_y: float = INF
 var _ground_line_lock_timer: float = 0.0
 var _post_roof_y_lock_timer: float = 0.0
+var _persistent_cat_id: String = ""
+var _has_forced_color_variant: bool = false
+var _forced_color_variant: Color = Color(1.0, 1.0, 1.0, 1.0)
 
 
 func _ready() -> void:
@@ -528,6 +531,9 @@ func _apply_sprite_frames() -> void:
 func _apply_spawn_color_variant() -> void:
 	if _sprite == null:
 		return
+	if _has_forced_color_variant:
+		_sprite.self_modulate = _forced_color_variant
+		return
 	if not enable_random_color_variants:
 		_sprite.self_modulate = Color(1.0, 1.0, 1.0, 1.0)
 		return
@@ -535,6 +541,24 @@ func _apply_spawn_color_variant() -> void:
 		return
 	var picked: Color = cat_color_variants[randi() % cat_color_variants.size()]
 	_sprite.self_modulate = picked
+
+
+func set_persistent_identity(cat_id: String, color_variant: Color) -> void:
+	_persistent_cat_id = cat_id
+	_has_forced_color_variant = true
+	_forced_color_variant = color_variant
+	if _sprite != null:
+		_sprite.self_modulate = _forced_color_variant
+
+
+func get_persistent_cat_id() -> String:
+	return _persistent_cat_id
+
+
+func get_current_color_variant() -> Color:
+	if _sprite == null:
+		return Color(1.0, 1.0, 1.0, 1.0)
+	return _sprite.self_modulate
 
 
 func _auto_align_sprite_to_collision_bottom() -> void:

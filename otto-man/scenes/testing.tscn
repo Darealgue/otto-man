@@ -664,45 +664,61 @@ position = Vector2(-236, 391)
 
 [node name="Bird Summoner" parent="." instance=ExtResource("9_2cr2j")]
 position = Vector2(4120, -245)
+stats = null
 
 [node name="Bird Summoner2" parent="." instance=ExtResource("9_2cr2j")]
 position = Vector2(2307, 642)
+stats = null
 
 [node name="Bird Summoner3" parent="." instance=ExtResource("9_2cr2j")]
 position = Vector2(-1369, 605)
+stats = null
 
 [node name="MovingPlatform" parent="." instance=ExtResource("10_pe5ap")]
 position = Vector2(3034, 1016)
 
 [node name="HeavyEnemy" parent="." instance=ExtResource("8_27mkv")]
 position = Vector2(2022, 939)
+stats = null
+debug_enabled = false
 
 [node name="HeavyEnemy2" parent="." instance=ExtResource("8_27mkv")]
 position = Vector2(-898, 879)
+stats = null
+debug_enabled = false
 
 [node name="HeavyEnemy3" parent="." instance=ExtResource("8_27mkv")]
 position = Vector2(594, 899)
+stats = null
+debug_enabled = false
 
 [node name="HeavyEnemy4" parent="." instance=ExtResource("8_27mkv")]
 position = Vector2(5526, 531)
+stats = null
+debug_enabled = false
 
 [node name="TurtleEnemy" parent="." instance=ExtResource("11_xi0ju")]
 position = Vector2(54, -340)
 
 [node name="FiremageEnemy" parent="." instance=ExtResource("12_ai8sj")]
 position = Vector2(-1064, -387)
+stats = null
 
 [node name="CanonmanEnemy2" parent="." instance=ExtResource("13_hxn4q")]
 position = Vector2(-5413, 581)
+stats = null
 
 [node name="CanonmanEnemy3" parent="." instance=ExtResource("13_hxn4q")]
 position = Vector2(-4083, 577)
+stats = null
 
 [node name="FiremageEnemy3" parent="." instance=ExtResource("12_ai8sj")]
 position = Vector2(-5196, 200)
+stats = null
 
 [node name="FiremageEnemy4" parent="." instance=ExtResource("12_ai8sj")]
 position = Vector2(-4399, 200)
+stats = null
 
 [node name="SpearmanEnemy" parent="." instance=ExtResource("14_esqh1")]
 position = Vector2(1070, 938)
@@ -715,12 +731,17 @@ position = Vector2(-4389, 886)
 
 [node name="Bird Summoner4" parent="." instance=ExtResource("9_2cr2j")]
 position = Vector2(-4750, 562)
+stats = null
 
 [node name="HeavyEnemy5" parent="." instance=ExtResource("8_27mkv")]
 position = Vector2(-5636, 870)
+stats = null
+debug_enabled = false
 
 [node name="HeavyEnemy6" parent="." instance=ExtResource("8_27mkv")]
 position = Vector2(-3871, 857)
+stats = null
+debug_enabled = false
 
 [node name="TurtleEnemy2" parent="." instance=ExtResource("11_xi0ju")]
 position = Vector2(-4892, 676)
@@ -740,11 +761,16 @@ position = Vector2(-1777, 600)
 
 [node name="FiremageEnemy2" parent="." instance=ExtResource("12_ai8sj")]
 position = Vector2(-2147, 621)
+stats = null
 
 [node name="BasicEnemy" parent="." instance=ExtResource("17_euwxu")]
 position = Vector2(-29, 680)
 debug_chase_wall = true
+stats = null
+debug_enabled = false
 
 [node name="BasicEnemy2" parent="." instance=ExtResource("17_euwxu")]
 position = Vector2(242, 683)
 debug_chase_wall = true
+stats = null
+debug_enabled = false

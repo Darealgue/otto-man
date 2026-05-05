@@ -2710,23 +2710,10 @@ func _on_door_opened(door_type: String) -> void:
 			var sm = get_node_or_null("/root/SceneManager")
 
 			if drs.is_run_complete():
-				# 3 segment tamamlandı — tüm ödüllerle köye dön
-				var gpd = get_node_or_null("/root/GlobalPlayerData")
-				if is_instance_valid(gpd) and "dungeon_gold" in gpd:
-					var dungeon_gold: int = int(gpd.dungeon_gold)
-					var mult: float = 1.0 + float(drs.gold_multiplier_accumulated)
-					var extracted: int = int(floor(float(dungeon_gold) * mult))
-					if extracted > 0 and gpd.has_method("add_gold"):
-						gpd.add_gold(extracted)
-					if gpd.has_method("clear_dungeon_gold"):
-						gpd.clear_dungeon_gold()
-				var rescued: Dictionary = drs.get_and_clear_pending_rescued()
-				payload["rescued_villagers"] = rescued.get("villagers", [])
-				payload["rescued_cariyes"] = rescued.get("cariyes", [])
-				drs.end_run()
-				print("[LevelGenerator] Run complete (%d segments) -> Village with full rewards" % drs.MAX_SEGMENTS)
-				if sm and sm.has_method("change_to_village"):
-					sm.change_to_village(payload)
+				# 3 segment tamamlandı — ödüller dünya haritasında taşınsın, köyde teslim edilsin.
+				print("[LevelGenerator] Run complete (%d segments) -> WorldMap (carry rewards)" % drs.MAX_SEGMENTS)
+				if sm and sm.has_method("change_to_world_map"):
+					sm.change_to_world_map({"source": "dungeon", "return_reason": "dungeon_exit"})
 				else:
 					is_transitioning = false
 				return

@@ -1154,6 +1154,11 @@ func _simulate_events_during_skip(total_minutes: int, start_day: int, end_day: i
 	return changed
 
 const DEBUG_VILLAGE_MANAGER: bool = false
+const LOAD_IDLE_SPREAD_X_RANGE: float = 180.0
+const LOAD_IDLE_WANDER_TARGET_RANGE: float = 120.0
+const LOAD_IDLE_Y_MIN: float = 5.0
+const LOAD_IDLE_Y_MAX: float = 30.0
+const WORKER_OFFSCREEN_LOAD_DISTANCE: float = 5500.0
 
 func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 	if DEBUG_VILLAGE_MANAGER:
@@ -1341,9 +1346,9 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 				else:
 					if assigned_building is Node2D:
 						var building_pos = (assigned_building as Node2D).global_position
-						var offscreen_x: float = -2500.0
+						var offscreen_x: float = -WORKER_OFFSCREEN_LOAD_DISTANCE
 						if building_pos.x >= 960:
-							offscreen_x = 2500.0
+							offscreen_x = WORKER_OFFSCREEN_LOAD_DISTANCE
 						
 						if worker_instance is Node2D:
 							var worker_node2d = worker_instance as Node2D
@@ -1382,6 +1387,7 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 			else:
 				# Normal işçiler için AWAKE_IDLE state'ine ayarla
 				worker_instance.current_state = 1
+				_place_worker_for_loaded_idle(worker_instance, assigned_building)
 				worker_instance.visible = true
 			
 			# Eğer worker'ın bir işi varsa ve çalışma saati yakınsa, işe gitmesi için kontrol et
@@ -1411,6 +1417,28 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 			print("[VillageManager] ☀️ DEBUG: Worker %d set to awake idle state" % saved_worker_id)
 	
 	print("[VillageManager] ✅ DEBUG: Applied %d worker states (out of %d saved)" % [applied_count, _saved_worker_states.size()])
+
+func _place_worker_for_loaded_idle(worker_instance: Node, assigned_building: Node2D) -> void:
+	if not (worker_instance is Node2D):
+		return
+	
+	var worker_node2d := worker_instance as Node2D
+	var anchor_x: float = worker_node2d.global_position.x
+	
+	if is_instance_valid(assigned_building):
+		anchor_x = assigned_building.global_position.x
+	else:
+		var housing = worker_instance.get("housing_node") if worker_instance.has_method("get") else null
+		if is_instance_valid(housing) and housing is Node2D:
+			anchor_x = (housing as Node2D).global_position.x
+		elif is_instance_valid(campfire_node):
+			anchor_x = campfire_node.global_position.x
+	
+	var spawn_x = anchor_x + randf_range(-LOAD_IDLE_SPREAD_X_RANGE, LOAD_IDLE_SPREAD_X_RANGE)
+	var spawn_y = randf_range(LOAD_IDLE_Y_MIN, LOAD_IDLE_Y_MAX)
+	worker_node2d.global_position = Vector2(spawn_x, spawn_y)
+	worker_instance.set("move_target_x", spawn_x + randf_range(-LOAD_IDLE_WANDER_TARGET_RANGE, LOAD_IDLE_WANDER_TARGET_RANGE))
+	worker_instance.set("_target_global_y", randf_range(LOAD_IDLE_Y_MIN, LOAD_IDLE_Y_MAX))
 
 func _sync_soldiers_with_missions() -> void:
 	"""Görev ormandayken tamamlandıysa askerler geri çağrılmamış olabilir (sahne yoktu).
@@ -1526,6 +1554,8 @@ var _daily_production_counter: Dictionary = {
 	"soap": 0
 }
 var village_morale: float = 80.0
+## SaveManager: üretim çarpanları kayıttan yüklendiyse reapply'da kuraklık vb. tekrar uygulanmaz.
+var _production_multipliers_restored_from_save: bool = false
 var _last_day_shortages: Dictionary = {"water": 0, "food": 0}
 
 var _last_econ_tick_day: int = 0
@@ -1894,6 +1924,40 @@ const RESOURCE_PRODUCER_SCENES = {
 # Bir kaynak türünün mevcut stok seviyesini döndürür (temel ve gelişmiş için ortak)
 func get_resource_level(resource_type: String) -> int:
 	return resource_levels.get(resource_type, 0)
+
+## world_map / görev: { "food": 5, "gold": 10 } — gold GlobalPlayerData üzerinden.
+func can_afford_resources(cost: Dictionary) -> bool:
+	if cost.is_empty():
+		return true
+	if int(cost.get("gold", 0)) > 0:
+		if not GlobalPlayerData or GlobalPlayerData.gold < int(cost.get("gold", 0)):
+			return false
+	for k in cost.keys():
+		if str(k) == "gold":
+			continue
+		var need: int = int(cost[k])
+		if need <= 0:
+			continue
+		if int(resource_levels.get(str(k), 0)) < need:
+			return false
+	return true
+
+func spend_resources(cost: Dictionary) -> bool:
+	if not can_afford_resources(cost):
+		return false
+	var g: int = int(cost.get("gold", 0))
+	if g > 0 and GlobalPlayerData:
+		GlobalPlayerData.add_gold(-g)
+	for k in cost.keys():
+		if str(k) == "gold":
+			continue
+		var need: int = int(cost[k])
+		if need <= 0:
+			continue
+		var key: String = str(k)
+		resource_levels[key] = int(resource_levels.get(key, 0)) - need
+	emit_signal("village_data_changed")
+	return true
 
 # İç yardımcı: Belirli bir temel kaynak için atanan toplam işçi sayısını sayar
 func _count_assigned_workers_for_resource(resource_type: String) -> int:
@@ -3934,8 +3998,10 @@ func _pick_and_create_event(current_day: int) -> Dictionary:
 		return ev
 	return {}
 
-func _apply_event_effects(ev: Dictionary) -> void:
+func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 	var t := String(ev.get("type", ""))
+	if from_save_load and (t == "disease" or t == "raid"):
+		return
 	var tm = get_node_or_null("/root/TimeManager")
 	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
 	
@@ -4352,14 +4418,23 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			if settlements.is_empty():
 				return
 			
-			# En yüksek ilişkiye sahip yerleşimden tüccar gelir (veya rastgele)
-			var settlement = _select_settlement_for_trader(settlements)
-			var trader_type = _select_trader_type_by_relation(settlement)
-			
-			# MissionManager'a tüccar ekle
-			if mm.has_method("add_active_trader"):
-				mm.add_active_trader(settlement, day, 3, trader_type)
-			print("[VillageManager] 🎉 Tüccar geldi: %s'den (Tip: %d)" % [settlement.get("name", "?"), trader_type])
+			# Harita diplomasisi: oyuncuya dusmanca koylerden tüccar gelmez; iliski WM'den okunur.
+			var eligible: Array = _build_trader_origin_candidates(settlements)
+			if eligible.is_empty():
+				if mm.has_method("post_news"):
+					mm.post_news(
+						"village",
+						"📭 Karavan gelmedi",
+						"Komşu yollarda gerilim var; tüccar kafilesi bu hafta köyünüze uğramadı.",
+						Color(0.85, 0.82, 0.55),
+						"info"
+					)
+			else:
+				var settlement: Dictionary = _select_settlement_for_trader(eligible)
+				var trader_type = _select_trader_type_by_relation(settlement)
+				if mm.has_method("add_active_trader"):
+					mm.add_active_trader(settlement, day, 3, trader_type)
+				print("[VillageManager] 🎉 Tüccar geldi: %s'den (Tip: %d)" % [settlement.get("name", "?"), trader_type])
 		
 		"resource_discovery":
 			# Kaynak keşfi - rastgele kaynak bonusu
@@ -4433,8 +4508,31 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 				# Barınak yetersizse haber gönderme (opsiyonel)
 				if mm and mm.has_method("post_news"):
 					mm.post_news("village", "Göç Dalgası", "Göçmenler geldi ama barınak yetersiz olduğu için geri döndüler.", Color.YELLOW, "info")
-	
+	var wm_world: Node = get_node_or_null("/root/WorldManager")
+	if wm_world and wm_world.has_method("on_village_surface_event"):
+		wm_world.call("on_village_surface_event", event_type, day)
+
 	emit_signal("village_data_changed")
+
+## MissionManager komsu listesi -> WM ile eslesen id'ler; hostile olanlari ele, relation'i guncelle.
+func _build_trader_origin_candidates(settlements: Array) -> Array:
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	var out: Array = []
+	for s in settlements:
+		if not (s is Dictionary):
+			continue
+		var sid: String = String(s.get("id", ""))
+		if sid.is_empty():
+			continue
+		if wm and wm.has_method("is_settlement_hostile_to_player"):
+			if bool(wm.call("is_settlement_hostile_to_player", sid)):
+				continue
+		var entry: Dictionary = (s as Dictionary).duplicate(true)
+		if wm and wm.has_method("_get_settlement_display_name") and wm.has_method("get_relation"):
+			var nm: String = String(wm.call("_get_settlement_display_name", sid))
+			entry["relation"] = int(wm.call("get_relation", "Köy", nm))
+		out.append(entry)
+	return out
 
 # Yerleşim seçimi (ilişkiye göre ağırlıklandırılmış)
 func _select_settlement_for_trader(settlements: Array) -> Dictionary:
@@ -4490,10 +4588,16 @@ func get_economy_last_day_stats() -> Dictionary:
 func get_active_events() -> Array:
 	return events_active
 
-func reapply_active_event_effects() -> void:
-	"""Kayıt yüklemeden sonra çağrılır: Aktif event'lerin effect'lerini yeniden uygular (Bandit Activity → Haydut Temizliği görevi vb.)."""
+func reapply_active_event_effects(from_save_load: bool = false) -> void:
+	"""Kayıt yüklemeden sonra çağrılır: Aktif event'lerin effect'lerini yeniden uygular (Bandit Activity → MM bayrakları vb.).
+	from_save_load: true ise görevler/WM zaten kayıttan geldiği için disease (rastgele hasta) ve raid (çift saldırı zamanı) atlanır.
+	Kayıtta üretim çarpanları varsa kuraklık vb. tekrar çarpılmaz (_production_multipliers_restored_from_save)."""
+	const PROD_TYPES: Array[String] = ["drought", "famine", "pest", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike"]
 	for ev in events_active:
-		_apply_event_effects(ev)
+		var ev_type := String(ev.get("type", ""))
+		if from_save_load and _production_multipliers_restored_from_save and ev_type in PROD_TYPES:
+			continue
+		_apply_event_effects(ev, from_save_load)
 
 func clear_event(event_type: String = "") -> int:
 	"""Clear active events. If event_type is empty, clears all events.

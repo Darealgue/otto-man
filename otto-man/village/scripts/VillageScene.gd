@@ -18,6 +18,9 @@ const BakeryScene = preload("res://village/buildings/Bakery.tscn")
 @onready var time_manager: TimeManager = get_node("/root/TimeManager") # Veya doğru yolu kullanın
 @onready var time_skip_notification = $TimeSkipNotification
 @onready var build_menu_ui = $BuildMenuLayer/BuildMenuUI
+var world_map_panel: PanelContainer = null
+var world_map_label: Label = null
+var _world_map_move_cooldown: float = 0.0
 
 ## Zindandan dönüşte kurtarılan NPC'leri sadece BİR KEZ uygulamak için guard
 var _dungeon_rescue_applied: bool = false
@@ -83,6 +86,9 @@ func _ready() -> void:
 	open_worker_ui_button.show()
 	open_cariye_ui_button.show()
 	open_build_ui_button.show()
+	_setup_world_map_panel()
+	_connect_world_map_signals()
+	_refresh_world_map_panel()
 
 	# <<< YENİ: Set up example NPCs after the scene is fully loaded >>>
 	# Use call_deferred to ensure all workers are created first
@@ -95,6 +101,7 @@ func _ready() -> void:
 	VillageManager.apply_current_time_schedule()
 	# Transfer forest resources to village if returning from forest
 	call_deferred("_check_and_transfer_forest_resources")
+	call_deferred("_show_delivery_summary_from_payload")
 	
 	# Reset player state after scene load (fix fall state bug)
 	call_deferred("_reset_player_on_scene_load")
@@ -246,6 +253,38 @@ func _check_and_transfer_forest_resources() -> void:
 	else:
 		print("[VillageScene] ℹ️ Not returning from forest (source: '%s'), skipping resource transfer" % source)
 
+func _show_delivery_summary_from_payload() -> void:
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if not scene_manager:
+		return
+	var payload: Dictionary = scene_manager.get_current_payload()
+	var lines: Array[String] = []
+	
+	var delivered_gold: int = int(payload.get("delivered_dungeon_gold", 0))
+	if delivered_gold > 0:
+		lines.append("+%d zindan altını" % delivered_gold)
+	
+	var delivered_resources: Dictionary = payload.get("forest_resources_delivered", {})
+	if delivered_resources is Dictionary and not delivered_resources.is_empty():
+		var total_res: int = 0
+		for res_type in delivered_resources.keys():
+			total_res += int(delivered_resources[res_type])
+		if total_res > 0:
+			lines.append("+%d kaynak" % total_res)
+	
+	var delivered_villagers: int = int(payload.get("delivered_rescued_villagers", 0))
+	var delivered_cariyes: int = int(payload.get("delivered_rescued_cariyes", 0))
+	if delivered_villagers > 0 or delivered_cariyes > 0:
+		lines.append("+%d köylü, +%d cariye" % [delivered_villagers, delivered_cariyes])
+	
+	if lines.is_empty():
+		return
+	if not time_skip_notification:
+		time_skip_notification = get_node_or_null("TimeSkipNotification")
+	if not time_skip_notification or not time_skip_notification.has_method("show_simple_toast"):
+		return
+	time_skip_notification.show_simple_toast("Teslimat Tamamlandı", ", ".join(lines))
+
 func _apply_dungeon_rescued() -> void:
 	"""Zindandan sağ çıkışta kurtarılan köylü ve cariyeleri köye ekler."""
 	if _dungeon_rescue_applied:
@@ -255,10 +294,11 @@ func _apply_dungeon_rescued() -> void:
 	if not scene_manager:
 		return
 	var payload = scene_manager.get_current_payload()
-	if payload.get("source", "") != "dungeon":
-		return
 	var villagers: Array = payload.get("rescued_villagers", [])
 	var cariyes: Array = payload.get("rescued_cariyes", [])
+	var delivered_from_dungeon: bool = bool(payload.get("delivered_from_dungeon_run", false))
+	if payload.get("source", "") != "dungeon" and not delivered_from_dungeon and villagers.is_empty() and cariyes.is_empty():
+		return
 	if villagers.is_empty() and cariyes.is_empty():
 		print("[VillageScene] ⚠️ Dungeon payload has no villagers/cariyes, skipping.")
 		return
@@ -387,6 +427,13 @@ func _input(event: InputEvent) -> void:
 	if VillageManager.active_dialogue_npc != null:
 		return
 	
+	if event.is_action_pressed("open_world_map"):
+		var scene_manager = get_node_or_null("/root/SceneManager")
+		if scene_manager and scene_manager.has_method("change_to_world_map"):
+			scene_manager.change_to_world_map({"source": "village"})
+		get_viewport().set_input_as_handled()
+		return
+
 	# Sadece klavye tuş basımlarını dinle
 	if event is InputEventKey and event.pressed and not event.is_echo():
 		# 1 tuşu: Normal hız (x1)
@@ -422,6 +469,15 @@ func _input(event: InputEvent) -> void:
 				VillageManager.remove_worker_from_village(random_worker_id)
 			else:
 				print("DEBUG: 'M' key pressed, but no active workers to remove.")
+		elif event.alt_pressed:
+			if event.keycode == KEY_UP:
+				_try_move_on_world_map(0, -1)
+			elif event.keycode == KEY_DOWN:
+				_try_move_on_world_map(0, 1)
+			elif event.keycode == KEY_LEFT:
+				_try_move_on_world_map(-1, 0)
+			elif event.keycode == KEY_RIGHT:
+				_try_move_on_world_map(1, 0)
 		
 # Debug methods for testing NPCs (only in editor/debug builds)
 func setup_example_npcs() -> void:
@@ -487,3 +543,77 @@ func _setup_camera_limits() -> void:
 		print("[VillageScene] Error: Could not load VillageCameraController.gd")
 	# In exported builds, this won't be called due to OS.has_feature check
 	pass
+
+func _setup_world_map_panel() -> void:
+	if world_map_panel != null:
+		return
+	world_map_panel = PanelContainer.new()
+	world_map_panel.name = "WorldMapPanel"
+	world_map_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+	world_map_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	world_map_panel.position = Vector2(1220, 90)
+	world_map_panel.custom_minimum_size = Vector2(520, 230)
+	add_child(world_map_panel)
+	var vb := VBoxContainer.new()
+	world_map_panel.add_child(vb)
+	var title := Label.new()
+	title.text = "Hex Harita (Alt + yon tuslari kesif | Numpad Enter / Select: dunya haritasi ac/kapat)"
+	vb.add_child(title)
+	world_map_label = Label.new()
+	world_map_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	world_map_label.text = "Harita yukleniyor..."
+	vb.add_child(world_map_label)
+
+func _connect_world_map_signals() -> void:
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm:
+		return
+	if wm.has_signal("world_map_updated") and not wm.world_map_updated.is_connected(_refresh_world_map_panel):
+		wm.world_map_updated.connect(_refresh_world_map_panel)
+	if wm.has_signal("world_map_tile_discovered") and not wm.world_map_tile_discovered.is_connected(_on_world_map_tile_discovered):
+		wm.world_map_tile_discovered.connect(_on_world_map_tile_discovered)
+
+func _on_world_map_tile_discovered(_tile_key: String, _tile_data: Dictionary) -> void:
+	_refresh_world_map_panel()
+
+func _refresh_world_map_panel() -> void:
+	if world_map_label == null:
+		return
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm:
+		world_map_label.text = "WorldManager bulunamadi."
+		return
+	if wm.has_method("get_world_map_state") and wm.has_method("get_discovered_settlements"):
+		var map_state: Dictionary = wm.get_world_map_state()
+		var tiles: Dictionary = map_state.get("tiles", {})
+		var discovered_count: int = 0
+		var visible_count: int = 0
+		for key in tiles.keys():
+			var t = tiles[key]
+			if bool(t.get("discovered", false)):
+				discovered_count += 1
+			if bool(t.get("visible", false)):
+				visible_count += 1
+		var pos: Dictionary = map_state.get("player_pos", {"q": 0, "r": 0})
+		var discovered_settlements: Array = wm.get_discovered_settlements()
+		var lines: PackedStringArray = []
+		lines.append("Seed: %s  Radius: %d" % [str(map_state.get("seed", 0)), int(map_state.get("radius", 0))])
+		lines.append("Konum: q=%d r=%d" % [int(pos.get("q", 0)), int(pos.get("r", 0))])
+		lines.append("Kesif: %d/%d tile  |  Gorunen: %d" % [discovered_count, tiles.size(), visible_count])
+		if discovered_settlements.is_empty():
+			lines.append("Kesfedilen komsu koy: henuz yok")
+		else:
+			lines.append("Kesfedilen komsu koyler:")
+			for s in discovered_settlements:
+				lines.append("- %s (%d,%d)" % [s.get("name", "?"), int(s.get("q", 0)), int(s.get("r", 0))])
+		world_map_label.text = "\n".join(lines)
+
+func _try_move_on_world_map(dq: int, dr: int) -> void:
+	var wm = get_node_or_null("/root/WorldManager")
+	if not wm or not wm.has_method("get_world_map_state") or not wm.has_method("move_player_on_world_map"):
+		return
+	var state: Dictionary = wm.get_world_map_state()
+	var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
+	var target_q: int = int(pos.get("q", 0)) + dq
+	var target_r: int = int(pos.get("r", 0)) + dr
+	wm.move_player_on_world_map(target_q, target_r)

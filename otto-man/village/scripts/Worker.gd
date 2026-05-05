@@ -18,6 +18,7 @@ var dungeon_spawn_x: float = 0.0   # Yatay hareket merkezi
 const DUNGEON_PRISONER_WANDER_RANGE: float = 80.0
 const DUNGEON_PRISONER_GRAVITY: float = 450.0
 const DUNGEON_PRISONER_MOVE_SPEED: float = 42.0
+const WORKER_OFFSCREEN_WORK_DISTANCE: float = 5500.0
 var dungeon_ground_ray: RayCast2D = null
 var dungeon_wall_ray: RayCast2D = null
 var dungeon_ledge_ray: RayCast2D = null
@@ -1235,17 +1236,17 @@ func _physics_process(delta: float) -> void:
 							if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 						# <<< YENİ SONU >>>
 						current_state = State.WORKING_OFFSCREEN
-						# Kamp ateşini merkez alarak sağa ve sola 4800 piksel mesafe
+						# Kamp ateşini merkez alarak daha uzak bir noktaya git (ekran dışında kaybolsun)
 						var campfire_x = 960.0  # Varsayılan ekran merkezi, kamp ateşi bulunursa güncellenir
 						var campfire_node = get_tree().get_first_node_in_group("Housing")
 						if is_instance_valid(campfire_node):
 							campfire_x = campfire_node.global_position.x
 						
 						if global_position.x < campfire_x:
-							move_target_x = campfire_x - 4800.0
+							move_target_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE
 							_target_global_y = global_position.y # Hedef Y'yi mevcut Y yapalım ki sadece X ekseninde gitsin
 						else:
-							move_target_x = campfire_x + 4800.0
+							move_target_x = campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
 							_target_global_y = global_position.y # Hedef Y'yi mevcut Y yapalım ki sadece X ekseninde gitsin
 				else:
 					# Bina geçerli değil veya scripti yoksa varsayılan davranış
@@ -1398,7 +1399,7 @@ func _physics_process(delta: float) -> void:
 					
 					# Eğer _offscreen_exit_x kaydedilmemişse, kamp ateşine göre hesapla
 					if _offscreen_exit_x == 0.0:
-						# Kamp ateşini merkez alarak sağa veya sola 4800 piksel mesafe
+						# Kamp ateşini merkez alarak sağa/sola daha uzak bir mesafe kullan
 						var campfire_x = 960.0  # Varsayılan ekran merkezi
 						var campfire_node = get_tree().get_first_node_in_group("Housing")
 						if is_instance_valid(campfire_node):
@@ -1407,12 +1408,12 @@ func _physics_process(delta: float) -> void:
 						# Binanın konumuna göre hangi taraftan çıktığını tahmin et
 						if is_instance_valid(assigned_building_node):
 							if assigned_building_node.global_position.x < campfire_x:
-								_offscreen_exit_x = campfire_x - 4800.0
+								_offscreen_exit_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE
 							else:
-								_offscreen_exit_x = campfire_x + 4800.0
+								_offscreen_exit_x = campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
 						else:
 							# Bina yoksa rastgele bir taraf seç
-							_offscreen_exit_x = campfire_x - 4800.0 if randf() < 0.5 else campfire_x + 4800.0
+							_offscreen_exit_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE if randf() < 0.5 else campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
 					
 					# Ekranın dışından başla (100 piksel margin ile)
 					var start_margin = 100.0
@@ -1770,7 +1771,7 @@ func switch_to_working_offscreen():
 		# #print("Worker %d switching from INSIDE to WORKING_OFFSCREEN." % worker_id) #<<< KALDIRILDI
 		current_state = State.WORKING_OFFSCREEN
 		visible = true # Görünür yap
-		# Kamp ateşini merkez alarak sağa ve sola 4800 piksel mesafe
+		# Kamp ateşini merkez alarak daha uzak bir noktaya git (ekran dışında kaybolsun)
 		var campfire_x = 960.0  # Varsayılan ekran merkezi, kamp ateşi bulunursa güncellenir
 		var campfire_node = get_tree().get_first_node_in_group("Housing")
 		if is_instance_valid(campfire_node):
@@ -1779,18 +1780,18 @@ func switch_to_working_offscreen():
 		# Binanın konumuna göre ekran dışı hedefini belirle
 		if is_instance_valid(assigned_building_node):
 			if assigned_building_node.global_position.x < campfire_x:
-				move_target_x = campfire_x - 4800.0
+				move_target_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE
 			else:
-				move_target_x = campfire_x + 4800.0
+				move_target_x = campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
 			# Pozisyonu bina konumu yap ki oradan yürümeye başlasın
 			global_position = assigned_building_node.global_position
 		else:
 			# Bina geçerli değilse, bulunduğu yerden rastgele bir yöne gitsin? Güvenli varsayım:
 			#printerr("Worker %d switching to OFFSCREEN but building node is invalid. Using current pos." % worker_id)
 			if global_position.x < campfire_x: 
-				move_target_x = campfire_x - 4800.0
+				move_target_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE
 			else:
-				move_target_x = campfire_x + 4800.0
+				move_target_x = campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
 		
 		# AnimatedSprite2D node'unun geçerli olduğundan emin ol
 		var animated_sprite = get_node_or_null("AnimatedSprite2D")

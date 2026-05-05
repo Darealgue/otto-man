@@ -265,17 +265,27 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 			drs.clear_pending_rescued()
 	# Ormandan köye dönüşte MissionManager'daki "aktif görevler" cariye görevleridir (eskort, baskın vb.);
 	# bunlar oyuncunun ormandan dönmesiyle iptal edilmemeli, atlanıyor.
+
+	var should_return_to_world_map: bool = (
+		destination == "village"
+		and not is_dead
+		and (payload_source == "dungeon" or payload_source == "forest")
+	)
 	
 	# Show dialog if there's a result (before applying roguelike mechanics)
 	if not result_type.is_empty():
 		_show_mission_result_dialog(result_type, mission_name, rewards, penalties, payload.get("lost_items_count", 0))
 		await _mission_result_dialog.confirmed if is_instance_valid(_mission_result_dialog) else get_tree().create_timer(0.1).timeout
 	
-	# Apply roguelike mechanics AFTER dialog (clear inventory, powerups, reset health)
-	_apply_roguelike_mechanics(is_dead)
+	# Zindandan sağ çıkışta dünya haritasına dönerken canı koru.
+	# Roguelike resetler yalnızca ölümde veya doğrudan köye girişte uygulanır.
+	if not should_return_to_world_map:
+		# Apply roguelike mechanics AFTER dialog (clear inventory, powerups, reset health)
+		_apply_roguelike_mechanics(is_dead)
 	
-	# Zindandan sağ çıkış: kurtarılanları payload'a ekle (köy sahnesinde uygulanacak)
-	if not is_dead and payload.get("source", "") == "dungeon":
+	# Zindandan sağ çıkışta doğrudan köye dönülüyorsa kurtarılanları payload'a ekle.
+	# Dünya haritasına dönüşte bu veriler DungeonRunState'te bekler, köye varınca işlenir.
+	if not is_dead and payload.get("source", "") == "dungeon" and not should_return_to_world_map:
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if is_instance_valid(drs) and drs.has_method("get_and_clear_pending_rescued"):
 			var rescued = drs.get_and_clear_pending_rescued()
@@ -283,11 +293,22 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 			payload["rescued_cariyes"] = rescued.get("cariyes", [])
 	
 	# Proceed with transition
-	match destination:
-		"village":
-			SceneManager.change_to_village(payload)
-		_:
-			push_warning("PortalArea: Unexpected destination after mission check: %s" % destination)
+	if should_return_to_world_map:
+		var world_map_payload: Dictionary = {
+			"source": payload_source if not payload_source.is_empty() else "world_map",
+			"return_reason": "level_exit"
+		}
+		if payload_source == "forest":
+			world_map_payload["carrying_forest_resources"] = true
+		elif payload_source == "dungeon":
+			world_map_payload["return_reason"] = "dungeon_exit"
+		SceneManager.change_to_world_map(world_map_payload)
+	else:
+		match destination:
+			"village":
+				SceneManager.change_to_village(payload)
+			_:
+				push_warning("PortalArea: Unexpected destination after mission check: %s" % destination)
 	_hold_timer = 0.0
 
 func _transfer_forest_resources_to_village() -> void:

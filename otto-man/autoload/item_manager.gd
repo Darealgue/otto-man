@@ -101,10 +101,20 @@ func _ready() -> void:
 	set_process(true)
 
 func _process(delta: float) -> void:
-	# Process items that need frame-by-frame updates
+	# Scene transition sirasinda player veya item instance'i freed olabilir.
+	# Typed item.process(player: CharacterBody2D, ...) cagrisi oncesi mutlaka validasyon yap.
+	if not is_instance_valid(player):
+		player = null
+		return
+	var invalid_items: Array[ItemEffect] = []
 	for item in active_items:
+		if not is_instance_valid(item):
+			invalid_items.append(item)
+			continue
 		if item.has_method("process"):
 			item.process(player, delta)
+	for invalid_item in invalid_items:
+		active_items.erase(invalid_item)
 
 func _on_decoy_fall_attack_impacted(position: Vector2) -> void:
 	# Gölge konumunda fall-attack efektini tüm ilgili itemlere uygula (hitbox aynası gibi tek noktadan)
@@ -261,11 +271,17 @@ func has_active_item(item_id: String) -> bool:
 	return false
 
 func clear_all_items() -> void:
-	if !player:
-		return
-		
+	var current_player_valid: bool = is_instance_valid(player)
 	for item in active_items.duplicate():
-		deactivate_item(item)
+		if not is_instance_valid(item):
+			active_items.erase(item)
+			continue
+		if current_player_valid:
+			deactivate_item(item)
+		else:
+			# Player yoksa minimum guvenli temizlik: item'i dogrudan serbest birak.
+			active_items.erase(item)
+			item.queue_free()
 	active_items.clear()
 	enemy_kill_count = 0  # Sonraki zindan run için sıfırla
 	print("[ItemManager] 🗑️ All items cleared")
@@ -298,14 +314,12 @@ func _enemy_loot_script_path(enemy: Node2D) -> String:
 
 
 func _is_turtle_enemy_for_loot(enemy: Node2D) -> bool:
-	if enemy is TurtleEnemy:
-		return true
 	return _enemy_loot_script_path(enemy).find("turtle") != -1
 
 
 func _is_summoner_spawned_flying_for_loot(enemy: Node2D) -> bool:
-	if not (enemy is FlyingEnemy):
-		return false
+	# Typed class referansi (FlyingEnemy) her sahnede scope'da olmayabilir.
+	# Summoner spawn kuslari zaten meta ile isaretleniyor; parser-safe kontrol.
 	return bool(enemy.get_meta("summoner_summoned_bird", false))
 
 
@@ -380,6 +394,8 @@ func on_enemy_killed(enemy: Node2D = null) -> void:
 
 	# Notify items that listen to enemy kills
 	for item in active_items:
+		if not is_instance_valid(item):
+			continue
 		if item.has_method("on_enemy_killed"):
 			item.on_enemy_killed(enemy)
 	
@@ -430,6 +446,8 @@ func get_random_items(count: int = 3) -> Array[PackedScene]:
 
 func has_item(item_id: String) -> bool:
 	for item in active_items:
+		if not is_instance_valid(item):
+			continue
 		if item.item_id == item_id:
 			return true
 	return false
@@ -439,6 +457,8 @@ func try_revive_player() -> bool:
 	if not player:
 		return false
 	for item in active_items:
+		if not is_instance_valid(item):
+			continue
 		if item.has_method("try_revive_player") and item.try_revive_player():
 			return true
 	return false

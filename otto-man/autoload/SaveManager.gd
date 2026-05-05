@@ -30,6 +30,44 @@ func _ensure_save_directory() -> void:
 	else:
 		push_error("[SaveManager] Failed to open user:// directory")
 
+func _news_entry_for_save(entry: Dictionary) -> Dictionary:
+	var d: Dictionary = entry.duplicate(true)
+	for key in ["color", "original_color"]:
+		if not d.has(key):
+			continue
+		var v = d[key]
+		if v is Color:
+			var c: Color = v
+			d[key] = {"__gg_color": true, "r": c.r, "g": c.g, "b": c.b, "a": c.a}
+	return d
+
+func _news_entry_from_save(entry: Dictionary) -> Dictionary:
+	var d: Dictionary = entry.duplicate(true)
+	for key in ["color", "original_color"]:
+		if not d.has(key):
+			continue
+		var v = d[key]
+		if v is Dictionary and (v as Dictionary).get("__gg_color", false):
+			var cd: Dictionary = v
+			d[key] = Color(float(cd.get("r", 1)), float(cd.get("g", 1)), float(cd.get("b", 1)), float(cd.get("a", 1)))
+	return d
+
+func _infer_next_mission_id_floor() -> int:
+	var max_tail := 0
+	if not is_instance_valid(MissionManager) or not "missions" in MissionManager:
+		return 1
+	for mid in MissionManager.missions.keys():
+		var s := str(mid)
+		var pos := s.rfind("_")
+		if pos < 0 or pos >= s.length() - 1:
+			continue
+		var tail := s.substr(pos + 1)
+		if tail.is_valid_int():
+			var n := int(tail)
+			if n > max_tail:
+				max_tail = n
+	return max_tail + 1
+
 func save_game(slot_id: int) -> bool:
 	"""Ana kayıt fonksiyonu. Slot ID'ye göre kaydeder (1-5)"""
 	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
@@ -179,10 +217,27 @@ func load_game(slot_id: int) -> bool:
 	# Load all states
 	_load_village_state(save_data.get("village", {}))
 	_load_mission_state(save_data.get("missions", {}))
+	if is_instance_valid(VillageManager) and VillageManager.has_method("reapply_active_event_effects"):
+		VillageManager.reapply_active_event_effects(true)
+	if is_instance_valid(VillageManager):
+		VillageManager.set("_production_multipliers_restored_from_save", false)
+	_sanitize_loaded_mission_runtime_state()
 	_load_world_state(save_data.get("world", {}))
 	_load_player_state(save_data.get("player", {}))
 	_load_time_state(save_data.get("time", {}))
 	_load_weather_state(save_data.get("weather", {}))
+	
+	var tm_after: Node = get_node_or_null("/root/TimeManager")
+	if tm_after != null and tm_after.has_method("get_day"):
+		var loaded_day: int = int(tm_after.get_day())
+		if is_instance_valid(MissionManager):
+			if MissionManager.has_method("prune_time_limited_state_for_day"):
+				MissionManager.prune_time_limited_state_for_day(loaded_day, true)
+			if "_last_tick_day" in MissionManager:
+				MissionManager.set("_last_tick_day", loaded_day)
+		var world_after: Node = get_node_or_null("/root/WorldManager")
+		if is_instance_valid(world_after) and "_last_tick_day" in world_after:
+			world_after.set("_last_tick_day", loaded_day)
 	
 	# Change to saved scene
 	if not scene_path.is_empty() and is_instance_valid(SceneManager):
@@ -236,6 +291,17 @@ func _save_village_state() -> Dictionary:
 	if not is_instance_valid(VillageManager):
 		push_warning("[SaveManager] VillageManager not available")
 		return state
+	
+	state["village_global_multiplier"] = VillageManager.global_multiplier
+	state["village_resource_prod_multiplier"] = VillageManager.resource_prod_multiplier.duplicate(true)
+	state["village_morale"] = VillageManager.village_morale
+	state["economy_stats_last_day"] = VillageManager.economy_stats_last_day.duplicate(true)
+	state["village_last_econ_tick_day"] = VillageManager._last_econ_tick_day
+	state["village_last_event_check_day"] = VillageManager._last_village_event_check_day
+	if "_event_cooldowns" in VillageManager:
+		state["village_event_gen_cooldowns"] = VillageManager.get("_event_cooldowns").duplicate(true)
+	state["village_last_day_shortages"] = VillageManager._last_day_shortages.duplicate(true)
+	state["village_daily_event_chance"] = VillageManager.village_daily_event_chance
 	
 	# Resources
 	state["resources"] = VillageManager.resource_levels.duplicate(true)
@@ -334,16 +400,22 @@ func _save_mission_state() -> Dictionary:
 	
 	# Active missions (Dictionary: mission_id -> mission_data)
 	state["active_missions"] = []
+	state["active_mission_assignments"] = [] # [{cariye_id:int, mission_id:String}]
 	if "active_missions" in MissionManager:
 		var active = MissionManager.active_missions
 		if active is Dictionary:
-			# Convert Dictionary to Array for JSON serialization
-			for mission_id in active.keys():
-				var mission_data = active[mission_id]
-				if mission_data is Dictionary:
-					var mission_entry = mission_data.duplicate(true)
-					mission_entry["id"] = mission_id  # Ensure ID is in the data
-					state["active_missions"].append(mission_entry)
+			# Canonical format: active_missions is cariye_id -> mission_id mapping.
+			for cariye_id in active.keys():
+				var mission_id = active[cariye_id]
+				state["active_mission_assignments"].append({
+					"cariye_id": int(cariye_id),
+					"mission_id": str(mission_id)
+				})
+				# Keep legacy mirror for backward compatibility.
+				state["active_missions"].append({
+					"cariye_id": int(cariye_id),
+					"mission_id": str(mission_id)
+				})
 		elif active is Array:
 			# Legacy format support
 			for mission in active:
@@ -404,6 +476,92 @@ func _save_mission_state() -> Dictionary:
 	state["trade_agreements"] = []
 	if "trade_agreements" in MissionManager:
 		state["trade_agreements"] = MissionManager.trade_agreements.duplicate(true)
+
+	# World map returning mission units (for map continuity after load)
+	state["world_map_returning_units"] = {}
+	if "_world_map_returning_units" in MissionManager:
+		var returning_units = MissionManager.get("_world_map_returning_units")
+		if returning_units is Dictionary:
+			state["world_map_returning_units"] = returning_units.duplicate(true)
+	if "_raid_mission_extra" in MissionManager:
+		state["mm_raid_mission_extra"] = MissionManager.get("_raid_mission_extra").duplicate(true)
+	
+	# Dinamik görevler: relief / worldmap / olay / aktif atama
+	var active_mission_ids: Dictionary = {}
+	if "active_missions" in MissionManager and MissionManager.active_missions is Dictionary:
+		for _ck in MissionManager.active_missions.keys():
+			var _mid: String = str(MissionManager.active_missions[_ck])
+			if not _mid.is_empty():
+				active_mission_ids[_mid] = true
+	state["persisted_mission_snapshots"] = _collect_persisted_mission_snapshots(active_mission_ids)
+	
+	# Komşu ekonomi / rotalar (WM ile relation ayri senkron; stability vb. kalici)
+	if "settlements" in MissionManager and MissionManager.settlements is Array and not MissionManager.settlements.is_empty():
+		var ss_out: Array = []
+		for s in MissionManager.settlements:
+			if s is Dictionary:
+				ss_out.append((s as Dictionary).duplicate(true))
+		state["mm_settlements"] = ss_out
+	if "trade_routes" in MissionManager:
+		var tr_out: Array = []
+		for r in MissionManager.trade_routes:
+			if r is Dictionary:
+				tr_out.append((r as Dictionary).duplicate(true))
+		state["mm_trade_routes"] = tr_out
+	if "settlement_trade_modifiers" in MissionManager:
+		state["mm_settlement_trade_modifiers"] = MissionManager.settlement_trade_modifiers.duplicate(true)
+	state["mm_active_traders"] = MissionManager.active_traders.duplicate(true)
+	state["mm_active_rate_modifiers"] = MissionManager.active_rate_modifiers.duplicate(true)
+	state["mm_player_reputation"] = MissionManager.player_reputation
+	state["mm_world_stability"] = MissionManager.world_stability
+	state["mm_bandit_activity_active"] = MissionManager.bandit_activity_active
+	state["mm_bandit_trade_multiplier"] = MissionManager.bandit_trade_multiplier
+	state["mm_bandit_risk_level"] = MissionManager.bandit_risk_level
+	if "mission_history" in MissionManager:
+		var mh_raw: Array = MissionManager.mission_history
+		var mh_out: Array = []
+		var mh_cap: int = mini(mh_raw.size(), 80)
+		for hi in range(mh_cap):
+			var ent = mh_raw[hi]
+			if ent is Dictionary:
+				mh_out.append((ent as Dictionary).duplicate(true))
+		state["mm_mission_history"] = mh_out
+	if "world_events" in MissionManager and MissionManager.world_events is Array:
+		var we_out: Array = []
+		for ev in MissionManager.world_events:
+			if ev is Dictionary:
+				we_out.append((ev as Dictionary).duplicate(true))
+		state["mm_world_events"] = we_out
+	if "world_events_timer" in MissionManager:
+		state["mm_world_events_timer"] = float(MissionManager.world_events_timer)
+	if "world_events_interval" in MissionManager:
+		state["mm_world_events_interval"] = float(MissionManager.world_events_interval)
+	state["mm_mission_rotation_timer"] = float(MissionManager.mission_rotation_timer)
+	if "news_queue_village" in MissionManager:
+		var nv_out: Array = []
+		for ne in MissionManager.news_queue_village:
+			if ne is Dictionary:
+				nv_out.append(_news_entry_for_save(ne as Dictionary))
+		state["mm_news_queue_village"] = nv_out
+	if "news_queue_world" in MissionManager:
+		var nw_out: Array = []
+		for ne2 in MissionManager.news_queue_world:
+			if ne2 is Dictionary:
+				nw_out.append(_news_entry_for_save(ne2 as Dictionary))
+		state["mm_news_queue_world"] = nw_out
+	if MissionManager.get("_next_news_id") != null:
+		state["mm_next_news_id"] = int(MissionManager.get("_next_news_id"))
+	state["mm_next_mission_id"] = MissionManager.next_mission_id
+	var unm: Variant = MissionManager.get("_used_names")
+	if unm is Array:
+		state["mm_used_names"] = (unm as Array).duplicate()
+	if "mission_chains" in MissionManager:
+		var mcf: Dictionary = {}
+		for ck in MissionManager.mission_chains.keys():
+			var ch: Variant = MissionManager.mission_chains[ck]
+			if ch is Dictionary:
+				mcf[str(ck)] = bool((ch as Dictionary).get("completed", false))
+		state["mm_mission_chain_completed"] = mcf
 	
 	return state
 
@@ -437,6 +595,11 @@ func _save_world_state() -> Dictionary:
 		var relations_val = world_manager.get("relations")
 		if relations_val is Dictionary:
 			state["faction_relations"] = relations_val.duplicate(true)
+
+	# Hex map state (vertical slice)
+	state["world_map"] = {}
+	if world_manager.has_method("get_world_map_state"):
+		state["world_map"] = world_manager.get_world_map_state()
 	
 	return state
 
@@ -456,6 +619,9 @@ func _save_player_state() -> Dictionary:
 		state["stat_multipliers"] = PlayerStats.stat_multipliers.duplicate(true)
 		state["stat_bonuses"] = PlayerStats.stat_bonuses.duplicate(true)
 		state["current_health"] = PlayerStats.current_health
+		if PlayerStats.has_method("get_world_expedition_supplies"):
+			state["world_expedition_supplies"] = PlayerStats.call("get_world_expedition_supplies").duplicate(true)
+		state["carried_resources"] = PlayerStats.carried_resources.duplicate(true)
 	
 	return state
 
@@ -490,6 +656,40 @@ func _load_village_state(state: Dictionary) -> void:
 	if not is_instance_valid(VillageManager):
 		push_warning("[SaveManager] VillageManager not available")
 		return
+	
+	VillageManager.set("_production_multipliers_restored_from_save", false)
+	var prod_loaded := false
+	if state.has("village_global_multiplier"):
+		VillageManager.global_multiplier = float(state["village_global_multiplier"])
+		prod_loaded = true
+	if state.has("village_resource_prod_multiplier"):
+		var vr: Variant = state["village_resource_prod_multiplier"]
+		if vr is Dictionary:
+			for rk in (vr as Dictionary).keys():
+				VillageManager.resource_prod_multiplier[str(rk)] = float((vr as Dictionary)[rk])
+			prod_loaded = true
+	if state.has("village_morale"):
+		VillageManager.village_morale = float(state["village_morale"])
+	if prod_loaded:
+		VillageManager.set("_production_multipliers_restored_from_save", true)
+	if state.has("economy_stats_last_day"):
+		var es: Variant = state["economy_stats_last_day"]
+		if es is Dictionary:
+			VillageManager.economy_stats_last_day = (es as Dictionary).duplicate(true)
+	if state.has("village_last_econ_tick_day"):
+		VillageManager._last_econ_tick_day = int(state["village_last_econ_tick_day"])
+	if state.has("village_last_event_check_day"):
+		VillageManager._last_village_event_check_day = int(state["village_last_event_check_day"])
+	if state.has("village_event_gen_cooldowns"):
+		var ge: Variant = state["village_event_gen_cooldowns"]
+		if ge is Dictionary:
+			VillageManager.set("_event_cooldowns", (ge as Dictionary).duplicate(true))
+	if state.has("village_last_day_shortages"):
+		var lds: Variant = state["village_last_day_shortages"]
+		if lds is Dictionary:
+			VillageManager._last_day_shortages = (lds as Dictionary).duplicate(true)
+	if state.has("village_daily_event_chance"):
+		VillageManager.village_daily_event_chance = clampf(float(state["village_daily_event_chance"]), 0.0, 1.0)
 	
 	# Resources
 	if state.has("resources"):
@@ -634,31 +834,86 @@ func _load_village_state(state: Dictionary) -> void:
 		for ev in state["events_active"]:
 			if ev is Dictionary:
 				VillageManager.events_active.append(ev.duplicate(true))
-		# Bandit Activity vb. için MissionManager flag'leri ve Haydut Temizliği görevini yeniden uygula
-		if VillageManager.has_method("reapply_active_event_effects"):
-			VillageManager.reapply_active_event_effects()
+
+func _should_persist_mission_snapshot(mission_id: String, mission_obj: Variant, active_mission_ids: Dictionary) -> bool:
+	if active_mission_ids.has(mission_id):
+		return true
+	if mission_id.begins_with("relief_") or mission_id.begins_with("ally_relief_") or mission_id.begins_with("worldmap_"):
+		return true
+	if mission_id.begins_with("bandit_clear_") or mission_id.begins_with("escort_") or mission_id.begins_with("aid_"):
+		return true
+	if mission_id.begins_with("defense_") or mission_id.begins_with("raid_"):
+		return true
+	if mission_obj is Mission:
+		var mo: Mission = mission_obj
+		return String(mo.completes_incident_id).length() > 0 or String(mo.completes_alliance_aid_settlement_id).length() > 0
+	return false
+
+func _collect_persisted_mission_snapshots(active_mission_ids: Dictionary) -> Array:
+	var out: Array = []
+	if not is_instance_valid(MissionManager) or not "missions" in MissionManager:
+		return out
+	for mid in MissionManager.missions.keys():
+		var mission_id: String = str(mid)
+		var m = MissionManager.missions[mid]
+		if not _should_persist_mission_snapshot(mission_id, m, active_mission_ids):
+			continue
+		if m is Mission:
+			out.append({"id": mission_id, "kind": "resource", "data": m.to_save_dict()})
+		elif m is Dictionary:
+			out.append({"id": mission_id, "kind": "dict", "data": m.duplicate(true)})
+	return out
+
+func _apply_persisted_mission_snapshots(snapshots: Array) -> void:
+	if not is_instance_valid(MissionManager):
+		return
+	for entry in snapshots:
+		if not (entry is Dictionary):
+			continue
+		var mid: String = str(entry.get("id", ""))
+		if mid.is_empty():
+			continue
+		var kind: String = str(entry.get("kind", "resource"))
+		var data: Dictionary = entry.get("data", {})
+		if not (data is Dictionary):
+			continue
+		if kind == "dict":
+			MissionManager.missions[mid] = data.duplicate(true)
+		else:
+			var res = Mission.from_save_dict(data)
+			if res:
+				MissionManager.missions[mid] = res
 
 func _load_mission_state(state: Dictionary) -> void:
 	if not is_instance_valid(MissionManager):
 		push_warning("[SaveManager] MissionManager not available")
 		return
 	
-	# Active missions (Dictionary)
-	if state.has("active_missions"):
+	if state.has("persisted_mission_snapshots"):
+		var snaps = state["persisted_mission_snapshots"]
+		if snaps is Array:
+			_apply_persisted_mission_snapshots(snaps)
+	
+	# Active missions (canonical mapping: cariye_id -> mission_id)
+	if state.has("active_mission_assignments"):
+		var loaded_assignments = state["active_mission_assignments"]
+		if loaded_assignments is Array:
+			var active_dict: Dictionary = {}
+			for entry in loaded_assignments:
+				if entry is Dictionary and entry.has("cariye_id") and entry.has("mission_id"):
+					active_dict[int(entry["cariye_id"])] = str(entry["mission_id"])
+			MissionManager.set("active_missions", active_dict)
+	elif state.has("active_missions"):
 		var loaded_active = state["active_missions"]
 		if loaded_active is Array:
-			# Convert Array to Dictionary format
-			var active_dict: Dictionary = {}
-			for mission in loaded_active:
-				if mission is Dictionary and "id" in mission:
-					active_dict[mission["id"]] = mission
-				elif mission is Dictionary:
-					# Try to find an ID in the mission dict
-					for key in mission.keys():
-						if key == "id" or key == "mission_id":
-							active_dict[mission[key]] = mission
-							break
-			MissionManager.set("active_missions", active_dict)
+			var active_dict_legacy: Dictionary = {}
+			for entry in loaded_active:
+				if entry is Dictionary and entry.has("cariye_id") and entry.has("mission_id"):
+					active_dict_legacy[int(entry["cariye_id"])] = str(entry["mission_id"])
+				elif entry is Dictionary and entry.has("id"):
+					# Very old fallback - cannot infer cariye safely.
+					continue
+			MissionManager.set("active_missions", active_dict_legacy)
 		elif loaded_active is Dictionary:
 			MissionManager.set("active_missions", loaded_active.duplicate(true))
 	
@@ -680,6 +935,30 @@ func _load_mission_state(state: Dictionary) -> void:
 							completed_array.append(str(mission[key]))
 							break
 			MissionManager.set("completed_missions", completed_array)
+	
+	if state.has("mm_mission_chain_completed"):
+		var mcf: Variant = state["mm_mission_chain_completed"]
+		if mcf is Dictionary and "mission_chains" in MissionManager:
+			for ck in (mcf as Dictionary).keys():
+				var cks: String = str(ck)
+				if not MissionManager.mission_chains.has(cks):
+					continue
+				var ch: Variant = MissionManager.mission_chains[cks]
+				if ch is Dictionary:
+					(ch as Dictionary)["completed"] = bool((mcf as Dictionary)[ck])
+
+	# Returning world-map units
+	if state.has("world_map_returning_units"):
+		var loaded_returning = state["world_map_returning_units"]
+		if loaded_returning is Dictionary:
+			MissionManager.set("_world_map_returning_units", loaded_returning.duplicate(true))
+	else:
+		if "_world_map_returning_units" in MissionManager:
+			MissionManager.set("_world_map_returning_units", {})
+	if state.has("mm_raid_mission_extra"):
+		var rxe: Variant = state["mm_raid_mission_extra"]
+		if rxe is Dictionary:
+			MissionManager.set("_raid_mission_extra", (rxe as Dictionary).duplicate(true))
 	
 	# Concubines (cariyeler) - Tam statları yükle
 	if state.has("concubines"):
@@ -726,6 +1005,191 @@ func _load_mission_state(state: Dictionary) -> void:
 		var loaded_trade = state["trade_agreements"]
 		if loaded_trade is Array:
 			MissionManager.set("trade_agreements", loaded_trade.duplicate(true))
+	
+	if state.has("mm_settlements"):
+		var lsett: Variant = state["mm_settlements"]
+		if lsett is Array and not (lsett as Array).is_empty():
+			MissionManager.settlements.clear()
+			for s in lsett:
+				if s is Dictionary:
+					MissionManager.settlements.append((s as Dictionary).duplicate(true))
+	if state.has("mm_trade_routes"):
+		var ltr: Variant = state["mm_trade_routes"]
+		if ltr is Array and not (ltr as Array).is_empty():
+			MissionManager.trade_routes.clear()
+			for r in ltr:
+				if r is Dictionary:
+					MissionManager.trade_routes.append((r as Dictionary).duplicate(true))
+	if state.has("mm_settlement_trade_modifiers"):
+		var lmod: Variant = state["mm_settlement_trade_modifiers"]
+		if lmod is Array:
+			MissionManager.settlement_trade_modifiers.clear()
+			for m in lmod:
+				if m is Dictionary:
+					MissionManager.settlement_trade_modifiers.append((m as Dictionary).duplicate(true))
+	if state.has("mm_player_reputation"):
+		MissionManager.player_reputation = int(state["mm_player_reputation"])
+	if state.has("mm_world_stability"):
+		MissionManager.world_stability = int(state["mm_world_stability"])
+	if state.has("mm_bandit_activity_active"):
+		MissionManager.bandit_activity_active = bool(state["mm_bandit_activity_active"])
+	if state.has("mm_bandit_trade_multiplier"):
+		MissionManager.bandit_trade_multiplier = float(state["mm_bandit_trade_multiplier"])
+	if state.has("mm_bandit_risk_level"):
+		MissionManager.bandit_risk_level = int(state["mm_bandit_risk_level"])
+	if state.has("mm_active_traders"):
+		var lat: Variant = state["mm_active_traders"]
+		if lat is Array:
+			MissionManager.active_traders.clear()
+			for tr in lat:
+				if tr is Dictionary:
+					MissionManager.active_traders.append((tr as Dictionary).duplicate(true))
+	if state.has("mm_active_rate_modifiers"):
+		var larm: Variant = state["mm_active_rate_modifiers"]
+		if larm is Array:
+			MissionManager.active_rate_modifiers.clear()
+			for rm in larm:
+				if rm is Dictionary:
+					MissionManager.active_rate_modifiers.append((rm as Dictionary).duplicate(true))
+	if state.has("mm_mission_history"):
+		var lmh: Variant = state["mm_mission_history"]
+		if lmh is Array:
+			MissionManager.mission_history.clear()
+			for he in lmh:
+				if he is Dictionary:
+					MissionManager.mission_history.append((he as Dictionary).duplicate(true))
+	if state.has("mm_world_events"):
+		var lwe: Variant = state["mm_world_events"]
+		if lwe is Array and not (lwe as Array).is_empty():
+			MissionManager.world_events.clear()
+			for ev in lwe:
+				if ev is Dictionary:
+					MissionManager.world_events.append((ev as Dictionary).duplicate(true))
+	if state.has("mm_world_events_timer"):
+		MissionManager.world_events_timer = float(state["mm_world_events_timer"])
+	if state.has("mm_world_events_interval"):
+		MissionManager.world_events_interval = maxf(1.0, float(state["mm_world_events_interval"]))
+	if "world_events_interval" in MissionManager and "world_events_timer" in MissionManager:
+		var wcap: float = maxf(1.0, float(MissionManager.world_events_interval))
+		MissionManager.world_events_timer = clampf(float(MissionManager.world_events_timer), 0.0, wcap)
+	if state.has("mm_mission_rotation_timer"):
+		var mrt: float = float(state["mm_mission_rotation_timer"])
+		var cap: float = float(MissionManager.mission_rotation_interval) if "mission_rotation_interval" in MissionManager else 30.0
+		MissionManager.mission_rotation_timer = clampf(mrt, 0.0, maxf(cap, 0.001))
+	if state.has("mm_news_queue_village"):
+		var nqv: Variant = state["mm_news_queue_village"]
+		if nqv is Array:
+			MissionManager.news_queue_village.clear()
+			for ent in nqv:
+				if ent is Dictionary:
+					MissionManager.news_queue_village.append(_news_entry_from_save(ent as Dictionary))
+	if state.has("mm_news_queue_world"):
+		var nqw: Variant = state["mm_news_queue_world"]
+		if nqw is Array:
+			MissionManager.news_queue_world.clear()
+			for ent in nqw:
+				if ent is Dictionary:
+					MissionManager.news_queue_world.append(_news_entry_from_save(ent as Dictionary))
+	if state.has("mm_next_news_id"):
+		MissionManager.set("_next_news_id", int(state["mm_next_news_id"]))
+	if state.has("mm_next_mission_id"):
+		MissionManager.next_mission_id = int(state["mm_next_mission_id"])
+	var floor_id: int = _infer_next_mission_id_floor()
+	MissionManager.next_mission_id = maxi(MissionManager.next_mission_id, floor_id)
+	if "_used_names" in MissionManager:
+		var uarr: Variant = MissionManager.get("_used_names")
+		if uarr is Array:
+			(uarr as Array).clear()
+			if state.has("mm_used_names"):
+				var un: Variant = state["mm_used_names"]
+				if un is Array:
+					for n in un:
+						var ns: String = str(n)
+						if not ns in uarr:
+							(uarr as Array).append(ns)
+			if "concubines" in MissionManager:
+				for ck in MissionManager.concubines.keys():
+					var c = MissionManager.concubines[ck]
+					if c != null and "name" in c:
+						var nm: String = String(c.name)
+						if not nm in uarr:
+							(uarr as Array).append(nm)
+
+func _sanitize_loaded_mission_runtime_state() -> void:
+	if not is_instance_valid(MissionManager):
+		return
+	# Active mission assignments: keep only entries that reference existing concubine+mission.
+	var sanitized_active: Dictionary = {}
+	if "active_missions" in MissionManager:
+		var active_raw = MissionManager.get("active_missions")
+		if active_raw is Dictionary:
+			for cariye_key in active_raw.keys():
+				var cariye_id: int = int(cariye_key)
+				var mission_id: String = str(active_raw[cariye_key])
+				if mission_id.is_empty():
+					continue
+				if "concubines" in MissionManager and not MissionManager.concubines.has(cariye_id):
+					continue
+				if "missions" in MissionManager and not MissionManager.missions.has(mission_id):
+					continue
+				sanitized_active[cariye_id] = mission_id
+		MissionManager.set("active_missions", sanitized_active)
+		# Reconcile concubine runtime status with active mission mapping.
+		if "concubines" in MissionManager:
+			for cid_key in MissionManager.concubines.keys():
+				var cid: int = int(cid_key)
+				var c = MissionManager.concubines[cid_key]
+				if c == null:
+					continue
+				if sanitized_active.has(cid):
+					if "current_mission_id" in c:
+						c.current_mission_id = String(sanitized_active[cid])
+					if "status" in c:
+						c.status = 1 # Concubine.Status.GÖREVDE
+				else:
+					if "current_mission_id" in c:
+						c.current_mission_id = ""
+					# Only reset if it was mission status; don't clobber injured/resting.
+					if "status" in c and int(c.status) == 1:
+						c.status = 0 # Concubine.Status.BOŞTA
+	# Returning world-map units: enforce schema and drop corrupt entries.
+	if "_world_map_returning_units" in MissionManager:
+		var returning_raw = MissionManager.get("_world_map_returning_units")
+		var sanitized_returning: Dictionary = {}
+		if returning_raw is Dictionary:
+			for key in returning_raw.keys():
+				var entry = returning_raw[key]
+				if not (entry is Dictionary):
+					continue
+				var start_minutes: int = int(entry.get("start_minutes", 0))
+				var arrive_minutes: int = int(entry.get("arrive_minutes", 0))
+				if arrive_minutes <= start_minutes:
+					arrive_minutes = start_minutes + 20
+				sanitized_returning[int(key)] = {
+					"mission_id": str(entry.get("mission_id", "")),
+					"mission_name": str(entry.get("mission_name", "Gorev Donusu")),
+					"cariye_name": str(entry.get("cariye_name", "Cariye")),
+					"start_q": int(entry.get("start_q", 0)),
+					"start_r": int(entry.get("start_r", 0)),
+					"target_q": int(entry.get("target_q", 0)),
+					"target_r": int(entry.get("target_r", 0)),
+					"target_name": str(entry.get("target_name", "Koy")),
+					"start_minutes": start_minutes,
+					"arrive_minutes": arrive_minutes
+				}
+		MissionManager.set("_world_map_returning_units", sanitized_returning)
+	if "_raid_mission_extra" in MissionManager:
+		var rex_raw = MissionManager.get("_raid_mission_extra")
+		var rex_pruned: Dictionary = {}
+		if rex_raw is Dictionary and "missions" in MissionManager:
+			for mid_key in rex_raw.keys():
+				var mid_str: String = str(mid_key)
+				if not MissionManager.missions.has(mid_str):
+					continue
+				var ent = rex_raw[mid_key]
+				if ent is Dictionary:
+					rex_pruned[mid_str] = (ent as Dictionary).duplicate(true)
+		MissionManager.set("_raid_mission_extra", rex_pruned)
 
 func _load_world_state(state: Dictionary) -> void:
 	var world_manager = get_node_or_null("/root/WorldManager")
@@ -751,6 +1215,15 @@ func _load_world_state(state: Dictionary) -> void:
 	if state.has("faction_relations"):
 		if "relations" in world_manager:
 			world_manager.set("relations", state["faction_relations"].duplicate(true))
+	
+	# Hex map state (vertical slice)
+	if world_manager.has_method("set_world_map_state"):
+		var map_state = state.get("world_map", {})
+		if map_state is Dictionary and not map_state.is_empty():
+			world_manager.set_world_map_state(map_state)
+		elif world_manager.has_method("start_new_world_map"):
+			# Fallback for older saves without world_map payload.
+			world_manager.start_new_world_map()
 
 func _load_player_state(state: Dictionary) -> void:
 	# GlobalPlayerData
@@ -785,6 +1258,19 @@ func _load_player_state(state: Dictionary) -> void:
 			PlayerStats.stat_bonuses = state["stat_bonuses"].duplicate(true)
 		if state.has("current_health"):
 			PlayerStats.current_health = float(state["current_health"])
+		if state.has("world_expedition_supplies") and PlayerStats.has_method("load_world_expedition_supplies_from_save"):
+			var wes: Variant = state["world_expedition_supplies"]
+			if wes is Dictionary:
+				PlayerStats.call("load_world_expedition_supplies_from_save", wes)
+		if state.has("carried_resources"):
+			var cr: Variant = state["carried_resources"]
+			if cr is Dictionary:
+				for ck in (cr as Dictionary).keys():
+					var sk: String = String(ck)
+					if PlayerStats.carried_resources.has(sk):
+						PlayerStats.carried_resources[sk] = int((cr as Dictionary)[ck])
+				if PlayerStats.has_method("_emit_carried_changed"):
+					PlayerStats.call("_emit_carried_changed")
 
 func _load_time_state(state: Dictionary) -> void:
 	if not is_instance_valid(TimeManager):

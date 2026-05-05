@@ -620,7 +620,7 @@ func _health_emit_changed() -> void:
 # Blood particle system functions
 func _should_spawn_blood() -> bool:
 	# Don't spawn blood for flying enemies or turtle
-	if self is FlyingEnemy:
+	if _is_flying_enemy_runtime():
 		print("[BaseEnemy] No blood: FlyingEnemy")
 		return false
 	
@@ -633,6 +633,22 @@ func _should_spawn_blood() -> bool:
 		
 	# print("[BaseEnemy] Should spawn blood: true")
 	return true
+
+func _is_flying_enemy_runtime() -> bool:
+	# Parser-safe: explicit class type referansi kullanma.
+	# Flying enemy scriptleri genelde bu imzalardan birini tasir.
+	if has_method("is_returning"):
+		return true
+	if scene_file_path:
+		var scene_path_l := String(scene_file_path).to_lower()
+		if "flying" in scene_path_l or "bird" in scene_path_l:
+			return true
+	var sc: Variant = get_script()
+	if sc is Script:
+		var script_path_l := String((sc as Script).resource_path).to_lower()
+		if "flying" in script_path_l or "bird" in script_path_l:
+			return true
+	return false
 
 func _spawn_blood_particles(damage_amount: float = 10.0) -> void:
 	# Get the nearest player to determine hit direction
@@ -772,7 +788,7 @@ func go_to_sleep() -> void:
 	last_position = global_position
 	last_behavior = current_behavior
 	
-	if self is FlyingEnemy:
+	if _is_flying_enemy_runtime():
 		set_meta("last_velocity", velocity)
 		set_meta("last_direction", direction)
 	
@@ -806,7 +822,7 @@ func wake_up() -> void:
 		hurtbox.set_deferred("monitoring", true)
 		hurtbox.set_deferred("monitorable", true)
 	
-	if self is FlyingEnemy:
+	if _is_flying_enemy_runtime():
 		if has_meta("last_velocity"):
 			velocity = get_meta("last_velocity")
 		if has_meta("last_direction"):
@@ -815,7 +831,7 @@ func wake_up() -> void:
 	if sprite and sprite.has_method("play"):
 		sprite.play()
 	
-	if self is FlyingEnemy:
+	if _is_flying_enemy_runtime():
 		if last_behavior == "neutral" and has_method("is_returning") and not get("is_returning"):
 			change_behavior("chase")
 		else:

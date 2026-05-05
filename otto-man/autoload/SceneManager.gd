@@ -10,6 +10,7 @@ const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
+const WORLD_MAP_SCENE: String = "res://worldmap/scenes/WorldMapScene.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
 const LoadingScreenScene = preload("res://ui/LoadingScreen.tscn")
 const TimeManagerPath := "/root/TimeManager"
@@ -29,11 +30,18 @@ func start_new_game() -> void:
 	previous_scene_path = ""
 	if is_instance_valid(VillageManager) and VillageManager.has_method("reset_saved_state_for_new_game"):
 		VillageManager.reset_saved_state_for_new_game()
+	var world_manager = get_node_or_null("/root/WorldManager")
+	if is_instance_valid(world_manager) and world_manager.has_method("start_new_world_map"):
+		var run_seed: int = int(Time.get_unix_time_from_system()) + randi()
+		world_manager.start_new_world_map(run_seed)
 	# Yeni oyun başlatıldığında WeatherManager'ı tamamen reset et (storm'u kapat)
 	if is_instance_valid(WeatherManager):
 		if WeatherManager.storm_active:
 			WeatherManager.reset_storm_completely()
 		print("[SceneManager] WeatherManager reset for new game")
+	var ps_new: Node = get_node_or_null("/root/PlayerStats")
+	if ps_new and ps_new.has_method("reset_world_expedition_supplies"):
+		ps_new.call("reset_world_expedition_supplies")
 	_change_scene(VILLAGE_SCENE, true)
 
 func return_to_main_menu() -> void:
@@ -49,6 +57,10 @@ func open_settings() -> void:
 const DUNGEON_SUCCESS_MORALE_BONUS: float = 2.0
 
 func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	_heal_player_on_world_map_arrival(payload)
+	payload = _finalize_dungeon_rewards_on_safe_return(payload)
+	payload = _finalize_forest_resources_on_safe_return(payload)
+	_sync_world_map_pawn_on_dungeon_return(payload)
 	# Köye dönüş simülasyonu bayrağı (köyden çıkışta true kalmış olabilir; time_advanced önce sıfırlanmalı)
 	var vm0 := get_node_or_null("/root/VillageManager")
 	if is_instance_valid(vm0) and vm0.has_method("mark_arriving_to_village_from_travel"):
@@ -76,12 +88,113 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 	_clear_level_entry_time()
 	_change_scene(VILLAGE_SCENE, force_reload)
 
+func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
+	var src: String = String(payload.get("source", ""))
+	var returning_from_dungeon_like: bool = (
+		current_scene_path == DUNGEON_SCENE
+		or current_scene_path == CAMP_SCENE
+		or src == "dungeon"
+		or src == "dungeon_death"
+	)
+	if not returning_from_dungeon_like:
+		return
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if is_instance_valid(wm) and wm.has_method("sync_player_world_map_pos_to_own_village"):
+		wm.call("sync_player_world_map_pos_to_own_village", true)
+
+func _heal_player_on_world_map_arrival(payload: Dictionary) -> void:
+	# Dünya haritasından köye manuel dönüşte canı doldur.
+	if String(payload.get("source", "")) != "world_map":
+		return
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	if not is_instance_valid(player_stats):
+		return
+	if not player_stats.has_method("get_stat"):
+		return
+	var max_health: float = float(player_stats.get_stat("max_health"))
+	player_stats.set("current_health", max_health)
+	if player_stats.has_signal("health_changed"):
+		player_stats.health_changed.emit(max_health)
+
+func _finalize_dungeon_rewards_on_safe_return(payload: Dictionary) -> Dictionary:
+	# Zindan ödüllerini (ganimet + kurtarılanlar) sadece dünya haritasından köye
+	# güvenli dönüşte kalıcı hale getir.
+	if String(payload.get("source", "")) != "world_map":
+		return payload
+	var drs = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs):
+		return payload
+	
+	var gpd = get_node_or_null("/root/GlobalPlayerData")
+	var has_dungeon_gold: bool = false
+	if is_instance_valid(gpd) and "dungeon_gold" in gpd:
+		has_dungeon_gold = int(gpd.get("dungeon_gold")) > 0
+	
+	var pending_v: Array = drs.get("pending_rescued_villagers") if "pending_rescued_villagers" in drs else []
+	var pending_c: Array = drs.get("pending_rescued_cariyes") if "pending_rescued_cariyes" in drs else []
+	var has_rescued: bool = (pending_v.size() > 0 or pending_c.size() > 0)
+	
+	# Run bağlamı yoksa veya teslim edilecek bir şey yoksa dokunma.
+	if not bool(drs.get("run_started")) and not has_dungeon_gold and not has_rescued:
+		return payload
+	
+	# 1) Zindan altınını challenge çarpanıyla kalıcı altına aktar.
+	if has_dungeon_gold and is_instance_valid(gpd):
+		var dungeon_gold: int = int(gpd.get("dungeon_gold"))
+		var mult: float = 1.0 + float(drs.get("gold_multiplier_accumulated"))
+		var extracted: int = int(floor(float(dungeon_gold) * mult))
+		if extracted > 0 and gpd.has_method("add_gold"):
+			gpd.add_gold(extracted)
+			payload["delivered_dungeon_gold"] = extracted
+		if gpd.has_method("clear_dungeon_gold"):
+			gpd.clear_dungeon_gold()
+	
+	# 2) Kurtarılanları payload'a ekle (köyde işlenecek).
+	if drs.has_method("get_and_clear_pending_rescued"):
+		var rescued: Dictionary = drs.get_and_clear_pending_rescued()
+		payload["rescued_villagers"] = rescued.get("villagers", [])
+		payload["rescued_cariyes"] = rescued.get("cariyes", [])
+		payload["delivered_rescued_villagers"] = (payload["rescued_villagers"] as Array).size()
+		payload["delivered_rescued_cariyes"] = (payload["rescued_cariyes"] as Array).size()
+	
+	# Köy sahnesi bu dönüşün zindan kökenli teslimat olduğunu bilsin.
+	payload["delivered_from_dungeon_run"] = true
+	return payload
+
+func _finalize_forest_resources_on_safe_return(payload: Dictionary) -> Dictionary:
+	# Ormanda toplanan kaynaklar dünya haritasında taşınır;
+	# sadece köye güvenli varışta depoya aktarılır.
+	if String(payload.get("source", "")) != "world_map":
+		return payload
+	
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	var has_carried_resources: bool = false
+	if is_instance_valid(player_stats) and player_stats.has_method("get_carried_resources"):
+		var carried: Dictionary = player_stats.get_carried_resources()
+		for key in carried.keys():
+			if int(carried[key]) > 0:
+				has_carried_resources = true
+				break
+	if not has_carried_resources:
+		return payload
+	
+	var game_manager = get_node_or_null("/root/GameManager")
+	if not is_instance_valid(game_manager) or not game_manager.has_method("transfer_carried_resources_to_village"):
+		return payload
+	
+	var transferred: Dictionary = game_manager.transfer_carried_resources_to_village()
+	if not transferred.is_empty():
+		payload["forest_resources_delivered"] = transferred.duplicate(true)
+	return payload
+
 func change_to_dungeon(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	var source: String = str(payload.get("source", ""))
 	var from_camp: bool = bool(payload.get("from_camp", false))
 	var selected_tier: int = int(payload.get("selected_tier", 0))
-	# Yeni zindan run'ı: sadece köyden ilk çıkışta pending'i sıfırla ve kapasite kaydet
-	if not from_camp and source != "dungeon":
+	# Yeni zindan run'ı hazırlığı:
+	# Sadece köyden ilk çıkışta pending kurtarılanları temizle.
+	# Dünya haritasından girişte (taşınan ganimet/kurtarılan olabilir) temizlik yapma.
+	if not from_camp and source == "village":
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if is_instance_valid(drs) and drs.has_method("clear_pending_rescued"):
 			drs.clear_pending_rescued()
@@ -125,6 +238,10 @@ func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> v
 	# Record entry time AFTER travel time has been applied (so we track time inside the level)
 	_record_level_entry_time(FOREST_SCENE)
 	_change_scene(FOREST_SCENE, force_reload)
+
+func change_to_world_map(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	current_payload = payload.duplicate(true)
+	_change_scene(WORLD_MAP_SCENE, force_reload)
 
 func _handle_travel_time_out_only(payload: Dictionary) -> void:
 	"""Handle travel time when LEAVING village (going to forest/dungeon).
