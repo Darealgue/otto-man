@@ -263,6 +263,9 @@ func _show_delivery_summary_from_payload() -> void:
 	var delivered_gold: int = int(payload.get("delivered_dungeon_gold", 0))
 	if delivered_gold > 0:
 		lines.append("+%d zindan altını" % delivered_gold)
+	var delivered_exp_gold: int = int(payload.get("delivered_world_expedition_gold", 0))
+	if delivered_exp_gold > 0:
+		lines.append("+%d sefer altını (harita görevi)" % delivered_exp_gold)
 	
 	var delivered_resources: Dictionary = payload.get("forest_resources_delivered", {})
 	if delivered_resources is Dictionary and not delivered_resources.is_empty():

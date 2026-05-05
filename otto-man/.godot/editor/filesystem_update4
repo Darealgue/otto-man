@@ -8,3 +8,4 @@ res://scenes/forest.tscn
 res://scenes/testing.tscn
 res://village/buildings/House.tscn
 res://player/player.tscn
+res://autoload/WorldManager.gd

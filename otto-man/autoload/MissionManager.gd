@@ -20,6 +20,9 @@ var next_concubine_id: int = 1
 # Görev üretimi
 var mission_rotation_timer: float = 0.0
 var mission_rotation_interval: float = 30.0  # 30 saniyede bir görev rotasyonu
+var _next_daily_dynamic_spawn_day: int = 2
+const DAILY_DYNAMIC_SPAWN_CHANCE: float = 0.78
+const DAILY_DYNAMIC_MAX_AVAILABLE: int = 2
 
 # Dinamik görev üretimi
 var dynamic_mission_templates: Dictionary = {}
@@ -60,6 +63,8 @@ var _next_news_id: int = 1
 # Mission (Resource) set/get güvenilir olmadığı için burada tutuyoruz
 var _raid_mission_extra: Dictionary = {}
 var _world_map_returning_units: Dictionary = {}
+const PLAYER_MAP_GOLD_REWARD_MULT: float = 0.35
+const PLAYER_MAP_FAIL_HP_LOSS: float = 14.0
 
 # Sinyaller
 signal mission_completed(cariye_id: int, mission_id: String, successful: bool, results: Dictionary)
@@ -141,13 +146,8 @@ func _process(delta):
 	# Aktif görevleri kontrol et
 	check_active_missions()
 	
-	# Görev rotasyonu timer'ı
-	mission_rotation_timer += delta
-	if mission_rotation_timer >= mission_rotation_interval:
-		mission_rotation_timer = 0.0
-		# %30 şansla görevleri yenile
-		if randf() < 0.3:
-			refresh_missions()
+	# Eski saniyelik görev rotasyonu ekonomi enflasyonu yaratıyordu.
+	# Spawn kontrolü artık sadece günlük tick'te (_on_new_day) yapılıyor.
 	
 	# Dünya olaylarını güncelle
 	update_world_events(delta)
@@ -1172,9 +1172,39 @@ func _ensure_mission_has_world_objective_hex(mission: Mission) -> void:
 	var wm: Node = get_node_or_null("/root/WorldManager")
 	if wm and wm.has_method("pick_random_mission_objective_hex"):
 		var placement: String = _mission_world_hex_placement_profile(mission)
-		var hk: Variant = wm.call("pick_random_mission_objective_hex", 2, 14, placement)
-		if hk is String and not String(hk).is_empty():
-			mission.world_hex_key = String(hk)
+		var assigned: String = ""
+		for _i in range(10):
+			var hk: Variant = wm.call("pick_random_mission_objective_hex", 2, 14, placement)
+			if not (hk is String):
+				continue
+			var hks: String = String(hk)
+			if hks.is_empty():
+				continue
+			if not _is_world_hex_used_by_other_available_player_map_mission(hks, mission.id):
+				assigned = hks
+				break
+		if not assigned.is_empty():
+			mission.world_hex_key = assigned
+
+func _is_world_hex_used_by_other_available_player_map_mission(hex_key: String, mission_id_to_ignore: String = "") -> bool:
+	for mid in missions.keys():
+		var m: Mission = missions[mid] as Mission
+		if m == null:
+			continue
+		if String(mid) == String(mission_id_to_ignore):
+			continue
+		if m.status != Mission.Status.MEVCUT:
+			continue
+		if not m.allow_player_map_completion:
+			continue
+		# Recursive stack overflow korumasi:
+		# Burada baska gorevler icin world_hex üretmeye calismayiz; sadece mevcut key'e bakariz.
+		var existing_key: String = String(m.world_hex_key)
+		if existing_key.is_empty():
+			continue
+		if existing_key == hex_key:
+			return true
+	return false
 
 func _append_player_map_mission_history_and_notify(mission_id: String, m: Mission, successful: bool, results: Dictionary) -> void:
 	var history_entry: Dictionary = results.duplicate(true)
@@ -1341,9 +1371,10 @@ func resolve_player_map_mission_with_strategy(mission_id: String, strategy_index
 	var successful: bool = randf() < chance
 	var results: Dictionary = m.complete_mission(successful)
 	_process_player_map_mission_results(m, successful, results)
+	var entry: Dictionary = _build_player_map_resolution_entry(m, successful)
 	_append_player_map_mission_history_and_notify(mission_id, m, successful, results)
 	mission_list_changed.emit()
-	return {"ok": true, "successful": successful, "results": results}
+	return {"ok": true, "successful": successful, "results": results, "resolution_entry": entry}
 
 func get_world_map_mission_objective_markers() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -1369,10 +1400,11 @@ func get_world_map_mission_objective_markers() -> Array[Dictionary]:
 		})
 	return out
 
-func try_complete_player_missions_at_hex(q: int, r: int) -> int:
+func try_complete_player_missions_at_hex_with_report(q: int, r: int) -> Dictionary:
 	var key: String = str(q) + "," + str(r)
 	var done: int = 0
 	var to_complete: Array[String] = []
+	var entries: Array[Dictionary] = []
 	for mid in missions.keys():
 		var m: Mission = missions[mid] as Mission
 		if m == null:
@@ -1394,11 +1426,45 @@ func try_complete_player_missions_at_hex(q: int, r: int) -> int:
 		var successful: bool = randf() < clampf(float(m2.success_chance), 0.05, 0.98)
 		var results: Dictionary = m2.complete_mission(successful)
 		_process_player_map_mission_results(m2, successful, results)
+		entries.append(_build_player_map_resolution_entry(m2, successful))
 		_append_player_map_mission_history_and_notify(mid_str, m2, successful, results)
 		done += 1
+		break
 	if done > 0:
 		mission_list_changed.emit()
-	return done
+	return {"done": done, "entries": entries}
+
+func try_complete_player_missions_at_hex(q: int, r: int) -> int:
+	var rep: Dictionary = try_complete_player_missions_at_hex_with_report(q, r)
+	return int(rep.get("done", 0))
+
+func _build_player_map_resolution_entry(mission: Mission, successful: bool) -> Dictionary:
+	var out: Dictionary = {
+		"mission_id": String(mission.id),
+		"mission_name": String(mission.name),
+		"successful": successful,
+		"gold_delta": 0,
+		"expedition_rewards": {},
+		"hp_loss": 0.0
+	}
+	if successful:
+		var ex_rewards: Dictionary = {}
+		for reward_type in mission.rewards.keys():
+			var amount: int = int(mission.rewards[reward_type])
+			if String(reward_type) == "gold":
+				var gold_gain: int = int(round(float(amount) * PLAYER_MAP_GOLD_REWARD_MULT))
+				out["gold_delta"] = int(out.get("gold_delta", 0)) + gold_gain
+			elif String(reward_type) in ["food", "water", "medicine"]:
+				ex_rewards[String(reward_type)] = int(ex_rewards.get(String(reward_type), 0)) + amount
+		out["expedition_rewards"] = ex_rewards
+	else:
+		out["hp_loss"] = PLAYER_MAP_FAIL_HP_LOSS
+		var fail_gold: int = 0
+		for penalty_type in mission.penalties.keys():
+			if String(penalty_type) == "gold":
+				fail_gold += int(mission.penalties[penalty_type])
+		out["gold_delta"] = fail_gold
+	return out
 
 func _process_player_map_mission_results(mission: Mission, successful: bool, _results: Dictionary) -> void:
 	if mission == null:
@@ -1408,8 +1474,20 @@ func _process_player_map_mission_results(mission: Mission, successful: bool, _re
 	if successful:
 		for reward_type in mission.rewards:
 			var amount = mission.rewards[reward_type]
-			_apply_reward(reward_type, amount)
+			if String(reward_type) == "gold":
+				amount = int(round(float(int(amount)) * PLAYER_MAP_GOLD_REWARD_MULT))
+				var ps_map: Node = get_node_or_null("/root/PlayerStats")
+				if ps_map and ps_map.has_method("apply_world_expedition_gold_delta"):
+					ps_map.call("apply_world_expedition_gold_delta", int(amount))
+				else:
+					_apply_reward(reward_type, amount)
+			else:
+				_apply_reward(reward_type, amount)
 	else:
+		var ps_fail: Node = get_node_or_null("/root/PlayerStats")
+		if ps_fail and ps_fail.has_method("get_current_health") and ps_fail.has_method("set_current_health"):
+			var old_h: float = float(ps_fail.get_current_health())
+			ps_fail.set_current_health(maxf(1.0, old_h - PLAYER_MAP_FAIL_HP_LOSS), false)
 		for penalty_type in mission.penalties:
 			var amount = mission.penalties[penalty_type]
 			if penalty_type == "cariye_injured":
@@ -2182,6 +2260,12 @@ func _populate_default_player_map_strategies(mission: Mission, mission_type: Str
 				{"text": "Daha iyi malzeme ve su ile yolu netleştir.", "cost": {"food": 8, "water": 5}, "success_chance": 0.55},
 				{"text": "Tam donanımla alanı haritalandır.", "cost": {"food": 15, "water": 10}, "success_chance": 0.8}
 			]
+		"ticaret":
+			mission.player_map_strategies = [
+				{"text": "Temkinli pazarlık yap, kervanı görünmeden geçir.", "cost": {"food": 1}, "success_chance": 0.32},
+				{"text": "Rüşvet ve ikna ile geçiş aç.", "cost": {"gold": 12}, "success_chance": 0.52},
+				{"text": "Silahlı refakat kur, hızlı geçiş dene.", "cost": {"food": 1, "gold": 20}, "success_chance": 0.68}
+			]
 		_:
 			pass
 
@@ -2691,6 +2775,46 @@ func _on_new_day(day: int):
 		_trigger_bandit_activity()
 	if randf() < 0.18:
 		_trigger_random_festival()
+	_maybe_spawn_daily_dynamic_mission(day)
+
+func _count_available_non_chain_missions() -> int:
+	var n: int = 0
+	for mission_id in missions:
+		var mission = missions[mission_id]
+		if mission is Dictionary:
+			var status_text: String = String(mission.get("status", "")).to_lower()
+			if status_text == "available" or status_text == "mevcut":
+				n += 1
+			continue
+		if mission == null:
+			continue
+		if mission.status != Mission.Status.MEVCUT:
+			continue
+		if mission.has_method("is_part_of_chain") and mission.is_part_of_chain():
+			continue
+		n += 1
+	return n
+
+func _maybe_spawn_daily_dynamic_mission(day: int) -> void:
+	if day < _next_daily_dynamic_spawn_day:
+		return
+	if _count_available_non_chain_missions() >= DAILY_DYNAMIC_MAX_AVAILABLE:
+		# Slot doluysa yarına tekrar dene.
+		_next_daily_dynamic_spawn_day = day + 1
+		return
+	if randf() > DAILY_DYNAMIC_SPAWN_CHANCE:
+		# Bugün spawn atlandıysa ertesi gün tekrar dene.
+		_next_daily_dynamic_spawn_day = day + 1
+		return
+	var m: Mission = generate_random_dynamic_mission()
+	if m == null:
+		_next_daily_dynamic_spawn_day = day + 1
+		return
+	missions[m.id] = m
+	mission_list_changed.emit()
+	post_news("Bilgi", "Yeni Harita Gorevi", "%s gorevi acildi." % String(m.name), Color(0.9, 0.96, 1.0), "info")
+	# Bazen ertesi gün, bazen 2 gün sonra yeni görev.
+	_next_daily_dynamic_spawn_day = day + (1 if randf() < 0.62 else 2)
 
 func _simulate_conflicts():
 	if settlements.size() < 2:
@@ -3186,13 +3310,59 @@ func _add_settlement_trade_modifier(partner: String, trade_multiplier: float, da
 	post_news("Bilgi", "Ticaret Modu (%s)" % partner, "%s: %s gün" % [effect_text, str(days)], Color(0.9,0.95,1))
 
 func create_settlements():
-	# Basit başlangıç seti
-	settlements = [
-		{"id": "east_village", "name": "Doğu Köyü", "type": "village", "relation": 60, "wealth": 55, "stability": 65, "military": 20, "biases": {"food": 3}},
-		{"id": "west_town", "name": "Batı Kasabası", "type": "town", "relation": 50, "wealth": 70, "stability": 60, "military": 35, "biases": {"wood": 2}},
-		{"id": "south_city", "name": "Güney Şehri", "type": "city", "relation": 65, "wealth": 80, "stability": 75, "military": 50, "biases": {"stone": 2, "food": 1}},
-		{"id": "north_fort", "name": "Kuzey Kalesi", "type": "fort", "relation": 45, "wealth": 45, "stability": 55, "military": 80, "biases": {"stone": 3}}
-	]
+	# Havuzdan isim + daha fazla komsu yerlesim (harita dolulugu / ekonomi icin)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	const NEIGHBOR_SETTLEMENT_COUNT: int = 14
+	settlements.clear()
+	var used_names: Dictionary = {}
+	for i in range(NEIGHBOR_SETTLEMENT_COUNT):
+		var sid: String = "neighbor_%03d" % i
+		var nm: String = WorldSettlementNames.pick_unique_settlement_name(rng, used_names)
+		var roll: float = rng.randf()
+		var typ: String = "village"
+		var wealth: int = rng.randi_range(45, 65)
+		var stability: int = rng.randi_range(50, 75)
+		var military: int = rng.randi_range(15, 35)
+		var relation: int = rng.randi_range(38, 78)
+		if roll < 0.52:
+			typ = "village"
+		elif roll < 0.72:
+			typ = "town"
+			wealth = rng.randi_range(58, 78)
+			military = rng.randi_range(22, 42)
+		elif roll < 0.88:
+			typ = "city"
+			wealth = rng.randi_range(70, 88)
+			stability = rng.randi_range(55, 82)
+			military = rng.randi_range(35, 55)
+		elif roll < 0.96:
+			typ = "fort"
+			wealth = rng.randi_range(40, 58)
+			military = rng.randi_range(65, 88)
+			stability = rng.randi_range(48, 68)
+		else:
+			typ = "outpost"
+			wealth = rng.randi_range(48, 62)
+			military = rng.randi_range(38, 55)
+		var bias_pool: Array[String] = ["food", "wood", "stone"]
+		if rng.randf() < 0.38:
+			bias_pool.append("water")
+		var biases: Dictionary = {}
+		var bias_n: int = rng.randi_range(1, 2)
+		for _b in range(bias_n):
+			var bk: String = bias_pool[rng.randi() % bias_pool.size()]
+			biases[bk] = int(biases.get(bk, 0)) + rng.randi_range(1, 3)
+		settlements.append({
+			"id": sid,
+			"name": nm,
+			"type": typ,
+			"relation": relation,
+			"wealth": wealth,
+			"stability": stability,
+			"military": military,
+			"biases": biases
+		})
 	post_news("Bilgi", "Komşular Tanımlandı", "%d yerleşim keşfedildi" % settlements.size(), Color(0.8,1,0.8))
 	sync_settlement_relations_from_world_map()
 

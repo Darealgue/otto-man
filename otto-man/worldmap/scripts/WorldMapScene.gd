@@ -89,6 +89,10 @@ var _travel_dice_right_label: Label = null
 var _travel_event_info_label: Label = null
 var _travel_event_result_label: Label = null
 var _dungeon_entry_dialog: ConfirmationDialog = null
+## Imlec hex uzerinde koy / gorev / zindan ozeti (CanvasLayer, ekran koordinati).
+var _hex_tooltip_layer: CanvasLayer = null
+var _hex_tooltip_panel: PanelContainer = null
+var _hex_tooltip_label: Label = null
 var _high_risk_move_dialog: ConfirmationDialog = null
 var _settlement_aid_confirm_dialog: ConfirmationDialog = null
 var _settlement_action_menu: PopupMenu = null
@@ -214,6 +218,7 @@ func _ready() -> void:
 	_setup_settlement_action_menu()
 	_setup_player_map_mission_window()
 	_setup_expedition_pack_modal()
+	_setup_hex_hover_tooltip()
 	var ps0: Node = get_node_or_null("/root/PlayerStats")
 	if ps0 and ps0.has_signal("world_expedition_supplies_changed"):
 		ps0.world_expedition_supplies_changed.connect(_on_world_expedition_supplies_changed)
@@ -221,6 +226,7 @@ func _ready() -> void:
 	_refresh_active_unit_markers()
 	_last_marker_arrays_signature = _marker_arrays_signature()
 	_update_status_label()
+	_refresh_hex_hover_tooltip()
 	queue_redraw()
 
 func _exit_tree() -> void:
@@ -237,6 +243,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if _update_world_map_hint_device_from_event(event):
 		_update_status_label()
+		_refresh_hex_hover_tooltip()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -349,6 +356,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	if _travel_anim_active:
+		if _hex_tooltip_panel:
+			_hex_tooltip_panel.visible = false
 		_travel_anim_t += delta / TRAVEL_PAWN_HEX_DURATION_SEC
 		while _travel_anim_t >= 1.0 and _travel_anim_active:
 			_travel_anim_t -= 1.0
@@ -360,6 +369,9 @@ func _process(delta: float) -> void:
 			_update_expedition_pack_left_right_repeat(delta)
 		_update_cursor_key_navigation(delta)
 	_update_camera_follow(delta)
+	if not _travel_anim_active and _hex_tooltip_panel != null and _hex_tooltip_panel.visible:
+		if not _is_blocking_world_map_ui_open():
+			_position_hex_tooltip_for_cursor_impl()
 	if _path_preview_dirty:
 		_path_preview_debounce_left -= delta
 		if _path_preview_debounce_left <= 0.0:
@@ -381,6 +393,7 @@ func _process(delta: float) -> void:
 		_cursor_status_label_pending = false
 		_cursor_status_label_throttle = CURSOR_STATUS_LABEL_MIN_INTERVAL_SEC
 		_update_status_label()
+		_refresh_hex_hover_tooltip()
 
 func _draw() -> void:
 	if not _world_manager or not _world_manager.has_method("get_world_map_state"):
@@ -429,6 +442,7 @@ func _on_world_map_updated() -> void:
 	_refresh_active_unit_markers()
 	_last_marker_arrays_signature = _marker_arrays_signature()
 	_update_status_label()
+	_refresh_hex_hover_tooltip()
 	queue_redraw()
 
 func _try_move_cursor(dq: int, dr: int) -> bool:
@@ -540,6 +554,7 @@ func _travel_anim_on_segment_finished() -> void:
 		_try_prompt_settlement_actions_at_player_pos()
 		queue_redraw()
 		return
+	_consume_preview_first_segment()
 	_travel_anim_dest_index += 1
 	if _travel_anim_dest_index >= _travel_anim_path.size():
 		_travel_anim_stop()
@@ -569,6 +584,7 @@ func _execute_travel_to_cursor() -> void:
 	_travel_anim_dest_index = 1
 	_travel_anim_t = 0.0
 	_travel_anim_active = true
+	_consume_preview_first_segment()
 	_camera_follow_target = _get_player_visual_pixel_pos()
 	queue_redraw()
 
@@ -898,6 +914,205 @@ func _format_incident_type_label(incident_type: String) -> String:
 			return "hastalik kaygisi"
 		_:
 			return incident_type
+
+func _setup_hex_hover_tooltip() -> void:
+	if _hex_tooltip_layer != null:
+		return
+	_hex_tooltip_layer = CanvasLayer.new()
+	_hex_tooltip_layer.layer = 42
+	add_child(_hex_tooltip_layer)
+	_hex_tooltip_panel = PanelContainer.new()
+	_hex_tooltip_panel.visible = false
+	_hex_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if MEDIEVAL_THEME:
+		_hex_tooltip_panel.theme = MEDIEVAL_THEME
+	_hex_tooltip_layer.add_child(_hex_tooltip_panel)
+	var margin: MarginContainer = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	_hex_tooltip_panel.add_child(margin)
+	_hex_tooltip_label = Label.new()
+	_hex_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hex_tooltip_label.custom_minimum_size = Vector2(268, 0)
+	margin.add_child(_hex_tooltip_label)
+
+func _refresh_hex_hover_tooltip() -> void:
+	_setup_hex_hover_tooltip()
+	if _hex_tooltip_panel == null or _hex_tooltip_label == null:
+		return
+	if _travel_anim_active or _is_blocking_world_map_ui_open():
+		_hex_tooltip_panel.visible = false
+		return
+	var text: String = _build_hex_hover_tooltip_text(_cursor_q, _cursor_r)
+	if text.is_empty():
+		_hex_tooltip_panel.visible = false
+		return
+	_hex_tooltip_label.text = text
+	_hex_tooltip_panel.visible = true
+	_position_hex_tooltip_for_cursor_impl()
+
+func _position_hex_tooltip_for_cursor_impl() -> void:
+	if _hex_tooltip_panel == null or not _hex_tooltip_panel.visible:
+		return
+	var world_pt: Vector2 = to_global(_axial_to_pixel(_cursor_q, _cursor_r) + Vector2(0.0, -42.0))
+	var scr: Vector2 = get_viewport().get_canvas_transform() * world_pt
+	_hex_tooltip_panel.reset_size()
+	var panel_size: Vector2 = _hex_tooltip_panel.size
+	if panel_size.x < 4.0 or panel_size.y < 4.0:
+		panel_size = _hex_tooltip_panel.get_combined_minimum_size()
+	var pos: Vector2 = Vector2(scr.x + 16.0, scr.y - panel_size.y - 10.0)
+	var vr: Rect2 = get_viewport().get_visible_rect()
+	pos.x = clampf(pos.x, 8.0, vr.size.x - panel_size.x - 8.0)
+	pos.y = clampf(pos.y, 8.0, vr.size.y - panel_size.y - 8.0)
+	_hex_tooltip_panel.position = pos
+
+func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
+	var blocks: PackedStringArray = PackedStringArray()
+	var mission_lines: PackedStringArray = _build_world_mission_objective_tooltip_lines_at(cq, cr)
+	if not mission_lines.is_empty():
+		blocks.append("\n".join(mission_lines))
+	var tile: Dictionary = _get_tile(cq, cr)
+	if tile.is_empty():
+		return "\n\n".join(blocks) if not blocks.is_empty() else ""
+	var poi: String = String(tile.get("poi_type", ""))
+	var poi_lines: PackedStringArray = PackedStringArray()
+	if poi == "dungeon":
+		poi_lines = _build_dungeon_hex_tooltip_lines(tile)
+	elif poi == "neighbor_village":
+		poi_lines = _build_neighbor_village_hex_tooltip_lines(tile)
+	elif poi == "player_village":
+		poi_lines = _build_player_village_hex_tooltip_lines()
+	if not poi_lines.is_empty():
+		if not blocks.is_empty():
+			blocks.append("---")
+		blocks.append("\n".join(poi_lines))
+	if blocks.is_empty():
+		return ""
+	return "\n\n".join(blocks)
+
+func _find_world_mission_objective_at_hex(q: int, r: int) -> Dictionary:
+	for m in _mission_objective_markers:
+		if int(m.get("q", -999999)) == q and int(m.get("r", -999999)) == r:
+			return m
+	return {}
+
+func _build_world_mission_objective_tooltip_lines_at(q: int, r: int) -> PackedStringArray:
+	var marker: Dictionary = _find_world_mission_objective_at_hex(q, r)
+	if marker.is_empty():
+		return PackedStringArray()
+	var mid: String = String(marker.get("mission_id", ""))
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	if mm == null or mid.is_empty() or not "missions" in mm:
+		return PackedStringArray(["Harita gorevi", String(marker.get("mission_name", "Gorev"))])
+	if not mm.missions.has(mid):
+		return PackedStringArray(["Harita gorevi", String(marker.get("mission_name", "Gorev"))])
+	var m: Mission = mm.missions[mid] as Mission
+	if m == null:
+		return PackedStringArray(["Harita gorevi", String(marker.get("mission_name", "Gorev"))])
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("Harita gorevi")
+	lines.append(String(m.name))
+	var desc: String = String(m.description).strip_edges()
+	if desc.length() > 160:
+		desc = desc.substr(0, 157) + "..."
+	if not desc.is_empty():
+		lines.append(desc)
+	lines.append("Tur: %s | Risk: %s" % [_format_mission_type_for_tooltip(m.mission_type), String(m.risk_level)])
+	lines.append("Basari sansi: %d%%" % clampi(int(round(float(m.success_chance) * 100.0)), 0, 100))
+	var reward_hint: String = _format_mission_rewards_penalties_hint(m)
+	if not reward_hint.is_empty():
+		lines.append(reward_hint)
+	return lines
+
+func _format_mission_type_for_tooltip(mt: Variant) -> String:
+	var mi: int = int(mt)
+	match mi:
+		Mission.MissionType.SAVAŞ:
+			return "Savas"
+		Mission.MissionType.KEŞİF:
+			return "Kesif"
+		Mission.MissionType.DİPLOMASİ:
+			return "Diplomasi"
+		Mission.MissionType.TİCARET:
+			return "Ticaret"
+		Mission.MissionType.İSTİHBARAT:
+			return "Istihbarat"
+		Mission.MissionType.BÜROKRASİ:
+			return "Burokrasi"
+		_:
+			return "Gorev"
+
+func _format_mission_rewards_penalties_hint(m: Mission) -> String:
+	if m == null:
+		return ""
+	var rp: PackedStringArray = PackedStringArray()
+	if not m.rewards.is_empty():
+		var bits: PackedStringArray = PackedStringArray()
+		for k in m.rewards.keys():
+			bits.append("%s: %s" % [String(k), str(m.rewards[k])])
+		rp.append("Oduil: " + ", ".join(bits))
+	if not m.penalties.is_empty():
+		var bits2: PackedStringArray = PackedStringArray()
+		for k2 in m.penalties.keys():
+			bits2.append("%s: %s" % [String(k2), str(m.penalties[k2])])
+		rp.append("Basarisiz: " + ", ".join(bits2))
+	return " | ".join(rp)
+
+func _build_dungeon_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	var dn: String = String(tile.get("dungeon_name", "")).strip_edges()
+	if dn.is_empty():
+		dn = "Zindan girisi"
+	lines.append(dn)
+	lines.append("Zindana girmek icin bu hexe yuruyup Onayla.")
+	var terr: String = String(tile.get("terrain_type", ""))
+	if not terr.is_empty():
+		lines.append("Arazi: %s" % terr)
+	return lines
+
+func _build_player_village_hex_tooltip_lines() -> PackedStringArray:
+	return PackedStringArray([
+		"Senin koyun",
+		"Koye girmek icin bu hexe yuruyup Onayla.",
+	])
+
+func _build_neighbor_village_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	if not bool(tile.get("discovered", false)):
+		lines.append("Komsu yerlesim")
+		lines.append("Henuz kesfedilmedi; yakinlastikca acilir.")
+		return lines
+	var sname: String = String(tile.get("settlement_name", "Bilinmeyen")).strip_edges()
+	var sid: String = String(tile.get("settlement_id", ""))
+	if sname.is_empty():
+		sname = "Yerlesim"
+	lines.append(sname)
+	if _world_manager != null and "world_settlement_states" in _world_manager and not sid.is_empty():
+		var st_var: Variant = _world_manager.world_settlement_states.get(sid, {})
+		if st_var is Dictionary:
+			var st: Dictionary = st_var
+			if not st.is_empty():
+				lines.append("Nufus: ~%d" % int(st.get("population", 0)))
+	if _world_manager != null and _world_manager.has_method("get_active_settlement_incident") and not sid.is_empty():
+		var inc_raw: Variant = _world_manager.call("get_active_settlement_incident", sid)
+		var inc: Dictionary = inc_raw as Dictionary if inc_raw is Dictionary else {}
+		if inc.is_empty():
+			lines.append("Kriz: yok")
+		else:
+			var typ_lbl: String = _format_incident_type_label(String(inc.get("type", "")))
+			var sev: float = float(inc.get("severity", 1.0))
+			lines.append("Kriz: %s (siddet ~%.1f)" % [typ_lbl, sev])
+			var day: int = 0
+			var tm: Node = get_node_or_null("/root/TimeManager")
+			if tm != null and tm.has_method("get_day"):
+				day = int(tm.call("get_day"))
+			var ends: int = int(inc.get("started_day", 0)) + int(inc.get("duration", 0))
+			var left: int = maxi(0, ends - day)
+			if left > 0:
+				lines.append("Tahmini kalan: %d gun" % left)
+	return lines
 
 func _build_alliance_status_line() -> String:
 	if _world_manager == null:
@@ -1695,6 +1910,7 @@ func _adjust_zoom(delta: float) -> void:
 	var target: float = clampf(_camera.zoom.x + delta, ZOOM_FARTHEST, ZOOM_CLOSEST)
 	_camera.zoom = Vector2(target, target)
 	_update_status_label()
+	_refresh_hex_hover_tooltip()
 
 func _refresh_path_preview() -> void:
 	_preview_path.clear()
@@ -1915,10 +2131,14 @@ func _draw_mission_objective_markers() -> void:
 		var mq: int = int(om.get("q", 0))
 		var mr: int = int(om.get("r", 0))
 		var center: Vector2 = _axial_to_pixel(mq, mr)
-		var badge: Vector2 = center + Vector2(2.0, -20.0)
-		draw_circle(badge, 11.0, Color(0.1, 0.08, 0.05, 0.88))
-		draw_arc(badge, 10.0, 0.0, TAU, 28, Color(1.0, 0.75, 0.12, 1.0), 2.2, true)
-		draw_string(font, badge + Vector2(1.0, -14.0), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1.0, 0.9, 0.2, 1.0))
+		var badge: Vector2 = center + Vector2(0.0, -14.0)
+		draw_circle(badge, 10.5, Color(0.1, 0.08, 0.05, 0.90))
+		draw_circle(badge, 8.8, Color(1.0, 0.75, 0.12, 0.95), false, 2.0)
+		draw_string(font, badge + Vector2(-2.0, 5.0), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1.0, 0.95, 0.25, 1.0))
+
+func _consume_preview_first_segment() -> void:
+	if _preview_path.size() > 1:
+		_preview_path.remove_at(0)
 
 func _try_resolve_player_map_missions_at(q: int, r: int) -> void:
 	var mm: Node = get_node_or_null("/root/MissionManager")
@@ -1934,6 +2154,16 @@ func _try_resolve_player_map_missions_at(q: int, r: int) -> void:
 				_player_map_mission_window.popup_centered(Vector2i(560, 440))
 			queue_redraw()
 			return
+	if mm.has_method("try_complete_player_missions_at_hex_with_report"):
+		var rep: Variant = mm.call("try_complete_player_missions_at_hex_with_report", q, r)
+		if rep is Dictionary:
+			var n2: int = int(rep.get("done", 0))
+			if n2 > 0:
+				_update_status_label("%d gorev hedefte tamamlandi." % n2)
+				var body: String = _format_player_map_mission_entries_for_popup(rep.get("entries", []))
+				_show_travel_outcome_popup(body, "Gorev Sonucu", false)
+				queue_redraw()
+				return
 	if mm.has_method("try_complete_player_missions_at_hex"):
 		var n: int = int(mm.call("try_complete_player_missions_at_hex", q, r))
 		if n > 0:
@@ -3012,6 +3242,12 @@ func _on_player_map_mission_strategy_chosen(mission_id: String, strategy_index: 
 		return
 	var ok_succ: bool = bool(res.get("successful", false))
 	_update_status_label("Görev başarılı." if ok_succ else "Görev başarısız; harcadığın kaynak geri dönmez.")
+	var one_entry: Dictionary = {}
+	if res.get("resolution_entry") is Dictionary:
+		one_entry = res.get("resolution_entry")
+	var body_entry: String = _format_player_map_mission_entries_for_popup([one_entry] if not one_entry.is_empty() else [])
+	if not body_entry.is_empty():
+		_show_travel_outcome_popup(body_entry, "Gorev Sonucu", false)
 	if mm.has_method("get_player_map_strategy_missions_at_hex"):
 		var left2: Variant = mm.call("get_player_map_strategy_missions_at_hex", _player_map_mission_pending_q, _player_map_mission_pending_r)
 		if left2 is Array and left2.size() > 0:
@@ -3021,6 +3257,41 @@ func _on_player_map_mission_strategy_chosen(mission_id: String, strategy_index: 
 			_finish_player_map_mission_flow_and_legacy()
 	else:
 		_finish_player_map_mission_flow_and_legacy()
+
+func _format_player_map_mission_entries_for_popup(entries_raw: Variant) -> String:
+	if not (entries_raw is Array):
+		return ""
+	var entries: Array = entries_raw
+	if entries.is_empty():
+		return ""
+	var lines: PackedStringArray = PackedStringArray()
+	for e in entries:
+		if not (e is Dictionary):
+			continue
+		var d: Dictionary = e
+		var nm: String = String(d.get("mission_name", "Gorev"))
+		var ok: bool = bool(d.get("successful", false))
+		lines.append("%s — %s" % [nm, ("Basarili" if ok else "Basarisiz")])
+		var gold_delta: int = int(d.get("gold_delta", 0))
+		if gold_delta > 0:
+			lines.append("  Sefer altini: +%d" % gold_delta)
+		elif gold_delta < 0:
+			lines.append("  Sefer altini: %d" % gold_delta)
+		var ex: Variant = d.get("expedition_rewards", {})
+		if ex is Dictionary and not (ex as Dictionary).is_empty():
+			var ex_parts: PackedStringArray = PackedStringArray()
+			for k in (ex as Dictionary).keys():
+				var v: int = int((ex as Dictionary)[k])
+				if v > 0:
+					ex_parts.append("%s +%d" % [str(k), v])
+			if not ex_parts.is_empty():
+				lines.append("  Canta odulu: " + ", ".join(ex_parts))
+		var hp_loss: float = float(d.get("hp_loss", 0.0))
+		if hp_loss > 0.0:
+			lines.append("  Can kaybi: -%.0f" % hp_loss)
+	if lines.is_empty():
+		return ""
+	return "\n".join(lines)
 
 func _on_world_expedition_supplies_changed(_t: Dictionary) -> void:
 	_unsecured_cargo_cache_valid = false

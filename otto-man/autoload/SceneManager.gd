@@ -60,6 +60,7 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 	_heal_player_on_world_map_arrival(payload)
 	payload = _finalize_dungeon_rewards_on_safe_return(payload)
 	payload = _finalize_forest_resources_on_safe_return(payload)
+	payload = _finalize_world_expedition_gold_on_safe_return(payload)
 	_sync_world_map_pawn_on_dungeon_return(payload)
 	# Köye dönüş simülasyonu bayrağı (köyden çıkışta true kalmış olabilir; time_advanced önce sıfırlanmalı)
 	var vm0 := get_node_or_null("/root/VillageManager")
@@ -87,6 +88,30 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 	current_payload = payload.duplicate(true)
 	_clear_level_entry_time()
 	_change_scene(VILLAGE_SCENE, force_reload)
+
+func _finalize_world_expedition_gold_on_safe_return(payload: Dictionary) -> Dictionary:
+	# Dünya haritasından köye güvenli dönüşte sefer çantası altını kasaya aktar.
+	if String(payload.get("source", "")) != "world_map":
+		return payload
+	var ps: Node = get_node_or_null("/root/PlayerStats")
+	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+	if not is_instance_valid(ps) or not is_instance_valid(gpd):
+		return payload
+	if not ps.has_method("get_world_expedition_supplies") or not ps.has_method("apply_world_expedition_gold_delta"):
+		return payload
+	var ex: Dictionary = ps.call("get_world_expedition_supplies")
+	var carried_gold: int = max(0, int(ex.get("world_gold", 0)))
+	if carried_gold <= 0:
+		return payload
+	var taken: int = abs(int(ps.call("apply_world_expedition_gold_delta", -carried_gold)))
+	if taken <= 0:
+		return payload
+	if gpd.has_method("add_gold"):
+		gpd.call("add_gold", taken)
+	elif "gold" in gpd:
+		gpd.gold = int(gpd.gold) + taken
+	payload["delivered_world_expedition_gold"] = int(payload.get("delivered_world_expedition_gold", 0)) + taken
+	return payload
 
 func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
 	var src: String = String(payload.get("source", ""))

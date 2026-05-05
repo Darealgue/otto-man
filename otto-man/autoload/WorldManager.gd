@@ -1663,6 +1663,7 @@ func _place_dungeons_on_map(rng: RandomNumberGenerator) -> void:
 		var key: String = _hex_key(q, r)
 		if world_map_tiles.has(key):
 			world_map_tiles[key]["poi_type"] = "dungeon"
+			world_map_tiles[key]["dungeon_name"] = WorldDungeonNames.pick_dungeon_name(rng)
 			placed.append({"q": q, "r": r})
 
 func _generate_rivers_and_bridges(rng: RandomNumberGenerator) -> void:
