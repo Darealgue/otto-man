@@ -16,15 +16,22 @@ extends Node2D
 ## 7 karelik yağmur damlası suya düşme efekti (rain_drop.png). Atanırsa bu kullanılır; yoksa çizgisel elips.
 @export var splash_frames_texture: Texture2D = null
 @export var splash_frame_duration: float = 0.2 / 7.0  # Her karenin süresi (7 kare = 0.2 saniye toplam)
+@export var allow_outside_village: bool = false
+## Disaridan verilen su yuzeyi akisi (px/sn). River biome'da kosarken damlalarin sabit gorunmesini kirar.
+@export var surface_motion_velocity: Vector2 = Vector2.ZERO
+@export var surface_motion_strength: float = 0.35
+## Parent (river su bandi) oyuncuyu takip ederken splash'lari dunya uzayinda sabit tut.
+@export var lock_splashes_to_world: bool = false
 
 var _water_sprite: Sprite2D = null
 var _spawn_timer: float = 0.0
 var _shared_ripple_texture: Texture2D = null  # Tüm ripple'lar aynı texture'ı kullanır
 var _splash_frames: Array[Dictionary] = []  # { "node": Sprite2D, "time": float, "frame": int }
+var _last_effect_global_position: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	# Sadece köy sahnesinde çalış
-	if not _is_village_scene():
+	if not allow_outside_village and not _is_village_scene():
 		queue_free()
 		return
 	
@@ -60,6 +67,7 @@ func _ready() -> void:
 	
 	# Load sırasında yağmur yoksa mevcut splash'ları temizle (deferred - WeatherManager hazır olmayabilir)
 	call_deferred("_check_and_clear_on_load")
+	_last_effect_global_position = global_position
 	
 func _create_ripple_texture() -> Texture2D:
 	var texture_size := 128
@@ -92,6 +100,8 @@ func _is_village_scene() -> bool:
 func _process(delta: float) -> void:
 	if not WeatherManager:
 		return
+	_compensate_parent_motion()
+	_apply_surface_motion(delta)
 	
 	var intensity: float = WeatherManager.rain_intensity
 	if intensity < 0.02:  # Yağmur yoksa ripple spawn etme ve mevcut splash'ları temizle
@@ -128,6 +138,26 @@ func _process(delta: float) -> void:
 		min_interval = lerp(min_spawn_interval, min_spawn_interval * heavy_rain_multiplier, intensity)
 		max_interval = lerp(max_spawn_interval, max_spawn_interval * heavy_rain_multiplier, intensity)
 		current_interval = randf_range(min_interval, max_interval)
+
+func _apply_surface_motion(delta: float) -> void:
+	var drift: Vector2 = surface_motion_velocity * surface_motion_strength * delta
+	if drift.length_squared() < 0.0001:
+		return
+	# Mevcut splash/ripple sprite'larini da yuzeyle birlikte kaydir.
+	for child in get_children():
+		if child is Sprite2D:
+			(child as Sprite2D).position += drift
+
+func _compensate_parent_motion() -> void:
+	var parent_delta: Vector2 = global_position - _last_effect_global_position
+	_last_effect_global_position = global_position
+	if not lock_splashes_to_world:
+		return
+	if parent_delta.length_squared() < 0.0001:
+		return
+	for child in get_children():
+		if child is Sprite2D:
+			(child as Sprite2D).position -= parent_delta
 
 func _check_and_clear_on_load() -> void:
 	# Load sonrası kontrol: eğer yağmur yoksa splash'ları temizle

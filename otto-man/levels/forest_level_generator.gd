@@ -31,12 +31,12 @@ signal level_completed
 @export var chunk_postprocess_per_frame: int = 1
 @export var chunk_postprocess_min_distance_px: float = 1024.0
 @export var ramp_cooldown_segments: int = 2
+@export_enum("forest", "mountain", "river") var biome_type: String = "forest"
 
 @onready var _forest_exit_portal_scene: PackedScene = load("res://chunks/forest/ForestExitPortal.tscn")
 @onready var _tree_interactable_scene: PackedScene = load("res://interactables/forest/TreeInteractable.tscn")
 @onready var _rock_interactable_scene: PackedScene = load("res://interactables/forest/RockInteractable.tscn")
 @onready var _well_interactable_scene: PackedScene = load("res://interactables/forest/WellInteractable.tscn")
-@onready var _fruit_tree_interactable_scene: PackedScene = load("res://interactables/forest/FruitTreeInteractable.tscn")
 @onready var _bush_interactable_scene: PackedScene = load("res://interactables/forest/BushInteractable.tscn")
 
 # Resource spawning
@@ -71,9 +71,19 @@ var _decor_spawner: DecorationSpawner
 var _spawn_config: SpawnConfig
 var _ramp_cooldown_next: int = 0
 var _ramp_cooldown_prev: int = 0
+var _river_ripple_effect: Node = null
+var _river_water_sprite: Sprite2D = null
+var _prev_player_x_for_river: float = NAN
 
 const DEBUG_FOREST_ENEMIES: bool = false
+## Ağaç zemini sapmasını görmek için; konsolu şişirir — iş bitince false yap.
+const DEBUG_FOREST_TREE_SPAWN: bool = false
+const FOREST_DECOR_GLOBAL_Y_OFFSET: float = -10.0
 const FOREST_ENEMY_LAYER_NAME := "decor_anchor"
+var _forest_tree_debug_seq: int = 0
+const DEBUG_UNDERGROUND_FOREST_DECOR: bool = true
+var _underground_scan_accum_s: float = 0.0
+var _reported_buried_decor_ids: Dictionary = {}
 
 var scenes := {
 	# Each key holds an array of variants
@@ -114,15 +124,10 @@ func _ready() -> void:
 	add_to_group("level_generator")
 	player = get_tree().get_first_node_in_group("player")
 	_spawn_config = SpawnConfig.new()
+	_apply_biome_settings_from_payload()
 	
 	# Initialize resource scenes
-	_resource_scenes = [
-		_tree_interactable_scene,
-		_rock_interactable_scene,
-		_bush_interactable_scene,
-		_well_interactable_scene,
-		# _fruit_tree_interactable_scene # Excluded for now or add if ready
-	]
+	_resource_scenes = _build_resource_scene_pool_for_biome()
 	_resource_spawn_timer = randi_range(
 		mini(forest_resource_spawn_min_chunks, forest_resource_spawn_max_chunks),
 		maxi(forest_resource_spawn_min_chunks, forest_resource_spawn_max_chunks)
@@ -131,15 +136,139 @@ func _ready() -> void:
 	_spawn_initial_path()
 	_setup_overview_camera()
 	_setup_day_night_system()
+	_setup_biome_visual_overlays()
 	# Persistent spawner to avoid creating one per decoration
 	_decor_spawner = DecorationSpawner.new()
 	add_child(_decor_spawner)
 	_spawn_or_move_player_to_start()
 	level_started.emit()
 
+func _apply_biome_settings_from_payload() -> void:
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+	if scene_manager != null and scene_manager.has_method("get_current_payload"):
+		var payload: Dictionary = scene_manager.call("get_current_payload")
+		var incoming: String = String(payload.get("biome_type", "")).to_lower()
+		if incoming == "forest" or incoming == "mountain" or incoming == "river":
+			biome_type = incoming
+	match biome_type:
+		"forest":
+			prob_continue = 1.0
+			prob_up = 0.0
+			prob_down = 0.0
+			min_row = 0
+			max_row = 0
+			forest_enemy_spawn_chance = 1.0
+		"mountain":
+			prob_continue = 0.0
+			prob_up = 0.5
+			prob_down = 0.5
+			min_row = -3
+			max_row = 3
+			forest_enemy_spawn_chance = 0.85
+		"river":
+			prob_continue = 1.0
+			prob_up = 0.0
+			prob_down = 0.0
+			min_row = 0
+			max_row = 0
+			forest_enemy_spawn_chance = 0.0
+		_:
+			biome_type = "forest"
+
+func _build_resource_scene_pool_for_biome() -> Array[PackedScene]:
+	match biome_type:
+		"forest":
+			return [_tree_interactable_scene, _bush_interactable_scene]
+		"mountain":
+			return [_tree_interactable_scene, _rock_interactable_scene]
+		"river":
+			return [_well_interactable_scene, _bush_interactable_scene]
+		_:
+			return [_tree_interactable_scene, _bush_interactable_scene]
+
+func _setup_biome_visual_overlays() -> void:
+	if biome_type != "river":
+		return
+	var water_tex: Texture2D = load("res://assets/Sprite-0001.png") as Texture2D
+	if water_tex != null:
+		_river_water_sprite = Sprite2D.new()
+		_river_water_sprite.name = "RiverWater"
+		_river_water_sprite.z_index = 20
+		_river_water_sprite.texture = water_tex
+		_river_water_sprite.position = Vector2(0.0, 1260.0)
+		# Koy sahnesindeki suyla ayni doku hissi: genis ve nispeten ince bant.
+		_river_water_sprite.scale = Vector2(67.3438, 1.45469)
+		var water_mat: ShaderMaterial = _build_river_water_reflection_material()
+		if water_mat != null:
+			_river_water_sprite.material = water_mat
+		add_child(_river_water_sprite)
+	var ripple_script := load("res://village/scripts/WaterRippleEffect.gd") as Script
+	if ripple_script == null:
+		return
+	_river_ripple_effect = Node2D.new()
+	_river_ripple_effect.name = "RiverRippleEffect"
+	_river_ripple_effect.set_script(ripple_script)
+	_river_ripple_effect.set("allow_outside_village", true)
+	_river_ripple_effect.set("lock_splashes_to_world", true)
+	_river_ripple_effect.set("surface_motion_strength", 0.0)
+	_river_ripple_effect.set("water_sprite_path", NodePath(""))
+	_river_ripple_effect.set("water_area", Rect2(-20000.0, 1140.0, 40000.0, 260.0))
+	add_child(_river_ripple_effect)
+
+## Akarsu su bandi ve ripple dünya X=0'a sabitlenmişti; oyuncu ilerleyince tek chunk'ta kalıyordu.
+func _sync_river_water_overlay_to_player(delta: float) -> void:
+	if biome_type != "river":
+		return
+	if player == null or not is_instance_valid(player):
+		return
+	var px: float = player.global_position.x
+	var player_vx: float = 0.0
+	if not is_nan(_prev_player_x_for_river) and delta > 0.00001:
+		player_vx = (px - _prev_player_x_for_river) / delta
+	_prev_player_x_for_river = px
+	if _river_water_sprite != null and is_instance_valid(_river_water_sprite):
+		var gy: float = _river_water_sprite.global_position.y
+		_river_water_sprite.global_position = Vector2(px, gy)
+	if _river_ripple_effect != null and is_instance_valid(_river_ripple_effect):
+		var ripple_nd := _river_ripple_effect as Node2D
+		if ripple_nd != null:
+			var ry: float = ripple_nd.global_position.y
+			ripple_nd.global_position = Vector2(px, ry)
+			# Kamera/oyuncu hareketine ters his: saga kosarken damlalar sola akar gibi.
+			ripple_nd.set("surface_motion_velocity", Vector2(-player_vx, 0.0))
+
+func _build_river_water_reflection_material() -> ShaderMaterial:
+	var shader_res: Shader = load("res://village/scenes/water_reflection.gdshader") as Shader
+	if shader_res == null:
+		return null
+	var mat := ShaderMaterial.new()
+	mat.shader = shader_res
+	# VillageScene.tscn ile birebir ton.
+	mat.set_shader_parameter("water_color", Color(5.05373e-07, 0.148499, 0.213102, 1.0))
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise.frequency = 0.1154
+	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	noise.fractal_octaves = 8
+	noise.fractal_gain = 0.2
+	noise.domain_warp_type = FastNoiseLite.DOMAIN_WARP_SIMPLEX
+	var noise_tex := NoiseTexture2D.new()
+	noise_tex.seamless = true
+	noise_tex.seamless_blend_skirt = 1.0
+	noise_tex.bump_strength = 32.0
+	noise_tex.noise = noise
+	mat.set_shader_parameter("wave_noise", noise_tex)
+	return mat
+
 func _physics_process(_delta: float) -> void:
 	if not player:
 		return
+	_sync_river_water_overlay_to_player(_delta)
+	if DEBUG_UNDERGROUND_FOREST_DECOR:
+		_underground_scan_accum_s += _delta
+		if _underground_scan_accum_s >= 0.5:
+			_underground_scan_accum_s = 0.0
+			_scan_nearby_for_buried_forest_decor()
 	_sweep_invalid_active_chunks()
 	_sort_active_by_x()
 	_enforce_player_window()
@@ -153,6 +282,14 @@ func _process(_delta: float) -> void:
 	# Also run in _process for non-physics frames
 	_process_decor_spawn_queue()
 	_process_chunk_postprocess_queue()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not DEBUG_UNDERGROUND_FOREST_DECOR:
+		return
+	if event is InputEventKey:
+		var key_ev := event as InputEventKey
+		if key_ev.pressed and not key_ev.echo and key_ev.ctrl_pressed and key_ev.shift_pressed and key_ev.keycode == KEY_U:
+			_debug_dump_nearby_forest_decor_metrics()
 
 func _process_decor_spawn_queue() -> void:
 	var budget := 8
@@ -182,6 +319,17 @@ func _process_decor_spawn_queue() -> void:
 				continue
 				
 			node.global_position = pos
+			var effective_job: Dictionary = job
+			if name.begins_with("forest_"):
+				node.global_position.y += FOREST_DECOR_GLOBAL_Y_OFFSET
+				effective_job = job.duplicate(true)
+				var exp_y := float(effective_job.get("expected_floor_y", node.global_position.y))
+				effective_job["expected_floor_y"] = exp_y + FOREST_DECOR_GLOBAL_Y_OFFSET
+			if name == "forest_tree" or name == "forest_trunk":
+				_forest_tree_measure_and_fix(node, effective_job, "immediate")
+				_forest_tree_spawn_followup(node, effective_job.duplicate(true))
+			if name.begins_with("forest_"):
+				_report_underground_forest_decor_if_any(node, effective_job)
 			if node is CanvasItem:
 				(node as CanvasItem).z_as_relative = true
 				(node as CanvasItem).z_index = -5
@@ -436,7 +584,6 @@ func _spawn_random_resource(chunk: Node2D) -> bool:
 
 	# Pick a random valid cell
 	var target_cell = valid_floor_cells.pick_random()
-	var target_local_pos = tile_map.map_to_local(target_cell)
 	
 	# Pick a random resource scene
 	var scene: PackedScene = _resource_scenes.pick_random()
@@ -450,32 +597,18 @@ func _spawn_random_resource(chunk: Node2D) -> bool:
 		return false
 	
 	chunk.add_child(resource_node)
-	# Position at the bottom center of the tile (TileMap map_to_local returns center)
-	# Resources usually have pivot at bottom. Tiles are usually 64x64.
-	# map_to_local returns center. Top of tile would be center.y - 32.
-	# Resources need to be placed on top of the floor tile.
-	# The previous logic placed them at 'floor_y', which was derived from tile center.
-	
-	# Decoration logic uses: spawn_pos.y -= 30.0 (from span center)
-	# If the resource pivot is at the bottom, we want it to sit on the top surface of the floor tile.
-	# map_to_local gives center. Top surface is center.y - tile_size.y/2.
-	# But typically, sprites are anchored. Let's assume standard placement.
-	# If the tile is 64x64, center is at (32, 32). Top is at 0.
-	# Previous code used: floor_y = tile_center.y - tile_size.y - 5.0.
-	# Let's calculate the top of the tile.
-	
+	# map_to_local koordinati tile_map local'idir; chunk local'e cevirmezsek bazı
+	# chunk varyantlarında kaynaklar zeminin altında kalabiliyor.
 	var tile_size = tile_set.tile_size
+	var target_local_pos = tile_map.map_to_local(target_cell)
 	var spawn_pos = target_local_pos
-	spawn_pos.y -= tile_size.y * 0.5 # Move to top edge of the tile
-	
-	# Slightly adjust to embed or sit perfectly.
-	# Was +10 and looked too low; keep it a bit higher.
+	spawn_pos.y -= tile_size.y * 0.5
 	spawn_pos.y += 5.0
-	
 	resource_node.position = spawn_pos
 	
 	print("[ForestGenerator] SUCCESS: Spawned resource ", resource_node.name, " in chunk ", chunk.name, " at local ", resource_node.position)
 	return true
+
 
 func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
 	print("[ForestDebug] 🔧 _spawn_debug_resource_nodes called")
@@ -2053,8 +2186,18 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 			continue
 		# Queue big tree spawn (pooled spawner, spread over frames)
 		var spawn6: Vector2 = center_px
-		spawn6.y -= 30.0
-		_decor_spawn_queue.append({"name": "forest_tree", "pos": spawn6, "parent": chunk_node})
+		_forest_tree_debug_seq += 1
+		_decor_spawn_queue.append({
+			"name": "forest_tree",
+			"pos": spawn6,
+			"parent": chunk_node,
+			"expected_floor_y": center_px.y,
+			"anchor_cell": cell,
+			"chunk_seed": chunk_seed,
+			"chunk_name": chunk_node.name,
+			"chunk_pos": chunk_node.global_position,
+			"debug_seq": _forest_tree_debug_seq
+		})
 		placed_span_centers[key6] = true
 		# Global reserve this x-interval to prevent overlaps from adjacent chunks
 		_forest_tree_reserve_px(start_px, end_px)
@@ -2107,8 +2250,21 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 			continue
 		# Queue 3-wide decoration spawn
 		var spawn_pos: Vector2 = _forest_compute_span_center(tile_map, left, right)
-		spawn_pos.y -= 30.0
-		_decor_spawn_queue.append({"name": decor_name, "pos": spawn_pos, "parent": chunk_node})
+		var debug_seq_local: int = -1
+		if decor_name == "forest_trunk":
+			_forest_tree_debug_seq += 1
+			debug_seq_local = _forest_tree_debug_seq
+		_decor_spawn_queue.append({
+			"name": decor_name,
+			"pos": spawn_pos,
+			"parent": chunk_node,
+			"expected_floor_y": spawn_pos.y,
+			"anchor_cell": cell,
+			"chunk_seed": chunk_seed,
+			"chunk_name": chunk_node.name,
+			"chunk_pos": chunk_node.global_position,
+			"debug_seq": debug_seq_local
+		})
 	# Mark done for this chunk
 	chunk_node.set_meta("forest_decor_done", true)
 
@@ -2134,13 +2290,243 @@ func _forest_has_vertical_clearance(tile_map, center: Vector2i, w_tiles: int, h_
 				return false
 	return true
 
+## Span ortası X; Y = span içindeki dolu zemin karolarının ÜST kenarı ortalaması (tek hucre outlier azaltır).
 func _forest_compute_span_center(tile_map, left_cell: Vector2i, right_cell: Vector2i) -> Vector2:
 	var ts: Vector2 = Vector2((tile_map.get("tile_set") as TileSet).tile_size)
-	var left_px: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell)) + ts * 0.5
-	var right_px: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell)) + ts * 0.5
-	var mid: Vector2 = (left_px + right_px) * 0.5
-	# Slight downward settle so bottom-anchored sprites hug the floor; fixup will refine
-	return mid + Vector2(0, 5)
+	var left_tl: Vector2 = tile_map.to_global(tile_map.map_to_local(left_cell))
+	var right_tl: Vector2 = tile_map.to_global(tile_map.map_to_local(right_cell))
+	var left_cx: float = left_tl.x + ts.x * 0.5
+	var right_cx: float = right_tl.x + ts.x * 0.5
+	var mid_x: float = (left_cx + right_cx) * 0.5
+	var x0: int = mini(left_cell.x, right_cell.x)
+	var x1: int = maxi(left_cell.x, right_cell.x)
+	var sum_top_y: float = 0.0
+	var count_top: int = 0
+	for cx in range(x0, x1 + 1):
+		var c := Vector2i(cx, left_cell.y)
+		if tile_map.get_cell_tile_data(c) == null:
+			continue
+		sum_top_y += tile_map.to_global(tile_map.map_to_local(c)).y
+		count_top += 1
+	var floor_top_y: float = left_tl.y
+	if count_top > 0:
+		floor_top_y = sum_top_y / float(count_top)
+	return Vector2(mid_x, floor_top_y)
+
+func _forest_tree_sprite_bottom_global_y(spr: Sprite2D) -> float:
+	if spr == null:
+		return NAN
+	var r: Rect2 = spr.get_rect()
+	var bottom_center := Vector2(r.position.x + r.size.x * 0.5, r.position.y + r.size.y)
+	return spr.to_global(bottom_center).y
+
+func _forest_tree_measure_and_fix(tree_node: Node2D, job: Dictionary, phase: String) -> void:
+	if tree_node == null or not is_instance_valid(tree_node):
+		return
+	var decor_name: String = String(job.get("name", tree_node.name))
+	var expected_floor_y: float = float(job.get("expected_floor_y", tree_node.global_position.y))
+	var spr: Sprite2D = tree_node.get_node_or_null("Sprite") as Sprite2D
+	var visual_bottom_y: float = _forest_tree_sprite_bottom_global_y(spr)
+	if is_nan(visual_bottom_y):
+		visual_bottom_y = tree_node.global_position.y
+	var delta_y: float = expected_floor_y - visual_bottom_y
+	var snap_threshold: float = 4.0
+	var seq: int = int(job.get("debug_seq", -1))
+	if DEBUG_FOREST_TREE_SPAWN:
+		var always_line: bool = (phase == "immediate") or (abs(delta_y) > 0.75)
+		if always_line:
+			print("[ForestTree] type=", decor_name, " seq=", seq, " phase=", phase,
+				" drift=", snapped(delta_y, 0.01),
+				" exp_y=", snapped(expected_floor_y, 0.01),
+				" bottom_y=", snapped(visual_bottom_y, 0.01),
+				" root_y=", snapped(tree_node.global_position.y, 0.01),
+				" chunk=", job.get("chunk_name", "?"),
+				" chunk_pos=", job.get("chunk_pos", Vector2.ZERO),
+				" anchor=", job.get("anchor_cell", Vector2i.ZERO))
+	if abs(delta_y) > snap_threshold:
+		tree_node.global_position.y += delta_y
+		if DEBUG_FOREST_TREE_SPAWN:
+			print("[ForestTree] SNAP type=", decor_name, " seq=", seq, " phase=", phase, " applied_dy=", snapped(delta_y, 0.01),
+				" new_root_y=", snapped(tree_node.global_position.y, 0.01))
+
+func _forest_tree_spawn_followup(tree_node: Node2D, job: Dictionary) -> void:
+	if tree_node == null or not is_instance_valid(tree_node):
+		return
+	var instance_id: int = tree_node.get_instance_id()
+	await get_tree().process_frame
+	var n1: Node2D = instance_from_id(instance_id) as Node2D
+	if n1 != null and is_instance_valid(n1):
+		_forest_tree_measure_and_fix(n1, job, "frame+1")
+	await get_tree().process_frame
+	var n2: Node2D = instance_from_id(instance_id) as Node2D
+	if n2 != null and is_instance_valid(n2):
+		_forest_tree_measure_and_fix(n2, job, "frame+2")
+	await get_tree().physics_frame
+	var n3: Node2D = instance_from_id(instance_id) as Node2D
+	if n3 != null and is_instance_valid(n3):
+		_forest_tree_measure_and_fix(n3, job, "after_physics")
+
+func _report_underground_forest_decor_if_any(node: Node2D, job: Dictionary) -> void:
+	if not DEBUG_UNDERGROUND_FOREST_DECOR:
+		return
+	if node == null or not is_instance_valid(node):
+		return
+	var spr: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
+	if spr == null:
+		return
+	var expected_floor_y: float = float(job.get("expected_floor_y", node.global_position.y))
+	var visual_bottom_y: float = _forest_tree_sprite_bottom_global_y(spr)
+	if is_nan(visual_bottom_y):
+		return
+	# Sprite tabani beklenen zeminin belirgin altindaysa "gomulu" kabul et.
+	var buried_px: float = visual_bottom_y - expected_floor_y
+	if buried_px > 8.0:
+		var tex_path: String = ""
+		if spr.texture != null:
+			tex_path = spr.texture.resource_path
+		print("[ForestDecorSuspect] name=", node.name,
+			" buried_px=", snapped(buried_px, 0.01),
+			" expected_y=", snapped(expected_floor_y, 0.01),
+			" bottom_y=", snapped(visual_bottom_y, 0.01),
+			" root=", snapped(node.global_position.y, 0.01),
+			" tex=", tex_path,
+			" chunk=", job.get("chunk_name", "?"),
+			" anchor=", job.get("anchor_cell", Vector2i.ZERO))
+
+func _scan_nearby_for_buried_forest_decor() -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	for d in _collect_candidate_forest_decors():
+		var dn: String = d.name.to_lower()
+		if not dn.begins_with("forest_"):
+			continue
+		# Sadece oyuncu civarini tara, maliyet dusuk kalsin.
+		if abs(d.global_position.x - player.global_position.x) > 1800.0:
+			continue
+		if abs(d.global_position.y - player.global_position.y) > 1200.0:
+			continue
+		var spr: Sprite2D = d.get_node_or_null("Sprite") as Sprite2D
+		if spr == null:
+			continue
+		var bottom_y: float = _forest_tree_sprite_bottom_global_y(spr)
+		if is_nan(bottom_y):
+			continue
+		var tile_ground_y: float = _sample_floor_top_y_from_chunk_tilemap(d)
+		if is_nan(tile_ground_y):
+			continue
+		var buried_px: float = bottom_y - tile_ground_y
+		if buried_px <= 8.0:
+			continue
+		var iid: int = d.get_instance_id()
+		if _reported_buried_decor_ids.has(iid):
+			continue
+		_reported_buried_decor_ids[iid] = true
+		var tex_path: String = ""
+		if spr.texture != null:
+			tex_path = spr.texture.resource_path
+		print("[ForestDecorSuspectLive] name=", d.name,
+			" buried_px=", snapped(buried_px, 0.01),
+			" tile_ground_y=", snapped(tile_ground_y, 0.01),
+			" bottom_y=", snapped(bottom_y, 0.01),
+			" node_pos=", d.global_position,
+			" z=", d.z_index,
+			" tex=", tex_path)
+
+func _collect_candidate_forest_decors() -> Array[Node2D]:
+	var out: Array[Node2D] = []
+	var seen: Dictionary = {}
+	# 1) Normal background decor grubu
+	for n in get_tree().get_nodes_in_group("background_decor"):
+		if n is Node2D and is_instance_valid(n):
+			var d := n as Node2D
+			var id := d.get_instance_id()
+			if not seen.has(id):
+				seen[id] = true
+				out.append(d)
+	# 2) Guvenlik: aktif chunk altlarini da tara (gruba girmemis node kacmasin)
+	for ch in active_chunks:
+		if ch == null or not is_instance_valid(ch):
+			continue
+		var stack: Array[Node] = [ch]
+		while stack.size() > 0:
+			var cur: Node = stack.pop_back()
+			for c in cur.get_children():
+				stack.append(c)
+				if c is Node2D:
+					var d2 := c as Node2D
+					if not is_instance_valid(d2):
+						continue
+					if not String(d2.name).to_lower().begins_with("forest_"):
+						continue
+					var id2 := d2.get_instance_id()
+					if not seen.has(id2):
+						seen[id2] = true
+						out.append(d2)
+	return out
+
+func _debug_dump_nearby_forest_decor_metrics() -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	print("[ForestDecorDump] ===== START ===== player=", player.global_position)
+	var count: int = 0
+	for d in _collect_candidate_forest_decors():
+		if abs(d.global_position.x - player.global_position.x) > 2200.0:
+			continue
+		var spr: Sprite2D = d.get_node_or_null("Sprite") as Sprite2D
+		var bottom_y: float = _forest_tree_sprite_bottom_global_y(spr)
+		var ground_y: float = _sample_floor_top_y_from_chunk_tilemap(d)
+		var buried_px: float = NAN
+		if not is_nan(bottom_y) and not is_nan(ground_y):
+			buried_px = bottom_y - ground_y
+		var tex_path: String = ""
+		if spr != null and spr.texture != null:
+			tex_path = spr.texture.resource_path
+		print("[ForestDecorDump] name=", d.name,
+			" x=", snapped(d.global_position.x, 0.01),
+			" y=", snapped(d.global_position.y, 0.01),
+			" bottom=", snapped(bottom_y, 0.01),
+			" tile_ground=", snapped(ground_y, 0.01),
+			" buried=", snapped(buried_px, 0.01),
+			" tex=", tex_path)
+		count += 1
+		if count >= 40:
+			break
+	print("[ForestDecorDump] ===== END count=", count, " =====")
+
+func _sample_floor_top_y_from_chunk_tilemap(node: Node2D) -> float:
+	var chunk: Node = node
+	var tile_map: Node = null
+	while chunk != null and chunk != self:
+		tile_map = chunk.find_child("TileMapLayer", true, false)
+		if tile_map != null:
+			break
+		chunk = chunk.get_parent()
+	if tile_map == null:
+		return NAN
+	if not tile_map.has_method("local_to_map") or not tile_map.has_method("map_to_local") or not tile_map.has_method("to_global") or not tile_map.has_method("to_local"):
+		return NAN
+	var local_on_map: Vector2 = tile_map.to_local(node.global_position)
+	var center_cell: Vector2i = tile_map.local_to_map(local_on_map)
+	var best_score: float = INF
+	var best_y: float = NAN
+	for dy in range(-8, 9):
+		for dx in range(-2, 3):
+			var c := center_cell + Vector2i(dx, dy)
+			var td: TileData = tile_map.get_cell_tile_data(c) as TileData
+			if td == null:
+				continue
+			var tag = td.get_custom_data("decor_anchor")
+			if typeof(tag) != TYPE_STRING:
+				continue
+			var tag_s := String(tag)
+			if tag_s != "forest_floor_surface" and tag_s != "floor_surface":
+				continue
+			var cell_top_y: float = tile_map.to_global(tile_map.map_to_local(c)).y
+			var score: float = abs(float(dx)) * 5.0 + abs(float(dy))
+			if score < best_score:
+				best_score = score
+				best_y = cell_top_y
+	return best_y
 
 func _forest_pick_decor_name(rng: RandomNumberGenerator = null) -> String:
 	# Weighted random among registered forest background decors

@@ -118,8 +118,11 @@ func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
 	var returning_from_dungeon_like: bool = (
 		current_scene_path == DUNGEON_SCENE
 		or current_scene_path == CAMP_SCENE
+		or current_scene_path == FOREST_SCENE
 		or src == "dungeon"
 		or src == "dungeon_death"
+		or src == "forest"
+		or src == "forest_death"
 	)
 	if not returning_from_dungeon_like:
 		return
@@ -253,19 +256,26 @@ func change_to_camp(payload: Dictionary = {}, force_reload: bool = false) -> voi
 	_change_scene(CAMP_SCENE, force_reload)
 
 func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> void:
-	# When going TO forest, only advance travel time, don't simulate production
-	# (because village production should continue while player is away)
-	var vmf := get_node_or_null("/root/VillageManager")
-	if is_instance_valid(vmf) and vmf.has_method("mark_leaving_village_for_travel_out"):
-		vmf.mark_leaving_village_for_travel_out()
-	_handle_travel_time_out_only(payload)
+	# Köyden ormana çıkışta travel_out saatini işlet; dünya haritasından giriste tekrar işletme.
+	var src: String = String(payload.get("source", ""))
+	if src == "village" or src.is_empty():
+		var vmf := get_node_or_null("/root/VillageManager")
+		if is_instance_valid(vmf) and vmf.has_method("mark_leaving_village_for_travel_out"):
+			vmf.mark_leaving_village_for_travel_out()
+		_handle_travel_time_out_only(payload)
 	current_payload = payload.duplicate(true)
 	# Record entry time AFTER travel time has been applied (so we track time inside the level)
 	_record_level_entry_time(FOREST_SCENE)
 	_change_scene(FOREST_SCENE, force_reload)
 
 func change_to_world_map(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	var src: String = String(payload.get("source", ""))
+	if src == "village" or src.is_empty():
+		var vm := get_node_or_null("/root/VillageManager")
+		if is_instance_valid(vm) and vm.has_method("mark_leaving_village_for_travel_out"):
+			vm.mark_leaving_village_for_travel_out()
 	current_payload = payload.duplicate(true)
+	_record_level_entry_time(WORLD_MAP_SCENE)
 	_change_scene(WORLD_MAP_SCENE, force_reload)
 
 func _handle_travel_time_out_only(payload: Dictionary) -> void:
@@ -749,7 +759,7 @@ func _record_level_entry_time(scene_path: String) -> void:
 	print("[SceneManager] Recorded entry time for %s: Day %d, %02d:%02d" % [scene_path, entry_time.get("day", 0), entry_time.get("hour", 0), entry_time.get("minute", 0)])
 
 func _calculate_time_spent_in_level() -> float:
-	"""Calculate hours spent in the current level (forest/dungeon)"""
+	"""Calculate hours spent in the current runtime level (forest/dungeon/world_map)."""
 	var time_manager = get_node_or_null(TimeManagerPath)
 	if not time_manager:
 		return 0.0
@@ -760,6 +770,8 @@ func _calculate_time_spent_in_level() -> float:
 		entry_key = FOREST_SCENE
 	elif current_scene_path == DUNGEON_SCENE:
 		entry_key = DUNGEON_SCENE
+	elif current_scene_path == WORLD_MAP_SCENE:
+		entry_key = WORLD_MAP_SCENE
 	else:
 		return 0.0
 	

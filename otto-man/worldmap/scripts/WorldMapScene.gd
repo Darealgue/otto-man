@@ -302,11 +302,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_confirm_move_to_cursor()
 		return
 	if not _is_blocking_world_map_ui_open() and event.is_action_pressed("attack_heavy"):
-		if _try_enter_village_from_combat_action():
+		if _try_enter_biome_from_combat_action() or _try_enter_village_from_combat_action():
 			get_viewport().set_input_as_handled()
 		return
 	if not _is_blocking_world_map_ui_open() and event.is_action_pressed("block"):
-		if _try_enter_village_from_combat_action():
+		if _try_enter_biome_from_combat_action() or _try_enter_village_from_combat_action():
 			get_viewport().set_input_as_handled()
 			return
 	if not _is_blocking_world_map_ui_open() and event.is_action_pressed("attack"):
@@ -402,24 +402,35 @@ func _draw() -> void:
 	var sorted_tiles: Array[Dictionary] = _get_sorted_draw_tiles()
 	var cull_tiles: bool = _camera != null
 	var vis_world: Rect2 = _get_visible_world_rect_for_map_cull() if cull_tiles else Rect2()
+	# Arkaplan sabit siyah: kesfedilmemis alan tamamen bos/karanlik kalsin.
+	if cull_tiles:
+		draw_rect(vis_world.grow(42.0), Color(0.0, 0.0, 0.0, 1.0), true)
+	else:
+		var st_bg: Dictionary = _get_world_map_state_cached()
+		var map_radius_bg: int = int(st_bg.get("radius", 40))
+		var bg_half: float = float(maxi(1200, map_radius_bg * 110))
+		draw_rect(Rect2(Vector2(-bg_half, -bg_half), Vector2(bg_half * 2.0, bg_half * 2.0)), Color(0.0, 0.0, 0.0, 1.0), true)
 	for tile in sorted_tiles:
 		var q: int = int(tile.get("q", 0))
 		var r: int = int(tile.get("r", 0))
 		var center: Vector2 = _axial_to_pixel(q, r)
 		if cull_tiles and not vis_world.has_point(center):
 			continue
+		if not bool(tile.get("discovered", false)):
+			continue
 		_draw_terrain_tile(center, tile, q, r)
 		var poi: String = String(tile.get("poi_type", ""))
-		if poi == "player_village" or poi == "neighbor_village" or poi == "dungeon":
+		var discovered: bool = bool(tile.get("discovered", false))
+		if discovered and (poi == "player_village" or poi == "neighbor_village" or poi == "dungeon"):
 			var poi_color: Color = Color(1, 1, 1, 0.9)
 			if poi == "player_village":
 				poi_color = Color(1.0, 0.95, 0.35, 1.0)
 			elif poi == "dungeon":
 				poi_color = Color(0.9, 0.25, 0.2, 1.0)
 			draw_circle(center, 5.0, poi_color)
-		if poi == "neighbor_village":
+		if discovered and poi == "neighbor_village":
 			_draw_settlement_incident_marker(center, tile)
-		if String(tile.get("travel_feature", "")) == "kopru":
+		if discovered and String(tile.get("travel_feature", "")) == "kopru":
 			draw_circle(center, 2.8, Color(0.85, 0.65, 0.35, 1.0))
 	_draw_active_unit_markers()
 	_draw_mission_objective_markers()
@@ -482,6 +493,45 @@ func _try_enter_village_from_combat_action() -> bool:
 		return false
 	_enter_player_village_from_world_map()
 	return true
+
+func _try_enter_biome_from_combat_action() -> bool:
+	if _travel_anim_active:
+		return false
+	if _world_manager == null or not _world_manager.has_method("get_world_map_state"):
+		return false
+	var state: Dictionary = _get_world_map_state_cached()
+	var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
+	var pq: int = int(pos.get("q", 0))
+	var pr: int = int(pos.get("r", 0))
+	if _cursor_q != pq or _cursor_r != pr:
+		return false
+	var tile: Dictionary = _get_tile(pq, pr)
+	if tile.is_empty() or not bool(tile.get("discovered", false)):
+		return false
+	if not String(tile.get("poi_type", "")).is_empty():
+		return false
+	var terrain: String = String(tile.get("terrain_type", ""))
+	var biome_type: String = ""
+	match terrain:
+		"orman":
+			biome_type = "forest"
+		"dag":
+			biome_type = "mountain"
+		"akarsu":
+			biome_type = "river"
+		_:
+			biome_type = ""
+	if biome_type.is_empty():
+		return false
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("change_to_forest"):
+		scene_manager.change_to_forest({
+			"source": "world_map",
+			"biome_type": biome_type,
+			"from_terrain": terrain,
+		})
+		return true
+	return false
 
 func _confirm_move_to_cursor() -> void:
 	if _travel_anim_active:
@@ -578,6 +628,7 @@ func _execute_travel_to_cursor() -> void:
 	if path.size() <= 1:
 		_update_status_label("Zaten bu hedeftesin.")
 		_try_resolve_player_map_missions_at(_cursor_q, _cursor_r)
+		_try_prompt_dungeon_entry_at_player_pos()
 		queue_redraw()
 		return
 	_travel_anim_path = path.duplicate()
@@ -836,11 +887,14 @@ func _update_status_label(extra_line: String = "") -> void:
 		lines.append("Zoom: %.2f (%.2f–%.2f)" % [_camera.zoom.x, ZOOM_FARTHEST, ZOOM_CLOSEST])
 	var tile: Dictionary = _get_tile(_cursor_q, _cursor_r)
 	if not tile.is_empty():
-		lines.append("Secili Hex: %s | POI: %s | Ozellik: %s" % [
-			String(tile.get("terrain_type", "?")),
-			String(tile.get("poi_type", "-")),
-			String(tile.get("travel_feature", "-"))
-		])
+		if bool(tile.get("discovered", false)):
+			lines.append("Secili Hex: %s | POI: %s | Ozellik: %s" % [
+				String(tile.get("terrain_type", "?")),
+				String(tile.get("poi_type", "-")),
+				String(tile.get("travel_feature", "-"))
+			])
+		else:
+			lines.append("Secili Hex: Bilinmeyen bolge")
 	if _debug_tile_overlay:
 		lines.append("DEBUG hex acik | Oyuncu q=%d r=%d | Imlec q=%d r=%d" % [int(pos.get("q", 0)), int(pos.get("r", 0)), _cursor_q, _cursor_r])
 	if _debug_akarsu_overlay:
@@ -976,6 +1030,8 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 	var tile: Dictionary = _get_tile(cq, cr)
 	if tile.is_empty():
 		return "\n\n".join(blocks) if not blocks.is_empty() else ""
+	if not bool(tile.get("discovered", false)):
+		return ""
 	var poi: String = String(tile.get("poi_type", ""))
 	var poi_lines: PackedStringArray = PackedStringArray()
 	if poi == "dungeon":
@@ -984,6 +1040,8 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 		poi_lines = _build_neighbor_village_hex_tooltip_lines(tile)
 	elif poi == "player_village":
 		poi_lines = _build_player_village_hex_tooltip_lines()
+	elif poi.is_empty():
+		poi_lines = _build_biome_hex_tooltip_lines(tile)
 	if not poi_lines.is_empty():
 		if not blocks.is_empty():
 			blocks.append("---")
@@ -995,8 +1053,16 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 func _find_world_mission_objective_at_hex(q: int, r: int) -> Dictionary:
 	for m in _mission_objective_markers:
 		if int(m.get("q", -999999)) == q and int(m.get("r", -999999)) == r:
+			if not _is_hex_discovered(q, r):
+				return {}
 			return m
 	return {}
+
+func _is_hex_discovered(q: int, r: int) -> bool:
+	var tile: Dictionary = _get_tile(q, r)
+	if tile.is_empty():
+		return false
+	return bool(tile.get("discovered", false))
 
 func _build_world_mission_objective_tooltip_lines_at(q: int, r: int) -> PackedStringArray:
 	var marker: Dictionary = _find_world_mission_objective_at_hex(q, r)
@@ -1071,6 +1137,25 @@ func _build_dungeon_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	if not terr.is_empty():
 		lines.append("Arazi: %s" % terr)
 	return lines
+
+func _build_biome_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
+	var terrain: String = String(tile.get("terrain_type", ""))
+	if terrain != "orman" and terrain != "dag" and terrain != "akarsu":
+		return PackedStringArray()
+	if terrain == "orman":
+		return PackedStringArray([
+			"Orman bolgesi",
+			"Onayla: odun + yiyecek, duz chunklar."
+		])
+	if terrain == "dag":
+		return PackedStringArray([
+			"Dag bolgesi",
+			"Onayla: odun + tas, engebeli chunklar."
+		])
+	return PackedStringArray([
+		"Akarsu bolgesi",
+		"Onayla: su + yiyecek, duz chunklar."
+	])
 
 func _build_player_village_hex_tooltip_lines() -> PackedStringArray:
 	return PackedStringArray([
@@ -1865,10 +1950,10 @@ func _draw_terrain_tile(center: Vector2, tile: Dictionary, q: int, r: int) -> vo
 	var terrain: String = String(tile.get("terrain_type", "ova"))
 	var discovered: bool = bool(tile.get("discovered", false))
 	var visible: bool = bool(tile.get("visible", false))
-	var modulate_color: Color = Color(1, 1, 1, 1)
 	if not discovered:
-		modulate_color = Color(0.28, 0.28, 0.28, 1.0)
-	elif not visible:
+		return
+	var modulate_color: Color = Color(1, 1, 1, 1)
+	if not visible:
 		modulate_color = Color(0.62, 0.62, 0.62, 1.0)
 	if terrain == "deniz":
 		modulate_color.a *= 0.8
@@ -2130,6 +2215,8 @@ func _draw_mission_objective_markers() -> void:
 	for om in _mission_objective_markers:
 		var mq: int = int(om.get("q", 0))
 		var mr: int = int(om.get("r", 0))
+		if not _is_hex_discovered(mq, mr):
+			continue
 		var center: Vector2 = _axial_to_pixel(mq, mr)
 		var badge: Vector2 = center + Vector2(0.0, -14.0)
 		draw_circle(badge, 10.5, Color(0.1, 0.08, 0.05, 0.90))

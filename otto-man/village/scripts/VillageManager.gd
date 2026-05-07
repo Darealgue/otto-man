@@ -5952,6 +5952,13 @@ func reset_saved_state_for_new_game() -> void:
 	_last_construction_total_minutes = -1
 	_pending_time_skip_notification = {}
 	_is_leaving_village = false
+	# New Game'de eski run'dan kalan anlik oyun-kaybi durumunu sifirla.
+	village_morale = 80.0
+	_last_day_shortages = {"water": 0, "food": 0}
+	events_active.clear()
+	_event_cooldowns.clear()
+	_village_event_cooldowns.clear()
+	_last_village_event_check_day = 0
 	if is_instance_valid(VillagerAiInitializer):
 		if VillagerAiInitializer.has_method("reset_to_defaults"):
 			VillagerAiInitializer.reset_to_defaults()

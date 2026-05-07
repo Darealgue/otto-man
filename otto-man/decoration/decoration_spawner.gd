@@ -239,6 +239,8 @@ func create_decoration_instance(decoration_name: String, decoration_type: Decora
 									cs.position.x = -cs.position.x
 					# Post-place fixup
 					inst.set_meta("decoration_type", DecorationConfig.DecorationType.keys()[decoration_type].to_lower())
+					if decoration_type == DecorationConfig.DecorationType.BACKGROUND:
+						inst.add_to_group("background_decor")
 					call_deferred("_post_place_fixup", inst)
 					var z_auto := _decoration_config.get_z_index_for_decoration(decoration_name)
 					inst.z_index = z_auto

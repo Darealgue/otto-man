@@ -72,6 +72,12 @@ func _trigger_transition() -> void:
 		push_warning("SceneManager autoload bulunamadı (portal)")
 		return
 	_transition_triggered = true
+	# Yeni akis: koyden direkt orman/zindan yok; dunya haritasi tek cikis.
+	if payload_source == "village" and (destination == "forest" or destination == "dungeon"):
+		push_warning("[PortalArea] Direct village->%s disabled; use world map." % destination)
+		_transition_triggered = false
+		_hold_timer = 0.0
+		return
 	var payload: Dictionary = {}
 	for key in payload_extra.keys():
 		payload[key] = payload_extra[key]

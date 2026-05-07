@@ -20,6 +20,7 @@ var BUSH_END_TEXTURE: Texture2D = null
 @export_range(3, 5, 1) var fruits_to_spawn: int = 3
 @export var base_reward: int = 1  # Her meyve için 1 yiyecek
 @export var perfect_bonus: int = 0  # Bonus yok
+@export var cancel_distance: float = 750.0  # Varsayilan 2x uzaklasma toleransi
 
 var _bush_sprite: AnimatedSprite2D = null
 var _highlight_sprite: Sprite2D = null
@@ -66,6 +67,7 @@ func _build_minigame_context() -> Dictionary:
 	ctx["perfect_bonus"] = perfect_bonus
 	ctx["bush_path"] = get_path()
 	ctx["max_misses"] = 3  # 3 miss'ten sonra oyun biter
+	ctx["cancel_distance"] = cancel_distance
 	return ctx
 
 func _on_minigame_started() -> void:

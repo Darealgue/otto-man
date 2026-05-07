@@ -26,6 +26,14 @@ extends Node2D
 @export var follow_player_in_forest: bool = true
 ## Oyuncuya maksimum mesafe (piksel). Bu mesafeden uzaktaki chunk'larda yağmur render edilmez (optimizasyon).
 @export var max_player_distance: float = 3000.0
+## Ormanda yagmur oyuncuyu takip ederken X eksenindeki yaklasma hizi.
+@export var forest_follow_lerp_speed_x: float = 0.45
+## Oyuncu hizina gore yagmuru biraz onde tutmak icin carpani.
+@export var forest_follow_lead_multiplier: float = 1.2
+## X takipte oyuncu hareketinin ne kadari uygulanacak (1.0 = birebir takip, daha dusuk = dunya hissi).
+@export_range(0.0, 1.0, 0.01) var forest_follow_player_x_ratio: float = 0.75
+## River biome icin daha dusuk takip: damlalarin ekrana yapisik gorunmesini engeller.
+@export_range(0.0, 1.0, 0.01) var river_follow_player_x_ratio: float = 0.28
 ## Emission alanını yeşil çerçeve ile çiz (debug; merkezde küçük işaret).
 @export var debug_rain_emission: bool = false
 ## Yağmur bir yağıp bir duruyorsa aç: emitting/amount/intensity değişimlerini konsola yazar. Sorun çözülünce false yap.
@@ -35,7 +43,9 @@ var _process_material: ParticleProcessMaterial
 var _process_material_overlap: ParticleProcessMaterial
 var _player: Node2D = null
 var _is_forest_scene: bool = false
+var _cached_biome_type: String = "forest"
 var _last_rain_y_position: float = 0.0  # Son yağmur Y pozisyonu (büyük değişiklikleri tespit etmek için)
+var _last_player_x: float = NAN
 var _overlap_active: bool = false
 var _overlap_start_time: float = 0.0
 var _overlap_target_amount: int = 0
@@ -148,6 +158,13 @@ func _find_player() -> void:
 			var player_prop = forest_gen.get("player")
 			if player_prop:
 				_player = player_prop as Node2D
+	var forest_gen = get_tree().get_first_node_in_group("level_generator")
+	if forest_gen != null:
+		var biome_value = forest_gen.get("biome_type")
+		if biome_value != null:
+			_cached_biome_type = String(biome_value).to_lower()
+		else:
+			_cached_biome_type = "forest"
 
 func _setup_emission_and_visibility() -> void:
 	# Dünya uzayında sabit, çok geniş emission: kamera hareket etmez, yağmur hep düşer
@@ -202,7 +219,7 @@ func _process(_delta: float) -> void:
 	# Orman sahnesinde: Oyuncuya göre konumlandır ve uzak chunk'larda render etme
 	# Köy sahnesinde: Sabit pozisyon ve geniş visibility rect (hiçbir şey değişmez)
 	if _is_forest_scene and follow_player_in_forest:
-		_update_forest_position()
+		_update_forest_position(_delta)
 	else:
 		# Köy sahnesinde: Emission box ve visibility rect'i her frame kontrol et ve düzelt
 		# (Eğer bir şekilde değiştiyse geri al)
@@ -433,7 +450,7 @@ func _create_rain_texture_if_needed() -> void:
 
 
 ## Orman sahnesinde: Oyuncuya göre konumlandır ve uzak chunk'larda render etme
-func _update_forest_position() -> void:
+func _update_forest_position(delta: float) -> void:
 	if not _player or not is_instance_valid(_player):
 		# Oyuncu bulunamadıysa tekrar dene
 		_player = get_tree().get_first_node_in_group("player")
@@ -451,12 +468,22 @@ func _update_forest_position() -> void:
 	
 	# Yağmuru oyuncuya göre konumlandır (X ve Y ekseninde)
 	# Emission box geniş olduğu için oyuncunun etrafında spawn olur
-	var target_x: float = player_pos.x
+	var player_vx: float = 0.0
+	var player_dx: float = 0.0
+	if not is_nan(_last_player_x):
+		var safe_delta := maxf(delta, 0.0001)
+		player_dx = player_pos.x - _last_player_x
+		player_vx = player_dx / safe_delta
+	var follow_ratio := forest_follow_player_x_ratio
+	if _cached_biome_type == "river":
+		follow_ratio = river_follow_player_x_ratio
+	follow_ratio = clampf(follow_ratio, 0.0, 1.0)
+	_last_player_x = player_pos.x
+	var target_x: float = global_position.x + player_dx * follow_ratio + player_vx * forest_follow_lead_multiplier * maxf(delta, 0.0001)
 	var target_y: float = player_pos.y - 800.0  # Köy sahnesindekiyle aynı offset
 	
 	# X ekseni için smooth takip (yatay hareket için yumuşak geçiş)
-	var lerp_speed_x: float = 0.25
-	global_position.x = lerp(global_position.x, target_x, lerp_speed_x)
+	global_position.x = lerp(global_position.x, target_x, clampf(forest_follow_lerp_speed_x, 0.01, 1.0))
 	
 	# Y ekseni için direkt takip (dikey hareket için anında takip - oyuncu düştüğünde yağmur hemen gelir)
 	# Küçük Y değişikliklerinde bile reset yap (50 pikselden fazla) - oyuncu düştüğünde hemen yeni partiküller spawn olsun

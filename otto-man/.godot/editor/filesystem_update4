@@ -8,4 +8,7 @@ res://scenes/forest.tscn
 res://scenes/testing.tscn
 res://village/buildings/House.tscn
 res://player/player.tscn
-res://autoload/WorldManager.gd
+res://chunks/forest/linear_2x1.tscn
+res://chunks/forest/linear_2x1-3.tscn
+res://chunks/forest/linear_2x1-4.tscn
+res://chunks/forest/linear_2x1-2.tscn

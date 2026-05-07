@@ -53,6 +53,7 @@ var _waiting_for_fruits: bool = false  # Meyveler havada mı?
 var _fruits_already_spawned: bool = false  # Meyveler bir kez spawn oldu mu?
 var _fruits_spawning: bool = false  # Meyveler şu anda spawn oluyor mu? (delay sırasında)
 var _camera_zoom_tween: Tween = null  # Kamera zoom animasyonu için
+var _camera_zoomed_out: bool = false
 var _default_camera_zoom: Vector2 = Vector2(1.5, 1.5)  # Başlangıç zoom değeri
 var _parallax_original_scales: Dictionary = {}  # Parallax sprite'ların orijinal scale'leri
 var _parallax_original_mirroring: Dictionary = {}  # Parallax layer'ların orijinal motion_mirroring değerleri
@@ -83,6 +84,7 @@ func _on_minigame_ready() -> void:
 	
 	# Default kamera zoom değerini kaydet
 	_save_default_camera_zoom()
+	_camera_zoomed_out = false
 	
 	# Parallax orijinal scale'lerini kaydet
 	_save_parallax_original_scales()
@@ -541,6 +543,7 @@ func _zoom_camera_out() -> void:
 		return
 	
 	print("[FoodMinigame] Zooming camera out - current zoom: ", camera.zoom)
+	_camera_zoomed_out = true
 	
 	# Target zoom hesapla (default zoom'un 0.7 katı)
 	var target_zoom := _default_camera_zoom * 0.7
@@ -784,6 +787,8 @@ func _save_default_camera_zoom() -> void:
 		print("[FoodMinigame] Using fallback default zoom: ", _default_camera_zoom)
 
 func _reset_camera_zoom() -> void:
+	if not _camera_zoomed_out:
+		return
 	# Kamerayı eski haline döndür
 	var camera: Camera2D = _find_player_camera()
 	if not camera:
@@ -814,11 +819,13 @@ func _reset_camera_zoom() -> void:
 		if camera.zoom.distance_to(_default_camera_zoom) > 0.1:
 			print("[FoodMinigame] WARNING: Camera did not reset correctly, forcing manual reset")
 			camera.zoom = _default_camera_zoom
+		_camera_zoomed_out = false
 		return
 	
 	# Eğer reset_zoom yoksa, manuel olarak zoom_to_vector veya tween kullan
 	if camera.has_method("zoom_to_vector"):
 		camera.zoom_to_vector(_default_camera_zoom, 0.6)
+		_camera_zoomed_out = false
 		print("[FoodMinigame] Camera reset zoom to: ", _default_camera_zoom)
 	else:
 		# Manuel zoom animasyonu - kesin çalışır
@@ -826,7 +833,10 @@ func _reset_camera_zoom() -> void:
 			_camera_zoom_tween.kill()
 		_camera_zoom_tween = create_tween()
 		_camera_zoom_tween.tween_property(camera, "zoom", _default_camera_zoom, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		_camera_zoom_tween.tween_callback(func(): print("[FoodMinigame] Camera zoom reset complete - final zoom: ", camera.zoom))
+		_camera_zoom_tween.tween_callback(func():
+			_camera_zoomed_out = false
+			print("[FoodMinigame] Camera zoom reset complete - final zoom: ", camera.zoom)
+		)
 		print("[FoodMinigame] Camera reset zoom (manual tween) to: ", _default_camera_zoom)
 
 func _find_player_camera() -> Camera2D:
@@ -904,6 +914,7 @@ func _show_resource_gain_text(amount: int) -> void:
 func emit_result(success: bool, payload: Dictionary) -> void:
 	if is_finished():
 		return
+	_reset_camera_zoom()
 	if _gauge:
 		_cleanup_gauge()
 	_release_hurtbox()
