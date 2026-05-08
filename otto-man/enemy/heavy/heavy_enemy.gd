@@ -42,6 +42,9 @@ var last_known_player_pos: Vector2 = Vector2.ZERO
 
 const CHARGE_DECELERATION := 4000.0
 const CHARGE_END_THRESHOLD := 0.8
+const AGGRO_BREAK_AFTER_CHARGE_HIT := 2.2
+var aggro_break_timer: float = 0.0
+var _charge_hit_registered: bool = false
 
 @onready var hitbox_collision = $Hitbox/CollisionShape2D
 @onready var slam_effect = $SlamEffect
@@ -193,6 +196,8 @@ func find_ground_below(start_pos: Vector2) -> Vector2:
 func _handle_child_behavior(delta: float) -> void:
 	if is_sleeping:
 		return
+	if aggro_break_timer > 0.0:
+		aggro_break_timer = maxf(0.0, aggro_break_timer - delta)
 		
 	match current_behavior:
 		"patrol":
@@ -284,6 +289,9 @@ func handle_patrol(delta: float) -> void:
 	update_sprite_direction()
 	
 	# First check for player
+	if aggro_break_timer > 0.0:
+		target = null
+		return
 	var had_target = target != null
 	target = get_nearest_player_in_range()  # Use the range-limited check
 	
@@ -340,6 +348,9 @@ func handle_idle(delta: float) -> void:
 		sprite.play("idle")
 	
 	# Check for player first
+	if aggro_break_timer > 0.0:
+		target = null
+		return
 	target = get_nearest_player_in_range()
 	if target:
 		change_behavior("alert")
@@ -353,6 +364,10 @@ func handle_idle(delta: float) -> void:
 
 func handle_alert(delta: float) -> void:
 	behavior_timer += delta
+	if aggro_break_timer > 0.0:
+		change_behavior("patrol")
+		target = null
+		return
 	
 	# Stop movement during alert
 	velocity.x = 0
@@ -374,6 +389,10 @@ func handle_alert(delta: float) -> void:
 			change_behavior("patrol")
 
 func handle_chase(delta: float) -> void:
+	if aggro_break_timer > 0.0:
+		target = null
+		change_behavior("patrol")
+		return
 	# Return to patrol if we've been chasing too long
 	if behavior_timer >= chase_duration:
 		change_behavior("patrol")
@@ -460,6 +479,7 @@ func handle_charge_prepare(delta: float) -> void:
 		change_behavior("charge_start")
 
 func handle_charge_start(delta: float) -> void:
+	_charge_hit_registered = false
 	# Use full charge speed immediately
 	velocity.x = direction * charge_speed
 	
@@ -469,6 +489,9 @@ func handle_charge_start(delta: float) -> void:
 
 func handle_charging(delta: float) -> void:
 	charge_timer += delta
+	if not _charge_hit_registered and _did_charge_hit_player():
+		_charge_hit_registered = true
+		_start_aggro_break_after_charge_hit()
 	
 	
 	# Calculate remaining charge time
@@ -496,6 +519,23 @@ func handle_charging(delta: float) -> void:
 		# Force velocity to zero when ending charge
 		velocity.x = 0
 		return
+
+func _did_charge_hit_player() -> bool:
+	if not hitbox or not hitbox.is_enabled():
+		return false
+	if not hitbox.has_method("get_overlapping_areas"):
+		return false
+	var overlaps: Array = hitbox.get_overlapping_areas()
+	for a in overlaps:
+		if a is Area2D and (a as Area2D).is_in_group("player_hurtbox"):
+			return true
+	return false
+
+func _start_aggro_break_after_charge_hit() -> void:
+	aggro_break_timer = AGGRO_BREAK_AFTER_CHARGE_HIT
+	target = null
+	memory_timer = 0.0
+	last_known_player_pos = Vector2.ZERO
 
 func handle_charge_end(delta: float) -> void:
 	if not sprite.is_playing() or sprite.frame >= sprite.sprite_frames.get_frame_count("charge_end") - 1:
@@ -638,35 +678,15 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	if current_behavior == "dead":
 		return
 	# Projectile / DoT tek yerden base'de işlenir; biz sadece melee knockback ve hurt
-	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
-	if not apply_knockback:
-		return
+	super.take_damage(amount, knockback_force, knockback_up_force, false)
 	if current_behavior == "dead":
 		return
 	var uninterruptible_states = ["charge_prepare", "charging", "slam_prepare", "slam"]
-	var players = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		var player = players[0]
-		var dir = (position - player.global_position).normalized()
-		var up: float = -knockback_force * 0.5
-		if knockback_up_force == -1.0:
-			up = -knockback_force * 0.5
-		elif knockback_up_force >= 0.0:
-			up = -knockback_up_force
-		else:
-			# Negatif = aşağı çakma (air down); velocity.y pozitif = aşağı
-			up = -knockback_up_force
-		velocity = Vector2(dir.x * knockback_force, up)
-		if up < 0.0:
-			floor_snap_length = 0.0
-			air_float_timer = air_float_duration
+	velocity.x = 0.0
+	if is_on_floor():
+		velocity.y = 0.0
 	if health > 0 and not uninterruptible_states.has(current_behavior):
 		change_behavior("hurt", true)
-		var t := get_tree().create_timer(0.1)
-		t.timeout.connect(func():
-			if is_instance_valid(self):
-				floor_snap_length = 32.0
-		)
 
 func reset() -> void:
 	super.reset()

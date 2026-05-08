@@ -6,6 +6,7 @@ var cariye_item_list: ItemList
 var mission_item_list: ItemList
 var assign_button: Button
 var close_button: Button
+var treat_button: Button
 var weekly_info_label: Label
 
 # Seçili cariye ve görevin ID'lerini tutmak için
@@ -84,6 +85,7 @@ func populate_mission_list() -> void:
 func _on_cariye_item_selected(index: int) -> void:
 	selected_cariye_id = cariye_item_list.get_item_metadata(index)
 	_update_assign_button_state()
+	_update_treat_button_state()
 	print("UI: Cariye seçildi: ID %d" % selected_cariye_id)
 
 func _on_mission_item_selected(index: int) -> void:
@@ -96,6 +98,7 @@ func _on_mission_item_selected(index: int) -> void:
 		selected_gorev_id = -1 # Hata durumunda ID'yi sıfırla
 		
 	_update_assign_button_state()
+	_update_treat_button_state()
 	print("UI: Görev seçildi: ID %d" % selected_gorev_id)
 
 func _on_assign_button_pressed() -> void:
@@ -110,6 +113,7 @@ func _on_assign_button_pressed() -> void:
 			selected_cariye_id = -1
 			selected_gorev_id = -1
 			_update_assign_button_state()
+			_update_treat_button_state()
 		else:
 			print("UI: Görev atama başarısız (belki cariye zaten görevde veya görev dolu).")
 	else:
@@ -117,6 +121,19 @@ func _on_assign_button_pressed() -> void:
 
 func _on_close_button_pressed() -> void:
 	hide()
+
+func _on_treat_button_pressed() -> void:
+	if selected_cariye_id == -1:
+		print("UI: Tedavi için önce bir cariye seç.")
+		return
+	if not VillageManager.has_method("try_healer_concubine_treatment"):
+		print("UI: Tedavi sistemi hazır değil.")
+		return
+	var result: Dictionary = VillageManager.try_healer_concubine_treatment(selected_cariye_id)
+	print("UI: ", String(result.get("message", "Tedavi denemesi tamamlandı.")))
+	populate_cariye_list()
+	_update_assign_button_state()
+	_update_treat_button_state()
 
 # --- Helper Functions ---
 
@@ -151,6 +168,17 @@ func _update_assign_button_state() -> void:
 	else:
 		assign_button.disabled = true
 
+func _update_treat_button_state() -> void:
+	if treat_button == null:
+		return
+	if selected_cariye_id == -1:
+		treat_button.disabled = true
+		return
+	if VillageManager.has_method("can_healer_concubine_treat"):
+		treat_button.disabled = not bool(VillageManager.can_healer_concubine_treat(selected_cariye_id))
+	else:
+		treat_button.disabled = true
+
 # --- Visibility Change ---
 # Bu fonksiyon node'un görünürlüğü değiştiğinde otomatik çağrılır.
 # Sahne ağacında node'un `visibility_changed` sinyalini kendisine bağlamanız gerekebilir
@@ -175,6 +203,7 @@ func _on_visibility_changed() -> void:
 			
 		selected_cariye_id = -1
 		selected_gorev_id = -1
+		_update_treat_button_state()
 
 # --- YENİ: Ortalanmış Gösterme Fonksiyonu (await ile) ---
 func show_centered() -> void:
@@ -204,6 +233,17 @@ func show_centered() -> void:
 	if close_button == null:
 		printerr("ERROR (show_centered): CloseButton node not found!")
 		return
+	
+	var action_hbox = get_node_or_null("MarginContainer/MainVBox/ActionHBox")
+	if action_hbox == null:
+		printerr("ERROR (show_centered): ActionHBox node not found!")
+		return
+	treat_button = action_hbox.get_node_or_null("TreatButton")
+	if treat_button == null:
+		treat_button = Button.new()
+		treat_button.name = "TreatButton"
+		treat_button.text = "Tedavi Uygula"
+		action_hbox.add_child(treat_button)
 
 	# Add or fetch a small weekly info label under action bar
 	weekly_info_label = get_node_or_null("MarginContainer/MainVBox/WeeklyInfoLabel")
@@ -224,6 +264,8 @@ func show_centered() -> void:
 		assign_button.pressed.connect(_on_assign_button_pressed)
 	if not close_button.is_connected("pressed", Callable(self, "_on_close_button_pressed")):
 		close_button.pressed.connect(_on_close_button_pressed)
+	if not treat_button.is_connected("pressed", Callable(self, "_on_treat_button_pressed")):
+		treat_button.pressed.connect(_on_treat_button_pressed)
 		
 	# VillageManager sinyallerini bağla (eğer bağlı değilse)
 	if VillageManager.has_signal("cariye_data_changed") and not VillageManager.is_connected("cariye_data_changed", Callable(self, "populate_cariye_list")):
@@ -244,6 +286,7 @@ func show_centered() -> void:
 	populate_cariye_list()
 	populate_mission_list()
 	_update_assign_button_state()
+	_update_treat_button_state()
 	_update_weekly_info()
 
 func _update_weekly_info() -> void:

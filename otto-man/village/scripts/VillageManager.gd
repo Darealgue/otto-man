@@ -138,6 +138,7 @@ const CONSTRUCTION_TIER_BY_SCENE := {
 const CONSTRUCTION_HOURS_BY_TIER := {1: 1.5, 2: 3.0, 3: 6.0, 4: 10.0, 5: 14.0}
 const UPGRADE_BASE_HOURS_BY_TIER := {1: 1.0, 2: 2.0, 3: 4.0, 4: 7.0, 5: 10.0}
 const MAX_BUILD_OR_UPGRADE_HOURS := 24.0
+const HEALER_CONCUBINE_TREATMENT_COST := {"gold": 35, "medicine": 2}
 
 # Sinyaller
 signal village_data_changed
@@ -1958,6 +1959,55 @@ func spend_resources(cost: Dictionary) -> bool:
 		resource_levels[key] = int(resource_levels.get(key, 0)) - need
 	emit_signal("village_data_changed")
 	return true
+
+func get_healer_concubine_treatment_cost() -> Dictionary:
+	return HEALER_CONCUBINE_TREATMENT_COST.duplicate(true)
+
+func can_healer_concubine_treat(cariye_id: int) -> bool:
+	if not cariyeler.has(cariye_id):
+		return false
+	var mission_manager = get_node_or_null("/root/MissionManager")
+	if not mission_manager or not ("concubines" in mission_manager):
+		return false
+	var mm_concubines: Dictionary = mission_manager.get("concubines")
+	if not mm_concubines.has(cariye_id):
+		return false
+	var healer: Concubine = mm_concubines[cariye_id]
+	if healer == null:
+		return false
+	if healer.role != Concubine.Role.TIBBIYECI:
+		return false
+	if healer.status != Concubine.Status.BOŞTA:
+		return false
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	if not player_stats or not player_stats.has_method("has_active_death_debuff"):
+		return false
+	if not bool(player_stats.call("has_active_death_debuff")):
+		return false
+	return can_afford_resources(HEALER_CONCUBINE_TREATMENT_COST)
+
+func try_healer_concubine_treatment(cariye_id: int) -> Dictionary:
+	var result := {"ok": false, "message": "Tedavi uygulanamadı."}
+	if not can_healer_concubine_treat(cariye_id):
+		result["message"] = "Şifacı cariye boşta değil, debuff yok veya maliyet karşılanmıyor."
+		return result
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	if not is_instance_valid(player_stats):
+		result["message"] = "PlayerStats bulunamadı."
+		return result
+	if not spend_resources(HEALER_CONCUBINE_TREATMENT_COST):
+		result["message"] = "Yeterli altın/ilaç yok."
+		return result
+	var cleared: bool = false
+	if player_stats.has_method("clear_active_death_debuff"):
+		cleared = bool(player_stats.call("clear_active_death_debuff"))
+	if not cleared:
+		result["message"] = "Aktif bir debuff bulunamadı."
+		return result
+	emit_signal("cariye_data_changed")
+	result["ok"] = true
+	result["message"] = "Şifacı cariye tedaviyi tamamladı."
+	return result
 
 # İç yardımcı: Belirli bir temel kaynak için atanan toplam işçi sayısını sayar
 func _count_assigned_workers_for_resource(resource_type: String) -> int:
@@ -5856,10 +5906,6 @@ func apply_current_time_schedule() -> void:
 	_apply_time_of_day(hour)
 
 func _apply_time_of_day(hour: int) -> void:
-	var sleep_start := 22
-	var wake_hour := 6
-	var is_sleep_time := hour >= sleep_start or hour < wake_hour
-	
 	# Worker'lar için saat kontrolü
 	if workers_container != null:
 		for child in workers_container.get_children():
@@ -5872,64 +5918,10 @@ func _apply_time_of_day(hour: int) -> void:
 			if worker.has_method("check_hour_transition"):
 				worker.check_hour_transition(hour)
 			
-			# Worker'ın state'ine göre görünürlüğü ayarla
-			# GOING_TO_SLEEP state'indeyse görünür olmalı (eve yürüyor)
-			if worker.has_method("get") and "current_state" in worker:
-				var current_state = worker.get("current_state")
-				var going_to_sleep_state = 8  # State.GOING_TO_SLEEP
-				var sleeping_state = 0  # State.SLEEPING
-				var awake_idle_state = 1  # State.AWAKE_IDLE
-				var socializing_state = 7  # State.SOCIALIZING
-				
-				if current_state == going_to_sleep_state:
-					# Eve yürüyor, görünür olmalı
-					worker.visible = true
-					if worker.has_method("set_process"):
-						worker.set_process(true)
-					if worker.has_method("set_physics_process"):
-						worker.set_physics_process(true)
-				elif current_state == sleeping_state:
-					# Uyuyor, görünmez olmalı
-					worker.visible = false
-					if worker.has_method("set_process"):
-						worker.set_process(false)
-					# Physics process'i açık tut ki uyanma kontrolü çalışsın
-					if worker.has_method("set_physics_process"):
-						worker.set_physics_process(true)
-					# Pozisyonu housing'a taşı — SADECE uyku state'inde
-					if "housing_node" in worker:
-						var housing = worker.get("housing_node")
-						if is_instance_valid(housing) and housing is Node2D:
-							worker.global_position = (housing as Node2D).global_position
-				elif current_state == awake_idle_state or current_state == socializing_state:
-					# Uyanık ve boşta, kesinlikle görünür olmalı
-					worker.visible = true
-					if worker.has_method("set_process"):
-						worker.set_process(true)
-					if worker.has_method("set_physics_process"):
-						worker.set_physics_process(true)
-				else:
-					# Diğer state'lerde (çalışma, işe gitme vb.) worker'ın kendi görünürlük kontrolüne bırak
-					# Ama genel olarak görünür olmalılar (WORKING_INSIDE ve WAITING_OFFSCREEN hariç)
-					var working_inside_state = 5  # State.WORKING_INSIDE
-					var waiting_offscreen_state = 4  # State.WAITING_OFFSCREEN
-					if current_state != working_inside_state and current_state != waiting_offscreen_state:
-						worker.visible = true
-						if worker.has_method("set_process"):
-							worker.set_process(true)
-						if worker.has_method("set_physics_process"):
-							worker.set_physics_process(true)
-			else:
-				# Fallback: Eski davranış (sadece uyku saati kontrolü)
-				worker.visible = not is_sleep_time
-				if worker.has_method("set_process"):
-					worker.set_process(not is_sleep_time)
-				if worker.has_method("set_physics_process"):
-					worker.set_physics_process(not is_sleep_time)
-				if is_sleep_time and "housing_node" in worker:
-					var housing = worker.get("housing_node")
-					if housing and housing is Node2D:
-						worker.global_position = (housing as Node2D).global_position
+			# Saatlik state/konum görünürlük kararını Worker.gd yönetsin.
+			# Burada zorla visible/global_position yazmak, her saat başı 1-frame kaymaya neden oluyordu
+			# (kamp ateşinde uyurken sola kayma ve bina kapısında anlık görünme).
+			# Bu yüzden sadece check_hour_transition çağrısı yeterli.
 	
 	# Cariyeler için saat kontrolü
 	if concubines_container != null:

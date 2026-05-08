@@ -13,8 +13,8 @@ func physics_update(delta: float):
 	if Input.is_action_just_pressed("attack") and player.attack_cooldown_timer <= 0:
 		state_machine.transition_to("Attack")
 		return
-	# Heavy attack input while running
-	if Input.is_action_just_pressed("attack_heavy") and player.attack_cooldown_timer <= 0:
+	# Heavy attack input while running (olum debuff'u ile kilitlenebilir)
+	if Input.is_action_just_pressed("attack_heavy") and player.attack_cooldown_timer <= 0 and player.can_use_heavy_attack():
 		state_machine.transition_to("HeavyAttack")
 		return
 		

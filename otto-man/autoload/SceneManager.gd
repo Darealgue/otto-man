@@ -42,6 +42,8 @@ func start_new_game() -> void:
 	var ps_new: Node = get_node_or_null("/root/PlayerStats")
 	if ps_new and ps_new.has_method("reset_world_expedition_supplies"):
 		ps_new.call("reset_world_expedition_supplies")
+	if ps_new and ps_new.has_method("reset_for_new_game"):
+		ps_new.call("reset_for_new_game")
 	_change_scene(VILLAGE_SCENE, true)
 
 func return_to_main_menu() -> void:
@@ -131,18 +133,15 @@ func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
 		wm.call("sync_player_world_map_pos_to_own_village", true)
 
 func _heal_player_on_world_map_arrival(payload: Dictionary) -> void:
-	# Dünya haritasından köye manuel dönüşte canı doldur.
+	# Dunya haritasindan koye donuste otomatik full heal yapma.
+	# Can eksikse koyde zamanla dolacak sekilde recovery'yi baslat.
 	if String(payload.get("source", "")) != "world_map":
 		return
 	var player_stats = get_node_or_null("/root/PlayerStats")
 	if not is_instance_valid(player_stats):
 		return
-	if not player_stats.has_method("get_stat"):
-		return
-	var max_health: float = float(player_stats.get_stat("max_health"))
-	player_stats.set("current_health", max_health)
-	if player_stats.has_signal("health_changed"):
-		player_stats.health_changed.emit(max_health)
+	if player_stats.has_method("start_village_health_recovery"):
+		player_stats.call("start_village_health_recovery")
 
 func _finalize_dungeon_rewards_on_safe_return(payload: Dictionary) -> Dictionary:
 	# Zindan ödüllerini (ganimet + kurtarılanlar) sadece dünya haritasından köye
@@ -573,7 +572,13 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 
 func _update_ui_visibility(scene_path: String) -> void:
 	"""Show/hide health and stamina bars based on current scene."""
-	var is_combat_scene = (scene_path == DUNGEON_SCENE or scene_path == FOREST_SCENE or scene_path == CAMP_SCENE)
+	var is_combat_scene = (
+		scene_path == DUNGEON_SCENE
+		or scene_path == FOREST_SCENE
+		or scene_path == CAMP_SCENE
+		or scene_path == WORLD_MAP_SCENE
+		or scene_path == VILLAGE_SCENE
+	)
 	var should_show_ui = is_combat_scene
 	
 	print("[SceneManager] 🎮 Updating UI visibility for scene: %s (show UI: %s)" % [scene_path, should_show_ui])

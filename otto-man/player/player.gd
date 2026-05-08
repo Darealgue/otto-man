@@ -26,6 +26,12 @@ signal nazar_shield_consumed  # Nazar Boncuğu: ilk hasar bloklandı, cooldown b
 const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
 const BLOOD_PARTICLE_SCENE := preload("res://effects/blood_particle.tscn")
 const BLOOD_SPLATTER_SCENE := preload("res://effects/blood_splatter.tscn")
+const DAMAGE_RECOVERY_PICKUP_LIFETIME := 7.0
+const DAMAGE_RECOVERY_PICKUP_ARM_DELAY := 0.55
+const DAMAGE_RECOVERY_ORB_MIN_IMPULSE_X := 360.0
+const DAMAGE_RECOVERY_ORB_MAX_IMPULSE_X := 700.0
+const DAMAGE_RECOVERY_ORB_MIN_IMPULSE_Y := 420.0
+const DAMAGE_RECOVERY_ORB_MAX_IMPULSE_Y := 720.0
 ## Sprite2D sahne varsayılanı (player.tscn). Fall attack squash/offset veya yarım kalan animasyon takılınca ayak hizası bozulmasın.
 const SPRITE_DEFAULT_LOCAL_POSITION := Vector2(1, -48)
 
@@ -733,9 +739,12 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 		var current_health = player_stats.get_current_health()
 		player_stats.set_current_health(current_health - amount, show_damage_number)
 		if amount > 0.0:
+			var lost_resources: Dictionary = {}
+			var lost_gold: int = 0
 			if _should_apply_damage_resource_penalty(attacker):
-				player_stats.lose_resources_on_damage()
-				player_stats.lose_dungeon_gold_on_damage()
+				lost_resources = player_stats.lose_resources_on_damage()
+				lost_gold = player_stats.lose_dungeon_gold_on_damage()
+				_spawn_forest_damage_recovery_pickups(lost_resources, lost_gold)
 			if has_signal("player_took_damage"):
 				emit_signal("player_took_damage", amount, attacker)
 			_spawn_player_blood_particles(amount, attacker)
@@ -797,6 +806,198 @@ func _spawn_player_blood_particles(damage_amount: float, attacker: Node2D = null
 			particle.call("set_hit_direction", hit_direction)
 		if particle.has_method("set_damage_amount"):
 			particle.call("set_damage_amount", damage_amount)
+
+func _spawn_forest_damage_recovery_pickups(lost_resources: Dictionary, lost_gold: int) -> void:
+	if not _is_forest_scene():
+		return
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+	var payloads: Array[Dictionary] = []
+	for key in lost_resources.keys():
+		var amount: int = int(lost_resources.get(key, 0))
+		if amount <= 0:
+			continue
+		payloads.append({"kind": "resource", "type": String(key), "amount": amount})
+	if lost_gold > 0:
+		payloads.append({"kind": "gold", "type": "gold", "amount": lost_gold})
+	if payloads.is_empty():
+		return
+	for payload in payloads:
+		_spawn_single_damage_pickup(scene_root, payload)
+
+func _spawn_single_damage_pickup(scene_root: Node, payload: Dictionary) -> void:
+	var amount: int = int(payload.get("amount", 0))
+	if amount <= 0:
+		return
+	var drop := RigidBody2D.new()
+	drop.name = "DamageRecoveryPickup"
+	drop.freeze = false
+	drop.gravity_scale = 0.88
+	drop.linear_damp = 0.06
+	drop.angular_damp = 0.15
+	drop.lock_rotation = true
+	drop.continuous_cd = RigidBody2D.CCD_MODE_CAST_RAY
+	drop.collision_layer = CollisionLayers.ITEM
+	drop.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	drop.set_meta("collected", false)
+	drop.set_meta("kind", String(payload.get("kind", "resource")))
+	drop.set_meta("type", String(payload.get("type", "")))
+	drop.set_meta("amount", amount)
+	drop.global_position = global_position + Vector2(0, -10)
+	var collision := CollisionShape2D.new()
+	var shape := CircleShape2D.new()
+	shape.radius = 11.0
+	collision.shape = shape
+	drop.add_child(collision)
+	var pm := PhysicsMaterial.new()
+	pm.bounce = 0.96
+	pm.friction = 0.02
+	drop.physics_material_override = pm
+	var bubble := PanelContainer.new()
+	bubble.custom_minimum_size = Vector2(24, 24)
+	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bubble_style := StyleBoxFlat.new()
+	bubble_style.bg_color = Color(0.08, 0.08, 0.08, 0.88)
+	bubble_style.corner_radius_top_left = 12
+	bubble_style.corner_radius_top_right = 12
+	bubble_style.corner_radius_bottom_left = 12
+	bubble_style.corner_radius_bottom_right = 12
+	bubble_style.border_width_left = 2
+	bubble_style.border_width_top = 2
+	bubble_style.border_width_right = 2
+	bubble_style.border_width_bottom = 2
+	bubble_style.border_color = Color(1, 1, 1, 0.7)
+	bubble.add_theme_stylebox_override("panel", bubble_style)
+	var icon_key := String(payload.get("type", ""))
+	if String(payload.get("kind", "")) == "gold":
+		icon_key = "gold"
+	var icon_path := _damage_pickup_icon_path(icon_key)
+	if not icon_path.is_empty():
+		var icon_tex := TextureRect.new()
+		icon_tex.texture = load(icon_path)
+		icon_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_tex.custom_minimum_size = Vector2(14, 14)
+		icon_tex.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		icon_tex.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		bubble.add_child(icon_tex)
+	else:
+		var icon_fallback := Label.new()
+		icon_fallback.text = _damage_pickup_icon_for_type(String(payload.get("kind", "")), String(payload.get("type", "")))
+		icon_fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon_fallback.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		icon_fallback.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		icon_fallback.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		bubble.add_child(icon_fallback)
+	drop.add_child(bubble)
+	bubble.position = Vector2(-12, -12)
+	var visual := Label.new()
+	visual.text = _format_damage_pickup_text(String(payload.get("kind", "")), String(payload.get("type", "")), amount)
+	visual.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	visual.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ls := LabelSettings.new()
+	if String(payload.get("kind", "")) == "gold":
+		ls.font_color = Color(1.0, 0.92, 0.2, 1.0)
+	else:
+		ls.font_color = Color(0.8, 1.0, 0.9, 1.0)
+	ls.outline_size = 3
+	ls.outline_color = Color(0, 0, 0, 0.9)
+	ls.font_size = 12
+	visual.label_settings = ls
+	visual.position = Vector2(-32, -30)
+	drop.add_child(visual)
+	var collect_area := Area2D.new()
+	collect_area.name = "CollectArea"
+	collect_area.monitoring = false
+	collect_area.monitorable = true
+	collect_area.collision_layer = CollisionLayers.NONE
+	collect_area.collision_mask = CollisionLayers.PLAYER
+	var collect_collision := CollisionShape2D.new()
+	var collect_shape := CircleShape2D.new()
+	collect_shape.radius = 18.0
+	collect_collision.shape = collect_shape
+	collect_area.add_child(collect_collision)
+	drop.add_child(collect_area)
+	scene_root.add_child(drop)
+	collect_area.body_entered.connect(func(body: Node2D) -> void:
+		if body == null or not body.is_in_group("player"):
+			return
+		_collect_damage_pickup(drop)
+	)
+	var side := -1.0 if randf() < 0.5 else 1.0
+	var launch := Vector2(
+		side * randf_range(DAMAGE_RECOVERY_ORB_MIN_IMPULSE_X, DAMAGE_RECOVERY_ORB_MAX_IMPULSE_X),
+		-randf_range(DAMAGE_RECOVERY_ORB_MIN_IMPULSE_Y, DAMAGE_RECOVERY_ORB_MAX_IMPULSE_Y)
+	)
+	drop.apply_impulse(launch)
+	var arm_timer := get_tree().create_timer(DAMAGE_RECOVERY_PICKUP_ARM_DELAY)
+	arm_timer.timeout.connect(func() -> void:
+		if is_instance_valid(drop):
+			collect_area.monitoring = true
+	)
+	var life_timer := get_tree().create_timer(DAMAGE_RECOVERY_PICKUP_LIFETIME)
+	life_timer.timeout.connect(func() -> void:
+		if is_instance_valid(drop):
+			drop.queue_free()
+	)
+
+func _collect_damage_pickup(drop: Node) -> void:
+	if drop == null or not is_instance_valid(drop):
+		return
+	if bool(drop.get_meta("collected", false)):
+		return
+	drop.set_meta("collected", true)
+	var kind := String(drop.get_meta("kind", ""))
+	var amount := int(drop.get_meta("amount", 0))
+	if amount <= 0:
+		drop.queue_free()
+		return
+	if kind == "gold":
+		if is_instance_valid(GlobalPlayerData):
+			GlobalPlayerData.add_dungeon_gold(amount)
+	else:
+		var type := String(drop.get_meta("type", ""))
+		var ps = get_node_or_null("/root/PlayerStats")
+		if ps and ps.has_method("add_carried_resource"):
+			ps.add_carried_resource(type, amount)
+	drop.queue_free()
+
+func _format_damage_pickup_text(kind: String, type: String, amount: int) -> String:
+	if kind == "gold":
+		return "+%d Altin" % amount
+	var short_name := "Kaynak"
+	match type:
+		"wood":
+			short_name = "Odun"
+		"stone":
+			short_name = "Tas"
+		"food":
+			short_name = "Yemek"
+		"water":
+			short_name = "Su"
+	return "+%d %s" % [amount, short_name]
+
+func _damage_pickup_icon_for_type(kind: String, type: String) -> String:
+	if kind == "gold":
+		return "$"
+	match type:
+		"wood":
+			return "W"
+		"stone":
+			return "S"
+		"food":
+			return "F"
+		"water":
+			return "H2O"
+	return "R"
+
+func _damage_pickup_icon_path(type: String) -> String:
+	var path := "res://assets/Icons/%s_icon.png" % type
+	if ResourceLoader.exists(path):
+		return path
+	return ""
 
 func is_moving_away_from_wall() -> bool:
 	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
@@ -1144,13 +1345,10 @@ func _apply_roguelike_mechanics_on_death() -> void:
 		global_player_data.set("envanter", [])
 		print("[Player] 💀 Roguelike: Inventory cleared on death (%d items lost)" % lost_count)
 	
-	# Reset health to max (will be applied in reset_death_state, but we do it here too)
-	if player_stats:
-		var max_health = player_stats.get_stat("max_health")
-		player_stats.current_health = max_health
-		if player_stats.has_signal("health_changed"):
-			player_stats.health_changed.emit(max_health)
-		print("[Player] 💚 Roguelike: Health reset to %.1f on death" % max_health)
+	# Ölüm sonrası yeni akış: oyuncu köyde 1 canla uyanır ve zamanla toparlanır.
+	if player_stats and player_stats.has_method("mark_death_injury"):
+		player_stats.mark_death_injury()
+		print("[Player] 💚 Death recovery started: respawn health set to 1")
 	
 	# Reset kill count
 	if powerup_manager and "enemy_kill_count" in powerup_manager:
@@ -1166,16 +1364,15 @@ func reset_death_state() -> void:
 	pending_death = false
 	print("[Player] 🔄 Resetting death state...")
 	
-	# Reset health if it's 0 or very low (roguelike reset)
+	# Ölüm sonrası akışta can artık otomatik full olmaz; sadece 0 can durumunu güvenli şekilde toparla.
 	var player_stats = get_node_or_null("/root/PlayerStats")
 	if player_stats:
 		var current_health = player_stats.get_current_health()
 		if current_health <= 0.0:
-			var max_health = player_stats.get_stat("max_health")
-			player_stats.current_health = max_health
+			player_stats.current_health = 1.0
 			if player_stats.has_signal("health_changed"):
-				player_stats.health_changed.emit(max_health)
-			print("[Player] 💚 Health reset to %.1f (was %.1f)" % [max_health, current_health])
+				player_stats.health_changed.emit(1.0)
+			print("[Player] 💚 Health reset to 1.0 (was %.1f)" % current_health)
 	
 	# Make visible again
 	visible = true
@@ -1224,6 +1421,18 @@ func get_current_health() -> float:
 func get_health_percent() -> float:
 	var max_health = get_max_health()
 	return get_current_health() / max_health if max_health > 0 else 1.0
+
+func can_use_heavy_attack() -> bool:
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	if player_stats and player_stats.has_method("is_heavy_attack_locked"):
+		return not player_stats.is_heavy_attack_locked()
+	return true
+
+func can_use_fall_attack() -> bool:
+	var player_stats = get_node_or_null("/root/PlayerStats")
+	if player_stats and player_stats.has_method("is_fall_attack_locked"):
+		return not player_stats.is_fall_attack_locked()
+	return true
 
 # Make dash state accessible for powerups
 func get_dash_state() -> State:
@@ -1486,12 +1695,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		should_interact = true
 	
 	if should_interact and not overlapping_interactables.is_empty():
-		# En üstteki (genellikle en son girilen) etkileşimli nesneyi al
-		var target_area = overlapping_interactables.back()
-
-		# Alanın sahibi yerine, alanın EBEVEYN'ini (parent) hedef alıyoruz.
-		# Bu, InteractionArea'nın doğrudan CampFire'ın altında olduğunu varsayar.
-		var interactable_node = target_area.get_parent()
+		# Birden fazla etkileşim alanı çakışınca (ör. NPC + CampFire),
+		# gerçekten interact() metodu olan hedefi seç.
+		var target_area: Area2D = null
+		var interactable_node: Node = null
+		for i in range(overlapping_interactables.size() - 1, -1, -1):
+			var candidate_area: Area2D = overlapping_interactables[i]
+			if not is_instance_valid(candidate_area):
+				continue
+			var candidate_node = candidate_area.get_parent()
+			if is_instance_valid(candidate_node) and candidate_node.has_method("interact"):
+				target_area = candidate_area
+				interactable_node = candidate_node
+				break
 
 		if interactable_node and interactable_node.has_method("interact"):
 			interactable_node.interact() # Artık CampFire'daki interact() çağrılmalı
@@ -1684,6 +1900,20 @@ func _is_village_scene() -> bool:
 	var current_scene = get_tree().current_scene
 	if current_scene and current_scene.scene_file_path:
 		return "village" in current_scene.scene_file_path.to_lower()
+	return false
+
+func _is_forest_scene() -> bool:
+	var scene_manager = get_node_or_null("/root/SceneManager")
+	if scene_manager:
+		var scene_path: String = String(scene_manager.current_scene_path)
+		if not scene_path.is_empty():
+			var forest_scene_path: String = String(scene_manager.FOREST_SCENE)
+			# Sadece forest biomes (dag/akarsu/orman) icin acik.
+			return scene_path == forest_scene_path or "forest" in scene_path.to_lower()
+	var current_scene = get_tree().current_scene
+	if current_scene and current_scene.scene_file_path:
+		var p: String = String(current_scene.scene_file_path).to_lower()
+		return "forest" in p
 	return false
 
 # Oyuncunun ayak Y pozisyonunu hesapla (NPC'lerle aynı mantık - sadece köy sahnesinde kullanılır)

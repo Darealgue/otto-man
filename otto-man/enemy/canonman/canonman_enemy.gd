@@ -89,8 +89,10 @@ func _ready() -> void:
 	
 	# Initialize combat components
 	if hitbox:
-		hitbox.damage = stats.attack_damage
-		hitbox.knockback_force = 200.0 * stats.knockback_resistance
+		var atk_damage: float = float(stats.attack_damage) if stats != null else 10.0
+		var kb_resist: float = float(stats.knockback_resistance) if stats != null else 1.0
+		hitbox.damage = atk_damage
+		hitbox.knockback_force = 200.0 * kb_resist
 		hitbox.enable()
 	
 	# Setup hurtbox

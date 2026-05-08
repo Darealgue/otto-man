@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://worldmap/scripts/WorldMapScene.gd" id="1_world_map"]
+[ext_resource type="PackedScene" path="res://scenes/game_ui.tscn" id="2_game_ui"]
 
 [node name="WorldMapScene" type="Node2D"]
 script = ExtResource("1_world_map")
@@ -19,3 +20,5 @@ offset_bottom = 220.0
 theme_override_font_sizes/font_size = 20
 text = "Harita hazirlaniyor..."
 autowrap_mode = 3
+
+[node name="GameUI" parent="." instance=ExtResource("2_game_ui")]

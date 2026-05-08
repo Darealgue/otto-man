@@ -2,14 +2,21 @@ class_name FlyingEnemy
 extends "res://enemy/base_enemy.gd"
 
 # Constants for movement
-const CHASE_SPEED_MULTIPLIER = 1.2
-const SWOOP_SPEED_MULTIPLIER = 1.5
-const CIRCLE_RADIUS = 200.0
-const CIRCLE_SPEED = 3.0
+const CHASE_SPEED_MULTIPLIER = 1.78
+const SWOOP_SPEED_MULTIPLIER = 2.28
+const CIRCLE_RADIUS = 165.0
+const CIRCLE_SPEED = 4.6
 const NEUTRAL_SPEED = 150.0
 const ESCAPE_SPEED = 400.0  # Speed when flying away after summoner death
 const RETURN_SPEED = 400.0  # Speed when returning to summoner
 const RETURN_COOLDOWN = 3.0  # Time before bird can return to summoner
+const HP_MULTIPLIER = 0.5
+const DODGE_BURST_SPEED_MULTIPLIER = 2.35
+const DODGE_BURST_MIN_TIME = 0.18
+const DODGE_BURST_MAX_TIME = 0.30
+const DODGE_COOLDOWN_MIN = 0.55
+const DODGE_COOLDOWN_MAX = 1.10
+const FACING_MIN_VX := 6.0
 
 # State tracking
 var circle_angle: float = 0.0
@@ -21,6 +28,9 @@ var is_escaping: bool = false  # Track if we're flying away after summoner death
 var is_returning: bool = false  # Track if we're returning to summoner
 var summoner: Node2D = null   # Reference to our summoner
 var return_timer: float = RETURN_COOLDOWN  # Track time before allowing return
+var dodge_burst_timer: float = 0.0
+var dodge_cooldown_timer: float = 0.0
+var dodge_burst_velocity: Vector2 = Vector2.ZERO
 
 # Node references
 @onready var wall_detector: RayCast2D = $WallDetector
@@ -30,6 +40,16 @@ var return_timer: float = RETURN_COOLDOWN  # Track time before allowing return
 
 func _ready() -> void:
 	super._ready()
+	# Kuslari daha cabuk dusur: cani yariya indir.
+	health = maxf(1.0, health * HP_MULTIPLIER)
+	if stats:
+		stats.max_health = maxf(1.0, stats.max_health * HP_MULTIPLIER)
+	if health_bar:
+		health_bar.setup(health)
+		health_bar.update_health(health)
+	# Dead animasyonu loop'ta kalmasin.
+	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("dead"):
+		sprite.sprite_frames.set_animation_loop("dead", false)
 	
 	# Set sleep distances for performance optimization
 	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
@@ -37,8 +57,10 @@ func _ready() -> void:
 	
 	# Initialize combat components with our own stats
 	if hitbox:
-		hitbox.damage = stats.attack_damage
-		hitbox.knockback_force = 200.0 * stats.knockback_resistance
+		var atk_damage: float = float(stats.attack_damage) if stats != null else 10.0
+		var kb_resist: float = float(stats.knockback_resistance) if stats != null else 1.0
+		hitbox.damage = atk_damage
+		hitbox.knockback_force = 200.0 * kb_resist
 		hitbox.enable()
 	else:
 		push_error("Flying enemy missing hitbox!")
@@ -73,6 +95,12 @@ func _handle_child_behavior(delta: float) -> void:
 	# Update return timer
 	if return_timer > 0:
 		return_timer -= delta
+	if dodge_burst_timer > 0.0:
+		dodge_burst_timer -= delta
+		if dodge_burst_timer <= 0.0:
+			dodge_burst_velocity = Vector2.ZERO
+	if dodge_cooldown_timer > 0.0:
+		dodge_cooldown_timer -= delta
 	
 	match current_behavior:
 		"idle":
@@ -123,8 +151,7 @@ func _handle_return_state(delta: float) -> void:
 	# Use move_and_slide() without collision
 	position += velocity * delta
 	
-	# Update sprite direction while returning
-	sprite.flip_h = velocity.x < 0
+	_update_facing_from_velocity()
 	
 	# Check if we've reached the summoner
 	if global_position.distance_to(summoner.global_position) < 50:
@@ -142,20 +169,34 @@ func _handle_chase_state(delta: float) -> void:
 	circle_angle += CIRCLE_SPEED * delta
 	var circle_pos = target.global_position + Vector2(cos(circle_angle), sin(circle_angle)) * CIRCLE_RADIUS
 	
-	# Move towards circle position
-	var direction = global_position.direction_to(circle_pos)
+	var to_player: Vector2 = global_position.direction_to(target.global_position)
+	var tangent: Vector2 = Vector2(-to_player.y, to_player.x)
+	# Move towards circle position + hafif tangential sürüş ile kıvrak yörünge.
+	var to_circle: Vector2 = global_position.direction_to(circle_pos)
+	var direction: Vector2 = (to_circle + tangent * 0.42).normalized()
 	var final_speed = stats.movement_speed * CHASE_SPEED_MULTIPLIER
-	velocity = direction * final_speed
+	
+	# Kısa dodge burst: oyuncuya yakınken anlık sert kaçış manevrası.
+	if dodge_burst_timer <= 0.0 and dodge_cooldown_timer <= 0.0:
+		var dist_to_player := global_position.distance_to(target.global_position)
+		if dist_to_player <= 240.0 and randf() < 2.4 * delta:
+			var side_sign := -1.0 if randf() < 0.5 else 1.0
+			var dodge_dir: Vector2 = (tangent * side_sign + (-to_player) * 0.30).normalized()
+			dodge_burst_velocity = dodge_dir * (stats.movement_speed * DODGE_BURST_SPEED_MULTIPLIER)
+			dodge_burst_timer = randf_range(DODGE_BURST_MIN_TIME, DODGE_BURST_MAX_TIME)
+			dodge_cooldown_timer = randf_range(DODGE_COOLDOWN_MIN, DODGE_COOLDOWN_MAX)
+	
+	if dodge_burst_timer > 0.0:
+		velocity = dodge_burst_velocity
+	else:
+		velocity = direction * final_speed
 	
 	
 	# Check for obstacles
 	if wall_detector.is_colliding() or ceiling_detector.is_colliding() or floor_detector.is_colliding():
 		velocity = velocity.rotated(PI/4)  # Turn away from obstacle
 	
-	move_and_slide()
-	
-	# Update sprite direction
-	sprite.flip_h = velocity.x < 0
+	_update_facing_from_velocity()
 	
 	# Check if target is in range before attempting swoop
 	var distance_to_target = global_position.distance_to(target.global_position)
@@ -186,15 +227,16 @@ func _handle_swoop_state(delta: float) -> void:
 			change_behavior("idle")
 		return
 		
+	# Swoop hedefini biraz canlı güncelle ki hareket öngörülebilir olmasın.
+	swoop_target_pos = swoop_target_pos.lerp(target.global_position, clampf(delta * 5.0, 0.0, 1.0))
 	var direction = global_position.direction_to(swoop_target_pos)
 	var final_speed = stats.movement_speed * SWOOP_SPEED_MULTIPLIER
 	velocity = direction * final_speed
+	_update_facing_from_velocity()
 	
 	# DEBUG: Print speed information (reduced frequency)
 	if randf() < 0.01:  # Only print 1% of the time
 		print("[FlyingEnemy] Swoop - Base Speed: %s, Final Speed: %s" % [stats.movement_speed, final_speed])
-	
-	move_and_slide()
 	
 	# Check if we've reached the swoop target
 	var distance_to_swoop_target = global_position.distance_to(swoop_target_pos)
@@ -220,8 +262,7 @@ func _handle_neutral_state(delta: float) -> void:
 	if wall_detector.is_colliding() or ceiling_detector.is_colliding() or floor_detector.is_colliding():
 		neutral_direction = neutral_direction.rotated(PI/4)
 		
-	move_and_slide()
-	sprite.flip_h = velocity.x < 0
+	_update_facing_from_velocity()
 
 func _handle_escape_state(delta: float) -> void:
 	# Always fly upward and slightly to the side - use stats-based speed
@@ -231,8 +272,6 @@ func _handle_escape_state(delta: float) -> void:
 	# DEBUG: Print speed information (reduced frequency)
 	if randf() < 0.01:  # Only print 1% of the time
 		print("[FlyingEnemy] Escape - Speed: %s" % escape_speed)
-	
-	move_and_slide()
 	
 	# Check if we're off screen
 	var viewport = get_viewport()
@@ -255,9 +294,13 @@ func handle_chase(delta: float) -> void:
 
 func handle_hurt_behavior(delta: float) -> void:
 	behavior_timer += delta
+	# Hurt durumunda hizin hizlica sonmesi, state'ten cikinca ters/yukari kacisi engeller.
+	velocity = velocity.move_toward(Vector2.ZERO, 2400.0 * delta)
 	
-	# Only exit hurt state if timer is up AND mostly stopped
-	if behavior_timer >= 0.2 and abs(velocity.x) <= 25:  # Reduced hurt state duration
+	# Kisa bir hitstun'dan sonra stabil sekilde chase'e don.
+	if behavior_timer >= 0.16:
+		velocity = Vector2.ZERO
+		air_float_timer = 0.0
 		change_behavior("chase")
 		# Make sure hurtbox is re-enabled
 		if hurtbox:
@@ -267,8 +310,10 @@ func handle_hurt_behavior(delta: float) -> void:
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	if current_behavior == "dead":
 		return
-	# Projectile / DoT base'de işlenir; biz sadece melee knockback ve hurt
-	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
+	# Projectile / DoT hasarini base'de isle; kusa ozel knockback/hurt'u biz yonetecegiz.
+	super.take_damage(amount, knockback_force, knockback_up_force, false)
+	if current_behavior == "dead":
+		return
 	if not apply_knockback:
 		return
 	if invulnerable:
@@ -299,17 +344,17 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 func _update_animation_state() -> void:
 	match current_behavior:
 		"idle":
-			sprite.play("idle")
+			_play_anim_if_needed("idle")
 		"chase":
-			sprite.play("fly")
+			_play_anim_if_needed("fly")
 		"swoop":
-			sprite.play("swoop")
+			_play_anim_if_needed("swoop")
 		"neutral":
-			sprite.play("fly")
+			_play_anim_if_needed("fly")
 		"hurt":
-			sprite.play("hurt")
+			_play_anim_if_needed("hurt")
 		"dead":
-			sprite.play("dead")
+			_play_anim_if_needed("dead")
 
 func set_neutral_state() -> void:
 	
@@ -358,14 +403,14 @@ func die() -> void:
 	if health_bar:
 		health_bar.hide_bar()
 	
-	# Play death animation
+	# Play death animation (anim adlari sahneler arasinda farkli olabiliyor)
 	if sprite:
-		sprite.play("dead")
+		_play_flying_death_animation()
 		# Set z_index above player (player z_index = 5)
 		sprite.z_index = 6
 	
-	# Set downward velocity for death fall
-	velocity = Vector2(0, 200)  # Start with a moderate downward speed
+	# Set downward velocity for death fall (yatay yay cizmesini engelle)
+	velocity = Vector2.ZERO
 	
 	# Disable ALL collision
 	collision_layer = 0  # Nothing can collide with corpse
@@ -416,7 +461,8 @@ func _physics_process(delta: float) -> void:
 	
 	match current_behavior:
 		"dead":
-			# Just update position directly for smooth falling
+			# Olumde duz asagi dus; yatay arc yapmasin.
+			velocity.x = move_toward(velocity.x, 0.0, 2600.0 * delta)
 			position += velocity * delta
 			# Gradually increase falling speed
 			velocity.y = move_toward(velocity.y, 400, GRAVITY * delta * 0.5)
@@ -424,6 +470,7 @@ func _physics_process(delta: float) -> void:
 		_:  # For all other states
 			handle_behavior(delta)
 			move_and_slide()
+			_update_facing_from_velocity()
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
 	super.change_behavior(new_behavior, force)
@@ -431,12 +478,42 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	# Map behaviors to available animations
 	match new_behavior:
 		"idle":
-			sprite.play("idle")
+			_play_anim_if_needed("idle")
 		"chase", "patrol", "alert":
-			sprite.play("fly")
+			_play_anim_if_needed("fly")
 		"swoop":
-			sprite.play("swoop")
+			_play_anim_if_needed("swoop")
 		"hurt":
-			sprite.play("fly")  # Use fly animation for hurt state
+			if sprite.sprite_frames and sprite.sprite_frames.has_animation("hurt"):
+				_play_anim_if_needed("hurt")
+			else:
+				_play_anim_if_needed("fly")
 		_:
-			sprite.play("idle")  # Default to idle for unknown states
+			_play_anim_if_needed("idle")  # Default to idle for unknown states
+
+func _play_flying_death_animation() -> void:
+	if not sprite:
+		return
+	var frames = sprite.sprite_frames
+	if frames:
+		for anim_name in ["dead", "death", "die", "fall"]:
+			if frames.has_animation(anim_name):
+				sprite.play(anim_name)
+				frames.set_animation_loop(anim_name, false)
+				return
+	# Son care: mevcut animde kalmak yerine idle'ye dusme.
+	sprite.play("idle")
+
+func _update_facing_from_velocity() -> void:
+	if not sprite:
+		return
+	if absf(velocity.x) <= FACING_MIN_VX:
+		return
+	sprite.flip_h = velocity.x < 0.0
+
+func _play_anim_if_needed(anim_name: String) -> void:
+	if not sprite:
+		return
+	if sprite.animation == anim_name and sprite.is_playing():
+		return
+	sprite.play(anim_name)

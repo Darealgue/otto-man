@@ -277,6 +277,11 @@ func _clear_travel_session_state() -> void:
 	_travel_session_next_index = 1
 	_travel_session_minutes_accum = 0
 
+func cancel_world_travel_session() -> void:
+	# Oyuncu hareketi manuel iptal ettiginde aktif yolculuk oturumunu temizle.
+	_clear_travel_session_state()
+	world_map_updated.emit()
+
 func begin_world_travel_session(target_q: int, target_r: int, route_mode: String = "shortest") -> Dictionary:
 	_clear_travel_session_state()
 	var start_q: int = int(world_map_player_pos.get("q", 0))

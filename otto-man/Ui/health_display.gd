@@ -26,6 +26,20 @@ const HEALTH_COLORS = {
 
 var delayed_health: float = 100.0
 var player_stats: Node
+var debuff_container: VBoxContainer
+var debuff_title_label: Label
+var debuff_time_label: Label
+var survival_container: VBoxContainer
+var water_icon_label: Label
+var water_bar: ProgressBar
+var water_time_label: Label
+var food_icon_label: Label
+var food_bar: ProgressBar
+var food_time_label: Label
+var _survival_refresh_timer: float = 0.0
+const SURVIVAL_REFRESH_INTERVAL: float = 0.35
+const WATER_WARNING_MINUTES: float = 360.0
+const FOOD_WARNING_MINUTES: float = 720.0
 
 func _ready() -> void:
 	add_to_group("health_display")
@@ -40,6 +54,8 @@ func _ready() -> void:
 	if !health_label or !health_bar or !delayed_bar:
 		push_error("[HealthDisplay] Missing UI components!")
 		return
+	
+	_setup_debuff_ui()
 		
 	# Get PlayerStats singleton
 	player_stats = get_node("/root/PlayerStats")
@@ -59,10 +75,20 @@ func _ready() -> void:
 		player_stats.health_changed.connect(_on_health_changed, CONNECT_DEFERRED)
 	if !player_stats.stat_changed.is_connected(_on_stat_changed):
 		player_stats.stat_changed.connect(_on_stat_changed, CONNECT_DEFERRED)
+	if player_stats.has_signal("death_recovery_updated") and not player_stats.death_recovery_updated.is_connected(_on_death_recovery_updated):
+		player_stats.death_recovery_updated.connect(_on_death_recovery_updated, CONNECT_DEFERRED)
+	_refresh_debuff_ui()
+	_refresh_survival_ui()
 
 var _force_visible: bool = true  # Allow external control
 
 func _process(delta: float) -> void:
+	if _is_world_map_scene():
+		_force_visible = true
+		visible = true
+		show()
+		modulate.a = 1.0
+
 	if !_force_visible:
 		return  # Don't force visibility if disabled
 	
@@ -78,6 +104,11 @@ func _process(delta: float) -> void:
 	if delayed_health > health_bar.value:
 		delayed_health = move_toward(delayed_health, health_bar.value, player_stats.get_max_health() * DELAYED_BAR_SPEED * delta)
 		delayed_bar.value = delayed_health
+	
+	_survival_refresh_timer -= delta
+	if _survival_refresh_timer <= 0.0:
+		_survival_refresh_timer = SURVIVAL_REFRESH_INTERVAL
+		_refresh_survival_ui()
 
 func _on_health_changed(new_health: float) -> void:
 	if player_stats:
@@ -86,6 +117,158 @@ func _on_health_changed(new_health: float) -> void:
 func _on_stat_changed(stat_name: String, _old_value: float, new_value: float) -> void:
 	if stat_name == "max_health" and player_stats:
 		update_health_display(player_stats.get_current_health(), new_value)
+
+func _on_death_recovery_updated(_state: Dictionary) -> void:
+	_refresh_debuff_ui()
+
+func _setup_debuff_ui() -> void:
+	if debuff_container:
+		return
+	var root = get_node_or_null("BarContainer")
+	if root == null:
+		return
+	debuff_container = VBoxContainer.new()
+	debuff_container.name = "DebuffContainer"
+	debuff_container.position = Vector2(228, 0)
+	debuff_container.custom_minimum_size = Vector2(170, 44)
+	root.add_child(debuff_container)
+	
+	debuff_title_label = Label.new()
+	debuff_title_label.name = "DebuffTitle"
+	debuff_title_label.text = "DEBUFF: -"
+	debuff_container.add_child(debuff_title_label)
+	
+	debuff_time_label = Label.new()
+	debuff_time_label.name = "DebuffTime"
+	debuff_time_label.text = "Kalan: -"
+	debuff_container.add_child(debuff_time_label)
+	
+	debuff_container.visible = false
+
+func _setup_survival_ui() -> void:
+	if survival_container:
+		return
+	var root = get_node_or_null("BarContainer")
+	if root == null:
+		return
+	survival_container = VBoxContainer.new()
+	survival_container.name = "SurvivalContainer"
+	survival_container.position = Vector2(0, 24)
+	survival_container.custom_minimum_size = Vector2(220, 52)
+	root.add_child(survival_container)
+	
+	var water_row := HBoxContainer.new()
+	water_row.name = "WaterRow"
+	survival_container.add_child(water_row)
+	water_icon_label = Label.new()
+	water_icon_label.text = "💧"
+	water_row.add_child(water_icon_label)
+	water_bar = ProgressBar.new()
+	water_bar.custom_minimum_size = Vector2(132, 12)
+	water_bar.max_value = 100.0
+	water_bar.show_percentage = false
+	water_row.add_child(water_bar)
+	water_time_label = Label.new()
+	water_time_label.text = "--"
+	water_row.add_child(water_time_label)
+	
+	var food_row := HBoxContainer.new()
+	food_row.name = "FoodRow"
+	survival_container.add_child(food_row)
+	food_icon_label = Label.new()
+	food_icon_label.text = "🍎"
+	food_row.add_child(food_icon_label)
+	food_bar = ProgressBar.new()
+	food_bar.custom_minimum_size = Vector2(132, 12)
+	food_bar.max_value = 100.0
+	food_bar.show_percentage = false
+	food_row.add_child(food_bar)
+	food_time_label = Label.new()
+	food_time_label.text = "--"
+	food_row.add_child(food_time_label)
+
+func _refresh_survival_ui() -> void:
+	if not player_stats:
+		return
+	if not survival_container:
+		_setup_survival_ui()
+	if not survival_container or not player_stats.has_method("get_world_expedition_survival_forecast"):
+		return
+	if not _is_world_map_scene():
+		survival_container.visible = false
+		return
+	var fc: Dictionary = player_stats.call("get_world_expedition_survival_forecast")
+	var water_minutes: int = int(fc.get("minutes_until_water_hp_loss", 0))
+	var food_minutes: int = int(fc.get("minutes_until_food_hp_loss", 0))
+	var water_ratio: float = clampf(float(water_minutes) / WATER_WARNING_MINUTES, 0.0, 1.0)
+	var food_ratio: float = clampf(float(food_minutes) / FOOD_WARNING_MINUTES, 0.0, 1.0)
+	water_bar.value = water_ratio * 100.0
+	food_bar.value = food_ratio * 100.0
+	water_time_label.text = _format_minutes_short(water_minutes)
+	food_time_label.text = _format_minutes_short(food_minutes)
+	_apply_survival_bar_color(water_bar, water_ratio)
+	_apply_survival_bar_color(food_bar, food_ratio)
+	survival_container.visible = true
+
+func _is_world_map_scene() -> bool:
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm == null:
+		return false
+	var path: String = String(sm.get("current_scene_path"))
+	return "worldmap" in path.to_lower()
+
+func _apply_survival_bar_color(bar: ProgressBar, ratio: float) -> void:
+	if not bar:
+		return
+	var fill_style = bar.get_theme_stylebox("fill")
+	var style: StyleBoxFlat = null
+	if fill_style is StyleBoxFlat:
+		style = (fill_style as StyleBoxFlat).duplicate()
+	else:
+		style = StyleBoxFlat.new()
+	style.bg_color = Color(1.0 - ratio, ratio, 0.0, 0.95)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = Color(1, 1, 1, 0.45)
+	bar.add_theme_stylebox_override("fill", style)
+
+func _format_minutes_short(minutes_left: int) -> String:
+	var m: int = maxi(0, minutes_left)
+	var h: int = m / 60
+	var mm: int = m % 60
+	return "%02d:%02d" % [h, mm]
+
+func _refresh_debuff_ui() -> void:
+	if not player_stats or not debuff_container or not debuff_title_label or not debuff_time_label:
+		return
+	if not player_stats.has_method("get_death_recovery_state"):
+		debuff_container.visible = false
+		return
+	var state: Dictionary = player_stats.get_death_recovery_state()
+	var active: Array = state.get("active_debuffs", [])
+	if active.is_empty():
+		debuff_container.visible = false
+		return
+	var names: PackedStringArray = []
+	var durations: PackedStringArray = []
+	for deb in active:
+		var dn: String = String(deb.get("name", "Yaralanma"))
+		var mins_left: int = int(deb.get("minutes_left", 0))
+		names.append(dn)
+		durations.append("%s: %s" % [dn, _format_days_left(mins_left)])
+	debuff_title_label.text = "DEBUFF: " + ", ".join(names)
+	debuff_time_label.text = "Kalan: " + " | ".join(durations)
+	debuff_container.visible = true
+
+func _format_days_left(minutes_left: int) -> String:
+	var tm := get_node_or_null("/root/TimeManager")
+	var minutes_per_day: int = 1440
+	if tm and "MINUTES_PER_HOUR" in tm and "HOURS_PER_DAY" in tm:
+		minutes_per_day = int(tm.MINUTES_PER_HOUR) * int(tm.HOURS_PER_DAY)
+	var days_left: int = int(ceil(float(maxi(0, minutes_left)) / float(maxi(1, minutes_per_day))))
+	return "%d gun" % days_left
 
 func update_health_display(current_health: float, max_health: float) -> void:
 	

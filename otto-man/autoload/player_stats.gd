@@ -33,6 +33,7 @@ signal player_died()
 signal carried_resources_changed(new_totals: Dictionary)
 signal carried_resources_lost(losses: Dictionary)
 signal world_expedition_supplies_changed(new_totals: Dictionary)
+signal death_recovery_updated(state: Dictionary)
 
 const ResourceType = preload("res://resources/resource_types.gd")
 static var RESOURCE_TYPES := ResourceType.all()
@@ -40,6 +41,57 @@ static var RESOURCE_TYPES := ResourceType.all()
 var resource_loss_fraction_on_hit := 0.2
 var min_resource_loss_per_hit := 1
 var dungeon_gold_loss_fraction_on_hit := 0.2
+const VILLAGE_HEAL_TO_FULL_MINUTES: int = 180
+const DEATH_DEBUFF_CHANCE: float = 0.35
+const DEATH_DEBUFF_DURATION_DAYS_MIN: int = 1
+const DEATH_DEBUFF_DURATION_DAYS_MAX: int = 3
+
+var death_recovery_state := {
+	"is_recovering": false,
+	"was_recently_dead": false,
+	"minutes_until_full_heal": 0,
+	"heal_per_minute": 0.0,
+	"debuff_minutes_left": 0, # Legacy/summary alan
+	"debuff_name": "", # Legacy/summary alan
+	"max_health_multiplier": 1.0,
+	"stamina_penalty": 0,
+	"stamina_regen_multiplier": 1.0,
+	"heavy_attack_locked": false,
+	"fall_attack_locked": false,
+	"active_debuffs": [], # [{name, max_health_multiplier, stamina_penalty, stamina_regen_multiplier, heavy_attack_locked, fall_attack_locked, minutes_left}]
+}
+var _active_death_debuffs: Array[Dictionary] = []
+var _death_max_health_multiplier: float = 1.0
+var _death_stamina_penalty: int = 0
+var _death_stamina_regen_multiplier: float = 1.0
+var _death_heavy_attack_locked: bool = false
+var _death_fall_attack_locked: bool = false
+const DEATH_DEBUFF_POOL := [
+	{
+		"name": "Kirik Kaburga",
+		"max_health_multiplier": 0.75,
+		"stamina_penalty": 0,
+		"stamina_regen_multiplier": 1.0,
+		"heavy_attack_locked": false,
+		"fall_attack_locked": false,
+	},
+	{
+		"name": "Bel Tutulmasi",
+		"max_health_multiplier": 1.0,
+		"stamina_penalty": 0,
+		"stamina_regen_multiplier": 1.0,
+		"heavy_attack_locked": true,
+		"fall_attack_locked": false,
+	},
+	{
+		"name": "Denge Kaybi",
+		"max_health_multiplier": 1.0,
+		"stamina_penalty": 0,
+		"stamina_regen_multiplier": 1.0,
+		"heavy_attack_locked": false,
+		"fall_attack_locked": true,
+	}
+]
 
 # Base stats
 var base_stats = {
@@ -123,7 +175,384 @@ func get_stat(stat_name: String) -> float:
 	var multiplier = stat_multipliers[stat_name]
 	var bonus = stat_bonuses[stat_name]
 	
-	return (base * multiplier) + bonus
+	var final_value: float = (base * multiplier) + bonus
+	if stat_name == "max_health":
+		final_value *= _death_max_health_multiplier
+	elif stat_name == "block_charges":
+		final_value = maxf(1.0, final_value - float(_death_stamina_penalty))
+	return final_value
+
+func _ready() -> void:
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm and tm.has_signal("minute_changed") and not tm.minute_changed.is_connected(_on_time_minute_changed):
+		tm.minute_changed.connect(_on_time_minute_changed)
+
+func _on_time_minute_changed(_new_minute: int) -> void:
+	_process_death_recovery_minute()
+
+func _is_in_village_scene() -> bool:
+	var sm := get_node_or_null("/root/SceneManager")
+	if not sm:
+		return false
+	var path: String = String(sm.get("current_scene_path"))
+	if path.is_empty():
+		return false
+	return path == "res://village/scenes/VillageScene.tscn" or "village" in path.to_lower()
+
+func mark_death_injury() -> void:
+	var max_health: float = get_max_health()
+	var start_health: float = minf(1.0, max_health)
+	current_health = clampf(start_health, 0.0, max_health)
+	health_changed.emit(current_health)
+	death_recovery_state["is_recovering"] = true
+	death_recovery_state["was_recently_dead"] = true
+	death_recovery_state["minutes_until_full_heal"] = VILLAGE_HEAL_TO_FULL_MINUTES
+	death_recovery_state["heal_per_minute"] = max_health / float(VILLAGE_HEAL_TO_FULL_MINUTES)
+	_roll_death_debuff()
+	_emit_death_recovery_updated()
+
+func start_village_health_recovery() -> void:
+	var max_health: float = get_max_health()
+	if max_health <= 0.0:
+		return
+	var missing: float = maxf(0.0, max_health - current_health)
+	if missing <= 0.0:
+		death_recovery_state["is_recovering"] = false
+		death_recovery_state["minutes_until_full_heal"] = 0
+		death_recovery_state["heal_per_minute"] = 0.0
+		_emit_death_recovery_updated()
+		return
+	var heal_per_minute: float = max_health / float(VILLAGE_HEAL_TO_FULL_MINUTES)
+	heal_per_minute = maxf(0.01, heal_per_minute)
+	var mins_needed: int = int(ceili(missing / heal_per_minute))
+	death_recovery_state["is_recovering"] = true
+	death_recovery_state["minutes_until_full_heal"] = maxi(1, mins_needed)
+	death_recovery_state["heal_per_minute"] = heal_per_minute
+	_emit_death_recovery_updated()
+
+func _roll_death_debuff() -> void:
+	if randf() > DEATH_DEBUFF_CHANCE:
+		return
+	var tm := get_node_or_null("/root/TimeManager")
+	var minutes_per_day: int = 1440
+	if tm and "MINUTES_PER_HOUR" in tm and "HOURS_PER_DAY" in tm:
+		minutes_per_day = int(tm.MINUTES_PER_HOUR) * int(tm.HOURS_PER_DAY)
+	var duration_days: int = randi_range(DEATH_DEBUFF_DURATION_DAYS_MIN, DEATH_DEBUFF_DURATION_DAYS_MAX)
+	var picked: Dictionary = DEATH_DEBUFF_POOL[randi() % DEATH_DEBUFF_POOL.size()]
+	var picked_name: String = String(picked.get("name", "Yaralanma"))
+	var total_minutes: int = duration_days * minutes_per_day
+	var refreshed_existing: bool = false
+	for i in range(_active_death_debuffs.size()):
+		var active: Dictionary = _active_death_debuffs[i]
+		if String(active.get("name", "")) == picked_name:
+			active["minutes_left"] = total_minutes
+			_active_death_debuffs[i] = active
+			refreshed_existing = true
+			break
+	if not refreshed_existing:
+		_active_death_debuffs.append({
+			"name": picked_name,
+			"max_health_multiplier": float(picked.get("max_health_multiplier", 1.0)),
+			"stamina_penalty": int(picked.get("stamina_penalty", 0)),
+			"stamina_regen_multiplier": float(picked.get("stamina_regen_multiplier", 1.0)),
+			"heavy_attack_locked": bool(picked.get("heavy_attack_locked", false)),
+			"fall_attack_locked": bool(picked.get("fall_attack_locked", false)),
+			"minutes_left": total_minutes,
+		})
+	_recalculate_death_debuff_modifiers()
+	_clamp_current_health_to_max()
+	_emit_penalty_stat_refresh()
+
+func _process_death_recovery_minute() -> void:
+	var changed: bool = false
+	if _is_in_village_scene() and bool(death_recovery_state.get("is_recovering", false)):
+		var heal_amount: float = float(death_recovery_state.get("heal_per_minute", 0.0))
+		if heal_amount > 0.0 and current_health < get_max_health():
+			current_health = minf(get_max_health(), current_health + heal_amount)
+			health_changed.emit(current_health)
+			changed = true
+		var mins_left: int = max(0, int(death_recovery_state.get("minutes_until_full_heal", 0)) - 1)
+		death_recovery_state["minutes_until_full_heal"] = mins_left
+		if current_health >= get_max_health() or mins_left <= 0:
+			death_recovery_state["is_recovering"] = false
+		changed = true
+	if _active_death_debuffs.size() > 0:
+		for i in range(_active_death_debuffs.size() - 1, -1, -1):
+			var deb: Dictionary = _active_death_debuffs[i]
+			var mins: int = int(deb.get("minutes_left", 0))
+			if mins > 0:
+				deb["minutes_left"] = mins - 1
+				_active_death_debuffs[i] = deb
+				changed = true
+			if int(deb.get("minutes_left", 0)) <= 0:
+				_active_death_debuffs.remove_at(i)
+				changed = true
+		if changed:
+			_recalculate_death_debuff_modifiers()
+			_clamp_current_health_to_max()
+			_emit_penalty_stat_refresh()
+	if changed:
+		_emit_death_recovery_updated()
+
+func _clear_death_debuff(emit_refresh: bool) -> void:
+	var had_debuff: bool = _active_death_debuffs.size() > 0
+	_active_death_debuffs.clear()
+	_recalculate_death_debuff_modifiers()
+	if emit_refresh and had_debuff:
+		_clamp_current_health_to_max()
+		_emit_penalty_stat_refresh()
+
+func _recalculate_death_debuff_modifiers() -> void:
+	_death_max_health_multiplier = 1.0
+	_death_stamina_penalty = 0
+	_death_stamina_regen_multiplier = 1.0
+	_death_heavy_attack_locked = false
+	_death_fall_attack_locked = false
+	var longest_minutes: int = 0
+	var summary_name: String = ""
+	for i in range(_active_death_debuffs.size()):
+		_active_death_debuffs[i] = _normalize_single_effect_debuff(_active_death_debuffs[i])
+	for deb in _active_death_debuffs:
+		_death_max_health_multiplier *= float(deb.get("max_health_multiplier", 1.0))
+		_death_stamina_penalty += int(deb.get("stamina_penalty", 0))
+		_death_stamina_regen_multiplier *= float(deb.get("stamina_regen_multiplier", 1.0))
+		if bool(deb.get("heavy_attack_locked", false)):
+			_death_heavy_attack_locked = true
+		if bool(deb.get("fall_attack_locked", false)):
+			_death_fall_attack_locked = true
+		var mins: int = int(deb.get("minutes_left", 0))
+		if mins > longest_minutes:
+			longest_minutes = mins
+			summary_name = String(deb.get("name", ""))
+	death_recovery_state["debuff_name"] = summary_name
+	death_recovery_state["debuff_minutes_left"] = longest_minutes
+	death_recovery_state["max_health_multiplier"] = 1.0
+	death_recovery_state["max_health_multiplier"] = _death_max_health_multiplier
+	death_recovery_state["stamina_penalty"] = _death_stamina_penalty
+	death_recovery_state["stamina_regen_multiplier"] = _death_stamina_regen_multiplier
+	death_recovery_state["heavy_attack_locked"] = _death_heavy_attack_locked
+	death_recovery_state["fall_attack_locked"] = _death_fall_attack_locked
+	death_recovery_state["active_debuffs"] = _active_death_debuffs.duplicate(true)
+
+func _normalize_single_effect_debuff(deb: Dictionary) -> Dictionary:
+	var name: String = String(deb.get("name", ""))
+	var mins: int = int(deb.get("minutes_left", 0))
+	# Bilinen debuff adlarinda havuzdaki canonical tek-etki tanimini zorunlu uygula.
+	for d in DEATH_DEBUFF_POOL:
+		if String(d.get("name", "")) == name:
+			return {
+				"name": name,
+				"max_health_multiplier": float(d.get("max_health_multiplier", 1.0)),
+				"stamina_penalty": int(d.get("stamina_penalty", 0)),
+				"stamina_regen_multiplier": float(d.get("stamina_regen_multiplier", 1.0)),
+				"heavy_attack_locked": bool(d.get("heavy_attack_locked", false)),
+				"fall_attack_locked": bool(d.get("fall_attack_locked", false)),
+				"minutes_left": mins,
+			}
+	# Bilinmeyen/eski bir kayit geldiyse, ilk bulunan etkiyi tutup digerlerini kapat.
+	var max_health_multiplier: float = float(deb.get("max_health_multiplier", 1.0))
+	var stamina_penalty: int = int(deb.get("stamina_penalty", 0))
+	var stamina_regen_multiplier: float = float(deb.get("stamina_regen_multiplier", 1.0))
+	var heavy_attack_locked: bool = bool(deb.get("heavy_attack_locked", false))
+	var fall_attack_locked: bool = bool(deb.get("fall_attack_locked", false))
+	if heavy_attack_locked:
+		fall_attack_locked = false
+		max_health_multiplier = 1.0
+		stamina_penalty = 0
+		stamina_regen_multiplier = 1.0
+	elif fall_attack_locked:
+		max_health_multiplier = 1.0
+		stamina_penalty = 0
+		stamina_regen_multiplier = 1.0
+	elif max_health_multiplier < 1.0:
+		stamina_penalty = 0
+		stamina_regen_multiplier = 1.0
+	elif stamina_penalty > 0:
+		max_health_multiplier = 1.0
+		stamina_regen_multiplier = 1.0
+	elif stamina_regen_multiplier < 1.0:
+		max_health_multiplier = 1.0
+		stamina_penalty = 0
+	return {
+		"name": name,
+		"max_health_multiplier": max_health_multiplier,
+		"stamina_penalty": stamina_penalty,
+		"stamina_regen_multiplier": stamina_regen_multiplier,
+		"heavy_attack_locked": heavy_attack_locked,
+		"fall_attack_locked": fall_attack_locked,
+		"minutes_left": mins,
+	}
+
+func _clamp_current_health_to_max() -> void:
+	current_health = clampf(current_health, 0.0, get_max_health())
+	health_changed.emit(current_health)
+
+func _emit_penalty_stat_refresh() -> void:
+	var old_max: float = get_max_health()
+	stat_changed.emit("max_health", old_max, get_max_health())
+	var old_block: float = get_stat("block_charges")
+	stat_changed.emit("block_charges", old_block, get_stat("block_charges"))
+
+func is_heavy_attack_locked() -> bool:
+	return _death_heavy_attack_locked
+
+func is_fall_attack_locked() -> bool:
+	return _death_fall_attack_locked
+
+func get_stamina_regen_multiplier() -> float:
+	return _death_stamina_regen_multiplier
+
+func reset_for_new_game() -> void:
+	# Yeni oyunda eski run'dan kalan stat/debuff/can state'leri kalmasin.
+	reset_stats()
+	clear_carried_resources()
+	_clear_death_debuff(false)
+	death_recovery_state = {
+		"is_recovering": false,
+		"was_recently_dead": false,
+		"minutes_until_full_heal": 0,
+		"heal_per_minute": 0.0,
+		"debuff_minutes_left": 0,
+		"debuff_name": "",
+		"max_health_multiplier": 1.0,
+		"stamina_penalty": 0,
+		"stamina_regen_multiplier": 1.0,
+		"heavy_attack_locked": false,
+		"fall_attack_locked": false,
+		"active_debuffs": [],
+	}
+	current_health = get_max_health()
+	health_changed.emit(current_health)
+	_emit_death_recovery_updated()
+
+func has_active_death_debuff() -> bool:
+	return _active_death_debuffs.size() > 0
+
+func clear_active_death_debuff() -> bool:
+	if not has_active_death_debuff():
+		return false
+	_clear_death_debuff(true)
+	_emit_death_recovery_updated()
+	return true
+
+func debug_apply_death_debuff(debuff_name: String = "", duration_days: int = -1) -> Dictionary:
+	var tm := get_node_or_null("/root/TimeManager")
+	var minutes_per_day: int = 1440
+	if tm and "MINUTES_PER_HOUR" in tm and "HOURS_PER_DAY" in tm:
+		minutes_per_day = int(tm.MINUTES_PER_HOUR) * int(tm.HOURS_PER_DAY)
+	var applied_days: int = duration_days
+	if applied_days <= 0:
+		applied_days = randi_range(DEATH_DEBUFF_DURATION_DAYS_MIN, DEATH_DEBUFF_DURATION_DAYS_MAX)
+	var picked: Dictionary = {}
+	if debuff_name.strip_edges().is_empty():
+		picked = DEATH_DEBUFF_POOL[randi() % DEATH_DEBUFF_POOL.size()]
+	else:
+		var target_name := debuff_name.strip_edges().to_lower()
+		for d in DEATH_DEBUFF_POOL:
+			if String(d.get("name", "")).to_lower() == target_name:
+				picked = d
+				break
+		if picked.is_empty():
+			return {"ok": false, "reason": "unknown_debuff", "available": get_death_debuff_names()}
+	var picked_name: String = String(picked.get("name", "Yaralanma"))
+	var total_minutes: int = applied_days * minutes_per_day
+	var refreshed_existing: bool = false
+	for i in range(_active_death_debuffs.size()):
+		var active: Dictionary = _active_death_debuffs[i]
+		if String(active.get("name", "")) == picked_name:
+			active["minutes_left"] = total_minutes
+			_active_death_debuffs[i] = active
+			refreshed_existing = true
+			break
+	if not refreshed_existing:
+		_active_death_debuffs.append({
+			"name": picked_name,
+			"max_health_multiplier": float(picked.get("max_health_multiplier", 1.0)),
+			"stamina_penalty": int(picked.get("stamina_penalty", 0)),
+			"stamina_regen_multiplier": float(picked.get("stamina_regen_multiplier", 1.0)),
+			"heavy_attack_locked": bool(picked.get("heavy_attack_locked", false)),
+			"fall_attack_locked": bool(picked.get("fall_attack_locked", false)),
+			"minutes_left": total_minutes,
+		})
+	_recalculate_death_debuff_modifiers()
+	_clamp_current_health_to_max()
+	_emit_penalty_stat_refresh()
+	_emit_death_recovery_updated()
+	return {"ok": true, "name": picked_name, "days": applied_days, "refreshed": refreshed_existing}
+
+func get_death_debuff_names() -> Array[String]:
+	var names: Array[String] = []
+	for d in DEATH_DEBUFF_POOL:
+		names.append(String(d.get("name", "")))
+	return names
+
+func get_death_recovery_state() -> Dictionary:
+	return death_recovery_state.duplicate(true)
+
+func get_death_recovery_state_for_save() -> Dictionary:
+	return {
+		"state": death_recovery_state.duplicate(true),
+		"active_debuffs": _active_death_debuffs.duplicate(true),
+		"max_health_multiplier": _death_max_health_multiplier,
+		"stamina_penalty": _death_stamina_penalty,
+		"stamina_regen_multiplier": _death_stamina_regen_multiplier,
+		"heavy_attack_locked": _death_heavy_attack_locked,
+		"fall_attack_locked": _death_fall_attack_locked,
+	}
+
+func load_death_recovery_state_from_save(data: Dictionary) -> void:
+	if data.is_empty():
+		_clear_death_debuff(true)
+		death_recovery_state = {
+			"is_recovering": false,
+			"was_recently_dead": false,
+			"minutes_until_full_heal": 0,
+			"heal_per_minute": 0.0,
+			"debuff_minutes_left": 0,
+			"debuff_name": "",
+			"max_health_multiplier": 1.0,
+			"stamina_penalty": 0,
+			"stamina_regen_multiplier": 1.0,
+			"heavy_attack_locked": false,
+			"fall_attack_locked": false,
+			"active_debuffs": [],
+		}
+		_active_death_debuffs.clear()
+		_death_heavy_attack_locked = false
+		_death_fall_attack_locked = false
+		_emit_death_recovery_updated()
+		return
+	var state: Dictionary = data.get("state", {})
+	if state.is_empty():
+		return
+	death_recovery_state = state.duplicate(true)
+	var loaded_active: Variant = data.get("active_debuffs", death_recovery_state.get("active_debuffs", []))
+	_active_death_debuffs.clear()
+	if loaded_active is Array:
+		for v in loaded_active:
+			if v is Dictionary:
+				_active_death_debuffs.append((v as Dictionary).duplicate(true))
+	# Geriye donuk uyumluluk: eski tek-debuff save formati.
+	if _active_death_debuffs.is_empty():
+		var legacy_name: String = String(death_recovery_state.get("debuff_name", ""))
+		var legacy_mins: int = int(death_recovery_state.get("debuff_minutes_left", 0))
+		if not legacy_name.is_empty() and legacy_mins > 0:
+			_active_death_debuffs.append({
+				"name": legacy_name,
+				"max_health_multiplier": float(data.get("max_health_multiplier", float(death_recovery_state.get("max_health_multiplier", 1.0)))),
+				"stamina_penalty": int(data.get("stamina_penalty", int(death_recovery_state.get("stamina_penalty", 0)))),
+				"stamina_regen_multiplier": float(data.get("stamina_regen_multiplier", float(death_recovery_state.get("stamina_regen_multiplier", 1.0)))),
+				"heavy_attack_locked": bool(data.get("heavy_attack_locked", bool(death_recovery_state.get("heavy_attack_locked", false)))),
+				"fall_attack_locked": bool(data.get("fall_attack_locked", bool(death_recovery_state.get("fall_attack_locked", false)))),
+				"minutes_left": legacy_mins,
+			})
+	_recalculate_death_debuff_modifiers()
+	_clamp_current_health_to_max()
+	_emit_penalty_stat_refresh()
+	_emit_death_recovery_updated()
+
+func _emit_death_recovery_updated() -> void:
+	death_recovery_updated.emit(death_recovery_state.duplicate(true))
 
 # Add a flat bonus to a stat
 func add_stat_bonus(stat_name: String, amount: float) -> void:

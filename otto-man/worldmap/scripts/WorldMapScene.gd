@@ -44,6 +44,10 @@ const ACTION_WM_DEBUG_RIVERS := "world_map_debug_rivers_overlay"
 const ACTION_WM_CYCLE_UNIT_PREV := "world_map_cycle_unit_prev"
 const ACTION_WM_CYCLE_UNIT_NEXT := "world_map_cycle_unit_next"
 const ACTION_WM_FOCUS_UNIT := "world_map_focus_selected_unit"
+const SHOW_WORLD_MAP_STATUS_TEXT := false
+const SHOW_WORLD_MAP_HEX_TOOLTIP := true
+const HealthDisplayScene = preload("res://ui/health_display.tscn")
+const StaminaBarScene = preload("res://ui/stamina_bar.tscn")
 
 var _world_manager: Node = null
 var _cursor_q: int = 0
@@ -145,6 +149,7 @@ var _travel_anim_active: bool = false
 var _travel_anim_path: Array = []
 var _travel_anim_dest_index: int = 1
 var _travel_anim_t: float = 0.0
+var _hud_force_timer: float = 0.0
 
 func _invalidate_world_map_state_cache() -> void:
 	_world_map_state_cache_valid = false
@@ -195,6 +200,8 @@ func _ready() -> void:
 	_status_label = get_node_or_null("CanvasLayer/StatusLabel")
 	if _status_label and MEDIEVAL_THEME:
 		_status_label.theme = MEDIEVAL_THEME
+	if _status_label:
+		_status_label.visible = SHOW_WORLD_MAP_STATUS_TEXT
 	_load_terrain_textures()
 	if _world_manager and _world_manager.has_method("get_world_map_state"):
 		_invalidate_world_map_state_cache()
@@ -227,7 +234,150 @@ func _ready() -> void:
 	_last_marker_arrays_signature = _marker_arrays_signature()
 	_update_status_label()
 	_refresh_hex_hover_tooltip()
+	call_deferred("_ensure_world_map_hud_visible")
+	call_deferred("_ensure_world_map_hud_visible_late")
 	queue_redraw()
+
+func _ensure_world_map_hud_visible() -> void:
+	# Debug: Dünya haritasında HUD neden görünmüyor takip etmek için.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var game_ui := get_node_or_null("GameUI")
+	var container: Node = null
+	var hd: Node = null
+	var sb: Node = null
+	if game_ui:
+		container = game_ui.get_node_or_null("Container")
+		if container:
+			hd = container.get_node_or_null("HealthDisplay")
+			sb = container.get_node_or_null("StaminaBar")
+	if game_ui == null:
+		push_warning("[WorldMapScene] GameUI missing in scene tree")
+	if container == null:
+		push_warning("[WorldMapScene] GameUI/Container missing, cannot repair HUD")
+		return
+	if hd != null and not (hd is CanvasItem):
+		container.remove_child(hd)
+		hd.queue_free()
+		hd = null
+	if sb != null and not (sb is CanvasItem):
+		container.remove_child(sb)
+		sb.queue_free()
+		sb = null
+	if hd == null and HealthDisplayScene:
+		hd = HealthDisplayScene.instantiate()
+		hd.name = "HealthDisplay"
+		container.add_child(hd)
+	if sb == null and StaminaBarScene:
+		sb = StaminaBarScene.instantiate()
+		sb.name = "StaminaBar"
+		container.add_child(sb)
+	_position_world_map_hud_nodes(hd, sb)
+	if hd and hd is CanvasItem:
+		var hd_ctrl := hd as CanvasItem
+		hd_ctrl.show()
+		hd_ctrl.visible = true
+		if "_force_visible" in hd:
+			hd._force_visible = true
+	if sb and sb is CanvasItem:
+		var sb_ctrl := sb as CanvasItem
+		sb_ctrl.show()
+		sb_ctrl.visible = true
+		if "_force_visible" in sb:
+			sb._force_visible = true
+	
+	# Parent zincirini de zorla görünür tut.
+	if game_ui and game_ui is CanvasLayer:
+		var gl := game_ui as CanvasLayer
+		gl.visible = true
+		gl.layer = 200
+	if container and container is CanvasItem:
+		(container as CanvasItem).visible = true
+	
+	# Visibility and positioning are re-applied from _process in world map.
+
+func _ensure_world_map_hud_visible_late() -> void:
+	# SceneManager/başka scriptler sonradan hide ederse tekrar düzelt.
+	await get_tree().create_timer(0.35).timeout
+	_ensure_world_map_hud_visible()
+	await get_tree().create_timer(0.7).timeout
+	_ensure_world_map_hud_visible()
+
+func _force_world_map_hud_visible() -> void:
+	var game_ui := get_node_or_null("GameUI")
+	if game_ui == null:
+		return
+	var container: Node = game_ui.get_node_or_null("Container")
+	if container == null:
+		return
+	var hd: Node = container.get_node_or_null("HealthDisplay")
+	var sb: Node = container.get_node_or_null("StaminaBar")
+	if hd != null and not (hd is CanvasItem) and HealthDisplayScene:
+		container.remove_child(hd)
+		hd.queue_free()
+		hd = HealthDisplayScene.instantiate()
+		hd.name = "HealthDisplay"
+		container.add_child(hd)
+	if sb != null and not (sb is CanvasItem) and StaminaBarScene:
+		container.remove_child(sb)
+		sb.queue_free()
+		sb = StaminaBarScene.instantiate()
+		sb.name = "StaminaBar"
+		container.add_child(sb)
+	_position_world_map_hud_nodes(hd, sb)
+	if game_ui is CanvasLayer:
+		var gl := game_ui as CanvasLayer
+		gl.visible = true
+		gl.layer = 200
+	if container is CanvasItem:
+		var ci := container as CanvasItem
+		ci.visible = true
+	if hd and hd is CanvasItem:
+		var hdc := hd as CanvasItem
+		hdc.visible = true
+		hdc.show()
+		if hdc is CanvasItem:
+			hdc.modulate.a = 1.0
+		if "_force_visible" in hd:
+			hd._force_visible = true
+	if sb and sb is CanvasItem:
+		var sbc := sb as CanvasItem
+		sbc.visible = true
+		sbc.show()
+		if sbc is CanvasItem:
+			sbc.modulate.a = 1.0
+		if "_force_visible" in sb:
+			sb._force_visible = true
+
+func _position_world_map_hud_nodes(hd: Node, sb: Node) -> void:
+	# Koydeki player UI ile birebir boyutlari kullan.
+	if hd and hd is Control:
+		var hd_ctrl := hd as Control
+		hd_ctrl.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		hd_ctrl.offset_left = 20.0
+		hd_ctrl.offset_top = 20.0
+		hd_ctrl.offset_right = 320.0
+		hd_ctrl.offset_bottom = 60.0
+		hd_ctrl.scale = Vector2.ONE
+		hd_ctrl.z_index = 20
+		var surv := hd_ctrl.get_node_or_null("BarContainer/SurvivalContainer")
+		if surv and surv is Control:
+			var sc := surv as Control
+			# World map'te aclik/susuzluk her zaman tum barlarin altinda.
+			sc.position = Vector2(0, 80)
+		var deb := hd_ctrl.get_node_or_null("BarContainer/DebuffContainer")
+		if deb and deb is Control:
+			var dc := deb as Control
+			dc.position = Vector2(228, 0)
+	if sb and sb is Control:
+		var sb_ctrl := sb as Control
+		sb_ctrl.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		sb_ctrl.offset_left = 20.0
+		sb_ctrl.offset_top = 70.0
+		sb_ctrl.offset_right = 320.0
+		sb_ctrl.offset_bottom = 90.0
+		sb_ctrl.scale = Vector2.ONE
+		sb_ctrl.z_index = 30
 
 func _exit_tree() -> void:
 	if _world_manager and _world_manager.has_signal("world_map_updated") and _world_manager.world_map_updated.is_connected(_on_world_map_updated):
@@ -296,6 +446,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_status_label("Koye donmek icin once kendi koy hex ine var.")
 		get_viewport().set_input_as_handled()
 		return
+	if _travel_anim_active and not _is_blocking_world_map_ui_open() and (event.is_action_pressed("ui_cancel") or event.is_action_pressed("dash")):
+		_cancel_active_travel()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("ui_accept"):
 		if _travel_anim_active:
 			return
@@ -355,6 +509,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 func _process(delta: float) -> void:
+	_hud_force_timer -= delta
+	if _hud_force_timer <= 0.0:
+		_hud_force_timer = 0.25
+		_force_world_map_hud_visible()
 	if _travel_anim_active:
 		if _hex_tooltip_panel:
 			_hex_tooltip_panel.visible = false
@@ -567,6 +725,12 @@ func _travel_anim_stop() -> void:
 	_travel_anim_path.clear()
 	_travel_anim_dest_index = 1
 	_travel_anim_t = 0.0
+
+func _cancel_active_travel() -> void:
+	_travel_anim_stop()
+	if _world_manager and _world_manager.has_method("cancel_world_travel_session"):
+		_world_manager.cancel_world_travel_session()
+	_update_status_label("Yolculuk durduruldu.")
 
 func _travel_anim_on_segment_finished() -> void:
 	if not _world_manager or not _world_manager.has_method("advance_world_travel_step"):
@@ -853,6 +1017,10 @@ func _build_world_map_control_help_lines() -> PackedStringArray:
 
 
 func _update_status_label(extra_line: String = "") -> void:
+	if not SHOW_WORLD_MAP_STATUS_TEXT:
+		if _status_label:
+			_status_label.visible = false
+		return
 	if not _status_label or not _world_manager:
 		return
 	var state: Dictionary = _get_world_map_state_cached()
@@ -970,6 +1138,12 @@ func _format_incident_type_label(incident_type: String) -> String:
 			return incident_type
 
 func _setup_hex_hover_tooltip() -> void:
+	if not SHOW_WORLD_MAP_HEX_TOOLTIP:
+		if _hex_tooltip_layer != null:
+			_hex_tooltip_layer.visible = false
+		if _hex_tooltip_panel != null:
+			_hex_tooltip_panel.visible = false
+		return
 	if _hex_tooltip_layer != null:
 		return
 	_hex_tooltip_layer = CanvasLayer.new()
@@ -993,6 +1167,10 @@ func _setup_hex_hover_tooltip() -> void:
 	margin.add_child(_hex_tooltip_label)
 
 func _refresh_hex_hover_tooltip() -> void:
+	if not SHOW_WORLD_MAP_HEX_TOOLTIP:
+		if _hex_tooltip_panel != null:
+			_hex_tooltip_panel.visible = false
+		return
 	_setup_hex_hover_tooltip()
 	if _hex_tooltip_panel == null or _hex_tooltip_label == null:
 		return
@@ -1008,6 +1186,8 @@ func _refresh_hex_hover_tooltip() -> void:
 	_position_hex_tooltip_for_cursor_impl()
 
 func _position_hex_tooltip_for_cursor_impl() -> void:
+	if not SHOW_WORLD_MAP_HEX_TOOLTIP:
+		return
 	if _hex_tooltip_panel == null or not _hex_tooltip_panel.visible:
 		return
 	var world_pt: Vector2 = to_global(_axial_to_pixel(_cursor_q, _cursor_r) + Vector2(0.0, -42.0))

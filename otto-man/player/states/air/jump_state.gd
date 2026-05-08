@@ -129,7 +129,7 @@ func physics_update(delta: float):
 			return
 	
 	# PRIORITY 3: Check for fall attack
-	if down_pressed and jump_pressed and not player.jump_input_blocked and player.jump_block_timer <= 0:
+	if down_pressed and jump_pressed and not player.jump_input_blocked and player.jump_block_timer <= 0 and player.can_use_fall_attack():
 		var fall_attack_state = get_parent().get_node("FallAttack")
 		if fall_attack_state:
 			if not fall_attack_state.is_on_cooldown():

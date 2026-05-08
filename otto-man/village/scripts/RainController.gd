@@ -479,11 +479,19 @@ func _update_forest_position(delta: float) -> void:
 		follow_ratio = river_follow_player_x_ratio
 	follow_ratio = clampf(follow_ratio, 0.0, 1.0)
 	_last_player_x = player_pos.x
-	var target_x: float = global_position.x + player_dx * follow_ratio + player_vx * forest_follow_lead_multiplier * maxf(delta, 0.0001)
+	# Eski formül (global + dx*ratio) uzun mesafede oyuncudan kopup visibility_rect dışına düşebiliyordu.
+	# Hedefi oyuncu konumuna bağla, sonra yumuşat.
+	var target_x: float = lerp(global_position.x, player_pos.x, follow_ratio)
+	target_x += player_vx * forest_follow_lead_multiplier * maxf(delta, 0.0001)
 	var target_y: float = player_pos.y - 800.0  # Köy sahnesindekiyle aynı offset
 	
 	# X ekseni için smooth takip (yatay hareket için yumuşak geçiş)
 	global_position.x = lerp(global_position.x, target_x, clampf(forest_follow_lerp_speed_x, 0.01, 1.0))
+	# Güvenlik: Yağmur merkezi oyuncudan çok uzaklaşırsa culling nedeniyle yağmur görünmez olur.
+	var max_allowed_offset_x: float = max_player_distance * 0.45
+	var delta_x_to_player: float = player_pos.x - global_position.x
+	if abs(delta_x_to_player) > max_allowed_offset_x:
+		global_position.x = player_pos.x - sign(delta_x_to_player) * max_allowed_offset_x
 	
 	# Y ekseni için direkt takip (dikey hareket için anında takip - oyuncu düştüğünde yağmur hemen gelir)
 	# Küçük Y değişikliklerinde bile reset yap (50 pikselden fazla) - oyuncu düştüğünde hemen yeni partiküller spawn olsun

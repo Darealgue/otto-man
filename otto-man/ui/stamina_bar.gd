@@ -34,6 +34,12 @@ func _ready():
 var _force_visible: bool = true  # Allow external control
 
 func _process(delta):
+	if _is_world_map_scene():
+		_force_visible = true
+		visible = true
+		show()
+		modulate.a = 1.0
+
 	if !_force_visible:
 		return  # Don't force visibility if disabled
 		
@@ -43,7 +49,10 @@ func _process(delta):
 		return
 		
 	if recharging_index >= 0 and recharging_index < charges.size():
-		charges[recharging_index] = min(charges[recharging_index] + delta / RECHARGE_RATE, 1.0)
+		var regen_mult: float = 1.0
+		if player_stats and player_stats.has_method("get_stamina_regen_multiplier"):
+			regen_mult = maxf(0.1, float(player_stats.get_stamina_regen_multiplier()))
+		charges[recharging_index] = min(charges[recharging_index] + (delta * regen_mult) / RECHARGE_RATE, 1.0)
 		if charges[recharging_index] >= 1.0:
 			# Find next empty segment to recharge (starting from the beginning)
 			recharging_index = -1
@@ -273,3 +282,10 @@ func restore_partial_charge(amount: float) -> void:
 				break
 	
 	update_segments() 
+
+func _is_world_map_scene() -> bool:
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm == null:
+		return false
+	var path: String = String(sm.get("current_scene_path"))
+	return "worldmap" in path.to_lower()

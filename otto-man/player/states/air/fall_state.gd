@@ -142,7 +142,7 @@ func physics_update(delta: float):
 			return
 	
 	# PRIORITY 3: Check for fall attack input (special air attack)
-	if Input.is_action_pressed("down"):
+	if Input.is_action_pressed("down") and player.can_use_fall_attack():
 		# Make fall attack easier to execute by checking for jump input more frequently
 		if Input.is_action_just_pressed("jump") and not player.jump_input_blocked and player.jump_block_timer <= 0:
 			var fall_attack_state = get_parent().get_node("FallAttack")

@@ -101,7 +101,7 @@ func physics_update(delta: float):
 	
 	# During parry, allow immediate cancel into counter attack
 	if is_parrying:
-		if Input.is_action_just_pressed("attack_heavy") and state_machine.has_node("HeavyAttack"):
+		if Input.is_action_just_pressed("attack_heavy") and state_machine.has_node("HeavyAttack") and player.can_use_heavy_attack():
 			print("[Block] Counter cancel -> HeavyAttack")
 			# End parry immediately and transition
 			is_parrying = false

@@ -127,18 +127,18 @@ func _update_labels() -> void:
 	# Diğer gelişmiş kaynaklar...
 
 	# VillageManager Verileri
-	worker_label.text = "İşçiler: %d / %d" % [VillageManager.idle_workers, VillageManager.total_workers]
+	worker_label.text = "Müsait İşçi: %d" % VillageManager.idle_workers
 	var projected_nets: Dictionary = {}
 	if VillageManager.has_method("get_projected_daily_resource_nets"):
 		projected_nets = VillageManager.get_projected_daily_resource_nets()
 
 	# Barınma kapasitesi göstergesi
-	# Gösterim: "Barınma: X / Y" — X = evlerdeki kayıtlı köylü sayısı, Y = toplam ev kapasitesi.
-	# İşçi işte olsa bile ev ona atanmış sayılır (kamp ateşi bu sayıma dahil değil).
+	# Gösterim: "Barınma: X / Y" — X = tüm barınaklardaki kayıtlı köylü sayısı,
+	# Y = toplam barınak kapasitesi (kamp ateşi dahil).
 	if is_instance_valid(housing_label) and VillageManager.has_method("get_housing_summary"):
 		var hs: Dictionary = VillageManager.get_housing_summary()
-		var h_occ: int = int(hs.get("house_occupied", 0))
-		var h_cap: int = int(hs.get("house_capacity", 0))
+		var h_occ: int = int(hs.get("occupied", 0))
+		var h_cap: int = int(hs.get("capacity", 0))
 		housing_label.text = "Barınma: %d / %d" % [h_occ, h_cap]
 		# Tüm ev slotları doluysa sarıya çevir
 		if h_cap > 0 and h_occ >= h_cap:

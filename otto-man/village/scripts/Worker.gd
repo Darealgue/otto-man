@@ -53,6 +53,10 @@ var _is_briefly_idling: bool = false # Flag for brief idle state
 var _sleep_attempt_failed: bool = false # Kapasite dolu olduğunda tekrar denemeyi engelle
 var _sleep_retry_timer: Timer # Uyku denemesi başarısız olduğunda bekleme zamanlayıcısı
 var _sleep_retry_delay: float = 30.0 # 30 saniye bekle, sonra tekrar dene
+var _campfire_sleep_spot: Vector2 = Vector2.ZERO
+var _has_campfire_sleep_spot: bool = false
+@export var debug_sleep_flow: bool = true
+var _sleep_debug_last_log_ms: int = 0
 # <<< YENİ SONU >>>
 
 # <<< YENİ: Dikey Hareket İçin >>>
@@ -893,7 +897,14 @@ func _physics_process(delta: float) -> void:
 				target_anim = "walk" # Bilinmeyen hareketli state için varsayılan
 	else: # Hareket etmiyor (moving = false)
 		match current_state:
-			State.SLEEPING, State.WORKING_INSIDE, State.WAITING_OFFSCREEN, State.WAITING_AT_SOURCE:
+			State.SLEEPING:
+				if _is_campfire_housing():
+					target_anim = "lie"
+					visible = true
+				else:
+					target_anim = ""
+					visible = false
+			State.WORKING_INSIDE, State.WAITING_OFFSCREEN, State.WAITING_AT_SOURCE:
 				target_anim = ""
 				visible = false
 			State.AWAKE_IDLE, State.SOCIALIZING:
@@ -959,6 +970,11 @@ func _physics_process(delta: float) -> void:
 		var state_string = "Unknown"
 		if current_state >= 0 and current_state < State.size(): # Güvenlik kontrolü
 			state_string = State.keys()[current_state]
+		var prev_string = "Unknown"
+		if _previous_state >= 0 and _previous_state < State.size():
+			prev_string = State.keys()[_previous_state]
+		if current_state == State.GOING_TO_SLEEP or current_state == State.SLEEPING or _previous_state == State.GOING_TO_SLEEP or _previous_state == State.SLEEPING:
+			_sleep_debug_log("state %s -> %s, move_target=(%.1f, %.1f), pos=(%.1f, %.1f)" % [prev_string, state_string, move_target_x, _target_global_y, global_position.x, global_position.y], true)
 		#print("Worker %d - State Change -> %s, Moving: %s, TargetAnim: '%s'" % [worker_id, state_string, moving, target_anim])
 		_previous_state = current_state # Sadece #print ettiğimizde güncelle
 	# <<< DEBUG #print SONU >>>
@@ -1039,6 +1055,7 @@ func _physics_process(delta: float) -> void:
 					should_wake = true
 			
 			if should_wake:
+				_sleep_debug_log("wake condition met, leaving sleep")
 				# Barınaktan çıkar — SADECE CampFire için slot serbest bırakılır.
 				# ResidentialHousing (ev) köylüyü kalıcı kiracı olarak tutar;
 				# remove_occupant çağrısı yapılmaz, aksi hâlde gündüz sayaç 0'a düşer.
@@ -1048,6 +1065,7 @@ func _physics_process(delta: float) -> void:
 				
 				# Uyandır!
 				current_state = State.AWAKE_IDLE # Şimdilik direkt idle yapalım
+				_has_campfire_sleep_spot = false
 				visible = true
 				if is_instance_valid(housing_node): # Güvenlik kontrolü
 					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
@@ -1066,7 +1084,12 @@ func _physics_process(delta: float) -> void:
 				#print("Worker %d uyandı!" % worker_id) # Debug
 			else:
 				# Hala uyku zamanı, SLEEPING state'inde kal
-				pass
+				if _is_campfire_housing():
+					if not _has_campfire_sleep_spot:
+						_campfire_sleep_spot = _compute_campfire_sleep_spot()
+						_has_campfire_sleep_spot = true
+					global_position = _campfire_sleep_spot
+					_sleep_debug_log("sleeping at campfire spot (%.1f, %.1f)" % [_campfire_sleep_spot.x, _campfire_sleep_spot.y])
 
 		State.AWAKE_IDLE:
 			# HASTALIK KONTROLÜ: Hasta işçiler evden çıkmaz, çalışamaz
@@ -1569,6 +1592,7 @@ func _physics_process(delta: float) -> void:
 				arrived = distance_to_housing < 25.0
 			
 			if arrived:
+				_sleep_debug_log("arrived at housing: dist=%.1f hdist=%.1f outside_walkable=%s" % [distance_to_housing, horizontal_dist_to_housing, str(housing_outside_walkable)])
 				# Uyku saati kontrolü: Eğer hala uyku saati içindeyse SLEEPING state'ine geç
 				var current_hour_sleep = TimeManager.get_hour()
 				var wake_hour = TimeManager.WAKE_UP_HOUR
@@ -1576,31 +1600,53 @@ func _physics_process(delta: float) -> void:
 				var is_sleep_time = current_hour_sleep >= sleep_hour or current_hour_sleep < wake_hour
 				
 				if is_sleep_time:
+					_sleep_debug_log("in sleep window, trying add_occupant")
 					var can_sleep = true
-					if is_instance_valid(housing_node) and housing_node.has_method("add_occupant"):
-						var add_result = housing_node.add_occupant(self)
-						if not add_result:
-							can_sleep = false
-							_sleep_attempt_failed = true
-							_sleep_retry_timer.start()
-							current_state = State.SOCIALIZING
-							visible = true
-							_is_briefly_idling = false
-							_current_idle_activity = ""
-							_start_next_idle_step()
-							return
+					# CampFire is assigned as a "home" for these workers.
+					# Do not hard-fail sleep on nightly add_occupant if assignment already happened.
+					if is_instance_valid(housing_node):
+						if _is_campfire_housing():
+							if housing_node.has_method("add_occupant"):
+								var add_result_cf = housing_node.add_occupant(self)
+								_sleep_debug_log("campfire add_occupant result=%s (non-blocking)" % str(add_result_cf), true)
+							# CampFire assignment exists -> allow sleeping even if add_occupant returns false.
+							can_sleep = true
+						elif housing_node.has_method("add_occupant"):
+							var add_result = housing_node.add_occupant(self)
+							_sleep_debug_log("add_occupant result=%s" % str(add_result), true)
+							if not add_result:
+								can_sleep = false
+								_sleep_attempt_failed = true
+								_sleep_retry_timer.start()
+								current_state = State.SOCIALIZING
+								visible = true
+								_is_briefly_idling = false
+								_current_idle_activity = ""
+								_start_next_idle_step()
+								_sleep_debug_log("sleep failed -> SOCIALIZING, retry timer started")
+								return
 					
 					if can_sleep:
 						current_state = State.SLEEPING
+						_sleep_debug_log("sleep success -> SLEEPING", true)
 						_sleep_attempt_failed = false
 						_sleep_retry_timer.stop()
-					visible = false
+					if _is_campfire_housing():
+						_campfire_sleep_spot = _compute_campfire_sleep_spot()
+						_has_campfire_sleep_spot = true
+						global_position = _campfire_sleep_spot
+						_current_idle_activity = "lie"
+						visible = true
+					else:
+						visible = false
 					idle_activity_timer.stop()
 					_is_briefly_idling = false
-					_current_idle_activity = ""
-					if is_instance_valid(housing_node):
+					if not _is_campfire_housing():
+						_current_idle_activity = ""
+					if is_instance_valid(housing_node) and not _is_campfire_housing():
 						global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
 				else:
+					_sleep_debug_log("arrived but outside sleep window -> AWAKE_IDLE")
 					current_state = State.AWAKE_IDLE
 					visible = true
 					if is_instance_valid(housing_node):
@@ -1666,6 +1712,35 @@ func _physics_process(delta: float) -> void:
 func _enforce_walkable_vertical_band() -> void:
 	global_position.y = clampf(global_position.y, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 	_target_global_y = clampf(_target_global_y, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+
+func _is_campfire_housing() -> bool:
+	return is_instance_valid(housing_node) and housing_node is CampFire
+
+func _compute_campfire_sleep_spot() -> Vector2:
+	if not is_instance_valid(housing_node):
+		return Vector2(global_position.x, clampf(global_position.y, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
+	var fire_x: float = housing_node.global_position.x
+	# Atesin icine girmek yerine cevresinde yatmalarini sagla.
+	var x_offset: float = randf_range(-95.0, 95.0)
+	var y_near_band_mid: float = lerpf(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX, 0.5)
+	var y_offset: float = randf_range(-14.0, 14.0)
+	return Vector2(fire_x + x_offset, clampf(y_near_band_mid + y_offset, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
+
+func _sleep_debug_log(message: String, force: bool = false) -> void:
+	if not debug_sleep_flow:
+		return
+	# Yeni oyunda 3 başlangıç işçisi için hedefli debug; spam'i azalt.
+	if worker_id > 3:
+		return
+	var now_ms: int = Time.get_ticks_msec()
+	if not force and now_ms - _sleep_debug_last_log_ms < 1200:
+		return
+	_sleep_debug_last_log_ms = now_ms
+	var hh: int = TimeManager.get_hour() if TimeManager and TimeManager.has_method("get_hour") else -1
+	var mm: int = TimeManager.get_minute() if TimeManager and TimeManager.has_method("get_minute") else -1
+	var housing_name: String = housing_node.name if is_instance_valid(housing_node) else "none"
+	var housing_type: String = housing_node.get_class() if is_instance_valid(housing_node) else "none"
+	print("[SleepDBG][W%s][%02d:%02d][%s/%s] %s" % [str(worker_id), hh, mm, housing_name, housing_type, message])
 
 # Ayak pozisyonunu hesapla (sprite offset'i ve yüksekliğini hesaba katarak)
 func get_foot_y_position() -> float:
@@ -2217,6 +2292,7 @@ func check_hour_transition(new_hour: int) -> void:
 					housing_node.remove_occupant(self)
 				
 				current_state = State.AWAKE_IDLE
+				_has_campfire_sleep_spot = false
 				visible = true
 				if is_instance_valid(housing_node):
 					global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))

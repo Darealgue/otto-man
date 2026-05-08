@@ -35,6 +35,9 @@ static func set_was_double_jumping(value: bool) -> void:
 	was_double_jumping = value
 
 func enter():
+	if not player.can_use_fall_attack():
+		state_machine.transition_to("Fall")
+		return
 	# Enter combat state when performing fall attack
 	player.enter_combat_state()
 	

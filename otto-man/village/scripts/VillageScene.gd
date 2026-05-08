@@ -6,6 +6,7 @@ const StoneMineScene = preload("res://village/buildings/StoneMine.tscn")
 const HunterGathererHutScene = preload("res://village/buildings/HunterGathererHut.tscn")
 const WellScene = preload("res://village/buildings/Well.tscn")
 const BakeryScene = preload("res://village/buildings/Bakery.tscn")
+const SHOW_WORLD_MAP_PANEL_IN_VILLAGE := false
 # Sahnedeki UI ve Diğer Referanslar (Eski inşa butonları kaldırıldı)
 @onready var worker_assignment_ui = $WorkerAssignmentUI
 @onready var cariye_management_ui = $CariyeManagementUI # YENİ PANEL
@@ -86,9 +87,10 @@ func _ready() -> void:
 	open_worker_ui_button.show()
 	open_cariye_ui_button.show()
 	open_build_ui_button.show()
-	_setup_world_map_panel()
-	_connect_world_map_signals()
-	_refresh_world_map_panel()
+	if SHOW_WORLD_MAP_PANEL_IN_VILLAGE:
+		_setup_world_map_panel()
+		_connect_world_map_signals()
+		_refresh_world_map_panel()
 
 	# <<< YENİ: Set up example NPCs after the scene is fully loaded >>>
 	# Use call_deferred to ensure all workers are created first
@@ -426,8 +428,9 @@ func _on_add_villager_button_pressed() -> void:
 # 		worker_assignment_ui.hide()
 
 func _input(event: InputEvent) -> void:
-	# Block time forwarding inputs when dialogue window is open
-	if VillageManager.active_dialogue_npc != null:
+	# Sadece gerçekten açık NPC penceresi varken girişleri blokla.
+	# NPC'ye yakın olmak (aynı hizada overlap) 1/2/3 zaman tuşlarını kilitlememeli.
+	if _is_npc_dialogue_open():
 		return
 	
 	if event.is_action_pressed("open_world_map"):
@@ -481,6 +484,13 @@ func _input(event: InputEvent) -> void:
 				_try_move_on_world_map(-1, 0)
 			elif event.keycode == KEY_RIGHT:
 				_try_move_on_world_map(1, 0)
+
+func _is_npc_dialogue_open() -> bool:
+	var npc = VillageManager.active_dialogue_npc
+	if not is_instance_valid(npc):
+		return false
+	var npc_window := npc.get_node_or_null("NpcWindow")
+	return is_instance_valid(npc_window) and npc_window.visible
 		
 # Debug methods for testing NPCs (only in editor/debug builds)
 func setup_example_npcs() -> void:

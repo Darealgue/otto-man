@@ -145,6 +145,12 @@ func _on_command_submitted(command: String) -> void:
 			handle_rescue_cap_reset_command()
 		"dungeon_exit":
 			handle_dungeon_exit_command(args)
+		"add_debuff":
+			handle_add_debuff_command(args)
+		"clear_debuff":
+			handle_clear_debuff_command()
+		"list_debuffs":
+			handle_list_debuffs_command()
 		_:
 			print_output("Unknown command: " + cmd)
 
@@ -578,6 +584,46 @@ func handle_dungeon_exit_command(args: Array) -> void:
 	])
 	scene_manager.change_to_village(payload, false)
 
+func handle_add_debuff_command(args: Array) -> void:
+	var ps = get_node_or_null("/root/PlayerStats")
+	if not is_instance_valid(ps):
+		print_output("PlayerStats bulunamadi")
+		return
+	if not ps.has_method("debug_apply_death_debuff"):
+		print_output("Bu build'de debug debuff komutu desteklenmiyor")
+		return
+	var debuff_name: String = ""
+	var duration_days: int = -1
+	if args.size() >= 1:
+		debuff_name = String(args[0])
+	if args.size() >= 2:
+		duration_days = int(args[1])
+	var result: Dictionary = ps.call("debug_apply_death_debuff", debuff_name, duration_days)
+	if not bool(result.get("ok", false)):
+		print_output("Debuff eklenemedi. Gecerli isimler: %s" % ", ".join(result.get("available", [])))
+		return
+	var refreshed_text := " (sure reset)" if bool(result.get("refreshed", false)) else ""
+	print_output("Debuff uygulandi: %s | sure: %d gun%s" % [String(result.get("name", "?")), int(result.get("days", 0)), refreshed_text])
+
+func handle_clear_debuff_command() -> void:
+	var ps = get_node_or_null("/root/PlayerStats")
+	if not is_instance_valid(ps) or not ps.has_method("clear_active_death_debuff"):
+		print_output("PlayerStats / clear metodu bulunamadi")
+		return
+	var ok: bool = bool(ps.call("clear_active_death_debuff"))
+	print_output("Debuff temizlendi." if ok else "Aktif debuff yok.")
+
+func handle_list_debuffs_command() -> void:
+	var ps = get_node_or_null("/root/PlayerStats")
+	if not is_instance_valid(ps):
+		print_output("PlayerStats bulunamadi")
+		return
+	if ps.has_method("get_death_debuff_names"):
+		var names: Array = ps.call("get_death_debuff_names")
+		print_output("Debuff havuzu: %s" % ", ".join(names))
+	else:
+		print_output("Debuff listesi bu build'de mevcut degil")
+
 func show_help() -> void:
 	var help_text = """Available commands:
 	help - Show this help message
@@ -622,7 +668,12 @@ func show_help() -> void:
 	rescue_force_rooms [on|off] - Her levelda köylü+cariye kurtarma odası zorla (on/off)
 	rescue_villager_cap [full|space|normal] - Köylü kapasitesi: full=köy dolu, space=yer var, normal=gerçek
 	rescue_cariye_cap [full|space|normal] - Cariye kapasitesi: full=dolu, space=yer var, normal=gerçek
-	rescue_cap_reset - Tüm kapasite override'ları sıfırla"""
+	rescue_cap_reset - Tüm kapasite override'ları sıfırla
+	
+	=== DEATH DEBUFF DEBUG ===
+	list_debuffs - Debuff havuzundaki isimleri yazdır
+	add_debuff [name] [days] - Debuff ekle (name yoksa random, days yoksa random süre)
+	clear_debuff - Aktif death debufflarını temizle"""
 	print_output(help_text)
 
 func print_output(text: String) -> void:

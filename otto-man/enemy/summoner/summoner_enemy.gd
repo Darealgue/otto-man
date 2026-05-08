@@ -7,6 +7,7 @@ class_name SummonerEnemy
 const SUMMON_ANIMATION_TIMEOUT = 1.0  # Maximum time for summon animation
 const WALK_START_THRESHOLD = 10.0  # Speed needed to start walking
 const WALK_STOP_THRESHOLD = 5.0   # Speed needed to stop walking
+const HP_MULTIPLIER = 2.0
 
 # Node references
 @onready var summon_timer: Timer = $SummonTimer
@@ -32,6 +33,14 @@ func _ready() -> void:
 	}
 	
 	super._ready()
+	# Summoner daha tank olsun: cani 2x.
+	health = maxf(1.0, health * HP_MULTIPLIER)
+	var max_health_val = _stat_value("max_health", null)
+	if max_health_val != null and stats != null:
+		stats.set("max_health", maxf(1.0, float(max_health_val) * HP_MULTIPLIER))
+	if health_bar:
+		health_bar.setup(health)
+		health_bar.update_health(health)
 	
 	# Set sleep distances for performance optimization
 	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
@@ -54,7 +63,7 @@ func _ready() -> void:
 	
 	# Initialize summon timer
 	if summon_timer:
-		summon_timer.wait_time = stats["summon_cooldown"] if "summon_cooldown" in stats else 5.0
+		summon_timer.wait_time = float(_stat_value("summon_cooldown", 5.0))
 		summon_timer.one_shot = true
 		summon_timer.timeout.connect(_on_summon_timer_timeout)
 	else:
@@ -170,7 +179,7 @@ func _handle_idle() -> void:
 	var potential_target = get_nearest_player()
 	if potential_target and is_instance_valid(potential_target):
 		var distance_to_target = global_position.distance_to(potential_target.global_position)
-		if distance_to_target <= (stats["detection_range"] if "detection_range" in stats else 400.0):
+		if distance_to_target <= float(_stat_value("detection_range", 400.0)):
 			target = potential_target
 			change_behavior("run")
 
@@ -180,12 +189,12 @@ func _handle_run(delta: float) -> void:
 		return
 		
 	var distance_to_target = global_position.distance_to(target.global_position)
-	if distance_to_target > (stats["detection_range"] if "detection_range" in stats else 400.0):
+	if distance_to_target > float(_stat_value("detection_range", 400.0)):
 		change_behavior("idle")
 		return
 		
 	var direction = global_position.direction_to(target.global_position)
-	var desired_velocity = -direction * (stats["movement_speed"] if "movement_speed" in stats else 200.0)
+	var desired_velocity = -direction * float(_stat_value("movement_speed", 200.0))
 	
 	if wall_detector.is_colliding():
 		desired_velocity = desired_velocity.rotated(PI/2)
@@ -200,7 +209,7 @@ func _handle_run(delta: float) -> void:
 	
 	sprite.flip_h = target.global_position.x < global_position.x
 	
-	if can_summon and not is_summoning and active_birds.size() < (stats["max_summon_count"] if "max_summon_count" in stats else 3):
+	if can_summon and not is_summoning and active_birds.size() < int(_stat_value("max_summon_count", 3)):
 		change_behavior("summon")
 
 func _handle_summon(delta: float) -> void:
@@ -236,7 +245,7 @@ func _complete_summon() -> void:
 		return
 		
 	# Calculate how many birds to summon
-	var birds_to_summon = (stats["max_summon_count"] if "max_summon_count" in stats else 3) - active_birds.size()
+	var birds_to_summon = int(_stat_value("max_summon_count", 3)) - active_birds.size()
 	
 	# Summon all birds at once
 	for i in range(birds_to_summon):
@@ -406,7 +415,13 @@ func _on_bird_returned(bird: Node) -> void:
 			summon_timer.stop()  # Stop current cooldown timer
 		# Start return cooldown to prevent immediate re-summon
 		can_summon = false
-		return_cooldown_timer = stats["return_cooldown"] if "return_cooldown" in stats else 3.0
+		return_cooldown_timer = float(_stat_value("return_cooldown", 3.0))
+
+func _stat_value(key: String, default_value: Variant) -> Variant:
+	if stats == null:
+		return default_value
+	var v: Variant = stats.get(key)
+	return default_value if v == null else v
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == new_behavior:

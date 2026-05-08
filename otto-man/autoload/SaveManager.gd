@@ -619,6 +619,8 @@ func _save_player_state() -> Dictionary:
 		state["stat_multipliers"] = PlayerStats.stat_multipliers.duplicate(true)
 		state["stat_bonuses"] = PlayerStats.stat_bonuses.duplicate(true)
 		state["current_health"] = PlayerStats.current_health
+		if PlayerStats.has_method("get_death_recovery_state_for_save"):
+			state["death_recovery"] = PlayerStats.call("get_death_recovery_state_for_save").duplicate(true)
 		if PlayerStats.has_method("get_world_expedition_supplies"):
 			state["world_expedition_supplies"] = PlayerStats.call("get_world_expedition_supplies").duplicate(true)
 		state["carried_resources"] = PlayerStats.carried_resources.duplicate(true)
@@ -1258,6 +1260,10 @@ func _load_player_state(state: Dictionary) -> void:
 			PlayerStats.stat_bonuses = state["stat_bonuses"].duplicate(true)
 		if state.has("current_health"):
 			PlayerStats.current_health = float(state["current_health"])
+		if state.has("death_recovery") and PlayerStats.has_method("load_death_recovery_state_from_save"):
+			var dr: Variant = state["death_recovery"]
+			if dr is Dictionary:
+				PlayerStats.call("load_death_recovery_state_from_save", dr)
 		if state.has("world_expedition_supplies") and PlayerStats.has_method("load_world_expedition_supplies_from_save"):
 			var wes: Variant = state["world_expedition_supplies"]
 			if wes is Dictionary:

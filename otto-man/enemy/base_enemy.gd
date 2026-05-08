@@ -68,6 +68,10 @@ var fade_out: bool = true  # Whether we're currently fading out or in
 var invulnerable: bool = false
 var invulnerability_timer: float = 0.0
 const INVULNERABILITY_DURATION: float = 0.1  # Short invulnerability window
+const STUN_LOCK_HIT_THRESHOLD: int = 3
+const STUN_LOCK_RESET_SECONDS: float = 1.2
+var _stun_lock_hit_count: int = 0
+var _stun_lock_reset_timer: float = 0.0
 
 # Add debug print counter to avoid spam
 var _debug_print_counter: int = 0
@@ -187,6 +191,10 @@ func _physics_process(delta: float) -> void:
 	
 	# Check sleep state every frame (delta for per-enemy spawn grace)
 	check_sleep_state(delta)
+	if _stun_lock_reset_timer > 0.0:
+		_stun_lock_reset_timer = maxf(0.0, _stun_lock_reset_timer - delta)
+		if _stun_lock_reset_timer <= 0.0:
+			_stun_lock_hit_count = 0
 	
 	# Gravity (always, so airborne sleeping enemies land)
 	if not is_on_floor() and current_behavior != "dead":
@@ -376,6 +384,9 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		return
 		
 	health -= amount
+	if apply_knockback:
+		_stun_lock_hit_count += 1
+		_stun_lock_reset_timer = STUN_LOCK_RESET_SECONDS
 	
 	# Update health bar
 	if health_bar:
@@ -392,21 +403,22 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	
 	# Apply knockback only if requested (skip for poison DoT / projectile)
 	if apply_knockback:
-		# Apply knockback (use explicit up_force if provided)
-		velocity.x = -direction * knockback_force
-		if knockback_up_force >= 0.0:
-			velocity.y = -knockback_up_force
-		else:
-			velocity.y = -knockback_force * 0.5
-		# Havada vurulunca kısa float (juggle için)
-		if velocity.y < 0.0:
-			air_float_timer = air_float_duration
-		elif not is_on_floor():
-			air_float_timer = air_float_duration * 0.5
-		
-		# Enter hurt state only if knockback is applied
-		change_behavior("hurt")
-		behavior_timer = 0.0
+		var suppress_hurt_state: bool = _stun_lock_hit_count >= STUN_LOCK_HIT_THRESHOLD
+		if not suppress_hurt_state:
+			# Apply knockback (use explicit up_force if provided)
+			velocity.x = -direction * knockback_force
+			if knockback_up_force >= 0.0:
+				velocity.y = -knockback_up_force
+			else:
+				velocity.y = -knockback_force * 0.5
+			# Havada vurulunca kısa float (juggle için)
+			if velocity.y < 0.0:
+				air_float_timer = air_float_duration
+			elif not is_on_floor():
+				air_float_timer = air_float_duration * 0.5
+			# Enter hurt state only if knockback is applied
+			change_behavior("hurt")
+			behavior_timer = 0.0
 	else:
 		# Çok hafif geri itme (projectile vb.), hurt animasyonu yok
 		velocity.x = -direction * 18.0
