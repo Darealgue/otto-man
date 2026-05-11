@@ -285,6 +285,8 @@ func restore_partial_charge(amount: float) -> void:
 
 func _is_world_map_scene() -> bool:
 	var sm := get_node_or_null("/root/SceneManager")
+	if sm != null and sm.has_method("is_world_map_ui_context_active"):
+		return bool(sm.is_world_map_ui_context_active())
 	if sm == null:
 		return false
 	var path: String = String(sm.get("current_scene_path"))

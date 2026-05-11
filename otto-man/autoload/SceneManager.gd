@@ -20,6 +20,19 @@ var previous_scene_path: String = ""
 var current_payload: Dictionary = {}
 var _level_entry_time: Dictionary = {}  # {scene_path: {day, hour, minute}} - Track when player entered each level
 var _loading_screen_instance: CanvasLayer = null
+## Köyden harita açıldığında tam sahne değiştirmeden üstte gösterilen dünya haritası (köy sahnesi korunur).
+var _world_map_overlay_instance: Node = null
+## Overlay açılırken köy kameraları kapatılır; kapanınca geri yüklenir.
+var _wm_overlay_cam_backup: Array = []
+## Harita CanvasLayer'ları köy UI'sının üstüne çıkar (köy PauseMenu 100 — min 110).
+var _wm_overlay_canvas_layer_backup: Array = []
+const WORLD_MAP_OVERLAY_CANVAS_LAYER_MIN: int = 110
+var _wm_overlay_restore_village_visible: bool = true
+## CanvasLayer üst düğüm visible=false'dan etkilenmez; köy CanvasLayer'larını tek tek gizleriz.
+var _wm_overlay_village_canvas_visibility_backup: Array = []
+var _wm_overlay_open_game_minutes: int = -1
+var _wm_overlay_session_left_village_hex: bool = false
+var _wm_overlay_departure_snapshot_done: bool = false
 
 func _ready() -> void:
 	current_scene_path = _detect_initial_scene()
@@ -28,22 +41,50 @@ func _ready() -> void:
 func start_new_game() -> void:
 	current_payload = {}
 	previous_scene_path = ""
+	# 1) Zaman (kayıttan kalan gün ilerlemesini kaldır)
+	var tm0: Node = get_node_or_null(TimeManagerPath)
+	if tm0 and tm0.has_method("reset_for_new_game"):
+		tm0.call("reset_for_new_game")
+	# 2) Global oyuncu verisi (altın, envanter)
+	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+	if gpd and gpd.has_method("reset_for_new_game"):
+		gpd.call("reset_for_new_game")
+	# 3) Köy: stok, moral, inşaat önbelleği (Autoload _ready tekrar çalışmaz)
 	if is_instance_valid(VillageManager) and VillageManager.has_method("reset_saved_state_for_new_game"):
 		VillageManager.reset_saved_state_for_new_game()
-	var world_manager = get_node_or_null("/root/WorldManager")
-	if is_instance_valid(world_manager) and world_manager.has_method("start_new_world_map"):
-		var run_seed: int = int(Time.get_unix_time_from_system()) + randi()
-		world_manager.start_new_world_map(run_seed)
-	# Yeni oyun başlatıldığında WeatherManager'ı tamamen reset et (storm'u kapat)
+	# 4) Dünya haritası + fraksiyon ilişkileri (save yüklemiş olan ilişkileri sıfırla)
+	var world_manager: Node = get_node_or_null("/root/WorldManager")
+	if is_instance_valid(world_manager):
+		if world_manager.has_method("reset_faction_state_for_new_game"):
+			world_manager.reset_faction_state_for_new_game()
+		if world_manager.has_method("start_new_world_map"):
+			var run_seed: int = int(Time.get_unix_time_from_system()) + randi()
+			world_manager.start_new_world_map(run_seed)
+	# 5) Görevler / cariyeler / haberler (MissionManager)
+	var mm0: Node = get_node_or_null("/root/MissionManager")
+	if mm0 and mm0.has_method("reset_for_new_game"):
+		mm0.call("reset_for_new_game")
+	# 6) Hava
 	if is_instance_valid(WeatherManager):
 		if WeatherManager.storm_active:
 			WeatherManager.reset_storm_completely()
 		print("[SceneManager] WeatherManager reset for new game")
+	# 7) Oyuncu istatistikleri (can, sefer debuff'ları, world supplies)
 	var ps_new: Node = get_node_or_null("/root/PlayerStats")
 	if ps_new and ps_new.has_method("reset_world_expedition_supplies"):
 		ps_new.call("reset_world_expedition_supplies")
 	if ps_new and ps_new.has_method("reset_for_new_game"):
 		ps_new.call("reset_for_new_game")
+	# 8) Zindan run kuyruğu, eşyalar, geçici güçlendirmeler
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if drs and drs.has_method("end_run"):
+		drs.call("end_run")
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if im and im.has_method("clear_all_items"):
+		im.call("clear_all_items")
+	var pum: Node = get_node_or_null("/root/PowerupManager")
+	if pum and pum.has_method("clear_all_powerups"):
+		pum.call("clear_all_powerups")
 	_change_scene(VILLAGE_SCENE, true)
 
 func return_to_main_menu() -> void:
@@ -269,6 +310,11 @@ func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> v
 
 func change_to_world_map(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	var src: String = String(payload.get("source", ""))
+	var cs_wm: Node = get_tree().current_scene
+	# Köyden harita: sahneyi değiştirme — overlay ile aç (tüccar / NPC state korunur).
+	if src == "village" and cs_wm != null and String(cs_wm.scene_file_path) == VILLAGE_SCENE:
+		open_world_map_overlay_from_village(payload)
+		return
 	if src == "village" or src.is_empty():
 		var vm := get_node_or_null("/root/VillageManager")
 		if is_instance_valid(vm) and vm.has_method("mark_leaving_village_for_travel_out"):
@@ -276,6 +322,239 @@ func change_to_world_map(payload: Dictionary = {}, force_reload: bool = false) -
 	current_payload = payload.duplicate(true)
 	_record_level_entry_time(WORLD_MAP_SCENE)
 	_change_scene(WORLD_MAP_SCENE, force_reload)
+
+
+func open_world_map_overlay_from_village(payload: Dictionary = {}) -> void:
+	if is_instance_valid(_world_map_overlay_instance):
+		return
+	var cs: Node = get_tree().current_scene
+	if cs == null:
+		push_warning("[SceneManager] open_world_map_overlay_from_village: current_scene yok")
+		return
+	if String(cs.scene_file_path) != VILLAGE_SCENE:
+		push_warning("[SceneManager] open_world_map_overlay_from_village: aktif sahne köy değil")
+		return
+	var packed: PackedScene = load(WORLD_MAP_SCENE) as PackedScene
+	if packed == null:
+		push_error("[SceneManager] Dünya haritası yüklenemedi: %s" % WORLD_MAP_SCENE)
+		return
+	var inst: Node = packed.instantiate()
+	_world_map_overlay_instance = inst
+	get_tree().root.add_child(inst)
+	get_tree().root.move_child(inst, get_tree().root.get_child_count() - 1)
+	cs.process_mode = Node.PROCESS_MODE_DISABLED
+	# Köy çizimini kapat: UI, envanter, yağmur partikülleri vb. haritada görünmesin (PROCESS_MODE ile donmuş damlalar da).
+	_wm_overlay_restore_village_visible = cs.visible
+	cs.visible = false
+	_wm_overlay_village_canvas_visibility_backup.clear()
+	_hide_village_canvas_layers_for_world_map_overlay(cs)
+	_wm_overlay_session_left_village_hex = false
+	_wm_overlay_departure_snapshot_done = false
+	var tm_open: Node = get_node_or_null(TimeManagerPath)
+	if tm_open != null and tm_open.has_method("get_total_game_minutes"):
+		_wm_overlay_open_game_minutes = int(tm_open.get_total_game_minutes())
+	else:
+		_wm_overlay_open_game_minutes = -1
+	_wm_overlay_canvas_layer_backup.clear()
+	_boost_canvas_layers_recursive(inst, WORLD_MAP_OVERLAY_CANVAS_LAYER_MIN)
+	_activate_world_map_overlay_camera(cs, inst)
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm != null and wm.has_method("sync_player_world_map_pos_to_own_village"):
+		wm.sync_player_world_map_pos_to_own_village(true)
+	current_payload = payload.duplicate(true)
+	current_payload["world_map_overlay"] = true
+
+
+## health_display / stamina_bar: tam sahne worldmap path'i yerine overlay'i de "harita modu" say.
+func is_world_map_ui_context_active() -> bool:
+	if is_instance_valid(_world_map_overlay_instance):
+		return true
+	var p := String(current_scene_path).to_lower()
+	return "worldmap" in p
+
+
+func notify_overlay_player_moved_on_world_map() -> void:
+	if not is_instance_valid(_world_map_overlay_instance):
+		return
+	var wm := get_node_or_null("/root/WorldManager")
+	if wm == null or not wm.has_method("is_player_on_own_village_hex"):
+		return
+	if bool(wm.call("is_player_on_own_village_hex")):
+		return
+	_wm_overlay_session_left_village_hex = true
+	if _wm_overlay_departure_snapshot_done:
+		return
+	_wm_overlay_departure_snapshot_done = true
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm != null and vm.has_method("prepare_snapshot_for_overlay_world_map_departure"):
+		vm.call("prepare_snapshot_for_overlay_world_map_departure")
+
+
+func try_close_world_map_overlay_village_return() -> bool:
+	if not is_instance_valid(_world_map_overlay_instance):
+		return false
+	if _wm_overlay_session_left_village_hex:
+		_finish_world_map_overlay_return_after_travel()
+	else:
+		_finish_world_map_overlay_return_soft_no_travel()
+	return true
+
+
+func _finish_world_map_overlay_return_soft_no_travel() -> void:
+	_dismiss_world_map_overlay_if_present()
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm != null and vm.has_method("mark_arriving_to_village_from_travel"):
+		vm.mark_arriving_to_village_from_travel()
+
+
+func _wm_overlay_elapsed_hours_since_open() -> float:
+	var tm := get_node_or_null(TimeManagerPath)
+	if tm == null or _wm_overlay_open_game_minutes < 0:
+		return 0.0
+	var now_m: int = int(tm.get_total_game_minutes())
+	var dm: int = maxi(0, now_m - _wm_overlay_open_game_minutes)
+	var mph: float = 60.0
+	if "MINUTES_PER_HOUR" in tm:
+		mph = float(tm.MINUTES_PER_HOUR)
+	return float(dm) / mph
+
+
+func _finish_world_map_overlay_return_after_travel() -> void:
+	var payload: Dictionary = {
+		"source": "world_map",
+		"reason": "overlay_travel_return",
+		"time_spent_in_level": _wm_overlay_elapsed_hours_since_open(),
+		"travel_hours_back": 0.0,
+		"travel_hours_out": 0.0
+	}
+	# Önce ekonomi/zaman simülasyonu (köy düğümü hâlâ donuk olsa da VillageManager güncellenir).
+	_apply_village_return_payload_world_map_overlay(payload)
+	_dismiss_world_map_overlay_if_present()
+	# Haritada gezip gelince sahne durumu donuk kalıyordu (oyuncu havada vb.); tam sahne WM dönüşü gibi köyü yeniden yükle.
+	_change_scene(VILLAGE_SCENE, true)
+
+
+func _apply_village_return_payload_world_map_overlay(payload: Dictionary) -> void:
+	_heal_player_on_world_map_arrival(payload)
+	var p: Dictionary = _finalize_dungeon_rewards_on_safe_return(payload)
+	p = _finalize_forest_resources_on_safe_return(p)
+	p = _finalize_world_expedition_gold_on_safe_return(p)
+	_sync_world_map_pawn_on_dungeon_return(p)
+	var vm0 := get_node_or_null("/root/VillageManager")
+	if is_instance_valid(vm0) and vm0.has_method("mark_arriving_to_village_from_travel"):
+		vm0.mark_arriving_to_village_from_travel()
+	var drs := get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("end_run"):
+		drs.end_run()
+	var im := get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("clear_all_items"):
+		im.clear_all_items()
+	_handle_travel_time(p)
+	current_payload = p.duplicate(true)
+
+
+func _hide_village_canvas_layers_for_world_map_overlay(root: Node) -> void:
+	_hide_village_canvas_layers_visibility_recursive(root)
+
+
+func _hide_village_canvas_layers_visibility_recursive(n: Node) -> void:
+	if n is CanvasLayer:
+		var cl: CanvasLayer = n as CanvasLayer
+		_wm_overlay_village_canvas_visibility_backup.append({"node": cl, "visible": cl.visible})
+		cl.visible = false
+	for c in n.get_children():
+		_hide_village_canvas_layers_visibility_recursive(c)
+
+
+func _restore_village_canvas_layers_visibility_after_overlay() -> void:
+	for entry in _wm_overlay_village_canvas_visibility_backup:
+		var nd = entry.get("node")
+		if is_instance_valid(nd) and nd is CanvasLayer:
+			(nd as CanvasLayer).visible = bool(entry.get("visible", true))
+	_wm_overlay_village_canvas_visibility_backup.clear()
+
+
+func _dismiss_world_map_overlay_if_present() -> void:
+	if not is_instance_valid(_world_map_overlay_instance):
+		return
+	var cs: Node = get_tree().current_scene
+	var overlay_inst: Node = _world_map_overlay_instance
+	_restore_village_canvas_layers_visibility_after_overlay()
+	if cs != null:
+		cs.visible = _wm_overlay_restore_village_visible
+		cs.process_mode = Node.PROCESS_MODE_INHERIT
+	_restore_canvas_layers_from_world_map_overlay_backup()
+	if cs != null:
+		_restore_cameras_after_world_map_overlay(cs, overlay_inst)
+	overlay_inst.queue_free()
+	_world_map_overlay_instance = null
+
+
+func _collect_camera2d_recursive(n: Node, into: Array) -> void:
+	if n is Camera2D:
+		into.append(n)
+	for c in n.get_children():
+		_collect_camera2d_recursive(c, into)
+
+
+func _boost_canvas_layers_recursive(node: Node, min_layer: int) -> void:
+	if node is CanvasLayer:
+		var cl: CanvasLayer = node as CanvasLayer
+		_wm_overlay_canvas_layer_backup.append({"node": cl, "layer": cl.layer})
+		cl.layer = maxi(cl.layer, min_layer)
+	for c in node.get_children():
+		_boost_canvas_layers_recursive(c, min_layer)
+
+
+func _restore_canvas_layers_from_world_map_overlay_backup() -> void:
+	for entry in _wm_overlay_canvas_layer_backup:
+		var nd = entry.get("node")
+		if is_instance_valid(nd) and nd is CanvasLayer:
+			(nd as CanvasLayer).layer = int(entry.get("layer", 0))
+	_wm_overlay_canvas_layer_backup.clear()
+
+
+func _activate_world_map_overlay_camera(village_root: Node, world_map_root: Node) -> void:
+	_wm_overlay_cam_backup.clear()
+	var village_cams: Array = []
+	_collect_camera2d_recursive(village_root, village_cams)
+	var wm_cam: Camera2D = world_map_root.get_node_or_null("Camera2D") as Camera2D
+	if wm_cam == null:
+		var wm_cams: Array = []
+		_collect_camera2d_recursive(world_map_root, wm_cams)
+		if not wm_cams.is_empty():
+			wm_cam = wm_cams[0] as Camera2D
+	for cam in village_cams:
+		if cam is Camera2D:
+			var c2: Camera2D = cam as Camera2D
+			_wm_overlay_cam_backup.append({"cam": c2, "enabled": c2.enabled})
+			c2.enabled = false
+	if wm_cam != null:
+		wm_cam.enabled = true
+		wm_cam.make_current()
+
+
+func _restore_cameras_after_world_map_overlay(village_root: Node, world_map_root: Node) -> void:
+	var wm_cam: Camera2D = world_map_root.get_node_or_null("Camera2D") as Camera2D
+	if wm_cam == null:
+		var wm_cams: Array = []
+		_collect_camera2d_recursive(world_map_root, wm_cams)
+		if not wm_cams.is_empty():
+			wm_cam = wm_cams[0] as Camera2D
+	if is_instance_valid(wm_cam):
+		wm_cam.enabled = false
+	var restore_current: Camera2D = null
+	for entry in _wm_overlay_cam_backup:
+		var cam: Camera2D = entry.get("cam") as Camera2D
+		if not is_instance_valid(cam):
+			continue
+		var was_en: bool = bool(entry.get("enabled", false))
+		cam.enabled = was_en
+		if was_en:
+			restore_current = cam
+	_wm_overlay_cam_backup.clear()
+	if is_instance_valid(restore_current):
+		restore_current.make_current()
 
 func _handle_travel_time_out_only(payload: Dictionary) -> void:
 	"""Handle travel time when LEAVING village (going to forest/dungeon).
@@ -346,10 +625,15 @@ func _handle_travel_time(payload: Dictionary) -> void:
 		push_warning("[SceneManager] ⚠️ Very large simulation time detected: %.1f hours. Capping to %.1f hours." % [time_to_simulate, max_hours])
 		time_to_simulate = max_hours
 	
-	if time_to_advance <= 0.0:
-		return
 	var time_manager: Node = get_node_or_null(TimeManagerPath)
 	if not time_manager:
+		return
+	var minutes_per_hour_early: int = 60
+	if "MINUTES_PER_HOUR" in time_manager:
+		minutes_per_hour_early = time_manager.MINUTES_PER_HOUR
+	var total_minutes: int = int(round(time_to_simulate * float(minutes_per_hour_early)))
+	# Dünya haritasında süre TimeManager'da zaten ilerlediyse back_hours=0 olabilir; üretim simülasyonu yine de gerekir.
+	if time_to_advance <= 0.0 and total_minutes <= 0:
 		return
 	
 	var village_manager = get_node_or_null("/root/VillageManager")
@@ -386,13 +670,7 @@ func _handle_travel_time(payload: Dictionary) -> void:
 			start_minute = time_manager.get_minute()
 	
 	print("[SceneManager] _handle_travel_time (RETURN): out=%.1f, back=%.1f, spent=%.1f" % [out_hours, back_hours, time_spent])
-	print("[SceneManager] Will advance time: %.1f hours, simulate production: %.1f hours" % [time_to_advance, time_to_simulate])
-	
-	# Calculate total minutes for simulation
-	var minutes_per_hour: int = 60
-	if "MINUTES_PER_HOUR" in time_manager:
-		minutes_per_hour = time_manager.MINUTES_PER_HOUR
-	var total_minutes: int = int(round(time_to_simulate * float(minutes_per_hour)))
+	print("[SceneManager] Will advance time: %.1f hours, simulate production: %.1f hours (total_minutes=%d)" % [time_to_advance, time_to_simulate, total_minutes])
 	
 	# Check if VillageManager's time_advanced signal is connected BEFORE advancing time
 	var signal_connected: bool = false
@@ -419,7 +697,7 @@ func _handle_travel_time(payload: Dictionary) -> void:
 	# This will emit time_advanced signal if VillageManager is connected
 	# If signal is connected, it will trigger simulation automatically
 	# If NOT connected, we need to call simulation manually AFTER time advance
-	if time_manager.has_method("advance_hours"):
+	if time_manager.has_method("advance_hours") and time_to_advance > 0.0:
 		time_manager.call("advance_hours", time_to_advance)
 		# Log end time
 		var end_day: int = start_day
@@ -430,14 +708,21 @@ func _handle_travel_time(payload: Dictionary) -> void:
 			end_hour = time_manager.get_hour()
 		print("[SceneManager] End time after advance: Day %d, %02d:%02d" % [end_day, end_hour, time_manager.get_minute() if time_manager.has_method("get_minute") else 0])
 	
-	# Safety net: If signal is NOT connected, manually trigger simulation
-	# This ensures resource production happens even if signal connection failed
-	if village_manager and total_minutes > 0 and not signal_connected:
-		if village_manager.has_method("_simulate_time_skip"):
+	# Safety net / overlay dönüşü: Süre haritada zaten ilerlediyse advance_hours=0 olabilir; time_advanced tetiklenmez.
+	var need_manual_sim: bool = false
+	if village_manager != null and total_minutes > 0:
+		if not signal_connected:
+			need_manual_sim = true
+		elif time_to_advance <= 0.0:
+			need_manual_sim = true
+	if need_manual_sim and village_manager.has_method("_simulate_time_skip"):
+		if not signal_connected:
 			print("[SceneManager] ⚠️ Time_advanced signal not connected, calling simulation directly")
-			village_manager.call("_simulate_time_skip", total_minutes, start_day, start_hour, start_minute)
 		else:
-			print("[SceneManager] ⚠️ VillageManager._simulate_time_skip method not found!")
+			print("[SceneManager] Overlay/kayıtlı süre: zaman zaten ilerledi, üretim simülasyonu doğrudan uygulanıyor")
+		village_manager.call("_simulate_time_skip", total_minutes, start_day, start_hour, start_minute)
+	elif village_manager and total_minutes > 0 and not village_manager.has_method("_simulate_time_skip"):
+		print("[SceneManager] ⚠️ VillageManager._simulate_time_skip method not found!")
 	
 	# Clear snapshot time after simulation (so it doesn't interfere with future trips)
 	if village_manager:
@@ -450,6 +735,7 @@ func clear_payload() -> void:
 	current_payload.clear()
 
 func _change_scene(target_path: String, force_reload: bool = false) -> void:
+	_dismiss_world_map_overlay_if_present()
 	if target_path == "":
 		push_warning("SceneManager: Hedef sahne yolu boş")
 		return

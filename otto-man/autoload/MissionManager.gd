@@ -138,6 +138,47 @@ func _initialize():
 	
 	#print("🚀 ===== MISSIONMANAGER _INITIALIZE BİTTİ =====")
 
+
+## Ana menüden yeni oyun: kayıt/yüklemeden kalan görevler, cariyeler, haberler vb.
+func reset_for_new_game() -> void:
+	news_queue_village.clear()
+	news_queue_world.clear()
+	_next_news_id = 1
+	missions.clear()
+	active_missions.clear()
+	completed_missions.clear()
+	concubines.clear()
+	mission_chains.clear()
+	dynamic_mission_templates.clear()
+	next_mission_id = 1
+	next_concubine_id = 1
+	_used_names.clear()
+	active_traders.clear()
+	mission_history.clear()
+	world_events.clear()
+	active_rate_modifiers.clear()
+	settlement_trade_modifiers.clear()
+	trade_routes.clear()
+	bandit_activity_active = false
+	bandit_trade_multiplier = 1.0
+	bandit_risk_level = 0
+	player_reputation = 50
+	world_stability = 70
+	_world_map_returning_units.clear()
+	_raid_mission_extra.clear()
+	_next_daily_dynamic_spawn_day = 2
+	_last_tick_day = 0
+	create_initial_missions()
+	create_mission_chains()
+	limit_initial_missions()
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm and tm.has_method("get_day"):
+		_last_tick_day = tm.get_day()
+	create_settlements()
+	mission_list_changed.emit()
+	active_traders_updated.emit()
+
+
 func _process(delta):
 	# Oyun pause'da ise görev ilerlemesi durdur
 	if get_tree().paused:

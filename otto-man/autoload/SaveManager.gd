@@ -306,6 +306,14 @@ func _save_village_state() -> Dictionary:
 	# Resources
 	state["resources"] = VillageManager.resource_levels.duplicate(true)
 	state["production_progress"] = VillageManager.base_production_progress.duplicate(true)
+	if VillageManager.has_method("_serialize_basic_gather_for_save"):
+		VillageManager._serialize_basic_gather_for_save()
+	if "_saved_basic_gather_expeditions" in VillageManager:
+		state["basic_gather_expeditions"] = VillageManager._saved_basic_gather_expeditions.duplicate(true)
+	if "_saved_basic_gather_last_departure_day" in VillageManager:
+		state["basic_gather_last_departure_day"] = VillageManager._saved_basic_gather_last_departure_day.duplicate(true)
+	if "_saved_basic_resource_overflow" in VillageManager:
+		state["basic_resource_overflow"] = VillageManager._saved_basic_resource_overflow.duplicate(true)
 	print("[SaveManager] 💾 DEBUG: Resources saved: %s" % str(state["resources"]))
 	
 	# Buildings (use saved building states if available, otherwise snapshot current state)
@@ -713,6 +721,26 @@ func _load_village_state(state: Dictionary) -> void:
 		else:
 			print("[SaveManager] ⚠️ DEBUG: Production progress is not a Dictionary")
 		VillageManager._saved_base_production_progress = VillageManager.base_production_progress.duplicate(true)
+	if state.has("basic_gather_expeditions"):
+		var ge: Variant = state["basic_gather_expeditions"]
+		if ge is Array:
+			VillageManager._saved_basic_gather_expeditions = (ge as Array).duplicate(true)
+	if state.has("basic_gather_last_departure_day"):
+		var gd: Variant = state["basic_gather_last_departure_day"]
+		if gd is Dictionary:
+			VillageManager._saved_basic_gather_last_departure_day = (gd as Dictionary).duplicate(true)
+	if state.has("basic_resource_overflow"):
+		var bo: Variant = state["basic_resource_overflow"]
+		if bo is Dictionary:
+			VillageManager._saved_basic_resource_overflow = (bo as Dictionary).duplicate(true)
+	if not state.has("basic_gather_expeditions"):
+		VillageManager._saved_basic_gather_expeditions.clear()
+	if not state.has("basic_gather_last_departure_day"):
+		VillageManager._saved_basic_gather_last_departure_day.clear()
+	if not state.has("basic_resource_overflow"):
+		VillageManager._saved_basic_resource_overflow.clear()
+	if VillageManager.has_method("_deserialize_basic_gather_from_save"):
+		VillageManager._deserialize_basic_gather_from_save()
 	
 	# Building states (will be restored when village scene loads)
 	if state.has("buildings"):

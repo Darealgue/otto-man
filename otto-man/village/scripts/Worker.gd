@@ -1159,7 +1159,7 @@ func _physics_process(delta: float) -> void:
 				var passed_offset = current_minute >= work_start_minute_offset
 				
 				# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
-				if is_work_time and (not is_work_start_hour or passed_offset):
+				if is_work_time and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
 					#print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
 					current_state = State.GOING_TO_BUILDING_FIRST
 					move_target_x = assigned_building_node.global_position.x
@@ -1334,7 +1334,7 @@ func _physics_process(delta: float) -> void:
 			_start_fetching_timer()
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
-			if current_hour == TimeManager.WORK_END_HOUR and current_minute >= work_end_minute_offset:
+			if _should_finish_inside_basic_work_now(current_hour, current_minute):
 				#print("Worker %d finished working inside building." % worker_id)
 				visible = true 
 				if not fetching_timer.is_stopped():
@@ -1414,55 +1414,54 @@ func _physics_process(delta: float) -> void:
 					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
 					return
 			
-			if current_hour >= TimeManager.WORK_END_HOUR:
-				if current_hour > TimeManager.WORK_END_HOUR or current_minute >= work_end_minute_offset:
-					#print("Worker %d işten dönüyor." % worker_id)
-					current_state = State.RETURNING_FROM_WORK
-					visible = true
+			if _should_return_waiting_offscreen_now(current_hour, current_minute):
+				#print("Worker %d işten dönüyor." % worker_id)
+				current_state = State.RETURNING_FROM_WORK
+				visible = true
+				
+				# Eğer _offscreen_exit_x kaydedilmemişse, kamp ateşine göre hesapla
+				if _offscreen_exit_x == 0.0:
+					# Kamp ateşini merkez alarak sağa/sola daha uzak bir mesafe kullan
+					var campfire_x = 960.0  # Varsayılan ekran merkezi
+					var campfire_node = get_tree().get_first_node_in_group("Housing")
+					if is_instance_valid(campfire_node):
+						campfire_x = campfire_node.global_position.x
 					
-					# Eğer _offscreen_exit_x kaydedilmemişse, kamp ateşine göre hesapla
-					if _offscreen_exit_x == 0.0:
-						# Kamp ateşini merkez alarak sağa/sola daha uzak bir mesafe kullan
-						var campfire_x = 960.0  # Varsayılan ekran merkezi
-						var campfire_node = get_tree().get_first_node_in_group("Housing")
-						if is_instance_valid(campfire_node):
-							campfire_x = campfire_node.global_position.x
-						
-						# Binanın konumuna göre hangi taraftan çıktığını tahmin et
-						if is_instance_valid(assigned_building_node):
-							if assigned_building_node.global_position.x < campfire_x:
-								_offscreen_exit_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE
-							else:
-								_offscreen_exit_x = campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
-						else:
-							# Bina yoksa rastgele bir taraf seç
-							_offscreen_exit_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE if randf() < 0.5 else campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
-					
-					# Ekranın dışından başla (100 piksel margin ile)
-					var start_margin = 100.0
-					var start_x = 0.0
-					if _offscreen_exit_x < 0:
-						# Soldan çıkmıştı, soldan gir (ekranın dışından)
-						start_x = _offscreen_exit_x - start_margin
-					else:
-						# Sağdan çıkmıştı, sağdan gir (ekranın dışından)
-						start_x = _offscreen_exit_x + start_margin
-					
-					# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
-					global_position = Vector2(start_x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
-					
+					# Binanın konumuna göre hangi taraftan çıktığını tahmin et
 					if is_instance_valid(assigned_building_node):
-						move_target_x = assigned_building_node.global_position.x
-						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+						if assigned_building_node.global_position.x < campfire_x:
+							_offscreen_exit_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE
+						else:
+							_offscreen_exit_x = campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
 					else:
-						#printerr("Worker %d: Returning from work but building is invalid! Socializing." % worker_id)
-						current_state = State.SOCIALIZING
-						_is_briefly_idling = false # <<< Reset flag >>>
-						_current_idle_activity = "" # <<< Reset activity >>>
-						_start_next_idle_step() # Start socializing behavior
-						# var wander_range = 150.0 # Handled by _start_next_idle_step
-						# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
-						# _target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+						# Bina yoksa rastgele bir taraf seç
+						_offscreen_exit_x = campfire_x - WORKER_OFFSCREEN_WORK_DISTANCE if randf() < 0.5 else campfire_x + WORKER_OFFSCREEN_WORK_DISTANCE
+				
+				# Ekranın dışından başla (100 piksel margin ile)
+				var start_margin = 100.0
+				var start_x = 0.0
+				if _offscreen_exit_x < 0:
+					# Soldan çıkmıştı, soldan gir (ekranın dışından)
+					start_x = _offscreen_exit_x - start_margin
+				else:
+					# Sağdan çıkmıştı, sağdan gir (ekranın dışından)
+					start_x = _offscreen_exit_x + start_margin
+				
+				# <<< DEĞİŞTİ: Y konumunu rastgele yap >>>
+				global_position = Vector2(start_x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
+				
+				if is_instance_valid(assigned_building_node):
+					move_target_x = assigned_building_node.global_position.x
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
+				else:
+					#printerr("Worker %d: Returning from work but building is invalid! Socializing." % worker_id)
+					current_state = State.SOCIALIZING
+					_is_briefly_idling = false # <<< Reset flag >>>
+					_current_idle_activity = "" # <<< Reset activity >>>
+					_start_next_idle_step() # Start socializing behavior
+					# var wander_range = 150.0 # Handled by _start_next_idle_step
+					# move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+					# _target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 
 		State.RETURNING_FROM_WORK:
 			# Uyku zamanı kontrolü (öncelikli)
@@ -1493,6 +1492,7 @@ func _physics_process(delta: float) -> void:
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Binaya vardıysa
 				#print("Worker %d reached building after returning from work, socializing." % worker_id)
+				_finalize_basic_gather_delivery_if_any()
 				current_state = State.SOCIALIZING
 				_is_briefly_idling = false # <<< Reset flag >>>
 				_current_idle_activity = "" # <<< Reset activity >>>
@@ -2241,6 +2241,57 @@ func _apply_villager_separation() -> void:
 
 # <<< YENİ: Eksik Fonksiyonların İşlevsel Tanımları >>>
 
+func _distance_gather_vm() -> Node:
+	return get_node_or_null("/root/VillageManager")
+
+
+func _is_basic_resource_gather_job() -> bool:
+	match assigned_job_type:
+		"wood", "stone", "food", "water":
+			return true
+		_:
+			return false
+
+
+## Mesafe tabanlı sefer: teslim süresi dolunca dönüş başlar.
+func _should_return_waiting_offscreen_now(ch: int, cm: int) -> bool:
+	var vm := _distance_gather_vm()
+	if vm != null and vm.has_method("is_distance_based_basic_gather_enabled") and bool(vm.is_distance_based_basic_gather_enabled()) and _is_basic_resource_gather_job():
+		if vm.has_method("is_gather_return_ready_for_worker"):
+			return bool(vm.is_gather_return_ready_for_worker(worker_id))
+	return ch >= TimeManager.WORK_END_HOUR and (ch > TimeManager.WORK_END_HOUR or cm >= work_end_minute_offset)
+
+
+func _should_finish_inside_basic_work_now(ch: int, cm: int) -> bool:
+	var vm := _distance_gather_vm()
+	if vm != null and vm.has_method("is_distance_based_basic_gather_enabled") and bool(vm.is_distance_based_basic_gather_enabled()) and _is_basic_resource_gather_job():
+		if vm.has_method("is_gather_return_ready_for_worker"):
+			return bool(vm.is_gather_return_ready_for_worker(worker_id))
+	return ch == TimeManager.WORK_END_HOUR and cm >= work_end_minute_offset
+
+
+func _has_active_basic_gather_expedition() -> bool:
+	var vm := _distance_gather_vm()
+	if vm != null and vm.has_method("has_active_basic_gather_expedition_for_worker"):
+		return bool(vm.has_active_basic_gather_expedition_for_worker(worker_id))
+	return false
+
+
+func _should_start_work_shift_now() -> bool:
+	if _is_basic_resource_gather_job():
+		var vm := _distance_gather_vm()
+		if vm != null and vm.has_method("is_distance_based_basic_gather_enabled") and bool(vm.is_distance_based_basic_gather_enabled()):
+			# Mesafe modunda temel kaynak işçisi sadece aktif sefer varsa işe çıksın.
+			return _has_active_basic_gather_expedition()
+	return true
+
+
+func _finalize_basic_gather_delivery_if_any() -> void:
+	var vm := _distance_gather_vm()
+	if vm != null and vm.has_method("complete_basic_gather_delivery_for_worker_if_ready"):
+		vm.complete_basic_gather_delivery_for_worker_if_ready(worker_id)
+
+
 # Appearance resource'una göre sprite'ları günceller
 func update_visuals():
 	if not appearance:
@@ -2321,26 +2372,20 @@ func check_hour_transition(new_hour: int) -> void:
 					_is_briefly_idling = false
 					_current_idle_activity = ""
 					return
-			if new_hour >= TimeManager.WORK_END_HOUR:
-				var should_return = false
-				if new_hour > TimeManager.WORK_END_HOUR:
-					should_return = true
-				elif current_minute >= work_end_minute_offset:
-					should_return = true
-				if should_return:
-					current_state = State.RETURNING_FROM_WORK
-					visible = true
-					var start_margin = 5.0
-					var start_x = _offscreen_exit_x - start_margin if _offscreen_exit_x < 0 else _offscreen_exit_x + start_margin
-					global_position = Vector2(start_x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
-					if is_instance_valid(assigned_building_node):
-						move_target_x = assigned_building_node.global_position.x
-						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
-					else:
-						current_state = State.SOCIALIZING
-						_is_briefly_idling = false
-						_current_idle_activity = ""
-						_start_next_idle_step()
+			if _should_return_waiting_offscreen_now(new_hour, current_minute):
+				current_state = State.RETURNING_FROM_WORK
+				visible = true
+				var start_margin = 5.0
+				var start_x = _offscreen_exit_x - start_margin if _offscreen_exit_x < 0 else _offscreen_exit_x + start_margin
+				global_position = Vector2(start_x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
+				if is_instance_valid(assigned_building_node):
+					move_target_x = assigned_building_node.global_position.x
+					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+				else:
+					current_state = State.SOCIALIZING
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					_start_next_idle_step()
 		
 		State.RETURNING_FROM_WORK:
 			# Uyku zamanı kontrolü (öncelikli)
@@ -2379,36 +2424,31 @@ func check_hour_transition(new_hour: int) -> void:
 						held_item_sprite.hide()
 		
 		State.WORKING_INSIDE:
-			if new_hour >= TimeManager.WORK_END_HOUR:
-				var should_finish = false
-				if new_hour > TimeManager.WORK_END_HOUR:
-					should_finish = true
-				elif current_minute >= work_end_minute_offset:
-					should_finish = true
-				if should_finish:
-					visible = true
-					if is_instance_valid(assigned_building_node):
-						global_position = Vector2(assigned_building_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
-					if fetching_timer and not fetching_timer.is_stopped():
-						fetching_timer.stop()
-					# Sadece gece saatlerinde uykuya git
-					var wake_hour = TimeManager.WAKE_UP_HOUR
-					var sleep_hour = TimeManager.SLEEP_HOUR
-					var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
-					if not is_daytime and new_hour >= sleep_hour:
-						if is_instance_valid(housing_node):
-							current_state = State.GOING_TO_SLEEP
-							move_target_x = housing_node.global_position.x
-							_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
-							if is_instance_valid(held_item_sprite):
-								held_item_sprite.hide()
-						else:
-							current_state = State.SOCIALIZING
-							_is_briefly_idling = false
-							_current_idle_activity = ""
-							_start_next_idle_step()
-							if is_instance_valid(held_item_sprite):
-								held_item_sprite.hide()
+			var should_finish_hr: bool = false
+			var vm_ins := _distance_gather_vm()
+			if vm_ins != null and vm_ins.has_method("is_distance_based_basic_gather_enabled") and bool(vm_ins.is_distance_based_basic_gather_enabled()) and _is_basic_resource_gather_job():
+				if vm_ins.has_method("is_gather_return_ready_for_worker"):
+					should_finish_hr = bool(vm_ins.is_gather_return_ready_for_worker(worker_id))
+			if not should_finish_hr and new_hour >= TimeManager.WORK_END_HOUR:
+				if new_hour > TimeManager.WORK_END_HOUR or current_minute >= work_end_minute_offset:
+					should_finish_hr = true
+			if should_finish_hr:
+				visible = true
+				if is_instance_valid(assigned_building_node):
+					global_position = Vector2(assigned_building_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
+				if fetching_timer and not fetching_timer.is_stopped():
+					fetching_timer.stop()
+				# Sadece gece saatlerinde uykuya git
+				var wake_hour = TimeManager.WAKE_UP_HOUR
+				var sleep_hour = TimeManager.SLEEP_HOUR
+				var is_daytime = new_hour >= wake_hour and new_hour < sleep_hour
+				if not is_daytime and new_hour >= sleep_hour:
+					if is_instance_valid(housing_node):
+						current_state = State.GOING_TO_SLEEP
+						move_target_x = housing_node.global_position.x
+						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+						if is_instance_valid(held_item_sprite):
+							held_item_sprite.hide()
 					else:
 						current_state = State.SOCIALIZING
 						_is_briefly_idling = false
@@ -2416,6 +2456,13 @@ func check_hour_transition(new_hour: int) -> void:
 						_start_next_idle_step()
 						if is_instance_valid(held_item_sprite):
 							held_item_sprite.hide()
+				else:
+					current_state = State.SOCIALIZING
+					_is_briefly_idling = false
+					_current_idle_activity = ""
+					_start_next_idle_step()
+					if is_instance_valid(held_item_sprite):
+						held_item_sprite.hide()
 		
 		State.GOING_TO_BUILDING_FIRST:
 			# Uyku zamanı kontrolü (öncelikli)
@@ -2464,7 +2511,7 @@ func check_hour_transition(new_hour: int) -> void:
 					var is_work_start_hour = new_hour == TimeManager.WORK_START_HOUR
 					var passed_offset = current_minute >= work_start_minute_offset
 					# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
-					if not is_work_start_hour or passed_offset:
+					if (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
 						current_state = State.GOING_TO_BUILDING_FIRST
 						move_target_x = assigned_building_node.global_position.x
 						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)

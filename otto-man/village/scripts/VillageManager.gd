@@ -103,6 +103,25 @@ var base_production_progress: Dictionary = {
 	"water": 0.0
 }
 
+# Mesafe tabanlı köy işçisi temel kaynak seferleri (orman / dağ / akarsu).
+const USE_DISTANCE_BASED_BASIC_GATHER := true
+const GATHER_DEPARTURE_HOUR := 8
+const GATHER_DEPARTURE_MINUTE := 0
+const GATHER_PROVISION_TRIP_THRESHOLD_MINUTES := 360
+const GATHER_PROVISION_FOOD_COST := 1
+const GATHER_PROVISION_WATER_COST := 1
+const GATHER_SOFT_YIELD_NO_PROVISION := 0.65
+## Mesafe seferi tesliminde varsayılan getiri (odun/taş); yemek/su ayrı çarpanlı.
+const GATHER_DELIVERY_YIELD_DEFAULT := 1
+const GATHER_DELIVERY_YIELD_FOOD_WATER := 3
+## worker_id -> sefer kaydı (delivery_minutes: TimeManager.get_total_game_minutes ile uyumlu mutlak dakika)
+var basic_gather_expeditions_by_worker: Dictionary = {}
+## worker_id -> son çıkış günü (TimeManager.days ile karşılaştırılır)
+var basic_gather_last_departure_day: Dictionary = {}
+## Depo taşması (gece yarısı çürütülür)
+var basic_resource_overflow: Dictionary = {}
+var _last_gather_processed_total_minutes: int = -1
+
 var _time_signal_connected: bool = false
 var _time_advanced_connected: bool = false
 var _last_construction_total_minutes: int = -1
@@ -196,6 +215,9 @@ var _saved_building_states: Array = []
 var _saved_worker_states: Array = []
 var _saved_resource_levels: Dictionary = {}  # Save resource levels when leaving village
 var _saved_base_production_progress: Dictionary = {}  # Save production progress
+var _saved_basic_gather_expeditions: Array = []
+var _saved_basic_gather_last_departure_day: Dictionary = {}
+var _saved_basic_resource_overflow: Dictionary = {}
 var _saved_snapshot_time: Dictionary = {}  # Save time when snapshot is taken (day, hour, minute)
 var _pending_time_skip_notification: Dictionary = {}  # Pending notification data to show after scene loads
 var _is_leaving_village: bool = false  # Flag to prevent simulation when leaving village
@@ -269,6 +291,8 @@ func _ready() -> void:
 		for res in BASE_RESOURCE_TYPES:
 			if not base_production_progress.has(res):
 				base_production_progress[res] = 0.0
+	if USE_DISTANCE_BASED_BASIC_GATHER and not _saved_basic_gather_expeditions.is_empty():
+		_deserialize_basic_gather_from_save()
 	locked_resource_levels = {
 		"wood": 0,
 		"stone": 0,
@@ -312,6 +336,22 @@ func _on_scene_change_started(target_path: String) -> void:
 
 func schedule_skip_next_snapshot() -> void:
 	set("_skip_next_snapshot", true)
+
+
+## Köyden dünya haritası overlay ile çıkıldığında (ilk kez köy hex'inden ayrılınca SceneManager tetikler).
+func prepare_snapshot_for_overlay_world_map_departure() -> void:
+	if _is_leaving_village:
+		return
+	var time_manager := get_node_or_null("/root/TimeManager")
+	if time_manager:
+		_saved_snapshot_time = {
+			"day": time_manager.get_day() if time_manager.has_method("get_day") else 0,
+			"hour": time_manager.get_hour() if time_manager.has_method("get_hour") else 0,
+			"minute": time_manager.get_minute() if time_manager.has_method("get_minute") else 0
+		}
+	_is_leaving_village = true
+	snapshot_state_for_scene_exit()
+
 
 func snapshot_state_for_scene_exit() -> void:
 	var skip_flag: bool = false
@@ -399,6 +439,8 @@ func snapshot_state_for_scene_exit() -> void:
 	# Save resource levels and production progress
 	_saved_resource_levels = resource_levels.duplicate(true)
 	_saved_base_production_progress = base_production_progress.duplicate(true)
+	if USE_DISTANCE_BASED_BASIC_GATHER:
+		_serialize_basic_gather_for_save()
 
 	_saved_worker_states.clear()
 	var worker_ids := all_workers.keys()
@@ -814,6 +856,12 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 	if _simulate_events_during_skip(total_minutes, start_day, current_day):
 		advanced_changed = true
 
+	if USE_DISTANCE_BASED_BASIC_GATHER:
+		var t_start_abs: int = start_day * TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR + start_hour * TimeManager.MINUTES_PER_HOUR + start_minute
+		var t_end_abs: int = t_start_abs + total_minutes
+		_basic_gather_simulate_interval(t_start_abs, t_end_abs)
+		_last_gather_processed_total_minutes = t_end_abs
+
 	if produced_basic or advanced_changed or upgrade_completed:
 		emit_signal("village_data_changed")
 	
@@ -851,7 +899,311 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 	else:
 		print("[VillageManager] ⚠️ Not emitting time_skip_completed: total_hours = %.1f" % total_hours)
 
+func _gather_breakdown_total_minutes(t: int) -> Dictionary:
+	var rem: int = int(t) % (TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR)
+	var day: int = int(t) / (TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR)
+	var hour: int = rem / TimeManager.MINUTES_PER_HOUR
+	var minute: int = rem % TimeManager.MINUTES_PER_HOUR
+	return {"day": day, "hour": hour, "minute": minute}
+
+
+func _basic_gather_simulate_interval(t0: int, t1: int) -> void:
+	if t1 <= t0:
+		return
+	const MAX_CHUNK: int = 200000
+	var cur: int = t0
+	while cur < t1:
+		var nxt: int = mini(cur + MAX_CHUNK, t1)
+		for tt in range(cur + 1, nxt + 1):
+			_gather_process_synthetic_minute(tt)
+		cur = nxt
+
+
+func _gather_process_synthetic_minute(t_abs: int) -> void:
+	var cal: Dictionary = _gather_breakdown_total_minutes(t_abs)
+	if int(cal.get("hour", 0)) == 0 and int(cal.get("minute", 0)) == 0:
+		_decay_basic_resource_overflow_midnight()
+	_gather_process_deliveries_at_total(t_abs)
+	if int(cal.get("hour", 0)) == GATHER_DEPARTURE_HOUR and int(cal.get("minute", 0)) == GATHER_DEPARTURE_MINUTE:
+		_gather_try_departures_at_total(t_abs)
+
+
+func _tick_basic_gather_realtime_clock() -> void:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("get_total_game_minutes"):
+		return
+	var gt: int = int(tm.get_total_game_minutes())
+	if _last_gather_processed_total_minutes < 0:
+		_last_gather_processed_total_minutes = gt
+		return
+	if gt <= _last_gather_processed_total_minutes:
+		return
+	for tt in range(_last_gather_processed_total_minutes + 1, gt + 1):
+		_gather_process_synthetic_minute(tt)
+	_last_gather_processed_total_minutes = gt
+
+
+func _decay_basic_resource_overflow_midnight() -> void:
+	if basic_resource_overflow.is_empty():
+		return
+	basic_resource_overflow.clear()
+	emit_signal("village_data_changed")
+
+
+func _deposit_basic_resource_with_overflow(res: String, amount: int) -> void:
+	if amount <= 0:
+		return
+	var cap: int = _get_storage_capacity_for(res)
+	var cur: int = int(resource_levels.get(res, 0))
+	if cap <= 0:
+		resource_levels[res] = cur + amount
+		return
+	var space: int = maxi(0, cap - cur)
+	if amount <= space:
+		resource_levels[res] = cur + amount
+	else:
+		resource_levels[res] = cur + space
+		var over: int = amount - space
+		basic_resource_overflow[res] = int(basic_resource_overflow.get(res, 0)) + over
+
+
+func _gather_process_deliveries_at_total(t_abs: int) -> void:
+	for wid in basic_gather_expeditions_by_worker.keys():
+		var exp: Dictionary = basic_gather_expeditions_by_worker.get(wid, {})
+		var dm: int = int(exp.get("delivery_minutes", -1))
+		if dm == t_abs:
+			exp["delivery_ready"] = true
+
+
+func _gather_complete_delivery(worker_id: int, exp: Dictionary) -> void:
+	if bool(exp.get("deposit_complete", false)):
+		return
+	var res_type: String = String(exp.get("resource_type", ""))
+	if res_type.is_empty() or not (res_type in BASE_RESOURCE_TYPES):
+		return
+	exp["deposit_complete"] = true
+	var trip_m: int = int(exp.get("total_trip_minutes", 0))
+	var provisioned: bool = bool(exp.get("provisioned", true))
+	var yield_amt: int = GATHER_DELIVERY_YIELD_DEFAULT
+	if res_type == "food" or res_type == "water":
+		yield_amt = GATHER_DELIVERY_YIELD_FOOD_WATER
+	if trip_m >= GATHER_PROVISION_TRIP_THRESHOLD_MINUTES and not provisioned:
+		if randf() > GATHER_SOFT_YIELD_NO_PROVISION:
+			yield_amt = 0
+	if yield_amt > 0:
+		_deposit_basic_resource_with_overflow(res_type, yield_amt)
+		_daily_production_counter[res_type] = int(_daily_production_counter.get(res_type, 0)) + yield_amt
+		emit_signal("resource_produced", res_type, yield_amt)
+	emit_signal("village_data_changed")
+
+
+## Sefer kaydı teslim dakikasında silinmez; Worker binaya varınca teslim eder.
+func is_gather_return_ready_for_worker(worker_id: int) -> bool:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return false
+	var exp: Variant = basic_gather_expeditions_by_worker.get(worker_id, {})
+	if not exp is Dictionary:
+		return false
+	var dm: int = int(exp.get("delivery_minutes", -1))
+	if dm < 0:
+		return false
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("get_total_game_minutes"):
+		return false
+	var gt: int = int(tm.get_total_game_minutes())
+	return gt >= dm
+
+
+func has_active_basic_gather_expedition_for_worker(worker_id: int) -> bool:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return false
+	return basic_gather_expeditions_by_worker.has(worker_id)
+
+
+func complete_basic_gather_delivery_for_worker_if_ready(worker_id: int) -> bool:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return false
+	var exp: Variant = basic_gather_expeditions_by_worker.get(worker_id, {})
+	if not exp is Dictionary:
+		return false
+	var dm: int = int(exp.get("delivery_minutes", -1))
+	if dm < 0:
+		return false
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("get_total_game_minutes"):
+		return false
+	var gt: int = int(tm.get_total_game_minutes())
+	if gt < dm:
+		return false
+	_gather_complete_delivery(worker_id, exp)
+	basic_gather_expeditions_by_worker.erase(worker_id)
+	return true
+
+
+func clear_basic_gather_expedition_for_worker(worker_id: int) -> void:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	basic_gather_expeditions_by_worker.erase(worker_id)
+
+
+func is_distance_based_basic_gather_enabled() -> bool:
+	return USE_DISTANCE_BASED_BASIC_GATHER
+
+
+func get_gather_delivery_total_minutes_for_worker(worker_id: int) -> int:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return -1
+	var exp: Variant = basic_gather_expeditions_by_worker.get(worker_id, {})
+	if exp is Dictionary:
+		return int(exp.get("delivery_minutes", -1))
+	return -1
+
+
+func _gather_calendar_day_from_total_minutes(t_abs: int) -> int:
+	return int(t_abs) / (TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR)
+
+
+func _gather_start_expedition_at_departure(worker_id: int, departure_abs: int) -> bool:
+	var wm := get_node_or_null("/root/WorldManager")
+	if wm == null or not wm.has_method("compute_village_gather_round_trip_minutes"):
+		return false
+	var res_job: String = _gather_worker_job_type(worker_id)
+	if res_job.is_empty():
+		return false
+	var trip: Dictionary = wm.compute_village_gather_round_trip_minutes(res_job)
+	if bool(trip.get("ok", false)) and wm.has_method("reveal_village_gather_intel_for_successful_trip"):
+		wm.reveal_village_gather_intel_for_successful_trip(trip)
+	var total_m: int = maxi(1, int(trip.get("round_trip_minutes", 240)))
+	var provisioned: bool = true
+	if total_m >= GATHER_PROVISION_TRIP_THRESHOLD_MINUTES:
+		var food_ok: bool = int(resource_levels.get("food", 0)) >= GATHER_PROVISION_FOOD_COST
+		var water_ok: bool = int(resource_levels.get("water", 0)) >= GATHER_PROVISION_WATER_COST
+		if food_ok and water_ok:
+			resource_levels["food"] = int(resource_levels.get("food", 0)) - GATHER_PROVISION_FOOD_COST
+			resource_levels["water"] = int(resource_levels.get("water", 0)) - GATHER_PROVISION_WATER_COST
+			provisioned = true
+		else:
+			provisioned = false
+	var delivery_minutes: int = departure_abs + total_m
+	var cal_day: int = _gather_calendar_day_from_total_minutes(departure_abs)
+	basic_gather_expeditions_by_worker[worker_id] = {
+		"resource_type": res_job,
+		"delivery_minutes": delivery_minutes,
+		"delivery_ready": false,
+		"deposit_complete": false,
+		"provisioned": provisioned,
+		"total_trip_minutes": total_m,
+		"one_way_minutes": int(trip.get("one_way_minutes", 1))
+	}
+	basic_gather_last_departure_day[worker_id] = cal_day
+	return true
+
+
+func _gather_try_departures_at_total(t_abs: int) -> void:
+	var today: int = _gather_calendar_day_from_total_minutes(t_abs)
+	var wm := get_node_or_null("/root/WorldManager")
+	if wm == null or not wm.has_method("compute_village_gather_round_trip_minutes"):
+		return
+	for wid in _iter_basic_gather_worker_ids():
+		if basic_gather_expeditions_by_worker.has(wid):
+			continue
+		var last_d: int = int(basic_gather_last_departure_day.get(wid, -999999))
+		if last_d == today:
+			continue
+		_gather_start_expedition_at_departure(int(wid), t_abs)
+
+
+func _gather_flush_completed_deliveries_up_to(t_abs: int) -> void:
+	for wid in basic_gather_expeditions_by_worker.keys():
+		var exp: Dictionary = basic_gather_expeditions_by_worker.get(wid, {})
+		var dm: int = int(exp.get("delivery_minutes", -1))
+		if dm >= 0 and dm <= t_abs:
+			_gather_complete_delivery(int(wid), exp)
+
+
+func _basic_gather_reconcile_after_village_ready() -> void:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null:
+		return
+	var gt: int = int(tm.get_total_game_minutes())
+	var day_start: int = gt - tm.get_hour() * 60 - tm.get_minute()
+	var depart_slot: int = day_start + GATHER_DEPARTURE_HOUR * 60 + GATHER_DEPARTURE_MINUTE
+	if gt >= depart_slot:
+		for wid in _iter_basic_gather_worker_ids():
+			if basic_gather_expeditions_by_worker.has(wid):
+				continue
+			var today: int = _gather_calendar_day_from_total_minutes(gt)
+			var last_d: int = int(basic_gather_last_departure_day.get(wid, -999999))
+			if last_d == today:
+				continue
+			_gather_start_expedition_at_departure(int(wid), depart_slot)
+	_gather_flush_completed_deliveries_up_to(gt)
+	_last_gather_processed_total_minutes = gt
+	emit_signal("village_data_changed")
+
+
+func _iter_basic_gather_worker_ids() -> Array:
+	var out: Array = []
+	for wid in all_workers.keys():
+		var data: Dictionary = all_workers.get(wid, {})
+		var inst: Node = data.get("instance", null)
+		if not is_instance_valid(inst):
+			continue
+		if inst.get("is_sick"):
+			continue
+		var jt: String = ""
+		if "assigned_job_type" in inst:
+			jt = String(inst.get("assigned_job_type"))
+		if not (jt in BASE_RESOURCE_TYPES):
+			continue
+		out.append(int(wid))
+	return out
+
+
+func _gather_worker_job_type(worker_id: int) -> String:
+	var data: Dictionary = all_workers.get(worker_id, {})
+	var inst: Node = data.get("instance", null)
+	if not is_instance_valid(inst):
+		return ""
+	if "assigned_job_type" in inst:
+		return String(inst.get("assigned_job_type"))
+	return ""
+
+
+func _serialize_basic_gather_for_save() -> void:
+	_saved_basic_gather_expeditions.clear()
+	for wid in basic_gather_expeditions_by_worker.keys():
+		var exp: Dictionary = basic_gather_expeditions_by_worker.get(wid, {}).duplicate(true)
+		exp["worker_id"] = int(wid)
+		_saved_basic_gather_expeditions.append(exp)
+	_saved_basic_gather_last_departure_day = basic_gather_last_departure_day.duplicate(true)
+	_saved_basic_resource_overflow = basic_resource_overflow.duplicate(true)
+
+
+func _deserialize_basic_gather_from_save() -> void:
+	basic_gather_expeditions_by_worker.clear()
+	basic_gather_last_departure_day.clear()
+	basic_resource_overflow.clear()
+	for e in _saved_basic_gather_expeditions:
+		if e is Dictionary:
+			var wid: int = int(e.get("worker_id", -1))
+			if wid < 0:
+				continue
+			var copy: Dictionary = e.duplicate(true)
+			copy.erase("worker_id")
+			basic_gather_expeditions_by_worker[wid] = copy
+	if not _saved_basic_gather_last_departure_day.is_empty():
+		basic_gather_last_departure_day = _saved_basic_gather_last_departure_day.duplicate(true)
+	if not _saved_basic_resource_overflow.is_empty():
+		basic_resource_overflow = _saved_basic_resource_overflow.duplicate(true)
+
 func _simulate_basic_production_minute(game_seconds: float, resource_counts: Dictionary) -> bool:
+	if USE_DISTANCE_BASED_BASIC_GATHER:
+		return false
 	var produced_any := false
 	var morale_mult: float = _get_morale_multiplier()
 	var prod_mult: float = (1.0 + building_bonus + caregiver_bonus) * global_multiplier
@@ -1557,7 +1909,7 @@ var _daily_production_counter: Dictionary = {
 var village_morale: float = 80.0
 ## SaveManager: üretim çarpanları kayıttan yüklendiyse reapply'da kuraklık vb. tekrar uygulanmaz.
 var _production_multipliers_restored_from_save: bool = false
-var _last_day_shortages: Dictionary = {"water": 0, "food": 0}
+var _last_day_shortages: Dictionary = {"water": 0, "food": 0, "soldier_water": 0, "soldier_food": 0}
 
 var _last_econ_tick_day: int = 0
 
@@ -1878,6 +2230,9 @@ func register_village_scene(scene: Node2D) -> void:
 		if tm.has_signal("time_advanced") and not _time_advanced_connected:
 			tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
 			_time_advanced_connected = true
+		if USE_DISTANCE_BASED_BASIC_GATHER and tm.has_method("get_total_game_minutes"):
+			_last_gather_processed_total_minutes = int(tm.get_total_game_minutes())
+			call_deferred("_basic_gather_reconcile_after_village_ready")
 		_apply_time_of_day(tm.get_hour() if tm.has_method("get_hour") else 0)
 	else:
 		_apply_time_of_day(6)
@@ -2089,6 +2444,9 @@ func get_projected_daily_resource_nets() -> Dictionary:
 		var workers: int = _count_active_workers_for_resource(res)
 		if workers <= 0:
 			continue
+		if USE_DISTANCE_BASED_BASIC_GATHER:
+			nets[res] = float(nets.get(res, 0.0)) + float(workers)
+			continue
 		var res_mult: float = float(resource_prod_multiplier.get(res, 1.0))
 		var per_sec := (float(workers) / SECONDS_PER_RESOURCE_UNIT) * morale_mult * prod_mult * res_mult
 		nets[res] = float(nets.get(res, 0.0)) + (per_sec * work_day_seconds)
@@ -2139,6 +2497,7 @@ func get_projected_daily_resource_nets() -> Dictionary:
 
 # Her frame'de temel kaynakları zamanla biriktirir
 func _process(delta: float) -> void:
+	_tick_basic_gather_realtime_clock()
 	_tick_pending_constructions_from_clock()
 	_sync_upgrade_vfx()
 	# Economy açıkken per-frame üretim opsiyonel
@@ -2154,6 +2513,8 @@ func _process(delta: float) -> void:
 			return
 		var produced_any: bool = false
 		for resource_type in BASE_RESOURCE_TYPES:
+			if USE_DISTANCE_BASED_BASIC_GATHER:
+				continue
 			var active_workers: int = _count_active_workers_for_resource(resource_type)
 			if active_workers <= 0:
 				continue
@@ -3545,6 +3906,9 @@ func _daily_economy_tick(current_day: int) -> void:
 		var total_prod := float(population) * prod_per_worker * _get_morale_multiplier()
 		produced = _allocate_production(total_prod)
 		for r in produced.keys():
+			if USE_DISTANCE_BASED_BASIC_GATHER and BASE_RESOURCE_TYPES.has(String(r)):
+				produced[r] = 0
+				continue
 			var mult := float(resource_prod_multiplier.get(r, 1.0))
 			var to_add := int(floor(produced[r] * mult))
 			produced[r] = to_add
@@ -3790,6 +4154,12 @@ func _post_event_notification(message: String, category: String) -> void:
 	if mm and mm.has_method("post_news"):
 		mm.post_news("Köy", "Dünya Olayı", message, Color.WHITE, category)
 
+
+func _post_village_news(title: String, content: String, subcategory: String = "warning", color: Color = Color.ORANGE) -> void:
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm and mm.has_method("post_news"):
+		mm.post_news("village", title, content, color, subcategory)
+
 # --- Soldiers extra consumption helpers ---
 func _count_active_soldiers() -> int:
 	if not is_instance_valid(village_scene_instance):
@@ -3922,18 +4292,34 @@ func process_weekly_cariye_needs(current_day: int) -> void:
 
 func _check_shortages_and_apply_morale_penalties() -> void:
 	var penalty := 0.0
+	var detail_lines: Array[String] = []
 	for k in _last_day_shortages.keys():
 		var missing := float(_last_day_shortages.get(k, 0))
 		if missing > 0.0:
 			penalty += 5.0 # -5 per missing type/day (simple)
+			var km := String(k)
+			var mi := int(missing)
+			match km:
+				"water":
+					detail_lines.append("İçme suyu günlük ihtiyaçtan %d birim eksik kaldı." % mi)
+				"food":
+					detail_lines.append("Yiyecek günlük ihtiyaçtan %d birim eksik kaldı." % mi)
+				"soldier_water":
+					detail_lines.append("Askerlerin su ihtiyacının %d birimi karşılanamadı." % mi)
+				"soldier_food":
+					detail_lines.append("Askerlerin erzakının %d birimi karşılanamadı." % mi)
 	if penalty > 0.0:
 		village_morale = max(0.0, village_morale - penalty)
+		var body := "Temel erzak tam karşılanamadığı için köy morali düştü (toplam −%.0f)." % penalty
+		if not detail_lines.is_empty():
+			body += "\n\n" + "\n".join(detail_lines)
+		_post_village_news("Erzak sıkıntısı", body, "warning", Color.ORANGE)
 	else:
 		# Slow recovery
 		village_morale = min(100.0, village_morale + 1.0)
 	_check_morale_game_over()
 	# Reset shortages for next day
-	_last_day_shortages = {"water": 0, "food": 0}
+	_last_day_shortages = {"water": 0, "food": 0, "soldier_water": 0, "soldier_food": 0}
 
 func _get_morale_multiplier() -> float:
 	# Above 50, no penalty; below 50, linear down to 0.5 at morale 0
@@ -4856,6 +5242,12 @@ func _check_and_heal_sick_workers(current_day: int) -> void:
 		morale_loss = float(still_sick) * 2.0
 		village_morale = max(0.0, village_morale - morale_loss)
 		_check_morale_game_over()
+		_post_village_news(
+			"Hastalık baskısı",
+			"Yeterli ilaç olmadığı için %d işçi hala hasta. Bu durum köy morali üzerinde baskı yaratıyor (tahmini −%.0f)." % [still_sick, morale_loss],
+			"warning",
+			Color(1.0, 0.45, 0.35, 1.0)
+		)
 		print("[DISEASE DEBUG] %d işçi hala hasta, moral düştü: -%.1f (Toplam hasta: %d, İyileşen: %d)" % [still_sick, morale_loss, total_sick, healed_count])
 	
 	if healed_count > 0:
@@ -5937,6 +6329,12 @@ func reset_saved_state_for_new_game() -> void:
 	_saved_worker_states.clear()
 	_saved_resource_levels = {}
 	_saved_base_production_progress = {}
+	basic_gather_expeditions_by_worker.clear()
+	basic_gather_last_departure_day.clear()
+	basic_resource_overflow.clear()
+	_saved_basic_gather_expeditions.clear()
+	_saved_basic_gather_last_departure_day.clear()
+	_saved_basic_resource_overflow.clear()
 	_saved_snapshot_time = {}
 	pending_constructions.clear()
 	reserved_build_plots.clear()
@@ -5946,11 +6344,92 @@ func reset_saved_state_for_new_game() -> void:
 	_is_leaving_village = false
 	# New Game'de eski run'dan kalan anlik oyun-kaybi durumunu sifirla.
 	village_morale = 80.0
-	_last_day_shortages = {"water": 0, "food": 0}
+	_last_day_shortages = {"water": 0, "food": 0, "soldier_water": 0, "soldier_food": 0}
 	events_active.clear()
 	_event_cooldowns.clear()
 	_village_event_cooldowns.clear()
 	_last_village_event_check_day = 0
+	_reset_worker_runtime_data()
+	cariyeler.clear()
+	gorevler.clear()
+	active_missions.clear()
+	next_cariye_id = 1
+	next_gorev_id = 1
+	worker_id_counter = 0
+	# Autoload _ready() bir kez çalışır; canlı stok / ekonomi burada başlangıca çekilir.
+	resource_levels = {
+		"wood": 0,
+		"stone": 0,
+		"food": 0,
+		"water": 0,
+		"lumber": 0,
+		"brick": 0,
+		"metal": 0,
+		"cloth": 0,
+		"garment": 0,
+		"bread": 0,
+		"tea": 0,
+		"medicine": 0,
+		"soap": 0,
+		"weapon": 5,
+		"armor": 5
+	}
+	locked_resource_levels = {
+		"wood": 0,
+		"stone": 0,
+		"food": 0,
+		"water": 0,
+		"lumber": 0,
+		"brick": 0,
+		"metal": 0,
+		"cloth": 0,
+		"garment": 0,
+		"bread": 0,
+		"tea": 0,
+		"medicine": 0,
+		"soap": 0
+	}
+	for _rk in BASE_RESOURCE_TYPES:
+		base_production_progress[_rk] = 0.0
+	global_multiplier = 1.0
+	building_bonus = 0.0
+	caregiver_bonus = 0.0
+	resource_prod_multiplier = {
+		"wood": 1.0,
+		"stone": 1.0,
+		"food": 1.0,
+		"water": 1.0,
+		"lumber": 1.0,
+		"brick": 1.0,
+		"metal": 1.0,
+		"cloth": 1.0,
+		"garment": 1.0,
+		"bread": 1.0,
+		"tea": 1.0,
+		"medicine": 1.0,
+		"soap": 1.0,
+		"weapon": 1.0,
+		"armor": 1.0
+	}
+	economy_stats_last_day = {"day": 0, "total_production": 0.0, "total_consumption": 0.0, "net": 0.0}
+	_daily_production_counter = {
+		"wood": 0,
+		"stone": 0,
+		"food": 0,
+		"water": 0,
+		"lumber": 0,
+		"brick": 0,
+		"metal": 0,
+		"cloth": 0,
+		"garment": 0,
+		"bread": 0,
+		"tea": 0,
+		"medicine": 0,
+		"soap": 0
+	}
+	_last_gather_processed_total_minutes = -1
+	_production_multipliers_restored_from_save = false
+	_last_econ_tick_day = 0
 	if is_instance_valid(VillagerAiInitializer):
 		if VillagerAiInitializer.has_method("reset_to_defaults"):
 			VillagerAiInitializer.reset_to_defaults()

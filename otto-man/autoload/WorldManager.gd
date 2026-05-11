@@ -122,6 +122,16 @@ func reset_world_map_state() -> void:
 	_clear_travel_session_state()
 	world_map_updated.emit()
 
+
+## Kayıt yüklendikten sonra kalan fraksiyon ilişkileri / savaş / olaylar (yeni oyunda temizlensin).
+func reset_faction_state_for_new_game() -> void:
+	relations.clear()
+	for i in range(factions.size()):
+		for j in range(i + 1, factions.size()):
+			relations[_rel_key(factions[i], factions[j])] = 0
+	active_wars.clear()
+	active_events.clear()
+
 func start_new_world_map(seed: int = 0, map_radius: int = DEFAULT_MAP_RADIUS) -> void:
 	reset_world_map_state()
 	world_map_radius = max(3, map_radius)
@@ -157,7 +167,14 @@ func move_player_on_world_map(target_q: int, target_r: int, reveal_radius: int =
 		return false
 	world_map_player_pos = {"q": target_q, "r": target_r}
 	discover_tiles(world_map_player_pos, reveal_radius, "player", emit_update)
+	_notify_scene_manager_village_world_map_overlay_move()
 	return true
+
+
+func _notify_scene_manager_village_world_map_overlay_move() -> void:
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm != null and sm.has_method("notify_overlay_player_moved_on_world_map"):
+		sm.notify_overlay_player_moved_on_world_map()
 
 func is_player_on_own_village_hex() -> bool:
 	var pq: int = int(world_map_player_pos.get("q", 0))
@@ -500,6 +517,31 @@ func _pick_terrain(q: int, r: int, rng: RandomNumberGenerator) -> String:
 		return "orman"
 	return "ova"
 
+
+## Oyuncu köyü ve komşu yerleşimler yalnızca ova (çimen / açık alan) hexlerinde; görsellerle uyumlu.
+func _collect_ova_village_candidate_tiles(min_dist_from_player: int) -> Array:
+	var out: Array = []
+	var pq: int = int(world_map_player_pos.get("q", 0))
+	var pr: int = int(world_map_player_pos.get("r", 0))
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("terrain_type", "")) != "ova":
+			continue
+		if bool(tile.get("contains_village", false)):
+			continue
+		if not String(tile.get("poi_type", "")).is_empty():
+			continue
+		var dist: int = _hex_distance(
+			pq,
+			pr,
+			int(tile.get("q", 0)),
+			int(tile.get("r", 0))
+		)
+		if dist >= min_dist_from_player:
+			out.append(tile)
+	return out
+
+
 func _place_settlements_on_map() -> void:
 	world_map_settlement_positions.clear()
 	var mm = get_node_or_null("/root/MissionManager")
@@ -508,19 +550,11 @@ func _place_settlements_on_map() -> void:
 	if "settlements" in mm and mm.settlements.is_empty() and mm.has_method("create_settlements"):
 		mm.create_settlements()
 	var all_settlements: Array = mm.settlements if "settlements" in mm else []
-	var land_candidates: Array = []
-	for key in world_map_tiles.keys():
-		var tile = world_map_tiles[key]
-		var terrain: String = String(tile.get("terrain_type", "ova"))
-		if terrain != "dag" and terrain != "deniz" and not bool(tile.get("contains_village", false)) and String(tile.get("poi_type", "")).is_empty():
-			var dist = _hex_distance(
-				int(world_map_player_pos.get("q", 0)),
-				int(world_map_player_pos.get("r", 0)),
-				int(tile.get("q", 0)),
-				int(tile.get("r", 0))
-			)
-			if dist >= 2:
-				land_candidates.append(tile)
+	var land_candidates: Array = _collect_ova_village_candidate_tiles(2)
+	if land_candidates.is_empty():
+		land_candidates = _collect_ova_village_candidate_tiles(1)
+	if land_candidates.is_empty():
+		land_candidates = _collect_ova_village_candidate_tiles(0)
 	for settlement in all_settlements:
 		if land_candidates.is_empty():
 			break
@@ -1614,16 +1648,45 @@ func _place_player_village_on_coast(rng: RandomNumberGenerator) -> void:
 		var tile: Dictionary = world_map_tiles[key]
 		var q := int(tile.get("q", 0))
 		var r := int(tile.get("r", 0))
-		if _is_coastal_tile(q, r):
-			var dist_center := _hex_distance(0, 0, q, r)
-			if dist_center >= int(world_map_radius * 0.2) and dist_center <= int(world_map_radius * 0.75):
-				coastal_candidates.append(tile)
+		if String(tile.get("terrain_type", "")) != "ova":
+			continue
+		if not _is_coastal_tile(q, r):
+			continue
+		var dist_center := _hex_distance(0, 0, q, r)
+		if dist_center >= int(world_map_radius * 0.2) and dist_center <= int(world_map_radius * 0.75):
+			coastal_candidates.append(tile)
+	if coastal_candidates.is_empty():
+		for key2 in world_map_tiles.keys():
+			var t2: Dictionary = world_map_tiles[key2]
+			var q2 := int(t2.get("q", 0))
+			var r2 := int(t2.get("r", 0))
+			if String(t2.get("terrain_type", "")) != "ova":
+				continue
+			if not _is_coastal_tile(q2, r2):
+				continue
+			coastal_candidates.append(t2)
+	if coastal_candidates.is_empty():
+		for key3 in world_map_tiles.keys():
+			var t3: Dictionary = world_map_tiles[key3]
+			if String(t3.get("terrain_type", "")) != "ova":
+				continue
+			var q3 := int(t3.get("q", 0))
+			var r3 := int(t3.get("r", 0))
+			var dc3 := _hex_distance(0, 0, q3, r3)
+			if dc3 >= int(world_map_radius * 0.15) and dc3 <= int(world_map_radius * 0.82):
+				coastal_candidates.append(t3)
+	if coastal_candidates.is_empty():
+		for key4 in world_map_tiles.keys():
+			var t4: Dictionary = world_map_tiles[key4]
+			if String(t4.get("terrain_type", "")) != "ova":
+				continue
+			coastal_candidates.append(t4)
 	if coastal_candidates.is_empty():
 		world_map_player_pos = {"q": 0, "r": 0}
-		var fallback_key := _hex_key(0, 0)
-		if world_map_tiles.has(fallback_key):
-			world_map_tiles[fallback_key]["contains_village"] = true
-			world_map_tiles[fallback_key]["poi_type"] = "player_village"
+		var fk := _hex_key(0, 0)
+		if world_map_tiles.has(fk) and String(world_map_tiles[fk].get("terrain_type", "")) == "ova":
+			world_map_tiles[fk]["contains_village"] = true
+			world_map_tiles[fk]["poi_type"] = "player_village"
 		return
 	var selected: Dictionary = coastal_candidates[rng.randi_range(0, coastal_candidates.size() - 1)]
 	var vq: int = int(selected.get("q", 0))
@@ -5004,3 +5067,83 @@ func get_offensive_raid_result_effects(settlement_id: String, success: bool) -> 
 	else:
 		change_relation("Köy", s_name, -3, false)
 		return {"gold_loot": 0, "food_loot": 0, "relation_change": -3, "target_weakened": false}
+
+
+# --- Köy işçisi temel kaynak seferleri (harita hex maliyeti ile uyumlu) ---
+## Oyuncu dünya seyahati ~20 dk/hex algısı; köylü toplama kervanı daha yavaş: 30 dk/hex.
+## `find_world_map_path` dakikası oyuncu hızına göre; burada köylü için ölçek uygulanır.
+const PLAYER_MAP_TRAVEL_MINUTES_PER_HEX_REF: float = 20.0
+const VILLAGE_GATHER_TRAVEL_MINUTES_PER_HEX_REF: float = 30.0
+## Sahada çalışma süresi (oyun dakikası): gidiş–dönüş yol sürelerine eklenir.
+const VILLAGE_GATHER_WORK_SITE_MINUTES: int = 180
+
+
+func get_player_village_hex_coords() -> Dictionary:
+	return _get_player_village_position()
+
+
+## Temel kaynak türü için köyden en yakın uygun arazi hex'ine göre tur süresi (dakika).
+## wood/food -> orman, stone -> dag, water -> akarsu
+func compute_village_gather_round_trip_minutes(resource_type: String) -> Dictionary:
+	var pos: Dictionary = _get_player_village_position()
+	if pos.is_empty():
+		return {"ok": false, "reason": "no_village", "round_trip_minutes": 240, "one_way_minutes": 30}
+	var vq: int = int(pos.get("q", 0))
+	var vr: int = int(pos.get("r", 0))
+	var terrain: String = ""
+	match resource_type:
+		"wood", "food":
+			terrain = "orman"
+		"stone":
+			terrain = "dag"
+		"water":
+			terrain = "akarsu"
+		_:
+			return {"ok": false, "reason": "bad_resource", "round_trip_minutes": 240, "one_way_minutes": 30}
+	var best_q: int = 0
+	var best_r: int = 0
+	var best_hex_d: int = 999999
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("terrain_type", "")) != terrain:
+			continue
+		var tq: int = int(tile.get("q", 0))
+		var tr: int = int(tile.get("r", 0))
+		var hd: int = _hex_distance(vq, vr, tq, tr)
+		if hd < best_hex_d:
+			best_hex_d = hd
+			best_q = tq
+			best_r = tr
+	if best_hex_d >= 999999:
+		return {"ok": false, "reason": "no_terrain", "round_trip_minutes": 480, "one_way_minutes": 60}
+	var path_res: Dictionary = find_world_map_path(vq, vr, best_q, best_r, "shortest")
+	if not bool(path_res.get("ok", false)):
+		return {"ok": false, "reason": "no_path", "round_trip_minutes": 480, "one_way_minutes": 60}
+	var one_way_player: int = maxi(1, int(path_res.get("minutes", 1)))
+	var villager_scale: float = VILLAGE_GATHER_TRAVEL_MINUTES_PER_HEX_REF / max(0.001, PLAYER_MAP_TRAVEL_MINUTES_PER_HEX_REF)
+	var one_way: int = maxi(1, int(ceili(float(one_way_player) * villager_scale)))
+	var rt: int = 2 * one_way + VILLAGE_GATHER_WORK_SITE_MINUTES
+	return {"ok": true, "round_trip_minutes": rt, "one_way_minutes": one_way, "target_q": best_q, "target_r": best_r}
+
+
+## Köylü seferi başarılı hesaplandığında: gidiş güzergâhı + iş hedefi çevresi haritada keşfedilir (sis).
+func reveal_village_gather_intel_for_successful_trip(trip: Dictionary) -> void:
+	if world_map_tiles.is_empty():
+		return
+	if not bool(trip.get("ok", false)):
+		return
+	var vpos: Dictionary = _get_player_village_position()
+	if vpos.is_empty():
+		return
+	var vq: int = int(vpos.get("q", 0))
+	var vr: int = int(vpos.get("r", 0))
+	var tq: int = int(trip.get("target_q", 0))
+	var tr: int = int(trip.get("target_r", 0))
+	var path_res: Dictionary = find_world_map_path(vq, vr, tq, tr, "shortest")
+	if bool(path_res.get("ok", false)):
+		for node in path_res.get("path", []):
+			var pq: int = int(node.get("q", 0))
+			var pr: int = int(node.get("r", 0))
+			discover_tiles({"q": pq, "r": pr}, 1, "village_gather", false)
+	discover_tiles({"q": tq, "r": tr}, 2, "village_gather", false)
+	world_map_updated.emit()

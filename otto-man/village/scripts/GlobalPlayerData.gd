@@ -80,6 +80,21 @@ func clear_dungeon_gold() -> void:
 	if has_signal("dungeon_gold_changed"):
 		dungeon_gold_changed.emit(0)
 
+
+## Ana menüden «Yeni oyun»: kayıttan kalan altın, envanter vb. kalmasın.
+func reset_for_new_game() -> void:
+	gold = 100
+	asker_sayisi = 5
+	iliskiler = {
+		"komsu_koy": 0,
+		"kraliyet": 0
+	}
+	envanter.clear()
+	dungeon_gold = 0
+	if has_signal("dungeon_gold_changed"):
+		dungeon_gold_changed.emit(0)
+	print("GlobalPlayerData: reset_for_new_game (defaults)")
+
 func lose_dungeon_gold_by_fraction(fraction: float) -> int:
 	"""Lose a fraction of currently carried dungeon gold. Returns lost amount."""
 	fraction = clampf(fraction, 0.0, 1.0)

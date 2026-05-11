@@ -91,6 +91,15 @@ func get_day() -> int:
 func get_time_string() -> String:
 	return "Gün %d, %02d:%02d" % [days, hours, minutes]
 
+
+## Yeni oyun: yüklemeden kalan gün/saat ve zaman ölçeğini başlangıca çeker.
+func reset_for_new_game() -> void:
+	days = 1
+	hours = 6
+	minutes = 0
+	_time_accumulator = 0.0
+	set_time_scale_index(0)
+
 # --- Zaman Hızı Kontrol Fonksiyonları --- #
 func set_time_scale_index(index: int) -> void:
 	if index >= 0 and index < time_scales.size():

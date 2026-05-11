@@ -429,9 +429,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if not _is_blocking_world_map_ui_open():
 			if _player_on_own_village_hex():
-				var scene_manager: Node = get_node_or_null("/root/SceneManager")
-				if scene_manager and scene_manager.has_method("change_to_village"):
-					scene_manager.change_to_village({"source": "world_map"})
+				_try_close_overlay_or_go_to_village()
 			else:
 				_update_status_label("Koye donmek icin once kendi koy hex ine var.")
 			get_viewport().set_input_as_handled()
@@ -439,9 +437,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Numpad Enter hem ui_accept ile cakisir; haritayi acan tus haritayi da kapatsin.
 	if not _is_blocking_world_map_ui_open() and event.is_action_pressed("open_world_map"):
 		if _player_on_own_village_hex():
-			var scene_manager_wm: Node = get_node_or_null("/root/SceneManager")
-			if scene_manager_wm and scene_manager_wm.has_method("change_to_village"):
-				scene_manager_wm.change_to_village({"source": "world_map"})
+			_try_close_overlay_or_go_to_village()
 		else:
 			_update_status_label("Koye donmek icin once kendi koy hex ine var.")
 		get_viewport().set_input_as_handled()
@@ -631,6 +627,16 @@ func _player_on_own_village_hex() -> bool:
 		return false
 	return bool(_world_manager.call("is_player_on_own_village_hex"))
 
+
+## Köyden overlay ile açıldıysa sahneyi yenilemeden kapat; aksi tam sahne geçişi (change_to_village).
+func _try_close_overlay_or_go_to_village() -> void:
+	var sm: Node = get_node_or_null("/root/SceneManager")
+	if sm != null and sm.has_method("try_close_world_map_overlay_village_return"):
+		if sm.try_close_world_map_overlay_village_return():
+			return
+	if sm != null and sm.has_method("change_to_village"):
+		sm.change_to_village({"source": "world_map"})
+
 func _should_enter_own_village_on_move_confirm() -> bool:
 	if not _player_on_own_village_hex():
 		return false
@@ -641,7 +647,10 @@ func _should_enter_own_village_on_move_confirm() -> bool:
 
 func _enter_player_village_from_world_map() -> void:
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
-	if scene_manager and scene_manager.has_method("change_to_village"):
+	if scene_manager != null and scene_manager.has_method("try_close_world_map_overlay_village_return"):
+		if scene_manager.try_close_world_map_overlay_village_return():
+			return
+	if scene_manager != null and scene_manager.has_method("change_to_village"):
 		scene_manager.change_to_village({"source": "world_map", "reason": "player_village_entry"})
 
 func _try_enter_village_from_combat_action() -> bool:
