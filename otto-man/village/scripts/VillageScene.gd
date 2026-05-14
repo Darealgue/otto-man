@@ -214,7 +214,10 @@ func _on_morale_game_over() -> void:
 		sm.return_to_main_menu()
 
 func _check_and_transfer_forest_resources() -> void:
-	"""Check if player is returning from forest and transfer carried resources to village."""
+	"""Taşınan orman kaynaklarını (wood/stone/water/food) köy stoğuna aktar.
+	Dünya haritası dönüşünde SceneManager zaten aktarır; burada özellikle
+	`change_to_village({})` gibi boş payload (ölüm vb.) ile gelindiğinde
+	sadece `source == \"forest\"` beklemek kaynakların köyde görünmemesine yol açıyordu."""
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if not scene_manager:
 		print("[VillageScene] ⚠️ SceneManager not found")
@@ -223,37 +226,43 @@ func _check_and_transfer_forest_resources() -> void:
 	var payload = scene_manager.get_current_payload()
 	var source = payload.get("source", "")
 	
-	print("[VillageScene] 🔍 Checking for forest resources transfer. Payload source: '%s', payload: %s" % [source, payload])
-	
-	# Check PlayerStats for carried resources before transfer
 	var player_stats = get_node_or_null("/root/PlayerStats")
-	if player_stats:
-		var carried = player_stats.get_carried_resources()
-		print("[VillageScene] 📦 Carried resources before transfer: %s" % carried)
+	var game_manager = get_node_or_null("/root/GameManager")
+	if not game_manager:
+		push_warning("[VillageScene] GameManager not found, cannot transfer resources")
+		return
 	
-	if source == "forest":
-		var game_manager = get_node_or_null("/root/GameManager")
-		if not game_manager:
-			push_warning("[VillageScene] GameManager not found, cannot transfer resources")
-			return
-		
-		print("[VillageScene] 🌲 Transferring forest resources to village...")
-		var transferred = game_manager.transfer_carried_resources_to_village()
-		
-		if transferred.is_empty():
-			print("[VillageScene] ⚠️ No resources transferred (transferred dict is empty)")
-		else:
-			var log_parts := []
-			for type in transferred.keys():
-				var amount: int = int(transferred[type])
-				if amount > 0:
-					log_parts.append("%d %s" % [amount, type])
-			if log_parts.size() > 0:
-				print("[VillageScene] ✅ Forest resources transferred to village: %s" % ", ".join(log_parts))
-			else:
-				print("[VillageScene] ⚠️ Transferred dict not empty but no positive amounts found: %s" % transferred)
+	var carried: Dictionary = {}
+	if player_stats and player_stats.has_method("get_carried_resources"):
+		carried = player_stats.get_carried_resources()
+	
+	var has_carried: bool = false
+	for k in carried.keys():
+		if int(carried[k]) > 0:
+			has_carried = true
+			break
+	
+	print("[VillageScene] 🔍 Carried resources check (source='%s'): %s" % [source, carried])
+	
+	if not has_carried:
+		print("[VillageScene] ℹ️ No carried resources to merge into village stockpile")
+		return
+	
+	print("[VillageScene] 🌲 Transferring carried resources to village (source='%s')..." % source)
+	var transferred: Dictionary = game_manager.transfer_carried_resources_to_village()
+	
+	if transferred.is_empty():
+		print("[VillageScene] ⚠️ Transfer returned empty (types may not match village stock keys)")
 	else:
-		print("[VillageScene] ℹ️ Not returning from forest (source: '%s'), skipping resource transfer" % source)
+		var log_parts: Array[String] = []
+		for type in transferred.keys():
+			var amount: int = int(transferred[type])
+			if amount > 0:
+				log_parts.append("%d %s" % [amount, type])
+		if log_parts.size() > 0:
+			print("[VillageScene] ✅ Merged into village: %s" % ", ".join(log_parts))
+		else:
+			print("[VillageScene] ⚠️ Unexpected transfer dict: %s" % transferred)
 
 func _show_delivery_summary_from_payload() -> void:
 	var scene_manager = get_node_or_null("/root/SceneManager")

@@ -449,8 +449,8 @@ func snapshot_state_for_scene_exit() -> void:
 		var worker_data = all_workers.get(worker_id, {})
 		if not worker_data:
 			continue
-		var worker_instance: Node = worker_data.get("instance", null)
-		if not is_instance_valid(worker_instance):
+		var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
+		if worker_instance == null:
 			continue
 		var npc_info_value = worker_instance.get("NPC_Info") if worker_instance else null
 		var npc_info: Dictionary = npc_info_value.duplicate(true) if npc_info_value is Dictionary else {}
@@ -1123,6 +1123,32 @@ func _gather_flush_completed_deliveries_up_to(t_abs: int) -> void:
 			_gather_complete_delivery(int(wid), exp)
 
 
+func _purge_stale_worker_registry_entry(worker_id: int) -> void:
+	if all_workers.has(worker_id):
+		var entry: Variant = all_workers.get(worker_id, null)
+		if entry is Dictionary:
+			(entry as Dictionary).erase("instance")
+	all_workers.erase(worker_id)
+	basic_gather_expeditions_by_worker.erase(worker_id)
+	basic_gather_last_departure_day.erase(worker_id)
+
+
+## all_workers["instance"] silinmiş Node ise tipli değişkene atamak çökebilir; sadece Variant + is_instance_valid, ara Object ataması yok.
+func _worker_node_from_all_workers_entry(worker_id: Variant, data: Dictionary, purge_if_dead: bool = true) -> Node:
+	var ref = data.get("instance", null)
+	if ref == null:
+		return null
+	if typeof(ref) != TYPE_OBJECT:
+		return null
+	if not is_instance_valid(ref):
+		if purge_if_dead:
+			_purge_stale_worker_registry_entry(int(worker_id))
+		return null
+	if not (ref is Node):
+		return null
+	return ref
+
+
 func _basic_gather_reconcile_after_village_ready() -> void:
 	if not USE_DISTANCE_BASED_BASIC_GATHER:
 		return
@@ -1150,8 +1176,8 @@ func _iter_basic_gather_worker_ids() -> Array:
 	var out: Array = []
 	for wid in all_workers.keys():
 		var data: Dictionary = all_workers.get(wid, {})
-		var inst: Node = data.get("instance", null)
-		if not is_instance_valid(inst):
+		var inst: Node = _worker_node_from_all_workers_entry(wid, data, true)
+		if inst == null:
 			continue
 		if inst.get("is_sick"):
 			continue
@@ -1166,8 +1192,8 @@ func _iter_basic_gather_worker_ids() -> Array:
 
 func _gather_worker_job_type(worker_id: int) -> String:
 	var data: Dictionary = all_workers.get(worker_id, {})
-	var inst: Node = data.get("instance", null)
-	if not is_instance_valid(inst):
+	var inst: Node = _worker_node_from_all_workers_entry(worker_id, data, true)
+	if inst == null:
 		return ""
 	if "assigned_job_type" in inst:
 		return String(inst.get("assigned_job_type"))
@@ -1371,8 +1397,8 @@ func _build_worker_maps() -> Dictionary:
 			var worker_data = all_workers.get(worker_id, {})
 			if not worker_data:
 				continue
-			var worker_instance: Node = worker_data.get("instance", null)
-			if not is_instance_valid(worker_instance):
+			var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
+			if worker_instance == null:
 				continue
 			var job_type := ""
 			if "assigned_job_type" in worker_instance:
@@ -1555,16 +1581,16 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 		var assigned_worker: Node = null
 		if saved_worker_id >= 0 and all_workers.has(saved_worker_id):
 			var worker_data = all_workers.get(saved_worker_id, {})
-			if worker_data and worker_data.has("instance"):
-				assigned_worker = worker_data.get("instance", null)
+			if worker_data:
+				assigned_worker = _worker_node_from_all_workers_entry(saved_worker_id, worker_data, false)
 		
 		if not is_instance_valid(assigned_worker):
 			for worker_id in all_workers.keys():
 				var worker_data = all_workers.get(worker_id, {})
 				if not worker_data:
 					continue
-				var worker_instance: Node = worker_data.get("instance", null)
-				if not is_instance_valid(worker_instance):
+				var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
+				if worker_instance == null:
 					continue
 				var worker_job: String = ""
 				if worker_instance and "assigned_job_type" in worker_instance:
@@ -1817,8 +1843,8 @@ func _sync_soldiers_with_missions() -> void:
 	var brought_back = 0
 	for wid in all_workers:
 		var worker_data = all_workers.get(wid, {})
-		var inst = worker_data.get("instance", null)
-		if not is_instance_valid(inst):
+		var inst: Node = _worker_node_from_all_workers_entry(wid, worker_data, true)
+		if inst == null:
 			continue
 		var job = inst.get("assigned_job_type") if "assigned_job_type" in inst else ""
 		if job != "soldier":
@@ -2138,7 +2164,7 @@ func register_village_scene(scene: Node2D) -> void:
 					var worker_data = all_workers.get(new_id, {})
 					if worker_data:
 						all_workers.erase(new_id)
-						var worker_instance: Node = worker_data.get("instance", null)
+						var worker_instance: Node = _worker_node_from_all_workers_entry(new_id, worker_data, false)
 						if is_instance_valid(worker_instance):
 							worker_instance.worker_id = desired_id
 							worker_instance.name = "Worker" + str(desired_id)
@@ -2154,7 +2180,7 @@ func register_village_scene(scene: Node2D) -> void:
 				# Bu yüzden önceki housing'ı geri yüklemeliyiz
 				if not saved_housing_key.is_empty():
 					var worker_data = all_workers.get(new_id, {})
-					var worker_instance: Node = worker_data.get("instance", null)
+					var worker_instance: Node = _worker_node_from_all_workers_entry(new_id, worker_data, false)
 					if is_instance_valid(worker_instance):
 						# Önce _assign_housing tarafından atanan housing'ı kaldır
 						var current_housing = worker_instance.get("housing_node")
@@ -3573,8 +3599,8 @@ func _reassign_campfire_workers_to_houses() -> void:
 	var workers_to_reassign: Array = []
 	for wid in all_workers:
 		var entry: Dictionary = all_workers[wid]
-		var w = entry.get("instance")
-		if not is_instance_valid(w):
+		var w: Node = _worker_node_from_all_workers_entry(wid, entry, true)
+		if w == null:
 			continue
 		var wh = w.get("housing_node") if "housing_node" in w else null
 		if is_instance_valid(wh) and wh == campfire_node:
@@ -4529,8 +4555,8 @@ func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 				var worker_data = all_workers.get(worker_id, {})
 				if not worker_data:
 					continue
-				var worker_instance = worker_data.get("instance", null)
-				if not is_instance_valid(worker_instance):
+				var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
+				if worker_instance == null:
 					continue
 				worker_ids_list.append(worker_id)
 			
@@ -4541,8 +4567,8 @@ func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 				var worker_data = all_workers.get(worker_id, {})
 				if not worker_data:
 					continue
-				var worker_instance = worker_data.get("instance", null)
-				if not is_instance_valid(worker_instance):
+				var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
+				if worker_instance == null:
 					continue
 				
 				# Eski iş bilgilerini kaydet (iyileşince dönmek için)
@@ -4717,8 +4743,8 @@ func _remove_event_effects(ev: Dictionary) -> void:
 				var worker_data = all_workers.get(worker_id, {})
 				if not worker_data:
 					continue
-				var worker_instance = worker_data.get("instance", null)
-				if not is_instance_valid(worker_instance):
+				var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
+				if worker_instance == null:
 					continue
 				if "is_sick" in worker_instance and worker_instance.is_sick:
 					worker_instance.is_sick = false
@@ -5088,9 +5114,9 @@ func _on_mission_manager_mission_started(_cariye_id: int, mission_id: String) ->
 		if not all_workers.has(wid):
 			print("[RAID_DEBUG]   wid=%s all_workers'da yok" % wid)
 			continue
-		var worker_data = all_workers[wid]
-		var inst = worker_data.get("instance", null)
-		if not is_instance_valid(inst):
+		var worker_data: Dictionary = all_workers[wid]
+		var inst: Node = _worker_node_from_all_workers_entry(wid, worker_data, true)
+		if inst == null:
 			print("[RAID_DEBUG]   wid=%s instance geçersiz" % wid)
 			continue
 		var job = inst.get("assigned_job_type")
@@ -5131,9 +5157,9 @@ func _show_soldiers_back_from_mission(mission_id: String) -> void:
 		var wid = int(w) if w is float else w
 		if not all_workers.has(wid):
 			continue
-		var worker_data = all_workers[wid]
-		var inst = worker_data.get("instance", null)
-		if not is_instance_valid(inst):
+		var worker_data: Dictionary = all_workers[wid]
+		var inst: Node = _worker_node_from_all_workers_entry(wid, worker_data, true)
+		if inst == null:
 			continue
 		inst.set("is_deployed", false)
 		inst.set("current_state", 6)  # Worker.State.RETURNING_FROM_WORK
@@ -5198,8 +5224,8 @@ func _check_and_heal_sick_workers(current_day: int) -> void:
 		var worker_data = all_workers.get(worker_id, {})
 		if not worker_data:
 			continue
-		var worker_instance = worker_data.get("instance", null)
-		if not is_instance_valid(worker_instance):
+		var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
+		if worker_instance == null:
 			continue
 		
 		if "is_sick" in worker_instance and worker_instance.is_sick:
@@ -6085,12 +6111,9 @@ func remove_worker_from_village(worker_id_to_remove: int) -> void:
 	if not all_workers.has(worker_id_to_remove):
 		#printerr("VillageManager Error: Worker %d not found in active_workers." % worker_id_to_remove)
 		return
-		
-	var worker_instance = all_workers[worker_id_to_remove]["instance"]
-	if not is_instance_valid(worker_instance):
-		#printerr("VillageManager Warning: Worker %d instance is invalid. Removing from list." % worker_id_to_remove)
-		all_workers.erase(worker_id_to_remove) # Listeyi temizle
-		# Sayaçları burada azaltmak riskli olabilir, belki zaten azalmıştır.
+	var wdata: Dictionary = all_workers.get(worker_id_to_remove, {})
+	var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id_to_remove, wdata, true)
+	if worker_instance == null:
 		return
 
 	# 2. Barınaktan Çıkar (Eğer Ev veya CampFire İse)

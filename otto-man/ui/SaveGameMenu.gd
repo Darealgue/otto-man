@@ -6,6 +6,7 @@ signal slot_selected(slot_id: int)
 signal back_requested()
 
 @onready var slots_container: VBoxContainer = $Panel/VBoxContainer/SlotsContainer
+@onready var title_label: Label = $Panel/VBoxContainer/Title
 @onready var back_button: Button = $Panel/VBoxContainer/BackButton
 @onready var status_label: Label = $Panel/VBoxContainer/StatusLabel
 @onready var confirm_dialog: Control = $ConfirmDialog
@@ -102,6 +103,8 @@ func _get_scene_name(scene_path: String) -> String:
 		return "Zindan"
 	elif scene_path.contains("Forest"):
 		return "Orman"
+	elif scene_path.contains("WorldMap"):
+		return "Dünya haritası"
 	elif scene_path.contains("MainMenu"):
 		return "Ana Menü"
 	else:
@@ -211,6 +214,8 @@ func _on_back_pressed() -> void:
 
 func show_menu() -> void:
 	visible = true
+	if title_label and is_instance_valid(SaveManager) and SaveManager.has_method("get_active_profile_id"):
+		title_label.text = "Oyunu Kaydet — Profil %d" % int(SaveManager.get_active_profile_id())
 	_refresh_slots()
 	# Use call_deferred to ensure UI is ready before grabbing focus
 	if slot_buttons.size() > 0:

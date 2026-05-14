@@ -40,9 +40,15 @@ var settlements: Array[Dictionary] = []  # [{id, name, type, relation, wealth, s
 var trade_routes: Array[Dictionary] = []  # [{from, to, products:[], distance, risk, active, relation}]
 var mission_history: Array[Dictionary] = []  # En son gerçekleşen görev sonuçları (LIFO)
 
-# Kaydetme/Yükleme
-const SAVE_DIR := "user://otto-man-save/"
+# Kaydetme/Yükleme (SaveManager profil alt klasörü)
 const ROLES_FILE := "concubine_roles.json"
+
+
+func _concubine_roles_base_dir() -> String:
+	var sm: Node = get_node_or_null("/root/SaveManager")
+	if sm and sm.has_method("get_profile_data_directory"):
+		return str(sm.get_profile_data_directory())
+	return "user://otto-man-save/profile_1/"
 
 # Faz 7 dengeleme sabitleri (kayıp etkileri)
 const LOSS_RESOURCE_PCT := 0.08        # Kaynakların yüzde kaçı gider (8%)
@@ -4440,7 +4446,7 @@ func _ensure_save_dir() -> void:
 	if dir and not dir.dir_exists("otto-man-save"):
 		var err := dir.make_dir("otto-man-save")
 		if err != OK:
-			push_error("[MissionManager] Save dir create failed: " + SAVE_DIR)
+			push_error("[MissionManager] Save dir create failed: user://otto-man-save/")
 
 func _save_concubine_roles() -> void:
 	_ensure_save_dir()
@@ -4448,7 +4454,7 @@ func _save_concubine_roles() -> void:
 	for cariye_id in concubines.keys():
 		var c: Concubine = concubines[cariye_id]
 		roles[str(cariye_id)] = int(c.role)
-	var path := SAVE_DIR + ROLES_FILE
+	var path := _concubine_roles_base_dir() + ROLES_FILE
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(roles))
@@ -4458,7 +4464,7 @@ func _save_concubine_roles() -> void:
 		push_error("[MissionManager] Kaydetme açılamadı: " + path)
 
 func _load_concubine_roles() -> void:
-	var path := SAVE_DIR + ROLES_FILE
+	var path := _concubine_roles_base_dir() + ROLES_FILE
 	if not FileAccess.file_exists(path):
 		return
 	var f := FileAccess.open(path, FileAccess.READ)

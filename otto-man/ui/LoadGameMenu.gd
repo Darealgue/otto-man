@@ -8,6 +8,7 @@ signal delete_requested(slot_id: int)
 signal back_requested()
 
 @onready var slots_container: VBoxContainer = $Panel/VBoxContainer/SlotsContainer
+@onready var title_label: Label = $Panel/VBoxContainer/Title
 @onready var back_button: Button = $Panel/VBoxContainer/BackButton
 @onready var status_label: Label = $Panel/VBoxContainer/StatusLabel
 @onready var confirm_dialog: Control = $ConfirmDialog
@@ -16,6 +17,8 @@ const MAX_SLOTS: int = 5
 var _pending_delete_slot: int = -1
 var slot_buttons: Array[Button] = []
 var slot_labels: Array[Label] = []
+var _autosave_label: Label = null
+var _autosave_load_button: Button = null
 
 func _ready() -> void:
 	_ensure_nodes()
@@ -37,6 +40,25 @@ func _create_slot_ui() -> void:
 	
 	slot_buttons.clear()
 	slot_labels.clear()
+	
+	# Otomatik kayıt (profil klasöründe autosave.json; slot id = 0)
+	var auto_row := HBoxContainer.new()
+	auto_row.name = "AutosaveRow"
+	_autosave_label = Label.new()
+	_autosave_label.name = "AutosaveLabel"
+	_autosave_label.text = "Otomatik kayıt: ..."
+	_autosave_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_autosave_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_autosave_load_button = Button.new()
+	_autosave_load_button.name = "AutosaveLoadButton"
+	_autosave_load_button.text = "Yükle"
+	_autosave_load_button.pressed.connect(_on_slot_load_pressed.bind(SaveManager.AUTOSAVE_UI_SLOT_ID))
+	var delete_spacer := Control.new()
+	delete_spacer.custom_minimum_size = Vector2(72, 10)
+	auto_row.add_child(_autosave_label)
+	auto_row.add_child(_autosave_load_button)
+	auto_row.add_child(delete_spacer)
+	slots_container.add_child(auto_row)
 	
 	for i in range(MAX_SLOTS):
 		var slot_id = i + 1
@@ -78,6 +100,8 @@ func _refresh_slots() -> void:
 		push_error("[LoadGameMenu] SaveManager not available!")
 		return
 	
+	_refresh_autosave_slot()
+	
 	for i in range(MAX_SLOTS):
 		var slot_id = i + 1
 		var validation = SaveManager.validate_save_file(slot_id)
@@ -105,6 +129,26 @@ func _refresh_slots() -> void:
 			label.text = "Slot %d: %s\nSahne: %s | Süre: %s" % [slot_id, save_date, scene_name, playtime_str]
 			load_button.disabled = false
 
+
+func _refresh_autosave_slot() -> void:
+	if _autosave_label == null or _autosave_load_button == null:
+		return
+	var validation: Dictionary = SaveManager.validate_autosave_file()
+	if not validation["valid"]:
+		_autosave_label.text = "Otomatik kayıt: (henüz yok)"
+		_autosave_load_button.disabled = true
+		return
+	var metadata: Dictionary = validation["metadata"]
+	var save_date: String = str(metadata.get("save_date", ""))
+	var playtime: int = int(metadata.get("playtime_seconds", 0))
+	var scene: String = str(metadata.get("scene", ""))
+	var scene_name: String = _get_scene_name(scene)
+	var playtime_str: String = _format_playtime(playtime)
+	var reason: String = str(metadata.get("autosave_reason", ""))
+	var reason_suffix: String = (" | " + reason) if not reason.is_empty() else ""
+	_autosave_label.text = "Otomatik kayıt — %s\nSahne: %s | Süre: %s%s" % [save_date, scene_name, playtime_str, reason_suffix]
+	_autosave_load_button.disabled = false
+
 func _format_playtime(seconds: int) -> String:
 	var hours = seconds / 3600
 	var minutes = (seconds % 3600) / 60
@@ -120,6 +164,8 @@ func _get_scene_name(scene_path: String) -> String:
 		return "Zindan"
 	elif scene_path.contains("Forest"):
 		return "Orman"
+	elif scene_path.contains("WorldMap"):
+		return "Dünya haritası"
 	elif scene_path.contains("MainMenu"):
 		return "Ana Menü"
 	else:
@@ -129,6 +175,21 @@ func _on_slot_load_pressed(slot_id: int) -> void:
 	if not is_instance_valid(SaveManager):
 		push_error("[LoadGameMenu] SaveManager not available!")
 		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
+		return
+	
+	if slot_id == SaveManager.AUTOSAVE_UI_SLOT_ID:
+		var v_auto: Dictionary = SaveManager.validate_autosave_file()
+		if not v_auto["valid"]:
+			_show_error("Kayıt Yok", "Henüz otomatik kayıt oluşmadı.")
+			return
+		_set_status("Yükleniyor...", true)
+		if SaveManager.has_signal("error_occurred"):
+			if not SaveManager.error_occurred.is_connected(_on_save_error):
+				SaveManager.error_occurred.connect(_on_save_error)
+		if SaveManager.has_signal("load_completed"):
+			if not SaveManager.load_completed.is_connected(_on_load_completed):
+				SaveManager.load_completed.connect(_on_load_completed)
+		slot_selected.emit(slot_id)
 		return
 	
 	# Validate save file before loading
@@ -218,6 +279,8 @@ func _setup_confirm_dialog() -> void:
 		push_error("[LoadGameMenu] ConfirmDialog has no 'cancelled' signal!")
 
 func _on_slot_delete_pressed(slot_id: int) -> void:
+	if slot_id == SaveManager.AUTOSAVE_UI_SLOT_ID:
+		return
 	print("[LoadGameMenu] 🔴 DELETE BUTTON PRESSED for slot %d" % slot_id)
 	
 	if not is_instance_valid(SaveManager):
@@ -287,11 +350,16 @@ func _on_back_pressed() -> void:
 
 func show_menu() -> void:
 	visible = true
+	if title_label and is_instance_valid(SaveManager) and SaveManager.has_method("get_active_profile_id"):
+		title_label.text = "Oyunu Yükle — Profil %d" % int(SaveManager.get_active_profile_id())
 	_refresh_slots()
 	# Use call_deferred to ensure UI is ready before grabbing focus
 	call_deferred("_set_load_menu_focus")
 
 func _set_load_menu_focus() -> void:
+	if _autosave_load_button and _autosave_load_button.visible and not _autosave_load_button.disabled and _autosave_load_button.focus_mode != Control.FOCUS_NONE:
+		_autosave_load_button.grab_focus()
+		return
 	# Set focus to first enabled slot button when menu is ready
 	for button in slot_buttons:
 		if button and button.visible and not button.disabled and button.focus_mode != Control.FOCUS_NONE:

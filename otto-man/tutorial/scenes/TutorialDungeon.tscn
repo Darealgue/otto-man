@@ -1,0 +1,154 @@
+[gd_scene load_steps=14 format=3 uid="uid://cl30yirib7pu3"]
+
+[ext_resource type="Script" path="res://tutorial/scripts/TutorialDungeonRoot.gd" id="1_root"]
+[ext_resource type="PackedScene" path="res://tutorial/ui/TutorialSpeechBar.tscn" id="3_speech"]
+[ext_resource type="Script" path="res://tutorial/scripts/TutorialDungeonController.gd" id="4_ctrl"]
+[ext_resource type="PackedScene" path="res://ui/PauseMenu.tscn" id="5_pause"]
+[ext_resource type="PackedScene" path="res://scenes/game_ui.tscn" id="6_gameui"]
+[ext_resource type="Script" path="res://tutorial/scripts/tutorial_beat_director.gd" id="7_beat"]
+[ext_resource type="Script" path="res://tutorial/scripts/tutorial_point.gd" id="8_tp"]
+[ext_resource type="Script" path="res://tutorial/scripts/tutorial_sequential_enemy_spawner.gd" id="9_seq"]
+[ext_resource type="PackedScene" uid="uid://ct5ycpagiclmy" path="res://traps_v2/wall/arrow_shooter.tscn" id="10_arrow"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_trig"]
+size = Vector2(520, 280)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_trig2"]
+size = Vector2(480, 260)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_trig3"]
+size = Vector2(420, 240)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_goal"]
+size = Vector2(160, 320)
+
+[node name="TutorialDungeon" type="Node2D"]
+script = ExtResource("1_root")
+
+[node name="Markers" type="Node2D" parent="."]
+
+[node name="PlayerSpawn" type="Marker2D" parent="Markers"]
+unique_name_in_owner = true
+position = Vector2(960, 540)
+
+[node name="NpcPoint1" type="Marker2D" parent="Markers"]
+position = Vector2(1080, 520)
+gizmo_extents = 32.0
+script = ExtResource("8_tp")
+
+[node name="NpcPoint2" type="Marker2D" parent="Markers"]
+position = Vector2(1580, 480)
+gizmo_extents = 32.0
+script = ExtResource("8_tp")
+point_index = 2
+
+[node name="Beat1Trigger" type="Area2D" parent="Markers"]
+position = Vector2(1360, 540)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Markers/Beat1Trigger"]
+shape = SubResource("RectangleShape2D_trig")
+
+[node name="NpcPoint3" type="Marker2D" parent="Markers"]
+position = Vector2(2100, 460)
+gizmo_extents = 32.0
+script = ExtResource("8_tp")
+point_index = 3
+
+[node name="NpcPoint4" type="Marker2D" parent="Markers"]
+position = Vector2(2580, 560)
+gizmo_extents = 32.0
+script = ExtResource("8_tp")
+point_index = 4
+
+[node name="Beat2Trigger" type="Area2D" parent="Markers"]
+position = Vector2(1980, 500)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Markers/Beat2Trigger"]
+shape = SubResource("RectangleShape2D_trig2")
+
+[node name="Beat3Trigger" type="Area2D" parent="Markers"]
+position = Vector2(2480, 540)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Markers/Beat3Trigger"]
+shape = SubResource("RectangleShape2D_trig3")
+
+[node name="NpcPoint5" type="Marker2D" parent="Markers"]
+position = Vector2(3100, 560)
+gizmo_extents = 32.0
+script = ExtResource("8_tp")
+point_index = 5
+
+[node name="NpcPoint6" type="Marker2D" parent="Markers"]
+position = Vector2(3600, 560)
+gizmo_extents = 32.0
+script = ExtResource("8_tp")
+point_index = 6
+
+[node name="Beat4Trigger" type="Area2D" parent="Markers"]
+position = Vector2(2980, 540)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Markers/Beat4Trigger"]
+shape = SubResource("RectangleShape2D_trig3")
+
+[node name="Beat5Trigger" type="Area2D" parent="Markers"]
+position = Vector2(3480, 540)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Markers/Beat5Trigger"]
+shape = SubResource("RectangleShape2D_trig3")
+
+[node name="Goals" type="Node2D" parent="."]
+
+[node name="GoalRight" type="Area2D" parent="Goals"]
+unique_name_in_owner = true
+position = Vector2(1400, 540)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Goals/GoalRight"]
+shape = SubResource("RectangleShape2D_goal")
+
+[node name="GoalLeft" type="Area2D" parent="Goals"]
+unique_name_in_owner = true
+position = Vector2(520, 540)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Goals/GoalLeft"]
+shape = SubResource("RectangleShape2D_goal")
+
+[node name="TutorialController" type="Node" parent="."]
+script = ExtResource("4_ctrl")
+
+[node name="TutorialBeatDirector" type="Node" parent="."]
+script = ExtResource("7_beat")
+
+[node name="TutorialSpeechBar" parent="." instance=ExtResource("3_speech")]
+unique_name_in_owner = true
+
+[node name="PauseMenuLayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("5_pause")]
+z_index = 200
+
+[node name="GameUI" parent="." instance=ExtResource("6_gameui")]
+
+[node name="ArrowShooter" parent="." instance=ExtResource("10_arrow")]
+position = Vector2(2800, 500)
+
+[node name="ArrowShooter2" parent="." instance=ExtResource("10_arrow")]
+position = Vector2(3300, 500)
+
+[node name="TutorialSequentialEnemySpawner" type="Node2D" parent="."]
+position = Vector2(4000, 500)
+script = ExtResource("9_seq")

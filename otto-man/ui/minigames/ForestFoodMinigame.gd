@@ -93,20 +93,31 @@ func _on_minigame_ready() -> void:
 	print("[FoodMinigame] Food minigame active (fruits=%d, max_misses=%d)" % [_fruits_to_spawn, _max_misses])
 
 func _setup_nodes() -> void:
-	# Çalı node'unu bul
+	_resolve_bush_and_player_nodes(true)
+
+
+## Çalı / oyuncu referanslarını güncelle. `log_found`: sadece ilk kurulumda (ready) log bas.
+func _resolve_bush_and_player_nodes(log_found: bool = false) -> void:
 	if not _bush_path.is_empty():
 		_bush_node = get_node_or_null(_bush_path)
-		if _bush_node:
+		if _bush_node and log_found:
 			print("[FoodMinigame] Bush node found: %s" % _bush_node.name)
-		else:
+		elif not _bush_node and log_found:
 			print("[FoodMinigame] Warning: Bush node not found at path: %s" % _bush_path)
-	# Oyuncu node'unu bul
 	if not _player_path.is_empty():
 		_player_node = get_node_or_null(_player_path)
-	if _player_node == null:
-		var players := get_tree().get_nodes_in_group("player")
-		if players.size() > 0 and players[0] is Node2D:
-			_player_node = players[0] as Node2D
+	if _player_node == null or not is_instance_valid(_player_node):
+		var tree := get_tree()
+		if tree:
+			var players := tree.get_nodes_in_group("player")
+			if players.size() > 0 and players[0] is Node2D:
+				_player_node = players[0] as Node2D
+
+
+func _refresh_nodes_if_invalid() -> void:
+	if _bush_node != null and is_instance_valid(_bush_node) and _player_node != null and is_instance_valid(_player_node):
+		return
+	_resolve_bush_and_player_nodes(false)
 
 func _setup_anchor() -> void:
 	# Anchor node'unu bul (çalının üstünde bar göstermek için)
@@ -209,12 +220,16 @@ func _is_heavy_hit(hitbox: PlayerHitbox) -> bool:
 	return attack_name.find("heavy") != -1
 
 func _handle_distance_check() -> bool:
-	_setup_nodes()
+	_refresh_nodes_if_invalid()
 	if !_bush_node or !is_instance_valid(_bush_node):
 		emit_result(false, {"resource_type": _resource_type, "amount": 0, "fruits_collected": _fruits_collected, "misses": _misses, "bush_missing": true})
 		return true
 	if !_player_node or !is_instance_valid(_player_node):
 		return false
+	# Meyveler fırlatıldıysa / havada toplama aşamasındaysak: oyuncu çalıdan uzaklaşsa bile minigame iptal olmasın.
+	if _fruits_spawning or _waiting_for_fruits or _fruits_already_spawned:
+		return false
+	
 	var distance: float = _bush_node.global_position.distance_to(_player_node.global_position)
 	if distance > _cancel_distance:
 		if _gauge:
@@ -286,7 +301,18 @@ func _on_perfect_hit() -> void:
 func _spawn_fruits_delayed(fill_value: float) -> void:
 	# 0.3 saniye bekle (çalı animasyonuna uyum için)
 	print("[FoodMinigame] _spawn_fruits_delayed() called - waiting 0.3 seconds...")
-	await get_tree().create_timer(0.3).timeout
+	var tree := get_tree()
+	if tree == null:
+		_fruits_spawning = false
+		return
+	await tree.create_timer(0.3).timeout
+	if not is_inside_tree():
+		_fruits_spawning = false
+		return
+	tree = get_tree()
+	if tree == null:
+		_fruits_spawning = false
+		return
 	print("[FoodMinigame] Timer finished, calling _spawn_fruits()")
 	_fruits_spawning = false
 	_spawn_fruits(fill_value)
@@ -342,7 +368,7 @@ func _spawn_fruits(bar_level: float) -> void:
 			
 			# Meyveyi fırlat
 			if fruit.has_method("launch_from_bush"):
-				fruit.launch_from_bush(bush_pos, bar_level, _rng)
+				fruit.launch_from_bush(bush_pos, bar_level, _rng, i)
 			else:
 				print("[FoodMinigame] ERROR: Fruit does not have launch_from_bush method")
 			
@@ -367,6 +393,9 @@ func _collect_fruit(fruit: Node2D) -> void:
 		return
 	
 	if fruit.has_method("is_collected") and fruit.is_collected():
+		return
+	
+	if fruit.has_method("can_be_collected") and not fruit.can_be_collected():
 		return
 	
 	# Meyveyi topla

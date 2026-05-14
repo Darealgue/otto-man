@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://tutorial_npc_guide"]
+
+[ext_resource type="Script" path="res://tutorial/scripts/tutorial_npc_guide.gd" id="1_npc"]
+
+[node name="TutorialNpcGuide" type="Node2D"]
+z_index = -2
+script = ExtResource("1_npc")

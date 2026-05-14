@@ -591,6 +591,8 @@ signal level_completed
 signal level_started
 
 func _ready() -> void:
+	if bool(get_meta("_tutorial_decor_only", false)):
+		return
 	add_to_group("level_generator")
 	print("[LevelGenerator] _ready() called")
 	is_overview_active = false  # Zindanda yakın kamera (oyuncu) ile başla; V ile uzak/overview
@@ -1714,16 +1716,76 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 
 const DEBUG_DECOR_TILES: bool = false
 
-func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
-	# Kullanıcının belirttiği gibi, tüm chunk'larda TileMap'in adı "TileMapLayer".
-	# Bu yüzden doğrudan bu ismi aramak en verimli yöntem.
-	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
 
+func _decor_entry_has_loadable_visual(decoration_data: Dictionary) -> bool:
+	if decoration_data.is_empty():
+		return false
+	var scene_paths_var: Variant = decoration_data.get("scene_paths", null)
+	if typeof(scene_paths_var) == TYPE_ARRAY:
+		for v in scene_paths_var as Array:
+			var p := String(v).strip_edges()
+			if not p.is_empty() and ResourceLoader.exists(p):
+				return true
+	elif typeof(scene_paths_var) == TYPE_PACKED_STRING_ARRAY:
+		for v in scene_paths_var as PackedStringArray:
+			var p2 := String(v).strip_edges()
+			if not p2.is_empty() and ResourceLoader.exists(p2):
+				return true
+	var sprites_var: Variant = decoration_data.get("sprites", null)
+	if typeof(sprites_var) == TYPE_ARRAY:
+		for v in sprites_var as Array:
+			var ps := String(v).strip_edges()
+			if not ps.is_empty() and ResourceLoader.exists(ps):
+				return true
+	elif typeof(sprites_var) == TYPE_PACKED_STRING_ARRAY:
+		for v in sprites_var as PackedStringArray:
+			var ps2 := String(v).strip_edges()
+			if not ps2.is_empty() and ResourceLoader.exists(ps2):
+				return true
+	return false
+
+
+func _is_tutorial_heavy_blocking_decor(decor_name: String) -> bool:
+	match decor_name:
+		"gate1", "gate2", "box2", "box3", "pipe2", "banner1", "sculpture1", "sculpture2":
+			return true
+		_:
+			return false
+
+
+func _tutorial_decor_anchor_is_floor_only(tag: String) -> bool:
+	var t := tag.strip_edges()
+	return t == "floor_surface" or t == "floor" or t == "floor_breakable" or t == "forest_floor_surface"
+
+
+func _is_cell_on_used_rect_outer_boundary(used_rect: Rect2i, cell: Vector2i) -> bool:
+	var left_x := used_rect.position.x
+	var right_x := used_rect.position.x + used_rect.size.x - 1
+	var top_y := used_rect.position.y
+	var bottom_y := used_rect.position.y + used_rect.size.y - 1
+	var margin := 4
+	return cell.x <= left_x + margin or cell.x >= right_x - margin or cell.y <= top_y + margin or cell.y >= bottom_y - margin
+
+
+func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
+	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
 	if not tile_map:
 		if DEBUG_DECOR_TILES:
 			print("[DecorPopulate] SKIPPING: Chunk '%s' does not have a child node named 'TileMapLayer'." % chunk_node.name)
 		return
+	_populate_decorations_from_tilemap_impl(tile_map, chunk_node, self, false, {})
 
+
+func run_tutorial_tile_decorations(tile_map: TileMapLayer, output_parent: Node2D, scene_root: Node2D, tutorial_options: Dictionary = {}) -> void:
+	if tile_map == null or output_parent == null or scene_root == null:
+		push_warning("[LevelGenerator] run_tutorial_tile_decorations: geçersiz parametre.")
+		return
+	var opts := tutorial_options.duplicate()
+	opts["tutorial"] = true
+	_populate_decorations_from_tilemap_impl(tile_map, scene_root, output_parent, true, opts)
+
+
+func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D, output_parent: Node, skip_chunk_pixel_bounds: bool, decoration_options: Dictionary = {}) -> void:
 	var config = DecorationConfig.new()
 	var tile_set = tile_map.tile_set
 	if not tile_set:
@@ -1741,69 +1803,136 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 			print("[DecorPopulate] SKIPPING: TileSet in chunk '%s' does not have a custom data layer named '%s'." % [chunk_node.name, decor_layer_name])
 		return
 
+	var decor_used_rect: Rect2i = tile_map.get_used_rect()
 	var used_cells = tile_map.get_used_cells()
 	var found_data_count = 0
 	var chunk_placed_lighting_world: Array[Vector2] = []
 
-	for cell in used_cells:
+	var is_tutorial: bool = bool(decoration_options.get("tutorial", false))
+	var chance_scale: float = clampf(float(decoration_options.get("chance_scale", 0.16)), 0.0, 1.0)
+	var max_spawns: int = maxi(0, int(decoration_options.get("max_spawns", 52)))
+	var skip_ceiling: bool = bool(decoration_options.get("skip_ceiling", true))
+	var skip_gold_breakable: bool = bool(decoration_options.get("skip_gold_breakable", true))
+	var require_loadable_visual: bool = bool(decoration_options.get("require_loadable_visual", true))
+	var skip_heavy_blocking: bool = bool(decoration_options.get("skip_heavy_blocking", true))
+	var floor_anchors_only: bool = is_tutorial and bool(decoration_options.get("floor_anchors_only", true))
+	var skip_tutorial_door_proximity: bool = is_tutorial and bool(decoration_options.get("skip_tutorial_door_proximity", true))
+	var skip_tutorial_chunk_edge: bool = is_tutorial and bool(decoration_options.get("skip_tutorial_chunk_edge", true))
+	var tutorial_placed: int = 0
+	var asset_visual_cache: Dictionary = {}
+
+	var iter_cells: Array = used_cells
+	if is_tutorial and floor_anchors_only:
+		var floor_cells: Array[Vector2i] = []
+		for c in used_cells:
+			var td0: TileData = tile_map.get_cell_tile_data(c)
+			if td0 == null:
+				continue
+			var cd0: Variant = td0.get_custom_data(decor_layer_name)
+			if not cd0:
+				continue
+			var tg0 := str(cd0).strip_edges()
+			if _tutorial_decor_anchor_is_floor_only(tg0):
+				floor_cells.append(c)
+		iter_cells = floor_cells
+
+	for cell in iter_cells:
+		if is_tutorial and max_spawns > 0 and tutorial_placed >= max_spawns:
+			return
 		var tile_data = tile_map.get_cell_tile_data(cell)
 		if not tile_data:
 			continue
 		var custom_data = tile_data.get_custom_data(decor_layer_name)
-		# print("DEBUG: cell=", cell, " custom_data=", custom_data)
-		# print("DEBUG: rules for ", custom_data, " = ", rules)
 		if not custom_data:
 			continue
-		var rules = config.PRIORITY_DECOR_RULES.get(custom_data, null)
-		# print("DEBUG: rules for ", custom_data, " = ", rules)
+		var tag := str(custom_data).strip_edges()
+		if tag.is_empty():
+			continue
+		if is_tutorial and floor_anchors_only and not _tutorial_decor_anchor_is_floor_only(tag):
+			continue
+		var rules_key := tag
+		if not config.PRIORITY_DECOR_RULES.has(rules_key):
+			if rules_key == "right_wall_surface" or rules_key == "lef_wall_surface":
+				rules_key = "wall_surface"
+		var rules = config.PRIORITY_DECOR_RULES.get(rules_key, null)
 		if not rules:
+			continue
+		if is_tutorial and skip_ceiling and tag == "ceiling_surface":
 			continue
 		found_data_count += 1
 
 		# --- Hiyerarşik kural sistemi ---
 		for rule in rules:
 			# Global kural: Chunk'ın en dış sınırındaki tile'larda dekor spawn etme
-			if _is_on_chunk_outer_boundary(tile_map, cell):
+			if _is_cell_on_used_rect_outer_boundary(decor_used_rect, cell):
 				continue
 			# Ek güvenlik: Hücre chunk'ın piksel bazlı güvenli alanının dışında mı?
-			if not _is_cell_within_chunk_safe_bounds(tile_map, cell, chunk_node, 160.0):
+			if not skip_chunk_pixel_bounds and not _is_cell_within_chunk_safe_bounds(tile_map, cell, chunk_node, 160.0):
 				continue
 			if rule.is_empty():
 				continue
+			if is_tutorial and skip_gold_breakable:
+				var rt: Variant = rule.get("decoration_type", null)
+				if rt != null:
+					var rti: int = int(rt)
+					if rti == int(DecorationConfig.DecorationType.GOLD) or rti == int(DecorationConfig.DecorationType.BREAKABLE):
+						continue
 			var decoration_pool: Dictionary = config.get_decorations_for_type(rule.decoration_type)
 			var roll_chance: float = float(rule.get("chance", 0.0))
 			if DecorationConfig.DUNGEON_LIGHTING_SPAWN_CHANCE_MULTIPLIER != 1.0:
 				if _priority_rule_can_include_dungeon_lighting(rule, decoration_pool):
 					roll_chance = clampf(roll_chance * DecorationConfig.DUNGEON_LIGHTING_SPAWN_CHANCE_MULTIPLIER, 0.0, 1.0)
+			if is_tutorial:
+				roll_chance = clampf(roll_chance * chance_scale, 0.0, 1.0)
 			if randf() >= roll_chance:
 				continue
 			# Kuralda izin verilen ve lokasyona uygun dekorları filtrele
 			var valid_decors = []
 			for decor_name in rule.decoration_names:
 				if decor_name in decoration_pool:
+					var dn := str(decor_name)
+					if is_tutorial and skip_heavy_blocking and _is_tutorial_heavy_blocking_decor(dn):
+						continue
+					if is_tutorial and require_loadable_visual:
+						var dd_raw: Variant = decoration_pool.get(decor_name, {})
+						if typeof(dd_raw) != TYPE_DICTIONARY:
+							continue
+						var dd_vis: Dictionary = dd_raw
+						var has_vis: bool
+						if asset_visual_cache.has(dn):
+							has_vis = bool(asset_visual_cache[dn])
+						else:
+							has_vis = _decor_entry_has_loadable_visual(dd_vis)
+							asset_visual_cache[dn] = has_vis
+						if not has_vis:
+							continue
 					valid_decors.append(decor_name)
 			if valid_decors.is_empty():
 				if "gate1" in rule.decoration_names:
 					if DEBUG_DECOR_TILES:
 						print("[GateDebug] valid_decors EMPTY at tile=", cell, " rule_names=", rule.decoration_names)
-				if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+				if tag == "ceiling_surface" or tag == "wall_surface":
 					if DEBUG_DECOR_TILES:
-						print("[WebDebug] Tile ", cell, " tag=", custom_data, " → valid_decors EMPTY (pool=", decoration_pool, ")")
+						print("[WebDebug] Tile ", cell, " tag=", tag, " → valid_decors EMPTY (pool=", decoration_pool, ")")
 				continue
 			var selected_decor_name = valid_decors.pick_random()
 			if selected_decor_name == "gate1" and DEBUG_DECOR_TILES:
 				if DEBUG_DECOR_TILES:
 					print("[GateDebug] SELECT tile=", cell, " names=", valid_decors)
-			if (custom_data == "ceiling_surface" or custom_data == "wall_surface") and DEBUG_DECOR_TILES:
-				print("[WebDebug] Tile ", cell, " tag=", custom_data, " pool=", decoration_pool, " valid=", valid_decors, " selected=", selected_decor_name)
+			if (tag == "ceiling_surface" or tag == "wall_surface") and DEBUG_DECOR_TILES:
+				print("[WebDebug] Tile ", cell, " tag=", tag, " pool=", decoration_pool, " valid=", valid_decors, " selected=", selected_decor_name)
+			var spawn_loc: int = _derive_spawn_location_from_tile_data(tag, rule)
+			if is_tutorial and skip_ceiling and spawn_loc == DecorationConfig.SpawnLocation.CEILING:
+				continue
+			if is_tutorial and floor_anchors_only:
+				if spawn_loc != DecorationConfig.SpawnLocation.FLOOR_CENTER and spawn_loc != DecorationConfig.SpawnLocation.FLOOR_CORNER:
+					continue
 			var spawner = DecorationSpawner.new()
 			# Add spawner to scene tree temporarily for door proximity check
-			add_child(spawner)
+			output_parent.add_child(spawner)
 			
 			var did_spawn = false
 			var decoration_instance = spawner.create_decoration_instance(selected_decor_name, rule.decoration_type)
-			# Derive spawn location first for edge filtering
-			var spawn_loc: int = _derive_spawn_location_from_tile_data(custom_data, rule)
 			# Optional clearance check for larger decorations
 			var needs_clearance: bool = false
 			var w_tiles: int = 1
@@ -1841,7 +1970,7 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 						continue
 					# Background support check for pipes/gates only
 					if selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "gate1" or selected_decor_name == "gate2":
-						var bg_map: TileMap = _find_background_tilemap(chunk_node)
+						var bg_map: Node = _find_background_tilemap(chunk_node)
 						if not _has_background_support(bg_map, anchor, w_tiles, h_tiles, grow_dir, dbg, selected_decor_name):
 							decoration_instance.queue_free()
 							spawner.queue_free()
@@ -1856,9 +1985,9 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 							decoration_instance.queue_free()
 							spawner.queue_free()
 							continue
-			# Skip cells near open chunk edges for floor-like placements
-			if _is_near_open_chunk_edge(tile_map, cell, chunk_node, spawn_loc, rule):
-				if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+			# Skip cells near open chunk edges for floor-like placements (tutorial: tek parça harita, gereksiz pahalı)
+			if (not is_tutorial or not skip_tutorial_chunk_edge) and _is_near_open_chunk_edge(tile_map, cell, chunk_node, spawn_loc, rule):
+				if tag == "ceiling_surface" or tag == "wall_surface":
 					if DEBUG_DECOR_TILES:
 						print("[WebDebug] SKIP near edge tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
 				decoration_instance.queue_free()
@@ -1866,19 +1995,19 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 				continue
 			# Avoid outside L-shaped dead zones
 			if _is_outside_L_deadzone(tile_map, cell, spawn_loc):
-				if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+				if (tag == "ceiling_surface" or tag == "wall_surface") and DEBUG_DECOR_TILES:
 					print("[WebDebug] SKIP outside L deadzone tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
 				decoration_instance.queue_free()
 				spawner.queue_free()
 				continue
-			add_child(decoration_instance)
+			output_parent.add_child(decoration_instance)
 			# Keep the spawner alive as a child so signal targets remain valid
 			# (create_decoration_instance connects signals to spawner methods)
-			add_child(spawner)
+			output_parent.add_child(spawner)
 			var spawn_pos: Vector2 = _compute_decoration_spawn_position(tile_map, cell, spawn_loc)
 			
 			# Check door proximity for gate, pipe and banner decorations (GERÇEK spawn pozisyonu ile)
-			if selected_decor_name in ["gate1", "gate2", "pipe1", "pipe2", "banner1"]:
+			if (not is_tutorial or not skip_tutorial_door_proximity) and selected_decor_name in ["gate1", "gate2", "pipe1", "pipe2", "banner1"]:
 				var is_too_close = false
 				if selected_decor_name == "banner1":
 					is_too_close = spawner._is_near_door_banner(spawn_pos)
@@ -1921,12 +2050,15 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 					# For clearance-based decors, we already verified base support tile-by-tile; skip span search
 					pass
 				else:
-					var adj: Dictionary = _find_supported_position(spawn_pos, half_w, 12.0, 3.0)
-					if selected_decor_name == "gate1" or selected_decor_name == "box2":
-						if DEBUG_DECOR_TILES:
-							print("[GateDebug] SUPPORT half_w=", half_w, " spawn_pos=", spawn_pos, " adj=", adj)
-					if adj.has("ok") and bool(adj.ok):
-						spawn_pos = adj.pos
+					if is_tutorial and bool(decoration_options.get("skip_tutorial_support_search", true)):
+						pass
+					else:
+						var adj: Dictionary = _find_supported_position(spawn_pos, half_w, 12.0, 3.0)
+						if selected_decor_name == "gate1" or selected_decor_name == "box2":
+							if DEBUG_DECOR_TILES:
+								print("[GateDebug] SUPPORT half_w=", half_w, " spawn_pos=", spawn_pos, " adj=", adj)
+						if adj.has("ok") and bool(adj.ok):
+							spawn_pos = adj.pos
 			# Global fine-tune: only a slight vertical settle for small decors; no extra X nudge
 			var final_pos := spawn_pos
 			if not needs_clearance:
@@ -1936,7 +2068,7 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 			decoration_instance.global_position = final_pos
 			
 			# Prevent overlapping large decors: gates/pipes/banners/sculptures
-			if (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1" or selected_decor_name == "sculpture2") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
+			if not is_tutorial and (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1" or selected_decor_name == "sculpture2") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
 				if DEBUG_DECOR_TILES:
 					print("[GateDebug] SKIP overlap near existing gate at pos=", final_pos)
 				decoration_instance.queue_free()
@@ -1987,11 +2119,13 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 			if selected_decor_name == "gate1":
 				if DEBUG_DECOR_TILES:
 					print("[GateDebug] SPAWNED at ", decoration_instance.global_position, " floor_based=", floor_based)
-			if custom_data == "ceiling_surface" or custom_data == "wall_surface":
+			if (tag == "ceiling_surface" or tag == "wall_surface") and DEBUG_DECOR_TILES:
 				print("[WebDebug] SPAWNED ", selected_decor_name, " at ", decoration_instance.global_position)
 			if DEBUG_DECOR_TILES:
 				print("[DecorPopulate] SUCCESS: Spawned decoration '%s' at tile %s (world pos: %s)" % [selected_decor_name, cell, decoration_instance.global_position])
 			did_spawn = true
+			if is_tutorial:
+				tutorial_placed += 1
 			# Do not free spawner here; it holds signal handlers for the decoration
 			if did_spawn:
 				break # Bir kural tuttuysa diğerlerini deneme
@@ -2024,7 +2158,7 @@ func _derive_spawn_location_from_tile_data(custom_data: String, rule: Dictionary
 			return DecorationConfig.SpawnLocation.FLOOR_CENTER
 		"ceiling_surface":
 			return DecorationConfig.SpawnLocation.CEILING
-		"wall_surface":
+		"wall_surface", "right_wall_surface", "lef_wall_surface":
 			# Choose one to vary visuals
 			return [DecorationConfig.SpawnLocation.WALL_LOW, DecorationConfig.SpawnLocation.WALL_HIGH].pick_random()
 		"corner_high":
@@ -2230,14 +2364,7 @@ func _footprint_overlaps_wall(tile_map, anchor: Vector2i, w_tiles: int, h_tiles:
 
 # Strict boundary rule: returns true if cell lies on the outermost tile ring of the chunk
 func _is_on_chunk_outer_boundary(tile_map, cell: Vector2i) -> bool:
-	var used_rect: Rect2i = tile_map.get_used_rect()
-	var left_x := used_rect.position.x
-	var right_x := used_rect.position.x + used_rect.size.x - 1
-	var top_y := used_rect.position.y
-	var bottom_y := used_rect.position.y + used_rect.size.y - 1
-	# Outer boundary margin (tiles). Increased to be stricter against dead-zones
-	var margin := 4
-	return cell.x <= left_x + margin or cell.x >= right_x - margin or cell.y <= top_y + margin or cell.y >= bottom_y - margin
+	return _is_cell_on_used_rect_outer_boundary(tile_map.get_used_rect(), cell)
 
 # Pixel-based check: ensure the tile's local position within its chunk is away from the outer bounds
 func _is_cell_within_chunk_safe_bounds(tile_map, cell: Vector2i, chunk_node: Node2D, margin_px: float) -> bool:
@@ -2359,22 +2486,19 @@ func _find_grid_pos_for_chunk(chunk_node: Node2D) -> Vector2i:
 				return Vector2i(x, y)
 	return Vector2i(-1, -1)
 
-# Find background TileMap layer under the given chunk
-func _find_background_tilemap(chunk_node: Node2D) -> TileMap:
+# Find background TileMap / TileMapLayer under the given chunk (tutorial uses TileMapLayer "bg").
+func _find_background_tilemap(chunk_node: Node2D) -> Node:
 	if chunk_node == null:
 		return null
-	# Heuristic: look for a child named like background or a TileMap with lower z_index
-	var candidates := []
+	var candidates: Array = []
 	for child in chunk_node.get_children():
-		if child is TileMap:
+		if child is TileMap or child is TileMapLayer:
 			candidates.append(child)
-	# Prefer a node with name containing "background"
 	for c in candidates:
 		var n := c as Node
 		var nm := n.name.to_lower()
 		if nm.find("background") != -1 or nm.find("bg") != -1:
 			return c
-	# Fallback: return first TileMap if any
 	if candidates.size() > 0:
 		return candidates[0]
 	return null

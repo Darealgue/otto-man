@@ -4,31 +4,375 @@ extends Node
 ## Beta Yol Haritası FAZ 2: Save/Load Sistemi
 
 const SAVE_VERSION: String = "0.1.0"
-const SAVE_DIR: String = "user://otto-man-save/"
+## Kök dizin (profil alt klasörleri burada)
+const SAVE_ROOT: String = "user://otto-man-save/"
+## Eski düz dosya yolu (göç için); yeni kayıtlar `profile_N/` altında
+const SAVE_DIR: String = SAVE_ROOT
 const MAX_SAVE_SLOTS: int = 5
-
+const PROFILE_COUNT: int = 3
+const AUTOSAVE_FILENAME: String = "autosave.json"
+## Yükleme menüsünde slot_selected(0) ile otomatik kayıt yüklemesi
+const AUTOSAVE_UI_SLOT_ID: int = 0
 signal save_completed(slot_id: int, success: bool)
 signal load_completed(slot_id: int, success: bool)
 signal error_occurred(error_message: String, error_type: String)  # error_type: "save", "load", "validation"
+signal active_profile_changed(profile_id: int)
+signal autosave_completed(success: bool)
 
 var _playtime_start: int = 0  # Time when game started (OS.get_ticks_msec())
 var _total_playtime_seconds: int = 0  # Accumulated playtime from loaded saves
+## 1..PROFILE_COUNT — ana menüden seçilir; `active_profile.json` ile kalıcı
+var active_profile_id: int = 1
+
+var _last_autosave_ms: int = 0
+const AUTOSAVE_MIN_INTERVAL_MS: int = 45000
+const PERIODIC_AUTOSAVE_SEC: float = 360.0
+var _periodic_autosave_accum: float = 0.0
+var _autosave_toast: CanvasLayer = null
 
 func _ready() -> void:
+	_load_active_profile_from_disk()
 	_ensure_save_directory()
+	_migrate_legacy_flat_files_to_profile_1()
 	_playtime_start = Time.get_ticks_msec()
+	call_deferred("_connect_autosave_hooks")
+
+
+func _process(delta: float) -> void:
+	_periodic_autosave_accum += delta
+	if _periodic_autosave_accum < PERIODIC_AUTOSAVE_SEC:
+		return
+	_periodic_autosave_accum = 0.0
+	if _can_periodic_autosave_scene():
+		request_autosave("periodic", false)
+
+
+func _connect_autosave_hooks() -> void:
+	if is_instance_valid(SceneManager) and SceneManager.has_signal("scene_change_completed"):
+		if not SceneManager.scene_change_completed.is_connected(_on_scene_changed_autosave):
+			SceneManager.scene_change_completed.connect(_on_scene_changed_autosave)
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if tm and tm.has_signal("day_changed"):
+		if not tm.day_changed.is_connected(_on_day_changed_autosave):
+			tm.day_changed.connect(_on_day_changed_autosave)
+
+
+func _on_scene_changed_autosave(new_path: String) -> void:
+	if new_path == SceneManager.VILLAGE_SCENE or new_path == SceneManager.WORLD_MAP_SCENE:
+		request_autosave("checkpoint", true)
+
+
+func _on_day_changed_autosave(_new_day: int) -> void:
+	request_autosave("new_day", true)
+
+
+func _can_autosave_now() -> bool:
+	if not is_inside_tree():
+		return false
+	if not is_instance_valid(SceneManager):
+		return false
+	var p: String = SceneManager.current_scene_path
+	if p.is_empty():
+		return false
+	if p.ends_with("MainMenu.tscn"):
+		return false
+	if is_instance_valid(SceneManager) and p == SceneManager.TUTORIAL_DUNGEON_SCENE:
+		return false
+	return true
+
+
+func _can_periodic_autosave_scene() -> bool:
+	if not _can_autosave_now():
+		return false
+	var p: String = SceneManager.current_scene_path
+	return p == SceneManager.VILLAGE_SCENE or p == SceneManager.WORLD_MAP_SCENE
+
+
+func request_autosave(reason: String = "", force: bool = false) -> void:
+	if not _can_autosave_now():
+		return
+	var now: int = Time.get_ticks_msec()
+	if not force and (now - _last_autosave_ms) < AUTOSAVE_MIN_INTERVAL_MS:
+		return
+	call_deferred("_run_autosave_deferred", reason)
+
+
+func _run_autosave_deferred(reason: String) -> void:
+	if not _can_autosave_now():
+		return
+	autosave_now(reason)
+	_last_autosave_ms = Time.get_ticks_msec()
+
+
+func get_autosave_file_path(for_profile_id: int = -1) -> String:
+	var pid: int = active_profile_id if for_profile_id < 1 else for_profile_id
+	return SAVE_ROOT + "profile_%d/%s" % [pid, AUTOSAVE_FILENAME]
+
+
+func autosave_now(reason: String = "") -> bool:
+	var save_data: Dictionary = _collect_save_data_dictionary(true, reason)
+	var ok: bool = _write_save_data_to_file(save_data, get_autosave_file_path())
+	autosave_completed.emit(ok)
+	if ok:
+		_show_autosave_toast()
+	return ok
+
+
+func _show_autosave_toast() -> void:
+	if not is_inside_tree():
+		return
+	if _autosave_toast == null:
+		var sc: PackedScene = load("res://ui/AutosaveToast.tscn") as PackedScene
+		if sc == null:
+			return
+		_autosave_toast = sc.instantiate() as CanvasLayer
+		get_tree().root.add_child(_autosave_toast)
+	if _autosave_toast and _autosave_toast.has_method("show_toast"):
+		_autosave_toast.show_toast("Oyun otomatik kaydedildi")
+
+
+func load_autosave() -> bool:
+	return _load_game_from_path(get_autosave_file_path(), AUTOSAVE_UI_SLOT_ID)
+
+
+func validate_autosave_file(for_profile_id: int = -1) -> Dictionary:
+	var pid: int = active_profile_id if for_profile_id < 1 else for_profile_id
+	var file_path: String = get_autosave_file_path(pid)
+	return _validate_save_file_at_path(file_path)
+
+
+func get_autosave_metadata(for_profile_id: int = -1) -> Dictionary:
+	var pid: int = active_profile_id if for_profile_id < 1 else for_profile_id
+	var file_path: String = get_autosave_file_path(pid)
+	if not FileAccess.file_exists(file_path):
+		return {}
+	var file: FileAccess = FileAccess.open(file_path, FileAccess.READ)
+	if file == null:
+		return {}
+	var json_string: String = file.get_as_text()
+	file.close()
+	if json_string.is_empty():
+		return {}
+	var json: JSON = JSON.new()
+	if json.parse(json_string) != OK:
+		return {}
+	var save_data: Variant = json.get_data()
+	if not save_data is Dictionary:
+		return {}
+	var d: Dictionary = save_data as Dictionary
+	var meta: Dictionary = {
+		"version": d.get("version", "0.0.0"),
+		"save_date": d.get("save_date", ""),
+		"playtime_seconds": d.get("playtime_seconds", 0),
+		"scene": d.get("scene", ""),
+		"slot_id": AUTOSAVE_UI_SLOT_ID,
+		"autosave": true,
+		"autosave_reason": d.get("autosave_reason", "")
+	}
+	if d.has("village") and d["village"] is Dictionary:
+		var village: Dictionary = d["village"]
+		if village.has("buildings") and village["buildings"] is Array:
+			meta["village_level"] = village["buildings"].size()
+		if village.has("resources") and village["resources"] is Dictionary:
+			meta["gold"] = village["resources"].get("gold", 0)
+	return meta
+
+
+func _validate_save_file_at_path(file_path: String) -> Dictionary:
+	if not FileAccess.file_exists(file_path):
+		return {"valid": false, "error": "Kayıt dosyası bulunamadı.", "metadata": {}}
+	var file: FileAccess = FileAccess.open(file_path, FileAccess.READ)
+	if file == null:
+		return {"valid": false, "error": "Kayıt dosyası açılamadı.", "metadata": {}}
+	var json_string: String = file.get_as_text()
+	file.close()
+	if json_string.is_empty():
+		return {"valid": false, "error": "Kayıt dosyası boş.", "metadata": {}}
+	var json: JSON = JSON.new()
+	if json.parse(json_string) != OK:
+		return {"valid": false, "error": "JSON parse hatası.", "metadata": {}}
+	var save_data: Variant = json.get_data()
+	if not save_data is Dictionary:
+		return {"valid": false, "error": "Geçersiz dosya formatı.", "metadata": {}}
+	var validation: Dictionary = _validate_save_data(save_data as Dictionary)
+	var metadata: Dictionary = {}
+	if validation["valid"]:
+		metadata = _metadata_from_save_dictionary(save_data as Dictionary, AUTOSAVE_UI_SLOT_ID)
+	return {
+		"valid": validation["valid"],
+		"error": validation["error"],
+		"metadata": metadata
+	}
+
+
+func _metadata_from_save_dictionary(save_data: Dictionary, slot_id: int) -> Dictionary:
+	var metadata: Dictionary = {
+		"version": save_data.get("version", "0.0.0"),
+		"save_date": save_data.get("save_date", ""),
+		"playtime_seconds": save_data.get("playtime_seconds", 0),
+		"scene": save_data.get("scene", ""),
+		"slot_id": slot_id,
+		"autosave": save_data.get("autosave", false),
+		"autosave_reason": save_data.get("autosave_reason", "")
+	}
+	if save_data.has("village") and save_data["village"] is Dictionary:
+		var village: Dictionary = save_data["village"]
+		if village.has("buildings") and village["buildings"] is Array:
+			metadata["village_level"] = village["buildings"].size()
+		if village.has("resources") and village["resources"] is Dictionary:
+			metadata["gold"] = village["resources"].get("gold", 0)
+	return metadata
+
+
+func get_active_profile_id() -> int:
+	return active_profile_id
+
+
+func set_active_profile(profile_id: int) -> bool:
+	if profile_id < 1 or profile_id > PROFILE_COUNT:
+		push_error("[SaveManager] Geçersiz profil: %d" % profile_id)
+		return false
+	active_profile_id = profile_id
+	_ensure_save_directory()
+	_persist_active_profile()
+	active_profile_changed.emit(active_profile_id)
+	print("[SaveManager] Aktif profil: %d" % active_profile_id)
+	return true
+
+
+func get_save_file_path_for_profile(profile_id: int, slot_id: int) -> String:
+	return SAVE_ROOT + "profile_%d/save_%d.json" % [profile_id, slot_id]
+
+
+func get_save_file_path_current(slot_id: int) -> String:
+	return get_save_file_path_for_profile(active_profile_id, slot_id)
+
+
+## MissionManager / Villager_AI gibi yan dosyalar aynı profil klasöründe
+func get_profile_data_directory() -> String:
+	return SAVE_ROOT + "profile_%d/" % active_profile_id
+
+
+func get_profile_summary(profile_id: int) -> Dictionary:
+	if profile_id < 1 or profile_id > PROFILE_COUNT:
+		return {}
+	var used_slots: int = 0
+	var sum_playtime: int = 0
+	var max_playtime: int = 0
+	var latest_date: String = ""
+	for slot_id in range(1, MAX_SAVE_SLOTS + 1):
+		var meta: Dictionary = get_save_metadata(slot_id, profile_id)
+		if meta.is_empty():
+			continue
+		used_slots += 1
+		var pt: int = int(meta.get("playtime_seconds", 0))
+		sum_playtime += pt
+		max_playtime = maxi(max_playtime, pt)
+		var sd: String = str(meta.get("save_date", ""))
+		if sd > latest_date:
+			latest_date = sd
+	return {
+		"has_saves": used_slots > 0,
+		"used_slots": used_slots,
+		"sum_playtime": sum_playtime,
+		"max_playtime": max_playtime,
+		"latest_save_date": latest_date,
+	}
+
+
+func _load_active_profile_from_disk() -> void:
+	var path: String = SAVE_ROOT + "active_profile.json"
+	if not FileAccess.file_exists(path):
+		active_profile_id = 1
+		return
+	var txt: String = FileAccess.get_file_as_string(path)
+	if txt.is_empty():
+		active_profile_id = 1
+		return
+	var data: Variant = JSON.parse_string(txt)
+	if data is Dictionary:
+		var p: int = int((data as Dictionary).get("profile", 1))
+		if p >= 1 and p <= PROFILE_COUNT:
+			active_profile_id = p
+			return
+	active_profile_id = 1
+
+
+func _persist_active_profile() -> void:
+	var path: String = SAVE_ROOT + "active_profile.json"
+	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify({"profile": active_profile_id}))
+		f.close()
+
+
+func _user_data_relative(abs_user_path: String) -> String:
+	if abs_user_path.begins_with("user://"):
+		return abs_user_path.substr(7)
+	return abs_user_path
+
 
 func _ensure_save_directory() -> void:
-	var dir = DirAccess.open("user://")
-	if dir:
-		if not dir.dir_exists("otto-man-save"):
-			var error = dir.make_dir("otto-man-save")
-			if error != OK:
-				push_error("[SaveManager] Failed to create save directory: %s" % SAVE_DIR)
-			else:
-				print("[SaveManager] Created save directory: %s" % SAVE_DIR)
-	else:
+	var dir: DirAccess = DirAccess.open("user://")
+	if not dir:
 		push_error("[SaveManager] Failed to open user:// directory")
+		return
+	if not dir.dir_exists("otto-man-save"):
+		var error: Error = dir.make_dir("otto-man-save")
+		if error != OK:
+			push_error("[SaveManager] Failed to create save directory: %s" % SAVE_ROOT)
+		else:
+			print("[SaveManager] Created save directory: %s" % SAVE_ROOT)
+	dir = DirAccess.open("user://")
+	if not dir:
+		return
+	for p: int in range(1, PROFILE_COUNT + 1):
+		var rel: String = "otto-man-save/profile_%d" % p
+		if not dir.dir_exists(rel):
+			var mk: Error = dir.make_dir(rel)
+			if mk != OK:
+				push_error("[SaveManager] Profil klasörü oluşturulamadı: %s (%d)" % [rel, mk])
+
+
+func _copy_user_file(src_user_path: String, dst_user_path: String) -> Error:
+	var fin: FileAccess = FileAccess.open(src_user_path, FileAccess.READ)
+	if fin == null:
+		return FAILED
+	var buf: PackedByteArray = fin.get_buffer(fin.get_length())
+	fin.close()
+	var fout: FileAccess = FileAccess.open(dst_user_path, FileAccess.WRITE)
+	if fout == null:
+		return FAILED
+	fout.store_buffer(buf)
+	var werr: Error = fout.get_error()
+	fout.close()
+	return werr
+
+
+func _migrate_legacy_flat_files_to_profile_1() -> void:
+	## Eski kurulum: save_*.json doğrudan otto-man-save kökünde — profil 1'e taşı
+	var flat_first: String = SAVE_ROOT + "save_1.json"
+	var dst_first: String = get_save_file_path_for_profile(1, 1)
+	if not FileAccess.file_exists(flat_first):
+		return
+	if FileAccess.file_exists(dst_first):
+		return
+	print("[SaveManager] Eski düz kayıtlar profil 1'e kopyalanıyor...")
+	for slot_id: int in range(1, MAX_SAVE_SLOTS + 1):
+		var src: String = SAVE_ROOT + "save_%d.json" % slot_id
+		var dst: String = get_save_file_path_for_profile(1, slot_id)
+		if FileAccess.file_exists(src) and not FileAccess.file_exists(dst):
+			var err: Error = _copy_user_file(src, dst)
+			if err != OK:
+				push_warning("[SaveManager] Göç kopyası başarısız: %s -> %s (%d)" % [src, dst, err])
+	var extra: PackedStringArray = PackedStringArray(["concubine_roles.json", "Saved_Villagers.json"])
+	for fn: String in extra:
+		var s2: String = SAVE_ROOT + fn
+		var d2: String = SAVE_ROOT + "profile_1/" + fn
+		if FileAccess.file_exists(s2) and not FileAccess.file_exists(d2):
+			var e2: Error = _copy_user_file(s2, d2)
+			if e2 != OK:
+				push_warning("[SaveManager] Göç (yan dosya): %s (%d)" % [fn, e2])
 
 func _news_entry_for_save(entry: Dictionary) -> Dictionary:
 	var d: Dictionary = entry.duplicate(true)
@@ -68,96 +412,86 @@ func _infer_next_mission_id_floor() -> int:
 				max_tail = n
 	return max_tail + 1
 
-func save_game(slot_id: int) -> bool:
-	"""Ana kayıt fonksiyonu. Slot ID'ye göre kaydeder (1-5)"""
-	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
-		push_error("[SaveManager] Invalid slot_id: %d (must be 1-%d)" % [slot_id, MAX_SAVE_SLOTS])
-		return false
-	
+
+func _collect_save_data_dictionary(is_autosave: bool, autosave_reason: String) -> Dictionary:
 	var save_data: Dictionary = {}
-	
-	# Metadata
-	var current_time = Time.get_datetime_dict_from_system()
+	var current_time: Dictionary = Time.get_datetime_dict_from_system()
 	save_data["version"] = SAVE_VERSION
 	save_data["save_date"] = _format_datetime(current_time)
 	save_data["playtime_seconds"] = _calculate_current_playtime()
-	
-	# Scene state
+	save_data["autosave"] = is_autosave
+	save_data["autosave_reason"] = autosave_reason if is_autosave else ""
 	if is_instance_valid(SceneManager):
 		save_data["scene"] = SceneManager.current_scene_path
 		save_data["scene_path"] = SceneManager.current_scene_path
 	else:
 		save_data["scene"] = ""
 		save_data["scene_path"] = ""
-	
-	# Village state
 	save_data["village"] = _save_village_state()
-	
-	# Mission state
 	save_data["missions"] = _save_mission_state()
-	
-	# World state
 	save_data["world"] = _save_world_state()
-	
-	# Player state
 	save_data["player"] = _save_player_state()
-	
-	# Time state
 	save_data["time"] = _save_time_state()
-	
-	# Weather state
 	save_data["weather"] = _save_weather_state()
-	
-	# Save to file
-	var file_path = SAVE_DIR + "save_%d.json" % slot_id
-	var file = FileAccess.open(file_path, FileAccess.WRITE)
-	if not file:
-		var error_msg = "Kayıt dosyası açılamadı. Disk alanı yetersiz olabilir veya yazma izni olmayabilir."
+	return save_data
+
+
+func _write_save_data_to_file(save_data: Dictionary, file_path: String) -> bool:
+	var file: FileAccess = FileAccess.open(file_path, FileAccess.WRITE)
+	if file == null:
+		var err_open: String = "Kayıt dosyası açılamadı. Disk alanı yetersiz olabilir veya yazma izni olmayabilir."
 		push_error("[SaveManager] Failed to open file for writing: %s" % file_path)
-		error_occurred.emit(error_msg, "save")
-		save_completed.emit(slot_id, false)
+		error_occurred.emit(err_open, "save")
 		return false
-	
-	var json_string = JSON.stringify(save_data, "\t")
+	var json_string: String = JSON.stringify(save_data, "\t")
 	if json_string.is_empty():
-		var error_msg = "Kayıt verisi JSON'a dönüştürülemedi."
+		var err_json: String = "Kayıt verisi JSON'a dönüştürülemedi."
 		push_error("[SaveManager] Failed to stringify save data")
-		error_occurred.emit(error_msg, "save")
+		error_occurred.emit(err_json, "save")
 		file.close()
-		save_completed.emit(slot_id, false)
 		return false
-	
 	file.store_string(json_string)
-	var store_error = file.get_error()
+	var store_error: Error = file.get_error()
 	file.close()
-	
 	if store_error != OK:
-		var error_msg = "Kayıt dosyasına yazılamadı. Disk alanı yetersiz olabilir."
+		var err_write: String = "Kayıt dosyasına yazılamadı. Disk alanı yetersiz olabilir."
 		push_error("[SaveManager] Failed to write to file: %s (error: %d)" % [file_path, store_error])
-		error_occurred.emit(error_msg, "save")
-		save_completed.emit(slot_id, false)
+		error_occurred.emit(err_write, "save")
 		return false
-	
-	print("[SaveManager] ✅ Game saved to slot %d: %s" % [slot_id, file_path])
-	save_completed.emit(slot_id, true)
+	print("[SaveManager] ✅ Kayıt yazıldı: %s" % file_path)
 	return true
+
+
+func save_game(slot_id: int) -> bool:
+	"""Ana kayıt fonksiyonu. Slot ID'ye göre kaydeder (1-5)"""
+	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
+		push_error("[SaveManager] Invalid slot_id: %d (must be 1-%d)" % [slot_id, MAX_SAVE_SLOTS])
+		return false
+	var save_data: Dictionary = _collect_save_data_dictionary(false, "")
+	var file_path: String = get_save_file_path_current(slot_id)
+	var ok: bool = _write_save_data_to_file(save_data, file_path)
+	save_completed.emit(slot_id, ok)
+	return ok
+
 
 func load_game(slot_id: int) -> bool:
 	"""Ana yükleme fonksiyonu. Slot ID'ye göre yükler (1-5)"""
 	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
 		push_error("[SaveManager] Invalid slot_id: %d (must be 1-%d)" % [slot_id, MAX_SAVE_SLOTS])
 		return false
-	
-	var file_path = SAVE_DIR + "save_%d.json" % slot_id
+	return _load_game_from_path(get_save_file_path_current(slot_id), slot_id)
+
+
+func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 	if not FileAccess.file_exists(file_path):
 		push_error("[SaveManager] Save file does not exist: %s" % file_path)
-		load_completed.emit(slot_id, false)
+		load_completed.emit(emit_slot_id, false)
 		return false
 	
 	var file = FileAccess.open(file_path, FileAccess.READ)
 	if not file:
 		push_error("[SaveManager] Failed to open file for reading: %s" % file_path)
-		load_completed.emit(slot_id, false)
+		load_completed.emit(emit_slot_id, false)
 		return false
 	
 	var json_string = file.get_as_text()
@@ -168,7 +502,7 @@ func load_game(slot_id: int) -> bool:
 		var error_msg = "Kayıt dosyası boş. Dosya bozulmuş olabilir."
 		push_error("[SaveManager] %s" % error_msg)
 		error_occurred.emit(error_msg, "validation")
-		load_completed.emit(slot_id, false)
+		load_completed.emit(emit_slot_id, false)
 		return false
 	
 	var json = JSON.new()
@@ -177,7 +511,7 @@ func load_game(slot_id: int) -> bool:
 		var error_msg = "Kayıt dosyası okunamıyor. JSON formatı hatalı olabilir."
 		push_error("[SaveManager] Failed to parse JSON: %s (error: %d)" % [file_path, parse_error])
 		error_occurred.emit(error_msg, "validation")
-		load_completed.emit(slot_id, false)
+		load_completed.emit(emit_slot_id, false)
 		return false
 	
 	var save_data: Dictionary = json.get_data()
@@ -185,7 +519,7 @@ func load_game(slot_id: int) -> bool:
 		var error_msg = "Kayıt dosyası formatı geçersiz. Dosya bozulmuş olabilir."
 		push_error("[SaveManager] Save data is not a dictionary: %s" % file_path)
 		error_occurred.emit(error_msg, "validation")
-		load_completed.emit(slot_id, false)
+		load_completed.emit(emit_slot_id, false)
 		return false
 	
 	# Validate save data structure
@@ -194,7 +528,7 @@ func load_game(slot_id: int) -> bool:
 		var error_msg = validation_result.get("error", "Kayıt dosyası doğrulanamadı.")
 		push_error("[SaveManager] Validation failed: %s" % error_msg)
 		error_occurred.emit(error_msg, "validation")
-		load_completed.emit(slot_id, false)
+		load_completed.emit(emit_slot_id, false)
 		return false
 	
 	# Version check (for future compatibility)
@@ -248,8 +582,8 @@ func load_game(slot_id: int) -> bool:
 		if is_instance_valid(SceneManager):
 			call_deferred("_change_to_saved_scene", SceneManager.VILLAGE_SCENE)
 	
-	print("[SaveManager] ✅ Game loaded from slot %d" % slot_id)
-	load_completed.emit(slot_id, true)
+	print("[SaveManager] ✅ Game loaded (slot/kaynak=%d) %s" % [emit_slot_id, file_path])
+	load_completed.emit(emit_slot_id, true)
 	return true
 
 func _change_to_saved_scene(scene_path: String) -> void:
@@ -276,6 +610,9 @@ func _change_to_saved_scene(scene_path: String) -> void:
 	elif scene_path == SceneManager.FOREST_SCENE:
 		if SceneManager.has_method("change_to_forest"):
 			SceneManager.change_to_forest({}, true)
+	elif scene_path == SceneManager.TUTORIAL_DUNGEON_SCENE:
+		if SceneManager.has_method("change_to_village"):
+			SceneManager.change_to_village({}, true)
 	else:
 		# For other scenes, try to use start_new_game or fallback
 		print("[SaveManager] Unknown scene path, defaulting to village: %s" % scene_path)
@@ -1378,12 +1715,12 @@ func _to_vector2(value) -> Vector2:
 
 # === UTILITY FUNCTIONS ===
 
-func get_save_metadata(slot_id: int) -> Dictionary:
-	"""Get metadata for a save slot without loading the full save"""
+func get_save_metadata(slot_id: int, for_profile_id: int = -1) -> Dictionary:
+	"""Get metadata for a save slot without loading the full save. for_profile_id: 1..3 veya -1 = aktif profil."""
 	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
 		return {}
-	
-	var file_path = SAVE_DIR + "save_%d.json" % slot_id
+	var pid: int = active_profile_id if for_profile_id < 1 else for_profile_id
+	var file_path: String = get_save_file_path_for_profile(pid, slot_id)
 	if not FileAccess.file_exists(file_path):
 		return {}
 	
@@ -1402,25 +1739,7 @@ func get_save_metadata(slot_id: int) -> Dictionary:
 	var save_data: Dictionary = json.get_data()
 	if not save_data is Dictionary:
 		return {}
-	
-	# Extract metadata
-	var metadata: Dictionary = {
-		"version": save_data.get("version", "0.0.0"),
-		"save_date": save_data.get("save_date", ""),
-		"playtime_seconds": save_data.get("playtime_seconds", 0),
-		"scene": save_data.get("scene", ""),
-		"slot_id": slot_id
-	}
-	
-	# Calculate village level (simplified: based on building count)
-	if save_data.has("village") and save_data["village"] is Dictionary:
-		var village = save_data["village"]
-		if village.has("buildings") and village["buildings"] is Array:
-			metadata["village_level"] = village["buildings"].size()
-		if village.has("resources") and village["resources"] is Dictionary:
-			metadata["gold"] = village["resources"].get("gold", 0)
-	
-	return metadata
+	return _metadata_from_save_dictionary(save_data, slot_id)
 
 func delete_save(slot_id: int) -> bool:
 	"""Delete a save slot"""
@@ -1428,70 +1747,26 @@ func delete_save(slot_id: int) -> bool:
 		push_error("[SaveManager] Invalid slot_id for delete: %d" % slot_id)
 		return false
 	
-	var file_path = SAVE_DIR + "save_%d.json" % slot_id
+	var file_path: String = get_save_file_path_current(slot_id)
 	if not FileAccess.file_exists(file_path):
 		print("[SaveManager] Save slot %d does not exist, nothing to delete" % slot_id)
-		return true  # Already deleted/non-existent, consider it success
+		return true
 	
-	# Open user:// directory
-	var dir = DirAccess.open("user://")
+	var dir: DirAccess = DirAccess.open("user://")
 	if not dir:
 		push_error("[SaveManager] Failed to open user:// directory")
 		return false
-	
-	# Try multiple methods to delete the file
-	var filename = "save_%d.json" % slot_id
-	var relative_path = "otto-man-save/" + filename
-	
-	# Method 1: Try to change to directory and remove
-	var change_error = dir.change_dir("otto-man-save")
-	if change_error == OK:
-		var error = dir.remove(filename)
-		if error == OK:
-			print("[SaveManager] ✅ Deleted save slot %d: %s" % [slot_id, filename])
+	var rel: String = _user_data_relative(file_path)
+	var err: Error = dir.remove(rel)
+	if err == OK:
+		print("[SaveManager] ✅ Deleted save slot %d (%s)" % [slot_id, rel])
+		return true
+	push_error("[SaveManager] Silinemedi slot %d: %s (err %d)" % [slot_id, rel, err])
+	var abs_path: String = ProjectSettings.globalize_path(file_path)
+	if FileAccess.file_exists(abs_path):
+		var tr: Error = OS.move_to_trash(abs_path)
+		if tr == OK:
 			return true
-		else:
-			push_error("[SaveManager] Method 1 failed: Failed to remove file (error: %d)" % error)
-	else:
-		push_error("[SaveManager] Method 1 failed: Failed to change directory (error: %d)" % change_error)
-	
-	# Method 2: Try to remove with relative path from user://
-	dir = DirAccess.open("user://")  # Reopen to reset
-	if dir:
-		var error = dir.remove(relative_path)
-		if error == OK:
-			print("[SaveManager] ✅ Deleted save slot %d (method 2): %s" % [slot_id, relative_path])
-			return true
-		else:
-			push_error("[SaveManager] Method 2 failed: Failed to remove with relative path (error: %d)" % error)
-	
-	# Method 3: Try using OS.move_to_trash (platform dependent, but might work)
-	# Convert user:// path to absolute path
-	var user_data_dir = OS.get_user_data_dir()
-	# Build path with proper separators
-	var absolute_path = user_data_dir + "/otto-man-save/save_%d.json" % slot_id
-	
-	# Check if file exists before trying to move to trash
-	if FileAccess.file_exists(absolute_path):
-		var trash_result = OS.move_to_trash(absolute_path)
-		if trash_result == OK:
-			print("[SaveManager] ✅ Moved save slot %d to trash (method 3): %s" % [slot_id, absolute_path])
-			return true
-		else:
-			push_error("[SaveManager] Method 3 failed: move_to_trash returned error: %d" % trash_result)
-	else:
-		# File doesn't exist at absolute path, try alternative path construction
-		# On Windows, user data dir might be different
-		var alt_path = user_data_dir + "\\otto-man-save\\save_%d.json" % slot_id
-		if FileAccess.file_exists(alt_path):
-			var trash_result = OS.move_to_trash(alt_path)
-			if trash_result == OK:
-				print("[SaveManager] ✅ Moved save slot %d to trash (method 3b): %s" % [slot_id, alt_path])
-				return true
-	
-	push_error("[SaveManager] All methods failed to delete save slot %d" % slot_id)
-	push_error("[SaveManager] File path checked: %s" % file_path)
-	push_error("[SaveManager] Absolute path checked: %s" % absolute_path)
 	return false
 
 func _calculate_current_playtime() -> int:
@@ -1567,7 +1842,7 @@ func validate_save_file(slot_id: int) -> Dictionary:
 	if slot_id < 1 or slot_id > MAX_SAVE_SLOTS:
 		return {"valid": false, "error": "Geçersiz kayıt slotu.", "metadata": {}}
 	
-	var file_path = SAVE_DIR + "save_%d.json" % slot_id
+	var file_path: String = get_save_file_path_current(slot_id)
 	if not FileAccess.file_exists(file_path):
 		return {"valid": false, "error": "Kayıt dosyası bulunamadı.", "metadata": {}}
 	

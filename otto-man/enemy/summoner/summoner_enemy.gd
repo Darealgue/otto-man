@@ -2,12 +2,19 @@ extends "res://enemy/base_enemy.gd"
 class_name SummonerEnemy
 
 @export var default_stats: Dictionary = {}
+## Açıkken konsola can / hasar / hurtbox akışı (spawn sonrası HP ve her vuruş).
+@export var summoner_combat_debug: bool = true
 
 # Constants that are truly fixed behavior
 const SUMMON_ANIMATION_TIMEOUT = 1.0  # Maximum time for summon animation
 const WALK_START_THRESHOLD = 10.0  # Speed needed to start walking
 const WALK_STOP_THRESHOLD = 5.0   # Speed needed to stop walking
 const HP_MULTIPLIER = 2.0
+## İstediğin davranış: her summon cycle içinde en fazla 3 kuş olsun.
+## (Stats.tres şu an max_summon_count=1, o yüzden bunu koddan sabitliyoruz.)
+const SUMMON_TARGET_COUNT = 3
+## İstediğin davranış: summon/kuş cooldown'u 6 saniye olsun.
+const SUMMON_COOLDOWN_SECONDS = 6.0
 
 # Node references
 @onready var summon_timer: Timer = $SummonTimer
@@ -19,6 +26,8 @@ var can_summon: bool = true
 var is_summoning: bool = false
 var return_cooldown_timer: float = 0.0
 var summon_animation_timer: float = 0.0  # Track summon animation duration
+## Her summoner aynı .tres stats referansını paylaşmasın; yoksa HP çarpanı tüm örneklerde birikir.
+var _summoner_hp_finalize_done: bool = false
 
 
 func _ready() -> void:
@@ -31,16 +40,15 @@ func _ready() -> void:
 		"summon_cooldown": 5.0,
 		"return_cooldown": 3.0,
 	}
+	# @export stats tek kaynak .tres ise tüm summoner'lar aynı nesneyi mutasyona uğratır;
+	# scale_to_level + tank çarpanı her düşmanda max_health'i üst üste çarpar.
+	if stats != null:
+		stats = stats.duplicate(true)
 	
 	super._ready()
-	# Summoner daha tank olsun: cani 2x.
-	health = maxf(1.0, health * HP_MULTIPLIER)
-	var max_health_val = _stat_value("max_health", null)
-	if max_health_val != null and stats != null:
-		stats.set("max_health", maxf(1.0, float(max_health_val) * HP_MULTIPLIER))
-	if health_bar:
-		health_bar.setup(health)
-		health_bar.update_health(health)
+	# Tank çarpanı spawn sonrası uygulanmalı: TileEnemySpawner scale_to_level() _ready'den
+	# hemen sonra çalışıyor; önce çarparsak stats.max_health ile health / can barı uyumsuz kalıyor.
+	call_deferred("_summoner_apply_hp_tankiness_and_healthbar")
 	
 	# Set sleep distances for performance optimization
 	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
@@ -63,7 +71,8 @@ func _ready() -> void:
 	
 	# Initialize summon timer
 	if summon_timer:
-		summon_timer.wait_time = float(_stat_value("summon_cooldown", 5.0))
+		# Stats.tres'teki değerler oyunda yanlış hissedilebiliyor; davranışı koddan sabitliyoruz.
+		summon_timer.wait_time = float(SUMMON_COOLDOWN_SECONDS)
 		summon_timer.one_shot = true
 		summon_timer.timeout.connect(_on_summon_timer_timeout)
 	else:
@@ -74,6 +83,27 @@ func _ready() -> void:
 		sprite.animation_finished.connect(_on_animation_finished)
 	else:
 		push_error("Sprite node not found!")
+
+
+func _summoner_apply_hp_tankiness_and_healthbar() -> void:
+	if _summoner_hp_finalize_done:
+		return
+	if not is_instance_valid(self) or stats == null:
+		return
+	_summoner_hp_finalize_done = true
+	var max_before_tank: float = stats.max_health
+	stats.max_health = maxf(1.0, stats.max_health * HP_MULTIPLIER)
+	health = stats.max_health
+	if health_bar:
+		health_bar.setup(health)
+	_health_emit_changed()
+	if summoner_combat_debug:
+		print("[SummonerDBG] post-spawn HP | enemy_level=", enemy_level,
+			" max_before_2x=", max_before_tank,
+			" stats.max_health=", stats.max_health,
+			" health=", health,
+			" hurtbox=", hurtbox)
+
 
 func _physics_process(delta: float) -> void:
 	# Skip all processing if position is invalid
@@ -209,7 +239,7 @@ func _handle_run(delta: float) -> void:
 	
 	sprite.flip_h = target.global_position.x < global_position.x
 	
-	if can_summon and not is_summoning and active_birds.size() < int(_stat_value("max_summon_count", 3)):
+	if can_summon and not is_summoning and active_birds.size() < int(SUMMON_TARGET_COUNT):
 		change_behavior("summon")
 
 func _handle_summon(delta: float) -> void:
@@ -245,7 +275,7 @@ func _complete_summon() -> void:
 		return
 		
 	# Calculate how many birds to summon
-	var birds_to_summon = int(_stat_value("max_summon_count", 3)) - active_birds.size()
+	var birds_to_summon = int(SUMMON_TARGET_COUNT) - active_birds.size()
 	
 	# Summon all birds at once
 	for i in range(birds_to_summon):
@@ -254,6 +284,12 @@ func _complete_summon() -> void:
 		
 		# Add bird to scene first so it can properly initialize
 		get_parent().add_child(bird)
+		# TileEnemySpawner ile aynı çizim katmanı (dekor / tile üstü)
+		var z := TileEnemySpawner.ENEMY_Z_INDEX
+		bird.z_index = z
+		var bird_sprite := bird.get_node_or_null("AnimatedSprite2D") as CanvasItem
+		if bird_sprite:
+			bird_sprite.z_index = z
 		
 		# Set position to be slightly above and to the side of summoner
 		var angle = (PI / (birds_to_summon + 1)) * (i + 1)
@@ -361,11 +397,28 @@ func die() -> void:
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	# Call base class take_damage to get blood particles and other effects
+	var before_hp: float = health
+	if summoner_combat_debug:
+		var smax: float = stats.max_health if stats else -1.0
+		print("[SummonerDBG] take_damage IN | dmg=", amount, " hp=", before_hp, "/", smax,
+			" behavior=", current_behavior, " invuln=", invulnerable, " apply_kb=", apply_knockback)
 	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
+	if summoner_combat_debug:
+		var smax2: float = stats.max_health if stats else -1.0
+		var bar_m: float = health_bar.max_health if health_bar else -1.0
+		print("[SummonerDBG] take_damage OUT| hp=", health, "/", smax2, " health_bar.max=", bar_m)
+	# Hasar sonrası UI bazen gecikmeli kaldığı için (özellikle state çakışmalarında) kesin güncelle.
+	if health_bar and health < before_hp:
+		health_bar.update_health(health)
 	
 	# Summoner-specific damage handling
 	if current_behavior == "dead" or invulnerable:
 		return
+	# Knockback yoksa bile hurt animasyonu/state akışı devam etsin.
+	# (Hurt state bazen bazı vurgu/haraket akışlarını da düzgünleştiriyor.)
+	if sprite and sprite.animation != "hurt":
+		sprite.play("hurt")
+	change_behavior("hurt", true)
 	if not apply_knockback:
 		return
 		

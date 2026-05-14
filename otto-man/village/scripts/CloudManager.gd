@@ -364,7 +364,15 @@ func _on_weather_changed() -> void:
 
 
 func _spawn_cloud_delayed(delay: float) -> void:
-	await get_tree().create_timer(delay).timeout
+	var tree := get_tree()
+	if tree == null:
+		return
+	await tree.create_timer(delay).timeout
+	if not is_inside_tree():
+		return
+	tree = get_tree()
+	if tree == null:
+		return
 	_spawn_cloud()
 
 

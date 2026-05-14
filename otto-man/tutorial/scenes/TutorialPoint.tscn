@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://tutorial_point_marker"]
+
+[ext_resource type="Script" path="res://tutorial/scripts/tutorial_point.gd" id="1_tp"]
+
+[node name="TutorialPoint" type="Marker2D"]
+gizmo_extents = 32.0
+script = ExtResource("1_tp")
+point_index = 1

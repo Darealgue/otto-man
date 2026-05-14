@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" path="res://enemy/enemy_spawner.tscn" id="4_urgkt"]
 [ext_resource type="Texture2D" uid="uid://bttd14brqottw" path="res://Tile set/Dungeon wall bg2-sheet.png" id="5_ht3p1"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_m7vg8"]
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_m726b"]
 texture = ExtResource("5_ht3p1")
 texture_region_size = Vector2i(64, 64)
 1:0/0 = 0
@@ -228,7 +228,7 @@ tile_size = Vector2i(64, 64)
 terrain_set_0/mode = 0
 terrain_set_0/terrain_0/name = "walls bg"
 terrain_set_0/terrain_0/color = Color(0.302115, 0.318662, 0.353264, 1)
-sources/2 = SubResource("TileSetAtlasSource_m7vg8")
+sources/2 = SubResource("TileSetAtlasSource_m726b")
 
 [node name="BasicPlatform" type="Node2D"]
 script = ExtResource("1_2l52s")

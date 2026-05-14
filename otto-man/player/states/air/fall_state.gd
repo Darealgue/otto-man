@@ -79,9 +79,6 @@ func enter():
 		animation_player.connect("animation_finished", _on_animation_finished)
 
 func physics_update(delta: float):
-	# Update fall attack cooldown
-	get_parent().get_node("FallAttack").update_cooldown(delta)
-	
 	# Update wall slide cooldown
 	if wall_slide_state:
 		wall_slide_state.update_cooldown(delta)

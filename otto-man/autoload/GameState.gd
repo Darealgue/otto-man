@@ -8,6 +8,7 @@ enum State {
 	VILLAGE,   # Köy sahnesi
 	DUNGEON,   # Zindan sahnesi (görev içinde)
 	FOREST,    # Orman sahnesi (görev içinde)
+	TUTORIAL,  # Yeni oyun öğretici sahnesi
 	LOADING    # Sahne yükleniyor
 }
 
@@ -46,6 +47,8 @@ func _detect_initial_state() -> void:
 			current_state = State.MENU
 		elif "VillageScene" in scene_path or "village" in scene_path.to_lower():
 			current_state = State.VILLAGE
+		elif "tutorial/scenes/TutorialDungeon" in scene_path:
+			current_state = State.TUTORIAL
 		elif "test_level" in scene_path or "dungeon" in scene_path.to_lower():
 			current_state = State.DUNGEON
 		elif "forest" in scene_path.to_lower():
@@ -70,6 +73,8 @@ func _on_scene_change_completed(new_path: String) -> void:
 		new_state = State.MENU
 	elif "VillageScene" in new_path or "village" in new_path.to_lower():
 		new_state = State.VILLAGE
+	elif "tutorial/scenes/TutorialDungeon" in new_path:
+		new_state = State.TUTORIAL
 	elif "test_level" in new_path or "dungeon" in new_path.to_lower():
 		new_state = State.DUNGEON
 	elif "forest" in new_path.to_lower():
@@ -98,7 +103,7 @@ func _handle_state_pause() -> void:
 			# Always unpause in menu/loading
 			if is_paused:
 				resume()
-		State.VILLAGE, State.DUNGEON, State.FOREST:
+		State.VILLAGE, State.DUNGEON, State.FOREST, State.TUTORIAL:
 			# Game states - pause is handled by PauseMenu
 			pass
 
@@ -120,11 +125,11 @@ func is_in_menu() -> bool:
 
 func is_in_game() -> bool:
 	"""Check if currently in game (village, dungeon, or forest)"""
-	return current_state == State.VILLAGE or current_state == State.DUNGEON or current_state == State.FOREST
+	return current_state == State.VILLAGE or current_state == State.DUNGEON or current_state == State.FOREST or current_state == State.TUTORIAL
 
 func is_in_combat() -> bool:
 	"""Check if currently in combat scene (dungeon or forest)"""
-	return current_state == State.DUNGEON or current_state == State.FOREST
+	return current_state == State.DUNGEON or current_state == State.FOREST or current_state == State.TUTORIAL
 
 func is_loading() -> bool:
 	"""Check if currently loading"""
@@ -168,6 +173,8 @@ func _state_to_string(state) -> String:
 			return "DUNGEON"
 		State.FOREST:
 			return "FOREST"
+		State.TUTORIAL:
+			return "TUTORIAL"
 		State.LOADING:
 			return "LOADING"
 		_:

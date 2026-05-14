@@ -7,6 +7,7 @@ signal settings_menu_requested
 
 const MAIN_MENU_SCENE: String = "res://scenes/MainMenu.tscn"
 const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
+const TUTORIAL_DUNGEON_SCENE: String = "res://tutorial/scenes/TutorialDungeon.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
@@ -38,7 +39,7 @@ func _ready() -> void:
 	current_scene_path = _detect_initial_scene()
 	print("[SceneManager] ready, current=", current_scene_path)
 
-func start_new_game() -> void:
+func start_new_game(play_tutorial: bool = false) -> void:
 	current_payload = {}
 	previous_scene_path = ""
 	# 1) Zaman (kayıttan kalan gün ilerlemesini kaldır)
@@ -85,7 +86,15 @@ func start_new_game() -> void:
 	var pum: Node = get_node_or_null("/root/PowerupManager")
 	if pum and pum.has_method("clear_all_powerups"):
 		pum.call("clear_all_powerups")
-	_change_scene(VILLAGE_SCENE, true)
+	var tutorial_mgr: Node = get_node_or_null("/root/TutorialManager")
+	if play_tutorial:
+		if tutorial_mgr and tutorial_mgr.has_method("mark_started_tutorial_run"):
+			tutorial_mgr.call("mark_started_tutorial_run")
+		_change_scene(TUTORIAL_DUNGEON_SCENE, true)
+	else:
+		if tutorial_mgr and tutorial_mgr.has_method("mark_skipped_tutorial_run"):
+			tutorial_mgr.call("mark_skipped_tutorial_run")
+		_change_scene(VILLAGE_SCENE, true)
 
 func return_to_main_menu() -> void:
 	current_payload = {}
@@ -102,7 +111,6 @@ const DUNGEON_SUCCESS_MORALE_BONUS: float = 2.0
 func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	_heal_player_on_world_map_arrival(payload)
 	payload = _finalize_dungeon_rewards_on_safe_return(payload)
-	payload = _finalize_forest_resources_on_safe_return(payload)
 	payload = _finalize_world_expedition_gold_on_safe_return(payload)
 	_sync_world_map_pawn_on_dungeon_return(payload)
 	# Köye dönüş simülasyonu bayrağı (köyden çıkışta true kalmış olabilir; time_advanced önce sıfırlanmalı)
@@ -128,6 +136,9 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 	if time_spent > 0.0:
 		payload["time_spent_in_level"] = time_spent
 	_handle_travel_time(payload)
+	# Taşınan orman kaynakları: restore + üretim simülasyonundan SONRA aktar.
+	# Aksi halde _handle_travel_time VillageManager.resource_levels'i çıkış snapshot'ı ile ezer ve taşıma kaybolur.
+	payload = _finalize_forest_resources_on_safe_return(payload)
 	current_payload = payload.duplicate(true)
 	_clear_level_entry_time()
 	_change_scene(VILLAGE_SCENE, force_reload)
@@ -860,6 +871,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 	"""Show/hide health and stamina bars based on current scene."""
 	var is_combat_scene = (
 		scene_path == DUNGEON_SCENE
+		or scene_path == TUTORIAL_DUNGEON_SCENE
 		or scene_path == FOREST_SCENE
 		or scene_path == CAMP_SCENE
 		or scene_path == WORLD_MAP_SCENE
@@ -1006,6 +1018,8 @@ func _get_scene_name(scene_path: String) -> String:
 		return "Ana Menü"
 	elif scene_path == VILLAGE_SCENE:
 		return "Köy"
+	elif scene_path == TUTORIAL_DUNGEON_SCENE:
+		return "Öğretici"
 	elif scene_path == DUNGEON_SCENE:
 		return "Zindan"
 	elif scene_path == FOREST_SCENE:

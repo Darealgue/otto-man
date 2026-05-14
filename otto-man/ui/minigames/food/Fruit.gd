@@ -7,6 +7,9 @@ const CollisionLayers = preload("res://resources/CollisionLayers.gd")
 const BERRY_PATH := "res://ui/minigames/food/berry.png"
 const BERRY_DROP_PATH := "res://ui/minigames/food/berry_drop.png"
 
+## Toplama yarıçapı (world space). Çap 2x için 12 → 24.
+const FRUIT_PICKUP_RADIUS: float = 24.0
+
 # Texture'ları yükle (conditional)
 var BERRY_TEXTURE: Texture2D = null
 var BERRY_DROP_TEXTURE: Texture2D = null
@@ -14,15 +17,17 @@ var BERRY_DROP_TEXTURE: Texture2D = null
 var _berry_sprite: Sprite2D = null
 
 var _initial_velocity: Vector2 = Vector2.ZERO
-var _gravity: float = 980.0  # Yerçekimi
+# Minigame: 980’den hafif düşük — iniş çok sert olmasın; çok alçak kalmaması için 720’den yukarı tutuldu.
+var _gravity: float = 750.0
 var _air_time: float = 0.0
 var _max_air_time: float = 3.0  # Maksimum havada kalma süresi
 var _is_collected: bool = false
 var _bush_position: Vector2 = Vector2.ZERO
 var _minigame_ref: Node = null  # Minigame referansı (toplama için)
 var _spawn_time: float = 0.0  # Spawn zamanı
-var _spawn_invulnerability_duration: float = 0.5  # İlk 0.5 saniye toplanamaz
 var _collision_delay: float = 1.0  # İlk 1 saniye collision kapalı (dallardan geçmek için)
+## Çarpışma (monitoring) açıldıktan sonra bu kadar saniye daha toplanamaz — spawn anında sayaç bug'ını önler.
+var _pickup_cooldown_after_collision: float = 0.22
 var _hit_ground: bool = false  # Yere değdi mi?
 var _ground_hit_time: float = 0.0  # Yere değme zamanı
 var _ground_fade_duration: float = 5.0  # Yere değdikten sonra kaybolma süresi (5 saniye)
@@ -31,7 +36,8 @@ var _rotation_speed: float = 0.0  # Dönme hızı (rad/saniye)
 
 # Bar seviyesine göre fırlatma parametreleri
 # fill_value: 0.0-1.0 arası (bar doluluk oranı)
-func launch_from_bush(bush_pos: Vector2, fill_value: float, rng: RandomNumberGenerator) -> void:
+## arc_index: 0..N-1 meyve sırası; farklı tepe yüksekliği için dikey ölçek (negatif = eski davranış, rastgele sadece açı).
+func launch_from_bush(bush_pos: Vector2, fill_value: float, rng: RandomNumberGenerator, arc_index: int = -1) -> void:
 	_bush_position = bush_pos
 	_is_collected = false
 	_air_time = 0.0
@@ -39,30 +45,27 @@ func launch_from_bush(bush_pos: Vector2, fill_value: float, rng: RandomNumberGen
 	
 	# Bar seviyesine göre fırlatma gücü hesapla
 	# fill_value ne kadar yüksekse o kadar yükseğe fırla
-	var base_speed: float = 400.0  # Minimum hız (geri alındı)
-	var max_speed: float = 700.0  # Maksimum hız (geri alındı)
+	var base_speed: float = 410.0
+	var max_speed: float = 640.0
 	var speed: float = lerp(base_speed, max_speed, fill_value)
 	
-	# Açı: 0° = tam yukarı, -60° ile +60° arası = yukarı doğru farklı açılarla (geniş ama dengeli yelpaze)
-	# Açıyı dikey eksenden ölçüyoruz (0° yukarı, 90° yatay)
-	var angle_degrees: float = rng.randf_range(-60.0, 60.0)  # -60° ile +60° arası (dengeli yelpaze)
+	# Açı: 0° = tam yukarı; dar yelpaze (±60 genişti, havada yakalama için dar tutuldu).
+	var angle_degrees: float = rng.randf_range(-22.0, 22.0)
 	var angle: float = deg_to_rad(angle_degrees)
 	
-	# Yatay ve dikey hız bileşenleri
-	# angle 0° iken: horizontal=0, vertical=maksimum (tam yukarı)
-	# angle 60° iken: horizontal=maksimum, vertical=az (daha yatay ama hala yukarı)
 	var horizontal_speed: float = sin(angle) * speed
 	var vertical_speed: float = -cos(angle) * speed  # Negatif = yukarı
 	
-	# Bar seviyesine göre dikey hızı artır - 4 kat daha yükseğe fırlasın
-	vertical_speed *= (0.8 + fill_value * 0.4) * 4.0  # 4 kat daha yükseğe
-	
-	# Yatay hızı artır - geniş dağılım için (yelpaze efekti) ama çok fazla değil
-	horizontal_speed *= 1.3  # Yatay dağılımı artır ama dengeli tut
+	vertical_speed *= lerpf(1.12, 1.82, fill_value)
+	# Aynı bar açısında bile meyveler farklı tepeye çıksın (sıraya göre alçak / orta / yüksek).
+	if arc_index >= 0:
+		const ARC_VERTICAL_SCALE := [0.74, 1.0, 1.22]
+		vertical_speed *= ARC_VERTICAL_SCALE[arc_index % ARC_VERTICAL_SCALE.size()]
+	horizontal_speed *= 1.08
 	
 	_initial_velocity = Vector2(horizontal_speed, vertical_speed)
-	# Spawn pozisyonu daha yukarıdan başlasın ve daha geniş alanda (yelpaze efekti için)
-	global_position = bush_pos + Vector2(rng.randf_range(-80.0, 80.0), -30.0)  # Çok geniş yatay dağılım
+	# Hafif yatay ofset (geniş ofset ayrıca yelpazeyi şişiriyordu)
+	global_position = bush_pos + Vector2(rng.randf_range(-18.0, 18.0), -30.0)
 	
 	# Rastgele dönme hızı (farklı yönlerde ve hızlarda)
 	# -360° ile +360° arası (saniyede 1 tam tur = 360° = 2π rad)
@@ -75,13 +78,16 @@ func launch_from_bush(bush_pos: Vector2, fill_value: float, rng: RandomNumberGen
 	# Maksimum havada kalma süresi bar seviyesine göre ayarla
 	_max_air_time = lerp(3.0, 5.0, fill_value)  # Daha uzun havada kalma
 	
-	# Collision ayarları
-	if not has_node("CollisionShape2D"):
-		var shape := CollisionShape2D.new()
+	var col_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col_shape == null:
+		col_shape = CollisionShape2D.new()
+		col_shape.name = "CollisionShape2D"
 		var circle := CircleShape2D.new()
-		circle.radius = 12.0  # 1.5 katına çıkarıldı (8.0 -> 12.0)
-		shape.shape = circle
-		add_child(shape)
+		circle.radius = FRUIT_PICKUP_RADIUS
+		col_shape.shape = circle
+		add_child(col_shape)
+	elif col_shape.shape is CircleShape2D:
+		(col_shape.shape as CircleShape2D).radius = FRUIT_PICKUP_RADIUS
 	
 	# Area2D ayarları - Player body ile etkileşim için
 	collision_layer = 0  # Hiçbir layer'da değil
@@ -160,10 +166,12 @@ func _on_body_entered(body: Node2D) -> void:
 		print("[Fruit] ❌ Fruit hit ground, cannot collect")
 		return
 	
+	if not can_be_collected():
+		return
+	
 	# Oyuncu meyvenin üzerine geldi mi?
 	if body.is_in_group("player"):
 		print("[Fruit] ✅ Player detected! Calling collect()")
-		# İlk 0.5 saniye toplanamaz kontrolü collect() içinde yapılıyor
 		# Minigame referansının hala geçerli olduğunu kontrol et
 		if _minigame_ref != null and is_instance_valid(_minigame_ref) and _minigame_ref.has_method("_on_fruit_hit"):
 			print("[Fruit] Calling minigame._on_fruit_hit()")
@@ -200,9 +208,8 @@ func _process(delta: float) -> void:
 	# Yerçekimi uygula
 	_initial_velocity.y += _gravity * delta
 	
-	# Hava direnci ekle (meyveler yavaşlasın)
-	var air_resistance: float = 0.98  # Her frame'de %2 yavaşla
-	_initial_velocity *= air_resistance
+	# Yatay sürtünmeyi kaldırdık: sabit 0.982/kare (delta'sız) yatay hızı çok hızlı eritiyordu;
+	# meyve bir süre sonra düz dikey gidiyor, havada yakalama sıkıcı oluyordu. Saf balistik parabol.
 	
 	# Pozisyonu güncelle
 	global_position += _initial_velocity * delta
@@ -299,8 +306,7 @@ func collect() -> void:
 	if _hit_ground:
 		return
 	
-	# İlk 0.5 saniye toplanamaz (spawn invulnerability)
-	if _spawn_time < _spawn_invulnerability_duration:
+	if not can_be_collected():
 		return
 	
 	_is_collected = true
@@ -359,6 +365,13 @@ func _create_collection_effect(pos: Vector2) -> void:
 
 func is_collected() -> bool:
 	return _is_collected
+
+
+func can_be_collected() -> bool:
+	if _is_collected or _hit_ground:
+		return false
+	return _spawn_time >= _collision_delay + _pickup_cooldown_after_collision
+
 
 func has_hit_ground() -> bool:
 	return _hit_ground

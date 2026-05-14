@@ -1616,14 +1616,18 @@ func get_villager_info():
 		
 	return ChosenInfo
 	
-const SAVE_DIR = "user://otto-man-save/"
+func _villager_save_base_dir() -> String:
+	var sm: Node = get_node_or_null("/root/SaveManager")
+	if sm and sm.has_method("get_profile_data_directory"):
+		return str(sm.get_profile_data_directory())
+	return "user://otto-man-save/profile_1/"
 
 func save_array_to_json(array: Array, file_name: String) -> void:
 	# Ensure the save directory exists
 	create_save_directory()
 
 	# Construct the full path for the file
-	var full_path = SAVE_DIR + file_name
+	var full_path = _villager_save_base_dir() + file_name
 
 	var file = FileAccess.open(full_path, FileAccess.WRITE)
 	if file:
@@ -1654,7 +1658,7 @@ func Load_existing_villagers():
 	
 func load_array_from_json(file_name: String) -> Array:
 	# Construct the full path for the file
-	var full_path = SAVE_DIR + file_name
+	var full_path = _villager_save_base_dir() + file_name
 
 	# Check if the file exists before trying to open it
 	if not FileAccess.file_exists(full_path):
@@ -1691,20 +1695,18 @@ func load_array_from_json(file_name: String) -> Array:
 	return []
 
 func create_save_directory() -> void:
-	# Get a DirAccess instance
 	var dir = DirAccess.open("user://")
 	if dir:
-		# Check if the "otto-man-save" directory exists within user://
-		# Updated directory name here
 		if not dir.dir_exists("otto-man-save"):
-			# If not, create it
-			# Updated directory name here
 			var error = dir.make_dir("otto-man-save")
 			if error != OK:
-				push_error("Failed to create save directory: %s" % SAVE_DIR)
+				push_error("Failed to create save directory: user://otto-man-save/")
 			else:
-				print("Created save directory: %s" % SAVE_DIR)
-		# Close the DirAccess instance
+				print("Created save directory: user://otto-man-save/")
+		for p: int in range(1, 4):
+			var rel: String = "otto-man-save/profile_%d" % p
+			if not dir.dir_exists(rel):
+				dir.make_dir(rel)
 	else:
 		push_error("Failed to open user:// directory.")
 

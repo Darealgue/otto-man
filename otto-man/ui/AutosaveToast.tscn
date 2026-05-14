@@ -1,0 +1,31 @@
+[gd_scene load_steps=2 format=3 uid="uid://autosave_toast_otto"]
+
+[ext_resource type="Script" path="res://ui/AutosaveToast.gd" id="1_script"]
+
+[node name="AutosaveToast" type="CanvasLayer"]
+layer = 120
+script = ExtResource("1_script")
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -420.0
+offset_top = 36.0
+offset_right = -36.0
+offset_bottom = 92.0
+grow_horizontal = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 18
+text = "Oyun otomatik kaydedildi"
+horizontal_alignment = 2

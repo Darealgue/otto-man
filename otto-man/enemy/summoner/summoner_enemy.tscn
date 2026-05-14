@@ -401,4 +401,5 @@ one_shot = true
 position = Vector2(0, 27)
 target_position = Vector2(50, 0)
 
-[connection signal="area_entered" from="Hurtbox" to="." method="_on_hurtbox_hurt"]
+# Hurtbox: hasar sadece EnemyHurtbox -> hurt sinyali + BaseEnemy._initialize_components bağlantısı ile gelsin.
+# area_entered'i burada da bağlamak aynı vuruşta _on_hurtbox_hurt'u iki kez çalıştırıyordu (çift hasar / çift sayı).

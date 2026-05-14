@@ -570,6 +570,14 @@ const PRIORITY_DECOR_RULES = {
 			"allowed_locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH]
 		}
 	],
+	"ceiling_surface": [
+		{
+			"chance": 0.12,
+			"decoration_type": DecorationType.BACKGROUND,
+			"decoration_names": ["hanging_chains", "spider_web"],
+			"allowed_locations": [SpawnLocation.CEILING]
+		}
+	],
     "floor_surface": [
 		{
 			"chance": 0.24,

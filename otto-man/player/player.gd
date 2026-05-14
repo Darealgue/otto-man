@@ -369,6 +369,11 @@ func _physics_process(delta):
 	if dodge_state and dodge_state.has_method("cooldown_update"):
 		dodge_state.cooldown_update(delta)
 	
+	# Fall attack: sadece hasar veren vuruşlardan sonra cooldown (tüm durumlarda süre aksın)
+	var fall_attack_state_node = state_machine.get_node_or_null("FallAttack") if state_machine else null
+	if fall_attack_state_node and fall_attack_state_node.has_method("update_cooldown"):
+		fall_attack_state_node.update_cooldown(delta)
+	
 	# Update jump block timer
 	if jump_block_timer > 0:
 		jump_block_timer -= delta

@@ -7,9 +7,10 @@ const ATTACK_UP_FORCE := 300.0
 const IMPACT_SQUASH_SCALE := Vector2(1.3, 0.7)
 const IMPACT_DURATION := 0.15
 const IMPACT_OFFSET := Vector2(0, 16)
-const COOLDOWN_DURATION := 0.2  # Reduced cooldown duration
+## Hasar veren (hurtbox'a temas eden) fall attack sonrası tekrar fall attack bekleme süresi.
+const DAMAGE_FALL_ATTACK_COOLDOWN_SEC := 2.0
 
-static var cooldown_timer := 0.0
+static var damage_fall_attack_cooldown_remaining := 0.0
 static var was_double_jumping := false
 
 var has_hit_enemy := false
@@ -19,17 +20,16 @@ var original_sprite_position := Vector2.ZERO
 var hitbox_enabled := false
 
 static func is_on_cooldown() -> bool:
-	# Only check cooldown if we weren't double jumping
 	if was_double_jumping:
 		return false
-	return cooldown_timer > 0.0
+	return damage_fall_attack_cooldown_remaining > 0.0
 
 static func update_cooldown(delta: float) -> void:
-	if cooldown_timer > 0:
-		cooldown_timer = max(0.0, cooldown_timer - delta)
+	if damage_fall_attack_cooldown_remaining > 0.0:
+		damage_fall_attack_cooldown_remaining = maxf(0.0, damage_fall_attack_cooldown_remaining - delta)
 
-static func reset_cooldown() -> void:
-	cooldown_timer = COOLDOWN_DURATION
+static func start_damage_fall_attack_cooldown() -> void:
+	damage_fall_attack_cooldown_remaining = DAMAGE_FALL_ATTACK_COOLDOWN_SEC
 
 static func set_was_double_jumping(value: bool) -> void:
 	was_double_jumping = value
@@ -148,9 +148,6 @@ func physics_update(delta: float):
 	
 	# Move the player
 	player.apply_move_and_slide()
-	
-	# Update cooldown
-	update_cooldown(delta)
 
 func _on_animation_finished(anim_name: String):
 	if anim_name == "landing" and is_impacting:
@@ -159,6 +156,7 @@ func _on_animation_finished(anim_name: String):
 func _on_hitbox_area_entered(area: Area2D):
 	if area.is_in_group("hurtbox") and not has_hit_enemy:
 		has_hit_enemy = true
+		start_damage_fall_attack_cooldown()
 		
 		# Emit signal for items
 		if player.has_signal("player_attack_landed"):

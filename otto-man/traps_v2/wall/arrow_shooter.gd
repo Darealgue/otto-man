@@ -15,9 +15,14 @@ const ARROW_SCENE_PATH := "res://traps_v2/wall/arrow_projectile.tscn"
 @export var arrow_speed: float = 400.0
 @export var arrow_max_distance: float = 600.0
 
+## TileTrapSpawner dışında (ör. tutorial) sahneye elle konduysa `initialize()` hiç çağrılmaz; bu açıkken bir sonraki karede otomatik başlatılır.
+@export var auto_activate_if_uninitialized: bool = true
+@export var standalone_level: int = 1
+@export var standalone_surface: TrapConfigV2.SurfaceType = TrapConfigV2.SurfaceType.LEFT_WALL
+
 var _shoot_direction: Vector2 = Vector2.RIGHT
 
-@onready var sprite_default: AnimatedSprite2D = $AnimatedSprite2D
+@onready var sprite_default: AnimatedSprite2D = get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 @onready var sprite_left: AnimatedSprite2D = get_node_or_null("left")
 @onready var sprite_right: AnimatedSprite2D = get_node_or_null("right")
 @onready var fire_timer: Timer = $FireTimer
@@ -32,6 +37,14 @@ func _ready() -> void:
 	fire_timer.wait_time = fire_interval
 	fire_timer.timeout.connect(_fire)
 	# No placeholder for arrow trap — use left/right sprites only
+	if auto_activate_if_uninitialized:
+		call_deferred("_activate_if_placed_manually")
+
+
+func _activate_if_placed_manually() -> void:
+	if _initialized:
+		return
+	initialize(standalone_level, standalone_surface)
 
 func _on_initialized() -> void:
 	# Direction: left wall trap shoots right (into room), right wall trap shoots left (into room).

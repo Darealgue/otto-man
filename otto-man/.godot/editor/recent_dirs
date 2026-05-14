@@ -1,5 +1,7 @@
-res://assets/objects/dungeon
+res://tutorial/scenes
+res://tutorial/scripts
 res://Tile set
+res://assets/objects/dungeon
 res://objects/dungeon/lighting
 res://traps_v2/wall
 res://traps_v2/ground

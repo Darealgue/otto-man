@@ -6,6 +6,10 @@ extends Control
 @onready var _quit_button: Button = $CenterContainer/Menu/Buttons/QuitButton
 @onready var _load_game_menu: Control = $LoadGameMenu
 var _settings_menu: Control = null
+var _profile_menu: Control = null
+var _tutorial_prompt: Control = null
+## Hangi akıştan profil menüsü açıldı (geri dönüşte odak için)
+var _profile_opened_for_new_game: bool = true
 
 func _ready() -> void:
 	if not _validate_nodes():
@@ -23,6 +27,8 @@ func _ready() -> void:
 	_connect_signals()
 	_setup_load_game_menu()
 	_setup_settings_menu()
+	_setup_profile_select_menu()
+	_setup_new_game_tutorial_prompt()
 
 func _validate_nodes() -> bool:
 	if not is_instance_valid(_new_game_button):
@@ -47,19 +53,13 @@ func _connect_signals() -> void:
 
 func _on_new_game_pressed() -> void:
 	_play_click()
-	if is_instance_valid(SceneManager) and SceneManager.has_method("start_new_game"):
-		SceneManager.start_new_game()
-	else:
-		push_warning("SceneManager.start_new_game bulunamadı")
+	_profile_opened_for_new_game = true
+	_open_profile_menu(ProfileSelectMenu.MenuIntent.NEW_GAME)
 
 func _on_load_game_pressed() -> void:
 	_play_click()
-	if _load_game_menu and _load_game_menu.has_method("show_menu"):
-		_load_game_menu.show_menu()
-		if _load_game_menu.has_method("set_process_mode"):
-			_load_game_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
-	else:
-		push_warning("LoadGameMenu not available")
+	_profile_opened_for_new_game = false
+	_open_profile_menu(ProfileSelectMenu.MenuIntent.LOAD)
 
 func _on_settings_pressed() -> void:
 	_play_click()
@@ -95,6 +95,113 @@ func _setup_load_game_menu() -> void:
 	
 	if _load_game_menu.has_method("hide_menu"):
 		_load_game_menu.hide_menu()
+
+func _setup_new_game_tutorial_prompt() -> void:
+	if _tutorial_prompt:
+		return
+	var sc: PackedScene = load("res://tutorial/ui/NewGameTutorialPrompt.tscn") as PackedScene
+	if not sc:
+		push_error("[MainMenu] NewGameTutorialPrompt.tscn yüklenemedi")
+		return
+	_tutorial_prompt = sc.instantiate()
+	_tutorial_prompt.name = "NewGameTutorialPrompt"
+	add_child(_tutorial_prompt)
+	if _tutorial_prompt.has_signal("tutorial_chosen"):
+		_tutorial_prompt.tutorial_chosen.connect(_on_new_game_tutorial_play)
+	if _tutorial_prompt.has_signal("skip_tutorial_chosen"):
+		_tutorial_prompt.skip_tutorial_chosen.connect(_on_new_game_tutorial_skip)
+	if _tutorial_prompt.has_signal("back_requested"):
+		_tutorial_prompt.back_requested.connect(_on_new_game_tutorial_back)
+
+
+func _show_new_game_tutorial_choice() -> void:
+	if _tutorial_prompt and _tutorial_prompt.has_method("show_prompt"):
+		move_child(_tutorial_prompt, maxi(0, get_child_count() - 1))
+		_tutorial_prompt.show_prompt()
+	elif is_instance_valid(SceneManager) and SceneManager.has_method("start_new_game"):
+		SceneManager.start_new_game(false)
+
+
+func _on_new_game_tutorial_play() -> void:
+	_play_click()
+	if _tutorial_prompt and _tutorial_prompt.has_method("hide_prompt"):
+		_tutorial_prompt.hide_prompt()
+	if is_instance_valid(SceneManager) and SceneManager.has_method("start_new_game"):
+		SceneManager.start_new_game(true)
+
+
+func _on_new_game_tutorial_skip() -> void:
+	_play_click()
+	if _tutorial_prompt and _tutorial_prompt.has_method("hide_prompt"):
+		_tutorial_prompt.hide_prompt()
+	if is_instance_valid(SceneManager) and SceneManager.has_method("start_new_game"):
+		SceneManager.start_new_game(false)
+
+
+func _on_new_game_tutorial_back() -> void:
+	_play_click()
+	if _tutorial_prompt and _tutorial_prompt.has_method("hide_prompt"):
+		_tutorial_prompt.hide_prompt()
+	_open_profile_menu(ProfileSelectMenu.MenuIntent.NEW_GAME)
+
+
+func _setup_profile_select_menu() -> void:
+	if _profile_menu:
+		return
+	var sc: PackedScene = load("res://ui/ProfileSelectMenu.tscn") as PackedScene
+	if not sc:
+		push_error("[MainMenu] ProfileSelectMenu.tscn yüklenemedi")
+		return
+	_profile_menu = sc.instantiate()
+	_profile_menu.name = "ProfileSelectMenu"
+	add_child(_profile_menu)
+	if _profile_menu.has_signal("profile_chosen"):
+		_profile_menu.profile_chosen.connect(_on_profile_chosen)
+	if _profile_menu.has_signal("back_requested"):
+		_profile_menu.back_requested.connect(_on_profile_menu_back)
+	if _profile_menu.has_method("hide_menu"):
+		_profile_menu.hide_menu()
+
+
+func _open_profile_menu(intent: ProfileSelectMenu.MenuIntent) -> void:
+	if _profile_menu and _profile_menu.has_method("show_menu"):
+		_disable_main_menu_focus()
+		move_child(_profile_menu, maxi(0, get_child_count() - 1))
+		_profile_menu.show_menu(intent)
+	else:
+		push_warning("[MainMenu] Profil menüsü yok — doğrudan devam")
+		if intent == ProfileSelectMenu.MenuIntent.NEW_GAME and is_instance_valid(SceneManager):
+			_show_new_game_tutorial_choice()
+		elif intent == ProfileSelectMenu.MenuIntent.LOAD and _load_game_menu and _load_game_menu.has_method("show_menu"):
+			_load_game_menu.show_menu()
+
+
+func _on_profile_chosen(profile_id: int) -> void:
+	if is_instance_valid(SaveManager) and SaveManager.has_method("set_active_profile"):
+		SaveManager.set_active_profile(profile_id)
+	if _profile_menu and _profile_menu.has_method("hide_menu"):
+		_profile_menu.hide_menu()
+	if _profile_opened_for_new_game:
+		_show_new_game_tutorial_choice()
+	else:
+		if _load_game_menu and _load_game_menu.has_method("show_menu"):
+			_load_game_menu.show_menu()
+			if _load_game_menu.has_method("set_process_mode"):
+				_load_game_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
+		# Yükleme ekranı açıkken ana menü butonları kapalı kalsın; Load geri de enable eder
+
+
+func _on_profile_menu_back() -> void:
+	if _profile_menu and _profile_menu.has_method("hide_menu"):
+		_profile_menu.hide_menu()
+	_enable_main_menu_focus()
+	if _profile_opened_for_new_game:
+		if _new_game_button:
+			_new_game_button.grab_focus()
+	else:
+		if _load_game_button:
+			_load_game_button.grab_focus()
+
 
 func _setup_settings_menu() -> void:
 	if not _settings_menu:
@@ -154,7 +261,12 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 			if not SaveManager.load_completed.is_connected(_on_load_completed):
 				SaveManager.load_completed.connect(_on_load_completed)
 		
-		if SaveManager.load_game(slot_id):
+		var loaded_ok: bool = false
+		if slot_id == SaveManager.AUTOSAVE_UI_SLOT_ID:
+			loaded_ok = SaveManager.load_autosave()
+		else:
+			loaded_ok = SaveManager.load_game(slot_id)
+		if loaded_ok:
 			print("[MainMenu] ✅ Game loaded successfully")
 		else:
 			push_error("[MainMenu] Failed to load game from slot %d" % slot_id)
@@ -183,7 +295,9 @@ func _show_error(title: String, message: String) -> void:
 func _on_load_game_back() -> void:
 	if _load_game_menu and _load_game_menu.has_method("hide_menu"):
 		_load_game_menu.hide_menu()
-	_new_game_button.grab_focus()
+	_enable_main_menu_focus()
+	if _new_game_button:
+		_new_game_button.grab_focus()
 
 func _play_click() -> void:
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_ui"):

@@ -90,9 +90,24 @@ const _KEYBOARD_PRESETS := {
 }
 
 static var _current_keyboard_preset: StringName = PRESET_WASD_NUMPAD
+## Tutorial metinleri: son anlamlı girdi gamepad mi (stick/d-pad) klavye mi.
+var last_input_from_joypad: bool = false
 
 func _ready() -> void:
 	_load_keyboard_preset_from_disk()
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton:
+		if event.pressed:
+			last_input_from_joypad = true
+	elif event is InputEventJoypadMotion:
+		if abs(event.axis_value) > 0.35:
+			last_input_from_joypad = true
+	elif event is InputEventKey and event.pressed:
+		last_input_from_joypad = false
+	elif event is InputEventMouseButton and event.pressed:
+		last_input_from_joypad = false
 
 # -- Genel yardımcılar -------------------------------------------------------------------------
 
@@ -502,3 +517,252 @@ static func _load_keyboard_preset_from_disk() -> void:
 			apply_keyboard_preset(PRESET_WASD_NUMPAD)
 	else:
 		apply_keyboard_preset(PRESET_WASD_NUMPAD)
+
+
+# -- Tutorial ipuçları --------------------------------------------------------------------------
+
+static func _tutorial_physical_action_names(logical: StringName) -> Array[StringName]:
+	var out: Array[StringName] = []
+	if _ACTION_GROUPS.has(logical):
+		for a in _ACTION_GROUPS[logical]:
+			out.append(a as StringName)
+	else:
+		out.append(logical)
+	return out
+
+
+static func _tutorial_joy_button_short(btn_idx: int) -> String:
+	match btn_idx:
+		0: return "A"
+		1: return "B"
+		2: return "X"
+		3: return "Y"
+		4: return "LB"
+		5: return "RB"
+		6: return "LT"
+		7: return "RT"
+		8: return "Select"
+		9: return "Menu"
+		10: return "LS"
+		11: return "RS"
+		12: return "↑"
+		13: return "↓"
+		14: return "←"
+		15: return "→"
+		_: return "B%d" % btn_idx
+
+
+static func _tutorial_joy_motion_hint(axis: int, axis_value: float) -> String:
+	var av := absf(axis_value)
+	if av < 0.25:
+		return ""
+	match axis:
+		0:
+			return "← / →"
+		1:
+			if axis_value > 0.0:
+				return "↓"
+			return "↑"
+		_:
+			return ""
+
+
+## Gamepad gösterimi: InputMap'te ilk event bazen sol çubuk / yanlış eksen oluyor — mod ile düzelt.
+## İndeksler `_tutorial_joy_button_short` ile uyumlu (Xbox düzeni: 4/5 LB/RB, 10/11 LS/RS, 12–15 D-pad).
+static func _tutorial_joypad_glyph_for_action(action_name: StringName, mode: String = "default") -> String:
+	if not InputMap.has_action(action_name):
+		return ""
+	var buttons: Array[InputEventJoypadButton] = []
+	var motions: Array[InputEventJoypadMotion] = []
+	for ev in InputMap.action_get_events(action_name):
+		if ev is InputEventJoypadButton:
+			buttons.append(ev as InputEventJoypadButton)
+		elif ev is InputEventJoypadMotion:
+			motions.append(ev as InputEventJoypadMotion)
+	# Dikey "aşağı" anlamı: tek yönlü platform, fall attack input, [b] eğilme[/b].
+	# D-pad aşağı (13) varsa göster; yoksa joystick motion şablonu ↑/↓ karışmasın → ↓ yaz.
+	# Yüz düğmesi atanmış squat varsa gerçek tuş ismini kullan (↓ sanma).
+	if mode == "semantic_down":
+		for b in buttons:
+			if b.button_index == 13:
+				return _tutorial_joy_button_short(13)
+		if not motions.is_empty():
+			return "↓"
+		if not buttons.is_empty():
+			var ls_only := buttons.size() == 1 and (buttons[0].button_index == 10 or buttons[0].button_index == 11)
+			if ls_only:
+				return "↓"
+			buttons.sort_custom(func(a: InputEventJoypadButton, b: InputEventJoypadButton) -> bool:
+				return _tutorial_joy_button_sort_key(a.button_index) < _tutorial_joy_button_sort_key(b.button_index)
+			)
+			return _tutorial_joy_button_short(buttons[0].button_index)
+		return "↓"
+	if mode == "semantic_up":
+		for b in buttons:
+			if b.button_index == 12:
+				return _tutorial_joy_button_short(12)
+		return "↑"
+	# Blok: bu projede genelde RB (sağ omuz); InputMap sırasından önce RB, sonra LB. LS/RS yanıltmaca.
+	if mode == "prefer_shoulder":
+		var has_lb := false
+		var has_rb := false
+		for b in buttons:
+			match b.button_index:
+				4:
+					has_lb = true
+				5:
+					has_rb = true
+		if has_rb:
+			return _tutorial_joy_button_short(5)
+		if has_lb:
+			return _tutorial_joy_button_short(4)
+		for b in buttons:
+			if b.button_index != 10 and b.button_index != 11:
+				return _tutorial_joy_button_short(b.button_index)
+		if not buttons.is_empty():
+			var only_sticks := true
+			for b in buttons:
+				if b.button_index != 10 and b.button_index != 11:
+					only_sticks = false
+					break
+			if only_sticks:
+				return "RB"
+			return _tutorial_joy_button_short(buttons[0].button_index)
+	# default: yüz düğmeleri / omuz önce, çubuk tıklaması en sonda
+	if not buttons.is_empty():
+		buttons.sort_custom(func(a: InputEventJoypadButton, b: InputEventJoypadButton) -> bool:
+			return _tutorial_joy_button_sort_key(a.button_index) < _tutorial_joy_button_sort_key(b.button_index)
+		)
+		return _tutorial_joy_button_short(buttons[0].button_index)
+	if not motions.is_empty():
+		var jm: InputEventJoypadMotion = motions[0]
+		var h := _tutorial_joy_motion_hint(jm.axis, jm.axis_value)
+		if not h.is_empty():
+			return h
+	return ""
+
+
+static func _tutorial_joy_button_sort_key(idx: int) -> int:
+	match idx:
+		0, 1, 2, 3:
+			return 0
+		4, 5:
+			return 1
+		6, 7:
+			return 2
+		12, 13, 14, 15:
+			return 3
+		_:
+			if idx == 10 or idx == 11:
+				return 20
+			return 10
+
+
+static func _tutorial_first_joypad_glyph_for_map_action(action_name: StringName) -> String:
+	return _tutorial_joypad_glyph_for_action(action_name, "default")
+
+
+func get_tutorial_horizontal_move_hint() -> String:
+	if last_input_from_joypad:
+		var neg := ""
+		var pos := ""
+		for an in _tutorial_physical_action_names(&"move_left"):
+			neg = _tutorial_first_joypad_glyph_for_map_action(an)
+			if not neg.is_empty():
+				break
+		for an in _tutorial_physical_action_names(&"move_right"):
+			pos = _tutorial_first_joypad_glyph_for_map_action(an)
+			if not pos.is_empty():
+				break
+		if not neg.is_empty() and not pos.is_empty() and neg != pos:
+			return "%s / %s" % [neg, pos]
+		if not neg.is_empty():
+			return neg
+		if not pos.is_empty():
+			return pos
+		return "← / →"
+	var preset := _current_keyboard_preset
+	if preset == PRESET_ARROWS_QWEASD:
+		return "← / →"
+	return "A / D"
+
+
+func get_tutorial_jump_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"jump"):
+			var g := _tutorial_first_joypad_glyph_for_map_action(an)
+			if not g.is_empty():
+				return g
+		return "A"
+	return get_jump_key_name()
+
+
+func get_tutorial_crouch_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"crouch"):
+			# Çoğu projede crouch = aşağı yönü; stick şablonu ↑ göstermesin.
+			var g := _tutorial_joypad_glyph_for_action(an, "semantic_down")
+			if not g.is_empty():
+				return g
+		return "↓"
+	return get_action_key_name(&"crouch")
+
+
+func get_tutorial_move_down_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"move_down"):
+			var g := _tutorial_joypad_glyph_for_action(an, "semantic_down")
+			if not g.is_empty():
+				return g
+		return "↓"
+	return get_action_key_name(&"move_down")
+
+
+func get_tutorial_move_up_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"move_up"):
+			var g := _tutorial_joypad_glyph_for_action(an, "semantic_up")
+			if not g.is_empty():
+				return g
+		return "↑"
+	return get_action_key_name(&"move_up")
+
+
+func get_tutorial_block_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"block"):
+			var g := _tutorial_joypad_glyph_for_action(an, "prefer_shoulder")
+			if not g.is_empty():
+				return g
+		return "RB"
+	return get_action_key_name(&"block")
+
+
+func get_tutorial_attack_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"attack"):
+			var g := _tutorial_first_joypad_glyph_for_map_action(an)
+			if not g.is_empty():
+				return g
+		return "X"
+	return get_action_key_name(&"attack")
+
+
+func get_tutorial_attack_heavy_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"attack_heavy"):
+			var g := _tutorial_first_joypad_glyph_for_map_action(an)
+			if not g.is_empty():
+				return g
+		return "Y"
+	return get_action_key_name(&"attack_heavy")
+
+
+func get_tutorial_dodge_hint() -> String:
+	if last_input_from_joypad:
+		for an in _tutorial_physical_action_names(&"dash"):
+			var g := _tutorial_first_joypad_glyph_for_map_action(an)
+			if not g.is_empty():
+				return g
+		return "B"
+	return get_action_key_name(&"dash")

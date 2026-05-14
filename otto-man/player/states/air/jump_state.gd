@@ -133,7 +133,6 @@ func physics_update(delta: float):
 		var fall_attack_state = get_parent().get_node("FallAttack")
 		if fall_attack_state:
 			if not fall_attack_state.is_on_cooldown():
-				fall_attack_state.reset_cooldown()  # Reset cooldown before transition
 				state_machine.transition_to("FallAttack")
 				return
 	# PRIORITY 4: Only check for double jump if not trying to fall attack

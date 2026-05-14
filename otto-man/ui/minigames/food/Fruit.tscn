@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://ui/minigames/food/Fruit.gd" id="1"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_1"]
-radius = 12.0
+radius = 24.0
 
 [node name="Fruit" type="Area2D"]
 collision_layer = 0
