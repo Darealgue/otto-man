@@ -16,7 +16,7 @@ signal close_requested
 @onready var close_button: Button = %CloseButton
 @onready var build_menu_panel: Control = %BuildMenuPanel
 @onready var build_list: GridContainer = %BuildList
-@onready var title_label: Label = get_node_or_null("BuildMenuPanel/MarginContainer/VBoxContainer/TitleLabel")
+@onready var title_label: Label = get_node_or_null("BuildMenuPanel/Margin/VBoxContainer/TitleLabel")
 
 # Bina Sahne Yolları (WorkerAssignmentUI ile aynı olmalı)
 const WOODCUTTER_SCENE = "res://village/buildings/WoodcutterCamp.tscn"
@@ -84,6 +84,16 @@ var popup_scene_path: String = ""
 func _ready() -> void:
 	if DEBUG_BUILD_MENU:
 		print("[BuildMenuUI] READY version=", BUILD_MENU_DEBUG_VERSION, " path=", get_path())
+	if build_menu_panel is ParchmentFrame:
+		var pf := build_menu_panel as ParchmentFrame
+		var tex := ParchmentTextures.resolve_large()
+		if tex:
+			pf.parchment_texture = tex
+			pf.patch_margin = ParchmentTextures.LARGE_PATCH_MARGIN
+			pf.content_margin = 24
+		pf.apply_style_now()
+	elif build_menu_panel:
+		ParchmentTextures.apply_large_panel_style(build_menu_panel, 16)
 	# Başlangıçta gizle
 	visible = false
 	

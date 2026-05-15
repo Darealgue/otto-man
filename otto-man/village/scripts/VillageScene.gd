@@ -34,7 +34,12 @@ var _dungeon_rescue_applied: bool = false
 
 
 
+func _apply_menu_text_outlines() -> void:
+	TextOutline.apply_to_tree(self)
+
+
 func _ready() -> void:
+	call_deferred("_apply_menu_text_outlines")
 	# VillageManager'a bu sahneyi tanıt
 	VillagerAiInitializer.LoadComplete.connect(VillagersLoaded)
 
@@ -585,6 +590,7 @@ func _setup_world_map_panel() -> void:
 	world_map_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	world_map_label.text = "Harita yukleniyor..."
 	vb.add_child(world_map_label)
+	ParchmentTextures.apply_compact_panel_style(world_map_panel, 8)
 
 func _connect_world_map_signals() -> void:
 	var wm = get_node_or_null("/root/WorldManager")

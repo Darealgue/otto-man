@@ -1,6 +1,6 @@
 [gd_resource type="Theme" load_steps=5 format=3 uid="uid://t8h8e8m8e8t8"]
 
-[ext_resource type="StyleBox" uid="uid://b8k8k8k8k8k8" path="res://resources/ui_panel_style.tres" id="1_panel_style"]
+[ext_resource type="StyleBox" path="res://resources/ui_panel_style_parchment.tres" id="1_panel_style"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
 bg_color = Color(0.3, 0.24, 0.18, 1)
@@ -40,9 +40,20 @@ corner_radius_bottom_left = 4
 
 [resource]
 default_font_size = 16
-Button/colors/font_color = Color(0.9, 0.9, 0.8, 1)
+Button/colors/font_color = Color(0.95, 0.93, 0.88, 1)
+Button/colors/font_outline_color = Color(0, 0, 0, 1)
+Button/constants/outline_size = 2
 Button/styles/hover = SubResource("StyleBoxFlat_button_hover")
 Button/styles/normal = SubResource("StyleBoxFlat_button_normal")
 Button/styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+ItemList/colors/font_color = Color(0.95, 0.93, 0.88, 1)
+ItemList/colors/font_outline_color = Color(0, 0, 0, 1)
+ItemList/constants/outline_size = 2
+Label/colors/font_color = Color(0.95, 0.93, 0.88, 1)
+Label/colors/font_outline_color = Color(0, 0, 0, 1)
+Label/constants/outline_size = 3
 Panel/styles/panel = ExtResource("1_panel_style")
 PanelContainer/styles/panel = ExtResource("1_panel_style")
+RichTextLabel/colors/default_color = Color(0.95, 0.93, 0.88, 1)
+RichTextLabel/colors/font_outline_color = Color(0, 0, 0, 1)
+RichTextLabel/constants/outline_size = 3

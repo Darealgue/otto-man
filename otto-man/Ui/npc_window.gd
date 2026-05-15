@@ -9,11 +9,23 @@ var NpcInfo
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	_setup_back_panel_parchment()
 	# Connect send button
 	send_button.connect("pressed", _on_send_button_pressed)
 	# text_submitted signal is connected via scene; keep both paths consistent
 	pass
 
+
+func _setup_back_panel_parchment() -> void:
+	var back := get_node_or_null("BackPanel") as ParchmentFrame
+	if back == null:
+		return
+	var tex := load("res://assets/UI/menu_ninepatchrect.png") as Texture2D
+	if tex:
+		back.parchment_texture = tex
+		back.patch_margin = 28
+		back.content_margin = 16
+	back.apply_style_now()
 
 
 func InitializeWindow(Info):

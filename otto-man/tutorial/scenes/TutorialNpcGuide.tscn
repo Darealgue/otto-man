@@ -1,7 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://tutorial_npc_guide"]
+[gd_scene load_steps=3 format=3 uid="uid://tutorial_npc_guide"]
 
 [ext_resource type="Script" path="res://tutorial/scripts/tutorial_npc_guide.gd" id="1_npc"]
+[ext_resource type="PackedScene" uid="uid://mentor_character_visual" path="res://characters/mentor/MentorCharacter.tscn" id="2_mentor"]
 
 [node name="TutorialNpcGuide" type="Node2D"]
 z_index = -2
 script = ExtResource("1_npc")
+
+[node name="MentorCharacter" parent="." instance=ExtResource("2_mentor")]

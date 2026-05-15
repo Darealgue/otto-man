@@ -343,7 +343,7 @@ point_index = 6
 position = Vector2(11601, 410)
 gizmo_extents = 32.0
 script = ExtResource("2_3elc3")
-point_index = 6
+point_index = 7
 
 [node name="Beat4Trigger" type="Area2D" parent="Markers"]
 position = Vector2(7206, -882)

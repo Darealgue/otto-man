@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://b16uxjw1r8mjf"]
+
+[ext_resource type="Script" path="res://characters/mentor/mentor_character.gd" id="1_script"]
+
+[node name="MentorCharacter" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Body" type="AnimatedSprite2D" parent="."]
+z_index = 1
+
+[node name="SmokeFx" type="AnimatedSprite2D" parent="."]
+z_index = 2
+position = Vector2(24, -8)

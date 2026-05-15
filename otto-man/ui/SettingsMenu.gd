@@ -54,6 +54,9 @@ const DEFAULT_SETTINGS := {
 var _current_settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
 
 func _ready() -> void:
+	var panel := get_node_or_null("Panel") as Panel
+	if panel:
+		ParchmentTextures.apply_large_panel_style(panel, 14)
 	hide_menu()
 	_connect_signals()
 	_load_settings_from_disk()

@@ -30,6 +30,9 @@ var _camera_freeze_timer: Timer = null
 var _camera_smoothing_was_enabled: bool = false
 
 func _ready() -> void:
+	if main_panel:
+		ParchmentTextures.apply_large_panel_style(main_panel, 16)
+	TextOutline.apply_to_tree(self)
 	_ensure_nodes()
 	_setup_load_game_menu()
 	_setup_save_game_menu()

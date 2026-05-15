@@ -193,6 +193,7 @@ func _flush_path_preview_now() -> void:
 	_refresh_path_preview()
 
 func _ready() -> void:
+	call_deferred("_apply_ui_parchment")
 	_world_manager = get_node_or_null("/root/WorldManager")
 	_camera = get_node_or_null("Camera2D")
 	if _camera:
@@ -4148,6 +4149,11 @@ func _draw_tile_debug_overlay(center: Vector2, draw_pos: Vector2, q: int, r: int
 		10,
 		Color(1, 1, 1, 0.9)
 	)
+
+func _apply_ui_parchment() -> void:
+	ParchmentTextures.apply_parchment_styles_to_tree(self)
+	TextOutline.apply_to_tree(self)
+
 
 func _get_world_map_font() -> Font:
 	if _world_map_font_cached != null:

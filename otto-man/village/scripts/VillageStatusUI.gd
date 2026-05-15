@@ -54,6 +54,15 @@ var update_interval: float = 0.5 # Saniyede 2 kez güncelle
 var time_since_last_update: float = 0.0
 # ---------------------------
 
+var _parchment_debug: bool = false
+var _canvas_layer: CanvasLayer
+var _last_top_bar_size := Vector2.ZERO
+var _last_resource_panel_size := Vector2.ZERO
+const RESOURCE_PANEL_LEFT := 10.0
+const RESOURCE_PANEL_TOP := 130.0
+## Parşömen köşe çiziminin (patch) içinde, yazı ile çerçeve arası ek boşluk.
+const RESOURCE_PANEL_INSET := 5
+
 func _ready() -> void:
 	# Node referanslarının alınıp alınmadığını kontrol et (güvenlik için)
 	if not gold_label or not worker_label or not asker_label or not wood_label or \
@@ -86,7 +95,222 @@ func _ready() -> void:
 
 	# İlk Güncellemeyi Yap
 	_update_labels()
-	print("VillageStatusUI Ready.")
+	_canvas_layer = get_parent().get_parent().get_parent() as CanvasLayer
+	_apply_hud_parchment_textures()
+	call_deferred("_sync_parchment_boxes_to_content")
+	print("VillageStatusUI Ready. (F9 = parşömen overlay | F10 = ölçü raporu)")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_F9:
+		_parchment_debug = not _parchment_debug
+		_set_parchment_debug(_parchment_debug)
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_F10:
+		_log_panel_measurements()
+		get_viewport().set_input_as_handled()
+
+
+func _set_parchment_debug(enabled: bool) -> void:
+	if _canvas_layer == null:
+		return
+	for node_name in ["TopBarPanel", "ResourcePanel"]:
+		var pf := _canvas_layer.get_node_or_null(node_name) as ParchmentFrame
+		if pf:
+			pf.debug_layout = enabled
+	print("\n[VillageStatusUI] Parşömen debug: %s (kırmızı=kenar, yeşil=esneyen orta, mavi=içerik)\n" % ("AÇIK" if enabled else "KAPALI"))
+	if enabled:
+		_log_panel_measurements()
+
+
+func _log_panel_measurements() -> void:
+	if _canvas_layer == null:
+		_canvas_layer = get_parent().get_parent().get_parent() as CanvasLayer
+	if _canvas_layer == null:
+		return
+	await get_tree().process_frame
+	var lines: PackedStringArray = PackedStringArray([
+		"",
+		"========== VillageStatusUI ÖLÇÜ RAPORU ==========",
+		"(Parşömen PNG çizerken: köşe patch + bu kutulara yakın boyut)",
+		"",
+	])
+	_log_one_panel(lines, "TopBarPanel (üst status)", _canvas_layer.get_node_or_null("TopBarPanel") as ParchmentFrame, summary_container)
+	_log_one_panel(lines, "ResourcePanel (sol envanter)", _canvas_layer.get_node_or_null("ResourcePanel") as ParchmentFrame, resource_list_container)
+	lines.append("Sahne dosyası offset (tasarım):")
+	lines.append("  TopBarPanel: 765 x 53  (anchor üst-orta)")
+	lines.append("  ResourcePanel: 100 x 100  (sol 10,130 → sağ 110, alt 230)")
+	lines.append("Öneri: texture boyutu ≈ 'parşömen kutusu' veya içerik+patch; 96x72 envanter için dar kalabilir.")
+	lines.append("==================================================")
+	print("\n".join(lines))
+
+
+func _log_one_panel(lines: PackedStringArray, title: String, panel: ParchmentFrame, content: Control) -> void:
+	lines.append("--- %s ---" % title)
+	if panel == null:
+		lines.append("  (panel bulunamadı)")
+		return
+	var pm := panel.get_patch_margins()
+	var gr := panel.get_global_rect()
+	lines.append("  Parşömen kutusu (runtime): %.0f x %.0f px" % [panel.size.x, panel.size.y])
+	lines.append("  Ekranda global: pos %.0f,%.0f  boyut %.0f x %.0f" % [gr.position.x, gr.position.y, gr.size.x, gr.size.y])
+	lines.append("  patch margin L,T,R,B: %d,%d,%d,%d  |  content_margin: %d" % [pm.x, pm.y, pm.z, pm.w, panel.content_margin])
+	var stretch_center := Vector2(
+		maxf(0.0, panel.size.x - float(pm.x + pm.z)),
+		maxf(0.0, panel.size.y - float(pm.y + pm.w))
+	)
+	lines.append("  NinePatch orta (esneyen): %.0f x %.0f px" % [stretch_center.x, stretch_center.y])
+	if content:
+		var content_min := content.get_combined_minimum_size()
+		lines.append("  İçerik minimum (label/icon satırları): %.0f x %.0f px" % [content_min.x, content_min.y])
+		var needed_w := content_min.x + float(pm.x + pm.z + panel.content_margin * 2)
+		var needed_h := content_min.y + float(pm.y + pm.w + panel.content_margin * 2)
+		lines.append("  Parşömen için önerilen texture (≈1:1 esneme): %.0f x %.0f px" % [needed_w, needed_h])
+		if panel.size.x + 2.0 < needed_w or panel.size.y + 2.0 < needed_h:
+			lines.append("  UYARI: Kutu içerikten KÜÇÜK — taşma veya sıkışma olur; sahne offset artır veya texture küçük patch.")
+	var tex: Texture2D = panel.parchment_texture
+	if tex == null:
+		var np := panel.get_node_or_null("NinePatch") as NinePatchRect
+		if np and np.texture:
+			tex = np.texture
+	if tex:
+		lines.append("  Aktif texture: %s (kaynak %.0f x %.0f)" % [
+			tex.resource_path.get_file(), tex.get_width(), tex.get_height()
+		])
+	lines.append("")
+
+
+func _calc_parchment_frame_size(panel: ParchmentFrame, inner: Control) -> Vector2:
+	var pm := panel.get_patch_margins()
+	var sz := inner.get_combined_minimum_size()
+	return Vector2(
+		sz.x + float(pm.x + pm.z + panel.content_margin * 2),
+		sz.y + float(pm.y + pm.w + panel.content_margin * 2)
+	)
+
+
+## Parşömen kutusunu içeriğe göre boyutlandır; sol üst / üst-orta konum sabit kalır.
+func _sync_parchment_boxes_to_content() -> void:
+	if _canvas_layer == null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_sync_resource_panel_to_content()
+	_sync_top_bar_to_content()
+
+
+func _apply_resource_panel_insets(panel: ParchmentFrame) -> void:
+	## İçerik, NinePatch köşe çiziminin İÇİNE insin: patch + ekstra inset.
+	var pm := panel.get_patch_margins()
+	var slot := panel.get_content_slot()
+	if slot == null:
+		return
+	var ml := pm.x + RESOURCE_PANEL_INSET
+	var mt := pm.y + RESOURCE_PANEL_INSET
+	slot.add_theme_constant_override("margin_left", ml)
+	slot.add_theme_constant_override("margin_top", mt)
+	slot.add_theme_constant_override("margin_right", pm.z)
+	slot.add_theme_constant_override("margin_bottom", pm.w)
+
+
+func _calc_resource_frame_size(panel: ParchmentFrame) -> Vector2:
+	var list_sz := resource_list_container.get_combined_minimum_size()
+	var pad := Vector2(0.0, 0.0)
+	var slot := panel.get_content_slot()
+	if slot:
+		pad.x = float(slot.get_theme_constant("margin_left") + slot.get_theme_constant("margin_right"))
+		pad.y = float(slot.get_theme_constant("margin_top") + slot.get_theme_constant("margin_bottom"))
+	var res_margin := panel.get_node_or_null("Margin/ResourceMargin") as MarginContainer
+	if res_margin:
+		pad.x += float(res_margin.get_theme_constant("margin_left") + res_margin.get_theme_constant("margin_right"))
+		pad.y += float(res_margin.get_theme_constant("margin_top") + res_margin.get_theme_constant("margin_bottom"))
+	return Vector2(list_sz.x + pad.x, list_sz.y + pad.y)
+
+
+## Sol envanter: üst satır sabit (offset_top), liste aşağı doğru uzar.
+func _sync_resource_panel_to_content() -> void:
+	if _canvas_layer == null or resource_list_container == null:
+		return
+	var resource_panel := _canvas_layer.get_node_or_null("ResourcePanel") as ParchmentFrame
+	if resource_panel == null:
+		return
+	_apply_resource_panel_insets(resource_panel)
+	var sz := _calc_resource_frame_size(resource_panel)
+	sz.x = maxf(sz.x, 120.0)
+	sz.y = maxf(sz.y, 72.0)
+	if _last_resource_panel_size != Vector2.ZERO:
+		if absf(sz.x - _last_resource_panel_size.x) < 1.0 and absf(sz.y - _last_resource_panel_size.y) < 1.0:
+			return
+	_last_resource_panel_size = sz
+	resource_panel.offset_left = RESOURCE_PANEL_LEFT
+	resource_panel.offset_top = RESOURCE_PANEL_TOP
+	resource_panel.offset_right = RESOURCE_PANEL_LEFT + sz.x
+	resource_panel.offset_bottom = RESOURCE_PANEL_TOP + sz.y
+
+
+func _apply_hud_parchment_textures() -> void:
+	if _canvas_layer == null:
+		return
+	var top_bar := _canvas_layer.get_node_or_null("TopBarPanel") as ParchmentFrame
+	var resource_panel := _canvas_layer.get_node_or_null("ResourcePanel") as ParchmentFrame
+	if resource_panel:
+		ParchmentTextures.apply_mini(resource_panel, 5)
+		_apply_resource_panel_insets(resource_panel)
+	if top_bar:
+		var bar_tex := ParchmentTextures.resolve_hud_bar()
+		if bar_tex:
+			top_bar.parchment_texture = bar_tex
+			top_bar.patch_margin_left = 16
+			top_bar.patch_margin_right = 16
+			top_bar.patch_margin_top = 8
+			top_bar.patch_margin_bottom = 8
+		else:
+			var compact_tex := ParchmentTextures.load_if_exists(ParchmentTextures.COMPACT)
+			if compact_tex:
+				top_bar.parchment_texture = compact_tex
+				top_bar.patch_margin_left = 20
+				top_bar.patch_margin_right = 20
+				top_bar.patch_margin_top = 8
+				top_bar.patch_margin_bottom = 8
+		top_bar.apply_style_now()
+
+
+func _calc_top_bar_frame_size(top_bar: ParchmentFrame) -> Vector2:
+	var pm := top_bar.get_patch_margins()
+	var row_sz := summary_container.get_combined_minimum_size()
+	var pad := Vector2(8.0, 4.0)
+	var ui_margin := summary_container.get_parent() as MarginContainer
+	if ui_margin:
+		pad.x = float(ui_margin.get_theme_constant("margin_left") + ui_margin.get_theme_constant("margin_right"))
+		pad.y = float(ui_margin.get_theme_constant("margin_top") + ui_margin.get_theme_constant("margin_bottom"))
+	return Vector2(
+		row_sz.x + pad.x + float(pm.x + pm.z + top_bar.content_margin * 2),
+		row_sz.y + pad.y + float(pm.y + pm.w + top_bar.content_margin * 2)
+	)
+
+
+func _sync_top_bar_to_content() -> void:
+	if _canvas_layer == null or summary_container == null:
+		return
+	var top_bar := _canvas_layer.get_node_or_null("TopBarPanel") as ParchmentFrame
+	if top_bar == null:
+		return
+	top_bar.clip_contents = false
+	var sz := _calc_top_bar_frame_size(top_bar)
+	sz.y = maxf(sz.y, 56.0)
+	# Metin uzayınca (ikmal, barınma vb.) genişliği tekrar aç
+	if _last_top_bar_size != Vector2.ZERO:
+		if sz.x <= _last_top_bar_size.x + 1.0 and absf(sz.y - _last_top_bar_size.y) < 2.0:
+			return
+	_last_top_bar_size = sz
+	var half_w := sz.x * 0.5
+	top_bar.offset_left = -half_w
+	top_bar.offset_right = half_w
+	top_bar.offset_top = 0.0
+	top_bar.offset_bottom = sz.y
+
 
 func _process(delta: float) -> void:
 	# Zamanı artır
@@ -233,6 +457,10 @@ func _update_labels() -> void:
 			else:
 				if economy_stats_label.has_theme_color_override("font_color"):
 					economy_stats_label.remove_theme_color_override("font_color")
+
+	call_deferred("_sync_resource_panel_to_content")
+	call_deferred("_sync_top_bar_to_content")
+
 
 func _ensure_extra_labels() -> void:
 	# Sahnede yoksa MoraleLabel ve EventsLabel oluşturur
@@ -409,6 +637,7 @@ func _create_resource_row_with_icon(resource_key: String, display_name: String, 
 	row.add_child(lbl)
 
 	container.add_child(row)
+	call_deferred("_sync_resource_panel_to_content")
 	return lbl
 
 func _get_icon_path_for_resource(resource_key: String) -> String:

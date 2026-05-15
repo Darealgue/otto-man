@@ -1,33 +1,31 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://tutorial/ui/TutorialSpeechBar.gd" id="1_speech"]
+[ext_resource type="PackedScene" uid="uid://parchment_frame_ui" path="res://ui/parchment/parchment_frame.tscn" id="2_frame"]
 
 [node name="TutorialSpeechBar" type="CanvasLayer" groups=["tutorial_speech_bar"]]
 script = ExtResource("1_speech")
 
-[node name="Panel" type="PanelContainer" parent="."]
-anchors_preset = 12
+[node name="Frame" parent="." instance=ExtResource("2_frame")]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
 anchor_top = 1.0
-anchor_right = 1.0
+anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = 48.0
-offset_top = -200.0
-offset_right = -48.0
-offset_bottom = -32.0
 grow_horizontal = 2
 grow_vertical = 0
+patch_margin = 40
+content_margin = 44
+debug_layout = false
 
-[node name="Margin" type="MarginContainer" parent="Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 16
-
-[node name="SpeechRichText" type="RichTextLabel" parent="Panel/Margin"]
+[node name="SpeechRichText" type="RichTextLabel" parent="Frame/Margin" index="0"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 bbcode_enabled = true
+autowrap_mode = 3
 scroll_active = false
-theme_override_font_sizes/normal_font_size = 22
+theme_override_colors/default_color = Color(0.12, 0.08, 0.05, 1)
+theme_override_font_sizes/normal_font_size = 24
 text = ""

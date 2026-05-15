@@ -348,6 +348,9 @@ func _ready():
 	add_to_group("mission_center")
 	print("✅ MissionCenter group'a eklendi")
 
+	call_deferred("_apply_parchment_panels")
+	call_deferred("_apply_text_outlines")
+
 	# Başlangıçta sayfa göstergelerini sıfırla
 	update_page_indicator()
 
@@ -3154,35 +3157,6 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	
-	# Stil (StyleBoxFlat) oluştur
-	var style = StyleBoxFlat.new()
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	
-	# Kart rengi - seçili ise daha parlak
-	if is_selected:
-		style.bg_color = Color(0.25, 0.22, 0.18, 1.0).lightened(0.2) # Sarımsı/Açık Kahve
-		style.border_width_left = 2
-		style.border_width_top = 2
-		style.border_width_right = 2
-		style.border_width_bottom = 2
-		style.border_color = Color(0.9, 0.8, 0.2, 1.0) # Gold
-	else:
-		style.bg_color = Color(0.15, 0.13, 0.1, 0.85) # Koyu Kahve
-		style.border_color = Color(0.4, 0.35, 0.3, 1.0) # Bronz
-		style.border_width_left = 1
-		style.border_width_top = 1
-		style.border_width_right = 1
-		style.border_width_bottom = 1
-		
-	card.add_theme_stylebox_override("panel", style)
-	
 	# Kart içeriği
 	var vbox = VBoxContainer.new()
 	card.add_child(vbox)
@@ -3291,6 +3265,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	reqs_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	vbox.add_child(reqs_label)
 	
+	_apply_mission_card_parchment(card, is_selected)
 	return card
 
 # Liste temizle
@@ -3405,6 +3380,8 @@ func update_available_missions_cards():
 		available_missions_list.add_child(card)
 	
 	print("[DEBUG_MC] update_available_missions_cards: Kartlar eklendi")
+	call_deferred("_apply_parchment_panels")
+	call_deferred("_apply_text_outlines")
 
 	# Seçim görünürlük takibi: seçilen öğeyi otomatik kaydır
 	_scroll_available_to_index(current_mission_index)
@@ -3494,35 +3471,6 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	# card.custom_minimum_size = Vector2(300, 0)  # Minimum yükseklik
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	
-	# Stil (StyleBoxFlat) oluştur
-	var style = StyleBoxFlat.new()
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	
-	# Seçili kart rengi
-	if is_selected:
-		style.bg_color = Color(0.25, 0.22, 0.18, 1.0).lightened(0.2) # Sarımsı/Açık Kahve
-		style.border_width_left = 2
-		style.border_width_top = 2
-		style.border_width_right = 2
-		style.border_width_bottom = 2
-		style.border_color = Color(0.9, 0.8, 0.2, 1.0) # Gold
-	else:
-		style.bg_color = Color(0.15, 0.13, 0.1, 0.85) # Koyu Kahve
-		style.border_color = Color(0.4, 0.35, 0.3, 1.0) # Bronz
-		style.border_width_left = 1
-		style.border_width_top = 1
-		style.border_width_right = 1
-		style.border_width_bottom = 1
-		
-	card.add_theme_stylebox_override("panel", style)
 	
 	var vbox = VBoxContainer.new()
 	card.add_child(vbox)
@@ -3701,6 +3649,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		req_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(req_label)
 	
+	_apply_mission_card_parchment(card, is_selected)
 	return card
 
 # Cariye seçimi kartlarını güncelle
@@ -5383,6 +5332,7 @@ func _open_trader_buy_menu():
 	if trader_buy_popup:
 		trader_buy_popup.visible = true
 		trader_buy_popup.z_index = 1000
+		ParchmentTextures.apply_large_panel_style(trader_buy_popup, 14)
 		# Top-level değil, MissionCenter içinde olduğu için anchor'lar otomatik merkezler
 		
 		_update_trader_buy_popup()
@@ -5409,14 +5359,7 @@ func _create_trader_buy_popup():
 	trader_buy_popup.z_index = 1000  # En üstte görünsün
 	trader_buy_popup.mouse_filter = Control.MOUSE_FILTER_STOP  # Mouse event'lerini yakala
 	
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = Color(0.6, 0.5, 0.3, 1)
-	trader_buy_popup.add_theme_stylebox_override("panel", style)
+	ParchmentTextures.apply_large_panel_style(trader_buy_popup, 14)
 	
 	# MissionCenter'a ekle (top-level değil, CanvasLayer içinde)
 	add_child(trader_buy_popup)
@@ -5721,14 +5664,7 @@ func _create_trader_mission_popup():
 	trader_mission_popup.z_index = 1000
 	trader_mission_popup.mouse_filter = Control.MOUSE_FILTER_STOP
 	
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.1, 0.95)
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = Color(0.3, 0.6, 0.5, 1)  # Yeşilimsi renk (ticaret için)
-	trader_mission_popup.add_theme_stylebox_override("panel", style)
+	ParchmentTextures.apply_large_panel_style(trader_mission_popup, 14)
 	
 	add_child(trader_mission_popup)
 	
@@ -6208,14 +6144,7 @@ func _create_trader_mission_quantity_popup():
 	trader_mission_quantity_panel.offset_top = -110
 	trader_mission_quantity_panel.offset_bottom = 110
 	trader_mission_quantity_panel.z_index = 1100
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.15, 0.2, 0.18, 0.98)
-	style.border_width_left = 3
-	style.border_width_right = 3
-	style.border_width_top = 3
-	style.border_width_bottom = 3
-	style.border_color = Color(0.4, 0.7, 0.5, 1)
-	trader_mission_quantity_panel.add_theme_stylebox_override("panel", style)
+	ParchmentTextures.apply_large_panel_style(trader_mission_quantity_panel, 12)
 	
 	trader_mission_quantity_label = Label.new()
 	trader_mission_quantity_label.name = "QuantityLabel"
@@ -7723,6 +7652,8 @@ func update_active_missions_cards():
 		var is_selected = (i == current_active_mission_index)
 		var card = create_active_mission_card(cariye, mission, remaining_time, is_selected)
 		active_missions_list.add_child(card)
+	call_deferred("_apply_parchment_panels")
+	call_deferred("_apply_text_outlines")
 
 # Bu fonksiyon zaten yukarıda tanımlanmış, duplicate kaldırıldı
 
@@ -7814,33 +7745,20 @@ func update_page_indicator():
 	_update_unread_badge()
 
 # StyleBox oluşturma fonksiyonları
-func create_selected_stylebox() -> StyleBoxFlat:
-	var stylebox = StyleBoxFlat.new()
-	stylebox.bg_color = Color(0.2, 0.4, 0.8, 0.8)  # Mavi arka plan
-	stylebox.border_width_left = 2
-	stylebox.border_width_right = 2
-	stylebox.border_width_top = 2
-	stylebox.border_width_bottom = 2
-	stylebox.border_color = Color(0.4, 0.6, 1.0, 1.0)  # Parlak mavi kenarlık
-	stylebox.corner_radius_top_left = 8
-	stylebox.corner_radius_top_right = 8
-	stylebox.corner_radius_bottom_left = 8
-	stylebox.corner_radius_bottom_right = 8
-	return stylebox
+func create_selected_stylebox() -> StyleBox:
+	return ParchmentTextures.make_ninepatch_style(
+		ParchmentTextures.resolve_mini(),
+		ParchmentTextures.MINI_PATCH_MARGIN,
+		8
+	)
 
-func create_normal_stylebox() -> StyleBoxFlat:
-	var stylebox = StyleBoxFlat.new()
-	stylebox.bg_color = Color(0.1, 0.1, 0.1, 0.8)  # Koyu gri arka plan
-	stylebox.border_width_left = 1
-	stylebox.border_width_right = 1
-	stylebox.border_width_top = 1
-	stylebox.border_width_bottom = 1
-	stylebox.border_color = Color(0.3, 0.3, 0.3, 1.0)  # Gri kenarlık
-	stylebox.corner_radius_top_left = 8
-	stylebox.corner_radius_top_right = 8
-	stylebox.corner_radius_bottom_left = 8
-	stylebox.corner_radius_bottom_right = 8
-	return stylebox
+
+func create_normal_stylebox() -> StyleBox:
+	return ParchmentTextures.make_ninepatch_style(
+		ParchmentTextures.resolve_mini(),
+		ParchmentTextures.MINI_PATCH_MARGIN,
+		8
+	)
 
 # --- HABER MERKEZİ FONKSİYONLARI ---
 
@@ -8933,3 +8851,16 @@ func apply_concubine_role():
 		print("✅ Cariye rolü güncellendi: %s -> %s" % [selected_concubine.name, selected_concubine.get_role_name()])
 	else:
 		print("❌ Cariye rolü güncellenemedi!")
+
+
+func _apply_mission_card_parchment(card: PanelContainer, is_selected: bool = false) -> void:
+	ParchmentTextures.apply_mini_panel_style(card, 8)
+	card.modulate = Color(1.12, 1.08, 0.92, 1.0) if is_selected else Color(1, 1, 1, 1)
+
+
+func _apply_parchment_panels() -> void:
+	ParchmentTextures.apply_parchment_styles_to_tree(self)
+
+
+func _apply_text_outlines() -> void:
+	TextOutline.apply_to_tree(self)

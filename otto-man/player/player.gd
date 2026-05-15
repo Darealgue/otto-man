@@ -862,18 +862,7 @@ func _spawn_single_damage_pickup(scene_root: Node, payload: Dictionary) -> void:
 	var bubble := PanelContainer.new()
 	bubble.custom_minimum_size = Vector2(24, 24)
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bubble_style := StyleBoxFlat.new()
-	bubble_style.bg_color = Color(0.08, 0.08, 0.08, 0.88)
-	bubble_style.corner_radius_top_left = 12
-	bubble_style.corner_radius_top_right = 12
-	bubble_style.corner_radius_bottom_left = 12
-	bubble_style.corner_radius_bottom_right = 12
-	bubble_style.border_width_left = 2
-	bubble_style.border_width_top = 2
-	bubble_style.border_width_right = 2
-	bubble_style.border_width_bottom = 2
-	bubble_style.border_color = Color(1, 1, 1, 0.7)
-	bubble.add_theme_stylebox_override("panel", bubble_style)
+	ParchmentTextures.apply_mini_panel_style(bubble, 4)
 	var icon_key := String(payload.get("type", ""))
 	if String(payload.get("kind", "")) == "gold":
 		icon_key = "gold"

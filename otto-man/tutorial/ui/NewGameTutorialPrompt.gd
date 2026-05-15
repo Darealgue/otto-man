@@ -11,6 +11,9 @@ signal back_requested
 
 
 func _ready() -> void:
+	var panel := get_node_or_null("Center/Panel") as PanelContainer
+	if panel:
+		ParchmentTextures.apply_large_panel_style(panel, 14)
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	if is_instance_valid(_btn_tutorial):

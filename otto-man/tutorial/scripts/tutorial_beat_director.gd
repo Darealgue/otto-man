@@ -57,8 +57,8 @@ func _boot() -> void:
 		push_error("[TutorialBeatDirector] npc_scene atanmalı.")
 		return
 	var inst: Node = npc_scene.instantiate()
-	if not inst.has_method("appear") or not inst.has_method("disappear"):
-		push_error("[TutorialBeatDirector] npc_scene kökünde appear(Vector2) ve disappear() olmalı.")
+	if not inst.has_method("play_entrance") or not inst.has_method("depart_with_smoke_bomb"):
+		push_error("[TutorialBeatDirector] npc_scene kökünde play_entrance ve depart_with_smoke_bomb olmalı.")
 		return
 	_npc = inst
 	_root.add_child(_npc)
@@ -198,7 +198,12 @@ func _play_beat(step: TutorialBeatStep) -> void:
 	var spot: Vector2 = _player.global_position + Vector2(112, -40)
 	if pt != null:
 		spot = pt.global_position
-	_npc.call("appear", spot)
+	elif step.npc_point_index > 0:
+		push_warning(
+			"[TutorialBeatDirector] TutorialPoint point_index=%d bulunamadı; mentor oyuncuya göre yerleştirildi."
+			% step.npc_point_index
+		)
+	await _npc.play_entrance(spot)
 	_active = step
 	_state = _SPEAK
 	if step.use_combat_objectives:
@@ -240,7 +245,7 @@ func _play_beat(step: TutorialBeatStep) -> void:
 	_active = null
 	if is_instance_valid(_speech) and _speech.has_method("clear_speech"):
 		_speech.call("clear_speech")
-	_npc.call("disappear")
+	await _npc.depart_with_smoke_bomb()
 	_state = _OFF
 
 

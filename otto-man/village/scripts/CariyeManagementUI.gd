@@ -15,9 +15,7 @@ var selected_gorev_id: int = -1
 
 # --- Ready Function ---
 func _ready() -> void:
-	# Node referansları ve sinyal bağlantıları show_centered fonksiyonuna taşındı.
-	# Sadece _ready içinde yapılması gereken başka başlangıç ayarları varsa buraya eklenebilir.
-	pass 
+	ParchmentTextures.apply_compact_panel_style(self, 10)
 
 # --- List Population Functions ---
 

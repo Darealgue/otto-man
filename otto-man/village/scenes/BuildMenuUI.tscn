@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://d1hjdmbn1joxm"]
+[gd_scene load_steps=4 format=3 uid="uid://d1hjdmbn1joxm"]
 
 [ext_resource type="Script" path="res://village/scripts/BuildMenuUI.gd" id="1_1y8x3"]
 [ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="2_theme_medieval"]
+[ext_resource type="PackedScene" uid="uid://parchment_frame_ui" path="res://ui/parchment/parchment_frame.tscn" id="3_parchment"]
 
 [node name="BuildMenuUI" type="Control"]
 layout_mode = 3
@@ -13,7 +14,7 @@ grow_vertical = 2
 theme = ExtResource("2_theme_medieval")
 script = ExtResource("1_1y8x3")
 
-[node name="BuildMenuPanel" type="PanelContainer" parent="."]
+[node name="BuildMenuPanel" parent="." instance=ExtResource("3_parchment")]
 unique_name_in_owner = true
 anchors_preset = 8
 anchor_left = 0.5
@@ -26,77 +27,71 @@ offset_right = 400.0
 offset_bottom = 250.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = ExtResource("2_theme_medieval")
+patch_margin = 40
+content_margin = 24
 
-[node name="MarginContainer" type="MarginContainer" parent="BuildMenuPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
-
-[node name="VBoxContainer" type="VBoxContainer" parent="BuildMenuPanel/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="BuildMenuPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="TitleLabel" type="Label" parent="BuildMenuPanel/MarginContainer/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="BuildMenuPanel/Margin/VBoxContainer"]
 layout_mode = 2
 text = "İnşaat"
 horizontal_alignment = 1
 
-[node name="BuildScroll" type="ScrollContainer" parent="BuildMenuPanel/MarginContainer/VBoxContainer"]
+[node name="BuildScroll" type="ScrollContainer" parent="BuildMenuPanel/Margin/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="BuildList" type="GridContainer" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll"]
+[node name="BuildList" type="GridContainer" parent="BuildMenuPanel/Margin/VBoxContainer/BuildScroll"]
 layout_mode = 2
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 10
 columns = 3
 
-[node name="BuildWoodcutterButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
+[node name="BuildWoodcutterButton" type="Button" parent="BuildMenuPanel/Margin/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 text = "Odun Kampı"
 
-[node name="BuildStoneMineButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
+[node name="BuildStoneMineButton" type="Button" parent="BuildMenuPanel/Margin/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 text = "Taş Ocağı"
 
-[node name="BuildWellButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
+[node name="BuildWellButton" type="Button" parent="BuildMenuPanel/Margin/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 text = "Kuyu"
 
-[node name="BuildHunterHutButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
+[node name="BuildHunterHutButton" type="Button" parent="BuildMenuPanel/Margin/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 text = "Avcı/Toplayıcı"
 
-[node name="BuildBakeryButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
+[node name="BuildBakeryButton" type="Button" parent="BuildMenuPanel/Margin/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 text = "Fırın"
 
-[node name="BuildHouseButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer/BuildScroll/BuildList"]
+[node name="BuildHouseButton" type="Button" parent="BuildMenuPanel/Margin/VBoxContainer/BuildScroll/BuildList"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 text = "Ev"
 
-[node name="CloseButton" type="Button" parent="BuildMenuPanel/MarginContainer/VBoxContainer"]
+[node name="CloseButton" type="Button" parent="BuildMenuPanel/Margin/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Kapat"

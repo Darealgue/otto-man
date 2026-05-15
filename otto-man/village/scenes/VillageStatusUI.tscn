@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://dptamh04yqugv"]
+[gd_scene load_steps=12 format=3 uid="uid://dptamh04yqugv"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageStatusUI.gd" id="1_8xnu1"]
 [ext_resource type="Texture2D" uid="uid://d5sq3hymg4x7a" path="res://assets/Icons/water_icon.png" id="2_water_icon"]
@@ -8,178 +8,181 @@
 [ext_resource type="Texture2D" uid="uid://bfb0p6qfq1rj1" path="res://assets/Icons/gold_icon.png" id="6_gold_icon"]
 [ext_resource type="Texture2D" uid="uid://cvyc0cwrf25k7" path="res://assets/Icons/workers_icon.png" id="7_workers_icon"]
 [ext_resource type="Texture2D" uid="uid://bj4t7pj2rcc1s" path="res://assets/Icons/metal_icon.png" id="8_metal_icon"]
-[ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="9_theme_medieval"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_resource_panel"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 0
-border_width_top = 0
-border_width_right = 0
-border_width_bottom = 0
+[ext_resource type="PackedScene" uid="uid://parchment_frame_ui" path="res://ui/parchment/parchment_frame.tscn" id="9_parchment"]
+[ext_resource type="Texture2D" uid="uid://baeply30rfxxb" path="res://assets/UI/menu_ninepatchrect_mini.png" id="10_mini"]
 
 [node name="CanvasLayer" type="CanvasLayer"]
 
-[node name="TopBarPanel" type="PanelContainer" parent="."]
+[node name="TopBarPanel" parent="." instance=ExtResource("9_parchment")]
+layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -382.5
-offset_right = 382.5
-offset_bottom = 53.0
+offset_left = -480.0
+offset_right = 480.0
+offset_bottom = 56.0
 grow_horizontal = 2
-theme = ExtResource("9_theme_medieval")
+patch_margin = 16
+patch_margin_top = 6
+patch_margin_bottom = 6
+content_margin = 4
 
-[node name="VillageStatusUI" type="MarginContainer" parent="TopBarPanel"]
+[node name="VillageStatusUI" type="MarginContainer" parent="TopBarPanel/Margin"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 2
 script = ExtResource("1_8xnu1")
 
-[node name="SummaryHBox" type="HBoxContainer" parent="TopBarPanel/VillageStatusUI"]
+[node name="SummaryHBox" type="HBoxContainer" parent="TopBarPanel/Margin/VillageStatusUI"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="GoldIcon" type="TextureRect" parent="TopBarPanel/VillageStatusUI/SummaryHBox"]
+[node name="GoldIcon" type="TextureRect" parent="TopBarPanel/Margin/VillageStatusUI/SummaryHBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(25, 25)
 texture = ExtResource("6_gold_icon")
 stretch_mode = 5
 
-[node name="GoldLabel" type="Label" parent="TopBarPanel/VillageStatusUI/SummaryHBox"]
+[node name="GoldLabel" type="Label" parent="TopBarPanel/Margin/VillageStatusUI/SummaryHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Altın: -"
 
-[node name="VSeparator8" type="VSeparator" parent="TopBarPanel/VillageStatusUI/SummaryHBox"]
+[node name="VSeparator8" type="VSeparator" parent="TopBarPanel/Margin/VillageStatusUI/SummaryHBox"]
 layout_mode = 2
 
-[node name="WorkersIcon" type="TextureRect" parent="TopBarPanel/VillageStatusUI/SummaryHBox"]
+[node name="WorkersIcon" type="TextureRect" parent="TopBarPanel/Margin/VillageStatusUI/SummaryHBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(25, 25)
 texture = ExtResource("7_workers_icon")
 stretch_mode = 5
 
-[node name="WorkerLabel" type="Label" parent="TopBarPanel/VillageStatusUI/SummaryHBox"]
+[node name="WorkerLabel" type="Label" parent="TopBarPanel/Margin/VillageStatusUI/SummaryHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "İşçiler: - / -"
 
-[node name="VSeparator" type="VSeparator" parent="TopBarPanel/VillageStatusUI/SummaryHBox"]
+[node name="VSeparator" type="VSeparator" parent="TopBarPanel/Margin/VillageStatusUI/SummaryHBox"]
 layout_mode = 2
 
-[node name="AskerLabel" type="Label" parent="TopBarPanel/VillageStatusUI/SummaryHBox"]
+[node name="AskerLabel" type="Label" parent="TopBarPanel/Margin/VillageStatusUI/SummaryHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Asker: -"
 
-[node name="ResourcePanel" type="PanelContainer" parent="."]
-theme = ExtResource("9_theme_medieval")
+[node name="ResourcePanel" parent="." instance=ExtResource("9_parchment")]
+layout_mode = 0
 anchors_preset = 0
 offset_left = 10.0
 offset_top = 130.0
-offset_right = 110.0
-offset_bottom = 230.0
+offset_right = 150.0
+offset_bottom = 340.0
+grow_vertical = 0
+patch_margin = 12
+content_margin = 5
+parchment_texture = ExtResource("10_mini")
 
-[node name="ResourceMargin" type="MarginContainer" parent="ResourcePanel"]
+[node name="ResourceMargin" type="MarginContainer" parent="ResourcePanel/Margin"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
 
-[node name="ResourceVBox" type="VBoxContainer" parent="ResourcePanel/ResourceMargin"]
+[node name="ResourceVBox" type="VBoxContainer" parent="ResourcePanel/Margin/ResourceMargin"]
 layout_mode = 2
+size_flags_vertical = 0
 theme_override_constants/separation = 6
 
-[node name="ResourceList" type="VBoxContainer" parent="ResourcePanel/ResourceMargin/ResourceVBox"]
+[node name="ResourceList" type="VBoxContainer" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="WoodRow" type="HBoxContainer" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList"]
+[node name="WoodRow" type="HBoxContainer" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="WoodIcon" type="TextureRect" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/WoodRow"]
+[node name="WoodIcon" type="TextureRect" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/WoodRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(25, 25)
 texture = ExtResource("3_wood_icon")
 stretch_mode = 5
 
-[node name="WoodLabel" type="Label" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/WoodRow"]
+[node name="WoodLabel" type="Label" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/WoodRow"]
 unique_name_in_owner = true
 layout_mode = 2
 metadata = {"icon_only": true}
 text = "-"
 
-[node name="StoneRow" type="HBoxContainer" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList"]
+[node name="StoneRow" type="HBoxContainer" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="StoneIcon" type="TextureRect" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/StoneRow"]
+[node name="StoneIcon" type="TextureRect" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/StoneRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(25, 25)
 texture = ExtResource("4_stone_icon")
 stretch_mode = 5
 
-[node name="StoneLabel" type="Label" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/StoneRow"]
+[node name="StoneLabel" type="Label" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/StoneRow"]
 unique_name_in_owner = true
 layout_mode = 2
 metadata = {"icon_only": true}
 text = "-"
 
-[node name="FoodRow" type="HBoxContainer" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList"]
+[node name="FoodRow" type="HBoxContainer" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="FoodIcon" type="TextureRect" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/FoodRow"]
+[node name="FoodIcon" type="TextureRect" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/FoodRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(25, 25)
 texture = ExtResource("5_food_icon")
 stretch_mode = 5
 
-[node name="FoodLabel" type="Label" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/FoodRow"]
+[node name="FoodLabel" type="Label" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/FoodRow"]
 unique_name_in_owner = true
 layout_mode = 2
 metadata = {"icon_only": true}
 text = "-"
 
-[node name="WaterRow" type="HBoxContainer" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList"]
+[node name="WaterRow" type="HBoxContainer" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="WaterIcon" type="TextureRect" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/WaterRow"]
+[node name="WaterIcon" type="TextureRect" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/WaterRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(25, 25)
 texture = ExtResource("2_water_icon")
 stretch_mode = 5
 
-[node name="WaterLabel" type="Label" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/WaterRow"]
+[node name="WaterLabel" type="Label" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/WaterRow"]
 unique_name_in_owner = true
 layout_mode = 2
 metadata = {"icon_only": true}
 text = "-"
 
-[node name="MetalRow" type="HBoxContainer" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList"]
+[node name="MetalRow" type="HBoxContainer" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="MetalIcon" type="TextureRect" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/MetalRow"]
+[node name="MetalIcon" type="TextureRect" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/MetalRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(25, 25)
 texture = ExtResource("8_metal_icon")
 stretch_mode = 5
 
-[node name="MetalLabel" type="Label" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList/MetalRow"]
+[node name="MetalLabel" type="Label" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList/MetalRow"]
 unique_name_in_owner = true
 layout_mode = 2
 metadata = {"icon_only": true}
 text = "-"
 
-[node name="BreadLabel" type="Label" parent="ResourcePanel/ResourceMargin/ResourceVBox/ResourceList"]
+[node name="BreadLabel" type="Label" parent="ResourcePanel/Margin/ResourceMargin/ResourceVBox/ResourceList"]
 unique_name_in_owner = true
 layout_mode = 2
 metadata = {"icon_only": true}

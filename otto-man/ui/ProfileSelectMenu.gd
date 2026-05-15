@@ -59,6 +59,7 @@ func _build_cards() -> void:
 		var panel := PanelContainer.new()
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		panel.custom_minimum_size = Vector2(280, 420)
+		ParchmentTextures.apply_compact_panel_style(panel, 12)
 		var margin := MarginContainer.new()
 		margin.add_theme_constant_override("margin_left", 16)
 		margin.add_theme_constant_override("margin_right", 16)

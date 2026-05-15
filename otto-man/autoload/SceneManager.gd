@@ -7,7 +7,8 @@ signal settings_menu_requested
 
 const MAIN_MENU_SCENE: String = "res://scenes/MainMenu.tscn"
 const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
-const TUTORIAL_DUNGEON_SCENE: String = "res://tutorial/scenes/TutorialDungeon.tscn"
+## TutorialDungeon.tscn = eski iskelet (zemin/tile yok). Oynanabilir harita: 2 veya 3.
+const TUTORIAL_DUNGEON_SCENE: String = "res://tutorial/scenes/TutorialDungeon3.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
