@@ -1,35 +1,69 @@
 class_name TextOutline
 extends RefCounted
-## Beyaz/açık menü yazılarına siyah kontür (parşömen üstünde okunurluk).
+## Parşömen menüler: varsayılan koyu metin; durum renkleri siyah kontürlü.
 
-const COLOR := Color(0, 0, 0, 1)
-const SIZE_LABEL := 3
-const SIZE_BUTTON := 2
-const SIZE_RICH := 3
+const FONT_COLOR := Color(0.1, 0.08, 0.06, 1)
+const FONT_COLOR_MUTED := Color(0.32, 0.28, 0.24, 1)
+const OUTLINE_COLOR := Color(0, 0, 0, 1)
+const OUTLINE_SIZE_LABEL := 3
+const OUTLINE_SIZE_RICH := 3
 
 
-static func apply_to_tree(root: Node, label_size: int = SIZE_LABEL) -> void:
+static func font_color_with_alpha(alpha: float) -> Color:
+	return Color(FONT_COLOR.r, FONT_COLOR.g, FONT_COLOR.b, alpha)
+
+
+## Durum rengi (yeşil/sarı/kırmızı vb.) — parşömen üstünde okunması için siyah kontür.
+static func apply_label_color(label: Label, color: Color) -> void:
+	if label == null:
+		return
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", OUTLINE_COLOR)
+	label.add_theme_constant_override("outline_size", OUTLINE_SIZE_LABEL)
+
+
+## Varsayılan koyu metne dön (kontürsüz).
+static func reset_label_color(label: Label) -> void:
+	if label == null:
+		return
+	label.add_theme_color_override("font_color", FONT_COLOR)
+	if label.has_theme_color_override("font_outline_color"):
+		label.remove_theme_color_override("font_outline_color")
+	label.add_theme_constant_override("outline_size", 0)
+
+
+static func apply_to_tree(root: Node) -> void:
 	if root == null:
 		return
-	_apply_control(root, label_size)
+	_apply_control(root)
 	for child in root.get_children():
-		apply_to_tree(child, label_size)
+		apply_to_tree(child)
 
 
-static func _apply_control(node: Node, label_size: int) -> void:
+static func _is_gameplay_floating_text(label: Label) -> bool:
+	var n: Node = label
+	while n != null:
+		match String(n.name):
+			"GoldPickupPopup", "DamageNumber", "DamageRecoveryPickup":
+				return true
+		n = n.get_parent()
+	return false
+
+
+static func _apply_control(node: Node) -> void:
 	if node is RichTextLabel:
 		var rtl := node as RichTextLabel
-		rtl.add_theme_color_override("font_outline_color", COLOR)
-		rtl.add_theme_constant_override("outline_size", SIZE_RICH)
+		rtl.add_theme_color_override("default_color", FONT_COLOR)
+		rtl.add_theme_constant_override("outline_size", 0)
 	elif node is Label:
 		var lbl := node as Label
-		lbl.add_theme_color_override("font_outline_color", COLOR)
-		lbl.add_theme_constant_override("outline_size", label_size)
-	elif node is Button:
-		var btn := node as Button
-		btn.add_theme_color_override("font_outline_color", COLOR)
-		btn.add_theme_constant_override("outline_size", SIZE_BUTTON)
+		if lbl.label_settings != null:
+			return
+		if _is_gameplay_floating_text(lbl):
+			return
+		lbl.add_theme_color_override("font_color", FONT_COLOR)
+		lbl.add_theme_constant_override("outline_size", 0)
 	elif node is ItemList:
 		var list := node as ItemList
-		list.add_theme_color_override("font_outline_color", COLOR)
-		list.add_theme_constant_override("outline_size", SIZE_BUTTON)
+		list.add_theme_color_override("font_color", FONT_COLOR)
+		list.add_theme_constant_override("outline_size", 0)

@@ -1,8 +1,16 @@
 extends Control
 
+const DEBUFF_X := 346
+const SURVIVAL_X := 118
+
 @onready var health_label = $BarContainer/HealthLabel
 @onready var health_bar = $BarContainer/HealthBar
 @onready var delayed_bar = $BarContainer/DelayedHealthBar
+@onready var portrait: Control = $Portrait
+
+var _last_health: float = 100.0
+var _last_dungeon_gold: int = 0
+var _last_village_level: int = 0
 
 const DELAYED_BAR_SPEED = 2.0  # Speed at which delayed bar catches up
 const FLASH_DURATION = 0.1     # Duration of flash effect
@@ -67,6 +75,7 @@ func _ready() -> void:
 	# Initialize values from PlayerStats
 	var current_health = player_stats.get_current_health()
 	var max_health = player_stats.get_max_health()
+	_last_health = current_health
 	
 	update_health_display(current_health, max_health)
 	
@@ -77,6 +86,8 @@ func _ready() -> void:
 		player_stats.stat_changed.connect(_on_stat_changed, CONNECT_DEFERRED)
 	if player_stats.has_signal("death_recovery_updated") and not player_stats.death_recovery_updated.is_connected(_on_death_recovery_updated):
 		player_stats.death_recovery_updated.connect(_on_death_recovery_updated, CONNECT_DEFERRED)
+	
+	_connect_portrait_triggers()
 	_refresh_debuff_ui()
 	_refresh_survival_ui()
 
@@ -111,6 +122,11 @@ func _process(delta: float) -> void:
 		_refresh_survival_ui()
 
 func _on_health_changed(new_health: float) -> void:
+	if portrait and portrait.has_method("flash_happy") and new_health > _last_health:
+		portrait.flash_happy()
+	elif portrait and portrait.has_method("flash_angry") and new_health < _last_health:
+		portrait.flash_angry()
+	_last_health = new_health
 	if player_stats:
 		update_health_display(new_health, player_stats.get_max_health())
 
@@ -129,7 +145,7 @@ func _setup_debuff_ui() -> void:
 		return
 	debuff_container = VBoxContainer.new()
 	debuff_container.name = "DebuffContainer"
-	debuff_container.position = Vector2(228, 0)
+	debuff_container.position = Vector2(DEBUFF_X, 0)
 	debuff_container.custom_minimum_size = Vector2(170, 44)
 	root.add_child(debuff_container)
 	
@@ -153,7 +169,7 @@ func _setup_survival_ui() -> void:
 		return
 	survival_container = VBoxContainer.new()
 	survival_container.name = "SurvivalContainer"
-	survival_container.position = Vector2(0, 24)
+	survival_container.position = Vector2(SURVIVAL_X, 70)
 	survival_container.custom_minimum_size = Vector2(220, 52)
 	root.add_child(survival_container)
 	
@@ -313,3 +329,33 @@ func update_health_display(current_health: float, max_health: float) -> void:
 	if bar_style:
 		bar_style.bg_color = colors.fill
 		bar_style.border_color = colors.border
+
+
+func _connect_portrait_triggers() -> void:
+	var gpd := get_node_or_null("/root/GlobalPlayerData")
+	if gpd and gpd.has_signal("dungeon_gold_changed"):
+		if "dungeon_gold" in gpd:
+			_last_dungeon_gold = int(gpd.get("dungeon_gold"))
+		if not gpd.dungeon_gold_changed.is_connected(_on_dungeon_gold_changed):
+			gpd.dungeon_gold_changed.connect(_on_dungeon_gold_changed, CONNECT_DEFERRED)
+	
+	var gm := get_node_or_null("/root/GameManager")
+	if gm and gm.has_signal("village_level_updated"):
+		if gm.has_method("get_village_level"):
+			_last_village_level = int(gm.get_village_level())
+		elif "village_data" in gm and gm.village_data is Dictionary:
+			_last_village_level = int(gm.village_data.get("level", 0))
+		if not gm.village_level_updated.is_connected(_on_village_level_updated):
+			gm.village_level_updated.connect(_on_village_level_updated, CONNECT_DEFERRED)
+
+
+func _on_dungeon_gold_changed(new_amount: int) -> void:
+	if new_amount > _last_dungeon_gold and portrait and portrait.has_method("flash_happy"):
+		portrait.flash_happy()
+	_last_dungeon_gold = new_amount
+
+
+func _on_village_level_updated(new_level: int) -> void:
+	if new_level > _last_village_level and portrait and portrait.has_method("flash_happy"):
+		portrait.flash_happy()
+	_last_village_level = new_level

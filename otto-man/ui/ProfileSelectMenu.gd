@@ -21,6 +21,7 @@ func _ready() -> void:
 	visible = false
 	_back_button.pressed.connect(_on_back_pressed)
 	_build_cards()
+	TextOutline.apply_to_tree(self)
 
 
 func show_menu(intent: MenuIntent) -> void:
@@ -73,14 +74,14 @@ func _build_cards() -> void:
 		var name_l := Label.new()
 		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_l.add_theme_font_size_override("font_size", 28)
-		name_l.add_theme_color_override("font_color", Color(0.92, 0.92, 0.95))
+		name_l.add_theme_color_override("font_color", TextOutline.FONT_COLOR)
 		name_l.text = "Profil %d" % profile_id
 		var stats_l := Label.new()
 		stats_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stats_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		stats_l.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		stats_l.add_theme_font_size_override("font_size", 16)
-		stats_l.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+		stats_l.add_theme_color_override("font_color", TextOutline.FONT_COLOR_MUTED)
 		var btn := Button.new()
 		btn.text = "Bu profili seç"
 		btn.custom_minimum_size = Vector2(0, 44)

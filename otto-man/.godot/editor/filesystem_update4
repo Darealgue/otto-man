@@ -1,14 +1,12 @@
-res://characters/mentor/MentorCharacter.tscn
+res://scenes/MainMenu.tscn
+res://resources/ui_panel_style_parchment.tres
 res://resources/medieval_theme.tres
 res://village/resources/cat_default_sprite_frames.tres
 res://Tile set/dungeon_master_tileset.tres
-res://scenes/MainMenu.tscn
 res://village/scenes/VillageScene.tscn
 res://scenes/testing.tscn
 res://scenes/test_level.tscn
 res://player/player.tscn
-res://tutorial/scenes/TutorialDungeon.tscn
 res://chunks/dungeon/basic/basic_platform1.tscn
-res://tutorial/scenes/TutorialDungeon2.tscn
 res://tutorial/scenes/TutorialDungeon3.tscn
-res://resources/ui_panel_style_parchment.tres
+res://characters/mentor/MentorCharacter.tscn

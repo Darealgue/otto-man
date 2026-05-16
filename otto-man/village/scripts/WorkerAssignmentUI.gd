@@ -132,6 +132,7 @@ var time_since_last_update: float = 0.0
 
 func _ready() -> void:
 	ParchmentTextures.apply_compact_panel_style(self, 10)
+	TextOutline.apply_to_tree(self)
 	# Null Check for Idle Label
 	if not idle_value_label:
 		printerr("WorkerAssignmentUI Error: Node not found - IdleValueLabel")

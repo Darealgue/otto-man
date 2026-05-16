@@ -1098,7 +1098,7 @@ func _build_risk_status_line() -> String:
 func _apply_status_label_risk_color() -> void:
 	if _status_label == null:
 		return
-	_status_label.add_theme_color_override("font_color", _get_preview_risk_color())
+	TextOutline.apply_label_color(_status_label, _get_preview_risk_color())
 
 func _build_living_world_status_line() -> String:
 	if _world_manager == null or not _world_manager.has_method("get_world_settlement_incidents"):

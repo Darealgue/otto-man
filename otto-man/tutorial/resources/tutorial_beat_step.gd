@@ -12,8 +12,7 @@ extends Resource
 ## true ise speech_bbcode yerine sıralı dövüş görevleri gösterilir (Beat6 vb.). Tutma/yürüme ile kapanmaz.
 @export var use_combat_objectives: bool = false
 ## Balon bu Area2D içindeyken açık kalır; oyuncu alandan çıkınca kapanır.
-## Boşsa ve beat’in trigger_area’sı varsa: kapanış için trigger_area kullanılır.
-## Hem tetik hem tutma ayrı olsun istersen burayı doldur.
+## Boşsa ve trigger_area doluysa tetik alanı tutma alanı sayılır.
 @export var hold_until_exit_area: NodePath = NodePath("")
 ## hold_until_exit_area ve trigger_area yoksa (ör. begin_immediately): balon bu kadar yürüyüşle kapanır.
 @export var close_after_travel_pixels: float = 220.0

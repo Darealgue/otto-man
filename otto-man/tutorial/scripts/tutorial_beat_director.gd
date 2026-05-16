@@ -78,9 +78,9 @@ func _find_point(idx: int) -> Node2D:
 
 func _resolve_speech_hold_area(step: TutorialBeatStep) -> Area2D:
 	if not step.hold_until_exit_area.is_empty():
-		var a := _root.get_node_or_null(step.hold_until_exit_area) as Area2D
-		if a != null:
-			return a
+		var hold := _root.get_node_or_null(step.hold_until_exit_area) as Area2D
+		if hold != null:
+			return hold
 	if not step.trigger_area.is_empty():
 		return _root.get_node_or_null(step.trigger_area) as Area2D
 	return null

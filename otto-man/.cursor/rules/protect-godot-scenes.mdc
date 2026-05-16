@@ -1,0 +1,19 @@
+---
+description: Never overwrite Godot scene/resource files the user edits by hand
+alwaysApply: true
+---
+
+# Godot sahnelerine dokunma
+
+Kullanıcı Godot editöründe elle düzenler. Agent **asla** şunları Write/StrReplace ile değiştirmez:
+
+- `**/*.tscn`
+- `**/*.tres` (SpriteFrames, TileSet, tema vb.)
+- `characters/mentor/**`
+- `tutorial/scenes/**`
+
+İstisna: kullanıcı mesajında **dosya adını ve ne değişeceğini** açıkça yazdıysa, yalnızca o satır.
+
+Sahne işi için: adım adım Godot talimatı ver; script (`.gd`) ile çöz.
+
+Kullanıcı "Discard changes" görüyorsa agent `.tscn` yazmamalı — disk Godot kaydının üstüne biner.

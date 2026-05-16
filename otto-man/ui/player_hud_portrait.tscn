@@ -1,0 +1,39 @@
+[gd_scene load_steps=5 format=3 uid="uid://cplayerhudportrait01"]
+
+[ext_resource type="Script" path="res://ui/player_hud_portrait.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://y4mkkwl6v533" path="res://assets/UI/player_portraits/otto_normal.png" id="2_normal"]
+[ext_resource type="Texture2D" uid="uid://g1tt01hiqlmq" path="res://assets/UI/player_portraits/otto_happy.png" id="3_happy"]
+[ext_resource type="Texture2D" uid="uid://cake8vk17fdtg" path="res://assets/UI/player_portraits/otto_angry.png" id="4_angry"]
+
+[node name="PlayerHudPortrait" type="Control"]
+custom_minimum_size = Vector2(110, 110)
+layout_mode = 0
+offset_right = 110.0
+offset_bottom = 110.0
+mouse_filter = 2
+script = ExtResource("1_script")
+texture_idle = ExtResource("2_normal")
+texture_happy = ExtResource("3_happy")
+texture_angry = ExtResource("4_angry")
+portrait_region = Rect2i(189, 303, 110, 110)
+
+[node name="PortraitImage" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 2
+
+[node name="PortraitFrame" type="Panel" parent="."]
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

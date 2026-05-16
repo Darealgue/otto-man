@@ -94,6 +94,7 @@ func _ready() -> void:
 		pf.apply_style_now()
 	elif build_menu_panel:
 		ParchmentTextures.apply_large_panel_style(build_menu_panel, 16)
+	TextOutline.apply_to_tree(self)
 	# Başlangıçta gizle
 	visible = false
 	

@@ -24,6 +24,7 @@ func _ready() -> void:
 	var panel := get_node_or_null("Panel") as Panel
 	if panel:
 		ParchmentTextures.apply_large_panel_style(panel, 14)
+	TextOutline.apply_to_tree(self)
 	_ensure_nodes()
 	_create_slot_ui()
 	_refresh_slots()

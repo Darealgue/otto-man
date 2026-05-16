@@ -15,8 +15,8 @@ func _ready() -> void:
 	layer = 95
 	if is_instance_valid(_rich):
 		_rich.bbcode_enabled = true
-		_rich.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
-		_rich.add_theme_constant_override("outline_size", 3)
+		_rich.add_theme_color_override("default_color", TextOutline.FONT_COLOR)
+		_rich.add_theme_constant_override("outline_size", 0)
 	var root := get_tree().root
 	if not root.size_changed.is_connected(_apply_bar_layout):
 		root.size_changed.connect(_apply_bar_layout)

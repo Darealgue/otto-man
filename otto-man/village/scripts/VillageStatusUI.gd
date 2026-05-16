@@ -73,6 +73,8 @@ func _ready() -> void:
 	if not summary_container or not resource_list_container:
 		printerr("VillageStatusUI Warning: SummaryHBox veya ResourceList bulunamadı! Düzen yerleşimini kontrol edin.")
 
+	TextOutline.apply_to_tree(self)
+
 	# Wrap static labels with icons if icons exist
 	_wrap_label_with_icon(wood_label, "wood")
 	_wrap_label_with_icon(stone_label, "stone")
@@ -342,12 +344,11 @@ func _update_labels() -> void:
 		var m := VillageManager.get_morale()
 		morale_label.text = "Moral: %.0f" % m
 		if m >= 75.0:
-			morale_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+			TextOutline.apply_label_color(morale_label, Color(0.6, 1.0, 0.6))
 		elif m < 50.0:
-			morale_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.6))
+			TextOutline.apply_label_color(morale_label, Color(1.0, 0.6, 0.6))
 		else:
-			if morale_label.has_theme_color_override("font_color"):
-				morale_label.remove_theme_color_override("font_color")
+			TextOutline.reset_label_color(morale_label)
 	# Diğer gelişmiş kaynaklar...
 
 	# VillageManager Verileri
@@ -366,10 +367,9 @@ func _update_labels() -> void:
 		housing_label.text = "Barınma: %d / %d" % [h_occ, h_cap]
 		# Tüm ev slotları doluysa sarıya çevir
 		if h_cap > 0 and h_occ >= h_cap:
-			housing_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
+			TextOutline.apply_label_color(housing_label, Color(1, 0.85, 0.2))
 		else:
-			if housing_label.has_theme_color_override("font_color"):
-				housing_label.remove_theme_color_override("font_color")
+			TextOutline.reset_label_color(housing_label)
 
 	# Asker ikmal durumu
 	var status_text: String = "Tam"
@@ -451,12 +451,11 @@ func _update_labels() -> void:
 			economy_stats_label.text = "Üretim/Gider/Net: %.1f / %.1f / %.1f" % [p, c, n]
 			# Renk kodu
 			if n > 0.01:
-				economy_stats_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+				TextOutline.apply_label_color(economy_stats_label, Color(0.6, 1.0, 0.6))
 			elif n < -0.01:
-				economy_stats_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.6))
+				TextOutline.apply_label_color(economy_stats_label, Color(1.0, 0.6, 0.6))
 			else:
-				if economy_stats_label.has_theme_color_override("font_color"):
-					economy_stats_label.remove_theme_color_override("font_color")
+				TextOutline.reset_label_color(economy_stats_label)
 
 	call_deferred("_sync_resource_panel_to_content")
 	call_deferred("_sync_top_bar_to_content")
@@ -520,12 +519,11 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 		# Highlight when full
 		var ratio := (float(current) / float(cap)) if cap > 0 else 0.0
 		if current >= cap:
-			label_node.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
+			TextOutline.apply_label_color(label_node, Color(1, 0.85, 0.2))
 		elif ratio >= 0.8:
-			label_node.add_theme_color_override("font_color", Color(1.0, 0.95, 0.6))
+			TextOutline.apply_label_color(label_node, Color(1.0, 0.95, 0.6))
 		else:
-			if label_node.has_theme_color_override("font_color"):
-				label_node.remove_theme_color_override("font_color")
+			TextOutline.reset_label_color(label_node)
 	else:
 		if icon_only:
 			label_node.text = "%d%s" % [current, net_text]

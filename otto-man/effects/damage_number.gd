@@ -4,6 +4,10 @@ const FLOAT_SPEED = 100.0
 const FADE_SPEED = 0.8
 const SPREAD_RANGE = 30.0
 const CRIT_SCALE = 1.2
+const FONT_OUTLINE_SIZE := 6
+const COLOR_CRIT := Color(1.0, 0.25, 0.2, 1.0)
+const COLOR_PLAYER := Color(1.0, 0.25, 0.2, 1.0)
+const COLOR_NORMAL := Color(1.0, 0.92, 0.25, 1.0)
 
 @onready var label = $Label
 
@@ -38,15 +42,19 @@ func _process(delta: float) -> void:
 	if modulate.a <= 0:
 		queue_free()
 
+func _apply_label_style(fill: Color) -> void:
+	label.modulate = Color.WHITE
+	label.add_theme_color_override("font_color", fill)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	label.add_theme_constant_override("outline_size", FONT_OUTLINE_SIZE)
+
+
 func setup(damage: int, is_crit: bool = false, is_player_damage: bool = false) -> void:
-	# Set the damage text
 	label.text = str(damage)
-	
-	# Critical hit or player damage formatting
 	if is_crit:
 		scale = Vector2(CRIT_SCALE, CRIT_SCALE)
-		label.modulate = Color(1.0, 0.2, 0.2)  # Red for crits
+		_apply_label_style(COLOR_CRIT)
 	elif is_player_damage:
-		label.modulate = Color(1.0, 0.2, 0.2)  # Red for player damage
+		_apply_label_style(COLOR_PLAYER)
 	else:
-		label.modulate = Color(1.0, 0.9, 0.2)  # Slightly yellow-tinted for better visibility 
+		_apply_label_style(COLOR_NORMAL)

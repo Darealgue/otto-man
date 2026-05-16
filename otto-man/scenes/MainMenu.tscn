@@ -34,7 +34,7 @@ alignment = 1
 
 [node name="Title" type="Label" parent="CenterContainer/Menu"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.854902, 0.854902, 0.854902, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.86, 1)
 theme_override_font_sizes/font_size = 54
 text = "Rogue Harem"
 horizontal_alignment = 1

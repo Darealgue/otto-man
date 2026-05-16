@@ -501,9 +501,11 @@ func _update_news_subcategory_bar_visual():
 		if label and label.has_meta("category"):
 			var category = label.get_meta("category")
 			var is_selected = (category == current_subcategory)
-			label.add_theme_color_override("font_color", Color(1,1,1, 1.0 if is_selected else 0.5))
+			label.add_theme_color_override(
+				"font_color", TextOutline.font_color_with_alpha(1.0 if is_selected else 0.5)
+			)
 			if is_selected:
-				label.add_theme_color_override("font_color", Color(1,1,0.5,1))
+				TextOutline.apply_label_color(label, Color(1,1,0.5,1))
 
 func _news_passes_subcategory_filter(n: Dictionary) -> bool:
 	match current_subcategory:
@@ -524,9 +526,13 @@ func _update_news_filter_bar_visual():
 	if news_filter_bar == null:
 		return
 	if filter_village_label:
-		filter_village_label.add_theme_color_override("font_color", Color(1,1,1, 1.0 if news_focus == "village" else 0.6))
+		filter_village_label.add_theme_color_override(
+			"font_color", TextOutline.font_color_with_alpha(1.0 if news_focus == "village" else 0.6)
+		)
 	if filter_world_label:
-		filter_world_label.add_theme_color_override("font_color", Color(1,1,1, 1.0 if news_focus == "world" else 0.6))
+		filter_world_label.add_theme_color_override(
+			"font_color", TextOutline.font_color_with_alpha(1.0 if news_focus == "world" else 0.6)
+		)
 	
 	# Başlangıç UI güncellemesi (deferred olarak çağır)
 	call_deferred("update_missions_ui")
@@ -1015,7 +1021,7 @@ func _mc_refresh_active_construction_banner() -> void:
 			lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			lab.add_theme_font_size_override("font_size", 11)
-			lab.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78))
+			TextOutline.apply_label_color(lab, Color(0.92, 0.88, 0.78))
 			line_host.add_child(lab)
 
 # İnşaat UI'ını güncelle (PlayStation mantığı)
@@ -1092,13 +1098,13 @@ func update_construction_ui():
 					remaining_min = int(vm.get_pending_construction_minutes(scene_path))
 			if pending:
 				status_label.text = "İnşa Halinde (%.1fsa)" % [float(remaining_min) / 60.0]
-				status_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.45))
+				TextOutline.apply_label_color(status_label, Color(1.0, 0.82, 0.45))
 			else:
 				status_label.text = "İnşa Edilmedi"
-				status_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+				TextOutline.apply_label_color(status_label, Color(0.7, 0.7, 0.7))
 		else:
 			status_label.text = "Mevcut"
-			status_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
+			TextOutline.apply_label_color(status_label, Color(0.5, 1.0, 0.5))
 			
 		vbox.add_child(status_label)
 
@@ -1111,7 +1117,7 @@ func update_construction_ui():
 		cost_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		cost_label.add_theme_font_size_override("font_size", 10)
 		cost_label.text = _mc_format_build_cost(reqs.get("cost", {}))
-		cost_label.add_theme_color_override("font_color", Color(0.95, 0.86, 0.55))
+		TextOutline.apply_label_color(cost_label, Color(0.95, 0.86, 0.55))
 		vbox.add_child(cost_label)
 
 		var duration_label = Label.new()
@@ -1126,7 +1132,7 @@ func update_construction_ui():
 			duration_label.text = "Süre: İnşa %.1fsa | Yükselt %.1fsa" % [build_hours, upg_hours]
 		else:
 			duration_label.text = "Süre: -"
-		duration_label.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+		TextOutline.apply_label_color(duration_label, Color(0.75, 0.85, 1.0))
 		vbox.add_child(duration_label)
 
 		# Neden inşa edilemedi bilgisi (yalnızca seçili kartta göster)
@@ -1140,7 +1146,7 @@ func update_construction_ui():
 				missing_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				missing_label.add_theme_font_size_override("font_size", 10)
 				missing_label.text = _mc_format_missing_requirements(reqs)
-				missing_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.6))
+				TextOutline.apply_label_color(missing_label, Color(1.0, 0.6, 0.6))
 				vbox.add_child(missing_label)
 		
 		construction_grid.add_child(panel)
@@ -2030,11 +2036,11 @@ func update_assignment_ui():
 			worker_lbl.text = "İşçiler: %d / %d" % [current_workers, max_workers]
 			worker_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			if current_workers >= max_workers and max_workers > 0:
-				worker_lbl.add_theme_color_override("font_color", Color(0.5, 1, 0.5)) # Dolu
+				TextOutline.apply_label_color(worker_lbl, Color(0.5, 1, 0.5)) # Dolu
 			elif current_workers == 0:
-				worker_lbl.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8)) # Boş
+				TextOutline.apply_label_color(worker_lbl, Color(0.8, 0.8, 0.8)) # Boş
 			else:
-				worker_lbl.add_theme_color_override("font_color", Color(1, 1, 0.5)) # Kısmi
+				TextOutline.apply_label_color(worker_lbl, Color(1, 1, 0.5)) # Kısmi
 			vbox.add_child(worker_lbl)
 			
 			# Tip
@@ -2042,7 +2048,7 @@ func update_assignment_ui():
 			type_lbl.text = b_info["type"]
 			type_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			type_lbl.add_theme_font_size_override("font_size", 10)
-			type_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			TextOutline.apply_label_color(type_lbl, Color(0.6, 0.6, 0.6))
 			vbox.add_child(type_lbl)
 			
 			grid_container.add_child(panel)
@@ -2406,7 +2412,7 @@ func _ensure_mission_detail_strip() -> void:
 	var lbl := Label.new()
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.add_theme_color_override("font_color", Color(0.88, 0.86, 0.78))
+	TextOutline.apply_label_color(lbl, Color(0.88, 0.86, 0.78))
 	lbl.text = ""
 	mission_detail_label = lbl
 	panel.add_child(lbl)
@@ -2818,7 +2824,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	var title_label = Label.new()
 	title_label.text = "🎯 GÖREV SONUCU"
 	# title_label.add_theme_font_size_override("font_size", 24)
-	title_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(title_label)
 	
@@ -2831,7 +2837,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	var info_label = Label.new()
 	info_label.text = "👤 %s → 🎯 %s" % [cariye.name, _mission_display_name(mission)]
 	# info_label.add_theme_font_size_override("font_size", 18)
-	info_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(info_label, Color.LIGHT_BLUE)
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(info_label)
 	
@@ -2844,10 +2850,10 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	var result_label = Label.new()
 	if successful:
 		result_label.text = "✅ BAŞARILI!"
-		result_label.add_theme_color_override("font_color", Color.GREEN)
+		TextOutline.apply_label_color(result_label, Color.GREEN)
 	else:
 		result_label.text = "❌ BAŞARISIZ!"
-		result_label.add_theme_color_override("font_color", Color.RED)
+		TextOutline.apply_label_color(result_label, Color.RED)
 	# result_label.add_theme_font_size_override("font_size", 20)
 	result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(result_label)
@@ -2875,7 +2881,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 		var rewards_label = Label.new()
 		rewards_label.text = "💰 ÖDÜLLER:"
 		# rewards_label.add_theme_font_size_override("font_size", 16)
-		rewards_label.add_theme_color_override("font_color", Color.YELLOW)
+		TextOutline.apply_label_color(rewards_label, Color.YELLOW)
 		rewards_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(rewards_label)
 		
@@ -2885,7 +2891,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 			var reward_label = Label.new()
 			reward_label.text = reward_text
 			# reward_label.add_theme_font_size_override("font_size", 14)
-			reward_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+			TextOutline.apply_label_color(reward_label, Color.LIGHT_GREEN)
 			reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			main_container.add_child(reward_label)
 	
@@ -2893,7 +2899,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 		var penalties_label = Label.new()
 		penalties_label.text = "⚠️ CEZALAR:"
 		# penalties_label.add_theme_font_size_override("font_size", 16)
-		penalties_label.add_theme_color_override("font_color", Color.ORANGE)
+		TextOutline.apply_label_color(penalties_label, Color.ORANGE)
 		penalties_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_container.add_child(penalties_label)
 		
@@ -2903,7 +2909,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 			var penalty_label = Label.new()
 			penalty_label.text = penalty_text
 			# penalty_label.add_theme_font_size_override("font_size", 14)
-			penalty_label.add_theme_color_override("font_color", Color.RED)
+			TextOutline.apply_label_color(penalty_label, Color.RED)
 			penalty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			main_container.add_child(penalty_label)
 	
@@ -2916,7 +2922,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	var cariye_status_label = Label.new()
 	cariye_status_label.text = "👤 Cariye Durumu: Seviye %d | Sağlık: %d | Moral: %d" % [cariye.level, cariye.health, cariye.moral]
 	# cariye_status_label.add_theme_font_size_override("font_size", 14)
-	cariye_status_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(cariye_status_label, TextOutline.FONT_COLOR_MUTED)
 	cariye_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(cariye_status_label)
 	
@@ -2929,7 +2935,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	var close_label = Label.new()
 	close_label.text = "⏰ 5 saniye sonra otomatik kapanır..."
 	# close_label.add_theme_font_size_override("font_size", 12)
-	close_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(close_label, TextOutline.FONT_COLOR_MUTED)
 	close_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(close_label)
 
@@ -2947,55 +2953,55 @@ func update_level_up_content(cariye: Concubine, new_level: int):
 	var title_label = Label.new()
 	title_label.text = "🎉 SEVİYE ATLAMA! 🎉"
 	# title_label.add_theme_font_size_override("font_size", 20)
-	title_label.add_theme_color_override("font_color", Color.GOLD)
+	TextOutline.apply_label_color(title_label, Color.GOLD)
 	mission_result_content.add_child(title_label)
 	
 	# Cariye bilgisi
 	var cariye_label = Label.new()
 	cariye_label.text = "%s seviye %d'ye yükseldi!" % [cariye.name, new_level]
 	# cariye_label.add_theme_font_size_override("font_size", 16)
-	cariye_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(cariye_label, TextOutline.FONT_COLOR)
 	mission_result_content.add_child(cariye_label)
 	
 	# Yeni özellikler
 	var stats_label = Label.new()
 	stats_label.text = "YENİ ÖZELLİKLER:"
 	# stats_label.add_theme_font_size_override("font_size", 14)
-	stats_label.add_theme_color_override("font_color", Color.YELLOW)
+	TextOutline.apply_label_color(stats_label, Color.YELLOW)
 	mission_result_content.add_child(stats_label)
 	
 	# Sağlık ve moral
 	var health_label = Label.new()
 	health_label.text = "• Maksimum Sağlık: %d" % cariye.max_health
 	# health_label.add_theme_font_size_override("font_size", 12)
-	health_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	TextOutline.apply_label_color(health_label, Color.LIGHT_GREEN)
 	mission_result_content.add_child(health_label)
 	
 	var moral_label = Label.new()
 	moral_label.text = "• Maksimum Moral: %d" % cariye.max_moral
 	# moral_label.add_theme_font_size_override("font_size", 12)
-	moral_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(moral_label, Color.LIGHT_BLUE)
 	mission_result_content.add_child(moral_label)
 	
 	# Yetenekler
 	var skills_label = Label.new()
 	skills_label.text = "YETENEK ARTIŞLARI:"
 	# skills_label.add_theme_font_size_override("font_size", 14)
-	skills_label.add_theme_color_override("font_color", Color.YELLOW)
+	TextOutline.apply_label_color(skills_label, Color.YELLOW)
 	mission_result_content.add_child(skills_label)
 	
 	for skill in cariye.skills:
 		var skill_label = Label.new()
 		skill_label.text = "• %s: %d" % [cariye.get_skill_name(skill), cariye.skills[skill]]
 		# skill_label.add_theme_font_size_override("font_size", 12)
-		skill_label.add_theme_color_override("font_color", Color.LIGHT_CYAN)
+		TextOutline.apply_label_color(skill_label, Color.LIGHT_CYAN)
 		mission_result_content.add_child(skill_label)
 	
 	# Kapatma talimatı
 	var close_label = Label.new()
 	close_label.text = "3 saniye sonra otomatik kapanır..."
 	# close_label.add_theme_font_size_override("font_size", 10)
-	close_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(close_label, TextOutline.FONT_COLOR_MUTED)
 	mission_result_content.add_child(close_label)
 
 # Görev sonuçları UI'ını güncelle
@@ -3065,21 +3071,21 @@ func create_mission_card(mission: Mission, is_selected: bool = false, is_active:
 	var title_label = Label.new()
 	title_label.text = mission.name
 	# title_label.add_theme_font_size_override("font_size", 16)
-	title_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	vbox.add_child(title_label)
 	
 	# Tür ve süre
 	var info_label = Label.new()
 	info_label.text = "Tür: %s | Süre: %.1fs" % [mission.get_mission_type_name(), mission.duration]
 	# info_label.add_theme_font_size_override("font_size", 12)
-	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(info_label)
 	
 	# Başarı şansı
 	var success_label = Label.new()
 	success_label.text = "Başarı Şansı: %d%%" % (mission.success_chance * 100)
 	# success_label.add_theme_font_size_override("font_size", 12)
-	success_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(success_label, Color.LIGHT_BLUE)
 	vbox.add_child(success_label)
 	
 	# Ödüller (kısa)
@@ -3094,7 +3100,7 @@ func create_mission_card(mission: Mission, is_selected: bool = false, is_active:
 		var reward_label = Label.new()
 		reward_label.text = reward_text
 		reward_label.add_theme_font_size_override("font_size", 10)
-		reward_label.add_theme_color_override("font_color", Color.GREEN)
+		TextOutline.apply_label_color(reward_label, Color.GREEN)
 		vbox.add_child(reward_label)
 	
 	return card
@@ -3120,7 +3126,7 @@ func create_cariye_card(cariye: Concubine, is_selected: bool = false) -> Control
 	var name_label = Label.new()
 	name_label.text = "%s (Lv.%d)" % [cariye.name, cariye.level]
 	name_label.add_theme_font_size_override("font_size", 16)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(name_label, TextOutline.FONT_COLOR)
 	vbox.add_child(name_label)
 	
 	# En yüksek yetenek
@@ -3128,7 +3134,7 @@ func create_cariye_card(cariye: Concubine, is_selected: bool = false) -> Control
 	var skill_label = Label.new()
 	skill_label.text = "En İyi: %s (%d)" % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
 	skill_label.add_theme_font_size_override("font_size", 12)
-	skill_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(skill_label, Color.LIGHT_BLUE)
 	vbox.add_child(skill_label)
 	
 	# Durum
@@ -3137,15 +3143,15 @@ func create_cariye_card(cariye: Concubine, is_selected: bool = false) -> Control
 	durum_label.add_theme_font_size_override("font_size", 12)
 	match cariye.status:
 		Concubine.Status.BOŞTA:
-			durum_label.add_theme_color_override("font_color", Color.GREEN)
+			TextOutline.apply_label_color(durum_label, Color.GREEN)
 		Concubine.Status.GÖREVDE:
-			durum_label.add_theme_color_override("font_color", Color.ORANGE)
+			TextOutline.apply_label_color(durum_label, Color.ORANGE)
 		Concubine.Status.YARALI:
-			durum_label.add_theme_color_override("font_color", Color.RED)
+			TextOutline.apply_label_color(durum_label, Color.RED)
 		Concubine.Status.DİNLENİYOR:
-			durum_label.add_theme_color_override("font_color", Color.YELLOW)
+			TextOutline.apply_label_color(durum_label, Color.YELLOW)
 		_:
-			durum_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+			TextOutline.apply_label_color(durum_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(durum_label)
 	
 	return card
@@ -3167,7 +3173,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	var selection_marker = " ← SEÇİLİ" if is_selected else ""
 	title_label.text = "%s → %s%s" % [cariye.name, mission.name, selection_marker]
 	# title_label.add_theme_font_size_override("font_size", 16)
-	title_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(title_label)
@@ -3186,26 +3192,26 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 		status_text = "Tamamlanıyor"
 	status_badge.text = "🟢 %s" % status_text
 	status_badge.add_theme_font_size_override("font_size", 11)
-	status_badge.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	TextOutline.apply_label_color(status_badge, Color.LIGHT_GREEN)
 	badges.add_child(status_badge)
 
 	var diff_badge = Label.new()
 	diff_badge.text = "🎯 %s" % mission.get_difficulty_name()
 	diff_badge.add_theme_font_size_override("font_size", 11)
-	diff_badge.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(diff_badge, Color.LIGHT_BLUE)
 	badges.add_child(diff_badge)
 
 	var risk_badge = Label.new()
 	risk_badge.text = "⚠️ Risk: %s" % mission.risk_level
 	risk_badge.add_theme_font_size_override("font_size", 11)
-	risk_badge.add_theme_color_override("font_color", Color(1, 0.7, 0.2, 1))
+	TextOutline.apply_label_color(risk_badge, Color(1, 0.7, 0.2, 1))
 	badges.add_child(risk_badge)
 	
 	# Görev türü ve zorluk
 	var info_label = Label.new()
 	info_label.text = "Tür: %s | Zorluk: %s" % [mission.get_mission_type_name(), mission.get_difficulty_name()]
 	info_label.add_theme_font_size_override("font_size", 12)
-	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(info_label)
 	
@@ -3214,7 +3220,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	var time_text = _format_game_time_minutes(remaining_time)
 	time_label.text = "⏱️ %s kaldı" % time_text
 	time_label.add_theme_font_size_override("font_size", 14)
-	time_label.add_theme_color_override("font_color", Color.YELLOW)
+	TextOutline.apply_label_color(time_label, Color.YELLOW)
 	vbox.add_child(time_label)
 	
 	# Progress bar (gerçek progress bar)
@@ -3224,7 +3230,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	var progress_label = Label.new()
 	progress_label.text = "İlerleme:"
 	progress_label.add_theme_font_size_override("font_size", 12)
-	progress_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(progress_label, Color.LIGHT_BLUE)
 	progress_container.add_child(progress_label)
 	
 	var progress_bar = ProgressBar.new()
@@ -3238,7 +3244,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	var percent_label = Label.new()
 	percent_label.text = "%d%%" % progress_percent
 	percent_label.add_theme_font_size_override("font_size", 12)
-	percent_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(percent_label, TextOutline.FONT_COLOR)
 	progress_container.add_child(percent_label)
 
 	# Ödül önizleme ve ordu/beklenen
@@ -3255,14 +3261,14 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 		rewards_text += "-"
 	rewards_preview.text = rewards_text
 	rewards_preview.add_theme_font_size_override("font_size", 11)
-	rewards_preview.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	TextOutline.apply_label_color(rewards_preview, Color.LIGHT_GREEN)
 	rewards_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(rewards_preview)
 
 	var reqs_label = Label.new()
 	reqs_label.text = "Gerekli Seviye: %d | Gerekli Ordu: %d" % [mission.required_cariye_level, mission.required_army_size]
 	reqs_label.add_theme_font_size_override("font_size", 10)
-	reqs_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(reqs_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(reqs_label)
 	
 	_apply_mission_card_parchment(card, is_selected)
@@ -3369,7 +3375,7 @@ func update_available_missions_cards():
 		print("[DEBUG_MC] update_available_missions_cards: Liste boş, 'Yok' etiketi ekleniyor")
 		var empty_label = Label.new()
 		empty_label.text = "Yapılabilir görev yok"
-		empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		available_missions_list.add_child(empty_label)
 		return
 	
@@ -3480,7 +3486,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	var title_label = Label.new()
 	title_label.text = "%s %s" % [mission_type_emoji, mission_name]
 	# title_label.add_theme_font_size_override("font_size", 16)
-	title_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(title_label)
 	
@@ -3508,7 +3514,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	if not relief_line.is_empty():
 		var relief_label = Label.new()
 		relief_label.text = relief_line
-		relief_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+		TextOutline.apply_label_color(relief_label, Color(0.75, 0.9, 1.0))
 		relief_label.add_theme_font_size_override("font_size", 12)
 		relief_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(relief_label)
@@ -3523,7 +3529,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		var chain_badge = Label.new()
 		chain_badge.text = "🔗 Zincir"
 		# chain_badge.add_theme_font_size_override("font_size", 11)
-		chain_badge.add_theme_color_override("font_color", Color(0.9, 0.9, 0.5, 1))
+		TextOutline.apply_label_color(chain_badge, Color(0.9, 0.9, 0.5, 1))
 		badges.add_child(chain_badge)
 	
 	# Acil/Savunma rozeti (Dictionary görevleri için)
@@ -3531,54 +3537,54 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		var urgent_badge = Label.new()
 		urgent_badge.text = "🚨 Acil"
 		# urgent_badge.add_theme_font_size_override("font_size", 11)
-		urgent_badge.add_theme_color_override("font_color", Color(1, 0.3, 0.3, 1))
+		TextOutline.apply_label_color(urgent_badge, Color(1, 0.3, 0.3, 1))
 		badges.add_child(urgent_badge)
 	
 	# Harita emri rozeti
 	if is_world_map_order:
 		var map_badge = Label.new()
 		map_badge.text = "🗺️ Harita Emri"
-		map_badge.add_theme_color_override("font_color", Color(0.72, 0.95, 1.0, 1.0))
+		TextOutline.apply_label_color(map_badge, Color(0.72, 0.95, 1.0, 1.0))
 		badges.add_child(map_badge)
 	
 	if is_dict and String(mission.get("completes_incident_id", "")).length() > 0:
 		var relief_badge = Label.new()
 		relief_badge.text = "🏘️ Komşu Yardım"
-		relief_badge.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0, 1.0))
+		TextOutline.apply_label_color(relief_badge, Color(0.75, 0.92, 1.0, 1.0))
 		badges.add_child(relief_badge)
 	elif is_dict and (String(mission.get("id", "")).begins_with("ally_relief_") or String(mission.get("completes_alliance_aid_settlement_id", "")).length() > 0):
 		var ally_badge_d = Label.new()
 		ally_badge_d.text = "🤝 Muttefik Yardım"
-		ally_badge_d.add_theme_color_override("font_color", Color(0.82, 0.95, 0.88, 1.0))
+		TextOutline.apply_label_color(ally_badge_d, Color(0.82, 0.95, 0.88, 1.0))
 		badges.add_child(ally_badge_d)
 	elif not is_dict and (String(mission.id).begins_with("relief_") or String(mission.completes_incident_id).length() > 0):
 		var relief_badge2 = Label.new()
 		relief_badge2.text = "🏘️ Komşu Yardım"
-		relief_badge2.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0, 1.0))
+		TextOutline.apply_label_color(relief_badge2, Color(0.75, 0.92, 1.0, 1.0))
 		badges.add_child(relief_badge2)
 	elif not is_dict and (String(mission.id).begins_with("ally_relief_") or String(mission.completes_alliance_aid_settlement_id).length() > 0):
 		var ally_badge = Label.new()
 		ally_badge.text = "🤝 Muttefik Yardım"
-		ally_badge.add_theme_color_override("font_color", Color(0.82, 0.95, 0.88, 1.0))
+		TextOutline.apply_label_color(ally_badge, Color(0.82, 0.95, 0.88, 1.0))
 		badges.add_child(ally_badge)
 
 	var diff_badge = Label.new()
 	diff_badge.text = "🎯 %s" % difficulty_name
 	# diff_badge.add_theme_font_size_override("font_size", 11)
-	diff_badge.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(diff_badge, Color.LIGHT_BLUE)
 	badges.add_child(diff_badge)
 
 	var risk_badge = Label.new()
 	risk_badge.text = "⚠️ %s" % risk_level
 	# risk_badge.add_theme_font_size_override("font_size", 11)
-	risk_badge.add_theme_color_override("font_color", Color(1, 0.7, 0.2, 1))
+	TextOutline.apply_label_color(risk_badge, Color(1, 0.7, 0.2, 1))
 	badges.add_child(risk_badge)
 
 	var duration_badge = Label.new()
 	var duration_text = _format_game_time_minutes(duration)
 	duration_badge.text = "⏱️ %s" % duration_text
 	# duration_badge.add_theme_font_size_override("font_size", 11)
-	duration_badge.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(duration_badge, TextOutline.FONT_COLOR_MUTED)
 	badges.add_child(duration_badge)
 
 	# Görev bilgileri
@@ -3586,7 +3592,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	duration_text = _format_game_time_minutes(duration)  # duration_text zaten yukarıda tanımlı
 	info_label.text = "Tür: %s | Süre: %s" % [mission_type_str, duration_text]
 	# info_label.add_theme_font_size_override("font_size", 12)
-	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(info_label)
 	
@@ -3594,7 +3600,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	var success_label = Label.new()
 	success_label.text = "Başarı Şansı: %d%%" % int(success_chance * 100)
 	# success_label.add_theme_font_size_override("font_size", 12)
-	success_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(success_label, Color.LIGHT_BLUE)
 	vbox.add_child(success_label)
 	
 	# Ödüller
@@ -3612,7 +3618,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	var rewards_label = Label.new()
 	rewards_label.text = rewards_text
 	# rewards_label.add_theme_font_size_override("font_size", 10)
-	rewards_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	TextOutline.apply_label_color(rewards_label, Color.LIGHT_GREEN)
 	rewards_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(rewards_label)
 
@@ -3620,7 +3626,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	var reqs_label = Label.new()
 	reqs_label.text = "Min. Seviye: %d | Min. Ordu: %d" % [required_level, required_army]
 	# reqs_label.add_theme_font_size_override("font_size", 10)
-	reqs_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(reqs_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(reqs_label)
 
 	# Mesafe ve hedef
@@ -3630,7 +3636,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		var tgt_text = target_location if target_location != "" else "Bilinmeyen"
 		travel_label.text = "Hedef Yerlesim: %s | Mesafe: %s" % [tgt_text, dist_text]
 		# travel_label.add_theme_font_size_override("font_size", 10)
-		travel_label.add_theme_color_override("font_color", Color(0.85,0.85,0.85,1))
+		TextOutline.apply_label_color(travel_label, Color(0.85,0.85,0.85,1))
 		vbox.add_child(travel_label)
 
 	# Gerekli kaynaklar
@@ -3645,7 +3651,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		var req_label = Label.new()
 		req_label.text = req_text
 		# req_label.add_theme_font_size_override("font_size", 10)
-		req_label.add_theme_color_override("font_color", Color(0.9,0.8,0.6,1))
+		TextOutline.apply_label_color(req_label, Color(0.9,0.8,0.6,1))
 		req_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(req_label)
 	
@@ -3662,14 +3668,14 @@ func update_cariye_selection_cards():
 	var max_soldiers = _get_available_soldier_count()
 	var soldier_label = Label.new()
 	soldier_label.text = "Yanında asker: %d / %d  (Sol/Sağ ile değiştir)" % [current_soldier_count, max_soldiers]
-	soldier_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(soldier_label, TextOutline.FONT_COLOR)
 	cariye_selection_list.add_child(soldier_label)
 	
 	var idle_cariyeler = mission_manager.get_idle_concubines()
 	if idle_cariyeler.is_empty():
 		var empty_label = Label.new()
 		empty_label.text = "Boşta cariye yok"
-		empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		cariye_selection_list.add_child(empty_label)
 		return
 	
@@ -3702,7 +3708,7 @@ func create_cariye_selection_card(cariye: Concubine, is_selected: bool) -> Panel
 	var name_label = Label.new()
 	name_label.text = cariye.name
 	# name_label.add_theme_font_size_override("font_size", 16)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(name_label, TextOutline.FONT_COLOR)
 	vbox.add_child(name_label)
 	
 	# Yetenekler
@@ -3711,14 +3717,14 @@ func create_cariye_selection_card(cariye: Concubine, is_selected: bool) -> Panel
 	var skills_label = Label.new()
 	skills_label.text = skills_text
 	# skills_label.add_theme_font_size_override("font_size", 12)
-	skills_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(skills_label, Color.LIGHT_BLUE)
 	vbox.add_child(skills_label)
 	
 	# Durum
 	var status_label = Label.new()
 	status_label.text = "Durum: %s" % cariye.get_status_name()
 	# status_label.add_theme_font_size_override("font_size", 12)
-	status_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	TextOutline.apply_label_color(status_label, Color.LIGHT_GREEN)
 	vbox.add_child(status_label)
 	
 	return card
@@ -3743,7 +3749,7 @@ func update_mission_history_cards():
 	if completed_missions.is_empty():
 		var empty_label = Label.new()
 		empty_label.text = "Tamamlanan görev yok"
-		empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		mission_history_list.add_child(empty_label)
 		return
 	
@@ -3818,7 +3824,7 @@ func create_mission_history_card(mission: Mission, is_selected: bool) -> Panel:
 	var status_icon = "✅" if mission.completed_successfully else "❌"
 	title_label.text = "%s %s" % [status_icon, mission.name]
 	# title_label.add_theme_font_size_override("font_size", 14)
-	title_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(title_label)
 	
@@ -3826,14 +3832,14 @@ func create_mission_history_card(mission: Mission, is_selected: bool) -> Panel:
 	var type_label = Label.new()
 	type_label.text = mission.get_mission_type_name()
 	# type_label.add_theme_font_size_override("font_size", 12)
-	type_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(type_label, Color.LIGHT_BLUE)
 	hbox.add_child(type_label)
 	
 	# Süre
 	var duration_label = Label.new()
 	duration_label.text = "%.1fs" % mission.duration
 	# duration_label.add_theme_font_size_override("font_size", 12)
-	duration_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(duration_label, TextOutline.FONT_COLOR_MUTED)
 	hbox.add_child(duration_label)
 	
 	return card
@@ -3884,7 +3890,7 @@ func update_mission_chains_ui():
 	if mission_chains.is_empty():
 		var empty_label = Label.new()
 		empty_label.text = "Aktif görev zinciri yok"
-		empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		chains_list.add_child(empty_label)
 		return
 	
@@ -4027,7 +4033,7 @@ func _update_diplomacy_ui() -> void:
 	if wm == null:
 		var info := Label.new()
 		info.text = "WorldManager bulunamadı. Diplomasi verisi mevcut değil."
-		info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 		diplomacy_list.add_child(info)
 		_update_diplomacy_footer()
 		return
@@ -4042,7 +4048,7 @@ func _update_diplomacy_ui() -> void:
 	if factions.is_empty():
 		var empty := Label.new()
 		empty.text = "Henüz tanımlı fraksiyon yok."
-		empty.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		TextOutline.apply_label_color(empty, TextOutline.FONT_COLOR_MUTED)
 		diplomacy_list.add_child(empty)
 		_update_diplomacy_footer()
 		return
@@ -4105,7 +4111,7 @@ func _update_diplomacy_ui() -> void:
 		var dm = _get_diplomacy_manager()
 		if dm and dm.has_method("get_stance"):
 			stance.text = " " + dm.get_stance(rel_val) + " "
-			stance.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+			TextOutline.apply_label_color(stance, Color.LIGHT_BLUE)
 		row.add_child(stance)
 		
 	_update_diplomacy_footer()
@@ -5119,7 +5125,7 @@ func update_trade_ui():
 				var empty_label = Label.new()
 				empty_label.text = "Şu anda köyde tüccar yok.\nTüccarlar zaman zaman köye gelecek."
 				empty_label.add_theme_font_size_override("font_size", 14)
-				empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+				TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 				traders_list.add_child(empty_label)
 			else:
 				for i in range(active_traders.size()):
@@ -5156,7 +5162,7 @@ func update_trade_ui():
 					var origin = Label.new()
 					origin.text = "📍 %s'den geldi" % trader.get("origin_settlement", "?")
 					origin.add_theme_font_size_override("font_size", 12)
-					origin.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+					TextOutline.apply_label_color(origin, TextOutline.FONT_COLOR_MUTED)
 					vb.add_child(origin)
 					
 					# Ürünler (her ürün ayrı satırda)
@@ -5165,7 +5171,7 @@ func update_trade_ui():
 						var products_title = Label.new()
 						products_title.text = "Satıyor:"
 						products_title.add_theme_font_size_override("font_size", 11)
-						products_title.add_theme_color_override("font_color", Color(0.8, 0.9, 0.8))
+						TextOutline.apply_label_color(products_title, Color(0.8, 0.9, 0.8))
 						vb.add_child(products_title)
 						
 						# Her ürün için ayrı satır (max 2-3 ürün göster, fazlası için "...")
@@ -5177,14 +5183,14 @@ func update_trade_ui():
 							var product_line = Label.new()
 							product_line.text = "  • %s (%d altın)" % [res_name, price]
 							product_line.add_theme_font_size_override("font_size", 10)
-							product_line.add_theme_color_override("font_color", Color(0.7, 0.85, 0.7))
+							TextOutline.apply_label_color(product_line, Color(0.7, 0.85, 0.7))
 							vb.add_child(product_line)
 						
 						if products.size() > max_show:
 							var more_label = Label.new()
 							more_label.text = "  ... ve %d ürün daha" % (products.size() - max_show)
 							more_label.add_theme_font_size_override("font_size", 9)
-							more_label.add_theme_color_override("font_color", Color(0.6, 0.7, 0.6))
+							TextOutline.apply_label_color(more_label, Color(0.6, 0.7, 0.6))
 							vb.add_child(more_label)
 					
 					# Kalan günler
@@ -5196,13 +5202,13 @@ func update_trade_ui():
 					var days_label = Label.new()
 					days_label.text = "⏳ %d gün sonra ayrılacak" % days_left
 					days_label.add_theme_font_size_override("font_size", 10)
-					days_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.5))
+					TextOutline.apply_label_color(days_label, Color(0.9, 0.7, 0.5))
 					vb.add_child(days_label)
 					
 					var hint = Label.new()
 					hint.text = "A: Ürünleri Gör" if i == current_trade_index else ""
 					hint.add_theme_font_size_override("font_size", 10)
-					hint.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+					TextOutline.apply_label_color(hint, Color(0.6, 0.9, 0.6))
 					vb.add_child(hint)
 	
 	# === SAĞ PANEL: TÜCCAR CARİYE GÖREVLERİ ===
@@ -5224,7 +5230,7 @@ func update_trade_ui():
 			var empty_label = Label.new()
 			empty_label.text = "Tüccar rolünde boşta cariye yok.\nCariye yönetiminden rol atayabilirsiniz."
 			empty_label.add_theme_font_size_override("font_size", 14)
-			empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+			TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 			missions_list.add_child(empty_label)
 		else:
 			# Yerleşimler listesi (ticaret görevleri için)
@@ -5267,13 +5273,13 @@ func update_trade_ui():
 				var info = Label.new()
 				info.text = "Ticaret yeteneği: %d | Seviye: %d" % [cariye.get_skill_level(Concubine.Skill.TİCARET), cariye.level]
 				info.add_theme_font_size_override("font_size", 12)
-				info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+				TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 				vb.add_child(info)
 				
 				var hint = Label.new()
 				hint.text = "A: Görev Gönder" if i == current_trader_mission_index else ""
 				hint.add_theme_font_size_override("font_size", 10)
-				hint.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+				TextOutline.apply_label_color(hint, Color(0.6, 0.9, 0.6))
 				vb.add_child(hint)
 	
 	# Seçimler görünür kalsın
@@ -5386,7 +5392,7 @@ func _create_trader_buy_popup():
 	origin_label.text = "📍 Tüccar bilgisi"
 	origin_label.add_theme_font_size_override("font_size", 14)
 	origin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	origin_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(origin_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(origin_label)
 	
 	# Grid Container
@@ -5411,7 +5417,7 @@ func _create_trader_buy_popup():
 	info_label.text = "Yön Tuşları: Seçim  |  A: Satın Al  |  B: Kapat"
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info_label.add_theme_font_size_override("font_size", 12)
-	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(info_label)
 
 # Tüccar satın alma pop-up'ını güncelle
@@ -5490,7 +5496,7 @@ func _update_trader_buy_popup():
 		price_label.text = "%d altın/birim" % price
 		price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		price_label.add_theme_font_size_override("font_size", 12)
-		price_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+		TextOutline.apply_label_color(price_label, Color(0.9, 0.8, 0.5))
 		vbox.add_child(price_label)
 		
 		# Miktar bilgisi (tüccarın elinde sınırsız varsayıyoruz)
@@ -5498,7 +5504,7 @@ func _update_trader_buy_popup():
 		stock_label.text = "Sınırsız"
 		stock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stock_label.add_theme_font_size_override("font_size", 10)
-		stock_label.add_theme_color_override("font_color", Color(0.7, 0.9, 0.7))
+		TextOutline.apply_label_color(stock_label, Color(0.7, 0.9, 0.7))
 		vbox.add_child(stock_label)
 		
 		# Seçim göstergesi ve miktar bilgisi
@@ -5507,14 +5513,14 @@ func _update_trader_buy_popup():
 			select_label.text = "> SEÇİLİ <"
 			select_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			select_label.add_theme_font_size_override("font_size", 10)
-			select_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
+			TextOutline.apply_label_color(select_label, Color(0.9, 0.7, 0.3))
 			vbox.add_child(select_label)
 			
 			var quantity_label = Label.new()
 			quantity_label.text = "1 birim satın alınacak"
 			quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			quantity_label.add_theme_font_size_override("font_size", 9)
-			quantity_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
+			TextOutline.apply_label_color(quantity_label, Color(0.8, 0.8, 0.9))
 			vbox.add_child(quantity_label)
 		
 		trader_buy_grid.add_child(panel)
@@ -5691,7 +5697,7 @@ func _create_trader_mission_popup():
 	cariye_label.text = "👤 Cariye: "
 	cariye_label.add_theme_font_size_override("font_size", 14)
 	cariye_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cariye_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(cariye_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(cariye_label)
 	
 	# İçerik alanı (scroll container)
@@ -5710,7 +5716,7 @@ func _create_trader_mission_popup():
 	info_label.text = "Yön Tuşları: Seçim  |  A: Onayla  |  B: Geri/İptal"
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info_label.add_theme_font_size_override("font_size", 12)
-	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(info_label)
 
 # Tüccar cariye görev pop-up'ını güncelle
@@ -5772,14 +5778,14 @@ func _update_trader_mission_step_village(content_vbox: VBoxContainer, mm: Node):
 		route_label.text = "%s%s (Mesafe: %.1f, Risk: %s, İlişki: %d)" % [prefix, route_name, distance, risk, relation]
 		route_label.add_theme_font_size_override("font_size", 16)
 		if i == trader_mission_selected_route_index:
-			route_label.add_theme_color_override("font_color", Color.YELLOW)
+			TextOutline.apply_label_color(route_label, Color.YELLOW)
 		content_vbox.add_child(route_label)
 	
 	# Bilgi
 	var info = Label.new()
 	info.text = "\nYukarı/Aşağı: Rota Seç\nA: Devam Et"
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 	content_vbox.add_child(info)
 
 # Adım 1: Asker sayısı
@@ -5805,13 +5811,13 @@ func _update_trader_mission_step_soldiers(content_vbox: VBoxContainer):
 	soldier_label.add_theme_font_size_override("font_size", 18)
 	soldier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if trader_mission_soldier_count > 0:
-		soldier_label.add_theme_color_override("font_color", Color.YELLOW)
+		TextOutline.apply_label_color(soldier_label, Color.YELLOW)
 	content_vbox.add_child(soldier_label)
 	
 	var info = Label.new()
 	info.text = "\nSol/Sağ: Miktar Ayarla\nA: Devam Et"
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 	content_vbox.add_child(info)
 
 # Adım 2: Mal seçimi
@@ -5876,7 +5882,7 @@ func _update_trader_mission_step_products(content_vbox: VBoxContainer):
 		qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		qty_label.add_theme_font_size_override("font_size", 12)
 		if selected_qty > 0:
-			qty_label.add_theme_color_override("font_color", Color.GREEN)
+			TextOutline.apply_label_color(qty_label, Color.GREEN)
 		item_vbox.add_child(qty_label)
 		
 		# Seçili işareti
@@ -5884,7 +5890,7 @@ func _update_trader_mission_step_products(content_vbox: VBoxContainer):
 			var selected_label = Label.new()
 			selected_label.text = "> SEÇİLİ <"
 			selected_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			selected_label.add_theme_color_override("font_color", Color.YELLOW)
+			TextOutline.apply_label_color(selected_label, Color.YELLOW)
 			item_vbox.add_child(selected_label)
 		
 		grid.add_child(item_panel)
@@ -5893,7 +5899,7 @@ func _update_trader_mission_step_products(content_vbox: VBoxContainer):
 	var info = Label.new()
 	info.text = "\nYön Tuşları: Ürün Seç  |  A: Miktar Ayarla  |  X: Görevi Başlat"
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 	content_vbox.add_child(info)
 	selected_trader = {}
 	current_trader_buy_index = 0
@@ -6374,7 +6380,7 @@ func _debug_construction(msg: String) -> void:
 			_construction_debug_label = Label.new()
 			_construction_debug_label.name = "ConstructionDebugLabel"
 			_construction_debug_label.position = Vector2(20, 20)
-			_construction_debug_label.add_theme_color_override("font_color", Color(1,1,0.6))
+			TextOutline.apply_label_color(_construction_debug_label, Color(1,1,0.6))
 			construction_page.add_child(_construction_debug_label)
 		if _construction_debug_label:
 			var cat_name := String(category_names[current_building_category]) if typeof(category_names) != TYPE_NIL else "?"
@@ -6618,9 +6624,9 @@ func create_news_card(news: Dictionary) -> Panel:
 	title_label.text = news.get("title", "Başlık yok")
 	title_label.add_theme_font_size_override("font_size", 14)
 	if news.has("color"):
-		title_label.add_theme_color_override("font_color", news["color"])
+		TextOutline.apply_label_color(title_label, news["color"])
 	else:
-		title_label.add_theme_color_override("font_color", Color.WHITE)
+		TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	# Unread badge
 	if is_unread:
 		title_label.text = "● " + title_label.text
@@ -6630,7 +6636,7 @@ func create_news_card(news: Dictionary) -> Panel:
 	var content_label = Label.new()
 	content_label.text = news.get("content", "İçerik yok")
 	content_label.add_theme_font_size_override("font_size", 12)
-	content_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(content_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(content_label)
 	
 	# Zaman
@@ -6640,7 +6646,7 @@ func create_news_card(news: Dictionary) -> Panel:
 		time_text = news.get("time", "Zaman yok")
 	time_label.text = time_text
 	time_label.add_theme_font_size_override("font_size", 10)
-	time_label.add_theme_color_override("font_color", Color.GRAY)
+	TextOutline.apply_label_color(time_label, Color.GRAY)
 	vbox.add_child(time_label)
 
 	# Haber tıklanınca okundu işaretle ve detay göster (özellikle battle stories için)
@@ -6795,7 +6801,7 @@ func _show_news_detail(title: String, content: String):
 	var t = Label.new()
 	t.text = title
 	t.add_theme_font_size_override("font_size", 20)
-	t.add_theme_color_override("font_color", Color(1.0, 0.8, 0.5))
+	TextOutline.apply_label_color(t, Color(1.0, 0.8, 0.5))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(t)
 	
@@ -6830,14 +6836,14 @@ func _show_news_detail(title: String, content: String):
 	var back_button = Label.new()
 	back_button.text = "⬅️ Geri (B)"
 	back_button.add_theme_font_size_override("font_size", 14)
-	back_button.add_theme_color_override("font_color", Color(1.0, 0.8, 0.8, 1))
+	TextOutline.apply_label_color(back_button, Color(1.0, 0.8, 0.8, 1))
 	button_container.add_child(back_button)
 	
 	# Alt kategori değiştirme bilgisi
 	var filter_info = Label.new()
 	filter_info.text = "Alt kategori: Y tuşu"
 	filter_info.add_theme_font_size_override("font_size", 10)
-	filter_info.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 1))
+	TextOutline.apply_label_color(filter_info, Color(0.8, 0.8, 0.8, 1))
 	filter_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(filter_info)
 	
@@ -6931,7 +6937,7 @@ func create_random_event_card(event: Dictionary) -> Panel:
 	var title_label = Label.new()
 	title_label.text = event.get("title", "Başlık yok")
 	title_label.add_theme_font_size_override("font_size", 12)
-	title_label.add_theme_color_override("font_color", event.get("color", Color.WHITE))
+	TextOutline.apply_label_color(title_label, event.get("color", TextOutline.FONT_COLOR))
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title_label)
 	
@@ -6939,7 +6945,7 @@ func create_random_event_card(event: Dictionary) -> Panel:
 	var content_label = Label.new()
 	content_label.text = event.get("content", "İçerik yok")
 	content_label.add_theme_font_size_override("font_size", 10)
-	content_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(content_label, TextOutline.FONT_COLOR_MUTED)
 	content_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(content_label)
 	
@@ -6974,14 +6980,14 @@ func create_concubine_list_card(cariye: Concubine, is_selected: bool) -> Panel:
 	var name_label = Label.new()
 	name_label.text = "%s (Lv.%d)" % [cariye.name, cariye.level]
 	# name_label.add_theme_font_size_override("font_size", 16)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(name_label, TextOutline.FONT_COLOR)
 	vbox.add_child(name_label)
 	
 	# Durum
 	var status_label = Label.new()
 	status_label.text = "Durum: %s" % cariye.get_status_name()
 	# status_label.add_theme_font_size_override("font_size", 12)
-	status_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	TextOutline.apply_label_color(status_label, Color.LIGHT_GREEN)
 	vbox.add_child(status_label)
 	
 	# En iyi yetenek
@@ -6989,7 +6995,7 @@ func create_concubine_list_card(cariye: Concubine, is_selected: bool) -> Panel:
 	var skills_label = Label.new()
 	skills_label.text = "En İyi: %s (%d)" % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
 	# skills_label.add_theme_font_size_override("font_size", 10)
-	skills_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(skills_label, Color.LIGHT_BLUE)
 	vbox.add_child(skills_label)
 	
 	return card
@@ -7637,7 +7643,7 @@ func update_active_missions_cards():
 	if active_missions.is_empty():
 		var empty_label = Label.new()
 		empty_label.text = "Aktif görev yok"
-		empty_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		active_missions_list.add_child(empty_label)
 		return
 	
@@ -7689,14 +7695,14 @@ func create_history_mission_card(mission: Mission, is_selected: bool) -> Control
 	var status_icon = "✅" if mission.status == Mission.Status.TAMAMLANDI else "❌"
 	title_label.text = "%s %s%s" % [status_icon, mission.name, selection_marker]
 	# title_label.add_theme_font_size_override("font_size", 16)
-	title_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	vbox.add_child(title_label)
 	
 	# Görev türü ve zorluk
 	var info_label = Label.new()
 	info_label.text = "Tür: %s | Zorluk: %s" % [mission.get_mission_type_name(), mission.get_difficulty_name()]
 	# info_label.add_theme_font_size_override("font_size", 12)
-	info_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(info_label)
 	
 	# Tamamlanma tarihi ve süre
@@ -7704,7 +7710,7 @@ func create_history_mission_card(mission: Mission, is_selected: bool) -> Control
 	var completion_time = "Tamamlandı: %.1f saniye" % mission.duration
 	time_label.text = "⏱️ %s" % completion_time
 	# time_label.add_theme_font_size_override("font_size", 12)
-	time_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(time_label, Color.LIGHT_BLUE)
 	vbox.add_child(time_label)
 	
 	return card
@@ -7876,18 +7882,18 @@ func _update_concubine_list_dynamic():
 		var marker = "> " if idx == current_concubine_detail_index else "  "
 		name_l.text = "%s%s (Lv.%d)" % [marker, c.name, c.level]
 		# name_l.add_theme_font_size_override("font_size", 14)
-		name_l.add_theme_color_override("font_color", Color.WHITE)
+		TextOutline.apply_label_color(name_l, TextOutline.FONT_COLOR)
 		vb.add_child(name_l)
 		var status_l = Label.new()
 		status_l.text = "Durum: %s" % c.get_status_name()
 		# status_l.add_theme_font_size_override("font_size", 11)
-		status_l.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+		TextOutline.apply_label_color(status_l, Color.LIGHT_GREEN)
 		vb.add_child(status_l)
 		var best_skill = c.get_best_skill()
 		var skill_l = Label.new()
 		skill_l.text = "En İyi: %s (%d)" % [c.get_skill_name(best_skill), c.get_skill_level(best_skill)]
 		# skill_l.add_theme_font_size_override("font_size", 11)
-		skill_l.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+		TextOutline.apply_label_color(skill_l, Color.LIGHT_BLUE)
 		vb.add_child(skill_l)
 		list_node.add_child(item)
 
@@ -7927,13 +7933,13 @@ func _update_selected_concubine_details_dynamic():
 		var stitle = Label.new()
 		stitle.text = "⚔️ Yetenekler"
 		# stitle.add_theme_font_size_override("font_size", 18) # Remove hardcoded size to use theme
-		stitle.add_theme_color_override("font_color", Color.WHITE)
+		TextOutline.apply_label_color(stitle, TextOutline.FONT_COLOR)
 		skills_vb.add_child(stitle)
 		for s in selected.skills.keys():
 			var l = Label.new()
 			l.text = "• %s: %d" % [selected.get_skill_name(s), int(selected.skills[s])]
 			# l.add_theme_font_size_override("font_size", 12) # Remove hardcoded size
-			l.add_theme_color_override("font_color", Color(0.8,0.9,1,1))
+			TextOutline.apply_label_color(l, Color(0.8,0.9,1,1))
 			skills_vb.add_child(l)
 
 	# 4) Görev Geçmişi: MissionHistoryVBox varsa içini temizleyip yeniden doldur; yoksa oluştur
@@ -7951,7 +7957,7 @@ func _update_selected_concubine_details_dynamic():
 		var htitle = Label.new()
 		htitle.text = "📚 Görev Geçmişi"
 		# htitle.add_theme_font_size_override("font_size", 18)
-		htitle.add_theme_color_override("font_color", Color.WHITE)
+		TextOutline.apply_label_color(htitle, TextOutline.FONT_COLOR)
 		hist_vb.add_child(htitle)
 		var history = mission_manager.get_mission_history_for_cariye(selected.id)
 		var sum_success := 0
@@ -7963,7 +7969,7 @@ func _update_selected_concubine_details_dynamic():
 			sum_success, history.size() - sum_success, int((float(max(0,sum_success)) / float(max(1,history.size()))) * 100.0)
 		]
 		# content.add_theme_font_size_override("font_size", 14)
-		content.add_theme_color_override("font_color", Color(0.8,0.8,0.8,1))
+		TextOutline.apply_label_color(content, Color(0.8,0.8,0.8,1))
 		hist_vb.add_child(content)
 
 	# 5) Kontrol metni: ControlsVBox varsa temizle, yoksa oluştur
@@ -7979,12 +7985,12 @@ func _update_selected_concubine_details_dynamic():
 		var ctitle = Label.new()
 		ctitle.text = "🎮 KONTROLLER"
 		# ctitle.add_theme_font_size_override("font_size", 18)
-		ctitle.add_theme_color_override("font_color", Color.WHITE)
+		TextOutline.apply_label_color(ctitle, TextOutline.FONT_COLOR)
 		controls_vb.add_child(ctitle)
 		var controls_text = Label.new()
 		controls_text.text = "Yukarı/Aşağı: Cariye Seç\nA tuşu: Rol Ata\nB tuşu: Geri"
 		controls_text.add_theme_font_size_override("font_size", 14)
-		controls_text.add_theme_color_override("font_color", Color.YELLOW)
+		TextOutline.apply_label_color(controls_text, Color.YELLOW)
 		controls_vb.add_child(controls_text)
 
 # Cariye detay sayfası navigasyonu
@@ -8054,7 +8060,7 @@ func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Pa
 	# Zincir adı
 	var name_label = Label.new()
 	name_label.text = "🔗 " + chain_info.get("name", "Bilinmeyen Zincir")
-	name_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(name_label, TextOutline.FONT_COLOR)
 	name_label.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(name_label)
 	
@@ -8066,7 +8072,7 @@ func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Pa
 		chain_progress.get("percentage", 0.0)
 	]
 	progress_label.text = progress_text
-	progress_label.add_theme_color_override("font_color", Color.LIGHT_GREEN)
+	TextOutline.apply_label_color(progress_label, Color.LIGHT_GREEN)
 	progress_label.add_theme_font_size_override("font_size", 12)
 	vbox.add_child(progress_label)
 	
@@ -8074,7 +8080,7 @@ func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Pa
 	var type_label = Label.new()
 	var chain_type_name = get_chain_type_name(chain_info.get("type", Mission.ChainType.NONE))
 	type_label.text = "Tür: " + type_label
-	type_label.add_theme_color_override("font_color", Color.LIGHT_BLUE)
+	TextOutline.apply_label_color(type_label, Color.LIGHT_BLUE)
 	type_label.add_theme_font_size_override("font_size", 10)
 	vbox.add_child(type_label)
 	
@@ -8086,7 +8092,7 @@ func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Pa
 	for reward_type in rewards:
 		reward_parts.append(str(rewards[reward_type]) + " " + reward_type)
 	rewards_label.text = rewards_text + ", ".join(reward_parts)
-	rewards_label.add_theme_color_override("font_color", Color.YELLOW)
+	TextOutline.apply_label_color(rewards_label, Color.YELLOW)
 	rewards_label.add_theme_font_size_override("font_size", 10)
 	vbox.add_child(rewards_label)
 	
@@ -8250,15 +8256,15 @@ func _update_news_filter_highlighting() -> void:
 		return
 	
 	# Reset colors
-	filter_village_label.add_theme_color_override("font_color", Color.WHITE)
-	filter_world_label.add_theme_color_override("font_color", Color.WHITE)
+	TextOutline.apply_label_color(filter_village_label, TextOutline.FONT_COLOR)
+	TextOutline.apply_label_color(filter_world_label, TextOutline.FONT_COLOR)
 	
 	# Highlight current filter
 	match news_focus:
 		"village":
-			filter_village_label.add_theme_color_override("font_color", Color.YELLOW)
+			TextOutline.apply_label_color(filter_village_label, Color.YELLOW)
 		"world":
-			filter_world_label.add_theme_color_override("font_color", Color.YELLOW)
+			TextOutline.apply_label_color(filter_world_label, Color.YELLOW)
 
 func _update_subcategory_highlighting() -> void:
 	"""Update subcategory button highlighting"""
@@ -8280,7 +8286,7 @@ func _update_subcategory_highlighting() -> void:
 		
 		var base_color = base_colors.get(category_key, Color.WHITE)
 		var final_color = base_color if not is_selected else Color.YELLOW
-		label.add_theme_color_override("font_color", final_color)
+		TextOutline.apply_label_color(label, final_color)
 
 func _get_filtered_news() -> Array[Dictionary]:
 	"""Get news filtered by current settings"""
@@ -8355,14 +8361,14 @@ func _create_colored_news_item(news: Dictionary) -> Panel:
 	# Color based on subcategory
 	var subcategory = news.get("subcategory", "info")
 	var title_color = _get_subcategory_color(subcategory)
-	title_label.add_theme_color_override("font_color", title_color)
+	TextOutline.apply_label_color(title_label, title_color)
 	
 	vbox.add_child(title_label)
 	
 	# Content
 	var content_label = Label.new()
 	content_label.text = news.get("content", "")
-	content_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	TextOutline.apply_label_color(content_label, TextOutline.FONT_COLOR_MUTED)
 	content_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(content_label)
 	

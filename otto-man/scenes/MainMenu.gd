@@ -12,7 +12,6 @@ var _tutorial_prompt: Control = null
 var _profile_opened_for_new_game: bool = true
 
 func _ready() -> void:
-	TextOutline.apply_to_tree(self)
 	if not _validate_nodes():
 		return
 	

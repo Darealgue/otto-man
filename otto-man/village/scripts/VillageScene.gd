@@ -32,14 +32,7 @@ var _dungeon_rescue_applied: bool = false
 @export var camera_left_limit: float = -2000.0
 @export var camera_right_limit: float = 2000.0
 
-
-
-func _apply_menu_text_outlines() -> void:
-	TextOutline.apply_to_tree(self)
-
-
 func _ready() -> void:
-	call_deferred("_apply_menu_text_outlines")
 	# VillageManager'a bu sahneyi tanıt
 	VillagerAiInitializer.LoadComplete.connect(VillagersLoaded)
 

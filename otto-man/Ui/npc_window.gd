@@ -26,6 +26,7 @@ func _setup_back_panel_parchment() -> void:
 		back.patch_margin = 28
 		back.content_margin = 16
 	back.apply_style_now()
+	TextOutline.apply_to_tree(self)
 
 
 func InitializeWindow(Info):

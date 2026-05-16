@@ -16,6 +16,7 @@ var selected_gorev_id: int = -1
 # --- Ready Function ---
 func _ready() -> void:
 	ParchmentTextures.apply_compact_panel_style(self, 10)
+	TextOutline.apply_to_tree(self)
 
 # --- List Population Functions ---
 

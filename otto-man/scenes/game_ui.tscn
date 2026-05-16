@@ -24,24 +24,24 @@ layout_mode = 1
 anchors_preset = 0
 offset_left = 20.0
 offset_top = 20.0
-offset_right = 220.0
-offset_bottom = 40.0
+offset_right = 348.0
+offset_bottom = 130.0
 
 [node name="StaminaBar" parent="Container" instance=ExtResource("2_stamina")]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 0
-offset_left = 20.0
-offset_top = 65.0
-offset_right = 220.0
-offset_bottom = 90.0
+offset_left = 118.0
+offset_top = 135.0
+offset_right = 318.0
+offset_bottom = 160.0
 
 [node name="CarriedResourcesDisplay" parent="Container" instance=ExtResource("4_carried")]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 0
-offset_left = 20.0
-offset_top = 100.0
+offset_left = 118.0
+offset_top = 170.0
 offset_right = 200.0
 offset_bottom = 200.0
 

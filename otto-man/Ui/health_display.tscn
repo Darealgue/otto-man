@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://barvau4dax7to"]
+[gd_scene load_steps=6 format=3 uid="uid://barvau4dax7to"]
 
 [ext_resource type="Script" path="res://ui/health_display.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cplayerhudportrait01" path="res://ui/player_hud_portrait.tscn" id="2_portrait"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
 bg_color = Color(0.1, 0.1, 0.1, 0.8)
@@ -43,20 +44,25 @@ shadow_color = Color(0.8, 0.2, 0.2, 0.4)
 shadow_size = 2
 
 [node name="HealthDisplay" type="Control"]
+custom_minimum_size = Vector2(328, 110)
 layout_mode = 3
 anchors_preset = 0
-offset_right = 200.0
-offset_bottom = 20.0
+offset_right = 328.0
+offset_bottom = 110.0
 mouse_filter = 2
 script = ExtResource("1_script")
 
+[node name="Portrait" parent="." instance=ExtResource("2_portrait")]
+layout_mode = 0
+offset_right = 110.0
+offset_bottom = 110.0
+
 [node name="BarContainer" type="Control" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+layout_mode = 0
+offset_left = 118.0
+offset_top = 45.0
+offset_right = 318.0
+offset_bottom = 65.0
 mouse_filter = 2
 
 [node name="Background" type="Panel" parent="BarContainer"]
