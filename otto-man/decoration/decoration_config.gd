@@ -48,7 +48,7 @@ const GOLD_TYPES = {
 const BACKGROUND_DECORS = {
     "spider_web": {
         "weight": 60,
-        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER, SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH, SpawnLocation.CEILING, SpawnLocation.CORNER_HIGH, SpawnLocation.CORNER_LOW],
+        "locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
         "sprites": [
             "res://assets/objects/dungeon/web1.png",
             "res://assets/objects/dungeon/web2.png"
@@ -526,10 +526,10 @@ static func dungeon_lighting_too_close(world_pos: Vector2, placed: Array) -> boo
 
 const TILE_DECOR_RULES = {
 	"wall_surface": {
-		"chance": 0.15, # Bu tile üzerinde dekorasyon spawn olma ihtimali
-		"decoration_type": DecorationType.BACKGROUND, # Hangi dekor listesinden seçilecek
-		"allowed_locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH], # Hangi pozisyonlara spawn olabilir
-		"allowed_decors": ["moss_patch", "wall_cracks", "hanging_chains", "spider_web", "torch2"] # İzin verilen spesifik dekorlar
+		"chance": 0.15,
+		"decoration_type": DecorationType.BACKGROUND,
+		"allowed_locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH],
+		"allowed_decors": ["torch2"]
 	},
 	"floor_surface": {
 		"chance": 0.05,
@@ -541,7 +541,7 @@ const TILE_DECOR_RULES = {
 		"chance": 0.1,
 		"decoration_type": DecorationType.BACKGROUND,
 		"allowed_locations": [SpawnLocation.CEILING],
-		"allowed_decors": ["hanging_chains", "spider_web"]
+		"allowed_decors": []
 	},
 	"floor_breakable": {
 		"chance": 0.2,
@@ -566,18 +566,11 @@ const PRIORITY_DECOR_RULES = {
 		{
 			"chance": 0.36,
 			"decoration_type": DecorationType.BACKGROUND,
-			"decoration_names": ["torch2", "moss_patch", "wall_cracks", "hanging_chains", "spider_web"],
+			"decoration_names": ["torch2"],
 			"allowed_locations": [SpawnLocation.WALL_LOW, SpawnLocation.WALL_HIGH]
 		}
 	],
-	"ceiling_surface": [
-		{
-			"chance": 0.12,
-			"decoration_type": DecorationType.BACKGROUND,
-			"decoration_names": ["hanging_chains", "spider_web"],
-			"allowed_locations": [SpawnLocation.CEILING]
-		}
-	],
+	"ceiling_surface": [],
     "floor_surface": [
 		{
 			"chance": 0.24,

@@ -12,7 +12,7 @@ var original_camera_offset: Vector2
 var shake_layer: CanvasLayer
 
 func _ready():
-	# print("[ScreenEffects] _ready() called")
+	HudCanvasLayers.apply_to_autoload_fx()
 	# Start with effects disabled
 	time_slow_effect.visible = false
 	Engine.time_scale = 1.0  # Ensure we start with normal time scale

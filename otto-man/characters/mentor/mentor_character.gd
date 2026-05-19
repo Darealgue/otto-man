@@ -45,6 +45,20 @@ func play_idle() -> void:
 		_body.play("idle")
 
 
+## Köy sahnesi: duman/giriş yok, doğrudan idle (yürüme/uyku vb. sonra eklenecek).
+func show_village_idle() -> void:
+	_playing_entrance = false
+	_playing_departure = false
+	_entrance_revealed = true
+	_departure_fx_started = false
+	if _smoke_fx:
+		_smoke_fx.visible = false
+		_smoke_fx.stop()
+	if _body:
+		_body.visible = true
+	play_idle()
+
+
 ## Giriş: önce duman FX, ortasında mentor idle ile belirir.
 func play_entrance_sequence() -> void:
 	if _playing_entrance or _playing_departure:

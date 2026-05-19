@@ -17,7 +17,7 @@ script = ExtResource("2_gen")
 debug_enabled = true
 
 [node name="PauseMenuLayer" type="CanvasLayer" parent="."]
-layer = 100
+layer = 210
 
 [node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("4_pausemenu")]
 z_index = 200

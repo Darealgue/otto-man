@@ -2760,18 +2760,15 @@ position = Vector2(5, -25)
 target_position = Vector2(40, 0)
 
 [node name="UI" type="CanvasLayer" parent="."]
+layer = 200
 
 [node name="HealthDisplay" parent="UI" instance=ExtResource("health_display")]
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 348.0
-offset_bottom = 130.0
 
 [node name="StaminaBar" parent="UI" instance=ExtResource("stamina_bar")]
-offset_left = 118.0
-offset_top = 135.0
-offset_right = 320.0
-offset_bottom = 90.0
+offset_left = 128.0
+offset_top = 79.0
+offset_right = 328.0
+offset_bottom = 104.0
 
 [node name="LedgeShapeCastTopLeft" type="ShapeCast2D" parent="."]
 position = Vector2(-10, -46)

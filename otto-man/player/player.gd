@@ -198,7 +198,9 @@ func set_ui_locked(locked: bool) -> void:
 @onready var animation_player = $AnimationPlayer
 @onready var sprite = $Sprite2D
 @onready var player_sprite = $PlayerRenderLayer/PlayerSprite
-@onready var player_render_layer = $PlayerRenderLayer
+@onready var player_render_layer: CanvasLayer = $PlayerRenderLayer
+
+var _village_world_sprite_active: bool = false
 @onready var dash_state = $StateMachine/Dash as State
 @onready var hurtbox = $Hurtbox
 @onready var hitbox = $Hitbox
@@ -576,15 +578,14 @@ func _physics_process(delta):
 		was_on_floor = true
 		coyote_timer = COYOTE_TIME # Yere iner inmez coyote time'ı sıfırla
 	
-	# Z-Index'i ayarla: köy sahnesinde dinamik, diğer sahnelerde sabit
+	# Z-Index / cizim: koyde dunya Sprite2D (CanvasLayer her seyin ustune cizer)
 	if sprite:
 		if _is_village_scene():
-			# Köy sahnesinde NPC'lerle aynı mantıkla dinamik z_index
-			var foot_y = get_foot_y_position()
-			sprite.z_index = _calculate_player_z_index_from_foot_y(foot_y)
+			var village_z: int = _calculate_player_z_index_from_foot_y(get_foot_y_position())
+			_apply_village_world_sprite_depth(village_z)
 		else:
-			# Diğer sahnelerde sabit z_index (eski davranış)
-			sprite.z_index = 5  # Fixed z-index, above torches (z-index=2)
+			_restore_canvas_layer_sprite_render()
+			sprite.z_index = 5
 
 # No need to call physics_update explicitly, it's handled by _physics_process in the state machine
 
@@ -593,10 +594,9 @@ func _physics_process(delta):
 			player_sprite.frame = sprite.frame
 			player_sprite.flip_h = sprite.flip_h
 			player_sprite.modulate = sprite.modulate
-			player_sprite.visible = true  # Always visible
-			
-			# Position player sprite at player position (smooth, not affected by camera smoothing)
-			player_sprite.global_position = global_position + Vector2(1, -48)
+			if not _village_world_sprite_active:
+				player_sprite.visible = true
+				player_sprite.global_position = global_position + Vector2(1, -48)
 			# print("[DEBUG] Player sprite sync - frame: ", sprite.frame, " visible: ", player_sprite.visible, " pos: ", global_position, " player_sprite_pos: ", player_sprite.global_position)
 		else:
 			# print("[DEBUG] Missing sprites - sprite: ", sprite, " player_sprite: ", player_sprite)
@@ -1928,46 +1928,52 @@ func get_foot_y_position() -> float:
 # Oyuncunun z_index'i kamp ateşinden yüksek (6+) ama su sprite'ından düşük (19-) olmalı
 # Sadece köy sahnesinde kullanılır
 func _calculate_player_z_index_from_foot_y(foot_y: float) -> int:
-	# NPC'lerle aynı normalizasyon mantığını kullan
-	# VERTICAL_RANGE_MAX = 25.0 (NPC'lerden alınan değer)
+	const CAMPFIRE_Z_INDEX: int = 5
+	const WATER_Z_INDEX: int = 20
+	const MIN_Z_INDEX: int = CAMPFIRE_Z_INDEX + 1
+	const MAX_Z_INDEX: int = WATER_Z_INDEX - 1
 	const VERTICAL_RANGE_MAX: float = 25.0
-	const CAMPFIRE_Z_INDEX: int = 5  # Kamp ateşinin z_index'i
-	const WATER_Z_INDEX: int = 20  # Su sprite'ının z_index'i
-	const MIN_PLAYER_Z_INDEX: int = CAMPFIRE_Z_INDEX + 1  # Kamp ateşinden yüksek (6)
-	const MAX_PLAYER_Z_INDEX: int = WATER_Z_INDEX - 1  # Su sprite'ından düşük (19)
-	
-	var sprite_offset_y = 48.0  # Oyuncunun sprite'ı 48 piksel yukarıda (NPC'lerle aynı)
-	var sprite_height = 96.0  # Varsayılan yükseklik
-	
+	var sprite_offset_y := 48.0
+	var sprite_height := 96.0
 	if sprite and sprite.texture:
 		sprite_height = sprite.texture.get_height() * sprite.scale.y
-	
-	# foot_y = global_position.y - 48 + height/2 → aynı dünya aralığı (min/max) NPC'lerle uyumlu
-	var max_foot_y = VERTICAL_RANGE_MAX - sprite_offset_y + (sprite_height / 2.0)
-	var min_foot_y = 0.0 - sprite_offset_y + (sprite_height / 2.0)
-	var range_foot_y = max_foot_y - min_foot_y
-	
-	# Division by zero kontrolü
+	var max_foot_y := VERTICAL_RANGE_MAX - sprite_offset_y + (sprite_height / 2.0)
+	var min_foot_y := 0.0 - sprite_offset_y + (sprite_height / 2.0)
+	var range_foot_y := max_foot_y - min_foot_y
 	if range_foot_y <= 0.0:
-		return (MIN_PLAYER_Z_INDEX + MAX_PLAYER_Z_INDEX) / 2  # Varsayılan orta değer (12-13)
-	
-	var normalized_foot_y = (foot_y - min_foot_y) / range_foot_y
-	normalized_foot_y = clamp(normalized_foot_y, 0.0, 1.0)  # 0-1 aralığına sınırla
-	# 6-19 aralığına normalize et (kamp ateşinden yüksek, su sprite'ından düşük)
-	var z_index_range = MAX_PLAYER_Z_INDEX - MIN_PLAYER_Z_INDEX
-	return MIN_PLAYER_Z_INDEX + int(normalized_foot_y * z_index_range)
+		return int((MIN_Z_INDEX + MAX_Z_INDEX) / 2)
+	var t := clampf((foot_y - min_foot_y) / range_foot_y, 0.0, 1.0)
+	return int(round(lerpf(float(MIN_Z_INDEX), float(MAX_Z_INDEX), t)))
+
+func _apply_village_world_sprite_depth(village_z: int) -> void:
+	if not _village_world_sprite_active:
+		_village_world_sprite_active = true
+		if player_render_layer:
+			player_render_layer.visible = false
+		if sprite:
+			sprite.visible = true
+	if sprite:
+		sprite.z_index = village_z
+	z_index = village_z
+
+
+func _restore_canvas_layer_sprite_render() -> void:
+	if not _village_world_sprite_active:
+		return
+	_village_world_sprite_active = false
+	if player_render_layer:
+		player_render_layer.visible = true
+	if player_sprite:
+		player_sprite.visible = true
+	z_index = 0
+
 
 func _set_player_z_index():
-	# Köy sahnesinde dinamik z_index, diğer sahnelerde sabit
 	if sprite:
 		if _is_village_scene():
-			# Köy sahnesinde NPC'lerle aynı mantıkla dinamik z_index
-			var foot_y = get_foot_y_position()
-			sprite.z_index = _calculate_player_z_index_from_foot_y(foot_y)
+			var village_z: int = _calculate_player_z_index_from_foot_y(get_foot_y_position())
+			_apply_village_world_sprite_depth(village_z)
 		else:
-			# Diğer sahnelerde sabit z_index (eski davranış)
-			sprite.z_index = 5  # Fixed z-index, above torches (z-index=2)
-		# print("Oyuncu z_index set to: ", sprite.z_index)
-	else:
-		# print("Oyuncu sprite not found for z_index setting")
-		pass
+			_restore_canvas_layer_sprite_render()
+			sprite.z_index = 5
+			z_index = 0

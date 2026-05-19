@@ -10,7 +10,7 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
 [node name="LoadingScreen" type="CanvasLayer"]
-layer = 100
+layer = 300
 process_mode = 3
 script = ExtResource("1_loading")
 

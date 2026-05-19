@@ -604,42 +604,29 @@ func get_foot_y_position() -> float:
 	# Ayak pozisyonu = global_position.y - offset + sprite'ın alt yarısı
 	return global_position.y - sprite_offset_y + (sprite_height / 2.0)
 
-# Z-index'i ayak pozisyonuna göre normalize et (su yansımasında görünmesi için 0-19 aralığında)
 func _calculate_z_index_from_foot_y(foot_y: float) -> int:
-	# foot_y'yi normalize et: VERTICAL_RANGE_MAX + sprite_offset + sprite_height/2 maksimum değer olabilir
-	# Yaklaşık maksimum foot_y: 25 + 48 + 96 = 169, minimum: 0 + 48 + 48 = 96
-	# NPC'lerin z_index'lerini 6-19 aralığına normalize et (kamp ateşinden yüksek, su sprite'ından düşük)
-	# Oyuncuyla aynı aralıkta olmalı ki pozisyona göre doğru sorting yapılsın
-	const CAMPFIRE_Z_INDEX: int = 5  # Kamp ateşinin z_index'i
-	const WATER_Z_INDEX: int = 20  # Su sprite'ının z_index'i
-	const MIN_Z_INDEX: int = CAMPFIRE_Z_INDEX + 1  # Kamp ateşinden yüksek (6)
-	const MAX_Z_INDEX: int = WATER_Z_INDEX - 1  # Su sprite'ından düşük (19)
-	
-	var sprite_offset_y = 48.0
-	var sprite_height = 96.0  # Varsayılan yükseklik
+	# Cariye/Worker ile aynı aralık: 6..19
+	const CAMPFIRE_Z_INDEX: int = 5
+	const WATER_Z_INDEX: int = 20
+	const MIN_Z_INDEX: int = CAMPFIRE_Z_INDEX + 1
+	const MAX_Z_INDEX: int = WATER_Z_INDEX - 1
+	const SPRITE_OFFSET_Y: float = 48.0
+	var sprite_height := 96.0
 	if is_instance_valid(body_sprite) and body_sprite.texture:
 		var texture = body_sprite.texture
 		if texture is CanvasTexture:
-			var canvas_texture = texture as CanvasTexture
+			var canvas_texture := texture as CanvasTexture
 			if is_instance_valid(canvas_texture.diffuse_texture):
 				sprite_height = canvas_texture.diffuse_texture.get_height()
 		elif texture is Texture2D:
 			sprite_height = texture.get_height()
-	
-	# foot_y = global_position.y - 48 + height/2 → yaklaşık 0 (y=0) ile VERTICAL_RANGE_MAX (y=25) arası
-	var max_foot_y = VERTICAL_RANGE_MAX - sprite_offset_y + (sprite_height / 2.0)
-	var min_foot_y = 0.0 - sprite_offset_y + (sprite_height / 2.0)
-	var range_foot_y = max_foot_y - min_foot_y
-	
-	# Division by zero kontrolü
+	var max_foot_y := VERTICAL_RANGE_MAX - SPRITE_OFFSET_Y + (sprite_height / 2.0)
+	var min_foot_y := 0.0 - SPRITE_OFFSET_Y + (sprite_height / 2.0)
+	var range_foot_y := max_foot_y - min_foot_y
 	if range_foot_y <= 0.0:
-		return (MIN_Z_INDEX + MAX_Z_INDEX) / 2  # Varsayılan orta değer (12-13)
-	
-	var normalized_foot_y = (foot_y - min_foot_y) / range_foot_y
-	normalized_foot_y = clamp(normalized_foot_y, 0.0, 1.0)  # 0-1 aralığına sınırla
-	# 6-19 aralığına normalize et (kamp ateşinden yüksek, su sprite'ından düşük)
-	var z_index_range = MAX_Z_INDEX - MIN_Z_INDEX
-	return MIN_Z_INDEX + int(normalized_foot_y * z_index_range)
+		return int((MIN_Z_INDEX + MAX_Z_INDEX) / 2)
+	var t := clampf((foot_y - min_foot_y) / range_foot_y, 0.0, 1.0)
+	return int(round(lerpf(float(MIN_Z_INDEX), float(MAX_Z_INDEX), t)))
 
 # State handler fonksiyonları
 func _handle_idle_state(delta: float) -> void:

@@ -44,18 +44,20 @@ shadow_color = Color(0.8, 0.2, 0.2, 0.4)
 shadow_size = 2
 
 [node name="HealthDisplay" type="Control"]
-custom_minimum_size = Vector2(328, 110)
+custom_minimum_size = Vector2(328, 180)
 layout_mode = 3
 anchors_preset = 0
-offset_right = 328.0
-offset_bottom = 110.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 336.0
+offset_bottom = 190.0
 mouse_filter = 2
 script = ExtResource("1_script")
 
 [node name="Portrait" parent="." instance=ExtResource("2_portrait")]
 layout_mode = 0
-offset_right = 110.0
-offset_bottom = 110.0
+offset_right = 328.0
+offset_bottom = 180.0
 
 [node name="BarContainer" type="Control" parent="."]
 layout_mode = 0

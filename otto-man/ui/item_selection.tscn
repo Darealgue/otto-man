@@ -4,7 +4,7 @@
 
 [node name="ItemSelection" type="CanvasLayer"]
 process_mode = 3
-layer = 128
+layer = 220
 script = ExtResource("1_item_sel")
 
 [node name="Control" type="Control" parent="."]

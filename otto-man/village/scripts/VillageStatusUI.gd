@@ -59,11 +59,11 @@ var _canvas_layer: CanvasLayer
 var _last_top_bar_size := Vector2.ZERO
 var _last_resource_panel_size := Vector2.ZERO
 const RESOURCE_PANEL_LEFT := 10.0
-const RESOURCE_PANEL_TOP := 130.0
 ## Parşömen köşe çiziminin (patch) içinde, yazı ile çerçeve arası ek boşluk.
 const RESOURCE_PANEL_INSET := 5
 
 func _ready() -> void:
+	add_to_group("village_status_ui")
 	# Node referanslarının alınıp alınmadığını kontrol et (güvenlik için)
 	if not gold_label or not worker_label or not asker_label or not wood_label or \
 	   not stone_label or not food_label or not water_label or not metal_label or \
@@ -143,7 +143,7 @@ func _log_panel_measurements() -> void:
 	_log_one_panel(lines, "ResourcePanel (sol envanter)", _canvas_layer.get_node_or_null("ResourcePanel") as ParchmentFrame, resource_list_container)
 	lines.append("Sahne dosyası offset (tasarım):")
 	lines.append("  TopBarPanel: 765 x 53  (anchor üst-orta)")
-	lines.append("  ResourcePanel: 100 x 100  (sol 10,130 → sağ 110, alt 230)")
+	lines.append("  ResourcePanel: sol %d, ust %.0f (HUD alti)" % [int(RESOURCE_PANEL_LEFT), HudLayout.get_village_resource_panel_top()])
 	lines.append("Öneri: texture boyutu ≈ 'parşömen kutusu' veya içerik+patch; 96x72 envanter için dar kalabilir.")
 	lines.append("==================================================")
 	print("\n".join(lines))
@@ -246,10 +246,11 @@ func _sync_resource_panel_to_content() -> void:
 		if absf(sz.x - _last_resource_panel_size.x) < 1.0 and absf(sz.y - _last_resource_panel_size.y) < 1.0:
 			return
 	_last_resource_panel_size = sz
+	var panel_top: float = HudLayout.get_village_resource_panel_top()
 	resource_panel.offset_left = RESOURCE_PANEL_LEFT
-	resource_panel.offset_top = RESOURCE_PANEL_TOP
+	resource_panel.offset_top = panel_top
 	resource_panel.offset_right = RESOURCE_PANEL_LEFT + sz.x
-	resource_panel.offset_bottom = RESOURCE_PANEL_TOP + sz.y
+	resource_panel.offset_bottom = panel_top + sz.y
 
 
 func _apply_hud_parchment_textures() -> void:

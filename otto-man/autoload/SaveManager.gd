@@ -656,8 +656,15 @@ func _save_village_state() -> Dictionary:
 	# Buildings (use saved building states if available, otherwise snapshot current state)
 	var building_states: Array = []
 	if VillageManager.has_method("snapshot_state_for_scene_exit"):
-		print("[SaveManager] 💾 DEBUG: Calling snapshot_state_for_scene_exit()...")
-		VillageManager.snapshot_state_for_scene_exit()
+		var skip_snapshot: bool = false
+		if "_skip_next_snapshot" in VillageManager:
+			skip_snapshot = bool(VillageManager.get("_skip_next_snapshot"))
+		if skip_snapshot:
+			print("[SaveManager] 💾 DEBUG: Skipping snapshot_state_for_scene_exit (preserve in-memory village state)")
+			VillageManager.set("_skip_next_snapshot", false)
+		else:
+			print("[SaveManager] 💾 DEBUG: Calling snapshot_state_for_scene_exit()...")
+			VillageManager.snapshot_state_for_scene_exit()
 		# Get saved building states
 		var saved_states = VillageManager.get("_saved_building_states")
 		if saved_states is Array:

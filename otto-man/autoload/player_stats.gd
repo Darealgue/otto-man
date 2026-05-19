@@ -199,6 +199,19 @@ func _is_in_village_scene() -> bool:
 		return false
 	return path == "res://village/scenes/VillageScene.tscn" or "village" in path.to_lower()
 
+
+func _can_village_health_recover() -> bool:
+	if not _is_in_village_scene():
+		return false
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm != null and sm.has_method("is_world_map_ui_context_active"):
+		if bool(sm.call("is_world_map_ui_context_active")):
+			var wm := get_node_or_null("/root/WorldManager")
+			if wm != null and wm.has_method("is_player_on_own_village_hex"):
+				return bool(wm.call("is_player_on_own_village_hex"))
+			return false
+	return true
+
 func mark_death_injury() -> void:
 	var max_health: float = get_max_health()
 	var start_health: float = minf(1.0, max_health)
@@ -265,7 +278,7 @@ func _roll_death_debuff() -> void:
 
 func _process_death_recovery_minute() -> void:
 	var changed: bool = false
-	if _is_in_village_scene() and bool(death_recovery_state.get("is_recovering", false)):
+	if _can_village_health_recover() and bool(death_recovery_state.get("is_recovering", false)):
 		var heal_amount: float = float(death_recovery_state.get("heal_per_minute", 0.0))
 		if heal_amount > 0.0 and current_health < get_max_health():
 			current_health = minf(get_max_health(), current_health + heal_amount)

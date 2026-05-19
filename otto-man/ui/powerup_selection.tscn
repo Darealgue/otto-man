@@ -4,7 +4,7 @@
 
 [node name="PowerupSelection" type="CanvasLayer"]
 process_mode = 3
-layer = 128
+layer = 220
 script = ExtResource("1_u2r3d")
 
 [node name="Control" type="Control" parent="."]

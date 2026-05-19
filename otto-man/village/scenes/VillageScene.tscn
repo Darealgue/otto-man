@@ -327,7 +327,7 @@ position = Vector2(167.3, -147.4)
 shape = SubResource("RectangleShape2D_dungeon_portal")
 
 [node name="VillageStatusUI" parent="." instance=ExtResource("5_3scu2")]
-layer = 5
+layer = 200
 
 [node name="Camera2D" type="Camera2D" parent="."]
 visible = false
@@ -351,7 +351,7 @@ y_sort_enabled = true
 y_sort_enabled = true
 
 [node name="TimeDisplayUi" parent="." instance=ExtResource("7_miuw4")]
-layer = 10
+layer = 200
 
 [node name="DayNightController" type="CanvasModulate" parent="."]
 script = ExtResource("10_m5lc0")
@@ -767,7 +767,7 @@ z_index = 100
 anchors_preset = -1
 
 [node name="PauseMenuLayer" type="CanvasLayer" parent="."]
-layer = 100
+layer = 210
 
 [node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("52_pausemenu")]
 z_index = 200

@@ -411,6 +411,9 @@ func _reset_player_on_scene_load() -> void:
 			if state_machine and state_machine.has_method("transition_to"):
 				state_machine.transition_to("Idle", true)  # Force transition
 
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
 # Verilen bina sahnesini belirtilen pozisyona yerleştirir (Artık VillageManager'da)
 # func place_building(building_scene: PackedScene, position: Vector2) -> void:
 # 	var new_building = building_scene.instantiate()

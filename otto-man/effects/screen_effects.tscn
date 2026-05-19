@@ -33,7 +33,7 @@ shader_parameter/desaturation = 0.0
 script = ExtResource("1_script")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
-layer = 100
+layer = 15
 
 [node name="TimeSlowEffect" type="ColorRect" parent="CanvasLayer"]
 visible = false

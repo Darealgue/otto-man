@@ -1,4 +1,4 @@
-[gd_scene load_steps=40 format=3 uid="uid://b16uxjw1r8mjf"]
+[gd_scene load_steps=41 format=3 uid="uid://b16uxjw1r8mjf"]
 
 [ext_resource type="Script" path="res://characters/mentor/mentor_character.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://bvxvludsln81a" path="res://assets/NPC/mentor/mentor_idle_border.png" id="2_8i3lk"]
@@ -257,6 +257,10 @@ animations = [{
 "speed": 15.0
 }]
 
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_r3x7c"]
+radius = 11.0
+height = 44.0
+
 [node name="MentorCharacter" type="Node2D"]
 z_index = 4
 script = ExtResource("1_script")
@@ -272,3 +276,7 @@ position = Vector2(0, -127)
 sprite_frames = SubResource("SpriteFrames_c4cjp")
 frame = 15
 frame_progress = 1.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -20)
+shape = SubResource("CapsuleShape2D_r3x7c")

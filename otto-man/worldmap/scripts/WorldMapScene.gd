@@ -291,7 +291,7 @@ func _ensure_world_map_hud_visible() -> void:
 	if game_ui and game_ui is CanvasLayer:
 		var gl := game_ui as CanvasLayer
 		gl.visible = true
-		gl.layer = 200
+		gl.layer = HudCanvasLayers.HUD
 	if container and container is CanvasItem:
 		(container as CanvasItem).visible = true
 	
@@ -329,7 +329,7 @@ func _force_world_map_hud_visible() -> void:
 	if game_ui is CanvasLayer:
 		var gl := game_ui as CanvasLayer
 		gl.visible = true
-		gl.layer = 200
+		gl.layer = HudCanvasLayers.HUD
 	if container is CanvasItem:
 		var ci := container as CanvasItem
 		ci.visible = true
@@ -351,33 +351,26 @@ func _force_world_map_hud_visible() -> void:
 			sb._force_visible = true
 
 func _position_world_map_hud_nodes(hd: Node, sb: Node) -> void:
-	# Koydeki player UI ile birebir boyutlari kullan.
+	# Koy / zindan ile ayni HudLayout (eski 300x40 sikistirmasi kaldirildi).
 	if hd and hd is Control:
 		var hd_ctrl := hd as Control
-		hd_ctrl.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		hd_ctrl.offset_left = 20.0
-		hd_ctrl.offset_top = 20.0
-		hd_ctrl.offset_right = 320.0
-		hd_ctrl.offset_bottom = 60.0
-		hd_ctrl.scale = Vector2.ONE
+		HudLayout.apply_health_display(hd_ctrl, HudLayout.HUD_ORIGIN)
 		hd_ctrl.z_index = 20
+		if hd_ctrl.has_method("refresh_atlases"):
+			var portrait := hd_ctrl.get_node_or_null("Portrait")
+			if portrait:
+				portrait.call("refresh_atlases")
 		var surv := hd_ctrl.get_node_or_null("BarContainer/SurvivalContainer")
 		if surv and surv is Control:
 			var sc := surv as Control
-			# World map'te aclik/susuzluk her zaman tum barlarin altinda.
-			sc.position = Vector2(0, 80)
+			sc.position = Vector2(0, HudLayout.get_health_display_size().y + 8.0)
 		var deb := hd_ctrl.get_node_or_null("BarContainer/DebuffContainer")
 		if deb and deb is Control:
 			var dc := deb as Control
 			dc.position = Vector2(228, 0)
 	if sb and sb is Control:
 		var sb_ctrl := sb as Control
-		sb_ctrl.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		sb_ctrl.offset_left = 20.0
-		sb_ctrl.offset_top = 70.0
-		sb_ctrl.offset_right = 320.0
-		sb_ctrl.offset_bottom = 90.0
-		sb_ctrl.scale = Vector2.ONE
+		HudLayout.apply_stamina_bar(sb_ctrl, HudLayout.HUD_ORIGIN)
 		sb_ctrl.z_index = 30
 
 func _exit_tree() -> void:

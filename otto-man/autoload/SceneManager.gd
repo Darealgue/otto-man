@@ -802,6 +802,9 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	
 	if same_scene and is_reload:
 		print("[SceneManager] reloading current scene ->", target_path)
+		var vm_reload := get_node_or_null("/root/VillageManager")
+		if is_instance_valid(vm_reload) and vm_reload.has_method("schedule_skip_next_snapshot"):
+			vm_reload.schedule_skip_next_snapshot()
 		scene_change_started.emit(target_path)
 		previous_scene_path = current_scene_path
 		Engine.time_scale = 1.0
@@ -886,12 +889,21 @@ func _update_ui_visibility(scene_path: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	# Find health display and stamina bar from game_ui scene
-	var health_display = get_tree().get_first_node_in_group("health_display")
-	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
+	var current_scene := get_tree().current_scene
+	HudCanvasLayers.apply_to_autoload_fx()
+	if current_scene:
+		HudCanvasLayers.apply_to_scene_root(current_scene)
 	
-	# Also check for UI nodes in current scene
-	var current_scene = get_tree().current_scene
+	# Find health display and stamina bar — önce sahne GameUI, yoksa grup
+	var health_display: Node = null
+	var stamina_bar: Node = null
+	if current_scene:
+		health_display = current_scene.get_node_or_null("GameUI/Container/HealthDisplay")
+		stamina_bar = current_scene.get_node_or_null("GameUI/Container/StaminaBar")
+	if health_display == null:
+		health_display = get_tree().get_first_node_in_group("health_display")
+	if stamina_bar == null:
+		stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
 	var player = null  # Declare outside if block
 	
 	if current_scene:
@@ -926,7 +938,8 @@ func _update_ui_visibility(scene_path: String) -> void:
 			if players.size() > 0:
 				player = players[0]
 		
-		if player:
+		var scene_has_game_ui := current_scene.get_node_or_null("GameUI") != null
+		if player and not scene_has_game_ui:
 			var player_ui = player.get_node_or_null("UI")
 			if player_ui:
 				var hd_player = player_ui.get_node_or_null("HealthDisplay")
@@ -960,8 +973,8 @@ func _update_ui_visibility(scene_path: String) -> void:
 		else:
 			stamina_bar.hide()
 	
-	# Update player UI nodes if found
-	if player and player.has_node("UI"):
+	# Oyuncu gömülü UI: sahne GameUI kullanıyorsa atla (çift bar + karartma riski)
+	if player and player.has_node("UI") and current_scene and current_scene.get_node_or_null("GameUI") == null:
 		var player_ui = player.get_node("UI")
 		var hd_player = player_ui.get_node_or_null("HealthDisplay")
 		if hd_player and hd_player is Control:

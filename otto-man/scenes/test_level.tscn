@@ -12,7 +12,7 @@ script = ExtResource("2_ret")
 script = ExtResource("1_gen")
 
 [node name="PauseMenuLayer" type="CanvasLayer" parent="."]
-layer = 100
+layer = 210
 
 [node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("3_pausemenu")]
 z_index = 200

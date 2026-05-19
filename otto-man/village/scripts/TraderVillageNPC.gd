@@ -317,16 +317,16 @@ func _calculate_z_index_from_foot_y(foot_y: float) -> int:
 	const WATER_Z_INDEX: int = 20
 	const MIN_Z_INDEX: int = CAMPFIRE_Z_INDEX + 1
 	const MAX_Z_INDEX: int = WATER_Z_INDEX - 1
-	var sprite_height = 96.0
-	var ref_sprite = _get_visible_sprite()
+	var sprite_height := 96.0
+	var ref_sprite := _get_visible_sprite()
 	if is_instance_valid(ref_sprite) and ref_sprite.texture:
 		var tex = ref_sprite.texture
 		if tex is Texture2D:
 			sprite_height = tex.get_height()
-	var max_foot_y = VERTICAL_RANGE_MAX - SPRITE_OFFSET_Y + (sprite_height / 2.0)
-	var min_foot_y = 0.0 - SPRITE_OFFSET_Y + (sprite_height / 2.0)
-	var range_foot_y = max_foot_y - min_foot_y
+	var max_foot_y := VERTICAL_RANGE_MAX - SPRITE_OFFSET_Y + (sprite_height / 2.0)
+	var min_foot_y := 0.0 - SPRITE_OFFSET_Y + (sprite_height / 2.0)
+	var range_foot_y := max_foot_y - min_foot_y
 	if range_foot_y <= 0.0:
-		return (MIN_Z_INDEX + MAX_Z_INDEX) / 2
-	var normalized = clamp((foot_y - min_foot_y) / range_foot_y, 0.0, 1.0)
-	return MIN_Z_INDEX + int(normalized * (MAX_Z_INDEX - MIN_Z_INDEX))
+		return int((MIN_Z_INDEX + MAX_Z_INDEX) / 2)
+	var t := clampf((foot_y - min_foot_y) / range_foot_y, 0.0, 1.0)
+	return int(round(lerpf(float(MIN_Z_INDEX), float(MAX_Z_INDEX), t)))

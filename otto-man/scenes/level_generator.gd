@@ -1773,7 +1773,10 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 		if DEBUG_DECOR_TILES:
 			print("[DecorPopulate] SKIPPING: Chunk '%s' does not have a child node named 'TileMapLayer'." % chunk_node.name)
 		return
-	_populate_decorations_from_tilemap_impl(tile_map, chunk_node, self, false, {})
+	_populate_decorations_from_tilemap_impl(tile_map, chunk_node, self, false, {
+		"floor_anchors_only": true,
+		"require_loadable_visual": true,
+	})
 
 
 func run_tutorial_tile_decorations(tile_map: TileMapLayer, output_parent: Node2D, scene_root: Node2D, tutorial_options: Dictionary = {}) -> void:
@@ -1813,16 +1816,16 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 	var max_spawns: int = maxi(0, int(decoration_options.get("max_spawns", 52)))
 	var skip_ceiling: bool = bool(decoration_options.get("skip_ceiling", true))
 	var skip_gold_breakable: bool = bool(decoration_options.get("skip_gold_breakable", true))
-	var require_loadable_visual: bool = bool(decoration_options.get("require_loadable_visual", true))
+	var require_loadable_visual: bool = bool(decoration_options.get("require_loadable_visual", is_tutorial))
 	var skip_heavy_blocking: bool = bool(decoration_options.get("skip_heavy_blocking", true))
-	var floor_anchors_only: bool = is_tutorial and bool(decoration_options.get("floor_anchors_only", true))
+	var floor_anchors_only: bool = bool(decoration_options.get("floor_anchors_only", is_tutorial))
 	var skip_tutorial_door_proximity: bool = is_tutorial and bool(decoration_options.get("skip_tutorial_door_proximity", true))
 	var skip_tutorial_chunk_edge: bool = is_tutorial and bool(decoration_options.get("skip_tutorial_chunk_edge", true))
 	var tutorial_placed: int = 0
 	var asset_visual_cache: Dictionary = {}
 
 	var iter_cells: Array = used_cells
-	if is_tutorial and floor_anchors_only:
+	if floor_anchors_only:
 		var floor_cells: Array[Vector2i] = []
 		for c in used_cells:
 			var td0: TileData = tile_map.get_cell_tile_data(c)
@@ -1848,7 +1851,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 		var tag := str(custom_data).strip_edges()
 		if tag.is_empty():
 			continue
-		if is_tutorial and floor_anchors_only and not _tutorial_decor_anchor_is_floor_only(tag):
+		if floor_anchors_only and not _tutorial_decor_anchor_is_floor_only(tag):
 			continue
 		var rules_key := tag
 		if not config.PRIORITY_DECOR_RULES.has(rules_key):
@@ -1893,7 +1896,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 					var dn := str(decor_name)
 					if is_tutorial and skip_heavy_blocking and _is_tutorial_heavy_blocking_decor(dn):
 						continue
-					if is_tutorial and require_loadable_visual:
+					if require_loadable_visual:
 						var dd_raw: Variant = decoration_pool.get(decor_name, {})
 						if typeof(dd_raw) != TYPE_DICTIONARY:
 							continue
@@ -1924,7 +1927,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 			var spawn_loc: int = _derive_spawn_location_from_tile_data(tag, rule)
 			if is_tutorial and skip_ceiling and spawn_loc == DecorationConfig.SpawnLocation.CEILING:
 				continue
-			if is_tutorial and floor_anchors_only:
+			if floor_anchors_only:
 				if spawn_loc != DecorationConfig.SpawnLocation.FLOOR_CENTER and spawn_loc != DecorationConfig.SpawnLocation.FLOOR_CORNER:
 					continue
 			var spawner = DecorationSpawner.new()
@@ -2921,17 +2924,24 @@ func _on_miniboss_defeated(boss_chunk: Node2D) -> void:
 func _attach_boss_bar(mini: Node) -> void:
 	if not is_instance_valid(mini):
 		return
-	# Find UI root
-	var ui_root = get_tree().get_first_node_in_group("ui_root")
+	# Find UI root — önce sahne GameUI, sonra oyuncu UI
+	var ui_root: Node = null
+	var scene_root := get_tree().current_scene
+	if scene_root:
+		var game_ui := scene_root.get_node_or_null("GameUI/Container")
+		if game_ui:
+			ui_root = game_ui
+	if ui_root == null:
+		ui_root = get_tree().get_first_node_in_group("ui_root")
 	if ui_root == null:
 		var players = get_tree().get_nodes_in_group("player")
 		if players.size() > 0 and players[0].has_node("UI"):
 			ui_root = players[0].get_node("UI")
-	# If still not found, create a temporary CanvasLayer under current scene
 	if ui_root == null:
 		var canvas := CanvasLayer.new()
 		canvas.name = "TempUIRoot"
-		add_child(canvas)
+		canvas.layer = HudCanvasLayers.HUD
+		scene_root.add_child(canvas) if scene_root else add_child(canvas)
 		ui_root = canvas
 	# Add bar
 	var boss_bar_scene: PackedScene = load("res://ui/boss_health_bar.tscn")
@@ -3642,13 +3652,16 @@ func _process(delta):
 	var scene_root = get_tree().current_scene
 	var canvas_layer = CanvasLayer.new()
 	canvas_layer.name = "ScreenDarknessLayer"
-	canvas_layer.layer = 100  # En üstte render edilsin
+	canvas_layer.layer = HudCanvasLayers.WORLD_VIGNETTE
+	
+	screen_darkness.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	# ColorRect'i CanvasLayer'e ekle
 	canvas_layer.add_child(screen_darkness)
 	
 	# CanvasLayer'i scene root'a ekle
 	scene_root.add_child(canvas_layer)
+	HudCanvasLayers.apply_to_scene_root(scene_root)
 
 # ==============================================================================
 # TILE-BASED ENEMY SPAWN SYSTEM

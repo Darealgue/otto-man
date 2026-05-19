@@ -322,6 +322,9 @@ func _on_scene_change_started(target_path: String) -> void:
 		return
 	if SceneManager.current_scene_path != SceneManager.VILLAGE_SCENE:
 		return
+	# Köy -> köy (reload): PlacedBuildings boşalırken snapshot alma; kayıtlı binalar silinmesin.
+	if target_path == SceneManager.VILLAGE_SCENE:
+		return
 	# Set flag to prevent simulation during travel out (we're leaving village)
 	_is_leaving_village = true
 	# Save current time before taking snapshot (this is the time simulation should start from)
@@ -353,21 +356,58 @@ func prepare_snapshot_for_overlay_world_map_departure() -> void:
 	snapshot_state_for_scene_exit()
 
 
-func snapshot_state_for_scene_exit() -> void:
-	var skip_flag: bool = false
-	if "_skip_next_snapshot" in self:
-		skip_flag = bool(get("_skip_next_snapshot"))
-	if skip_flag:
-		set("_skip_next_snapshot", false)
-		return
-	
-	if not is_instance_valid(village_scene_instance):
-		return
+func _is_campfire_snapshot_entry(entry: Dictionary) -> bool:
+	return bool(entry.get("is_campfire", false))
 
-	_saved_building_states.clear()
-	var placed_buildings := village_scene_instance.get_node_or_null("PlacedBuildings")
-	if not placed_buildings:
+
+func _count_production_buildings_in_snapshot(states: Array) -> int:
+	var count: int = 0
+	for raw in states:
+		if raw is Dictionary and not _is_campfire_snapshot_entry(raw):
+			var scene_path: String = String((raw as Dictionary).get("scene_path", ""))
+			if not scene_path.is_empty():
+				count += 1
+	return count
+
+
+func _should_keep_previous_building_snapshot(new_states: Array) -> bool:
+	var previous_prod: int = _count_production_buildings_in_snapshot(_saved_building_states)
+	if previous_prod <= 0:
+		return false
+	var new_prod: int = _count_production_buildings_in_snapshot(new_states)
+	return new_prod < previous_prod
+
+
+func _refresh_campfire_snapshot_entry(states: Array) -> void:
+	if not is_instance_valid(campfire_node) or not ("max_capacity" in campfire_node):
 		return
+	var campfire_path: String = (
+		campfire_node.scene_file_path
+		if campfire_node.scene_file_path != ""
+		else "res://village/scenes/CampFire.tscn"
+	)
+	for i in states.size():
+		var entry: Dictionary = states[i]
+		if entry is Dictionary and _is_campfire_snapshot_entry(entry):
+			entry["max_capacity"] = int(campfire_node.max_capacity)
+			states[i] = entry
+			return
+	states.append({
+		"scene_path": campfire_path,
+		"position": campfire_node.global_position,
+		"global_position": campfire_node.global_position,
+		"is_campfire": true,
+		"max_capacity": int(campfire_node.max_capacity),
+	})
+
+
+func _collect_building_snapshot_from_scene() -> Array:
+	var collected: Array = []
+	if not is_instance_valid(village_scene_instance):
+		return collected
+	var placed_buildings := village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not is_instance_valid(placed_buildings):
+		return collected
 	
 	for building in placed_buildings.get_children():
 			if not (building is Node2D):
@@ -423,26 +463,65 @@ func snapshot_state_for_scene_exit() -> void:
 				entry["residential_max_floors"] = int(housing_node.max_floors)
 				entry["residential_capacity_per_floor"] = int(housing_node.capacity_per_floor)
 			entry["fetch_progress"] = entry.get("fetch_progress", {})
-			_saved_building_states.append(entry)
+			collected.append(entry)
 	
-	# Kamp ateşinin kapasitesini kaydet (PlacedBuildings'de değil, doğrudan sahne içinde)
-	if is_instance_valid(campfire_node) and "max_capacity" in campfire_node:
-		var campfire_entry: Dictionary = {
-			"scene_path": campfire_node.scene_file_path if campfire_node.scene_file_path != "" else "res://village/scenes/CampFire.tscn",
-			"position": campfire_node.global_position,
-			"global_position": campfire_node.global_position,
-			"is_campfire": true,  # Kamp ateşi işareti
-			"max_capacity": int(campfire_node.max_capacity)
-		}
-		_saved_building_states.append(campfire_entry)
-	
-	# Save resource levels and production progress
-	_saved_resource_levels = resource_levels.duplicate(true)
-	_saved_base_production_progress = base_production_progress.duplicate(true)
-	if USE_DISTANCE_BASED_BASIC_GATHER:
-		_serialize_basic_gather_for_save()
+	_refresh_campfire_snapshot_entry(collected)
+	return collected
 
-	_saved_worker_states.clear()
+
+func _job_type_from_building_snapshot_entry(entry: Dictionary) -> String:
+	if "produced_resource" in entry:
+		var produced: String = String(entry.get("produced_resource", ""))
+		if not produced.is_empty():
+			return produced
+	var scene_path: String = String(entry.get("scene_path", ""))
+	for job_type in RESOURCE_PRODUCER_SCENES.keys():
+		if scene_path == String(RESOURCE_PRODUCER_SCENES[job_type]):
+			return String(job_type)
+	return ""
+
+
+func _enrich_worker_snapshots_from_building_states(worker_states: Array, building_states: Array) -> void:
+	for worker_entry in worker_states:
+		if not (worker_entry is Dictionary):
+			continue
+		var worker_id: int = int(worker_entry.get("worker_id", -1))
+		if worker_id < 0:
+			continue
+		var job_type: String = String(worker_entry.get("job_type", ""))
+		var building_key: String = String(worker_entry.get("building_key", ""))
+		if not job_type.is_empty() and not building_key.is_empty():
+			continue
+		for building_entry in building_states:
+			if not (building_entry is Dictionary) or _is_campfire_snapshot_entry(building_entry):
+				continue
+			var assigned_ids: Array = building_entry.get("assigned_worker_ids", [])
+			if assigned_ids is Array and worker_id in assigned_ids:
+				if job_type.is_empty():
+					worker_entry["job_type"] = _job_type_from_building_snapshot_entry(building_entry)
+				if building_key.is_empty() and building_entry.has("key"):
+					worker_entry["building_key"] = String(building_entry.get("key", ""))
+				break
+
+
+func _count_assigned_workers_in_snapshot(states: Array) -> int:
+	var count: int = 0
+	for raw in states:
+		if raw is Dictionary and String((raw as Dictionary).get("job_type", "")) != "":
+			count += 1
+	return count
+
+
+func _should_keep_previous_worker_snapshot(new_states: Array) -> bool:
+	var previous_assigned: int = _count_assigned_workers_in_snapshot(_saved_worker_states)
+	if previous_assigned <= 0:
+		return false
+	var new_assigned: int = _count_assigned_workers_in_snapshot(new_states)
+	return new_assigned < previous_assigned
+
+
+func _collect_worker_snapshot_entries() -> Array:
+	var collected: Array = []
 	var worker_ids := all_workers.keys()
 	worker_ids.sort()
 	for worker_id in worker_ids:
@@ -451,6 +530,10 @@ func snapshot_state_for_scene_exit() -> void:
 			continue
 		var worker_instance: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, true)
 		if worker_instance == null:
+			for prev_entry in _saved_worker_states:
+				if prev_entry is Dictionary and int(prev_entry.get("worker_id", -1)) == worker_id:
+					collected.append((prev_entry as Dictionary).duplicate(true))
+					break
 			continue
 		var npc_info_value = worker_instance.get("NPC_Info") if worker_instance else null
 		var npc_info: Dictionary = npc_info_value.duplicate(true) if npc_info_value is Dictionary else {}
@@ -496,7 +579,54 @@ func snapshot_state_for_scene_exit() -> void:
 			"housing_key": housing_key,  # Housing node referansı
 			"is_deployed": is_deployed_value  # Askerler için deploy durumu
 		}
-		_saved_worker_states.append(worker_entry)
+		collected.append(worker_entry)
+	return collected
+
+
+func snapshot_state_for_scene_exit() -> void:
+	var skip_flag: bool = false
+	if "_skip_next_snapshot" in self:
+		skip_flag = bool(get("_skip_next_snapshot"))
+	if skip_flag:
+		set("_skip_next_snapshot", false)
+		return
+	
+	if not is_instance_valid(village_scene_instance):
+		return
+
+	var previous_buildings: Array = _saved_building_states.duplicate(true)
+	var previous_workers: Array = _saved_worker_states.duplicate(true)
+	var new_buildings: Array = _collect_building_snapshot_from_scene()
+	if _should_keep_previous_building_snapshot(new_buildings):
+		_saved_building_states = previous_buildings
+		_refresh_campfire_snapshot_entry(_saved_building_states)
+		print(
+			"[VillageManager] Snapshot: kept previous building state (%d production buildings); scene had %d placed." % [
+				_count_production_buildings_in_snapshot(_saved_building_states),
+				new_buildings.size()
+			]
+		)
+	else:
+		_saved_building_states = new_buildings
+	
+	# Save resource levels and production progress
+	_saved_resource_levels = resource_levels.duplicate(true)
+	_saved_base_production_progress = base_production_progress.duplicate(true)
+	if USE_DISTANCE_BASED_BASIC_GATHER:
+		_serialize_basic_gather_for_save()
+
+	var new_workers: Array = _collect_worker_snapshot_entries()
+	_enrich_worker_snapshots_from_building_states(new_workers, _saved_building_states)
+	if _should_keep_previous_worker_snapshot(new_workers):
+		_saved_worker_states = previous_workers
+		_enrich_worker_snapshots_from_building_states(_saved_worker_states, _saved_building_states)
+		print(
+			"[VillageManager] Snapshot: kept previous worker assignments (%d with jobs)." % [
+				_count_assigned_workers_in_snapshot(_saved_worker_states)
+			]
+		)
+	else:
+		_saved_worker_states = new_workers
 	
 	if is_instance_valid(VillagerAiInitializer):
 		VillagerAiInitializer.Saved_Villagers.clear()
@@ -1539,6 +1669,39 @@ const LOAD_IDLE_Y_MIN: float = 5.0
 const LOAD_IDLE_Y_MAX: float = 30.0
 const WORKER_OFFSCREEN_LOAD_DISTANCE: float = 5500.0
 
+
+func _infer_job_type_for_worker_snapshot(worker_id: int, building_key: String) -> String:
+	if not building_key.is_empty():
+		for entry in _saved_building_states:
+			if not (entry is Dictionary) or _is_campfire_snapshot_entry(entry):
+				continue
+			if String(entry.get("key", "")) == building_key:
+				return _job_type_from_building_snapshot_entry(entry)
+	for entry in _saved_building_states:
+		if not (entry is Dictionary) or _is_campfire_snapshot_entry(entry):
+			continue
+		var assigned_ids: Array = entry.get("assigned_worker_ids", [])
+		if assigned_ids is Array and worker_id in assigned_ids:
+			return _job_type_from_building_snapshot_entry(entry)
+	return ""
+
+
+func _find_building_key_for_worker_job(job_type: String, restored_buildings_map: Dictionary) -> String:
+	var target_scene: String = String(RESOURCE_PRODUCER_SCENES.get(job_type, ""))
+	if target_scene.is_empty():
+		return ""
+	for key in restored_buildings_map.keys():
+		var building: Node2D = restored_buildings_map[key]
+		if is_instance_valid(building) and building.scene_file_path == target_scene:
+			return String(key)
+	for entry in _saved_building_states:
+		if not (entry is Dictionary) or _is_campfire_snapshot_entry(entry):
+			continue
+		if String(entry.get("scene_path", "")) == target_scene:
+			return String(entry.get("key", ""))
+	return ""
+
+
 func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 	if DEBUG_VILLAGE_MANAGER:
 		print("[VillageManager] 🔄 DEBUG: Starting _apply_saved_worker_states() with %d saved states, %d buildings in map" % [_saved_worker_states.size(), _restored_buildings_map.size()])
@@ -1602,6 +1765,10 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 		if not is_instance_valid(assigned_worker):
 			continue
 		
+		if job_type.is_empty():
+			job_type = _infer_job_type_for_worker_snapshot(saved_worker_id, building_key)
+		if building_key.is_empty() and not job_type.is_empty():
+			building_key = _find_building_key_for_worker_job(job_type, _restored_buildings_map)
 		if job_type.is_empty():
 			print("[VillageManager] ⚠️ DEBUG: Worker %d has no job_type, skipping" % saved_worker_id)
 			continue

@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://parchment_frame_ui" path="res://ui/parchment/parchment_frame.tscn" id="2_frame"]
 
 [node name="TutorialSpeechBar" type="CanvasLayer" groups=["tutorial_speech_bar"]]
+layer = 220
 script = ExtResource("1_speech")
 
 [node name="Frame" parent="." instance=ExtResource("2_frame")]

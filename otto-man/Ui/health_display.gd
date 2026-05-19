@@ -78,6 +78,7 @@ func _ready() -> void:
 	_last_health = current_health
 	
 	update_health_display(current_health, max_health)
+	_sync_portrait_health_state()
 	
 	# Connect to PlayerStats signals
 	if !player_stats.health_changed.is_connected(_on_health_changed):
@@ -90,6 +91,43 @@ func _ready() -> void:
 	_connect_portrait_triggers()
 	_refresh_debuff_ui()
 	_refresh_survival_ui()
+	call_deferred("_finalize_hud_layout")
+
+
+func _finalize_hud_layout() -> void:
+	await get_tree().process_frame
+	_apply_hud_layout()
+	await get_tree().process_frame
+	await HudLayoutDebug.dump_health_display(self, "ready")
+
+
+func _apply_hud_layout() -> void:
+	var origin: Vector2 = HudLayout.HUD_ORIGIN
+	HudLayout.apply_health_display(self, origin)
+	_sync_sibling_stamina(origin)
+	if portrait and portrait.has_method("refresh_atlases"):
+		portrait.refresh_atlases()
+	_relayout_village_resource_panel()
+
+
+func _relayout_village_resource_panel() -> void:
+	for node in get_tree().get_nodes_in_group("village_status_ui"):
+		if node.has_method("_sync_resource_panel_to_content"):
+			node.call_deferred("_sync_resource_panel_to_content")
+
+
+func _sync_sibling_stamina(health_origin: Vector2) -> void:
+	var parent_node := get_parent()
+	if parent_node == null:
+		return
+	var stamina: Control = parent_node.get_node_or_null("StaminaBar") as Control
+	if stamina:
+		HudLayout.apply_stamina_bar(stamina, health_origin)
+		return
+	stamina = parent_node.get_node_or_null("UI/StaminaBar") as Control
+	if stamina:
+		HudLayout.apply_stamina_bar(stamina, health_origin)
+
 
 var _force_visible: bool = true  # Allow external control
 
@@ -122,17 +160,42 @@ func _process(delta: float) -> void:
 		_refresh_survival_ui()
 
 func _on_health_changed(new_health: float) -> void:
-	if portrait and portrait.has_method("flash_happy") and new_health > _last_health:
-		portrait.flash_happy()
-	elif portrait and portrait.has_method("flash_angry") and new_health < _last_health:
-		portrait.flash_angry()
+	if not is_inside_tree():
+		return
+	if _can_flash_portrait():
+		if new_health > _last_health and portrait.has_method("flash_happy"):
+			portrait.flash_happy()
+		elif new_health < _last_health and portrait.has_method("flash_angry"):
+			portrait.flash_angry()
 	_last_health = new_health
 	if player_stats:
 		update_health_display(new_health, player_stats.get_max_health())
+		_sync_portrait_health_state()
 
 func _on_stat_changed(stat_name: String, _old_value: float, new_value: float) -> void:
 	if stat_name == "max_health" and player_stats:
 		update_health_display(player_stats.get_current_health(), new_value)
+		_sync_portrait_health_state()
+
+
+func _sync_portrait_health_state() -> void:
+	if not is_inside_tree() or portrait == null or not portrait.has_method("update_health_portrait") or player_stats == null:
+		return
+	if not is_instance_valid(portrait) or not portrait.is_inside_tree():
+		return
+	portrait.update_health_portrait(
+		player_stats.get_current_health(),
+		player_stats.get_max_health()
+	)
+
+
+func _can_flash_portrait() -> bool:
+	return (
+		is_inside_tree()
+		and portrait != null
+		and is_instance_valid(portrait)
+		and portrait.is_inside_tree()
+	)
 
 func _on_death_recovery_updated(_state: Dictionary) -> void:
 	_refresh_debuff_ui()
@@ -350,12 +413,12 @@ func _connect_portrait_triggers() -> void:
 
 
 func _on_dungeon_gold_changed(new_amount: int) -> void:
-	if new_amount > _last_dungeon_gold and portrait and portrait.has_method("flash_happy"):
-		portrait.flash_happy()
+	if new_amount > _last_dungeon_gold and _can_flash_portrait() and portrait.has_method("flash_coin"):
+		portrait.flash_coin()
 	_last_dungeon_gold = new_amount
 
 
 func _on_village_level_updated(new_level: int) -> void:
-	if new_level > _last_village_level and portrait and portrait.has_method("flash_happy"):
+	if new_level > _last_village_level and _can_flash_portrait() and portrait.has_method("flash_happy"):
 		portrait.flash_happy()
 	_last_village_level = new_level

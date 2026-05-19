@@ -136,7 +136,7 @@ script = ExtResource("7_beat")
 unique_name_in_owner = true
 
 [node name="PauseMenuLayer" type="CanvasLayer" parent="."]
-layer = 100
+layer = 210
 
 [node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("5_pause")]
 z_index = 200
