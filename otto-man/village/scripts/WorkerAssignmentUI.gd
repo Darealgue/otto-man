@@ -664,9 +664,8 @@ func _on_add_worker_pressed(resource_type: String) -> void:
 		if building_node.has_method("add_worker"):
 			if building_node.add_worker():
 				print("UI: %s binasına işçi başarıyla atandı." % building_node.name)
-				# update_ui() # Zaten periyodik olarak güncelleniyor
+				_notify_tutorial_worker_assigned()
 			else:
-				# Hata mesajı binanın kendi add_worker metodundan gelmeli
 				printerr("UI: %s binasına işçi atanamadı (%s.add_worker() false döndü)." % [building_node.name, building_node.name])
 		else:
 			printerr("UI Error: %s node'unda 'add_worker' metodu bulunamadı!" % building_node.name)
@@ -841,3 +840,9 @@ func _level_with_cap(resource_type: String) -> String:
 	if cap > 0:
 		return "%d/%d" % [lvl, cap]
 	return str(lvl)
+
+
+func _notify_tutorial_worker_assigned() -> void:
+	var village_scene := get_tree().current_scene
+	if village_scene and village_scene.has_method("_tutorial_on_worker_assigned"):
+		village_scene._tutorial_on_worker_assigned()

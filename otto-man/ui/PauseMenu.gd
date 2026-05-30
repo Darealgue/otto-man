@@ -262,6 +262,12 @@ func _set_initial_focus() -> void:
 func _center_player_camera() -> void:
 	print("[PauseMenu] 🔍 DEBUG: Starting camera setup...")
 	
+	# Dünya haritası overlay aktifse kamera manipülasyonu yapma
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm and sm.get("_world_map_overlay_instance") != null and is_instance_valid(sm._world_map_overlay_instance):
+		print("[PauseMenu] ℹ️ World map overlay aktif — kamera manipülasyonu atlanıyor")
+		return
+	
 	# Find player in the scene
 	var player = get_tree().get_first_node_in_group("player")
 	if not player:
@@ -423,15 +429,17 @@ func _close_menu() -> void:
 	if _camera_freeze_timer:
 		_camera_freeze_timer.stop()
 	
-	# Restore camera process mode and smoothing
-	var player = get_tree().get_first_node_in_group("player")
-	if player and player.has_node("Camera2D"):
-		var camera = player.get_node("Camera2D") as Camera2D
-		if camera:
-			camera.process_mode = Node.PROCESS_MODE_INHERIT
-			# Restore smoothing if it was enabled before
-			camera.position_smoothing_enabled = _camera_smoothing_was_enabled
-			print("[PauseMenu] ✅ DEBUG: Camera unfrozen, process mode and smoothing restored (smoothing: %s)" % _camera_smoothing_was_enabled)
+	# Restore camera process mode and smoothing (sadece dünya haritası overlay'ında DEĞİLSE)
+	var _sm := get_node_or_null("/root/SceneManager")
+	var _on_world_map: bool = _sm != null and _sm.get("_world_map_overlay_instance") != null and is_instance_valid(_sm._world_map_overlay_instance)
+	if not _on_world_map:
+		var player = get_tree().get_first_node_in_group("player")
+		if player and player.has_node("Camera2D"):
+			var camera = player.get_node("Camera2D") as Camera2D
+			if camera:
+				camera.process_mode = Node.PROCESS_MODE_INHERIT
+				camera.position_smoothing_enabled = _camera_smoothing_was_enabled
+				print("[PauseMenu] ✅ DEBUG: Camera unfrozen, process mode and smoothing restored (smoothing: %s)" % _camera_smoothing_was_enabled)
 	
 	is_paused = false
 	visible = false
@@ -463,8 +471,11 @@ func _close_menu() -> void:
 	print("[PauseMenu] Menu closed, game resumed")
 
 func _freeze_camera_position() -> void:
-	# Continuously freeze camera position while menu is open
 	if not is_paused:
+		return
+	# Dünya haritası overlay aktifse kamera freeze'e gerek yok
+	var _sm2 := get_node_or_null("/root/SceneManager")
+	if _sm2 and _sm2.get("_world_map_overlay_instance") != null and is_instance_valid(_sm2._world_map_overlay_instance):
 		return
 	
 	var player = get_tree().get_first_node_in_group("player")

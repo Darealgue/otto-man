@@ -74,11 +74,21 @@ var _ramp_cooldown_prev: int = 0
 var _river_ripple_effect: Node = null
 var _river_water_sprite: Sprite2D = null
 var _prev_player_x_for_river: float = NAN
+var _tutorial_interactables: Array[Node] = []
+var _tutorial_chunks_seeded: Dictionary = {}
+const TUTORIAL_TARGET_WOOD: int = 3
+const TUTORIAL_TARGET_FOOD: int = 3
 
 const DEBUG_FOREST_ENEMIES: bool = false
 ## Ağaç zemini sapmasını görmek için; konsolu şişirir — iş bitince false yap.
 const DEBUG_FOREST_TREE_SPAWN: bool = false
 const FOREST_DECOR_GLOBAL_Y_OFFSET: float = -10.0
+const FOREST_FLOWER_SPAWN_CHANCE: float = 0.22
+const FOREST_BUTTERFLY_SCENE: PackedScene = preload("res://decoration/forest/forest_butterfly.tscn")
+const FOREST_BUTTERFLIES_PER_CHUNK_MIN: int = 2
+const FOREST_BUTTERFLIES_PER_CHUNK_MAX: int = 5
+const FOREST_BUTTERFLY_MIN_CLEARANCE: float = 95.0
+const FOREST_BUTTERFLY_MAX_CLEARANCE: float = 320.0
 const FOREST_ENEMY_LAYER_NAME := "decor_anchor"
 var _forest_tree_debug_seq: int = 0
 const DEBUG_UNDERGROUND_FOREST_DECOR: bool = true
@@ -150,6 +160,8 @@ func _apply_biome_settings_from_payload() -> void:
 		var incoming: String = String(payload.get("biome_type", "")).to_lower()
 		if incoming == "forest" or incoming == "mountain" or incoming == "river":
 			biome_type = incoming
+	var tm := get_node_or_null("/root/TutorialManager")
+	var is_tutorial_forest: bool = tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 1
 	match biome_type:
 		"forest":
 			prob_continue = 1.0
@@ -157,7 +169,7 @@ func _apply_biome_settings_from_payload() -> void:
 			prob_down = 0.0
 			min_row = 0
 			max_row = 0
-			forest_enemy_spawn_chance = 1.0
+			forest_enemy_spawn_chance = 0.0 if is_tutorial_forest else 1.0
 		"mountain":
 			prob_continue = 0.0
 			prob_up = 0.5
@@ -411,6 +423,7 @@ func _process_chunk_postprocess_queue() -> void:
 			_chunk_postprocess_queue.append({ "node": chunk_node, "phase": 1 })
 		else:
 			_populate_forest_enemies_for_chunk(chunk_node)
+			_tutorial_maybe_spawn_in_chunk(chunk_node)
 		budget -= 1
 
 func _input(event: InputEvent) -> void:
@@ -471,10 +484,11 @@ func _spawn_initial_path() -> void:
 	last_end_x = start.position.x + _get_size(start).x
 	_forest_start_chunk = start
 	_attach_forest_exit_portal(start)
-	# Start chunk test resource spawns disabled; resources now come from runtime spawn rules.
 	for i in range(spawn_ahead_count - 1):
 		_add_next_segment()
+	_add_prev_segment()
 	_sort_active_by_x()
+	_tutorial_force_spawn_resources()
 
 func _attach_forest_exit_portal(start_chunk: Node2D) -> void:
 	if _forest_exit_portal_scene == null:
@@ -489,10 +503,185 @@ func _attach_forest_exit_portal(start_chunk: Node2D) -> void:
 	var offset := Vector2(float(unit_size) * 0.25, -160.0)
 	_forest_exit_portal.global_position = base_position + offset
 
+
+func _tutorial_force_spawn_resources() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 1:
+		return
+	var right_chunk: Node2D = null
+	var left_chunk: Node2D = null
+	for chunk in active_chunks:
+		if chunk == _forest_start_chunk:
+			continue
+		if chunk.position.x > 0.0:
+			if right_chunk == null or chunk.position.x < right_chunk.position.x:
+				right_chunk = chunk
+		elif chunk.position.x < 0.0:
+			if left_chunk == null or chunk.position.x > left_chunk.position.x:
+				left_chunk = chunk
+	if right_chunk:
+		_tutorial_spawn_interactables_in_chunk(right_chunk, _tree_interactable_scene, 5)
+		_tutorial_chunks_seeded[right_chunk.get_instance_id()] = true
+	if left_chunk:
+		_tutorial_spawn_interactables_in_chunk(left_chunk, _bush_interactable_scene, 5)
+		_tutorial_chunks_seeded[left_chunk.get_instance_id()] = true
+	var ps := get_node_or_null("/root/PlayerStats")
+	if ps and ps.has_signal("carried_resources_changed"):
+		if not ps.carried_resources_changed.is_connected(_on_tutorial_resources_changed):
+			ps.carried_resources_changed.connect(_on_tutorial_resources_changed)
+		if ps.has_method("get_carried_resources"):
+			_on_tutorial_resources_changed(ps.get_carried_resources())
+
+
+func _is_tutorial_forest_run() -> bool:
+	var tm := get_node_or_null("/root/TutorialManager")
+	return tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 1
+
+
+func _tutorial_get_carried_counts() -> Vector2i:
+	var ps := get_node_or_null("/root/PlayerStats")
+	if ps == null or not ps.has_method("get_carried_resources"):
+		return Vector2i(0, 0)
+	var totals: Dictionary = ps.get_carried_resources()
+	return Vector2i(int(totals.get("wood", 0)), int(totals.get("food", 0)))
+
+
+func _tutorial_maybe_spawn_in_chunk(chunk: Node2D) -> void:
+	if not _is_tutorial_forest_run():
+		return
+	if chunk == null or not is_instance_valid(chunk):
+		return
+	if chunk == _forest_start_chunk or chunk.get_meta("is_start_chunk", false):
+		return
+	var chunk_id: int = chunk.get_instance_id()
+	if _tutorial_chunks_seeded.has(chunk_id):
+		return
+	_tutorial_chunks_seeded[chunk_id] = true
+	var counts := _tutorial_get_carried_counts()
+	var wood: int = counts.x
+	var food: int = counts.y
+	if _forest_start_chunk == null:
+		return
+	var start_x: float = _forest_start_chunk.position.x
+	if chunk.position.x > start_x + 10.0:
+		if wood < TUTORIAL_TARGET_WOOD:
+			_tutorial_spawn_interactables_in_chunk(chunk, _tree_interactable_scene, 2)
+	elif chunk.position.x < start_x - 10.0:
+		if food < TUTORIAL_TARGET_FOOD:
+			_tutorial_spawn_interactables_in_chunk(chunk, _bush_interactable_scene, 2)
+	else:
+		if wood < TUTORIAL_TARGET_WOOD:
+			_tutorial_spawn_interactables_in_chunk(chunk, _tree_interactable_scene, 1)
+		if food < TUTORIAL_TARGET_FOOD:
+			_tutorial_spawn_interactables_in_chunk(chunk, _bush_interactable_scene, 1)
+
+
+func _tutorial_register_interactable(node: Node) -> void:
+	if node == null:
+		return
+	_tutorial_prune_interactables()
+	_tutorial_interactables.append(node)
+
+
+func _tutorial_prune_interactables() -> void:
+	var kept: Array[Node] = []
+	for node in _tutorial_interactables:
+		if is_instance_valid(node):
+			kept.append(node)
+	_tutorial_interactables = kept
+
+
+func _tutorial_spawn_interactables_in_chunk(chunk: Node2D, scene: PackedScene, count: int) -> void:
+	if chunk == null or scene == null:
+		return
+	var tile_map = chunk.find_child("TileMapLayer", true, false)
+	if not tile_map:
+		return
+	var tile_set = tile_map.get("tile_set") as TileSet
+	if not tile_set:
+		return
+	var floor_cells: Array[Vector2i] = _forest_collect_resource_floor_cells(
+		tile_map, tile_set, chunk, "decor_anchor", 40.0, 40.0
+	)
+	if floor_cells.is_empty():
+		return
+	floor_cells.shuffle()
+	var tile_size: Vector2i = tile_set.tile_size
+	var spawned: int = 0
+	var used_positions: Array[Vector2] = []
+	for cell in floor_cells:
+		if spawned >= count:
+			break
+		var cell_local: Vector2 = tile_map.map_to_local(cell)
+		var spawn_pos: Vector2 = cell_local
+		spawn_pos.y -= float(tile_size.y) * 0.5
+		spawn_pos.y += 5.0
+		var too_close: bool = false
+		for existing in used_positions:
+			if spawn_pos.distance_to(existing) < 120.0:
+				too_close = true
+				break
+		if too_close:
+			continue
+		var instance: Node2D = scene.instantiate() as Node2D
+		if instance == null:
+			continue
+		instance.position = spawn_pos
+		if "base_hits_required" in instance:
+			instance.base_hits_required = 3
+		if "difficulty_level" in instance:
+			instance.difficulty_level = 1
+		chunk.add_child(instance)
+		_tutorial_register_interactable(instance)
+		used_positions.append(spawn_pos)
+		spawned += 1
+
+
+func _on_tutorial_resources_changed(totals: Dictionary) -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 1:
+		return
+	var wood: int = int(totals.get("wood", 0))
+	var food: int = int(totals.get("food", 0))
+	var wood_done: bool = wood >= TUTORIAL_TARGET_WOOD
+	var food_done: bool = food >= TUTORIAL_TARGET_FOOD
+	if wood_done and food_done:
+		tm.mark_tutorial_forest_gather_complete()
+		tm.set_objective("Kaynaklar tamam! Portaldan haritaya dön, köy hex'ine git")
+		_tutorial_disable_all_interactables()
+	elif wood_done:
+		tm.set_objective("Odun: %d/%d  Meyve: %d/%d — Meyve toplamaya devam et" % [mini(wood, TUTORIAL_TARGET_WOOD), TUTORIAL_TARGET_WOOD, food, TUTORIAL_TARGET_FOOD])
+		_tutorial_disable_interactables_of_type("forest_woodcut")
+	elif food_done:
+		tm.set_objective("Odun: %d/%d  Meyve: %d/%d — Odun kesmeye devam et" % [wood, TUTORIAL_TARGET_WOOD, mini(food, TUTORIAL_TARGET_FOOD), TUTORIAL_TARGET_FOOD])
+		_tutorial_disable_interactables_of_type("forest_food")
+	else:
+		tm.set_objective("Odun: %d/%d  Meyve: %d/%d" % [wood, TUTORIAL_TARGET_WOOD, food, TUTORIAL_TARGET_FOOD])
+
+
+func _tutorial_disable_interactables_of_type(kind: String) -> void:
+	_tutorial_prune_interactables()
+	for node in _tutorial_interactables:
+		if not is_instance_valid(node):
+			continue
+		if node is BaseInteractable and String(node.minigame_kind) == kind:
+			node.set_interactable_enabled(false)
+
+
+func _tutorial_disable_all_interactables() -> void:
+	_tutorial_prune_interactables()
+	for node in _tutorial_interactables:
+		if is_instance_valid(node) and node is BaseInteractable:
+			node.set_interactable_enabled(false)
+
+
 func _forest_on_resource_spawn_chunk(chunk: Node2D) -> void:
 	if chunk == null or not is_instance_valid(chunk):
 		return
 	if chunk.get_meta("is_start_chunk", false):
+		return
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 1:
 		return
 	_resource_spawn_timer -= 1
 	if debug_enabled:
@@ -1454,6 +1643,9 @@ func _row_to_y(row: int) -> float:
 	return row * unit_size
 
 func get_spawn_position() -> Vector2:
+	if _forest_start_chunk != null and is_instance_valid(_forest_start_chunk):
+		var sz := _get_size(_forest_start_chunk)
+		return Vector2(_forest_start_chunk.position.x + unit_size * 0.5, _forest_start_chunk.position.y + sz.y - unit_size * 0.5)
 	if active_chunks.is_empty():
 		return Vector2.ZERO
 	var first := active_chunks[0]
@@ -2265,8 +2457,121 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 			"chunk_pos": chunk_node.global_position,
 			"debug_seq": debug_seq_local
 		})
+
+	# --- PASS 3: küçük çiçekler (yalnızca orman biomu) ---
+	if biome_type == "forest":
+		var flower_placed_cells := {}
+		for cell_f in used_cells:
+			var td_f: TileData = tile_map.get_cell_tile_data(cell_f) as TileData
+			if td_f == null:
+				continue
+			var tag_f = td_f.get_custom_data(decor_layer_name)
+			if typeof(tag_f) != TYPE_STRING:
+				continue
+			var tag_fs := String(tag_f)
+			if tag_fs != "forest_floor_surface" and tag_fs != "floor_surface":
+				continue
+			if rng.randf() > FOREST_FLOWER_SPAWN_CHANCE:
+				continue
+			var flower_key := str(cell_f.x, ":", cell_f.y)
+			if flower_placed_cells.has(flower_key):
+				continue
+			flower_placed_cells[flower_key] = true
+			var ts_flower: Vector2 = Vector2(tile_set.tile_size)
+			var flower_pos: Vector2 = _forest_compute_cell_floor_pos(tile_map, cell_f)
+			flower_pos.x += rng.randf_range(-ts_flower.x * 0.28, ts_flower.x * 0.28)
+			_decor_spawn_queue.append({
+				"name": "forest_flower",
+				"pos": flower_pos,
+				"parent": chunk_node,
+				"expected_floor_y": flower_pos.y,
+				"anchor_cell": cell_f,
+				"chunk_seed": chunk_seed,
+				"chunk_name": chunk_node.name,
+				"chunk_pos": chunk_node.global_position
+			})
+
+		if biome_type == "forest":
+			_spawn_forest_butterflies_for_chunk(chunk_node, tile_map, rng, decor_layer_name)
+
 	# Mark done for this chunk
 	chunk_node.set_meta("forest_decor_done", true)
+
+func _spawn_forest_butterflies_for_chunk(
+	chunk_node: Node2D,
+	tile_map,
+	rng: RandomNumberGenerator,
+	decor_layer_name: String
+) -> void:
+	if FOREST_BUTTERFLY_SCENE == null:
+		return
+	var chunk_sz: Vector2 = _get_size(chunk_node)
+	if chunk_sz.x < 320.0:
+		return
+	var floor_y: float = _forest_estimate_floor_y(tile_map, rng, decor_layer_name)
+	if is_nan(floor_y):
+		floor_y = chunk_node.global_position.y + chunk_sz.y * 0.35
+	var count: int = rng.randi_range(FOREST_BUTTERFLIES_PER_CHUNK_MIN, FOREST_BUTTERFLIES_PER_CHUNK_MAX)
+	var margin_x: float = 140.0
+	var x0: float = chunk_node.global_position.x + margin_x
+	var x1: float = chunk_node.global_position.x + chunk_sz.x - margin_x
+	if x1 <= x0:
+		x0 = chunk_node.global_position.x + 80.0
+		x1 = chunk_node.global_position.x + chunk_sz.x - 80.0
+	var y_top: float = floor_y - FOREST_BUTTERFLY_MAX_CLEARANCE
+	var y_bottom: float = floor_y - FOREST_BUTTERFLY_MIN_CLEARANCE
+	var fly_zone := Rect2(x0, y_top, maxf(32.0, x1 - x0), maxf(24.0, y_bottom - y_top))
+	for _i in range(count):
+		var inst: Node2D = FOREST_BUTTERFLY_SCENE.instantiate() as Node2D
+		if inst == null:
+			continue
+		inst.set_meta("fly_zone", fly_zone)
+		inst.set_meta("fly_floor_y", floor_y)
+		inst.set_meta("fly_min_clearance", FOREST_BUTTERFLY_MIN_CLEARANCE)
+		inst.set_meta("fly_max_clearance", FOREST_BUTTERFLY_MAX_CLEARANCE)
+		chunk_node.add_child(inst)
+		if inst.has_method("configure_flight"):
+			inst.call(
+				"configure_flight",
+				fly_zone,
+				floor_y,
+				FOREST_BUTTERFLY_MIN_CLEARANCE,
+				FOREST_BUTTERFLY_MAX_CLEARANCE
+			)
+		else:
+			inst.global_position = Vector2(
+				randf_range(x0, x1),
+				randf_range(y_top, y_bottom)
+			)
+
+func _forest_estimate_floor_y(
+	tile_map,
+	rng: RandomNumberGenerator,
+	decor_layer_name: String
+) -> float:
+	var used_cells: Array[Vector2i] = tile_map.get_used_cells()
+	if used_cells.is_empty():
+		return NAN
+	var sum_y: float = 0.0
+	var samples: int = 0
+	var tries: int = 0
+	while samples < 10 and tries < 48:
+		tries += 1
+		var cell: Vector2i = used_cells[rng.randi() % used_cells.size()]
+		var td: TileData = tile_map.get_cell_tile_data(cell) as TileData
+		if td == null:
+			continue
+		var tag = td.get_custom_data(decor_layer_name)
+		if typeof(tag) != TYPE_STRING:
+			continue
+		var tag_s := String(tag)
+		if tag_s != "forest_floor_surface" and tag_s != "floor_surface":
+			continue
+		sum_y += _forest_compute_cell_floor_pos(tile_map, cell).y
+		samples += 1
+	if samples <= 0:
+		return NAN
+	return sum_y / float(samples)
 
 func _forest_cell_has_decor_tag(tile_map, cell: Vector2i, layer_name: String, expected: String) -> bool:
 	var td: TileData = tile_map.get_cell_tile_data(cell) as TileData
@@ -2312,6 +2617,11 @@ func _forest_compute_span_center(tile_map, left_cell: Vector2i, right_cell: Vect
 	if count_top > 0:
 		floor_top_y = sum_top_y / float(count_top)
 	return Vector2(mid_x, floor_top_y)
+
+func _forest_compute_cell_floor_pos(tile_map, cell: Vector2i) -> Vector2:
+	var ts: Vector2 = Vector2((tile_map.get("tile_set") as TileSet).tile_size)
+	var top_left: Vector2 = tile_map.to_global(tile_map.map_to_local(cell))
+	return Vector2(top_left.x + ts.x * 0.5, top_left.y)
 
 func _forest_tree_sprite_bottom_global_y(spr: Sprite2D) -> float:
 	if spr == null:
@@ -2581,6 +2891,10 @@ func _populate_forest_enemies_for_chunk(chunk_node: Node2D) -> void:
 	if chunk_node == null or not is_instance_valid(chunk_node):
 		return
 	if chunk_node.get_meta("forest_enemy_populated", false):
+		return
+	var _tm := get_node_or_null("/root/TutorialManager")
+	if _tm != null and _tm.is_village_tutorial_active() and _tm.village_core_step == 1:
+		chunk_node.set_meta("forest_enemy_populated", true)
 		return
 
 	var chunk_name := chunk_node.name.to_lower()

@@ -1,0 +1,158 @@
+================================================================================
+OTTO-MAN — TUTORIAL 2 (KÖY) YOL HARİTASI
+Son güncelleme: 2026-05-30
+================================================================================
+
+ÖZET
+----
+Tutorial 1 (zindan): hareket + dövüş — otomatik beat director, geçici mentor.
+Tutorial 2 (köy): ekonomi + harita + olay bazlı öğretim — kalıcı gezen mentor,
+                 posta kutusu kuyruğu, oyuncu mentorla konuşarak ilerler.
+
+TASARIM İLKESİ: "JUST-IN-TIME MENTOR"
+--------------------------------------
+- Oyuncuya başta her şeyi anlatma.
+- Mentor kafasında ! (+ sayı) → oyuncu yanına gidip etkileşir → mesajlar sırayla.
+- Üst üste olaylar kuyrukta birikir; tek seferde hepsi okunabilir.
+- Köye dönüşte mentor kısa özet (digest) verir — posta kutusu görevi.
+
+================================================================================
+FAZ A — MENTOR KÖY NPC (ŞİMDİ)
+================================================================================
+
+[A1] VillageMentorNPC
+     - Köyde kalıcı gezen mentor (CampFire merkezine yakın, dar X bandı).
+     - Kedi gibi zemin + çatı hareketi (CatPrototype tabanlı).
+     - MentorCharacter idle görseli (mentor_idle_border.png — 8 kare).
+     - Etkileşim alanı + QuestBadge iskeleti (! sayacı için, sonraki faz).
+
+[A2] VillageMentorController
+     - Çatı noktalarını tarar, mentora çatı çıkma niyeti verir.
+     - Roam sınırlarını kamp ateşi etrafında tutar.
+
+[A3] VillageScene entegrasyonu
+     - WorkersContainer altında VillageMentor instance.
+     - VillageMentorController sahne kökünde.
+
+MEVCUT MENTOR VARLIKLARI (kontrol listesi)
+------------------------------------------
+  res://characters/mentor/MentorCharacter.tscn
+  res://characters/mentor/mentor_character.gd
+  res://assets/NPC/mentor/mentor_idle_border.png   (8 kare idle)
+  res://assets/NPC/mentor/mentor_idle2_border.png  (yedek / alternatif idle)
+  res://assets/NPC/mentor/mentor_smokebomb_border.png (zindan çıkış)
+  res://assets/NPC/mentor/smokebomb_smoke_fx.png
+  Eksik (ileride): walk, sit animasyonları — şimdilik idle + flip_h yeterli.
+
+================================================================================
+FAZ B — MENTOR INBOX (POSTA KUTUSU)
+================================================================================
+
+[B1] MentorInbox autoload (veya TutorialManager genişlemesi)
+     - enqueue(message_id, bbcode, priority, kind)
+     - pending_count() → badge sayısı
+     - drain_on_interact() → sırayla göster, delivered işaretle
+     - Save: delivered id listesi
+
+[B2] MentorMessage kaynak tipi
+     id, kind (tutorial | event | digest), speech_bbcode,
+     priority, one_shot, on_delivered callback adı
+
+[B3] QuestBadge UI (mentor kafasında)
+     - 0 mesaj: gizli
+     - 1 mesaj: !
+     - 2+: ! + küçük sayı
+
+[B4] MentorObjectiveUI (ekran altı / köşe)
+     - Kuyruk dolu: "Mentor ile konuş"
+     - Aksiyon bekleniyor: "Ormana git", "Odun Kampı kur" vb.
+
+================================================================================
+FAZ C — ÇEKİRDEK KÖY TUTORIAL ZİNCİRİ
+================================================================================
+
+Tetik: TutorialManager.consume_village_tutorial_pending()
+       (zindan tutorialından köye geçiş)
+
+Adım C0 — Karşılama (mentor kuyruğu)
+  Mesaj: HUD tanıtımı — altın, işçi, kaynaklar.
+         Yiyecek + su tüketimi, moral uyarısı.
+  Görev: "Mentor ile konuş"
+
+Adım C1 — Orman seferi (BEDAVA KAYNAK YOK)
+  Mentor anlatır → haritadan en yakın ormana git.
+  Topla: odun + yiyecek (tutorial orman: düşman kapalı, spawn garantili).
+  Köye dön → kaynaklar stoğa.
+
+Adım C2 — Odun Kampı
+  Mentor anlatır → İnşa menüsü → Odun Kampı.
+  Tutorial modu: inşaat ANINDA biter (bekleme yok).
+
+Adım C3 — İşçi atama
+  Mentor anlatır → İşçiler paneli → odun satırına +1.
+
+Adım C4 — Çekirdek bitti
+  Mentor: "Temeller atıldı, gerisi sende."
+  TutorialManager.mark_village_core_complete()
+
+UI GATE: Aktif görev aşamasında sadece ilgili menü/buton açık.
+
+================================================================================
+FAZ D — BAĞLAMSAL MENTOR ANLARI (OLAY TETİKLİ)
+================================================================================
+
+[D1] İlk cariye kurtarma
+     Tetik: VillageScene._apply_dungeon_rescued (cariye > 0)
+     Mesaj: Cariye paneli, görev ata.
+
+[D2] İlk tüccar gelişi
+     Tetik: MissionManager.active_traders_updated
+     Mesaj: Ticaret, ilişki, tüccarla konuş.
+
+[D3] Köye dönüş digest (posta kutusu özeti)
+     Tetik: SceneManager → köye dönüş
+     İçerik: taşınan kaynak, kurtarma, tamamlanan inşaat, gelen tüccar vb.
+     Toast yerine veya toast + mentor özeti.
+
+[D4] (Opsiyonel) Yiyecek/su kıtlığı uyarısı — tek seferlik.
+
+================================================================================
+FAZ E — TEKNİK BAĞLANTILAR
+================================================================================
+
+  TutorialManager.gd
+    + village_core_pending / complete
+    + hint_cariye_pending / hint_trader_pending
+    + is_village_tutorial_active()
+
+  VillageScene.gd
+    + tutorial pending kontrolü _ready
+    + digest builder hook
+    + rescued / trader sinyalleri → MentorInbox.enqueue
+
+  VillageMentorNPC.gd
+    + interact → MentorInbox.drain_on_interact()
+    + konuşma sırasında kısa pause (opsiyonel)
+
+  InputManager
+    + get_tutorial_build_hint(), get_tutorial_world_map_hint() vb.
+
+================================================================================
+UYGULAMA SIRASI (ÖNERİLEN)
+================================================================================
+
+  1. [A] Gezen mentor NPC + sahne          ← ŞİMDİ
+  2. [B] MentorInbox + badge + objective UI
+  3. [C] Çekirdek tutorial mesajları + UI gate
+  4. [D] Bağlamsal hook'lar + digest
+  5. Test: yeni oyun → zindan tutorial → köy → mentor akışı
+
+================================================================================
+NOTLAR
+================================================================================
+
+- Zindan TutorialBeatDirector köyde KULLANILMAZ; köy = inbox + etkileşim.
+- Mentor walk/sit sprite'ları gelince CatPrototype animasyon override genişletilir.
+- Köy mentoru zindan mentoru ile aynı MentorCharacter prefab'ı paylaşır.
+
+================================================================================

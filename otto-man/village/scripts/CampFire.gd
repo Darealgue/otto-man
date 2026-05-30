@@ -7,6 +7,7 @@ const MISSION_CENTER_SCENE = "res://village/missions/MissionCenterScene.tscn"
 
 var _locked_player: Node = null
 var _active_panel: CanvasLayer = null
+var _interact_hint_label: Label = null
 
 # --- Light System Variables ---
 @export var light_intensity_min: float = 0.5
@@ -83,16 +84,46 @@ func _ready() -> void:
 	noise.frequency = 0.15
 	noise.noise_type = FastNoiseLite.TYPE_PERLIN
 
-# --- Etkileşim Alanı ---
-func _on_interaction_area_body_entered(body: Node2D) -> void:
-	if body.is_in_group("Player"):
-		print("Etkileşim alanına girildi:CampFire")
-		body.interaction_zone_entered(self)
+	var im := get_node_or_null("/root/InputManager")
+	if im and im.has_signal("input_device_changed"):
+		im.input_device_changed.connect(_on_input_device_changed)
 
-func _on_interaction_area_body_exited(body: Node2D) -> void:
-	if body.is_in_group("Player"):
-		print("Etkileşim alanından çıkıldı:CampFire")
-		body.interaction_zone_exited(self)
+
+# --- Etkileşim Tuşu Gösterimi ---
+func ShowInteractButton() -> void:
+	if _interact_hint_label == null:
+		_create_interact_hint()
+	if _interact_hint_label:
+		var im := get_node_or_null("/root/InputManager")
+		if im:
+			_interact_hint_label.text = im.get_tutorial_ui_up_hint()
+		_interact_hint_label.visible = true
+
+
+func HideInteractButton() -> void:
+	if _interact_hint_label:
+		_interact_hint_label.visible = false
+
+
+func _on_input_device_changed(_is_joypad: bool) -> void:
+	if _interact_hint_label and _interact_hint_label.visible:
+		var im := get_node_or_null("/root/InputManager")
+		if im:
+			_interact_hint_label.text = im.get_tutorial_ui_up_hint()
+
+
+func _create_interact_hint() -> void:
+	_interact_hint_label = Label.new()
+	_interact_hint_label.name = "InteractHint"
+	_interact_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_interact_hint_label.add_theme_font_size_override("font_size", 12)
+	_interact_hint_label.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
+	_interact_hint_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	_interact_hint_label.add_theme_constant_override("outline_size", 3)
+	_interact_hint_label.position = Vector2(-20, -60)
+	_interact_hint_label.size = Vector2(40, 20)
+	_interact_hint_label.visible = false
+	add_child(_interact_hint_label)
 
 # Oyuncu etkileşime geçtiğinde çağrılır
 func interact():

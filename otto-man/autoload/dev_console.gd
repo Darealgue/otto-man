@@ -151,6 +151,8 @@ func _on_command_submitted(command: String) -> void:
 			handle_clear_debuff_command()
 		"list_debuffs":
 			handle_list_debuffs_command()
+		"tutorial2":
+			handle_tutorial2_command()
 		_:
 			print_output("Unknown command: " + cmd)
 
@@ -997,4 +999,23 @@ func navigate_history(direction: int) -> void:
 		line_edit.text = command_history[history_index]
 		line_edit.caret_column = line_edit.text.length()
 	else:
-		line_edit.clear() 
+		line_edit.clear()
+
+
+func handle_tutorial2_command() -> void:
+	print_output("Tutorial 2 (köy) başlatılıyor...")
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm == null:
+		print_output("HATA: SceneManager bulunamadı")
+		return
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm:
+		tm.run_tutorial = true
+		tm.dungeon_movement_complete = true
+		tm.village_tutorial_pending = true
+	var gpd := get_node_or_null("/root/GlobalPlayerData")
+	if gpd and gpd.has_method("reset_for_new_game"):
+		gpd.reset_for_new_game()
+	if is_instance_valid(VillageManager) and VillageManager.has_method("reset_saved_state_for_new_game"):
+		VillageManager.reset_saved_state_for_new_game()
+	sm.change_to_village({"source": "new_game_tutorial_dungeon"}, true)

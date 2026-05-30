@@ -2837,9 +2837,11 @@ func _on_door_opened(door_type: String) -> void:
 			var sm = get_node_or_null("/root/SceneManager")
 
 			if drs.is_run_complete():
-				# 3 segment tamamlandı — ödüller dünya haritasında taşınsın, köyde teslim edilsin.
-				print("[LevelGenerator] Run complete (%d segments) -> WorldMap (carry rewards)" % drs.MAX_SEGMENTS)
-				if sm and sm.has_method("change_to_world_map"):
+				print("[LevelGenerator] Run complete (%d segments) -> final camp (boss or exit)" % drs.MAX_SEGMENTS)
+				if sm and sm.has_method("change_to_camp"):
+					payload["final_camp"] = true
+					sm.change_to_camp(payload)
+				elif sm and sm.has_method("change_to_world_map"):
 					sm.change_to_world_map({"source": "dungeon", "return_reason": "dungeon_exit"})
 				else:
 					is_transitioning = false

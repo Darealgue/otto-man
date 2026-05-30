@@ -7,6 +7,29 @@ const FONT_COLOR_MUTED := Color(0.32, 0.28, 0.24, 1)
 const OUTLINE_COLOR := Color(0, 0, 0, 1)
 const OUTLINE_SIZE_LABEL := 3
 const OUTLINE_SIZE_RICH := 3
+const GAME_FONT: FontFile = preload("res://assets/fonts/main_font.ttf")
+
+
+static func get_game_font() -> Font:
+	return GAME_FONT
+
+
+static func apply_font_to_control(node: Control) -> void:
+	if node is Label:
+		var lbl := node as Label
+		if lbl.label_settings != null:
+			return
+		lbl.add_theme_font_override("font", GAME_FONT)
+	elif node is RichTextLabel:
+		var rtl := node as RichTextLabel
+		rtl.add_theme_font_override("normal_font", GAME_FONT)
+		rtl.add_theme_font_override("bold_font", GAME_FONT)
+		rtl.add_theme_font_override("italics_font", GAME_FONT)
+		rtl.add_theme_font_override("bold_italics_font", GAME_FONT)
+	elif node is Button:
+		(node as Button).add_theme_font_override("font", GAME_FONT)
+	elif node is ItemList:
+		(node as ItemList).add_theme_font_override("font", GAME_FONT)
 
 
 static func font_color_with_alpha(alpha: float) -> Color:
@@ -51,6 +74,8 @@ static func _is_gameplay_floating_text(label: Label) -> bool:
 
 
 static func _apply_control(node: Node) -> void:
+	if node is Control:
+		apply_font_to_control(node as Control)
 	if node is RichTextLabel:
 		var rtl := node as RichTextLabel
 		rtl.add_theme_color_override("default_color", FONT_COLOR)

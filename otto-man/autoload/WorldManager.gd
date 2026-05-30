@@ -31,6 +31,8 @@ const STARTING_REVEAL_RADIUS: int = 3
 const PLAYER_STEP_REVEAL_RADIUS: int = 1
 const MIN_DUNGEON_DISTANCE_FROM_VILLAGE: int = 14
 const TARGET_DUNGEON_COUNT: int = 6
+const TUTORIAL_DUNGEON_MIN_DIST: int = 4
+const TUTORIAL_DUNGEON_MAX_DIST: int = 8
 const TARGET_BRIDGE_COUNT: int = 10
 const BASE_TRAVEL_MINUTES_PER_COST: float = 18.0
 const MAX_ACTIVE_SETTLEMENT_INCIDENTS: int = 3
@@ -1697,6 +1699,8 @@ func _place_player_village_on_coast(rng: RandomNumberGenerator) -> void:
 	world_map_tiles[village_key]["poi_type"] = "player_village"
 
 func _place_dungeons_on_map(rng: RandomNumberGenerator) -> void:
+	_place_tutorial_dungeon_near_village(rng)
+	var tutorial_pos: Dictionary = get_tutorial_dungeon_hex_coords()
 	var candidates: Array[Dictionary] = []
 	var vq: int = int(world_map_player_pos.get("q", 0))
 	var vr: int = int(world_map_player_pos.get("r", 0))
@@ -1709,30 +1713,113 @@ func _place_dungeons_on_map(rng: RandomNumberGenerator) -> void:
 		var terrain: String = String(tile.get("terrain_type", "ova"))
 		if terrain == "deniz":
 			continue
-		var dist: int = _hex_distance(vq, vr, int(tile.get("q", 0)), int(tile.get("r", 0)))
+		var q: int = int(tile.get("q", 0))
+		var r: int = int(tile.get("r", 0))
+		if not tutorial_pos.is_empty() and q == int(tutorial_pos.get("q", 0)) and r == int(tutorial_pos.get("r", 0)):
+			continue
+		var dist: int = _hex_distance(vq, vr, q, r)
 		if dist < MIN_DUNGEON_DISTANCE_FROM_VILLAGE:
 			continue
 		candidates.append(tile)
 	var placed: Array[Dictionary] = []
-	var limit: int = mini(TARGET_DUNGEON_COUNT, candidates.size())
+	if not tutorial_pos.is_empty():
+		placed.append(tutorial_pos)
+	var limit: int = mini(TARGET_DUNGEON_COUNT, candidates.size() + placed.size())
 	while placed.size() < limit and not candidates.is_empty():
 		var idx: int = rng.randi_range(0, candidates.size() - 1)
 		var selected: Dictionary = candidates[idx]
 		candidates.remove_at(idx)
-		var q: int = int(selected.get("q", 0))
-		var r: int = int(selected.get("r", 0))
+		var q2: int = int(selected.get("q", 0))
+		var r2: int = int(selected.get("r", 0))
 		var is_far_enough: bool = true
 		for prev in placed:
-			if _hex_distance(q, r, int(prev.get("q", 0)), int(prev.get("r", 0))) < int(world_map_radius * 0.28):
+			if _hex_distance(q2, r2, int(prev.get("q", 0)), int(prev.get("r", 0))) < int(world_map_radius * 0.28):
 				is_far_enough = false
 				break
 		if not is_far_enough:
 			continue
-		var key: String = _hex_key(q, r)
-		if world_map_tiles.has(key):
-			world_map_tiles[key]["poi_type"] = "dungeon"
-			world_map_tiles[key]["dungeon_name"] = WorldDungeonNames.pick_dungeon_name(rng)
-			placed.append({"q": q, "r": r})
+		var key2: String = _hex_key(q2, r2)
+		if world_map_tiles.has(key2):
+			world_map_tiles[key2]["poi_type"] = "dungeon"
+			world_map_tiles[key2]["dungeon_name"] = WorldDungeonNames.pick_dungeon_name(rng)
+			placed.append({"q": q2, "r": r2})
+
+
+func _place_tutorial_dungeon_near_village(rng: RandomNumberGenerator) -> void:
+	var vq: int = int(world_map_player_pos.get("q", 0))
+	var vr: int = int(world_map_player_pos.get("r", 0))
+	var candidates: Array[Dictionary] = []
+	for min_dist in [TUTORIAL_DUNGEON_MIN_DIST, 3]:
+		var max_dist: int = TUTORIAL_DUNGEON_MAX_DIST if min_dist == TUTORIAL_DUNGEON_MIN_DIST else 12
+		candidates.clear()
+		for key in world_map_tiles.keys():
+			var tile: Dictionary = world_map_tiles[key]
+			if bool(tile.get("contains_village", false)):
+				continue
+			if not String(tile.get("poi_type", "")).is_empty():
+				continue
+			var terrain: String = String(tile.get("terrain_type", "ova"))
+			if terrain == "deniz":
+				continue
+			var q: int = int(tile.get("q", 0))
+			var r: int = int(tile.get("r", 0))
+			var dist: int = _hex_distance(vq, vr, q, r)
+			if dist < min_dist or dist > max_dist:
+				continue
+			candidates.append(tile)
+		if not candidates.is_empty():
+			break
+	if candidates.is_empty():
+		push_warning("[WorldManager] Tutorial zindani icin uygun hex bulunamadi.")
+		return
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return _tutorial_dungeon_tile_score(a, vq, vr, rng) > _tutorial_dungeon_tile_score(b, vq, vr, rng)
+	)
+	var selected: Dictionary = candidates[0]
+	var sq: int = int(selected.get("q", 0))
+	var sr: int = int(selected.get("r", 0))
+	var skey: String = _hex_key(sq, sr)
+	if not world_map_tiles.has(skey):
+		return
+	world_map_tiles[skey]["poi_type"] = "dungeon"
+	world_map_tiles[skey]["dungeon_name"] = WorldDungeonNames.pick_dungeon_name(rng)
+	world_map_tiles[skey]["tutorial_dungeon"] = true
+
+
+func _tutorial_dungeon_tile_score(tile: Dictionary, vq: int, vr: int, rng: RandomNumberGenerator) -> float:
+	var terrain: String = String(tile.get("terrain_type", ""))
+	var score: float = 0.0
+	match terrain:
+		"orman":
+			score += 3.0
+		"dag":
+			score += 2.5
+		"ova":
+			score += 1.0
+		_:
+			score += 0.5
+	var dist: int = _hex_distance(vq, vr, int(tile.get("q", 0)), int(tile.get("r", 0)))
+	score += maxf(0.0, float(TUTORIAL_DUNGEON_MAX_DIST - dist)) * 0.35
+	return score + rng.randf_range(0.0, 0.25)
+
+
+func get_tutorial_dungeon_hex_coords() -> Dictionary:
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("poi_type", "")) != "dungeon":
+			continue
+		if not bool(tile.get("tutorial_dungeon", false)):
+			continue
+		return {"q": int(tile.get("q", 0)), "r": int(tile.get("r", 0))}
+	return {}
+
+
+func reveal_tutorial_dungeon_for_guide() -> void:
+	var pos: Dictionary = get_tutorial_dungeon_hex_coords()
+	if pos.is_empty():
+		return
+	discover_tiles(pos, 0, "tutorial_guide", false)
+	discover_tiles(pos, 1, "tutorial_guide", true)
 
 func _generate_rivers_and_bridges(rng: RandomNumberGenerator) -> void:
 	var mountain_sources: Array[Dictionary] = []

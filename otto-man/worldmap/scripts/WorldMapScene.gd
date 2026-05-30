@@ -141,6 +141,14 @@ var _cursor_status_label_pending: bool = false
 var _cursor_status_label_throttle: float = 0.0
 ## Durum satirindaki tus ipuclari: klavye mi gamepad mi (son etkilesim).
 var _world_map_hints_use_gamepad: bool = false
+var _wm_pause_menu_instance: Node = null
+var _wm_input_hints_label: Label = null
+var _tutorial_marker_q: int = -9999
+var _tutorial_marker_r: int = -9999
+var _tutorial_marker_active: bool = false
+var _tutorial_marker_label: String = ""
+var _tutorial_marker_is_village: bool = false
+var _tutorial_marker_is_dungeon: bool = false
 # Yolculuk olayi cozuldu, hedefe yurume tamamlanana kadar sonucu burada tutar.
 var _pending_travel_event_resolution: Dictionary = {}
 # Sonuc popup'i kapandiktan sonra yuruyusu surdur (anim diyalog ustunde kosmasin).
@@ -235,6 +243,13 @@ func _ready() -> void:
 	_last_marker_arrays_signature = _marker_arrays_signature()
 	_update_status_label()
 	_refresh_hex_hover_tooltip()
+	_create_input_hints_bar()
+	_refresh_tutorial_map_marker()
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.has_signal("tutorial_forest_gather_complete_changed"):
+		tm.tutorial_forest_gather_complete_changed.connect(_refresh_tutorial_map_marker)
+	if tm and tm.has_signal("village_dungeon_guide_changed"):
+		tm.village_dungeon_guide_changed.connect(_refresh_tutorial_map_marker)
 	call_deferred("_ensure_world_map_hud_visible")
 	call_deferred("_ensure_world_map_hud_visible_late")
 	queue_redraw()
@@ -388,6 +403,13 @@ func _input(event: InputEvent) -> void:
 	if _update_world_map_hint_device_from_event(event):
 		_update_status_label()
 		_refresh_hex_hover_tooltip()
+		_refresh_input_hints_bar()
+	# Gamepad Start → pause menü
+	if event is InputEventJoypadButton and event.pressed:
+		var joy_ev := event as InputEventJoypadButton
+		if joy_ev.button_index == JOY_BUTTON_START:
+			_toggle_world_map_pause_menu()
+			get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -417,8 +439,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if _is_blocking_world_map_ui_open():
-		# Let popup/dialog consume input first.
 		if not event.is_action_pressed("ui_cancel"):
+			return
+	# ESC tuşu (klavye) → pause menü aç, harita geri dönüş DEĞİL
+	if event is InputEventKey and event.pressed:
+		var key_ev := event as InputEventKey
+		if key_ev.keycode == KEY_ESCAPE or key_ev.physical_keycode == KEY_ESCAPE:
+			_toggle_world_map_pause_menu()
+			get_viewport().set_input_as_handled()
 			return
 	if event.is_action_pressed("ui_cancel"):
 		if not _is_blocking_world_map_ui_open():
@@ -517,6 +545,19 @@ func _process(delta: float) -> void:
 			_update_expedition_pack_left_right_repeat(delta)
 		_update_cursor_key_navigation(delta)
 	_update_camera_follow(delta)
+	if _tutorial_marker_active:
+		var _tm := get_node_or_null("/root/TutorialManager")
+		var keep_marker := false
+		if _tm:
+			if _tm.village_dungeon_guide_active and not _tm.tutorial_dungeon_guide_complete:
+				keep_marker = true
+			elif _tm.is_village_tutorial_active() and _tm.village_core_step == 1:
+				keep_marker = true
+		if not keep_marker:
+			_tutorial_marker_active = false
+		else:
+			_refresh_tutorial_map_marker()
+			queue_redraw()
 	if not _travel_anim_active and _hex_tooltip_panel != null and _hex_tooltip_panel.visible:
 		if not _is_blocking_world_map_ui_open():
 			_position_hex_tooltip_for_cursor_impl()
@@ -587,6 +628,8 @@ func _draw() -> void:
 	draw_circle(player_center, 7.0, Color(0.15, 0.95, 0.95, 1.0))
 	if _get_has_unsecured_cargo_cached():
 		_draw_unsecured_cargo_icon(player_center + Vector2(14.0, -18.0))
+	if _tutorial_marker_active:
+		_draw_tutorial_map_marker()
 	var cursor_center: Vector2 = _axial_to_pixel(_cursor_q, _cursor_r)
 	draw_polyline(
 		_hex_top_surface_points(cursor_center, CURSOR_TOP_HALF_WIDTH, CURSOR_TOP_HALF_HEIGHT),
@@ -665,6 +708,8 @@ func _try_enter_biome_from_combat_action() -> bool:
 	var pq: int = int(pos.get("q", 0))
 	var pr: int = int(pos.get("r", 0))
 	if _cursor_q != pq or _cursor_r != pr:
+		return false
+	if _is_tutorial_restricting_hex_entry(pq, pr):
 		return false
 	var tile: Dictionary = _get_tile(pq, pr)
 	if tile.is_empty() or not bool(tile.get("discovered", false)):
@@ -2865,6 +2910,9 @@ func _try_prompt_dungeon_entry_at_player_pos() -> void:
 		_dungeon_entry_dialog.popup_centered(Vector2i(520, 180))
 
 func _on_dungeon_entry_confirmed() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.village_dungeon_guide_active and not tm.tutorial_dungeon_guide_complete:
+		tm.mark_tutorial_dungeon_guide_complete()
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("change_to_dungeon"):
 		scene_manager.change_to_dungeon({"source": "world_map"})
@@ -4158,3 +4206,185 @@ func _get_world_map_font() -> Font:
 			return label_font
 	_world_map_font_cached = ThemeDB.fallback_font
 	return _world_map_font_cached
+
+
+# =======================================================
+# Pause menü (haritada ESC / Start)
+# =======================================================
+
+func _toggle_world_map_pause_menu() -> void:
+	if is_instance_valid(_wm_pause_menu_instance) and _wm_pause_menu_instance.visible:
+		if _wm_pause_menu_instance.has_method("_close_menu"):
+			_wm_pause_menu_instance._close_menu()
+		return
+	if not is_instance_valid(_wm_pause_menu_instance):
+		var scene := load("res://ui/PauseMenu.tscn") as PackedScene
+		if scene == null:
+			return
+		var layer := CanvasLayer.new()
+		layer.layer = 120
+		layer.name = "WMPauseMenuLayer"
+		add_child(layer)
+		_wm_pause_menu_instance = scene.instantiate()
+		layer.add_child(_wm_pause_menu_instance)
+	if _wm_pause_menu_instance.has_method("_open_menu"):
+		_wm_pause_menu_instance._open_menu()
+
+
+# =======================================================
+# Tutorial: orman / köy hex işareti
+# =======================================================
+
+func _refresh_tutorial_map_marker() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null:
+		_tutorial_marker_active = false
+		return
+
+	if tm.village_dungeon_guide_active and not tm.tutorial_dungeon_guide_complete:
+		var wm_guide := get_node_or_null("/root/WorldManager")
+		if wm_guide and wm_guide.has_method("get_tutorial_dungeon_hex_coords"):
+			var dpos: Dictionary = wm_guide.get_tutorial_dungeon_hex_coords()
+			if not dpos.is_empty():
+				_tutorial_marker_q = int(dpos.get("q", 0))
+				_tutorial_marker_r = int(dpos.get("r", 0))
+				_tutorial_marker_label = "ZİNDAN"
+				_tutorial_marker_is_village = false
+				_tutorial_marker_is_dungeon = true
+				_tutorial_marker_active = true
+				queue_redraw()
+				return
+		_tutorial_marker_active = false
+		return
+
+	if not tm.is_village_tutorial_active() or tm.village_core_step != 1:
+		_tutorial_marker_active = false
+		return
+	_tutorial_marker_is_dungeon = false
+	if tm.tutorial_forest_gather_complete:
+		var wm := get_node_or_null("/root/WorldManager")
+		if wm == null or not wm.has_method("get_player_village_hex_coords"):
+			_tutorial_marker_active = false
+			return
+		var vpos: Dictionary = wm.get_player_village_hex_coords()
+		_tutorial_marker_q = int(vpos.get("q", 0))
+		_tutorial_marker_r = int(vpos.get("r", 0))
+		_tutorial_marker_label = "KÖY"
+		_tutorial_marker_is_village = true
+		_tutorial_marker_active = true
+		queue_redraw()
+		return
+	var state: Dictionary = _get_world_map_state_cached()
+	var tiles: Dictionary = state.get("tiles", {})
+	var player_pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
+	var pq: int = int(player_pos.get("q", 0))
+	var pr: int = int(player_pos.get("r", 0))
+	var player_pixel: Vector2 = _axial_to_pixel(pq, pr)
+	var best_dist: float = INF
+	var best_q: int = -9999
+	var best_r: int = -9999
+	for key in tiles.keys():
+		var tile: Dictionary = tiles[key]
+		if String(tile.get("terrain_type", "")) != "orman":
+			continue
+		if not bool(tile.get("discovered", false)):
+			continue
+		var tq: int = int(tile.get("q", 0))
+		var tr: int = int(tile.get("r", 0))
+		var tile_pixel: Vector2 = _axial_to_pixel(tq, tr)
+		var dist: float = player_pixel.distance_to(tile_pixel)
+		if dist < best_dist:
+			best_dist = dist
+			best_q = tq
+			best_r = tr
+	_tutorial_marker_q = best_q
+	_tutorial_marker_r = best_r
+	_tutorial_marker_label = "ORMAN"
+	_tutorial_marker_is_village = false
+	_tutorial_marker_active = best_dist < INF
+	queue_redraw()
+
+
+func _is_tutorial_restricting_hex_entry(q: int, r: int) -> bool:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.village_dungeon_guide_active and not tm.tutorial_dungeon_guide_complete:
+		var wm := get_node_or_null("/root/WorldManager")
+		if wm and wm.has_method("get_tutorial_dungeon_hex_coords"):
+			var dpos: Dictionary = wm.get_tutorial_dungeon_hex_coords()
+			if not dpos.is_empty():
+				return q != int(dpos.get("q", 0)) or r != int(dpos.get("r", 0))
+	if not _tutorial_marker_active or _tutorial_marker_is_village or _tutorial_marker_is_dungeon:
+		return false
+	return q != _tutorial_marker_q or r != _tutorial_marker_r
+
+
+func _draw_tutorial_map_marker() -> void:
+	var center: Vector2 = _axial_to_pixel(_tutorial_marker_q, _tutorial_marker_r)
+	var pulse: float = 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.004)
+	var marker_color: Color
+	if _tutorial_marker_is_village:
+		marker_color = Color(1.0, 0.85, 0.2, pulse)
+	elif _tutorial_marker_is_dungeon:
+		marker_color = Color(1.0, 0.35, 0.25, pulse)
+	else:
+		marker_color = Color(0.2, 1.0, 0.3, pulse)
+	draw_polyline(
+		_hex_top_surface_points(center, CURSOR_TOP_HALF_WIDTH + 2.0, CURSOR_TOP_HALF_HEIGHT + 2.0),
+		marker_color,
+		3.2,
+		true
+	)
+	var font: Font = ThemeDB.fallback_font
+	var label_pos: Vector2 = center + Vector2(-24.0, -CURSOR_TOP_HALF_HEIGHT - 12.0)
+	draw_string(font, label_pos, _tutorial_marker_label, HORIZONTAL_ALIGNMENT_CENTER, 48.0, 11, marker_color)
+
+
+# =======================================================
+# Alt ekran tuş bilgisi barı (harita sahnesinde)
+# =======================================================
+
+func _create_input_hints_bar() -> void:
+	var hints_layer := CanvasLayer.new()
+	hints_layer.layer = 95
+	hints_layer.name = "InputHintsLayer"
+	add_child(hints_layer)
+	_wm_input_hints_label = Label.new()
+	_wm_input_hints_label.name = "InputHintsBar"
+	_wm_input_hints_label.anchor_left = 0.0
+	_wm_input_hints_label.anchor_top = 1.0
+	_wm_input_hints_label.anchor_right = 1.0
+	_wm_input_hints_label.anchor_bottom = 1.0
+	_wm_input_hints_label.offset_top = -38.0
+	_wm_input_hints_label.offset_bottom = -10.0
+	_wm_input_hints_label.offset_left = 0.0
+	_wm_input_hints_label.offset_right = 0.0
+	_wm_input_hints_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_wm_input_hints_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_wm_input_hints_label.add_theme_font_size_override("font_size", 16)
+	_wm_input_hints_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	_wm_input_hints_label.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.0, 1.0))
+	_wm_input_hints_label.add_theme_constant_override("outline_size", 5)
+	hints_layer.add_child(_wm_input_hints_label)
+	_refresh_input_hints_bar()
+
+
+func _refresh_input_hints_bar() -> void:
+	if not is_instance_valid(_wm_input_hints_label):
+		return
+	var im := get_node_or_null("/root/InputManager")
+	if im == null:
+		return
+	var parts: Array[String] = []
+	if _world_map_hints_use_gamepad:
+		parts.append("Hareket: D-Pad")
+		parts.append("Yürü: A")
+		parts.append("Hex'e Gir: Y")
+		parts.append("Geri: B")
+		parts.append("Menü: Start")
+	else:
+		parts.append("Hareket: %s" % im.get_tutorial_map_move_hint())
+		parts.append("Yürü: %s" % im.get_tutorial_map_confirm_hint())
+		parts.append("Hex'e Gir: %s" % im.get_action_key_name(&"attack_heavy"))
+		parts.append("Geri: %s" % im.get_action_key_name(&"open_world_map"))
+		parts.append("Menü: ESC")
+	_wm_input_hints_label.text = "    ".join(parts)

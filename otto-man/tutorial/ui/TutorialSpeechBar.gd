@@ -5,7 +5,7 @@ const DESIGN_VIEWPORT := Vector2(1920.0, 1080.0)
 ## 360px texture: yatay orta ~280px; 780 genişlik ≈ 2.5× esneme (1040 = 3.4× bozuyordu).
 const DESIGN_BAR_SIZE := Vector2(780.0, 264.0)
 const DESIGN_BOTTOM_MARGIN := 36.0
-const DESIGN_FONT_SIZE := 24
+const DESIGN_FONT_SIZE := 22
 
 @onready var _panel: Control = $Frame
 @onready var _rich: RichTextLabel = %SpeechRichText
@@ -17,6 +17,8 @@ func _ready() -> void:
 		_rich.bbcode_enabled = true
 		_rich.add_theme_color_override("default_color", TextOutline.FONT_COLOR)
 		_rich.add_theme_constant_override("outline_size", 0)
+		_rich.add_theme_constant_override("line_separation", 5)
+	TextOutline.apply_to_tree(self)
 	var root := get_tree().root
 	if not root.size_changed.is_connected(_apply_bar_layout):
 		root.size_changed.connect(_apply_bar_layout)
@@ -44,7 +46,11 @@ func _apply_bar_layout() -> void:
 	frame.offset_bottom = -bottom
 	frame.custom_minimum_size = Vector2(520.0 * s, 168.0 * s)
 	if is_instance_valid(_rich):
-		_rich.add_theme_font_size_override("normal_font_size", int(round(DESIGN_FONT_SIZE * s)))
+		var fs := int(round(DESIGN_FONT_SIZE * s))
+		_rich.add_theme_font_size_override("normal_font_size", fs)
+		_rich.add_theme_font_size_override("bold_font_size", fs)
+		_rich.add_theme_font_size_override("bold_italics_font_size", fs)
+		_rich.add_theme_font_size_override("italics_font_size", fs)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -69,12 +75,19 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func set_speech_bbcode(bbcode: String) -> void:
 	if is_instance_valid(_rich):
-		_rich.text = bbcode
+		_rich.text = _normalize_speech_bbcode(bbcode)
 	_apply_visibility()
 
 
 func clear_speech() -> void:
 	set_speech_bbcode("")
+
+
+func _normalize_speech_bbcode(bbcode: String) -> String:
+	var re := RegEx.new()
+	if re.compile("(?i)\\[color=#c8c8c8\\](.*?)\\[/color\\]") != OK:
+		return bbcode
+	return re.sub(bbcode, "$1", true)
 
 
 func _apply_visibility() -> void:

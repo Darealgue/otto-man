@@ -268,8 +268,8 @@ script = ExtResource("1_script")
 [node name="Body" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -48)
 sprite_frames = SubResource("SpriteFrames_ia1ja")
-animation = &"smoke_bomb"
-frame_progress = 0.840986
+animation = &"idle"
+frame_progress = 0.60066
 
 [node name="SmokeFx" type="AnimatedSprite2D" parent="."]
 position = Vector2(0, -127)
@@ -278,5 +278,5 @@ frame = 15
 frame_progress = 1.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -20)
+position = Vector2(0, -22)
 shape = SubResource("CapsuleShape2D_r3x7c")

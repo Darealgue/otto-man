@@ -57,8 +57,11 @@ func setup_mid_run() -> void:
 	var run_complete: bool = drs and drs.is_run_complete()
 
 	if run_complete:
-		# 3 segment tamamlandı — sadece çıkış kapısı, devam yok
-		_current_doors = [{"is_exit": true, "label_short": "[color=green]Köye Dön — Zafer![/color]"}]
+		# 3 segment tamamlandı — boss odası veya zindandan çıkış
+		_current_doors = [
+			{"is_exit": true, "label_short": "[color=green]Zindandan Çık — Köye Dön[/color]"},
+			{"is_boss": true, "label_short": "[color=orange]Boss Odası[/color]"},
+		]
 	else:
 		var generated: Array = _get_generator().generate_doors(false)
 		_current_doors = [{"is_exit": true, "label_short": "[color=green]Köye Dön[/color]"}]
@@ -237,6 +240,10 @@ func _handle_mid_run_selection(index: int) -> void:
 	var challenge: Dictionary = _current_doors[index]
 	if bool(challenge.get("is_exit", false)):
 		return
+	if bool(challenge.get("is_boss", false)):
+		if sm and sm.has_method("change_to_boss_room"):
+			sm.change_to_boss_room({"source": "camp", "from_camp": true})
+		return
 	drs.apply_challenge(challenge)
 	if sm and sm.has_method("change_to_dungeon"):
 		var payload2: Dictionary = {}
@@ -260,7 +267,9 @@ func _sort_spots_by_x(a: Node2D, b: Node2D) -> bool:
 ## Kapı etiketi: generator'dan gelen minimal label veya çıkış metni
 func _build_door_label_bbcode(challenge: Dictionary) -> String:
 	if bool(challenge.get("is_exit", false)):
-		return "[color=green]Köye Dön[/color]"
+		return "[color=green]Zindandan Çık[/color]"
+	if bool(challenge.get("is_boss", false)):
+		return "[color=orange]Boss Odası[/color]"
 	return str(challenge.get("label_short", ""))
 
 ## Kamp ortasında oyuncu dostu durum göstergesi
@@ -326,8 +335,8 @@ func _update_run_stats_ui() -> void:
 		return
 
 	if drs.is_run_complete():
-		title_lbl.text = "[color=green]Zindan tamamlandı![/color]"
-		detail_lbl.text = "Ganimetlerinle köye dönebilirsin."
+		title_lbl.text = "[color=green]3 bölüm tamamlandı![/color]"
+		detail_lbl.text = "Boss odasına gir veya zindandan çık. Çeşme canını doldurur."
 		return
 
 	var total_risk: int = drs.enemy_level_offset + drs.enemy_count_offset \

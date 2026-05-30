@@ -1,0 +1,57 @@
+[gd_scene load_steps=4 format=3 uid="uid://borbtestroom001"]
+
+[ext_resource type="Script" path="res://scenes/boss_room_controller.gd" id="1_controller"]
+[ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="2_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(1920, 40)
+
+[node name="OrbBossRoomTest" type="Node2D"]
+script = ExtResource("1_controller")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(960, 540)
+
+[node name="ArenaFloor" type="StaticBody2D" parent="."]
+position = Vector2(960, 980)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ArenaFloor"]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="FloorVisual" type="ColorRect" parent="ArenaFloor"]
+offset_left = -960.0
+offset_top = -20.0
+offset_right = 960.0
+offset_bottom = 20.0
+color = Color(0.2, 0.2, 0.22, 1)
+
+[node name="WallLeft" type="StaticBody2D" parent="."]
+position = Vector2(32, 540)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallLeft"]
+rotation = 1.5707964
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="WallRight" type="StaticBody2D" parent="."]
+position = Vector2(1888, 540)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallRight"]
+rotation = 1.5707964
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="WallTop" type="StaticBody2D" parent="."]
+position = Vector2(960, 32)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallTop"]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(280, 900)
+
+[node name="SpawnPoints" type="Node2D" parent="."]
+
+[node name="PlayerSpawn" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(280, 900)
+
+[node name="BossSpawn" type="Marker2D" parent="SpawnPoints"]
+position = Vector2(960, 280)

@@ -1,6 +1,7 @@
-[gd_resource type="Theme" load_steps=5 format=3 uid="uid://t8h8e8m8e8t8"]
+[gd_resource type="Theme" load_steps=6 format=3 uid="uid://t8h8e8m8e8t8"]
 
 [ext_resource type="StyleBox" uid="uid://csrekf8658hcv" path="res://resources/ui_panel_style_parchment.tres" id="1_panel_style"]
+[ext_resource type="FontFile" uid="uid://cgpcxt1dhpha" path="res://assets/fonts/main_font.ttf" id="2_main_font"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
 bg_color = Color(0.3, 0.24, 0.18, 1)
@@ -39,20 +40,28 @@ corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
 [resource]
+default_font = ExtResource("2_main_font")
 default_font_size = 16
 Button/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 Button/constants/outline_size = 0
+Button/fonts/font = ExtResource("2_main_font")
 Button/styles/hover = SubResource("StyleBoxFlat_button_hover")
 Button/styles/normal = SubResource("StyleBoxFlat_button_normal")
 Button/styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 ItemList/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 ItemList/colors/font_outline_color = Color(0, 0, 0, 1)
 ItemList/constants/outline_size = 3
+ItemList/fonts/font = ExtResource("2_main_font")
 Label/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 Label/colors/font_outline_color = Color(0, 0, 0, 1)
 Label/constants/outline_size = 3
+Label/fonts/font = ExtResource("2_main_font")
 Panel/styles/panel = ExtResource("1_panel_style")
 PanelContainer/styles/panel = ExtResource("1_panel_style")
 RichTextLabel/colors/default_color = Color(0.95, 0.93, 0.88, 1)
 RichTextLabel/colors/font_outline_color = Color(0, 0, 0, 1)
 RichTextLabel/constants/outline_size = 3
+RichTextLabel/fonts/bold_font = ExtResource("2_main_font")
+RichTextLabel/fonts/bold_italics_font = ExtResource("2_main_font")
+RichTextLabel/fonts/italics_font = ExtResource("2_main_font")
+RichTextLabel/fonts/normal_font = ExtResource("2_main_font")

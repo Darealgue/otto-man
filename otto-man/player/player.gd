@@ -26,6 +26,8 @@ signal nazar_shield_consumed  # Nazar Boncuğu: ilk hasar bloklandı, cooldown b
 const DustCloudEffect = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
 const BLOOD_PARTICLE_SCENE := preload("res://effects/blood_particle.tscn")
 const BLOOD_SPLATTER_SCENE := preload("res://effects/blood_splatter.tscn")
+## Yumruk/tekme saldırı iz efektleri (animasyon method track). Düşman isabet FX ayrı (player_hitbox).
+const PLAYER_ATTACK_SWING_FX_ENABLED := false
 const DAMAGE_RECOVERY_PICKUP_LIFETIME := 7.0
 const DAMAGE_RECOVERY_PICKUP_ARM_DELAY := 0.55
 const DAMAGE_RECOVERY_ORB_MIN_IMPULSE_X := 360.0
@@ -1292,24 +1294,26 @@ const DUNGEON_DEATH_MORALE_PENALTY: float = 10.0
 func _return_to_village_on_death() -> void:
 	print("[Player] 🏠 Returning to village after death...")
 	
-	# Zindanda ölüm: köy morali düşer
 	var tree = get_tree()
 	if tree and tree.current_scene:
 		var path: String = tree.current_scene.scene_file_path
-		if path.contains("test_level"):
+		if _is_dungeon_run_death_scene(path):
 			var vm = get_node_or_null("/root/VillageManager")
 			if is_instance_valid(vm) and "village_morale" in vm:
 				var before: float = float(vm.get("village_morale"))
 				vm.set("village_morale", maxf(0.0, before - DUNGEON_DEATH_MORALE_PENALTY))
 				print("[Player] 📉 Dungeon death: village morale %.1f -> %.1f" % [before, vm.get("village_morale")])
 	
-	# Apply roguelike mechanics before scene change
 	_apply_roguelike_mechanics_on_death()
 	
 	if is_instance_valid(SceneManager):
-		SceneManager.change_to_village({})
+		SceneManager.change_to_village({"source": "dungeon_death"})
 	else:
 		push_error("[Player] SceneManager not available for death return!")
+
+
+func _is_dungeon_run_death_scene(scene_path: String) -> bool:
+	return scene_path.contains("test_level") or scene_path.contains("boss_room")
 
 func _apply_roguelike_mechanics_on_death() -> void:
 	"""Apply roguelike mechanics when player dies (before returning to village)."""
@@ -1683,33 +1687,30 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _ui_locked or _is_any_menu_open():
 		return
 	
-	# Hem interact hem ui_up tuşlarını destekle (klavye ve gamepad uyumluluğu için)
-	var should_interact := false
-	if event.is_action_pressed("interact") or event.is_action_pressed("ui_up"):
-		should_interact = true
-	
-	if should_interact and not overlapping_interactables.is_empty():
-		# Birden fazla etkileşim alanı çakışınca (ör. NPC + CampFire),
-		# gerçekten interact() metodu olan hedefi seç.
-		var target_area: Area2D = null
+	# ui_up: Campfire + Mentor etkileşimi
+	if event.is_action_pressed("ui_up") and not overlapping_interactables.is_empty():
 		var interactable_node: Node = null
+		var best_dist: float = INF
 		for i in range(overlapping_interactables.size() - 1, -1, -1):
 			var candidate_area: Area2D = overlapping_interactables[i]
 			if not is_instance_valid(candidate_area):
+				overlapping_interactables.remove_at(i)
 				continue
 			var candidate_node = candidate_area.get_parent()
-			if is_instance_valid(candidate_node) and candidate_node.has_method("interact"):
-				target_area = candidate_area
+			if not is_instance_valid(candidate_node) or not candidate_node.has_method("interact"):
+				continue
+			if candidate_node.is_in_group("NPC"):
+				continue
+			if candidate_node.has_method("can_interact") and not candidate_node.can_interact():
+				continue
+			var dist: float = global_position.distance_to(candidate_node.global_position)
+			if dist < best_dist:
+				best_dist = dist
 				interactable_node = candidate_node
-				break
-
-		if interactable_node and interactable_node.has_method("interact"):
-			interactable_node.interact() # Artık CampFire'daki interact() çağrılmalı
-			get_viewport().set_input_as_handled() # Input'un başka yerde işlenmesini önle (get_tree yerine get_viewport)
-		else:
-			# Daha bilgilendirici hata mesajı
-			var node_name = interactable_node.name if interactable_node else "Bulunamadı"
-			# print("Uyarı: Etkileşimli alanın ebeveyni ('%s' - Area: %s) 'interact' metoduna sahip değil veya ebeveyni yok." % [node_name, target_area.name])
+		if interactable_node:
+			interactable_node.interact()
+			get_viewport().set_input_as_handled()
+			return
 
 # Handle hitbox hit events
 func _on_hitbox_hit(enemy: Node) -> void:
@@ -1717,33 +1718,67 @@ func _on_hitbox_hit(enemy: Node) -> void:
 	pass
 
 func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
-	# (YENİ - fonksiyon içeriği)
 	if area.is_in_group("interactables"):
 		if not overlapping_interactables.has(area):
 			overlapping_interactables.push_back(area)
-			# İsteğe bağlı: Ekranda "Etkileşim için E'ye bas" gibi bir ipucu gösterebilirsin
 			var parent_node = area.get_parent()
-			# print("Etkileşim alanına girildi:", parent_node.name if parent_node else "Ebeveynsiz Alan")
-			if parent_node.is_in_group("NPC"):
+			if parent_node and parent_node.is_in_group("NPC"):
 				VillageManager.active_dialogue_npc = parent_node
 				VillageManager.dialogue_npcs.append(parent_node)
 				HandleDialogueNpcWindows(parent_node)
+			_refresh_interact_hints()
 
 func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
-	# (YENİ - fonksiyon içeriği)
 	if area.is_in_group("interactables"):
 		var index = overlapping_interactables.find(area)
 		if index != -1:
 			overlapping_interactables.remove_at(index)
-			# İsteğe bağlı: Etkileşim ipucunu gizleyebilirsin
 			var parent_node = area.get_parent()
-			# print("Etkileşim alanından çıkıldı:", parent_node.name if parent_node else "Ebeveynsiz Alan")
-			if parent_node.is_in_group("NPC"):
+			if parent_node and parent_node.is_in_group("NPC"):
 				parent_node.HideInteractButton()
 				parent_node.CloseNpcWindow()
 				VillageManager.dialogue_npcs.erase(parent_node)
 				if VillageManager.dialogue_npcs.is_empty() == true:
 					VillageManager.active_dialogue_npc = null
+			elif parent_node and parent_node.has_method("HideInteractButton"):
+				parent_node.HideInteractButton()
+			_refresh_interact_hints()
+
+
+func _refresh_interact_hints() -> void:
+	var best_node: Node = null
+	var best_dist: float = INF
+	for area in overlapping_interactables:
+		if not is_instance_valid(area):
+			continue
+		var parent_node = area.get_parent()
+		if not is_instance_valid(parent_node):
+			continue
+		if not parent_node.has_method("ShowInteractButton"):
+			continue
+		if parent_node.is_in_group("NPC"):
+			continue
+		if parent_node.has_method("can_interact") and not parent_node.can_interact():
+			continue
+		var dist: float = global_position.distance_to(parent_node.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best_node = parent_node
+
+	for area in overlapping_interactables:
+		if not is_instance_valid(area):
+			continue
+		var parent_node = area.get_parent()
+		if not is_instance_valid(parent_node):
+			continue
+		if parent_node.is_in_group("NPC"):
+			continue
+		if not parent_node.has_method("ShowInteractButton"):
+			continue
+		if parent_node == best_node:
+			parent_node.ShowInteractButton()
+		else:
+			parent_node.HideInteractButton()
 					
 func HandleDialogueNpcWindows(last_npc):
 	last_npc.ShowInteractButton()
@@ -1753,6 +1788,8 @@ func HandleDialogueNpcWindows(last_npc):
 			
 # <<< YENİ FONKSİYON: Animasyondan çağırmak için >>>
 func spawn_attack_effect_by_name(attack_name: String):
+	if not PLAYER_ATTACK_SWING_FX_ENABLED:
+		return
 	# Projectile item (uzun_menzil) aktifken normal vuruş efektlerini gösterme
 	if has_node("/root/ItemManager") and ItemManager.has_active_item("uzun_menzil"):
 		return
@@ -1952,8 +1989,7 @@ func _apply_village_world_sprite_depth(village_z: int) -> void:
 			player_render_layer.visible = false
 		if sprite:
 			sprite.visible = true
-	if sprite:
-		sprite.z_index = village_z
+			sprite.z_index = 0
 	z_index = village_z
 
 

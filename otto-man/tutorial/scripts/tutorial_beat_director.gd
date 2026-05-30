@@ -96,38 +96,32 @@ func _default_steps() -> Array[TutorialBeatStep]:
 	s1.begin_immediately = false
 	s1.trigger_area = NodePath("Markers/Beat1Trigger")
 	s1.npc_point_index = 2
-	s1.speech_bbcode = "Zıpla: [color=#c8c8c8]{jump}[/color]."
+	s1.speech_bbcode = "Zıpla: {jump}."
 	s1.close_after_travel_pixels = 200.0
 	var s2 := TutorialBeatStep.new()
 	s2.begin_immediately = false
 	s2.trigger_area = NodePath("Markers/Beat2Trigger")
 	s2.npc_point_index = 3
-	s2.speech_bbcode = (
-		"Bu duvarı [b]çift zıpla[/b]: havadayken tekrar [color=#c8c8c8]{jump}[/color]."
-	)
+	s2.speech_bbcode = "Bu duvarı [b]çift zıpla[/b]: havadayken tekrar {jump}."
 	s2.close_after_travel_pixels = 220.0
 	var s3 := TutorialBeatStep.new()
 	s3.begin_immediately = false
 	s3.trigger_area = NodePath("Markers/Beat3Trigger")
 	s3.npc_point_index = 4
-	s3.speech_bbcode = "Dar geçit: [color=#c8c8c8]{crouch}[/color] ile eğil."
+	s3.speech_bbcode = "Dar geçit: {crouch} ile eğil."
 	s3.close_after_travel_pixels = 200.0
 	var s4 := TutorialBeatStep.new()
 	s4.begin_immediately = false
 	s4.trigger_area = NodePath("Markers/Beat4Trigger")
 	s4.npc_point_index = 5
-	s4.speech_bbcode = (
-		"Tek yönlü platform: [color=#c8c8c8]{down}[/color] basılı tut, "
-		+ "[color=#c8c8c8]{jump}[/color] ile aşağı in."
-	)
+	s4.speech_bbcode = "Tek yönlü platform: {down} basılı tut, {jump} ile aşağı in."
 	s4.close_after_travel_pixels = 200.0
 	var s5 := TutorialBeatStep.new()
 	s5.begin_immediately = false
 	s5.trigger_area = NodePath("Markers/Beat5Trigger")
 	s5.npc_point_index = 6
 	s5.speech_bbcode = (
-		"Köşeye zıpla. Tutunmak için [color=#c8c8c8]{block}[/color] basılı tut; "
-		+ "tutunurken [color=#c8c8c8]{up}[/color] ile tırman."
+		"Köşeye zıpla. Tutunmak için {block} basılı tut; tutunurken {up} ile tırman."
 	)
 	s5.close_after_travel_pixels = 220.0
 	var s6 := TutorialBeatStep.new()
@@ -326,49 +320,56 @@ func _combat_objective_bbcode() -> String:
 	match _co_phase:
 		0:
 			return (
-				"[b]Dövüş pratiği[/b] (1/7)\n"
-				+ "Düşmana [color=#c8c8c8]{attack}[/color] ile [b]5[/b] hafif vuruş (ilerleme: %d/5).\n"
+				"%s (1/7)\n"
+				% InputManager.format_tutorial_title("Dövüş pratiği")
+				+ "Düşmana {attack} ile [b]5[/b] hafif vuruş (ilerleme: %d/5).\n"
 				% _co_light
 				+ "Yer veya havadayken hafif saldırı tuşuna bas; düşmana isabet etsin."
 			)
 		1:
 			return (
-				"[b]Dövüş pratiği[/b] (2/7)\n"
-				+ "Düşmana [color=#c8c8c8]{attack_heavy}[/color] ile [b]2[/b] ağır vuruş (ilerleme: %d/2).\n" % _co_heavy
+				"%s (2/7)\n"
+				% InputManager.format_tutorial_title("Dövüş pratiği")
+				+ "Düşmana {attack_heavy} ile [b]2[/b] ağır vuruş (ilerleme: %d/2).\n" % _co_heavy
 				+ "Ağır saldırı tuşunu basılı tut veya combo ile ağır vuruş çıkar; ikisinde de düşmana çarpmalı."
 			)
 		2:
 			return (
-				"[b]Dövüş pratiği[/b] (3/7)\n"
-				+ "Havadayken [color=#c8c8c8]{down}[/color] + [color=#c8c8c8]{jump}[/color] ile [b]2[/b] düşüş saldırısı (ilerleme: %d/2).\n" % _co_fall
+				"%s (3/7)\n"
+				% InputManager.format_tutorial_title("Dövüş pratiği")
+				+ "Havadayken {down} + {jump} ile [b]2[/b] düşüş saldırısı (ilerleme: %d/2).\n" % _co_fall
 				+ "Düşüş saldırısı düşmana değince sayılır."
 			)
 		3:
 			return (
-				"[b]Dövüş pratiği[/b] (4/7)\n"
-				+ "[color=#c8c8c8]{dodge}[/color] ile bir kez kaçın.\n"
+				"%s (4/7)\n"
+				% InputManager.format_tutorial_title("Dövüş pratiği")
+				+ "{dodge} ile bir kez kaçın.\n"
 				+ "Yön tuşlarıyla yüzünü çevir, kaçış tuşu ile yuvarlan."
 			)
 		4:
 			return (
-				"[b]Dövüş pratiği[/b] (5/7)\n"
-				+ "Bir saldırıyı [color=#c8c8c8]{block}[/color] ile tut: kalkanı aç, vuruşu hasarsız kes.\n"
+				"%s (5/7)\n"
+				% InputManager.format_tutorial_title("Dövüş pratiği")
+				+ "Bir saldırıyı {block} ile tut: kalkanı aç, vuruşu hasarsız kes.\n"
 				+ "Parry değil — sadece blok (hasarı kıran normal blok)."
 			)
 		5:
 			return (
-				"[b]Dövüş pratiği[/b] (6/7)\n"
-				+ "Bir saldırıyı [b]parry[/b] yap: [color=#c8c8c8]{block}[/color] ile vuruşun geldiği anı yakala (timing).\n"
+				"%s (6/7)\n"
+				% InputManager.format_tutorial_title("Dövüş pratiği")
+				+ "Bir saldırıyı [b]parry[/b] yap: {block} ile vuruşun geldiği anı yakala (timing).\n"
 				+ "Kısa pencerede bloğa bas; hasar gelmez, parry sayılır."
 			)
 		6:
 			return (
-				"[b]Dövüş pratiği[/b] (7/7)\n"
-				+ "Parry sonrası kontra: pencere açıkken [color=#c8c8c8]{attack}[/color] veya [color=#c8c8c8]{attack_heavy}[/color] ile vur.\n"
+				"%s (7/7)\n"
+				% InputManager.format_tutorial_title("Dövüş pratiği")
+				+ "Parry sonrası kontra: pencere açıkken {attack} veya {attack_heavy} ile vur.\n"
 				+ "Kontra vuruş animasyonu tetiklenince görev biter."
 			)
 		_:
-			return "[b]Tamam![/b]\nArtık hazırsın."
+			return "%s\nArtık hazırsın." % InputManager.format_tutorial_title("Tamam!")
 
 
 func _co_on_attack_landed(attack_type: String, _damage: float, _targets: Array, _pos: Vector2, _filter: String) -> void:
@@ -430,23 +431,22 @@ func _co_on_attack_performed(attack_name: String, _damage: float) -> void:
 func _expand_tokens(bbcode: String) -> String:
 	var out := bbcode
 	var im: Node = get_node_or_null("/root/InputManager")
-	if im != null:
-		if "{jump}" in out and im.has_method("get_tutorial_jump_hint"):
-			out = out.replace("{jump}", str(im.call("get_tutorial_jump_hint")))
-		if "{move}" in out and im.has_method("get_tutorial_horizontal_move_hint"):
-			out = out.replace("{move}", str(im.call("get_tutorial_horizontal_move_hint")))
-		if "{crouch}" in out and im.has_method("get_tutorial_crouch_hint"):
-			out = out.replace("{crouch}", str(im.call("get_tutorial_crouch_hint")))
-		if "{down}" in out and im.has_method("get_tutorial_move_down_hint"):
-			out = out.replace("{down}", str(im.call("get_tutorial_move_down_hint")))
-		if "{up}" in out and im.has_method("get_tutorial_move_up_hint"):
-			out = out.replace("{up}", str(im.call("get_tutorial_move_up_hint")))
-		if "{block}" in out and im.has_method("get_tutorial_block_hint"):
-			out = out.replace("{block}", str(im.call("get_tutorial_block_hint")))
-		if "{attack}" in out and im.has_method("get_tutorial_attack_hint"):
-			out = out.replace("{attack}", str(im.call("get_tutorial_attack_hint")))
-		if "{attack_heavy}" in out and im.has_method("get_tutorial_attack_heavy_hint"):
-			out = out.replace("{attack_heavy}", str(im.call("get_tutorial_attack_heavy_hint")))
-		if "{dodge}" in out and im.has_method("get_tutorial_dodge_hint"):
-			out = out.replace("{dodge}", str(im.call("get_tutorial_dodge_hint")))
+	if im == null:
+		return out
+	var pairs: Array[Array] = [
+		["{jump}", "get_tutorial_jump_hint"],
+		["{move}", "get_tutorial_horizontal_move_hint"],
+		["{crouch}", "get_tutorial_crouch_hint"],
+		["{down}", "get_tutorial_move_down_hint"],
+		["{up}", "get_tutorial_move_up_hint"],
+		["{block}", "get_tutorial_block_hint"],
+		["{attack}", "get_tutorial_attack_hint"],
+		["{attack_heavy}", "get_tutorial_attack_heavy_hint"],
+		["{dodge}", "get_tutorial_dodge_hint"],
+	]
+	for pair in pairs:
+		var token: String = pair[0]
+		var method: String = pair[1]
+		if token in out and im.has_method(method):
+			out = out.replace(token, InputManager.wrap_tutorial_hint_text(str(im.call(method))))
 	return out

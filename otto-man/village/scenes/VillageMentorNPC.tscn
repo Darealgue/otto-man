@@ -1,0 +1,63 @@
+[gd_scene load_steps=5 format=3 uid="uid://c8mentorvillagenpc"]
+
+[ext_resource type="Script" path="res://village/scripts/VillageMentorNPC.gd" id="1_mentor_npc"]
+[ext_resource type="PackedScene" uid="uid://b16uxjw1r8mjf" path="res://characters/mentor/MentorCharacter.tscn" id="3_mentor_visual"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_body"]
+radius = 9.0
+height = 44.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_interact"]
+radius = 42.0
+
+[node name="VillageMentor" type="CharacterBody2D"]
+y_sort_enabled = true
+collision_layer = 2
+collision_mask = 513
+script = ExtResource("1_mentor_npc")
+roam_anchor_path = NodePath("../../CampFire")
+
+[node name="MentorCharacter" parent="." instance=ExtResource("3_mentor_visual")]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -22)
+shape = SubResource("CapsuleShape2D_body")
+
+[node name="InteractionArea" type="Area2D" parent="." groups=["interactables"]]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea"]
+position = Vector2(0, -28)
+shape = SubResource("CircleShape2D_interact")
+
+[node name="QuestBadge" type="Node2D" parent="."]
+visible = false
+position = Vector2(0, -108)
+
+[node name="Exclamation" type="Label" parent="QuestBadge"]
+offset_left = -10.0
+offset_top = -8.0
+offset_right = 10.0
+offset_bottom = 16.0
+theme_override_colors/font_color = Color(1, 0.92, 0.35, 1)
+theme_override_colors/font_outline_color = Color(0.1, 0.08, 0.05, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
+text = "!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CountLabel" type="Label" parent="QuestBadge"]
+visible = false
+offset_left = 8.0
+offset_top = -14.0
+offset_right = 24.0
+offset_bottom = 2.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.1, 0.08, 0.05, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 12
+text = "2"
+horizontal_alignment = 1
+vertical_alignment = 1

@@ -110,6 +110,9 @@ var diplomacy_page: Control = null
 @onready var page_label: Label = $PageLabel
 @onready var page_indicator: Control = $PageIndicator
 
+var _page_nav_hint_left: Label = null
+var _page_nav_hint_right: Label = null
+
 # Sayfa göstergesi referansları
 @onready var page_dot1: Panel = $PageIndicator/PageDot1
 @onready var page_dot2: Panel = $PageIndicator/PageDot2
@@ -184,6 +187,32 @@ var building_categories: Dictionary = {
 	BuildingCategory.LIFE: ["Ev", "Depo"],
 	BuildingCategory.MILITARY: ["Kışla", "Kale", "Kule"], # Kışla eklendi
 	BuildingCategory.DECORATION: ["Çeşme", "Bahçe"] # Gelecekte eklenecek
+}
+
+# İnşaat menüsünde başlangıçta görünen temel binalar (ham kaynak)
+const CONSTRUCTION_STARTER_BUILDINGS: Array[String] = [
+	"Kuyu",
+	"Avcı",
+	"Oduncu",
+	"Taş Madeni",
+]
+
+# Ön koşul binası kurulunca menüde görünür (üretim zinciri)
+var building_unlock_prerequisites: Dictionary = {
+	"Kerestehane": "Oduncu",
+	"Tuğla Ocağı": "Taş Madeni",
+	"Fırın": "Avcı",
+	"Dokuma Tezgahı": "Fırın",
+	"Terzi": "Dokuma Tezgahı",
+	"Demirci": "Tuğla Ocağı",
+	"Silahçı": "Demirci",
+	"Zırh Ustası": "Demirci",
+	"Çayhane": "Fırın",
+	"Sabuncu": "Fırın",
+	"Şifacı": "Avcı",
+	"Ev": "Kuyu",
+	"Depo": "Oduncu",
+	"Kışla": "Demirci",
 }
 
 # Bina sahne yolları (gerçek dosya yolları)
@@ -350,6 +379,11 @@ func _ready():
 
 	call_deferred("_apply_parchment_panels")
 	call_deferred("_apply_text_outlines")
+	call_deferred("_ensure_page_nav_hints")
+
+	var im := get_node_or_null("/root/InputManager")
+	if im and im.has_signal("input_device_changed"):
+		im.input_device_changed.connect(_on_input_device_changed_page_hints)
 
 	# Başlangıçta sayfa göstergelerini sıfırla
 	update_page_indicator()
@@ -693,11 +727,35 @@ func handle_construction_navigation():
 
 # _input(event) tarafından çağrılır
 func _flatten_buildings_list():
+	var previous_name := ""
+	if current_building_index >= 0 and current_building_index < all_buildings_flat.size():
+		previous_name = all_buildings_flat[current_building_index]
+
 	all_buildings_flat.clear()
-	# Kategorileri sırayla gezerek listeyi oluştur
 	for buildings in building_categories.values():
-		all_buildings_flat.append_array(buildings)
-	print("[MissionCenter] Binalar düzleştirildi. Toplam: ", all_buildings_flat.size())
+		for building_name in buildings:
+			if not building_scene_paths.has(building_name):
+				continue
+			if _is_construction_building_unlocked(building_name):
+				all_buildings_flat.append(building_name)
+
+	if not previous_name.is_empty() and previous_name in all_buildings_flat:
+		current_building_index = all_buildings_flat.find(previous_name)
+	elif all_buildings_flat.is_empty():
+		current_building_index = 0
+	elif current_building_index >= all_buildings_flat.size():
+		current_building_index = all_buildings_flat.size() - 1
+
+	print("[MissionCenter] Binalar düzleştirildi. Görünür: ", all_buildings_flat.size(), " -> ", all_buildings_flat)
+
+
+func _is_construction_building_unlocked(building_name: String) -> bool:
+	if building_name in CONSTRUCTION_STARTER_BUILDINGS:
+		return true
+	if not building_unlock_prerequisites.has(building_name):
+		return false
+	var required: String = String(building_unlock_prerequisites[building_name])
+	return not find_existing_buildings(required).is_empty()
 
 func handle_construction_input(event):
 	if current_page != PageType.CONSTRUCTION:
@@ -970,6 +1028,7 @@ func handle_building_selection():
 		return
 
 func _on_village_manager_data_changed_construction(_a = null, _b = null) -> void:
+	_flatten_buildings_list()
 	if current_page == PageType.CONSTRUCTION:
 		update_construction_ui()
 
@@ -1431,9 +1490,12 @@ func add_worker_to_building(building_info: Dictionary) -> void:
 		var success = building.add_worker()
 		if success:
 			print("✅ İşçi eklendi: ", building_info["name"])
-			
-			# UI'ı güncelle
 			update_assignment_ui()
+			var bnode: Node = building_info.get("node", null)
+			var bkey := ""
+			if bnode and bnode.scene_file_path:
+				bkey = String(bnode.scene_file_path).get_file().trim_suffix(".tscn").to_lower()
+			_notify_village_tutorial("tutorial_on_mission_worker_assigned", bkey)
 		else:
 			print("❌ İşçi eklenemedi: ", building_info["name"])
 	else:
@@ -2162,6 +2224,7 @@ func show_page(page_index: int):
 			# İnşaat sayfası açıldığında başlangıç durumuna sıfırla
 			current_menu_state = MenuState.İŞLEM_SEÇİMİ
 			# current_building_index = 0  # Index'i sıfırlama - kullanıcının seçimini koru
+			_flatten_buildings_list()
 			update_construction_ui()
 		PageType.NEWS:
 			news_page.visible = true
@@ -2200,6 +2263,7 @@ func show_page(page_index: int):
 			update_concubine_details_ui()
 	
 	page_label.text = page_names[page_index]
+	_notify_village_tutorial("tutorial_on_mission_page", page_index)
 	
 	# Sayfa göstergesini hemen güncelle (gecikme olmasın)
 	update_page_indicator()
@@ -8216,6 +8280,8 @@ func open_menu():
 	print("[DEBUG_MC] open_menu: Haber kuyrukları yükleniyor...")
 	update_news_ui()
 	print("[DEBUG_MC] open_menu: Bitti")
+	_ensure_page_nav_hints()
+	_notify_village_tutorial("tutorial_on_campfire_menu_opened")
 	_update_unread_badge()
 
 # Mission Center menüsünü kapat
@@ -8229,6 +8295,7 @@ func close_menu():
 	if trader_buy_popup_open:
 		_close_trader_buy_popup()
 	visible = false
+	_refresh_page_nav_hints()
 	unlock_player()
 	# Fallback pause kapat
 	get_tree().paused = false
@@ -8870,3 +8937,58 @@ func _apply_parchment_panels() -> void:
 
 func _apply_text_outlines() -> void:
 	TextOutline.apply_to_tree(self)
+
+
+func _ensure_page_nav_hints() -> void:
+	if _page_nav_hint_left == null:
+		_page_nav_hint_left = Label.new()
+		_page_nav_hint_left.name = "PageNavHintLeft"
+		_page_nav_hint_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_page_nav_hint_left.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_page_nav_hint_left.offset_left = 14.0
+		_page_nav_hint_left.offset_top = 10.0
+		_page_nav_hint_left.add_theme_font_size_override("font_size", 18)
+		_page_nav_hint_left.add_theme_color_override("font_color", Color(0.95, 0.88, 0.65, 1.0))
+		_page_nav_hint_left.add_theme_color_override("font_outline_color", Color(0.1, 0.08, 0.05, 0.9))
+		_page_nav_hint_left.add_theme_constant_override("outline_size", 3)
+		add_child(_page_nav_hint_left)
+
+		_page_nav_hint_right = Label.new()
+		_page_nav_hint_right.name = "PageNavHintRight"
+		_page_nav_hint_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_page_nav_hint_right.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_page_nav_hint_right.offset_right = -14.0
+		_page_nav_hint_right.offset_top = 10.0
+		_page_nav_hint_right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_page_nav_hint_right.add_theme_font_size_override("font_size", 18)
+		_page_nav_hint_right.add_theme_color_override("font_color", Color(0.95, 0.88, 0.65, 1.0))
+		_page_nav_hint_right.add_theme_color_override("font_outline_color", Color(0.1, 0.08, 0.05, 0.9))
+		_page_nav_hint_right.add_theme_constant_override("outline_size", 3)
+		add_child(_page_nav_hint_right)
+
+	_refresh_page_nav_hints()
+
+
+func _refresh_page_nav_hints() -> void:
+	if _page_nav_hint_left == null or _page_nav_hint_right == null:
+		return
+	var im := get_node_or_null("/root/InputManager")
+	if im == null:
+		return
+	_page_nav_hint_left.text = "◀ " + im.get_tutorial_page_left_hint()
+	_page_nav_hint_right.text = im.get_tutorial_page_right_hint() + " ▶"
+	_page_nav_hint_left.visible = visible
+	_page_nav_hint_right.visible = visible
+
+
+func _on_input_device_changed_page_hints(_device: int) -> void:
+	_refresh_page_nav_hints()
+
+
+func _notify_village_tutorial(method: StringName, arg: Variant = null) -> void:
+	var scene := get_tree().current_scene
+	if scene and scene.has_method(method):
+		if arg != null:
+			scene.call(method, arg)
+		else:
+			scene.call(method)

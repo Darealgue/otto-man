@@ -61,6 +61,10 @@ func _ready() -> void:
 		VillageManager.construction_completed.connect(_on_construction_completed_toast)
 	if not VillageManager.morale_game_over.is_connected(_on_morale_game_over):
 		VillageManager.morale_game_over.connect(_on_morale_game_over)
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm and mm.has_signal("active_traders_updated"):
+		if not mm.active_traders_updated.is_connected(_tutorial_on_first_trader):
+			mm.active_traders_updated.connect(_tutorial_on_first_trader)
 
 	# Moral 0 = oyun kaybı (köye girerken veya köyde düşerse)
 	if VillageManager.get_morale() <= 0.0:
@@ -108,6 +112,12 @@ func _ready() -> void:
 	
 	# Kamera sınırlarını ayarla (oyuncu yüklendikten sonra)
 	call_deferred("_setup_camera_limits")
+	
+	# Tuş bilgisi + objective UI
+	call_deferred("_spawn_objective_ui")
+	
+	# Tutorial 2: köy tutorialı başlat
+	call_deferred("_check_village_tutorial_start")
 # --- UI Açma / Kapatma Fonksiyonları ---
 
 func Load_Existing_Villagers():
@@ -197,6 +207,8 @@ func _show_notification_deferred(total_hours: float, produced_resources: Diction
 func _on_construction_completed_toast(scene_path: String) -> void:
 	var disp := String(scene_path).get_file().trim_suffix(".tscn")
 	call_deferred("_show_build_complete_toast_deferred", disp)
+	var key := String(scene_path).get_file().trim_suffix(".tscn").to_lower()
+	_tutorial_on_building_built(key)
 
 func _show_build_complete_toast_deferred(building_display_name: String) -> void:
 	if not time_skip_notification:
@@ -244,6 +256,13 @@ func _check_and_transfer_forest_resources() -> void:
 	
 	if not has_carried:
 		print("[VillageScene] ℹ️ No carried resources to merge into village stockpile")
+		var tm_early := get_node_or_null("/root/TutorialManager")
+		if tm_early and tm_early.is_village_tutorial_active() and tm_early.village_core_step == 1:
+			var delivered_early: Dictionary = payload.get("forest_resources_delivered", {})
+			if delivered_early is Dictionary and not delivered_early.is_empty():
+				_tutorial_on_forest_return(delivered_early)
+			elif tm_early.tutorial_forest_gather_complete:
+				_tutorial_on_forest_return({})
 		return
 	
 	print("[VillageScene] 🌲 Transferring carried resources to village (source='%s')..." % source)
@@ -261,6 +280,7 @@ func _check_and_transfer_forest_resources() -> void:
 			print("[VillageScene] ✅ Merged into village: %s" % ", ".join(log_parts))
 		else:
 			print("[VillageScene] ⚠️ Unexpected transfer dict: %s" % transferred)
+	_tutorial_on_forest_return(transferred)
 
 func _show_delivery_summary_from_payload() -> void:
 	var scene_manager = get_node_or_null("/root/SceneManager")
@@ -296,6 +316,25 @@ func _show_delivery_summary_from_payload() -> void:
 	if not time_skip_notification or not time_skip_notification.has_method("show_simple_toast"):
 		return
 	time_skip_notification.show_simple_toast("Teslimat Tamamlandı", ", ".join(lines))
+	_mentor_digest_on_return(payload, lines)
+
+
+func _mentor_digest_on_return(payload: Dictionary, summary_lines: Array[String]) -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null:
+		return
+	if tm.is_village_tutorial_active() and tm.village_core_step <= 1:
+		return
+	if summary_lines.is_empty():
+		return
+	var digest_text := "Yokluğunda:\n" + "\n".join(summary_lines)
+	tm.enqueue_message(
+		"digest_%d" % Time.get_ticks_msec(),
+		digest_text,
+		"digest",
+		8
+	)
+
 
 func _apply_dungeon_rescued() -> void:
 	"""Zindandan sağ çıkışta kurtarılan köylü ve cariyeleri köye ekler."""
@@ -333,6 +372,8 @@ func _apply_dungeon_rescued() -> void:
 		vm._spawn_concubines_in_scene()
 	print("[VillageScene] ✅ Dungeon rescued applied: %d villagers, %d cariyes" % [villagers.size(), cariyes.size()])
 	_dungeon_rescue_applied = true
+	if cariyes.size() > 0:
+		_tutorial_on_first_cariye()
 
 func _reset_player_on_scene_load() -> void:
 	# Ensure time scale is normal (critical fix)
@@ -641,3 +682,168 @@ func _try_move_on_world_map(dq: int, dr: int) -> void:
 	var target_q: int = int(pos.get("q", 0)) + dq
 	var target_r: int = int(pos.get("r", 0)) + dr
 	wm.move_player_on_world_map(target_q, target_r)
+
+
+# =======================================================
+# Tutorial 2 — Köy tutorial başlatıcı
+# =======================================================
+
+func _check_village_tutorial_start() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null:
+		return
+	if not tm.consume_village_tutorial_pending():
+		return
+	print("[VillageScene] Tutorial 2 başlatılıyor — köy karşılama mesajları kuyruğa ekleniyor")
+	tm.village_core_step = 0
+	tm.enqueue_message(
+		"welcome_hud",
+		(
+			"Hayatta kaldın. Bu köy senin.\n"
+			+ "Üstte [color=#f5d76e]altın[/color], [color=#aaddff]işçi[/color] ve [color=#aaffaa]kaynakları[/color] görürsün.\n"
+			+ "Köylülerin her gün [color=#ff9966]yiyecek[/color] ve [color=#66ccff]su[/color] tüketir.\n"
+			+ "Stok biterse [color=#ff6666]moral[/color] düşer — moral sıfırlanırsa oyun biter."
+		),
+		"tutorial",
+		0
+	)
+	tm.enqueue_message(
+		"go_to_forest",
+		(
+			"İnşa için [color=#c8a86c]odun[/color] lazım.\n"
+			+ "{map} tuşuyla dünya haritasını aç, {move} ile en yakın [color=#55aa55]ormana[/color] git.\n"
+			+ "{hex_enter} ile ormana gir. [color=#c8a86c]Odun[/color] ve [color=#ff9966]yiyecek[/color] topla, sonra köye dön."
+		),
+		"tutorial",
+		1
+	)
+	tm.set_objective("Mentora yaklaş ve {interact} ile konuş")
+
+
+func _spawn_objective_ui() -> void:
+	if get_tree().get_first_node_in_group("mentor_objective_ui") != null:
+		return
+	var scene := load("res://tutorial/ui/MentorObjectiveUI.tscn") as PackedScene
+	if scene == null:
+		return
+	var ui := scene.instantiate()
+	ui.add_to_group("mentor_objective_ui")
+	get_tree().root.add_child(ui)
+
+
+func _tutorial_on_forest_return(transferred: Dictionary) -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active():
+		return
+	if tm.village_core_step != 1:
+		return
+	var wood: int = int(transferred.get("wood", 0))
+	var food: int = int(transferred.get("food", 0))
+	if not tm.tutorial_forest_gather_complete:
+		if wood < 3 and food < 3:
+			return
+		if wood >= 3 and food >= 3:
+			tm.mark_tutorial_forest_gather_complete()
+	tm.village_core_step = 2
+	tm.village_menu_phase = 0
+	tm.set_objective("Kamp ateşine git, {ui_up} ile menüyü aç")
+
+
+func tutorial_on_campfire_menu_opened() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 2:
+		return
+	tm.try_set_village_menu_objective(
+		1,
+		"{page_left} / {page_right} ile gez, İnşa menüsüne gel"
+	)
+
+
+func tutorial_on_mission_page(page_index: int) -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active():
+		return
+	if tm.village_core_step == 2 and page_index == 2:
+		tm.try_set_village_menu_objective(
+			2,
+			"Odun Kampını seç, {confirm} ile inşa et"
+		)
+	elif tm.village_core_step == 3 and page_index == 1:
+		tm.try_set_village_menu_objective(
+			4,
+			"Odun Kampını seç, {confirm} ile bir işçi ata"
+		)
+
+
+func tutorial_on_mission_worker_assigned(building_key: String = "") -> void:
+	if not building_key.is_empty() and not building_key.contains("woodcutter"):
+		return
+	_tutorial_on_worker_assigned()
+
+
+func _tutorial_on_building_built(building_key: String) -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active():
+		return
+	if tm.village_core_step != 2:
+		return
+	if not building_key.contains("woodcutter"):
+		return
+	tm.village_core_step = 3
+	tm.village_menu_phase = 3
+	tm.set_objective("{page_left} / {page_right} ile gez, İşçiler menüsüne gel")
+
+
+func _tutorial_on_worker_assigned() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active():
+		return
+	if tm.village_core_step != 3:
+		return
+	tm.village_menu_phase = 5
+	tm.mark_village_core_complete()
+	tm.start_village_dungeon_guide()
+
+
+# =======================================================
+# Bağlamsal mentor mesajları (olay tetikli, tek seferlik)
+# =======================================================
+
+func _tutorial_on_first_cariye() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or tm.hint_cariye_delivered:
+		return
+	tm.hint_cariye_delivered = true
+	tm.enqueue_message(
+		"hint_first_cariye",
+		(
+			"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\n"
+			+ "Cariyeleri [color=#f5d76e]Cariyeler[/color] panelinden görevlere yollayabilirsin.\n"
+			+ "Her cariyenin farklı yetenekleri var — görevlere uygun olanı seç."
+		),
+		"hint",
+		5
+	)
+
+
+func _tutorial_on_first_trader() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or tm.hint_trader_delivered:
+		return
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("get_active_traders"):
+		return
+	var traders: Array = mm.get_active_traders()
+	if traders.is_empty():
+		return
+	tm.hint_trader_delivered = true
+	tm.enqueue_message(
+		"hint_first_trader",
+		(
+			"Köye bir [color=#ffcc44]tüccar[/color] geldi!\n"
+			+ "Tüccarlarla kaynak alışverişi yapabilirsin.\n"
+			+ "Köyün ihtiyaçlarına göre iyi fırsatları kaçırma — tüccarlar sonsuza kadar kalmaz."
+		),
+		"hint",
+		5
+	)

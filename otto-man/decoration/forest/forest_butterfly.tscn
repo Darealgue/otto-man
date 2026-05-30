@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://forestbutterfly01"]
+
+[ext_resource type="Script" path="res://decoration/forest/forest_butterfly.gd" id="1_script"]
+
+[node name="forest_butterfly" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+centered = true
+texture_filter = 0

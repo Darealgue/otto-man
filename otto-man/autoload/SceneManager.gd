@@ -11,6 +11,7 @@ const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
 const TUTORIAL_DUNGEON_SCENE: String = "res://tutorial/scenes/TutorialDungeon3.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
+const BOSS_ROOM_SCENE: String = "res://scenes/boss_room.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
 const WORLD_MAP_SCENE: String = "res://worldmap/scenes/WorldMapScene.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
@@ -173,6 +174,7 @@ func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
 	var returning_from_dungeon_like: bool = (
 		current_scene_path == DUNGEON_SCENE
 		or current_scene_path == CAMP_SCENE
+		or current_scene_path == BOSS_ROOM_SCENE
 		or current_scene_path == FOREST_SCENE
 		or src == "dungeon"
 		or src == "dungeon_death"
@@ -307,6 +309,10 @@ func change_to_camp(payload: Dictionary = {}, force_reload: bool = false) -> voi
 	current_payload = payload.duplicate(true)
 	_change_scene(CAMP_SCENE, force_reload)
 
+func change_to_boss_room(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	current_payload = payload.duplicate(true)
+	_change_scene(BOSS_ROOM_SCENE, force_reload)
+
 func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	# Köyden ormana çıkışta travel_out saatini işlet; dünya haritasından giriste tekrar işletme.
 	var src: String = String(payload.get("source", ""))
@@ -355,6 +361,10 @@ func open_world_map_overlay_from_village(payload: Dictionary = {}) -> void:
 	get_tree().root.add_child(inst)
 	get_tree().root.move_child(inst, get_tree().root.get_child_count() - 1)
 	cs.process_mode = Node.PROCESS_MODE_DISABLED
+	# Köyün PauseMenu'sü ALWAYS modunda — overlay'da ESC'yi yutmaması için devre dışı bırak
+	var village_pause := cs.get_node_or_null("PauseMenuLayer/PauseMenu")
+	if village_pause:
+		village_pause.process_mode = Node.PROCESS_MODE_DISABLED
 	# Köy çizimini kapat: UI, envanter, yağmur partikülleri vb. haritada görünmesin (PROCESS_MODE ile donmuş damlalar da).
 	_wm_overlay_restore_village_visible = cs.visible
 	cs.visible = false
@@ -495,6 +505,10 @@ func _dismiss_world_map_overlay_if_present() -> void:
 	if cs != null:
 		cs.visible = _wm_overlay_restore_village_visible
 		cs.process_mode = Node.PROCESS_MODE_INHERIT
+		# Köyün PauseMenu'sünü geri aktifleştir
+		var village_pause := cs.get_node_or_null("PauseMenuLayer/PauseMenu")
+		if village_pause:
+			village_pause.process_mode = Node.PROCESS_MODE_ALWAYS
 	_restore_canvas_layers_from_world_map_overlay_backup()
 	if cs != null:
 		_restore_cameras_after_world_map_overlay(cs, overlay_inst)
@@ -878,6 +892,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 		or scene_path == TUTORIAL_DUNGEON_SCENE
 		or scene_path == FOREST_SCENE
 		or scene_path == CAMP_SCENE
+		or scene_path == BOSS_ROOM_SCENE
 		or scene_path == WORLD_MAP_SCENE
 		or scene_path == VILLAGE_SCENE
 	)

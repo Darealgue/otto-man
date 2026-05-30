@@ -8,8 +8,8 @@ extends Node
 @export var suppress_movement_speech: bool = true
 ## Beat6 dövüş listesi bittiğinde (TutorialBeatDirector.all_beats_completed) gösterilir; BBCode.
 @export_multiline var post_combat_exit_hint_bbcode: String = (
-	"[b]Acele et — çıkış bu tarafta[/b]\n"
-	+ "[color=#c8c8c8]Sağa koş[/color]; tünelden geçince köye dönersin."
+	"[b][color=#3d2008]Acele et — çıkış bu tarafta[/color][/b]\n"
+	+ "Sağa koş; tünelden geçince köye dönersin."
 )
 
 enum _Step { RUN_RIGHT, RUN_LEFT, DONE }
@@ -87,11 +87,18 @@ func _refresh_prompt() -> void:
 			jump_hint = str(im.call("get_tutorial_jump_hint"))
 	match _step:
 		_Step.RUN_RIGHT:
-			next_text = "[b]Sağa git[/b]\n[color=#c8c8c8]%s[/color] ile sağa koş ve [b]yeşil işaretli alana[/b] gir." % move_hint
+			next_text = (
+				"%s\n%s ile sağa koş ve [b]yeşil işaretli alana[/b] gir."
+				% [InputManager.format_tutorial_title("Sağa git"), InputManager.wrap_tutorial_hint_text(move_hint)]
+			)
 		_Step.RUN_LEFT:
 			next_text = (
-				"[b]Sola dön[/b]\n[color=#c8c8c8]%s[/color] ile sola koş ve diğer işaretli alana gir.\nİleride zıplamak için: [color=#c8c8c8]%s[/color]"
-				% [move_hint, jump_hint]
+				"%s\n%s ile sola koş ve diğer işaretli alana gir.\nİleride zıplamak için: %s"
+				% [
+					InputManager.format_tutorial_title("Sola dön"),
+					InputManager.wrap_tutorial_hint_text(move_hint),
+					InputManager.wrap_tutorial_hint_text(jump_hint),
+				]
 			)
 		_:
 			return

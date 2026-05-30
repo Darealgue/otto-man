@@ -279,6 +279,21 @@ const BACKGROUND_DECORS = {
 			"res://assets/forest assets/grass5.png"
 		]
 	},
+	"forest_flower": {
+		"weight": 32,
+		"locations": [SpawnLocation.FLOOR_CENTER],
+		"width_tiles": 1,
+		"height_tiles": 1,
+		"grow_dir": "up",
+		"scene_paths": [
+			"res://decoration/forest/forest_flower.tscn"
+		],
+		"sprites": [
+			"res://decoration/forest/fl1.png",
+			"res://decoration/forest/fl2.png",
+			"res://decoration/forest/fl3.png"
+		]
+	},
 	"forest_trunk": {
 		"weight": 25,
 		"locations": [SpawnLocation.FLOOR_CENTER],
@@ -673,7 +688,7 @@ const Z_INDEX_RULES = {
 	# Zemin dekorları — kutular, heykeller, kemikler, ağ, zincir
 	"floor": {
 		"z_index": 1,
-		"decorations": ["box1", "box2", "box3", "stone1", "sculpture1", "sculpture2", "bone_pile", "spider_web", "hanging_chains"]
+		"decorations": ["box1", "box2", "box3", "stone1", "sculpture1", "sculpture2", "bone_pile", "spider_web", "hanging_chains", "forest_flower"]
 	},
 
 	# Aydınlatma — meşale, mum, kamp ateşi (kutu/iskeletin önünde)

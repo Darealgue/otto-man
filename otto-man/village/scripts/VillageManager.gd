@@ -3062,6 +3062,9 @@ func get_pending_construction_minutes(scene_path: String) -> int:
 func _queue_construction(scene_path: String, position: Vector2, extra: Dictionary = {}, vfx_vertical_anchor: Node2D = null) -> bool:
 	var build_hours: float = get_build_duration_hours(scene_path)
 	var total_minutes: float = max(1.0, build_hours * 60.0)
+	var _tm := get_node_or_null("/root/TutorialManager")
+	if _tm and _tm.has_method("is_village_tutorial_active") and _tm.is_village_tutorial_active():
+		total_minutes = 0.01
 	if not _reserve_build_plot(position):
 		return false
 	var rooftop_vfx: bool = (String(extra.get("pending_kind", "")) == "house_floor") and is_instance_valid(vfx_vertical_anchor)

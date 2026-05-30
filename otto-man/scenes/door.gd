@@ -83,7 +83,12 @@ func _player_entered_range() -> void:
 	is_player_in_range = true
 	if interaction_prompt:
 		interaction_prompt.visible = true
-		interaction_prompt.text = "↑ Yukarı"
+		if door_type == "Boss" and is_locked:
+			interaction_prompt.text = "↑ Yukarı"
+		elif is_open:
+			interaction_prompt.text = "Açık"
+		else:
+			interaction_prompt.text = "↑ Yukarı"
 
 func _player_exited_range() -> void:
 	is_player_in_range = false
@@ -91,12 +96,14 @@ func _player_exited_range() -> void:
 		interaction_prompt.visible = false
 
 func _interact_with_door() -> void:
-	if is_animating or is_open:
+	if is_animating:
 		return
-	
-	# Boss kapısı için özel kontrol
+
 	if door_type == "Boss" and is_locked:
 		_handle_boss_door_locked()
+		return
+
+	if is_open:
 		return
 	
 	# Check if door is locked
@@ -241,19 +248,15 @@ func _update_door_appearance() -> void:
 				sprite.frame = 0  # Start with first frame (closed)
 				sprite.modulate = Color(0.8, 1.0, 0.8, 1.0)  # Greenish tint for finish doors
 		"Boss":
-			# Boss door appearance - use door_1 with reddish tint
 			var texture = load("res://assets/objects/dungeon/door_1.png")
 			if texture:
 				sprite.texture = texture
-				sprite.hframes = 8  # Set horizontal frames for sprite sheet
-				sprite.frame = 0  # Start with first frame (closed)
-				sprite.modulate = Color(1.2, 0.8, 0.8, 1.0)  # Reddish tint for boss doors
-	
-	# Update appearance based on lock state
-	if is_locked:
-		sprite.modulate.a = 0.7  # Make locked doors semi-transparent
-	else:
-		sprite.modulate.a = 1.0  # Full opacity for unlocked doors
+				sprite.hframes = 8
+				sprite.frame = 0
+				sprite.modulate = Color(1.0, 0.85, 0.85, 1.0)
+
+	if sprite:
+		sprite.modulate.a = 1.0
 
 func set_door_type(new_type: String) -> void:
 	door_type = new_type
@@ -266,6 +269,19 @@ func lock_door() -> void:
 func unlock_door() -> void:
 	is_locked = false
 	call_deferred("_update_door_appearance")
+
+
+func close_door_now() -> void:
+	if is_animating:
+		return
+	if not is_open and current_state == DoorState.CLOSED:
+		return
+	_close_door()
+
+
+func open_door_immediately() -> void:
+	_open_door_immediately()
+
 
 func set_requires_key(required: bool, key: String = "") -> void:
 	requires_key = required

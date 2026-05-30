@@ -1,0 +1,41 @@
+[gd_scene load_steps=2 format=3 uid="uid://d0mentorobjectiveui"]
+
+[ext_resource type="Script" path="res://tutorial/ui/MentorObjectiveUI.gd" id="1_script"]
+
+[node name="MentorObjectiveUI" type="CanvasLayer"]
+layer = 90
+script = ExtResource("1_script")
+
+[node name="ObjectiveLabel" type="Label" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -70.0
+offset_right = 600.0
+offset_bottom = -46.0
+theme_override_colors/font_color = Color(1, 0.95, 0.7, 1)
+theme_override_colors/font_outline_color = Color(0.08, 0.06, 0.03, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 16
+text = ""
+
+[node name="KeysBar" type="Label" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -450.0
+offset_top = -36.0
+offset_right = 450.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.96, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.95)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
