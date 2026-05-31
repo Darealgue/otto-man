@@ -3372,11 +3372,12 @@ func _post_diplomacy_transition_news(a: String, b: String, prev_state: String, n
 	})
 
 func _get_settlement_display_name(settlement_id: String) -> String:
+	var stored := settlement_id
 	if world_settlement_states.has(settlement_id):
-		return String(world_settlement_states[settlement_id].get("name", settlement_id))
-	if world_map_settlement_positions.has(settlement_id):
-		return String(world_map_settlement_positions[settlement_id].get("name", settlement_id))
-	return settlement_id
+		stored = String(world_settlement_states[settlement_id].get("name", settlement_id))
+	elif world_map_settlement_positions.has(settlement_id):
+		stored = String(world_map_settlement_positions[settlement_id].get("name", settlement_id))
+	return WorldSettlementNames.localize_name(stored)
 
 func _try_seed_war_raid_chain(attacker_id: String, day: int) -> void:
 	if attacker_id.is_empty() or not world_settlement_states.has(attacker_id):

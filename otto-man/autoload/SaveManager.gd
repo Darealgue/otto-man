@@ -1492,6 +1492,14 @@ func _load_mission_state(state: Dictionary) -> void:
 func _sanitize_loaded_mission_runtime_state() -> void:
 	if not is_instance_valid(MissionManager):
 		return
+	if MissionManager.has_method("_purge_legacy_placeholder_missions"):
+		MissionManager.call("_purge_legacy_placeholder_missions")
+	if "world_events" in MissionManager:
+		var cleaned_events: Array[Dictionary] = []
+		for ev in MissionManager.world_events:
+			if ev is Dictionary and (ev.has("start_time") or ev.has("start_game_minutes")):
+				cleaned_events.append(ev)
+		MissionManager.world_events = cleaned_events
 	# Active mission assignments: keep only entries that reference existing concubine+mission.
 	var sanitized_active: Dictionary = {}
 	if "active_missions" in MissionManager:

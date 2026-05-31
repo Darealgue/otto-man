@@ -96,11 +96,17 @@ func _ready() -> void:
 	# veya _process içinde periyodik olarak güncellenebilir. Şimdilik _update_labels içinde.
 
 	# İlk Güncellemeyi Yap
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_on_locale_changed)
 	_update_labels()
 	_canvas_layer = get_parent().get_parent().get_parent() as CanvasLayer
 	_apply_hud_parchment_textures()
 	call_deferred("_sync_parchment_boxes_to_content")
 	print("VillageStatusUI Ready. (F9 = parşömen overlay | F10 = ölçü raporu)")
+
+
+func _on_locale_changed(_locale: String = "") -> void:
+	_update_labels()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -336,14 +342,12 @@ func _update_labels() -> void:
 		return
 
 	# Global Veriler
-	gold_label.text = "Altın: %d" % GlobalPlayerData.gold
-	# Asker sayısını Barracks'tan al
+	gold_label.text = tr("hud.gold") % GlobalPlayerData.gold
 	var soldier_count = _get_soldier_count()
-	asker_label.text = "Asker: %d" % soldier_count
-	# Morale (optional label)
+	asker_label.text = tr("hud.soldiers") % soldier_count
 	if is_instance_valid(morale_label):
 		var m := VillageManager.get_morale()
-		morale_label.text = "Moral: %.0f" % m
+		morale_label.text = tr("hud.morale") % m
 		if m >= 75.0:
 			TextOutline.apply_label_color(morale_label, Color(0.6, 1.0, 0.6))
 		elif m < 50.0:
@@ -353,7 +357,7 @@ func _update_labels() -> void:
 	# Diğer gelişmiş kaynaklar...
 
 	# VillageManager Verileri
-	worker_label.text = "Müsait İşçi: %d" % VillageManager.idle_workers
+	worker_label.text = tr("hud.idle_workers") % VillageManager.idle_workers
 	var projected_nets: Dictionary = {}
 	if VillageManager.has_method("get_projected_daily_resource_nets"):
 		projected_nets = VillageManager.get_projected_daily_resource_nets()
@@ -365,7 +369,7 @@ func _update_labels() -> void:
 		var hs: Dictionary = VillageManager.get_housing_summary()
 		var h_occ: int = int(hs.get("occupied", 0))
 		var h_cap: int = int(hs.get("capacity", 0))
-		housing_label.text = "Barınma: %d / %d" % [h_occ, h_cap]
+		housing_label.text = tr("hud.housing") % [h_occ, h_cap]
 		# Tüm ev slotları doluysa sarıya çevir
 		if h_cap > 0 and h_occ >= h_cap:
 			TextOutline.apply_label_color(housing_label, Color(1, 0.85, 0.2))
@@ -373,7 +377,7 @@ func _update_labels() -> void:
 			TextOutline.reset_label_color(housing_label)
 
 	# Asker ikmal durumu
-	var status_text: String = "Tam"
+	var status_text: String = tr("hud.supply_ok")
 	var used_shortage: bool = false
 	var shortages: Dictionary = {}
 	var v = VillageManager.get("_last_day_shortages")
@@ -382,10 +386,9 @@ func _update_labels() -> void:
 		if shortages.has("soldier_food") or shortages.has("soldier_water"):
 			var s_food: int = int(shortages.get("soldier_food", 0))
 			var s_water: int = int(shortages.get("soldier_water", 0))
-			status_text = ("Tam" if (s_food == 0 and s_water == 0) else "Eksik")
+			status_text = tr("hud.supply_ok") if (s_food == 0 and s_water == 0) else tr("hud.supply_short")
 			used_shortage = true
-	
-	# Gün daha tiklenmediyse stok bazlı öngörü: mevcut stok bu günü karşılıyor mu?
+
 	if not used_shortage:
 		var sc: int = soldier_count
 		var req_w: int = int(ceil(float(sc) * 0.5))
@@ -393,29 +396,26 @@ func _update_labels() -> void:
 		var have_w: int = int(VillageManager.resource_levels.get("water", 0))
 		var have_f: int = int(VillageManager.resource_levels.get("food", 0))
 		if have_w < req_w or have_f < req_f:
-			status_text = "Eksik"
-	
-	asker_label.text += "  | İkmal: " + status_text
+			status_text = tr("hud.supply_short")
 
-	# Temel Kaynaklar (Kullanılabilir / Toplam) - her zaman görünür
-	_set_resource_visible_and_update(wood_label, "Odun", "wood", true, false, projected_nets)
-	_set_resource_visible_and_update(stone_label, "Taş", "stone", true, false, projected_nets)
-	_set_resource_visible_and_update(food_label, "Yiyecek", "food", true, false, projected_nets)
-	_set_resource_visible_and_update(water_label, "Su", "water", true, false, projected_nets)
-	# Diğerleri sadece envanterde varsa görünür
-	_set_resource_visible_and_update(metal_label, "Metal", "metal", false, true, projected_nets)
-	_set_resource_visible_and_update(bread_label, "Ekmek", "bread", false, true, projected_nets)
+	asker_label.text += tr("hud.supply_suffix") % status_text
 
-	# Gelişmiş Kaynaklar (dinamik label oluştur)
-	_update_dynamic_resource_label("lumber", "Kereste", projected_nets)
-	_update_dynamic_resource_label("brick", "Tuğla", projected_nets)
-	_update_dynamic_resource_label("weapon", "Silah", projected_nets)
-	_update_dynamic_resource_label("armor", "Zırh", projected_nets)
-	_update_dynamic_resource_label("garment", "Giyim", projected_nets)
-	_update_dynamic_resource_label("cloth", "Kumaş", projected_nets)
-	_update_dynamic_resource_label("tea", "Kahve", projected_nets)
-	_update_dynamic_resource_label("soap", "Parfüm", projected_nets)
-	_update_dynamic_resource_label("medicine", "İlaç", projected_nets)
+	_set_resource_visible_and_update(wood_label, "wood", true, false, projected_nets)
+	_set_resource_visible_and_update(stone_label, "stone", true, false, projected_nets)
+	_set_resource_visible_and_update(food_label, "food", true, false, projected_nets)
+	_set_resource_visible_and_update(water_label, "water", true, false, projected_nets)
+	_set_resource_visible_and_update(metal_label, "metal", false, true, projected_nets)
+	_set_resource_visible_and_update(bread_label, "bread", false, true, projected_nets)
+
+	_update_dynamic_resource_label("lumber", projected_nets)
+	_update_dynamic_resource_label("brick", projected_nets)
+	_update_dynamic_resource_label("weapon", projected_nets)
+	_update_dynamic_resource_label("armor", projected_nets)
+	_update_dynamic_resource_label("garment", projected_nets)
+	_update_dynamic_resource_label("cloth", projected_nets)
+	_update_dynamic_resource_label("tea", projected_nets)
+	_update_dynamic_resource_label("soap", projected_nets)
+	_update_dynamic_resource_label("medicine", projected_nets)
 
 	# Aktif olaylar
 	var tm = get_node_or_null("/root/TimeManager")
@@ -423,33 +423,31 @@ func _update_labels() -> void:
 	var summaries = VillageManager.get_active_events_summary(day)
 	if is_instance_valid(events_label):
 		if summaries.is_empty():
-			events_label.text = "Olay: Yok"
+			events_label.text = tr("hud.event_none")
 		else:
 			var lines: Array[String] = []
 			for s in summaries:
 				var level_name: String = s.get("level_name", "")
 				if level_name.is_empty():
-					# Geriye dönük uyumluluk: severity'den level_name oluştur
 					var sev = float(s.get("severity", 0.0))
 					if sev < 0.2:
-						level_name = "Düşük"
+						level_name = tr("severity.low")
 					elif sev < 0.3:
-						level_name = "Orta"
+						level_name = tr("severity.medium")
 					else:
-						level_name = "Yüksek"
-				lines.append("%s (%s, %dgün)" % [String(s["type"]).capitalize(), level_name, int(s["days_left"])])
+						level_name = tr("severity.high")
+				lines.append(tr("hud.event_line") % [String(s["type"]).capitalize(), level_name, int(s["days_left"])])
 			events_label.text = ", ".join(lines)
 
-	# Günlük ekonomi istatistikleri
 	if is_instance_valid(economy_stats_label):
 		var stats = VillageManager.get_economy_last_day_stats()
 		if stats.is_empty():
-			economy_stats_label.text = "Üretim/Gider/Net: -"
+			economy_stats_label.text = tr("hud.economy_none")
 		else:
 			var p := float(stats.get("total_production", 0.0))
 			var c := float(stats.get("total_consumption", 0.0))
 			var n := float(stats.get("net", 0.0))
-			economy_stats_label.text = "Üretim/Gider/Net: %.1f / %.1f / %.1f" % [p, c, n]
+			economy_stats_label.text = tr("hud.economy_format") % [p, c, n]
 			# Renk kodu
 			if n > 0.01:
 				TextOutline.apply_label_color(economy_stats_label, Color(0.6, 1.0, 0.6))
@@ -487,14 +485,15 @@ func _ensure_extra_labels() -> void:
 			worker_parent.move_child(housing_label, wl_idx + 1)
 
 # Tek bir kaynak etiketini güncelleyen helper fonksiyonu
-func _update_resource_label(label_node: Label, resource_display_name: String, resource_key: String, projected_nets: Dictionary = {}) -> void:
+func _update_resource_label(label_node: Label, resource_key: String, projected_nets: Dictionary = {}) -> void:
 	if not is_instance_valid(label_node):
 		return
 
+	var resource_display_name := LocaleManager.get_resource_name(resource_key)
 	var current: int = VillageManager.get_resource_level(resource_key)
 	var cap: int = VillageManager.get_storage_capacity_for(resource_key)
 	var net_per_day := float(projected_nets.get(resource_key, 0.0))
-	var net_text := " (%s%.1f/g)" % ["+" if net_per_day >= 0.0 else "", net_per_day]
+	var net_text := tr("hud.resource_net") % ["+" if net_per_day >= 0.0 else "", net_per_day]
 	# Check if label has icon_only meta, or if it's in a Row container with an icon
 	var icon_only := false
 	if label_node.has_meta("icon_only"):
@@ -515,7 +514,7 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 		if icon_only:
 			label_node.text = "%d/%d%s" % [current, cap, net_text]
 		else:
-			label_node.text = "%s: %d/%d%s" % [resource_display_name, current, cap, net_text]
+			label_node.text = tr("hud.resource_cap") % [resource_display_name, current, cap, net_text]
 			
 		# Highlight when full
 		var ratio := (float(current) / float(cap)) if cap > 0 else 0.0
@@ -529,21 +528,18 @@ func _update_resource_label(label_node: Label, resource_display_name: String, re
 		if icon_only:
 			label_node.text = "%d%s" % [current, net_text]
 		else:
-			label_node.text = "%s: %d%s" % [resource_display_name, current, net_text]
+			label_node.text = tr("hud.resource_amount") % [resource_display_name, current, net_text]
 
 # Helper: dinamik kaynak etiketi güncelle/oluştur
-func _update_dynamic_resource_label(resource_key: String, display_name: String, projected_nets: Dictionary = {}) -> void:
-	var label := _get_or_create_resource_label(resource_key, display_name)
+func _update_dynamic_resource_label(resource_key: String, projected_nets: Dictionary = {}) -> void:
+	var label := _get_or_create_resource_label(resource_key)
 	if not is_instance_valid(label):
 		return
 	var current: int = VillageManager.get_resource_level(resource_key)
 	var should_show = current > 0
-	
-	# Gizle/göster işlemini parent container'a uygula
 	_set_container_visibility(label, should_show)
-	
 	if should_show:
-		_update_resource_label(label, display_name, resource_key, projected_nets)
+		_update_resource_label(label, resource_key, projected_nets)
 
 # Helper: üretici bina var mı kontrol et
 func _producer_exists(resource_key: String) -> bool:
@@ -564,19 +560,16 @@ func _producer_exists(resource_key: String) -> bool:
 	return false
 
 # Helper: görünürlük + güncelleme
-func _set_resource_visible_and_update(label_node: Label, display_name: String, key: String, force_visible: bool, show_when_nonzero: bool = false, projected_nets: Dictionary = {}) -> void:
+func _set_resource_visible_and_update(label_node: Label, key: String, force_visible: bool, show_when_nonzero: bool = false, projected_nets: Dictionary = {}) -> void:
 	if not is_instance_valid(label_node):
 		return
 	var current: int = VillageManager.get_resource_level(key)
 	var visible_by_stock := show_when_nonzero and current > 0
 	var should_show = force_visible or visible_by_stock
-	
-	# Gizle/göster işlemini parent container'a uygula
 	if is_instance_valid(label_node):
 		_set_container_visibility(label_node, should_show)
-	
 	if should_show:
-		_update_resource_label(label_node, display_name, key, projected_nets)
+		_update_resource_label(label_node, key, projected_nets)
 
 # Helper: Parent container'ı (Row) gizle/göster
 func _set_container_visibility(label_node: Label, visible: bool) -> void:
@@ -604,15 +597,15 @@ func _get_soldier_count() -> int:
 	return 0
 
 # Helper: ihtiyaç halinde label oluştur
-func _get_or_create_resource_label(resource_key: String, display_name: String) -> Label:
+func _get_or_create_resource_label(resource_key: String) -> Label:
 	if _extra_resource_labels.has(resource_key):
 		return _extra_resource_labels[resource_key]
 	var container: Node = resource_list_container if is_instance_valid(resource_list_container) else (bread_label.get_parent() if bread_label and bread_label.get_parent() else self)
-	var lbl := _create_resource_row_with_icon(resource_key, display_name, container)
+	var lbl := _create_resource_row_with_icon(resource_key, container)
 	_extra_resource_labels[resource_key] = lbl
 	return lbl
 
-func _create_resource_row_with_icon(resource_key: String, display_name: String, container: Node) -> Label:
+func _create_resource_row_with_icon(resource_key: String, container: Node) -> Label:
 	var row := HBoxContainer.new()
 	row.name = resource_key.capitalize() + "RowDynamic"
 	row.layout_mode = 2
@@ -629,7 +622,7 @@ func _create_resource_row_with_icon(resource_key: String, display_name: String, 
 		row.add_child(icon)
 
 	var lbl := Label.new()
-	lbl.name = String(display_name) + "LabelDynamic"
+	lbl.name = resource_key.capitalize() + "LabelDynamic"
 	lbl.layout_mode = 2
 	lbl.set_meta("icon_only", true)
 	lbl.text = "-"

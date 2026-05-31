@@ -48,7 +48,7 @@ func _on_all_tutorial_beats_done() -> void:
 		if spawner != null and spawner.has_method("stop_spawning"):
 			spawner.call("stop_spawning")
 	if is_instance_valid(_speech) and _speech.has_method("set_speech_bbcode"):
-		_speech.call("set_speech_bbcode", post_combat_exit_hint_bbcode)
+		_speech.call("set_speech_bbcode", tr("tutorial.dungeon.exit_hint"))
 
 
 func _setup_player_and_goals() -> void:
@@ -87,19 +87,16 @@ func _refresh_prompt() -> void:
 			jump_hint = str(im.call("get_tutorial_jump_hint"))
 	match _step:
 		_Step.RUN_RIGHT:
-			next_text = (
-				"%s\n%s ile sağa koş ve [b]yeşil işaretli alana[/b] gir."
-				% [InputManager.format_tutorial_title("Sağa git"), InputManager.wrap_tutorial_hint_text(move_hint)]
-			)
+			next_text = tr("tutorial.dungeon.move_right") % [
+				InputManager.format_tutorial_title(tr("tutorial.dungeon.move_right_title")),
+				InputManager.wrap_tutorial_hint_text(move_hint),
+			]
 		_Step.RUN_LEFT:
-			next_text = (
-				"%s\n%s ile sola koş ve diğer işaretli alana gir.\nİleride zıplamak için: %s"
-				% [
-					InputManager.format_tutorial_title("Sola dön"),
-					InputManager.wrap_tutorial_hint_text(move_hint),
-					InputManager.wrap_tutorial_hint_text(jump_hint),
-				]
-			)
+			next_text = tr("tutorial.dungeon.move_left") % [
+				InputManager.format_tutorial_title(tr("tutorial.dungeon.move_left_title")),
+				InputManager.wrap_tutorial_hint_text(move_hint),
+				InputManager.wrap_tutorial_hint_text(jump_hint),
+			]
 		_:
 			return
 	if next_text == _last_prompt_text:
@@ -129,7 +126,7 @@ func _finish_segment() -> void:
 	_step = _Step.DONE
 	_last_prompt_text = ""
 	if is_instance_valid(_speech):
-		_speech.set_speech_bbcode("[b]Güzel![/b]\nKöye geçiliyor…")
+		_speech.set_speech_bbcode(tr("tutorial.dungeon.finish"))
 	var tm: Node = get_node_or_null("/root/TutorialManager")
 	if tm != null and tm.has_method("mark_dungeon_movement_complete"):
 		tm.call("mark_dungeon_movement_complete")

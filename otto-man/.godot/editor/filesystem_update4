@@ -9,3 +9,6 @@ res://player/player.tscn
 res://characters/mentor/MentorCharacter.tscn
 res://scenes/forest.tscn
 res://scenes/boss_room.tscn
+res://localization/strings.tr.translation
+res://localization/strings.en.translation
+res://scenes/CampScene.tscn

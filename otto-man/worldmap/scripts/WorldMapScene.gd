@@ -123,7 +123,9 @@ const EXP_PACK_REPEAT_RAMP_SEC: float = 0.5
 const EXP_PACK_REPEAT_INTERVAL_SLOW: float = 0.3
 const EXP_PACK_REPEAT_INTERVAL_FAST: float = 0.045
 const _EXP_PACK_KEYS = ["food", "water", "medicine", "world_gold"]
-const _EXP_PACK_TITLES = ["Yiyecek", "Su", "Ilac", "Cep altini (kasa)"]
+const _EXP_PACK_TITLE_KEYS = ["resource.food", "resource.water", "resource.medicine", "wm.exp_pack.pocket_gold"]
+var _exp_pack_title_label: Label = null
+var _exp_pack_hint_label: Label = null
 var _pending_target_q: int = 0
 var _pending_target_r: int = 0
 var _pending_settlement_id: String = ""
@@ -252,6 +254,46 @@ func _ready() -> void:
 		tm.village_dungeon_guide_changed.connect(_refresh_tutorial_map_marker)
 	call_deferred("_ensure_world_map_hud_visible")
 	call_deferred("_ensure_world_map_hud_visible_late")
+	var lm := get_node_or_null("/root/LocaleManager")
+	if lm and lm.has_signal("locale_changed") and not lm.locale_changed.is_connected(_refresh_world_map_locale):
+		lm.locale_changed.connect(_refresh_world_map_locale)
+	queue_redraw()
+
+
+func _refresh_world_map_locale() -> void:
+	if _travel_event_dialog:
+		_travel_event_dialog.get_ok_button().text = tr("wm.roll_dice")
+	if _travel_outcome_dialog:
+		_travel_outcome_dialog.title = tr("wm.travel_outcome.title")
+		_travel_outcome_dialog.get_ok_button().text = tr("wm.ok")
+	if _dungeon_entry_dialog:
+		_dungeon_entry_dialog.title = tr("wm.dungeon_entry.title")
+		_dungeon_entry_dialog.dialog_text = tr("wm.dungeon_entry.body")
+		_dungeon_entry_dialog.get_ok_button().text = tr("wm.enter")
+		_dungeon_entry_dialog.get_cancel_button().text = tr("wm.cancel")
+	if _high_risk_move_dialog:
+		_high_risk_move_dialog.title = tr("wm.high_risk.title")
+		_high_risk_move_dialog.dialog_text = tr("wm.high_risk.body")
+		_high_risk_move_dialog.get_ok_button().text = tr("wm.take_risk")
+		_high_risk_move_dialog.get_cancel_button().text = tr("wm.wait")
+	if _settlement_aid_confirm_dialog:
+		_settlement_aid_confirm_dialog.get_cancel_button().text = tr("wm.cancel")
+	if _player_map_mission_window:
+		_player_map_mission_window.title = tr("wm.mission_player.title")
+	if _exp_pack_title_label:
+		_exp_pack_title_label.text = tr("wm.exp_pack.title")
+	if _exp_pack_hint_label:
+		_exp_pack_hint_label.text = tr("wm.exp_pack.hint")
+	for i in range(_exp_row_hboxes.size()):
+		var hb: HBoxContainer = _exp_row_hboxes[i]
+		if hb.get_child_count() > 0:
+			var tlab: Label = hb.get_child(0) as Label
+			if tlab and i < _EXP_PACK_TITLE_KEYS.size():
+				tlab.text = tr(_EXP_PACK_TITLE_KEYS[i])
+	_refresh_input_hints_bar()
+	_refresh_active_unit_markers()
+	_refresh_hex_hover_tooltip()
+	_update_status_label()
 	queue_redraw()
 
 func _ensure_world_map_hud_visible() -> void:
@@ -1095,9 +1137,9 @@ func _update_status_label(extra_line: String = "") -> void:
 	lines.append("Aktif gorev ekipleri: %d" % _active_unit_markers.size())
 	if _selected_unit_index >= 0 and _selected_unit_index < _active_unit_markers.size():
 		var selected_unit: Dictionary = _active_unit_markers[_selected_unit_index]
-		lines.append("Secili Ekip: %s (%s)" % [
-			String(selected_unit.get("cariye_name", "Ekip")),
-			String(selected_unit.get("mission_name", "Gorev"))
+		lines.append(tr("wm.status.selected_team") % [
+			String(selected_unit.get("cariye_name", tr("wm.status.team_default"))),
+			_resolve_marker_mission_name(selected_unit)
 		])
 	if _camera:
 		lines.append("Zoom: %.2f (%.2f–%.2f)" % [_camera.zoom.x, ZOOM_FARTHEST, ZOOM_CLOSEST])
@@ -1162,28 +1204,74 @@ func _build_living_world_status_line() -> String:
 	for i in range(min(2, visible_incidents.size())):
 		var incident: Dictionary = visible_incidents[i]
 		summary_parts.append("%s: %s" % [
-			String(incident.get("settlement_name", "?")),
+			_localize_settlement_name_from_incident(incident),
 			_format_incident_type_label(String(incident.get("type", "")))
 		])
-	var prefix: String = "Komsu durumu"
+	var prefix: String = tr("wm.alliance.neighbor_status")
 	if visible_incidents.size() > 2:
-		return "%s (%d aktif): %s ..." % [prefix, visible_incidents.size(), ", ".join(summary_parts)]
-	return "%s: %s" % [prefix, ", ".join(summary_parts)]
+		return tr("wm.alliance.neighbor_status_many") % [visible_incidents.size(), ", ".join(summary_parts)]
+	return tr("wm.alliance.neighbor_status_line") % ", ".join(summary_parts)
 
 func _format_incident_type_label(incident_type: String) -> String:
 	match incident_type:
 		"wolf_attack":
-			return "kurt baskini"
+			return tr("wm.incident.wolf_attack")
 		"harvest_failure":
-			return "kitlik"
+			return tr("wm.incident.harvest_failure")
 		"migrant_wave":
-			return "goc dalgasi"
+			return tr("wm.incident.migrant_wave")
 		"bandit_road":
-			return "yol haydutlari"
+			return tr("wm.incident.bandit_road")
 		"plague_scare":
-			return "hastalik kaygisi"
+			return tr("wm.incident.plague_scare")
 		_:
 			return incident_type
+
+func _format_terrain_type_label(terrain_type: String) -> String:
+	match terrain_type:
+		"orman":
+			return tr("wm.terrain.forest")
+		"dag":
+			return tr("wm.terrain.mountain")
+		"akarsu":
+			return tr("wm.terrain.river")
+		_:
+			return terrain_type
+
+func _get_settlement_tooltip_name(tile: Dictionary) -> String:
+	var sid: String = String(tile.get("settlement_id", ""))
+	if _world_manager != null and _world_manager.has_method("_get_settlement_display_name") and not sid.is_empty():
+		return String(_world_manager.call("_get_settlement_display_name", sid))
+	var stored: String = String(tile.get("settlement_name", "")).strip_edges()
+	if stored.is_empty():
+		return tr("wm.tooltip.neighbor.default")
+	return WorldSettlementNames.localize_name(stored)
+
+func _localize_settlement_name_from_incident(incident: Dictionary) -> String:
+	var sid: String = String(incident.get("settlement_id", ""))
+	if _world_manager != null and _world_manager.has_method("_get_settlement_display_name") and not sid.is_empty():
+		return String(_world_manager.call("_get_settlement_display_name", sid))
+	return WorldSettlementNames.localize_name(String(incident.get("settlement_name", "?")))
+
+func _localize_settlement_name_raw(stored: String, settlement_id: String = "") -> String:
+	if _world_manager != null and _world_manager.has_method("_get_settlement_display_name") and not settlement_id.is_empty():
+		return String(_world_manager.call("_get_settlement_display_name", settlement_id))
+	return WorldSettlementNames.localize_name(stored)
+
+func _resolve_marker_mission_name(marker: Dictionary) -> String:
+	var mid: String = String(marker.get("mission_id", ""))
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	if mm != null and not mid.is_empty() and "missions" in mm and mm.missions.has(mid):
+		var m: Mission = mm.missions[mid] as Mission
+		if m != null and mm.has_method("get_mission_display_name"):
+			return String(mm.call("get_mission_display_name", m))
+	return String(marker.get("mission_name", tr("wm.mission_player.default_name")))
+
+func _resolve_mission_name_from_entry(entry: Dictionary) -> String:
+	return _resolve_marker_mission_name({
+		"mission_id": String(entry.get("mission_id", "")),
+		"mission_name": String(entry.get("mission_name", tr("wm.mission_player.default_name")))
+	})
 
 func _setup_hex_hover_tooltip() -> void:
 	if not SHOW_WORLD_MAP_HEX_TOOLTIP:
@@ -1299,22 +1387,22 @@ func _build_world_mission_objective_tooltip_lines_at(q: int, r: int) -> PackedSt
 	var mid: String = String(marker.get("mission_id", ""))
 	var mm: Node = get_node_or_null("/root/MissionManager")
 	if mm == null or mid.is_empty() or not "missions" in mm:
-		return PackedStringArray(["Harita gorevi", String(marker.get("mission_name", "Gorev"))])
+		return PackedStringArray([tr("wm.tooltip.map_mission"), String(marker.get("mission_name", tr("wm.mission_player.default_name")))])
 	if not mm.missions.has(mid):
-		return PackedStringArray(["Harita gorevi", String(marker.get("mission_name", "Gorev"))])
+		return PackedStringArray([tr("wm.tooltip.map_mission"), String(marker.get("mission_name", tr("wm.mission_player.default_name")))])
 	var m: Mission = mm.missions[mid] as Mission
 	if m == null:
-		return PackedStringArray(["Harita gorevi", String(marker.get("mission_name", "Gorev"))])
+		return PackedStringArray([tr("wm.tooltip.map_mission"), String(marker.get("mission_name", tr("wm.mission_player.default_name")))])
 	var lines: PackedStringArray = PackedStringArray()
-	lines.append("Harita gorevi")
-	lines.append(String(m.name))
-	var desc: String = String(m.description).strip_edges()
+	lines.append(tr("wm.tooltip.map_mission"))
+	lines.append(mm.get_mission_display_name(m) if mm.has_method("get_mission_display_name") else String(m.name))
+	var desc: String = String(mm.get_mission_display_description(m) if mm.has_method("get_mission_display_description") else m.description).strip_edges()
 	if desc.length() > 160:
 		desc = desc.substr(0, 157) + "..."
 	if not desc.is_empty():
 		lines.append(desc)
-	lines.append("Tur: %s | Risk: %s" % [_format_mission_type_for_tooltip(m.mission_type), String(m.risk_level)])
-	lines.append("Basari sansi: %d%%" % clampi(int(round(float(m.success_chance) * 100.0)), 0, 100))
+	lines.append(tr("wm.tooltip.mission_meta") % [_format_mission_type_for_tooltip(m.mission_type), LocaleManager.get_risk_level_name(String(m.risk_level))])
+	lines.append(tr("wm.tooltip.success_chance") % clampi(int(round(float(m.success_chance) * 100.0)), 0, 100))
 	var reward_hint: String = _format_mission_rewards_penalties_hint(m)
 	if not reward_hint.is_empty():
 		lines.append(reward_hint)
@@ -1324,19 +1412,19 @@ func _format_mission_type_for_tooltip(mt: Variant) -> String:
 	var mi: int = int(mt)
 	match mi:
 		Mission.MissionType.SAVAŞ:
-			return "Savas"
+			return tr("mission.type.war")
 		Mission.MissionType.KEŞİF:
-			return "Kesif"
+			return tr("mission.type.exploration")
 		Mission.MissionType.DİPLOMASİ:
-			return "Diplomasi"
+			return tr("mission.type.diplomacy")
 		Mission.MissionType.TİCARET:
-			return "Ticaret"
+			return tr("mission.type.trade")
 		Mission.MissionType.İSTİHBARAT:
-			return "Istihbarat"
+			return tr("mission.type.intelligence")
 		Mission.MissionType.BÜROKRASİ:
-			return "Burokrasi"
+			return tr("mission.type.bureaucracy")
 		_:
-			return "Gorev"
+			return tr("wm.mission_player.default_name")
 
 func _format_mission_rewards_penalties_hint(m: Mission) -> String:
 	if m == null:
@@ -1345,25 +1433,25 @@ func _format_mission_rewards_penalties_hint(m: Mission) -> String:
 	if not m.rewards.is_empty():
 		var bits: PackedStringArray = PackedStringArray()
 		for k in m.rewards.keys():
-			bits.append("%s: %s" % [String(k), str(m.rewards[k])])
-		rp.append("Oduil: " + ", ".join(bits))
+			bits.append("%s: %s" % [LocaleManager.get_resource_name(str(k)), str(m.rewards[k])])
+		rp.append(tr("wm.tooltip.rewards") + ", ".join(bits))
 	if not m.penalties.is_empty():
 		var bits2: PackedStringArray = PackedStringArray()
 		for k2 in m.penalties.keys():
-			bits2.append("%s: %s" % [String(k2), str(m.penalties[k2])])
-		rp.append("Basarisiz: " + ", ".join(bits2))
+			bits2.append("%s: %s" % [LocaleManager.get_resource_name(str(k2)), str(m.penalties[k2])])
+		rp.append(tr("wm.tooltip.penalties") + ", ".join(bits2))
 	return " | ".join(rp)
 
 func _build_dungeon_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
 	var dn: String = String(tile.get("dungeon_name", "")).strip_edges()
 	if dn.is_empty():
-		dn = "Zindan girisi"
+		dn = tr("wm.tooltip.dungeon.default_name")
 	lines.append(dn)
-	lines.append("Zindana girmek icin bu hexe yuruyup Onayla.")
+	lines.append(tr("wm.tooltip.dungeon.enter_hint"))
 	var terr: String = String(tile.get("terrain_type", ""))
 	if not terr.is_empty():
-		lines.append("Arazi: %s" % terr)
+		lines.append(tr("wm.tooltip.terrain") % _format_terrain_type_label(terr))
 	return lines
 
 func _build_biome_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
@@ -1372,51 +1460,48 @@ func _build_biome_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 		return PackedStringArray()
 	if terrain == "orman":
 		return PackedStringArray([
-			"Orman bolgesi",
-			"Onayla: odun + yiyecek, duz chunklar."
+			tr("wm.tooltip.forest.title"),
+			tr("wm.tooltip.forest.hint")
 		])
 	if terrain == "dag":
 		return PackedStringArray([
-			"Dag bolgesi",
-			"Onayla: odun + tas, engebeli chunklar."
+			tr("wm.tooltip.mountain.title"),
+			tr("wm.tooltip.mountain.hint")
 		])
 	return PackedStringArray([
-		"Akarsu bolgesi",
-		"Onayla: su + yiyecek, duz chunklar."
+		tr("wm.tooltip.river.title"),
+		tr("wm.tooltip.river.hint")
 	])
 
 func _build_player_village_hex_tooltip_lines() -> PackedStringArray:
 	return PackedStringArray([
-		"Senin koyun",
-		"Koye girmek icin bu hexe yuruyup Onayla.",
+		tr("wm.tooltip.player_village.title"),
+		tr("wm.tooltip.player_village.hint"),
 	])
 
 func _build_neighbor_village_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
 	if not bool(tile.get("discovered", false)):
-		lines.append("Komsu yerlesim")
-		lines.append("Henuz kesfedilmedi; yakinlastikca acilir.")
+		lines.append(tr("wm.tooltip.neighbor.undiscovered.title"))
+		lines.append(tr("wm.tooltip.neighbor.undiscovered.hint"))
 		return lines
-	var sname: String = String(tile.get("settlement_name", "Bilinmeyen")).strip_edges()
+	lines.append(_get_settlement_tooltip_name(tile))
 	var sid: String = String(tile.get("settlement_id", ""))
-	if sname.is_empty():
-		sname = "Yerlesim"
-	lines.append(sname)
 	if _world_manager != null and "world_settlement_states" in _world_manager and not sid.is_empty():
 		var st_var: Variant = _world_manager.world_settlement_states.get(sid, {})
 		if st_var is Dictionary:
 			var st: Dictionary = st_var
 			if not st.is_empty():
-				lines.append("Nufus: ~%d" % int(st.get("population", 0)))
+				lines.append(tr("wm.tooltip.neighbor.population") % int(st.get("population", 0)))
 	if _world_manager != null and _world_manager.has_method("get_active_settlement_incident") and not sid.is_empty():
 		var inc_raw: Variant = _world_manager.call("get_active_settlement_incident", sid)
 		var inc: Dictionary = inc_raw as Dictionary if inc_raw is Dictionary else {}
 		if inc.is_empty():
-			lines.append("Kriz: yok")
+			lines.append(tr("wm.tooltip.neighbor.no_crisis"))
 		else:
 			var typ_lbl: String = _format_incident_type_label(String(inc.get("type", "")))
 			var sev: float = float(inc.get("severity", 1.0))
-			lines.append("Kriz: %s (siddet ~%.1f)" % [typ_lbl, sev])
+			lines.append(tr("wm.tooltip.neighbor.crisis") % [typ_lbl, sev])
 			var day: int = 0
 			var tm: Node = get_node_or_null("/root/TimeManager")
 			if tm != null and tm.has_method("get_day"):
@@ -1424,7 +1509,7 @@ func _build_neighbor_village_hex_tooltip_lines(tile: Dictionary) -> PackedString
 			var ends: int = int(inc.get("started_day", 0)) + int(inc.get("duration", 0))
 			var left: int = maxi(0, ends - day)
 			if left > 0:
-				lines.append("Tahmini kalan: %d gun" % left)
+				lines.append(tr("wm.tooltip.neighbor.days_left") % left)
 	return lines
 
 func _build_alliance_status_line() -> String:
@@ -1448,13 +1533,14 @@ func _build_alliance_status_line() -> String:
 				continue
 			if not bool(entry.get("aid_call_active", false)):
 				continue
-			var name: String = String(entry.get("settlement_name", "?"))
-			var reason: String = String(entry.get("aid_call_reason", "kriz"))
+			var sid: String = String(entry.get("settlement_id", ""))
+			var name: String = _localize_settlement_name_raw(String(entry.get("settlement_name", "?")), sid)
+			var reason: String = String(entry.get("aid_call_reason", tr("wm.alliance.aid_reason.crisis")))
 			crisis_calls.append("%s (%s)" % [name, reason])
 		if crisis_calls.is_empty():
-			parts.append("Muttefikler: %d (sakin)" % alliances.size())
+			parts.append(tr("wm.alliance.allies_calm") % alliances.size())
 		else:
-			parts.append("Muttefik yardim cagrisi: %s" % ", ".join(crisis_calls))
+			parts.append(tr("wm.alliance.aid_call") % ", ".join(crisis_calls))
 		# Gunluk tribute tahmini (sadece eligible muttefik varsa goster)
 		if _world_manager.has_method("get_estimated_daily_alliance_tribute"):
 			var trib: Dictionary = _world_manager.call("get_estimated_daily_alliance_tribute")
@@ -1463,19 +1549,20 @@ func _build_alliance_status_line() -> String:
 				var gold: int = int(trib.get("gold", 0))
 				var food_avg: float = float(trib.get("food_avg", 0.0))
 				if food_avg >= 0.5:
-					parts.append("Tribute: ~%d altin + ~%.1f erzak/gun (%d/%d)" % [gold, food_avg, elig, alliances.size()])
+					parts.append(tr("wm.alliance.tribute_full") % [gold, food_avg, elig, alliances.size()])
 				else:
-					parts.append("Tribute: ~%d altin/gun (%d/%d)" % [gold, elig, alliances.size()])
+					parts.append(tr("wm.alliance.tribute_gold") % [gold, elig, alliances.size()])
 	if has_hostile:
 		var hostile_names: PackedStringArray = PackedStringArray()
 		for h in hostile:
 			if h is Dictionary:
-				hostile_names.append(String(h.get("settlement_name", "?")))
+				var hsid: String = String(h.get("settlement_id", ""))
+				hostile_names.append(_localize_settlement_name_raw(String(h.get("settlement_name", "?")), hsid))
 		if not hostile_names.is_empty():
 			if hostile_names.size() <= 3:
-				parts.append("Dusman koyler: %s" % ", ".join(hostile_names))
+				parts.append(tr("wm.alliance.hostile_short") % ", ".join(hostile_names))
 			else:
-				parts.append("Dusman koyler: %d (%s ...)" % [hostile_names.size(), ", ".join(hostile_names.slice(0, 3))])
+				parts.append(tr("wm.alliance.hostile_long") % [hostile_names.size(), ", ".join(hostile_names.slice(0, 3))])
 	return " | ".join(parts)
 
 func _build_role_buffs_status_line() -> String:
@@ -2424,7 +2511,7 @@ func _draw_active_unit_markers() -> void:
 		# Show compact labels only for teams close to current cursor tile.
 		if abs(cq - _cursor_q) <= 1 and abs(cr - _cursor_r) <= 1:
 			var name: String = String(marker.get("cariye_name", "Ekip"))
-			var mname: String = String(marker.get("mission_name", "Gorev"))
+			var mname: String = _resolve_marker_mission_name(marker)
 			var prefix: String = "↩ " if unit_type == "returning_team" else "→ "
 			label_lines.append("%s%s: %s" % [prefix, name, mname])
 	if not label_lines.is_empty():
@@ -2474,15 +2561,15 @@ func _try_resolve_player_map_missions_at(q: int, r: int) -> void:
 		if rep is Dictionary:
 			var n2: int = int(rep.get("done", 0))
 			if n2 > 0:
-				_update_status_label("%d gorev hedefte tamamlandi." % n2)
+				_update_status_label(tr("wm.status.missions_completed_at_hex") % n2)
 				var body: String = _format_player_map_mission_entries_for_popup(rep.get("entries", []))
-				_show_travel_outcome_popup(body, "Gorev Sonucu", false)
+				_show_travel_outcome_popup(body, tr("wm.mission_result.title"), false)
 				queue_redraw()
 				return
 	if mm.has_method("try_complete_player_missions_at_hex"):
 		var n: int = int(mm.call("try_complete_player_missions_at_hex", q, r))
 		if n > 0:
-			_update_status_label("%d gorev hedefte tamamlandi." % n)
+			_update_status_label(tr("wm.status.missions_completed_at_hex") % n)
 			queue_redraw()
 
 func _cycle_selected_unit(step: int) -> void:
@@ -2527,9 +2614,9 @@ func _setup_travel_event_dialog() -> void:
 	_travel_event_dialog.exclusive = true
 	_travel_event_dialog.min_size = Vector2i(560, 340)
 	_travel_event_dialog.size = Vector2i(560, 340)
-	_travel_event_dialog.title = "Yolculuk Olayi"
+	_travel_event_dialog.title = tr("wm.travel_event.title")
 	_travel_event_dialog.dialog_text = ""
-	_travel_event_dialog.get_ok_button().text = "Zar At"
+	_travel_event_dialog.get_ok_button().text = tr("wm.roll_dice")
 	_travel_event_dialog.confirmed.connect(_on_travel_event_roll_dice)
 	var content := VBoxContainer.new()
 	content.name = "TravelDiceContent"
@@ -2578,9 +2665,9 @@ func _setup_travel_outcome_dialog() -> void:
 	_travel_outcome_dialog = AcceptDialog.new()
 	if MEDIEVAL_THEME:
 		_travel_outcome_dialog.theme = MEDIEVAL_THEME
-	_travel_outcome_dialog.title = "Yol sonucu"
+	_travel_outcome_dialog.title = tr("wm.travel_outcome.title")
 	_travel_outcome_dialog.dialog_text = ""
-	_travel_outcome_dialog.get_ok_button().text = "Tamam"
+	_travel_outcome_dialog.get_ok_button().text = tr("wm.ok")
 	if not _travel_outcome_dialog.visibility_changed.is_connected(_on_travel_outcome_visibility_changed):
 		_travel_outcome_dialog.visibility_changed.connect(_on_travel_outcome_visibility_changed)
 	var layer_o: CanvasLayer = get_node_or_null("CanvasLayer")
@@ -2596,7 +2683,7 @@ func _on_travel_outcome_visibility_changed() -> void:
 		_travel_resume_after_outcome_ack = false
 		_confirm_move_to_cursor()
 
-func _show_travel_outcome_popup(body: String, title: String = "Yol sonucu", resume_travel_after_ack: bool = false) -> void:
+func _show_travel_outcome_popup(body: String, title: String = "", resume_travel_after_ack: bool = false) -> void:
 	if body.strip_edges().is_empty():
 		return
 	if _travel_outcome_dialog == null:
@@ -2604,11 +2691,11 @@ func _show_travel_outcome_popup(body: String, title: String = "Yol sonucu", resu
 	if _travel_outcome_dialog == null:
 		return
 	_travel_resume_after_outcome_ack = resume_travel_after_ack
-	_travel_outcome_dialog.title = title
+	_travel_outcome_dialog.title = title if not title.is_empty() else tr("wm.travel_outcome.title")
 	_travel_outcome_dialog.dialog_text = body.strip_edges()
 	_travel_outcome_dialog.popup_centered(Vector2i(540, 380))
 
-func _show_travel_outcome_popup_or_resume_travel(body: String, title: String = "Yol sonucu") -> void:
+func _show_travel_outcome_popup_or_resume_travel(body: String, title: String = "") -> void:
 	if body.strip_edges().is_empty():
 		_confirm_move_to_cursor()
 	else:
@@ -2649,7 +2736,7 @@ func _on_travel_event_roll_dice() -> void:
 	var ok_btn: Button = _travel_event_dialog.get_ok_button() if _travel_event_dialog else null
 	if ok_btn:
 		ok_btn.disabled = true
-		ok_btn.text = "Atiliyor..."
+		ok_btn.text = tr("wm.rolling")
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var final_d1: int = rng.randi_range(1, 6)
@@ -2675,7 +2762,7 @@ func _on_travel_event_roll_dice() -> void:
 		_travel_event_result_label.text = outcome_body
 	if ok_btn:
 		ok_btn.disabled = false
-		ok_btn.text = "Devam"
+		ok_btn.text = tr("wm.continue")
 		ok_btn.grab_focus()
 
 func _apply_travel_event_dialog_content(event_data: Dictionary) -> void:
@@ -2688,19 +2775,16 @@ func _apply_travel_event_dialog_content(event_data: Dictionary) -> void:
 		msg = msg.substr(0, 120) + "..."
 	var cargo_mult: float = float(event_data.get("cargo_risk_multiplier", 1.0))
 	_travel_event_dialog.title = headline
-	_travel_event_intro_text = (
-		"%s\n\n"
-		+ "Yuk riski carpani: x%.2f"
-	) % [msg, cargo_mult]
+	_travel_event_intro_text = tr("wm.travel_event.cargo_risk") % [msg, cargo_mult]
 	if _travel_event_info_label:
-		_travel_event_info_label.text = _travel_event_intro_text + "\n\nZar At."
+		_travel_event_info_label.text = _travel_event_intro_text + "\n\n" + tr("wm.roll_dice") + "."
 	if _travel_event_result_label:
 		_travel_event_result_label.text = ""
 	_set_travel_event_dice_preview(1, 1, false)
 	var ok_btn: Button = _travel_event_dialog.get_ok_button()
 	if ok_btn:
 		ok_btn.disabled = false
-		ok_btn.text = "Zar At"
+		ok_btn.text = tr("wm.roll_dice")
 		_apply_button_risk_color(ok_btn, "Orta")
 
 func _dice_face_glyph(v: int) -> String:
@@ -2888,10 +2972,10 @@ func _setup_dungeon_entry_dialog() -> void:
 	_dungeon_entry_dialog = ConfirmationDialog.new()
 	if MEDIEVAL_THEME:
 		_dungeon_entry_dialog.theme = MEDIEVAL_THEME
-	_dungeon_entry_dialog.title = "Zindan Girisi"
-	_dungeon_entry_dialog.dialog_text = "Zindan hexine vardin. Zindana girmek istiyor musun?"
-	_dungeon_entry_dialog.get_ok_button().text = "Gir"
-	_dungeon_entry_dialog.get_cancel_button().text = "Vazgec"
+	_dungeon_entry_dialog.title = tr("wm.dungeon_entry.title")
+	_dungeon_entry_dialog.dialog_text = tr("wm.dungeon_entry.body")
+	_dungeon_entry_dialog.get_ok_button().text = tr("wm.enter")
+	_dungeon_entry_dialog.get_cancel_button().text = tr("wm.cancel")
 	_dungeon_entry_dialog.confirmed.connect(_on_dungeon_entry_confirmed)
 	_dungeon_entry_dialog.canceled.connect(_on_dungeon_entry_canceled)
 	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
@@ -2918,7 +3002,7 @@ func _on_dungeon_entry_confirmed() -> void:
 		scene_manager.change_to_dungeon({"source": "world_map"})
 
 func _on_dungeon_entry_canceled() -> void:
-	_update_status_label("Zindan girisi iptal edildi.")
+	_update_status_label(tr("wm.dungeon_entry.cancelled"))
 
 func _setup_high_risk_move_dialog() -> void:
 	if _high_risk_move_dialog != null:
@@ -2926,10 +3010,10 @@ func _setup_high_risk_move_dialog() -> void:
 	_high_risk_move_dialog = ConfirmationDialog.new()
 	if MEDIEVAL_THEME:
 		_high_risk_move_dialog.theme = MEDIEVAL_THEME
-	_high_risk_move_dialog.title = "Tehlikeli Rota Uyarisi"
-	_high_risk_move_dialog.dialog_text = "Bu rota riskli. Emin misin?"
-	_high_risk_move_dialog.get_ok_button().text = "Riske Gir"
-	_high_risk_move_dialog.get_cancel_button().text = "Bekle"
+	_high_risk_move_dialog.title = tr("wm.high_risk.title")
+	_high_risk_move_dialog.dialog_text = tr("wm.high_risk.body")
+	_high_risk_move_dialog.get_ok_button().text = tr("wm.take_risk")
+	_high_risk_move_dialog.get_cancel_button().text = tr("wm.wait")
 	_high_risk_move_dialog.confirmed.connect(_on_high_risk_move_confirmed)
 	_high_risk_move_dialog.canceled.connect(_on_high_risk_move_canceled)
 	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
@@ -2942,7 +3026,7 @@ func _on_high_risk_move_confirmed() -> void:
 	_execute_travel_to_cursor()
 
 func _on_high_risk_move_canceled() -> void:
-	_update_status_label("Tehlikeli rota iptal edildi.")
+	_update_status_label(tr("wm.high_risk.cancelled"))
 
 var _pending_aid_option: Dictionary = {}
 var _pending_war_support_option: Dictionary = {}
@@ -3375,10 +3459,10 @@ func _setup_settlement_aid_confirm_dialog() -> void:
 	_settlement_aid_confirm_dialog = ConfirmationDialog.new()
 	if MEDIEVAL_THEME:
 		_settlement_aid_confirm_dialog.theme = MEDIEVAL_THEME
-	_settlement_aid_confirm_dialog.title = "Yardim Onayi"
-	_settlement_aid_confirm_dialog.dialog_text = "Yardim gondermek istedigine emin misin?"
-	_settlement_aid_confirm_dialog.get_ok_button().text = "Yardim Gonder"
-	_settlement_aid_confirm_dialog.get_cancel_button().text = "Vazgec"
+	_settlement_aid_confirm_dialog.title = tr("wm.aid_confirm.title")
+	_settlement_aid_confirm_dialog.dialog_text = tr("wm.aid_confirm.body")
+	_settlement_aid_confirm_dialog.get_ok_button().text = tr("wm.send_aid")
+	_settlement_aid_confirm_dialog.get_cancel_button().text = tr("wm.cancel")
 	_settlement_aid_confirm_dialog.confirmed.connect(_on_settlement_aid_confirmed)
 	_settlement_aid_confirm_dialog.canceled.connect(_on_settlement_aid_canceled)
 	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
@@ -3391,7 +3475,7 @@ func _setup_player_map_mission_window() -> void:
 	if _player_map_mission_window != null:
 		return
 	var w := Window.new()
-	w.title = "Görev — oyuncu seçimi"
+	w.title = tr("wm.mission_player.title")
 	w.unresizable = true
 	w.size = Vector2i(560, 440)
 	w.transient = true
@@ -3436,15 +3520,11 @@ func _format_resource_cost_for_map_ui(cost: Dictionary) -> String:
 	if cost.is_empty():
 		return ""
 	var parts: PackedStringArray = PackedStringArray()
-	var name_map := {
-		"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su",
-		"medicine": "İlaç", "gold": "Altın", "bread": "Ekmek", "cloth": "Kumaş"
-	}
 	for k in cost.keys():
 		var amount: int = int(cost[k])
 		if amount <= 0:
 			continue
-		var label: String = str(name_map.get(str(k), str(k)))
+		var label: String = LocaleManager.get_resource_name(str(k))
 		parts.append("%d %s" % [amount, label])
 	return ", ".join(parts)
 
@@ -3455,8 +3535,8 @@ func _format_mission_strategy_button_label(row: Dictionary) -> String:
 	var pct: int = int(round(clampf(chance, 0.0, 1.0) * 100.0))
 	var cost_str: String = _format_resource_cost_for_map_ui(cost)
 	if cost_str.is_empty():
-		return "%s (~%%%d başarı)" % [txt, pct]
-	return "%s\n→ %s • ~%%%d başarı" % [txt, cost_str, pct]
+		return tr("wm.mission_strategy.no_cost") % [txt, pct]
+	return tr("wm.mission_strategy.with_cost") % [txt, cost_str, pct]
 
 func _fill_player_map_mission_window(entry: Variant) -> void:
 	if _player_map_mission_vbox == null:
@@ -3466,12 +3546,12 @@ func _fill_player_map_mission_window(entry: Variant) -> void:
 		return
 	var ed: Dictionary = entry
 	var title := Label.new()
-	title.text = str(ed.get("mission_name", "Görev"))
+	title.text = _resolve_mission_name_from_entry(ed)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.focus_mode = Control.FOCUS_NONE
 	_player_map_mission_vbox.add_child(title)
 	var sub := Label.new()
-	sub.text = "Köyden kaynak harcayarak bir yöntem seç. Başarı şansı yaklaşıktır; başarısızlıkta cezalar uygulanır."
+	sub.text = tr("wm.mission_player.subtitle")
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sub.modulate = Color(0.85, 0.9, 0.95, 1.0)
 	sub.focus_mode = Control.FOCUS_NONE
@@ -3490,7 +3570,7 @@ func _fill_player_map_mission_window(entry: Variant) -> void:
 		btn.pressed.connect(_on_player_map_mission_strategy_chosen.bind(mission_id, idx))
 		_player_map_mission_vbox.add_child(btn)
 	var cancel_btn := Button.new()
-	cancel_btn.text = "Vazgeç (şimdilik yapma)"
+	cancel_btn.text = tr("wm.mission_player.cancel")
 	cancel_btn.focus_mode = Control.FOCUS_ALL
 	cancel_btn.pressed.connect(_on_player_map_mission_cancel_pressed)
 	_player_map_mission_vbox.add_child(cancel_btn)
@@ -3547,7 +3627,7 @@ func _on_player_map_mission_strategy_chosen(mission_id: String, strategy_index: 
 		_player_map_mission_window.hide()
 	var res: Dictionary = mm.call("resolve_player_map_mission_with_strategy", mission_id, strategy_index, _player_map_mission_pending_q, _player_map_mission_pending_r)
 	if not bool(res.get("ok", false)):
-		_update_status_label(str(res.get("reason", "İşlem yapılamadı.")))
+		_update_status_label(str(res.get("reason", tr("wm.mission.resolve.failed"))))
 		if mm.has_method("get_player_map_strategy_missions_at_hex"):
 			var left: Variant = mm.call("get_player_map_strategy_missions_at_hex", _player_map_mission_pending_q, _player_map_mission_pending_r)
 			if left is Array and left.size() > 0:
@@ -3559,13 +3639,13 @@ func _on_player_map_mission_strategy_chosen(mission_id: String, strategy_index: 
 			_finish_player_map_mission_flow_and_legacy()
 		return
 	var ok_succ: bool = bool(res.get("successful", false))
-	_update_status_label("Görev başarılı." if ok_succ else "Görev başarısız; harcadığın kaynak geri dönmez.")
+	_update_status_label(tr("wm.mission.resolve.success") if ok_succ else tr("wm.mission.resolve.failure"))
 	var one_entry: Dictionary = {}
 	if res.get("resolution_entry") is Dictionary:
 		one_entry = res.get("resolution_entry")
 	var body_entry: String = _format_player_map_mission_entries_for_popup([one_entry] if not one_entry.is_empty() else [])
 	if not body_entry.is_empty():
-		_show_travel_outcome_popup(body_entry, "Gorev Sonucu", false)
+		_show_travel_outcome_popup(body_entry, tr("wm.mission_result.title"), false)
 	if mm.has_method("get_player_map_strategy_missions_at_hex"):
 		var left2: Variant = mm.call("get_player_map_strategy_missions_at_hex", _player_map_mission_pending_q, _player_map_mission_pending_r)
 		if left2 is Array and left2.size() > 0:
@@ -3587,26 +3667,26 @@ func _format_player_map_mission_entries_for_popup(entries_raw: Variant) -> Strin
 		if not (e is Dictionary):
 			continue
 		var d: Dictionary = e
-		var nm: String = String(d.get("mission_name", "Gorev"))
+		var nm: String = _resolve_mission_name_from_entry(d)
 		var ok: bool = bool(d.get("successful", false))
-		lines.append("%s — %s" % [nm, ("Basarili" if ok else "Basarisiz")])
+		lines.append(tr("wm.mission_result.line") % [nm, tr("wm.mission_result.success_short") if ok else tr("wm.mission_result.fail_short")])
 		var gold_delta: int = int(d.get("gold_delta", 0))
 		if gold_delta > 0:
-			lines.append("  Sefer altini: +%d" % gold_delta)
+			lines.append(tr("wm.mission_result.expedition_gold_plus") % gold_delta)
 		elif gold_delta < 0:
-			lines.append("  Sefer altini: %d" % gold_delta)
+			lines.append(tr("wm.mission_result.expedition_gold_minus") % gold_delta)
 		var ex: Variant = d.get("expedition_rewards", {})
 		if ex is Dictionary and not (ex as Dictionary).is_empty():
 			var ex_parts: PackedStringArray = PackedStringArray()
 			for k in (ex as Dictionary).keys():
 				var v: int = int((ex as Dictionary)[k])
 				if v > 0:
-					ex_parts.append("%s +%d" % [str(k), v])
+					ex_parts.append("%s +%d" % [LocaleManager.get_resource_name(str(k)), v])
 			if not ex_parts.is_empty():
-				lines.append("  Canta odulu: " + ", ".join(ex_parts))
+				lines.append(tr("wm.mission_result.pack_reward") + ", ".join(ex_parts))
 		var hp_loss: float = float(d.get("hp_loss", 0.0))
 		if hp_loss > 0.0:
-			lines.append("  Can kaybi: -%.0f" % hp_loss)
+			lines.append(tr("wm.mission_result.hp_loss") % hp_loss)
 	if lines.is_empty():
 		return ""
 	return "\n".join(lines)
@@ -3798,21 +3878,23 @@ func _setup_expedition_pack_modal() -> void:
 	v.add_theme_constant_override("separation", 10)
 	margin.add_child(v)
 	var title := Label.new()
-	title.text = "Köyden erzak"
+	title.text = tr("wm.exp_pack.title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.focus_mode = Control.FOCUS_NONE
 	v.add_child(title)
+	_exp_pack_title_label = title
 	var hint := Label.new()
-	hint.text = "Yukari/Asagi: satir | Sol/Sag: miktar (basili tut: hizlanir) | Enter: Yanima al | Esc: Kapat\nFare ile kapatma yok. Yolda olaylar bu cantayi etkiler; kasa altini ayri."
+	hint.text = tr("wm.exp_pack.hint")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.focus_mode = Control.FOCUS_NONE
 	v.add_child(hint)
+	_exp_pack_hint_label = hint
 	_exp_row_hboxes.clear()
-	for i in range(_EXP_PACK_TITLES.size()):
+	for i in range(_EXP_PACK_TITLE_KEYS.size()):
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 12)
 		var tlab := Label.new()
-		tlab.text = _EXP_PACK_TITLES[i]
+		tlab.text = tr(_EXP_PACK_TITLE_KEYS[i])
 		tlab.custom_minimum_size.x = 200
 		tlab.focus_mode = Control.FOCUS_NONE
 		hb.add_child(tlab)
@@ -4065,17 +4147,7 @@ func _get_current_day() -> int:
 	return 1
 
 func _format_resource_name_tr(type_id: String) -> String:
-	match type_id:
-		"wood":
-			return "Odun"
-		"stone":
-			return "Tas"
-		"water":
-			return "Su"
-		"food":
-			return "Erzak"
-		_:
-			return type_id
+	return LocaleManager.get_resource_name(type_id)
 
 func _format_travel_outcome_for_player(resolution: Dictionary, include_choice_line: bool = true) -> String:
 	var lines: PackedStringArray = PackedStringArray()
@@ -4087,48 +4159,48 @@ func _format_travel_outcome_for_player(resolution: Dictionary, include_choice_li
 				var d2: int = int(resolution.get("dice_d2", 0))
 				var ds: int = int(resolution.get("dice_sum", 0))
 				if d1 > 0 and d2 > 0:
-					lines.append("Zar: [%d] + [%d] = %d" % [d1, d2, ds])
+					lines.append(tr("wm.outcome.dice") % [d1, d2, ds])
 			"continue":
-				lines.append("Karar: Devam ettin.")
+				lines.append(tr("wm.outcome.choice_continue"))
 			"cancel":
-				lines.append("Karar: Geri donme.")
+				lines.append(tr("wm.outcome.choice_cancel"))
 			"drop":
-				lines.append("Karar: Yuk biraktin.")
+				lines.append(tr("wm.outcome.choice_drop"))
 			_:
 				pass
 	var extra_minutes: int = int(resolution.get("extra_minutes", 0))
 	if extra_minutes > 0:
-		lines.append("Sure: +%d dk (oyun zamani ilerledi)." % extra_minutes)
+		lines.append(tr("wm.outcome.extra_time") % extra_minutes)
 	var card_text: String = String(resolution.get("card_text", ""))
 	if not card_text.is_empty():
-		lines.append("Olay: %s" % card_text)
+		lines.append(tr("wm.outcome.event") % card_text)
 	var gold_delta: int = int(resolution.get("gold_delta", 0))
 	if gold_delta != 0:
 		if gold_delta > 0:
-			lines.append("Sefer altini (canta): +%d." % gold_delta)
+			lines.append(tr("wm.outcome.gold_gain") % gold_delta)
 		else:
-			lines.append("Sefer altini (canta): %d." % gold_delta)
+			lines.append(tr("wm.outcome.gold_loss") % gold_delta)
 	var world_gold_lost: int = int(resolution.get("world_gold_lost", 0))
 	if world_gold_lost > 0:
-		lines.append("Sefer altini kaybi: -%d." % world_gold_lost)
+		lines.append(tr("wm.outcome.world_gold_lost") % world_gold_lost)
 	var ex_f: int = int(resolution.get("expedition_food_gained", 0))
 	var ex_w: int = int(resolution.get("expedition_water_gained", 0))
 	var ex_m: int = int(resolution.get("expedition_medicine_gained", 0))
 	if ex_f > 0 or ex_w > 0 or ex_m > 0:
 		var ex_parts: PackedStringArray = PackedStringArray()
 		if ex_f > 0:
-			ex_parts.append("yiyecek +%d" % ex_f)
+			ex_parts.append(tr("wm.outcome.food_gain") % ex_f)
 		if ex_w > 0:
-			ex_parts.append("su +%d" % ex_w)
+			ex_parts.append(tr("wm.outcome.water_gain") % ex_w)
 		if ex_m > 0:
-			ex_parts.append("ilac +%d" % ex_m)
-		lines.append("Yol cantasi (yolda): " + ", ".join(ex_parts))
+			ex_parts.append(tr("wm.outcome.medicine_gain") % ex_m)
+		lines.append(tr("wm.outcome.expedition_pack") % ", ".join(ex_parts))
 	var dungeon_gold_lost: int = int(resolution.get("dungeon_gold_lost", 0))
 	if dungeon_gold_lost > 0:
-		lines.append("Tasidigin zindan altini: -%d." % dungeon_gold_lost)
+		lines.append(tr("wm.outcome.dungeon_gold_lost") % dungeon_gold_lost)
 	var health_lost: float = float(resolution.get("health_lost", 0.0))
 	if health_lost > 0.0:
-		lines.append("Can kaybi: ~%.0f." % health_lost)
+		lines.append(tr("wm.outcome.health_lost") % health_lost)
 	var carried_losses: Variant = resolution.get("carried_losses", {})
 	if carried_losses is Dictionary and not carried_losses.is_empty():
 		var resource_parts: PackedStringArray = PackedStringArray()
@@ -4137,17 +4209,17 @@ func _format_travel_outcome_for_player(resolution: Dictionary, include_choice_li
 			if amount > 0:
 				resource_parts.append("%s -%d" % [_format_resource_name_tr(String(res_type)), amount])
 		if not resource_parts.is_empty():
-			lines.append("Tasinan kaynak: " + ", ".join(resource_parts))
+			lines.append(tr("wm.outcome.carried_resources") % ", ".join(resource_parts))
 	var rescued_losses: Variant = resolution.get("rescued_losses", {})
 	if rescued_losses is Dictionary:
 		var v_loss: int = int(rescued_losses.get("villagers", 0))
 		var c_loss: int = int(rescued_losses.get("cariyes", 0))
 		if v_loss > 0 or c_loss > 0:
-			lines.append("Kurtarilanlar: %d koylu; %d cariye geride kaldi." % [v_loss, c_loss])
+			lines.append(tr("wm.outcome.rescued_losses") % [v_loss, c_loss])
 	if lines.is_empty():
-		return "Net kayip gorunmuyor (veya risk sifirdi)."
+		return tr("wm.outcome.no_loss")
 	if include_choice_line and lines.size() == 1:
-		return lines[0] + "\nSayilabilir kayip yok."
+		return lines[0] + "\n" + tr("wm.outcome.no_measurable_loss")
 	return "\n".join(lines)
 
 func _format_travel_event_resolution_text(resolution: Dictionary) -> String:
@@ -4248,7 +4320,7 @@ func _refresh_tutorial_map_marker() -> void:
 			if not dpos.is_empty():
 				_tutorial_marker_q = int(dpos.get("q", 0))
 				_tutorial_marker_r = int(dpos.get("r", 0))
-				_tutorial_marker_label = "ZİNDAN"
+				_tutorial_marker_label = tr("wm.tutorial_marker.dungeon")
 				_tutorial_marker_is_village = false
 				_tutorial_marker_is_dungeon = true
 				_tutorial_marker_active = true
@@ -4269,7 +4341,7 @@ func _refresh_tutorial_map_marker() -> void:
 		var vpos: Dictionary = wm.get_player_village_hex_coords()
 		_tutorial_marker_q = int(vpos.get("q", 0))
 		_tutorial_marker_r = int(vpos.get("r", 0))
-		_tutorial_marker_label = "KÖY"
+		_tutorial_marker_label = tr("wm.tutorial_marker.village")
 		_tutorial_marker_is_village = true
 		_tutorial_marker_active = true
 		queue_redraw()
@@ -4299,7 +4371,7 @@ func _refresh_tutorial_map_marker() -> void:
 			best_r = tr
 	_tutorial_marker_q = best_q
 	_tutorial_marker_r = best_r
-	_tutorial_marker_label = "ORMAN"
+	_tutorial_marker_label = tr("wm.tutorial_marker.forest")
 	_tutorial_marker_is_village = false
 	_tutorial_marker_active = best_dist < INF
 	queue_redraw()
@@ -4376,15 +4448,15 @@ func _refresh_input_hints_bar() -> void:
 		return
 	var parts: Array[String] = []
 	if _world_map_hints_use_gamepad:
-		parts.append("Hareket: D-Pad")
-		parts.append("Yürü: A")
-		parts.append("Hex'e Gir: Y")
-		parts.append("Geri: B")
-		parts.append("Menü: Start")
+		parts.append(tr("wm.hints.move_gamepad"))
+		parts.append(tr("wm.hints.walk_gamepad"))
+		parts.append(tr("wm.hints.enter_hex_gamepad"))
+		parts.append(tr("wm.hints.back_gamepad"))
+		parts.append(tr("wm.hints.menu_gamepad"))
 	else:
-		parts.append("Hareket: %s" % im.get_tutorial_map_move_hint())
-		parts.append("Yürü: %s" % im.get_tutorial_map_confirm_hint())
-		parts.append("Hex'e Gir: %s" % im.get_action_key_name(&"attack_heavy"))
-		parts.append("Geri: %s" % im.get_action_key_name(&"open_world_map"))
-		parts.append("Menü: ESC")
+		parts.append(tr("wm.hints.move") % im.get_tutorial_map_move_hint())
+		parts.append(tr("wm.hints.walk") % im.get_tutorial_map_confirm_hint())
+		parts.append(tr("wm.hints.enter_hex") % im.get_action_key_name(&"attack_heavy"))
+		parts.append(tr("wm.hints.back") % im.get_action_key_name(&"open_world_map"))
+		parts.append(tr("wm.hints.menu"))
 	_wm_input_hints_label.text = "    ".join(parts)

@@ -1,0 +1,942 @@
+keys,tr,en
+menu.subtitle,Köy & Keşif Beta,Village & Expedition Beta
+menu.new_game,Yeni Oyun,New Game
+menu.load_game,Oyunu Yükle,Load Game
+menu.settings,Ayarlar,Settings
+menu.quit,Çıkış,Quit
+settings.title,Ayarlar,Settings
+settings.tab.audio,Ses,Audio
+settings.tab.video,Görüntü,Video
+settings.tab.game,Oyun,Game
+settings.tab.controls,Kontroller,Controls
+settings.audio.master,Ana Ses,Master Volume
+settings.audio.music,Müzik Ses,Music Volume
+settings.audio.sfx,Efekt Sesleri,SFX Volume
+settings.volume_format,%s: %d%%,%s: %d%%
+settings.video.fullscreen,Tam Ekran,Fullscreen
+settings.video.vsync,VSync,VSync
+settings.game.show_damage,Hasar Sayıları Göster,Show Damage Numbers
+settings.game.show_fps,FPS Göster,Show FPS
+settings.game.camera_shake,Kamera Titreşimi,Camera Shake
+settings.game.language,Dil,Language
+settings.controls.preset_label,Kontrol Preset'i,Control Preset
+settings.controls.preset_wasd,WASD + Numpad,WASD + Numpad
+settings.controls.preset_arrows,Ok Tuşları + QWEASD,Arrow Keys + QWEASD
+settings.controls.preset_help,WASD + Numpad veya Ok Tuşları + QWEASD arasında geçiş yapabilirsin.,Switch between WASD + Numpad or Arrow Keys + QWEASD.
+settings.apply,Uygula,Apply
+settings.reset,Varsayılan,Defaults
+settings.back,Geri,Back
+settings.hint,[←/→] Değer | [Tab] Geçiş | [Q/E] Sekme | [ESC] Geri,[←/→] Value | [Tab] Move | [Q/E] Tab | [ESC] Back
+pause.title,Oyun Duraklatıldı,Game Paused
+pause.resume,Devam Et,Resume
+pause.save,Kaydet,Save
+pause.load,Yükle,Load
+pause.main_menu,Ana Menü,Main Menu
+pause.confirm_main_menu_title,Ana Menüye Dön,Return to Main Menu
+pause.confirm_main_menu_message,"Ana menüye dönmek istediğinizden emin misiniz?\n(Kaydedilmemiş ilerleme kaybolabilir)","Are you sure you want to return to the main menu?\n(Unsaved progress may be lost.)"
+pause.save_success_title,Başarılı,Success
+pause.save_success_message,Oyun slot %d'ye kaydedildi!,Game saved to slot %d!
+profile.new_game_title,Yeni oyun,New Game
+profile.new_game_sub,Bu bilgisayarda üç ayrı oyuncu profili vardır. Her profilin kayıtları birbirinden bağımsızdır.,This computer has three player profiles. Each profile's saves are independent.
+profile.load_title,Oyuncu profili,Player Profile
+profile.load_sub,Hangi profildeki kayıtları yüklemek istiyorsun?,Which profile's saves do you want to load?
+profile.card_name,Profil %d,Profile %d
+profile.select_button,Bu profili seç,Select this profile
+profile.back,Geri,Back
+profile.saved_slots,Kayıtlı slot: %d / 5,Saved slots: %d / 5
+profile.latest_save,Son kayıt: %s,Latest save: %s
+profile.longest_play,En uzun oyun: %s,Longest playtime: %s
+profile.total_playtime,Slotlar toplam süre: %s,Total slot playtime: %s
+profile.no_saves_line1,Henüz kayıt yok.,No saves yet.
+profile.no_saves_line2,Bu profil temiz — yeni maceraya hazır.,This profile is empty — ready for a new adventure.
+save.title,Oyunu Kaydet — Profil %d,Save Game — Profile %d
+load.title,Oyunu Yükle — Profil %d,Load Game — Profile %d
+common.back,Geri,Back
+slot.empty,Slot %d: (Boş),Slot %d: (Empty)
+slot.invalid,Slot %d: (Hatalı - Yüklenemez),Slot %d: (Invalid — Cannot Load)
+slot.info_overwrite,"Slot %d: %s\nSahne: %s | Süre: %s\n(Üzerine kaydedilecek)","Slot %d: %s\nScene: %s | Time: %s\n(Will overwrite)"
+slot.info,"Slot %d: %s\nSahne: %s | Süre: %s","Slot %d: %s\nScene: %s | Time: %s"
+slot.save_button,Kaydet,Save
+slot.load_button,Yükle,Load
+slot.delete_button,Sil,Delete
+autosave.label_none,Otomatik kayıt: (henüz yok),Autosave: (none yet)
+autosave.label_info,"Otomatik kayıt — %s\nSahne: %s | Süre: %s%s","Autosave — %s\nScene: %s | Time: %s%s"
+save.overwrite_title,Kayıt Üzerine Yaz,Overwrite Save
+save.overwrite_message,"Slot %d'de zaten bir kayıt var:\n%s\n\nÜzerine kaydetmek istediğinizden emin misiniz?","Slot %d already has a save:\n%s\n\nAre you sure you want to overwrite it?"
+save.status_saving,Kaydediliyor...,Saving...
+save.status_failed,Kaydetme başarısız!,Save failed!
+save.status_complete,Kayıt tamamlandı!,Save complete!
+save.error_title,Kaydetme Başarısız,Save Failed
+save.error_message,Oyun kaydedilemedi. Disk alanı yetersiz olabilir veya dosya yazma izni olmayabilir.,Could not save the game. Disk may be full or write permission denied.
+save.error_dialog_title,Kaydetme Hatası,Save Error
+load.delete_title,Kayıt Sil,Delete Save
+load.delete_confirm,Slot %d'yı silmek istediğinizden emin misiniz?,Are you sure you want to delete slot %d?
+load.slot_empty_status,Slot %d zaten boş!,Slot %d is already empty!
+load.status_deleted,Slot %d silindi!,Slot %d deleted!
+load.delete_failed_title,Silme Başarısız,Delete Failed
+load.delete_failed_message,Slot %d silinemedi. Dosya kilitli olabilir veya izin hatası olabilir.,Could not delete slot %d. File may be locked or permission denied.
+load.status_loading,Yükleniyor...,Loading...
+load.status_failed,Yükleme başarısız!,Load failed!
+load.status_complete,Yükleme tamamlandı!,Load complete!
+error.title,Hata,Error
+error.save_manager_missing,Kayıt yöneticisi bulunamadı.,Save manager not found.
+error.load_failed_title,Yükleme Başarısız,Load Failed
+error.load_failed_message,Kayıt yüklenemedi.,Could not load the save.
+error.load_failed_corrupt,Kayıt yüklenemedi. Dosya bozulmuş olabilir.,Could not load the save. The file may be corrupted.
+error.load_error_title,Yükleme Hatası,Load Error
+error.no_autosave_title,Kayıt Yok,No Save
+error.no_autosave,Henüz otomatik kayıt oluşmadı.,No autosave exists yet.
+error.invalid_file_title,Kayıt Dosyası Hatalı,Invalid Save File
+error.unknown,Bilinmeyen hata.,Unknown error.
+error.empty_slot_title,Boş Kayıt,Empty Slot
+error.empty_slot,Bu kayıt slotu boş.,This save slot is empty.
+scene.village,Köy,Village
+scene.dungeon,Zindan,Dungeon
+scene.forest,Orman,Forest
+scene.worldmap,Dünya haritası,World Map
+scene.main_menu,Ana Menü,Main Menu
+scene.unknown,Bilinmeyen,Unknown
+time.profile_hours_minutes,%d sa %02d dk,%dh %02dm
+time.profile_minutes,%d dk,%d min
+time.profile_seconds,%d sn,%d sec
+time.slot_hours,%d:%02d saat,%d:%02d h
+time.slot_minutes,%d dakika,%d min
+dialog.confirm,Onayla,Confirm
+dialog.cancel,İptal,Cancel
+dialog.ok,Tamam,OK
+mission.result.completed_title,✅ Görev Tamamlandı,✅ Mission Complete
+mission.result.completed_message,'%s' görevi başarıyla tamamlandı!,Mission '%s' completed successfully!
+mission.result.cancelled_title,⚠️ Görev İptal Edildi,⚠️ Mission Cancelled
+mission.result.cancelled_message,'%s' görevi iptal edildi.,Mission '%s' was cancelled.
+mission.result.failed_title,❌ Görev Başarısız,❌ Mission Failed
+mission.result.failed_message,'%s' görevi başarısız oldu.,Mission '%s' failed.
+mission.result.death_title,💀 Kayboldunuz,💀 You Were Lost
+mission.result.death_message_items,Zindanda/ormanda kayboldunuz ve köye dönmek zorunda kaldınız.\n\nTopladığınız %d eşya kayboldu.,You were lost in the dungeon/forest and had to return to the village.\n\nYou lost %d items you had collected.
+mission.result.death_message,Zindanda/ormanda kayboldunuz ve köye dönmek zorunda kaldınız.,You were lost in the dungeon/forest and had to return to the village.
+mission.result.default_title,Görev Sonucu,Mission Result
+mission.result.rewards,\nÖdüller:,\nRewards:
+mission.result.penalties,\nCeza/Cezalar:,\nPenalties:
+mission.result.reward_line,  • %s: +%s,  • %s: +%s
+mission.result.penalty_line,  • %s: %s,  • %s: %s
+mission.result.confirm,Tamam,OK
+autosave.toast_default,Oyun otomatik kaydedildi,Game autosaved
+tutorial.prompt.title,Öğretici,Tutorial
+tutorial.prompt.body,Temel hareket ve kontrolleri kısa bir alanda öğrenmek ister misin? İstersen doğrudan köye gidebilirsin.,Would you like to learn basic movement and controls in a short area? You can also go straight to the village.
+tutorial.prompt.play,Tutorial'ı oyna,Play Tutorial
+tutorial.prompt.skip,Geç — doğrudan köy,Skip — go to village
+tutorial.prompt.back,Geri (profil seçimi),Back (profile select)
+resource.gold,Altın,Gold
+resource.wood,Odun,Wood
+resource.stone,Taş,Stone
+resource.food,Yiyecek,Food
+resource.water,Su,Water
+resource.metal,Metal,Metal
+resource.bread,Ekmek,Bread
+resource.lumber,Kereste,Lumber
+resource.brick,Tuğla,Brick
+resource.cloth,Kumaş,Cloth
+resource.garment,Giysi,Garment
+resource.tea,Kahve,Coffee
+resource.soap,Parfüm,Perfume
+resource.medicine,İlaç,Medicine
+resource.weapon,Silah,Weapon
+resource.armor,Zırh,Armor
+building.woodcutter,Odun Kampı,Woodcutter Camp
+building.stone_mine,Taş Ocağı,Stone Mine
+building.hunter_hut,Avcı/Toplayıcı,Hunter/Gatherer Hut
+building.well,Kuyu,Well
+building.bakery,Fırın,Bakery
+building.house,Ev,House
+building.sawmill,Kereste Atölyesi,Sawmill
+building.brickworks,Tuğla Atölyesi,Brickworks
+building.blacksmith,Demirci,Blacksmith
+building.weaver,Dokumacı,Weaver
+building.tailor,Terzi,Tailor
+building.herbalist,Şifacı,Herbalist
+building.teahouse,Çay Evi,Tea House
+building.soapmaker,Sabun Atölyesi,Soap Workshop
+building.gunsmith,Silahçı,Gunsmith
+building.armorer,Zırhçı,Armorer
+hud.gold,Altın: %d,Gold: %d
+hud.soldiers,Asker: %d,Soldiers: %d
+hud.morale,Moral: %.0f,Morale: %.0f
+hud.idle_workers,Müsait İşçi: %d,Idle Workers: %d
+hud.housing,Barınma: %d / %d,Housing: %d / %d
+hud.supply_ok,Tam,Full
+hud.supply_short,Eksik,Short
+hud.supply_suffix,| İkmal: %s,| Supply: %s
+hud.event_none,Olay: Yok,Events: None
+hud.event_line,%s (%s, %dgün),%s (%s, %dd)
+hud.economy_none,Üretim/Gider/Net: -,Prod/Cost/Net: -
+hud.economy_format,Üretim/Gider/Net: %.1f / %.1f / %.1f,Prod/Cost/Net: %.1f / %.1f / %.1f
+hud.resource_net, (%s%.1f/g), (%s%.1f/d)
+hud.resource_cap,%s: %d/%d%s,%s: %d/%d%s
+hud.resource_amount,%s: %d%s,%s: %d%s
+severity.low,Düşük,Low
+severity.medium,Orta,Medium
+severity.high,Yüksek,High
+build.title,İnşaat,Construction
+build.close,Kapat,Close
+build.tooltip_exists,Bu binadan zaten var.,This building type already exists.
+build.tooltip_build,İnşa Et (%s),Build (%s)
+build.cost_label,Maliyet: %s,Cost: %s
+build.no_cost,Maliyet Yok,No Cost
+build.no_cost_short,Maliyet yok,No cost
+build.missing_cost,Eksik maliyet: %s,Missing cost: %s
+build.missing_level,Eksik seviye: %s,Missing level: %s
+build.requirements,Gereksinimler: %s,Requirements: %s
+build.level_req,%s Sv: %d,%s Lv: %d
+worker.title,İşçi Yönetimi,Worker Management
+worker.idle_label,Boşta İşçi:,Idle Workers:
+worker.close,Kapat,Close
+worker.resource_label,%s:,%s:
+worker.upgrading,Yükseltiliyor...,Upgrading...
+worker.upgrade_tooltip,Yükselt (%s),Upgrade (%s)
+worker.max_level,Maks Seviye,Max Level
+worker.cannot_upgrade,Yükseltilemez,Cannot Upgrade
+worker.building_level,Bina Seviyesi,Building Level
+worker.upgrade_btn,Yükselt,Upgrade
+worker.upgrade_gold,💰 %d Altın,💰 %d Gold
+worker.upgrade_effect,Etki: İşçi %d→%d,Effect: Workers %d→%d
+worker.upgrade_progress,⏳ %ds (%d%%) • %s,⏳ %ds (%d%%) • %s
+worker.level_indicator,[Lv. %d],[Lv. %d]
+worker.level_empty,[Lv. -],[Lv. -]
+worker.no_requirements,Gereksinim Yok,No Requirements
+worker.unknown_req,Bilinmiyor,Unknown
+worker.none,Yok,None
+cariye.title,Görev Yönetimi,Mission Management
+cariye.available,Müsait Cariyeler,Available Concubines
+cariye.missions,Mevcut Görevler,Available Missions
+cariye.assign,Göreve Ata,Assign to Mission
+cariye.close,Kapat,Close
+cariye.treat,Tedavi Uygula,Apply Treatment
+cariye.unnamed,İsimsiz,Unnamed
+cariye.unnamed_mission,İsimsiz Görev,Unnamed Mission
+cariye.unknown,Bilinmiyor,Unknown
+cariye.item_format,%s (Seviye %d) - %s,%s (Level %d) - %s
+cariye.mission_format,%s (Zorluk: %s),%s (Difficulty: %s)
+cariye.assigned_suffix, [Atanan: %s], [Assigned: %s]
+cariye.weekly_today,Cariyelerin haftalık ihtiyaç günü: bugün,Concubines' weekly needs are due today
+cariye.weekly_days,Cariyelerin haftalık ihtiyaçlarına: %d gün,%d days until concubines' weekly needs
+mission.savas_1.name,Kuzey Köyüne Saldırı,Attack the Northern Village
+mission.savas_1.desc,Kuzeydeki düşman köyüne saldırı düzenle. Ganimet topla ve düşmanı zayıflat.,Launch an attack on the enemy village to the north. Collect loot and weaken the enemy.
+mission.kesif_1.name,Batı Ormanlarını Keşfet,Explore the Western Forests
+mission.kesif_1.desc,Batıdaki bilinmeyen ormanları keşfet. Yeni kaynaklar ve ticaret yolları bul.,Explore the unknown forests to the west. Find new resources and trade routes.
+mission.diplomasi_1.name,Güney Köyü ile İttifak,Alliance with the Southern Village
+mission.diplomasi_1.desc,Güneydeki köy ile dostluk anlaşması yap. Ticaret yolları aç ve güvenlik sağla.,Make a friendship pact with the southern village. Open trade routes and improve security.
+mission.type.war,Savaş,Combat
+mission.type.exploration,Keşif,Exploration
+mission.type.diplomacy,Diplomasi,Diplomacy
+mission.type.trade,Ticaret,Trade
+mission.type.intelligence,İstihbarat,Intelligence
+mission.type.bureaucracy,Bürokrasi,Bureaucracy
+mission.type.unknown,Bilinmeyen,Unknown
+mission.difficulty.easy,Kolay,Easy
+mission.difficulty.medium,Orta,Medium
+mission.difficulty.hard,Zor,Hard
+mission.difficulty.legendary,Efsanevi,Legendary
+mission.status.available,Mevcut,Available
+mission.status.active,Aktif,Active
+mission.status.completed,Tamamlandı,Completed
+mission.status.failed,Başarısız,Failed
+mission.status.cancelled,İptal,Cancelled
+mission.chain.independent,Bağımsız,Independent
+mission.chain.sequential,Sıralı,Sequential
+mission.chain.parallel,Paralel,Parallel
+mission.chain.choice,Seçimli,Choice
+mission.risk.low,Düşük,Low
+mission.risk.medium,Orta,Medium
+mission.risk.high,Yüksek,High
+mission.risk.very_high,Çok Yüksek,Very High
+mc.page.missions,GÖREVLER,MISSIONS
+mc.page.assignments,ATAMALAR,ASSIGNMENTS
+mc.page.construction,İNŞAAT,CONSTRUCTION
+mc.page.news,HABERLER,NEWS
+mc.page.concubines,CARİYELER,CONCUBINES
+mc.page.trade,TİCARET,TRADE
+mc.page.diplomacy,DİPLOMASİ,DIPLOMACY
+mc.action.build,YAP,BUILD
+mc.action.upgrade,YÜKSELT,UPGRADE
+mc.action.demolish,YIK,DEMOLISH
+mc.action.info,BİLGİ,INFO
+mc.category.production,ÜRETİM,PRODUCTION
+mc.category.life,YAŞAM,LIFE
+mc.category.army,ORDU,ARMY
+mc.category.decoration,DEKORASYON,DECORATION
+mc.news.filter.village,🏘️ KÖY,🏘️ VILLAGE
+mc.news.filter.world,🌍 DÜNYA,🌍 WORLD
+mc.news.sub.all,TÜMÜ (Y),ALL (Y)
+mc.news.sub.critical,🚨 KRİTİK,🚨 CRITICAL
+mc.news.sub.info,ℹ️ BİLGİ,ℹ️ INFO
+mc.news.sub.success,✅ BAŞARI,✅ SUCCESS
+mc.news.sub.warning,⚠️ UYARI,⚠️ WARNING
+mc.time.completed,Tamamlandı,Completed
+mc.time.hours_minutes,%d saat %d dakika,%d hr %d min
+mc.time.hours,%d saat,%d hr
+mc.time.minutes_only,%d dakika,%d min
+mc.time.minutes_remaining,%.1f dk,%.1f min
+mc.mission.detail.type,Tür: %s,Type: %s
+mc.mission.detail.difficulty,Zorluk: %s,Difficulty: %s
+mc.mission.detail.duration,Süre: %s,Duration: %s
+mc.mission.detail.duration_raw,Süre: %s,Duration: %s
+mc.mission.detail.success_chance,Başarı şansı: %d%%,Success chance: %d%%
+mc.mission.detail.target,Hedef: %s,Target: %s
+mc.mission.detail.bridge_crisis,Köprü: yerleşim krizi → %s,Bridge: settlement crisis → %s
+mc.mission.detail.bridge_crisis_hex,Köprü: kriz çözümü | %s (%s),Bridge: crisis resolution | %s (%s)
+mc.mission.detail.bridge_aid,Köprü: muttefik yardım çağrısı → %s,Bridge: ally aid call → %s
+mc.mission.detail.bridge_aid_hex,Köprü: muttefik yardım | %s (%s),Bridge: ally aid | %s (%s)
+mc.mission.detail.bridge_neighbor,Köprü: komşu yerleşim krizi,Bridge: neighboring settlement crisis
+mc.mission.detail.bridge_aid_short,Köprü: muttefik yardım çağrısı,Bridge: ally aid call
+mc.mission.detail.map_target,Harita hedefi: %s — Kendin git veya cariye gönder.,Map target: %s — Go yourself or send a concubine.
+mc.mission.detail.rewards,Ödüller: %s,Rewards: %s
+mc.mission.detail.penalties,Cezalar: %s,Penalties: %s
+mc.mission.no_available,Yapılabilir görev yok. Liste güncellenince tekrar deneyin.,No available missions. Try again when the list updates.
+mc.mission.not_found,❌ Görev bulunamadı!,❌ Mission not found!
+mc.mission.back_hint,[B: Geri],[B: Back]
+mc.mission.list.header,🎯 MEVCUT GÖREVLER:,🎯 CURRENT MISSIONS:
+mc.mission.list.active_header,📋 AKTİF GÖREVLER:,📋 ACTIVE MISSIONS:
+mc.mission.list.active_line,• %s → %s (%s),• %s → %s (%s)
+mc.mission.list.active_empty,📋 AKTİF GÖREV YOK,📋 NO ACTIVE MISSIONS
+mc.mission.list.available_header,📝 YAPILABİLİR GÖREVLER:,📝 AVAILABLE MISSIONS:
+mc.mission.list.available_line,• %s%s,• %s%s
+mc.mission.list.available_empty,📝 YAPILABİLİR GÖREV YOK,📝 NO AVAILABLE MISSIONS
+mc.mission.list.selected, ← SEÇİLİ, ← SELECTED
+mc.mission.list.idle_count,👥 BOŞTA CARİYELER: %d,👥 IDLE CONCUBINES: %d
+mc.mission.list.controls,[Yukarı/Aşağı: Görev seçimi] [A: Cariye seç] [B: Geri],[Up/Down: Select mission] [A: Select concubine] [B: Back]
+mc.mission.cariye_select.header,👥 CARİYE SEÇİMİ:,👥 CONCUBINE SELECTION:
+mc.mission.cariye_select.mission_line,Görev: %s,Mission: %s
+mc.mission.cariye_select.no_idle,❌ Boşta cariye yok!,❌ No idle concubines!
+mc.mission.cariye_select.available,MEVCUT CARİYELER:,AVAILABLE CONCUBINES:
+mc.mission.cariye_select.controls,[A: Görev ata] [B: Geri],[A: Assign mission] [B: Back]
+mc.mission.detail.header,📋 GÖREV DETAYI:,📋 MISSION DETAILS:
+mc.mission.card.type_duration,Tür: %s | Süre: %.1fs,Type: %s | Duration: %.1fs
+mc.mission.card.rewards_prefix,Ödüller: ,Rewards: 
+wm.roll_dice,Zar At,Roll Dice
+wm.ok,Tamam,OK
+wm.enter,Gir,Enter
+wm.cancel,Vazgeç,Cancel
+wm.take_risk,Riske Gir,Take Risk
+wm.wait,Bekle,Wait
+wm.send_aid,Yardım Gönder,Send Aid
+wm.raid_order,Baskın Emri,Raid Order
+wm.continue,Devam,Continue
+wm.rolling,Atılıyor...,Rolling...
+wm.travel_event.title,Yolculuk Olayı,Travel Event
+wm.travel_outcome.title,Yol sonucu,Travel Outcome
+wm.travel_event.cargo_risk,%s\n\nYük riski çarpanı: x%.2f,%s\n\nCargo risk multiplier: x%.2f
+wm.dungeon_entry.title,Zindan Girişi,Dungeon Entry
+wm.dungeon_entry.body,Zindan hexine vardın. Zindana girmek istiyor musun?,You reached a dungeon hex. Do you want to enter the dungeon?
+wm.dungeon_entry.cancelled,Zindan girişi iptal edildi.,Dungeon entry cancelled.
+wm.high_risk.title,Tehlikeli Rota Uyarısı,Dangerous Route Warning
+wm.high_risk.body,Bu rota riskli. Emin misin?,This route is risky. Are you sure?
+wm.high_risk.cancelled,Tehlikeli rota iptal edildi.,Dangerous route cancelled.
+wm.aid_confirm.title,Yardım Onayı,Aid Confirmation
+wm.aid_confirm.body,Yardım göndermek istediğine emin misin?,Are you sure you want to send aid?
+wm.mission_player.title,Görev — oyuncu seçimi,Mission — player choice
+wm.mission_player.default_name,Görev,Mission
+wm.mission_player.subtitle,Köyden kaynak harcayarak bir yöntem seç. Başarı şansı yaklaşıktır; başarısızlıkta cezalar uygulanır.,Choose an approach by spending village resources. Success chance is approximate; failure applies penalties.
+wm.mission_player.cancel,Vazgeç (şimdilik yapma),Cancel (not now)
+wm.mission_strategy.no_cost,%s (~%%%d başarı),%s (~%%%d success)
+wm.mission_strategy.with_cost,%s\n→ %s • ~%%%d başarı,%s\n→ %s • ~%%%d success
+wm.exp_pack.title,Köyden erzak,Supplies from village
+wm.exp_pack.hint,Yukarı/Aşağı: satır | Sol/Sağ: miktar (basılı tut: hızlanır) | Enter: Yanıma al | Esc: Kapat\nFare ile kapatma yok. Yolda olaylar bu çantayı etkiler; kasa altını ayrı.,Up/Down: row | Left/Right: amount (hold to speed up) | Enter: Take with me | Esc: Close\nNo mouse close. Road events affect this pack; vault gold is separate.
+wm.exp_pack.pocket_gold,Cep altını (kasa),Pocket gold (vault)
+wm.hints.move_gamepad,Hareket: D-Pad,Move: D-Pad
+wm.hints.walk_gamepad,Yürü: A,Walk: A
+wm.hints.enter_hex_gamepad,Hex'e Gir: Y,Enter Hex: Y
+wm.hints.back_gamepad,Geri: B,Back: B
+wm.hints.menu_gamepad,Menü: Start,Menu: Start
+wm.hints.move,Hareket: %s,Move: %s
+wm.hints.walk,Yürü: %s,Walk: %s
+wm.hints.enter_hex,Hex'e Gir: %s,Enter Hex: %s
+wm.hints.back,Geri: %s,Back: %s
+wm.hints.menu,Menü: ESC,Menu: ESC
+wm.outcome.dice,Zar: [%d] + [%d] = %d,Dice: [%d] + [%d] = %d
+wm.outcome.choice_continue,Karar: Devam ettin.,Decision: You continued.
+wm.outcome.choice_cancel,Karar: Geri dönme.,Decision: You turned back.
+wm.outcome.choice_drop,Karar: Yük bıraktın.,Decision: You dropped cargo.
+wm.outcome.extra_time,Süre: +%d dk (oyun zamanı ilerledi).,Time: +%d min (game time advanced).
+wm.outcome.event,Olay: %s,Event: %s
+wm.outcome.gold_gain,Sefer altını (çanta): +%d.,Expedition gold (pack): +%d.
+wm.outcome.gold_loss,Sefer altını (çanta): %d.,Expedition gold (pack): %d.
+wm.outcome.world_gold_lost,Sefer altını kaybı: -%d.,Expedition gold lost: -%d.
+wm.outcome.food_gain,yiyecek +%d,food +%d
+wm.outcome.water_gain,su +%d,water +%d
+wm.outcome.medicine_gain,ilaç +%d,medicine +%d
+wm.outcome.expedition_pack,Yol çantası (yolda): %s,Travel pack (on road): %s
+wm.outcome.dungeon_gold_lost,Taşıdığın zindan altını: -%d.,Dungeon gold you carried: -%d.
+wm.outcome.health_lost,Can kaybı: ~%.0f.,Health lost: ~%.0f.
+wm.outcome.carried_resources,Taşınan kaynak: %s,Carried resources: %s
+wm.outcome.rescued_losses,Kurtarılanlar: %d köylü; %d cariye geride kaldı.,Rescued: %d villagers; %d concubines left behind.
+wm.outcome.no_loss,Net kayıp görünmüyor (veya risk sıfırdı).,No net loss visible (or risk was zero).
+wm.outcome.no_measurable_loss,Sayılabilir kayıp yok.,No measurable loss.
+mc.header.title,GÖREV MERKEZİ,MISSION CENTER
+mc.nav.footer,%s: Önceki Sayfa | %s: Sonraki Sayfa | %s: Kapat,%s: Previous Page | %s: Next Page | %s: Close
+mc.mission.list.available_empty_short,Yapılabilir görev yok,No available missions
+mc.mission.list.active_empty_short,Aktif görev yok,No active missions
+mc.mission.badge.chain/🔗 Zincir,🔗 Chain
+mc.mission.badge.urgent,🚨 Acil,🚨 Urgent
+mc.mission.badge.map_order,🗺️ Harita Emri,🗺️ Map Order
+mc.mission.badge.neighbor_aid,🏘️ Komşu Yardım,🏘️ Neighbor Aid
+mc.mission.badge.ally_aid,🤝 Muttefik Yardım,🤝 Ally Aid
+mc.mission.result.title,🎯 GÖREV SONUCU,🎯 MISSION RESULT
+mc.mission.history.title,📚 GÖREV GEÇMİŞİ,📚 MISSION HISTORY
+mc.mission.history.stats_title,📊 İSTATİSTİKLER,📊 STATISTICS
+mc.assignment.header,İŞÇİ ATAMA MENÜSÜ,WORKER ASSIGNMENT
+mc.assignment.controls,"KONTROLLER:\nYön Tuşları: Seçim\n[Zıplama]: İşçi Ekle  |  [Saldırı]: İşçi Çıkar  |  [Özel Vuruş]: Detay\nB: Geri","CONTROLS:\nD-Pad: Select\n[Jump]: Add Worker  |  [Attack]: Remove Worker  |  [Heavy Attack]: Details\nB: Back"
+mc.construction.controls,Yön Tuşları: Seçim  |  A: İnşa/Yükselt  |  X: Yık  |  Y: Bilgi,D-Pad: Select  |  A: Build/Upgrade  |  X: Demolish  |  Y: Info
+mc.construction.active_banner,Devam eden şantiyeler,Ongoing construction
+mc.construction.status.building,İnşa Halinde (%.1fsa),Under Construction (%.1f hr)
+mc.construction.status.not_built,İnşa Edilmedi,Not Built
+mc.construction.status.built,Mevcut,Available
+mc.trade.incoming_traders,💰 GELEN TÜCCARLAR,💰 INCOMING TRADERS
+mc.trade.merchant_missions,👤 TÜCCAR CARİYE GÖREVLERİ,👤 MERCHANT CONCUBINE MISSIONS
+mc.news.village_section,🏘️ KÖY HABERLERİ,🏘️ VILLAGE NEWS
+mc.news.world_section,🌍 DÜNYA HABERLERİ,🌍 WORLD NEWS
+wm.tutorial_marker.dungeon,ZİNDAN,DUNGEON
+wm.tutorial_marker.village,KÖY,VILLAGE
+wm.tutorial_marker.forest,ORMAN,FOREST
+tutorial.farewell,Temelleri öğrendin — bol şans!,You learned the basics — good luck!
+tutorial.ui.interact,Etkileşim: %s,Interact: %s
+tutorial.ui.menu,Menü: %s,Menu: %s
+tutorial.dungeon.beat0,Kendine geldin. Çabuk ol — fazla zaman yok.,You came to. Hurry — there is not much time.
+tutorial.dungeon.beat1,Zıpla: {jump}.,Jump: {jump}.
+tutorial.dungeon.beat2,Bu duvarı [b]çift zıpla[/b]: havadayken tekrar {jump}.,[b]Double jump[/b] this wall: press {jump} again in the air.
+tutorial.dungeon.beat3,Dar geçit: {crouch} ile eğil.,Narrow passage: crouch with {crouch}.
+tutorial.dungeon.beat4,Tek yönlü platform: {down} basılı tut, {jump} ile aşağı in.,One-way platform: hold {down} and drop with {jump}.
+tutorial.dungeon.beat5,Köşeye zıpla. Tutunmak için {block} basılı tut; tutunurken {up} ile tırman.,Jump to the ledge. Hold {block} to grab; climb with {up} while holding.
+tutorial.dungeon.exit_hint,[b][color=#3d2008]Acele et — çıkış bu tarafta[/color][/b]\nSağa koş; tünelden geçince köye dönersin.,[b][color=#3d2008]Hurry — the exit is this way[/color][/b]\nRun right; pass through the tunnel to return to the village.
+tutorial.dungeon.move_right_title,Sağa git,Go right
+tutorial.dungeon.move_right,%s\n%s ile sağa koş ve [b]yeşil işaretli alana[/b] gir.,%s\nRun right with %s and enter the [b]green marked area[/b].
+tutorial.dungeon.move_left_title,Sola dön,Turn left
+tutorial.dungeon.move_left,%s\n%s ile sola koş ve diğer işaretli alana gir.\nİleride zıplamak için: %s,%s\nRun left with %s and enter the other marked area.\nTo jump ahead: %s
+tutorial.dungeon.finish,[b]Güzel![/b]\nKöye geçiliyor…,[b]Nice![/b]\nReturning to the village…
+tutorial.combat.title,Dövüş pratiği,Combat practice
+tutorial.combat.complete,Tamam!,Done!
+tutorial.combat.phase0,%s (1/7)\nDüşmana {attack} ile [b]5[/b] hafif vuruş (ilerleme: %d/5).\nYer veya havadayken hafif saldırı tuşuna bas; düşmana isabet etsin.,%s (1/7)\nLand [b]5[/b] light hits on the enemy with {attack} (progress: %d/5).\nPress light attack on ground or in air; hits must connect.
+tutorial.combat.phase1,%s (2/7)\nDüşmana {attack_heavy} ile [b]2[/b] ağır vuruş (ilerleme: %d/2).\nAğır saldırı tuşunu basılı tut veya combo ile ağır vuruş çıkar; ikisinde de düşmana çarpmalı.,%s (2/7)\nLand [b]2[/b] heavy hits with {attack_heavy} (progress: %d/2).\nHold heavy attack or use a combo; either must hit the enemy.
+tutorial.combat.phase2,%s (3/7)\nHavadayken {down} + {jump} ile [b]2[/b] düşüş saldırısı (ilerleme: %d/2).\nDüşüş saldırısı düşmana değince sayılır.,%s (3/7)\nPerform [b]2[/b] dive attacks with {down} + {jump} in the air (progress: %d/2).\nDive attacks count when they hit the enemy.
+tutorial.combat.phase3,%s (4/7)\n{dodge} ile bir kez kaçın.\nYön tuşlarıyla yüzünü çevir, kaçış tuşu ile yuvarlan.,%s (4/7)\nDodge once with {dodge}.\nFace a direction and roll with the dodge button.
+tutorial.combat.phase4,%s (5/7)\nBir saldırıyı {block} ile tut: kalkanı aç, vuruşu hasarsız kes.\nParry değil — sadece blok (hasarı kıran normal blok).,%s (5/7)\nBlock an attack with {block}: raise your guard and negate damage.\nNot a parry — a normal block.
+tutorial.combat.phase5,%s (6/7)\nBir saldırıyı [b]parry[/b] yap: {block} ile vuruşun geldiği anı yakala (timing).\nKısa pencerede bloğa bas; hasar gelmez, parry sayılır.,%s (6/7)\nPerform a [b]parry[/b]: press {block} at the moment of impact.\nWithin the short window; no damage and it counts as a parry.
+tutorial.combat.phase6,%s (7/7)\nParry sonrası kontra: pencere açıkken {attack} veya {attack_heavy} ile vur.\nKontra vuruş animasyonu tetiklenince görev biter.,%s (7/7)\nCounter after parry: hit with {attack} or {attack_heavy} while the window is open.\nThe task ends when the counter animation triggers.
+tutorial.combat.done,%s\nArtık hazırsın.,%s\nYou are ready now.
+tutorial.dungeon_guide.message,"Köyün temellerini öğrendin. Şimdi sırada keşif var!\n[color=#f5d76e]{map}[/color] ile dünya haritasını aç — yakındaki bir [color=#ff6655]zindanı[/color] senin için işaretledim.\nOraya yürü, vardığında zindana gir. Cariyeler ve hazineler seni bekliyor olabilir.","You learned the village basics. Time to explore!\nOpen the world map with [color=#f5d76e]{map}[/color] — I marked a nearby [color=#ff6655]dungeon[/color] for you.\nWalk there and enter when you arrive. Concubines and treasure may await."
+tutorial.dungeon_guide.objective,{map} ile haritayı aç, işaretli zindana git, vardığında zindana gir,Open the map with {map}, go to the marked dungeon, and enter when you arrive
+tutorial.village.welcome_hud,"Hayatta kaldın. Bu köy senin.\nÜstte [color=#f5d76e]altın[/color], [color=#aaddff]işçi[/color] ve [color=#aaffaa]kaynakları[/color] görürsün.\nKöylülerin her gün [color=#ff9966]yiyecek[/color] ve [color=#66ccff]su[/color] tüketir.\nStok biterse [color=#ff6666]moral[/color] düşer — moral sıfırlanırsa oyun biter.","You survived. This village is yours.\nAt the top you see [color=#f5d76e]gold[/color], [color=#aaddff]workers[/color], and [color=#aaffaa]resources[/color].\nVillagers consume [color=#ff9966]food[/color] and [color=#66ccff]water[/color] daily.\nIf stocks run out, [color=#ff6666]morale[/color] falls — at zero morale, the game ends."
+tutorial.village.go_to_forest,"İnşa için [color=#c8a86c]odun[/color] lazım.\n{map} tuşuyla dünya haritasını aç, {move} ile en yakın [color=#55aa55]ormana[/color] git.\n{hex_enter} ile ormana gir. [color=#c8a86c]Odun[/color] ve [color=#ff9966]yiyecek[/color] topla, sonra köye dön.","You need [color=#c8a86c]wood[/color] to build.\nOpen the world map with {map}, go to the nearest [color=#55aa55]forest[/color] with {move}.\nEnter with {hex_enter}. Gather [color=#c8a86c]wood[/color] and [color=#ff9966]food[/color], then return to the village."
+tutorial.village.objective_mentor,Mentora yaklaş ve {interact} ile konuş,Approach the mentor and talk with {interact}
+tutorial.village.objective_forest,{map} ile haritayı aç, {move} ile ormana git, {hex_enter} ile gir,Open the map with {map}, go to the forest with {move}, enter with {hex_enter}
+tutorial.village.objective_campfire,"Kamp ateşine git, {ui_up} ile menüyü aç",Go to the campfire and open the menu with {ui_up}
+tutorial.village.objective_build_menu,{page_left} / {page_right} ile gez, İnşa menüsüne gel,Use {page_left} / {page_right} to browse to the Construction menu
+tutorial.village.objective_build_woodcutter,"Odun Kampını seç, {confirm} ile inşa et",Select the Woodcutter Camp and build with {confirm}
+tutorial.village.objective_workers_menu,{page_left} / {page_right} ile gez, İşçiler menüsüne gel,Use {page_left} / {page_right} to browse to the Workers menu
+tutorial.village.objective_assign_worker,"Odun Kampını seç, {confirm} ile bir işçi ata",Select the Woodcutter Camp and assign a worker with {confirm}
+tutorial.hint.first_cariye,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\nCariyeleri [color=#f5d76e]Cariyeler[/color] panelinden görevlere yollayabilirsin.\nHer cariyenin farklı yetenekleri var — görevlere uygun olanı seç.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!\nSend concubines on missions from the [color=#f5d76e]Concubines[/color] panel.\nEach has different skills — pick the right one for each mission."
+tutorial.hint.first_trader,"Köye bir [color=#ffcc44]tüccar[/color] geldi!\nTüccarlarla kaynak alışverişi yapabilirsin.\nKöyün ihtiyaçlarına göre iyi fırsatları kaçırma — tüccarlar sonsuza kadar kalmaz.","A [color=#ffcc44]trader[/color] arrived in the village!\nYou can trade resources with merchants.\nDo not miss good deals — traders do not stay forever."
+tutorial.digest.prefix,Yokluğunda:,While you were away:
+tutorial.forest.complete,"Kaynaklar tamam! Portaldan haritaya dön, köy hex'ine git",Resources complete! Return through the portal to the map and go to the village hex
+tutorial.forest.need_food,Odun: %d/%d  Meyve: %d/%d — Meyve toplamaya devam et,Wood: %d/%d  Food: %d/%d — keep gathering food
+tutorial.forest.need_wood,Odun: %d/%d  Meyve: %d/%d — Odun kesmeye devam et,Wood: %d/%d  Food: %d/%d — keep chopping wood
+tutorial.forest.progress,Odun: %d/%d  Meyve: %d/%d,Wood: %d/%d  Food: %d/%d
+mc.mission.controls,[Yukarı/Aşağı: Seçim] [A: Seç/Atama] [B: Geri],[Up/Down: Select] [A: Select/Assign] [B: Back]
+mc.mission.chains.title,🔗 GÖREV ZİNCİRLERİ,🔗 MISSION CHAINS
+mc.mission.chains.empty,Aktif görev zinciri yok,No active mission chains
+mc.mission.chains.progress,İlerleme: %d/%d (%.0f%%),Progress: %d/%d (%.0f%%)
+mc.news.random_events,🎲 RASTGELE OLAYLAR,🎲 RANDOM EVENTS
+mc.news.controls,KONTROLLER: [Yukarı/Aşağı: Seçim] [A: Detay] [B: Geri],CONTROLS: [Up/Down: Select] [A: Details] [B: Back]
+mc.news.back,⬅️ Geri (B),⬅️ Back (B)
+mc.news.subcategory_hint,Alt kategori: Y tuşu,Subcategory: Y key
+mc.construction.category,KATEGORİ: %s,CATEGORY: %s
+mc.construction.action,İŞLEM: %s,ACTION: %s
+mc.construction.duration,Süre: İnşa %.1fsa | Yükselt %.1fsa,Duration: Build %.1f hr | Upgrade %.1f hr
+mc.construction.duration_unknown,Süre: -,Duration: -
+mc.construction.demolish_confirm,\n%s\n\nBu binayı yıkmak istiyor musun?\n\nA: Evet    B: Hayır,\n%s\n\nDemolish this building?\n\nA: Yes    B: No
+mc.assignment.no_buildings,"Atanabilir bina yok.\nÖnce inşaat yapmalısın.","No assignable buildings.\nBuild something first."
+mc.assignment.workers,İşçiler: %d / %d,Workers: %d / %d
+mc.assignment.building_detail_header,=== BİNA DETAYI ===,=== BUILDING DETAILS ===
+mc.building.info.level,📊 Seviye: %s,📊 Level: %s
+mc.building.info.upgrading,⚡ Yükseltiliyor...,⚡ Upgrading...
+mc.building.info.upgrade_remaining, ⏳ Kalan: %dsn (%d%%), ⏳ Remaining: %ds (%d%%)
+mc.building.info.upgrade_cost,💰 Yükseltme: %d Altın,💰 Upgrade: %d Gold
+mc.building.info.duration,⏱ Süre: %dsn,⏱ Duration: %ds
+mc.building.info.worker_effect,✨ Etki: İşçi %d→%d,✨ Effect: Workers %d→%d
+mc.building.info.production,📈 Üretim: %s,📈 Production: %s
+mc.mission.result.success,✅ BAŞARILI!,✅ SUCCESS!
+mc.mission.result.failed,❌ BAŞARISIZ!,❌ FAILED!
+mc.mission.result.rewards_header,💰 ÖDÜLLER:,💰 REWARDS:
+mc.mission.result.penalties_header,⚠️ CEZALAR:,⚠️ PENALTIES:
+mc.mission.result.reward_line,  • %s: +%d,  • %s: +%d
+mc.mission.result.penalty_line,  • %s: %d,  • %s: %d
+mc.mission.result.cariye_status,👤 Cariye Durumu: Seviye %d | Sağlık: %d | Moral: %d,👤 Concubine Status: Level %d | Health: %d | Morale: %d
+mc.mission.result.auto_close_5s,⏰ 5 saniye sonra otomatik kapanır...,⏰ Closes automatically in 5 seconds...
+mc.mission.result.auto_close_3s,3 saniye sonra otomatik kapanır...,Closes automatically in 3 seconds...
+mc.mission.level_up.title,🎉 SEVİYE ATLAMA! 🎉,🎉 LEVEL UP! 🎉
+mc.mission.level_up.cariye,%s seviye %d'ye yükseldi!,%s reached level %d!
+mc.mission.level_up.new_stats,YENİ ÖZELLİKLER:,NEW STATS:
+mc.mission.level_up.max_health,• Maksimum Sağlık: %d,• Max Health: %d
+mc.mission.level_up.max_moral,• Maksimum Moral: %d,• Max Morale: %d
+mc.mission.level_up.skill_gains,YETENEK ARTIŞLARI:,SKILL GAINS:
+mc.mission.active.in_progress,Devam ediyor,In progress
+mc.mission.active.completing,Tamamlanıyor,Completing
+mc.mission.active.risk,⚠️ Risk: %s,⚠️ Risk: %s
+mc.mission.active.time_left,⏱️ %s kaldı,⏱️ %s left
+mc.mission.active.progress,İlerleme:,Progress:
+mc.mission.card.type_difficulty,Tür: %s | Zorluk: %s,Type: %s | Difficulty: %s
+mc.mission.card.requirements,Gerekli Seviye: %d | Gerekli Ordu: %d,Required Level: %d | Required Army: %d
+mc.mission.card.min_requirements,Min. Seviye: %d | Min. Ordu: %d,Min. Level: %d | Min. Army: %d
+mc.mission.cariye_select.no_idle_short,Boşta cariye yok,No idle concubines
+mc.mission.history.empty,Tamamlanan görev yok,No completed missions
+mc.mission.history.stats,Toplam Görev: %d | Başarılı: %d | Başarısız: %d | Başarı Oranı: %.1f%%,Total Missions: %d | Success: %d | Failed: %d | Success Rate: %.1f%%
+mc.concubine.best_skill,En İyi: %s (%d),Best: %s (%d)
+mc.concubine.status,Durum: %s,Status: %s
+mc.diplomacy.controls,[Yukarı/Aşağı] Fraksiyon • [Sol/Sağ] Eylem • [A] Uygula • [B] Geri,[Up/Down] Faction • [Left/Right] Action • [A] Apply • [B] Back
+mc.trade.no_traders,"Şu anda köyde tüccar yok.\nTüccarlar zaman zaman köye gelecek.","No traders in the village right now.\nTraders will visit from time to time."
+mc.trade.trader_title,💰 %s,💰 %s
+mc.trade.default_trader,Tüccar,Trader
+mc.trade.from_settlement,📍 %s'den geldi,📍 Came from %s
+mc.trade.selling,Satıyor:,Selling:
+mc.trade.product_line,  • %s (%d altın),  • %s (%d gold)
+mc.trade.more_products,  ... ve %d ürün daha,  ... and %d more products
+mc.trade.leaves_in_days,⏳ %d gün sonra ayrılacak,⏳ Leaves in %d days
+mc.trade.view_products_hint,A: Ürünleri Gör,A: View Products
+mc.trade.no_trader_concubines,"Tüccar rolünde boşta cariye yok.\nCariye yönetiminden rol atayabilirsiniz.","No idle concubines with the trader role.\nAssign roles from Concubine management."
+mc.trade.concubine_title,👤 %s (Tüccar),👤 %s (Trader)
+mc.trade.concubine_skill,Ticaret yeteneği: %d | Seviye: %d,Trade skill: %d | Level: %d
+mc.trade.send_mission_hint,A: Görev Gönder,A: Send Mission
+common.unknown,Bilinmeyen,Unknown
+building.barracks,Kışla,Barracks
+mc.time.days,%.1f gün,%.1f days
+mc.mission.relief.neighbor_crisis,Komsu kriz | %s,Neighboring crisis | %s
+mc.mission.relief.ally_call,Muttefik yardim cagrisi | %s,Ally aid call | %s
+mc.mission.relief.neighbor_aid,Komsu kriz yardimi | %s,Neighboring crisis aid | %s
+mc.mission.relief.neighbor_aid_hex,Komsu kriz yardimi | %s (%s),Neighboring crisis aid | %s (%s)
+mc.mission.relief.ally_aid_hex,Muttefik yardim cagrisi | %s (%s),Ally aid call | %s (%s)
+mc.mission.card.target_settlement,Hedef Yerlesim: %s | Mesafe: %s,Target settlement: %s | Distance: %s
+mc.mission.card.required_resources,Gerekli Kaynaklar: %s,Required resources: %s
+mc.mission.cariye_select.soldiers,Yanında asker: %d / %d  (Sol/Sağ ile değiştir),Escort soldiers: %d / %d  (Left/Right to change)
+mc.mission.history.completed_in,Tamamlandı: %.1f saniye,Completed in %.1f seconds
+mc.mission.chain.rewards_prefix,Ödül: ,Reward: 
+mc.mission.chain.type.none,Bağımsız,Standalone
+mc.mission.chain.type.sequential,Sıralı,Sequential
+mc.mission.chain.type.parallel,Paralel,Parallel
+mc.mission.chain.type.choice,Seçimli,Choice
+mc.recipe.sawmill,Girdi: Odun + Su ⇒ Kereste,Input: Wood + Water ⇒ Lumber
+mc.recipe.brickworks,Girdi: Taş + Su ⇒ Tuğla,Input: Stone + Water ⇒ Brick
+mc.recipe.bakery,Girdi: Yiyecek + Su ⇒ Ekmek,Input: Food + Water ⇒ Bread
+mc.recipe.weaver,Girdi: Yiyecek + Su ⇒ Kumaş,Input: Food + Water ⇒ Cloth
+mc.recipe.tailor,Girdi: Kumaş x2 + Su ⇒ Giyim,Input: Cloth x2 + Water ⇒ Garment
+mc.recipe.blacksmith,Girdi: Taş + Odun ⇒ Metal,Input: Stone + Wood ⇒ Metal
+mc.recipe.gunsmith,Girdi: Metal + Odun + Su ⇒ Silah,Input: Metal + Wood + Water ⇒ Weapon
+mc.recipe.armorer,Girdi: Metal x2 + Su ⇒ Zırh,Input: Metal x2 + Water ⇒ Armor
+mc.recipe.teahouse,Girdi: Yiyecek + Su ⇒ Çay,Input: Food + Water ⇒ Tea
+mc.recipe.soapmaker,Girdi: Yiyecek + Su x2 ⇒ Sabun,Input: Food + Water x2 ⇒ Soap
+mc.recipe.herbalist,Girdi: Yiyecek + Su ⇒ İlaç,Input: Food + Water ⇒ Medicine
+mc.assignment.equipment.header,=== ASKER EKİPMAN ATAMA ===,=== SOLDIER EQUIPMENT ASSIGNMENT ===
+mc.assignment.equipment.stock,📦 Stok: Silah: %d | Zırh: %d,📦 Stock: Weapon: %d | Armor: %d
+mc.assignment.equipment.no_soldiers,Kışlada asker yok!\n\n[%s: Geri],No soldiers in barracks!\n\n[%s: Back]
+mc.assignment.equipment.nav_hint,Yukarı/Aşağı: Asker seç\nSol/Sağ: Silah/Zırh seç,Up/Down: Select soldier\nLeft/Right: Weapon/Armor
+mc.assignment.equipment.give_hint,%s: Ekipman Ver/Al,%s: Give/Take Equipment
+mc.assignment.equipment.selected,Seçili Ekipman: %s,Selected equipment: %s
+mc.assignment.equipment.weapon,⚔️ Silah,⚔️ Weapon
+mc.assignment.equipment.armor,🛡️ Zırh,🛡️ Armor
+mc.assignment.equipment.soldier_line,Asker %d %s %s,Soldier %d %s %s
+mc.assignment.equipment.back_hint,[%s: Geri],[%s: Back]
+mc.assignment.equipment.error_no_barracks,Hata: Kışla bulunamadı!,Error: Barracks not found!
+mc.assignment.equipment.distribute_header,=== ASKER EKİPMAN DAĞITIMI ===,=== SOLDIER EQUIPMENT DISTRIBUTION ===
+mc.assignment.equipment.soldier_count,👥 Asker Sayısı: %d,👥 Soldiers: %d
+mc.assignment.equipment.weapon_qty,⚔️ Silah: %d,⚔️ Weapon: %d
+mc.assignment.equipment.armor_qty,🛡️ Zırh: %d,🛡️ Armor: %d
+mc.assignment.equipment.distribute_controls,"Yukarı/Aşağı: Satır Seç\nSol/Sağ: Miktar Ayarla\nA tuşu: Dağıt\nB tuşu: İptal","Up/Down: Select row\nLeft/Right: Adjust amount\nA: Distribute\nB: Cancel"
+mc.diplomacy.no_world_manager,WorldManager bulunamadı. Diplomasi verisi mevcut değil.,WorldManager not found. Diplomacy data unavailable.
+mc.diplomacy.no_factions,Henüz tanımlı fraksiyon yok.,No factions defined yet.
+mc.diplomacy.select_faction,Fraksiyon seçiniz.,Select a faction.
+mc.diplomacy.footer,[Sol/Sağ] Eylem: %s | [A] Uygula | [B] Geri,[Left/Right] Action: %s | [A] Apply | [B] Back
+mc.diplomacy.info.gift,Eylem: %s'a Hediye Gönder | Maliyet: 100 Altın | Sonuç: +10 İlişki,Action: Send Gift to %s | Cost: 100 Gold | Result: +10 Relations
+mc.diplomacy.info.threat,Eylem: %s'ı Tehdit Et | Maliyet: Yok | Sonuç: -15 İlişki (Riskli),Action: Threaten %s | Cost: None | Result: -15 Relations (Risky)
+mc.diplomacy.info.trade,Eylem: %s ile Ticaret Anlaşması | Gereksinim: +20 İlişki | Sonuç: Ticaret Rotası Açılır,Action: Trade Agreement with %s | Requires: +20 Relations | Result: Trade Route Opens
+mc.diplomacy.info.passage,Eylem: %s'dan Geçiş İzni İste | Gereksinim: +50 İlişki | Sonuç: Topraklardan Geçiş İzni,Action: Request Passage from %s | Requires: +50 Relations | Result: Passage Rights
+diplomacy.action.gift,🎁 Hediye,🎁 Gift
+diplomacy.action.threat,☠️ Tehdit,☠️ Threat
+diplomacy.action.trade,💰 Ticaret,💰 Trade
+diplomacy.action.passage,🛡️ Geçiş,🛡️ Passage
+diplomacy.action_label.gift,Hediye +%d (−%d altın),Gift +%d (−%d gold)
+diplomacy.action_label.threat,Tehdit %d,Threat %d
+diplomacy.action_label.trade,Ticaret Anlaşması +%d (−%d altın),Trade Agreement +%d (−%d gold)
+diplomacy.action_label.passage,Geçiş İzni +%d (−%d altın),Passage Rights +%d (−%d gold)
+diplomacy.stance.ally,Müttefik,Ally
+diplomacy.stance.enemy,Düşman,Enemy
+diplomacy.stance.neutral,Tarafsız,Neutral
+mc.trade.buy.title,💰 Tüccardan Satın Al,💰 Buy from Trader
+mc.trade.buy.title_named,💰 Tüccardan Satın Al: %s,💰 Buy from Trader: %s
+mc.trade.buy.origin_placeholder,📍 Tüccar bilgisi,📍 Trader info
+mc.trade.buy.controls,Yön Tuşları: Seçim  |  A: Satın Al  |  B: Kapat,D-Pad: Select  |  A: Buy  |  B: Close
+mc.trade.buy.no_products,Bu tüccarın satacak ürünü yok.,This trader has nothing to sell.
+mc.trade.buy.price_per_unit,%d altın/birim,%d gold/unit
+mc.trade.buy.unlimited,Sınırsız,Unlimited
+mc.trade.buy.selected_marker,> SEÇİLİ <,> SELECTED <
+mc.trade.buy.quantity_one,1 birim satın alınacak,Will buy 1 unit
+mc.trade.mission.create_title,🚚 Ticaret Görevi Oluştur,🚚 Create Trade Mission
+mc.trade.mission.cariye_prefix,👤 Cariye: ,👤 Concubine: 
+mc.trade.mission.controls,Yön Tuşları: Seçim  |  A: Onayla  |  B: Geri/İptal,D-Pad: Select  |  A: Confirm  |  B: Back/Cancel
+mc.trade.mission.step_village,📍 Köy Seçimi,📍 Settlement Selection
+mc.trade.mission.step_soldiers,⚔️ Asker Sayısı,⚔️ Soldier Count
+mc.trade.mission.step_products,📦 Ticaret Malları,📦 Trade Goods
+mc.trade.mission.title_step,🚚 Ticaret Görevi: %s,🚚 Trade Mission: %s
+mc.trade.mission.cariye_named,👤 Cariye: %s,👤 Concubine: %s
+mc.trade.mission.no_routes,Aktif ticaret rotası yok!,No active trade routes!
+mc.trade.mission.route_line,%s%s (Mesafe: %.1f, Risk: %s, İlişki: %d),%s%s (Distance: %.1f, Risk: %s, Relations: %d)
+mc.trade.mission.route_hint,"Yukarı/Aşağı: Rota Seç\nA: Devam Et","Up/Down: Select route\nA: Continue"
+mc.trade.mission.soldier_count,Asker Sayısı: %d / %d,Soldier Count: %d / %d
+mc.trade.mission.soldier_hint,"Sol/Sağ: Miktar Ayarla\nA: Devam Et","Left/Right: Adjust amount\nA: Continue"
+mc.trade.mission.selected_qty,Seçili: %d / %d,Selected: %d / %d
+mc.trade.mission.product_hint,"Yön Tuşları: Ürün Seç  |  A: Miktar Ayarla  |  X: Görevi Başlat","D-Pad: Select product  |  A: Adjust quantity  |  X: Start mission"
+mc.trade.mission.quantity_popup,"📦 %s\n\nMiktar: %d / %d\n\nSol/Sağ: Değiştir\nA: Onayla  |  B: İptal","📦 %s\n\nQuantity: %d / %d\n\nLeft/Right: Change\nA: Confirm  |  B: Cancel"
+mc.concubine.skills.title,⚔️ Yetenekler,⚔️ Skills
+mc.concubine.history.title,📚 Görev Geçmişi,📚 Mission History
+mc.concubine.history.summary,"✅ Tamamlanan: %d\n❌ Başarısız: %d\n📊 Başarı Oranı: %d%%","✅ Completed: %d\n❌ Failed: %d\n📊 Success Rate: %d%%"
+mc.concubine.controls.title,🎮 KONTROLLER,🎮 CONTROLS
+mc.concubine.controls.body,"Yukarı/Aşağı: Cariye Seç\nA tuşu: Rol Ata\nB tuşu: Geri","Up/Down: Select concubine\nA: Assign role\nB: Back"
+mc.concubine.role.error_not_found,Hata: Cariye bulunamadı!,Error: Concubine not found!
+mc.concubine.role.header,=== CARİYE ROL ATAMA ===,=== CONCUBINE ROLE ASSIGNMENT ===
+mc.concubine.role.cariye_line,👤 Cariye: %s,👤 Concubine: %s
+mc.concubine.role.current,📊 Mevcut Rol: %s,📊 Current Role: %s
+mc.concubine.role.coming_soon, (Gelecekte), (Coming soon)
+mc.concubine.role.controls,"Yukarı/Aşağı: Rol Seç\nA tuşu: Uygula\nB tuşu: İptal","Up/Down: Select role\nA: Apply\nB: Cancel"
+concubine.skill.combat,Savaş,Combat
+concubine.skill.diplomacy,Diplomasi,Diplomacy
+concubine.skill.trade,Ticaret,Trade
+concubine.skill.bureaucracy,Bürokrasi,Bureaucracy
+concubine.skill.exploration,Keşif,Exploration
+concubine.status.idle,Boşta,Idle
+concubine.status.on_mission,Görevde,On Mission
+concubine.status.injured,Yaralı,Injured
+concubine.status.resting,Dinleniyor,Resting
+concubine.role.none,Rol Yok,No Role
+concubine.role.commander,Komutan,Commander
+concubine.role.agent,Ajan,Agent
+concubine.role.diplomat,Diplomat,Diplomat
+concubine.role.trader,Tüccar,Trader
+concubine.role.scholar,Alim,Scholar
+concubine.role.medic,Tibbiyeci,Medic
+mc.news.event.drought.title,🌧️ Kuraklık Başladı,🌧️ Drought Started
+mc.news.event.drought.body,Su üretimi %20 azaldı,Water production reduced by 20%
+mc.news.event.migrants.title,👥 Göçmenler Geldi,👥 Migrants Arrived
+mc.news.event.migrants.body,Yeni işçi mevcut,New workers available
+mc.news.event.wolves.title,🐺 Kurt Sürüsü,🐺 Wolf Pack
+mc.news.event.wolves.body,Avcılık tehlikeli,Hunting is dangerous
+mc.news.event.unknown,Bilinmeyen Olay,Unknown Event
+mc.news.event.no_description,Açıklama yok,No description
+mc.news.no_title,Başlık yok,No title
+village.toast.construction_done,İnşaat tamamlandı,Construction completed
+village.toast.delivery_done,Teslimat Tamamlandı,Delivery Complete
+village.delivery.dungeon_gold,+%d zindan altını,+%d dungeon gold
+village.delivery.expedition_gold,+%d sefer altını (harita görevi),+%d expedition gold (map mission)
+village.delivery.resources,+%d kaynak,+%d resources
+village.delivery.rescued,+%d köylü +%d cariye,+%d villagers +%d concubines
+concubine.unnamed,İsimsiz,Unnamed
+mc.mission.result.panel_header,🎯 GÖREV SONUCU:,🎯 MISSION RESULT:
+mc.mission.result.cariye_line,Cariye: %s,Concubine: %s
+mc.mission.result.mission_line,Görev: %s,Mission: %s
+mc.mission.result.cariye_injured,🏥 Cariye yaralandı!,🏥 Concubine was injured!
+mc.mission.result.auto_close_countdown,⏱️ %.1f saniye sonra kapanacak...,⏱️ Closes in %.1f seconds...
+mc.concubine.info.name,İsim: %s,Name: %s
+mc.concubine.info.level,Seviye: %d (%d/%d XP),Level: %d (%d/%d XP)
+mc.concubine.info.role,Rol: %s,Role: %s
+mc.concubine.info.health,Sağlık: %d/%d,Health: %d/%d
+mc.concubine.info.moral,Moral: %d/%d,Morale: %d/%d
+mc.concubine.skill_line,%s: %d/100,%s: %d/100
+mc.concubine.history.completed,✅ Tamamlanan: %d görev,✅ Completed: %d missions
+mc.concubine.history.failed,❌ Başarısız: %d görev,❌ Failed: %d missions
+mc.concubine.history.rate,📊 Başarı Oranı: %.1f%%,📊 Success Rate: %.1f%%
+mc.concubine.history.total_xp,🏆 Toplam Deneyim: %d XP,🏆 Total Experience: %d XP
+mc.concubine.achievements.empty,"🌟 Henüz başarı kazanılmadı\n\nBaşarılar görev tamamlama, seviye atlama ve yetenek geliştirme ile kazanılır.","🌟 No achievements yet\n\nEarn achievements by completing missions, leveling up, and improving skills."
+mc.concubine.achievements.total,🏆 Toplam %d Başarı Kazanıldı,🏆 %d Achievements Earned
+world_event.kuraklik.name,Kuraklık,Drought
+world_event.kuraklik.desc,Bölgede kuraklık başladı. Su kaynakları azalıyor.,A drought has begun in the region. Water sources are dwindling.
+world_event.gocmenler.name,Göçmen Dalgası,Migrant Wave
+world_event.gocmenler.desc,Savaştan kaçan göçmenler bölgeye geliyor.,Refugees fleeing war are arriving in the region.
+world_event.kurt_surusu.name,Kurt Sürüsü,Wolf Pack
+world_event.kurt_surusu.desc,Tehlikeli kurt sürüsü bölgede dolaşıyor.,A dangerous wolf pack is roaming the area.
+news.map_mission.success,Görevi haritada tamamladın.,You completed the mission on the map.
+news.map_mission.failed,Görev başarısız oldu.,The mission failed.
+news.new_map_mission.title,Yeni Harita Görevi,New Map Mission
+news.new_map_mission.body,%s görevi açıldı.,Mission %s is now available.
+news.trader_arrived.title,💰 %s Geldi,💰 %s Has Arrived
+news.trader_arrived.body,%s köyünüze geldi! Satıyor: %s,%s has arrived in your village! Selling: %s
+news.purchase.title,Satın Alındı,Purchased
+news.purchase.body,%d %s satın alındı (%d altın)%s,Bought %d %s (%d gold)%s
+news.defense_required.title,Savunma Gerekli,Defense Required
+news.defense_required.body,%s saldırısına karşı köyü savun!,Defend the village against %s's attack!
+mission.dyn.loc.north,Kuzey,North
+mission.dyn.loc.south,Güney,South
+mission.dyn.loc.east,Doğu,East
+mission.dyn.loc.west,Batı,West
+mission.dyn.loc.center,Merkez,Center
+mission.dyn.enemy.foe,Düşman,Enemy
+mission.dyn.enemy.bandit,Haydut,Bandit
+mission.dyn.enemy.rival,Rakip,Rival
+mission.dyn.enemy.rebel,İsyancı,Rebel
+mission.dyn.enemy.foreign,Yabancı,Foreign
+mission.dyn.place.forest,Orman,Forest
+mission.dyn.place.mountain,Dağ,Mountain
+mission.dyn.place.desert,Çöl,Desert
+mission.dyn.place.lake,Göl,Lake
+mission.dyn.place.cave,Mağara,Cave
+mission.dyn.area.unknown,Bilinmeyen,Unknown
+mission.dyn.area.abandoned,Terk Edilmiş,Abandoned
+mission.dyn.area.dangerous,Tehlikeli,Dangerous
+mission.dyn.area.mysterious,Gizemli,Mysterious
+mission.dyn.area.legendary,Efsanevi,Legendary
+mission.dyn.settlement.village,Köy,Village
+mission.dyn.settlement.city,Şehir,City
+mission.dyn.settlement.town,Kasaba,Town
+mission.dyn.settlement.market,Pazar,Market
+mission.dyn.settlement.port,Liman,Port
+mission.dyn.savas.name.convoy,Karavan Konvoyunu Kes,Intercept the Caravan Convoy
+mission.dyn.savas.name.enemy_swarm,{enemy} Sürüsünü Dağıt,Disperse the {enemy} Swarm
+mission.dyn.savas.name.road_ambush,Yol Kesenlere Karşı Baskın,Raid Against Road Ambushers
+mission.dyn.savas.name.route_clash,{location} Yolunda Çatışma,Clash on the {location} Route
+mission.dyn.savas.name.enemy_fight,{enemy} ile Savaş,Fight the {enemy}
+mission.dyn.savas.desc.convoy,Bir köye giden veya köyden çıkan ticari konvoyun geçtiği güzergâhta {enemy} ile çarpış.,Clash with {enemy} on the trade route used by a village caravan.
+mission.dyn.savas.desc.enemy_ops,Yakın yerleşimin yollarında toplanan {enemy} unsuruna karşı operasyon düzenle.,Launch an operation against {enemy} forces gathering on nearby roads.
+mission.dyn.savas.desc.ambush,Karavan güzergâhında pusu kuran {enemy} güçlerini püskürt.,Repel {enemy} forces ambushing the caravan route.
+mission.dyn.savas.desc.route_fight,Ticaret yolunda şiddetlenen çatışmayı köy merkezine sokmadan sonlandır.,End the escalating fight on the trade route before it reaches the village.
+mission.dyn.savas.desc.convoy_security,Konvoy güvenliği için yol bölgesinde {enemy} ile mücadele et.,Secure the convoy by fighting {enemy} along the road.
+mission.dyn.kesif.name.explore,{location} Keşfi,{location} Exploration
+mission.dyn.kesif.name.survey,{area} Bölgesini Araştır,Survey the {area} Region
+mission.dyn.kesif.name.mystery,{location} Gizemini Çöz,Unravel the Mystery of {location}
+mission.dyn.kesif.name.resources,{area} Kaynaklarını Bul,Find Resources in {area}
+mission.dyn.kesif.name.map,{location} Haritasını Çıkar,Map {location}
+mission.dyn.kesif.desc.explore,{location} bölgesini keşfet ve bilinmeyen alanları araştır.,Explore {location} and investigate unknown areas.
+mission.dyn.kesif.desc.survey,{area} bölgesindeki kaynakları ve tehlikeleri tespit et.,Identify resources and dangers in the {area} region.
+mission.dyn.kesif.desc.mystery,{location} gizemini çöz ve sırları ortaya çıkar.,Solve the mystery of {location} and uncover its secrets.
+mission.dyn.kesif.desc.resources,{area} bölgesindeki değerli kaynakları bul.,Find valuable resources in the {area} region.
+mission.dyn.kesif.desc.map,{location} için detaylı harita çıkar.,Create a detailed map of {location}.
+mission.dyn.ticaret.name.trade,{location} ile Ticaret,Trade with {location}
+mission.dyn.ticaret.name.resource,{resource} Ticareti,{resource} Trade
+mission.dyn.ticaret.name.market,{location} Pazarı,{location} Market
+mission.dyn.ticaret.name.deal,{resource} Anlaşması,{resource} Agreement
+mission.dyn.ticaret.name.route,{location} Ticaret Yolu,{location} Trade Route
+mission.dyn.ticaret.desc.trade,{location} ile karlı ticaret anlaşması yap.,Make a profitable trade deal with {location}.
+mission.dyn.ticaret.desc.resource,{resource} ticareti için anlaşma sağla.,Arrange a deal for {resource} trade.
+mission.dyn.ticaret.desc.market,{location} pazarında ticaret yap.,Trade at the {location} market.
+mission.dyn.ticaret.desc.deal,{resource} için uzun vadeli anlaşma imzala.,Sign a long-term agreement for {resource}.
+mission.dyn.ticaret.desc.route,{location} ile ticaret yolu kur.,Establish a trade route with {location}.
+mission.loc.unknown_region,Bilinmeyen Bölge,Unknown Region
+mission.loc.trade_hub,Ticaret Merkezi,Trade Hub
+mission.loc.diplomatic_hub,Diplomatik Merkez,Diplomatic Center
+mission.loc.enemy_territory,Düşman Bölgesi,Enemy Territory
+mission.proc.combat.bandit_camp,Bandi Kampını Temizle,Clear the Bandit Camp
+mission.proc.combat.ork_attack,Ork Saldırısını Püskürt,Repel the Orc Attack
+mission.proc.combat.pirate_ship,Korsan Gemisini Ele Geçir,Capture the Pirate Ship
+mission.proc.combat.dragon_lair,Ejder Yuvasını Keşfet,Explore the Dragon Lair
+mission.proc.combat.goblin_fort,Goblin Kalesini Fethet,Conquer the Goblin Fort
+mission.proc.combat.desc,Düşman güçlerle savaş ve bölgeyi güvence altına al.,Fight enemy forces and secure the region.
+mission.proc.explore.west_forest,Batı Ormanlarını Keşfet,Explore the Western Forests
+mission.proc.explore.lost_city,Kayıp Şehri Bul,Find the Lost City
+mission.proc.explore.secret_cave,Gizli Mağarayı Araştır,Investigate the Secret Cave
+mission.proc.explore.ancient_temple,Eski Tapınağı Keşfet,Explore the Ancient Temple
+mission.proc.explore.unknown_island,Bilinmeyen Adayı Keşfet,Explore the Unknown Island
+mission.proc.explore.desc,Bilinmeyen bölgeleri keşfet ve yeni kaynaklar bul.,Explore unknown regions and find new resources.
+mission.proc.trade.neighbor_city,Komşu Şehirle Ticaret,Trade with Neighboring City
+mission.proc.trade.sell_goods,Değerli Malları Sat,Sell Valuable Goods
+mission.proc.trade.open_route,Ticaret Yolu Aç,Open a Trade Route
+mission.proc.trade.setup_market,Pazar Yerini Kur,Set Up a Market
+mission.proc.trade.trade_deal,Ticaret Anlaşması Yap,Make a Trade Deal
+mission.proc.trade.desc,Ticaret yaparak altın kazan ve ekonomiyi güçlendir.,Earn gold through trade and strengthen the economy.
+mission.proc.diplomacy.peace,Barış Anlaşması Yap,Make a Peace Agreement
+mission.proc.diplomacy.alliance,İttifak Kur,Form an Alliance
+mission.proc.diplomacy.envoy,Elçi Gönder,Send an Envoy
+mission.proc.diplomacy.dispute,Anlaşmazlığı Çöz,Resolve a Dispute
+mission.proc.diplomacy.trade_treaty,Ticaret Anlaşması İmzala,Sign a Trade Treaty
+mission.proc.diplomacy.desc,Diplomatik ilişkiler kurarak barışı sağla.,Establish diplomatic relations and maintain peace.
+mission.proc.intel.enemy_plans,Düşman Planlarını Öğren,Learn Enemy Plans
+mission.proc.intel.spy_network,Casus Ağı Kur,Build a Spy Network
+mission.proc.intel.secret_info,Gizli Bilgi Topla,Gather Secret Information
+mission.proc.intel.enemy_forces,Düşman Güçlerini Keşfet,Scout Enemy Forces
+mission.proc.intel.insider,İçeriden Bilgi Al,Get Insider Information
+mission.proc.intel.desc,Gizli bilgi toplayarak düşman hakkında istihbarat elde et.,Gather intelligence about the enemy.
+mission.strategy.savas.0,"Konvoya siper ol, düşmanı uzun mesafeden oyala.","Take cover for the convoy and harass the enemy from range."
+mission.strategy.savas.1,"Yemek ve su ile ekibi güçlendir, karşı saldırıya geç.","Strengthen the team with food and water, then counterattack."
+mission.strategy.savas.2,"İlaç ve erzakla tam baskın: yol kesenleri dağıt.","Full raid with medicine and supplies: scatter the ambushers."
+mission.strategy.kesif.0,Hafif erzakla dikkatli keşif.,Careful scouting with light supplies.
+mission.strategy.kesif.1,Daha iyi malzeme ve su ile yolu netleştir.,Clear the path with better supplies and water.
+mission.strategy.kesif.2,Tam donanımla alanı haritalandır.,Map the area with full equipment.
+mission.strategy.ticaret.0,"Temkinli pazarlık yap, kervanı görünmeden geçir.","Negotiate cautiously and pass the caravan unseen."
+mission.strategy.ticaret.1,Rüşvet ve ikna ile geçiş aç.,Open passage with bribes and persuasion.
+mission.strategy.ticaret.2,"Silahlı refakat kur, hızlı geçiş dene.",Escort with arms and attempt a fast passage.
+news.relief.title,Yardım Görevi,Relief Mission
+news.relief.body,%s için bir yardım görevi listelendi.,A relief mission was listed for %s.
+news.ally_relief.title,Muttefik Yardım,Ally Aid
+news.ally_relief.body,%s için yardım görevi açıldı (ittifak).,An aid mission opened for %s (alliance).
+news.trade_skill.legendary, (Efsanevi Ticaret Ustası!),(Legendary Merchant!)
+news.trade_skill.master, (Ticaret Efendisi),(Trade Master)
+news.trade_skill.expert, (Pazarlık Ustası),(Bargain Expert)
+news.trade_success.title,Ticaret Başarılı%s,Trade Successful%s
+news.trade_success.body,%s %s'ye ticaret görevini tamamladı. +%d altın kazandınız +%d ilişki artışı.,%s completed the trade mission to %s. +%d gold earned +%d relations.
+news.effect_ended.title,Etki Sona Erdi,Effect Ended
+news.effect_ended.body,%s için %+d etki bitti,Effect %+d ended for %s
+news.trader_left.title,Tüccar Ayrıldı,Trader Left
+news.trader_left.body,%s köyden ayrıldı.,%s left the village.
+news.diplomacy_update.title,Diplomasi Güncellemesi,Diplomacy Update
+news.diplomacy_update.body,%s ile ilişkiler %s%d,Relations with %s changed by %s%d
+news.raid_opportunity.title,Görev Fırsatı,Mission Opportunity
+news.raid_opportunity.body,Savunma ve yağma görevleri listene eklendi,Defense and raid missions added to your list
+news.world_event_ended.title,%s Sona Erdi,%s Ended
+news.world_event_ended.body,Etki bitti.,The effect has ended.
+news.production_effect.title,Üretim Etkisi,Production Effect
+news.production_effect.body,%s için %s%d (kaynak: %s),For %s: %s%d (source: %s)
+news.conflict.start.title,⚔️ %s %s %s,⚔️ %s %s %s
+news.conflict.start.body,%s %s üzerine harekete geçti.,%s moved against %s.
+news.conflict.result.title,⚔️ Sonuç: %s,⚔️ Result: %s
+news.conflict.result.body,%s | Tür: %s,%s | Type: %s
+news.relation_up.title,İlişki Artışı,Relations Increased
+news.relation_up.body,%s ile ilişkiler +%d arttı (Yeni: %d),Relations with %s increased by +%d (New: %d)
+news.trade_mode.title,Ticaret Modu (%s),Trade Mode (%s)
+news.trade_mode.body,%s: %s gün,%s: %s days
+news.neighbors_discovered.title,Komşular Tanımlandı,Neighbors Discovered
+news.neighbors_discovered.body,%d yerleşim keşfedildi,%d settlements discovered
+news.bandit_activity.title,Haydut Faaliyeti,Bandit Activity
+news.bandit_activity.body,Yollarda haydutlar arttı. Ticaret riskli.,Bandits increased on the roads. Trade is risky.
+news.festival.title,Festival,Festival
+news.festival.body,%s'de bereket festivali! Pazarlar canlandı.,Harvest festival in %s! Markets are bustling.
+news.plague.title,Salgın,Plague
+news.plague.body,Bölgede salgın yayıldı. Üretim düşüyor.,A plague spread in the region. Production is falling.
+news.embargo.title,Ticaret Ambargosu,Trade Embargo
+news.embargo.body,%s ile %s arasında ticaret askıya alındı.,Trade suspended between %s and %s.
+news.caravan_escort.title,Görev: Kervan Eskortu,Mission: Caravan Escort
+news.caravan_escort.body,Yeni görev listene eklendi.,A new mission was added to your list.
+news.bandit_cleanup.title,Haydut Temizliği,Bandit Cleanup
+news.bandit_cleanup.body,Yollardaki haydutları temizlemek için görev listene eklendi. Asker ve cariye ile gönder.,A mission to clear bandits was added. Send soldiers and a concubine.
+news.stability_changed.title,İstikrar Değişti,Stability Changed
+news.stability_changed.body,Yeni istikrar: %d,New stability: %d
+news.raid_chance.title,Baskın Fırsatı,Raid Opportunity
+news.raid_chance.body,%s yerleşimine baskın düzenleme fırsatı!,Opportunity to raid settlement %s!
+news.map_trade_order.title,Harita Ticaret Emri,Map Trade Order
+news.map_trade_order.body,%s ile ticaret görevi oluşturuldu.,Trade mission created with %s.
+news.map_diplomacy_order.title,Harita Diplomasi Emri,Map Diplomacy Order
+news.map_diplomacy_order.body,%s için diplomasi görevi oluşturuldu.,Diplomacy mission created for %s.
+news.battle_victory.title,Savaş Zaferi,Battle Victory
+news.battle_victory.body,%s başarıyla tamamlandı! Kazanç: %d altın,%s completed successfully! Gain: %d gold
+news.battle_defeat.title,Savaş Yenilgisi,Battle Defeat
+news.battle_defeat.body,%s başarısız oldu. Kayıp: %d altın,%s failed. Loss: %d gold
+news.unit_loss.title,Asker Kaybı,Unit Loss
+news.unit_loss.body,%d %s kaybedildi,%d %s lost
+news.building_damaged.title,Bina Hasar Aldı,Building Damaged
+news.building_damaged.body,%s hasar aldı.,%s took damage.
+news.building_hurt.title,Bina Zarar Gördü,Building Hurt
+news.building_hurt.body,%s hasar gördü.,%s was damaged.
+news.defense_lost.title,Savunma Kaybı,Defense Lost
+news.defense_lost.body,Düşman saldırısı püskürtülemedi. Kaynakların bir kısmı yağmalandı.,The enemy attack was not repelled. Some resources were looted.
+wm.mission.strategy.option,Seçenek %d,Option %d
+wm.mission.resolve.not_found,Görev bulunamadı.,Mission not found.
+wm.mission.resolve.invalid,Görev verisi geçersiz.,Invalid mission data.
+wm.mission.resolve.not_available,Görev artık listede değil.,Mission is no longer available.
+wm.mission.resolve.not_player_map,Bu görev haritada oyuncu ile tamamlanamaz.,This mission cannot be completed by the player on the map.
+wm.mission.resolve.wrong_hex,Konum eşleşmiyor.,Location does not match.
+wm.mission.resolve.bad_option,Geçersiz seçenek.,Invalid option.
+wm.mission.resolve.bad_strategy,Strateji verisi bozuk.,Strategy data is corrupt.
+wm.mission.resolve.insufficient,Yetersiz kaynak (yanındaki erzak veya köy).,Insufficient resources (pack or village).
+wm.mission.resolve.spend_failed,Kaynak harcanamadı.,Could not spend resources.
+wm.mission.resolve.failed,İşlem yapılamadı.,Operation failed.
+wm.mission.resolve.success,Görev başarılı.,Mission successful.
+wm.mission.resolve.failure,Görev başarısız; harcadığın kaynak geri dönmez.,Mission failed; spent resources are not refunded.
+wm.tooltip.map_mission,Harita görevi,Map mission
+wm.tooltip.mission_meta,Tür: %s | Risk: %s,Type: %s | Risk: %s
+wm.tooltip.success_chance,Başarı şansı: %d%%,Success chance: %d%%
+wm.tooltip.rewards,Ödül: ,Reward: 
+wm.tooltip.penalties,Başarısız: ,Failure: 
+wm.mission_result.title,Görev Sonucu,Mission Result
+wm.mission_result.line,%s — %s,%s — %s
+wm.mission_result.success_short,Başarılı,Success
+wm.mission_result.fail_short,Başarısız,Failed
+wm.mission_result.expedition_gold_plus,  Sefer altını: +%d,  Expedition gold: +%d
+wm.mission_result.expedition_gold_minus,  Sefer altını: %d,  Expedition gold: %d
+wm.mission_result.pack_reward,  Çanta ödülü: ,  Pack reward: 
+wm.mission_result.hp_loss,  Can kaybı: -%.0f,  HP lost: -%.0f
+wm.tooltip.dungeon.default_name,Zindan girişi,Dungeon entrance
+wm.tooltip.dungeon.enter_hint,Zindana girmek için bu hex'e yürüyüp Onayla'ya bas.,Walk to this hex and press Confirm to enter the dungeon.
+wm.tooltip.terrain,Arazi: %s,Terrain: %s
+wm.tooltip.forest.title,Orman bölgesi,Forest region
+wm.tooltip.forest.hint,Onayla: odun + yiyecek; düz chunklar.,Confirm: wood + food; flat chunks.
+wm.tooltip.mountain.title,Dağ bölgesi,Mountain region
+wm.tooltip.mountain.hint,Onayla: odun + taş; engebeli chunklar.,Confirm: wood + stone; rugged chunks.
+wm.tooltip.river.title,Akarsu bölgesi,River region
+wm.tooltip.river.hint,Onayla: su + yiyecek; düz chunklar.,Confirm: water + food; flat chunks.
+wm.tooltip.player_village.title,Senin köyün,Your village
+wm.tooltip.player_village.hint,Köye girmek için bu hex'e yürüyüp Onayla'ya bas.,Walk to this hex and press Confirm to enter the village.
+wm.tooltip.neighbor.undiscovered.title,Komşu yerleşim,Neighboring settlement
+wm.tooltip.neighbor.undiscovered.hint,Henüz keşfedilmedi; yaklaştıkça açılır.,Not yet discovered; revealed as you get closer.
+wm.tooltip.neighbor.default,Yerleşim,Settlement
+wm.tooltip.neighbor.population,Nüfus: ~%d,Population: ~%d
+wm.tooltip.neighbor.no_crisis,Kriz: yok,Crisis: none
+wm.tooltip.neighbor.crisis,Kriz: %s (şiddet ~%.1f),Crisis: %s (severity ~%.1f)
+wm.tooltip.neighbor.days_left,Tahmini kalan: %d gün,Estimated remaining: %d days
+wm.incident.wolf_attack,kurt baskını,wolf attack
+wm.incident.harvest_failure,kıtlık,famine
+wm.incident.migrant_wave,göç dalgası,migration wave
+wm.incident.bandit_road,yol haydutları,road bandits
+wm.incident.plague_scare,hastalık kaygısı,disease scare
+wm.terrain.forest,orman,forest
+wm.terrain.mountain,dağ,mountain
+wm.terrain.river,akarsu,river
+wm.alliance.neighbor_status,Komşu durumu: %s,Neighbor status: %s
+wm.alliance.neighbor_status_many,Komşu durumu (%d aktif): %s ...,Neighbor status (%d active): %s ...
+wm.alliance.allies_calm,Müttefikler: %d (sakin),Allies: %d (calm)
+wm.alliance.aid_call,Müttefik yardım çağrısı: %s,Ally aid call: %s
+wm.alliance.aid_reason.crisis,kriz,crisis
+wm.alliance.tribute_full,Tribute: ~%d altın + ~%.1f erzak/gün (%d/%d),Tribute: ~%d gold + ~%.1f food/day (%d/%d)
+wm.alliance.tribute_gold,Tribute: ~%d altın/gün (%d/%d),Tribute: ~%d gold/day (%d/%d)
+wm.alliance.hostile_short,Düşman köyler: %s,Hostile villages: %s
+wm.alliance.hostile_long,Düşman köyler: %d (%s ...),Hostile villages: %d (%s ...)
+wm.status.missions_completed_at_hex,%d görev hedefte tamamlandı.,%d mission(s) completed at destination.
+wm.status.selected_team,Seçili Ekip: %s (%s),Selected Team: %s (%s)
+wm.status.team_default,Ekip,Team
+mission.worldmap.trade.name,Harita Ticaret: {target},Map Trade: {target}
+mission.worldmap.trade.desc,{target} ile harita üzerinden ticaret görevi.,Trade mission with {target} on the map.
+mission.worldmap.diplomacy.name,Harita Diplomasi: {target},Map Diplomacy: {target}
+mission.worldmap.diplomacy.desc,{target} ile ilişkileri geliştirmek için diplomatik heyet gönder.,Send a diplomatic envoy to improve relations with {target}.
+wm.settlement.unnamed,Adsız Köy %s,Unnamed Village %s
+wm.settlement.adj.kucuk,Küçük,Small
+wm.settlement.adj.buyuk,Büyük,Large
+wm.settlement.adj.issiz,Issız,Desolate
+wm.settlement.adj.sisli,Sisli,Misty
+wm.settlement.adj.ruzgarli,Rüzgarlı,Windy
+wm.settlement.adj.yash,Yaşlı,Old
+wm.settlement.adj.genc,Genç,Young
+wm.settlement.adj.uzak,Uzak,Remote
+wm.settlement.adj.yakin,Yakın,Nearby
+wm.settlement.adj.yesil,Yeşil,Green
+wm.settlement.adj.kuru,Kuru,Dry
+wm.settlement.adj.soguk,Soğuk,Cold
+wm.settlement.adj.sicak,Sıcak,Hot
+wm.settlement.adj.alcak,Alçak,Low
+wm.settlement.adj.yuksek,Yüksek,High
+wm.settlement.adj.dar,Dar,Narrow
+wm.settlement.adj.genis,Geniş,Wide
+wm.settlement.adj.sakin,Sakin,Quiet
+wm.settlement.adj.gurultulu,Gürültülü,Noisy
+wm.settlement.adj.karanlik,Karanlık,Dark
+wm.settlement.adj.aydin,Aydın,Bright
+wm.settlement.adj.kayip,Kayıp,Lost
+wm.settlement.adj.eski,Eski,Ancient
+wm.settlement.adj.yeni,Yeni,New
+wm.settlement.adj.derin,Derin,Deep
+wm.settlement.adj.sig,Sığ,Shallow
+wm.settlement.adj.kirli,Kirli,Dirty
+wm.settlement.adj.temiz,Temiz,Clean
+wm.settlement.adj.yalniz,Yalnız,Lonely
+wm.settlement.adj.kalabalik,Kalabalık,Crowded
+wm.settlement.adj.sessiz,Sessiz,Silent
+wm.settlement.adj.cayir,Çayır,Meadow
+wm.settlement.adj.tepeli,Tepeli,Hilly
+wm.settlement.adj.vadili,Vadili,Valley
+wm.settlement.suffix.koyu,Köyü,Village
+wm.settlement.suffix.koy,Köy,Village
+wm.settlement.suffix.obasi,Obası,Tribe
+wm.settlement.suffix.mezrasi,Mezrası,Hamlet
+wm.settlement.suffix.beldesi,Beldesi,Town
+wm.settlement.suffix.koylusu,Köylüsü,Village
+mc.concubine.empty_list,Henüz cariye yok. Zindandan kurtardıkların burada görünecek.,No concubines yet. Rescued concubines will appear here.
+mc.news.random_events.empty,Şu an aktif rastgele olay yok.,No active random events right now.

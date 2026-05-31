@@ -56,6 +56,11 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 @export var unlocks_missions: Array[String] = []  # Bu görev tamamlandığında açılacak görevler
 @export var chain_rewards: Dictionary = {}  # Zincir tamamlandığında verilecek ödüller
 
+# Localization (dynamic / template missions)
+var locale_name_key: String = ""
+var locale_desc_key: String = ""
+var locale_vars: Dictionary = {}  # placeholder -> translation key
+
 # Görev durumu
 var status: Status = Status.MEVCUT
 var assigned_cariye_id: int = -1
@@ -163,34 +168,40 @@ func get_remaining_time() -> float:
 		# Gerçek saniyeyi oyun dakikasına çevir (1 oyun dakikası = 2.5 gerçek saniyesi)
 		return remaining_real_seconds / 2.5
 
+func _localized(key: String, fallback: String) -> String:
+	var text := tr(key)
+	return text if text != key else fallback
+
+
 # Görev türü adı
 func get_mission_type_name() -> String:
 	match mission_type:
-		MissionType.SAVAŞ: return "Savaş"
-		MissionType.KEŞİF: return "Keşif"
-		MissionType.DİPLOMASİ: return "Diplomasi"
-		MissionType.TİCARET: return "Ticaret"
-		MissionType.BÜROKRASİ: return "Bürokrasi"
-		_: return "Bilinmeyen"
+		MissionType.SAVAŞ: return _localized("mission.type.war", "Savaş")
+		MissionType.KEŞİF: return _localized("mission.type.exploration", "Keşif")
+		MissionType.DİPLOMASİ: return _localized("mission.type.diplomacy", "Diplomasi")
+		MissionType.TİCARET: return _localized("mission.type.trade", "Ticaret")
+		MissionType.İSTİHBARAT: return _localized("mission.type.intelligence", "İstihbarat")
+		MissionType.BÜROKRASİ: return _localized("mission.type.bureaucracy", "Bürokrasi")
+		_: return _localized("mission.type.unknown", "Bilinmeyen")
 
 # Zorluk adı
 func get_difficulty_name() -> String:
 	match difficulty:
-		Difficulty.KOLAY: return "Kolay"
-		Difficulty.ORTA: return "Orta"
-		Difficulty.ZOR: return "Zor"
-		Difficulty.EFSANEVİ: return "Efsanevi"
-		_: return "Bilinmeyen"
+		Difficulty.KOLAY: return _localized("mission.difficulty.easy", "Kolay")
+		Difficulty.ORTA: return _localized("mission.difficulty.medium", "Orta")
+		Difficulty.ZOR: return _localized("mission.difficulty.hard", "Zor")
+		Difficulty.EFSANEVİ: return _localized("mission.difficulty.legendary", "Efsanevi")
+		_: return _localized("mission.type.unknown", "Bilinmeyen")
 
 # Durum adı
 func get_status_name() -> String:
 	match status:
-		Status.MEVCUT: return "Mevcut"
-		Status.AKTİF: return "Aktif"
-		Status.TAMAMLANDI: return "Tamamlandı"
-		Status.BAŞARISIZ: return "Başarısız"
-		Status.İPTAL: return "İptal"
-		_: return "Bilinmeyen"
+		Status.MEVCUT: return _localized("mission.status.available", "Mevcut")
+		Status.AKTİF: return _localized("mission.status.active", "Aktif")
+		Status.TAMAMLANDI: return _localized("mission.status.completed", "Tamamlandı")
+		Status.BAŞARISIZ: return _localized("mission.status.failed", "Başarısız")
+		Status.İPTAL: return _localized("mission.status.cancelled", "İptal")
+		_: return _localized("mission.type.unknown", "Bilinmeyen")
 
 # --- GÖREV ZİNCİRİ FONKSİYONLARI ---
 
@@ -201,11 +212,11 @@ func is_part_of_chain() -> bool:
 # Zincir türü adı
 func get_chain_type_name() -> String:
 	match chain_type:
-		ChainType.NONE: return "Bağımsız"
-		ChainType.SEQUENTIAL: return "Sıralı"
-		ChainType.PARALLEL: return "Paralel"
-		ChainType.CHOICE: return "Seçimli"
-		_: return "Bilinmeyen"
+		ChainType.NONE: return _localized("mission.chain.independent", "Bağımsız")
+		ChainType.SEQUENTIAL: return _localized("mission.chain.sequential", "Sıralı")
+		ChainType.PARALLEL: return _localized("mission.chain.parallel", "Paralel")
+		ChainType.CHOICE: return _localized("mission.chain.choice", "Seçimli")
+		_: return _localized("mission.type.unknown", "Bilinmeyen")
 
 # Önkoşul görevler tamamlandı mı?
 func are_prerequisites_met(completed_missions: Array[String]) -> bool:

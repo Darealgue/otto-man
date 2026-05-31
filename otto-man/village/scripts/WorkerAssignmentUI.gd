@@ -52,6 +52,8 @@ extends PanelContainer
 @onready var upgrade_bread_button: Button = %UpgradeBreadButton
 
 @onready var close_button: Button = %CloseButton
+@onready var _title_label: Label = $MarginContainer/VBoxContainer/TitleLabel
+@onready var _idle_label: Label = $MarginContainer/VBoxContainer/IdleWorkerHBox/IdleLabel
 
 # --- Upgrade UI (info labels + progress bars) ---
 var upgrade_info_labels := {}
@@ -109,18 +111,6 @@ const RESOURCE_SCENE_MAP := {
 	"soap": SOAPMAKER_SCENE,
 	"weapon": GUNSMITH_SCENE,
 	"armor": ARMORER_SCENE
-}
-
-const RESOURCE_LABEL_MAP := {
-	"lumber": "Kereste:",
-	"brick": "Tuğla:",
-	"cloth": "Kumaş:",
-	"garment": "Giysi:",
-	"medicine": "İlaç:",
-	"tea": "Çay:",
-	"soap": "Sabun:",
-	"weapon": "Silah:",
-	"armor": "Zırh:"
 }
 
 var dynamic_rows: Dictionary = {}
@@ -191,11 +181,78 @@ func _ready() -> void:
 	# Mümkünse ilk satırdaki ekle butonuna odaklan
 	if add_wood_button.visible and not add_wood_button.disabled:
 		add_wood_button.grab_focus()
-	elif add_stone_button.visible and not add_stone_button.disabled: # Eğer odun yoksa taşa bak
+	elif add_stone_button.visible and not add_stone_button.disabled:
 		add_stone_button.grab_focus()
-	# TODO: Diğer kaynaklar için benzer kontroller eklenebilir (food, water, bread)
-	elif close_button.visible and not close_button.disabled: # Hiçbiri uygun değilse kapat butonuna odaklan
+	elif close_button.visible and not close_button.disabled:
 		close_button.grab_focus()
+
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_on_locale_changed)
+	_refresh_locale()
+
+
+func _on_locale_changed(_locale: String = "") -> void:
+	_refresh_locale()
+	if visible:
+		update_ui()
+
+
+func _resource_row_label(resource_key: String) -> String:
+	return tr("worker.resource_label") % LocaleManager.get_resource_name(resource_key)
+
+
+func _refresh_locale() -> void:
+	if _title_label:
+		_title_label.text = tr("worker.title")
+	if _idle_label:
+		_idle_label.text = tr("worker.idle_label")
+	if close_button:
+		close_button.text = tr("worker.close")
+	_set_row_resource_label(wood_hbox, "wood")
+	_set_row_resource_label(stone_hbox, "stone")
+	_set_row_resource_label(food_hbox, "food")
+	_set_row_resource_label(water_hbox, "water")
+	_set_row_resource_label(metal_hbox, "metal")
+	_set_row_resource_label(bread_hbox, "bread")
+	for resource_type in dynamic_rows.keys():
+		var widgets: Dictionary = dynamic_rows[resource_type]
+		var row: HBoxContainer = widgets.get("row", null)
+		if row and row.get_child_count() > 0 and row.get_child(0) is Label:
+			(row.get_child(0) as Label).text = _resource_row_label(resource_type)
+	_apply_upgrade_tooltips_to_static_rows()
+
+
+func _set_row_resource_label(row: HBoxContainer, resource_key: String) -> void:
+	if not is_instance_valid(row) or row.get_child_count() == 0:
+		return
+	var first := row.get_child(0)
+	if first is Label:
+		(first as Label).text = _resource_row_label(resource_key)
+
+
+func _apply_upgrade_tooltips_to_static_rows() -> void:
+	var pairs := [
+		[wood_level_indicator, upgrade_wood_button],
+		[stone_level_indicator, upgrade_stone_button],
+		[food_level_indicator, upgrade_food_button],
+		[water_level_indicator, upgrade_water_button],
+		[metal_level_indicator, upgrade_metal_button],
+		[bread_level_indicator, upgrade_bread_button],
+	]
+	for pair in pairs:
+		if pair[0]:
+			pair[0].tooltip_text = tr("worker.building_level")
+		if pair[1]:
+			pair[1].tooltip_text = tr("worker.upgrade_btn")
+
+
+func _upgrade_button_tooltip(requirements: Dictionary, is_max: bool, has_reqs: bool) -> String:
+	if is_max:
+		return tr("worker.max_level")
+	if not has_reqs:
+		return tr("worker.cannot_upgrade")
+	return tr("worker.upgrade_tooltip") % _format_requirements_tooltip(requirements)
+
 
 # Create info label and progress bar for a given row if not present
 func _ensure_upgrade_ui_for_row(resource_type: String, row: HBoxContainer) -> void:
@@ -234,11 +291,11 @@ func _create_dynamic_processing_rows() -> void:
 		row.name = resource_type.capitalize() + "HBox"
 		row.visible = false
 		var label := Label.new()
-		label.text = RESOURCE_LABEL_MAP.get(resource_type, resource_type.capitalize() + ":")
+		label.text = _resource_row_label(resource_type)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var level_indicator := Label.new()
-		level_indicator.text = "[Lv. -]"
-		level_indicator.tooltip_text = "Bina Seviyesi"
+		level_indicator.text = tr("worker.level_empty")
+		level_indicator.tooltip_text = tr("worker.building_level")
 		var level_label := Label.new()
 		level_label.text = "0"
 		level_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -284,15 +341,14 @@ func _format_upgrade_info(building: Node) -> String:
 		var cost: Dictionary = building.get_next_upgrade_cost()
 		var gold := int(cost.get("gold", 0))
 		if gold > 0:
-			parts.append("💰 %d Altın" % gold)
+			parts.append(tr("worker.upgrade_gold") % gold)
 	if building and ("upgrade_time_seconds" in building):
 		var secs := int(building.upgrade_time_seconds)
 		if secs > 0:
 			parts.append("⏱ %ds" % secs)
-	# Simple effect preview: max workers +1
 	if building and ("max_workers" in building):
 		var cur_workers := int(building.max_workers)
-		parts.append("Etki: İşçi %d→%d" % [cur_workers, cur_workers + 1])
+		parts.append(tr("worker.upgrade_effect") % [cur_workers, cur_workers + 1])
 	return " • ".join(parts)
 
 func _update_upgrade_ui_for(resource_type: String, building: Node) -> void:
@@ -321,7 +377,7 @@ func _update_upgrade_ui_for(resource_type: String, building: Node) -> void:
 			var percent := int(round(ratio * 100.0))
 			# Show remaining time and percent inline
 			var base := _format_upgrade_info(building)
-			info_label.text = "⏳ %ds (%d%%) • %s" % [int(ceil(left)), percent, base]
+			info_label.text = tr("worker.upgrade_progress") % [int(ceil(left)), percent, base]
 			info_label.visible = true
 		bar.max_value = 1.0
 		bar.value = ratio
@@ -442,11 +498,11 @@ func update_ui() -> void:
 		# print("-------------------------------") #<<< KALDIRILDI
 		# --- DEBUG END ---
 
-		upgrade_wood_button.text = "Yükseltiliyor..." if wood_is_upgrading else "↑"
-		var wood_upgrade_reqs = VillageManager.get_building_requirements(WOODCUTTER_SCENE) # Sahne yolu
-		upgrade_wood_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(wood_upgrade_reqs) if not wood_upgrade_reqs.is_empty() and not wood_is_max_level_check else ("Maks Seviye" if wood_is_max_level_check else "Yükseltilemez")
+		upgrade_wood_button.text = tr("worker.upgrading") if wood_is_upgrading else "↑"
+		var wood_upgrade_reqs = VillageManager.get_building_requirements(WOODCUTTER_SCENE)
+		upgrade_wood_button.tooltip_text = _upgrade_button_tooltip(wood_upgrade_reqs, wood_is_max_level_check, not wood_upgrade_reqs.is_empty())
 
-		wood_level_indicator.text = "[Lv. %d]" % wood_current_level #<<< Güncel değişkeni kullan
+		wood_level_indicator.text = tr("worker.level_indicator") % wood_current_level
 		wood_level_label.text = _level_with_cap("wood")
 		_update_upgrade_ui_for("wood", wood_building)
 	else:
@@ -479,11 +535,11 @@ func update_ui() -> void:
 
 		var can_upgrade_stone = not stone_is_upgrading and not stone_is_max_level_check and stone_can_meet_reqs
 		upgrade_stone_button.disabled = not can_upgrade_stone
-		upgrade_stone_button.text = "Yükseltiliyor..." if stone_is_upgrading else "↑"
-		var stone_upgrade_reqs = VillageManager.get_building_requirements(STONE_MINE_SCENE) # Sahne yolu
-		upgrade_stone_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(stone_upgrade_reqs) if not stone_upgrade_reqs.is_empty() and not stone_is_max_level_check else ("Maks Seviye" if stone_is_max_level_check else "Yükseltilemez")
+		upgrade_stone_button.text = tr("worker.upgrading") if stone_is_upgrading else "↑"
+		var stone_upgrade_reqs = VillageManager.get_building_requirements(STONE_MINE_SCENE)
+		upgrade_stone_button.tooltip_text = _upgrade_button_tooltip(stone_upgrade_reqs, stone_is_max_level_check, not stone_upgrade_reqs.is_empty())
 
-		stone_level_indicator.text = "[Lv. %d]" % stone_current_level #<<< Güncel değişkeni kullan
+		stone_level_indicator.text = tr("worker.level_indicator") % stone_current_level
 		stone_level_label.text = _level_with_cap("stone")
 		_update_upgrade_ui_for("stone", stone_building)
 	else:
@@ -515,11 +571,11 @@ func update_ui() -> void:
 
 		var can_upgrade_food = not food_is_upgrading and not food_is_max_level_check and food_can_meet_reqs
 		upgrade_food_button.disabled = not can_upgrade_food
-		upgrade_food_button.text = "Yükseltiliyor..." if food_is_upgrading else "↑"
+		upgrade_food_button.text = tr("worker.upgrading") if food_is_upgrading else "↑"
 		var food_upgrade_reqs = VillageManager.get_building_requirements(HUNTER_HUT_SCENE)
-		upgrade_food_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(food_upgrade_reqs) if not food_upgrade_reqs.is_empty() and not food_is_max_level_check else ("Maks Seviye" if food_is_max_level_check else "Yükseltilemez")
+		upgrade_food_button.tooltip_text = _upgrade_button_tooltip(food_upgrade_reqs, food_is_max_level_check, not food_upgrade_reqs.is_empty())
 
-		food_level_indicator.text = "[Lv. %d]" % food_current_level #<<< Güncel değişkeni kullan
+		food_level_indicator.text = tr("worker.level_indicator") % food_current_level
 		food_level_label.text = _level_with_cap("food")
 		_update_upgrade_ui_for("food", food_building)
 	else:
@@ -551,11 +607,11 @@ func update_ui() -> void:
 
 		var can_upgrade_water = not water_is_upgrading and not water_is_max_level_check and water_can_meet_reqs
 		upgrade_water_button.disabled = not can_upgrade_water
-		upgrade_water_button.text = "Yükseltiliyor..." if water_is_upgrading else "↑"
+		upgrade_water_button.text = tr("worker.upgrading") if water_is_upgrading else "↑"
 		var water_upgrade_reqs = VillageManager.get_building_requirements(WELL_SCENE)
-		upgrade_water_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(water_upgrade_reqs) if not water_upgrade_reqs.is_empty() and not water_is_max_level_check else ("Maks Seviye" if water_is_max_level_check else "Yükseltilemez")
+		upgrade_water_button.tooltip_text = _upgrade_button_tooltip(water_upgrade_reqs, water_is_max_level_check, not water_upgrade_reqs.is_empty())
 
-		water_level_indicator.text = "[Lv. %d]" % water_current_level #<<< Güncel değişkeni kullan
+		water_level_indicator.text = tr("worker.level_indicator") % water_current_level
 		water_level_label.text = _level_with_cap("water")
 		_update_upgrade_ui_for("water", water_building)
 	else:
@@ -636,12 +692,12 @@ func _update_generic_row_from_building(
 	if scene_path != "" and not is_max_level:
 		can_upgrade = VillageManager.can_meet_requirements(scene_path)
 	upgrade_button.disabled = is_upgrading or is_max_level or not can_upgrade
-	upgrade_button.text = "Yükseltiliyor..." if is_upgrading else "↑"
+	upgrade_button.text = tr("worker.upgrading") if is_upgrading else "↑"
 	var reqs = VillageManager.get_building_requirements(scene_path)
-	upgrade_button.tooltip_text = "Yükselt (%s)" % _format_requirements_tooltip(reqs) if not reqs.is_empty() and not is_max_level else ("Maks Seviye" if is_max_level else "Yükseltilemez")
+	upgrade_button.tooltip_text = _upgrade_button_tooltip(reqs, is_max_level, not reqs.is_empty())
 	if is_instance_valid(level_indicator):
 		level_indicator.visible = true
-		level_indicator.text = "[Lv. %d]" % current_level
+		level_indicator.text = tr("worker.level_indicator") % current_level
 	if is_instance_valid(level_label):
 		level_label.text = _level_with_cap(resource_type)
 	_update_upgrade_ui_for(resource_type, building)
@@ -752,25 +808,28 @@ func _on_visibility_changed() -> void:
 # --- Utility ---
 # Formats a cost dictionary into a readable string (e.g., "1 Odun, 2 Taş")
 func _format_cost(cost: Dictionary) -> String:
-	if cost.is_empty(): return "Yok"
+	if cost.is_empty():
+		return tr("worker.none")
 	var parts: Array[String] = []
 	for resource_type in cost:
-		parts.append("%d %s" % [cost[resource_type], resource_type.capitalize()])
+		parts.append("%d %s" % [cost[resource_type], LocaleManager.get_resource_name(String(resource_type))])
 	return ", ".join(parts)
 
-# Tooltip için yeni yardımcı fonksiyon (veya mevcut _format_cost güncellenir)
+
 func _format_requirements_tooltip(requirements: Dictionary) -> String:
-	if requirements.is_empty(): return "Bilinmiyor"
+	if requirements.is_empty():
+		return tr("worker.unknown_req")
 	var cost = requirements.get("cost", {})
 	var levels = requirements.get("requires_level", {})
 	var tooltip_parts: Array[String] = []
 	if not cost.is_empty():
 		for resource_type in cost:
-			tooltip_parts.append("%s: %d" % [resource_type.capitalize(), cost[resource_type]])
+			tooltip_parts.append("%s: %d" % [LocaleManager.get_resource_name(String(resource_type)), cost[resource_type]])
 	if not levels.is_empty():
 		for resource_type in levels:
-			tooltip_parts.append("%s Sv: %d" % [resource_type.capitalize(), levels[resource_type]]) # "Sv" eklendi
-	if tooltip_parts.is_empty(): return "Gereksinim Yok"
+			tooltip_parts.append(tr("build.level_req") % [LocaleManager.get_resource_name(String(resource_type)), levels[resource_type]])
+	if tooltip_parts.is_empty():
+		return tr("worker.no_requirements")
 	return ", ".join(tooltip_parts)
 
 # --- YENİ: Yükseltme Butonu İşleyici ---
@@ -802,7 +861,7 @@ func _on_upgrade_button_pressed(building_scene_path: String) -> void:
 
 # --- YENİ: Ortalanmış Gösterme Fonksiyonu (await ve print ile) ---
 func show_centered() -> void:
-	# Önce görünür yap
+	_refresh_locale()
 	visible = true
 	# Boyutların hesaplanması için bir frame bekle
 	await get_tree().process_frame

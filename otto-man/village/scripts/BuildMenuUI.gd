@@ -37,22 +37,22 @@ const GUNSMITH_SCENE = "res://village/buildings/Gunsmith.tscn"
 const ARMORER_SCENE = "res://village/buildings/Armorer.tscn"
 
 const BUILDING_BUTTON_LABELS := {
-	WOODCUTTER_SCENE: "Odun Kampı",
-	STONE_MINE_SCENE: "Taş Ocağı",
-	HUNTER_HUT_SCENE: "Avcı/Toplayıcı",
-	WELL_SCENE: "Kuyu",
-	BAKERY_SCENE: "Fırın",
-	SAWMILL_SCENE: "Kereste Atölyesi",
-	BRICKWORKS_SCENE: "Tuğla Atölyesi",
-	BLACKSMITH_SCENE: "Demirci",
-	WEAVER_SCENE: "Dokumacı",
-	TAILOR_SCENE: "Terzi",
-	HERBALIST_SCENE: "Şifacı",
-	TEAHOUSE_SCENE: "Çay Evi",
-	SOAPMAKER_SCENE: "Sabun Atölyesi",
-	GUNSMITH_SCENE: "Silahçı",
-	ARMORER_SCENE: "Zırhçı",
-	HOUSE_SCENE: "Ev"
+	WOODCUTTER_SCENE: "building.woodcutter",
+	STONE_MINE_SCENE: "building.stone_mine",
+	HUNTER_HUT_SCENE: "building.hunter_hut",
+	WELL_SCENE: "building.well",
+	BAKERY_SCENE: "building.bakery",
+	SAWMILL_SCENE: "building.sawmill",
+	BRICKWORKS_SCENE: "building.brickworks",
+	BLACKSMITH_SCENE: "building.blacksmith",
+	WEAVER_SCENE: "building.weaver",
+	TAILOR_SCENE: "building.tailor",
+	HERBALIST_SCENE: "building.herbalist",
+	TEAHOUSE_SCENE: "building.teahouse",
+	SOAPMAKER_SCENE: "building.soapmaker",
+	GUNSMITH_SCENE: "building.gunsmith",
+	ARMORER_SCENE: "building.armorer",
+	HOUSE_SCENE: "building.house",
 }
 
 const BUILD_MENU_ORDER := [
@@ -140,11 +140,14 @@ func _ready() -> void:
 	_ensure_cost_popup()
 	_ensure_processing_buttons()
 	_refresh_button_texts()
+	_refresh_static_labels()
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_on_locale_changed)
 	var viewport := get_viewport()
 	if viewport and not viewport.gui_focus_changed.is_connected(_on_gui_focus_changed):
 		viewport.gui_focus_changed.connect(_on_gui_focus_changed)
 	if is_instance_valid(title_label):
-		title_label.text = "İnşaat [%s]" % BUILD_MENU_DEBUG_VERSION
+		title_label.text = tr("build.title")
 	if DEBUG_BUILD_MENU:
 		print("[BuildMenuUI] Buttons initialized: ", scene_buttons.keys())
 	
@@ -156,8 +159,27 @@ func _ready() -> void:
 	# VillageManager değişikliklerini dinle (opsiyonel, buton durumlarını güncellemek için)
 	# VillageManager.village_data_changed.connect(_update_button_states)
 
-# --- YENİ: Ortalanmış Gösterme Fonksiyonu ---
+
+func _on_locale_changed(_locale: String = "") -> void:
+	_refresh_button_texts()
+	_refresh_static_labels()
+	if visible:
+		_update_button_states()
+
+
+func _building_label(scene_path: String) -> String:
+	return LocaleManager.get_building_name(scene_path)
+
+
+func _refresh_static_labels() -> void:
+	if is_instance_valid(title_label):
+		title_label.text = tr("build.title")
+	if is_instance_valid(close_button):
+		close_button.text = tr("build.close")
+
+
 func show_centered() -> void:
+	_refresh_static_labels()
 	# Önce görünür yap ki boyutu hesaplanabilsin
 	visible = true 
 	# Viewport ve panel boyutlarını al
@@ -198,7 +220,7 @@ func _refresh_button_texts() -> void:
 		if not button:
 			continue
 		var reqs = VillageManager.get_building_requirements(scene_path)
-		button.text = String(BUILDING_BUTTON_LABELS.get(scene_path, scene_path.get_file().trim_suffix(".tscn")))
+		button.text = _building_label(scene_path)
 		var cost_label: Label = scene_cost_labels.get(scene_path, null)
 		if cost_label:
 			cost_label.text = ""
@@ -218,7 +240,7 @@ func _ensure_processing_buttons() -> void:
 		card.add_theme_constant_override("separation", 2)
 
 		var button := Button.new()
-		button.text = String(BUILDING_BUTTON_LABELS.get(scene_path, scene_path.get_file().trim_suffix(".tscn")))
+		button.text = _building_label(scene_path)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -267,11 +289,11 @@ func _update_single_button_state(button: Button, scene_path: String):
 	
 	# Tooltip ekle (opsiyonel ama faydalı)
 	if already_exists:
-		button.tooltip_text = "Bu binadan zaten var."
+		button.tooltip_text = tr("build.tooltip_exists")
 	elif not can_afford:
 		button.tooltip_text = _format_cannot_build_reason(reqs)
 	else:
-		button.tooltip_text = "İnşa Et (%s)" % _format_requirements_tooltip(reqs) # Maliyeti göster
+		button.tooltip_text = tr("build.tooltip_build") % _format_requirements_tooltip(reqs)
 	if popup_scene_path == scene_path:
 		_show_cost_popup(scene_path, button)
 
@@ -314,11 +336,11 @@ func _show_cost_popup(scene_path: String, button: Button) -> void:
 	if not is_instance_valid(cost_popup) or not is_instance_valid(cost_popup_label):
 		return
 	var reqs = VillageManager.get_building_requirements(scene_path)
-	var building_name := String(BUILDING_BUTTON_LABELS.get(scene_path, scene_path.get_file().trim_suffix(".tscn")))
+	var building_name := _building_label(scene_path)
 	var can_afford := VillageManager.can_meet_requirements(scene_path)
 	var info_lines := []
 	info_lines.append(building_name)
-	info_lines.append("Maliyet: %s" % _format_cost_line_long(reqs.get("cost", {})))
+	info_lines.append(tr("build.cost_label") % _format_cost_line_long(reqs.get("cost", {})))
 	if not can_afford:
 		info_lines.append(_format_cannot_build_reason(reqs))
 	cost_popup_label.text = "\n".join(info_lines)
@@ -368,19 +390,19 @@ func _format_requirements_tooltip(requirements: Dictionary) -> String:
 		if amount <= 0:
 			continue
 		var resource_key: String = String(resource_type)
-		var display_name: String = "Altın" if resource_key == "gold" else resource_key.capitalize()
+		var display_name: String = LocaleManager.get_resource_name(resource_key)
 		parts.append("%s: %d" % [display_name, amount])
-		
+
 	for resource_type in levels:
-		parts.append("%s Sv: %d" % [resource_type.capitalize(), levels[resource_type]])
-		
+		parts.append(tr("build.level_req") % [LocaleManager.get_resource_name(String(resource_type)), levels[resource_type]])
+
 	if parts.is_empty():
-		return "Maliyet Yok"
+		return tr("build.no_cost")
 	else:
 		return ", ".join(parts)
 
 func _format_button_text(scene_path: String, requirements: Dictionary) -> String:
-	var title := String(BUILDING_BUTTON_LABELS.get(scene_path, scene_path.get_file().trim_suffix(".tscn")))
+	var title := _building_label(scene_path)
 	var cost_text := _format_cost_line(requirements.get("cost", {}))
 	if cost_text == "":
 		return title
@@ -418,10 +440,10 @@ func _format_cost_line_long(cost: Dictionary) -> String:
 		if amount <= 0:
 			continue
 		var key_str: String = String(key)
-		var display_name := _resource_display_name(key_str)
+		var display_name := LocaleManager.get_resource_name(key_str)
 		parts.append("%s: %d" % [display_name, amount])
 	if parts.is_empty():
-		return "Maliyet yok"
+		return tr("build.no_cost_short")
 	return ", ".join(parts)
 
 func _cost_short_key(resource_key: String) -> String:
@@ -444,25 +466,6 @@ func _cost_short_key(resource_key: String) -> String:
 		"armor": return "Zi"
 		_: return resource_key.left(2).capitalize()
 
-func _resource_display_name(resource_key: String) -> String:
-	match resource_key:
-		"gold": return "Altın"
-		"wood": return "Odun"
-		"stone": return "Taş"
-		"food": return "Yiyecek"
-		"water": return "Su"
-		"lumber": return "Kereste"
-		"brick": return "Tuğla"
-		"metal": return "Metal"
-		"cloth": return "Kumaş"
-		"garment": return "Giysi"
-		"bread": return "Ekmek"
-		"tea": return "Çay"
-		"soap": return "Sabun"
-		"medicine": return "İlaç"
-		"weapon": return "Silah"
-		"armor": return "Zırh"
-		_: return resource_key.capitalize()
 
 func _format_cannot_build_reason(requirements: Dictionary) -> String:
 	var reasons := []
@@ -479,10 +482,10 @@ func _format_cannot_build_reason(requirements: Dictionary) -> String:
 		else:
 			current = int(VillageManager.get_resource_level(key_str))
 		if current < required:
-			var display_name: String = "Altın" if key_str == "gold" else key_str.capitalize()
+			var display_name: String = LocaleManager.get_resource_name(key_str)
 			missing_costs.append("%s %d/%d" % [display_name, current, required])
 	if not missing_costs.is_empty():
-		reasons.append("Eksik maliyet: %s" % ", ".join(missing_costs))
+		reasons.append(tr("build.missing_cost") % ", ".join(missing_costs))
 
 	var levels: Dictionary = requirements.get("requires_level", {})
 	var missing_levels := []
@@ -491,10 +494,10 @@ func _format_cannot_build_reason(requirements: Dictionary) -> String:
 		var required_level := int(levels.get(key, 0))
 		var current_level := int(VillageManager.get_available_resource_level(key_str))
 		if current_level < required_level:
-			missing_levels.append("%s %d/%d" % [key_str.capitalize(), current_level, required_level])
+			missing_levels.append("%s %d/%d" % [LocaleManager.get_resource_name(key_str), current_level, required_level])
 	if not missing_levels.is_empty():
-		reasons.append("Eksik seviye: %s" % ", ".join(missing_levels))
+		reasons.append(tr("build.missing_level") % ", ".join(missing_levels))
 
 	if reasons.is_empty():
-		return "Gereksinimler: %s" % _format_requirements_tooltip(requirements)
+		return tr("build.requirements") % _format_requirements_tooltip(requirements)
 	return "\n".join(reasons)

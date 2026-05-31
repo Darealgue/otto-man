@@ -22,17 +22,14 @@ func _ready() -> void:
 	_back_button.pressed.connect(_on_back_pressed)
 	_build_cards()
 	TextOutline.apply_to_tree(self)
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_refresh_locale)
+	_refresh_locale()
 
 
 func show_menu(intent: MenuIntent) -> void:
 	_intent = intent
-	match intent:
-		MenuIntent.NEW_GAME:
-			_title.text = "Yeni oyun"
-			_sub.text = "Bu bilgisayarda üç ayrı oyuncu profili vardır. Her profilin kayıtları birbirinden bağımsızdır."
-		MenuIntent.LOAD:
-			_title.text = "Oyuncu profili"
-			_sub.text = "Hangi profildeki kayıtları yüklemek istiyorsun?"
+	_refresh_header()
 	_refresh_card_texts()
 	visible = true
 	set_process_mode(Node.PROCESS_MODE_ALWAYS)
@@ -41,6 +38,37 @@ func show_menu(intent: MenuIntent) -> void:
 
 func hide_menu() -> void:
 	visible = false
+
+
+func _refresh_header() -> void:
+	match _intent:
+		MenuIntent.NEW_GAME:
+			_title.text = tr("profile.new_game_title")
+			_sub.text = tr("profile.new_game_sub")
+		MenuIntent.LOAD:
+			_title.text = tr("profile.load_title")
+			_sub.text = tr("profile.load_sub")
+
+
+func _refresh_locale(_locale: String = "") -> void:
+	if _back_button:
+		_back_button.text = tr("profile.back")
+	for panel in _cards_row.get_children():
+		var pid: int = int(panel.get_meta("profile_id", 1))
+		var margin: MarginContainer = panel.get_child(0) as MarginContainer
+		if margin == null:
+			continue
+		var vb: VBoxContainer = margin.get_child(0) as VBoxContainer
+		if vb == null:
+			continue
+		for ch in vb.get_children():
+			if ch is Label and ch.get_index() == 1:
+				(ch as Label).text = tr("profile.card_name") % pid
+			elif ch is Button:
+				(ch as Button).text = tr("profile.select_button")
+	if visible:
+		_refresh_header()
+		_refresh_card_texts()
 
 
 func _on_back_pressed() -> void:
@@ -75,7 +103,7 @@ func _build_cards() -> void:
 		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_l.add_theme_font_size_override("font_size", 28)
 		name_l.add_theme_color_override("font_color", TextOutline.FONT_COLOR)
-		name_l.text = "Profil %d" % profile_id
+		name_l.text = tr("profile.card_name") % profile_id
 		var stats_l := Label.new()
 		stats_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stats_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -83,7 +111,7 @@ func _build_cards() -> void:
 		stats_l.add_theme_font_size_override("font_size", 16)
 		stats_l.add_theme_color_override("font_color", TextOutline.FONT_COLOR_MUTED)
 		var btn := Button.new()
-		btn.text = "Bu profili seç"
+		btn.text = tr("profile.select_button")
 		btn.custom_minimum_size = Vector2(0, 44)
 		btn.pressed.connect(_on_profile_button.bind(profile_id))
 		vb.add_child(accent)
@@ -108,26 +136,16 @@ func _refresh_card_texts() -> void:
 		var s: Dictionary = SaveManager.get_profile_summary(pid)
 		var lines: PackedStringArray = PackedStringArray()
 		if bool(s.get("has_saves", false)):
-			lines.append("Kayıtlı slot: %d / 5" % int(s.get("used_slots", 0)))
+			lines.append(tr("profile.saved_slots") % int(s.get("used_slots", 0)))
 			var lt: String = str(s.get("latest_save_date", ""))
 			if not lt.is_empty():
-				lines.append("Son kayıt: %s" % lt)
-			lines.append("En uzun oyun: %s" % _format_playtime(int(s.get("max_playtime", 0))))
-			lines.append("Slotlar toplam süre: %s" % _format_playtime(int(s.get("sum_playtime", 0))))
+				lines.append(tr("profile.latest_save") % lt)
+			lines.append(tr("profile.longest_play") % LocaleManager.format_playtime_profile(int(s.get("max_playtime", 0))))
+			lines.append(tr("profile.total_playtime") % LocaleManager.format_playtime_profile(int(s.get("sum_playtime", 0))))
 		else:
-			lines.append("Henüz kayıt yok.")
-			lines.append("Bu profil temiz — yeni maceraya hazır.")
+			lines.append(tr("profile.no_saves_line1"))
+			lines.append(tr("profile.no_saves_line2"))
 		stats_l.text = "\n".join(lines)
-
-
-func _format_playtime(seconds: int) -> String:
-	var hours: int = seconds / 3600
-	var minutes: int = (seconds % 3600) / 60
-	if hours > 0:
-		return "%d sa %02d dk" % [hours, minutes]
-	if minutes > 0:
-		return "%d dk" % minutes
-	return "%d sn" % maxi(1, seconds)
 
 
 func _focus_first_select_button() -> void:

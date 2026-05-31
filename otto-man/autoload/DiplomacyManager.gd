@@ -73,22 +73,22 @@ func perform_action(actor: String, target: String, action: String) -> bool:
 func get_action_label(action: String) -> String:
 	match action:
 		"gift":
-			return "Hediye +%d (−%d altın)" % [gift_delta, gift_cost_gold]
+			return tr("diplomacy.action_label.gift") % [gift_delta, gift_cost_gold]
 		"threat":
-			return "Tehdit %d" % threat_delta
+			return tr("diplomacy.action_label.threat") % threat_delta
 		"trade_agreement":
-			return "Ticaret Anlaşması +%d (−%d altın)" % [trade_agreement_delta, trade_agreement_cost_gold]
+			return tr("diplomacy.action_label.trade") % [trade_agreement_delta, trade_agreement_cost_gold]
 		"passage":
-			return "Geçiş İzni +%d (−%d altın)" % [passage_rights_delta, passage_rights_cost_gold]
+			return tr("diplomacy.action_label.passage") % [passage_rights_delta, passage_rights_cost_gold]
 		_:
 			return action
 
 func get_stance(value: int) -> String:
 	if value >= ally_threshold:
-		return "Müttefik"
+		return tr("diplomacy.stance.ally")
 	if value <= enemy_threshold:
-		return "Düşman"
-	return "Tarafsız"
+		return tr("diplomacy.stance.enemy")
+	return tr("diplomacy.stance.neutral")
 
 func _post_news(actor: String, target: String, action: String, delta: int, cost: Dictionary) -> void:
 	var mm = get_node_or_null("/root/MissionManager")

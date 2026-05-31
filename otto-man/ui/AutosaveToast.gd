@@ -11,7 +11,9 @@ func _ready() -> void:
 		panel.modulate.a = 0.0
 
 
-func show_toast(message: String = "Oyun otomatik kaydedildi") -> void:
+func show_toast(message: String = "") -> void:
+	if message.is_empty():
+		message = tr("autosave.toast_default")
 	var panel: PanelContainer = get_node_or_null("PanelContainer") as PanelContainer
 	var label: Label = get_node_or_null("PanelContainer/MarginContainer/Label") as Label
 	if label:

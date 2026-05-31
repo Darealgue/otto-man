@@ -90,39 +90,37 @@ func _default_steps() -> Array[TutorialBeatStep]:
 	var s0 := TutorialBeatStep.new()
 	s0.begin_immediately = true
 	s0.npc_point_index = 1
-	s0.speech_bbcode = "Kendine geldin. Çabuk ol — fazla zaman yok."
+	s0.speech_bbcode = tr("tutorial.dungeon.beat0")
 	s0.close_after_travel_pixels = 260.0
 	var s1 := TutorialBeatStep.new()
 	s1.begin_immediately = false
 	s1.trigger_area = NodePath("Markers/Beat1Trigger")
 	s1.npc_point_index = 2
-	s1.speech_bbcode = "Zıpla: {jump}."
+	s1.speech_bbcode = tr("tutorial.dungeon.beat1")
 	s1.close_after_travel_pixels = 200.0
 	var s2 := TutorialBeatStep.new()
 	s2.begin_immediately = false
 	s2.trigger_area = NodePath("Markers/Beat2Trigger")
 	s2.npc_point_index = 3
-	s2.speech_bbcode = "Bu duvarı [b]çift zıpla[/b]: havadayken tekrar {jump}."
+	s2.speech_bbcode = tr("tutorial.dungeon.beat2")
 	s2.close_after_travel_pixels = 220.0
 	var s3 := TutorialBeatStep.new()
 	s3.begin_immediately = false
 	s3.trigger_area = NodePath("Markers/Beat3Trigger")
 	s3.npc_point_index = 4
-	s3.speech_bbcode = "Dar geçit: {crouch} ile eğil."
+	s3.speech_bbcode = tr("tutorial.dungeon.beat3")
 	s3.close_after_travel_pixels = 200.0
 	var s4 := TutorialBeatStep.new()
 	s4.begin_immediately = false
 	s4.trigger_area = NodePath("Markers/Beat4Trigger")
 	s4.npc_point_index = 5
-	s4.speech_bbcode = "Tek yönlü platform: {down} basılı tut, {jump} ile aşağı in."
+	s4.speech_bbcode = tr("tutorial.dungeon.beat4")
 	s4.close_after_travel_pixels = 200.0
 	var s5 := TutorialBeatStep.new()
 	s5.begin_immediately = false
 	s5.trigger_area = NodePath("Markers/Beat5Trigger")
 	s5.npc_point_index = 6
-	s5.speech_bbcode = (
-		"Köşeye zıpla. Tutunmak için {block} basılı tut; tutunurken {up} ile tırman."
-	)
+	s5.speech_bbcode = tr("tutorial.dungeon.beat5")
 	s5.close_after_travel_pixels = 220.0
 	var s6 := TutorialBeatStep.new()
 	s6.begin_immediately = false
@@ -317,59 +315,24 @@ func _refresh_combat_speech() -> void:
 
 
 func _combat_objective_bbcode() -> String:
+	var combat_title := InputManager.format_tutorial_title(tr("tutorial.combat.title"))
 	match _co_phase:
 		0:
-			return (
-				"%s (1/7)\n"
-				% InputManager.format_tutorial_title("Dövüş pratiği")
-				+ "Düşmana {attack} ile [b]5[/b] hafif vuruş (ilerleme: %d/5).\n"
-				% _co_light
-				+ "Yer veya havadayken hafif saldırı tuşuna bas; düşmana isabet etsin."
-			)
+			return tr("tutorial.combat.phase0") % [combat_title, _co_light]
 		1:
-			return (
-				"%s (2/7)\n"
-				% InputManager.format_tutorial_title("Dövüş pratiği")
-				+ "Düşmana {attack_heavy} ile [b]2[/b] ağır vuruş (ilerleme: %d/2).\n" % _co_heavy
-				+ "Ağır saldırı tuşunu basılı tut veya combo ile ağır vuruş çıkar; ikisinde de düşmana çarpmalı."
-			)
+			return tr("tutorial.combat.phase1") % [combat_title, _co_heavy]
 		2:
-			return (
-				"%s (3/7)\n"
-				% InputManager.format_tutorial_title("Dövüş pratiği")
-				+ "Havadayken {down} + {jump} ile [b]2[/b] düşüş saldırısı (ilerleme: %d/2).\n" % _co_fall
-				+ "Düşüş saldırısı düşmana değince sayılır."
-			)
+			return tr("tutorial.combat.phase2") % [combat_title, _co_fall]
 		3:
-			return (
-				"%s (4/7)\n"
-				% InputManager.format_tutorial_title("Dövüş pratiği")
-				+ "{dodge} ile bir kez kaçın.\n"
-				+ "Yön tuşlarıyla yüzünü çevir, kaçış tuşu ile yuvarlan."
-			)
+			return tr("tutorial.combat.phase3") % combat_title
 		4:
-			return (
-				"%s (5/7)\n"
-				% InputManager.format_tutorial_title("Dövüş pratiği")
-				+ "Bir saldırıyı {block} ile tut: kalkanı aç, vuruşu hasarsız kes.\n"
-				+ "Parry değil — sadece blok (hasarı kıran normal blok)."
-			)
+			return tr("tutorial.combat.phase4") % combat_title
 		5:
-			return (
-				"%s (6/7)\n"
-				% InputManager.format_tutorial_title("Dövüş pratiği")
-				+ "Bir saldırıyı [b]parry[/b] yap: {block} ile vuruşun geldiği anı yakala (timing).\n"
-				+ "Kısa pencerede bloğa bas; hasar gelmez, parry sayılır."
-			)
+			return tr("tutorial.combat.phase5") % combat_title
 		6:
-			return (
-				"%s (7/7)\n"
-				% InputManager.format_tutorial_title("Dövüş pratiği")
-				+ "Parry sonrası kontra: pencere açıkken {attack} veya {attack_heavy} ile vur.\n"
-				+ "Kontra vuruş animasyonu tetiklenince görev biter."
-			)
+			return tr("tutorial.combat.phase6") % combat_title
 		_:
-			return "%s\nArtık hazırsın." % InputManager.format_tutorial_title("Tamam!")
+			return tr("tutorial.combat.done") % InputManager.format_tutorial_title(tr("tutorial.combat.complete"))
 
 
 func _co_on_attack_landed(attack_type: String, _damage: float, _targets: Array, _pos: Vector2, _filter: String) -> void:

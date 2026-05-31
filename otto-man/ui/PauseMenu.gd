@@ -10,6 +10,7 @@ signal settings_requested()
 signal main_menu_requested()
 
 @onready var main_panel: Panel = $Panel
+@onready var title_label: Label = $Panel/VBoxContainer/Title
 @onready var resume_button: Button = $Panel/VBoxContainer/ResumeButton
 @onready var save_button: Button = $Panel/VBoxContainer/SaveButton
 @onready var load_button: Button = $Panel/VBoxContainer/LoadButton
@@ -39,6 +40,7 @@ func _ready() -> void:
 	_setup_settings_menu()
 	_connect_signals()
 	_setup_confirm_dialog()
+	_connect_locale()
 	visible = false
 	# Force UI to ignore world transforms/cameras
 	set_as_top_level(true)
@@ -51,6 +53,27 @@ func _ready() -> void:
 	_camera_freeze_timer.timeout.connect(_freeze_camera_position)
 	_camera_freeze_timer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_camera_freeze_timer)
+
+func _connect_locale() -> void:
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_refresh_locale)
+	_refresh_locale()
+
+
+func _refresh_locale(_locale: String = "") -> void:
+	if title_label:
+		title_label.text = tr("pause.title")
+	if resume_button:
+		resume_button.text = tr("pause.resume")
+	if save_button:
+		save_button.text = tr("pause.save")
+	if load_button:
+		load_button.text = tr("pause.load")
+	if settings_button:
+		settings_button.text = tr("menu.settings")
+	if main_menu_button:
+		main_menu_button.text = tr("pause.main_menu")
+
 
 func _ensure_nodes() -> void:
 	if not resume_button:
@@ -534,7 +557,7 @@ func _on_main_menu_pressed() -> void:
 	# Show confirmation dialog
 	_pending_main_menu_action = true
 	if confirm_dialog and confirm_dialog.has_method("show_dialog"):
-		confirm_dialog.show_dialog("Ana Menüye Dön", "Ana menüye dönmek istediğinizden emin misiniz?\n(Kaydedilmemiş ilerleme kaybolabilir)", true)
+		confirm_dialog.show_dialog(tr("pause.confirm_main_menu_title"), tr("pause.confirm_main_menu_message"), true)
 	else:
 		# Fallback if dialog not available
 		_do_return_to_main_menu()
@@ -598,9 +621,8 @@ func _enable_pause_menu_focus() -> void:
 	if main_menu_button:
 		main_menu_button.focus_mode = Control.FOCUS_ALL
 
-func _on_settings_applied(settings: Dictionary) -> void:
-	# Placeholder for reacting to applied settings (e.g., update game systems)
-	print("[PauseMenu] Settings applied: ", settings)
+func _on_settings_applied(_settings: Dictionary) -> void:
+	_refresh_locale()
 
 func _on_load_game_slot_selected(slot_id: int) -> void:
 	print("[PauseMenu] Loading game from slot %d..." % slot_id)
@@ -622,10 +644,10 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 			push_error("[PauseMenu] Failed to load game from slot %d" % slot_id)
 			# Re-pause if load failed
 			get_tree().paused = true
-			_show_error("Yükleme Başarısız", "Kayıt yüklenemedi.")
+			_show_error(tr("error.load_failed_title"), tr("error.load_failed_message"))
 	else:
 		push_error("[PauseMenu] SaveManager not available!")
-		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
+		_show_error(tr("error.title"), tr("error.save_manager_missing"))
 
 func _on_load_game_back() -> void:
 	if load_game_menu and load_game_menu.has_method("hide_menu"):
@@ -660,14 +682,14 @@ func _on_save_game_slot_selected(slot_id: int) -> void:
 				print("[PauseMenu] Released focus from: %s" % current_focus.name)
 			# Show success message
 			if confirm_dialog and confirm_dialog.has_method("show_dialog"):
-				confirm_dialog.show_dialog("Başarılı", "Oyun slot %d'ye kaydedildi!" % slot_id, false)
+				confirm_dialog.show_dialog(tr("pause.save_success_title"), tr("pause.save_success_message") % slot_id, false)
 				_pending_save_slot = slot_id
 		else:
 			push_error("[PauseMenu] Failed to save game to slot %d" % slot_id)
-			_show_error("Kaydetme Başarısız", "Oyun kaydedilemedi.")
+			_show_error(tr("save.error_title"), tr("save.error_message"))
 	else:
 		push_error("[PauseMenu] SaveManager not available!")
-		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
+		_show_error(tr("error.title"), tr("error.save_manager_missing"))
 
 func _on_save_game_back() -> void:
 	if save_game_menu and save_game_menu.has_method("hide_menu"):
@@ -723,17 +745,17 @@ func _play_click() -> void:
 
 func _on_load_completed(slot_id: int, success: bool) -> void:
 	if not success:
-		_show_error("Yükleme Başarısız", "Kayıt yüklenemedi. Dosya bozulmuş olabilir.")
+		_show_error(tr("error.load_failed_title"), tr("error.load_failed_corrupt"))
 
 func _on_save_completed(slot_id: int, success: bool) -> void:
 	if not success:
-		_show_error("Kaydetme Başarısız", "Oyun kaydedilemedi.")
+		_show_error(tr("save.error_title"), tr("save.error_message"))
 
 func _on_save_manager_error(error_message: String, error_type: String) -> void:
 	if error_type == "save":
-		_show_error("Kaydetme Hatası", error_message)
+		_show_error(tr("save.error_dialog_title"), error_message)
 	elif error_type == "load" or error_type == "validation":
-		_show_error("Yükleme Hatası", error_message)
+		_show_error(tr("error.load_error_title"), error_message)
 
 func _show_error(title: String, message: String) -> void:
 	"""Show error dialog"""

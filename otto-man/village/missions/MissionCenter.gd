@@ -148,11 +148,11 @@ var mission_detail_panel: PanelContainer = null
 var mission_detail_label: Label = null
 
 # Sayfa isimleri
-var page_names: Array[String] = ["GÖREVLER", "ATAMALAR", "İNŞAAT", "HABERLER", "CARİYELER", "TİCARET", "DİPLOMASİ"]
+var page_names: Array[String] = []
 
 # Action ve Category isimleri
-var action_names: Array[String] = ["YAP", "YÜKSELT", "YIK", "BİLGİ"]
-var category_names: Array[String] = ["ÜRETİM", "YAŞAM", "ORDU", "DEKORASYON"]
+var action_names: Array[String] = []
+var category_names: Array[String] = []
 
 # İnşaat sayfası için görsel progress bar (dinamik)
 var upgrade_progress_bar: ProgressBar = null
@@ -324,6 +324,169 @@ const GRID_COLUMNS: int = 6
 
 # Haber kuyrukları artık MissionManager'da tutuluyor
 
+func _mc_set_label(path: String, text: String) -> void:
+	var n := get_node_or_null(path)
+	if n is Label:
+		n.text = text
+
+
+func _mc_building_display_name(building_key: String) -> String:
+	var scene_path := String(building_scene_paths.get(building_key, ""))
+	if scene_path.is_empty():
+		return building_key
+	return LocaleManager.get_building_name(scene_path)
+
+
+func _mc_building_recipe_text(building_type: String) -> String:
+	const RECIPE_KEYS := {
+		"Kerestehane": "mc.recipe.sawmill",
+		"Tuğla Ocağı": "mc.recipe.brickworks",
+		"Fırın": "mc.recipe.bakery",
+		"Dokuma Tezgahı": "mc.recipe.weaver",
+		"Terzi": "mc.recipe.tailor",
+		"Demirci": "mc.recipe.blacksmith",
+		"Silahçı": "mc.recipe.gunsmith",
+		"Zırh Ustası": "mc.recipe.armorer",
+		"Çayhane": "mc.recipe.teahouse",
+		"Sabuncu": "mc.recipe.soapmaker",
+		"Şifacı": "mc.recipe.herbalist",
+	}
+	var key: String = String(RECIPE_KEYS.get(building_type, ""))
+	if key.is_empty():
+		return ""
+	return tr(key)
+
+
+func _news_subcategory_id(n: Dictionary) -> String:
+	var sub := String(n.get("subcategory", ""))
+	if not sub.is_empty():
+		return sub
+	match String(n.get("category", "")):
+		"Başarı": return "success"
+		"Bilgi": return "info"
+		"Uyarı", "Kritik": return "warning"
+		"Dünya": return "critical"
+		_: return "info"
+
+
+func _refresh_static_labels() -> void:
+	_mc_set_label("HeaderPanel/HeaderLabel", tr("mc.header.title"))
+	var im := get_node_or_null("/root/InputManager")
+	if im:
+		_mc_set_label(
+			"ControlsLabel",
+			tr("mc.nav.footer") % [
+				im.get_tutorial_page_left_hint(),
+				im.get_tutorial_page_right_hint(),
+				im.get_tutorial_cancel_hint() if im.has_method("get_tutorial_cancel_hint") else "B"
+			]
+		)
+	_mc_set_label("MissionsPage/MissionsHeader/TitlePanel/MissionsTitle", tr("mc.page.missions"))
+	_mc_set_label("MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsTitle", tr("mc.mission.list.active_header"))
+	_mc_set_label("MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsTitle", tr("mc.mission.list.available_header"))
+	_mc_set_label("MissionsPage/CariyeSelectionPanel/CariyeSelectionTitle", tr("mc.mission.cariye_select.header"))
+	_mc_set_label("MissionsPage/MissionResultPanel/MissionResultTitle", tr("mc.mission.result.title"))
+	_mc_set_label("MissionsPage/MissionHistoryPanel/MissionHistoryTitle", tr("mc.mission.history.title"))
+	_mc_set_label("MissionsPage/MissionHistoryPanel/MissionHistoryStats/StatsTitle", tr("mc.mission.history.stats_title"))
+	_mc_set_label("AssignmentPage/HeaderPanel/AssignmentHeader", tr("mc.assignment.header"))
+	_mc_set_label("AssignmentPage/AssignmentControls", tr("mc.assignment.controls"))
+	_mc_set_label("ConstructionPage/HeaderPanel/ConstructionHeader", tr("mc.page.construction"))
+	_mc_set_label("NewsCenterPage/NewsHeader/TitlePanel/NewsTitle", tr("mc.page.news"))
+	_mc_set_label("NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsTitle", tr("mc.news.village_section"))
+	_mc_set_label("NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsTitle", tr("mc.news.world_section"))
+	_mc_set_label("TradePage/TradeHeader/TitlePanel/TradeTitle", tr("mc.page.trade"))
+	_mc_set_label("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsTitle", tr("mc.trade.incoming_traders"))
+	_mc_set_label("TradePage/TradeContent/OffersPanel/OffersTitle", tr("mc.trade.merchant_missions"))
+	var wrap := construction_page.get_node_or_null("ActiveConstructionSummary") if construction_page else null
+	if wrap and wrap.get_child_count() > 0:
+		var outer := wrap.get_child(0)
+		if outer and outer.get_child_count() > 0 and outer.get_child(0) is Label:
+			(outer.get_child(0) as Label).text = tr("mc.construction.active_banner")
+	_mc_set_label("MissionsPage/ControlsPanel/ControlsLabel", tr("mc.mission.controls"))
+	_mc_set_label("MissionsPage/MissionChainsPanel/MissionChainsTitle", tr("mc.mission.chains.title"))
+	_mc_set_label("NewsCenterPage/RandomEventsPanel/RandomEventsTitle", tr("mc.news.random_events"))
+	_mc_set_label("NewsCenterPage/NewsControls", tr("mc.news.controls"))
+	if category_names.size() > 0:
+		_mc_set_label(
+			"ConstructionPage/CategoryRow/CategoryLabel",
+			tr("mc.construction.category") % category_names[current_building_category]
+		)
+	if action_names.size() > 0:
+		_mc_set_label(
+			"ConstructionPage/ActionRow/ActionLabel",
+			tr("mc.construction.action") % action_names[current_construction_action]
+		)
+	if diplomacy_panel:
+		for ch in diplomacy_panel.get_children():
+			if ch is HBoxContainer and ch.get_child_count() > 0:
+				var tp := ch.get_child(0)
+				if tp is PanelContainer and tp.get_child_count() > 0 and tp.get_child(0) is Label:
+					(tp.get_child(0) as Label).text = tr("mc.page.diplomacy")
+					break
+
+
+func _refresh_locale() -> void:
+	page_names = [
+		tr("mc.page.missions"),
+		tr("mc.page.assignments"),
+		tr("mc.page.construction"),
+		tr("mc.page.news"),
+		tr("mc.page.concubines"),
+		tr("mc.page.trade"),
+		tr("mc.page.diplomacy"),
+	]
+	action_names = [
+		tr("mc.action.build"),
+		tr("mc.action.upgrade"),
+		tr("mc.action.demolish"),
+		tr("mc.action.info"),
+	]
+	category_names = [
+		tr("mc.category.production"),
+		tr("mc.category.life"),
+		tr("mc.category.army"),
+		tr("mc.category.decoration"),
+	]
+	if filter_village_label:
+		filter_village_label.text = tr("mc.news.filter.village")
+	if filter_world_label:
+		filter_world_label.text = tr("mc.news.filter.world")
+	for lbl in subcategory_labels:
+		if lbl == null:
+			continue
+		var cat := str(lbl.get_meta("category", ""))
+		match cat:
+			"all":
+				lbl.text = tr("mc.news.sub.all")
+			"critical":
+				lbl.text = tr("mc.news.sub.critical")
+			"info":
+				lbl.text = tr("mc.news.sub.info")
+			"success":
+				lbl.text = tr("mc.news.sub.success")
+			"warning":
+				lbl.text = tr("mc.news.sub.warning")
+	if page_label and page_names.size() > 0 and current_page >= 0 and current_page < page_names.size():
+		page_label.text = page_names[current_page]
+	_refresh_static_labels()
+	_refresh_page_nav_hints()
+	_refresh_back_nav_hint()
+	match current_page:
+		PageType.MISSIONS:
+			update_missions_ui()
+		PageType.ASSIGNMENT:
+			update_assignment_ui()
+		PageType.CONSTRUCTION:
+			update_construction_ui()
+		PageType.NEWS:
+			update_news_ui()
+		PageType.TRADE:
+			update_trade_ui()
+		PageType.DIPLOMACY:
+			_update_diplomacy_ui()
+		PageType.CONCUBINE_DETAILS:
+			update_concubine_details_ui()
+
 func _ready():
 	print("=== MISSION CENTER DEBUG ===")
 	
@@ -374,6 +537,11 @@ func _ready():
 	_setup_portrait_instances()
 	
 	print("✅ MissionManager sinyalleri bağlandı")
+
+	var lm := get_node_or_null("/root/LocaleManager")
+	if lm and lm.has_signal("locale_changed") and not lm.locale_changed.is_connected(_refresh_locale):
+		lm.locale_changed.connect(_refresh_locale)
+	_refresh_locale()
 	
 	# MissionCenter'ı group'a ekle
 	add_to_group("mission_center")
@@ -381,6 +549,7 @@ func _ready():
 
 	call_deferred("_apply_parchment_panels")
 	call_deferred("_apply_text_outlines")
+	call_deferred("_purge_scene_editor_placeholders")
 	call_deferred("_ensure_page_nav_hints")
 	call_deferred("_ensure_back_nav_hint")
 
@@ -494,11 +663,11 @@ func _ensure_news_filter_bar():
 		parent.add_child(news_filter_bar)
 		news_filter_bar.move_child(news_filter_bar, 1) # Header'dan hemen sonra
 		filter_village_label = Label.new()
-		filter_village_label.text = "🏘️ KÖY"
+		filter_village_label.text = tr("mc.news.filter.village")
 		# filter_village_label.add_theme_font_size_override("font_size", 12)
 		news_filter_bar.add_child(filter_village_label)
 		filter_world_label = Label.new()
-		filter_world_label.text = "🌍 DÜNYA"
+		filter_world_label.text = tr("mc.news.filter.world")
 		# filter_world_label.add_theme_font_size_override("font_size", 12)
 		news_filter_bar.add_child(filter_world_label)
 
@@ -515,19 +684,19 @@ func _ensure_news_subcategory_bar():
 		news_subcategory_bar.add_theme_constant_override("separation", 12)
 		parent.add_child(news_subcategory_bar)
 		# Filter bar'ın hemen altına yerleştir (varsayılan ekleme sırasıyla uyumlu)
-		var label_all = Label.new(); label_all.text = "TÜMÜ (Y)"; 
+		var label_all = Label.new(); label_all.text = tr("mc.news.sub.all");
 		# label_all.add_theme_font_size_override("font_size", 10); 
 		label_all.set_meta("category", "all"); news_subcategory_bar.add_child(label_all); subcategory_labels.append(label_all)
-		var label_crit = Label.new(); label_crit.text = "🚨 KRİTİK"; 
+		var label_crit = Label.new(); label_crit.text = tr("mc.news.sub.critical");
 		# label_crit.add_theme_font_size_override("font_size", 10); 
 		label_crit.set_meta("category", "critical"); news_subcategory_bar.add_child(label_crit); subcategory_labels.append(label_crit)
-		var label_info = Label.new(); label_info.text = "ℹ️ BİLGİ"; 
+		var label_info = Label.new(); label_info.text = tr("mc.news.sub.info");
 		# label_info.add_theme_font_size_override("font_size", 10); 
 		label_info.set_meta("category", "info"); news_subcategory_bar.add_child(label_info); subcategory_labels.append(label_info)
-		var label_succ = Label.new(); label_succ.text = "✅ BAŞARI"; 
+		var label_succ = Label.new(); label_succ.text = tr("mc.news.sub.success");
 		# label_succ.add_theme_font_size_override("font_size", 10); 
 		label_succ.set_meta("category", "success"); news_subcategory_bar.add_child(label_succ); subcategory_labels.append(label_succ)
-		var label_warn = Label.new(); label_warn.text = "⚠️ UYARI"; 
+		var label_warn = Label.new(); label_warn.text = tr("mc.news.sub.warning"); 
 		# label_warn.add_theme_font_size_override("font_size", 10); 
 		label_warn.set_meta("category", "warning"); news_subcategory_bar.add_child(label_warn); subcategory_labels.append(label_warn)
 
@@ -545,17 +714,18 @@ func _update_news_subcategory_bar_visual():
 				TextOutline.apply_label_color(label, Color(1,1,0.5,1))
 
 func _news_passes_subcategory_filter(n: Dictionary) -> bool:
+	var sub_id := _news_subcategory_id(n)
 	match current_subcategory:
 		"all":
 			return true
 		"critical":
-			return n.get("category", "") in ["Uyarı", "Dünya", "Kritik"]
+			return sub_id == "critical"
 		"info":
-			return n.get("category", "") in ["Bilgi"]
+			return sub_id == "info"
 		"success":
-			return n.get("category", "") in ["Başarı"]
+			return sub_id == "success"
 		"warning":
-			return n.get("category", "") in ["Uyarı"]
+			return sub_id == "warning"
 		_:
 			return true
 
@@ -1050,7 +1220,7 @@ func _mc_get_or_create_active_construction_banner_lines() -> VBoxContainer:
 		wrap.add_theme_stylebox_override("panel", sb)
 		var outer := VBoxContainer.new()
 		var title := Label.new()
-		title.text = "Devam eden şantiyeler"
+		title.text = tr("mc.construction.active_banner")
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		title.add_theme_font_size_override("font_size", 12)
 		outer.add_child(title)
@@ -1097,7 +1267,7 @@ func update_construction_ui():
 		
 	var action_label = construction_page.get_node_or_null("ActionRow/ActionLabel")
 	if action_label:
-		action_label.text = "Yön Tuşları: Seçim  |  A: İnşa/Yükselt  |  X: Yık  |  Y: Bilgi"
+		action_label.text = tr("mc.construction.controls")
 		
 	var construction_grid = construction_page.get_node_or_null("ConstructionScroll/CenterContainer/ConstructionGrid")
 	if not construction_grid:
@@ -1139,7 +1309,7 @@ func update_construction_ui():
 		panel.add_child(vbox)
 		
 		var label = Label.new()
-		label.text = building_name
+		label.text = _mc_building_display_name(building_name)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1161,13 +1331,13 @@ func update_construction_ui():
 				if pending and vm.has_method("get_pending_construction_minutes"):
 					remaining_min = int(vm.get_pending_construction_minutes(scene_path))
 			if pending:
-				status_label.text = "İnşa Halinde (%.1fsa)" % [float(remaining_min) / 60.0]
+				status_label.text = tr("mc.construction.status.building") % (float(remaining_min) / 60.0)
 				TextOutline.apply_label_color(status_label, Color(1.0, 0.82, 0.45))
 			else:
-				status_label.text = "İnşa Edilmedi"
+				status_label.text = tr("mc.construction.status.not_built")
 				TextOutline.apply_label_color(status_label, Color(0.7, 0.7, 0.7))
 		else:
-			status_label.text = "Mevcut"
+			status_label.text = tr("mc.construction.status.built")
 			TextOutline.apply_label_color(status_label, Color(0.5, 1.0, 0.5))
 			
 		vbox.add_child(status_label)
@@ -1193,9 +1363,9 @@ func update_construction_ui():
 			var upg_hours := build_hours
 			if not existing.is_empty() and vm.has_method("get_upgrade_duration_hours_for_building"):
 				upg_hours = float(vm.get_upgrade_duration_hours_for_building(existing[0]))
-			duration_label.text = "Süre: İnşa %.1fsa | Yükselt %.1fsa" % [build_hours, upg_hours]
+			duration_label.text = tr("mc.construction.duration") % [build_hours, upg_hours]
 		else:
-			duration_label.text = "Süre: -"
+			duration_label.text = tr("mc.construction.duration_unknown")
 		TextOutline.apply_label_color(duration_label, Color(0.75, 0.85, 1.0))
 		vbox.add_child(duration_label)
 
@@ -1268,24 +1438,7 @@ func _mc_format_missing_requirements(requirements: Dictionary) -> String:
 	return "\n".join(out)
 
 func _mc_resource_name(resource_key: String) -> String:
-	match resource_key:
-		"gold": return "Altın"
-		"wood": return "Odun"
-		"stone": return "Taş"
-		"food": return "Yiyecek"
-		"water": return "Su"
-		"lumber": return "Kereste"
-		"brick": return "Tuğla"
-		"metal": return "Metal"
-		"cloth": return "Kumaş"
-		"garment": return "Giysi"
-		"bread": return "Ekmek"
-		"tea": return "Çay"
-		"soap": return "Sabun"
-		"medicine": return "İlaç"
-		"weapon": return "Silah"
-		"armor": return "Zırh"
-		_: return resource_key.capitalize()
+	return LocaleManager.get_resource_name(resource_key)
 
 # Atama bina listesi seçimi
 func handle_assignment_building_list_selection(event):
@@ -1764,12 +1917,14 @@ func get_building_status_info(building_type: String) -> String:
 			# Basit etki önizleme
 			if "max_workers" in building:
 				var cur_workers := int(building.max_workers)
-				info += " • Etki: İşçi " + str(cur_workers) + "→" + str(cur_workers + 1)
+				info += tr("mc.building.info.worker_effect") % [cur_workers, cur_workers + 1]
 
 	if building_recipe_texts.has(building_type):
 		if info != "":
 			info += "\n"
-		info += building_recipe_texts[building_type]
+		var recipe := _mc_building_recipe_text(building_type)
+		if not recipe.is_empty():
+			info += recipe
 	
 	return info
 
@@ -1884,52 +2039,46 @@ func execute_info_action(building_type: String):
 
 # Bina detaylı bilgilerini al
 func get_building_detailed_info(building: Node, building_type: String) -> String:
-	var info = "🏗️ " + building_type + "\n"
+	var info := "🏗️ " + _mc_building_display_name(building_type) + "\n"
 	
-	# Bina seviyesi
 	if "level" in building:
-		info += "📊 Seviye: " + str(building.level)
+		info += tr("mc.building.info.level") % str(building.level)
 		if "max_level" in building:
 			info += "/" + str(building.max_level)
 		info += "\n"
 	
-	# Yükseltme durumu
 	if "is_upgrading" in building and building.is_upgrading:
-		info += "⚡ Yükseltiliyor..."
+		info += tr("mc.building.info.upgrading")
 		if ("upgrade_timer" in building) and building.upgrade_timer and ("upgrade_time_seconds" in building):
 			var total := float(building.upgrade_time_seconds)
 			if total > 0.0:
 				var left := float(building.upgrade_timer.time_left)
 				var ratio: float = clamp((total - left) / total, 0.0, 1.0)
 				var pct: int = int(round(ratio * 100.0))
-				info += " ⏳ Kalan: " + str(int(ceil(left))) + "sn (" + str(pct) + "%)"
+				info += tr("mc.building.info.upgrade_remaining") % [int(ceil(left)), pct]
 		info += "\n"
 	
-	# İşçi bilgileri
 	if "assigned_workers" in building and "max_workers" in building:
-		info += "👥 İşçiler: " + str(building.assigned_workers) + "/" + str(building.max_workers) + "\n"
+		info += tr("mc.assignment.workers") % [building.assigned_workers, building.max_workers] + "\n"
 	
-	# Yükseltme maliyeti
 	if building.has_method("get_next_upgrade_cost"):
 		var upgrade_cost = building.get_next_upgrade_cost()
 		if upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
-			info += "💰 Yükseltme: " + str(upgrade_cost["gold"]) + " Altın\n"
+			info += tr("mc.building.info.upgrade_cost") % upgrade_cost["gold"] + "\n"
 	
-	# Yükseltme süresi
 	if "upgrade_time_seconds" in building:
-		info += "⏱ Süre: " + str(int(building.upgrade_time_seconds)) + "sn\n"
+		info += tr("mc.building.info.duration") % int(building.upgrade_time_seconds) + "\n"
 
-	# Basit etki önizleme
 	if "max_workers" in building:
 		var cur_workers := int(building.max_workers)
-		info += "✨ Etki: İşçi " + str(cur_workers) + "→" + str(cur_workers + 1) + "\n"
+		info += tr("mc.building.info.worker_effect") % [cur_workers, cur_workers + 1] + "\n"
 	
-	# Üretim bilgileri (eğer varsa)
 	if building.has_method("get_production_info"):
 		var production_info = building.get_production_info()
-		info += "📈 Üretim: " + production_info + "\n"
-	if building_recipe_texts.has(building_type):
-		info += "🧪 " + String(building_recipe_texts[building_type]) + "\n"
+		info += tr("mc.building.info.production") % production_info + "\n"
+	var recipe_text := _mc_building_recipe_text(building_type)
+	if not recipe_text.is_empty():
+		info += "🧪 " + recipe_text + "\n"
 	
 	return info
 
@@ -2053,7 +2202,7 @@ func update_assignment_ui():
 		var all_buildings = get_all_available_buildings()
 		if all_buildings.is_empty():
 			var empty_lbl = Label.new()
-			empty_lbl.text = "Atanabilir bina yok.\nÖnce inşaat yapmalısın."
+			empty_lbl.text = tr("mc.assignment.no_buildings")
 			grid_container.add_child(empty_lbl)
 			return
 			
@@ -2093,14 +2242,14 @@ func update_assignment_ui():
 			
 			# İsim
 			var name_lbl = Label.new()
-			name_lbl.text = building_name
+			name_lbl.text = _mc_building_display_name(String(b_info.get("type", building_name)))
 			name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			name_lbl.add_theme_font_size_override("font_size", 14)
 			vbox.add_child(name_lbl)
 			
 			# İşçi Sayısı
 			var worker_lbl = Label.new()
-			worker_lbl.text = "İşçiler: %d / %d" % [current_workers, max_workers]
+			worker_lbl.text = tr("mc.assignment.workers") % [current_workers, max_workers]
 			worker_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			if current_workers >= max_workers and max_workers > 0:
 				TextOutline.apply_label_color(worker_lbl, Color(0.5, 1, 0.5)) # Dolu
@@ -2134,7 +2283,7 @@ func update_assignment_ui():
 			var info = get_building_detailed_info(building_node, building_type)
 			
 			var detail_label = Label.new()
-			detail_label.text = "=== BİNA DETAYI ===\n\n" + info
+			detail_label.text = tr("mc.assignment.building_detail_header") + "\n\n" + info
 			detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			grid_container.add_child(detail_label)
 			
@@ -2148,25 +2297,24 @@ func update_assignment_ui():
 		var vm = get_node_or_null("/root/VillageManager")
 		var available_weapons = vm.resource_levels.get("weapon", 0) if vm else 0
 		var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
-		var text = "=== ASKER EKİPMAN ATAMA ===\n\n"
-		text += "📦 Stok: Silah: %d | Zırh: %d\n\n" % [available_weapons, available_armors]
+		var text = tr("mc.assignment.equipment.header") + "\n\n"
+		text += tr("mc.assignment.equipment.stock") % [available_weapons, available_armors] + "\n\n"
 		var accept_key = InputManager.get_accept_key_name()
 		var cancel_key = InputManager.get_cancel_key_name()
 		if soldiers.is_empty():
-			text += "Kışlada asker yok!\n\n[%s: Geri]" % cancel_key
+			text += tr("mc.assignment.equipment.no_soldiers") % cancel_key
 		else:
-			text += "Yukarı/Aşağı: Asker seç\n"
-			text += "Sol/Sağ: Silah/Zırh seç\n"
-			text += "%s: Ekipman Ver/Al\n\n" % accept_key
-			var equipment_names = ["⚔️ Silah", "🛡️ Zırh"]
-			text += "Seçili Ekipman: %s\n\n" % equipment_names[current_equipment_action]
+			text += tr("mc.assignment.equipment.nav_hint") + "\n"
+			text += tr("mc.assignment.equipment.give_hint") % accept_key + "\n\n"
+			var equipment_names = [tr("mc.assignment.equipment.weapon"), tr("mc.assignment.equipment.armor")]
+			text += tr("mc.assignment.equipment.selected") % equipment_names[current_equipment_action] + "\n\n"
 			for i in range(soldiers.size()):
 				var soldier = soldiers[i]
 				var marker = "> " if i == current_soldier_index else "  "
 				var weapon_mark = "⚔️" if soldier["equipment"].get("weapon", false) else "  "
 				var armor_mark = "🛡️" if soldier["equipment"].get("armor", false) else "  "
-				text += marker + "Asker %d %s %s\n" % [soldier["worker_id"], weapon_mark, armor_mark]
-			text += "\n[%s: Geri]" % cancel_key
+				text += marker + tr("mc.assignment.equipment.soldier_line") % [soldier["worker_id"], weapon_mark, armor_mark] + "\n"
+			text += "\n" + tr("mc.assignment.equipment.back_hint") % cancel_key
 			
 		var equip_label = Label.new()
 		equip_label.text = text
@@ -2244,10 +2392,10 @@ func show_page(page_index: int):
 				# Başlıkları güncelle
 				var active_title = get_node_or_null("TradePage/TradeContent/ActiveAgreementsPanel/ActiveAgreementsTitle")
 				if active_title:
-					active_title.text = "💰 GELEN TÜCCARLAR"
+					active_title.text = tr("mc.trade.incoming_traders")
 				var offers_title = get_node_or_null("TradePage/TradeContent/OffersPanel/OffersTitle")
 				if offers_title:
-					offers_title.text = "👤 TÜCCAR CARİYE GÖREVLERİ"
+					offers_title.text = tr("mc.trade.merchant_missions")
 				update_trade_ui()
 				# Pop-up açıksa göster
 				if trader_buy_popup_open and trader_buy_popup:
@@ -2355,6 +2503,8 @@ func update_missions_ui():
 func _mission_display_name(m) -> String:
 	if m == null:
 		return "?"
+	if mission_manager and mission_manager.has_method("get_mission_display_name"):
+		return mission_manager.get_mission_display_name(m)
 	if m is Mission:
 		return m.name
 	if m is Dictionary:
@@ -2402,7 +2552,7 @@ func _get_merged_available_missions() -> Array:
 
 func _active_mission_remaining_display(m) -> String:
 	if m is Mission and m.has_method("get_remaining_time"):
-		return "%.1f dk" % m.get_remaining_time()
+		return tr("mc.time.minutes_remaining") % m.get_remaining_time()
 	if m is Dictionary:
 		return "?"
 	return "?"
@@ -2412,45 +2562,46 @@ func _build_mission_detail_text(m) -> String:
 		return ""
 	if m is Mission:
 		var lines: Array = []
-		lines.append("Tür: %s" % m.get_mission_type_name())
-		lines.append("Zorluk: %s" % m.get_difficulty_name())
-		lines.append("Süre: %s" % _format_game_time_minutes(m.duration))
-		lines.append("Başarı şansı: %d%%" % int(m.success_chance * 100))
+		lines.append(tr("mc.mission.detail.type") % m.get_mission_type_name())
+		lines.append(tr("mc.mission.detail.difficulty") % m.get_difficulty_name())
+		lines.append(tr("mc.mission.detail.duration") % _format_game_time_minutes(m.duration))
+		lines.append(tr("mc.mission.detail.success_chance") % int(m.success_chance * 100))
 		if String(m.completes_incident_id).length() > 0:
 			var hx = String(m.world_hex_key)
 			if hx.is_empty():
-				lines.append("Köprü: yerleşim krizi → %s" % m.target_location)
+				lines.append(tr("mc.mission.detail.bridge_crisis") % m.target_location)
 			else:
-				lines.append("Köprü: kriz çözümü | %s (%s)" % [m.target_location, hx])
+				lines.append(tr("mc.mission.detail.bridge_crisis_hex") % [m.target_location, hx])
 		elif String(m.completes_alliance_aid_settlement_id).length() > 0:
 			var hxa = String(m.world_hex_key)
 			if hxa.is_empty():
-				lines.append("Köprü: muttefik yardım çağrısı → %s" % m.target_location)
+				lines.append(tr("mc.mission.detail.bridge_aid") % m.target_location)
 			else:
-				lines.append("Köprü: muttefik yardım | %s (%s)" % [m.target_location, hxa])
+				lines.append(tr("mc.mission.detail.bridge_aid_hex") % [m.target_location, hxa])
 		elif String(m.world_hex_key).length() > 0:
-			lines.append("Harita hedefi: %s — Kendin git veya cariye gönder." % m.world_hex_key)
-		if String(m.description).length() > 0:
+			lines.append(tr("mc.mission.detail.map_target") % m.world_hex_key)
+		var desc: String = mission_manager.get_mission_display_description(m) if mission_manager else String(m.description)
+		if String(desc).length() > 0:
 			lines.append("")
-			lines.append(String(m.description))
+			lines.append(String(desc))
 		if not m.rewards.is_empty():
 			lines.append("")
-			lines.append("Ödüller: %s" % str(m.rewards))
+			lines.append(tr("mc.mission.detail.rewards") % str(m.rewards))
 		if not m.penalties.is_empty():
-			lines.append("Cezalar: %s" % str(m.penalties))
+			lines.append(tr("mc.mission.detail.penalties") % str(m.penalties))
 		return _join_detail_lines(lines)
 	if m is Dictionary:
 		var d: Dictionary = m
 		var lines2: Array = []
-		lines2.append("Tür: %s" % str(d.get("type", "?")))
-		lines2.append("Süre: %s" % str(d.get("duration", "?")))
+		lines2.append(tr("mc.mission.detail.type") % str(d.get("type", "?")))
+		lines2.append(tr("mc.mission.detail.duration_raw") % str(d.get("duration", "?")))
 		var tgt = str(d.get("target", d.get("name", "")))
 		if tgt.length() > 0:
-			lines2.append("Hedef: %s" % tgt)
+			lines2.append(tr("mc.mission.detail.target") % tgt)
 		if String(d.get("completes_incident_id", "")).length() > 0:
-			lines2.append("Köprü: komşu yerleşim krizi")
+			lines2.append(tr("mc.mission.detail.bridge_neighbor"))
 		elif String(d.get("completes_alliance_aid_settlement_id", "")).length() > 0:
-			lines2.append("Köprü: muttefik yardım çağrısı")
+			lines2.append(tr("mc.mission.detail.bridge_aid_short"))
 		return _join_detail_lines(lines2)
 	return str(m)
 
@@ -2502,7 +2653,7 @@ func _refresh_mission_selection_detail() -> void:
 		return
 	var m = get_selected_mission()
 	if m == null:
-		mission_detail_label.text = "Yapılabilir görev yok. Liste güncellenince tekrar deneyin."
+		mission_detail_label.text = tr("mc.mission.no_available")
 		return
 	var title := _mission_display_name(m)
 	var body := _build_mission_detail_text(m)
@@ -2513,12 +2664,12 @@ func update_mission_list_ui(content_label: Label):
 	if not content_label:
 		return
 		
-	var text = "🎯 MEVCUT GÖREVLER:\n\n"
+	var text = tr("mc.mission.list.header") + "\n\n"
 	
 	# Aktif görevler (MissionManager'dan)
 	var active_missions = mission_manager.get_active_missions()
 	if not active_missions.is_empty():
-		text += "📋 AKTİF GÖREVLER:\n"
+		text += tr("mc.mission.list.active_header") + "\n"
 		for cariye_id in active_missions:
 			var mission_id = active_missions[cariye_id]
 			if not mission_manager.missions.has(mission_id):
@@ -2527,29 +2678,29 @@ func update_mission_list_ui(content_label: Label):
 			var cariye = mission_manager.concubines[cariye_id]
 			
 			var rem = _active_mission_remaining_display(mission)
-			text += "• %s → %s (%s kaldı)\n" % [cariye.name, _mission_display_name(mission), rem]
+			text += tr("mc.mission.list.active_line") % [cariye.name, _mission_display_name(mission), rem]
 		text += "\n"
 	else:
-		text += "📋 AKTİF GÖREV YOK\n\n"
+		text += tr("mc.mission.list.active_empty") + "\n\n"
 	
 	# Mevcut görevler (birleşik liste — kartlarla aynı)
 	var available_missions = _get_merged_available_missions()
 	if not available_missions.is_empty():
-		text += "📝 YAPILABİLİR GÖREVLER:\n"
+		text += tr("mc.mission.list.available_header") + "\n"
 		for i in range(available_missions.size()):
 			var mission = available_missions[i]
-			var selection_marker = " ← SEÇİLİ" if i == current_mission_index else ""
-			text += "• %s%s\n" % [_mission_display_name(mission), selection_marker]
+			var selection_marker = tr("mc.mission.list.selected") if i == current_mission_index else ""
+			text += tr("mc.mission.list.available_line") % [_mission_display_name(mission), selection_marker]
 		text += "\n"
 	else:
-		text += "📝 YAPILABİLİR GÖREV YOK\n\n"
+		text += tr("mc.mission.list.available_empty") + "\n\n"
 	
 	# Boşta cariyeler (MissionManager'dan)
 	var idle_cariyeler = mission_manager.get_idle_concubines()
-	text += "👥 BOŞTA CARİYELER: %d\n" % idle_cariyeler.size()
+	text += tr("mc.mission.list.idle_count") % idle_cariyeler.size()
 	
 	# Kontroller
-	text += "\n[Yukarı/Aşağı: Görev seçimi] [A: Cariye seç] [B: Geri]"
+	text += "\n" + tr("mc.mission.list.controls")
 	
 	content_label.text = text
 
@@ -2560,24 +2711,24 @@ func update_cariye_selection_ui(content_label: Label):
 		
 	var selected_mission = get_selected_mission()
 	if not selected_mission:
-		content_label.text = "❌ Görev bulunamadı!\n\n[B: Geri]"
+		content_label.text = tr("mc.mission.not_found") + "\n\n" + tr("mc.mission.back_hint")
 		return
 	
-	var text = "👥 CARİYE SEÇİMİ:\n\n"
-	text += "Görev: %s\n\n" % _mission_display_name(selected_mission)
+	var text = tr("mc.mission.cariye_select.header") + "\n\n"
+	text += tr("mc.mission.cariye_select.mission_line") % _mission_display_name(selected_mission) + "\n\n"
 	
 	# Boşta cariyeler (MissionManager'dan)
 	var idle_cariyeler = mission_manager.get_idle_concubines()
 	if idle_cariyeler.is_empty():
-		text += "❌ Boşta cariye yok!\n\n[B: Geri]"
+		text += tr("mc.mission.cariye_select.no_idle") + "\n\n" + tr("mc.mission.back_hint")
 	else:
-		text += "MEVCUT CARİYELER:\n"
+		text += tr("mc.mission.cariye_select.available") + "\n"
 		for i in range(idle_cariyeler.size()):
 			var cariye = idle_cariyeler[i]
-			var selection_marker = " ← SEÇİLİ" if i == current_cariye_index else ""
-			text += "• %s%s\n" % [cariye.name, selection_marker]
+			var selection_marker = tr("mc.mission.list.selected") if i == current_cariye_index else ""
+			text += tr("mc.mission.list.available_line") % [cariye.name, selection_marker]
 		
-		text += "\n[A: Görev ata] [B: Geri]"
+		text += "\n" + tr("mc.mission.cariye_select.controls")
 	
 	content_label.text = text
 
@@ -2588,14 +2739,14 @@ func update_mission_detail_ui(content_label: Label):
 		
 	var selected_mission = get_selected_mission()
 	if not selected_mission:
-		content_label.text = "❌ Görev bulunamadı!\n\n[B: Geri]"
+		content_label.text = tr("mc.mission.not_found") + "\n\n" + tr("mc.mission.back_hint")
 		return
 	
 	var title = _mission_display_name(selected_mission)
-	var text = "📋 GÖREV DETAYI:\n\n"
+	var text = tr("mc.mission.detail.header") + "\n\n"
 	text += "%s\n\n" % title
 	text += _build_mission_detail_text(selected_mission)
-	text += "\n\n[B: Geri]"
+	text += "\n\n" + tr("mc.mission.back_hint")
 	content_label.text = text
 
 # Seçili görevi döndür
@@ -2891,7 +3042,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	
 	# Başlık
 	var title_label = Label.new()
-	title_label.text = "🎯 GÖREV SONUCU"
+	title_label.text = tr("mc.mission.result.title")
 	# title_label.add_theme_font_size_override("font_size", 24)
 	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2918,10 +3069,10 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	# Sonuç
 	var result_label = Label.new()
 	if successful:
-		result_label.text = "✅ BAŞARILI!"
+		result_label.text = tr("mc.mission.result.success")
 		TextOutline.apply_label_color(result_label, Color.GREEN)
 	else:
-		result_label.text = "❌ BAŞARISIZ!"
+		result_label.text = tr("mc.mission.result.failed")
 		TextOutline.apply_label_color(result_label, Color.RED)
 	# result_label.add_theme_font_size_override("font_size", 20)
 	result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2948,7 +3099,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	
 	if successful and rewards_dict.size() > 0:
 		var rewards_label = Label.new()
-		rewards_label.text = "💰 ÖDÜLLER:"
+		rewards_label.text = tr("mc.mission.result.rewards_header")
 		# rewards_label.add_theme_font_size_override("font_size", 16)
 		TextOutline.apply_label_color(rewards_label, Color.YELLOW)
 		rewards_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2956,7 +3107,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 		
 		for reward_type in rewards_dict:
 			var amount = rewards_dict[reward_type]
-			var reward_text = "  • %s: +%d" % [reward_type, amount]
+			var reward_text = tr("mc.mission.result.reward_line") % [_mc_resource_name(str(reward_type)), amount]
 			var reward_label = Label.new()
 			reward_label.text = reward_text
 			# reward_label.add_theme_font_size_override("font_size", 14)
@@ -2966,7 +3117,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	
 	if not successful and penalties_dict.size() > 0:
 		var penalties_label = Label.new()
-		penalties_label.text = "⚠️ CEZALAR:"
+		penalties_label.text = tr("mc.mission.result.penalties_header")
 		# penalties_label.add_theme_font_size_override("font_size", 16)
 		TextOutline.apply_label_color(penalties_label, Color.ORANGE)
 		penalties_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2974,7 +3125,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 		
 		for penalty_type in penalties_dict:
 			var amount = penalties_dict[penalty_type]
-			var penalty_text = "  • %s: %d" % [penalty_type, amount]
+			var penalty_text = tr("mc.mission.result.penalty_line") % [_mc_resource_name(str(penalty_type)), amount]
 			var penalty_label = Label.new()
 			penalty_label.text = penalty_text
 			# penalty_label.add_theme_font_size_override("font_size", 14)
@@ -2989,7 +3140,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	
 	# Cariye durumu
 	var cariye_status_label = Label.new()
-	cariye_status_label.text = "👤 Cariye Durumu: Seviye %d | Sağlık: %d | Moral: %d" % [cariye.level, cariye.health, cariye.moral]
+	cariye_status_label.text = tr("mc.mission.result.cariye_status") % [cariye.level, cariye.health, cariye.moral]
 	# cariye_status_label.add_theme_font_size_override("font_size", 14)
 	TextOutline.apply_label_color(cariye_status_label, TextOutline.FONT_COLOR_MUTED)
 	cariye_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -3002,7 +3153,7 @@ func update_mission_result_content(cariye: Concubine, mission, successful: bool,
 	
 	# Kapatma talimatı
 	var close_label = Label.new()
-	close_label.text = "⏰ 5 saniye sonra otomatik kapanır..."
+	close_label.text = tr("mc.mission.result.auto_close_5s")
 	# close_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(close_label, TextOutline.FONT_COLOR_MUTED)
 	close_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -3020,41 +3171,41 @@ func update_level_up_content(cariye: Concubine, new_level: int):
 	
 	# Başlık
 	var title_label = Label.new()
-	title_label.text = "🎉 SEVİYE ATLAMA! 🎉"
+	title_label.text = tr("mc.mission.level_up.title")
 	# title_label.add_theme_font_size_override("font_size", 20)
 	TextOutline.apply_label_color(title_label, Color.GOLD)
 	mission_result_content.add_child(title_label)
 	
 	# Cariye bilgisi
 	var cariye_label = Label.new()
-	cariye_label.text = "%s seviye %d'ye yükseldi!" % [cariye.name, new_level]
+	cariye_label.text = tr("mc.mission.level_up.cariye") % [cariye.name, new_level]
 	# cariye_label.add_theme_font_size_override("font_size", 16)
 	TextOutline.apply_label_color(cariye_label, TextOutline.FONT_COLOR)
 	mission_result_content.add_child(cariye_label)
 	
 	# Yeni özellikler
 	var stats_label = Label.new()
-	stats_label.text = "YENİ ÖZELLİKLER:"
+	stats_label.text = tr("mc.mission.level_up.new_stats")
 	# stats_label.add_theme_font_size_override("font_size", 14)
 	TextOutline.apply_label_color(stats_label, Color.YELLOW)
 	mission_result_content.add_child(stats_label)
 	
 	# Sağlık ve moral
 	var health_label = Label.new()
-	health_label.text = "• Maksimum Sağlık: %d" % cariye.max_health
+	health_label.text = tr("mc.mission.level_up.max_health") % cariye.max_health
 	# health_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(health_label, Color.LIGHT_GREEN)
 	mission_result_content.add_child(health_label)
 	
 	var moral_label = Label.new()
-	moral_label.text = "• Maksimum Moral: %d" % cariye.max_moral
+	moral_label.text = tr("mc.mission.level_up.max_moral") % cariye.max_moral
 	# moral_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(moral_label, Color.LIGHT_BLUE)
 	mission_result_content.add_child(moral_label)
 	
 	# Yetenekler
 	var skills_label = Label.new()
-	skills_label.text = "YETENEK ARTIŞLARI:"
+	skills_label.text = tr("mc.mission.level_up.skill_gains")
 	# skills_label.add_theme_font_size_override("font_size", 14)
 	TextOutline.apply_label_color(skills_label, Color.YELLOW)
 	mission_result_content.add_child(skills_label)
@@ -3068,7 +3219,7 @@ func update_level_up_content(cariye: Concubine, new_level: int):
 	
 	# Kapatma talimatı
 	var close_label = Label.new()
-	close_label.text = "3 saniye sonra otomatik kapanır..."
+	close_label.text = tr("mc.mission.result.auto_close_3s")
 	# close_label.add_theme_font_size_override("font_size", 10)
 	TextOutline.apply_label_color(close_label, TextOutline.FONT_COLOR_MUTED)
 	mission_result_content.add_child(close_label)
@@ -3078,40 +3229,38 @@ func update_mission_result_ui(content_label: Label):
 	if not content_label:
 		return
 		
-	var text = "🎯 GÖREV SONUCU:\n\n"
+	var text = tr("mc.mission.result.panel_header") + "\n\n"
 	
-	var cariye_name = current_mission_result.get("cariye_name", "İsimsiz")
-	var mission_name = current_mission_result.get("mission_name", "İsimsiz")
+	var cariye_name = current_mission_result.get("cariye_name", tr("concubine.unnamed"))
+	var mission_name = current_mission_result.get("mission_name", tr("concubine.unnamed"))
 	var successful = current_mission_result.get("successful", false)
 	var cariye_injured = current_mission_result.get("cariye_injured", false)
 	
-	text += "Cariye: %s\n" % cariye_name
-	text += "Görev: %s\n\n" % mission_name
+	text += tr("mc.mission.result.cariye_line") % cariye_name + "\n"
+	text += tr("mc.mission.result.mission_line") % mission_name + "\n\n"
 	
 	if successful:
-		text += "✅ GÖREV BAŞARILI!\n\n"
-		
+		text += tr("mc.mission.result.success") + "\n\n"
 		var rewards = current_mission_result.get("rewards", {})
 		if not rewards.is_empty():
-			text += "🎁 ÖDÜLLER:\n"
+			text += tr("mc.mission.result.rewards_header") + "\n"
 			for key in rewards:
-				text += "• %s: %s\n" % [key, rewards[key]]
+				text += tr("mc.mission.result.reward_line") % [_get_resource_display_name(str(key)), rewards[key]] + "\n"
 			text += "\n"
 	else:
-		text += "❌ GÖREV BAŞARISIZ!\n\n"
-		
+		text += tr("mc.mission.result.failed") + "\n\n"
 		var penalties = current_mission_result.get("penalties", {})
 		if not penalties.is_empty():
-			text += "⚠️ CEZALAR:\n"
+			text += tr("mc.mission.result.penalties_header") + "\n"
 			for key in penalties:
-				text += "• %s: %s\n" % [key, penalties[key]]
+				text += tr("mc.mission.result.penalty_line") % [_get_resource_display_name(str(key)), penalties[key]] + "\n"
 			text += "\n"
 	
 	if cariye_injured:
-		text += "🏥 Cariye yaralandı!\n\n"
+		text += tr("mc.mission.result.cariye_injured") + "\n\n"
 	
 	var remaining_time = mission_result_duration - mission_result_timer
-	text += "⏱️ %.1f saniye sonra kapanacak..." % remaining_time
+	text += tr("mc.mission.result.auto_close_countdown") % remaining_time
 	
 	content_label.text = text
 
@@ -3138,28 +3287,28 @@ func create_mission_card(mission: Mission, is_selected: bool = false, is_active:
 	
 	# Başlık
 	var title_label = Label.new()
-	title_label.text = mission.name
+	title_label.text = _mission_display_name(mission)
 	# title_label.add_theme_font_size_override("font_size", 16)
 	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	vbox.add_child(title_label)
 	
 	# Tür ve süre
 	var info_label = Label.new()
-	info_label.text = "Tür: %s | Süre: %.1fs" % [mission.get_mission_type_name(), mission.duration]
+	info_label.text = tr("mc.mission.card.type_duration") % [mission.get_mission_type_name(), mission.duration]
 	# info_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(info_label)
 	
 	# Başarı şansı
 	var success_label = Label.new()
-	success_label.text = "Başarı Şansı: %d%%" % (mission.success_chance * 100)
+	success_label.text = tr("mc.mission.detail.success_chance") % int(mission.success_chance * 100)
 	# success_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(success_label, Color.LIGHT_BLUE)
 	vbox.add_child(success_label)
 	
 	# Ödüller (kısa)
 	if not mission.rewards.is_empty():
-		var reward_text = "Ödüller: "
+		var reward_text = tr("mc.mission.card.rewards_prefix")
 		var reward_keys = mission.rewards.keys()
 		for i in range(min(2, reward_keys.size())):  # İlk 2 ödülü göster
 			reward_text += "%s " % reward_keys[i]
@@ -3201,14 +3350,14 @@ func create_cariye_card(cariye: Concubine, is_selected: bool = false) -> Control
 	# En yüksek yetenek
 	var best_skill = cariye.get_best_skill()
 	var skill_label = Label.new()
-	skill_label.text = "En İyi: %s (%d)" % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
+	skill_label.text = tr("mc.concubine.best_skill") % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
 	skill_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(skill_label, Color.LIGHT_BLUE)
 	vbox.add_child(skill_label)
 	
 	# Durum
 	var durum_label = Label.new()
-	durum_label.text = "Durum: %s" % cariye.get_status_name()
+	durum_label.text = tr("mc.concubine.status") % cariye.get_status_name()
 	durum_label.add_theme_font_size_override("font_size", 12)
 	match cariye.status:
 		Concubine.Status.BOŞTA:
@@ -3239,8 +3388,8 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	
 	# Cariye ve görev
 	var title_label = Label.new()
-	var selection_marker = " ← SEÇİLİ" if is_selected else ""
-	title_label.text = "%s → %s%s" % [cariye.name, mission.name, selection_marker]
+	var selection_marker = tr("mc.mission.list.selected") if is_selected else ""
+	title_label.text = "%s → %s%s" % [cariye.name, _mission_display_name(mission), selection_marker]
 	# title_label.add_theme_font_size_override("font_size", 16)
 	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3256,9 +3405,9 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	var pct := 0.0
 	if mission.duration > 0:
 		pct = clamp((mission.duration - remaining_time) / mission.duration, 0.0, 1.0)
-	var status_text = "Devam ediyor"
+	var status_text = tr("mc.mission.active.in_progress")
 	if remaining_time <= 0.0:
-		status_text = "Tamamlanıyor"
+		status_text = tr("mc.mission.active.completing")
 	status_badge.text = "🟢 %s" % status_text
 	status_badge.add_theme_font_size_override("font_size", 11)
 	TextOutline.apply_label_color(status_badge, Color.LIGHT_GREEN)
@@ -3271,14 +3420,14 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	badges.add_child(diff_badge)
 
 	var risk_badge = Label.new()
-	risk_badge.text = "⚠️ Risk: %s" % mission.risk_level
+	risk_badge.text = tr("mc.mission.active.risk") % LocaleManager.get_risk_level_name(mission.risk_level)
 	risk_badge.add_theme_font_size_override("font_size", 11)
 	TextOutline.apply_label_color(risk_badge, Color(1, 0.7, 0.2, 1))
 	badges.add_child(risk_badge)
 	
 	# Görev türü ve zorluk
 	var info_label = Label.new()
-	info_label.text = "Tür: %s | Zorluk: %s" % [mission.get_mission_type_name(), mission.get_difficulty_name()]
+	info_label.text = tr("mc.mission.card.type_difficulty") % [mission.get_mission_type_name(), mission.get_difficulty_name()]
 	info_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3287,7 +3436,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	# Kalan süre
 	var time_label = Label.new()
 	var time_text = _format_game_time_minutes(remaining_time)
-	time_label.text = "⏱️ %s kaldı" % time_text
+	time_label.text = tr("mc.mission.active.time_left") % time_text
 	time_label.add_theme_font_size_override("font_size", 14)
 	TextOutline.apply_label_color(time_label, Color.YELLOW)
 	vbox.add_child(time_label)
@@ -3297,7 +3446,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	vbox.add_child(progress_container)
 	
 	var progress_label = Label.new()
-	progress_label.text = "İlerleme:"
+	progress_label.text = tr("mc.mission.active.progress")
 	progress_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(progress_label, Color.LIGHT_BLUE)
 	progress_container.add_child(progress_label)
@@ -3318,13 +3467,13 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 
 	# Ödül önizleme ve ordu/beklenen
 	var rewards_preview = Label.new()
-	var rewards_text = "Ödüller: "
+	var rewards_text = tr("mc.mission.card.rewards_prefix")
 	var first = true
 	for reward_type in mission.rewards.keys():
 		var amount = mission.rewards[reward_type]
 		if not first:
 			rewards_text += ", "
-		rewards_text += "%s: %s" % [str(reward_type), str(amount)]
+		rewards_text += "%s: %s" % [_get_resource_display_name(str(reward_type)), str(amount)]
 		first = false
 	if first:
 		rewards_text += "-"
@@ -3335,7 +3484,7 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	vbox.add_child(rewards_preview)
 
 	var reqs_label = Label.new()
-	reqs_label.text = "Gerekli Seviye: %d | Gerekli Ordu: %d" % [mission.required_cariye_level, mission.required_army_size]
+	reqs_label.text = tr("mc.mission.card.requirements") % [mission.required_cariye_level, mission.required_army_size]
 	reqs_label.add_theme_font_size_override("font_size", 10)
 	TextOutline.apply_label_color(reqs_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(reqs_label)
@@ -3343,13 +3492,98 @@ func create_active_mission_card(cariye: Concubine, mission: Mission, remaining_t
 	_apply_mission_card_parchment(card, is_selected)
 	return card
 
-# Liste temizle
-func clear_list(list_container: VBoxContainer):
+# Liste temizle (sahne editöründeki örnek kartları kaldırır)
+func clear_list(list_container: VBoxContainer) -> void:
 	if not list_container:
-		print("⚠️ clear_list: list_container is null!")
 		return
-	for child in list_container.get_children():
+	_clear_container_children_immediate(list_container)
+
+
+func _clear_container_children_immediate(container: Node) -> void:
+	if container == null:
+		return
+	var children: Array = container.get_children()
+	for child in children:
+		container.remove_child(child)
 		child.queue_free()
+
+
+## Godot sahnesinde kalan örnek cariye/görev kartlarını ve statik metinleri temizler.
+func _purge_scene_editor_placeholders() -> void:
+	if active_missions_list:
+		_clear_container_children_immediate(active_missions_list)
+	if available_missions_list:
+		_clear_container_children_immediate(available_missions_list)
+	if cariye_selection_list:
+		_clear_container_children_immediate(cariye_selection_list)
+	var concubine_list := get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList")
+	if concubine_list:
+		_clear_container_children_immediate(concubine_list)
+	var random_list := get_node_or_null("NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList")
+	if random_list:
+		_clear_container_children_immediate(random_list)
+	_clear_concubine_details_empty_state()
+
+
+func _clear_concubine_details_empty_state() -> void:
+	var basic_content := get_node_or_null(
+		"ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/BasicInfoContent"
+	) as Label
+	if basic_content:
+		basic_content.text = ""
+		basic_content.visible = false
+	var portrait_container := get_node_or_null(
+		"ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/PortraitContainer"
+	)
+	if portrait_container:
+		_clear_container_children_immediate(portrait_container)
+		portrait_container.visible = false
+	for panel_name in ["SkillsPanel", "MissionHistoryPanel", "AchievementsPanel", "ControlsPanel"]:
+		var panel := get_node_or_null(
+			"ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/%s" % panel_name
+		)
+		if panel:
+			for child in panel.get_children():
+				if child.name.ends_with("Content") or child.name.ends_with("VBox"):
+					_clear_container_children_immediate(child)
+
+
+func _append_empty_list_hint(list_node: Container, message: String, center: bool = false) -> void:
+	if list_node == null:
+		return
+	var empty_label := Label.new()
+	empty_label.text = message
+	empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	empty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if center:
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
+	
+	if list_node is HBoxContainer:
+		# Random events satırı yatay HBox; kart genişliği sabit olmalı
+		var card := Panel.new()
+		card.custom_minimum_size = Vector2(240.0, 88.0)
+		var vbox := VBoxContainer.new()
+		vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		vbox.add_theme_constant_override("margin_left", 10)
+		vbox.add_theme_constant_override("margin_right", 10)
+		vbox.add_theme_constant_override("margin_top", 10)
+		vbox.add_theme_constant_override("margin_bottom", 10)
+		card.add_child(vbox)
+		empty_label.custom_minimum_size = Vector2(220.0, 0.0)
+		vbox.add_child(empty_label)
+		list_node.add_child(card)
+		return
+	
+	var list_width := list_node.get_combined_minimum_size().x
+	if list_width < 8.0 and list_node.get_parent() is Control:
+		list_width = (list_node.get_parent() as Control).size.x
+	empty_label.custom_minimum_size = Vector2(maxf(220.0, list_width - 12.0), 0.0)
+	list_node.add_child(empty_label)
+
+
+func _show_concubine_details_empty_message(list_node: Container) -> void:
+	_append_empty_list_hint(list_node, tr("mc.concubine.empty_list"))
 
 # Görevler sayfası UI'ını kart sistemi ile güncelle
 func update_missions_ui_cards():
@@ -3364,7 +3598,7 @@ func update_missions_ui_cards():
 	# Boşta cariye sayısını güncelle
 	var idle_count = get_idle_cariyeler_list().size()
 	if idle_cariyeler_label:
-		idle_cariyeler_label.text = "👥 BOŞTA: %d" % idle_count
+		idle_cariyeler_label.text = tr("mc.mission.list.idle_count") % idle_count
 	
 	# Görev sonuçları gösteriliyorsa
 	if showing_mission_result:
@@ -3443,7 +3677,7 @@ func update_available_missions_cards():
 	if available_missions.is_empty():
 		print("[DEBUG_MC] update_available_missions_cards: Liste boş, 'Yok' etiketi ekleniyor")
 		var empty_label = Label.new()
-		empty_label.text = "Yapılabilir görev yok"
+		empty_label.text = tr("mc.mission.list.available_empty_short")
 		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		available_missions_list.add_child(empty_label)
 		return
@@ -3495,7 +3729,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		mission_name = mission.get("name", "Bilinmeyen Görev")
 		mission_type_str = mission.get("type", "unknown")
 		difficulty_name = mission.get("difficulty", "medium")
-		risk_level = mission.get("risk_level", "Orta")
+		risk_level = LocaleManager.get_risk_level_name(String(mission.get("risk_level", "Orta")))
 		duration = float(mission.get("duration", 10.0))
 		success_chance = float(mission.get("success_chance", 0.5))
 		rewards = mission.get("rewards", {})
@@ -3514,10 +3748,10 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 				mission_type_emoji = "📋"
 	else:
 		# Mission objesi için
-		mission_name = mission.name
+		mission_name = _mission_display_name(mission)
 		mission_type_str = mission.get_mission_type_name()
 		difficulty_name = mission.get_difficulty_name()
-		risk_level = mission.risk_level
+		risk_level = LocaleManager.get_risk_level_name(mission.risk_level)
 		duration = mission.duration
 		success_chance = mission.success_chance
 		rewards = mission.rewards
@@ -3564,22 +3798,22 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 		var cid_dict: String = String(mission.get("completes_incident_id", ""))
 		var tl_dict: String = String(mission.get("target_location", mission.get("name", "")))
 		if not cid_dict.is_empty():
-			relief_line = "Komsu kriz | %s" % tl_dict
+			relief_line = tr("mc.mission.relief.neighbor_crisis") % tl_dict
 		elif String(mission.get("completes_alliance_aid_settlement_id", "")).length() > 0:
-			relief_line = "Muttefik yardim cagrisi | %s" % tl_dict
+			relief_line = tr("mc.mission.relief.ally_call") % tl_dict
 	else:
 		if String(mission.completes_incident_id).length() > 0:
 			var hex_hint: String = String(mission.world_hex_key)
 			if hex_hint.is_empty():
-				relief_line = "Komsu kriz yardimi | %s" % mission.target_location
+				relief_line = tr("mc.mission.relief.neighbor_aid") % mission.target_location
 			else:
-				relief_line = "Komsu kriz yardimi | %s (%s)" % [mission.target_location, hex_hint]
+				relief_line = tr("mc.mission.relief.neighbor_aid_hex") % [mission.target_location, hex_hint]
 		elif String(mission.completes_alliance_aid_settlement_id).length() > 0:
 			var hex_a: String = String(mission.world_hex_key)
 			if hex_a.is_empty():
-				relief_line = "Muttefik yardim cagrisi | %s" % mission.target_location
+				relief_line = tr("mc.mission.relief.ally_call") % mission.target_location
 			else:
-				relief_line = "Muttefik yardim cagrisi | %s (%s)" % [mission.target_location, hex_a]
+				relief_line = tr("mc.mission.relief.ally_aid_hex") % [mission.target_location, hex_a]
 	if not relief_line.is_empty():
 		var relief_label = Label.new()
 		relief_label.text = relief_line
@@ -3596,7 +3830,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	# Zincir rozetini ekle (varsa - sadece Mission objeleri için)
 	if not is_dict and mission.has_method("is_part_of_chain") and mission.is_part_of_chain():
 		var chain_badge = Label.new()
-		chain_badge.text = "🔗 Zincir"
+		chain_badge.text = tr("mc.mission.badge.chain")
 		# chain_badge.add_theme_font_size_override("font_size", 11)
 		TextOutline.apply_label_color(chain_badge, Color(0.9, 0.9, 0.5, 1))
 		badges.add_child(chain_badge)
@@ -3604,7 +3838,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	# Acil/Savunma rozeti (Dictionary görevleri için)
 	if is_dict and mission.get("status", "") == "urgent":
 		var urgent_badge = Label.new()
-		urgent_badge.text = "🚨 Acil"
+		urgent_badge.text = tr("mc.mission.badge.urgent")
 		# urgent_badge.add_theme_font_size_override("font_size", 11)
 		TextOutline.apply_label_color(urgent_badge, Color(1, 0.3, 0.3, 1))
 		badges.add_child(urgent_badge)
@@ -3612,28 +3846,28 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	# Harita emri rozeti
 	if is_world_map_order:
 		var map_badge = Label.new()
-		map_badge.text = "🗺️ Harita Emri"
+		map_badge.text = tr("mc.mission.badge.map_order")
 		TextOutline.apply_label_color(map_badge, Color(0.72, 0.95, 1.0, 1.0))
 		badges.add_child(map_badge)
 	
 	if is_dict and String(mission.get("completes_incident_id", "")).length() > 0:
 		var relief_badge = Label.new()
-		relief_badge.text = "🏘️ Komşu Yardım"
+		relief_badge.text = tr("mc.mission.badge.neighbor_aid")
 		TextOutline.apply_label_color(relief_badge, Color(0.75, 0.92, 1.0, 1.0))
 		badges.add_child(relief_badge)
 	elif is_dict and (String(mission.get("id", "")).begins_with("ally_relief_") or String(mission.get("completes_alliance_aid_settlement_id", "")).length() > 0):
 		var ally_badge_d = Label.new()
-		ally_badge_d.text = "🤝 Muttefik Yardım"
+		ally_badge_d.text = tr("mc.mission.badge.ally_aid")
 		TextOutline.apply_label_color(ally_badge_d, Color(0.82, 0.95, 0.88, 1.0))
 		badges.add_child(ally_badge_d)
 	elif not is_dict and (String(mission.id).begins_with("relief_") or String(mission.completes_incident_id).length() > 0):
 		var relief_badge2 = Label.new()
-		relief_badge2.text = "🏘️ Komşu Yardım"
+		relief_badge2.text = tr("mc.mission.badge.neighbor_aid")
 		TextOutline.apply_label_color(relief_badge2, Color(0.75, 0.92, 1.0, 1.0))
 		badges.add_child(relief_badge2)
 	elif not is_dict and (String(mission.id).begins_with("ally_relief_") or String(mission.completes_alliance_aid_settlement_id).length() > 0):
 		var ally_badge = Label.new()
-		ally_badge.text = "🤝 Muttefik Yardım"
+		ally_badge.text = tr("mc.mission.badge.ally_aid")
 		TextOutline.apply_label_color(ally_badge, Color(0.82, 0.95, 0.88, 1.0))
 		badges.add_child(ally_badge)
 
@@ -3659,7 +3893,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	# Görev bilgileri
 	var info_label = Label.new()
 	duration_text = _format_game_time_minutes(duration)  # duration_text zaten yukarıda tanımlı
-	info_label.text = "Tür: %s | Süre: %s" % [mission_type_str, duration_text]
+	info_label.text = tr("mc.mission.card.type_duration") % [mission_type_str, duration_text]
 	# info_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3667,19 +3901,19 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	
 	# Başarı şansı
 	var success_label = Label.new()
-	success_label.text = "Başarı Şansı: %d%%" % int(success_chance * 100)
+	success_label.text = tr("mc.mission.detail.success_chance") % int(success_chance * 100)
 	# success_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(success_label, Color.LIGHT_BLUE)
 	vbox.add_child(success_label)
 	
 	# Ödüller
-	var rewards_text = "Ödüller: "
+	var rewards_text = tr("mc.mission.card.rewards_prefix")
 	var first = true
 	for reward_type in rewards.keys():
 		var amount = rewards[reward_type]
 		if not first:
 			rewards_text += ", "
-		rewards_text += "%s: %s" % [str(reward_type), str(amount)]
+		rewards_text += "%s: %s" % [_get_resource_display_name(str(reward_type)), str(amount)]
 		first = false
 	if first:
 		rewards_text += "-"
@@ -3693,7 +3927,7 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 
 	# Gereksinimler
 	var reqs_label = Label.new()
-	reqs_label.text = "Min. Seviye: %d | Min. Ordu: %d" % [required_level, required_army]
+	reqs_label.text = tr("mc.mission.card.min_requirements") % [required_level, required_army]
 	# reqs_label.add_theme_font_size_override("font_size", 10)
 	TextOutline.apply_label_color(reqs_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(reqs_label)
@@ -3701,24 +3935,20 @@ func create_available_mission_card(mission, is_selected: bool) -> Control:
 	# Mesafe ve hedef
 	if target_location != "" or distance > 0.0:
 		var travel_label = Label.new()
-		var dist_text = "%.1f gün" % distance if distance > 0.0 else "-"
-		var tgt_text = target_location if target_location != "" else "Bilinmeyen"
-		travel_label.text = "Hedef Yerlesim: %s | Mesafe: %s" % [tgt_text, dist_text]
+		var dist_text = tr("mc.time.days") % distance if distance > 0.0 else "-"
+		var tgt_text = target_location if target_location != "" else tr("common.unknown")
+		travel_label.text = tr("mc.mission.card.target_settlement") % [tgt_text, dist_text]
 		# travel_label.add_theme_font_size_override("font_size", 10)
 		TextOutline.apply_label_color(travel_label, Color(0.85,0.85,0.85,1))
 		vbox.add_child(travel_label)
 
 	# Gerekli kaynaklar
 	if not required_resources.is_empty():
-		var req_text = "Gerekli Kaynaklar: "
-		var first_req = true
+		var req_parts: Array[String] = []
 		for r in required_resources.keys():
-			if not first_req:
-				req_text += ", "
-			req_text += "%s: %s" % [str(r), str(required_resources[r])]
-			first_req = false
+			req_parts.append("%s: %s" % [_get_resource_display_name(str(r)), str(required_resources[r])])
 		var req_label = Label.new()
-		req_label.text = req_text
+		req_label.text = tr("mc.mission.card.required_resources") % ", ".join(req_parts)
 		# req_label.add_theme_font_size_override("font_size", 10)
 		TextOutline.apply_label_color(req_label, Color(0.9,0.8,0.6,1))
 		req_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3736,14 +3966,14 @@ func update_cariye_selection_cards():
 	
 	var max_soldiers = _get_available_soldier_count()
 	var soldier_label = Label.new()
-	soldier_label.text = "Yanında asker: %d / %d  (Sol/Sağ ile değiştir)" % [current_soldier_count, max_soldiers]
+	soldier_label.text = tr("mc.mission.cariye_select.soldiers") % [current_soldier_count, max_soldiers]
 	TextOutline.apply_label_color(soldier_label, TextOutline.FONT_COLOR)
 	cariye_selection_list.add_child(soldier_label)
 	
 	var idle_cariyeler = mission_manager.get_idle_concubines()
 	if idle_cariyeler.is_empty():
 		var empty_label = Label.new()
-		empty_label.text = "Boşta cariye yok"
+		empty_label.text = tr("mc.mission.cariye_select.no_idle_short")
 		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		cariye_selection_list.add_child(empty_label)
 		return
@@ -3782,7 +4012,7 @@ func create_cariye_selection_card(cariye: Concubine, is_selected: bool) -> Panel
 	
 	# Yetenekler
 	var best_skill = cariye.get_best_skill()
-	var skills_text = "En İyi: %s (%d)" % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
+	var skills_text = tr("mc.concubine.best_skill") % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
 	var skills_label = Label.new()
 	skills_label.text = skills_text
 	# skills_label.add_theme_font_size_override("font_size", 12)
@@ -3791,7 +4021,7 @@ func create_cariye_selection_card(cariye: Concubine, is_selected: bool) -> Panel
 	
 	# Durum
 	var status_label = Label.new()
-	status_label.text = "Durum: %s" % cariye.get_status_name()
+	status_label.text = tr("mc.concubine.status") % cariye.get_status_name()
 	# status_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(status_label, Color.LIGHT_GREEN)
 	vbox.add_child(status_label)
@@ -3817,7 +4047,7 @@ func update_mission_history_cards():
 	var completed_missions = mission_manager.get_completed_missions()
 	if completed_missions.is_empty():
 		var empty_label = Label.new()
-		empty_label.text = "Tamamlanan görev yok"
+		empty_label.text = tr("mc.mission.history.empty")
 		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		mission_history_list.add_child(empty_label)
 		return
@@ -3891,7 +4121,7 @@ func create_mission_history_card(mission: Mission, is_selected: bool) -> Panel:
 	# Görev adı ve durumu
 	var title_label = Label.new()
 	var status_icon = "✅" if mission.completed_successfully else "❌"
-	title_label.text = "%s %s" % [status_icon, mission.name]
+	title_label.text = "%s %s" % [status_icon, _mission_display_name(mission)]
 	# title_label.add_theme_font_size_override("font_size", 14)
 	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3930,7 +4160,7 @@ func update_mission_history_stats():
 		success_rate = (float(successful_missions) / float(total_missions)) * 100.0
 	
 	if stats_content:
-		stats_content.text = "Toplam Görev: %d | Başarılı: %d | Başarısız: %d | Başarı Oranı: %.1f%%" % [
+		stats_content.text = tr("mc.mission.history.stats") % [
 			total_missions, successful_missions, total_missions - successful_missions, success_rate
 		]
 	else:
@@ -3958,7 +4188,7 @@ func update_mission_chains_ui():
 	_chain_ids_ordered.sort()  # basit alfabetik
 	if mission_chains.is_empty():
 		var empty_label = Label.new()
-		empty_label.text = "Aktif görev zinciri yok"
+		empty_label.text = tr("mc.mission.chains.empty")
 		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		chains_list.add_child(empty_label)
 		return
@@ -3985,7 +4215,7 @@ func create_mission_chain_card(chain_id: String, chain_info: Dictionary) -> Pane
 
 	var progress: Dictionary = mission_manager.get_chain_progress(chain_id)
 	var prog_label := Label.new()
-	prog_label.text = "İlerleme: %d/%d (%.0f%%)" % [int(progress.get("completed",0)), int(progress.get("total",0)), float(progress.get("percentage",0.0))]
+	prog_label.text = tr("mc.mission.chains.progress") % [int(progress.get("completed",0)), int(progress.get("total",0)), float(progress.get("percentage",0.0))]
 	vb.add_child(prog_label)
 
 	# Adımlar
@@ -4001,7 +4231,7 @@ func create_mission_chain_card(chain_id: String, chain_info: Dictionary) -> Pane
 			if ("status" in m):
 				st = int(m.status)
 			var icon: String = "⏳" if st == 1 else ("✔" if st == 2 else "•")
-			badge.text = icon + " " + String(m.name)
+			badge.text = icon + " " + _mission_display_name(m)
 			steps.add_child(badge)
 
 	return panel
@@ -4038,7 +4268,7 @@ func _ensure_diplomacy_panel() -> void:
 	header_box.add_child(title_panel)
 
 	var title := Label.new()
-	title.text = "🤝 DİPLOMASİ"
+	title.text = tr("mc.page.diplomacy")
 	# title.add_theme_font_size_override("font_size", 18)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_panel.add_child(title)
@@ -4079,7 +4309,7 @@ func _ensure_diplomacy_panel() -> void:
 	center_cont.add_child(diplomacy_list)
 
 	diplomacy_action_label = Label.new()
-	diplomacy_action_label.text = "[Yukarı/Aşağı] Fraksiyon • [Sol/Sağ] Eylem • [A] Uygula • [B] Geri"
+	diplomacy_action_label.text = tr("mc.diplomacy.controls")
 	diplomacy_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# diplomacy_action_label.add_theme_font_size_override("font_size", 11)
 	diplomacy_panel.add_child(diplomacy_action_label)
@@ -4101,7 +4331,7 @@ func _update_diplomacy_ui() -> void:
 	var wm = _get_world_manager()
 	if wm == null:
 		var info := Label.new()
-		info.text = "WorldManager bulunamadı. Diplomasi verisi mevcut değil."
+		info.text = tr("mc.diplomacy.no_world_manager")
 		TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 		diplomacy_list.add_child(info)
 		_update_diplomacy_footer()
@@ -4116,7 +4346,7 @@ func _update_diplomacy_ui() -> void:
 		current_diplomacy_index = max(0, factions.size() - 1)
 	if factions.is_empty():
 		var empty := Label.new()
-		empty.text = "Henüz tanımlı fraksiyon yok."
+		empty.text = tr("mc.diplomacy.no_factions")
 		TextOutline.apply_label_color(empty, TextOutline.FONT_COLOR_MUTED)
 		diplomacy_list.add_child(empty)
 		_update_diplomacy_footer()
@@ -4192,7 +4422,12 @@ func _update_diplomacy_action_squares() -> void:
 	for c in diplomacy_actions_container.get_children():
 		c.queue_free()
 		
-	var actions = ["🎁 Hediye", "☠️ Tehdit", "💰 Ticaret", "🛡️ Geçiş"]
+	var actions = [
+		tr("diplomacy.action.gift"),
+		tr("diplomacy.action.threat"),
+		tr("diplomacy.action.trade"),
+		tr("diplomacy.action.passage"),
+	]
 	
 	for i in range(actions.size()):
 		var panel = PanelContainer.new()
@@ -4248,19 +4483,19 @@ func _update_diplomacy_action_info() -> void:
 			target_faction_name = filtered_factions[current_diplomacy_index]
 			
 	if target_faction_name == "":
-		diplomacy_info_label.text = "Fraksiyon seçiniz."
+		diplomacy_info_label.text = tr("mc.diplomacy.select_faction")
 		return
 		
 	var info_text = ""
 	match current_diplomacy_action:
-		0: # Gift
-			info_text = "Eylem: %s'a Hediye Gönder | Maliyet: 100 Altın | Sonuç: +10 İlişki" % target_faction_name
-		1: # Threat
-			info_text = "Eylem: %s'ı Tehdit Et | Maliyet: Yok | Sonuç: -15 İlişki (Riskli)" % target_faction_name
-		2: # Trade
-			info_text = "Eylem: %s ile Ticaret Anlaşması | Gereksinim: +20 İlişki | Sonuç: Ticaret Rotası Açılır" % target_faction_name
-		3: # Passage
-			info_text = "Eylem: %s'dan Geçiş İzni İste | Gereksinim: +50 İlişki | Sonuç: Topraklardan Geçiş İzni" % target_faction_name
+		0:
+			info_text = tr("mc.diplomacy.info.gift") % target_faction_name
+		1:
+			info_text = tr("mc.diplomacy.info.threat") % target_faction_name
+		2:
+			info_text = tr("mc.diplomacy.info.trade") % target_faction_name
+		3:
+			info_text = tr("mc.diplomacy.info.passage") % target_faction_name
 			
 	diplomacy_info_label.text = info_text
 
@@ -4316,7 +4551,7 @@ func _update_diplomacy_footer() -> void:
 		var action_name := key
 		if dm and dm.has_method("get_action_label"):
 			action_name = dm.get_action_label(key)
-		diplomacy_action_label.text = "[Sol/Sağ] Eylem: %s | [A] Uygula | [B] Geri" % action_name
+		diplomacy_action_label.text = tr("mc.diplomacy.footer") % action_name
 
 # Zincir detay panelini güncelle
 func _update_chain_detail_panel():
@@ -5193,7 +5428,7 @@ func update_trade_ui():
 			
 			if active_traders.is_empty():
 				var empty_label = Label.new()
-				empty_label.text = "Şu anda köyde tüccar yok.\nTüccarlar zaman zaman köye gelecek."
+				empty_label.text = tr("mc.trade.no_traders")
 				empty_label.add_theme_font_size_override("font_size", 14)
 				TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 				traders_list.add_child(empty_label)
@@ -5225,12 +5460,12 @@ func update_trade_ui():
 					card.add_child(vb)
 					
 					var title = Label.new()
-					title.text = "💰 %s" % trader.get("name", "Tüccar")
+					title.text = tr("mc.trade.trader_title") % trader.get("name", tr("mc.trade.default_trader"))
 					title.add_theme_font_size_override("font_size", 14)
 					vb.add_child(title)
 					
 					var origin = Label.new()
-					origin.text = "📍 %s'den geldi" % trader.get("origin_settlement", "?")
+					origin.text = tr("mc.trade.from_settlement") % trader.get("origin_settlement", "?")
 					origin.add_theme_font_size_override("font_size", 12)
 					TextOutline.apply_label_color(origin, TextOutline.FONT_COLOR_MUTED)
 					vb.add_child(origin)
@@ -5239,7 +5474,7 @@ func update_trade_ui():
 					var products = trader.get("products", [])
 					if not products.is_empty():
 						var products_title = Label.new()
-						products_title.text = "Satıyor:"
+						products_title.text = tr("mc.trade.selling")
 						products_title.add_theme_font_size_override("font_size", 11)
 						TextOutline.apply_label_color(products_title, Color(0.8, 0.9, 0.8))
 						vb.add_child(products_title)
@@ -5251,14 +5486,14 @@ func update_trade_ui():
 							var res_name = _get_resource_display_name(p.get("resource", "?"))
 							var price = p.get("price_per_unit", 0)
 							var product_line = Label.new()
-							product_line.text = "  • %s (%d altın)" % [res_name, price]
+							product_line.text = tr("mc.trade.product_line") % [res_name, price]
 							product_line.add_theme_font_size_override("font_size", 10)
 							TextOutline.apply_label_color(product_line, Color(0.7, 0.85, 0.7))
 							vb.add_child(product_line)
 						
 						if products.size() > max_show:
 							var more_label = Label.new()
-							more_label.text = "  ... ve %d ürün daha" % (products.size() - max_show)
+							more_label.text = tr("mc.trade.more_products") % (products.size() - max_show)
 							more_label.add_theme_font_size_override("font_size", 9)
 							TextOutline.apply_label_color(more_label, Color(0.6, 0.7, 0.6))
 							vb.add_child(more_label)
@@ -5270,13 +5505,13 @@ func update_trade_ui():
 					var days_left = max(0, leaves_day - current_day)
 					
 					var days_label = Label.new()
-					days_label.text = "⏳ %d gün sonra ayrılacak" % days_left
+					days_label.text = tr("mc.trade.leaves_in_days") % days_left
 					days_label.add_theme_font_size_override("font_size", 10)
 					TextOutline.apply_label_color(days_label, Color(0.9, 0.7, 0.5))
 					vb.add_child(days_label)
 					
 					var hint = Label.new()
-					hint.text = "A: Ürünleri Gör" if i == current_trade_index else ""
+					hint.text = tr("mc.trade.view_products_hint") if i == current_trade_index else ""
 					hint.add_theme_font_size_override("font_size", 10)
 					TextOutline.apply_label_color(hint, Color(0.6, 0.9, 0.6))
 					vb.add_child(hint)
@@ -5298,7 +5533,7 @@ func update_trade_ui():
 		
 		if trader_concubines.is_empty():
 			var empty_label = Label.new()
-			empty_label.text = "Tüccar rolünde boşta cariye yok.\nCariye yönetiminden rol atayabilirsiniz."
+			empty_label.text = tr("mc.trade.no_trader_concubines")
 			empty_label.add_theme_font_size_override("font_size", 14)
 			TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 			missions_list.add_child(empty_label)
@@ -5336,18 +5571,18 @@ func update_trade_ui():
 				card.add_child(vb)
 				
 				var title = Label.new()
-				title.text = "👤 %s (Tüccar)" % cariye.name
+				title.text = tr("mc.trade.concubine_title") % cariye.name
 				title.add_theme_font_size_override("font_size", 14)
 				vb.add_child(title)
 				
 				var info = Label.new()
-				info.text = "Ticaret yeteneği: %d | Seviye: %d" % [cariye.get_skill_level(Concubine.Skill.TİCARET), cariye.level]
+				info.text = tr("mc.trade.concubine_skill") % [cariye.get_skill_level(Concubine.Skill.TİCARET), cariye.level]
 				info.add_theme_font_size_override("font_size", 12)
 				TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 				vb.add_child(info)
 				
 				var hint = Label.new()
-				hint.text = "A: Görev Gönder" if i == current_trader_mission_index else ""
+				hint.text = tr("mc.trade.send_mission_hint") if i == current_trader_mission_index else ""
 				hint.add_theme_font_size_override("font_size", 10)
 				TextOutline.apply_label_color(hint, Color(0.6, 0.9, 0.6))
 				vb.add_child(hint)
@@ -5357,12 +5592,7 @@ func update_trade_ui():
 
 # Kaynak isimlerini Türkçe'ye çevir
 func _get_resource_display_name(resource: String) -> String:
-	match resource:
-		"food": return "Yemek"
-		"wood": return "Odun"
-		"stone": return "Taş"
-		"water": return "Su"
-		_: return resource.capitalize()
+	return LocaleManager.get_resource_name(resource)
 
 # ESKİ FONKSİYON KALDIRILDI - Artık tüccardan satın alma sistemi kullanılıyor
 
@@ -5452,14 +5682,14 @@ func _create_trader_buy_popup():
 	# Başlık (dinamik olarak güncellenecek)
 	var title_label = Label.new()
 	title_label.name = "TraderBuyTitle"
-	title_label.text = "💰 Tüccardan Satın Al"
+	title_label.text = tr("mc.trade.buy.title")
 	title_label.add_theme_font_size_override("font_size", 20)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title_label)
 	
 	var origin_label = Label.new()
 	origin_label.name = "TraderBuyOrigin"
-	origin_label.text = "📍 Tüccar bilgisi"
+	origin_label.text = tr("mc.trade.buy.origin_placeholder")
 	origin_label.add_theme_font_size_override("font_size", 14)
 	origin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	TextOutline.apply_label_color(origin_label, TextOutline.FONT_COLOR_MUTED)
@@ -5484,7 +5714,7 @@ func _create_trader_buy_popup():
 	# Alt bilgi
 	var info_label = Label.new()
 	info_label.name = "TraderBuyInfoLabel"
-	info_label.text = "Yön Tuşları: Seçim  |  A: Satın Al  |  B: Kapat"
+	info_label.text = tr("mc.trade.buy.controls")
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
@@ -5498,11 +5728,11 @@ func _update_trader_buy_popup():
 	# Başlık ve origin'i güncelle
 	var title_label = trader_buy_popup.get_node_or_null("VBoxContainer/TraderBuyTitle")
 	if title_label:
-		title_label.text = "💰 Tüccardan Satın Al: %s" % selected_trader.get("name", "Tüccar")
+		title_label.text = tr("mc.trade.buy.title_named") % selected_trader.get("name", tr("mc.trade.default_trader"))
 	
 	var origin_label = trader_buy_popup.get_node_or_null("VBoxContainer/TraderBuyOrigin")
 	if origin_label:
-		origin_label.text = "📍 %s'den geldi" % selected_trader.get("origin_settlement", "?")
+		origin_label.text = tr("mc.trade.from_settlement") % selected_trader.get("origin_settlement", "?")
 	
 	# Grid'i temizle
 	for child in trader_buy_grid.get_children():
@@ -5511,7 +5741,7 @@ func _update_trader_buy_popup():
 	var products = selected_trader.get("products", [])
 	if products.is_empty():
 		var empty_label = Label.new()
-		empty_label.text = "Bu tüccarın satacak ürünü yok."
+		empty_label.text = tr("mc.trade.buy.no_products")
 		trader_buy_grid.add_child(empty_label)
 		return
 	
@@ -5563,7 +5793,7 @@ func _update_trader_buy_popup():
 		# Fiyat
 		var price_label = Label.new()
 		var price = product.get("price_per_unit", 0)
-		price_label.text = "%d altın/birim" % price
+		price_label.text = tr("mc.trade.buy.price_per_unit") % price
 		price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		price_label.add_theme_font_size_override("font_size", 12)
 		TextOutline.apply_label_color(price_label, Color(0.9, 0.8, 0.5))
@@ -5571,7 +5801,7 @@ func _update_trader_buy_popup():
 		
 		# Miktar bilgisi (tüccarın elinde sınırsız varsayıyoruz)
 		var stock_label = Label.new()
-		stock_label.text = "Sınırsız"
+		stock_label.text = tr("mc.trade.buy.unlimited")
 		stock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stock_label.add_theme_font_size_override("font_size", 10)
 		TextOutline.apply_label_color(stock_label, Color(0.7, 0.9, 0.7))
@@ -5580,14 +5810,14 @@ func _update_trader_buy_popup():
 		# Seçim göstergesi ve miktar bilgisi
 		if is_selected:
 			var select_label = Label.new()
-			select_label.text = "> SEÇİLİ <"
+			select_label.text = tr("mc.trade.buy.selected_marker")
 			select_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			select_label.add_theme_font_size_override("font_size", 10)
 			TextOutline.apply_label_color(select_label, Color(0.9, 0.7, 0.3))
 			vbox.add_child(select_label)
 			
 			var quantity_label = Label.new()
-			quantity_label.text = "1 birim satın alınacak"
+			quantity_label.text = tr("mc.trade.buy.quantity_one")
 			quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			quantity_label.add_theme_font_size_override("font_size", 9)
 			TextOutline.apply_label_color(quantity_label, Color(0.8, 0.8, 0.9))
@@ -5756,7 +5986,7 @@ func _create_trader_mission_popup():
 	# Başlık
 	var title_label = Label.new()
 	title_label.name = "TraderMissionTitle"
-	title_label.text = "🚚 Ticaret Görevi Oluştur"
+	title_label.text = tr("mc.trade.mission.create_title")
 	title_label.add_theme_font_size_override("font_size", 20)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title_label)
@@ -5764,7 +5994,7 @@ func _create_trader_mission_popup():
 	# Cariye bilgisi
 	var cariye_label = Label.new()
 	cariye_label.name = "TraderMissionCariye"
-	cariye_label.text = "👤 Cariye: "
+	cariye_label.text = tr("mc.trade.mission.cariye_prefix")
 	cariye_label.add_theme_font_size_override("font_size", 14)
 	cariye_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	TextOutline.apply_label_color(cariye_label, TextOutline.FONT_COLOR_MUTED)
@@ -5783,7 +6013,7 @@ func _create_trader_mission_popup():
 	# Alt bilgi
 	var info_label = Label.new()
 	info_label.name = "TraderMissionInfo"
-	info_label.text = "Yön Tuşları: Seçim  |  A: Onayla  |  B: Geri/İptal"
+	info_label.text = tr("mc.trade.mission.controls")
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
@@ -5805,12 +6035,16 @@ func _update_trader_mission_popup():
 	# Başlık ve cariye bilgisini güncelle
 	var title_label = trader_mission_popup.get_node_or_null("VBoxContainer/TraderMissionTitle")
 	if title_label:
-		var step_names = ["📍 Köy Seçimi", "⚔️ Asker Sayısı", "📦 Ticaret Malları"]
-		title_label.text = "🚚 Ticaret Görevi: %s" % step_names[trader_mission_step]
+		var step_names = [
+			tr("mc.trade.mission.step_village"),
+			tr("mc.trade.mission.step_soldiers"),
+			tr("mc.trade.mission.step_products"),
+		]
+		title_label.text = tr("mc.trade.mission.title_step") % step_names[trader_mission_step]
 	
 	var cariye_label = trader_mission_popup.get_node_or_null("VBoxContainer/TraderMissionCariye")
 	if cariye_label:
-		cariye_label.text = "👤 Cariye: %s" % trader_mission_selected_concubine.name
+		cariye_label.text = tr("mc.trade.mission.cariye_named") % trader_mission_selected_concubine.name
 	
 	var mm = get_node_or_null("/root/MissionManager")
 	if not mm:
@@ -5830,7 +6064,7 @@ func _update_trader_mission_step_village(content_vbox: VBoxContainer, mm: Node):
 	
 	if routes.is_empty():
 		var empty_label = Label.new()
-		empty_label.text = "Aktif ticaret rotası yok!"
+		empty_label.text = tr("mc.trade.mission.no_routes")
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		content_vbox.add_child(empty_label)
 		return
@@ -5845,7 +6079,7 @@ func _update_trader_mission_step_village(content_vbox: VBoxContainer, mm: Node):
 		var risk = route.get("risk", "?")
 		var relation = route.get("relation", 50)
 		
-		route_label.text = "%s%s (Mesafe: %.1f, Risk: %s, İlişki: %d)" % [prefix, route_name, distance, risk, relation]
+		route_label.text = tr("mc.trade.mission.route_line") % [prefix, route_name, distance, risk, relation]
 		route_label.add_theme_font_size_override("font_size", 16)
 		if i == trader_mission_selected_route_index:
 			TextOutline.apply_label_color(route_label, Color.YELLOW)
@@ -5853,7 +6087,7 @@ func _update_trader_mission_step_village(content_vbox: VBoxContainer, mm: Node):
 	
 	# Bilgi
 	var info = Label.new()
-	info.text = "\nYukarı/Aşağı: Rota Seç\nA: Devam Et"
+	info.text = tr("mc.trade.mission.route_hint")
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 	content_vbox.add_child(info)
@@ -5877,7 +6111,7 @@ func _update_trader_mission_step_soldiers(content_vbox: VBoxContainer):
 				break
 	
 	var soldier_label = Label.new()
-	soldier_label.text = "Asker Sayısı: %d / %d" % [trader_mission_soldier_count, max_soldiers]
+	soldier_label.text = tr("mc.trade.mission.soldier_count") % [trader_mission_soldier_count, max_soldiers]
 	soldier_label.add_theme_font_size_override("font_size", 18)
 	soldier_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if trader_mission_soldier_count > 0:
@@ -5885,7 +6119,7 @@ func _update_trader_mission_step_soldiers(content_vbox: VBoxContainer):
 	content_vbox.add_child(soldier_label)
 	
 	var info = Label.new()
-	info.text = "\nSol/Sağ: Miktar Ayarla\nA: Devam Et"
+	info.text = tr("mc.trade.mission.soldier_hint")
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 	content_vbox.add_child(info)
@@ -5940,15 +6174,14 @@ func _update_trader_mission_step_products(content_vbox: VBoxContainer):
 		
 		# İsim
 		var name_label = Label.new()
-		var name_map = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
-		name_label.text = name_map.get(resource, resource)
+		name_label.text = _get_resource_display_name(resource)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.add_theme_font_size_override("font_size", 14)
 		item_vbox.add_child(name_label)
 		
 		# Miktar
 		var qty_label = Label.new()
-		qty_label.text = "Seçili: %d / %d" % [selected_qty, available]
+		qty_label.text = tr("mc.trade.mission.selected_qty") % [selected_qty, available]
 		qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		qty_label.add_theme_font_size_override("font_size", 12)
 		if selected_qty > 0:
@@ -5958,7 +6191,7 @@ func _update_trader_mission_step_products(content_vbox: VBoxContainer):
 		# Seçili işareti
 		if is_selected:
 			var selected_label = Label.new()
-			selected_label.text = "> SEÇİLİ <"
+			selected_label.text = tr("mc.trade.buy.selected_marker")
 			selected_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			TextOutline.apply_label_color(selected_label, Color.YELLOW)
 			item_vbox.add_child(selected_label)
@@ -5967,7 +6200,7 @@ func _update_trader_mission_step_products(content_vbox: VBoxContainer):
 	
 	# Bilgi
 	var info = Label.new()
-	info.text = "\nYön Tuşları: Ürün Seç  |  A: Miktar Ayarla  |  X: Görevi Başlat"
+	info.text = tr("mc.trade.mission.product_hint")
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	TextOutline.apply_label_color(info, TextOutline.FONT_COLOR_MUTED)
 	content_vbox.add_child(info)
@@ -6242,11 +6475,10 @@ func _create_trader_mission_quantity_popup():
 func _update_trader_mission_quantity_popup():
 	if not trader_mission_quantity_label:
 		return
-	var name_map = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
-	var res_name = name_map.get(trader_mission_quantity_editing_resource, trader_mission_quantity_editing_resource)
+	var res_name = _get_resource_display_name(trader_mission_quantity_editing_resource)
 	var vm = get_node_or_null("/root/VillageManager")
 	var available = vm.get_resource_level(trader_mission_quantity_editing_resource) if vm and vm.has_method("get_resource_level") else 0
-	trader_mission_quantity_label.text = "📦 %s\n\nMiktar: %d / %d\n\nSol/Sağ: Değiştir\nA: Onayla  |  B: İptal" % [res_name, trader_mission_quantity_temp_value, available]
+	trader_mission_quantity_label.text = tr("mc.trade.mission.quantity_popup") % [res_name, trader_mission_quantity_temp_value, available]
 
 func _close_trader_mission_quantity_popup():
 	trader_mission_quantity_popup_open = false
@@ -6525,7 +6757,7 @@ func _open_demolish_confirm_popup():
 		else:
 			# Index geçersizse ilk binayı göster veya boş bırak
 			name_text = String(buildings[0]) if buildings.size() > 0 else ""
-	_demolish_confirm_label.text = "\n" + name_text + "\n\nBu binayı yıkmak istiyor musun?\n\nA: Evet    B: Hayır"
+	_demolish_confirm_label.text = tr("mc.construction.demolish_confirm") % name_text
 	_demolish_confirm_open = true
 
 func _close_demolish_confirm_popup():
@@ -6545,130 +6777,39 @@ func _close_demolish_confirm_popup():
 
 # Bu fonksiyon zaten yukarıda tanımlanmış, duplicate kaldırıldı
 
-# Köy haberlerini güncelle
+# Köy haberlerini güncelle (MissionManager kuyruğu update_news_ui üzerinden kullanılır)
 func update_village_news():
-	var village_news_list = get_node_or_null("NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList")
-	if not village_news_list:
-		return
-	
-	# Mevcut haberleri temizle
-	for child in village_news_list.get_children():
-		child.queue_free()
-	
-	# Örnek köy haberleri
-	var village_news = [
-		{
-			"title": "✅ Yeni Bina Tamamlandı",
-			"content": "Oduncu kampı başarıyla inşa edildi. Artık odun üretimi başlayabilir.",
-			"time": "2 dakika önce"
-		},
-		{
-			"title": "👥 İşçi Atandı",
-			"content": "Yeni işçi kuyuya atandı. Su üretimi artacak.",
-			"time": "5 dakika önce"
-		},
-		{
-			"title": "🏗️ İnşaat Başladı",
-			"content": "Taş madeni inşaatı başladı. 10 dakika içinde tamamlanacak.",
-			"time": "8 dakika önce"
-		}
-	]
-	
-	# Haberleri göster
-	for news in village_news:
-		var news_card = create_news_card(news)
-		village_news_list.add_child(news_card)
+	update_news_ui()
 
-# Dünya haberlerini güncelle
+# Dünya haberlerini güncelle (MissionManager kuyruğu update_news_ui üzerinden kullanılır)
 func update_world_news():
-	var world_news_list = get_node_or_null("NewsCenterPage/NewsContent/WorldNewsPanel/WorldNewsScroll/WorldNewsList")
-	if not world_news_list:
-		return
-	
-	# Mevcut haberleri temizle
-	for child in world_news_list.get_children():
-		child.queue_free()
-	
-	# MissionManager'dan dünya olaylarını al
-	var world_events = []
-	if mission_manager:
-		world_events = mission_manager.get_active_world_events()
-	
-	# Örnek dünya haberleri
-	var world_news = [
-		{
-			"title": "⚠️ Kuzey Köyü Saldırıya Uğradı",
-			"content": "Haydutlar kuzey köyüne saldırdı. Ticaret yolları tehlikede.",
-			"time": "1 saat önce",
-			"color": Color(1, 0.8, 0.8, 1)
-		},
-		{
-			"title": "✅ Yeni Ticaret Yolu Açıldı",
-			"content": "Doğu ticaret yolu güvenli hale geldi. Yeni fırsatlar doğdu.",
-			"time": "3 saat önce",
-			"color": Color(0.8, 1, 0.8, 1)
-		}
-	]
-	
-	# Aktif dünya olaylarını ekle
-	for event in world_events:
-		world_news.append({
-			"title": "🌍 " + event.get("name", "Bilinmeyen Olay"),
-			"content": event.get("description", "Açıklama yok"),
-			"time": "Şimdi",
-			"color": Color(1, 1, 0.8, 1)
-		})
-	
-	# Haberleri göster
-	for news in world_news:
-		var news_card = create_news_card(news)
-		world_news_list.add_child(news_card)
+	update_news_ui()
 
-# Rastgele olayları güncelle
+# Rastgele olayları güncelle — yalnızca o anda aktif dünya olayları
 func update_random_events():
 	var random_events_list = get_node_or_null("NewsCenterPage/RandomEventsPanel/RandomEventsScroll/RandomEventsList")
 	if not random_events_list:
 		return
 	
-	# Mevcut olayları temizle
-	for child in random_events_list.get_children():
-		child.queue_free()
+	_clear_container_children_immediate(random_events_list)
 	
-	# MissionManager'dan aktif olayları al
-	var active_events = []
-	if mission_manager:
+	var active_events: Array = []
+	if mission_manager and mission_manager.has_method("get_active_world_events"):
 		active_events = mission_manager.get_active_world_events()
 	
-	# Örnek rastgele olaylar
-	var random_events = [
-		{
-			"title": "🌧️ Kuraklık Başladı",
-			"content": "Su üretimi %20 azaldı",
-			"color": Color(1, 1, 0.8, 1)
-		},
-		{
-			"title": "👥 Göçmenler Geldi",
-			"content": "Yeni işçi mevcut",
-			"color": Color(0.8, 1, 0.8, 1)
-		},
-		{
-			"title": "🐺 Kurt Sürüsü",
-			"content": "Avcılık tehlikeli",
-			"color": Color(1, 0.8, 0.8, 1)
-		}
-	]
+	if active_events.is_empty():
+		_append_empty_list_hint(random_events_list, tr("mc.news.random_events.empty"), true)
+		return
 	
-	# Aktif olayları ekle
 	for event in active_events:
-		random_events.append({
-			"title": "🌍 " + event.get("name", "Bilinmeyen Olay"),
-			"content": event.get("description", "Açıklama yok"),
+		if not (event is Dictionary):
+			continue
+		var d: Dictionary = event
+		var event_card = create_random_event_card({
+			"title": "🌍 " + mission_manager.get_world_event_display_name(d),
+			"content": mission_manager.get_world_event_display_description(d),
 			"color": Color(1, 1, 0.8, 1)
 		})
-	
-	# Olayları göster
-	for event in random_events:
-		var event_card = create_random_event_card(event)
 		random_events_list.add_child(event_card)
 
 # Haber kartı oluştur
@@ -6691,7 +6832,7 @@ func create_news_card(news: Dictionary) -> Panel:
 	
 	# Haber başlığı
 	var title_label = Label.new()
-	title_label.text = news.get("title", "Başlık yok")
+	title_label.text = news.get("title", tr("mc.news.no_title"))
 	title_label.add_theme_font_size_override("font_size", 14)
 	if news.has("color"):
 		TextOutline.apply_label_color(title_label, news["color"])
@@ -6904,14 +7045,14 @@ func _show_news_detail(title: String, content: String):
 	
 	# Geri butonu
 	var back_button = Label.new()
-	back_button.text = "⬅️ Geri (B)"
+	back_button.text = tr("mc.news.back")
 	back_button.add_theme_font_size_override("font_size", 14)
 	TextOutline.apply_label_color(back_button, Color(1.0, 0.8, 0.8, 1))
 	button_container.add_child(back_button)
 	
 	# Alt kategori değiştirme bilgisi
 	var filter_info = Label.new()
-	filter_info.text = "Alt kategori: Y tuşu"
+	filter_info.text = tr("mc.news.subcategory_hint")
 	filter_info.add_theme_font_size_override("font_size", 10)
 	TextOutline.apply_label_color(filter_info, Color(0.8, 0.8, 0.8, 1))
 	filter_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -6930,17 +7071,17 @@ func _news_close_detail():
 func _format_game_time_minutes(minutes: float) -> String:
 	var total_minutes = int(minutes)
 	if total_minutes <= 0:
-		return "Tamamlandı"
+		return tr("mc.time.completed")
 	
 	var hours = total_minutes / 60
 	var remaining_minutes = total_minutes % 60
 	
 	if hours > 0 and remaining_minutes > 0:
-		return "%d saat %d dakika" % [hours, remaining_minutes]
+		return tr("mc.time.hours_minutes") % [hours, remaining_minutes]
 	elif hours > 0:
-		return "%d saat" % hours
+		return tr("mc.time.hours") % hours
 	else:
-		return "%d dakika" % remaining_minutes
+		return tr("mc.time.minutes_only") % remaining_minutes
 
 func _format_news_time(timestamp: int, news_dict: Dictionary = {}) -> String:
 	if timestamp <= 0:
@@ -7055,7 +7196,7 @@ func create_concubine_list_card(cariye: Concubine, is_selected: bool) -> Panel:
 	
 	# Durum
 	var status_label = Label.new()
-	status_label.text = "Durum: %s" % cariye.get_status_name()
+	status_label.text = tr("mc.concubine.status") % cariye.get_status_name()
 	# status_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(status_label, Color.LIGHT_GREEN)
 	vbox.add_child(status_label)
@@ -7063,7 +7204,7 @@ func create_concubine_list_card(cariye: Concubine, is_selected: bool) -> Panel:
 	# En iyi yetenek
 	var best_skill = cariye.get_best_skill()
 	var skills_label = Label.new()
-	skills_label.text = "En İyi: %s (%d)" % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
+	skills_label.text = tr("mc.concubine.best_skill") % [cariye.get_skill_name(best_skill), cariye.get_skill_level(best_skill)]
 	# skills_label.add_theme_font_size_override("font_size", 10)
 	TextOutline.apply_label_color(skills_label, Color.LIGHT_BLUE)
 	vbox.add_child(skills_label)
@@ -7269,12 +7410,12 @@ func update_basic_info_panel(cariye: Concubine):
 		basic_info_content.name = "BasicInfoContent"
 		info_vbox.add_child(basic_info_content)
 	
-	var info_text = "İsim: %s\n" % cariye.name
-	info_text += "Seviye: %d (%d/%d XP)\n" % [cariye.level, cariye.experience, cariye.max_experience]
-	info_text += "Durum: %s\n" % cariye.get_status_name()
-	info_text += "Rol: %s\n" % cariye.get_role_name()
-	info_text += "Sağlık: %d/%d\n" % [cariye.health, cariye.max_health]
-	info_text += "Moral: %d/%d" % [cariye.moral, cariye.max_moral]
+	var info_text = tr("mc.concubine.info.name") % cariye.name + "\n"
+	info_text += tr("mc.concubine.info.level") % [cariye.level, cariye.experience, cariye.max_experience] + "\n"
+	info_text += tr("mc.concubine.status") % cariye.get_status_name() + "\n"
+	info_text += tr("mc.concubine.info.role") % cariye.get_role_name() + "\n"
+	info_text += tr("mc.concubine.info.health") % [cariye.health, cariye.max_health] + "\n"
+	info_text += tr("mc.concubine.info.moral") % [cariye.moral, cariye.max_moral]
 	
 	basic_info_content.text = info_text
 
@@ -7284,11 +7425,11 @@ func update_skills_panel(cariye: Concubine):
 	if not skills_content:
 		return
 	
-	var skills_text = "🗡️ Savaş: %d/100\n" % cariye.get_skill_level(Concubine.Skill.SAVAŞ)
-	skills_text += "🤝 Diplomasi: %d/100\n" % cariye.get_skill_level(Concubine.Skill.DİPLOMASİ)
-	skills_text += "💰 Ticaret: %d/100\n" % cariye.get_skill_level(Concubine.Skill.TİCARET)
-	skills_text += "📋 Bürokrasi: %d/100\n" % cariye.get_skill_level(Concubine.Skill.BÜROKRASİ)
-	skills_text += "🔍 Keşif: %d/100" % cariye.get_skill_level(Concubine.Skill.KEŞİF)
+	var skills_text = tr("mc.concubine.skill_line") % [cariye.get_skill_name(Concubine.Skill.SAVAŞ), cariye.get_skill_level(Concubine.Skill.SAVAŞ)]
+	skills_text += "\n" + tr("mc.concubine.skill_line") % [cariye.get_skill_name(Concubine.Skill.DİPLOMASİ), cariye.get_skill_level(Concubine.Skill.DİPLOMASİ)]
+	skills_text += "\n" + tr("mc.concubine.skill_line") % [cariye.get_skill_name(Concubine.Skill.TİCARET), cariye.get_skill_level(Concubine.Skill.TİCARET)]
+	skills_text += "\n" + tr("mc.concubine.skill_line") % [cariye.get_skill_name(Concubine.Skill.BÜROKRASİ), cariye.get_skill_level(Concubine.Skill.BÜROKRASİ)]
+	skills_text += "\n" + tr("mc.concubine.skill_line") % [cariye.get_skill_name(Concubine.Skill.KEŞİF), cariye.get_skill_level(Concubine.Skill.KEŞİF)]
 	
 	skills_content.text = skills_text
 
@@ -7670,10 +7811,10 @@ func update_concubine_mission_history(cariye: Concubine):
 	if total_count > 0:
 		success_rate = (float(completed_count) / float(total_count)) * 100.0
 	
-	var history_text = "✅ Tamamlanan: %d görev\n" % completed_count
-	history_text += "❌ Başarısız: %d görev\n" % failed_count
-	history_text += "📊 Başarı Oranı: %.1f%%\n" % success_rate
-	history_text += "🏆 Toplam Deneyim: %d XP" % cariye.total_experience_gained
+	var history_text = tr("mc.concubine.history.completed") % completed_count + "\n"
+	history_text += tr("mc.concubine.history.failed") % failed_count + "\n"
+	history_text += tr("mc.concubine.history.rate") % success_rate + "\n"
+	history_text += tr("mc.concubine.history.total_xp") % cariye.total_experience_gained
 	
 	mission_history_content.text = history_text
 
@@ -7685,9 +7826,9 @@ func update_achievements_panel(cariye: Concubine):
 	
 	var achievements_text = ""
 	if cariye.special_achievements.is_empty():
-		achievements_text = "🌟 Henüz başarı kazanılmadı\n\nBaşarılar görev tamamlama, seviye atlama ve yetenek geliştirme ile kazanılır."
+		achievements_text = tr("mc.concubine.achievements.empty")
 	else:
-		achievements_text = "🏆 Toplam %d Başarı Kazanıldı\n\n" % cariye.special_achievements.size()
+		achievements_text = tr("mc.concubine.achievements.total") % cariye.special_achievements.size() + "\n\n"
 		for achievement in cariye.special_achievements:
 			# Başarı ismini ve açıklamasını ayır (varsa)
 			var achievement_parts = achievement.split(" - ", false, 1)
@@ -7712,7 +7853,7 @@ func update_active_missions_cards():
 	var active_missions = mission_manager.get_active_missions()
 	if active_missions.is_empty():
 		var empty_label = Label.new()
-		empty_label.text = "Aktif görev yok"
+		empty_label.text = tr("mc.mission.list.active_empty_short")
 		TextOutline.apply_label_color(empty_label, TextOutline.FONT_COLOR_MUTED)
 		active_missions_list.add_child(empty_label)
 		return
@@ -7763,21 +7904,21 @@ func create_history_mission_card(mission: Mission, is_selected: bool) -> Control
 	var title_label = Label.new()
 	var selection_marker = " ← SEÇİLİ" if is_selected else ""
 	var status_icon = "✅" if mission.status == Mission.Status.TAMAMLANDI else "❌"
-	title_label.text = "%s %s%s" % [status_icon, mission.name, selection_marker]
+	title_label.text = "%s %s%s" % [status_icon, _mission_display_name(mission), selection_marker]
 	# title_label.add_theme_font_size_override("font_size", 16)
 	TextOutline.apply_label_color(title_label, TextOutline.FONT_COLOR)
 	vbox.add_child(title_label)
 	
 	# Görev türü ve zorluk
 	var info_label = Label.new()
-	info_label.text = "Tür: %s | Zorluk: %s" % [mission.get_mission_type_name(), mission.get_difficulty_name()]
+	info_label.text = tr("mc.mission.card.type_difficulty") % [mission.get_mission_type_name(), mission.get_difficulty_name()]
 	# info_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(info_label, TextOutline.FONT_COLOR_MUTED)
 	vbox.add_child(info_label)
 	
 	# Tamamlanma tarihi ve süre
 	var time_label = Label.new()
-	var completion_time = "Tamamlandı: %.1f saniye" % mission.duration
+	var completion_time = tr("mc.mission.history.completed_in") % mission.duration
 	time_label.text = "⏱️ %s" % completion_time
 	# time_label.add_theme_font_size_override("font_size", 12)
 	TextOutline.apply_label_color(time_label, Color.LIGHT_BLUE)
@@ -7909,7 +8050,7 @@ func update_news_ui():
 		print("📰 ⚠️ World haber yok, liste temizleniyor")
 		for c in world_list.get_children():
 			c.queue_free()
-	# Rastgele olay paneli şimdilik korunuyor (placeholder)
+	# Rastgele olay paneli — yalnızca aktif olaylar
 	update_random_events()
 	if current_page == PageType.NEWS:
 		_news_refresh_selection_visual()
@@ -7935,12 +8076,14 @@ func _update_concubine_list_dynamic():
 	var list_node: VBoxContainer = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList")
 	if not list_node:
 		return
-	for c in list_node.get_children():
-		c.queue_free()
+	_clear_container_children_immediate(list_node)
 	if not mission_manager:
+		_show_concubine_details_empty_message(list_node)
 		return
-	# concubines sorted by name for consistent ordering
 	var concubine_array: Array = _get_concubines_sorted_by_name()
+	if concubine_array.is_empty():
+		_show_concubine_details_empty_message(list_node)
+		return
 	for idx in range(concubine_array.size()):
 		var c: Concubine = concubine_array[idx]
 		var item = Panel.new()
@@ -7955,13 +8098,13 @@ func _update_concubine_list_dynamic():
 		TextOutline.apply_label_color(name_l, TextOutline.FONT_COLOR)
 		vb.add_child(name_l)
 		var status_l = Label.new()
-		status_l.text = "Durum: %s" % c.get_status_name()
+		status_l.text = tr("mc.concubine.status") % c.get_status_name()
 		# status_l.add_theme_font_size_override("font_size", 11)
 		TextOutline.apply_label_color(status_l, Color.LIGHT_GREEN)
 		vb.add_child(status_l)
 		var best_skill = c.get_best_skill()
 		var skill_l = Label.new()
-		skill_l.text = "En İyi: %s (%d)" % [c.get_skill_name(best_skill), c.get_skill_level(best_skill)]
+		skill_l.text = tr("mc.concubine.best_skill") % [c.get_skill_name(best_skill), c.get_skill_level(best_skill)]
 		# skill_l.add_theme_font_size_override("font_size", 11)
 		TextOutline.apply_label_color(skill_l, Color.LIGHT_BLUE)
 		vb.add_child(skill_l)
@@ -7976,11 +8119,21 @@ func _update_selected_concubine_details_dynamic():
 	# Seçili cariyeyi, ada göre sıralanmış listeden al
 	var concubine_array: Array = _get_concubines_sorted_by_name()
 	var selected: Concubine = null
-	if not concubine_array.is_empty():
-		current_concubine_detail_index = clamp(current_concubine_detail_index, 0, concubine_array.size() - 1)
-		selected = concubine_array[current_concubine_detail_index]
-	if selected == null:
+	if concubine_array.is_empty():
+		_clear_concubine_details_empty_state()
 		return
+	current_concubine_detail_index = clamp(current_concubine_detail_index, 0, concubine_array.size() - 1)
+	selected = concubine_array[current_concubine_detail_index]
+	var basic_content := get_node_or_null(
+		"ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/BasicInfoContent"
+	) as Label
+	if basic_content:
+		basic_content.visible = false
+	var portrait_container := get_node_or_null(
+		"ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/PortraitContainer"
+	)
+	if portrait_container:
+		portrait_container.visible = true
 
 	# 1) Temel Bilgiler: update_basic_info_panel fonksiyonunu kullan (portre dahil)
 	update_basic_info_panel(selected)
@@ -8001,7 +8154,7 @@ func _update_selected_concubine_details_dynamic():
 			ch.queue_free()
 		# Refill
 		var stitle = Label.new()
-		stitle.text = "⚔️ Yetenekler"
+		stitle.text = tr("mc.concubine.skills.title")
 		# stitle.add_theme_font_size_override("font_size", 18) # Remove hardcoded size to use theme
 		TextOutline.apply_label_color(stitle, TextOutline.FONT_COLOR)
 		skills_vb.add_child(stitle)
@@ -8025,7 +8178,7 @@ func _update_selected_concubine_details_dynamic():
 			ch.queue_free()
 		# Refill
 		var htitle = Label.new()
-		htitle.text = "📚 Görev Geçmişi"
+		htitle.text = tr("mc.concubine.history.title")
 		# htitle.add_theme_font_size_override("font_size", 18)
 		TextOutline.apply_label_color(htitle, TextOutline.FONT_COLOR)
 		hist_vb.add_child(htitle)
@@ -8035,7 +8188,7 @@ func _update_selected_concubine_details_dynamic():
 			if h.get("successful", false):
 				sum_success += 1
 		var content = Label.new()
-		content.text = "✅ Tamamlanan: %d\n❌ Başarısız: %d\n📊 Başarı Oranı: %d%%" % [
+		content.text = tr("mc.concubine.history.summary") % [
 			sum_success, history.size() - sum_success, int((float(max(0,sum_success)) / float(max(1,history.size()))) * 100.0)
 		]
 		# content.add_theme_font_size_override("font_size", 14)
@@ -8053,12 +8206,12 @@ func _update_selected_concubine_details_dynamic():
 		for ch in controls_vb.get_children():
 			ch.queue_free()
 		var ctitle = Label.new()
-		ctitle.text = "🎮 KONTROLLER"
+		ctitle.text = tr("mc.concubine.controls.title")
 		# ctitle.add_theme_font_size_override("font_size", 18)
 		TextOutline.apply_label_color(ctitle, TextOutline.FONT_COLOR)
 		controls_vb.add_child(ctitle)
 		var controls_text = Label.new()
-		controls_text.text = "Yukarı/Aşağı: Cariye Seç\nA tuşu: Rol Ata\nB tuşu: Geri"
+		controls_text.text = tr("mc.concubine.controls.body")
 		controls_text.add_theme_font_size_override("font_size", 14)
 		TextOutline.apply_label_color(controls_text, Color.YELLOW)
 		controls_vb.add_child(controls_text)
@@ -8136,7 +8289,7 @@ func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Pa
 	
 	# İlerleme
 	var progress_label = Label.new()
-	var progress_text = "İlerleme: %d/%d (%.0f%%)" % [
+	var progress_text = tr("mc.mission.chains.progress") % [
 		chain_progress.get("completed", 0),
 		chain_progress.get("total", 0),
 		chain_progress.get("percentage", 0.0)
@@ -8149,18 +8302,18 @@ func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Pa
 	# Zincir türü
 	var type_label = Label.new()
 	var chain_type_name = get_chain_type_name(chain_info.get("type", Mission.ChainType.NONE))
-	type_label.text = "Tür: " + type_label
+	type_label.text = tr("mc.mission.detail.type") % chain_type_name
 	TextOutline.apply_label_color(type_label, Color.LIGHT_BLUE)
 	type_label.add_theme_font_size_override("font_size", 10)
 	vbox.add_child(type_label)
 	
 	# Ödüller
 	var rewards_label = Label.new()
-	var rewards_text = "Ödül: "
+	var rewards_text = tr("mc.mission.chain.rewards_prefix")
 	var rewards = chain_info.get("rewards", {})
 	var reward_parts = []
 	for reward_type in rewards:
-		reward_parts.append(str(rewards[reward_type]) + " " + reward_type)
+		reward_parts.append(str(rewards[reward_type]) + " " + _get_resource_display_name(str(reward_type)))
 	rewards_label.text = rewards_text + ", ".join(reward_parts)
 	TextOutline.apply_label_color(rewards_label, Color.YELLOW)
 	rewards_label.add_theme_font_size_override("font_size", 10)
@@ -8171,11 +8324,11 @@ func create_chain_card(chain_info: Dictionary, chain_progress: Dictionary) -> Pa
 # Zincir türü adını al
 func get_chain_type_name(chain_type: Mission.ChainType) -> String:
 	match chain_type:
-		Mission.ChainType.NONE: return "Bağımsız"
-		Mission.ChainType.SEQUENTIAL: return "Sıralı"
-		Mission.ChainType.PARALLEL: return "Paralel"
-		Mission.ChainType.CHOICE: return "Seçimli"
-		_: return "Bilinmeyen"
+		Mission.ChainType.NONE: return tr("mc.mission.chain.type.none")
+		Mission.ChainType.SEQUENTIAL: return tr("mc.mission.chain.type.sequential")
+		Mission.ChainType.PARALLEL: return tr("mc.mission.chain.type.parallel")
+		Mission.ChainType.CHOICE: return tr("mc.mission.chain.type.choice")
+		_: return tr("common.unknown")
 
 # --- DİNAMİK GÖREV SİSTEMİ UI ---
 
@@ -8260,6 +8413,7 @@ func open_menu():
 	# Not: input tüketimi `_input` içinde yapılır
 	# Sayfayı doğru başlat ve UI'yı hemen doldur
 	print("[DEBUG_MC] open_menu: show_page(MISSIONS) çağrılıyor")
+	_refresh_locale()
 	show_page(PageType.MISSIONS)
 	
 	# Layout'u zorla güncelle
@@ -8278,6 +8432,7 @@ func open_menu():
 	update_missions_ui()
 	
 	print("[DEBUG_MC] open_menu: 3. Deferred çağrılar yapılıyor")
+	call_deferred("_purge_scene_editor_placeholders")
 	call_deferred("update_missions_ui")
 	call_deferred("update_active_missions_cards")
 	call_deferred("update_available_missions_cards")
@@ -8659,7 +8814,7 @@ func update_barracks_equipment_popup():
 	
 	var barracks = _get_current_barracks()
 	if not barracks:
-		barracks_equipment_popup_label.text = "Hata: Kışla bulunamadı!"
+		barracks_equipment_popup_label.text = tr("mc.assignment.equipment.error_no_barracks")
 		return
 	
 	var soldiers = get_barracks_soldiers()
@@ -8668,26 +8823,21 @@ func update_barracks_equipment_popup():
 	var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
 	var soldier_count = soldiers.size()
 	
-	var text = "=== ASKER EKİPMAN DAĞITIMI ===\n\n"
-	text += "📦 Stok: Silah: %d | Zırh: %d\n" % [available_weapons, available_armors]
-	text += "👥 Asker Sayısı: %d\n\n" % soldier_count
+	var text = tr("mc.assignment.equipment.distribute_header") + "\n\n"
+	text += tr("mc.assignment.equipment.stock") % [available_weapons, available_armors] + "\n"
+	text += tr("mc.assignment.equipment.soldier_count") % soldier_count + "\n\n"
 	
-	# Silah satırı
 	if barracks_equipment_selected_row == 0:
-		text += "> ⚔️ Silah: %d\n" % barracks_equipment_selected_weapons
+		text += "> " + tr("mc.assignment.equipment.weapon_qty") % barracks_equipment_selected_weapons + "\n"
 	else:
-		text += "  ⚔️ Silah: %d\n" % barracks_equipment_selected_weapons
+		text += "  " + tr("mc.assignment.equipment.weapon_qty") % barracks_equipment_selected_weapons + "\n"
 	
-	# Zırh satırı
 	if barracks_equipment_selected_row == 1:
-		text += "> 🛡️ Zırh: %d\n\n" % barracks_equipment_selected_armors
+		text += "> " + tr("mc.assignment.equipment.armor_qty") % barracks_equipment_selected_armors + "\n\n"
 	else:
-		text += "  🛡️ Zırh: %d\n\n" % barracks_equipment_selected_armors
+		text += "  " + tr("mc.assignment.equipment.armor_qty") % barracks_equipment_selected_armors + "\n\n"
 	
-	text += "Yukarı/Aşağı: Satır Seç\n"
-	text += "Sol/Sağ: Miktar Ayarla\n"
-	text += "A tuşu: Dağıt\n"
-	text += "B tuşu: İptal"
+	text += tr("mc.assignment.equipment.distribute_controls")
 	
 	barracks_equipment_popup_label.text = text
 
@@ -8859,34 +9009,31 @@ func update_concubine_role_popup():
 	# Seçili cariyeyi al
 	var all_concubines = get_all_concubines_list()
 	if all_concubines.is_empty() or current_concubine_detail_index >= all_concubines.size():
-		concubine_role_popup_label.text = "Hata: Cariye bulunamadı!"
+		concubine_role_popup_label.text = tr("mc.concubine.role.error_not_found")
 		return
 	
 	var selected_concubine = all_concubines[current_concubine_detail_index]
 	
-	var text = "=== CARİYE ROL ATAMA ===\n\n"
-	text += "👤 Cariye: %s\n" % selected_concubine.name
-	text += "📊 Mevcut Rol: %s\n\n" % selected_concubine.get_role_name()
+	var text = tr("mc.concubine.role.header") + "\n\n"
+	text += tr("mc.concubine.role.cariye_line") % selected_concubine.name + "\n"
+	text += tr("mc.concubine.role.current") % selected_concubine.get_role_name() + "\n\n"
 	
-	# Rol seçenekleri (Tüccar etkin - ticaret görevleri için)
 	var roles = [
-		{"id": 0, "name": "Rol Yok", "active": true},
-		{"id": 1, "name": "Komutan", "active": true},
-		{"id": 2, "name": "Ajan", "active": false},
-		{"id": 3, "name": "Diplomat", "active": false},
-		{"id": 4, "name": "Tüccar", "active": true},
-		{"id": 5, "name": "Alim", "active": true},
-		{"id": 6, "name": "Tibbiyeci", "active": true}
+		{"id": Concubine.Role.NONE, "name_key": "concubine.role.none", "active": true},
+		{"id": Concubine.Role.KOMUTAN, "name_key": "concubine.role.commander", "active": true},
+		{"id": Concubine.Role.AJAN, "name_key": "concubine.role.agent", "active": false},
+		{"id": Concubine.Role.DİPLOMAT, "name_key": "concubine.role.diplomat", "active": false},
+		{"id": Concubine.Role.TÜCCAR, "name_key": "concubine.role.trader", "active": true},
+		{"id": Concubine.Role.ALIM, "name_key": "concubine.role.scholar", "active": true},
+		{"id": Concubine.Role.TIBBIYECI, "name_key": "concubine.role.medic", "active": true},
 	]
 	
 	for role in roles:
 		var prefix = "> " if current_concubine_role_selection == role.id else "  "
-		var color = "" if role.active else " (Gelecekte)"
-		text += "%s%s%s\n" % [prefix, role.name, color]
+		var suffix = "" if role.active else tr("mc.concubine.role.coming_soon")
+		text += "%s%s%s\n" % [prefix, tr(role.name_key), suffix]
 	
-	text += "\nYukarı/Aşağı: Rol Seç\n"
-	text += "A tuşu: Uygula\n"
-	text += "B tuşu: İptal"
+	text += "\n" + tr("mc.concubine.role.controls")
 	
 	concubine_role_popup_label.text = text
 

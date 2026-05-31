@@ -23,16 +23,27 @@ var tutorial_forest_gather_complete: bool = false
 var village_dungeon_guide_active: bool = false
 var tutorial_dungeon_guide_complete: bool = false
 
-const FAREWELL_OBJECTIVE_TEXT: String = "Temelleri öğrendin — bol şans!"
 const FAREWELL_OBJECTIVE_SECONDS: float = 8.0
 
 # --- Aktif görev (ekranda gösterilen) ---
 var active_objective: String = ""
+var _objective_tr_key: String = ""
 var village_menu_phase: int = 0
 
 # --- MentorInbox: mesaj kuyruğu ---
 var _inbox: Array[Dictionary] = []
 var _delivered_ids: Dictionary = {}
+
+
+func _ready() -> void:
+	var lm := get_node_or_null("/root/LocaleManager")
+	if lm and lm.has_signal("locale_changed"):
+		lm.locale_changed.connect(_on_locale_changed)
+
+
+func _on_locale_changed(_locale: String) -> void:
+	if not _objective_tr_key.is_empty():
+		set_objective(tr(_objective_tr_key))
 
 
 func reset_session_flags() -> void:
@@ -47,6 +58,7 @@ func reset_session_flags() -> void:
 	village_dungeon_guide_active = false
 	tutorial_dungeon_guide_complete = false
 	active_objective = ""
+	_objective_tr_key = ""
 	village_menu_phase = 0
 	_inbox.clear()
 	_delivered_ids.clear()
@@ -95,16 +107,12 @@ func start_village_dungeon_guide() -> void:
 		wm.reveal_tutorial_dungeon_for_guide()
 	enqueue_message(
 		"dungeon_guide",
-		(
-			"Köyün temellerini öğrendin. Şimdi sırada keşif var!\n"
-			+ "[color=#f5d76e]{map}[/color] ile dünya haritasını aç — yakındaki bir [color=#ff6655]zindanı[/color] senin için işaretledim.\n"
-			+ "Oraya yürü, vardığında zindana gir. Cariyeler ve hazineler seni bekliyor olabilir."
-		),
+		tr("tutorial.dungeon_guide.message"),
 		"tutorial",
 		1
 	)
 	village_dungeon_guide_changed.emit()
-	set_objective("{map} ile haritayı aç, işaretli zindana git, vardığında zindana gir")
+	set_objective_tr("tutorial.dungeon_guide.objective")
 
 
 func mark_tutorial_dungeon_guide_complete() -> void:
@@ -113,14 +121,15 @@ func mark_tutorial_dungeon_guide_complete() -> void:
 	village_dungeon_guide_active = false
 	tutorial_dungeon_guide_complete = true
 	village_dungeon_guide_changed.emit()
-	set_objective(FAREWELL_OBJECTIVE_TEXT)
+	set_objective_tr("tutorial.farewell")
 	var tree := get_tree()
 	if tree:
 		tree.create_timer(FAREWELL_OBJECTIVE_SECONDS).timeout.connect(_clear_farewell_objective, CONNECT_ONE_SHOT)
 
 
 func _clear_farewell_objective() -> void:
-	if active_objective == FAREWELL_OBJECTIVE_TEXT:
+	if _objective_tr_key == "tutorial.farewell":
+		_objective_tr_key = ""
 		set_objective("")
 
 
@@ -209,6 +218,11 @@ func set_objective(text: String) -> void:
 		return
 	active_objective = text
 	village_objective_changed.emit(text)
+
+
+func set_objective_tr(key: String) -> void:
+	_objective_tr_key = key
+	set_objective(tr(key))
 
 
 func _sort_by_priority(a: Dictionary, b: Dictionary) -> bool:

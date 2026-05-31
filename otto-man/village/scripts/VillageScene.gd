@@ -215,7 +215,14 @@ func _show_build_complete_toast_deferred(building_display_name: String) -> void:
 		time_skip_notification = get_node_or_null("TimeSkipNotification")
 	if not time_skip_notification or not time_skip_notification.has_method("show_simple_toast"):
 		return
-	time_skip_notification.show_simple_toast("İnşaat tamamlandı", building_display_name)
+	var display: String = building_display_name
+	for scene_path in LocaleManager.BUILDING_SCENE_KEYS.keys():
+		var path_str := String(scene_path)
+		var fallback := path_str.get_file().trim_suffix(".tscn")
+		if fallback == building_display_name or fallback.to_lower() == building_display_name.to_lower():
+			display = LocaleManager.get_building_name(path_str)
+			break
+	time_skip_notification.show_simple_toast(tr("village.toast.construction_done"), display)
 
 func _on_morale_game_over() -> void:
 	"""Köy morali 0'a düştü - ana menüye dön (oyun kaybı)."""
@@ -291,10 +298,10 @@ func _show_delivery_summary_from_payload() -> void:
 	
 	var delivered_gold: int = int(payload.get("delivered_dungeon_gold", 0))
 	if delivered_gold > 0:
-		lines.append("+%d zindan altını" % delivered_gold)
+		lines.append(tr("village.delivery.dungeon_gold") % delivered_gold)
 	var delivered_exp_gold: int = int(payload.get("delivered_world_expedition_gold", 0))
 	if delivered_exp_gold > 0:
-		lines.append("+%d sefer altını (harita görevi)" % delivered_exp_gold)
+		lines.append(tr("village.delivery.expedition_gold") % delivered_exp_gold)
 	
 	var delivered_resources: Dictionary = payload.get("forest_resources_delivered", {})
 	if delivered_resources is Dictionary and not delivered_resources.is_empty():
@@ -302,12 +309,12 @@ func _show_delivery_summary_from_payload() -> void:
 		for res_type in delivered_resources.keys():
 			total_res += int(delivered_resources[res_type])
 		if total_res > 0:
-			lines.append("+%d kaynak" % total_res)
+			lines.append(tr("village.delivery.resources") % total_res)
 	
 	var delivered_villagers: int = int(payload.get("delivered_rescued_villagers", 0))
 	var delivered_cariyes: int = int(payload.get("delivered_rescued_cariyes", 0))
 	if delivered_villagers > 0 or delivered_cariyes > 0:
-		lines.append("+%d köylü, +%d cariye" % [delivered_villagers, delivered_cariyes])
+		lines.append(tr("village.delivery.rescued") % [delivered_villagers, delivered_cariyes])
 	
 	if lines.is_empty():
 		return
@@ -315,7 +322,7 @@ func _show_delivery_summary_from_payload() -> void:
 		time_skip_notification = get_node_or_null("TimeSkipNotification")
 	if not time_skip_notification or not time_skip_notification.has_method("show_simple_toast"):
 		return
-	time_skip_notification.show_simple_toast("Teslimat Tamamlandı", ", ".join(lines))
+	time_skip_notification.show_simple_toast(tr("village.toast.delivery_done"), ", ".join(lines))
 	_mentor_digest_on_return(payload, lines)
 
 
@@ -327,7 +334,7 @@ func _mentor_digest_on_return(payload: Dictionary, summary_lines: Array[String])
 		return
 	if summary_lines.is_empty():
 		return
-	var digest_text := "Yokluğunda:\n" + "\n".join(summary_lines)
+	var digest_text := tr("tutorial.digest.prefix") + "\n".join(summary_lines)
 	tm.enqueue_message(
 		"digest_%d" % Time.get_ticks_msec(),
 		digest_text,
@@ -698,26 +705,17 @@ func _check_village_tutorial_start() -> void:
 	tm.village_core_step = 0
 	tm.enqueue_message(
 		"welcome_hud",
-		(
-			"Hayatta kaldın. Bu köy senin.\n"
-			+ "Üstte [color=#f5d76e]altın[/color], [color=#aaddff]işçi[/color] ve [color=#aaffaa]kaynakları[/color] görürsün.\n"
-			+ "Köylülerin her gün [color=#ff9966]yiyecek[/color] ve [color=#66ccff]su[/color] tüketir.\n"
-			+ "Stok biterse [color=#ff6666]moral[/color] düşer — moral sıfırlanırsa oyun biter."
-		),
+		tr("tutorial.village.welcome_hud"),
 		"tutorial",
 		0
 	)
 	tm.enqueue_message(
 		"go_to_forest",
-		(
-			"İnşa için [color=#c8a86c]odun[/color] lazım.\n"
-			+ "{map} tuşuyla dünya haritasını aç, {move} ile en yakın [color=#55aa55]ormana[/color] git.\n"
-			+ "{hex_enter} ile ormana gir. [color=#c8a86c]Odun[/color] ve [color=#ff9966]yiyecek[/color] topla, sonra köye dön."
-		),
+		tr("tutorial.village.go_to_forest"),
 		"tutorial",
 		1
 	)
-	tm.set_objective("Mentora yaklaş ve {interact} ile konuş")
+	tm.set_objective(tr("tutorial.village.objective_mentor"))
 
 
 func _spawn_objective_ui() -> void:
@@ -746,7 +744,7 @@ func _tutorial_on_forest_return(transferred: Dictionary) -> void:
 			tm.mark_tutorial_forest_gather_complete()
 	tm.village_core_step = 2
 	tm.village_menu_phase = 0
-	tm.set_objective("Kamp ateşine git, {ui_up} ile menüyü aç")
+	tm.set_objective(tr("tutorial.village.objective_campfire"))
 
 
 func tutorial_on_campfire_menu_opened() -> void:
@@ -755,7 +753,7 @@ func tutorial_on_campfire_menu_opened() -> void:
 		return
 	tm.try_set_village_menu_objective(
 		1,
-		"{page_left} / {page_right} ile gez, İnşa menüsüne gel"
+		tr("tutorial.village.objective_build_menu")
 	)
 
 
@@ -766,12 +764,12 @@ func tutorial_on_mission_page(page_index: int) -> void:
 	if tm.village_core_step == 2 and page_index == 2:
 		tm.try_set_village_menu_objective(
 			2,
-			"Odun Kampını seç, {confirm} ile inşa et"
+			tr("tutorial.village.objective_build_woodcutter")
 		)
 	elif tm.village_core_step == 3 and page_index == 1:
 		tm.try_set_village_menu_objective(
 			4,
-			"Odun Kampını seç, {confirm} ile bir işçi ata"
+			tr("tutorial.village.objective_assign_worker")
 		)
 
 
@@ -791,7 +789,7 @@ func _tutorial_on_building_built(building_key: String) -> void:
 		return
 	tm.village_core_step = 3
 	tm.village_menu_phase = 3
-	tm.set_objective("{page_left} / {page_right} ile gez, İşçiler menüsüne gel")
+	tm.set_objective(tr("tutorial.village.objective_workers_menu"))
 
 
 func _tutorial_on_worker_assigned() -> void:
@@ -816,11 +814,7 @@ func _tutorial_on_first_cariye() -> void:
 	tm.hint_cariye_delivered = true
 	tm.enqueue_message(
 		"hint_first_cariye",
-		(
-			"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\n"
-			+ "Cariyeleri [color=#f5d76e]Cariyeler[/color] panelinden görevlere yollayabilirsin.\n"
-			+ "Her cariyenin farklı yetenekleri var — görevlere uygun olanı seç."
-		),
+		tr("tutorial.hint.first_cariye"),
 		"hint",
 		5
 	)
@@ -839,11 +833,7 @@ func _tutorial_on_first_trader() -> void:
 	tm.hint_trader_delivered = true
 	tm.enqueue_message(
 		"hint_first_trader",
-		(
-			"Köye bir [color=#ffcc44]tüccar[/color] geldi!\n"
-			+ "Tüccarlarla kaynak alışverişi yapabilirsin.\n"
-			+ "Köyün ihtiyaçlarına göre iyi fırsatları kaçırma — tüccarlar sonsuza kadar kalmaz."
-		),
+		tr("tutorial.hint.first_trader"),
 		"hint",
 		5
 	)

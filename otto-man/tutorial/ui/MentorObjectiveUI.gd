@@ -27,6 +27,15 @@ func _ready() -> void:
 	var im := get_node_or_null("/root/InputManager")
 	if im and im.has_signal("input_device_changed"):
 		im.input_device_changed.connect(_on_device_changed)
+	var lm := get_node_or_null("/root/LocaleManager")
+	if lm and lm.has_signal("locale_changed") and not lm.locale_changed.is_connected(_on_locale_changed):
+		lm.locale_changed.connect(_on_locale_changed)
+	_refresh_keys_bar()
+
+
+func _on_locale_changed(_locale: String = "") -> void:
+	if not _raw_objective.is_empty():
+		_apply_objective()
 	_refresh_keys_bar()
 
 
@@ -60,8 +69,8 @@ func _refresh_keys_bar() -> void:
 		_keys_bar.text = ""
 		return
 	var parts: Array[String] = []
-	parts.append("Etkileşim: %s" % im.get_tutorial_ui_up_hint())
-	parts.append("Menü: %s" % _get_pause_hint(im))
+	parts.append(tr("tutorial.ui.interact") % im.get_tutorial_ui_up_hint())
+	parts.append(tr("tutorial.ui.menu") % _get_pause_hint(im))
 	_keys_bar.text = "    ".join(parts)
 
 

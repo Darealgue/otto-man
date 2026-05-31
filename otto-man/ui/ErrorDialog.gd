@@ -10,15 +10,21 @@ signal dialog_closed
 @onready var ok_button: Button = $Panel/VBoxContainer/ButtonContainer/OKButton
 
 func _ready() -> void:
-	# Ensure dialog is on top
 	layer = 1000
 	visible = false
 	ok_button.pressed.connect(_on_ok_pressed)
-	
-	# Set up RichTextLabel for better text formatting
+
 	if message_label:
 		message_label.bbcode_enabled = true
 		message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_refresh_locale)
+	_refresh_locale()
+
+
+func _refresh_locale(_locale: String = "") -> void:
+	if ok_button:
+		ok_button.text = tr("dialog.ok")
 
 func show_error(title: String, message: String) -> void:
 	"""Hata mesajı göster"""

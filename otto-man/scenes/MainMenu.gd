@@ -4,6 +4,7 @@ extends Control
 @onready var _load_game_button: Button = $CenterContainer/Menu/Buttons/LoadGameButton
 @onready var _settings_button: Button = $CenterContainer/Menu/Buttons/SettingsButton
 @onready var _quit_button: Button = $CenterContainer/Menu/Buttons/QuitButton
+@onready var _subtitle_label: Label = $CenterContainer/Menu/Subtitle
 @onready var _load_game_menu: Control = $LoadGameMenu
 var _settings_menu: Control = null
 var _profile_menu: Control = null
@@ -22,13 +23,16 @@ func _ready() -> void:
 		get_tree().paused = false
 	
 	print("[MainMenu] ready, setting focus")
-	_new_game_button.grab_focus()
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_connect_signals()
 	_setup_load_game_menu()
 	_setup_settings_menu()
 	_setup_profile_select_menu()
 	_setup_new_game_tutorial_prompt()
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_refresh_locale)
+	_refresh_locale()
+	_new_game_button.grab_focus()
 
 func _validate_nodes() -> bool:
 	if not is_instance_valid(_new_game_button):
@@ -50,6 +54,19 @@ func _connect_signals() -> void:
 	_load_game_button.pressed.connect(_on_load_game_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
+
+
+func _refresh_locale(_locale: String = "") -> void:
+	if _subtitle_label:
+		_subtitle_label.text = tr("menu.subtitle")
+	if _new_game_button:
+		_new_game_button.text = tr("menu.new_game")
+	if _load_game_button:
+		_load_game_button.text = tr("menu.load_game")
+	if _settings_button:
+		_settings_button.text = tr("menu.settings")
+	if _quit_button:
+		_quit_button.text = tr("menu.quit")
 
 func _on_new_game_pressed() -> void:
 	_play_click()
@@ -217,6 +234,8 @@ func _setup_settings_menu() -> void:
 	
 	if _settings_menu.has_signal("back_requested"):
 		_settings_menu.back_requested.connect(_on_settings_back)
+	if _settings_menu.has_signal("settings_applied"):
+		_settings_menu.settings_applied.connect(_on_settings_applied)
 	
 	if _settings_menu.has_method("hide_menu"):
 		_settings_menu.hide_menu()
@@ -224,9 +243,12 @@ func _setup_settings_menu() -> void:
 func _on_settings_back() -> void:
 	if _settings_menu and _settings_menu.has_method("hide_menu"):
 		_settings_menu.hide_menu()
-	# Re-enable focus on main menu buttons
 	_enable_main_menu_focus()
 	_new_game_button.grab_focus()
+
+
+func _on_settings_applied(_settings: Dictionary) -> void:
+	_refresh_locale()
 
 func _disable_main_menu_focus() -> void:
 	# Disable focus on all buttons so they can't be navigated to while settings is open
@@ -270,18 +292,19 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 			print("[MainMenu] ✅ Game loaded successfully")
 		else:
 			push_error("[MainMenu] Failed to load game from slot %d" % slot_id)
-			_show_error("Yükleme Başarısız", "Kayıt yüklenemedi.")
+			_show_error(tr("error.load_failed_title"), tr("error.load_failed_message"))
 	else:
 		push_error("[MainMenu] SaveManager not available!")
-		_show_error("Hata", "Kayıt yöneticisi bulunamadı.")
+		_show_error(tr("error.title"), tr("error.save_manager_missing"))
 
 func _on_load_completed(slot_id: int, success: bool) -> void:
 	if not success:
-		_show_error("Yükleme Başarısız", "Kayıt yüklenemedi. Dosya bozulmuş olabilir.")
+		_show_error(tr("error.load_failed_title"), tr("error.load_failed_corrupt"))
+
 
 func _on_save_manager_error(error_message: String, error_type: String) -> void:
 	if error_type == "load" or error_type == "validation":
-		_show_error("Yükleme Hatası", error_message)
+		_show_error(tr("error.load_error_title"), error_message)
 
 func _show_error(title: String, message: String) -> void:
 	"""Show error dialog"""

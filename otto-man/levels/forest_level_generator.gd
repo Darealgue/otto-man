@@ -647,16 +647,16 @@ func _on_tutorial_resources_changed(totals: Dictionary) -> void:
 	var food_done: bool = food >= TUTORIAL_TARGET_FOOD
 	if wood_done and food_done:
 		tm.mark_tutorial_forest_gather_complete()
-		tm.set_objective("Kaynaklar tamam! Portaldan haritaya dön, köy hex'ine git")
+		tm.set_objective(tr("tutorial.forest.complete"))
 		_tutorial_disable_all_interactables()
 	elif wood_done:
-		tm.set_objective("Odun: %d/%d  Meyve: %d/%d — Meyve toplamaya devam et" % [mini(wood, TUTORIAL_TARGET_WOOD), TUTORIAL_TARGET_WOOD, food, TUTORIAL_TARGET_FOOD])
+		tm.set_objective(tr("tutorial.forest.need_food") % [mini(wood, TUTORIAL_TARGET_WOOD), TUTORIAL_TARGET_WOOD, food, TUTORIAL_TARGET_FOOD])
 		_tutorial_disable_interactables_of_type("forest_woodcut")
 	elif food_done:
-		tm.set_objective("Odun: %d/%d  Meyve: %d/%d — Odun kesmeye devam et" % [wood, TUTORIAL_TARGET_WOOD, mini(food, TUTORIAL_TARGET_FOOD), TUTORIAL_TARGET_FOOD])
+		tm.set_objective(tr("tutorial.forest.need_wood") % [wood, TUTORIAL_TARGET_WOOD, mini(food, TUTORIAL_TARGET_FOOD), TUTORIAL_TARGET_FOOD])
 		_tutorial_disable_interactables_of_type("forest_food")
 	else:
-		tm.set_objective("Odun: %d/%d  Meyve: %d/%d" % [wood, TUTORIAL_TARGET_WOOD, food, TUTORIAL_TARGET_FOOD])
+		tm.set_objective(tr("tutorial.forest.progress") % [wood, TUTORIAL_TARGET_WOOD, food, TUTORIAL_TARGET_FOOD])
 
 
 func _tutorial_disable_interactables_of_type(kind: String) -> void:

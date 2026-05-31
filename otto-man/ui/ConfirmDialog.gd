@@ -21,9 +21,11 @@ func _ready() -> void:
 	set_as_top_level(true)
 	global_position = Vector2.ZERO
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	# Ensure dialog is on top of everything
-	z_index = 1000  # Very high z-index to be on top
-	mouse_filter = Control.MOUSE_FILTER_STOP  # Ensure it can receive mouse input
+	z_index = 1000
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	if LocaleManager.has_signal("locale_changed"):
+		LocaleManager.locale_changed.connect(_refresh_locale)
+	_refresh_locale()
 
 func _ensure_nodes() -> void:
 	if not title_label:
@@ -53,6 +55,14 @@ func _connect_signals() -> void:
 			print("[ConfirmDialog] ⚠️ cancel_button.pressed already connected")
 	else:
 		push_error("[ConfirmDialog] cancel_button is null!")
+
+
+func _refresh_locale(_locale: String = "") -> void:
+	if confirm_button:
+		confirm_button.text = tr("dialog.confirm")
+	if cancel_button:
+		cancel_button.text = tr("dialog.cancel")
+
 
 func show_dialog(title: String, message: String, show_cancel: bool = true) -> void:
 	print("[ConfirmDialog] show_dialog called: title='%s', message='%s', show_cancel=%s" % [title, message, show_cancel])

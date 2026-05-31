@@ -309,8 +309,7 @@ func _ready() -> void:
 		"soap": 0
 	}
 	# DEBUG cariye/görev üretimi sadece çok eski prototip içindi; gerçek oyunda kullanmayalım.
-	# Artık cariyeler yalnızca MissionManager.create_initial_concubines ve
-	# add_concubine_from_rescue akışlarıyla oluşacak.
+	# Cariyeler yalnızca zindan kurtarma (add_concubine_from_rescue) akışıyla oluşur.
 	# _create_debug_cariyeler()
 	# _create_debug_gorevler()
 	

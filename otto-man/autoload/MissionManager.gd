@@ -27,6 +27,7 @@ const DAILY_DYNAMIC_MAX_AVAILABLE: int = 2
 # Dinamik görev üretimi
 var dynamic_mission_templates: Dictionary = {}
 var world_events: Array[Dictionary] = []
+var world_event_templates: Array[Dictionary] = []
 var player_reputation: int = 50  # 0-100 arası
 var world_stability: int = 70  # 0-100 arası
 
@@ -108,25 +109,17 @@ func _initialize():
 	# Kullanılan isimleri sıfırla
 	_used_names.clear()
 	
-	# Başlangıç görevleri oluştur (sadece yoksa - save'den yüklenmemişse)
-	# NOT: Artık yeni oyunda otomatik başlangıç cariyesi yok; köy 3 işçi + 0 cariye ile başlar.
-	# SaveManager load işlemi _initialize()'dan önce çağrılırsa concubines dolu olabilir
-	if concubines.is_empty():
-		create_initial_missions()
-	else:
-		# Yüklenen cariyelerin isimlerini kullanılan listesine ekle
-		for cariye in concubines.values():
-			if cariye.name in CONCUBINE_NAMES and not cariye.name in _used_names:
-				_used_names.append(cariye.name)
+	# Yüklenen cariyelerin isimlerini kullanılan listesine ekle (kurtarma vb.)
+	for cariye in concubines.values():
+		if cariye.name in CONCUBINE_NAMES and not cariye.name in _used_names:
+			_used_names.append(cariye.name)
 	
 	# Kaydedilmiş roller varsa yükle
 	_load_concubine_roles()
 	
-	# Görev zincirlerini oluştur
+	# Dinamik görev şablonları + dünya olayları (placeholder görev yok)
 	create_mission_chains()
-	
-	# Başlangıçta sadece 2-3 görev olsun
-	limit_initial_missions()
+	_purge_legacy_placeholder_missions()
 
 	# Günlük tick başlangıcı
 	var tm = get_node_or_null("/root/TimeManager")
@@ -162,6 +155,7 @@ func reset_for_new_game() -> void:
 	active_traders.clear()
 	mission_history.clear()
 	world_events.clear()
+	world_event_templates.clear()
 	active_rate_modifiers.clear()
 	settlement_trade_modifiers.clear()
 	trade_routes.clear()
@@ -174,9 +168,8 @@ func reset_for_new_game() -> void:
 	_raid_mission_extra.clear()
 	_next_daily_dynamic_spawn_day = 2
 	_last_tick_day = 0
-	create_initial_missions()
 	create_mission_chains()
-	limit_initial_missions()
+	_purge_legacy_placeholder_missions()
 	var tm := get_node_or_null("/root/TimeManager")
 	if tm and tm.has_method("get_day"):
 		_last_tick_day = tm.get_day()
@@ -207,66 +200,30 @@ func _process(delta):
 			_last_tick_day = d
 			_on_new_day(d)
 
-# Başlangıç görevleri oluştur
-func create_initial_missions():
-	
-	# Savaş görevleri
-	var savas_gorevi = Mission.new()
-	savas_gorevi.id = "savas_1"
-	savas_gorevi.name = "Kuzey Köyüne Saldırı"
-	savas_gorevi.description = "Kuzeydeki düşman köyüne saldırı düzenle. Ganimet topla ve düşmanı zayıflat."
-	savas_gorevi.mission_type = Mission.MissionType.SAVAŞ
-	savas_gorevi.difficulty = Mission.Difficulty.ORTA
-	savas_gorevi.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
-	savas_gorevi.success_chance = 0.6
-	savas_gorevi.required_cariye_level = 2
-	savas_gorevi.required_army_size = 5
-	savas_gorevi.required_resources = {"gold": 100}
-	savas_gorevi.rewards = {"gold": 500, "wood": 100}
-	savas_gorevi.penalties = {"gold": -50, "cariye_injured": true}
-	savas_gorevi.target_location = "Kuzey Köyü"
-	savas_gorevi.distance = 2.0
-	savas_gorevi.risk_level = "Orta"
-	missions[savas_gorevi.id] = savas_gorevi
-	
-	# Keşif görevleri
-	var kesif_gorevi = Mission.new()
-	kesif_gorevi.id = "kesif_1"
-	kesif_gorevi.name = "Batı Ormanlarını Keşfet"
-	kesif_gorevi.description = "Batıdaki bilinmeyen ormanları keşfet. Yeni kaynaklar ve ticaret yolları bul."
-	kesif_gorevi.mission_type = Mission.MissionType.KEŞİF
-	kesif_gorevi.difficulty = Mission.Difficulty.KOLAY
-	kesif_gorevi.duration = 180.0  # 180 oyun dakikası (3 saat, test için)
-	kesif_gorevi.success_chance = 0.8
-	kesif_gorevi.required_cariye_level = 1
-	kesif_gorevi.required_army_size = 0
-	kesif_gorevi.required_resources = {"gold": 50}
-	kesif_gorevi.rewards = {"gold": 200, "wood": 50}
-	kesif_gorevi.penalties = {"gold": -25}
-	kesif_gorevi.target_location = "Batı Ormanları"
-	kesif_gorevi.distance = 1.0
-	kesif_gorevi.risk_level = "Düşük"
-	missions[kesif_gorevi.id] = kesif_gorevi
-	
-	# Diplomasi görevleri
-	var diplomasi_gorevi = Mission.new()
-	diplomasi_gorevi.id = "diplomasi_1"
-	diplomasi_gorevi.name = "Güney Köyü ile İttifak"
-	diplomasi_gorevi.description = "Güneydeki köy ile dostluk anlaşması yap. Ticaret yolları aç ve güvenlik sağla."
-	diplomasi_gorevi.mission_type = Mission.MissionType.DİPLOMASİ
-	diplomasi_gorevi.difficulty = Mission.Difficulty.ORTA
-	diplomasi_gorevi.duration = 240.0  # 240 saniye (4 dakika, test için)
-	diplomasi_gorevi.success_chance = 0.7
-	diplomasi_gorevi.required_cariye_level = 2
-	diplomasi_gorevi.required_army_size = 0
-	diplomasi_gorevi.required_resources = {"gold": 75}
-	diplomasi_gorevi.rewards = {"gold": 300, "trade_bonus": 0.1}
-	diplomasi_gorevi.penalties = {"gold": -40, "reputation": -10}
-	diplomasi_gorevi.target_location = "Güney Köyü"
-	diplomasi_gorevi.distance = 1.5
-	diplomasi_gorevi.risk_level = "Düşük"
-	missions[diplomasi_gorevi.id] = diplomasi_gorevi
-	
+const LEGACY_PLACEHOLDER_MISSION_IDS: Array[String] = [
+	"savas_1", "kesif_1", "diplomasi_1",
+	"ilk_kesif", "kuzey_kesif_1", "kuzey_kesif_2",
+	"kuzey_kesif", "kuzey_saldiri", "kuzey_kontrol",
+	"elci_gonder", "baris_anlasmasi",
+	"dogu_ticaret", "bati_ticaret", "guney_ticaret",
+	"kale_yap", "ittifak_yap",
+]
+
+const LEGACY_PLACEHOLDER_CHAIN_IDS: Array[String] = [
+	"kuzey_seferi", "baris_sureci", "ticaret_agi", "savunma_secimi", "kuzey_kesif_chain",
+]
+
+
+func _purge_legacy_placeholder_missions() -> void:
+	var removed: int = 0
+	for mid in LEGACY_PLACEHOLDER_MISSION_IDS:
+		if missions.erase(mid):
+			removed += 1
+	for cid in LEGACY_PLACEHOLDER_CHAIN_IDS:
+		mission_chains.erase(cid)
+	if removed > 0:
+		mission_list_changed.emit()
+
 
 # Cariye isim havuzu (Türkçe kadın isimleri)
 const CONCUBINE_NAMES: Array[String] = [
@@ -384,22 +341,6 @@ func add_concubine_from_rescue(cariye_data: Dictionary) -> int:
 		_used_names.append(cariye.name)
 	concubines[cariye.id] = cariye
 	return cariye.id
-
-# Başlangıç cariyeler oluştur (rastgele)
-func create_initial_concubines():
-	# 3 rastgele cariye oluştur
-	for i in range(3):
-		var cariye = create_random_concubine()
-		concubines[cariye.id] = cariye
-		# İlk cariyeye Tüccar rolü ver (ticaret görevlerini denemek için)
-		if i == 0:
-			cariye.role = Concubine.Role.TÜCCAR
-			print("MissionManager: Rastgele cariye oluşturuldu - ID: %d, İsim: %s, Seviye: %d, Rol: Tüccar" % [cariye.id, cariye.name, cariye.level])
-		else:
-			print("MissionManager: Rastgele cariye oluşturuldu - ID: %d, İsim: %s, Seviye: %d" % [cariye.id, cariye.name, cariye.level])
-	
-
-# Rastgele görev üret
 
 # Görev ata
 func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_count: int = 0) -> bool:
@@ -640,7 +581,7 @@ func try_spawn_incident_relief_mission(incident: Dictionary) -> void:
 	m.status = Mission.Status.MEVCUT
 	missions[mission_id] = m
 	mission_list_changed.emit()
-	post_news("Bilgi", "Yardim Gorevi", "%s icin bir yardim gorevi listelendi." % sn, Color(0.85, 1.0, 0.85), "info")
+	post_news("world", tr("news.relief.title"), tr("news.relief.body") % sn, Color(0.85, 1.0, 0.85), "info")
 
 ## `force_spawn`: aid_call acilisinda true — oyuncu her zaman bir `ally_relief_*` gorevi gorebilsin.
 func try_spawn_alliance_aid_relief_mission(settlement_id: String, day: int, force_spawn: bool = false) -> void:
@@ -680,7 +621,7 @@ func try_spawn_alliance_aid_relief_mission(settlement_id: String, day: int, forc
 	m.status = Mission.Status.MEVCUT
 	missions[mission_id] = m
 	mission_list_changed.emit()
-	post_news("Bilgi", "Muttefik Yardim", "%s icin yardim gorevi acildi (ittifak)." % sn, Color(0.9, 1.0, 0.95), "info")
+	post_news("world", tr("news.ally_relief.title"), tr("news.ally_relief.body") % sn, Color(0.9, 1.0, 0.95), "info")
 
 # --- GÖREV GEÇMİŞİ API'ları ---
 
@@ -786,16 +727,16 @@ func _process_trade_mission_completion(cariye_id: int, mission_id: String, succe
 	# Haber
 	var skill_text = ""
 	if trade_skill >= 100:
-		skill_text = " (Efsanevi Ticaret Ustası!)"
+		skill_text = tr("news.trade_skill.legendary")
 	elif trade_skill >= 90:
-		skill_text = " (Ticaret Efendisi)"
+		skill_text = tr("news.trade_skill.master")
 	elif trade_skill >= 80:
-		skill_text = " (Pazarlık Ustası)"
+		skill_text = tr("news.trade_skill.expert")
 	
 	var settlement_name = route.get("to_name", "?")
-	post_news("Başarı", "Ticaret Başarılı%s" % skill_text, 
-		"%s %s'ye ticaret görevini tamamladı. +%d altın kazandınız, +%d ilişki artışı." % [cariye.name, settlement_name, total_profit, final_relation_gain],
-		Color(0.8,1,0.8))
+	post_news("village", tr("news.trade_success.title") % skill_text,
+		tr("news.trade_success.body") % [cariye.name, settlement_name, total_profit, final_relation_gain],
+		Color(0.8, 1, 0.8), "success")
 
 # Ödül uygula
 func _apply_reward(reward_type: String, amount):
@@ -899,18 +840,32 @@ func _generate_mission_details(mission: Mission):
 		Mission.MissionType.İSTİHBARAT:
 			_generate_intelligence_mission(mission)
 
+func _assign_proc_mission_locale(mission: Mission, name_keys: Array, desc_key: String, target_key: String) -> void:
+	var nk := String(name_keys[randi() % name_keys.size()])
+	mission.locale_name_key = nk
+	mission.locale_desc_key = desc_key
+	mission.locale_vars = {}
+	mission.name = _tr_mission_template(nk, {})
+	mission.description = _tr_mission_template(desc_key, {})
+	mission.target_location = tr(target_key)
+
+
+func _strategy_display_text(raw: Dictionary, index: int) -> String:
+	var key := str(raw.get("text_key", ""))
+	if not key.is_empty():
+		return tr(key)
+	return str(raw.get("text", raw.get("label", tr("wm.mission.strategy.option") % (index + 1))))
+
+
 # Savaş görevi oluştur
 func _generate_combat_mission(mission: Mission):
-	var combat_names = [
-		"Bandi Kampını Temizle",
-		"Ork Saldırısını Püskürt",
-		"Korsan Gemisini Ele Geçir",
-		"Ejder Yuvasını Keşfet",
-		"Goblin Kalesini Fethet"
-	]
-	
-	mission.name = combat_names[randi() % combat_names.size()]
-	mission.description = "Düşman güçlerle savaş ve bölgeyi güvence altına al."
+	_assign_proc_mission_locale(mission, [
+		"mission.proc.combat.bandit_camp",
+		"mission.proc.combat.ork_attack",
+		"mission.proc.combat.pirate_ship",
+		"mission.proc.combat.dragon_lair",
+		"mission.proc.combat.goblin_fort",
+	], "mission.proc.combat.desc", "mission.loc.unknown_region")
 	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.6 + (randf() * 0.3)  # 60-90%
 	mission.required_cariye_level = 1 + randi() % 3  # 1-3 seviye
@@ -918,22 +873,18 @@ func _generate_combat_mission(mission: Mission):
 	mission.required_resources = {"gold": 100 + randi() % 200}
 	mission.rewards = {"gold": 300 + randi() % 400, "wood": 50 + randi() % 100}
 	mission.penalties = {"gold": -50 - randi() % 100, "cariye_injured": 1}
-	mission.target_location = "Bilinmeyen Bölge"
 	mission.distance = 1.0 + randf() * 2.0
 	mission.risk_level = "Yüksek"
 
 # Keşif görevi oluştur
 func _generate_exploration_mission(mission: Mission):
-	var exploration_names = [
-		"Batı Ormanlarını Keşfet",
-		"Kayıp Şehri Bul",
-		"Gizli Mağarayı Araştır",
-		"Eski Tapınağı Keşfet",
-		"Bilinmeyen Adayı Keşfet"
-	]
-	
-	mission.name = exploration_names[randi() % exploration_names.size()]
-	mission.description = "Bilinmeyen bölgeleri keşfet ve yeni kaynaklar bul."
+	_assign_proc_mission_locale(mission, [
+		"mission.proc.explore.west_forest",
+		"mission.proc.explore.lost_city",
+		"mission.proc.explore.secret_cave",
+		"mission.proc.explore.ancient_temple",
+		"mission.proc.explore.unknown_island",
+	], "mission.proc.explore.desc", "mission.loc.unknown_region")
 	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.7 + (randf() * 0.2)  # 70-90%
 	mission.required_cariye_level = 1 + randi() % 2  # 1-2 seviye
@@ -941,22 +892,18 @@ func _generate_exploration_mission(mission: Mission):
 	mission.required_resources = {"gold": 50 + randi() % 100}
 	mission.rewards = {"gold": 200 + randi() % 300, "wood": 30 + randi() % 70, "stone": 20 + randi() % 50}
 	mission.penalties = {"gold": -25 - randi() % 50}
-	mission.target_location = "Bilinmeyen Bölge"
 	mission.distance = 0.5 + randf() * 1.5
 	mission.risk_level = "Orta"
 
 # Ticaret görevi oluştur
 func _generate_trade_mission(mission: Mission):
-	var trade_names = [
-		"Komşu Şehirle Ticaret",
-		"Değerli Malları Sat",
-		"Ticaret Yolu Aç",
-		"Pazar Yerini Kur",
-		"Ticaret Anlaşması Yap"
-	]
-	
-	mission.name = trade_names[randi() % trade_names.size()]
-	mission.description = "Ticaret yaparak altın kazan ve ekonomiyi güçlendir."
+	_assign_proc_mission_locale(mission, [
+		"mission.proc.trade.neighbor_city",
+		"mission.proc.trade.sell_goods",
+		"mission.proc.trade.open_route",
+		"mission.proc.trade.setup_market",
+		"mission.proc.trade.trade_deal",
+	], "mission.proc.trade.desc", "mission.loc.trade_hub")
 	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.8 + (randf() * 0.15)  # 80-95%
 	mission.required_cariye_level = 1 + randi() % 2  # 1-2 seviye
@@ -964,22 +911,18 @@ func _generate_trade_mission(mission: Mission):
 	mission.required_resources = {"gold": 200 + randi() % 300}
 	mission.rewards = {"gold": 400 + randi() % 600}
 	mission.penalties = {"gold": -100 - randi() % 200}
-	mission.target_location = "Ticaret Merkezi"
 	mission.distance = 0.3 + randf() * 0.7
 	mission.risk_level = "Düşük"
 
 # Diplomasi görevi oluştur
 func _generate_diplomacy_mission(mission: Mission):
-	var diplomacy_names = [
-		"Barış Anlaşması Yap",
-		"İttifak Kur",
-		"Elçi Gönder",
-		"Anlaşmazlığı Çöz",
-		"Ticaret Anlaşması İmzala"
-	]
-	
-	mission.name = diplomacy_names[randi() % diplomacy_names.size()]
-	mission.description = "Diplomatik ilişkiler kurarak barışı sağla."
+	_assign_proc_mission_locale(mission, [
+		"mission.proc.diplomacy.peace",
+		"mission.proc.diplomacy.alliance",
+		"mission.proc.diplomacy.envoy",
+		"mission.proc.diplomacy.dispute",
+		"mission.proc.diplomacy.trade_treaty",
+	], "mission.proc.diplomacy.desc", "mission.loc.diplomatic_hub")
 	mission.duration = 200.0 + (randf() * 100.0)  # 200-300 oyun dakikası (3.3-5 saat, test için)
 	mission.success_chance = 0.65 + (randf() * 0.25)  # 65-90%
 	mission.required_cariye_level = 2 + randi() % 2  # 2-3 seviye
@@ -987,22 +930,18 @@ func _generate_diplomacy_mission(mission: Mission):
 	mission.required_resources = {"gold": 150 + randi() % 250}
 	mission.rewards = {"gold": 300 + randi() % 400, "food": 50 + randi() % 100}
 	mission.penalties = {"gold": -75 - randi() % 125}
-	mission.target_location = "Diplomatik Merkez"
 	mission.distance = 0.4 + randf() * 0.6
 	mission.risk_level = "Düşük"
 
 # İstihbarat görevi oluştur
 func _generate_intelligence_mission(mission: Mission):
-	var intelligence_names = [
-		"Düşman Planlarını Öğren",
-		"Casus Ağı Kur",
-		"Gizli Bilgi Topla",
-		"Düşman Güçlerini Keşfet",
-		"İçeriden Bilgi Al"
-	]
-	
-	mission.name = intelligence_names[randi() % intelligence_names.size()]
-	mission.description = "Gizli bilgi toplayarak düşman hakkında istihbarat elde et."
+	_assign_proc_mission_locale(mission, [
+		"mission.proc.intel.enemy_plans",
+		"mission.proc.intel.spy_network",
+		"mission.proc.intel.secret_info",
+		"mission.proc.intel.enemy_forces",
+		"mission.proc.intel.insider",
+	], "mission.proc.intel.desc", "mission.loc.enemy_territory")
 	mission.duration = 180.0 + (randf() * 120.0)  # 180-300 oyun dakikası (3-5 saat, test için)
 	mission.success_chance = 0.5 + (randf() * 0.3)  # 50-80%
 	mission.required_cariye_level = 2 + randi() % 2  # 2-3 seviye
@@ -1010,7 +949,6 @@ func _generate_intelligence_mission(mission: Mission):
 	mission.required_resources = {"gold": 100 + randi() % 150}
 	mission.rewards = {"gold": 250 + randi() % 350, "wood": 20 + randi() % 40}
 	mission.penalties = {"gold": -50 - randi() % 100, "cariye_injured": 1}
-	mission.target_location = "Düşman Bölgesi"
 	mission.distance = 0.2 + randf() * 0.3
 	mission.risk_level = "Yüksek"
 
@@ -1269,9 +1207,9 @@ func _append_player_map_mission_history_and_notify(mission_id: String, m: Missio
 	mission_completed.emit(-1, mission_id, successful, results)
 	if successful:
 		_try_resolve_world_incident_for_completed_mission(m)
-		post_news("Başarı", m.name, "Görevi haritada tamamladın.", Color(0.75, 1.0, 0.75), "success")
+		post_news("village", get_mission_display_name(m), tr("news.map_mission.success"), Color(0.75, 1.0, 0.75), "success")
 	else:
-		post_news("Bilgi", m.name, "Görev başarısız oldu.", Color(1.0, 0.75, 0.75), "warning")
+		post_news("village", get_mission_display_name(m), tr("news.map_mission.failed"), Color(1.0, 0.75, 0.75), "warning")
 
 func _compute_expedition_village_split_for_strategy_cost(cost: Dictionary) -> Dictionary:
 	var ps: Node = get_node_or_null("/root/PlayerStats")
@@ -1350,7 +1288,7 @@ func _build_player_map_strategy_ui_rows(mission: Mission) -> Array[Dictionary]:
 		if raw.get("cost") is Dictionary:
 			cost = raw["cost"].duplicate(true)
 		var chance: float = float(raw.get("success_chance", mission.success_chance))
-		var txt: String = str(raw.get("text", raw.get("label", "Seçenek %d" % (i + 1))))
+		var txt: String = _strategy_display_text(raw, i)
 		var affordable: bool = _can_afford_mixed_strategy_cost(cost)
 		rows.append({
 			"index": i,
@@ -1380,7 +1318,7 @@ func get_player_map_strategy_missions_at_hex(q: int, r: int) -> Array[Dictionary
 			continue
 		out.append({
 			"mission_id": String(mid),
-			"mission_name": String(m.name),
+			"mission_name": get_mission_display_name(m),
 			"strategies": _build_player_map_strategy_ui_rows(m)
 		})
 	return out
@@ -1389,30 +1327,30 @@ func get_player_map_strategy_missions_at_hex(q: int, r: int) -> Array[Dictionary
 func resolve_player_map_mission_with_strategy(mission_id: String, strategy_index: int, q: int, r: int) -> Dictionary:
 	var key: String = str(q) + "," + str(r)
 	if mission_id not in missions:
-		return {"ok": false, "reason": "Görev bulunamadı."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.not_found")}
 	var m: Mission = missions[mission_id] as Mission
 	if m == null:
-		return {"ok": false, "reason": "Görev verisi geçersiz."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.invalid")}
 	if m.status != Mission.Status.MEVCUT:
-		return {"ok": false, "reason": "Görev artık listede değil."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.not_available")}
 	if not m.allow_player_map_completion:
-		return {"ok": false, "reason": "Bu görev haritada oyuncu ile tamamlanamaz."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.not_player_map")}
 	_ensure_mission_has_world_objective_hex(m)
 	if String(m.world_hex_key) != key:
-		return {"ok": false, "reason": "Konum eşleşmiyor."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.wrong_hex")}
 	if strategy_index < 0 or strategy_index >= m.player_map_strategies.size():
-		return {"ok": false, "reason": "Geçersiz seçenek."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.bad_option")}
 	var raw = m.player_map_strategies[strategy_index]
 	if not raw is Dictionary:
-		return {"ok": false, "reason": "Strateji verisi bozuk."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.bad_strategy")}
 	var cost: Dictionary = {}
 	if raw.get("cost") is Dictionary:
 		cost = raw["cost"].duplicate(true)
 	if not _can_afford_mixed_strategy_cost(cost):
-		return {"ok": false, "reason": "Yetersiz kaynak (yanındaki erzak veya köy).", "affordable": false}
+		return {"ok": false, "reason": tr("wm.mission.resolve.insufficient"), "affordable": false}
 	var split: Dictionary = _compute_expedition_village_split_for_strategy_cost(cost)
 	if not _apply_mixed_strategy_cost(split):
-		return {"ok": false, "reason": "Kaynak harcanamadı."}
+		return {"ok": false, "reason": tr("wm.mission.resolve.spend_failed")}
 	var chance: float = float(raw.get("success_chance", m.success_chance))
 	chance = clampf(chance, 0.05, 0.98)
 	var successful: bool = randf() < chance
@@ -1441,7 +1379,7 @@ func get_world_map_mission_objective_markers() -> Array[Dictionary]:
 		out.append({
 			"kind": "mission_objective",
 			"mission_id": String(mid),
-			"mission_name": String(m.name),
+			"mission_name": get_mission_display_name(m),
 			"q": int(parts[0]),
 			"r": int(parts[1])
 		})
@@ -1488,7 +1426,7 @@ func try_complete_player_missions_at_hex(q: int, r: int) -> int:
 func _build_player_map_resolution_entry(mission: Mission, successful: bool) -> Dictionary:
 	var out: Dictionary = {
 		"mission_id": String(mission.id),
-		"mission_name": String(mission.name),
+		"mission_name": get_mission_display_name(mission),
 		"successful": successful,
 		"gold_delta": 0,
 		"expedition_rewards": {},
@@ -1558,10 +1496,16 @@ func _get_active_mission_progress_ratio(mission_data, total_minutes_now: int) ->
 	return 0.0
 
 func _get_mission_name_safe(mission_data, fallback_id: String) -> String:
+	if mission_data is Mission:
+		return get_mission_display_name(mission_data)
+	if fallback_id in missions:
+		var stored: Mission = missions[fallback_id] as Mission
+		if stored != null:
+			return get_mission_display_name(stored)
 	if mission_data is Dictionary:
-		return String(mission_data.get("name", fallback_id))
+		return get_mission_display_name(mission_data)
 	if mission_data and "name" in mission_data:
-		return String(mission_data.name)
+		return get_mission_display_name(mission_data)
 	return fallback_id
 
 func _register_world_map_returning_unit(cariye_id: int, mission_id: String, mission_data) -> void:
@@ -1860,184 +1804,10 @@ func get_chain_progress(chain_id: String) -> Dictionary:
 		"percentage": percentage
 	}
 
-# Örnek görev zincirleri oluştur
+# Görev sistemi altyapısı (şablonlar + dünya olayları; statik placeholder görev yok)
 func create_mission_chains():
-	# 1. Kuzey Seferi Zinciri (Sıralı)
-	create_mission_chain("kuzey_seferi", "Kuzey Seferi", Mission.ChainType.SEQUENTIAL, {
-		"gold": 1000,
-		"wood": 200,
-		"stone": 100
-	})
-	
-	# Kuzey Seferi görevlerini oluştur
-	var kesif_gorevi = Mission.new()
-	kesif_gorevi.id = "kuzey_kesif"
-	kesif_gorevi.name = "Kuzey Bölgesini Keşfet"
-	kesif_gorevi.description = "Kuzey bölgesini keşfet ve düşman güçlerini tespit et."
-	kesif_gorevi.mission_type = Mission.MissionType.KEŞİF
-	kesif_gorevi.difficulty = Mission.Difficulty.KOLAY
-	kesif_gorevi.duration = 70.0  # 70 saniye (test için)
-	kesif_gorevi.success_chance = 0.8
-	kesif_gorevi.required_cariye_level = 1
-	kesif_gorevi.rewards = {"gold": 150, "wood": 30}
-	kesif_gorevi.unlocks_missions.clear()
-	kesif_gorevi.unlocks_missions.append("kuzey_saldiri")
-	missions[kesif_gorevi.id] = kesif_gorevi
-	add_mission_to_chain(kesif_gorevi.id, "kuzey_seferi", 1)
-	
-	var saldiri_gorevi = Mission.new()
-	saldiri_gorevi.id = "kuzey_saldiri"
-	saldiri_gorevi.name = "Kuzey Köyüne Saldırı"
-	saldiri_gorevi.description = "Keşif sonuçlarına göre kuzey köyüne saldırı düzenle."
-	saldiri_gorevi.mission_type = Mission.MissionType.SAVAŞ
-	saldiri_gorevi.difficulty = Mission.Difficulty.ORTA
-	saldiri_gorevi.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
-	saldiri_gorevi.success_chance = 0.6
-	saldiri_gorevi.required_cariye_level = 2
-	saldiri_gorevi.required_army_size = 5
-	saldiri_gorevi.prerequisite_missions.clear()
-	saldiri_gorevi.prerequisite_missions.append("kuzey_kesif")
-	saldiri_gorevi.rewards = {"gold": 400, "wood": 80}
-	saldiri_gorevi.unlocks_missions.clear()
-	saldiri_gorevi.unlocks_missions.append("kuzey_kontrol")
-	missions[saldiri_gorevi.id] = saldiri_gorevi
-	add_mission_to_chain(saldiri_gorevi.id, "kuzey_seferi", 2)
-
-	# 2. Barış Süreci Zinciri (Diplomasi odaklı)
-	create_mission_chain("baris_sureci", "Barış Süreci", Mission.ChainType.SEQUENTIAL, {"gold": 400, "reputation": 10})
-
-	var elci_gonder = Mission.new()
-	elci_gonder.id = "elci_gonder"
-	elci_gonder.name = "Elçi Gönder"
-	elci_gonder.description = "Komşu yerleşime barış teklifini ilet."
-	elci_gonder.mission_type = Mission.MissionType.DİPLOMASİ
-	elci_gonder.difficulty = Mission.Difficulty.KOLAY
-	elci_gonder.duration = 180.0  # 180 saniye (3 dakika, test için)
-	elci_gonder.success_chance = 0.85
-	elci_gonder.required_cariye_level = 1
-	elci_gonder.rewards = {"gold": 60}
-	missions[elci_gonder.id] = elci_gonder
-	add_mission_to_chain(elci_gonder.id, "baris_sureci", 1)
-
-	var baris_anlasmasi = Mission.new()
-	baris_anlasmasi.id = "baris_anlasmasi"
-	baris_anlasmasi.name = "Barış Anlaşması"
-	baris_anlasmasi.description = "Şartları müzakere et ve anlaşmayı imzala."
-	baris_anlasmasi.mission_type = Mission.MissionType.DİPLOMASİ
-	baris_anlasmasi.difficulty = Mission.Difficulty.ORTA
-	baris_anlasmasi.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
-	baris_anlasmasi.success_chance = 0.65
-	baris_anlasmasi.required_cariye_level = 2
-	baris_anlasmasi.rewards = {"gold": 120}
-	baris_anlasmasi.prerequisite_missions.clear()
-	baris_anlasmasi.prerequisite_missions.append("elci_gonder")
-	missions[baris_anlasmasi.id] = baris_anlasmasi
-	add_mission_to_chain(baris_anlasmasi.id, "baris_sureci", 2)
-	
-	var kontrol_gorevi = Mission.new()
-	kontrol_gorevi.id = "kuzey_kontrol"
-	kontrol_gorevi.name = "Kuzey Bölgesini Kontrol Et"
-	kontrol_gorevi.description = "Kuzey bölgesini tamamen kontrol altına al ve güvenliği sağla."
-	kontrol_gorevi.mission_type = Mission.MissionType.BÜROKRASİ
-	kontrol_gorevi.difficulty = Mission.Difficulty.ZOR
-	kontrol_gorevi.duration = 300.0  # 300 oyun dakikası (5 saat, test için)
-	kontrol_gorevi.success_chance = 0.5
-	kontrol_gorevi.required_cariye_level = 3
-	kontrol_gorevi.prerequisite_missions.clear()
-	kontrol_gorevi.prerequisite_missions.append("kuzey_saldiri")
-	kontrol_gorevi.rewards = {"gold": 600, "wood": 120, "stone": 60}
-	missions[kontrol_gorevi.id] = kontrol_gorevi
-	add_mission_to_chain(kontrol_gorevi.id, "kuzey_seferi", 3)
-	
-	# 2. Ticaret Ağı Zinciri (Paralel)
-	create_mission_chain("ticaret_agi", "Ticaret Ağı Kurma", Mission.ChainType.PARALLEL, {
-		"gold": 800,
-		"trade_bonus": 0.2
-	})
-	
-	# Ticaret Ağı görevlerini oluştur
-	var dogu_ticaret = Mission.new()
-	dogu_ticaret.id = "dogu_ticaret"
-	dogu_ticaret.name = "Doğu Köyü ile Ticaret"
-	dogu_ticaret.description = "Doğudaki köy ile ticaret anlaşması yap."
-	dogu_ticaret.mission_type = Mission.MissionType.TİCARET
-	dogu_ticaret.difficulty = Mission.Difficulty.ORTA
-	dogu_ticaret.duration = 200.0  # 200 saniye (3.3 dakika, test için)
-	dogu_ticaret.success_chance = 0.7
-	dogu_ticaret.required_cariye_level = 2
-	dogu_ticaret.rewards = {"gold": 300, "trade_route": "east"}
-	missions[dogu_ticaret.id] = dogu_ticaret
-	add_mission_to_chain(dogu_ticaret.id, "ticaret_agi", 1)
-	
-	var bati_ticaret = Mission.new()
-	bati_ticaret.id = "bati_ticaret"
-	bati_ticaret.name = "Batı Köyü ile Ticaret"
-	bati_ticaret.description = "Batıdaki köy ile ticaret anlaşması yap."
-	bati_ticaret.mission_type = Mission.MissionType.TİCARET
-	bati_ticaret.difficulty = Mission.Difficulty.ORTA
-	bati_ticaret.duration = 200.0  # 200 oyun dakikası (3.3 saat, test için)
-	bati_ticaret.success_chance = 0.7
-	bati_ticaret.required_cariye_level = 2
-	bati_ticaret.rewards = {"gold": 300, "trade_route": "west"}
-	missions[bati_ticaret.id] = bati_ticaret
-	add_mission_to_chain(bati_ticaret.id, "ticaret_agi", 2)
-	
-	var guney_ticaret = Mission.new()
-	guney_ticaret.id = "guney_ticaret"
-	guney_ticaret.name = "Güney Köyü ile Ticaret"
-	guney_ticaret.description = "Güneydeki köy ile ticaret anlaşması yap."
-	guney_ticaret.mission_type = Mission.MissionType.TİCARET
-	guney_ticaret.difficulty = Mission.Difficulty.ORTA
-	guney_ticaret.duration = 200.0  # 200 saniye (3.3 dakika, test için)
-	guney_ticaret.success_chance = 0.7
-	guney_ticaret.required_cariye_level = 2
-	guney_ticaret.rewards = {"gold": 300, "trade_route": "south"}
-	missions[guney_ticaret.id] = guney_ticaret
-	add_mission_to_chain(guney_ticaret.id, "ticaret_agi", 3)
-	
-	# 3. Seçimli Görev Zinciri
-	create_mission_chain("savunma_secimi", "Savunma Stratejisi", Mission.ChainType.CHOICE, {
-		"gold": 500,
-		"defense_bonus": 0.3
-	})
-	
-	# Seçimli görevler (sadece biri yapılabilir)
-	var kale_yap = Mission.new()
-	kale_yap.id = "kale_yap"
-	kale_yap.name = "Kale İnşa Et"
-	kale_yap.description = "Güçlü bir kale inşa ederek savunmayı güçlendir."
-	kale_yap.mission_type = Mission.MissionType.BÜROKRASİ
-	kale_yap.difficulty = Mission.Difficulty.ZOR
-	kale_yap.duration = 20.0
-	kale_yap.success_chance = 0.6
-	kale_yap.required_cariye_level = 3
-	kale_yap.required_resources = {"gold": 800, "wood": 400, "stone": 200}
-	kale_yap.rewards = {"gold": 200, "building": "castle", "defense": 50}
-	missions[kale_yap.id] = kale_yap
-	add_mission_to_chain(kale_yap.id, "savunma_secimi", 1)
-	
-	var ittifak_yap = Mission.new()
-	ittifak_yap.id = "ittifak_yap"
-	ittifak_yap.name = "Savunma İttifakı"
-	ittifak_yap.description = "Komşu köylerle savunma ittifakı kur."
-	ittifak_yap.mission_type = Mission.MissionType.DİPLOMASİ
-	ittifak_yap.difficulty = Mission.Difficulty.ZOR
-	ittifak_yap.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
-	ittifak_yap.success_chance = 0.5
-	ittifak_yap.required_cariye_level = 3
-	ittifak_yap.rewards = {"gold": 200, "alliance": "defense", "defense": 30}
-	missions[ittifak_yap.id] = ittifak_yap
-	add_mission_to_chain(ittifak_yap.id, "savunma_secimi", 2)
-	
-	print("🔗 Görev zincirleri oluşturuldu:")
-	print("  - Kuzey Seferi (Sıralı): 3 görev")
-	print("  - Ticaret Ağı (Paralel): 3 görev")
-	print("  - Savunma Stratejisi (Seçimli): 2 görev")
-	
-	# Dinamik görev şablonlarını oluştur
 	create_dynamic_mission_templates()
-	
-	# Başlangıç dünya olaylarını oluştur
+	_setup_world_event_templates()
 	create_initial_world_events()
 
 # --- DİNAMİK GÖREV ÜRETİMİ ---
@@ -2046,22 +1816,28 @@ func create_mission_chains():
 func create_dynamic_mission_templates():
 	# Savaş görev şablonları
 	dynamic_mission_templates["savas"] = {
-		"names": [
-			"Karavan Konvoyunu Kes",
-			"{enemy} Sürüsünü Dağıt",
-			"Yol Kesenlere Karşı Baskın",
-			"{location} Yolunda Çatışma",
-			"{enemy} ile Savaş"
+		"name_keys": [
+			"mission.dyn.savas.name.convoy",
+			"mission.dyn.savas.name.enemy_swarm",
+			"mission.dyn.savas.name.road_ambush",
+			"mission.dyn.savas.name.route_clash",
+			"mission.dyn.savas.name.enemy_fight",
 		],
-		"descriptions": [
-			"Bir köye giden veya köyden çıkan ticari konvoyun geçtiği güzergâhta {enemy} ile çarpış.",
-			"Yakın yerleşimin yollarında toplanan {enemy} unsuruna karşı operasyon düzenle.",
-			"Karavan güzergâhında pusu kuran {enemy} güçlerini püskürt.",
-			"Ticaret yolunda şiddetlenen çatışmayı köy merkezine sokmadan sonlandır.",
-			"Konvoy güvenliği için yol bölgesinde {enemy} ile mücadele et."
+		"desc_keys": [
+			"mission.dyn.savas.desc.convoy",
+			"mission.dyn.savas.desc.enemy_ops",
+			"mission.dyn.savas.desc.ambush",
+			"mission.dyn.savas.desc.route_fight",
+			"mission.dyn.savas.desc.convoy_security",
 		],
-		"locations": ["Kuzey", "Güney", "Doğu", "Batı", "Merkez"],
-		"enemies": ["Düşman", "Haydut", "Rakip", "İsyancı", "Yabancı"],
+		"location_keys": [
+			"mission.dyn.loc.north", "mission.dyn.loc.south",
+			"mission.dyn.loc.east", "mission.dyn.loc.west", "mission.dyn.loc.center",
+		],
+		"enemy_keys": [
+			"mission.dyn.enemy.foe", "mission.dyn.enemy.bandit",
+			"mission.dyn.enemy.rival", "mission.dyn.enemy.rebel", "mission.dyn.enemy.foreign",
+		],
 		"base_rewards": {"gold": 200, "wood": 50},
 		"base_penalties": {"gold": -100, "cariye_injured": true},
 		"difficulty_modifiers": {
@@ -2074,22 +1850,28 @@ func create_dynamic_mission_templates():
 	
 	# Keşif görev şablonları
 	dynamic_mission_templates["kesif"] = {
-		"names": [
-			"{location} Keşfi",
-			"{area} Bölgesini Araştır",
-			"{location} Gizemini Çöz",
-			"{area} Kaynaklarını Bul",
-			"{location} Haritasını Çıkar"
+		"name_keys": [
+			"mission.dyn.kesif.name.explore",
+			"mission.dyn.kesif.name.survey",
+			"mission.dyn.kesif.name.mystery",
+			"mission.dyn.kesif.name.resources",
+			"mission.dyn.kesif.name.map",
 		],
-		"descriptions": [
-			"{location} bölgesini keşfet ve bilinmeyen alanları araştır.",
-			"{area} bölgesindeki kaynakları ve tehlikeleri tespit et.",
-			"{location} gizemini çöz ve sırları ortaya çıkar.",
-			"{area} bölgesindeki değerli kaynakları bul.",
-			"{location} için detaylı harita çıkar."
+		"desc_keys": [
+			"mission.dyn.kesif.desc.explore",
+			"mission.dyn.kesif.desc.survey",
+			"mission.dyn.kesif.desc.mystery",
+			"mission.dyn.kesif.desc.resources",
+			"mission.dyn.kesif.desc.map",
 		],
-		"locations": ["Orman", "Dağ", "Çöl", "Göl", "Mağara"],
-		"areas": ["Bilinmeyen", "Terk Edilmiş", "Tehlikeli", "Gizemli", "Efsanevi"],
+		"location_keys": [
+			"mission.dyn.place.forest", "mission.dyn.place.mountain",
+			"mission.dyn.place.desert", "mission.dyn.place.lake", "mission.dyn.place.cave",
+		],
+		"area_keys": [
+			"mission.dyn.area.unknown", "mission.dyn.area.abandoned",
+			"mission.dyn.area.dangerous", "mission.dyn.area.mysterious", "mission.dyn.area.legendary",
+		],
 		"base_rewards": {"gold": 150, "wood": 30, "stone": 20},
 		"base_penalties": {"gold": -50},
 		"difficulty_modifiers": {
@@ -2102,22 +1884,27 @@ func create_dynamic_mission_templates():
 	
 	# Ticaret görev şablonları
 	dynamic_mission_templates["ticaret"] = {
-		"names": [
-			"{location} ile Ticaret",
-			"{resource} Ticareti",
-			"{location} Pazarı",
-			"{resource} Anlaşması",
-			"{location} Ticaret Yolu"
+		"name_keys": [
+			"mission.dyn.ticaret.name.trade",
+			"mission.dyn.ticaret.name.resource",
+			"mission.dyn.ticaret.name.market",
+			"mission.dyn.ticaret.name.deal",
+			"mission.dyn.ticaret.name.route",
 		],
-		"descriptions": [
-			"{location} ile karlı ticaret anlaşması yap.",
-			"{resource} ticareti için anlaşma sağla.",
-			"{location} pazarında ticaret yap.",
-			"{resource} için uzun vadeli anlaşma imzala.",
-			"{location} ile ticaret yolu kur."
+		"desc_keys": [
+			"mission.dyn.ticaret.desc.trade",
+			"mission.dyn.ticaret.desc.resource",
+			"mission.dyn.ticaret.desc.market",
+			"mission.dyn.ticaret.desc.deal",
+			"mission.dyn.ticaret.desc.route",
 		],
-		"locations": ["Köy", "Şehir", "Kasaba", "Pazar", "Liman"],
-		"resources": ["Altın", "Odun", "Taş", "Gıda", "Silah"],
+		"location_keys": [
+			"mission.dyn.settlement.village", "mission.dyn.settlement.city",
+			"mission.dyn.settlement.town", "mission.dyn.settlement.market", "mission.dyn.settlement.port",
+		],
+		"resource_keys": [
+			"resource.gold", "resource.wood", "resource.stone", "resource.food", "resource.weapon",
+		],
 		"base_rewards": {"gold": 300, "trade_bonus": 0.1},
 		"base_penalties": {"gold": -75, "reputation": -5},
 		"difficulty_modifiers": {
@@ -2130,9 +1917,9 @@ func create_dynamic_mission_templates():
 	
 	print("🎲 Dinamik görev şablonları oluşturuldu")
 
-# Başlangıç dünya olaylarını oluştur
-func create_initial_world_events():
-	world_events = [
+# Başlangıç dünya olay şablonları (UI'da görünmez; yalnızca tetiklenince aktif olur)
+func _setup_world_event_templates() -> void:
+	world_event_templates = [
 		{
 			"id": "kuraklik",
 			"name": "Kuraklık",
@@ -2158,87 +1945,12 @@ func create_initial_world_events():
 			"mission_modifiers": {"kesif": {"success_chance": -0.2, "penalties": {"cariye_injured": true}}}
 		}
 	]
-	
-	print("🌍 Dünya olayları oluşturuldu")
 
-# Başlangıç görevlerini sınırla
-func limit_initial_missions():
-	print("🔧 Başlangıç görevleri sınırlanıyor...")
-	
-	# TÜM görevleri kaldır (zincir görevleri dahil)
-	var missions_to_remove = []
-	for mission_id in missions:
-		var mission = missions[mission_id]
-		if mission.status == Mission.Status.MEVCUT:
-			missions_to_remove.append(mission_id)
-	
-	# Tüm görevleri sil
-	for mission_id in missions_to_remove:
-		missions.erase(mission_id)
-		print("🗑️ Başlangıç görevi kaldırıldı: " + mission_id)
-	
-	print("✅ Başlangıçta hiç görev yok - yavaş yavaş eklenecek")
-	
-	# İlk görevi 5 saniye sonra ekle
-	await get_tree().create_timer(5.0).timeout
-	add_first_mission()
 
-# İlk görevi ekle
-func add_first_mission():
-	print("🎯 İlk görev ekleniyor...")
-	
-	# Basit bir keşif görevi oluştur
-	var first_mission = Mission.new()
-	first_mission.id = "ilk_kesif"
-	first_mission.name = "Köy Çevresini Keşfet"
-	first_mission.description = "Köyün çevresindeki bölgeyi keşfet ve kaynakları tespit et."
-	first_mission.mission_type = Mission.MissionType.KEŞİF
-	first_mission.difficulty = Mission.Difficulty.KOLAY
-	first_mission.duration = 240.0  # 240 oyun dakikası (4 saat, test için)
-	first_mission.required_cariye_level = 1
-	first_mission.required_army_size = 0
-	first_mission.required_resources = {}
-	first_mission.rewards = {"gold": 50, "experience": 20}
-	first_mission.penalties = {"gold": -10}
-	first_mission.status = Mission.Status.MEVCUT
-	
-	missions[first_mission.id] = first_mission
-	print("✅ İlk görev eklendi: " + first_mission.name)
-	
-	# İkinci görevi 30 saniye sonra ekle
-	await get_tree().create_timer(30.0).timeout
-	add_second_mission()
+func create_initial_world_events() -> void:
+	world_events.clear()
 
-# İkinci görevi ekle
-func add_second_mission():
-	print("🎯 İkinci görev ekleniyor...")
-	
-	# Zincir görevinin ilkini ekle
-	var chain_mission = Mission.new()
-	chain_mission.id = "kuzey_kesif_1"
-	chain_mission.name = "Kuzey Bölgesini Keşfet"
-	chain_mission.description = "Kuzey bölgesindeki gizemli yapıları keşfet."
-	chain_mission.mission_type = Mission.MissionType.KEŞİF
-	chain_mission.difficulty = Mission.Difficulty.ORTA
-	chain_mission.duration = 300.0  # 300 oyun dakikası (5 saat, test için)
-	chain_mission.required_cariye_level = 2
-	chain_mission.required_army_size = 5
-	chain_mission.required_resources = {"food": 20}
-	chain_mission.rewards = {"gold": 100, "experience": 50, "special_item": "Antik Harita"}
-	chain_mission.penalties = {"gold": -25, "reputation": -5}
-	chain_mission.status = Mission.Status.MEVCUT
-	
-	# Zincir bilgileri
-	chain_mission.chain_id = "kuzey_kesif_chain"
-	chain_mission.chain_type = Mission.ChainType.SEQUENTIAL
-	chain_mission.chain_order = 1
-	chain_mission.unlocks_missions.clear()
-	chain_mission.unlocks_missions.append("kuzey_kesif_2")
-	
-	missions[chain_mission.id] = chain_mission
-	print("✅ Zincir görevi eklendi: " + chain_mission.name)
-
-# Dinamik görev oluştur
+# --- DİNAMİK GÖREV ÜRETİMİ ---
 func create_dynamic_mission(mission_type: String, difficulty: Mission.Difficulty = Mission.Difficulty.ORTA) -> Mission:
 	if mission_type not in dynamic_mission_templates:
 		return null
@@ -2250,13 +1962,15 @@ func create_dynamic_mission(mission_type: String, difficulty: Mission.Difficulty
 	mission.id = "dynamic_" + mission_type + "_" + str(next_mission_id)
 	next_mission_id += 1
 	
-	# Rastgele isim ve açıklama seç
-	var name_template = template["names"][randi() % template["names"].size()]
-	var desc_template = template["descriptions"][randi() % template["descriptions"].size()]
-	
-	# Şablon değişkenlerini doldur
-	mission.name = fill_template(name_template, template)
-	mission.description = fill_template(desc_template, template)
+	# Rastgele isim ve açıklama seç (locale anahtarları)
+	var name_key: String = template["name_keys"][randi() % template["name_keys"].size()]
+	var desc_key: String = template["desc_keys"][randi() % template["desc_keys"].size()]
+	var var_keys := _pick_dynamic_template_vars(template)
+	mission.locale_name_key = name_key
+	mission.locale_desc_key = desc_key
+	mission.locale_vars = var_keys
+	mission.name = _tr_mission_template(name_key, var_keys)
+	mission.description = _tr_mission_template(desc_key, var_keys)
 	
 	# Görev türü
 	match mission_type:
@@ -2283,7 +1997,11 @@ func create_dynamic_mission(mission_type: String, difficulty: Mission.Difficulty
 	mission.required_resources = calculate_required_resources(mission_type, difficulty)
 	
 	# Hedef konum
-	mission.target_location = template.get("locations", ["Bilinmeyen"])[randi() % template.get("locations", ["Bilinmeyen"]).size()]
+	if template.has("location_keys"):
+		var loc_key: String = template["location_keys"][randi() % template["location_keys"].size()]
+		mission.target_location = tr(loc_key)
+	else:
+		mission.target_location = tr("common.unknown")
 	mission.distance = randf_range(1.0, 5.0)
 	mission.risk_level = calculate_risk_level(difficulty, mission_type)
 	_populate_default_player_map_strategies(mission, mission_type)
@@ -2297,26 +2015,40 @@ func _populate_default_player_map_strategies(mission: Mission, mission_type: Str
 	match mission_type:
 		"savas":
 			mission.player_map_strategies = [
-				{"text": "Konvoya siper ol, düşmanı uzun mesafeden oyala.", "cost": {"food": 5}, "success_chance": 0.25},
-				{"text": "Yemek ve su ile ekibi güçlendir, karşı saldırıya geç.", "cost": {"food": 10, "water": 5}, "success_chance": 0.5},
-				{"text": "İlaç ve erzakla tam baskın: yol kesenleri dağıt.", "cost": {"food": 10, "medicine": 5}, "success_chance": 0.75}
+				{"text_key": "mission.strategy.savas.0", "cost": {"food": 5}, "success_chance": 0.25},
+				{"text_key": "mission.strategy.savas.1", "cost": {"food": 10, "water": 5}, "success_chance": 0.5},
+				{"text_key": "mission.strategy.savas.2", "cost": {"food": 10, "medicine": 5}, "success_chance": 0.75}
 			]
 		"kesif":
 			mission.player_map_strategies = [
-				{"text": "Hafif erzakla dikkatli keşif.", "cost": {"food": 3, "water": 3}, "success_chance": 0.35},
-				{"text": "Daha iyi malzeme ve su ile yolu netleştir.", "cost": {"food": 8, "water": 5}, "success_chance": 0.55},
-				{"text": "Tam donanımla alanı haritalandır.", "cost": {"food": 15, "water": 10}, "success_chance": 0.8}
+				{"text_key": "mission.strategy.kesif.0", "cost": {"food": 3, "water": 3}, "success_chance": 0.35},
+				{"text_key": "mission.strategy.kesif.1", "cost": {"food": 8, "water": 5}, "success_chance": 0.55},
+				{"text_key": "mission.strategy.kesif.2", "cost": {"food": 15, "water": 10}, "success_chance": 0.8}
 			]
 		"ticaret":
 			mission.player_map_strategies = [
-				{"text": "Temkinli pazarlık yap, kervanı görünmeden geçir.", "cost": {"food": 1}, "success_chance": 0.32},
-				{"text": "Rüşvet ve ikna ile geçiş aç.", "cost": {"gold": 12}, "success_chance": 0.52},
-				{"text": "Silahlı refakat kur, hızlı geçiş dene.", "cost": {"food": 1, "gold": 20}, "success_chance": 0.68}
+				{"text_key": "mission.strategy.ticaret.0", "cost": {"food": 1}, "success_chance": 0.32},
+				{"text_key": "mission.strategy.ticaret.1", "cost": {"gold": 12}, "success_chance": 0.52},
+				{"text_key": "mission.strategy.ticaret.2", "cost": {"food": 1, "gold": 20}, "success_chance": 0.68}
 			]
 		_:
 			pass
 
-# Şablon doldurma
+# Şablon değişken anahtarlarını seç
+func _pick_dynamic_template_vars(template: Dictionary) -> Dictionary:
+	var var_keys := {}
+	if template.has("location_keys"):
+		var_keys["location"] = template["location_keys"][randi() % template["location_keys"].size()]
+	if template.has("enemy_keys"):
+		var_keys["enemy"] = template["enemy_keys"][randi() % template["enemy_keys"].size()]
+	if template.has("area_keys"):
+		var_keys["area"] = template["area_keys"][randi() % template["area_keys"].size()]
+	if template.has("resource_keys"):
+		var_keys["resource"] = template["resource_keys"][randi() % template["resource_keys"].size()]
+	return var_keys
+
+
+# Şablon doldurma (legacy)
 func fill_template(template: String, template_data: Dictionary) -> String:
 	var result = template
 	
@@ -2342,28 +2074,27 @@ func fill_template(template: String, template_data: Dictionary) -> String:
 
 # Dünya olayı etkilerini uygula
 func apply_world_event_modifiers(mission: Mission, mission_type: String):
-	for event in world_events:
-		if "mission_modifiers" in event and mission_type in event["mission_modifiers"]:
-			var modifiers = event["mission_modifiers"][mission_type]
-			
-			if "success_chance" in modifiers:
-				mission.success_chance += modifiers["success_chance"]
-				mission.success_chance = clamp(mission.success_chance, 0.1, 0.95)
-			
-			if "duration" in modifiers:
-				mission.duration += modifiers["duration"]
-				mission.duration = max(180.0, mission.duration)  # En az 180 oyun dakikası (3 saat, test için)
-			
-			if "rewards" in modifiers:
-				for reward_type in modifiers["rewards"]:
-					if reward_type in mission.rewards:
-						mission.rewards[reward_type] += modifiers["rewards"][reward_type]
-					else:
-						mission.rewards[reward_type] = modifiers["rewards"][reward_type]
-			
-			if "penalties" in modifiers:
-				for penalty_type in modifiers["penalties"]:
-					mission.penalties[penalty_type] = modifiers["penalties"][penalty_type]
+	for event in get_active_world_events():
+		if not (event is Dictionary):
+			continue
+		if not "mission_modifiers" in event or mission_type not in event["mission_modifiers"]:
+			continue
+		var modifiers = event["mission_modifiers"][mission_type]
+		if "success_chance" in modifiers:
+			mission.success_chance += modifiers["success_chance"]
+			mission.success_chance = clamp(mission.success_chance, 0.1, 0.95)
+		if "duration" in modifiers:
+			mission.duration += modifiers["duration"]
+			mission.duration = max(180.0, mission.duration)
+		if "rewards" in modifiers:
+			for reward_type in modifiers["rewards"]:
+				if reward_type in mission.rewards:
+					mission.rewards[reward_type] += modifiers["rewards"][reward_type]
+				else:
+					mission.rewards[reward_type] = modifiers["rewards"][reward_type]
+		if "penalties" in modifiers:
+			for penalty_type in modifiers["penalties"]:
+				mission.penalties[penalty_type] = modifiers["penalties"][penalty_type]
 
 # Ödül hesaplama
 func calculate_rewards(base_rewards: Dictionary, multiplier: float) -> Dictionary:
@@ -2621,7 +2352,7 @@ func post_news(category: String, title: String, content: String, color: Color = 
 	_next_news_id += 1
 	
 	# Haberleri kuyruklara ekle
-	var is_village = category in ["Başarı", "Bilgi"]
+	var is_village = category in ["Başarı", "Bilgi", "village"]
 	
 	# <<< YENİ: Haberi hemen NPC'lere dağıt >>>
 	if VillagerAiInitializer:
@@ -2779,7 +2510,7 @@ func prune_time_limited_state_for_day(day: int, silent: bool = false) -> void:
 		if not m.has("expires_day") or int(m["expires_day"]) >= day:
 			remaining_rm.append(m)
 		elif not silent:
-			post_news("Bilgi", "Etki Sona Erdi", "%s için %+d etki bitti" % [m.get("resource", "?"), int(m.get("delta", 0))], Color(0.8, 0.8, 0.8))
+			post_news("world", tr("news.effect_ended.title"), tr("news.effect_ended.body") % [LocaleManager.get_resource_name(str(m.get("resource", "?"))), int(m.get("delta", 0))], Color(0.8, 0.8, 0.8), "info")
 	active_rate_modifiers = remaining_rm
 
 	var old_trader_count: int = active_traders.size()
@@ -2789,8 +2520,8 @@ func prune_time_limited_state_for_day(day: int, silent: bool = false) -> void:
 		if leaves_day > day:
 			remaining_traders.append(trader)
 		elif not silent:
-			var trader_name = trader.get("name", "Tüccar")
-			post_news("Bilgi", "Tüccar Ayrıldı", "%s köyden ayrıldı." % trader_name, Color(0.8, 0.8, 1))
+			var trader_name = trader.get("name", tr("mc.trade.default_trader"))
+			post_news("village", tr("news.trader_left.title"), tr("news.trader_left.body") % trader_name, Color(0.8, 0.8, 1), "info")
 	active_traders = remaining_traders
 	if active_traders.size() != old_trader_count:
 		active_traders_updated.emit()
@@ -2807,8 +2538,7 @@ func _on_new_day(day: int):
 			var drel: int = randi_range(-2, 2)
 			s["relation"] = clamp(int(s.get("relation", 50)) + drel, 0, 100)
 			if drel != 0:
-				var txt: String = "%s ile ilişkiler %s%d" % [s.get("name", "?"), ("+" if drel > 0 else ""), drel]
-				post_news("Bilgi", "Diplomasi Güncellemesi", txt, Color(0.9, 0.9, 1))
+				post_news("world", tr("news.diplomacy_update.title"), tr("news.diplomacy_update.body") % [s.get("name", "?"), ("+" if drel > 0 else ""), drel], Color(0.9, 0.9, 1), "info")
 		var dstab: int = randi_range(-1, 1)
 		s["stability"] = clamp(int(s.get("stability", 70)) + dstab, 0, 100)
 
@@ -2859,7 +2589,7 @@ func _maybe_spawn_daily_dynamic_mission(day: int) -> void:
 		return
 	missions[m.id] = m
 	mission_list_changed.emit()
-	post_news("Bilgi", "Yeni Harita Gorevi", "%s gorevi acildi." % String(m.name), Color(0.9, 0.96, 1.0), "info")
+	post_news("world", tr("news.new_map_mission.title"), tr("news.new_map_mission.body") % get_mission_display_name(m), Color(0.9, 0.96, 1.0), "info")
 	# Bazen ertesi gün, bazen 2 gün sonra yeni görev.
 	_next_daily_dynamic_spawn_day = day + (1 if randf() < 0.62 else 2)
 
@@ -2926,10 +2656,10 @@ func _simulate_conflicts():
 	var at_name: String = attacker.get("name", "?")
 	var df_name: String = defender.get("name", "?")
 	var kind_text: String = ("sınır çatışması" if event_type == "skirmish" else ("baskın" if event_type == "raid" else "kuşatma"))
-	post_news("Uyarı", "⚔️ %s %s %s" % [at_name, kind_text, df_name], "%s %s üzerine harekete geçti." % [at_name, df_name], Color(1,0.85,0.8))
+	post_news("world", tr("news.conflict.start.title") % [at_name, kind_text, df_name], tr("news.conflict.start.body") % [at_name, df_name], Color(1, 0.85, 0.8), "warning")
 	var outcome: String = "%s üstün geldi" % at_name if attacker_wins else "%s saldırıyı püskürttü" % df_name
 	var details: String = "Kayıplar - Saldıran:%d, Savunan:%d" % [loss_att, loss_def]
-	post_news("Dünya", "⚔️ Sonuç: %s" % outcome, "%s | Tür: %s" % [details, kind_text], Color(1,0.95,0.7))
+	post_news("world", tr("news.conflict.result.title") % outcome, tr("news.conflict.result.body") % [details, kind_text], Color(1, 0.95, 0.7), "info")
 	# Görev fırsatları ve ticaret etkisi
 	_create_conflict_missions(attacker, defender)
 	if attacker_wins and randf() < 0.4:
@@ -2969,43 +2699,44 @@ func _create_conflict_missions(attacker: Dictionary, defender: Dictionary):
 	raid.penalties = {"gold": -30, "reputation": -5}
 	raid.status = Mission.Status.MEVCUT
 	missions[raid.id] = raid
-	post_news("Bilgi", "Görev Fırsatı", "Savunma ve yağma görevleri listene eklendi", Color(0.8,1,0.8))
+	post_news("village", tr("news.raid_opportunity.title"), tr("news.raid_opportunity.body"), Color(0.8, 1, 0.8), "info")
 
 # ESKİ FONKSİYON KALDIRILDI: cancel_trade_agreement_by_index
 # Artık ticaret anlaşmaları yok, sadece aktif tüccarlar var
 
 # Rastgele dünya olayı başlat
 func start_random_world_event():
-	var available_events = []
-	
-	# Aktif olmayan olayları bul
+	var active_ids: Dictionary = {}
 	for event in world_events:
-		if "start_time" not in event and "start_game_minutes" not in event:
-			available_events.append(event)
+		var td: Dictionary = _world_event_elapsed_duration(event)
+		if float(td.get("duration", -1.0)) >= 0.0 and float(td.get("elapsed", 0.0)) < float(td.get("duration", 1.0)):
+			active_ids[String(event.get("id", ""))] = true
+	
+	var available_events: Array[Dictionary] = []
+	for template in world_event_templates:
+		var eid := String(template.get("id", ""))
+		if eid.is_empty() or active_ids.has(eid):
+			continue
+		available_events.append(template)
 	
 	if available_events.is_empty():
 		return
 	
-	var selected_event = available_events[randi() % available_events.size()]
+	var selected_event: Dictionary = available_events[randi() % available_events.size()].duplicate(true)
 	var tm_start: Node = get_node_or_null("/root/TimeManager")
 	if tm_start and tm_start.has_method("get_total_game_minutes"):
-		selected_event["start_game_minutes"] = int(tm_start.get_total_game_minutes())
+		selected_event["start_game_minutes"] = int(tm_start.call("get_total_game_minutes"))
 		selected_event["duration_game_minutes"] = int(selected_event.get("duration", 45))
-		selected_event.erase("start_time")
 	else:
 		selected_event["start_time"] = Time.get_unix_time_from_system()
-	
-	print("🌍 Dünya olayı başladı: " + selected_event["name"])
-	print("   " + selected_event["description"])
-	post_news("Uyarı", selected_event["name"], selected_event["description"], Color(1,0.8,0.8))
+	world_events.append(selected_event)
+	post_news("world", get_world_event_display_name(selected_event), get_world_event_display_description(selected_event), Color(1, 0.8, 0.8), "warning")
 
 # Dünya olayını sonlandır
 func end_world_event(event: Dictionary):
-	print("🌍 Dünya olayı sona erdi: " + event["name"])
-	event.erase("start_time")
-	event.erase("start_game_minutes")
-	event.erase("duration_game_minutes")
-	post_news("Bilgi", event["name"] + " Sona Erdi", "Etki bitti.", Color(0.8,0.8,0.8))
+	var ended_name := get_world_event_display_name(event)
+	world_events.erase(event)
+	post_news("world", tr("news.world_event_ended.title") % ended_name, tr("news.world_event_ended.body"), Color(0.8, 0.8, 0.8), "info")
 
 # Aktif dünya olaylarını al
 func get_active_world_events() -> Array:
@@ -3038,7 +2769,7 @@ func _active_rate_add(resource: String, delta: int, days: int, source: String):
 		expires = day + days - 1
 	active_rate_modifiers.append({"resource": resource, "delta": delta, "expires_day": expires, "source": source})
 	var sign = "+" if delta >= 0 else ""
-	post_news("Bilgi", "Üretim Etkisi", "%s için %s%d (kaynak: %s)" % [resource, sign, delta, source], Color(0.8,0.8,1))
+	post_news("world", tr("news.production_effect.title"), tr("news.production_effect.body") % [LocaleManager.get_resource_name(resource), sign, delta, source], Color(0.8, 0.8, 1), "info")
 
 # === YENİ TÜCCAR SİSTEMİ ===
 
@@ -3085,7 +2816,7 @@ func add_active_trader(origin_settlement: Dictionary, arrives_day: int, stays_da
 	product_text = product_text.substr(0, product_text.length() - 2)  # Son virgülü kaldır
 	
 	var type_name = _get_trader_type_name(trader_type)
-	post_news("Başarı", "💰 %s Geldi" % type_name, "%s köyünüze geldi! Satıyor: %s" % [trader_name, product_text], Color(0.8,1,0.8))
+	_post_news_tr("village", "news.trader_arrived.title", "news.trader_arrived.body", Color(0.8, 1, 0.8), "success", [type_name, trader_name, product_text])
 	
 	return trader
 
@@ -3272,7 +3003,7 @@ func buy_from_trader(trader_id: String, resource: String, quantity: int) -> bool
 	var relation_text = ""
 	if relation_gain > 1:
 		relation_text = " (+%d ilişki)" % relation_gain
-	post_news("Başarı", "Satın Alındı", "%d %s satın alındı (%d altın)%s" % [quantity, res_name, total_cost, relation_text], Color(0.8,1,0.8))
+	_post_news_tr("village", "news.purchase.title", "news.purchase.body", Color(0.8, 1, 0.8), "success", [], [quantity, res_name, total_cost, relation_text])
 	
 	return true
 
@@ -3287,7 +3018,7 @@ func _increase_settlement_relation(settlement_id: String, amount: int):
 		if amount > 0:
 			for s in settlements:
 				if s.get("id") == settlement_id:
-					post_news("Bilgi", "İlişki Artışı", "%s ile ilişkiler +%d arttı (Yeni: %d)" % [s.get("name", "?"), amount, int(s.get("relation", 0))], Color(0.8, 1, 0.8))
+					post_news("world", tr("news.relation_up.title"), tr("news.relation_up.body") % [s.get("name", "?"), amount, int(s.get("relation", 0))], Color(0.8, 1, 0.8), "info")
 					break
 		return
 	for s in settlements:
@@ -3296,7 +3027,7 @@ func _increase_settlement_relation(settlement_id: String, amount: int):
 			s["relation"] = clamp(old_relation + amount, 0, 100)
 			if amount > 0:
 				var settlement_name = s.get("name", "?")
-				post_news("Bilgi", "İlişki Artışı", "%s ile ilişkiler +%d arttı (Yeni: %d)" % [settlement_name, amount, s["relation"]], Color(0.8,1,0.8))
+				post_news("world", tr("news.relation_up.title"), tr("news.relation_up.body") % [settlement_name, amount, s["relation"]], Color(0.8, 1, 0.8), "info")
 			break
 
 # Kaynak isimlerini Türkçe'ye çevir
@@ -3354,7 +3085,7 @@ func _add_settlement_trade_modifier(partner: String, trade_multiplier: float, da
 		"reason": reason
 	})
 	var effect_text = "Ambargo" if blocked else ("İndirim x" + str(trade_multiplier))
-	post_news("Bilgi", "Ticaret Modu (%s)" % partner, "%s: %s gün" % [effect_text, str(days)], Color(0.9,0.95,1))
+	post_news("world", tr("news.trade_mode.title") % partner, tr("news.trade_mode.body") % [effect_text, str(days)], Color(0.9, 0.95, 1), "info")
 
 func create_settlements():
 	# Havuzdan isim + daha fazla komsu yerlesim (harita dolulugu / ekonomi icin)
@@ -3410,7 +3141,7 @@ func create_settlements():
 			"military": military,
 			"biases": biases
 		})
-	post_news("Bilgi", "Komşular Tanımlandı", "%d yerleşim keşfedildi" % settlements.size(), Color(0.8,1,0.8))
+	post_news("world", tr("news.neighbors_discovered.title"), tr("news.neighbors_discovered.body") % settlements.size(), Color(0.8, 1, 0.8), "info")
 	sync_settlement_relations_from_world_map()
 
 ## WM `get_relation("Köy", gorunen_ad)` [-100..100] -> MM liste UI/rota icin [0..100]
@@ -3680,7 +3411,7 @@ func _trigger_trade_caravan() -> void:
 	pass
 
 func _trigger_bandit_activity() -> void:
-	post_news("Uyarı", "Haydut Faaliyeti", "Yollarda haydutlar arttı. Ticaret riskli.", Color(1,0.8,0.8))
+	post_news("world", tr("news.bandit_activity.title"), tr("news.bandit_activity.body"), Color(1, 0.8, 0.8), "warning")
 	# Üretim cezaları (1-2 gün)
 	_active_rate_add("wood", -1, 2, "Haydut Faaliyeti")
 	_active_rate_add("stone", -1, 2, "Haydut Faaliyeti")
@@ -3692,13 +3423,13 @@ func _trigger_random_festival() -> void:
 		return
 	var s = settlements[randi() % settlements.size()]
 	var partner = s.get("name","?")
-	post_news("Başarı", "Festival", "%s'de bereket festivali! Pazarlar canlandı." % partner, Color(1,0.95,0.6))
+	post_news("village", tr("news.festival.title"), tr("news.festival.body") % partner, Color(1, 0.95, 0.6), "success")
 	# Ticarette indirim, gıdada küçük artı (2 gün)
 	_add_settlement_trade_modifier(partner, 0.9, 2, false, "festival")
 	_active_rate_add("food", 1, 2, "Festival")
 
 func _trigger_plague() -> void:
-	post_news("Uyarı", "Salgın", "Bölgede salgın yayıldı. Üretim düşüyor.", Color(1,0.6,0.6))
+	post_news("world", tr("news.plague.title"), tr("news.plague.body"), Color(1, 0.6, 0.6), "warning")
 	_active_rate_add("food", -1, 3, "Salgın")
 	_active_rate_add("wood", -1, 3, "Salgın")
 	# Yardım (ilaç/ikmal) görevi
@@ -3713,7 +3444,7 @@ func _trigger_embargo_between_settlements() -> void:
 		return
 	var pa = a.get("name","?")
 	var pb = b.get("name","?")
-	post_news("Uyarı", "Ticaret Ambargosu", "%s ile %s arasında ticaret askıya alındı." % [pa, pb], Color(1,0.8,0.8))
+	post_news("world", tr("news.embargo.title"), tr("news.embargo.body") % [pa, pb], Color(1, 0.8, 0.8), "warning")
 	_add_settlement_trade_modifier(pa, 1.0, 3, true, "embargo")
 	_add_settlement_trade_modifier(pb, 1.0, 3, true, "embargo")
 
@@ -3736,7 +3467,7 @@ func _create_escort_mission(partner: String) -> void:
 	m.status = Mission.Status.MEVCUT
 	missions[m.id] = m
 	mission_list_changed.emit()
-	post_news("Bilgi", "Görev: Kervan Eskortu", "Yeni görev listene eklendi.", Color(0.8,1,0.8))
+	post_news("village", tr("news.caravan_escort.title"), tr("news.caravan_escort.body"), Color(0.8, 1, 0.8), "info")
 
 func _create_bandit_missions() -> void:
 	_add_bandit_clear_mission()
@@ -3769,7 +3500,7 @@ func _add_bandit_clear_mission() -> void:
 	clear.status = Mission.Status.MEVCUT
 	missions[clear.id] = clear
 	mission_list_changed.emit()
-	post_news("Bilgi", "Haydut Temizliği", "Yollardaki haydutları temizlemek için görev listene eklendi. Asker ve cariye ile gönder.", Color(0.9, 0.9, 1.0))
+	post_news("village", tr("news.bandit_cleanup.title"), tr("news.bandit_cleanup.body"), Color(0.9, 0.9, 1.0), "info")
 
 func _create_aid_mission() -> void:
 	var aid = Mission.new()
@@ -3799,7 +3530,7 @@ func update_world_stability(change: int):
 	world_stability += change
 	world_stability = clamp(world_stability, 0, 100)
 	#print("🌍 Dünya istikrarı: " + str(world_stability))
-	post_news("Bilgi", "İstikrar Değişti", "Yeni istikrar: %d" % world_stability, Color(0.8,1,0.8))
+	post_news("world", tr("news.stability_changed.title"), tr("news.stability_changed.body") % world_stability, Color(0.8, 1, 0.8), "info")
 
 # Oyuncu seviyesine göre dinamik görev üretimi
 func generate_level_appropriate_missions() -> Array:
@@ -3912,7 +3643,7 @@ func create_raid_mission(target_settlement: String, day: int = 0, difficulty: St
 	next_mission_id += 1
 	
 	# Post news about raid opportunity
-	post_news("Görev", "Baskın Fırsatı", target_settlement + " yerleşimine baskın düzenleme fırsatı!", Color(1, 0.8, 0.8), "warning")
+	post_news("world", tr("news.raid_chance.title"), tr("news.raid_chance.body") % target_settlement, Color(1, 0.8, 0.8), "warning")
 	
 	print("⚔️ Baskın görevi oluşturuldu: %s (Gün: %d)" % [target_settlement, day])
 	
@@ -3969,11 +3700,14 @@ func _create_world_map_trade_mission(settlement_id: String, settlement_name: Str
 	next_mission_id += 1
 	mission.name = "Harita Ticaret: " + settlement_name
 	mission.description = settlement_name + " ile harita üzerinden ticaret görevi."
+	mission.locale_name_key = "mission.worldmap.trade.name"
+	mission.locale_desc_key = "mission.worldmap.trade.desc"
+	mission.locale_vars = {"target": settlement_name}
 	mission.target_location = settlement_name
 	mission.distance = max(1.0, float(distance))
 	mission.risk_level = "Düşük"
 	missions[mission.id] = mission
-	post_news("Bilgi", "Harita Ticaret Emri", "%s ile ticaret görevi oluşturuldu." % settlement_name, Color(0.8, 1, 0.8))
+	post_news("village", tr("news.map_trade_order.title"), tr("news.map_trade_order.body") % settlement_name, Color(0.8, 1, 0.8), "info")
 	if not settlement_id.is_empty():
 		_increase_settlement_relation(settlement_id, 1)
 	return {
@@ -3990,6 +3724,9 @@ func _create_world_map_diplomacy_mission(settlement_id: String, settlement_name:
 	next_mission_id += 1
 	mission.name = "Harita Diplomasi: " + settlement_name
 	mission.description = settlement_name + " ile ilişkileri geliştirmek için diplomatik heyet gönder."
+	mission.locale_name_key = "mission.worldmap.diplomacy.name"
+	mission.locale_desc_key = "mission.worldmap.diplomacy.desc"
+	mission.locale_vars = {"target": settlement_name}
 	mission.mission_type = Mission.MissionType.DİPLOMASİ
 	mission.difficulty = Mission.Difficulty.ORTA
 	mission.duration = 180.0 + float(max(0, distance) * 15)
@@ -4004,7 +3741,7 @@ func _create_world_map_diplomacy_mission(settlement_id: String, settlement_name:
 	mission.risk_level = "Düşük"
 	mission.status = Mission.Status.MEVCUT
 	missions[mission.id] = mission
-	post_news("Bilgi", "Harita Diplomasi Emri", "%s için diplomasi görevi oluşturuldu." % settlement_name, Color(0.9, 0.95, 1.0))
+	post_news("world", tr("news.map_diplomacy_order.title"), tr("news.map_diplomacy_order.body") % settlement_name, Color(0.9, 0.95, 1.0), "info")
 	if not settlement_id.is_empty():
 		_increase_settlement_relation(settlement_id, 2)
 	return {
@@ -4039,7 +3776,7 @@ func create_defense_mission(attacker: String, day: int = 0) -> Dictionary:
 	next_mission_id += 1
 	
 	# Post urgent news about defense
-	post_news("Acil", "Savunma Gerekli", attacker + " saldırısına karşı köyü savun!", Color(1, 0.3, 0.3), "critical")
+	_post_news_tr("world", "news.defense_required.title", "news.defense_required.body", Color(1, 0.3, 0.3), "critical", [], [attacker])
 	
 	print("🛡️ Savunma görevi oluşturuldu: %s (Gün: %d)" % [attacker, day])
 	
@@ -4225,9 +3962,7 @@ func _process_battle_results(mission: Dictionary, battle_result: Dictionary) -> 
 			pass
 		
 		# Post success news
-		var title: String = "Savaş Zaferi"
-		var content: String = mission.name + " başarıyla tamamlandı! Kazanç: " + str(gold_gain) + " altın"
-		post_news("Başarı", title, content, Color(0.3, 1.0, 0.3), "success")
+		post_news("village", tr("news.battle_victory.title"), tr("news.battle_victory.body") % [get_mission_display_name(mission), gold_gain], Color(0.3, 1.0, 0.3), "success")
 		
 		# Update world stability
 		world_stability = min(100, world_stability + 5)
@@ -4246,9 +3981,7 @@ func _process_battle_results(mission: Dictionary, battle_result: Dictionary) -> 
 			world_stability = max(0, world_stability - stability_penalty)
 		
 		# Post failure news
-		var title: String = "Savaş Yenilgisi"
-		var content: String = mission.name + " başarısız oldu. Kayıp: " + str(gold_loss) + " altın"
-		post_news("Uyarı", title, content, Color(1.0, 0.3, 0.3), "critical")
+		post_news("world", tr("news.battle_defeat.title"), tr("news.battle_defeat.body") % [get_mission_display_name(mission), gold_loss], Color(1.0, 0.3, 0.3), "critical")
 		
 		# Update world stability
 		world_stability = max(0, world_stability - 10)
@@ -4267,7 +4000,7 @@ func _on_unit_losses(unit_type: String, losses: int) -> void:
 	
 	# Post news about losses
 	if losses > 0:
-		post_news("Uyarı", "Asker Kaybı", str(losses) + " " + unit_type + " kaybedildi", Color(1.0, 0.7, 0.3), "warning")
+		post_news("world", tr("news.unit_loss.title"), tr("news.unit_loss.body") % [losses, unit_type], Color(1.0, 0.7, 0.3), "warning")
 
 func _on_equipment_consumed(equipment_type: String, amount: int) -> void:
 	"""Handle equipment consumption signal from CombatResolver"""
@@ -4517,11 +4250,93 @@ func _apply_village_defeat_effects(mission: Dictionary) -> void:
 			# Basit bir hasar alanı varsa düşür; yoksa sadece haber at
 			if b and b.has("health"):
 				b.health = max(1, int(b.health) - 1)
-				post_news("Uyarı", "Bina Hasar Aldı", "%s hasar aldı." % (b.name), Color(1,0.7,0.5), "warning")
+				post_news("world", tr("news.building_damaged.title"), tr("news.building_damaged.body") % b.name, Color(1, 0.7, 0.5), "warning")
 			else:
-				post_news("Uyarı", "Bina Zarar Gördü", "%s hasar gördü." % (b.name), Color(1,0.7,0.5), "warning")
+				post_news("world", tr("news.building_hurt.title"), tr("news.building_hurt.body") % b.name, Color(1, 0.7, 0.5), "warning")
 
-	# 4) Haber
-	var title := "Savunma Kaybı"
-	var content := "Düşman saldırısı püskürtülemedi. Kaynakların bir kısmı yağmalandı."
-	post_news("Uyarı", title, content, Color(1.0, 0.5, 0.4), "critical")
+	post_news("world", tr("news.defense_lost.title"), tr("news.defense_lost.body"), Color(1.0, 0.5, 0.4), "critical")
+
+
+func get_mission_display_name(mission: Variant) -> String:
+	if mission == null:
+		return "?"
+	if mission is Mission:
+		if not mission.locale_name_key.is_empty():
+			return _tr_mission_template(mission.locale_name_key, mission.locale_vars)
+		return LocaleManager.get_mission_text(mission.id, "name", mission.name)
+	if mission is Dictionary:
+		var mid := str(mission.get("id", ""))
+		var fallback := str(mission.get("name", "?"))
+		if mid.is_empty():
+			return fallback
+		return LocaleManager.get_mission_text(mid, "name", fallback)
+	return str(mission)
+
+
+func get_mission_display_description(mission: Variant) -> String:
+	if mission == null:
+		return ""
+	if mission is Mission:
+		if not mission.locale_desc_key.is_empty():
+			return _tr_mission_template(mission.locale_desc_key, mission.locale_vars)
+		return LocaleManager.get_mission_text(mission.id, "desc", mission.description)
+	if mission is Dictionary:
+		var mid := str(mission.get("id", ""))
+		var fallback := str(mission.get("description", ""))
+		if mid.is_empty():
+			return fallback
+		return LocaleManager.get_mission_text(mid, "desc", fallback)
+	return ""
+
+
+func _tr_mission_template(key: String, var_keys: Dictionary = {}) -> String:
+	if key.is_empty():
+		return ""
+	var text := tr(key)
+	for ph in var_keys:
+		var vk := str(var_keys[ph])
+		var val: String
+		if vk.begins_with("mission.") or vk.begins_with("wm.") or vk.begins_with("resource."):
+			val = tr(vk)
+			if val == vk:
+				val = vk
+		else:
+			val = WorldSettlementNames.localize_name(vk)
+		text = text.replace("{%s}" % ph, val)
+	return text
+
+
+func get_world_event_display_name(event: Dictionary) -> String:
+	var id := str(event.get("id", ""))
+	if id.is_empty():
+		return str(event.get("name", tr("mc.news.event.unknown")))
+	var tkey := "world_event.%s.name" % id
+	var text := tr(tkey)
+	return text if text != tkey else str(event.get("name", ""))
+
+
+func get_world_event_display_description(event: Dictionary) -> String:
+	var id := str(event.get("id", ""))
+	if id.is_empty():
+		return str(event.get("description", tr("mc.news.event.no_description")))
+	var tkey := "world_event.%s.desc" % id
+	var text := tr(tkey)
+	return text if text != tkey else str(event.get("description", ""))
+
+
+func _post_news_tr(
+	category: String,
+	title_key: String,
+	content_key: String,
+	color: Color = Color.WHITE,
+	subcategory: String = "info",
+	title_args: Array = [],
+	content_args: Array = []
+) -> void:
+	var title := tr(title_key)
+	var content := tr(content_key)
+	if not title_args.is_empty():
+		title = title % title_args
+	if not content_args.is_empty():
+		content = content % content_args
+	post_news(category, title, content, color, subcategory)

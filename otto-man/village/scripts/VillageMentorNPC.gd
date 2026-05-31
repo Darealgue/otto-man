@@ -427,11 +427,11 @@ func _on_conversation_finished() -> void:
 	match tm.village_core_step:
 		0:
 			tm.village_core_step = 1
-			tm.set_objective("{map} ile haritayı aç, {move} ile ormana git, {hex_enter} ile gir")
+			tm.set_objective(tr("tutorial.village.objective_forest"))
 		1:
 			tm.village_core_step = 2
 			tm.village_menu_phase = 0
-			tm.set_objective("Kamp ateşine git, {ui_up} ile menüyü aç")
+			tm.set_objective(tr("tutorial.village.objective_campfire"))
 
 
 func _on_input_device_changed(_is_joypad: bool) -> void:

@@ -199,33 +199,33 @@ func get_skill_level(skill: Skill) -> int:
 # Yetenek adı
 func get_skill_name(skill: Skill) -> String:
 	match skill:
-		Skill.SAVAŞ: return "Savaş"
-		Skill.DİPLOMASİ: return "Diplomasi"
-		Skill.TİCARET: return "Ticaret"
-		Skill.BÜROKRASİ: return "Bürokrasi"
-		Skill.KEŞİF: return "Keşif"
-		_: return "Bilinmeyen"
+		Skill.SAVAŞ: return tr("concubine.skill.combat")
+		Skill.DİPLOMASİ: return tr("concubine.skill.diplomacy")
+		Skill.TİCARET: return tr("concubine.skill.trade")
+		Skill.BÜROKRASİ: return tr("concubine.skill.bureaucracy")
+		Skill.KEŞİF: return tr("concubine.skill.exploration")
+		_: return tr("common.unknown")
 
 # Durum adı
 func get_status_name() -> String:
 	match status:
-		Status.BOŞTA: return "Boşta"
-		Status.GÖREVDE: return "Görevde"
-		Status.YARALI: return "Yaralı"
-		Status.DİNLENİYOR: return "Dinleniyor"
-		_: return "Bilinmeyen"
+		Status.BOŞTA: return tr("concubine.status.idle")
+		Status.GÖREVDE: return tr("concubine.status.on_mission")
+		Status.YARALI: return tr("concubine.status.injured")
+		Status.DİNLENİYOR: return tr("concubine.status.resting")
+		_: return tr("common.unknown")
 
 # Rol adı
 func get_role_name() -> String:
 	match role:
-		Role.NONE: return "Rol Yok"
-		Role.KOMUTAN: return "Komutan"
-		Role.AJAN: return "Ajan"
-		Role.DİPLOMAT: return "Diplomat"
-		Role.TÜCCAR: return "Tüccar"
-		Role.ALIM: return "Alim"
-		Role.TIBBIYECI: return "Tibbiyeci"
-		_: return "Bilinmeyen"
+		Role.NONE: return tr("concubine.role.none")
+		Role.KOMUTAN: return tr("concubine.role.commander")
+		Role.AJAN: return tr("concubine.role.agent")
+		Role.DİPLOMAT: return tr("concubine.role.diplomat")
+		Role.TÜCCAR: return tr("concubine.role.trader")
+		Role.ALIM: return tr("concubine.role.scholar")
+		Role.TIBBIYECI: return tr("concubine.role.medic")
+		_: return tr("common.unknown")
 
 # En yüksek yetenek
 func get_best_skill() -> Skill:
