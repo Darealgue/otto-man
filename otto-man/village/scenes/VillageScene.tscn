@@ -62,7 +62,7 @@
 [ext_resource type="PackedScene" uid="uid://cl10qm6gmpk7a" path="res://village/scenes/FlyingLeaf.tscn" id="57_fleaf"]
 [ext_resource type="Script" path="res://village/scripts/VillageCatsController.gd" id="58_catscript"]
 [ext_resource type="PackedScene" uid="uid://cxyn815633j7p" path="res://village/scenes/CatPrototype.tscn" id="59_cat"]
-[ext_resource type="PackedScene" path="res://village/scenes/VillageMentorNPC.tscn" id="60_mentor"]
+[ext_resource type="PackedScene" uid="uid://ydham2u2pa1y" path="res://village/scenes/VillageMentorNPC.tscn" id="60_mentor"]
 [ext_resource type="Script" path="res://village/scripts/VillageMentorController.gd" id="61_mentorctl"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_pfood"]

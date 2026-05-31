@@ -318,6 +318,9 @@ func _ready() -> void:
 	# İsmi güncelle
 	update_concubine_name()
 	
+	if name_plate_container:
+		NpcOverheadUi.apply_frameless_nameplate(name_plate_container)
+	
 	# NamePlate scale'ini başlangıçta ayarla
 	if name_plate_container:
 		if scale.x < 0:
@@ -342,6 +345,7 @@ func _ready_dungeon_prisoner() -> void:
 		play_animation("idle")
 	update_concubine_name()
 	if name_plate_container:
+		NpcOverheadUi.apply_frameless_nameplate(name_plate_container)
 		name_plate_container.visible = true
 		# Görsel olarak biraz daha aşağı dursun (fizik pozisyonu bozmadan)
 		if is_instance_valid(body_sprite):

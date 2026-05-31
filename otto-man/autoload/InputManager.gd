@@ -840,6 +840,15 @@ func get_tutorial_interact_hint() -> String:
 	return get_action_key_name(&"interact")
 
 
+func get_tutorial_cancel_hint() -> String:
+	if last_input_from_joypad:
+		var g := _tutorial_joypad_glyph_for_action(&"ui_cancel", "default")
+		if not g.is_empty():
+			return g
+		return "B"
+	return get_action_key_name(&"ui_cancel")
+
+
 func get_tutorial_page_left_hint() -> String:
 	if last_input_from_joypad:
 		# Sayfa gezinme L2 tetikleyicisi (InputMap'teki düğme indeksleri yanıltıcı).

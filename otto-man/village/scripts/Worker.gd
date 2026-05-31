@@ -12,6 +12,7 @@ const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd"
 
 var worker_id: int = -1 # VillageManager tarafından atanacak
 var is_dungeon_prisoner: bool = false # Zindan kurtarma odasında sadece görsel; AI yok
+var _interact_hold_ring: NpcInteractHoldRing = null
 # Zindan mahkûmu: yerçekimi + basit platformer hareketi
 var dungeon_floor_y: float = -1.0   # -1 = henüz ayarlanmadı (sadece fallback)
 var dungeon_spawn_x: float = 0.0   # Yatay hareket merkezi
@@ -615,11 +616,16 @@ func _ready() -> void:
 	# <<< YENİ SONU >>>
 	
 	if $InteractButton:
-		var key_name = InputManager.get_interact_key_name()
-		$InteractButton.text = _format_key_name(key_name)
+		var name_label: Label = $NamePlateContainer.get_node_or_null("NamePlate") as Label
+		NpcOverheadUi.apply_frameless_interact_button($InteractButton, name_label)
+		_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, $InteractButton)
+		_update_interact_button_text()
+		var im := get_node_or_null("/root/InputManager")
+		if im and im.has_signal("input_device_changed") and not im.input_device_changed.is_connected(_on_input_device_changed):
+			im.input_device_changed.connect(_on_input_device_changed)
 	
-	# NamePlate'i varsayılan olarak görünmez yap (sadece en yakın NPC'nin ismi görünecek)
 	if $NamePlateContainer:
+		NpcOverheadUi.apply_frameless_nameplate($NamePlateContainer)
 		$NamePlateContainer.visible = false
 	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
 
@@ -630,6 +636,7 @@ func _ready_dungeon_prisoner() -> void:
 	if NPC_Info.has("Info") and NPC_Info["Info"].has("Name"):
 		Update_Villager_Name()
 	if $NamePlateContainer:
+		NpcOverheadUi.apply_frameless_nameplate($NamePlateContainer)
 		$NamePlateContainer.visible = true
 		# Görsel olarak biraz daha aşağı dursun (fizik pozisyonu bozmadan)
 		$BodySprite.position.y += 3
@@ -822,10 +829,14 @@ func _physics_process(delta: float) -> void:
 	if scale.x < 0:
 		$NamePlateContainer.scale.x = -1
 		$InteractButton.scale.x = -1
+		if _interact_hold_ring:
+			_interact_hold_ring.scale.x = -1
 		$NpcWindow.scale.x = -1
 	else:
 		$NamePlateContainer.scale.x = 1
 		$InteractButton.scale.x = 1
+		if _interact_hold_ring:
+			_interact_hold_ring.scale.x = 1
 		$NpcWindow.scale.x = 1
 	# <<< YENİ: Mevcut Duruma Göre Animasyon Belirleme >>>
 	var target_anim = "idle" # Varsayılan animasyon
@@ -2592,42 +2603,36 @@ func _choose_next_idle_activity():
 	return chosen_activity
 # <<< YENİ SONU >>>
 
-func _format_key_name(key_name: String) -> String:
-	# Convert numpad keys (KP 8, KP8, KP_8, etc.) to Num8 format
-	if key_name.begins_with("KP"):
-		var num_part = key_name.trim_prefix("KP")
-		# Remove spaces, underscores, and other separators
-		num_part = num_part.replace(" ", "").replace("_", "").strip_edges()
-		if num_part.is_valid_int():
-			return "Num" + num_part
-		# If it's not a valid int, try to extract just the number
-		var extracted_num = ""
-		for char in num_part:
-			if char.is_valid_int():
-				extracted_num += char
-		if extracted_num != "":
-			return "Num" + extracted_num
-		return "Num" + num_part
-	
-	# Convert arrow symbols to text
-	match key_name:
-		"↑": return "Up"
-		"↓": return "Down"
-		"←": return "Left"
-		"→": return "Right"
-		_: return key_name
+func _update_interact_button_text() -> void:
+	if $InteractButton:
+		$InteractButton.text = NpcOverheadUi.get_interact_hint_text()
+
+
+func set_interact_hold_progress(ratio: float) -> void:
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(ratio)
+
+
+func _on_input_device_changed(_is_joypad: bool) -> void:
+	if $InteractButton and $InteractButton.visible:
+		_update_interact_button_text()
+
 
 func ShowInteractButton():
 	if is_dungeon_prisoner:
 		return
 	if $InteractButton:
-		var key_name = InputManager.get_interact_key_name()
-		$InteractButton.text = _format_key_name(key_name)
+		_update_interact_button_text()
 		$InteractButton.show()
+	if _interact_hold_ring:
+		_interact_hold_ring.sync_to_button($InteractButton)
+		_interact_hold_ring.set_progress(0.0)
 
 func HideInteractButton():
 	if $InteractButton:
 		$InteractButton.hide()
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(0.0)
 
 func _on_interact_button_pressed() -> void:
 	if is_dungeon_prisoner:

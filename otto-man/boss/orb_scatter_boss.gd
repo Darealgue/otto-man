@@ -22,10 +22,11 @@ const SCATTER_ANGLE_OFFSET := PI / 8.0
 @export var scatter_telegraph_time: float = 0.55
 @export var pause_after_scatter: float = 0.9
 @export var charge_damage: float = 18.0
+@export var contact_damage: float = 14.0
 @export var charge_speed: float = 900.0
 @export var charge_dash_count: int = 4
 @export var charge_telegraph_time: float = 0.28
-@export var charge_dash_time: float = 0.36
+@export var charge_dash_time: float = 0.72
 @export var pause_after_charge: float = 0.75
 
 var health: float = 500.0
@@ -50,6 +51,7 @@ var _is_charging: bool = false
 var _charge_direction: Vector2 = Vector2.ZERO
 var _charge_dashes_remaining: int = 0
 var _charge_hitbox: Area2D = null
+var _contact_hitbox: Area2D = null
 
 var _anchor_points: Array[Vector2] = [
 	Vector2(360.0, 260.0),
@@ -69,7 +71,7 @@ func _ready() -> void:
 	health = max_health
 	_setup_hurtbox()
 	_build_placeholder_visual()
-	_build_charge_hitbox()
+	_build_contact_hitbox()
 	_health_emit_changed()
 
 
@@ -113,11 +115,13 @@ func finish_intro() -> void:
 	if state == BossState.DEFEATED:
 		return
 	state = BossState.ACTIVE
+	_update_contact_hitbox()
 
 
 func enter_vulnerability(duration: float) -> void:
 	if state == BossState.DEFEATED:
 		return
+	_set_contact_hitbox_active(false)
 	state = BossState.VULNERABLE
 	is_vulnerable = true
 	_set_hurtbox_active(true)
@@ -193,7 +197,7 @@ func _die() -> void:
 	state = BossState.DEFEATED
 	is_vulnerable = false
 	_set_hurtbox_active(false)
-	_set_charge_hitbox_active(false)
+	_set_contact_hitbox_active(false)
 	_apply_vulnerable_visual(false)
 	_on_defeated()
 	enemy_defeated.emit()
@@ -260,31 +264,52 @@ func _build_placeholder_visual() -> void:
 	visual_root.add_child(eye_r)
 
 
-func _build_charge_hitbox() -> void:
-	_charge_hitbox = Area2D.new()
-	_charge_hitbox.set_script(ENEMY_HITBOX_SCRIPT)
-	_charge_hitbox.name = "ChargeHitbox"
-	_charge_hitbox.damage = charge_damage
-	_charge_hitbox.knockback_force = 300.0
-	_charge_hitbox.knockback_up_force = 140.0
-	add_child(_charge_hitbox)
+func _build_contact_hitbox() -> void:
+	_contact_hitbox = Area2D.new()
+	_contact_hitbox.set_script(ENEMY_HITBOX_SCRIPT)
+	_contact_hitbox.name = "ContactHitbox"
+	_contact_hitbox.damage = contact_damage
+	_contact_hitbox.knockback_force = 260.0
+	_contact_hitbox.knockback_up_force = 120.0
+	add_child(_contact_hitbox)
 
 	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = Vector2(112.0, 96.0)
-	shape.shape = rect
-	_charge_hitbox.add_child(shape)
-	_charge_hitbox.setup_attack("boss_charge", false, 0.0)
-	_set_charge_hitbox_active(false)
+	var circle := CircleShape2D.new()
+	circle.radius = 78.0
+	shape.shape = circle
+	_contact_hitbox.add_child(shape)
+	_contact_hitbox.setup_attack("boss_contact", false, 0.0)
+	_set_contact_hitbox_active(false)
+
+	# Charge dash sırasında biraz daha geniş hitbox (aynı düğüm, boyut güncellenir).
+	_charge_hitbox = _contact_hitbox
+
+
+func _set_contact_hitbox_active(active: bool, use_charge_damage: bool = false) -> void:
+	if not is_instance_valid(_contact_hitbox):
+		return
+	if active:
+		_contact_hitbox.damage = charge_damage if use_charge_damage else contact_damage
+		_contact_hitbox.enable()
+	else:
+		_contact_hitbox.disable()
+
+
+func _update_contact_hitbox() -> void:
+	if state != BossState.ACTIVE or is_vulnerable:
+		_set_contact_hitbox_active(false)
+		return
+	_set_contact_hitbox_active(true, _is_charging)
 
 
 func _set_charge_hitbox_active(active: bool) -> void:
-	if not is_instance_valid(_charge_hitbox):
+	if not is_instance_valid(_contact_hitbox):
 		return
 	if active:
-		_charge_hitbox.enable()
+		_contact_hitbox.damage = charge_damage
+		_contact_hitbox.enable()
 	else:
-		_charge_hitbox.disable()
+		_update_contact_hitbox()
 
 
 func _start_fight() -> void:
@@ -300,6 +325,8 @@ func _on_intro_complete() -> void:
 
 
 func _process_active(delta: float) -> void:
+	_update_contact_hitbox()
+
 	if _is_charging:
 		return
 
@@ -449,11 +476,57 @@ func _end_charge_sequence() -> void:
 	pause_timer.timeout.connect(_finish_attack)
 
 
+func _get_player_position() -> Vector2:
+	for node in get_tree().get_nodes_in_group("player"):
+		if not is_instance_valid(node):
+			continue
+		if node.has_method("is_decoy") and node.is_decoy():
+			continue
+		return node.global_position
+	return Vector2.INF
+
+
 func _pick_charge_direction() -> Vector2:
+	var player_pos := _get_player_position()
+	if player_pos == Vector2.INF:
+		return _pick_random_cardinal_direction()
+
+	var to_player := player_pos - global_position
+	if to_player.length_squared() < 64.0:
+		return _pick_random_cardinal_direction()
+
+	var to_player_norm := to_player.normalized()
+	var candidates: Array[Vector2] = [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]
+	candidates.sort_custom(func(a: Vector2, b: Vector2) -> bool:
+		return a.dot(to_player_norm) > b.dot(to_player_norm)
+	)
+
+	var min_travel := charge_speed * charge_dash_time * 0.3
+	for dir in candidates:
+		if _charge_direction != Vector2.ZERO and dir.is_equal_approx(-_charge_direction):
+			continue
+		if _estimate_charge_travel(dir) >= min_travel:
+			return dir
+
+	for dir in candidates:
+		if _charge_direction != Vector2.ZERO and dir.is_equal_approx(-_charge_direction):
+			continue
+		return dir
+
+	return _pick_random_cardinal_direction()
+
+
+func _pick_random_cardinal_direction() -> Vector2:
 	var options: Array[Vector2] = [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]
 	if _charge_direction != Vector2.ZERO:
 		options.erase(-_charge_direction)
 	return options[randi() % options.size()]
+
+
+func _estimate_charge_travel(dir: Vector2) -> float:
+	var target := global_position + dir * charge_speed * charge_dash_time
+	target = _clamp_to_arena(target, 72.0)
+	return global_position.distance_to(target)
 
 
 func _clamp_to_arena(point: Vector2, margin: float) -> Vector2:

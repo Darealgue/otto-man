@@ -112,6 +112,8 @@ var diplomacy_page: Control = null
 
 var _page_nav_hint_left: Label = null
 var _page_nav_hint_right: Label = null
+var _back_nav_hint_label: Label = null
+var _back_hold_ring: NpcInteractHoldRing = null
 
 # Sayfa göstergesi referansları
 @onready var page_dot1: Panel = $PageIndicator/PageDot1
@@ -380,6 +382,7 @@ func _ready():
 	call_deferred("_apply_parchment_panels")
 	call_deferred("_apply_text_outlines")
 	call_deferred("_ensure_page_nav_hints")
+	call_deferred("_ensure_back_nav_hint")
 
 	var im := get_node_or_null("/root/InputManager")
 	if im and im.has_signal("input_device_changed"):
@@ -674,7 +677,9 @@ func _process(delta):
 		b_button_timer += delta
 		if b_button_timer >= b_button_hold_time:
 			b_button_pressed = false
+			b_button_timer = 0.0
 			close_menu()
+	_update_back_hold_ring()
 
 	# D-Pad debounce timer'ı
 	if dpad_debounce_timer > 0:
@@ -4400,6 +4405,7 @@ func _input(event):
 	
 	if event.is_action_released("ui_cancel") or event.is_action_released("ui_back") or event.is_action_released("dash"):
 		b_button_pressed = false
+		b_button_timer = 0.0
 	
 	# L2/R2 ile sayfa değiştirme
 	# Her iki aksiyon adını da destekle (proje: l2_trigger/r2_trigger)
@@ -8281,6 +8287,7 @@ func open_menu():
 	update_news_ui()
 	print("[DEBUG_MC] open_menu: Bitti")
 	_ensure_page_nav_hints()
+	_ensure_back_nav_hint()
 	_notify_village_tutorial("tutorial_on_campfire_menu_opened")
 	_update_unread_badge()
 
@@ -8295,7 +8302,10 @@ func close_menu():
 	if trader_buy_popup_open:
 		_close_trader_buy_popup()
 	visible = false
+	b_button_pressed = false
+	b_button_timer = 0.0
 	_refresh_page_nav_hints()
+	_refresh_back_nav_hint()
 	unlock_player()
 	# Fallback pause kapat
 	get_tree().paused = false
@@ -8983,6 +8993,69 @@ func _refresh_page_nav_hints() -> void:
 
 func _on_input_device_changed_page_hints(_device: int) -> void:
 	_refresh_page_nav_hints()
+	_refresh_back_nav_hint()
+
+
+func _ensure_back_nav_hint() -> void:
+	if _back_nav_hint_label == null:
+		_back_nav_hint_label = Label.new()
+		_back_nav_hint_label.name = "BackNavHint"
+		_back_nav_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_back_nav_hint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_back_nav_hint_label.offset_left = -48.0
+		_back_nav_hint_label.offset_right = 48.0
+		_back_nav_hint_label.offset_bottom = -20.0
+		_back_nav_hint_label.offset_top = -52.0
+		_back_nav_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_back_nav_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		TextOutline.apply_font_to_control(_back_nav_hint_label)
+		_back_nav_hint_label.add_theme_font_size_override("font_size", 18)
+		_back_nav_hint_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.65, 1.0))
+		_back_nav_hint_label.add_theme_color_override("font_outline_color", Color(0.1, 0.08, 0.05, 0.9))
+		_back_nav_hint_label.add_theme_constant_override("outline_size", 3)
+		add_child(_back_nav_hint_label)
+		_back_hold_ring = NpcInteractHoldRing.new()
+		_back_hold_ring.name = "BackHoldRing"
+		add_child(_back_hold_ring)
+	_refresh_back_nav_hint()
+
+
+func _refresh_back_nav_hint() -> void:
+	if _back_nav_hint_label == null:
+		return
+	var im := get_node_or_null("/root/InputManager")
+	if im != null and im.has_method("get_tutorial_cancel_hint"):
+		_back_nav_hint_label.text = im.get_tutorial_cancel_hint()
+	else:
+		_back_nav_hint_label.text = InputManager.get_cancel_key_name()
+	_back_nav_hint_label.visible = visible
+	if _back_hold_ring:
+		_back_hold_ring.set_progress(0.0)
+	call_deferred("_sync_back_hold_ring_position")
+
+
+func _sync_back_hold_ring_position() -> void:
+	if _back_nav_hint_label == null or _back_hold_ring == null:
+		return
+	_back_hold_ring.sync_to_control(_back_nav_hint_label)
+
+
+func _is_back_hold_input_down() -> bool:
+	return Input.is_action_pressed("ui_cancel") or Input.is_action_pressed("ui_back") or Input.is_action_pressed("dash")
+
+
+func _update_back_hold_ring() -> void:
+	if _back_hold_ring == null:
+		return
+	if not visible:
+		_back_hold_ring.set_progress(0.0)
+		return
+	_sync_back_hold_ring_position()
+	if b_button_pressed and _is_back_hold_input_down():
+		var ratio := clampf(b_button_timer / b_button_hold_time, 0.0, 1.0)
+		_back_hold_ring.set_progress(ratio)
+	else:
+		_back_hold_ring.set_progress(0.0)
 
 
 func _notify_village_tutorial(method: StringName, arg: Variant = null) -> void:

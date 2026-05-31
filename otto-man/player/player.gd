@@ -132,6 +132,12 @@ var counter_knockback_bonus: float = 0.35  # +35% knockback during counter
 
 # Etkileşim için değişkenler (YENİ - physics_process'e dokunmadan)
 var overlapping_interactables: Array[Area2D] = []
+const VILLAGE_NPC_HOLD_DURATION := 0.4
+## Kısa basmalarda halka çıkmasın diye geri bildirim gecikmesi (tap/hold ayrımı).
+const VILLAGE_NPC_HOLD_FEEDBACK_DELAY := 0.12
+var _village_interact_hold_active := false
+var _village_interact_hold_time := 0.0
+var _village_npc_hold_fired := false
 
 # Zaman yavaşladığında oyuncu daha az yavaşlar (Zaman Durdurucu: 1.5 = %50 daha az yavaş)
 var time_slow_player_multiplier: float = 1.0
@@ -311,14 +317,12 @@ func _input(event: InputEvent) -> void:
 			elif event.is_action("attack"): act = "attack"
 			# print("[Player] Input blocked due to UI lock -> ", act)
 		return
-	if VillageManager.active_dialogue_npc != null:
-		if event.is_action_pressed("interact"):
-			VillageManager.active_dialogue_npc._on_interact_button_pressed()
 func _physics_process(delta):
 	# Stop all updates if dead
 	if is_dead:
 		velocity = Vector2.ZERO
 		apply_move_and_slide()
+		_reset_village_interact_hold()
 		return
 	
 	# Stop all player updates while UI is locked
@@ -335,10 +339,14 @@ func _physics_process(delta):
 		# Ensure we don't move
 		velocity = Vector2.ZERO
 		apply_move_and_slide()
+		_reset_village_interact_hold()
 		return
 	elif _ui_lock_logged_once:
 		# print("[Player] UI lock released - controls restored")
 		_ui_lock_logged_once = false
+	
+	_process_village_interactions(delta)
+	
 	# Update attack cooldown timer
 	if attack_cooldown_timer > 0:
 		attack_cooldown_timer -= delta
@@ -1682,35 +1690,116 @@ func is_in_combat_state() -> bool:
 	return is_in_combat
 
 # Input Handling (YENİ - physics_process yerine)
-func _unhandled_input(event: InputEvent) -> void:
-	# Block all unhandled input when UI is locked or menu is open
-	if _ui_locked or _is_any_menu_open():
-		return
-	
-	# ui_up: Campfire + Mentor etkileşimi
-	if event.is_action_pressed("ui_up") and not overlapping_interactables.is_empty():
-		var interactable_node: Node = null
-		var best_dist: float = INF
-		for i in range(overlapping_interactables.size() - 1, -1, -1):
-			var candidate_area: Area2D = overlapping_interactables[i]
-			if not is_instance_valid(candidate_area):
-				overlapping_interactables.remove_at(i)
-				continue
-			var candidate_node = candidate_area.get_parent()
-			if not is_instance_valid(candidate_node) or not candidate_node.has_method("interact"):
-				continue
-			if candidate_node.is_in_group("NPC"):
-				continue
-			if candidate_node.has_method("can_interact") and not candidate_node.can_interact():
-				continue
-			var dist: float = global_position.distance_to(candidate_node.global_position)
-			if dist < best_dist:
-				best_dist = dist
-				interactable_node = candidate_node
-		if interactable_node:
-			interactable_node.interact()
-			get_viewport().set_input_as_handled()
-			return
+func _process_village_interactions(delta: float) -> void:
+	var im := get_node_or_null("/root/InputManager")
+	if im != null and im.last_input_from_joypad:
+		_process_village_interactions_joypad(delta)
+	else:
+		_process_village_interactions_keyboard(delta)
+	_update_npc_interact_hold_visual(_get_npc_hold_progress())
+
+
+func _process_village_interactions_keyboard(delta: float) -> void:
+	if Input.is_action_pressed("interact"):
+		if not _village_interact_hold_active:
+			_village_interact_hold_active = true
+			_village_interact_hold_time = 0.0
+			_village_npc_hold_fired = false
+		_village_interact_hold_time += delta
+		if not _village_npc_hold_fired and _village_interact_hold_time >= VILLAGE_NPC_HOLD_DURATION:
+			if _try_hold_npc_interact():
+				_village_npc_hold_fired = true
+	elif _village_interact_hold_active:
+		_reset_village_interact_hold()
+	if Input.is_action_just_pressed("ui_up"):
+		_try_tap_world_interact()
+
+
+func _process_village_interactions_joypad(delta: float) -> void:
+	var down := Input.is_action_pressed("interact") or Input.is_action_pressed("ui_up")
+	if down:
+		if not _village_interact_hold_active:
+			_village_interact_hold_active = true
+			_village_interact_hold_time = 0.0
+			_village_npc_hold_fired = false
+		_village_interact_hold_time += delta
+		if not _village_npc_hold_fired and _village_interact_hold_time >= VILLAGE_NPC_HOLD_DURATION:
+			if _try_hold_npc_interact():
+				_village_npc_hold_fired = true
+	elif _village_interact_hold_active:
+		if not _village_npc_hold_fired and _village_interact_hold_time < VILLAGE_NPC_HOLD_DURATION:
+			_try_tap_world_interact()
+		_reset_village_interact_hold()
+
+
+func _reset_village_interact_hold() -> void:
+	_village_interact_hold_active = false
+	_village_interact_hold_time = 0.0
+	_village_npc_hold_fired = false
+	_update_npc_interact_hold_visual(0.0)
+
+
+func _get_npc_hold_progress() -> float:
+	if VillageManager.active_dialogue_npc == null:
+		return 0.0
+	if _village_npc_hold_fired or not _village_interact_hold_active:
+		return 0.0
+	if _village_interact_hold_time < VILLAGE_NPC_HOLD_FEEDBACK_DELAY:
+		return 0.0
+	var fill_window := VILLAGE_NPC_HOLD_DURATION - VILLAGE_NPC_HOLD_FEEDBACK_DELAY
+	if fill_window <= 0.0:
+		return 1.0
+	return clampf((_village_interact_hold_time - VILLAGE_NPC_HOLD_FEEDBACK_DELAY) / fill_window, 0.0, 1.0)
+
+
+func _update_npc_interact_hold_visual(ratio: float) -> void:
+	for npc in VillageManager.dialogue_npcs:
+		if not is_instance_valid(npc) or not npc.has_method("set_interact_hold_progress"):
+			continue
+		var npc_ratio := ratio
+		if npc != VillageManager.active_dialogue_npc:
+			npc_ratio = 0.0
+		npc.set_interact_hold_progress(npc_ratio)
+
+
+func _try_hold_npc_interact() -> bool:
+	var npc = VillageManager.active_dialogue_npc
+	if npc == null or not is_instance_valid(npc):
+		return false
+	if not npc.has_method("_on_interact_button_pressed"):
+		return false
+	npc._on_interact_button_pressed()
+	return true
+
+
+func _find_best_tap_interactable() -> Node:
+	if overlapping_interactables.is_empty():
+		return null
+	var interactable_node: Node = null
+	var best_dist: float = INF
+	for i in range(overlapping_interactables.size() - 1, -1, -1):
+		var candidate_area: Area2D = overlapping_interactables[i]
+		if not is_instance_valid(candidate_area):
+			overlapping_interactables.remove_at(i)
+			continue
+		var candidate_node = candidate_area.get_parent()
+		if not is_instance_valid(candidate_node) or not candidate_node.has_method("interact"):
+			continue
+		if candidate_node.is_in_group("NPC"):
+			continue
+		if candidate_node.has_method("can_interact") and not candidate_node.can_interact():
+			continue
+		var dist: float = global_position.distance_to(candidate_node.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			interactable_node = candidate_node
+	return interactable_node
+
+
+func _try_tap_world_interact() -> void:
+	var interactable_node := _find_best_tap_interactable()
+	if interactable_node:
+		interactable_node.interact()
 
 # Handle hitbox hit events
 func _on_hitbox_hit(enemy: Node) -> void:
