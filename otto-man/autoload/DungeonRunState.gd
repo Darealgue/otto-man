@@ -14,6 +14,11 @@ var pending_rescued_cariyes: Array = []  # Array of Dictionary: { isim, leverage
 var run_started: bool = false
 const MAX_SEGMENTS: int = 3
 
+## Bu run'ın zindanı (dünya haritası hex veya köy portalı)
+var dungeon_id: String = ""
+## Bu zindanda önceki tamamlamalardan gelen sabit başlangıç zorluğu (kapılardan bağımsız)
+var run_base_difficulty: int = 0
+
 ## Challenge birikimleri (bu run boyunca)
 var run_segment_count: int = 0                # Kaç segment oynandı
 var enemy_level_offset: int = 0               # Düşman seviyesi adım birikimi
@@ -30,10 +35,20 @@ func start_run_from_village() -> void:
 	run_segment_count = 0
 	_reset_challenge_state()
 	clear_pending_rescued()
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(dp):
+		dungeon_id = String(dp.get("active_dungeon_id"))
+		if dp.has_method("get_clear_count"):
+			run_base_difficulty = int(dp.call("get_clear_count", dungeon_id))
+	else:
+		dungeon_id = ""
+		run_base_difficulty = 0
 
 func end_run() -> void:
 	run_started = false
 	run_segment_count = 0
+	run_base_difficulty = 0
+	dungeon_id = ""
 	_reset_challenge_state()
 	clear_pending_rescued()
 

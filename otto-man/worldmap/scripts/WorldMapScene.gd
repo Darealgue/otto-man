@@ -1351,7 +1351,7 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 	var poi: String = String(tile.get("poi_type", ""))
 	var poi_lines: PackedStringArray = PackedStringArray()
 	if poi == "dungeon":
-		poi_lines = _build_dungeon_hex_tooltip_lines(tile)
+		poi_lines = _build_dungeon_hex_tooltip_lines(tile, cq, cr)
 	elif poi == "neighbor_village":
 		poi_lines = _build_neighbor_village_hex_tooltip_lines(tile)
 	elif poi == "player_village":
@@ -1442,12 +1442,18 @@ func _format_mission_rewards_penalties_hint(m: Mission) -> String:
 		rp.append(tr("wm.tooltip.penalties") + ", ".join(bits2))
 	return " | ".join(rp)
 
-func _build_dungeon_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
+func _build_dungeon_hex_tooltip_lines(tile: Dictionary, hex_q: int, hex_r: int) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
 	var dn: String = String(tile.get("dungeon_name", "")).strip_edges()
 	if dn.is_empty():
 		dn = tr("wm.tooltip.dungeon.default_name")
 	lines.append(dn)
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(dp) and dp.has_method("id_from_hex") and dp.has_method("get_clear_count"):
+		var did: String = String(dp.call("id_from_hex", hex_q, hex_r))
+		var clears: int = int(dp.call("get_clear_count", did))
+		if clears > 0:
+			lines.append("Tamamlama: %d (+%d zorluk)" % [clears, clears])
 	lines.append(tr("wm.tooltip.dungeon.enter_hint"))
 	var terr: String = String(tile.get("terrain_type", ""))
 	if not terr.is_empty():
@@ -2997,9 +3003,19 @@ func _on_dungeon_entry_confirmed() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm and tm.village_dungeon_guide_active and not tm.tutorial_dungeon_guide_complete:
 		tm.mark_tutorial_dungeon_guide_complete()
+	var dungeon_id: String = ""
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if _world_manager and _world_manager.has_method("get_world_map_state") and is_instance_valid(dp):
+		var state: Dictionary = _get_world_map_state_cached()
+		var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
+		if dp.has_method("id_from_hex"):
+			dungeon_id = String(dp.call("id_from_hex", int(pos.get("q", 0)), int(pos.get("r", 0))))
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("change_to_dungeon"):
-		scene_manager.change_to_dungeon({"source": "world_map"})
+		var payload: Dictionary = {"source": "world_map"}
+		if not dungeon_id.is_empty():
+			payload["dungeon_id"] = dungeon_id
+		scene_manager.change_to_dungeon(payload)
 
 func _on_dungeon_entry_canceled() -> void:
 	_update_status_label(tr("wm.dungeon_entry.cancelled"))

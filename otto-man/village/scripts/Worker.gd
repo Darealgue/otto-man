@@ -12,6 +12,14 @@ const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd"
 
 var worker_id: int = -1 # VillageManager tarafından atanacak
 var is_dungeon_prisoner: bool = false # Zindan kurtarma odasında sadece görsel; AI yok
+var is_guest_villager: bool = false # Barınaksız misafir (zindan kurtarması); işe atanamaz
+var guest_arrival_day: int = -1
+var is_guest_departing: bool = false
+var guest_arrival_total_minutes: int = -1
+var _guest_hourglass_label: Label = null
+var _guest_hourglass_tick: float = 0.0
+const GUEST_HOURGLASS_CHAR: String = "\u23F3"
+const GUEST_HOURGLASS_UPDATE_INTERVAL: float = 0.2
 var _interact_hold_ring: NpcInteractHoldRing = null
 # Zindan mahkûmu: yerçekimi + basit platformer hareketi
 var dungeon_floor_y: float = -1.0   # -1 = henüz ayarlanmadı (sadece fallback)
@@ -86,7 +94,8 @@ enum State {
 	WAITING_AT_SOURCE, # Kaynak binasında bekliyor (görünmez)
 	RETURNING_FROM_FETCH, # Kaynaktan binaya dönüyor (görsel)
 	SICK,              # Hasta (evde yatıyor, görünmez)
-	GOING_HOME_SICK    # Hasta olunca evine gidiyor
+	GOING_HOME_SICK,   # Hasta olunca evine gidiyor
+	GUEST_DEPARTING    # Misafir köylü köyden ayrılıyor
 } 
 var current_state = State.AWAKE_IDLE # Başlangıç durumu (Tip otomatik çıkarılacak)
 
@@ -816,6 +825,11 @@ func _physics_process(delta: float) -> void:
 	if is_dungeon_prisoner:
 		_physics_process_dungeon_prisoner(delta)
 		return
+	if is_guest_villager or is_instance_valid(_guest_hourglass_label):
+		_guest_hourglass_tick += delta
+		if _guest_hourglass_tick >= GUEST_HOURGLASS_UPDATE_INTERVAL:
+			_guest_hourglass_tick = 0.0
+			refresh_guest_hourglass()
 	# Stop worker processing when dialogue window is open
 	if $NpcWindow and $NpcWindow.visible:
 		return
@@ -831,12 +845,16 @@ func _physics_process(delta: float) -> void:
 		$InteractButton.scale.x = -1
 		if _interact_hold_ring:
 			_interact_hold_ring.scale.x = -1
+		if _guest_hourglass_label:
+			_guest_hourglass_label.scale.x = -1
 		$NpcWindow.scale.x = -1
 	else:
 		$NamePlateContainer.scale.x = 1
 		$InteractButton.scale.x = 1
 		if _interact_hold_ring:
 			_interact_hold_ring.scale.x = 1
+		if _guest_hourglass_label:
+			_guest_hourglass_label.scale.x = 1
 		$NpcWindow.scale.x = 1
 	# <<< YENİ: Mevcut Duruma Göre Animasyon Belirleme >>>
 	var target_anim = "idle" # Varsayılan animasyon
@@ -863,6 +881,8 @@ func _physics_process(delta: float) -> void:
 		moving = distance > 1.0  # Deploy edilmiş askerler hareket edebilir
 	# Eğer idle/socializing durumunda ve aktivite gezinme değilse, hareket etme
 	# <<< DEĞİŞİKLİK: Check _is_briefly_idling as well >>>
+	elif current_state == State.GUEST_DEPARTING:
+		moving = distance > 1.0
 	elif (current_state == State.AWAKE_IDLE or current_state == State.SOCIALIZING) and (_current_idle_activity != "wandering" or _is_briefly_idling):
 		moving = false
 	# Diğer hareketsiz durumlarda da hareket etme (Zaten moving = false olmalı ama garantiye alalım)
@@ -890,7 +910,8 @@ func _physics_process(delta: float) -> void:
 	if moving:
 		match current_state:
 			State.GOING_TO_BUILDING_FIRST, \
-			State.GOING_TO_SLEEP:
+			State.GOING_TO_SLEEP, \
+			State.GUEST_DEPARTING:
 				target_anim = "walk"
 			State.FETCHING_RESOURCE, \
 			State.WORKING_OFFSCREEN, \
@@ -1545,9 +1566,9 @@ func _physics_process(delta: float) -> void:
 						_is_briefly_idling = false
 						_current_idle_activity = ""
 						return
+					elif is_guest_villager:
+						pass
 					elif is_instance_valid(housing_node):
-						# Debug: State transition (commented out)
-						# print("[Worker DEBUG] Worker %d: SOCIALIZING'den GOING_TO_SLEEP'e geçiyor, saat: %d:%d" % [worker_id, current_hour, current_minute_social])
 						current_state = State.GOING_TO_SLEEP
 						move_target_x = housing_node.global_position.x
 						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
@@ -1569,7 +1590,21 @@ func _physics_process(delta: float) -> void:
 			if not _is_briefly_idling and distance <= 10.0 and _current_idle_activity == "wandering":
 				_start_next_idle_step() # Decide and initiate the next step
 
+		State.GUEST_DEPARTING:
+			move_target_x = start_x_pos
+			_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+			if abs(global_position.x - move_target_x) < 48.0:
+				var vm: Node = get_node_or_null("/root/VillageManager")
+				if vm and vm.has_method("remove_guest_villager_after_departure"):
+					vm.call("remove_guest_villager_after_departure", worker_id)
+				else:
+					queue_free()
+			return
+
 		State.GOING_TO_SLEEP:
+			if is_guest_villager or is_guest_departing:
+				current_state = State.SOCIALIZING
+				return
 			# HASTA KONTROLÜ: Hasta işçiler GOING_TO_SLEEP state'ine geçmemeli, GOING_HOME_SICK olmalı
 			if is_sick:
 				current_state = State.GOING_HOME_SICK
@@ -2673,3 +2708,56 @@ func CloseNpcWindow():
 	var vm = get_node_or_null("/root/VillageManager")
 	if vm and vm.get("Village_Player"):
 		vm.Village_Player.set_ui_locked(false)
+
+
+func refresh_guest_hourglass() -> void:
+	if not is_guest_villager or is_guest_departing:
+		if is_instance_valid(_guest_hourglass_label):
+			_guest_hourglass_label.visible = false
+		return
+	_ensure_guest_hourglass_label()
+	if not is_instance_valid(_guest_hourglass_label):
+		return
+	_guest_hourglass_label.visible = visible
+	var urgency: float = _query_guest_urgency()
+	_guest_hourglass_label.modulate = _guest_urgency_to_color(urgency)
+
+
+func _ensure_guest_hourglass_label() -> void:
+	if is_instance_valid(_guest_hourglass_label):
+		return
+	_guest_hourglass_label = Label.new()
+	_guest_hourglass_label.name = "GuestHourglass"
+	_guest_hourglass_label.text = GUEST_HOURGLASS_CHAR
+	_guest_hourglass_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_guest_hourglass_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_guest_hourglass_label.add_theme_font_size_override("font_size", 26)
+	_guest_hourglass_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	_guest_hourglass_label.add_theme_constant_override("outline_size", 4)
+	_guest_hourglass_label.z_index = 25
+	_guest_hourglass_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_guest_hourglass_label)
+	_guest_hourglass_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_guest_hourglass_label.offset_left = -18.0
+	_guest_hourglass_label.offset_top = -132.0
+	_guest_hourglass_label.offset_right = 18.0
+	_guest_hourglass_label.offset_bottom = -102.0
+	_guest_hourglass_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+
+func _query_guest_urgency() -> float:
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	if is_instance_valid(vm) and vm.has_method("get_guest_urgency_for_worker"):
+		return clampf(float(vm.call("get_guest_urgency_for_worker", self)), 0.0, 1.0)
+	return 0.0
+
+
+func _guest_urgency_to_color(urgency: float) -> Color:
+	var u: float = clampf(urgency, 0.0, 1.0)
+	if u < 0.35:
+		return Color(0.35, 0.92, 0.45, 1.0)
+	if u < 0.65:
+		return Color(0.98, 0.88, 0.28, 1.0)
+	if u < 0.85:
+		return Color(1.0, 0.55, 0.22, 1.0)
+	return Color(0.95, 0.28, 0.28, 1.0)

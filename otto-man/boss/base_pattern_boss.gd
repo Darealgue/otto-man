@@ -6,10 +6,10 @@ signal vulnerability_changed(is_vulnerable: bool)
 
 enum BossState { INTRO, ACTIVE, VULNERABLE, DEFEATED }
 
-@export var max_health: float = 500.0
+@export var max_health: float = 200.0
 @export var display_name: String = "Boss"
 
-var health: float = 500.0
+var health: float = 200.0
 var state: BossState = BossState.INTRO
 var is_vulnerable: bool = false
 var arena_bounds: Rect2 = Rect2(80.0, 120.0, 1760.0, 880.0)

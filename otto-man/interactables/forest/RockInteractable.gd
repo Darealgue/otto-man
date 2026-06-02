@@ -12,7 +12,7 @@ const ROCK_HIT_FPS := 12.0
 const ROCK_BREAK_FPS := 12.0
 
 @export_range(1, 5, 1) var tier: int = 1
-@export_range(3, 7, 1) var perfect_hits_required: int = 3
+@export_range(1, 7, 1) var perfect_hits_required: int = 1
 @export_range(0.02, 0.2, 0.01) var tolerance: float = 0.1
 @export var base_reward: int = 1  # Normal ödül: 1 taş
 @export var perfect_bonus: int = 1  # Üstün başarı bonusu: +1 taş (toplam 2)

@@ -124,6 +124,7 @@ func _spawn_boss() -> void:
 		_boss.setup_arena(arena_bounds)
 	if _boss.has_method("set_projectile_container"):
 		_boss.set_projectile_container(_projectile_container)
+	_apply_run_difficulty_to_boss()
 
 	if _boss.has_signal("enemy_defeated"):
 		_boss.enemy_defeated.connect(_on_boss_defeated)
@@ -177,7 +178,32 @@ func _seal_entrance_door() -> void:
 		_entrance_door.close_door_now()
 
 
+func _apply_run_difficulty_to_boss() -> void:
+	if not is_instance_valid(_boss):
+		return
+	var base_hp: float = 200.0
+	if "max_health" in _boss:
+		base_hp = float(_boss.get("max_health"))
+	var clear_bonus: int = 0
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs):
+		clear_bonus = int(drs.get("run_base_difficulty"))
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	var scaled_hp: float = base_hp
+	if is_instance_valid(dp) and dp.has_method("get_boss_max_health"):
+		scaled_hp = float(dp.call("get_boss_max_health", base_hp, clear_bonus))
+	else:
+		scaled_hp = base_hp + float(clear_bonus) * 50.0
+	_boss.set("max_health", scaled_hp)
+	_boss.set("health", scaled_hp)
+
+
 func _on_boss_defeated() -> void:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(drs) and is_instance_valid(dp) and dp.has_method("record_clear"):
+		var did: String = String(drs.get("dungeon_id"))
+		dp.call("record_clear", did)
 	_exit_unlocked = true
 	if not is_instance_valid(_entrance_door):
 		return

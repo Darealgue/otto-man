@@ -52,8 +52,29 @@ func change_asker_sayisi(change: int) -> void:
 	asker_sayisi = max(0, asker_sayisi) # Negatif olamaz
 	print("GlobalPlayerData: Asker sayısı updated to ", asker_sayisi)
 
+func uses_dungeon_loot_wallet() -> bool:
+	var sm: Node = get_node_or_null("/root/SceneManager")
+	if is_instance_valid(sm) and sm.has_method("uses_dungeon_loot_wallet"):
+		return bool(sm.call("uses_dungeon_loot_wallet"))
+	return false
+
+
+## Tek giriş: zindan/orman/kamp/boss odasında dungeon_gold, aksi halde köy altını.
+func credit_run_loot_gold(amount: int, popup_world_pos: Variant = null) -> void:
+	if amount <= 0:
+		return
+	if uses_dungeon_loot_wallet():
+		add_dungeon_gold(amount)
+	else:
+		add_gold(amount)
+	if popup_world_pos is Vector2:
+		show_gold_pickup_popup_at(popup_world_pos as Vector2, amount)
+
+
 func add_dungeon_gold(amount: int) -> void:
 	"""Add gold to dungeon inventory (temporary, until successful exit)."""
+	if amount <= 0:
+		return
 	dungeon_gold += amount
 	if DEBUG_DUNGEON_GOLD:
 		print("[DungeonGold] add_dungeon_gold(+%s) -> total=%s, emit dungeon_gold_changed" % [amount, dungeon_gold])

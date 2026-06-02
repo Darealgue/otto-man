@@ -47,11 +47,12 @@ func generate_doors(is_initial: bool) -> Array[Dictionary]:
 	return doors
 
 func _make_safe_door(is_initial: bool) -> Dictionary:
+	# Normal kapı: tek eksende standart artış (düşman+tuzak+sayı aynı anda sıçramasın)
 	var data: Dictionary = {
 		"enemy_level_delta": 0 if is_initial else 1,
-		"enemy_count_delta": 0 if is_initial else 1,
-		"trap_level_delta": 0 if is_initial else 1,
-		"trap_count_delta": 0 if is_initial else 1,
+		"enemy_count_delta": 0,
+		"trap_level_delta": 0,
+		"trap_count_delta": 0,
 		"gold_multiplier_delta": 0.0,
 		"dungeon_size_delta": 0,
 		"guaranteed_rescue": false,
@@ -63,11 +64,15 @@ func _make_safe_door(is_initial: bool) -> Dictionary:
 	return data
 
 func _make_procedural_door() -> Dictionary:
-	var risk_keys: Array = ["enemy_level_delta", "enemy_count_delta", "trap_level_delta", "trap_count_delta", "dungeon_size_delta"]
-	var risk_pool: Array = risk_keys.duplicate()
-	risk_pool.shuffle()
+	# Tek kapı = tek kategori (düşman VEYA tuzak VEYA harita); aynı anda çoklu sıçrama yok
+	var risk_categories: Array = [
+		["enemy_level_delta", "enemy_count_delta"],
+		["trap_level_delta", "trap_count_delta"],
+		["dungeon_size_delta"],
+	]
+	var category: Array = risk_categories[randi() % risk_categories.size()]
+	var key: String = category[randi() % category.size()]
 
-	var risk_count := randi_range(2, 3)
 	var data: Dictionary = {
 		"enemy_level_delta": 0,
 		"enemy_count_delta": 0,
@@ -79,17 +84,13 @@ func _make_procedural_door() -> Dictionary:
 		"is_normal": false,
 	}
 
-	for i in range(risk_count):
-		if i >= risk_pool.size():
-			break
-		var key: String = risk_pool[i]
-		match key:
-			"enemy_level_delta", "enemy_count_delta", "trap_level_delta":
-				data[key] = randi_range(1, 3)
-			"trap_count_delta":
-				data[key] = randi_range(0, 2)
-			"dungeon_size_delta":
-				data[key] = randi_range(0, 1)
+	match key:
+		"enemy_level_delta", "enemy_count_delta", "trap_level_delta":
+			data[key] = randi_range(1, 3)
+		"trap_count_delta":
+			data[key] = randi_range(1, 2)
+		"dungeon_size_delta":
+			data[key] = randi_range(0, 1)
 
 	var total_risk: int = _calc_risk_score(data)
 

@@ -282,16 +282,24 @@ func _update_single_button_state(button: Button, scene_path: String):
 	if cost_label:
 		cost_label.text = ""
 	
+	var can_build: bool = can_afford
+	if scene_path == HOUSE_SCENE and VillageManager.has_method("can_build_house_now"):
+		can_build = VillageManager.can_build_house_now()
 	# Butonu sadece gereksinimler karşılanıyorsa VE bu türden bina yoksa aktif et
-	button.disabled = already_exists or not can_afford
+	button.disabled = already_exists or not can_build
 	# <<< YORUMA AL >>>
 	# print("DEBUG BuildMenuUI: %s butonu durumu (disabled): %s" % [button.name, button.disabled])
 	
 	# Tooltip ekle (opsiyonel ama faydalı)
 	if already_exists:
 		button.tooltip_text = tr("build.tooltip_exists")
-	elif not can_afford:
-		button.tooltip_text = _format_cannot_build_reason(reqs)
+	elif not can_build:
+		if scene_path == HOUSE_SCENE and VillageManager.has_method("can_build_house_now") and not VillageManager.can_meet_requirements(scene_path):
+			button.tooltip_text = _format_cannot_build_reason(reqs)
+		elif scene_path == HOUSE_SCENE:
+			button.tooltip_text = "Boş inşa parseli yok veya konut katı eklenemiyor."
+		else:
+			button.tooltip_text = _format_cannot_build_reason(reqs)
 	else:
 		button.tooltip_text = tr("build.tooltip_build") % _format_requirements_tooltip(reqs)
 	if popup_scene_path == scene_path:

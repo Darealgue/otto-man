@@ -331,7 +331,7 @@ func _update_run_stats_ui() -> void:
 	var drs = _get_dungeon_run_state()
 	if not drs or not drs.run_started or drs.run_segment_count == 0:
 		title_lbl.text = "İlk giriş — bir kapı seç"
-		detail_lbl.text = ""
+		detail_lbl.text = _dungeon_mastery_detail_text()
 		return
 
 	if drs.is_run_complete():
@@ -366,7 +366,22 @@ func _update_run_stats_ui() -> void:
 	if drs.guaranteed_rescue_next:
 		details.append("[color=green]%s[/color]" % heart)
 	details.append("Bölüm %d/%d" % [drs.run_segment_count, drs.MAX_SEGMENTS])
+	var mastery: String = _dungeon_mastery_detail_text()
+	if not mastery.is_empty():
+		details.append(mastery)
 	detail_lbl.text = "  ".join(details)
+
+func _dungeon_mastery_detail_text() -> String:
+	var drs = _get_dungeon_run_state()
+	if drs and drs.run_started and int(drs.get("run_base_difficulty")) > 0:
+		return "Başlangıç zorluğu +%d" % int(drs.get("run_base_difficulty"))
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if not is_instance_valid(dp) or not dp.has_method("get_clear_count"):
+		return ""
+	var clears: int = int(dp.call("get_clear_count"))
+	if clears <= 0:
+		return ""
+	return "Tamamlama %d (sonraki run +%d)" % [clears, clears]
 
 func _risk_score_to_tier(score: int) -> int:
 	if score <= 0:

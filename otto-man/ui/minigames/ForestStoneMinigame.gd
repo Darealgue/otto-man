@@ -23,7 +23,7 @@ const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
 @export var anchor_offset_default: Vector2 = Vector2(0, 75)  # Bar aşağıda (taşı kapatmamak için)
 
 # Oyun değişkenleri
-var _required_hits: int = 3
+var _required_hits: int = 1
 var _base_reward: int = 1  # Normal ödül: 1 taş
 var _perfect_bonus: int = 1  # Üstün başarı bonusu: +1 taş (toplam 2)
 var _resource_type: String = ResourceType.STONE
@@ -57,7 +57,7 @@ func _on_minigame_ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	
 	# Context'ten değerleri al
-	_required_hits = max(1, int(get_context_value("required_hits", 3)))
+	_required_hits = max(1, int(get_context_value("required_hits", 1)))
 	_base_reward = int(get_context_value("resource_base", 1))  # Varsayılan 1
 	_perfect_bonus = int(get_context_value("perfect_bonus", 1))  # Varsayılan 1
 	_resource_type = String(get_context_value("resource_type", ResourceType.STONE))

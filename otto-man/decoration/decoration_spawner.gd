@@ -568,23 +568,8 @@ func _on_gold_collected(body: Node2D, node: Node2D, gold_value: int) -> void:
 	if not _is_player_node(body):
 		return
 	node.set_meta("collected", true)
-	# Check if we're in dungeon/forest - add to dungeon_gold, not global gold
-	var scene_manager := get_node_or_null("/root/SceneManager")
-	var is_combat_scene: bool = false
-	var is_dungeon: bool = false
-	if scene_manager:
-		var current_scene = scene_manager.get("current_scene_path")
-		if current_scene:
-			var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
-			var forest_scene = scene_manager.get("FOREST_SCENE")
-			is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
-			is_dungeon = (current_scene == dungeon_scene)
 	if GlobalPlayerData:
-		if is_combat_scene:
-			GlobalPlayerData.add_dungeon_gold(gold_value)
-		else:
-			GlobalPlayerData.add_gold(gold_value)
-		GlobalPlayerData.show_gold_pickup_popup_at(node.global_position, gold_value)
+		GlobalPlayerData.credit_run_loot_gold(gold_value, node.global_position)
 	_create_collection_effect(node.global_position)
 	node.queue_free()
 	_spawned_decoration = null
@@ -1104,22 +1089,8 @@ func _execute_dropped_gold_pickup(player_node: Node2D, coin: Node2D) -> void:
 			str(coin.get_meta("loot_spawn_id", -1)), str(coin.get_meta("gold_value", 1)), str(coin.global_position)
 		])
 	var gold_value: int = int(coin.get_meta("gold_value", 1))
-	var scene_manager := get_node_or_null("/root/SceneManager")
-	var is_combat_scene: bool = false
-	var is_dungeon: bool = false
-	if scene_manager:
-		var current_scene = scene_manager.get("current_scene_path")
-		if current_scene:
-			var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
-			var forest_scene = scene_manager.get("FOREST_SCENE")
-			is_combat_scene = (current_scene == dungeon_scene or current_scene == forest_scene)
-			is_dungeon = (current_scene == dungeon_scene)
 	if GlobalPlayerData:
-		if is_combat_scene:
-			GlobalPlayerData.add_dungeon_gold(gold_value)
-		else:
-			GlobalPlayerData.add_gold(gold_value)
-		GlobalPlayerData.show_gold_pickup_popup_at(coin.global_position, gold_value)
+		GlobalPlayerData.credit_run_loot_gold(gold_value, coin.global_position)
 	_create_collection_effect(coin.global_position)
 	var collect: Area2D = coin.get_node_or_null("CollectArea")
 	if collect:

@@ -24,9 +24,9 @@ var WELL_SUCCESS_TEXTURE: Texture2D = null
 var WELL_FAIL_TEXTURE: Texture2D = null
 
 @export_range(1, 5, 1) var depth_level: int = 1
-@export_range(4, 8, 1) var pulls_required: int = 5
+@export_range(1, 8, 1) var pulls_required: int = 1
 @export_range(0.05, 0.3, 0.01) var sweet_spot_width: float = 0.12
-@export var base_reward: int = 5
+@export var base_reward: int = 2
 @export var perfect_bonus: int = 1
 @export var placeholder_mode: bool = false
 
@@ -51,7 +51,7 @@ func _ready() -> void:
 func _build_minigame_context() -> Dictionary:
 	var ctx := super._build_minigame_context()
 	ctx["depth"] = depth_level
-	ctx["hits_required"] = 3  # Artarda 3 vuruş gerekiyor
+	ctx["hits_required"] = max(1, pulls_required)
 	ctx["sweet_spot"] = sweet_spot_width
 	ctx["resource_type"] = ResourceType.WATER
 	ctx["resource_base"] = base_reward

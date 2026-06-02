@@ -14,7 +14,7 @@ const TREE_FALL_FPS := 12.0
 
 @export_range(1, 5, 1) var difficulty_level: int = 1
 @export_enum("default", "syncopated", "rapid") var rhythm_pattern: String = "default"
-@export var base_hits_required: int = 5
+@export var base_hits_required: int = 1
 @export var base_reward: int = 1
 @export var perfect_bonus: int = 0
 @export var initial_tempo_bpm: float = 96.0

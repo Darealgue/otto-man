@@ -273,6 +273,11 @@ func change_to_dungeon(payload: Dictionary = {}, force_reload: bool = false) -> 
 	var source: String = str(payload.get("source", ""))
 	var from_camp: bool = bool(payload.get("from_camp", false))
 	var selected_tier: int = int(payload.get("selected_tier", 0))
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	# Mid-run kamp→zindan: dungeon_id yoksa mevcut zindanı koru (yanlışlıkla köy portalına dönmesin)
+	if is_instance_valid(dp) and dp.has_method("set_active_dungeon_from_payload"):
+		if not from_camp or payload.has("dungeon_id"):
+			dp.call("set_active_dungeon_from_payload", payload)
 	# Yeni zindan run'ı hazırlığı:
 	# Sadece köyden ilk çıkışta pending kurtarılanları temizle.
 	# Dünya haritasından girişte (taşınan ganimet/kurtarılan olabilir) temizlik yapma.
@@ -393,6 +398,37 @@ func is_world_map_ui_context_active() -> bool:
 		return true
 	var p := String(current_scene_path).to_lower()
 	return "worldmap" in p
+
+
+## Zindan/orman ganimet altını GlobalPlayerData.dungeon_gold'a yazılır (köy cüzdanı değil).
+func uses_dungeon_loot_wallet() -> bool:
+	var path: String = String(current_scene_path)
+	if path.is_empty():
+		path = _active_scene_file_path_fallback()
+	if path.is_empty():
+		return false
+	if path == FOREST_SCENE or path == DUNGEON_SCENE or path == CAMP_SCENE or path == BOSS_ROOM_SCENE:
+		return true
+	if path == TUTORIAL_DUNGEON_SCENE:
+		return true
+	var lower: String = path.to_lower()
+	return (
+		"forest" in lower
+		or "test_level" in lower
+		or "campscene" in lower
+		or "boss_room" in lower
+		or "tutorialdungeon" in lower
+	)
+
+
+func _active_scene_file_path_fallback() -> String:
+	var tree := get_tree()
+	if tree == null:
+		return ""
+	var cs: Node = tree.current_scene
+	if cs == null:
+		return ""
+	return String(cs.scene_file_path)
 
 
 func notify_overlay_player_moved_on_world_map() -> void:

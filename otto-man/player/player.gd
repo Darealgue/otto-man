@@ -765,6 +765,10 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 			_spawn_player_blood_particles(amount, attacker)
 
 func _should_apply_damage_resource_penalty(attacker: Node2D) -> bool:
+	# Taşınan kaynak / orman altını kaybı yalnızca orman biyomlarında (odun-taş-su toplama).
+	# Zindan, kamp, boss odası vb. hasarda altın veya carried kaynak düşmez.
+	if not _is_forest_scene():
+		return false
 	# Flying enemies are frequent chip-damage sources; skip resource/gold loss for those hits.
 	if attacker != null and is_instance_valid(attacker):
 		if _is_flying_enemy_attacker(attacker):
@@ -960,7 +964,7 @@ func _collect_damage_pickup(drop: Node) -> void:
 		return
 	if kind == "gold":
 		if is_instance_valid(GlobalPlayerData):
-			GlobalPlayerData.add_dungeon_gold(amount)
+			GlobalPlayerData.credit_run_loot_gold(amount)
 	else:
 		var type := String(drop.get_meta("type", ""))
 		var ps = get_node_or_null("/root/PlayerStats")

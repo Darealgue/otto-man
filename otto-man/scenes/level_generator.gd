@@ -600,8 +600,9 @@ func _ready() -> void:
 	# Challenge kapılarından biriken offset'leri uygula (ilk seçim dahil hepsi geçerli)
 	var drs = get_node_or_null("/root/DungeonRunState")
 	if drs and drs.run_started:
-		current_level = 1 + drs.enemy_level_offset
-		effective_trap_level = 1 + drs.trap_level_offset
+		var base_diff: int = int(drs.get("run_base_difficulty"))
+		current_level = 1 + drs.enemy_level_offset + base_diff
+		effective_trap_level = 1 + drs.trap_level_offset + base_diff
 		current_level = clampi(current_level, 1, 9)
 		effective_trap_level = clampi(effective_trap_level, 1, 9)
 		print("[LevelGenerator] Challenge offsets -> current_level=%d, effective_trap_level=%d" % [current_level, effective_trap_level])
@@ -3733,7 +3734,7 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 		max_spawns = spawn_rules.max_spawns
 		var drs_chunk = get_node_or_null("/root/DungeonRunState")
 		if drs_chunk and drs_chunk.run_started:
-			max_spawns += drs_chunk.enemy_count_offset * 2
+			max_spawns += (drs_chunk.enemy_count_offset + int(drs_chunk.get("run_base_difficulty"))) * 2
 			if drs_chunk.is_first_segment():
 				max_spawns = maxi(1, max_spawns / 2)
 		spawn_chance_value = 1.0
@@ -4329,7 +4330,7 @@ func _populate_enemies_on_unified_terrain() -> void:
 	var level_cap: int = _get_max_unified_enemies_for_level(current_level)
 	var drs = get_node_or_null("/root/DungeonRunState")
 	if drs and drs.run_started:
-		level_cap += drs.enemy_count_offset * 2
+		level_cap += (drs.enemy_count_offset + int(drs.get("run_base_difficulty"))) * 2
 		if drs.is_first_segment():
 			level_cap = maxi(1, level_cap / 2)
 	var max_spawns: int = mini(level_cap, floor_cells.size())
@@ -4676,8 +4677,9 @@ func _get_max_trap_groups_for_level(level: int) -> int:
 	var total: int = per_chunk * maxi(1, chunk_count)
 	var drs = get_node_or_null("/root/DungeonRunState")
 	if drs and drs.run_started:
-		if drs.trap_count_offset > 0:
-			total += drs.trap_count_offset * 2
+		var trap_base: int = int(drs.get("run_base_difficulty"))
+		if drs.trap_count_offset > 0 or trap_base > 0:
+			total += (drs.trap_count_offset + trap_base) * 2
 		if drs.is_first_segment():
 			total = maxi(0, total / 2)
 	return total

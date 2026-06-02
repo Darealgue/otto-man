@@ -628,7 +628,7 @@ func _tutorial_spawn_interactables_in_chunk(chunk: Node2D, scene: PackedScene, c
 			continue
 		instance.position = spawn_pos
 		if "base_hits_required" in instance:
-			instance.base_hits_required = 3
+			instance.base_hits_required = 1
 		if "difficulty_level" in instance:
 			instance.difficulty_level = 1
 		chunk.add_child(instance)

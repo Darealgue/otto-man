@@ -18,7 +18,7 @@ const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
 @export var fail_feedback_color: Color = Color(0.95, 0.35, 0.35, 1.0)
 @export var neutral_feedback_color: Color = Color(0.85, 0.85, 0.85, 1.0)
 
-var _required_hits: int = 3
+var _required_hits: int = 1
 var _base_reward: int = 3
 var _perfect_bonus: int = 1
 var _resource_type: String = ResourceType.WOOD
@@ -49,7 +49,7 @@ func _on_minigame_ready() -> void:
 	_rng.randomize()
 	pause_game = false
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_required_hits = max(1, int(get_context_value("hits_required", 3)))
+	_required_hits = max(1, int(get_context_value("hits_required", 1)))
 	_base_reward = int(get_context_value("resource_base", 3))
 	_perfect_bonus = int(get_context_value("perfect_bonus", 1))
 	_resource_type = String(get_context_value("resource_type", ResourceType.WOOD))

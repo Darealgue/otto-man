@@ -22,7 +22,7 @@ const BUILDING_REQUIREMENTS = {
 	"res://village/buildings/StoneMine.tscn": {"cost": {"gold": 5, "wood": 1}},
 	"res://village/buildings/HunterGathererHut.tscn": {"cost": {"gold": 8, "wood": 1}},
 	"res://village/buildings/Well.tscn": {"cost": {"gold": 10, "wood": 1, "stone": 1}},
-	"res://village/buildings/House.tscn": {"cost": {"gold": 20, "wood": 2, "stone": 1}},
+	"res://village/buildings/House.tscn": {"cost": {"gold": 12, "wood": 1, "stone": 0}},
 	# Katman 2 - İlk işleme
 	"res://village/buildings/Sawmill.tscn": {"cost": {"gold": 35, "wood": 2, "stone": 1}},
 	"res://village/buildings/Brickworks.tscn": {"cost": {"gold": 35, "wood": 1, "stone": 2}},
@@ -113,7 +113,7 @@ const GATHER_PROVISION_WATER_COST := 1
 const GATHER_SOFT_YIELD_NO_PROVISION := 0.65
 ## Mesafe seferi tesliminde varsayılan getiri (odun/taş); yemek/su ayrı çarpanlı.
 const GATHER_DELIVERY_YIELD_DEFAULT := 1
-const GATHER_DELIVERY_YIELD_FOOD_WATER := 3
+const GATHER_DELIVERY_YIELD_FOOD_WATER := 2
 ## worker_id -> sefer kaydı (delivery_minutes: TimeManager.get_total_game_minutes ile uyumlu mutlak dakika)
 var basic_gather_expeditions_by_worker: Dictionary = {}
 ## worker_id -> son çıkış günü (TimeManager.days ile karşılaştırılır)
@@ -158,6 +158,7 @@ const CONSTRUCTION_HOURS_BY_TIER := {1: 1.5, 2: 3.0, 3: 6.0, 4: 10.0, 5: 14.0}
 const UPGRADE_BASE_HOURS_BY_TIER := {1: 1.0, 2: 2.0, 3: 4.0, 4: 7.0, 5: 10.0}
 const MAX_BUILD_OR_UPGRADE_HOURS := 24.0
 const HEALER_CONCUBINE_TREATMENT_COST := {"gold": 35, "medicine": 2}
+const GUEST_DEPARTURE_DAYS: int = 1
 
 # Sinyaller
 signal village_data_changed
@@ -242,6 +243,7 @@ var _last_village_event_check_day: int = 0  # Track last day we checked for even
 var _skip_next_snapshot: bool = false
 
 func _ready() -> void:
+	_ensure_guest_housing_day_listener()
 	# Connect to SceneManager for scene change tracking
 	if is_instance_valid(SceneManager) and not _scene_signal_connected:
 		SceneManager.scene_change_started.connect(Callable(self, "_on_scene_change_started"))
@@ -570,13 +572,25 @@ func _collect_worker_snapshot_entries() -> Array:
 			var deployed_val = worker_instance.get("is_deployed")
 			is_deployed_value = deployed_val if deployed_val is bool else false
 		
+		var is_guest_snap: bool = _is_guest_worker(worker_instance)
+		var guest_day_snap: int = -1
+		var guest_minutes_snap: int = -1
+		if is_guest_snap and "guest_arrival_day" in worker_instance:
+			guest_day_snap = int(worker_instance.guest_arrival_day)
+		if is_guest_snap and "guest_arrival_total_minutes" in worker_instance:
+			guest_minutes_snap = int(worker_instance.guest_arrival_total_minutes)
+		var appearance_snap: Dictionary = _worker_appearance_to_dict(worker_instance)
 		var worker_entry: Dictionary = {
 			"worker_id": worker_id,
 			"npc_info": npc_info,
 			"job_type": job_type,
 			"building_key": building_key,
-			"housing_key": housing_key,  # Housing node referansı
-			"is_deployed": is_deployed_value  # Askerler için deploy durumu
+			"housing_key": housing_key,
+			"is_deployed": is_deployed_value,
+			"is_guest_villager": is_guest_snap,
+			"guest_arrival_day": guest_day_snap,
+			"guest_arrival_total_minutes": guest_minutes_snap,
+			"appearance": appearance_snap
 		}
 		collected.append(worker_entry)
 	return collected
@@ -989,6 +1003,7 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 		var t_start_abs: int = start_day * TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR + start_hour * TimeManager.MINUTES_PER_HOUR + start_minute
 		var t_end_abs: int = t_start_abs + total_minutes
 		_basic_gather_simulate_interval(t_start_abs, t_end_abs)
+		_gather_flush_completed_deliveries_up_to(t_end_abs)
 		_last_gather_processed_total_minutes = t_end_abs
 
 	if produced_basic or advanced_changed or upgrade_completed:
@@ -1071,6 +1086,7 @@ func _tick_basic_gather_realtime_clock() -> void:
 		return
 	for tt in range(_last_gather_processed_total_minutes + 1, gt + 1):
 		_gather_process_synthetic_minute(tt)
+	_gather_flush_completed_deliveries_up_to(gt)
 	_last_gather_processed_total_minutes = gt
 
 
@@ -1337,6 +1353,16 @@ func _serialize_basic_gather_for_save() -> void:
 		_saved_basic_gather_expeditions.append(exp)
 	_saved_basic_gather_last_departure_day = basic_gather_last_departure_day.duplicate(true)
 	_saved_basic_resource_overflow = basic_resource_overflow.duplicate(true)
+
+
+func _restore_basic_gather_runtime_if_needed() -> void:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	if not basic_gather_expeditions_by_worker.is_empty():
+		return
+	if _saved_basic_gather_expeditions.is_empty():
+		return
+	_deserialize_basic_gather_from_save()
 
 
 func _deserialize_basic_gather_from_save() -> void:
@@ -2318,8 +2344,13 @@ func register_village_scene(scene: Node2D) -> void:
 			if DEBUG_VILLAGE_MANAGER:
 				print("[VillageManager] 🔄 DEBUG: Creating worker - Saved ID: %d, Job: %s, Building: %s, Housing: %s" % [worker_id_from_entry, job_type_from_entry, building_key_from_entry, housing_key_from_entry])
 			
-			# Worker'ı oluştur, ama housing_node'yu kaydet (sonra geri yükleyeceğiz)
 			var saved_housing_key = housing_key_from_entry
+			if bool(worker_entry.get("is_guest_villager", false)):
+				_restore_guest_worker_from_snapshot(worker_entry)
+				max_worker_id = max(max_worker_id, int(worker_entry.get("worker_id", worker_id_counter)))
+				worker_created_count += 1
+				continue
+			var saved_appearance: Dictionary = worker_entry.get("appearance", {}) if worker_entry.get("appearance", {}) is Dictionary else {}
 			if _add_new_worker(info_dict):
 				worker_created_count += 1
 				var desired_id: int = int(worker_entry.get("worker_id", -1))
@@ -2373,6 +2404,9 @@ func register_village_scene(scene: Node2D) -> void:
 								print("[VillageManager] ⚠️ DEBUG: Housing node not found for key: %s" % saved_housing_key)
 				
 				max_worker_id = max(max_worker_id, new_id)
+				if not saved_appearance.is_empty():
+					var restored_worker: Node = _worker_node_from_all_workers_entry(new_id, all_workers.get(new_id, {}), false)
+					_apply_worker_appearance(restored_worker, saved_appearance)
 			else:
 				if DEBUG_VILLAGE_MANAGER:
 					print("[VillageManager] ⚠️ DEBUG: Failed to create worker with saved ID %d" % worker_id_from_entry)
@@ -2423,6 +2457,7 @@ func register_village_scene(scene: Node2D) -> void:
 			tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
 			_time_advanced_connected = true
 		if USE_DISTANCE_BASED_BASIC_GATHER and tm.has_method("get_total_game_minutes"):
+			_restore_basic_gather_runtime_if_needed()
 			_last_gather_processed_total_minutes = int(tm.get_total_game_minutes())
 			call_deferred("_basic_gather_reconcile_after_village_ready")
 		_apply_time_of_day(tm.get_hour() if tm.has_method("get_hour") else 0)
@@ -2959,7 +2994,9 @@ func request_build_building(building_scene_path: String) -> bool:
 	# 3. Eylem: ev — kat eklenebilecek hedef varsa şantiye kuyruğu (duman + süre), yoksa yeni parsel
 	var build_success := false
 	if building_scene_path == HOUSE_SCENE_PATH:
-		var floor_host: Node2D = _find_residential_floor_target()
+		var floor_host: Node2D = null
+		if not _should_prefer_standalone_house_build():
+			floor_host = _find_residential_floor_target()
 		if is_instance_valid(floor_host):
 			if pending_constructions.size() >= MAX_PARALLEL_CONSTRUCTIONS:
 				print("[VillageManager] ❌ Ev inşaatı reddedildi — paralel şantiye limiti (%d)" % MAX_PARALLEL_CONSTRUCTIONS)
@@ -3183,6 +3220,7 @@ func _advance_pending_constructions(delta_minutes: float) -> void:
 				if built_ok:
 					emit_signal("construction_completed", scene_path)
 					_reassign_campfire_workers_to_houses()
+					_try_settle_guest_villagers()
 				pending_constructions.remove_at(i)
 			else:
 				# Köyde değilken süre bitti: parsel rezervi kalır, bina köye dönünce konur
@@ -3208,6 +3246,7 @@ func _finalize_awaiting_construction_placements() -> void:
 		if built_ok:
 			emit_signal("construction_completed", scene_path)
 			_reassign_campfire_workers_to_houses()
+			_try_settle_guest_villagers()
 		pending_constructions.remove_at(i)
 	emit_signal("village_data_changed")
 
@@ -3798,6 +3837,316 @@ func _reassign_campfire_workers_to_houses() -> void:
 	if has_signal("village_data_changed"):
 		emit_signal("village_data_changed")
 
+func _ensure_guest_housing_day_listener() -> void:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if not is_instance_valid(tm) or not tm.has_signal("day_changed"):
+		return
+	var cb := Callable(self, "_on_guest_housing_day_tick")
+	if not tm.day_changed.is_connected(cb):
+		tm.day_changed.connect(cb)
+
+
+func _on_guest_housing_day_tick(new_day: int) -> void:
+	_process_guest_departures(new_day)
+	_try_settle_guest_villagers()
+
+
+func get_guest_villager_count() -> int:
+	var count: int = 0
+	for worker_id in all_workers.keys():
+		var worker: Node = _worker_node_from_all_workers_entry(worker_id, all_workers[worker_id], true)
+		if _is_guest_worker(worker):
+			count += 1
+	return count
+
+
+func _is_guest_worker(worker: Node) -> bool:
+	return is_instance_valid(worker) and "is_guest_villager" in worker and bool(worker.is_guest_villager)
+
+
+func _worker_appearance_to_dict(worker: Node) -> Dictionary:
+	if not is_instance_valid(worker):
+		return {}
+	var app = worker.get("appearance") if "appearance" in worker else null
+	if app == null:
+		return {}
+	if app.has_method("to_dict"):
+		return app.to_dict()
+	return {}
+
+
+func _apply_worker_appearance(worker: Node, appearance_dict: Dictionary) -> void:
+	if not is_instance_valid(worker):
+		return
+	var dict: Dictionary = appearance_dict if appearance_dict is Dictionary else {}
+	if dict.is_empty():
+		worker.appearance = AppearanceDB.generate_random_appearance()
+	else:
+		var app = VillagerAppearance.new()
+		if app.has_method("from_dict"):
+			app.from_dict(dict)
+		worker.appearance = app
+	if worker.has_method("play_animation"):
+		worker.play_animation("walk")
+
+
+func get_guest_urgency_for_worker(worker: Node) -> float:
+	if not _is_guest_worker(worker):
+		return 0.0
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if not is_instance_valid(tm) or not tm.has_method("get_total_game_minutes"):
+		return 0.0
+	var now_minutes: int = int(tm.call("get_total_game_minutes"))
+	var arrival_minutes: int = -1
+	if "guest_arrival_total_minutes" in worker:
+		arrival_minutes = int(worker.get("guest_arrival_total_minutes"))
+	if arrival_minutes < 0:
+		var arrival_day: int = int(worker.get("guest_arrival_day")) if "guest_arrival_day" in worker else _get_current_game_day()
+		arrival_minutes = arrival_day * TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR
+	var deadline: int = arrival_minutes + GUEST_DEPARTURE_DAYS * TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR
+	if now_minutes >= deadline:
+		return 1.0
+	var window_minutes: int = GUEST_DEPARTURE_DAYS * TimeManager.HOURS_PER_DAY * TimeManager.MINUTES_PER_HOUR
+	if window_minutes <= 0:
+		return 1.0
+	var remaining: int = deadline - now_minutes
+	return 1.0 - clampf(float(remaining) / float(window_minutes), 0.0, 1.0)
+
+
+func get_guest_urgency_color(urgency: float) -> Color:
+	var u: float = clampf(urgency, 0.0, 1.0)
+	if u < 0.35:
+		return Color(0.35, 0.92, 0.45, 1.0)
+	if u < 0.65:
+		return Color(0.98, 0.88, 0.28, 1.0)
+	if u < 0.85:
+		return Color(1.0, 0.55, 0.22, 1.0)
+	return Color(0.95, 0.28, 0.28, 1.0)
+
+
+func _stamp_guest_arrival_time(worker_instance: Node2D) -> void:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if is_instance_valid(tm) and tm.has_method("get_total_game_minutes"):
+		worker_instance.set("guest_arrival_total_minutes", int(tm.call("get_total_game_minutes")))
+	else:
+		worker_instance.set("guest_arrival_total_minutes", 0)
+	if worker_instance.get("appearance") == null:
+		_apply_worker_appearance(worker_instance, {})
+
+
+func _refresh_worker_guest_hourglass(worker: Node) -> void:
+	if is_instance_valid(worker) and worker.has_method("refresh_guest_hourglass"):
+		worker.call("refresh_guest_hourglass")
+
+
+func _get_current_game_day() -> int:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if is_instance_valid(tm) and tm.has_method("get_day"):
+		return int(tm.call("get_day"))
+	return 1
+
+
+func _finalize_guest_villager(worker_instance: Node2D, npc_info: Dictionary) -> void:
+	var arrival_day: int = _get_current_game_day()
+	worker_instance.housing_node = null
+	worker_instance.is_guest_villager = true
+	worker_instance.guest_arrival_day = arrival_day
+	_stamp_guest_arrival_time(worker_instance)
+	worker_instance.assigned_job_type = ""
+	worker_instance.assigned_building_node = null
+	_setup_guest_spawn_position(worker_instance)
+	worker_instance.Initialize_Existing_Villager(npc_info)
+	if "current_state" in worker_instance:
+		worker_instance.current_state = 7  # SOCIALIZING — kamp ateşi civarında dolaşır
+	var worker_data: Dictionary = {
+		"instance": worker_instance,
+		"status": "guest",
+		"assigned_building": null,
+		"housing_node": null
+	}
+	all_workers[worker_instance.worker_id] = worker_data
+	total_workers += 1
+	idle_workers += 1
+	if worker_instance.has_method("play_animation"):
+		worker_instance.play_animation("walk")
+	_refresh_worker_guest_hourglass(worker_instance)
+	emit_signal("village_data_changed")
+	emit_signal("worker_list_changed")
+	print("VillageManager: Misafir köylü (barınaksız): %s — %d gün içinde ev gerekli" % [
+		npc_info["Info"]["Name"], GUEST_DEPARTURE_DAYS
+	])
+
+
+func _setup_guest_spawn_position(worker_instance: Node2D) -> void:
+	var spawn_x: float = 0.0
+	if is_instance_valid(campfire_node):
+		spawn_x = campfire_node.global_position.x
+		worker_instance.global_position = campfire_node.global_position + Vector2(randf_range(-80.0, 80.0), randf_range(8.0, 24.0))
+	else:
+		worker_instance.global_position = Vector2(randf_range(-200.0, 200.0), 20.0)
+	var viewport_width: float = get_tree().root.get_viewport().get_visible_rect().size.x
+	if spawn_x < viewport_width * 0.5:
+		worker_instance.start_x_pos = viewport_width + 400.0
+	else:
+		worker_instance.start_x_pos = -400.0
+
+
+func _try_settle_guest_villagers() -> void:
+	if get_guest_villager_count() <= 0:
+		return
+	var settled: int = 0
+	for worker_id in all_workers.keys():
+		if settled >= get_guest_villager_count():
+			break
+		if _find_available_housing() == null:
+			break
+		var worker_data = all_workers.get(worker_id, {})
+		var worker: Node2D = _worker_node_from_all_workers_entry(worker_id, worker_data, true) as Node2D
+		if not _is_guest_worker(worker) or bool(worker.get("is_guest_departing")):
+			continue
+		if not _assign_housing(worker):
+			continue
+		worker.is_guest_villager = false
+		worker.guest_arrival_day = -1
+		worker.guest_arrival_total_minutes = -1
+		worker.is_guest_departing = false
+		_refresh_worker_guest_hourglass(worker)
+		if worker.appearance == null:
+			_apply_worker_appearance(worker, {})
+		elif worker.has_method("play_animation"):
+			worker.play_animation("walk")
+		worker_data["status"] = "idle"
+		worker_data["housing_node"] = worker.housing_node
+		settled += 1
+		print("VillageManager: Misafir köylü barınağa yerleşti: %s" % worker.name)
+	if settled > 0:
+		emit_signal("village_data_changed")
+		emit_signal("worker_list_changed")
+
+
+func _process_guest_departures(_current_day: int) -> void:
+	var to_depart: Array[int] = []
+	for worker_id in all_workers.keys():
+		var worker: Node = _worker_node_from_all_workers_entry(worker_id, all_workers[worker_id], true)
+		if not _is_guest_worker(worker):
+			continue
+		if bool(worker.get("is_guest_departing")):
+			continue
+		if get_guest_urgency_for_worker(worker) >= 1.0:
+			to_depart.append(worker_id)
+	for wid in to_depart:
+		_begin_guest_departure(wid)
+
+
+func _begin_guest_departure(worker_id: int) -> void:
+	if not all_workers.has(worker_id):
+		return
+	var worker: Node2D = _worker_node_from_all_workers_entry(worker_id, all_workers[worker_id], true) as Node2D
+	if not is_instance_valid(worker):
+		return
+	worker.is_guest_departing = true
+	worker.assigned_job_type = ""
+	worker.assigned_building_node = null
+	if worker.has_method("get") and worker.get("current_state") != null:
+		worker.current_state = 14  # Worker.State.GUEST_DEPARTING
+	worker.move_target_x = worker.start_x_pos
+	worker.visible = true
+	_refresh_worker_guest_hourglass(worker)
+	print("VillageManager: Misafir köylü köyden ayrılıyor: %s" % worker.name)
+
+
+func remove_guest_villager_after_departure(worker_id: int) -> void:
+	if not all_workers.has(worker_id):
+		return
+	var worker_data = all_workers[worker_id]
+	var worker: Node = _worker_node_from_all_workers_entry(worker_id, worker_data, false)
+	var display_name: String = "Köylü"
+	if is_instance_valid(worker) and worker.get("NPC_Info") is Dictionary:
+		var info: Dictionary = worker.NPC_Info
+		if info.get("Info") is Dictionary:
+			display_name = String(info["Info"].get("Name", display_name))
+	all_workers.erase(worker_id)
+	total_workers = maxi(0, total_workers - 1)
+	idle_workers = maxi(0, idle_workers - 1)
+	if is_instance_valid(worker):
+		worker.queue_free()
+	emit_signal("village_data_changed")
+	emit_signal("worker_list_changed")
+	_notify_guest_departed(display_name)
+
+
+func _restore_guest_worker_from_snapshot(worker_entry: Dictionary) -> void:
+	if not worker_scene or not workers_container:
+		return
+	var info_dict: Dictionary = worker_entry.get("npc_info", {}).duplicate(true)
+	if info_dict.is_empty():
+		info_dict = {"Info": {"Name": "Köylü"}, "Latest_news": [], "History": []}
+	var worker_instance: Node2D = worker_scene.instantiate() as Node2D
+	var desired_id: int = int(worker_entry.get("worker_id", -1))
+	if desired_id >= 0:
+		worker_id_counter = max(worker_id_counter, desired_id)
+		worker_instance.worker_id = desired_id
+		worker_instance.name = "Worker" + str(desired_id)
+	else:
+		worker_id_counter += 1
+		worker_instance.worker_id = worker_id_counter
+		worker_instance.name = "Worker" + str(worker_id_counter)
+	workers_container.add_child(worker_instance)
+	worker_instance.is_guest_villager = true
+	worker_instance.is_guest_departing = false
+	worker_instance.guest_arrival_day = int(worker_entry.get("guest_arrival_day", _get_current_game_day()))
+	worker_instance.guest_arrival_total_minutes = int(worker_entry.get("guest_arrival_total_minutes", -1))
+	if worker_instance.guest_arrival_total_minutes < 0:
+		_stamp_guest_arrival_time(worker_instance)
+	worker_instance.housing_node = null
+	worker_instance.assigned_job_type = ""
+	worker_instance.assigned_building_node = null
+	_apply_worker_appearance(worker_instance, worker_entry.get("appearance", {}))
+	_setup_guest_spawn_position(worker_instance)
+	worker_instance.Initialize_Existing_Villager(info_dict)
+	if "current_state" in worker_instance:
+		worker_instance.current_state = 7
+	all_workers[worker_instance.worker_id] = {
+		"instance": worker_instance,
+		"status": "guest",
+		"assigned_building": null,
+		"housing_node": null
+	}
+	total_workers += 1
+	idle_workers += 1
+	_refresh_worker_guest_hourglass(worker_instance)
+
+
+func _notify_guest_departed(villager_name: String) -> void:
+	if not is_instance_valid(village_scene_instance):
+		return
+	var toast: Node = village_scene_instance.get_node_or_null("TimeSkipNotification")
+	if toast and toast.has_method("show_simple_toast"):
+		toast.show_simple_toast(
+			"Misafir ayrıldı",
+			"%s barınak bulamadığı için köyden gitti." % villager_name
+		)
+
+
+func _should_prefer_standalone_house_build() -> bool:
+	if get_guest_villager_count() > 0:
+		return true
+	return _find_available_housing() == null
+
+
+func can_build_house_now() -> bool:
+	if not can_meet_requirements(HOUSE_SCENE_PATH):
+		return false
+	if _should_prefer_standalone_house_build():
+		var plot: Vector2 = find_free_building_plot()
+		return plot != Vector2.INF and plot != Vector2.ZERO
+	var floor_host: Node2D = _find_residential_floor_target()
+	if is_instance_valid(floor_host):
+		return true
+	var plot2: Vector2 = find_free_building_plot()
+	return plot2 != Vector2.INF and plot2 != Vector2.ZERO
+
+
 ## Köye yeni köylü eklenebilir mi? (Barınak kapasitesi)
 func can_add_villager() -> bool:
 	if debug_force_villager_capacity_full:
@@ -3843,38 +4192,35 @@ func add_villager_with_data(data: Dictionary) -> void:
 	worker_id_counter += 1
 	worker_instance.worker_id = worker_id_counter
 	worker_instance.name = "Worker" + str(worker_id_counter)
-	if data.has("appearance") and data.appearance is Dictionary and data.appearance.size() > 0:
-		var app = VillagerAppearance.new()
-		if app.has_method("from_dict"):
-			app.from_dict(data.appearance)
-		worker_instance.appearance = app
-	else:
-		worker_instance.appearance = AppearanceDB.generate_random_appearance()
+	var appearance_from_data: Dictionary = {}
+	if data.has("appearance") and data.appearance is Dictionary:
+		appearance_from_data = data.appearance
 	var npc_info := {
 		"Info": {"Name": data.get("name", "Köylü")},
 		"Latest_news": [],
-		# NpcWindow.InitializeWindow beklediği için boş History alanını da ekleyelim
 		"History": []
 	}
 	if not workers_container:
 		worker_instance.queue_free()
 		return
 	workers_container.add_child(worker_instance)
-	if not _assign_housing(worker_instance):
-		worker_instance.queue_free()
-		return
-	worker_instance.Initialize_Existing_Villager(npc_info)
-	var worker_data = {
-		"instance": worker_instance,
-		"status": "idle",
-		"assigned_building": null,
-		"housing_node": worker_instance.housing_node
-	}
-	all_workers[worker_id_counter] = worker_data
-	total_workers += 1
-	idle_workers += 1
-	emit_signal("village_data_changed")
-	print("VillageManager: Kurtarılan köylü eklendi: %s. Toplam: %d" % [npc_info["Info"]["Name"], total_workers])
+	_apply_worker_appearance(worker_instance, appearance_from_data)
+	if _assign_housing(worker_instance):
+		worker_instance.Initialize_Existing_Villager(npc_info)
+		var worker_data: Dictionary = {
+			"instance": worker_instance,
+			"status": "idle",
+			"assigned_building": null,
+			"housing_node": worker_instance.housing_node
+		}
+		all_workers[worker_id_counter] = worker_data
+		total_workers += 1
+		idle_workers += 1
+		emit_signal("village_data_changed")
+		emit_signal("worker_list_changed")
+		print("VillageManager: Kurtarılan köylü eklendi: %s. Toplam: %d" % [npc_info["Info"]["Name"], total_workers])
+	else:
+		_finalize_guest_villager(worker_instance, npc_info)
 
 
 # Yeni bir cariye ekler (örn. zindandan kurtarıldığında)
@@ -6173,6 +6519,8 @@ func assign_idle_worker_to_job(job_type: String) -> bool:
 	for worker_id in all_workers:
 		var worker = all_workers[worker_id]["instance"]
 		if is_instance_valid(worker) and worker.assigned_job_type == "":
+			if _is_guest_worker(worker):
+				continue
 			# HASTA KONTROLÜ: Hasta işçiler atanamaz
 			if "is_sick" in worker and worker.is_sick:
 				continue

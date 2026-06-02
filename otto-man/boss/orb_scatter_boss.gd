@@ -11,7 +11,7 @@ const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
 const ENEMY_HITBOX_SCRIPT := preload("res://components/enemy_hitbox.gd")
 const SCATTER_ANGLE_OFFSET := PI / 8.0
 
-@export var max_health: float = 500.0
+@export var max_health: float = 200.0
 @export var scatter_cycles_before_vulnerable: int = 3
 @export var orbs_per_scatter: int = 8
 @export var scatter_speed_min: float = 280.0
@@ -29,7 +29,7 @@ const SCATTER_ANGLE_OFFSET := PI / 8.0
 @export var charge_dash_time: float = 0.72
 @export var pause_after_charge: float = 0.75
 
-var health: float = 500.0
+var health: float = 200.0
 var state: BossState = BossState.INTRO
 var is_vulnerable: bool = false
 var arena_bounds: Rect2 = Rect2(80.0, 120.0, 1760.0, 880.0)

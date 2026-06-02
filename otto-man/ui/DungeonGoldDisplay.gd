@@ -214,21 +214,25 @@ func _update_visibility() -> void:
 	var is_combat_scene: bool = false
 	var cur_path: String = ""
 	if scene_manager:
-		var current_scene = scene_manager.get("current_scene_path")
-		if current_scene:
-			cur_path = str(current_scene)
-			var dungeon_scene = scene_manager.get("DUNGEON_SCENE")
-			var forest_scene = scene_manager.get("FOREST_SCENE")
-			is_combat_scene = (
-				current_scene == dungeon_scene or
-				current_scene == forest_scene
-			)
+		cur_path = str(scene_manager.get("current_scene_path"))
+		if scene_manager.has_method("uses_dungeon_loot_wallet"):
+			is_combat_scene = bool(scene_manager.call("uses_dungeon_loot_wallet"))
 	if not is_combat_scene:
 		var scene := get_tree().current_scene
 		if scene:
-			var scene_path := scene.scene_file_path
-			cur_path = scene_path
-			is_combat_scene = ("test_level" in scene_path or "forest" in scene_path)
+			cur_path = scene.scene_file_path
+			var lower := cur_path.to_lower()
+			is_combat_scene = (
+				"test_level" in lower
+				or "forest" in lower
+				or "campscene" in lower
+				or "boss_room" in lower
+				or "tutorialdungeon" in lower
+			)
+	var gpd := get_node_or_null("/root/GlobalPlayerData")
+	if gpd and "dungeon_gold" in gpd:
+		_current_gold = int(gpd.get("dungeon_gold"))
+		_update_display()
 	var should_be_visible: bool = is_combat_scene and _current_gold > 0
 	_dlog("_update_visibility: combat=%s gold=%s -> show=%s path=%s" % [is_combat_scene, _current_gold, should_be_visible, cur_path])
 	visible = should_be_visible

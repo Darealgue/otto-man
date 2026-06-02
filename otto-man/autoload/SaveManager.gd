@@ -433,6 +433,7 @@ func _collect_save_data_dictionary(is_autosave: bool, autosave_reason: String) -
 	save_data["player"] = _save_player_state()
 	save_data["time"] = _save_time_state()
 	save_data["weather"] = _save_weather_state()
+	save_data["dungeon_progress"] = _save_dungeon_progress_state()
 	return save_data
 
 
@@ -560,6 +561,7 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 	_load_player_state(save_data.get("player", {}))
 	_load_time_state(save_data.get("time", {}))
 	_load_weather_state(save_data.get("weather", {}))
+	_load_dungeon_progress_state(save_data.get("dungeon_progress", {}))
 	
 	var tm_after: Node = get_node_or_null("/root/TimeManager")
 	if tm_after != null and tm_after.has_method("get_day"):
@@ -954,6 +956,19 @@ func _save_world_state() -> Dictionary:
 		state["world_map"] = world_manager.get_world_map_state()
 	
 	return state
+
+func _save_dungeon_progress_state() -> Dictionary:
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(dp) and dp.has_method("get_save_data"):
+		return dp.call("get_save_data")
+	return {}
+
+
+func _load_dungeon_progress_state(state: Dictionary) -> void:
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(dp) and dp.has_method("load_save_data"):
+		dp.call("load_save_data", state)
+
 
 func _save_player_state() -> Dictionary:
 	var state: Dictionary = {}

@@ -379,6 +379,21 @@ func _apply_dungeon_rescued() -> void:
 		vm._spawn_concubines_in_scene()
 	print("[VillageScene] ✅ Dungeon rescued applied: %d villagers, %d cariyes" % [villagers.size(), cariyes.size()])
 	_dungeon_rescue_applied = true
+	if vm.has_method("get_guest_villager_count") and int(vm.call("get_guest_villager_count")) > 0:
+		var guest_n: int = int(vm.call("get_guest_villager_count"))
+		var tm := get_node_or_null("/root/TutorialManager")
+		if tm and tm.has_method("enqueue_message"):
+			tm.enqueue_message(
+				"guest_shelter_%d" % Time.get_ticks_msec(),
+				"%d kurtarılan köylü misafir olarak köyde. %d gün içinde ev/barınak inşa et, yoksa ayrılırlar." % [guest_n, VillageManager.GUEST_DEPARTURE_DAYS],
+				"warning",
+				12
+			)
+		if time_skip_notification and time_skip_notification.has_method("show_simple_toast"):
+			time_skip_notification.show_simple_toast(
+				"Misafir köylüler",
+				"%d kişi barınak bekliyor — inşa menüsünden ev kur." % guest_n
+			)
 	if cariyes.size() > 0:
 		_tutorial_on_first_cariye()
 
