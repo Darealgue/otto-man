@@ -89,6 +89,15 @@ const FOREST_BUTTERFLIES_PER_CHUNK_MIN: int = 2
 const FOREST_BUTTERFLIES_PER_CHUNK_MAX: int = 5
 const FOREST_BUTTERFLY_MIN_CLEARANCE: float = 95.0
 const FOREST_BUTTERFLY_MAX_CLEARANCE: float = 320.0
+const FOREST_FIREFLY_SCENE: PackedScene = preload("res://decoration/forest/forest_firefly.tscn")
+const FOREST_CAMP_NIGHT_ADAPTER_SCRIPT: Script = preload("res://decoration/forest/forest_camp_night_adapter.gd")
+const FOREST_MUSHROOM_SPAWN_CHANCE: float = 0.045
+const FOREST_MUSHROOMS_PER_CHUNK_MAX: int = 3
+const FOREST_CAMP_SPAWN_CHANCE: float = 0.72
+const FOREST_FIREFLY_PER_CHUNK_MIN: int = 3
+const FOREST_FIREFLY_PER_CHUNK_MAX: int = 6
+const FOREST_FIREFLY_MIN_CLEARANCE: float = 55.0
+const FOREST_FIREFLY_MAX_CLEARANCE: float = 180.0
 const FOREST_ENEMY_LAYER_NAME := "decor_anchor"
 var _forest_tree_debug_seq: int = 0
 const DEBUG_UNDERGROUND_FOREST_DECOR: bool = true
@@ -171,11 +180,12 @@ func _apply_biome_settings_from_payload() -> void:
 			max_row = 0
 			forest_enemy_spawn_chance = 0.0 if is_tutorial_forest else 1.0
 		"mountain":
+			# Foothills start at row 0; path only climbs upward into the mountain.
 			prob_continue = 0.0
-			prob_up = 0.5
-			prob_down = 0.5
+			prob_up = 1.0
+			prob_down = 0.0
 			min_row = -3
-			max_row = 3
+			max_row = 0
 			forest_enemy_spawn_chance = 0.85
 		"river":
 			prob_continue = 1.0
@@ -319,37 +329,66 @@ func _process_decor_spawn_queue() -> void:
 		if parent_node != null and not is_instance_valid(parent_node):
 			continue
 			
-		var node := _decor_spawner.create_decoration_instance(name, DecorationConfig.DecorationType.BACKGROUND)
-		if node:
-			if parent_node != null and is_instance_valid(parent_node):
-				parent_node.add_child(node)
-			elif parent_node == null:
-				add_child(node)
-			else:
-				# Parent became invalid between check and usage
-				node.queue_free()
-				continue
-				
-			node.global_position = pos
-			var effective_job: Dictionary = job
-			if name.begins_with("forest_"):
-				node.global_position.y += FOREST_DECOR_GLOBAL_Y_OFFSET
-				effective_job = job.duplicate(true)
-				var exp_y := float(effective_job.get("expected_floor_y", node.global_position.y))
-				effective_job["expected_floor_y"] = exp_y + FOREST_DECOR_GLOBAL_Y_OFFSET
-			if name == "forest_tree" or name == "forest_trunk":
-				_forest_tree_measure_and_fix(node, effective_job, "immediate")
-				_forest_tree_spawn_followup(node, effective_job.duplicate(true))
-			if name.begins_with("forest_"):
-				_report_underground_forest_decor_if_any(node, effective_job)
-			if node is CanvasItem:
-				(node as CanvasItem).z_as_relative = true
-				(node as CanvasItem).z_index = -5
-			var spr: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
-			if spr:
-				spr.z_as_relative = true
-				spr.z_index = -5
+		if not _spawn_forest_decor_from_job(job):
+			budget -= 1
+			continue
 		budget -= 1
+
+
+func _spawn_forest_decor_from_job(job: Dictionary) -> bool:
+	var name: String = String(job.get("name", ""))
+	var pos: Vector2 = job.get("pos", Vector2.ZERO)
+	var parent_node = job.get("parent", null)
+	if name.is_empty():
+		return false
+	if parent_node != null and not is_instance_valid(parent_node):
+		return false
+	var node := _decor_spawner.create_decoration_instance(name, DecorationConfig.DecorationType.BACKGROUND)
+	if node == null:
+		return false
+	if parent_node != null and is_instance_valid(parent_node):
+		parent_node.add_child(node)
+	else:
+		add_child(node)
+	node.global_position = pos
+	_apply_spawned_forest_decor(node, name, job)
+	return true
+
+
+func _apply_spawned_forest_decor(node: Node2D, name: String, job: Dictionary) -> void:
+	var effective_job: Dictionary = job
+	if name.begins_with("forest_") or name in ["camp1", "camp2"]:
+		node.global_position.y += FOREST_DECOR_GLOBAL_Y_OFFSET
+		effective_job = job.duplicate(true)
+		var exp_y := float(effective_job.get("expected_floor_y", node.global_position.y))
+		effective_job["expected_floor_y"] = exp_y + FOREST_DECOR_GLOBAL_Y_OFFSET
+	if name == "forest_tree" or name == "forest_trunk":
+		_forest_tree_measure_and_fix(node, effective_job, "immediate")
+		_forest_tree_spawn_followup(node, effective_job.duplicate(true))
+	if name.begins_with("forest_"):
+		_report_underground_forest_decor_if_any(node, effective_job)
+	var is_forest_light_decor := (
+		DecorationConfig.is_forest_lighting_decor(name)
+		or name == "forest_glow_mushroom"
+	)
+	if name in ["camp1", "camp2", "forest_glow_mushroom"]:
+		node.set_meta("skip_post_place_fixup", true)
+	if is_forest_light_decor and FOREST_CAMP_NIGHT_ADAPTER_SCRIPT and name in ["camp1", "camp2"]:
+		var camp_adapter := Node.new()
+		camp_adapter.name = "ForestCampNightAdapter"
+		camp_adapter.set_script(FOREST_CAMP_NIGHT_ADAPTER_SCRIPT)
+		node.add_child(camp_adapter)
+	if node is CanvasItem:
+		(node as CanvasItem).z_as_relative = false if is_forest_light_decor else false
+		(node as CanvasItem).z_index = 2 if is_forest_light_decor else -5
+	var spr: Sprite2D = node.get_node_or_null("Sprite") as Sprite2D
+	if spr and not is_forest_light_decor:
+		spr.z_as_relative = true
+		spr.z_index = 0
+	var anim: AnimatedSprite2D = node.get_node_or_null("Anim") as AnimatedSprite2D
+	if anim and not is_forest_light_decor:
+		anim.z_as_relative = true
+		anim.z_index = 0
 
 func _queue_chunk_postprocess(chunk_node: Node2D) -> void:
 	if chunk_node == null or not is_instance_valid(chunk_node):
@@ -1355,6 +1394,8 @@ func _add_next_segment() -> void:
 	var roll: float = randf()
 	var up_allowed: bool = current_row > min_row
 	var down_allowed: bool = current_row < max_row
+	if biome_type == "mountain":
+		down_allowed = false
 	var p_cont: float = prob_continue
 	var p_up: float = (prob_up if up_allowed else 0.0)
 	var p_down: float = (prob_down if down_allowed else 0.0)
@@ -1383,6 +1424,10 @@ func _add_prev_segment() -> void:
 	var roll: float = randf()
 	var up_allowed: bool = row_est > min_row
 	var down_allowed: bool = row_est < max_row
+	if biome_type == "mountain":
+		down_allowed = false
+		if row_est >= 0:
+			up_allowed = false  # flat foothills west of the start chunk
 	var p_cont: float = prob_continue
 	var p_up: float = (prob_up if up_allowed else 0.0)
 	var p_down: float = (prob_down if down_allowed else 0.0)
@@ -1862,63 +1907,257 @@ func _setup_day_night_system() -> void:
 	# Add to tree last -> triggers _ready with correct paths
 	add_child(dnc)
 
-	# --- Forest Parallax (mountains, trees) ---
-	# Mountains - far background
-	var mountains_layer := ParallaxLayer.new()
-	mountains_layer.name = "ForestMountains"
-	mountains_layer.z_index = -12
-	mountains_layer.position = Vector2(0, -200)
-	mountains_layer.motion_scale = Vector2(0.05, 0.0)
-	pb.add_child(mountains_layer)
-	var mountains_sprite := Sprite2D.new()
-	mountains_sprite.name = "MountainsSprite"
-	var mountains_tex := load("res://background/parallax/forest parallax/forest parallax mountain.png")
-	if mountains_tex:
-		mountains_sprite.texture = mountains_tex
-	mountains_sprite.centered = false
-	mountains_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	mountains_layer.add_child(mountains_sprite)
-	if mountains_tex and mountains_tex is Texture2D:
-		var mw := (mountains_tex as Texture2D).get_width()
-		mountains_layer.motion_mirroring = Vector2(float(mw), 0.0)
+	# --- Biome Parallax ---
+	const MOUNTAIN_PARALLAX_DIR := "res://background/parallax/forest parallax/mountain/"
+	match biome_type:
+		"mountain":
+			var mountain_1_layer := ParallaxLayer.new()
+			mountain_1_layer.name = "MountainBiomMountain1"
+			mountain_1_layer.z_index = -11
+			mountain_1_layer.position = Vector2(0, -280)
+			mountain_1_layer.motion_scale = Vector2(0.10, 0.02)
+			pb.add_child(mountain_1_layer)
+			var mountain_1_sprite := Sprite2D.new()
+			mountain_1_sprite.name = "Mountain1Sprite"
+			var mountain_1_tex := load(MOUNTAIN_PARALLAX_DIR + "mountain_biom_mountain1.png")
+			if mountain_1_tex:
+				mountain_1_sprite.texture = mountain_1_tex
+			mountain_1_sprite.centered = false
+			mountain_1_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			mountain_1_layer.add_child(mountain_1_sprite)
+			if mountain_1_tex and mountain_1_tex is Texture2D:
+				mountain_1_layer.motion_mirroring = Vector2(float((mountain_1_tex as Texture2D).get_width()), 0.0)
 
-	# Trees - nearer background
-	var trees_layer := ParallaxLayer.new()
-	trees_layer.name = "ForestTrees"
-	trees_layer.z_index = -9
-	trees_layer.position = Vector2(0, -350)
-	trees_layer.motion_scale = Vector2(0.15, 0.060)
-	pb.add_child(trees_layer)
-	var trees_sprite := Sprite2D.new()
-	trees_sprite.name = "TreesSprite"
-	var trees_tex := load("res://background/parallax/forest parallax/forest parallax trees.png")
-	if trees_tex:
-		trees_sprite.texture = trees_tex
-	trees_sprite.centered = false
-	trees_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	trees_layer.add_child(trees_sprite)
-	if trees_tex and trees_tex is Texture2D:
-		var tw := (trees_tex as Texture2D).get_width()
-		trees_layer.motion_mirroring = Vector2(float(tw), 0.0)
+			var mountain_2_layer := ParallaxLayer.new()
+			mountain_2_layer.name = "MountainBiomMountain2"
+			mountain_2_layer.z_index = -12
+			mountain_2_layer.position = Vector2(0, -200)
+			mountain_2_layer.motion_scale = Vector2(0.05, 0.0)
+			pb.add_child(mountain_2_layer)
+			var mountain_2_sprite := Sprite2D.new()
+			mountain_2_sprite.name = "Mountain2Sprite"
+			var mountain_2_tex := load(MOUNTAIN_PARALLAX_DIR + "mountain_biom_mountain2.png")
+			if mountain_2_tex:
+				mountain_2_sprite.texture = mountain_2_tex
+			mountain_2_sprite.centered = false
+			mountain_2_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			mountain_2_layer.add_child(mountain_2_sprite)
+			if mountain_2_tex and mountain_2_tex is Texture2D:
+				mountain_2_layer.motion_mirroring = Vector2(float((mountain_2_tex as Texture2D).get_width()), 0.0)
 
-	# Trees Front - nearest background strip with tiny vertical motion
-	var trees_front_layer := ParallaxLayer.new()
-	trees_front_layer.name = "ForestTreesFront"
-	trees_front_layer.z_index = -8
-	trees_front_layer.position = Vector2(0, -400)
-	trees_front_layer.motion_scale = Vector2(0.35, 0.100)
-	pb.add_child(trees_front_layer)
-	var trees_front_sprite := Sprite2D.new()
-	trees_front_sprite.name = "TreesFrontSprite"
-	var trees_front_tex := load("res://background/parallax/forest parallax/forest parallax trees_front.png")
-	if trees_front_tex:
-		trees_front_sprite.texture = trees_front_tex
-	trees_front_sprite.centered = false
-	trees_front_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	trees_front_layer.add_child(trees_front_sprite)
-	if trees_front_tex and trees_front_tex is Texture2D:
-		var tfw := (trees_front_tex as Texture2D).get_width()
-		trees_front_layer.motion_mirroring = Vector2(float(tfw), 0.0)
+			var mtn_trees_3_layer := ParallaxLayer.new()
+			mtn_trees_3_layer.name = "MountainBiomTrees3"
+			mtn_trees_3_layer.z_index = -9
+			mtn_trees_3_layer.position = Vector2(0, -400)
+			mtn_trees_3_layer.motion_scale = Vector2(0.30, 0.10)
+			pb.add_child(mtn_trees_3_layer)
+			var mtn_trees_3_sprite := Sprite2D.new()
+			mtn_trees_3_sprite.name = "MtnTrees3Sprite"
+			var mtn_trees_3_tex := load(MOUNTAIN_PARALLAX_DIR + "mountain_biom_trees3.png")
+			if mtn_trees_3_tex:
+				mtn_trees_3_sprite.texture = mtn_trees_3_tex
+			mtn_trees_3_sprite.centered = false
+			mtn_trees_3_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			mtn_trees_3_layer.add_child(mtn_trees_3_sprite)
+			if mtn_trees_3_tex and mtn_trees_3_tex is Texture2D:
+				mtn_trees_3_layer.motion_mirroring = Vector2(float((mtn_trees_3_tex as Texture2D).get_width()), 0.0)
+
+			var mtn_trees_2_layer := ParallaxLayer.new()
+			mtn_trees_2_layer.name = "MountainBiomTrees2"
+			mtn_trees_2_layer.z_index = -7
+			mtn_trees_2_layer.position = Vector2(0, -460)
+			mtn_trees_2_layer.motion_scale = Vector2(0.48, 0.22)
+			pb.add_child(mtn_trees_2_layer)
+			var mtn_trees_2_sprite := Sprite2D.new()
+			mtn_trees_2_sprite.name = "MtnTrees2Sprite"
+			var mtn_trees_2_tex := load(MOUNTAIN_PARALLAX_DIR + "mountain_biom_trees2.png")
+			if mtn_trees_2_tex:
+				mtn_trees_2_sprite.texture = mtn_trees_2_tex
+			mtn_trees_2_sprite.centered = false
+			mtn_trees_2_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			mtn_trees_2_layer.add_child(mtn_trees_2_sprite)
+			if mtn_trees_2_tex and mtn_trees_2_tex is Texture2D:
+				mtn_trees_2_layer.motion_mirroring = Vector2(float((mtn_trees_2_tex as Texture2D).get_width()), 0.0)
+
+			var mtn_trees_1_layer := ParallaxLayer.new()
+			mtn_trees_1_layer.name = "MountainBiomTrees1"
+			mtn_trees_1_layer.z_index = -5
+			mtn_trees_1_layer.position = Vector2(0, -520)
+			mtn_trees_1_layer.motion_scale = Vector2(0.65, 0.28)
+			pb.add_child(mtn_trees_1_layer)
+			var mtn_trees_1_sprite := Sprite2D.new()
+			mtn_trees_1_sprite.name = "MtnTrees1Sprite"
+			var mtn_trees_1_tex := load(MOUNTAIN_PARALLAX_DIR + "mountain_biom_trees1.png")
+			if mtn_trees_1_tex:
+				mtn_trees_1_sprite.texture = mtn_trees_1_tex
+			mtn_trees_1_sprite.centered = false
+			mtn_trees_1_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			mtn_trees_1_layer.add_child(mtn_trees_1_sprite)
+			if mtn_trees_1_tex and mtn_trees_1_tex is Texture2D:
+				mtn_trees_1_layer.motion_mirroring = Vector2(float((mtn_trees_1_tex as Texture2D).get_width()), 0.0)
+		"forest":
+			var mountains_layer := ParallaxLayer.new()
+			mountains_layer.name = "ForestMountains"
+			mountains_layer.z_index = -12
+			mountains_layer.position = Vector2(0, -200)
+			mountains_layer.motion_scale = Vector2(0.05, 0.0)
+			pb.add_child(mountains_layer)
+			var mountains_sprite := Sprite2D.new()
+			mountains_sprite.name = "MountainsSprite"
+			var mountains_tex := load("res://background/parallax/forest parallax/forest parallax mountain.png")
+			if mountains_tex:
+				mountains_sprite.texture = mountains_tex
+			mountains_sprite.centered = false
+			mountains_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			mountains_layer.add_child(mountains_sprite)
+			if mountains_tex and mountains_tex is Texture2D:
+				var mw := (mountains_tex as Texture2D).get_width()
+				mountains_layer.motion_mirroring = Vector2(float(mw), 0.0)
+
+			var trees_layer := ParallaxLayer.new()
+			trees_layer.name = "ForestTrees"
+			trees_layer.z_index = -9
+			trees_layer.position = Vector2(0, -350)
+			trees_layer.motion_scale = Vector2(0.15, 0.060)
+			pb.add_child(trees_layer)
+			var trees_sprite := Sprite2D.new()
+			trees_sprite.name = "TreesSprite"
+			var trees_tex := load("res://background/parallax/forest parallax/forest parallax trees.png")
+			if trees_tex:
+				trees_sprite.texture = trees_tex
+			trees_sprite.centered = false
+			trees_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			trees_layer.add_child(trees_sprite)
+			if trees_tex and trees_tex is Texture2D:
+				var tw := (trees_tex as Texture2D).get_width()
+				trees_layer.motion_mirroring = Vector2(float(tw), 0.0)
+
+			var trees_front_layer := ParallaxLayer.new()
+			trees_front_layer.name = "ForestTreesFront"
+			trees_front_layer.z_index = -8
+			trees_front_layer.position = Vector2(0, -400)
+			trees_front_layer.motion_scale = Vector2(0.35, 0.100)
+			pb.add_child(trees_front_layer)
+			var trees_front_sprite := Sprite2D.new()
+			trees_front_sprite.name = "TreesFrontSprite"
+			var trees_front_tex := load("res://background/parallax/forest parallax/forest parallax trees_front.png")
+			if trees_front_tex:
+				trees_front_sprite.texture = trees_front_tex
+			trees_front_sprite.centered = false
+			trees_front_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			trees_front_layer.add_child(trees_front_sprite)
+			if trees_front_tex and trees_front_tex is Texture2D:
+				var tfw := (trees_front_tex as Texture2D).get_width()
+				trees_front_layer.motion_mirroring = Vector2(float(tfw), 0.0)
+		_:
+			var mountains_layer := ParallaxLayer.new()
+			mountains_layer.name = "ForestMountains"
+			mountains_layer.z_index = -12
+			mountains_layer.position = Vector2(0, -200)
+			mountains_layer.motion_scale = Vector2(0.05, 0.0)
+			pb.add_child(mountains_layer)
+			var mountains_sprite := Sprite2D.new()
+			mountains_sprite.name = "MountainsSprite"
+			var mountains_tex := load("res://background/parallax/forest parallax/forest parallax mountain.png")
+			if mountains_tex:
+				mountains_sprite.texture = mountains_tex
+			mountains_sprite.centered = false
+			mountains_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			mountains_layer.add_child(mountains_sprite)
+			if mountains_tex and mountains_tex is Texture2D:
+				var mw := (mountains_tex as Texture2D).get_width()
+				mountains_layer.motion_mirroring = Vector2(float(mw), 0.0)
+
+			var trees_layer := ParallaxLayer.new()
+			trees_layer.name = "ForestTrees"
+			trees_layer.z_index = -9
+			trees_layer.position = Vector2(0, -350)
+			trees_layer.motion_scale = Vector2(0.15, 0.060)
+			pb.add_child(trees_layer)
+			var trees_sprite := Sprite2D.new()
+			trees_sprite.name = "TreesSprite"
+			var trees_tex := load("res://background/parallax/forest parallax/forest parallax trees.png")
+			if trees_tex:
+				trees_sprite.texture = trees_tex
+			trees_sprite.centered = false
+			trees_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			trees_layer.add_child(trees_sprite)
+			if trees_tex and trees_tex is Texture2D:
+				var tw := (trees_tex as Texture2D).get_width()
+				trees_layer.motion_mirroring = Vector2(float(tw), 0.0)
+
+			var trees_front_layer := ParallaxLayer.new()
+			trees_front_layer.name = "ForestTreesFront"
+			trees_front_layer.z_index = -8
+			trees_front_layer.position = Vector2(0, -400)
+			trees_front_layer.motion_scale = Vector2(0.35, 0.100)
+			pb.add_child(trees_front_layer)
+			var trees_front_sprite := Sprite2D.new()
+			trees_front_sprite.name = "TreesFrontSprite"
+			var trees_front_tex := load("res://background/parallax/forest parallax/forest parallax trees_front.png")
+			if trees_front_tex:
+				trees_front_sprite.texture = trees_front_tex
+			trees_front_sprite.centered = false
+			trees_front_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			trees_front_layer.add_child(trees_front_sprite)
+			if trees_front_tex and trees_front_tex is Texture2D:
+				var tfw := (trees_front_tex as Texture2D).get_width()
+				trees_front_layer.motion_mirroring = Vector2(float(tfw), 0.0)
+
+	if biome_type == "forest":
+		var biom_trees_1_layer := ParallaxLayer.new()
+		biom_trees_1_layer.name = "ForestBiomTrees1"
+		biom_trees_1_layer.z_index = -5
+		biom_trees_1_layer.position = Vector2(0, -520)
+		biom_trees_1_layer.motion_scale = Vector2(0.70, 0.28)
+		pb.add_child(biom_trees_1_layer)
+		var biom_trees_1_sprite := Sprite2D.new()
+		biom_trees_1_sprite.name = "BiomTrees1Sprite"
+		var biom_trees_1_tex := load("res://background/parallax/forest parallax/forest_biom_trees_1.png")
+		if biom_trees_1_tex:
+			biom_trees_1_sprite.texture = biom_trees_1_tex
+		biom_trees_1_sprite.centered = false
+		biom_trees_1_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+		biom_trees_1_layer.add_child(biom_trees_1_sprite)
+		if biom_trees_1_tex and biom_trees_1_tex is Texture2D:
+			var b1w := (biom_trees_1_tex as Texture2D).get_width()
+			biom_trees_1_layer.motion_mirroring = Vector2(float(b1w), 0.0)
+
+		var biom_trees_2_layer := ParallaxLayer.new()
+		biom_trees_2_layer.name = "ForestBiomTrees2"
+		biom_trees_2_layer.z_index = -6
+		biom_trees_2_layer.position = Vector2(0, -510)
+		biom_trees_2_layer.motion_scale = Vector2(0.58, 0.22)
+		pb.add_child(biom_trees_2_layer)
+		var biom_trees_2_sprite := Sprite2D.new()
+		biom_trees_2_sprite.name = "BiomTrees2Sprite"
+		var biom_trees_2_tex := load("res://background/parallax/forest parallax/forest_biom_trees_2.png")
+		if biom_trees_2_tex:
+			biom_trees_2_sprite.texture = biom_trees_2_tex
+		biom_trees_2_sprite.centered = false
+		biom_trees_2_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+		biom_trees_2_layer.add_child(biom_trees_2_sprite)
+		if biom_trees_2_tex and biom_trees_2_tex is Texture2D:
+			var b2w := (biom_trees_2_tex as Texture2D).get_width()
+			biom_trees_2_layer.motion_mirroring = Vector2(float(b2w), 0.0)
+
+		var biom_trees_3_layer := ParallaxLayer.new()
+		biom_trees_3_layer.name = "ForestBiomTrees3"
+		biom_trees_3_layer.z_index = -7
+		biom_trees_3_layer.position = Vector2(0, -500)
+		biom_trees_3_layer.motion_scale = Vector2(0.48, 0.12)
+		pb.add_child(biom_trees_3_layer)
+		var biom_trees_3_sprite := Sprite2D.new()
+		biom_trees_3_sprite.name = "BiomTrees3Sprite"
+		var biom_trees_3_tex := load("res://background/parallax/forest parallax/forest_biom_trees_3.png")
+		if biom_trees_3_tex:
+			biom_trees_3_sprite.texture = biom_trees_3_tex
+		biom_trees_3_sprite.centered = false
+		biom_trees_3_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+		biom_trees_3_layer.add_child(biom_trees_3_sprite)
+		if biom_trees_3_tex and biom_trees_3_tex is Texture2D:
+			var b3w := (biom_trees_3_tex as Texture2D).get_width()
+			biom_trees_3_layer.motion_mirroring = Vector2(float(b3w), 0.0)
 
 	# Optional: simple clouds layer using same manager if available later
 	# Cloud parallax layers - behind forest parallax but in front of CanvasModulate
@@ -2493,9 +2732,135 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 
 		if biome_type == "forest":
 			_spawn_forest_butterflies_for_chunk(chunk_node, tile_map, rng, decor_layer_name)
+			_spawn_forest_night_lighting_for_chunk(chunk_node, tile_map, rng, decor_layer_name)
+			_spawn_forest_fireflies_for_chunk(chunk_node, tile_map, rng, decor_layer_name)
 
 	# Mark done for this chunk
 	chunk_node.set_meta("forest_decor_done", true)
+
+func _spawn_forest_night_lighting_for_chunk(
+	chunk_node: Node2D,
+	tile_map,
+	rng: RandomNumberGenerator,
+	decor_layer_name: String
+) -> void:
+	if chunk_node.get_meta("is_start_chunk", false):
+		return
+	var used_cells: Array = tile_map.get_used_cells()
+	if used_cells.is_empty():
+		return
+	var tile_set: TileSet = tile_map.tile_set
+	if tile_set == null:
+		return
+	var placed_mushrooms: Array[Vector2] = []
+	var placed_camps: Array[Vector2] = []
+	var floor_cells: Array[Vector2i] = []
+	for cell in used_cells:
+		var td: TileData = tile_map.get_cell_tile_data(cell) as TileData
+		if td == null:
+			continue
+		var tag = td.get_custom_data(decor_layer_name)
+		if typeof(tag) != TYPE_STRING:
+			continue
+		var tag_s := String(tag)
+		if tag_s != "forest_floor_surface" and tag_s != "floor_surface":
+			continue
+		floor_cells.append(cell)
+	if floor_cells.is_empty():
+		return
+	floor_cells.shuffle()
+	var chunk_seed: int = int(chunk_node.get_meta("chunk_seed", hash(chunk_node.name)))
+	if rng.randf() <= FOREST_CAMP_SPAWN_CHANCE:
+		var camp_attempts: int = mini(12, floor_cells.size())
+		for i in range(camp_attempts):
+			var camp_cell: Vector2i = floor_cells[(rng.randi() + i) % floor_cells.size()]
+			var camp_pos: Vector2 = _forest_compute_cell_floor_pos(tile_map, camp_cell)
+			var camp_name: String = "camp2" if rng.randf() < 0.55 else "camp1"
+			if DecorationConfig.forest_lighting_too_close(camp_pos, placed_camps, DecorationConfig.FOREST_CAMP_MIN_DISTANCE_PX):
+				continue
+			_spawn_forest_decor_from_job({
+				"name": camp_name,
+				"pos": camp_pos,
+				"parent": chunk_node,
+				"expected_floor_y": camp_pos.y,
+				"anchor_cell": camp_cell,
+				"chunk_seed": chunk_seed,
+				"chunk_name": chunk_node.name,
+				"chunk_pos": chunk_node.global_position
+			})
+			placed_camps.append(camp_pos)
+			break
+	var mushrooms_spawned: int = 0
+	for cell_m in floor_cells:
+		if mushrooms_spawned >= FOREST_MUSHROOMS_PER_CHUNK_MAX:
+			break
+		if rng.randf() > FOREST_MUSHROOM_SPAWN_CHANCE:
+			continue
+		var mushroom_pos: Vector2 = _forest_compute_cell_floor_pos(tile_map, cell_m)
+		var ts_m: Vector2 = Vector2(tile_set.tile_size)
+		mushroom_pos.x += rng.randf_range(-ts_m.x * 0.22, ts_m.x * 0.22)
+		if DecorationConfig.forest_lighting_too_close(mushroom_pos, placed_mushrooms):
+			continue
+		if not placed_camps.is_empty() and DecorationConfig.forest_lighting_too_close(mushroom_pos, placed_camps, 280.0):
+			continue
+		_spawn_forest_decor_from_job({
+			"name": "forest_glow_mushroom",
+			"pos": mushroom_pos,
+			"parent": chunk_node,
+			"expected_floor_y": mushroom_pos.y,
+			"anchor_cell": cell_m,
+			"chunk_seed": chunk_seed,
+			"chunk_name": chunk_node.name,
+			"chunk_pos": chunk_node.global_position
+		})
+		placed_mushrooms.append(mushroom_pos)
+		mushrooms_spawned += 1
+
+
+func _spawn_forest_fireflies_for_chunk(
+	chunk_node: Node2D,
+	tile_map,
+	rng: RandomNumberGenerator,
+	decor_layer_name: String
+) -> void:
+	if FOREST_FIREFLY_SCENE == null:
+		return
+	if chunk_node.get_meta("is_start_chunk", false):
+		return
+	var chunk_sz: Vector2 = _get_size(chunk_node)
+	if chunk_sz.x < 320.0:
+		return
+	var floor_y: float = _forest_estimate_floor_y(tile_map, rng, decor_layer_name)
+	if is_nan(floor_y):
+		floor_y = chunk_node.global_position.y + chunk_sz.y * 0.35
+	var count: int = rng.randi_range(FOREST_FIREFLY_PER_CHUNK_MIN, FOREST_FIREFLY_PER_CHUNK_MAX)
+	var margin_x: float = 120.0
+	var x0: float = chunk_node.global_position.x + margin_x
+	var x1: float = chunk_node.global_position.x + chunk_sz.x - margin_x
+	if x1 <= x0:
+		x0 = chunk_node.global_position.x + 80.0
+		x1 = chunk_node.global_position.x + chunk_sz.x - 80.0
+	var y_top: float = floor_y - FOREST_FIREFLY_MAX_CLEARANCE
+	var y_bottom: float = floor_y - FOREST_FIREFLY_MIN_CLEARANCE
+	var fly_zone := Rect2(x0, y_top, maxf(32.0, x1 - x0), maxf(20.0, y_bottom - y_top))
+	for _i in range(count):
+		var inst: Node2D = FOREST_FIREFLY_SCENE.instantiate() as Node2D
+		if inst == null:
+			continue
+		inst.set_meta("fly_zone", fly_zone)
+		inst.set_meta("fly_floor_y", floor_y)
+		inst.set_meta("fly_min_clearance", FOREST_FIREFLY_MIN_CLEARANCE)
+		inst.set_meta("fly_max_clearance", FOREST_FIREFLY_MAX_CLEARANCE)
+		if inst.has_method("configure_flight"):
+			inst.call(
+				"configure_flight",
+				fly_zone,
+				floor_y,
+				FOREST_FIREFLY_MIN_CLEARANCE,
+				FOREST_FIREFLY_MAX_CLEARANCE
+			)
+		chunk_node.add_child(inst)
+
 
 func _spawn_forest_butterflies_for_chunk(
 	chunk_node: Node2D,

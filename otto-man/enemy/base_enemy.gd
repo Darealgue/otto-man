@@ -616,7 +616,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 			take_damage(damage, knockback_data.force, knockback_data.get("up_force", -1.0))
 			# Hit stop + screen shake tek yerden (yaşayan veya öldürücü vuruş; ceset vurulunca bu blok çalışmaz)
 			if hitbox is PlayerHitbox and hitbox.has_method("apply_killing_blow_effects"):
-				hitbox.apply_killing_blow_effects(damage)
+				hitbox.apply_killing_blow_effects(damage, self)
 		# Elemental efekt (decoy Hacivat vb.): hitbox'ta element meta varsa uygula
 		var elem: String = hitbox.get_meta("element", "")
 		if elem and elem.length() > 0 and has_node("/root/ElementalEffects"):
@@ -744,9 +744,9 @@ func reset() -> void:
 	if health_bar:
 		health_bar.setup(health)
 		
-	# Re-enable components
+	# Hitbox yalnızca saldırı anında açılmalı (wake/reset'te açmak içinden geçişte hayalet vuruş yapıyordu).
 	if hitbox:
-		hitbox.enable()
+		hitbox.disable()
 	if hurtbox:
 		hurtbox.monitoring = true
 		hurtbox.monitorable = true
@@ -829,7 +829,7 @@ func wake_up() -> void:
 	
 	set_process(true)
 	if hitbox:
-		hitbox.enable()
+		hitbox.disable()
 	if hurtbox:
 		hurtbox.set_deferred("monitoring", true)
 		hurtbox.set_deferred("monitorable", true)

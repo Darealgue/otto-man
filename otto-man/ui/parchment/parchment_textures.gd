@@ -168,7 +168,7 @@ static func _apply_parchment_style_for(panel: Control) -> void:
 		apply_compact_panel_style(panel, 8)
 	elif n.ends_with("Card") or n.ends_with("Item") or n.begins_with("ConcubineListItem"):
 		apply_mini_panel_style(panel, 8)
-	elif n in ["BasicInfoPanel", "SkillsPanel", "MissionHistoryPanel", "AchievementsPanel"]:
+	elif n in ["BasicInfoPanel", "SkillsPanel", "MissionHistoryPanel", "AchievementsPanel", "SelectedMissionDetailStrip"]:
 		apply_compact_panel_style(panel, 10)
 	elif panel is Panel:
 		apply_large_panel_style(panel, 14)

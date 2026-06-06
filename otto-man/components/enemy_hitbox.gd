@@ -22,6 +22,25 @@ func setup_attack(type: String, parryable: bool = true, stun: float = 0.0):
 	can_be_parried = parryable
 	stun_duration = stun
 
+func enable() -> void:
+	is_active = true
+	monitoring = true
+	monitorable = true
+	if has_node("CollisionShape2D"):
+		get_node("CollisionShape2D").set_deferred("disabled", false)
+
+func disable() -> void:
+	# PlayerHitbox ile aynı: deferred kapatma birkaç frame hayalet overlap bırakıyordu.
+	is_active = false
+	monitoring = false
+	monitorable = false
+	if has_node("CollisionShape2D"):
+		get_node("CollisionShape2D").set_deferred("disabled", true)
+
+func _physics_process(_delta: float) -> void:
+	if not is_active and (monitoring or monitorable or (has_node("CollisionShape2D") and not get_node("CollisionShape2D").disabled)):
+		disable()
+
 # Override to include stun information
 func get_knockback_data() -> Dictionary:
 	var data = super.get_knockback_data()
@@ -30,6 +49,8 @@ func get_knockback_data() -> Dictionary:
 
 # Called when hitting the player
 func _on_area_entered(area: Area2D) -> void:
+	if not is_enabled() or damage <= 0.0:
+		return
 	# Debug prints disabled to reduce console spam
 	# print("[EnemyHitbox] Area entered: " + str(area.name) + " (groups: " + str(area.get_groups()) + ")")
 

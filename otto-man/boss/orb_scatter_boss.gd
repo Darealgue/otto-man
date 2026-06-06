@@ -190,7 +190,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	take_damage(damage, knockback_data.get("force", 0.0), knockback_data.get("up_force", -1.0), false)
 
 	if hitbox.has_method("apply_killing_blow_effects"):
-		hitbox.apply_killing_blow_effects(damage)
+		hitbox.apply_killing_blow_effects(damage, self)
 
 
 func _die() -> void:

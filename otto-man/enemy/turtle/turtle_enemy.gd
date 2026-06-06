@@ -366,3 +366,10 @@ func update_sprite_direction() -> void:
 			var material = sprite.material as ShaderMaterial
 			if material:
 				material.set_shader_parameter("sprite_flipped", direction < 0)
+
+func wake_up() -> void:
+	super.wake_up()
+	# Sürekli temas hasarı: base wake_up hitbox'ı kapatır, turtle yeniden açar.
+	if hitbox:
+		hitbox.enable()
+		hitbox.damage = stats.attack_damage if stats else 15.0

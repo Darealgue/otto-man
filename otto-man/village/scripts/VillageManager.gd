@@ -118,6 +118,8 @@ const GATHER_DELIVERY_YIELD_FOOD_WATER := 2
 var basic_gather_expeditions_by_worker: Dictionary = {}
 ## worker_id -> son çıkış günü (TimeManager.days ile karşılaştırılır)
 var basic_gather_last_departure_day: Dictionary = {}
+## Teslim yapıldı; görsel efekt köylü binaya varınca oynatılır (ekran dışı flush'ta değil).
+var basic_gather_pending_visual_by_worker: Dictionary = {}
 ## Depo taşması (gece yarısı çürütülür)
 var basic_resource_overflow: Dictionary = {}
 var _last_gather_processed_total_minutes: int = -1
@@ -163,6 +165,7 @@ const GUEST_DEPARTURE_DAYS: int = 1
 # Sinyaller
 signal village_data_changed
 signal resource_produced(resource_type, amount)
+signal basic_gather_deposited(worker_id: int, resource_type: String, amount: int, world_position: Vector2)
 signal worker_assigned(building_node, resource_type)
 signal worker_removed(building_node, resource_type)
 signal worker_list_changed  # Worker listesi değiştiğinde UI'yi güncellemek için
@@ -1004,7 +1007,11 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 		var t_end_abs: int = t_start_abs + total_minutes
 		_basic_gather_simulate_interval(t_start_abs, t_end_abs)
 		_gather_flush_completed_deliveries_up_to(t_end_abs)
-		_last_gather_processed_total_minutes = t_end_abs
+		var tm_gather := get_node_or_null("/root/TimeManager")
+		if tm_gather != null and tm_gather.has_method("get_total_game_minutes"):
+			_last_gather_processed_total_minutes = int(tm_gather.get_total_game_minutes())
+		else:
+			_last_gather_processed_total_minutes = t_end_abs
 
 	if produced_basic or advanced_changed or upgrade_completed:
 		emit_signal("village_data_changed")
@@ -1054,7 +1061,13 @@ func _gather_breakdown_total_minutes(t: int) -> Dictionary:
 func _basic_gather_simulate_interval(t0: int, t1: int) -> void:
 	if t1 <= t0:
 		return
-	const MAX_CHUNK: int = 200000
+	var span: int = t1 - t0
+	const MAX_SIM_MINUTES: int = 10080  # 7 oyun günü; üzeri sadece teslim flush
+	if span > MAX_SIM_MINUTES:
+		push_warning("[VillageManager] Gather sim span capped (%d min); flushing deliveries only." % span)
+		_gather_flush_completed_deliveries_up_to(t1)
+		return
+	const MAX_CHUNK: int = 480
 	var cur: int = t0
 	while cur < t1:
 		var nxt: int = mini(cur + MAX_CHUNK, t1)
@@ -1084,10 +1097,20 @@ func _tick_basic_gather_realtime_clock() -> void:
 		return
 	if gt <= _last_gather_processed_total_minutes:
 		return
-	for tt in range(_last_gather_processed_total_minutes + 1, gt + 1):
+	var from_m: int = _last_gather_processed_total_minutes
+	var gap: int = gt - from_m
+	# Yükleme / time_advanced sonrası senkron kayması: tek karede yüz binlerce dakika işleme (debugger çökmesi).
+	const DESYNC_SNAP_THRESHOLD: int = 120
+	const MAX_MINUTES_PER_FRAME: int = 8
+	if gap > DESYNC_SNAP_THRESHOLD:
+		_gather_flush_completed_deliveries_up_to(gt)
+		_last_gather_processed_total_minutes = gt
+		return
+	var to_m: int = mini(gt, from_m + MAX_MINUTES_PER_FRAME)
+	for tt in range(from_m + 1, to_m + 1):
 		_gather_process_synthetic_minute(tt)
-	_gather_flush_completed_deliveries_up_to(gt)
-	_last_gather_processed_total_minutes = gt
+	_gather_flush_completed_deliveries_up_to(to_m)
+	_last_gather_processed_total_minutes = to_m
 
 
 func _decay_basic_resource_overflow_midnight() -> void:
@@ -1122,12 +1145,79 @@ func _gather_process_deliveries_at_total(t_abs: int) -> void:
 			exp["delivery_ready"] = true
 
 
-func _gather_complete_delivery(worker_id: int, exp: Dictionary) -> void:
-	if bool(exp.get("deposit_complete", false)):
+func _gather_deposit_visual_position(worker_id: int) -> Vector2:
+	# Yalnızca bina üstü — köylü ekran dışındayken global_position kullanılmaz.
+	var data: Dictionary = all_workers.get(worker_id, {})
+	var inst: Node = _worker_node_from_all_workers_entry(worker_id, data, false)
+	if inst != null and "assigned_building_node" in inst:
+		var building: Variant = inst.get("assigned_building_node")
+		if is_instance_valid(building) and building is Node2D:
+			var bp: Vector2 = (building as Node2D).global_position
+			return bp + Vector2(randf_range(-14.0, 14.0), -58.0)
+	if is_instance_valid(campfire_node) and campfire_node is Node2D:
+		return (campfire_node as Node2D).global_position + Vector2(0.0, -40.0)
+	return Vector2(960.0, -26.0)
+
+
+func _queue_gather_deposit_visual(worker_id: int, resource_type: String, amount: int) -> void:
+	if amount <= 0 or resource_type.is_empty():
 		return
+	basic_gather_pending_visual_by_worker[int(worker_id)] = {
+		"resource_type": resource_type,
+		"amount": amount,
+	}
+
+
+func present_basic_gather_deposit_visual_at_building(worker_id: int) -> void:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	var wid: int = int(worker_id)
+	var pending: Variant = basic_gather_pending_visual_by_worker.get(wid, null)
+	if not pending is Dictionary:
+		return
+	var amt: int = int((pending as Dictionary).get("amount", 0))
+	var res_type: String = String((pending as Dictionary).get("resource_type", ""))
+	basic_gather_pending_visual_by_worker.erase(wid)
+	if amt <= 0 or res_type.is_empty():
+		return
+	emit_signal("basic_gather_deposited", wid, res_type, amt, _gather_deposit_visual_position(wid))
+
+
+func finalize_basic_gather_delivery_at_building(worker_id: int) -> void:
+	## Kaynak + FX yalnızca köylü binaya vardığında (load/flush erken yatırım yapmaz).
+	var wid: int = int(worker_id)
+	var exp: Variant = basic_gather_expeditions_by_worker.get(wid, null)
+	if not exp is Dictionary:
+		present_basic_gather_deposit_visual_at_building(wid)
+		return
+	var exp_dict: Dictionary = exp as Dictionary
+	if bool(exp_dict.get("deposit_complete", false)):
+		basic_gather_expeditions_by_worker.erase(wid)
+		present_basic_gather_deposit_visual_at_building(wid)
+		return
+	var dm: int = int(exp_dict.get("delivery_minutes", -1))
+	var tm := get_node_or_null("/root/TimeManager")
+	if dm < 0 or tm == null or not tm.has_method("get_total_game_minutes"):
+		return
+	var gt: int = int(tm.get_total_game_minutes())
+	if dm >= 0 and gt >= dm:
+		exp_dict["delivery_ready"] = true
+	if not bool(exp_dict.get("delivery_ready", false)) and gt < dm:
+		return
+	var res_type: String = String(exp_dict.get("resource_type", ""))
+	var deposited: int = _gather_complete_delivery(wid, exp_dict)
+	basic_gather_expeditions_by_worker.erase(wid)
+	if deposited > 0 and not res_type.is_empty():
+		_queue_gather_deposit_visual(wid, res_type, deposited)
+	present_basic_gather_deposit_visual_at_building(wid)
+
+
+func _gather_complete_delivery(worker_id: int, exp: Dictionary) -> int:
+	if bool(exp.get("deposit_complete", false)):
+		return 0
 	var res_type: String = String(exp.get("resource_type", ""))
 	if res_type.is_empty() or not (res_type in BASE_RESOURCE_TYPES):
-		return
+		return 0
 	exp["deposit_complete"] = true
 	var trip_m: int = int(exp.get("total_trip_minutes", 0))
 	var provisioned: bool = bool(exp.get("provisioned", true))
@@ -1137,11 +1227,15 @@ func _gather_complete_delivery(worker_id: int, exp: Dictionary) -> void:
 	if trip_m >= GATHER_PROVISION_TRIP_THRESHOLD_MINUTES and not provisioned:
 		if randf() > GATHER_SOFT_YIELD_NO_PROVISION:
 			yield_amt = 0
+	# Sefer süresi doldu ve binaya teslim ediliyorsa boş dönüş olmasın (oyuncu gördüğü dönüş).
+	if yield_amt <= 0:
+		yield_amt = 1
 	if yield_amt > 0:
 		_deposit_basic_resource_with_overflow(res_type, yield_amt)
 		_daily_production_counter[res_type] = int(_daily_production_counter.get(res_type, 0)) + yield_amt
 		emit_signal("resource_produced", res_type, yield_amt)
 	emit_signal("village_data_changed")
+	return yield_amt
 
 
 ## Sefer kaydı teslim dakikasında silinmez; Worker binaya varınca teslim eder.
@@ -1151,6 +1245,10 @@ func is_gather_return_ready_for_worker(worker_id: int) -> bool:
 	var exp: Variant = basic_gather_expeditions_by_worker.get(worker_id, {})
 	if not exp is Dictionary:
 		return false
+	if bool((exp as Dictionary).get("deposit_complete", false)):
+		return false
+	if bool((exp as Dictionary).get("delivery_ready", false)):
+		return true
 	var dm: int = int(exp.get("delivery_minutes", -1))
 	if dm < 0:
 		return false
@@ -1161,29 +1259,55 @@ func is_gather_return_ready_for_worker(worker_id: int) -> bool:
 	return gt >= dm
 
 
+## Sefer bitti ama kaynak henüz binaya yatırılmadı (uyku/idle öncesi tamamlanmalı).
+func worker_needs_gather_deposit_at_building(worker_id: int) -> bool:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return false
+	if not basic_gather_expeditions_by_worker.has(worker_id):
+		return false
+	var exp: Variant = basic_gather_expeditions_by_worker.get(worker_id, {})
+	if not exp is Dictionary:
+		return false
+	if bool((exp as Dictionary).get("deposit_complete", false)):
+		return false
+	return is_gather_return_ready_for_worker(worker_id)
+
+
 func has_active_basic_gather_expedition_for_worker(worker_id: int) -> bool:
 	if not USE_DISTANCE_BASED_BASIC_GATHER:
 		return false
 	return basic_gather_expeditions_by_worker.has(worker_id)
 
 
-func complete_basic_gather_delivery_for_worker_if_ready(worker_id: int) -> bool:
+## İşçi işe atanır / mesai başlar ama 08:00 çıkışını kaçırdıysa sefer kaydı oluştur.
+## Görsel gidiş-dönüş bu kayıt olmadan kaynak üretmez.
+func ensure_basic_gather_expedition_for_worker(worker_id: int) -> bool:
 	if not USE_DISTANCE_BASED_BASIC_GATHER:
 		return false
-	var exp: Variant = basic_gather_expeditions_by_worker.get(worker_id, {})
-	if not exp is Dictionary:
-		return false
-	var dm: int = int(exp.get("delivery_minutes", -1))
-	if dm < 0:
+	var wid: int = int(worker_id)
+	if basic_gather_expeditions_by_worker.has(wid):
+		var existing: Variant = basic_gather_expeditions_by_worker.get(wid, {})
+		if existing is Dictionary and not bool((existing as Dictionary).get("deposit_complete", false)):
+			return true
+		basic_gather_expeditions_by_worker.erase(wid)
+	var res_job: String = _gather_worker_job_type(wid)
+	if res_job.is_empty() or not (res_job in BASE_RESOURCE_TYPES):
 		return false
 	var tm := get_node_or_null("/root/TimeManager")
 	if tm == null or not tm.has_method("get_total_game_minutes"):
 		return false
-	var gt: int = int(tm.get_total_game_minutes())
-	if gt < dm:
+	if tm.has_method("is_work_time") and not bool(tm.is_work_time()):
 		return false
-	_gather_complete_delivery(worker_id, exp)
-	basic_gather_expeditions_by_worker.erase(worker_id)
+	var gt: int = int(tm.get_total_game_minutes())
+	var today: int = _gather_calendar_day_from_total_minutes(gt)
+	var last_d: int = int(basic_gather_last_departure_day.get(wid, -999999))
+	if last_d == today:
+		return false
+	return _gather_start_expedition_at_departure(wid, gt)
+
+
+func complete_basic_gather_delivery_for_worker_if_ready(worker_id: int) -> bool:
+	finalize_basic_gather_delivery_at_building(worker_id)
 	return true
 
 
@@ -1260,12 +1384,15 @@ func _gather_try_departures_at_total(t_abs: int) -> void:
 		_gather_start_expedition_at_departure(int(wid), t_abs)
 
 
+## Sefer süresi dolduğunda yalnızca "dönüş hazır" işaretle; kaynak stoğa köylü binaya varınca yazılır.
 func _gather_flush_completed_deliveries_up_to(t_abs: int) -> void:
 	for wid in basic_gather_expeditions_by_worker.keys():
 		var exp: Dictionary = basic_gather_expeditions_by_worker.get(wid, {})
+		if bool(exp.get("deposit_complete", false)):
+			continue
 		var dm: int = int(exp.get("delivery_minutes", -1))
 		if dm >= 0 and dm <= t_abs:
-			_gather_complete_delivery(int(wid), exp)
+			exp["delivery_ready"] = true
 
 
 func _purge_stale_worker_registry_entry(worker_id: int) -> void:
@@ -1276,6 +1403,7 @@ func _purge_stale_worker_registry_entry(worker_id: int) -> void:
 	all_workers.erase(worker_id)
 	basic_gather_expeditions_by_worker.erase(worker_id)
 	basic_gather_last_departure_day.erase(worker_id)
+	basic_gather_pending_visual_by_worker.erase(worker_id)
 
 
 ## all_workers["instance"] silinmiş Node ise tipli değişkene atamak çökebilir; sadece Variant + is_instance_valid, ara Object ataması yok.
@@ -1312,6 +1440,9 @@ func _basic_gather_reconcile_after_village_ready() -> void:
 			if last_d == today:
 				continue
 			_gather_start_expedition_at_departure(int(wid), depart_slot)
+	if tm.has_method("is_work_time") and bool(tm.is_work_time()):
+		for wid in _iter_basic_gather_worker_ids():
+			ensure_basic_gather_expedition_for_worker(int(wid))
 	_gather_flush_completed_deliveries_up_to(gt)
 	_last_gather_processed_total_minutes = gt
 	emit_signal("village_data_changed")
@@ -1928,6 +2059,8 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 							worker_instance.set("_target_global_y", building_pos.y)
 							worker_instance.set("_offscreen_exit_x", offscreen_x)
 					
+					if job_type in BASE_RESOURCE_TYPES and USE_DISTANCE_BASED_BASIC_GATHER:
+						ensure_basic_gather_expedition_for_worker(saved_worker_id)
 					worker_instance.current_state = 4
 					worker_instance.visible = false
 					print("[VillageManager] 🔨 DEBUG: Worker %d set to work offscreen" % saved_worker_id)
@@ -1976,6 +2109,8 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 				# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
 				if current_hour >= work_start_hour and current_hour < work_end_hour:
 					if not is_work_start_hour or passed_offset:
+						if job_type in BASE_RESOURCE_TYPES and USE_DISTANCE_BASED_BASIC_GATHER:
+							ensure_basic_gather_expedition_for_worker(saved_worker_id)
 						worker_instance.current_state = 2  # GOING_TO_BUILDING_FIRST
 						if assigned_building is Node2D:
 							var building_pos = (assigned_building as Node2D).global_position
@@ -4689,17 +4824,54 @@ func remove_world_event_effects(event: Dictionary) -> void:
 			_post_event_notification("İsyan bastırıldı.", "success")
 	_check_morale_game_over()
 
+func _enqueue_village_surface_news(
+	source: String,
+	facts: Dictionary,
+	title: String,
+	content: String,
+	category: String = "village",
+	color: Color = Color.ORANGE,
+	subcategory: String = "info"
+) -> void:
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	if mm == null:
+		return
+	var news_override: Dictionary = {
+		"title": title,
+		"body": content,
+		"category": category,
+		"color": color,
+		"subcategory": subcategory,
+	}
+	if mm.has_method("try_enqueue_news"):
+		if mm.call("try_enqueue_news", source, facts, news_override):
+			return
+	if mm.has_method("post_news"):
+		mm.call("post_news", category, title, content, color, subcategory)
+
+
 func _post_event_notification(message: String, category: String) -> void:
-	"""Post event notification to news system"""
-	var mm = get_node_or_null("/root/MissionManager")
-	if mm and mm.has_method("post_news"):
-		mm.post_news("Köy", "Dünya Olayı", message, Color.WHITE, category)
+	_enqueue_village_surface_news(
+		"village_macro",
+		{"macro_category": category, "message": message},
+		"Dünya Olayı",
+		message,
+		"Köy",
+		Color.WHITE,
+		category
+	)
 
 
 func _post_village_news(title: String, content: String, subcategory: String = "warning", color: Color = Color.ORANGE) -> void:
-	var mm := get_node_or_null("/root/MissionManager")
-	if mm and mm.has_method("post_news"):
-		mm.post_news("village", title, content, color, subcategory)
+	_enqueue_village_surface_news(
+		"village_news",
+		{"headline": title},
+		title,
+		content,
+		"village",
+		color,
+		subcategory
+	)
 
 # --- Soldiers extra consumption helpers ---
 func _count_active_soldiers() -> int:
@@ -4822,14 +4994,20 @@ func process_weekly_cariye_needs(current_day: int) -> void:
 	if missing_any:
 		village_morale = max(0.0, village_morale - 2.0)
 		_check_morale_game_over()
-		var mm = get_node_or_null("/root/MissionManager")
-		if mm and mm.has_method("post_news"):
-			var msg := "Eksik haftalık cariye ihtiyaçları: "
-			if missing_bread > 0:
-				msg += "Ekmek %d " % missing_bread
-			if missing_tea > 0:
-				msg += "Çay %d" % missing_tea
-			mm.post_news("village", "Cariye ihtiyaçları karşılanamadı", msg.strip_edges(), Color(1,0.6,0.2,1))
+		var msg := "Eksik haftalık cariye ihtiyaçları: "
+		if missing_bread > 0:
+			msg += "Ekmek %d " % missing_bread
+		if missing_tea > 0:
+			msg += "Çay %d" % missing_tea
+		_enqueue_village_surface_news(
+			"village_surface_cariye_shortage",
+			{"missing_bread": missing_bread, "missing_tea": missing_tea},
+			"Cariye ihtiyaçları karşılanamadı",
+			msg.strip_edges(),
+			"village",
+			Color(1, 0.6, 0.2, 1),
+			"warning"
+		)
 
 func _check_shortages_and_apply_morale_penalties() -> void:
 	var penalty := 0.0
@@ -4895,6 +5073,51 @@ func _update_events_for_new_day(current_day: int) -> void:
 # === World Event Effects Integration ===
 # (Duplicate functions removed - using the ones defined earlier)
 
+func _present_village_event_news(ev: Dictionary, event_level: int, dur: int, current_day: int) -> void:
+	var t: String = String(ev.get("type", ""))
+	var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
+	var title := "Yeni Olay: %s" % t.capitalize()
+	var msg := "Seviye: %s, Süre: %d gün" % [level_name, dur]
+	if t == "raid" and ev.has("raid_attack_day"):
+		var days_until: int = int(ev["raid_attack_day"]) - current_day
+		var attacker: String = String(ev.get("raid_attacker", "Bilinmeyen Haydutlar"))
+		msg = "%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!" % [attacker, days_until]
+		title = "🚨 Baskın Uyarısı!"
+	elif t == "worker_strike" and ev.has("strike_resource"):
+		var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
+		var reason_names: Dictionary = {
+			"düşük_moral": "Düşük Moral",
+			"kaynak_eksikliği": "Kaynak Eksikliği",
+			"genel_hoşnutsuzluk": "Genel Hoşnutsuzluk",
+		}
+		msg = "%s - %s üretimi durdu (%s)" % [
+			msg,
+			res_names.get(ev["strike_resource"], ev["strike_resource"]),
+			reason_names.get(ev.get("strike_reason", ""), ""),
+		]
+	var facts: Dictionary = {
+		"event_type": t,
+		"level": level_name,
+		"duration_days": dur,
+		"severity": float(ev.get("severity", 1.0)),
+	}
+	if t == "raid" and ev.has("raid_attack_day"):
+		facts["raid_attacker"] = String(ev.get("raid_attacker", ""))
+		facts["days_until"] = int(ev["raid_attack_day"]) - current_day
+	if t == "worker_strike":
+		facts["strike_resource"] = String(ev.get("strike_resource", ""))
+		facts["strike_reason"] = String(ev.get("strike_reason", ""))
+	_enqueue_village_surface_news(
+		"village_event_%s" % t,
+		facts,
+		title,
+		msg,
+		"world",
+		Color.ORANGE,
+		"warning"
+	)
+
+
 func _pick_and_create_event(current_day: int) -> Dictionary:
 	# cooldown check and simple pool
 	var pool := ["drought", "famine", "pest", "disease", "raid", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike", "bandit_activity"]
@@ -4956,22 +5179,8 @@ func _pick_and_create_event(current_day: int) -> Dictionary:
 		
 		# simple cooldown: 30 days
 		_event_cooldowns[t] = current_day + 30
-		# Post news to MissionManager if available
-		var mm = get_node_or_null("/root/MissionManager")
-		if mm and mm.has_method("post_news"):
-			var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
-			var title := "Yeni Olay: %s" % t.capitalize()
-			var msg := "Seviye: %s, Süre: %d gün" % [level_name, dur]
-			if t == "raid" and ev.has("raid_attack_day"):
-				var days_until = ev["raid_attack_day"] - current_day
-				var attacker = ev.get("raid_attacker", "Bilinmeyen Haydutlar")
-				msg = "%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!" % [attacker, days_until]
-				title = "🚨 Baskın Uyarısı!"
-			elif t == "worker_strike" and ev.has("strike_resource"):
-				var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
-				var reason_names: Dictionary = {"düşük_moral": "Düşük Moral", "kaynak_eksikliği": "Kaynak Eksikliği", "genel_hoşnutsuzluk": "Genel Hoşnutsuzluk"}
-				msg = "%s - %s üretimi durdu (%s)" % [msg, res_names.get(ev["strike_resource"], ev["strike_resource"]), reason_names.get(ev.get("strike_reason", ""), "")]
-			mm.post_news("world", title, msg, Color.ORANGE)
+		if t != "bandit_activity":
+			_present_village_event_news(ev, event_level, dur, current_day)
 		return ev
 	return {}
 
@@ -5398,14 +5607,15 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			# Harita diplomasisi: oyuncuya dusmanca koylerden tüccar gelmez; iliski WM'den okunur.
 			var eligible: Array = _build_trader_origin_candidates(settlements)
 			if eligible.is_empty():
-				if mm.has_method("post_news"):
-					mm.post_news(
-						"village",
-						"📭 Karavan gelmedi",
-						"Komşu yollarda gerilim var; tüccar kafilesi bu hafta köyünüze uğramadı.",
-						Color(0.85, 0.82, 0.55),
-						"info"
-					)
+				_enqueue_village_surface_news(
+					"village_surface_trade_caravan_miss",
+					{"event_type": "trade_caravan_miss"},
+					"📭 Karavan gelmedi",
+					"Komşu yollarda gerilim var; tüccar kafilesi bu hafta köyünüze uğramadı.",
+					"village",
+					Color(0.85, 0.82, 0.55),
+					"info"
+				)
 			else:
 				var settlement: Dictionary = _select_settlement_for_trader(eligible)
 				var trader_type = _select_trader_type_by_relation(settlement)
@@ -5428,8 +5638,15 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			}
 			var title := "🔍 Kaynak Keşfi"
 			var content := "Köylüler bir %s deposu buldular! +%d %s eklendi." % [res_names.get(discovered_resource, discovered_resource), amount, res_names.get(discovered_resource, discovered_resource)]
-			if mm and mm.has_method("post_news"):
-				mm.post_news("village", title, content, Color.CYAN, "info")
+			_enqueue_village_surface_news(
+				"village_surface_resource_discovery",
+				{"resource": discovered_resource, "amount": amount},
+				title,
+				content,
+				"village",
+				Color.CYAN,
+				"info"
+			)
 			print("[VillageManager] 🎉 Resource discovery: +%d %s" % [amount, discovered_resource])
 		
 		"windfall":
@@ -5440,16 +5657,30 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			resource_levels["stone"] = resource_levels.get("stone", 0) + bonus_stone
 			var title := "🍀 Bolluk"
 			var content := "İyi bir hasat sezonu geçirdik! +%d odun, +%d taş eklendi." % [bonus_wood, bonus_stone]
-			if mm and mm.has_method("post_news"):
-				mm.post_news("village", title, content, Color.GREEN, "success")
+			_enqueue_village_surface_news(
+				"village_surface_windfall",
+				{"wood": bonus_wood, "stone": bonus_stone},
+				title,
+				content,
+				"village",
+				Color.GREEN,
+				"success"
+			)
 			print("[VillageManager] 🎉 Windfall event: +%d wood, +%d stone" % [bonus_wood, bonus_stone])
 		
 		"traveler":
 			# Seyyah - yeni görev fırsatı (placeholder, MissionManager'a entegre edilebilir)
 			var title := "🧳 Seyyah Ziyareti"
 			var content := "Bir seyyah köyünüze uğradı ve size ilginç hikayeler anlattı."
-			if mm and mm.has_method("post_news"):
-				mm.post_news("village", title, content, Color.YELLOW, "info")
+			_enqueue_village_surface_news(
+				"village_surface_traveler",
+				{"event_type": "traveler"},
+				title,
+				content,
+				"village",
+				Color.YELLOW,
+				"info"
+			)
 			print("[VillageManager] 🎉 Traveler event")
 		
 		"minor_accident":
@@ -5463,8 +5694,15 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			var res_names: Dictionary = {"wood": "Odun", "stone": "Taş"}
 			var title := "⚠️ Küçük Kaza"
 			var content := "Köyde küçük bir kaza oldu. -%d %s kaybedildi." % [loss, res_names.get(lost_resource, lost_resource)]
-			if mm and mm.has_method("post_news"):
-				mm.post_news("village", title, content, Color.ORANGE, "warning")
+			_enqueue_village_surface_news(
+				"village_surface_minor_accident",
+				{"resource": lost_resource, "loss": loss},
+				title,
+				content,
+				"village",
+				Color.ORANGE,
+				"warning"
+			)
 			print("[VillageManager] ⚠️ Minor accident: -%d %s" % [loss, lost_resource])
 		
 		"immigration_wave":
@@ -5478,13 +5716,26 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			if added_count > 0:
 				var title := "👥 Göç Dalgası"
 				var content := "%d yeni köylü köyünüze yerleşti!" % added_count
-				if mm and mm.has_method("post_news"):
-					mm.post_news("village", title, content, Color.CYAN, "success")
+				_enqueue_village_surface_news(
+					"village_surface_immigration",
+					{"added_count": added_count},
+					title,
+					content,
+					"village",
+					Color.CYAN,
+					"success"
+				)
 				print("[VillageManager] 🎉 Immigration wave: +%d workers" % added_count)
 			else:
-				# Barınak yetersizse haber gönderme (opsiyonel)
-				if mm and mm.has_method("post_news"):
-					mm.post_news("village", "Göç Dalgası", "Göçmenler geldi ama barınak yetersiz olduğu için geri döndüler.", Color.YELLOW, "info")
+				_enqueue_village_surface_news(
+					"village_surface_immigration_failed",
+					{"reason": "no_housing"},
+					"Göç Dalgası",
+					"Göçmenler geldi ama barınak yetersiz olduğu için geri döndüler.",
+					"village",
+					Color.YELLOW,
+					"info"
+				)
 	var wm_world: Node = get_node_or_null("/root/WorldManager")
 	if wm_world and wm_world.has_method("on_village_surface_event"):
 		wm_world.call("on_village_surface_event", event_type, day)
@@ -5974,22 +6225,8 @@ func trigger_specific_world_event(event_type: String, severity: float = -1.0, du
 	# Cooldown'u atla (test için)
 	# _event_cooldowns[event_type] = day + 30
 	
-	# Post news
-	var mm = get_node_or_null("/root/MissionManager")
-	if mm and mm.has_method("post_news"):
-		var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
-		var title := "Yeni Olay: %s" % event_type.capitalize()
-		var msg := "Seviye: %s, Süre: %d gün" % [level_name, dur]
-		if event_type == "raid" and ev.has("raid_attack_day"):
-			var days_until = ev["raid_attack_day"] - day
-			var attacker = ev.get("raid_attacker", "Bilinmeyen Haydutlar")
-			msg = "%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!" % [attacker, days_until]
-			title = "🚨 Baskın Uyarısı!"
-		elif event_type == "worker_strike" and ev.has("strike_resource"):
-			var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
-			var reason_names: Dictionary = {"düşük_moral": "Düşük Moral", "kaynak_eksikliği": "Kaynak Eksikliği", "genel_hoşnutsuzluk": "Genel Hoşnutsuzluk"}
-			msg = "%s - %s üretimi durdu (%s)" % [msg, res_names.get(ev["strike_resource"], ev["strike_resource"]), reason_names.get(ev.get("strike_reason", ""), "")]
-		mm.post_news("world", title, msg, Color.ORANGE)
+	if event_type != "bandit_activity":
+		_present_village_event_news(ev, event_level, dur, day)
 	
 	events_active.append(ev)
 	_apply_event_effects(ev)
@@ -6837,7 +7074,18 @@ func apply_current_time_schedule() -> void:
 		hour = tm.get_hour()
 	_apply_time_of_day(hour)
 
+func sync_gather_deliveries_before_schedule() -> void:
+	## Saat başı köylü rutini öncesi: sefer teslimi işaretlensin (22:00 uyku/dönüş yarışı).
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("get_total_game_minutes"):
+		return
+	_gather_flush_completed_deliveries_up_to(int(tm.get_total_game_minutes()))
+
+
 func _apply_time_of_day(hour: int) -> void:
+	sync_gather_deliveries_before_schedule()
 	# Worker'lar için saat kontrolü
 	if workers_container != null:
 		for child in workers_container.get_children():

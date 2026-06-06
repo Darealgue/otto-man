@@ -36,6 +36,8 @@ func activate(player: CharacterBody2D):
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
+	if player and is_instance_valid(player):
+		_player = player
 	_end_invisibility()
 	if _player:
 		if _player.has_signal("dodge_started") and _player.is_connected("dodge_started", _on_dodge_started):
@@ -62,6 +64,10 @@ func _start_invisibility():
 	var c := _saved_modulate
 	_player.modulate = Color(c.r, c.g, c.b, c.a * INVIS_ALPHA)
 	_player.remove_from_group("player")
+	var hb := _player.get_node_or_null("Hurtbox")
+	if hb:
+		_player.set_meta("_gorunmezlik_hurtbox_monitoring", hb.monitoring)
+		hb.monitoring = false
 	_invis_timer = INVIS_DURATION
 	_is_invisible = true
 	_first_attack_ready = true
@@ -75,6 +81,11 @@ func _end_invisibility():
 	_player.gorunmezlik_first_attack_mult = 1.0
 	if not _player.is_in_group("player"):
 		_player.add_to_group("player")
+	if _player.has_meta("_gorunmezlik_hurtbox_monitoring"):
+		var hb_end := _player.get_node_or_null("Hurtbox")
+		if hb_end:
+			hb_end.monitoring = bool(_player.get_meta("_gorunmezlik_hurtbox_monitoring"))
+		_player.remove_meta("_gorunmezlik_hurtbox_monitoring")
 	_invis_timer = 0.0
 	_is_invisible = false
 	_first_attack_ready = false

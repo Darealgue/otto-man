@@ -294,6 +294,16 @@ const BACKGROUND_DECORS = {
 			"res://decoration/forest/fl3.png"
 		]
 	},
+	"forest_glow_mushroom": {
+		"weight": 40,
+		"locations": [SpawnLocation.FLOOR_CENTER],
+		"width_tiles": 1,
+		"height_tiles": 1,
+		"grow_dir": "up",
+		"scene_paths": [
+			"res://decoration/forest/forest_glow_mushroom.tscn"
+		]
+	},
 	"forest_trunk": {
 		"weight": 25,
 		"locations": [SpawnLocation.FLOOR_CENTER],
@@ -510,6 +520,9 @@ func get_decoration_density(chunk_type: String) -> Dictionary:
 # ==============================================================================
 ## Bu id’ler spawn sonrası “ışık” sayılır; level_generator aynı chunk’ta aralarında min. mesafe uygular.
 const DUNGEON_LIGHTING_DECOR_IDS: Array[String] = ["mum", "torch2", "camp1", "camp2"]
+const FOREST_LIGHTING_DECOR_IDS: Array[String] = ["camp1", "camp2", "forest_glow_mushroom"]
+const FOREST_LIGHTING_MIN_DISTANCE_PX: float = 220.0
+const FOREST_CAMP_MIN_DISTANCE_PX: float = 420.0
 ## Kural şansı (rule.chance) çarpanı: yalnızca bu listeden en az biri seçilebilen kurallarda uygulanır (1.0 = değişmez).
 const DUNGEON_LIGHTING_SPAWN_CHANCE_MULTIPLIER: float = 2.12
 ## Aynı chunk içinde iki aydınlatma dekorunun merkezleri arası minimum mesafe (piksel). 0 veya negatif = kontrol kapalı.
@@ -525,6 +538,20 @@ static func dungeon_lighting_too_close(world_pos: Vector2, placed: Array) -> boo
 	if d <= 0.0:
 		return false
 	var d2 := d * d
+	for p in placed:
+		if (p as Vector2).distance_squared_to(world_pos) < d2:
+			return true
+	return false
+
+
+static func is_forest_lighting_decor(decor_name: String) -> bool:
+	return decor_name in FOREST_LIGHTING_DECOR_IDS
+
+
+static func forest_lighting_too_close(world_pos: Vector2, placed: Array, min_distance_px: float = FOREST_LIGHTING_MIN_DISTANCE_PX) -> bool:
+	if min_distance_px <= 0.0:
+		return false
+	var d2 := min_distance_px * min_distance_px
 	for p in placed:
 		if (p as Vector2).distance_squared_to(world_pos) < d2:
 			return true
@@ -694,7 +721,7 @@ const Z_INDEX_RULES = {
 	# Aydınlatma — meşale, mum, kamp ateşi (kutu/iskeletin önünde)
 	"lighting": {
 		"z_index": 2,
-		"decorations": ["mum", "torch2", "camp1", "camp2"]
+		"decorations": ["mum", "torch2", "camp1", "camp2", "forest_glow_mushroom"]
 	},
 
 	# Kırılabilir objeler (aydınlatma ve zemin dekorlarının önünde)

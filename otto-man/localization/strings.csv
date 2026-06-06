@@ -940,3 +940,16 @@ wm.settlement.suffix.beldesi,Beldesi,Town
 wm.settlement.suffix.koylusu,Köylüsü,Village
 mc.concubine.empty_list,Henüz cariye yok. Zindandan kurtardıkların burada görünecek.,No concubines yet. Rescued concubines will appear here.
 mc.news.random_events.empty,Şu an aktif rastgele olay yok.,No active random events right now.
+narrative.news.undiscovered_prefix,Duyum: ,Rumor: 
+narrative.mission.relief.mechanical_name,Yardım — %s,Relief — %s
+narrative.mission.relief.mechanical_desc,%s köyündeki %s krizine destek gönder.,Send aid to %s facing a %s crisis.
+narrative.news.incident.wolf_attack.title,Kurt Baskını,Wolf Attack
+narrative.news.incident.wolf_attack.body,%s çevresinde kurt sürüleri görüldü. Güvenlik zayıfladı. (~%d gün),Wolf packs sighted near %s. Security is weakening. (~%d days)
+narrative.news.incident.harvest_failure.title,Hasat Başarısızlığı,Poor Harvest
+narrative.news.incident.harvest_failure.body,%s bölgesinde hasat düşük. Erzak sıkıntısı büyüyor. (~%d gün),Harvest is poor around %s. Food shortages are growing. (~%d days)
+narrative.news.incident.migrant_wave.title,Göç Dalgası,Migration Wave
+narrative.news.incident.migrant_wave.body,%s yeni göçmenler alıyor. Nüfus artışıyla düzen zorlanabilir. (~%d gün),%s is receiving migrants. Order may strain under population growth. (~%d days)
+narrative.news.incident.bandit_road.title,Yol Haydutları,Road Bandits
+narrative.news.incident.bandit_road.body,%s ana yollarında haydut faaliyeti arttı. (~%d gün),Bandit activity has increased on roads near %s. (~%d days)
+narrative.news.incident.plague_scare.title,Hastalık Kaygısı,Disease Scare
+narrative.news.incident.plague_scare.body,%s civarında salgın dedikoduları düzeni sarsıyor. (~%d gün),Plague rumors near %s are shaking local order. (~%d days)

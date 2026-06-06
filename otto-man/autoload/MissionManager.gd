@@ -53,7 +53,7 @@ func _concubine_roles_base_dir() -> String:
 
 # Faz 7 dengeleme sabitleri (kayıp etkileri)
 const LOSS_RESOURCE_PCT := 0.08        # Kaynakların yüzde kaçı gider (8%)
-const LOSS_GOLD_FLAT := 60             # Ek altın kaybı
+const LOSS_GOLD_FLAT := 8              # Ek altın kaybı (köy ekonomisi ölçeği)
 const LOSS_STABILITY_DELTA := 7        # Dünya istikrarı düşüşü
 const LOSS_MORALE_DELTA := 10          # Köy morali düşüşü (varsa)
 const LOSS_BUILDING_DAMAGE_CHANCE := 0.15  # Bir binanın hasar alma olasılığı
@@ -72,6 +72,9 @@ var _raid_mission_extra: Dictionary = {}
 var _world_map_returning_units: Dictionary = {}
 const PLAYER_MAP_GOLD_REWARD_MULT: float = 0.35
 const PLAYER_MAP_FAIL_HP_LOSS: float = 14.0
+## Görev ekonomisi: 1 kaynak birimi ≈ 1 işçi-günü (VillageManager SECONDS_PER_RESOURCE_UNIT / gather).
+## Ödüller birkaç işçi-günü değerinde; altın bina maliyetleriyle (10–100) uyumlu.
+const MISSION_ECON_RESOURCE_BASE := 1
 
 # Sinyaller
 signal mission_completed(cariye_id: int, mission_id: String, successful: bool, results: Dictionary)
@@ -546,7 +549,237 @@ func _try_resolve_world_incident_for_completed_mission(mission: Mission) -> void
 	if wm and wm.has_method("resolve_settlement_incident_by_id"):
 		wm.call("resolve_settlement_incident_by_id", cid)
 
+## Eski doğrudan spawn — artık NarrativeSpawnPipeline üzerinden yayınlanır.
 func try_spawn_incident_relief_mission(incident: Dictionary) -> void:
+	var nsp: Node = get_node_or_null("/root/NarrativeSpawnPipeline")
+	if nsp and nsp.has_method("request_settlement_incident_package"):
+		return
+	_spawn_incident_relief_mission_legacy(incident)
+
+
+func mission_to_mechanical(mission: Mission) -> Dictionary:
+	if mission == null:
+		return {}
+	return {
+		"id": mission.id,
+		"mission_type": int(mission.mission_type),
+		"difficulty": int(mission.difficulty),
+		"duration": mission.duration,
+		"success_chance": mission.success_chance,
+		"required_cariye_level": mission.required_cariye_level,
+		"required_army_size": mission.required_army_size,
+		"required_resources": mission.required_resources.duplicate(true),
+		"rewards": mission.rewards.duplicate(true),
+		"penalties": mission.penalties.duplicate(true),
+		"target_location": mission.target_location,
+		"distance": mission.distance,
+		"risk_level": mission.risk_level,
+		"target_settlement_id": mission.target_settlement_id,
+		"settlement_id": mission.target_settlement_id,
+		"settlement_name": mission.target_location,
+		"world_hex_key": mission.world_hex_key,
+		"completes_incident_id": mission.completes_incident_id,
+		"incident_id": mission.completes_incident_id,
+		"completes_alliance_aid_settlement_id": mission.completes_alliance_aid_settlement_id,
+		"locale_name_key": mission.locale_name_key,
+		"locale_desc_key": mission.locale_desc_key,
+		"locale_vars": mission.locale_vars.duplicate(true),
+		"player_map_strategies": mission.player_map_strategies.duplicate(true),
+		"allow_player_map_completion": mission.allow_player_map_completion,
+		"dynamic_type": mission.get_meta("dynamic_type") if mission.has_meta("dynamic_type") else "",
+	}
+
+
+func _narrative_pipeline() -> Node:
+	return get_node_or_null("/root/NarrativeSpawnPipeline")
+
+
+func try_enqueue_mission_spawn(mission: Mission, source: String, news_cfg: Dictionary = {}) -> bool:
+	if mission == null or String(mission.id).is_empty():
+		return false
+	if missions.has(mission.id):
+		return false
+	var nsp: Node = _narrative_pipeline()
+	if nsp == null or not nsp.has_method("enqueue"):
+		return false
+	var post_news: bool = bool(news_cfg.get("post_news", true))
+	var news_source: String = str(news_cfg.get("news_source", source))
+	var facts: Dictionary = news_cfg.get("facts", {}) if news_cfg.get("facts") is Dictionary else {}
+	if facts.is_empty():
+		facts = {"settlement_name": mission.target_location, "target": mission.target_location}
+	var mech: Dictionary = mission_to_mechanical(mission)
+	var brief_extra: Dictionary = news_cfg.get("brief_extra", {}) if news_cfg.get("brief_extra") is Dictionary else {}
+	var mech_news: Dictionary = {}
+	if post_news:
+		if news_cfg.get("news_override") is Dictionary and not (news_cfg["news_override"] as Dictionary).is_empty():
+			mech_news = news_cfg["news_override"]
+		else:
+			mech_news = AiNarrativeBrief.mechanical_news(news_source, facts)
+	nsp.call("enqueue", {
+		"request_id": "mission_%s" % mission.id,
+		"source": source,
+		"include_mission": true,
+		"mission_id": mission.id,
+		"mission_mechanical": mech,
+		"brief_extra": brief_extra,
+		"mechanical_mission": AiNarrativeBrief.mechanical_mission(source, {
+			"title": mission.name,
+			"body": mission.description,
+			"settlement_name": mission.target_location,
+		}),
+		"mechanical_news": mech_news,
+		"post_news": post_news,
+		"post_publish_actions": news_cfg.get("post_publish_actions", []),
+	})
+	return true
+
+
+func try_enqueue_news(source: String, facts: Dictionary, news_override: Dictionary = {}) -> bool:
+	var nsp: Node = _narrative_pipeline()
+	if nsp == null or not nsp.has_method("enqueue"):
+		return false
+	var mech_news: Dictionary = news_override if not news_override.is_empty() else AiNarrativeBrief.mechanical_news(source, facts)
+	nsp.call("enqueue", {
+		"request_id": "news_%s_%d" % [source, Time.get_unix_time_from_system()],
+		"source": source,
+		"include_mission": false,
+		"post_news": true,
+		"brief": AiNarrativeBrief.build_news_brief(source, facts),
+		"news_facts": facts,
+		"mechanical_news": mech_news,
+	})
+	return true
+
+
+func try_enqueue_dict_mission_spawn(
+	dict_mission: Dictionary,
+	source: String,
+	news_cfg: Dictionary = {}
+) -> bool:
+	if dict_mission.is_empty():
+		return false
+	var mid: String = String(dict_mission.get("id", ""))
+	if mid.is_empty() or missions.has(mid):
+		return false
+	var nsp: Node = _narrative_pipeline()
+	if nsp == null or not nsp.has_method("enqueue"):
+		return false
+	var post_news: bool = bool(news_cfg.get("post_news", true))
+	var news_source: String = str(news_cfg.get("news_source", source))
+	var facts: Dictionary = news_cfg.get("facts", {}) if news_cfg.get("facts") is Dictionary else {}
+	var target: String = String(dict_mission.get("target", dict_mission.get("name", "")))
+	if facts.is_empty():
+		facts = {"target": target, "settlement_name": target, "attacker": dict_mission.get("attacker", "")}
+	var mech_news: Dictionary = {}
+	if post_news:
+		if news_cfg.get("news_override") is Dictionary and not (news_cfg["news_override"] as Dictionary).is_empty():
+			mech_news = news_cfg["news_override"]
+		else:
+			mech_news = AiNarrativeBrief.mechanical_news(news_source, facts)
+	nsp.call("enqueue", {
+		"request_id": "mission_%s" % mid,
+		"source": source,
+		"include_mission": true,
+		"publish_dict_mission": true,
+		"mission_id": mid,
+		"dict_mechanical": dict_mission.duplicate(true),
+		"mechanical_mission": AiNarrativeBrief.mechanical_mission(source, {
+			"title": str(dict_mission.get("name", "")),
+			"body": str(dict_mission.get("description", "")),
+			"target": target,
+		}),
+		"mechanical_news": mech_news,
+		"post_news": post_news,
+	})
+	return true
+
+
+func run_post_publish_actions(actions: Array) -> void:
+	for action in actions:
+		if not (action is Dictionary):
+			continue
+		var kind: String = String(action.get("action", ""))
+		match kind:
+			"increase_relation":
+				_increase_settlement_relation(String(action.get("settlement_id", "")), int(action.get("amount", 0)))
+
+
+func publish_narrative_mission(
+	mechanical: Dictionary,
+	brief: Dictionary,
+	title: String,
+	body: String,
+	mode: String = "mechanical"
+) -> void:
+	if mechanical.is_empty():
+		return
+	var mission_id: String = String(mechanical.get("id", ""))
+	if mission_id.is_empty() or missions.has(mission_id):
+		return
+	var m: Mission = Mission.new()
+	m.id = mission_id
+	m.name = title
+	m.description = body
+	m.mission_type = int(mechanical.get("mission_type", Mission.MissionType.DİPLOMASİ)) as Mission.MissionType
+	m.difficulty = int(mechanical.get("difficulty", Mission.Difficulty.KOLAY)) as Mission.Difficulty
+	m.duration = float(mechanical.get("duration", 150.0))
+	m.success_chance = float(mechanical.get("success_chance", 0.72))
+	m.required_cariye_level = int(mechanical.get("required_cariye_level", 1))
+	m.required_army_size = int(mechanical.get("required_army_size", 0))
+	if mechanical.get("required_resources") is Dictionary:
+		m.required_resources = mechanical["required_resources"].duplicate(true)
+	if mechanical.get("rewards") is Dictionary:
+		m.rewards = mechanical["rewards"].duplicate(true)
+	if mechanical.get("penalties") is Dictionary:
+		m.penalties = mechanical["penalties"].duplicate(true)
+	m.target_location = String(mechanical.get("target_location", mechanical.get("settlement_name", "")))
+	m.distance = float(mechanical.get("distance", 0.0))
+	m.risk_level = String(mechanical.get("risk_level", "Dusuk"))
+	m.target_settlement_id = String(mechanical.get("target_settlement_id", mechanical.get("settlement_id", "")))
+	m.world_hex_key = String(mechanical.get("world_hex_key", ""))
+	m.completes_incident_id = String(mechanical.get("completes_incident_id", mechanical.get("incident_id", "")))
+	m.completes_alliance_aid_settlement_id = String(mechanical.get("completes_alliance_aid_settlement_id", ""))
+	m.locale_name_key = String(mechanical.get("locale_name_key", ""))
+	m.locale_desc_key = String(mechanical.get("locale_desc_key", ""))
+	if mechanical.get("locale_vars") is Dictionary:
+		m.locale_vars = mechanical["locale_vars"].duplicate(true)
+	if mechanical.get("player_map_strategies") is Array:
+		m.player_map_strategies = mechanical["player_map_strategies"].duplicate(true)
+	m.allow_player_map_completion = bool(mechanical.get("allow_player_map_completion", true))
+	m.status = Mission.Status.MEVCUT
+	m.ai_brief = brief.duplicate(true) if brief is Dictionary else {}
+	var locale: String = "tr"
+	var lm: Node = get_node_or_null("/root/LocaleManager")
+	if lm and lm.has_method("get_locale"):
+		locale = str(lm.call("get_locale"))
+	m.ai_narratives[locale] = {"title": title, "body": body}
+	m.ai_narrative_mode = mode if mode in ["narrative", "mechanical"] else "mechanical"
+	missions[mission_id] = m
+	mission_list_changed.emit()
+
+
+func publish_narrative_dict_mission(
+	dict_mission: Dictionary,
+	brief: Dictionary,
+	title: String,
+	body: String,
+	mode: String = "mechanical"
+) -> void:
+	if dict_mission.is_empty():
+		return
+	var mission_id: String = String(dict_mission.get("id", ""))
+	if mission_id.is_empty() or missions.has(mission_id):
+		return
+	var d: Dictionary = dict_mission.duplicate(true)
+	d["name"] = title
+	d["description"] = body
+	d["ai_brief"] = brief.duplicate(true) if brief is Dictionary else {}
+	d["ai_narrative_mode"] = mode
+	missions[mission_id] = d
+	mission_list_changed.emit()
+
+
+func _spawn_incident_relief_mission_legacy(incident: Dictionary) -> void:
 	if incident.is_empty():
 		return
 	if randf() > 0.38:
@@ -558,29 +791,27 @@ func try_spawn_incident_relief_mission(incident: Dictionary) -> void:
 		mission_id = mission_id.substr(0, 96)
 	if missions.has(mission_id):
 		return
-	var m: Mission = Mission.new()
-	m.id = mission_id
 	var sn: String = String(incident.get("settlement_name", "Komsu"))
-	m.name = "Yardim Gonder: %s" % sn
-	m.description = "Komsu koydeki krizi yumusatmak icin yardim orgutle."
-	m.mission_type = Mission.MissionType.DİPLOMASİ
-	m.difficulty = Mission.Difficulty.KOLAY
-	m.duration = 150.0
-	m.success_chance = 0.72
-	m.required_cariye_level = 1
-	m.rewards = {"gold": 40}
-	m.penalties = {"gold": -12}
-	m.target_location = sn
-	m.risk_level = "Dusuk"
 	var sid: String = String(incident.get("settlement_id", ""))
-	m.target_settlement_id = sid
-	m.completes_incident_id = raw_id
 	var wm: Node = get_node_or_null("/root/WorldManager")
+	var hex_key: String = ""
 	if wm and wm.has_method("get_settlement_hex_key_for_mission"):
-		m.world_hex_key = String(wm.call("get_settlement_hex_key_for_mission", sid))
-	m.status = Mission.Status.MEVCUT
-	missions[mission_id] = m
-	mission_list_changed.emit()
+		hex_key = String(wm.call("get_settlement_hex_key_for_mission", sid))
+	publish_narrative_mission({
+		"id": mission_id,
+		"settlement_name": sn,
+		"settlement_id": sid,
+		"incident_id": raw_id,
+		"world_hex_key": hex_key,
+		"mission_type": Mission.MissionType.DİPLOMASİ,
+		"difficulty": Mission.Difficulty.KOLAY,
+		"duration": 150.0,
+		"success_chance": 0.72,
+		"required_cariye_level": 1,
+		"rewards": {"gold": 12},
+		"penalties": {"gold": -4},
+		"risk_level": "Dusuk",
+	}, {}, "Yardim Gonder: %s" % sn, "Komsu koydeki krizi yumusatmak icin yardim orgutle.", "mechanical")
 	post_news("world", tr("news.relief.title"), tr("news.relief.body") % sn, Color(0.85, 1.0, 0.85), "info")
 
 ## `force_spawn`: aid_call acilisinda true — oyuncu her zaman bir `ally_relief_*` gorevi gorebilsin.
@@ -610,8 +841,8 @@ func try_spawn_alliance_aid_relief_mission(settlement_id: String, day: int, forc
 	m.duration = 140.0
 	m.success_chance = 0.70
 	m.required_cariye_level = 1
-	m.rewards = {"gold": 35, "reputation": 3}
-	m.penalties = {"gold": -10}
+	m.rewards = {"gold": 12, "reputation": 2}
+	m.penalties = {"gold": -4}
 	m.target_location = sn
 	m.risk_level = "Dusuk"
 	m.target_settlement_id = String(settlement_id)
@@ -619,6 +850,16 @@ func try_spawn_alliance_aid_relief_mission(settlement_id: String, day: int, forc
 	if wm.has_method("get_settlement_hex_key_for_mission"):
 		m.world_hex_key = String(wm.call("get_settlement_hex_key_for_mission", settlement_id))
 	m.status = Mission.Status.MEVCUT
+	if try_enqueue_mission_spawn(m, "alliance_aid", {
+		"news_override": {
+			"title": tr("news.ally_relief.title"),
+			"body": tr("news.ally_relief.body") % sn,
+			"category": "Dünya",
+			"color": Color(0.9, 1.0, 0.95),
+			"subcategory": "info",
+		},
+	}):
+		return
 	missions[mission_id] = m
 	mission_list_changed.emit()
 	post_news("world", tr("news.ally_relief.title"), tr("news.ally_relief.body") % sn, Color(0.9, 1.0, 0.95), "info")
@@ -821,9 +1062,9 @@ func generate_new_mission() -> Mission:
 	# Görev detaylarını oluştur
 	_generate_mission_details(mission)
 	
-	# Görevi kaydet
+	if try_enqueue_mission_spawn(mission, "procedural", {"post_news": false}):
+		return mission
 	missions[mission.id] = mission
-	
 	return mission
 
 # Görev detaylarını oluştur
@@ -870,9 +1111,9 @@ func _generate_combat_mission(mission: Mission):
 	mission.success_chance = 0.6 + (randf() * 0.3)  # 60-90%
 	mission.required_cariye_level = 1 + randi() % 3  # 1-3 seviye
 	mission.required_army_size = 10 + randi() % 20  # 10-30 asker
-	mission.required_resources = {"gold": 100 + randi() % 200}
-	mission.rewards = {"gold": 300 + randi() % 400, "wood": 50 + randi() % 100}
-	mission.penalties = {"gold": -50 - randi() % 100, "cariye_injured": 1}
+	mission.required_resources = {"gold": 6 + randi() % 10}
+	mission.rewards = {"gold": 8 + randi() % 10, "wood": 1 + randi() % 2}
+	mission.penalties = {"gold": -4 - randi() % 5, "cariye_injured": 1}
 	mission.distance = 1.0 + randf() * 2.0
 	mission.risk_level = "Yüksek"
 
@@ -889,9 +1130,9 @@ func _generate_exploration_mission(mission: Mission):
 	mission.success_chance = 0.7 + (randf() * 0.2)  # 70-90%
 	mission.required_cariye_level = 1 + randi() % 2  # 1-2 seviye
 	mission.required_army_size = 5 + randi() % 10  # 5-15 asker
-	mission.required_resources = {"gold": 50 + randi() % 100}
-	mission.rewards = {"gold": 200 + randi() % 300, "wood": 30 + randi() % 70, "stone": 20 + randi() % 50}
-	mission.penalties = {"gold": -25 - randi() % 50}
+	mission.required_resources = {"gold": 4 + randi() % 6}
+	mission.rewards = {"gold": 6 + randi() % 8, "wood": 1 + randi() % 2, "stone": 1 + randi() % 2}
+	mission.penalties = {"gold": -3 - randi() % 4}
 	mission.distance = 0.5 + randf() * 1.5
 	mission.risk_level = "Orta"
 
@@ -908,9 +1149,9 @@ func _generate_trade_mission(mission: Mission):
 	mission.success_chance = 0.8 + (randf() * 0.15)  # 80-95%
 	mission.required_cariye_level = 1 + randi() % 2  # 1-2 seviye
 	mission.required_army_size = 0  # Ticaret için asker gerekmez
-	mission.required_resources = {"gold": 200 + randi() % 300}
-	mission.rewards = {"gold": 400 + randi() % 600}
-	mission.penalties = {"gold": -100 - randi() % 200}
+	mission.required_resources = {"gold": 8 + randi() % 12}
+	mission.rewards = {"gold": 10 + randi() % 14}
+	mission.penalties = {"gold": -5 - randi() % 7}
 	mission.distance = 0.3 + randf() * 0.7
 	mission.risk_level = "Düşük"
 
@@ -927,9 +1168,9 @@ func _generate_diplomacy_mission(mission: Mission):
 	mission.success_chance = 0.65 + (randf() * 0.25)  # 65-90%
 	mission.required_cariye_level = 2 + randi() % 2  # 2-3 seviye
 	mission.required_army_size = 0  # Diplomasi için asker gerekmez
-	mission.required_resources = {"gold": 150 + randi() % 250}
-	mission.rewards = {"gold": 300 + randi() % 400, "food": 50 + randi() % 100}
-	mission.penalties = {"gold": -75 - randi() % 125}
+	mission.required_resources = {"gold": 6 + randi() % 10}
+	mission.rewards = {"gold": 8 + randi() % 10, "food": 1 + randi() % 3}
+	mission.penalties = {"gold": -4 - randi() % 6}
 	mission.distance = 0.4 + randf() * 0.6
 	mission.risk_level = "Düşük"
 
@@ -946,9 +1187,9 @@ func _generate_intelligence_mission(mission: Mission):
 	mission.success_chance = 0.5 + (randf() * 0.3)  # 50-80%
 	mission.required_cariye_level = 2 + randi() % 2  # 2-3 seviye
 	mission.required_army_size = 0  # İstihbarat için asker gerekmez
-	mission.required_resources = {"gold": 100 + randi() % 150}
-	mission.rewards = {"gold": 250 + randi() % 350, "wood": 20 + randi() % 40}
-	mission.penalties = {"gold": -50 - randi() % 100, "cariye_injured": 1}
+	mission.required_resources = {"gold": 5 + randi() % 8}
+	mission.rewards = {"gold": 7 + randi() % 9, "wood": 1 + randi() % 2}
+	mission.penalties = {"gold": -4 - randi() % 5, "cariye_injured": 1}
 	mission.distance = 0.2 + randf() * 0.3
 	mission.risk_level = "Yüksek"
 
@@ -1838,8 +2079,8 @@ func create_dynamic_mission_templates():
 			"mission.dyn.enemy.foe", "mission.dyn.enemy.bandit",
 			"mission.dyn.enemy.rival", "mission.dyn.enemy.rebel", "mission.dyn.enemy.foreign",
 		],
-		"base_rewards": {"gold": 200, "wood": 50},
-		"base_penalties": {"gold": -100, "cariye_injured": true},
+		"base_rewards": {"gold": 14, "wood": 3},
+		"base_penalties": {"gold": -6, "cariye_injured": true},
 		"difficulty_modifiers": {
 			Mission.Difficulty.KOLAY: {"success_chance": 0.8, "duration": 8.0, "reward_multiplier": 0.7},
 			Mission.Difficulty.ORTA: {"success_chance": 0.6, "duration": 12.0, "reward_multiplier": 1.0},
@@ -1872,8 +2113,8 @@ func create_dynamic_mission_templates():
 			"mission.dyn.area.unknown", "mission.dyn.area.abandoned",
 			"mission.dyn.area.dangerous", "mission.dyn.area.mysterious", "mission.dyn.area.legendary",
 		],
-		"base_rewards": {"gold": 150, "wood": 30, "stone": 20},
-		"base_penalties": {"gold": -50},
+		"base_rewards": {"gold": 12, "wood": 2, "stone": 2},
+		"base_penalties": {"gold": -4},
 		"difficulty_modifiers": {
 			Mission.Difficulty.KOLAY: {"success_chance": 0.9, "duration": 6.0, "reward_multiplier": 0.8},
 			Mission.Difficulty.ORTA: {"success_chance": 0.7, "duration": 10.0, "reward_multiplier": 1.0},
@@ -1905,8 +2146,8 @@ func create_dynamic_mission_templates():
 		"resource_keys": [
 			"resource.gold", "resource.wood", "resource.stone", "resource.food", "resource.weapon",
 		],
-		"base_rewards": {"gold": 300, "trade_bonus": 0.1},
-		"base_penalties": {"gold": -75, "reputation": -5},
+		"base_rewards": {"gold": 16, "trade_bonus": 0.1},
+		"base_penalties": {"gold": -5, "reputation": -2},
 		"difficulty_modifiers": {
 			Mission.Difficulty.KOLAY: {"success_chance": 0.8, "duration": 8.0, "reward_multiplier": 0.8},
 			Mission.Difficulty.ORTA: {"success_chance": 0.6, "duration": 12.0, "reward_multiplier": 1.0},
@@ -1934,7 +2175,7 @@ func _setup_world_event_templates() -> void:
 			"description": "Savaştan kaçan göçmenler bölgeye geliyor.",
 			"effect": "population_increase",
 			"duration": 45.0,
-			"mission_modifiers": {"diplomasi": {"success_chance": 0.1, "rewards": {"gold": 50}}}
+			"mission_modifiers": {"diplomasi": {"success_chance": 0.1, "rewards": {"gold": 5}}}
 		},
 		{
 			"id": "kurt_surusu",
@@ -2006,6 +2247,7 @@ func create_dynamic_mission(mission_type: String, difficulty: Mission.Difficulty
 	mission.risk_level = calculate_risk_level(difficulty, mission_type)
 	_populate_default_player_map_strategies(mission, mission_type)
 	_ensure_mission_has_world_objective_hex(mission)
+	mission.set_meta("dynamic_type", mission_type)
 	
 	return mission
 
@@ -2135,11 +2377,11 @@ func calculate_required_resources(mission_type: String, difficulty: Mission.Diff
 	
 	match mission_type:
 		"savas":
-			resources["gold"] = 100
+			resources["gold"] = 6
 		"kesif":
-			resources["gold"] = 50
+			resources["gold"] = 4
 		"ticaret":
-			resources["gold"] = 75
+			resources["gold"] = 5
 	
 	# Zorluk çarpanı
 	var multiplier = 1
@@ -2242,8 +2484,11 @@ func refresh_missions():
 	for i in range(new_mission_count):
 		var new_mission = generate_random_dynamic_mission()
 		if new_mission:
-			missions[new_mission.id] = new_mission
-			print("✨ Yeni dinamik görev: " + new_mission.name)
+			if try_enqueue_mission_spawn(new_mission, "dynamic_mission", {"post_news": false}):
+				print("✨ Yeni dinamik görev (pipeline): " + new_mission.name)
+			else:
+				missions[new_mission.id] = new_mission
+				print("✨ Yeni dinamik görev: " + new_mission.name)
 	
 	print("🔄 Görev rotasyonu tamamlandı")
 
@@ -2587,6 +2832,17 @@ func _maybe_spawn_daily_dynamic_mission(day: int) -> void:
 	if m == null:
 		_next_daily_dynamic_spawn_day = day + 1
 		return
+	if try_enqueue_mission_spawn(m, "dynamic_mission", {
+		"news_override": {
+			"title": tr("news.new_map_mission.title"),
+			"body": tr("news.new_map_mission.body") % get_mission_display_name(m),
+			"category": "Dünya",
+			"color": Color(0.9, 0.96, 1.0),
+			"subcategory": "info",
+		},
+	}):
+		_next_daily_dynamic_spawn_day = day + (1 if randf() < 0.62 else 2)
+		return
 	missions[m.id] = m
 	mission_list_changed.emit()
 	post_news("world", tr("news.new_map_mission.title"), tr("news.new_map_mission.body") % get_mission_display_name(m), Color(0.9, 0.96, 1.0), "info")
@@ -2656,48 +2912,88 @@ func _simulate_conflicts():
 	var at_name: String = attacker.get("name", "?")
 	var df_name: String = defender.get("name", "?")
 	var kind_text: String = ("sınır çatışması" if event_type == "skirmish" else ("baskın" if event_type == "raid" else "kuşatma"))
-	post_news("world", tr("news.conflict.start.title") % [at_name, kind_text, df_name], tr("news.conflict.start.body") % [at_name, df_name], Color(1, 0.85, 0.8), "warning")
+	if not try_enqueue_news("conflict_start", {
+		"attacker": at_name,
+		"defender": df_name,
+		"event_type": event_type,
+		"kind_text": kind_text,
+	}, {
+		"title": tr("news.conflict.start.title") % [at_name, kind_text, df_name],
+		"body": tr("news.conflict.start.body") % [at_name, df_name],
+		"category": "Dünya",
+		"color": Color(1, 0.85, 0.8),
+		"subcategory": "warning",
+	}):
+		post_news("world", tr("news.conflict.start.title") % [at_name, kind_text, df_name], tr("news.conflict.start.body") % [at_name, df_name], Color(1, 0.85, 0.8), "warning")
 	var outcome: String = "%s üstün geldi" % at_name if attacker_wins else "%s saldırıyı püskürttü" % df_name
 	var details: String = "Kayıplar - Saldıran:%d, Savunan:%d" % [loss_att, loss_def]
-	post_news("world", tr("news.conflict.result.title") % outcome, tr("news.conflict.result.body") % [details, kind_text], Color(1, 0.95, 0.7), "info")
-	# Görev fırsatları ve ticaret etkisi
-	_create_conflict_missions(attacker, defender)
+	if not try_enqueue_news("conflict_result", {
+		"outcome": outcome,
+		"details": details,
+		"event_type": event_type,
+		"kind_text": kind_text,
+	}, {
+		"title": tr("news.conflict.result.title") % outcome,
+		"body": tr("news.conflict.result.body") % [details, kind_text],
+		"category": "Dünya",
+		"color": Color(1, 0.95, 0.7),
+		"subcategory": "info",
+	}):
+		post_news("world", tr("news.conflict.result.title") % outcome, tr("news.conflict.result.body") % [details, kind_text], Color(1, 0.95, 0.7), "info")
+	_create_conflict_missions(attacker, defender, event_type)
 	if attacker_wins and randf() < 0.4:
 		_add_settlement_trade_modifier(df_name, 1.25, 2, true, "conflict")
 
-func _create_conflict_missions(attacker: Dictionary, defender: Dictionary):
-	# Savunma görevi
-	var defend = Mission.new()
+func _create_conflict_missions(attacker: Dictionary, defender: Dictionary, event_type: String = "skirmish"):
+	var at_name: String = String(attacker.get("name", "?"))
+	var df_name: String = String(defender.get("name", "?"))
+	var defend := Mission.new()
 	defend.id = "defend_%d" % Time.get_unix_time_from_system()
-	defend.name = "Savunma Yardımı: %s" % defender.get("name","?")
-	defend.description = "%s'nin saldırısına karşı %s'yi savun." % [attacker.get("name","?"), defender.get("name","?")]
+	defend.name = "Savunma Yardımı: %s" % df_name
+	defend.description = "%s'nin saldırısına karşı %s'yi savun." % [at_name, df_name]
 	defend.mission_type = Mission.MissionType.SAVAŞ
 	defend.difficulty = Mission.Difficulty.ORTA
-	defend.duration = 240.0  # 240 saniye (4 dakika, test için)
+	defend.duration = 240.0
 	defend.success_chance = 0.6
 	defend.required_cariye_level = 2
 	defend.required_army_size = 4
-	defend.required_resources = {"gold": 80}
-	defend.rewards = {"gold": 250, "wood": 40}
-	defend.penalties = {"gold": -40}
+	defend.required_resources = {"gold": 8}
+	defend.rewards = {"gold": 16, "wood": 3}
+	defend.penalties = {"gold": -6}
+	defend.target_location = df_name
 	defend.status = Mission.Status.MEVCUT
-	missions[defend.id] = defend
+	if not try_enqueue_mission_spawn(defend, "conflict_defend", {
+		"post_news": false,
+		"brief_extra": {"attacker": at_name, "defender": df_name, "situation": {"type": event_type}},
+	}):
+		missions[defend.id] = defend
 
-	# Yağma görevi (fırsat)
-	var raid = Mission.new()
+	var raid := Mission.new()
 	raid.id = "raid_%d" % (Time.get_unix_time_from_system() + 1)
-	raid.name = "Yağma Fırsatı: %s" % defender.get("name","?")
-	raid.description = "%s ve %s arasındaki kaostan faydalanarak kaynak yağmala." % [attacker.get("name","?"), defender.get("name","?")]
+	raid.name = "Yağma Fırsatı: %s" % df_name
+	raid.description = "%s ve %s arasındaki kaostan faydalanarak kaynak yağmala." % [at_name, df_name]
 	raid.mission_type = Mission.MissionType.SAVAŞ
 	raid.difficulty = Mission.Difficulty.KOLAY
-	raid.duration = 180.0  # 180 oyun dakikası (3 saat, test için)
+	raid.duration = 180.0
 	raid.success_chance = 0.7
 	raid.required_cariye_level = 1
 	raid.required_army_size = 3
-	raid.required_resources = {"gold": 50}
-	raid.rewards = {"gold": 180, "stone": 30}
-	raid.penalties = {"gold": -30, "reputation": -5}
+	raid.required_resources = {"gold": 5}
+	raid.rewards = {"gold": 12, "stone": 2}
+	raid.penalties = {"gold": -5, "reputation": -2}
+	raid.target_location = df_name
 	raid.status = Mission.Status.MEVCUT
+	if try_enqueue_mission_spawn(raid, "conflict_raid", {
+		"news_override": {
+			"title": tr("news.raid_opportunity.title"),
+			"body": tr("news.raid_opportunity.body"),
+			"category": "village",
+			"color": Color(0.8, 1, 0.8),
+			"subcategory": "info",
+		},
+		"brief_extra": {"attacker": at_name, "defender": df_name},
+	}):
+		return
 	missions[raid.id] = raid
 	post_news("village", tr("news.raid_opportunity.title"), tr("news.raid_opportunity.body"), Color(0.8, 1, 0.8), "info")
 
@@ -2730,7 +3026,20 @@ func start_random_world_event():
 	else:
 		selected_event["start_time"] = Time.get_unix_time_from_system()
 	world_events.append(selected_event)
-	post_news("world", get_world_event_display_name(selected_event), get_world_event_display_description(selected_event), Color(1, 0.8, 0.8), "warning")
+	var eid: String = String(selected_event.get("id", ""))
+	var evt_title: String = get_world_event_display_name(selected_event)
+	var evt_body: String = get_world_event_display_description(selected_event)
+	if not try_enqueue_news("world_event", {
+		"event_type": eid,
+		"id": eid,
+	}, {
+		"title": evt_title,
+		"body": evt_body,
+		"category": "Dünya",
+		"color": Color(1, 0.8, 0.8),
+		"subcategory": "warning",
+	}):
+		post_news("world", evt_title, evt_body, Color(1, 0.8, 0.8), "warning")
 
 # Dünya olayını sonlandır
 func end_world_event(event: Dictionary):
@@ -3383,13 +3692,13 @@ func _calculate_trade_penalties(route: Dictionary) -> Dictionary:
 	
 	match risk:
 		"Düşük":
-			penalties["gold"] = -50
+			penalties["gold"] = -4
 		"Orta":
-			penalties["gold"] = -100
+			penalties["gold"] = -6
 		"Yüksek":
-			penalties["gold"] = -150
+			penalties["gold"] = -9
 		"Çok Yüksek":
-			penalties["gold"] = -200
+			penalties["gold"] = -12
 			penalties["cariye_injured"] = 1
 	
 	return penalties
@@ -3397,11 +3706,11 @@ func _calculate_trade_penalties(route: Dictionary) -> Dictionary:
 # Kaynak temel değeri
 func _get_resource_base_value(resource: String) -> int:
 	match resource:
-		"food": return 40
-		"wood": return 35
-		"stone": return 45
-		"water": return 30
-		_: return 40
+		"food": return 3
+		"wood": return 3
+		"stone": return 4
+		"water": return 2
+		_: return 3
 
 # --- ZENGİN OLAYLAR ---
 
@@ -3411,11 +3720,8 @@ func _trigger_trade_caravan() -> void:
 	pass
 
 func _trigger_bandit_activity() -> void:
-	post_news("world", tr("news.bandit_activity.title"), tr("news.bandit_activity.body"), Color(1, 0.8, 0.8), "warning")
-	# Üretim cezaları (1-2 gün)
 	_active_rate_add("wood", -1, 2, "Haydut Faaliyeti")
 	_active_rate_add("stone", -1, 2, "Haydut Faaliyeti")
-	# Savunma/temizlik görevleri
 	_create_bandit_missions()
 
 func _trigger_random_festival() -> void:
@@ -3429,10 +3735,8 @@ func _trigger_random_festival() -> void:
 	_active_rate_add("food", 1, 2, "Festival")
 
 func _trigger_plague() -> void:
-	post_news("world", tr("news.plague.title"), tr("news.plague.body"), Color(1, 0.6, 0.6), "warning")
 	_active_rate_add("food", -1, 3, "Salgın")
 	_active_rate_add("wood", -1, 3, "Salgın")
-	# Yardım (ilaç/ikmal) görevi
 	_create_aid_mission()
 
 func _trigger_embargo_between_settlements() -> void:
@@ -3461,10 +3765,15 @@ func _create_escort_mission(partner: String) -> void:
 	m.success_chance = 0.65
 	m.required_cariye_level = 2
 	m.required_army_size = 4
-	m.required_resources = {"gold": 60}
-	m.rewards = {"gold": 220, "wood": 30}
-	m.penalties = {"gold": -40}
+	m.required_resources = {"gold": 6}
+	m.rewards = {"gold": 14, "wood": 2}
+	m.penalties = {"gold": -5}
 	m.status = Mission.Status.MEVCUT
+	if try_enqueue_mission_spawn(m, "escort", {
+		"news_source": "escort",
+		"facts": {"partner": partner, "settlement_name": partner},
+	}):
+		return
 	missions[m.id] = m
 	mission_list_changed.emit()
 	post_news("village", tr("news.caravan_escort.title"), tr("news.caravan_escort.body"), Color(0.8, 1, 0.8), "info")
@@ -3494,10 +3803,20 @@ func _add_bandit_clear_mission() -> void:
 	clear.success_chance = 0.6
 	clear.required_cariye_level = 2
 	clear.required_army_size = 4
-	clear.required_resources = {"gold": 50}
-	clear.rewards = {"gold": 200, "stone": 20}
-	clear.penalties = {"gold": -30}
+	clear.required_resources = {"gold": 5}
+	clear.rewards = {"gold": 14, "stone": 2}
+	clear.penalties = {"gold": -5}
 	clear.status = Mission.Status.MEVCUT
+	if try_enqueue_mission_spawn(clear, "bandit_clear", {
+		"news_override": {
+			"title": tr("news.bandit_activity.title"),
+			"body": tr("news.bandit_activity.body"),
+			"category": "Dünya",
+			"color": Color(1, 0.8, 0.8),
+			"subcategory": "warning",
+		},
+	}):
+		return
 	missions[clear.id] = clear
 	mission_list_changed.emit()
 	post_news("village", tr("news.bandit_cleanup.title"), tr("news.bandit_cleanup.body"), Color(0.9, 0.9, 1.0), "info")
@@ -3513,10 +3832,20 @@ func _create_aid_mission() -> void:
 	aid.success_chance = 0.6
 	aid.required_cariye_level = 2
 	aid.required_army_size = 2
-	aid.required_resources = {"gold": 70}
-	aid.rewards = {"gold": 180, "reputation": 10}
-	aid.penalties = {"gold": -40}
+	aid.required_resources = {"gold": 6}
+	aid.rewards = {"gold": 12, "reputation": 3}
+	aid.penalties = {"gold": -5}
 	aid.status = Mission.Status.MEVCUT
+	if try_enqueue_mission_spawn(aid, "plague_aid", {
+		"news_override": {
+			"title": tr("news.plague.title"),
+			"body": tr("news.plague.body"),
+			"category": "Dünya",
+			"color": Color(1, 0.6, 0.6),
+			"subcategory": "warning",
+		},
+	}):
+		return
 	missions[aid.id] = aid
 
 # Oyuncu itibarını güncelle
@@ -3543,7 +3872,11 @@ func generate_level_appropriate_missions() -> Array:
 	for i in range(mission_count):
 		var mission = generate_random_dynamic_mission()
 		if mission:
-			generated_missions.append(mission)
+			if try_enqueue_mission_spawn(mission, "dynamic_mission", {"post_news": false}):
+				generated_missions.append(mission)
+			else:
+				missions[mission.id] = mission
+				generated_missions.append(mission)
 	
 	return generated_missions
 
@@ -3555,13 +3888,20 @@ func generate_special_missions() -> Array:
 	if player_reputation >= 80:
 		var special_mission = create_special_mission("elite_contract")
 		if special_mission:
-			special_missions.append(special_mission)
+			if try_enqueue_mission_spawn(special_mission, "special_elite", {"post_news": false}):
+				special_missions.append(special_mission)
+			else:
+				missions[special_mission.id] = special_mission
+				special_missions.append(special_mission)
 	
-	# Dünya istikrarı düşükse acil görevler
 	if world_stability <= 30:
 		var emergency_mission = create_special_mission("emergency_response")
 		if emergency_mission:
-			special_missions.append(emergency_mission)
+			if try_enqueue_mission_spawn(emergency_mission, "special_emergency", {"post_news": false}):
+				special_missions.append(emergency_mission)
+			else:
+				missions[emergency_mission.id] = emergency_mission
+				special_missions.append(emergency_mission)
 	
 	return special_missions
 
@@ -3580,9 +3920,9 @@ func create_special_mission(special_type: String) -> Mission:
 			mission.success_chance = 0.3
 			mission.required_cariye_level = 4
 			mission.required_army_size = 8
-			mission.required_resources = {"gold": 500}
-			mission.rewards = {"gold": 2000, "wood": 500, "stone": 200, "special_item": "elite_weapon"}
-			mission.penalties = {"gold": -300, "reputation": -20}
+			mission.required_resources = {"gold": 20}
+			mission.rewards = {"gold": 40, "wood": 6, "stone": 4, "special_item": "elite_weapon"}
+			mission.penalties = {"gold": -12, "reputation": -5}
 			mission.target_location = "Elit Kalesi"
 			mission.distance = 8.0
 			mission.risk_level = "Yüksek"
@@ -3597,9 +3937,9 @@ func create_special_mission(special_type: String) -> Mission:
 			mission.success_chance = 0.4
 			mission.required_cariye_level = 3
 			mission.required_army_size = 4
-			mission.required_resources = {"gold": 200}
-			mission.rewards = {"gold": 800, "stability_bonus": 20, "reputation": 15}
-			mission.penalties = {"gold": -150, "stability_penalty": -10}
+			mission.required_resources = {"gold": 12}
+			mission.rewards = {"gold": 22, "stability_bonus": 20, "reputation": 5}
+			mission.penalties = {"gold": -8, "stability_penalty": -10}
 			mission.target_location = "Kriz Merkezi"
 			mission.distance = 3.0
 			mission.risk_level = "Orta"
@@ -3630,23 +3970,30 @@ func create_raid_mission(target_settlement: String, day: int = 0, difficulty: St
 		"duration": 15.0,
 		"success_chance": 0.6,
 		"required_army_size": 3,
-		"required_resources": {"gold": 100, "weapon": 5, "armor": 3},
-		"rewards": {"gold": 300, "equipment": {"weapon": 2, "armor": 1}},
-		"penalties": {"gold": -50, "army_losses": 1},
+		"required_resources": {"gold": 8, "weapon": 1, "armor": 1},
+		"rewards": {"gold": 14, "equipment": {"weapon": 1, "armor": 1}},
+		"penalties": {"gold": -6, "army_losses": 1},
 		"status": "available",
 		"day": day,
 		"source": source,
 		"target_settlement_id": target_settlement_id
 	}
 	
-	missions[mission_id] = mission
 	next_mission_id += 1
-	
-	# Post news about raid opportunity
+	if try_enqueue_dict_mission_spawn(mission, "worldmap_raid", {
+		"news_override": {
+			"title": tr("news.raid_chance.title"),
+			"body": tr("news.raid_chance.body") % target_settlement,
+			"category": "Dünya",
+			"color": Color(1, 0.8, 0.8),
+			"subcategory": "warning",
+		},
+	}):
+		print("⚔️ Baskın görevi (pipeline): %s (Gün: %d)" % [target_settlement, day])
+		return mission
+	missions[mission_id] = mission
 	post_news("world", tr("news.raid_chance.title"), tr("news.raid_chance.body") % target_settlement, Color(1, 0.8, 0.8), "warning")
-	
 	print("⚔️ Baskın görevi oluşturuldu: %s (Gün: %d)" % [target_settlement, day])
-	
 	return mission
 
 func get_world_map_action_preview(action_type: String, settlement_name: String, distance: int = 0) -> Dictionary:
@@ -3706,6 +4053,27 @@ func _create_world_map_trade_mission(settlement_id: String, settlement_name: Str
 	mission.target_location = settlement_name
 	mission.distance = max(1.0, float(distance))
 	mission.risk_level = "Düşük"
+	var actions: Array = []
+	if not settlement_id.is_empty():
+		actions.append({"action": "increase_relation", "settlement_id": settlement_id, "amount": 1})
+	if try_enqueue_mission_spawn(mission, "worldmap_trade", {
+		"news_override": {
+			"title": tr("news.map_trade_order.title"),
+			"body": tr("news.map_trade_order.body") % settlement_name,
+			"category": "village",
+			"color": Color(0.8, 1, 0.8),
+			"subcategory": "info",
+		},
+		"post_publish_actions": actions,
+	}):
+		return {
+			"id": mission.id,
+			"type": "trade",
+			"duration": mission.duration,
+			"risk_level": mission.risk_level,
+			"target": settlement_name,
+			"pending_narrative": true,
+		}
 	missions[mission.id] = mission
 	post_news("village", tr("news.map_trade_order.title"), tr("news.map_trade_order.body") % settlement_name, Color(0.8, 1, 0.8), "info")
 	if not settlement_id.is_empty():
@@ -3733,13 +4101,34 @@ func _create_world_map_diplomacy_mission(settlement_id: String, settlement_name:
 	mission.success_chance = 0.72
 	mission.required_cariye_level = 1
 	mission.required_army_size = 0
-	mission.required_resources = {"gold": 60}
-	mission.rewards = {"gold": 140, "reputation": 4}
-	mission.penalties = {"gold": -25, "reputation": -2}
+	mission.required_resources = {"gold": 6}
+	mission.rewards = {"gold": 12, "reputation": 2}
+	mission.penalties = {"gold": -5, "reputation": -1}
 	mission.target_location = settlement_name
 	mission.distance = max(1.0, float(distance))
 	mission.risk_level = "Düşük"
 	mission.status = Mission.Status.MEVCUT
+	var dip_actions: Array = []
+	if not settlement_id.is_empty():
+		dip_actions.append({"action": "increase_relation", "settlement_id": settlement_id, "amount": 2})
+	if try_enqueue_mission_spawn(mission, "worldmap_diplomacy", {
+		"news_override": {
+			"title": tr("news.map_diplomacy_order.title"),
+			"body": tr("news.map_diplomacy_order.body") % settlement_name,
+			"category": "Dünya",
+			"color": Color(0.9, 0.95, 1.0),
+			"subcategory": "info",
+		},
+		"post_publish_actions": dip_actions,
+	}):
+		return {
+			"id": mission.id,
+			"type": "diplomacy",
+			"duration": mission.duration,
+			"risk_level": mission.risk_level,
+			"target": settlement_name,
+			"pending_narrative": true,
+		}
 	missions[mission.id] = mission
 	post_news("world", tr("news.map_diplomacy_order.title"), tr("news.map_diplomacy_order.body") % settlement_name, Color(0.9, 0.95, 1.0), "info")
 	if not settlement_id.is_empty():
@@ -3765,21 +4154,28 @@ func create_defense_mission(attacker: String, day: int = 0) -> Dictionary:
 		"duration": 10.0,
 		"success_chance": 0.7,
 		"required_army_size": 4,
-		"required_resources": {"gold": 50, "weapon": 3, "armor": 2},
-		"rewards": {"gold": 200, "stability_bonus": 15, "reputation": 10},
-		"penalties": {"gold": -100, "stability_penalty": -20, "army_losses": 2},
+		"required_resources": {"gold": 8, "weapon": 1, "armor": 1},
+		"rewards": {"gold": 16, "stability_bonus": 15, "reputation": 3},
+		"penalties": {"gold": -8, "stability_penalty": -20, "army_losses": 2},
 		"status": "urgent",
 		"day": day
 	}
 	
-	missions[mission_id] = mission
 	next_mission_id += 1
-	
-	# Post urgent news about defense
+	if try_enqueue_dict_mission_spawn(mission, "defense_dict", {
+		"news_override": {
+			"title": tr("news.defense_required.title"),
+			"body": tr("news.defense_required.body") % attacker,
+			"category": "Dünya",
+			"color": Color(1, 0.3, 0.3),
+			"subcategory": "critical",
+		},
+	}):
+		print("🛡️ Savunma görevi (pipeline): %s (Gün: %d)" % [attacker, day])
+		return mission
+	missions[mission_id] = mission
 	_post_news_tr("world", "news.defense_required.title", "news.defense_required.body", Color(1, 0.3, 0.3), "critical", [], [attacker])
-	
 	print("🛡️ Savunma görevi oluşturuldu: %s (Gün: %d)" % [attacker, day])
-	
 	return mission
 
 func execute_battle_mission(mission_id: String, cariye_id: int) -> Dictionary:
@@ -4261,6 +4657,9 @@ func get_mission_display_name(mission: Variant) -> String:
 	if mission == null:
 		return "?"
 	if mission is Mission:
+		var ai_name: String = _ai_narrative_field(mission, "title")
+		if not ai_name.is_empty():
+			return ai_name
 		if not mission.locale_name_key.is_empty():
 			return _tr_mission_template(mission.locale_name_key, mission.locale_vars)
 		return LocaleManager.get_mission_text(mission.id, "name", mission.name)
@@ -4277,6 +4676,9 @@ func get_mission_display_description(mission: Variant) -> String:
 	if mission == null:
 		return ""
 	if mission is Mission:
+		var ai_body: String = _ai_narrative_field(mission, "body")
+		if not ai_body.is_empty():
+			return ai_body
 		if not mission.locale_desc_key.is_empty():
 			return _tr_mission_template(mission.locale_desc_key, mission.locale_vars)
 		return LocaleManager.get_mission_text(mission.id, "desc", mission.description)
@@ -4286,6 +4688,23 @@ func get_mission_display_description(mission: Variant) -> String:
 		if mid.is_empty():
 			return fallback
 		return LocaleManager.get_mission_text(mid, "desc", fallback)
+	return ""
+
+
+func _ai_narrative_field(mission: Mission, field: String) -> String:
+	if mission.ai_narrative_mode not in ["narrative", "mechanical"]:
+		return ""
+	var locale: String = "tr"
+	if LocaleManager and LocaleManager.has_method("get_locale"):
+		locale = str(LocaleManager.get_locale())
+	if mission.ai_narratives.has(locale):
+		var block: Variant = mission.ai_narratives[locale]
+		if block is Dictionary:
+			return str(block.get(field, ""))
+	for loc_key in mission.ai_narratives.keys():
+		var block2: Variant = mission.ai_narratives[loc_key]
+		if block2 is Dictionary and not str(block2.get(field, "")).is_empty():
+			return str(block2.get(field, ""))
 	return ""
 
 

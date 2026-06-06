@@ -15,7 +15,12 @@ func _ready():
 func _on_area_entered(hitbox: Area2D):
 	if not hitbox is EnemyHitbox:
 		return
-		
+	if hitbox.has_method("is_enabled") and not hitbox.is_enabled():
+		return
+	if hitbox.get_damage() <= 0.0:
+		return
+
+	var parent = get_parent()
 	if is_on_cooldown(hitbox):
 		return
 	
@@ -23,7 +28,6 @@ func _on_area_entered(hitbox: Area2D):
 	store_hit_data(hitbox)
 	
 	# Check if parent is in block state
-	var parent = get_parent()
 	if parent.has_node("StateMachine") and parent.state_machine.current_state.name == "Block":
 		# Let block state handle the damage value
 		await parent.state_machine.current_state._on_hurtbox_hurt(hitbox)

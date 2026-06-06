@@ -1519,12 +1519,14 @@ func _physics_process(delta: float) -> void:
 	# Check sleep state (delta for per-enemy spawn grace)
 	check_sleep_state(delta)
 	
-	# CRITICAL: Disable hitbox if in air or hurt state - enemy can't attack while being juggled
+	# CRITICAL: Hitbox yalnızca saldırı sırasında açık (wake_up/reset hayalet enable'ı kapat)
 	if hitbox:
-		if not is_on_floor() or current_behavior == "hurt" or health <= 0:
+		var keep_hitbox_on := current_behavior == "attack" and is_attacking and is_on_floor() and health > 0
+		if not keep_hitbox_on:
 			if hitbox.is_enabled():
 				hitbox.disable()
-			is_attacking = false
+			if current_behavior != "attack":
+				is_attacking = false
 	
 	# Gravity (always, so airborne sleeping enemies land)
 	if not is_on_floor():
@@ -1920,7 +1922,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0), true, hitbox)
 	# Hit stop + screen shake tek yerden (yaşayan veya öldürücü vuruş; ceset vurulunca bu branch'e gelinmez)
 	if hitbox is PlayerHitbox and hitbox.has_method("apply_killing_blow_effects"):
-		hitbox.apply_killing_blow_effects(damage)
+		hitbox.apply_killing_blow_effects(damage, self)
 
 func go_to_sleep() -> void:
 	# Clear ambient state before sleeping so enemy doesn't freeze in sit/lay animation
@@ -1936,6 +1938,8 @@ func reset() -> void:
 	behavior_timer = 0.0
 	attack_cooldown_timer = 0.0
 	is_attacking = false
+	if hitbox:
+		hitbox.disable()
 
 func _on_animation_finished() -> void:
 	"""Called when an animation finishes. Prevents fall animation from playing when hurt."""

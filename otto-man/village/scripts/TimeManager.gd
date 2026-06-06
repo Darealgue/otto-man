@@ -137,6 +137,17 @@ func get_total_game_minutes() -> int:
 func is_work_time() -> bool:
 	return hours >= WORK_START_HOUR and hours < WORK_END_HOUR
 
+
+## Gece uykusu: 22:00 (dakika offset ile) → ertesi gün 06:00 öncesi (saat 0–5 dahil).
+func is_night_sleep_window(hour: int, minute: int, sleep_start_minute_offset: int = 0) -> bool:
+	if hour >= SLEEP_HOUR:
+		if hour == SLEEP_HOUR:
+			return minute >= sleep_start_minute_offset
+		return true
+	if hour < WAKE_UP_HOUR:
+		return true
+	return false
+
 func advance_minutes(total_minutes: int) -> void:
 	# Validation: Check for invalid values
 	if total_minutes <= 0:

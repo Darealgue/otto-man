@@ -48,6 +48,8 @@ MinigameRouter="*res://autoload/MinigameRouter.gd"
 DungeonRunState="*res://autoload/DungeonRunState.gd"
 DungeonProgress="*res://autoload/DungeonProgress.gd"
 WorldManager="*res://autoload/WorldManager.gd"
+AiNarrativeBrief="*res://autoload/AiNarrativeBrief.gd"
+NarrativeSpawnPipeline="*res://autoload/NarrativeSpawnPipeline.gd"
 DevConsole="*res://ui/dev_console.tscn"
 CombatResolver="*res://autoload/CombatResolver.gd"
 DiplomacyManager="*res://autoload/DiplomacyManager.gd"
@@ -57,6 +59,7 @@ Loots="*res://autoload/loot_pool.gd"
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
+window/size/mode=3
 window/stretch/mode="canvas_items"
 
 [dotnet]

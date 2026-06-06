@@ -43,6 +43,8 @@ func add_worker() -> bool:
 	worker_instance.assigned_job_type = "food"
 	worker_instance.assigned_building_node = self
 	worker_instance.move_target_x = self.global_position.x
+	if VillageManager.has_method("ensure_basic_gather_expedition_for_worker"):
+		VillageManager.ensure_basic_gather_expedition_for_worker(worker_instance.worker_id)
 	
 	# Mesai saatleri kontrolü: Mesai saatleri dışındaysa beklemeli
 	var current_hour = TimeManager.get_hour()

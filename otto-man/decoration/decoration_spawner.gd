@@ -314,10 +314,13 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 		node.z_index = _decoration_config.get_z_index_for_decoration(node.name)
 		sprite.z_index = 0
 		
-		# Special handling for animated campfire decor
+		# Special handling for campfire decors (forest reuses these with night adapter)
 		if node.name == "camp2":
 			_setup_campfire_background(node, sprite)
-			# Group for overlap checks
+			node.add_to_group("background_decor")
+			return
+		if node.name == "camp1":
+			_setup_camp1_background(node, sprite)
 			node.add_to_group("background_decor")
 			return
 		
@@ -336,6 +339,27 @@ func _setup_background_decoration(node: Node2D, data: Dictionary) -> void:
 		# Gates, Pipes, Banners, Sculptures: z-index otomatik olarak ayarlandı
 	# Group for overlap checks
 	node.add_to_group("background_decor")
+
+func _create_warm_camp_point_light(sprite_h: float, y_offset: float = 0.0) -> PointLight2D:
+	var light := PointLight2D.new()
+	light.name = "PointLight2D"
+	light.color = Color(0.99, 0.85, 0.4, 1.0)
+	light.energy = 1.2
+	light.texture = ForestNightLightUtil.make_light_gradient_texture()
+	light.texture_scale = 15.0
+	light.position = Vector2(0, -sprite_h * 0.5 + y_offset)
+	ForestNightLightUtil.configure_ground_light(light)
+	return light
+
+
+func _setup_camp1_background(node: Node2D, sprite: Sprite2D) -> void:
+	if not sprite or not sprite.texture:
+		return
+	sprite.centered = false
+	var h := sprite.texture.get_height()
+	sprite.position = Vector2(0, -h + 1)
+	node.add_child(_create_warm_camp_point_light(float(h)))
+
 
 func _setup_campfire_background(node: Node2D, sprite: Sprite2D) -> void:
 	if not sprite or not sprite.texture:
@@ -367,7 +391,7 @@ func _setup_campfire_background(node: Node2D, sprite: Sprite2D) -> void:
 	anim.sprite_frames = frames_res
 	anim.centered = false
 	# Bottom-center align similar to other floor decors (with slight 5px grounding offset)
-	anim.position = Vector2(-frame_w * 0.5, -h + 5)
+	anim.position = Vector2(-frame_w * 0.5, -h + 1)
 	anim.play("idle")
 	
 	# Replace original static sprite
@@ -376,28 +400,7 @@ func _setup_campfire_background(node: Node2D, sprite: Sprite2D) -> void:
 	node.add_child(anim)
 	anim.z_index = 0
 	
-	# Add warm point light on the fire (torch-like gradient texture)
-	var light := PointLight2D.new()
-	light.color = Color(0.99, 0.85, 0.4, 1.0)
-	light.energy = 1.2
-	light.enabled = true
-	var grad := Gradient.new()
-	var grad_colors := PackedColorArray()
-	grad_colors.append(Color(1.0, 1.0, 1.0, 1.0))
-	grad_colors.append(Color(0.0, 0.0, 0.0, 1.0))
-	grad.colors = grad_colors
-	var grad_offsets := PackedFloat32Array()
-	grad_offsets.append(0.0)
-	grad_offsets.append(0.7)
-	grad.offsets = grad_offsets
-	var gtex := GradientTexture2D.new()
-	gtex.gradient = grad
-	gtex.fill = GradientTexture2D.FILL_RADIAL
-	gtex.fill_from = Vector2(0.5, 0.5)
-	light.texture = gtex
-	light.texture_scale = 15.0
-	light.position = Vector2(0, -h * 0.5)
-	node.add_child(light)
+	node.add_child(_create_warm_camp_point_light(float(h)))
 
 # Altın için Area2D oluşturur ve toplama sinyalini bağlar
 func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:
@@ -1273,6 +1276,8 @@ func _apply_bottom_center_to_sprite(sprite: Sprite2D) -> void:
 # --- Post placement safety adjustments (edge/wall) ---
 func _post_place_fixup(node: Node2D) -> void:
 	if not node:
+		return
+	if node.get_meta("skip_post_place_fixup", false):
 		return
 	# If not in tree/world yet, skip safety adjustments for now
 	if not is_inside_tree() or get_tree() == null or get_world_2d() == null:

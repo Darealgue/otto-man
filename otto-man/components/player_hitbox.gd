@@ -328,17 +328,7 @@ func _on_area_entered(area: Area2D) -> void:
 				_play_corpse_death_from_frame(enemy, 5)
 		hit_enemy.emit(enemy)
 		return
-	# Yaşayan düşman: hit stop + screen shake düşman tarafında uygulanıyor (apply_killing_blow_effects)
-	var spawn_position = _get_enemy_effect_position(enemy)
-	var enemy_hit_fx_scene_path = "res://effects/enemy_hit_effect.tscn"
-	if ResourceLoader.exists(enemy_hit_fx_scene_path):
-		var fx_scene = load(enemy_hit_fx_scene_path)
-		if fx_scene:
-			var fx = fx_scene.instantiate()
-			get_tree().current_scene.add_child(fx)
-			var effect_data = _get_hit_effect_data()
-			fx.setup(Vector2.ZERO, effect_data.scale, effect_data.effect_type, spawn_position)
-			fx.call_deferred("_adjust_position_to_center", spawn_position)
+	# Hit FX + hitstop: düşman hurtbox → apply_killing_blow_effects (ölümcül vuruş dahil).
 	if current_attack_name != "fall_attack":
 		_apply_air_combo_float()
 	hit_enemy.emit(enemy)
@@ -416,8 +406,30 @@ func _apply_air_combo_float() -> void:
 		if player_node.velocity.y > lift:
 			player_node.velocity.y = lift
 
-## Öldürücü vuruşta çağrılır (düşman tarafında); ceset vurulduğunda çağrılmaz.
-func apply_killing_blow_effects(damage_amount: float) -> void:
+func _spawn_enemy_hit_fx(enemy: Node) -> void:
+	if not is_instance_valid(enemy):
+		return
+	var enemy_hit_fx_scene_path := "res://effects/enemy_hit_effect.tscn"
+	if not ResourceLoader.exists(enemy_hit_fx_scene_path):
+		return
+	var fx_scene: PackedScene = load(enemy_hit_fx_scene_path)
+	if fx_scene == null:
+		return
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	var fx = fx_scene.instantiate()
+	tree.current_scene.add_child(fx)
+	var spawn_position := _get_enemy_effect_position(enemy)
+	var effect_data = _get_hit_effect_data()
+	fx.setup(Vector2.ZERO, effect_data.scale, effect_data.effect_type, spawn_position)
+	fx.call_deferred("_adjust_position_to_center", spawn_position)
+
+
+## Hasar uygulandığında çağrılır (yaşayan + öldürücü vuruş). Ceset tekmesinde çağrılmaz.
+func apply_killing_blow_effects(damage_amount: float, enemy: Node = null) -> void:
+	if is_instance_valid(enemy):
+		_spawn_enemy_hit_fx(enemy)
 	if attack_manager:
 		attack_manager.apply_hitstop(damage_amount)
 	_apply_screen_shake_with_damage(damage_amount)

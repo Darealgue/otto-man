@@ -62,6 +62,8 @@ func _ready() -> void:
 	_setup_sprite()
 	_apply_wing_color()
 	_flutter_phase = randf() * TAU
+	var day_alpha: float = clampf(1.0 - ForestNightLightUtil.get_night_blend(), 0.0, 1.0)
+	modulate = Color(1.0, 1.0, 1.0, day_alpha)
 	_begin_glide(true)
 	call_deferred("_apply_wing_color")
 
@@ -150,6 +152,11 @@ func _random_wing_color() -> Color:
 
 func _process(delta: float) -> void:
 	if _fly_zone.size == Vector2.ZERO or _sprite == null:
+		return
+	var night_blend: float = ForestNightLightUtil.get_night_blend()
+	var day_alpha: float = clampf(1.0 - night_blend, 0.0, 1.0)
+	modulate = Color(1.0, 1.0, 1.0, day_alpha)
+	if day_alpha <= 0.02:
 		return
 	var wing_fps := WING_FPS_GLIDE if _phase == FlightPhase.GLIDE else WING_FPS_ARC
 	_wing_time += delta

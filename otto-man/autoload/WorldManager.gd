@@ -998,8 +998,7 @@ func _village_ripple_minor_accident(day: int) -> void:
 	inc["severity"] = clampf(float(inc.get("severity", 1.0)) * 0.75, 0.4, 1.6)
 	world_settlement_incidents.append(inc)
 	_apply_settlement_incident_start_effects(inc)
-	_post_settlement_incident_news(inc, role_mods)
-	_try_offer_relief_mission_for_incident(inc)
+	_present_settlement_incident_to_player(inc, role_mods)
 
 func _village_ripple_resource_discovery(day: int) -> void:
 	var keys: Array = world_map_settlement_positions.keys()
@@ -1065,6 +1064,15 @@ func _village_ripple_immigration_wave(day: int) -> void:
 		"content": "Koydeki goc hareketi %s tarafinda istikrara hafif destek oldu." % nm,
 		"day": day
 	})
+
+func _present_settlement_incident_to_player(incident: Dictionary, role_mods: Dictionary = {}) -> void:
+	var nsp: Node = get_node_or_null("/root/NarrativeSpawnPipeline")
+	if nsp and nsp.has_method("request_settlement_incident_package"):
+		nsp.call("request_settlement_incident_package", incident, role_mods)
+		return
+	_post_settlement_incident_news(incident, role_mods)
+	_try_offer_relief_mission_for_incident(incident)
+
 
 func _try_offer_relief_mission_for_incident(incident: Dictionary) -> void:
 	var mm: Node = get_node_or_null("/root/MissionManager")
@@ -2249,8 +2257,7 @@ func _simulate_neighbor_settlements(day: int) -> void:
 			if not incident.is_empty():
 				world_settlement_incidents.append(incident)
 				_apply_settlement_incident_start_effects(incident)
-				_post_settlement_incident_news(incident, role_mods)
-				_try_offer_relief_mission_for_incident(incident)
+				_present_settlement_incident_to_player(incident, role_mods)
 
 func _has_active_incident_for_settlement(settlement_id: String) -> bool:
 	var active_count: int = 0

@@ -61,6 +61,8 @@ func _ready() -> void:
 		VillageManager.construction_completed.connect(_on_construction_completed_toast)
 	if not VillageManager.morale_game_over.is_connected(_on_morale_game_over):
 		VillageManager.morale_game_over.connect(_on_morale_game_over)
+	if not VillageManager.basic_gather_deposited.is_connected(_on_basic_gather_deposited):
+		VillageManager.basic_gather_deposited.connect(_on_basic_gather_deposited)
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm and mm.has_signal("active_traders_updated"):
 		if not mm.active_traders_updated.is_connected(_tutorial_on_first_trader):
@@ -288,6 +290,12 @@ func _check_and_transfer_forest_resources() -> void:
 		else:
 			print("[VillageScene] ⚠️ Unexpected transfer dict: %s" % transferred)
 	_tutorial_on_forest_return(transferred)
+
+func _on_basic_gather_deposited(_worker_id: int, resource_type: String, amount: int, world_position: Vector2) -> void:
+	if amount <= 0:
+		return
+	VillageResourceDeliveryFx.spawn(self, world_position, resource_type, amount)
+
 
 func _show_delivery_summary_from_payload() -> void:
 	var scene_manager = get_node_or_null("/root/SceneManager")

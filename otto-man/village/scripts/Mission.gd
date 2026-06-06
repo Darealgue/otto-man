@@ -61,6 +61,11 @@ var locale_name_key: String = ""
 var locale_desc_key: String = ""
 var locale_vars: Dictionary = {}  # placeholder -> translation key
 
+# AI narrative (NarrativeSpawnPipeline)
+var ai_brief: Dictionary = {}
+var ai_narratives: Dictionary = {}  # locale -> {title, body}
+var ai_narrative_mode: String = "none"  # none | narrative | mechanical
+
 # Görev durumu
 var status: Status = Status.MEVCUT
 var assigned_cariye_id: int = -1
@@ -294,7 +299,13 @@ func to_save_dict() -> Dictionary:
 		"status": int(status),
 		"assigned_cariye_id": assigned_cariye_id,
 		"start_time": start_time,
-		"end_time": end_time
+		"end_time": end_time,
+		"locale_name_key": locale_name_key,
+		"locale_desc_key": locale_desc_key,
+		"locale_vars": locale_vars.duplicate(true),
+		"ai_brief": ai_brief.duplicate(true),
+		"ai_narratives": ai_narratives.duplicate(true),
+		"ai_narrative_mode": ai_narrative_mode,
 	}
 	if not meta_out.is_empty():
 		d["meta"] = meta_out
@@ -365,4 +376,13 @@ static func from_save_dict(d: Dictionary) -> Mission:
 	if d.get("meta") is Dictionary:
 		for mk in d["meta"].keys():
 			m.set_meta(str(mk), d["meta"][mk])
+	m.locale_name_key = str(d.get("locale_name_key", ""))
+	m.locale_desc_key = str(d.get("locale_desc_key", ""))
+	if d.get("locale_vars") is Dictionary:
+		m.locale_vars = d["locale_vars"].duplicate(true)
+	if d.get("ai_brief") is Dictionary:
+		m.ai_brief = d["ai_brief"].duplicate(true)
+	if d.get("ai_narratives") is Dictionary:
+		m.ai_narratives = d["ai_narratives"].duplicate(true)
+	m.ai_narrative_mode = str(d.get("ai_narrative_mode", "none"))
 	return m

@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://c8forestflower01"]
+[gd_scene load_steps=3 format=3 uid="uid://c5haxk2168ug3"]
 
 [ext_resource type="Script" path="res://decoration/forest/forest_flower.gd" id="1_script"]
 
@@ -10,7 +10,6 @@ script = ExtResource("1_script")
 
 [node name="Sprite" type="Sprite2D" parent="."]
 centered = false
-texture_filter = 0
 
 [node name="TriggerArea" type="Area2D" parent="."]
 collision_layer = 0

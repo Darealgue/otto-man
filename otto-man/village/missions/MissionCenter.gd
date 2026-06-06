@@ -146,6 +146,8 @@ var mission_history_detail_label: RichTextLabel = null
 # Seçili görev özet şeridi (kodla eklenir; kart listesiyle aynı kaynak)
 var mission_detail_panel: PanelContainer = null
 var mission_detail_label: Label = null
+## Cariye portre paneli async güncellemelerini iptal etmek için (purge / sayfa değişimi).
+var _basic_info_panel_token: int = 0
 
 # Sayfa isimleri
 var page_names: Array[String] = []
@@ -2337,6 +2339,8 @@ func previous_page():
 
 func show_page(page_index: int):
 	print("[DEBUG_MC] show_page: Index: ", page_index)
+	if current_page == PageType.CONCUBINE_DETAILS and page_index != PageType.CONCUBINE_DETAILS:
+		_basic_info_panel_token += 1
 	current_page = page_index
 
 	missions_page.visible = false
@@ -2614,25 +2618,22 @@ func _join_detail_lines(lines: Array) -> String:
 	return out
 
 func _ensure_mission_detail_strip() -> void:
-	if mission_detail_label != null and is_instance_valid(mission_detail_label):
+	if mission_detail_panel != null and is_instance_valid(mission_detail_panel) \
+			and mission_detail_label != null and is_instance_valid(mission_detail_label):
+		ParchmentTextures.apply_compact_panel_style(mission_detail_panel, 10)
+		_apply_mission_detail_label_style(mission_detail_label)
 		return
 	if not missions_page:
 		return
 	var panel := PanelContainer.new()
 	panel.name = "SelectedMissionDetailStrip"
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.12, 0.11, 0.09, 0.92)
-	sb.set_content_margin_all(8)
-	sb.corner_radius_top_left = 4
-	sb.corner_radius_top_right = 4
-	sb.corner_radius_bottom_left = 4
-	sb.corner_radius_bottom_right = 4
-	panel.add_theme_stylebox_override("panel", sb)
+	ParchmentTextures.apply_compact_panel_style(panel, 10)
 	var lbl := Label.new()
+	lbl.name = "DetailText"
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.add_theme_font_size_override("font_size", 11)
-	TextOutline.apply_label_color(lbl, Color(0.88, 0.86, 0.78))
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_apply_mission_detail_label_style(lbl)
 	lbl.text = ""
 	mission_detail_label = lbl
 	panel.add_child(lbl)
@@ -2658,6 +2659,7 @@ func _refresh_mission_selection_detail() -> void:
 	var title := _mission_display_name(m)
 	var body := _build_mission_detail_text(m)
 	mission_detail_label.text = "%s\n%s" % [title, body]
+	_apply_mission_detail_label_style(mission_detail_label)
 
 # Görev listesi UI'ını güncelle
 func update_mission_list_ui(content_label: Label):
@@ -2971,25 +2973,8 @@ func get_completed_missions_list():
 	return completed
 
 # Seçilen görevi scroll container'da görünür yap
-func scroll_to_selected_mission():
-	if not available_missions_scroll:
-		return
-	
-	var available_missions = get_available_missions_list()
-	if available_missions.is_empty() or current_mission_index >= available_missions.size():
-		return
-	
-	# Seçilen görev kartını bul
-	var mission_cards = available_missions_list.get_children()
-	if current_mission_index < mission_cards.size():
-		var selected_card = mission_cards[current_mission_index]
-		
-		# Scroll container'ı seçilen karta kaydır
-		var scroll_value = selected_card.position.y / (available_missions_list.size.y - available_missions_scroll.size.y)
-		scroll_value = clamp(scroll_value, 0.0, 1.0)
-		available_missions_scroll.scroll_vertical = int(scroll_value * available_missions_scroll.get_v_scroll_bar().max_value)
-		
-		print("📜 Scroll değeri: " + str(scroll_value) + " -> " + str(available_missions_scroll.scroll_vertical))
+func scroll_to_selected_mission() -> void:
+	_scroll_available_to_index(current_mission_index)
 
 # Bu fonksiyon zaten yukarıda tanımlanmış, duplicate kaldırıldı
 
@@ -3526,6 +3511,7 @@ func _purge_scene_editor_placeholders() -> void:
 
 
 func _clear_concubine_details_empty_state() -> void:
+	_basic_info_panel_token += 1
 	var basic_content := get_node_or_null(
 		"ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox/BasicInfoContent"
 	) as Label
@@ -3692,17 +3678,29 @@ func update_available_missions_cards():
 	call_deferred("_apply_parchment_panels")
 	call_deferred("_apply_text_outlines")
 
-	# Seçim görünürlük takibi: seçilen öğeyi otomatik kaydır
+	# Seçim görünürlük takibi: layout sonrası seçilen kartı kaydır
 	_scroll_available_to_index(current_mission_index)
+	call_deferred("_apply_mission_detail_label_style", mission_detail_label)
 
-func _scroll_available_to_index(index: int):
+func _apply_mission_detail_label_style(lbl: Label = null) -> void:
+	var target: Label = lbl if lbl != null else mission_detail_label
+	if target == null or not is_instance_valid(target):
+		return
+	TextOutline.apply_font_to_control(target)
+	TextOutline.apply_label_color(target, TextOutline.FONT_COLOR)
+	target.add_theme_font_size_override("font_size", 12)
+
+func _scroll_available_to_index(index: int) -> void:
+	call_deferred("_scroll_available_to_index_after_layout", index)
+
+func _scroll_available_to_index_after_layout(index: int) -> void:
 	if not available_missions_scroll or not available_missions_list:
 		return
 	if index < 0 or index >= available_missions_list.get_child_count():
 		return
-	var card = available_missions_list.get_child(index)
-	if card and card is Control:
-		available_missions_scroll.ensure_control_visible(card)
+	var card: Node = available_missions_list.get_child(index)
+	if card is Control:
+		available_missions_scroll.ensure_control_visible(card as Control)
 
 
 # Yapılabilir görev kartı oluştur
@@ -4937,6 +4935,7 @@ func handle_missions_up():
 				current_mission_index = max(0, current_mission_index - 1)
 				print("📋 Yeni görev index: %d" % current_mission_index)
 				update_missions_ui()
+				_scroll_available_to_index(current_mission_index)
 		MissionMenuState.CARİYE_SEÇİMİ:
 			var idle_cariyeler = mission_manager.get_idle_concubines()
 			print("👥 Cariye seçimi - Mevcut index: %d, Toplam cariye: %d" % [current_cariye_index, idle_cariyeler.size()])
@@ -6556,6 +6555,11 @@ func _execute_trader_mission():
 		print("[TRADER_MISSION] ❌ Görev oluşturulamadı!")
 		return
 	
+	if mm.has_method("try_enqueue_mission_spawn") and mm.try_enqueue_mission_spawn(mission, "trade_route", {"post_news": false}):
+		print("[TRADER_MISSION] Görev anlatı pipeline'ında hazırlanıyor; kısa süre sonra listede görünecek.")
+		_close_trader_mission_popup()
+		return
+	
 	# Görevi sözlüğe ekleyip ata (MissionManager.start_mission yok, assign_mission_to_concubine kullanılır)
 	mm.missions[mission.id] = mission
 	var success = mm.assign_mission_to_concubine(
@@ -7239,8 +7243,28 @@ func update_selected_concubine_details():
 	# Başarıları güncelle
 	update_achievements_panel(cariye)
 
+func _basic_info_panel_stale(token: int) -> bool:
+	return token != _basic_info_panel_token or current_page != PageType.CONCUBINE_DETAILS
+
+
+func _await_basic_info_frames(token: int, frame_count: int = 1) -> bool:
+	for _i in frame_count:
+		await get_tree().process_frame
+		if _basic_info_panel_stale(token):
+			return false
+	return true
+
+
+func _portrait_rect_valid(portrait_rect: TextureRect) -> bool:
+	return portrait_rect != null and is_instance_valid(portrait_rect) and portrait_rect.is_inside_tree()
+
+
 # Temel bilgiler panelini güncelle
 func update_basic_info_panel(cariye: Concubine):
+	if current_page != PageType.CONCUBINE_DETAILS:
+		return
+	_basic_info_panel_token += 1
+	var panel_token: int = _basic_info_panel_token
 	print("[MissionCenter] DEBUG: update_basic_info_panel çağrıldı - cariye: %s" % (cariye.name if cariye else "null"))
 	var basic_info_vbox = get_node_or_null("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox")
 	if not basic_info_vbox:
@@ -7386,22 +7410,21 @@ func update_basic_info_panel(cariye: Concubine):
 		print("[MissionCenter] DEBUG: Container child %d: %s" % [i, child.name])
 	
 	# Birkaç frame bekle ve layout'u zorla güncelle
-	await get_tree().process_frame
-	portrait_container.queue_redraw()  # Container'ı yeniden çiz
-	portrait_rect.queue_redraw()  # TextureRect'i yeniden çiz
-	await get_tree().process_frame
-	await get_tree().process_frame  # Ekstra frame bekle
+	if not await _await_basic_info_frames(panel_token, 1):
+		return
+	if _basic_info_panel_stale(panel_token) or not is_instance_valid(portrait_container):
+		return
+	portrait_container.queue_redraw()
+	if _portrait_rect_valid(portrait_rect):
+		portrait_rect.queue_redraw()
+	if not await _await_basic_info_frames(panel_token, 2):
+		return
+	if _basic_info_panel_stale(panel_token) or not _portrait_rect_valid(portrait_rect):
+		return
 	
-	print("[MissionCenter] DEBUG: PortraitRect kontrol (3 frame sonra) - visible: %s, size: %s, rect: %s, parent visible: %s, parent size: %s, parent rect: %s" % [
-		portrait_rect.visible,
-		portrait_rect.size,
-		portrait_rect.get_rect(),
-		portrait_rect.get_parent().visible if portrait_rect.get_parent() else "null",
-		portrait_rect.get_parent().size if portrait_rect.get_parent() else "null",
-		portrait_rect.get_parent().get_rect() if portrait_rect.get_parent() else "null"
-	])
-	
-	_generate_concubine_portrait_async(cariye, portrait_rect)
+	_generate_concubine_portrait_async(cariye, portrait_rect, panel_token)
+	if _basic_info_panel_stale(panel_token) or not is_instance_valid(info_vbox):
+		return
 	
 	# Eski BasicInfoContent'ı bul veya oluştur
 	var basic_info_content = info_vbox.get_node_or_null("BasicInfoContent")
@@ -7549,7 +7572,11 @@ func _setup_portrait_instances():
 	
 	print("[MissionCenter] DEBUG: Toplam %d portre instance oluşturuldu" % portrait_instances.size())
 
-func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: TextureRect):
+func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: TextureRect, panel_token: int = -1):
+	if not _portrait_rect_valid(portrait_rect):
+		return
+	if panel_token >= 0 and _basic_info_panel_stale(panel_token):
+		return
 	print("[MissionCenter] DEBUG: Portre oluşturuluyor - cariye: %s (ID: %d), appearance: %s" % [
 		cariye.name if cariye else "null",
 		cariye.id if cariye else -1,
@@ -7612,6 +7639,12 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	
 	# Bir frame bekle (instance'ın hazır olması için)
 	await get_tree().process_frame
+	if panel_token >= 0 and _basic_info_panel_stale(panel_token):
+		viewport.queue_free()
+		return
+	if not _portrait_rect_valid(portrait_rect):
+		viewport.queue_free()
+		return
 	
 	# Duplicate'ın appearance'ını güncelle
 	viewport_instance.appearance = cariye.appearance
@@ -7639,6 +7672,9 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	
 	# Bir frame bekle (play_animation'ın uygulanması için)
 	await get_tree().process_frame
+	if panel_token >= 0 and (_basic_info_panel_stale(panel_token) or not _portrait_rect_valid(portrait_rect)):
+		viewport.queue_free()
+		return
 	
 	var viewport_animation_player = viewport_instance.get_node_or_null("AnimationPlayer")
 	if viewport_animation_player:
@@ -7689,6 +7725,9 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	# Birkaç frame bekle (sprite'ların yüklenmesi için)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if panel_token >= 0 and (_basic_info_panel_stale(panel_token) or not _portrait_rect_valid(portrait_rect)):
+		viewport.queue_free()
+		return
 	
 	# SPRITE DURUMU KONTROLÜ (play_animation öncesi)
 	print("[MissionCenter] DEBUG: === SPRITE DURUMU (play_animation ÖNCESİ) ===")
@@ -7715,6 +7754,9 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	
 	# Bir frame bekle (seek'in uygulanması için)
 	await get_tree().process_frame
+	if panel_token >= 0 and (_basic_info_panel_stale(panel_token) or not _portrait_rect_valid(portrait_rect)):
+		viewport.queue_free()
+		return
 	
 	# SPRITE DURUMU KONTROLÜ (seek sonrası)
 	print("[MissionCenter] DEBUG: === SPRITE DURUMU (seek SONRASI) ===")
@@ -7734,6 +7776,9 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if panel_token >= 0 and (_basic_info_panel_stale(panel_token) or not _portrait_rect_valid(portrait_rect)):
+		viewport.queue_free()
+		return
 	
 	# SON SPRITE DURUMU KONTROLÜ (render öncesi)
 	print("[MissionCenter] DEBUG: === SON SPRITE DURUMU (render ÖNCESİ) ===")
@@ -7764,6 +7809,9 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if panel_token >= 0 and (_basic_info_panel_stale(panel_token) or not _portrait_rect_valid(portrait_rect)):
+		viewport.queue_free()
+		return
 	print("[MissionCenter] DEBUG: Frame'ler beklendi, viewport texture bağlanıyor...")
 	
 	# Viewport'u sürekli güncelle (animasyon için)
@@ -7772,7 +7820,7 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 	# ViewportTexture kullan (animasyonlu görüntü için)
 	# Bu sayede viewport sürekli güncellenir ve animasyon görünür
 	var viewport_texture = viewport.get_texture()
-	if viewport_texture:
+	if viewport_texture and _portrait_rect_valid(portrait_rect):
 		print("[MissionCenter] DEBUG: Viewport texture bulundu, TextureRect'e bağlanıyor...")
 		# ViewportTexture'ı direkt TextureRect'e bağla (animasyonlu)
 		portrait_rect.texture = viewport_texture
@@ -7785,7 +7833,7 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 		portrait_rect.set_meta("instance_ref", concubine_instance)
 		
 		print("[MissionCenter] DEBUG: ViewportTexture TextureRect'e bağlandı, animasyon aktif")
-	else:
+	elif _portrait_rect_valid(portrait_rect):
 		print("[MissionCenter] DEBUG: Viewport texture bulunamadı!")
 		# Fallback texture
 		var empty_image = Image.create(128, 128, false, Image.FORMAT_RGBA8)
@@ -7793,6 +7841,9 @@ func _generate_concubine_portrait_async(cariye: Concubine, portrait_rect: Textur
 		var empty_texture = ImageTexture.create_from_image(empty_image)
 		portrait_rect.texture = empty_texture
 		portrait_rect.queue_redraw()  # Zorla yeniden çiz
+	else:
+		viewport.queue_free()
+		return
 	
 	# Viewport'u temizleme - artık TextureRect viewport'u kullanıyor
 	# Temizlik işlemi portrait_rect silindiğinde (update_basic_info_panel'de) yapılacak
@@ -8358,6 +8409,11 @@ func create_test_dynamic_mission():
 	
 	var new_mission = mission_manager.generate_random_dynamic_mission()
 	if new_mission:
+		if mission_manager.has_method("try_enqueue_mission_spawn"):
+			if mission_manager.try_enqueue_mission_spawn(new_mission, "dynamic_mission", {}):
+				print("✨ Test dinamik görev (pipeline): " + new_mission.name)
+				update_missions_ui()
+				return
 		mission_manager.missions[new_mission.id] = new_mission
 		print("✨ Test dinamik görev oluşturuldu: " + new_mission.name)
 		update_missions_ui()
@@ -8389,6 +8445,7 @@ func update_test_stability(change: int):
 # Mission Center menüsünü aç
 func open_menu():
 	print("[DEBUG_MC] open_menu: Başladı")
+	current_page = PageType.MISSIONS
 	visible = true
 	print("[DEBUG_MC] open_menu: visible = true yapıldı")
 	

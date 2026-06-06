@@ -1073,23 +1073,35 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Check if player is invincible
 	if invincibility_timer > 0:
 		return
-		
+	if hitbox is EnemyHitbox:
+		if hitbox.has_method("is_enabled") and not hitbox.is_enabled():
+			return
+		if hitbox.get_damage() <= 0.0:
+			return
 	# Store attacker's position and knockback data for hurt state BEFORE taking damage
 	last_hit_position = hitbox.global_position
 	if hitbox.has_method("get_knockback_data"):
 		last_hit_knockback = hitbox.get_knockback_data()
 	
 	var attacker = hitbox.get_parent() if hitbox else null  # Enemy that hit us (for damage reflection items)
+	var health_before: float = PlayerStats.get_current_health()
+	var incoming_damage: float = 0.0
 	# Check if we're in block state
 	if state_machine and state_machine.current_state.name == "Block":
 		# Use the damage value set by block state (0 for parry, reduced for block)
 		var is_parry = hurtbox.last_damage == 0  # Check if this was a parry
-		take_damage(hurtbox.last_damage, !is_parry, attacker)
+		incoming_damage = hurtbox.last_damage
+		take_damage(incoming_damage, !is_parry, attacker)
 	else:
 		# Normal damage handling
 		if hitbox.has_method("get_damage"):
-			var damage = hitbox.get_damage()
-			take_damage(damage, true, attacker)
+			incoming_damage = hitbox.get_damage()
+			take_damage(incoming_damage, true, attacker)
+
+	var health_after: float = PlayerStats.get_current_health()
+	var took_damage: bool = health_after < health_before - 0.001
+	if not took_damage:
+		return
 
 	# Only transition to hurt state if not blocking
 	if state_machine and state_machine.has_node("Hurt") and state_machine.current_state.name != "Block":
