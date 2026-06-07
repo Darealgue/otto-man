@@ -3,120 +3,160 @@ extends CanvasLayer
 signal loading_complete
 signal fade_out_complete
 
+@export var custom_indicator_scene: PackedScene
+
 @onready var root_control: Control = $Root
-@onready var loading_label: Label = $Root/VBoxContainer/LoadingLabel
-@onready var progress_bar: ProgressBar = $Root/VBoxContainer/ProgressBar
 @onready var fade_rect: ColorRect = $Root/FadeRect
+@onready var content_anchor: CenterContainer = $Root/ContentAnchor
+@onready var loading_indicator: Control = $Root/ContentAnchor/LoadingIndicator
 
 var _is_loading: bool = false
-var _fade_duration: float = 0.3
 var _fade_tween: Tween = null
+
+const FADE_TO_BLACK_DURATION: float = 0.38
+const CONTENT_FADE_DURATION: float = 0.28
+const FADE_FROM_BLACK_DURATION: float = 0.5
+
 
 func _ready() -> void:
 	visible = false
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	layer = 100
+	layer = HudCanvasLayers.TRANSITION
 	if is_instance_valid(root_control):
 		root_control.mouse_filter = Control.MOUSE_FILTER_STOP
-	
-	# Initialize fade rect
+
 	if is_instance_valid(fade_rect):
 		fade_rect.color = Color(0, 0, 0, 0)
 		fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	# Initialize progress bar
-	if is_instance_valid(progress_bar):
-		progress_bar.value = 0.0
-		progress_bar.show_percentage = false
-		progress_bar.modulate.a = 0.0
-	
-	if is_instance_valid(loading_label):
-		loading_label.modulate.a = 0.0
 
-func show_loading(text: String = "Yükleniyor...") -> void:
-	if _is_loading:
-		set_loading_text(text)
+	_setup_indicator()
+	_set_indicator_alpha(0.0)
+
+
+func _setup_indicator() -> void:
+	if custom_indicator_scene == null or not is_instance_valid(content_anchor):
 		return
-	
+	if is_instance_valid(loading_indicator):
+		loading_indicator.queue_free()
+	loading_indicator = custom_indicator_scene.instantiate()
+	loading_indicator.name = "LoadingIndicator"
+	content_anchor.add_child(loading_indicator)
+
+
+func show_loading(_text: String = "") -> void:
+	if _is_loading:
+		return
+
 	_is_loading = true
 	visible = true
 	if is_instance_valid(root_control):
 		root_control.visible = true
-	
-	# Update text
-	if loading_label:
-		loading_label.text = text
-	
-	# Reset progress
-	if progress_bar:
-		progress_bar.value = 0.0
-	
-	# Fade in
-	_fade_in()
+
+	_set_indicator_alpha(0.0)
+	if fade_rect:
+		fade_rect.color = Color(0, 0, 0, 0)
+
+	await _fade_to_black()
+	await _fade_in_content()
+
 
 func hide_loading() -> void:
 	if not _is_loading:
 		return
-	
-	# Fade out first, then hide
-	_fade_out()
 
-func set_progress(value: float) -> void:
-	if progress_bar:
-		progress_bar.value = clamp(value, 0.0, 100.0)
+	await _fade_out_content()
+	await _fade_from_black()
+	_on_transition_complete()
 
-func set_loading_text(text: String) -> void:
-	if loading_label:
-		loading_label.text = text
 
-func _fade_in() -> void:
-	if _fade_tween:
-		_fade_tween.kill()
-	
-	_fade_tween = create_tween()
-	_fade_tween.set_ease(Tween.EASE_OUT)
-	_fade_tween.set_trans(Tween.TRANS_CUBIC)
-	
-	fade_rect.color = Color(0, 0, 0, 0)
-	_fade_tween.tween_property(fade_rect, "color:a", 1.0, _fade_duration)
-	
-	# Fade in content
-	if loading_label:
-		loading_label.modulate.a = 0.0
-		_fade_tween.parallel().tween_property(loading_label, "modulate:a", 1.0, _fade_duration)
-	
-	if progress_bar:
-		progress_bar.modulate.a = 0.0
-		_fade_tween.parallel().tween_property(progress_bar, "modulate:a", 1.0, _fade_duration)
+func set_progress(_value: float) -> void:
+	pass
 
-func _fade_out() -> void:
-	if _fade_tween:
-		_fade_tween.kill()
-	
+
+func set_loading_text(_text: String) -> void:
+	pass
+
+
+func set_custom_indicator(scene: PackedScene) -> void:
+	custom_indicator_scene = scene
+	if is_inside_tree():
+		_setup_indicator()
+
+
+func _set_indicator_alpha(alpha: float) -> void:
+	if is_instance_valid(loading_indicator):
+		loading_indicator.modulate.a = alpha
+
+
+func _fade_to_black() -> void:
+	_kill_fade_tween()
+	if not is_instance_valid(fade_rect):
+		return
+
 	_fade_tween = create_tween()
 	_fade_tween.set_ease(Tween.EASE_IN)
 	_fade_tween.set_trans(Tween.TRANS_CUBIC)
-	
-	# Fade out content first
-	if loading_label:
-		_fade_tween.tween_property(loading_label, "modulate:a", 0.0, _fade_duration * 0.5)
-	if progress_bar:
-		_fade_tween.parallel().tween_property(progress_bar, "modulate:a", 0.0, _fade_duration * 0.5)
-	
-	# Then fade out background
-	_fade_tween.tween_property(fade_rect, "color:a", 0.0, _fade_duration * 0.5)
-	_fade_tween.tween_callback(_on_fade_out_complete)
+	_fade_tween.tween_property(fade_rect, "color:a", 1.0, FADE_TO_BLACK_DURATION)
+	await _fade_tween.finished
 
-func _on_fade_out_complete() -> void:
+
+func _fade_in_content() -> void:
+	_kill_fade_tween()
+	_fade_tween = create_tween()
+	_fade_tween.set_ease(Tween.EASE_OUT)
+	_fade_tween.set_trans(Tween.TRANS_CUBIC)
+
+	if is_instance_valid(loading_indicator):
+		_fade_tween.tween_property(loading_indicator, "modulate:a", 1.0, CONTENT_FADE_DURATION)
+
+	await _fade_tween.finished
+
+
+func _fade_out_content() -> void:
+	_kill_fade_tween()
+	_fade_tween = create_tween()
+	_fade_tween.set_ease(Tween.EASE_IN)
+	_fade_tween.set_trans(Tween.TRANS_CUBIC)
+
+	if is_instance_valid(loading_indicator):
+		_fade_tween.tween_property(loading_indicator, "modulate:a", 0.0, CONTENT_FADE_DURATION)
+
+	await _fade_tween.finished
+
+	if fade_rect:
+		fade_rect.color = Color(0, 0, 0, 1)
+
+
+func _fade_from_black() -> void:
+	_kill_fade_tween()
+	if not is_instance_valid(fade_rect):
+		return
+
+	_fade_tween = create_tween()
+	_fade_tween.set_ease(Tween.EASE_OUT)
+	_fade_tween.set_trans(Tween.TRANS_CUBIC)
+	_fade_tween.tween_property(fade_rect, "color:a", 0.0, FADE_FROM_BLACK_DURATION)
+	await _fade_tween.finished
+
+
+func _kill_fade_tween() -> void:
+	if _fade_tween and _fade_tween.is_valid():
+		_fade_tween.kill()
+	_fade_tween = null
+
+
+func _on_transition_complete() -> void:
 	visible = false
 	_is_loading = false
-	fade_out_complete.emit()
 	if is_instance_valid(root_control):
 		root_control.visible = false
+	if fade_rect:
+		fade_rect.color = Color(0, 0, 0, 0)
+	_set_indicator_alpha(0.0)
+	fade_out_complete.emit()
+
 
 func _input(event: InputEvent) -> void:
-	# Block input while loading
 	if _is_loading and visible:
 		if event is InputEventKey or event is InputEventMouseButton or event is InputEventJoypadButton:
 			get_viewport().set_input_as_handled()
-

@@ -9,6 +9,8 @@ const HUD := 200
 const MENU := 210
 const OVERLAY := 220
 const DIALOG := 300
+## Sahne geçişi karartması — HUD ve menülerin üstünde; hepsi birlikte kararır/aydınlanır.
+const TRANSITION := 400
 
 static func apply_to_scene_root(scene_root: Node) -> void:
 	if scene_root == null:

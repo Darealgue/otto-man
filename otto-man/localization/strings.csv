@@ -4,6 +4,7 @@ menu.new_game,Yeni Oyun,New Game
 menu.load_game,Oyunu Yükle,Load Game
 menu.settings,Ayarlar,Settings
 menu.quit,Çıkış,Quit
+menu.press_any_button,Devam etmek için herhangi bir tuşa bas,Press any button to continue
 settings.title,Ayarlar,Settings
 settings.tab.audio,Ses,Audio
 settings.tab.video,Görüntü,Video

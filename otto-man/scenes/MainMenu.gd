@@ -1,5 +1,10 @@
 extends Control
 
+@onready var _landscape: Control = $Landscape
+@onready var _menu_dimmer: ColorRect = $MenuDimmer
+@onready var _intro_fade: ColorRect = $IntroFade
+@onready var _press_prompt: Label = $PressPrompt
+@onready var _menu_root: CenterContainer = $CenterContainer
 @onready var _new_game_button: Button = $CenterContainer/Menu/Buttons/NewGameButton
 @onready var _load_game_button: Button = $CenterContainer/Menu/Buttons/LoadGameButton
 @onready var _settings_button: Button = $CenterContainer/Menu/Buttons/SettingsButton
@@ -11,6 +16,12 @@ var _profile_menu: Control = null
 var _tutorial_prompt: Control = null
 ## Hangi akıştan profil menüsü açıldı (geri dönüşte odak için)
 var _profile_opened_for_new_game: bool = true
+var _intro_dismissed: bool = false
+var _intro_tween: Tween = null
+var _cold_start_fading: bool = false
+
+const INTRO_REVEAL_DURATION: float = 0.55
+const COLD_START_FADE_DURATION: float = 4.8
 
 func _ready() -> void:
 	if not _validate_nodes():
@@ -22,17 +33,122 @@ func _ready() -> void:
 	else:
 		get_tree().paused = false
 	
-	print("[MainMenu] ready, setting focus")
+	print("[MainMenu] ready, intro landscape active")
 	_connect_signals()
 	_setup_load_game_menu()
 	_setup_settings_menu()
 	_setup_profile_select_menu()
 	_setup_new_game_tutorial_prompt()
+	_setup_intro_state()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	if LocaleManager.has_signal("locale_changed"):
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
-	_new_game_button.grab_focus()
+	await _play_startup_fade_if_needed()
+
+
+func _setup_intro_state() -> void:
+	_intro_dismissed = false
+	if _menu_root:
+		_menu_root.modulate.a = 0.0
+		_menu_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _menu_dimmer:
+		_menu_dimmer.modulate.a = 0.0
+	if _press_prompt:
+		_press_prompt.show()
+		if _should_play_cold_start_fade():
+			_press_prompt.modulate.a = 0.0
+	_disable_main_menu_focus()
+
+
+func _should_play_cold_start_fade() -> bool:
+	if not is_instance_valid(SceneManager):
+		return true
+	return SceneManager.previous_scene_path.is_empty()
+
+
+func _play_startup_fade_if_needed() -> void:
+	if not _should_play_cold_start_fade():
+		_clear_intro_fade()
+		return
+	if not is_instance_valid(_intro_fade):
+		return
+
+	_cold_start_fading = true
+	_intro_fade.show()
+	_intro_fade.color = Color(0, 0, 0, 1)
+	_intro_fade.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var tween := create_tween()
+	tween.set_ease(Tween.EASE_IN)
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.tween_property(_intro_fade, "color:a", 0.0, COLD_START_FADE_DURATION)
+	if _press_prompt:
+		tween.parallel().tween_property(_press_prompt, "modulate:a", 1.0, COLD_START_FADE_DURATION)
+	await tween.finished
+
+	_clear_intro_fade()
+	_cold_start_fading = false
+
+
+func _clear_intro_fade() -> void:
+	if not is_instance_valid(_intro_fade):
+		return
+	_intro_fade.color = Color(0, 0, 0, 0)
+	_intro_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_intro_fade.hide()
+
+
+func _process(_delta: float) -> void:
+	if _cold_start_fading or _intro_dismissed or not is_instance_valid(_press_prompt) or not _press_prompt.visible:
+		return
+	var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.004)
+	_press_prompt.modulate.a = pulse
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _cold_start_fading or _intro_dismissed:
+		return
+	if _is_intro_dismiss_input(event):
+		get_viewport().set_input_as_handled()
+		_dismiss_intro()
+
+
+func _is_intro_dismiss_input(event: InputEvent) -> bool:
+	if event is InputEventKey and event.pressed and not event.echo:
+		return true
+	if event is InputEventMouseButton and event.pressed:
+		return true
+	if event is InputEventJoypadButton and event.pressed:
+		return true
+	return false
+
+
+func _dismiss_intro() -> void:
+	if _intro_dismissed:
+		return
+	_intro_dismissed = true
+	if _press_prompt:
+		_press_prompt.hide()
+	if _intro_tween and _intro_tween.is_valid():
+		_intro_tween.kill()
+	_intro_tween = create_tween()
+	_intro_tween.set_parallel(true)
+	_intro_tween.set_ease(Tween.EASE_OUT)
+	_intro_tween.set_trans(Tween.TRANS_CUBIC)
+	if _menu_dimmer:
+		_intro_tween.tween_property(_menu_dimmer, "modulate:a", 1.0, INTRO_REVEAL_DURATION)
+	if _menu_root:
+		_intro_tween.tween_property(_menu_root, "modulate:a", 1.0, INTRO_REVEAL_DURATION)
+	_intro_tween.finished.connect(_on_intro_reveal_finished)
+
+
+func _on_intro_reveal_finished() -> void:
+	if _menu_root:
+		_menu_root.mouse_filter = Control.MOUSE_FILTER_PASS
+	_enable_main_menu_focus()
+	if _new_game_button:
+		_new_game_button.grab_focus()
 
 func _validate_nodes() -> bool:
 	if not is_instance_valid(_new_game_button):
@@ -57,6 +173,8 @@ func _connect_signals() -> void:
 
 
 func _refresh_locale(_locale: String = "") -> void:
+	if _press_prompt:
+		_press_prompt.text = tr("menu.press_any_button")
 	if _subtitle_label:
 		_subtitle_label.text = tr("menu.subtitle")
 	if _new_game_button:

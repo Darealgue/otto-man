@@ -809,11 +809,8 @@ func _change_scene(target_path: String, force_reload: bool = false) -> void:
 		print("[SceneManager] same scene request, ignoring", target_path)
 		return
 	
-	# Show loading screen
-	_show_loading_screen(_get_scene_name(target_path))
-	
-	# Use call_deferred to ensure loading screen is visible before heavy operations
-	call_deferred("_perform_scene_change", target_path, same_scene and force_reload)
+	await _show_loading_screen(_get_scene_name(target_path))
+	await _perform_scene_change(target_path, same_scene and force_reload)
 
 func _show_loading_screen(scene_name: String = "") -> void:
 	if not LoadingScreenScene:
@@ -822,6 +819,7 @@ func _show_loading_screen(scene_name: String = "") -> void:
 	# Create loading screen instance if it doesn't exist
 	if not is_instance_valid(_loading_screen_instance):
 		_loading_screen_instance = LoadingScreenScene.instantiate() as CanvasLayer
+		_loading_screen_instance.layer = HudCanvasLayers.TRANSITION
 		get_tree().root.add_child(_loading_screen_instance)
 	
 	# Show loading screen
@@ -831,17 +829,14 @@ func _show_loading_screen(scene_name: String = "") -> void:
 	else:
 		loading_text += "..."
 	
-	# Script is attached to CanvasLayer, so methods are directly accessible
 	if _loading_screen_instance.has_method("show_loading"):
-		_loading_screen_instance.show_loading(loading_text)
+		await _loading_screen_instance.show_loading(loading_text)
 	else:
 		push_error("[SceneManager] LoadingScreen.show_loading() method not found!")
 
 func _hide_loading_screen() -> void:
-	if is_instance_valid(_loading_screen_instance):
-		_loading_screen_instance.hide_loading()
-		# Don't remove the instance, keep it for next use
-		# The loading screen will handle its own fade out
+	if is_instance_valid(_loading_screen_instance) and _loading_screen_instance.has_method("hide_loading"):
+		await _loading_screen_instance.hide_loading()
 
 func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	# Allow the loading screen to render before heavy operations
@@ -867,14 +862,18 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 		if reload_err != OK:
 			var error_msg = "Sahne yeniden yüklenemedi: %s\nHata kodu: %d" % [target_path, reload_err]
 			push_error("SceneManager: %s" % error_msg)
-			_hide_loading_screen()
+			await _hide_loading_screen()
 			_handle_scene_load_error(error_msg, target_path)
 			return
 		
 		# Wait a frame for scene to be ready
 		await get_tree().process_frame
 		await RenderingServer.frame_post_draw
-		_hide_loading_screen()
+		if is_instance_valid(_loading_screen_instance):
+			_loading_screen_instance.set_progress(100.0)
+		await get_tree().create_timer(0.2).timeout
+		await _update_ui_visibility(target_path)
+		await _hide_loading_screen()
 		scene_change_completed.emit(target_path)
 		return
 	
@@ -895,7 +894,7 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	if err != OK:
 		var error_msg = "Sahne yüklenemedi: %s\nHata kodu: %d" % [target_path, err]
 		push_error("SceneManager: %s" % error_msg)
-		_hide_loading_screen()
+		await _hide_loading_screen()
 		_handle_scene_load_error(error_msg, target_path)
 		return
 	
@@ -904,21 +903,12 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	
-	# Update progress and hide
 	if is_instance_valid(_loading_screen_instance):
 		_loading_screen_instance.set_progress(100.0)
 	
-	# Small delay for progress to be visible, then fade out
 	await get_tree().create_timer(0.2).timeout
-	_hide_loading_screen()
-	
-	# Wait for fade out to complete
-	if is_instance_valid(_loading_screen_instance):
-		await _loading_screen_instance.fade_out_complete
-	
-	# Update UI visibility based on scene
-	_update_ui_visibility(target_path)
-	
+	await _update_ui_visibility(target_path)
+	await _hide_loading_screen()
 	scene_change_completed.emit(target_path)
 
 func _update_ui_visibility(scene_path: String) -> void:

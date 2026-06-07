@@ -1,0 +1,230 @@
+[gd_scene load_steps=10 format=3 uid="uid://c8k2mainlandscape"]
+
+[ext_resource type="Script" path="res://scenes/main_menu/MainMenuLandscape.gd" id="1_landscape"]
+[ext_resource type="Texture2D" uid="uid://byd2dgw82lxgf" path="res://assets/main_menu/gökyüzü.png" id="2_gokyuzu"]
+[ext_resource type="Texture2D" uid="uid://div0bceimgys8" path="res://assets/main_menu/bulutlar.png" id="3_bulutlar"]
+[ext_resource type="Texture2D" uid="uid://bmokxqa84e022" path="res://assets/main_menu/en arka tepe.png" id="4_en_arka_tepe"]
+[ext_resource type="Texture2D" uid="uid://dgxe0bqbw7g3v" path="res://assets/main_menu/arka tepe.png" id="5_arka_tepe"]
+[ext_resource type="Texture2D" uid="uid://rg5pox6y18ys" path="res://assets/main_menu/orta tepe.png" id="6_orta_tepe"]
+[ext_resource type="Texture2D" uid="uid://bb5vhjr7r6y8j" path="res://assets/main_menu/deniz.png" id="7_deniz"]
+[ext_resource type="Texture2D" uid="uid://ciofm1lk2bape" path="res://assets/main_menu/ön tepe.png" id="8_on_tepe"]
+[ext_resource type="Texture2D" uid="uid://b7wfloow7n2op" path="res://assets/main_menu/ağaç.png" id="9_agac"]
+[ext_resource type="Texture2D" uid="uid://bfdaeykdrh35o" path="res://assets/main_menu/ağaç yaprakları.png" id="10_agac_yapraklari"]
+
+[node name="MainMenuLandscape" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_landscape")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Layers" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Gokyuzu" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/Gokyuzu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_gokyuzu")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Bulutlar" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/Bulutlar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_bulutlar")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Deniz" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/Deniz"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("7_deniz")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="EnArkaTepe" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/EnArkaTepe"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("4_en_arka_tepe")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ArkaTepe" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/ArkaTepe"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_arka_tepe")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="OrtaTepe" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/OrtaTepe"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_orta_tepe")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="OnTepe" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/OnTepe"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("8_on_tepe")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Agac" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/Agac"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("9_agac")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="AgacYapraklari" type="Control" parent="Layers"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Texture" type="TextureRect" parent="Layers/AgacYapraklari"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("10_agac_yapraklari")
+expand_mode = 1
+stretch_mode = 5

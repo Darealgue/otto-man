@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://c7p43u1k0kbcr"]
+[gd_scene load_steps=3 format=3 uid="uid://c7p43u1k0kbcr"]
 
 [ext_resource type="Script" path="res://scenes/MainMenu.gd" id="1_f7kum"]
+[ext_resource type="PackedScene" uid="uid://dvslgk0bd6hbm" path="res://scenes/main_menu/MainMenuLandscape.tscn" id="2_landscape"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -12,19 +13,60 @@ grow_vertical = 2
 script = ExtResource("1_f7kum")
 
 [node name="Background" type="ColorRect" parent="."]
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.0588235, 0.0705882, 0.0980392, 1)
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Landscape" parent="." instance=ExtResource("2_landscape")]
+layout_mode = 1
+
+[node name="MenuDimmer" type="ColorRect" parent="."]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.03, 0.06, 0.42)
+
+[node name="PressPrompt" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -96.0
+offset_right = 280.0
+offset_bottom = -40.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.94, 0.92, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.65)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 22
+text = "Devam etmek için herhangi bir tuşa bas"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
-layout_mode = 0
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="Menu" type="VBoxContainer" parent="CenterContainer"]
 custom_minimum_size = Vector2(520, 0)
@@ -35,6 +77,9 @@ alignment = 1
 [node name="Title" type="Label" parent="CenterContainer/Menu"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.86, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.55)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 54
 text = "Rogue Harem"
 horizontal_alignment = 1
@@ -42,6 +87,9 @@ horizontal_alignment = 1
 [node name="Subtitle" type="Label" parent="CenterContainer/Menu"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.721569, 0.721569, 0.721569, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.45)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 20
 text = "Village & Expedition Beta"
 horizontal_alignment = 1
@@ -53,26 +101,44 @@ theme_override_constants/separation = 12
 [node name="NewGameButton" type="Button" parent="CenterContainer/Menu/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
+focus_mode = 0
 text = "Yeni Oyun"
 
 [node name="LoadGameButton" type="Button" parent="CenterContainer/Menu/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
+focus_mode = 0
 text = "Oyunu Yükle"
 
 [node name="SettingsButton" type="Button" parent="CenterContainer/Menu/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
+focus_mode = 0
 text = "Ayarlar"
 
 [node name="QuitButton" type="Button" parent="CenterContainer/Menu/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
+focus_mode = 0
 text = "Çıkış"
 
 [node name="Footer" type="Label" parent="CenterContainer/Menu"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.556863, 0.556863, 0.556863, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.4)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
 text = "Beta Yapım Aşaması"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="IntroFade" type="ColorRect" parent="."]
+z_index = 100
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)

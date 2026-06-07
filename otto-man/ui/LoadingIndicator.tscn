@@ -1,0 +1,57 @@
+[gd_scene load_steps=3 format=3 uid="uid://bloadindicator01"]
+
+[ext_resource type="Script" path="res://ui/LoadingIndicator.gd" id="1_indicator"]
+[ext_resource type="Texture2D" uid="uid://c4loadhourglass" path="res://assets/ui/loading_hourglass.svg" id="2_hourglass"]
+
+[node name="LoadingIndicator" type="Control"]
+custom_minimum_size = Vector2(112, 112)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 112.0
+offset_bottom = 112.0
+script = ExtResource("1_indicator")
+texture = ExtResource("2_hourglass")
+
+[node name="Pivot" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -56.0
+offset_top = -56.0
+offset_right = 56.0
+offset_bottom = 56.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(56, 56)
+
+[node name="TextureRect" type="TextureRect" parent="Pivot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_hourglass")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="AnimatedSprite" type="AnimatedSprite2D" parent="Pivot"]
+unique_name_in_owner = true
+visible = false
+position = Vector2(56, 56)
+
+[node name="CustomSlot" type="Control" parent="Pivot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
