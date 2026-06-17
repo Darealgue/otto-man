@@ -75,6 +75,9 @@ func _start_minigame():
 		if typeof(v) == TYPE_INT:
 			level = v
 	var ctx = {"room_path": get_parent().scene_file_path, "level": level}
+	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("get_rescue_minigame_difficulty_multiplier"):
+		ctx["difficulty_multiplier"] = stealth_mgr.call("get_rescue_minigame_difficulty_multiplier")
 	var callback := Callable(self, "_on_minigame_result")
 	if MinigameRouter.is_connected("minigame_finished", callback):
 		MinigameRouter.disconnect("minigame_finished", callback)
@@ -109,6 +112,7 @@ func _on_minigame_result(result: Dictionary):
 			$Sprite2D.modulate.a = 0.5
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if drs:
+			var fragile: bool = _is_fragile_rescue_context()
 			if minigame_kind == "villager":
 				if _prisoner_villager and is_instance_valid(_prisoner_villager):
 					var app = _prisoner_villager.get("appearance")
@@ -118,10 +122,16 @@ func _on_minigame_result(result: Dictionary):
 						var info = _prisoner_villager.NPC_Info.get("Info", {})
 						if info is Dictionary and info.has("Name"):
 							name_str = info["Name"]
-					drs.add_pending_villager_data({"appearance": appearance_dict, "name": name_str})
+					if drs.has_method("add_pending_villager_data"):
+						drs.call("add_pending_villager_data", {"appearance": appearance_dict, "name": name_str}, fragile)
+					else:
+						drs.add_pending_villager_data({"appearance": appearance_dict, "name": name_str})
 					_prisoner_villager.visible = false
 				else:
-					drs.add_pending_villager()
+					if drs.has_method("add_pending_villager"):
+						drs.call("add_pending_villager", fragile)
+					else:
+						drs.add_pending_villager()
 			elif minigame_kind == "vip":
 				var payload: Dictionary = result.get("payload", {})
 				var leverage: int = int(payload.get("leverage", 0))
@@ -141,7 +151,14 @@ func _on_minigame_result(result: Dictionary):
 					"leverage": leverage,
 					"appearance": appearance_dict
 				}
-				drs.add_pending_cariye(cariye_data)
+				if drs.has_method("add_pending_cariye"):
+					drs.call("add_pending_cariye", cariye_data, fragile)
+				else:
+					drs.add_pending_cariye(cariye_data)
+			if fragile:
+				var sm: Node = get_node_or_null("/root/StealthManager")
+				if is_instance_valid(sm) and sm.has_method("refresh_fragile_hud"):
+					sm.call_deferred("refresh_fragile_hud")
 	else:
 		_apply_failure_penalty()
 
@@ -153,6 +170,17 @@ func _apply_failure_penalty() -> void:
 		var damage: float = max_h * 0.5
 		var new_h: float = cur_h - damage
 		ps.set_current_health(new_h, true)
+
+
+func _is_fragile_rescue_context() -> bool:
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	if not is_instance_valid(sm):
+		return false
+	if not sm.has_method("is_stealth_enabled") or not bool(sm.call("is_stealth_enabled")):
+		return false
+	if not sm.has_method("is_stealth_mode"):
+		return false
+	return bool(sm.call("is_stealth_mode"))
 
 func _random_vip_name() -> String:
 	var idx: int = randi() % VIP_NAMES.size()

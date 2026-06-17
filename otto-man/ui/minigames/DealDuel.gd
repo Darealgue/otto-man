@@ -373,6 +373,10 @@ func _apply_difficulty_from_context() -> void:
 	# tighten perfect/good windows with level
 	_perfect_half = clamp(0.03 - (lvl - 1) * 0.0015, 0.02, 0.03)
 	_good_half = clamp(0.08 - (lvl - 1) * 0.0020, 0.05, 0.08)
+	var diff_mult: float = 1.0
+	if typeof(context) == TYPE_DICTIONARY and context.has("difficulty_multiplier"):
+		diff_mult = clampf(float(context.difficulty_multiplier), 0.5, 1.5)
+	_speed *= diff_mult
 
 func _init_persona_from_context() -> void:
 	if typeof(context) == TYPE_DICTIONARY and context.has("persona") and typeof(context.persona) == TYPE_STRING:

@@ -433,7 +433,30 @@ tutorial.village.objective_build_menu,{page_left} / {page_right} ile gez, İnşa
 tutorial.village.objective_build_woodcutter,"Odun Kampını seç, {confirm} ile inşa et",Select the Woodcutter Camp and build with {confirm}
 tutorial.village.objective_workers_menu,{page_left} / {page_right} ile gez, İşçiler menüsüne gel,Use {page_left} / {page_right} to browse to the Workers menu
 tutorial.village.objective_assign_worker,"Odun Kampını seç, {confirm} ile bir işçi ata",Select the Woodcutter Camp and assign a worker with {confirm}
-tutorial.hint.first_cariye,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\nCariyeleri [color=#f5d76e]Cariyeler[/color] panelinden görevlere yollayabilirsin.\nHer cariyenin farklı yetenekleri var — görevlere uygun olanı seç.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!\nSend concubines on missions from the [color=#f5d76e]Concubines[/color] panel.\nEach has different skills — pick the right one for each mission."
+tutorial.village.core_complete,"Temeller atıldı — artık köy senin.\nİstersen mentorla konuş; sırada keşif var.","The basics are in place — the village is yours.\nTalk to the mentor when you want; exploration is next."
+tutorial.hint.first_cariye,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\nGörev Merkezi'nde [color=#f5d76e]Kurtarılanın Yolu[/color] zinciri açıldı — onu köye kazandır.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!\nThe [color=#f5d76e]Path of the Rescued[/color] chain is now in the Mission Center — help her settle in."
+tutorial.rescue_chain.message,"[color=#ff99cc]%s[/color] köye geldi.\nGörev Merkezi → Görevler'de [color=#f5d76e]Kurtarılanın Yolu[/color] zincirini ona ata.","[color=#ff99cc]%s[/color] has arrived.\nMission Center → Missions: assign the [color=#f5d76e]Path of the Rescued[/color] chain to her."
+tutorial.rescue_chain.objective,Görev Merkezi: %s ile «Dinlen ve Anlat» görevini başlat,Mission Center: start «Rest and Debrief» with %s
+mission.rescue_chain.chain_name,Kurtarılanın Yolu,Path of the Rescued
+mission.rescue_chain.target.village,Köy,Village
+mission.rescue_chain.risk.low,Düşük,Low
+mission.rescue_chain.1.name,%s: Dinlen ve Anlat,%s: Rest and Debrief
+mission.rescue_chain.1.desc,Kurtarılan cariye köyde toparlanır; zindanda duyduklarını kayda geçirir.,The rescued concubine recovers in the village and records what she heard in the dungeon.
+mission.rescue_chain.2.name,%s: Zindan İzleri,%s: Dungeon Trails
+mission.rescue_chain.2.desc,Eski mahkûm yollarını tarar; bir sonraki baskın için ipucu toplar.,She scouts old prisoner routes and gathers clues for the next raid.
+mission.rescue_chain.3.name,%s: Köye Kazandır,%s: Earn Her Keep
+mission.rescue_chain.3.desc,Komşu yerleşimle ilk temas — cariye artık köyün bir parçası.,First contact with a neighbor settlement — she becomes part of the village.
+news.rescue_chain.start.title,%s için yeni görev zinciri,A new mission chain for %s
+news.rescue_chain.start.body,Görev Merkezi'nde «Kurtarılanın Yolu» açıldı. İlk görevi kurtardığın cariyeye ata.,«Path of the Rescued» is open in the Mission Center. Assign the first mission to the concubine you rescued.
+news.rescue_chain.complete.title,Kurtarılanın Yolu tamamlandı,Path of the Rescued complete
+news.rescue_chain.complete.body,Cariyen köye kazandırdın. Artık diğer görevlere de yollayabilirsin.,She has earned her place. You can send her on other missions too.
+item.set.poison.name,Zehir Ustası,Poison Master
+item.set.guard.name,Demir Muhafız,Iron Guard
+item.set.aerial.name,Gök Vuruşu,Sky Strike
+item.set.elemental.name,Üç Element,Tri-Element
+item.set.will_activate,set tamamlanır!,set complete!
+item.set.one_more,1 parça kaldı,1 piece left
+item.set.active_short,aktif,active
 tutorial.hint.first_trader,"Köye bir [color=#ffcc44]tüccar[/color] geldi!\nTüccarlarla kaynak alışverişi yapabilirsin.\nKöyün ihtiyaçlarına göre iyi fırsatları kaçırma — tüccarlar sonsuza kadar kalmaz.","A [color=#ffcc44]trader[/color] arrived in the village!\nYou can trade resources with merchants.\nDo not miss good deals — traders do not stay forever."
 tutorial.digest.prefix,Yokluğunda:,While you were away:
 tutorial.forest.complete,"Kaynaklar tamam! Portaldan haritaya dön, köy hex'ine git",Resources complete! Return through the portal to the map and go to the village hex
@@ -635,6 +658,9 @@ village.delivery.dungeon_gold,+%d zindan altını,+%d dungeon gold
 village.delivery.expedition_gold,+%d sefer altını (harita görevi),+%d expedition gold (map mission)
 village.delivery.resources,+%d kaynak,+%d resources
 village.delivery.rescued,+%d köylü +%d cariye,+%d villagers +%d concubines
+village.delivery.stealth_clear,Gizli çıkış tamamlandı (boss atlandı),Stealth exit complete (boss skipped)
+village.delivery.stealth_partial_boss_gold,+%d kısmi boss altını (gizli çıkış),+%d partial boss gold (stealth exit)
+village.delivery.boss_skipped,Boss atlandı — tam mastery yok,Boss skipped — no full mastery
 concubine.unnamed,İsimsiz,Unnamed
 mc.mission.result.panel_header,🎯 GÖREV SONUCU:,🎯 MISSION RESULT:
 mc.mission.result.cariye_line,Cariye: %s,Concubine: %s

@@ -2,10 +2,11 @@ extends Node2D
 ## Boss odası bootstrap: oyuncu, sabit kamera, boss spawn, giriş kapısı ve UI.
 
 const PLAYER_SCENE: PackedScene = preload("res://player/player.tscn")
-const BOSS_SCENE: PackedScene = preload("res://boss/orb_scatter_boss.tscn")
 const BOSS_BAR_SCENE: PackedScene = preload("res://ui/boss_health_bar.tscn")
 const DOOR_SCENE: PackedScene = preload("res://scenes/door.tscn")
 
+@export var boss_id: String = "tepegoz"
+@export var boss_scene: PackedScene
 @export var arena_bounds: Rect2 = Rect2(96.0, 128.0, 1728.0, 820.0)
 @export var default_player_spawn: Vector2 = Vector2(32.0, 928.0)
 @export var default_boss_spawn: Vector2 = Vector2(960.0, 280.0)
@@ -20,6 +21,7 @@ var _entrance_door: Door = null
 var _fight_started: bool = false
 var _exit_unlocked: bool = false
 var _leaving_dungeon: bool = false
+var _loot_spawner: DecorationSpawner = null
 
 
 func _ready() -> void:
@@ -108,11 +110,15 @@ func _spawn_boss() -> void:
 	if container == null:
 		container = self
 
-	var existing := container.get_node_or_null("OrbScatterBoss")
+	var existing: Node2D = _find_existing_boss(container)
 	if existing:
-		_boss = existing as Node2D
+		_boss = existing
 	else:
-		_boss = BOSS_SCENE.instantiate() as Node2D
+		var scene := _resolve_boss_scene()
+		if scene == null:
+			push_error("[BossRoom] boss_scene atanmamış (boss_id=%s)" % boss_id)
+			return
+		_boss = scene.instantiate() as Node2D
 		container.add_child(_boss)
 
 	var boss_spawn: Vector2 = default_boss_spawn
@@ -120,14 +126,54 @@ func _spawn_boss() -> void:
 	if boss_marker:
 		boss_spawn = boss_marker.global_position
 	_boss.global_position = boss_spawn
-	if _boss.has_method("setup_arena"):
+	var room_layout := _build_boss_room_layout(boss_spawn)
+	if _boss.has_method("setup_boss_room"):
+		_boss.setup_boss_room(room_layout)
+	elif _boss.has_method("setup_arena"):
 		_boss.setup_arena(arena_bounds)
-	if _boss.has_method("set_projectile_container"):
+	if _boss.has_method("set_hazard_container"):
+		_boss.set_hazard_container(_projectile_container)
+	elif _boss.has_method("set_projectile_container"):
 		_boss.set_projectile_container(_projectile_container)
 	_apply_run_difficulty_to_boss()
 
 	if _boss.has_signal("enemy_defeated"):
 		_boss.enemy_defeated.connect(_on_boss_defeated)
+
+
+func _find_existing_boss(container: Node) -> Node2D:
+	for child in container.get_children():
+		if child is Node2D and child.is_in_group("boss"):
+			return child as Node2D
+	for node_name in ["TepegozBoss", "OrbScatterBoss"]:
+		var n := container.get_node_or_null(node_name) as Node2D
+		if n:
+			return n
+	return null
+
+
+func _resolve_boss_scene() -> PackedScene:
+	if boss_scene:
+		return boss_scene
+	push_warning("[BossRoom] boss_scene boş — Tepegöz fallback (boss_id=%s)" % boss_id)
+	return preload("res://boss/tepegoz_boss.tscn") as PackedScene
+
+
+func _build_boss_room_layout(boss_anchor: Vector2) -> Dictionary:
+	var floor_y := default_player_spawn.y
+	var player_marker: Node2D = get_node_or_null("SpawnPoints/PlayerSpawn") as Node2D
+	if player_marker:
+		floor_y = player_marker.global_position.y
+	var hand_inset := 140.0
+	return {
+		"bounds": arena_bounds,
+		"floor_y": floor_y,
+		"ceiling_y": arena_bounds.position.y + 36.0,
+		"boss_anchor": boss_anchor,
+		"hand_left_x": arena_bounds.position.x + hand_inset,
+		"hand_right_x": arena_bounds.position.x + arena_bounds.size.x - hand_inset,
+		"hand_y": floor_y - 68.0,
+	}
 
 
 func _setup_boss_bar() -> void:
@@ -204,6 +250,7 @@ func _on_boss_defeated() -> void:
 	if is_instance_valid(drs) and is_instance_valid(dp) and dp.has_method("record_clear"):
 		var did: String = String(drs.get("dungeon_id"))
 		dp.call("record_clear", did)
+	_scatter_boss_gold(drs)
 	_exit_unlocked = true
 	if not is_instance_valid(_entrance_door):
 		return
@@ -216,6 +263,41 @@ func _on_entrance_door_opened(_door_type: String) -> void:
 	if not _exit_unlocked or _leaving_dungeon:
 		return
 	_leave_dungeon()
+
+
+func _scatter_boss_gold(drs: Node) -> void:
+	if not is_instance_valid(_boss):
+		return
+	var total: int = 20
+	if is_instance_valid(drs) and drs.has_method("get_boss_scatter_gold_total"):
+		total = int(drs.call("get_boss_scatter_gold_total"))
+	if total <= 0:
+		return
+	var spawner := _get_loot_spawner()
+	if spawner == null:
+		push_warning("[BossRoom] Loot spawner yok — boss altını saçılamadı")
+		return
+	var origin: Vector2 = _boss.global_position
+	spawner.call_deferred("spawn_boss_gold_burst", origin, total)
+	if is_instance_valid(drs):
+		print("[BossRoom] Boss altını saçıldı: %d (gold_mult=%.2f, segment=%d)" % [
+			total,
+			float(drs.get("gold_multiplier_accumulated")),
+			int(drs.get("run_segment_count")),
+		])
+
+
+func _get_loot_spawner() -> DecorationSpawner:
+	if is_instance_valid(_loot_spawner):
+		return _loot_spawner
+	for n in get_tree().get_nodes_in_group("decoration_spawner"):
+		if n is DecorationSpawner:
+			_loot_spawner = n as DecorationSpawner
+			return _loot_spawner
+	_loot_spawner = DecorationSpawner.new()
+	_loot_spawner.name = "BossLootSpawner"
+	add_child(_loot_spawner)
+	return _loot_spawner
 
 
 func _leave_dungeon() -> void:

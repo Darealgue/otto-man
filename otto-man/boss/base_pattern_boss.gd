@@ -1,3 +1,4 @@
+class_name BasePatternBoss
 extends Node2D
 
 signal enemy_defeated
@@ -199,3 +200,7 @@ func _on_vulnerability_ended() -> void:
 
 func _on_defeated() -> void:
 	pass
+
+
+func start_fight() -> void:
+	finish_intro()

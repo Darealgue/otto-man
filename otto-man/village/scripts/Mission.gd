@@ -25,6 +25,7 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 # Gereksinimler
 @export var required_cariye_level: int = 1
 @export var required_army_size: int = 0
+@export var required_concubine_id: int = -1  # -1 = herhangi bir cariye
 @export var required_resources: Dictionary = {}  # {"gold": 100, "wood": 50}
 
 # Ödüller ve cezalar
@@ -278,6 +279,7 @@ func to_save_dict() -> Dictionary:
 		"success_chance": success_chance,
 		"required_cariye_level": required_cariye_level,
 		"required_army_size": required_army_size,
+		"required_concubine_id": required_concubine_id,
 		"required_resources": required_resources.duplicate(true),
 		"rewards": rewards.duplicate(true),
 		"penalties": penalties.duplicate(true),
@@ -334,6 +336,7 @@ static func from_save_dict(d: Dictionary) -> Mission:
 	m.success_chance = float(d.get("success_chance", 0.7))
 	m.required_cariye_level = int(d.get("required_cariye_level", 1))
 	m.required_army_size = int(d.get("required_army_size", 0))
+	m.required_concubine_id = int(d.get("required_concubine_id", -1))
 	if d.get("required_resources") is Dictionary:
 		m.required_resources = d["required_resources"].duplicate(true)
 	if d.get("rewards") is Dictionary:

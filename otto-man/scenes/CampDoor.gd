@@ -44,6 +44,11 @@ func set_label_text(text: String) -> void:
 		_label.bbcode_enabled = true
 		_label.text = label_text
 
+
+func enable_stealth_glow() -> void:
+	if _sprite:
+		_sprite.modulate = Color(0.72, 0.9, 1.0, 1.0)
+
 func _process(_delta: float) -> void:
 	if entrance_only:
 		return

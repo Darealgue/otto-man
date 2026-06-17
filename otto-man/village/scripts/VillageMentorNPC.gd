@@ -424,14 +424,8 @@ func _on_conversation_finished() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null:
 		return
-	match tm.village_core_step:
-		0:
-			tm.village_core_step = 1
-			tm.set_objective(tr("tutorial.village.objective_forest"))
-		1:
-			tm.village_core_step = 2
-			tm.village_menu_phase = 0
-			tm.set_objective(tr("tutorial.village.objective_campfire"))
+	if tm.has_method("advance_village_core_after_mentor_welcome"):
+		tm.advance_village_core_after_mentor_welcome()
 
 
 func _on_input_device_changed(_is_joypad: bool) -> void:

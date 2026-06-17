@@ -42,6 +42,10 @@ func setup(scene: PackedScene) -> void:
 				rarity_text = "[Legendary] "
 		
 		text = rarity_text + item_name + "\n" + description
+		if has_node("/root/ItemManager") and ItemManager.has_method("get_set_hint_if_selected"):
+			var hint := ItemManager.get_set_hint_if_selected(item.item_id)
+			if not hint.is_empty():
+				text += "\n" + hint
 	else:
 		text = "Unknown Item"
 	

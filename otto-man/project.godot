@@ -46,6 +46,8 @@ NpcDialogueManager="*res://autoload/NPCDialogueManager.gd"
 VillagerAiInitializer="*res://autoload/Villager_AI_Initializer.gd"
 MinigameRouter="*res://autoload/MinigameRouter.gd"
 DungeonRunState="*res://autoload/DungeonRunState.gd"
+StealthManager="*res://autoload/StealthManager.gd"
+StealthCombat="*res://autoload/StealthCombat.gd"
 DungeonProgress="*res://autoload/DungeonProgress.gd"
 WorldManager="*res://autoload/WorldManager.gd"
 AiNarrativeBrief="*res://autoload/AiNarrativeBrief.gd"
@@ -403,9 +405,9 @@ locale/fallback="tr"
 
 [rendering]
 
-environment/defaults/default_clear_color=Color(0, 0, 0, 1)
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method.web="forward_plus"
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
 viewport/hdr_2d=true
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true

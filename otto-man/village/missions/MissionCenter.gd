@@ -916,6 +916,12 @@ func _flatten_buildings_list():
 			if _is_construction_building_unlocked(building_name):
 				all_buildings_flat.append(building_name)
 
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.is_village_tutorial_active() and tm.village_core_step == 2:
+		all_buildings_flat = all_buildings_flat.filter(func(name): return name == "Oduncu")
+		if all_buildings_flat.is_empty() and building_scene_paths.has("Oduncu"):
+			all_buildings_flat.append("Oduncu")
+
 	if not previous_name.is_empty() and previous_name in all_buildings_flat:
 		current_building_index = all_buildings_flat.find(previous_name)
 	elif all_buildings_flat.is_empty():
@@ -1571,6 +1577,9 @@ func get_all_available_buildings() -> Array:
 		all_buildings.append(building_info)
 	
 	print("[DEBUG] Toplam %d bina bulundu" % all_buildings.size())
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.is_village_tutorial_active() and tm.village_core_step == 3:
+		all_buildings = all_buildings.filter(func(b): return String(b.get("type", "")) == "Oduncu")
 	return all_buildings
 
 # Bina türü adını al
@@ -1605,6 +1614,13 @@ func add_worker_to_building(building_info: Dictionary) -> void:
 	var building = building_info["node"]
 	if not building:
 		print("❌ Bina node'u bulunamadı!")
+		return
+	var bkey := ""
+	if building.scene_file_path:
+		bkey = String(building.scene_file_path).get_file().trim_suffix(".tscn").to_lower()
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.has_method("is_tutorial_worker_assignment_allowed") and not tm.is_tutorial_worker_assignment_allowed(bkey):
+		print("[Tutorial] Sadece Odun Kampına işçi atanabilir.")
 		return
 	
 	# Kışla binası için özel işlem
@@ -1651,10 +1667,6 @@ func add_worker_to_building(building_info: Dictionary) -> void:
 		if success:
 			print("✅ İşçi eklendi: ", building_info["name"])
 			update_assignment_ui()
-			var bnode: Node = building_info.get("node", null)
-			var bkey := ""
-			if bnode and bnode.scene_file_path:
-				bkey = String(bnode.scene_file_path).get_file().trim_suffix(".tscn").to_lower()
 			_notify_village_tutorial("tutorial_on_mission_worker_assigned", bkey)
 		else:
 			print("❌ İşçi eklenemedi: ", building_info["name"])
@@ -2325,12 +2337,24 @@ func update_assignment_ui():
 
 func next_page():
 	print("next_page() çağrıldı!")
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.has_method("get_mission_center_locked_page"):
+		var locked: int = int(tm.get_mission_center_locked_page())
+		if locked >= 0:
+			show_page(locked)
+			return
 	var next_index = (current_page + 1) % page_names.size()
 	print("Mevcut sayfa index: ", current_page, " -> Yeni index: ", next_index)
 	show_page(next_index)
 
 func previous_page():
 	print("previous_page() çağrıldı!")
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.has_method("get_mission_center_locked_page"):
+		var locked: int = int(tm.get_mission_center_locked_page())
+		if locked >= 0:
+			show_page(locked)
+			return
 	var prev_index = (current_page - 1) % page_names.size()
 	if prev_index < 0:
 		prev_index = page_names.size() - 1
@@ -2339,6 +2363,11 @@ func previous_page():
 
 func show_page(page_index: int):
 	print("[DEBUG_MC] show_page: Index: ", page_index)
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.has_method("can_open_mission_page") and not tm.can_open_mission_page(page_index):
+		page_index = int(tm.get_mission_center_locked_page())
+		if page_index < 0:
+			return
 	if current_page == PageType.CONCUBINE_DETAILS and page_index != PageType.CONCUBINE_DETAILS:
 		_basic_info_panel_token += 1
 	current_page = page_index
@@ -6608,6 +6637,10 @@ func _build_or_upgrade_selected():
 		if scene_path.is_empty():
 			printerr("Build error: scene path not found for ", building_name)
 			return
+		var tm := get_node_or_null("/root/TutorialManager")
+		if tm and tm.has_method("is_tutorial_building_allowed") and not tm.is_tutorial_building_allowed(scene_path):
+			print("[Tutorial] Şimdilik sadece Odun Kampı inşa edilebilir.")
+			return
 		var vm = get_node_or_null("/root/VillageManager")
 		if vm and vm.has_method("request_build_building"):
 			var ok = vm.request_build_building(scene_path)
@@ -8472,6 +8505,17 @@ func open_menu():
 	print("[DEBUG_MC] open_menu: show_page(MISSIONS) çağrılıyor")
 	_refresh_locale()
 	show_page(PageType.MISSIONS)
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.is_village_tutorial_active():
+		match tm.village_core_step:
+			2:
+				tm.village_menu_phase = 2
+				tm.set_objective_tr("tutorial.village.objective_build_woodcutter")
+				call_deferred("show_page", PageType.CONSTRUCTION)
+			3:
+				tm.village_menu_phase = 4
+				tm.set_objective_tr("tutorial.village.objective_assign_worker")
+				call_deferred("show_page", PageType.ASSIGNMENT)
 	
 	# Layout'u zorla güncelle
 	if missions_page:

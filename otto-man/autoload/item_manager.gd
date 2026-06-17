@@ -6,9 +6,13 @@ extends Node
 
 signal item_activated(item: ItemEffect)
 signal item_deactivated(item: ItemEffect)
+signal item_set_activated(set_id: String)
+signal item_set_deactivated(set_id: String)
 
 var player: CharacterBody2D
 var active_items: Array[ItemEffect] = []
+var active_item_sets: Array[String] = []
+var _set_bonus_cache: Dictionary = {}
 var enemy_kill_count: int = 0
 const KILLS_PER_ITEM: int = 10  # Her 10 kill'de item seçimi
 
@@ -84,6 +88,8 @@ const ITEM_SCENES: Dictionary = {
 	"karagoz_laneti": preload("res://resources/items/karagoz_laneti.tscn"),
 	"hacivat_golgesi": preload("res://resources/items/hacivat_golgesi.tscn"),
 	"flank_avantaji": preload("res://resources/items/flank_avantaji.tscn"),
+	"sessiz_ayakkabi": preload("res://resources/items/sessiz_ayakkabi.tscn"),
+	"golge_pelerini": preload("res://resources/items/golge_pelerini.tscn"),
 	"elemental_odak": preload("res://resources/items/elemental_odak.tscn"),
 }
 
@@ -92,6 +98,34 @@ const ITEM_REQUIREMENTS: Dictionary = {
 	"kum_saati": ["zaman_durdurucu"],
 	"karagoz_laneti": ["ortaoyunu"],
 	"hacivat_golgesi": ["ortaoyunu"],
+}
+
+## 2 parça = set bonusu (geri bildirim build — 4 set)
+const ITEM_SET_DEFINITIONS: Dictionary = {
+	"poison_mastery": {
+		"name_key": "item.set.poison.name",
+		"items": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "dodge_zehiri", "ziplama_zehiri"],
+		"pieces_for_bonus": 2,
+		"bonuses": {"poison_damage_mult": 1.4, "poison_max_stacks_bonus": 2},
+	},
+	"iron_guard": {
+		"name_key": "item.set.guard.name",
+		"items": ["yansitici_kalkan", "simsek_kalkani", "ters_darbe", "parry_ustasi", "dikenli_kalkan", "demir_kalkan"],
+		"pieces_for_bonus": 2,
+		"bonuses": {"block_reflect_mult": 1.35},
+	},
+	"sky_strike": {
+		"name_key": "item.set.aerial.name",
+		"items": ["yildirim_dususu", "ates_topu_dususu", "buz_cagi", "zehirli_dusus", "gokten_dusus", "genis_dusus"],
+		"pieces_for_bonus": 2,
+		"bonuses": {"fall_damage_mult": 1.3, "fall_effect_damage_mult": 1.35, "fall_effect_radius_mult": 1.2},
+	},
+	"tri_element": {
+		"name_key": "item.set.elemental.name",
+		"items": ["atesli_yumruk", "buzlu_kilic", "simsek_parmagi"],
+		"pieces_for_bonus": 2,
+		"bonuses": {"elemental_damage_mult": 1.25},
+	},
 }
 
 func _ready() -> void:
@@ -157,6 +191,7 @@ func activate_item(item_scene: PackedScene) -> void:
 	active_items.append(item)
 	item.activate(player)
 	item_activated.emit(item)
+	_recalculate_item_sets()
 	
 	print("[ItemManager] ✅ Activated: ", item.item_name)
 
@@ -258,6 +293,7 @@ func deactivate_item(item: ItemEffect) -> void:
 	active_items.erase(item)
 	item.queue_free()
 	item_deactivated.emit(item)
+	_recalculate_item_sets()
 	
 	print("[ItemManager] ❌ Deactivated: ", item.item_name)
 
@@ -283,6 +319,8 @@ func clear_all_items() -> void:
 			active_items.erase(item)
 			item.queue_free()
 	active_items.clear()
+	active_item_sets.clear()
+	_set_bonus_cache.clear()
 	enemy_kill_count = 0  # Sonraki zindan run için sıfırla
 	print("[ItemManager] 🗑️ All items cleared")
 
@@ -462,3 +500,66 @@ func try_revive_player() -> bool:
 		if item.has_method("try_revive_player") and item.try_revive_player():
 			return true
 	return false
+
+
+func get_set_bonus(bonus_key: String, default_value: float = 1.0) -> float:
+	return float(_set_bonus_cache.get(bonus_key, default_value))
+
+
+func get_set_bonus_int(bonus_key: String, default_value: int = 0) -> int:
+	return int(_set_bonus_cache.get(bonus_key, default_value))
+
+
+func get_active_item_sets() -> Array[String]:
+	return active_item_sets.duplicate()
+
+
+func get_set_hint_if_selected(item_id: String) -> String:
+	var best := ""
+	for set_id in ITEM_SET_DEFINITIONS.keys():
+		var def: Dictionary = ITEM_SET_DEFINITIONS[set_id]
+		var members: Array = def.get("items", [])
+		if not item_id in members:
+			continue
+		var owned := _count_owned_set_pieces(members)
+		if not has_active_item(item_id):
+			owned += 1
+		var needed := int(def.get("pieces_for_bonus", 2))
+		var set_name := tr(String(def.get("name_key", set_id)))
+		if set_id in active_item_sets:
+			best = "⚡ " + set_name + " — " + tr("item.set.active_short")
+		elif owned >= needed:
+			best = "🔗 " + set_name + " — " + tr("item.set.will_activate")
+		elif owned == needed - 1:
+			best = "🔗 " + set_name + " — " + tr("item.set.one_more")
+	return best
+
+
+func _count_owned_set_pieces(member_ids: Array) -> int:
+	var n := 0
+	for mid in member_ids:
+		if has_active_item(String(mid)):
+			n += 1
+	return n
+
+
+func _recalculate_item_sets() -> void:
+	var previous := active_item_sets.duplicate()
+	active_item_sets.clear()
+	_set_bonus_cache.clear()
+	for set_id in ITEM_SET_DEFINITIONS.keys():
+		var def: Dictionary = ITEM_SET_DEFINITIONS[set_id]
+		var members: Array = def.get("items", [])
+		var owned := _count_owned_set_pieces(members)
+		if owned >= int(def.get("pieces_for_bonus", 2)):
+			active_item_sets.append(set_id)
+			var bonuses: Dictionary = def.get("bonuses", {})
+			for key in bonuses.keys():
+				_set_bonus_cache[key] = bonuses[key]
+	for set_id in active_item_sets:
+		if set_id not in previous:
+			item_set_activated.emit(set_id)
+			print("[ItemManager] ✨ Set aktif: ", tr(String(ITEM_SET_DEFINITIONS[set_id].get("name_key", set_id))))
+	for set_id in previous:
+		if set_id not in active_item_sets:
+			item_set_deactivated.emit(set_id)

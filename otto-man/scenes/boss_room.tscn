@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=4 uid="uid://c0j7xyukkafxo"]
+[gd_scene load_steps=8 format=4 uid="uid://c0j7xyukkafxo"]
 
 [ext_resource type="TileSet" uid="uid://bck2wwctc1jbc" path="res://Tile set/dungeon_master_tileset.tres" id="1_63lso"]
 [ext_resource type="Script" path="res://scenes/boss_room_controller.gd" id="1_controller"]
 [ext_resource type="Texture2D" uid="uid://bttd14brqottw" path="res://Tile set/Dungeon wall bg2-sheet.png" id="2_d6yhx"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" uid="uid://b1bhv8cf41j4s" path="res://boss/tepegoz_boss.tscn" id="4_boss"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_imw1q"]
 texture = ExtResource("2_d6yhx")
@@ -231,6 +232,7 @@ sources/2 = SubResource("TileSetAtlasSource_imw1q")
 
 [node name="BossRoom" type="Node2D"]
 script = ExtResource("1_controller")
+boss_scene = ExtResource("4_boss")
 default_player_spawn = Vector2(280, 920)
 default_boss_spawn = Vector2(960, 320)
 

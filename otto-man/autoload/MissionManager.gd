@@ -13,6 +13,16 @@ var active_missions: Dictionary = {}
 var mission_chains: Dictionary = {}  # chain_id -> chain_info
 var completed_missions: Array[String] = []  # Tamamlanan görev ID'leri
 
+const RESCUE_CHAIN_ID := "rescue_onboarding"
+const RESCUE_MISSION_IDS: Array[String] = [
+	"rescue_chain_rest",
+	"rescue_chain_intel",
+	"rescue_chain_contribute",
+]
+
+var rescue_onboarding_started: bool = false
+var rescue_onboarding_concubine_id: int = -1
+
 # Görev ID sayaçları
 var next_mission_id: int = 1
 var next_concubine_id: int = 1
@@ -169,6 +179,8 @@ func reset_for_new_game() -> void:
 	world_stability = 70
 	_world_map_returning_units.clear()
 	_raid_mission_extra.clear()
+	rescue_onboarding_started = false
+	rescue_onboarding_concubine_id = -1
 	_next_daily_dynamic_spawn_day = 2
 	_last_tick_day = 0
 	create_mission_chains()
@@ -345,6 +357,123 @@ func add_concubine_from_rescue(cariye_data: Dictionary) -> int:
 	concubines[cariye.id] = cariye
 	return cariye.id
 
+
+## İlk kurtarılan cariye için 3 adımlık onboarding görev zincirini açar.
+func setup_rescue_onboarding_chain(cariye_id: int, cariye_name: String) -> void:
+	if rescue_onboarding_started:
+		return
+	if not concubines.has(cariye_id):
+		return
+	rescue_onboarding_started = true
+	rescue_onboarding_concubine_id = cariye_id
+	_create_rescue_onboarding_chain(cariye_id, cariye_name.strip_edges())
+
+
+func _create_rescue_onboarding_chain(cariye_id: int, cariye_name: String) -> void:
+	if missions.has(RESCUE_MISSION_IDS[0]):
+		return
+	var display_name := cariye_name if not cariye_name.is_empty() else tr("cariye.unknown")
+	create_mission_chain(
+		RESCUE_CHAIN_ID,
+		tr("mission.rescue_chain.chain_name"),
+		Mission.ChainType.SEQUENTIAL,
+		{"gold": 25, "reputation": 5, "world_stability": 5}
+	)
+	var m1 := _build_rescue_chain_mission(
+		RESCUE_MISSION_IDS[0],
+		tr("mission.rescue_chain.1.name") % display_name,
+		tr("mission.rescue_chain.1.desc"),
+		Mission.MissionType.BÜROKRASİ,
+		60.0,
+		0.92,
+		cariye_id,
+		[],
+		{"gold": 8}
+	)
+	var m2 := _build_rescue_chain_mission(
+		RESCUE_MISSION_IDS[1],
+		tr("mission.rescue_chain.2.name") % display_name,
+		tr("mission.rescue_chain.2.desc"),
+		Mission.MissionType.KEŞİF,
+		120.0,
+		0.82,
+		cariye_id,
+		[RESCUE_MISSION_IDS[0]],
+		{"gold": 14}
+	)
+	var m3 := _build_rescue_chain_mission(
+		RESCUE_MISSION_IDS[2],
+		tr("mission.rescue_chain.3.name") % display_name,
+		tr("mission.rescue_chain.3.desc"),
+		Mission.MissionType.DİPLOMASİ,
+		150.0,
+		0.76,
+		cariye_id,
+		[RESCUE_MISSION_IDS[1]],
+		{"gold": 20}
+	)
+	missions[m1.id] = m1
+	missions[m2.id] = m2
+	missions[m3.id] = m3
+	add_mission_to_chain(m1.id, RESCUE_CHAIN_ID, 0)
+	add_mission_to_chain(m2.id, RESCUE_CHAIN_ID, 1)
+	add_mission_to_chain(m3.id, RESCUE_CHAIN_ID, 2)
+	m1.unlocks_missions = [RESCUE_MISSION_IDS[1]]
+	m2.unlocks_missions = [RESCUE_MISSION_IDS[2]]
+	post_news(
+		"village",
+		tr("news.rescue_chain.start.title") % display_name,
+		tr("news.rescue_chain.start.body"),
+		Color(1.0, 0.88, 0.95),
+		"info"
+	)
+	mission_list_changed.emit()
+	mission_unlocked.emit(m1.id)
+
+
+func _build_rescue_chain_mission(
+	mission_id: String,
+	title: String,
+	body: String,
+	mtype: Mission.MissionType,
+	duration: float,
+	success: float,
+	cariye_id: int,
+	prerequisites: Array,
+	rewards: Dictionary
+) -> Mission:
+	var m := Mission.new()
+	m.id = mission_id
+	m.name = title
+	m.description = body
+	m.mission_type = mtype
+	m.difficulty = Mission.Difficulty.KOLAY if success >= 0.85 else Mission.Difficulty.ORTA
+	m.duration = duration
+	m.success_chance = success
+	m.required_cariye_level = 1
+	m.required_army_size = 0
+	m.required_concubine_id = cariye_id
+	m.required_resources = {}
+	m.rewards = rewards
+	m.penalties = {"gold": -3}
+	m.target_location = tr("mission.rescue_chain.target.village")
+	m.distance = 0.1
+	m.risk_level = tr("mission.rescue_chain.risk.low")
+	m.allow_player_map_completion = false
+	m.chain_id = RESCUE_CHAIN_ID
+	m.chain_type = Mission.ChainType.SEQUENTIAL
+	m.prerequisite_missions = prerequisites.duplicate()
+	m.status = Mission.Status.MEVCUT
+	return m
+
+
+func is_rescue_onboarding_mission(mission_id: String) -> bool:
+	return mission_id in RESCUE_MISSION_IDS
+
+
+func get_rescue_onboarding_concubine_id() -> int:
+	return rescue_onboarding_concubine_id
+
 # Görev ata
 func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_count: int = 0) -> bool:
 	print("=== MISSIONMANAGER ATAMA DEBUG ===")
@@ -363,6 +492,11 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 	
 	print("✅ Cariye bulundu: %s (ID: %d)" % [cariye.name, cariye_id])
 	print("✅ Görev bulundu: %s (ID: %s)" % [mission.name, mission_id])
+	
+	if not (mission is Dictionary):
+		if mission.required_concubine_id >= 0 and cariye_id != mission.required_concubine_id:
+			print("❌ Bu görev yalnızca kurtarılan cariye için: %d" % mission.required_concubine_id)
+			return false
 	
 	# Dictionary görevleri için özel işlem (defense görevleri otomatik değil)
 	if mission is Dictionary:
@@ -518,8 +652,9 @@ func check_active_missions():
 			if mission_history.size() > 100:
 				mission_history = mission_history.slice(0, 100)
 			
-			# Zincir/bağımlılık ilerletme
-			on_mission_completed(mission_id)
+			# Zincir/bağımlılık ilerletme (yalnızca başarılı görevler)
+			if successful:
+				on_mission_completed(mission_id)
 			
 			# Aktif görevlerden çıkar
 			_register_world_map_returning_unit(cariye_id, mission_id, mission)
@@ -1444,7 +1579,8 @@ func _append_player_map_mission_history_and_notify(mission_id: String, m: Missio
 	mission_history.push_front(history_entry)
 	if mission_history.size() > 100:
 		mission_history = mission_history.slice(0, 100)
-	on_mission_completed(mission_id)
+	if successful:
+		on_mission_completed(mission_id)
 	mission_completed.emit(-1, mission_id, successful, results)
 	if successful:
 		_try_resolve_world_incident_for_completed_mission(m)
@@ -1999,7 +2135,28 @@ func check_chain_completion(chain_id: String):
 	
 	if all_completed:
 		chain["completed"] = true
+		_apply_chain_rewards(chain.get("rewards", {}))
+		if chain_id == RESCUE_CHAIN_ID:
+			post_news(
+				"village",
+				tr("news.rescue_chain.complete.title"),
+				tr("news.rescue_chain.complete.body"),
+				Color(0.85, 1.0, 0.85),
+				"success"
+			)
 		mission_chain_completed.emit(chain_id, chain["rewards"])
+
+
+func _apply_chain_rewards(rewards: Dictionary) -> void:
+	for reward_type in rewards:
+		var amount = rewards[reward_type]
+		match reward_type:
+			"reputation":
+				player_reputation = clampi(player_reputation + int(amount), 0, 100)
+			"world_stability":
+				world_stability = clampi(world_stability + int(amount), 0, 100)
+			_:
+				_apply_reward(reward_type, amount)
 
 # Zincir bilgilerini al
 func get_chain_info(chain_id: String) -> Dictionary:
@@ -2741,7 +2898,8 @@ func _update_active_missions_during_skip(total_hours: float) -> void:
 				cariye.complete_mission(successful, mission_id)
 			if has_method("process_mission_results"):
 				process_mission_results(cariye_id, mission_id, successful, results)
-			on_mission_completed(mission_id)
+			if successful:
+				on_mission_completed(mission_id)
 			mission_completed.emit(cariye_id, mission_id, successful, results)
 			if successful and mission is Mission:
 				_try_resolve_world_incident_for_completed_mission(mission as Mission)

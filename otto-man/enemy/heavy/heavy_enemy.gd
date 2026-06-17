@@ -46,6 +46,21 @@ const AGGRO_BREAK_AFTER_CHARGE_HIT := 2.2
 var aggro_break_timer: float = 0.0
 var _charge_hit_registered: bool = false
 
+
+func _is_stealth_detection_enabled() -> bool:
+	return true
+
+
+func _get_heavy_aggro_target(delta: float) -> Node2D:
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	var stealth_run: bool = is_instance_valid(sm) and sm.has_method("is_stealth_enabled") and sm.is_stealth_enabled()
+	if uses_stealth_detection() and stealth_run:
+		if sm.segment_alarm:
+			return get_nearest_player_in_range()
+		return update_stealth_target(delta)
+	return get_nearest_player_in_range()
+
+
 @onready var hitbox_collision = $Hitbox/CollisionShape2D
 @onready var slam_effect = $SlamEffect
 @onready var raycast_left = $RayCastLeft
@@ -76,6 +91,7 @@ func _is_position_safe(pos: Vector2) -> bool:
 
 func _ready() -> void:
 	super._ready()
+	_setup_stealth_perception()
 	
 	# Initialize attack variables
 	can_attack = true
@@ -284,6 +300,10 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 
 func handle_patrol(delta: float) -> void:
 	behavior_timer += delta
+
+	if is_fainted():
+		_process_faint(delta)
+		return
 	
 	# Update sprite direction
 	update_sprite_direction()
@@ -293,7 +313,7 @@ func handle_patrol(delta: float) -> void:
 		target = null
 		return
 	var had_target = target != null
-	target = get_nearest_player_in_range()  # Use the range-limited check
+	target = _get_heavy_aggro_target(delta)
 	
 
 	if target:
@@ -341,6 +361,10 @@ func handle_patrol(delta: float) -> void:
 
 func handle_idle(delta: float) -> void:
 	behavior_timer += delta
+
+	if is_fainted():
+		_process_faint(delta)
+		return
 	
 	# Stop movement and play idle animation
 	velocity.x = 0
@@ -351,7 +375,7 @@ func handle_idle(delta: float) -> void:
 	if aggro_break_timer > 0.0:
 		target = null
 		return
-	target = get_nearest_player_in_range()
+	target = _get_heavy_aggro_target(delta)
 	if target:
 		change_behavior("alert")
 		return

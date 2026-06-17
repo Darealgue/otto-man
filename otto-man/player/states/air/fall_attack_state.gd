@@ -71,6 +71,8 @@ func enter():
 		
 		# Then override damage with multiplier applied
 		var fall_damage = PlayerStats.get_fall_attack_damage() * player.fall_attack_damage_multiplier
+		if has_node("/root/ItemManager") and ItemManager.has_method("get_set_bonus"):
+			fall_damage *= ItemManager.get_set_bonus("fall_damage_mult", 1.0)
 		fall_attack_hitbox.damage = fall_damage
 		fall_attack_hitbox.knockback_force = ATTACK_KNOCKBACK
 		fall_attack_hitbox.knockback_up_force = ATTACK_UP_FORCE

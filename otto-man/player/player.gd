@@ -28,6 +28,7 @@ const BLOOD_PARTICLE_SCENE := preload("res://effects/blood_particle.tscn")
 const BLOOD_SPLATTER_SCENE := preload("res://effects/blood_splatter.tscn")
 ## Yumruk/tekme saldırı iz efektleri (animasyon method track). Düşman isabet FX ayrı (player_hitbox).
 const PLAYER_ATTACK_SWING_FX_ENABLED := false
+const PLAYER_NOISE_EMITTER_SCRIPT := preload("res://components/player_noise_emitter.gd")
 const DAMAGE_RECOVERY_PICKUP_LIFETIME := 7.0
 const DAMAGE_RECOVERY_PICKUP_ARM_DELAY := 0.55
 const DAMAGE_RECOVERY_ORB_MIN_IMPULSE_X := 360.0
@@ -170,6 +171,8 @@ var topuk_kirici_next_hit_bonus: float = 1.0
 var gorunmezlik_first_attack_mult: float = 1.0
 # Flank Avantajı: arkadan vuruş çarpanı (1.5 = +50%)
 var flank_damage_mult: float = 1.0
+var stealth_enemy_vision_mult: float = 1.0
+var _last_attack_name_for_modifiers: String = ""
 # Elemental Odak: elemental/fiziksel çarpanlar
 var elemental_damage_mult: float = 1.0
 var physical_damage_mult: float = 1.0
@@ -219,6 +222,7 @@ var is_dead: bool = false
 var pending_death: bool = false
 
 var status_effects: StatusEffectManager
+var noise_emitter: Node = null
 
 func _ready():
 	VillageManager.Village_Player = self
@@ -229,6 +233,12 @@ func _ready():
 	status_effects = StatusEffectManager.new()
 	status_effects.name = "StatusEffectManager"
 	add_child(status_effects)
+
+	noise_emitter = PLAYER_NOISE_EMITTER_SCRIPT.new()
+	noise_emitter.name = "PlayerNoiseEmitter"
+	add_child(noise_emitter)
+	if noise_emitter.has_method("setup"):
+		noise_emitter.setup(self)
 	
 	# Set player z_index to appear above ground traps but below flying objects
 	# Use call_deferred to ensure sprite is ready
@@ -1445,6 +1455,9 @@ func get_health_percent() -> float:
 	return get_current_health() / max_health if max_health > 0 else 1.0
 
 func can_use_heavy_attack() -> bool:
+	var drs := get_node_or_null("/root/DungeonRunState")
+	if drs and drs.has_method("has_segment_modifier") and drs.has_segment_modifier("light_only"):
+		return false
 	var player_stats = get_node_or_null("/root/PlayerStats")
 	if player_stats and player_stats.has_method("is_heavy_attack_locked"):
 		return not player_stats.is_heavy_attack_locked()

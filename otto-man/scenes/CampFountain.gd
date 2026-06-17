@@ -21,12 +21,24 @@ func _ready() -> void:
 		_prompt_label.visible = false
 
 
+func _segment_allows_heal() -> bool:
+	var drs := get_node_or_null("/root/DungeonRunState")
+	if drs and drs.has_method("has_segment_modifier") and drs.has_segment_modifier("no_heal"):
+		return false
+	return true
+
+
 func _process(_delta: float) -> void:
 	if not _player_in_range:
 		return
 	if one_use_per_camp and _used:
 		if _prompt_label:
 			_prompt_label.visible = false
+		return
+	if not _segment_allows_heal():
+		if _prompt_label:
+			_prompt_label.text = "Bu bölümde iyileşme kapalı"
+			_prompt_label.visible = true
 		return
 	if InputManager.is_interact_just_pressed() or InputManager.is_portal_enter_just_pressed():
 		_try_heal()
@@ -40,7 +52,10 @@ func _on_body_entered(body: Node2D) -> void:
 	if _is_player(body):
 		_player_in_range = true
 		if _prompt_label and not (one_use_per_camp and _used):
-			_prompt_label.text = "E veya Yukarı - Su iç (can)"
+			if not _segment_allows_heal():
+				_prompt_label.text = "Bu bölümde iyileşme kapalı"
+			else:
+				_prompt_label.text = "E veya Yukarı - Su iç (can)"
 			_prompt_label.visible = true
 
 
@@ -53,6 +68,8 @@ func _on_body_exited(body: Node2D) -> void:
 
 func _try_heal() -> void:
 	if one_use_per_camp and _used:
+		return
+	if not _segment_allows_heal():
 		return
 	var ps = get_node_or_null("/root/PlayerStats")
 	if not ps or not ps.has_method("get_current_health") or not ps.has_method("set_current_health"):

@@ -160,4 +160,11 @@ func _update_info() -> void:
 		return
 	
 	var active_count = ItemManager.get_active_items().size()
-	info_label.text = "Aktif Item'lar: " + str(active_count)
+	var info := "Aktif Item'lar: " + str(active_count)
+	var sets := ItemManager.get_active_item_sets()
+	if not sets.is_empty():
+		info += "\n"
+		for set_id in sets:
+			var def: Dictionary = ItemManager.ITEM_SET_DEFINITIONS.get(set_id, {})
+			info += "⚡ " + tr(String(def.get("name_key", set_id))) + "\n"
+	info_label.text = info

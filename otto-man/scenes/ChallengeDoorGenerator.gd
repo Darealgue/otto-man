@@ -57,6 +57,7 @@ func _make_safe_door(is_initial: bool) -> Dictionary:
 		"dungeon_size_delta": 0,
 		"guaranteed_rescue": false,
 		"is_normal": true,
+		"modifiers": [],
 	}
 	data["risk_score"] = _calc_risk_score(data)
 	data["risk_tier"] = _get_risk_tier(data["risk_score"])
@@ -82,6 +83,7 @@ func _make_procedural_door() -> Dictionary:
 		"dungeon_size_delta": 0,
 		"guaranteed_rescue": false,
 		"is_normal": false,
+		"modifiers": [],
 	}
 
 	match key:
@@ -109,18 +111,45 @@ func _make_procedural_door() -> Dictionary:
 		gold_delta = _pick_from([0.5, 0.75, 1.0])
 	data["gold_multiplier_delta"] = gold_delta
 
-	data["risk_score"] = total_risk
-	data["risk_tier"] = _get_risk_tier(total_risk)
+	_apply_random_modifier(data)
+
+	data["risk_score"] = _calc_risk_score(data)
+	data["risk_tier"] = _get_risk_tier(data["risk_score"])
 	data["label_short"] = _build_minimal_label(data)
 	return data
 
-## Toplam risk puanı: ağırlıklı toplam
+func _apply_random_modifier(data: Dictionary) -> void:
+	if randf() > MODIFIER_ROLL_CHANCE:
+		return
+	var mod_id: String = MODIFIER_IDS[randi() % MODIFIER_IDS.size()]
+	var def: Dictionary = MODIFIER_DEFS.get(mod_id, {})
+	if def.is_empty():
+		return
+	data["modifiers"] = [mod_id]
+	data["gold_multiplier_delta"] = float(data.get("gold_multiplier_delta", 0.0)) + float(def.get("gold_bonus", 0.0))
+	if bool(def.get("force_rescue", false)):
+		data["guaranteed_rescue"] = true
+	elif float(def.get("rescue_boost", 0.0)) > 0.0 and randf() < float(def.get("rescue_boost", 0.0)):
+		data["guaranteed_rescue"] = true
+
+func _modifier_risk_total(data: Dictionary) -> int:
+	var total := 0
+	var mods: Variant = data.get("modifiers", [])
+	if not (mods is Array):
+		return 0
+	for m in mods:
+		var def: Dictionary = MODIFIER_DEFS.get(String(m), {})
+		total += int(def.get("risk_score", 0))
+	return total
+
+## Toplam risk puanı: ağırlıklı toplam + modifier risk
 func _calc_risk_score(data: Dictionary) -> int:
 	return int(data.get("enemy_level_delta", 0)) \
 		+ int(data.get("enemy_count_delta", 0)) \
 		+ int(data.get("trap_level_delta", 0)) \
 		+ int(data.get("trap_count_delta", 0)) \
-		+ int(data.get("dungeon_size_delta", 0)) * 2
+		+ int(data.get("dungeon_size_delta", 0)) * 2 \
+		+ _modifier_risk_total(data)
 
 ## Risk puanını kademeye çevir
 func _get_risk_tier(score: int) -> int:
@@ -138,6 +167,34 @@ func _get_risk_tier(score: int) -> int:
 const SKULL := "\u2620"
 const COIN := "\u2742"
 const HEART := "\u2665"
+
+## Segment modifier havuzu — risk karşılığı altın / kurtarma bonusu
+const MODIFIER_DEFS: Dictionary = {
+	"no_parry": {
+		"risk_score": 1,
+		"gold_bonus": 0.35,
+		"label": "[color=#ff8866]Parry yok[/color]",
+	},
+	"no_heal": {
+		"risk_score": 1,
+		"gold_bonus": 0.4,
+		"rescue_boost": 0.35,
+		"label": "[color=#66aaff]İyileşme yok[/color]",
+	},
+	"night_mode": {
+		"risk_score": 1,
+		"gold_bonus": 0.25,
+		"label": "[color=#8888cc]Gece[/color]",
+	},
+	"light_only": {
+		"risk_score": 2,
+		"gold_bonus": 0.55,
+		"force_rescue": true,
+		"label": "[color=#ffcc44]Sadece hafif[/color]",
+	},
+}
+const MODIFIER_IDS: Array[String] = ["no_parry", "no_heal", "night_mode", "light_only"]
+const MODIFIER_ROLL_CHANCE: float = 0.48
 
 ## Oyuncuya gösterilecek minimal etiket: kurukafalar (risk) + semboller (ödül)
 func _build_minimal_label(data: Dictionary) -> String:
@@ -163,6 +220,14 @@ func _build_minimal_label(data: Dictionary) -> String:
 	if bool(data.get("guaranteed_rescue", false)):
 		reward_parts.append("[color=green]%s[/color]" % HEART)
 
+	var mods: Variant = data.get("modifiers", [])
+	if mods is Array:
+		for m in mods:
+			var def: Dictionary = MODIFIER_DEFS.get(String(m), {})
+			var mod_label: String = String(def.get("label", String(m)))
+			if not mod_label.is_empty():
+				reward_parts.append(mod_label)
+
 	if reward_parts.is_empty():
 		return skull_text
 	return skull_text + "  " + "  ".join(reward_parts)
@@ -179,7 +244,7 @@ func _compare_challenge_dicts(a: Dictionary, b: Dictionary) -> bool:
 	var keys := [
 		"enemy_level_delta", "enemy_count_delta", "trap_level_delta",
 		"trap_count_delta", "gold_multiplier_delta", "dungeon_size_delta",
-		"guaranteed_rescue", "is_normal"
+		"guaranteed_rescue", "is_normal", "modifiers"
 	]
 	for k in keys:
 		if a.get(k) != b.get(k):

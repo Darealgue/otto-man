@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=6 format=3 uid="uid://t8h8e8m8e8t8"]
+[gd_resource type="Theme" load_steps=6 format=3 uid="uid://cl5jbc0pw6h15"]
 
 [ext_resource type="StyleBox" uid="uid://csrekf8658hcv" path="res://resources/ui_panel_style_parchment.tres" id="1_panel_style"]
 [ext_resource type="FontFile" uid="uid://cgpcxt1dhpha" path="res://assets/fonts/main_font.ttf" id="2_main_font"]

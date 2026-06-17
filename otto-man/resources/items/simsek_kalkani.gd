@@ -36,6 +36,9 @@ func _on_player_blocked(blocked_damage: float, attacker: Node2D):
 	if blocked_damage <= 0 or not is_instance_valid(attacker):
 		return
 	var lightning_damage = blocked_damage * REFLECT_PERCENTAGE
+	var im = get_node_or_null("/root/ItemManager")
+	if im and im.has_method("get_set_bonus"):
+		lightning_damage *= im.get_set_bonus("block_reflect_mult", 1.0)
 	# Saldırgan düşman (veya hurtbox parent'ı)
 	var target = attacker
 	if not attacker.has_method("take_damage") and attacker.get_parent():

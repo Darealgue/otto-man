@@ -52,6 +52,12 @@ func apply_fall_attack_effect_at(position: Vector2, is_decoy: bool) -> void:
 	var tree = get_tree()
 	if not tree or not tree.current_scene:
 		return
+	var radius := LIGHTNING_RADIUS
+	var damage := LIGHTNING_DAMAGE
+	var im = get_node_or_null("/root/ItemManager")
+	if im and im.has_method("get_set_bonus"):
+		radius *= im.get_set_bonus("fall_effect_radius_mult", 1.0)
+		damage *= im.get_set_bonus("fall_effect_damage_mult", 1.0)
 	var flash = Node2D.new()
 	flash.set_script(LightningFlashScript)
 	tree.current_scene.add_child(flash)
@@ -60,5 +66,5 @@ func apply_fall_attack_effect_at(position: Vector2, is_decoy: bool) -> void:
 	for node in enemies:
 		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
 			continue
-		if position.distance_to(node.global_position) <= LIGHTNING_RADIUS and node.has_method("take_damage"):
-			node.take_damage(LIGHTNING_DAMAGE, 0.0, 0.0, true)
+		if position.distance_to(node.global_position) <= radius and node.has_method("take_damage"):
+			node.take_damage(damage, 0.0, 0.0, true)

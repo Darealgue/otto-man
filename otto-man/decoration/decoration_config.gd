@@ -693,6 +693,19 @@ const PRIORITY_DECOR_RULES = {
 			"decoration_names": ["forest_bush", "forest_grass", "forest_trunk", "forest_rock"],
 			"allowed_locations": [SpawnLocation.FLOOR_CENTER]
 		}
+	],
+	"floor_breakable": [
+		{
+			"chance": 0.38,
+			"decoration_type": DecorationType.BREAKABLE,
+			"decoration_names": ["small_pot", "wooden_barrel"],
+			"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER]
+		},
+		{
+			"chance": 0.08,
+			"decoration_type": DecorationType.GOLD,
+			"decoration_names": ["single_coin"]
+		}
 	]
 }
 

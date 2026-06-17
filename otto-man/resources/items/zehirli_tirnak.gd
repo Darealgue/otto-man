@@ -69,5 +69,12 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 			var im = get_node_or_null("/root/ItemManager")
 			if im and im.has_method("has_item") and im.has_item("cift_vurus"):
 				stacks_to_add = 2
+			var max_stacks := MAX_STACKS
+			var dmg_per_stack := DAMAGE_PER_STACK
+			if im:
+				if im.has_method("get_set_bonus_int"):
+					max_stacks += im.get_set_bonus_int("poison_max_stacks_bonus", 0)
+				if im.has_method("get_set_bonus"):
+					dmg_per_stack *= im.get_set_bonus("poison_damage_mult", 1.0)
 			for i in range(stacks_to_add):
-				enemy.add_poison_stack(MAX_STACKS, DAMAGE_PER_STACK, TICK_INTERVAL)
+				enemy.add_poison_stack(max_stacks, dmg_per_stack, TICK_INTERVAL)

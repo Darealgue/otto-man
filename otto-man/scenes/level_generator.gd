@@ -381,6 +381,8 @@ class GridCell:
 	var visited_by: String = "" # Track which function first visited this cell
 	var path_id: int = -1 # ID of the path segment this cell belongs to
 	var reserved_chunk: String = "" # If set, override selection with this exact chunk type
+	var spawn_stealth_chest: bool = false
+	var stealth_chest_gold: int = 0
 
 # Member variables
 var grid: Array = []
@@ -703,6 +705,9 @@ func clear_level() -> void:
 
 func generate_level() -> bool:
 	print("\nStarting level generation...")
+	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_segment"):
+		stealth_mgr.reset_for_segment()
 	var boss_type := get_boss_event_type(current_level)
 	if boss_type != "":
 		print("  Boss schedule: level ", current_level, " -> ", boss_type)
@@ -1188,6 +1193,7 @@ func populate_chunks() -> bool:
 		
 	# Optional: tag special dead-end cells before main placement (light heuristic)
 	_tag_villager_and_vip_deadends()
+	_tag_stealth_chest_side_paths()
 
 	# --- Simplified Main Population Loop --- 
 	# Iterate through all grid cells once
@@ -1366,6 +1372,11 @@ func _tag_villager_and_vip_deadends() -> void:
 		drs_rescue.guaranteed_rescue_next = false
 	elif level_config and level_config.has_method("get_rescue_room_chance"):
 		rescue_chance = level_config.get_rescue_room_chance(current_level)
+	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("consume_stealth_rescue_bonus"):
+		rescue_chance = stealth_mgr.consume_stealth_rescue_bonus(rescue_chance)
+		if rescue_chance >= 0.27:
+			print("[LevelGenerator] Stealth rescue bonus uygulandı — rescue_chance=%.2f" % rescue_chance)
 
 	for i in range(deadends.size()):
 		var pos = deadends[i]
@@ -1414,6 +1425,129 @@ func _single_open_dir_index(c: GridCell) -> int:
 		if c.connections[d]:
 			return d
 	return Direction.LEFT
+
+
+const STEALTH_CHEST_SCRIPT := preload("res://interactables/dungeon/StealthTreasureChest.gd")
+
+
+func _tag_stealth_chest_side_paths() -> void:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs) or not bool(drs.get("run_started")):
+		return
+	var candidates: Array[Vector2i] = []
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			var pos := Vector2i(x, y)
+			var c: GridCell = grid[x][y] as GridCell
+			if not c.visited or c.chunk != null:
+				continue
+			if c.cell_type != CellType.DEAD_END and c.cell_type != CellType.BRANCH_PATH:
+				continue
+			if not c.reserved_chunk.is_empty() and _is_rescue_reserved_chunk(c.reserved_chunk):
+				continue
+			var conn_count := 0
+			for dir in Direction.values():
+				if c.connections[dir]:
+					conn_count += 1
+			if conn_count < 1 or conn_count > 2:
+				continue
+			if pos.x <= 1:
+				continue
+			candidates.append(pos)
+	if candidates.is_empty():
+		return
+	candidates.shuffle()
+	var max_chests: int = mini(4, candidates.size())
+	var chest_count: int = randi_range(mini(2, max_chests), max_chests)
+	for i in range(chest_count):
+		var pos: Vector2i = candidates[i]
+		var cell: GridCell = grid[pos.x][pos.y] as GridCell
+		cell.spawn_stealth_chest = true
+		cell.stealth_chest_gold = randi_range(12, 25)
+	print("[LevelGenerator] Stealth sandık işaretlendi: %d yan yol hücresi" % chest_count)
+
+
+func _is_rescue_reserved_chunk(reserved: String) -> bool:
+	var key: String = reserved.to_lower()
+	return "villager" in key or "vip" in key
+
+
+func _collect_floor_decor_anchor_cells(tile_map: Node) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var tile_set: TileSet = tile_map.tile_set
+	if tile_set == null:
+		return out
+	var decor_layer_index: int = -1
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == "decor_anchor":
+			decor_layer_index = i
+			break
+	if decor_layer_index == -1:
+		return out
+	for cell in tile_map.get_used_cells():
+		var tile_data: TileData = tile_map.get_cell_tile_data(cell)
+		if tile_data == null:
+			continue
+		var tag: String = str(tile_data.get_custom_data("decor_anchor")).strip_edges()
+		if _tutorial_decor_anchor_is_floor_only(tag):
+			out.append(cell)
+	return out
+
+
+func _collect_stealth_chest_spawn_cell(tile_map: Node) -> Vector2i:
+	var anchor_cells: Array[Vector2i] = _collect_floor_decor_anchor_cells(tile_map)
+	if not anchor_cells.is_empty():
+		return anchor_cells.pick_random()
+	# Fallback: decor_anchor yoksa chunk ortasına yakın dolu zemin hücresi
+	var used_cells: Array = tile_map.get_used_cells()
+	if used_cells.is_empty():
+		return Vector2i(-9999, -9999)
+	var best: Vector2i = used_cells[0]
+	var best_score: int = -999999
+	var center_x: float = 0.0
+	for c in used_cells:
+		center_x += float(c.x)
+	center_x /= float(used_cells.size())
+	for c in used_cells:
+		var cell: Vector2i = c as Vector2i
+		if tile_map.get_cell_source_id(cell) == -1:
+			continue
+		var score: int = -int(absf(float(cell.x) - center_x)) + cell.y
+		if score > best_score:
+			best_score = score
+			best = cell
+	return best
+
+
+func _spawn_stealth_chest_for_chunk(chunk_node: Node2D) -> void:
+	if not chunk_node.has_meta("stealth_chest_gold"):
+		return
+	var gold_total: int = int(chunk_node.get_meta("stealth_chest_gold"))
+	chunk_node.remove_meta("stealth_chest_gold")
+	if gold_total <= 0:
+		return
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs) or not bool(drs.get("run_started")):
+		return
+	var tile_map: Node = chunk_node.find_child("TileMapLayer", true, false)
+	if tile_map == null:
+		push_warning("[LevelGenerator] Stealth sandık: TileMapLayer yok (%s)" % chunk_node.name)
+		return
+	var cell: Vector2i = _collect_stealth_chest_spawn_cell(tile_map)
+	if cell.x <= -9000:
+		push_warning("[LevelGenerator] Stealth sandık: zemin hücresi bulunamadı (%s)" % chunk_node.name)
+		return
+	var spawn_pos: Vector2 = _compute_decoration_spawn_position(
+		tile_map,
+		cell,
+		DecorationConfig.SpawnLocation.FLOOR_CENTER
+	)
+	var chest: StealthTreasureChest = STEALTH_CHEST_SCRIPT.new()
+	chest.name = "StealthTreasureChest"
+	chest.setup(gold_total)
+	chunk_node.add_child(chest)
+	chest.global_position = spawn_pos + Vector2(0.0, 5.0)
+	print("[LevelGenerator] Stealth sandık spawn @ %s chunk=%s gold=%d" % [str(spawn_pos), chunk_node.name, gold_total])
 
 func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 	# Special case for start position - always return "start"
@@ -1701,6 +1835,9 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 				push_error("[BossArena] Failed to load miniboss scene at path: " + mini_scene_path)
 
 	# TileMap tabanlı dekorasyonları oluştur
+	var placed_cell: GridCell = grid[pos.x][pos.y] as GridCell
+	if placed_cell.spawn_stealth_chest:
+		chunk.set_meta("stealth_chest_gold", placed_cell.stealth_chest_gold)
 	_populate_decorations_from_tilemap(chunk)
 	
 	# Remove old EnemySpawner nodes from chunk (legacy system)
@@ -1775,9 +1912,12 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 			print("[DecorPopulate] SKIPPING: Chunk '%s' does not have a child node named 'TileMapLayer'." % chunk_node.name)
 		return
 	_populate_decorations_from_tilemap_impl(tile_map, chunk_node, self, false, {
-		"floor_anchors_only": true,
-		"require_loadable_visual": true,
+		"tutorial": false,
+		"skip_gold_breakable": false,
+		"require_loadable_visual": false,
+		"floor_anchors_only": false,
 	})
+	_spawn_stealth_chest_for_chunk(chunk_node)
 
 
 func run_tutorial_tile_decorations(tile_map: TileMapLayer, output_parent: Node2D, scene_root: Node2D, tutorial_options: Dictionary = {}) -> void:
@@ -2828,6 +2968,9 @@ func _on_door_opened(door_type: String) -> void:
 		print("Emitting level_started signal")  # Debug print
 		level_started.emit()
 	elif door_type == "Finish" or door_type == "Boss":
+		var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+		if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("on_segment_completed"):
+			stealth_mgr.on_segment_completed()
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if is_instance_valid(drs) and drs.get("run_started") == true:
 			is_transitioning = true
@@ -3601,9 +3744,16 @@ func _add_screen_darkness_controller_deferred() -> void:
 		screen_darkness.material = shader_material
 		
 		# Shader parametrelerini ayarla
-		shader_material.set_shader_parameter("max_darkness", 0.8)
-		shader_material.set_shader_parameter("light_radius", 800.0)  # 4 katına çıkarıldı (200 -> 800)
-		shader_material.set_shader_parameter("ambient_light", 0.2)
+		var drs := get_node_or_null("/root/DungeonRunState")
+		var night_mode: bool = is_instance_valid(drs) and drs.has_method("has_segment_modifier") and drs.has_segment_modifier("night_mode")
+		if night_mode:
+			shader_material.set_shader_parameter("max_darkness", 0.92)
+			shader_material.set_shader_parameter("light_radius", 280.0)
+			shader_material.set_shader_parameter("ambient_light", 0.05)
+		else:
+			shader_material.set_shader_parameter("max_darkness", 0.8)
+			shader_material.set_shader_parameter("light_radius", 800.0)
+			shader_material.set_shader_parameter("ambient_light", 0.2)
 		shader_material.set_shader_parameter("player_screen_position", Vector2(960, 540))  # Başlangıç pozisyonu
 		
 		print("[LevelGenerator] Shader applied to ColorRect successfully")

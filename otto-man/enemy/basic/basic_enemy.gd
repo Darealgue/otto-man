@@ -138,8 +138,36 @@ var _debug_chase_timer: float = 0.0
 const _DEBUG_CHASE_INTERVAL: float = 0.25
 var _debug_was_blocked_last_frame: bool = false
 
+
+func _is_stealth_detection_enabled() -> bool:
+	return true
+
+
+func _has_stealth_awareness() -> bool:
+	if target != null:
+		return true
+	var watch := get_stealth_watch_target()
+	return watch != null
+
+
+func _handle_suspicious_patrol(delta: float) -> void:
+	velocity.x = move_toward(velocity.x, 0.0, (stats.movement_speed if stats else 80.0) * delta * 2.5)
+	var watch := get_stealth_watch_target()
+	if watch:
+		var face_dir: float = sign(watch.global_position.x - global_position.x)
+		if face_dir != 0:
+			direction = int(face_dir)
+			if sprite:
+				sprite.flip_h = direction < 0
+	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"):
+		if sprite.animation != "idle":
+			sprite.play("idle")
+	_ambient_playing = false
+
+
 func _ready() -> void:
 	super._ready()
+	_setup_stealth_perception()
 	# Initialize bounce variables
 	_bounce_count = 0
 	_max_bounces = 1
@@ -341,12 +369,15 @@ func handle_behavior(delta: float) -> void:
 	if is_sleeping:
 		return
 	
+	if is_fainted():
+		_process_faint(delta)
+		return
+	
 	# Advance behavior timer like in BaseEnemy
 	behavior_timer += delta
 	
 	# Update target detection each frame (needed for chase + ambient cancel)
-	# Keep this simple and robust: always use detection range, don't hard-block with spawn grace.
-	target = get_nearest_player_in_range()
+	target = update_stealth_target(delta)
 	
 	# Dead corpses: don't run normal behavior, let physics/juggle handle them
 	if current_behavior == "dead":
@@ -439,7 +470,7 @@ func _process_ambient(delta: float) -> void:
 	# If we're playing an ambient anim but state is no longer safe, cancel it.
 	if _ambient_playing:
 		var unsafe := current_behavior != "patrol" or not is_on_floor() \
-			or (_ambient_spawn_grace_timer <= 0.0 and target != null)
+			or (_ambient_spawn_grace_timer <= 0.0 and _has_stealth_awareness())
 		if unsafe:
 			if debug_enabled:
 				print("[BasicEnemy][Ambient] CANCEL ambient anim=%s reason=unsafe state=%s" % [_ambient_anim, current_behavior])
@@ -593,6 +624,10 @@ func _apply_separation(delta: float) -> void:
 func handle_patrol(delta: float) -> void:
 	# Don't patrol if dead
 	if health <= 0:
+		return
+
+	if is_stealth_suspicious():
+		_handle_suspicious_patrol(delta)
 		return
 	
 	# If an ambient animation is playing, stay in place and let ambient system drive the sprite.
@@ -1312,6 +1347,8 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		return
 	# Projectile / DoT base'de işlenir; biz sadece melee knockback ve hurt
 	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
+	if is_fainted():
+		return
 	if not apply_knockback:
 		return
 	# Base zaten lethal hasarda die() çağırdıysa devam etme (state/hurtbox ezilmesin)
@@ -1707,6 +1744,7 @@ func update_sprite_direction() -> void:
 			sprite.flip_h = direction < 0
 
 func die() -> void:
+	_disable_stealth_perception()
 	# Reset bounce state on death
 	_bounce_count = 0
 	_max_bounces = 0
@@ -1920,6 +1958,8 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	
 	# Normal damage handling - pass hitbox to take_damage (apply_knockback=true for physical hits)
 	take_damage(damage, knockback_data.get("force", 200.0), knockback_data.get("up_force", -1.0), true, hitbox)
+	if hitbox is PlayerHitbox and has_node("/root/StealthCombat"):
+		get_node("/root/StealthCombat").handle_melee_hit_on_enemy(self, hitbox, damage)
 	# Hit stop + screen shake tek yerden (yaşayan veya öldürücü vuruş; ceset vurulunca bu branch'e gelinmez)
 	if hitbox is PlayerHitbox and hitbox.has_method("apply_killing_blow_effects"):
 		hitbox.apply_killing_blow_effects(damage, self)
@@ -2008,6 +2048,11 @@ func _on_animation_changed() -> void:
 
 # Helper: hysteresis-aware chase target selection
 func _get_chase_target() -> Node2D:
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	var stealth_run: bool = is_instance_valid(sm) and sm.has_method("is_stealth_enabled") and sm.is_stealth_enabled()
+	if stealth_run and not sm.segment_alarm:
+		return null
+
 	var player = get_nearest_player()
 	if not player:
 		return null
@@ -2015,15 +2060,17 @@ func _get_chase_target() -> Node2D:
 	var distance = global_position.distance_to(player.global_position)
 	var detection_range = stats.detection_range if stats else 300.0
 	
-	# Never chase beyond overall detection range
 	if distance > detection_range:
 		return null
+
+	if stealth_run and sm.segment_alarm:
+		if current_behavior == "chase":
+			return player
+		return player if distance <= detection_range else null
 	
-	# Use different thresholds depending on whether we're already chasing
 	if current_behavior == "chase":
 		return player if distance <= chase_stop_distance else null
-	else:
-		return player if distance <= chase_start_distance else null
+	return player if distance <= chase_start_distance else null
 
 
 # Helper: attempt to auto-climb a small step (1 tile by default)

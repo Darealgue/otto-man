@@ -434,6 +434,7 @@ func _collect_save_data_dictionary(is_autosave: bool, autosave_reason: String) -
 	save_data["time"] = _save_time_state()
 	save_data["weather"] = _save_weather_state()
 	save_data["dungeon_progress"] = _save_dungeon_progress_state()
+	save_data["tutorial"] = _save_tutorial_state()
 	return save_data
 
 
@@ -562,6 +563,7 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 	_load_time_state(save_data.get("time", {}))
 	_load_weather_state(save_data.get("weather", {}))
 	_load_dungeon_progress_state(save_data.get("dungeon_progress", {}))
+	_load_tutorial_state(save_data.get("tutorial", {}))
 	
 	var tm_after: Node = get_node_or_null("/root/TimeManager")
 	if tm_after != null and tm_after.has_method("get_day"):
@@ -916,6 +918,8 @@ func _save_mission_state() -> Dictionary:
 			if ch is Dictionary:
 				mcf[str(ck)] = bool((ch as Dictionary).get("completed", false))
 		state["mm_mission_chain_completed"] = mcf
+	state["mm_rescue_onboarding_started"] = MissionManager.rescue_onboarding_started
+	state["mm_rescue_onboarding_concubine_id"] = MissionManager.rescue_onboarding_concubine_id
 	
 	return state
 
@@ -968,6 +972,19 @@ func _load_dungeon_progress_state(state: Dictionary) -> void:
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if is_instance_valid(dp) and dp.has_method("load_save_data"):
 		dp.call("load_save_data", state)
+
+
+func _save_tutorial_state() -> Dictionary:
+	var tm: Node = get_node_or_null("/root/TutorialManager")
+	if is_instance_valid(tm) and tm.has_method("export_save_state"):
+		return tm.call("export_save_state")
+	return {}
+
+
+func _load_tutorial_state(state: Dictionary) -> void:
+	var tm: Node = get_node_or_null("/root/TutorialManager")
+	if is_instance_valid(tm) and tm.has_method("import_save_state"):
+		tm.call("import_save_state", state)
 
 
 func _save_player_state() -> Dictionary:
@@ -1335,6 +1352,10 @@ func _load_mission_state(state: Dictionary) -> void:
 				var ch: Variant = MissionManager.mission_chains[cks]
 				if ch is Dictionary:
 					(ch as Dictionary)["completed"] = bool((mcf as Dictionary)[ck])
+	if state.has("mm_rescue_onboarding_started"):
+		MissionManager.rescue_onboarding_started = bool(state["mm_rescue_onboarding_started"])
+	if state.has("mm_rescue_onboarding_concubine_id"):
+		MissionManager.rescue_onboarding_concubine_id = int(state["mm_rescue_onboarding_concubine_id"])
 
 	# Returning world-map units
 	if state.has("world_map_returning_units"):

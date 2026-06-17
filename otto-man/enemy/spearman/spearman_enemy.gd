@@ -52,11 +52,28 @@ var parry_recovery_left: float = 0.0
 # Charge direction is locked at start of charge
 var charge_dir_x := 1.0
 
+
+func _is_stealth_detection_enabled() -> bool:
+	return true
+
+
+func _resolve_charge_target() -> Node2D:
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	if is_instance_valid(sm) and sm.has_method("is_stealth_enabled") and sm.is_stealth_enabled():
+		if sm.segment_alarm:
+			return get_nearest_player_in_range()
+		if target != null and is_instance_valid(target):
+			return target
+		return null
+	return get_player_in_front()
+
+
 func _ready() -> void:
 	if not stats:
 		stats = default_stats
 
 	super._ready()
+	_setup_stealth_perception()
 	
 	# Set sleep distances for performance optimization
 	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
@@ -130,6 +147,10 @@ func _physics_process(delta: float) -> void:
 func handle_behavior(delta: float) -> void:
 	# Spearman kendi davranış akışını yönetir; base'in idle->patrol eşlemesini kullanma
 	behavior_timer += delta
+	if is_fainted():
+		_process_faint(delta)
+		return
+	target = update_stealth_target(delta)
 	# Global fall kontrolü: yerde değilse ve düşüyorsa fall'a geç
 	if current_behavior != "dead":
 		if not is_on_floor() and velocity.y > 10.0 and current_behavior != "fall":
@@ -229,7 +250,7 @@ func handle_idle(delta: float) -> void:
 	if sprite:
 		sprite.flip_h = direction < 0
 
-	var p = get_player_in_front()
+	var p = _resolve_charge_target()
 	if p and post_hurt_charge_lock <= 0.0 and parry_recovery_left <= 0.0:
 		start_charge_towards(p)
 		return
@@ -256,7 +277,7 @@ func handle_patrol(delta: float) -> void:
 	# Hafıza varsa hedefe yaklaş; görürsen charge
 	if memory_time_left > 0.0 and abs(remembered_target_x - global_position.x) < detection_forward and post_hurt_charge_lock <= 0.0 and parry_recovery_left <= 0.0:
 		# Önümüzdeyse ve yakınsa detect fonksiyonunu zorla
-		var p = get_player_in_front()
+		var p = _resolve_charge_target()
 		if p:
 			start_charge_towards(p)
 			return
@@ -275,7 +296,7 @@ func handle_patrol(delta: float) -> void:
 		velocity.x = PATROL_SPEED * direction
 		turn_cooldown = 0.4
 
-	var p = get_player_in_front()
+	var p = _resolve_charge_target()
 	if p:
 		start_charge_towards(p)
 		return

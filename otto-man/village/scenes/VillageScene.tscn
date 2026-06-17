@@ -9,7 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="6_nhirr"]
 [ext_resource type="PackedScene" uid="uid://ip73ci5ccf8t" path="res://village/scenes/TimeDisplayUI.tscn" id="7_miuw4"]
 [ext_resource type="PackedScene" uid="uid://d1hjdmbn1joxm" path="res://village/scenes/BuildMenuUI.tscn" id="8_buildmenu"]
-[ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="9_theme_medieval"]
+[ext_resource type="Theme" uid="uid://cl5jbc0pw6h15" path="res://resources/medieval_theme.tres" id="9_theme_medieval"]
 [ext_resource type="Texture2D" uid="uid://c4dwqep5smpnx" path="res://village/assets/sun,moon/sun.png" id="10_2gs62"]
 [ext_resource type="Script" path="res://village/scripts/DayNightController.gd" id="10_m5lc0"]
 [ext_resource type="Texture2D" uid="uid://cu6stnnma6v6m" path="res://village/assets/sun,moon/moon.png" id="11_1l1b1"]
@@ -628,6 +628,7 @@ position = Vector2(-3674, -617)
 texture = ExtResource("26_8udtl")
 
 [node name="TreesFront" type="Sprite2D" parent="ParallaxBackground/treesfront"]
+visible = false
 z_index = -6
 position = Vector2(-2023, -437)
 texture = ExtResource("18_batp3")

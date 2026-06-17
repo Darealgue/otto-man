@@ -57,11 +57,16 @@ func setup_mid_run() -> void:
 	var run_complete: bool = drs and drs.is_run_complete()
 
 	if run_complete:
-		# 3 segment tamamlandı — boss odası veya zindandan çıkış
+		# 3 segment tamamlandı — boss odası, zindandan çıkış veya gizli stealth çıkış
 		_current_doors = [
 			{"is_exit": true, "label_short": "[color=green]Zindandan Çık — Köye Dön[/color]"},
 			{"is_boss": true, "label_short": "[color=orange]Boss Odası[/color]"},
 		]
+		if _can_offer_stealth_exit():
+			_current_doors.insert(1, {
+				"is_stealth_exit": true,
+				"label_short": "[color=#88ccff]Gizli Geçit — Sessiz Çıkış[/color]",
+			})
 	else:
 		var generated: Array = _get_generator().generate_doors(false)
 		_current_doors = [{"is_exit": true, "label_short": "[color=green]Köye Dön[/color]"}]
@@ -187,6 +192,8 @@ func _spawn_doors() -> void:
 		door.set_meta("challenge_data", _current_doors[i])
 		if not label_text.is_empty() and door.has_method("set_label_text"):
 			door.set_label_text(label_text)
+		if bool(_current_doors[i].get("is_stealth_exit", false)) and door.has_method("enable_stealth_glow"):
+			door.call("enable_stealth_glow")
 		if has_node("DoorContainer"):
 			$"DoorContainer".add_child(door)
 		else:
@@ -222,35 +229,56 @@ func _handle_initial_selection(index: int) -> void:
 		sm.change_to_dungeon(payload)
 
 func _handle_mid_run_selection(index: int) -> void:
+	if index < 0 or index >= _current_doors.size():
+		return
 	var drs = _get_dungeon_run_state()
 	if not drs:
 		return
 	var sm = _get_scene_manager()
-
-	# İlk kapı çıkış ise: ödülleri teslim ETME, dünya haritasına taşı.
-	if has_exit_option and index == 0:
-		var payload: Dictionary = {"source": "dungeon", "return_reason": "dungeon_exit"}
-		if sm and sm.has_method("change_to_world_map"):
-			sm.change_to_world_map(payload)
-		return
-
-	# Çıkış kapısı (index 0) yukarıda işlendi; diğer kapılar challenge uygular
-	if index < 0 or index >= _current_doors.size():
-		return
 	var challenge: Dictionary = _current_doors[index]
+
 	if bool(challenge.get("is_exit", false)):
+		if sm and sm.has_method("change_to_world_map"):
+			sm.change_to_world_map({"source": "dungeon", "return_reason": "dungeon_exit"})
 		return
+
+	if bool(challenge.get("is_stealth_exit", false)):
+		_handle_stealth_exit()
+		return
+
 	if bool(challenge.get("is_boss", false)):
 		if sm and sm.has_method("change_to_boss_room"):
 			sm.change_to_boss_room({"source": "camp", "from_camp": true})
 		return
+
 	drs.apply_challenge(challenge)
 	if sm and sm.has_method("change_to_dungeon"):
 		var payload2: Dictionary = {}
 		payload2["source"] = "dungeon"
-		# from_camp = true -> sahneden gerçek zindana katlar arası geçiş
 		payload2["from_camp"] = true
 		sm.change_to_dungeon(payload2)
+
+
+func _handle_stealth_exit() -> void:
+	var drs = _get_dungeon_run_state()
+	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+	if not drs or not is_instance_valid(stealth_mgr):
+		return
+	if not stealth_mgr.has_method("can_stealth_exit") or not bool(stealth_mgr.call("can_stealth_exit")):
+		push_warning("[CampScene] Gizli çıkış şartları sağlanmadı")
+		return
+
+	drs.boss_skipped = true
+	drs.stealth_clear = true
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(dp) and dp.has_method("record_stealth_skip"):
+		dp.call("record_stealth_skip", String(drs.get("dungeon_id")))
+	if drs.has_method("apply_stealth_exit_partial_boss_gold"):
+		drs.call("apply_stealth_exit_partial_boss_gold")
+
+	var sm = _get_scene_manager()
+	if sm and sm.has_method("change_to_world_map"):
+		sm.change_to_world_map({"source": "dungeon", "return_reason": "stealth_exit"})
 
 ## Autoload yardımcıları
 
@@ -268,9 +296,18 @@ func _sort_spots_by_x(a: Node2D, b: Node2D) -> bool:
 func _build_door_label_bbcode(challenge: Dictionary) -> String:
 	if bool(challenge.get("is_exit", false)):
 		return "[color=green]Zindandan Çık[/color]"
+	if bool(challenge.get("is_stealth_exit", false)):
+		return "[color=#88ccff]Gizli Geçit[/color]"
 	if bool(challenge.get("is_boss", false)):
 		return "[color=orange]Boss Odası[/color]"
 	return str(challenge.get("label_short", ""))
+
+
+func _can_offer_stealth_exit() -> bool:
+	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+	if not is_instance_valid(stealth_mgr) or not stealth_mgr.has_method("can_stealth_exit"):
+		return false
+	return bool(stealth_mgr.call("can_stealth_exit"))
 
 ## Kamp ortasında oyuncu dostu durum göstergesi
 func _setup_run_stats_ui() -> void:
@@ -336,7 +373,10 @@ func _update_run_stats_ui() -> void:
 
 	if drs.is_run_complete():
 		title_lbl.text = "[color=green]3 bölüm tamamlandı![/color]"
-		detail_lbl.text = "Boss odasına gir veya zindandan çık. Çeşme canını doldurur."
+		if _can_offer_stealth_exit():
+			detail_lbl.text = "[color=#88ccff]Gizli geçit[/color]: boss'sız çıkış (kısmi altın, mastery yok, sonraki run +1 düşman). Boss veya yeşil çıkış da seçilebilir."
+		else:
+			detail_lbl.text = "Boss odasına gir veya zindandan çık. Çeşme canını doldurur."
 		return
 
 	var total_risk: int = drs.enemy_level_offset + drs.enemy_count_offset \
@@ -365,6 +405,11 @@ func _update_run_stats_ui() -> void:
 		details.append("[color=yellow]%s[/color]" % coin.repeat(coin_count))
 	if drs.guaranteed_rescue_next:
 		details.append("[color=green]%s[/color]" % heart)
+	var mod_names: Array[String] = []
+	if drs.has_method("get_segment_modifier_display_names"):
+		mod_names = drs.get_segment_modifier_display_names()
+	if not mod_names.is_empty():
+		details.append("[color=#ffaa66]%s[/color]" % ", ".join(mod_names))
 	details.append("Bölüm %d/%d" % [drs.run_segment_count, drs.MAX_SEGMENTS])
 	var mastery: String = _dungeon_mastery_detail_text()
 	if not mastery.is_empty():

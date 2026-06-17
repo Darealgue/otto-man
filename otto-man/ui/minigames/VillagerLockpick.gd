@@ -129,3 +129,7 @@ func _apply_difficulty_from_context() -> void:
 	_speed = clamp(2.0 + (lvl - 1) * 0.12, 1.8, 4.2)
 	_required = clamp(3 + int((lvl - 1) / 3), 3, 6)
 	_attempts = max(_required + 2, 5)
+	var diff_mult: float = 1.0
+	if typeof(context) == TYPE_DICTIONARY and context.has("difficulty_multiplier"):
+		diff_mult = clampf(float(context.difficulty_multiplier), 0.5, 1.5)
+	_speed *= diff_mult

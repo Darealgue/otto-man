@@ -15,6 +15,9 @@ var combo_enabled: bool = false  # Added missing property
 
 @onready var attack_manager = get_node("/root/AttackManager")
 
+const _HitSplashEffectScript = preload("res://effects/hit_splash_effect.gd")
+const _LEGACY_HIT_FX_ENABLED := false
+
 func _ready():
 	super._ready()
 	collision_layer = CollisionLayers.PLAYER_HITBOX
@@ -134,6 +137,8 @@ func get_damage_for_target(enemy: Node) -> float:
 	var attacker_pos: Vector2 = get_meta("attacker_position_override") if has_meta("attacker_position_override") else (player.global_position if player else global_position)
 	if not player:
 		return damage
+	if player is CharacterBody2D:
+		player.set("_last_attack_name_for_modifiers", current_attack_name)
 	if has_node("/root/DamageModifiers"):
 		return DamageModifiers.apply_player_modifiers(player, damage, enemy, attacker_pos, false)
 	return damage
@@ -333,37 +338,118 @@ func _on_area_entered(area: Area2D) -> void:
 		_apply_air_combo_float()
 	hit_enemy.emit(enemy)
 
-func _get_enemy_effect_position(enemy: Node) -> Vector2:
-	var spawn_position = global_position
+func _get_enemy_sprite_metrics(enemy: Node) -> Dictionary:
+	var center := global_position
+	var half_size := Vector2(16.0, 16.0)
 	if not enemy or not is_instance_valid(enemy):
-		return spawn_position
+		return {"center": center, "half_size": half_size}
 	var enemy_sprite = enemy.get_node_or_null("AnimatedSprite2D")
 	if not enemy_sprite:
 		enemy_sprite = enemy.get_node_or_null("Sprite2D")
 	if not enemy_sprite or not is_instance_valid(enemy_sprite):
-		return enemy.global_position
-	spawn_position = enemy_sprite.global_position
-	var texture_size = Vector2.ZERO
-	var is_centered = true
+		return {"center": enemy.global_position, "half_size": half_size}
+	center = enemy_sprite.global_position
+	var texture_size := Vector2.ZERO
+	var is_centered := true
 	if enemy_sprite is AnimatedSprite2D:
-		var anim_sprite = enemy_sprite as AnimatedSprite2D
+		var anim_sprite := enemy_sprite as AnimatedSprite2D
 		is_centered = anim_sprite.centered
 		if anim_sprite.sprite_frames and anim_sprite.animation:
 			var current_texture = anim_sprite.sprite_frames.get_frame_texture(anim_sprite.animation, anim_sprite.frame)
 			if current_texture:
 				texture_size = current_texture.get_size()
 	elif enemy_sprite is Sprite2D:
-		var spr = enemy_sprite as Sprite2D
+		var spr := enemy_sprite as Sprite2D
 		is_centered = spr.centered
 		if spr.texture:
 			texture_size = spr.texture.get_size()
 			if spr.hframes > 1:
-				texture_size.x = texture_size.x / spr.hframes
+				texture_size.x /= spr.hframes
 			if spr.vframes > 1:
-				texture_size.y = texture_size.y / spr.vframes
+				texture_size.y /= spr.vframes
 	if not is_centered and texture_size != Vector2.ZERO:
-		spawn_position += Vector2(texture_size.x * 0.5, -texture_size.y * 0.5)
-	return spawn_position
+		center += Vector2(texture_size.x * 0.5, -texture_size.y * 0.5)
+	var sprite_scale: Vector2 = Vector2.ONE
+	if enemy_sprite is Node2D:
+		sprite_scale = (enemy_sprite as Node2D).scale
+	if texture_size != Vector2.ZERO:
+		half_size = texture_size * sprite_scale * 0.5
+	return {"center": center, "half_size": half_size}
+
+func _get_enemy_effect_position(enemy: Node) -> Vector2:
+	return _get_enemy_sprite_metrics(enemy).center
+
+func _is_upward_launch_attack() -> bool:
+	match current_attack_name:
+		"up_light", "up_heavy", "air_attack_up1", "air_attack_up2":
+			return true
+		_:
+			return current_attack_name.begins_with("attack_up")
+
+func _is_downward_attack() -> bool:
+	match current_attack_name:
+		"down_light", "down_heavy", "air_attack_down1", "air_attack_down2", "fall_attack":
+			return true
+		_:
+			return current_attack_name.begins_with("attack_down")
+
+func _get_vertical_splash_side_tilt(player_pos: Vector2, center: Vector2) -> float:
+	# Oyuncu solda: yukarı 1-2, aşağı 4-5. Sağda: 10-11 ve 7-8 (ayna).
+	const DIAGONAL_TILT := 45.0
+	return -DIAGONAL_TILT if player_pos.x <= center.x else DIAGONAL_TILT
+
+func _get_tilted_vertical_splash_offset(
+	side_tilt: float,
+	is_upward: bool,
+	half: Vector2,
+	vertical_offset: float,
+	outward_px: float
+) -> Vector2:
+	var magnitude := half.y * vertical_offset + outward_px
+	if not is_upward:
+		magnitude += half.y * 0.18 + 6.0
+	var angle_deg := (-90.0 - side_tilt) if is_upward else (90.0 + side_tilt)
+	return Vector2.from_angle(deg_to_rad(angle_deg)) * magnitude
+
+func _get_hit_splash_placement(enemy: Node) -> Dictionary:
+	var metrics := _get_enemy_sprite_metrics(enemy)
+	var center: Vector2 = metrics.center
+	var half: Vector2 = metrics.half_size
+	var player_pos := _hit_priority_anchor()
+	var effect_scale: float = _get_hit_effect_data().scale
+	var body_side_bias := 0.25
+	var body_top_bias := 0.12
+	var vertical_offset := 0.30
+	var outward_px := 8.0
+	var side_tilt := _get_vertical_splash_side_tilt(player_pos, center)
+
+	if _is_upward_launch_attack():
+		return {
+			"position": center + _get_tilted_vertical_splash_offset(side_tilt, true, half, vertical_offset, outward_px),
+			"rotation_degrees": 90.0 - side_tilt,
+			"flip_h": false,
+			"scale": effect_scale,
+		}
+	if _is_downward_attack():
+		return {
+			"position": center + _get_tilted_vertical_splash_offset(side_tilt, false, half, vertical_offset, outward_px),
+			"rotation_degrees": -90.0 + side_tilt,
+			"flip_h": false,
+			"scale": effect_scale,
+		}
+	if player_pos.x <= center.x:
+		return {
+			"position": center + Vector2(half.x * body_side_bias + outward_px, -half.y * body_top_bias),
+			"rotation_degrees": 0.0,
+			"flip_h": true,
+			"scale": effect_scale,
+		}
+	return {
+		"position": center + Vector2(-half.x * body_side_bias - outward_px, -half.y * body_top_bias),
+		"rotation_degrees": 0.0,
+		"flip_h": false,
+		"scale": effect_scale,
+	}
 
 ## Ceset vurulunca death animasyonunu frame 5'ten oynat (tekmelenme hissi)
 func _play_corpse_death_from_frame(enemy: Node, start_frame: int) -> void:
@@ -409,21 +495,37 @@ func _apply_air_combo_float() -> void:
 func _spawn_enemy_hit_fx(enemy: Node) -> void:
 	if not is_instance_valid(enemy):
 		return
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	if _LEGACY_HIT_FX_ENABLED:
+		_spawn_enemy_center_hit_fx(enemy, tree.current_scene)
+	_spawn_hit_splash_fx(enemy, tree.current_scene)
+
+func _spawn_enemy_center_hit_fx(enemy: Node, parent: Node) -> void:
 	var enemy_hit_fx_scene_path := "res://effects/enemy_hit_effect.tscn"
 	if not ResourceLoader.exists(enemy_hit_fx_scene_path):
 		return
 	var fx_scene: PackedScene = load(enemy_hit_fx_scene_path)
 	if fx_scene == null:
 		return
-	var tree := get_tree()
-	if tree == null or tree.current_scene == null:
-		return
 	var fx = fx_scene.instantiate()
-	tree.current_scene.add_child(fx)
+	parent.add_child(fx)
 	var spawn_position := _get_enemy_effect_position(enemy)
 	var effect_data = _get_hit_effect_data()
 	fx.setup(Vector2.ZERO, effect_data.scale, effect_data.effect_type, spawn_position)
 	fx.call_deferred("_adjust_position_to_center", spawn_position)
+
+func _spawn_hit_splash_fx(enemy: Node, parent: Node) -> void:
+	var splash: Node2D = _HitSplashEffectScript.new()
+	parent.add_child(splash)
+	var placement := _get_hit_splash_placement(enemy)
+	splash.setup(
+		placement.position,
+		placement.rotation_degrees,
+		placement.flip_h,
+		placement.scale
+	)
 
 
 ## Hasar uygulandığında çağrılır (yaşayan + öldürücü vuruş). Ceset tekmesinde çağrılmaz.

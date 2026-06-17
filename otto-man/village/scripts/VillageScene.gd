@@ -120,6 +120,7 @@ func _ready() -> void:
 	
 	# Tutorial 2: köy tutorialı başlat
 	call_deferred("_check_village_tutorial_start")
+	call_deferred("_sync_tutorial_village_ui_gates")
 # --- UI Açma / Kapatma Fonksiyonları ---
 
 func Load_Existing_Villagers():
@@ -323,6 +324,14 @@ func _show_delivery_summary_from_payload() -> void:
 	var delivered_cariyes: int = int(payload.get("delivered_rescued_cariyes", 0))
 	if delivered_villagers > 0 or delivered_cariyes > 0:
 		lines.append(tr("village.delivery.rescued") % [delivered_villagers, delivered_cariyes])
+
+	if bool(payload.get("stealth_clear", false)):
+		lines.append(tr("village.delivery.stealth_clear"))
+	var partial_boss_gold: int = int(payload.get("stealth_exit_partial_gold", 0))
+	if partial_boss_gold > 0:
+		lines.append(tr("village.delivery.stealth_partial_boss_gold") % partial_boss_gold)
+	elif bool(payload.get("boss_skipped", false)):
+		lines.append(tr("village.delivery.boss_skipped"))
 	
 	if lines.is_empty():
 		return
@@ -337,6 +346,8 @@ func _show_delivery_summary_from_payload() -> void:
 func _mentor_digest_on_return(payload: Dictionary, summary_lines: Array[String]) -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null:
+		return
+	if tm.has_method("is_tutorial_skipped") and tm.is_tutorial_skipped():
 		return
 	if tm.is_village_tutorial_active() and tm.village_core_step <= 1:
 		return
@@ -379,10 +390,15 @@ func _apply_dungeon_rescued() -> void:
 			vm.add_villager_with_data(villager_data)
 		else:
 			vm.add_villager()
+	var first_rescued_cid := -1
+	var first_rescued_name := ""
 	for cariye_data in cariyes:
 		if cariye_data is Dictionary:
-			var cid = mm.add_concubine_from_rescue(cariye_data)
+			var cid: int = mm.add_concubine_from_rescue(cariye_data)
 			vm.add_cariye_with_id(cid, cariye_data)
+			if first_rescued_cid < 0:
+				first_rescued_cid = cid
+				first_rescued_name = String(cariye_data.get("isim", ""))
 	if vm.has_method("_spawn_concubines_in_scene"):
 		vm._spawn_concubines_in_scene()
 	print("[VillageScene] ✅ Dungeon rescued applied: %d villagers, %d cariyes" % [villagers.size(), cariyes.size()])
@@ -403,7 +419,9 @@ func _apply_dungeon_rescued() -> void:
 				"%d kişi barınak bekliyor — inşa menüsünden ev kur." % guest_n
 			)
 	if cariyes.size() > 0:
-		_tutorial_on_first_cariye()
+		if first_rescued_cid >= 0 and mm.has_method("setup_rescue_onboarding_chain"):
+			mm.setup_rescue_onboarding_chain(first_rescued_cid, first_rescued_name)
+		_tutorial_on_first_cariye(first_rescued_name)
 
 func _reset_player_on_scene_load() -> void:
 	# Ensure time scale is normal (critical fix)
@@ -722,23 +740,26 @@ func _check_village_tutorial_start() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null:
 		return
-	if not tm.consume_village_tutorial_pending():
+	if tm.consume_village_tutorial_pending():
+		print("[VillageScene] Tutorial 2 başlatılıyor — köy karşılama mesajları kuyruğa ekleniyor")
+		tm.begin_village_core_tutorial_messages()
 		return
-	print("[VillageScene] Tutorial 2 başlatılıyor — köy karşılama mesajları kuyruğa ekleniyor")
-	tm.village_core_step = 0
-	tm.enqueue_message(
-		"welcome_hud",
-		tr("tutorial.village.welcome_hud"),
-		"tutorial",
-		0
-	)
-	tm.enqueue_message(
-		"go_to_forest",
-		tr("tutorial.village.go_to_forest"),
-		"tutorial",
-		1
-	)
-	tm.set_objective(tr("tutorial.village.objective_mentor"))
+	if tm.is_village_tutorial_active() or tm.village_dungeon_guide_active:
+		tm.refresh_village_objective_for_step()
+	_sync_tutorial_village_ui_gates()
+
+
+func _sync_tutorial_village_ui_gates() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	var restrict_side_panels := false
+	if tm and tm.is_village_tutorial_active() and tm.village_core_step >= 2:
+		restrict_side_panels = true
+	if open_build_ui_button:
+		open_build_ui_button.visible = not restrict_side_panels
+	if open_worker_ui_button and not worker_assignment_ui.visible:
+		open_worker_ui_button.visible = not restrict_side_panels
+	if open_cariye_ui_button and not cariye_management_ui.visible:
+		open_cariye_ui_button.visible = not restrict_side_panels
 
 
 func _spawn_objective_ui() -> void:
@@ -768,16 +789,15 @@ func _tutorial_on_forest_return(transferred: Dictionary) -> void:
 	tm.village_core_step = 2
 	tm.village_menu_phase = 0
 	tm.set_objective(tr("tutorial.village.objective_campfire"))
+	_sync_tutorial_village_ui_gates()
 
 
 func tutorial_on_campfire_menu_opened() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 2:
 		return
-	tm.try_set_village_menu_objective(
-		1,
-		tr("tutorial.village.objective_build_menu")
-	)
+	tm.village_menu_phase = 2
+	tm.set_objective_tr("tutorial.village.objective_build_woodcutter")
 
 
 func tutorial_on_mission_page(page_index: int) -> void:
@@ -812,7 +832,8 @@ func _tutorial_on_building_built(building_key: String) -> void:
 		return
 	tm.village_core_step = 3
 	tm.village_menu_phase = 3
-	tm.set_objective(tr("tutorial.village.objective_workers_menu"))
+	tm.set_objective_tr("tutorial.village.objective_assign_worker")
+	_sync_tutorial_village_ui_gates()
 
 
 func _tutorial_on_worker_assigned() -> void:
@@ -824,15 +845,18 @@ func _tutorial_on_worker_assigned() -> void:
 	tm.village_menu_phase = 5
 	tm.mark_village_core_complete()
 	tm.start_village_dungeon_guide()
+	_sync_tutorial_village_ui_gates()
 
 
 # =======================================================
 # Bağlamsal mentor mesajları (olay tetikli, tek seferlik)
 # =======================================================
 
-func _tutorial_on_first_cariye() -> void:
+func _tutorial_on_first_cariye(concubine_name: String = "") -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null or tm.hint_cariye_delivered:
+		return
+	if tm.has_method("is_tutorial_skipped") and tm.is_tutorial_skipped():
 		return
 	tm.hint_cariye_delivered = true
 	tm.enqueue_message(
@@ -841,11 +865,15 @@ func _tutorial_on_first_cariye() -> void:
 		"hint",
 		5
 	)
+	if tm.has_method("start_rescue_mission_guide"):
+		tm.start_rescue_mission_guide(concubine_name)
 
 
 func _tutorial_on_first_trader() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null or tm.hint_trader_delivered:
+		return
+	if tm.has_method("is_tutorial_skipped") and tm.is_tutorial_skipped():
 		return
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null or not mm.has_method("get_active_traders"):

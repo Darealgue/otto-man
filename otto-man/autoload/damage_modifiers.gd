@@ -19,6 +19,14 @@ func apply_player_modifiers(player: Node, base_damage: float, enemy: Node, attac
 	if is_instance_valid(enemy) and player.get("flank_damage_mult") and player.flank_damage_mult > 1.0:
 		if _is_flank_hit(attacker_position, enemy):
 			dmg *= player.flank_damage_mult
+	# Stealth arkadan vuruş (zindan, alarm öncesi)
+	if is_instance_valid(enemy) and has_node("/root/StealthCombat"):
+		var sc: Node = get_node("/root/StealthCombat")
+		if sc.has_method("apply_stealth_damage_mult"):
+			var attack_name: String = ""
+			if player.get("_last_attack_name_for_modifiers"):
+				attack_name = String(player._last_attack_name_for_modifiers)
+			dmg = sc.apply_stealth_damage_mult(player, enemy, dmg, attack_name)
 	# Elemental Odak / fiziksel çarpanlar
 	if is_elemental and player.get("elemental_damage_mult"):
 		dmg *= player.elemental_damage_mult

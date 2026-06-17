@@ -26,6 +26,13 @@ const PARRY_IFRAME := 1.0  # Parry sonrası kısa dokunulmazlık
 func _ready():
 	pass
 
+func _segment_allows_parry() -> bool:
+	var drs := get_node_or_null("/root/DungeonRunState")
+	if drs and drs.has_method("has_segment_modifier") and drs.has_segment_modifier("no_parry"):
+		return false
+	return true
+
+
 func enter():
 	
 	# Enter combat state when blocking
@@ -42,7 +49,7 @@ func enter():
 		return
 		
 	is_blocking = false
-	can_parry = true
+	can_parry = _segment_allows_parry()
 	parry_timer = PARRY_WINDOW
 	is_in_impact_animation = false
 	is_transitioning = false
@@ -115,10 +122,11 @@ func physics_update(delta: float):
 		
 	# If player taps block again, re-arm parry window
 	if Input.is_action_just_pressed("block"):
-		can_parry = true
-		parry_timer = PARRY_WINDOW
-		block_start_time = Time.get_ticks_msec() / 1000.0
-		print("[Block] Parry window re-armed")
+		if _segment_allows_parry():
+			can_parry = true
+			parry_timer = PARRY_WINDOW
+			block_start_time = Time.get_ticks_msec() / 1000.0
+			print("[Block] Parry window re-armed")
 		
 	# Update parry window timer
 	if parry_timer > 0:

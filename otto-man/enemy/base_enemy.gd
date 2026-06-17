@@ -39,6 +39,10 @@ var hurtbox: Area2D = null
 # StateMachine is optional - not all enemies have it
 var state_machine: Node = null
 
+# Stealth perception (Faz 1: BasicEnemy pilot)
+var stealth_perception: Node2D = null
+const STEALTH_PERCEPTION_SCRIPT := preload("res://components/stealth_perception.gd")
+
 # Basic state tracking
 var current_behavior: String = "idle"
 var target: Node2D = null
@@ -102,6 +106,9 @@ var frost_stacks: int = 0
 var frost_decay_timer: float = 0.0
 const FROST_DECAY_INTERVAL: float = 1.0
 
+# Stealth bayıltma
+var faint_timer: float = 0.0
+
 # Zemin debuff: buz/ateş zemininde duran düşman 1 stack'ın altına inemez
 var standing_on_ice_ground: bool = false
 var standing_on_fire_ground: bool = false
@@ -136,6 +143,7 @@ func _ready() -> void:
 	_health_emit_changed()
 	
 	_initialize_components()
+	_setup_stealth_perception()
 	
 	last_position = global_position
 	last_behavior = "idle"
@@ -232,6 +240,10 @@ func handle_behavior(delta: float) -> void:
 	# Remove sleep check from here since we're doing it in _physics_process
 	if is_sleeping:
 		return
+
+	if faint_timer > 0.0:
+		_process_faint(delta)
+		return
 		
 	behavior_timer += delta
 	
@@ -321,6 +333,78 @@ func get_nearest_player_in_range() -> Node2D:
 	
 	return player if is_in_range else null
 
+
+func _is_stealth_detection_enabled() -> bool:
+	return false
+
+
+func _setup_stealth_perception() -> void:
+	if not _is_stealth_detection_enabled():
+		return
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	if not is_instance_valid(sm) or not sm.has_method("is_stealth_enabled") or not sm.is_stealth_enabled():
+		return
+	if stealth_perception != null and is_instance_valid(stealth_perception):
+		return
+	stealth_perception = STEALTH_PERCEPTION_SCRIPT.new()
+	stealth_perception.name = "StealthPerception"
+	add_child(stealth_perception)
+	if stealth_perception.has_method("setup"):
+		stealth_perception.setup(self)
+
+
+func uses_stealth_detection() -> bool:
+	return stealth_perception != null and is_instance_valid(stealth_perception)
+
+
+func update_stealth_target(delta: float) -> Node2D:
+	if uses_stealth_detection() and stealth_perception.has_method("update_perception"):
+		return stealth_perception.update_perception(delta)
+	return get_nearest_player_in_range()
+
+
+func is_stealth_suspicious() -> bool:
+	return uses_stealth_detection() \
+		and stealth_perception.has_method("is_suspicious") \
+		and stealth_perception.is_suspicious()
+
+
+func get_stealth_watch_target() -> Node2D:
+	if not uses_stealth_detection() or not stealth_perception.has_method("get_watch_target"):
+		return null
+	return stealth_perception.get_watch_target()
+
+
+func is_fainted() -> bool:
+	return faint_timer > 0.0
+
+
+func apply_faint(duration: float = 5.0) -> void:
+	if current_behavior == "dead":
+		return
+	faint_timer = maxf(faint_timer, duration)
+	target = null
+	velocity.x = 0.0
+	current_behavior = "idle"
+	behavior_timer = 0.0
+	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"):
+		sprite.play("idle")
+
+
+func _process_faint(delta: float) -> void:
+	faint_timer = maxf(0.0, faint_timer - delta)
+	velocity.x = move_toward(velocity.x, 0.0, 600.0 * delta)
+	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"):
+		if sprite.animation != "idle":
+			sprite.play("idle")
+
+
+func _disable_stealth_perception() -> void:
+	if stealth_perception != null and is_instance_valid(stealth_perception):
+		if stealth_perception.has_method("deactivate"):
+			stealth_perception.deactivate()
+
+
 func start_attack_cooldown() -> void:
 	can_attack = false
 	attack_timer = stats.attack_cooldown if stats else 2.0
@@ -330,7 +414,10 @@ func _get_elemental_damage_mult() -> float:
 	if not im or not im.get("player"):
 		return 1.0
 	var p = im.player
-	return p.get("elemental_damage_mult") if p and p.get("elemental_damage_mult") else 1.0
+	var mult: float = p.get("elemental_damage_mult") if p and p.get("elemental_damage_mult") else 1.0
+	if im.has_method("get_set_bonus"):
+		mult *= im.get_set_bonus("elemental_damage_mult", 1.0)
+	return mult
 
 func add_poison_stack(max_stacks: int, damage_per_stack: float, tick_interval: float) -> void:
 	# Add poison stack (cap at max_stacks)
@@ -485,7 +572,8 @@ func _on_hurt_animation_finished() -> void:
 func die() -> void:
 	if current_behavior == "dead":
 		return
-		
+
+	_disable_stealth_perception()
 	current_behavior = "dead"
 	
 	# Can barını hemen gizle
@@ -733,6 +821,7 @@ func reset() -> void:
 	invulnerable = false
 	invulnerability_timer = 0.0
 	velocity = Vector2.ZERO
+	faint_timer = 0.0
 	
 	# Reset visuals
 	if sprite:
@@ -751,6 +840,13 @@ func reset() -> void:
 		hurtbox.monitoring = true
 		hurtbox.monitorable = true
 	
+	if stealth_perception != null and is_instance_valid(stealth_perception):
+		if stealth_perception.has_method("deactivate"):
+			stealth_perception.deactivate()
+		else:
+			stealth_perception.suspicion_time = 0.0
+			stealth_perception.watch_target = null
+			stealth_perception.visibility_level = StealthPerception.VisibilityLevel.NONE
 
 func handle_patrol(_delta: float) -> void:
 	# Virtual function to be overridden by child classes

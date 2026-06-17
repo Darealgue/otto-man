@@ -737,8 +737,20 @@ func spawn_enemy_gold_burst(world_pos: Vector2, total_gold: int, elite_pouch_wei
 	_spawn_physical_loot_parts(world_pos, parts, 6, cfg, true)
 
 
-## enemy_burst: düşman drop'u — çoğunlukla yukarı, dar yatay; breakable eski geniş impulse.
-func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base: int, cfg: GoldDropConfig, enemy_burst: bool = false) -> void:
+## Boss ödülü: poşet ağırlıklı parçalar, her yöne geniş saçılma.
+func spawn_boss_gold_burst(world_pos: Vector2, total_gold: int) -> void:
+	if not is_inside_tree() or get_tree() == null:
+		return
+	if total_gold <= 0:
+		return
+	var cfg: GoldDropConfig = GoldDropConfig.new()
+	cfg.max_items = 10
+	var parts: Array[int] = cfg.compose_items_elite_pouch_weighted(total_gold)
+	_spawn_physical_loot_parts(world_pos, parts, 6, cfg, false, true)
+
+
+## enemy_burst: düşman drop'u — çoğunlukla yukarı, dar yatay; boss_burst: her yöne saçılma.
+func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base: int, cfg: GoldDropConfig, enemy_burst: bool = false, boss_burst: bool = false) -> void:
 	var loot_pool: Node = get_node_or_null("/root/Loots")
 	if not loot_pool:
 		print("[DecorationSpawner] ERROR: Loots autoload not found! Cannot spawn loot.")
@@ -801,7 +813,9 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 		body.collision_layer = CollisionLayers.ITEM
 		body.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
 		var spawn_offset: Vector2
-		if enemy_burst:
+		if boss_burst:
+			spawn_offset = Vector2(randf_range(-48.0, 48.0), randf_range(-48.0, 48.0))
+		elif enemy_burst:
 			spawn_offset = Vector2(randf_range(-16.0, 16.0), randf_range(-12.0, 4.0))
 		else:
 			spawn_offset = Vector2(randf_range(-10, 10), randf_range(-20, -10))
@@ -812,7 +826,12 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 			str((collect.monitoring if collect else false))
 		])
 		var launch: Vector2
-		if enemy_burst:
+		if boss_burst:
+			var ang: float = randf() * TAU
+			var mag: float = randf_range(240.0, 460.0) if v < 5 else randf_range(200.0, 380.0)
+			body.angular_damp = 0.8 if v < 5 else 3.0
+			launch = Vector2(cos(ang), sin(ang)) * mag
+		elif enemy_burst:
 			# Yukarı doğru konsantre fırlatma; hafif sağ/sol (~±32°), poşet biraz daha kısa.
 			var spread: float = randf_range(-0.55, 0.55)
 			var base_up: float = -PI * 0.5

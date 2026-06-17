@@ -11,7 +11,7 @@ const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
 const TUTORIAL_DUNGEON_SCENE: String = "res://tutorial/scenes/TutorialDungeon3.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
-const BOSS_ROOM_SCENE: String = "res://scenes/boss_room.tscn"
+const BOSS_ROOM_SCENE: String = "res://scenes/boss_rooms/tepegoz_boss_room.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
 const WORLD_MAP_SCENE: String = "res://worldmap/scenes/WorldMapScene.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
@@ -89,6 +89,8 @@ func start_new_game(play_tutorial: bool = false) -> void:
 	if pum and pum.has_method("clear_all_powerups"):
 		pum.call("clear_all_powerups")
 	var tutorial_mgr: Node = get_node_or_null("/root/TutorialManager")
+	if tutorial_mgr and tutorial_mgr.has_method("reset_for_new_game"):
+		tutorial_mgr.call("reset_for_new_game")
 	if play_tutorial:
 		if tutorial_mgr and tutorial_mgr.has_method("mark_started_tutorial_run"):
 			tutorial_mgr.call("mark_started_tutorial_run")
@@ -111,6 +113,7 @@ func open_settings() -> void:
 const DUNGEON_SUCCESS_MORALE_BONUS: float = 2.0
 
 func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	payload = _merge_travel_payload_with_current(payload)
 	_heal_player_on_world_map_arrival(payload)
 	payload = _finalize_dungeon_rewards_on_safe_return(payload)
 	payload = _finalize_world_expedition_gold_on_safe_return(payload)
@@ -123,12 +126,16 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 	var drs = get_node_or_null("/root/DungeonRunState")
 	if is_instance_valid(drs) and drs.has_method("end_run"):
 		drs.end_run()
+	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_run"):
+		stealth_mgr.call("reset_for_run")
 	# Zindan itemlarının etkilerini temizle (köyde kalmasın; hangi yoldan gelirse gelsin)
 	var im = get_node_or_null("/root/ItemManager")
 	if is_instance_valid(im) and im.has_method("clear_all_items"):
 		im.clear_all_items()
-	# Zindandan sağ çıkış (kamp veya portal): hafif moral artışı (ölümde payload boş gelir, ceza player.gd'de)
-	if payload.get("source", "") == "dungeon":
+	# Zindandan sağ çıkış: hafif moral artışı (ölümde payload boş gelir, ceza player.gd'de)
+	var return_reason: String = String(payload.get("return_reason", ""))
+	if bool(payload.get("delivered_from_dungeon_run", false)) or return_reason in ["boss_defeated", "stealth_exit"]:
 		var vm = get_node_or_null("/root/VillageManager")
 		if is_instance_valid(vm) and "village_morale" in vm:
 			var m: float = float(vm.get("village_morale"))
@@ -174,7 +181,7 @@ func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
 	var returning_from_dungeon_like: bool = (
 		current_scene_path == DUNGEON_SCENE
 		or current_scene_path == CAMP_SCENE
-		or current_scene_path == BOSS_ROOM_SCENE
+		or BossRoomRegistry.is_boss_room_path(current_scene_path)
 		or current_scene_path == FOREST_SCENE
 		or src == "dungeon"
 		or src == "dungeon_death"
@@ -241,7 +248,27 @@ func _finalize_dungeon_rewards_on_safe_return(payload: Dictionary) -> Dictionary
 	
 	# Köy sahnesi bu dönüşün zindan kökenli teslimat olduğunu bilsin.
 	payload["delivered_from_dungeon_run"] = true
+	if not payload.has("return_reason") and not current_payload.is_empty():
+		payload["return_reason"] = String(current_payload.get("return_reason", ""))
+	if "boss_skipped" in drs:
+		payload["boss_skipped"] = bool(drs.get("boss_skipped"))
+	if "stealth_clear" in drs:
+		payload["stealth_clear"] = bool(drs.get("stealth_clear"))
+	if "stealth_exit_partial_gold_applied" in drs:
+		var partial: int = int(drs.get("stealth_exit_partial_gold_applied"))
+		if partial > 0:
+			payload["stealth_exit_partial_gold"] = partial
 	return payload
+
+
+func _merge_travel_payload_with_current(payload: Dictionary) -> Dictionary:
+	var out: Dictionary = payload.duplicate(true)
+	if current_payload.is_empty():
+		return out
+	for key in ["return_reason", "source"]:
+		if String(out.get(key, "")).is_empty() and current_payload.has(key):
+			out[key] = current_payload[key]
+	return out
 
 func _finalize_forest_resources_on_safe_return(payload: Dictionary) -> Dictionary:
 	# Ormanda toplanan kaynaklar dünya haritasında taşınır;
@@ -316,7 +343,12 @@ func change_to_camp(payload: Dictionary = {}, force_reload: bool = false) -> voi
 
 func change_to_boss_room(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	current_payload = payload.duplicate(true)
-	_change_scene(BOSS_ROOM_SCENE, force_reload)
+	if String(current_payload.get("boss_id", "")).is_empty():
+		var drs: Node = get_node_or_null("/root/DungeonRunState")
+		if is_instance_valid(drs) and "run_boss_id" in drs:
+			current_payload["boss_id"] = String(drs.get("run_boss_id"))
+	var target_path: String = BossRoomRegistry.resolve_scene_path(current_payload)
+	_change_scene(target_path, force_reload)
 
 func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	# Köyden ormana çıkışta travel_out saatini işlet; dünya haritasından giriste tekrar işletme.
@@ -407,7 +439,7 @@ func uses_dungeon_loot_wallet() -> bool:
 		path = _active_scene_file_path_fallback()
 	if path.is_empty():
 		return false
-	if path == FOREST_SCENE or path == DUNGEON_SCENE or path == CAMP_SCENE or path == BOSS_ROOM_SCENE:
+	if path == FOREST_SCENE or path == DUNGEON_SCENE or path == CAMP_SCENE or BossRoomRegistry.is_boss_room_path(path):
 		return true
 	if path == TUTORIAL_DUNGEON_SCENE:
 		return true
@@ -493,6 +525,7 @@ func _finish_world_map_overlay_return_after_travel() -> void:
 
 
 func _apply_village_return_payload_world_map_overlay(payload: Dictionary) -> void:
+	payload = _merge_travel_payload_with_current(payload)
 	_heal_player_on_world_map_arrival(payload)
 	var p: Dictionary = _finalize_dungeon_rewards_on_safe_return(payload)
 	p = _finalize_forest_resources_on_safe_return(p)
@@ -501,9 +534,17 @@ func _apply_village_return_payload_world_map_overlay(payload: Dictionary) -> voi
 	var vm0 := get_node_or_null("/root/VillageManager")
 	if is_instance_valid(vm0) and vm0.has_method("mark_arriving_to_village_from_travel"):
 		vm0.mark_arriving_to_village_from_travel()
+	var return_reason: String = String(p.get("return_reason", ""))
+	if bool(p.get("delivered_from_dungeon_run", false)) or return_reason in ["boss_defeated", "stealth_exit"]:
+		if is_instance_valid(vm0) and "village_morale" in vm0:
+			var m: float = float(vm0.get("village_morale"))
+			vm0.set("village_morale", minf(100.0, m + DUNGEON_SUCCESS_MORALE_BONUS))
 	var drs := get_node_or_null("/root/DungeonRunState")
 	if is_instance_valid(drs) and drs.has_method("end_run"):
 		drs.end_run()
+	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_run"):
+		stealth_mgr.call("reset_for_run")
 	var im := get_node_or_null("/root/ItemManager")
 	if is_instance_valid(im) and im.has_method("clear_all_items"):
 		im.clear_all_items()
@@ -918,7 +959,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 		or scene_path == TUTORIAL_DUNGEON_SCENE
 		or scene_path == FOREST_SCENE
 		or scene_path == CAMP_SCENE
-		or scene_path == BOSS_ROOM_SCENE
+		or BossRoomRegistry.is_boss_room_path(scene_path)
 		or scene_path == WORLD_MAP_SCENE
 		or scene_path == VILLAGE_SCENE
 	)

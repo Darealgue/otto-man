@@ -1799,6 +1799,14 @@ func _build_carry_summary_text() -> String:
 		var villagers: Array = drs.get("pending_rescued_villagers") if "pending_rescued_villagers" in drs else []
 		var cariyes: Array = drs.get("pending_rescued_cariyes") if "pending_rescued_cariyes" in drs else []
 		rescued_text = "Kurtarilan: %d koylu / %d cariye" % [villagers.size(), cariyes.size()]
+		if bool(drs.get("boss_skipped")):
+			rescued_text += " | Gizli cikis"
+	
+	var sm = get_node_or_null("/root/SceneManager")
+	if sm and sm.has_method("get_current_payload"):
+		var rr: String = String(sm.get_current_payload().get("return_reason", ""))
+		if rr == "stealth_exit":
+			dungeon_gold_text += " (gizli)"
 	
 	return "%s | %s | %s | %s | %s | %s" % [health_text, dungeon_gold_text, carried_text, expedition_text, survival_text, rescued_text]
 

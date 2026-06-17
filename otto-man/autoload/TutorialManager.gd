@@ -9,6 +9,7 @@ signal village_dungeon_guide_changed
 
 # --- Zindan tutorial bayrakları ---
 var run_tutorial: bool = false
+var tutorial_skipped: bool = false
 var dungeon_movement_complete: bool = false
 var village_tutorial_pending: bool = false
 
@@ -19,6 +20,9 @@ var village_core_step: int = -1
 # --- Bağlamsal hint bayrakları (tek seferlik) ---
 var hint_cariye_delivered: bool = false
 var hint_trader_delivered: bool = false
+var rescue_mission_guide_active: bool = false
+var rescue_mission_guide_complete: bool = false
+var _rescue_mission_concubine_name: String = ""
 var tutorial_forest_gather_complete: bool = false
 var village_dungeon_guide_active: bool = false
 var tutorial_dungeon_guide_complete: bool = false
@@ -39,6 +43,13 @@ func _ready() -> void:
 	var lm := get_node_or_null("/root/LocaleManager")
 	if lm and lm.has_signal("locale_changed"):
 		lm.locale_changed.connect(_on_locale_changed)
+	call_deferred("_hook_mission_signals")
+
+
+func _hook_mission_signals() -> void:
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm and mm.has_signal("mission_started") and not mm.mission_started.is_connected(_on_mission_started_for_guide):
+		mm.mission_started.connect(_on_mission_started_for_guide)
 
 
 func _on_locale_changed(_locale: String) -> void:
@@ -48,12 +59,16 @@ func _on_locale_changed(_locale: String) -> void:
 
 func reset_session_flags() -> void:
 	run_tutorial = false
+	tutorial_skipped = false
 	dungeon_movement_complete = false
 	village_tutorial_pending = false
 	village_core_complete = false
 	village_core_step = -1
 	hint_cariye_delivered = false
 	hint_trader_delivered = false
+	rescue_mission_guide_active = false
+	rescue_mission_guide_complete = false
+	_rescue_mission_concubine_name = ""
 	tutorial_forest_gather_complete = false
 	village_dungeon_guide_active = false
 	tutorial_dungeon_guide_complete = false
@@ -64,16 +79,40 @@ func reset_session_flags() -> void:
 	_delivered_ids.clear()
 
 
+func reset_for_new_game() -> void:
+	reset_session_flags()
+
+
 func mark_started_tutorial_run() -> void:
 	run_tutorial = true
+	tutorial_skipped = false
 	dungeon_movement_complete = false
 	village_tutorial_pending = false
 
 
 func mark_skipped_tutorial_run() -> void:
 	run_tutorial = false
+	tutorial_skipped = true
 	dungeon_movement_complete = false
 	village_tutorial_pending = false
+	village_core_complete = true
+	village_core_step = 99
+	hint_cariye_delivered = true
+	hint_trader_delivered = true
+	rescue_mission_guide_complete = true
+	tutorial_dungeon_guide_complete = true
+	village_dungeon_guide_active = false
+	_reveal_nearest_dungeon_hex_for_skip()
+
+
+func is_tutorial_skipped() -> bool:
+	return tutorial_skipped
+
+
+func _reveal_nearest_dungeon_hex_for_skip() -> void:
+	var wm := get_node_or_null("/root/WorldManager")
+	if wm and wm.has_method("reveal_tutorial_dungeon_for_guide"):
+		wm.reveal_tutorial_dungeon_for_guide()
 
 
 func mark_dungeon_movement_complete() -> void:
@@ -96,6 +135,12 @@ func consume_village_tutorial_pending() -> bool:
 func mark_village_core_complete() -> void:
 	village_core_complete = true
 	village_core_step = 99
+	enqueue_message(
+		"village_core_complete",
+		tr("tutorial.village.core_complete"),
+		"tutorial",
+		0
+	)
 
 
 func start_village_dungeon_guide() -> void:
@@ -151,6 +196,232 @@ func try_set_village_menu_objective(min_phase: int, text: String) -> void:
 		return
 	village_menu_phase = min_phase
 	set_objective(text)
+
+
+func advance_village_core_after_mentor_welcome() -> void:
+	if village_core_step != 0:
+		return
+	village_core_step = 1
+	set_objective_tr("tutorial.village.objective_forest")
+
+
+func begin_village_core_tutorial_messages() -> void:
+	if village_core_complete or village_core_step >= 0:
+		return
+	village_core_step = 0
+	enqueue_message(
+		"welcome_hud",
+		tr("tutorial.village.welcome_hud"),
+		"tutorial",
+		0
+	)
+	enqueue_message(
+		"go_to_forest",
+		tr("tutorial.village.go_to_forest"),
+		"tutorial",
+		1
+	)
+	set_objective_tr("tutorial.village.objective_mentor")
+
+
+func refresh_village_objective_for_step() -> void:
+	if village_dungeon_guide_active and not tutorial_dungeon_guide_complete:
+		set_objective_tr("tutorial.dungeon_guide.objective")
+		return
+	if village_core_complete:
+		return
+	match village_core_step:
+		0:
+			set_objective_tr("tutorial.village.objective_mentor")
+		1:
+			if tutorial_forest_gather_complete:
+				set_objective_tr("tutorial.village.objective_campfire")
+			else:
+				set_objective_tr("tutorial.village.objective_forest")
+		2:
+			_refresh_village_step2_objective()
+		3:
+			_refresh_village_step3_objective()
+
+
+func _refresh_village_step2_objective() -> void:
+	match village_menu_phase:
+		0:
+			set_objective_tr("tutorial.village.objective_campfire")
+		1:
+			set_objective_tr("tutorial.village.objective_build_woodcutter")
+		_:
+			set_objective_tr("tutorial.village.objective_build_woodcutter")
+
+
+func _refresh_village_step3_objective() -> void:
+	match village_menu_phase:
+		0, 1, 2, 3:
+			set_objective_tr("tutorial.village.objective_assign_worker")
+		_:
+			set_objective_tr("tutorial.village.objective_assign_worker")
+
+
+func get_mission_center_locked_page() -> int:
+	if not is_village_tutorial_active():
+		return -1
+	match village_core_step:
+		2:
+			return 2
+		3:
+			return 1
+	return -1
+
+
+func start_rescue_mission_guide(concubine_name: String) -> void:
+	if tutorial_skipped or rescue_mission_guide_complete:
+		return
+	rescue_mission_guide_active = true
+	_rescue_mission_concubine_name = concubine_name.strip_edges()
+	if _rescue_mission_concubine_name.is_empty():
+		_rescue_mission_concubine_name = tr("cariye.unknown")
+	enqueue_message(
+		"rescue_chain_guide",
+		tr("tutorial.rescue_chain.message") % _rescue_mission_concubine_name,
+		"tutorial",
+		6
+	)
+	set_objective(tr("tutorial.rescue_chain.objective") % _rescue_mission_concubine_name)
+
+
+func mark_rescue_mission_guide_complete() -> void:
+	if rescue_mission_guide_complete:
+		return
+	rescue_mission_guide_active = false
+	rescue_mission_guide_complete = true
+	set_objective("")
+
+
+func _on_mission_started_for_guide(cariye_id: int, mission_id: String) -> void:
+	if not rescue_mission_guide_active or rescue_mission_guide_complete:
+		return
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("is_rescue_onboarding_mission"):
+		return
+	if not mm.is_rescue_onboarding_mission(mission_id):
+		return
+	if mm.get_rescue_onboarding_concubine_id() >= 0 and cariye_id != mm.get_rescue_onboarding_concubine_id():
+		return
+	mark_rescue_mission_guide_complete()
+
+
+func can_open_mission_page(page_index: int) -> bool:
+	var locked := get_mission_center_locked_page()
+	if locked < 0:
+		return true
+	return page_index == locked
+
+
+func is_tutorial_building_allowed(building_scene_path: String) -> bool:
+	if not is_village_tutorial_active() or village_core_step != 2:
+		return true
+	return "woodcutter" in String(building_scene_path).to_lower()
+
+
+func is_tutorial_worker_assignment_allowed(building_key: String) -> bool:
+	if not is_village_tutorial_active() or village_core_step != 3:
+		return true
+	return "woodcutter" in String(building_key).to_lower()
+
+
+func export_save_state() -> Dictionary:
+	var delivered: Array[String] = []
+	for id in _delivered_ids.keys():
+		delivered.append(String(id))
+	return {
+		"run_tutorial": run_tutorial,
+		"tutorial_skipped": tutorial_skipped,
+		"dungeon_movement_complete": dungeon_movement_complete,
+		"village_core_complete": village_core_complete,
+		"village_core_step": village_core_step,
+		"hint_cariye_delivered": hint_cariye_delivered,
+		"hint_trader_delivered": hint_trader_delivered,
+		"rescue_mission_guide_active": rescue_mission_guide_active,
+		"rescue_mission_guide_complete": rescue_mission_guide_complete,
+		"rescue_mission_concubine_name": _rescue_mission_concubine_name,
+		"tutorial_forest_gather_complete": tutorial_forest_gather_complete,
+		"village_dungeon_guide_active": village_dungeon_guide_active,
+		"tutorial_dungeon_guide_complete": tutorial_dungeon_guide_complete,
+		"village_menu_phase": village_menu_phase,
+		"delivered_ids": delivered,
+	}
+
+
+func import_save_state(data: Dictionary) -> void:
+	reset_session_flags()
+	if data.is_empty():
+		return
+	run_tutorial = bool(data.get("run_tutorial", false))
+	tutorial_skipped = bool(data.get("tutorial_skipped", false))
+	dungeon_movement_complete = bool(data.get("dungeon_movement_complete", false))
+	village_core_complete = bool(data.get("village_core_complete", false))
+	village_core_step = int(data.get("village_core_step", -1))
+	hint_cariye_delivered = bool(data.get("hint_cariye_delivered", false))
+	hint_trader_delivered = bool(data.get("hint_trader_delivered", false))
+	rescue_mission_guide_active = bool(data.get("rescue_mission_guide_active", false))
+	rescue_mission_guide_complete = bool(data.get("rescue_mission_guide_complete", false))
+	_rescue_mission_concubine_name = String(data.get("rescue_mission_concubine_name", ""))
+	tutorial_forest_gather_complete = bool(data.get("tutorial_forest_gather_complete", false))
+	village_dungeon_guide_active = bool(data.get("village_dungeon_guide_active", false))
+	tutorial_dungeon_guide_complete = bool(data.get("tutorial_dungeon_guide_complete", false))
+	village_menu_phase = int(data.get("village_menu_phase", 0))
+	var delivered: Variant = data.get("delivered_ids", [])
+	if delivered is Array:
+		for id in delivered:
+			_delivered_ids[String(id)] = true
+	_rebuild_pending_messages_after_load()
+	refresh_village_objective_for_step()
+	village_dungeon_guide_changed.emit()
+	tutorial_forest_gather_complete_changed.emit(tutorial_forest_gather_complete)
+
+
+func _rebuild_pending_messages_after_load() -> void:
+	if village_core_complete:
+		if village_dungeon_guide_active and not tutorial_dungeon_guide_complete:
+			if not is_delivered("dungeon_guide"):
+				enqueue_message(
+					"dungeon_guide",
+					tr("tutorial.dungeon_guide.message"),
+					"tutorial",
+					1
+				)
+		return
+	if village_core_step < 0:
+		return
+	if village_core_step == 0:
+		if not is_delivered("welcome_hud"):
+			enqueue_message(
+				"welcome_hud",
+				tr("tutorial.village.welcome_hud"),
+				"tutorial",
+				0
+			)
+		if not is_delivered("go_to_forest"):
+			enqueue_message(
+				"go_to_forest",
+				tr("tutorial.village.go_to_forest"),
+				"tutorial",
+				1
+			)
+	elif not is_delivered("village_core_complete") and village_core_step >= 99:
+		enqueue_message(
+			"village_core_complete",
+			tr("tutorial.village.core_complete"),
+			"tutorial",
+			0
+		)
+		if village_dungeon_guide_active and not is_delivered("dungeon_guide"):
+			enqueue_message(
+				"dungeon_guide",
+				tr("tutorial.dungeon_guide.message"),
+				"tutorial",
+				1
+			)
 
 
 # =======================================================
