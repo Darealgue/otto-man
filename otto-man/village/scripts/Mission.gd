@@ -26,6 +26,9 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 @export var required_cariye_level: int = 1
 @export var required_army_size: int = 0
 @export var required_concubine_id: int = -1  # -1 = herhangi bir cariye
+@export var required_concubine_role: int = -1  # Concubine.Role; -1 = rol şartı yok
+@export var unlock_leverage_min: int = 0  # 0 = leverage kilidi yok
+@export var unlock_level_min: int = 0  # leverage yetmezse seviye alternatifi
 @export var required_resources: Dictionary = {}  # {"gold": 100, "wood": 50}
 
 # Ödüller ve cezalar
@@ -235,6 +238,19 @@ func are_prerequisites_met(completed_missions: Array[String]) -> bool:
 	
 	return true
 
+func is_unlocked_for_concubine(cariye: Concubine) -> bool:
+	if unlock_leverage_min <= 0 and unlock_level_min <= 0:
+		return true
+	if cariye == null:
+		return false
+	if cariye.rescue_leverage >= unlock_leverage_min and unlock_leverage_min > 0:
+		return true
+	if unlock_level_min > 0 and cariye.level >= unlock_level_min:
+		return true
+	if unlock_leverage_min <= 0 and unlock_level_min > 0:
+		return cariye.level >= unlock_level_min
+	return false
+
 # Bu görev tamamlandığında hangi görevler açılacak?
 func get_unlocked_missions() -> Array[String]:
 	return unlocks_missions
@@ -280,6 +296,9 @@ func to_save_dict() -> Dictionary:
 		"required_cariye_level": required_cariye_level,
 		"required_army_size": required_army_size,
 		"required_concubine_id": required_concubine_id,
+		"required_concubine_role": required_concubine_role,
+		"unlock_leverage_min": unlock_leverage_min,
+		"unlock_level_min": unlock_level_min,
 		"required_resources": required_resources.duplicate(true),
 		"rewards": rewards.duplicate(true),
 		"penalties": penalties.duplicate(true),
@@ -337,6 +356,9 @@ static func from_save_dict(d: Dictionary) -> Mission:
 	m.required_cariye_level = int(d.get("required_cariye_level", 1))
 	m.required_army_size = int(d.get("required_army_size", 0))
 	m.required_concubine_id = int(d.get("required_concubine_id", -1))
+	m.required_concubine_role = int(d.get("required_concubine_role", -1))
+	m.unlock_leverage_min = int(d.get("unlock_leverage_min", 0))
+	m.unlock_level_min = int(d.get("unlock_level_min", 0))
 	if d.get("required_resources") is Dictionary:
 		m.required_resources = d["required_resources"].duplicate(true)
 	if d.get("rewards") is Dictionary:

@@ -39,6 +39,8 @@ var max_moral: int = 100
 
 # Rol bilgisi
 var role: Role = Role.NONE
+## Zindan kurtarma minigame leverage (hikâye zinciri kilidi)
+var rescue_leverage: int = 0
 
 # Görev geçmişi
 var completed_missions: Array[String] = []
@@ -420,6 +422,7 @@ func to_dict() -> Dictionary:
 	dict["moral"] = moral
 	dict["max_moral"] = max_moral
 	dict["role"] = int(role)
+	dict["rescue_leverage"] = rescue_leverage
 	dict["completed_missions"] = completed_missions.duplicate()
 	dict["failed_missions"] = failed_missions.duplicate()
 	dict["total_experience_gained"] = total_experience_gained
@@ -479,6 +482,8 @@ func from_dict(dict: Dictionary) -> void:
 		max_moral = dict["max_moral"]
 	if dict.has("role"):
 		role = dict["role"] as Role
+	if dict.has("rescue_leverage"):
+		rescue_leverage = int(dict["rescue_leverage"])
 	if dict.has("completed_missions"):
 		var loaded_completed = dict["completed_missions"]
 		if loaded_completed is Array:

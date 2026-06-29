@@ -247,8 +247,8 @@ func handle_behavior(delta: float) -> void:
 		
 	behavior_timer += delta
 	
-	# Get player within detection range for behavior
-	target = get_nearest_player_in_range()
+	# Get player within detection range for behavior (stealth cone when active)
+	target = update_stealth_target(delta)
 	
 	match current_behavior:
 		"patrol":

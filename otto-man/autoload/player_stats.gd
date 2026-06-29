@@ -62,6 +62,8 @@ var death_recovery_state := {
 	"active_debuffs": [], # [{name, max_health_multiplier, stamina_penalty, stamina_regen_multiplier, heavy_attack_locked, fall_attack_locked, minutes_left}]
 }
 var _active_death_debuffs: Array[Dictionary] = []
+var _death_run_id: int = 0
+var _healed_mentor_brief_pending: bool = false
 var _death_max_health_multiplier: float = 1.0
 var _death_stamina_penalty: int = 0
 var _death_stamina_regen_multiplier: float = 1.0
@@ -162,7 +164,7 @@ var _world_exp_water_debt: float = 0.0
 ## - Su: yemekten daha sik, ama yine de onceki hizdan belirgin yavas.
 const WORLD_EXP_FOOD_MINUTES_PER_UNIT: float = 720.0
 const WORLD_EXP_WATER_MINUTES_PER_UNIT: float = 360.0
-## Ac/susuz tik basina can kaybi (tik aralari yukaridaki surelerle belirlenir).
+## Eski: ac/susuzda can kaybi. Artik erzak bitince haritada cokus (olum) tetiklenir.
 const WORLD_EXP_STARVATION_HP: float = 2.0
 
 
@@ -218,8 +220,12 @@ func mark_death_injury() -> void:
 	var start_health: float = minf(1.0, max_health)
 	current_health = clampf(start_health, 0.0, max_health)
 	health_changed.emit(current_health)
+	_death_run_id += 1
+	_healed_mentor_brief_pending = false
 	death_recovery_state["is_recovering"] = true
 	death_recovery_state["was_recently_dead"] = true
+	death_recovery_state["mentor_brief_pending"] = true
+	death_recovery_state["death_run_id"] = _death_run_id
 	death_recovery_state["minutes_until_full_heal"] = VILLAGE_HEAL_TO_FULL_MINUTES
 	death_recovery_state["heal_per_minute"] = max_health / float(VILLAGE_HEAL_TO_FULL_MINUTES)
 	_roll_death_debuff()
@@ -289,6 +295,9 @@ func _process_death_recovery_minute() -> void:
 		death_recovery_state["minutes_until_full_heal"] = mins_left
 		if current_health >= get_max_health() or mins_left <= 0:
 			death_recovery_state["is_recovering"] = false
+			if bool(death_recovery_state.get("was_recently_dead", false)) and current_health >= get_max_health() - 0.01:
+				death_recovery_state["was_recently_dead"] = false
+				_healed_mentor_brief_pending = true
 		changed = true
 	if _active_death_debuffs.size() > 0:
 		for i in range(_active_death_debuffs.size() - 1, -1, -1):
@@ -424,6 +433,8 @@ func reset_for_new_game() -> void:
 	death_recovery_state = {
 		"is_recovering": false,
 		"was_recently_dead": false,
+		"mentor_brief_pending": false,
+		"death_run_id": 0,
 		"minutes_until_full_heal": 0,
 		"heal_per_minute": 0.0,
 		"debuff_minutes_left": 0,
@@ -435,6 +446,8 @@ func reset_for_new_game() -> void:
 		"fall_attack_locked": false,
 		"active_debuffs": [],
 	}
+	_death_run_id = 0
+	_healed_mentor_brief_pending = false
 	current_health = get_max_health()
 	health_changed.emit(current_health)
 	_emit_death_recovery_updated()
@@ -503,6 +516,32 @@ func get_death_debuff_names() -> Array[String]:
 func get_death_recovery_state() -> Dictionary:
 	return death_recovery_state.duplicate(true)
 
+
+func take_death_mentor_brief_context() -> Dictionary:
+	if not bool(death_recovery_state.get("mentor_brief_pending", false)):
+		return {}
+	death_recovery_state["mentor_brief_pending"] = false
+	var debuff_name: String = ""
+	if _active_death_debuffs.size() > 0:
+		debuff_name = String(_active_death_debuffs[0].get("name", ""))
+	return {
+		"run_id": int(death_recovery_state.get("death_run_id", _death_run_id)),
+		"minutes_until_full_heal": int(death_recovery_state.get("minutes_until_full_heal", VILLAGE_HEAL_TO_FULL_MINUTES)),
+		"debuff_name": debuff_name,
+		"has_debuff": _active_death_debuffs.size() > 0,
+	}
+
+
+func take_healed_mentor_brief_run_id() -> int:
+	if not _healed_mentor_brief_pending:
+		return 0
+	_healed_mentor_brief_pending = false
+	return int(death_recovery_state.get("death_run_id", _death_run_id))
+
+
+func has_healed_mentor_brief_pending() -> bool:
+	return _healed_mentor_brief_pending
+
 func get_death_recovery_state_for_save() -> Dictionary:
 	return {
 		"state": death_recovery_state.duplicate(true),
@@ -540,6 +579,8 @@ func load_death_recovery_state_from_save(data: Dictionary) -> void:
 	if state.is_empty():
 		return
 	death_recovery_state = state.duplicate(true)
+	_death_run_id = int(death_recovery_state.get("death_run_id", 0))
+	_healed_mentor_brief_pending = false
 	var loaded_active: Variant = data.get("active_debuffs", death_recovery_state.get("active_debuffs", []))
 	_active_death_debuffs.clear()
 	if loaded_active is Array:
@@ -861,10 +902,9 @@ func add_world_expedition_supplies(amounts: Dictionary) -> void:
 
 func apply_world_travel_ration_cost(travel_minutes: int) -> Dictionary:
 	if travel_minutes <= 0:
-		return {"food_used": 0, "water_used": 0, "starvation_hp": 0.0}
+		return {"food_used": 0, "water_used": 0, "starvation_hp": 0.0, "collapsed": false}
 	var food_used: int = 0
 	var water_used: int = 0
-	var starve_hp: float = 0.0
 	_world_exp_food_debt += float(travel_minutes) / WORLD_EXP_FOOD_MINUTES_PER_UNIT
 	_world_exp_water_debt += float(travel_minutes) / WORLD_EXP_WATER_MINUTES_PER_UNIT
 	while _world_exp_food_debt >= 1.0:
@@ -873,20 +913,30 @@ func apply_world_travel_ration_cost(travel_minutes: int) -> Dictionary:
 			_world_exp_set("food", _world_exp_get("food") - 1, false)
 			food_used += 1
 		else:
-			var old_h: float = current_health
-			set_current_health(old_h - WORLD_EXP_STARVATION_HP, false)
-			starve_hp += maxf(0.0, old_h - current_health)
+			world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
+			return {
+				"food_used": food_used,
+				"water_used": water_used,
+				"starvation_hp": 0.0,
+				"collapsed": true,
+				"collapse_cause": "food",
+			}
 	while _world_exp_water_debt >= 1.0:
 		_world_exp_water_debt -= 1.0
 		if _world_exp_get("water") > 0:
 			_world_exp_set("water", _world_exp_get("water") - 1, false)
 			water_used += 1
 		else:
-			var old2: float = current_health
-			set_current_health(old2 - WORLD_EXP_STARVATION_HP * 0.85, false)
-			starve_hp += maxf(0.0, old2 - current_health)
+			world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
+			return {
+				"food_used": food_used,
+				"water_used": water_used,
+				"starvation_hp": 0.0,
+				"collapsed": true,
+				"collapse_cause": "water",
+			}
 	world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
-	return {"food_used": food_used, "water_used": water_used, "starvation_hp": starve_hp}
+	return {"food_used": food_used, "water_used": water_used, "starvation_hp": 0.0, "collapsed": false}
 
 ## Akarsu hex'inde: yurume susuzluk birikimini sifirlar; canta tavanina kadar +1 su (doldurma).
 func apply_akarsu_river_hydration() -> void:
@@ -963,5 +1013,8 @@ func get_world_expedition_survival_forecast() -> Dictionary:
 		"water_units": water_units,
 		"minutes_until_food_hp_loss": food_minutes_until_hp,
 		"minutes_until_water_hp_loss": water_minutes_until_hp,
-		"minutes_until_any_hp_loss": no_hp_loss_minutes
+		"minutes_until_any_hp_loss": no_hp_loss_minutes,
+		"minutes_until_collapse": no_hp_loss_minutes,
+		"minutes_until_food_collapse": food_minutes_until_hp,
+		"minutes_until_water_collapse": water_minutes_until_hp,
 	}

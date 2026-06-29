@@ -920,6 +920,8 @@ func _save_mission_state() -> Dictionary:
 		state["mm_mission_chain_completed"] = mcf
 	state["mm_rescue_onboarding_started"] = MissionManager.rescue_onboarding_started
 	state["mm_rescue_onboarding_concubine_id"] = MissionManager.rescue_onboarding_concubine_id
+	state["mm_role_chains_started"] = MissionManager._role_chains_started.duplicate(true)
+	state["mm_story_chains_active"] = MissionManager._story_chains_active.duplicate(true)
 	
 	return state
 
@@ -1250,6 +1252,8 @@ func _should_persist_mission_snapshot(mission_id: String, mission_obj: Variant, 
 		return true
 	if mission_id.begins_with("defense_") or mission_id.begins_with("raid_"):
 		return true
+	if mission_id.begins_with("rescue_chain_") or mission_id.begins_with("role_") or mission_id.begins_with("story_"):
+		return true
 	if mission_obj is Mission:
 		var mo: Mission = mission_obj
 		return String(mo.completes_incident_id).length() > 0 or String(mo.completes_alliance_aid_settlement_id).length() > 0
@@ -1356,6 +1360,14 @@ func _load_mission_state(state: Dictionary) -> void:
 		MissionManager.rescue_onboarding_started = bool(state["mm_rescue_onboarding_started"])
 	if state.has("mm_rescue_onboarding_concubine_id"):
 		MissionManager.rescue_onboarding_concubine_id = int(state["mm_rescue_onboarding_concubine_id"])
+	if state.has("mm_role_chains_started"):
+		var rcs: Variant = state["mm_role_chains_started"]
+		if rcs is Dictionary:
+			MissionManager._role_chains_started = (rcs as Dictionary).duplicate(true)
+	if state.has("mm_story_chains_active"):
+		var sca: Variant = state["mm_story_chains_active"]
+		if sca is Dictionary:
+			MissionManager._story_chains_active = (sca as Dictionary).duplicate(true)
 
 	# Returning world-map units
 	if state.has("world_map_returning_units"):
@@ -1524,6 +1536,8 @@ func _load_mission_state(state: Dictionary) -> void:
 						var nm: String = String(c.name)
 						if not nm in uarr:
 							(uarr as Array).append(nm)
+	if MissionManager.has_method("restore_role_story_chains_after_load"):
+		MissionManager.restore_role_story_chains_after_load()
 
 func _sanitize_loaded_mission_runtime_state() -> void:
 	if not is_instance_valid(MissionManager):

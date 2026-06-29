@@ -35,10 +35,6 @@ var is_upgrading: bool = false
 var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 12.0
 @export var max_level: int = 3
-const UPGRADE_COSTS = {
-	2: {"gold": 30},
-	3: {"gold": 60}
-}
 
 # --- UI Bağlantıları (Eğer varsa, yolları ayarla) ---
 # @onready var worker_label: Label = %WorkerLabel
@@ -233,37 +229,14 @@ func _on_fetch_timeout() -> void:
 
 # --- Upgrade API ---
 func get_next_upgrade_cost() -> Dictionary:
-	var next_level = level + 1
-	return UPGRADE_COSTS.get(next_level, {})
+	return BuildingUpgradeMixin.get_next_cost(self)
 
 signal upgrade_started
 signal upgrade_finished
 signal state_changed
 
 func start_upgrade() -> bool:
-	if is_upgrading:
-		print("Fırın: Zaten yükseltiliyor.")
-		return false
-	if level >= max_level:
-		print("Fırın: Zaten maksimum seviyede.")
-		return false
-	var cost = get_next_upgrade_cost()
-	if cost.is_empty():
-		print("Fırın: Bir sonraki seviye için maliyet tanımlanmamış.")
-		return false
-	var gold_cost = int(cost.get("gold", 0))
-	if GlobalPlayerData.gold < gold_cost:
-		print("Fırın: Yükseltme için yeterli altın yok. Gereken: %d, Mevcut: %d" % [gold_cost, GlobalPlayerData.gold])
-		return false
-	GlobalPlayerData.add_gold(-gold_cost)
-	print("Fırın: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %ds" % [level, level + 1, int(upgrade_time_seconds)])
-	is_upgrading = true
-	if upgrade_timer:
-		upgrade_timer.wait_time = upgrade_time_seconds
-		upgrade_timer.start()
-	upgrade_started.emit()
-	state_changed.emit()
-	return true
+	return BuildingUpgradeMixin.start(self)
 
 func _on_upgrade_finished() -> void:
 	if not is_upgrading:

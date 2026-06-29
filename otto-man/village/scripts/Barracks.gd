@@ -29,12 +29,6 @@ var max_level: int = 5
 var is_upgrading: bool = false
 var upgrade_time_seconds: float = 5.0
 var upgrade_timer: Timer
-const UPGRADE_COSTS := {
-	2: {"gold": 100},
-	3: {"gold": 180},
-	4: {"gold": 260},
-	5: {"gold": 350}
-}
 
 func _ready() -> void:
 	# UI kullanılmıyor - kontrolcü sistemi ile atama yapılıyor
@@ -210,29 +204,10 @@ func _update_ui() -> void:
 
 # --- Yükseltme API (MissionCenter CONSTRUCTION sayfası ile uyumlu) ---
 func get_next_upgrade_cost() -> Dictionary:
-	var next_level := level + 1
-	return UPGRADE_COSTS.get(next_level, {})
+	return BuildingUpgradeMixin.get_next_cost(self)
 
 func start_upgrade() -> bool:
-	if is_upgrading:
-		return false
-	if level >= max_level:
-		return false
-	var cost := get_next_upgrade_cost()
-	# Şimdilik sadece altın maliyeti
-	var gold_cost := int(cost.get("gold", 0))
-	var gpd = get_node_or_null("/root/GlobalPlayerData")
-	if gold_cost > 0:
-		if not gpd or gpd.gold < gold_cost:
-			return false
-		gpd.add_gold(-gold_cost)
-
-	is_upgrading = true
-	upgrade_started.emit()
-	if upgrade_timer:
-		upgrade_timer.wait_time = upgrade_time_seconds
-		upgrade_timer.start()
-	return true
+	return BuildingUpgradeMixin.start(self)
 
 func _on_upgrade_finished() -> void:
 	is_upgrading = false

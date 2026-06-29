@@ -12,8 +12,7 @@ const NOISE_LAND: float = 72.0
 const NOISE_LAND_HEAVY: float = 98.0
 
 const PULSE_DURATION: float = 0.48
-const RUN_ANIM_LENGTH: float = 0.67
-const RUN_FOOTSTEP_TIMES: Array[float] = [0.17, 0.50]
+const RunFootstepConfig = preload("res://components/run_footstep_config.gd")
 
 const NOISE_PULSE_RING_SCRIPT := preload("res://effects/noise_pulse_ring.gd")
 
@@ -36,7 +35,7 @@ var _player: CharacterBody2D = null
 var _active_pulses: Array[NoisePulse] = []
 var _next_pulse_id: int = 1
 var _last_state_name: String = ""
-var _last_run_anim_pos: float = -1.0
+var _last_run_frame: int = -1
 var _was_on_floor: bool = true
 var _noise_multiplier: float = 1.0
 
@@ -143,27 +142,22 @@ func _poll_landing_noise() -> void:
 
 func _poll_run_footsteps() -> void:
 	var anim_player: AnimationPlayer = _player.get_node_or_null("AnimationPlayer") as AnimationPlayer
-	if anim_player == null or anim_player.current_animation != "run" or not anim_player.is_playing():
-		_last_run_anim_pos = -1.0
+	var sprite: Sprite2D = _player.get_node_or_null("Sprite2D") as Sprite2D
+	if anim_player == null or sprite == null:
+		_last_run_frame = -1
 		return
-	var t: float = anim_player.current_animation_position
-	if _last_run_anim_pos < 0.0:
-		_last_run_anim_pos = t
+	if StringName(anim_player.current_animation) != RunFootstepConfig.RUN_ANIM or not anim_player.is_playing():
+		_last_run_frame = -1
 		return
-	for foot_time in RUN_FOOTSTEP_TIMES:
-		if _crossed_loop_time(_last_run_anim_pos, t, RUN_ANIM_LENGTH, foot_time):
-			emit_noise_event(NOISE_RUN)
-	_last_run_anim_pos = t
-
-
-func _crossed_loop_time(prev: float, curr: float, cycle: float, target: float) -> bool:
-	if cycle <= 0.0:
-		return false
-	var prev_mod: float = fposmod(prev, cycle)
-	var curr_mod: float = fposmod(curr, cycle)
-	if curr_mod >= prev_mod:
-		return prev_mod < target and curr_mod >= target
-	return prev_mod < target or curr_mod >= target
+	if not _player.is_on_floor() or absf(float(_player.velocity.x)) < 40.0:
+		_last_run_frame = -1
+		return
+	var frame: int = sprite.frame
+	if frame == _last_run_frame:
+		return
+	if _last_run_frame >= 0 and RunFootstepConfig.is_foot_contact_frame(frame):
+		emit_noise_event(NOISE_RUN)
+	_last_run_frame = frame
 
 
 func _track_state_noise() -> void:

@@ -104,7 +104,7 @@ func _handle_child_behavior(delta: float) -> void:
 	
 	match current_behavior:
 		"idle":
-			_handle_idle_state()
+			_handle_idle_state(delta)
 		"chase":
 			_handle_chase_state(delta)
 		"swoop":
@@ -119,8 +119,10 @@ func _handle_child_behavior(delta: float) -> void:
 			
 	_update_animation_state()
 
-func _handle_idle_state() -> void:
-	target = get_nearest_player()
+func _handle_idle_state(delta: float) -> void:
+	target = update_stealth_target(delta)
+	if target == null:
+		target = get_nearest_player()
 	if target and is_instance_valid(target):
 		change_behavior("chase")
 	elif not is_returning and summoner and is_instance_valid(summoner):
@@ -284,7 +286,7 @@ func _handle_escape_state(delta: float) -> void:
 				queue_free()
 
 func handle_patrol(delta: float) -> void:
-	_handle_idle_state()
+	_handle_idle_state(delta)
 
 func handle_alert(delta: float) -> void:
 	_handle_chase_state(delta)

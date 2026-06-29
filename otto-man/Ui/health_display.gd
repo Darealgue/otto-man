@@ -277,8 +277,8 @@ func _refresh_survival_ui() -> void:
 		survival_container.visible = false
 		return
 	var fc: Dictionary = player_stats.call("get_world_expedition_survival_forecast")
-	var water_minutes: int = int(fc.get("minutes_until_water_hp_loss", 0))
-	var food_minutes: int = int(fc.get("minutes_until_food_hp_loss", 0))
+	var water_minutes: int = int(fc.get("minutes_until_water_collapse", fc.get("minutes_until_water_hp_loss", 0)))
+	var food_minutes: int = int(fc.get("minutes_until_food_collapse", fc.get("minutes_until_food_hp_loss", 0)))
 	var water_ratio: float = clampf(float(water_minutes) / WATER_WARNING_MINUTES, 0.0, 1.0)
 	var food_ratio: float = clampf(float(food_minutes) / FOOD_WARNING_MINUTES, 0.0, 1.0)
 	water_bar.value = water_ratio * 100.0

@@ -202,7 +202,7 @@ func handle_behavior(delta: float) -> void:
 	
 	# Keep/refresh target without hard range cutoffs
 	if not target or not is_instance_valid(target):
-		target = get_nearest_player()
+		target = update_stealth_target(delta)
 	
 	# Delegate hurt handling to base implementation
 	if current_behavior == "hurt":
@@ -215,10 +215,10 @@ func handle_behavior(delta: float) -> void:
 func _handle_child_behavior(delta: float) -> void:
 	match current_behavior:
 		"idle":
-			_handle_idle_state()
+			_handle_idle_state(delta)
 		"patrol":
 			# patrol = idle gibi oyuncu tespit et, walk/attack'e geç (başlangıç state'i "patrol" olduğu için bu şart)
-			_handle_idle_state()
+			_handle_idle_state(delta)
 		"walk":
 			_handle_walk_state(delta)
 		"chase":
@@ -255,12 +255,14 @@ func _handle_child_behavior(delta: float) -> void:
 	
 	_update_animation_state()
 
-func _handle_idle_state() -> void:
+func _handle_idle_state(delta: float) -> void:
 	# Yatay hareketi durdur; dikey velocity'ye (gravity) dokunma
 	velocity.x = 0
 	
 	# Oyuncu tespit et
-	var player = get_nearest_player()
+	var player = update_stealth_target(delta)
+	if player == null:
+		player = get_nearest_player()
 	if player and is_instance_valid(player):
 		var distance = global_position.distance_to(player.global_position)
 		if distance <= stats.detection_range:
@@ -851,7 +853,7 @@ func _update_animation_state() -> void:
 		sprite.play(animation_name)
 
 func handle_patrol(delta: float) -> void:
-	_handle_idle_state()
+	_handle_idle_state(delta)
 
 func handle_alert(delta: float) -> void:
 	_handle_rocket_charge_state(delta)

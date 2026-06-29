@@ -1,7 +1,6 @@
 extends Area2D
 ## Kamp çeşmesi: etkileşimle oyuncu canı doldurur.
-## Placeholder görsel; sprite sonra eklenebilir.
-
+## Görsel: decoration/kuyu sprite (yoksa sahnedeki Placeholder kalır).
 const PLAYER_GROUP: StringName = &"player"
 
 @export var heal_amount: float = 30.0
@@ -13,12 +12,34 @@ var _used: bool = false
 
 @onready var _prompt_label: Label = $PromptLabel if has_node("PromptLabel") else null
 
+const FOUNTAIN_TEXTURE_PATHS: Array[String] = [
+	"res://village/buildings/sprite/well2.png",
+	"res://village/buildings/sprite/well1.png",
+	"res://assets/decorations/crystal_1.png",
+	"res://assets/decorations/pillar_1.png",
+]
+
 
 func _ready() -> void:
+	_setup_visual()
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
 	if _prompt_label:
 		_prompt_label.visible = false
+
+
+func _setup_visual() -> void:
+	var placeholder: Node = get_node_or_null("Placeholder")
+	var hide_list: Array = []
+	if placeholder:
+		hide_list.append(placeholder)
+	InteractableVisualHelper.attach_centered_sprite(
+		self,
+		FOUNTAIN_TEXTURE_PATHS,
+		Vector2(0.0, -40.0),
+		Vector2(72.0, 80.0),
+		hide_list
+	)
 
 
 func _segment_allows_heal() -> bool:

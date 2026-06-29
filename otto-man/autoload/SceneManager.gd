@@ -11,7 +11,7 @@ const VILLAGE_SCENE: String = "res://village/scenes/VillageScene.tscn"
 const TUTORIAL_DUNGEON_SCENE: String = "res://tutorial/scenes/TutorialDungeon3.tscn"
 const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
-const BOSS_ROOM_SCENE: String = "res://scenes/boss_rooms/tepegoz_boss_room.tscn"
+const BOSS_ROOM_SCENE: String = "res://scenes/boss_rooms/orb_scatter_boss_room.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
 const WORLD_MAP_SCENE: String = "res://worldmap/scenes/WorldMapScene.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
@@ -91,6 +91,9 @@ func start_new_game(play_tutorial: bool = false) -> void:
 	var tutorial_mgr: Node = get_node_or_null("/root/TutorialManager")
 	if tutorial_mgr and tutorial_mgr.has_method("reset_for_new_game"):
 		tutorial_mgr.call("reset_for_new_game")
+	var demo_cfg: Node = get_node_or_null("/root/DemoPackConfig")
+	if demo_cfg and demo_cfg.has_method("reset_for_new_game"):
+		demo_cfg.call("reset_for_new_game")
 	if play_tutorial:
 		if tutorial_mgr and tutorial_mgr.has_method("mark_started_tutorial_run"):
 			tutorial_mgr.call("mark_started_tutorial_run")
@@ -185,6 +188,7 @@ func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
 		or current_scene_path == FOREST_SCENE
 		or src == "dungeon"
 		or src == "dungeon_death"
+		or src == "world_map_death"
 		or src == "forest"
 		or src == "forest_death"
 	)
@@ -342,12 +346,24 @@ func change_to_camp(payload: Dictionary = {}, force_reload: bool = false) -> voi
 	_change_scene(CAMP_SCENE, force_reload)
 
 func change_to_boss_room(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	if not BossRoomRegistry.is_enabled():
+		push_warning("[SceneManager] Boss dövüşleri devre dışı — dünya haritasına yönlendiriliyor")
+		var fallback_payload: Dictionary = payload.duplicate(true)
+		fallback_payload.merge({"source": "dungeon", "return_reason": "dungeon_exit"}, true)
+		change_to_world_map(fallback_payload)
+		return
 	current_payload = payload.duplicate(true)
 	if String(current_payload.get("boss_id", "")).is_empty():
 		var drs: Node = get_node_or_null("/root/DungeonRunState")
 		if is_instance_valid(drs) and "run_boss_id" in drs:
 			current_payload["boss_id"] = String(drs.get("run_boss_id"))
 	var target_path: String = BossRoomRegistry.resolve_scene_path(current_payload)
+	if target_path.is_empty():
+		push_warning("[SceneManager] Boss sahnesi bulunamadı — dünya haritasına yönlendiriliyor")
+		var missing_payload: Dictionary = payload.duplicate(true)
+		missing_payload.merge({"source": "dungeon", "return_reason": "dungeon_exit"}, true)
+		change_to_world_map(missing_payload)
+		return
 	_change_scene(target_path, force_reload)
 
 func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> void:
@@ -430,6 +446,15 @@ func is_world_map_ui_context_active() -> bool:
 		return true
 	var p := String(current_scene_path).to_lower()
 	return "worldmap" in p
+
+
+func is_village_scene_active() -> bool:
+	if is_instance_valid(_world_map_overlay_instance):
+		return true
+	var cs: Node = get_tree().current_scene if get_tree() else null
+	if cs == null:
+		return String(current_scene_path) == VILLAGE_SCENE
+	return String(cs.scene_file_path) == VILLAGE_SCENE
 
 
 ## Zindan/orman ganimet altını GlobalPlayerData.dungeon_gold'a yazılır (köy cüzdanı değil).

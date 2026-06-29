@@ -53,6 +53,15 @@ func get_rescue_room_chance(level: int) -> float:
         return rescue_room_chance_base
     return clampf(rescue_room_chance_base + (level - 1) * rescue_room_chance_per_level, 0.0, 0.85)
 
+## Yan yol dead-end'lerde mini-event (tüccar / lanet) olasılığı
+@export var dungeon_event_chance_base: float = 0.14
+@export var dungeon_event_chance_per_level: float = 0.02
+
+func get_dungeon_event_chance(level: int) -> float:
+    if level < 1:
+        return dungeon_event_chance_base
+    return clampf(dungeon_event_chance_base + (level - 1) * dungeon_event_chance_per_level, 0.08, 0.32)
+
 ## Debug: Her levelda en az bir köylü + bir cariye kurtarma odası garanti et (test için)
 @export var debug_force_rescue_rooms_in_every_level: bool = false
 

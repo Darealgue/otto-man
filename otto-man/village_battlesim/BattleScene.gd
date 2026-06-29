@@ -467,6 +467,45 @@ func _start_battle() -> void:
 func get_forbidden_areas() -> Array[Rect2]:
 	return forbidden_areas
 
+func get_outcome_summary() -> Dictionary:
+	var player_survivors: int = 0
+	var player_dead: int = 0
+	var player_fainted: int = 0
+	for unit in player_units:
+		if not is_instance_valid(unit):
+			continue
+		var st: int = int(unit.get_current_state()) if unit.has_method("get_current_state") else -1
+		if st == Unit.State.DEAD:
+			player_dead += 1
+		elif st == Unit.State.FAINTED:
+			player_fainted += 1
+			player_survivors += 1
+		else:
+			player_survivors += 1
+	var enemy_survivors: int = 0
+	var enemy_dead: int = 0
+	for unit in enemy_units:
+		if not is_instance_valid(unit):
+			continue
+		var st_e: int = int(unit.get_current_state()) if unit.has_method("get_current_state") else -1
+		if st_e == Unit.State.DEAD:
+			enemy_dead += 1
+		else:
+			enemy_survivors += 1
+	var player_won: bool = winner_team_id == 0
+	if winner_team_id == -2:
+		player_won = player_survivors >= enemy_survivors
+	return {
+		"player_won": player_won,
+		"winner_team_id": winner_team_id,
+		"player_survivors": player_survivors,
+		"player_dead": player_dead,
+		"player_fainted": player_fainted,
+		"defender_losses": player_dead + int(floor(float(player_fainted) * 0.5)),
+		"attacker_losses": enemy_dead,
+		"enemy_survivors": enemy_survivors,
+	}
+
 # <<< DEĞİŞTİ: Fonksiyon Adı ve Mantığı (Rastgele Spawn İçin) >>>
 func _spawn_single_unit_random(team_id: int, index_in_team: int) -> void:
 	var unit_instance = unit_scene.instantiate() as Unit

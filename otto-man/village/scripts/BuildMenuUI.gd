@@ -506,6 +506,18 @@ func _format_cannot_build_reason(requirements: Dictionary) -> String:
 	if not missing_levels.is_empty():
 		reasons.append(tr("build.missing_level") % ", ".join(missing_levels))
 
+	var required_buildings: Dictionary = requirements.get("requires_building", {})
+	var missing_buildings := []
+	for scene_path in required_buildings.keys():
+		var path_str := String(scene_path)
+		var min_level := int(required_buildings[scene_path])
+		var current_level := int(VillageManager.get_building_level_for_scene(path_str))
+		if current_level < min_level:
+			var bname := VillageManager.get_building_display_name_for_scene(path_str) if VillageManager.has_method("get_building_display_name_for_scene") else path_str.get_file()
+			missing_buildings.append("%s Lv.%d/%d" % [bname, current_level, min_level])
+	if not missing_buildings.is_empty():
+		reasons.append("Önce yükselt: " + ", ".join(missing_buildings))
+
 	if reasons.is_empty():
 		return tr("build.requirements") % _format_requirements_tooltip(requirements)
 	return "\n".join(reasons)

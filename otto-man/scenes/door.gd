@@ -87,6 +87,8 @@ func _player_entered_range() -> void:
 			interaction_prompt.text = "↑ Yukarı"
 		elif is_open:
 			interaction_prompt.text = "Açık"
+		elif requires_key and not _has_required_key():
+			interaction_prompt.text = "Anahtar gerekli"
 		else:
 			interaction_prompt.text = "↑ Yukarı"
 
@@ -122,6 +124,8 @@ func _interact_with_door() -> void:
 func _handle_locked_door() -> void:
 	print("Door is locked!")
 	door_locked.emit(door_type)
+	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
+		SoundManager.play_sfx("door_locked", global_position)
 	
 	# Show locked message
 	if interaction_prompt:
@@ -153,8 +157,16 @@ func _handle_boss_door_locked() -> void:
 			interaction_prompt.text = "↑ Yukarı"
 
 func _has_required_key() -> bool:
-	# TODO: Implement key checking logic
-	# This should check player's inventory for the required key
+	if key_id.is_empty():
+		return true
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("has_dungeon_key"):
+		if bool(drs.call("has_dungeon_key", key_id)):
+			return true
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("has_item"):
+		if bool(im.call("has_item", key_id)):
+			return true
 	return false
 
 func _open_door() -> void:
@@ -165,6 +177,8 @@ func _open_door() -> void:
 	current_state = DoorState.OPENING
 	
 	print("Opening door: ", door_type)
+	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
+		SoundManager.play_sfx("door_open", global_position)
 	
 	# Play opening animation
 	if animation_player and animation_player.has_animation("open"):

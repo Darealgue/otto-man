@@ -127,15 +127,6 @@ func remove_worker() -> bool:
 var level: int = 1
 var upgrade_duration: float = 4.0 # Örnek süre
 
-# Yükseltme maliyetleri (4 seviye)
-const UPGRADE_COSTS = {
-	2: {"gold": 25},
-	3: {"gold": 50},
-	4: {"gold": 75}
-}
-# Const for max workers per level (Optional)
-# const MAX_WORKERS_PER_LEVEL = { 1: 1, 2: 2, 3: 3 }
-
 # --- Zamanlayıcı (Timer) ---
 func _init(): # _ready yerine _init'te oluşturmak daha güvenli olabilir
 	upgrade_timer = Timer.new()
@@ -159,48 +150,13 @@ func _process(delta: float) -> void:
 
 # --- Yeni Yükseltme Fonksiyonları (Timer ile) ---
 func get_next_upgrade_cost() -> Dictionary:
-	var next_level = level + 1
-	return UPGRADE_COSTS.get(next_level, {})
+	return BuildingUpgradeMixin.get_next_cost(self)
 
-# Yükseltmeyi ANINDA gerçekleştirir (Artık timer yok)
 func start_upgrade() -> bool:
-	if is_upgrading: # Yükseltme bayrağını tekrar kontrol et
-		print("Avcı Kulübesi: Zaten yükseltiliyor.")
+	if not BuildingUpgradeMixin.start(self):
 		return false
-	if level >= max_level:
-		print("Avcı Kulübesi: Zaten maksimum seviyede.")
-		return false
-
-	var cost_dict = get_next_upgrade_cost()
-	if cost_dict.is_empty():
-		print("Avcı Kulübesi: Bir sonraki seviye için maliyet tanımlanmamış.")
-		return false
-
-	var gold_cost = cost_dict.get("gold", 0)
-	# TODO: Diğer kaynak maliyetleri varsa burada kontrol et
-
-	# 1. Maliyet Kontrolü (Altın ve Diğer Kaynaklar)
-	if GlobalPlayerData.gold < gold_cost:
-		print("Avcı Kulübesi: Yükseltme için yeterli altın yok. Gereken: %d, Mevcut: %d" % [gold_cost, GlobalPlayerData.gold])
-		return false
-	
-	# TODO: Diğer kaynakların kontrolü
-
-	# 2. Maliyeti Düş (Kaynak kilitleme YOK)
-	GlobalPlayerData.add_gold(-gold_cost)
-	print("Avcı Kulübesi: Yükseltme maliyeti düşüldü: %d Altın" % gold_cost)
-	# TODO: Diğer kaynak maliyetlerini düş
-
-	print("Avcı Kulübesi: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_time_seconds])
-	is_upgrading = true
-	if upgrade_timer:
-		upgrade_timer.wait_time = upgrade_time_seconds
-		upgrade_timer.start()
-	emit_signal("upgrade_started")
-	emit_signal("state_changed") # Genel durum değişikliği sinyali
-	# Görsel geribildirim (opsiyonel)
-	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.YELLOW
-
+	if get_node_or_null("Sprite2D") is Sprite2D:
+		get_node("Sprite2D").modulate = Color.YELLOW
 	return true
 
 # finish_upgrade fonksiyonuna artık gerek yok

@@ -97,7 +97,7 @@ func handle_chase(delta: float) -> void:
 	# When player is detected, move towards player but still respect walls/platforms
 	# First, try to get the target from BaseEnemy's detection system
 	if not target:
-		target = get_nearest_player_in_range()
+		target = update_stealth_target(delta)
 	
 	# If still no target, return to patrol
 	if not target:

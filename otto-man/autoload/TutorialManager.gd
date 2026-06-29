@@ -38,18 +38,61 @@ var village_menu_phase: int = 0
 var _inbox: Array[Dictionary] = []
 var _delivered_ids: Dictionary = {}
 
+const _DeathMentorBrief = preload("res://village/narrative/DeathMentorBrief.gd")
+
 
 func _ready() -> void:
 	var lm := get_node_or_null("/root/LocaleManager")
 	if lm and lm.has_signal("locale_changed"):
 		lm.locale_changed.connect(_on_locale_changed)
 	call_deferred("_hook_mission_signals")
+	call_deferred("_hook_player_stats_death")
 
 
 func _hook_mission_signals() -> void:
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm and mm.has_signal("mission_started") and not mm.mission_started.is_connected(_on_mission_started_for_guide):
 		mm.mission_started.connect(_on_mission_started_for_guide)
+
+
+func _hook_player_stats_death() -> void:
+	var ps := get_node_or_null("/root/PlayerStats")
+	if ps == null or not ps.has_signal("death_recovery_updated"):
+		return
+	if not ps.death_recovery_updated.is_connected(_on_death_recovery_updated_for_mentor):
+		ps.death_recovery_updated.connect(_on_death_recovery_updated_for_mentor, CONNECT_DEFERRED)
+
+
+func try_enqueue_death_return_brief(payload: Dictionary) -> void:
+	var ps := get_node_or_null("/root/PlayerStats")
+	if ps == null or not ps.has_method("take_death_mentor_brief_context"):
+		return
+	var ctx: Dictionary = ps.call("take_death_mentor_brief_context")
+	if ctx.is_empty():
+		return
+	_DeathMentorBrief.enqueue_return_messages(self, payload, ctx)
+
+
+func _on_death_recovery_updated_for_mentor(_state: Dictionary) -> void:
+	try_deliver_healed_mentor_brief()
+
+
+func try_deliver_healed_mentor_brief() -> void:
+	var ps := get_node_or_null("/root/PlayerStats")
+	if ps == null or not ps.has_method("has_healed_mentor_brief_pending"):
+		return
+	if not bool(ps.call("has_healed_mentor_brief_pending")):
+		return
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm != null and sm.has_method("is_village_scene_active"):
+		if not bool(sm.call("is_village_scene_active")):
+			return
+	if not ps.has_method("take_healed_mentor_brief_run_id"):
+		return
+	var run_id: int = int(ps.call("take_healed_mentor_brief_run_id"))
+	if run_id <= 0:
+		return
+	_DeathMentorBrief.enqueue_healed_message(self, run_id)
 
 
 func _on_locale_changed(_locale: String) -> void:

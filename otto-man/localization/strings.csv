@@ -450,6 +450,46 @@ news.rescue_chain.start.title,%s için yeni görev zinciri,A new mission chain f
 news.rescue_chain.start.body,Görev Merkezi'nde «Kurtarılanın Yolu» açıldı. İlk görevi kurtardığın cariyeye ata.,«Path of the Rescued» is open in the Mission Center. Assign the first mission to the concubine you rescued.
 news.rescue_chain.complete.title,Kurtarılanın Yolu tamamlandı,Path of the Rescued complete
 news.rescue_chain.complete.body,Cariyen köye kazandırdın. Artık diğer görevlere de yollayabilirsin.,She has earned her place. You can send her on other missions too.
+mission.role.chain_name,%s — %s imza görevleri,%s — %s signature missions
+mission.story.chain_name,%s — Kişisel hikâye,%s — Personal story
+mission.role.komutan.1.name,%s: Muhafız Tatbikatı,%s: Guard Drill
+mission.role.komutan.1.desc,Komutan rolüyle birliği düzenler; köy savunması için temel tatbikat yapar.,As commander she drills the unit for basic village defense.
+mission.role.komutan.2.name,%s: Sınır Devriyesi,%s: Border Patrol
+mission.role.komutan.2.desc,Komşu yolları devriye gezer; olası tehditleri raporlar.,She patrols nearby routes and reports threats.
+mission.role.ajan.1.name,%s: Gizli Dinleme,%s: Hidden Listening
+mission.role.ajan.1.desc,Ajan olarak köydeki dedikoduları ve komşu haberlerini toplar.,As an agent she gathers village gossip and neighbor intel.
+mission.role.ajan.2.name,%s: Casus Ağı,%s: Spy Network
+mission.role.ajan.2.desc,Gizli bağlantılar kurarak bir sonraki baskın için bilgi sızdırır.,She builds secret contacts for the next raid.
+mission.role.diplomat.1.name,%s: Barış Teklifi,%s: Peace Offer
+mission.role.diplomat.1.desc,Diplomat olarak komşu yerleşime barışçıl bir mesaj götürür.,As diplomat she carries a peaceful message to a neighbor.
+mission.role.diplomat.2.name,%s: Elçilik Ziyareti,%s: Embassy Visit
+mission.role.diplomat.2.desc,Resmi temasla ilişkileri güçlendirir; küçük anlaşmazlıkları yumuşatır.,A formal visit to strengthen ties and ease disputes.
+mission.role.tuccar.1.name,%s: Pazar Pazarlığı,%s: Market Haggle
+mission.role.tuccar.1.desc,Tüccar rolüyle komşu pazarda köy adına pazarlık yapar.,As trader she haggles at a neighbor market for the village.
+mission.role.tuccar.2.name,%s: Kervan Anlaşması,%s: Caravan Deal
+mission.role.tuccar.2.desc,Kısa süreli ticaret kolaylığı için kervancılarla anlaşır.,She secures a short trade deal with passing caravans.
+mission.role.alim.1.name,%s: Kayıt Arşivi,%s: Record Archive
+mission.role.alim.1.desc,Alim olarak köy kayıtlarını düzenler; vergi ve stok defterlerini günceller.,As scholar she organizes village records and ledgers.
+mission.role.alim.2.name,%s: Vergi Reformu,%s: Tax Reform
+mission.role.alim.2.desc,Adil vergi önerisi hazırlar; istikrarı artırır.,She drafts fair tax rules to boost stability.
+mission.role.tibbiyeci.1.name,%s: Saha Kliniği,%s: Field Clinic
+mission.role.tibbiyeci.1.desc,Tibbiyeci olarak yaralı köylülere saha tedavisi uygular.,As medic she treats wounded villagers in the field.
+mission.role.tibbiyeci.2.name,%s: Salgın Önlemi,%s: Outbreak Prevention
+mission.role.tibbiyeci.2.desc,Hijyen ve ilaç stokunu düzenleyerek salgın riskini azaltır.,She reduces outbreak risk with hygiene and medicine stock.
+mission.story.1.name,%s: Geçmişin Gölgesi,%s: Shadow of the Past
+mission.story.1.desc,Zindandaki anılarını anlatır; köy onu dinler ve kayda geçirir.,She shares dungeon memories; the village listens and records them.
+mission.story.2.name,%s: Güven Bağı,%s: Bond of Trust
+mission.story.2.desc,Leverage ve deneyimle köyde güven kazanır; mentor ona danışır.,With leverage and experience she earns trust; the mentor consults her.
+mission.story.3.name,%s: Köyün Sesi,%s: Voice of the Village
+mission.story.3.desc,Artık köyün kalıcı sesi — moral ve itibar için sembol.,She becomes a lasting voice for morale and reputation.
+news.role_chain.start.title,%s için rol görevleri,%s — role missions unlocked
+news.role_chain.start.body,Yeni rol: %s. Görev Merkezi'nde imza görev zinciri açıldı.,New role: %s. A signature mission chain is in the Mission Center.
+news.role_chain.complete.title,Rol görevleri tamamlandı,Role missions complete
+news.role_chain.complete.body,Cariye rolünde ustalaştı; ek ödüller köye aktarıldı.,She mastered her role; bonus rewards reached the village.
+news.story_chain.start.title,%s'in hikâyesi,%s's story begins
+news.story_chain.start.body,Kişisel hikâye zinciri açıldı — leverage veya seviye ile sonraki adımlar açılır.,Personal story chain unlocked — later steps need leverage or level.
+news.story_chain.complete.title,Kişisel hikâye tamamlandı,Personal story complete
+news.story_chain.complete.body,Cariye köyün kalıcı sesi oldu; moral yükseldi.,She became a lasting voice; village morale rose.
 item.set.poison.name,Zehir Ustası,Poison Master
 item.set.guard.name,Demir Muhafız,Iron Guard
 item.set.aerial.name,Gök Vuruşu,Sky Strike
@@ -459,6 +499,47 @@ item.set.one_more,1 parça kaldı,1 piece left
 item.set.active_short,aktif,active
 tutorial.hint.first_trader,"Köye bir [color=#ffcc44]tüccar[/color] geldi!\nTüccarlarla kaynak alışverişi yapabilirsin.\nKöyün ihtiyaçlarına göre iyi fırsatları kaçırma — tüccarlar sonsuza kadar kalmaz.","A [color=#ffcc44]trader[/color] arrived in the village!\nYou can trade resources with merchants.\nDo not miss good deals — traders do not stay forever."
 tutorial.digest.prefix,Yokluğunda:,While you were away:
+mentor.death.return.dungeon,"[color=#ff8888]Zindanda düştün[/color], ama köylüler seni taşıdı.\nCanın [b]1[/b]'e indi; köyde yaklaşık [b]%.1f saat[/b] dinlenerek toparlanacaksın.\nBu sürede zindana gitme — önce iyileş.","You [color=#ff8888]fell in the dungeon[/color], but villagers carried you back.\nHealth dropped to [b]1[/b]; rest in the village for about [b]%.1f hours[/b] to recover.\nAvoid the dungeon until you're healed."
+mentor.death.return.expedition,"[color=#ff8888]Sefer yarıda kaldı[/color] — erzak ve yol seni yordu.\nKöye döndün; canın [b]1[/b], toparlanma yaklaşık [b]%.1f saat[/b] sürecek.\nHaritada tekrar yola çıkmadan önce dinlen.","[color=#ff8888]The expedition collapsed[/color] — supplies and the road wore you down.\nYou're back in the village at [b]1[/b] HP; recovery takes about [b]%.1f hours[/b].\nRest before heading out on the map again."
+mentor.death.return.forest,"[color=#ff8888]Ormanda ağır yaralandın[/color].\nKöylüler seni getirdi; canın [b]1[/b], dinlenme yaklaşık [b]%.1f saat[/b].\nKaynak toplamaya dönmeden önce iyileş.","[color=#ff8888]You were badly hurt in the forest[/color].\nVillagers brought you back at [b]1[/b] HP; rest about [b]%.1f hours[/b].\nHeal before gathering again."
+mentor.death.return.tutorial,"[color=#ff8888]Düştün[/color] — bu seferlik köy seni korudu.\nCanın [b]1[/b]; yaklaşık [b]%.1f saat[/b] dinlen.","[color=#ff8888]You fell[/color] — the village protected you this time.\nHealth is [b]1[/b]; rest about [b]%.1f hours[/b]."
+mentor.death.return.combat,"[color=#ff8888]Savaşta yere serildin[/color].\nKöye taşındın; can [b]1[/b], toparlanma [b]%.1f saat[/b] sürebilir.","[color=#ff8888]You were knocked down in combat[/color].\nCarried to the village at [b]1[/b] HP; recovery may take [b]%.1f hours[/b]."
+mentor.death.return.generic,"[color=#ff8888]Ölümün eşiğinden döndün[/color].\nCanın [b]1[/b]; köyde yaklaşık [b]%.1f saat[/b] dinlenerek toparlanırsın.","[color=#ff8888]You returned from death's edge[/color].\nHealth is [b]1[/b]; rest in the village for about [b]%.1f hours[/b]."
+mentor.death.debuff.rib,"[color=#ffaa66]Kırık kaburga[/color] — maksimum canın geçici olarak düştü.\nSağlık çubuğundaki debuff süresini takip et; iyileşene kadar agresif savaştan kaçın.","[color=#ffaa66]Broken rib[/color] — max health is temporarily reduced.\nWatch the debuff timer on your health bar; avoid aggressive fights until it clears."
+mentor.death.debuff.back,"[color=#ffaa66]Bel tutulması[/color] — ağır saldırıların kilitli.\nHafif combo ve savunmayla idare et; birkaç gün içinde geçer.","[color=#ffaa66]Back strain[/color] — heavy attacks are locked.\nUse light combos and defense; it clears in a few days."
+mentor.death.debuff.balance,"[color=#ffaa66]Denge kaybı[/color] — havadan saldırı yapamazsın.\nYere yakın dövüşe odaklan; debuff süresi dolunca normale dönersin.","[color=#ffaa66]Balance loss[/color] — aerial attacks are disabled.\nFight close to the ground; you'll return to normal when the debuff expires."
+mentor.death.debuff.generic,"[color=#ffaa66]Yaralanma[/color] geçici bir ceza bıraktı.\nSağlık panelindeki debuff'u kontrol et.","[color=#ffaa66]Injury[/color] left a temporary penalty.\nCheck the debuff on your health panel."
+mentor.death.healed,"[color=#88ff88]Ayağa kalktın![/color]\nCanın normale döndü — ama bir sonraki düşüşte yine aynı bedeli ödersin.\nZindana gitmeden önce kaynak ve moralini kontrol et.","[color=#88ff88]You're back on your feet![/color]\nHealth restored — but the next fall costs the same.\nCheck supplies and morale before the dungeon."
+mentor.festival.body,"Köyde [color=#ffdd66]festival[/color] var!\nMoral yükseldi, depolara biraz yiyecek eklendi.\nBu günleri iyi değerlendir — köylüler mutlu üretir.","A [color=#ffdd66]festival[/color] in the village!\nMorale rose and some food was added to stores.\nMake the most of these days — happy villagers produce more."
+village.event.festival.title,🎉 Köy Festivali,🎉 Village Festival
+village.event.festival.body,Köylüler bir araya geldi! Moral +%d; yiyecek +%d.,Villagers gathered! Morale +%d; food +%d.
+village.event.festival.gold_bonus,Komşular hediye olarak %d altın gönderdi.,Neighbors sent %d gold as a gift.
+ambient.conv.morning.a1,Bugün odun kesimi erken başlasın mı?,Should we start cutting wood early today?
+ambient.conv.morning.b1,Ben hazırım — fırın da ekmek istiyor.,I'm ready — the bakery wants bread too.
+ambient.conv.morning.a2,O zaman kamp ateşine uğrarız.,Then we'll stop by the campfire.
+ambient.conv.well.a1,Kuyruk uzamış yine.,The queue is long again.
+ambient.conv.well.b1,Sabah suyu en temiz olur.,Morning water is the cleanest.
+ambient.conv.morale_low.a1,Herkes somurtuyor...,Everyone's gloomy...
+ambient.conv.morale_low.b1,Biraz ekmek ve dinlenme lazım.,We need bread and rest.
+ambient.conv.morale_low.a2,Yarın daha iyi olur umarım.,Hopefully tomorrow is better.
+ambient.conv.morale_high.a1,Köy neşeli bugün!,The village is cheerful today!
+ambient.conv.morale_high.b1,İşler yolunda gidince herkes gülümsüyor.,When things go well everyone smiles.
+ambient.conv.trader.a1,Tüccarın getirdiği fiyatları duydun mu?,Did you hear the trader's prices?
+ambient.conv.trader.b1,Odun ucuzlamış — kaçırmayalım.,Wood got cheaper — let's not miss it.
+ambient.conv.trader.a2,Akşam pazara bakarız.,We'll check the market tonight.
+ambient.conv.night.b1,Yarın erken kalkacağım.,I'll wake up early tomorrow.
+ambient.conv.night.a1,Ben de — nöbet uzun sürdü.,Me too — the watch ran long.
+ambient.conv.bakery.a1,Fırından koku geliyor.,Smells like the bakery.
+ambient.conv.bakery.b1,Keşke bir somun alsak...,Wish we could grab a loaf...
+ambient.conv.defense.a1,Saldırı haberi doğru mu?,Is the attack rumor true?
+ambient.conv.defense.b1,Askerler hazırlanıyor — endişelenme.,Soldiers are preparing — don't worry.
+ambient.conv.festival.a1,Geçen festivali hatırlıyor musun?,Remember the last festival?
+ambient.conv.festival.b1,Herkes dans etmişti!,Everyone was dancing!
+ambient.conv.guests.a1,Misafirler barınak bekliyor.,Guests are waiting for shelter.
+ambient.conv.guests.b1,Bir ev daha inşa etsek iyi olur.,We should build another house.
+demo.teaser.title,Demo Sınırı,Demo Limit
+demo.teaser.body,Bu demo %d oyun günü ile sınırlıdır. Tam sürümde mevsimler harita ve daha derin köy hikâyesi açılır.,This demo is limited to %d game days. The full release unlocks seasons the map and deeper village stories.
+demo.teaser.mentor,[color=#c9b3ff]Demo süresi doldu[/color] — ama loop'u denedin!\nTam oyunda festival savunma fraksiyonlar ve cariye hikâyeleri devam eder.\nGeri bildirimini bizimle paylaş.,"[color=#c9b3ff]Demo time is up[/color] — but you tried the loop!\nThe full game continues with festivals defense factions and concubine stories.\nShare your feedback with us."
 tutorial.forest.complete,"Kaynaklar tamam! Portaldan haritaya dön, köy hex'ine git",Resources complete! Return through the portal to the map and go to the village hex
 tutorial.forest.need_food,Odun: %d/%d  Meyve: %d/%d — Meyve toplamaya devam et,Wood: %d/%d  Food: %d/%d — keep gathering food
 tutorial.forest.need_wood,Odun: %d/%d  Meyve: %d/%d — Odun kesmeye devam et,Wood: %d/%d  Food: %d/%d — keep chopping wood
@@ -695,6 +776,16 @@ news.purchase.title,Satın Alındı,Purchased
 news.purchase.body,%d %s satın alındı (%d altın)%s,Bought %d %s (%d gold)%s
 news.defense_required.title,Savunma Gerekli,Defense Required
 news.defense_required.body,%s saldırısına karşı köyü savun!,Defend the village against %s's attack!
+defense.alert.fight_button,Savaşa Katıl!,Fight!
+defense.alert.playable_hint,Saldırı başladı — «Savaşa Katıl» ile birliklerini yönet veya 90 dk içinde otomatik savunma uygulanır.,The attack has begun — press Fight! to command your troops or auto-defense runs within 90 min.
+defense.alert.auto_hint,Saldırı yaklaşıyor; kışladaki askerler ve muttefik desteği otomatik savunmayı etkiler.,An attack is approaching; barracks soldiers and allies affect auto-defense.
+defense.toast.playable.title,⚔ %s saldırıyor!,⚔ %s is attacking!
+defense.toast.playable.body,Üst banner'dan «Savaşa Katıl» ile savunmayı oynayabilirsin.,Use Fight! on the top banner to play the defense.
+defense.toast.no_soldiers.title,Asker yok,No soldiers
+defense.toast.no_soldiers.body,Kışlada atanmış asker olmadan savaş başlatılamaz.,Cannot start battle without soldiers assigned to the barracks.
+defense.battle.victory,Köy savunması kazanıldı!,Village defense won!
+defense.battle.defeat,Köy savunması kaybedildi...,Village defense lost...
+defense.battle.continue,Devam,Continue
 mission.dyn.loc.north,Kuzey,North
 mission.dyn.loc.south,Güney,South
 mission.dyn.loc.east,Doğu,East
@@ -980,3 +1071,93 @@ narrative.news.incident.bandit_road.title,Yol Haydutları,Road Bandits
 narrative.news.incident.bandit_road.body,%s ana yollarında haydut faaliyeti arttı. (~%d gün),Bandit activity has increased on roads near %s. (~%d days)
 narrative.news.incident.plague_scare.title,Hastalık Kaygısı,Disease Scare
 narrative.news.incident.plague_scare.body,%s civarında salgın dedikoduları düzeni sarsıyor. (~%d gün),Plague rumors near %s are shaking local order. (~%d days)
+narrative.news.settlement_incident.title,Yerleşim Krizi,Settlement Crisis
+narrative.news.settlement_incident.body,%s — %s bildirildi. (~%d gün),%s — %s reported. (~%d days)
+narrative.news.alliance_aid.title,Muttefik Yardım Çağrısı,Ally Aid Call
+narrative.news.alliance_aid.body,%s muttefik yardım talep ediyor.,%s requests aid.
+narrative.news.dynamic_mission.title,Yeni Görev Fırsatı,New Mission
+narrative.news.dynamic_mission.body,Görev panosuna yeni bir iş eklendi: %s.,A new task was added to the mission board: %s.
+narrative.news.procedural.title,Görev Fırsatı,Mission Opportunity
+narrative.news.procedural.body,Yeni bir görev fırsatı doğdu: %s.,A new mission opportunity appeared: %s.
+narrative.news.conflict_start.title,Çatışma Başladı,Conflict Started
+narrative.news.conflict_start.body,%s ile %s arasında %s başladı.,%s and %s — %s has begun.
+narrative.news.conflict_result.title,Çatışma Sonucu,Conflict Result
+narrative.news.conflict_result.body,%s — %s,%s — %s
+narrative.news.conflict_defend.title,Savunma Yardımı,Defense Aid
+narrative.news.conflict_defend.body,%s savunması için yardım gerekiyor.,Aid needed to defend %s.
+narrative.news.conflict_raid.title,Baskın Fırsatı,Raid Opportunity
+narrative.news.conflict_raid.body,%s hedefine baskın planlanabilir.,A raid against %s may be planned.
+narrative.news.world_event.title,Dünya Olayı,World Event
+narrative.news.world_event.body,Yeni bir dünya olayı: %s.,A new world event: %s.
+narrative.news.worldmap_trade.title,Harita Ticaret Emri,Map Trade Order
+narrative.news.worldmap_trade.body,%s ile ticaret görevi hazır.,Trade mission ready with %s.
+narrative.news.worldmap_diplomacy.title,Diplomasi Emri,Diplomacy Order
+narrative.news.worldmap_diplomacy.body,%s ile diplomasi görevi hazır.,Diplomacy mission ready with %s.
+narrative.news.worldmap_raid.title,Harita Baskını,Map Raid
+narrative.news.worldmap_raid.body,%s hedefine baskın görevi açıldı.,Raid mission opened against %s.
+narrative.news.defense_dict.title,Savunma Görevi,Defense Mission
+narrative.news.defense_dict.body,%s saldırısına karşı köy savunması planlandı.,Village defense planned against %s attack.
+narrative.news.bandit_clear.title,Haydut Temizliği,Bandit Cleanup
+narrative.news.bandit_clear.body,Yollarda haydut faaliyeti arttı.,Bandit activity on the roads has increased.
+narrative.news.plague_aid.title,Salgın Yardımı,Plague Relief
+narrative.news.plague_aid.body,Salgından etkilenen bölgelere yardım gerekiyor.,Aid needed for plague-stricken regions.
+narrative.news.escort.title,Kervan Koruma,Caravan Escort
+narrative.news.escort.body,Bir kervanın güvenli geçişi için destek isteniyor.,Support requested for a caravan's safe passage.
+narrative.news.special_elite.title,Elit Sözleşme,Elite Contract
+narrative.news.special_elite.body,Yüksek itibar sayesinde elit bir sözleşme geldi.,An elite contract arrived thanks to high reputation.
+narrative.news.special_emergency.title,Acil Müdahale,Emergency Response
+narrative.news.special_emergency.body,Dünya istikrarı için acil müdahale gerekiyor.,Emergency response needed for world stability.
+narrative.news.village_macro.title,Köy Bildirimi,Village Notice
+narrative.news.village_macro.body,%s,%s
+narrative.news.village_news.title,Köy Haberi,Village News
+narrative.news.village_news.body,%s,%s
+narrative.news.village_surface_traveler.title,Seyyah Ziyareti,Traveler Visit
+narrative.news.village_surface_traveler.body,Bir seyyah köyünüze uğradı. Not: %s.,A traveler visited your village. Note: %s.
+narrative.news.village_surface_resource_discovery.title,Kaynak Keşfi,Resource Discovery
+narrative.news.village_surface_resource_discovery.body,Köy yakınlarında yeni bir kaynak keşfedildi.,A new resource was discovered near the village.
+narrative.news.village_surface_windfall.title,Bolluk,Windfall
+narrative.news.village_surface_windfall.body,Köyde beklenmedik bir bolluk yaşandı.,An unexpected windfall in the village.
+narrative.news.village_surface_minor_accident.title,Küçük Kaza,Minor Accident
+narrative.news.village_surface_minor_accident.body,Köyde küçük bir kaza meydana geldi.,A minor accident occurred in the village.
+narrative.news.village_surface_immigration.title,Göç Dalgası,Immigration Wave
+narrative.news.village_surface_immigration.body,Köye yeni göçmenler geldi.,New immigrants arrived in the village.
+narrative.news.village_surface_immigration_failed.title,Göç Durduruldu,Immigration Halted
+narrative.news.village_surface_immigration_failed.body,Barınak yetersiz — göç dalgası durduruldu.,Insufficient housing — immigration wave halted.
+narrative.news.village_surface_trade_caravan_miss.title,Tüccar Gelmedi,Trader Missed
+narrative.news.village_surface_trade_caravan_miss.body,Beklenen tüccar köye ulaşamadı.,The expected trader did not reach the village.
+narrative.news.village_surface_cariye_shortage.title,Cariye İhtiyacı,Concubine Shortage
+narrative.news.village_surface_cariye_shortage.body,Haftalık cariye ihtiyacı karşılanamadı.,Weekly concubine requirement was not met.
+narrative.news.village_event_raid.title,Baskın Uyarısı,Raid Warning
+narrative.news.village_event_raid.body,%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!,%s attack expected in %d days! Prepare your soldiers!
+narrative.news.village_event_worker_strike.title,İşçi Grevi,Worker Strike
+narrative.news.village_event_worker_strike.body,%s üretimi durdu (%s).,%s production halted (%s).
+narrative.news.village_event_drought.title,Kuraklık,Drought
+narrative.news.village_event_drought.body,Köyde kuraklık etkisi başladı. Süre: %d gün.,Drought effects began in the village. Duration: %d days.
+narrative.news.village_event_famine.title,Kıtlık,Famine
+narrative.news.village_event_famine.body,Köyde kıtlık baskısı arttı. Süre: %d gün.,Famine pressure increased in the village. Duration: %d days.
+narrative.news.village_event_disease.title,Hastalık,Disease
+narrative.news.village_event_disease.body,Köyde hastalık yayılmaya başladı. Süre: %d gün.,Disease is spreading in the village. Duration: %d days.
+narrative.news.village_event_bandit_activity.title,Haydut Faaliyeti,Bandit Activity
+narrative.news.village_event_bandit_activity.body,Köy çevresinde haydut faaliyeti arttı.,Bandit activity increased around the village.
+narrative.mission.alliance_aid.mechanical_name,Muttefik Yardımı — %s,Ally Aid — %s
+narrative.mission.alliance_aid.mechanical_desc,%s muttefik yardım çağrısına yanıt ver.,Respond to ally aid call at %s.
+narrative.mission.bandit_clear.mechanical_name,Haydut Temizliği,Bandit Cleanup
+narrative.mission.bandit_clear.mechanical_desc,Yollardaki haydutları temizle.,Clear bandits from the roads.
+narrative.mission.plague_aid.mechanical_name,Salgın Yardımı,Plague Relief
+narrative.mission.plague_aid.mechanical_desc,Salgından etkilenen bölgelere yardım ulaştır.,Deliver aid to plague-stricken regions.
+narrative.mission.escort.mechanical_name,Kervan Koruma,Caravan Escort
+narrative.mission.escort.mechanical_desc,Kervanı güvenle hedefe ulaştır.,Escort the caravan safely to its destination.
+narrative.mission.conflict_defend.mechanical_name,Savunma: %s,Defense: %s
+narrative.mission.conflict_defend.mechanical_desc,%s savunmasına destek ol.,Support the defense of %s.
+narrative.mission.conflict_raid.mechanical_name,Baskın: %s,Raid: %s
+narrative.mission.conflict_raid.mechanical_desc,%s hedefine baskın düzenle.,Launch a raid against %s.
+narrative.mission.defense_dict.mechanical_name,Savunma: %s,Defense: %s
+narrative.mission.defense_dict.mechanical_desc,%s saldırısına karşı köyü savun.,Defend the village against %s attack.
+narrative.mission.worldmap_trade.mechanical_name,Ticaret: %s,Trade: %s
+narrative.mission.worldmap_trade.mechanical_desc,%s ile ticaret görevini tamamla.,Complete the trade mission with %s.
+narrative.mission.worldmap_diplomacy.mechanical_name,Diplomasi: %s,Diplomacy: %s
+narrative.mission.worldmap_diplomacy.mechanical_desc,%s ile diplomasi görevini tamamla.,Complete the diplomacy mission with %s.
+narrative.mission.worldmap_raid.mechanical_name,Baskın: %s,Raid: %s
+narrative.mission.worldmap_raid.mechanical_desc,%s hedefine baskın düzenle.,Launch a raid against %s.
+narrative.mission.incident_relief.mechanical_name,Yardım — %s,Relief — %s
+narrative.mission.incident_relief.mechanical_desc,%s köyündeki %s krizine destek gönder.,Send aid to %s facing a %s crisis.

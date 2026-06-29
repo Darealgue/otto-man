@@ -17,9 +17,13 @@ const MAX_SEGMENTS: int = 3
 ## Bu run'ın zindanı (dünya haritası hex veya köy portalı)
 var dungeon_id: String = ""
 ## Bu run'da dövülecek boss (BossRoomRegistry kimliği)
-var run_boss_id: String = "tepegoz"
+var run_boss_id: String = ""
+## Bu run'da aktif mastery relic kimliği (DungeonProgress)
+var run_active_relic_id: String = ""
 ## Bu zindanda önceki tamamlamalardan gelen sabit başlangıç zorluğu (kapılardan bağımsız)
 var run_base_difficulty: int = 0
+
+var _relic_hp_bonus_applied: float = 0.0
 
 ## Challenge birikimleri (bu run boyunca)
 var run_segment_count: int = 0                # Kaç segment oynandı
@@ -34,11 +38,15 @@ var active_segment_modifiers: Array[String] = []  # Seçilen kapının segment m
 var boss_skipped: bool = false                # Boss atlanarak stealth çıkış yapıldı
 var stealth_clear: bool = false               # Tüm run alarm olmadan tamamlandı (stealth çıkış)
 var stealth_exit_partial_gold_applied: int = 0  # Gizli çıkışta eklenen kısmi boss altını
+var collected_keys: Array[String] = []  # Run boyunca toplanan kapı anahtarları
 
 const STEALTH_EXIT_BOSS_GOLD_FRACTION: float = 0.25
+const DEFAULT_DUNGEON_KEY_ID: String = "dungeon_key"
 
 ## Run başlangıcı / reset
 func start_run_from_village() -> void:
+	_clear_relic_hp_bonus()
+	run_active_relic_id = ""
 	run_started = true
 	run_segment_count = 0
 	boss_skipped = false
@@ -46,6 +54,7 @@ func start_run_from_village() -> void:
 	stealth_exit_partial_gold_applied = 0
 	_reset_challenge_state()
 	clear_pending_rescued()
+	collected_keys.clear()
 	run_boss_id = _pick_run_boss_id()
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if is_instance_valid(dp):
@@ -54,6 +63,8 @@ func start_run_from_village() -> void:
 			run_base_difficulty = int(dp.call("get_clear_count", dungeon_id))
 		if dp.has_method("consume_stealth_skip_penalty"):
 			enemy_count_offset += int(dp.call("consume_stealth_skip_penalty", dungeon_id))
+		if dp.has_method("apply_run_start_bonuses"):
+			dp.call("apply_run_start_bonuses", self)
 	else:
 		dungeon_id = ""
 		run_base_difficulty = 0
@@ -62,20 +73,41 @@ func start_run_from_village() -> void:
 		stealth_mgr.call("reset_for_run")
 
 func end_run() -> void:
+	_clear_relic_hp_bonus()
 	run_started = false
 	run_segment_count = 0
 	run_base_difficulty = 0
+	run_active_relic_id = ""
 	dungeon_id = ""
-	run_boss_id = BossRoomRegistry.DEFAULT_BOSS_ID
+	run_boss_id = ""
 	boss_skipped = false
 	stealth_clear = false
 	stealth_exit_partial_gold_applied = 0
 	_reset_challenge_state()
 	clear_pending_rescued()
+	collected_keys.clear()
+
+
+func has_dungeon_key(key_id: String) -> bool:
+	if key_id.is_empty():
+		return true
+	return collected_keys.has(key_id)
+
+
+func add_dungeon_key(key_id: String) -> bool:
+	var id: String = key_id.strip_edges()
+	if id.is_empty():
+		return false
+	if collected_keys.has(id):
+		return false
+	collected_keys.append(id)
+	print("[DungeonRunState] Anahtar eklendi: %s (toplam %d)" % [id, collected_keys.size()])
+	return true
 
 
 func _pick_run_boss_id() -> String:
-	# MVP: her run Tepegöz. İleride dungeon_id / clear sayısına göre genişletilir.
+	if not BossRoomRegistry.is_enabled():
+		return ""
 	return BossRoomRegistry.DEFAULT_BOSS_ID
 
 func is_run_complete() -> bool:
@@ -166,6 +198,26 @@ func _reset_challenge_state() -> void:
 	dungeon_size_offset = 0
 	guaranteed_rescue_next = false
 	active_segment_modifiers.clear()
+
+
+func _apply_relic_max_hp_bonus(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	var ps: Node = get_node_or_null("/root/PlayerStats")
+	if ps and ps.has_method("add_stat_bonus"):
+		ps.call("add_stat_bonus", "max_health", amount)
+		_relic_hp_bonus_applied = amount
+		if ps.has_method("set_current_health") and ps.has_method("get_max_health"):
+			ps.call("set_current_health", ps.call("get_max_health"), false)
+
+
+func _clear_relic_hp_bonus() -> void:
+	if _relic_hp_bonus_applied <= 0.0:
+		return
+	var ps: Node = get_node_or_null("/root/PlayerStats")
+	if ps and ps.has_method("add_stat_bonus"):
+		ps.call("add_stat_bonus", "max_health", -_relic_hp_bonus_applied)
+	_relic_hp_bonus_applied = 0.0
 
 ## Kurtarma yardımcıları
 

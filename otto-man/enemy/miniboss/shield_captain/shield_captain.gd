@@ -79,6 +79,11 @@ func _ready() -> void:
 	change_behavior("idle")
 	guard_value = guard_max
 
+
+func uses_stealth_detection() -> bool:
+	return false
+
+
 func _process(_delta: float) -> void:
 	queue_redraw()
 

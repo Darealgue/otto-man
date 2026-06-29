@@ -1,6 +1,7 @@
 extends Node
 
 const HOUSE_SCENE_PATH := "res://village/buildings/House.tscn"
+const _BuildingUpgradeConfig = preload("res://village/scripts/BuildingUpgradeConfig.gd")
 const RESIDENTIAL_EXTENSION_NODE := "ResidentialHousingExtension"
 const RESIDENTIAL_MAX_FLOORS := 4
 const RESIDENTIAL_CAPACITY_PER_FLOOR := 2
@@ -24,22 +25,85 @@ const BUILDING_REQUIREMENTS = {
 	"res://village/buildings/Well.tscn": {"cost": {"gold": 10, "wood": 1, "stone": 1}},
 	"res://village/buildings/House.tscn": {"cost": {"gold": 12, "wood": 1, "stone": 0}},
 	# Katman 2 - İlk işleme
-	"res://village/buildings/Sawmill.tscn": {"cost": {"gold": 35, "wood": 2, "stone": 1}},
-	"res://village/buildings/Brickworks.tscn": {"cost": {"gold": 35, "wood": 1, "stone": 2}},
-	"res://village/buildings/Bakery.tscn": {"cost": {"gold": 45, "wood": 1, "stone": 1, "water": 1}},
+	"res://village/buildings/Sawmill.tscn": {
+		"cost": {"gold": 35, "wood": 2, "stone": 1},
+		"requires_building": {"res://village/buildings/WoodcutterCamp.tscn": 2},
+		"requires_level": {"wood": 2},
+	},
+	"res://village/buildings/Brickworks.tscn": {
+		"cost": {"gold": 35, "wood": 1, "stone": 2},
+		"requires_building": {"res://village/buildings/StoneMine.tscn": 2},
+		"requires_level": {"stone": 2},
+	},
+	"res://village/buildings/Bakery.tscn": {
+		"cost": {"gold": 45, "wood": 1, "stone": 1, "water": 1},
+		"requires_building": {
+			"res://village/buildings/HunterGathererHut.tscn": 2,
+			"res://village/buildings/Well.tscn": 2,
+		},
+		"requires_level": {"food": 2, "water": 2},
+	},
 	# Destek binası
-	"res://village/buildings/StorageBuilding.tscn": {"cost": {"gold": 80, "wood": 2, "stone": 1}},
+	"res://village/buildings/StorageBuilding.tscn": {
+		"cost": {"gold": 80, "wood": 2, "stone": 1},
+		"requires_building": {
+			"res://village/buildings/WoodcutterCamp.tscn": 2,
+			"res://village/buildings/StoneMine.tscn": 2,
+		},
+	},
 	# Katman 3-4 - Uzmanlaşma
-	"res://village/buildings/Weaver.tscn": {"cost": {"gold": 60, "lumber": 2, "brick": 1}},
-	"res://village/buildings/Tailor.tscn": {"cost": {"gold": 75, "lumber": 2, "brick": 2, "cloth": 1}},
-	"res://village/buildings/TeaHouse.tscn": {"cost": {"gold": 65, "lumber": 2, "brick": 1}},
-	"res://village/buildings/SoapMaker.tscn": {"cost": {"gold": 70, "lumber": 1, "brick": 2}},
-	"res://village/buildings/Blacksmith.tscn": {"cost": {"gold": 95, "lumber": 2, "brick": 2, "stone": 1}},
-	"res://village/buildings/Herbalist.tscn": {"cost": {"gold": 85, "lumber": 2, "brick": 2}},
+	"res://village/buildings/Weaver.tscn": {
+		"cost": {"gold": 60, "lumber": 2, "brick": 1},
+		"requires_building": {"res://village/buildings/Sawmill.tscn": 2},
+		"requires_level": {"lumber": 2},
+	},
+	"res://village/buildings/Tailor.tscn": {
+		"cost": {"gold": 75, "lumber": 2, "brick": 2, "cloth": 1},
+		"requires_building": {"res://village/buildings/Weaver.tscn": 2},
+		"requires_level": {"cloth": 2},
+	},
+	"res://village/buildings/TeaHouse.tscn": {
+		"cost": {"gold": 65, "lumber": 2, "brick": 1},
+		"requires_building": {"res://village/buildings/Bakery.tscn": 2},
+		"requires_level": {"bread": 2},
+	},
+	"res://village/buildings/SoapMaker.tscn": {
+		"cost": {"gold": 70, "lumber": 1, "brick": 2},
+		"requires_building": {"res://village/buildings/Brickworks.tscn": 2},
+		"requires_level": {"brick": 2},
+	},
+	"res://village/buildings/Blacksmith.tscn": {
+		"cost": {"gold": 95, "lumber": 2, "brick": 2, "stone": 1},
+		"requires_building": {
+			"res://village/buildings/Sawmill.tscn": 2,
+			"res://village/buildings/Brickworks.tscn": 2,
+		},
+		"requires_level": {"lumber": 2, "brick": 2},
+	},
+	"res://village/buildings/Herbalist.tscn": {
+		"cost": {"gold": 85, "lumber": 2, "brick": 2},
+		"requires_building": {
+			"res://village/buildings/HunterGathererHut.tscn": 2,
+			"res://village/buildings/Well.tscn": 2,
+		},
+		"requires_level": {"food": 3, "water": 3},
+	},
 	# Katman 5 - Geç oyun
-	"res://village/buildings/Gunsmith.tscn": {"cost": {"gold": 130, "lumber": 2, "brick": 2, "metal": 2}},
-	"res://village/buildings/Armorer.tscn": {"cost": {"gold": 125, "lumber": 2, "brick": 2, "metal": 2}},
-	"res://village/buildings/Barracks.tscn": {"cost": {"gold": 110, "lumber": 3, "brick": 2, "metal": 1}}
+	"res://village/buildings/Gunsmith.tscn": {
+		"cost": {"gold": 130, "lumber": 2, "brick": 2, "metal": 2},
+		"requires_building": {"res://village/buildings/Blacksmith.tscn": 2},
+		"requires_level": {"metal": 2},
+	},
+	"res://village/buildings/Armorer.tscn": {
+		"cost": {"gold": 125, "lumber": 2, "brick": 2, "metal": 2},
+		"requires_building": {"res://village/buildings/Blacksmith.tscn": 2},
+		"requires_level": {"metal": 3},
+	},
+	"res://village/buildings/Barracks.tscn": {
+		"cost": {"gold": 110, "lumber": 3, "brick": 2, "metal": 1},
+		"requires_building": {"res://village/buildings/Armorer.tscn": 2},
+		"requires_level": {"weapon": 2, "armor": 2},
+	},
 }
 
 # Test akışı: tüm binaların seviye kilitlerini yok say.
@@ -48,6 +112,8 @@ const UNLOCK_ALL_BUILDINGS_FOR_TESTING := false
 
 # --- VillageScene Referansı ---
 var village_scene_instance: Node2D = null
+## Köydeki aktif oyuncu (NPC diyalogunda UI kilidi için Worker.gd kullanır).
+var Village_Player: CharacterBody2D = null
 
 # Toplam işçi sayısı (Başlangıçta örnek bir değer)
 var total_workers: int = 0
@@ -244,9 +310,12 @@ var _last_village_event_check_day: int = 0  # Track last day we checked for even
 # Note: events_enabled, daily_event_chance, events_active, _event_cooldowns are already defined below
 
 var _skip_next_snapshot: bool = false
+var _last_festival_day: int = -9999
+var _npc_ambient_director: Node = null
 
 func _ready() -> void:
 	_ensure_guest_housing_day_listener()
+	_setup_npc_ambient_director()
 	# Connect to SceneManager for scene change tracking
 	if is_instance_valid(SceneManager) and not _scene_signal_connected:
 		SceneManager.scene_change_started.connect(Callable(self, "_on_scene_change_started"))
@@ -2303,8 +2372,12 @@ const EVENT_LEVEL_NAMES := {
 
 # === Storage (feature-flagged usage via economy) ===
 const STORAGE_PER_BASIC_BUILDING: int = 10
-#Player reference in village
-var Village_Player
+const VillageDefenseAlertScript := preload("res://ui/VillageDefenseAlert.gd")
+const VillageDefenseBattleRunnerScript := preload("res://village/scripts/VillageDefenseBattleRunner.gd")
+
+var _village_defense_alert: VillageDefenseAlert = null
+var _defense_battle_runner: VillageDefenseBattleRunner = null
+var _last_pending_attack_banner_count: int = 0
 
 func _connect_world_manager_signals() -> void:
 	"""WorldManager sinyallerini bağla (gecikmeli çağrı)"""
@@ -2334,6 +2407,15 @@ func _connect_world_manager_signals() -> void:
 				print("[VillageManager] ⚠️ battle_story_generated sinyali zaten bağlı")
 		else:
 			print("[VillageManager] ❌ battle_story_generated sinyali bulunamadı!")
+		if wm.has_signal("pending_attacks_changed"):
+			if not wm.pending_attacks_changed.is_connected(_on_pending_attacks_changed):
+				wm.pending_attacks_changed.connect(_on_pending_attacks_changed)
+		if wm.has_signal("defense_outcome_report"):
+			if not wm.defense_outcome_report.is_connected(_on_defense_outcome_report):
+				wm.defense_outcome_report.connect(_on_defense_outcome_report)
+		if wm.has_signal("playable_defense_required"):
+			if not wm.playable_defense_required.is_connected(_on_playable_defense_required):
+				wm.playable_defense_required.connect(_on_playable_defense_required)
 	else:
 		print("[VillageManager] ❌ WorldManager bulunamadı! Tekrar denenecek...")
 		# 1 saniye sonra tekrar dene
@@ -2349,6 +2431,7 @@ func _connect_world_manager_signals() -> void:
 
 func register_village_scene(scene: Node2D) -> void:
 	village_scene_instance = scene
+	_setup_village_defense_ui()
 	#print("VillageManager: VillageScene kaydedildi.")
 
 	# --- İşçi Yönetimi Kurulumu (Buraya Taşındı) ---
@@ -2486,7 +2569,7 @@ func register_village_scene(scene: Node2D) -> void:
 				worker_created_count += 1
 				continue
 			var saved_appearance: Dictionary = worker_entry.get("appearance", {}) if worker_entry.get("appearance", {}) is Dictionary else {}
-			if _add_new_worker(info_dict):
+			if _add_new_worker(info_dict, saved_appearance):
 				worker_created_count += 1
 				var desired_id: int = int(worker_entry.get("worker_id", -1))
 				var new_id: int = worker_id_counter
@@ -2539,9 +2622,6 @@ func register_village_scene(scene: Node2D) -> void:
 								print("[VillageManager] ⚠️ DEBUG: Housing node not found for key: %s" % saved_housing_key)
 				
 				max_worker_id = max(max_worker_id, new_id)
-				if not saved_appearance.is_empty():
-					var restored_worker: Node = _worker_node_from_all_workers_entry(new_id, all_workers.get(new_id, {}), false)
-					_apply_worker_appearance(restored_worker, saved_appearance)
 			else:
 				if DEBUG_VILLAGE_MANAGER:
 					print("[VillageManager] ⚠️ DEBUG: Failed to create worker with saved ID %d" % worker_id_from_entry)
@@ -2676,6 +2756,22 @@ func spend_resources(cost: Dictionary) -> bool:
 		resource_levels[key] = int(resource_levels.get(key, 0)) - need
 	emit_signal("village_data_changed")
 	return true
+
+## Görev ödül/ceza: stok artışı (+) veya düşüşü (-). Uygulanan miktarı döndürür.
+func apply_resource_delta(resource_type: String, delta: int) -> int:
+	if delta == 0:
+		return 0
+	var key: String = str(resource_type)
+	if delta > 0:
+		_deposit_basic_resource_with_overflow(key, delta)
+		emit_signal("village_data_changed")
+		return delta
+	var cur: int = int(resource_levels.get(key, 0))
+	var loss: int = mini(-delta, cur)
+	if loss > 0:
+		resource_levels[key] = cur - loss
+		emit_signal("village_data_changed")
+	return -loss
 
 func get_healer_concubine_treatment_cost() -> Dictionary:
 	return HEALER_CONCUBINE_TREATMENT_COST.duplicate(true)
@@ -2976,6 +3072,107 @@ func does_building_exist(building_scene_path: String) -> bool:
 func get_building_requirements(building_scene_path: String) -> Dictionary:
 	return BUILDING_REQUIREMENTS.get(building_scene_path, {})
 
+
+func get_building_level_for_scene(scene_path: String) -> int:
+	if scene_path.is_empty() or not is_instance_valid(village_scene_instance):
+		return 0
+	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed_buildings:
+		return 0
+	var best := 0
+	for building in placed_buildings.get_children():
+		if String(building.scene_file_path) != scene_path:
+			continue
+		var lvl := int(building.get("level")) if building.get("level") != null else 1
+		best = maxi(best, lvl)
+	return best
+
+
+func get_building_upgrade_cost(building: Node) -> Dictionary:
+	if not is_instance_valid(building):
+		return {}
+	var path := String(building.scene_file_path)
+	var lvl := int(building.get("level")) if building.get("level") != null else 1
+	return _BuildingUpgradeConfig.get_cost(path, lvl + 1)
+
+
+func can_pay_village_cost(cost: Dictionary) -> bool:
+	if cost.is_empty():
+		return false
+	if int(cost.get("gold", 0)) > GlobalPlayerData.gold:
+		return false
+	for key in cost.keys():
+		var key_str := String(key)
+		if key_str == "gold":
+			continue
+		if int(cost[key]) > int(resource_levels.get(key_str, 0)):
+			return false
+	return true
+
+
+func try_pay_village_cost(cost: Dictionary) -> bool:
+	if not can_pay_village_cost(cost):
+		return false
+	var gold_paid := int(cost.get("gold", 0))
+	if gold_paid > 0:
+		GlobalPlayerData.add_gold(-gold_paid)
+	for key in cost.keys():
+		var key_str := String(key)
+		if key_str == "gold":
+			continue
+		var amt := int(cost[key])
+		if amt > 0:
+			resource_levels[key_str] = int(resource_levels.get(key_str, 0)) - amt
+	emit_signal("village_data_changed")
+	return true
+
+
+func format_village_cost(cost: Dictionary) -> String:
+	if cost.is_empty():
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	var gold := int(cost.get("gold", 0))
+	if gold > 0:
+		parts.append("%d altın" % gold)
+	for key in cost.keys():
+		var key_str := String(key)
+		if key_str == "gold":
+			continue
+		var amt := int(cost[key])
+		if amt <= 0:
+			continue
+		var label := key_str
+		var lm := get_node_or_null("/root/LocaleManager")
+		if lm and lm.has_method("get_resource_name"):
+			label = String(lm.call("get_resource_name", key_str))
+		parts.append("%s ×%d" % [label, amt])
+	return ", ".join(parts)
+
+
+func get_building_display_name_for_scene(scene_path: String) -> String:
+	match scene_path:
+		"res://village/buildings/WoodcutterCamp.tscn": return "Odun Kampı"
+		"res://village/buildings/StoneMine.tscn": return "Taş Madeni"
+		"res://village/buildings/HunterGathererHut.tscn": return "Avcı Kulübesi"
+		"res://village/buildings/Well.tscn": return "Kuyu"
+		"res://village/buildings/Sawmill.tscn": return "Kerestehane"
+		"res://village/buildings/Brickworks.tscn": return "Tuğla Ocağı"
+		"res://village/buildings/Bakery.tscn": return "Fırın"
+		"res://village/buildings/Weaver.tscn": return "Dokuma Atölyesi"
+		"res://village/buildings/Tailor.tscn": return "Terzi"
+		"res://village/buildings/TeaHouse.tscn": return "Çay Evi"
+		"res://village/buildings/SoapMaker.tscn": return "Sabun Atölyesi"
+		"res://village/buildings/Blacksmith.tscn": return "Demirci"
+		"res://village/buildings/Herbalist.tscn": return "Otacı"
+		"res://village/buildings/Gunsmith.tscn": return "Silah Ustası"
+		"res://village/buildings/Armorer.tscn": return "Zırh Ustası"
+		"res://village/buildings/Barracks.tscn": return "Kışla"
+		"res://village/buildings/StorageBuilding.tscn": return "Depo"
+		"res://village/buildings/House.tscn": return "Ev"
+		_:
+			return scene_path.get_file().trim_suffix(".tscn")
+
+
 # Bina gereksinimlerinin karşılanıp karşılanmadığını kontrol eder (Altın, Kaynak ve Seviye)
 func can_meet_requirements(building_scene_path: String) -> bool:
 	var requirements = get_building_requirements(building_scene_path)
@@ -3006,6 +3203,11 @@ func can_meet_requirements(building_scene_path: String) -> bool:
 			var required_level = required_levels[resource_type]
 			var available_level = get_available_resource_level(resource_type)
 			if available_level < required_level:
+				return false
+		var required_buildings: Dictionary = requirements.get("requires_building", {})
+		for scene_path in required_buildings.keys():
+			var min_level: int = int(required_buildings[scene_path])
+			if get_building_level_for_scene(String(scene_path)) < min_level:
 				return false
 
 	return true
@@ -3571,7 +3773,12 @@ func on_village_scene_tree_exiting(scene: Node2D) -> void:
 	for entry in pending_constructions:
 		if entry is Dictionary:
 			(entry as Dictionary)["site_path"] = NodePath("")
+	if is_instance_valid(_village_defense_alert):
+		_village_defense_alert.queue_free()
+		_village_defense_alert = null
+	_last_pending_attack_banner_count = 0
 	village_scene_instance = null
+	Village_Player = null
 
 func _resync_pending_construction_sites_after_scene_load() -> void:
 	if pending_constructions.is_empty() or not is_instance_valid(village_scene_instance):
@@ -4571,6 +4778,9 @@ func _on_day_changed(new_day: int) -> void:
 		_check_and_trigger_village_event(new_day)
 
 func _daily_economy_tick(current_day: int) -> void:
+	var demo_cfg := get_node_or_null("/root/DemoPackConfig")
+	if demo_cfg and demo_cfg.has_method("on_village_day_tick"):
+		demo_cfg.call("on_village_day_tick", current_day)
 	# 1) Production
 	var produced: Dictionary = {}
 	var population := int(total_workers)
@@ -5368,6 +5578,8 @@ func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 					"level": event_level  # Seviyeyi sakla
 				}
 				wm.pending_attacks.append(pending_attack)
+				if wm.has_method("_emit_pending_attacks_changed"):
+					wm.call("_emit_pending_attacks_changed")
 				print("[EVENT DEBUG]   Raid: Saldırı zamanlaması WorldManager'a eklendi (Gün %d, Saat %.1f)" % [attack_day, attack_hour])
 			else:
 				print("[EVENT DEBUG]   Raid: WorldManager.pending_attacks bulunamadı!")
@@ -5531,6 +5743,14 @@ func _check_and_trigger_village_event(day: int) -> bool:
 					_trigger_village_event("trade_caravan", day)
 					return true
 	
+	# Düşük moralde köy festivali şansı (mevsim döngüsü olmadan moral desteği)
+	if village_morale < 45.0 and randf() < 0.22:
+		var fest_cd: int = int(_village_event_cooldowns.get("village_festival", 0))
+		if day >= fest_cd:
+			_trigger_village_event("village_festival", day)
+			_village_event_cooldowns["village_festival"] = day + 12
+			return true
+	
 	# Diğer eventler için normal şans kontrolü
 	if randf() > village_daily_event_chance:
 		return false
@@ -5540,6 +5760,7 @@ func _check_and_trigger_village_event(day: int) -> bool:
 		"trade_caravan",      # Ticaret kervanı - altın bonusu
 		"resource_discovery", # Kaynak keşfi - rastgele kaynak bonusu
 		"windfall",          # Bolluk - küçük kaynak bonusu
+		"village_festival",  # Köy festivali - moral + gıda
 		"traveler",          # Seyyah - yeni görev fırsatı (placeholder)
 		"minor_accident",    # Küçük kaza - küçük kaynak kaybı
 		"immigration_wave"   # Göç dalgası - bedava işçi ekler
@@ -5573,6 +5794,8 @@ func _check_and_trigger_village_event(day: int) -> bool:
 			cooldown_days = 8
 		"immigration_wave":
 			cooldown_days = 15  # Göç dalgası nadir olmalı
+		"village_festival":
+			cooldown_days = 12
 		_:
 			cooldown_days = 5
 	_village_event_cooldowns[selected_event] = day + cooldown_days
@@ -5668,20 +5891,63 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			)
 			print("[VillageManager] 🎉 Windfall event: +%d wood, +%d stone" % [bonus_wood, bonus_stone])
 		
+		"village_festival":
+			var morale_bonus: int = randi_range(6, 12)
+			village_morale = minf(100.0, village_morale + float(morale_bonus))
+			var food_bonus: int = randi_range(4, 10)
+			resource_levels["food"] = resource_levels.get("food", 0) + food_bonus
+			var bread_bonus: int = randi_range(1, 3)
+			if resource_levels.has("bread"):
+				resource_levels["bread"] = resource_levels.get("bread", 0) + bread_bonus
+			var gold_gift: int = 0
+			if gpd and randf() < 0.45:
+				gold_gift = randi_range(5, 18)
+				if gpd.has_method("add_gold"):
+					gpd.add_gold(gold_gift)
+				elif "gold" in gpd:
+					gpd.gold = int(gpd.gold) + gold_gift
+			var title := tr("village.event.festival.title")
+			var content: String = tr("village.event.festival.body") % [morale_bonus, food_bonus]
+			if gold_gift > 0:
+				content += " " + (tr("village.event.festival.gold_bonus") % gold_gift)
+			_enqueue_village_surface_news(
+				"village_surface_festival",
+				{"morale_bonus": morale_bonus, "food_bonus": food_bonus, "gold_gift": gold_gift},
+				title,
+				content,
+				"village",
+				Color(1.0, 0.92, 0.55),
+				"success"
+			)
+			var tm_fest := get_node_or_null("/root/TutorialManager")
+			if tm_fest and tm_fest.has_method("enqueue_message"):
+				tm_fest.enqueue_message(
+					"village_festival_%d" % day,
+					tr("mentor.festival.body"),
+					"celebration",
+					6
+				)
+			print("[VillageManager] 🎉 Village festival: +%d morale, +%d food" % [morale_bonus, food_bonus])
+			_last_festival_day = day
+		
 		"traveler":
-			# Seyyah - yeni görev fırsatı (placeholder, MissionManager'a entegre edilebilir)
+			var mission_name: String = "yeni bir görev"
+			if mm and mm.has_method("offer_traveler_mission"):
+				var traveler_mission = mm.offer_traveler_mission()
+				if traveler_mission:
+					mission_name = String(traveler_mission.name)
 			var title := "🧳 Seyyah Ziyareti"
-			var content := "Bir seyyah köyünüze uğradı ve size ilginç hikayeler anlattı."
+			var content := "Bir seyyah köyünüze uğradı. Görev merkezine bıraktığı not: %s." % mission_name
 			_enqueue_village_surface_news(
 				"village_surface_traveler",
-				{"event_type": "traveler"},
+				{"event_type": "traveler", "mission_name": mission_name},
 				title,
 				content,
 				"village",
 				Color.YELLOW,
 				"info"
 			)
-			print("[VillageManager] 🎉 Traveler event")
+			print("[VillageManager] 🎉 Traveler event — görev: %s" % mission_name)
 		
 		"minor_accident":
 			# Küçük kaza - küçük kaynak kaybı
@@ -6281,7 +6547,7 @@ func get_next_weekly_cariye_day() -> int:
 # Başarılı olursa true, barınak bulunamazsa veya hata olursa false döner.
 
 
-func _add_new_worker(NPC_Info = {}) -> bool: # <<< Dönüş tipi eklendi
+func _add_new_worker(NPC_Info = {}, saved_appearance: Dictionary = {}) -> bool:
 	if not worker_scene:
 		#printerr("VillageManager: Worker scene not loaded!")
 		return false
@@ -6289,14 +6555,17 @@ func _add_new_worker(NPC_Info = {}) -> bool: # <<< Dönüş tipi eklendi
 	var worker_instance = worker_scene.instantiate()
 	worker_id_counter += 1
 	worker_instance.worker_id = worker_id_counter
-	worker_instance.name = "Worker" + str(worker_id_counter) 
+	worker_instance.name = "Worker" + str(worker_id_counter)
 	
-	# <<< YENİ: Rastgele Görünüm Ata >>>
-	if worker_instance.has_method("update_visuals"): # Önce metodun varlığını kontrol et (güvenlik)
-		worker_instance.appearance = AppearanceDB.generate_random_appearance()
-	#else:
-		#printerr("VillageManager: Worker instance does not have 'update_visuals' method!")
-	# <<< YENİ SONU >>>
+	var npc_dict: Dictionary = NPC_Info if NPC_Info is Dictionary else {}
+	# Kayıtlı köylü: kimlik ve görünüm _ready'den önce — rastgele isim/görünüm üretimini önler.
+	if not npc_dict.is_empty():
+		worker_instance.NPC_Info = npc_dict.duplicate(true)
+	if not saved_appearance.is_empty():
+		_apply_worker_appearance(worker_instance, saved_appearance)
+	elif npc_dict.is_empty():
+		if worker_instance.has_method("update_visuals"):
+			worker_instance.appearance = AppearanceDB.generate_random_appearance()
 
 	# <<< GÜNCELLENDİ: Önce WorkersContainer'a ekle, sonra barınak ataması yap >>>
 	# Worker'ı önce WorkersContainer'a ekle (housing atamasından önce)
@@ -6316,7 +6585,9 @@ func _add_new_worker(NPC_Info = {}) -> bool: # <<< Dönüş tipi eklendi
 		return false # Başarısız
 
 	# Barınak bulunduysa initialize et ve listeye ekle
-	worker_instance.Initialize_Existing_Villager(NPC_Info)
+	worker_instance.Initialize_Existing_Villager(npc_dict)
+	if not saved_appearance.is_empty() and worker_instance.has_method("update_visuals"):
+		worker_instance.update_visuals()
 		
 	# Yeni işçiyi listeye ekle (Sadece sahneye eklendiyse)
 	var worker_data = {
@@ -6969,6 +7240,128 @@ func _on_defense_battle_completed(victor: String, losses: int) -> void:
 	if barracks and barracks.has_method("recall_soldiers"):
 		barracks.recall_soldiers()
 
+
+func _setup_village_defense_ui() -> void:
+	if village_scene_instance == null:
+		return
+	if is_instance_valid(_village_defense_alert):
+		_village_defense_alert.queue_free()
+		_village_defense_alert = null
+	_village_defense_alert = VillageDefenseAlertScript.new()
+	_village_defense_alert.name = "VillageDefenseAlert"
+	village_scene_instance.add_child(_village_defense_alert)
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm and wm.has_method("get_pending_attacks_ui_summaries"):
+		call_deferred("_on_pending_attacks_changed")
+
+
+func _on_pending_attacks_changed() -> void:
+	if is_instance_valid(_village_defense_alert):
+		_village_defense_alert.refresh()
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or not wm.has_method("get_pending_attacks_ui_summaries"):
+		return
+	var summaries: Array = wm.call("get_pending_attacks_ui_summaries")
+	if summaries.size() <= _last_pending_attack_banner_count or summaries.is_empty() or village_scene_instance == null:
+		_last_pending_attack_banner_count = summaries.size()
+		return
+	var urgent: Dictionary = summaries[0]
+	var toast: Node = village_scene_instance.get_node_or_null("TimeSkipNotification")
+	if toast and toast.has_method("show_simple_toast"):
+		toast.show_simple_toast(
+			"⚔ Saldırı uyarısı: %s" % String(urgent.get("attacker", "?")),
+			"~%s içinde · tahmini başarı %%%d" % [
+				String(urgent.get("hours_left_text", "?")),
+				int(round(float(urgent.get("win_chance", 0.5)) * 100.0)),
+			]
+		)
+	_last_pending_attack_banner_count = summaries.size()
+
+
+func _on_playable_defense_required(context: Dictionary) -> void:
+	if village_scene_instance == null:
+		return
+	var toast: Node = village_scene_instance.get_node_or_null("TimeSkipNotification")
+	var attacker: String = String(context.get("attacker", "?"))
+	if toast and toast.has_method("show_simple_toast"):
+		toast.show_simple_toast(
+			tr("defense.toast.playable.title") % attacker,
+			tr("defense.toast.playable.body")
+		)
+	if is_instance_valid(_village_defense_alert):
+		_village_defense_alert.refresh()
+
+
+func try_start_playable_village_defense() -> void:
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or village_scene_instance == null:
+		return
+	if wm.has_method("can_start_playable_defense") and not bool(wm.call("can_start_playable_defense")):
+		return
+	if is_instance_valid(_defense_battle_runner):
+		return
+	var context: Dictionary = wm.call("get_first_playable_defense_context") if wm.has_method("get_first_playable_defense_context") else {}
+	if context.is_empty():
+		return
+	if int(context.get("soldier_count", 0)) <= 0:
+		var toast: Node = village_scene_instance.get_node_or_null("TimeSkipNotification")
+		if toast and toast.has_method("show_simple_toast"):
+			toast.show_simple_toast(tr("defense.toast.no_soldiers.title"), tr("defense.toast.no_soldiers.body"))
+		return
+	if wm.has_method("mark_playable_defense_battle_started"):
+		wm.call("mark_playable_defense_battle_started")
+	_defense_battle_runner = VillageDefenseBattleRunnerScript.new()
+	_defense_battle_runner.name = "VillageDefenseBattleRunner"
+	get_tree().root.add_child(_defense_battle_runner)
+	_defense_battle_runner.battle_finished.connect(_on_playable_defense_battle_finished)
+	_defense_battle_runner.start_from_context(context)
+
+
+func _on_playable_defense_battle_finished(outcome: Dictionary) -> void:
+	_defense_battle_runner = null
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm and wm.has_method("finish_playable_defense_battle"):
+		wm.call("finish_playable_defense_battle", outcome)
+
+
+func _on_defense_outcome_report(report: Dictionary) -> void:
+	if village_scene_instance == null:
+		return
+	var attacker: String = String(report.get("attacker", "?"))
+	var victor: String = String(report.get("victor", "defender"))
+	var defender_losses: int = int(report.get("defender_losses", 0))
+	var gold_loss: int = int(report.get("gold_loss", 0))
+	var morale_delta: int = int(report.get("morale_delta", 0))
+	var won: bool = victor == "defender"
+	var title: String = "✅ Savunma Başarılı" if won else "❌ Savunma Başarısız"
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("%s saldırısı sonuçlandı." % attacker)
+	lines.append("")
+	lines.append("Kayıp asker: %d" % defender_losses)
+	if won:
+		if morale_delta > 0:
+			lines.append("Moral: +%d" % morale_delta)
+		lines.append("Köy hasar görmedi.")
+	else:
+		if gold_loss > 0:
+			lines.append("Kayıp altın: %d" % gold_loss)
+		if morale_delta < 0:
+			lines.append("Moral: %d" % morale_delta)
+	if bool(report.get("alliance_defender", false)):
+		lines.append("Muttefik desteği devreye girdi.")
+	var dlg := AcceptDialog.new()
+	dlg.title = title
+	dlg.dialog_text = "\n".join(lines)
+	dlg.ok_button_text = "Tamam"
+	dlg.process_mode = Node.PROCESS_MODE_ALWAYS
+	village_scene_instance.add_child(dlg)
+	dlg.popup_centered()
+	dlg.confirmed.connect(dlg.queue_free)
+	dlg.canceled.connect(dlg.queue_free)
+	var toast: Node = village_scene_instance.get_node_or_null("TimeSkipNotification")
+	if toast and toast.has_method("show_simple_toast"):
+		toast.show_simple_toast(title, lines[0])
+
 func _on_battle_story_generated(story: String, battle_data: Dictionary) -> void:
 	"""Handle generated battle story from WorldManager"""
 	print("[VillageManager] Battle story generated:")
@@ -7137,6 +7530,7 @@ func reset_saved_state_for_new_game() -> void:
 	_event_cooldowns.clear()
 	_village_event_cooldowns.clear()
 	_last_village_event_check_day = 0
+	_last_festival_day = -9999
 	_reset_worker_runtime_data()
 	cariyeler.clear()
 	gorevler.clear()
@@ -7317,3 +7711,35 @@ func _hide_all_npc_names() -> void:
 				var name_plate_container = child.get_node_or_null("NamePlateContainer")
 				if name_plate_container:
 					name_plate_container.visible = false
+
+
+func _setup_npc_ambient_director() -> void:
+	if is_instance_valid(_npc_ambient_director):
+		return
+	var director_script: Script = load("res://village/scripts/VillageNpcAmbientDirector.gd")
+	if director_script == null:
+		return
+	_npc_ambient_director = Node.new()
+	_npc_ambient_director.name = "NpcAmbientDirector"
+	_npc_ambient_director.set_script(director_script)
+	add_child(_npc_ambient_director)
+
+
+func get_pending_attack_count() -> int:
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or not ("pending_attacks" in wm):
+		return 0
+	var pending: Variant = wm.get("pending_attacks")
+	if pending is Array:
+		return (pending as Array).size()
+	return 0
+
+
+func was_village_festival_recent(within_days: int = 3) -> bool:
+	if _last_festival_day < 0:
+		return false
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("get_current_day_count"):
+		return false
+	var day: int = int(tm.call("get_current_day_count"))
+	return day - _last_festival_day <= within_days

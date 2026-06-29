@@ -121,6 +121,7 @@ func _ready() -> void:
 	# Tutorial 2: köy tutorialı başlat
 	call_deferred("_check_village_tutorial_start")
 	call_deferred("_sync_tutorial_village_ui_gates")
+	call_deferred("_maybe_enqueue_death_mentor_brief")
 # --- UI Açma / Kapatma Fonksiyonları ---
 
 func Load_Existing_Villagers():
@@ -360,6 +361,17 @@ func _mentor_digest_on_return(payload: Dictionary, summary_lines: Array[String])
 		"digest",
 		8
 	)
+
+
+func _maybe_enqueue_death_mentor_brief() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.has_method("try_enqueue_death_return_brief"):
+		return
+	var sm := get_node_or_null("/root/SceneManager")
+	var payload: Dictionary = sm.get_current_payload() if sm else {}
+	tm.try_enqueue_death_return_brief(payload)
+	if tm.has_method("try_deliver_healed_mentor_brief"):
+		tm.try_deliver_healed_mentor_brief()
 
 
 func _apply_dungeon_rescued() -> void:

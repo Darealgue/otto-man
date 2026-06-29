@@ -838,7 +838,7 @@ func handle_list_event_types_command() -> void:
 	print_output("trade_caravan - Altın kazancı")
 	print_output("resource_discovery - Rastgele kaynak bonusu")
 	print_output("windfall - Odun ve taş bonusu")
-	print_output("traveler - Seyyah ziyareti (placeholder)")
+	print_output("traveler - Seyyah ziyareti (dinamik görev teklifi)")
 	print_output("minor_accident - Küçük kaynak kaybı")
 	print_output("immigration_wave - Bedava işçi ekler")
 
@@ -882,7 +882,7 @@ func handle_event_info_command(args: Array) -> void:
 		"trade_caravan": "Ticaret Kervanı - 20-80 altın kazancı.",
 		"resource_discovery": "Kaynak Keşfi - Rastgele temel kaynaktan 5-15 bonus.",
 		"windfall": "Bolluk - 2-5 odun ve 2-5 taş bonusu.",
-		"traveler": "Seyyah - Yeni görev fırsatı (placeholder).",
+		"traveler": "Seyyah - Görev merkezine dinamik görev bırakır.",
 		"minor_accident": "Küçük Kaza - Odun veya taştan 1-3 kayıp.",
 		"immigration_wave": "Göç Dalgası - 2-5 bedava işçi ekler."
 	}

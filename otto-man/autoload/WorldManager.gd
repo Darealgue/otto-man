@@ -9,6 +9,9 @@ signal relation_changed(faction_a: String, faction_b: String, new_score: int)
 signal war_state_changed(faction_a: String, faction_b: String, at_war: bool)
 signal defense_deployment_started(attack_day: int)  # Askerlerin savaşa gitmesi için sinyal
 signal defense_battle_completed(victor: String, losses: int)  # Savaş bitince askerlerin geri dönmesi için sinyal
+signal pending_attacks_changed()  # UI banner yenileme
+signal defense_outcome_report(report: Dictionary)  # Savunma sonucu özeti (dialog/toast)
+signal playable_defense_required(context: Dictionary)  # Köyde oynanabilir savunma hazır
 signal battle_story_generated(story: String, battle_data: Dictionary)  # Generated battle story
 signal world_map_updated
 signal world_map_tile_discovered(tile_key: String, tile_data: Dictionary)
@@ -24,8 +27,11 @@ var active_events: Array[Dictionary] = [] # { type:String, faction:String, magni
 # Zamanlanmış saldırılar (köye gelecek saldırılar için uyarı + zamanlama)
 var pending_attacks: Array[Dictionary] = [] # { attacker:String, warning_day:int, warning_hour:float, attack_day:int, attack_hour:float, deployed:bool }
 
+const PLAYABLE_DEFENSE_GRACE_MINUTES: int = 90
+var _playable_defense_battle_active: bool = false
+
 # --- Hex World Map State (Vertical Slice) ---
-const WORLD_MAP_VERSION: int = 3
+const WORLD_MAP_VERSION: int = 4
 const DEFAULT_MAP_RADIUS: int = 40
 const STARTING_REVEAL_RADIUS: int = 3
 const PLAYER_STEP_REVEAL_RADIUS: int = 1
@@ -35,6 +41,7 @@ const TUTORIAL_DUNGEON_MIN_DIST: int = 4
 const TUTORIAL_DUNGEON_MAX_DIST: int = 8
 const TARGET_BRIDGE_COUNT: int = 10
 const BASE_TRAVEL_MINUTES_PER_COST: float = 18.0
+const WORLD_EXPEDITION_COLLAPSE_MORALE_PENALTY: float = 8.0
 const MAX_ACTIVE_SETTLEMENT_INCIDENTS: int = 3
 const MAX_INCIDENTS_PER_SETTLEMENT: int = 1
 # Concubine role/skill IDs (Concubine.gd enums)
@@ -73,6 +80,8 @@ var world_settlement_migrations: Array[Dictionary] = []
 var world_settlement_diplomacy: Dictionary = {}
 # Player <-> settlement alliances: settlement_id -> { established_day, last_aid_call_day, aid_call_active, aid_call_started_day }
 var world_player_alliances: Dictionary = {}
+# Geçiş hakları: settlement_id -> son geçerli gün (dünya haritası seyahat maliyeti indirimi)
+var _passage_rights: Dictionary = {}
 
 # --- Internal ---
 var _last_tick_day: int = 0
@@ -120,7 +129,9 @@ func reset_world_map_state() -> void:
 	world_settlement_migrations.clear()
 	world_settlement_diplomacy.clear()
 	world_player_alliances.clear()
+	_passage_rights.clear()
 	pending_attacks.clear()
+	_playable_defense_battle_active = false
 	_clear_travel_session_state()
 	world_map_updated.emit()
 
@@ -194,6 +205,79 @@ func sync_player_world_map_pos_to_own_village(emit_update: bool = true) -> bool:
 	var tr: int = int(target_pos.get("r", 0))
 	return move_player_on_world_map(tq, tr, STARTING_REVEAL_RADIUS, emit_update)
 
+
+## Oyuncunun bulundugu hex'ten koye donus suresi (dakika).
+func compute_return_to_village_travel_minutes() -> int:
+	var village_pos: Dictionary = _get_player_village_position()
+	if village_pos.is_empty():
+		return 60
+	var pq: int = int(world_map_player_pos.get("q", 0))
+	var pr: int = int(world_map_player_pos.get("r", 0))
+	var vq: int = int(village_pos.get("q", 0))
+	var vr: int = int(village_pos.get("r", 0))
+	if pq == vq and pr == vr:
+		return 0
+	var path_res: Dictionary = find_world_map_path(pq, pr, vq, vr, "shortest")
+	if bool(path_res.get("ok", false)):
+		return maxi(1, int(path_res.get("minutes", 1)))
+	var hex_d: int = _hex_distance(pq, pr, vq, vr)
+	return maxi(1, int(ceili(float(hex_d) * PLAYER_MAP_TRAVEL_MINUTES_PER_HEX_REF)))
+
+
+func _apply_world_map_expedition_death_penalties() -> void:
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	if is_instance_valid(vm) and "village_morale" in vm:
+		var before: float = float(vm.get("village_morale"))
+		vm.set("village_morale", maxf(0.0, before - WORLD_EXPEDITION_COLLAPSE_MORALE_PENALTY))
+	var ps: Node = get_node_or_null("/root/PlayerStats")
+	if is_instance_valid(ps):
+		if ps.has_method("reset_world_expedition_supplies"):
+			ps.call("reset_world_expedition_supplies")
+		if ps.has_method("clear_carried_resources"):
+			ps.call("clear_carried_resources")
+		if ps.has_method("mark_death_injury"):
+			ps.call("mark_death_injury")
+	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+	if is_instance_valid(gpd) and gpd.has_method("clear_dungeon_gold"):
+		gpd.call("clear_dungeon_gold")
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("end_run"):
+		drs.call("end_run")
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("clear_all_items"):
+		im.call("clear_all_items")
+	var pum: Node = get_node_or_null("/root/PowerupManager")
+	if is_instance_valid(pum) and pum.has_method("clear_all_powerups"):
+		pum.call("clear_all_powerups")
+	if is_instance_valid(pum) and "enemy_kill_count" in pum:
+		pum.set("enemy_kill_count", 0)
+
+
+func handle_world_expedition_collapse(cause: String = "supplies") -> Dictionary:
+	_clear_travel_session_state()
+	var return_minutes: int = compute_return_to_village_travel_minutes()
+	sync_player_world_map_pos_to_own_village(true)
+	_apply_world_map_expedition_death_penalties()
+	world_map_updated.emit()
+	return {
+		"cause": cause,
+		"return_minutes": return_minutes,
+		"return_hours": float(return_minutes) / 60.0,
+	}
+
+
+func _check_ration_collapse(ration: Dictionary) -> Dictionary:
+	if not bool(ration.get("collapsed", false)):
+		return {}
+	if _travel_session_minutes_accum > 0:
+		var tm_step: Node = get_node_or_null("/root/TimeManager")
+		if tm_step and tm_step.has_method("advance_minutes"):
+			tm_step.call("advance_minutes", _travel_session_minutes_accum)
+		_travel_session_minutes_accum = 0
+	var cause: String = String(ration.get("collapse_cause", "supplies"))
+	var collapse: Dictionary = handle_world_expedition_collapse(cause)
+	return {"ok": true, "collapsed": true, "collapse": collapse, "done": true}
+
 func find_world_map_path(start_q: int, start_r: int, target_q: int, target_r: int, route_mode: String = "shortest") -> Dictionary:
 	var start_key: String = _hex_key(start_q, start_r)
 	var target_key: String = _hex_key(target_q, target_r)
@@ -264,7 +348,22 @@ func travel_player_to_world_hex(target_q: int, target_r: int, route_mode: String
 		total_minutes_advanced += max(1, step_minutes)
 		var ps_tr: Node = get_node_or_null("/root/PlayerStats")
 		if ps_tr and ps_tr.has_method("apply_world_travel_ration_cost"):
-			ps_tr.call("apply_world_travel_ration_cost", max(1, step_minutes))
+			var ration: Dictionary = ps_tr.call("apply_world_travel_ration_cost", max(1, step_minutes))
+			if bool(ration.get("collapsed", false)):
+				if total_minutes_advanced > 0:
+					var tm_col: Node = get_node_or_null("/root/TimeManager")
+					if tm_col and tm_col.has_method("advance_minutes"):
+						tm_col.call("advance_minutes", total_minutes_advanced)
+				var collapse: Dictionary = handle_world_expedition_collapse(String(ration.get("collapse_cause", "supplies")))
+				world_map_updated.emit()
+				return {
+					"ok": true,
+					"collapsed": true,
+					"collapse": collapse,
+					"path": path,
+					"total_cost": result.get("total_cost", 0.0),
+					"minutes": total_minutes_advanced,
+				}
 		_try_hydrate_player_on_akarsu_tile(tile)
 		if _should_trigger_world_travel_event(tile, rng):
 			if total_minutes_advanced > 0:
@@ -339,7 +438,10 @@ func advance_world_travel_step() -> Dictionary:
 	_travel_session_minutes_accum += max(1, step_minutes)
 	var ps_step: Node = get_node_or_null("/root/PlayerStats")
 	if ps_step and ps_step.has_method("apply_world_travel_ration_cost"):
-		ps_step.call("apply_world_travel_ration_cost", max(1, step_minutes))
+		var ration: Dictionary = ps_step.call("apply_world_travel_ration_cost", max(1, step_minutes))
+		var collapse_result: Dictionary = _check_ration_collapse(ration)
+		if not collapse_result.is_empty():
+			return collapse_result
 	_try_hydrate_player_on_akarsu_tile(tile)
 	_travel_session_next_index += 1
 	if _should_trigger_world_travel_event(tile, _travel_session_rng):
@@ -389,6 +491,7 @@ func get_world_map_state() -> Dictionary:
 		"settlement_migrations": world_settlement_migrations.duplicate(true),
 		"settlement_diplomacy": world_settlement_diplomacy.duplicate(true),
 		"player_alliances": world_player_alliances.duplicate(true),
+		"passage_rights": _passage_rights.duplicate(true),
 		"pending_attacks": _serialize_pending_attacks()
 	}
 
@@ -424,11 +527,13 @@ func set_world_map_state(state: Dictionary) -> void:
 			world_settlement_migrations.append(migration.duplicate(true))
 	world_settlement_diplomacy = state.get("settlement_diplomacy", {}).duplicate(true)
 	world_player_alliances = state.get("player_alliances", {}).duplicate(true)
+	_passage_rights = state.get("passage_rights", {}).duplicate(true)
 	_deserialize_pending_attacks(state.get("pending_attacks", []))
 	if world_map_tiles.is_empty():
 		start_new_world_map()
 		return
 	_upgrade_world_map_state_if_needed(state)
+	_ensure_map_content_extensions()
 	_initialize_world_settlement_states()
 	_refresh_visible_tiles()
 	var mm_map: Node = get_node_or_null("/root/MissionManager")
@@ -493,12 +598,15 @@ func _generate_hex_tiles() -> void:
 				"poi_type": "",
 				"travel_feature": "",
 				"settlement_id": "",
-				"settlement_name": ""
+				"settlement_name": "",
+				"settlement_faction": "",
+				"landmark_claimed": false
 			}
 			world_map_tiles[_hex_key(q, r)] = tile
 	_generate_rivers_and_bridges(rng)
 	_place_player_village_on_coast(rng)
 	_place_dungeons_on_map(rng)
+	_place_landmarks_on_map(rng)
 
 func _pick_terrain(q: int, r: int, rng: RandomNumberGenerator) -> String:
 	var dist_norm: float = float(_hex_distance(0, 0, q, r)) / float(max(1, world_map_radius))
@@ -565,6 +673,7 @@ func _place_settlements_on_map() -> void:
 		land_candidates.remove_at(idx)
 		var s_id: String = String(settlement.get("id", ""))
 		var s_name: String = String(settlement.get("name", "Bilinmeyen"))
+		var faction_id: String = WorldFactionProfiles.pick_faction_for_index(world_map_settlement_positions.size())
 		var q: int = int(selected.get("q", 0))
 		var r: int = int(selected.get("r", 0))
 		var key := _hex_key(q, r)
@@ -573,12 +682,14 @@ func _place_settlements_on_map() -> void:
 			world_map_tiles[key]["poi_type"] = "neighbor_village"
 			world_map_tiles[key]["settlement_id"] = s_id
 			world_map_tiles[key]["settlement_name"] = s_name
+			world_map_tiles[key]["settlement_faction"] = faction_id
 		world_map_settlement_positions[s_id] = {
 			"id": s_id,
 			"name": s_name,
 			"q": q,
 			"r": r,
-			"discovered": false
+			"discovered": false,
+			"faction": faction_id
 		}
 
 func _initialize_world_settlement_states() -> void:
@@ -662,6 +773,9 @@ func _reveal_tiles(center: Dictionary, radius: int, persistent: bool) -> Array:
 				tile["discovered"] = true
 				discovered_now.append(key)
 				world_map_tile_discovered.emit(key, tile.duplicate(true))
+				var poi_disc: String = String(tile.get("poi_type", ""))
+				if poi_disc.begins_with("landmark_"):
+					_notify_landmark_discovered(tile)
 			world_map_tiles[key] = tile
 			_mark_settlement_discovered_if_present(tile)
 	return discovered_now
@@ -744,6 +858,40 @@ func _is_passable_world_tile(tile: Dictionary) -> bool:
 	var terrain: String = String(tile.get("terrain_type", "ova"))
 	return terrain != "deniz"
 
+
+func grant_passage_rights(target: String, duration_days: int = 7) -> bool:
+	var sid: String = _find_settlement_id_for_diplomacy_target(target)
+	if sid.is_empty():
+		return false
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var day: int = int(tm.call("get_current_day_count")) if tm and tm.has_method("get_current_day_count") else 0
+	_passage_rights[sid] = day + maxi(1, duration_days)
+	return true
+
+
+func has_passage_rights(settlement_id: String) -> bool:
+	if settlement_id.is_empty() or not _passage_rights.has(settlement_id):
+		return false
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var day: int = int(tm.call("get_current_day_count")) if tm and tm.has_method("get_current_day_count") else 0
+	return day <= int(_passage_rights.get(settlement_id, 0))
+
+
+func _find_settlement_id_for_diplomacy_target(target: String) -> String:
+	var label: String = target.strip_edges()
+	if label.is_empty():
+		return ""
+	if world_map_settlement_positions.has(label):
+		return label
+	for sid in world_map_settlement_positions.keys():
+		var info: Dictionary = world_map_settlement_positions[sid]
+		if String(info.get("name", "")) == label:
+			return String(sid)
+		if _get_settlement_display_name(String(sid)) == label:
+			return String(sid)
+	return ""
+
+
 func _get_world_tile_travel_cost(tile: Dictionary, route_mode: String) -> float:
 	var terrain: String = String(tile.get("terrain_type", "ova"))
 	var feature: String = String(tile.get("travel_feature", ""))
@@ -761,6 +909,9 @@ func _get_world_tile_travel_cost(tile: Dictionary, route_mode: String) -> float:
 			base_cost = 1.0
 	if feature == "kopru":
 		base_cost *= 0.6
+	var settlement_id: String = String(tile.get("settlement_id", ""))
+	if not settlement_id.is_empty() and has_passage_rights(settlement_id):
+		base_cost *= 0.72
 	if route_mode == "safest":
 		match terrain:
 			"orman":
@@ -1618,13 +1769,17 @@ func _lose_pending_rescued_by_fraction(drs: Node, fraction: float) -> Dictionary
 
 func _upgrade_world_map_state_if_needed(state: Dictionary) -> void:
 	var version: int = int(state.get("version", 1))
-	if version >= WORLD_MAP_VERSION:
-		return
 	for key in world_map_tiles.keys():
 		var tile: Dictionary = world_map_tiles[key]
 		if not tile.has("travel_feature"):
 			tile["travel_feature"] = ""
+		if not tile.has("settlement_faction"):
+			tile["settlement_faction"] = ""
+		if not tile.has("landmark_claimed"):
+			tile["landmark_claimed"] = false
 		world_map_tiles[key] = tile
+	if version >= WORLD_MAP_VERSION:
+		return
 
 func _sample_continent_noise(q: int, r: int) -> float:
 	var x := float(q)
@@ -1751,6 +1906,207 @@ func _place_dungeons_on_map(rng: RandomNumberGenerator) -> void:
 			world_map_tiles[key2]["poi_type"] = "dungeon"
 			world_map_tiles[key2]["dungeon_name"] = WorldDungeonNames.pick_dungeon_name(rng)
 			placed.append({"q": q2, "r": r2})
+
+
+func _place_landmarks_on_map(rng: RandomNumberGenerator) -> void:
+	var vq: int = int(world_map_player_pos.get("q", 0))
+	var vr: int = int(world_map_player_pos.get("r", 0))
+	var candidates: Array[Dictionary] = []
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if bool(tile.get("contains_village", false)):
+			continue
+		if not String(tile.get("poi_type", "")).is_empty():
+			continue
+		if String(tile.get("terrain_type", "ova")) == "deniz":
+			continue
+		var q: int = int(tile.get("q", 0))
+		var r: int = int(tile.get("r", 0))
+		if _hex_distance(vq, vr, q, r) < WorldLandmarkConfig.MIN_DIST_FROM_VILLAGE:
+			continue
+		candidates.append(tile)
+	var placed: Array[Dictionary] = []
+	var type_idx: int = 0
+	var limit: int = mini(WorldLandmarkConfig.TARGET_COUNT, candidates.size())
+	while placed.size() < limit and not candidates.is_empty():
+		var idx: int = rng.randi_range(0, candidates.size() - 1)
+		var selected: Dictionary = candidates[idx]
+		candidates.remove_at(idx)
+		var q2: int = int(selected.get("q", 0))
+		var r2: int = int(selected.get("r", 0))
+		var far_enough: bool = true
+		for prev in placed:
+			if _hex_distance(q2, r2, int(prev.get("q", 0)), int(prev.get("r", 0))) < WorldLandmarkConfig.MIN_DIST_BETWEEN:
+				far_enough = false
+				break
+		if not far_enough:
+			continue
+		var poi_type: String = WorldLandmarkConfig.POI_TYPES[type_idx % WorldLandmarkConfig.POI_TYPES.size()]
+		type_idx += 1
+		var tile_key: String = _hex_key(q2, r2)
+		if world_map_tiles.has(tile_key):
+			world_map_tiles[tile_key]["poi_type"] = poi_type
+			world_map_tiles[tile_key]["landmark_claimed"] = false
+			placed.append({"q": q2, "r": r2})
+
+
+func _count_landmarks_on_map() -> int:
+	var count: int = 0
+	for key in world_map_tiles.keys():
+		var poi: String = String(world_map_tiles[key].get("poi_type", ""))
+		if poi.begins_with("landmark_"):
+			count += 1
+	return count
+
+
+func _ensure_map_content_extensions() -> void:
+	_ensure_settlement_factions_assigned()
+	if _count_landmarks_on_map() > 0:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(world_map_seed) + 9127
+	_place_landmarks_on_map(rng)
+
+
+func _ensure_settlement_factions_assigned() -> void:
+	var assign_idx: int = 0
+	for settlement_id in world_map_settlement_positions.keys():
+		var info: Dictionary = world_map_settlement_positions[settlement_id]
+		var faction_id: String = String(info.get("faction", "")).strip_edges()
+		if faction_id.is_empty():
+			faction_id = WorldFactionProfiles.pick_faction_for_index(assign_idx)
+			assign_idx += 1
+			info["faction"] = faction_id
+			world_map_settlement_positions[settlement_id] = info
+		var q: int = int(info.get("q", 0))
+		var r: int = int(info.get("r", 0))
+		var key: String = _hex_key(q, r)
+		if world_map_tiles.has(key):
+			world_map_tiles[key]["settlement_faction"] = faction_id
+
+
+func get_settlement_faction(settlement_id: String) -> String:
+	if settlement_id.is_empty():
+		return ""
+	if world_map_settlement_positions.has(settlement_id):
+		return String(world_map_settlement_positions[settlement_id].get("faction", ""))
+	return ""
+
+
+func get_landmark_at(q: int, r: int) -> Dictionary:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
+		return {}
+	var tile: Dictionary = world_map_tiles[key]
+	var poi: String = String(tile.get("poi_type", ""))
+	if not poi.begins_with("landmark_"):
+		return {}
+	return {
+		"poi_type": poi,
+		"display_name": WorldLandmarkConfig.get_display_name(poi),
+		"claimed": bool(tile.get("landmark_claimed", false)),
+		"discovered": bool(tile.get("discovered", false)),
+	}
+
+
+func try_visit_landmark_at(q: int, r: int) -> Dictionary:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
+		return {"ok": false, "reason": "no_tile"}
+	var tile: Dictionary = world_map_tiles[key]
+	var poi: String = String(tile.get("poi_type", ""))
+	if not poi.begins_with("landmark_"):
+		return {"ok": false, "reason": "not_landmark"}
+	if bool(tile.get("landmark_claimed", false)):
+		return {"ok": false, "reason": "already_claimed"}
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var reward: Dictionary = WorldLandmarkConfig.build_visit_reward(poi, rng)
+	if reward.is_empty() or String(reward.get("kind", "")) == "none":
+		return {"ok": false, "reason": "no_reward"}
+	var summary: String = _apply_landmark_reward(reward, WorldLandmarkConfig.get_display_name(poi))
+	tile["landmark_claimed"] = true
+	world_map_tiles[key] = tile
+	world_map_updated.emit()
+	return {
+		"ok": true,
+		"poi_type": poi,
+		"display_name": WorldLandmarkConfig.get_display_name(poi),
+		"reward": reward,
+		"summary": summary,
+	}
+
+
+func _apply_landmark_reward(reward: Dictionary, source_label: String) -> String:
+	var kind: String = String(reward.get("kind", ""))
+	match kind:
+		"resources":
+			var gm: Node = get_node_or_null("/root/GameManager")
+			var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+			var parts: PackedStringArray = PackedStringArray()
+			for res_key in ["wood", "stone", "food", "water"]:
+				var amount: int = int(reward.get(res_key, 0))
+				if amount <= 0:
+					continue
+				if gm and gm.has_method("add_resource"):
+					gm.call("add_resource", res_key, amount)
+				parts.append("+%d %s" % [amount, res_key])
+			var gold_amt: int = int(reward.get("gold", 0))
+			if gold_amt > 0 and gpd:
+				if gpd.has_method("add_gold"):
+					gpd.call("add_gold", gold_amt)
+				else:
+					gpd.gold = int(gpd.gold) + gold_amt
+				parts.append("+%d altın" % gold_amt)
+			_post_world_news({
+				"category": "world",
+				"title": "Harita keşfi: %s" % source_label,
+				"content": "Ziyaret ödülü: %s" % ", ".join(parts),
+				"subcategory": "info",
+			})
+			return ", ".join(parts)
+		"trade_buff":
+			var mm: Node = get_node_or_null("/root/MissionManager")
+			var resource: String = String(reward.get("resource", "food"))
+			var delta: int = int(reward.get("delta", -8))
+			var days: int = int(reward.get("days", 3))
+			if mm and mm.has_method("_active_rate_add"):
+				mm.call("_active_rate_add", resource, delta, days, source_label)
+			var body: String = "%s üretimine %d (%%100 birim) / %d gün" % [resource, delta, days]
+			_post_world_news({
+				"category": "world",
+				"title": "Harita keşfi: %s" % source_label,
+				"content": body,
+				"subcategory": "info",
+			})
+			return body
+		"morale":
+			var vm: Node = get_node_or_null("/root/VillageManager")
+			var morale_delta: float = float(reward.get("morale", 4.0))
+			if vm and "village_morale" in vm:
+				vm.village_morale = clampf(float(vm.village_morale) + morale_delta, 0.0, 100.0)
+			var body_m: String = "Köy morali +%.0f" % morale_delta
+			_post_world_news({
+				"category": "world",
+				"title": "Harita keşfi: %s" % source_label,
+				"content": body_m,
+				"subcategory": "info",
+			})
+			return body_m
+	return ""
+
+
+func _notify_landmark_discovered(tile: Dictionary) -> void:
+	var poi: String = String(tile.get("poi_type", ""))
+	if not poi.begins_with("landmark_"):
+		return
+	var name: String = WorldLandmarkConfig.get_display_name(poi)
+	_post_world_news({
+		"category": "world",
+		"title": "Yeni keşif: %s" % name,
+		"content": WorldLandmarkConfig.get_visit_blurb(poi),
+		"subcategory": "info",
+	})
 
 
 func _place_tutorial_dungeon_near_village(rng: RandomNumberGenerator) -> void:
@@ -2166,6 +2522,7 @@ func _check_pending_attacks_during_skip(day: int, hour: int) -> void:
 		else:
 			remaining_attacks.append(attack)
 	pending_attacks = remaining_attacks
+	_emit_pending_attacks_changed()
 
 func _on_new_day(day: int) -> void:
 	if not dynamic_world_enabled:
@@ -4272,6 +4629,7 @@ func _trigger_hostile_settlement_attack(attacker_name: String, settlement_id: St
 		"defender_count": int(defenders_arr.size()),
 		"defenders": defenders_arr
 	})
+	_emit_pending_attacks_changed()
 	print("🛡️ Dusman koy baskini zamanlandi: %s -> 6 saat sonra (Gun %d, Saat %.1f)" % [attacker_name, attack_day, attack_hour])
 
 # === Alliance Defense System ===
@@ -4432,6 +4790,181 @@ func get_alliance_defender_eligibility(settlement_id: String) -> Dictionary:
 	info["eligible"] = true
 	return info
 
+func _emit_pending_attacks_changed() -> void:
+	pending_attacks_changed.emit()
+
+
+func _attack_schedule_to_total_minutes(attack_day: int, attack_hour: float) -> int:
+	return attack_day * 1440 + int(floor(attack_hour)) * 60
+
+
+func _format_minutes_until_attack(minutes_left: int) -> String:
+	if minutes_left <= 0:
+		return "şimdi"
+	var hours: int = minutes_left / 60
+	var mins: int = minutes_left % 60
+	if hours <= 0:
+		return "%d dk" % mins
+	if mins == 0:
+		return "%d sa" % hours
+	return "%d sa %d dk" % [hours, mins]
+
+
+func estimate_defense_preview(attacker_faction: String, alliance_defender: bool = false, defender_count: int = 0) -> Dictionary:
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	var defender_force: Dictionary = {}
+	if mm and mm.has_method("_get_player_military_force"):
+		defender_force = mm.call("_get_player_military_force")
+	if alliance_defender and defender_count > 0:
+		var base_soldiers: int = int(defender_force.get("units", {}).get("soldiers", 0))
+		var reinforcement: int = max(2 * defender_count, int(base_soldiers * 0.25 * float(defender_count)))
+		if defender_force.has("units") and defender_force["units"] is Dictionary:
+			defender_force["units"]["soldiers"] = base_soldiers + reinforcement
+	var attacker_force: Dictionary = _get_attacker_force_for_defense(attacker_faction)
+	var atk_units: int = int(attacker_force.get("units", {}).get("infantry", 0)) + int(attacker_force.get("units", {}).get("archers", 0))
+	var def_units: int = int(defender_force.get("units", {}).get("soldiers", 0))
+	var atk_power: float = float(atk_units) * 1.0
+	var def_power: float = float(def_units) * 1.2
+	if alliance_defender:
+		def_power *= (1.0 + 0.10 * float(mini(defender_count, 3)))
+	var ratio: float = def_power / maxf(atk_power, 1.0)
+	var win_chance: float = clampf(0.35 + (ratio - 1.0) * 0.25, 0.12, 0.92)
+	return {
+		"soldier_count": def_units,
+		"attacker_strength": atk_units,
+		"win_chance": win_chance,
+		"alliance_defender": alliance_defender,
+	}
+
+
+func get_pending_attacks_ui_summaries() -> Array:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var now_min: int = 0
+	if tm and tm.has_method("get_total_game_minutes"):
+		now_min = int(tm.call("get_total_game_minutes"))
+	var out: Array = []
+	for attack in pending_attacks:
+		var attack_day: int = int(attack.get("attack_day", 0))
+		var attack_hour: float = float(attack.get("attack_hour", 0.0))
+		var target_min: int = _attack_schedule_to_total_minutes(attack_day, attack_hour)
+		var mins_left: int = maxi(0, target_min - now_min)
+		var attacker: String = String(attack.get("attacker", "?"))
+		var alliance: bool = bool(attack.get("defender_intervention", false))
+		var d_count: int = int(attack.get("defender_count", 0))
+		var preview: Dictionary = estimate_defense_preview(attacker, alliance, d_count)
+		out.append({
+			"attacker": attacker,
+			"minutes_left": mins_left,
+			"hours_left_text": _format_minutes_until_attack(mins_left),
+			"deployed": bool(attack.get("deployed", false)),
+			"win_chance": float(preview.get("win_chance", 0.5)),
+			"soldier_count": int(preview.get("soldier_count", 0)),
+			"attacker_strength": int(preview.get("attacker_strength", 0)),
+			"alliance_defender": alliance,
+			"defender_name": String(attack.get("defender_settlement_name", "")),
+			"defender_count": d_count,
+			"playable_ready": bool(attack.get("playable_pending", false)),
+			"attack_day": attack_day,
+			"attack_hour": attack_hour,
+		})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("minutes_left", 0)) < int(b.get("minutes_left", 0))
+	)
+	return out
+
+func _is_player_in_village() -> bool:
+	var sm: Node = get_node_or_null("/root/SceneManager")
+	if sm == null:
+		return false
+	if sm.has_method("is_village_scene_active"):
+		return bool(sm.call("is_village_scene_active"))
+	var path: String = String(sm.get("current_scene_path"))
+	return path == "res://village/scenes/VillageScene.tscn"
+
+
+func _build_playable_defense_context(attack: Dictionary) -> Dictionary:
+	var attacker: String = String(attack.get("attacker", "?"))
+	var alliance: bool = bool(attack.get("defender_intervention", false))
+	var d_count: int = int(attack.get("defender_count", 0))
+	var preview: Dictionary = estimate_defense_preview(attacker, alliance, d_count)
+	return {
+		"attacker": attacker,
+		"attack_day": int(attack.get("attack_day", 0)),
+		"attack_hour": float(attack.get("attack_hour", 0.0)),
+		"soldier_count": int(preview.get("soldier_count", 0)),
+		"attacker_strength": int(preview.get("attacker_strength", 0)),
+		"alliance_defender": alliance,
+		"defender_count": d_count,
+		"defender_name": String(attack.get("defender_settlement_name", "")),
+	}
+
+
+func get_first_playable_defense_context() -> Dictionary:
+	for attack in pending_attacks:
+		if bool(attack.get("playable_pending", false)):
+			return _build_playable_defense_context(attack)
+	return {}
+
+
+func is_playable_defense_battle_active() -> bool:
+	return _playable_defense_battle_active
+
+
+func can_start_playable_defense() -> bool:
+	if _playable_defense_battle_active:
+		return false
+	return not get_first_playable_defense_context().is_empty()
+
+
+func mark_playable_defense_battle_started() -> void:
+	_playable_defense_battle_active = true
+
+
+func finish_playable_defense_battle(outcome: Dictionary) -> void:
+	_playable_defense_battle_active = false
+	var attacker: String = String(outcome.get("attacker", ""))
+	if attacker.is_empty():
+		return
+	var attack_day: int = int(outcome.get("attack_day", -1))
+	var removed: Dictionary = _take_pending_attack(attacker, attack_day)
+	if removed.is_empty():
+		return
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var day: int = int(tm.call("get_day")) if tm and tm.has_method("get_day") else int(removed.get("attack_day", 0))
+	var alliance: bool = bool(removed.get("defender_intervention", false))
+	var d_count: int = int(removed.get("defender_count", 0))
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	var defender_force: Dictionary = mm.call("_get_player_military_force") if mm and mm.has_method("_get_player_military_force") else {}
+	if alliance and d_count > 0 and defender_force.has("units"):
+		var base_soldiers: int = int(defender_force["units"].get("soldiers", 0))
+		var reinforcement: int = max(2 * d_count, int(base_soldiers * 0.25 * float(d_count)))
+		defender_force["units"]["soldiers"] = base_soldiers + reinforcement
+	var attacker_force: Dictionary = _get_attacker_force_for_defense(attacker)
+	var player_won: bool = bool(outcome.get("player_won", false))
+	var battle_result: Dictionary = {
+		"victor": "defender" if player_won else "attacker",
+		"defender_losses": int(outcome.get("defender_losses", 0)),
+		"attacker_losses": int(outcome.get("attacker_losses", 0)),
+		"alliance_defender": alliance,
+		"alliance_defender_count": d_count,
+		"playable_battle": true,
+	}
+	_process_defense_result(attacker, battle_result, day, attacker_force, defender_force)
+	_emit_pending_attacks_changed()
+
+
+func _take_pending_attack(attacker: String, attack_day: int = -1) -> Dictionary:
+	var remaining: Array[Dictionary] = []
+	var taken: Dictionary = {}
+	for attack in pending_attacks:
+		if taken.is_empty() and String(attack.get("attacker", "")) == attacker:
+			if attack_day < 0 or int(attack.get("attack_day", -99)) == attack_day:
+				taken = attack.duplicate(true)
+				continue
+		remaining.append(attack)
+	pending_attacks = remaining
+	return taken
+
 func _trigger_village_attack(attacker_faction: String, day: int) -> void:
 	"""Köye saldırı uyarısı ve zamanlaması - 6 saat sonra saldırı"""
 	var tm = get_node_or_null("/root/TimeManager")
@@ -4472,6 +5005,7 @@ func _trigger_village_attack(attacker_faction: String, day: int) -> void:
 		"attack_hour": attack_hour,
 		"deployed": false
 	})
+	_emit_pending_attacks_changed()
 	
 	print("🛡️ Köye saldırı zamanlandı: %s -> 6 saat sonra (Gün %d, Saat %.1f)" % [attacker_faction, attack_day, attack_hour])
 
@@ -4514,6 +5048,7 @@ func _check_pending_attacks() -> void:
 		if not deployed and should_deploy:
 			defense_deployment_started.emit(attack_day)
 			attack["deployed"] = true
+			_emit_pending_attacks_changed()
 			print("⚔️ Askerler savaşa hazırlanıyor, ekran dışına yürüyorlar (Saldırı: Gün %d, Saat %.1f)" % [attack_day, attack_hour])
 		
 		# Saldırı zamanı kontrolü
@@ -4524,14 +5059,41 @@ func _check_pending_attacks() -> void:
 			attack_time_reached = true
 		
 		if attack_time_reached:
-			var attacker = attack.get("attacker", "Bilinmeyen")
-			var d_count: int = int(attack.get("defender_count", 1 if bool(attack.get("defender_intervention", false)) else 0))
-			_execute_village_defense(attacker, current_day, d_count > 0, d_count)
+			if _playable_defense_battle_active:
+				remaining_attacks.append(attack)
+				continue
+			if bool(attack.get("playable_pending", false)):
+				var pending_since: int = int(attack.get("playable_pending_since_min", 0))
+				var now_min: int = 0
+				if tm.has_method("get_total_game_minutes"):
+					now_min = int(tm.call("get_total_game_minutes"))
+				if now_min - pending_since >= PLAYABLE_DEFENSE_GRACE_MINUTES or not _is_player_in_village():
+					var attacker_grace: String = String(attack.get("attacker", "Bilinmeyen"))
+					var d_count_g: int = int(attack.get("defender_count", 1 if bool(attack.get("defender_intervention", false)) else 0))
+					_execute_village_defense(attacker_grace, current_day, d_count_g > 0, d_count_g)
+				else:
+					remaining_attacks.append(attack)
+				continue
+			if _is_player_in_village():
+				attack["playable_pending"] = true
+				var since_min: int = 0
+				if tm.has_method("get_total_game_minutes"):
+					since_min = int(tm.call("get_total_game_minutes"))
+				attack["playable_pending_since_min"] = since_min
+				_emit_pending_attacks_changed()
+				playable_defense_required.emit(_build_playable_defense_context(attack))
+				remaining_attacks.append(attack)
+				print("⚔️ Oynanabilir savunma hazır: %s (köyde)" % String(attack.get("attacker", "?")))
+			else:
+				var attacker: String = String(attack.get("attacker", "Bilinmeyen"))
+				var d_count: int = int(attack.get("defender_count", 1 if bool(attack.get("defender_intervention", false)) else 0))
+				_execute_village_defense(attacker, current_day, d_count > 0, d_count)
 		else:
 			# Henüz zamanı gelmedi
 			remaining_attacks.append(attack)
 	
 	pending_attacks = remaining_attacks
+	_emit_pending_attacks_changed()
 
 func _execute_village_defense(attacker_faction: String, day: int, alliance_defender: bool = false, defender_count: int = 0) -> void:
 	print("⚔️ Otomatik savunma: %s saldırısı (muttefik destek: %s, adet: %d)" % [attacker_faction, str(alliance_defender), defender_count])
@@ -4559,6 +5121,8 @@ func _execute_village_defense(attacker_faction: String, day: int, alliance_defen
 	var battle_result: Dictionary = {}
 	if cr and cr.has_method("simulate_skirmish"):
 		battle_result = cr.simulate_skirmish(attacker_force, defender_force)
+		battle_result["alliance_defender"] = alliance_defender
+		battle_result["alliance_defender_count"] = defender_count
 	else:
 		var atk_units: int = int(attacker_force.get("units", {}).get("infantry", 0)) + int(attacker_force.get("units", {}).get("archers", 0))
 		var def_units: int = int(defender_force.get("units", {}).get("soldiers", 0))
@@ -4595,6 +5159,8 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 	var victor = battle_result.get("victor", "defender")
 	var defender_losses = battle_result.get("defender_losses", 0)
 	var attacker_losses = battle_result.get("attacker_losses", 0)
+	var gold_loss: int = 0
+	var morale_delta: int = 0
 	
 	# Generate battle story using LLM
 	_generate_battle_story(attacker_faction, battle_result, day, attacker_force, defender_force)
@@ -4620,14 +5186,15 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 		# Küçük moral bonusu
 		if vm:
 			vm.village_morale = min(100.0, vm.village_morale + 2.0)
+			morale_delta = 2
 		
 		# Askerlerin geri dönmesi için sinyal gönder
 		defense_battle_completed.emit("defender", defender_losses)
 		
 	else:
 		# Köy yenildi - zarar gör
-		var gold_loss = randi_range(100, 300)
-		var morale_loss = randi_range(5, 15)
+		gold_loss = randi_range(100, 300)
+		morale_delta = -randi_range(5, 15)
 		
 		# Kaynak kaybı
 		var gpd = get_node_or_null("/root/GlobalPlayerData")
@@ -4636,7 +5203,7 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 		
 		# Moral kaybı
 		if vm:
-			vm.village_morale = max(0.0, vm.village_morale - morale_loss)
+			vm.village_morale = max(0.0, vm.village_morale + float(morale_delta))
 		
 		# Ölü askerleri kaldır
 		if barracks and barracks.has_method("remove_soldiers"):
@@ -4646,12 +5213,24 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 			"category": "world",
 			"subcategory": "critical",
 			"title": "❌ Savunma Başarısız",
-			"content": "%s saldırısı köye zarar verdi! Kayıplar: %d asker, %d altın, %d moral." % [attacker_faction, defender_losses, gold_loss, morale_loss],
+			"content": "%s saldırısı köye zarar verdi! Kayıplar: %d asker, %d altın, %d moral." % [attacker_faction, defender_losses, gold_loss, abs(morale_delta)],
 			"day": day
 		})
 		
 		# Askerlerin geri dönmesi için sinyal gönder
 		defense_battle_completed.emit("attacker", defender_losses)
+
+	defense_outcome_report.emit({
+		"attacker": attacker_faction,
+		"victor": victor,
+		"defender_losses": defender_losses,
+		"attacker_losses": attacker_losses,
+		"gold_loss": gold_loss,
+		"morale_delta": morale_delta,
+		"alliance_defender": bool(battle_result.get("alliance_defender", false)),
+		"alliance_defender_count": int(battle_result.get("alliance_defender_count", 0)),
+		"day": day,
+	})
 
 func _trigger_village_raid(target_faction: String, day: int) -> void:
 	"""Köyden saldırı başlat"""

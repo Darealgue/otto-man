@@ -169,7 +169,7 @@ func _handle_summoner_behavior(delta: float) -> void:
 			global_position.x = saved_x
 			return
 		"idle":
-			_handle_idle()
+			_handle_idle(delta)
 		"run":
 			_handle_run(delta)
 		"summon":
@@ -195,7 +195,7 @@ func handle_hurt_behavior(delta: float) -> void:
 	if behavior_timer >= 0.5:  # Failsafe timeout
 		change_behavior("run", true)
 
-func _handle_idle() -> void:
+func _handle_idle(delta: float) -> void:
 	# Only reset horizontal velocity; don't cancel upward hurt launch
 	if not (current_behavior == "hurt" and velocity.y < 0.0):
 		velocity.x = 0
@@ -206,7 +206,9 @@ func _handle_idle() -> void:
 		sprite.play("idle")
 	
 	# Check for new target
-	var potential_target = get_nearest_player()
+	var potential_target = update_stealth_target(delta)
+	if potential_target == null:
+		potential_target = get_nearest_player()
 	if potential_target and is_instance_valid(potential_target):
 		var distance_to_target = global_position.distance_to(potential_target.global_position)
 		if distance_to_target <= float(_stat_value("detection_range", 400.0)):

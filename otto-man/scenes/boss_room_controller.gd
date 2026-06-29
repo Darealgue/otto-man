@@ -5,7 +5,7 @@ const PLAYER_SCENE: PackedScene = preload("res://player/player.tscn")
 const BOSS_BAR_SCENE: PackedScene = preload("res://ui/boss_health_bar.tscn")
 const DOOR_SCENE: PackedScene = preload("res://scenes/door.tscn")
 
-@export var boss_id: String = "tepegoz"
+@export var boss_id: String = "orb_scatter"
 @export var boss_scene: PackedScene
 @export var arena_bounds: Rect2 = Rect2(96.0, 128.0, 1728.0, 820.0)
 @export var default_player_spawn: Vector2 = Vector2(32.0, 928.0)
@@ -155,8 +155,8 @@ func _find_existing_boss(container: Node) -> Node2D:
 func _resolve_boss_scene() -> PackedScene:
 	if boss_scene:
 		return boss_scene
-	push_warning("[BossRoom] boss_scene boş — Tepegöz fallback (boss_id=%s)" % boss_id)
-	return preload("res://boss/tepegoz_boss.tscn") as PackedScene
+	push_warning("[BossRoom] boss_scene boş — OrbScatter fallback (boss_id=%s)" % boss_id)
+	return preload("res://boss/orb_scatter_boss.tscn") as PackedScene
 
 
 func _build_boss_room_layout(boss_anchor: Vector2) -> Dictionary:

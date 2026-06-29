@@ -383,6 +383,8 @@ class GridCell:
 	var reserved_chunk: String = "" # If set, override selection with this exact chunk type
 	var spawn_stealth_chest: bool = false
 	var stealth_chest_gold: int = 0
+	var spawn_dungeon_event: String = ""  # "" | "merchant" | "curse"
+	var boss_arena_tier: String = ""  # "" | "mini" | "major"
 
 # Member variables
 var grid: Array = []
@@ -400,7 +402,7 @@ var effective_trap_level: int = 1   # Tuzak seviyesi (challenge trap_level_offse
 # --- Boss schedule helpers (debug-only for now) ---
 # Levels mapping for boss events; we keep it data-driven and simple
 # Kapalıyken bitiş her zaman normal "finish" chunk; boss_arena + kilitli kapı spawn olmaz.
-const DUNGEON_BOSS_ARENAS_ENABLED := false
+const DUNGEON_BOSS_ARENAS_ENABLED := true
 const BOSS_SCHEDULE: Dictionary = {
 	3: "mini",
 	5: "major",
@@ -419,6 +421,20 @@ func get_boss_event_type(level: int) -> String:
 	var mapped_level: int = keys[idx]
 	var result = BOSS_SCHEDULE.get(mapped_level, "")
 	return String(result)
+
+
+func get_finish_boss_tier() -> String:
+	if not DUNGEON_BOSS_ARENAS_ENABLED:
+		return ""
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and bool(drs.get("run_started")):
+		var seg: int = int(drs.get("run_segment_count"))
+		var max_seg: int = int(drs.get("MAX_SEGMENTS"))
+		if seg >= max_seg:
+			var scheduled: String = get_boss_event_type(current_level)
+			return "major" if scheduled == "major" else "mini"
+		return ""
+	return get_boss_event_type(current_level)
 
 var current_grid_width = 20  # This will be updated based on level
 var CHUNK_WEIGHTS = {
@@ -1178,10 +1194,12 @@ func populate_chunks() -> bool:
 			return false # Cannot proceed without a finish position
 		
 	# Boss-aware finish placement
-	var boss_event := get_boss_event_type(current_level)
-	if boss_event == "mini":
-		# On mini-boss levels, replace finish with boss arena directly at the finish position
-		print("Mini-boss level: placing boss_arena at finish position ", finish_pos)
+	var boss_tier := get_finish_boss_tier()
+	if not boss_tier.is_empty():
+		print("%s-boss level: placing boss_arena at finish position %s (tier=%s)" % [
+			boss_tier.capitalize(), str(finish_pos), boss_tier
+		])
+		grid[finish_pos.x][finish_pos.y].boss_arena_tier = boss_tier
 		if not place_chunk(finish_pos, "boss_arena"):
 			print("Failed to place boss_arena at ", finish_pos)
 			return false
@@ -1194,6 +1212,7 @@ func populate_chunks() -> bool:
 	# Optional: tag special dead-end cells before main placement (light heuristic)
 	_tag_villager_and_vip_deadends()
 	_tag_stealth_chest_side_paths()
+	_tag_dungeon_event_side_paths()
 
 	# --- Simplified Main Population Loop --- 
 	# Iterate through all grid cells once
@@ -1428,6 +1447,7 @@ func _single_open_dir_index(c: GridCell) -> int:
 
 
 const STEALTH_CHEST_SCRIPT := preload("res://interactables/dungeon/StealthTreasureChest.gd")
+const DUNGEON_EVENT_SCRIPT := preload("res://interactables/dungeon/DungeonEventInteractable.gd")
 
 
 func _tag_stealth_chest_side_paths() -> void:
@@ -1465,6 +1485,54 @@ func _tag_stealth_chest_side_paths() -> void:
 		cell.spawn_stealth_chest = true
 		cell.stealth_chest_gold = randi_range(12, 25)
 	print("[LevelGenerator] Stealth sandık işaretlendi: %d yan yol hücresi" % chest_count)
+
+
+func _tag_dungeon_event_side_paths() -> void:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs) or not bool(drs.get("run_started")):
+		return
+	var event_chance: float = 0.14
+	if level_config and level_config.has_method("get_dungeon_event_chance"):
+		event_chance = level_config.get_dungeon_event_chance(current_level)
+	var merchant_candidates: Array[Vector2i] = []
+	var curse_candidates: Array[Vector2i] = []
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			var pos := Vector2i(x, y)
+			var c: GridCell = grid[x][y] as GridCell
+			if not c.visited or c.chunk != null:
+				continue
+			if c.cell_type != CellType.DEAD_END and c.cell_type != CellType.BRANCH_PATH:
+				continue
+			if not c.reserved_chunk.is_empty() and _is_rescue_reserved_chunk(c.reserved_chunk):
+				continue
+			if c.spawn_stealth_chest or not c.spawn_dungeon_event.is_empty():
+				continue
+			var conn_count := 0
+			for dir in Direction.values():
+				if c.connections[dir]:
+					conn_count += 1
+			if conn_count < 1 or conn_count > 2:
+				continue
+			if pos.x <= 1:
+				continue
+			merchant_candidates.append(pos)
+			curse_candidates.append(pos)
+	if merchant_candidates.is_empty() and curse_candidates.is_empty():
+		return
+	merchant_candidates.shuffle()
+	curse_candidates.shuffle()
+	var tagged: int = 0
+	if not merchant_candidates.is_empty() and randf() < event_chance:
+		grid[merchant_candidates[0].x][merchant_candidates[0].y].spawn_dungeon_event = "merchant"
+		tagged += 1
+	if not curse_candidates.is_empty() and randf() < event_chance:
+		var curse_pos: Vector2i = curse_candidates[0]
+		if grid[curse_pos.x][curse_pos.y].spawn_dungeon_event.is_empty():
+			grid[curse_pos.x][curse_pos.y].spawn_dungeon_event = "curse"
+			tagged += 1
+	if tagged > 0:
+		print("[LevelGenerator] Mini-event odası işaretlendi: %d (şans=%.2f)" % [tagged, event_chance])
 
 
 func _is_rescue_reserved_chunk(reserved: String) -> bool:
@@ -1548,6 +1616,37 @@ func _spawn_stealth_chest_for_chunk(chunk_node: Node2D) -> void:
 	chunk_node.add_child(chest)
 	chest.global_position = spawn_pos + Vector2(0.0, 5.0)
 	print("[LevelGenerator] Stealth sandık spawn @ %s chunk=%s gold=%d" % [str(spawn_pos), chunk_node.name, gold_total])
+
+
+func _spawn_dungeon_event_for_chunk(chunk_node: Node2D) -> void:
+	if not chunk_node.has_meta("dungeon_event_type"):
+		return
+	var event_type: String = String(chunk_node.get_meta("dungeon_event_type"))
+	chunk_node.remove_meta("dungeon_event_type")
+	if event_type != "merchant" and event_type != "curse":
+		return
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs) or not bool(drs.get("run_started")):
+		return
+	var tile_map: Node = chunk_node.find_child("TileMapLayer", true, false)
+	if tile_map == null:
+		push_warning("[LevelGenerator] Mini-event: TileMapLayer yok (%s)" % chunk_node.name)
+		return
+	var cell: Vector2i = _collect_stealth_chest_spawn_cell(tile_map)
+	if cell.x <= -9000:
+		push_warning("[LevelGenerator] Mini-event: zemin hücresi bulunamadı (%s)" % chunk_node.name)
+		return
+	var spawn_pos: Vector2 = _compute_decoration_spawn_position(
+		tile_map,
+		cell,
+		DecorationConfig.SpawnLocation.FLOOR_CENTER
+	)
+	var event_node: DungeonEventInteractable = DUNGEON_EVENT_SCRIPT.new()
+	event_node.name = "DungeonEvent_%s" % event_type
+	event_node.setup(event_type, current_level)
+	chunk_node.add_child(event_node)
+	event_node.global_position = spawn_pos + Vector2(0.0, 5.0)
+	print("[LevelGenerator] Mini-event spawn @ %s type=%s chunk=%s" % [str(spawn_pos), event_type, chunk_node.name])
 
 func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 	# Special case for start position - always return "start"
@@ -1805,46 +1904,25 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 
 	# Extra setup for boss arenas (mini-boss levels)
 	if chunk_type == "boss_arena":
-		# Add a dedicated spawner to this arena and wire up finish enabling after defeat
-		var spawner_scene: PackedScene = load("res://enemy/enemy_spawner.tscn")
-		if spawner_scene:
-			var spawner: Node2D = spawner_scene.instantiate()
-			spawner.name = "MiniBossSpawner"
-			# Configure basic params
-			if spawner.has_method("set"): # safe set
-				spawner.set("auto_spawn", true)
-				spawner.set("spawn_on_level_start", false)
-				# Replace spawner usage with direct miniboss scene instantiation
-				pass
-			# Directly instantiate Shield Captain miniboss
-			var mini_scene_path := "res://enemy/miniboss/shield_captain/shield_captain.tscn"
-			var mini_scene: PackedScene = load(mini_scene_path)
-			if mini_scene:
-				print("[BossArena] Instantiating miniboss from ", mini_scene_path)
-				var mini = mini_scene.instantiate()
-				mini.name = "MiniBoss_ShieldCaptain"
-				chunk.add_child(mini)
-				mini.global_position = chunk.global_position + Vector2(960, 600)
-				# Wire defeat → enable finish
-				if mini.has_signal("enemy_defeated"):
-					mini.connect("enemy_defeated", Callable(self, "_on_miniboss_defeated").bind(chunk))
-				# Defer boss bar attachment to ensure UI is ready
-				var _mini_ref = mini
-				get_tree().create_timer(0.05).timeout.connect(func(): _attach_boss_bar(_mini_ref))
-			else:
-				push_error("[BossArena] Failed to load miniboss scene at path: " + mini_scene_path)
+		var tier: String = String(placed_cell.boss_arena_tier)
+		if tier.is_empty():
+			tier = "mini"
+		_spawn_miniboss_in_arena(chunk, tier)
 
 	# TileMap tabanlı dekorasyonları oluştur
 	var placed_cell: GridCell = grid[pos.x][pos.y] as GridCell
 	if placed_cell.spawn_stealth_chest:
 		chunk.set_meta("stealth_chest_gold", placed_cell.stealth_chest_gold)
+	if not placed_cell.spawn_dungeon_event.is_empty():
+		chunk.set_meta("dungeon_event_type", placed_cell.spawn_dungeon_event)
 	_populate_decorations_from_tilemap(chunk)
 	
 	# Remove old EnemySpawner nodes from chunk (legacy system)
 	_remove_legacy_enemy_spawners(chunk)
 	
-	# TileMap tabanlı düşmanları oluştur (V1 - chunk bazlı sistem)
-	_populate_enemies_from_tilemap(chunk)
+	# TileMap tabanlı düşmanları oluştur (boss arenada ekstra spawn yok)
+	if chunk_type != "boss_arena":
+		_populate_enemies_from_tilemap(chunk)
 
 	# NOTE: Trap population moved to after unify_terrain() — see _populate_traps_on_unified_terrain()
 	
@@ -1918,6 +1996,7 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 		"floor_anchors_only": false,
 	})
 	_spawn_stealth_chest_for_chunk(chunk_node)
+	_spawn_dungeon_event_for_chunk(chunk_node)
 
 
 func run_tutorial_tile_decorations(tile_map: TileMapLayer, output_parent: Node2D, scene_root: Node2D, tutorial_options: Dictionary = {}) -> void:
@@ -3055,6 +3134,28 @@ func _calculate_door_positions() -> void:
 func get_door_positions() -> Array[Vector2]:
 	# Decoration spawner'lar için kapı pozisyonlarını döndür
 	return door_positions
+
+func _spawn_miniboss_in_arena(chunk: Node2D, tier: String = "mini") -> void:
+	var mini_scene_path := "res://enemy/miniboss/shield_captain/shield_captain.tscn"
+	var mini_scene: PackedScene = load(mini_scene_path)
+	if mini_scene == null:
+		push_error("[BossArena] Failed to load miniboss scene at path: " + mini_scene_path)
+		return
+	print("[BossArena] Instantiating miniboss (%s) from %s" % [tier, mini_scene_path])
+	var mini = mini_scene.instantiate()
+	mini.name = "MiniBoss_ShieldCaptain"
+	if tier == "major":
+		if "max_health_override" in mini:
+			mini.set("max_health_override", float(mini.get("max_health_override")) * 1.5)
+		if mini.has_method("set") and "cleave_damage" in mini:
+			mini.set("cleave_damage", float(mini.get("cleave_damage")) * 1.2)
+	chunk.add_child(mini)
+	mini.global_position = chunk.global_position + Vector2(960, 600)
+	if mini.has_signal("enemy_defeated"):
+		mini.connect("enemy_defeated", Callable(self, "_on_miniboss_defeated").bind(chunk))
+	var _mini_ref = mini
+	get_tree().create_timer(0.05).timeout.connect(func(): _attach_boss_bar(_mini_ref))
+
 
 func _on_miniboss_defeated(boss_chunk: Node2D) -> void:
 	if not boss_chunk:

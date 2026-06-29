@@ -64,8 +64,8 @@ func perform_action(actor: String, target: String, action: String) -> bool:
 			# simple default agreement: small daily gold and tiny resource bonus for 5 days
 			mm.add_trade_agreement(target, 30, {"food": 1}, 5, false)
 	elif action == "passage":
-		# could set a flag in WorldManager; placeholder: just news
-		pass
+		if wm and wm.has_method("grant_passage_rights"):
+			wm.call("grant_passage_rights", target, 7)
 	action_performed.emit(actor, target, action, delta, cost)
 	_post_news(actor, target, action, delta, cost)
 	return true

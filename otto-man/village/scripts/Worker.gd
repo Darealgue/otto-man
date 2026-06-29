@@ -636,7 +636,6 @@ func _ready() -> void:
 	if $NamePlateContainer:
 		NpcOverheadUi.apply_frameless_nameplate($NamePlateContainer)
 		$NamePlateContainer.visible = false
-	###TODO: Village Manager önce saveli villagerları loadlayıp sonra başlatmalı, initalize new villager sadece yeni villager doğduğunda çağırılmalı
 
 func _ready_dungeon_prisoner() -> void:
 	visible = true
@@ -806,6 +805,8 @@ func Initialize_Existing_Villager(NPCInfo):
 			
 			Update_Villager_Name() # Safe update
 			$NpcWindow.InitializeWindow(NPC_Info)
+			if appearance != null and has_method("update_visuals"):
+				update_visuals()
 			
 func Initialize_New_Villager():
 	print("Worker %d Initialize_New_Villager called" % worker_id)

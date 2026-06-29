@@ -151,13 +151,6 @@ func remove_worker() -> bool:
 var level: int = 1
 var upgrade_duration: float = 4.0
 
-# Const defining the upgrade costs for each level (3 seviye: 1, 2, 3)
-const UPGRADE_COSTS = {
-	2: {"gold": 25},
-	3: {"gold": 50},
-	4: {"gold": 75}
-}
-
 # --- Zamanlayıcı (Timer) ---
 func _init():
 	upgrade_timer = Timer.new()
@@ -190,40 +183,13 @@ func get_production_info() -> String:
 	return level_info + " • İşçi:" + str(workers) + " • Su üretimi: " + str(workers) + "/tick"
 
 func get_next_upgrade_cost() -> Dictionary:
-	var next_level = level + 1
-	return UPGRADE_COSTS.get(next_level, {})
+	return BuildingUpgradeMixin.get_next_cost(self)
 
 func start_upgrade() -> bool:
-	if is_upgrading:
-		print("Kuyu: Zaten yükseltiliyor.")
+	if not BuildingUpgradeMixin.start(self):
 		return false
-	if level >= max_level:
-		print("Kuyu: Zaten maksimum seviyede.")
-		return false
-
-	var cost_dict = get_next_upgrade_cost()
-	if cost_dict.is_empty():
-		print("Kuyu: Bir sonraki seviye için maliyet tanımlanmamış.")
-		return false
-
-	var gold_cost = cost_dict.get("gold", 0)
-
-	if GlobalPlayerData.gold < gold_cost:
-		print("Kuyu: Yükseltme için yeterli altın yok. Gereken: %d, Mevcut: %d" % [gold_cost, GlobalPlayerData.gold])
-		return false
-
-	GlobalPlayerData.add_gold(-gold_cost)
-	print("Kuyu: Yükseltme maliyeti düşüldü: %d Altın" % gold_cost)
-
-	print("Kuyu: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_time_seconds])
-	is_upgrading = true
-	if upgrade_timer:
-		upgrade_timer.wait_time = upgrade_time_seconds
-		upgrade_timer.start()
-	emit_signal("upgrade_started")
-	emit_signal("state_changed")
-	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.YELLOW
-
+	if get_node_or_null("Sprite2D") is Sprite2D:
+		get_node("Sprite2D").modulate = Color.YELLOW
 	return true
 
 func finish_upgrade() -> void:

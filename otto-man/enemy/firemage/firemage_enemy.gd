@@ -141,9 +141,9 @@ func _physics_process(delta: float) -> void:
 func _handle_child_behavior(delta: float) -> void:
 	match current_behavior:
 		"idle":
-			_handle_idle_state()
+			_handle_idle_state(delta)
 		"patrol":
-			_handle_idle_state()
+			_handle_idle_state(delta)
 		"takeoff_prepare":
 			_handle_takeoff_prepare_state(delta)
 		"takeoff_rise":
@@ -167,12 +167,14 @@ func _handle_child_behavior(delta: float) -> void:
 	
 	_update_animation_state()
 
-func _handle_idle_state() -> void:
+func _handle_idle_state(delta: float) -> void:
 	# Yatay hareketi durdur; dikey velocity'ye (gravity) dokunma
 	velocity.x = 0
 	
 	# Hysteresis: sadece yakın mesafede tespit et
-	var player = get_nearest_player()
+	var player = update_stealth_target(delta)
+	if player == null:
+		player = get_nearest_player()
 	if player and is_instance_valid(player):
 		var distance = global_position.distance_to(player.global_position)
 		# Sadece 400 piksel mesafede tespit et (detection_range'den daha az)
@@ -474,7 +476,7 @@ func _update_animation_state() -> void:
 			sprite.play("fire_death")
 
 func handle_patrol(delta: float) -> void:
-	_handle_idle_state()
+	_handle_idle_state(delta)
 
 func handle_alert(delta: float) -> void:
 	_handle_flying_state(delta)

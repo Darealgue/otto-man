@@ -57,11 +57,20 @@ func setup_mid_run() -> void:
 	var run_complete: bool = drs and drs.is_run_complete()
 
 	if run_complete:
-		# 3 segment tamamlandı — boss odası, zindandan çıkış veya gizli stealth çıkış
+		# 3 segment tamamlandı — boss, zindandan çıkış veya gizli stealth çıkış
+		var boss_id: String = BossRoomRegistry.DEFAULT_BOSS_ID
+		if drs and String(drs.get("run_boss_id", "")).strip_edges() != "":
+			boss_id = String(drs.get("run_boss_id"))
+		var boss_label: String = BossRoomRegistry.get_display_name(boss_id)
 		_current_doors = [
 			{"is_exit": true, "label_short": "[color=green]Zindandan Çık — Köye Dön[/color]"},
-			{"is_boss": true, "label_short": "[color=orange]Boss Odası[/color]"},
 		]
+		if BossRoomRegistry.is_enabled():
+			_current_doors.append({
+				"is_boss": true,
+				"boss_id": boss_id,
+				"label_short": "[color=orange]%s[/color]" % boss_label,
+			})
 		if _can_offer_stealth_exit():
 			_current_doors.insert(1, {
 				"is_stealth_exit": true,
@@ -299,7 +308,8 @@ func _build_door_label_bbcode(challenge: Dictionary) -> String:
 	if bool(challenge.get("is_stealth_exit", false)):
 		return "[color=#88ccff]Gizli Geçit[/color]"
 	if bool(challenge.get("is_boss", false)):
-		return "[color=orange]Boss Odası[/color]"
+		var bid: String = String(challenge.get("boss_id", BossRoomRegistry.DEFAULT_BOSS_ID))
+		return "[color=orange]%s[/color]" % BossRoomRegistry.get_display_name(bid)
 	return str(challenge.get("label_short", ""))
 
 

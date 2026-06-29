@@ -217,7 +217,9 @@ func handle_idle(delta):
 		sprite.play("idle")
 	
 	# Check for player to chase using stats detection range
-	target = get_nearest_player()
+	target = update_stealth_target(delta)
+	if target == null:
+		target = get_nearest_player()
 	if target and is_instance_valid(target):
 		var distance = global_position.distance_to(target.global_position)
 		if distance <= stats.detection_range:

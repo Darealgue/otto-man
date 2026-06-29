@@ -24,15 +24,6 @@ var upgrade_time_seconds: float = 10.0
 @export var max_level: int = 4
 var _collision_original_positions: Dictionary = {}
 
-# Yükseltme maliyetleri (4 seviye)
-const UPGRADE_COSTS = {
-	2: {"gold": 30},
-	3: {"gold": 60},
-	4: {"gold": 100}
-}
-# Const for max workers per level (Optional)
-# const MAX_WORKERS_PER_LEVEL = { 1: 1, 2: 2, 3: 3 }
-
 # --- Hesaplanan Değişken ---
 var max_workers_per_level: int:
 	get: return level
@@ -162,49 +153,13 @@ func remove_worker() -> bool:
 
 # --- Yeni Yükseltme Fonksiyonları (Timer ile) ---
 func get_next_upgrade_cost() -> Dictionary:
-	var next_level = level + 1
-	return UPGRADE_COSTS.get(next_level, {})
+	return BuildingUpgradeMixin.get_next_cost(self)
 
 func start_upgrade() -> bool:
-	if is_upgrading:
-		print("Taş Madeni: Zaten yükseltiliyor.")
+	if not BuildingUpgradeMixin.start(self):
 		return false
-	if level >= max_level:
-		print("Taş Madeni: Zaten maksimum seviyede.")
-		return false
-
-	var cost_dict = get_next_upgrade_cost()
-	if cost_dict.is_empty():
-		print("Taş Madeni: Bir sonraki seviye için maliyet tanımlanmamış.")
-		return false
-
-	var gold_cost = cost_dict.get("gold", 0)
-	# TODO: Diğer kaynak maliyetleri varsa burada kontrol et
-
-	# 1. Maliyet Kontrolü (Altın ve Diğer Kaynaklar)
-	if GlobalPlayerData.gold < gold_cost:
-		print("Taş Madeni: Yükseltme için yeterli altın yok. Gereken: %d, Mevcut: %d" % [gold_cost, GlobalPlayerData.gold])
-		return false
-	
-	# TODO: Diğer kaynakların kontrolü
-
-	# 2. Maliyeti Düş (Kaynak kilitleme YOK)
-	GlobalPlayerData.add_gold(-gold_cost)
-	print("Taş Madeni: Yükseltme maliyeti düşüldü: %d Altın" % gold_cost)
-	# TODO: Diğer kaynak maliyetlerini düş
-
-	# 3. Yükseltmeyi Başlat
-	print("Taş Madeni: Yükseltme başlatıldı (Seviye %d -> %d). Süre: %s sn" % [level, level + 1, upgrade_timer.wait_time])
-	is_upgrading = true
-	if upgrade_timer:
-		upgrade_timer.wait_time = upgrade_time_seconds
-		upgrade_timer.start()
-	emit_signal("upgrade_started")
-	emit_signal("state_changed") # Genel durum değişikliği sinyali
-	
-	# Görsel geribildirim (opsiyonel)
-	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.YELLOW
-	
+	if get_node_or_null("Sprite2D") is Sprite2D:
+		get_node("Sprite2D").modulate = Color.YELLOW
 	return true
 
 # Zamanlayıcı bittiğinde çağrılır

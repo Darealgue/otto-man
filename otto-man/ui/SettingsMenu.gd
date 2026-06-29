@@ -254,6 +254,26 @@ func _apply_current_settings_to_runtime() -> void:
 	_apply_vsync(_current_settings["video"]["vsync"])
 	InputManager.apply_keyboard_preset(_current_settings["controls"]["preset"])
 	LocaleManager.set_locale(String(_current_settings["game"]["locale"]))
+	_sync_sound_manager_volumes()
+
+
+func _sync_sound_manager_volumes() -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm == null:
+		return
+	if sm.has_method("set_master_volume_db"):
+		sm.set_master_volume_db(_percent_to_db(int(_current_settings["audio"]["master_volume"])))
+	if sm.has_method("set_music_volume_db"):
+		sm.set_music_volume_db(_percent_to_db(int(_current_settings["audio"]["music_volume"])))
+	if sm.has_method("set_sfx_volume_db"):
+		sm.set_sfx_volume_db(_percent_to_db(int(_current_settings["audio"]["sfx_volume"])))
+
+
+func _percent_to_db(percent: int) -> float:
+	var clamped: int = clampi(percent, 0, 100)
+	if clamped <= 0:
+		return -80.0
+	return linear_to_db(float(clamped) / 100.0)
 
 
 func _apply_audio_volume(bus_name: String, percent: int) -> void:

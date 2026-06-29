@@ -29,6 +29,7 @@ const BLOOD_SPLATTER_SCENE := preload("res://effects/blood_splatter.tscn")
 ## Yumruk/tekme saldırı iz efektleri (animasyon method track). Düşman isabet FX ayrı (player_hitbox).
 const PLAYER_ATTACK_SWING_FX_ENABLED := false
 const PLAYER_NOISE_EMITTER_SCRIPT := preload("res://components/player_noise_emitter.gd")
+const PLAYER_FOOTSTEP_EMITTER_SCRIPT := preload("res://components/player_footstep_emitter.gd")
 const DAMAGE_RECOVERY_PICKUP_LIFETIME := 7.0
 const DAMAGE_RECOVERY_PICKUP_ARM_DELAY := 0.55
 const DAMAGE_RECOVERY_ORB_MIN_IMPULSE_X := 360.0
@@ -223,9 +224,11 @@ var pending_death: bool = false
 
 var status_effects: StatusEffectManager
 var noise_emitter: Node = null
+var footstep_emitter: Node = null
 
 func _ready():
-	VillageManager.Village_Player = self
+	if is_instance_valid(VillageManager):
+		VillageManager.Village_Player = self
 	# Add to player group
 	add_to_group("player")
 	
@@ -239,6 +242,12 @@ func _ready():
 	add_child(noise_emitter)
 	if noise_emitter.has_method("setup"):
 		noise_emitter.setup(self)
+
+	footstep_emitter = PLAYER_FOOTSTEP_EMITTER_SCRIPT.new()
+	footstep_emitter.name = "PlayerFootstepEmitter"
+	add_child(footstep_emitter)
+	if footstep_emitter.has_method("setup"):
+		footstep_emitter.setup(self)
 	
 	# Set player z_index to appear above ground traps but below flying objects
 	# Use call_deferred to ensure sprite is ready
@@ -293,6 +302,8 @@ func _ready():
 	# Register with ItemManager
 	if has_node("/root/ItemManager"):
 		ItemManager.register_player(self)
+	
+	_setup_attack_sfx_signals()
 	
 	# Initialize stats
 	damage_multiplier = 1.0
@@ -773,6 +784,8 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 			if has_signal("player_took_damage"):
 				emit_signal("player_took_damage", amount, attacker)
 			_spawn_player_blood_particles(amount, attacker)
+			if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
+				SoundManager.play_sfx("hurt", global_position)
 
 func _should_apply_damage_resource_penalty(attacker: Node2D) -> bool:
 	# Taşınan kaynak / orman altını kaybı yalnızca orman biyomlarında (odun-taş-su toplama).
@@ -1285,6 +1298,8 @@ func _finalize_player_death() -> void:
 		return
 	is_dead = true
 	pending_death = false
+	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
+		SoundManager.play_sfx("death", global_position)
 	
 	# Disable player controls
 	if state_machine:
@@ -1462,6 +1477,41 @@ func can_use_heavy_attack() -> bool:
 	if player_stats and player_stats.has_method("is_heavy_attack_locked"):
 		return not player_stats.is_heavy_attack_locked()
 	return true
+
+
+func _setup_attack_sfx_signals() -> void:
+	if not player_attack_performed.is_connected(_on_player_attack_performed_sfx):
+		player_attack_performed.connect(_on_player_attack_performed_sfx)
+	if not player_attack_landed.is_connected(_on_player_attack_landed_sfx):
+		player_attack_landed.connect(_on_player_attack_landed_sfx)
+
+
+func _on_player_attack_landed_sfx(attack_type: String, _damage: float, targets: Array, _position: Vector2, _effect_filter: String) -> void:
+	if targets.is_empty():
+		return
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm == null or not sm.has_method("play_combat_hit"):
+		return
+	var hit_pos: Vector2 = global_position
+	for target in targets:
+		if target is Node2D and is_instance_valid(target):
+			hit_pos = (target as Node2D).global_position
+			break
+	var t: String = attack_type.strip_edges().to_lower()
+	var is_heavy: bool = t == "heavy" or t.contains("heavy")
+	sm.play_combat_hit(hit_pos, is_heavy)
+
+
+func _on_player_attack_performed_sfx(attack_name: String, _damage: float) -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm == null or not sm.has_method("play_player_attack_swing"):
+		return
+	var n: String = attack_name.strip_edges().to_lower()
+	var is_heavy: bool = n.contains("heavy") or n == "counter_heavy" or n == "air_heavy"
+	if n == "fall_attack" or n == "fall":
+		sm.play_player_attack_swing(true, global_position)
+		return
+	sm.play_player_attack_swing(is_heavy, global_position)
 
 func can_use_fall_attack() -> bool:
 	var player_stats = get_node_or_null("/root/PlayerStats")

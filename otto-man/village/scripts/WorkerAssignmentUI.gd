@@ -339,9 +339,12 @@ func _format_upgrade_info(building: Node) -> String:
 	var parts: Array[String] = []
 	if building and building.has_method("get_next_upgrade_cost"):
 		var cost: Dictionary = building.get_next_upgrade_cost()
-		var gold := int(cost.get("gold", 0))
-		if gold > 0:
-			parts.append(tr("worker.upgrade_gold") % gold)
+		if not cost.is_empty() and VillageManager.has_method("format_village_cost"):
+			parts.append(VillageManager.format_village_cost(cost))
+		else:
+			var gold := int(cost.get("gold", 0))
+			if gold > 0:
+				parts.append(tr("worker.upgrade_gold") % gold)
 	if building and ("upgrade_time_seconds" in building):
 		var secs := int(building.upgrade_time_seconds)
 		if secs > 0:

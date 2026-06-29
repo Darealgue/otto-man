@@ -11,10 +11,6 @@ var is_upgrading: bool = false
 var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 15.0
 @export var max_level: int = 3
-const UPGRADE_COSTS = {
-	2: {"gold": 40},
-	3: {"gold": 80}
-}
 
 var required_resources: Dictionary = {"metal": 1, "wood": 1, "water": 1}
 var produced_resource: String = "weapon"
@@ -43,22 +39,10 @@ func _ready() -> void:
 	add_child(fetch_timer)
 
 func get_next_upgrade_cost() -> Dictionary:
-	var next_level = level + 1
-	return UPGRADE_COSTS.get(next_level, {})
+	return BuildingUpgradeMixin.get_next_cost(self)
 
 func start_upgrade() -> bool:
-	if is_upgrading: return false
-	if level >= max_level: return false
-	var cost = get_next_upgrade_cost()
-	var gold_cost = int(cost.get("gold", 0))
-	if GlobalPlayerData.gold < gold_cost: return false
-	GlobalPlayerData.add_gold(-gold_cost)
-	is_upgrading = true
-	upgrade_timer.wait_time = upgrade_time_seconds
-	upgrade_timer.start()
-	upgrade_started.emit()
-	state_changed.emit()
-	return true
+	return BuildingUpgradeMixin.start(self)
 
 func _on_upgrade_finished() -> void:
 	is_upgrading = false

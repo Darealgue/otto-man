@@ -93,6 +93,7 @@ var _travel_dice_right_label: Label = null
 var _travel_event_info_label: Label = null
 var _travel_event_result_label: Label = null
 var _dungeon_entry_dialog: ConfirmationDialog = null
+var _landmark_visit_dialog: ConfirmationDialog = null
 ## Imlec hex uzerinde koy / gorev / zindan ozeti (CanvasLayer, ekran koordinati).
 var _hex_tooltip_layer: CanvasLayer = null
 var _hex_tooltip_panel: PanelContainer = null
@@ -231,6 +232,7 @@ func _ready() -> void:
 	_setup_travel_event_dialog()
 	_setup_travel_outcome_dialog()
 	_setup_dungeon_entry_dialog()
+	_setup_landmark_visit_dialog()
 	_setup_high_risk_move_dialog()
 	_setup_settlement_aid_confirm_dialog()
 	_setup_settlement_action_menu()
@@ -659,6 +661,12 @@ func _draw() -> void:
 			elif poi == "dungeon":
 				poi_color = Color(0.9, 0.25, 0.2, 1.0)
 			draw_circle(center, 5.0, poi_color)
+		if discovered and poi.begins_with("landmark_"):
+			var landmark_color: Color = Color(0.75, 0.55, 1.0, 1.0)
+			if bool(tile.get("landmark_claimed", false)):
+				landmark_color = Color(0.45, 0.42, 0.5, 0.85)
+			draw_circle(center, 4.2, landmark_color)
+			draw_circle(center, 2.0, Color(1.0, 0.92, 0.55, 1.0))
 		if discovered and poi == "neighbor_village":
 			_draw_settlement_incident_marker(center, tile)
 		if discovered and String(tile.get("travel_feature", "")) == "kopru":
@@ -731,6 +739,35 @@ func _enter_player_village_from_world_map() -> void:
 			return
 	if scene_manager != null and scene_manager.has_method("change_to_village"):
 		scene_manager.change_to_village({"source": "world_map", "reason": "player_village_entry"})
+
+
+func _return_to_village_after_expedition_collapse(collapse: Dictionary) -> void:
+	var cause: String = String(collapse.get("cause", "supplies"))
+	var cause_label: String = "erzak"
+	match cause:
+		"food":
+			cause_label = "aclik"
+		"water":
+			cause_label = "susuzluk"
+	var return_hours: float = float(collapse.get("return_hours", 1.0))
+	var return_minutes: int = int(collapse.get("return_minutes", int(return_hours * 60.0)))
+	_update_status_label(
+		"Erzak bitti (%s). Yolda yigildin — koye surukleniyorsun (~%s)..." % [
+			cause_label,
+			_format_minutes_short(maxi(0, return_minutes)),
+		]
+	)
+	await get_tree().create_timer(1.6).timeout
+	var sm: Node = get_node_or_null("/root/SceneManager")
+	if sm == null or not sm.has_method("change_to_village"):
+		return
+	var payload: Dictionary = {
+		"source": "world_map_death",
+		"return_reason": "world_map_expedition_collapse",
+		"travel_hours_back": return_hours,
+		"collapse_cause": cause,
+	}
+	sm.change_to_village(payload, true)
 
 func _try_enter_village_from_combat_action() -> bool:
 	if _travel_anim_active:
@@ -835,6 +872,14 @@ func _travel_anim_on_segment_finished() -> void:
 			_update_status_label("Yolculuk kesildi.")
 		queue_redraw()
 		return
+	if bool(adv.get("collapsed", false)):
+		_travel_anim_stop()
+		_invalidate_world_map_state_cache()
+		_camera_follow_target = _get_player_visual_pixel_pos()
+		_pending_travel_event_resolution = {}
+		call_deferred("_return_to_village_after_expedition_collapse", adv.get("collapse", {}))
+		queue_redraw()
+		return
 	if bool(adv.get("event_triggered", false)):
 		_travel_anim_stop()
 		_invalidate_world_map_state_cache()
@@ -855,6 +900,7 @@ func _travel_anim_on_segment_finished() -> void:
 		_try_resolve_player_map_missions_at(_pq, _pr)
 		_focus_camera_on_cursor()
 		_try_prompt_dungeon_entry_at_player_pos()
+		_try_prompt_landmark_visit_at_player_pos()
 		_try_prompt_settlement_actions_at_player_pos()
 		queue_redraw()
 		return
@@ -883,6 +929,7 @@ func _execute_travel_to_cursor() -> void:
 		_update_status_label("Zaten bu hedeftesin.")
 		_try_resolve_player_map_missions_at(_cursor_q, _cursor_r)
 		_try_prompt_dungeon_entry_at_player_pos()
+		_try_prompt_landmark_visit_at_player_pos()
 		queue_redraw()
 		return
 	_travel_anim_path = path.duplicate()
@@ -1354,6 +1401,8 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 		poi_lines = _build_dungeon_hex_tooltip_lines(tile, cq, cr)
 	elif poi == "neighbor_village":
 		poi_lines = _build_neighbor_village_hex_tooltip_lines(tile)
+	elif poi.begins_with("landmark_"):
+		poi_lines = _build_landmark_hex_tooltip_lines(tile)
 	elif poi == "player_village":
 		poi_lines = _build_player_village_hex_tooltip_lines()
 	elif poi.is_empty():
@@ -1479,6 +1528,16 @@ func _build_biome_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 		tr("wm.tooltip.river.hint")
 	])
 
+func _build_landmark_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
+	var poi: String = String(tile.get("poi_type", ""))
+	var name: String = WorldLandmarkConfig.get_display_name(poi)
+	var lines: PackedStringArray = PackedStringArray([name, WorldLandmarkConfig.get_visit_blurb(poi)])
+	if bool(tile.get("landmark_claimed", false)):
+		lines.append("Ziyaret edildi — ödül alındı.")
+	else:
+		lines.append("Buraya varınca ziyaret edebilirsin.")
+	return lines
+
 func _build_player_village_hex_tooltip_lines() -> PackedStringArray:
 	return PackedStringArray([
 		tr("wm.tooltip.player_village.title"),
@@ -1492,6 +1551,11 @@ func _build_neighbor_village_hex_tooltip_lines(tile: Dictionary) -> PackedString
 		lines.append(tr("wm.tooltip.neighbor.undiscovered.hint"))
 		return lines
 	lines.append(_get_settlement_tooltip_name(tile))
+	var faction_id: String = String(tile.get("settlement_faction", ""))
+	if faction_id.is_empty() and _world_manager != null and _world_manager.has_method("get_settlement_faction"):
+		faction_id = String(_world_manager.call("get_settlement_faction", String(tile.get("settlement_id", ""))))
+	if not faction_id.is_empty():
+		lines.append("Fraksiyon: %s" % WorldFactionProfiles.get_display_label(faction_id))
 	var sid: String = String(tile.get("settlement_id", ""))
 	if _world_manager != null and "world_settlement_states" in _world_manager and not sid.is_empty():
 		var st_var: Variant = _world_manager.world_settlement_states.get(sid, {})
@@ -1781,10 +1845,10 @@ func _build_carry_summary_text() -> String:
 				expedition_text = "Yol cantasi: " + ", ".join(eparts)
 		if ps.has_method("get_world_expedition_survival_forecast"):
 			var fc: Dictionary = ps.call("get_world_expedition_survival_forecast")
-			var m_any: int = int(fc.get("minutes_until_any_hp_loss", 0))
-			var m_food: int = int(fc.get("minutes_until_food_hp_loss", 0))
-			var m_water: int = int(fc.get("minutes_until_water_hp_loss", 0))
-			survival_text = "Dayanim: can kaybina ~%s | aclik ~%s | susuzluk ~%s" % [
+			var m_any: int = int(fc.get("minutes_until_collapse", fc.get("minutes_until_any_hp_loss", 0)))
+			var m_food: int = int(fc.get("minutes_until_food_collapse", fc.get("minutes_until_food_hp_loss", 0)))
+			var m_water: int = int(fc.get("minutes_until_water_collapse", fc.get("minutes_until_water_hp_loss", 0)))
+			survival_text = "Dayanim: cokuse ~%s | aclik ~%s | susuzluk ~%s" % [
 				_format_minutes_short(maxi(0, m_any)),
 				_format_minutes_short(maxi(0, m_food)),
 				_format_minutes_short(maxi(0, m_water))
@@ -2980,6 +3044,63 @@ func _apply_button_risk_color(button: Button, risk: String) -> void:
 		_:
 			button.modulate = Color(1, 1, 1, 1)
 
+func _setup_landmark_visit_dialog() -> void:
+	if _landmark_visit_dialog != null:
+		return
+	_landmark_visit_dialog = ConfirmationDialog.new()
+	if MEDIEVAL_THEME:
+		_landmark_visit_dialog.theme = MEDIEVAL_THEME
+	_landmark_visit_dialog.title = "Keşif noktası"
+	_landmark_visit_dialog.get_ok_button().text = "Ziyaret et"
+	_landmark_visit_dialog.get_cancel_button().text = "Vazgeç"
+	_landmark_visit_dialog.confirmed.connect(_on_landmark_visit_confirmed)
+	_landmark_visit_dialog.canceled.connect(_on_landmark_visit_canceled)
+	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
+	if layer:
+		layer.add_child(_landmark_visit_dialog)
+	else:
+		add_child(_landmark_visit_dialog)
+
+func _try_prompt_landmark_visit_at_player_pos() -> void:
+	if _landmark_visit_dialog == null or _world_manager == null:
+		return
+	if _dungeon_entry_dialog and _dungeon_entry_dialog.visible:
+		return
+	var state: Dictionary = _get_world_map_state_cached()
+	var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
+	var q: int = int(pos.get("q", 0))
+	var r: int = int(pos.get("r", 0))
+	if not _world_manager.has_method("get_landmark_at"):
+		return
+	var landmark: Dictionary = _world_manager.call("get_landmark_at", q, r)
+	if landmark.is_empty() or bool(landmark.get("claimed", false)):
+		return
+	var display_name: String = String(landmark.get("display_name", "Keşif"))
+	var poi: String = String(landmark.get("poi_type", ""))
+	_landmark_visit_dialog.dialog_text = "%s\n\n%s" % [display_name, WorldLandmarkConfig.get_visit_blurb(poi)]
+	_landmark_visit_dialog.set_meta("landmark_q", q)
+	_landmark_visit_dialog.set_meta("landmark_r", r)
+	_landmark_visit_dialog.popup_centered(Vector2i(520, 200))
+
+func _on_landmark_visit_confirmed() -> void:
+	if _world_manager == null or not _world_manager.has_method("try_visit_landmark_at"):
+		return
+	var q: int = int(_landmark_visit_dialog.get_meta("landmark_q", 0))
+	var r: int = int(_landmark_visit_dialog.get_meta("landmark_r", 0))
+	var result: Dictionary = _world_manager.call("try_visit_landmark_at", q, r)
+	if bool(result.get("ok", false)):
+		var summary: String = String(result.get("summary", ""))
+		if summary.is_empty():
+			summary = String(result.get("display_name", "Keşif"))
+		_update_status_label("Ziyaret: %s" % summary)
+	else:
+		_update_status_label("Bu nokta zaten ziyaret edilmiş veya erişilemez.")
+	_invalidate_world_map_state_cache()
+	queue_redraw()
+
+func _on_landmark_visit_canceled() -> void:
+	_update_status_label("Keşif ziyareti iptal edildi.")
+
 func _setup_dungeon_entry_dialog() -> void:
 	if _dungeon_entry_dialog != null:
 		return
@@ -4160,8 +4281,11 @@ func _format_minutes_short(total_minutes: int) -> String:
 
 func _get_settlement_action_preview(action_type: String) -> Dictionary:
 	var mm: Node = get_node_or_null("/root/MissionManager")
+	var faction_id: String = ""
+	if _world_manager and _world_manager.has_method("get_settlement_faction") and not _pending_settlement_id.is_empty():
+		faction_id = String(_world_manager.call("get_settlement_faction", _pending_settlement_id))
 	if mm and mm.has_method("get_world_map_action_preview"):
-		return mm.call("get_world_map_action_preview", action_type, _pending_settlement_name, _pending_settlement_distance)
+		return mm.call("get_world_map_action_preview", action_type, _pending_settlement_name, _pending_settlement_distance, faction_id)
 	return {"duration_minutes": 120, "risk_level": "Orta"}
 
 func _get_current_day() -> int:

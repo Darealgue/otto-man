@@ -1923,8 +1923,11 @@ func get_building_status_info(building_type: String) -> String:
 	if current_construction_action == ConstructionAction.UPGRADE:
 		if building.has_method("get_next_upgrade_cost"):
 			var upgrade_cost = building.get_next_upgrade_cost()
-			if upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
-				info += " 💰" + str(upgrade_cost["gold"])
+			if not upgrade_cost.is_empty():
+				if VillageManager.has_method("format_village_cost"):
+					info += " 💰" + VillageManager.format_village_cost(upgrade_cost)
+				elif upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
+					info += " 💰" + str(upgrade_cost["gold"])
 			# Süre bilgisi
 			if "upgrade_time_seconds" in building:
 				info += " ⏱" + str(int(building.upgrade_time_seconds)) + "sn"
@@ -2077,8 +2080,11 @@ func get_building_detailed_info(building: Node, building_type: String) -> String
 	
 	if building.has_method("get_next_upgrade_cost"):
 		var upgrade_cost = building.get_next_upgrade_cost()
-		if upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
-			info += tr("mc.building.info.upgrade_cost") % upgrade_cost["gold"] + "\n"
+		if not upgrade_cost.is_empty():
+			if VillageManager.has_method("format_village_cost"):
+				info += "💰 " + VillageManager.format_village_cost(upgrade_cost) + "\n"
+			elif upgrade_cost.has("gold") and upgrade_cost["gold"] > 0:
+				info += tr("mc.building.info.upgrade_cost") % upgrade_cost["gold"] + "\n"
 	
 	if "upgrade_time_seconds" in building:
 		info += tr("mc.building.info.duration") % int(building.upgrade_time_seconds) + "\n"
@@ -2563,7 +2569,7 @@ func _get_merged_available_missions() -> Array:
 		for chain_id in mission_manager.mission_chains.keys():
 			var chain_missions = mission_manager.get_chain_missions(chain_id)
 			for m in chain_missions:
-				if m.status == Mission.Status.MEVCUT and m.are_prerequisites_met(mission_manager.get_completed_missions()):
+				if mission_manager.has_method("is_mission_listing_available") and mission_manager.is_mission_listing_available(m):
 					chain_missions_to_show.append(m)
 	var unique_ids: Dictionary = {}
 	var merged: Array = []
@@ -9122,8 +9128,8 @@ func update_concubine_role_popup():
 	var roles = [
 		{"id": Concubine.Role.NONE, "name_key": "concubine.role.none", "active": true},
 		{"id": Concubine.Role.KOMUTAN, "name_key": "concubine.role.commander", "active": true},
-		{"id": Concubine.Role.AJAN, "name_key": "concubine.role.agent", "active": false},
-		{"id": Concubine.Role.DİPLOMAT, "name_key": "concubine.role.diplomat", "active": false},
+		{"id": Concubine.Role.AJAN, "name_key": "concubine.role.agent", "active": true},
+		{"id": Concubine.Role.DİPLOMAT, "name_key": "concubine.role.diplomat", "active": true},
 		{"id": Concubine.Role.TÜCCAR, "name_key": "concubine.role.trader", "active": true},
 		{"id": Concubine.Role.ALIM, "name_key": "concubine.role.scholar", "active": true},
 		{"id": Concubine.Role.TIBBIYECI, "name_key": "concubine.role.medic", "active": true},

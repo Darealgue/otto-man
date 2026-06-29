@@ -48,10 +48,10 @@ Resmi demo ihtiyaçları (sınır, teaser, pazarlama metni) bu listede **düşü
 
 | # | Madde | Not |
 |---|--------|-----|
-| 16 | [ ] Köy savunması segmenti (`pending_attacks` oynanabilir) | Zindan motoru + köy arka planı |
+| 16 | [x] Köy savunması segmenti (`pending_attacks` oynanabilir) | Zindan motoru + köy arka planı |
 | 17 | [ ] Mevsim / kış döngüsü | `TimeManager`, üretim/tüketim modifier |
-| 18 | [ ] Köy festivali & moral event'leri | Moral sadece ceza değil ödül de |
-| 19 | [ ] Ölüm sonrası mentor diyalogu (debuff + kısa öğrenme metni) | Duygusal bağ |
+| 18 | [x] Köy festivali & moral event'leri | Moral sadece ceza değil ödül de |
+| 19 | [x] Ölüm sonrası mentor diyalogu (debuff + kısa öğrenme metni) | Duygusal bağ |
 | 20 | [ ] LLM kapalıyken “el yapımı” haber şablonları (5–10 adet) | `NarrativeSpawnPipeline`, `news_queue_*` |
 
 ---

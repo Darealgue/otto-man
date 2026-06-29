@@ -56,6 +56,7 @@ DevConsole="*res://ui/dev_console.tscn"
 CombatResolver="*res://autoload/CombatResolver.gd"
 DiplomacyManager="*res://autoload/DiplomacyManager.gd"
 Loots="*res://autoload/loot_pool.gd"
+DemoPackConfig="*res://autoload/DemoPackConfig.gd"
 
 [display]
 
