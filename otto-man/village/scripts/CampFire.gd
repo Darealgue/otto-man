@@ -2,11 +2,6 @@ extends Node2D
 
 class_name CampFire
 
-# --- Sahne Yolları ---
-const MISSION_CENTER_SCENE = "res://village/missions/MissionCenterScene.tscn"
-
-var _locked_player: Node = null
-var _active_panel: CanvasLayer = null
 var _interact_hint_label: Label = null
 
 # --- Light System Variables ---
@@ -34,6 +29,7 @@ var day_night_controller: Node = null
 # --- Kapasite Yönetimi ---
 @export var max_capacity: int = 3  # Maksimum işçi kapasitesi (varsayılan 3, kaydedilebilir)
 var _occupants: Array = []  # Kamp ateşindeki worker'ları takip et
+var _sick_indicator: Label = null
 
 # --- Ready Function ---
 func _ready() -> void:
@@ -88,6 +84,14 @@ func _ready() -> void:
 	if im and im.has_signal("input_device_changed"):
 		im.input_device_changed.connect(_on_input_device_changed)
 
+	_ensure_sick_indicator()
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.has_signal("village_data_changed"):
+		var cb := Callable(self, "_refresh_sick_indicator")
+		if not vm.village_data_changed.is_connected(cb):
+			vm.village_data_changed.connect(cb)
+	_refresh_sick_indicator()
+
 
 # --- Etkileşim Tuşu Gösterimi ---
 func ShowInteractButton() -> void:
@@ -125,107 +129,41 @@ func _create_interact_hint() -> void:
 	_interact_hint_label.visible = false
 	add_child(_interact_hint_label)
 
-# Oyuncu etkileşime geçtiğinde çağrılır
-func interact():
-	print("Campfire.interact() çağrıldı.")
-	
-	# Doğrudan Görev Merkezi'ni aç
-	print("Görev Merkezi açılıyor...")
-	_open_or_show_ui_panel(MISSION_CENTER_SCENE)
-
-# Belirtilen UI panelini açar
-func _open_or_show_ui_panel(scene_path: String) -> void:
-	if _active_panel and is_instance_valid(_active_panel):
-		if _active_panel.visible:
-			print("Campfire: Panel already active and visible, skipping new instance.")
-			return
-		print("Campfire: Reusing existing panel instance.")
-		_lock_player()
-		_active_panel.visible = true
-		# Mission Center için open_menu() metodunu çağır
-		if _active_panel.has_method("open_menu"):
-			print("Campfire: Calling open_menu() on existing Mission Center")
-			_active_panel.open_menu()
-		elif _active_panel.has_method("on_campfire_reopened"):
-			_active_panel.on_campfire_reopened()
+func _ensure_sick_indicator() -> void:
+	if is_instance_valid(_sick_indicator):
 		return
-	print("Campfire: Creating new panel instance for: ", scene_path)
-	var panel_scene = load(scene_path)
-	if panel_scene:
-		var instance = panel_scene.instantiate()
-		if instance is CanvasLayer:
-			_active_panel = instance
-			_lock_player()
-			instance.tree_exiting.connect(_on_panel_tree_exiting)
-			var visibility_callable := Callable(self, "_on_panel_visibility_changed")
-			if not instance.visibility_changed.is_connected(visibility_callable):
-				instance.visibility_changed.connect(visibility_callable)
-			if instance.has_method("connect_close_signal"):
-				instance.connect_close_signal(_on_panel_closed)
-			elif instance.has_signal("menu_closed"):
-				instance.menu_closed.connect(_on_panel_closed)
-		else:
-			_lock_player()
-		get_tree().root.add_child(instance)
-		print("Campfire: Panel instance created successfully")
-		
-		# Mission Center için open_menu() metodunu çağır
-		if instance.has_method("open_menu"):
-			print("Campfire: Calling open_menu() on Mission Center")
-			instance.open_menu()
-		else:
-			# Diğer paneller için sadece görünür yap
-			instance.visible = true
+	_sick_indicator = Label.new()
+	_sick_indicator.name = "SickAtHomeIndicator"
+	_sick_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sick_indicator.position = Vector2(-28, -95)
+	_sick_indicator.z_index = 25
+	_sick_indicator.visible = false
+	_sick_indicator.add_theme_color_override("font_outline_color", Color(0.1, 0.0, 0.0, 0.9))
+	_sick_indicator.add_theme_constant_override("outline_size", 5)
+	add_child(_sick_indicator)
+
+func _refresh_sick_indicator() -> void:
+	_ensure_sick_indicator()
+	if not is_instance_valid(_sick_indicator):
+		return
+	var vm := get_node_or_null("/root/VillageManager")
+	var count := 0
+	if vm and vm.has_method("get_sick_count_at_housing"):
+		count = int(vm.get_sick_count_at_housing(self))
+	if count > 0:
+		_sick_indicator.text = "🤒 %d" % count
+		_sick_indicator.visible = true
 	else:
-		printerr("Campfire: UI panel scene could not be loaded: %s" % scene_path)
+		_sick_indicator.visible = false
 
-func _lock_player() -> void:
-	if _locked_player and is_instance_valid(_locked_player):
-		return
-	var player = get_tree().get_first_node_in_group("player")
-	if player and player.has_method("set_ui_locked"):
-		player.set_ui_locked(true)
-		_locked_player = player
-
-func _unlock_player() -> void:
-	if _locked_player and is_instance_valid(_locked_player):
-		_locked_player.set_ui_locked(false)
-		if InputMap.has_action("dash"):
-			Input.action_release("dash")
-		if InputMap.has_action("jump"):
-			Input.action_release("jump")
-		if InputMap.has_action("attack"):
-			Input.action_release("attack")
-		if InputMap.has_action("ui_accept"):
-			Input.action_release("ui_accept")
-		if InputMap.has_action("ui_forward"):
-			Input.action_release("ui_forward")
-		if InputMap.has_action("interact"):
-			Input.action_release("interact")
-		if InputMap.has_action("ui_left"):
-			Input.action_release("ui_left")
-		if InputMap.has_action("ui_right"):
-			Input.action_release("ui_right")
-		if InputMap.has_action("move_left"):
-			Input.action_release("move_left")
-		if InputMap.has_action("move_right"):
-			Input.action_release("move_right")
-		if InputMap.has_action("left"):
-			Input.action_release("left")
-		if InputMap.has_action("right"):
-			Input.action_release("right")
-	_locked_player = null
-
-func _on_panel_tree_exiting() -> void:
-	_active_panel = null
-	_unlock_player()
-
-func _on_panel_closed() -> void:
-	_unlock_player()
-
-func _on_panel_visibility_changed() -> void:
-	if _active_panel and not _active_panel.visible:
-		_on_panel_closed()
+# Oyuncu etkileşime geçtiğinde çağrılır
+func interact() -> void:
+	var host := VillageWorldPopups.get_host()
+	if host:
+		host.open_campfire_rest()
+		var village := get_tree().get_first_node_in_group("VillageScene")
+		if village and village.has_method("tutorial_on_campfire_rest_opened"):
+			village.tutorial_on_campfire_rest_opened()
 
 # --- Kapasite Fonksiyonları ---
 # Bu kamp ateşinin bir işçi daha alıp alamayacağını kontrol eder

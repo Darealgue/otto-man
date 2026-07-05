@@ -204,7 +204,7 @@ func _build_resource_scene_pool_for_biome() -> Array[PackedScene]:
 		"mountain":
 			return [_tree_interactable_scene, _rock_interactable_scene]
 		"river":
-			return [_well_interactable_scene, _bush_interactable_scene]
+			return [_tree_interactable_scene, _bush_interactable_scene]
 		_:
 			return [_tree_interactable_scene, _bush_interactable_scene]
 
@@ -733,6 +733,38 @@ func _forest_on_resource_spawn_chunk(chunk: Node2D) -> void:
 		_resource_spawn_timer = randi_range(lo, hi)
 	else:
 		_resource_spawn_timer = 1
+	_maybe_spawn_expedition_loot_pickups(chunk)
+
+
+func _maybe_spawn_expedition_loot_pickups(chunk: Node2D) -> void:
+	if chunk == null or not is_instance_valid(chunk):
+		return
+	if randf() > 0.42:
+		return
+	var tile_map := chunk.find_child("TileMapLayer", true, false) as TileMapLayer
+	if tile_map == null:
+		return
+	var tile_set: TileSet = tile_map.tile_set
+	if tile_set == null:
+		return
+	var chunk_size := _get_size(chunk)
+	var candidates := _forest_collect_resource_floor_cells(
+		tile_map, tile_set, chunk, "decor_anchor", 96.0, chunk_size.x - 96.0
+	)
+	if candidates.is_empty():
+		return
+	var spawn_count := randi_range(1, 2)
+	for _i in spawn_count:
+		var cell: Vector2i = candidates[randi() % candidates.size()]
+		var pickup := ExpeditionLootPickup.new()
+		match biome_type:
+			"mountain":
+				pickup.loot_type = ExpeditionLootType.HERB_BUNDLE
+			_:
+				pickup.loot_type = ExpeditionLootType.SKY_FEATHER if randf() < 0.7 else ExpeditionLootType.HERB_BUNDLE
+		pickup.position = tile_map.map_to_local(cell) + Vector2(0, -36)
+		chunk.add_child(pickup)
+
 
 func _forest_collect_resource_floor_cells(
 	tile_map: Node,

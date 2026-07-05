@@ -117,8 +117,14 @@ func _trigger_transition() -> void:
 					is_dead = float(health) <= 0.0
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if not is_dead and is_instance_valid(drs) and drs.get("run_started") == true:
+			if drs.has_method("sync_warmup_limits"):
+				drs.sync_warmup_limits()
 			if drs.is_run_complete():
-				print("[PortalArea] Run complete (%d segments) -> Village with full rewards" % drs.MAX_SEGMENTS)
+				var max_seg: int = int(drs.run_max_segments) if "run_max_segments" in drs else int(drs.MAX_SEGMENTS)
+				print("[PortalArea] Run complete (%d/%d segments) -> Village with full rewards" % [
+					drs.run_segments_completed if "run_segments_completed" in drs else drs.run_segment_count,
+					max_seg,
+				])
 				# Köye dön akışına devam et (aşağıdaki bloklar ödül transferini halleder)
 			else:
 				print("[PortalArea] Dungeon level complete -> Camp (mid-run), not village")

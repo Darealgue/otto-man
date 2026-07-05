@@ -8,12 +8,55 @@ class_name PoisonPoolV2
 @export var poison_ticks: int = 3
 @export var poison_damage_per_tick: float = 2.0
 
+const SLEEP_DISTANCE := 1600.0
+const WAKE_DISTANCE := 1400.0
+const SLEEP_CHECK_INTERVAL := 0.15
+
+var is_sleeping: bool = true
+var _sleep_poll_timer: Timer = null
+
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 
 func _ready() -> void:
 	add_to_group("poison_pools")
 	body_entered.connect(_on_body_entered)
 	_trigger_impact_animation()
+	_sleep_poll_timer = Timer.new()
+	_sleep_poll_timer.wait_time = SLEEP_CHECK_INTERVAL
+	_sleep_poll_timer.timeout.connect(_check_sleep_state)
+	add_child(_sleep_poll_timer)
+	_sleep_poll_timer.start()
+	_check_sleep_state()
+
+func _check_sleep_state() -> void:
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if not player:
+		if not is_sleeping:
+			_go_to_sleep()
+		return
+	var dist := global_position.distance_to(player.global_position)
+	if is_sleeping and dist <= WAKE_DISTANCE:
+		_wake_up()
+	elif not is_sleeping and dist >= SLEEP_DISTANCE:
+		_go_to_sleep()
+
+func _go_to_sleep() -> void:
+	if is_sleeping:
+		return
+	is_sleeping = true
+	monitoring = false
+	monitorable = false
+	if sprite:
+		sprite.visible = false
+
+func _wake_up() -> void:
+	if not is_sleeping:
+		return
+	is_sleeping = false
+	monitoring = true
+	monitorable = true
+	if sprite:
+		sprite.visible = true
 
 func _trigger_impact_animation() -> void:
 	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("impact"):
@@ -34,6 +77,8 @@ func _on_animation_finished() -> void:
 		sprite.animation_finished.disconnect(_on_animation_finished)
 
 func _on_body_entered(body: Node2D) -> void:
+	if is_sleeping:
+		return
 	if not body.is_in_group("player"):
 		return
 	# Respect dodge / invincibility like other traps

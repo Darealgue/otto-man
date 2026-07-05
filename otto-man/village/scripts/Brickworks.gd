@@ -12,10 +12,10 @@ var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 12.0
 @export var max_level: int = 3
 
-var required_resources: Dictionary = {"stone": 1, "water": 1}
+var required_resources: Dictionary = {"stone": 1}
 var produced_resource: String = "brick"
 
-var input_buffer: Dictionary = {"stone": 0, "water": 0}
+var input_buffer: Dictionary = {"stone": 0}
 var production_progress: float = 0.0
 const PRODUCTION_TIME: float = 320.0
 var fetch_timer: Timer = null
@@ -143,5 +143,5 @@ func remove_worker() -> bool:
 	return true
 
 func get_production_info() -> String:
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Tuğla: (taş+su)"
+	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Tuğla: (taş)"
 

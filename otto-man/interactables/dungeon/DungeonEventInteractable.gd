@@ -205,7 +205,7 @@ func _resolve_merchant(choice_id: String) -> void:
 			if ps and ps.has_method("add_carried_resources"):
 				var bundle: Dictionary = {"medicine": 2, "food": 1}
 				if level >= 4:
-					bundle["water"] = 1
+					bundle["food"] = 1
 				ps.add_carried_resources(bundle)
 			_show_feedback("Tüccardan erzak aldın.")
 			_resolved = true

@@ -1,5 +1,7 @@
 extends Node
 ## Zindan run'ı boyunca kurtarılan köylü/cariyeleri tutar.
+
+signal collectibles_changed
 ## Minigame başarılı olunca buraya eklenir; zindandan sağ çıkınca köye aktarılır.
 ## Ölümde veya yeni zindan girişinde temizlenir.
 
@@ -13,6 +15,11 @@ var pending_rescued_cariyes: Array = []  # Array of Dictionary: { isim, leverage
 ## Zindan run durumu
 var run_started: bool = false
 const MAX_SEGMENTS: int = 3
+## Bu run'da oynanacak bölüm sayısı (alıştırma: 1/2/3, tam run: 3).
+var run_max_segments: int = MAX_SEGMENTS
+## İlk 3 başarılı giriş alıştırma — boss yok, zorluk bonusu yok.
+var is_warmup_run: bool = false
+var warmup_completion_recorded: bool = false
 
 ## Bu run'ın zindanı (dünya haritası hex veya köy portalı)
 var dungeon_id: String = ""
@@ -26,7 +33,8 @@ var run_base_difficulty: int = 0
 var _relic_hp_bonus_applied: float = 0.0
 
 ## Challenge birikimleri (bu run boyunca)
-var run_segment_count: int = 0                # Kaç segment oynandı
+var run_segment_count: int = 0                # Seçilen challenge kapısı sayısı
+var run_segments_completed: int = 0           # Gerçekten bitirilen bölüm sayısı (finish kapısı)
 var enemy_level_offset: int = 0               # Düşman seviyesi adım birikimi
 var enemy_count_offset: int = 0               # Düşman sayısı (spawn kotası) adım birikimi
 var trap_level_offset: int = 0                # Tuzak seviyesi adım birikimi
@@ -42,6 +50,14 @@ var collected_keys: Array[String] = []  # Run boyunca toplanan kapı anahtarlar�
 
 const STEALTH_EXIT_BOSS_GOLD_FRACTION: float = 0.25
 const DEFAULT_DUNGEON_KEY_ID: String = "dungeon_key"
+const SEGMENT_EXIT_KEY_ID: String = "segment_exit_key"
+const _DungeonLootDropSpawner = preload("res://interactables/dungeon/DungeonLootDropSpawner.gd")
+
+## Alarm sonrası çıkış kapısı bu segmentte anahtar ister
+var segment_exit_requires_key: bool = false
+var segment_key_holder_id: String = ""
+var segment_alarm_enemy_total: int = 0
+var segment_combat_enemies_defeated: int = 0
 
 ## Run başlangıcı / reset
 func start_run_from_village() -> void:
@@ -49,6 +65,10 @@ func start_run_from_village() -> void:
 	run_active_relic_id = ""
 	run_started = true
 	run_segment_count = 0
+	run_segments_completed = 0
+	run_max_segments = MAX_SEGMENTS
+	is_warmup_run = false
+	warmup_completion_recorded = false
 	boss_skipped = false
 	stealth_clear = false
 	stealth_exit_partial_gold_applied = 0
@@ -59,8 +79,10 @@ func start_run_from_village() -> void:
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if is_instance_valid(dp):
 		dungeon_id = String(dp.get("active_dungeon_id"))
-		if dp.has_method("get_clear_count"):
+		if dp.has_method("get_clear_count") and not is_warmup_run:
 			run_base_difficulty = int(dp.call("get_clear_count", dungeon_id))
+		else:
+			run_base_difficulty = 0
 		if dp.has_method("consume_stealth_skip_penalty"):
 			enemy_count_offset += int(dp.call("consume_stealth_skip_penalty", dungeon_id))
 		if dp.has_method("apply_run_start_bonuses"):
@@ -71,11 +93,50 @@ func start_run_from_village() -> void:
 	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
 	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_run"):
 		stealth_mgr.call("reset_for_run")
+	sync_warmup_limits()
+	print("[DungeonRunState] Run başladı: zindan=%s alıştırma=%s tamamlanan=%d/%d (warmup_kayıt=%d)" % [
+		dungeon_id,
+		is_warmup_run,
+		run_segments_completed,
+		run_max_segments,
+		_get_warmup_completions_for_log(),
+	])
+
+
+## Kamp / bölüm bitişi öncesi: DungeonProgress'ten alıştırma limitlerini yenile.
+func sync_warmup_limits() -> void:
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if not is_instance_valid(dp):
+		run_max_segments = MAX_SEGMENTS
+		is_warmup_run = false
+		return
+	if dungeon_id.is_empty() and "active_dungeon_id" in dp:
+		dungeon_id = String(dp.get("active_dungeon_id"))
+	if not dp.has_method("configure_run_warmup"):
+		return
+	var warmup_cfg: Dictionary = dp.call("configure_run_warmup", dungeon_id)
+	run_max_segments = int(warmup_cfg.get("max_segments", MAX_SEGMENTS))
+	is_warmup_run = bool(warmup_cfg.get("is_warmup", false))
+	if is_warmup_run:
+		run_base_difficulty = 0
+	elif dp.has_method("get_clear_count") and run_started:
+		run_base_difficulty = int(dp.call("get_clear_count", dungeon_id))
+
+
+func _get_warmup_completions_for_log() -> int:
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if not is_instance_valid(dp) or not dp.has_method("get_warmup_completions"):
+		return -1
+	return int(dp.call("get_warmup_completions", dungeon_id))
 
 func end_run() -> void:
 	_clear_relic_hp_bonus()
 	run_started = false
 	run_segment_count = 0
+	run_segments_completed = 0
+	run_max_segments = MAX_SEGMENTS
+	is_warmup_run = false
+	warmup_completion_recorded = false
 	run_base_difficulty = 0
 	run_active_relic_id = ""
 	dungeon_id = ""
@@ -102,6 +163,231 @@ func add_dungeon_key(key_id: String) -> bool:
 		return false
 	collected_keys.append(id)
 	print("[DungeonRunState] Anahtar eklendi: %s (toplam %d)" % [id, collected_keys.size()])
+	collectibles_changed.emit()
+	return true
+
+
+func reset_segment_exit_state() -> void:
+	segment_exit_requires_key = false
+	segment_key_holder_id = ""
+	segment_alarm_enemy_total = 0
+	segment_combat_enemies_defeated = 0
+	collected_keys.erase(SEGMENT_EXIT_KEY_ID)
+	collectibles_changed.emit()
+
+
+## Zindan sahnesinde LevelGenerator node'unu bul (kök TestLevel değil).
+func find_active_level_generator() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return null
+	var root: Node = tree.current_scene
+	if root.has_method("lock_finish_door_for_alarm"):
+		return root
+	var named: Node = root.get_node_or_null("LevelGenerator")
+	if is_instance_valid(named):
+		return named
+	for child in root.get_children():
+		if is_instance_valid(child) and child.has_method("lock_finish_door_for_alarm"):
+			return child
+	return null
+
+
+func notify_segment_exit_key_obtained() -> void:
+	var lg := find_active_level_generator()
+	if is_instance_valid(lg) and lg.has_method("on_segment_exit_key_obtained"):
+		lg.call("on_segment_exit_key_obtained")
+
+
+func arm_segment_exit_key_lock() -> void:
+	segment_exit_requires_key = true
+	call_deferred("_snapshot_segment_enemy_quota")
+
+
+func get_living_segment_key_holder() -> Node:
+	return _find_living_key_holder()
+
+
+func should_show_key_holder_arrow() -> bool:
+	if not segment_exit_requires_key:
+		return false
+	if has_dungeon_key(SEGMENT_EXIT_KEY_ID):
+		return false
+	if segment_alarm_enemy_total <= 0:
+		return false
+	var half_threshold: int = int(ceil(float(segment_alarm_enemy_total) * 0.5))
+	return segment_combat_enemies_defeated >= half_threshold and _find_living_key_holder() != null
+
+
+func _snapshot_segment_enemy_quota() -> void:
+	var living: int = 0
+	var lg: Node = find_active_level_generator()
+	if is_instance_valid(lg) and lg.has_method("count_placed_combat_enemies"):
+		living = int(lg.call("count_placed_combat_enemies"))
+	else:
+		living = _count_placed_enemies_fallback()
+	segment_alarm_enemy_total = living + segment_combat_enemies_defeated
+	print("[DungeonRunState] Alarm düşman kotası: %d (canlı=%d, öldürülen=%d)" % [
+		segment_alarm_enemy_total, living, segment_combat_enemies_defeated
+	])
+
+
+func _count_placed_enemies_fallback() -> int:
+	var tree := get_tree()
+	if tree == null:
+		return 0
+	var count: int = 0
+	for node in tree.get_nodes_in_group("enemies"):
+		if _is_valid_key_holder_node(node):
+			count += 1
+	return count
+
+
+func _register_segment_enemy_defeated(enemy: Node) -> void:
+	if not _is_valid_key_holder_node(enemy):
+		return
+	segment_combat_enemies_defeated += 1
+
+
+func has_segment_key_holder() -> bool:
+	return _find_living_key_holder() != null
+
+
+func assign_segment_key_holder(enemy: Node) -> void:
+	if not _is_valid_key_holder_node(enemy):
+		push_warning("[DungeonRunState] Geçersiz anahtar taşıyıcı reddedildi @ %s" % (enemy.global_position if enemy is Node2D else Vector2.ZERO))
+		return
+	if has_segment_key_holder():
+		return
+	if not is_instance_valid(enemy):
+		return
+	var tree := get_tree()
+	if tree != null:
+		for node in tree.get_nodes_in_group("enemies"):
+			if is_instance_valid(node) and node != enemy and node.has_meta("holds_segment_exit_key"):
+				node.remove_meta("holds_segment_exit_key")
+				_clear_key_holder_marker(node)
+	segment_key_holder_id = str(enemy.get_instance_id())
+	enemy.set_meta("holds_segment_exit_key", true)
+
+
+func is_segment_key_holder(enemy: Node) -> bool:
+	if not is_instance_valid(enemy):
+		return false
+	if enemy.has_meta("holds_segment_exit_key") and bool(enemy.get_meta("holds_segment_exit_key")):
+		return true
+	if segment_key_holder_id.is_empty():
+		return false
+	return str(enemy.get_instance_id()) == segment_key_holder_id
+
+
+func clear_stale_key_holder_id() -> void:
+	var living: Node = _find_living_key_holder()
+	if living == null:
+		segment_key_holder_id = ""
+		_clear_key_holder_meta_on_enemies()
+
+
+func _clear_key_holder_meta_on_enemies() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	for node in tree.get_nodes_in_group("enemies"):
+		if is_instance_valid(node) and node.has_meta("holds_segment_exit_key"):
+			node.remove_meta("holds_segment_exit_key")
+			_clear_key_holder_marker(node)
+
+
+func _clear_key_holder_marker(enemy: Node) -> void:
+	if not is_instance_valid(enemy):
+		return
+	var marker: Node = enemy.get_node_or_null("SegmentExitKeyMarker")
+	if is_instance_valid(marker):
+		marker.queue_free()
+
+
+func _is_valid_key_holder_node(enemy: Node) -> bool:
+	if not is_instance_valid(enemy):
+		return false
+	var lg: Node = find_active_level_generator()
+	if is_instance_valid(lg) and lg.has_method("is_placed_combat_enemy"):
+		return bool(lg.call("is_placed_combat_enemy", enemy))
+	if not enemy is Node2D:
+		return false
+	return (enemy as Node2D).global_position.length_squared() >= 160000.0
+
+
+func _find_living_key_holder() -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	for node in tree.get_nodes_in_group("enemies"):
+		if not is_instance_valid(node):
+			continue
+		if not is_segment_key_holder(node):
+			continue
+		if "current_behavior" in node and String(node.current_behavior) == "dead":
+			continue
+		if not _is_valid_key_holder_node(node):
+			continue
+		return node
+	if not segment_key_holder_id.is_empty():
+		segment_key_holder_id = ""
+		_clear_key_holder_meta_on_enemies()
+	return null
+
+
+func handle_enemy_defeated(enemy: Node) -> void:
+	_register_segment_enemy_defeated(enemy)
+	if try_spawn_key_drop_from_enemy(enemy):
+		return
+	call_deferred("_ensure_alarm_key_available")
+
+
+func _ensure_alarm_key_available() -> void:
+	if not segment_exit_requires_key:
+		return
+	var sm := get_node_or_null("/root/StealthManager")
+	if not is_instance_valid(sm) or not bool(sm.get("segment_alarm")):
+		return
+	if has_dungeon_key(SEGMENT_EXIT_KEY_ID):
+		return
+	clear_stale_key_holder_id()
+	if has_segment_key_holder():
+		return
+	var lg: Node = find_active_level_generator()
+	if not is_instance_valid(lg):
+		return
+	if lg.has_method("_collect_segment_key_holder_candidates"):
+		var living: Array = lg.call("_collect_segment_key_holder_candidates")
+		if not living.is_empty():
+			if lg.has_method("_assign_segment_key_holder_deferred"):
+				lg.call("_assign_segment_key_holder_deferred")
+			return
+	if lg.has_method("_spawn_emergency_key_drop"):
+		lg.call("_spawn_emergency_key_drop", self)
+
+
+func try_spawn_key_drop_from_enemy(enemy: Node) -> bool:
+	if not is_segment_key_holder(enemy):
+		return false
+	segment_key_holder_id = ""
+	if enemy.has_meta("holds_segment_exit_key"):
+		enemy.remove_meta("holds_segment_exit_key")
+	_clear_key_holder_marker(enemy)
+	var pos: Vector2 = Vector2.ZERO
+	if enemy is Node2D:
+		pos = (enemy as Node2D).global_position
+	if pos.length_squared() < 160000.0:
+		var lg: Node = find_active_level_generator()
+		if is_instance_valid(lg) and lg.has_method("get_alarm_key_fallback_drop_pos"):
+			pos = lg.call("get_alarm_key_fallback_drop_pos")
+		var players: Array = get_tree().get_nodes_in_group("player") if get_tree() else []
+		if players.size() > 0 and players[0] is Node2D and pos.length_squared() < 160000.0:
+			pos = (players[0] as Node2D).global_position + Vector2(0, -40)
+	_DungeonLootDropSpawner.spawn_dungeon_key(pos, SEGMENT_EXIT_KEY_ID)
+	print("[DungeonRunState] Anahtar düşürüldü @ %s" % pos)
+	collectibles_changed.emit()
 	return true
 
 
@@ -110,11 +396,36 @@ func _pick_run_boss_id() -> String:
 		return ""
 	return BossRoomRegistry.DEFAULT_BOSS_ID
 
+func on_segment_completed() -> void:
+	if not run_started:
+		return
+	run_segments_completed += 1
+	print("[DungeonRunState] Bölüm tamamlandı: %d/%d (alıştırma=%s)" % [
+		run_segments_completed, run_max_segments, is_warmup_run
+	])
+
+
 func is_run_complete() -> bool:
-	return run_started and run_segment_count >= MAX_SEGMENTS
+	if not run_started:
+		return false
+	sync_warmup_limits()
+	return run_segments_completed >= run_max_segments
+
+func should_offer_boss() -> bool:
+	return run_started and is_run_complete() and not is_warmup_run
+
+func try_finalize_warmup_progress() -> void:
+	if warmup_completion_recorded:
+		return
+	if not run_started or not is_warmup_run or not is_run_complete():
+		return
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(dp) and dp.has_method("record_warmup_complete"):
+		dp.call("record_warmup_complete", dungeon_id)
+		warmup_completion_recorded = true
 
 func is_first_segment() -> bool:
-	return run_started and run_segment_count <= 1
+	return run_started and run_segments_completed <= 0
 
 ## Boss yenilince saçılacak altın: kapılardan biriken gold_multiplier + segment + mastery.
 const BOSS_SCATTER_GOLD_BASE: int = 20
@@ -125,7 +436,7 @@ const BOSS_SCATTER_GOLD_PER_CLEAR: int = 5
 func get_boss_scatter_gold_total() -> int:
 	var total: int = BOSS_SCATTER_GOLD_BASE
 	total += int(round(gold_multiplier_accumulated * BOSS_SCATTER_GOLD_PER_MULTIPLIER))
-	total += run_segment_count * BOSS_SCATTER_GOLD_PER_SEGMENT
+	total += run_segments_completed * BOSS_SCATTER_GOLD_PER_SEGMENT
 	total += run_base_difficulty * BOSS_SCATTER_GOLD_PER_CLEAR
 	return maxi(BOSS_SCATTER_GOLD_BASE, total)
 

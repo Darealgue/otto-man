@@ -11,12 +11,15 @@ signal occupancy_visual_changed(window_states: Array, occupied_count: int, total
 var current_floors: int = 1
 var _occupants: Array = []
 var _host_building: Node2D = null
+var _sick_indicator: Label = null
 
 func _ready() -> void:
 	if current_floors <= 0:
 		current_floors = max(1, initial_floors)
 	if not is_in_group("Housing"):
 		add_to_group("Housing")
+	_ensure_sick_indicator()
+	_connect_village_data_for_sick_badge()
 	_refresh_visual_state()
 
 func configure_for_host(host_building: Node2D, floors: int, max_floor_limit: int, per_floor_capacity: int) -> void:
@@ -122,6 +125,45 @@ func _resolve_host_building() -> Node2D:
 func _refresh_visual_state() -> void:
 	var states := get_window_states()
 	emit_signal("occupancy_visual_changed", states, get_occupant_count(), get_max_capacity())
+	_refresh_sick_indicator()
+
+func _connect_village_data_for_sick_badge() -> void:
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.has_signal("village_data_changed"):
+		var cb := Callable(self, "_refresh_sick_indicator")
+		if not vm.village_data_changed.is_connected(cb):
+			vm.village_data_changed.connect(cb)
+
+func _ensure_sick_indicator() -> void:
+	if is_instance_valid(_sick_indicator):
+		return
+	_sick_indicator = Label.new()
+	_sick_indicator.name = "SickAtHomeIndicator"
+	_sick_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sick_indicator.position = _get_sick_indicator_position()
+	_sick_indicator.z_index = 25
+	_sick_indicator.visible = false
+	_sick_indicator.add_theme_color_override("font_outline_color", Color(0.1, 0.0, 0.0, 0.9))
+	_sick_indicator.add_theme_constant_override("outline_size", 5)
+	add_child(_sick_indicator)
+
+func _get_sick_indicator_position() -> Vector2:
+	return Vector2(-28, -140)
+
+func _refresh_sick_indicator() -> void:
+	_ensure_sick_indicator()
+	if not is_instance_valid(_sick_indicator):
+		return
+	_sick_indicator.position = _get_sick_indicator_position()
+	var vm := get_node_or_null("/root/VillageManager")
+	var count := 0
+	if vm and vm.has_method("get_sick_count_at_housing"):
+		count = int(vm.get_sick_count_at_housing(self))
+	if count > 0:
+		_sick_indicator.text = "🤒 %d" % count
+		_sick_indicator.visible = true
+	else:
+		_sick_indicator.visible = false
 
 func _prune_invalid_occupants() -> void:
 	var i := _occupants.size() - 1

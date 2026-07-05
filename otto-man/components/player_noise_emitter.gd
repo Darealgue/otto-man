@@ -133,6 +133,14 @@ func _poll_landing_noise() -> void:
 	var on_floor: bool = _player.is_on_floor()
 	if on_floor and not _was_on_floor:
 		var impact_speed: float = absf(float(_player.velocity.y))
+		var sm := get_node_or_null("/root/SoundManager")
+		if sm and sm.has_method("play_land"):
+			sm.play_land(_get_feet_global(), impact_speed >= 360.0)
+		elif sm and sm.has_method("play_sfx"):
+			if impact_speed >= 360.0:
+				sm.play_sfx("land_heavy", _get_feet_global())
+			else:
+				sm.play_sfx("land", _get_feet_global())
 		if impact_speed >= 360.0:
 			emit_noise_event(NOISE_LAND_HEAVY)
 		else:

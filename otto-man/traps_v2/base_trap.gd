@@ -18,7 +18,7 @@ var surface_type: TrapConfigV2.SurfaceType = TrapConfigV2.SurfaceType.FLOOR
 var _damage: float = 10.0
 var _placeholder: ColorRect = null
 var is_sleeping: bool = true  # Start asleep, wake when player is close
-var _sleep_check_timer: float = 0.0
+var _sleep_poll_timer: Timer = null
 var _initialized: bool = false
 
 signal player_damaged(player: Node2D, damage: float)
@@ -30,20 +30,23 @@ func initialize(level: int, surface: TrapConfigV2.SurfaceType) -> void:
 	z_index = 4
 	visible = false
 	_initialized = true
+	_ensure_sleep_poll_timer()
 	_on_initialized()
 	_check_sleep_state()
+
+func _ensure_sleep_poll_timer() -> void:
+	if _sleep_poll_timer:
+		return
+	_sleep_poll_timer = Timer.new()
+	_sleep_poll_timer.name = "SleepPollTimer"
+	_sleep_poll_timer.wait_time = SLEEP_CHECK_INTERVAL
+	_sleep_poll_timer.timeout.connect(_check_sleep_state)
+	add_child(_sleep_poll_timer)
+	_sleep_poll_timer.start()
 
 ## Override in subclass for trap-specific setup after initialize.
 func _on_initialized() -> void:
 	pass
-
-func _physics_process(delta: float) -> void:
-	if not _initialized:
-		return
-	_sleep_check_timer -= delta
-	if _sleep_check_timer <= 0.0:
-		_sleep_check_timer = SLEEP_CHECK_INTERVAL
-		_check_sleep_state()
 
 func _check_sleep_state() -> void:
 	var player := get_tree().get_first_node_in_group("player") as Node2D
@@ -73,11 +76,13 @@ func _wake_up() -> void:
 func _on_sleep() -> void:
 	visible = false
 	set_process(false)
+	set_physics_process(false)
 
 ## Override in subclass to resume timers, animations etc.
 func _on_wake() -> void:
 	visible = true
 	set_process(true)
+	set_physics_process(true)
 
 func get_damage() -> float:
 	return _damage

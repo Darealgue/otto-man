@@ -49,6 +49,7 @@ func _ready() -> void:
 			has_initialized = true
 
 func enter():
+	super.enter()
 	if !player:
 		return
 		
@@ -104,8 +105,10 @@ func enter():
 	# Play slide animation
 	animation_player.play("slide")
 	_play_slide_dust_fx()
+	_start_slide_sfx()
 
 func exit():
+	_stop_slide_sfx()
 	if !player:
 		return
 	# Topuk Kırıcı: slide'dan çıkınca ilk vuruş bonusu
@@ -131,6 +134,8 @@ func exit():
 func physics_update(delta: float):
 	if !player:
 		return
+
+	_ensure_slide_sfx()
 		
 	slide_timer += delta
 	floor_check_timer += delta
@@ -215,3 +220,18 @@ func _can_spawn_slide_dust(fx_id: int) -> bool:
 	if not state_machine or not state_machine.current_state:
 		return false
 	return state_machine.current_state.name == "Slide"
+
+
+func _ensure_slide_sfx() -> void:
+	if SoundManager and SoundManager.has_method("start_loop_sfx"):
+		if not SoundManager.is_loop_sfx_active("slide"):
+			SoundManager.start_loop_sfx("slide")
+
+
+func _start_slide_sfx() -> void:
+	_ensure_slide_sfx()
+
+
+func _stop_slide_sfx() -> void:
+	if SoundManager and SoundManager.has_method("stop_loop_sfx"):
+		SoundManager.stop_loop_sfx()

@@ -55,6 +55,7 @@ func enter():
 	dash_timer = DASH_DURATION
 	can_dash = true  # Cooldown kaldırıldı, sadece stamina kontrolü
 	animation_player.play("dash")
+	_play_dash_sfx()
 	
 	# Set initial dash velocity based on facing direction
 	var dash_direction = -1 if player.sprite.flip_h else 1
@@ -120,4 +121,12 @@ func set_dash_charges(charges: int) -> void:
 	max_dash_charges = charges
 	dash_charges = charges
 	can_dash = dash_charges > 0
-	print("[Dash State] Set dash charges: " + str(charges)) 
+	print("[Dash State] Set dash charges: " + str(charges))
+
+
+func _play_dash_sfx() -> void:
+	if not is_instance_valid(player):
+		return
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("play_sfx"):
+		sm.play_sfx("dash", player.global_position)

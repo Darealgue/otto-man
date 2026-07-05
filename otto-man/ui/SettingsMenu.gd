@@ -196,6 +196,7 @@ func _update_volume_label(label: Label, prefix: String, value: float) -> void:
 
 
 func _on_apply_pressed() -> void:
+	_play_ui_sfx("confirm")
 	_apply_controls_to_settings()
 	_apply_current_settings_to_runtime()
 	_save_settings_to_disk()
@@ -203,12 +204,14 @@ func _on_apply_pressed() -> void:
 
 
 func _on_reset_pressed() -> void:
+	_play_ui_sfx("cancel")
 	_current_settings = DEFAULT_SETTINGS.duplicate(true)
 	_apply_settings_to_controls()
 	call_deferred("_focus_first_control")
 
 
 func _on_back_pressed() -> void:
+	_play_ui_sfx("cancel")
 	hide_menu()
 	back_requested.emit()
 
@@ -439,6 +442,11 @@ func _select_locale_option(locale_code: String) -> void:
 			_locale_option.select(i)
 			return
 	_locale_option.select(0)
+
+
+func _play_ui_sfx(sound_id: String) -> void:
+	if is_instance_valid(SoundManager) and SoundManager.has_method("play_ui"):
+		SoundManager.play_ui(sound_id)
 
 
 func _on_preset_selected(index: int) -> void:

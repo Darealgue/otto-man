@@ -69,6 +69,15 @@ func credit_run_loot_gold(amount: int, popup_world_pos: Variant = null) -> void:
 		add_gold(amount)
 	if popup_world_pos is Vector2:
 		show_gold_pickup_popup_at(popup_world_pos as Vector2, amount)
+	_play_pickup_sfx(popup_world_pos)
+
+
+func _play_pickup_sfx(world_pos: Variant = null) -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm == null or not sm.has_method("play_sfx"):
+		return
+	var pos: Vector2 = world_pos if world_pos is Vector2 else Vector2.ZERO
+	sm.play_sfx("pickup", pos)
 
 
 func add_dungeon_gold(amount: int) -> void:

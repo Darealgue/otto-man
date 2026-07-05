@@ -21,9 +21,15 @@ func _ready() -> void:
 	# DungeonRunState'e bakarak modu otomatik belirle
 	print("[CampScene] _ready called")
 	var drs = _get_dungeon_run_state()
-	if drs and drs.run_started and drs.run_segment_count > 0:
+	if drs and drs.has_method("sync_warmup_limits"):
+		drs.sync_warmup_limits()
+	if drs and drs.run_started and (drs.run_segments_completed > 0 or drs.run_segment_count > 0):
 		# En az bir segment oynandı, bu bir mid-run kamp
-		print("[CampScene] Detected mid-run camp, run_segment_count=%d" % drs.run_segment_count)
+		print("[CampScene] Detected mid-run camp, completed=%d/%d challenges=%d" % [
+			drs.run_segments_completed if "run_segments_completed" in drs else 0,
+			drs.run_max_segments if "run_max_segments" in drs else drs.MAX_SEGMENTS,
+			drs.run_segment_count,
+		])
 		setup_mid_run()
 	else:
 		# Yeni run başlangıcı, köyden geliyoruz
@@ -54,13 +60,15 @@ func setup_mid_run() -> void:
 	_clear_spawned()
 
 	var drs = _get_dungeon_run_state()
+	if drs and drs.has_method("sync_warmup_limits"):
+		drs.sync_warmup_limits()
 	var run_complete: bool = drs and drs.is_run_complete()
 
-	if run_complete:
+	if run_complete and drs.has_method("should_offer_boss") and bool(drs.call("should_offer_boss")):
 		# 3 segment tamamlandı — boss, zindandan çıkış veya gizli stealth çıkış
 		var boss_id: String = BossRoomRegistry.DEFAULT_BOSS_ID
-		if drs and String(drs.get("run_boss_id", "")).strip_edges() != "":
-			boss_id = String(drs.get("run_boss_id"))
+		if drs and String(drs.run_boss_id).strip_edges() != "":
+			boss_id = String(drs.run_boss_id)
 		var boss_label: String = BossRoomRegistry.get_display_name(boss_id)
 		_current_doors = [
 			{"is_exit": true, "label_short": "[color=green]Zindandan Çık — Köye Dön[/color]"},
@@ -76,6 +84,11 @@ func setup_mid_run() -> void:
 				"is_stealth_exit": true,
 				"label_short": "[color=#88ccff]Gizli Geçit — Sessiz Çıkış[/color]",
 			})
+	elif run_complete:
+		# Keşif aşaması bitti — sadece çıkış (henüz patron yok)
+		_current_doors = [
+			{"is_exit": true, "label_short": "[color=green]Zindandan Çık[/color]"},
+		]
 	else:
 		var generated: Array = _get_generator().generate_doors(false)
 		_current_doors = [{"is_exit": true, "label_short": "[color=green]Köye Dön[/color]"}]
@@ -226,6 +239,8 @@ func _handle_initial_selection(index: int) -> void:
 	if drs:
 		if not drs.run_started:
 			drs.start_run_from_village()
+		elif drs.has_method("sync_warmup_limits"):
+			drs.sync_warmup_limits()
 		var challenge: Dictionary = _current_doors[index]
 		drs.apply_challenge(challenge)
 	# Buradan sonra gerçek zindan sahnesine geçiş yapılacak (SceneManager üzerinden)
@@ -247,6 +262,8 @@ func _handle_mid_run_selection(index: int) -> void:
 	var challenge: Dictionary = _current_doors[index]
 
 	if bool(challenge.get("is_exit", false)):
+		if drs.has_method("try_finalize_warmup_progress"):
+			drs.call("try_finalize_warmup_progress")
 		if sm and sm.has_method("change_to_world_map"):
 			sm.change_to_world_map({"source": "dungeon", "return_reason": "dungeon_exit"})
 		return
@@ -281,7 +298,7 @@ func _handle_stealth_exit() -> void:
 	drs.stealth_clear = true
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if is_instance_valid(dp) and dp.has_method("record_stealth_skip"):
-		dp.call("record_stealth_skip", String(drs.get("dungeon_id")))
+		dp.call("record_stealth_skip", String(drs.dungeon_id))
 	if drs.has_method("apply_stealth_exit_partial_boss_gold"):
 		drs.call("apply_stealth_exit_partial_boss_gold")
 
@@ -314,10 +331,33 @@ func _build_door_label_bbcode(challenge: Dictionary) -> String:
 
 
 func _can_offer_stealth_exit() -> bool:
+	var drs = _get_dungeon_run_state()
+	if drs and bool(drs.get("is_warmup_run")):
+		return false
 	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
 	if not is_instance_valid(stealth_mgr) or not stealth_mgr.has_method("can_stealth_exit"):
 		return false
 	return bool(stealth_mgr.call("can_stealth_exit"))
+
+
+func _camp_entry_title_text() -> String:
+	var drs = _get_dungeon_run_state()
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if not is_instance_valid(dp) or not dp.has_method("configure_run_warmup"):
+		return "Bir kapı seç — zindana in"
+	var did: String = String(drs.dungeon_id) if drs and String(drs.dungeon_id).strip_edges() != "" else ""
+	var cfg: Dictionary = dp.call("configure_run_warmup", did) if not did.is_empty() else dp.call("configure_run_warmup")
+	if not bool(cfg.get("is_warmup", false)):
+		return "Derinlere in — bir kapı seç"
+	var idx: int = int(cfg.get("warmup_index", 1))
+	match idx:
+		1:
+			return "Dış koridor — kısa keşif"
+		2:
+			return "İki kat aşağı — zindan açılıyor"
+		_:
+			return "Derin keşif — patron henüz yok"
+
 
 ## Kamp ortasında oyuncu dostu durum göstergesi
 func _setup_run_stats_ui() -> void:
@@ -376,17 +416,28 @@ func _update_run_stats_ui() -> void:
 		return
 
 	var drs = _get_dungeon_run_state()
-	if not drs or not drs.run_started or drs.run_segment_count == 0:
-		title_lbl.text = "İlk giriş — bir kapı seç"
+	if not drs or not drs.run_started or (drs.run_segments_completed <= 0 and drs.run_segment_count <= 0):
+		title_lbl.text = _camp_entry_title_text()
 		detail_lbl.text = _dungeon_mastery_detail_text()
 		return
 
 	if drs.is_run_complete():
-		title_lbl.text = "[color=green]3 bölüm tamamlandı![/color]"
-		if _can_offer_stealth_exit():
-			detail_lbl.text = "[color=#88ccff]Gizli geçit[/color]: boss'sız çıkış (kısmi altın, mastery yok, sonraki run +1 düşman). Boss veya yeşil çıkış da seçilebilir."
+		if drs.has_method("should_offer_boss") and bool(drs.call("should_offer_boss")):
+			title_lbl.text = "[color=green]3 bölüm tamamlandı![/color]"
+			if _can_offer_stealth_exit():
+				detail_lbl.text = "[color=#88ccff]Gizli geçit[/color]: boss'sız çıkış (kısmi altın, mastery yok, sonraki run +1 düşman). Boss veya yeşil çıkış da seçilebilir."
+			else:
+				detail_lbl.text = "Boss odasına gir veya zindandan çık. Çeşme canını doldurur."
 		else:
-			detail_lbl.text = "Boss odasına gir veya zindandan çık. Çeşme canını doldurur."
+			title_lbl.text = "[color=green]Bu keşif tamam[/color]"
+			detail_lbl.text = "Çıkabilirsin. Sonraki girişte zindan daha derin ve daha tehlikeli olacak."
+		return
+
+	if bool(drs.get("is_warmup_run")):
+		var done: int = drs.run_segments_completed if "run_segments_completed" in drs else 0
+		var max_seg: int = drs.run_max_segments if "run_max_segments" in drs else drs.MAX_SEGMENTS
+		title_lbl.text = "Bölüm %d/%d — devam et veya çık" % [done, max_seg]
+		detail_lbl.text = "Yeşil kapı erken çıkış; keşfi bitirmeden ayrılırsan ilerleme sayılmaz."
 		return
 
 	var total_risk: int = drs.enemy_level_offset + drs.enemy_count_offset \
@@ -420,7 +471,10 @@ func _update_run_stats_ui() -> void:
 		mod_names = drs.get_segment_modifier_display_names()
 	if not mod_names.is_empty():
 		details.append("[color=#ffaa66]%s[/color]" % ", ".join(mod_names))
-	details.append("Bölüm %d/%d" % [drs.run_segment_count, drs.MAX_SEGMENTS])
+	details.append("Bölüm %d/%d" % [
+		drs.run_segments_completed if "run_segments_completed" in drs else drs.run_segment_count,
+		drs.run_max_segments if "run_max_segments" in drs else drs.MAX_SEGMENTS,
+	])
 	var mastery: String = _dungeon_mastery_detail_text()
 	if not mastery.is_empty():
 		details.append(mastery)
@@ -428,15 +482,27 @@ func _update_run_stats_ui() -> void:
 
 func _dungeon_mastery_detail_text() -> String:
 	var drs = _get_dungeon_run_state()
-	if drs and drs.run_started and int(drs.get("run_base_difficulty")) > 0:
-		return "Başlangıç zorluğu +%d" % int(drs.get("run_base_difficulty"))
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if is_instance_valid(dp) and dp.has_method("configure_run_warmup"):
+		var did: String = String(drs.dungeon_id) if drs and String(drs.dungeon_id).strip_edges() != "" else ""
+		var cfg: Dictionary = dp.call("configure_run_warmup", did) if not did.is_empty() else dp.call("configure_run_warmup")
+		if bool(cfg.get("is_warmup", false)):
+			var idx: int = int(cfg.get("warmup_index", 1))
+			match idx:
+				1:
+					return "Zindanın dış katları — tek geçit yeter."
+				2:
+					return "Daha derine in — iki geçit. Tehlike artıyor."
+				_:
+					return "Derin keşif — üç geçit. Patron bir sonraki sefer uyanır."
+	if drs and drs.run_started and drs.run_base_difficulty > 0:
+		return "Başlangıç zorluğu +%d" % drs.run_base_difficulty
 	if not is_instance_valid(dp) or not dp.has_method("get_clear_count"):
 		return ""
 	var clears: int = int(dp.call("get_clear_count"))
 	if clears <= 0:
 		return ""
-	return "Tamamlama %d (sonraki run +%d)" % [clears, clears]
+	return "Tamamlama %d — sonraki giriş +%d tehlike" % [clears, clears]
 
 func _risk_score_to_tier(score: int) -> int:
 	if score <= 0:

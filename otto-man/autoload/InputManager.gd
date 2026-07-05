@@ -877,3 +877,9 @@ func get_tutorial_ui_up_hint() -> String:
 				KEY_KP_8: return "Num 8"
 			return _get_key_name(k)
 	return "↑"
+
+
+func get_tutorial_village_worker_add_hint() -> String:
+	if last_input_from_joypad:
+		return "R2"
+	return get_action_key_name(&"village_worker_add")

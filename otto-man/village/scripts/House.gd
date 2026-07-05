@@ -120,6 +120,9 @@ func _refresh_windows() -> void:
 		if floor_node.has_method("apply_window_states"):
 			floor_node.apply_window_states(states, is_night)
 
+func _get_sick_indicator_position() -> Vector2:
+	return Vector2(-28, -float(current_floors) * floor_height - 55.0)
+
 # ------------------- TimeManager entegrasyonu -------------------
 
 func _connect_time_manager() -> void:

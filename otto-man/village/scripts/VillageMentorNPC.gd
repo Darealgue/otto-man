@@ -54,6 +54,7 @@ var _roof_turn_cd: float = 0.0
 
 func _ready() -> void:
 	add_to_group("village_mentor")
+	add_to_group("village_priority_interact")
 	add_to_group("interactables")
 	_resolve_roam_anchor()
 	global_position = Vector2(_roam_anchor_x + randf_range(-80.0, 80.0), -70.0)
@@ -321,6 +322,7 @@ func _refresh_badge() -> void:
 func _on_player_entered(body: Node2D) -> void:
 	if body.is_in_group("player") or body.is_in_group("Player"):
 		_player_in_range = true
+		ShowInteractButton()
 
 
 func _on_player_exited(body: Node2D) -> void:
@@ -330,9 +332,6 @@ func _on_player_exited(body: Node2D) -> void:
 
 
 func ShowInteractButton() -> void:
-	var tm := get_node_or_null("/root/TutorialManager")
-	if tm == null or not tm.has_pending():
-		return
 	if _interact_hint_label == null:
 		_create_interact_hint()
 	if _interact_hint_label:
@@ -350,14 +349,19 @@ func HideInteractButton() -> void:
 func can_interact() -> bool:
 	if _is_speaking:
 		return false
-	var tm := get_node_or_null("/root/TutorialManager")
-	return tm != null and tm.has_pending()
+	return _player_in_range
 
 
 func interact() -> void:
 	if not can_interact():
 		return
-	start_conversation()
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm != null and tm.has_pending():
+		start_conversation()
+		return
+	var host := VillageWorldPopups.get_host()
+	if host:
+		host.open_mentor_brief()
 
 
 func start_conversation() -> void:

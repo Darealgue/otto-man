@@ -67,6 +67,9 @@ func start_new_game(play_tutorial: bool = false) -> void:
 	var mm0: Node = get_node_or_null("/root/MissionManager")
 	if mm0 and mm0.has_method("reset_for_new_game"):
 		mm0.call("reset_for_new_game")
+	var meta_mgr: Node = get_node_or_null("/root/MetaUpgradeManager")
+	if meta_mgr and meta_mgr.has_method("reset_for_new_game"):
+		meta_mgr.call("reset_for_new_game")
 	# 6) Hava
 	if is_instance_valid(WeatherManager):
 		if WeatherManager.storm_active:
@@ -82,6 +85,9 @@ func start_new_game(play_tutorial: bool = false) -> void:
 	var drs: Node = get_node_or_null("/root/DungeonRunState")
 	if drs and drs.has_method("end_run"):
 		drs.call("end_run")
+	var dp_new: Node = get_node_or_null("/root/DungeonProgress")
+	if dp_new and dp_new.has_method("reset_for_new_game"):
+		dp_new.call("reset_for_new_game")
 	var im: Node = get_node_or_null("/root/ItemManager")
 	if im and im.has_method("clear_all_items"):
 		im.call("clear_all_items")
@@ -127,8 +133,11 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 		vm0.mark_arriving_to_village_from_travel()
 	# Köye dönüşte zindan run'ını her zaman bitir (ölüm veya kamp çıkışı fark etmez)
 	var drs = get_node_or_null("/root/DungeonRunState")
-	if is_instance_valid(drs) and drs.has_method("end_run"):
-		drs.end_run()
+	if is_instance_valid(drs):
+		if drs.has_method("try_finalize_warmup_progress"):
+			drs.call("try_finalize_warmup_progress")
+		if drs.has_method("end_run"):
+			drs.end_run()
 	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
 	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_run"):
 		stealth_mgr.call("reset_for_run")
@@ -149,8 +158,8 @@ func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> 
 		payload["time_spent_in_level"] = time_spent
 	_handle_travel_time(payload)
 	# Taşınan orman kaynakları: restore + üretim simülasyonundan SONRA aktar.
-	# Aksi halde _handle_travel_time VillageManager.resource_levels'i çıkış snapshot'ı ile ezer ve taşıma kaybolur.
 	payload = _finalize_forest_resources_on_safe_return(payload)
+	payload = _finalize_expedition_loot_on_safe_return(payload)
 	current_payload = payload.duplicate(true)
 	_clear_level_entry_time()
 	_change_scene(VILLAGE_SCENE, force_reload)
@@ -298,6 +307,22 @@ func _finalize_forest_resources_on_safe_return(payload: Dictionary) -> Dictionar
 	var transferred: Dictionary = game_manager.transfer_carried_resources_to_village()
 	if not transferred.is_empty():
 		payload["forest_resources_delivered"] = transferred.duplicate(true)
+	return payload
+
+
+func _finalize_expedition_loot_on_safe_return(payload: Dictionary) -> Dictionary:
+	var src := String(payload.get("source", ""))
+	if src == "dungeon_death" or src == "forest_death" or src == "world_map_death":
+		return payload
+	var ps := get_node_or_null("/root/PlayerStats")
+	var mum := get_node_or_null("/root/MetaUpgradeManager")
+	if not is_instance_valid(ps) or not is_instance_valid(mum):
+		return payload
+	if not ps.has_method("transfer_carried_expedition_loot_to_village"):
+		return payload
+	var deposited: Dictionary = ps.transfer_carried_expedition_loot_to_village(mum)
+	if not deposited.is_empty():
+		payload["expedition_loot_deposited"] = deposited.duplicate(true)
 	return payload
 
 func change_to_dungeon(payload: Dictionary = {}, force_reload: bool = false) -> void:
@@ -565,8 +590,11 @@ func _apply_village_return_payload_world_map_overlay(payload: Dictionary) -> voi
 			var m: float = float(vm0.get("village_morale"))
 			vm0.set("village_morale", minf(100.0, m + DUNGEON_SUCCESS_MORALE_BONUS))
 	var drs := get_node_or_null("/root/DungeonRunState")
-	if is_instance_valid(drs) and drs.has_method("end_run"):
-		drs.end_run()
+	if is_instance_valid(drs):
+		if drs.has_method("try_finalize_warmup_progress"):
+			drs.call("try_finalize_warmup_progress")
+		if drs.has_method("end_run"):
+			drs.end_run()
 	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
 	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_run"):
 		stealth_mgr.call("reset_for_run")
@@ -941,6 +969,7 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 		await _update_ui_visibility(target_path)
 		await _hide_loading_screen()
 		scene_change_completed.emit(target_path)
+		_apply_scene_ambient_async(target_path)
 		return
 	
 	print("[SceneManager] changing scene ->", target_path)
@@ -976,6 +1005,15 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	await _update_ui_visibility(target_path)
 	await _hide_loading_screen()
 	scene_change_completed.emit(target_path)
+	_apply_scene_ambient_async(target_path)
+
+func _apply_scene_ambient_async(scene_path: String) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("play_ambient_for_scene"):
+		sm.play_ambient_for_scene(scene_path)
+
 
 func _update_ui_visibility(scene_path: String) -> void:
 	"""Show/hide health and stamina bars based on current scene."""

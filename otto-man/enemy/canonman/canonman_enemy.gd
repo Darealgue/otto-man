@@ -2,6 +2,10 @@ class_name CanonmanEnemy
 extends "res://enemy/base_enemy.gd"
 
 const DEBUG_CANONMAN: bool = false
+const DEFAULT_DETECTION_RANGE := 500.0
+const DEFAULT_MOVEMENT_SPEED := 80.0
+
+@export var default_stats: EnemyStats = preload("res://enemy/canonman/canonman_stats.tres")
 
 # Canonman specific constants
 const ROCKET_JUMP_FORCE = 600.0  # Rocket jump gücü
@@ -58,6 +62,9 @@ const LAUNCH_SMOKE_CANDIDATE_PATHS := [
 ]
 
 func _ready() -> void:
+	if not stats and default_stats:
+		stats = default_stats
+
 	super._ready()
 	
 	# Set sleep distances for performance optimization
@@ -265,11 +272,12 @@ func _handle_idle_state(delta: float) -> void:
 		player = get_nearest_player()
 	if player and is_instance_valid(player):
 		var distance = global_position.distance_to(player.global_position)
-		if distance <= stats.detection_range:
+		var detection_range: float = stats.detection_range if stats else DEFAULT_DETECTION_RANGE
+		if distance <= detection_range:
 			target = player
 			# Saldırı türü seç (rocket jump veya ground shot)
 			_choose_attack_type()
-		elif distance <= stats.detection_range * 1.5 and state_lock <= 0.0 and is_on_floor():  # Yakın mesafe - yürü
+		elif distance <= detection_range * 1.5 and state_lock <= 0.0 and is_on_floor():  # Yakın mesafe - yürü
 			target = player
 			change_behavior("walk")
 
@@ -280,10 +288,12 @@ func _handle_walk_state(delta: float) -> void:
 		return
 	
 	var distance = global_position.distance_to(target.global_position)
-	
+	var detection_range: float = stats.detection_range if stats else DEFAULT_DETECTION_RANGE
+	var movement_speed: float = stats.movement_speed if stats else DEFAULT_MOVEMENT_SPEED
+
 	# Histerezis eşikleri
-	var attack_enter = stats.detection_range * 0.9
-	var idle_exit = stats.detection_range * 1.7
+	var attack_enter = detection_range * 0.9
+	var idle_exit = detection_range * 1.7
 	
 	# Minimum yürüyüş süresi (state flapping önle)
 	var min_walk_time = 0.25
@@ -300,7 +310,7 @@ func _handle_walk_state(delta: float) -> void:
 	
 	# Oyuncuya doğru yürü - hız smoothing
 	var direction_vec = global_position.direction_to(target.global_position)
-	var target_speed = direction_vec.x * stats.movement_speed * 0.5
+	var target_speed = direction_vec.x * movement_speed * 0.5
 	velocity.x = lerp(velocity.x, target_speed, clamp(6.0 * delta, 0.0, 1.0))
 	
 	# Sprite yönünü ayarla yalnızca gerekli olduğunda

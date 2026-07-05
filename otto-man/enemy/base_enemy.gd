@@ -27,6 +27,8 @@ var last_position: Vector2          # Store position when going to sleep
 var last_behavior: String          # Store behavior when going to sleep
 # Spawn sonrası grace süresini sıfırla: sahne açılışında uzak düşmanlar hemen sleep'e girebilsin
 var _sleep_grace_remaining: float = 0.0
+const SLEEP_POLL_INTERVAL := 0.15
+var _sleep_poll_timer: Timer = null
 
 # Debug ID
 var enemy_id: String = ""
@@ -147,6 +149,20 @@ func _ready() -> void:
 	
 	last_position = global_position
 	last_behavior = "idle"
+	_ensure_sleep_poll_timer()
+
+func _ensure_sleep_poll_timer() -> void:
+	if _sleep_poll_timer:
+		return
+	_sleep_poll_timer = Timer.new()
+	_sleep_poll_timer.name = "SleepPollTimer"
+	_sleep_poll_timer.wait_time = SLEEP_POLL_INTERVAL
+	_sleep_poll_timer.timeout.connect(_on_sleep_poll_timeout)
+	add_child(_sleep_poll_timer)
+	_sleep_poll_timer.start()
+
+func _on_sleep_poll_timeout() -> void:
+	check_sleep_state(SLEEP_POLL_INTERVAL)
 
 func _process(delta: float) -> void:
 	# Zehir DoT - _process'te çalıştır ki her sahnede kesin tetiklensin
@@ -197,8 +213,6 @@ func _physics_process(delta: float) -> void:
 	if global_position == Vector2.ZERO:
 		return
 	
-	# Check sleep state every frame (delta for per-enemy spawn grace)
-	check_sleep_state(delta)
 	if _stun_lock_reset_timer > 0.0:
 		_stun_lock_reset_timer = maxf(0.0, _stun_lock_reset_timer - delta)
 		if _stun_lock_reset_timer <= 0.0:
@@ -464,11 +478,20 @@ func _should_die_now_on_lethal() -> bool:
 # Tüm düşmanlar için tek kaynak: apply_knockback=false (projectile, zehir vb.) burada işlenir.
 # Hasar + çok hafif itme + hurt yok + gerekirse die(). Alt sınıflar super.take_damage çağırıp
 # apply_knockback false ise return etmeli; böylece yeni düşmanlar da aynı davranışı otomatik alır.
+func _should_allow_sleep() -> bool:
+	if current_behavior == "dead" or current_behavior == "hurt" or health <= 0:
+		return false
+	if abs(velocity.x) > 20.0 or abs(velocity.y) > 20.0:
+		return false
+	return true
+
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	# print("[BaseEnemy] take_damage called with amount: ", amount)
 	if current_behavior == "dead":
 		print("[BaseEnemy] No damage: dead")
 		return
+	if is_sleeping:
+		wake_up()
 		
 	health -= amount
 	if apply_knockback:
@@ -535,7 +558,7 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		if _should_die_now_on_lethal():
 			die()
 	else:
-		pass
+		_play_enemy_sfx("enemy_hurt")
 
 func _flash_hurt() -> void:
 	if sprite:
@@ -575,12 +598,17 @@ func die() -> void:
 
 	_disable_stealth_perception()
 	current_behavior = "dead"
+	_play_enemy_sfx("enemy_death")
 	
 	# Can barını hemen gizle
 	if health_bar:
 		health_bar.hide_bar()
 	
 	enemy_defeated.emit()
+	
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("try_spawn_key_drop_from_enemy"):
+		drs.call("try_spawn_key_drop_from_enemy", self)
 	
 	# PowerupManager.on_enemy_killed()  # DISABLED: Using new Item system
 	
@@ -886,10 +914,13 @@ func check_sleep_state(delta: float = 0.0) -> void:
 	if is_sleeping and distance <= wake_distance:
 		wake_up()
 	elif !is_sleeping and distance >= sleep_distance and _sleep_grace_remaining <= 0.0:
-		go_to_sleep()
+		if _should_allow_sleep():
+			go_to_sleep()
 
 func go_to_sleep() -> void:
 	if is_sleeping or current_behavior == "dead":
+		return
+	if not _should_allow_sleep():
 		return
 			
 	is_sleeping = true
@@ -900,7 +931,9 @@ func go_to_sleep() -> void:
 		set_meta("last_velocity", velocity)
 		set_meta("last_direction", direction)
 	
+	velocity = Vector2.ZERO
 	set_process(false)
+	set_physics_process(false)
 	if hitbox:
 		hitbox.disable()
 	if hurtbox:
@@ -924,6 +957,7 @@ func wake_up() -> void:
 	is_sleeping = false
 	
 	set_process(true)
+	set_physics_process(true)
 	if hitbox:
 		hitbox.disable()
 	if hurtbox:
@@ -946,3 +980,9 @@ func wake_up() -> void:
 			change_behavior(last_behavior)
 	else:
 		change_behavior(last_behavior)
+
+
+func _play_enemy_sfx(sfx_id: String) -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("play_sfx"):
+		sm.play_sfx(sfx_id, global_position)

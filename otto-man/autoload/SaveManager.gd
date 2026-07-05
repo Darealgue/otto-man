@@ -18,6 +18,7 @@ signal load_completed(slot_id: int, success: bool)
 signal error_occurred(error_message: String, error_type: String)  # error_type: "save", "load", "validation"
 signal active_profile_changed(profile_id: int)
 signal autosave_completed(success: bool)
+signal profile_deleted(profile_id: int)
 
 var _playtime_start: int = 0  # Time when game started (OS.get_ticks_msec())
 var _total_playtime_seconds: int = 0  # Accumulated playtime from loaded saves
@@ -278,6 +279,50 @@ func get_profile_summary(profile_id: int) -> Dictionary:
 		"max_playtime": max_playtime,
 		"latest_save_date": latest_date,
 	}
+
+
+func get_profile_directory(profile_id: int) -> String:
+	if profile_id < 1 or profile_id > PROFILE_COUNT:
+		return ""
+	return SAVE_ROOT + "profile_%d/" % profile_id
+
+
+func profile_has_data(profile_id: int) -> bool:
+	if profile_id < 1 or profile_id > PROFILE_COUNT:
+		return false
+	var rel_dir: String = "otto-man-save/profile_%d" % profile_id
+	var dir := DirAccess.open("user://")
+	if dir == null or not dir.dir_exists(rel_dir):
+		return false
+	var profile_dir := DirAccess.open("user://" + rel_dir)
+	if profile_dir == null:
+		return false
+	return not profile_dir.get_files().is_empty()
+
+
+func delete_profile(profile_id: int) -> bool:
+	if profile_id < 1 or profile_id > PROFILE_COUNT:
+		push_error("[SaveManager] Geçersiz profil silme isteği: %d" % profile_id)
+		return false
+	if not profile_has_data(profile_id):
+		return true
+	var rel_dir: String = "otto-man-save/profile_%d" % profile_id
+	var profile_dir := DirAccess.open("user://" + rel_dir)
+	if profile_dir == null:
+		push_error("[SaveManager] Profil klasörü açılamadı: %s" % rel_dir)
+		return false
+	var failed: PackedStringArray = PackedStringArray()
+	for file_name in profile_dir.get_files():
+		var err: Error = profile_dir.remove(file_name)
+		if err != OK:
+			failed.append(file_name)
+			push_warning("[SaveManager] Profil dosyası silinemedi: %s/%s (%d)" % [rel_dir, file_name, err])
+	if not failed.is_empty():
+		return false
+	_ensure_save_directory()
+	profile_deleted.emit(profile_id)
+	print("[SaveManager] ✅ Profil %d temizlendi" % profile_id)
+	return true
 
 
 func _load_active_profile_from_disk() -> void:
@@ -560,6 +605,17 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 	_sanitize_loaded_mission_runtime_state()
 	_load_world_state(save_data.get("world", {}))
 	_load_player_state(save_data.get("player", {}))
+	var village_blob: Dictionary = save_data.get("village", {})
+	if village_blob.has("meta_upgrades"):
+		var meta_mgr: Node = get_node_or_null("/root/MetaUpgradeManager")
+		if meta_mgr and meta_mgr.has_method("load_from_save"):
+			meta_mgr.load_from_save(village_blob["meta_upgrades"])
+	var card_mgr: Node = get_node_or_null("/root/VillageCardManager")
+	if card_mgr and card_mgr.has_method("load_from_save"):
+		if village_blob.has("card_system"):
+			card_mgr.load_from_save(village_blob["card_system"])
+		elif card_mgr.has_method("reset_for_new_game"):
+			card_mgr.reset_for_new_game()
 	_load_time_state(save_data.get("time", {}))
 	_load_weather_state(save_data.get("weather", {}))
 	_load_dungeon_progress_state(save_data.get("dungeon_progress", {}))
@@ -643,6 +699,14 @@ func _save_village_state() -> Dictionary:
 		state["village_event_gen_cooldowns"] = VillageManager.get("_event_cooldowns").duplicate(true)
 	state["village_last_day_shortages"] = VillageManager._last_day_shortages.duplicate(true)
 	state["village_daily_event_chance"] = VillageManager.village_daily_event_chance
+	
+	var meta_mgr := get_node_or_null("/root/MetaUpgradeManager")
+	if meta_mgr and meta_mgr.has_method("serialize_for_save"):
+		state["meta_upgrades"] = meta_mgr.serialize_for_save()
+
+	var card_mgr := get_node_or_null("/root/VillageCardManager")
+	if card_mgr and card_mgr.has_method("serialize_for_save"):
+		state["card_system"] = card_mgr.serialize_for_save()
 	
 	# Resources
 	state["resources"] = VillageManager.resource_levels.duplicate(true)
@@ -1003,13 +1067,21 @@ func _save_player_state() -> Dictionary:
 	if is_instance_valid(PlayerStats):
 		state["base_stats"] = PlayerStats.base_stats.duplicate(true)
 		state["stat_multipliers"] = PlayerStats.stat_multipliers.duplicate(true)
-		state["stat_bonuses"] = PlayerStats.stat_bonuses.duplicate(true)
 		state["current_health"] = PlayerStats.current_health
 		if PlayerStats.has_method("get_death_recovery_state_for_save"):
 			state["death_recovery"] = PlayerStats.call("get_death_recovery_state_for_save").duplicate(true)
 		if PlayerStats.has_method("get_world_expedition_supplies"):
 			state["world_expedition_supplies"] = PlayerStats.call("get_world_expedition_supplies").duplicate(true)
+		state["stat_bonuses"] = PlayerStats.stat_bonuses.duplicate(true)
+		var mum := get_node_or_null("/root/MetaUpgradeManager")
+		if mum and mum.has_method("get_meta_stat_bonus_totals"):
+			var meta_totals: Dictionary = mum.get_meta_stat_bonus_totals()
+			for stat_key in meta_totals.keys():
+				var sk := String(stat_key)
+				if state["stat_bonuses"].has(sk):
+					state["stat_bonuses"][sk] = float(state["stat_bonuses"][sk]) - float(meta_totals[stat_key])
 		state["carried_resources"] = PlayerStats.carried_resources.duplicate(true)
+		state["carried_expedition_loot"] = PlayerStats.carried_expedition_loot.duplicate(true)
 	
 	return state
 
@@ -1084,6 +1156,8 @@ func _load_village_state(state: Dictionary) -> void:
 		var resources = state["resources"]
 		if resources is Dictionary:
 			VillageManager.resource_levels = resources.duplicate(true)
+			if VillageManager.has_method("_strip_legacy_water_from_resources"):
+				VillageManager._strip_legacy_water_from_resources()
 			VillageManager._saved_resource_levels = VillageManager.resource_levels.duplicate(true)
 			print("[SaveManager] ✅ DEBUG: Resources loaded: %s" % str(VillageManager.resource_levels))
 		else:
@@ -1640,7 +1714,10 @@ func _load_world_state(state: Dictionary) -> void:
 			var events_array: Array = []
 			for event in state["active_events"]:
 				if event is Dictionary:
-					events_array.append(event.duplicate(true))
+					var ev_copy: Dictionary = event.duplicate(true)
+					# Çarpanlar kayıttan yüklendi; dünya olayı etkilerini yeniden uygulama.
+					ev_copy["_village_effects_applied"] = true
+					events_array.append(ev_copy)
 			world_manager.set("active_events", events_array)
 	
 	# Faction relations (using relations property)
@@ -1707,6 +1784,15 @@ func _load_player_state(state: Dictionary) -> void:
 						PlayerStats.carried_resources[sk] = int((cr as Dictionary)[ck])
 				if PlayerStats.has_method("_emit_carried_changed"):
 					PlayerStats.call("_emit_carried_changed")
+		if state.has("carried_expedition_loot"):
+			var el: Variant = state["carried_expedition_loot"]
+			if el is Dictionary:
+				for ck in (el as Dictionary).keys():
+					var lk: String = String(ck)
+					if PlayerStats.carried_expedition_loot.has(lk):
+						PlayerStats.carried_expedition_loot[lk] = int((el as Dictionary)[ck])
+				if PlayerStats.has_method("_emit_expedition_loot_changed"):
+					PlayerStats.call("_emit_expedition_loot_changed")
 
 func _load_time_state(state: Dictionary) -> void:
 	if not is_instance_valid(TimeManager):

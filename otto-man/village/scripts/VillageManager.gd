@@ -13,16 +13,14 @@ const RESIDENTIAL_BASE_EXCLUDED_SCENES := [
 	"res://village/buildings/WoodcutterCamp.tscn",
 	"res://village/buildings/StoneMine.tscn",
 	"res://village/buildings/HunterGathererHut.tscn",
-	"res://village/buildings/Well.tscn"
 ]
 
 # --- YENİ: Bina Gereksinimleri --- (COSTS yerine REQUIREMENTS)
 const BUILDING_REQUIREMENTS = {
-	# Katman 1 - Temel kurulum
-	"res://village/buildings/WoodcutterCamp.tscn": {"cost": {"gold": 5, "wood": 1}},
-	"res://village/buildings/StoneMine.tscn": {"cost": {"gold": 5, "wood": 1}},
-	"res://village/buildings/HunterGathererHut.tscn": {"cost": {"gold": 8, "wood": 1}},
-	"res://village/buildings/Well.tscn": {"cost": {"gold": 10, "wood": 1, "stone": 1}},
+	# Katman 1 - Temel kurulum (ilk kaynak binaları bedava)
+	"res://village/buildings/WoodcutterCamp.tscn": {"cost": {}},
+	"res://village/buildings/StoneMine.tscn": {"cost": {}},
+	"res://village/buildings/HunterGathererHut.tscn": {"cost": {}},
 	"res://village/buildings/House.tscn": {"cost": {"gold": 12, "wood": 1, "stone": 0}},
 	# Katman 2 - İlk işleme
 	"res://village/buildings/Sawmill.tscn": {
@@ -36,12 +34,11 @@ const BUILDING_REQUIREMENTS = {
 		"requires_level": {"stone": 2},
 	},
 	"res://village/buildings/Bakery.tscn": {
-		"cost": {"gold": 45, "wood": 1, "stone": 1, "water": 1},
+		"cost": {"gold": 45, "wood": 1, "stone": 1},
 		"requires_building": {
 			"res://village/buildings/HunterGathererHut.tscn": 2,
-			"res://village/buildings/Well.tscn": 2,
 		},
-		"requires_level": {"food": 2, "water": 2},
+		"requires_level": {"food": 2},
 	},
 	# Destek binası
 	"res://village/buildings/StorageBuilding.tscn": {
@@ -84,25 +81,27 @@ const BUILDING_REQUIREMENTS = {
 		"cost": {"gold": 85, "lumber": 2, "brick": 2},
 		"requires_building": {
 			"res://village/buildings/HunterGathererHut.tscn": 2,
-			"res://village/buildings/Well.tscn": 2,
 		},
-		"requires_level": {"food": 3, "water": 3},
+		"requires_level": {"food": 3},
 	},
-	# Katman 5 - Geç oyun
+	# Silahçı: 1. seviye silah (odun+taş) üretmek için erken kurulabilir olmalı —
+	# zırh sistemi kaldırıldı, sadece silah seviyeleri var (bkz. Gunsmith.gd).
 	"res://village/buildings/Gunsmith.tscn": {
-		"cost": {"gold": 130, "lumber": 2, "brick": 2, "metal": 2},
-		"requires_building": {"res://village/buildings/Blacksmith.tscn": 2},
-		"requires_level": {"metal": 2},
+		"cost": {"gold": 30, "wood": 2, "stone": 1},
+		"requires_building": {
+			"res://village/buildings/WoodcutterCamp.tscn": 2,
+			"res://village/buildings/StoneMine.tscn": 2,
+		},
 	},
-	"res://village/buildings/Armorer.tscn": {
-		"cost": {"gold": 125, "lumber": 2, "brick": 2, "metal": 2},
-		"requires_building": {"res://village/buildings/Blacksmith.tscn": 2},
-		"requires_level": {"metal": 3},
-	},
+	# Kışla: erken savunma için bilinçli olarak ucuz — ham kaynakla,
+	# hiçbir zanaat binası şartı olmadan en baştan kurulabilir.
 	"res://village/buildings/Barracks.tscn": {
-		"cost": {"gold": 110, "lumber": 3, "brick": 2, "metal": 1},
-		"requires_building": {"res://village/buildings/Armorer.tscn": 2},
-		"requires_level": {"weapon": 2, "armor": 2},
+		"cost": {"gold": 20, "wood": 2, "stone": 2},
+	},
+	"res://village/buildings/InventorWorkshop.tscn": {
+		"cost": {"gold": 120, "lumber": 3, "brick": 2},
+		"requires_building": {"res://village/buildings/Blacksmith.tscn": 1},
+		"requires_level": {"metal": 1},
 	},
 }
 
@@ -127,7 +126,6 @@ var resource_levels: Dictionary = {
 	"wood": 0,
 	"stone": 0,
 	"food": 0,
-	"water": 0,
 	"lumber": 0,
 	"brick": 0,
 	"metal": 0,
@@ -137,8 +135,10 @@ var resource_levels: Dictionary = {
 	"tea": 0,
 	"medicine": 0,
 	"soap": 0,
-	"weapon": 5,  # Silah (Blacksmith üretir) - Başlangıç: 5
-	"armor": 5    # Zırh (Armorer üretir) - Başlangıç: 5
+	# Silah seviyeleri (zırh sistemi kaldırıldı — bkz. Gunsmith.gd / Barracks.gd)
+	"weapon_t1": 5,  # 1. seviye silah (odun+taş) - Başlangıç: 5
+	"weapon_t2": 0,  # 2. seviye silah (kereste+tuğla)
+	"weapon_t3": 0   # 3. seviye silah (metal+kumaş)
 }
 
 # Kaynak SEVİYELERİNİN kilitlenen kısmı (Yükseltmeler ve Gelişmiş Üretim için)
@@ -146,7 +146,6 @@ var locked_resource_levels: Dictionary = {
 	"wood": 0,
 	"stone": 0,
 	"food": 0,
-	"water": 0,
 	"lumber": 0,
 	"brick": 0,
 	"metal": 0,
@@ -160,26 +159,21 @@ var locked_resource_levels: Dictionary = {
 
 # --- ZAMAN BAZLI ÜRETİM (YENİ) ---
 # Temel kaynaklar için stok ve saat bazlı birikim ilerlemesi
-const BASE_RESOURCE_TYPES := ["wood", "stone", "food", "water"]
+const BASE_RESOURCE_TYPES := ["wood", "stone", "food"]
 const SECONDS_PER_RESOURCE_UNIT := 300.0 # 1 işçi-2saat == 1 kaynak (oyun içi 2 saat = 2 * 2.5 * 60 = 300 gerçek saniye)
 var base_production_progress: Dictionary = {
 	"wood": 0.0,
 	"stone": 0.0,
 	"food": 0.0,
-	"water": 0.0
 }
 
 # Mesafe tabanlı köy işçisi temel kaynak seferleri (orman / dağ / akarsu).
 const USE_DISTANCE_BASED_BASIC_GATHER := true
 const GATHER_DEPARTURE_HOUR := 8
 const GATHER_DEPARTURE_MINUTE := 0
-const GATHER_PROVISION_TRIP_THRESHOLD_MINUTES := 360
-const GATHER_PROVISION_FOOD_COST := 1
-const GATHER_PROVISION_WATER_COST := 1
-const GATHER_SOFT_YIELD_NO_PROVISION := 0.65
-## Mesafe seferi tesliminde varsayılan getiri (odun/taş); yemek/su ayrı çarpanlı.
+## Mesafe seferi tesliminde varsayılan getiri (odun/taş); yemek ayrı çarpanlı.
 const GATHER_DELIVERY_YIELD_DEFAULT := 1
-const GATHER_DELIVERY_YIELD_FOOD_WATER := 2
+const GATHER_DELIVERY_YIELD_FOOD := 4
 ## worker_id -> sefer kaydı (delivery_minutes: TimeManager.get_total_game_minutes ile uyumlu mutlak dakika)
 var basic_gather_expeditions_by_worker: Dictionary = {}
 ## worker_id -> son çıkış günü (TimeManager.days ile karşılaştırılır)
@@ -206,7 +200,6 @@ const CONSTRUCTION_TIER_BY_SCENE := {
 	"res://village/buildings/WoodcutterCamp.tscn": 1,
 	"res://village/buildings/StoneMine.tscn": 1,
 	"res://village/buildings/HunterGathererHut.tscn": 1,
-	"res://village/buildings/Well.tscn": 1,
 	"res://village/buildings/House.tscn": 1,
 	"res://village/buildings/Sawmill.tscn": 2,
 	"res://village/buildings/Brickworks.tscn": 2,
@@ -218,9 +211,10 @@ const CONSTRUCTION_TIER_BY_SCENE := {
 	"res://village/buildings/SoapMaker.tscn": 3,
 	"res://village/buildings/Blacksmith.tscn": 4,
 	"res://village/buildings/Herbalist.tscn": 4,
-	"res://village/buildings/Gunsmith.tscn": 5,
-	"res://village/buildings/Armorer.tscn": 5,
-	"res://village/buildings/Barracks.tscn": 5
+	# Silahçı artık erken kurulabildiği için hafif katman
+	"res://village/buildings/Gunsmith.tscn": 2,
+	"res://village/buildings/Barracks.tscn": 1,
+	"res://village/buildings/InventorWorkshop.tscn": 4,
 }
 const CONSTRUCTION_HOURS_BY_TIER := {1: 1.5, 2: 3.0, 3: 6.0, 4: 10.0, 5: 14.0}
 const UPGRADE_BASE_HOURS_BY_TIER := {1: 1.0, 2: 2.0, 3: 4.0, 4: 7.0, 5: 10.0}
@@ -290,7 +284,12 @@ var _saved_basic_gather_last_departure_day: Dictionary = {}
 var _saved_basic_resource_overflow: Dictionary = {}
 var _saved_snapshot_time: Dictionary = {}  # Save time when snapshot is taken (day, hour, minute)
 var _pending_time_skip_notification: Dictionary = {}  # Pending notification data to show after scene loads
+var _campfire_rest_skip_toast: bool = false
 var _is_leaving_village: bool = false  # Flag to prevent simulation when leaving village
+## advance_minutes() sırasında gece yarısı ekonomi tick'ini simülasyon sonrasına erteler.
+var _defer_economy_during_time_advance: bool = false
+var _pending_economy_tick_days: Array[int] = []
+var _batch_time_advance_connected: bool = false
 var _scene_signal_connected: bool = false
 
 ## SceneManager: köyden çıkışta yolculuk süresi TimeManager'a yazılmadan hemen önce çağrılır.
@@ -304,9 +303,11 @@ func mark_arriving_to_village_from_travel() -> void:
 
 # --- Village Event System ---
 var village_events_enabled: bool = true  # Enable/disable village-specific events
-var village_daily_event_chance: float = 0.15  # 15% chance per day for a village event
+var village_daily_event_chance: float = 0.05
 var _village_event_cooldowns: Dictionary = {}  # Event type -> day when cooldown ends
-var _last_village_event_check_day: int = 0  # Track last day we checked for events
+var _last_village_event_check_day: int = 0
+var _last_village_direct_event_day: int = -9999
+const VILLAGE_EVENT_MIN_GAP_DAYS: int = 2
 # Note: events_enabled, daily_event_chance, events_active, _event_cooldowns are already defined below
 
 var _skip_next_snapshot: bool = false
@@ -316,6 +317,7 @@ var _npc_ambient_director: Node = null
 func _ready() -> void:
 	_ensure_guest_housing_day_listener()
 	_setup_npc_ambient_director()
+	_ensure_time_manager_economy_hooks()
 	# Connect to SceneManager for scene change tracking
 	if is_instance_valid(SceneManager) and not _scene_signal_connected:
 		SceneManager.scene_change_started.connect(Callable(self, "_on_scene_change_started"))
@@ -334,17 +336,21 @@ func _ready() -> void:
 	# Initialize resource levels (restore from saved if available)
 	if not _saved_resource_levels.is_empty():
 		resource_levels = _saved_resource_levels.duplicate(true)
-		# Ensure weapon/armor have default values if not in saved data
-		if not resource_levels.has("weapon"):
-			resource_levels["weapon"] = 5
-		if not resource_levels.has("armor"):
-			resource_levels["armor"] = 5
+		_strip_legacy_water_from_resources()
+		# Silah seviyeleri kayıtlı veride yoksa varsayılan değer ata (zırh kaldırıldı)
+		if not resource_levels.has("weapon_t1"):
+			resource_levels["weapon_t1"] = 5
+		if not resource_levels.has("weapon_t2"):
+			resource_levels["weapon_t2"] = 0
+		if not resource_levels.has("weapon_t3"):
+			resource_levels["weapon_t3"] = 0
+		resource_levels.erase("weapon")
+		resource_levels.erase("armor")
 	else:
 		resource_levels = {
 			"wood": 0,
 			"stone": 0,
 			"food": 0,
-			"water": 0,
 			"lumber": 0,
 			"brick": 0,
 			"metal": 0,
@@ -354,8 +360,9 @@ func _ready() -> void:
 			"tea": 0,
 			"medicine": 0,
 			"soap": 0,
-			"weapon": resource_levels.get("weapon", 5),
-			"armor": resource_levels.get("armor", 5)
+			"weapon_t1": 5,
+			"weapon_t2": 0,
+			"weapon_t3": 0
 		}
 	
 	# Restore production progress if available
@@ -371,7 +378,6 @@ func _ready() -> void:
 		"wood": 0,
 		"stone": 0,
 		"food": 0,
-		"water": 0,
 		"lumber": 0,
 		"brick": 0,
 		"metal": 0,
@@ -929,6 +935,8 @@ func _on_time_advanced(total_minutes: int, start_day: int, start_hour: int, star
 	# Skip simulation if we're leaving village (only advancing time, no production)
 	if _is_leaving_village:
 		print("[VillageManager] ⏸️ Skipping simulation - leaving village (only advancing time)")
+		_flush_deferred_economy_ticks()
+		_defer_economy_during_time_advance = false
 		return
 	# Use snapshot time if available (when returning from forest/dungeon)
 	# Otherwise use the provided start time
@@ -943,6 +951,32 @@ func _on_time_advanced(total_minutes: int, start_day: int, start_hour: int, star
 		# Clear after use
 		_saved_snapshot_time = {}
 	_simulate_time_skip(total_minutes, sim_start_day, sim_start_hour, sim_start_minute)
+	_flush_deferred_economy_ticks()
+	_defer_economy_during_time_advance = false
+
+func _on_batch_time_advance_started(_total_minutes: int) -> void:
+	_defer_economy_during_time_advance = true
+	_pending_economy_tick_days.clear()
+
+func _flush_deferred_economy_ticks() -> void:
+	if _pending_economy_tick_days.is_empty():
+		return
+	_pending_economy_tick_days.sort()
+	for day in _pending_economy_tick_days:
+		_apply_day_transition_economy(int(day))
+	_pending_economy_tick_days.clear()
+
+func _apply_day_transition_economy(new_day: int) -> void:
+	if not economy_enabled:
+		return
+	if new_day <= _last_econ_tick_day:
+		return
+	_last_econ_tick_day = new_day
+	_recalculate_building_bonus()
+	_daily_economy_tick(new_day)
+	if village_events_enabled and new_day != _last_village_event_check_day:
+		_last_village_event_check_day = new_day
+		_check_and_trigger_village_event(new_day)
 
 func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, start_minute: int) -> void:
 	# Validation: Check for invalid input values
@@ -1076,11 +1110,21 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 		var t_end_abs: int = t_start_abs + total_minutes
 		_basic_gather_simulate_interval(t_start_abs, t_end_abs)
 		_gather_flush_completed_deliveries_up_to(t_end_abs)
+		_complete_gather_deliveries_for_time_skip(t_end_abs)
 		var tm_gather := get_node_or_null("/root/TimeManager")
 		if tm_gather != null and tm_gather.has_method("get_total_game_minutes"):
 			_last_gather_processed_total_minutes = int(tm_gather.get_total_game_minutes())
 		else:
 			_last_gather_processed_total_minutes = t_end_abs
+
+	if not pending_constructions.is_empty():
+		_advance_pending_constructions(float(total_minutes))
+	var tm_con := get_node_or_null("/root/TimeManager")
+	if tm_con != null and tm_con.has_method("get_total_game_minutes"):
+		_last_construction_total_minutes = int(tm_con.get_total_game_minutes())
+	_finalize_awaiting_construction_placements()
+	apply_current_time_schedule()
+	_sync_workers_after_time_skip()
 
 	if produced_basic or advanced_changed or upgrade_completed:
 		emit_signal("village_data_changed")
@@ -1105,17 +1149,18 @@ func _simulate_time_skip(total_minutes: int, start_day: int, start_hour: int, st
 		if had_pending_construction:
 			construction_footnote = "Devam eden şantiyeler oyun saatiyle ilerledi; tamamlananlar köye döndüğünde görünür."
 		print("[VillageManager] 📢 Emitting time_skip_completed signal: %.1f hours, resources: %s" % [total_hours, produced_resources])
-		# Check if village scene is loaded - if not, save notification for later
-		if is_instance_valid(village_scene_instance):
-			emit_signal("time_skip_completed", total_hours, produced_resources, construction_footnote)
-		else:
-			# Scene not loaded yet, save notification for when scene loads
-			_pending_time_skip_notification = {
-				"total_hours": total_hours,
-				"produced_resources": produced_resources,
-				"construction_footnote": construction_footnote
-			}
-			print("[VillageManager] ⏸️ Village scene not loaded, saving notification for later: %.1f hours" % total_hours)
+		if not _campfire_rest_skip_toast:
+			# Check if village scene is loaded - if not, save notification for later
+			if is_instance_valid(village_scene_instance):
+				emit_signal("time_skip_completed", total_hours, produced_resources, construction_footnote)
+			else:
+				# Scene not loaded yet, save notification for when scene loads
+				_pending_time_skip_notification = {
+					"total_hours": total_hours,
+					"produced_resources": produced_resources,
+					"construction_footnote": construction_footnote
+				}
+				print("[VillageManager] ⏸️ Village scene not loaded, saving notification for later: %.1f hours" % total_hours)
 	else:
 		print("[VillageManager] ⚠️ Not emitting time_skip_completed: total_hours = %.1f" % total_hours)
 
@@ -1288,21 +1333,13 @@ func _gather_complete_delivery(worker_id: int, exp: Dictionary) -> int:
 	if res_type.is_empty() or not (res_type in BASE_RESOURCE_TYPES):
 		return 0
 	exp["deposit_complete"] = true
-	var trip_m: int = int(exp.get("total_trip_minutes", 0))
-	var provisioned: bool = bool(exp.get("provisioned", true))
-	var yield_amt: int = GATHER_DELIVERY_YIELD_DEFAULT
-	if res_type == "food" or res_type == "water":
-		yield_amt = GATHER_DELIVERY_YIELD_FOOD_WATER
-	if trip_m >= GATHER_PROVISION_TRIP_THRESHOLD_MINUTES and not provisioned:
-		if randf() > GATHER_SOFT_YIELD_NO_PROVISION:
-			yield_amt = 0
-	# Sefer süresi doldu ve binaya teslim ediliyorsa boş dönüş olmasın (oyuncu gördüğü dönüş).
-	if yield_amt <= 0:
-		yield_amt = 1
+	var yield_amt: int = _gather_roll_trip_yield(res_type, worker_id)
 	if yield_amt > 0:
 		_deposit_basic_resource_with_overflow(res_type, yield_amt)
 		_daily_production_counter[res_type] = int(_daily_production_counter.get(res_type, 0)) + yield_amt
 		emit_signal("resource_produced", res_type, yield_amt)
+	elif yield_amt == 0:
+		print("[GATHER] Worker %d eli boş döndü (%s)" % [worker_id, res_type])
 	emit_signal("village_data_changed")
 	return yield_amt
 
@@ -1414,16 +1451,6 @@ func _gather_start_expedition_at_departure(worker_id: int, departure_abs: int) -
 	if bool(trip.get("ok", false)) and wm.has_method("reveal_village_gather_intel_for_successful_trip"):
 		wm.reveal_village_gather_intel_for_successful_trip(trip)
 	var total_m: int = maxi(1, int(trip.get("round_trip_minutes", 240)))
-	var provisioned: bool = true
-	if total_m >= GATHER_PROVISION_TRIP_THRESHOLD_MINUTES:
-		var food_ok: bool = int(resource_levels.get("food", 0)) >= GATHER_PROVISION_FOOD_COST
-		var water_ok: bool = int(resource_levels.get("water", 0)) >= GATHER_PROVISION_WATER_COST
-		if food_ok and water_ok:
-			resource_levels["food"] = int(resource_levels.get("food", 0)) - GATHER_PROVISION_FOOD_COST
-			resource_levels["water"] = int(resource_levels.get("water", 0)) - GATHER_PROVISION_WATER_COST
-			provisioned = true
-		else:
-			provisioned = false
 	var delivery_minutes: int = departure_abs + total_m
 	var cal_day: int = _gather_calendar_day_from_total_minutes(departure_abs)
 	basic_gather_expeditions_by_worker[worker_id] = {
@@ -1431,7 +1458,6 @@ func _gather_start_expedition_at_departure(worker_id: int, departure_abs: int) -
 		"delivery_minutes": delivery_minutes,
 		"delivery_ready": false,
 		"deposit_complete": false,
-		"provisioned": provisioned,
 		"total_trip_minutes": total_m,
 		"one_way_minutes": int(trip.get("one_way_minutes", 1))
 	}
@@ -1462,6 +1488,47 @@ func _gather_flush_completed_deliveries_up_to(t_abs: int) -> void:
 		var dm: int = int(exp.get("delivery_minutes", -1))
 		if dm >= 0 and dm <= t_abs:
 			exp["delivery_ready"] = true
+			basic_gather_expeditions_by_worker[wid] = exp
+
+
+## Zaman atlama: teslim zamanı geçmiş seferleri sessizce tamamla (kaynak stoğa, animasyonsuz).
+func _complete_gather_deliveries_for_time_skip(t_end_abs: int) -> void:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	var to_complete: Array[int] = []
+	for wid in basic_gather_expeditions_by_worker.keys():
+		var exp: Dictionary = basic_gather_expeditions_by_worker.get(wid, {})
+		if bool(exp.get("deposit_complete", false)):
+			to_complete.append(int(wid))
+			continue
+		var dm: int = int(exp.get("delivery_minutes", -1))
+		if dm >= 0 and dm <= t_end_abs:
+			to_complete.append(int(wid))
+		elif bool(exp.get("delivery_ready", false)):
+			to_complete.append(int(wid))
+	for wid in to_complete:
+		var exp: Dictionary = basic_gather_expeditions_by_worker.get(wid, {})
+		if exp.is_empty():
+			basic_gather_expeditions_by_worker.erase(wid)
+			continue
+		_gather_complete_delivery(wid, exp)
+		basic_gather_expeditions_by_worker.erase(wid)
+	basic_gather_pending_visual_by_worker.clear()
+
+
+func _sync_workers_after_time_skip() -> void:
+	if workers_container == null:
+		return
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null:
+		return
+	var hour: int = tm.get_hour() if tm.has_method("get_hour") else TimeManager.WAKE_UP_HOUR
+	var minute: int = tm.get_minute() if tm.has_method("get_minute") else 0
+	for child in workers_container.get_children():
+		if child.is_in_group("cats"):
+			continue
+		if child.has_method("apply_time_skip_presence"):
+			child.call("apply_time_skip_presence", hour, minute)
 
 
 func _purge_stale_worker_registry_entry(worker_id: int) -> void:
@@ -1526,6 +1593,11 @@ func _iter_basic_gather_worker_ids() -> Array:
 			continue
 		if inst.get("is_sick"):
 			continue
+		if "current_state" in inst:
+			var cs: int = int(inst.current_state)
+			# SICK / GOING_HOME_SICK — evde yatan veya eve giden hasta toplamaz.
+			if cs == 12 or cs == 13:
+				continue
 		var jt: String = ""
 		if "assigned_job_type" in inst:
 			jt = String(inst.get("assigned_job_type"))
@@ -1533,6 +1605,44 @@ func _iter_basic_gather_worker_ids() -> Array:
 			continue
 		out.append(int(wid))
 	return out
+
+
+## Evde yatan (veya eve giden) hasta köylü sayısı — HUD göstergesi için.
+func get_sick_villagers_at_home_count() -> int:
+	var count := 0
+	for wid in all_workers.keys():
+		var data: Dictionary = all_workers.get(wid, {})
+		var inst: Node = _worker_node_from_all_workers_entry(wid, data, true)
+		if inst == null or _is_guest_worker(inst):
+			continue
+		if not inst.get("is_sick"):
+			continue
+		if "current_state" in inst and int(inst.current_state) != 12:
+			continue
+		count += 1
+	return count
+
+
+## Belirli bir barınak (ev / kamp ateşi) için evde yatan hasta sayısı.
+func get_sick_count_at_housing(housing: Node) -> int:
+	if not is_instance_valid(housing):
+		return 0
+	var count := 0
+	for wid in all_workers.keys():
+		var data: Dictionary = all_workers.get(wid, {})
+		var inst: Node = _worker_node_from_all_workers_entry(wid, data, true)
+		if inst == null or _is_guest_worker(inst):
+			continue
+		if not inst.get("is_sick"):
+			continue
+		if "current_state" in inst and int(inst.current_state) != 12:
+			continue
+		var hn = inst.get("housing_node") if "housing_node" in inst else null
+		if not is_instance_valid(hn):
+			continue
+		if hn == housing:
+			count += 1
+	return count
 
 
 func _gather_worker_job_type(worker_id: int) -> String:
@@ -1835,40 +1945,55 @@ func _simulate_upgrades_during_skip(total_seconds: float) -> void:
 	var placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
 	if not placed_buildings:
 		return
-	for building in placed_buildings.get_children():
-		if not (building is Node2D):
-			continue
-		if "is_upgrading" not in building or not building.is_upgrading:
-			continue
-		if "upgrade_timer" not in building or not building.upgrade_timer:
-			continue
-		var timer: Timer = building.upgrade_timer
-		var time_left := timer.time_left
-		if time_left <= total_seconds:
-			if "upgrade_finished" in building and building.has_method("_on_upgrade_finished"):
-				building._on_upgrade_finished()
-			else:
-				if "is_upgrading" in building:
-					building.is_upgrading = false
-				if "level" in building:
-					var next_level = int(building.level) + 1
-					if "max_level" in building:
-						var max_lvl = int(building.max_level) if building.max_level != null else 999
-						if next_level <= max_lvl:
+	var remaining_seconds := total_seconds
+	var safety := 0
+	while remaining_seconds > 0.0 and safety < 64:
+		safety += 1
+		var completed_any := false
+		for building in placed_buildings.get_children():
+			if not (building is Node2D):
+				continue
+			if "is_upgrading" not in building or not building.is_upgrading:
+				continue
+			if "upgrade_timer" not in building or not building.upgrade_timer:
+				continue
+			var timer: Timer = building.upgrade_timer
+			var time_left := timer.time_left
+			if time_left <= remaining_seconds:
+				if building.has_method("finish_upgrade"):
+					building.finish_upgrade()
+				elif building.has_method("_on_upgrade_finished"):
+					building._on_upgrade_finished()
+				else:
+					if "is_upgrading" in building:
+						building.is_upgrading = false
+					if "level" in building:
+						var next_level = int(building.level) + 1
+						if "max_level" in building:
+							var max_lvl = int(building.max_level) if building.max_level != null else 999
+							if next_level <= max_lvl:
+								building.level = next_level
+								if "max_workers" in building and building.level == next_level:
+									building.max_workers = next_level
+						else:
 							building.level = next_level
-							if "max_workers" in building and building.level == next_level:
-								building.max_workers = next_level
-					else:
-						building.level = next_level
-				if "upgrade_finished" in building:
-					building.upgrade_finished.emit()
-				if "state_changed" in building:
-					building.state_changed.emit()
-				notify_building_state_changed(building)
-		else:
-			timer.stop()
-			timer.wait_time = time_left - total_seconds
-			timer.start(time_left - total_seconds)
+					if building.has_signal("upgrade_finished"):
+						building.upgrade_finished.emit()
+					if building.has_signal("state_changed"):
+						building.state_changed.emit()
+					notify_building_state_changed(building)
+					if building.has_method("_update_texture"):
+						building._update_texture()
+					if building.has_method("_update_collision"):
+						building._update_collision()
+				remaining_seconds -= maxf(time_left, 0.0)
+				completed_any = true
+			else:
+				timer.stop()
+				timer.wait_time = time_left - remaining_seconds
+				timer.start()
+		if not completed_any:
+			break
 
 func _simulate_events_during_skip(total_minutes: int, start_day: int, end_day: int) -> bool:
 	var changed := false
@@ -2093,18 +2218,20 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 			else:
 				# Normal işçiler için çalışma mantığı
 				var go_inside = false
-				if "worker_stays_inside" in assigned_building and assigned_building.worker_stays_inside:
-					go_inside = true
-				elif "level" in assigned_building and assigned_building.level >= 2:
-					if "assigned_worker_ids" in assigned_building:
-						var worker_ids = assigned_building.assigned_worker_ids
-						if not worker_ids.is_empty():
-							var worker_id_val: int = -1
-							if worker_instance and "worker_id" in worker_instance:
-								var id_val = worker_instance.get("worker_id")
-								worker_id_val = id_val if id_val is int else -1
-							if worker_id_val == worker_ids[0]:
-								go_inside = true
+				var is_offscreen_gather := job_type in BASE_RESOURCE_TYPES and USE_DISTANCE_BASED_BASIC_GATHER
+				if not is_offscreen_gather:
+					if "worker_stays_inside" in assigned_building and assigned_building.worker_stays_inside:
+						go_inside = true
+					elif "level" in assigned_building and assigned_building.level >= 2:
+						if "assigned_worker_ids" in assigned_building:
+							var worker_ids = assigned_building.assigned_worker_ids
+							if not worker_ids.is_empty():
+								var worker_id_val: int = -1
+								if worker_instance and "worker_id" in worker_instance:
+									var id_val = worker_instance.get("worker_id")
+									worker_id_val = id_val if id_val is int else -1
+								if worker_id_val == worker_ids[0]:
+									go_inside = true
 				
 				if go_inside:
 					worker_instance.current_state = 5
@@ -2285,15 +2412,13 @@ var caregiver_bonus: float = 0.0
 var global_multiplier: float = 1.0
 var per_frame_production_enabled: bool = true
 
-var daily_water_per_pop: float = 0.6
-var daily_food_per_pop: float = 0.5
+var daily_food_per_pop: float = 1.0
 var cariye_period_days: int = 7
 
 var resource_prod_multiplier: Dictionary = {
 	"wood": 1.0,
 	"stone": 1.0,
 	"food": 1.0,
-	"water": 1.0,
 	"lumber": 1.0,
 	"brick": 1.0,
 	"metal": 1.0,
@@ -2303,8 +2428,9 @@ var resource_prod_multiplier: Dictionary = {
 	"tea": 1.0,
 	"medicine": 1.0,
 	"soap": 1.0,
-	"weapon": 1.0,
-	"armor": 1.0
+	"weapon_t1": 1.0,
+	"weapon_t2": 1.0,
+	"weapon_t3": 1.0
 }
 
 var economy_stats_last_day: Dictionary = {
@@ -2317,7 +2443,6 @@ var _daily_production_counter: Dictionary = {
 	"wood": 0,
 	"stone": 0,
 	"food": 0,
-	"water": 0,
 	"lumber": 0,
 	"brick": 0,
 	"metal": 0,
@@ -2331,13 +2456,13 @@ var _daily_production_counter: Dictionary = {
 var village_morale: float = 80.0
 ## SaveManager: üretim çarpanları kayıttan yüklendiyse reapply'da kuraklık vb. tekrar uygulanmaz.
 var _production_multipliers_restored_from_save: bool = false
-var _last_day_shortages: Dictionary = {"water": 0, "food": 0, "soldier_water": 0, "soldier_food": 0}
+var _last_day_shortages: Dictionary = {"food": 0, "soldier_food": 0}
 
 var _last_econ_tick_day: int = 0
 
 # === Events scaffold (feature-flagged) ===
 var events_enabled: bool = true
-var daily_event_chance: float = 0.05
+var daily_event_chance: float = 0.02
 var event_severity_min: float = 0.1  # Deprecated: artık kullanılmıyor, level sistemi kullanılıyor
 var event_severity_max: float = 0.35  # Deprecated: artık kullanılmıyor, level sistemi kullanılıyor
 var event_duration_min_days: int = 3
@@ -2505,10 +2630,12 @@ func register_village_scene(scene: Node2D) -> void:
 		for res in BASE_RESOURCE_TYPES:
 			if not resource_levels.has(res):
 				resource_levels[res] = 0
-		if not resource_levels.has("weapon"):
-			resource_levels["weapon"] = 5
-		if not resource_levels.has("armor"):
-			resource_levels["armor"] = 5
+		if not resource_levels.has("weapon_t1"):
+			resource_levels["weapon_t1"] = 5
+		if not resource_levels.has("weapon_t2"):
+			resource_levels["weapon_t2"] = 0
+		if not resource_levels.has("weapon_t3"):
+			resource_levels["weapon_t3"] = 0
 	
 	# Başlangıç işçilerini oluştur
 	if workers_container and is_instance_valid(campfire_node):
@@ -2630,6 +2757,7 @@ func register_village_scene(scene: Node2D) -> void:
 			print("[VillageManager] ✅ DEBUG: Created %d workers, max ID: %d" % [worker_created_count, worker_id_counter])
 			print("[VillageManager] 🔄 DEBUG: Applying saved worker states to buildings...")
 		_apply_saved_worker_states(restored_buildings_map)
+		_reconcile_housing_occupant_lists()
 		# Görev ormandayken tamamlandıysa askerler geri çağrılmamış olabilir; yükleme sonrası senkronize et
 		call_deferred("_sync_soldiers_with_missions")
 		emit_signal("village_data_changed")
@@ -2657,11 +2785,7 @@ func register_village_scene(scene: Node2D) -> void:
 
 	# Economy daily tick hookup (non-breaking)
 	var tm = get_node_or_null("/root/TimeManager")
-	if tm and tm.has_signal("day_changed"):
-		# Check if already connected to prevent duplicate connections
-		if not tm.day_changed.is_connected(Callable(self, "_on_day_changed")):
-			tm.connect("day_changed", Callable(self, "_on_day_changed"))
-		_last_econ_tick_day = tm.get_day() if tm.has_method("get_day") else 0
+	_ensure_time_manager_economy_hooks()
 	if tm:
 		if tm.has_method("get_total_game_minutes"):
 			_last_construction_total_minutes = int(tm.get_total_game_minutes())
@@ -2672,6 +2796,7 @@ func register_village_scene(scene: Node2D) -> void:
 			tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
 			_time_advanced_connected = true
 		if USE_DISTANCE_BASED_BASIC_GATHER and tm.has_method("get_total_game_minutes"):
+			_sanitize_legacy_basic_gather_multipliers()
 			_restore_basic_gather_runtime_if_needed()
 			_last_gather_processed_total_minutes = int(tm.get_total_game_minutes())
 			call_deferred("_basic_gather_reconcile_after_village_ready")
@@ -2685,7 +2810,6 @@ const RESOURCE_PRODUCER_SCRIPTS = {
 	"wood": "res://village/scripts/WoodcutterCamp.gd",
 	"stone": "res://village/scripts/StoneMine.gd",
 	"food": "res://village/scripts/HunterGathererHut.gd", # Veya Tarla/Balıkçı vb.
-	"water": "res://village/scripts/Well.gd",
 	"lumber": "res://village/scripts/Sawmill.gd",
 	"brick": "res://village/scripts/Brickworks.gd",
 	"metal": "res://village/scripts/Blacksmith.gd",
@@ -2695,8 +2819,9 @@ const RESOURCE_PRODUCER_SCRIPTS = {
 	"tea": "res://village/scripts/TeaHouse.gd",
 	"medicine": "res://village/scripts/Herbalist.gd",
 	"soap": "res://village/scripts/SoapMaker.gd",
-	"weapon": "res://village/scripts/Gunsmith.gd",
-	"armor": "res://village/scripts/Armorer.gd",
+	"weapon_t1": "res://village/scripts/Gunsmith.gd",
+	"weapon_t2": "res://village/scripts/Gunsmith.gd",
+	"weapon_t3": "res://village/scripts/Gunsmith.gd",
 	"soldier": "res://village/scripts/Barracks.gd" # Asker işçi türü eklendi
 }
 
@@ -2705,7 +2830,6 @@ const RESOURCE_PRODUCER_SCENES = {
 	"wood": "res://village/buildings/WoodcutterCamp.tscn",
 	"stone": "res://village/buildings/StoneMine.tscn",
 	"food": "res://village/buildings/HunterGathererHut.tscn",
-	"water": "res://village/buildings/Well.tscn",
 	"lumber": "res://village/buildings/Sawmill.tscn",
 	"brick": "res://village/buildings/Brickworks.tscn",
 	"metal": "res://village/buildings/Blacksmith.tscn",
@@ -2715,13 +2839,22 @@ const RESOURCE_PRODUCER_SCENES = {
 	"tea": "res://village/buildings/TeaHouse.tscn",
 	"medicine": "res://village/buildings/Herbalist.tscn",
 	"soap": "res://village/buildings/SoapMaker.tscn",
-	"weapon": "res://village/buildings/Gunsmith.tscn",
-	"armor": "res://village/buildings/Armorer.tscn"
+	"weapon_t1": "res://village/buildings/Gunsmith.tscn",
+	"weapon_t2": "res://village/buildings/Gunsmith.tscn",
+	"weapon_t3": "res://village/buildings/Gunsmith.tscn"
 }
 
 # Bir kaynak türünün mevcut stok seviyesini döndürür (temel ve gelişmiş için ortak)
 func get_resource_level(resource_type: String) -> int:
 	return resource_levels.get(resource_type, 0)
+
+
+func _strip_legacy_water_from_resources() -> void:
+	resource_levels.erase("water")
+	locked_resource_levels.erase("water")
+	base_production_progress.erase("water")
+	resource_prod_multiplier.erase("water")
+	_daily_production_counter.erase("water")
 
 ## world_map / görev: { "food": 5, "gold": 10 } — gold GlobalPlayerData üzerinden.
 func can_afford_resources(cost: Dictionary) -> bool:
@@ -2857,11 +2990,30 @@ func _count_active_workers_for_resource(resource_type: String) -> int:
 		if building.has_method("get_script") and building.get_script() != null:
 			var building_script = building.get_script()
 			if building_script is GDScript and building_script.resource_path == target_script_path:
-				# Bu binadaki atanan işçi sayısını al (aktif durum fark etmez)
+				if "assigned_worker_ids" in building:
+					var ids: Variant = building.get("assigned_worker_ids")
+					if ids is Array and not ids.is_empty():
+						assigned_workers_for_resource += ids.size()
+						continue
 				if "assigned_workers" in building:
 					assigned_workers_for_resource += int(building.assigned_workers)
 	
 	return assigned_workers_for_resource
+
+## Mesafe tabanlı toplamada sefer atanmış işçi sayısı (job type + bina kaydı — UI ile uyumlu).
+func _count_gather_workers_for_resource(resource_type: String) -> int:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return _count_active_workers_for_resource(resource_type)
+	var count := 0
+	for wid in _iter_basic_gather_worker_ids():
+		if _gather_worker_job_type(int(wid)) == resource_type:
+			count += 1
+	return count
+
+func _count_workers_for_daily_projection(resource_type: String) -> int:
+	if USE_DISTANCE_BASED_BASIC_GATHER and resource_type in BASE_RESOURCE_TYPES:
+		return _count_gather_workers_for_resource(resource_type)
+	return _count_active_workers_for_resource(resource_type)
 
 # Belirli bir kaynak seviyesinin ne kadarının kullanılabilir (kilitli olmayan) olduğunu döndürür
 func get_available_resource_level(resource_type: String) -> int:
@@ -2869,6 +3021,295 @@ func get_available_resource_level(resource_type: String) -> int:
 	var locked_level = locked_resource_levels.get(resource_type, 0)
 	# #print("DEBUG VillageManager: get_available_resource_level(%s): Total=%d, Locked=%d, Available=%d" % [resource_type, total_level, locked_level, max(0, total_level - locked_level)]) #<<< DEBUG
 	return max(0, total_level - locked_level)
+
+func _gather_yield_per_trip(resource_type: String) -> int:
+	if resource_type == "food":
+		return GATHER_DELIVERY_YIELD_FOOD
+	return GATHER_DELIVERY_YIELD_DEFAULT
+
+
+func _event_level_empty_trip_chance(event_level: int) -> float:
+	# Eski çarpan modeli: 0.8 / 0.6 / 0.4 → boş sefer %20 / %40 / %60
+	var mult: float = float(EVENT_LEVEL_MULTIPLIERS.get(event_level, 0.8))
+	return clampf(1.0 - mult, 0.0, 0.95)
+
+
+func _event_level_bonus_trip_yield(event_level: int) -> int:
+	match event_level:
+		EventLevel.LOW:
+			return 1
+		EventLevel.MEDIUM:
+			return 1
+		EventLevel.HIGH:
+			return 2
+		_:
+			return 1
+
+
+func _event_still_active(ev: Dictionary, current_day: int) -> bool:
+	if ev.has("ends_day"):
+		return current_day <= int(ev.get("ends_day", current_day))
+	var started_day := int(ev.get("started_day", current_day))
+	var duration := int(ev.get("duration", 0))
+	if duration > 0:
+		return current_day < started_day + duration
+	return true
+
+
+func _resolve_event_level(ev: Dictionary) -> int:
+	if ev.has("level"):
+		return int(ev.get("level", EventLevel.MEDIUM))
+	if ev.has("severity"):
+		var sev := float(ev.get("severity", 0.0))
+		if sev < 0.2:
+			return EventLevel.LOW
+		if sev < 0.3:
+			return EventLevel.MEDIUM
+		return EventLevel.HIGH
+	return EventLevel.MEDIUM
+
+
+func _accumulate_gather_trip_mods_from_event(
+	ev: Dictionary,
+	resource_type: String,
+	current_day: int,
+	empty_chance: float,
+	bonus_yield: int
+) -> Dictionary:
+	if not _event_still_active(ev, current_day):
+		return {"empty_chance": empty_chance, "bonus_yield": bonus_yield}
+	var event_type := String(ev.get("type", ""))
+	var event_level: int = _resolve_event_level(ev)
+	var fail_p: float = _event_level_empty_trip_chance(event_level)
+	match event_type:
+		"drought", "famine":
+			if resource_type == "food":
+				empty_chance = maxf(empty_chance, fail_p)
+		"pest":
+			if resource_type == "wood":
+				empty_chance = maxf(empty_chance, fail_p)
+		"wolf_attack":
+			if resource_type == "stone":
+				empty_chance = maxf(empty_chance, fail_p)
+		"severe_storm":
+			if resource_type in BASE_RESOURCE_TYPES:
+				empty_chance = maxf(empty_chance, fail_p)
+		"weather_blessing":
+			if resource_type in BASE_RESOURCE_TYPES:
+				bonus_yield = maxi(bonus_yield, _event_level_bonus_trip_yield(event_level))
+		"worker_strike":
+			var strike_res := String(ev.get("strike_resource", ""))
+			if strike_res == resource_type:
+				empty_chance = 1.0
+		"plague", "disease":
+			pass
+	return {"empty_chance": empty_chance, "bonus_yield": bonus_yield}
+
+
+func _get_gather_trip_modifiers(resource_type: String) -> Dictionary:
+	var empty_chance := 0.0
+	var bonus_yield := 0
+	var tm := get_node_or_null("/root/TimeManager")
+	var current_day: int = int(tm.get_day()) if tm and tm.has_method("get_day") else 0
+	for ev in events_active:
+		if ev is Dictionary:
+			var merged := _accumulate_gather_trip_mods_from_event(
+				ev, resource_type, current_day, empty_chance, bonus_yield
+			)
+			empty_chance = float(merged.get("empty_chance", empty_chance))
+			bonus_yield = int(merged.get("bonus_yield", bonus_yield))
+	var wm := get_node_or_null("/root/WorldManager")
+	if wm != null and wm.get("active_events") != null:
+		for ev in wm.active_events:
+			if ev is Dictionary:
+				var merged_w := _accumulate_gather_trip_mods_from_event(
+					ev, resource_type, current_day, empty_chance, bonus_yield
+				)
+				empty_chance = float(merged_w.get("empty_chance", empty_chance))
+				bonus_yield = int(merged_w.get("bonus_yield", bonus_yield))
+				# Dünya olayı effects sözlüğü (kıtlık vb.)
+				if ev.has("effects") and ev.get("effects") is Dictionary:
+					var effects: Dictionary = ev.get("effects")
+					if resource_type == "food" and effects.has("food_production"):
+						var food_p: float = float(effects.get("food_production", 1.0))
+						if food_p < 1.0:
+							empty_chance = maxf(empty_chance, clampf(1.0 - food_p, 0.0, 0.95))
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm != null and mm.has_method("get_external_rate_delta"):
+		var ext_delta: int = int(mm.get_external_rate_delta(resource_type))
+		if ext_delta < 0:
+			empty_chance = maxf(empty_chance, clampf(0.25 * float(-ext_delta), 0.0, 0.95))
+		elif ext_delta > 0:
+			# Bölgesel +1/g modları toplanmasın — başarılı seferde en fazla +1 ekstra.
+			bonus_yield = maxi(bonus_yield, 1)
+	empty_chance = clampf(empty_chance, 0.0, 0.95)
+	bonus_yield = mini(bonus_yield, 2)
+	return {"empty_chance": empty_chance, "bonus_yield": bonus_yield}
+
+
+func _gather_roll_trip_yield(resource_type: String, worker_id: int) -> int:
+	var mods: Dictionary = _get_gather_trip_modifiers(resource_type)
+	var empty_p: float = float(mods.get("empty_chance", 0.0))
+	if empty_p >= 1.0 or (empty_p > 0.0 and randf() < empty_p):
+		return 0
+	var base: int = _gather_yield_per_trip(resource_type)
+	return maxi(0, base + int(mods.get("bonus_yield", 0)))
+
+
+func _sanitize_legacy_basic_gather_multipliers() -> void:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return
+	for rk in BASE_RESOURCE_TYPES:
+		resource_prod_multiplier[rk] = 1.0
+
+func _estimate_daily_basic_gather_yield(resource_type: String, worker_count: int) -> float:
+	if worker_count <= 0:
+		return 0.0
+	# Mesafe seferi: günde en fazla bir çıkış (basic_gather_last_departure_day).
+	return float(worker_count) * float(_gather_yield_per_trip(resource_type))
+
+func _estimate_daily_food_consumption() -> float:
+	return float(int(total_workers)) * daily_food_per_pop
+
+## Sefer/temel toplama günlük tahmini — tam sayılı sefer modeli (boş dönüş olasılığı).
+func _estimate_daily_basic_gather_yield_adjusted(resource_type: String, worker_count: int) -> float:
+	if worker_count <= 0:
+		return 0.0
+	return float(_estimate_daily_basic_gather_units(resource_type, worker_count))
+
+
+## Beklenen günlük toplama birimi (tam sayı, sefer modeli).
+func _estimate_daily_basic_gather_units(resource_type: String, worker_count: int) -> int:
+	if worker_count <= 0:
+		return 0
+	var mods: Dictionary = _get_gather_trip_modifiers(resource_type)
+	var empty_p: float = float(mods.get("empty_chance", 0.0))
+	var per_trip: int = _gather_yield_per_trip(resource_type) + int(mods.get("bonus_yield", 0))
+	var per_worker: float = (1.0 - empty_p) * float(per_trip)
+	return int(round(float(worker_count) * per_worker))
+
+
+## Yiyecek HUD: toplama − tüketim = net (hepsi tam sayı).
+func get_food_daily_balance() -> Dictionary:
+	var gatherers: int = _count_gather_workers_for_resource("food")
+	var gather: int = _estimate_daily_basic_gather_units("food", gatherers)
+	var eat: int = int(_estimate_daily_food_consumption()) + _count_active_soldiers()
+	return {
+		"gatherers": gatherers,
+		"gather": gather,
+		"eat": eat,
+		"net": gather - eat,
+		"trip_yield": _gather_yield_per_trip("food") + int(_get_gather_trip_modifiers("food").get("bonus_yield", 0)),
+	}
+
+
+## Felaket/etki yüzünden sefer başarısı belirsizse true (HUD ? işareti).
+func is_gather_projection_uncertain(resource_type: String) -> bool:
+	if not USE_DISTANCE_BASED_BASIC_GATHER:
+		return false
+	if resource_type not in BASE_RESOURCE_TYPES:
+		return false
+	if _count_gather_workers_for_resource(resource_type) <= 0:
+		return false
+	var empty_p: float = float(_get_gather_trip_modifiers(resource_type).get("empty_chance", 0.0))
+	return empty_p > 0.001
+
+const DISASTER_EVENT_TO_RESOURCE: Dictionary = {
+	"drought": "food",
+	"famine": "food",
+	"pest": "wood",
+	"wolf_attack": "stone",
+}
+
+const DISASTER_EVENT_LABEL_KEYS: Dictionary = {
+	"drought": "hud.disaster_drought",
+	"famine": "hud.disaster_famine",
+	"pest": "hud.disaster_pest",
+	"wolf_attack": "hud.disaster_wolf",
+	"worker_strike": "hud.disaster_strike",
+	"severe_storm": "hud.disaster_storm",
+	"weather_blessing": "hud.disaster_blessing",
+	"plague": "hud.disaster_plague",
+	"disease": "hud.disaster_plague",
+}
+
+const PLAGUE_MORALE_PENALTY := 10.0
+
+## HUD: kaynak satırına eklenecek felaket/etki uyarıları (resource_key → metin listesi).
+func get_resource_disaster_hints() -> Dictionary:
+	var hints: Dictionary = {}
+	var tm := get_node_or_null("/root/TimeManager")
+	var current_day: int = int(tm.get_day()) if tm and tm.has_method("get_day") else 0
+
+	for ev in events_active:
+		_collect_disaster_hint_from_event(hints, ev, current_day)
+
+	var wm := get_node_or_null("/root/WorldManager")
+	if wm != null and wm.get("active_events") != null:
+		for ev in wm.active_events:
+			if ev is Dictionary:
+				_collect_disaster_hint_from_event(hints, ev, current_day)
+
+	var soldier_count := _count_active_soldiers()
+	if soldier_count > 0:
+		_push_disaster_hint(hints, "food", tr("hud.disaster_soldier_rations") % soldier_count)
+
+	return hints
+
+func _collect_disaster_hint_from_event(hints: Dictionary, ev: Dictionary, current_day: int) -> void:
+	var event_type := String(ev.get("type", ""))
+	if event_type.is_empty():
+		return
+	var days_left := _disaster_event_days_left(ev, current_day)
+	var days_suffix := tr("hud.disaster_days") % days_left if days_left > 0 else ""
+
+	if event_type == "worker_strike":
+		var strike_res := String(ev.get("strike_resource", ""))
+		if strike_res.is_empty():
+			return
+		var label_key: String = String(DISASTER_EVENT_LABEL_KEYS.get("worker_strike", ""))
+		if label_key.is_empty():
+			return
+		_push_disaster_hint(hints, strike_res, tr(label_key) + days_suffix)
+		return
+
+	if event_type == "severe_storm":
+		for res in BASE_RESOURCE_TYPES:
+			_push_disaster_hint(hints, res, tr("hud.disaster_storm") + days_suffix)
+		return
+	if event_type == "plague" or event_type == "disease":
+		return
+	if event_type == "weather_blessing":
+		for res in BASE_RESOURCE_TYPES:
+			_push_disaster_hint(hints, res, tr("hud.disaster_blessing") + days_suffix)
+		return
+
+	var resource_key := String(DISASTER_EVENT_TO_RESOURCE.get(event_type, ""))
+	if resource_key.is_empty():
+		return
+	var label_key2: String = String(DISASTER_EVENT_LABEL_KEYS.get(event_type, ""))
+	if label_key2.is_empty():
+		return
+	_push_disaster_hint(hints, resource_key, tr(label_key2) + days_suffix)
+
+func _disaster_event_days_left(ev: Dictionary, current_day: int) -> int:
+	if ev.has("ends_day"):
+		return maxi(0, int(ev.get("ends_day", current_day)) - current_day)
+	var started_day := int(ev.get("started_day", current_day))
+	var duration := int(ev.get("duration", 0))
+	if duration > 0:
+		return maxi(0, started_day + duration - current_day)
+	return 0
+
+func _push_disaster_hint(hints: Dictionary, resource_key: String, text: String) -> void:
+	if text.is_empty():
+		return
+	if not hints.has(resource_key):
+		hints[resource_key] = []
+	var bucket: Array = hints[resource_key]
+	if text in bucket:
+		return
+	bucket.append(text)
 
 # Günlük net kaynak tahmini döndürür.
 # Not: Üretim sadece çalışma saatleri için hesaplanır (24 saat varsayımı yoktur).
@@ -2899,17 +3340,17 @@ func get_projected_daily_resource_nets() -> Dictionary:
 
 	# Temel kaynak üretimi: işçi atamasına göre.
 	for res in BASE_RESOURCE_TYPES:
-		var workers: int = _count_active_workers_for_resource(res)
+		var workers: int = _count_workers_for_daily_projection(res)
 		if workers <= 0:
 			continue
 		if USE_DISTANCE_BASED_BASIC_GATHER:
-			nets[res] = float(nets.get(res, 0.0)) + float(workers)
+			nets[res] = float(nets.get(res, 0.0)) + _estimate_daily_basic_gather_yield_adjusted(res, workers)
 			continue
 		var res_mult: float = float(resource_prod_multiplier.get(res, 1.0))
 		var per_sec := (float(workers) / SECONDS_PER_RESOURCE_UNIT) * morale_mult * prod_mult * res_mult
 		nets[res] = float(nets.get(res, 0.0)) + (per_sec * work_day_seconds)
 
-	# İşleme binaları: output üretimi + input tüketimi.
+	# İşleme binaları: output üretimi + input tüketimi (temel toplama binaları hariç).
 	var placed_buildings = null
 	if is_instance_valid(village_scene_instance):
 		placed_buildings = village_scene_instance.get_node_or_null("PlacedBuildings")
@@ -2917,6 +3358,13 @@ func get_projected_daily_resource_nets() -> Dictionary:
 		for building in placed_buildings.get_children():
 			if not ("assigned_workers" in building):
 				continue
+			# Oduncu / taş ocağı / avcı kulübesi: sefer sistemi yukarıda sayıldı.
+			if USE_DISTANCE_BASED_BASIC_GATHER and building.has_method("get_script") and building.get_script() != null:
+				var bscript: Script = building.get_script()
+				if bscript is GDScript:
+					var bpath: String = (bscript as GDScript).resource_path
+					if bpath in RESOURCE_PRODUCER_SCRIPTS.values():
+						continue
 			var workers_assigned := int(building.assigned_workers)
 			if workers_assigned <= 0:
 				continue
@@ -2927,7 +3375,11 @@ func get_projected_daily_resource_nets() -> Dictionary:
 				production_time = float(building.BREAD_PRODUCTION_TIME)
 			if production_time <= 0.0:
 				continue
-			var cycles_per_day := (work_day_seconds / production_time) * float(workers_assigned)
+			var b_res_mult: float = float(resource_prod_multiplier.get(
+				String(building.produced_resource) if "produced_resource" in building else "",
+				1.0
+			))
+			var cycles_per_day := (work_day_seconds / production_time) * float(workers_assigned) * morale_mult * prod_mult * b_res_mult
 
 			if "produced_resource" in building:
 				var produced_key := String(building.produced_resource)
@@ -2940,16 +3392,9 @@ func get_projected_daily_resource_nets() -> Dictionary:
 					var req_amount := float(reqs[req_key])
 					nets[req_key] = float(nets.get(req_key, 0.0)) - (cycles_per_day * req_amount)
 
-	# Köylü temel tüketimi (günlük)
-	var population := int(total_workers)
-	nets["food"] = float(nets.get("food", 0.0)) - (float(population) * daily_food_per_pop)
-	nets["water"] = float(nets.get("water", 0.0)) - (float(population) * daily_water_per_pop)
-
-	# Asker ek tüketimi (günlük)
-	var soldier_count := _count_active_soldiers()
-	if soldier_count > 0:
-		nets["food"] = float(nets.get("food", 0.0)) - (float(soldier_count) * 0.5)
-		nets["water"] = float(nets.get("water", 0.0)) - (float(soldier_count) * 0.5)
+	# Köylü temel tüketimi (günlük): köylü başına 1 yemek.
+	var food_eaters: int = int(_estimate_daily_food_consumption()) + _count_active_soldiers()
+	nets["food"] = float(nets.get("food", 0.0)) - float(food_eaters)
 
 	return nets
 
@@ -3010,13 +3455,12 @@ func _process(delta: float) -> void:
 			emit_signal("village_data_changed")
 
 	# Economy daily polling fallback (in case signal missed)
-	if economy_enabled:
+	if economy_enabled and not _defer_economy_during_time_advance:
 		var tm = get_node_or_null("/root/TimeManager")
 		if tm and tm.has_method("get_day"):
 			var d = tm.get_day()
 			if d != _last_econ_tick_day and d > 0:
-				_last_econ_tick_day = d
-				_daily_economy_tick(d)
+				_apply_day_transition_economy(d)
 	
 	# En yakın NPC'nin ismini göster, diğerlerini gizle
 	_update_nearest_npc_name_visibility()
@@ -3165,9 +3609,9 @@ func get_building_display_name_for_scene(scene_path: String) -> String:
 		"res://village/buildings/Blacksmith.tscn": return "Demirci"
 		"res://village/buildings/Herbalist.tscn": return "Otacı"
 		"res://village/buildings/Gunsmith.tscn": return "Silah Ustası"
-		"res://village/buildings/Armorer.tscn": return "Zırh Ustası"
 		"res://village/buildings/Barracks.tscn": return "Kışla"
 		"res://village/buildings/StorageBuilding.tscn": return "Depo"
+		"res://village/buildings/InventorWorkshop.tscn": return "Mucit Odası"
 		"res://village/buildings/House.tscn": return "Ev"
 		_:
 			return scene_path.get_file().trim_suffix(".tscn")
@@ -3253,6 +3697,162 @@ func find_free_building_plot() -> Vector2:
 			return fallback_pos
 	return Vector2.ZERO
 
+func _resolve_build_plot_position(plot_position: Variant) -> Vector2:
+	if plot_position is Vector2:
+		var pos := plot_position as Vector2
+		if is_plot_position_buildable(pos):
+			return pos
+		return Vector2.INF
+	return find_free_building_plot()
+
+func get_all_plot_positions() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	if not is_instance_valid(village_scene_instance):
+		return out
+	var plot_markers := village_scene_instance.get_node_or_null("PlotMarkers")
+	if not plot_markers:
+		return out
+	for marker in plot_markers.get_children():
+		if marker is Node2D:
+			out.append((marker as Node2D).global_position)
+	return out
+
+func get_building_at_plot_position(plot_pos: Vector2, tolerance: float = 12.0) -> Node2D:
+	if not is_instance_valid(village_scene_instance):
+		return null
+	var placed := village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not placed:
+		return null
+	for building in placed.get_children():
+		if building is Node2D and (building as Node2D).global_position.distance_to(plot_pos) <= tolerance:
+			return building as Node2D
+	return null
+
+func is_plot_position_buildable(plot_pos: Vector2, tolerance: float = 8.0) -> bool:
+	if plot_pos == Vector2.INF or plot_pos == Vector2.ZERO:
+		return false
+	if get_building_at_plot_position(plot_pos, tolerance) != null:
+		return false
+	if _is_plot_reserved(plot_pos):
+		return false
+	var sites: Node = null
+	if is_instance_valid(village_scene_instance):
+		sites = village_scene_instance.get_node_or_null("ConstructionSites")
+	return not _plot_blocked_by_construction_sites(plot_pos, sites)
+
+func is_plot_position_empty(plot_pos: Vector2, tolerance: float = 8.0) -> bool:
+	return is_plot_position_buildable(plot_pos, tolerance)
+
+func request_build_building_at_plot(building_scene_path: String, plot_position: Vector2) -> bool:
+	return request_build_building(building_scene_path, plot_position)
+
+func try_add_worker_to_building(building: Node) -> bool:
+	if not is_instance_valid(building) or not building.has_method("add_worker"):
+		return false
+	return bool(building.call("add_worker"))
+
+func try_remove_worker_from_building(building: Node) -> bool:
+	if not is_instance_valid(building) or not building.has_method("remove_worker"):
+		return false
+	return bool(building.call("remove_worker"))
+
+func try_upgrade_building(building: Node) -> bool:
+	if not is_instance_valid(building) or not building.has_method("start_upgrade"):
+		return false
+	return bool(building.call("start_upgrade"))
+
+func has_pending_house_floor_on(building: Node2D) -> bool:
+	if not is_instance_valid(building):
+		return false
+	var host_key := _make_building_snapshot_key(String(building.scene_file_path), building.global_position)
+	for entry in pending_constructions:
+		if String(entry.get("pending_kind", "")) != "house_floor":
+			continue
+		if String(entry.get("host_building_key", "")) == host_key:
+			return true
+	return false
+
+func get_pending_house_floor_minutes_on(building: Node2D) -> int:
+	if not is_instance_valid(building):
+		return 0
+	var host_key := _make_building_snapshot_key(String(building.scene_file_path), building.global_position)
+	for entry in pending_constructions:
+		if String(entry.get("pending_kind", "")) != "house_floor":
+			continue
+		if String(entry.get("host_building_key", "")) == host_key:
+			return int(ceil(float(entry.get("remaining_minutes", 0.0))))
+	return 0
+
+func can_build_residential_floor_on(building: Node2D) -> bool:
+	if not _can_build_residential_on(building):
+		return false
+	if has_pending_house_floor_on(building):
+		return false
+	if pending_constructions.size() >= MAX_PARALLEL_CONSTRUCTIONS:
+		return false
+	if not can_meet_requirements(HOUSE_SCENE_PATH):
+		return false
+	var housing := _get_or_create_residential_housing_for_building(building, false)
+	if is_instance_valid(housing):
+		return housing.can_add_floor()
+	return true
+
+func request_build_house_floor_on(host_building: Node2D) -> bool:
+	if not can_build_residential_floor_on(host_building):
+		print("[VillageManager] ❌ Konut katı reddedildi (hedef=%s)" % (host_building.name if is_instance_valid(host_building) else "?"))
+		return false
+
+	var requirements: Dictionary = get_building_requirements(HOUSE_SCENE_PATH)
+	var cost: Dictionary = requirements.get("cost", {})
+	var gold_cost_raw: int = int(cost.get("gold", 0))
+	var gold_charged: int = gold_cost_raw
+	if gold_charged > GlobalPlayerData.gold:
+		print("[VillageManager] ❌ Konut katı reddedildi — altın yetmiyor (gerekli %d)" % gold_charged)
+		return false
+
+	if gold_charged > 0:
+		GlobalPlayerData.add_gold(-gold_charged)
+	for resource_type in cost:
+		if resource_type == "gold":
+			continue
+		var resource_cost := int(cost.get(resource_type, 0))
+		if resource_cost > 0:
+			var current_amount := int(resource_levels.get(resource_type, 0))
+			resource_levels[resource_type] = current_amount - resource_cost
+
+	var host_key := _make_building_snapshot_key(String(host_building.scene_file_path), host_building.global_position)
+	print("[VillageManager] 🏠 Konut katı şantiyeye alındı (hedef: %s)" % host_building.name)
+	var build_success := _queue_construction(HOUSE_SCENE_PATH, host_building.global_position, {
+		"pending_kind": "house_floor",
+		"host_building_key": host_key
+	}, host_building)
+
+	if build_success:
+		emit_signal("village_data_changed")
+		_reassign_campfire_workers_to_houses()
+		return true
+
+	if gold_charged > 0:
+		GlobalPlayerData.add_gold(gold_charged)
+	for resource_type in cost:
+		if resource_type == "gold":
+			continue
+		var resource_cost := int(cost.get(resource_type, 0))
+		if resource_cost > 0:
+			resource_levels[resource_type] = int(resource_levels.get(resource_type, 0)) + resource_cost
+	emit_signal("village_data_changed")
+	return false
+
+func demolish_building(building: Node) -> bool:
+	if not is_instance_valid(building):
+		return false
+	if building.has_method("demolish"):
+		building.call("demolish")
+	else:
+		building.queue_free()
+	emit_signal("village_data_changed")
+	return true
+
 # Verilen bina sahnesini belirtilen pozisyona yerleştirir
 func place_building(building_scene_path: String, position: Vector2) -> bool:
 	if not village_scene_instance:
@@ -3280,7 +3880,7 @@ func place_building(building_scene_path: String, position: Vector2) -> bool:
 	return true
 
 # İnşa isteğini işler (Düzeltilmiş - Her türden sadece 1 bina)
-func request_build_building(building_scene_path: String) -> bool:
+func request_build_building(building_scene_path: String, plot_position: Variant = null) -> bool:
 	print("[VillageManager] 🏗️ İnşa isteği: %s" % building_scene_path.get_file())
 
 	# 0. Ev dışındaki binalar için tekil bina kuralı devam eder.
@@ -3332,7 +3932,8 @@ func request_build_building(building_scene_path: String) -> bool:
 	var build_success := false
 	if building_scene_path == HOUSE_SCENE_PATH:
 		var floor_host: Node2D = null
-		if not _should_prefer_standalone_house_build():
+		var force_standalone_plot := plot_position is Vector2
+		if not force_standalone_plot and not _should_prefer_standalone_house_build():
 			floor_host = _find_residential_floor_target()
 		if is_instance_valid(floor_host):
 			if pending_constructions.size() >= MAX_PARALLEL_CONSTRUCTIONS:
@@ -3350,14 +3951,14 @@ func request_build_building(building_scene_path: String) -> bool:
 				print("[VillageManager] ❌ Ev inşaatı reddedildi — paralel şantiye limiti (%d)" % MAX_PARALLEL_CONSTRUCTIONS)
 				build_success = false
 			else:
-				var placement_position = find_free_building_plot()
+				var placement_position := _resolve_build_plot_position(plot_position)
 				if placement_position == Vector2.INF or placement_position == Vector2.ZERO:
 					print("[VillageManager] ❌ İnşa reddedildi - Boş yer bulunamadı (pos: %s)" % placement_position)
 				else:
 					print("[VillageManager] ✅ Yer bulundu: %s" % placement_position)
 					build_success = _queue_construction(building_scene_path, placement_position)
 	else:
-		var placement_position = find_free_building_plot()
+		var placement_position := _resolve_build_plot_position(plot_position)
 		if placement_position == Vector2.INF or placement_position == Vector2.ZERO:
 			print("[VillageManager] ❌ İnşa reddedildi - Boş yer bulunamadı (pos: %s)" % placement_position)
 		else:
@@ -4001,27 +4602,13 @@ func unregister_generic_worker(worker_id: int):
 		
 		print("=== UNREGISTER GENERIC WORKER DEBUG BİTTİ ===")
 
-		# Eğer işçi bir barınakta kalıyorsa, barınağın doluluk sayısını azalt
-		var current_housing = worker_instance.housing_node
-		if is_instance_valid(current_housing):
-			if current_housing.has_method("remove_occupant"):
-				# CampFire ve House için worker instance'ı geç (her ikisi de kabul ediyor)
-				if current_housing.get_script() and current_housing.get_script().resource_path.ends_with("CampFire.gd"):
-					# CampFire için worker instance'ı geç
-					current_housing.remove_occupant(worker_instance)
-				else:
-					# House için de worker instance'ı geç (artık kabul ediyor)
-					current_housing.remove_occupant(worker_instance)
-				
-				# remove_occupant artık her zaman true döner (worker listede yoksa bile normal)
-				# if not success:
-				# 	printerr("VillageManager: Failed to remove occupant from %s for worker %d." % [current_housing.name, worker_id])
-			else:
-				printerr("VillageManager: Housing node %s does not have remove_occupant method!" % current_housing.name)
-
+		# Barınak: işten çıkmak evden çıkmak değildir — asker/köylü barınağında kalır.
+		# remove_occupant yalnızca köylü köyden tamamen giderken (_remove_worker) çağrılır.
 
 		# WorkerAssignmentUI'yi güncellemek için sinyal gönder (varsa)
 		emit_signal("worker_list_changed")
+		if needs_to_become_idle:
+			emit_signal("village_data_changed")
 	#else:
 		#printerr("unregister_generic_worker: Worker data not found for ID: %d" % worker_id)
 
@@ -4103,33 +4690,45 @@ var debug_force_cariye_has_space: bool = false
 ##   "house_units_total" — ev birimi sayısı
 ##   "house_units_occupied" — içinde en az 1 sakin olan ev sayısı
 func get_housing_summary() -> Dictionary:
-	var occupied: int = 0
 	var capacity: int = 0
 	var houses: int = 0
-	var house_occupied: int = 0
 	var house_capacity: int = 0
 	var house_units_total: int = 0
-	var house_units_occupied: int = 0
+	var per_unit_occupants: Dictionary = {}
 	var housing_nodes := get_tree().get_nodes_in_group("Housing")
 	for node in housing_nodes:
 		if not is_instance_valid(node):
 			continue
-		var is_house_unit := node is ResidentialHousing
-		var occ := 0
 		var cap := 0
 		if node.has_method("get_max_capacity"):
 			cap = int(node.get_max_capacity())
-		if node.has_method("get_occupant_count"):
-			occ = int(node.get_occupant_count())
-		occupied += occ
 		capacity += cap
-		if is_house_unit:
+		if node is ResidentialHousing:
 			houses += 1
-			house_occupied += occ
 			house_capacity += cap
 			house_units_total += 1
-			if occ > 0:
-				house_units_occupied += 1
+			per_unit_occupants[node] = 0
+
+	# Barınma sayacı: köylünün housing_node kaydı (uyku/gündüz geçici liste değil).
+	var occupied: int = 0
+	var house_occupied: int = 0
+	var house_units_occupied: int = 0
+	for wid in all_workers:
+		var w: Node = _worker_node_from_all_workers_entry(wid, all_workers[wid], true)
+		if w == null or _is_guest_worker(w):
+			continue
+		var hn = w.get("housing_node") if "housing_node" in w else null
+		if not is_instance_valid(hn) or not hn.is_in_group("Housing"):
+			continue
+		occupied += 1
+		if hn is ResidentialHousing:
+			house_occupied += 1
+			if per_unit_occupants.has(hn):
+				per_unit_occupants[hn] = int(per_unit_occupants[hn]) + 1
+	for unit_count in per_unit_occupants.values():
+		if int(unit_count) > 0:
+			house_units_occupied += 1
+
 	return {
 		"occupied": occupied,
 		"capacity": capacity,
@@ -4139,6 +4738,17 @@ func get_housing_summary() -> Dictionary:
 		"house_units_total": house_units_total,
 		"house_units_occupied": house_units_occupied,
 	}
+
+## housing_node kayıtları ile barınak occupant listelerini eşitle (uyku/atlama sonrası).
+func _reconcile_housing_occupant_lists() -> void:
+	for wid in all_workers:
+		var w: Node = _worker_node_from_all_workers_entry(wid, all_workers[wid], true)
+		if w == null or _is_guest_worker(w):
+			continue
+		var hn = w.get("housing_node") if "housing_node" in w else null
+		if not is_instance_valid(hn) or not hn.has_method("add_occupant"):
+			continue
+		hn.add_occupant(w)
 
 ## Kamp ateşine atanmış köylüleri, boş kapasitesi olan evlere taşır.
 ## Yeni ev inşa edildiğinde çağrılır.
@@ -4764,18 +5374,27 @@ func notify_building_state_changed(building_node: Node) -> void:
 	_recalculate_building_bonus()
 
 # === Economy: daily tick handlers and helpers (feature-flagged) ===
-func _on_day_changed(new_day: int) -> void:
-	if not economy_enabled:
+func _ensure_time_manager_economy_hooks() -> void:
+	var tm = get_node_or_null("/root/TimeManager")
+	if tm == null:
 		return
-	_last_econ_tick_day = new_day
-	# Gün başında bina bonusunu tazele (yükseltmeler etkilesin)
-	_recalculate_building_bonus()
-	_daily_economy_tick(new_day)
-	
-	# Check for village-specific events (normal gameplay)
-	if village_events_enabled and new_day != _last_village_event_check_day:
-		_last_village_event_check_day = new_day
-		_check_and_trigger_village_event(new_day)
+	if tm.has_signal("day_changed") and not tm.day_changed.is_connected(Callable(self, "_on_day_changed")):
+		tm.connect("day_changed", Callable(self, "_on_day_changed"))
+	if tm.has_signal("time_advanced") and not _time_advanced_connected:
+		tm.connect("time_advanced", Callable(self, "_on_time_advanced"))
+		_time_advanced_connected = true
+	if tm.has_signal("batch_time_advance_started") and not _batch_time_advance_connected:
+		tm.connect("batch_time_advance_started", Callable(self, "_on_batch_time_advance_started"))
+		_batch_time_advance_connected = true
+	if tm.has_method("get_day"):
+		_last_econ_tick_day = tm.get_day()
+
+func _on_day_changed(new_day: int) -> void:
+	if _defer_economy_during_time_advance:
+		if not _pending_economy_tick_days.has(new_day):
+			_pending_economy_tick_days.append(new_day)
+		return
+	_apply_day_transition_economy(new_day)
 
 func _daily_economy_tick(current_day: int) -> void:
 	var demo_cfg := get_node_or_null("/root/DemoPackConfig")
@@ -4809,15 +5428,14 @@ func _daily_economy_tick(current_day: int) -> void:
 					resource_levels[r] = resource_levels.get(r, 0) + to_add
 
 	# 2) Consumption
-	var village_need := float(population) * (daily_water_per_pop + daily_food_per_pop)
+	var village_need := float(population) * daily_food_per_pop
 	
-	# Soldiers: add extra daily need per soldier (bread/water) on top of base village consumption
+	# Soldiers: ek günlük yiyecek ihtiyacı
 	var soldier_count := _count_active_soldiers()
 	if soldier_count > 0:
-		var soldier_extra_food_per := 0.5
-		var soldier_extra_water_per := 0.5
-		var extra_need := float(soldier_count) * (soldier_extra_food_per + soldier_extra_water_per)
-		_consume_for_soldiers(extra_need, soldier_extra_food_per, soldier_extra_water_per)
+		var soldier_extra_food_per := 1.0
+		var extra_need := float(soldier_count) * soldier_extra_food_per
+		_consume_for_soldiers(extra_need)
 
 	var cariye_daily_equiv := _compute_cariye_daily_equiv()
 	var total_need := village_need + cariye_daily_equiv
@@ -4844,7 +5462,6 @@ func _daily_economy_tick(current_day: int) -> void:
 		"wood": 0,
 		"stone": 0,
 		"food": 0,
-		"water": 0,
 		"lumber": 0,
 		"brick": 0,
 		"metal": 0,
@@ -4860,7 +5477,7 @@ func _get_storage_capacity_for(resource_type: String) -> int:
 	# Basic resources get capacity from number of corresponding buildings * STORAGE_PER_BASIC_BUILDING.
 	# Advanced resources currently uncapped (return 0).
 	match resource_type:
-		"wood", "stone", "food", "water":
+		"wood", "stone", "food":
 			var base_cap := _count_buildings_for_resource(resource_type) * STORAGE_PER_BASIC_BUILDING
 			var extra_cap := _count_storage_buildings_capacity(resource_type)
 			return base_cap + extra_cap
@@ -4912,7 +5529,7 @@ func _allocate_production(total_prod: float) -> Dictionary:
 	# Actual allocation by worker assignments across basic resources
 	if total_prod <= 0.0:
 		return {}
-	var basic := ["wood", "stone", "food", "water"]
+	var basic := ["wood", "stone", "food"]
 	var assigned: Dictionary = {}
 	var total_assigned := 0
 	for r in basic:
@@ -4941,6 +5558,9 @@ func apply_world_event_effects(event: Dictionary) -> void:
 	"""Apply world event effects to village economy"""
 	if not events_enabled:
 		return
+	if event.get("_village_effects_applied", false):
+		return
+	event["_village_effects_applied"] = true
 	
 	var event_type := String(event.get("type", ""))
 	var effects: Dictionary = event.get("effects", {})
@@ -4956,21 +5576,13 @@ func apply_world_event_effects(event: Dictionary) -> void:
 			_post_event_notification("Ticaret patlaması! Altın kazançları artıyor.", "success")
 			
 		"famine":
-			# Kıtlık - gıda üretimi düşüşü
-			var food_mult := float(effects.get("food_production", 1.0))
-			resource_prod_multiplier["food"] *= food_mult
 			var morale_penalty := int(effects.get("morale_penalty", 0))
 			village_morale = max(0.0, village_morale + morale_penalty)
-			_post_event_notification("Kıtlık başladı! Gıda üretimi düştü.", "critical")
+			_post_event_notification("Kıtlık başladı! Toplayıcılar bazen eli boş dönebilir.", "critical")
 			
 		"plague":
-			# Salgın - nüfus sağlığı ve üretim düşüşü
-			var health_mult := float(effects.get("population_health", 1.0))
-			var prod_penalty := float(effects.get("production_penalty", 1.0))
-			global_multiplier *= prod_penalty
-			# Sağlık etkisi için moral düşüşü
-			village_morale = max(0.0, village_morale - 20.0)
-			_post_event_notification("Salgın hastalık! Üretim ve moral düştü.", "critical")
+			village_morale = max(0.0, village_morale - PLAGUE_MORALE_PENALTY)
+			_post_event_notification("Salgın hastalık! Moral düştü; köylüler hasta olabilir.", "critical")
 			
 		"war_declaration":
 			# Savaş ilanı - ticaret kesintisi, askeri odaklanma
@@ -4995,6 +5607,9 @@ func remove_world_event_effects(event: Dictionary) -> void:
 	"""Remove world event effects when event expires"""
 	if not events_enabled:
 		return
+	if not event.get("_village_effects_applied", false):
+		return
+	event["_village_effects_applied"] = false
 	
 	var event_type := String(event.get("type", ""))
 	var effects: Dictionary = event.get("effects", {})
@@ -5006,16 +5621,12 @@ func remove_world_event_effects(event: Dictionary) -> void:
 			_post_event_notification("Ticaret patlaması sona erdi.", "info")
 			
 		"famine":
-			var food_mult := float(effects.get("food_production", 1.0))
-			resource_prod_multiplier["food"] /= food_mult
 			var morale_penalty := int(effects.get("morale_penalty", 0))
 			village_morale = min(100.0, village_morale - morale_penalty)
 			_post_event_notification("Kıtlık sona erdi.", "success")
 			
 		"plague":
-			var prod_penalty := float(effects.get("production_penalty", 1.0))
-			global_multiplier /= prod_penalty
-			village_morale = min(100.0, village_morale + 20.0)
+			village_morale = min(100.0, village_morale + PLAGUE_MORALE_PENALTY)
 			_post_event_notification("Salgın hastalık sona erdi.", "success")
 			
 		"war_declaration":
@@ -5096,29 +5707,17 @@ func _count_active_soldiers() -> int:
 			count += int(building.assigned_workers)
 	return count
 
-func _consume_for_soldiers(extra_need: float, per_food: float, per_water: float) -> void:
-	# Split extra need into food/water portions and consume with shortage tracking
-	var water_need: float = ceil(extra_need * 0.5)
-	var food_need: float = ceil(extra_need * 0.5)
-	var take_water: int = min(int(water_need), int(resource_levels.get("water", 0)))
-	var take_food: int = min(int(food_need), int(resource_levels.get("food", 0)))
-	resource_levels["water"] = int(resource_levels.get("water", 0)) - take_water
+func _consume_for_soldiers(food_need: float) -> void:
+	var food_need_int: int = int(food_need)
+	var take_food: int = min(food_need_int, int(resource_levels.get("food", 0)))
 	resource_levels["food"] = int(resource_levels.get("food", 0)) - take_food
-	_last_day_shortages["soldier_water"] = int(max(0, int(water_need) - take_water))
-	_last_day_shortages["soldier_food"] = int(max(0, int(food_need) - take_food))
+	_last_day_shortages["soldier_food"] = max(0, food_need_int - take_food)
 
 func _consume_for_village(village_need: float) -> void:
-	# Öncelik: su ve yiyecekten ceil ile düş
-	var need := village_need
-	var water_need: float = ceil(need * 0.5)
-	var food_need: float = ceil(need * 0.5)
-	var take_water: int = min(int(water_need), int(resource_levels.get("water", 0)))
-	var take_food: int = min(int(food_need), int(resource_levels.get("food", 0)))
-	resource_levels["water"] = int(resource_levels.get("water", 0)) - take_water
+	var food_need_int: int = int(village_need)
+	var take_food: int = min(food_need_int, int(resource_levels.get("food", 0)))
 	resource_levels["food"] = int(resource_levels.get("food", 0)) - take_food
-	# Record shortages for morale penalties
-	_last_day_shortages["water"] = int(max(0, int(water_need) - take_water))
-	_last_day_shortages["food"] = int(max(0, int(food_need) - take_food))
+	_last_day_shortages["food"] = max(0, food_need_int - take_food)
 
 	# Optional bonus consumption by population tiers to raise morale (soft luxury)
 	var pop := int(total_workers)
@@ -5134,23 +5733,29 @@ func _consume_for_village(village_need: float) -> void:
 	if pop >= 26 and pop <= 50:
 		# Medicine bonus
 		var want_med: int = int(ceil(float(pop) * 0.05))
+		var have_medicine: int = int(resource_levels.get("medicine", 0))
 		var have_food: int = int(resource_levels.get("food", 0))
-		var have_water: int = int(resource_levels.get("water", 0))
-		var pairs: int = min(want_med, min(have_food, have_water))
-		if pairs > 0:
-			resource_levels["food"] = have_food - pairs
-			resource_levels["water"] = have_water - pairs
-			bonus_morale += float(pairs)
+		var take_med: int = min(want_med, have_medicine)
+		if take_med > 0:
+			resource_levels["medicine"] = have_medicine - take_med
+			bonus_morale += float(take_med)
+		elif have_food > 0:
+			var take_food_bonus: int = min(want_med, have_food)
+			resource_levels["food"] = have_food - take_food_bonus
+			bonus_morale += float(take_food_bonus) * 0.5
 	if pop >= 51:
 		# Tea bonus
 		var want_tea: int = int(ceil(float(pop) * 0.05))
+		var have_tea: int = int(resource_levels.get("tea", 0))
 		var have_food2: int = int(resource_levels.get("food", 0))
-		var have_water2: int = int(resource_levels.get("water", 0))
-		var tea_pairs: int = min(want_tea, min(have_food2, have_water2))
-		if tea_pairs > 0:
-			resource_levels["food"] = have_food2 - tea_pairs
-			resource_levels["water"] = have_water2 - tea_pairs
-			bonus_morale += float(tea_pairs)
+		var take_tea: int = min(want_tea, have_tea)
+		if take_tea > 0:
+			resource_levels["tea"] = have_tea - take_tea
+			bonus_morale += float(take_tea)
+		elif have_food2 > 0:
+			var take_food_tea: int = min(want_tea, have_food2)
+			resource_levels["food"] = have_food2 - take_food_tea
+			bonus_morale += float(take_food_tea) * 0.5
 	if bonus_morale > 0.0:
 		village_morale = min(100.0, village_morale + min(5.0, bonus_morale))
 	_check_morale_game_over()
@@ -5177,30 +5782,29 @@ func process_weekly_cariye_needs(current_day: int) -> void:
 	var to_consume_tea := cariye_count
 	var have_bread := int(resource_levels.get("bread", 0))
 	var have_food := int(resource_levels.get("food", 0))
-	var have_water := int(resource_levels.get("water", 0))
-	# Bread preferred, fallback to food+water craft equivalence
 	var take_bread: int = min(to_consume_bread, have_bread)
 	resource_levels["bread"] = have_bread - take_bread
 	to_consume_bread -= take_bread
-	# Fallback: consume food+water pairs if bread missing
 	if to_consume_bread > 0:
-		var pairs: int = min(to_consume_bread, min(have_food, have_water))
-		resource_levels["food"] = have_food - pairs
-		resource_levels["water"] = have_water - pairs
-		to_consume_bread -= pairs
+		var take_food: int = min(to_consume_bread, have_food)
+		resource_levels["food"] = have_food - take_food
+		to_consume_bread -= take_food
 		if to_consume_bread > 0:
 			missing_any = true
 			missing_bread = to_consume_bread
-	# Tea equivalence: food+water per unit
 	if to_consume_tea > 0:
+		var have_tea := int(resource_levels.get("tea", 0))
 		have_food = int(resource_levels.get("food", 0))
-		have_water = int(resource_levels.get("water", 0))
-		var tea_pairs: int = min(to_consume_tea, min(have_food, have_water))
-		resource_levels["food"] = have_food - tea_pairs
-		resource_levels["water"] = have_water - tea_pairs
-		if tea_pairs < to_consume_tea:
-			missing_any = true
-			missing_tea = to_consume_tea - tea_pairs
+		var take_tea: int = min(to_consume_tea, have_tea)
+		if take_tea > 0:
+			resource_levels["tea"] = have_tea - take_tea
+			to_consume_tea -= take_tea
+		if to_consume_tea > 0:
+			var take_food_tea: int = min(to_consume_tea, have_food)
+			resource_levels["food"] = have_food - take_food_tea
+			if take_food_tea < to_consume_tea:
+				missing_any = true
+				missing_tea = to_consume_tea - take_food_tea
 	if missing_any:
 		village_morale = max(0.0, village_morale - 2.0)
 		_check_morale_game_over()
@@ -5229,12 +5833,8 @@ func _check_shortages_and_apply_morale_penalties() -> void:
 			var km := String(k)
 			var mi := int(missing)
 			match km:
-				"water":
-					detail_lines.append("İçme suyu günlük ihtiyaçtan %d birim eksik kaldı." % mi)
 				"food":
 					detail_lines.append("Yiyecek günlük ihtiyaçtan %d birim eksik kaldı." % mi)
-				"soldier_water":
-					detail_lines.append("Askerlerin su ihtiyacının %d birimi karşılanamadı." % mi)
 				"soldier_food":
 					detail_lines.append("Askerlerin erzakının %d birimi karşılanamadı." % mi)
 	if penalty > 0.0:
@@ -5248,7 +5848,7 @@ func _check_shortages_and_apply_morale_penalties() -> void:
 		village_morale = min(100.0, village_morale + 1.0)
 	_check_morale_game_over()
 	# Reset shortages for next day
-	_last_day_shortages = {"water": 0, "food": 0, "soldier_water": 0, "soldier_food": 0}
+	_last_day_shortages = {"food": 0, "soldier_food": 0}
 
 func _get_morale_multiplier() -> float:
 	# Above 50, no penalty; below 50, linear down to 0.5 at morale 0
@@ -5294,7 +5894,7 @@ func _present_village_event_news(ev: Dictionary, event_level: int, dur: int, cur
 		msg = "%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!" % [attacker, days_until]
 		title = "🚨 Baskın Uyarısı!"
 	elif t == "worker_strike" and ev.has("strike_resource"):
-		var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek", "water": "Su"}
+		var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek"}
 		var reason_names: Dictionary = {
 			"düşük_moral": "Düşük Moral",
 			"kaynak_eksikliği": "Kaynak Eksikliği",
@@ -5372,17 +5972,16 @@ func _pick_and_create_event(current_day: int) -> Dictionary:
 			var strike_reason: String = ""
 			var current_morale: float = village_morale
 			var food_shortage: int = _last_day_shortages.get("food", 0)
-			var water_shortage: int = _last_day_shortages.get("water", 0)
 			
 			if current_morale < 40.0:
 				strike_reason = "düşük_moral"
-			elif food_shortage > 0 or water_shortage > 0:
+			elif food_shortage > 0:
 				strike_reason = "kaynak_eksikliği"
 			else:
 				strike_reason = "genel_hoşnutsuzluk"
 			
 			# Grev yapılacak kaynak tipini seç (temel kaynaklardan biri)
-			var resource_types: Array[String] = ["wood", "stone", "food", "water"]
+			var resource_types: Array[String] = ["wood", "stone", "food"]
 			resource_types.shuffle()
 			ev["strike_resource"] = resource_types[0]
 			ev["strike_reason"] = strike_reason
@@ -5421,51 +6020,28 @@ func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 	
 	match t:
 		"drought":
-			var old_val = float(resource_prod_multiplier.get("water", 1.0))
-			resource_prod_multiplier["water"] = old_val * multiplier
-			var new_val = resource_prod_multiplier["water"]
-			var reduction_pct = (1.0 - multiplier) * 100.0
-			print("[EVENT DEBUG]   Water multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
+			var fail_p: float = _event_level_empty_trip_chance(event_level)
+			print("[EVENT DEBUG]   Drought: food boş sefer olasılığı %.0f%%" % (fail_p * 100.0))
 		"famine":
-			var old_val = float(resource_prod_multiplier.get("food", 1.0))
-			resource_prod_multiplier["food"] = old_val * multiplier
-			var new_val = resource_prod_multiplier["food"]
-			var reduction_pct = (1.0 - multiplier) * 100.0
-			print("[EVENT DEBUG]   Food multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
+			var fail_p2: float = _event_level_empty_trip_chance(event_level)
+			print("[EVENT DEBUG]   Famine: food boş sefer olasılığı %.0f%%" % (fail_p2 * 100.0))
 		"pest":
-			# Pest (zararlı) - odun üretimini azaltır (ağaç zararlıları)
-			var old_val = float(resource_prod_multiplier.get("wood", 1.0))
-			resource_prod_multiplier["wood"] = old_val * multiplier
-			var new_val = resource_prod_multiplier["wood"]
-			var reduction_pct = (1.0 - multiplier) * 100.0
-			print("[EVENT DEBUG]   Wood multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
+			var fail_p3: float = _event_level_empty_trip_chance(event_level)
+			print("[EVENT DEBUG]   Pest: wood boş sefer olasılığı %.0f%%" % (fail_p3 * 100.0))
 		"wolf_attack":
-			# Wolf Attack (kurt saldırısı) - taş üretimini azaltır
-			var old_val = float(resource_prod_multiplier.get("stone", 1.0))
-			resource_prod_multiplier["stone"] = old_val * multiplier
-			var new_val = resource_prod_multiplier["stone"]
-			var reduction_pct = (1.0 - multiplier) * 100.0
-			print("[EVENT DEBUG]   Stone multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, new_val, reduction_pct])
+			var fail_p4: float = _event_level_empty_trip_chance(event_level)
+			print("[EVENT DEBUG]   Wolf attack: stone boş sefer olasılığı %.0f%%" % (fail_p4 * 100.0))
 		"severe_storm":
-			# Severe Storm (şiddetli fırtına) - tüm üretim azalır; hava durumuna yoğun yağmur + güçlü rüzgar
-			var old_val = global_multiplier
-			global_multiplier *= multiplier
-			var reduction_pct = (1.0 - multiplier) * 100.0
-			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (%.0f%% reduction)" % [old_val, global_multiplier, reduction_pct])
+			var fail_p5: float = _event_level_empty_trip_chance(event_level)
+			print("[EVENT DEBUG]   Severe storm: tüm temel kaynaklarda boş sefer %.0f%%" % (fail_p5 * 100.0))
 			if WeatherManager:
 				WeatherManager.set_storm_active(true, event_level)
 		"weather_blessing":
-			# Weather Blessing (hava bereketi) - tüm üretim artar
-			var old_val = global_multiplier
-			global_multiplier *= bonus_multiplier
-			var increase_pct = (bonus_multiplier - 1.0) * 100.0
-			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (%.0f%% increase)" % [old_val, global_multiplier, increase_pct])
+			var bonus: int = _event_level_bonus_trip_yield(event_level)
+			print("[EVENT DEBUG]   Weather blessing: temel kaynak seferine +%d bonus" % bonus)
 		"worker_strike":
-			# Worker Strike (işçi grevi) - belirli bir kaynak tipinde üretim durur
 			var strike_resource: String = String(ev.get("strike_resource", "wood"))
-			var old_val = float(resource_prod_multiplier.get(strike_resource, 1.0))
-			resource_prod_multiplier[strike_resource] = 0.0  # Üretim tamamen durur
-			print("[EVENT DEBUG]   %s multiplier: %.2f → 0.00 (PRODUCTION STOPPED)" % [strike_resource.capitalize(), old_val])
+			print("[EVENT DEBUG]   %s grevi: toplama seferleri eli boş (100%%)" % strike_resource.capitalize())
 			if ev.has("strike_reason"):
 				print("[EVENT DEBUG]   Strike reason: %s" % ev["strike_reason"])
 		"disease":
@@ -5477,11 +6053,11 @@ func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 			var sick_count: int = 0
 			match event_level:
 				EventLevel.LOW:
-					sick_count = max(1, int(total_worker_count * 0.2))  # %20 işçi hasta
+					sick_count = max(1, int(total_worker_count * 0.15))
 				EventLevel.MEDIUM:
-					sick_count = max(1, int(total_worker_count * 0.35))  # %35 işçi hasta
+					sick_count = max(1, int(total_worker_count * 0.25))
 				EventLevel.HIGH:
-					sick_count = max(1, int(total_worker_count * 0.5))  # %50 işçi hasta
+					sick_count = max(1, int(total_worker_count * 0.35))
 			
 			# Tüm işçileri hasta yapabilir (askerler dahil)
 			var worker_ids_list: Array = []
@@ -5538,6 +6114,7 @@ func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 			# Event'e hasta işçi sayısını kaydet (iyileşme kontrolü için)
 			ev["sick_worker_ids"] = worker_ids_list.slice(0, actually_sick)
 			print("[EVENT DEBUG]   Disease: %d işçi hasta oldu (Seviye: %s)" % [actually_sick, level_name])
+			emit_signal("village_data_changed")
 		"raid":
 			# Raid (baskın) - WorldManager'a saldırı zamanlaması ekle
 			# Direkt kaynak çalma yapmak yerine, mevcut savunma sistemini kullan
@@ -5635,42 +6212,12 @@ func _remove_event_effects(ev: Dictionary) -> void:
 	print("[EVENT DEBUG] 🟢 Removing event: %s (Seviye: %s)" % [t, level_name])
 	
 	match t:
-		"drought":
-			var old_val = float(resource_prod_multiplier.get("water", 1.0))
-			resource_prod_multiplier["water"] = old_val / multiplier
-			var new_val = resource_prod_multiplier["water"]
-			print("[EVENT DEBUG]   Water multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
-		"famine":
-			var old_val = float(resource_prod_multiplier.get("food", 1.0))
-			resource_prod_multiplier["food"] = old_val / multiplier
-			var new_val = resource_prod_multiplier["food"]
-			print("[EVENT DEBUG]   Food multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
-		"pest":
-			var old_val = float(resource_prod_multiplier.get("wood", 1.0))
-			resource_prod_multiplier["wood"] = old_val / multiplier
-			var new_val = resource_prod_multiplier["wood"]
-			print("[EVENT DEBUG]   Wood multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
-		"wolf_attack":
-			var old_val = float(resource_prod_multiplier.get("stone", 1.0))
-			resource_prod_multiplier["stone"] = old_val / multiplier
-			var new_val = resource_prod_multiplier["stone"]
-			print("[EVENT DEBUG]   Stone multiplier: %.2f → %.2f (restored)" % [old_val, new_val])
+		"drought", "famine", "pest", "wolf_attack", "weather_blessing", "worker_strike":
+			pass
 		"severe_storm":
-			var old_val = global_multiplier
-			global_multiplier /= multiplier
-			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (restored)" % [old_val, global_multiplier])
+			print("[EVENT DEBUG]   Severe storm ended (boş sefer şansı kalktı)")
 			if WeatherManager:
 				WeatherManager.set_storm_active(false)
-		"weather_blessing":
-			var old_val = global_multiplier
-			global_multiplier /= bonus_multiplier
-			print("[EVENT DEBUG]   Global multiplier: %.2f → %.2f (restored)" % [old_val, global_multiplier])
-		"worker_strike":
-			# Grev bittiğinde üretim normale döner
-			var strike_resource: String = String(ev.get("strike_resource", "wood"))
-			var old_val = float(resource_prod_multiplier.get(strike_resource, 0.0))
-			resource_prod_multiplier[strike_resource] = 1.0
-			print("[EVENT DEBUG]   %s multiplier: %.2f → 1.00 (PRODUCTION RESUMED)" % [strike_resource.capitalize(), old_val])
 		"disease":
 			# Disease event'i bittiğinde kalan hasta işçileri iyileştir
 			var sick_worker_ids = ev.get("sick_worker_ids", [])
@@ -5715,6 +6262,8 @@ func _check_and_trigger_village_event(day: int) -> bool:
 	Returns true if an event was triggered."""
 	if not village_events_enabled:
 		return false
+	if day - _last_village_direct_event_day < VILLAGE_EVENT_MIN_GAP_DAYS:
+		return false
 	
 	# İlişkiye göre tüccar gelme şansı (dinamik)
 	var mm = get_node_or_null("/root/MissionManager")
@@ -5735,20 +6284,21 @@ func _check_and_trigger_village_event(day: int) -> bool:
 				# İlişkiye göre şans hesapla
 				var base_chance = village_daily_event_chance  # Temel şans
 				var relation_bonus = (best_relation - 50) * 0.01  # Her 1 ilişki = %1 bonus
-				var final_chance = clamp(base_chance + relation_bonus, 0.05, 0.5)  # Min %5, Max %50
+				var final_chance = clamp(base_chance + relation_bonus, 0.02, 0.12)
 				
 				# Sadece tüccar eventi için özel şans
 				if randf() < final_chance:
-					# Tüccar eventi tetikle
 					_trigger_village_event("trade_caravan", day)
+					_last_village_direct_event_day = day
 					return true
 	
 	# Düşük moralde köy festivali şansı (mevsim döngüsü olmadan moral desteği)
-	if village_morale < 45.0 and randf() < 0.22:
+	if village_morale < 45.0 and randf() < 0.06:
 		var fest_cd: int = int(_village_event_cooldowns.get("village_festival", 0))
 		if day >= fest_cd:
 			_trigger_village_event("village_festival", day)
-			_village_event_cooldowns["village_festival"] = day + 12
+			_village_event_cooldowns["village_festival"] = day + 18
+			_last_village_direct_event_day = day
 			return true
 	
 	# Diğer eventler için normal şans kontrolü
@@ -5782,20 +6332,21 @@ func _check_and_trigger_village_event(day: int) -> bool:
 	
 	# Trigger the event
 	_trigger_village_event(selected_event, day)
+	_last_village_direct_event_day = day
 	
-	# Set cooldown (5-10 days depending on event)
-	var cooldown_days: int = 5
+	# Set cooldown (8-18 days depending on event)
+	var cooldown_days: int = 8
 	match selected_event:
 		"trade_caravan":
-			cooldown_days = 7
-		"resource_discovery":
 			cooldown_days = 10
+		"resource_discovery":
+			cooldown_days = 14
 		"traveler":
-			cooldown_days = 8
-		"immigration_wave":
-			cooldown_days = 15  # Göç dalgası nadir olmalı
-		"village_festival":
 			cooldown_days = 12
+		"immigration_wave":
+			cooldown_days = 20
+		"village_festival":
+			cooldown_days = 18
 		_:
 			cooldown_days = 5
 	_village_event_cooldowns[selected_event] = day + cooldown_days
@@ -5848,7 +6399,7 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 		
 		"resource_discovery":
 			# Kaynak keşfi - rastgele kaynak bonusu
-			var resource_pool: Array[String] = ["wood", "stone", "food", "water"]
+			var resource_pool: Array[String] = ["wood", "stone", "food"]
 			resource_pool.shuffle()
 			var discovered_resource: String = resource_pool[0]
 			var amount: int = randi_range(5, 15)
@@ -5857,7 +6408,6 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 				"wood": "Odun",
 				"stone": "Taş",
 				"food": "Yiyecek",
-				"water": "Su"
 			}
 			var title := "🔍 Kaynak Keşfi"
 			var content := "Köylüler bir %s deposu buldular! +%d %s eklendi." % [res_names.get(discovered_resource, discovered_resource), amount, res_names.get(discovered_resource, discovered_resource)]
@@ -6221,30 +6771,35 @@ func get_production_multipliers() -> Dictionary:
 
 func _make_worker_sick_and_unassign(worker_instance: Node, worker_id: int, building: Node2D) -> void:
 	"""İşçiyi binadan çıkar ve hasta yap (hastalık event'i için)"""
-	if not is_instance_valid(building):
-		return
+	if is_instance_valid(building):
+		# Binadan işçiyi çıkar
+		if "assigned_worker_ids" in building:
+			var worker_ids = building.get("assigned_worker_ids")
+			if worker_ids is Array and worker_id in worker_ids:
+				var idx = worker_ids.find(worker_id)
+				if idx >= 0:
+					worker_ids.remove_at(idx)
+		
+		# Bina sayacını azalt
+		if "assigned_workers" in building:
+			building.assigned_workers = max(0, building.assigned_workers - 1)
+			notify_building_state_changed(building)
 	
-	# Binadan işçiyi çıkar
-	if "assigned_worker_ids" in building:
-		var worker_ids = building.get("assigned_worker_ids")
-		if worker_ids is Array and worker_id in worker_ids:
-			var idx = worker_ids.find(worker_id)
-			if idx >= 0:
-				worker_ids.remove_at(idx)
-	
-	# Bina sayacını azalt
-	if "assigned_workers" in building:
-		building.assigned_workers = max(0, building.assigned_workers - 1)
-		notify_building_state_changed(building)
-	
-	# İşçinin atamasını kaldır
-	var was_working: bool = not worker_instance.assigned_job_type.is_empty()
-	worker_instance.assigned_job_type = ""
-	worker_instance.assigned_building_node = null
+	# İşçinin atamasını kaldır (bina geçersiz olsa bile)
+	var was_working: bool = false
+	if is_instance_valid(worker_instance) and "assigned_job_type" in worker_instance:
+		was_working = not String(worker_instance.assigned_job_type).is_empty()
+		worker_instance.assigned_job_type = ""
+		worker_instance.assigned_building_node = null
 	
 	# Idle sayısını artır (eğer çalışıyorsa)
 	if was_working:
 		idle_workers += 1
+	
+	# Aktif toplama seferini iptal et (hasta köylü sahada çalışmaz).
+	if basic_gather_expeditions_by_worker.has(worker_id):
+		basic_gather_expeditions_by_worker.erase(worker_id)
+	emit_signal("village_data_changed")
 
 func _check_and_heal_sick_workers(current_day: int) -> void:
 	"""Her gün hasta işçileri kontrol et: İlaç varsa iyileştir, yoksa moral düşür."""
@@ -6310,6 +6865,7 @@ func _check_and_heal_sick_workers(current_day: int) -> void:
 	
 	if healed_count > 0:
 		print("[DISEASE DEBUG] %d işçi ilaçla iyileşti (Kalan ilaç: %d)" % [healed_count, medicine_count])
+		emit_signal("village_data_changed")
 
 func _restore_worker_to_previous_job(worker_instance: Node) -> void:
 	"""İyileşen işçiyi eski işine geri döndürmeyi dene"""
@@ -6474,16 +7030,15 @@ func trigger_specific_world_event(event_type: String, severity: float = -1.0, du
 		var strike_reason: String = ""
 		var current_morale: float = village_morale
 		var food_shortage: int = _last_day_shortages.get("food", 0)
-		var water_shortage: int = _last_day_shortages.get("water", 0)
 		
 		if current_morale < 40.0:
 			strike_reason = "düşük_moral"
-		elif food_shortage > 0 or water_shortage > 0:
+		elif food_shortage > 0:
 			strike_reason = "kaynak_eksikliği"
 		else:
 			strike_reason = "genel_hoşnutsuzluk"
 		
-		var resource_types: Array[String] = ["wood", "stone", "food", "water"]
+		var resource_types: Array[String] = ["wood", "stone", "food"]
 		resource_types.shuffle()
 		ev["strike_resource"] = resource_types[0]
 		ev["strike_reason"] = strike_reason
@@ -6510,7 +7065,7 @@ func _recalculate_building_bonus() -> void:
 					continue
 				# Only consider known producers
 				var is_producer := false
-				for r in ["wood", "stone", "food", "water"]:
+				for r in ["wood", "stone", "food"]:
 					if b.has_method("get_script") and b.get_script() != null and b.get_script().resource_path == String(RESOURCE_PRODUCER_SCRIPTS.get(r, "")):
 						is_producer = true
 						break
@@ -6844,7 +7399,12 @@ func _can_build_residential_on(building: Node2D) -> bool:
 		return false
 	if scene_path in RESIDENTIAL_BASE_EXCLUDED_SCENES:
 		return false
-	return true
+	if scene_path == HOUSE_SCENE_PATH:
+		return true
+	for sp in VillageBuildingCategories.get_scenes_for_category(VillageBuildingCategories.Category.RESOURCE):
+		if scene_path == sp:
+			return true
+	return false
 
 func _get_or_create_residential_housing_for_building(building: Node2D, create_if_missing: bool) -> Node2D:
 	if not is_instance_valid(building):
@@ -6982,6 +7542,7 @@ func _find_housing_by_key(housing_key: String) -> Node2D:
 
 # Boş kapasitesi olan bir barınak (önce Ev, sonra CampFire) arar
 func _find_available_housing() -> Node2D:
+	_reconcile_housing_occupant_lists()
 	# #print("DEBUG VillageManager: Searching for available housing...") #<<< Yorumlandı
 	var housing_nodes = get_tree().get_nodes_in_group("Housing")
 	# #print("DEBUG VillageManager: Found %d nodes in Housing group." % housing_nodes.size()) #<<< Yorumlandı
@@ -7467,6 +8028,33 @@ func apply_current_time_schedule() -> void:
 		hour = tm.get_hour()
 	_apply_time_of_day(hour)
 
+
+## Kamp ateşi dinlen/uyu: zamanı ilerletir; köy/dünya simülasyonu time_advanced ile çalışır.
+func perform_campfire_rest(total_minutes: int) -> Dictionary:
+	var empty := {"ok": false}
+	if total_minutes <= 0:
+		return empty
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("advance_minutes"):
+		return empty
+	_is_leaving_village = false
+	var start_day: int = tm.get_day() if tm.has_method("get_day") else 1
+	var start_hour: int = tm.get_hour() if tm.has_method("get_hour") else 0
+	var start_minute: int = tm.get_minute() if tm.has_method("get_minute") else 0
+	_campfire_rest_skip_toast = true
+	tm.advance_minutes(total_minutes)
+	_campfire_rest_skip_toast = false
+	return {
+		"ok": true,
+		"start_day": start_day,
+		"start_hour": start_hour,
+		"start_minute": start_minute,
+		"end_day": tm.get_day() if tm.has_method("get_day") else start_day,
+		"end_hour": tm.get_hour() if tm.has_method("get_hour") else start_hour,
+		"end_minute": tm.get_minute() if tm.has_method("get_minute") else start_minute,
+		"total_minutes": total_minutes,
+	}
+
 func sync_gather_deliveries_before_schedule() -> void:
 	## Saat başı köylü rutini öncesi: sefer teslimi işaretlensin (22:00 uyku/dönüş yarışı).
 	if not USE_DISTANCE_BASED_BASIC_GATHER:
@@ -7525,7 +8113,7 @@ func reset_saved_state_for_new_game() -> void:
 	_is_leaving_village = false
 	# New Game'de eski run'dan kalan anlik oyun-kaybi durumunu sifirla.
 	village_morale = 80.0
-	_last_day_shortages = {"water": 0, "food": 0, "soldier_water": 0, "soldier_food": 0}
+	_last_day_shortages = {"food": 0, "soldier_food": 0}
 	events_active.clear()
 	_event_cooldowns.clear()
 	_village_event_cooldowns.clear()
@@ -7543,7 +8131,6 @@ func reset_saved_state_for_new_game() -> void:
 		"wood": 0,
 		"stone": 0,
 		"food": 0,
-		"water": 0,
 		"lumber": 0,
 		"brick": 0,
 		"metal": 0,
@@ -7553,14 +8140,14 @@ func reset_saved_state_for_new_game() -> void:
 		"tea": 0,
 		"medicine": 0,
 		"soap": 0,
-		"weapon": 5,
-		"armor": 5
+		"weapon_t1": 5,
+		"weapon_t2": 0,
+		"weapon_t3": 0
 	}
 	locked_resource_levels = {
 		"wood": 0,
 		"stone": 0,
 		"food": 0,
-		"water": 0,
 		"lumber": 0,
 		"brick": 0,
 		"metal": 0,
@@ -7580,7 +8167,6 @@ func reset_saved_state_for_new_game() -> void:
 		"wood": 1.0,
 		"stone": 1.0,
 		"food": 1.0,
-		"water": 1.0,
 		"lumber": 1.0,
 		"brick": 1.0,
 		"metal": 1.0,
@@ -7590,15 +8176,15 @@ func reset_saved_state_for_new_game() -> void:
 		"tea": 1.0,
 		"medicine": 1.0,
 		"soap": 1.0,
-		"weapon": 1.0,
-		"armor": 1.0
+		"weapon_t1": 1.0,
+		"weapon_t2": 1.0,
+		"weapon_t3": 1.0
 	}
 	economy_stats_last_day = {"day": 0, "total_production": 0.0, "total_consumption": 0.0, "net": 0.0}
 	_daily_production_counter = {
 		"wood": 0,
 		"stone": 0,
 		"food": 0,
-		"water": 0,
 		"lumber": 0,
 		"brick": 0,
 		"metal": 0,
@@ -7612,6 +8198,8 @@ func reset_saved_state_for_new_game() -> void:
 	_last_gather_processed_total_minutes = -1
 	_production_multipliers_restored_from_save = false
 	_last_econ_tick_day = 0
+	_defer_economy_during_time_advance = false
+	_pending_economy_tick_days.clear()
 	if is_instance_valid(VillagerAiInitializer):
 		if VillagerAiInitializer.has_method("reset_to_defaults"):
 			VillagerAiInitializer.reset_to_defaults()

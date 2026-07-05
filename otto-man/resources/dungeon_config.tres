@@ -21,4 +21,4 @@ gold_multiplier_base = 0.8
 gold_multiplier_per_level = 0.22
 rescue_room_chance_base = 0.12
 rescue_room_chance_per_level = 0.08
-debug_force_rescue_rooms_in_every_level = true
+debug_force_rescue_rooms_in_every_level = false

@@ -68,6 +68,10 @@ var _wander_timer: Timer
 var _wander_interval_min: float = 5.0
 var _wander_interval_max: float = 15.0
 
+var _interact_area: Area2D
+var _interact_hint: Label
+var _player_near := false
+
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
 @onready var body_sprite: Sprite2D = $BodySprite
 @onready var pants_sprite: Sprite2D = $PantsSprite
@@ -327,7 +331,10 @@ func _ready() -> void:
 			name_plate_container.scale.x = -1
 		else:
 			name_plate_container.scale.x = 1
-	
+
+	_build_world_interact()
+	add_to_group("village_priority_interact")
+
 	# Sahne yeniden yüklendiğinde (örn. ormandan dönüş): bu cariye hâlâ görevdeyse ekranda gösterme
 	# active_missions anahtarları int; save/load sonrası concubine_id float (1.0) olabildiği için int ile kontrol et
 	if mission_manager and "active_missions" in mission_manager and concubine_id >= 0:
@@ -515,6 +522,7 @@ func _physics_process(delta: float) -> void:
 	
 	# SLEEPING ve ON_MISSION state'lerinde hareket etme
 	if current_state == State.SLEEPING or current_state == State.ON_MISSION:
+		_sync_overhead_ui_flip()
 		return
 	
 	# Y ekseni hareketi (yumuşak)
@@ -534,14 +542,6 @@ func _physics_process(delta: float) -> void:
 		# Sprite yönü
 		if direction != 0:
 			scale.x = direction
-	
-	# NamePlate scale kontrolü (Worker sistemindeki gibi)
-	# Karakter sola dönünce (scale.x < 0) NamePlate'i tersine çevir ki isim düzgün okunsun
-	if name_plate_container:
-		if scale.x < 0:
-			name_plate_container.scale.x = -1
-		else:
-			name_plate_container.scale.x = 1
 	
 	# Animasyon seçimi - X veya Y ekseninde hareket varsa walk, yoksa idle
 	# (x_distance ve y_distance zaten yukarıda hesaplandı)
@@ -566,6 +566,18 @@ func _physics_process(delta: float) -> void:
 	# Köylüler birbirine çok girmesin (cariye/worker/trader arası mesafe)
 	if visible:
 		_apply_villager_separation()
+
+	_sync_overhead_ui_flip()
+
+
+func _sync_overhead_ui_flip() -> void:
+	var ui_nodes: Array = []
+	if name_plate_container:
+		ui_nodes.append(name_plate_container)
+	if _interact_hint:
+		ui_nodes.append(_interact_hint)
+	NpcOverheadUi.sync_horizontal_flip(self, ui_nodes)
+
 
 # Köy NPC'leri arası çok hafif mesafe (neredeyse üst üste gelince hafifçe it, alan dışına çıkmasın)
 func _apply_villager_separation() -> void:
@@ -1203,3 +1215,85 @@ func update_visuals():
 		play_animation(_current_animation_name)
 	else:
 		play_animation("idle")
+
+
+func _build_world_interact() -> void:
+	_interact_area = Area2D.new()
+	_interact_area.name = "InteractArea"
+	_interact_area.collision_layer = 1
+	_interact_area.collision_mask = 2
+	_interact_area.monitoring = true
+	_interact_area.add_to_group("interactables")
+	add_child(_interact_area)
+	_interact_area.body_entered.connect(_on_interact_body_entered)
+	_interact_area.body_exited.connect(_on_interact_body_exited)
+
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(72, 110)
+	shape.shape = rect
+	shape.position = Vector2(0, -45)
+	_interact_area.add_child(shape)
+
+	_interact_hint = Label.new()
+	_interact_hint.name = "InteractHint"
+	_interact_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_interact_hint.add_theme_font_size_override("font_size", 12)
+	_interact_hint.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
+	_interact_hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_interact_hint.add_theme_constant_override("outline_size", 3)
+	_interact_hint.position = Vector2(-48, -92)
+	_interact_hint.size = Vector2(96, 20)
+	_interact_hint.visible = false
+	add_child(_interact_hint)
+
+
+func _resolve_concubine() -> Concubine:
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm and concubine_id >= 0 and mm.concubines.has(concubine_id):
+		return mm.concubines[concubine_id] as Concubine
+	return concubine_data
+
+
+func can_interact() -> bool:
+	if is_dungeon_prisoner or concubine_id < 0:
+		return false
+	if current_state != State.IDLE and current_state != State.RETURNING_FROM_MISSION:
+		return false
+	var c := _resolve_concubine()
+	return c != null and c.status == Concubine.Status.BOŞTA
+
+
+func interact() -> void:
+	if not can_interact():
+		return
+	var c := _resolve_concubine()
+	if c == null:
+		return
+	var host := VillageWorldPopups.get_host()
+	if host:
+		host.open_concubine_missions(c)
+
+
+func ShowInteractButton() -> void:
+	if not _interact_hint or not can_interact():
+		return
+	var im := get_node_or_null("/root/InputManager")
+	if im:
+		_interact_hint.text = im.get_tutorial_ui_up_hint()
+	_interact_hint.visible = true
+
+
+func HideInteractButton() -> void:
+	if _interact_hint:
+		_interact_hint.visible = false
+
+
+func _on_interact_body_entered(body: Node2D) -> void:
+	if body.is_in_group("player") or body.is_in_group("Player"):
+		ShowInteractButton()
+
+
+func _on_interact_body_exited(body: Node2D) -> void:
+	if body.is_in_group("player") or body.is_in_group("Player"):
+		HideInteractButton()

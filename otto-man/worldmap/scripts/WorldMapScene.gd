@@ -92,8 +92,6 @@ var _travel_dice_left_label: Label = null
 var _travel_dice_right_label: Label = null
 var _travel_event_info_label: Label = null
 var _travel_event_result_label: Label = null
-var _dungeon_entry_dialog: ConfirmationDialog = null
-var _landmark_visit_dialog: ConfirmationDialog = null
 ## Imlec hex uzerinde koy / gorev / zindan ozeti (CanvasLayer, ekran koordinati).
 var _hex_tooltip_layer: CanvasLayer = null
 var _hex_tooltip_panel: PanelContainer = null
@@ -113,18 +111,16 @@ var _exp_lr_left_acc: float = 0.0
 var _exp_lr_right_hold: float = 0.0
 var _exp_lr_right_acc: float = 0.0
 var _exp_amt_food: int = 0
-var _exp_amt_water: int = 0
 var _exp_amt_medicine: int = 0
 var _exp_amt_gold: int = 0
 var _exp_max_food: int = 0
-var _exp_max_water: int = 0
 var _exp_max_medicine: int = 0
 var _exp_max_gold: int = 0
 const EXP_PACK_REPEAT_RAMP_SEC: float = 0.5
 const EXP_PACK_REPEAT_INTERVAL_SLOW: float = 0.3
 const EXP_PACK_REPEAT_INTERVAL_FAST: float = 0.045
-const _EXP_PACK_KEYS = ["food", "water", "medicine", "world_gold"]
-const _EXP_PACK_TITLE_KEYS = ["resource.food", "resource.water", "resource.medicine", "wm.exp_pack.pocket_gold"]
+const _EXP_PACK_KEYS = ["food", "medicine", "world_gold"]
+const _EXP_PACK_TITLE_KEYS = ["resource.food", "resource.medicine", "wm.exp_pack.pocket_gold"]
 var _exp_pack_title_label: Label = null
 var _exp_pack_hint_label: Label = null
 var _pending_target_q: int = 0
@@ -231,8 +227,6 @@ func _ready() -> void:
 			_world_manager.world_map_travel_event.connect(_on_world_map_travel_event)
 	_setup_travel_event_dialog()
 	_setup_travel_outcome_dialog()
-	_setup_dungeon_entry_dialog()
-	_setup_landmark_visit_dialog()
 	_setup_high_risk_move_dialog()
 	_setup_settlement_aid_confirm_dialog()
 	_setup_settlement_action_menu()
@@ -268,11 +262,6 @@ func _refresh_world_map_locale() -> void:
 	if _travel_outcome_dialog:
 		_travel_outcome_dialog.title = tr("wm.travel_outcome.title")
 		_travel_outcome_dialog.get_ok_button().text = tr("wm.ok")
-	if _dungeon_entry_dialog:
-		_dungeon_entry_dialog.title = tr("wm.dungeon_entry.title")
-		_dungeon_entry_dialog.dialog_text = tr("wm.dungeon_entry.body")
-		_dungeon_entry_dialog.get_ok_button().text = tr("wm.enter")
-		_dungeon_entry_dialog.get_cancel_button().text = tr("wm.cancel")
 	if _high_risk_move_dialog:
 		_high_risk_move_dialog.title = tr("wm.high_risk.title")
 		_high_risk_move_dialog.dialog_text = tr("wm.high_risk.body")
@@ -517,14 +506,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		_confirm_move_to_cursor()
 		return
-	if not _is_blocking_world_map_ui_open() and event.is_action_pressed("attack_heavy"):
-		if _try_enter_biome_from_combat_action() or _try_enter_village_from_combat_action():
-			get_viewport().set_input_as_handled()
-		return
-	if not _is_blocking_world_map_ui_open() and event.is_action_pressed("block"):
-		if _try_enter_biome_from_combat_action() or _try_enter_village_from_combat_action():
-			get_viewport().set_input_as_handled()
-			return
 	if not _is_blocking_world_map_ui_open() and event.is_action_pressed("attack"):
 		_try_open_expedition_pack_dialog()
 		get_viewport().set_input_as_handled()
@@ -724,13 +705,42 @@ func _try_close_overlay_or_go_to_village() -> void:
 	if sm != null and sm.has_method("change_to_village"):
 		sm.change_to_village({"source": "world_map"})
 
-func _should_enter_own_village_on_move_confirm() -> bool:
-	if not _player_on_own_village_hex():
-		return false
+func _player_at_cursor_hex() -> bool:
 	var st: Dictionary = _get_world_map_state_cached()
 	var pq: int = int(st.get("player_pos", {}).get("q", -9999999))
 	var pr: int = int(st.get("player_pos", {}).get("r", -9999999))
 	return _cursor_q == pq and _cursor_r == pr
+
+
+func _try_enter_hex_at_player_pos() -> bool:
+	if not _player_at_cursor_hex():
+		return false
+	var st: Dictionary = _get_world_map_state_cached()
+	var pq: int = int(st.get("player_pos", {}).get("q", 0))
+	var pr: int = int(st.get("player_pos", {}).get("r", 0))
+	if _is_tutorial_restricting_hex_entry(pq, pr):
+		return false
+	var tile: Dictionary = _get_tile(pq, pr)
+	if tile.is_empty() or not bool(tile.get("discovered", false)):
+		return false
+	var poi: String = String(tile.get("poi_type", ""))
+	match poi:
+		"player_village":
+			_enter_player_village_from_world_map()
+			return true
+		"dungeon":
+			_enter_dungeon_from_world_map()
+			return true
+		"neighbor_village":
+			_open_settlement_actions_at(pq, pr, tile)
+			return true
+	if _world_manager and _world_manager.has_method("get_landmark_at"):
+		var landmark: Dictionary = _world_manager.call("get_landmark_at", pq, pr)
+		if not landmark.is_empty() and not bool(landmark.get("claimed", false)):
+			_visit_landmark_at(pq, pr)
+			return true
+	return _try_enter_biome_at_hex(pq, pr, tile)
+
 
 func _enter_player_village_from_world_map() -> void:
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
@@ -739,6 +749,67 @@ func _enter_player_village_from_world_map() -> void:
 			return
 	if scene_manager != null and scene_manager.has_method("change_to_village"):
 		scene_manager.change_to_village({"source": "world_map", "reason": "player_village_entry"})
+
+
+func _enter_dungeon_from_world_map() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm and tm.village_dungeon_guide_active and not tm.tutorial_dungeon_guide_complete:
+		tm.mark_tutorial_dungeon_guide_complete()
+	var dungeon_id: String = ""
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if _world_manager and _world_manager.has_method("get_world_map_state") and is_instance_valid(dp):
+		var state: Dictionary = _get_world_map_state_cached()
+		var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
+		if dp.has_method("id_from_hex"):
+			dungeon_id = String(dp.call("id_from_hex", int(pos.get("q", 0)), int(pos.get("r", 0))))
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("change_to_dungeon"):
+		var payload: Dictionary = {"source": "world_map"}
+		if not dungeon_id.is_empty():
+			payload["dungeon_id"] = dungeon_id
+		scene_manager.change_to_dungeon(payload)
+
+
+func _visit_landmark_at(q: int, r: int) -> void:
+	if _world_manager == null or not _world_manager.has_method("try_visit_landmark_at"):
+		return
+	var result: Dictionary = _world_manager.call("try_visit_landmark_at", q, r)
+	if bool(result.get("ok", false)):
+		var summary: String = String(result.get("summary", ""))
+		if summary.is_empty():
+			summary = String(result.get("display_name", "Keşif"))
+		_update_status_label("Ziyaret: %s" % summary)
+	else:
+		_update_status_label("Bu nokta zaten ziyaret edilmiş veya erişilemez.")
+	_invalidate_world_map_state_cache()
+	queue_redraw()
+
+
+func _try_enter_biome_at_hex(pq: int, pr: int, tile: Dictionary) -> bool:
+	if not String(tile.get("poi_type", "")).is_empty():
+		return false
+	var terrain: String = String(tile.get("terrain_type", ""))
+	var biome_type: String = ""
+	match terrain:
+		"orman":
+			biome_type = "forest"
+		"dag":
+			biome_type = "mountain"
+		"akarsu":
+			biome_type = "river"
+		_:
+			biome_type = ""
+	if biome_type.is_empty():
+		return false
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+	if scene_manager and scene_manager.has_method("change_to_forest"):
+		scene_manager.change_to_forest({
+			"source": "world_map",
+			"biome_type": biome_type,
+			"from_terrain": terrain,
+		})
+		return true
+	return false
 
 
 func _return_to_village_after_expedition_collapse(collapse: Dictionary) -> void:
@@ -769,61 +840,12 @@ func _return_to_village_after_expedition_collapse(collapse: Dictionary) -> void:
 	}
 	sm.change_to_village(payload, true)
 
-func _try_enter_village_from_combat_action() -> bool:
-	if _travel_anim_active:
-		return false
-	if not _player_on_own_village_hex():
-		return false
-	_enter_player_village_from_world_map()
-	return true
-
-func _try_enter_biome_from_combat_action() -> bool:
-	if _travel_anim_active:
-		return false
-	if _world_manager == null or not _world_manager.has_method("get_world_map_state"):
-		return false
-	var state: Dictionary = _get_world_map_state_cached()
-	var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
-	var pq: int = int(pos.get("q", 0))
-	var pr: int = int(pos.get("r", 0))
-	if _cursor_q != pq or _cursor_r != pr:
-		return false
-	if _is_tutorial_restricting_hex_entry(pq, pr):
-		return false
-	var tile: Dictionary = _get_tile(pq, pr)
-	if tile.is_empty() or not bool(tile.get("discovered", false)):
-		return false
-	if not String(tile.get("poi_type", "")).is_empty():
-		return false
-	var terrain: String = String(tile.get("terrain_type", ""))
-	var biome_type: String = ""
-	match terrain:
-		"orman":
-			biome_type = "forest"
-		"dag":
-			biome_type = "mountain"
-		"akarsu":
-			biome_type = "river"
-		_:
-			biome_type = ""
-	if biome_type.is_empty():
-		return false
-	var scene_manager: Node = get_node_or_null("/root/SceneManager")
-	if scene_manager and scene_manager.has_method("change_to_forest"):
-		scene_manager.change_to_forest({
-			"source": "world_map",
-			"biome_type": biome_type,
-			"from_terrain": terrain,
-		})
-		return true
-	return false
 
 func _confirm_move_to_cursor() -> void:
 	if _travel_anim_active:
 		return
 	_flush_path_preview_now()
-	if _should_enter_own_village_on_move_confirm():
-		_enter_player_village_from_world_map()
+	if _try_enter_hex_at_player_pos():
 		return
 	if _should_prompt_high_risk_departure():
 		_show_high_risk_move_dialog()
@@ -899,9 +921,6 @@ func _travel_anim_on_segment_finished() -> void:
 		var _pr: int = int(_st_done.get("player_pos", {}).get("r", _cursor_r))
 		_try_resolve_player_map_missions_at(_pq, _pr)
 		_focus_camera_on_cursor()
-		_try_prompt_dungeon_entry_at_player_pos()
-		_try_prompt_landmark_visit_at_player_pos()
-		_try_prompt_settlement_actions_at_player_pos()
 		queue_redraw()
 		return
 	_consume_preview_first_segment()
@@ -926,10 +945,10 @@ func _execute_travel_to_cursor() -> void:
 		return
 	var path: Array = result.get("path", [])
 	if path.size() <= 1:
+		if _try_enter_hex_at_player_pos():
+			return
 		_update_status_label("Zaten bu hedeftesin.")
 		_try_resolve_player_map_missions_at(_cursor_q, _cursor_r)
-		_try_prompt_dungeon_entry_at_player_pos()
-		_try_prompt_landmark_visit_at_player_pos()
 		queue_redraw()
 		return
 	_travel_anim_path = path.duplicate()
@@ -1131,10 +1150,9 @@ func _build_world_map_control_help_lines() -> PackedStringArray:
 		_wm_input_hint(ACTION_WM_TOGGLE_ROUTE),
 	])
 	out.append(
-		"Koy gir %s %s | Erzak %s | Don(koy hex) %s %s"
+		"Hex gir %s | Erzak %s | Don(koy hex) %s %s"
 		% [
-			_wm_input_hint("attack_heavy"),
-			_wm_input_hint("block"),
+			_wm_input_hint("ui_accept"),
 			_wm_input_hint("attack"),
 			_wm_input_hint("ui_cancel"),
 			_wm_input_hint("open_world_map"),
@@ -1500,9 +1518,18 @@ func _build_dungeon_hex_tooltip_lines(tile: Dictionary, hex_q: int, hex_r: int) 
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if is_instance_valid(dp) and dp.has_method("id_from_hex") and dp.has_method("get_clear_count"):
 		var did: String = String(dp.call("id_from_hex", hex_q, hex_r))
-		var clears: int = int(dp.call("get_clear_count", did))
-		if clears > 0:
-			lines.append("Tamamlama: %d (+%d zorluk)" % [clears, clears])
+		if dp.has_method("is_in_warmup") and bool(dp.call("is_in_warmup", did)):
+			var next_segs: int = int(dp.call("get_max_segments_for_run", did)) if dp.has_method("get_max_segments_for_run") else 1
+			if next_segs <= 1:
+				lines.append("Dış kat — kısa keşif")
+			elif next_segs == 2:
+				lines.append("Henüz tanınıyor — 2 kat derinlik")
+			else:
+				lines.append("Derin keşif — patron henüz uyanmadı")
+		else:
+			var clears: int = int(dp.call("get_clear_count", did))
+			if clears > 0:
+				lines.append("Temizlenme: %d (+%d zorluk)" % [clears, clears])
 	lines.append(tr("wm.tooltip.dungeon.enter_hint"))
 	var terr: String = String(tile.get("terrain_type", ""))
 	if not terr.is_empty():
@@ -1646,7 +1673,7 @@ func _build_role_buffs_status_line() -> String:
 		parts.append("komutan")
 	if float(mods.get("incident_duration_mult", 1.0)) < 1.0:
 		parts.append("diplomat")
-	if float(mods.get("undiscovered_news_chance", 0.30)) > 0.30:
+	if float(mods.get("undiscovered_news_chance", 0.0)) > 0.0:
 		parts.append("ajan")
 	if int(mods.get("food_drift_bonus", 0)) > 0:
 		parts.append("tuccar")
@@ -1836,7 +1863,7 @@ func _build_carry_summary_text() -> String:
 		if ps.has_method("get_world_expedition_supplies"):
 			var ex: Dictionary = ps.call("get_world_expedition_supplies")
 			var eparts: PackedStringArray = PackedStringArray()
-			for ek in ["food", "water", "medicine", "world_gold"]:
+			for ek in ["food", "medicine", "world_gold"]:
 				var am: int = int(ex.get(ek, 0))
 				if am > 0:
 					var lab: String = "altin" if ek == "world_gold" else ek
@@ -1845,14 +1872,8 @@ func _build_carry_summary_text() -> String:
 				expedition_text = "Yol cantasi: " + ", ".join(eparts)
 		if ps.has_method("get_world_expedition_survival_forecast"):
 			var fc: Dictionary = ps.call("get_world_expedition_survival_forecast")
-			var m_any: int = int(fc.get("minutes_until_collapse", fc.get("minutes_until_any_hp_loss", 0)))
 			var m_food: int = int(fc.get("minutes_until_food_collapse", fc.get("minutes_until_food_hp_loss", 0)))
-			var m_water: int = int(fc.get("minutes_until_water_collapse", fc.get("minutes_until_water_hp_loss", 0)))
-			survival_text = "Dayanim: cokuse ~%s | aclik ~%s | susuzluk ~%s" % [
-				_format_minutes_short(maxi(0, m_any)),
-				_format_minutes_short(maxi(0, m_food)),
-				_format_minutes_short(maxi(0, m_water))
-			]
+			survival_text = "Erzak: ~%s" % _format_minutes_short(maxi(0, m_food))
 	
 	var gpd = get_node_or_null("/root/GlobalPlayerData")
 	if gpd and "dungeon_gold" in gpd:
@@ -2003,8 +2024,6 @@ func _is_blocking_world_map_ui_open() -> bool:
 	if _travel_event_dialog and _travel_event_dialog.visible:
 		return true
 	if _travel_outcome_dialog and _travel_outcome_dialog.visible:
-		return true
-	if _dungeon_entry_dialog and _dungeon_entry_dialog.visible:
 		return true
 	if _high_risk_move_dialog and _high_risk_move_dialog.visible:
 		return true
@@ -3044,110 +3063,36 @@ func _apply_button_risk_color(button: Button, risk: String) -> void:
 		_:
 			button.modulate = Color(1, 1, 1, 1)
 
-func _setup_landmark_visit_dialog() -> void:
-	if _landmark_visit_dialog != null:
+func _open_settlement_actions_at(pq: int, pr: int, tile: Dictionary) -> void:
+	if _settlement_action_menu == null or _world_manager == null:
 		return
-	_landmark_visit_dialog = ConfirmationDialog.new()
-	if MEDIEVAL_THEME:
-		_landmark_visit_dialog.theme = MEDIEVAL_THEME
-	_landmark_visit_dialog.title = "Keşif noktası"
-	_landmark_visit_dialog.get_ok_button().text = "Ziyaret et"
-	_landmark_visit_dialog.get_cancel_button().text = "Vazgeç"
-	_landmark_visit_dialog.confirmed.connect(_on_landmark_visit_confirmed)
-	_landmark_visit_dialog.canceled.connect(_on_landmark_visit_canceled)
-	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
-	if layer:
-		layer.add_child(_landmark_visit_dialog)
-	else:
-		add_child(_landmark_visit_dialog)
+	if String(tile.get("poi_type", "")) != "neighbor_village":
+		return
+	_pending_settlement_id = String(tile.get("settlement_id", ""))
+	_pending_settlement_name = String(tile.get("settlement_name", "Komsu Koy"))
+	var target_q: int = int(tile.get("q", 0))
+	var target_r: int = int(tile.get("r", 0))
+	_pending_settlement_distance = int(_hex_distance(pq, pr, target_q, target_r))
+	var trade_preview: Dictionary = _get_settlement_action_preview("trade")
+	var diplomacy_preview: Dictionary = _get_settlement_action_preview("diplomacy")
+	var raid_preview: Dictionary = _get_settlement_action_preview("raid")
+	_settlement_action_menu.set_item_text(0, "Ticaret Baslat (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(trade_preview.get("duration_minutes", 0))), String(trade_preview.get("risk_level", "Dusuk"))])
+	_settlement_action_menu.set_item_text(1, "Diplomasi Girisimi (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(diplomacy_preview.get("duration_minutes", 0))), String(diplomacy_preview.get("risk_level", "Dusuk"))])
+	_settlement_action_menu.set_item_text(2, "Asker Gonder (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(raid_preview.get("duration_minutes", 0))), String(raid_preview.get("risk_level", "Orta"))])
+	_refresh_aid_menu_item()
+	_refresh_war_support_menu_item()
+	_refresh_mediation_menu_item()
+	_refresh_alliance_propose_menu_item()
+	_refresh_alliance_break_menu_item()
+	_refresh_offensive_raid_menu_item()
+	_settlement_action_menu.position = Vector2i(40, 210)
+	_settlement_action_menu.popup()
+	var status_text: String = "%s: Ticaret/Diplomasi/Asker secimi yap." % _pending_settlement_name
+	var detail_text: String = _build_settlement_status_text(_pending_settlement_id)
+	if not detail_text.is_empty():
+		status_text += "\n" + detail_text
+	_update_status_label(status_text)
 
-func _try_prompt_landmark_visit_at_player_pos() -> void:
-	if _landmark_visit_dialog == null or _world_manager == null:
-		return
-	if _dungeon_entry_dialog and _dungeon_entry_dialog.visible:
-		return
-	var state: Dictionary = _get_world_map_state_cached()
-	var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
-	var q: int = int(pos.get("q", 0))
-	var r: int = int(pos.get("r", 0))
-	if not _world_manager.has_method("get_landmark_at"):
-		return
-	var landmark: Dictionary = _world_manager.call("get_landmark_at", q, r)
-	if landmark.is_empty() or bool(landmark.get("claimed", false)):
-		return
-	var display_name: String = String(landmark.get("display_name", "Keşif"))
-	var poi: String = String(landmark.get("poi_type", ""))
-	_landmark_visit_dialog.dialog_text = "%s\n\n%s" % [display_name, WorldLandmarkConfig.get_visit_blurb(poi)]
-	_landmark_visit_dialog.set_meta("landmark_q", q)
-	_landmark_visit_dialog.set_meta("landmark_r", r)
-	_landmark_visit_dialog.popup_centered(Vector2i(520, 200))
-
-func _on_landmark_visit_confirmed() -> void:
-	if _world_manager == null or not _world_manager.has_method("try_visit_landmark_at"):
-		return
-	var q: int = int(_landmark_visit_dialog.get_meta("landmark_q", 0))
-	var r: int = int(_landmark_visit_dialog.get_meta("landmark_r", 0))
-	var result: Dictionary = _world_manager.call("try_visit_landmark_at", q, r)
-	if bool(result.get("ok", false)):
-		var summary: String = String(result.get("summary", ""))
-		if summary.is_empty():
-			summary = String(result.get("display_name", "Keşif"))
-		_update_status_label("Ziyaret: %s" % summary)
-	else:
-		_update_status_label("Bu nokta zaten ziyaret edilmiş veya erişilemez.")
-	_invalidate_world_map_state_cache()
-	queue_redraw()
-
-func _on_landmark_visit_canceled() -> void:
-	_update_status_label("Keşif ziyareti iptal edildi.")
-
-func _setup_dungeon_entry_dialog() -> void:
-	if _dungeon_entry_dialog != null:
-		return
-	_dungeon_entry_dialog = ConfirmationDialog.new()
-	if MEDIEVAL_THEME:
-		_dungeon_entry_dialog.theme = MEDIEVAL_THEME
-	_dungeon_entry_dialog.title = tr("wm.dungeon_entry.title")
-	_dungeon_entry_dialog.dialog_text = tr("wm.dungeon_entry.body")
-	_dungeon_entry_dialog.get_ok_button().text = tr("wm.enter")
-	_dungeon_entry_dialog.get_cancel_button().text = tr("wm.cancel")
-	_dungeon_entry_dialog.confirmed.connect(_on_dungeon_entry_confirmed)
-	_dungeon_entry_dialog.canceled.connect(_on_dungeon_entry_canceled)
-	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
-	if layer:
-		layer.add_child(_dungeon_entry_dialog)
-	else:
-		add_child(_dungeon_entry_dialog)
-
-func _try_prompt_dungeon_entry_at_player_pos() -> void:
-	if _dungeon_entry_dialog == null or _world_manager == null or not _world_manager.has_method("get_world_map_state"):
-		return
-	var state: Dictionary = _get_world_map_state_cached()
-	var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
-	var tile: Dictionary = _get_tile(int(pos.get("q", 0)), int(pos.get("r", 0)))
-	if String(tile.get("poi_type", "")) == "dungeon":
-		_dungeon_entry_dialog.popup_centered(Vector2i(520, 180))
-
-func _on_dungeon_entry_confirmed() -> void:
-	var tm := get_node_or_null("/root/TutorialManager")
-	if tm and tm.village_dungeon_guide_active and not tm.tutorial_dungeon_guide_complete:
-		tm.mark_tutorial_dungeon_guide_complete()
-	var dungeon_id: String = ""
-	var dp: Node = get_node_or_null("/root/DungeonProgress")
-	if _world_manager and _world_manager.has_method("get_world_map_state") and is_instance_valid(dp):
-		var state: Dictionary = _get_world_map_state_cached()
-		var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
-		if dp.has_method("id_from_hex"):
-			dungeon_id = String(dp.call("id_from_hex", int(pos.get("q", 0)), int(pos.get("r", 0))))
-	var scene_manager: Node = get_node_or_null("/root/SceneManager")
-	if scene_manager and scene_manager.has_method("change_to_dungeon"):
-		var payload: Dictionary = {"source": "world_map"}
-		if not dungeon_id.is_empty():
-			payload["dungeon_id"] = dungeon_id
-		scene_manager.change_to_dungeon(payload)
-
-func _on_dungeon_entry_canceled() -> void:
-	_update_status_label(tr("wm.dungeon_entry.cancelled"))
 
 func _setup_high_risk_move_dialog() -> void:
 	if _high_risk_move_dialog != null:
@@ -3205,39 +3150,6 @@ func _setup_settlement_action_menu() -> void:
 	else:
 		add_child(_settlement_action_menu)
 
-func _try_prompt_settlement_actions_at_player_pos() -> void:
-	if _settlement_action_menu == null or _world_manager == null or not _world_manager.has_method("get_world_map_state"):
-		return
-	var state: Dictionary = _get_world_map_state_cached()
-	var pos: Dictionary = state.get("player_pos", {"q": 0, "r": 0})
-	var tile: Dictionary = _get_tile(int(pos.get("q", 0)), int(pos.get("r", 0)))
-	if String(tile.get("poi_type", "")) != "neighbor_village":
-		return
-	_pending_settlement_id = String(tile.get("settlement_id", ""))
-	_pending_settlement_name = String(tile.get("settlement_name", "Komsu Koy"))
-	var target_q: int = int(tile.get("q", 0))
-	var target_r: int = int(tile.get("r", 0))
-	_pending_settlement_distance = int(_hex_distance(int(pos.get("q", 0)), int(pos.get("r", 0)), target_q, target_r))
-	var trade_preview: Dictionary = _get_settlement_action_preview("trade")
-	var diplomacy_preview: Dictionary = _get_settlement_action_preview("diplomacy")
-	var raid_preview: Dictionary = _get_settlement_action_preview("raid")
-	_settlement_action_menu.set_item_text(0, "Ticaret Baslat (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(trade_preview.get("duration_minutes", 0))), String(trade_preview.get("risk_level", "Dusuk"))])
-	_settlement_action_menu.set_item_text(1, "Diplomasi Girisimi (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(diplomacy_preview.get("duration_minutes", 0))), String(diplomacy_preview.get("risk_level", "Dusuk"))])
-	_settlement_action_menu.set_item_text(2, "Asker Gonder (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(raid_preview.get("duration_minutes", 0))), String(raid_preview.get("risk_level", "Orta"))])
-	_refresh_aid_menu_item()
-	_refresh_war_support_menu_item()
-	_refresh_mediation_menu_item()
-	_refresh_alliance_propose_menu_item()
-	_refresh_alliance_break_menu_item()
-	_refresh_offensive_raid_menu_item()
-	_settlement_action_menu.position = Vector2i(40, 210)
-	_settlement_action_menu.popup()
-	var status_text: String = "%s: Ticaret/Diplomasi/Asker secimi yap." % _pending_settlement_name
-	var detail_text: String = _build_settlement_status_text(_pending_settlement_id)
-	if not detail_text.is_empty():
-		status_text += "\n" + detail_text
-	_update_status_label(status_text)
-
 func _on_settlement_action_selected(action_id: int) -> void:
 	match action_id:
 		1:
@@ -3284,7 +3196,7 @@ func _refresh_aid_menu_item() -> void:
 	var cost_parts: PackedStringArray = PackedStringArray()
 	if int(cost.get("gold", 0)) > 0:
 		cost_parts.append("%d altin" % int(cost.get("gold", 0)))
-	for resource_type in ["food", "wood", "stone", "water"]:
+	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount > 0:
 			cost_parts.append("%d %s" % [amount, resource_type])
@@ -3561,7 +3473,7 @@ func _format_intervention_menu_text(option: Dictionary) -> String:
 	var cost_parts: PackedStringArray = PackedStringArray()
 	if int(cost.get("gold", 0)) > 0:
 		cost_parts.append("%d altin" % int(cost.get("gold", 0)))
-	for resource_type in ["food", "wood", "stone", "water"]:
+	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount > 0:
 			cost_parts.append("%d %s" % [amount, resource_type])
@@ -3848,11 +3760,9 @@ func _try_open_expedition_pack_dialog() -> void:
 		return
 	if not bool(_world_manager.call("is_player_on_own_village_hex")):
 		_update_status_label(
-			"Erzak: yalnizca kendi koy hex inde (%s). Koye gir: %s / %s veya %s (imlec oyuncuda)."
+			"Erzak: yalnizca kendi koy hex inde (%s). Koye gir: %s (imlec oyuncuda)."
 			% [
 				_wm_input_hint("attack"),
-				_wm_input_hint("attack_heavy"),
-				_wm_input_hint("block"),
 				_wm_input_hint("ui_accept"),
 			]
 		)
@@ -3883,40 +3793,33 @@ func _refresh_expedition_pack_limits_and_labels(reset_amounts: bool = false) -> 
 	if ps and ps.has_method("get_world_expedition_supplies"):
 		ex = ps.call("get_world_expedition_supplies")
 	var vf: int = int(vm.resource_levels.get("food", 0)) if vm else 0
-	var vw: int = int(vm.resource_levels.get("water", 0)) if vm else 0
 	var vm_: int = int(vm.resource_levels.get("medicine", 0)) if vm else 0
 	var pack_caps: Dictionary = {}
 	if ps and ps.has_method("get_world_expedition_pack_caps"):
 		pack_caps = ps.call("get_world_expedition_pack_caps")
 	else:
-		pack_caps = {"food": 1, "water": 1, "medicine": 24, "world_gold": 2500}
+		pack_caps = {"food": 1, "medicine": 24, "world_gold": 2500}
 	var cap_f: int = int(pack_caps.get("food", 1))
-	var cap_w: int = int(pack_caps.get("water", 1))
 	var cap_m: int = int(pack_caps.get("medicine", 24))
 	var cap_g: int = int(pack_caps.get("world_gold", 2500))
 	var cur_f: int = int(ex.get("food", 0))
-	var cur_w: int = int(ex.get("water", 0))
 	var cur_m: int = int(ex.get("medicine", 0))
 	var cur_g: int = int(ex.get("world_gold", 0))
 	_exp_max_food = maxi(0, mini(vf, cap_f - cur_f))
-	_exp_max_water = maxi(0, mini(vw, cap_w - cur_w))
 	_exp_max_medicine = maxi(0, mini(vm_, cap_m - cur_m))
 	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
 	var purse: int = int(gpd.gold) if gpd and "gold" in gpd else 0
 	_exp_max_gold = maxi(0, mini(purse, cap_g - cur_g))
 	if reset_amounts:
 		_exp_amt_food = 0
-		_exp_amt_water = 0
 		_exp_amt_medicine = 0
 		_exp_amt_gold = 0
 	else:
 		_exp_amt_food = clampi(_exp_amt_food, 0, _exp_max_food)
-		_exp_amt_water = clampi(_exp_amt_water, 0, _exp_max_water)
 		_exp_amt_medicine = clampi(_exp_amt_medicine, 0, _exp_max_medicine)
 		_exp_amt_gold = clampi(_exp_amt_gold, 0, _exp_max_gold)
 	var vals: Array = [
 		[_exp_amt_food, _exp_max_food],
-		[_exp_amt_water, _exp_max_water],
 		[_exp_amt_medicine, _exp_max_medicine],
 		[_exp_amt_gold, _exp_max_gold],
 	]
@@ -3974,8 +3877,6 @@ func _adjust_expedition_pack_amount(which: String, delta: int) -> void:
 	match which:
 		"food":
 			_exp_amt_food = clampi(_exp_amt_food + delta, 0, _exp_max_food)
-		"water":
-			_exp_amt_water = clampi(_exp_amt_water + delta, 0, _exp_max_water)
 		"medicine":
 			_exp_amt_medicine = clampi(_exp_amt_medicine + delta, 0, _exp_max_medicine)
 		"world_gold":
@@ -4066,7 +3967,6 @@ func _on_expedition_pack_confirm_pressed() -> void:
 	if vm == null or ps == null:
 		return
 	var bf: int = _exp_amt_food
-	var bw: int = _exp_amt_water
 	var bm: int = _exp_amt_medicine
 	var bg: int = _exp_amt_gold
 	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
@@ -4077,8 +3977,6 @@ func _on_expedition_pack_confirm_pressed() -> void:
 	var cost_v: Dictionary = {}
 	if bf > 0:
 		cost_v["food"] = bf
-	if bw > 0:
-		cost_v["water"] = bw
 	if bm > 0:
 		cost_v["medicine"] = bm
 	if not cost_v.is_empty():
@@ -4097,8 +3995,6 @@ func _on_expedition_pack_confirm_pressed() -> void:
 		var add_d: Dictionary = {}
 		if bf > 0:
 			add_d["food"] = bf
-		if bw > 0:
-			add_d["water"] = bw
 		if bm > 0:
 			add_d["medicine"] = bm
 		if bg > 0:
@@ -4233,7 +4129,7 @@ func _build_aid_confirm_text(settlement_name: String, option: Dictionary) -> Str
 	var cost_parts: PackedStringArray = PackedStringArray()
 	if int(cost.get("gold", 0)) > 0:
 		cost_parts.append("%d altin" % int(cost.get("gold", 0)))
-	for resource_type in ["food", "wood", "stone", "water"]:
+	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount > 0:
 			cost_parts.append("%d %s" % [amount, resource_type])
@@ -4604,7 +4500,7 @@ func _refresh_input_hints_bar() -> void:
 	else:
 		parts.append(tr("wm.hints.move") % im.get_tutorial_map_move_hint())
 		parts.append(tr("wm.hints.walk") % im.get_tutorial_map_confirm_hint())
-		parts.append(tr("wm.hints.enter_hex") % im.get_action_key_name(&"attack_heavy"))
+		parts.append(tr("wm.hints.enter_hex") % im.get_tutorial_map_confirm_hint())
 		parts.append(tr("wm.hints.back") % im.get_action_key_name(&"open_world_map"))
 		parts.append(tr("wm.hints.menu"))
 	_wm_input_hints_label.text = "    ".join(parts)

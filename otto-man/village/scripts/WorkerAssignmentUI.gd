@@ -74,7 +74,6 @@ const HERBALIST_SCENE = "res://village/buildings/Herbalist.tscn"
 const TEAHOUSE_SCENE = "res://village/buildings/TeaHouse.tscn"
 const SOAPMAKER_SCENE = "res://village/buildings/SoapMaker.tscn"
 const GUNSMITH_SCENE = "res://village/buildings/Gunsmith.tscn"
-const ARMORER_SCENE = "res://village/buildings/Armorer.tscn"
 
 # Eski Script Yolu Sabitleri (Sadece add/remove buton bağlantıları için kalabilir)
 const WOOD_SCRIPT = "res://village/scripts/WoodcutterCamp.gd"
@@ -91,8 +90,7 @@ const EXTRA_PROCESSING_ORDER := [
 	"medicine",
 	"tea",
 	"soap",
-	"weapon",
-	"armor"
+	"weapon"
 ]
 
 const RESOURCE_SCENE_MAP := {
@@ -109,8 +107,7 @@ const RESOURCE_SCENE_MAP := {
 	"medicine": HERBALIST_SCENE,
 	"tea": TEAHOUSE_SCENE,
 	"soap": SOAPMAKER_SCENE,
-	"weapon": GUNSMITH_SCENE,
-	"armor": ARMORER_SCENE
+	"weapon": GUNSMITH_SCENE
 }
 
 var dynamic_rows: Dictionary = {}
@@ -155,7 +152,8 @@ func _ready() -> void:
 	_ensure_upgrade_ui_for_row("wood", wood_hbox)
 	_ensure_upgrade_ui_for_row("stone", stone_hbox)
 	_ensure_upgrade_ui_for_row("food", food_hbox)
-	_ensure_upgrade_ui_for_row("water", water_hbox)
+	if water_hbox:
+		water_hbox.visible = false
 	_ensure_upgrade_ui_for_row("metal", metal_hbox)
 	_ensure_upgrade_ui_for_row("bread", bread_hbox)
 	_create_dynamic_processing_rows()
@@ -454,8 +452,7 @@ func update_ui() -> void:
 	var food_building = _find_first_building(HUNTER_HUT_SCENE, current_building_plots_node)
 	#print("DEBUG update_ui: food_building result: ", food_building) # DEBUG
 	#print("DEBUG update_ui: Finding water building...") # DEBUG
-	var water_building = _find_first_building(WELL_SCENE, current_building_plots_node)
-	#print("DEBUG update_ui: water_building result: ", water_building) # DEBUG
+	# Su kaynağı UI'dan kaldırıldı — kuyu araması yapılmıyor.
 	#print("DEBUG update_ui: Finding bread building...") # DEBUG
 	var bread_building = _find_first_building(BAKERY_SCENE, current_building_plots_node)
 	#print("DEBUG update_ui: bread_building result: ", bread_building) # DEBUG
@@ -584,41 +581,9 @@ func update_ui() -> void:
 	else:
 		_hide_upgrade_ui_for("food")
 
-	# --- Water Row Visibility & Buttons & Level ---
-	var water_building_exists = water_building != null
-	water_hbox.visible = water_building_exists
-	#print("DEBUG update_ui: water_hbox.visible set to: ", water_hbox.visible) # DEBUG
-	if water_building_exists:
-		# --- Null Kontrolleri Eklendi --- 
-		var water_is_upgrading = water_building.is_upgrading if "is_upgrading" in water_building else false 
-		var water_current_workers = water_building.assigned_workers if "assigned_workers" in water_building and water_building.assigned_workers != null else 0
-		var water_max_workers_val = water_building.max_workers if "max_workers" in water_building and water_building.max_workers != null else 1
-		var water_current_level = water_building.level if "level" in water_building and water_building.level != null else 1
-		var water_max_level_val = water_building.max_level if "max_level" in water_building and water_building.max_level != null else 1
-		# --- Kontroller Sonu ---
-
-		var can_add_water = not water_is_upgrading and water_current_workers < water_max_workers_val
-		var can_remove_water = not water_is_upgrading and water_current_workers > 0
-		add_water_button.disabled = not (idle_available and can_add_water)
-		remove_water_button.disabled = not can_remove_water
-
-		# Upgrade Water Button
-		var water_is_max_level_check = water_current_level >= water_max_level_val #<<< Null kontrolünden sonra
-		var water_can_meet_reqs = false
-		if not water_is_max_level_check:
-			water_can_meet_reqs = VillageManager.can_meet_requirements(WELL_SCENE)
-
-		var can_upgrade_water = not water_is_upgrading and not water_is_max_level_check and water_can_meet_reqs
-		upgrade_water_button.disabled = not can_upgrade_water
-		upgrade_water_button.text = tr("worker.upgrading") if water_is_upgrading else "↑"
-		var water_upgrade_reqs = VillageManager.get_building_requirements(WELL_SCENE)
-		upgrade_water_button.tooltip_text = _upgrade_button_tooltip(water_upgrade_reqs, water_is_max_level_check, not water_upgrade_reqs.is_empty())
-
-		water_level_indicator.text = tr("worker.level_indicator") % water_current_level
-		water_level_label.text = _level_with_cap("water")
-		_update_upgrade_ui_for("water", water_building)
-	else:
-		_hide_upgrade_ui_for("water")
+	# --- Water Row — su kaynağı kaldırıldı, satır gösterilmez ---
+	water_hbox.visible = false
+	_hide_upgrade_ui_for("water")
 
 	# --- Metal Row Visibility & Buttons & Level ---
 	var metal_building_exists = metal_building != null

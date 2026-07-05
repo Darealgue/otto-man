@@ -1,8 +1,9 @@
 extends Node
 ## SFX: önce `assets/audio/` dosyası, yoksa sentez placeholder.
-## Asset değiştirmek için bkz. `assets/audio/PLACEHOLDER.md`
 
 const SoundCatalog = preload("res://autoload/SoundCatalog.gd")
+const AudioPlaceholderTones = preload("res://tools/audio_placeholder_tones.gd")
+const ForestNightLightUtil = preload("res://decoration/forest/forest_night_light_util.gd")
 
 const SFX_BUS := "SFX"
 const MUSIC_BUS := "Music"
@@ -13,15 +14,20 @@ var music_volume_db: float = 0.0
 var sfx_volume_db: float = 0.0
 
 var _streams: Dictionary = {}
-var _stream_source: Dictionary = {} # id -> "file" | "synth"
+var _stream_source: Dictionary = {}
 var _ui_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
+var _loop_sfx_player: AudioStreamPlayer
 var _pool: Array[AudioStreamPlayer2D] = []
 var _pool_index: int = 0
 var _hurt_cooldown_sec: float = 0.0
 var _combat_hit_cooldown_sec: float = 0.0
 var _enabled: bool = true
 var _current_music_id: String = ""
+var _ambient_profile: String = ""
+var _ambient_is_night: bool = false
+var _loop_sfx_id: String = ""
+var _music_should_loop: bool = false
 var _light_attack_pitch_step: int = 0
 
 const LIGHT_ATTACK_PITCH_MIN: float = 0.88
@@ -29,47 +35,79 @@ const LIGHT_ATTACK_PITCH_MAX: float = 1.14
 const LIGHT_ATTACK_PITCH_STEPS: int = 6
 const HEAVY_ATTACK_PITCH_MIN: float = 0.52
 const HEAVY_ATTACK_PITCH_MAX: float = 0.68
-
-const _SYNTH_DEFS: Dictionary = {
-	"click": {"hz": 920.0, "duration": 0.05, "volume": 0.22, "slide_hz": 0.0, "wave": "sine"},
-	"confirm": {"hz": 660.0, "duration": 0.07, "volume": 0.24, "slide_hz": 120.0, "wave": "sine"},
-	"cancel": {"hz": 340.0, "duration": 0.08, "volume": 0.2, "slide_hz": -80.0, "wave": "triangle"},
-	"hurt": {"hz": 220.0, "duration": 0.11, "volume": 0.38, "slide_hz": -140.0, "wave": "triangle"},
-	"death": {"hz": 130.0, "duration": 0.55, "volume": 0.42, "slide_hz": -90.0, "wave": "sine"},
-	"door_open": {"hz": 280.0, "duration": 0.22, "volume": 0.32, "slide_hz": 420.0, "wave": "square"},
-	"door_locked": {"hz": 160.0, "duration": 0.08, "volume": 0.28, "slide_hz": -60.0, "wave": "square"},
-	"hit_light": {"hz": 400.0, "duration": 0.06, "volume": 0.3, "slide_hz": -200.0, "wave": "square"},
-	"block": {"hz": 180.0, "duration": 0.09, "volume": 0.35, "slide_hz": 0.0, "wave": "triangle"},
-	"pickup": {"hz": 780.0, "duration": 0.09, "volume": 0.26, "slide_hz": 200.0, "wave": "sine"},
-	"build_complete": {"hz": 520.0, "duration": 0.18, "volume": 0.3, "slide_hz": 180.0, "wave": "sine"},
-	"attack_swipe": {"hz": 540.0, "duration": 0.09, "volume": 0.3, "slide_hz": -220.0, "wave": "triangle"},
-	"footstep_player": {"hz": 95.0, "duration": 0.04, "volume": 0.18, "slide_hz": -40.0, "wave": "triangle"},
-	"attack_light": {"hz": 540.0, "duration": 0.09, "volume": 0.3, "slide_hz": -220.0, "wave": "triangle"},
-	"attack_heavy": {"hz": 165.0, "duration": 0.16, "volume": 0.42, "slide_hz": -45.0, "wave": "square"},
-}
+const AMBIENT_VOLUME_LINEAR: float = 0.6
+const SLIDE_VOLUME_LINEAR: float = 0.6
 
 
 func _ready() -> void:
 	_ensure_audio_buses()
-	reload_audio()
-	_ui_player = AudioStreamPlayer.new()
-	_ui_player.name = "UiSfxPlayer"
-	_ui_player.bus = SFX_BUS
-	add_child(_ui_player)
-	_music_player = AudioStreamPlayer.new()
-	_music_player.name = "MusicPlayer"
-	_music_player.bus = MUSIC_BUS
-	add_child(_music_player)
+	_ui_player = _make_stream_player("UiSfxPlayer", _resolve_bus(SFX_BUS))
+	_music_player = _make_stream_player("MusicPlayer", _resolve_bus(MUSIC_BUS))
+	_loop_sfx_player = _make_stream_player("LoopSfxPlayer", _resolve_bus(SFX_BUS))
+	if not _music_player.finished.is_connected(_on_music_player_finished):
+		_music_player.finished.connect(_on_music_player_finished)
+	if not _loop_sfx_player.finished.is_connected(_on_loop_sfx_player_finished):
+		_loop_sfx_player.finished.connect(_on_loop_sfx_player_finished)
 	for i in POOL_SIZE:
 		var p := AudioStreamPlayer2D.new()
 		p.name = "SfxPool_%d" % i
-		p.bus = SFX_BUS
+		p.bus = _resolve_bus(SFX_BUS)
 		p.max_distance = 2800.0
 		p.attenuation = 1.0
 		add_child(p)
 		_pool.append(p)
+	reload_audio()
 	_apply_saved_volume_from_settings()
 	_log_audio_status()
+	call_deferred("_bind_ambient_listeners")
+
+
+func _make_stream_player(player_name: String, bus_name: String) -> AudioStreamPlayer:
+	var player := AudioStreamPlayer.new()
+	player.name = player_name
+	player.bus = bus_name
+	player.volume_db = 0.0
+	player.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(player)
+	return player
+
+
+func _resolve_bus(preferred: String) -> String:
+	if AudioServer.get_bus_index(preferred) >= 0:
+		return preferred
+	return "Master"
+
+
+func _bind_ambient_listeners() -> void:
+	var scene_mgr := get_node_or_null("/root/SceneManager")
+	if scene_mgr and scene_mgr.has_signal("scene_change_completed"):
+		if not scene_mgr.scene_change_completed.is_connected(_on_scene_change_completed):
+			scene_mgr.scene_change_completed.connect(_on_scene_change_completed)
+	var time_mgr := get_node_or_null("/root/TimeManager")
+	if time_mgr and time_mgr.has_signal("hour_changed"):
+		if not time_mgr.hour_changed.is_connected(_on_hour_changed_ambient):
+			time_mgr.hour_changed.connect(_on_hour_changed_ambient)
+	_bootstrap_ambient_when_ready()
+
+
+func _bootstrap_ambient_when_ready() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var path: String = _resolve_active_scene_path()
+	if not path.is_empty():
+		play_ambient_for_scene(path)
+
+
+func _resolve_active_scene_path() -> String:
+	var scene_mgr := get_node_or_null("/root/SceneManager")
+	if scene_mgr and scene_mgr.get("current_scene_path"):
+		var managed: String = String(scene_mgr.current_scene_path)
+		if not managed.is_empty():
+			return managed
+	var scene := get_tree().current_scene
+	if scene and scene.scene_file_path != "":
+		return scene.scene_file_path
+	return ""
 
 
 func _process(delta: float) -> void:
@@ -118,7 +156,6 @@ func play_sfx(sfx_id: String, position: Vector2 = Vector2.ZERO, pitch_scale: flo
 	_play_id(sfx_id, position, false, pitch_scale)
 
 
-## Oyuncu saldırı whoosh — `combat_swipe`; light/heavy için pitch farkı.
 func play_player_attack_swing(is_heavy: bool, position: Vector2 = Vector2.ZERO) -> void:
 	if not _enabled:
 		return
@@ -135,44 +172,199 @@ func play_player_attack_swing(is_heavy: bool, position: Vector2 = Vector2.ZERO) 
 
 
 func play_footstep(position: Vector2, pitch_scale: float = 1.0) -> void:
-	play_sfx("footstep_player", position, pitch_scale)
+	play_sfx(_footstep_sfx_id_for_scene(_resolve_active_scene_path()), position, pitch_scale)
 
 
-## İsabet — swipe sesine ek; `combat_hit_light` dosyası.
+func play_land(position: Vector2, heavy: bool = false) -> void:
+	var scene_path: String = _resolve_active_scene_path()
+	var sfx_id: String = _land_sfx_id_for_scene(scene_path, heavy)
+	var pitch: float = 0.88 if heavy and _is_dirt_surface_scene(scene_path) else 1.0
+	play_sfx(sfx_id, position, pitch)
+
+
 func play_combat_hit(position: Vector2 = Vector2.ZERO, is_heavy: bool = false) -> void:
 	if not _enabled or _combat_hit_cooldown_sec > 0.0:
 		return
 	_combat_hit_cooldown_sec = 0.05
 	var pitch: float = randf_range(0.93, 1.07)
+	var hit_id: String = "hit_heavy" if is_heavy else "hit_light"
 	if is_heavy:
-		pitch *= 0.88
-	play_sfx("hit_light", position, pitch)
+		pitch *= 0.92
+	play_sfx(hit_id, position, pitch)
 
 
-func play_music(track_id: String, loop := true) -> void:
+func play_music(track_id: String, loop := true, force_restart := false) -> void:
 	if not _enabled:
 		return
-	if track_id == _current_music_id and _music_player.playing:
+	if not is_instance_valid(_music_player):
 		return
-	var path: String = SoundCatalog.resolve_music_path(track_id)
+	if not force_restart and track_id == _current_music_id and _music_player.playing:
+		return
+	var path: String = SoundCatalog.resolve_ambient_path(track_id)
 	if path.is_empty():
+		path = SoundCatalog.resolve_music_path(track_id)
+	var stream: AudioStream = _load_stream_at_path(path)
+	if stream == null:
+		var stem: String = SoundCatalog.get_ambient_file_stem(track_id)
+		if stem.is_empty():
+			stem = SoundCatalog.get_music_file_stem(track_id)
+		var def: Dictionary = AudioPlaceholderTones.MUSIC_STEMS.get(stem, {})
+		if not def.is_empty():
+			stream = _synthesize(def)
+	if stream == null:
+		push_warning("[SoundManager] Music not found for track '%s' (path: %s)" % [track_id, path])
 		return
-	var stream: Resource = load(path)
-	if not stream is AudioStream:
-		return
+	_music_should_loop = loop
 	_music_player.stream = stream
-	if stream is AudioStreamOggVorbis:
-		(stream as AudioStreamOggVorbis).loop = loop
-	elif stream is AudioStreamMP3:
-		(stream as AudioStreamMP3).loop = loop
+	_music_player.volume_db = linear_to_db(AMBIENT_VOLUME_LINEAR) if _is_ambient_track(track_id) else 0.0
 	_current_music_id = track_id
 	_music_player.play()
+	print(
+		"[SoundManager] Ambient play: %s | path=%s | bus=%s | playing=%s"
+		% [track_id, path if not path.is_empty() else "synth", _music_player.bus, _music_player.playing]
+	)
+
+
+func is_loop_sfx_active(sfx_id: String) -> bool:
+	return _loop_sfx_id == sfx_id and is_instance_valid(_loop_sfx_player) and _loop_sfx_player.playing
+
+
+func start_loop_sfx(sfx_id: String) -> void:
+	if not _enabled or not is_instance_valid(_loop_sfx_player):
+		return
+	if is_loop_sfx_active(sfx_id):
+		return
+	var stream: AudioStream = _get_sfx_stream(sfx_id)
+	if stream == null:
+		push_warning("[SoundManager] Loop sfx missing: %s" % sfx_id)
+		return
+	stop_loop_sfx()
+	_loop_sfx_id = sfx_id
+	_loop_sfx_player.stream = stream
+	_loop_sfx_player.volume_db = _loop_sfx_volume_db(sfx_id)
+	_loop_sfx_player.play()
+	print("[SoundManager] Loop sfx start: %s | playing=%s" % [sfx_id, _loop_sfx_player.playing])
+
+
+func stop_loop_sfx() -> void:
+	_loop_sfx_id = ""
+	if is_instance_valid(_loop_sfx_player):
+		_loop_sfx_player.stop()
+		_loop_sfx_player.volume_db = 0.0
+
+
+func _loop_sfx_volume_db(sfx_id: String) -> float:
+	if sfx_id == "slide":
+		return linear_to_db(SLIDE_VOLUME_LINEAR)
+	return 0.0
+
+
+func _on_music_player_finished() -> void:
+	if not _music_should_loop or _current_music_id.is_empty():
+		return
+	if is_instance_valid(_music_player) and _music_player.stream != null:
+		_music_player.play()
+
+
+func _on_loop_sfx_player_finished() -> void:
+	if _loop_sfx_id.is_empty():
+		return
+	if is_instance_valid(_loop_sfx_player) and _loop_sfx_player.stream != null:
+		_loop_sfx_player.play()
+
+
+func play_ambient_for_scene(scene_path: String) -> void:
+	if scene_path.is_empty():
+		scene_path = _resolve_active_scene_path()
+	_ambient_profile = _ambient_profile_from_scene(scene_path)
+	print("[SoundManager] Ambient profile '%s' for scene: %s" % [_ambient_profile, scene_path])
+	_refresh_ambient_music(true)
+
+
+func _on_scene_change_completed(scene_path: String) -> void:
+	play_ambient_for_scene(scene_path)
+
+
+func _on_hour_changed_ambient(_hour: int) -> void:
+	if _ambient_profile != "village" and _ambient_profile != "forest":
+		return
+	var night_now: bool = _is_night_ambient()
+	if night_now == _ambient_is_night:
+		return
+	_refresh_ambient_music(true)
+
+
+func _ambient_profile_from_scene(scene_path: String) -> String:
+	var p: String = scene_path.to_lower()
+	if p.contains("villagescene") or p.contains("/village/"):
+		return "village"
+	if p.contains("forest"):
+		return "forest"
+	if p.contains("dungeon") or p.contains("test_level") or p.contains("campscene") or p.contains("boss") or p.contains("tutorial"):
+		return "dungeon"
+	if p.contains("mainmenu"):
+		return ""
+	return ""
+
+
+func _is_night_ambient() -> bool:
+	return ForestNightLightUtil.get_night_blend() >= 0.5
+
+
+func _is_ambient_track(track_id: String) -> bool:
+	return SoundCatalog.AMBIENT_FILES.has(track_id)
+
+
+func _footstep_sfx_id_for_scene(scene_path: String) -> String:
+	return "footstep_dirt" if _is_dirt_surface_scene(scene_path) else "footstep_player"
+
+
+func _land_sfx_id_for_scene(scene_path: String, heavy: bool) -> String:
+	if _is_dirt_surface_scene(scene_path):
+		return "land_dirt"
+	return "land_heavy" if heavy else "land"
+
+
+func _is_dirt_surface_scene(scene_path: String) -> bool:
+	match _ambient_profile_from_scene(scene_path):
+		"village", "forest":
+			return true
+		_:
+			return false
+
+
+func _refresh_ambient_music(force_restart := false) -> void:
+	if _ambient_profile.is_empty():
+		clear_ambient_profile()
+		return
+	var track_id: String = ""
+	match _ambient_profile:
+		"village":
+			_ambient_is_night = _is_night_ambient()
+			track_id = "village_night" if _ambient_is_night else "village_day"
+		"forest":
+			_ambient_is_night = _is_night_ambient()
+			track_id = "forest_night" if _ambient_is_night else "forest_day"
+		"dungeon":
+			_ambient_is_night = false
+			track_id = "dungeon"
+	if track_id.is_empty():
+		clear_ambient_profile()
+		return
+	play_music(track_id, true, force_restart)
 
 
 func stop_music() -> void:
 	_current_music_id = ""
+	_music_should_loop = false
 	if is_instance_valid(_music_player):
 		_music_player.stop()
+
+
+func clear_ambient_profile() -> void:
+	_ambient_profile = ""
+	_ambient_is_night = false
+	stop_music()
 
 
 func set_master_volume_db(db: float) -> void:
@@ -196,15 +388,30 @@ func set_sfx_volume_db(db: float) -> void:
 		AudioServer.set_bus_volume_db(idx, db)
 
 
+func _get_sfx_stream(sfx_id: String) -> AudioStream:
+	if not _streams.has(sfx_id):
+		_register_sfx(sfx_id)
+	return _streams.get(sfx_id, null)
+
+
+func _load_stream_at_path(path: String) -> AudioStream:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	var loaded: Resource = load(path)
+	if loaded is AudioStream:
+		return loaded as AudioStream
+	return null
+
+
 func _register_sfx(sound_id: String) -> void:
 	var path: String = SoundCatalog.resolve_sfx_path(sound_id)
 	if not path.is_empty():
-		var loaded: Resource = load(path)
-		if loaded is AudioStream:
+		var loaded: AudioStream = _load_stream_at_path(path)
+		if loaded != null:
 			_streams[sound_id] = loaded
 			_stream_source[sound_id] = "file"
 			return
-	var def: Dictionary = _SYNTH_DEFS.get(sound_id, _SYNTH_DEFS.get("click", {}))
+	var def: Dictionary = _synth_def_for_sound_id(sound_id)
 	if def.is_empty():
 		push_warning("[SoundManager] Unknown sfx id: %s" % sound_id)
 		return
@@ -212,12 +419,15 @@ func _register_sfx(sound_id: String) -> void:
 	_stream_source[sound_id] = "synth"
 
 
+func _synth_def_for_sound_id(sound_id: String) -> Dictionary:
+	var stem: String = SoundCatalog.get_sfx_file_stem(sound_id)
+	return AudioPlaceholderTones.SFX_STEMS.get(stem, {})
+
+
 func _play_id(sound_id: String, position: Vector2, ui_channel: bool, pitch_scale: float = 1.0) -> void:
 	if not _enabled:
 		return
-	if not _streams.has(sound_id):
-		_register_sfx(sound_id)
-	var stream: AudioStream = _streams.get(sound_id, null)
+	var stream: AudioStream = _get_sfx_stream(sound_id)
 	if stream == null:
 		return
 	var pitch: float = clampf(pitch_scale, 0.05, 4.0)
@@ -289,12 +499,14 @@ func _synthesize(def: Dictionary) -> AudioStreamWAV:
 
 
 func _apply_saved_volume_from_settings() -> void:
+	var master_pct: int = 100
+	var music_pct: int = 80
+	var sfx_pct: int = 100
 	var config := ConfigFile.new()
-	if config.load("user://settings.cfg") != OK:
-		return
-	var master_pct: int = int(config.get_value("audio", "master_volume", 100))
-	var music_pct: int = int(config.get_value("audio", "music_volume", 80))
-	var sfx_pct: int = int(config.get_value("audio", "sfx_volume", 100))
+	if config.load("user://settings.cfg") == OK:
+		master_pct = int(config.get_value("audio", "master_volume", master_pct))
+		music_pct = int(config.get_value("audio", "music_volume", music_pct))
+		sfx_pct = int(config.get_value("audio", "sfx_volume", sfx_pct))
 	set_master_volume_db(_percent_to_db(master_pct))
 	set_music_volume_db(_percent_to_db(music_pct))
 	set_sfx_volume_db(_percent_to_db(sfx_pct))
@@ -303,8 +515,8 @@ func _apply_saved_volume_from_settings() -> void:
 func _log_audio_status() -> void:
 	var status: Dictionary = get_audio_status()
 	print(
-		"[SoundManager] Ready — %d file asset(s), %d synth fallback(s). See assets/audio/PLACEHOLDER.md"
-		% [int(status.get("file_count", 0)), int(status.get("synth_count", 0))]
+		"[SoundManager] Ready — %d file asset(s), %d synth fallback(s). Music bus=%s SFX bus=%s"
+		% [int(status.get("file_count", 0)), int(status.get("synth_count", 0)), _resolve_bus(MUSIC_BUS), _resolve_bus(SFX_BUS)]
 	)
 
 

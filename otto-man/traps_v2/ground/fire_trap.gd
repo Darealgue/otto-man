@@ -52,7 +52,6 @@ func _ready() -> void:
 		sprite.play("idle")
 
 func _physics_process(delta: float) -> void:
-	super._physics_process(delta)
 	if is_sleeping:
 		return
 	if _state != FireState.SUSTAIN:

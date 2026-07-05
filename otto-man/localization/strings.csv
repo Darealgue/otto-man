@@ -43,7 +43,13 @@ profile.load_title,Oyuncu profili,Player Profile
 profile.load_sub,Hangi profildeki kayıtları yüklemek istiyorsun?,Which profile's saves do you want to load?
 profile.card_name,Profil %d,Profile %d
 profile.select_button,Bu profili seç,Select this profile
+profile.delete_button,Profili sil,Delete profile
 profile.back,Geri,Back
+profile.delete_title,Profili sil,Delete profile
+profile.delete_confirm,"Profil %d ve tüm kayıtları (slotlar, otomatik kayıt, yan veriler) kalıcı olarak silinecek.\n\nEmin misin?","Profile %d and all saves (slots, autosave, side data) will be permanently deleted.\n\nAre you sure?"
+profile.delete_empty,Bu profilde silinecek kayıt yok.,No saves to delete in this profile.
+profile.delete_success,Profil %d temizlendi.,Profile %d cleared.
+profile.delete_failed,Profil %d silinemedi.,Could not delete profile %d.
 profile.saved_slots,Kayıtlı slot: %d / 5,Saved slots: %d / 5
 profile.latest_save,Son kayıt: %s,Latest save: %s
 profile.longest_play,En uzun oyun: %s,Longest playtime: %s
@@ -62,6 +68,13 @@ slot.load_button,Yükle,Load
 slot.delete_button,Sil,Delete
 autosave.label_none,Otomatik kayıt: (henüz yok),Autosave: (none yet)
 autosave.label_info,"Otomatik kayıt — %s\nSahne: %s | Süre: %s%s","Autosave — %s\nScene: %s | Time: %s%s"
+stealth.exit_locked_toast,Alarm! Çıkış kapısı kilitlendi — anahtarı taşıyan düşmanı yen veya yere düşen anahtarı al.,Alarm! Exit door locked — kill the key carrier or pick up the dropped key.
+stealth.alarm_banner,"ALARM!\nTüm kapılar kilitlendi.\nAnahtarı bul!","ALARM!\nAll doors are locked.\nFind the key!"
+stealth.key_obtained_toast,Çıkış anahtarı alındı! Kapıya dönebilirsin.,Exit key obtained! You can return to the door.
+stealth.exit_key_required_toast,Anahtar olmadan çıkamazsın — 🔑 taşıyan düşmanı yen veya yere düşen anahtarı al.,You need the exit key — kill the key carrier or pick up the dropped key.
+stealth.key_holder_arrow_tooltip,Anahtarı taşıyan düşman bu yönde,Key carrier is in this direction
+dungeon.collectibles_title,Sefer Ganimeti,Expedition Loot
+dungeon.collectible_key,Anahtar,Key
 save.overwrite_title,Kayıt Üzerine Yaz,Overwrite Save
 save.overwrite_message,"Slot %d'de zaten bir kayıt var:\n%s\n\nÜzerine kaydetmek istediğinizden emin misiniz?","Slot %d already has a save:\n%s\n\nAre you sure you want to overwrite it?"
 save.status_saving,Kaydediliyor...,Saving...
@@ -141,7 +154,9 @@ resource.tea,Kahve,Coffee
 resource.soap,Parfüm,Perfume
 resource.medicine,İlaç,Medicine
 resource.weapon,Silah,Weapon
-resource.armor,Zırh,Armor
+resource.weapon_t1,1.sv. Silah,Tier-1 Weapon
+resource.weapon_t2,2.sv. Silah,Tier-2 Weapon
+resource.weapon_t3,3.sv. Silah,Tier-3 Weapon
 building.woodcutter,Odun Kampı,Woodcutter Camp
 building.stone_mine,Taş Ocağı,Stone Mine
 building.hunter_hut,Avcı/Toplayıcı,Hunter/Gatherer Hut
@@ -157,7 +172,6 @@ building.herbalist,Şifacı,Herbalist
 building.teahouse,Çay Evi,Tea House
 building.soapmaker,Sabun Atölyesi,Soap Workshop
 building.gunsmith,Silahçı,Gunsmith
-building.armorer,Zırhçı,Armorer
 hud.gold,Altın: %d,Gold: %d
 hud.soldiers,Asker: %d,Soldiers: %d
 hud.morale,Moral: %.0f,Morale: %.0f
@@ -171,8 +185,21 @@ hud.event_line,%s (%s, %dgün),%s (%s, %dd)
 hud.economy_none,Üretim/Gider/Net: -,Prod/Cost/Net: -
 hud.economy_format,Üretim/Gider/Net: %.1f / %.1f / %.1f,Prod/Cost/Net: %.1f / %.1f / %.1f
 hud.resource_net, (%s%.1f/g), (%s%.1f/d)
+hud.food_net_detail, (%+d/g · %d−%d),(%+d/d · %d−%d)
+hud.gather_uncertain_marker, ?,?
+hud.gather_uncertain_tooltip,Toplama şansı etkilendi — gösterilen günlük net tahmindir.,Gather success is affected — daily net shown is an estimate.
 hud.resource_cap,%s: %d/%d%s,%s: %d/%d%s
 hud.resource_amount,%s: %d%s,%s: %d%s
+hud.disaster_drought,⚠Kuraklık,⚠Drought
+hud.disaster_famine,⚠Kıtlık,⚠Famine
+hud.disaster_pest,⚠Zararlı,⚠Pest
+hud.disaster_wolf,⚠Kurt,⚠Wolves
+hud.disaster_strike,⚠Grev,⚠Strike
+hud.disaster_storm,⚠Fırtına,⚠Storm
+hud.disaster_blessing,✦Bereket,✦Blessing
+hud.disaster_soldier_rations,⚠Asker +%d/g,⚠Soldiers +%d/d
+hud.disaster_plague,⚠Salgın,⚠Plague
+hud.disaster_days,(%dg),(%dd)
 severity.low,Düşük,Low
 severity.medium,Orta,Medium
 severity.high,Yüksek,High
@@ -428,15 +455,16 @@ tutorial.village.welcome_hud,"Hayatta kaldın. Bu köy senin.\nÜstte [color=#f5
 tutorial.village.go_to_forest,"İnşa için [color=#c8a86c]odun[/color] lazım.\n{map} tuşuyla dünya haritasını aç, {move} ile en yakın [color=#55aa55]ormana[/color] git.\n{hex_enter} ile ormana gir. [color=#c8a86c]Odun[/color] ve [color=#ff9966]yiyecek[/color] topla, sonra köye dön.","You need [color=#c8a86c]wood[/color] to build.\nOpen the world map with {map}, go to the nearest [color=#55aa55]forest[/color] with {move}.\nEnter with {hex_enter}. Gather [color=#c8a86c]wood[/color] and [color=#ff9966]food[/color], then return to the village."
 tutorial.village.objective_mentor,Mentora yaklaş ve {interact} ile konuş,Approach the mentor and talk with {interact}
 tutorial.village.objective_forest,{map} ile haritayı aç, {move} ile ormana git, {hex_enter} ile gir,Open the map with {map}, go to the forest with {move}, enter with {hex_enter}
-tutorial.village.objective_campfire,"Kamp ateşine git, {ui_up} ile menüyü aç",Go to the campfire and open the menu with {ui_up}
+tutorial.village.objective_campfire,"Kamp ateşine git, {ui_up} ile dinlen",Go to the campfire and rest with {ui_up}
+tutorial.village.objective_build_plot,"Boş inşa parsele git, {ui_up} ile inşa menüsünü aç",Go to an empty build plot and open the build menu with {ui_up}
 tutorial.village.objective_build_menu,{page_left} / {page_right} ile gez, İnşa menüsüne gel,Use {page_left} / {page_right} to browse to the Construction menu
 tutorial.village.objective_build_woodcutter,"Odun Kampını seç, {confirm} ile inşa et",Select the Woodcutter Camp and build with {confirm}
 tutorial.village.objective_workers_menu,{page_left} / {page_right} ile gez, İşçiler menüsüne gel,Use {page_left} / {page_right} to browse to the Workers menu
-tutorial.village.objective_assign_worker,"Odun Kampını seç, {confirm} ile bir işçi ata",Select the Woodcutter Camp and assign a worker with {confirm}
+tutorial.village.objective_assign_worker,"Odun Kampının yanına git, {village_worker_add} ile işçi ekle",Stand by the Woodcutter Camp and add a worker with {village_worker_add}
 tutorial.village.core_complete,"Temeller atıldı — artık köy senin.\nİstersen mentorla konuş; sırada keşif var.","The basics are in place — the village is yours.\nTalk to the mentor when you want; exploration is next."
-tutorial.hint.first_cariye,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\nGörev Merkezi'nde [color=#f5d76e]Kurtarılanın Yolu[/color] zinciri açıldı — onu köye kazandır.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!\nThe [color=#f5d76e]Path of the Rescued[/color] chain is now in the Mission Center — help her settle in."
-tutorial.rescue_chain.message,"[color=#ff99cc]%s[/color] köye geldi.\nGörev Merkezi → Görevler'de [color=#f5d76e]Kurtarılanın Yolu[/color] zincirini ona ata.","[color=#ff99cc]%s[/color] has arrived.\nMission Center → Missions: assign the [color=#f5d76e]Path of the Rescued[/color] chain to her."
-tutorial.rescue_chain.objective,Görev Merkezi: %s ile «Dinlen ve Anlat» görevini başlat,Mission Center: start «Rest and Debrief» with %s
+tutorial.hint.first_cariye,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\nKöyde ona yaklaş ([color=#f5d76e]↑[/color]) — [color=#f5d76e]Kurtarılanın Yolu[/color] görev zinciri açıldı.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!\nApproach her in the village ([color=#f5d76e]↑[/color]) — the [color=#f5d76e]Path of the Rescued[/color] chain is available."
+tutorial.rescue_chain.message,"[color=#ff99cc]%s[/color] köye geldi.\nOna yaklaş ve [color=#f5d76e]Kurtarılanın Yolu[/color] zincirinden «Dinlen ve Anlat» görevini ata.","[color=#ff99cc]%s[/color] has arrived.\nApproach her and assign «Rest and Debrief» from the [color=#f5d76e]Path of the Rescued[/color] chain."
+tutorial.rescue_chain.objective,%s ile konuş — «Dinlen ve Anlat» görevini ata,Talk to %s — assign «Rest and Debrief»
 mission.rescue_chain.chain_name,Kurtarılanın Yolu,Path of the Rescued
 mission.rescue_chain.target.village,Köy,Village
 mission.rescue_chain.risk.low,Düşük,Low
@@ -447,7 +475,7 @@ mission.rescue_chain.2.desc,Eski mahkûm yollarını tarar; bir sonraki baskın 
 mission.rescue_chain.3.name,%s: Köye Kazandır,%s: Earn Her Keep
 mission.rescue_chain.3.desc,Komşu yerleşimle ilk temas — cariye artık köyün bir parçası.,First contact with a neighbor settlement — she becomes part of the village.
 news.rescue_chain.start.title,%s için yeni görev zinciri,A new mission chain for %s
-news.rescue_chain.start.body,Görev Merkezi'nde «Kurtarılanın Yolu» açıldı. İlk görevi kurtardığın cariyeye ata.,«Path of the Rescued» is open in the Mission Center. Assign the first mission to the concubine you rescued.
+news.rescue_chain.start.body,Köyde kurtardığın cariyeye yaklaş — «Kurtarılanın Yolu» açıldı. İlk görevi ona ata.,Approach the concubine you rescued — «Path of the Rescued» is open. Assign her the first mission.
 news.rescue_chain.complete.title,Kurtarılanın Yolu tamamlandı,Path of the Rescued complete
 news.rescue_chain.complete.body,Cariyen köye kazandırdın. Artık diğer görevlere de yollayabilirsin.,She has earned her place. You can send her on other missions too.
 mission.role.chain_name,%s — %s imza görevleri,%s — %s signature missions
@@ -483,7 +511,7 @@ mission.story.2.desc,Leverage ve deneyimle köyde güven kazanır; mentor ona da
 mission.story.3.name,%s: Köyün Sesi,%s: Voice of the Village
 mission.story.3.desc,Artık köyün kalıcı sesi — moral ve itibar için sembol.,She becomes a lasting voice for morale and reputation.
 news.role_chain.start.title,%s için rol görevleri,%s — role missions unlocked
-news.role_chain.start.body,Yeni rol: %s. Görev Merkezi'nde imza görev zinciri açıldı.,New role: %s. A signature mission chain is in the Mission Center.
+news.role_chain.start.body,Yeni rol: %s. Cariyeye yaklaş — imza görev zinciri açıldı.,New role: %s. Approach the concubine — a signature mission chain is available.
 news.role_chain.complete.title,Rol görevleri tamamlandı,Role missions complete
 news.role_chain.complete.body,Cariye rolünde ustalaştı; ek ödüller köye aktarıldı.,She mastered her role; bonus rewards reached the village.
 news.story_chain.start.title,%s'in hikâyesi,%s's story begins
@@ -611,6 +639,7 @@ mc.trade.concubine_skill,Ticaret yeteneği: %d | Seviye: %d,Trade skill: %d | Le
 mc.trade.send_mission_hint,A: Görev Gönder,A: Send Mission
 common.unknown,Bilinmeyen,Unknown
 building.barracks,Kışla,Barracks
+building.inventor,Mucit Odası,Inventor Workshop
 mc.time.days,%.1f gün,%.1f days
 mc.mission.relief.neighbor_crisis,Komsu kriz | %s,Neighboring crisis | %s
 mc.mission.relief.ally_call,Muttefik yardim cagrisi | %s,Ally aid call | %s
@@ -637,22 +666,19 @@ mc.recipe.armorer,Girdi: Metal x2 + Su ⇒ Zırh,Input: Metal x2 + Water ⇒ Arm
 mc.recipe.teahouse,Girdi: Yiyecek + Su ⇒ Çay,Input: Food + Water ⇒ Tea
 mc.recipe.soapmaker,Girdi: Yiyecek + Su x2 ⇒ Sabun,Input: Food + Water x2 ⇒ Soap
 mc.recipe.herbalist,Girdi: Yiyecek + Su ⇒ İlaç,Input: Food + Water ⇒ Medicine
-mc.assignment.equipment.header,=== ASKER EKİPMAN ATAMA ===,=== SOLDIER EQUIPMENT ASSIGNMENT ===
-mc.assignment.equipment.stock,📦 Stok: Silah: %d | Zırh: %d,📦 Stock: Weapon: %d | Armor: %d
+mc.assignment.equipment.header,=== ASKER SİLAH ATAMA ===,=== SOLDIER WEAPON ASSIGNMENT ===
+mc.assignment.equipment.stock_tiers,📦 Stok: 1.sv:%d | 2.sv:%d | 3.sv:%d,📦 Stock: T1:%d | T2:%d | T3:%d
 mc.assignment.equipment.no_soldiers,Kışlada asker yok!\n\n[%s: Geri],No soldiers in barracks!\n\n[%s: Back]
-mc.assignment.equipment.nav_hint,Yukarı/Aşağı: Asker seç\nSol/Sağ: Silah/Zırh seç,Up/Down: Select soldier\nLeft/Right: Weapon/Armor
-mc.assignment.equipment.give_hint,%s: Ekipman Ver/Al,%s: Give/Take Equipment
-mc.assignment.equipment.selected,Seçili Ekipman: %s,Selected equipment: %s
-mc.assignment.equipment.weapon,⚔️ Silah,⚔️ Weapon
-mc.assignment.equipment.armor,🛡️ Zırh,🛡️ Armor
-mc.assignment.equipment.soldier_line,Asker %d %s %s,Soldier %d %s %s
+mc.assignment.equipment.nav_hint,Yukarı/Aşağı: Asker seç\nSol/Sağ: Silah seviyesi seç,Up/Down: Select soldier\nLeft/Right: Select weapon tier
+mc.assignment.equipment.give_hint,%s: Silah Ver/Al,%s: Give/Take Weapon
+mc.assignment.equipment.selected_tier,Seçili Silah Seviyesi: %d,Selected weapon tier: %d
+mc.assignment.equipment.soldier_line_tier,Asker %d %s,Soldier %d %s
 mc.assignment.equipment.back_hint,[%s: Geri],[%s: Back]
 mc.assignment.equipment.error_no_barracks,Hata: Kışla bulunamadı!,Error: Barracks not found!
-mc.assignment.equipment.distribute_header,=== ASKER EKİPMAN DAĞITIMI ===,=== SOLDIER EQUIPMENT DISTRIBUTION ===
+mc.assignment.equipment.distribute_header,=== ASKER SİLAH DAĞITIMI ===,=== SOLDIER WEAPON DISTRIBUTION ===
 mc.assignment.equipment.soldier_count,👥 Asker Sayısı: %d,👥 Soldiers: %d
-mc.assignment.equipment.weapon_qty,⚔️ Silah: %d,⚔️ Weapon: %d
-mc.assignment.equipment.armor_qty,🛡️ Zırh: %d,🛡️ Armor: %d
-mc.assignment.equipment.distribute_controls,"Yukarı/Aşağı: Satır Seç\nSol/Sağ: Miktar Ayarla\nA tuşu: Dağıt\nB tuşu: İptal","Up/Down: Select row\nLeft/Right: Adjust amount\nA: Distribute\nB: Cancel"
+mc.assignment.equipment.weapon_tier_qty,⚔️ %d. sv. Silah: %d,⚔️ Tier-%d Weapon: %d
+mc.assignment.equipment.distribute_controls,"Yukarı/Aşağı: Seviye Seç\nSol/Sağ: Miktar Ayarla\nA tuşu: Dağıt\nB tuşu: İptal","Up/Down: Select tier\nLeft/Right: Adjust amount\nA: Distribute\nB: Cancel"
 mc.diplomacy.no_world_manager,WorldManager bulunamadı. Diplomasi verisi mevcut değil.,WorldManager not found. Diplomacy data unavailable.
 mc.diplomacy.no_factions,Henüz tanımlı fraksiyon yok.,No factions defined yet.
 mc.diplomacy.select_faction,Fraksiyon seçiniz.,Select a faction.

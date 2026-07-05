@@ -176,6 +176,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Check if within parry window and can parry
 	if can_parry:
 		print("[Block] PARRY SUCCESS")
+		_play_block_sfx(hitbox.global_position if hitbox else player.global_position, true)
 		
 		# Consume stamina for parry if not already consumed for this hit
 		if not stamina_consumed_this_hit and stamina_bar:
@@ -186,6 +187,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 				player.hurtbox.last_damage = hitbox.get_damage() * (1.0 - BLOCK_DAMAGE_REDUCTION)
 				is_in_impact_animation = true
 				animation_player.play("block_impact")
+				_play_block_sfx(hitbox.global_position if hitbox else player.global_position)
 				return
 		
 		player.hurtbox.last_damage = 0  # No damage on successful parry
@@ -254,6 +256,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		
 		is_in_impact_animation = true
 		animation_player.play("block_impact")
+		_play_block_sfx(hitbox.global_position if hitbox else player.global_position)
 
 func _on_animation_finished(anim_name: String):
 	match anim_name:
@@ -282,3 +285,10 @@ func _on_animation_finished(anim_name: String):
 		"block_finish":
 			is_transitioning = false  # Reset transitioning flag
 			state_machine.transition_to("Idle")
+
+
+func _play_block_sfx(at_position: Vector2, parry: bool = false) -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("play_sfx"):
+		var sfx_id: String = "parry" if parry else "block"
+		sm.play_sfx(sfx_id, at_position)

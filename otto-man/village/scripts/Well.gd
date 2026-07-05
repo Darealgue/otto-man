@@ -82,6 +82,8 @@ func remove_worker() -> bool:
 		return false
 
 	var worker_id_to_remove = assigned_worker_ids.pop_back()
+	if VillageManager.has_method("clear_basic_gather_expedition_for_worker"):
+		VillageManager.clear_basic_gather_expedition_for_worker(worker_id_to_remove)
 	print("Well: Çıkarılacak işçi ID: %d" % worker_id_to_remove)
 	
 	var worker_instance = null

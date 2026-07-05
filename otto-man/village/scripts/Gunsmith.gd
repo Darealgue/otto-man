@@ -12,11 +12,19 @@ var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 15.0
 @export var max_level: int = 3
 
-var required_resources: Dictionary = {"metal": 1, "wood": 1, "water": 1}
-var produced_resource: String = "weapon"
+## Silah seviyesi tarifleri — bina seviyesiyle birlikte otomatik yükselir.
+## 1. seviye: odun+taş (en basit silah) — 2. seviye: kereste+tuğla — 3. seviye: metal+kumaş
+const TIER_RECIPES := {
+	1: {"resources": {"wood": 1, "stone": 1}, "produces": "weapon_t1"},
+	2: {"resources": {"lumber": 1, "brick": 1}, "produces": "weapon_t2"},
+	3: {"resources": {"metal": 1, "cloth": 1}, "produces": "weapon_t3"},
+}
+
+var required_resources: Dictionary = {"wood": 1, "stone": 1}
+var produced_resource: String = "weapon_t1"
 
 # Fetch/buffer state
-var input_buffer: Dictionary = {"metal": 0, "wood": 0, "water": 0}
+var input_buffer: Dictionary = {"wood": 0, "stone": 0}
 var production_progress: float = 0.0
 const PRODUCTION_TIME: float = 300.0
 var fetch_timer: Timer = null
@@ -37,6 +45,18 @@ func _ready() -> void:
 	fetch_timer.one_shot = true
 	fetch_timer.timeout.connect(_on_fetch_timeout)
 	add_child(fetch_timer)
+	_update_recipe_for_level()
+
+func _update_recipe_for_level() -> void:
+	var tier: int = clampi(level, 1, 3)
+	var recipe: Dictionary = TIER_RECIPES.get(tier, TIER_RECIPES[1])
+	required_resources = (recipe.get("resources", {}) as Dictionary).duplicate()
+	produced_resource = String(recipe.get("produces", "weapon_t1"))
+	var new_buffer: Dictionary = {}
+	for res_key in required_resources.keys():
+		new_buffer[res_key] = 0
+	input_buffer = new_buffer
+	production_progress = 0.0
 
 func get_next_upgrade_cost() -> Dictionary:
 	return BuildingUpgradeMixin.get_next_cost(self)
@@ -48,6 +68,7 @@ func _on_upgrade_finished() -> void:
 	is_upgrading = false
 	level += 1
 	max_workers = level
+	_update_recipe_for_level()
 	upgrade_finished.emit()
 	state_changed.emit()
 	VillageManager.notify_building_state_changed(self)
@@ -127,6 +148,12 @@ func remove_worker() -> bool:
 	return true
 
 func get_production_info() -> String:
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Silah: (metal+odun+su)"
+	var tier: int = clampi(level, 1, 3)
+	var recipe_label := ""
+	match tier:
+		1: recipe_label = "odun+taş → 1.sv. silah"
+		2: recipe_label = "kereste+tuğla → 2.sv. silah"
+		3: recipe_label = "metal+kumaş → 3.sv. silah"
+	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • " + recipe_label
 
 

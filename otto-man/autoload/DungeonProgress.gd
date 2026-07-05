@@ -6,6 +6,8 @@ extends Node
 const VILLAGE_DUNGEON_ID: String = "village_portal"
 const BOSS_HP_PER_CLEAR: float = 50.0
 const STEALTH_SKIP_ENEMY_PENALTY: int = 1
+## Her zindanda tam boss run'ından önceki alıştırma girişleri (1→1 bölüm, 2→2, 3→3, boss yok).
+const WARMUP_RUNS_REQUIRED: int = 3
 
 const RELIC_UNLOCK_ORDER: Array[String] = ["steady_heart", "lucky_pouch", "iron_will"]
 
@@ -29,6 +31,7 @@ const RELICS: Dictionary = {
 
 var active_dungeon_id: String = VILLAGE_DUNGEON_ID
 var _clears_by_id: Dictionary = {}  # dungeon_id (String) -> int
+var _warmup_completions_by_id: Dictionary = {}  # dungeon_id -> tamamlanan alıştırma run sayısı (0..3)
 var _stealth_skip_penalty_by_id: Dictionary = {}  # dungeon_id -> bekleyen düşman sayısı cezası
 var _unlocked_relics: Array[String] = []
 
@@ -48,6 +51,51 @@ func set_active_dungeon_from_payload(payload: Dictionary) -> void:
 func get_clear_count(dungeon_id: String = "") -> int:
 	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
 	return maxi(0, int(_clears_by_id.get(key, 0)))
+
+
+func get_warmup_completions(dungeon_id: String = "") -> int:
+	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
+	return clampi(int(_warmup_completions_by_id.get(key, 0)), 0, WARMUP_RUNS_REQUIRED)
+
+
+func is_in_warmup(dungeon_id: String = "") -> bool:
+	return get_warmup_completions(dungeon_id) < WARMUP_RUNS_REQUIRED
+
+
+func get_max_segments_for_run(dungeon_id: String = "") -> int:
+	var warmups: int = get_warmup_completions(dungeon_id)
+	if warmups < WARMUP_RUNS_REQUIRED:
+		return warmups + 1
+	return 3
+
+
+func configure_run_warmup(dungeon_id: String = "") -> Dictionary:
+	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
+	var warmups: int = get_warmup_completions(key)
+	var in_warmup: bool = warmups < WARMUP_RUNS_REQUIRED
+	return {
+		"is_warmup": in_warmup,
+		"max_segments": get_max_segments_for_run(key),
+		"warmup_index": warmups + 1 if in_warmup else 0,
+		"warmup_total": WARMUP_RUNS_REQUIRED,
+	}
+
+
+func record_warmup_complete(dungeon_id: String = "") -> void:
+	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
+	if key.is_empty() or not is_in_warmup(key):
+		return
+	var next: int = get_warmup_completions(key) + 1
+	_warmup_completions_by_id[key] = next
+	print("[DungeonProgress] Alıştırma run tamamlandı: %s (%d/%d)" % [key, next, WARMUP_RUNS_REQUIRED])
+
+
+func reset_warmup_progress(dungeon_id: String = "") -> void:
+	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
+	if key.is_empty():
+		return
+	_warmup_completions_by_id.erase(key)
+	print("[DungeonProgress] Alıştırma sıfırlandı: %s" % key)
 
 
 func record_clear(dungeon_id: String = "") -> void:
@@ -147,9 +195,18 @@ func _unlock_relic(relic_id: String, dungeon_id: String) -> void:
 		)
 
 
+func reset_for_new_game() -> void:
+	active_dungeon_id = VILLAGE_DUNGEON_ID
+	_clears_by_id.clear()
+	_warmup_completions_by_id.clear()
+	_stealth_skip_penalty_by_id.clear()
+	_unlocked_relics.clear()
+
+
 func get_save_data() -> Dictionary:
 	return {
 		"clears": _clears_by_id.duplicate(true),
+		"warmup_completions": _warmup_completions_by_id.duplicate(true),
 		"stealth_skip_penalties": _stealth_skip_penalty_by_id.duplicate(true),
 		"unlocked_relics": _unlocked_relics.duplicate(),
 	}
@@ -157,6 +214,7 @@ func get_save_data() -> Dictionary:
 
 func load_save_data(data: Variant) -> void:
 	_clears_by_id.clear()
+	_warmup_completions_by_id.clear()
 	_stealth_skip_penalty_by_id.clear()
 	_unlocked_relics.clear()
 	if not data is Dictionary:
@@ -165,6 +223,13 @@ func load_save_data(data: Variant) -> void:
 	if d.has("clears") and d.clears is Dictionary:
 		for key in (d.clears as Dictionary).keys():
 			_clears_by_id[str(key)] = maxi(0, int((d.clears as Dictionary)[key]))
+	if d.has("warmup_completions") and d.warmup_completions is Dictionary:
+		for key in (d.warmup_completions as Dictionary).keys():
+			_warmup_completions_by_id[str(key)] = clampi(
+				int((d.warmup_completions as Dictionary)[key]),
+				0,
+				WARMUP_RUNS_REQUIRED
+			)
 	elif not d.has("stealth_skip_penalties"):
 		for key in d.keys():
 			if key == "unlocked_relics":

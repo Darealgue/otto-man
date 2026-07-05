@@ -14,7 +14,7 @@ var is_fetcher_out: bool = false # Aynı anda sadece 1 işçi dışarı çıkabi
 
 # Gerekli temel kaynaklar (üretim için)
 # Artık dictionary olarak tanımlıyoruz: {"kaynak_adı": miktar}
-var required_resources: Dictionary = {"food": 1, "water": 1}
+var required_resources: Dictionary = {"wood": 1, "food": 1}
 
 # Üretilen gelişmiş kaynak
 var produced_resource: String = "bread"
@@ -25,7 +25,7 @@ const BREAD_PRODUCTION_TIME: float = 300.0 # 2 oyun saati (300 gerçek saniye) =
 var is_producing: bool = false
 
 # --- INPUT FETCH/BUFFER ---
-var input_buffer: Dictionary = {"food": 0, "water": 0}
+var input_buffer: Dictionary = {"wood": 0, "food": 0}
 var fetch_timer: Timer = null
 var fetch_target: String = ""
 const FETCH_TIME_PER_UNIT: float = 3.0
@@ -117,11 +117,10 @@ func _process(delta: float) -> void:
 			
 			print("%s: 1 ekmek üretildi! Toplam ekmek: %d" % [building_name, VillageManager.resource_levels.get("bread", 0)])
 			# Toplam kaynakları göster
-			print("📊 TOPLAM KAYNAKLAR: Odun:%d, Taş:%d, Yiyecek:%d, Su:%d, Metal:%d, Ekmek:%d" % [
+			print("📊 TOPLAM KAYNAKLAR: Odun:%d, Taş:%d, Yiyecek:%d, Metal:%d, Ekmek:%d" % [
 				VillageManager.resource_levels.get("wood", 0),
 				VillageManager.resource_levels.get("stone", 0), 
 				VillageManager.resource_levels.get("food", 0),
-				VillageManager.resource_levels.get("water", 0),
 				VillageManager.resource_levels.get("metal", 0),
 				VillageManager.resource_levels.get("bread", 0)
 			])
@@ -275,4 +274,4 @@ func finished_fetching() -> void:
 # Basit üretim bilgisini döndürür (UI için)
 func get_production_info() -> String:
 	var level_info := "Lv." + str(level)
-	return level_info + " • İşçi:" + str(assigned_workers) + " • Ekmek: 1/" + str(int(BREAD_PRODUCTION_TIME / max(1.0, float(assigned_workers)))) + "sn"
+	return level_info + " • İşçi:" + str(assigned_workers) + " • Ekmek (odun+yiyecek): 1/" + str(int(BREAD_PRODUCTION_TIME / max(1.0, float(assigned_workers)))) + "sn"

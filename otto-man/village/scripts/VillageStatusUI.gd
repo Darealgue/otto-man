@@ -15,6 +15,7 @@ extends MarginContainer # .tscn dosyasındaki kök node türü
 @onready var water_label: Label = %WaterLabel
 @onready var metal_label: Label = %MetalLabel
 @onready var bread_label: Label = %BreadLabel
+var _water_row: Control = null
 @onready var summary_container: HBoxContainer = %SummaryHBox
 @onready var resource_list_container: VBoxContainer = %ResourceList
 # Events & Morale
@@ -29,15 +30,15 @@ const PRODUCER_SCRIPTS := {
 	"wood": "res://village/scripts/WoodcutterCamp.gd",
 	"stone": "res://village/scripts/StoneMine.gd",
 	"food": "res://village/scripts/HunterGathererHut.gd",
-	"water": "res://village/scripts/Well.gd",
 	"lumber": "res://village/scripts/Sawmill.gd",
 	"brick": "res://village/scripts/Brickworks.gd",
 	"metal": "res://village/scripts/Blacksmith.gd",
 	"bread": "res://village/scripts/Bakery.gd",
 	"cloth": "res://village/scripts/Weaver.gd",
-	# Gelişmiş kaynaklar
-	"weapon": "res://village/scripts/Gunsmith.gd",
-	"armor": "res://village/scripts/Armorer.gd",
+	# Gelişmiş kaynaklar — silah seviyeleri (zırh sistemi kaldırıldı)
+	"weapon_t1": "res://village/scripts/Gunsmith.gd",
+	"weapon_t2": "res://village/scripts/Gunsmith.gd",
+	"weapon_t3": "res://village/scripts/Gunsmith.gd",
 	"garment": "res://village/scripts/Tailor.gd",
 	"tea": "res://village/scripts/TeaHouse.gd",
 	"soap": "res://village/scripts/SoapMaker.gd",
@@ -45,6 +46,7 @@ const PRODUCER_SCRIPTS := {
 }
 
 var _extra_resource_labels: Dictionary = {}
+var _cached_disaster_hints: Dictionary = {}
 
 # Icon sizing for resource rows
 const RESOURCE_ICON_SIZE := Vector2(25, 25)
@@ -79,18 +81,18 @@ func _ready() -> void:
 	_wrap_label_with_icon(wood_label, "wood")
 	_wrap_label_with_icon(stone_label, "stone")
 	_wrap_label_with_icon(food_label, "food")
-	_wrap_label_with_icon(water_label, "water")
+	if water_label:
+		_water_row = water_label.get_parent() as Control
+		_hide_water_row()
 	_wrap_label_with_icon(metal_label, "metal")
 	_wrap_label_with_icon(bread_label, "bread")
 
 	# Ek etiketler sahnede yoksa dinamik oluştur
 	_ensure_extra_labels()
 
-	# Sinyale Bağlanmayı Kaldır/Yorumla
-#	if VillageManager.has_signal("village_data_changed"):
-#		VillageManager.village_data_changed.connect(_update_labels)
-#	else:
-#		printerr("VillageStatusUI: VillageManager'da 'village_data_changed' sinyali bulunamadı!")
+	# Sinyale bağlan — işçi ataması / kaynak değişince hasılat hemen güncellensin.
+	if VillageManager.has_signal("village_data_changed"):
+		VillageManager.village_data_changed.connect(_update_labels)
 
 	# GlobalPlayerData için doğrudan sinyal yok, village_data_changed tetiklendiğinde
 	# veya _process içinde periyodik olarak güncellenebilir. Şimdilik _update_labels içinde.
@@ -361,6 +363,9 @@ func _update_labels() -> void:
 	var projected_nets: Dictionary = {}
 	if VillageManager.has_method("get_projected_daily_resource_nets"):
 		projected_nets = VillageManager.get_projected_daily_resource_nets()
+	_cached_disaster_hints = {}
+	if VillageManager.has_method("get_resource_disaster_hints"):
+		_cached_disaster_hints = VillageManager.get_resource_disaster_hints()
 
 	# Barınma kapasitesi göstergesi
 	# Gösterim: "Barınma: X / Y" — X = tüm barınaklardaki kayıtlı köylü sayısı,
@@ -383,19 +388,16 @@ func _update_labels() -> void:
 	var v = VillageManager.get("_last_day_shortages")
 	if v != null and v is Dictionary:
 		shortages = v
-		if shortages.has("soldier_food") or shortages.has("soldier_water"):
+		if shortages.has("soldier_food"):
 			var s_food: int = int(shortages.get("soldier_food", 0))
-			var s_water: int = int(shortages.get("soldier_water", 0))
-			status_text = tr("hud.supply_ok") if (s_food == 0 and s_water == 0) else tr("hud.supply_short")
+			status_text = tr("hud.supply_ok") if s_food == 0 else tr("hud.supply_short")
 			used_shortage = true
 
 	if not used_shortage:
 		var sc: int = soldier_count
-		var req_w: int = int(ceil(float(sc) * 0.5))
 		var req_f: int = int(ceil(float(sc) * 0.5))
-		var have_w: int = int(VillageManager.resource_levels.get("water", 0))
 		var have_f: int = int(VillageManager.resource_levels.get("food", 0))
-		if have_w < req_w or have_f < req_f:
+		if have_f < req_f:
 			status_text = tr("hud.supply_short")
 
 	asker_label.text += tr("hud.supply_suffix") % status_text
@@ -403,14 +405,15 @@ func _update_labels() -> void:
 	_set_resource_visible_and_update(wood_label, "wood", true, false, projected_nets)
 	_set_resource_visible_and_update(stone_label, "stone", true, false, projected_nets)
 	_set_resource_visible_and_update(food_label, "food", true, false, projected_nets)
-	_set_resource_visible_and_update(water_label, "water", true, false, projected_nets)
+	_hide_water_row()
 	_set_resource_visible_and_update(metal_label, "metal", false, true, projected_nets)
 	_set_resource_visible_and_update(bread_label, "bread", false, true, projected_nets)
 
 	_update_dynamic_resource_label("lumber", projected_nets)
 	_update_dynamic_resource_label("brick", projected_nets)
-	_update_dynamic_resource_label("weapon", projected_nets)
-	_update_dynamic_resource_label("armor", projected_nets)
+	_update_dynamic_resource_label("weapon_t1", projected_nets)
+	_update_dynamic_resource_label("weapon_t2", projected_nets)
+	_update_dynamic_resource_label("weapon_t3", projected_nets)
 	_update_dynamic_resource_label("garment", projected_nets)
 	_update_dynamic_resource_label("cloth", projected_nets)
 	_update_dynamic_resource_label("tea", projected_nets)
@@ -460,6 +463,13 @@ func _update_labels() -> void:
 	call_deferred("_sync_top_bar_to_content")
 
 
+func _hide_water_row() -> void:
+	if _water_row:
+		_water_row.visible = false
+	elif water_label:
+		water_label.visible = false
+
+
 func _ensure_extra_labels() -> void:
 	# Sahnede yoksa MoraleLabel ve EventsLabel oluşturur
 	var container: Node = summary_container if is_instance_valid(summary_container) else (bread_label.get_parent() if bread_label and bread_label.get_parent() else self)
@@ -485,6 +495,28 @@ func _ensure_extra_labels() -> void:
 			worker_parent.move_child(housing_label, wl_idx + 1)
 
 # Tek bir kaynak etiketini güncelleyen helper fonksiyonu
+func _disaster_hint_suffix(resource_key: String) -> String:
+	var parts: Array = _cached_disaster_hints.get(resource_key, [])
+	if parts.is_empty():
+		return ""
+	return " " + " ".join(parts)
+
+func _gather_uncertainty_suffix(resource_key: String) -> String:
+	if not VillageManager.has_method("is_gather_projection_uncertain"):
+		return ""
+	if not VillageManager.is_gather_projection_uncertain(resource_key):
+		return ""
+	return tr("hud.gather_uncertain_marker")
+
+func _apply_gather_uncertainty_tooltip(label_node: Label, resource_key: String) -> void:
+	if not VillageManager.has_method("is_gather_projection_uncertain"):
+		label_node.tooltip_text = ""
+		return
+	if VillageManager.is_gather_projection_uncertain(resource_key):
+		label_node.tooltip_text = tr("hud.gather_uncertain_tooltip")
+	else:
+		label_node.tooltip_text = ""
+
 func _update_resource_label(label_node: Label, resource_key: String, projected_nets: Dictionary = {}) -> void:
 	if not is_instance_valid(label_node):
 		return
@@ -493,7 +525,16 @@ func _update_resource_label(label_node: Label, resource_key: String, projected_n
 	var current: int = VillageManager.get_resource_level(resource_key)
 	var cap: int = VillageManager.get_storage_capacity_for(resource_key)
 	var net_per_day := float(projected_nets.get(resource_key, 0.0))
-	var net_text := tr("hud.resource_net") % ["+" if net_per_day >= 0.0 else "", net_per_day]
+	var net_text: String
+	if resource_key == "food" and VillageManager.has_method("get_food_daily_balance"):
+		var bal: Dictionary = VillageManager.get_food_daily_balance()
+		net_text = tr("hud.food_net_detail") % [int(bal.get("net", 0)), int(bal.get("gather", 0)), int(bal.get("eat", 0))]
+	else:
+		net_text = tr("hud.resource_net") % ["+" if net_per_day >= 0.0 else "", net_per_day]
+	var uncertainty_suffix := _gather_uncertainty_suffix(resource_key)
+	net_text += uncertainty_suffix
+	var disaster_suffix := _disaster_hint_suffix(resource_key)
+	var uncertain := not uncertainty_suffix.is_empty()
 	# Check if label has icon_only meta, or if it's in a Row container with an icon
 	var icon_only := false
 	if label_node.has_meta("icon_only"):
@@ -512,23 +553,30 @@ func _update_resource_label(label_node: Label, resource_key: String, projected_n
 	
 	if cap > 0:
 		if icon_only:
-			label_node.text = "%d/%d%s" % [current, cap, net_text]
+			label_node.text = "%d/%d%s%s" % [current, cap, net_text, disaster_suffix]
 		else:
-			label_node.text = tr("hud.resource_cap") % [resource_display_name, current, cap, net_text]
+			label_node.text = tr("hud.resource_cap") % [resource_display_name, current, cap, net_text + disaster_suffix]
 			
-		# Highlight when full
+		# Highlight when full; felaket uyarısı turuncu
 		var ratio := (float(current) / float(cap)) if cap > 0 else 0.0
 		if current >= cap:
 			TextOutline.apply_label_color(label_node, Color(1, 0.85, 0.2))
+		elif not disaster_suffix.is_empty() or uncertain:
+			TextOutline.apply_label_color(label_node, Color(1, 0.72, 0.28))
 		elif ratio >= 0.8:
 			TextOutline.apply_label_color(label_node, Color(1.0, 0.95, 0.6))
 		else:
 			TextOutline.reset_label_color(label_node)
 	else:
 		if icon_only:
-			label_node.text = "%d%s" % [current, net_text]
+			label_node.text = "%d%s%s" % [current, net_text, disaster_suffix]
 		else:
-			label_node.text = tr("hud.resource_amount") % [resource_display_name, current, net_text]
+			label_node.text = tr("hud.resource_amount") % [resource_display_name, current, net_text + disaster_suffix]
+		if not disaster_suffix.is_empty() or uncertain:
+			TextOutline.apply_label_color(label_node, Color(1, 0.72, 0.28))
+		else:
+			TextOutline.reset_label_color(label_node)
+	_apply_gather_uncertainty_tooltip(label_node, resource_key)
 
 # Helper: dinamik kaynak etiketi güncelle/oluştur
 func _update_dynamic_resource_label(resource_key: String, projected_nets: Dictionary = {}) -> void:
@@ -645,6 +693,8 @@ func _get_icon_path_for_resource(resource_key: String) -> String:
 			"res://assets/Icons/perfume_icon.png",
 			"res://assets/Icons/soap_icon.png"
 		]
+	elif resource_key == "weapon_t1" or resource_key == "weapon_t2" or resource_key == "weapon_t3":
+		candidates = ["res://assets/Icons/weapon_icon.png"]
 	else:
 		candidates = ["res://assets/Icons/%s_icon.png" % resource_key]
 	for path in candidates:

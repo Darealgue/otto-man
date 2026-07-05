@@ -3,12 +3,12 @@ extends Node2D
 
 const CollisionLayers = preload("res://resources/CollisionLayers.gd")
 
-# Seviyeye göre: 1→col1, 2→col2, 3→col2+col3, 4→col2+col3
-const COLLISION_NAMES_BY_LEVEL: Dictionary = {
+# Görsel tier: 1→col1, 2→col2, 3→col2+col3, 4+→col2+col3
+const COLLISION_BY_VISUAL_TIER: Dictionary = {
 	1: ["CollisionLevel1"],
 	2: ["CollisionLevel2"],
 	3: ["CollisionLevel2", "CollisionLevel3"],
-	4: ["CollisionLevel2", "CollisionLevel3"]
+	4: ["CollisionLevel2", "CollisionLevel3"],
 }
 
 @export var worker_stays_inside: bool = false #<<< YENİ
@@ -20,7 +20,7 @@ const COLLISION_NAMES_BY_LEVEL: Dictionary = {
 var assigned_worker_ids: Array[int] = [] #<<< YENİ: Atanan işçi ID'leri
 
 @export var base_production_rate: float = 1.0 # Seviye başına üretim (opsiyonel)
-@export var max_level: int = 4 # 4 seviye, 4 sprite (wood1..wood4)
+@export var max_level: int = 8
 var _collision_original_positions: Dictionary = {}
 
 # Upgrade değişkenleri
@@ -36,6 +36,8 @@ func _ready() -> void:
 	if level <= 0:
 		level = 1
 		print("WoodcutterCamp: Level 1'e ayarlandı")
+	if not scene_file_path.is_empty():
+		max_level = BuildingUpgradeConfig.get_max_level(scene_file_path)
 	_store_collision_original_positions()
 	_setup_platform_collision()
 	_update_texture()
@@ -86,6 +88,8 @@ func remove_worker() -> bool:
 		return false
 
 	var worker_id_to_remove = assigned_worker_ids.pop_back()
+	if VillageManager.has_method("clear_basic_gather_expedition_for_worker"):
+		VillageManager.clear_basic_gather_expedition_for_worker(worker_id_to_remove)
 	var worker_instance = null
 	if VillageManager.all_workers.has(worker_id_to_remove):
 		worker_instance = VillageManager.all_workers[worker_id_to_remove]["instance"]
@@ -116,29 +120,6 @@ func remove_worker() -> bool:
 	#print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [self.name, worker_id_to_remove, assigned_workers, max_workers]) # Debug
 	emit_signal("worker_removed", worker_id_to_remove)
 	VillageManager.notify_building_state_changed(self)
-
-	# <<< YENİ: İşçi çıkarıldıktan sonra SON işçiyi içeri al VEYA TEK işçiyi dışarı çıkar >>>
-	if not worker_stays_inside and level >= 2:
-		if assigned_worker_ids.is_empty():
-			pass
-		elif assigned_worker_ids.size() == 1:
-			var last_remaining_worker_id = assigned_worker_ids[0]
-			var remaining_worker_instance = null
-			if VillageManager.all_workers.has(last_remaining_worker_id):
-				remaining_worker_instance = VillageManager.all_workers[last_remaining_worker_id]["instance"]
-			if is_instance_valid(remaining_worker_instance) and remaining_worker_instance.is_inside_tree():
-				if remaining_worker_instance.current_state == remaining_worker_instance.State.WORKING_INSIDE:
-					remaining_worker_instance.switch_to_working_offscreen()
-		else: # 2 veya daha fazla işçi kaldı
-			var new_last_worker_id = assigned_worker_ids[-1]
-			var last_worker_instance = null
-			if VillageManager.all_workers.has(new_last_worker_id):
-				last_worker_instance = VillageManager.all_workers[new_last_worker_id]["instance"]
-			if is_instance_valid(last_worker_instance) and last_worker_instance.is_inside_tree():
-				if last_worker_instance.current_state == last_worker_instance.State.WORKING_OFFSCREEN or \
-				   last_worker_instance.current_state == last_worker_instance.State.WAITING_OFFSCREEN:
-					last_worker_instance.switch_to_working_inside()
-	# <<< YENİ KOD BİTİŞİ >>>
 
 	return true # Başarıyla çıkarıldı
 
@@ -230,16 +211,7 @@ func _update_texture() -> void:
 	
 	print("WoodcutterCamp: Sprite2D bulundu, texture güncelleniyor...")
 	
-	# Seviyeye göre texture (4 seviye: wood1..wood4)
-	var texture_path = ""
-	match level:
-		1: texture_path = "res://village/buildings/sprite/wood1.png"
-		2: texture_path = "res://village/buildings/sprite/wood2.png"
-		3: texture_path = "res://village/buildings/sprite/wood3.png"
-		4: texture_path = "res://village/buildings/sprite/wood4.png"
-		_:
-			print("WoodcutterCamp: Geçersiz seviye: ", level, " - Varsayılan seviye 1")
-			texture_path = "res://village/buildings/sprite/wood1.png"
+	var texture_path := BuildingUpgradeConfig.gather_sprite_path("wood", level)
 	
 	print("WoodcutterCamp: Texture yolu: ", texture_path)
 	
@@ -297,7 +269,8 @@ func _update_collision() -> void:
 	if not body:
 		return
 	_apply_collision_sprite_offset()
-	var names_to_enable: Array = COLLISION_NAMES_BY_LEVEL.get(level, ["CollisionLevel1"])
+	var visual_tier := mini(BuildingUpgradeConfig.gather_visual_tier(level), 4)
+	var names_to_enable: Array = COLLISION_BY_VISUAL_TIER.get(visual_tier, ["CollisionLevel1"])
 	for child in body.get_children():
 		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
 			child.disabled = true

@@ -11,6 +11,7 @@ const PERCEPTION_FADE_DURATION: float = 3.0
 
 const STEALTH_CHEST_GROUP: StringName = &"stealth_treasure_chest"
 const HUD_SCRIPT := preload("res://ui/stealth_status_display.gd")
+const COLLECTIBLES_HUD_SCRIPT := preload("res://ui/DungeonCollectiblesDisplay.gd")
 
 var segment_alarm: bool = false
 var stealth_score: int = 0
@@ -24,6 +25,7 @@ var _perception_fade_remaining: float = 0.0
 var debug_draw_enabled: bool = OS.is_debug_build()
 
 var _hud: Control = null
+var _collectibles_hud: Control = null
 
 
 func _process(delta: float) -> void:
@@ -43,7 +45,14 @@ func reset_for_segment() -> void:
 	alarm_reason = ""
 	alarm_source_enemy_id = ""
 	_perception_fade_remaining = 0.0
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("reset_segment_exit_state"):
+		drs.call("reset_segment_exit_state")
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("reset_segment_expedition_loot_drops"):
+		im.call("reset_segment_expedition_loot_drops")
 	call_deferred("_ensure_hud")
+	call_deferred("_ensure_collectibles_hud")
 
 
 func raise_alarm(reason: String = "", source_enemy_id: String = "") -> void:
@@ -115,6 +124,8 @@ func can_stealth_exit() -> bool:
 		return false
 	if not bool(drs.call("is_run_complete")):
 		return false
+	if bool(drs.get("is_warmup_run")):
+		return false
 	return run_stealth_intact and is_stealth_mode()
 
 
@@ -162,6 +173,22 @@ func _apply_alarm_world_effects() -> void:
 		_notify_fragile_rescue_fled(v_lost, c_lost)
 	if _hud != null and is_instance_valid(_hud) and _hud.has_method("refresh_fragile_status"):
 		_hud.call("refresh_fragile_status")
+	_lock_segment_finish_door()
+
+
+func _lock_segment_finish_door() -> void:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("arm_segment_exit_key_lock"):
+		drs.call("arm_segment_exit_key_lock")
+	var lg: Node = null
+	if is_instance_valid(drs) and drs.has_method("find_active_level_generator"):
+		lg = drs.call("find_active_level_generator")
+	if is_instance_valid(lg) and lg.has_method("lock_finish_door_for_alarm"):
+		lg.call("lock_finish_door_for_alarm")
+	elif OS.is_debug_build():
+		push_warning("[StealthManager] LevelGenerator bulunamadı — çıkış kapısı kilitlenemedi")
+	if _hud != null and is_instance_valid(_hud) and _hud.has_method("show_alarm_banner"):
+		_hud.call("show_alarm_banner")
 
 
 func _notify_fragile_rescue_fled(villagers_lost: int, cariyes_lost: int) -> void:
@@ -203,7 +230,37 @@ func _ensure_hud() -> void:
 	parent.add_child(_hud)
 
 
+func _ensure_collectibles_hud() -> void:
+	if not is_stealth_enabled():
+		_remove_collectibles_hud()
+		return
+	var tree: SceneTree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	if _collectibles_hud != null and is_instance_valid(_collectibles_hud):
+		return
+
+	var parent: Node = tree.current_scene.get_node_or_null("GameUI/Container")
+	if parent == null:
+		var game_ui: Node = tree.current_scene.get_node_or_null("GameUI")
+		if game_ui:
+			parent = game_ui
+	if parent == null:
+		return
+
+	_collectibles_hud = COLLECTIBLES_HUD_SCRIPT.new()
+	_collectibles_hud.name = "DungeonCollectiblesDisplay"
+	parent.add_child(_collectibles_hud)
+
+
 func _remove_hud() -> void:
 	if _hud != null and is_instance_valid(_hud):
 		_hud.queue_free()
 	_hud = null
+	_remove_collectibles_hud()
+
+
+func _remove_collectibles_hud() -> void:
+	if _collectibles_hud != null and is_instance_valid(_collectibles_hud):
+		_collectibles_hud.queue_free()
+	_collectibles_hud = null

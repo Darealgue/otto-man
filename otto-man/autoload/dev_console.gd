@@ -145,6 +145,8 @@ func _on_command_submitted(command: String) -> void:
 			handle_rescue_cap_reset_command()
 		"dungeon_exit":
 			handle_dungeon_exit_command(args)
+		"warmup_reset":
+			handle_warmup_reset_command(args)
 		"add_debuff":
 			handle_add_debuff_command(args)
 		"clear_debuff":
@@ -331,7 +333,7 @@ func handle_add_resources_command(args: Array) -> void:
 		"gold":
 			GlobalPlayerData.add_gold(amount)
 			print_output("Added %d gold. Total: %d" % [amount, GlobalPlayerData.gold])
-		"wood", "stone", "food", "water", "metal", "bread":
+		"wood", "stone", "food", "metal", "bread":
 			# Kaynak seviyesini artır
 			var current_level = VillageManager.resource_levels.get(resource_type, 0)
 			VillageManager.resource_levels[resource_type] = current_level + amount
@@ -585,6 +587,18 @@ func handle_dungeon_exit_command(args: Array) -> void:
 		payload["rescued_cariyes"].size()
 	])
 	scene_manager.change_to_village(payload, false)
+
+func handle_warmup_reset_command(args: Array) -> void:
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	if not is_instance_valid(dp) or not dp.has_method("reset_warmup_progress"):
+		print_output("DungeonProgress yok")
+		return
+	var did: String = String(args[0]).strip_edges() if args.size() > 0 else ""
+	dp.call("reset_warmup_progress", did)
+	if did.is_empty():
+		print_output("Keşif ilerlemesi sıfırlandı (aktif zindan)")
+	else:
+		print_output("Keşif ilerlemesi sıfırlandı: %s" % did)
 
 func handle_add_debuff_command(args: Array) -> void:
 	var ps = get_node_or_null("/root/PlayerStats")
@@ -907,7 +921,7 @@ func handle_show_multipliers_command() -> void:
 	print_output("")
 	print_output("Resource multipliers:")
 	var res_mult = multipliers["resource"]
-	var basic_resources = ["wood", "stone", "food", "water"]
+	var basic_resources = ["wood", "stone", "food"]
 	for res in basic_resources:
 		var mult = float(res_mult.get(res, 1.0))
 		var status = ""
@@ -949,9 +963,9 @@ func handle_show_event_effects_command() -> void:
 		# Show specific effects
 		match type_str:
 			"drought":
-				var mult = float(multipliers["resource"].get("water", 1.0))
+				var mult = float(multipliers["resource"].get("food", 1.0))
 				var reduction = (1.0 - mult) * 100.0
-				print_output("  Effect: Water production multiplier = %.2f (%.0f%% reduction)" % [mult, reduction])
+				print_output("  Effect: Food production multiplier (drought) = %.2f (%.0f%% reduction)" % [mult, reduction])
 			"famine":
 				var mult = float(multipliers["resource"].get("food", 1.0))
 				var reduction = (1.0 - mult) * 100.0

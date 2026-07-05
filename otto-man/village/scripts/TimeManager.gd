@@ -29,6 +29,8 @@ var time_scales: Array[float] = [1.0, 4.0, 16.0]
 signal hour_changed(new_hour: int)
 signal minute_changed(new_minute: int)
 signal day_changed(new_day: int)
+## advance_minutes() ile toplu atlama başlamadan önce (gece yarısı tüketimi simülasyondan sonra işlensin diye).
+signal batch_time_advance_started(total_minutes: int)
 signal time_advanced(total_minutes: int, start_day: int, start_hour: int, start_minute: int)
 
 # Called when the node enters the scene tree for the first time.
@@ -162,6 +164,7 @@ func advance_minutes(total_minutes: int) -> void:
 	var start_day := days
 	var start_hour := hours
 	var start_minute := minutes
+	batch_time_advance_started.emit(total_minutes)
 	_advance_time(total_minutes)
 	time_advanced.emit(total_minutes, start_day, start_hour, start_minute)
 

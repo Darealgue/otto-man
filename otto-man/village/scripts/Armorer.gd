@@ -12,7 +12,7 @@ var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 15.0
 @export var max_level: int = 3
 
-var required_resources: Dictionary = {"metal": 2, "water": 1}
+var required_resources: Dictionary = {"metal": 2}
 var produced_resource: String = "armor"
 
 signal upgrade_started
@@ -42,7 +42,7 @@ func finished_fetching() -> void:
 	is_fetcher_out = false
 
 # --- Fetch/Buffer Production ---
-var input_buffer: Dictionary = {"metal": 0, "water": 0}
+var input_buffer: Dictionary = {"metal": 0}
 var production_progress: float = 0.0
 const PRODUCTION_TIME: float = 300.0
 var fetch_timer: Timer = null
@@ -105,7 +105,7 @@ func _on_upgrade_finished() -> void:
 	VillageManager.notify_building_state_changed(self)
 
 func get_production_info() -> String:
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Zırh: (metal x2 + su)"
+	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Zırh: (metal x2)"
 
 # --- Worker Management (simple placeholder) ---
 var assigned_worker_ids: Array[int] = []

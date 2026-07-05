@@ -16,9 +16,15 @@ var max_workers: int = 5  # Başlangıç kapasitesi
 var assigned_workers: int = 0
 var assigned_worker_ids: Array[int] = []
 
-# Asker ekipmanları: her asker için weapon ve armor durumu
-# { worker_id: {"weapon": true/false, "armor": true/false} }
+# Asker ekipmanları: her asker için silah seviyesi (0 = silahsız, 1-3 = seviye)
+# { worker_id: {"weapon_tier": 0} }
 var soldier_equipment: Dictionary = {}
+
+## Silah seviyesi → savaş bonusları (SSOT). Zırh sistemi kaldırıldı, sadece silah seviyesi var.
+## Seviye 1: +5 hasar hissi. Seviye 2: +10 hasar + %20 hayatta kalma. Seviye 3: +20 hasar + %40 hayatta kalma.
+const TIER_ATTACK_BONUS: Dictionary = {1: 0.05, 2: 0.10, 3: 0.20}
+const TIER_SURVIVAL_CHANCE: Dictionary = {1: 0.0, 2: 0.20, 3: 0.40}
+const MAX_WEAPON_TIER: int = 3
 
 # Bina durumu
 var is_ui_open: bool = false
@@ -64,13 +70,21 @@ func add_worker() -> bool:
 	
 	# Worker ID'yi bul ve listede tut
 	var worker_id := _get_worker_id(vm, worker_instance)
-	if worker_id != -1:
-		assigned_worker_ids.append(worker_id)
-		# Yeni asker için ekipman kaydı oluştur (başlangıçta ekipman yok)
-		soldier_equipment[worker_id] = {"weapon": false, "armor": false}
-		worker_assigned.emit(worker_id)
-	
-	assigned_workers += 1
+	if worker_id == -1:
+		worker_instance.assigned_job_type = ""
+		worker_instance.assigned_building_node = null
+		if vm.has_method("cancel_worker_registration"):
+			vm.cancel_worker_registration()
+		_show_message("Köylü kimliği bulunamadı!")
+		return false
+	assigned_worker_ids.append(worker_id)
+	soldier_equipment[worker_id] = {"weapon_tier": 0}
+	worker_assigned.emit(worker_id)
+	assigned_workers = assigned_worker_ids.size()
+	if vm.has_method("notify_building_state_changed"):
+		vm.notify_building_state_changed(self)
+	elif vm.has_signal("village_data_changed"):
+		vm.emit_signal("village_data_changed")
 	_update_ui()
 	_show_message("Köylü asker yapıldı!")
 	return true
@@ -83,7 +97,6 @@ func remove_worker() -> bool:
 	
 	# Son atanan köylüyü çıkar
 	var worker_id = assigned_worker_ids.pop_back()
-	assigned_workers -= 1
 	
 	# VillageManager'ı al
 	var vm = get_node_or_null("/root/VillageManager")
@@ -91,19 +104,23 @@ func remove_worker() -> bool:
 	# Ekipmanı geri al (eğer varsa)
 	if soldier_equipment.has(worker_id):
 		var equip = soldier_equipment[worker_id]
-		if vm:
-			# Ekipmanları geri al
-			if equip.get("weapon", false):
-				vm.resource_levels["weapon"] = vm.resource_levels.get("weapon", 0) + 1
-			if equip.get("armor", false):
-				vm.resource_levels["armor"] = vm.resource_levels.get("armor", 0) + 1
+		var tier := int(equip.get("weapon_tier", 0))
+		if tier > 0 and vm:
+			var res_key := "weapon_t%d" % tier
+			vm.resource_levels[res_key] = vm.resource_levels.get(res_key, 0) + 1
 		soldier_equipment.erase(worker_id)
 	
-	# Köylüyü normal işçi yap
+	# Köylüyü normal işçi yap (kışla bağlantısı varken unregister → idle++)
 	if vm:
 		_return_worker_to_idle(vm, worker_id)
 	
+	assigned_workers = assigned_worker_ids.size()
 	worker_removed.emit(worker_id)
+	if vm:
+		if vm.has_method("notify_building_state_changed"):
+			vm.notify_building_state_changed(self)
+		elif vm.has_signal("village_data_changed"):
+			vm.emit_signal("village_data_changed")
 	_update_ui()
 	_show_message("Asker köylü yapıldı!")
 	return true
@@ -141,7 +158,7 @@ func _get_worker_id(vm: Node, worker_instance: Node) -> int:
 	return -1
 
 func _return_worker_to_idle(vm: Node, worker_id: int) -> void:
-	"""Köylüyü normal işçi yap"""
+	"""Köylüyü normal işçi yap — barınak kaydı korunur; kışla sadece iş atamasıdır."""
 	var all_workers = vm.get("all_workers")
 	if not all_workers.has(worker_id):
 		print("[Barracks] Worker %d all_workers'da bulunamadı!" % worker_id)
@@ -156,46 +173,30 @@ func _return_worker_to_idle(vm: Node, worker_id: int) -> void:
 	
 	# Worker'ın sahne ağacında olduğundan emin ol
 	if not worker_instance.is_inside_tree():
-		print("[Barracks] ⚠️ Worker %d sahne ağacında değil! Parent: %s" % [worker_id, worker_instance.get_parent()])
-		# WorkersContainer'a ekle
 		var workers_container = vm.get("workers_container")
 		if workers_container and is_instance_valid(workers_container):
 			workers_container.add_child(worker_instance)
-			print("[Barracks] ✅ Worker %d WorkersContainer'a eklendi!" % worker_id)
-		else:
-			print("[Barracks] ❌ WorkersContainer bulunamadı!")
 	
-	# Asker durumunu sıfırla
+	# Kışla bağlantısı hâlâ geçerliyken unregister (idle_workers++); barınağa dokunma.
+	if vm.has_method("unregister_generic_worker"):
+		vm.unregister_generic_worker(worker_id)
+	
 	worker_instance.is_deployed = false
-	
-	# Köylüyü normal işçi yap
 	worker_instance.assigned_job_type = ""
-	worker_instance.assigned_building_node = null
 	
-	# Worker'ı ZORUNLU olarak görünür yap ve IDLE state'e al
 	worker_instance.visible = true
 	worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 	
-	# Hedefini sıfırla (ekran dışında kalmasın)
 	if worker_instance.global_position.x > 1920.0:
-		# Eğer ekran dışındaysa, köye geri getir
 		var building_pos_x = global_position.x if is_instance_valid(self) else 960.0
 		worker_instance.global_position.x = max(100.0, building_pos_x - 200.0)
 		worker_instance.move_target_x = worker_instance.global_position.x
 	else:
-		# Mevcut konumda kal
 		worker_instance.move_target_x = worker_instance.global_position.x
 	
-	print("[Barracks] ✅ Worker %d idle yapıldı - Visible: %s, State: %s, Pos: %s" % [
-		worker_id,
-		worker_instance.visible,
-		worker_instance.State.keys()[worker_instance.current_state] if worker_instance.current_state >= 0 else "INVALID",
-		worker_instance.global_position
+	print("[Barracks] ✅ Worker %d idle yapıldı - Visible: %s, Pos: %s" % [
+		worker_id, worker_instance.visible, worker_instance.global_position
 	])
-	
-	# VillageManager'da güncelle (bu worker'ı idle listesine ekler)
-	if vm.has_method("unregister_generic_worker"):
-		vm.unregister_generic_worker(worker_id)
 
 func _update_ui() -> void:
 	"""UI'ı güncelle (kontrolcü sistemi için gerekli değil ama debug için)"""
@@ -223,30 +224,36 @@ func _show_message(message: String) -> void:
 	# TODO: Gerçek UI mesaj sistemi ekle
 
 func get_military_force() -> Dictionary:
-	"""Köyün askeri gücünü döndür (ekipman bonusları ile)"""
+	"""Köyün askeri gücünü döndür (silah seviyesi bonusları ile — zırh sistemi kaldırıldı)"""
 	var vm = get_node_or_null("/root/VillageManager")
 	if not vm:
-		return {"units": {"soldiers": 0}, "equipment": {"weapon": 0, "armor": 0}, "attack_bonus": 0.0, "defense_bonus": 0.0}
+		return {"units": {"soldiers": 0}, "equipment": {"weapon": 0}, "attack_bonus": 0.0, "defense_bonus": 0.0, "survival_bonus": 0.0}
 	
-	# Ekipman durumunu hesapla
-	var equipped_weapons = 0
-	var equipped_armors = 0
+	# Ekipman durumunu tier'a göre hesapla
+	var tier_counts: Dictionary = {1: 0, 2: 0, 3: 0}
 	for worker_id in assigned_worker_ids:
 		if soldier_equipment.has(worker_id):
-			var equip = soldier_equipment[worker_id]
-			if equip.get("weapon", false):
-				equipped_weapons += 1
-			if equip.get("armor", false):
-				equipped_armors += 1
+			var tier := int(soldier_equipment[worker_id].get("weapon_tier", 0))
+			if tier_counts.has(tier):
+				tier_counts[tier] += 1
+	var equipped_total: int = tier_counts[1] + tier_counts[2] + tier_counts[3]
 	
-	# Kullanılabilir ekipman sayısı (VillageManager'dan)
-	var available_weapons = vm.resource_levels.get("weapon", 0)
-	var available_armors = vm.resource_levels.get("armor", 0)
+	# Saldırı bonusu: her tier kendi ağırlığıyla katkı yapar (bkz. TIER_ATTACK_BONUS)
+	var attack_bonus := 0.0
+	var survival_weighted := 0.0
+	for tier in tier_counts.keys():
+		var count: int = tier_counts[tier]
+		attack_bonus += float(count) * float(TIER_ATTACK_BONUS.get(tier, 0.0))
+		survival_weighted += float(count) * float(TIER_SURVIVAL_CHANCE.get(tier, 0.0))
+	# Savunma bonusu, saldırı bonusunun yarısı kadar taşar (iyi silah bir ölçüde savunmaya da yarar)
+	var defense_bonus: float = attack_bonus * 0.5
+	# Hayatta kalma ihtimali: donanımlı askerler arasında ağırlıklı ortalama
+	var survival_bonus: float = (survival_weighted / float(equipped_total)) if equipped_total > 0 else 0.0
 	
-	# Saldırı ve savunma bonusları (ekipmanlı askerler)
-	# Her ekipmanlı asker +%20 saldırı/savunma bonusu verir
-	var attack_bonus = float(equipped_weapons) * 0.2
-	var defense_bonus = float(equipped_armors) * 0.2
+	# Kullanılabilir stok (VillageManager'dan)
+	var available_t1 = vm.resource_levels.get("weapon_t1", 0)
+	var available_t2 = vm.resource_levels.get("weapon_t2", 0)
+	var available_t3 = vm.resource_levels.get("weapon_t3", 0)
 	
 	# Köy morali bonusu (VillageManager'dan)
 	var morale_value = vm.get("village_morale") if "village_morale" in vm else 80.0
@@ -255,15 +262,19 @@ func get_military_force() -> Dictionary:
 	var force = {
 		"units": {"soldiers": assigned_workers},
 		"equipment": {
-			"weapon": available_weapons,
-			"armor": available_armors,
-			"equipped_weapon": equipped_weapons,
-			"equipped_armor": equipped_armors
+			# "weapon": eski sistemle uyumluluk için toplam stok (CombatResolver bunu okuyor)
+			"weapon": available_t1 + available_t2 + available_t3,
+			"weapon_t1": available_t1,
+			"weapon_t2": available_t2,
+			"weapon_t3": available_t3,
+			"equipped_weapon": equipped_total,
+			"equipped_tiers": tier_counts,
 		},
-		"attack_bonus": attack_bonus,  # Toplam saldırı bonusu (ekipmanlı askerler)
-		"defense_bonus": defense_bonus,  # Toplam savunma bonusu (ekipmanlı askerler)
+		"attack_bonus": attack_bonus,
+		"defense_bonus": defense_bonus,
+		"survival_bonus": survival_bonus,  # kayıp anında hayatta kalma ihtimali (bkz. remove_soldiers)
 		"morale_multiplier": morale_multiplier,
-		"supplies": {"bread": vm.resource_levels.get("bread", 0), "water": vm.resource_levels.get("water", 0)},
+		"supplies": {"bread": vm.resource_levels.get("bread", 0), "food": vm.resource_levels.get("food", 0)},
 		"gold": 0
 	}
 	
@@ -346,31 +357,40 @@ func recall_soldiers() -> void:
 	print("[Barracks] Askerler geri çağrıldı")
 
 func remove_soldiers(count: int) -> void:
-	"""Belirli sayıda askeri kaldır (savaşta ölenler için)"""
+	"""Belirli sayıda askeri kaldır (savaşta ölenler için).
+	Donanımlı askerler silah seviyelerine göre hayatta kalma şansı yakalar
+	(bkz. TIER_SURVIVAL_CHANCE) — bu yüzden gerçekte kaldırılan sayı count'tan az olabilir."""
 	var vm = get_node_or_null("/root/VillageManager")
 	if not vm:
 		print("[Barracks] VillageManager bulunamadı!")
 		return
 	
 	var removed = 0
-	var workers_to_remove: Array[int] = []  # Önce ID'leri topla
+	var survived = 0
+	var candidates: Array[int] = []  # Önce ID'leri topla
 	
 	# Önce hangi worker'ları kaldıracağımızı belirle (ama listeden çıkarma, sadece ID'leri topla)
 	var current_count = assigned_worker_ids.size()
 	for i in range(min(count, current_count)):
 		if i < assigned_worker_ids.size():
-			workers_to_remove.append(assigned_worker_ids[current_count - 1 - i])
+			candidates.append(assigned_worker_ids[current_count - 1 - i])
 	
-	# Şimdi VillageManager'dan askerleri tamamen sil
-	# remove_worker_from_village Barracks listesinden de çıkaracak
-	for worker_id in workers_to_remove:
-		# Ölen askerin ekipmanlarını geri al
+	for worker_id in candidates:
+		var tier := 0
+		if soldier_equipment.has(worker_id):
+			tier = int(soldier_equipment[worker_id].get("weapon_tier", 0))
+		var survive_chance: float = TIER_SURVIVAL_CHANCE.get(tier, 0.0)
+		if survive_chance > 0.0 and randf() < survive_chance:
+			survived += 1
+			continue  # Asker silahı sayesinde hayatta kaldı, kışlada kalır
+		
+		# Ölen askerin silahını geri al
 		if soldier_equipment.has(worker_id):
 			var equip = soldier_equipment[worker_id]
-			if equip.get("weapon", false):
-				vm.resource_levels["weapon"] = vm.resource_levels.get("weapon", 0) + 1
-			if equip.get("armor", false):
-				vm.resource_levels["armor"] = vm.resource_levels.get("armor", 0) + 1
+			var equip_tier := int(equip.get("weapon_tier", 0))
+			if equip_tier > 0:
+				var res_key := "weapon_t%d" % equip_tier
+				vm.resource_levels[res_key] = vm.resource_levels.get(res_key, 0) + 1
 			soldier_equipment.erase(worker_id)
 		
 		if vm.has_method("remove_worker_from_village"):
@@ -380,102 +400,99 @@ func remove_soldiers(count: int) -> void:
 			printerr("[Barracks] VillageManager.remove_worker_from_village metodu bulunamadı!")
 			break
 	
+	if survived > 0:
+		print("[Barracks] %d asker silahı sayesinde hayatta kaldı!" % survived)
 	print("[Barracks] %d asker kaldırıldı (savaş kaybı)" % removed)
 
-# --- Ekipman Atama Fonksiyonları ---
-func equip_soldier(worker_id: int, equipment_type: String) -> bool:
-	"""Askeri ekipmanla donat (weapon veya armor)"""
+# --- Ekipman Atama Fonksiyonları (sadece silah — zırh sistemi kaldırıldı) ---
+func equip_soldier(worker_id: int, tier: int) -> bool:
+	"""Askere belirli seviyede silah ver (1-3). Asker zaten silahlıysa eski silahı geri alır."""
 	if not assigned_worker_ids.has(worker_id):
 		_show_message("Asker bulunamadı!")
 		return false
 	
-	if equipment_type != "weapon" and equipment_type != "armor":
-		_show_message("Geçersiz ekipman tipi!")
+	if tier < 1 or tier > MAX_WEAPON_TIER:
+		_show_message("Geçersiz silah seviyesi!")
 		return false
 	
-	# Ekipman kaydı var mı kontrol et
 	if not soldier_equipment.has(worker_id):
-		soldier_equipment[worker_id] = {"weapon": false, "armor": false}
+		soldier_equipment[worker_id] = {"weapon_tier": 0}
 	
-	# Zaten ekipmanlı mı?
-	if soldier_equipment[worker_id].get(equipment_type, false):
-		_show_message("Asker zaten %s donatılmış!" % equipment_type)
+	var current_tier := int(soldier_equipment[worker_id].get("weapon_tier", 0))
+	if current_tier == tier:
+		_show_message("Asker zaten bu seviyede silahlı!")
 		return false
 	
-	# Ekipman stokta var mı?
 	var vm = get_node_or_null("/root/VillageManager")
 	if not vm:
 		_show_message("VillageManager bulunamadı!")
 		return false
 	
-	var available = vm.resource_levels.get(equipment_type, 0)
+	var res_key := "weapon_t%d" % tier
+	var available = vm.resource_levels.get(res_key, 0)
 	if available <= 0:
-		_show_message("Stokta %s yok!" % equipment_type)
+		_show_message("Stokta %d. seviye silah yok!" % tier)
 		return false
 	
-	# Ekipmanı ata
-	vm.resource_levels[equipment_type] = available - 1
-	soldier_equipment[worker_id][equipment_type] = true
+	# Varsa eski silahı geri al
+	if current_tier > 0:
+		var old_key := "weapon_t%d" % current_tier
+		vm.resource_levels[old_key] = vm.resource_levels.get(old_key, 0) + 1
+	
+	# Yeni silahı ata
+	vm.resource_levels[res_key] = available - 1
+	soldier_equipment[worker_id]["weapon_tier"] = tier
 	vm.emit_signal("village_data_changed")
-	_show_message("Asker %d'ye %s verildi!" % [worker_id, equipment_type])
+	_show_message("Asker %d'ye %d. seviye silah verildi!" % [worker_id, tier])
 	_update_ui()
 	return true
 
-func unequip_soldier(worker_id: int, equipment_type: String) -> bool:
-	"""Askerden ekipmanı kaldır"""
+func unequip_soldier(worker_id: int) -> bool:
+	"""Askerin silahını geri al (stoka döner)"""
 	if not assigned_worker_ids.has(worker_id):
 		_show_message("Asker bulunamadı!")
 		return false
 	
-	if equipment_type != "weapon" and equipment_type != "armor":
-		_show_message("Geçersiz ekipman tipi!")
-		return false
-	
-	# Ekipman kaydı var mı ve ekipmanlı mı?
 	if not soldier_equipment.has(worker_id):
 		_show_message("Askerin ekipman kaydı yok!")
 		return false
 	
-	if not soldier_equipment[worker_id].get(equipment_type, false):
-		_show_message("Asker zaten %s donatılmamış!" % equipment_type)
+	var tier := int(soldier_equipment[worker_id].get("weapon_tier", 0))
+	if tier <= 0:
+		_show_message("Asker zaten silahsız!")
 		return false
 	
-	# Ekipmanı geri al
 	var vm = get_node_or_null("/root/VillageManager")
 	if vm:
-		vm.resource_levels[equipment_type] = vm.resource_levels.get(equipment_type, 0) + 1
-		soldier_equipment[worker_id][equipment_type] = false
+		var res_key := "weapon_t%d" % tier
+		vm.resource_levels[res_key] = vm.resource_levels.get(res_key, 0) + 1
+		soldier_equipment[worker_id]["weapon_tier"] = 0
 		vm.emit_signal("village_data_changed")
-		_show_message("Asker %d'den %s alındı!" % [worker_id, equipment_type])
+		_show_message("Asker %d'den silah alındı!" % worker_id)
 		_update_ui()
 		return true
 	
 	return false
 
 func equip_all_soldiers_with_available() -> void:
-	"""Tüm askerlere mevcut ekipmanları otomatik ata"""
+	"""Silahsız askerlere elde en yüksek seviyeden başlayarak mevcut silahları otomatik dağıt"""
 	var vm = get_node_or_null("/root/VillageManager")
 	if not vm:
 		return
 	
-	var available_weapons = vm.resource_levels.get("weapon", 0)
-	var available_armors = vm.resource_levels.get("armor", 0)
-	
 	for worker_id in assigned_worker_ids:
 		if not soldier_equipment.has(worker_id):
-			soldier_equipment[worker_id] = {"weapon": false, "armor": false}
+			soldier_equipment[worker_id] = {"weapon_tier": 0}
 		
 		var equip = soldier_equipment[worker_id]
+		if int(equip.get("weapon_tier", 0)) > 0:
+			continue  # Zaten silahlı
 		
-		# Silah ata (eğer yoksa ve stokta varsa)
-		if not equip.get("weapon", false) and available_weapons > 0:
-			equip_soldier(worker_id, "weapon")
-			available_weapons -= 1
-		
-		# Zırh ata (eğer yoksa ve stokta varsa)
-		if not equip.get("armor", false) and available_armors > 0:
-			equip_soldier(worker_id, "armor")
-			available_armors -= 1
+		for tier in [3, 2, 1]:
+			var res_key := "weapon_t%d" % tier
+			if vm.resource_levels.get(res_key, 0) > 0:
+				equip_soldier(worker_id, tier)
+				break
 
 func upgrade_capacity() -> bool:
 	"""Kışla kapasitesini artır"""

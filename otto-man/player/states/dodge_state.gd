@@ -73,6 +73,7 @@ func enter():
 		# Check if dodge animation exists
 		if anim_player.has_animation("dodge"):
 			anim_player.play("dodge")
+			_play_dash_sfx()
 			if DEBUG_DODGE:
 				print("[Dodge] Playing dodge animation - SUCCESS")
 		else:
@@ -231,3 +232,11 @@ func _on_animation_finished(anim_name: String):
 			print("[Dodge] Animation finished, transitioning to appropriate state")
 		# Animation finished, but physics_update will handle the actual transition
 		# when dodge_timer reaches 0
+
+
+func _play_dash_sfx() -> void:
+	if not is_instance_valid(player):
+		return
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("play_sfx"):
+		sm.play_sfx("dodge", player.global_position)

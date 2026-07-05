@@ -10,34 +10,35 @@ signal unit_losses(unit_type: String, losses: int)
 signal equipment_consumed(equipment_type: String, amount: int)
 
 # Unit types and their base stats
+## Zırh sistemi kaldırıldı — birimler artık sadece "weapon" stoğuna (silah seviyeleri toplamı) göre donanım bonusu alır.
 const UNIT_TYPES = {
 	"soldiers": {  # Player's soldiers from Barracks
 		"base_attack": 10,
 		"base_defense": 12,
 		"base_morale": 50,
-		"equipment_cost": {"weapon": 1, "armor": 1},
-		"supply_cost": {"bread": 1, "water": 1}
+		"equipment_cost": {"weapon": 1},
+		"supply_cost": {"bread": 1, "food": 1}
 	},
 	"infantry": {
 		"base_attack": 10,
 		"base_defense": 12,
 		"base_morale": 50,
-		"equipment_cost": {"weapon": 1, "armor": 1},
-		"supply_cost": {"bread": 1, "water": 1}
+		"equipment_cost": {"weapon": 1},
+		"supply_cost": {"bread": 1, "food": 1}
 	},
 	"archers": {
 		"base_attack": 8,
 		"base_defense": 6,
 		"base_morale": 45,
-		"equipment_cost": {"weapon": 1, "armor": 0},
-		"supply_cost": {"bread": 1, "water": 1}
+		"equipment_cost": {"weapon": 1},
+		"supply_cost": {"bread": 1, "food": 1}
 	},
 	"cavalry": {
 		"base_attack": 15,
 		"base_defense": 8,
 		"base_morale": 60,
-		"equipment_cost": {"weapon": 1, "armor": 1},
-		"supply_cost": {"bread": 2, "water": 1}
+		"equipment_cost": {"weapon": 1},
+		"supply_cost": {"bread": 2, "food": 1}
 	}
 }
 

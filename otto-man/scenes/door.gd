@@ -12,6 +12,8 @@ signal door_locked(door_type: String)
 var is_player_in_range: bool = false
 var is_open: bool = false
 var is_animating: bool = false
+var _alarm_locked: bool = false
+var _lock_flash: Label = null
 
 # Door states
 enum DoorState {
@@ -50,6 +52,23 @@ func _ready() -> void:
 	
 	# Wait one frame to ensure all nodes are ready, then initialize appearance
 	call_deferred("_initialize_door")
+	_setup_lock_flash()
+
+
+func _setup_lock_flash() -> void:
+	_lock_flash = Label.new()
+	_lock_flash.name = "LockFlash"
+	_lock_flash.text = "🔒"
+	_lock_flash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lock_flash.add_theme_font_size_override("font_size", 30)
+	_lock_flash.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+	_lock_flash.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.0))
+	_lock_flash.add_theme_constant_override("outline_size", 4)
+	_lock_flash.position = Vector2(-16, -58)
+	_lock_flash.z_index = 30
+	_lock_flash.visible = false
+	_lock_flash.modulate.a = 0.0
+	add_child(_lock_flash)
 
 func _initialize_door() -> void:
 	# Initialize door appearance
@@ -87,6 +106,10 @@ func _player_entered_range() -> void:
 			interaction_prompt.text = "↑ Yukarı"
 		elif is_open:
 			interaction_prompt.text = "Açık"
+		elif _alarm_locked and requires_key and not _has_required_key():
+			interaction_prompt.text = "Kilitli — anahtar düşmanında"
+		elif _segment_exit_key_required() and not _has_required_key():
+			interaction_prompt.text = "🔒 Anahtar gerekli"
 		elif requires_key and not _has_required_key():
 			interaction_prompt.text = "Anahtar gerekli"
 		else:
@@ -107,19 +130,68 @@ func _interact_with_door() -> void:
 
 	if is_open:
 		return
+
+	if _needs_key_to_open() and not _has_required_key():
+		_show_lock_denied()
+		return
 	
 	# Check if door is locked
 	if is_locked:
 		_handle_locked_door()
 		return
 	
-	# Check if door requires a key
-	if requires_key and not _has_required_key():
-		_handle_missing_key()
-		return
-	
 	# Open the door
 	_open_door()
+
+
+func _needs_key_to_open() -> bool:
+	if door_type == "Finish" and _segment_exit_key_required():
+		return true
+	return requires_key or (_alarm_locked and not key_id.is_empty())
+
+
+func _segment_exit_key_required() -> bool:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	if not is_instance_valid(drs) or not is_instance_valid(sm):
+		return false
+	return bool(drs.get("segment_exit_requires_key")) and bool(sm.get("segment_alarm"))
+
+
+func _exit_key_id() -> String:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and "SEGMENT_EXIT_KEY_ID" in drs:
+		return String(drs.get("SEGMENT_EXIT_KEY_ID"))
+	return "segment_exit_key"
+
+
+func _show_lock_denied() -> void:
+	print("Door locked — key required: ", key_id)
+	door_locked.emit(door_type)
+	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
+		SoundManager.play_sfx("door_locked", global_position)
+	if interaction_prompt:
+		interaction_prompt.text = "🔒 Kilitli"
+	if _lock_flash:
+		_lock_flash.visible = true
+		_lock_flash.modulate.a = 1.0
+		var tw := create_tween()
+		if tw:
+			tw.tween_property(_lock_flash, "modulate:a", 0.0, 0.85).set_delay(0.45)
+			tw.tween_callback(func() -> void:
+				if is_instance_valid(_lock_flash):
+					_lock_flash.visible = false
+			)
+	if sprite and is_instance_valid(sprite):
+		var shake := create_tween()
+		if shake:
+			var base_x := sprite.position.x
+			shake.tween_property(sprite, "position:x", base_x + 4.0, 0.04)
+			shake.tween_property(sprite, "position:x", base_x - 4.0, 0.04)
+			shake.tween_property(sprite, "position:x", base_x, 0.04)
+	await get_tree().create_timer(1.2).timeout
+	if is_player_in_range:
+		_player_entered_range()
 
 func _handle_locked_door() -> void:
 	print("Door is locked!")
@@ -127,23 +199,28 @@ func _handle_locked_door() -> void:
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
 		SoundManager.play_sfx("door_locked", global_position)
 	
-	# Show locked message
 	if interaction_prompt:
-		interaction_prompt.text = "Kilitli!"
+		if _alarm_locked and requires_key and not _has_required_key():
+			interaction_prompt.text = "Alarm! Anahtar için düşman ara"
+		else:
+			interaction_prompt.text = "Kilitli!"
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
-			interaction_prompt.text = "↑ Yukarı"
+			_player_entered_range()
+
 
 func _handle_missing_key() -> void:
 	print("Door requires key: ", key_id)
 	door_locked.emit(door_type)
 	
-	# Show missing key message
 	if interaction_prompt:
-		interaction_prompt.text = "Anahtar gerekli!"
+		if _alarm_locked:
+			interaction_prompt.text = "Anahtar düşmanında — yen ve al"
+		else:
+			interaction_prompt.text = "Anahtar gerekli!"
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
-			interaction_prompt.text = "↑ Yukarı"
+			_player_entered_range()
 
 func _handle_boss_door_locked() -> void:
 	print("Boss door is locked! Defeat the boss first.")
@@ -157,6 +234,11 @@ func _handle_boss_door_locked() -> void:
 			interaction_prompt.text = "↑ Yukarı"
 
 func _has_required_key() -> bool:
+	if door_type == "Finish" and _segment_exit_key_required():
+		var drs: Node = get_node_or_null("/root/DungeonRunState")
+		if is_instance_valid(drs) and drs.has_method("has_dungeon_key"):
+			return bool(drs.call("has_dungeon_key", _exit_key_id()))
+		return false
 	if key_id.is_empty():
 		return true
 	var drs: Node = get_node_or_null("/root/DungeonRunState")
@@ -171,6 +253,9 @@ func _has_required_key() -> bool:
 
 func _open_door() -> void:
 	if is_animating:
+		return
+	if _needs_key_to_open() and not _has_required_key():
+		_show_lock_denied()
 		return
 	
 	is_animating = true
@@ -300,6 +385,21 @@ func open_door_immediately() -> void:
 func set_requires_key(required: bool, key: String = "") -> void:
 	requires_key = required
 	key_id = key
+
+
+func set_alarm_locked(locked: bool, key: String = "") -> void:
+	_alarm_locked = locked
+	if locked:
+		is_locked = true
+		set_requires_key(true, key)
+		if is_open and has_method("close_door_now"):
+			close_door_now()
+	else:
+		is_locked = false
+		set_requires_key(false, "")
+	call_deferred("_update_door_appearance")
+	if is_player_in_range:
+		call_deferred("_player_entered_range")
 
 func _open_door_immediately() -> void:
 	# Start kapısı için animasyon olmadan direkt açık konuma getir

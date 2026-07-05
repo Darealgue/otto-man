@@ -53,7 +53,7 @@ func _build_minigame_context() -> Dictionary:
 	ctx["depth"] = depth_level
 	ctx["hits_required"] = max(1, pulls_required)
 	ctx["sweet_spot"] = sweet_spot_width
-	ctx["resource_type"] = ResourceType.WATER
+	ctx["resource_type"] = ResourceType.FOOD
 	ctx["resource_base"] = base_reward
 	ctx["perfect_bonus"] = perfect_bonus
 	ctx["well_path"] = get_path()  # Well node path'i

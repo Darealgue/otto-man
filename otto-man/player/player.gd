@@ -135,6 +135,7 @@ var counter_knockback_bonus: float = 0.35  # +35% knockback during counter
 # Etkileşim için değişkenler (YENİ - physics_process'e dokunmadan)
 var overlapping_interactables: Array[Area2D] = []
 const VILLAGE_NPC_HOLD_DURATION := 0.4
+const VILLAGE_CHARACTER_INTERACT_RANGE := 110.0
 ## Kısa basmalarda halka çıkmasın diye geri bildirim gecikmesi (tap/hold ayrımı).
 const VILLAGE_NPC_HOLD_FEEDBACK_DELAY := 0.12
 var _village_interact_hold_active := false
@@ -190,6 +191,18 @@ func _is_any_menu_open() -> bool:
 	var mcs = get_tree().get_first_node_in_group("mission_center")
 	if mcs and mcs.visible:
 		return true
+	var world_popups := get_tree().get_first_node_in_group("village_world_popups")
+	if world_popups and world_popups.has_method("is_any_popup_open"):
+		if bool(world_popups.call("is_any_popup_open")):
+			return true
+	for plot_sys in get_tree().get_nodes_in_group("village_plot_system"):
+		if plot_sys.has_method("_is_popup_open") and bool(plot_sys.call("_is_popup_open")):
+			return true
+	var scene_root := get_tree().current_scene
+	if scene_root and scene_root.has_node("BuildMenuLayer/BuildMenuUI"):
+		var build_menu: Node = scene_root.get_node("BuildMenuLayer/BuildMenuUI")
+		if build_menu.visible:
+			return true
 	return false
 
 func set_ui_locked(locked: bool) -> void:
@@ -231,6 +244,12 @@ func _ready():
 		VillageManager.Village_Player = self
 	# Add to player group
 	add_to_group("player")
+
+	var interact_detect := get_node_or_null("InteractionDetectionArea") as Area2D
+	if interact_detect:
+		interact_detect.collision_mask = 1
+		interact_detect.monitoring = true
+		interact_detect.monitorable = true
 	
 	# Status effect system (burn, poison DOT)
 	status_effects = StatusEffectManager.new()
@@ -323,6 +342,13 @@ func _ready():
 			dodge_state.connect("state_entered", _on_dodge_state_entered)
 		if not dodge_state.is_connected("state_exited", _on_dodge_state_exited):
 			dodge_state.connect("state_exited", _on_dodge_state_exited)
+
+	var slide_state = $StateMachine.get_node_or_null("Slide")
+	if slide_state:
+		if not slide_state.is_connected("state_entered", _on_slide_state_entered_sfx):
+			slide_state.connect("state_entered", _on_slide_state_entered_sfx)
+		if not slide_state.is_connected("state_exited", _on_slide_state_exited_sfx):
+			slide_state.connect("state_exited", _on_slide_state_exited_sfx)
 		
 	# Initialize stats from PlayerStats
 	_sync_stats_from_player_stats()
@@ -990,10 +1016,17 @@ func _collect_damage_pickup(drop: Node) -> void:
 			GlobalPlayerData.credit_run_loot_gold(amount)
 	else:
 		var type := String(drop.get_meta("type", ""))
+		_play_pickup_sfx(drop.global_position if drop is Node2D else global_position)
 		var ps = get_node_or_null("/root/PlayerStats")
 		if ps and ps.has_method("add_carried_resource"):
 			ps.add_carried_resource(type, amount)
 	drop.queue_free()
+
+
+func _play_pickup_sfx(at_position: Vector2 = Vector2.ZERO) -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("play_sfx"):
+		sm.play_sfx("pickup", at_position)
 
 func _format_damage_pickup_text(kind: String, type: String, amount: int) -> String:
 	if kind == "gold":
@@ -1221,6 +1254,18 @@ func _on_dodge_state_entered() -> void:
 func _on_dodge_state_exited() -> void:
 	is_dodging = false
 
+
+func _on_slide_state_entered_sfx() -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("start_loop_sfx"):
+		sm.start_loop_sfx("slide")
+
+
+func _on_slide_state_exited_sfx() -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("stop_loop_sfx"):
+		sm.stop_loop_sfx()
+
 # Update perfect parry detection
 func _on_successful_parry() -> void:
 	emit_signal("perfect_parry")
@@ -1391,8 +1436,11 @@ func _apply_roguelike_mechanics_on_death() -> void:
 		var lost_count = envanter.size()
 		global_player_data.set("envanter", [])
 		print("[Player] 💀 Roguelike: Inventory cleared on death (%d items lost)" % lost_count)
-	
-	# Ölüm sonrası yeni akış: oyuncu köyde 1 canla uyanır ve zamanla toparlanır.
+
+	# Sefer loot'u ölünce kaybolur (köye teslim edilmediyse)
+	if player_stats and player_stats.has_method("clear_carried_expedition_loot"):
+		player_stats.clear_carried_expedition_loot()
+		print("[Player] 🎒 Roguelike: Expedition loot cleared on death")
 	if player_stats and player_stats.has_method("mark_death_injury"):
 		player_stats.mark_death_injury()
 		print("[Player] 💚 Death recovery started: respawn health set to 1")
@@ -1770,6 +1818,8 @@ func is_in_combat_state() -> bool:
 
 # Input Handling (YENİ - physics_process yerine)
 func _process_village_interactions(delta: float) -> void:
+	if not _is_village_scene():
+		return
 	var im := get_node_or_null("/root/InputManager")
 	if im != null and im.last_input_from_joypad:
 		_process_village_interactions_joypad(delta)
@@ -1789,6 +1839,8 @@ func _process_village_interactions_keyboard(delta: float) -> void:
 			if _try_hold_npc_interact():
 				_village_npc_hold_fired = true
 	elif _village_interact_hold_active:
+		if not _village_npc_hold_fired and _village_interact_hold_time < VILLAGE_NPC_HOLD_DURATION:
+			_try_tap_world_interact()
 		_reset_village_interact_hold()
 	if Input.is_action_just_pressed("ui_up"):
 		_try_tap_world_interact()
@@ -1876,9 +1928,79 @@ func _find_best_tap_interactable() -> Node:
 
 
 func _try_tap_world_interact() -> void:
-	var interactable_node := _find_best_tap_interactable()
+	if _try_village_plot_interact():
+		return
+	var interactable_node := _find_best_overlapping_interact_target()
 	if interactable_node:
 		interactable_node.interact()
+
+
+func has_village_priority_character_in_range() -> bool:
+	var best := _find_best_overlapping_interact_target()
+	return _is_village_priority_character(best)
+
+
+func _find_best_overlapping_interact_target() -> Node:
+	var best: Node = null
+	var best_dist_sq: float = INF
+	for i in range(overlapping_interactables.size() - 1, -1, -1):
+		var area: Area2D = overlapping_interactables[i]
+		if not is_instance_valid(area):
+			overlapping_interactables.remove_at(i)
+			continue
+		var node := _resolve_interactable_node(area)
+		if not is_instance_valid(node) or not node.has_method("interact"):
+			continue
+		if node.is_in_group("NPC"):
+			continue
+		if node.has_method("can_interact") and not node.can_interact():
+			continue
+		var dist_sq: float = global_position.distance_squared_to(node.global_position)
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			best = node
+	return best
+
+
+func _try_village_character_interact() -> bool:
+	var node := _find_best_village_character_interactable()
+	if node == null:
+		return false
+	node.interact()
+	return true
+
+
+func _find_best_village_character_interactable() -> Node:
+	var best := _find_best_overlapping_interact_target()
+	if _is_village_priority_character(best):
+		return best
+	return null
+
+
+func _resolve_interactable_node(area: Area2D) -> Node:
+	var parent := area.get_parent()
+	if parent != null and parent.has_method("interact"):
+		return parent
+	return null
+
+
+func _is_village_priority_character(node: Node) -> bool:
+	return node != null and node.is_in_group("village_priority_interact")
+
+
+func _can_village_character_interact(node: Node) -> bool:
+	return node.has_method("interact") and node.has_method("can_interact") and node.can_interact()
+
+
+func _try_village_plot_interact() -> bool:
+	if not _is_village_scene():
+		return false
+	var systems := get_tree().get_nodes_in_group("village_plot_system")
+	for node in systems:
+		if is_instance_valid(node) and node.has_method("try_interact_active_spot"):
+			if bool(node.call("try_interact_active_spot")):
+				return true
+	return false
 
 # Handle hitbox hit events
 func _on_hitbox_hit(enemy: Node) -> void:
@@ -1914,24 +2036,7 @@ func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 
 
 func _refresh_interact_hints() -> void:
-	var best_node: Node = null
-	var best_dist: float = INF
-	for area in overlapping_interactables:
-		if not is_instance_valid(area):
-			continue
-		var parent_node = area.get_parent()
-		if not is_instance_valid(parent_node):
-			continue
-		if not parent_node.has_method("ShowInteractButton"):
-			continue
-		if parent_node.is_in_group("NPC"):
-			continue
-		if parent_node.has_method("can_interact") and not parent_node.can_interact():
-			continue
-		var dist: float = global_position.distance_to(parent_node.global_position)
-		if dist < best_dist:
-			best_dist = dist
-			best_node = parent_node
+	var best_node := _find_best_overlapping_interact_target()
 
 	for area in overlapping_interactables:
 		if not is_instance_valid(area):
@@ -1945,7 +2050,7 @@ func _refresh_interact_hints() -> void:
 			continue
 		if parent_node == best_node:
 			parent_node.ShowInteractButton()
-		else:
+		elif parent_node.has_method("HideInteractButton"):
 			parent_node.HideInteractButton()
 					
 func HandleDialogueNpcWindows(last_npc):

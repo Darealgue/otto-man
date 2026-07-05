@@ -51,6 +51,12 @@ var _is_sleeping: bool = false
 var _is_sitting: bool = false
 var _sit_until_time: float = 0.0
 
+# border sprite'larında karakter silueti node merkezinden biraz sola çizili
+const INTERACT_HINT_X_SHIFT: float = -12.0
+var _interact_area: Area2D
+var _interact_shape: CollisionShape2D
+var _interact_hint: Label
+
 const SPRITE_OFFSET_Y: float = 48.0
 
 
@@ -71,6 +77,8 @@ func _ready() -> void:
 		sleep_sprite.hframes = SLEEP_HFRAMES
 		sleep_sprite.frame = 0
 	z_index = 6
+	add_to_group("village_priority_interact")
+	_build_world_interact()
 
 
 func setup(p_trader_id: String, p_entry_x: float, p_center_x: float, p_exit_x: float, p_center_y: float = -26.0) -> void:
@@ -200,6 +208,7 @@ func _handle_idle_wander(delta: float) -> void:
 			_is_sitting = true
 			_sit_until_time = Time.get_ticks_msec() / 1000.0 + randf_range(SIT_DURATION_MIN, SIT_DURATION_MAX)
 			_show_sit_sprite()
+			HideInteractButton()
 			return
 		else:
 			_pick_wander_target()
@@ -237,6 +246,8 @@ func _physics_process(delta: float) -> void:
 	# Z-index: cariye/worker ile aynı (ayak Y'ye göre 6..19)
 	var foot_y = get_foot_y_position()
 	z_index = _calculate_z_index_from_foot_y(foot_y)
+	_update_interact_area_for_pose()
+	_sync_overhead_ui_flip()
 
 
 func _update_idle_animation(delta: float) -> void:
@@ -330,3 +341,101 @@ func _calculate_z_index_from_foot_y(foot_y: float) -> int:
 		return int((MIN_Z_INDEX + MAX_Z_INDEX) / 2)
 	var t := clampf((foot_y - min_foot_y) / range_foot_y, 0.0, 1.0)
 	return int(round(lerpf(float(MIN_Z_INDEX), float(MAX_Z_INDEX), t)))
+
+
+func _build_world_interact() -> void:
+	_interact_area = Area2D.new()
+	_interact_area.name = "InteractArea"
+	_interact_area.collision_layer = 1
+	_interact_area.collision_mask = 2
+	_interact_area.monitoring = true
+	_interact_area.add_to_group("interactables")
+	add_child(_interact_area)
+	_interact_area.body_entered.connect(_on_interact_body_entered)
+	_interact_area.body_exited.connect(_on_interact_body_exited)
+
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(56, 72)
+	shape.shape = rect
+	shape.position = Vector2(0, -40)
+	_interact_area.add_child(shape)
+	_interact_shape = shape
+
+	_interact_hint = Label.new()
+	_interact_hint.name = "InteractHint"
+	_interact_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_interact_hint.add_theme_font_size_override("font_size", 12)
+	_interact_hint.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
+	_interact_hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_interact_hint.add_theme_constant_override("outline_size", 3)
+	NpcOverheadUi.configure_centered_overhead_hint(_interact_hint, 96.0, -88.0, 20.0, INTERACT_HINT_X_SHIFT)
+	_interact_hint.visible = false
+	add_child(_interact_hint)
+
+
+func can_interact() -> bool:
+	if trader_id.is_empty():
+		return false
+	if current_state != State.IDLE:
+		return false
+	if _is_sleeping:
+		return false
+	if _is_sitting:
+		return false
+	return true
+
+
+func _update_interact_area_for_pose() -> void:
+	if not is_instance_valid(_interact_shape) or not (_interact_shape.shape is RectangleShape2D):
+		return
+	var rect := _interact_shape.shape as RectangleShape2D
+	if _is_sitting:
+		rect.size = Vector2(44, 58)
+		_interact_shape.position = Vector2(0, -34)
+	else:
+		rect.size = Vector2(56, 72)
+		_interact_shape.position = Vector2(0, -40)
+
+
+func _sync_overhead_ui_flip() -> void:
+	if _interact_hint:
+		NpcOverheadUi.sync_horizontal_flip(self, [_interact_hint])
+
+
+func interact() -> void:
+	if not can_interact():
+		return
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("get_active_traders"):
+		return
+	for t in mm.get_active_traders():
+		if t.get("id", "") == trader_id:
+			var host := VillageWorldPopups.get_host()
+			if host:
+				host.open_trader_trade(t)
+			return
+
+
+func ShowInteractButton() -> void:
+	if not _interact_hint or not can_interact():
+		return
+	var im := get_node_or_null("/root/InputManager")
+	if im:
+		_interact_hint.text = im.get_tutorial_ui_up_hint()
+	_interact_hint.visible = true
+
+
+func HideInteractButton() -> void:
+	if _interact_hint:
+		_interact_hint.visible = false
+
+
+func _on_interact_body_entered(body: Node2D) -> void:
+	if body.is_in_group("player") or body.is_in_group("Player"):
+		ShowInteractButton()
+
+
+func _on_interact_body_exited(body: Node2D) -> void:
+	if body.is_in_group("player") or body.is_in_group("Player"):
+		HideInteractButton()

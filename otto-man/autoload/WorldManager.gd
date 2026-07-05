@@ -44,6 +44,10 @@ const BASE_TRAVEL_MINUTES_PER_COST: float = 18.0
 const WORLD_EXPEDITION_COLLAPSE_MORALE_PENALTY: float = 8.0
 const MAX_ACTIVE_SETTLEMENT_INCIDENTS: int = 3
 const MAX_INCIDENTS_PER_SETTLEMENT: int = 1
+const DAILY_NEW_INCIDENT_BUDGET: int = 1
+const SETTLEMENT_INCIDENT_BASE_CHANCE: float = 0.022
+const FACTION_WORLD_EVENT_DAILY_CHANCE: float = 0.012
+const FACTION_WORLD_EVENT_COOLDOWN_DAYS: int = 6
 # Concubine role/skill IDs (Concubine.gd enums)
 const LW_ROLE_KOMUTAN: int = 1
 const LW_ROLE_AJAN: int = 2
@@ -85,6 +89,9 @@ var _passage_rights: Dictionary = {}
 
 # --- Internal ---
 var _last_tick_day: int = 0
+var _daily_incident_budget_day: int = -1
+var _daily_incidents_started: int = 0
+var _last_faction_world_event_day: int = -9999
 var _time_advanced_connected: bool = false
 var _pending_battle_story_data: Dictionary = {}  # Store battle data while waiting for LLM response
 
@@ -739,11 +746,11 @@ func _build_settlement_economy_profile(terrain: String) -> Dictionary:
 			produces = ["stone"]
 			scarce = ["food", "wood"]
 		"akarsu":
-			produces = ["water", "food"]
+			produces = ["wood", "food"]
 			scarce = ["stone"]
 		_:
 			produces = ["food"]
-			scarce = ["stone", "water"]
+			scarce = ["stone"]
 	var label: String = ""
 	match terrain:
 		"orman":
@@ -1074,7 +1081,9 @@ func _post_incident_resolved_by_player_news(incident: Dictionary) -> void:
 		"subcategory": "success",
 		"title": "Krize Mudahale",
 		"content": "%s bolgesindeki kriz cariye yardimiyla yatisti." % nm,
-		"day": day_report
+		"day": day_report,
+		"settlement_id": String(incident.get("settlement_id", "")),
+		"skip_daily_cap": true,
 	})
 
 func on_village_surface_event(event_type: String, day: int) -> void:
@@ -1239,12 +1248,12 @@ func _roll_travel_event_expedition_gain(rng: RandomNumberGenerator, terrain: Str
 					if rng.randf() < 0.72:
 						g["food"] = 2 if rng.randf() < 0.24 else 1
 				"akarsu":
-					g["water"] = 2 if rng.randf() < 0.40 else 1
+					g["food"] = 2 if rng.randf() < 0.40 else 1
 				"dag":
 					if rng.randf() < 0.38:
 						g["food"] = 1
 					if rng.randf() < 0.20:
-						g["water"] = maxi(int(g.get("water", 0)), 1)
+						g["food"] = maxi(int(g.get("food", 0)), 1)
 				"ova":
 					if rng.randf() < 0.30:
 						g["food"] = 1
@@ -1258,7 +1267,7 @@ func _roll_travel_event_expedition_gain(rng: RandomNumberGenerator, terrain: Str
 						g["food"] = 1
 				"akarsu":
 					if rng.randf() < 0.22:
-						g["water"] = 1
+						g["food"] = 1
 				"dag":
 					if rng.randf() < 0.10:
 						g["food"] = 1
@@ -1271,7 +1280,7 @@ func _roll_travel_event_expedition_gain(rng: RandomNumberGenerator, terrain: Str
 						g["food"] = 1
 				"akarsu":
 					if rng.randf() < 0.48:
-						g["water"] = 1
+						g["food"] = 1
 				_:
 					pass
 	return g
@@ -1284,7 +1293,7 @@ func _clamp_world_expedition_gain_to_room(gain: Dictionary, player_stats: Node) 
 	if player_stats.has_method("get_world_expedition_pack_caps"):
 		caps = player_stats.call("get_world_expedition_pack_caps")
 	else:
-		caps = {"food": 1, "water": 1, "medicine": 24, "world_gold": 2500}
+		caps = {"food": 1, "medicine": 24, "world_gold": 2500}
 	var cur: Dictionary = player_stats.call("get_world_expedition_supplies")
 	var out: Dictionary = {}
 	for k in gain.keys():
@@ -1493,10 +1502,7 @@ func _dice_padded_expedition_gain(base: Dictionary, terrain: String, rng: Random
 	if not g.is_empty():
 		return g
 	var fallback: Dictionary = {}
-	if terrain == "akarsu" and rng.randf() < 0.55:
-		fallback["water"] = 1
-	else:
-		fallback["food"] = 1
+	fallback["food"] = 1
 	return _clamp_world_expedition_gain_to_room(fallback, psn)
 
 func _build_travel_dice_resolution_effect(terrain: String, tier: int, d1: int, d2: int, rng: RandomNumberGenerator, tile: Dictionary) -> Dictionary:
@@ -2044,7 +2050,7 @@ func _apply_landmark_reward(reward: Dictionary, source_label: String) -> String:
 			var gm: Node = get_node_or_null("/root/GameManager")
 			var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
 			var parts: PackedStringArray = PackedStringArray()
-			for res_key in ["wood", "stone", "food", "water"]:
+			for res_key in ["wood", "stone", "food"]:
 				var amount: int = int(reward.get(res_key, 0))
 				if amount <= 0:
 					continue
@@ -2543,14 +2549,15 @@ func _simulate_day(day: int) -> void:
 	_simulate_settlement_migrations(day)
 	_simulate_player_alliances(day)
 
-	# Rastgele olay başlatma şansı
-	if randf() < 0.1:  # %10 şans
+	# Rastgele fraksiyon olayı — seyrek ve cooldown'lu
+	if day - _last_faction_world_event_day >= FACTION_WORLD_EVENT_COOLDOWN_DAYS and randf() < FACTION_WORLD_EVENT_DAILY_CHANCE:
 		var event_type = _get_random_event_type()
 		var faction = factions[randi() % factions.size()]
-		if faction != "Köy":  # Köy kendine olay başlatmasın
+		if faction != "Köy":
 			var event = _create_event(event_type, faction, day)
 			active_events.append(event)
 			_post_event_news(event, day)
+			_last_faction_world_event_day = day
 	
 	# Köy saldırıları kontrolü (yeni saldırı tetikleme)
 	_check_village_attacks(day)
@@ -2592,14 +2599,16 @@ func _simulate_neighbor_settlements(day: int) -> void:
 		stability = clamp(stability, 5, 100)
 		population = clamp(population, 20, 240)
 
-		var incident_chance: float = 0.09
+		var incident_chance: float = SETTLEMENT_INCIDENT_BASE_CHANCE
 		if food_stock < 55:
-			incident_chance += 0.05
+			incident_chance += 0.025
 		if security < 40:
-			incident_chance += 0.04
+			incident_chance += 0.018
 		if world_settlement_incidents.size() >= MAX_ACTIVE_SETTLEMENT_INCIDENTS:
 			incident_chance = 0.0
 		if _has_active_incident_for_settlement(String(settlement_id)):
+			incident_chance = 0.0
+		if not _can_start_new_incident_today(day):
 			incident_chance = 0.0
 
 		state["population"] = population
@@ -2612,6 +2621,7 @@ func _simulate_neighbor_settlements(day: int) -> void:
 		if incident_chance > 0.0 and randf() < incident_chance:
 			var incident: Dictionary = _create_settlement_incident(String(settlement_id), day, role_mods)
 			if not incident.is_empty():
+				_mark_incident_started_today(day)
 				world_settlement_incidents.append(incident)
 				_apply_settlement_incident_start_effects(incident)
 				_present_settlement_incident_to_player(incident, role_mods)
@@ -2819,7 +2829,7 @@ func _apply_trade_convoy_failure(sender_id: String, receiver_id: String, resourc
 	change_settlement_relation(sender_id, receiver_id, -1)
 
 func _post_trade_convoy_news(day: int, sender_name: String, receiver_name: String, resource: String, success: bool, allow_full_news: bool) -> void:
-	if not allow_full_news and randf() > 0.20:
+	if not allow_full_news:
 		return
 	var resource_label: String = resource
 	match resource:
@@ -2889,13 +2899,12 @@ func _resolve_expired_settlement_incidents(day: int, role_mods: Dictionary = {})
 
 func _post_settlement_incident_news(incident: Dictionary, role_mods: Dictionary = {}) -> void:
 	var settlement_id: String = String(incident.get("settlement_id", ""))
+	if not _should_publish_settlement_world_news(settlement_id, role_mods):
+		return
 	var settlement_name: String = String(incident.get("settlement_name", "Komsu Koy"))
 	var incident_type: String = String(incident.get("type", "wolf_attack"))
 	var duration: int = int(incident.get("duration", 0))
 	var discovered: bool = _is_settlement_discovered_for_news(settlement_id)
-	var undiscovered_news_chance: float = float(role_mods.get("undiscovered_news_chance", 0.30))
-	if not discovered and randf() > undiscovered_news_chance:
-		return
 	var title: String = "Komsu Koy Krizi"
 	var content: String = ""
 	match incident_type:
@@ -2923,12 +2932,13 @@ func _post_settlement_incident_news(incident: Dictionary, role_mods: Dictionary 
 		"subcategory": "warning",
 		"title": title,
 		"content": content,
-		"day": int(incident.get("started_day", 0))
+		"day": int(incident.get("started_day", 0)),
+		"settlement_id": settlement_id,
 	})
 
 func _post_settlement_incident_end_news(incident: Dictionary) -> void:
 	var settlement_id: String = String(incident.get("settlement_id", ""))
-	if not _is_settlement_discovered_for_news(settlement_id):
+	if not is_settlement_in_player_intelligence_network(settlement_id):
 		return
 	var settlement_name: String = String(incident.get("settlement_name", "Komsu Koy"))
 	var incident_type: String = String(incident.get("type", ""))
@@ -2948,7 +2958,8 @@ func _post_settlement_incident_end_news(incident: Dictionary) -> void:
 		"subcategory": "success",
 		"title": title,
 		"content": content,
-		"day": int(incident.get("started_day", 0)) + int(incident.get("duration", 0))
+		"day": int(incident.get("started_day", 0)) + int(incident.get("duration", 0)),
+		"settlement_id": settlement_id,
 	})
 
 func _is_settlement_discovered_for_news(settlement_id: String) -> bool:
@@ -2957,6 +2968,38 @@ func _is_settlement_discovered_for_news(settlement_id: String) -> bool:
 	if not world_map_settlement_positions.has(settlement_id):
 		return false
 	return bool(world_map_settlement_positions[settlement_id].get("discovered", false))
+
+func is_settlement_in_player_intelligence_network(settlement_id: String) -> bool:
+	if settlement_id.is_empty():
+		return true
+	if _is_settlement_discovered_for_news(settlement_id):
+		return true
+	if is_player_allied(settlement_id):
+		return true
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	if mm and mm.has_method("is_settlement_under_active_intel"):
+		return bool(mm.call("is_settlement_under_active_intel", settlement_id))
+	return false
+
+func _should_publish_settlement_world_news(settlement_id: String, role_mods: Dictionary = {}) -> bool:
+	if settlement_id.is_empty():
+		return true
+	if is_settlement_in_player_intelligence_network(settlement_id):
+		return true
+	var rumor_chance: float = float(role_mods.get("undiscovered_news_chance", 0.0))
+	return rumor_chance > 0.0 and randf() < rumor_chance
+
+func _can_start_new_incident_today(day: int) -> bool:
+	if day != _daily_incident_budget_day:
+		_daily_incident_budget_day = day
+		_daily_incidents_started = 0
+	return _daily_incidents_started < DAILY_NEW_INCIDENT_BUDGET
+
+func _mark_incident_started_today(day: int) -> void:
+	if day != _daily_incident_budget_day:
+		_daily_incident_budget_day = day
+		_daily_incidents_started = 0
+	_daily_incidents_started += 1
 
 func _get_settlement_incident_threat_bonus(q: int, r: int) -> float:
 	if world_settlement_incidents.is_empty():
@@ -3070,7 +3113,7 @@ func _get_living_world_role_modifiers() -> Dictionary:
 		"security_recovery_bonus": 0,
 		"stability_recovery_bonus": 0,
 		"food_drift_bonus": 0,
-		"undiscovered_news_chance": 0.30,
+		"undiscovered_news_chance": 0.0,
 		"post_incident_security_bonus": 0,
 		"post_incident_stability_bonus": 0,
 		"hostile_attack_chance_mult": 1.0,
@@ -3104,7 +3147,7 @@ func _get_living_world_role_modifiers() -> Dictionary:
 	var ajan_skill: int = _get_top_cariye_skill_for_role(LW_ROLE_AJAN, LW_SKILL_KESIF)
 	if ajan_skill > 0:
 		var a_norm: float = clampf(float(ajan_skill) / 100.0, 0.0, 1.0)
-		mods["undiscovered_news_chance"] = clampf(0.30 + 0.55 * a_norm, 0.30, 0.90)
+		mods["undiscovered_news_chance"] = clampf(0.08 + 0.42 * a_norm, 0.08, 0.50)
 		# Ajan ittifak istihbarat menzilini +1 ile +2 arttirir.
 		mods["alliance_intel_radius_bonus"] = int(round(1.0 + 1.0 * a_norm))
 	var tuccar_skill: int = _get_top_cariye_skill_for_role(LW_ROLE_TUCCAR, LW_SKILL_TICARET)
@@ -3245,10 +3288,10 @@ func _try_seed_event_chain_from_incident(incident: Dictionary, day: int) -> void
 	var chain_type: String = ""
 	match incident_type:
 		"harvest_failure":
-			if randf() < clampf(0.30 + severity * 0.20, 0.30, 0.65):
+			if randf() < clampf(0.12 + severity * 0.10, 0.12, 0.35):
 				chain_type = "drought_chain"
 		"wolf_attack":
-			if randf() < clampf(0.20 + severity * 0.15, 0.20, 0.50):
+			if randf() < clampf(0.08 + severity * 0.08, 0.08, 0.28):
 				chain_type = "raid_chain"
 		_:
 			pass
@@ -3320,7 +3363,7 @@ func _exit_event_chain_stage(chain: Dictionary, _stage_def: Dictionary, _day: in
 
 func _post_event_chain_stage_news(chain: Dictionary, stage_def: Dictionary, day: int) -> void:
 	var settlement_id: String = String(chain.get("settlement_id", ""))
-	if not _is_settlement_discovered_for_news(settlement_id) and randf() > 0.30:
+	if not _should_publish_settlement_world_news(settlement_id, _get_living_world_role_modifiers()):
 		return
 	var settlement_name: String = String(chain.get("settlement_name", "Komsu Koy"))
 	var stage_id: String = String(stage_def.get("id", ""))
@@ -3358,12 +3401,13 @@ func _post_event_chain_stage_news(chain: Dictionary, stage_def: Dictionary, day:
 		"subcategory": subcategory,
 		"title": title,
 		"content": content,
-		"day": day
+		"day": day,
+		"settlement_id": settlement_id,
 	})
 
 func _post_event_chain_end_news(chain: Dictionary, day: int) -> void:
 	var settlement_id: String = String(chain.get("settlement_id", ""))
-	if not _is_settlement_discovered_for_news(settlement_id):
+	if not is_settlement_in_player_intelligence_network(settlement_id):
 		return
 	var settlement_name: String = String(chain.get("settlement_name", "Komsu Koy"))
 	var def: Dictionary = CHAIN_DEFINITIONS.get(String(chain.get("chain_type", "")), {})
@@ -4032,7 +4076,9 @@ func propose_alliance(settlement_id: String) -> Dictionary:
 		"subcategory": "success",
 		"title": "Ittifak Kuruldu",
 		"content": "%s koyuyle ittifak imzalandi." % settlement_name,
-		"day": _last_tick_day
+		"day": _last_tick_day,
+		"settlement_id": settlement_id,
+		"skip_daily_cap": true,
 	})
 	# Hostility yayilim: muttefigin OPEN_WAR rakipleri oyuncuya da hostile olur.
 	_apply_alliance_hostility_initial(settlement_id)
@@ -4458,7 +4504,7 @@ func can_afford_settlement_aid(option: Dictionary) -> bool:
 			return false
 		if int(gpd.gold) < gold_cost:
 			return false
-	for resource_type in ["food", "wood", "stone", "water"]:
+	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount <= 0:
 			continue
@@ -4497,7 +4543,7 @@ func apply_settlement_aid(settlement_id: String, option_id: String) -> Dictionar
 			gpd.call("add_gold", -gold_cost)
 		else:
 			gpd.gold = max(0, int(gpd.gold) - gold_cost)
-	for resource_type in ["food", "wood", "stone", "water"]:
+	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount > 0 and gm and gm.has_method("add_resource"):
 			gm.call("add_resource", resource_type, -amount)
@@ -5150,7 +5196,7 @@ func _get_attacker_force_for_defense(attacker_faction: String) -> Dictionary:
 	return {
 		"units": {"infantry": int(base_strength), "archers": int(base_strength * 0.6)},
 		"equipment": {"weapon": int(base_strength * 1.5), "armor": int(base_strength)},
-		"supplies": {"bread": int(base_strength * 2), "water": int(base_strength * 1.5)},
+		"supplies": {"bread": int(base_strength * 2), "food": int(base_strength * 1.5)},
 		"gold": int(base_strength * 20)
 	}
 
@@ -5438,7 +5484,7 @@ func _create_event(type: String, faction: String, day: int) -> Dictionary:
 				"magnitude": 0.7,
 				"duration": 10,
 				"started_day": day,
-				"effects": {"population_health": 0.6, "production_penalty": 0.3}
+				"effects": {"population_health": 0.75, "production_penalty": 0.75}
 			}
 		"war_declaration":
 			return {
@@ -5513,9 +5559,11 @@ func _apply_world_events_to_village(day: int) -> void:
 	if not VillageManager or not VillageManager.has_method("apply_world_event_effects"):
 		return
 	
-	# Apply effects of all active events
+	# Apply each event once (effects are persistent until expiry — do not stack daily).
 	for event in active_events:
-		VillageManager.apply_world_event_effects(event)
+		if not event.get("_village_effects_applied", false):
+			VillageManager.apply_world_event_effects(event)
+			event["_village_effects_applied"] = true
 	
 	# Remove effects of expired events
 	var remaining: Array[Dictionary] = []
@@ -5530,6 +5578,10 @@ func _apply_world_events_to_village(day: int) -> void:
 	active_events = remaining
 
 func _post_world_news(news: Dictionary) -> void:
+	var settlement_id: String = String(news.get("settlement_id", ""))
+	if not bool(news.get("skip_intel_filter", false)) and not settlement_id.is_empty():
+		if not _should_publish_settlement_world_news(settlement_id, _get_living_world_role_modifiers()):
+			return
 	# MissionManager'ın post_news metodunu kullan
 	if MissionManager and MissionManager.has_method("post_news"):
 		var category = news.get("category", "world")
@@ -5541,7 +5593,9 @@ func _post_world_news(news: Dictionary) -> void:
 		if category == "world":
 			category = "Dünya"
 		
-		MissionManager.post_news(category, title, content, Color.WHITE, subcategory)
+		MissionManager.post_news(category, title, content, Color.WHITE, subcategory, {
+			"skip_daily_cap": bool(news.get("skip_daily_cap", false)),
+		})
 	else:
 		# Fallback: sinyal emit et
 		if MissionManager and MissionManager.has_signal("news_posted"):
@@ -5757,7 +5811,7 @@ func get_player_village_hex_coords() -> Dictionary:
 
 
 ## Temel kaynak türü için köyden en yakın uygun arazi hex'ine göre tur süresi (dakika).
-## wood/food -> orman, stone -> dag, water -> akarsu
+## wood/food -> orman, stone -> dag, akarsu da orman gibi wood/food
 func compute_village_gather_round_trip_minutes(resource_type: String) -> Dictionary:
 	var pos: Dictionary = _get_player_village_position()
 	if pos.is_empty():
@@ -5770,8 +5824,6 @@ func compute_village_gather_round_trip_minutes(resource_type: String) -> Diction
 			terrain = "orman"
 		"stone":
 			terrain = "dag"
-		"water":
-			terrain = "akarsu"
 		_:
 			return {"ok": false, "reason": "bad_resource", "round_trip_minutes": 240, "one_way_minutes": 30}
 	var best_q: int = 0

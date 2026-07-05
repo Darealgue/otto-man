@@ -21,7 +21,7 @@ var assigned_worker_ids: Array[int] = []
 var is_upgrading: bool = false
 var upgrade_timer: Timer = null
 var upgrade_time_seconds: float = 10.0
-@export var max_level: int = 4
+@export var max_level: int = 8
 var _collision_original_positions: Dictionary = {}
 
 # --- Hesaplanan Değişken ---
@@ -45,6 +45,8 @@ func _init(): # _ready yerine _init'te oluşturmak daha güvenli olabilir
 
 func _ready() -> void:
 	print("StoneMine hazır.")
+	if not scene_file_path.is_empty():
+		max_level = BuildingUpgradeConfig.get_max_level(scene_file_path)
 	_store_collision_original_positions()
 	_setup_platform_collision()
 	_update_texture()
@@ -98,6 +100,8 @@ func remove_worker() -> bool:
 		return false
 
 	var worker_id_to_remove = assigned_worker_ids.pop_back()
+	if VillageManager.has_method("clear_basic_gather_expedition_for_worker"):
+		VillageManager.clear_basic_gather_expedition_for_worker(worker_id_to_remove)
 	var worker_instance = null
 	if VillageManager.all_workers.has(worker_id_to_remove):
 		worker_instance = VillageManager.all_workers[worker_id_to_remove]["instance"]
@@ -125,29 +129,6 @@ func remove_worker() -> bool:
 	print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [self.name, worker_id_to_remove, assigned_workers, max_workers])
 	emit_signal("worker_removed", worker_id_to_remove)
 	VillageManager.notify_building_state_changed(self)
-
-	# <<< YENİ: İşçi çıkarıldıktan sonra SON işçiyi içeri al VEYA TEK işçiyi dışarı çıkar >>>
-	if not worker_stays_inside and level >= 2:
-		if assigned_worker_ids.is_empty():
-			pass
-		elif assigned_worker_ids.size() == 1:
-			var last_remaining_worker_id = assigned_worker_ids[0]
-			var remaining_worker_instance = null
-			if VillageManager.all_workers.has(last_remaining_worker_id):
-				remaining_worker_instance = VillageManager.all_workers[last_remaining_worker_id]["instance"]
-			if is_instance_valid(remaining_worker_instance):
-				if remaining_worker_instance.current_state == remaining_worker_instance.State.WORKING_INSIDE:
-					remaining_worker_instance.switch_to_working_offscreen()
-		else: # 2 veya daha fazla işçi kaldı
-			var new_last_worker_id = assigned_worker_ids[-1]
-			var last_worker_instance = null
-			if VillageManager.all_workers.has(new_last_worker_id):
-				last_worker_instance = VillageManager.all_workers[new_last_worker_id]["instance"]
-			if is_instance_valid(last_worker_instance):
-				if last_worker_instance.current_state == last_worker_instance.State.WORKING_OFFSCREEN or \
-				   last_worker_instance.current_state == last_worker_instance.State.WAITING_OFFSCREEN:
-					last_worker_instance.switch_to_working_inside()
-	# <<< YENİ KOD BİTİŞİ >>>
 
 	return true # Başarıyla çıkarıldı
 
@@ -188,13 +169,7 @@ func _update_texture() -> void:
 	var sprite = get_node_or_null("Sprite2D")
 	if not sprite:
 		return
-	var texture_path = ""
-	match level:
-		1: texture_path = "res://village/buildings/sprite/stone1.png"
-		2: texture_path = "res://village/buildings/sprite/stone2.png"
-		3: texture_path = "res://village/buildings/sprite/stone3.png"
-		4: texture_path = "res://village/buildings/sprite/stone4.png"
-		_: texture_path = "res://village/buildings/sprite/stone1.png"
+	var texture_path := BuildingUpgradeConfig.gather_sprite_path("stone", level)
 	if ResourceLoader.exists(texture_path):
 		var texture = load(texture_path)
 		if texture:

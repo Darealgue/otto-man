@@ -2,12 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://bt1b63f75l1nm"
-valid=false
+uid="uid://b7gcle2j3epgg"
+path="res://.godot/imported/door_open.wav-69b6678189c02bd6142786d7e7f8bb19.sample"
 
 [deps]
 
 source_file="res://assets/audio/sfx/door_open.wav"
+dest_files=["res://.godot/imported/door_open.wav-69b6678189c02bd6142786d7e7f8bb19.sample"]
 
 [params]
 

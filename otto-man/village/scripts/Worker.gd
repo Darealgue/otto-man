@@ -839,24 +839,6 @@ func _physics_process(delta: float) -> void:
 	if visible:
 		_apply_villager_separation()
 	
-	# AI kamili workerların sağa sola dönmesini spriteları döndürmek yerine
-	# tüm node'un X scale'ını değiştirerek yaptığı için böyle isim plakasını tersine çevirmemiz gerekti
-	if scale.x < 0:
-		$NamePlateContainer.scale.x = -1
-		$InteractButton.scale.x = -1
-		if _interact_hold_ring:
-			_interact_hold_ring.scale.x = -1
-		if _guest_hourglass_label:
-			_guest_hourglass_label.scale.x = -1
-		$NpcWindow.scale.x = -1
-	else:
-		$NamePlateContainer.scale.x = 1
-		$InteractButton.scale.x = 1
-		if _interact_hold_ring:
-			_interact_hold_ring.scale.x = 1
-		if _guest_hourglass_label:
-			_guest_hourglass_label.scale.x = 1
-		$NpcWindow.scale.x = 1
 	# <<< YENİ: Mevcut Duruma Göre Animasyon Belirleme >>>
 	var target_anim = "idle" # Varsayılan animasyon
 	var target_pos = Vector2(move_target_x, _target_global_y)
@@ -1035,6 +1017,7 @@ func _physics_process(delta: float) -> void:
 				# Ev yoksa direkt SICK state'ine geç
 				current_state = State.SICK
 				visible = false
+				_notify_village_housing_changed()
 				return
 			
 			# Evine vardı mı kontrol et (housing_node'un pozisyonuna yakın olmalı)
@@ -1048,6 +1031,7 @@ func _physics_process(delta: float) -> void:
 				current_state = State.SICK
 				visible = false
 				global_position = Vector2(housing_node.global_position.x, randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX))
+				_notify_village_housing_changed()
 				return
 			else:
 				# Eve doğru hareket et; barınak yürünebilir bantta değilse hedef Y yürünebilir bantta
@@ -1089,12 +1073,7 @@ func _physics_process(delta: float) -> void:
 			
 			if should_wake:
 				_sleep_debug_log("wake condition met, leaving sleep")
-				# Barınaktan çıkar — SADECE CampFire için slot serbest bırakılır.
-				# ResidentialHousing (ev) köylüyü kalıcı kiracı olarak tutar;
-				# remove_occupant çağrısı yapılmaz, aksi hâlde gündüz sayaç 0'a düşer.
-				if is_instance_valid(housing_node) and housing_node.has_method("remove_occupant"):
-					if not (housing_node is ResidentialHousing):
-						housing_node.remove_occupant(self)
+				# Barınak kaydı kalıcıdır (ev + kamp ateşi); uyanınca remove_occupant yapılmaz.
 				
 				# Uyandır!
 				current_state = State.AWAKE_IDLE # Şimdilik direkt idle yapalım
@@ -1117,9 +1096,6 @@ func _physics_process(delta: float) -> void:
 				#print("Worker %d uyandı!" % worker_id) # Debug
 			elif _is_pending_gather_deposit() and is_instance_valid(assigned_building_node):
 				# Sefer gece tamamlandıysa uykudan kalkıp önce binaya teslim et
-				if is_instance_valid(housing_node) and housing_node.has_method("remove_occupant"):
-					if not (housing_node is ResidentialHousing):
-						housing_node.remove_occupant(self)
 				_has_campfire_sleep_spot = false
 				visible = true
 				if is_instance_valid(housing_node):
@@ -1227,6 +1203,14 @@ func _physics_process(delta: float) -> void:
 			if _try_night_sleep_or_sick(current_hour_building, current_minute_building):
 				return
 			
+			if not _is_work_time_now() and not _is_pending_gather_deposit():
+				current_state = State.AWAKE_IDLE
+				idle_activity_timer.stop()
+				_is_briefly_idling = false
+				_current_idle_activity = ""
+				_start_next_idle_step()
+				return
+			
 			# Binaya doğru hareket et (hareket _physics_process başında yapılıyor)
 			# <<< DEĞİŞTİ: Hedefe varma kontrolü distance_to ile >>>
 			if not moving: # Binaya vardıysa
@@ -1241,11 +1225,14 @@ func _physics_process(delta: float) -> void:
 						# Idle/socializing'e geçtiğimiz için daha fazla işlem yapma
 						return
 
+					# Temel kaynak toplama: herkes ekran dışına gider, bina içine girmez.
+					if _is_offscreen_gather_worker():
+						go_inside = false
 					# 1. worker_stays_inside özelliğini kontrol et
-					if "worker_stays_inside" in building_node and building_node.worker_stays_inside:
+					elif "worker_stays_inside" in building_node and building_node.worker_stays_inside:
 						go_inside = true
 					else:
-						# 2. Seviye ve İLK işçi kontrolü (sadece worker_stays_inside false ise)
+						# 2. Seviye ve İLK işçi kontrolü (işleme binaları için)
 						if "level" in building_node and building_node.level >= 2 and \
 						   "assigned_worker_ids" in building_node and \
 						   not building_node.assigned_worker_ids.is_empty() and \
@@ -1264,6 +1251,10 @@ func _physics_process(delta: float) -> void:
 						global_position = building_node.global_position
 					else:
 						# --- DIŞARIDA ÇALIŞMA MANTIĞI (MEVCUT KOD) ---
+						if not _is_work_time_now() and not _is_pending_gather_deposit():
+							current_state = State.AWAKE_IDLE
+							_start_next_idle_step()
+							return
 						#print("Worker %d reached building %s (Level %d), going offscreen." % [
 							#worker_id, building_node.name, building_node.level if "level" in building_node else 1
 						#]) # DEBUG
@@ -1336,6 +1327,9 @@ func _physics_process(delta: float) -> void:
 				_current_idle_activity = ""
 
 		State.WORKING_INSIDE:
+			if _is_offscreen_gather_worker():
+				switch_to_working_offscreen()
+				return
 			_start_fetching_timer()
 			var current_hour = TimeManager.get_hour()
 			var current_minute = TimeManager.get_minute()
@@ -1603,10 +1597,26 @@ func _physics_process(delta: float) -> void:
 	if z_index != new_z_index:
 		z_index = new_z_index
 
+	_sync_overhead_ui_flip()
+
+
+func _sync_overhead_ui_flip() -> void:
+	var ui_nodes: Array = [$NamePlateContainer, $InteractButton, $NpcWindow]
+	if _interact_hold_ring:
+		ui_nodes.append(_interact_hold_ring)
+	if _guest_hourglass_label:
+		ui_nodes.append(_guest_hourglass_label)
+	NpcOverheadUi.sync_horizontal_flip(self, ui_nodes)
+
 
 func _enforce_walkable_vertical_band() -> void:
 	global_position.y = clampf(global_position.y, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 	_target_global_y = clampf(_target_global_y, VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+
+func _notify_village_housing_changed() -> void:
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.has_signal("village_data_changed"):
+		vm.emit_signal("village_data_changed")
 
 func _is_campfire_housing() -> bool:
 	return is_instance_valid(housing_node) and housing_node is CampFire
@@ -1702,7 +1712,8 @@ func switch_to_working_inside():
 		return
 	if not is_instance_valid(self):
 		return
-	
+	if _is_offscreen_gather_worker():
+		return
 	if current_state == State.WORKING_OFFSCREEN or current_state == State.WAITING_OFFSCREEN:
 		# #print("Worker %d switching from OFFSCREEN to WORKING_INSIDE due to building upgrade." % worker_id) #<<< KALDIRILDI
 		current_state = State.WORKING_INSIDE
@@ -2123,12 +2134,30 @@ func _is_basic_resource_gather_job() -> bool:
 			return false
 
 
+func _is_offscreen_gather_worker() -> bool:
+	if not _is_basic_resource_gather_job():
+		return false
+	var vm := _distance_gather_vm()
+	if vm != null and vm.has_method("is_distance_based_basic_gather_enabled"):
+		return bool(vm.is_distance_based_basic_gather_enabled())
+	return false
+
+
+func _is_work_time_now() -> bool:
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm != null and tm.has_method("is_work_time"):
+		return bool(tm.is_work_time())
+	var ch: int = TimeManager.get_hour()
+	return ch >= TimeManager.WORK_START_HOUR and ch < TimeManager.WORK_END_HOUR
+
+
 ## Mesafe tabanlı sefer: teslim süresi dolunca dönüş başlar.
 func _should_return_waiting_offscreen_now(ch: int, cm: int) -> bool:
 	var vm := _distance_gather_vm()
 	if vm != null and vm.has_method("is_distance_based_basic_gather_enabled") and bool(vm.is_distance_based_basic_gather_enabled()) and _is_basic_resource_gather_job():
 		if vm.has_method("is_gather_return_ready_for_worker"):
 			return bool(vm.is_gather_return_ready_for_worker(worker_id))
+		return false
 	return ch >= TimeManager.WORK_END_HOUR and (ch > TimeManager.WORK_END_HOUR or cm >= work_end_minute_offset)
 
 
@@ -2242,6 +2271,10 @@ func _try_gather_return_before_sleep(hour: int, minute: int) -> bool:
 		return false
 	if current_state == State.RETURNING_FROM_WORK:
 		return true
+	# Köyde boşta oturan işçi: yalnızca bekleyen teslim varsa binaya gitsin (mesai dışı yeniden atama).
+	if current_state in [State.AWAKE_IDLE, State.SOCIALIZING]:
+		if not _is_pending_gather_deposit():
+			return false
 	if not _should_return_waiting_offscreen_now(hour, minute) and not _is_pending_gather_deposit():
 		return false
 	# Ateşe yürürken değil: ekran kenarından madene/binaya dön (walk_tool).
@@ -2325,6 +2358,69 @@ func _on_sleep_retry_timer_timeout():
 	# <<< YENİ: Timer doldu, tekrar denemeyi serbest bırak >>>
 	_sleep_attempt_failed = false
 
+
+## VillageManager zaman atlama sonrası: köylüyü animasyonsuz doğru konuma yerleştir.
+func apply_time_skip_presence(hour: int, minute: int) -> void:
+	if not is_inside_tree() or not is_instance_valid(self):
+		return
+	if is_dungeon_prisoner or is_guest_villager or is_guest_departing:
+		return
+	if is_deployed and assigned_job_type == "soldier":
+		return
+	if is_sick:
+		return
+	if fetching_timer and not fetching_timer.is_stopped():
+		fetching_timer.stop()
+	# Hâlâ seferdeyse ekran dışında kalsın (süre dolmadı).
+	if _is_gather_worker_away_on_expedition():
+		current_state = State.WORKING_OFFSCREEN
+		visible = false
+		move_target_x = global_position.x
+		_target_global_y = global_position.y
+		return
+	var should_sleep: bool = hour >= TimeManager.SLEEP_HOUR or hour < TimeManager.WAKE_UP_HOUR
+	if should_sleep:
+		if not is_instance_valid(housing_node):
+			current_state = State.SOCIALIZING
+			visible = true
+			move_target_x = global_position.x
+			_target_global_y = global_position.y
+			return
+		current_state = State.SLEEPING
+		visible = true
+		if _is_campfire_housing():
+			_campfire_sleep_spot = _compute_campfire_sleep_spot()
+			_has_campfire_sleep_spot = true
+			global_position = _campfire_sleep_spot
+		else:
+			_has_campfire_sleep_spot = false
+			global_position = Vector2(
+				housing_node.global_position.x,
+				randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+			)
+		move_target_x = global_position.x
+		_target_global_y = global_position.y
+		return
+	# Gündüz: sefer bitmiş veya offscreen dönüş yarım kalmış köylüyü barınak civarına al.
+	_has_campfire_sleep_spot = false
+	current_state = State.AWAKE_IDLE
+	visible = true
+	if is_instance_valid(housing_node):
+		global_position = Vector2(
+			housing_node.global_position.x,
+			randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+		)
+		var wander_range := 150.0
+		move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+		_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
+	else:
+		move_target_x = global_position.x
+		_target_global_y = global_position.y
+	_current_idle_activity = ""
+	_is_briefly_idling = false
+	_start_next_idle_step()
+
+
 # Saat değişiminde state transition kontrolü (VillageManager'dan çağrılır)
 func check_hour_transition(new_hour: int) -> void:
 	if not is_instance_valid(TimeManager):
@@ -2345,10 +2441,7 @@ func check_hour_transition(new_hour: int) -> void:
 			# Bu durumda tekrar uyanma kontrolü yapma
 			
 			if should_wake:
-				# Barınaktan çıkar (CampFire veya House)
-				if is_instance_valid(housing_node) and housing_node.has_method("remove_occupant"):
-					housing_node.remove_occupant(self)
-				
+				# Barınak kaydı kalıcıdır; zaman atlama sonrası uyanınca listeden düşürme.
 				current_state = State.AWAKE_IDLE
 				_has_campfire_sleep_spot = false
 				visible = true

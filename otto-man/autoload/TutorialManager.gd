@@ -278,7 +278,7 @@ func refresh_village_objective_for_step() -> void:
 			set_objective_tr("tutorial.village.objective_mentor")
 		1:
 			if tutorial_forest_gather_complete:
-				set_objective_tr("tutorial.village.objective_campfire")
+				set_objective_tr("tutorial.village.objective_build_plot")
 			else:
 				set_objective_tr("tutorial.village.objective_forest")
 		2:
@@ -290,9 +290,7 @@ func refresh_village_objective_for_step() -> void:
 func _refresh_village_step2_objective() -> void:
 	match village_menu_phase:
 		0:
-			set_objective_tr("tutorial.village.objective_campfire")
-		1:
-			set_objective_tr("tutorial.village.objective_build_woodcutter")
+			set_objective_tr("tutorial.village.objective_build_plot")
 		_:
 			set_objective_tr("tutorial.village.objective_build_woodcutter")
 
@@ -306,13 +304,7 @@ func _refresh_village_step3_objective() -> void:
 
 
 func get_mission_center_locked_page() -> int:
-	if not is_village_tutorial_active():
-		return -1
-	match village_core_step:
-		2:
-			return 2
-		3:
-			return 1
+	# Görev Merkezi artık köy tutorialında kullanılmıyor (parsel etkileşimi).
 	return -1
 
 

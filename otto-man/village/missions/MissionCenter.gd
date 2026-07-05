@@ -1,4 +1,9 @@
 extends CanvasLayer
+## LEGACY: Köy oyununda devre dışı. İşlevler dünya etkileşimlerine taşındı.
+## Yalnızca debug/editor veya MissionSystemTest sahnesinde açılabilir.
+
+static func is_playable() -> bool:
+	return OS.has_feature("editor") or OS.has_feature("debug")
 
 var _assign_lr_cooldown_ms: int = 180 # Sol/Sağ atama cooldown (ms)
 var _assign_lr_last_ms: int = 0
@@ -31,15 +36,14 @@ var current_building_index: int = 0  # Bina seçimi için index
 var current_assignment_building_index: int = 0 # Atama sayfasında bina seçimi için index
 var current_assignment_menu_state: AssignmentMenuState = AssignmentMenuState.BİNA_LISTESİ # Atama sayfasındaki menü durumu
 var current_soldier_index: int = 0 # Asker ekipman atama sayfasında asker seçimi için index
-var current_equipment_action: int = 0 # 0: weapon, 1: armor (sol/sağ ile değiştirilebilir)
+var current_equipment_action: int = 1 # Seçili silah seviyesi (1-3), sol/sağ ile değiştirilebilir (zırh kaldırıldı)
 
-# Kışla ekipman pop-up menüsü
+# Kışla ekipman pop-up menüsü (zırh kaldırıldı — tier bazlı silah dağıtımı)
 var barracks_equipment_popup: Panel = null
 var barracks_equipment_popup_label: Label = null
 var barracks_equipment_popup_active: bool = false
-var barracks_equipment_selected_weapons: int = 0 # Dağıtılacak silah sayısı
-var barracks_equipment_selected_armors: int = 0 # Dağıtılacak zırh sayısı
-var barracks_equipment_selected_row: int = 0 # 0: weapon, 1: armor (yukarı/aşağı ile satır seçimi)
+var barracks_equipment_selected_qty: Dictionary = {1: 0, 2: 0, 3: 0} # Dağıtılacak silah sayısı (seviye bazlı)
+var barracks_equipment_selected_row: int = 1 # 1-3: seçili silah seviyesi satırı (yukarı/aşağı ile satır seçimi)
 
 # Görevler seçimleri
 var current_mission_index: int = 0 # Görevler sayfasında görev seçimi için index
@@ -186,7 +190,8 @@ var building_categories: Dictionary = {
 		"Zırh Ustası",
 		"Çayhane",
 		"Sabuncu",
-		"Şifacı"
+		"Şifacı",
+		"Mucit Odası"
 	],
 	BuildingCategory.LIFE: ["Ev", "Depo"],
 	BuildingCategory.MILITARY: ["Kışla", "Kale", "Kule"], # Kışla eklendi
@@ -217,6 +222,7 @@ var building_unlock_prerequisites: Dictionary = {
 	"Ev": "Kuyu",
 	"Depo": "Oduncu",
 	"Kışla": "Demirci",
+	"Mucit Odası": "Demirci",
 }
 
 # Bina sahne yolları (gerçek dosya yolları)
@@ -238,7 +244,8 @@ var building_scene_paths: Dictionary = {
 	"Çayhane": "res://village/buildings/TeaHouse.tscn",
 	"Sabuncu": "res://village/buildings/SoapMaker.tscn",
 	"Şifacı": "res://village/buildings/Herbalist.tscn",
-	"Kışla": "res://village/buildings/Barracks.tscn"
+	"Kışla": "res://village/buildings/Barracks.tscn",
+	"Mucit Odası": "res://village/buildings/InventorWorkshop.tscn",
 }
 
 var building_recipe_texts: Dictionary = {
@@ -305,7 +312,7 @@ var trader_mission_selected_products: Dictionary = {}  # {resource: quantity}
 var trader_mission_current_product_index: int = 0
 var trader_mission_selected_concubine: Concubine = null
 const TRADER_MISSION_PRODUCT_COLUMNS: int = 4
-const TRADEABLE_RESOURCES: Array[String] = ["wood", "stone", "food", "water"]
+const TRADEABLE_RESOURCES: Array[String] = ["wood", "stone", "food"]
 # Miktar alt pop-up (mal seçiminde A ile açılır)
 var trader_mission_quantity_popup_open: bool = false
 var trader_mission_quantity_editing_resource: String = ""
@@ -547,7 +554,8 @@ func _ready():
 	
 	# MissionCenter'ı group'a ekle
 	add_to_group("mission_center")
-	print("✅ MissionCenter group'a eklendi")
+	visible = false
+	print("✅ MissionCenter group'a eklendi (köyde kapalı)")
 
 	call_deferred("_apply_parchment_panels")
 	call_deferred("_apply_text_outlines")
@@ -1562,6 +1570,11 @@ func get_all_available_buildings() -> Array:
 		
 		if building.get("assigned_workers") != null:
 			assigned_workers = building.assigned_workers
+		# Kışla: sayaç assigned_worker_ids ile senkron (assigned_workers bazen gecikmeli kalıyordu)
+		if building.get_script() and building.get_script().resource_path == "res://village/scripts/Barracks.gd":
+			if "assigned_worker_ids" in building:
+				assigned_workers = building.assigned_worker_ids.size()
+			building.assigned_workers = assigned_workers
 		if building.get("max_workers") != null:
 			max_workers = building.max_workers
 		
@@ -1604,6 +1617,7 @@ func get_building_type_name(building: Node) -> String:
 		"res://village/scripts/Herbalist.gd": return "Şifacı"
 		"res://village/scripts/House.gd": return "Ev"
 		"res://village/scripts/Barracks.gd": return "Kışla"
+		"res://village/scripts/InventorWorkshop.gd": return "Mucit Odası"
 		_: return "Bilinmeyen"
 
 # Binaya işçi ekle
@@ -1628,7 +1642,7 @@ func add_worker_to_building(building_info: Dictionary) -> void:
 		var success = building.add_worker()
 		if success:
 			print("✅ Köylü asker yapıldı: ", building_info["name"])
-			update_assignment_ui()
+			call_deferred("update_assignment_ui")
 		else:
 			print("❌ Köylü asker yapılamadı: ", building_info["name"])
 		return
@@ -1755,7 +1769,7 @@ func remove_worker_from_building(building_info: Dictionary) -> void:
 			print("✅ Asker köylü yapıldı: ", building_info["name"])
 			# EKSTRA KONTROL: İşçinin görünür olduğundan emin ol!
 			_ensure_worker_visibility_after_removal(building)
-			update_assignment_ui()
+			call_deferred("update_assignment_ui")
 		else:
 			print("❌ Asker köylü yapılamadı: ", building_info["name"])
 		return
@@ -2163,6 +2177,7 @@ func find_existing_buildings(building_type: String) -> Array:
 		"Şifacı": script_path = "res://village/scripts/Herbalist.gd"
 		"Ev": script_path = "res://village/scripts/House.gd"
 		"Kışla": script_path = "res://village/scripts/Barracks.gd"
+		"Mucit Odası": script_path = "res://village/scripts/InventorWorkshop.gd"
 		"Kale": script_path = "res://village/scripts/Castle.gd"
 		"Kule": script_path = "res://village/scripts/Tower.gd"
 		"Çeşme": script_path = "res://village/scripts/Fountain.gd"
@@ -2271,12 +2286,13 @@ func update_assignment_ui():
 			var worker_lbl = Label.new()
 			worker_lbl.text = tr("mc.assignment.workers") % [current_workers, max_workers]
 			worker_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			if current_workers >= max_workers and max_workers > 0:
-				TextOutline.apply_label_color(worker_lbl, Color(0.5, 1, 0.5)) # Dolu
-			elif current_workers == 0:
+			TextOutline.apply_font_to_control(worker_lbl)
+			if current_workers <= 0:
 				TextOutline.apply_label_color(worker_lbl, Color(0.8, 0.8, 0.8)) # Boş
+			elif current_workers >= max_workers and max_workers > 0:
+				TextOutline.apply_label_color(worker_lbl, Color(0.35, 1, 0.35)) # Dolu
 			else:
-				TextOutline.apply_label_color(worker_lbl, Color(1, 1, 0.5)) # Kısmi
+				TextOutline.apply_label_color(worker_lbl, Color(0.5, 1, 0.5)) # Kısmi — en az 1 asker/işçi
 			vbox.add_child(worker_lbl)
 			
 			# Tip
@@ -2315,10 +2331,11 @@ func update_assignment_ui():
 			
 		var soldiers = get_barracks_soldiers()
 		var vm = get_node_or_null("/root/VillageManager")
-		var available_weapons = vm.resource_levels.get("weapon", 0) if vm else 0
-		var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
+		var available_t1 = vm.resource_levels.get("weapon_t1", 0) if vm else 0
+		var available_t2 = vm.resource_levels.get("weapon_t2", 0) if vm else 0
+		var available_t3 = vm.resource_levels.get("weapon_t3", 0) if vm else 0
 		var text = tr("mc.assignment.equipment.header") + "\n\n"
-		text += tr("mc.assignment.equipment.stock") % [available_weapons, available_armors] + "\n\n"
+		text += tr("mc.assignment.equipment.stock_tiers") % [available_t1, available_t2, available_t3] + "\n\n"
 		var accept_key = InputManager.get_accept_key_name()
 		var cancel_key = InputManager.get_cancel_key_name()
 		if soldiers.is_empty():
@@ -2326,14 +2343,13 @@ func update_assignment_ui():
 		else:
 			text += tr("mc.assignment.equipment.nav_hint") + "\n"
 			text += tr("mc.assignment.equipment.give_hint") % accept_key + "\n\n"
-			var equipment_names = [tr("mc.assignment.equipment.weapon"), tr("mc.assignment.equipment.armor")]
-			text += tr("mc.assignment.equipment.selected") % equipment_names[current_equipment_action] + "\n\n"
+			text += tr("mc.assignment.equipment.selected_tier") % current_equipment_action + "\n\n"
 			for i in range(soldiers.size()):
 				var soldier = soldiers[i]
 				var marker = "> " if i == current_soldier_index else "  "
-				var weapon_mark = "⚔️" if soldier["equipment"].get("weapon", false) else "  "
-				var armor_mark = "🛡️" if soldier["equipment"].get("armor", false) else "  "
-				text += marker + tr("mc.assignment.equipment.soldier_line") % [soldier["worker_id"], weapon_mark, armor_mark] + "\n"
+				var tier = int(soldier["equipment"].get("weapon_tier", 0))
+				var weapon_mark = ("⚔️%d" % tier) if tier > 0 else "  "
+				text += marker + tr("mc.assignment.equipment.soldier_line_tier") % [soldier["worker_id"], weapon_mark] + "\n"
 			text += "\n" + tr("mc.assignment.equipment.back_hint") % cancel_key
 			
 		var equip_label = Label.new()
@@ -8481,8 +8497,11 @@ func update_test_stability(change: int):
 	mission_manager.update_world_stability(change)
 	print("🌍 Test istikrar güncellemesi: " + str(change))
 
-# Mission Center menüsünü aç
+# Mission Center menüsünü aç (yalnızca debug/test)
 func open_menu():
+	if not is_playable():
+		push_warning("MissionCenter.open_menu() devre dışı — köyde dünya etkileşimlerini kullanın.")
+		return
 	print("[DEBUG_MC] open_menu: Başladı")
 	current_page = PageType.MISSIONS
 	visible = true
@@ -8771,7 +8790,7 @@ func get_barracks_soldiers() -> Array:
 			return []
 		
 		for worker_id in barracks.assigned_worker_ids:
-			var equip = {"weapon": false, "armor": false}
+			var equip = {"weapon_tier": 0}
 			if "soldier_equipment" in barracks and barracks.soldier_equipment.has(worker_id):
 				equip = barracks.soldier_equipment[worker_id]
 			
@@ -8803,28 +8822,27 @@ func handle_soldier_equipment_input(event):
 		current_soldier_index = (current_soldier_index + 1) % soldiers.size()
 		update_assignment_ui()
 	
-	# Sol/Sağ: Ekipman tipi seçimi (weapon/armor)
+	# Sol/Sağ: Verilecek silah seviyesi seçimi (1-3, zırh kaldırıldı)
 	elif event.is_action_pressed("ui_left"):
-		current_equipment_action = 0  # weapon
+		current_equipment_action = max(1, current_equipment_action - 1)
 		update_assignment_ui()
 	elif event.is_action_pressed("ui_right"):
-		current_equipment_action = 1  # armor
+		current_equipment_action = min(3, current_equipment_action + 1)
 		update_assignment_ui()
 	
-	# A tuşu: Ekipman ver/al
+	# A tuşu: Silah ver/al
 	elif event.is_action_pressed("ui_accept"):
 		if current_soldier_index < soldiers.size():
 			var soldier = soldiers[current_soldier_index]
-			var equipment_type = "weapon" if current_equipment_action == 0 else "armor"
 			var barracks = _get_current_barracks()
 			if barracks:
-				var has_equipment = soldier["equipment"].get(equipment_type, false)
-				if has_equipment:
-					# Ekipmanı kaldır
-					barracks.unequip_soldier(soldier["worker_id"], equipment_type)
+				var equipped_tier = int(soldier["equipment"].get("weapon_tier", 0))
+				if equipped_tier > 0:
+					# Silahı kaldır
+					barracks.unequip_soldier(soldier["worker_id"])
 				else:
-					# Ekipmanı ver
-					barracks.equip_soldier(soldier["worker_id"], equipment_type)
+					# Seçili seviyede silah ver
+					barracks.equip_soldier(soldier["worker_id"], current_equipment_action)
 				update_assignment_ui()
 	
 	# B tuşu: Geri dön
@@ -8883,19 +8901,18 @@ func open_barracks_equipment_popup():
 	content_panel.add_child(barracks_equipment_popup_label)
 	
 	# Başlangıç değerleri
-	barracks_equipment_selected_weapons = 0
-	barracks_equipment_selected_armors = 0
-	barracks_equipment_selected_row = 0
+	barracks_equipment_selected_qty = {1: 0, 2: 0, 3: 0}
+	barracks_equipment_selected_row = 1
 	
 	barracks_equipment_popup_active = true
-	# Test kolaylığı: stoklar 0 ise başlangıç stoğu ver
+	# Test kolaylığı: stoklar tamamen boşsa başlangıç stoğu ver
 	var vm = get_node_or_null("/root/VillageManager")
 	if vm:
-		var w = int(vm.resource_levels.get("weapon", 0))
-		var a = int(vm.resource_levels.get("armor", 0))
-		if w == 0 and a == 0:
-			vm.resource_levels["weapon"] = 5
-			vm.resource_levels["armor"] = 5
+		var t1 = int(vm.resource_levels.get("weapon_t1", 0))
+		var t2 = int(vm.resource_levels.get("weapon_t2", 0))
+		var t3 = int(vm.resource_levels.get("weapon_t3", 0))
+		if t1 == 0 and t2 == 0 and t3 == 0:
+			vm.resource_levels["weapon_t1"] = 5
 			vm.emit_signal("village_data_changed")
 	update_barracks_equipment_popup()
 
@@ -8910,12 +8927,11 @@ func close_barracks_equipment_popup():
 		barracks_equipment_popup_label = null
 	
 	barracks_equipment_popup_active = false
-	barracks_equipment_selected_weapons = 0
-	barracks_equipment_selected_armors = 0
-	barracks_equipment_selected_row = 0
+	barracks_equipment_selected_qty = {1: 0, 2: 0, 3: 0}
+	barracks_equipment_selected_row = 1
 
 func update_barracks_equipment_popup():
-	"""Pop-up menü UI'ını güncelle"""
+	"""Pop-up menü UI'ını güncelle (zırh kaldırıldı — 3 silah seviyesi satırı)"""
 	if not barracks_equipment_popup_active or not barracks_equipment_popup_label:
 		return
 	
@@ -8926,23 +8942,21 @@ func update_barracks_equipment_popup():
 	
 	var soldiers = get_barracks_soldiers()
 	var vm = get_node_or_null("/root/VillageManager")
-	var available_weapons = vm.resource_levels.get("weapon", 0) if vm else 0
-	var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
+	var available: Dictionary = {
+		1: int(vm.resource_levels.get("weapon_t1", 0)) if vm else 0,
+		2: int(vm.resource_levels.get("weapon_t2", 0)) if vm else 0,
+		3: int(vm.resource_levels.get("weapon_t3", 0)) if vm else 0,
+	}
 	var soldier_count = soldiers.size()
 	
 	var text = tr("mc.assignment.equipment.distribute_header") + "\n\n"
-	text += tr("mc.assignment.equipment.stock") % [available_weapons, available_armors] + "\n"
+	text += tr("mc.assignment.equipment.stock_tiers") % [available[1], available[2], available[3]] + "\n"
 	text += tr("mc.assignment.equipment.soldier_count") % soldier_count + "\n\n"
 	
-	if barracks_equipment_selected_row == 0:
-		text += "> " + tr("mc.assignment.equipment.weapon_qty") % barracks_equipment_selected_weapons + "\n"
-	else:
-		text += "  " + tr("mc.assignment.equipment.weapon_qty") % barracks_equipment_selected_weapons + "\n"
-	
-	if barracks_equipment_selected_row == 1:
-		text += "> " + tr("mc.assignment.equipment.armor_qty") % barracks_equipment_selected_armors + "\n\n"
-	else:
-		text += "  " + tr("mc.assignment.equipment.armor_qty") % barracks_equipment_selected_armors + "\n\n"
+	for tier in [1, 2, 3]:
+		var marker = "> " if barracks_equipment_selected_row == tier else "  "
+		text += marker + tr("mc.assignment.equipment.weapon_tier_qty") % [tier, barracks_equipment_selected_qty[tier]] + "\n"
+	text += "\n"
 	
 	text += tr("mc.assignment.equipment.distribute_controls")
 	
@@ -8951,19 +8965,19 @@ func update_barracks_equipment_popup():
 # (duplicate stubs removed)
 
 func handle_barracks_equipment_popup_input(event):
-	"""Pop-up menü için input handler"""
+	"""Pop-up menü için input handler (zırh kaldırıldı — 3 silah seviyesi satırı)"""
 	if not barracks_equipment_popup_active:
 		return
 
 	# Zamanlayıcı: fazla tekrarları sınırlamak için
 	var now_ms = Time.get_ticks_msec()
 	
-	# Yukarı/Aşağı: Satır seçimi (Silah/Zırh)
+	# Yukarı/Aşağı: Satır seçimi (1./2./3. seviye silah)
 	if event.is_action_pressed("ui_up"):
-		barracks_equipment_selected_row = 0  # Silah satırı
+		barracks_equipment_selected_row = max(1, barracks_equipment_selected_row - 1)
 		update_barracks_equipment_popup()
 	elif event.is_action_pressed("ui_down"):
-		barracks_equipment_selected_row = 1  # Zırh satırı
+		barracks_equipment_selected_row = min(3, barracks_equipment_selected_row + 1)
 		update_barracks_equipment_popup()
 	
 	# Sol/Sağ: Seçili satırdaki miktarı ayarla
@@ -8971,31 +8985,18 @@ func handle_barracks_equipment_popup_input(event):
 		if now_ms - _assign_lr_last_ms < _assign_lr_cooldown_ms:
 			return
 		_assign_lr_last_ms = now_ms
-		if barracks_equipment_selected_row == 0:
-			# Silah sayısını artır
-			var vm = get_node_or_null("/root/VillageManager")
-			var available_weapons = vm.resource_levels.get("weapon", 0) if vm else 0
-			var soldiers = get_barracks_soldiers()
-			var max_weapons = min(available_weapons, soldiers.size())
-			barracks_equipment_selected_weapons = min(max_weapons, barracks_equipment_selected_weapons + 1)
-		else:
-			# Zırh sayısını artır
-			var vm = get_node_or_null("/root/VillageManager")
-			var available_armors = vm.resource_levels.get("armor", 0) if vm else 0
-			var soldiers = get_barracks_soldiers()
-			var max_armors = min(available_armors, soldiers.size())
-			barracks_equipment_selected_armors = min(max_armors, barracks_equipment_selected_armors + 1)
+		var vm = get_node_or_null("/root/VillageManager")
+		var res_key := "weapon_t%d" % barracks_equipment_selected_row
+		var available_qty = int(vm.resource_levels.get(res_key, 0)) if vm else 0
+		var soldiers = get_barracks_soldiers()
+		var max_qty = min(available_qty, soldiers.size())
+		barracks_equipment_selected_qty[barracks_equipment_selected_row] = min(max_qty, barracks_equipment_selected_qty[barracks_equipment_selected_row] + 1)
 		update_barracks_equipment_popup()
 	elif event.is_action_pressed("ui_left"):
 		if now_ms - _assign_lr_last_ms < _assign_lr_cooldown_ms:
 			return
 		_assign_lr_last_ms = now_ms
-		if barracks_equipment_selected_row == 0:
-			# Silah sayısını azalt
-			barracks_equipment_selected_weapons = max(0, barracks_equipment_selected_weapons - 1)
-		else:
-			# Zırh sayısını azalt
-			barracks_equipment_selected_armors = max(0, barracks_equipment_selected_armors - 1)
+		barracks_equipment_selected_qty[barracks_equipment_selected_row] = max(0, barracks_equipment_selected_qty[barracks_equipment_selected_row] - 1)
 		update_barracks_equipment_popup()
 	
 	# A tuşu: Dağıt
@@ -9010,7 +9011,7 @@ func handle_barracks_equipment_popup_input(event):
 		update_assignment_ui()
 
 func distribute_equipment_to_soldiers():
-	"""Seçilen miktarda silah ve zırhı askerlere dağıt"""
+	"""Seçilen miktarlarda silahları (seviyeye göre) silahsız askerlere dağıt"""
 	var barracks = _get_current_barracks()
 	if not barracks:
 		print("❌ Kışla bulunamadı!")
@@ -9021,23 +9022,22 @@ func distribute_equipment_to_soldiers():
 		print("❌ Kışlada asker yok!")
 		return
 	
-	# Silah dağıtımı
-	var weapons_distributed = 0
-	for i in range(min(barracks_equipment_selected_weapons, soldiers.size())):
-		var soldier = soldiers[i]
-		if not soldier["equipment"].get("weapon", false):
-			if barracks.equip_soldier(soldier["worker_id"], "weapon"):
-				weapons_distributed += 1
+	var total_distributed := {1: 0, 2: 0, 3: 0}
+	var soldier_cursor := 0
+	# Yüksek seviyeden başlayarak dağıt — kıymetli silahlar önce verilsin
+	for tier in [3, 2, 1]:
+		var qty: int = barracks_equipment_selected_qty.get(tier, 0)
+		var given := 0
+		while given < qty and soldier_cursor < soldiers.size():
+			var soldier = soldiers[soldier_cursor]
+			soldier_cursor += 1
+			if int(soldier["equipment"].get("weapon_tier", 0)) > 0:
+				continue  # Zaten silahlı, atla
+			if barracks.equip_soldier(soldier["worker_id"], tier):
+				given += 1
+				total_distributed[tier] += 1
 	
-	# Zırh dağıtımı
-	var armors_distributed = 0
-	for i in range(min(barracks_equipment_selected_armors, soldiers.size())):
-		var soldier = soldiers[i]
-		if not soldier["equipment"].get("armor", false):
-			if barracks.equip_soldier(soldier["worker_id"], "armor"):
-				armors_distributed += 1
-	
-	print("✅ Ekipman dağıtıldı: %d silah, %d zırh" % [weapons_distributed, armors_distributed])
+	print("✅ Silah dağıtıldı: 1.sv=%d, 2.sv=%d, 3.sv=%d" % [total_distributed[1], total_distributed[2], total_distributed[3]])
 	
 	# VillageManager'a haber ver
 	var vm = get_node_or_null("/root/VillageManager")

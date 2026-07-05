@@ -12,7 +12,6 @@ var village_data = {
 		ResourceType.WOOD: 0,
 		ResourceType.FOOD: 0,
 		ResourceType.STONE: 0,
-		ResourceType.WATER: 0,
 	}
 }
 

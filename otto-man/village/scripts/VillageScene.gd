@@ -25,6 +25,8 @@ var _world_map_move_cooldown: float = 0.0
 
 ## Zindandan dönüşte kurtarılan NPC'leri sadece BİR KEZ uygulamak için guard
 var _dungeon_rescue_applied: bool = false
+var _plot_system: VillagePlotSystem
+var _world_popups: VillageWorldPopups
 
 ## Kamera sınırları - Village sahnesinde oyuncu bu sınırlar dışına çıktığında kamera takibi durur
 ## Bu değerleri Godot editöründe VillageScene.tscn'de ayarlayabilirsiniz
@@ -33,6 +35,7 @@ var _dungeon_rescue_applied: bool = false
 @export var camera_right_limit: float = 2000.0
 
 func _ready() -> void:
+	add_to_group("VillageScene")
 	# VillageManager'a bu sahneyi tanıt
 	VillagerAiInitializer.LoadComplete.connect(VillagersLoaded)
 
@@ -84,13 +87,12 @@ func _ready() -> void:
 	cariye_management_ui.hide()
 	if build_menu_ui:
 		build_menu_ui.hide()
-	# Açma butonlarını göster
-	
+	# Açma butonlarını göster (parsel sistemi inşa/işçi butonlarını gizler)
 	# Kamera sınırlarını ayarla
 	_setup_camera_limits()
-	open_worker_ui_button.show()
-	open_cariye_ui_button.show()
-	open_build_ui_button.show()
+	open_worker_ui_button.hide()
+	open_cariye_ui_button.hide()
+	open_build_ui_button.hide()
 	if SHOW_WORLD_MAP_PANEL_IN_VILLAGE:
 		_setup_world_map_panel()
 		_connect_world_map_signals()
@@ -122,6 +124,7 @@ func _ready() -> void:
 	call_deferred("_check_village_tutorial_start")
 	call_deferred("_sync_tutorial_village_ui_gates")
 	call_deferred("_maybe_enqueue_death_mentor_brief")
+	call_deferred("_ensure_plot_system_ready")
 # --- UI Açma / Kapatma Fonksiyonları ---
 
 func Load_Existing_Villagers():
@@ -129,54 +132,76 @@ func Load_Existing_Villagers():
 
 func VillagersLoaded():
 	VillageManager.register_village_scene(self)
+	_setup_plot_system()
+	_setup_world_popups()
 	call_deferred("_refresh_npc_schedule")
 
 func _exit_tree() -> void:
 	if is_instance_valid(VillageManager) and VillageManager.has_method("on_village_scene_tree_exiting"):
 		VillageManager.on_village_scene_tree_exiting(self)
 
+func _ensure_plot_system_ready() -> void:
+	if not is_instance_valid(_plot_system):
+		_setup_plot_system()
+
+
+func _setup_plot_system() -> void:
+	if is_instance_valid(_plot_system):
+		return
+	_plot_system = VillagePlotSystem.new()
+	_plot_system.name = "VillagePlotSystem"
+	add_child(_plot_system)
+	_plot_system.setup(self)
+	# Eski yan panel butonları — parsel / dünya etkileşimi kullanılıyor
+	_hide_legacy_side_panel_buttons()
+
+
+func _setup_world_popups() -> void:
+	if is_instance_valid(_world_popups):
+		return
+	_world_popups = VillageWorldPopups.new()
+	_world_popups.name = "VillageWorldPopups"
+	add_child(_world_popups)
+	_world_popups.setup(self)
+
+
 func _refresh_npc_schedule() -> void:
 	if is_instance_valid(VillageManager):
 		VillageManager.apply_current_time_schedule()
 
+func _hide_legacy_side_panel_buttons() -> void:
+	if open_build_ui_button:
+		open_build_ui_button.hide()
+	if open_worker_ui_button:
+		open_worker_ui_button.hide()
+	if open_cariye_ui_button:
+		open_cariye_ui_button.hide()
+
+
 func _on_open_worker_ui_button_pressed() -> void:
-	# Diğer paneli kapat (aynı anda sadece biri açık olsun)
-	cariye_management_ui.hide()
-	worker_assignment_ui.show()
+	# Legacy panel — parsel etkileşimi kullanılıyor
+	return
+
 
 func _on_open_cariye_ui_button_pressed() -> void:
-	# Diğer paneli kapat
-	worker_assignment_ui.hide()
-	cariye_management_ui.show()
+	# Legacy panel — cariyeye yaklaşarak etkileş
+	return
+
 
 func _on_open_build_ui_button_pressed() -> void:
-	# Diğer panelleri kapat
-	worker_assignment_ui.hide()
-	cariye_management_ui.hide()
-	if build_menu_ui:
-		build_menu_ui.show_centered()
+	# Legacy panel — boş parsele yaklaşarak etkileş
+	return
 
 func _on_worker_ui_visibility_changed() -> void:
-	# İşçi paneli kapandığında butonu göster, açıksa gizle
-	open_worker_ui_button.visible = not worker_assignment_ui.visible
-	# Eğer işçi paneli açıldıysa, cariye butonunu da göster (kapatılmış olabilir)
-	if worker_assignment_ui.visible:
-		open_cariye_ui_button.show()
+	_hide_legacy_side_panel_buttons()
+
 
 func _on_cariye_ui_visibility_changed() -> void:
-	# Cariye paneli kapandığında butonu göster, açıksa gizle
-	open_cariye_ui_button.visible = not cariye_management_ui.visible
-	# Eğer cariye paneli açıldıysa, işçi butonunu da göster
-	if cariye_management_ui.visible:
-		open_worker_ui_button.show()
+	_hide_legacy_side_panel_buttons()
+
 
 func _on_build_menu_visibility_changed() -> void:
-	if not build_menu_ui:
-		return
-	open_build_ui_button.visible = not build_menu_ui.visible
-	if build_menu_ui.visible:
-		open_worker_ui_button.show()
-		open_cariye_ui_button.show()
+	_hide_legacy_side_panel_buttons()
 
 func _on_build_menu_build_requested(building_scene_path: String) -> void:
 	if VillageManager.request_build_building(building_scene_path):
@@ -569,13 +594,10 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_T:
 			if time_manager:
 				time_manager.cycle_time_scale()
-		# 'N' tuşuna basıldığında yeni işçi ekle (DEBUG)
+		# 'N' tuşu: test köylüsü ekle (barınak kontrolü + sinyaller)
 		elif event.keycode == KEY_N:
-			# VillageManager autoload ise direkt çağır:
-			VillageManager._add_new_worker({})
-			# Eğer autoload değilse ve yukarıdaki gibi @onready ile aldıysak:
-			# if village_manager: village_manager._add_new_worker()
-			print("DEBUG: 'N' key pressed, attempting to add new worker.")
+			VillageManager.add_villager()
+			print("DEBUG: 'N' key pressed, attempting to add new villager.")
 		
 		# 'M' tuşuna basıldığında rastgele işçi sil (DEBUG)
 		elif event.keycode == KEY_M:
@@ -762,16 +784,7 @@ func _check_village_tutorial_start() -> void:
 
 
 func _sync_tutorial_village_ui_gates() -> void:
-	var tm := get_node_or_null("/root/TutorialManager")
-	var restrict_side_panels := false
-	if tm and tm.is_village_tutorial_active() and tm.village_core_step >= 2:
-		restrict_side_panels = true
-	if open_build_ui_button:
-		open_build_ui_button.visible = not restrict_side_panels
-	if open_worker_ui_button and not worker_assignment_ui.visible:
-		open_worker_ui_button.visible = not restrict_side_panels
-	if open_cariye_ui_button and not cariye_management_ui.visible:
-		open_cariye_ui_button.visible = not restrict_side_panels
+	_hide_legacy_side_panel_buttons()
 
 
 func _spawn_objective_ui() -> void:
@@ -800,32 +813,36 @@ func _tutorial_on_forest_return(transferred: Dictionary) -> void:
 			tm.mark_tutorial_forest_gather_complete()
 	tm.village_core_step = 2
 	tm.village_menu_phase = 0
-	tm.set_objective(tr("tutorial.village.objective_campfire"))
+	tm.set_objective_tr("tutorial.village.objective_build_plot")
 	_sync_tutorial_village_ui_gates()
 
 
-func tutorial_on_campfire_menu_opened() -> void:
+func tutorial_on_plot_build_opened() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 2:
 		return
-	tm.village_menu_phase = 2
-	tm.set_objective_tr("tutorial.village.objective_build_woodcutter")
+	tm.try_set_village_menu_objective(
+		1,
+		tr("tutorial.village.objective_build_woodcutter")
+	)
 
 
-func tutorial_on_mission_page(page_index: int) -> void:
+func tutorial_on_campfire_menu_opened() -> void:
+	tutorial_on_campfire_rest_opened()
+
+
+func tutorial_on_campfire_rest_opened() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
-	if tm == null or not tm.is_village_tutorial_active():
+	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 2:
 		return
-	if tm.village_core_step == 2 and page_index == 2:
-		tm.try_set_village_menu_objective(
-			2,
-			tr("tutorial.village.objective_build_woodcutter")
-		)
-	elif tm.village_core_step == 3 and page_index == 1:
-		tm.try_set_village_menu_objective(
-			4,
-			tr("tutorial.village.objective_assign_worker")
-		)
+	tm.try_set_village_menu_objective(
+		0,
+		tr("tutorial.village.objective_build_plot")
+	)
+
+
+func tutorial_on_mission_page(_page_index: int) -> void:
+	pass
 
 
 func tutorial_on_mission_worker_assigned(building_key: String = "") -> void:

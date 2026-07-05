@@ -22,6 +22,7 @@ func enter():
 		var recovery_double_jump_animations = ["double_jump", "double_jump_alt"]
 		var recovery_anim = recovery_double_jump_animations[randi() % recovery_double_jump_animations.size()]
 		animation_player.play(recovery_anim)
+		_play_jump_sfx()
 		return
 	
 	# Track jump count for triple jump (Kuş Kanadı)
@@ -40,6 +41,7 @@ func enter():
 	if player.is_wall_jumping:
 		wall_jump_grace_timer = WALL_JUMP_GRACE_PERIOD
 		animation_player.play("wall_jump")
+		_play_jump_sfx()
 		# Face away from the wall we jumped from and store the direction
 		wall_jump_sprite_direction = player.wall_jump_direction < 0
 		player.sprite.flip_h = wall_jump_sprite_direction
@@ -62,9 +64,11 @@ func enter():
 				var random_animation = double_jump_animations[randi() % double_jump_animations.size()]
 				animation_player.play(random_animation)
 				is_double_jumping = true
+				_play_jump_sfx()
 			else:
 				# First jump - play jump prepare animation
 				animation_player.play("jump_prepare")
+				_play_jump_sfx()
 			player.enable_double_jump()
 			# Increment jump count AFTER animation selection
 			if can_triple_jump:
@@ -250,3 +254,11 @@ func exit():
 	wall_jump_grace_timer = 0.0
 	if animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.disconnect("animation_finished", _on_animation_finished)
+
+
+func _play_jump_sfx() -> void:
+	if not is_instance_valid(player):
+		return
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("play_sfx"):
+		sm.play_sfx("jump", player.global_position)

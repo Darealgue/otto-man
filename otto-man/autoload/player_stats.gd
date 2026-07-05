@@ -32,10 +32,12 @@ signal health_changed(new_health: float)
 signal player_died()
 signal carried_resources_changed(new_totals: Dictionary)
 signal carried_resources_lost(losses: Dictionary)
+signal expedition_loot_changed(new_totals: Dictionary)
 signal world_expedition_supplies_changed(new_totals: Dictionary)
 signal death_recovery_updated(state: Dictionary)
 
 const ResourceType = preload("res://resources/resource_types.gd")
+const ExpeditionLootType = preload("res://resources/expedition_loot_types.gd")
 static var RESOURCE_TYPES := ResourceType.all()
 
 var resource_loss_fraction_on_hit := 0.2
@@ -141,29 +143,29 @@ var stat_bonuses = {
 var carried_resources := {
 	ResourceType.WOOD: 0,
 	ResourceType.STONE: 0,
-	ResourceType.WATER: 0,
 	ResourceType.FOOD: 0,
+}
+
+## Sefer loot'u — ölünce kaybolur; köye güvenli dönüşte Mucit stokuna aktarılır.
+var carried_expedition_loot := {
+	ExpeditionLootType.RUSTY_WEAPON: 0,
+	ExpeditionLootType.SKY_FEATHER: 0,
+	ExpeditionLootType.HERB_BUNDLE: 0,
 }
 
 ## Dunya haritasi seyahati: koy stogundan alinan erzak / cep altini (zindan carried ile karisirma).
 var world_expedition_supplies := {
 	"food": 0,
-	"water": 0,
 	"medicine": 0,
 	"world_gold": 0,
 }
 ## Yol cantasi tavanlari (ileride item/upgrade ile artirilacak).
 const WORLD_EXP_FOOD_PACK_CAP: int = 1
-const WORLD_EXP_WATER_PACK_CAP: int = 1
 const WORLD_EXP_MEDICINE_PACK_CAP: int = 24
 const WORLD_EXP_GOLD_PACK_CAP: int = 2500
 var _world_exp_food_debt: float = 0.0
-var _world_exp_water_debt: float = 0.0
-## Harita seferi tuketim ritmi:
-## - Yemek: gunde ~2 ogun mantigina yaklasik (12 saatte 1 birim).
-## - Su: yemekten daha sik, ama yine de onceki hizdan belirgin yavas.
+## Harita seferi tuketim ritmi: yemek (~12 saatte 1 birim).
 const WORLD_EXP_FOOD_MINUTES_PER_UNIT: float = 720.0
-const WORLD_EXP_WATER_MINUTES_PER_UNIT: float = 360.0
 ## Eski: ac/susuzda can kaybi. Artik erzak bitince haritada cokus (olum) tetiklenir.
 const WORLD_EXP_STARVATION_HP: float = 2.0
 
@@ -189,9 +191,26 @@ func _ready() -> void:
 	var tm := get_node_or_null("/root/TimeManager")
 	if tm and tm.has_signal("minute_changed") and not tm.minute_changed.is_connected(_on_time_minute_changed):
 		tm.minute_changed.connect(_on_time_minute_changed)
+	if tm and tm.has_signal("time_advanced") and not tm.time_advanced.is_connected(_on_time_advanced_recovery):
+		tm.time_advanced.connect(_on_time_advanced_recovery)
 
 func _on_time_minute_changed(_new_minute: int) -> void:
 	_process_death_recovery_minute()
+
+func _on_time_advanced_recovery(total_minutes: int, _start_day: int, _start_hour: int, _start_minute: int) -> void:
+	process_village_recovery_minutes(total_minutes)
+
+## Zaman atlama (kamp ateşi, yolculuk dönüşü vb.) sırasında biriken iyileşme/debuff süresi.
+func process_village_recovery_minutes(total_minutes: int) -> void:
+	if total_minutes <= 0:
+		return
+	if _can_village_health_recover() and current_health < get_max_health() - 0.01:
+		if not bool(death_recovery_state.get("is_recovering", false)):
+			start_village_health_recovery()
+	for _i in range(total_minutes):
+		_process_death_recovery_minute()
+		if not bool(death_recovery_state.get("is_recovering", false)) and _active_death_debuffs.is_empty():
+			break
 
 func _is_in_village_scene() -> bool:
 	var sm := get_node_or_null("/root/SceneManager")
@@ -429,6 +448,7 @@ func reset_for_new_game() -> void:
 	# Yeni oyunda eski run'dan kalan stat/debuff/can state'leri kalmasin.
 	reset_stats()
 	clear_carried_resources()
+	clear_carried_expedition_loot()
 	_clear_death_debuff(false)
 	death_recovery_state = {
 		"is_recovering": false,
@@ -815,6 +835,59 @@ func _set_carried_resource(type: String, value: int, emit_signal_on_change: bool
 func _emit_carried_changed() -> void:
 	carried_resources_changed.emit(carried_resources.duplicate())
 
+
+func get_carried_expedition_loot() -> Dictionary:
+	return carried_expedition_loot.duplicate()
+
+
+func get_carried_expedition_loot_amount(loot_id: String) -> int:
+	if not carried_expedition_loot.has(loot_id):
+		return 0
+	return int(carried_expedition_loot[loot_id])
+
+
+func add_carried_expedition_loot(loot_id: String, amount: int) -> void:
+	if amount == 0:
+		return
+	if not carried_expedition_loot.has(loot_id):
+		push_warning("[PlayerStats] Unknown expedition loot: %s" % loot_id)
+		return
+	carried_expedition_loot[loot_id] = maxi(0, int(carried_expedition_loot[loot_id]) + amount)
+	_emit_expedition_loot_changed()
+
+
+func clear_carried_expedition_loot() -> void:
+	var had := false
+	for lid in ExpeditionLootType.all():
+		if int(carried_expedition_loot.get(lid, 0)) != 0:
+			carried_expedition_loot[lid] = 0
+			had = true
+	if had:
+		_emit_expedition_loot_changed()
+
+
+func transfer_carried_expedition_loot_to_village(meta_manager: Node) -> Dictionary:
+	if meta_manager == null or not meta_manager.has_method("deposit_village_loot"):
+		return {}
+	var payload: Dictionary = {}
+	for lid in ExpeditionLootType.all():
+		var amt := int(carried_expedition_loot.get(lid, 0))
+		if amt > 0:
+			payload[lid] = amt
+	if payload.is_empty():
+		return {}
+	var deposited: Dictionary = meta_manager.deposit_village_loot(payload)
+	if not deposited.is_empty():
+		for k in deposited.keys():
+			var key := String(k)
+			carried_expedition_loot[key] = maxi(0, int(carried_expedition_loot.get(key, 0)) - int(deposited[k]))
+		_emit_expedition_loot_changed()
+	return deposited
+
+
+func _emit_expedition_loot_changed() -> void:
+	expedition_loot_changed.emit(carried_expedition_loot.duplicate())
+
 func configure_resource_loss_on_hit(fraction: float, min_loss: int) -> void:
 	resource_loss_fraction_on_hit = clampf(fraction, 0.0, 1.0)
 	min_resource_loss_per_hit = max(min_loss, 0)
@@ -833,26 +906,23 @@ func get_world_expedition_supplies() -> Dictionary:
 	return world_expedition_supplies.duplicate(true)
 
 func reset_world_expedition_supplies() -> void:
-	world_expedition_supplies = {"food": 0, "water": 0, "medicine": 0, "world_gold": 0}
+	world_expedition_supplies = {"food": 0, "medicine": 0, "world_gold": 0}
 	_world_exp_food_debt = 0.0
-	_world_exp_water_debt = 0.0
 	world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
 
 func load_world_expedition_supplies_from_save(d: Dictionary) -> void:
 	if d.is_empty():
 		return
-	for k in ["food", "water", "medicine", "world_gold"]:
+	for k in ["food", "medicine", "world_gold"]:
 		if d.has(k):
 			world_expedition_supplies[k] = maxi(0, int(d[k]))
 	_world_exp_food_debt = 0.0
-	_world_exp_water_debt = 0.0
 	_apply_world_expedition_caps_silent()
 	world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
 
 func get_world_expedition_pack_caps() -> Dictionary:
 	return {
 		"food": WORLD_EXP_FOOD_PACK_CAP,
-		"water": WORLD_EXP_WATER_PACK_CAP,
 		"medicine": WORLD_EXP_MEDICINE_PACK_CAP,
 		"world_gold": WORLD_EXP_GOLD_PACK_CAP,
 	}
@@ -904,9 +974,7 @@ func apply_world_travel_ration_cost(travel_minutes: int) -> Dictionary:
 	if travel_minutes <= 0:
 		return {"food_used": 0, "water_used": 0, "starvation_hp": 0.0, "collapsed": false}
 	var food_used: int = 0
-	var water_used: int = 0
 	_world_exp_food_debt += float(travel_minutes) / WORLD_EXP_FOOD_MINUTES_PER_UNIT
-	_world_exp_water_debt += float(travel_minutes) / WORLD_EXP_WATER_MINUTES_PER_UNIT
 	while _world_exp_food_debt >= 1.0:
 		_world_exp_food_debt -= 1.0
 		if _world_exp_get("food") > 0:
@@ -916,43 +984,24 @@ func apply_world_travel_ration_cost(travel_minutes: int) -> Dictionary:
 			world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
 			return {
 				"food_used": food_used,
-				"water_used": water_used,
+				"water_used": 0,
 				"starvation_hp": 0.0,
 				"collapsed": true,
 				"collapse_cause": "food",
 			}
-	while _world_exp_water_debt >= 1.0:
-		_world_exp_water_debt -= 1.0
-		if _world_exp_get("water") > 0:
-			_world_exp_set("water", _world_exp_get("water") - 1, false)
-			water_used += 1
-		else:
-			world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
-			return {
-				"food_used": food_used,
-				"water_used": water_used,
-				"starvation_hp": 0.0,
-				"collapsed": true,
-				"collapse_cause": "water",
-			}
 	world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
-	return {"food_used": food_used, "water_used": water_used, "starvation_hp": 0.0, "collapsed": false}
+	return {"food_used": food_used, "water_used": 0, "starvation_hp": 0.0, "collapsed": false}
 
-## Akarsu hex'inde: yurume susuzluk birikimini sifirlar; canta tavanina kadar +1 su (doldurma).
+
 func apply_akarsu_river_hydration() -> void:
-	_world_exp_water_debt = 0.0
-	var have: int = _world_exp_get("water")
-	var room: int = maxi(0, WORLD_EXP_WATER_PACK_CAP - have)
-	if room > 0:
-		_world_exp_set("water", have + mini(1, room), false)
-	world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
+	pass
 
 func lose_world_expedition_supplies_by_fraction(fraction: float) -> Dictionary:
 	fraction = clampf(fraction, 0.0, 1.0)
 	if fraction <= 0.0:
 		return {}
 	var losses := {}
-	for key in ["food", "water", "medicine"]:
+	for key in ["food", "medicine"]:
 		var cur: int = _world_exp_get(key)
 		if cur <= 0:
 			continue
@@ -994,27 +1043,22 @@ func apply_world_expedition_gold_delta(delta: int) -> int:
 	return applied
 
 func get_world_expedition_total_weight_score() -> int:
-	return _world_exp_get("food") + _world_exp_get("water") + _world_exp_get("medicine") * 2 + _world_exp_get("world_gold") / 8
+	return _world_exp_get("food") + _world_exp_get("medicine") * 2 + _world_exp_get("world_gold") / 8
+
 
 func get_world_expedition_survival_forecast() -> Dictionary:
 	var food_units: int = _world_exp_get("food")
-	var water_units: int = _world_exp_get("water")
 	var to_food_tick: int = int(ceil(maxf(0.0, (1.0 - _world_exp_food_debt) * WORLD_EXP_FOOD_MINUTES_PER_UNIT)))
-	var to_water_tick: int = int(ceil(maxf(0.0, (1.0 - _world_exp_water_debt) * WORLD_EXP_WATER_MINUTES_PER_UNIT)))
 	if to_food_tick <= 0:
 		to_food_tick = int(maxi(1, int(round(WORLD_EXP_FOOD_MINUTES_PER_UNIT))))
-	if to_water_tick <= 0:
-		to_water_tick = int(maxi(1, int(round(WORLD_EXP_WATER_MINUTES_PER_UNIT))))
 	var food_minutes_until_hp: int = int(maxi(0, to_food_tick + int(round(float(food_units) * WORLD_EXP_FOOD_MINUTES_PER_UNIT))))
-	var water_minutes_until_hp: int = int(maxi(0, to_water_tick + int(round(float(water_units) * WORLD_EXP_WATER_MINUTES_PER_UNIT))))
-	var no_hp_loss_minutes: int = mini(food_minutes_until_hp, water_minutes_until_hp)
 	return {
 		"food_units": food_units,
-		"water_units": water_units,
+		"water_units": 0,
 		"minutes_until_food_hp_loss": food_minutes_until_hp,
-		"minutes_until_water_hp_loss": water_minutes_until_hp,
-		"minutes_until_any_hp_loss": no_hp_loss_minutes,
-		"minutes_until_collapse": no_hp_loss_minutes,
+		"minutes_until_water_hp_loss": 999999,
+		"minutes_until_any_hp_loss": food_minutes_until_hp,
+		"minutes_until_collapse": food_minutes_until_hp,
 		"minutes_until_food_collapse": food_minutes_until_hp,
-		"minutes_until_water_collapse": water_minutes_until_hp,
+		"minutes_until_water_collapse": 999999,
 	}

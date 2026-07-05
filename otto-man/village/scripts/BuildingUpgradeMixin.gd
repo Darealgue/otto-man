@@ -47,9 +47,8 @@ static func start(building: Node) -> bool:
 
 
 static func _max_level(building: Node) -> int:
-	if "max_level" in building:
-		return int(building.max_level)
 	var path := String(building.scene_file_path) if "scene_file_path" in building else ""
-	if path.is_empty():
-		return 1
-	return BuildingUpgradeConfig.get_max_level(path)
+	var config_max := BuildingUpgradeConfig.get_max_level(path) if not path.is_empty() else 1
+	if "max_level" in building:
+		return maxi(int(building.max_level), config_max)
+	return config_max

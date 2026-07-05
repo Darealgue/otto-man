@@ -35,8 +35,12 @@ var next_concubine_id: int = 1
 var mission_rotation_timer: float = 0.0
 var mission_rotation_interval: float = 30.0  # 30 saniyede bir görev rotasyonu
 var _next_daily_dynamic_spawn_day: int = 2
-const DAILY_DYNAMIC_SPAWN_CHANCE: float = 0.78
+const DAILY_DYNAMIC_SPAWN_CHANCE: float = 0.32
 const DAILY_DYNAMIC_MAX_AVAILABLE: int = 2
+const WORLD_NEWS_BASE_DAILY_CAP: int = 2
+const WORLD_NEWS_MAX_DAILY_CAP: int = 10
+const DAILY_WORLD_EVENT_SPAWN_CHANCE: float = 0.07
+const DAILY_WORLD_EVENT_MIN_GAP_DAYS: int = 3
 
 # Dinamik görev üretimi
 var dynamic_mission_templates: Dictionary = {}
@@ -51,6 +55,9 @@ var world_stability: int = 70  # 0-100 arası
 var active_traders: Array[Dictionary] = []  # [{id, name, origin_settlement, products:[{resource, price_per_unit}], arrives_day, leaves_day, relation_multiplier}]
 var active_rate_modifiers: Array[Dictionary] = []  # [{resource, delta, expires_day, source}]
 var _last_tick_day: int = 0
+var _world_news_count_day: int = 0
+var _world_news_count_day_id: int = -1
+var _last_world_event_spawn_day: int = -9999
 var settlements: Array[Dictionary] = []  # [{id, name, type, relation, wealth, stability, military, biases:{wood:int,stone:int,food:int}}]
 var trade_routes: Array[Dictionary] = []  # [{from, to, products:[], distance, risk, active, relation}]
 var mission_history: Array[Dictionary] = []  # En son gerçekleşen görev sonuçları (LIFO)
@@ -213,8 +220,8 @@ func _process(delta):
 	# Eski saniyelik görev rotasyonu ekonomi enflasyonu yaratıyordu.
 	# Spawn kontrolü artık sadece günlük tick'te (_on_new_day) yapılıyor.
 	
-	# Dünya olaylarını güncelle
-	update_world_events(delta)
+	# Dünya olayları: yalnizca suresi dolanlari guncelle (yeni olay gunluk tick'te)
+	_expire_world_events_only()
 	
 	# Günlük tick kontrolü
 	var tm = get_node_or_null("/root/TimeManager")
@@ -1405,7 +1412,7 @@ func _apply_reward(reward_type: String, amount):
 			_active_rate_add("stone", int_amount, 1, "Görev Ödülü")
 		"food_rate":
 			_active_rate_add("food", int_amount, 1, "Görev Ödülü")
-		"wood", "stone", "food", "water", "medicine":
+		"wood", "stone", "food", "medicine":
 			var applied: int = _grant_village_resource(reward_type, int_amount)
 			if applied > 0:
 				print("📦 +%d %s (köy stoğu)" % [applied, reward_type])
@@ -1450,7 +1457,7 @@ func _apply_penalty(penalty_type: String, amount):
 			_active_rate_add("wood", int_amount, 1, "Görev Cezası")
 		"stone_rate":
 			_active_rate_add("stone", int_amount, 1, "Görev Cezası")
-		"wood", "stone", "food", "water", "medicine":
+		"wood", "stone", "food", "medicine":
 			var applied: int = _grant_village_resource(penalty_type, int_amount)
 			if applied < 0:
 				print("📦 %d %s kaybedildi (köy stoğu)" % [abs(applied), penalty_type])
@@ -2098,7 +2105,7 @@ func _build_player_map_resolution_entry(mission: Mission, successful: bool) -> D
 			if String(reward_type) == "gold":
 				var gold_gain: int = int(round(float(amount) * PLAYER_MAP_GOLD_REWARD_MULT))
 				out["gold_delta"] = int(out.get("gold_delta", 0)) + gold_gain
-			elif String(reward_type) in ["food", "water", "medicine"]:
+			elif String(reward_type) in ["food", "medicine"]:
 				ex_rewards[String(reward_type)] = int(ex_rewards.get(String(reward_type), 0)) + amount
 		out["expedition_rewards"] = ex_rewards
 	else:
@@ -2716,14 +2723,14 @@ func _populate_default_player_map_strategies(mission: Mission, mission_type: Str
 		"savas":
 			mission.player_map_strategies = [
 				{"text_key": "mission.strategy.savas.0", "cost": {"food": 5}, "success_chance": 0.25},
-				{"text_key": "mission.strategy.savas.1", "cost": {"food": 10, "water": 5}, "success_chance": 0.5},
+				{"text_key": "mission.strategy.savas.1", "cost": {"food": 15}, "success_chance": 0.5},
 				{"text_key": "mission.strategy.savas.2", "cost": {"food": 10, "medicine": 5}, "success_chance": 0.75}
 			]
 		"kesif":
 			mission.player_map_strategies = [
-				{"text_key": "mission.strategy.kesif.0", "cost": {"food": 3, "water": 3}, "success_chance": 0.35},
-				{"text_key": "mission.strategy.kesif.1", "cost": {"food": 8, "water": 5}, "success_chance": 0.55},
-				{"text_key": "mission.strategy.kesif.2", "cost": {"food": 15, "water": 10}, "success_chance": 0.8}
+				{"text_key": "mission.strategy.kesif.0", "cost": {"food": 6}, "success_chance": 0.35},
+				{"text_key": "mission.strategy.kesif.1", "cost": {"food": 13}, "success_chance": 0.55},
+				{"text_key": "mission.strategy.kesif.2", "cost": {"food": 25}, "success_chance": 0.8}
 			]
 		"ticaret":
 			mission.player_map_strategies = [
@@ -2995,13 +3002,6 @@ func refresh_missions():
 var world_events_timer: float = 0.0
 var world_events_interval: float = 120.0  # 2 dakikada bir dünya olayı kontrolü
 
-# Dünya olaylarını güncelle
-func update_world_events(delta: float):
-	world_events_timer += delta
-	if world_events_timer >= world_events_interval:
-		world_events_timer = 0.0
-		process_world_events()
-
 func _world_event_elapsed_duration(event: Dictionary) -> Dictionary:
 	var tm: Node = get_node_or_null("/root/TimeManager")
 	if tm and tm.has_method("get_total_game_minutes") and event.has("start_game_minutes"):
@@ -3015,10 +3015,9 @@ func _world_event_elapsed_duration(event: Dictionary) -> Dictionary:
 		return {"elapsed": elapsed_rt, "duration": dur_rt, "use_game": false}
 	return {"elapsed": 0.0, "duration": -1.0, "use_game": false}
 
-# Dünya olaylarını işle
-func process_world_events():
-	# Aktif olayları kontrol et
-	var active_events = []
+# Dünya olaylarını işle (gerçek zamanlı: yalnızca süresi dolanları kapat)
+func _expire_world_events_only() -> void:
+	var active_events: Array[Dictionary] = []
 	for event in world_events:
 		var td: Dictionary = _world_event_elapsed_duration(event)
 		if float(td.get("duration", -1.0)) < 0.0:
@@ -3029,18 +3028,31 @@ func process_world_events():
 			active_events.append(event)
 		else:
 			end_world_event(event)
-	
-	# Yeni olay başlatma şansı
-	if randf() < 0.3:  # %30 şans
-		start_random_world_event()
+	world_events = active_events
 
-	# Koşullu nadir olaylar
-	if world_stability < 35 and randf() < 0.25:
-		_trigger_plague()
-	if settlements.size() >= 2 and randf() < 0.2:
-		_trigger_embargo_between_settlements()
+func update_world_events(delta: float) -> void:
+	world_events_timer += delta
+	if world_events_timer >= world_events_interval:
+		world_events_timer = 0.0
+		_expire_world_events_only()
 
-func post_news(category: String, title: String, content: String, color: Color = Color.WHITE, subcategory: String = "info"):
+func _maybe_roll_daily_world_event(day: int) -> void:
+	if day - _last_world_event_spawn_day < DAILY_WORLD_EVENT_MIN_GAP_DAYS:
+		return
+	if not get_active_world_events().is_empty():
+		return
+	if randf() > DAILY_WORLD_EVENT_SPAWN_CHANCE:
+		return
+	start_random_world_event()
+	_last_world_event_spawn_day = day
+
+# Dünya olaylarını işle (legacy — günlük tick dışında çağrılmasın)
+func process_world_events():
+	_expire_world_events_only()
+
+func post_news(category: String, title: String, content: String, color: Color = Color.WHITE, subcategory: String = "info", flags: Dictionary = {}):
+	if _is_world_news_category(category) and not can_publish_world_news(flags):
+		return
 	var tm = get_node_or_null("/root/TimeManager")
 	var time_text = tm.get_time_string() if tm and tm.has_method("get_time_string") else "Şimdi"
 	
@@ -3280,22 +3292,25 @@ func _on_new_day(day: int):
 		if not _mm_settlement_on_world_map(s.get("id", "")):
 			var drel: int = randi_range(-2, 2)
 			s["relation"] = clamp(int(s.get("relation", 50)) + drel, 0, 100)
-			if drel != 0:
-				post_news("world", tr("news.diplomacy_update.title"), tr("news.diplomacy_update.body") % [s.get("name", "?"), ("+" if drel > 0 else ""), drel], Color(0.9, 0.9, 1), "info")
 		var dstab: int = randi_range(-1, 1)
 		s["stability"] = clamp(int(s.get("stability", 70)) + dstab, 0, 100)
 
 	# Olası çatışmaları simüle et ve görevlere yansıt
 	_simulate_conflicts()
 
-	# Ekonomik/diplomatik rastgele olaylar
-	if randf() < 0.25:
+	# Ekonomik/diplomatik rastgele olaylar (seyrek)
+	if randf() < 0.06:
 		_trigger_trade_caravan()
-	if world_stability < 45 and randf() < 0.35:
+	if world_stability < 45 and randf() < 0.10:
 		_trigger_bandit_activity()
-	if randf() < 0.18:
+	if randf() < 0.05:
 		_trigger_random_festival()
 	_maybe_spawn_daily_dynamic_mission(day)
+	_maybe_roll_daily_world_event(day)
+	if world_stability < 35 and randf() < 0.06:
+		_trigger_plague()
+	if settlements.size() >= 2 and randf() < 0.05:
+		_trigger_embargo_between_settlements()
 
 func _count_available_non_chain_missions() -> int:
 	var n: int = 0
@@ -3352,7 +3367,7 @@ func _simulate_conflicts():
 		return
 	# Olasılık: dünya istikrarı ve genel gerginliğe bağlı
 	var instability: float = 1.0 - float(world_stability) / 100.0
-	var chance: float = clamp(0.15 + instability * 0.35, 0.10, 0.50)
+	var chance: float = clamp(0.04 + instability * 0.12, 0.03, 0.18)
 	if randf() > chance:
 		return
 	# Saldıran aday: istikrarı düşük ya da askeri gücü yüksek olan taraf
@@ -3931,8 +3946,6 @@ func create_settlements():
 			wealth = rng.randi_range(48, 62)
 			military = rng.randi_range(38, 55)
 		var bias_pool: Array[String] = ["food", "wood", "stone"]
-		if rng.randf() < 0.38:
-			bias_pool.append("water")
 		var biases: Dictionary = {}
 		var bias_n: int = rng.randi_range(1, 2)
 		for _b in range(bias_n):
@@ -3994,6 +4007,74 @@ func refresh_trade_route_stats_from_settlements() -> void:
 		route["risk"] = _calculate_route_risk(avg)
 		route["active"] = avg >= 30.0
 		trade_routes[idx] = route
+
+func is_settlement_under_active_intel(settlement_id: String) -> bool:
+	if settlement_id.is_empty():
+		return false
+	for cariye_id in active_missions:
+		var mission_id: String = String(active_missions[cariye_id])
+		if not missions.has(mission_id):
+			continue
+		var mission: Variant = missions[mission_id]
+		if mission == null:
+			continue
+		var sid: String = ""
+		if mission is Dictionary:
+			sid = String(mission.get("target_settlement_id", ""))
+		elif "target_settlement_id" in mission:
+			sid = String(mission.target_settlement_id)
+		if sid == settlement_id:
+			return true
+	return false
+
+func _count_active_intel_missions() -> int:
+	var seen: Dictionary = {}
+	for cariye_id in active_missions:
+		var mission_id: String = String(active_missions[cariye_id])
+		if not missions.has(mission_id):
+			continue
+		var mission: Variant = missions[mission_id]
+		if mission == null:
+			continue
+		var sid: String = ""
+		if mission is Dictionary:
+			sid = String(mission.get("target_settlement_id", ""))
+		elif "target_settlement_id" in mission:
+			sid = String(mission.target_settlement_id)
+		if not sid.is_empty():
+			seen[sid] = true
+	return seen.size()
+
+func get_intelligence_daily_news_cap() -> int:
+	var cap: int = WORLD_NEWS_BASE_DAILY_CAP
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm and wm.has_method("get_discovered_settlements"):
+		var discovered: Array = wm.call("get_discovered_settlements")
+		cap += mini(discovered.size(), 3)
+	cap += mini(_count_active_intel_missions(), 2)
+	cap += mini(active_traders.size(), 2)
+	if wm and wm.has_method("get_living_world_role_modifiers"):
+		var mods: Dictionary = wm.call("get_living_world_role_modifiers")
+		var ajan_norm: float = clampf(float(mods.get("undiscovered_news_chance", 0.0)) / 0.50, 0.0, 1.0)
+		cap += int(round(1.0 + 2.0 * ajan_norm))
+	return clampi(cap, WORLD_NEWS_BASE_DAILY_CAP, WORLD_NEWS_MAX_DAILY_CAP)
+
+func can_publish_world_news(news: Dictionary = {}) -> bool:
+	if bool(news.get("skip_daily_cap", false)):
+		return true
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var day: int = int(tm.get_day()) if tm and tm.has_method("get_day") else 0
+	if day != _world_news_count_day_id:
+		_world_news_count_day_id = day
+		_world_news_count_day = 0
+	if _world_news_count_day >= get_intelligence_daily_news_cap():
+		return false
+	_world_news_count_day += 1
+	return true
+
+func _is_world_news_category(category: String) -> bool:
+	var cat: String = String(category).to_lower()
+	return cat in ["world", "dünya", "dunya"]
 
 func _mm_settlement_on_world_map(settlement_id: Variant) -> bool:
 	var sid: String = String(settlement_id)
@@ -4207,7 +4288,6 @@ func _get_resource_base_value(resource: String) -> int:
 		"food": return 3
 		"wood": return 3
 		"stone": return 4
-		"water": return 2
 		_: return 3
 
 # --- ZENGİN OLAYLAR ---
@@ -4233,8 +4313,6 @@ func _trigger_random_festival() -> void:
 	_active_rate_add("food", 1, 2, "Festival")
 
 func _trigger_plague() -> void:
-	_active_rate_add("food", -1, 3, "Salgın")
-	_active_rate_add("wood", -1, 3, "Salgın")
 	_create_aid_mission()
 
 func _trigger_embargo_between_settlements() -> void:
@@ -4788,7 +4866,7 @@ func _get_player_military_force() -> Dictionary:
 	return {
 		"units": {"infantry": 5, "archers": 3, "cavalry": 2},
 		"equipment": {"weapon": 10, "armor": 8},
-		"supplies": {"bread": 20, "water": 15},
+		"supplies": {"bread": 20, "food": 15},
 		"gold": 500
 	}
 
@@ -4809,7 +4887,7 @@ func _get_settlement_defense_force(settlement_name: String) -> Dictionary:
 		return {
 			"units": {"infantry": 3, "archers": 2},
 			"equipment": {"weapon": 5, "armor": 4},
-			"supplies": {"bread": 10, "water": 8},
+			"supplies": {"bread": 10, "food": 8},
 			"gold": 200
 		}
 	
@@ -4824,7 +4902,7 @@ func _get_settlement_defense_force(settlement_name: String) -> Dictionary:
 	return {
 		"units": {"infantry": infantry, "archers": archers, "cavalry": cavalry},
 		"equipment": {"weapon": int(wealth / 10), "armor": int(wealth / 15)},
-		"supplies": {"bread": int(wealth / 5), "water": int(wealth / 8)},
+		"supplies": {"bread": int(wealth / 5), "food": int(wealth / 8)},
 		"gold": wealth
 	}
 
@@ -4837,7 +4915,7 @@ func _get_attacker_force(attacker_name: String) -> Dictionary:
 	return {
 		"units": {"infantry": attacker_strength, "archers": int(attacker_strength / 2)},
 		"equipment": {"weapon": attacker_strength * 2, "armor": attacker_strength},
-		"supplies": {"bread": attacker_strength * 3, "water": attacker_strength * 2},
+		"supplies": {"bread": attacker_strength * 3, "food": attacker_strength * 2},
 		"gold": attacker_strength * 50
 	}
 
@@ -4950,7 +5028,7 @@ func debug_create_test_forces() -> Dictionary:
 	var attacker: Dictionary = cr.create_force(
 		{"infantry": 5, "archers": 3, "cavalry": 2},
 		{"weapon": 10, "armor": 8},
-		{"bread": 20, "water": 15},
+		{"bread": 20, "food": 15},
 		500
 	)
 	
@@ -4958,7 +5036,7 @@ func debug_create_test_forces() -> Dictionary:
 	var defender: Dictionary = cr.create_force(
 		{"infantry": 4, "archers": 2, "cavalry": 1},
 		{"weapon": 6, "armor": 5},
-		{"bread": 12, "water": 10},
+		{"bread": 12, "food": 10},
 		300
 	)
 	

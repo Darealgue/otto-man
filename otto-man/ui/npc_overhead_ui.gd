@@ -45,6 +45,27 @@ static func apply_nameplate_text_style(control: Control, name_reference: Label =
 		btn.add_theme_color_override("font_disabled_color", NAMEPLATE_FONT_COLOR)
 
 
+static func configure_centered_overhead_hint(label: Label, width: float, top_y: float, height: float = 20.0, x_shift: float = 0.0) -> void:
+	if label == null:
+		return
+	label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	label.offset_left = -width * 0.5 + x_shift
+	label.offset_right = width * 0.5 + x_shift
+	label.offset_top = top_y
+	label.offset_bottom = top_y + height
+	label.pivot_offset = Vector2(width * 0.5, height * 0.5)
+	label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+
+static func sync_horizontal_flip(host: Node2D, ui_nodes: Array) -> void:
+	if not is_instance_valid(host):
+		return
+	var flip := -1.0 if host.scale.x < 0.0 else 1.0
+	for node in ui_nodes:
+		if node is CanvasItem and is_instance_valid(node):
+			(node as CanvasItem).scale.x = flip
+
+
 static func get_interact_hint_text() -> String:
 	var im := _get_input_manager()
 	if im != null and im.has_method("get_tutorial_interact_hint"):

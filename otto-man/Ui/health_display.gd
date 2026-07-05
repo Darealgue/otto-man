@@ -38,15 +38,11 @@ var debuff_container: VBoxContainer
 var debuff_title_label: Label
 var debuff_time_label: Label
 var survival_container: VBoxContainer
-var water_icon_label: Label
-var water_bar: ProgressBar
-var water_time_label: Label
 var food_icon_label: Label
 var food_bar: ProgressBar
 var food_time_label: Label
 var _survival_refresh_timer: float = 0.0
 const SURVIVAL_REFRESH_INTERVAL: float = 0.35
-const WATER_WARNING_MINUTES: float = 360.0
 const FOOD_WARNING_MINUTES: float = 720.0
 
 func _ready() -> void:
@@ -233,24 +229,9 @@ func _setup_survival_ui() -> void:
 	survival_container = VBoxContainer.new()
 	survival_container.name = "SurvivalContainer"
 	survival_container.position = Vector2(SURVIVAL_X, 70)
-	survival_container.custom_minimum_size = Vector2(220, 52)
+	survival_container.custom_minimum_size = Vector2(220, 28)
 	root.add_child(survival_container)
-	
-	var water_row := HBoxContainer.new()
-	water_row.name = "WaterRow"
-	survival_container.add_child(water_row)
-	water_icon_label = Label.new()
-	water_icon_label.text = "💧"
-	water_row.add_child(water_icon_label)
-	water_bar = ProgressBar.new()
-	water_bar.custom_minimum_size = Vector2(132, 12)
-	water_bar.max_value = 100.0
-	water_bar.show_percentage = false
-	water_row.add_child(water_bar)
-	water_time_label = Label.new()
-	water_time_label.text = "--"
-	water_row.add_child(water_time_label)
-	
+
 	var food_row := HBoxContainer.new()
 	food_row.name = "FoodRow"
 	survival_container.add_child(food_row)
@@ -277,15 +258,10 @@ func _refresh_survival_ui() -> void:
 		survival_container.visible = false
 		return
 	var fc: Dictionary = player_stats.call("get_world_expedition_survival_forecast")
-	var water_minutes: int = int(fc.get("minutes_until_water_collapse", fc.get("minutes_until_water_hp_loss", 0)))
 	var food_minutes: int = int(fc.get("minutes_until_food_collapse", fc.get("minutes_until_food_hp_loss", 0)))
-	var water_ratio: float = clampf(float(water_minutes) / WATER_WARNING_MINUTES, 0.0, 1.0)
 	var food_ratio: float = clampf(float(food_minutes) / FOOD_WARNING_MINUTES, 0.0, 1.0)
-	water_bar.value = water_ratio * 100.0
 	food_bar.value = food_ratio * 100.0
-	water_time_label.text = _format_minutes_short(water_minutes)
 	food_time_label.text = _format_minutes_short(food_minutes)
-	_apply_survival_bar_color(water_bar, water_ratio)
 	_apply_survival_bar_color(food_bar, food_ratio)
 	survival_container.visible = true
 

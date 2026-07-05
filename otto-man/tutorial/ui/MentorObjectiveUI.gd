@@ -110,6 +110,8 @@ func _resolve_input_tokens(text: String) -> String:
 		result = result.replace("{page_left}", "[%s]" % im.get_tutorial_page_left_hint())
 	if result.contains("{page_right}"):
 		result = result.replace("{page_right}", "[%s]" % im.get_tutorial_page_right_hint())
+	if result.contains("{village_worker_add}"):
+		result = result.replace("{village_worker_add}", "[%s]" % im.get_tutorial_village_worker_add_hint())
 	return result
 
 

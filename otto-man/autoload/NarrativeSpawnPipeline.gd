@@ -73,7 +73,9 @@ func request_settlement_incident_package(incident: Dictionary, role_mods: Dictio
 	var discovered: bool = true
 	if wm and wm.has_method("_is_settlement_discovered_for_news"):
 		discovered = bool(wm.call("_is_settlement_discovered_for_news", settlement_id))
-	var undiscovered_chance: float = float(role_mods.get("undiscovered_news_chance", 0.30))
+	var undiscovered_chance: float = float(role_mods.get("undiscovered_news_chance", 0.0))
+	if not discovered and undiscovered_chance <= 0.0:
+		return
 	if not discovered and randf() > undiscovered_chance:
 		return
 

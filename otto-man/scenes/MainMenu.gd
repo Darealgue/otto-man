@@ -44,6 +44,7 @@ func _ready() -> void:
 	if LocaleManager.has_signal("locale_changed"):
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
+	_apply_startup_audio_settings()
 	await _play_startup_fade_if_needed()
 
 
@@ -443,3 +444,8 @@ func _on_load_game_back() -> void:
 func _play_click() -> void:
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_ui"):
 		SoundManager.play_ui("click")
+
+
+func _apply_startup_audio_settings() -> void:
+	if is_instance_valid(SoundManager) and SoundManager.has_method("_apply_saved_volume_from_settings"):
+		SoundManager._apply_saved_volume_from_settings()

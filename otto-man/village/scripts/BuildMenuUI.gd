@@ -24,6 +24,7 @@ const STONE_MINE_SCENE = "res://village/buildings/StoneMine.tscn"
 const HUNTER_HUT_SCENE = "res://village/buildings/HunterGathererHut.tscn"
 const WELL_SCENE = "res://village/buildings/Well.tscn"
 const BAKERY_SCENE = "res://village/buildings/Bakery.tscn"
+const INVENTOR_SCENE = "res://village/buildings/InventorWorkshop.tscn"
 const HOUSE_SCENE = "res://village/buildings/House.tscn"
 const SAWMILL_SCENE = "res://village/buildings/Sawmill.tscn"
 const BRICKWORKS_SCENE = "res://village/buildings/Brickworks.tscn"
@@ -34,7 +35,6 @@ const HERBALIST_SCENE = "res://village/buildings/Herbalist.tscn"
 const TEAHOUSE_SCENE = "res://village/buildings/TeaHouse.tscn"
 const SOAPMAKER_SCENE = "res://village/buildings/SoapMaker.tscn"
 const GUNSMITH_SCENE = "res://village/buildings/Gunsmith.tscn"
-const ARMORER_SCENE = "res://village/buildings/Armorer.tscn"
 
 const BUILDING_BUTTON_LABELS := {
 	WOODCUTTER_SCENE: "building.woodcutter",
@@ -51,14 +51,13 @@ const BUILDING_BUTTON_LABELS := {
 	TEAHOUSE_SCENE: "building.teahouse",
 	SOAPMAKER_SCENE: "building.soapmaker",
 	GUNSMITH_SCENE: "building.gunsmith",
-	ARMORER_SCENE: "building.armorer",
+	INVENTOR_SCENE: "building.inventor",
 	HOUSE_SCENE: "building.house",
 }
 
 const BUILD_MENU_ORDER := [
 	WOODCUTTER_SCENE,
 	STONE_MINE_SCENE,
-	WELL_SCENE,
 	HUNTER_HUT_SCENE,
 	BAKERY_SCENE,
 	SAWMILL_SCENE,
@@ -70,7 +69,7 @@ const BUILD_MENU_ORDER := [
 	TEAHOUSE_SCENE,
 	SOAPMAKER_SCENE,
 	GUNSMITH_SCENE,
-	ARMORER_SCENE,
+	INVENTOR_SCENE,
 	HOUSE_SCENE
 ]
 
@@ -115,9 +114,8 @@ func _ready() -> void:
 		printerr("BuildMenuUI Error: Node not found - BuildFoodButton")
 		
 	if build_well_button:
-		build_well_button.pressed.connect(_on_build_button_pressed.bind(WELL_SCENE))
-	else:
-		printerr("BuildMenuUI Error: Node not found - BuildWaterButton")
+		build_well_button.visible = false
+		build_well_button.disabled = true
 	
 	if build_bakery_button:
 		build_bakery_button.pressed.connect(_on_build_button_pressed.bind(BAKERY_SCENE))
@@ -132,7 +130,6 @@ func _ready() -> void:
 	scene_buttons = {
 		WOODCUTTER_SCENE: build_woodcutter_button,
 		STONE_MINE_SCENE: build_stone_mine_button,
-		WELL_SCENE: build_well_button,
 		HUNTER_HUT_SCENE: build_hunter_hut_button,
 		BAKERY_SCENE: build_bakery_button,
 		HOUSE_SCENE: build_house_button
@@ -470,8 +467,9 @@ func _cost_short_key(resource_key: String) -> String:
 		"tea": return "C"
 		"soap": return "Sa"
 		"medicine": return "I"
-		"weapon": return "Si"
-		"armor": return "Zi"
+		"weapon_t1": return "S1"
+		"weapon_t2": return "S2"
+		"weapon_t3": return "S3"
 		_: return resource_key.left(2).capitalize()
 
 

@@ -92,8 +92,8 @@ const BUILDING_SCENE_KEYS := {
 	"res://village/buildings/TeaHouse.tscn": "building.teahouse",
 	"res://village/buildings/SoapMaker.tscn": "building.soapmaker",
 	"res://village/buildings/Gunsmith.tscn": "building.gunsmith",
-	"res://village/buildings/Armorer.tscn": "building.armorer",
 	"res://village/buildings/Barracks.tscn": "building.barracks",
+	"res://village/buildings/InventorWorkshop.tscn": "building.inventor",
 }
 
 

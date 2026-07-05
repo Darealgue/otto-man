@@ -2,12 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://btbujparjgcrb"
-valid=false
+uid="uid://byu3xryqjaqjo"
+path="res://.godot/imported/combat_block.wav-0cfdd677191d3d90ee768abf3bee5ad1.sample"
 
 [deps]
 
 source_file="res://assets/audio/sfx/combat_block.wav"
+dest_files=["res://.godot/imported/combat_block.wav-0cfdd677191d3d90ee768abf3bee5ad1.sample"]
 
 [params]
 

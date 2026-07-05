@@ -42,6 +42,9 @@ const BASE_GRID_HEIGHT = 10 # Base height for levels 1-4
 const CHUNK_SIZE = Vector2(1920, 1088)  # Updated height to be divisible by 16
 const GRID_SPACING = Vector2(1920, 1088)  # Updated spacing to match chunk size
 const MIN_CHUNKS = 30  # Increased minimum chunks for larger levels
+## Playable hücrelerin etrafına kaç kat `full` duvar halkası konacağı.
+## 1 = yalnızca yola bitişik halka; 2 = bir dış halka daha (kamera kenarı için).
+const SURROUNDING_WALL_RINGS := 2
 
 # Direction vectors for easy position calculations
 const DIRECTION_VECTORS = {
@@ -394,6 +397,10 @@ var overview_camera: Camera2D
 var is_overview_active: bool = true
 var current_path_id_counter: int = 0 # Counter for unique path IDs
 var current_grid_height: int = BASE_GRID_HEIGHT # Dynamic height, calculated per level
+var _exterior_wall_positions: Array[Vector2i] = []
+var _exterior_wall_chunks: Array[Node2D] = []
+## Challenge kalp ödülü: segment boyunca retry'larda da kalır; başarılı üretimde temizlenir.
+var _segment_force_guaranteed_rescue: bool = false
 
 @export var current_level: int = 1  # Effective level (düşman/spawn için; challenge birikiminden)
 var effective_trap_level: int = 1   # Tuzak seviyesi (challenge trap_level_offset)
@@ -402,13 +409,35 @@ var effective_trap_level: int = 1   # Tuzak seviyesi (challenge trap_level_offse
 # --- Boss schedule helpers (debug-only for now) ---
 # Levels mapping for boss events; we keep it data-driven and simple
 # Kapalıyken bitiş her zaman normal "finish" chunk; boss_arena + kilitli kapı spawn olmaz.
-const DUNGEON_BOSS_ARENAS_ENABLED := true
+const DUNGEON_BOSS_ARENAS_ENABLED := false
 const BOSS_SCHEDULE: Dictionary = {
 	3: "mini",
 	5: "major",
 	7: "mini",
 	9: "major",
 }
+
+## Segment çıkış anahtarı: kolay hedefler değil, güçlü düşmanlar taşır.
+const KEY_CARRIER_FODDER_SCRIPT_MARKERS: Array[String] = [
+	"basic/",
+	"flying/",
+	"turtle/",
+]
+const KEY_CARRIER_PREFERRED_SCRIPT_MARKERS: Array[String] = [
+	"heavy/",
+	"canonman/",
+	"firemage/",
+	"hunter/",
+	"summoner/",
+	"spearman/",
+]
+const KEY_CARRIER_EMERGENCY_SCENES: Array[String] = [
+	"res://enemy/heavy/heavy_enemy.tscn",
+	"res://enemy/spearman/spearman_enemy.tscn",
+	"res://enemy/firemage/firemage_enemy.tscn",
+]
+## Zindan chunk'ları origin'den uzaktır; (0,0) genelde şablon/ghost düşman.
+const MIN_KEY_HOLDER_POSITION_SQ: float = 160000.0
 
 func get_boss_event_type(level: int) -> String:
 	# Returns "" | "mini" | "major" according to cyclic schedule (3,5,7,9...)
@@ -428,8 +457,8 @@ func get_finish_boss_tier() -> String:
 		return ""
 	var drs: Node = get_node_or_null("/root/DungeonRunState")
 	if is_instance_valid(drs) and bool(drs.get("run_started")):
-		var seg: int = int(drs.get("run_segment_count"))
-		var max_seg: int = int(drs.get("MAX_SEGMENTS"))
+		var seg: int = int(drs.get("run_segments_completed")) if "run_segments_completed" in drs else int(drs.get("run_segment_count"))
+		var max_seg: int = int(drs.get("run_max_segments")) if "run_max_segments" in drs else int(drs.get("MAX_SEGMENTS"))
 		if seg >= max_seg:
 			var scheduled: String = get_boss_event_type(current_level)
 			return "major" if scheduled == "major" else "mini"
@@ -460,6 +489,13 @@ var transition_cooldown: float = 1.0
 var unified_terrain: UnifiedTerrain
 var placed_gate_positions: Array[Vector2] = []
 var door_positions: Array[Vector2] = []  # Kapı pozisyonlarını sakla
+var _segment_finish_door: Node = null
+var _segment_finish_is_boss: bool = false
+
+# Debug-only stats from the last generate_layout()/resolve_junctions() run,
+# surfaced together via _debug_print_generation_summary().
+var _debug_last_max_branch_depth_reached: int = 0
+var _debug_last_junctions_formed: int = 0
 
 class PathGenerator:
 	var astar := AStar2D.new()
@@ -498,115 +534,34 @@ class PathGenerator:
 	
 	func _get_point_index(pos: Vector2i) -> int:
 		return pos.x + (pos.y * grid_width)
-	
-	func generate_main_path(start_pos: Vector2i, target_length: int) -> Array:
-		var path := []
-		var current := start_pos
-		path.append(current)
-		
-		# Generate path with more vertical variation
-		var target_x = min(grid_width - 2, start_pos.x + target_length)
-		var attempts := 0
-		var max_attempts := 100
-		
-		while path.size() < target_length and attempts < max_attempts:
-			attempts += 1
-			
-			# Encourage vertical movement every few steps
-			var force_vertical = path.size() % 4 == 0
-			var target: Vector2i
-			
-			if force_vertical:
-				# Pick a point above or below current position
-				var vertical_offset = randi() % 5 - 2  # -2 to +2
-				var target_y = clamp(current.y + vertical_offset, 1, grid_height - 2)
-				target = Vector2i(current.x, target_y)
-			else:
-				# Move forward with some vertical variation
-				var forward_steps = randi() % 3 + 1  # 1 to 3 steps forward
-				var target_x_local = min(current.x + forward_steps, grid_width - 2)
-				var y_variation = randi() % 3 - 1  # -1 to +1
-				var target_y = clamp(current.y + y_variation, 1, grid_height - 2)
-				target = Vector2i(target_x_local, target_y)
-			
-			var astar_path = astar.get_point_path(_get_point_index(current), _get_point_index(target))
-			
-			for point in astar_path:
-				var grid_pos = Vector2i(point.x, point.y)
-				if not path.has(grid_pos):
-					path.append(grid_pos)
-					if path.size() >= target_length:
-						break
-			
-			current = path[-1]
-			
-			# Add some backtracking occasionally
-			if randf() < 0.2 and path.size() > 3:
-				var backtrack_steps = randi() % 3 + 1
-				current = path[max(0, path.size() - backtrack_steps - 1)]
-		
-		return path
-	
-	func generate_branches(main_path: Array, branch_count: int, min_length: int, max_length: int) -> Array:
-		var branches := []
-		var attempts := 0
-		var max_attempts := branch_count * 3  # Increased attempts for better branches
-		
-		while branches.size() < branch_count and attempts < max_attempts:
-			attempts += 1
-			
-			# Prefer middle sections of main path for branching
-			var valid_start_indices = []
-			for i in range(1, main_path.size() - 1):
-				var pos = main_path[i]
-				if pos.x > 2 and pos.x < grid_width - 3:  # Avoid edges
-					valid_start_indices.append(i)
-			
-			if valid_start_indices.is_empty():
-				continue
-			
-			var start_idx = valid_start_indices[randi() % valid_start_indices.size()]
-			var start_point = main_path[start_idx]
-			var branch_length = randi() % (max_length - min_length + 1) + min_length
-			
-			# Generate target point with more variation
-			var direction = randi() % 4  # 0: up, 1: right, 2: down, 3: left
-			var target: Vector2i
-			match direction:
-				0:  # Up
-					target = Vector2i(start_point.x + randi() % 3 - 1, max(1, start_point.y - branch_length))
-				1:  # Right
-					target = Vector2i(min(grid_width - 2, start_point.x + branch_length), start_point.y + randi() % 3 - 1)
-				2:  # Down
-					target = Vector2i(start_point.x + randi() % 3 - 1, min(grid_height - 2, start_point.y + branch_length))
-				3:  # Left
-					target = Vector2i(max(2, start_point.x - branch_length), start_point.y + randi() % 3 - 1)
-			
-			var branch_path = astar.get_point_path(_get_point_index(start_point), _get_point_index(target))
-			
-			# Validate branch
-			if branch_path.size() >= min_length:
-				var grid_path := []
-				var is_valid = true
-				
-				for point in branch_path:
-					var grid_pos = Vector2i(point.x, point.y)
-					# Check if this position is already used by another branch
-					for existing_branch in branches:
-						if existing_branch.has(grid_pos):
-							is_valid = false
-							break
-					if not is_valid:
-						break
-					grid_path.append(grid_pos)
-				
-				if is_valid:
-					branches.append(grid_path)
-		
-		return branches
 
 signal level_completed
 signal level_started
+
+## Kamp/run dışında sahne doğrudan açılırsa Inspector'daki eski current_level oyunu bozmasın.
+func _apply_run_difficulty_from_state() -> void:
+	var drs = get_node_or_null("/root/DungeonRunState")
+	if drs and drs.run_started:
+		var base_diff: int = int(drs.get("run_base_difficulty"))
+		var enemy_off: int = int(drs.get("enemy_level_offset"))
+		var trap_off: int = int(drs.get("trap_level_offset"))
+		current_level = 1 + enemy_off + base_diff
+		effective_trap_level = 1 + trap_off + base_diff
+		current_level = clampi(current_level, 1, 9)
+		effective_trap_level = clampi(effective_trap_level, 1, 9)
+		print(
+			"[LevelGenerator] Run difficulty -> level=%d trap=%d (base_diff=%d enemy_off=%d trap_off=%d size_off=%d)" % [
+				current_level, effective_trap_level, base_diff, enemy_off, trap_off,
+				int(drs.get("dungeon_size_offset"))
+			]
+		)
+	else:
+		if current_level != 1:
+			push_warning(
+				"[LevelGenerator] Aktif zindan run'ı yok; Inspector'daki current_level=%d yok sayılıp 1 kullanılıyor. (Köy→Kamp→Kapı akışını kullan.)" % current_level
+			)
+		current_level = 1
+		effective_trap_level = 1
 
 func _ready() -> void:
 	if bool(get_meta("_tutorial_decor_only", false)):
@@ -615,17 +570,7 @@ func _ready() -> void:
 	print("[LevelGenerator] _ready() called")
 	is_overview_active = false  # Zindanda yakın kamera (oyuncu) ile başla; V ile uzak/overview
 
-	# Challenge kapılarından biriken offset'leri uygula (ilk seçim dahil hepsi geçerli)
-	var drs = get_node_or_null("/root/DungeonRunState")
-	if drs and drs.run_started:
-		var base_diff: int = int(drs.get("run_base_difficulty"))
-		current_level = 1 + drs.enemy_level_offset + base_diff
-		effective_trap_level = 1 + drs.trap_level_offset + base_diff
-		current_level = clampi(current_level, 1, 9)
-		effective_trap_level = clampi(effective_trap_level, 1, 9)
-		print("[LevelGenerator] Challenge offsets -> current_level=%d, effective_trap_level=%d" % [current_level, effective_trap_level])
-	else:
-		effective_trap_level = current_level
+	_apply_run_difficulty_from_state()
 	
 	# Load level config if not set
 	if not level_config:
@@ -686,6 +631,8 @@ func toggle_camera() -> void:
 func clear_level() -> void:
 	placed_gate_positions.clear()
 	door_positions.clear()  # Kapı pozisyonlarını temizle
+	_segment_finish_door = null
+	_segment_finish_is_boss = false
 	# Store camera state and zoom
 	var player = get_node_or_null("Player")
 	var player_camera_zoom = Vector2.ONE
@@ -719,11 +666,41 @@ func clear_level() -> void:
 	if not stored_player:
 		player_camera_zoom_cache = player_camera_zoom
 
+func _free_chunks_from_failed_attempt() -> void:
+	if grid.is_empty():
+		return
+	var freed := 0
+	for x in range(grid.size()):
+		for y in range(grid[x].size()):
+			var cell: GridCell = grid[x][y]
+			if cell.chunk and is_instance_valid(cell.chunk):
+				cell.chunk.free() # Immediate (not queue_free) - must be gone before the next attempt places new chunks in the same spots
+				cell.chunk = null
+				freed += 1
+	chunks_placed = 0
+	placed_gate_positions.clear()
+	door_positions.clear()
+	for ext_chunk in _exterior_wall_chunks:
+		if is_instance_valid(ext_chunk):
+			ext_chunk.free()
+	_exterior_wall_chunks.clear()
+	_exterior_wall_positions.clear()
+	if freed > 0:
+		print("  Freed %d chunk(s) from previous failed attempt." % freed)
+
 func generate_level() -> bool:
 	print("\nStarting level generation...")
 	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
 	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_segment"):
 		stealth_mgr.reset_for_segment()
+	var drs_start := get_node_or_null("/root/DungeonRunState")
+	_segment_force_guaranteed_rescue = (
+		is_instance_valid(drs_start)
+		and bool(drs_start.get("run_started"))
+		and bool(drs_start.get("guaranteed_rescue_next"))
+	)
+	if _segment_force_guaranteed_rescue:
+		print("[LevelGenerator] ♥ Challenge garanti kurtarma — bu segment için aktif")
 	var boss_type := get_boss_event_type(current_level)
 	if boss_type != "":
 		print("  Boss schedule: level ", current_level, " -> ", boss_type)
@@ -739,13 +716,9 @@ func generate_level() -> bool:
 	# --- Calculate dynamic dimensions --- 
 	var map_level: int = current_level
 	var drs = get_node_or_null("/root/DungeonRunState")
-	if drs and drs.run_started:
-		var base_len: int = level_config.get_length_for_level(1)
-		var size_off: int = drs.dungeon_size_offset
-		current_grid_width = base_len + size_off * 2
-		current_grid_width = maxi(current_grid_width, level_config.get_length_for_level(1))
-	else:
-		current_grid_width = level_config.get_length_for_level(current_level)
+	var size_off: int = int(drs.dungeon_size_offset) if drs and drs.run_started else 0
+	current_grid_width = level_config.get_length_for_level(map_level) + size_off * 2
+	current_grid_width = mini(current_grid_width, level_config.max_length + size_off * 2)
 	current_grid_height = BASE_GRID_HEIGHT + floor((map_level - 1) / 4) * 2
 	print("  Calculated current_grid_width:", current_grid_width)
 	print("  Calculated current_grid_height:", current_grid_height)
@@ -759,6 +732,15 @@ func generate_level() -> bool:
 
 	while attempt < max_attempts:
 		print("\n--- Attempt %d --- " % (attempt + 1))
+		
+		# Free any chunks (and their spawned enemies/decorations) placed during a
+		# previous failed attempt. `grid = []` below only resets the LOGICAL grid;
+		# without this, the actual chunk scene nodes from the previous attempt
+		# stay in the tree and the next attempt's chunks get placed right on top
+		# of them (stacked/overlapping chunks + duplicated enemy spawns).
+		_free_chunks_from_failed_attempt()
+		_exterior_wall_positions.clear()
+		_exterior_wall_chunks.clear()
 		
 		# Initialize grid AT THE START of each attempt
 		grid = [] 
@@ -783,10 +765,21 @@ func generate_level() -> bool:
 				# Verify if there's a valid path from start to finish
 				if verify_level_path():
 					print("Level generated successfully on attempt %d!" % (attempt + 1))
+					_debug_print_generation_summary()
+					if DEBUG_ENEMY_TILES:
+						_debug_print_ascii_grid()
 					unify_terrain()
 					_populate_traps_on_unified_terrain()
 					setup_level_transitions()
 					spawn_player()
+					if _segment_force_guaranteed_rescue:
+						if _level_has_rescue_room():
+							if is_instance_valid(drs_start):
+								drs_start.guaranteed_rescue_next = false
+							print("[LevelGenerator] ♥ Garanti kurtarma odası yerleştirildi")
+						else:
+							push_error("[LevelGenerator] ♥ Garanti kurtarma seçildi ama odası yok — segment üretimi hatalı")
+					_segment_force_guaranteed_rescue = false
 					return true # Success!
 				else:
 					print("Verification failed (no valid path), retrying...")
@@ -800,6 +793,7 @@ func generate_level() -> bool:
 		# Removed the explicit grid clearing/re-initialization from here
 
 	print("\nFailed to generate level after ", max_attempts, " attempts!")
+	_segment_force_guaranteed_rescue = false
 	return false # Explicitly return false if all attempts fail
 
 
@@ -882,16 +876,11 @@ func verify_level_path() -> bool:
 	if path_found:
 		if DEBUG_ENEMY_TILES:
 			print("Valid path found from start to finish!")
-		return true # Return inside if
+		return true
 	else:
 		if DEBUG_ENEMY_TILES:
 			print("No valid path found from start to finish after BFS!")
-		return false # Return inside else
-	
-	# Fallback return to satisfy linter, should ideally never be reached
-	# Keep this structure as the previous single return didn't help
-	push_error("verify_level_path reached unexpected end point!") # Keep error for safety
-	return false
+		return false
 
 func generate_layout() -> bool:
 	print("\nPhase 1: Generating abstract layout...")
@@ -900,6 +889,7 @@ func generate_layout() -> bool:
 	var num_branches = level_config.get_num_branches_for_level(current_level)
 	var num_dead_ends = level_config.get_num_dead_ends_for_level(current_level)
 	var num_main_paths = level_config.get_num_main_paths_for_level(current_level)
+	var max_branch_depth = level_config.get_max_branch_depth_for_level(current_level)
 	
 	# Initialize path generator
 	var path_gen = PathGenerator.new(current_grid_width, current_grid_height) # Use current_grid_height
@@ -909,58 +899,50 @@ func generate_layout() -> bool:
 	var start_pos = Vector2i(0, current_grid_height / 2) # Use current_grid_height
 	
 	# Set up start position with proper connections
-	# <<< START DEBUG >>>
 	if grid[start_pos.x][start_pos.y].visited:
 		push_warning("Cell %s already visited by '%s', now being revisited by '%s'" % [str(start_pos), grid[start_pos.x][start_pos.y].visited_by, "generate_layout_start"])
-	# <<< END DEBUG >>>
 	grid[start_pos.x][start_pos.y].cell_type = CellType.MAIN_PATH
 	grid[start_pos.x][start_pos.y].visited = true
 	grid[start_pos.x][start_pos.y].visited_by = "generate_layout_start" # Track visit
-	# Make sure to explicitly set all connections for the start chunk - only RIGHT connection
-	for dir_enum in Direction.values():
-		set_grid_connection(start_pos, dir_enum, (dir_enum == Direction.RIGHT))
+	set_single_open_connection(start_pos, Direction.RIGHT)
 	
-	# Randomize finish position with more vertical variation - WIDER RANGE
-	# var finish_y = BASE_GRID_HEIGHT / 2 + (randi() % 5 - 2)  # Old: -2 to +2 from center
-	var finish_y = randi() % (current_grid_height - 4) + 2 # New: Use range 2 to current_grid_height - 3 # Use current_grid_height
-	var finish_pos = Vector2i(current_grid_width - 2, clamp(finish_y, 2, current_grid_height - 3)) # Clamp y # Use current_grid_height
+	# Randomize finish position with more vertical variation
+	var finish_y = randi() % (current_grid_height - 4) + 2 # Range 2 to current_grid_height - 3
+	var finish_pos = Vector2i(current_grid_width - 2, clamp(finish_y, 2, current_grid_height - 3))
 	
 	# Set up finish position with proper connections
-	# <<< START DEBUG >>>
 	if grid[finish_pos.x][finish_pos.y].visited:
 		push_warning("Cell %s already visited by '%s', now being revisited by '%s'" % [str(finish_pos), grid[finish_pos.x][finish_pos.y].visited_by, "generate_layout_finish"])
-	# <<< END DEBUG >>>
 	grid[finish_pos.x][finish_pos.y].cell_type = CellType.MAIN_PATH
 	grid[finish_pos.x][finish_pos.y].visited = true
 	grid[finish_pos.x][finish_pos.y].visited_by = "generate_layout_finish" # Track visit
-	# Set finish chunk connections (only left connection)
-	for dir_enum in Direction.values():
-		set_grid_connection(finish_pos, dir_enum, (dir_enum == Direction.LEFT))
+	set_single_open_connection(finish_pos, Direction.LEFT)
 	
 	# Ensure the cell before finish has a right connection
 	var pre_finish_pos = Vector2i(finish_pos.x - 1, finish_pos.y)
 	if is_valid_position(pre_finish_pos):
-		# <<< START DEBUG >>>
 		if grid[pre_finish_pos.x][pre_finish_pos.y].visited:
 			push_warning("Cell %s already visited by '%s', now being revisited by '%s'" % [str(pre_finish_pos), grid[pre_finish_pos.x][pre_finish_pos.y].visited_by, "generate_layout_pre_finish"])
-		# <<< END DEBUG >>>
 		grid[pre_finish_pos.x][pre_finish_pos.y].cell_type = CellType.MAIN_PATH
 		grid[pre_finish_pos.x][pre_finish_pos.y].visited = true
 		grid[pre_finish_pos.x][pre_finish_pos.y].visited_by = "generate_layout_pre_finish" # Track visit
-		# Use set_grid_connection, setting all others to false implicitly if needed by the function
-		# We only want RIGHT=true here, others false.
-		set_grid_connection(pre_finish_pos, Direction.RIGHT, true)
-		set_grid_connection(pre_finish_pos, Direction.LEFT, false)
-		set_grid_connection(pre_finish_pos, Direction.UP, false)
-		set_grid_connection(pre_finish_pos, Direction.DOWN, false)
+		set_single_open_connection(pre_finish_pos, Direction.RIGHT)
 	
-	var all_paths = []
+	var all_paths = [] # Flat list of every segment's points, used later as a dead-end source
+	# Explicit work queue for controlled, depth-limited branching. This replaces
+	# the old pattern of appending new branches to the very array a `for` loop was
+	# iterating over (which made sub-branching depend on undefined engine behavior).
+	# `queue` only ever grows via explicit push_back calls below and is walked with
+	# a manual index, so its traversal order and termination are fully deterministic.
+	var queue: Array = []
 	
 	# Generate first main path (always from start)
 	var first_path = generate_main_path(start_pos, finish_pos, path_gen)
 	if first_path.is_empty():
 		return false
 	all_paths.append(first_path)
+	queue.append({"points": first_path, "depth": 0})
+	_connect_lead_in_cell(pre_finish_pos, Direction.RIGHT)
 	
 	# Generate additional main paths if needed
 	for i in range(1, num_main_paths):
@@ -969,67 +951,87 @@ func generate_layout() -> bool:
 		if branch_point == null:
 			continue
 			
-		# Generate a new finish position with more vertical variation - WIDER RANGE
+		# Generate a new finish position with more vertical variation
 		var new_finish_x = current_grid_width - 2 - (i * 2)  # Space paths apart
-		# var new_finish_y = BASE_GRID_HEIGHT / 2 + (randi() % 5 - 2)  # Old: More vertical variation
-		var new_finish_y = randi() % (current_grid_height - 4) + 2 # New: Use range 2 to current_grid_height - 3 # Use current_grid_height
-		var new_finish_pos = Vector2i(new_finish_x, clamp(new_finish_y, 2, current_grid_height - 3)) # Clamp y # Use current_grid_height
+		var new_finish_y = randi() % (current_grid_height - 4) + 2
+		var new_finish_pos = Vector2i(new_finish_x, clamp(new_finish_y, 2, current_grid_height - 3))
 		
 		# Set up connections for the new finish position
-		# <<< START DEBUG >>>
 		if grid[new_finish_pos.x][new_finish_pos.y].visited:
 			push_warning("Cell %s already visited by '%s', now being revisited by '%s'" % [str(new_finish_pos), grid[new_finish_pos.x][new_finish_pos.y].visited_by, "generate_layout_new_finish"])
-		# <<< END DEBUG >>>
 		grid[new_finish_pos.x][new_finish_pos.y].cell_type = CellType.MAIN_PATH
 		grid[new_finish_pos.x][new_finish_pos.y].visited = true
 		grid[new_finish_pos.x][new_finish_pos.y].visited_by = "generate_layout_new_finish" # Track visit
-		for dir_enum in Direction.values():
-			# Set connections for the new finish position (only LEFT connection)
-			set_grid_connection(new_finish_pos, dir_enum, (dir_enum == Direction.LEFT))
+		set_single_open_connection(new_finish_pos, Direction.LEFT)
 		
 		# Ensure the cell before new finish has a right connection
 		var pre_new_finish_pos = Vector2i(new_finish_pos.x - 1, new_finish_pos.y)
 		if is_valid_position(pre_new_finish_pos):
-			# <<< START DEBUG >>>
 			if grid[pre_new_finish_pos.x][pre_new_finish_pos.y].visited:
 				push_warning("Cell %s already visited by '%s', now being revisited by '%s'" % [str(pre_new_finish_pos), grid[pre_new_finish_pos.x][pre_new_finish_pos.y].visited_by, "generate_layout_pre_new_finish"])
-			# <<< END DEBUG >>>
 			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].cell_type = CellType.MAIN_PATH
 			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].visited = true
 			grid[pre_new_finish_pos.x][pre_new_finish_pos.y].visited_by = "generate_layout_pre_new_finish" # Track visit
-			# Use set_grid_connection, setting all others to false implicitly if needed by the function
-			# We only want RIGHT=true here, others false.
-			set_grid_connection(pre_new_finish_pos, Direction.RIGHT, true)
-			set_grid_connection(pre_new_finish_pos, Direction.LEFT, false)
-			set_grid_connection(pre_new_finish_pos, Direction.UP, false)
-			set_grid_connection(pre_new_finish_pos, Direction.DOWN, false)
+			set_single_open_connection(pre_new_finish_pos, Direction.RIGHT)
 		
 		# Generate new path
 		var new_path = generate_main_path(branch_point, new_finish_pos, path_gen)
 		if not new_path.is_empty():
 			all_paths.append(new_path)
+			queue.append({"points": new_path, "depth": 0})
+			_connect_lead_in_cell(pre_new_finish_pos, Direction.RIGHT)
 	
-	# Create branch points and generate branches
-	for main_path in all_paths:
-		# Create branch points every 4 chunks along the main path, but not in the last third
-		var branch_start_positions = []
-		var last_third_start = main_path.size() * 2 / 3
-		for i in range(2, last_third_start, 4):
-			branch_start_positions.append(main_path[i])
-		
-		# Generate branches from each branch point
-		for branch_start in branch_start_positions:
-			generate_branch(branch_start, all_paths)
+	# Walk the queue: every segment (main path or branch) may spawn further
+	# branches up to `max_branch_depth_for_level`, each becoming a new queue entry
+	# at depth+1. This is how "dallardan dallanma" (branches off branches) is now
+	# an explicit, bounded feature instead of an accidental side effect.
+	var queue_index := 0
+	var max_depth_reached := 0
+	while queue_index < queue.size():
+		var segment = queue[queue_index]
+		queue_index += 1
+		var segment_depth: int = segment["depth"]
+		max_depth_reached = maxi(max_depth_reached, segment_depth)
+		if segment_depth >= max_branch_depth:
+			continue
+		for branch_start in _pick_branch_points(segment["points"], num_branches):
+			var branch_points = generate_branch(branch_start)
+			if not branch_points.is_empty():
+				all_paths.append(branch_points)
+				queue.append({"points": branch_points, "depth": segment_depth + 1})
+	
+	_debug_last_max_branch_depth_reached = max_depth_reached
+	if DEBUG_ENEMY_TILES:
+		print("  generate_layout: %d segment(s) carved (max depth reached: %d, cap: %d)" % [queue.size(), max_depth_reached, max_branch_depth])
 	
 	# Add dead ends
 	for _i in range(num_dead_ends):
 		add_dead_end(all_paths)
 	
-	# Her levelda en az bir köylü + bir cariye kurtarma odası için yatay dead end ekle (oyuncu mutlaka denk gelsin)
-	_add_guaranteed_rescue_dead_ends(all_paths)
-	# Debug override: ekstra zorlama istersen DungeonRunState.debug_force_rescue_rooms veya level_config.debug_force_rescue_rooms_in_every_level açılabilir
+	# Challenge ödülü: uygun dead-end yoksa bir yatay çıkmaz yol aç (kurtarma odası için zemin)
+	if _needs_guaranteed_rescue_room_this_segment():
+		_add_one_rescue_dead_end(all_paths)
 	
 	return true
+
+# Picks up to `desired_count` random candidate points (in the first two-thirds of
+# the segment, so branches don't sprout right next to a finish/rejoin point) to
+# spawn new branches from. Replaces the old fixed "every 4 cells" stride with a
+# count that actually comes from LevelConfig.
+func _pick_branch_points(path_points: Array, desired_count: int) -> Array:
+	var result: Array = []
+	if desired_count <= 0 or path_points.size() < 4:
+		return result
+	var last_third_start = maxi(3, path_points.size() * 2 / 3)
+	var candidate_indices: Array = []
+	for i in range(2, last_third_start):
+		candidate_indices.append(i)
+	candidate_indices.shuffle()
+	for idx in candidate_indices:
+		if result.size() >= desired_count:
+			break
+		result.append(path_points[idx])
+	return result
 
 func find_suitable_branch_point(main_path: Array) -> Vector2i:
 	# Look for a point in the first third of the path that can support a new connection
@@ -1211,6 +1213,11 @@ func populate_chunks() -> bool:
 		
 	# Optional: tag special dead-end cells before main placement (light heuristic)
 	_tag_villager_and_vip_deadends()
+	if _segment_force_guaranteed_rescue and not _level_has_rescue_room():
+		if _inject_emergency_rescue_dead_end():
+			print("[LevelGenerator] ♥ Acil kurtarma dead-end enjekte edildi (populate)")
+		else:
+			push_warning("[LevelGenerator] ♥ Garanti kurtarma: acil dead-end enjekte edilemedi")
 	_tag_stealth_chest_side_paths()
 	_tag_dungeon_event_side_paths()
 
@@ -1313,82 +1320,18 @@ func populate_chunks() -> bool:
 			
 			print("Re-verified connection to finish chunk from ", pre_finish_pos)
 
+	_place_exterior_wall_chunks()
+
 	return true  # Return true if we've successfully populated all required cells
 
 func _tag_villager_and_vip_deadends() -> void:
-	# Önce garanti eklenen kurtarma hücrelerini (add_guaranteed_rescue_dead_ends) bire bir köylü + cariye ata
-	var guaranteed: Array[Vector2i] = []
-	for x in range(current_grid_width):
-		for y in range(current_grid_height):
-			var pos := Vector2i(x, y)
-			var c: GridCell = grid[x][y] as GridCell
-			if not c.visited or c.chunk != null:
-				continue
-			if c.visited_by != "add_guaranteed_rescue":
-				continue
-			if c.cell_type != CellType.DEAD_END:
-				continue
-			var conn_count := 0
-			for dir in Direction.values():
-				if c.connections[dir]:
-					conn_count += 1
-			if conn_count != 1:
-				continue
-			guaranteed.append(pos)
-	var assigned_villager := false
-	var assigned_vip := false
-	# Garanti hücrelerden ilkini köylü, ikincisini cariye yap (en az birer tane her levelda)
-	for idx in range(guaranteed.size()):
-		var pos = guaranteed[idx]
-		var c: GridCell = grid[pos.x][pos.y] as GridCell
-		var dir_idx := _single_open_dir_index(c)
-		if dir_idx != Direction.LEFT and dir_idx != Direction.RIGHT:
-			continue
-		if not assigned_villager:
-			if dir_idx == Direction.LEFT:
-				c.reserved_chunk = "villager_dead_end_left"
-			else:
-				c.reserved_chunk = "villager_dead_end_right"
-			assigned_villager = true
-		elif not assigned_vip:
-			if dir_idx == Direction.LEFT:
-				c.reserved_chunk = "vip_dead_end_left"
-			else:
-				c.reserved_chunk = "vip_dead_end_right"
-			assigned_vip = true
-			break
-
-	# Diğer dead end'leri topla (ek kurtarma odası veya eski davranış için)
-	var deadends: Array[Vector2i] = []
-	for x in range(current_grid_width):
-		for y in range(current_grid_height):
-			var pos := Vector2i(x, y)
-			var c: GridCell = grid[x][y] as GridCell
-			if not c.visited or c.chunk != null:
-				continue
-			if not c.reserved_chunk.is_empty():
-				continue  # Zaten atanmış
-			if c.cell_type != CellType.DEAD_END and c.cell_type != CellType.BRANCH_PATH:
-				continue
-			var conn_count := 0
-			for dir in Direction.values():
-				if c.connections[dir]:
-					conn_count += 1
-			if conn_count != 1:
-				continue
-			if pos.x <= 1:
-				continue
-			deadends.append(pos)
+	var deadends: Array[Vector2i] = _collect_horizontal_rescue_deadends()
 
 	deadends.shuffle()
-	# Garanti 1 köylü + 1 cariye dışında kalan dead end'ler: seviyeye göre OLASILIK ile kurtarma odası yap
-	var villager_quota := (0 if assigned_villager else 1)
-	var vip_quota := (0 if assigned_vip else 1)
+	var force_guaranteed := _segment_force_guaranteed_rescue
 	var rescue_chance: float = 0.12
-	var drs_rescue = get_node_or_null("/root/DungeonRunState")
-	if drs_rescue and drs_rescue.run_started and drs_rescue.guaranteed_rescue_next:
+	if force_guaranteed:
 		rescue_chance = 1.0
-		drs_rescue.guaranteed_rescue_next = false
 	elif level_config and level_config.has_method("get_rescue_room_chance"):
 		rescue_chance = level_config.get_rescue_room_chance(current_level)
 	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
@@ -1397,47 +1340,133 @@ func _tag_villager_and_vip_deadends() -> void:
 		if rescue_chance >= 0.27:
 			print("[LevelGenerator] Stealth rescue bonus uygulandı — rescue_chance=%.2f" % rescue_chance)
 
-	for i in range(deadends.size()):
-		var pos = deadends[i]
-		var c: GridCell = grid[pos.x][pos.y] as GridCell
-		# Önce eksik garanti kotasını doldur (en fazla 1 köylü + 1 cariye)
-		if vip_quota > 0 and pos.x > current_grid_width - 5:
-			var dir_idx := _single_open_dir_index(c)
-			if dir_idx == Direction.LEFT:
-				c.reserved_chunk = "vip_dead_end_left"
-			elif dir_idx == Direction.RIGHT:
-				c.reserved_chunk = "vip_dead_end_right"
-			else:
-				continue
-			vip_quota -= 1
-			continue
-		if villager_quota > 0:
-			var dir_idx2 := _single_open_dir_index(c)
-			if dir_idx2 == Direction.LEFT:
-				c.reserved_chunk = "villager_dead_end_left"
-			elif dir_idx2 == Direction.RIGHT:
-				c.reserved_chunk = "villager_dead_end_right"
-			else:
-				continue
-			villager_quota -= 1
-			continue
-		# Kota doldu; kalan her dead end için olasılıkla kurtarma odası ata
+	var placed_rescue := false
+	for pos in deadends:
 		if randf() >= rescue_chance:
 			continue
-		var dir_idx3 := _single_open_dir_index(c)
-		if dir_idx3 != Direction.LEFT and dir_idx3 != Direction.RIGHT:
+		if _assign_rescue_room_at(pos):
+			placed_rescue = true
+
+	if force_guaranteed and not placed_rescue:
+		for pos in deadends:
+			if _assign_rescue_room_at(pos):
+				placed_rescue = true
+				print("[LevelGenerator] ♥ Garanti kurtarma odası @ %s" % str(pos))
+				break
+
+func _collect_horizontal_rescue_deadends() -> Array[Vector2i]:
+	var deadends: Array[Vector2i] = []
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			var pos := Vector2i(x, y)
+			var c: GridCell = grid[x][y] as GridCell
+			if not c.visited or c.chunk != null:
+				continue
+			if not c.reserved_chunk.is_empty():
+				continue
+			if c.cell_type != CellType.DEAD_END and c.cell_type != CellType.BRANCH_PATH:
+				continue
+			var conn_count := 0
+			for dir in Direction.values():
+				if c.connections[dir]:
+					conn_count += 1
+			if conn_count != 1:
+				continue
+			if pos.x <= 0:
+				continue
+			var dir_idx := _single_open_dir_index(c)
+			if dir_idx != Direction.LEFT and dir_idx != Direction.RIGHT:
+				continue
+			deadends.append(pos)
+	return deadends
+
+
+func _level_has_rescue_room() -> bool:
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			var reserved: String = String(grid[x][y].reserved_chunk)
+			if _is_rescue_reserved_chunk(reserved):
+				return true
+	return false
+
+
+func _needs_guaranteed_rescue_room_this_segment() -> bool:
+	return _segment_force_guaranteed_rescue
+
+
+func _add_one_rescue_dead_end(all_paths: Array) -> bool:
+	# Önce ana yol ortasından (x>=2) dene; başlangıç hücresine yapışık dead-end filtreleniyordu.
+	var anchor_positions: Array[Vector2i] = []
+	for path in all_paths:
+		if not (path is Array):
 			continue
-		# Yarı yarıya köylü veya cariye
-		if randi() % 2 == 0:
-			if dir_idx3 == Direction.LEFT:
-				c.reserved_chunk = "villager_dead_end_left"
-			else:
-				c.reserved_chunk = "villager_dead_end_right"
-		else:
-			if dir_idx3 == Direction.LEFT:
-				c.reserved_chunk = "vip_dead_end_left"
-			else:
-				c.reserved_chunk = "vip_dead_end_right"
+		for pos in path:
+			if pos is Vector2i and is_valid_position(pos) and pos.x >= 2:
+				anchor_positions.append(pos)
+	anchor_positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.x > b.x
+	)
+	for pos in anchor_positions:
+		for side_dir in [Direction.LEFT, Direction.RIGHT]:
+			var dead_pos: Vector2i = pos + DIRECTION_VECTORS[side_dir]
+			if not is_valid_position(dead_pos):
+				continue
+			if dead_pos.x <= 0:
+				continue
+			if grid[dead_pos.x][dead_pos.y].visited:
+				continue
+			grid[dead_pos.x][dead_pos.y].visited = true
+			grid[dead_pos.x][dead_pos.y].visited_by = "add_challenge_rescue"
+			grid[dead_pos.x][dead_pos.y].cell_type = CellType.DEAD_END
+			var open_from_dead: int = Direction.RIGHT if side_dir == Direction.LEFT else Direction.LEFT
+			set_single_open_connection(dead_pos, open_from_dead)
+			set_grid_connection(pos, side_dir, true)
+			print("[LevelGenerator] ♥ Challenge kurtarma dead-end @ %s (anchor %s)" % [str(dead_pos), str(pos)])
+			return true
+	return false
+
+
+func _inject_emergency_rescue_dead_end() -> bool:
+	for x in range(2, maxi(3, current_grid_width - 2)):
+		for y in range(current_grid_height):
+			var pos := Vector2i(x, y)
+			var c: GridCell = grid[x][y] as GridCell
+			if not c.visited or c.chunk != null:
+				continue
+			if c.cell_type != CellType.MAIN_PATH and c.cell_type != CellType.BRANCH_PATH:
+				continue
+			for side_dir in [Direction.LEFT, Direction.RIGHT]:
+				var dead_pos: Vector2i = pos + DIRECTION_VECTORS[side_dir]
+				if not is_valid_position(dead_pos) or dead_pos.x <= 0:
+					continue
+				if grid[dead_pos.x][dead_pos.y].visited:
+					continue
+				grid[dead_pos.x][dead_pos.y].visited = true
+				grid[dead_pos.x][dead_pos.y].visited_by = "emergency_rescue"
+				grid[dead_pos.x][dead_pos.y].cell_type = CellType.DEAD_END
+				var open_from_dead: int = Direction.RIGHT if side_dir == Direction.LEFT else Direction.LEFT
+				set_single_open_connection(dead_pos, open_from_dead)
+				set_grid_connection(pos, side_dir, true)
+				if _assign_rescue_room_at(dead_pos):
+					print("[LevelGenerator] ♥ Acil kurtarma @ %s" % str(dead_pos))
+					return true
+	return false
+
+
+func _assign_rescue_room_at(pos: Vector2i) -> bool:
+	if not is_valid_position(pos):
+		return false
+	var c: GridCell = grid[pos.x][pos.y] as GridCell
+	if c.chunk != null or not c.reserved_chunk.is_empty():
+		return false
+	var dir_idx := _single_open_dir_index(c)
+	if dir_idx != Direction.LEFT and dir_idx != Direction.RIGHT:
+		return false
+	if randi() % 2 == 0:
+		c.reserved_chunk = "villager_dead_end_left" if dir_idx == Direction.LEFT else "villager_dead_end_right"
+	else:
+		c.reserved_chunk = "vip_dead_end_left" if dir_idx == Direction.LEFT else "vip_dead_end_right"
+	return true
 
 func _single_open_dir_index(c: GridCell) -> int:
 	for d in Direction.values():
@@ -1902,6 +1931,8 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 
 	grid[pos.x][pos.y].chunk = chunk # Assign the new chunk to the grid
 
+	var placed_cell: GridCell = grid[pos.x][pos.y] as GridCell
+
 	# Extra setup for boss arenas (mini-boss levels)
 	if chunk_type == "boss_arena":
 		var tier: String = String(placed_cell.boss_arena_tier)
@@ -1910,7 +1941,6 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 		_spawn_miniboss_in_arena(chunk, tier)
 
 	# TileMap tabanlı dekorasyonları oluştur
-	var placed_cell: GridCell = grid[pos.x][pos.y] as GridCell
 	if placed_cell.spawn_stealth_chest:
 		chunk.set_meta("stealth_chest_gold", placed_cell.stealth_chest_gold)
 	if not placed_cell.spawn_dungeon_event.is_empty():
@@ -2847,6 +2877,31 @@ func set_grid_connection(pos: Vector2i, dir: int, value: bool) -> void:
 		if value:
 			push_warning("Neighbor position %s or opposite direction %d is invalid for %s. Cannot set opposite connection." % [str(neighbor_pos), opposite_dir, str(pos)])
 
+# Opens exactly one direction on a cell and explicitly closes the other three.
+# Replaces the "for dir_enum in Direction.values(): if dir_enum != X: set false"
+# pattern that used to be copy-pasted at every start/finish/dead-end/branch site.
+func set_single_open_connection(pos: Vector2i, open_dir: Direction) -> void:
+	for dir_enum in Direction.values():
+		set_grid_connection(pos, dir_enum, dir_enum == open_dir)
+
+## "Lead-in" cells (pre_finish_pos / pre_new_finish_pos) are marked visited
+## BEFORE generate_main_path() runs, specifically so its A* traversal skips
+## re-marking them. That means they never receive that path's path_id, so
+## _connect_same_path_segments()/resolve_junctions() (which both key off
+## matching path_id) can never wire them up to whichever real path cell the
+## main path ends up drawing next to them. Bridge that manually, based on
+## plain physical adjacency, in every direction except the fixed "forward"
+## port (already wired to the finish cell by set_single_open_connection).
+func _connect_lead_in_cell(pos: Vector2i, forward_dir: Direction) -> void:
+	if not is_valid_position(pos):
+		return
+	for dir_enum in Direction.values():
+		if dir_enum == forward_dir:
+			continue
+		var neighbor_pos = pos + DIRECTION_VECTORS[dir_enum]
+		if is_valid_position(neighbor_pos) and grid[neighbor_pos.x][neighbor_pos.y].cell_type != CellType.EMPTY:
+			set_grid_connection(pos, dir_enum, true)
+
 func spawn_player() -> void:
 	var start_pos = Vector2i(0, current_grid_height / 2) # Use current_grid_height
 	var start_chunk = grid[start_pos.x][start_pos.y].chunk
@@ -3019,6 +3074,8 @@ func setup_level_transitions() -> void:
 		var finish_door = finish_chunk.get_node_or_null("FinishDoor")
 		
 		if finish_door:
+			_segment_finish_door = finish_door
+			_segment_finish_is_boss = finish_chunk.scene_file_path.contains("boss_arena")
 			# Kapı pozisyonunu kaydet
 			door_positions.append(finish_door.global_position)
 			
@@ -3027,7 +3084,7 @@ func setup_level_transitions() -> void:
 				finish_door.door_opened.connect(_on_door_opened)
 			
 			# If the finish cell is a boss arena, lock the door until boss dies
-			if finish_chunk.scene_file_path.contains("boss_arena"):
+			if _segment_finish_is_boss:
 				print("Boss arena detected at finish. Locking FinishDoor until boss is defeated.")
 				finish_door.lock_door()
 				finish_door.door_type = "Boss"  # Change type to Boss for different appearance
@@ -3037,6 +3094,255 @@ func setup_level_transitions() -> void:
 			print("WARNING: No FinishDoor found in finish/boss chunk")
 	else:
 		print("ERROR: No chunk found at finish position", finish_pos)
+
+
+func lock_finish_door_for_alarm() -> void:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs) or not bool(drs.get("run_started")):
+		return
+	if _segment_finish_is_boss or not is_instance_valid(_segment_finish_door):
+		return
+	if drs.has_method("clear_stale_key_holder_id"):
+		drs.call("clear_stale_key_holder_id")
+	var key_id: String = DungeonRunState.SEGMENT_EXIT_KEY_ID
+	if "SEGMENT_EXIT_KEY_ID" in drs:
+		key_id = String(drs.get("SEGMENT_EXIT_KEY_ID"))
+	if drs.has_method("has_dungeon_key") and bool(drs.call("has_dungeon_key", key_id)):
+		print("[LevelGenerator] Alarm — oyuncuda anahtar var, çıkış kapısı kilitlenmedi")
+		return
+	if _segment_finish_door.has_method("set_alarm_locked"):
+		_segment_finish_door.call("set_alarm_locked", true, key_id)
+	elif _segment_finish_door.has_method("lock_door"):
+		_segment_finish_door.lock_door()
+		if _segment_finish_door.has_method("set_requires_key"):
+			_segment_finish_door.set_requires_key(true, key_id)
+	print("[LevelGenerator] Alarm — çıkış kapısı kilitlendi, anahtar gerekli")
+	call_deferred("_assign_segment_key_holder_deferred")
+	call_deferred("_reveal_segment_key_holder_marker")
+
+
+func on_segment_exit_key_obtained() -> void:
+	if not is_instance_valid(_segment_finish_door):
+		return
+	var key_id: String = DungeonRunState.SEGMENT_EXIT_KEY_ID
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and "SEGMENT_EXIT_KEY_ID" in drs:
+		key_id = String(drs.get("SEGMENT_EXIT_KEY_ID"))
+	if _segment_finish_door.has_method("set_alarm_locked"):
+		_segment_finish_door.call("set_alarm_locked", false, key_id)
+	if _segment_finish_door.has_method("unlock_door"):
+		_segment_finish_door.unlock_door()
+	if _segment_finish_door.has_method("set_requires_key"):
+		_segment_finish_door.set_requires_key(false, "")
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	if sm != null:
+		var hud: Node = sm.get("_hud")
+		if hud != null and is_instance_valid(hud) and hud.has_method("show_key_obtained_toast"):
+			hud.call("show_key_obtained_toast")
+
+
+func _assign_segment_key_holder_deferred() -> void:
+	_assign_segment_key_holder_async(0)
+
+
+func _assign_segment_key_holder_async(attempt: int) -> void:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs):
+		return
+	if drs.has_method("clear_stale_key_holder_id"):
+		drs.call("clear_stale_key_holder_id")
+	if drs.has_method("has_segment_key_holder") and bool(drs.call("has_segment_key_holder")):
+		return
+	var candidates: Array = _collect_segment_key_holder_candidates()
+	if candidates.is_empty():
+		if attempt < 16:
+			await get_tree().create_timer(0.35).timeout
+			_assign_segment_key_holder_async(attempt + 1)
+		else:
+			if bool(drs.get("segment_exit_requires_key")):
+				push_warning("[LevelGenerator] Alarm anahtarı için uygun düşman yok — yere anahtar bırakılıyor")
+				_spawn_emergency_key_drop(drs)
+			else:
+				push_warning("[LevelGenerator] Segment anahtar taşıyıcısı atanamadı — yedek düşman")
+				_spawn_emergency_key_holder(drs)
+		return
+	var picked: Node = _pick_segment_key_holder(candidates)
+	if not is_instance_valid(picked):
+		push_warning("[LevelGenerator] Anahtar taşıyıcı seçilemedi — acil anahtar deneniyor")
+		if bool(drs.get("segment_exit_requires_key")):
+			_spawn_emergency_key_drop(drs)
+		return
+	if not is_placed_combat_enemy(picked):
+		push_warning("[LevelGenerator] Geçersiz anahtar adayı atlandı @ %s" % picked.global_position)
+		if bool(drs.get("segment_exit_requires_key")):
+			_spawn_emergency_key_drop(drs)
+		return
+	if drs.has_method("assign_segment_key_holder"):
+		drs.call("assign_segment_key_holder", picked)
+	var type_name: String = picked.get_script().resource_path.get_file().get_basename() if picked.get_script() else picked.name
+	print("[LevelGenerator] Segment çıkış anahtarı taşıyıcı: %s @ %s" % [type_name, picked.global_position])
+	if bool(drs.get("segment_exit_requires_key")):
+		_reveal_segment_key_holder_marker()
+
+
+func is_placed_combat_enemy(enemy: Node) -> bool:
+	if not is_instance_valid(enemy):
+		return false
+	if not enemy.is_inside_tree():
+		return false
+	if enemy.is_in_group("boss"):
+		return false
+	if "MiniBoss" in enemy.name:
+		return false
+	if "current_behavior" in enemy and String(enemy.current_behavior) == "dead":
+		return false
+	if not enemy is Node2D:
+		return false
+	var pos: Vector2 = (enemy as Node2D).global_position
+	if pos.length_squared() < MIN_KEY_HOLDER_POSITION_SQ:
+		return false
+	return true
+
+
+func count_placed_combat_enemies() -> int:
+	return _collect_segment_key_holder_candidates().size()
+
+
+func get_alarm_key_fallback_drop_pos() -> Vector2:
+	if is_instance_valid(_segment_finish_door):
+		return _segment_finish_door.global_position + Vector2(-220, -32)
+	return global_position + Vector2(400, 0)
+
+
+func _collect_segment_key_holder_candidates() -> Array:
+	var out: Array = []
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if not is_placed_combat_enemy(node):
+			continue
+		out.append(node)
+	return out
+
+
+func _enemy_script_path_lower(enemy: Node) -> String:
+	if not is_instance_valid(enemy):
+		return ""
+	var sc: Variant = enemy.get_script()
+	if sc is Script:
+		var rp: String = (sc as Script).resource_path
+		if not rp.is_empty():
+			return rp.to_lower()
+	if enemy.scene_file_path:
+		return str(enemy.scene_file_path).to_lower()
+	return ""
+
+
+func _is_fodder_key_carrier(enemy: Node) -> bool:
+	if bool(enemy.get_meta("summoner_summoned_bird", false)):
+		return true
+	var path: String = _enemy_script_path_lower(enemy)
+	for marker in KEY_CARRIER_FODDER_SCRIPT_MARKERS:
+		if marker in path:
+			return true
+	return false
+
+
+func _is_preferred_key_carrier(enemy: Node) -> bool:
+	if _is_fodder_key_carrier(enemy):
+		return false
+	var path: String = _enemy_script_path_lower(enemy)
+	for marker in KEY_CARRIER_PREFERRED_SCRIPT_MARKERS:
+		if marker in path:
+			return true
+	return false
+
+
+func _pick_segment_key_holder(candidates: Array) -> Node:
+	if candidates.is_empty():
+		return null
+	var preferred: Array = []
+	var non_fodder: Array = []
+	for node in candidates:
+		if not is_instance_valid(node):
+			continue
+		if _is_preferred_key_carrier(node):
+			preferred.append(node)
+		elif not _is_fodder_key_carrier(node):
+			non_fodder.append(node)
+	if not preferred.is_empty():
+		return preferred[randi() % preferred.size()] as Node
+	if not non_fodder.is_empty():
+		return non_fodder[randi() % non_fodder.size()] as Node
+	# Son çare: haritada yalnızca basic/kuş kaldıysa
+	return candidates[randi() % candidates.size()] as Node
+
+
+func _reveal_segment_key_holder_marker() -> void:
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs):
+		return
+	if drs.has_method("_find_living_key_holder"):
+		var holder: Node = drs.call("_find_living_key_holder")
+		if is_instance_valid(holder):
+			_mark_segment_key_holder(holder)
+			return
+	var holder_id: String = String(drs.get("segment_key_holder_id"))
+	if holder_id.is_empty():
+		return
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(node):
+			continue
+		if str(node.get_instance_id()) == holder_id:
+			_mark_segment_key_holder(node)
+			return
+
+
+func _spawn_emergency_key_drop(drs: Node) -> void:
+	var key_id: String = DungeonRunState.SEGMENT_EXIT_KEY_ID
+	if "SEGMENT_EXIT_KEY_ID" in drs:
+		key_id = String(drs.get("SEGMENT_EXIT_KEY_ID"))
+	var spawn_pos: Vector2 = global_position + Vector2(400, 0)
+	if is_instance_valid(_segment_finish_door):
+		spawn_pos = _segment_finish_door.global_position + Vector2(-220, -32)
+	const Spawner = preload("res://interactables/dungeon/DungeonLootDropSpawner.gd")
+	Spawner.spawn_dungeon_key(spawn_pos, key_id)
+	print("[LevelGenerator] Acil anahtar yere bırakıldı @ %s" % spawn_pos)
+
+
+func _mark_segment_key_holder(enemy: Node) -> void:
+	if not is_instance_valid(enemy):
+		return
+	if enemy.get_node_or_null("SegmentExitKeyMarker") != null:
+		return
+	var marker := Label.new()
+	marker.name = "SegmentExitKeyMarker"
+	marker.text = "🔑"
+	marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	marker.add_theme_font_size_override("font_size", 18)
+	marker.position = Vector2(-10, -48)
+	marker.z_index = 20
+	enemy.add_child(marker)
+
+
+func _spawn_emergency_key_holder(drs: Node) -> void:
+	var scene_path: String = KEY_CARRIER_EMERGENCY_SCENES[randi() % KEY_CARRIER_EMERGENCY_SCENES.size()]
+	var scene: PackedScene = load(scene_path) as PackedScene
+	if scene == null:
+		scene = load("res://enemy/spearman/spearman_enemy.tscn") as PackedScene
+	if scene == null:
+		return
+	var enemy: Node = scene.instantiate()
+	add_child(enemy)
+	var spawn_pos: Vector2 = global_position + Vector2(400, 0)
+	if is_instance_valid(_segment_finish_door):
+		spawn_pos = _segment_finish_door.global_position + Vector2(-280, -32)
+	enemy.global_position = spawn_pos
+	if "enemy_level" in enemy:
+		enemy.enemy_level = current_level
+	if drs.has_method("assign_segment_key_holder"):
+		drs.call("assign_segment_key_holder", enemy)
+	if bool(drs.get("segment_exit_requires_key")):
+		_mark_segment_key_holder(enemy)
+
 
 func _on_door_opened(door_type: String) -> void:
 	if is_transitioning:
@@ -3048,10 +3354,32 @@ func _on_door_opened(door_type: String) -> void:
 		level_started.emit()
 	elif door_type == "Finish" or door_type == "Boss":
 		var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
+		var drs_finish = get_node_or_null("/root/DungeonRunState")
+		if door_type == "Finish" and is_instance_valid(stealth_mgr) and is_instance_valid(drs_finish):
+			if bool(stealth_mgr.get("segment_alarm")) and bool(drs_finish.get("segment_exit_requires_key")):
+				var exit_key: String = String(drs_finish.get("SEGMENT_EXIT_KEY_ID"))
+				if drs_finish.has_method("has_dungeon_key") and not bool(drs_finish.call("has_dungeon_key", exit_key)):
+					push_warning("[LevelGenerator] Çıkış anahtarı olmadan geçiş engellendi")
+					if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("_ensure_hud"):
+						stealth_mgr.call("_ensure_hud")
+					var hud: Node = stealth_mgr.get("_hud") if is_instance_valid(stealth_mgr) else null
+					if hud != null and is_instance_valid(hud) and hud.has_method("show_exit_key_required_toast"):
+						hud.call("show_exit_key_required_toast")
+					if is_instance_valid(_segment_finish_door):
+						_segment_finish_door.is_open = false
+						if "current_state" in _segment_finish_door:
+							_segment_finish_door.current_state = 0  # DoorState.CLOSED
+						if _segment_finish_door.has_method("close_door_now"):
+							_segment_finish_door.close_door_now()
+					return
 		if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("on_segment_completed"):
 			stealth_mgr.on_segment_completed()
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if is_instance_valid(drs) and drs.get("run_started") == true:
+			if drs.has_method("sync_warmup_limits"):
+				drs.sync_warmup_limits()
+			if drs.has_method("on_segment_completed"):
+				drs.call("on_segment_completed")
 			is_transitioning = true
 			level_completed.emit()
 			var payload: Dictionary = {}
@@ -3060,7 +3388,9 @@ func _on_door_opened(door_type: String) -> void:
 			var sm = get_node_or_null("/root/SceneManager")
 
 			if drs.is_run_complete():
-				print("[LevelGenerator] Run complete (%d segments) -> final camp (boss or exit)" % drs.MAX_SEGMENTS)
+				var max_seg: int = int(drs.run_max_segments) if "run_max_segments" in drs else int(drs.MAX_SEGMENTS)
+				var done_seg: int = int(drs.run_segments_completed) if "run_segments_completed" in drs else int(drs.run_segment_count)
+				print("[LevelGenerator] Run complete (%d/%d segments) -> final camp (boss or exit)" % [done_seg, max_seg])
 				if sm and sm.has_method("change_to_camp"):
 					payload["final_camp"] = true
 					sm.change_to_camp(payload)
@@ -3325,312 +3655,121 @@ func chunk_contains_dark_tiles(chunk_map: TileMap) -> bool:
 	
 	return false
 
-func generate_branch(branch_start: Vector2i, all_paths: Array) -> void:
+# Carves a single branch off `branch_start` (vertical leg, then a short horizontal
+# leg, then an attempt to rejoin a main path). Returns the array of newly-carved
+# points on success (caller decides whether to add it to all_paths / the branch
+# queue), or an empty array if nothing usable was carved.
+#
+# Note: this only checks for direct overlap with already-visited cells (a hard
+# requirement - we must never overwrite another segment's data). It does NOT
+# avoid merely running *close* to other paths anymore: whether two segments that
+# end up adjacent actually connect is now decided later, explicitly and
+# probabilistically, by resolve_junctions() in finalize_connections().
+func generate_branch(branch_start: Vector2i) -> Array:
 	# Skip if this is the start position or too close to finish
 	if branch_start == Vector2i(0, current_grid_height / 2) or abs(branch_start.x - current_grid_width - 2) < 5: # Use current_grid_height
-		return
-		
+		return []
+
 	# Determine branch direction (up or down)
 	var branch_dir = Direction.UP if randf() < 0.5 else Direction.DOWN
-	# var branch_length = randi() % 3 + 2  # Old: 2-4 chunks
-	var branch_length = randi() % 4 + 3  # New: 3-6 chunks
-	
-	# --- Assign unique ID for this branch ---
+	var branch_length = randi() % 4 + 3  # 3-6 chunks
+
 	current_path_id_counter += 1
 	var current_branch_id = current_path_id_counter
-	# ----------------------------------------
-	
-	# Create branch path
+
 	var current_branch_points = []
 	var current_pos = branch_start
-	# Don't add branch_start itself to the points list immediately, 
-	# it belongs to the main path ID. The branch starts *from* the next cell.
-	# current_branch_points.append(current_pos)
-	
-	# Move vertically
+	# branch_start itself belongs to whichever path it split from; the branch's
+	# own points start from the first newly-carved cell.
+
+	# Leg 1: move vertically away from the source path
 	var can_continue = true
 	for _i in range(branch_length):
 		var next_pos = current_pos + DIRECTION_VECTORS[branch_dir]
-		# Strict Check: Ensure the next position is valid AND not already visited
 		if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-			# Log if visited
-			if is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].visited:
-				push_warning("generate_branch (vertical): Cell %s already visited by '%s'. Stopping branch extension." % [str(next_pos), grid[next_pos.x][next_pos.y].visited_by])
 			can_continue = false
-			break # Stop extending this branch vertically
+			break
 
-		# --- NEW path_id Proximity Check (2-cell radius) ---
-		var too_close = false
-		# Check cells within a 2-unit Manhattan distance (or simple square)
-		for dx in range(-2, 3): # Check x offsets -2, -1, 0, 1, 2
-			for dy in range(-2, 3): # Check y offsets -2, -1, 0, 1, 2
-				# Skip the cell itself (dx=0, dy=0)
-				if dx == 0 and dy == 0:
-					continue
-					
-				# Skip the immediate previous cell (where we came from)
-				# Calculate the position relative to next_pos we came from
-				var relative_prev_pos = current_pos - next_pos 
-				if dx == relative_prev_pos.x and dy == relative_prev_pos.y:
-					continue
-
-				var check_pos = next_pos + Vector2i(dx, dy)
-				
-				if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].visited:
-					# Check if the visited neighbor belongs to a DIFFERENT path segment
-					if grid[check_pos.x][check_pos.y].path_id != current_branch_id:
-						# Exception: Allow proximity to the original branch_start point itself
-						if check_pos != branch_start:
-							push_warning("generate_branch (vertical): Cell %s too close (dist %d,%d) to different path (ID %d) at %s. Stopping branch extension." % [
-								str(next_pos), dx, dy, grid[check_pos.x][check_pos.y].path_id, str(check_pos)
-							])
-							too_close = true
-							break # Found a blocking neighbor in this row
-			if too_close:
-				break # Found a blocking neighbor in the radius
-				
-		if too_close:
-			can_continue = false
-			break # Stop extending this branch vertically
-		# --- END path_id Proximity Check ---
-
-		# Mark the valid, unvisited cell
-		# REMOVED CHECK AND OVERWRITE LOGIC - Handled by the check above
 		grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
 		grid[next_pos.x][next_pos.y].visited = true
-		grid[next_pos.x][next_pos.y].visited_by = "generate_branch_vertical" # More specific tracking
-		grid[next_pos.x][next_pos.y].path_id = current_branch_id # Assign the ID
+		grid[next_pos.x][next_pos.y].visited_by = "generate_branch_vertical"
+		grid[next_pos.x][next_pos.y].path_id = current_branch_id
 
-		# Set connections for both current and next positions
 		set_grid_connection(current_pos, branch_dir, true)
-		# Clear any other connections for the next position (done implicitly if needed by set_grid_connection)
-		# Let's be explicit to be safe, ensure only opposite connection is set
-		for dir_enum in Direction.values():
-			if dir_enum != get_opposite_direction(branch_dir):
-				set_grid_connection(next_pos, dir_enum, false)
+		set_single_open_connection(next_pos, get_opposite_direction(branch_dir))
 
 		current_pos = next_pos
-		current_branch_points.append(current_pos) # Add the newly marked cell to the list
+		current_branch_points.append(current_pos)
 
 	if not can_continue:
-		return # Don't attempt horizontal if vertical failed
+		return []
 
-	# Connect back to any main path if not too close to finish
-	if current_pos.x < current_grid_width - 7:
-		var rejoin_dir = get_opposite_direction(branch_dir)
-		if not is_valid_direction(rejoin_dir):
-			return
+	# Leg 2: move horizontally, then try to rejoin a main path vertically.
+	# Skip entirely if we're already too close to the finish column.
+	if current_pos.x >= current_grid_width - 7:
+		return []
 
-		# Move horizontally towards main path
-		var rejoin_target_x = branch_start.x + randi() % 3 + 2  # Shorter horizontal segments (2-4 chunks)
-		while current_pos.x < rejoin_target_x and current_pos.x < current_grid_width - 8:
-			var next_pos = current_pos + DIRECTION_VECTORS[Direction.RIGHT] # Assuming horizontal rejoin moves RIGHT
-			# Strict Check: Ensure the next position is valid AND not already visited
-			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-				# Log if visited
-				if is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].visited:
-					push_warning("generate_branch (horizontal): Cell %s already visited by '%s'. Stopping branch extension." % [str(next_pos), grid[next_pos.x][next_pos.y].visited_by])
-				break # Stop extending horizontally
-			
-			# --- NEW path_id Proximity Check (2-cell radius) ---
-			var too_close = false
-			# Check cells within a 2-unit Manhattan distance (or simple square)
-			for dx in range(-2, 3): # Check x offsets -2, -1, 0, 1, 2
-				for dy in range(-2, 3): # Check y offsets -2, -1, 0, 1, 2
-					# Skip the cell itself (dx=0, dy=0)
-					if dx == 0 and dy == 0:
-						continue
-						
-					# Skip the immediate previous cell (where we came from - assuming RIGHT direction means prev is LEFT)
-					if dx == -1 and dy == 0: # Previous cell is at relative (-1, 0)
-						continue
-	
-					var check_pos = next_pos + Vector2i(dx, dy)
-					
-					if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].visited:
-						# Check if the visited neighbor belongs to a DIFFERENT path segment
-						if grid[check_pos.x][check_pos.y].path_id != current_branch_id:
-							# No specific exception needed here like in vertical? Maybe allow branch_start proximity?
-							# For now, let's keep it strict. If it's close to *any* other path ID, stop.
-							# Exception: Allow proximity to the original branch_start point itself?
-							# Let's add the branch_start exception here too for consistency.
-							if check_pos != branch_start:
-								push_warning("generate_branch (horizontal): Cell %s too close (dist %d,%d) to different path (ID %d) at %s. Stopping branch extension." % [
-									str(next_pos), dx, dy, grid[check_pos.x][check_pos.y].path_id, str(check_pos)
-								])
-								too_close = true
-								break # Found a blocking neighbor in this row
-				if too_close:
-					break # Found a blocking neighbor in the radius
-					
-				if too_close:
-					break # Stop extending horizontally
-			# --- END path_id Proximity Check ---
-			
-			# Mark the valid, unvisited cell
-			# REMOVED CHECK AND OVERWRITE LOGIC - Handled by the check above
-			grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-			grid[next_pos.x][next_pos.y].visited = true
-			grid[next_pos.x][next_pos.y].visited_by = "generate_branch_horizontal" # More specific tracking
-			grid[next_pos.x][next_pos.y].path_id = current_branch_id # Assign the ID
+	var rejoin_dir = get_opposite_direction(branch_dir)
+	if not is_valid_direction(rejoin_dir):
+		return []
 
-			# Set horizontal connections
-			set_grid_connection(current_pos, Direction.RIGHT, true)
-			# Clear any other connections for the next position (done implicitly if needed by set_grid_connection)
-			# Let's be explicit to be safe, ensure only LEFT connection is set
-			for dir_enum in Direction.values():
-				if dir_enum != Direction.LEFT:
-					set_grid_connection(next_pos, dir_enum, false)
+	var rejoin_target_x = branch_start.x + randi() % 3 + 2  # 2-4 chunks
+	while current_pos.x < rejoin_target_x and current_pos.x < current_grid_width - 8:
+		var next_pos = current_pos + DIRECTION_VECTORS[Direction.RIGHT]
+		if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+			break
 
-			current_pos = next_pos
-			current_branch_points.append(current_pos) # Add the newly marked cell
+		grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
+		grid[next_pos.x][next_pos.y].visited = true
+		grid[next_pos.x][next_pos.y].visited_by = "generate_branch_horizontal"
+		grid[next_pos.x][next_pos.y].path_id = current_branch_id
 
-		# Now try to rejoin with any main path
-		var can_rejoin = true
-		var rejoin_steps = 0
-		while rejoin_steps < 3:  # Limit vertical rejoining to 3 steps
-			var next_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-			# Strict Check: Ensure the next position is valid AND not already visited (unless it's the target main path)
-			var is_target_main_path = is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].visited and grid[next_pos.x][next_pos.y].cell_type == CellType.MAIN_PATH
-			# --- Refined Visited Check (No longer need is_target_main_path here) ---
-			if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
-				# If the visited cell IS the target main path, allow it and break the rejoin loop
-				if is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].visited and grid[next_pos.x][next_pos.y].cell_type == CellType.MAIN_PATH:
-					print("  generate_branch: Rejoining main path at %s" % str(next_pos)) # Debug print
-					break # Found main path, stop vertical movement
-				# Otherwise, if it's visited and *not* the main path, stop rejoining.
-				else:
-					if is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].visited:
-						push_warning("generate_branch (rejoin): Cell %s already visited by '%s' (not main path). Stopping rejoin." % [str(next_pos), grid[next_pos.x][next_pos.y].visited_by])
-					can_rejoin = false
-					break # Stop rejoining
-			
-			# --- NEW path_id Proximity Check (2-cell radius, rejoin logic) ---
-			var too_close_rejoin = false
-			# Check cells within a 2-unit Manhattan distance (or simple square)
-			for dx in range(-2, 3): # Check x offsets -2, -1, 0, 1, 2
-				for dy in range(-2, 3): # Check y offsets -2, -1, 0, 1, 2
-					# Skip the cell itself (dx=0, dy=0)
-					if dx == 0 and dy == 0:
-						continue
-						
-					# Skip the immediate previous cell (where we came from)
-					var relative_prev_pos = current_pos - next_pos
-					if dx == relative_prev_pos.x and dy == relative_prev_pos.y:
-						continue
-						
-					# Skip the immediate cell we are going towards (the potential main path)
-					# Calculate the position relative to next_pos we are going towards
-					var relative_target_pos = (current_pos + DIRECTION_VECTORS[rejoin_dir]) - next_pos 
-					# This seems overly complex, let's simplify. We just need to check the *neighbor* cell's properties.
-					# Instead of skipping the target, we check its properties below.
-					
-					var check_pos = next_pos + Vector2i(dx, dy)
-					
-					if is_valid_position(check_pos) and grid[check_pos.x][check_pos.y].visited:
-						# Check if the visited neighbor belongs to a DIFFERENT path segment
-						if grid[check_pos.x][check_pos.y].path_id != current_branch_id:
-							# --- REJOIN EXCEPTION --- 
-							# Allow proximity ONLY if the neighbor is the MAIN PATH we are trying to reach.
-							# We assume any MAIN_PATH cell could be a valid rejoin target.
-							if grid[check_pos.x][check_pos.y].cell_type != CellType.MAIN_PATH:
-								# It's a different path ID AND it's not the main path -> Too close!
-								push_warning("generate_branch (rejoin): Cell %s too close (dist %d,%d) to different non-main path (ID %d, Type %d) at %s. Stopping rejoin." % [
-									str(next_pos), dx, dy, grid[check_pos.x][check_pos.y].path_id, grid[check_pos.x][check_pos.y].cell_type, str(check_pos)
-								])
-								too_close_rejoin = true
-								break # Found a blocking neighbor in this row
-							# Else (it IS the main path), proximity is allowed, do nothing.
-				if too_close_rejoin:
-					break # Found a blocking neighbor in the radius
-					
-			if too_close_rejoin:
-				can_rejoin = false
-				break # Stop rejoining
-			# --- END path_id Proximity Check ---
-			
-			# Check if we've reached a visited cell (the main path) - MOVED check to the top of the loop
-			# if is_target_main_path:
-			# 	print("  generate_branch: Rejoining main path at %s" % str(next_pos)) # Debug print
-			# 	break # Found main path, stop vertical movement
-			
-			# Mark the valid, unvisited cell (part of the rejoin path)
-			# REMOVED CHECK AND OVERWRITE LOGIC - Handled by the check above
-			grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
-			grid[next_pos.x][next_pos.y].visited = true
-			grid[next_pos.x][next_pos.y].visited_by = "generate_branch_rejoin" # More specific tracking
-			grid[next_pos.x][next_pos.y].path_id = current_branch_id # Assign the ID
+		set_grid_connection(current_pos, Direction.RIGHT, true)
+		set_single_open_connection(next_pos, Direction.LEFT)
 
-			# Set vertical connections for rejoining
-			set_grid_connection(current_pos, rejoin_dir, true)
-			# Clear any other connections for the next position (done implicitly if needed by set_grid_connection)
-			# Let's be explicit to be safe, ensure only opposite connection is set
-			var opposite_rejoin_dir = get_opposite_direction(rejoin_dir)
-			for dir_enum in Direction.values():
-				if dir_enum != opposite_rejoin_dir:
-					set_grid_connection(next_pos, dir_enum, false)
+		current_pos = next_pos
+		current_branch_points.append(current_pos)
 
-			current_pos = next_pos
-			current_branch_points.append(current_pos) # Add the newly marked cell
+	# Leg 3: try to rejoin an existing main path (up to 3 steps)
+	var can_rejoin = true
+	var rejoin_steps = 0
+	while rejoin_steps < 3:
+		var next_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
+		if not is_valid_position(next_pos) or grid[next_pos.x][next_pos.y].visited:
+			if is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].cell_type == CellType.MAIN_PATH:
+				break # Found main path, stop and connect below
+			can_rejoin = false
+			break
 
-			rejoin_steps += 1
+		grid[next_pos.x][next_pos.y].cell_type = CellType.BRANCH_PATH
+		grid[next_pos.x][next_pos.y].visited = true
+		grid[next_pos.x][next_pos.y].visited_by = "generate_branch_rejoin"
+		grid[next_pos.x][next_pos.y].path_id = current_branch_id
 
-		if can_rejoin:
-			# Connect to main path (only if rejoin was successful)
-			var main_path_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
-			if is_valid_position(main_path_pos) and grid[main_path_pos.x][main_path_pos.y].visited and grid[main_path_pos.x][main_path_pos.y].cell_type == CellType.MAIN_PATH:
-				set_grid_connection(current_pos, rejoin_dir, true)
-				# The opposite connection (main_path_pos to current_pos) should be handled by set_grid_connection
-				# Also mark the branch start as a branch point IF it wasn't already
-				if grid[branch_start.x][branch_start.y].cell_type != CellType.BRANCH_POINT:
-					grid[branch_start.x][branch_start.y].cell_type = CellType.BRANCH_POINT
-					grid[branch_start.x][branch_start.y].visited_by += "+branch_point"
-					
-				# Add the successful branch path
-				all_paths.append(current_branch_points)
-			else:
-				push_warning("generate_branch: Failed to connect to main path after rejoin attempt from branch start %s" % str(branch_start))
-		else:
-			push_warning("generate_branch: Rejoin attempt failed for branch start %s" % str(branch_start)) 
+		set_grid_connection(current_pos, rejoin_dir, true)
+		set_single_open_connection(next_pos, get_opposite_direction(rejoin_dir))
 
-func _add_guaranteed_rescue_dead_ends(all_paths: Array) -> void:
-	# Debug: İki yatay dead end ekle (biri sola, biri sağa açılan) böylece _tag_villager_and_vip_deadends her zaman bir köylü + bir cariye odası atayabilsin.
-	var found_left := false
-	var found_right := false
-	for path in all_paths:
-		if path is Array:
-			for i in range(path.size()):
-				var pos = path[i]
-				if not is_valid_position(pos):
-					continue
-				if not found_left:
-					var left_pos = pos + DIRECTION_VECTORS[Direction.LEFT]
-					if is_valid_position(left_pos) and not grid[left_pos.x][left_pos.y].visited:
-						grid[left_pos.x][left_pos.y].visited = true
-						grid[left_pos.x][left_pos.y].visited_by = "add_guaranteed_rescue"
-						grid[left_pos.x][left_pos.y].cell_type = CellType.DEAD_END
-						set_grid_connection(left_pos, Direction.RIGHT, true)
-						set_grid_connection(left_pos, Direction.LEFT, false)
-						set_grid_connection(left_pos, Direction.UP, false)
-						set_grid_connection(left_pos, Direction.DOWN, false)
-						set_grid_connection(pos, Direction.LEFT, true)
-						found_left = true
-				if not found_right:
-					var right_pos = pos + DIRECTION_VECTORS[Direction.RIGHT]
-					if is_valid_position(right_pos) and not grid[right_pos.x][right_pos.y].visited:
-						grid[right_pos.x][right_pos.y].visited = true
-						grid[right_pos.x][right_pos.y].visited_by = "add_guaranteed_rescue"
-						grid[right_pos.x][right_pos.y].cell_type = CellType.DEAD_END
-						set_grid_connection(right_pos, Direction.LEFT, true)
-						set_grid_connection(right_pos, Direction.RIGHT, false)
-						set_grid_connection(right_pos, Direction.UP, false)
-						set_grid_connection(right_pos, Direction.DOWN, false)
-						set_grid_connection(pos, Direction.RIGHT, true)
-						found_right = true
-				if found_left and found_right:
-					return
-	if found_left or found_right:
-		print("[LevelGenerator] Debug: Guaranteed rescue dead ends added (left=%s, right=%s)" % [found_left, found_right])
+		current_pos = next_pos
+		current_branch_points.append(current_pos)
+		rejoin_steps += 1
+
+	if not can_rejoin:
+		# Vertical/horizontal legs still stand (they'll read as a natural dead-end
+		# chunk since their last cell only has the "came from" connection), but
+		# this segment isn't handed back for further branching or dead-end sourcing.
+		return []
+
+	var main_path_pos = current_pos + DIRECTION_VECTORS[rejoin_dir]
+	if not (is_valid_position(main_path_pos) and grid[main_path_pos.x][main_path_pos.y].visited and grid[main_path_pos.x][main_path_pos.y].cell_type == CellType.MAIN_PATH):
+		push_warning("generate_branch: Failed to connect to main path after rejoin attempt from branch start %s" % str(branch_start))
+		return []
+
+	set_grid_connection(current_pos, rejoin_dir, true)
+	if grid[branch_start.x][branch_start.y].cell_type != CellType.BRANCH_POINT:
+		grid[branch_start.x][branch_start.y].cell_type = CellType.BRANCH_POINT
+		grid[branch_start.x][branch_start.y].visited_by += "+branch_point"
+
+	return current_branch_points
 
 func add_dead_end(all_paths: Array) -> void:
 	# Start from middle points of paths
@@ -3669,10 +3808,6 @@ func add_dead_end(all_paths: Array) -> void:
 		
 	var dead_end_dir = available_dirs[randi() % available_dirs.size()]
 	var current_pos = dead_end_start
-	
-	# Create dead end path
-	var dead_end_length = randi() % 2 + 1  # 1-2 chunks
-	var dead_end_start_pos = current_pos  # Remember where we started
 	var next_pos = current_pos + DIRECTION_VECTORS[dead_end_dir]
 	
 	# Strict Check: Ensure the next position is valid AND not already visited
@@ -3682,35 +3817,13 @@ func add_dead_end(all_paths: Array) -> void:
 		grid[next_pos.x][next_pos.y].visited = true
 		grid[next_pos.x][next_pos.y].visited_by = "add_dead_end" # Track visit
 		
-		# Set up connections for the dead end
+		# Connect back to the source cell; the dead end keeps exactly one open port
+		# (we intentionally don't touch current_pos's other connections here - it
+		# might be part of the main path or another branch).
 		var opposite_dir = get_opposite_direction(dead_end_dir)
 		if is_valid_direction(opposite_dir):
-			# Set connection from dead end back to previous cell
-			set_grid_connection(next_pos, opposite_dir, true)
-			# Set connection from previous cell to dead end
-			# This might overwrite existing connections in the previous cell, which is intended for dead ends.
 			set_grid_connection(current_pos, dead_end_dir, true)
-			
-			# Clear any other connections for the dead_end cell itself (next_pos)
-			for dir_enum in Direction.values():
-				if dir_enum != opposite_dir:
-					set_grid_connection(next_pos, dir_enum, false)
-					
-			# We generally SHOULD NOT clear other connections for the cell the dead end branches FROM (current_pos)
-			# because it might be part of the main path or another branch.
-			# However, the original code had logic to clear horizontal connections for vertical dead ends.
-			# Let's replicate that specific clearing logic carefully using set_grid_connection.
-			
-			# For vertical connections, ensure proper alignment (original logic)
-			if dead_end_dir == Direction.UP or dead_end_dir == Direction.DOWN:
-				# Clear horizontal connections on the dead end cell
-				set_grid_connection(next_pos, Direction.LEFT, false)
-				set_grid_connection(next_pos, Direction.RIGHT, false)
-				# Clear horizontal connections on the cell it branches from IF it's not the initial start pos?
-				# The original logic check was `current_pos != dead_end_start_pos` which seems complex here.
-				# Let's stick to only clearing the dead_end cell's other connections for now, 
-				# as clearing the source cell (current_pos) might break main paths.
-				pass # Already handled by the loop above clearing non-opposite connections
+			set_single_open_connection(next_pos, opposite_dir)
 	else:
 		# Log if the cell was already visited
 		if is_valid_position(next_pos) and grid[next_pos.x][next_pos.y].visited:
@@ -3733,92 +3846,295 @@ func is_valid_connection(from_pos: Vector2i, to_pos: Vector2i, dir: Direction) -
 
 func finalize_connections() -> void:
 	print("Finalizing grid connections...")
-	for x in range(current_grid_width):
-		for y in range(current_grid_height): # Use current_grid_height
-			var pos = Vector2i(x, y)
-			
-			# Skip empty cells
-			if grid[x][y].cell_type == CellType.EMPTY:
-				continue
-
-			# Check neighbours
-			for dir_enum in Direction.values():
-				var dir = dir_enum
-				var neighbor_pos = pos + DIRECTION_VECTORS[dir]
-				
-				# Check if neighbor is valid and also not empty
-				if is_valid_position(neighbor_pos) and grid[neighbor_pos.x][neighbor_pos.y].cell_type != CellType.EMPTY:
-					# Check for special start/finish cases to enforce single connection
-					# Start cell (0, BASE_GRID_HEIGHT/2) should only connect RIGHT
-					if pos == Vector2i(0, current_grid_height / 2) and dir != Direction.RIGHT: # Use current_grid_height
-						continue # Skip setting connection
-					# Neighbor is start cell, connection must be LEFT from neighbor's perspective (dir = RIGHT from pos)
-					if neighbor_pos == Vector2i(0, current_grid_height / 2) and dir != Direction.RIGHT: # Use current_grid_height
-						continue # Skip setting connection
-
-					# Find finish position dynamically (could be multiple)
-					var finish_positions = []
-					for fx in range(current_grid_width - 1, current_grid_width - 3, -1): # Check last two columns
-						if fx < 0: continue
-						for fy in range(current_grid_height): # Use current_grid_height
-							if is_valid_position(Vector2i(fx, fy)) and grid[fx][fy].cell_type == CellType.MAIN_PATH:
-								# Heuristic: Assume rightmost main path cells are potential finishes
-								finish_positions.append(Vector2i(fx, fy))
-								break # Found one in this column
-
-					# Finish cell(s) should only connect LEFT
-					if pos in finish_positions and dir != Direction.LEFT:
-						continue # Skip setting connection
-					# Neighbor is a finish cell, connection must be RIGHT from neighbor's perspective (dir = LEFT from pos)
-					if neighbor_pos in finish_positions and dir != Direction.LEFT:
-						continue # Skip setting connection
-
-					# If not a special start/finish case preventing connection, set it
-					# Use the modified set_grid_connection which only sets true for neighbor
-					set_grid_connection(pos, dir, true) 
-					# Optional: Log the connection made
-					# print("  Finalize: Connected %s -> %s" % [str(pos), str(neighbor_pos)])
+	# Pass 1: wire up each drawn path/branch's OWN internal cells (same path_id).
+	# This is the only thing that used to rely on the old "any adjacent non-empty
+	# cell auto-connects" rule; every cross-segment connection (branch attachment,
+	# branch rejoin, dead-end) is already set explicitly by the code that carves it.
+	_connect_same_path_segments()
+	# Pass 2: decide, per level config, whether unrelated segments that ended up
+	# adjacent should merge into a real junction or stay walled-off from each other.
+	resolve_junctions()
 	print("Grid connections finalized.")
 
-# --- NEW FUNCTION --- 
-func fill_surrounding_walls() -> void:
-	print("Filling surrounding walls...")
-	# Logic to iterate grid and mark walls will go here
-	# We need to store the cells to change first, then change them, 
-	# to avoid a wall placed in one step affecting the next cell's check.
-	var cells_to_make_wall = []
-	
+# Pass 1 helper: connects adjacent cells that belong to the same path_id
+# (i.e. were carved by the same generate_main_path/generate_branch call).
+func _connect_same_path_segments() -> void:
 	for x in range(current_grid_width):
 		for y in range(current_grid_height):
-			# Only consider currently empty cells
-			if grid[x][y].cell_type == CellType.EMPTY:
-				var has_path_neighbor = false
-				# Check all 8 neighbors
-				var neighbor_offsets = [
-					Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1), # Cardinal
-					Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1) # Diagonal
-				]
-				for offset in neighbor_offsets:
-					var neighbor_pos = Vector2i(x, y) + offset
-					# If neighbor is valid and NOT empty (and not a wall itself from a previous theoretical pass - though we do it in one go now)
-					if is_valid_position(neighbor_pos) and \
-						grid[neighbor_pos.x][neighbor_pos.y].cell_type != CellType.EMPTY and \
-						grid[neighbor_pos.x][neighbor_pos.y].cell_type != CellType.WALL: # Don't trigger based on other walls
-						has_path_neighbor = true
-						break # Found one path neighbor, no need to check others
-				
-				# If this empty cell has a path neighbor, mark it to become a wall
-				if has_path_neighbor:
-					cells_to_make_wall.append(Vector2i(x,y))
+			var pos = Vector2i(x, y)
+			var cell: GridCell = grid[x][y]
+			if cell.cell_type == CellType.EMPTY or cell.path_id == -1:
+				continue
+			for dir_enum in Direction.values():
+				var neighbor_pos = pos + DIRECTION_VECTORS[dir_enum]
+				if not is_valid_position(neighbor_pos):
+					continue
+				var neighbor: GridCell = grid[neighbor_pos.x][neighbor_pos.y]
+				if neighbor.cell_type == CellType.EMPTY:
+					continue
+				if neighbor.path_id == cell.path_id:
+					set_grid_connection(pos, dir_enum, true)
 
-	# Now, actually change the cell types for the marked cells
+# Pass 2: for cells belonging to DIFFERENT path segments that happen to be
+# adjacent without an explicit connection, roll the dice (level_config driven)
+# to decide whether they merge into a shared junction chunk or stay separate
+# (bitişik ama bağlantısız — visually close, gameplay-wise walled off).
+# Only RIGHT/DOWN are checked per cell so every unordered pair is evaluated once.
+func resolve_junctions() -> void:
+	var junction_chance := 0.35
+	if level_config:
+		junction_chance = level_config.get_path_junction_chance(current_level)
+	var junctions_formed := 0
+	var pass2_dirs = [Direction.RIGHT, Direction.DOWN]
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			var pos = Vector2i(x, y)
+			var cell: GridCell = grid[x][y]
+			# Dead ends must keep exactly one connection (rescue/stealth/event
+			# tagging relies on this); start/finish/anchor cells (path_id == -1)
+			# already have their single required connection set explicitly.
+			if cell.cell_type == CellType.EMPTY or cell.cell_type == CellType.DEAD_END or cell.path_id == -1:
+				continue
+			for dir_enum in pass2_dirs:
+				if cell.connections[dir_enum]:
+					continue # Already connected (same segment or earlier explicit link)
+				var neighbor_pos = pos + DIRECTION_VECTORS[dir_enum]
+				if not is_valid_position(neighbor_pos):
+					continue
+				var neighbor: GridCell = grid[neighbor_pos.x][neighbor_pos.y]
+				if neighbor.cell_type == CellType.EMPTY or neighbor.cell_type == CellType.DEAD_END or neighbor.path_id == -1:
+					continue
+				if neighbor.path_id == cell.path_id:
+					continue # Same segment, Pass 1 already handled it
+				if randf() < junction_chance:
+					set_grid_connection(pos, dir_enum, true)
+					junctions_formed += 1
+	_debug_last_junctions_formed = junctions_formed
+	if DEBUG_ENEMY_TILES:
+		print("  resolve_junctions: %d junction(s) formed (chance=%.2f)" % [junctions_formed, junction_chance])
+
+# Always-on, one-line summary so branching/crossing behaviour can be sanity
+# checked from the console without turning on the noisier DEBUG_ENEMY_TILES flag.
+func _debug_print_generation_summary() -> void:
+	var main_count := 0
+	var branch_count := 0
+	var dead_end_count := 0
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			match grid[x][y].cell_type:
+				CellType.MAIN_PATH, CellType.BRANCH_POINT:
+					main_count += 1
+				CellType.BRANCH_PATH:
+					branch_count += 1
+				CellType.DEAD_END:
+					dead_end_count += 1
+	print("[LevelGenerator] Layout summary: main=%d branch=%d dead_end=%d junctions_formed=%d max_branch_depth_reached=%d" % [
+		main_count, branch_count, dead_end_count, _debug_last_junctions_formed, _debug_last_max_branch_depth_reached
+	])
+
+# Verbose ASCII dump of the whole grid (cell type per cell), gated behind
+# DEBUG_ENEMY_TILES. Handy for eyeballing "do paths actually cross/branch as
+# expected?" without opening the full Godot scene.
+# Legend: .=empty S=start F=finish M=main B=branch +=branch_point D=dead_end #=wall
+func _debug_print_ascii_grid() -> void:
+	var start_pos = Vector2i(0, current_grid_height / 2)
+	print("[LevelGenerator] ASCII grid (x -> right, y -> down). Legend: .=empty S=start F=finish M=main B=branch +=branch_point D=dead_end #=wall")
+	for y in range(current_grid_height):
+		var row := ""
+		for x in range(current_grid_width):
+			var pos := Vector2i(x, y)
+			var cell: GridCell = grid[x][y]
+			var ch := "."
+			if pos == start_pos:
+				ch = "S"
+			elif cell.chunk and cell.chunk.scene_file_path.contains("finish_chunk"):
+				ch = "F"
+			else:
+				match cell.cell_type:
+					CellType.MAIN_PATH: ch = "M"
+					CellType.BRANCH_PATH: ch = "B"
+					CellType.BRANCH_POINT: ch = "+"
+					CellType.DEAD_END: ch = "D"
+					CellType.WALL: ch = "#"
+					CellType.EMPTY: ch = "."
+			row += ch
+		print("  " + row)
+
+# --- NEW FUNCTION --- 
+func _is_playable_layout_cell(cell_type: CellType) -> bool:
+	return cell_type != CellType.EMPTY and cell_type != CellType.WALL
+
+func _collect_empty_cells_for_wall_ring(trigger: Callable) -> Array:
+	var cells_to_make_wall: Array = []
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			if grid[x][y].cell_type != CellType.EMPTY:
+				continue
+			var pos := Vector2i(x, y)
+			for offset: Vector2i in _WALL_NEIGHBOR_OFFSETS:
+				var neighbor_pos: Vector2i = pos + offset
+				if not is_valid_position(neighbor_pos):
+					continue
+				if trigger.call(grid[neighbor_pos.x][neighbor_pos.y].cell_type):
+					cells_to_make_wall.append(pos)
+					break
+	return cells_to_make_wall
+
+const _WALL_NEIGHBOR_OFFSETS: Array[Vector2i] = [
+	Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1),
+	Vector2i(-1, -1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(1, 1)
+]
+
+func _apply_wall_cells(cells_to_make_wall: Array) -> int:
 	for pos in cells_to_make_wall:
 		grid[pos.x][pos.y].cell_type = CellType.WALL
-		# Optional: Mark who visited/changed it
 		grid[pos.x][pos.y].visited_by = "fill_surrounding_walls"
-		# Walls don't need path IDs or connections set here.
+	return cells_to_make_wall.size()
 
-	print("Surrounding walls marked. Count: %d" % cells_to_make_wall.size()) # Updated print
+func _count_wall_neighbors_8(pos: Vector2i) -> int:
+	var count := 0
+	for offset: Vector2i in _WALL_NEIGHBOR_OFFSETS:
+		var neighbor_pos: Vector2i = pos + offset
+		if is_valid_position(neighbor_pos) and grid[neighbor_pos.x][neighbor_pos.y].cell_type == CellType.WALL:
+			count += 1
+	return count
+
+func _count_oob_neighbors(pos: Vector2i) -> int:
+	var count := 0
+	for offset: Vector2i in _WALL_NEIGHBOR_OFFSETS:
+		if not is_valid_position(pos + offset):
+			count += 1
+	return count
+
+func _seal_wall_envelope_gaps() -> int:
+	# Dış zarfın köşelerinde kalan 1'lik boşlukları kapat.
+	# Örnek (sol üst çentik):
+	#   W W .
+	#   W P P
+	#   ? . .   <- ? hücresi: yalnızca 1 kardinal duvar; ama 2 diyagonal/kardinal duvar komşusu var
+	var cells_to_make_wall: Array = []
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			if grid[x][y].cell_type != CellType.EMPTY:
+				continue
+			var pos := Vector2i(x, y)
+			var wall_neighbors_8 := _count_wall_neighbors_8(pos)
+			var oob_neighbors := _count_oob_neighbors(pos)
+			var cardinal_wall_neighbors := 0
+			for dir_enum in Direction.values():
+				var neighbor_pos: Vector2i = pos + DIRECTION_VECTORS[dir_enum]
+				if is_valid_position(neighbor_pos) and grid[neighbor_pos.x][neighbor_pos.y].cell_type == CellType.WALL:
+					cardinal_wall_neighbors += 1
+			var should_fill := false
+			if cardinal_wall_neighbors >= 2:
+				should_fill = true
+			elif wall_neighbors_8 >= 2:
+				# Diyagonal dış köşe: iki duvar komşusu (8 yön) yeterli.
+				should_fill = true
+			elif wall_neighbors_8 >= 1 and oob_neighbors >= 2:
+				# Grid'in fiziksel köşesinde (ör. 0,0): en az bir duvar + iki grid dışı kenar.
+				should_fill = true
+			elif wall_neighbors_8 >= 1 and oob_neighbors >= 1:
+				# Grid kenarı (üst/alt/sol/sağ): tek dış sınır + bitişik duvar yeterli.
+				should_fill = true
+			if should_fill:
+				cells_to_make_wall.append(pos)
+	return _apply_wall_cells(cells_to_make_wall)
+
+func _get_dungeon_content_bounds() -> Rect2i:
+	var min_x: int = current_grid_width
+	var max_x: int = -1
+	var min_y: int = current_grid_height
+	var max_y: int = -1
+	for x in range(current_grid_width):
+		for y in range(current_grid_height):
+			if grid[x][y].cell_type == CellType.EMPTY:
+				continue
+			min_x = mini(min_x, x)
+			max_x = maxi(max_x, x)
+			min_y = mini(min_y, y)
+			max_y = maxi(max_y, y)
+	if max_x < 0:
+		return Rect2i()
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+func _queue_exterior_wall_position(pos: Vector2i) -> void:
+	if _exterior_wall_positions.has(pos):
+		return
+	_exterior_wall_positions.append(pos)
+
+func _fill_bounding_box_wall_padding() -> int:
+	# Tüm zindan içeriğinin etrafına sabit kalınlıkta duvar zarfı ör.
+	# Üst/sol çentikler ve grid sınırına yapışık odalar için grid dışına da kuyruk bırakır.
+	var bounds := _get_dungeon_content_bounds()
+	if bounds.size == Vector2i.ZERO:
+		return 0
+	var pad: int = SURROUNDING_WALL_RINGS
+	var ex_min_x: int = bounds.position.x - pad
+	var ex_max_x: int = bounds.position.x + bounds.size.x - 1 + pad
+	var ex_min_y: int = bounds.position.y - pad
+	var ex_max_y: int = bounds.position.y + bounds.size.y - 1 + pad
+	var marked := 0
+	for x in range(ex_min_x, ex_max_x + 1):
+		for y in range(ex_min_y, ex_max_y + 1):
+			if is_valid_position(Vector2i(x, y)):
+				if grid[x][y].cell_type != CellType.EMPTY:
+					continue
+				grid[x][y].cell_type = CellType.WALL
+				grid[x][y].visited_by = "fill_surrounding_walls_bbox"
+				marked += 1
+			else:
+				_queue_exterior_wall_position(Vector2i(x, y))
+	return marked
+
+func _place_exterior_wall_chunks() -> void:
+	if _exterior_wall_positions.is_empty():
+		return
+	var chunk_scene: PackedScene = load(CHUNKS["full"]["scenes"][0])
+	if not chunk_scene:
+		push_error("Failed to load exterior wall chunk scene.")
+		return
+	for pos in _exterior_wall_positions:
+		var chunk: Node2D = chunk_scene.instantiate()
+		if not chunk:
+			continue
+		add_child(chunk)
+		chunk.position = grid_to_world(pos)
+		_exterior_wall_chunks.append(chunk)
+		chunks_placed += 1
+	if DEBUG_ENEMY_TILES:
+		print("  Placed %d exterior wall chunk(s) outside grid bounds." % _exterior_wall_positions.size())
+
+func fill_surrounding_walls() -> void:
+	print("Filling surrounding walls...")
+	var total_marked := 0
+	
+	# Halka 1: oynanabilir hücrelere (yol/dal/çıkmaz) bitişik boşluklar.
+	var ring1 := _collect_empty_cells_for_wall_ring(
+		func(cell_type: CellType) -> bool: return _is_playable_layout_cell(cell_type)
+	)
+	total_marked += _apply_wall_cells(ring1)
+	
+	# Halka 2..N: mevcut duvarlardan dışarı doğru genişlet (kamera boşluğu için).
+	for _ring in range(1, SURROUNDING_WALL_RINGS):
+		var outer_ring := _collect_empty_cells_for_wall_ring(
+			func(cell_type: CellType) -> bool: return cell_type == CellType.WALL
+		)
+		total_marked += _apply_wall_cells(outer_ring)
+	
+	# Köşe/diyagonal çatlakları yama (bir yama başka çatlak açabilir; birkaç tur yeterli).
+	for _patch_pass in range(4):
+		var patched := _seal_wall_envelope_gaps()
+		total_marked += patched
+		if patched == 0:
+			break
+	
+	# Son adım: bounding box tabanlı sabit dış zarf (üst kenar boşlukları dahil).
+	total_marked += _fill_bounding_box_wall_padding()
+	
+	print("Surrounding walls marked. Count: %d (rings=%d, exterior=%d)" % [
+		total_marked, SURROUNDING_WALL_RINGS, _exterior_wall_positions.size()
+	])
 # --- END NEW FUNCTION ---
 
 # Screen darkness controller'ı ekle

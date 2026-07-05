@@ -14,8 +14,6 @@ static func show_on_npc(npc: Node2D, text: String, duration: float = 3.5) -> voi
 	npc.add_child(bubble)
 	bubble.position = Vector2(-72.0, -78.0)
 	bubble.z_index = 20
-	if npc.scale.x < 0.0:
-		bubble.scale.x = -1.0
 	var tween := npc.create_tween()
 	tween.tween_property(bubble, "modulate:a", 0.0, 0.35).set_delay(maxf(0.5, duration - 0.35))
 	tween.chain().tween_callback(func() -> void:

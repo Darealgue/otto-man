@@ -18,7 +18,7 @@ const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
 var _required_hits: int = 1
 var _base_reward: int = 1  # Su kaynağı
 var _perfect_bonus: int = 0
-var _resource_type: String = ResourceType.WATER
+var _resource_type: String = "food"
 var _max_misses: int = 3  # 3 miss hakkı var
 var _hits: int = 0
 var _misses: int = 0
@@ -45,7 +45,7 @@ func _on_minigame_ready() -> void:
 	_required_hits = max(1, int(get_context_value("hits_required", 1)))
 	_base_reward = int(get_context_value("resource_base", 1))
 	_perfect_bonus = int(get_context_value("perfect_bonus", 0))
-	_resource_type = String(get_context_value("resource_type", ResourceType.WATER))
+	_resource_type = String(get_context_value("resource_type", "food"))
 	var difficulty_level: int = clampi(int(get_context_value("difficulty", 1)), 1, 5)
 	_anchor_offset = Vector2(get_context_value("anchor_offset", anchor_offset_default))
 	_max_misses = int(get_context_value("max_misses", 3))  # 3 miss hakkı var

@@ -429,6 +429,10 @@ func _try_spawn_enemy_dungeon_gold(enemy: Node2D) -> void:
 func on_enemy_killed(enemy: Node2D = null) -> void:
 	enemy_kill_count += 1
 	_try_spawn_enemy_dungeon_gold(enemy)
+	_try_drop_expedition_loot_on_kill(enemy)
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and drs.has_method("handle_enemy_defeated") and enemy != null:
+		drs.call("handle_enemy_defeated", enemy)
 
 	# Notify items that listen to enemy kills
 	for item in active_items:
@@ -441,6 +445,39 @@ func on_enemy_killed(enemy: Node2D = null) -> void:
 	if enemy_kill_count % KILLS_PER_ITEM == 0 and not _item_selection_open:
 		await get_tree().create_timer(0.2).timeout
 		show_item_selection()
+
+
+const _DungeonLootDropSpawner = preload("res://interactables/dungeon/DungeonLootDropSpawner.gd")
+const ENEMY_LOOT_DROP_CHANCE := 0.05
+const ENEMY_LOOT_DROP_CHANCE_PREMIUM := 0.09
+const MAX_EXPEDITION_LOOT_DROPS_PER_SEGMENT := 3
+
+var _segment_expedition_loot_drops: int = 0
+
+
+func reset_segment_expedition_loot_drops() -> void:
+	_segment_expedition_loot_drops = 0
+
+
+func _try_drop_expedition_loot_on_kill(enemy: Node2D) -> void:
+	if enemy == null or not is_instance_valid(enemy):
+		return
+	if not _is_dungeon_like_for_loot():
+		return
+	if _segment_expedition_loot_drops >= MAX_EXPEDITION_LOOT_DROPS_PER_SEGMENT:
+		return
+	if _is_turtle_enemy_for_loot(enemy):
+		return
+	if _is_summoner_spawned_flying_for_loot(enemy):
+		return
+	var premium: bool = _is_premium_enemy_for_loot(enemy)
+	var chance: float = ENEMY_LOOT_DROP_CHANCE_PREMIUM if premium else ENEMY_LOOT_DROP_CHANCE
+	if randf() > chance:
+		return
+	var loot_type: String = _DungeonLootDropSpawner.pick_random_enemy_loot_type()
+	_DungeonLootDropSpawner.spawn_expedition_loot(enemy.global_position, loot_type, 1)
+	_segment_expedition_loot_drops += 1
+
 
 func show_item_selection() -> void:
 	if !player:
