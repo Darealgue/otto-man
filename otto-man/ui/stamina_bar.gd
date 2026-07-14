@@ -94,6 +94,27 @@ func use_charge():
 			return true
 	return false
 
+## Cevher Dili / Yıkım Mührü gibi itemler için kısmi hücre tüketimi (ör. 0.5 = yarım hücre).
+## Tam bir hücreden değil, tek bir segmentten (en dolu olandan) düşer; o segment yeterince
+## dolu değilse false döner (segmentler arası bölüştürme yapılmaz, use_charge ile aynı basitlik).
+func use_partial_charge(amount: float) -> bool:
+	if amount <= 0.0:
+		return true
+	var block_charges = int(player_stats.get_stat("block_charges")) if player_stats else 3
+	var visible_segments = min(block_charges, segments.size())
+
+	for i in range(visible_segments - 1, -1, -1):
+		if i < charges.size() and charges[i] >= amount:
+			charges[i] = max(0.0, charges[i] - amount)
+			if recharging_index == -1 and charges[i] < 1.0:
+				recharging_index = i
+			show_bar()
+			update_segments()
+			if not has_charges():
+				stamina_depleted.emit()
+			return true
+	return false
+
 func get_segment_priority(value: float) -> int:
 	if value >= 1.0:  # Full
 		return 0

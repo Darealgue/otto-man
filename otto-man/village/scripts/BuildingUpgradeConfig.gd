@@ -1,75 +1,96 @@
 class_name BuildingUpgradeConfig
 extends RefCounted
-## Bina yükseltme maliyetleri (SSOT). Seviye → maliyet sözlüğü.
-## Katlanarak artan eğri: L2 taban, L3 ~×2.5, L4 ~×6 (gold + kaynak).
+## Bina yükseltme maliyetleri (SSOT). Her kaynak, ilk istendiği seviyeden ("from") itibaren
+## GROWTH_MULTIPLIER ile katlanarak (compounding) artar — mobil oyunlardaki gibi her
+## yükseltme bir öncekinden belirgin şekilde daha pahalı olsun, oyuncu tek seferde büyük
+## atılım yapamasın diye. Hem altın hem hammadde bu formülle hesaplanır.
 
 const GATHER_MAX_LEVEL := 8
 ## Kaynak binaları: 4 sprite (wood/stone/food 1..4), 2 oyun seviyesi = 1 görsel.
 const GATHER_VISUAL_SPRITE_TIERS := 4
 
+## Her seviyede maliyetin çarpıldığı sabit oran.
+const GROWTH_MULTIPLIER := 1.85
+
+## {resource_key: {"base": taban_miktar, "from": ilk_istenen_seviye}}
+## target_level >= from ise: miktar = base * GROWTH_MULTIPLIER ^ (target_level - from)
 const TIER1_WOOD := {
-	2: {"gold": 15, "wood": 1},
-	3: {"gold": 40, "wood": 3, "stone": 1},
-	4: {"gold": 100, "wood": 6, "stone": 3},
-	5: {"gold": 200, "wood": 10, "stone": 5},
-	6: {"gold": 350, "wood": 14, "stone": 8},
-	7: {"gold": 550, "wood": 18, "stone": 10, "lumber": 2},
-	8: {"gold": 800, "wood": 22, "stone": 12, "lumber": 4},
+	"gold": {"base": 15, "from": 2},
+	"wood": {"base": 1, "from": 2},
+	"stone": {"base": 1, "from": 3},
+	"lumber": {"base": 2, "from": 7},
 }
+const TIER1_WOOD_MAX_LEVEL := 8
 
 const TIER1_STONE := {
-	2: {"gold": 15, "stone": 1},
-	3: {"gold": 40, "stone": 3, "wood": 1},
-	4: {"gold": 100, "stone": 6, "wood": 3},
-	5: {"gold": 200, "stone": 10, "wood": 5},
-	6: {"gold": 350, "stone": 14, "wood": 8},
-	7: {"gold": 550, "stone": 18, "wood": 10, "brick": 2},
-	8: {"gold": 800, "stone": 22, "wood": 12, "brick": 4},
+	"gold": {"base": 15, "from": 2},
+	"stone": {"base": 1, "from": 2},
+	"wood": {"base": 1, "from": 3},
+	"brick": {"base": 2, "from": 7},
 }
+const TIER1_STONE_MAX_LEVEL := 8
 
 const TIER1_FOOD := {
-	2: {"gold": 15, "food": 1},
-	3: {"gold": 40, "food": 3, "wood": 1},
-	4: {"gold": 100, "food": 6, "stone": 2},
-	5: {"gold": 200, "food": 10, "wood": 5},
-	6: {"gold": 350, "food": 14, "wood": 8},
-	7: {"gold": 550, "food": 18, "wood": 10, "stone": 4},
-	8: {"gold": 800, "food": 22, "wood": 12, "stone": 6},
+	"gold": {"base": 15, "from": 2},
+	"food": {"base": 1, "from": 2},
+	"wood": {"base": 1, "from": 3},
+	"stone": {"base": 2, "from": 4},
 }
+const TIER1_FOOD_MAX_LEVEL := 8
 
 const TIER2_PROCESSING := {
-	2: {"gold": 50, "wood": 2, "stone": 2},
-	3: {"gold": 125, "wood": 5, "stone": 4, "lumber": 2},
+	"gold": {"base": 50, "from": 2},
+	"wood": {"base": 2, "from": 2},
+	"stone": {"base": 2, "from": 2},
+	"lumber": {"base": 2, "from": 3},
 }
+const TIER2_PROCESSING_MAX_LEVEL := 3
 
 const TIER3_CRAFT := {
-	2: {"gold": 75, "lumber": 3, "brick": 2},
-	3: {"gold": 175, "lumber": 6, "brick": 4},
+	"gold": {"base": 75, "from": 2},
+	"lumber": {"base": 3, "from": 2},
+	"brick": {"base": 2, "from": 2},
 }
+const TIER3_CRAFT_MAX_LEVEL := 3
 
 const TIER4_MASTER := {
-	2: {"gold": 120, "lumber": 4, "brick": 3, "stone": 2},
-	3: {"gold": 280, "lumber": 8, "brick": 6, "metal": 2},
+	"gold": {"base": 120, "from": 2},
+	"lumber": {"base": 4, "from": 2},
+	"brick": {"base": 3, "from": 2},
+	"stone": {"base": 2, "from": 2},
+	"metal": {"base": 2, "from": 3},
 }
+const TIER4_MASTER_MAX_LEVEL := 3
 
 ## Silahçı yükseltmesi: seviye 2 kereste+tuğla (2.sv silah), seviye 3 metal+kumaş (3.sv silah) tarifini açar.
 const TIER5_MILITARY := {
-	2: {"gold": 180, "lumber": 5, "brick": 4, "metal": 3},
-	3: {"gold": 400, "lumber": 8, "brick": 6, "metal": 5},
+	"gold": {"base": 180, "from": 2},
+	"lumber": {"base": 5, "from": 2},
+	"brick": {"base": 4, "from": 2},
+	"metal": {"base": 3, "from": 2},
 }
+const TIER5_MILITARY_MAX_LEVEL := 3
 
 ## Kışla yükseltme maliyetleri artık üretilebilen silah seviyelerini talep eder (zırh kaldırıldı).
+## weapon_t1/weapon_t2 üretilmiş eşya kilidi olduğu için (ham madde değil) katlanarak büyümez,
+## sadece kendi seviyesinde sabit bir miktar ister.
 const BARRACKS := {
-	2: {"gold": 150, "lumber": 4, "brick": 3, "metal": 2},
-	3: {"gold": 320, "lumber": 6, "brick": 5, "metal": 4},
-	4: {"gold": 600, "lumber": 8, "brick": 7, "metal": 6, "weapon_t1": 2},
-	5: {"gold": 950, "lumber": 10, "brick": 9, "metal": 8, "weapon_t2": 2},
+	"gold": {"base": 150, "from": 2},
+	"lumber": {"base": 4, "from": 2},
+	"brick": {"base": 3, "from": 2},
+	"metal": {"base": 2, "from": 2},
+	"weapon_t1": {"base": 2, "from": 4},
+	"weapon_t2": {"base": 2, "from": 5},
 }
+const BARRACKS_MAX_LEVEL := 5
 
 const TIER2_STORAGE := {
-	2: {"gold": 55, "wood": 3, "stone": 3},
-	3: {"gold": 130, "wood": 6, "stone": 5, "lumber": 2},
+	"gold": {"base": 55, "from": 2},
+	"wood": {"base": 3, "from": 2},
+	"stone": {"base": 3, "from": 2},
+	"lumber": {"base": 2, "from": 3},
 }
+const TIER2_STORAGE_MAX_LEVEL := 3
 
 const SCENE_LEVEL_COSTS: Dictionary = {
 	"res://village/buildings/WoodcutterCamp.tscn": TIER1_WOOD,
@@ -89,25 +110,50 @@ const SCENE_LEVEL_COSTS: Dictionary = {
 	"res://village/buildings/StorageBuilding.tscn": TIER2_STORAGE,
 }
 
+const SCENE_MAX_LEVELS: Dictionary = {
+	"res://village/buildings/WoodcutterCamp.tscn": TIER1_WOOD_MAX_LEVEL,
+	"res://village/buildings/StoneMine.tscn": TIER1_STONE_MAX_LEVEL,
+	"res://village/buildings/HunterGathererHut.tscn": TIER1_FOOD_MAX_LEVEL,
+	"res://village/buildings/Sawmill.tscn": TIER2_PROCESSING_MAX_LEVEL,
+	"res://village/buildings/Brickworks.tscn": TIER2_PROCESSING_MAX_LEVEL,
+	"res://village/buildings/Bakery.tscn": TIER2_PROCESSING_MAX_LEVEL,
+	"res://village/buildings/Weaver.tscn": TIER3_CRAFT_MAX_LEVEL,
+	"res://village/buildings/Tailor.tscn": TIER3_CRAFT_MAX_LEVEL,
+	"res://village/buildings/TeaHouse.tscn": TIER3_CRAFT_MAX_LEVEL,
+	"res://village/buildings/SoapMaker.tscn": TIER3_CRAFT_MAX_LEVEL,
+	"res://village/buildings/Blacksmith.tscn": TIER4_MASTER_MAX_LEVEL,
+	"res://village/buildings/Herbalist.tscn": TIER4_MASTER_MAX_LEVEL,
+	"res://village/buildings/Gunsmith.tscn": TIER5_MILITARY_MAX_LEVEL,
+	"res://village/buildings/Barracks.tscn": BARRACKS_MAX_LEVEL,
+	"res://village/buildings/StorageBuilding.tscn": TIER2_STORAGE_MAX_LEVEL,
+}
+
 
 static func get_max_level(scene_path: String) -> int:
-	var table: Dictionary = SCENE_LEVEL_COSTS.get(scene_path, {})
-	if table.is_empty():
-		return 1
-	var best := 1
-	for key in table.keys():
-		best = maxi(best, int(key))
-	return best
+	return int(SCENE_MAX_LEVELS.get(scene_path, 1))
 
 
 static func get_cost(scene_path: String, target_level: int) -> Dictionary:
 	if target_level <= 1:
 		return {}
 	var table: Dictionary = SCENE_LEVEL_COSTS.get(scene_path, {})
-	var raw: Variant = table.get(target_level, {})
-	if raw is Dictionary:
-		return (raw as Dictionary).duplicate(true)
-	return {}
+	if table.is_empty():
+		return {}
+	var result: Dictionary = {}
+	for resource_key in table.keys():
+		var entry: Dictionary = table[resource_key]
+		var from_level: int = int(entry.get("from", 2))
+		if target_level < from_level:
+			continue
+		var base_amount: float = float(entry.get("base", 0))
+		var value: float = base_amount * pow(GROWTH_MULTIPLIER, target_level - from_level)
+		var rounded: int
+		if resource_key == "gold":
+			rounded = maxi(5, int(round(value / 5.0)) * 5) # 5'in katına yuvarla, daha okunaklı
+		else:
+			rounded = maxi(1, int(round(value)))
+		result[resource_key] = rounded
+	return result
 
 
 ## Kaynak binaları: 1–2→görsel1, 3–4→2, 5–6→3, 7–8→4.

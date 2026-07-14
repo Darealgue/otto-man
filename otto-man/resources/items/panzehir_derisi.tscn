@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://panzehir_derisi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/panzehir_derisi.gd" id="1_script"]
+
+[node name="PanzehirDerisi" type="Node"]
+script = ExtResource("1_script")

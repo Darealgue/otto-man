@@ -6,7 +6,7 @@ var building_name: String = "Fırın"
 @export var max_workers: int = 1 # Başlangıçta 1 işçi alabilir
 @export var assigned_workers: int = 0
 @export var worker_stays_inside: bool = true #<<< YENİ (Fırın için true)
-var assigned_worker_instance: Node = null #<<< YENİ: Atanan işçinin referansı
+var assigned_worker_ids: Array[int] = [] #<<< DÜZELTİLDİ: Tekil referans yerine diğer binalarla tutarlı ID listesi
 
 # <<< YENİ: Fetching Durumu >>>
 var is_fetcher_out: bool = false # Aynı anda sadece 1 işçi dışarı çıkabilir
@@ -14,18 +14,18 @@ var is_fetcher_out: bool = false # Aynı anda sadece 1 işçi dışarı çıkabi
 
 # Gerekli temel kaynaklar (üretim için)
 # Artık dictionary olarak tanımlıyoruz: {"kaynak_adı": miktar}
-var required_resources: Dictionary = {"wood": 1, "food": 1}
+var required_resources: Dictionary = {"food": 1}
 
 # Üretilen gelişmiş kaynak
 var produced_resource: String = "bread"
 
 # --- ZAMAN BAZLI EKMEK ÜRETİMİ ---
 var bread_production_progress: float = 0.0
-const BREAD_PRODUCTION_TIME: float = 300.0 # 2 oyun saati (300 gerçek saniye) = 1 ekmek
+const BREAD_PRODUCTION_TIME: float = 1650.0 # tam çalışma günü (07-18, 11 saat) = 1 işçi başına 1 ekmek
 var is_producing: bool = false
 
 # --- INPUT FETCH/BUFFER ---
-var input_buffer: Dictionary = {"wood": 0, "food": 0}
+var input_buffer: Dictionary = {"food": 0}
 var fetch_timer: Timer = null
 var fetch_target: String = ""
 const FETCH_TIME_PER_UNIT: float = 3.0
@@ -140,15 +140,13 @@ func add_worker() -> bool:
 
 	# 2. Başarılı: İşçi Bilgilerini Ayarla ve Kaydet
 	assigned_workers += 1
-	assigned_worker_instance = worker_instance # İşçi referansını kaydet
-	
+	assigned_worker_ids.append(worker_instance.worker_id) # İşçi ID'sini kaydet
+
 	# İşçinin hedefini ve durumunu ayarla
 	worker_instance.assigned_job_type = "bread"
 	worker_instance.assigned_building_node = self
 	worker_instance.move_target_x = self.global_position.x
-	var current_hour = TimeManager.get_hour()
-	var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
-	if is_work_time:
+	if worker_instance.should_start_shift_on_assignment():
 		worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
 	else:
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
@@ -161,47 +159,44 @@ func add_worker() -> bool:
 		building_name, worker_instance.worker_id, assigned_workers, max_workers, required_resources
 	])
 	_update_ui()
+	VillageManager.notify_building_state_changed(self)
 	return true
 
 func remove_worker() -> bool:
-	if assigned_workers > 0 and is_instance_valid(assigned_worker_instance):
-		var worker_to_remove = assigned_worker_instance # Referansı al
-		assigned_workers -= 1
-		assigned_worker_instance = null # Referansı temizle
-
-		# Üretimi durdur
-		is_producing = false
-		bread_production_progress = 0.0
-		
-		# İşçinin Durumunu Sıfırla
-		worker_to_remove.assigned_job_type = ""
-		worker_to_remove.assigned_building_node = null
-		worker_to_remove.move_target_x = worker_to_remove.global_position.x # Hedefi sıfırla
-		# Eğer içerideyse veya işe gidiyorsa idle yap
-		if worker_to_remove.current_state == worker_to_remove.State.WORKING_INSIDE or \
-		   worker_to_remove.current_state == worker_to_remove.State.GOING_TO_BUILDING_FIRST:
-			worker_to_remove.current_state = worker_to_remove.State.AWAKE_IDLE
-			worker_to_remove.visible = true # Görünür yap
-
-		# İşçiyi VillageManager'dan kaldır
-		# VillageManager.unregister_generic_worker(worker_to_remove.worker_id) # MissionCenter.gd'de çağrılıyor
-		
-		print("%s: İşçi (ID: %d) çıkarıldı ve üretim durdu (%d/%d)." % [
-			building_name, worker_to_remove.worker_id, assigned_workers, max_workers
-		])
-		_update_ui()
-		return true
-	elif assigned_workers <= 0:
+	if assigned_workers <= 0 or assigned_worker_ids.is_empty():
 		print("%s: Çıkarılacak işçi yok (Sayaç 0)." % building_name)
 		return false
-	else: # assigned_workers > 0 ama assigned_worker_instance geçersiz
-		printerr("%s: HATA! İşçi sayısı > 0 ama işçi referansı geçersiz! Sayaç sıfırlanıyor." % building_name)
-		assigned_workers = 0 # Tutarsızlığı düzelt
-		assigned_worker_instance = null
+
+	var id: int = assigned_worker_ids.pop_back()
+	assigned_workers = assigned_worker_ids.size()
+
+	# Üretimi durdur (kalan işçi yoksa)
+	if assigned_workers <= 0:
 		is_producing = false
 		bread_production_progress = 0.0
-		_update_ui()
-		return false
+
+	if VillageManager.all_workers.has(id):
+		var worker_to_remove = VillageManager.all_workers[id]["instance"]
+		if is_instance_valid(worker_to_remove):
+			# Bina bağlantısı hâlâ geçerliyken unregister et (idle_workers++) — bina alanlarını
+			# bundan SONRA temizle, yoksa VillageManager işçinin zaten boşta olduğunu sanıp
+			# sayacı artırmaz ve HUD'daki "boşta işçi" sayısı yanlış kalır.
+			VillageManager.unregister_generic_worker(id)
+			worker_to_remove.assigned_job_type = ""
+			worker_to_remove.assigned_building_node = null
+			worker_to_remove.move_target_x = worker_to_remove.global_position.x # Hedefi sıfırla
+			# Eğer içerideyse veya işe gidiyorsa idle yap
+			if worker_to_remove.current_state == worker_to_remove.State.WORKING_INSIDE or \
+			   worker_to_remove.current_state == worker_to_remove.State.GOING_TO_BUILDING_FIRST:
+				worker_to_remove.current_state = worker_to_remove.State.AWAKE_IDLE
+				worker_to_remove.visible = true # Görünür yap
+
+	print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [
+		building_name, id, assigned_workers, max_workers
+	])
+	_update_ui()
+	VillageManager.notify_building_state_changed(self)
+	return true
 
 # --- Üretim Mantığı - KALDIRILDI ---
 # func _on_production_timer_timeout() -> void:

@@ -1,10 +1,12 @@
 class_name VillageDefenseAlert
 extends CanvasLayer
-## Köyde bekleyen saldırıları üst banner'da gösterir; oynanabilir savunma butonu.
+## Köyde bekleyen saldırıları sağ üstte (saat göstergesinin altında) küçük, tek satırlık bir
+## rozet olarak gösterir. Savunma tamamen text-based/otomatik çözülür — burada bir "savaşa
+## katıl" butonu yok, sadece bilgilendirme.
 
 var _panel: PanelContainer
-var _label: RichTextLabel
-var _fight_button: Button
+var _vbox: VBoxContainer
+var _line_labels: Array[RichTextLabel] = []
 
 
 func _ready() -> void:
@@ -29,47 +31,60 @@ func _on_minute_changed(_new_minute: int) -> void:
 func _build_ui() -> void:
 	_panel = PanelContainer.new()
 	_panel.name = "DefenseAlertPanel"
-	_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_panel.offset_left = 80.0
-	_panel.offset_top = 8.0
-	_panel.offset_right = -80.0
-	_panel.offset_bottom = 110.0
+	# Sağ üst köşe, saat göstergesinin (TimeDisplayUI) altında — sol üstteki oyuncu
+	# portresinden ve üst-orta kaynak panelinden uzak, kompakt bir rozet.
+	_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_panel.offset_top = 30.0
+	_panel.offset_right = -8.0
+	_panel.offset_left = -220.0
+	_panel.offset_bottom = 30.0 + 70.0
 	add_child(_panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 14)
-	margin.add_theme_constant_override("margin_right", 14)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
 	_panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	margin.add_child(vbox)
-
-	_label = RichTextLabel.new()
-	_label.name = "DefenseAlertLabel"
-	_label.bbcode_enabled = true
-	_label.fit_content = true
-	_label.scroll_active = false
-	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_label.add_theme_font_size_override("normal_font_size", 14)
-	_label.add_theme_color_override("default_color", Color(1.0, 0.92, 0.82))
-	vbox.add_child(_label)
-
-	_fight_button = Button.new()
-	_fight_button.name = "FightButton"
-	_fight_button.text = tr("defense.alert.fight_button")
-	_fight_button.visible = false
-	_fight_button.pressed.connect(_on_fight_pressed)
-	vbox.add_child(_fight_button)
+	_vbox = VBoxContainer.new()
+	_vbox.add_theme_constant_override("separation", 2)
+	margin.add_child(_vbox)
 
 	visible = false
 
 
-func _on_fight_pressed() -> void:
-	var vm: Node = get_node_or_null("/root/VillageManager")
-	if vm and vm.has_method("try_start_playable_village_defense"):
-		vm.call("try_start_playable_village_defense")
+## Saldırıya kalan süreye göre uyarı rengini belirler: uzak = sakin sarı, yakın = turuncu, çok yakın = kırmızı.
+func _urgency_color(minutes_left: int) -> String:
+	if minutes_left <= 240:
+		return "#ff5c5c"
+	if minutes_left <= 720:
+		return "#ffb066"
+	return "#ffe9b8"
+
+
+## "5 sa" / "40 dk" gibi kaba (detaysız) bir kalan-süre metni.
+func _compact_time_text(minutes_left: int) -> String:
+	if minutes_left <= 0:
+		return "şimdi"
+	var hours: int = int(round(float(minutes_left) / 60.0))
+	if hours <= 0:
+		return "%d dk" % minutes_left
+	return "%d sa" % hours
+
+
+func _get_or_create_line_label(index: int) -> RichTextLabel:
+	while _line_labels.size() <= index:
+		var lbl := RichTextLabel.new()
+		lbl.bbcode_enabled = true
+		lbl.fit_content = true
+		lbl.scroll_active = false
+		lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		lbl.add_theme_font_size_override("normal_font_size", 15)
+		_vbox.add_child(lbl)
+		_line_labels.append(lbl)
+	return _line_labels[index]
 
 
 func refresh() -> void:
@@ -81,38 +96,20 @@ func refresh() -> void:
 	if summaries.is_empty():
 		visible = false
 		return
-	var lines: PackedStringArray = PackedStringArray()
-	lines.append("[b]⚔ Bekleyen Saldırı[/b]")
-	var any_playable: bool = false
+	var shown: int = 0
 	for summary in summaries:
 		if not (summary is Dictionary):
 			continue
 		var s: Dictionary = summary
 		var attacker: String = String(s.get("attacker", "?"))
-		var time_text: String = String(s.get("hours_left_text", "?"))
-		var win_pct: int = int(round(float(s.get("win_chance", 0.5)) * 100.0))
-		var soldiers: int = int(s.get("soldier_count", 0))
-		var deployed: bool = bool(s.get("deployed", false))
-		var playable: bool = bool(s.get("playable_ready", false))
-		if playable:
-			any_playable = true
-		var status: String = "Askerler sahada" if deployed else "Hazırlık"
-		if playable:
-			status = "SAVAŞ ZAMANI"
-		var ally_line: String = ""
-		if bool(s.get("alliance_defender", false)):
-			var ally_name: String = String(s.get("defender_name", ""))
-			if not ally_name.is_empty():
-				ally_line = " · Muttefik: %s" % ally_name
-		lines.append(
-			"• [color=#ffb4b4]%s[/color] — %s · %d asker · Tahmini başarı: [b]%%%d[/b] · %s%s"
-			% [attacker, time_text, soldiers, win_pct, status, ally_line]
-		)
-	if any_playable:
-		lines.append("[color=#ffe08a]%s[/color]" % tr("defense.alert.playable_hint"))
-	else:
-		lines.append("[color=#aaaaaa]%s[/color]" % tr("defense.alert.auto_hint"))
-	_label.text = "\n".join(lines)
-	var can_fight: bool = any_playable and wm.has_method("can_start_playable_defense") and bool(wm.call("can_start_playable_defense"))
-	_fight_button.visible = can_fight
+		var minutes_left: int = int(s.get("minutes_left", 999999))
+		var urgency_color: String = _urgency_color(minutes_left)
+		var time_text: String = _compact_time_text(minutes_left)
+		var lbl := _get_or_create_line_label(shown)
+		lbl.text = "[color=%s]⚠ %s — %s[/color]" % [urgency_color, attacker, time_text]
+		lbl.visible = true
+		shown += 1
+	# Fazla kalan (önceki karede gösterilmiş ama artık gerekmeyen) satırları gizle.
+	for i in range(shown, _line_labels.size()):
+		_line_labels[i].visible = false
 	visible = true

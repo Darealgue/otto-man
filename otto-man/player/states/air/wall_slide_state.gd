@@ -24,6 +24,9 @@ var reentry_cooldown_timer := 0.0  # Track cooldown for this instance
 var locked_sprite_direction := false  # Whether we've locked the sprite direction
 var wall_side := 0  # -1 for left wall, 1 for right wall
 
+const WALL_RUN_DURATION := 0.8  # Duvar Ustası: bu süre boyunca yerçekimi askıya alınır
+var _wall_run_timer := 0.0
+
 func _ready():
 	assert(wall_ray_left != null, "Left wall raycast not found!")
 	assert(wall_ray_right != null, "Right wall raycast not found!")
@@ -117,6 +120,10 @@ func enter():
 	# Play wall slide animation
 	animation_player.play("wall_slide")
 
+	# Duvar Ustası: bir süre yerçekimi askıya alınır (duvarda koşma hissi)
+	var im := get_node_or_null("/root/ItemManager")
+	_wall_run_timer = WALL_RUN_DURATION if (im and im.has_active_item("duvar_ustasi")) else 0.0
+
 func physics_update(delta: float):
 	if !player:
 		return
@@ -184,8 +191,12 @@ func physics_update(delta: float):
 		return
 	# --- END Ledge Grab Check ---
 	
-	# Apply wall slide physics
-	player.velocity.y = min(player.velocity.y + player.gravity * delta * player.wall_slide_gravity_multiplier, 100.0)
+	# Apply wall slide physics (Duvar Ustası: süre dolana kadar yerçekimi yok)
+	if _wall_run_timer > 0.0:
+		_wall_run_timer -= delta
+		player.velocity.y = 0.0
+	else:
+		player.velocity.y = min(player.velocity.y + player.gravity * delta * player.wall_slide_gravity_multiplier, 100.0)
 	
 	# Play correct wall slide animation based on vertical velocity
 	var target_animation: String

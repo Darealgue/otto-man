@@ -5,7 +5,7 @@ class_name ResidentialHousing
 signal occupancy_visual_changed(window_states: Array, occupied_count: int, total_capacity: int)
 
 @export var max_floors: int = 4
-@export var capacity_per_floor: int = 2
+@export var capacity_per_floor: int = 4
 @export var initial_floors: int = 1
 
 var current_floors: int = 1
@@ -75,7 +75,11 @@ func get_residents_at_home_count() -> int:
 	return count
 
 func get_max_capacity() -> int:
-	return max(0, current_floors * capacity_per_floor)
+	var per_floor := capacity_per_floor
+	var vce := get_node_or_null("/root/VillageCardEffects")
+	if vce:
+		per_floor += vce.get_housing_capacity_per_floor_bonus()
+	return max(0, current_floors * per_floor)
 
 func can_add_occupant() -> bool:
 	return get_occupant_count() < get_max_capacity()

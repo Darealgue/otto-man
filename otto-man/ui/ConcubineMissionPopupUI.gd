@@ -6,9 +6,11 @@ signal mission_assigned(concubine_id: int, mission_id: String)
 signal closed
 
 const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
+const _PortraitRenderer := preload("res://ui/ConcubinePortraitRenderer.gd")
 
 # Layout
 var _panel: PanelContainer
+var _portrait_rect: TextureRect
 var _portrait_color: ColorRect
 var _portrait_initial: Label
 var _name_label: Label
@@ -17,6 +19,14 @@ var _stats_label: Label
 var _mission_list: VBoxContainer
 var _mission_scroll: ScrollContainer
 var _info_label: Label
+var _nav_hint_label: Label
+
+# Controller / keyboard navigation
+var _assign_buttons: Array[Button] = []
+var _focused_mission_row: int = 0
+var _focus_generation: int = 0
+var _suppress_nav_until_msec: int = 0
+var _portrait_generation: int = 0
 
 # State
 var _concubine: Concubine = null
@@ -32,6 +42,9 @@ func _ready() -> void:
 	theme = _MEDIEVAL_THEME
 	_build_ui()
 	visible = false
+	var viewport := get_viewport()
+	if viewport and not viewport.gui_focus_changed.is_connected(_on_gui_focus_changed):
+		viewport.gui_focus_changed.connect(_on_gui_focus_changed)
 	call_deferred("_reapply_full_rect")
 
 
@@ -93,6 +106,16 @@ func _build_ui() -> void:
 	_portrait_color.color = Color(0.18, 0.13, 0.08, 1.0)
 	portrait_wrapper.add_child(_portrait_color)
 
+	_portrait_rect = TextureRect.new()
+	_portrait_rect.name = "Portrait"
+	_portrait_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_portrait_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_portrait_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_portrait_rect.visible = false
+	portrait_wrapper.add_child(_portrait_rect)
+
 	_portrait_initial = Label.new()
 	_portrait_initial.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_portrait_initial.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -143,6 +166,8 @@ func _build_ui() -> void:
 	_mission_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_mission_scroll.custom_minimum_size = Vector2(0, 360)
 	_mission_scroll.follow_focus = true
+	_mission_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_mission_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	right.add_child(_mission_scroll)
 
 	_mission_list = VBoxContainer.new()
@@ -158,7 +183,9 @@ func _build_ui() -> void:
 	right.add_child(_info_label)
 
 	var hint_lbl := Label.new()
-	hint_lbl.text = "[ESC / Ⓑ] Kapat"
+	hint_lbl.name = "NavHint"
+	_nav_hint_label = hint_lbl
+	_update_nav_hint()
 	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint_lbl.add_theme_font_size_override("font_size", 10)
 	hint_lbl.modulate = Color(1, 1, 1, 0.45)
@@ -174,18 +201,36 @@ func show_for_concubine(concubine: Concubine) -> void:
 	_soldier_counts.clear()
 	_reapply_full_rect()
 	_is_open = true
+	_focus_generation += 1
+	_focused_mission_row = 0
+	_suppress_nav_until_msec = Time.get_ticks_msec() + 250
 	_info_label.text = ""
+	_update_nav_hint()
+	get_viewport().gui_release_focus()
 	_refresh_concubine_info()
 	_refresh_missions()
 	visible = true
-	call_deferred("_grab_initial_focus")
+	call_deferred("_focus_first_assign_button")
 
 
 func hide_popup() -> void:
 	_is_open = false
+	_focus_generation += 1
+	_portrait_generation += 1
+	if is_instance_valid(_portrait_rect):
+		_PortraitRenderer.clear(_portrait_rect)
 	visible = false
 	_concubine = null
+	_assign_buttons.clear()
+	get_viewport().gui_release_focus()
 	closed.emit()
+
+
+func hide_if_for_concubine(concubine_id: int) -> void:
+	if not _is_open or _concubine == null:
+		return
+	if _concubine.id == concubine_id:
+		hide_popup()
 
 
 # ─── Info panel ───────────────────────────────────────────────────────────────
@@ -194,10 +239,19 @@ func _refresh_concubine_info() -> void:
 	if _concubine == null:
 		return
 
-	# Portrait initial letter + hue
 	var first_char: String = _concubine.name.substr(0, 1).to_upper() if not _concubine.name.is_empty() else "?"
 	_portrait_initial.text = first_char
 	_portrait_color.color = _role_color(_concubine.role)
+	_portrait_generation += 1
+	var portrait_gen: int = _portrait_generation
+	if _concubine.appearance != null:
+		_portrait_initial.visible = false
+		_portrait_rect.visible = true
+		_render_concubine_portrait(portrait_gen)
+	else:
+		_PortraitRenderer.clear(_portrait_rect)
+		_portrait_rect.visible = false
+		_portrait_initial.visible = true
 
 	_name_label.text = _concubine.name
 
@@ -247,7 +301,20 @@ func _role_color(role: int) -> Color:
 
 # ─── Mission list ─────────────────────────────────────────────────────────────
 
+func _render_concubine_portrait(portrait_gen: int) -> void:
+	if _concubine == null:
+		return
+	await _PortraitRenderer.render(
+		_portrait_rect,
+		_concubine,
+		self,
+		func() -> bool:
+			return portrait_gen != _portrait_generation or not _is_open
+	)
+
+
 func _refresh_missions() -> void:
+	_assign_buttons.clear()
 	for child in _mission_list.get_children():
 		child.queue_free()
 	if _concubine == null:
@@ -373,9 +440,17 @@ func _make_mission_row(mission, available_soldiers: int) -> Control:
 		var assign_btn := Button.new()
 		assign_btn.text = "Ata"
 		assign_btn.custom_minimum_size = Vector2(72, 34)
+		assign_btn.focus_mode = Control.FOCUS_ALL
 		assign_btn.pressed.connect(_on_assign_pressed.bind(mission))
 		_style_focus(assign_btn)
+		# Sol/Sağ ile asker sayısını ayarlayabilmek için (bkz. _input), gerekli veriyi
+		# butonun meta'sında taşıyoruz — mouse'suz stepper kontrolü için.
+		if needs_soldiers and not mid.is_empty():
+			assign_btn.set_meta("mission_id", mid)
+			assign_btn.set_meta("req_army", req_army)
+			assign_btn.set_meta("available_soldiers", available_soldiers)
 		action_row.add_child(assign_btn)
+		_assign_buttons.append(assign_btn)
 
 	return card
 
@@ -613,12 +688,72 @@ func _style_focus(button: Button) -> void:
 	button.add_theme_stylebox_override("focus", sb)
 
 
-func _grab_initial_focus() -> void:
-	for child in _mission_list.get_children():
-		var btn := _find_first_button(child)
-		if btn and not btn.disabled:
-			btn.grab_focus()
-			return
+func _focus_first_assign_button() -> void:
+	_focus_nearest_assign_button(_focused_mission_row)
+
+
+func _focus_nearest_assign_button(preferred_index: int) -> bool:
+	if _assign_buttons.is_empty():
+		return false
+	var count := _assign_buttons.size()
+	for offset in range(count):
+		var idx := (preferred_index + offset) % count
+		var btn: Button = _assign_buttons[idx]
+		if not is_instance_valid(btn) or btn.disabled:
+			continue
+		_focused_mission_row = idx
+		get_viewport().gui_release_focus()
+		btn.grab_focus()
+		if is_instance_valid(_mission_scroll):
+			_mission_scroll.ensure_control_visible(btn)
+		return true
+	return false
+
+
+func _move_mission_focus(direction: int) -> void:
+	if _assign_buttons.is_empty():
+		return
+	var count := _assign_buttons.size()
+	for step in range(count):
+		var idx := wrapi(_focused_mission_row + direction * (step + 1), 0, count)
+		var btn: Button = _assign_buttons[idx]
+		if not is_instance_valid(btn) or btn.disabled:
+			continue
+		_focused_mission_row = idx
+		get_viewport().gui_release_focus()
+		btn.grab_focus()
+		if is_instance_valid(_mission_scroll):
+			_mission_scroll.ensure_control_visible(btn)
+		return
+
+
+func _on_gui_focus_changed(control: Control) -> void:
+	if not visible or not _is_open:
+		return
+	if control != null and control is Button and _assign_buttons.find(control) >= 0:
+		_focused_mission_row = _assign_buttons.find(control)
+		return
+	call_deferred("_reclaim_mission_focus")
+
+
+func _reclaim_mission_focus() -> void:
+	if not visible or not _is_open:
+		return
+	var owner := get_viewport().gui_get_focus_owner()
+	if owner is Button and _assign_buttons.find(owner) >= 0:
+		return
+	_focus_nearest_assign_button(_focused_mission_row)
+
+
+func _update_nav_hint() -> void:
+	if _nav_hint_label == null:
+		return
+	var im := get_node_or_null("/root/InputManager")
+	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
+	if is_pad:
+		_nav_hint_label.text = "[↑↓] Görev   [◄►] Asker   [A] Ata   [B] Kapat"
+	else:
+		_nav_hint_label.text = "[↑↓] Görev   [◄►] Asker   [Enter] Ata   [Esc] Kapat"
 
 
 func _find_first_button(node: Node) -> Button:
@@ -631,6 +766,10 @@ func _find_first_button(node: Node) -> Button:
 	return null
 
 
+func _grab_initial_focus() -> void:
+	_focus_first_assign_button()
+
+
 # ─── Input ────────────────────────────────────────────────────────────────────
 
 func _on_dim_gui_input(event: InputEvent) -> void:
@@ -638,9 +777,40 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 		hide_popup()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not visible:
+func _input(event: InputEvent) -> void:
+	if not visible or not _is_open:
 		return
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		hide_popup()
+		return
+	var nav_blocked := Time.get_ticks_msec() < _suppress_nav_until_msec
+	if not nav_blocked:
+		if event.is_action_pressed("ui_down"):
+			get_viewport().set_input_as_handled()
+			_move_mission_focus(1)
+			return
+		if event.is_action_pressed("ui_up"):
+			get_viewport().set_input_as_handled()
+			_move_mission_focus(-1)
+			return
+		if event.is_action_pressed("ui_accept"):
+			var owner := get_viewport().gui_get_focus_owner()
+			if owner is Button and _assign_buttons.find(owner) >= 0:
+				get_viewport().set_input_as_handled()
+				(owner as Button).pressed.emit()
+				return
+		if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
+			var owner := get_viewport().gui_get_focus_owner()
+			if owner is Button and _assign_buttons.find(owner) >= 0 and owner.has_meta("req_army"):
+				get_viewport().set_input_as_handled()
+				var delta := -1 if event.is_action_pressed("ui_left") else 1
+				_adjust_soldiers(
+					String(owner.get_meta("mission_id")),
+					delta,
+					int(owner.get_meta("req_army")),
+					int(owner.get_meta("available_soldiers"))
+				)
+				return
+	elif event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down"):
+		get_viewport().set_input_as_handled()

@@ -38,6 +38,15 @@ func _open_ui() -> void:
 	var ui := Control.new()
 	ui.set_script(_UI_SCRIPT)
 	ui.add_to_group("inventor_workshop_ui")
-	get_tree().root.add_child(ui)
+	# get_tree().root'a çıplak eklenirse panel oyun dünyasının arkasında kalıp görünmez
+	# oluyor — diğer popup'lar gibi yüksek katmanlı bir CanvasLayer'a sarmalıyoruz.
+	var canvas := get_tree().root.get_node_or_null("PlotPopupCanvas") as CanvasLayer
+	if not is_instance_valid(canvas):
+		canvas = CanvasLayer.new()
+		canvas.name = "PlotPopupCanvas"
+		canvas.layer = 50
+		canvas.process_mode = Node.PROCESS_MODE_ALWAYS
+		get_tree().root.add_child(canvas)
+	canvas.add_child(ui)
 	if ui.has_method("show_panel"):
 		ui.show_panel()

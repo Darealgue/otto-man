@@ -16,7 +16,7 @@ const TRACKS: Dictionary = {
 		"levels": {
 			1: {"rusty_weapon": 10},
 			2: {"rusty_weapon": 20, "metal": 1},
-			3: {"rusty_weapon": 30, "metal": 5, "weapon": 1},
+			3: {"rusty_weapon": 30, "metal": 5, "weapon_t1": 1},
 		},
 	},
 	TRACK_HEALTH: {

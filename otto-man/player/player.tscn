@@ -1,4 +1,4 @@
-[gd_scene load_steps=131 format=3 uid="uid://bepujd34sp2i1"]
+[gd_scene load_steps=133 format=3 uid="uid://bepujd34sp2i1"]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://player/states/state_machine.gd" id="2_state_machine"]
@@ -69,7 +69,9 @@
 [ext_resource type="Texture2D" uid="uid://bpeaxtp1tglj3" path="res://resources/player_normalmap resources/doublejump_alt_normal.tres" id="doublejump_alt_normal_tres"]
 [ext_resource type="PackedScene" uid="uid://barvau4dax7to" path="res://ui/health_display.tscn" id="health_display"]
 [ext_resource type="Texture2D" uid="uid://dbk166axs4ir2" path="res://resources/player_normalmap resources/idle_combat_normal.tres" id="idle_combat_normal_tres"]
+[ext_resource type="Script" path="res://player/player_camera.gd" id="player_camera_script"]
 [ext_resource type="PackedScene" path="res://ui/stamina_bar.tscn" id="stamina_bar"]
+[ext_resource type="PackedScene" path="res://ui/xp_bar.tscn" id="xp_bar"]
 
 [sub_resource type="Animation" id="Animation_55col"]
 length = 0.001
@@ -2750,6 +2752,7 @@ position_smoothing_enabled = true
 position_smoothing_speed = 10.0
 rotation_smoothing_enabled = true
 rotation_smoothing_speed = 10.0
+script = ExtResource("player_camera_script")
 
 [node name="WallRayLeft" type="RayCast2D" parent="."]
 position = Vector2(-5, -25)
@@ -2769,6 +2772,12 @@ offset_left = 128.0
 offset_top = 79.0
 offset_right = 328.0
 offset_bottom = 104.0
+
+[node name="XpBar" parent="UI" instance=ExtResource("xp_bar")]
+offset_left = 128.0
+offset_top = 108.0
+offset_right = 328.0
+offset_bottom = 120.0
 
 [node name="LedgeShapeCastTopLeft" type="ShapeCast2D" parent="."]
 position = Vector2(-10, -46)

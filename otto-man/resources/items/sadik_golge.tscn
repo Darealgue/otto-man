@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://sadik_golge_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/sadik_golge.gd" id="1_script"]
+
+[node name="SadikGolge" type="Node"]
+script = ExtResource("1_script")

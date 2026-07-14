@@ -69,4 +69,7 @@ func _on_body_entered(body: Node2D) -> void:
 	else:
 		# Only create pool when drop hits the ground / environment, not when it hits the player mid-air
 		_spawn_pool()
+	# Tuzak Fısıldayan: düşerken/düşünce yakınındaki düşmanlar da zehirlenir
+	if TrapEnemyDamage.is_active():
+		TrapEnemyDamage.damage_enemies_in_radius(get_tree(), global_position, 20.0, 0.0, "poison")
 	queue_free()

@@ -15,7 +15,11 @@ extends Camera2D
 @export var fall_start_speed: float = 600.0
 @export var fall_look_scale: float = 0.06
 
+@export var look_ahead_x: float = 140.0          # max horizontal look-ahead offset in the run direction
+@export var look_ahead_smooth_speed: float = 4.0 # exponential smoothing speed for offset.x
+
 var _player: Node2D
+var _offset_x: float = 0.0
 var _vel_y: float = 0.0
 var _last_player_y: float = 0.0
 var _jump_recenter_timer: float = 0.0
@@ -37,6 +41,7 @@ func _ready() -> void:
 		_last_player_y = _player.global_position.y
 	# Initialize offset smoothing to current offset to avoid snap
 	_offset_y = offset.y
+	_offset_x = offset.x
 	_default_zoom = zoom
 	if debug:
 		call_deferred("debug_dump_cameras")
@@ -50,6 +55,7 @@ func force_init() -> void:
 	if _player:
 		_last_player_y = _player.global_position.y
 	_offset_y = offset.y
+	_offset_x = offset.x
 	_default_zoom = zoom
 
 func _process(delta: float) -> void:
@@ -84,6 +90,18 @@ func _process(delta: float) -> void:
 	var k: float = 1.0 - pow(0.001, max(0.0, offset_smooth_speed) * delta)
 	_offset_y = lerp(_offset_y, bias_y, clamp(k, 0.0, 1.0))
 	offset.y = _offset_y
+
+	# Horizontal look-ahead in the run direction, independent of the vertical bias above
+	var player_velocity_x: float = 0.0
+	if _player.get("velocity") != null:
+		player_velocity_x = (_player.get("velocity") as Vector2).x
+	var reference_speed: float = _player.get("speed") if _player.get("speed") != null else 400.0
+	var target_x: float = 0.0
+	if reference_speed > 0.0:
+		target_x = clamp(player_velocity_x / reference_speed, -1.0, 1.0) * look_ahead_x
+	var k_x: float = 1.0 - pow(0.001, max(0.0, look_ahead_smooth_speed) * delta)
+	_offset_x = lerp(_offset_x, target_x, clamp(k_x, 0.0, 1.0))
+	offset.x = _offset_x
 
 	if debug:
 		_dbg_acc += delta

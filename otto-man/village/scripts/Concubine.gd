@@ -286,7 +286,18 @@ func calculate_mission_success_chance(mission: Mission) -> float:
 	var health_bonus = (health - 50) * 0.001  # %0.1 per health point
 	
 	var final_chance = base_chance + skill_bonus + level_bonus + moral_bonus + health_bonus
-	return clamp(final_chance, 0.1, 0.95)  # Min %10, max %95
+	var vce := _get_village_card_effects()
+	if vce:
+		final_chance += vce.get_mission_success_bonus(int(mission.mission_type))
+	return clamp(final_chance, 0.1, 0.98)  # Min %10, max %98
+
+# Concubine bir Resource olduğu için get_node_or_null yok; Mission.gd'deki
+# Engine.get_main_loop() paterniyle autoload'a erişilir.
+func _get_village_card_effects() -> Node:
+	var main_loop := Engine.get_main_loop()
+	if main_loop is SceneTree:
+		return (main_loop as SceneTree).root.get_node_or_null("VillageCardEffects")
+	return null
 
 # Başarı kontrolü - tüm başarıları kontrol eder
 func check_achievements():

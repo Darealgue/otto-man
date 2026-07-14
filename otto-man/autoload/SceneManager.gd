@@ -1068,7 +1068,14 @@ func _update_ui_visibility(scene_path: String) -> void:
 					sb.show()
 				else:
 					sb.hide()
-			
+
+			var xb = game_ui.get_node_or_null("Container/XpBar")
+			if xb and xb is Control:
+				if should_show_ui:
+					xb.show()
+				else:
+					xb.hide()
+
 			# Update DungeonGoldDisplay visibility
 			var dgd = game_ui.get_node_or_null("DungeonGoldDisplay")
 			if dgd and dgd is Control:
@@ -1082,24 +1089,6 @@ func _update_ui_visibility(scene_path: String) -> void:
 			var players = get_tree().get_nodes_in_group("player")
 			if players.size() > 0:
 				player = players[0]
-		
-		var scene_has_game_ui := current_scene.get_node_or_null("GameUI") != null
-		if player and not scene_has_game_ui:
-			var player_ui = player.get_node_or_null("UI")
-			if player_ui:
-				var hd_player = player_ui.get_node_or_null("HealthDisplay")
-				if hd_player and hd_player is Control:
-					if should_show_ui:
-						hd_player.show()
-					else:
-						hd_player.hide()
-				
-				var sb_player = player_ui.get_node_or_null("StaminaBar")
-				if sb_player and sb_player is Control:
-					if should_show_ui:
-						sb_player.show()
-					else:
-						sb_player.hide()
 	
 	# Update nodes found via groups (only if they are Control nodes)
 	if health_display and health_display is Control:
@@ -1118,7 +1107,8 @@ func _update_ui_visibility(scene_path: String) -> void:
 		else:
 			stamina_bar.hide()
 	
-	# Oyuncu gömülü UI: sahne GameUI kullanıyorsa atla (çift bar + karartma riski)
+	# Oyuncu gömülü UI: sahne kendi GameUI'ını kullanıyorsa atla — HudCanvasLayers.apply_to_scene_root()
+	# zaten bu durumda tüm "UI" CanvasLayer'ını (hd/sb/xb dahil, hepsi birden) gizliyor.
 	if player and player.has_node("UI") and current_scene and current_scene.get_node_or_null("GameUI") == null:
 		var player_ui = player.get_node("UI")
 		var hd_player = player_ui.get_node_or_null("HealthDisplay")
@@ -1129,7 +1119,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 				hd_player.show()
 			else:
 				hd_player.hide()
-		
+
 		var sb_player = player_ui.get_node_or_null("StaminaBar")
 		if sb_player and sb_player is Control:
 			if "_force_visible" in sb_player:
@@ -1138,6 +1128,15 @@ func _update_ui_visibility(scene_path: String) -> void:
 				sb_player.show()
 			else:
 				sb_player.hide()
+
+		var xb_player = player_ui.get_node_or_null("XpBar")
+		if xb_player and xb_player is Control:
+			if "_force_visible" in xb_player:
+				xb_player._force_visible = should_show_ui
+			if should_show_ui:
+				xb_player.show()
+			else:
+				xb_player.hide()
 	
 	# Also update GameUI nodes
 	if current_scene:
@@ -1160,7 +1159,16 @@ func _update_ui_visibility(scene_path: String) -> void:
 					sb.show()
 				else:
 					sb.hide()
-			
+
+			var xb = game_ui.get_node_or_null("Container/XpBar")
+			if xb and xb is Control:
+				if "_force_visible" in xb:
+					xb._force_visible = should_show_ui
+				if should_show_ui:
+					xb.show()
+				else:
+					xb.hide()
+
 			# Update DungeonGoldDisplay
 			var dgd = game_ui.get_node_or_null("DungeonGoldDisplay")
 			if dgd and dgd is Control:

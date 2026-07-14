@@ -28,16 +28,56 @@ var _poison_icon: Control = null
 var _burn_icon: Control = null
 var _frost_icon: Control = null
 
+# Kalkan Modu (affix) bar'ı: ana can barının hemen üstünde ince mavi bir şerit
+var _shield_bg: ColorRect = null
+var _shield_bar: ColorRect = null
+const SHIELD_BAR_HEIGHT := 3.0
+const SHIELD_BAR_Y_OFFSET := -7.0
+
 func _ready() -> void:
 	# Start invisible
 	modulate.a = 0.0
 	fade_timer.timeout.connect(_on_fade_timer_timeout)
-	
+
 	# Set pivot points for proper scaling
 	health_bar.pivot_offset = Vector2(0, health_bar.size.y / 2)
 	delayed_bar.pivot_offset = Vector2(0, delayed_bar.size.y / 2)
-	
+
 	_build_status_icons()
+	_build_shield_bar()
+
+func _build_shield_bar() -> void:
+	_shield_bg = ColorRect.new()
+	_shield_bg.position = Vector2(-25, SHIELD_BAR_Y_OFFSET)
+	_shield_bg.size = Vector2(50, SHIELD_BAR_HEIGHT)
+	_shield_bg.color = Color(0, 0, 0, 0.8)
+	_shield_bg.visible = false
+	add_child(_shield_bg)
+
+	_shield_bar = ColorRect.new()
+	_shield_bar.position = Vector2(-24, SHIELD_BAR_Y_OFFSET + 0.5)
+	_shield_bar.size = Vector2(48, SHIELD_BAR_HEIGHT - 1.0)
+	_shield_bar.color = Color(0.35, 0.75, 1.0, 1.0)
+	_shield_bar.pivot_offset = Vector2(0, 0)
+	_shield_bar.visible = false
+	add_child(_shield_bar)
+
+## Kalkan durumunu göster/güncelle. max_shield <= 0 ise bar'ı gizler.
+func set_shield(current: float, max_shield: float) -> void:
+	if _shield_bg == null or _shield_bar == null:
+		return
+	var has_shield := max_shield > 0.0
+	_shield_bg.visible = has_shield
+	_shield_bar.visible = has_shield
+	if has_shield:
+		show_bar()
+		_shield_bar.scale.x = clampf(current / max_shield, 0.0, 1.0)
+
+func hide_shield() -> void:
+	if _shield_bg:
+		_shield_bg.visible = false
+	if _shield_bar:
+		_shield_bar.visible = false
 
 func _build_status_icons() -> void:
 	# Üst satır: solda Lv X, sağda debuff ikonları

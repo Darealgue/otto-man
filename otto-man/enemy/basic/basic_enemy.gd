@@ -1347,6 +1347,9 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		return
 	# Projectile / DoT base'de işlenir; biz sadece melee knockback ve hurt
 	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
+	# Kalkan hasarı emdiyse (kırılmadan): hiç knockback/stun yok, kendi bounce mantığımızı atla.
+	if _last_hit_absorbed_by_shield:
+		return
 	if is_fainted():
 		return
 	if not apply_knockback:

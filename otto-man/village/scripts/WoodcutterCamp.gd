@@ -67,12 +67,10 @@ func add_worker() -> bool:
 		VillageManager.ensure_basic_gather_expedition_for_worker(worker_instance.worker_id)
 	
 	# Mesai saatleri kontrolü: Mesai saatleri dışındaysa beklemeli
-	var current_hour = TimeManager.get_hour()
-	var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
-	if is_work_time:
+	if worker_instance.should_start_shift_on_assignment():
 		worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
 	else:
-		# Mesai saatleri dışında, beklemeli (AWAKE_IDLE'da kalır, mesai başlayınca gider)
+		# Mesai saatleri dışında ya da bugün vardiyaya zaten başladıysa, beklemeli
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 
 	print("WoodcutterCamp: İşçi (ID: %d) atandı (%d/%d)." % [
@@ -103,6 +101,10 @@ func remove_worker() -> bool:
 	
 	assigned_workers -= 1
 
+	# Bina bağlantısı hâlâ geçerliyken unregister et (idle_workers++) — alanları SONRA temizle,
+	# yoksa VillageManager işçinin zaten boşta olduğunu sanıp sayacı artırmaz.
+	VillageManager.unregister_generic_worker(worker_id_to_remove)
+
 	# İşçinin Durumunu Sıfırla
 	worker_instance.assigned_job_type = ""
 	worker_instance.assigned_building_node = null
@@ -113,9 +115,6 @@ func remove_worker() -> bool:
 	   worker_instance.current_state == worker_instance.State.GOING_TO_BUILDING_FIRST:
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 		worker_instance.visible = true
-
-	# İşçiyi VillageManager'dan kaldır
-	# VillageManager.unregister_generic_worker(worker_id_to_remove) # MissionCenter.gd'de çağrılıyor
 
 	#print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [self.name, worker_id_to_remove, assigned_workers, max_workers]) # Debug
 	emit_signal("worker_removed", worker_id_to_remove)

@@ -31,6 +31,19 @@ func _physics_process(delta: float) -> void:
 	if _hit:
 		return
 	position += velocity * delta
+	# Tuzak Fısıldayan: yoluna çıkan ilk düşmana da çarpar (collision mask düşmanları görmüyor,
+	# bu yüzden manuel mesafe taraması kullanılıyor — bkz. trap_enemy_damage.gd)
+	if TrapEnemyDamage.is_active():
+		var tree := get_tree()
+		if tree:
+			for node in tree.get_nodes_in_group("enemies"):
+				if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+					continue
+				if global_position.distance_to(node.global_position) <= explosion_radius * 0.5:
+					_hit = true
+					velocity = Vector2.ZERO
+					_play_break_and_explode()
+					return
 
 func _on_body_entered(body: Node2D) -> void:
 	if _hit:
@@ -56,6 +69,8 @@ func _on_break_finished() -> void:
 	queue_free()
 
 func _apply_explosion_damage() -> void:
+	if TrapEnemyDamage.is_active():
+		TrapEnemyDamage.damage_enemies_in_radius(get_tree(), global_position, explosion_radius, damage)
 	var space := get_world_2d().direct_space_state
 	var shape := CircleShape2D.new()
 	shape.radius = explosion_radius

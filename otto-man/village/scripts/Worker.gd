@@ -116,6 +116,31 @@ var work_end_minute_offset: int = randi_range(0, 30) # 0-30 dk arası rastgeleli
 var sleep_minute_offset: int = randi_range(0, 60) #<<< YENİ IDLE UYKU OFFSETİ
 # TODO: Diğer rutinler (iş bitişi, uyku) için de offsetler eklenebilir
 
+# <<< YENİ: Günde Tek Vardiya Kilidi >>>
+# İşçi bugün zaten bir çalışma vardiyasına başladıysa (işten çıkarılıp yeniden atansa bile)
+# aynı gün içinde ikinci kez işe gönderilmesin diye günü damgalıyoruz.
+var _last_shift_start_day: int = -1
+
+func _has_started_shift_today() -> bool:
+	return _last_shift_start_day == TimeManager.get_day()
+
+func _mark_shift_started_today() -> void:
+	_last_shift_start_day = TimeManager.get_day()
+
+## Oyuncu bu işçiyi az önce bir binaya atadı (add_worker). Mesai saatleri içindeyse VE
+## bugün için vardiyaya henüz başlamadıysa hemen işe gönderilebilir (ve vardiya damgalanır).
+## Aksi halde AWAKE_IDLE'da bırakılmalı — bu, "gün içinde birden fazla kez işe gönderme"
+## karışıklığını (ör. işçiyi çıkarıp akşam tekrar atayınca aletini alıp işe gitmesi) önler.
+func should_start_shift_on_assignment() -> bool:
+	var hour: int = TimeManager.get_hour()
+	if hour < TimeManager.WORK_START_HOUR or hour >= TimeManager.WORK_END_HOUR:
+		return false
+	if _has_started_shift_today():
+		return false
+	_mark_shift_started_today()
+	return true
+# <<< YENİ SONU >>>
+
 # Hareket Değişkenleri
 var move_target_x: float = 0.0 # Sadece X ekseninde hareket edilecek hedef
 var move_speed: float = randf_range(50.0, 70.0) # Pixel per second (ayarlanabilir)
@@ -128,6 +153,8 @@ var fetch_interval_min: float = 15.0
 var fetch_interval_max: float = 30.0 
 var wait_at_source_duration: float = 1.5 # Kaynakta bekleme süresi (saniye)
 var fetch_target_x_temp: float = 0.0 # Artık kullanılmıyor olabilir? Gözden geçir.
+# <<< YENİ: Fetch yolculuğu sırasında hangi kaynağın taşındığını hatırlamak için (görsel amaçlı) >>>
+var _fetch_resource_type: String = ""
 # <<< YENİ SONU >>>
 
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
@@ -138,16 +165,56 @@ var fetch_target_x_temp: float = 0.0 # Artık kullanılmıyor olabilir? Gözden 
 @onready var eyes_sprite: Sprite2D = $EyesSprite   #<<< YENİ
 @onready var beard_sprite: Sprite2D = $BeardSprite # Bu opsiyonel, sahnede olmayabilir
 @onready var hair_sprite: Sprite2D = $HairSprite
+@onready var hat_sprite: Sprite2D = $HatSprite # Yazma - şu an sadece kadın köylü (v3), opsiyonel
 @onready var held_item_sprite: Sprite2D = $HeldItemSprite # Bu da opsiyonel
+@onready var carried_item_icon: Sprite2D = $CarriedItemIcon # Taşınan kaynağın rozeti (walk_carry sırasında)
+
+# <<< YENİ: Malzeme taşırken üzerinde gösterilecek kaynak ikonu (taşınan kaynağa göre) >>>
+static var _carried_icon_cache: Dictionary = {}
+
+static func _get_carried_icon_texture(resource_key: String) -> Texture2D:
+	if resource_key.is_empty():
+		return null
+	if _carried_icon_cache.has(resource_key):
+		return _carried_icon_cache[resource_key]
+	var candidates: Array[String] = []
+	if resource_key == "tea":
+		candidates = [
+			"res://assets/Icons/coffee_icon.png",
+			"res://assets/Icons/coffe_icon.png",
+			"res://assets/Icons/tea_icon.png",
+		]
+	elif resource_key == "soap":
+		candidates = [
+			"res://assets/Icons/perfume_icon.png",
+			"res://assets/Icons/soap_icon.png",
+		]
+	elif resource_key == "weapon_t1" or resource_key == "weapon_t2" or resource_key == "weapon_t3":
+		candidates = ["res://assets/Icons/weapon_icon.png"]
+	else:
+		candidates = ["res://assets/Icons/%s_icon.png" % resource_key]
+	var tex: Texture2D = null
+	for path in candidates:
+		if ResourceLoader.exists(path):
+			tex = load(path)
+			break
+	_carried_icon_cache[resource_key] = tex
+	return tex
+# <<< YENİ SONU >>>
 
 # <<< YENİ: Alet Texture\'ları için Dictionary >>>
 var tool_textures = {
 	"wood": preload("res://assets/tools/walk_work_tool_axe.png"), # Güncellendi
 	"stone": preload("res://assets/tools/walk_work_tool_pickaxe.png"), # Güncellendi
 	"food": preload("res://assets/tools/walk_work_tool_hoe.png"), # Güncellendi (Çapa varsayıldı)
-	"water": preload("res://assets/tools/walk_work_tool_bucket.png"), # Güncellendi
 	# Diğer iş tipleri için eklenebilir...
 }
+# <<< YENİ SONU >>>
+
+# <<< YENİ: Malzeme Taşıma Aleti (carry) >>>
+# İş tipinden bağımsız, jenerik taşıma görseli (köye dönerken / dükkanlar arası malzeme taşırken)
+var carry_tool_texture = preload("res://assets/tools/walk_work_tool_carry.png")
+# Normal map henüz çizilmedi (walk_work_tool_carry_normal.png yok)
 # <<< YENİ SONU >>>
 
 # <<< YENİ: Walk/Work Texture Setleri >>>
@@ -166,6 +233,10 @@ var walk_work_textures = {
 		"short": { # Stil adı dosya adından çıkarılacak ('short')
 			"diffuse": preload("res://assets/character_parts/pants/pants_short_walk_work_gray.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/pants_short_walk_work_gray_normal.png")
+		},
+		"3": { # Kadın köylü (v3) - iş pozu için ayrı çizim yok, "walk" pozundaki pants3'ü ödünç alır
+			"diffuse": preload("res://assets/character_parts/pants/pants3_walk.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/pants_basic_walk_gray_normal.png")
 		}
 	},
 	"clothing": {
@@ -176,6 +247,10 @@ var walk_work_textures = {
 		"shirtless": { # Stil adı dosya adından çıkarılacak ('shirtless')
 			 "diffuse": preload("res://assets/character_parts/clothing/shirtless_walk_work_gray.png"),
 			 "normal": preload("res://assets/character_parts/character_parts_normals/shirtless_walk_work_gray_normal.png")
+		},
+		"3": { # Kadın köylü (v3) - iş pozu için ayrı çizim yok, "walk" pozundaki clothes3'ü ödünç alır
+			"diffuse": preload("res://assets/character_parts/clothing/Clothes3_walk.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/shirt_walk_gray_normal.png")
 		}
 	},
 	"mouth": {
@@ -217,6 +292,16 @@ var walk_work_textures = {
 		"style2": { # Stil adı dosya adından çıkarılacak ('style2')
 			"diffuse": preload("res://assets/character_parts/hair/hair_style2_walk_work_gray.png"), # Doğrulandı
 			"normal": preload("res://assets/character_parts/character_parts_normals/hair_style2_walk_work_gray_normal.png") # Doğrulandı
+		},
+		"style3": { # Kadın köylü (v3) - iş pozu için ayrı çizim yok, "walk" pozundaki Hair3'ü ödünç alır
+			"diffuse": preload("res://assets/character_parts/hair/Hair3_walk.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/hair_style1_walk_gray_normal.png")
+		}
+	},
+	"hat": {
+		"hat3": { # Kadın köylü (v3) - yazma, eski karşılığı yok, normal map yok
+			"diffuse": preload("res://assets/character_parts/hat/hat3_walk_work.png"),
+			"normal": null
 		}
 	},
 }
@@ -225,7 +310,6 @@ var tool_normal_textures = { # Aletlerin normal map'leri
 	"wood": preload("res://assets/character_parts/character_parts_normals/walk_work_tool_axe_normal.png"),
 	"stone": preload("res://assets/character_parts/character_parts_normals/walk_work_tool_pickaxe_normal.png"),
 	"food": preload("res://assets/character_parts/character_parts_normals/walk_work_tool_hoe_normal.png"), # Çapa varsayıldı
-	"water": preload("res://assets/character_parts/character_parts_normals/walk_work_tool_bucket_normal.png"),
 	# Diğer iş tipleri için eklenebilir...
 }
 # <<< YENİ SONU >>>
@@ -253,6 +337,10 @@ var idle_sit_textures = {
 		"default": {
 			"diffuse": preload("res://assets/character_parts/body/body_sit.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/body_sit_normal.png")
+		},
+		"female": { # Kadın köylü (v3) - kendi normal map'i yok, "default"ninkini kullanır
+			"diffuse": preload("res://assets/character_parts/body/body3_sit.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/body_sit_normal.png")
 		}
 	},
 	"pants": {
@@ -263,7 +351,11 @@ var idle_sit_textures = {
 		"short": { # Assuming pants2 maps to short
 			"diffuse": preload("res://assets/character_parts/pants/pants2_sit.png"),
 			"normal": null # Normal map file not found
-		} # No sit texture found for short pants
+		}, # No sit texture found for short pants
+		"3": { # Kadın köylü (v3) - pants3 zorunlu, kendi normal map'i yok, "basic"ninkini kullanır
+			"diffuse": preload("res://assets/character_parts/pants/pants3_sit.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/pants1_sit_normal.png")
+		}
 	},
 	"clothing": {
 		"shirt": { # Assuming Clothes1 maps to shirt
@@ -273,16 +365,24 @@ var idle_sit_textures = {
 		"shirtless": { # Assuming Clothes2 maps to shirtless
 			"diffuse": preload("res://assets/character_parts/clothing/Clothes2_sit.png"),
 			"normal": null # Normal map file not found
-		} # No sit texture found for shirtless
+		}, # No sit texture found for shirtless
+		"3": { # Kadın köylü (v3) - clothes3 zorunlu, kendi normal map'i yok, "shirt"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/clothing/Clothes3_sit.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/Clothes1_sit_normal.png")
+		}
 	},
 	"mouth": {
 		"1": { # Assuming mouth1 maps to 1
 			"diffuse": preload("res://assets/character_parts/mouth/mouth1_sit.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/mouth1_sit_normal.png")
 		},
-		"2": { 
-			"diffuse": preload("res://assets/character_parts/mouth/mouth2_sit.png"), 
+		"2": {
+			"diffuse": preload("res://assets/character_parts/mouth/mouth2_sit.png"),
 			"normal": null # Normal map file not found
+		},
+		"3": { # Kadın köylü (v3) - kendi normal map'i yok, "1"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/mouth/mouth3_sit.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/mouth1_sit_normal.png")
 		}
 	},
 	"eyes": {
@@ -310,9 +410,19 @@ var idle_sit_textures = {
 			"diffuse": preload("res://assets/character_parts/hair/Hair1_sit.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/Hair1_sit_normal.png")
 		},
-		"style2": { 
-			"diffuse": preload("res://assets/character_parts/hair/Hair2_sit.png"), 
+		"style2": {
+			"diffuse": preload("res://assets/character_parts/hair/Hair2_sit.png"),
 			"normal": null # Normal map file not found
+		},
+		"style3": { # Kadın köylü (v3) - kendi normal map'i yok, "style1"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/hair/Hair3_sit.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/Hair1_sit_normal.png")
+		}
+	},
+	"hat": {
+		"hat3": { # Kadın köylü (v3) - yazma, eski karşılığı yok, normal map yok
+			"diffuse": preload("res://assets/character_parts/hat/hat3_sit.png"),
+			"normal": null
 		}
 	}
 }
@@ -324,6 +434,10 @@ var idle_lie_textures = {
 		"default": {
 			"diffuse": preload("res://assets/character_parts/body/body_lie.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/body_lie_normal.png")
+		},
+		"female": { # Kadın köylü (v3) - kendi normal map'i yok, "default"ninkini kullanır
+			"diffuse": preload("res://assets/character_parts/body/body3_lie.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/body_lie_normal.png")
 		}
 	},
 	"pants": {
@@ -334,6 +448,10 @@ var idle_lie_textures = {
 		"short": { # Assuming pants2 maps to short
 			"diffuse": preload("res://assets/character_parts/pants/pants2_lie.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/pants2_lie_normal.png")
+		},
+		"3": { # Kadın köylü (v3) - pants3 zorunlu, kendi normal map'i yok, "basic"ninkini kullanır
+			"diffuse": preload("res://assets/character_parts/pants/pants3_lie.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/pants1_lie_normal.png")
 		}
 	},
 	"clothing": {
@@ -344,6 +462,10 @@ var idle_lie_textures = {
 		"shirtless": { # Assuming Clothes2 maps to shirtless
 			"diffuse": preload("res://assets/character_parts/clothing/Clothes2_lie.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/Clothes2_lie_normal.png")
+		},
+		"3": { # Kadın köylü (v3) - clothes3 zorunlu, kendi normal map'i yok, "shirt"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/clothing/Clothes3_lie.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/Clothes1_lie_normal.png")
 		}
 	},
 	"mouth": {
@@ -384,6 +506,16 @@ var idle_lie_textures = {
 		"style2": { # Assuming Hair2 maps to style2
 			"diffuse": preload("res://assets/character_parts/hair/Hair2_lie.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/Hair2_lie_normal.png")
+		},
+		"style3": { # Kadın köylü (v3) - kendi normal map'i yok, "style1"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/hair/Hair3_lie.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/Hair1_lie_normal.png")
+		}
+	},
+	"hat": {
+		"hat3": { # Kadın köylü (v3) - yazma, eski karşılığı yok, normal map yok
+			"diffuse": preload("res://assets/character_parts/hat/Hat3_lie.png"),
+			"normal": null
 		}
 	}
 }
@@ -452,6 +584,16 @@ var idle_drink_textures = {
 		"style2": { # Assuming Hair2 maps to style2
 			"diffuse": preload("res://assets/character_parts/hair/Hair2_drink.png"),
 			"normal": preload("res://assets/character_parts/character_parts_normals/Hair2_drink_normal.png")
+		},
+		"style3": { # Kadın köylü (v3) - kendi normal map'i yok, "style1"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/hair/Hair3_drink.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/Hair1_drink_normal.png")
+		}
+	},
+	"hat": {
+		"hat3": { # Kadın köylü (v3) - yazma, eski karşılığı yok, normal map yok
+			"diffuse": preload("res://assets/character_parts/hat/hat3_drink.png"),
+			"normal": null
 		}
 	}
 	# Optional: Add held item textures if the drink animation requires one
@@ -478,6 +620,10 @@ var walk_textures = {
 		"short": {
 			"diffuse": preload("res://assets/character_parts/pants/pants_short_walk_gray.png"), # _work yok
 			"normal": preload("res://assets/character_parts/character_parts_normals/pants_short_walk_gray_normal.png") # _work yok
+		},
+		"3": { # Kadın köylü (v3) - pants3 zorunlu, kendi normal map'i yok, "basic"ninkini kullanır
+			"diffuse": preload("res://assets/character_parts/pants/pants3_walk.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/pants_basic_walk_gray_normal.png")
 		}
 	},
 	"clothing": {
@@ -488,6 +634,10 @@ var walk_textures = {
 		"shirtless": {
 			 "diffuse": preload("res://assets/character_parts/clothing/shirtless_walk_gray.png"), # _work yok
 			 "normal": preload("res://assets/character_parts/character_parts_normals/shirtless_walk_gray_normal.png") # _work yok
+		},
+		"3": { # Kadın köylü (v3) - clothes3 zorunlu, kendi normal map'i yok, "shirt"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/clothing/Clothes3_walk.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/shirt_walk_gray_normal.png")
 		}
 	},
 	"mouth": {
@@ -498,6 +648,10 @@ var walk_textures = {
 		"2": {
 			"diffuse": preload("res://assets/character_parts/mouth/mouth2_walk.png"), # _work yok
 			"normal": preload("res://assets/character_parts/character_parts_normals/mouth2_walk_normal.png") # _work yok
+		},
+		"3": { # Kadın köylü (v3) - kendi normal map'i yok, "1"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/mouth/mouth3_walk.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/mouth1_walk_normal.png")
 		}
 	},
 	"eyes": {
@@ -529,6 +683,16 @@ var walk_textures = {
 		"style2": {
 			"diffuse": preload("res://assets/character_parts/hair/hair_style2_walk_gray.png"), # _work yok
 			"normal": preload("res://assets/character_parts/character_parts_normals/hair_style2_walk_gray_normal.png") # _work yok
+		},
+		"style3": { # Kadın köylü (v3) - kendi normal map'i yok, "style1"inkini kullanır
+			"diffuse": preload("res://assets/character_parts/hair/Hair3_walk.png"),
+			"normal": preload("res://assets/character_parts/character_parts_normals/hair_style1_walk_gray_normal.png")
+		}
+	},
+	"hat": {
+		"hat3": { # Kadın köylü (v3) - yazma, eski karşılığı yok, normal map yok
+			"diffuse": preload("res://assets/character_parts/hat/hat3_walk.png"),
+			"normal": null
 		}
 	},
 }
@@ -658,6 +822,8 @@ func _ready_dungeon_prisoner() -> void:
 			$BeardSprite.position.y += 3
 		if is_instance_valid($HairSprite):
 			$HairSprite.position.y += 3
+		if is_instance_valid($HatSprite):
+			$HatSprite.position.y += 3
 	# Zindanda konuşma/etkileşim yok: etkileşim butonunu gizle ve devre dışı bırak
 	if $InteractButton:
 		$InteractButton.hide()
@@ -896,10 +1062,12 @@ func _physics_process(delta: float) -> void:
 			State.GOING_TO_SLEEP, \
 			State.GUEST_DEPARTING:
 				target_anim = "walk"
-			State.FETCHING_RESOURCE, \
 			State.WORKING_OFFSCREEN, \
 			State.RETURNING_FROM_WORK:
 				target_anim = "walk_tool"
+			State.FETCHING_RESOURCE:
+				# Malzemeyi almaya giderken elinde henüz bir şey yok, düz yürüsün.
+				target_anim = "walk"
 			State.RETURNING_FROM_FETCH:
 				target_anim = "walk_carry"
 			# AWAKE_IDLE ve SOCIALIZING için hareket sadece _current_idle_activity == "wandering" ise olur
@@ -1167,8 +1335,9 @@ func _physics_process(delta: float) -> void:
 				var is_work_start_hour = current_hour == TimeManager.WORK_START_HOUR
 				var passed_offset = current_minute >= work_start_minute_offset
 				
-				# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
-				if is_work_time and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
+				# Çalışma saatleri içindeyse, bugün vardiyaya henüz başlamadıysa ve (ilk çalışma
+				# saatinde değilse VEYA dakika offset'i geçmişse) işe git
+				if is_work_time and not _has_started_shift_today() and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
 					#print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
 					current_state = State.GOING_TO_BUILDING_FIRST
 					move_target_x = assigned_building_node.global_position.x
@@ -1176,6 +1345,7 @@ func _physics_process(delta: float) -> void:
 					idle_activity_timer.stop() # Aktiviteyi durdur
 					_is_briefly_idling = false # <<< Reset flag >>>
 					_current_idle_activity = "" # <<< Reset activity >>>
+					_mark_shift_started_today()
 					return
 
 			# 3. Idle Aktivite Mantığı (Refactored)
@@ -1582,6 +1752,8 @@ func _physics_process(delta: float) -> void:
 					#else:
 						#printerr("Worker %d: Building %s has no finished_fetching method!" % [worker_id, assigned_building_node.name])
 					if is_instance_valid(held_item_sprite): held_item_sprite.hide()
+					_fetch_resource_type = ""
+					if is_instance_valid(carried_item_icon): carried_item_icon.hide()
 
 		_:
 			pass # Bilinmeyen veya henüz işlenmeyen durumlar
@@ -1801,6 +1973,9 @@ func _on_fetching_timer_timeout():
 		move_target_x = global_position.x + randf_range(-wander_range, wander_range)
 		if is_instance_valid(held_item_sprite):
 			held_item_sprite.hide()
+		_fetch_resource_type = ""
+		if is_instance_valid(carried_item_icon):
+			carried_item_icon.hide()
 		return
 	# <<< YENİ KONTROL SONU >>>
 		
@@ -1819,7 +1994,9 @@ func _on_fetching_timer_timeout():
 			
 		# 2. İhtiyaç duyulan kaynaklardan birini rastgele seç
 		var resource_to_fetch = required.keys()[randi() % required.size()]
-		
+		# Görsel amaçlı: dönüş yolculuğunda hangi ikonun gösterileceğini hatırla.
+		_fetch_resource_type = resource_to_fetch
+
 		
 		# 3. VillageManager'dan o kaynağı üreten binanın konumunu al
 		var target_pos = VillageManager.get_source_building_position(resource_to_fetch)
@@ -1881,25 +2058,52 @@ func get_style_from_texture_path(path: String) -> String:
 	var parts = base_name.split("_")
 	if parts.is_empty(): return "default"
 
+	var first_lower = parts[0].to_lower()
+
 	# Clothing için özel kontrol (örn: shirt_walk_gray)
 	if parts[0] == "shirt" or parts[0] == "shirtless":
 		return parts[0] # Stil adı ilk parça
-	# Mouth ve Eyes için özel kontrol (örn: mouth1, eyes2)
+	# Kadın köylü (v3) üst kıyafeti: Clothes3_walk.png gibi numaralı isimler
+	elif first_lower.begins_with("clothes") and first_lower.trim_prefix("clothes").is_valid_int():
+		return first_lower.trim_prefix("clothes")
+	# Mouth ve Eyes için özel kontrol (örn: mouth1, eyes2, mouth3)
 	elif parts[0].begins_with("mouth"):
 		var style_num = parts[0].trim_prefix("mouth")
 		if style_num.is_valid_int(): return style_num
 	elif parts[0].begins_with("eyes"):
 		var style_num = parts[0].trim_prefix("eyes")
 		if style_num.is_valid_int(): return style_num
+	# Kadın köylü (v3) saçı: Hair3_walk.png gibi numaralı isimler -> "style3" olarak normalize edilir
+	elif first_lower.begins_with("hair") and first_lower.trim_prefix("hair").is_valid_int():
+		return "style" + first_lower.trim_prefix("hair")
+	# Kadın köylü (v3) pantolonu: pants3_walk.png gibi numaralı isimler
+	elif first_lower.begins_with("pants") and first_lower.trim_prefix("pants").is_valid_int():
+		return first_lower.trim_prefix("pants")
 	# Diğer parçalar için stil anahtar kelimelerini kontrol et (örn: pants_basic, hair_style1)
 	else:
-		var style_keywords = ["basic", "short", "style1", "style2"] # Giyim stilleri yukarıda ele alındı
+		var style_keywords = ["basic", "short", "style1", "style2", "style3"] # Giyim stilleri yukarıda ele alındı
 		for i in range(1, parts.size()):
 			if parts[i] in style_keywords:
 				return parts[i]
 
 	# Hiçbir stil bulunamazsa (örn. body)
 	return "default"
+# <<< YENİ SONU >>>
+
+# <<< YENİ: Kadın Köylü (v3) Stil Fallback Zinciri >>>
+# Bir animasyon setinde v3 stili tanımlı değilse (örn. o poz için henüz çizilmedi),
+# aynı kategori için eski/varsayılan stile düşülür — böylece pozla uyumsuz görsel yerine
+# doğru poza sahip eski asset kullanılır.
+const STYLE_FALLBACK_CHAIN = {
+	"body": {"female": "default"},
+	"hair": {"style3": "style1"},
+	"clothing": {"3": "shirt"},
+	"pants": {"3": "basic"},
+	"mouth": {"3": "1"},
+}
+
+func _is_female_villager() -> bool:
+	return NPC_Info.has("Info") and typeof(NPC_Info["Info"]) == TYPE_DICTIONARY and String(NPC_Info["Info"].get("Gender", "")) == "Female"
 # <<< YENİ SONU >>>
 
 # <<< YENİ: Animasyon Oynatma Fonksiyonu (Genişletilmiş) >>>
@@ -1916,7 +2120,20 @@ func play_animation(anim_name: String):
 	_current_animation_name = anim_name # Update tracked state *immediately*
 
 	# 1. Animasyonu Oynat
-	animation_player.play(anim_name)
+	# <<< DÜZELTME: "idle" ve "walk_carry" gibi bazı isimlerin AnimationPlayer'da klibi yok.
+	# play() böyle bir isimle çağrılırsa sessizce başarısız olur ve ÖNCEKİ klip (örn. "sit")
+	# arka planda dönmeye devam eder — bu da HairSprite/HatSprite:frame'i her karede eski
+	# klibin zaman çizelgesine göre üzerine yazıp rastgele/karışık bir kare göstermesine yol
+	# açıyordu (renklerin "bozuk" görünmesinin asıl sebebi buydu). Klip yoksa açıkça durduruyoruz. >>>
+	if animation_player.has_animation(anim_name):
+		animation_player.play(anim_name)
+	elif anim_name == "walk_carry" and animation_player.has_animation("walk_tool"):
+		# "walk_carry"nin kendi klibi yok ama aynı "work" pozunu (walk_work_textures)
+		# kullanıyor — bacak/gövde hareketi walk_tool ile birebir aynı olduğu için
+		# o klibi ödünç alıyoruz, yoksa karakter donuk (animasyonsuz) yürürdü.
+		animation_player.play("walk_tool")
+	else:
+		animation_player.stop()
 	# Seek to 0 for default animations
 	if anim_name == "idle" or anim_name == "walk":
 		if animation_player.has_animation(anim_name): # Check if animation exists
@@ -1948,9 +2165,9 @@ func play_animation(anim_name: String):
 			texture_set_to_use = idle_lie_textures
 		"drink":
 			texture_set_to_use = idle_drink_textures
-		"walk_carry": # Assuming walk_carry uses the same base textures as walk/work
-			texture_set_to_use = walk_work_textures # Needs verification
-			hide_held_item = true # Currently no visual item for walk_carry
+		"walk_carry": # Malzeme taşırken de "work" pozu (elde bir şey tutan) kullanılır
+			texture_set_to_use = walk_work_textures
+			hide_held_item = false # carry aleti aşağıda gösterilecek
 		_:
 			#printerr("Worker %d: Unknown animation name '%s' in play_animation. Using default visuals." % [worker_id, anim_name])
 			texture_set_to_use = walk_work_textures # Fallback
@@ -1961,9 +2178,14 @@ func play_animation(anim_name: String):
 		# --- Texture Seti Kullan --- 
 		var parts_to_update = {
 			"body": body_sprite, "pants": pants_sprite, "clothing": clothing_sprite,
-			"mouth": mouth_sprite, "eyes": eyes_sprite, "beard": beard_sprite, "hair": hair_sprite
+			"mouth": mouth_sprite, "eyes": eyes_sprite, "beard": beard_sprite, "hair": hair_sprite,
+			"hat": hat_sprite
 		}
 		# <<< MOVED: Frame reset check >>>
+		# "idle" için gerçek klip yok (AnimationPlayer durduruldu), bu yüzden kareyi
+		# burada elle sıfırlamazsak eski klipten kalan rastgele bir değerde donup kalır.
+		# "walk_carry" artık ödünç aldığı "walk_tool" klibiyle akıyor, elle sıfırlamaya
+		# gerek yok — aksi halde walk_tool'dan geçişte kareyi 0'a zıplatıp sekme yaratır.
 		var reset_frame = (anim_name == "idle" or anim_name == "walk")
 
 		for part_name in parts_to_update:
@@ -1978,6 +2200,7 @@ func play_animation(anim_name: String):
 					"eyes": original_canvas_texture = appearance.eyes_texture
 					"beard": original_canvas_texture = appearance.beard_texture
 					"hair": original_canvas_texture = appearance.hair_texture
+					"hat": original_canvas_texture = appearance.hat_texture
 
 			if not is_instance_valid(sprite):
 				# Don't hide if original_canvas_texture is invalid but sprite is fine
@@ -1989,6 +2212,19 @@ func play_animation(anim_name: String):
 
 			var original_diffuse_path = original_canvas_texture.diffuse_texture.resource_path if is_instance_valid(original_canvas_texture.diffuse_texture) else ""
 			var style = get_style_from_texture_path(original_diffuse_path)
+			# Kadın köylü (v3): body stili taban dokudan çıkarılamaz (erkekle aynı dosya paylaşılıyor),
+			# bu yüzden açıkça override ediyoruz.
+			if part_name == "body" and _is_female_villager():
+				style = "female"
+			elif part_name == "hat":
+				# Yazmanın tek stili var, taban dokudan çıkarmaya gerek yok.
+				style = "hat3"
+			# İstenen stil bu animasyon setinde tanımlı değilse (v3 o poz için henüz çizilmediyse),
+			# aynı kategori için tanımlı eski/varsayılan stile düş — doğru poz korunmuş olur.
+			if texture_set_to_use.has(part_name) and not texture_set_to_use[part_name].has(style):
+				var fallback_style: String = STYLE_FALLBACK_CHAIN.get(part_name, {}).get(style, "")
+				if fallback_style != "" and texture_set_to_use[part_name].has(fallback_style):
+					style = fallback_style
 
 			if texture_set_to_use.has(part_name) and texture_set_to_use[part_name].has(style):
 				var textures = texture_set_to_use[part_name][style]
@@ -2013,12 +2249,17 @@ func play_animation(anim_name: String):
 					"clothing": sprite.modulate = appearance.clothing_tint
 					"beard": sprite.modulate = appearance.hair_tint
 					"hair": sprite.modulate = appearance.hair_tint
+					"hat": sprite.modulate = appearance.hat_tint
 					_: sprite.modulate = Color.WHITE
 
 				sprite.show()
 				# <<< MOVED: Reset frame here >>>
 				if reset_frame:
 					sprite.frame = 0
+			elif part_name == "hat":
+				# Yazmanın eski/erkek karşılığı yok — bu poz için v3 çizilmediyse
+				# yanlış poz göstermek yerine sadece gizle.
+				sprite.hide()
 			else:
 				# Fallback: Use original texture from appearance if specific style/part not found in target set
 				# #print("Using original texture for %s in %s because style %s not found in set" % [part_name, anim_name, style]) # Debug
@@ -2036,6 +2277,9 @@ func play_animation(anim_name: String):
 					sprite.frame = 0
 
 		# --- Alet/Held Item Ayarı ---
+		# Taşınan kaynak rozeti varsayılan olarak gizli; sadece walk_carry'de gösterilir.
+		if is_instance_valid(carried_item_icon):
+			carried_item_icon.hide()
 		if anim_name == "walk_tool":
 			if is_instance_valid(held_item_sprite):
 				# <<< YENİ DEBUG: walk_tool içinde >>>
@@ -2058,6 +2302,23 @@ func play_animation(anim_name: String):
 					# <<< YENİ DEBUG SONU >>>
 					held_item_sprite.hide()
 					hide_held_item = true
+		elif anim_name == "walk_carry":
+			if is_instance_valid(held_item_sprite) and carry_tool_texture != null:
+				var carry_canvas_texture = CanvasTexture.new()
+				carry_canvas_texture.diffuse_texture = carry_tool_texture
+				held_item_sprite.texture = carry_canvas_texture
+				held_item_sprite.modulate = Color.WHITE
+				held_item_sprite.show()
+				hide_held_item = false
+			# Taşınan kaynağa göre küçük bir rozet göster (fiilen fetch edilen kaynak; yoksa iş çıktısına düş).
+			if is_instance_valid(carried_item_icon):
+				var carried_key: String = _fetch_resource_type if not _fetch_resource_type.is_empty() else assigned_job_type
+				var carried_tex: Texture2D = _get_carried_icon_texture(carried_key)
+				if carried_tex != null:
+					carried_item_icon.texture = carried_tex
+					carried_item_icon.show()
+				else:
+					carried_item_icon.hide()
 		# elif anim_name == "drink": # Add logic for other items if needed
 
 		# --- Gizle (Eğer hide_held_item true ise) ---
@@ -2092,7 +2353,7 @@ func play_animation(anim_name: String):
 	# Tüm sprite'lar için frame sayılarını ayarla
 	var sprites_to_set_frames = [
 		body_sprite, pants_sprite, clothing_sprite, mouth_sprite,
-		eyes_sprite, beard_sprite, hair_sprite, held_item_sprite
+		eyes_sprite, beard_sprite, hair_sprite, hat_sprite, held_item_sprite
 	]
 	for sprite in sprites_to_set_frames:
 		if is_instance_valid(sprite):
@@ -2128,7 +2389,7 @@ func _distance_gather_vm() -> Node:
 
 func _is_basic_resource_gather_job() -> bool:
 	match assigned_job_type:
-		"wood", "stone", "food", "water":
+		"wood", "stone", "food":
 			return true
 		_:
 			return false
@@ -2174,6 +2435,21 @@ func _has_active_basic_gather_expedition() -> bool:
 	if vm != null and vm.has_method("has_active_basic_gather_expedition_for_worker"):
 		return bool(vm.has_active_basic_gather_expedition_for_worker(worker_id))
 	return false
+
+
+## VillageManager tarafında bu işçi için bugüne ait bir sefer kaydı (aktif ya da tamamlanmış)
+## varsa, Worker'ın kendi "bugün vardiyaya başladım" kilidini de aynı bilgiye çeker. Sefer,
+## Worker'ın kendi AWAKE_IDLE geçişinden değil de VillageManager'ın arka plan/zaman-atlama
+## yollarından biri tarafından başlatılmış olabilir; bu fonksiyon olmadan Worker bunu asla
+## öğrenemez ve aynı gün içinde köylüyü ikinci kez işe göndermeye kalkar.
+func _sync_shift_flag_with_gather_departure() -> void:
+	if _has_started_shift_today():
+		return
+	if not _is_basic_resource_gather_job():
+		return
+	var vm := _distance_gather_vm()
+	if vm != null and vm.has_method("has_departed_today_for_worker") and bool(vm.has_departed_today_for_worker(worker_id)):
+		_mark_shift_started_today()
 
 
 func _should_start_work_shift_now() -> bool:
@@ -2371,6 +2647,10 @@ func apply_time_skip_presence(hour: int, minute: int) -> void:
 		return
 	if fetching_timer and not fetching_timer.is_stopped():
 		fetching_timer.stop()
+	# VillageManager sefer kaydı Worker'ın kendi state machine'inden geçmeden (zaman atlama,
+	# arka plan tick vb.) başlamış/tamamlanmış olabilir; bu durumda _last_shift_start_day
+	# hâlâ eski kalır ve köylü aynı gün ikinci kez işe gönderilir. Burada senkronla.
+	_sync_shift_flag_with_gather_departure()
 	# Hâlâ seferdeyse ekran dışında kalsın (süre dolmadı).
 	if _is_gather_worker_away_on_expedition():
 		current_state = State.WORKING_OFFSCREEN
@@ -2516,14 +2796,15 @@ func check_hour_transition(new_hour: int) -> void:
 					# İlk çalışma saatinde ise dakika kontrolü de yap (offset'e göre)
 					var is_work_start_hour = new_hour == TimeManager.WORK_START_HOUR
 					var passed_offset = current_minute >= work_start_minute_offset
-					# Çalışma saatleri içindeyse ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
-					if (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
+					# Bugün vardiyaya henüz başlamadıysa ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
+					if not _has_started_shift_today() and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
 						current_state = State.GOING_TO_BUILDING_FIRST
 						move_target_x = assigned_building_node.global_position.x
 						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 						idle_activity_timer.stop()
 						_is_briefly_idling = false
 						_current_idle_activity = ""
+						_mark_shift_started_today()
 
 # Bir sonraki boş zaman/sosyalleşme adımını başlatır
 func _start_next_idle_step():

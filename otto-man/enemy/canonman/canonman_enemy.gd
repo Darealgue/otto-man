@@ -68,8 +68,8 @@ func _ready() -> void:
 	super._ready()
 	
 	# Set sleep distances for performance optimization
-	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
-	wake_distance = 1200.0  # Distance at which enemy wakes up
+	sleep_distance = 1600.0
+	wake_distance = 1500.0
 	
 	# Try to load smoke texture lazily to avoid preload errors
 	if launch_smoke_texture == null:

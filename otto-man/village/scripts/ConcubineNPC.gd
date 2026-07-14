@@ -1275,6 +1275,10 @@ func interact() -> void:
 		host.open_concubine_missions(c)
 
 
+func _on_interact_button_pressed() -> void:
+	interact()
+
+
 func ShowInteractButton() -> void:
 	if not _interact_hint or not can_interact():
 		return
@@ -1287,6 +1291,14 @@ func ShowInteractButton() -> void:
 func HideInteractButton() -> void:
 	if _interact_hint:
 		_interact_hint.visible = false
+
+
+func CloseNpcWindow() -> void:
+	if is_dungeon_prisoner:
+		return
+	var host := VillageWorldPopups.get_host()
+	if host and host.has_method("close_concubine_missions_for"):
+		host.close_concubine_missions_for(concubine_id)
 
 
 func _on_interact_body_entered(body: Node2D) -> void:

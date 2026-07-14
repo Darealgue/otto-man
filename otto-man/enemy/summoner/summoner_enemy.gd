@@ -51,8 +51,8 @@ func _ready() -> void:
 	call_deferred("_summoner_apply_hp_tankiness_and_healthbar")
 	
 	# Set sleep distances for performance optimization
-	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
-	wake_distance = 1200.0  # Distance at which enemy wakes up
+	sleep_distance = 1600.0
+	wake_distance = 1500.0
 	
 	# Summoner uses collision mask like Turtle - no debug needed
 	

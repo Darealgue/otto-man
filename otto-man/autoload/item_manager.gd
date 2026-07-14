@@ -8,12 +8,14 @@ signal item_activated(item: ItemEffect)
 signal item_deactivated(item: ItemEffect)
 signal item_set_activated(set_id: String)
 signal item_set_deactivated(set_id: String)
+signal xp_orbs_collected_changed(count: int)
 
 var player: CharacterBody2D
 var active_items: Array[ItemEffect] = []
 var active_item_sets: Array[String] = []
 var _set_bonus_cache: Dictionary = {}
 var enemy_kill_count: int = 0
+var xp_orbs_collected: int = 0  # Xp orb'u oyuncuya ulaştığında artar (bar + kart seçimi buna göre tetiklenir)
 const KILLS_PER_ITEM: int = 10  # Her 10 kill'de item seçimi
 
 # Item selection UI
@@ -91,6 +93,44 @@ const ITEM_SCENES: Dictionary = {
 	"sessiz_ayakkabi": preload("res://resources/items/sessiz_ayakkabi.tscn"),
 	"golge_pelerini": preload("res://resources/items/golge_pelerini.tscn"),
 	"elemental_odak": preload("res://resources/items/elemental_odak.tscn"),
+	# --- Dalga 1: yeni itemler (docs/ZINDAN_ITEM_FIKIRLERI.md) ---
+	"ok_yagmuru": preload("res://resources/items/ok_yagmuru.tscn"),
+	"pala_kilici": preload("res://resources/items/pala_kilici.tscn"),
+	"cenk_meydani": preload("res://resources/items/cenk_meydani.tscn"),
+	"keskin_nazar": preload("res://resources/items/keskin_nazar.tscn"),
+	"taskin_guc": preload("res://resources/items/taskin_guc.tscn"),
+	"ruh_akisi": preload("res://resources/items/ruh_akisi.tscn"),
+	"sansli_nal": preload("res://resources/items/sansli_nal.tscn"),
+	"sadik_golge": preload("res://resources/items/sadik_golge.tscn"),
+	# --- Dalga 2: menzilli vuruş yükseltmeleri ---
+	"yansiyan_ok": preload("res://resources/items/yansiyan_ok.tscn"),
+	"ruzgarin_nisani": preload("res://resources/items/ruzgarin_nisani.tscn"),
+	"yanki_oku": preload("res://resources/items/yanki_oku.tscn"),
+	"kartal_bakisi": preload("res://resources/items/kartal_bakisi.tscn"),
+	"gerilmis_yay": preload("res://resources/items/gerilmis_yay.tscn"),
+	# --- Dalga 3: tuzak / patlama / bağışıklık / meta ---
+	"tuzak_fisildayan": preload("res://resources/items/tuzak_fisildayan.tscn"),
+	"barut_zirhi": preload("res://resources/items/barut_zirhi.tscn"),
+	"kara_barut": preload("res://resources/items/kara_barut.tscn"),
+	"panzehir_derisi": preload("res://resources/items/panzehir_derisi.tscn"),
+	"falci_kadin": preload("res://resources/items/falci_kadin.tscn"),
+	# --- Dalga 4: parry & mobilite ---
+	"golge_adimi": preload("res://resources/items/golge_adimi.tscn"),
+	"firlatma_parry": preload("res://resources/items/firlatma_parry.tscn"),
+	"hayalet_adim": preload("res://resources/items/hayalet_adim.tscn"),
+	"sekme_tabanligi": preload("res://resources/items/sekme_tabanligi.tscn"),
+	"duvar_ustasi": preload("res://resources/items/duvar_ustasi.tscn"),
+	"son_kale": preload("res://resources/items/son_kale.tscn"),
+	# --- Dalga 5: ceset ekonomisi ---
+	"les_gazi": preload("res://resources/items/les_gazi.tscn"),
+	"ceset_tekmesi": preload("res://resources/items/ceset_tekmesi.tscn"),
+	# --- Dalga 6: element ustalığı II + stamina büyüsü ---
+	"element_izi": preload("res://resources/items/element_izi.tscn"),
+	"cuppe_degil_zirh": preload("res://resources/items/cuppe_degil_zirh.tscn"),
+	"element_degisimi": preload("res://resources/items/element_degisimi.tscn"),
+	"cevher_dili": preload("res://resources/items/cevher_dili.tscn"),
+	"yikim_muhru": preload("res://resources/items/yikim_muhru.tscn"),
+	"kan_bedeli": preload("res://resources/items/kan_bedeli.tscn"),
 }
 
 # Ön koşul: bu item_id sadece listelenen item'lar aktifken seçenekte çıkar (örn. Kum Saati → Zaman Durdurucu)
@@ -98,6 +138,17 @@ const ITEM_REQUIREMENTS: Dictionary = {
 	"kum_saati": ["zaman_durdurucu"],
 	"karagoz_laneti": ["ortaoyunu"],
 	"hacivat_golgesi": ["ortaoyunu"],
+	"sadik_golge": ["ruh_avcisi"],
+}
+
+# Ön koşul (VEYA): listedeki item'lardan EN AZ BİRİ aktifse seçenekte çıkar
+const ITEM_REQUIREMENTS_ANY: Dictionary = {
+	"yansiyan_ok": ["uzun_menzil", "ok_yagmuru"],
+	"ruzgarin_nisani": ["uzun_menzil", "ok_yagmuru"],
+	"yanki_oku": ["uzun_menzil", "ok_yagmuru"],
+	"kartal_bakisi": ["uzun_menzil", "ok_yagmuru"],
+	"gerilmis_yay": ["uzun_menzil", "ok_yagmuru"],
+	"kan_bedeli": ["cevher_dili", "yikim_muhru"],
 }
 
 ## 2 parça = set bonusu (geri bildirim build — 4 set)
@@ -322,6 +373,8 @@ func clear_all_items() -> void:
 	active_item_sets.clear()
 	_set_bonus_cache.clear()
 	enemy_kill_count = 0  # Sonraki zindan run için sıfırla
+	xp_orbs_collected = 0
+	xp_orbs_collected_changed.emit(xp_orbs_collected)
 	print("[ItemManager] 🗑️ All items cleared")
 
 ## Zindan/orman/test_level: ölen düşmandan bazen fiziksel altın (seviye çarpanı ile).
@@ -359,6 +412,40 @@ func _is_summoner_spawned_flying_for_loot(enemy: Node2D) -> bool:
 	# Typed class referansi (FlyingEnemy) her sahnede scope'da olmayabilir.
 	# Summoner spawn kuslari zaten meta ile isaretleniyor; parser-safe kontrol.
 	return bool(enemy.get_meta("summoner_summoned_bird", false))
+
+
+## Ölen düşmandan oyuncuya uçan beyaz "xp" partikülü (toplanan xp'nin görsel karşılığı).
+const XpOrbScene = preload("res://effects/xp_orb.tscn")
+
+func _spawn_xp_orb(enemy: Node2D) -> void:
+	if enemy == null or not is_instance_valid(enemy):
+		return
+	if not is_instance_valid(player):
+		return
+	var tree := get_tree()
+	if not tree or not tree.current_scene:
+		return
+	var orb = XpOrbScene.instantiate()
+	tree.current_scene.add_child(orb)
+	orb.launch(enemy.global_position, player)
+
+
+const EliteCorpseScene = preload("res://effects/elite_corpse.tscn")
+
+## Leş Gazı / Ceset Tekmesi: elit düşman öldüğünde kalıcı, etkileşilebilir ceset bırakır.
+func _try_spawn_elite_corpse(enemy: Node2D) -> void:
+	if not is_instance_valid(enemy):
+		return
+	if not (has_active_item("les_gazi") or has_active_item("ceset_tekmesi")):
+		return
+	if not _is_premium_enemy_for_loot(enemy):
+		return
+	var tree := get_tree()
+	if not tree or not tree.current_scene:
+		return
+	var corpse = EliteCorpseScene.instantiate()
+	tree.current_scene.add_child(corpse)
+	corpse.global_position = enemy.global_position
 
 
 func _is_premium_enemy_for_loot(enemy: Node2D) -> bool:
@@ -428,6 +515,7 @@ func _try_spawn_enemy_dungeon_gold(enemy: Node2D) -> void:
 # Called when an enemy is killed
 func on_enemy_killed(enemy: Node2D = null) -> void:
 	enemy_kill_count += 1
+	_spawn_xp_orb(enemy)
 	_try_spawn_enemy_dungeon_gold(enemy)
 	_try_drop_expedition_loot_on_kill(enemy)
 	var drs: Node = get_node_or_null("/root/DungeonRunState")
@@ -440,10 +528,17 @@ func on_enemy_killed(enemy: Node2D = null) -> void:
 			continue
 		if item.has_method("on_enemy_killed"):
 			item.on_enemy_killed(enemy)
-	
-	# Check if we've reached the kill threshold for an item (tek seçim ekranı açık olsun)
-	if enemy_kill_count % KILLS_PER_ITEM == 0 and not _item_selection_open:
-		await get_tree().create_timer(0.2).timeout
+
+	_try_spawn_elite_corpse(enemy)
+
+
+## Xp orb oyuncuya ulaştığında çağrılır (bkz. effects/xp_orb.gd). Bar ve kart seçimi
+## öldürme anında değil, partikül gerçekten toplandığında güncellenir/tetiklenir.
+func _on_xp_orb_collected() -> void:
+	xp_orbs_collected += 1
+	xp_orbs_collected_changed.emit(xp_orbs_collected)
+	if xp_orbs_collected % KILLS_PER_ITEM == 0 and not _item_selection_open:
+		await get_tree().create_timer(0.15).timeout
 		show_item_selection()
 
 
@@ -498,8 +593,8 @@ func _on_item_selection_closed() -> void:
 	_item_selection_open = false
 
 func get_random_items(count: int = 3) -> Array[PackedScene]:
-	var available_scenes: Array[PackedScene] = []
-	
+	var available_ids: Array[String] = []
+
 	for item_id in ITEM_SCENES:
 		# Zaten seçilmiş item tekrar çıkmasın
 		if has_active_item(item_id):
@@ -514,10 +609,61 @@ func get_random_items(count: int = 3) -> Array[PackedScene]:
 					break
 			if not all_met:
 				continue
-		available_scenes.append(ITEM_SCENES[item_id])
-	
-	available_scenes.shuffle()
-	return available_scenes.slice(0, min(count, available_scenes.size()))
+		# VEYA ön koşulu: listedekilerden en az biri aktif olmalı
+		if item_id in ITEM_REQUIREMENTS_ANY:
+			var any_reqs: Array = ITEM_REQUIREMENTS_ANY[item_id]
+			var any_met := false
+			for req_id in any_reqs:
+				if has_active_item(req_id):
+					any_met = true
+					break
+			if not any_met:
+				continue
+		available_ids.append(item_id)
+
+	available_ids.shuffle()
+	var picked_ids: Array[String] = available_ids.slice(0, min(count, available_ids.size()))
+
+	# Falcı Kadın: build'inde 2+ aynı kategoriden item varsa, %60 ihtimalle bir slotu o kategoriye yönlendir
+	if has_active_item("falci_kadin") and not picked_ids.is_empty():
+		var favored := _get_favored_category()
+		if favored != -1 and randf() < 0.6:
+			for candidate_id in available_ids:
+				if candidate_id in picked_ids:
+					continue
+				if _get_item_category(candidate_id) == favored:
+					picked_ids[0] = candidate_id
+					break
+
+	var result: Array[PackedScene] = []
+	for id in picked_ids:
+		result.append(ITEM_SCENES[id])
+	return result
+
+## Falcı Kadın: aktif item'lar arasında 2+ ile temsil edilen en yaygın kategoriyi döner (yoksa -1)
+func _get_favored_category() -> int:
+	var counts: Dictionary = {}
+	for item in active_items:
+		if not is_instance_valid(item):
+			continue
+		counts[item.category] = int(counts.get(item.category, 0)) + 1
+	var best_cat := -1
+	var best_count := 1
+	for cat in counts:
+		if int(counts[cat]) > best_count:
+			best_count = int(counts[cat])
+			best_cat = cat
+	return best_cat
+
+func _get_item_category(item_id: String) -> int:
+	if not ITEM_SCENES.has(item_id):
+		return -1
+	var temp = ITEM_SCENES[item_id].instantiate()
+	var cat: int = -1
+	if temp:
+		cat = temp.category
+		temp.queue_free()
+	return cat
 
 func has_item(item_id: String) -> bool:
 	for item in active_items:

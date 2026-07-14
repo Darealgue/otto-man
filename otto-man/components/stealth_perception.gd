@@ -18,6 +18,9 @@ const CollisionLayers = preload("res://resources/CollisionLayers.gd")
 @export var noise_pulse_suspicion_bonus: float = 0.28
 @export var eye_offset: Vector2 = Vector2(0.0, -18.0)
 
+const CONE_DRAW_RAY_STEPS: int = 28
+const VISION_WALL_CLIP_INSET: float = 3.0
+
 var visibility_level: VisibilityLevel = VisibilityLevel.NONE
 var suspicion_time: float = 0.0
 var watch_target: Node2D = null
@@ -53,7 +56,7 @@ func get_watch_target() -> Node2D:
 
 
 func update_perception(delta: float) -> Node2D:
-	if not active or not _is_owner_active():
+	if not active or not _is_owner_active() or not _is_owner_awake():
 		return null
 
 	var sm: Node = get_node_or_null("/root/StealthManager")
@@ -107,6 +110,12 @@ func _apply_noise_pulse_bonus(player: Node2D) -> void:
 			continue
 		_heard_pulse_ids[key] = true
 		suspicion_time += noise_pulse_suspicion_bonus
+
+
+func _is_owner_awake() -> bool:
+	if not is_instance_valid(_owner_enemy):
+		return false
+	return not bool(_owner_enemy.get("is_sleeping"))
 
 
 func _is_owner_active() -> bool:
@@ -198,32 +207,70 @@ func _is_player_in_cone(player: Node2D) -> bool:
 func _has_line_of_sight(player: Node2D) -> bool:
 	var eye := _get_eye_global()
 	var target_pos := player.global_position + Vector2(0.0, -16.0)
+	var hit_dist := _raycast_clear_distance(eye, target_pos)
+	var player_dist := eye.distance_to(target_pos)
+	return hit_dist >= player_dist - 10.0
+
+
+func _vision_obstruction_mask() -> int:
+	return CollisionLayers.WORLD | CollisionLayers.PLATFORM
+
+
+func _raycast_clear_distance(from_global: Vector2, to_global: Vector2) -> float:
 	var space := _owner_enemy.get_world_2d().direct_space_state
 	if space == null:
-		return false
-	var query := PhysicsRayQueryParameters2D.create(eye, target_pos)
-	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+		return from_global.distance_to(to_global)
+	var query := PhysicsRayQueryParameters2D.create(from_global, to_global)
+	query.collision_mask = _vision_obstruction_mask()
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
 	query.exclude = [_owner_enemy.get_rid()]
 	var result := space.intersect_ray(query)
 	if result.is_empty():
-		return true
-	var hit_dist := eye.distance_to(result.position)
-	var player_dist := eye.distance_to(target_pos)
-	return hit_dist >= player_dist - 10.0
+		return from_global.distance_to(to_global)
+	return from_global.distance_to(result.position)
+
+
+func _build_wall_clipped_cone_points(
+	apex_local: Vector2,
+	start_angle: float,
+	end_angle: float,
+	max_range: float,
+	steps: int
+) -> PackedVector2Array:
+	var points: PackedVector2Array = [apex_local]
+	var eye_global := _get_eye_global()
+	for i in range(steps + 1):
+		var t := float(i) / float(steps)
+		var ang := lerpf(start_angle, end_angle, t)
+		var dir_local := Vector2(cos(ang), sin(ang))
+		var dir_global := global_transform.basis_xform(dir_local).normalized()
+		var end_global := eye_global + dir_global * max_range
+		var hit_dist := _raycast_clear_distance(eye_global, end_global)
+		var clip_dist := clampf(hit_dist - VISION_WALL_CLIP_INSET, 4.0, max_range)
+		points.append(to_local(eye_global + dir_global * clip_dist))
+	return points
 
 
 func _process(_delta: float) -> void:
-	if not active or not _is_owner_active():
+	if not active:
 		return
+	if not _is_owner_active():
+		deactivate()
+		return
+	if not _is_owner_awake():
+		if visible:
+			visible = false
+		return
+	if not visible:
+		visible = true
 	var sm: Node = get_node_or_null("/root/StealthManager")
 	if is_instance_valid(sm) and sm.has_method("should_draw_perception") and sm.should_draw_perception():
 		queue_redraw()
 
 
 func _draw() -> void:
-	if not active or not _is_owner_active():
+	if not active or not _is_owner_active() or not _is_owner_awake():
 		return
 	var sm: Node = get_node_or_null("/root/StealthManager")
 	if not is_instance_valid(sm) or not sm.has_method("should_draw_perception") or not sm.should_draw_perception():
@@ -266,15 +313,15 @@ func _draw() -> void:
 		outline_color = Color(1.0, 0.25, 0.25, 0.8 * alpha_mult)
 
 	var apex := eye_offset
-	var points: PackedVector2Array = [apex]
-	var steps := 16
-	for i in range(steps + 1):
-		var t := float(i) / float(steps)
-		var ang := lerpf(start_angle, end_angle, t)
-		points.append(apex + Vector2(cos(ang), sin(ang)) * _get_effective_vision_range())
+	var max_range := _get_effective_vision_range()
+	var points := _build_wall_clipped_cone_points(apex, start_angle, end_angle, max_range, CONE_DRAW_RAY_STEPS)
+	if points.size() < 3:
+		return
 	draw_colored_polygon(points, cone_color)
-	for i in range(1, points.size()):
-		draw_line(points[i - 1], points[i], outline_color, 1.5)
+	draw_line(points[0], points[1], outline_color, 1.5)
+	draw_line(points[0], points[points.size() - 1], outline_color, 1.5)
+	for i in range(2, points.size()):
+		draw_line(points[i - 1], points[i], outline_color, 2.0)
 
 	if visibility_level == VisibilityLevel.SUSPICIOUS:
 		var mark_pos := eye_offset + Vector2(0.0, -22.0)

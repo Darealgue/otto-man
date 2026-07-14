@@ -30,6 +30,25 @@ var pending_attacks: Array[Dictionary] = [] # { attacker:String, warning_day:int
 const PLAYABLE_DEFENSE_GRACE_MINUTES: int = 90
 var _playable_defense_battle_active: bool = false
 
+# Gelen/giden saldırı geçmişi (Mentor menüsü "Savaş Geçmişi" sekmesi bunu okur).
+# En yeni en başta (push_front). Rehber popup'ının artık ekranda bloklayıcı bir dialog
+# göstermesine gerek yok — sonuçlar burada kalıcı olarak birikiyor.
+const COMBAT_HISTORY_MAX_ENTRIES: int = 60
+var combat_history: Array[Dictionary] = []
+
+# --- Periyodik Haydut/Kurt Baskınları ---
+# İlişkiden bağımsız, düzenli aralıklarla gelen küçük köy baskınları (asker bulundurmak için baskı).
+const PERIODIC_RAID_BANDIT_NAME: String = "Haydutlar"
+const PERIODIC_RAID_WOLF_NAME: String = "Kurtlar"
+const PERIODIC_RAID_MIN_INTERVAL_DAYS: int = 3
+const PERIODIC_RAID_MAX_INTERVAL_DAYS: int = 5
+const PERIODIC_RAID_WARNING_LEAD_HOURS: float = 24.0
+const PERIODIC_RAID_BANDIT_CHANCE: float = 0.65  # kalanı kurt saldırısı
+var _next_periodic_raid_day: int = -1
+var _next_periodic_raid_hour: float = 0.0
+var _next_periodic_raid_kind: String = ""  # "bandit" | "wolf"
+var _periodic_raid_warned: bool = false
+
 # --- Hex World Map State (Vertical Slice) ---
 const WORLD_MAP_VERSION: int = 4
 const DEFAULT_MAP_RADIUS: int = 40
@@ -138,7 +157,12 @@ func reset_world_map_state() -> void:
 	world_player_alliances.clear()
 	_passage_rights.clear()
 	pending_attacks.clear()
+	combat_history.clear()
 	_playable_defense_battle_active = false
+	_next_periodic_raid_day = -1
+	_next_periodic_raid_hour = 0.0
+	_next_periodic_raid_kind = ""
+	_periodic_raid_warned = false
 	_clear_travel_session_state()
 	world_map_updated.emit()
 
@@ -499,7 +523,12 @@ func get_world_map_state() -> Dictionary:
 		"settlement_diplomacy": world_settlement_diplomacy.duplicate(true),
 		"player_alliances": world_player_alliances.duplicate(true),
 		"passage_rights": _passage_rights.duplicate(true),
-		"pending_attacks": _serialize_pending_attacks()
+		"pending_attacks": _serialize_pending_attacks(),
+		"next_periodic_raid_day": _next_periodic_raid_day,
+		"next_periodic_raid_hour": _next_periodic_raid_hour,
+		"next_periodic_raid_kind": _next_periodic_raid_kind,
+		"periodic_raid_warned": _periodic_raid_warned,
+		"combat_history": combat_history.duplicate(true)
 	}
 
 func set_world_map_state(state: Dictionary) -> void:
@@ -536,6 +565,15 @@ func set_world_map_state(state: Dictionary) -> void:
 	world_player_alliances = state.get("player_alliances", {}).duplicate(true)
 	_passage_rights = state.get("passage_rights", {}).duplicate(true)
 	_deserialize_pending_attacks(state.get("pending_attacks", []))
+	_next_periodic_raid_day = int(state.get("next_periodic_raid_day", -1))
+	_next_periodic_raid_hour = float(state.get("next_periodic_raid_hour", 0.0))
+	_next_periodic_raid_kind = String(state.get("next_periodic_raid_kind", ""))
+	_periodic_raid_warned = bool(state.get("periodic_raid_warned", false))
+	combat_history.clear()
+	var raw_combat_history: Array = state.get("combat_history", [])
+	for entry in raw_combat_history:
+		if entry is Dictionary:
+			combat_history.append(entry.duplicate(true))
 	if world_map_tiles.is_empty():
 		start_new_world_map()
 		return
@@ -2462,6 +2500,13 @@ func _process(_delta: float) -> void:
 	# Saat bazlı saldırı kontrolü için her frame kontrol et
 	if dynamic_world_enabled:
 		_check_pending_attacks()
+		var tm_periodic := get_node_or_null("/root/TimeManager")
+		if tm_periodic and tm_periodic.has_method("get_day") and tm_periodic.has_method("get_hour"):
+			var cur_day: int = int(tm_periodic.get_day())
+			var cur_hour: float = float(tm_periodic.get_hour())
+			if tm_periodic.has_method("get_minute"):
+				cur_hour += float(tm_periodic.get_minute()) / 60.0
+			_check_periodic_raid_schedule(cur_day, cur_hour)
 
 func _rel_key(a: String, b: String) -> String:
 	return a + "|" + b if a < b else b + "|" + a
@@ -2502,6 +2547,7 @@ func _on_time_advanced(total_minutes: int, start_day: int, start_hour: int, star
 					_apply_world_events_to_village(current_day)
 		if current_day < end_day or (current_day == end_day and current_hour < end_hour):
 			_check_pending_attacks_during_skip(current_day, current_hour)
+			_check_periodic_raid_schedule(current_day, float(current_hour))
 
 func _check_pending_attacks_during_skip(day: int, hour: int) -> void:
 	var remaining_attacks: Array[Dictionary] = []
@@ -4678,6 +4724,160 @@ func _trigger_hostile_settlement_attack(attacker_name: String, settlement_id: St
 	_emit_pending_attacks_changed()
 	print("🛡️ Dusman koy baskini zamanlandi: %s -> 6 saat sonra (Gun %d, Saat %.1f)" % [attacker_name, attack_day, attack_hour])
 
+# === Periyodik Haydut/Kurt Baskınları ===
+# Fraksiyon ilişkisinden bağımsız, düzenli aralıklarla (3-5 gün) gelen küçük saldırılar.
+# Oyuncunun asker bulundurması için sürekli bir baskı yaratır ama erken oyunda zayıf başlar.
+
+func _current_game_day() -> int:
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm and tm.has_method("get_day"):
+		return int(tm.get_day())
+	return 1
+
+
+## Saldırı gücü, gün sayısına göre yavaşça artar ama düşük bir tavanda kalır — ilişki bazlı
+## fraksiyon saldırılarından (base_strength 5-15) her zaman daha zayıf kalması hedeflenir.
+func _get_periodic_raid_base_strength(kind: String, day: int) -> float:
+	var day_factor: float = clampf(float(maxi(day - 1, 0)) * 0.09, 0.0, 4.0)
+	var base: float = 1.5 + day_factor
+	if kind == "wolf":
+		base *= 0.7
+	return base
+
+
+## Periyodik haydut/kurt baskınları için ayrı, öngörülebilir kazanma ihtimali hesabı.
+## CombatResolver'ın genel savaş formülü (ekipman/erzak "oranı" köy stoklarına göre çok
+## dalgalanabiliyor — az yiyecek/silah stoğu varken bile 5 askerle bile ~%40 gibi haksız
+## sonuçlar verebiliyor) burada KULLANILMIYOR; bunun yerine sadece asker sayısına dayanan,
+## makul bir garnizonla güvenli hissettiren basit bir formül kullanılıyor.
+func _estimate_periodic_raid_win_chance(atk_units: int, def_units: int, alliance_defender: bool = false, defender_count: int = 0) -> float:
+	if def_units <= 0:
+		return 0.0
+	var def_power: float = float(def_units) * 1.6
+	if alliance_defender:
+		def_power *= (1.0 + 0.10 * float(mini(defender_count, 3)))
+	var atk_power: float = float(maxi(atk_units, 1)) * 1.0
+	return clampf(0.55 + (def_power - atk_power) * 0.12, 0.15, 0.97)
+
+
+## Periyodik haydut/kurt baskınının gerçek savaş sonucunu üretir (CombatResolver'ı atlar —
+## sebep için bkz. _estimate_periodic_raid_win_chance).
+func _resolve_periodic_raid_battle(attacker_force: Dictionary, defender_force: Dictionary, alliance_defender: bool, defender_count: int) -> Dictionary:
+	var atk_units: int = int(attacker_force.get("units", {}).get("infantry", 0)) + int(attacker_force.get("units", {}).get("archers", 0))
+	var def_units: int = int(defender_force.get("units", {}).get("soldiers", 0))
+	var win_chance: float = _estimate_periodic_raid_win_chance(atk_units, def_units, alliance_defender, defender_count)
+	var defender_wins: bool = randf() < win_chance
+	return {
+		"victor": "defender" if defender_wins else "attacker",
+		"defender_losses": int(max(0, round(float(def_units) * randf_range(0.0, 0.25)))) if def_units > 0 else 0,
+		"attacker_losses": int(max(0, round(float(atk_units) * randf_range(0.3, 0.7)))),
+		"alliance_defender": alliance_defender,
+		"alliance_defender_count": defender_count
+	}
+
+
+func _schedule_next_periodic_raid(from_day: int) -> void:
+	var interval: int = randi_range(PERIODIC_RAID_MIN_INTERVAL_DAYS, PERIODIC_RAID_MAX_INTERVAL_DAYS)
+	_next_periodic_raid_day = from_day + interval
+	_next_periodic_raid_hour = float(randi_range(17, 21))
+	_next_periodic_raid_kind = "bandit" if randf() < PERIODIC_RAID_BANDIT_CHANCE else "wolf"
+	_periodic_raid_warned = false
+
+
+## Hem gerçek zamanlı _process() hem de zaman-atlama (advance_minutes) sırasındaki saatlik
+## tarama tarafından çağrılır (explicit day/hour ile — TimeManager'ın "şu an" değeri bir
+## atlama sırasında zaten atlamanın SONUNU gösterir, bu yüzden dışarıdan verilen zaman kullanılır).
+func _check_periodic_raid_schedule(day: int, hour: float) -> void:
+	if not dynamic_world_enabled:
+		return
+	if _next_periodic_raid_day < 0:
+		_schedule_next_periodic_raid(day)
+		return
+	if _periodic_raid_warned:
+		return
+	var warn_day: int = _next_periodic_raid_day
+	var warn_hour: float = _next_periodic_raid_hour - PERIODIC_RAID_WARNING_LEAD_HOURS
+	if warn_hour < 0.0:
+		warn_hour += 24.0
+		warn_day -= 1
+	var should_warn: bool = day > warn_day or (day == warn_day and hour >= warn_hour)
+	if should_warn:
+		_trigger_periodic_raid_warning(_next_periodic_raid_kind, _next_periodic_raid_day, _next_periodic_raid_hour, day, hour)
+		_periodic_raid_warned = true
+
+
+func _trigger_periodic_raid_warning(kind: String, attack_day: int, attack_hour: float, warning_day: int, warning_hour: float) -> void:
+	var attacker_name: String = PERIODIC_RAID_BANDIT_NAME if kind == "bandit" else PERIODIC_RAID_WOLF_NAME
+	var title: String = "🚨 Haydut Baskını Uyarısı!" if kind == "bandit" else "🐺 Kurt Sürüsü Uyarısı!"
+	var content: String
+	if kind == "bandit":
+		content = "Haydutlar köyümüze baskın hazırlığı yapıyor! Saldırı yaklaşık 1 gün sonra bekleniyor. Askerlerinizi hazırlayın, yoksa altın ve kaynak kaybedebiliriz."
+	else:
+		content = "Bölgede bir kurt sürüsü görüldü, köye yaklaşıyor! Saldırı yaklaşık 1 gün sonra bekleniyor. Yeterli asker yoksa yemek deponuz tehlikede."
+	_post_world_news({
+		"category": "world",
+		"subcategory": "critical",
+		"title": title,
+		"content": content,
+		"day": warning_day
+	})
+	pending_attacks.append({
+		"attacker": attacker_name,
+		"raid_kind": kind,
+		"warning_day": warning_day,
+		"warning_hour": warning_hour,
+		"attack_day": attack_day,
+		"attack_hour": attack_hour,
+		"deployed": false
+	})
+	_emit_pending_attacks_changed()
+	print("🛡️ Periyodik baskın zamanlandı: %s -> Gün %d, Saat %.1f" % [attacker_name, attack_day, attack_hour])
+
+
+func _resource_display_name(res: String) -> String:
+	match res:
+		"wood":
+			return "odun"
+		"stone":
+			return "taş"
+		"food":
+			return "yiyecek"
+		_:
+			return res
+
+
+## Savunma başarısız olduğunda (ya da hiç asker yoksa) haydutlar/kurtlar kaynak çalar.
+## Kurtlar sadece yiyecek çalar (avlanan/dağılan erzak); haydutlar birkaç temel kaynaktan da çalabilir.
+func _apply_periodic_raid_resource_theft(kind: String) -> Dictionary:
+	var vm := get_node_or_null("/root/VillageManager")
+	var losses: Dictionary = {}
+	if vm == null or not ("resource_levels" in vm):
+		return losses
+	if kind == "wolf":
+		var food: int = int(vm.resource_levels.get("food", 0))
+		if food > 0:
+			var stolen: int = clampi(int(round(float(food) * randf_range(0.15, 0.30))), 5, 120)
+			stolen = mini(stolen, food)
+			if stolen > 0:
+				vm.resource_levels["food"] = food - stolen
+				losses["food"] = stolen
+	else:
+		for res in ["wood", "stone", "food"]:
+			var cur: int = int(vm.resource_levels.get(res, 0))
+			if cur <= 0:
+				continue
+			if randf() >= 0.6:
+				continue
+			var stolen: int = clampi(int(round(float(cur) * randf_range(0.08, 0.18))), 3, 60)
+			stolen = mini(stolen, cur)
+			if stolen > 0:
+				vm.resource_levels[res] = cur - stolen
+				losses[res] = stolen
+	if not losses.is_empty() and vm.has_signal("village_data_changed"):
+		vm.emit_signal("village_data_changed")
+	return losses
+
+
 # === Alliance Defense System ===
 func _get_player_village_position() -> Dictionary:
 	# poi_type == "player_village" olan tile'i bul, q/r doner.
@@ -4840,6 +5040,24 @@ func _emit_pending_attacks_changed() -> void:
 	pending_attacks_changed.emit()
 
 
+## Gelen/giden bir saldırı sonucunu kalıcı geçmişe ekler (Mentor > Savaş Geçmişi sekmesi).
+## "day"/"game_time_minutes" alanları eksikse otomatik doldurulur; en yeni kayıt en başa.
+func _log_combat_history(entry: Dictionary) -> void:
+	var e: Dictionary = entry.duplicate(true)
+	var tm := get_node_or_null("/root/TimeManager")
+	if not e.has("game_time_minutes") and tm and tm.has_method("get_total_game_minutes"):
+		e["game_time_minutes"] = int(tm.get_total_game_minutes())
+	if not e.has("day") and tm and tm.has_method("get_day"):
+		e["day"] = int(tm.get_day())
+	combat_history.push_front(e)
+	if combat_history.size() > COMBAT_HISTORY_MAX_ENTRIES:
+		combat_history = combat_history.slice(0, COMBAT_HISTORY_MAX_ENTRIES)
+
+
+func get_combat_history() -> Array[Dictionary]:
+	return combat_history.duplicate(true)
+
+
 func _attack_schedule_to_total_minutes(attack_day: int, attack_hour: float) -> int:
 	return attack_day * 1440 + int(floor(attack_hour)) * 60
 
@@ -4869,12 +5087,18 @@ func estimate_defense_preview(attacker_faction: String, alliance_defender: bool 
 	var attacker_force: Dictionary = _get_attacker_force_for_defense(attacker_faction)
 	var atk_units: int = int(attacker_force.get("units", {}).get("infantry", 0)) + int(attacker_force.get("units", {}).get("archers", 0))
 	var def_units: int = int(defender_force.get("units", {}).get("soldiers", 0))
-	var atk_power: float = float(atk_units) * 1.0
-	var def_power: float = float(def_units) * 1.2
-	if alliance_defender:
-		def_power *= (1.0 + 0.10 * float(mini(defender_count, 3)))
-	var ratio: float = def_power / maxf(atk_power, 1.0)
-	var win_chance: float = clampf(0.35 + (ratio - 1.0) * 0.25, 0.12, 0.92)
+	var win_chance: float
+	if attacker_faction == PERIODIC_RAID_BANDIT_NAME or attacker_faction == PERIODIC_RAID_WOLF_NAME:
+		# Gerçek çözümleme _resolve_periodic_raid_battle ile aynı formülü kullanır —
+		# UI'da gösterilen yüzde gerçek sonuçla birebir eşleşsin.
+		win_chance = _estimate_periodic_raid_win_chance(atk_units, def_units, alliance_defender, defender_count)
+	else:
+		var atk_power: float = float(atk_units) * 1.0
+		var def_power: float = float(def_units) * 1.2
+		if alliance_defender:
+			def_power *= (1.0 + 0.10 * float(mini(defender_count, 3)))
+		var ratio: float = def_power / maxf(atk_power, 1.0)
+		win_chance = clampf(0.35 + (ratio - 1.0) * 0.25, 0.12, 0.92)
 	return {
 		"soldier_count": def_units,
 		"attacker_strength": atk_units,
@@ -5105,35 +5329,11 @@ func _check_pending_attacks() -> void:
 			attack_time_reached = true
 		
 		if attack_time_reached:
-			if _playable_defense_battle_active:
-				remaining_attacks.append(attack)
-				continue
-			if bool(attack.get("playable_pending", false)):
-				var pending_since: int = int(attack.get("playable_pending_since_min", 0))
-				var now_min: int = 0
-				if tm.has_method("get_total_game_minutes"):
-					now_min = int(tm.call("get_total_game_minutes"))
-				if now_min - pending_since >= PLAYABLE_DEFENSE_GRACE_MINUTES or not _is_player_in_village():
-					var attacker_grace: String = String(attack.get("attacker", "Bilinmeyen"))
-					var d_count_g: int = int(attack.get("defender_count", 1 if bool(attack.get("defender_intervention", false)) else 0))
-					_execute_village_defense(attacker_grace, current_day, d_count_g > 0, d_count_g)
-				else:
-					remaining_attacks.append(attack)
-				continue
-			if _is_player_in_village():
-				attack["playable_pending"] = true
-				var since_min: int = 0
-				if tm.has_method("get_total_game_minutes"):
-					since_min = int(tm.call("get_total_game_minutes"))
-				attack["playable_pending_since_min"] = since_min
-				_emit_pending_attacks_changed()
-				playable_defense_required.emit(_build_playable_defense_context(attack))
-				remaining_attacks.append(attack)
-				print("⚔️ Oynanabilir savunma hazır: %s (köyde)" % String(attack.get("attacker", "?")))
-			else:
-				var attacker: String = String(attack.get("attacker", "Bilinmeyen"))
-				var d_count: int = int(attack.get("defender_count", 1 if bool(attack.get("defender_intervention", false)) else 0))
-				_execute_village_defense(attacker, current_day, d_count > 0, d_count)
+			# Savunma her zaman text-based (otomatik) çözülür — oynanabilir savaş sahnesi
+			# (eski deneme BattleScene/VillageDefenseBattleRunner) artık kullanılmıyor.
+			var attacker: String = String(attack.get("attacker", "Bilinmeyen"))
+			var d_count: int = int(attack.get("defender_count", 1 if bool(attack.get("defender_intervention", false)) else 0))
+			_execute_village_defense(attacker, current_day, d_count > 0, d_count)
 		else:
 			# Henüz zamanı gelmedi
 			remaining_attacks.append(attack)
@@ -5163,9 +5363,22 @@ func _execute_village_defense(attacker_faction: String, day: int, alliance_defen
 		defender_force["alliance_defender_count"] = defender_count
 	
 	var attacker_force = _get_attacker_force_for_defense(attacker_faction)
-	
+	var is_periodic_raid: bool = attacker_faction == PERIODIC_RAID_BANDIT_NAME or attacker_faction == PERIODIC_RAID_WOLF_NAME
+
 	var battle_result: Dictionary = {}
-	if cr and cr.has_method("simulate_skirmish"):
+	if is_periodic_raid:
+		# Periyodik haydut/kurt baskınları CombatResolver'ı bilerek atlar: o formül köyün
+		# anlık silah/erzak stoğuna göre çok dalgalanıyor (az stokla iyi bir garnizon bile
+		# haksız yere kaybedebiliyor). Burada sadece asker sayısına dayanan, öngörülebilir
+		# ve makul bir garnizonla güvenli hissettiren ayrı bir formül kullanılıyor.
+		battle_result = _resolve_periodic_raid_battle(attacker_force, defender_force, alliance_defender, defender_count)
+		# Hiç asker atanmamışsa savunma her zaman başarısız sayılır (özellikle kurt
+		# saldırısında "asker yoksa yiyecek çalınır" beklenen davranış) — garantili.
+		var soldiers_now: int = int(defender_force.get("units", {}).get("soldiers", 0))
+		if soldiers_now <= 0:
+			battle_result["victor"] = "attacker"
+			battle_result["defender_losses"] = 0
+	elif cr and cr.has_method("simulate_skirmish"):
 		battle_result = cr.simulate_skirmish(attacker_force, defender_force)
 		battle_result["alliance_defender"] = alliance_defender
 		battle_result["alliance_defender_count"] = defender_count
@@ -5184,15 +5397,24 @@ func _execute_village_defense(attacker_faction: String, day: int, alliance_defen
 			"alliance_defender": alliance_defender,
 			"alliance_defender_count": defender_count
 		}
-	
+
 	_process_defense_result(attacker_faction, battle_result, day, attacker_force, defender_force)
 
 func _get_attacker_force_for_defense(attacker_faction: String) -> Dictionary:
 	"""Savunma için saldırgan gücünü hesapla"""
-	# İlişkiye göre saldırgan gücü belirle
-	var relation = get_relation("Köy", attacker_faction)
-	var base_strength = 5 + abs(relation) / 10  # Daha düşman = daha güçlü saldırı
-	
+	var base_strength: float
+	if attacker_faction == PERIODIC_RAID_BANDIT_NAME or attacker_faction == PERIODIC_RAID_WOLF_NAME:
+		# Periyodik haydut/kurt baskını: ilişkiden bağımsız, güne göre yavaşça ölçeklenen zayıf güç.
+		var kind: String = "bandit" if attacker_faction == PERIODIC_RAID_BANDIT_NAME else "wolf"
+		base_strength = _get_periodic_raid_base_strength(kind, _current_game_day())
+	else:
+		# İlişkiye göre saldırgan gücü belirle
+		var relation = get_relation("Köy", attacker_faction)
+		base_strength = 5 + abs(relation) / 10  # Daha düşman = daha güçlü saldırı
+	var vce := get_node_or_null("/root/VillageCardEffects")
+	if vce:
+		base_strength = vce.modify_incoming_attacker_strength(base_strength)
+
 	return {
 		"units": {"infantry": int(base_strength), "archers": int(base_strength * 0.6)},
 		"equipment": {"weapon": int(base_strength * 1.5), "armor": int(base_strength)},
@@ -5207,62 +5429,112 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 	var attacker_losses = battle_result.get("attacker_losses", 0)
 	var gold_loss: int = 0
 	var morale_delta: int = 0
-	
+	var resource_losses: Dictionary = {}
+	var is_periodic_bandit: bool = attacker_faction == PERIODIC_RAID_BANDIT_NAME
+	var is_periodic_wolf: bool = attacker_faction == PERIODIC_RAID_WOLF_NAME
+
 	# Generate battle story using LLM
 	_generate_battle_story(attacker_faction, battle_result, day, attacker_force, defender_force)
-	
+
 	var vm = get_node_or_null("/root/VillageManager")
 	var mm = get_node_or_null("/root/MissionManager")
 	var barracks = mm._find_barracks() if mm else null
-	
+
+	# Kırılan silahlar stokta yedek varsa otomatik yenileniyor (bkz. Barracks.apply_weapon_wear_after_battle);
+	# bu sayı sadece stok yetmediği için fiilen silahsız kalan asker sayısını gösterir.
+	var soldiers_disarmed: int = 0
 	if victor == "defender":
-		# Köy savunmayı başardı
+		# Ölü askerleri kaldır
+		if barracks and barracks.has_method("remove_soldiers"):
+			barracks.remove_soldiers(defender_losses)
+		# Hayatta kalan donanımlı askerlerin silahları savaşta bir ihtimalle kırılır.
+		if barracks and barracks.has_method("apply_weapon_wear_after_battle"):
+			soldiers_disarmed = int(barracks.apply_weapon_wear_after_battle())
+
+		var win_content: String = "%s saldırısı püskürtüldü! Kayıplar: %d asker. Köy zarar görmedi." % [attacker_faction, defender_losses]
+		if soldiers_disarmed > 0:
+			win_content += " Savaşta %d asker silahını kaybetti (stokta yedek kalmadı)." % soldiers_disarmed
 		_post_world_news({
 			"category": "world",
 			"subcategory": "success",
 			"title": "✅ Savunma Başarılı",
-			"content": "%s saldırısı püskürtüldü! Kayıplar: %d asker. Köy zarar görmedi." % [attacker_faction, defender_losses],
+			"content": win_content,
 			"day": day
 		})
-		
-		# Ölü askerleri kaldır
-		if barracks and barracks.has_method("remove_soldiers"):
-			barracks.remove_soldiers(defender_losses)
-		
+
 		# Küçük moral bonusu
 		if vm:
 			vm.village_morale = min(100.0, vm.village_morale + 2.0)
 			morale_delta = 2
+		var vce_win := get_node_or_null("/root/VillageCardEffects")
+		if vce_win:
+			vce_win.notify_successful_defense()
 		
 		# Askerlerin geri dönmesi için sinyal gönder
 		defense_battle_completed.emit("defender", defender_losses)
 		
 	else:
 		# Köy yenildi - zarar gör
-		gold_loss = randi_range(100, 300)
-		morale_delta = -randi_range(5, 15)
-		
+		if is_periodic_wolf:
+			# Kurtlar altın istemez, sadece yemek çalar.
+			gold_loss = 0
+			morale_delta = -randi_range(2, 6)
+		elif is_periodic_bandit:
+			gold_loss = randi_range(40, 120)
+			morale_delta = -randi_range(4, 10)
+		else:
+			gold_loss = randi_range(100, 300)
+			morale_delta = -randi_range(5, 15)
+
+		var vce := get_node_or_null("/root/VillageCardEffects")
+		if vce and vce.try_bribe_incoming_raid():
+			gold_loss = 0
+			morale_delta = 0
+		elif vce:
+			var adjusted: Dictionary = vce.modify_defense_result(gold_loss, morale_delta)
+			gold_loss = int(adjusted.get("gold_loss", gold_loss))
+			morale_delta = int(adjusted.get("morale_delta", morale_delta))
+
 		# Kaynak kaybı
 		var gpd = get_node_or_null("/root/GlobalPlayerData")
-		if gpd:
+		if gpd and gold_loss > 0:
 			gpd.gold = max(0, gpd.gold - gold_loss)
-		
+
+		# Haydut/kurt baskınında ayrıca kaynak (yiyecek/odun/taş) çalınır.
+		if is_periodic_wolf:
+			resource_losses = _apply_periodic_raid_resource_theft("wolf")
+		elif is_periodic_bandit:
+			resource_losses = _apply_periodic_raid_resource_theft("bandit")
+
 		# Moral kaybı
-		if vm:
+		if vm and morale_delta != 0:
 			vm.village_morale = max(0.0, vm.village_morale + float(morale_delta))
-		
+
 		# Ölü askerleri kaldır
 		if barracks and barracks.has_method("remove_soldiers"):
 			barracks.remove_soldiers(defender_losses)
-		
+		# Hayatta kalan donanımlı askerlerin silahları savaşta bir ihtimalle kırılır.
+		if barracks and barracks.has_method("apply_weapon_wear_after_battle"):
+			soldiers_disarmed = int(barracks.apply_weapon_wear_after_battle())
+
+		var loss_parts: PackedStringArray = []
+		if gold_loss > 0:
+			loss_parts.append("%d altın" % gold_loss)
+		for res in resource_losses.keys():
+			loss_parts.append("%d %s" % [int(resource_losses[res]), _resource_display_name(res)])
+		if soldiers_disarmed > 0:
+			loss_parts.append("%d asker silahsız kaldı" % soldiers_disarmed)
+		loss_parts.append("%d moral" % abs(morale_delta))
+		var loss_text: String = ", ".join(loss_parts)
+
 		_post_world_news({
 			"category": "world",
 			"subcategory": "critical",
 			"title": "❌ Savunma Başarısız",
-			"content": "%s saldırısı köye zarar verdi! Kayıplar: %d asker, %d altın, %d moral." % [attacker_faction, defender_losses, gold_loss, abs(morale_delta)],
+			"content": "%s saldırısı köye zarar verdi! Kayıplar: %d asker, %s." % [attacker_faction, defender_losses, loss_text],
 			"day": day
 		})
-		
+
 		# Askerlerin geri dönmesi için sinyal gönder
 		defense_battle_completed.emit("attacker", defender_losses)
 
@@ -5273,10 +5545,31 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 		"attacker_losses": attacker_losses,
 		"gold_loss": gold_loss,
 		"morale_delta": morale_delta,
+		"resource_losses": resource_losses,
+		"soldiers_disarmed": soldiers_disarmed,
 		"alliance_defender": bool(battle_result.get("alliance_defender", false)),
 		"alliance_defender_count": int(battle_result.get("alliance_defender_count", 0)),
 		"day": day,
 	})
+
+	_log_combat_history({
+		"direction": "incoming",
+		"attacker": attacker_faction,
+		"victor": victor,
+		"defender_losses": defender_losses,
+		"attacker_losses": attacker_losses,
+		"gold_loss": gold_loss,
+		"morale_delta": morale_delta,
+		"resource_losses": resource_losses,
+		"soldiers_disarmed": soldiers_disarmed,
+		"alliance_defender": bool(battle_result.get("alliance_defender", false)),
+		"alliance_defender_count": int(battle_result.get("alliance_defender_count", 0)),
+		"day": day,
+	})
+
+	# Periyodik haydut/kurt baskını sonuçlandı (kazanılsa da kaybedilse de) — bir sonrakini planla.
+	if is_periodic_bandit or is_periodic_wolf:
+		_schedule_next_periodic_raid(day)
 
 func _trigger_village_raid(target_faction: String, day: int) -> void:
 	"""Köyden saldırı başlat"""
@@ -5775,6 +6068,14 @@ func launch_offensive_raid(settlement_id: String) -> Dictionary:
 			"title": "Ofansif Baskin Emri",
 			"content": "%s koyune karsi baskin gorevi olusturuldu. Cariye atayarak gorevi baslatabilirsin." % s_name,
 			"day": day
+		})
+		_log_combat_history({
+			"direction": "outgoing",
+			"attacker": "Köy",
+			"target": s_name,
+			"status": "gönderildi",
+			"gold_cost": OFFENSIVE_RAID_GOLD_COST,
+			"day": day,
 		})
 	else:
 		result["reason"] = "no_mission_manager"

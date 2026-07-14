@@ -15,6 +15,16 @@ func apply_player_modifiers(player: Node, base_damage: float, enemy: Node, attac
 	if player.get("gorunmezlik_first_attack_mult") and player.gorunmezlik_first_attack_mult > 1.0:
 		dmg *= player.gorunmezlik_first_attack_mult
 		player.gorunmezlik_first_attack_mult = 1.0
+		# Şanslı Nal: görünmezlikten ilk vuruş garanti kritik
+		if player.get("sansli_nal_active"):
+			player.sansli_nal_crit_next = true
+	# Taşkın Güç: stamina doluyken bonus
+	if player.get("taskin_guc_mult") and player.taskin_guc_mult > 1.0:
+		dmg *= player.taskin_guc_mult
+	# Şanslı Nal: garanti kritik (tek kullanım)
+	if player.get("sansli_nal_crit_next"):
+		dmg *= 1.75
+		player.sansli_nal_crit_next = false
 	# Flank Avantajı: arkadan vuruş (enemy gerekli)
 	if is_instance_valid(enemy) and player.get("flank_damage_mult") and player.flank_damage_mult > 1.0:
 		if _is_flank_hit(attacker_position, enemy):

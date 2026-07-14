@@ -53,6 +53,10 @@ func apply_burn(ticks: int = 6, damage_per_tick: float = 3.0) -> void:
 	_update_visual()
 
 func apply_poison(ticks: int = 5, damage_per_tick: float = 2.0) -> void:
+	# Panzehir Derisi: zehir tuzaklarına ve bulutlarına tam bağışıklık
+	var im = get_node_or_null("/root/ItemManager")
+	if im and im.has_method("has_active_item") and im.has_active_item("panzehir_derisi"):
+		return
 	poison_damage_per_tick = damage_per_tick
 	poison_remaining_ticks = maxi(poison_remaining_ticks, ticks)
 	if not poison_active:

@@ -194,7 +194,7 @@ func physics_update(delta: float):
 				tree.current_scene.add_child(expl)
 				expl.global_position = explosion_pos
 			var stats = get_tree().root.get_node_or_null("PlayerStats")
-			if stats:
+			if stats and not ExplosionModifiers.player_immune_to_explosions():
 				var cost = max(1.0, stats.get_max_health() * 0.08)
 				stats.set_current_health(stats.get_current_health() - cost, false)
 			player.start_double_jump()

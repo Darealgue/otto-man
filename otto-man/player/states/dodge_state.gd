@@ -92,10 +92,21 @@ func enter():
 	
 	# Store start position for signal (already stored above)
 
+const HayaletAdimDecoyScene = preload("res://effects/player_decoy.tscn")
+const HAYALET_ADIM_TELEPORT_DIST := 60.0
+const HAYALET_ADIM_LIFETIME := 0.4
+
 func physics_update(delta: float):
 	dodge_timer -= delta
-	
-	
+
+	# Hayalet Adım: dodge sırasında eğilme -> dodge iptal, sahte kopya bırak, geriye ışınlan
+	if Input.is_action_just_pressed("crouch"):
+		var im := get_node_or_null("/root/ItemManager")
+		if im and im.has_active_item("hayalet_adim"):
+			_do_hayalet_adim()
+			return
+
+
 	# Zıplama kontrolü: İlk yarıda zıplama engellensin, son yarıda serbest olsun
 	var dodge_progress = 1.0 - (dodge_timer / DODGE_DURATION)  # 0.0 = başlangıç, 1.0 = bitiş
 	var can_jump_during_dodge = dodge_progress >= 0.5  # Son yarıda zıplama serbest
@@ -233,6 +244,30 @@ func _on_animation_finished(anim_name: String):
 		# Animation finished, but physics_update will handle the actual transition
 		# when dodge_timer reaches 0
 
+
+func _do_hayalet_adim() -> void:
+	var tree := get_tree()
+	if tree and tree.current_scene:
+		var decoy = HayaletAdimDecoyScene.instantiate()
+		tree.current_scene.add_child(decoy)
+		decoy.lifetime_override = HAYALET_ADIM_LIFETIME
+		var flip_h: bool = player.sprite.flip_h if player.sprite else false
+		decoy.setup(player.global_position, flip_h, player)
+	# Dodge yönünün tersine, kısa mesafe ışınlan
+	var dodge_dir := (-1.0 if player.sprite.flip_h else 1.0)
+	player.global_position -= Vector2(dodge_dir * HAYALET_ADIM_TELEPORT_DIST, 0.0)
+	# Restore collision settings (dodge sırasında kapatılmıştı)
+	player.collision_mask = original_collision_mask
+	player.collision_layer = original_collision_layer
+	var hurtbox = player.get_node_or_null("Hurtbox")
+	if hurtbox:
+		hurtbox.monitoring = true
+	if player.hurtbox and player.hurtbox.has_method("set_invincible"):
+		player.hurtbox.set_invincible(0.15)
+	if player.is_on_floor():
+		state_machine.transition_to("Idle")
+	else:
+		state_machine.transition_to("Fall")
 
 func _play_dash_sfx() -> void:
 	if not is_instance_valid(player):

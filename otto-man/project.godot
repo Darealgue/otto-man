@@ -59,6 +59,7 @@ Loots="*res://autoload/loot_pool.gd"
 DemoPackConfig="*res://autoload/DemoPackConfig.gd"
 MetaUpgradeManager="*res://autoload/MetaUpgradeManager.gd"
 VillageCardManager="*res://autoload/VillageCardManager.gd"
+VillageCardEffects="*res://autoload/VillageCardEffects.gd"
 
 [display]
 

@@ -5,11 +5,14 @@ class_name PlotOccupiedPopupUI
 signal upgrade_requested
 signal build_house_requested
 signal demolish_requested
+signal weaponize_requested
+signal inventor_upgrades_requested
 signal info_requested
 signal closed
 
 const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
 const _WORKERS_ICON := "res://assets/Icons/workers_icon.png"
+const _INVENTOR_WORKSHOP_SCENE_PATH := "res://village/buildings/InventorWorkshop.tscn"
 
 var _panel: PanelContainer
 var _title_label: Label
@@ -20,6 +23,8 @@ var _upgrade_btn: Button
 var _upgrade_cost_label: Label
 var _build_house_btn: Button
 var _build_house_cost_label: Label
+var _weaponize_btn: Button
+var _inventor_upgrades_btn: Button
 var _demolish_btn: Button
 var _building: Node2D = null
 var _is_open := false
@@ -132,6 +137,20 @@ func _build_ui() -> void:
 	_build_house_cost_label.modulate = Color(1, 1, 1, 0.75)
 	actions.add_child(_build_house_cost_label)
 
+	_weaponize_btn = Button.new()
+	_weaponize_btn.text = "Silahlandır"
+	_weaponize_btn.custom_minimum_size = Vector2(0, 38)
+	_weaponize_btn.pressed.connect(_on_weaponize_pressed)
+	_style_focus(_weaponize_btn)
+	actions.add_child(_weaponize_btn)
+
+	_inventor_upgrades_btn = Button.new()
+	_inventor_upgrades_btn.text = "Yükseltmeler"
+	_inventor_upgrades_btn.custom_minimum_size = Vector2(0, 38)
+	_inventor_upgrades_btn.pressed.connect(_on_inventor_upgrades_pressed)
+	_style_focus(_inventor_upgrades_btn)
+	actions.add_child(_inventor_upgrades_btn)
+
 	_demolish_btn = Button.new()
 	_demolish_btn.text = "Yık"
 	_demolish_btn.custom_minimum_size = Vector2(0, 34)
@@ -235,6 +254,10 @@ func _grab_initial_focus() -> void:
 		_upgrade_btn.grab_focus()
 	elif is_instance_valid(_build_house_btn) and _build_house_btn.visible and not _build_house_btn.disabled:
 		_build_house_btn.grab_focus()
+	elif is_instance_valid(_weaponize_btn) and _weaponize_btn.visible:
+		_weaponize_btn.grab_focus()
+	elif is_instance_valid(_inventor_upgrades_btn) and _inventor_upgrades_btn.visible:
+		_inventor_upgrades_btn.grab_focus()
 	elif is_instance_valid(_demolish_btn):
 		_demolish_btn.grab_focus()
 
@@ -308,11 +331,16 @@ func _refresh() -> void:
 			_build_house_btn.disabled = not VillageManager.can_build_residential_floor_on(_building as Node2D)
 			_build_house_cost_label.text = _format_house_build_cost()
 
+	_weaponize_btn.visible = _building.has_method("equip_soldier")
+	_inventor_upgrades_btn.visible = scene_path == _INVENTOR_WORKSHOP_SCENE_PATH
+
 
 func _format_house_build_cost() -> String:
 	if not is_instance_valid(VillageManager):
 		return ""
-	var cost: Dictionary = VillageManager.get_building_requirements(VillageManager.HOUSE_SCENE_PATH).get("cost", {})
+	# Aktif VillageCardEffects kartlarını (altın çarpanı, kaynak muafiyeti, bedava inşa)
+	# da yansıtan gerçek maliyet — gösterilen sayı her zaman gerçekte ödenenle eşleşsin.
+	var cost: Dictionary = VillageManager.get_effective_build_cost(VillageManager.HOUSE_SCENE_PATH)
 	if cost.is_empty():
 		return ""
 	var parts: PackedStringArray = PackedStringArray()
@@ -348,6 +376,16 @@ func _on_upgrade_pressed() -> void:
 
 func _on_build_house_pressed() -> void:
 	build_house_requested.emit()
+	hide_popup()
+
+
+func _on_weaponize_pressed() -> void:
+	weaponize_requested.emit()
+	hide_popup()
+
+
+func _on_inventor_upgrades_pressed() -> void:
+	inventor_upgrades_requested.emit()
 	hide_popup()
 
 

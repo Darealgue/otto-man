@@ -39,6 +39,29 @@ const MALE_NAMES_OTTOMAN: Array[String] = [
 	"Abdurrahman", "Abdülaziz", "Abdülhamit", "Abdülmecit", "Emin", "Fahri", "Hamit", "Kazım"
 ]
 
+# Osmanlı dönemi kadın isim havuzu (Türk, Rum, Ermeni, Yahudi, Slav, Arap kökenli)
+const FEMALE_NAMES_OTTOMAN: Array[String] = [
+	# Türk isimleri
+	"Fatma", "Ayşe", "Emine", "Hatice", "Zeynep", "Havva", "Elif", "Meryem",
+	"Şerife", "Zehra", "Rukiye", "Hanife", "Naile", "Sabiha", "Nazlı", "Gülsüm",
+	"Şükriye", "Hafize", "Şaziye", "Nuriye", "Cemile", "Feride", "Zübeyde", "Melek",
+	"Hürmüz", "Dürdane", "Sultan", "Perihan", "Nazife", "Rabia", "Safiye", "Kamile",
+	# Rum (Yunan) isimleri
+	"Eleni", "Sofia", "Katerina", "Maria", "Anastasia", "Despina", "Vasiliki", "Irini",
+	"Theodora", "Kalliopi", "Panagiota", "Chrysanthi", "Evanthia", "Angeliki", "Foteini", "Zoi",
+	# Ermeni isimleri
+	"Takuhi", "Zabel", "Arax", "Siranush", "Vartiter", "Aghavni", "Nvart", "Mariam",
+	"Hripsime", "Anahit", "Zaruhi", "Satenik", "Knar", "Sirvart", "Yeva", "Armine",
+	# Yahudi isimleri
+	"Sara", "Rebeka", "Rahel", "Ester", "Miriam", "Hana", "Lea", "Yudit",
+	"Devora", "Naomi", "Tamar", "Sion", "Bulisa", "Fortüne", "Gracia", "Reyna",
+	# Slav isimleri (Balkanlar)
+	"Milica", "Jelena", "Ana", "Ivana", "Vesna", "Danica", "Ljubica", "Radmila",
+	"Snežana", "Biljana", "Draga", "Mirjana", "Slavica", "Stana", "Zorica", "Ruža",
+	# Arap kökenli isimler
+	"Aişe", "Halime", "Ümmühan", "Nazende", "Nesrin", "Amine", "Reyhan", "Selma"
+]
+
 var Saved_Villagers : Array = []
 var Villager_Info_Pool : Array =[
 	{
@@ -1598,22 +1621,17 @@ func get_villager_info():
 	elif typeof(ChosenInfo["Latest_news"]) == TYPE_STRING:
 		ChosenInfo["Latest_news"] = [ChosenInfo["Latest_news"]] if ChosenInfo["Latest_news"] != "" else []
 	
-	# Eğer villager erkekse, ismini Osmanlı dönemi isim havuzundan seç
-	if ChosenInfo.has("Info") and ChosenInfo["Info"].has("Gender"):
-		var gender = ChosenInfo["Info"]["Gender"]
-		if gender == "Male" and MALE_NAMES_OTTOMAN.size() > 0:
-			var random_name = MALE_NAMES_OTTOMAN[randi() % MALE_NAMES_OTTOMAN.size()]
+	# Havuzdaki "Gender" alanı sadece placeholder (hepsi "Male" olarak tanımlı) — asıl cinsiyet
+	# burada %50 ihtimalle rastgele belirlenir, böylece kadın köylü modeli (v3) de spawn olabilir.
+	if ChosenInfo.has("Info"):
+		var gender: String = "Female" if randi() % 2 == 0 else "Male"
+		ChosenInfo["Info"]["Gender"] = gender
+		var name_pool: Array[String] = FEMALE_NAMES_OTTOMAN if gender == "Female" else MALE_NAMES_OTTOMAN
+		if name_pool.size() > 0:
+			var random_name = name_pool[randi() % name_pool.size()]
 			ChosenInfo["Info"]["Name"] = random_name
-			print("[VillagerAIInitializer] Erkek villager için Osmanlı dönemi ismi seçildi: %s" % random_name)
-		else:
-			# Gender "Male" değilse veya isim havuzu boşsa, yine de bir isim atanmalı (fallback)
-			if not ChosenInfo["Info"].has("Name") or ChosenInfo["Info"]["Name"] == "":
-				if MALE_NAMES_OTTOMAN.size() > 0:
-					var random_name = MALE_NAMES_OTTOMAN[randi() % MALE_NAMES_OTTOMAN.size()]
-					ChosenInfo["Info"]["Name"] = random_name
-					ChosenInfo["Info"]["Gender"] = "Male"  # Gender'ı da düzelt
-					print("[VillagerAIInitializer] İsimsiz villager için Osmanlı dönemi ismi seçildi: %s" % random_name)
-		
+			print("[VillagerAIInitializer] %s villager için Osmanlı dönemi ismi seçildi: %s" % [gender, random_name])
+
 	return ChosenInfo
 	
 func _villager_save_base_dir() -> String:

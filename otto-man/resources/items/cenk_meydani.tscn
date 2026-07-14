@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cenk_meydani_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/cenk_meydani.gd" id="1_script"]
+
+[node name="CenkMeydani" type="Node"]
+script = ExtResource("1_script")

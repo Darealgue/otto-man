@@ -44,7 +44,7 @@ func finished_fetching() -> void:
 # --- Fetch/Buffer Production ---
 var input_buffer: Dictionary = {"metal": 0}
 var production_progress: float = 0.0
-const PRODUCTION_TIME: float = 300.0
+const PRODUCTION_TIME: float = 1650.0 # tam çalışma günü (07-18, 11 saat) = 1 işçi başına 1 zırh
 var fetch_timer: Timer = null
 var fetch_target: String = ""
 const FETCH_TIME_PER_UNIT: float = 3.0
@@ -131,6 +131,7 @@ func remove_worker() -> bool:
 	if VillageManager.all_workers.has(id):
 		var w = VillageManager.all_workers[id]["instance"]
 		if is_instance_valid(w):
+			VillageManager.unregister_generic_worker(id)
 			w.assigned_job_type = ""
 			w.assigned_building_node = null
 	VillageManager.notify_building_state_changed(self)

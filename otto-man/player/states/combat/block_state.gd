@@ -22,6 +22,7 @@ var stamina_consumed_this_hit := false  # Track if stamina was consumed for curr
 var block_start_time: float = 0.0  # Track when block started
 var is_parrying := false  # Add this at the top with other vars
 const PARRY_IFRAME := 1.0  # Parry sonrası kısa dokunulmazlık
+var _last_parried_attacker: Node2D = null  # Gölge Adımı / Fırlatma Parry için
 
 func _ready():
 	pass
@@ -74,7 +75,11 @@ func enter():
 	# Connect to hurtbox signal if not already connected
 	if not player.hurtbox.is_connected("hurt", _on_hurtbox_hurt):
 		player.hurtbox.connect("hurt", _on_hurtbox_hurt)
-	
+
+	# Son Kale: stamina blok sırasında biterse şok dalgası
+	if stamina_bar and stamina_bar.has_signal("stamina_depleted") and not stamina_bar.is_connected("stamina_depleted", _on_stamina_depleted_son_kale):
+		stamina_bar.connect("stamina_depleted", _on_stamina_depleted_son_kale)
+
 
 func exit():
 	is_blocking = false
@@ -96,7 +101,9 @@ func exit():
 		animation_player.animation_finished.disconnect(_on_animation_finished)
 	if player.hurtbox.is_connected("hurt", _on_hurtbox_hurt):
 		player.hurtbox.disconnect("hurt", _on_hurtbox_hurt)
-	
+	if stamina_bar and stamina_bar.has_signal("stamina_depleted") and stamina_bar.is_connected("stamina_depleted", _on_stamina_depleted_son_kale):
+		stamina_bar.disconnect("stamina_depleted", _on_stamina_depleted_son_kale)
+
 	# Block state'den çıkarken was_on_floor'u true yap - landing tespit edilmesini engelle
 	if player.is_on_floor():
 		player.was_on_floor = true
@@ -108,6 +115,19 @@ func physics_update(delta: float):
 	
 	# During parry, allow immediate cancel into counter attack
 	if is_parrying:
+		var im := get_node_or_null("/root/ItemManager")
+		if Input.is_action_just_pressed("crouch") and im and im.has_active_item("golge_adimi") and is_instance_valid(_last_parried_attacker):
+			print("[Block] Gölge Adımı -> ışınlanma")
+			is_parrying = false
+			_do_golge_adimi(_last_parried_attacker)
+			state_machine.transition_to("Idle")
+			return
+		elif Input.is_action_just_pressed("jump") and im and im.has_active_item("firlatma_parry") and is_instance_valid(_last_parried_attacker):
+			print("[Block] Fırlatma Parry -> düşman havaya fırlar")
+			is_parrying = false
+			_do_firlatma_parry(_last_parried_attacker)
+			state_machine.transition_to("Idle")
+			return
 		if Input.is_action_just_pressed("attack_heavy") and state_machine.has_node("HeavyAttack") and player.can_use_heavy_attack():
 			print("[Block] Counter cancel -> HeavyAttack")
 			# End parry immediately and transition
@@ -176,6 +196,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Check if within parry window and can parry
 	if can_parry:
 		print("[Block] PARRY SUCCESS")
+		_last_parried_attacker = hitbox.get_parent() if hitbox else null
 		_play_block_sfx(hitbox.global_position if hitbox else player.global_position, true)
 		
 		# Consume stamina for parry if not already consumed for this hit
@@ -292,3 +313,39 @@ func _play_block_sfx(at_position: Vector2, parry: bool = false) -> void:
 	if sm and sm.has_method("play_sfx"):
 		var sfx_id: String = "parry" if parry else "block"
 		sm.play_sfx(sfx_id, at_position)
+
+## Gölge Adımı: parrylenen düşmanın arkasına ışınlan, ona dönük dur.
+func _do_golge_adimi(enemy: Node2D) -> void:
+	var enemy_dir: float = 1.0
+	if enemy.get("direction") != null:
+		enemy_dir = float(enemy.direction)
+	var behind_offset := Vector2(-enemy_dir * 40.0, 0.0)
+	player.global_position = enemy.global_position + behind_offset
+	player.facing_direction = -enemy_dir
+	if player.sprite:
+		player.sprite.flip_h = player.facing_direction < 0
+	if player.hurtbox and player.hurtbox.has_method("set_invincible"):
+		player.hurtbox.set_invincible(0.2)
+
+## Fırlatma Parry: parrylenen düşmanı havaya fırlat (juggle setup).
+func _do_firlatma_parry(enemy: Node2D) -> void:
+	if enemy.has_method("take_damage"):
+		enemy.take_damage(0.0, 120.0, 260.0, true)
+
+## Son Kale: blok sırasında stamina biterse gard kırılması yerine şok dalgası.
+func _on_stamina_depleted_son_kale() -> void:
+	if is_parrying or not is_blocking:
+		return
+	var im := get_node_or_null("/root/ItemManager")
+	if not im or not im.has_active_item("son_kale"):
+		return
+	var tree := get_tree()
+	if not tree:
+		return
+	const SHOCK_RADIUS := 120.0
+	const SHOCK_DAMAGE := 10.0
+	for node in tree.get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+			continue
+		if player.global_position.distance_to(node.global_position) <= SHOCK_RADIUS and node.has_method("take_damage"):
+			node.take_damage(SHOCK_DAMAGE, 220.0, 160.0, true)

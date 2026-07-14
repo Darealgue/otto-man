@@ -5,7 +5,6 @@ const RESOURCE_ICONS: Dictionary = {
 	"wood": preload("res://assets/Icons/wood_icon.png"),
 	"stone": preload("res://assets/Icons/stone_icon.png"),
 	"food": preload("res://assets/Icons/food_icon.png"),
-	"water": preload("res://assets/Icons/water_icon.png"),
 }
 
 const FLOAT_OFFSET := Vector2(0.0, -72.0)

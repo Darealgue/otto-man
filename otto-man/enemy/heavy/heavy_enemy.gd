@@ -101,8 +101,8 @@ func _ready() -> void:
 	collision_mask |= 10  # Add platform layer (10) to existing collision mask
 	set_collision_mask_value(10, true)  # Ensure platform collision is enabled
 	
-	sleep_distance = 2000.0  # Increased from 1200
-	wake_distance = 1800.0   # Increased from 1000
+	sleep_distance = 2200.0  # Increased from 1200
+	wake_distance = 2100.0   # Unfreeze early — time to land before player sees them
 	is_sleeping = false  # Start awake
 	vertical_tolerance = 200.0  # Increased from 100
 	can_attack = true  # Ensure can_attack starts true
@@ -735,6 +735,7 @@ func reset() -> void:
 func die() -> void:
 	if current_behavior == "dead":
 		return
+	_disable_stealth_perception()
 		
 	current_behavior = "dead"
 	

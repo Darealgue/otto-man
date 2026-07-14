@@ -37,6 +37,32 @@ const MOUTH_TEXTURES = [
 	"res://assets/character_parts/mouth/mouth2_walk.png" #<<< DOĞRU
 ]
 
+# --- Kadın Köylü (v3) Asset Yolları ---
+# "3" ile numaralanan yeni kadın köylü sprite seti. Bir animasyon için "3" varyantı
+# eksikse Worker.gd içindeki stil fallback zinciri otomatik olarak eski/erkek
+# varyantına döner (bkz. Worker.gd STYLE_FALLBACK).
+const FEMALE_HAIR_TEXTURES = [
+	"res://assets/character_parts/hair/Hair3_walk.png"
+]
+# Kadın köylüler için sakal yok — kasıtlı olarak boş bırakıldı.
+const FEMALE_CLOTHES_TEXTURES = [ # Kadın köylüler her zaman clothes3 kullanır (zorunlu)
+	"res://assets/character_parts/clothing/Clothes3_walk.png"
+]
+const FEMALE_PANTS_TEXTURES = [ # Kadın köylüler her zaman pants3 kullanır (zorunlu)
+	"res://assets/character_parts/pants/pants3_walk.png"
+]
+const FEMALE_MOUTH_TEXTURES = [
+	"res://assets/character_parts/mouth/mouth3_walk.png"
+]
+# Kadına özel taban (walk pozu) göz asseti henüz eklenmedi (sadece eyes3_sit.png var).
+# Eklendiğinde buraya "eyes3_walk.png" yolu eklenmesi yeterli; boşken ortak EYES_TEXTURES kullanılır.
+const FEMALE_EYES_TEXTURES = []
+# Yazma (baş örtüsü) — sadece kadın v3 modelinde. Artık walk/walk_work/sit/lie/drink
+# pozlarının hepsi çizildi (bkz. Worker.gd walk_textures/walk_work_textures/idle_*_textures).
+const FEMALE_HAT_TEXTURES = [
+	"res://assets/character_parts/hat/hat3_walk_work.png"
+]
+
 # --- Define Color Palettes ---
 # Worker cilt renkleri - açık gri base üzerine uygulanacak
 # Oyuncunun ten rengine (#e2b27e) benzer canlı, sıcak tonlar
@@ -86,6 +112,20 @@ const HAIR_COLORS = [
 	Color.BLACK, Color.SADDLE_BROWN, Color("#b8860b"), # DarkGoldenrod
 	Color.DARK_GRAY, Color.GRAY, Color.DIM_GRAY,
 	Color("#ff4500") # Orangey Red
+]
+# Yazma (baş örtüsü) renkleri - saç renginden bağımsız seçilir, geleneksel canlı/desenli
+# yazma tonlarını andırsın diye HAIR_COLORS'tan ayrı tutuluyor.
+const HEADSCARF_COLORS = [
+	Color("#b5424a"), # Kiremit kırmızısı
+	Color("#c9a227"), # Hardal sarısı
+	Color("#3f6b52"), # Zeytin yeşili
+	Color("#5b3a29"), # Toprak kahve
+	Color("#8a3b5c"), # Bordo-mor
+	Color("#2f5d62"), # Petrol mavisi
+	Color("#d98236"), # Turuncu-kiremit
+	Color("#4a4a68"), # Lacivert-gri
+	Color("#7a1f2b"), # Koyu bordo
+	Color("#e0c097")  # Krem-bej
 ]
 const CLOTHING_COLORS = [
 	Color.STEEL_BLUE, Color.DARK_GREEN, Color.FIREBRICK, 
@@ -245,7 +285,9 @@ func derive_normal_path(base_path: String) -> String:
 # <<< YENİ SONU >>>
 
 # --- Generation Function ---
-func generate_random_appearance() -> VillagerAppearance:
+func generate_random_appearance(gender: String = "Male") -> VillagerAppearance:
+	if gender == "Female":
+		return _generate_random_female_worker_appearance()
 	var new_appearance = VillagerAppearance.new() # Yeni kaynak oluştur
 
 	# Body (Tek seçenek)
@@ -346,7 +388,98 @@ func generate_random_appearance() -> VillagerAppearance:
 		if !HAIR_COLORS.is_empty():
 			new_appearance.hair_tint = HAIR_COLORS.pick_random()
 
-	return new_appearance 
+	return new_appearance
+
+# --- Kadın Köylü (v3) Görünüm Oluşturma Fonksiyonu ---
+# Bir texture'ın normal map'ini varsa yükler; yoksa (v3 parçaları için çoğunlukla henüz
+# normal map çizilmedi) o kategorinin eski/erkek normal map'ini kullanır — v3'te eksik olan
+# her şeyde eskiyi kullanma prensibi normal map için de geçerli.
+func _load_normal_or_fallback(diffuse_path: String, fallback_diffuse_path: String) -> Texture2D:
+	var normal_path = derive_normal_path(diffuse_path)
+	if ResourceLoader.exists(normal_path):
+		return load(normal_path)
+	if fallback_diffuse_path != diffuse_path:
+		var fallback_normal_path = derive_normal_path(fallback_diffuse_path)
+		if ResourceLoader.exists(fallback_normal_path):
+			return load(fallback_normal_path)
+	return null
+
+func _generate_random_female_worker_appearance() -> VillagerAppearance:
+	var new_appearance = VillagerAppearance.new()
+
+	# Body: v3'te sadece oturma/yatma pozları için ayrı çizim var (bkz. Worker.gd fallback
+	# zinciri "body"->"female"->"default"), taban/yürüme silüeti erkekle paylaşılıyor.
+	if !BODY_TEXTURES.is_empty():
+		var body_path = BODY_TEXTURES[0]
+		var body_canvas_texture = CanvasTexture.new()
+		body_canvas_texture.diffuse_texture = load(body_path)
+		body_canvas_texture.normal_texture = _load_normal_or_fallback(body_path, body_path)
+		new_appearance.body_texture = body_canvas_texture
+	if !SKIN_TONES.is_empty():
+		new_appearance.body_tint = SKIN_TONES.pick_random()
+
+	# Pants: kadın köylüler her zaman pants3 kullanır (zorunlu), normal map yoksa basic'inki kullanılır
+	if !FEMALE_PANTS_TEXTURES.is_empty():
+		var pants_path = FEMALE_PANTS_TEXTURES.pick_random()
+		var pants_canvas_texture = CanvasTexture.new()
+		pants_canvas_texture.diffuse_texture = load(pants_path)
+		pants_canvas_texture.normal_texture = _load_normal_or_fallback(pants_path, PANTS_TEXTURES[0])
+		new_appearance.pants_texture = pants_canvas_texture
+		if !PANTS_COLORS.is_empty():
+			new_appearance.pants_tint = PANTS_COLORS.pick_random()
+
+	# Clothes: kadın köylüler her zaman clothes3 kullanır (zorunlu), normal map yoksa shirt'ünkü kullanılır
+	if !FEMALE_CLOTHES_TEXTURES.is_empty():
+		var clothes_path = FEMALE_CLOTHES_TEXTURES.pick_random()
+		var clothes_canvas_texture = CanvasTexture.new()
+		clothes_canvas_texture.diffuse_texture = load(clothes_path)
+		clothes_canvas_texture.normal_texture = _load_normal_or_fallback(clothes_path, CLOTHES_TEXTURES[0])
+		new_appearance.clothing_texture = clothes_canvas_texture
+		if !CLOTHING_COLORS.is_empty():
+			new_appearance.clothing_tint = CLOTHING_COLORS.pick_random()
+
+	# Mouth: kadına özel varsa onu kullan, yoksa ortak havuza düş
+	var mouth_pool = FEMALE_MOUTH_TEXTURES if !FEMALE_MOUTH_TEXTURES.is_empty() else MOUTH_TEXTURES
+	if !mouth_pool.is_empty():
+		var mouth_path = mouth_pool.pick_random()
+		var mouth_canvas_texture = CanvasTexture.new()
+		mouth_canvas_texture.diffuse_texture = load(mouth_path)
+		mouth_canvas_texture.normal_texture = _load_normal_or_fallback(mouth_path, MOUTH_TEXTURES[0])
+		new_appearance.mouth_texture = mouth_canvas_texture
+
+	# Eyes: kadına özel taban asset eklenene kadar ortak havuz kullanılır
+	var eyes_pool = FEMALE_EYES_TEXTURES if !FEMALE_EYES_TEXTURES.is_empty() else EYES_TEXTURES
+	if !eyes_pool.is_empty():
+		var eyes_path = eyes_pool.pick_random()
+		var eyes_canvas_texture = CanvasTexture.new()
+		eyes_canvas_texture.diffuse_texture = load(eyes_path)
+		eyes_canvas_texture.normal_texture = _load_normal_or_fallback(eyes_path, EYES_TEXTURES[0])
+		new_appearance.eyes_texture = eyes_canvas_texture
+
+	# Beard: kadın köylülerde asla kullanılmaz
+	new_appearance.beard_texture = null
+
+	# Hair: normal map yoksa style1'inki kullanılır
+	if !FEMALE_HAIR_TEXTURES.is_empty():
+		var hair_path = FEMALE_HAIR_TEXTURES.pick_random()
+		var hair_canvas_texture = CanvasTexture.new()
+		hair_canvas_texture.diffuse_texture = load(hair_path)
+		hair_canvas_texture.normal_texture = _load_normal_or_fallback(hair_path, HAIR_TEXTURES[0])
+		new_appearance.hair_texture = hair_canvas_texture
+		if !HAIR_COLORS.is_empty():
+			new_appearance.hair_tint = HAIR_COLORS.pick_random()
+
+	# Hat/Yazma: saç renginden bağımsız kendi rengiyle - artık tüm pozlarda çizili.
+	if !FEMALE_HAT_TEXTURES.is_empty():
+		var hat_path = FEMALE_HAT_TEXTURES.pick_random()
+		var hat_canvas_texture = CanvasTexture.new()
+		hat_canvas_texture.diffuse_texture = load(hat_path)
+		hat_canvas_texture.normal_texture = _load_normal_or_fallback(hat_path, hat_path)
+		new_appearance.hat_texture = hat_canvas_texture
+		if !HEADSCARF_COLORS.is_empty():
+			new_appearance.hat_tint = HEADSCARF_COLORS.pick_random()
+
+	return new_appearance
 
 # --- Cariye Görünüm Oluşturma Fonksiyonu ---
 func generate_random_concubine_appearance() -> VillagerAppearance:

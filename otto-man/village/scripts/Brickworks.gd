@@ -17,7 +17,7 @@ var produced_resource: String = "brick"
 
 var input_buffer: Dictionary = {"stone": 0}
 var production_progress: float = 0.0
-const PRODUCTION_TIME: float = 320.0
+const PRODUCTION_TIME: float = 1650.0 # tam çalışma günü (07-18, 11 saat) = 1 işçi başına 1 tuğla
 var fetch_timer: Timer = null
 var fetch_target: String = ""
 const FETCH_TIME_PER_UNIT: float = 3.0
@@ -113,9 +113,7 @@ func add_worker() -> bool:
 	w.assigned_job_type = "brick"
 	w.assigned_building_node = self
 	w.move_target_x = global_position.x
-	var current_hour = TimeManager.get_hour()
-	var is_work_time = current_hour >= TimeManager.WORK_START_HOUR and current_hour < TimeManager.WORK_END_HOUR
-	if is_work_time:
+	if w.should_start_shift_on_assignment():
 		w.current_state = w.State.GOING_TO_BUILDING_FIRST
 	else:
 		w.current_state = w.State.AWAKE_IDLE
@@ -130,6 +128,7 @@ func remove_worker() -> bool:
 	if VillageManager.all_workers.has(id):
 		var w = VillageManager.all_workers[id]["instance"]
 		if is_instance_valid(w):
+			VillageManager.unregister_generic_worker(id)
 			w.assigned_job_type = ""
 			w.assigned_building_node = null
 			w.move_target_x = w.global_position.x

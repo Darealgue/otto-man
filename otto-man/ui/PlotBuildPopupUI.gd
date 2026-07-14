@@ -538,8 +538,9 @@ func _on_build_button_focus_entered(index: int) -> void:
 
 
 func _populate_cost_row(cost_row: HBoxContainer, scene_path: String, can_build: bool) -> void:
-	var reqs := VillageManager.get_building_requirements(scene_path)
-	var cost: Dictionary = reqs.get("cost", {})
+	# Gösterilen fiyat, aktif VillageCardEffects kartlarını (altın çarpanı, kaynak
+	# muafiyeti, bedava inşa) da yansıtır ki gerçekte ödenenle her zaman eşleşsin.
+	var cost: Dictionary = VillageManager.get_effective_build_cost(scene_path)
 	var ordered_keys: Array = []
 	if cost.has("gold"):
 		ordered_keys.append("gold")
@@ -547,7 +548,13 @@ func _populate_cost_row(cost_row: HBoxContainer, scene_path: String, can_build: 
 		if key != "gold":
 			ordered_keys.append(key)
 
-	if ordered_keys.is_empty():
+	var has_any_positive_amount := false
+	for key in ordered_keys:
+		if int(cost[key]) > 0:
+			has_any_positive_amount = true
+			break
+
+	if not has_any_positive_amount:
 		var free_lbl := Label.new()
 		free_lbl.text = "Bedava"
 		free_lbl.add_theme_font_size_override("font_size", 12)
@@ -595,7 +602,7 @@ func _format_lock_reason(scene_path: String) -> String:
 	if scene_path != VillageManager.HOUSE_SCENE_PATH and VillageManager.does_building_exist(scene_path):
 		return "Bu bina zaten mevcut."
 	var reqs := VillageManager.get_building_requirements(scene_path)
-	var cost: Dictionary = reqs.get("cost", {})
+	var cost: Dictionary = VillageManager.get_effective_build_cost(scene_path)
 	var missing: PackedStringArray = PackedStringArray()
 	for key in cost.keys():
 		var key_str := String(key)

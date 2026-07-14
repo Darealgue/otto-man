@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://son_kale_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/son_kale.gd" id="1_script"]
+
+[node name="SonKale" type="Node"]
+script = ExtResource("1_script")

@@ -148,8 +148,8 @@ var last_path_update_distance = 0.0
 
 func _ready() -> void:
 	# Set sleep distances for performance optimization
-	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
-	wake_distance = 1200.0  # Distance at which enemy wakes up
+	sleep_distance = 1600.0
+	wake_distance = 1500.0
 	# Initialize stats first
 	if not stats:
 		print("[Hunter] Loading default stats...")

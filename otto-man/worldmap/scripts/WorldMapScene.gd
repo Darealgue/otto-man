@@ -48,6 +48,7 @@ const SHOW_WORLD_MAP_STATUS_TEXT := false
 const SHOW_WORLD_MAP_HEX_TOOLTIP := true
 const HealthDisplayScene = preload("res://ui/health_display.tscn")
 const StaminaBarScene = preload("res://ui/stamina_bar.tscn")
+const XpBarScene = preload("res://ui/xp_bar.tscn")
 
 var _world_manager: Node = null
 var _cursor_q: int = 0
@@ -295,11 +296,13 @@ func _ensure_world_map_hud_visible() -> void:
 	var container: Node = null
 	var hd: Node = null
 	var sb: Node = null
+	var xb: Node = null
 	if game_ui:
 		container = game_ui.get_node_or_null("Container")
 		if container:
 			hd = container.get_node_or_null("HealthDisplay")
 			sb = container.get_node_or_null("StaminaBar")
+			xb = container.get_node_or_null("XpBar")
 	if game_ui == null:
 		push_warning("[WorldMapScene] GameUI missing in scene tree")
 	if container == null:
@@ -313,6 +316,10 @@ func _ensure_world_map_hud_visible() -> void:
 		container.remove_child(sb)
 		sb.queue_free()
 		sb = null
+	if xb != null and not (xb is CanvasItem):
+		container.remove_child(xb)
+		xb.queue_free()
+		xb = null
 	if hd == null and HealthDisplayScene:
 		hd = HealthDisplayScene.instantiate()
 		hd.name = "HealthDisplay"
@@ -321,7 +328,11 @@ func _ensure_world_map_hud_visible() -> void:
 		sb = StaminaBarScene.instantiate()
 		sb.name = "StaminaBar"
 		container.add_child(sb)
-	_position_world_map_hud_nodes(hd, sb)
+	if xb == null and XpBarScene:
+		xb = XpBarScene.instantiate()
+		xb.name = "XpBar"
+		container.add_child(xb)
+	_position_world_map_hud_nodes(hd, sb, xb)
 	if hd and hd is CanvasItem:
 		var hd_ctrl := hd as CanvasItem
 		hd_ctrl.show()
@@ -334,6 +345,12 @@ func _ensure_world_map_hud_visible() -> void:
 		sb_ctrl.visible = true
 		if "_force_visible" in sb:
 			sb._force_visible = true
+	if xb and xb is CanvasItem:
+		var xb_ctrl := xb as CanvasItem
+		xb_ctrl.show()
+		xb_ctrl.visible = true
+		if "_force_visible" in xb:
+			xb._force_visible = true
 	
 	# Parent zincirini de zorla görünür tut.
 	if game_ui and game_ui is CanvasLayer:
@@ -361,6 +378,7 @@ func _force_world_map_hud_visible() -> void:
 		return
 	var hd: Node = container.get_node_or_null("HealthDisplay")
 	var sb: Node = container.get_node_or_null("StaminaBar")
+	var xb: Node = container.get_node_or_null("XpBar")
 	if hd != null and not (hd is CanvasItem) and HealthDisplayScene:
 		container.remove_child(hd)
 		hd.queue_free()
@@ -373,7 +391,13 @@ func _force_world_map_hud_visible() -> void:
 		sb = StaminaBarScene.instantiate()
 		sb.name = "StaminaBar"
 		container.add_child(sb)
-	_position_world_map_hud_nodes(hd, sb)
+	if xb != null and not (xb is CanvasItem) and XpBarScene:
+		container.remove_child(xb)
+		xb.queue_free()
+		xb = XpBarScene.instantiate()
+		xb.name = "XpBar"
+		container.add_child(xb)
+	_position_world_map_hud_nodes(hd, sb, xb)
 	if game_ui is CanvasLayer:
 		var gl := game_ui as CanvasLayer
 		gl.visible = true
@@ -397,8 +421,16 @@ func _force_world_map_hud_visible() -> void:
 			sbc.modulate.a = 1.0
 		if "_force_visible" in sb:
 			sb._force_visible = true
+	if xb and xb is CanvasItem:
+		var xbc := xb as CanvasItem
+		xbc.visible = true
+		xbc.show()
+		if xbc is CanvasItem:
+			xbc.modulate.a = 1.0
+		if "_force_visible" in xb:
+			xb._force_visible = true
 
-func _position_world_map_hud_nodes(hd: Node, sb: Node) -> void:
+func _position_world_map_hud_nodes(hd: Node, sb: Node, xb: Node = null) -> void:
 	# Koy / zindan ile ayni HudLayout (eski 300x40 sikistirmasi kaldirildi).
 	if hd and hd is Control:
 		var hd_ctrl := hd as Control
@@ -420,6 +452,10 @@ func _position_world_map_hud_nodes(hd: Node, sb: Node) -> void:
 		var sb_ctrl := sb as Control
 		HudLayout.apply_stamina_bar(sb_ctrl, HudLayout.HUD_ORIGIN)
 		sb_ctrl.z_index = 30
+	if xb and xb is Control:
+		var xb_ctrl := xb as Control
+		HudLayout.apply_xp_bar(xb_ctrl, HudLayout.HUD_ORIGIN)
+		xb_ctrl.z_index = 30
 
 func _exit_tree() -> void:
 	if _world_manager and _world_manager.has_signal("world_map_updated") and _world_manager.world_map_updated.is_connected(_on_world_map_updated):

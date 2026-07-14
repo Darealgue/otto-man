@@ -17,6 +17,22 @@ var _sleep_poll_timer: Timer = null
 
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 
+const ENEMY_TICK_INTERVAL := 1.0
+const ENEMY_RADIUS := 24.0
+var _enemy_tick_timer: float = 0.0
+
+func _process(delta: float) -> void:
+	if is_sleeping:
+		return
+	# Tuzak Fısıldayan: havuzda duran düşmanlar da zehirlenir
+	if not TrapEnemyDamage.is_active():
+		return
+	_enemy_tick_timer -= delta
+	if _enemy_tick_timer > 0.0:
+		return
+	_enemy_tick_timer = ENEMY_TICK_INTERVAL
+	TrapEnemyDamage.damage_enemies_in_radius(get_tree(), global_position, ENEMY_RADIUS, 0.0, "poison")
+
 func _ready() -> void:
 	add_to_group("poison_pools")
 	body_entered.connect(_on_body_entered)

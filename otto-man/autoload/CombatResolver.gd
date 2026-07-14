@@ -67,13 +67,23 @@ func resolve_battle(attacker: Dictionary, defender: Dictionary, battle_type: Str
 	# Apply tactical modifiers
 	attacker_stats = _apply_tactical_modifiers(attacker_stats, attacker, "attacker")
 	defender_stats = _apply_tactical_modifiers(defender_stats, defender, "defender")
-	
+
+	# Köy roguelite kart etkileri (bkz. autoload/VillageCardEffects.gd)
+	var vce := get_node_or_null("/root/VillageCardEffects")
+	if vce:
+		var adjusted_stats: Dictionary = vce.modify_battle_stats(attacker_stats, defender_stats, attacker, defender)
+		attacker_stats = adjusted_stats.get("attacker", attacker_stats)
+		defender_stats = adjusted_stats.get("defender", defender_stats)
+
 	# Determine battle outcome
 	var battle_result := _determine_battle_outcome(attacker_stats, defender_stats, battle_type)
-	
+
 	# Calculate losses and gains
 	var losses := _calculate_losses(attacker_stats, defender_stats, battle_result)
 	var gains := _calculate_gains(attacker, defender, battle_result)
+	if vce:
+		losses = vce.modify_battle_losses(losses, attacker, defender, battle_result)
+		gains = vce.modify_battle_gains(gains, attacker, defender, battle_result)
 	
 	# Apply equipment consumption
 	_apply_equipment_consumption(attacker, defender, losses)

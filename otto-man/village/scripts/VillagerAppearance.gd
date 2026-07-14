@@ -29,6 +29,11 @@ class_name VillagerAppearance
 @export var hair_texture: CanvasTexture = null
 @export var hair_tint: Color = Color.WHITE # Default White = no tinting
 
+# --- Hat / Yazma (Opsiyonel - şu an sadece kadın köylü v3 modelinde) ---
+@export var hat_texture: CanvasTexture = null
+# Saç renginden bağımsız kendi rengi olsun diye ayrı tint (aynı renk hoş durmuyor)
+@export var hat_tint: Color = Color.WHITE
+
 # Add more parts as needed (e.g., nose, mouth, accessories)
 
 # Save/Load için Dictionary'ye dönüştür
@@ -80,7 +85,14 @@ func to_dict() -> Dictionary:
 		if hair_texture.normal_texture != null:
 			dict["hair_texture_normal_path"] = hair_texture.normal_texture.resource_path
 	dict["hair_tint"] = {"r": hair_tint.r, "g": hair_tint.g, "b": hair_tint.b, "a": hair_tint.a}
-	
+
+	if hat_texture != null:
+		if hat_texture.diffuse_texture != null:
+			dict["hat_texture_diffuse_path"] = hat_texture.diffuse_texture.resource_path
+		if hat_texture.normal_texture != null:
+			dict["hat_texture_normal_path"] = hat_texture.normal_texture.resource_path
+	dict["hat_tint"] = {"r": hat_tint.r, "g": hat_tint.g, "b": hat_tint.b, "a": hat_tint.a}
+
 	return dict
 
 # Dictionary'den yükle
@@ -219,4 +231,20 @@ func from_dict(dict: Dictionary) -> void:
 			hair_texture = loaded
 	if dict.has("hair_tint") and dict["hair_tint"] is Dictionary:
 		var tint = dict["hair_tint"]
-		hair_tint = Color(tint["r"], tint["g"], tint["b"], tint["a"]) 
+		hair_tint = Color(tint["r"], tint["g"], tint["b"], tint["a"])
+
+	# Hat texture
+	if dict.has("hat_texture_diffuse_path") or dict.has("hat_texture_normal_path"):
+		var hat_canvas = CanvasTexture.new()
+		if dict.has("hat_texture_diffuse_path"):
+			var diffuse = load(dict["hat_texture_diffuse_path"])
+			if diffuse != null:
+				hat_canvas.diffuse_texture = diffuse
+		if dict.has("hat_texture_normal_path"):
+			var normal = load(dict["hat_texture_normal_path"])
+			if normal != null:
+				hat_canvas.normal_texture = normal
+		hat_texture = hat_canvas
+	if dict.has("hat_tint") and dict["hat_tint"] is Dictionary:
+		var tint = dict["hat_tint"]
+		hat_tint = Color(tint["r"], tint["g"], tint["b"], tint["a"])

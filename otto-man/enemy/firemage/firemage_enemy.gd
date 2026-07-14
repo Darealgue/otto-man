@@ -30,8 +30,8 @@ func _ready() -> void:
 	super._ready()
 	
 	# Set sleep distances for performance optimization
-	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
-	wake_distance = 1200.0  # Distance at which enemy wakes up
+	sleep_distance = 1600.0
+	wake_distance = 1500.0
 	
 	# DEBUG: Collision info
 	print("[Firemage] Collision Layer: ", collision_layer)

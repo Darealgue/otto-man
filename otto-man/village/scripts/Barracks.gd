@@ -24,6 +24,9 @@ var soldier_equipment: Dictionary = {}
 ## Seviye 1: +5 hasar hissi. Seviye 2: +10 hasar + %20 hayatta kalma. Seviye 3: +20 hasar + %40 hayatta kalma.
 const TIER_ATTACK_BONUS: Dictionary = {1: 0.05, 2: 0.10, 3: 0.20}
 const TIER_SURVIVAL_CHANCE: Dictionary = {1: 0.0, 2: 0.20, 3: 0.40}
+## Savaşa giren bir silahın o savaşta kırılma (kaybolma, stoğa dönmeme) ihtimali — düşük
+## seviyeli silahlar daha kırılgan. Bkz. apply_weapon_wear_after_battle().
+const TIER_BREAK_CHANCE: Dictionary = {1: 0.50, 2: 0.25, 3: 0.10}
 const MAX_WEAPON_TIER: int = 3
 
 # Bina durumu
@@ -403,6 +406,42 @@ func remove_soldiers(count: int) -> void:
 	if survived > 0:
 		print("[Barracks] %d asker silahı sayesinde hayatta kaldı!" % survived)
 	print("[Barracks] %d asker kaldırıldı (savaş kaybı)" % removed)
+
+
+## Savaşa katılan (hayatta kalıp kışlada kalan) donanımlı askerlerin silahları, seviyeye göre
+## bir ihtimalle kırılır (bkz. TIER_BREAK_CHANCE). Ölen askerlerin silahı zaten remove_soldiers()
+## içinde stoğa dönüyor; burası sadece savaşı atlatan askerlerin ekipmanını etkiler.
+## Kırılan silah, stokta AYNI seviyede yedek varsa otomatik olarak yenisiyle değiştirilir — asker
+## elindeki silahı kaybetmez, oyuncunun her savaş sonrası tek tek yeniden silahlandırma yapmasına
+## gerek kalmaz. Stokta yedek yoksa asker o an silahsız kalır (geri dönüş değeri bunu sayar).
+func apply_weapon_wear_after_battle() -> int:
+	var broken := 0
+	var disarmed := 0
+	var vm = get_node_or_null("/root/VillageManager")
+	for worker_id in assigned_worker_ids:
+		if not soldier_equipment.has(worker_id):
+			continue
+		var tier := int(soldier_equipment[worker_id].get("weapon_tier", 0))
+		if tier <= 0:
+			continue
+		var break_chance: float = TIER_BREAK_CHANCE.get(tier, 0.0)
+		if break_chance > 0.0 and randf() < break_chance:
+			broken += 1
+			var res_key := "weapon_t%d" % tier
+			var available: int = int(vm.resource_levels.get(res_key, 0)) if vm else 0
+			if vm and available > 0:
+				# Stoktan otomatik yedek silah verilir; asker aynı seviyede silahlı kalır.
+				vm.resource_levels[res_key] = available - 1
+			else:
+				soldier_equipment[worker_id]["weapon_tier"] = 0
+				disarmed += 1
+	if broken > 0:
+		print("[Barracks] %d silah savaşta kırıldı (%d asker stok yetersizliğinden silahsız kaldı)" % [broken, disarmed])
+		if vm and vm.has_signal("village_data_changed"):
+			vm.emit_signal("village_data_changed")
+		_update_ui()
+	return disarmed
+
 
 # --- Ekipman Atama Fonksiyonları (sadece silah — zırh sistemi kaldırıldı) ---
 func equip_soldier(worker_id: int, tier: int) -> bool:

@@ -8,13 +8,20 @@ static var _dumped_keys: Dictionary = {}
 
 
 static func dump_health_display(health: Control, reason: String = "layout") -> void:
-	if not AUTO_DUMP or health == null:
+	if not AUTO_DUMP or health == null or not is_instance_valid(health):
 		return
 	var key: String = "%s|%s" % [health.get_instance_id(), reason]
 	if reason != "ready" and _dumped_keys.has(key):
 		return
+	# İki kare beklerken (örn. ölüm/yeniden doğma/sahne geçişi sırasında) health node'u
+	# silinebilir — her await sonrası hâlâ geçerli mi diye kontrol etmeden get_tree()
+	# çağırmak "freed instance" çökmesine yol açıyordu.
 	await health.get_tree().process_frame
+	if not is_instance_valid(health):
+		return
 	await health.get_tree().process_frame
+	if not is_instance_valid(health):
+		return
 	_print_report(health, reason)
 	if reason == "ready":
 		_dumped_keys[key] = true

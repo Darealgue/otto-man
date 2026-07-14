@@ -119,7 +119,7 @@ func _pay_cost(cost: Dictionary) -> bool:
 
 
 func _is_village_resource(key: String) -> bool:
-	return key in ["metal", "weapon", "medicine", "lumber", "brick"]
+	return key in ["metal", "weapon_t1", "weapon_t2", "weapon_t3", "medicine", "lumber", "brick"]
 
 
 func _apply_track_bonus(track_id: String) -> void:

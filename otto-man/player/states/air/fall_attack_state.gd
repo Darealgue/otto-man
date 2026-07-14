@@ -18,6 +18,7 @@ var is_impacting := false
 var impact_timer := 0.0
 var original_sprite_position := Vector2.ZERO
 var hitbox_enabled := false
+var _pogo_active := false  # Sekme Tabanlık: zemine değince otomatik tekrar zıplama
 
 static func is_on_cooldown() -> bool:
 	if was_double_jumping:
@@ -132,23 +133,44 @@ func start_impact():
 	animation_player.play("landing")
 
 func physics_update(delta: float):
-	# Keep fall attack velocity constant unless impacting
-	if not is_impacting:
+	# Keep fall attack velocity constant unless impacting or pogo-bouncing (Sekme Tabanlık)
+	if _pogo_active:
+		player.velocity.y += player.gravity * delta
+		if player.velocity.y >= FALL_ATTACK_SPEED:
+			_pogo_active = false
+	elif not is_impacting:
 		player.velocity.y = FALL_ATTACK_SPEED
-	
+
 	# Handle impact state
 	if is_impacting:
 		impact_timer += delta
 		if impact_timer >= IMPACT_DURATION:
 			state_machine.transition_to("Fall")
 			return
-	
+
 	# Check for landing
 	if player.is_on_floor() and not is_impacting:
+		var im := get_node_or_null("/root/ItemManager")
+		if im and im.has_active_item("sekme_tabanligi"):
+			_do_pogo_bounce()
+			return
 		start_impact()
 		return
-	
+
 	# Move the player
+	player.apply_move_and_slide()
+
+## Sekme Tabanlık: zemine çarpınca dur/sersemleme yerine otomatik tekrar zıpla, hitbox yeniden aktif olsun.
+func _do_pogo_bounce() -> void:
+	player.velocity.y = BOUNCE_VELOCITY
+	_pogo_active = true
+	has_hit_enemy = false
+	var fall_attack_hitbox = player.get_node_or_null("FallAttack")
+	if fall_attack_hitbox and fall_attack_hitbox is PlayerHitbox:
+		fall_attack_hitbox.enable()
+		hitbox_enabled = true
+	if player.has_signal("fall_attack_impacted"):
+		player.emit_signal("fall_attack_impacted", player.global_position)
 	player.apply_move_and_slide()
 
 func _on_animation_finished(anim_name: String):

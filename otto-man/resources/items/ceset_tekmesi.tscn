@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ceset_tekmesi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/ceset_tekmesi.gd" id="1_script"]
+
+[node name="CesetTekmesi" type="Node"]
+script = ExtResource("1_script")

@@ -219,7 +219,7 @@ func enter():
 		if forward_direction == 0:
 			forward_direction = 1.0  # Default to right if no facing direction
 		player.velocity.x = forward_direction * ATTACK_FORWARD_MOMENTUM
-	
+
 	# Set up hitbox for current attack and make sure it's disabled at start
 	var hitbox = player.get_node_or_null("Hitbox")
 	if hitbox and hitbox is PlayerHitbox:

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://sekme_tabanligi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/sekme_tabanligi.gd" id="1_script"]
+
+[node name="SekmeTabanligi" type="Node"]
+script = ExtResource("1_script")

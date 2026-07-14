@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://taskin_guc_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/taskin_guc.gd" id="1_script"]
+
+[node name="TaskinGuc" type="Node"]
+script = ExtResource("1_script")

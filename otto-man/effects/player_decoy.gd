@@ -33,6 +33,7 @@ var _decoy_hitbox: Area2D
 var _attack_timer: float = 0.0
 var _player: CharacterBody2D = null  # Oyuncu referansı - etki taşıma için
 var _attack_effect_filter: String = "all"  # "physical_only" = Karagöz (sadece Çift Vuruş vb.), "elemental_only" = Hacivat (sadece zehir/ateş vb.)
+var lifetime_override: float = -1.0  # >0 ise LIFETIME yerine bu kullanılır (Hayalet Adım: 0.4s)
 
 func is_decoy() -> bool:
 	return true
@@ -74,7 +75,7 @@ func setup(world_pos: Vector2, flip_h: bool, player: CharacterBody2D) -> void:
 		if _decoy_hitbox.has_signal("hit_enemy") and not _decoy_hitbox.hit_enemy.is_connected(_on_decoy_hitbox_hit_enemy):
 			_decoy_hitbox.hit_enemy.connect(_on_decoy_hitbox_hit_enemy)
 
-	_timer = LIFETIME
+	_timer = LIFETIME if lifetime_override <= 0.0 else lifetime_override
 
 func _process(delta: float) -> void:
 	_timer -= delta

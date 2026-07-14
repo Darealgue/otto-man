@@ -45,6 +45,21 @@ func _physics_process(delta: float) -> void:
 	position += step
 	_traveled += step.length()
 	# No explicit max-distance kill; arrow flies until it hits something
+	# Tuzak Fısıldayan: yoluna çıkan ilk düşmana da çarpar (collision mask düşmanları görmüyor,
+	# bu yüzden manuel mesafe taraması kullanılıyor — bkz. trap_enemy_damage.gd)
+	if TrapEnemyDamage.is_active():
+		var tree := get_tree()
+		if tree:
+			for node in tree.get_nodes_in_group("enemies"):
+				if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+					continue
+				if global_position.distance_to(node.global_position) <= 20.0:
+					_hit = true
+					velocity = Vector2.ZERO
+					if node.has_method("take_damage"):
+						node.take_damage(damage, 0.0, 0.0, false)
+					_play_break_and_free()
+					return
 
 func _play_break_and_free() -> void:
 	if anim and anim.sprite_frames and anim.sprite_frames.has_animation("break"):

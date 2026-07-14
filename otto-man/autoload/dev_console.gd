@@ -27,10 +27,15 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_console"):
 		toggle_console()
 	elif is_open:
-		if event.is_action_pressed("ui_up"):
-			navigate_history(-1)
-		elif event.is_action_pressed("ui_down"):
-			navigate_history(1)
+		# ui_up/ui_down yerine ham Yukarı/Aşağı ok tuşları: bu proje W/S'yi de
+		# ui_up/ui_down'a atadığı için action tabanlı kontrol, konsola "w"/"s" yazmayı
+		# geçmişte gezinmeyle karıştırıyordu (satır önceki komutla değişiyordu).
+		if event is InputEventKey and event.pressed and not event.echo:
+			var key_event := event as InputEventKey
+			if key_event.keycode == KEY_UP:
+				navigate_history(-1)
+			elif key_event.keycode == KEY_DOWN:
+				navigate_history(1)
 
 func toggle_console() -> void:
 	is_open = !is_open

@@ -178,6 +178,13 @@ var _last_attack_name_for_modifiers: String = ""
 # Elemental Odak: elemental/fiziksel çarpanlar
 var elemental_damage_mult: float = 1.0
 var physical_damage_mult: float = 1.0
+# Taşkın Güç: stamina tamamen doluyken hasar çarpanı (item process'te günceller)
+var taskin_guc_mult: float = 1.0
+# Cüppe Değil Zırh: element vuruşlarıyla biriken, gelen hasarı emen kalkan (mutlak miktar)
+var element_shield: float = 0.0
+# Şanslı Nal: garanti kritik — parry sonrası / görünmezlik ilk vuruşu (tek kullanım)
+var sansli_nal_active: bool = false
+var sansli_nal_crit_next: bool = false
 var is_dashing: bool = false  # For Speed Demon powerup
 
 var facing_direction := 1.0  # 1 for right, -1 for left
@@ -789,6 +796,11 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 			emit_signal("nazar_shield_consumed")
 		return
 	amount *= incoming_damage_multiplier
+	# Cüppe Değil Zırh: elemental hasar biriktirdiği kalkan hasarı emer
+	if amount > 0 and element_shield > 0.0:
+		var absorbed: float = min(element_shield, amount)
+		element_shield -= absorbed
+		amount -= absorbed
 	# Taş Yürek: can %25 altındayken gelen hasarı azalt
 	if tas_yurek_reduction > 0:
 		var ps = get_node_or_null("/root/PlayerStats")
@@ -1177,6 +1189,13 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		
 		# Spawn player hit effect
 		_spawn_player_hit_effect()
+
+## Xp orb'u oyuncuya ulaştığında çağrılır: toplanan xp'nin belli belirsiz beyaz parıltısı.
+func flash_xp_pulse() -> void:
+	if not sprite:
+		return
+	sprite.modulate = Color(1.25, 1.25, 1.3, 1.0)
+	create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), 0.2)
 
 func has_coyote_time() -> bool:
 	return coyote_timer > 0.0
@@ -1896,11 +1915,16 @@ func _update_npc_interact_hold_visual(ratio: float) -> void:
 func _try_hold_npc_interact() -> bool:
 	var npc = VillageManager.active_dialogue_npc
 	if npc == null or not is_instance_valid(npc):
+		npc = _find_best_village_character_interactable()
+	if npc == null or not is_instance_valid(npc):
 		return false
-	if not npc.has_method("_on_interact_button_pressed"):
-		return false
-	npc._on_interact_button_pressed()
-	return true
+	if npc.has_method("_on_interact_button_pressed"):
+		npc._on_interact_button_pressed()
+		return true
+	if _is_village_priority_character(npc) and npc.has_method("interact"):
+		npc.interact()
+		return true
+	return false
 
 
 func _find_best_tap_interactable() -> Node:
@@ -1916,7 +1940,7 @@ func _find_best_tap_interactable() -> Node:
 		var candidate_node = candidate_area.get_parent()
 		if not is_instance_valid(candidate_node) or not candidate_node.has_method("interact"):
 			continue
-		if candidate_node.is_in_group("NPC"):
+		if candidate_node.is_in_group("NPC") and not _is_village_priority_character(candidate_node):
 			continue
 		if candidate_node.has_method("can_interact") and not candidate_node.can_interact():
 			continue
@@ -1929,6 +1953,8 @@ func _find_best_tap_interactable() -> Node:
 
 func _try_tap_world_interact() -> void:
 	if _try_village_plot_interact():
+		return
+	if _try_village_character_interact():
 		return
 	var interactable_node := _find_best_overlapping_interact_target()
 	if interactable_node:
@@ -1951,7 +1977,7 @@ func _find_best_overlapping_interact_target() -> Node:
 		var node := _resolve_interactable_node(area)
 		if not is_instance_valid(node) or not node.has_method("interact"):
 			continue
-		if node.is_in_group("NPC"):
+		if node.is_in_group("NPC") and not _is_village_priority_character(node):
 			continue
 		if node.has_method("can_interact") and not node.can_interact():
 			continue
@@ -1971,10 +1997,23 @@ func _try_village_character_interact() -> bool:
 
 
 func _find_best_village_character_interactable() -> Node:
-	var best := _find_best_overlapping_interact_target()
-	if _is_village_priority_character(best):
-		return best
-	return null
+	var best: Node = null
+	var best_dist_sq: float = INF
+	for i in range(overlapping_interactables.size() - 1, -1, -1):
+		var area: Area2D = overlapping_interactables[i]
+		if not is_instance_valid(area):
+			overlapping_interactables.remove_at(i)
+			continue
+		var node := _resolve_interactable_node(area)
+		if not _is_village_priority_character(node):
+			continue
+		if not _can_village_character_interact(node):
+			continue
+		var dist_sq: float = global_position.distance_squared_to(node.global_position)
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			best = node
+	return best
 
 
 func _resolve_interactable_node(area: Area2D) -> Node:
@@ -2026,7 +2065,8 @@ func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 			var parent_node = area.get_parent()
 			if parent_node and parent_node.is_in_group("NPC"):
 				parent_node.HideInteractButton()
-				parent_node.CloseNpcWindow()
+				if parent_node.has_method("CloseNpcWindow"):
+					parent_node.CloseNpcWindow()
 				VillageManager.dialogue_npcs.erase(parent_node)
 				if VillageManager.dialogue_npcs.is_empty() == true:
 					VillageManager.active_dialogue_npc = null

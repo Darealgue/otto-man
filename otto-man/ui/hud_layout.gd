@@ -12,10 +12,13 @@ const PORTRAIT_PIXEL_SIZE := 110
 const HUD_ORIGIN := Vector2(10.0, 10.0)
 
 const BAR_GAP_FROM_PORTRAIT := 8.0
-const BAR_HEIGHT := 20.0
+const BAR_HEIGHT := 28.0  # Can barı stamina barından ince kalmasın diye kalınlaştırıldı
+const OLD_BAR_HEIGHT := 20.0  # Referans: bar alt kenarı hep burada sabit kalsın, kalınlık yukarı doğru eklensin
 const BAR_STACK_GAP := 4.0
 
 const STAMINA_SIZE := Vector2(200.0, 25.0)
+const XP_BAR_HEIGHT := 12.0
+const XP_BAR_GAP := 4.0
 const VILLAGE_RESOURCE_PANEL_GAP := 12.0
 
 ## Cerceve dis halkasi (0,0)'da; yuz deligi buna gore ofsetli.
@@ -47,7 +50,8 @@ static func get_bar_width() -> float:
 
 static func get_bar_top() -> float:
 	var face: Rect2 = get_face_rect_local()
-	return face.position.y + (face.size.y - BAR_HEIGHT) * 0.5
+	var old_bottom: float = face.position.y + (face.size.y + OLD_BAR_HEIGHT) * 0.5
+	return old_bottom - BAR_HEIGHT
 
 
 static func get_health_display_size() -> Vector2:
@@ -64,11 +68,16 @@ static func get_stamina_rect(health_origin: Vector2 = HUD_ORIGIN) -> Rect2:
 	return Rect2(health_origin.x + bar.position.x, top, bar.size.x, STAMINA_SIZE.y)
 
 
-static func get_hud_block_bottom(health_origin: Vector2 = HUD_ORIGIN) -> float:
-	var bar: Rect2 = get_bar_rect()
+static func get_xp_bar_rect(health_origin: Vector2 = HUD_ORIGIN) -> Rect2:
 	var stamina: Rect2 = get_stamina_rect(health_origin)
+	var top: float = stamina.position.y + stamina.size.y + XP_BAR_GAP
+	return Rect2(stamina.position.x, top, stamina.size.x, XP_BAR_HEIGHT)
+
+
+static func get_hud_block_bottom(health_origin: Vector2 = HUD_ORIGIN) -> float:
+	var xp_bar: Rect2 = get_xp_bar_rect(health_origin)
 	var frame_bottom: float = health_origin.y + FRAME_TEXTURE_SIZE.y + get_frame_draw_offset().y
-	return maxf(frame_bottom, stamina.position.y + stamina.size.y)
+	return maxf(frame_bottom, xp_bar.position.y + xp_bar.size.y)
 
 
 static func get_village_resource_panel_top(health_origin: Vector2 = HUD_ORIGIN) -> float:
@@ -119,11 +128,24 @@ static func apply_stamina_bar(stamina: Control, health_origin: Vector2 = HUD_ORI
 	stamina.scale = Vector2.ONE
 
 
+static func apply_xp_bar(xp_bar: Control, health_origin: Vector2 = HUD_ORIGIN) -> void:
+	if xp_bar == null:
+		return
+	var rect: Rect2 = get_xp_bar_rect(health_origin)
+	xp_bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	xp_bar.offset_left = rect.position.x
+	xp_bar.offset_top = rect.position.y
+	xp_bar.offset_right = rect.position.x + rect.size.x
+	xp_bar.offset_bottom = rect.position.y + rect.size.y
+	xp_bar.scale = Vector2.ONE
+
+
 static func apply_game_hud_container(container: Control) -> void:
 	if container == null:
 		return
 	apply_health_display(container.get_node_or_null("HealthDisplay") as Control, HUD_ORIGIN)
 	apply_stamina_bar(container.get_node_or_null("StaminaBar") as Control, HUD_ORIGIN)
+	apply_xp_bar(container.get_node_or_null("XpBar") as Control, HUD_ORIGIN)
 
 
 static func describe_node(node: Control, label: String) -> String:

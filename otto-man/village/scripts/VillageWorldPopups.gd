@@ -70,6 +70,13 @@ func open_concubine_missions(concubine: Concubine) -> void:
 		_concubine_popup.show_for_concubine(concubine)
 
 
+func close_concubine_missions_for(concubine_id: int) -> void:
+	if not is_instance_valid(_concubine_popup):
+		return
+	if _concubine_popup.has_method("hide_if_for_concubine"):
+		_concubine_popup.hide_if_for_concubine(concubine_id)
+
+
 func open_trader_trade(trader: Dictionary) -> void:
 	if is_instance_valid(_trader_popup):
 		_trader_popup.show_for_trader(trader)

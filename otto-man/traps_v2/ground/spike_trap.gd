@@ -107,6 +107,9 @@ func _check_overlap() -> void:
 			apply_damage_with_knockback(body, KNOCKBACK_FORCE, KNOCKBACK_UP_FORCE)
 			_has_dealt_damage_this_cycle = true
 			break
+	# Tuzak Fısıldayan: yükselen dikenler yakındaki düşmanları da deler
+	if TrapEnemyDamage.is_active():
+		TrapEnemyDamage.damage_enemies_in_radius(get_tree(), global_position, TILE_SIZE * 0.75, get_damage())
 
 func _on_sleep() -> void:
 	super._on_sleep()

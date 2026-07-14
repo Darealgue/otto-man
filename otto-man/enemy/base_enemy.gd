@@ -21,8 +21,8 @@ const GLOBAL_ENEMY_DEBUG: bool = false
 
 # Sleep state management
 var is_sleeping: bool = false
-var sleep_distance: float = 1000.0  # Distance at which enemy goes to sleep
-var wake_distance: float = 800.0    # Distance at which enemy wakes up
+var sleep_distance: float = 1100.0  # Distance at which enemy goes to sleep
+var wake_distance: float = 1000.0   # Wake earlier than before so enemies land before player arrives
 var last_position: Vector2          # Store position when going to sleep
 var last_behavior: String          # Store behavior when going to sleep
 # Spawn sonrası grace süresini sıfırla: sahne açılışında uzak düşmanlar hemen sleep'e girebilsin
@@ -78,6 +78,34 @@ const STUN_LOCK_HIT_THRESHOLD: int = 3
 const STUN_LOCK_RESET_SECONDS: float = 1.2
 var _stun_lock_hit_count: int = 0
 var _stun_lock_reset_timer: float = 0.0
+# Hafif vuruşlar artık düşmanı "hurt" state'ine kilitlemiyor (tempo akıcı kalsın);
+# sadece küçük bir itme + kırmızı flaş uygulanır. Ağır vuruşlar eski davranışı korur.
+const LIGHT_HIT_KNOCKBACK_MULT: float = 0.35
+
+# Kalkan Modu (affix): spawner uygun düşman tiplerine apply_shield_affix() ile ekler.
+# Ayrı bir hasar havuzu: ağır vuruşlar çok hasar verir, hafif vuruşlar yarım hasar verir.
+var has_shield_affix: bool = false
+var shield_health: float = 0.0
+var shield_max_health: float = 0.0
+var shield_broken: bool = false
+var shield_regen_timer: float = 0.0
+const SHIELD_REGEN_DELAY: float = 8.0
+const SHIELD_HEAVY_DAMAGE_MULT: float = 2.0
+const SHIELD_LIGHT_DAMAGE_MULT: float = 0.5
+var _shield_aura: Sprite2D = null
+# Kare başına dilate edilmiş doku önbelleği: aynı SpriteFrames/animasyon/kareyi paylaşan tüm
+# düşmanlar arasında bir kez hesaplanır (anahtar: "sprite_frames_id:anim:frame").
+static var _shield_dilated_texture_cache: Dictionary = {}
+# Bir SpriteFrames için arka plan ön-hesaplama zaten başlatıldı mı (tekrar tekrar tetiklenmesin).
+static var _shield_precompute_started: Dictionary = {}
+const SHIELD_DILATE_PX: int = 2
+const SHIELD_FILL_COLOR := Color(0.35, 0.75, 1.0, 1.0)
+# take_damage() imzasını (ve tüm alt sınıf override'larını) değiştirmemek için,
+# hangi saldırıyla vurulduğumuzu _on_hurtbox_hurt burada set edip take_damage() içinde tüketiyor.
+var _pending_attack_name: String = ""
+# Alt sınıflar (örn. BasicEnemy) super.take_damage()'dan sonra kendi ek knockback/bounce
+# mantığını çalıştırıyor; bu hasarın kalkan tarafından emildiğini bilip o ek mantığı atlayabilsinler diye.
+var _last_hit_absorbed_by_shield: bool = false
 
 # Add debug print counter to avoid spam
 var _debug_print_counter: int = 0
@@ -200,6 +228,24 @@ func _process(delta: float) -> void:
 				frost_stacks = maxi(1, frost_stacks - 1)
 			else:
 				frost_stacks = max(0, frost_stacks - 1)
+
+	# Kalkan yenilenmesi: kırıldıktan SHIELD_REGEN_DELAY saniye sonra tekrar dolar
+	if has_shield_affix and shield_broken and current_behavior != "dead":
+		shield_regen_timer -= delta
+		if shield_regen_timer <= 0.0:
+			_regen_shield()
+
+	# Kalkan outline'ı her frame gerçek sprite'ın animasyon/frame/yönüyle senkron tutulur -
+	# ama SADECE ekranda görünen düşmanlarda. Haritada uzakta/görünmeyen onlarca kalkanlı
+	# düşman her frame senkron çalıştırınca FPS düşüşüne yol açıyordu; ekran dışındakiler
+	# hem senkronu atlıyor hem de outline'ı tamamen gizliyor (zaten görünmüyorlar).
+	if has_shield_affix and shield_health > 0.0 and current_behavior != "dead":
+		if is_on_screen():
+			_sync_shield_aura()
+			if _shield_aura and is_instance_valid(_shield_aura):
+				_shield_aura.visible = true
+		elif _shield_aura and is_instance_valid(_shield_aura):
+			_shield_aura.visible = false
 	
 	# Can barı üstünde seviye ve zehir/ateş/buz ikonlarını güncelle
 	if health_bar and current_behavior != "dead":
@@ -322,6 +368,26 @@ func get_nearest_player() -> Node2D:
 	
 	
 	return nearest_player
+
+
+func get_player_for_sleep_check() -> Node2D:
+	var player := get_nearest_player()
+	if player:
+		return player
+	# Görünmezlik pelerini aggro için "player" grubundan çıkarır; uyku mesafesi yine çalışsın.
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.get("Village_Player"):
+		var village_player: Variant = vm.Village_Player
+		if is_instance_valid(village_player) and village_player.is_inside_tree():
+			if not bool(village_player.get("is_dead")) and not bool(village_player.get("pending_death")):
+				return village_player as Node2D
+	var item_mgr := get_node_or_null("/root/ItemManager")
+	if item_mgr and item_mgr.get("player"):
+		var item_player: Variant = item_mgr.player
+		if is_instance_valid(item_player) and item_player.is_inside_tree():
+			if not bool(item_player.get("is_dead")) and not bool(item_player.get("pending_death")):
+				return item_player as Node2D
+	return null
 
 func get_nearest_player_in_range() -> Node2D:
 	var player = get_nearest_player()
@@ -483,6 +549,8 @@ func _should_allow_sleep() -> bool:
 		return false
 	if abs(velocity.x) > 20.0 or abs(velocity.y) > 20.0:
 		return false
+	if not _is_flying_enemy_runtime() and not is_on_floor():
+		return false
 	return true
 
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
@@ -492,43 +560,60 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 		return
 	if is_sleeping:
 		wake_up()
-		
+
+	var attack_name := _pending_attack_name
+	_pending_attack_name = ""
+	_last_hit_absorbed_by_shield = false
+
+	# Kalkan ayaktaysa: hasar kalkana yönlenir, can havuzuna hiç dokunulmaz.
+	if has_shield_affix and shield_health > 0.0 and apply_knockback:
+		_last_hit_absorbed_by_shield = true
+		_apply_shield_damage(amount, attack_name, knockback_force, knockback_up_force)
+		return
+
+	var is_heavy_hit := _is_heavy_attack_name(attack_name)
+
 	health -= amount
-	if apply_knockback:
+	if apply_knockback and is_heavy_hit:
 		_stun_lock_hit_count += 1
 		_stun_lock_reset_timer = STUN_LOCK_RESET_SECONDS
-	
+
 	# Update health bar
 	if health_bar:
 		health_bar.update_health(health)
 	# Emit health changed for external listeners
 	_health_emit_changed()
-	
-	
+
+
 	# Spawn damage number
 	var damage_number = preload("res://effects/damage_number.tscn").instantiate()
 	add_child(damage_number)
 	damage_number.global_position = global_position + Vector2(0, -50)
 	damage_number.setup(int(amount))
-	
+
 	# Apply knockback only if requested (skip for poison DoT / projectile)
 	if apply_knockback:
-		var suppress_hurt_state: bool = _stun_lock_hit_count >= STUN_LOCK_HIT_THRESHOLD
-		if not suppress_hurt_state:
-			# Apply knockback (use explicit up_force if provided)
-			velocity.x = -direction * knockback_force
-			if knockback_up_force >= 0.0:
-				velocity.y = -knockback_up_force
-			else:
-				velocity.y = -knockback_force * 0.5
-			# Havada vurulunca kısa float (juggle için)
-			if velocity.y < 0.0:
-				air_float_timer = air_float_duration
-			elif not is_on_floor():
-				air_float_timer = air_float_duration * 0.5
-			# Enter hurt state only if knockback is applied
-			change_behavior("hurt")
-			behavior_timer = 0.0
+		if not is_heavy_hit:
+			# Hafif vuruş: tempo kesilmesin — düşman sersemlemez/hurt state'e girmez,
+			# sadece küçük bir itme alır (flaş zaten aşağıda koşulsuz uygulanıyor).
+			velocity.x = -direction * (knockback_force * LIGHT_HIT_KNOCKBACK_MULT)
+		else:
+			var suppress_hurt_state: bool = _stun_lock_hit_count >= STUN_LOCK_HIT_THRESHOLD
+			if not suppress_hurt_state:
+				# Apply knockback (use explicit up_force if provided)
+				velocity.x = -direction * knockback_force
+				if knockback_up_force >= 0.0:
+					velocity.y = -knockback_up_force
+				else:
+					velocity.y = -knockback_force * 0.5
+				# Havada vurulunca kısa float (juggle için)
+				if velocity.y < 0.0:
+					air_float_timer = air_float_duration
+				elif not is_on_floor():
+					air_float_timer = air_float_duration * 0.5
+				# Enter hurt state only if knockback is applied
+				change_behavior("hurt")
+				behavior_timer = 0.0
 	else:
 		# Çok hafif geri itme (projectile vb.), hurt animasyonu yok
 		velocity.x = -direction * 18.0
@@ -559,6 +644,214 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			die()
 	else:
 		_play_enemy_sfx("enemy_hurt")
+
+func _is_heavy_attack_name(attack_name: String) -> bool:
+	return attack_name.find("heavy") != -1 or attack_name == "fall_attack"
+
+## Spawner tarafından çağrılır: bu düşmana Kalkan Modu ekler.
+func apply_shield_affix(max_shield: float) -> void:
+	has_shield_affix = true
+	shield_max_health = max_shield
+	shield_health = max_shield
+	shield_broken = false
+	shield_regen_timer = 0.0
+	_create_shield_aura()
+	if health_bar and health_bar.has_method("set_shield"):
+		health_bar.set_shield(shield_health, shield_max_health)
+	_ensure_shield_textures_precomputed()
+
+## Bu düşman tipinin (SpriteFrames'i paylaşan) TÜM kareleri için dilate dokusunu, oyun sırasında
+## rastgele bir anda (ör. ilk kez saldırı/hasar animasyonuna girildiğinde) senkron hesaplayıp
+## fps düşüşü yaratmak yerine, arka planda frame'e yayarak önceden hazırlar. Bir SpriteFrames
+## için sadece bir kez tetiklenir (ilk o tipte kalkanlı düşman spawn olduğunda).
+func _ensure_shield_textures_precomputed() -> void:
+	if not (sprite is AnimatedSprite2D) or not sprite.sprite_frames:
+		return
+	var frames: SpriteFrames = sprite.sprite_frames
+	var fid := frames.get_instance_id()
+	if _shield_precompute_started.has(fid):
+		return
+	_shield_precompute_started[fid] = true
+	_precompute_shield_textures_async(frames)
+
+func _precompute_shield_textures_async(frames: SpriteFrames) -> void:
+	for anim_name in frames.get_animation_names():
+		var frame_count := frames.get_frame_count(anim_name)
+		for i in range(frame_count):
+			_get_shield_outline_texture(frames, anim_name, i)
+			# Her karede bir tık bekleyip diğer sisteme nefes alanı bırak (tek frame'de donma olmasın).
+			await get_tree().process_frame
+			if not is_instance_valid(self):
+				return
+
+func _apply_shield_damage(amount: float, attack_name: String, knockback_force: float, knockback_up_force: float) -> void:
+	var is_heavy := _is_heavy_attack_name(attack_name)
+	var mult := SHIELD_HEAVY_DAMAGE_MULT if is_heavy else SHIELD_LIGHT_DAMAGE_MULT
+	var shield_dmg := amount * mult
+	var overflow := shield_dmg - shield_health
+	shield_health = maxf(0.0, shield_health - shield_dmg)
+	if health_bar and health_bar.has_method("set_shield"):
+		health_bar.set_shield(shield_health, shield_max_health)
+	# Kalkan ayaktayken hiç hit stun/knockback yok - sadece bir flaş (kırılana kadar tamamen kesintisiz davranır)
+	if sprite:
+		sprite.modulate = Color(0.6, 0.9, 1.0, 1.0)
+		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
+	if shield_health <= 0.0:
+		_break_shield()
+		# Kalkanı tam kıran ağır vuruşun taşan hasarı gerçek cana da işlesin (hassas zamanlamayı ödüllendirir)
+		if overflow > 0.0 and is_heavy:
+			_pending_attack_name = attack_name
+			take_damage(overflow / SHIELD_HEAVY_DAMAGE_MULT, knockback_force, knockback_up_force, true)
+
+func _break_shield() -> void:
+	shield_health = 0.0
+	shield_broken = true
+	shield_regen_timer = SHIELD_REGEN_DELAY
+	_remove_shield_aura()
+	if health_bar and health_bar.has_method("hide_shield"):
+		health_bar.hide_shield()
+	# Kalkan kırılma anı: belirgin stagger + geri püskürme (oyuncu alan kazanır)
+	velocity.x = -direction * 220.0
+	velocity.y = -140.0
+	air_float_timer = air_float_duration
+	change_behavior("hurt")
+	behavior_timer = 0.0
+	_play_enemy_sfx("enemy_hurt")
+
+func _regen_shield() -> void:
+	shield_broken = false
+	shield_health = shield_max_health
+	_create_shield_aura()
+	if health_bar and health_bar.has_method("set_shield"):
+		health_bar.set_shield(shield_health, shield_max_health)
+
+## Gerçek sprite'ın hemen arkasına, o karenin GERÇEK piksellerinden dışa doğru şişirilmiş
+## (dilate) düz mavi bir silüet ekler. Node büyütme/shader UV'si yok - bu yüzden ne sprite
+## sheet'teki komşu kareye sızma, ne de tuval-içi ortalama farkından kaynaklanan kayma olur.
+func _create_shield_aura() -> void:
+	_remove_shield_aura()
+	if not (sprite is AnimatedSprite2D) or not sprite.sprite_frames:
+		return
+	_shield_aura = Sprite2D.new()
+	_shield_aura.name = "ShieldOutline"
+	_shield_aura.z_index = sprite.z_index - 1
+	_shield_aura.z_as_relative = sprite.z_as_relative
+	add_child(_shield_aura)
+	_sync_shield_aura()
+	var tw := create_tween().set_loops()
+	tw.tween_property(_shield_aura, "modulate:a", 0.5, 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_shield_aura, "modulate:a", 1.0, 0.5).set_trans(Tween.TRANS_SINE)
+
+## Silüeti gerçek sprite'ın anlık animasyon/kare/yön/konumuyla hizalar.
+## Dilate edilmiş doku, orijinal karenin etrafına SİMETRİK dolgu (SHIELD_DILATE_PX) eklenerek
+## üretiliyor; bu yüzden centered=true'da offset/scale hiç değişmeden aynen kopyalanabilir -
+## büyümüş tuvalin merkezi orijinal karenin merkeziyle otomatik çakışır. centered=false'ta ise
+## içerik yeni tuval içinde (pad,pad) kadar kaymış oluyor, offset'i buna göre telafi ediyoruz.
+func _sync_shield_aura() -> void:
+	if not (_shield_aura and is_instance_valid(_shield_aura) and sprite is AnimatedSprite2D):
+		return
+	if not (sprite.sprite_frames and sprite.sprite_frames.has_animation(sprite.animation)):
+		return
+	_shield_aura.texture = _get_shield_outline_texture(sprite.sprite_frames, sprite.animation, sprite.frame)
+	_shield_aura.flip_h = sprite.flip_h
+	_shield_aura.flip_v = sprite.flip_v
+	_shield_aura.centered = sprite.centered
+	_shield_aura.position = sprite.position
+	_shield_aura.scale = sprite.scale
+	if sprite.centered:
+		_shield_aura.offset = sprite.offset
+	else:
+		_shield_aura.offset = sprite.offset - Vector2(SHIELD_DILATE_PX, SHIELD_DILATE_PX)
+
+## Bir (SpriteFrames, animasyon, kare) üçlüsü için dilate edilmiş mavi silüet dokusunu üretir/önbellekten döner.
+## Aynı düşman tipinin tüm örnekleri aynı SpriteFrames'i paylaştığı için bu hesap oyun boyunca
+## her benzersiz kare için sadece BİR kez yapılır.
+func _get_shield_outline_texture(frames: SpriteFrames, anim: StringName, frame_idx: int) -> ImageTexture:
+	var key := "%d:%s:%d" % [frames.get_instance_id(), String(anim), frame_idx]
+	if _shield_dilated_texture_cache.has(key):
+		return _shield_dilated_texture_cache[key]
+	var tex: Texture2D = frames.get_frame_texture(anim, frame_idx)
+	if not tex:
+		return null
+	var src_img: Image
+	if tex is AtlasTexture:
+		var at := tex as AtlasTexture
+		var atlas_img: Image = at.atlas.get_image() if at.atlas else null
+		if not atlas_img:
+			return null
+		src_img = atlas_img.get_region(Rect2i(at.region))
+	else:
+		src_img = tex.get_image()
+	if not src_img:
+		return null
+	if src_img.get_format() != Image.FORMAT_RGBA8:
+		src_img.convert(Image.FORMAT_RGBA8)
+
+	var w := src_img.get_width()
+	var h := src_img.get_height()
+	var pad := SHIELD_DILATE_PX
+	var out_w := w + pad * 2
+	var out_h := h + pad * 2
+	var src_bytes := src_img.get_data()
+
+	# 1) Kaynağın alfa maskesini (pad kadar içeri kaydırılmış) çıkış tuvaline yerleştir.
+	var alpha_mask := PackedByteArray()
+	alpha_mask.resize(out_w * out_h)
+	for sy in range(h):
+		var src_row_base := sy * w * 4
+		var dst_row_base := (sy + pad) * out_w + pad
+		for sx in range(w):
+			if src_bytes[src_row_base + sx * 4 + 3] > 10:
+				alpha_mask[dst_row_base + sx] = 255
+
+	# 2) Ayrılabilir dilate: önce yatay, sonra dikey max-filtre (pad piksel yarıçap).
+	var h_pass := PackedByteArray()
+	h_pass.resize(out_w * out_h)
+	for y in range(out_h):
+		var row_base := y * out_w
+		for x in range(out_w):
+			var m := 0
+			var x0 := maxi(0, x - pad)
+			var x1 := mini(out_w - 1, x + pad)
+			for xx in range(x0, x1 + 1):
+				var v: int = alpha_mask[row_base + xx]
+				if v > m:
+					m = v
+					if m >= 255:
+						break
+			h_pass[row_base + x] = m
+
+	var final_bytes := PackedByteArray()
+	final_bytes.resize(out_w * out_h * 4)
+	var fr: int = SHIELD_FILL_COLOR.r8
+	var fg: int = SHIELD_FILL_COLOR.g8
+	var fb: int = SHIELD_FILL_COLOR.b8
+	for x in range(out_w):
+		for y in range(out_h):
+			var m := 0
+			var y0 := maxi(0, y - pad)
+			var y1 := mini(out_h - 1, y + pad)
+			for yy in range(y0, y1 + 1):
+				var v: int = h_pass[yy * out_w + x]
+				if v > m:
+					m = v
+					if m >= 255:
+						break
+			var idx := (y * out_w + x) * 4
+			final_bytes[idx] = fr
+			final_bytes[idx + 1] = fg
+			final_bytes[idx + 2] = fb
+			final_bytes[idx + 3] = m
+
+	var final_img := Image.create_from_data(out_w, out_h, false, Image.FORMAT_RGBA8, final_bytes)
+	var out_tex := ImageTexture.create_from_image(final_img)
+	_shield_dilated_texture_cache[key] = out_tex
+	return out_tex
+
+func _remove_shield_aura() -> void:
+	if _shield_aura and is_instance_valid(_shield_aura):
+		_shield_aura.queue_free()
+	_shield_aura = null
 
 func _flash_hurt() -> void:
 	if sprite:
@@ -599,10 +892,14 @@ func die() -> void:
 	_disable_stealth_perception()
 	current_behavior = "dead"
 	_play_enemy_sfx("enemy_death")
-	
+
 	# Can barını hemen gizle
 	if health_bar:
 		health_bar.hide_bar()
+
+	# Kalkan aurası ölünce sahnede asılı kalmasın
+	if has_shield_affix:
+		_remove_shield_aura()
 	
 	enemy_defeated.emit()
 	
@@ -729,6 +1026,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 			elif hitbox.has_method("get_damage"):
 				damage = hitbox.get_damage()
 			var knockback_data = hitbox.get_knockback_data() if hitbox.has_method("get_knockback_data") else {"force": 200.0, "up_force": 100.0}
+			_pending_attack_name = hitbox.current_attack_name
 			take_damage(damage, knockback_data.force, knockback_data.get("up_force", -1.0))
 			# Hit stop + screen shake tek yerden (yaşayan veya öldürücü vuruş; ceset vurulunca bu blok çalışmaz)
 			if hitbox is PlayerHitbox and hitbox.has_method("apply_killing_blow_effects"):
@@ -850,7 +1148,16 @@ func reset() -> void:
 	invulnerability_timer = 0.0
 	velocity = Vector2.ZERO
 	faint_timer = 0.0
-	
+
+	# Kalkan affix'i pool'dan yeniden kullanımda sıfırla
+	if has_shield_affix:
+		_remove_shield_aura()
+	has_shield_affix = false
+	shield_health = 0.0
+	shield_max_health = 0.0
+	shield_broken = false
+	shield_regen_timer = 0.0
+
 	# Reset visuals
 	if sprite:
 		sprite.modulate = Color(1, 1, 1, 1)
@@ -907,7 +1214,7 @@ func check_sleep_state(delta: float = 0.0) -> void:
 	# Her düşman kendi spawn'ından sonra grace süresi dolana kadar uyuyamaz (chunk'ta geç spawn = hemen sleep bug'ı önlenir)
 	if _sleep_grace_remaining > 0.0:
 		_sleep_grace_remaining -= delta
-	var player = get_nearest_player()
+	var player = get_player_for_sleep_check()
 	if !player:
 		return
 	var distance = global_position.distance_to(player.global_position)

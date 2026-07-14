@@ -6,7 +6,7 @@ signal closed
 
 const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
 
-enum Tab { NEWS, MISSIONS, DIPLOMACY }
+enum Tab { NEWS, MISSIONS, DIPLOMACY, COMBAT }
 
 var _panel: PanelContainer
 var _title_label: Label
@@ -17,6 +17,7 @@ var _news_world_col: VBoxContainer
 var _tab_news_btn: Button
 var _tab_missions_btn: Button
 var _tab_diplo_btn: Button
+var _tab_combat_btn: Button
 var _active_tab: Tab = Tab.NEWS
 var _is_open := false
 var _missions_refresh_timer: float = 0.0
@@ -102,6 +103,14 @@ func _build_ui() -> void:
 	_tab_diplo_btn.custom_minimum_size = Vector2(120, 40)
 	_tab_diplo_btn.pressed.connect(_select_tab.bind(Tab.DIPLOMACY))
 	tab_row.add_child(_tab_diplo_btn)
+
+	_tab_combat_btn = Button.new()
+	_tab_combat_btn.text = "Savaş Geçmişi"
+	_tab_combat_btn.toggle_mode = true
+	_tab_combat_btn.focus_mode = Control.FOCUS_NONE
+	_tab_combat_btn.custom_minimum_size = Vector2(120, 40)
+	_tab_combat_btn.pressed.connect(_select_tab.bind(Tab.COMBAT))
+	tab_row.add_child(_tab_combat_btn)
 
 	tab_row.add_child(_make_key_chip("E", "R2"))
 
@@ -228,9 +237,11 @@ func _select_tab(tab: Tab) -> void:
 	_tab_news_btn.button_pressed = tab == Tab.NEWS
 	_tab_missions_btn.button_pressed = tab == Tab.MISSIONS
 	_tab_diplo_btn.button_pressed = tab == Tab.DIPLOMACY
+	_tab_combat_btn.button_pressed = tab == Tab.COMBAT
 	_style_active_tab(_tab_news_btn, tab == Tab.NEWS)
 	_style_active_tab(_tab_missions_btn, tab == Tab.MISSIONS)
 	_style_active_tab(_tab_diplo_btn, tab == Tab.DIPLOMACY)
+	_style_active_tab(_tab_combat_btn, tab == Tab.COMBAT)
 	_missions_refresh_timer = 0.0
 	_refresh_content()
 	if is_instance_valid(_content_scroll):
@@ -269,6 +280,9 @@ func _refresh_content() -> void:
 		Tab.DIPLOMACY:
 			_setup_single_column_host()
 			_populate_diplomacy()
+		Tab.COMBAT:
+			_setup_single_column_host()
+			_populate_combat_history()
 	if is_instance_valid(_content_scroll):
 		_content_scroll.scroll_vertical = 0
 
@@ -395,6 +409,145 @@ func _populate_diplomacy() -> void:
 		_add_diplomacy_row(String(row.get("name", "?")), rel_val, stance)
 
 
+func _populate_combat_history() -> void:
+	var wm := get_node_or_null("/root/WorldManager")
+	if wm == null or not wm.has_method("get_combat_history"):
+		_add_empty("Savaş geçmişi bulunamadı.", _content_list)
+		return
+	var history: Array = wm.get_combat_history()
+	if history.is_empty():
+		_add_empty("Henüz kayıtlı bir saldırı yok.", _content_list)
+		return
+	_add_section_header("⚔ Savaş Geçmişi", _content_list)
+	for entry in history:
+		if entry is Dictionary:
+			_add_combat_history_card(entry as Dictionary)
+
+
+func _add_combat_history_card(entry: Dictionary) -> void:
+	var direction: String = String(entry.get("direction", "incoming"))
+	var is_incoming: bool = direction == "incoming"
+	var attacker: String = String(entry.get("attacker", "?"))
+
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.14, 0.11, 0.08, 0.7)
+	sb.corner_radius_top_left = 6
+	sb.corner_radius_top_right = 6
+	sb.corner_radius_bottom_left = 6
+	sb.corner_radius_bottom_right = 6
+	sb.set_content_margin_all(10)
+	var won: bool = String(entry.get("victor", "")) == "defender"
+	if is_incoming:
+		sb.border_width_left = 3
+		sb.border_color = Color(0.45, 0.85, 0.4, 0.85) if won else Color(0.85, 0.35, 0.3, 0.85)
+	else:
+		sb.border_width_left = 3
+		sb.border_color = Color(0.65, 0.55, 0.9, 0.85)
+	card.add_theme_stylebox_override("panel", sb)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	card.add_child(col)
+
+	var title := Label.new()
+	var title_text: String
+	if is_incoming:
+		title_text = "%s %s → %s" % ["🛡" if won else "💥", attacker, "Savunma başarılı" if won else "Savunma başarısız"]
+	else:
+		title_text = "⚔ Köy → %s (%s)" % [String(entry.get("target", "?")), String(entry.get("status", "gönderildi"))]
+	title.text = title_text
+	title.add_theme_font_size_override("font_size", 15)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(title)
+
+	var time_lbl := Label.new()
+	time_lbl.text = _format_time_ago_game(int(entry.get("game_time_minutes", 0)))
+	time_lbl.add_theme_font_size_override("font_size", 11)
+	time_lbl.modulate = Color(1, 1, 1, 0.5)
+	col.add_child(time_lbl)
+
+	var detail_lbl := Label.new()
+	detail_lbl.text = _combat_history_detail_text(entry, is_incoming, won)
+	detail_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail_lbl.add_theme_font_size_override("font_size", 13)
+	detail_lbl.modulate = Color(1, 1, 1, 0.8)
+	detail_lbl.visible = false
+	col.add_child(detail_lbl)
+
+	var hint_lbl := Label.new()
+	hint_lbl.text = "▸ detaylar için tıkla"
+	hint_lbl.add_theme_font_size_override("font_size", 10)
+	hint_lbl.modulate = Color(1, 1, 1, 0.4)
+	col.add_child(hint_lbl)
+
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			detail_lbl.visible = not detail_lbl.visible
+			hint_lbl.text = "▾ detayları gizle" if detail_lbl.visible else "▸ detaylar için tıkla"
+	)
+
+	_content_list.add_child(card)
+
+
+func _combat_history_detail_text(entry: Dictionary, is_incoming: bool, won: bool) -> String:
+	var lines: PackedStringArray = PackedStringArray()
+	if is_incoming:
+		lines.append("Kayıp asker: %d" % int(entry.get("defender_losses", 0)))
+		var atk_losses: int = int(entry.get("attacker_losses", 0))
+		if atk_losses > 0:
+			lines.append("Saldırgan kaybı: %d" % atk_losses)
+		var soldiers_disarmed: int = int(entry.get("soldiers_disarmed", 0))
+		if soldiers_disarmed > 0:
+			lines.append("Silahsız kalan asker: %d" % soldiers_disarmed)
+		if not won:
+			var gold_loss: int = int(entry.get("gold_loss", 0))
+			if gold_loss > 0:
+				lines.append("Kayıp altın: %d" % gold_loss)
+			var resource_losses: Variant = entry.get("resource_losses", {})
+			if resource_losses is Dictionary:
+				for res in (resource_losses as Dictionary).keys():
+					lines.append("Kayıp %s: %d" % [String(res), int((resource_losses as Dictionary)[res])])
+		var morale_delta: int = int(entry.get("morale_delta", 0))
+		if morale_delta != 0:
+			lines.append("Moral: %s%d" % ["+" if morale_delta > 0 else "", morale_delta])
+		if bool(entry.get("alliance_defender", false)):
+			lines.append("Müttefik desteği devreye girdi.")
+	else:
+		var gold_cost: int = int(entry.get("gold_cost", 0))
+		if gold_cost > 0:
+			lines.append("Harcanan altın: %d" % gold_cost)
+		lines.append("Sonuç: göreve cariye atayarak takip edilebilir (Görevler sekmesi).")
+	if lines.is_empty():
+		lines.append("Ek detay yok.")
+	return "\n".join(lines)
+
+
+## Oyun zamanına göre "X dakika/saat/gün önce" — 24 saatten kısa süreler saat/dakika,
+## daha eskisi gün olarak gösterilir.
+func _format_time_ago_game(game_time_minutes: int) -> String:
+	if game_time_minutes <= 0:
+		return ""
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("get_total_game_minutes"):
+		return ""
+	var now: int = int(tm.get_total_game_minutes())
+	var diff: int = maxi(0, now - game_time_minutes)
+	if diff < 1:
+		return "az önce"
+	if diff < 60:
+		return "%d dk önce" % diff
+	if diff < 1440:
+		var hours: int = diff / 60
+		var mins: int = diff % 60
+		if mins > 0:
+			return "%d sa %d dk önce" % [hours, mins]
+		return "%d sa önce" % hours
+	var days: int = diff / 1440
+	return "%d gün önce" % days
+
+
 func _add_section_header(text: String, parent: VBoxContainer) -> void:
 	if parent == null:
 		return
@@ -446,6 +599,14 @@ func _add_news_card(news: Dictionary, parent: VBoxContainer) -> void:
 	title.add_theme_font_size_override("font_size", 16)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(title)
+
+	var time_text: String = _format_time_ago_game(int(news.get("game_time_minutes", 0)))
+	if not time_text.is_empty():
+		var time_lbl := Label.new()
+		time_lbl.text = time_text
+		time_lbl.add_theme_font_size_override("font_size", 11)
+		time_lbl.modulate = Color(1, 1, 1, 0.5)
+		col.add_child(time_lbl)
 
 	var body := Label.new()
 	body.text = news.get("content", "")
@@ -642,7 +803,7 @@ func _add_diplomacy_row(faction_name: String, relation: int, stance: String) -> 
 
 
 func _cycle_tab(direction: int) -> void:
-	var tabs := [Tab.NEWS, Tab.MISSIONS, Tab.DIPLOMACY]
+	var tabs := [Tab.NEWS, Tab.MISSIONS, Tab.DIPLOMACY, Tab.COMBAT]
 	var idx := tabs.find(_active_tab)
 	idx = wrapi(idx + direction, 0, tabs.size())
 	_select_tab(tabs[idx])

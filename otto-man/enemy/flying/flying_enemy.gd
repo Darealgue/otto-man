@@ -52,8 +52,8 @@ func _ready() -> void:
 		sprite.sprite_frames.set_animation_loop("dead", false)
 	
 	# Set sleep distances for performance optimization
-	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
-	wake_distance = 1200.0  # Distance at which enemy wakes up
+	sleep_distance = 1600.0
+	wake_distance = 1500.0
 	
 	# Initialize combat components with our own stats
 	if hitbox:

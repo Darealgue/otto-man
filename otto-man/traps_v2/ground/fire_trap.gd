@@ -78,6 +78,9 @@ func _physics_process(delta: float) -> void:
 				sem.apply_burn(burn_ticks, burn_damage_per_tick)
 			_damage_cooldown = damage_interval
 			break
+	# Tuzak Fısıldayan: alevin içindeki düşmanlar da yanar
+	if TrapEnemyDamage.is_active():
+		TrapEnemyDamage.damage_enemies_in_radius(get_tree(), global_position, detection_radius, burn_damage_per_tick, "burn")
 
 func _on_detection_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):

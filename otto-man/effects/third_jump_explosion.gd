@@ -13,10 +13,11 @@ func _process(delta: float) -> void:
 		_damage_done = true
 		var tree = get_tree()
 		if tree:
+			var radius := RADIUS * ExplosionModifiers.radius_mult()
 			for node in tree.get_nodes_in_group("enemies"):
 				if not is_instance_valid(node) or node.get("current_behavior") == "dead":
 					continue
-				if global_position.distance_to(node.global_position) <= RADIUS and node.has_method("take_damage"):
+				if global_position.distance_to(node.global_position) <= radius and node.has_method("take_damage"):
 					node.take_damage(DAMAGE, 80.0, -60.0, true)
 	_t += delta
 	if _t >= VISUAL_DURATION:

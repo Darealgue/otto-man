@@ -9,6 +9,7 @@ const _IndicatorScript := preload("res://village/scripts/BuildingWorkerCapacityI
 const _PlotSpotScript := preload("res://village/scripts/VillagePlotInteractSpot.gd")
 const _BuildPopupScript := preload("res://ui/PlotBuildPopupUI.gd")
 const _OccupiedPopupScript := preload("res://ui/PlotOccupiedPopupUI.gd")
+const _BarracksWeaponPopupScript := preload("res://ui/BarracksWeaponPopupUI.gd")
 
 var _village_scene: Node2D
 var _plot_spots: Array[VillagePlotInteractSpot] = []
@@ -16,6 +17,8 @@ var _active_spot: VillagePlotInteractSpot = null
 var _active_building: Node2D = null
 var _build_popup: PlotBuildPopupUI
 var _occupied_popup: PlotOccupiedPopupUI
+var _barracks_weapon_popup: BarracksWeaponPopupUI
+var _popup_canvas: CanvasLayer
 var _spots_root: Node2D
 
 
@@ -50,6 +53,7 @@ func _ensure_popups() -> void:
 			canvas.layer = 50
 			canvas.process_mode = Node.PROCESS_MODE_ALWAYS
 			get_tree().root.add_child(canvas)
+	_popup_canvas = canvas
 
 	if not is_instance_valid(_build_popup):
 		_build_popup = _BuildPopupScript.new()
@@ -64,6 +68,13 @@ func _ensure_popups() -> void:
 		_occupied_popup.upgrade_requested.connect(_on_upgrade_requested)
 		_occupied_popup.build_house_requested.connect(_on_build_house_requested)
 		_occupied_popup.demolish_requested.connect(_on_demolish_requested)
+		_occupied_popup.weaponize_requested.connect(_on_weaponize_requested)
+		_occupied_popup.inventor_upgrades_requested.connect(_on_inventor_upgrades_requested)
+
+	if not is_instance_valid(_barracks_weapon_popup):
+		_barracks_weapon_popup = _BarracksWeaponPopupScript.new()
+		_barracks_weapon_popup.name = "BarracksWeaponPopup"
+		canvas.add_child(_barracks_weapon_popup)
 
 
 func _spawn_plot_spots() -> void:
@@ -226,7 +237,8 @@ func open_occupied_popup(building: Node2D) -> void:
 func _is_popup_open() -> bool:
 	var b_open := is_instance_valid(_build_popup) and _build_popup._is_open
 	var o_open := is_instance_valid(_occupied_popup) and _occupied_popup._is_open
-	if b_open or o_open:
+	var w_open := is_instance_valid(_barracks_weapon_popup) and _barracks_weapon_popup._is_open
+	if b_open or o_open or w_open:
 		return true
 	var host := VillageWorldPopups.get_host()
 	if host and host.is_any_popup_open():
@@ -268,6 +280,32 @@ func _on_demolish_requested() -> void:
 	if is_instance_valid(_active_building):
 		VillageManager.demolish_building(_active_building)
 		_active_building = null
+
+
+func _on_weaponize_requested() -> void:
+	if is_instance_valid(_active_building) and is_instance_valid(_barracks_weapon_popup):
+		_barracks_weapon_popup.show_for_barracks(_active_building)
+
+
+func _on_inventor_upgrades_requested() -> void:
+	# Mucit Odası'nın kendi Area2D tabanlı interact sistemi (InventorWorkshopInteractable)
+	# VillagePlotSystem'in genel parsel etkileşimiyle aynı girdiyi dinlediği için hiç
+	# tetiklenmiyordu — bu yüzden panel doğrudan burada, diğer bina popup'larıyla aynı
+	# şekilde açılıyor.
+	var ui := get_tree().get_first_node_in_group("inventor_workshop_ui")
+	if not is_instance_valid(ui):
+		var ui_script := preload("res://ui/InventorWorkshopUI.gd")
+		ui = Control.new()
+		ui.set_script(ui_script)
+		ui.add_to_group("inventor_workshop_ui")
+		# <<< DÜZELTME: get_tree().root'a değil, diğer popup'ların kullandığı YÜKSEK
+		# KATMANLI CanvasLayer'a (_popup_canvas, layer=50) eklenmeli — aksi halde panel
+		# oyun dünyasının ARKASINDA render olup görünmez oluyordu (mantıksal olarak
+		# çalışıyordu, sadece ekranda görünmüyordu). >>>
+		var parent_canvas: Node = _popup_canvas if is_instance_valid(_popup_canvas) else get_tree().root
+		parent_canvas.add_child(ui)
+	if ui.has_method("show_panel"):
+		ui.show_panel()
 
 
 func _on_construction_completed(_scene_path: String) -> void:

@@ -9,6 +9,13 @@ var is_combo_hit: bool = false
 var current_attack_name: String = ""
 var has_hit_enemy: bool = false  # Track if we've hit during this attack
 var max_targets_per_attack: int = 1  # Max enemies per attack (items can set e.g. 2 for fall attack)
+# Saldırı türüne göre hedef limiti (hafif/ağır aynı Hitbox node'unu paylaşıyor).
+# -1 = dokunma; >0 ise enable_combo o türde bu değeri, diğer türde 1'i uygular.
+# (Pala Kılıcı hafifi, Cenk Meydanı ağırı yükseltir; FallAttack node'u ikisini de set etmez.)
+var max_targets_light: int = -1
+var max_targets_heavy: int = -1
+# Ağır saldırıda collision shape genişletme çarpanı (Cenk Meydanı); 1.0 = kapalı
+var heavy_shape_scale_x: float = 1.0
 var _registered_hit_target_ids: Array = []  # Instance IDs of enemies that can take this hit
 var base_damage: float = 15.0  # Base damage value
 var combo_enabled: bool = false  # Added missing property
@@ -43,7 +50,20 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 	var attack_type = "light"  # Default attack type
 	if attack_name.find("heavy") != -1:
 		attack_type = "heavy"
-	
+
+	# Tür bazlı hedef limiti (yalnızca bir item override set ettiyse devreye girer;
+	# FallAttack node'unda ikisi de -1 kalır, genis_dusus'un doğrudan set ettiği değer korunur)
+	if max_targets_light > 0 or max_targets_heavy > 0:
+		if attack_type == "heavy":
+			max_targets_per_attack = max_targets_heavy if max_targets_heavy > 0 else 1
+		else:
+			max_targets_per_attack = max_targets_light if max_targets_light > 0 else 1
+	# Ağır saldırıda shape genişletme (Cenk Meydanı)
+	if heavy_shape_scale_x != 1.0:
+		var cs = get_node_or_null("CollisionShape2D")
+		if cs:
+			cs.scale.x = heavy_shape_scale_x if attack_type == "heavy" else 1.0
+
 	# Set damage based on attack type
 	if attack_name == "fall_attack":
 		damage = PlayerStats.get_fall_attack_damage()
@@ -100,8 +120,14 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 		knockback_force = 28.0
 		knockback_up_force = 22.0
 	else:
-		# default light/heavy derived from AttackManager if needed later
-		pass
+		# Düz vuruşlar (attack_1.x, heavy_neutral, counter_light/heavy): düşmanı havaya değil
+		# geriye fırlat. Dikey fırlatma sadece yukarı saldırıya (up_light/attack_up/up_heavy) özel.
+		if attack_type == "heavy":
+			knockback_force = 260.0
+			knockback_up_force = 10.0
+		else:
+			knockback_force = 140.0
+			knockback_up_force = 8.0
 	
 	# Apply knockback multipliers (for perfect timing window)
 	knockback_force *= max(0.0, kb_multiplier)

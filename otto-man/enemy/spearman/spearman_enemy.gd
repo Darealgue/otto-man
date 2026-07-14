@@ -76,8 +76,8 @@ func _ready() -> void:
 	_setup_stealth_perception()
 	
 	# Set sleep distances for performance optimization
-	sleep_distance = 1500.0  # Distance at which enemy goes to sleep
-	wake_distance = 1200.0  # Distance at which enemy wakes up
+	sleep_distance = 1600.0
+	wake_distance = 1500.0  # Unfreeze well before player arrives (time to land)
 	
 	set_collision_layer_value(3, true)   # Enemy body on layer 3 (like other enemies)
 	set_collision_mask_value(1, true)    # Collide with world
@@ -492,6 +492,7 @@ func die() -> void:
 	# Prevent flying away on death: no knockback, zero velocity
 	if current_behavior == "dead":
 		return
+	_disable_stealth_perception()
 	current_behavior = "dead"
 	if health_bar:
 		health_bar.hide_bar()

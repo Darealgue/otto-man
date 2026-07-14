@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="PackedScene" uid="uid://dxvvlck8ew3f4" path="res://ui/health_display.tscn" id="1_health"]
 [ext_resource type="PackedScene" uid="uid://c8j6u8o3xv2k4" path="res://ui/stamina_bar.tscn" id="2_stamina"]
 [ext_resource type="PackedScene" uid="uid://dungeon_gold_display" path="res://ui/DungeonGoldDisplay.tscn" id="3_dungeon_gold"]
 [ext_resource type="PackedScene" path="res://ui/CarriedResourcesDisplay.tscn" id="4_carried"]
+[ext_resource type="PackedScene" path="res://ui/xp_bar.tscn" id="5_xp_bar"]
 
 [node name="GameUI" type="CanvasLayer"]
 layer = 200
@@ -35,6 +36,15 @@ offset_left = 128.0
 offset_top = 79.0
 offset_right = 328.0
 offset_bottom = 104.0
+
+[node name="XpBar" parent="Container" instance=ExtResource("5_xp_bar")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 0
+offset_left = 128.0
+offset_top = 108.0
+offset_right = 328.0
+offset_bottom = 120.0
 
 [node name="CarriedResourcesDisplay" parent="Container" instance=ExtResource("4_carried")]
 unique_name_in_owner = true

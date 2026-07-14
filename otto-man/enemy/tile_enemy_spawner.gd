@@ -66,6 +66,13 @@ var ENEMY_TYPES = {
 
 const ENEMY_Z_INDEX = 4  # Enemies appear above all decorations but below player
 
+# Kalkan Modu (affix): bkz. enemy_spawner.gd - aynı mantık, gerçek zindanda asıl kullanılan
+# spawn yolu bu script olduğu için buraya da eklendi.
+const SHIELD_ELIGIBLE_TYPES: Array[String] = ["basic", "spearman", "turtle"]
+const SHIELD_MIN_LEVEL: int = 3
+const SHIELD_SPAWN_CHANCE: float = 0.25
+const SHIELD_HEALTH_RATIO: float = 0.5
+
 func _ready() -> void:
 	# Load spawn configuration
 	_spawn_config = SpawnConfig.new()
@@ -244,7 +251,13 @@ func _spawn_enemy() -> bool:
 	
 	if "enemy_level" in enemy:
 		enemy.enemy_level = current_level
-	
+
+	# Kalkan Modu (affix): uygun tiplerde, belirli seviyeden itibaren şans ile ekle
+	if selected_enemy_type in SHIELD_ELIGIBLE_TYPES and current_level >= SHIELD_MIN_LEVEL and enemy.has_method("apply_shield_affix"):
+		if randf() < SHIELD_SPAWN_CHANCE:
+			var shield_hp: float = (stats.max_health if stats else 100.0) * SHIELD_HEALTH_RATIO
+			enemy.apply_shield_affix(shield_hp)
+
 	if DEBUG_ENEMY:
 		print("[TileEnemySpawner] Enemy spawn complete at: %s" % enemy.global_position)
 	

@@ -616,6 +616,12 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 			card_mgr.load_from_save(village_blob["card_system"])
 		elif card_mgr.has_method("reset_for_new_game"):
 			card_mgr.reset_for_new_game()
+	var card_fx: Node = get_node_or_null("/root/VillageCardEffects")
+	if card_fx and card_fx.has_method("load_from_save"):
+		if village_blob.has("card_effects"):
+			card_fx.load_from_save(village_blob["card_effects"])
+		elif card_fx.has_method("reset_for_new_game"):
+			card_fx.reset_for_new_game()
 	_load_time_state(save_data.get("time", {}))
 	_load_weather_state(save_data.get("weather", {}))
 	_load_dungeon_progress_state(save_data.get("dungeon_progress", {}))
@@ -707,6 +713,9 @@ func _save_village_state() -> Dictionary:
 	var card_mgr := get_node_or_null("/root/VillageCardManager")
 	if card_mgr and card_mgr.has_method("serialize_for_save"):
 		state["card_system"] = card_mgr.serialize_for_save()
+	var card_fx := get_node_or_null("/root/VillageCardEffects")
+	if card_fx and card_fx.has_method("serialize_for_save"):
+		state["card_effects"] = card_fx.serialize_for_save()
 	
 	# Resources
 	state["resources"] = VillageManager.resource_levels.duplicate(true)

@@ -20,7 +20,11 @@ extends Camera2D
 @export var treat_platform_as_air: bool = true   # when standing on one-way platforms, behave like air (center)
 @export var bias_platform_y: float = -10.0       # vertical bias when standing on platform branches
 
+@export var look_ahead_x: float = 140.0          # max horizontal look-ahead offset in the run direction
+@export var look_ahead_smooth_speed: float = 4.0 # exponential smoothing speed for offset.x
+
 var _player: CharacterBody2D
+var _offset_x: float = 0.0
 var _last_y: float = 0.0
 var _vy: float = 0.0
 var _jump_timer: float = 0.0
@@ -41,6 +45,7 @@ func _ready() -> void:
 	set_process(true)
 	_find_player()
 	_offset_y = offset.y
+	_offset_x = offset.x
 	if _player:
 		_last_y = _player.global_position.y
 	_default_zoom = zoom
@@ -110,6 +115,15 @@ func _process(delta: float) -> void:
 		desired = _offset_y + sign(desired - _offset_y) * max_step
 	_offset_y = desired
 	offset.y = _offset_y
+
+	# Horizontal look-ahead in the run direction, independent of the vertical bias above
+	var reference_speed: float = _player.speed if "speed" in _player else 400.0
+	var target_x: float = 0.0
+	if reference_speed > 0.0:
+		target_x = clamp(_player.velocity.x / reference_speed, -1.0, 1.0) * look_ahead_x
+	var k_x: float = 1.0 - exp(-look_ahead_smooth_speed * delta)
+	_offset_x = lerp(_offset_x, target_x, clamp(k_x, 0.0, 1.0))
+	offset.x = _offset_x
 
 	if debug:
 		if state != _dbg_state:

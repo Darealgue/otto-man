@@ -1288,10 +1288,16 @@ func process_mission_results(cariye_id: int, mission_id: String, successful: boo
 		return
 	
 	if successful:
+		var is_raid_mission: bool = mission is Dictionary and String(mission.get("type", "")) == "raid"
+		var vce := get_node_or_null("/root/VillageCardEffects")
 		# Ödülleri ver
 		for reward_type in mission.rewards:
 			var amount = mission.rewards[reward_type]
+			if is_raid_mission and String(reward_type) == "gold" and vce:
+				amount = vce.modify_raid_mission_gold(int(amount))
 			_apply_reward(reward_type, amount)
+		if is_raid_mission and vce:
+			vce.notify_raid_mission_success()
 		
 		# Cariye deneyim kazansın
 		var leveled_up = cariye.add_experience(100)
@@ -1647,8 +1653,12 @@ func get_available_missions() -> Array:
 				if mission.are_prerequisites_met(completed_missions):
 					available.append(mission)
 				else:
-					var mission_name = mission.name if mission.has("name") else mission_id
-					print("🔒 Görev kilitli (önkoşul eksik): " + str(mission_name))
+					var mission_name: String = String(mission_id)
+					if mission is Dictionary:
+						mission_name = String(mission.get("name", mission_id))
+					elif mission is Mission:
+						mission_name = mission.name
+					print("🔒 Görev kilitli (önkoşul eksik): " + mission_name)
 			else:
 				# Dictionary görevleri için önkoşul kontrolü yapma, direkt ekle
 				available.append(mission)
@@ -3791,7 +3801,11 @@ func buy_from_trader(trader_id: String, resource: String, quantity: int) -> bool
 	
 	if product.is_empty():
 		return false
-	
+
+	var vce := get_node_or_null("/root/VillageCardEffects")
+	if vce and vce.is_resource_trade_blocked(resource):
+		return false
+
 	var price_per_unit = int(product.get("price_per_unit", 0))
 	var total_cost = price_per_unit * quantity
 	
@@ -4227,8 +4241,12 @@ func _calculate_trade_success_chance(route: Dictionary, cariye_id: int) -> float
 		var trade_skill = cariye.get_skill_level(Concubine.Skill.TİCARET)
 		var skill_bonus = (trade_skill - 50) * 0.002  # Her 1 yetenek = %0.2 bonus
 		base_chance += skill_bonus
-	
-	return clamp(base_chance, 0.5, 0.95)  # Min %50, Max %95
+
+	var vce := get_node_or_null("/root/VillageCardEffects")
+	if vce:
+		base_chance += vce.get_trade_success_bonus()
+
+	return clamp(base_chance, 0.5, 0.98)  # Min %50, Max %98
 
 # Ticaret ödüllerini hesapla
 func _calculate_trade_rewards(route: Dictionary, products: Dictionary, cariye_id: int) -> Dictionary:
@@ -4859,16 +4877,21 @@ func _get_player_military_force() -> Dictionary:
 	"""Get player's current military force from Barracks"""
 	# Kışla binasını bul
 	var barracks = _find_barracks()
+	var force: Dictionary
 	if barracks and barracks.has_method("get_military_force"):
-		return barracks.get_military_force()
-	
-	# Fallback: eski sistem
-	return {
-		"units": {"infantry": 5, "archers": 3, "cavalry": 2},
-		"equipment": {"weapon": 10, "armor": 8},
-		"supplies": {"bread": 20, "food": 15},
-		"gold": 500
-	}
+		force = barracks.get_military_force()
+	else:
+		# Fallback: eski sistem
+		force = {
+			"units": {"infantry": 5, "archers": 3, "cavalry": 2},
+			"equipment": {"weapon": 10, "armor": 8},
+			"supplies": {"bread": 20, "food": 15},
+			"gold": 500
+		}
+	# Köy roguelite kart etkilerinin (bkz. VillageCardEffects.gd) hangi taraf oyuncu
+	# olduğunu ayırt edebilmesi için işaretlenir.
+	force["is_player_force"] = true
+	return force
 
 # === Köy Savunması ve Saldırı Görevleri ===
 # (Duplicate functions removed - using the ones defined earlier)

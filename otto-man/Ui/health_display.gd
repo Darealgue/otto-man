@@ -117,12 +117,15 @@ func _sync_sibling_stamina(health_origin: Vector2) -> void:
 	if parent_node == null:
 		return
 	var stamina: Control = parent_node.get_node_or_null("StaminaBar") as Control
+	var xp_bar: Control = parent_node.get_node_or_null("XpBar") as Control
+	if not stamina:
+		stamina = parent_node.get_node_or_null("UI/StaminaBar") as Control
+	if not xp_bar:
+		xp_bar = parent_node.get_node_or_null("UI/XpBar") as Control
 	if stamina:
 		HudLayout.apply_stamina_bar(stamina, health_origin)
-		return
-	stamina = parent_node.get_node_or_null("UI/StaminaBar") as Control
-	if stamina:
-		HudLayout.apply_stamina_bar(stamina, health_origin)
+	if xp_bar:
+		HudLayout.apply_xp_bar(xp_bar, health_origin)
 
 
 var _force_visible: bool = true  # Allow external control
