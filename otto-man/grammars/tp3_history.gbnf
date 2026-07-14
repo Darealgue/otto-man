@@ -1,0 +1,20 @@
+# TP3 — OttoMan three-pass pass 3 (history tidy)
+# One tidied entry per line, no leading bullet/dash/number (that leading mark was
+# getting baked into stored History strings since the parser never strips it).
+# Line count and no-duplicate-facts are semantic constraints handled by the prompt text,
+# not by this grammar (GBNF cannot express "don't repeat a fact you already wrote").
+#
+# NOTE: this parser only recognizes \\ \" \[ \] \x \u \U \t \r \n as escapes inside [...] —
+# a literal "-" must be unescaped and placed right before "]" (not \-, which throws "unknown escape").
+#
+# NOTE: no trailing `ws` that accepts "\n" — an earlier version ended with `ws ::= [ \t\n]*`,
+# which let the model pad with unbounded blank lines after finishing instead of stopping;
+# it did so on ~50% of calls, running to the full max_new_tokens ceiling (~9-10s instead of ~1s).
+
+root ::= line (nl line)*
+
+line ::= first-char rest
+first-char ::= [^ \t\n*0-9()-]
+rest ::= [^\n()]*
+
+nl ::= "\n"

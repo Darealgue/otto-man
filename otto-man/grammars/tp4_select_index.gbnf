@@ -1,0 +1,18 @@
+# TP4 variant B (selection test, 2026-07-10) — same job as tp4_select_quote.gbnf (decide yes/no,
+# and if yes, which existing entry/entries it relates to), but identifies matches by their
+# position number in the numbered list instead of quoting them back verbatim. Output is much
+# shorter (a few digits vs. a full copied line), which should cost less generation time since
+# output length dominates a call's wall time — but unlike the quote variant, a wrong-but-in-range
+# index cannot be caught by an exact-match safety check the way a bad QUOTE can; only genuinely
+# out-of-range indices are structurally detectable. Deliberately tested side by side with the
+# quote variant to see whether that speed gain is worth the weaker safety net, and whether this
+# model's counting/indexing is actually reliable enough to trust here at all.
+#
+# One-line-per-rule constraint applies (see tp5_merge.gbnf comment).
+
+root ::= no-branch | yes-branch
+no-branch ::= "RELATED: no"
+yes-branch ::= "RELATED: yes" nl "INDICES: " digits (comma digits)*
+comma ::= ","
+digits ::= [0-9]+
+nl ::= "\n"

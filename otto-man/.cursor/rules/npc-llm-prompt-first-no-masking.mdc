@@ -1,0 +1,17 @@
+---
+description: NPC LLM work stays prompt-first—no Godot cleanups that hide bad model output until criteria met
+globs: "**/NPCDialogueManager.gd"
+alwaysApply: true
+---
+
+# NPC dialogue — prompt first, no masking cleanups (until gate)
+
+When editing **`NPCDialogueManager.gd`** (especially **`_NPC_DIALOGUE_THREE_PASS`** paths):
+
+1. **Do not add** Godot-side “repair” steps that make inconsistent LLM output look correct in logs or UI (e.g. unwrap JSON speech wrappers, normalize dialogue strings, typo-fix History, salvage ambiguous completions), **unless the user explicitly asks for that phase of work**.
+
+2. **Gate before cleanups:** Treat automated cleanups as allowed only after the user has validated **~20–30 back-to-back turns** where the **raw** completions match the intended contract; occasional breakage after that is when targeted fixes belong.
+
+3. **Raw logs = truth:** Rapid testing must reflect **what the model actually returned**. Parsing helpers that only **extract** strict structures (e.g. balanced `{…}` / `[…]` slices for JSON the prompt already requires) are fine; anything that **rewrites** model text to “what we wish it said” is not, until post-gate.
+
+4. If unsure, **change prompts / instruct tuning / token limits** first; **do not** add masking layers by default.

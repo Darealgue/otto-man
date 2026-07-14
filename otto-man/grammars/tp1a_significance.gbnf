@@ -1,0 +1,8 @@
+# TP1a — significance decision ONLY. Split from dialogue-speaking so a vivid spoken retelling
+# can't leak back and poison the yes/no pick (this was the confirmed root cause of the
+# recall-own-history bug: one call deciding AND narrating at once).
+root ::= ws sig-value
+
+ws ::= [ \t]*
+
+sig-value ::= "yes" | "no" | "Yes" | "No" | "YES" | "NO"

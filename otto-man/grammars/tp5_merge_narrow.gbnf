@@ -1,0 +1,19 @@
+# TP5 (narrowed-context variant, 2026-07-10) — merge only, no QUOTE step. Runs after TP4-select
+# has already identified exactly which existing entry/entries (zero, one, or several) the new
+# candidate belongs with; this call receives ONLY those already-selected entries plus the
+# candidate, never the rest of the history list. That's the actual fix being tested: not a
+# stricter instruction to "ignore the other entries," but removing them from the prompt
+# entirely, since a model's own instructions compete with context already loaded rather than
+# erasing it — the earlier single-call TP5 design (tp5_merge.gbnf) kept the full list present
+# for its QUOTE step, and content from unrelated entries bled into MERGED as a result.
+# No QUOTE line needed here since selection already happened and was already validated upstream.
+#
+# Same character restrictions as tp5_merge.gbnf (no leading bullet/digit/asterisk/paren/dash,
+# no "(" ")" "|") — avoids baking list-formatting or echoed labels into stored strings.
+#
+# One-line-per-rule constraint applies (see tp5_merge.gbnf comment).
+
+root ::= "MERGED: " line
+line ::= first-char rest
+first-char ::= [^ \t\n*0-9()|-]
+rest ::= [^\n()|]*

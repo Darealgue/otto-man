@@ -1,0 +1,53 @@
+# TP2 ledger delta — OttoMan three-pass pass 2
+# Allowed output: empty, OR zero or more lines of "Key: value" (changed fields only).
+# Keys: Name, Occupation, Mood, Health, Age, History (Gender/Diary omitted — never change).
+# History append: History: one third-person fact
+# History revert:  History: [entry, entry, ...]  (replaces full list; parser splits on commas)
+#
+# NOTE: rule names must use hyphens, not underscores — this build's grammar parser's
+# is_word_char() only accepts [a-zA-Z0-9-], so "field_line" parses as "field" then chokes
+# on the literal "_line" (this is what crashed the sampler previously).
+#
+# NOTE: root has no leading/trailing `ws` around the field-line list — an earlier version
+# (`ws (field-line sep)* field-line? ws`) let the model idle in a trailing-sep/empty-field-line
+# loop after finishing its real output, occasionally padding to the full max_new_tokens ceiling
+# (~3.5s instead of ~0.9s) with output that got silently stripped by the caller's .Trim().
+#
+# NOTE: field-value/history-text exclude "(" and ")" — the model kept violating rule 3
+# ("NEVER use (unchanged)/(same)") with commentary like "Net-mender (unchanged)" or
+# "(New personal life fact: ...)"; banning parens structurally closes the whole class
+# instead of prose-listing each variant, and it also made outputs noticeably longer/slower.
+#
+# NOTE: field-value/history-text also exclude "|" — without this, a single "Name:" line's
+# value can swallow an entire pipe-separated echo of the CURRENT STATE header verbatim
+# ("Name: Dimitri | Occupation: Master Carpenter | Mood: Humbled | Health: Aching joints |
+# Age: 65 | Gender: Male"), since [^\n()]+ never stops at "|" or the field-value text.
+# That let Age and Gender leak into output despite both being banned from field-line
+# entirely, and restated three fields that never changed. Banning "|" structurally closes
+# this the same way banning parens did — one class closed, not one case patched.
+
+root ::= (field-line (sep field-line)*)?
+
+sep ::= "\n"
+
+ws ::= [ \t]*
+
+field-line ::= name-line | occupation-line | mood-line | health-line | age-line | history-line
+
+name-line ::= "Name:" ws field-value
+occupation-line ::= "Occupation:" ws field-value
+mood-line ::= "Mood:" ws field-value
+health-line ::= "Health:" ws field-value
+age-line ::= "Age:" ws age-digits
+
+history-line ::= history-append | history-replace
+
+history-append ::= "History:" ws history-text
+history-replace ::= "History:" ws "[" ws history-list ws "]"
+
+history-list ::= history-item (ws "," ws history-item)*
+history-item ::= [^,\]()]+
+
+field-value ::= [^\n()|]+
+history-text ::= [^\n()|]+
+age-digits ::= [0-9]+

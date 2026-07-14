@@ -1,0 +1,19 @@
+# TP1b — spoken line ONLY, no significance label. Mandatory closing quote so nothing
+# (narration, stage directions) can follow the spoken line.
+#
+# NOTE: the final word before the closing quote must not itself end in a comma
+# (lastword's trailing char excludes ","). Without this, "word" (which allows commas
+# mid-token so natural clause commas like "Well, Chief," can appear) also lets a
+# comma sit directly against the closing quote — a grammatically valid but never
+# semantically valid parse, since no real sentence ends on a dangling comma. That
+# hole let grammar-constrained decoding close the quote right after an ordinary
+# clause-boundary comma, chopping the line off mid-thought (observed: `"Well, Chief,"`).
+root ::= ws spoken
+
+ws ::= [ \t]*
+
+spoken ::= "\"" word (" " word){0,38} " " lastword "\"" | "\"" lastword "\""
+word ::= [^ \t\n"[]+
+lastword ::= wordchar* nonfinal
+wordchar ::= [^ \t\n"[]
+nonfinal ::= [^ \t\n"[,]

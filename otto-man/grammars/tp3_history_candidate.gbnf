@@ -1,0 +1,17 @@
+# NEW TP3 (history candidate) — decides whether this exchange becomes a new memory at all.
+# Allowed output: empty (nothing became part of their life), or exactly one plain-text line.
+# No merging/reconciling happens here — that's TP4 (the existing tp3_history.gbnf/Tp3Body).
+#
+# An EVIDENCE-then-EVENT quote-grounded variant of this grammar was tried and reverted in the same
+# session — it broke completion-turn recognition (0/10 in isolated retest, was 20/20 before) because
+# the model kept quoting the original consent line as "evidence" instead of the current turn's own
+# words, no matter how the prompt scoped it. Back to plain zero-or-one-line output, with the fix for
+# the fabrication case (a bare question read as an agreement) done as prompt wording instead.
+#
+# Excludes "(" ")" and "|" for the same reasons as tp2_ledger.gbnf/tp2_info_only.gbnf: closes
+# the whole class of parenthetical commentary and pipe-separated header echoes structurally,
+# instead of prose-banning each variant as it turns up.
+
+root ::= line?
+
+line ::= [^\n()|"]+

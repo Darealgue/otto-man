@@ -1,0 +1,24 @@
+# One-pass experiment, variant B: model outputs only the NEW history fact (or null) — the
+# resulting new_history_entry gets appended to the existing list in code, which never asks the
+# model to reproduce entries it isn't touching. Avoids the exact task shape that made TP5's old
+# full-list-rewrite fail (0/11, 1/13) — the model's job here is only ever one small, bounded piece
+# of output, not a reproduction of an arbitrarily long list.
+#
+# "null" is a real, valid answer here (not a fallback) — most turns produce no new history fact at
+# all, and forcing a non-null value when nothing happened is exactly the kind of forced-field
+# hallucination structured-output best practice warns against.
+#
+# NOTE: every rule body must stay on one line — this repo's llama.cpp GBNF parser does not reliably
+# handle a single rule's definition split across multiple physical lines (an earlier multi-line
+# version of this file caused a native access violation, not just a parse error).
+
+root ::= "{" ws "\"generated_dialogue\":" ws string "," ws "\"name\":" ws string "," ws "\"occupation\":" ws string "," ws "\"mood\":" ws string "," ws "\"health\":" ws string "," ws "\"age\":" ws digits "," ws "\"gender\":" ws gender-value "," ws "\"new_history_entry\":" ws history-value ws "}"
+
+ws ::= [ \t\n]*
+digits ::= [0-9]+
+gender-value ::= "\"Male\"" | "\"Female\""
+history-value ::= string | "null"
+string ::= "\"" str-char* "\""
+str-char ::= [^"\\] | "\\" escape
+escape ::= ["\\/bfnrt] | "u" hex hex hex hex
+hex ::= [0-9a-fA-F]

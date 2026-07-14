@@ -1,0 +1,12 @@
+# TP4 — relation gate ONLY. Decides yes/no whether the new candidate history line relates
+# to anything already settled, before any merge/rewrite is attempted. Split out of the old
+# combined decide+rewrite call (former Tp3Body), which showed a bias toward inventing a
+# connection whenever asked to decide-and-act on relation in one shot — same root cause as
+# the TP0/TP1 split (a call that decides AND generates at once lets the generation bleed
+# back and bias the decision). If this says "no", the candidate is appended in code with no
+# further LLM call. If "yes", TP5 (tp3_history.gbnf) does the actual merge/rewrite.
+root ::= ws sig-value
+
+ws ::= [ \t]*
+
+sig-value ::= "yes" | "no" | "Yes" | "No" | "YES" | "NO"

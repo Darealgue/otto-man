@@ -1,0 +1,95 @@
+NPC History memory — design intent (for designers + Cursor agents)
+================================================================
+
+Removed from codebase (2026 refactor)
+-------------------------------------
+• Field `History_summary` (parallel prose blob) — REMOVED.
+• Async “history compaction” LLM that moved oldest History lines into `History_summary`
+  when length exceeded a threshold — REMOVED.
+
+Reason
+------
+Players may bond with one NPC for a very long real-world time. Capping or offloading memory
+felt like invalidating a save. Long History ⇒ longer prompts ⇒ slower inference is acceptable;
+it matches “there is a lot to remember.”
+
+Desired behavior (target — teach via prompt + training)
+--------------------------------------------------------
+All durable memory lives in the `History` ARRAY OF STRINGS only.
+
+North star — minimal runtime shaping (ideal end state)
+--------------------------------------------------------
+**Design intent:** The runtime should **trust** well-formed model outputs for **content**. Pipe serialized state in → parse JSON out → persist fields the schema defines, **without** Godot rewriting History or dialogue via substring heuristics, echo stripping, or keyword bans.
+
+**Still legitimate at the engine layer** (not “AI cleanup,” just plumbing):
+
+• Parse / validate JSON shape and required keys.
+
+• **Info key parity (absolute):** The LLM must not introduce **any** Info key that was not already on the save. **If it emits a new key, we failed** (prompt, dataset, or weights)—runtime must not treat “drop unknown keys” as the happy path. Ideal: **reject** or surface error for that turn; any whitelist-style stripping in code is **interim damage control**, not design.
+
+• **Structural** History merge when the model returns **fewer** lines than the save (accidental wipe protection)—policy-only, not judging line wording.
+
+• Append NPC line to `Chat_log`; bind signals—normal game I/O.
+
+**Not ideal long-term** (compensatory scaffolding while weights lag):
+
+• `_strip_history_*` pattern drops, Latest_news echo heuristics, founder-boast filters, grammar typo normalization on History.
+
+• `_sanitize_generated_dialogue_delivery` removing `{…}` tags—acceptable only until the model stops emitting them.
+
+**Sunset plan:** As LoRA/SFT + (optional) constrained decoding prove stable on live traces, **delete heuristic strips first**, then rely on strict JSON + **Info parity** (fail on unknown keys) and structural History merge—not silent key filtering.
+
+The model may do MORE than append-only updates:
+
+1) THREAD COMPRESSION — Several entries that are really ONE story arc should collapse into
+   ONE array element when persisting.
+   Example (necromancer arc): many beats merge into one line such as
+   “Player helped resurrect his dead mother by paying a necromancer whose abilities had been proven.”
+
+2) SUBSUMPTION / MERGE — When a later fact closes an arc, drop redundant intermediates.
+   Example: broken foot → salve offered → healed becomes ONE line about healing + gift,
+   without keeping three stale bullets forever.
+
+3) Contradiction repair, promise cancellation revert — still expressed by rewriting the
+   History array the model returns (same as before).
+
+Significance (human framing for prompts)
+----------------------------------------
+Roleplay from Input Info + History; incoming dialogue is speech directed at the NPC this turn.
+
+Ask whether **new residue** would remain with **this person** after the beat ends—relative to everything already on the sheet—that belongs in persisted Info or History (not merely in spoken dialogue).
+
+If yes → emit updated Info and/or History plus Generated Dialogue.
+If no → copy Info + History exactly from Input State; only Generated Dialogue changes.
+
+There is **no fixed mapping** from wording patterns (greetings, insults, gifts, questions, length, tone) to significance; judgment must track **who this character already is** and whether stored facts ought to move.
+
+**Anchoring:** new History / Info deltas should be traceable to supplied inputs (state, news, chat tail, current line)—not fabricated episodes.
+
+The LLM decides significance; the engine persists when output differs from Input State.
+
+Engine guards (NPCDialogueManager — applied before significance compare)
+-------------
+**Note:** Items below mix **structural** rules (keep) with **heuristic strips** (interim—see North star above).
+• Info keys (current engine): unknown keys dropped by iterating saved keys only—**interim**. Target behavior: treat unknown Info keys as **generation failure** (same absolutes as North star).
+• History: if the model returns **fewer** lines than saved, merge — keep saved lines and append only **new** strings from the model (prevents accidental mass deletes).
+• History: drop lines that only echo **Latest_news** (exact match or headline substring), including optional `Heard:` prefix — rumor belongs in Latest_news + dialogue, not diary clone.
+• History: drop lines that match transcript/meta shapes — leading `Player `, phrases like `player who asked`, `conversation with a player`, `experienced a conversation`, `noticed a player's`, possessive `the player's` / `player offered`, plus Q&A bookkeeping (`Asked about…`, `Asked how…`, `Someone asked…`, `was asked about`, `inquired about what…`, `inquired about the meaning…`), trivial fluff (`Greeted a stranger`), inverted-compassion artifacts (`offered companionship to a lonely…`), Latest_news parrot (`Encountered a recent village news…`), stranger-interview setups (`Encountered a stranger who asked…`), visitor-meta openings (`Visitor requested…`), gratuitous unease paired with “no apparent reason”, etc.
+• History: when **incoming dialogue** contains a founding boast (“I founded this village”, “founder of this village”, …), drop **new** model History lines that look like adopting that boast (`founded`, `founder`, `found the village`, …) unless that exact line already existed on the save — prevents NPC mirroring player lies onto the sheet.
+• History: normalize recurring grammar drift (`Spend years training` → `Spent years training`) after merges/strips.
+
+Operator notes (2026)
+---------------------
+• **Hand-authored prompt:** Shipped text lives in `NPCDialogueManager._construct_full_prompt`; `NPC_DIALOGUE_PROMPT_v2_DRAFT.txt` is documentation parity only until you wire file-load. Replacing the template string is expected when tuning by hand.
+
+• **Compact prompt + base 7B:** Short instructions steer weakly; heuristic guards listed below are **temporary**. Behavioral fix belongs in prompt **quality** + **adapter weights**, not endless Godot string rules.
+
+• **Latest_news ↔ History:** Rumors may appear in Turkish in `Latest_news` while the model pastes an English paraphrase into History; substring echo-detection can miss that. Engine also strips lines opening with `Heard recent news` / `Heard the news`. Prefer teaching “never duplicate rumor headlines into History” in your prompt.
+
+• **Greeting overshare:** Models often dump biography or news on “hello”; significance should usually leave History unchanged—enforce in training and in prose rules you write tomorrow.
+
+Related files (humans / tooling only — never paste filesystem paths into model prompts; the LLM cannot open them)
+-------------
+• Runtime prompt: autoload/NPCDialogueManager.gd — `_construct_full_prompt`
+• Draft next prompt: grammars/prompts/NPC_DIALOGUE_PROMPT_v2_DRAFT.txt
+• Dataset rules: training/DATASET_RULES_AND_FEEDBACK.md

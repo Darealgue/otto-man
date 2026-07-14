@@ -1,0 +1,22 @@
+# TP1 — OttoMan three-pass pass 1
+# Exactly two lines:
+#   Significant: yes|no
+#   Generated dialogue: <one spoken line, no [ stage directions]>
+#
+# NOTE: rule names must use hyphens, not underscores — this build's grammar parser's
+# is_word_char() only accepts [a-zA-Z0-9-], so "sig_line" parses as "sig" then chokes
+# on the literal "_line" (this is what crashed the sampler previously).
+
+root ::= ws sig-line nl ws dialogue-line ws
+
+ws ::= [ \t]*
+
+nl ::= "\n"
+
+sig-line ::= "Significant:" ws sig-value
+sig-value ::= "yes" | "no" | "Yes" | "No" | "YES" | "NO"
+
+dialogue-line ::= "Generated dialogue:" ws spoken
+# Mandatory closing quote — nothing can follow it, so narration-after-line is impossible.
+spoken ::= "\"" word (" " word){0,39} "\""
+word ::= [^ \t\n"[]+

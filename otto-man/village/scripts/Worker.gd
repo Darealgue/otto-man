@@ -968,6 +968,9 @@ func Initialize_Existing_Villager(NPCInfo):
 				NPC_Info["Latest_news"] = []
 			elif typeof(NPC_Info["Latest_news"]) == TYPE_STRING:
 				NPC_Info["Latest_news"] = [NPC_Info["Latest_news"]] if NPC_Info["Latest_news"] != "" else []
+			if not NPC_Info.has("Chat_log") or typeof(NPC_Info["Chat_log"]) != TYPE_ARRAY:
+				NPC_Info["Chat_log"] = []
+			NPC_Info.erase("History_summary")
 			
 			Update_Villager_Name() # Safe update
 			$NpcWindow.InitializeWindow(NPC_Info)
@@ -2951,7 +2954,8 @@ func OpenNpcWindow():
 
 func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
 	$NpcWindow.NPCDialogueProcessed(npc_name, new_state, generated_dialogue, was_significant)
-	
+
+
 func CloseNpcWindow():
 	if is_dungeon_prisoner:
 		return

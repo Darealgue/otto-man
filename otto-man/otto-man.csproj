@@ -5,10 +5,28 @@
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'ios' ">net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>ottoman</RootNamespace>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <!-- LLamaSharp CUDA12 on Windows: AnyCPU / prefer-32 can prevent native loader from binding cuda12 llama.dll (CPU fallback). -->
+    <PlatformTarget Condition="'$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios'">x64</PlatformTarget>
+    <Prefer32Bit Condition="'$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios'">false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="LLamaSharp" Version="0.12.0" />
-    <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.12.0" />
-    <PackageReference Include="LLamaSharp.semantic-kernel" Version="0.12.0" />
+    <PackageReference Include="LLamaSharp" Version="0.24.0" />
+    <!-- CUDA ggml.dll links ggml-cpu.dll + ggml-cuda.dll; Backend.Cuda12 does not ship ggml-cpu.dll (only Backend.Cpu avx/avx2/… folders). -->
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.24.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.24.0" />
+    <PackageReference Include="LLamaSharp.semantic-kernel" Version="0.24.0" />
   </ItemGroup>
+
+  <!-- LLamaSharp publishes CUDA12 binaries under runtimes/win-x64/native/cuda12/. Some hosts still bind CPU llama.dll unless
+       those DLLs are also next to otto-man.dll (SciSharp/LLamaSharp#1221).
+       ggml.dll (CUDA stack) also depends on ggml-cpu.dll from Backend.Cpu — copy avx2 CPU backend next to cuda12 natives so preload resolves. -->
+  <Target Name="FlattenLlamaSharpCuda12DllsToOutput" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT' AND '$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios' AND Exists('$(OutputPath)runtimes\win-x64\native\cuda12')">
+    <Copy SourceFiles="$(OutputPath)runtimes\win-x64\native\avx2\ggml-cpu.dll" DestinationFolder="$(OutputPath)runtimes\win-x64\native\cuda12" SkipUnchangedFiles="true" Condition="Exists('$(OutputPath)runtimes\win-x64\native\avx2\ggml-cpu.dll')" />
+    <Copy SourceFiles="$(OutputPath)runtimes\win-x64\native\avx\ggml-cpu.dll" DestinationFolder="$(OutputPath)runtimes\win-x64\native\cuda12" SkipUnchangedFiles="true" Condition="!Exists('$(OutputPath)runtimes\win-x64\native\cuda12\ggml-cpu.dll') AND Exists('$(OutputPath)runtimes\win-x64\native\avx\ggml-cpu.dll')" />
+    <ItemGroup>
+      <_Cuda12Flatten Include="$(OutputPath)runtimes\win-x64\native\cuda12\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_Cuda12Flatten)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

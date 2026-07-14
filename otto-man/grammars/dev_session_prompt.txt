@@ -1,15 +1,37 @@
 PROJECT CONTEXT (Godot 4.3, 2D Action + Village Sim with LLM-driven NPCs)
 
-You are joining an in-progress Godot 4.3 project (“otto-man”). The game combines a 2D action platformer with a village simulation. NPCs can converse with the player (and later with each other). An on-device LLM (via LLamaSharp) generates NPC responses and updates the NPC’s state.
+You are joining an in-progress Godot 4.3 project (“otto-man”). The game combines a 2D action platformer with a village simulation. NPCs can converse with the player (and later with each other). An on-device **Mistral-7B-Instruct** model (via LLamaSharp) generates NPC responses and updates the NPC’s state.
 
-Core goal for LLM I/O: Output MUST be well-formed JSON with a strict schema governed by GBNF. The model decides if the current dialogue is Significant (changes Info and/or History) or Insignificant (no state changes). DialogueHistory is appended only when Significant. Output always includes a Generated Dialogue string (first-person NPC reply).
+Core goal for LLM I/O: Output MUST be well-formed JSON with a strict schema governed by GBNF. The model decides if the current dialogue is Significant (changes Info and/or History) or Insignificant (no state changes). History is updated only when Significant. Output always includes a Generated Dialogue string (first-person NPC reply).
+
+**Multi-pass NPC dialogue experiment (timing + architecture):**  
+Agents: read **`grammars/NPC_DIALOGUE_MULTI_PASS_TEST_PLAN.txt`** before implementing 2-pass / deferred 3-pass flows.  
+Compare real wall-clock vs single-pass; keep experiment methodology out of `NPCDialogueManager.gd` (Godot script — link here instead).
+
+---
+FOR CURSOR AGENTS — Windows GPU inference + merged NPC LoRA (read this first on LLM/CUDA tasks)
+
+Summary: Godot 4.3 **Mono** + **LLamaSharp 0.24** + **LLamaSharp.Backend.Cuda12**. NPC inference defaults to **base** Mistral GGUF (`NpcDialogueUseMergedGguf` resolves via env): set **`OTTO_NPC_USE_MERGED_GGUF=1`** to load the fused merged NPC GGUF (LoRA baked in). Runtime adapter LoRA remains optional in `LlamaService.cs`. **`OTTO_LLAMA_VERBOSE=1`** re-enables chatty `GenerateResponse`/prefill/raw-result logs; **`OTTO_LLAMA_CHUNK_TRACE=1`** for per-chunk prefill lines.
+
+If CUDA “won’t load” / CPU-only `llama_print_system_info` / `NativeLibrary.Load` **Win32 126** on `cuda12\llama.dll`:
+1. **.NET’s default native load often skips PATH for dependents** — fix is **`LoadLibraryEx(..., LOAD_WITH_ALTERED_SEARCH_PATH)`** preload before LLamaSharp binds (`LlamaService.cs`).
+2. **`ggml.dll` needs `ggml-cpu.dll`** — Cuda12 NuGet folder does **not** ship it; add **`LLamaSharp.Backend.Cpu`** and **copy `ggml-cpu.dll`** into `runtimes\win-x64\native\cuda12\` (see **`otto-man.csproj`** flatten target).
+3. **`PlatformTarget=x64`**, **`Prefer32Bit=false`** on Windows desktop builds.
+
+Full timeline, `dumpbin` notes, env vars, and verification checklist: **`docs/LLAMASHARP_CUDA_WINDOWS_MERGED_NPC_SESSION.md`** (next to this file: `grammars/../docs/`).
+
+Near-term roadmap (design / training): tighten **`NPCDialogueManager.gd`** prompt → mirror it in **`training/data/npc_sft.v2.manual.jsonl`** → train new LoRA → merge → new merged GGUF (train-vs-runtime alignment fixes flaky significance vs base model).
+
+**Safety nets before prompt experiments:** keep dated copies of merged GGUF + LoRA artifacts; keep canonical prompt text in **`grammars/prompts/NPC_DIALOGUE_PROMPT_CANONICAL_BACKUP.txt`** (revert instructions in **`grammars/prompts/README.txt`**).
+
+---
 
 Key Modules
 - UI: Ui/npc_window.tscn + Ui/npc_window.gd (chat window, input line, send button; calls NPCDialogueManager)
 - Dialogue Orchestration: autoload/NPCDialogueManager.gd (builds prompt, sends to LlamaService, parses structured JSON, enforces rules, emits dialogue_processed)
-- LLM Backend: autoload/LlamaService.cs (LLamaSharp wrapper, loads GBNF grammar at grammars/output.gbnf, runs inference, emits GenerationComplete)
+- LLM Backend: autoload/LlamaService.cs (LLamaSharp wrapper; loads base GGUF from res://models; optional GBNF grammars/output.gbnf when grammar is enabled on a call; NPC dialogue usually disables grammar at runtime due to native sampler issues — JSON shape still matches output.gbnf. Signals: GenerationCompleteBase / GenerationCompleteNpc plus legacy GenerationComplete for base path.)
 - NPC Integration: village/scripts/Worker.gd (NPC entity; opens chat window; relays inputs to NPCDialogueManager; updates NPC_Info with returned new state to persist memory)
-- Grammar: grammars/output.gbnf (defines the JSON structure the model must output)
+- Grammar: grammars/output.gbnf (defines the JSON structure the model must output when constrained sampling is on)
 
 Data Model (per-NPC State)
 - Info (Dictionary<string, string>): current attributes; example keys used today: Name, Occupation, Mood, Gender, Age, Health. No new keys allowed; if a title is bestowed and there is no Title key, append it to Name (e.g., "Kamil the Ironfist").
@@ -20,29 +42,31 @@ GBNF (grammars/output.gbnf)
   { "Info": object, "History": string[], "Generated Dialogue": string }
 - Allows flexible whitespace (ws) but no placeholders like <AGE>.
 
-Prompt Contract (NPCDialogueManager.gd builds this)
-Input State:
+Prompt Contract (NPCDialogueManager.gd builds this — full template is longer)
+Input State includes at least:
 {
   "Info": <JSON from current NPC_Info.Info>,
-  "History": <JSON array from NPC_Info.History>
+  "History": <JSON array from NPC_Info.History>,
+  "Latest_news": <JSON array; input-only — never taken from model output; see NPCDialogueManager>
 }
+Optional blocks in the same prompt: Recent conversation (Chat_log tail — labeled with speaker names when known, otherwise \"Other:\" for the unnamed counterparty). (History_summary removed — all memory is in the History array; see grammars/prompts/NPC_HISTORY_MEMORY_DESIGN.txt.)
 
-Player Dialogue: "<raw player text>"
+Incoming dialogue (this turn): "<raw text directed at this NPC>"
 
 Instructions (strict highlights):
 - The model must decide Significance strictly based on whether its OUTPUT Info or History differs from the INPUT.
 - IF Significant: Update Info (only existing keys) and/or History (append, or replace a superseded entry then append a one-line correction).
 - IF Insignificant: Info and History MUST be byte-identical to INPUT; only Generated Dialogue changes.
-- Generated Dialogue must be first-person NPC speech, no name prefix, no narration/stage directions.
+- Generated Dialogue must be first-person in-character speech, no name prefix, no narration/stage directions.
 - NEVER add new keys to Info.
 
 Examples
 - Insignificant (identity query when Name exists):
-  Input Info.Name = "Cora"; Player: "what's your name?" -> Output Info/History identical; Generated Dialogue: "I'm Cora."
+  Input Info.Name = "Cora"; Incoming: "what's your name?" -> Output Info/History identical; Generated Dialogue: "I'm Cora."
 - Significant (title bestowed):
-  Input Info.Name = "Kamil"; Player: "I grant you the title Ironfist" -> Output Info.Name = "Kamil the Ironfist"; History append: "Got a new title: the Ironfist"; Generated Dialogue: first-person.
+  Input Info.Name = "Kamil"; Incoming: "I grant you the title Ironfist" -> Output Info.Name = "Kamil the Ironfist"; History append: "Got a new title: the Ironfist"; Generated Dialogue: first-person.
 - Significant (contradiction):
-  Input History contains "Mother died"; Player: "I saw your mother; she is alive" -> Output History removes the superseded entry and appends one correction: "Correction: Previously believed mother died; now learned mother is alive."
+  Input History contains "Mother died"; Incoming: "I saw your mother; she is alive" -> Output History removes the superseded entry and appends one correction: "Correction: Previously believed mother died; now learned mother is alive."
 
 Runtime Rules Enforced in Code (NPCDialogueManager.gd)
 - Significance is determined only by differences in Info or History between Input and Output (JSON-stringified comparisons).
@@ -53,18 +77,23 @@ Runtime Rules Enforced in Code (NPCDialogueManager.gd)
 - Generated Dialogue fallback to "..." if blank.
 
 Current Status (where we left off)
-- Grammar validated and loaded successfully by LLamaService; spaces in output are harmless.
-- Prompt explicitly teaches significance with positive and negative examples; identity queries are Insignificant when Name exists.
-- UI chat window stable; button/Enter submission sends raw text; NPC replies appended to UI without re-looping requests.
+- Grammar validated and can be loaded by LLamaService; NPCDialogueManager usually disables grammar at inference; spaces in JSON output are harmless.
+- On-device LLM is Mistral-7B-Instruct v0.2 only: LlamaService wraps prompts with [INST] formatting for reliable completion; optional logit bias toward a leading "{".
+- Optional NPC fine-tuning: LLamaService supports a merged NPC GGUF or base GGUF plus LoRA adapter GGUF (see LlamaService.cs). Dataset / training notes: `training/WHERE_WE_LEFT_OFF.md`.
+- Windows CUDA / native DLL troubleshooting and verification checklist: **`docs/LLAMASHARP_CUDA_WINDOWS_MERGED_NPC_SESSION.md`**.
+- Prompt teaches significance with examples; identity queries are Insignificant when Name exists.
+- UI chat window stable; Enter/button sends raw player text; NPC replies append without duplicate requests.
 
 Next Steps
 - Apply returned new_state (Info/History) in Worker.gd immediately after dialogue_processed to persist NPC memory in-session (and ensure it's saved to your JSON save pipeline on save events).
 - Expand significant examples over time (e.g., mission offers, relationship changes) to improve model reliability.
+- **Prompt + training alignment:** refactor NPC prompt text toward a cleaner/canon template in NPCDialogueManager.gd, then update `training/data/npc_sft.v2.manual.jsonl` to use that same template, retrain LoRA, re-merge, ship new merged GGUF (reduces train-vs-runtime drift).
 - Optional (later): Two-pass design or explicit "Significant": "true|false" flag in grammar if we ever need pre-commit decisions.
 
 Project Structure Pointers
+- docs/LLAMASHARP_CUDA_WINDOWS_MERGED_NPC_SESSION.md: Session notes — Windows CUDA12 native loading (PATH/DLL order), ggml-cpu + Backend.Cpu, merged NPC GGUF, verification checklist
 - autoload/NPCDialogueManager.gd: Prompt builder, JSON parsing, significance logic, merge rules, emits dialogue_processed(npc_name, new_state, generated_dialogue, was_significant)
-- autoload/LlamaService.cs: Loads model, grammar; GenerateResponseAsync(prompt, maxNewTokens); emits GenerationComplete(result)
+- autoload/LlamaService.cs: Loads GGUF(s); GenerateResponseAsyncBase / GenerateResponseAsyncNpc; emits GenerationCompleteBase / GenerationCompleteNpc (and GenerationComplete for backward compat on base path)
 - Ui/npc_window.gd: Sends text, appends to chat UI, disables Send until reply; receives NPCDialogueProcessed and re-enables Send
 - village/scripts/Worker.gd: Opens/closes NPC window; bridges to NPCDialogueManager; should write back updated NPC_Info with new state
 - grammars/output.gbnf: Grammar rules for exact JSON shape
@@ -73,17 +102,22 @@ Copy-Paste Ready Prompt Template (to generate a reply for one turn)
 Input State:
 {
   "Info": %INFO_JSON%,
-  "History": %HISTORY_JSON%
+  "History": %HISTORY_JSON%,
+  "Latest_news": %NEWS_JSON%
 }
 
-Player Dialogue: "%PLAYER_TEXT%"
+Recent conversation:
+%RECENT_CHAT%
+
+Incoming dialogue (this turn): "%PLAYER_TEXT%"
 
 Instructions:
 - A dialogue is Significant ONLY if your OUTPUT Info or History differs from the INPUT.
 - IF Significant: Update Info (existing keys only) and/or History (append or perform contradiction correction).
 - IF Insignificant: Copy Info, History EXACTLY from INPUT.
-- Generated Dialogue MUST be a first-person NPC line, no name prefix, no narration.
+- Generated Dialogue MUST be a first-person in-character line, no name prefix, no narration.
 - NEVER add new keys to Info.
+- Latest_news is input-only; do not emit it in output JSON.
 - Output ONLY JSON in this exact order: Info, History, Generated Dialogue.
 
 ---

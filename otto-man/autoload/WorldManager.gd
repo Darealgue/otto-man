@@ -1,5 +1,8 @@
 extends Node
 
+# When true, never calls LlamaService for battle narratives (single-model VRAM focus; avoids using GenerationCompleteBase).
+const _DISABLE_BATTLE_STORY_LLM := true
+
 # --- Feature Flags ---
 @export var dynamic_world_enabled: bool = true
 
@@ -134,8 +137,8 @@ func _ready() -> void:
 			var key := _rel_key(factions[i], factions[j])
 			relations[key] = 0
 	# Connect to LlamaService for battle story generation
-	if not LlamaService.is_connected("GenerationComplete", Callable(self, "_on_battle_story_generated")):
-		var error_code = LlamaService.connect("GenerationComplete", Callable(self, "_on_battle_story_generated"))
+	if not LlamaService.is_connected("GenerationCompleteBase", Callable(self, "_on_battle_story_generated")):
+		var error_code = LlamaService.connect("GenerationCompleteBase", Callable(self, "_on_battle_story_generated"))
 		if error_code != OK:
 			printerr("WorldManager: Failed to connect to LlamaService for battle stories: Error ", error_code)
 	if world_map_tiles.is_empty():
@@ -5898,6 +5901,9 @@ func _post_world_news(news: Dictionary) -> void:
 
 func _generate_battle_story(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> void:
 	"""Generate a battle story using LLM without grammar constraints"""
+	if _DISABLE_BATTLE_STORY_LLM:
+		print("WorldManager: Battle story LLM disabled (_DISABLE_BATTLE_STORY_LLM); skipping LlamaService call.")
+		return
 	if not LlamaService.IsInitialized():
 		print("WorldManager: LlamaService not available, skipping battle story generation")
 		return
@@ -5915,7 +5921,7 @@ func _generate_battle_story(attacker_faction: String, battle_result: Dictionary,
 	var prompt = _construct_battle_story_prompt(attacker_faction, battle_result, day, attacker_force, defender_force)
 	
 	# Call LLM without grammar (useGrammar = false)
-	LlamaService.GenerateResponseAsync(prompt, 500, false)  # 500 tokens for longer story
+	LlamaService.GenerateResponseAsyncBase(prompt, 500, false)  # 500 tokens for longer story
 	print("WorldManager: Sent battle story generation request to LlamaService")
 
 func _construct_battle_story_prompt(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> String:

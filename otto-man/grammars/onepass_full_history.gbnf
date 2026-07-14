@@ -1,0 +1,37 @@
+# One-pass experiment, variant A: model outputs the COMPLETE new History array (not just a
+# delta) — literally "old version + dialogue = new version" with no exception for History.
+#
+# "history_changed" added after the Turn-1 fabrication bug found in the stateful walkthrough test
+# (2026-07-10): with no explicit gate, the model merged two UNRELATED existing entries and
+# fabricated a detail on a turn where nothing history-worthy happened at all. Since generation is
+# left-to-right, forcing an explicit true/false commitment immediately before the array — the same
+# job TP4's separate relation gate does in the 6-pass system — should make "nothing changed" the
+# structurally easy, default-shaped answer instead of something the model has to resist rewriting
+# away from. Zero added latency: still one call, one extra boolean field.
+#
+# NOTE: every rule body must stay on one line — this repo's llama.cpp GBNF parser does not reliably
+# handle a single rule's definition split across multiple physical lines (an earlier multi-line
+# version of this file caused a native access violation, not just a parse error).
+#
+# Field order reworked (2026-07-10) after a stateful walkthrough showed "gender" committed to the
+# wrong value on a turn where dialogue AND history both correctly reflected a gender transformation
+# in the same generation. Root cause: the six attribute fields had zero update-rule guidance (unlike
+# history, which has explicit history_changed gating) and were positioned BEFORE the history
+# resolution in left-to-right generation, so they got committed before the model's own grounded
+# judgment about "what actually happened" was reasoned through. Fix: history_changed/history now
+# come right after generated_dialogue, and the six attributes are generated last, after that
+# resolution is already committed — same general update-rule concept as history_changed, applied
+# uniformly to all six fields, none singled out.
+
+root ::= "{" ws "\"generated_dialogue\":" ws string "," ws "\"history_changed\":" ws bool-value "," ws "\"history\":" ws history-array "," ws "\"name\":" ws string "," ws "\"occupation\":" ws string "," ws "\"mood\":" ws string "," ws "\"health\":" ws string "," ws "\"age\":" ws digits "," ws "\"gender\":" ws gender-value ws "}"
+
+history-array ::= "[" ws (string (ws "," ws string)*)? ws "]"
+
+ws ::= [ \t\n]*
+digits ::= [0-9]+
+gender-value ::= "\"Male\"" | "\"Female\""
+bool-value ::= "true" | "false"
+string ::= "\"" str-char* "\""
+str-char ::= [^"\\] | "\\" escape
+escape ::= ["\\/bfnrt] | "u" hex hex hex hex
+hex ::= [0-9a-fA-F]

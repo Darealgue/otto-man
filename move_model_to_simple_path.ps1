@@ -1,8 +1,20 @@
-# Model dosyasını Türkçe karakter içermeyen basit bir yere taşıma scripti
-# Bu, LLamaSharp native DLL'inin path encoding sorunlarını çözer
+# Model dosyasını Türkçe karakter içermeyen basit bir yere kopyalama scripti
+# Bu, LLamaSharp native DLL'inin path encoding sorunlarını çözer.
+#
+# Varsayılanlar repo-relative olacak şekilde ayarlandı:
+# - source:  <repo>\otto_exp   (script'in yanındaki klasör)
+# - target:  <repo>\otto_exp   (aynı; isterseniz OTTO_MODEL_DIR env ile override edin)
+#
+# Export edilmiş build için LlamaService.cs fallback sırası:
+# 1) exe yanında model
+# 2) OTTO_MODEL_DIR\<model>
+# 3) C:\otto_exp\<model>  (son çare)
 
-$sourceDir = "C:\Users\Günsu\Desktop\otto_exp"
-$targetDir = "C:\otto_exp"
+$sourceDir = Join-Path $PSScriptRoot "otto_exp"
+$targetDir = $env:OTTO_MODEL_DIR
+if ([string]::IsNullOrWhiteSpace($targetDir)) {
+    $targetDir = Join-Path $PSScriptRoot "otto_exp"
+}
 $modelFile = "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 
 Write-Host "Model Dosyası Taşıma Scripti" -ForegroundColor Cyan

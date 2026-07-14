@@ -1,1 +1,23 @@
-otto-man/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+# All model weight files — multi-GB, never shipped via git, redownloaded/verified as needed
+# (see docs/GODOT_NPC_LLM_ARCHITECTURE.md). Wildcard, not a single filename, so no future
+# model file (Nemo, a stale LoRA, whatever comes next) can slip in by accident again.
+otto-man/models/*.gguf
+
+# Training artifacts (not shipped)
+training/**
+
+# Godot build/cache outputs
+otto-man/.godot/**
+
+# HuggingFace cache under models (avoid accidentally committing it)
+otto-man/models/.cache/**
+
+# Local training caches (created at runtime)
+training/cache/**
+training/output/**
+
+# tools/** — the 6-pass prompt-engineering/auto-testing scaffolding (NpcDialogueDryRun,
+# InferenceSmoke). Not part of the Godot game; served its purpose proving out the prompts/
+# architecture that's now live in LlamaService.cs and NPCDialogueManager.gd. Kept on disk
+# locally for reference, but never tracked or pushed.
+tools/**

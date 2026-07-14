@@ -1,0 +1,23 @@
+# TP2 (info-only) — full-state completion, all six fields mandatory, fixed order, every turn.
+# Previously: zero or more lines, model's choice which fields to mention (selective omission) —
+# changed after live-batch testing showed the Gender miss wasn't a wrong value, it was Gender
+# never appearing in the output at all. Requiring every field forces the model to commit to
+# "still Male" or "now Female" instead of silently never writing a Gender line.
+#
+# Gender is further locked to exactly "Male" or "Female" — free text there let a model that had
+# correctly figured out "not yet, but pending" express that as hedge text ("Male, about to become
+# female") instead of a clean value. Same mechanism as Age's digit-only lock below, not a runtime
+# check: the model cannot generate anything else for that slot at all.
+#
+# Same structural fixes as before: no "(" ")" (banned commentary like "(unchanged)"),
+# no "|" (banned pipe-separated CURRENT-STATE-header echoes swallowing an entire field's value).
+
+root ::= "Name:" ws field-value nl "Occupation:" ws field-value nl "Mood:" ws field-value nl "Health:" ws field-value nl "Age:" ws age-digits nl "Gender:" ws gender-value
+
+ws ::= [ \t]*
+
+nl ::= "\n"
+
+field-value ::= [^\n()|]+
+age-digits ::= [0-9]+
+gender-value ::= "Male" | "Female"

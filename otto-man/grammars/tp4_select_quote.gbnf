@@ -1,0 +1,36 @@
+# TP4 variant A (selection test, 2026-07-10) — relation gate + selection combined: decides
+# yes/no AND, if yes, quotes back every existing entry (one or more) that the new candidate
+# relates to, verbatim. TP4 already has to read the full numbered list to make its yes/no call,
+# so this tests whether "which entry" identification can move here instead of living in TP5's
+# own QUOTE step — letting TP5 run on a narrowed context (just the selected entry/entries plus
+# the candidate, no other entries present at all) instead of the full list sitting there as
+# distractor content that bled into MERGED (see HISTORY_TIDY_CHECKLIST.md, Turn 6 finding).
+#
+# One-line-per-rule constraint applies (see tp5_merge.gbnf comment) — an earlier multi-line rule
+# in this project's other grammars caused a native access violation, not a parse error.
+#
+# BUG FOUND AND FIXED (2026-07-10, first version of this file): the first cut used
+# `yes-branch ::= "RELATED: yes" nl match-line (nl match-line)*` — a Kleene-star repeat straight
+# after the first (required) match-line. Since "line" itself is satisfiable at a single
+# character (rest can be zero-length) and the star allows zero further repeats, the WHOLE root
+# production became grammatically "done" the instant one character was emitted — so the
+# grammar-constrained sampler could legally stop right there, and it did, 10/10 trials, producing
+# literal "MATCH: ?" every time. Not model variance: 100% consistent at temperature 0.05 is a
+# structural grammar bug, not a reasoning failure. tp5_merge.gbnf never hit this because it has
+# NO repetition at all — QUOTE's line is always mandatorily followed by "nl MERGED: line", so
+# root can never be considered complete right after a short QUOTE; that forced continuation is
+# what actually gives the model room to write the real, full quote. Fixed here by giving this
+# grammar the same property: a bounded COUNT (1-3) selects a branch with exactly that many
+# match-lines, and every branch ends in a mandatory "END" marker — so no match-line, including
+# the last one, can ever be immediately followed by root-completion.
+
+root ::= no-branch | yes1 | yes2 | yes3
+no-branch ::= "RELATED: no"
+yes1 ::= "RELATED: yes" nl "COUNT: 1" nl match-line nl "END"
+yes2 ::= "RELATED: yes" nl "COUNT: 2" nl match-line nl match-line nl "END"
+yes3 ::= "RELATED: yes" nl "COUNT: 3" nl match-line nl match-line nl match-line nl "END"
+match-line ::= "MATCH: " line
+nl ::= "\n"
+line ::= first-char rest
+first-char ::= [^ \t\n*0-9()|?-]
+rest ::= [^\n()|]*

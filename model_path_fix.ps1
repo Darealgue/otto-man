@@ -1,7 +1,13 @@
 # Model dosyasını daha kısa bir isimle kopyalama scripti
-# Bu, path uzunluğu sorunlarını çözmek için kullanılabilir
+# Bu, path uzunluğu sorunlarını çözmek için kullanılabilir.
+#
+# Varsayılan olarak script'in yanındaki `otto_exp` klasörünü kullanır.
+# İsterseniz $env:OTTO_MODEL_DIR ile override edebilirsiniz.
 
-$exportDir = "C:\Users\Günsu\Desktop\otto_exp"
+$exportDir = $env:OTTO_MODEL_DIR
+if ([string]::IsNullOrWhiteSpace($exportDir)) {
+    $exportDir = Join-Path $PSScriptRoot "otto_exp"
+}
 $originalModel = Join-Path $exportDir "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 $shortModel = Join-Path $exportDir "mistral.gguf"
 

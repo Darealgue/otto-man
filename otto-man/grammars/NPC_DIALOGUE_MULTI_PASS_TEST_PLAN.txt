@@ -1,0 +1,60 @@
+================================================================================
+NPC DIALOGUE — MULTI-PASS EXPERIMENT (timing + design notes)
+================================================================================
+Purpose: Tomorrow compare wall-clock vs today’s **single** LLM call (~3–4s typical).
+Do **not** park long methodology comments in `autoload/NPCDialogueManager.gd` — keep them here.
+
+--------------------------------------------------------------------------------
+What we cannot know without measuring
+--------------------------------------------------------------------------------
+- Exact seconds for 2-pass (and optional 3rd, off hot path): depends on **duplicate prefill**
+  (same context sent twice unless KV-cache reuse exists), **max_tokens per pass**, and decode length.
+- Rule of thumb only: sequential passes often land ~1.4×–2.2× vs one fat call unless pass 2 is tiny.
+
+--------------------------------------------------------------------------------
+Hypothesis to validate
+--------------------------------------------------------------------------------
+1. **Pass 1 — dialogue only**  
+   Narrow prompt; output via simple delimiters (e.g. `generated_dialogue: "..."`) parsed in Godot.  
+   Goal: more natural line + shorter completion than full JSON.
+
+2. **Pass 2 — ledger delta**  
+   Inputs: saved **Info**, **History**, **player line**, **recent conversation**, and **NPC line from pass 1**
+   (joint commitments often depend on what the NPC actually said).  
+   Output: minimal lines (`Mood: ...`, `History entry: ...`, or keyword `NO_CHANGE`) — parse in Godot; avoid strict JSON if easier for 7B.
+
+3. **Pass 3 — History curator** (optional, **not** blocking chat)  
+   Summarize / dedupe / contradiction pass — batch or on save / length threshold only.
+
+--------------------------------------------------------------------------------
+What to log when comparing (same hardware, same NPC seed if possible)
+--------------------------------------------------------------------------------
+- Per turn: **pass name**, **prompt_chars**, **completion_chars**, **roundtrip_ms** (already patterned as `roundtrip_ms≈` in logs).
+- **Perceived UX**: time until player **sees** pass 1 line vs time until **state** committed after pass 2.
+- Note `_NPC_TEMPERATURE`, `_NPC_MAX_NEW_TOKENS` (or per-pass overrides if split).
+
+--------------------------------------------------------------------------------
+UX — rapid follow-up (“how come?” one second later)
+--------------------------------------------------------------------------------
+- **Single in-flight pipeline per NPC** avoids conflicting state.
+- **Coalesce** queued player messages: if player sends again before pass 2 finishes, buffer lines and run **one**
+  next turn after commit (prevents stacked 5–6s from two full sequential pipelines).
+- Pass 3 must **never** sit between player send and pass 1 for the **next** logical reply.
+
+--------------------------------------------------------------------------------
+Files likely touched when implementing (for agents)
+--------------------------------------------------------------------------------
+- `autoload/NPCDialogueManager.gd` — orchestration only (no essay comments; link here).
+- `autoload/LlamaService.cs` — second async path or reused `GenerateResponseAsyncNpc` with different prompt.
+- `tools/NpcDialogueDryRun/Program.cs` — optional mirror for offline prompt sizing.
+- New prompts: under `grammars/prompts/` or adjacent `.txt` fragments.
+
+--------------------------------------------------------------------------------
+Success criteria (adjust after first run)
+--------------------------------------------------------------------------------
+- State correctness ≥ current single-pass + JSON (fewer wrong Info/History mutations).
+- Player-visible latency: acceptable trade vs quality (numeric target TBD after first measurements).
+
+================================================================================
+End — update this file as experiments land.
+================================================================================

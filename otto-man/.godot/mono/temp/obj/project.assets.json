@@ -2,6 +2,22 @@
   "version": 3,
   "targets": {
     "net6.0": {
+      "CommunityToolkit.HighPerformance/8.4.0": {
+        "type": "package",
+        "dependencies": {
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
+        },
+        "compile": {
+          "lib/netstandard2.1/CommunityToolkit.HighPerformance.dll": {
+            "related": ".pdb;.xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.1/CommunityToolkit.HighPerformance.dll": {
+            "related": ".pdb;.xml"
+          }
+        }
+      },
       "Godot.SourceGenerators/4.3.0": {
         "type": "package",
         "build": {
@@ -37,121 +53,404 @@
           }
         }
       },
-      "Humanizer.Core/2.11.10": {
-        "type": "package",
-        "compile": {
-          "lib/net6.0/Humanizer.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net6.0/Humanizer.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "JetBrains.Annotations/2021.2.0": {
-        "type": "package",
-        "compile": {
-          "lib/netstandard2.0/JetBrains.Annotations.dll": {
-            "related": ".deps.json;.xml"
-          }
-        },
-        "runtime": {
-          "lib/netstandard2.0/JetBrains.Annotations.dll": {
-            "related": ".deps.json;.xml"
-          }
-        }
-      },
-      "Json.More.Net/1.9.0": {
+      "LLamaSharp/0.24.0": {
         "type": "package",
         "dependencies": {
-          "System.Text.Json": "6.0.2"
+          "CommunityToolkit.HighPerformance": "8.4.0",
+          "Microsoft.Bcl.AsyncInterfaces": "9.0.3",
+          "Microsoft.Extensions.AI.Abstractions": "9.5.0-preview.1.25262.9",
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.3",
+          "System.Linq.Async": "6.0.1",
+          "System.Numerics.Tensors": "9.0.3",
+          "System.Text.Json": "9.0.0"
         },
         "compile": {
-          "lib/netstandard2.0/Json.More.dll": {
+          "lib/netstandard2.0/LLamaSharp.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/netstandard2.0/Json.More.dll": {
+          "lib/netstandard2.0/LLamaSharp.dll": {
             "related": ".xml"
           }
         }
       },
-      "JsonPointer.Net/3.0.3": {
-        "type": "package",
-        "dependencies": {
-          "Json.More.Net": "1.8.0"
-        },
-        "compile": {
-          "lib/netstandard2.0/JsonPointer.Net.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/netstandard2.0/JsonPointer.Net.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "JsonSchema.Net/5.4.2": {
-        "type": "package",
-        "dependencies": {
-          "JetBrains.Annotations": "2021.2.0",
-          "Json.More.Net": "1.9.0",
-          "JsonPointer.Net": "3.0.3"
-        },
-        "compile": {
-          "lib/netstandard2.0/JsonSchema.Net.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/netstandard2.0/JsonSchema.Net.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "JsonSchema.Net.Generation/3.5.1": {
-        "type": "package",
-        "dependencies": {
-          "Humanizer.Core": "2.11.10",
-          "JsonSchema.Net": "5.4.2"
-        },
-        "compile": {
-          "lib/net6.0/JsonSchema.Net.Generation.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net6.0/JsonSchema.Net.Generation.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "LLamaSharp/0.12.0": {
-        "type": "package",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "8.0.1"
-        },
-        "compile": {
-          "lib/net6.0/LLamaSharp.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net6.0/LLamaSharp.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "LLamaSharp.Backend.Cuda12/0.12.0": {
+      "LLamaSharp.Backend.Cpu/0.24.0": {
         "type": "package",
         "build": {
-          "build/netstandard2.0/LLamaSharp.Backend.Cuda12.props": {}
+          "build/netstandard2.0/LLamaSharp.Backend.Cpu.props": {}
         },
         "runtimeTargets": {
+          "runtimes/linux-arm64/native/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-arm64"
+          },
+          "runtimes/linux-arm64/native/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-arm64"
+          },
+          "runtimes/linux-arm64/native/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-arm64"
+          },
+          "runtimes/linux-arm64/native/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-arm64"
+          },
+          "runtimes/linux-arm64/native/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-arm64"
+          },
+          "runtimes/linux-musl-x64/native/avx/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx2/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx2/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx2/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx2/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx2/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx512/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx512/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx512/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx512/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/avx512/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/noavx/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/noavx/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/noavx/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/noavx/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-musl-x64/native/noavx/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-musl-x64"
+          },
+          "runtimes/linux-x64/native/avx/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx2/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx2/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx2/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx2/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx2/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx512/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx512/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx512/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx512/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/avx512/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/noavx/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/noavx/libggml-cpu.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/noavx/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/noavx/libllama.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/noavx/libllava_shared.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/osx-arm64/native/ggml-metal.metal": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-arm64/native/libggml-base.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-arm64/native/libggml-blas.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-arm64/native/libggml-cpu.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-arm64/native/libggml-metal.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-arm64/native/libggml.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-arm64/native/libllama.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-arm64/native/libllava_shared.dylib": {
+            "assetType": "native",
+            "rid": "osx-arm64"
+          },
+          "runtimes/osx-x64/native/libggml-base.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/libggml-blas.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/libggml-cpu.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/libggml.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/libllama.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/libllava_shared.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/rosetta2/libggml-base.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/rosetta2/libggml-blas.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/rosetta2/libggml-cpu.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/rosetta2/libggml.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/rosetta2/libllama.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/osx-x64/native/rosetta2/libllava_shared.dylib": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/win-x64/native/avx/ggml-base.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx/ggml-cpu.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx/ggml.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx/llama.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx/llava_shared.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx2/ggml-base.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx2/ggml-cpu.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx2/ggml.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx2/llama.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx2/llava_shared.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx512/ggml-base.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx512/ggml-cpu.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx512/ggml.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx512/llama.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/avx512/llava_shared.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/noavx/ggml-base.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/noavx/ggml-cpu.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/noavx/ggml.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/noavx/llama.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/noavx/llava_shared.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          }
+        }
+      },
+      "LLamaSharp.Backend.Cuda12/0.24.0": {
+        "type": "package",
+        "dependencies": {
+          "LLamaSharp.Backend.Cuda12.Linux": "0.24.0",
+          "LLamaSharp.Backend.Cuda12.Windows": "0.24.0"
+        },
+        "build": {
+          "build/netstandard2.0/LLamaSharp.Backend.Cuda12.props": {}
+        }
+      },
+      "LLamaSharp.Backend.Cuda12.Linux/0.24.0": {
+        "type": "package",
+        "dependencies": {
+          "LLamaSharp.Backend.Cpu": "0.24.0"
+        },
+        "runtimeTargets": {
+          "runtimes/linux-x64/native/cuda12/libggml-base.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/cuda12/libggml-cuda.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/linux-x64/native/cuda12/libggml.so": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
           "runtimes/linux-x64/native/cuda12/libllama.so": {
             "assetType": "native",
             "rid": "linux-x64"
@@ -159,6 +458,26 @@
           "runtimes/linux-x64/native/cuda12/libllava_shared.so": {
             "assetType": "native",
             "rid": "linux-x64"
+          }
+        }
+      },
+      "LLamaSharp.Backend.Cuda12.Windows/0.24.0": {
+        "type": "package",
+        "dependencies": {
+          "LLamaSharp.Backend.Cpu": "0.24.0"
+        },
+        "runtimeTargets": {
+          "runtimes/win-x64/native/cuda12/ggml-base.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/cuda12/ggml-cuda.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x64/native/cuda12/ggml.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
           },
           "runtimes/win-x64/native/cuda12/llama.dll": {
             "assetType": "native",
@@ -170,20 +489,20 @@
           }
         }
       },
-      "LLamaSharp.semantic-kernel/0.12.0": {
+      "LLamaSharp.semantic-kernel/0.24.0": {
         "type": "package",
         "dependencies": {
-          "LLamaSharp": "0.12.0",
-          "Microsoft.SemanticKernel.Abstractions": "1.6.2"
+          "LLamaSharp": "0.24.0",
+          "Microsoft.SemanticKernel.Abstractions": "1.48.0"
         },
         "compile": {
-          "lib/net6.0/LLamaSharp.SemanticKernel.dll": {}
+          "lib/netstandard2.0/LLamaSharp.SemanticKernel.dll": {}
         },
         "runtime": {
-          "lib/net6.0/LLamaSharp.SemanticKernel.dll": {}
+          "lib/netstandard2.0/LLamaSharp.SemanticKernel.dll": {}
         }
       },
-      "Microsoft.Bcl.AsyncInterfaces/8.0.0": {
+      "Microsoft.Bcl.AsyncInterfaces/9.0.3": {
         "type": "package",
         "compile": {
           "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll": {
@@ -194,6 +513,9 @@
           "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll": {
             "related": ".xml"
           }
+        },
+        "build": {
+          "buildTransitive/netcoreapp2.0/Microsoft.Bcl.AsyncInterfaces.targets": {}
         }
       },
       "Microsoft.Bcl.HashCode/1.1.1": {
@@ -207,51 +529,105 @@
           }
         }
       },
-      "Microsoft.Extensions.DependencyInjection.Abstractions/8.0.1": {
+      "Microsoft.Bcl.Numerics/9.0.3": {
         "type": "package",
         "compile": {
-          "lib/net6.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
+          "lib/netstandard2.1/Microsoft.Bcl.Numerics.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net6.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
+          "lib/netstandard2.1/Microsoft.Bcl.Numerics.dll": {
             "related": ".xml"
           }
         },
         "build": {
-          "buildTransitive/net6.0/_._": {}
+          "buildTransitive/netcoreapp2.0/Microsoft.Bcl.Numerics.targets": {}
         }
       },
-      "Microsoft.Extensions.Logging.Abstractions/8.0.1": {
+      "Microsoft.Extensions.AI.Abstractions/9.5.0-preview.1.25262.9": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.1"
+          "System.Text.Json": "8.0.5"
         },
         "compile": {
-          "lib/net6.0/Microsoft.Extensions.Logging.Abstractions.dll": {
+          "lib/netstandard2.0/Microsoft.Extensions.AI.Abstractions.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net6.0/Microsoft.Extensions.Logging.Abstractions.dll": {
+          "lib/netstandard2.0/Microsoft.Extensions.AI.Abstractions.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions/9.0.3": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
             "related": ".xml"
           }
         },
         "build": {
-          "buildTransitive/net6.0/Microsoft.Extensions.Logging.Abstractions.targets": {}
+          "buildTransitive/netcoreapp2.0/Microsoft.Extensions.DependencyInjection.Abstractions.targets": {}
         }
       },
-      "Microsoft.SemanticKernel.Abstractions/1.6.2": {
+      "Microsoft.Extensions.Logging.Abstractions/9.0.3": {
         "type": "package",
         "dependencies": {
-          "JsonSchema.Net.Generation": "3.5.1",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.3",
+          "System.Buffers": "4.5.1",
+          "System.Diagnostics.DiagnosticSource": "9.0.3",
+          "System.Memory": "4.5.5"
+        },
+        "compile": {
+          "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/netcoreapp2.0/Microsoft.Extensions.Logging.Abstractions.targets": {}
+        }
+      },
+      "Microsoft.Extensions.VectorData.Abstractions/9.0.0-preview.1.25229.1": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "8.0.0",
+          "Microsoft.Extensions.AI.Abstractions": "9.4.0-preview.1.25207.5",
+          "System.Text.Json": "8.0.5"
+        },
+        "compile": {
+          "lib/netstandard2.0/Microsoft.Extensions.VectorData.Abstractions.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/Microsoft.Extensions.VectorData.Abstractions.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Microsoft.SemanticKernel.Abstractions/1.48.0": {
+        "type": "package",
+        "dependencies": {
           "Microsoft.Bcl.AsyncInterfaces": "8.0.0",
           "Microsoft.Bcl.HashCode": "1.1.1",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
-          "System.Diagnostics.DiagnosticSource": "8.0.0",
-          "System.Text.Json": "8.0.2"
+          "Microsoft.Extensions.AI.Abstractions": "9.4.0-preview.1.25207.5",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.3",
+          "Microsoft.Extensions.VectorData.Abstractions": "9.0.0-preview.1.25229.1",
+          "System.Diagnostics.DiagnosticSource": "8.0.1",
+          "System.Text.Json": "8.0.5"
         },
         "compile": {
           "lib/netstandard2.0/Microsoft.SemanticKernel.Abstractions.dll": {
@@ -264,18 +640,117 @@
           }
         }
       },
-      "System.Diagnostics.DiagnosticSource/8.0.0": {
+      "System.Buffers/4.5.1": {
+        "type": "package",
+        "compile": {
+          "ref/netcoreapp2.0/_._": {}
+        },
+        "runtime": {
+          "lib/netcoreapp2.0/_._": {}
+        }
+      },
+      "System.Diagnostics.DiagnosticSource/9.0.3": {
         "type": "package",
         "dependencies": {
+          "System.Memory": "4.5.5",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "compile": {
-          "lib/net6.0/System.Diagnostics.DiagnosticSource.dll": {
+          "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net6.0/System.Diagnostics.DiagnosticSource.dll": {
+          "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.dll": {
+            "related": ".xml"
+          }
+        },
+        "contentFiles": {
+          "contentFiles/any/any/_._": {
+            "buildAction": "None",
+            "codeLanguage": "any",
+            "copyToOutput": false
+          }
+        },
+        "build": {
+          "buildTransitive/netcoreapp2.0/System.Diagnostics.DiagnosticSource.targets": {}
+        }
+      },
+      "System.IO.Pipelines/9.0.0": {
+        "type": "package",
+        "dependencies": {
+          "System.Buffers": "4.5.1",
+          "System.Memory": "4.5.5",
+          "System.Threading.Tasks.Extensions": "4.5.4"
+        },
+        "compile": {
+          "lib/netstandard2.0/System.IO.Pipelines.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.IO.Pipelines.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/netcoreapp2.0/System.IO.Pipelines.targets": {}
+        }
+      },
+      "System.Linq.Async/6.0.1": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "6.0.0"
+        },
+        "compile": {
+          "ref/net6.0/System.Linq.Async.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/System.Linq.Async.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "System.Memory/4.5.5": {
+        "type": "package",
+        "compile": {
+          "ref/netcoreapp2.1/_._": {}
+        },
+        "runtime": {
+          "lib/netcoreapp2.1/_._": {}
+        }
+      },
+      "System.Numerics.Tensors/9.0.3": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Bcl.Numerics": "9.0.3",
+          "System.Memory": "4.5.5"
+        },
+        "compile": {
+          "lib/netstandard2.0/System.Numerics.Tensors.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.Numerics.Tensors.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/netcoreapp2.0/System.Numerics.Tensors.targets": {}
+        }
+      },
+      "System.Runtime.CompilerServices.Unsafe/6.1.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll": {
             "related": ".xml"
           }
         },
@@ -283,70 +758,90 @@
           "buildTransitive/net6.0/_._": {}
         }
       },
-      "System.Runtime.CompilerServices.Unsafe/6.0.0": {
-        "type": "package",
-        "compile": {
-          "lib/net6.0/System.Runtime.CompilerServices.Unsafe.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net6.0/System.Runtime.CompilerServices.Unsafe.dll": {
-            "related": ".xml"
-          }
-        },
-        "build": {
-          "buildTransitive/netcoreapp3.1/_._": {}
-        }
-      },
-      "System.Text.Encodings.Web/8.0.0": {
+      "System.Text.Encodings.Web/9.0.0": {
         "type": "package",
         "dependencies": {
+          "System.Buffers": "4.5.1",
+          "System.Memory": "4.5.5",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0"
         },
         "compile": {
-          "lib/net6.0/System.Text.Encodings.Web.dll": {
+          "lib/netstandard2.0/System.Text.Encodings.Web.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net6.0/System.Text.Encodings.Web.dll": {
+          "lib/netstandard2.0/System.Text.Encodings.Web.dll": {
             "related": ".xml"
           }
         },
         "build": {
-          "buildTransitive/net6.0/_._": {}
-        },
-        "runtimeTargets": {
-          "runtimes/browser/lib/net6.0/System.Text.Encodings.Web.dll": {
-            "assetType": "runtime",
-            "rid": "browser"
-          }
+          "buildTransitive/netcoreapp2.0/System.Text.Encodings.Web.targets": {}
         }
       },
-      "System.Text.Json/8.0.2": {
+      "System.Text.Json/9.0.0": {
         "type": "package",
         "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "9.0.0",
+          "System.Buffers": "4.5.1",
+          "System.IO.Pipelines": "9.0.0",
+          "System.Memory": "4.5.5",
           "System.Runtime.CompilerServices.Unsafe": "6.0.0",
-          "System.Text.Encodings.Web": "8.0.0"
+          "System.Text.Encodings.Web": "9.0.0",
+          "System.Threading.Tasks.Extensions": "4.5.4"
         },
         "compile": {
-          "lib/net6.0/System.Text.Json.dll": {
+          "lib/netstandard2.0/System.Text.Json.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net6.0/System.Text.Json.dll": {
+          "lib/netstandard2.0/System.Text.Json.dll": {
             "related": ".xml"
           }
         },
         "build": {
-          "buildTransitive/net6.0/System.Text.Json.targets": {}
+          "buildTransitive/netcoreapp2.0/System.Text.Json.targets": {}
+        }
+      },
+      "System.Threading.Tasks.Extensions/4.5.4": {
+        "type": "package",
+        "compile": {
+          "ref/netcoreapp2.1/_._": {}
+        },
+        "runtime": {
+          "lib/netcoreapp2.1/_._": {}
         }
       }
     }
   },
   "libraries": {
+    "CommunityToolkit.HighPerformance/8.4.0": {
+      "sha512": "flxspiBs0G/0GMp7IK2J2ijV9bTG6hEwFc/z6ekHqB6nwRJ4Ry2yLdx+TkbCUYFCl4XhABkAwomeKbT6zM2Zlg==",
+      "type": "package",
+      "path": "communitytoolkit.highperformance/8.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "License.md",
+        "ThirdPartyNotices.txt",
+        "communitytoolkit.highperformance.8.4.0.nupkg.sha512",
+        "communitytoolkit.highperformance.nuspec",
+        "lib/net7.0/CommunityToolkit.HighPerformance.dll",
+        "lib/net7.0/CommunityToolkit.HighPerformance.pdb",
+        "lib/net7.0/CommunityToolkit.HighPerformance.xml",
+        "lib/net8.0/CommunityToolkit.HighPerformance.dll",
+        "lib/net8.0/CommunityToolkit.HighPerformance.pdb",
+        "lib/net8.0/CommunityToolkit.HighPerformance.xml",
+        "lib/netstandard2.0/CommunityToolkit.HighPerformance.dll",
+        "lib/netstandard2.0/CommunityToolkit.HighPerformance.pdb",
+        "lib/netstandard2.0/CommunityToolkit.HighPerformance.xml",
+        "lib/netstandard2.1/CommunityToolkit.HighPerformance.dll",
+        "lib/netstandard2.1/CommunityToolkit.HighPerformance.pdb",
+        "lib/netstandard2.1/CommunityToolkit.HighPerformance.xml"
+      ]
+    },
     "Godot.SourceGenerators/4.3.0": {
       "sha512": "fLDNOAo/kpL1JtGXP6b2M48dobzb5YmKSRLXKDt+td8qegu0Ao3H25avoySVmrb52d7zpe8yvgMwba7QMhqnqQ==",
       "type": "package",
@@ -386,162 +881,186 @@
         "lib/net6.0/GodotSharpEditor.xml"
       ]
     },
-    "Humanizer.Core/2.11.10": {
-      "sha512": "4TBsHSXPocdsEB5dewIHeKykTzIz5Ui7ouXw4JsUGI+ax4jjviVJVD7+gsPCNyA+b3de2EjYI+jcEq8I/1ZFSQ==",
+    "LLamaSharp/0.24.0": {
+      "sha512": "5XCPHVpaQ+FHnn7lLiGUdLyCT6uPdDNZ+N7MyV9lFVm43jkprYG/uI8XuTlOFMCCkeodyjfYeowlZh5XGZ3+wQ==",
       "type": "package",
-      "path": "humanizer.core/2.11.10",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "humanizer.core.2.11.10.nupkg.sha512",
-        "humanizer.core.nuspec",
-        "lib/net6.0/Humanizer.dll",
-        "lib/net6.0/Humanizer.xml",
-        "lib/netstandard1.0/Humanizer.dll",
-        "lib/netstandard1.0/Humanizer.xml",
-        "lib/netstandard2.0/Humanizer.dll",
-        "lib/netstandard2.0/Humanizer.xml",
-        "logo.png"
-      ]
-    },
-    "JetBrains.Annotations/2021.2.0": {
-      "sha512": "kKSyoVfndMriKHLfYGmr0uzQuI4jcc3TKGyww7buJFCYeHb/X0kodYBPL7n9454q7v6ASiRmDgpPGaDGerg/Hg==",
-      "type": "package",
-      "path": "jetbrains.annotations/2021.2.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "icon.png",
-        "jetbrains.annotations.2021.2.0.nupkg.sha512",
-        "jetbrains.annotations.nuspec",
-        "lib/net20/JetBrains.Annotations.dll",
-        "lib/net20/JetBrains.Annotations.xml",
-        "lib/netstandard1.0/JetBrains.Annotations.deps.json",
-        "lib/netstandard1.0/JetBrains.Annotations.dll",
-        "lib/netstandard1.0/JetBrains.Annotations.xml",
-        "lib/netstandard2.0/JetBrains.Annotations.deps.json",
-        "lib/netstandard2.0/JetBrains.Annotations.dll",
-        "lib/netstandard2.0/JetBrains.Annotations.xml",
-        "lib/portable40-net40+sl5+win8+wp8+wpa81/JetBrains.Annotations.dll",
-        "lib/portable40-net40+sl5+win8+wp8+wpa81/JetBrains.Annotations.xml"
-      ]
-    },
-    "Json.More.Net/1.9.0": {
-      "sha512": "MMjd2dOh32hLbcZg9YyA+7aEH9gu2cMTEAWrQY17in4+aEsPg2NtYTcwgWHJS9Tt2WUx+4iN1mNegR2uiEwsVQ==",
-      "type": "package",
-      "path": "json.more.net/1.9.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "LICENSE",
-        "json-logo-256.png",
-        "json.more.net.1.9.0.nupkg.sha512",
-        "json.more.net.nuspec",
-        "lib/netstandard2.0/Json.More.dll",
-        "lib/netstandard2.0/Json.More.xml"
-      ]
-    },
-    "JsonPointer.Net/3.0.3": {
-      "sha512": "mCGQc15lHLp1R2CVhWiipnZurHXm93+LbPPAT/vXQm5PdHt6WQuYLhaEF8VZ+aXL9P2I6bGND6pDTEfqFs6gig==",
-      "type": "package",
-      "path": "jsonpointer.net/3.0.3",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "LICENSE",
-        "json-logo-256.png",
-        "jsonpointer.net.3.0.3.nupkg.sha512",
-        "jsonpointer.net.nuspec",
-        "lib/netstandard2.0/JsonPointer.Net.dll",
-        "lib/netstandard2.0/JsonPointer.Net.xml"
-      ]
-    },
-    "JsonSchema.Net/5.4.2": {
-      "sha512": "NJyauE2/u877WaRCe01OkX7IIAStYrFmoVwAj4nPqaMwxXzu+vdbXB/ZzEYaLh5dVdJfB28N0txTI+RGQWYolA==",
-      "type": "package",
-      "path": "jsonschema.net/5.4.2",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "json-logo-256.png",
-        "jsonschema.net.5.4.2.nupkg.sha512",
-        "jsonschema.net.nuspec",
-        "lib/netstandard2.0/JsonSchema.Net.dll",
-        "lib/netstandard2.0/JsonSchema.Net.xml"
-      ]
-    },
-    "JsonSchema.Net.Generation/3.5.1": {
-      "sha512": "vyXjz0ibipdix7Z1cQre+dcY9y6AX83MN8ExTJs5E87tBViilUbWxq4MZoo7ovi2EhoGmeZ7QTcbCANzR0qnWw==",
-      "type": "package",
-      "path": "jsonschema.net.generation/3.5.1",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "LICENSE",
-        "json-logo-256.png",
-        "jsonschema.net.generation.3.5.1.nupkg.sha512",
-        "jsonschema.net.generation.nuspec",
-        "lib/net6.0/JsonSchema.Net.Generation.dll",
-        "lib/net6.0/JsonSchema.Net.Generation.xml",
-        "lib/netstandard2.0/JsonSchema.Net.Generation.dll",
-        "lib/netstandard2.0/JsonSchema.Net.Generation.xml"
-      ]
-    },
-    "LLamaSharp/0.12.0": {
-      "sha512": "lme8yvYjjTSzLnd8kOyLoVRndnXC8LsTRQPoTKSJNbniQUy2GJajzo17GtCd74PrZgiZwkVpsxbb4jOHwbYJHw==",
-      "type": "package",
-      "path": "llamasharp/0.12.0",
+      "path": "llamasharp/0.24.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "README.md",
-        "lib/net6.0/LLamaSharp.dll",
-        "lib/net6.0/LLamaSharp.xml",
-        "lib/net7.0/LLamaSharp.dll",
-        "lib/net7.0/LLamaSharp.xml",
         "lib/net8.0/LLamaSharp.dll",
         "lib/net8.0/LLamaSharp.xml",
         "lib/netstandard2.0/LLamaSharp.dll",
         "lib/netstandard2.0/LLamaSharp.xml",
-        "llamasharp.0.12.0.nupkg.sha512",
+        "llamasharp.0.24.0.nupkg.sha512",
         "llamasharp.nuspec"
       ]
     },
-    "LLamaSharp.Backend.Cuda12/0.12.0": {
-      "sha512": "84pkXTW36+xaAscg7wKv7PpOS/zOYXaXZyG4Pa4236964wa9y2XL8VwwRuZXV3c09LzwMDsRbN7RPiaEGVgm+w==",
+    "LLamaSharp.Backend.Cpu/0.24.0": {
+      "sha512": "B5uUhRdhQKeiBShqMy+x+6QKDYd9TOOTR6LstdHfGxmS+2Qh+mETBlIcau7ya/17EHf8bDjeReWVIG/zZ02AKQ==",
       "type": "package",
-      "path": "llamasharp.backend.cuda12/0.12.0",
+      "path": "llamasharp.backend.cpu/0.24.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/netstandard2.0/LLamaSharp.Backend.Cpu.props",
+        "icon512.png",
+        "llamasharp.backend.cpu.0.24.0.nupkg.sha512",
+        "llamasharp.backend.cpu.nuspec",
+        "runtimes/linux-arm64/native/libggml-base.so",
+        "runtimes/linux-arm64/native/libggml-cpu.so",
+        "runtimes/linux-arm64/native/libggml.so",
+        "runtimes/linux-arm64/native/libllama.so",
+        "runtimes/linux-arm64/native/libllava_shared.so",
+        "runtimes/linux-musl-x64/native/avx/libggml-base.so",
+        "runtimes/linux-musl-x64/native/avx/libggml-cpu.so",
+        "runtimes/linux-musl-x64/native/avx/libggml.so",
+        "runtimes/linux-musl-x64/native/avx/libllama.so",
+        "runtimes/linux-musl-x64/native/avx/libllava_shared.so",
+        "runtimes/linux-musl-x64/native/avx2/libggml-base.so",
+        "runtimes/linux-musl-x64/native/avx2/libggml-cpu.so",
+        "runtimes/linux-musl-x64/native/avx2/libggml.so",
+        "runtimes/linux-musl-x64/native/avx2/libllama.so",
+        "runtimes/linux-musl-x64/native/avx2/libllava_shared.so",
+        "runtimes/linux-musl-x64/native/avx512/libggml-base.so",
+        "runtimes/linux-musl-x64/native/avx512/libggml-cpu.so",
+        "runtimes/linux-musl-x64/native/avx512/libggml.so",
+        "runtimes/linux-musl-x64/native/avx512/libllama.so",
+        "runtimes/linux-musl-x64/native/avx512/libllava_shared.so",
+        "runtimes/linux-musl-x64/native/noavx/libggml-base.so",
+        "runtimes/linux-musl-x64/native/noavx/libggml-cpu.so",
+        "runtimes/linux-musl-x64/native/noavx/libggml.so",
+        "runtimes/linux-musl-x64/native/noavx/libllama.so",
+        "runtimes/linux-musl-x64/native/noavx/libllava_shared.so",
+        "runtimes/linux-x64/native/avx/libggml-base.so",
+        "runtimes/linux-x64/native/avx/libggml-cpu.so",
+        "runtimes/linux-x64/native/avx/libggml.so",
+        "runtimes/linux-x64/native/avx/libllama.so",
+        "runtimes/linux-x64/native/avx/libllava_shared.so",
+        "runtimes/linux-x64/native/avx2/libggml-base.so",
+        "runtimes/linux-x64/native/avx2/libggml-cpu.so",
+        "runtimes/linux-x64/native/avx2/libggml.so",
+        "runtimes/linux-x64/native/avx2/libllama.so",
+        "runtimes/linux-x64/native/avx2/libllava_shared.so",
+        "runtimes/linux-x64/native/avx512/libggml-base.so",
+        "runtimes/linux-x64/native/avx512/libggml-cpu.so",
+        "runtimes/linux-x64/native/avx512/libggml.so",
+        "runtimes/linux-x64/native/avx512/libllama.so",
+        "runtimes/linux-x64/native/avx512/libllava_shared.so",
+        "runtimes/linux-x64/native/noavx/libggml-base.so",
+        "runtimes/linux-x64/native/noavx/libggml-cpu.so",
+        "runtimes/linux-x64/native/noavx/libggml.so",
+        "runtimes/linux-x64/native/noavx/libllama.so",
+        "runtimes/linux-x64/native/noavx/libllava_shared.so",
+        "runtimes/osx-arm64/native/ggml-metal.metal",
+        "runtimes/osx-arm64/native/libggml-base.dylib",
+        "runtimes/osx-arm64/native/libggml-blas.dylib",
+        "runtimes/osx-arm64/native/libggml-cpu.dylib",
+        "runtimes/osx-arm64/native/libggml-metal.dylib",
+        "runtimes/osx-arm64/native/libggml.dylib",
+        "runtimes/osx-arm64/native/libllama.dylib",
+        "runtimes/osx-arm64/native/libllava_shared.dylib",
+        "runtimes/osx-x64/native/libggml-base.dylib",
+        "runtimes/osx-x64/native/libggml-blas.dylib",
+        "runtimes/osx-x64/native/libggml-cpu.dylib",
+        "runtimes/osx-x64/native/libggml.dylib",
+        "runtimes/osx-x64/native/libllama.dylib",
+        "runtimes/osx-x64/native/libllava_shared.dylib",
+        "runtimes/osx-x64/native/rosetta2/libggml-base.dylib",
+        "runtimes/osx-x64/native/rosetta2/libggml-blas.dylib",
+        "runtimes/osx-x64/native/rosetta2/libggml-cpu.dylib",
+        "runtimes/osx-x64/native/rosetta2/libggml.dylib",
+        "runtimes/osx-x64/native/rosetta2/libllama.dylib",
+        "runtimes/osx-x64/native/rosetta2/libllava_shared.dylib",
+        "runtimes/win-x64/native/avx/ggml-base.dll",
+        "runtimes/win-x64/native/avx/ggml-cpu.dll",
+        "runtimes/win-x64/native/avx/ggml.dll",
+        "runtimes/win-x64/native/avx/llama.dll",
+        "runtimes/win-x64/native/avx/llava_shared.dll",
+        "runtimes/win-x64/native/avx2/ggml-base.dll",
+        "runtimes/win-x64/native/avx2/ggml-cpu.dll",
+        "runtimes/win-x64/native/avx2/ggml.dll",
+        "runtimes/win-x64/native/avx2/llama.dll",
+        "runtimes/win-x64/native/avx2/llava_shared.dll",
+        "runtimes/win-x64/native/avx512/ggml-base.dll",
+        "runtimes/win-x64/native/avx512/ggml-cpu.dll",
+        "runtimes/win-x64/native/avx512/ggml.dll",
+        "runtimes/win-x64/native/avx512/llama.dll",
+        "runtimes/win-x64/native/avx512/llava_shared.dll",
+        "runtimes/win-x64/native/noavx/ggml-base.dll",
+        "runtimes/win-x64/native/noavx/ggml-cpu.dll",
+        "runtimes/win-x64/native/noavx/ggml.dll",
+        "runtimes/win-x64/native/noavx/llama.dll",
+        "runtimes/win-x64/native/noavx/llava_shared.dll"
+      ]
+    },
+    "LLamaSharp.Backend.Cuda12/0.24.0": {
+      "sha512": "VsAvbtfgIUqiJPO/KkWifJMuGMFd6OE4ys2gaM/4kmxD7QqHgJz+5mzr+Qtnqs4cT+Ht3stSP+gvuJs/lkLINg==",
+      "type": "package",
+      "path": "llamasharp.backend.cuda12/0.24.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "build/netstandard2.0/LLamaSharp.Backend.Cuda12.props",
         "icon512.png",
-        "llamasharp.backend.cuda12.0.12.0.nupkg.sha512",
-        "llamasharp.backend.cuda12.nuspec",
+        "llamasharp.backend.cuda12.0.24.0.nupkg.sha512",
+        "llamasharp.backend.cuda12.nuspec"
+      ]
+    },
+    "LLamaSharp.Backend.Cuda12.Linux/0.24.0": {
+      "sha512": "IgkVVwkW42JSxLkK2WufoJjx8mDA/0N7Oe6fVIpoDrYEws/zzWDs9LFclXjNbgHDNVF3WBzvNxVvB/PpKs4LZQ==",
+      "type": "package",
+      "path": "llamasharp.backend.cuda12.linux/0.24.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/netstandard2.0/LLamaSharp.Backend.Cuda12.props",
+        "icon512.png",
+        "llamasharp.backend.cuda12.linux.0.24.0.nupkg.sha512",
+        "llamasharp.backend.cuda12.linux.nuspec",
+        "runtimes/linux-x64/native/cuda12/libggml-base.so",
+        "runtimes/linux-x64/native/cuda12/libggml-cuda.so",
+        "runtimes/linux-x64/native/cuda12/libggml.so",
         "runtimes/linux-x64/native/cuda12/libllama.so",
-        "runtimes/linux-x64/native/cuda12/libllava_shared.so",
+        "runtimes/linux-x64/native/cuda12/libllava_shared.so"
+      ]
+    },
+    "LLamaSharp.Backend.Cuda12.Windows/0.24.0": {
+      "sha512": "NwWC93Cu1B3XprOWHIfpgBQqwBiXOLnqec6RmSIJmht33n7GT9UOOIc7xM0dQcuJaDY2mqC7zjOik2fxFjBLTQ==",
+      "type": "package",
+      "path": "llamasharp.backend.cuda12.windows/0.24.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/netstandard2.0/LLamaSharp.Backend.Cuda12.props",
+        "icon512.png",
+        "llamasharp.backend.cuda12.windows.0.24.0.nupkg.sha512",
+        "llamasharp.backend.cuda12.windows.nuspec",
+        "runtimes/win-x64/native/cuda12/ggml-base.dll",
+        "runtimes/win-x64/native/cuda12/ggml-cuda.dll",
+        "runtimes/win-x64/native/cuda12/ggml.dll",
         "runtimes/win-x64/native/cuda12/llama.dll",
         "runtimes/win-x64/native/cuda12/llava_shared.dll"
       ]
     },
-    "LLamaSharp.semantic-kernel/0.12.0": {
-      "sha512": "IdJz+PqTAl/YTM1GJaxJ6VMmy50Webk2gbJlyEuhP461zWO4Xsg9kAWAdNlb62TD3nLuYcGOh86yaCUR0zKuyg==",
+    "LLamaSharp.semantic-kernel/0.24.0": {
+      "sha512": "WssRnjNsD42Adxxx+Zum+ZgWQMNa3onFq3/DHLwRLowaLkFprEK4PHLRww7yIMBLhGfH9ue8AOGVfaGvahVpMA==",
       "type": "package",
-      "path": "llamasharp.semantic-kernel/0.12.0",
+      "path": "llamasharp.semantic-kernel/0.24.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "lib/net6.0/LLamaSharp.SemanticKernel.dll",
-        "lib/net7.0/LLamaSharp.SemanticKernel.dll",
+        "lib/net8.0/LLamaSharp.SemanticKernel.dll",
         "lib/netstandard2.0/LLamaSharp.SemanticKernel.dll",
-        "llamasharp.semantic-kernel.0.12.0.nupkg.sha512",
+        "llamasharp.semantic-kernel.0.24.0.nupkg.sha512",
         "llamasharp.semantic-kernel.nuspec"
       ]
     },
-    "Microsoft.Bcl.AsyncInterfaces/8.0.0": {
-      "sha512": "3WA9q9yVqJp222P3x1wYIGDAkpjAku0TMUaaQV22g6L67AI0LdOIrVS7Ht2vJfLHGSPVuqN94vIr15qn+HEkHw==",
+    "Microsoft.Bcl.AsyncInterfaces/9.0.3": {
+      "sha512": "oFFX9Ls8dnNUBCD9yzRzHTY8tqvv+CiX43B8L8DjrM8BqYTAlORYaJf6+KXNtSC2bD1135yV8OxzcZFaluow5w==",
       "type": "package",
-      "path": "microsoft.bcl.asyncinterfaces/8.0.0",
+      "path": "microsoft.bcl.asyncinterfaces/9.0.3",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -551,13 +1070,15 @@
         "THIRD-PARTY-NOTICES.TXT",
         "buildTransitive/net461/Microsoft.Bcl.AsyncInterfaces.targets",
         "buildTransitive/net462/_._",
+        "buildTransitive/net8.0/_._",
+        "buildTransitive/netcoreapp2.0/Microsoft.Bcl.AsyncInterfaces.targets",
         "lib/net462/Microsoft.Bcl.AsyncInterfaces.dll",
         "lib/net462/Microsoft.Bcl.AsyncInterfaces.xml",
         "lib/netstandard2.0/Microsoft.Bcl.AsyncInterfaces.dll",
         "lib/netstandard2.0/Microsoft.Bcl.AsyncInterfaces.xml",
         "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll",
         "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.xml",
-        "microsoft.bcl.asyncinterfaces.8.0.0.nupkg.sha512",
+        "microsoft.bcl.asyncinterfaces.9.0.3.nupkg.sha512",
         "microsoft.bcl.asyncinterfaces.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -590,10 +1111,57 @@
         "version.txt"
       ]
     },
-    "Microsoft.Extensions.DependencyInjection.Abstractions/8.0.1": {
-      "sha512": "fGLiCRLMYd00JYpClraLjJTNKLmMJPnqxMaiRzEBIIvevlzxz33mXy39Lkd48hu1G+N21S7QpaO5ZzKsI6FRuA==",
+    "Microsoft.Bcl.Numerics/9.0.3": {
+      "sha512": "OJMoGSvTJjek9UPpm2m4BBk6uYeoeJnwVW98imzuIS3JrJm50/oB667e8IM/vtdUdE6kihzHppiqI6ZBncr50w==",
       "type": "package",
-      "path": "microsoft.extensions.dependencyinjection.abstractions/8.0.1",
+      "path": "microsoft.bcl.numerics/9.0.3",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net461/Microsoft.Bcl.Numerics.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net8.0/_._",
+        "buildTransitive/netcoreapp2.0/Microsoft.Bcl.Numerics.targets",
+        "lib/net462/Microsoft.Bcl.Numerics.dll",
+        "lib/net462/Microsoft.Bcl.Numerics.xml",
+        "lib/netstandard2.0/Microsoft.Bcl.Numerics.dll",
+        "lib/netstandard2.0/Microsoft.Bcl.Numerics.xml",
+        "lib/netstandard2.1/Microsoft.Bcl.Numerics.dll",
+        "lib/netstandard2.1/Microsoft.Bcl.Numerics.xml",
+        "microsoft.bcl.numerics.9.0.3.nupkg.sha512",
+        "microsoft.bcl.numerics.nuspec",
+        "useSharedDesignerContext.txt"
+      ]
+    },
+    "Microsoft.Extensions.AI.Abstractions/9.5.0-preview.1.25262.9": {
+      "sha512": "b1IL+YciwqRkSCL1W6B4a99Ho4Oxu7yBkp8ykUleD58/tiFgeajVL84VaichMEnt8YRLt61dh89dwJEcdy1lgg==",
+      "type": "package",
+      "path": "microsoft.extensions.ai.abstractions/9.5.0-preview.1.25262.9",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "README.md",
+        "lib/net462/Microsoft.Extensions.AI.Abstractions.dll",
+        "lib/net462/Microsoft.Extensions.AI.Abstractions.xml",
+        "lib/net8.0/Microsoft.Extensions.AI.Abstractions.dll",
+        "lib/net8.0/Microsoft.Extensions.AI.Abstractions.xml",
+        "lib/net9.0/Microsoft.Extensions.AI.Abstractions.dll",
+        "lib/net9.0/Microsoft.Extensions.AI.Abstractions.xml",
+        "lib/netstandard2.0/Microsoft.Extensions.AI.Abstractions.dll",
+        "lib/netstandard2.0/Microsoft.Extensions.AI.Abstractions.xml",
+        "microsoft.extensions.ai.abstractions.9.5.0-preview.1.25262.9.nupkg.sha512",
+        "microsoft.extensions.ai.abstractions.nuspec"
+      ]
+    },
+    "Microsoft.Extensions.DependencyInjection.Abstractions/9.0.3": {
+      "sha512": "TfaHPSe39NyL2wxkisRxXK7xvHGZYBZ+dy3r+mqGvnxKgAPdHkMu3QMQZI4pquP6W5FIQBqs8FJpWV8ffCgDqQ==",
+      "type": "package",
+      "path": "microsoft.extensions.dependencyinjection.abstractions/9.0.3",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -603,29 +1171,27 @@
         "THIRD-PARTY-NOTICES.TXT",
         "buildTransitive/net461/Microsoft.Extensions.DependencyInjection.Abstractions.targets",
         "buildTransitive/net462/_._",
-        "buildTransitive/net6.0/_._",
+        "buildTransitive/net8.0/_._",
         "buildTransitive/netcoreapp2.0/Microsoft.Extensions.DependencyInjection.Abstractions.targets",
         "lib/net462/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
         "lib/net462/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
-        "lib/net6.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
-        "lib/net6.0/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
-        "lib/net7.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
-        "lib/net7.0/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
         "lib/net8.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
         "lib/net8.0/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
+        "lib/net9.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+        "lib/net9.0/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
         "lib/netstandard2.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
         "lib/netstandard2.0/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
         "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
         "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
-        "microsoft.extensions.dependencyinjection.abstractions.8.0.1.nupkg.sha512",
+        "microsoft.extensions.dependencyinjection.abstractions.9.0.3.nupkg.sha512",
         "microsoft.extensions.dependencyinjection.abstractions.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "Microsoft.Extensions.Logging.Abstractions/8.0.1": {
-      "sha512": "RIFgaqoaINxkM2KTOw72dmilDmTrYA0ns2KW4lDz4gZ2+o6IQ894CzmdL3StM2oh7QQq44nCWiqKqc4qUI9Jmg==",
+    "Microsoft.Extensions.Logging.Abstractions/9.0.3": {
+      "sha512": "H/MBMLt9A/69Ux4OrV7oCKt3DcMT04o5SCqDolulzQA66TLFEpYYb4qedMs/uwrLtyHXGuDGWKZse/oa8W9AZw==",
       "type": "package",
-      "path": "microsoft.extensions.logging.abstractions/8.0.1",
+      "path": "microsoft.extensions.logging.abstractions/9.0.3",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -677,43 +1243,95 @@
         "analyzers/dotnet/roslyn4.4/cs/zh-Hant/Microsoft.Extensions.Logging.Generators.resources.dll",
         "buildTransitive/net461/Microsoft.Extensions.Logging.Abstractions.targets",
         "buildTransitive/net462/Microsoft.Extensions.Logging.Abstractions.targets",
-        "buildTransitive/net6.0/Microsoft.Extensions.Logging.Abstractions.targets",
+        "buildTransitive/net8.0/Microsoft.Extensions.Logging.Abstractions.targets",
         "buildTransitive/netcoreapp2.0/Microsoft.Extensions.Logging.Abstractions.targets",
         "buildTransitive/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.targets",
         "lib/net462/Microsoft.Extensions.Logging.Abstractions.dll",
         "lib/net462/Microsoft.Extensions.Logging.Abstractions.xml",
-        "lib/net6.0/Microsoft.Extensions.Logging.Abstractions.dll",
-        "lib/net6.0/Microsoft.Extensions.Logging.Abstractions.xml",
-        "lib/net7.0/Microsoft.Extensions.Logging.Abstractions.dll",
-        "lib/net7.0/Microsoft.Extensions.Logging.Abstractions.xml",
         "lib/net8.0/Microsoft.Extensions.Logging.Abstractions.dll",
         "lib/net8.0/Microsoft.Extensions.Logging.Abstractions.xml",
+        "lib/net9.0/Microsoft.Extensions.Logging.Abstractions.dll",
+        "lib/net9.0/Microsoft.Extensions.Logging.Abstractions.xml",
         "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.dll",
         "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.xml",
-        "microsoft.extensions.logging.abstractions.8.0.1.nupkg.sha512",
+        "microsoft.extensions.logging.abstractions.9.0.3.nupkg.sha512",
         "microsoft.extensions.logging.abstractions.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "Microsoft.SemanticKernel.Abstractions/1.6.2": {
-      "sha512": "NK5ReaCy2aa909evBk1ieHN0iTkUOz6OTqv64ilIsbse7agIT5Q+Y6M0DXt4cthJrsYD36+SrcCratXDu1lhnA==",
+    "Microsoft.Extensions.VectorData.Abstractions/9.0.0-preview.1.25229.1": {
+      "sha512": "HagzbnKODtfwnTJldgSlgdBp5UQXpRA7d4/Kx9wWdaYrk5DpHaC+5/v16ffU/zIYdTfPet4qTiES+pfQ6dzBMg==",
       "type": "package",
-      "path": "microsoft.semantickernel.abstractions/1.6.2",
+      "path": "microsoft.extensions.vectordata.abstractions/9.0.0-preview.1.25229.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "NUGET.md",
+        "PACKAGE.md",
+        "icon.png",
+        "lib/net462/Microsoft.Extensions.VectorData.Abstractions.dll",
+        "lib/net462/Microsoft.Extensions.VectorData.Abstractions.xml",
+        "lib/net8.0/Microsoft.Extensions.VectorData.Abstractions.dll",
+        "lib/net8.0/Microsoft.Extensions.VectorData.Abstractions.xml",
+        "lib/netstandard2.0/Microsoft.Extensions.VectorData.Abstractions.dll",
+        "lib/netstandard2.0/Microsoft.Extensions.VectorData.Abstractions.xml",
+        "microsoft.extensions.vectordata.abstractions.9.0.0-preview.1.25229.1.nupkg.sha512",
+        "microsoft.extensions.vectordata.abstractions.nuspec",
+        "neticon.png"
+      ]
+    },
+    "Microsoft.SemanticKernel.Abstractions/1.48.0": {
+      "sha512": "zx37MZSWIF+cPwsJeS8/hpLhz8WLdcUOWu1JcOnTflbpnYd0fIlmP6yOx3ZntpiR/SWYVWkF/7vo++29uvd+kw==",
+      "type": "package",
+      "path": "microsoft.semantickernel.abstractions/1.48.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "NUGET.md",
         "icon.png",
+        "lib/net8.0/Microsoft.SemanticKernel.Abstractions.dll",
+        "lib/net8.0/Microsoft.SemanticKernel.Abstractions.xml",
         "lib/netstandard2.0/Microsoft.SemanticKernel.Abstractions.dll",
         "lib/netstandard2.0/Microsoft.SemanticKernel.Abstractions.xml",
-        "microsoft.semantickernel.abstractions.1.6.2.nupkg.sha512",
+        "microsoft.semantickernel.abstractions.1.48.0.nupkg.sha512",
         "microsoft.semantickernel.abstractions.nuspec"
       ]
     },
-    "System.Diagnostics.DiagnosticSource/8.0.0": {
-      "sha512": "c9xLpVz6PL9lp/djOWtk5KPDZq3cSYpmXoJQY524EOtuFl5z9ZtsotpsyrDW40U1DRnQSYvcPKEUV0X//u6gkQ==",
+    "System.Buffers/4.5.1": {
+      "sha512": "Rw7ijyl1qqRS0YQD/WycNst8hUUMgrMH4FCn1nNm27M4VxchZ1js3fVjQaANHO5f3sN4isvP4a+Met9Y4YomAg==",
       "type": "package",
-      "path": "system.diagnostics.diagnosticsource/8.0.0",
+      "path": "system.buffers/4.5.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "lib/net461/System.Buffers.dll",
+        "lib/net461/System.Buffers.xml",
+        "lib/netcoreapp2.0/_._",
+        "lib/netstandard1.1/System.Buffers.dll",
+        "lib/netstandard1.1/System.Buffers.xml",
+        "lib/netstandard2.0/System.Buffers.dll",
+        "lib/netstandard2.0/System.Buffers.xml",
+        "lib/uap10.0.16299/_._",
+        "ref/net45/System.Buffers.dll",
+        "ref/net45/System.Buffers.xml",
+        "ref/netcoreapp2.0/_._",
+        "ref/netstandard1.1/System.Buffers.dll",
+        "ref/netstandard1.1/System.Buffers.xml",
+        "ref/netstandard2.0/System.Buffers.dll",
+        "ref/netstandard2.0/System.Buffers.xml",
+        "ref/uap10.0.16299/_._",
+        "system.buffers.4.5.1.nupkg.sha512",
+        "system.buffers.nuspec",
+        "useSharedDesignerContext.txt",
+        "version.txt"
+      ]
+    },
+    "System.Diagnostics.DiagnosticSource/9.0.3": {
+      "sha512": "cBA+28xDW33tSiGht/H8xvr8lnaCrgJ7EdO348AfSGsX4PPJUOULKxny/cc9DVNGExaCrtqagsnm5M2mkWIZ+g==",
+      "type": "package",
+      "path": "system.diagnostics.diagnosticsource/9.0.3",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -722,87 +1340,191 @@
         "THIRD-PARTY-NOTICES.TXT",
         "buildTransitive/net461/System.Diagnostics.DiagnosticSource.targets",
         "buildTransitive/net462/_._",
-        "buildTransitive/net6.0/_._",
+        "buildTransitive/net8.0/_._",
         "buildTransitive/netcoreapp2.0/System.Diagnostics.DiagnosticSource.targets",
+        "content/ILLink/ILLink.Descriptors.LibraryBuild.xml",
+        "contentFiles/any/net462/ILLink/ILLink.Descriptors.LibraryBuild.xml",
+        "contentFiles/any/net8.0/ILLink/ILLink.Descriptors.LibraryBuild.xml",
+        "contentFiles/any/net9.0/ILLink/ILLink.Descriptors.LibraryBuild.xml",
+        "contentFiles/any/netstandard2.0/ILLink/ILLink.Descriptors.LibraryBuild.xml",
         "lib/net462/System.Diagnostics.DiagnosticSource.dll",
         "lib/net462/System.Diagnostics.DiagnosticSource.xml",
-        "lib/net6.0/System.Diagnostics.DiagnosticSource.dll",
-        "lib/net6.0/System.Diagnostics.DiagnosticSource.xml",
-        "lib/net7.0/System.Diagnostics.DiagnosticSource.dll",
-        "lib/net7.0/System.Diagnostics.DiagnosticSource.xml",
         "lib/net8.0/System.Diagnostics.DiagnosticSource.dll",
         "lib/net8.0/System.Diagnostics.DiagnosticSource.xml",
+        "lib/net9.0/System.Diagnostics.DiagnosticSource.dll",
+        "lib/net9.0/System.Diagnostics.DiagnosticSource.xml",
         "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.dll",
         "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.xml",
-        "system.diagnostics.diagnosticsource.8.0.0.nupkg.sha512",
+        "system.diagnostics.diagnosticsource.9.0.3.nupkg.sha512",
         "system.diagnostics.diagnosticsource.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Runtime.CompilerServices.Unsafe/6.0.0": {
-      "sha512": "/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg==",
+    "System.IO.Pipelines/9.0.0": {
+      "sha512": "eA3cinogwaNB4jdjQHOP3Z3EuyiDII7MT35jgtnsA4vkn0LUrrSHsU0nzHTzFzmaFYeKV7MYyMxOocFzsBHpTw==",
       "type": "package",
-      "path": "system.runtime.compilerservices.unsafe/6.0.0",
+      "path": "system.io.pipelines/9.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
         "LICENSE.TXT",
+        "PACKAGE.md",
         "THIRD-PARTY-NOTICES.TXT",
-        "buildTransitive/netcoreapp2.0/System.Runtime.CompilerServices.Unsafe.targets",
-        "buildTransitive/netcoreapp3.1/_._",
-        "lib/net461/System.Runtime.CompilerServices.Unsafe.dll",
-        "lib/net461/System.Runtime.CompilerServices.Unsafe.xml",
-        "lib/net6.0/System.Runtime.CompilerServices.Unsafe.dll",
-        "lib/net6.0/System.Runtime.CompilerServices.Unsafe.xml",
-        "lib/netcoreapp3.1/System.Runtime.CompilerServices.Unsafe.dll",
-        "lib/netcoreapp3.1/System.Runtime.CompilerServices.Unsafe.xml",
-        "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll",
-        "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.xml",
-        "system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
-        "system.runtime.compilerservices.unsafe.nuspec",
+        "buildTransitive/net461/System.IO.Pipelines.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net8.0/_._",
+        "buildTransitive/netcoreapp2.0/System.IO.Pipelines.targets",
+        "lib/net462/System.IO.Pipelines.dll",
+        "lib/net462/System.IO.Pipelines.xml",
+        "lib/net8.0/System.IO.Pipelines.dll",
+        "lib/net8.0/System.IO.Pipelines.xml",
+        "lib/net9.0/System.IO.Pipelines.dll",
+        "lib/net9.0/System.IO.Pipelines.xml",
+        "lib/netstandard2.0/System.IO.Pipelines.dll",
+        "lib/netstandard2.0/System.IO.Pipelines.xml",
+        "system.io.pipelines.9.0.0.nupkg.sha512",
+        "system.io.pipelines.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Text.Encodings.Web/8.0.0": {
-      "sha512": "yev/k9GHAEGx2Rg3/tU6MQh4HGBXJs70y7j1LaM1i/ER9po+6nnQ6RRqTJn1E7Xu0fbIFK80Nh5EoODxrbxwBQ==",
+    "System.Linq.Async/6.0.1": {
+      "sha512": "0YhHcaroWpQ9UCot3Pizah7ryAzQhNvobLMSxeDIGmnXfkQn8u5owvpOH0K6EVB+z9L7u6Cc4W17Br/+jyttEQ==",
       "type": "package",
-      "path": "system.text.encodings.web/8.0.0",
+      "path": "system.linq.async/6.0.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Logo.png",
+        "lib/net48/System.Linq.Async.dll",
+        "lib/net48/System.Linq.Async.xml",
+        "lib/net6.0/System.Linq.Async.dll",
+        "lib/net6.0/System.Linq.Async.xml",
+        "lib/netstandard2.0/System.Linq.Async.dll",
+        "lib/netstandard2.0/System.Linq.Async.xml",
+        "lib/netstandard2.1/System.Linq.Async.dll",
+        "lib/netstandard2.1/System.Linq.Async.xml",
+        "ref/net48/System.Linq.Async.dll",
+        "ref/net48/System.Linq.Async.xml",
+        "ref/net6.0/System.Linq.Async.dll",
+        "ref/net6.0/System.Linq.Async.xml",
+        "ref/netstandard2.0/System.Linq.Async.dll",
+        "ref/netstandard2.0/System.Linq.Async.xml",
+        "ref/netstandard2.1/System.Linq.Async.dll",
+        "ref/netstandard2.1/System.Linq.Async.xml",
+        "system.linq.async.6.0.1.nupkg.sha512",
+        "system.linq.async.nuspec"
+      ]
+    },
+    "System.Memory/4.5.5": {
+      "sha512": "XIWiDvKPXaTveaB7HVganDlOCRoj03l+jrwNvcge/t8vhGYKvqV+dMv6G4SAX2NoNmN0wZfVPTAlFwZcZvVOUw==",
+      "type": "package",
+      "path": "system.memory/4.5.5",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "lib/net461/System.Memory.dll",
+        "lib/net461/System.Memory.xml",
+        "lib/netcoreapp2.1/_._",
+        "lib/netstandard1.1/System.Memory.dll",
+        "lib/netstandard1.1/System.Memory.xml",
+        "lib/netstandard2.0/System.Memory.dll",
+        "lib/netstandard2.0/System.Memory.xml",
+        "ref/netcoreapp2.1/_._",
+        "system.memory.4.5.5.nupkg.sha512",
+        "system.memory.nuspec",
+        "useSharedDesignerContext.txt",
+        "version.txt"
+      ]
+    },
+    "System.Numerics.Tensors/9.0.3": {
+      "sha512": "XnOUXX5va9ZtSIFuMrXeaJ0RPImEYXvJvhMQoAYAqppGgazuoI2inkMp77F1j8exEiHDj7omD7dPeqh+Nd1ZYA==",
+      "type": "package",
+      "path": "system.numerics.tensors/9.0.3",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
         "LICENSE.TXT",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "buildTransitive/net461/System.Numerics.Tensors.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net8.0/_._",
+        "buildTransitive/netcoreapp2.0/System.Numerics.Tensors.targets",
+        "lib/net462/System.Numerics.Tensors.dll",
+        "lib/net462/System.Numerics.Tensors.xml",
+        "lib/net8.0/System.Numerics.Tensors.dll",
+        "lib/net8.0/System.Numerics.Tensors.xml",
+        "lib/net9.0/System.Numerics.Tensors.dll",
+        "lib/net9.0/System.Numerics.Tensors.xml",
+        "lib/netstandard2.0/System.Numerics.Tensors.dll",
+        "lib/netstandard2.0/System.Numerics.Tensors.xml",
+        "system.numerics.tensors.9.0.3.nupkg.sha512",
+        "system.numerics.tensors.nuspec",
+        "useSharedDesignerContext.txt"
+      ]
+    },
+    "System.Runtime.CompilerServices.Unsafe/6.1.0": {
+      "sha512": "5o/HZxx6RVqYlhKSq8/zronDkALJZUT2Vz0hx43f0gwe8mwlM0y2nYlqdBwLMzr262Bwvpikeb/yEwkAa5PADg==",
+      "type": "package",
+      "path": "system.runtime.compilerservices.unsafe/6.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "PACKAGE.md",
+        "buildTransitive/net461/System.Runtime.CompilerServices.Unsafe.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net6.0/_._",
+        "buildTransitive/netcoreapp2.0/System.Runtime.CompilerServices.Unsafe.targets",
+        "lib/net462/System.Runtime.CompilerServices.Unsafe.dll",
+        "lib/net462/System.Runtime.CompilerServices.Unsafe.xml",
+        "lib/net7.0/_._",
+        "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll",
+        "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.xml",
+        "system.runtime.compilerservices.unsafe.6.1.0.nupkg.sha512",
+        "system.runtime.compilerservices.unsafe.nuspec"
+      ]
+    },
+    "System.Text.Encodings.Web/9.0.0": {
+      "sha512": "e2hMgAErLbKyUUwt18qSBf9T5Y+SFAL3ZedM8fLupkVj8Rj2PZ9oxQ37XX2LF8fTO1wNIxvKpihD7Of7D/NxZw==",
+      "type": "package",
+      "path": "system.text.encodings.web/9.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "LICENSE.TXT",
+        "PACKAGE.md",
         "THIRD-PARTY-NOTICES.TXT",
         "buildTransitive/net461/System.Text.Encodings.Web.targets",
         "buildTransitive/net462/_._",
-        "buildTransitive/net6.0/_._",
+        "buildTransitive/net8.0/_._",
         "buildTransitive/netcoreapp2.0/System.Text.Encodings.Web.targets",
         "lib/net462/System.Text.Encodings.Web.dll",
         "lib/net462/System.Text.Encodings.Web.xml",
-        "lib/net6.0/System.Text.Encodings.Web.dll",
-        "lib/net6.0/System.Text.Encodings.Web.xml",
-        "lib/net7.0/System.Text.Encodings.Web.dll",
-        "lib/net7.0/System.Text.Encodings.Web.xml",
         "lib/net8.0/System.Text.Encodings.Web.dll",
         "lib/net8.0/System.Text.Encodings.Web.xml",
+        "lib/net9.0/System.Text.Encodings.Web.dll",
+        "lib/net9.0/System.Text.Encodings.Web.xml",
         "lib/netstandard2.0/System.Text.Encodings.Web.dll",
         "lib/netstandard2.0/System.Text.Encodings.Web.xml",
-        "runtimes/browser/lib/net6.0/System.Text.Encodings.Web.dll",
-        "runtimes/browser/lib/net6.0/System.Text.Encodings.Web.xml",
-        "runtimes/browser/lib/net7.0/System.Text.Encodings.Web.dll",
-        "runtimes/browser/lib/net7.0/System.Text.Encodings.Web.xml",
         "runtimes/browser/lib/net8.0/System.Text.Encodings.Web.dll",
         "runtimes/browser/lib/net8.0/System.Text.Encodings.Web.xml",
-        "system.text.encodings.web.8.0.0.nupkg.sha512",
+        "runtimes/browser/lib/net9.0/System.Text.Encodings.Web.dll",
+        "runtimes/browser/lib/net9.0/System.Text.Encodings.Web.xml",
+        "system.text.encodings.web.9.0.0.nupkg.sha512",
         "system.text.encodings.web.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Text.Json/8.0.2": {
-      "sha512": "29KA2StjWDYp32FvREifawRtNpTziLE1xyuDV9pVQ+MsaE9bIcIieP0io/eZZeLMxR+Nx9zI55RtUtpVpEIdeg==",
+    "System.Text.Json/9.0.0": {
+      "sha512": "js7+qAu/9mQvnhA4EfGMZNEzXtJCDxgkgj8ohuxq/Qxv+R56G+ljefhiJHOxTNiw54q8vmABCWUwkMulNdlZ4A==",
       "type": "package",
-      "path": "system.text.json/8.0.2",
+      "path": "system.text.json/9.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -854,22 +1576,57 @@
         "analyzers/dotnet/roslyn4.4/cs/zh-Hant/System.Text.Json.SourceGeneration.resources.dll",
         "buildTransitive/net461/System.Text.Json.targets",
         "buildTransitive/net462/System.Text.Json.targets",
-        "buildTransitive/net6.0/System.Text.Json.targets",
+        "buildTransitive/net8.0/System.Text.Json.targets",
         "buildTransitive/netcoreapp2.0/System.Text.Json.targets",
         "buildTransitive/netstandard2.0/System.Text.Json.targets",
         "lib/net462/System.Text.Json.dll",
         "lib/net462/System.Text.Json.xml",
-        "lib/net6.0/System.Text.Json.dll",
-        "lib/net6.0/System.Text.Json.xml",
-        "lib/net7.0/System.Text.Json.dll",
-        "lib/net7.0/System.Text.Json.xml",
         "lib/net8.0/System.Text.Json.dll",
         "lib/net8.0/System.Text.Json.xml",
+        "lib/net9.0/System.Text.Json.dll",
+        "lib/net9.0/System.Text.Json.xml",
         "lib/netstandard2.0/System.Text.Json.dll",
         "lib/netstandard2.0/System.Text.Json.xml",
-        "system.text.json.8.0.2.nupkg.sha512",
+        "system.text.json.9.0.0.nupkg.sha512",
         "system.text.json.nuspec",
         "useSharedDesignerContext.txt"
+      ]
+    },
+    "System.Threading.Tasks.Extensions/4.5.4": {
+      "sha512": "zteT+G8xuGu6mS+mzDzYXbzS7rd3K6Fjb9RiZlYlJPam2/hU7JCBZBVEcywNuR+oZ1ncTvc/cq0faRr3P01OVg==",
+      "type": "package",
+      "path": "system.threading.tasks.extensions/4.5.4",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "lib/MonoAndroid10/_._",
+        "lib/MonoTouch10/_._",
+        "lib/net461/System.Threading.Tasks.Extensions.dll",
+        "lib/net461/System.Threading.Tasks.Extensions.xml",
+        "lib/netcoreapp2.1/_._",
+        "lib/netstandard1.0/System.Threading.Tasks.Extensions.dll",
+        "lib/netstandard1.0/System.Threading.Tasks.Extensions.xml",
+        "lib/netstandard2.0/System.Threading.Tasks.Extensions.dll",
+        "lib/netstandard2.0/System.Threading.Tasks.Extensions.xml",
+        "lib/portable-net45+win8+wp8+wpa81/System.Threading.Tasks.Extensions.dll",
+        "lib/portable-net45+win8+wp8+wpa81/System.Threading.Tasks.Extensions.xml",
+        "lib/xamarinios10/_._",
+        "lib/xamarinmac20/_._",
+        "lib/xamarintvos10/_._",
+        "lib/xamarinwatchos10/_._",
+        "ref/MonoAndroid10/_._",
+        "ref/MonoTouch10/_._",
+        "ref/netcoreapp2.1/_._",
+        "ref/xamarinios10/_._",
+        "ref/xamarinmac20/_._",
+        "ref/xamarintvos10/_._",
+        "ref/xamarinwatchos10/_._",
+        "system.threading.tasks.extensions.4.5.4.nupkg.sha512",
+        "system.threading.tasks.extensions.nuspec",
+        "useSharedDesignerContext.txt",
+        "version.txt"
       ]
     }
   },
@@ -878,30 +1635,38 @@
       "Godot.SourceGenerators >= 4.3.0",
       "GodotSharp >= 4.3.0",
       "GodotSharpEditor >= 4.3.0",
-      "LLamaSharp >= 0.12.0",
-      "LLamaSharp.Backend.Cuda12 >= 0.12.0",
-      "LLamaSharp.semantic-kernel >= 0.12.0"
+      "LLamaSharp >= 0.24.0",
+      "LLamaSharp.Backend.Cpu >= 0.24.0",
+      "LLamaSharp.Backend.Cuda12 >= 0.24.0",
+      "LLamaSharp.semantic-kernel >= 0.24.0"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Günsu\\.nuget\\packages\\": {}
+    "C:\\Users\\Aras\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Günsu\\Desktop\\Proje otto\\otto-man\\otto-man\\otto-man.csproj",
+      "projectUniqueName": "D:\\OttoMan\\otto-man\\otto-man\\otto-man.csproj",
       "projectName": "otto-man",
-      "projectPath": "C:\\Users\\Günsu\\Desktop\\Proje otto\\otto-man\\otto-man\\otto-man.csproj",
-      "packagesPath": "C:\\Users\\Günsu\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Günsu\\Desktop\\Proje otto\\otto-man\\otto-man\\.godot\\mono\\temp\\obj\\",
+      "projectPath": "D:\\OttoMan\\otto-man\\otto-man\\otto-man.csproj",
+      "packagesPath": "C:\\Users\\Aras\\.nuget\\packages\\",
+      "outputPath": "D:\\OttoMan\\otto-man\\otto-man\\.godot\\mono\\temp\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\Günsu\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\Aras\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net6.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -914,7 +1679,13 @@
         "warnAsError": [
           "NU1605"
         ]
-      }
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net6.0": {
@@ -934,15 +1705,19 @@
           },
           "LLamaSharp": {
             "target": "Package",
-            "version": "[0.12.0, )"
+            "version": "[0.24.0, )"
+          },
+          "LLamaSharp.Backend.Cpu": {
+            "target": "Package",
+            "version": "[0.24.0, )"
           },
           "LLamaSharp.Backend.Cuda12": {
             "target": "Package",
-            "version": "[0.12.0, )"
+            "version": "[0.24.0, )"
           },
           "LLamaSharp.semantic-kernel": {
             "target": "Package",
-            "version": "[0.12.0, )"
+            "version": "[0.24.0, )"
           }
         },
         "imports": [
@@ -961,7 +1736,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\6.0.428\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.305\\RuntimeIdentifierGraph.json"
       }
     }
   }
