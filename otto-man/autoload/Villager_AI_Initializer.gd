@@ -23,23 +23,6 @@ const MALE_NAMES_OTTOMAN: Array[String] = [
 	"Abdurrahman", "Abdülaziz", "Kazım", "Fahri", "Tevfik"
 ]
 
-# Osmanlı dönemi kadın isim havuzu (Türk, Rum, Ermeni, Yahudi, Slav kökenli)
-const FEMALE_NAMES_OTTOMAN: Array[String] = [
-	# Türk
-	"Ayşe", "Fatma", "Emine", "Hatice", "Zeynep", "Hanife", "Hürrem", "Mihri",
-	"Gülbahar", "Safiye", "Nurbanu", "Leyla", "Nesrin", "Cemile", "Şahnaz",
-	"Dilruba", "Gülizar", "Beyhan", "Servet", "Khadija",
-	# Rum (Yunan)
-	"Despina", "Eleni", "Maria", "Sofia", "Anna", "Katina", "Marika", "Katerina",
-	"Theodora", "Eftalia", "Stamatia", "Vasiliki", "Marigo", "Foteini",
-	# Ermeni
-	"Takuhi", "Anahit", "Siranush", "Yester", "Mariam", "Verjin",
-	# Yahudi
-	"Sara", "Ester", "Rivka", "Rahel", "Roza",
-	# Slav (Balkanlar)
-	"Stana", "Vesna", "Draga", "Jelena", "Anica"
-]
-
 # Osmanlı dönemi kadın isim havuzu (Türk, Rum, Ermeni, Yahudi, Slav, Arap kökenli)
 const FEMALE_NAMES_OTTOMAN: Array[String] = [
 	# Türk isimleri

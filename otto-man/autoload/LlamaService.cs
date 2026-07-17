@@ -56,8 +56,9 @@ internal static class NativeMethods
 /// <para><b>Grammar:</b> GBNF can be loaded for constrained sampling, but the NPC dialogue path usually disables it at runtime
 /// (native sampler crash with some tokenizer stacks). Prompt + logit bias toward “<c>{</c>” still anchor JSON.</para>
 /// <para><b>Chat format:</b> Mistral-7B-Instruct uses <see cref="WrapMistralInstruct"/> ([INST] wrapping).</para>
-/// <para><b>NPC weights:</b> Default is <b>base GGUF</b> for NPC dialogue (merged fused GGUF off unless env <c>OTTO_NPC_USE_MERGED_GGUF=1</c>). Runtime GGUF LoRA is optional for experiments but often very slow on CUDA; see toggles.</para>
-/// <para><b>NPC dialogue decode:</b> Defaults to <b>synchronous</b> chunked <c>LLamaContext.Decode</c> (see <see cref="InferStatelessWithOptionalLora"/>).
+/// <para><b>NPC weights:</b> NPC dialogue always uses the same BASE GGUF as everything else (Mistral-NeMo). The prior merged-GGUF/LoRA
+/// experiment (a separate fine-tune baked for Mistral-7B) has been removed — those model files are gone and won't be used again.</para>
+/// <para><b>NPC dialogue decode:</b> Defaults to <b>synchronous</b> chunked <c>LLamaContext.Decode</c> (see <see cref="InferNpcUsingSharedContext"/>).
 /// LLamaSharp’s <see cref="StatelessExecutor.InferAsync"/> prefills with <c>DecodeAsync</c>; inside Godot that often stalls idle-GPU on long NPC prompts while BASE/shorter jobs still look fine — same weights, different scheduler path.
 /// <b>VROOM / InferAsync:</b> set <c>OTTO_LLAMA_VROOM=1</c> or <c>OTTO_NPC_USE_INFER_ASYNC=1</c> so NPC matches BASE’s InferAsync (fans may spin when it works; may hang when it doesn’t).
 /// Sync tuning: <c>OTTO_NPC_PREFILL_CHUNK</c> (32–4096; larger = fewer batches but bigger wedge risk).</para>
@@ -81,86 +82,10 @@ public partial class LlamaService : Node, IDisposable
 	private const int NpcDialoguePenaltyCount = 256;
 
 	/// <summary>
-	/// Full merged model (base + NPC LoRA baked into one GGUF), typically Q4_K_M.
-	/// Build with llama.cpp <c>llama-export-lora</c> (merge into F16), then <c>llama-quantize … Q4_K_M</c>.
-	/// STALE as of the NeMo switch: this LoRA was trained against Mistral-7B's weight shapes and cannot be
-	/// applied to a different base model. Both this and <see cref="NpcLoraAdapterGgufFileName"/> stay off by
-	/// default (opt-in via env var) so they're harmless dormant — don't enable either against the NeMo base
-	/// until retrained. See docs/MODEL_UPGRADE_GUIDE.md.
-	/// </summary>
-	private static readonly string NpcMergedModelFileName = "mistral-7b-instruct-v0.2-NPC-merged.Q4_K_M.gguf";
-
-	/// <summary>
-	/// GGUF LoRA adapter applied on top of <see cref="DefaultModelFileName"/> for NPC dialogue only (second <see cref="LLamaWeights"/> load).
-	/// Convert trained PEFT adapter to GGUF with llama.cpp tools compatible with your llama.cpp/LLamaSharp version (e.g. export / convert-lora workflow).
-	/// Place the file next to the base GGUF under <c>res://models/</c> (or packaged <c>models/</c>).
-	/// STALE as of the NeMo switch — trained for Mistral-7B, do not enable against the NeMo base until retrained.
-	/// </summary>
-	private static readonly string NpcLoraAdapterGgufFileName = "mistral-7b-npc-lora.gguf";
-
-	/// <summary>
-	/// When true, NPC dialogue loads <see cref="NpcMergedModelFileName"/> as a separate weights object (LoRA fully merged into weights).
-	/// <para><b>Default off</b> — NPC dialogue uses the plain base GGUF for A/B testing; set env <c>OTTO_NPC_USE_MERGED_GGUF=1</c> (or <c>true</c>) to use the trained merged NPC GGUF.</para>
-	/// Mutually exclusive with <see cref="NpcDialogueUseLoraAdapterGguf"/>.
-	/// </summary>
-	private static bool NpcDialogueUseMergedNpcGguf => ResolveNpcDialogueUseMergedGguf();
-
-	private static bool ResolveNpcDialogueUseMergedGguf()
-	{
-		string e = System.Environment.GetEnvironmentVariable("OTTO_NPC_USE_MERGED_GGUF") ?? "";
-		e = e.Trim();
-		if (e.Length > 0)
-		{
-			if (e == "1" || e.Equals("true", StringComparison.OrdinalIgnoreCase))
-				return true;
-			if (e == "0" || e.Equals("false", StringComparison.OrdinalIgnoreCase))
-				return false;
-		}
-		// Default OFF: use plain base Mistral for NPC three-pass (A/B vs merged LoRA). Set OTTO_NPC_USE_MERGED_GGUF=1 for merged NPC GGUF.
-		return false;
-	}
-
-	/// <summary>
-	/// When true and merged NPC GGUF exists, load <b>only</b> that file into <see cref="_modelWeightsBase"/> and do not keep a second
-	/// full copy of Mistral in VRAM. Two simultaneous <see cref="LLamaWeights"/> loads (~2×7B) can exhaust VRAM or wedge CUDA —
-	/// symptoms match “stuck after Infer about to start” with no GPU fans.
-	/// </summary>
-	private static readonly bool NpcSkipSeparateBaseGgufWhenMergedNpcGgufEnabled = true;
-
-	/// <summary>
-	/// When true with merged single-load settings, resolve <c>models/</c> without requiring the BASE GGUF on disk.
-	/// If merged <see cref="LLamaWeights.LoadFromFile"/> fails, initialization aborts (no fallback to BASE).
-	/// </summary>
-	private static readonly bool NpcMergedExclusiveDiskMode = true;
-
-	/// <summary>
-	/// When true, NPC dialogue loads <see cref="NpcLoraAdapterGgufFileName"/> with <c>LoadLoraFromFile</c> and applies it via <c>AddLoraAdapter</c> per context.
-	/// <para><b>Warning:</b> often much slower than merged GGUF on CUDA (large delay per prefill chunk).</para>
-	/// Mutually exclusive with <see cref="NpcDialogueUseMergedNpcGguf"/>.
-	/// Requires LoRA GGUF compatible with LLamaSharp’s native backend; mismatched exports cause <c>LoadLoraFromFile</c> to fail — load is skipped and NPC uses base weights (see Initialize).
-	/// </summary>
-	private static readonly bool NpcDialogueUseLoraAdapterGguf = false;
-
-	/// <summary>Blend strength for <see cref="NpcLoraAdapterGgufFileName"/> (llama.cpp adapter scale).</summary>
-	private static readonly float NpcLoraAdapterScale = 1.0f;
-
-	/// <summary>
-	/// Max tokens per <see cref="LLamaContext.Decode"/> during <b>prefill only</b> when runtime LoRA is active.
-	/// Default context <c>n_batch</c> is often 512; several CUDA + GGUF-adapter stacks wedge on the first large decode — smaller chunks (still ≥32 for BLAS) avoid that.
-	/// Set to <c>0</c> to use full <see cref="LLamaContext.BatchSize"/> (may reproduce the hang).
-	/// </summary>
-	private static readonly int NpcLoraPrefillChunkTokens = 128;
-
-	/// <summary>
-	/// Default prefill chunk cap for NPC sync inference (<see cref="InferStatelessWithOptionalLora"/> without runtime LoRA).
+	/// Default prefill chunk cap for NPC sync inference (<see cref="InferNpcUsingSharedContext"/>).
 	/// Very large chunks (e.g. 512) can wedge on some stacks — use env <c>OTTO_NPC_PREFILL_CHUNK</c> to tune (32–4096).
 	/// </summary>
 	private static readonly int NpcStatelessInferPrefillChunkTokens = 128;
-
-	/// <summary>
-	/// <c>n_batch</c> for merged GGUF loads (LLamaSharp default 512).
-	/// </summary>
-	private static readonly uint NpcMergedModelBatchSize = 512;
 
 	private static int NpcInferThreadCount => Math.Clamp(System.Environment.ProcessorCount, 4, 32);
 
@@ -183,11 +108,6 @@ public partial class LlamaService : Node, IDisposable
 	/// Exported games: set env <c>OTTO_LLAMA_VERBOSE=1</c> instead.
 	/// </summary>
 	private static readonly bool LogNpcInferGodotDiagnostics = false;
-
-	/// <summary>
-	/// When loading merged GGUF as the sole weights (<see cref="_npcMergedSingleGpuLoad"/>), caps GPU layers if &gt; 0 (e.g. <c>28</c>). Use when CUDA wedges during merged decode; <c>0</c> = full offload (layer count 99).
-	/// </summary>
-	private static readonly int NpcMergedSingleLoadGpuLayerCap = 0;
 
 	/// <summary>
 	/// When true, logs a single structured line per generation with timings and token estimates (Godot output).
@@ -631,23 +551,12 @@ public partial class LlamaService : Node, IDisposable
 	// <<< Native pointers removed, LLamaSharp objects will replace them >>>
 	private bool _isInitialized = false;
 	private bool _isDisposed = false;
-	/// <summary>When true, <see cref="_modelWeightsNpc"/> is loaded for NPC dialogue (merged GGUF or base+lora).</summary>
-	private bool _npcDedicatedWeightsLoaded = false;
-
-	/// <summary>When true, merged NPC GGUF is the only weights load — <see cref="_modelWeightsNpc"/> is unused.</summary>
-	private bool _npcMergedSingleGpuLoad = false;
 
 	// <<< LLamaSharp model/context objects will be added here >>>
 	private LLamaWeights _modelWeightsBase;
 	private ModelParams _parametersBase;
 
-	private LLamaWeights _modelWeightsNpc;
-	private ModelParams _parametersNpc;
-
-	/// <summary>Loaded from base model when <see cref="NpcDialogueUseLoraAdapterGguf"/>; applied per NPC inference via context.</summary>
-	private LoraAdapter _npcLoraAdapter;
-
-	/// <summary>One context reused for merged NPC dialogue (no runtime LoRA). Per-chat <c>CreateContext</c> was costing ~10–20s per 128-token prefill slice on RTX 3060-class GPUs.</summary>
+	/// <summary>One context reused for NPC dialogue. Per-chat <c>CreateContext</c> was costing ~10–20s per 128-token prefill slice on RTX 3060-class GPUs.</summary>
 	private LLamaContext _npcSharedInferContext;
 	private LLamaWeights _npcSharedInferWeights;
 	private readonly object _npcSharedInferLock = new object();
@@ -658,7 +567,7 @@ public partial class LlamaService : Node, IDisposable
 		base._Ready();
 		GD.Print("LlamaService Autoload _Ready.");
 		
-		// Initialize: merged GGUF and/or BASE GGUF (see NpcMergedExclusiveDiskMode / NpcSkipSeparateBaseGgufWhenMergedNpcGgufEnabled).
+		// Initialize: single shared BASE GGUF (Mistral-NeMo), used for both summaries and NPC dialogue.
 		if (!Initialize(DefaultModelFileName))
 		{
 			GD.PrintErr("Failed to initialize LlamaService with model.");
@@ -667,47 +576,11 @@ public partial class LlamaService : Node, IDisposable
 
 	// --- Initialization and Cleanup (To be re-implemented with LLamaSharp) ---
 
-	/// <summary>
-	/// Exported/editor layout for <c>models/</c> when BASE GGUF is not required (merged-exclusive disk mode).
-	/// </summary>
-	private string ResolveModelsDirectoryForMergedExclusive(string modelFilename)
-	{
-		if (OS.HasFeature("editor"))
-		{
-			string projectRoot = ProjectSettings.GlobalizePath("res://");
-			if (string.IsNullOrEmpty(projectRoot))
-				throw new Exception("Failed to globalize project path res://");
-			return Path.GetFullPath(Path.Combine(projectRoot, "models"));
-		}
-
-		string exePath = OS.GetExecutablePath();
-		string exeDir = Path.GetDirectoryName(exePath);
-		if (string.IsNullOrEmpty(exeDir))
-			throw new Exception("Failed to get executable directory!");
-
-		string packagedMerged = Path.Combine(exeDir, "models", NpcMergedModelFileName);
-		if (File.Exists(packagedMerged))
-			return Path.GetFullPath(Path.Combine(exeDir, "models"));
-
-		string nextToExeMerged = Path.Combine(exeDir, NpcMergedModelFileName);
-		if (File.Exists(nextToExeMerged))
-			return Path.GetFullPath(exeDir);
-
-		string envDir = System.Environment.GetEnvironmentVariable("OTTO_MODEL_DIR");
-		string fallbackDir = !string.IsNullOrWhiteSpace(envDir) ? envDir : "C:\\otto_exp";
-		string fallbackMerged = Path.Combine(fallbackDir, NpcMergedModelFileName);
-		if (File.Exists(fallbackMerged))
-			return Path.GetFullPath(fallbackDir);
-
-		throw new Exception(
-			$"Merged-exclusive: could not find '{NpcMergedModelFileName}' under exe/models, next to exe, or OTTO_MODEL_DIR / fallback.");
-	}
-
 	public bool Initialize(string modelFilename)
 	{
 		GD.Print($"LLamaService Initialize called with: {modelFilename}");
 		if (_isInitialized) return true;
-		if (_isDisposed) 
+		if (_isDisposed)
 		{
 			GD.PrintErr("Initialize called on a disposed LlamaService instance.");
 			return false;
@@ -733,260 +606,92 @@ public partial class LlamaService : Node, IDisposable
 				}
 			}
 
-			bool mergedExclusiveDisk =
-				NpcMergedExclusiveDiskMode
-				&& NpcDialogueUseMergedNpcGguf
-				&& NpcSkipSeparateBaseGgufWhenMergedNpcGgufEnabled;
-
-			string modelDirectory;
-			string modelLoadPath = "";
-
-			if (!mergedExclusiveDisk)
+			// 1. Construct Model Path — BASE GGUF must exist on disk.
+			string modelLoadPath;
+			if (OS.HasFeature("editor"))
 			{
-				// 1. Construct Model Path — BASE GGUF must exist on disk.
-				if (OS.HasFeature("editor"))
-				{
-					string projectRoot = ProjectSettings.GlobalizePath("res://");
-					if (string.IsNullOrEmpty(projectRoot)) { throw new Exception("Failed to globalize project path res://"); }
-					modelLoadPath = Path.Combine(projectRoot, "models", modelFilename);
-					GD.Print($"Editor Mode: Model path: {modelLoadPath}");
-				}
-				else
-				{
-					string exePath = OS.GetExecutablePath();
-					string exeDir = Path.GetDirectoryName(exePath);
-					if (string.IsNullOrEmpty(exeDir)) { throw new Exception("Failed to get executable directory!"); }
-					string packagedModelPath = Path.Combine(exeDir, "models", modelFilename);
-					if (File.Exists(packagedModelPath))
-					{
-						modelLoadPath = packagedModelPath;
-						GD.Print($"Exported Mode: Model path (packaged): {modelLoadPath}");
-					}
-					else
-					{
-						modelLoadPath = Path.Combine(exeDir, modelFilename);
-						GD.Print($"Exported Mode: Model path: {modelLoadPath}");
-					}
-
-					if (!File.Exists(modelLoadPath))
-					{
-						string envDir = System.Environment.GetEnvironmentVariable("OTTO_MODEL_DIR");
-						string fallbackDir = !string.IsNullOrWhiteSpace(envDir) ? envDir : "C:\\otto_exp";
-						string fallbackPath = Path.Combine(fallbackDir, modelFilename);
-						if (File.Exists(fallbackPath))
-						{
-							GD.Print($"Model not found in exe directory, using fallback path: {fallbackPath}");
-							modelLoadPath = fallbackPath;
-						}
-					}
-				}
-
-				modelLoadPath = Path.GetFullPath(modelLoadPath);
-				modelDirectory = Path.GetDirectoryName(modelLoadPath) ?? "";
-				GD.Print($"Normalized model path: {modelLoadPath}");
-				GD.Print($"Path length: {modelLoadPath.Length} characters");
-				GD.Print($"Path exists: {File.Exists(modelLoadPath)}");
-
-				if (!File.Exists(modelLoadPath))
-					throw new Exception($"Model file not found at: {modelLoadPath}");
-
-				try
-				{
-					var fileInfo = new FileInfo(modelLoadPath);
-					GD.Print($"Model file size: {fileInfo.Length / (1024.0 * 1024.0 * 1024.0):F2} GB");
-					GD.Print($"Model file readable: {fileInfo.IsReadOnly == false}");
-				}
-				catch (Exception ex)
-				{
-					GD.PrintErr($"Error checking model file: {ex.Message}");
-				}
-
-				modelLoadPath = ConvertToShortPathIfPossible(modelLoadPath);
-				GD.Print($"Final BASE model path: {modelLoadPath}");
+				string projectRoot = ProjectSettings.GlobalizePath("res://");
+				if (string.IsNullOrEmpty(projectRoot)) { throw new Exception("Failed to globalize project path res://"); }
+				modelLoadPath = Path.Combine(projectRoot, "models", modelFilename);
+				GD.Print($"Editor Mode: Model path: {modelLoadPath}");
 			}
 			else
 			{
-				modelDirectory = ResolveModelsDirectoryForMergedExclusive(modelFilename);
-				GD.Print($"Merged-exclusive disk mode: BASE GGUF not required — models directory: {modelDirectory}");
+				string exePath = OS.GetExecutablePath();
+				string exeDir = Path.GetDirectoryName(exePath);
+				if (string.IsNullOrEmpty(exeDir)) { throw new Exception("Failed to get executable directory!"); }
+				string packagedModelPath = Path.Combine(exeDir, "models", modelFilename);
+				if (File.Exists(packagedModelPath))
+				{
+					modelLoadPath = packagedModelPath;
+					GD.Print($"Exported Mode: Model path (packaged): {modelLoadPath}");
+				}
+				else
+				{
+					modelLoadPath = Path.Combine(exeDir, modelFilename);
+					GD.Print($"Exported Mode: Model path: {modelLoadPath}");
+				}
+
+				if (!File.Exists(modelLoadPath))
+				{
+					string envDir = System.Environment.GetEnvironmentVariable("OTTO_MODEL_DIR");
+					string fallbackDir = !string.IsNullOrWhiteSpace(envDir) ? envDir : "C:\\otto_exp";
+					string fallbackPath = Path.Combine(fallbackDir, modelFilename);
+					if (File.Exists(fallbackPath))
+					{
+						GD.Print($"Model not found in exe directory, using fallback path: {fallbackPath}");
+						modelLoadPath = fallbackPath;
+					}
+				}
 			}
 
-			if (NpcDialogueUseMergedNpcGguf && NpcDialogueUseLoraAdapterGguf)
-				throw new Exception("LlamaService: enable only one of NpcDialogueUseMergedNpcGguf or NpcDialogueUseLoraAdapterGguf.");
+			modelLoadPath = Path.GetFullPath(modelLoadPath);
+			GD.Print($"Normalized model path: {modelLoadPath}");
+			GD.Print($"Path length: {modelLoadPath.Length} characters");
+			GD.Print($"Path exists: {File.Exists(modelLoadPath)}");
 
-			// 2. Shared ModelParams template — base GGUF for summaries / general tasks.
+			if (!File.Exists(modelLoadPath))
+				throw new Exception($"Model file not found at: {modelLoadPath}");
+
+			try
+			{
+				var fileInfo = new FileInfo(modelLoadPath);
+				GD.Print($"Model file size: {fileInfo.Length / (1024.0 * 1024.0 * 1024.0):F2} GB");
+				GD.Print($"Model file readable: {fileInfo.IsReadOnly == false}");
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"Error checking model file: {ex.Message}");
+			}
+
+			modelLoadPath = ConvertToShortPathIfPossible(modelLoadPath);
+			GD.Print($"Final BASE model path: {modelLoadPath}");
+
+			// 2. ModelParams — one shared BASE GGUF for everything (summaries and NPC dialogue alike).
 			// NPC prompts are long (duplicated JSON + rules). 4096 tokens is often exceeded → llama truncates / bad logits → single-token loops.
 			const int contextSize = 16384;
 			const int gpuLayers = 99;
 
-			_npcDedicatedWeightsLoaded = false;
-			_npcMergedSingleGpuLoad = false;
-			_parametersNpc = null;
-			_modelWeightsNpc = null;
-			string npcLoraAdapterShortPath = null;
-
-			string npcMergedFull = null;
-			string npcMergedShortPath = null;
-			if (NpcDialogueUseMergedNpcGguf)
+			_parametersBase = new ModelParams(modelLoadPath)
 			{
-				npcMergedFull = Path.GetFullPath(Path.Combine(modelDirectory, NpcMergedModelFileName));
-				GD.Print($"NPC merged model path: {npcMergedFull}");
-				if (!File.Exists(npcMergedFull))
-					throw new Exception(
-						$"Merged NPC model not found: {npcMergedFull}. Build with llama-export-lora, then quantize to Q4_K_M as {NpcMergedModelFileName}.");
-				try
-				{
-					var mergedFi = new FileInfo(npcMergedFull);
-					GD.Print($"NPC merged GGUF file size: {mergedFi.Length / (1024.0 * 1024.0 * 1024.0):F2} GB");
-				}
-				catch (Exception mex)
-				{
-					GD.PushWarning($"Could not stat merged GGUF: {mex.Message}");
-				}
-				npcMergedShortPath = ConvertToShortPathIfPossible(npcMergedFull);
-				GD.Print($"Final NPC merged path: {npcMergedShortPath}");
-			}
-			else if (NpcDialogueUseLoraAdapterGguf)
-			{
-				string adapterFull = Path.GetFullPath(Path.Combine(modelDirectory, NpcLoraAdapterGgufFileName));
-				GD.Print($"NPC LoRA adapter path (requested): {adapterFull}");
-				if (!File.Exists(adapterFull))
-					throw new Exception(
-						$"NPC LoRA adapter GGUF not found: {adapterFull}. Export the trained adapter to GGUF (llama.cpp) and place it as '{NpcLoraAdapterGgufFileName}' next to the base GGUF.");
-				npcLoraAdapterShortPath = ConvertToShortPathIfPossible(adapterFull);
-				GD.Print($"Final NPC LoRA adapter path: {npcLoraAdapterShortPath}");
-			}
+				ContextSize = contextSize,
+				GpuLayerCount = gpuLayers,
+				UseMemoryLock = false,
+				UseMemorymap = true,
+				Threads = NpcInferThreadCount,
+				BatchThreads = NpcInferThreadCount,
+				FlashAttention = NpcUseFlashAttention,
+			};
 
-			bool mergedSingleLoad =
-				NpcDialogueUseMergedNpcGguf
-				&& NpcSkipSeparateBaseGgufWhenMergedNpcGgufEnabled
-				&& !string.IsNullOrEmpty(npcMergedShortPath);
-
-			if (mergedSingleLoad)
-			{
-				int mergedGpuLayers = gpuLayers;
-				if (NpcMergedSingleLoadGpuLayerCap > 0)
-					mergedGpuLayers = Math.Min(gpuLayers, NpcMergedSingleLoadGpuLayerCap);
-				_parametersBase = new ModelParams(npcMergedShortPath)
-				{
-					ContextSize = contextSize,
-					GpuLayerCount = mergedGpuLayers,
-					BatchSize = NpcMergedModelBatchSize,
-					UseMemoryLock = false,
-					UseMemorymap = true,
-					Threads = NpcInferThreadCount,
-					BatchThreads = NpcInferThreadCount,
-					FlashAttention = NpcUseFlashAttention,
-				};
-				GD.Print($"Merged-only VRAM mode: loading NPC merged GGUF as the sole weights object (BASE GGUF not loaded). GpuLayerCount={mergedGpuLayers}, BatchSize={NpcMergedModelBatchSize}.");
-				try
-				{
-					_modelWeightsBase = LLamaWeights.LoadFromFile(_parametersBase);
-					_npcMergedSingleGpuLoad = true;
-					GD.Print("Merged GGUF ready — single VRAM load for NPC (WorldManager battle-story LLM gated off when _DISABLE_BATTLE_STORY_LLM).");
-				}
-				catch (Exception mergedOnlyEx)
-				{
-					GD.PrintErr($"Merged-only load failed: {mergedOnlyEx.Message}");
-					if (mergedExclusiveDisk)
-					{
-						GD.PrintErr("Merged-exclusive disk mode: aborting initialization (no BASE GGUF fallback).");
-						throw;
-					}
-					GD.PrintErr("Falling back to BASE GGUF path + optional second merged load.");
-					_parametersBase = null;
-					_modelWeightsBase = null;
-					_npcMergedSingleGpuLoad = false;
-					mergedSingleLoad = false;
-				}
-			}
-
-			if (!mergedSingleLoad)
-			{
-				if (string.IsNullOrEmpty(modelLoadPath))
-					throw new Exception("LlamaService: internal error — legacy BASE load requested but modelLoadPath was never set.");
-
-				_parametersBase = new ModelParams(modelLoadPath)
-				{
-					ContextSize = contextSize,
-					GpuLayerCount = gpuLayers,
-					UseMemoryLock = false,
-					UseMemorymap = true,
-					Threads = NpcInferThreadCount,
-					BatchThreads = NpcInferThreadCount,
-					FlashAttention = NpcUseFlashAttention,
-				};
-
-				if (NpcDialogueUseMergedNpcGguf && !string.IsNullOrEmpty(npcMergedShortPath))
-				{
-					_parametersNpc = new ModelParams(npcMergedShortPath)
-					{
-						ContextSize = contextSize,
-						GpuLayerCount = gpuLayers,
-						BatchSize = NpcMergedModelBatchSize,
-						UseMemoryLock = false,
-						UseMemorymap = true,
-						Threads = NpcInferThreadCount,
-						BatchThreads = NpcInferThreadCount,
-						FlashAttention = NpcUseFlashAttention,
-					};
-				}
-
-				// 3. Load weights + contexts (BASE always; optional second NPC merged weights)
-				GD.Print("Loading BASE model (Mistral-7B-Instruct v0.2)...");
-				_modelWeightsBase = LLamaWeights.LoadFromFile(_parametersBase);
-				GD.Print("BASE model ready.");
-			}
-
-			if (NpcDialogueUseMergedNpcGguf && _parametersNpc != null && !_npcMergedSingleGpuLoad)
-			{
-				try
-				{
-					GD.Print("Loading NPC merged GGUF (second weights object; high VRAM — set NpcSkipSeparateBaseGgufWhenMergedNpcGgufEnabled=true to avoid)...");
-					_modelWeightsNpc = LLamaWeights.LoadFromFile(_parametersNpc);
-					_npcDedicatedWeightsLoaded = true;
-					GD.Print("NPC merged GGUF ready. NPC dialogue uses fused weights (fast — not runtime LoRA per decode).");
-				}
-				catch (Exception npcEx)
-				{
-					GD.PrintErr($"NPC merged GGUF failed to load: {npcEx.Message}");
-					GD.PrintErr("Falling back to BASE GGUF for NPC dialogue (merged weights unavailable).");
-					_modelWeightsNpc = null;
-					_npcDedicatedWeightsLoaded = false;
-				}
-			}
-			else if (!string.IsNullOrEmpty(npcLoraAdapterShortPath))
-			{
-				try
-				{
-					GD.Print("Loading NPC LoRA adapter onto base model (LLamaSharp 0.24 LoadLoraFromFile)...");
-					_npcLoraAdapter = _modelWeightsBase.NativeHandle.LoadLoraFromFile(npcLoraAdapterShortPath);
-					GD.Print("NPC LoRA adapter loaded; applied during NPC inference contexts only.");
-				}
-				catch (Exception npcEx)
-				{
-					GD.PrintErr($"NPC LoRA adapter failed to load: {npcEx.Message}");
-					GD.PrintErr("Falling back to BASE GGUF for NPC dialogue.");
-					_npcLoraAdapter = null;
-				}
-			}
-			else
-			{
-				if (!_npcMergedSingleGpuLoad)
-					GD.Print("NPC dialogue uses BASE GGUF only (no merged GGUF / no LoRA adapter). Fewer weights in VRAM.");
-			}
-
-			if (!_npcDedicatedWeightsLoaded && !_npcMergedSingleGpuLoad && NpcDialogueUseMergedNpcGguf)
-				GD.Print("NPC merged GGUF unavailable after load attempt; NPC uses BASE weights.");
-
-			if (_npcLoraAdapter == null && NpcDialogueUseLoraAdapterGguf && !NpcDialogueUseMergedNpcGguf)
-				GD.Print("NPC LoRA adapter unavailable after load attempt; NPC uses BASE weights.");
+			// 3. Load weights — one shared load, used for both BASE and NPC dialogue.
+			GD.Print("Loading BASE model (Mistral-NeMo-Instruct)...");
+			_modelWeightsBase = LLamaWeights.LoadFromFile(_parametersBase);
+			GD.Print("BASE model ready. NPC dialogue shares these same weights (no merged GGUF / no LoRA).");
 
 			if (_modelWeightsBase != null)
 				LogLlamaCppSystemInfoAfterNativeReady();
 
 			LogLoadedModelParams(_parametersBase, "Model params (active inference)");
-			if (_parametersNpc != null)
-				LogLoadedModelParams(_parametersNpc, "Model params (NPC second weights)");
 			GD.Print(
 				"LlamaService: NPC default = sync chunked Decode (stable in editor). "
 				+ "VROOM / BASE-style path: env OTTO_LLAMA_VROOM=1 (same InferAsync as summaries; may idle-hang on long NPC prompts). "
@@ -1029,11 +734,6 @@ public partial class LlamaService : Node, IDisposable
 	private void CleanupNativeResources()
 	{
 		GD.Print("Cleaning up LLamaSharp resources...");
-		_npcDedicatedWeightsLoaded = false;
-		_npcMergedSingleGpuLoad = false;
-		try { _npcLoraAdapter?.Unload(); } catch (Exception ex) { GD.PushWarning($"LlamaService LoRA cleanup: {ex.Message}"); }
-		_npcLoraAdapter = null;
-
 		try { _npcSharedInferContext?.Dispose(); }
 		catch (Exception ex) { GD.PushWarning($"LlamaService NPC shared context dispose: {ex.Message}"); }
 		_npcSharedInferContext = null;
@@ -1042,10 +742,6 @@ public partial class LlamaService : Node, IDisposable
 		_modelWeightsBase?.Dispose();
 		_modelWeightsBase = null;
 		_parametersBase = null;
-
-		_modelWeightsNpc?.Dispose();
-		_modelWeightsNpc = null;
-		_parametersNpc = null;
 		GD.Print("LLamaSharp resources cleaned.");
 	}
 
@@ -1056,7 +752,14 @@ public partial class LlamaService : Node, IDisposable
 	}
 
 	/// <summary>General model path (no LoRA). Use for summaries and non-NPC tasks.</summary>
-	public void GenerateResponseAsyncBase(string prompt, int maxNewTokens = 350, bool useGrammar = true, float temperature = 0.8f)
+	/// <param name="grammarFileName">File under <c>grammars/</c> (e.g. <c>battle_story.gbnf</c>). Empty = <c>output.gbnf</c> when <paramref name="useGrammar"/> is true — that's the legacy single-pass NPC JSON schema, almost never what a new BASE caller wants, so pass a filename explicitly.</param>
+	/// <param name="appendJsonObjectOutputFooter">
+	/// When true (default, back-compat), <see cref="WrapMistralInstruct"/> appends "Return ONLY the JSON object...
+	/// Start with '{'" to any prompt that doesn't already carry its own [INST]...[/INST] envelope. Set false for
+	/// plain-prose BASE callers (e.g. the battle-story summary) — otherwise the model is told to open with '{'
+	/// in the SAME breath the prompt itself says "no JSON," and it follows the more explicit, more recent instruction.
+	/// </param>
+	public void GenerateResponseAsyncBase(string prompt, int maxNewTokens = 350, bool useGrammar = true, float temperature = 0.8f, string grammarFileName = "", bool appendJsonObjectOutputFooter = true)
 	{
 		if (!_isInitialized || _isDisposed)
 		{
@@ -1069,7 +772,7 @@ public partial class LlamaService : Node, IDisposable
 			try {
 				if (VerboseInferLogs())
 					GD.Print($"LlamaService: BASE inference Task.Run entry tid={System.Threading.Thread.CurrentThread.ManagedThreadId}");
-				string result = await GenerateResponse(prompt, maxNewTokens, useGrammar, temperature, useNpcModel:false).ConfigureAwait(false);
+				string result = await GenerateResponse(prompt, maxNewTokens, useGrammar, temperature, useNpcModel:false, appendJsonObjectOutputFooter: appendJsonObjectOutputFooter, grammarFileName: grammarFileName).ConfigureAwait(false);
 				if (VerboseInferLogs())
 					GD.Print($"<<< RAW LLM RESULT >>>:\n{result}\n<<< END RAW LLM RESULT >>>");
 				CallDeferred("emit_signal", SignalName.GenerationCompleteBase, result ?? "");
@@ -1190,27 +893,11 @@ public partial class LlamaService : Node, IDisposable
 		if (VerboseInferLogs())
 			GD.Print("GenerateResponse: Mistral uses [INST] wrapper.");
 
-		bool npcDedicated = useNpcModel && _npcDedicatedWeightsLoaded && _modelWeightsNpc != null && _parametersNpc != null;
-		bool npcRuntimeLora = useNpcModel && _npcLoraAdapter != null && !npcDedicated;
+		var weights = _modelWeightsBase;
+		var parameters = _parametersBase;
 
-		var weights = useNpcModel
-			? (npcDedicated ? _modelWeightsNpc : _modelWeightsBase)
-			: _modelWeightsBase;
-		var parameters = useNpcModel
-			? (npcDedicated ? _parametersNpc : _parametersBase)
-			: _parametersBase;
-
-		if (VerboseInferLogs())
-		{
-			if (useNpcModel && npcDedicated)
-				GD.Print("GenerateResponse: NPC uses merged GGUF weights.");
-			else if (useNpcModel && _npcMergedSingleGpuLoad)
-				GD.Print("GenerateResponse: NPC uses merged GGUF (single GPU weights load — same object as summaries).");
-			else if (npcRuntimeLora)
-				GD.Print("GenerateResponse: NPC uses BASE GGUF + runtime LoRA on context.");
-			else if (useNpcModel)
-				GD.Print("GenerateResponse: NPC uses BASE GGUF only (merged off / LoRA not loaded).");
-		}
+		if (VerboseInferLogs() && useNpcModel)
+			GD.Print("GenerateResponse: NPC uses the shared BASE GGUF (Mistral-NeMo) — no merged GGUF, no LoRA.");
 		if (weights == null || parameters == null)
 		{
 			GD.PrintErr("GenerateResponse: LlamaService weights/parameters missing.");
@@ -1347,7 +1034,7 @@ public partial class LlamaService : Node, IDisposable
 			if (VerboseInferLogs())
 			{
 				GD.Print($"GenerateResponse: prompt debug preview only (first 280 chars of {prompt.Length} chars; NOT truncated for inference): {(prompt.Length > 280 ? prompt.Substring(0, 280) + "…" : prompt)}");
-				GD.Print($"GenerateResponse: Infer about to start (npcDedicated={npcDedicated}, npcRuntimeLora={npcRuntimeLora}, grammar={(samplingGbnf != null)}).");
+				GD.Print($"GenerateResponse: Infer about to start (useNpcModel={useNpcModel}, grammar={(samplingGbnf != null)}).");
 			}
 
 			prepWatch.Stop();
@@ -1358,24 +1045,7 @@ public partial class LlamaService : Node, IDisposable
 			int yieldChunks = 0;
 			string result;
 
-			if (npcRuntimeLora)
-			{
-				// LLamaSharp DecodeAsync wraps llama_decode in Task.Run. Nested Task.Run under Godot's Task.Run(async ...)
-				// has caused hard hangs (no GPU activity). Runtime LoRA uses synchronous Decode only — same GlobalInferenceLock, no extra scheduling.
-				LlamaStep(inferWatch, "GenerateResponse: calling InferStatelessWithOptionalLora (sync, runtime LoRA)");
-				(result, ttftMs, yieldChunks) = InferStatelessWithOptionalLora(
-					weights,
-					parameters,
-					prompt,
-					inferenceParams,
-					_npcLoraAdapter,
-					NpcLoraAdapterScale,
-					statelessPrefillChunkCapOverride: null,
-					inferWatch,
-					System.Threading.CancellationToken.None);
-				LlamaStep(inferWatch, $"GenerateResponse: InferStatelessWithOptionalLora returned (yield_chunks={yieldChunks})");
-			}
-			else if (useNpcModel)
+			if (useNpcModel)
 			{
 				if (PreferNpcInferAsyncVroom())
 				{
@@ -1507,24 +1177,10 @@ public partial class LlamaService : Node, IDisposable
 	/// <summary>Build NPC dialogue GPU context once during startup so the first &quot;hello&quot; after Play does not pay full creation cost.</summary>
 	private void TryWarmNpcSharedContextAtStartup()
 	{
-		if (_npcLoraAdapter != null)
+		if (_modelWeightsBase == null || _parametersBase == null)
 			return;
-
-		LLamaWeights w;
-		IContextParams p;
-		bool npcDedicated = _npcDedicatedWeightsLoaded && _modelWeightsNpc != null && _parametersNpc != null;
-		if (npcDedicated)
-		{
-			w = _modelWeightsNpc;
-			p = _parametersNpc;
-		}
-		else if (_modelWeightsBase != null && _parametersBase != null)
-		{
-			w = _modelWeightsBase;
-			p = _parametersBase;
-		}
-		else
-			return;
+		LLamaWeights w = _modelWeightsBase;
+		IContextParams p = _parametersBase;
 
 		try
 		{
@@ -1571,7 +1227,7 @@ public partial class LlamaService : Node, IDisposable
 		}
 	}
 
-	/// <summary>Merged NPC path: one long-lived <see cref="LLamaContext"/> (GPU stays hot). Memory between chats cleared via <see cref="SafeLLamaContextHandle.KvCacheClear"/>.</summary>
+	/// <summary>NPC dialogue path: one long-lived <see cref="LLamaContext"/> (GPU stays hot). Memory between chats cleared via <see cref="SafeLLamaContextHandle.KvCacheClear"/>.</summary>
 	private (string Result, long TtftMs, int YieldChunks) InferNpcUsingSharedContext(
 		LLamaWeights weights,
 		IContextParams contextParams,
@@ -1772,61 +1428,6 @@ public partial class LlamaService : Node, IDisposable
 
 		LlamaStep(inferWallClock, $"infer core: exit yield_chunks={yieldChunks}");
 		return (sb.ToString(), ttftMs, yieldChunks);
-	}
-
-	/// <summary>
-	/// Same decoding loop as <see cref="StatelessExecutor.InferAsync"/> but attaches <paramref name="loraAdapter"/> to the ephemeral context (NPC runtime LoRA).
-	/// Uses <see cref="LLamaContext.Decode(LLamaBatch)"/> only (no <c>DecodeAsync</c>) so we do not nest <c>Task.Run</c> under Godot inference scheduling.
-	/// </summary>
-	private static (string Result, long TtftMs, int YieldChunks) InferStatelessWithOptionalLora(
-		LLamaWeights weights,
-		IContextParams contextParams,
-		string prompt,
-		IInferenceParams inferenceParams,
-		LoraAdapter loraAdapter,
-		float loraScale,
-		int? statelessPrefillChunkCapOverride,
-		System.Diagnostics.Stopwatch inferWallClock,
-		CancellationToken cancellationToken)
-	{
-		LlamaStep(inferWallClock, "LoRA infer: entry");
-
-		LlamaStep(inferWallClock, "LoRA infer: before CreateContext");
-		using var context = weights.CreateContext(contextParams, logger: null);
-		LlamaStep(inferWallClock, $"LoRA infer: after CreateContext (n_ctx={context.ContextSize}, BatchSize={context.BatchSize})");
-
-		bool addedLora = false;
-		try
-		{
-			if (loraAdapter != null)
-			{
-				LlamaStep(inferWallClock, "LoRA infer: before NativeHandle.AddLoraAdapter");
-				context.NativeHandle.AddLoraAdapter(loraAdapter, loraScale);
-				addedLora = true;
-				LlamaStep(inferWallClock, "LoRA infer: after NativeHandle.AddLoraAdapter");
-			}
-			else
-				LlamaStep(inferWallClock, "LoRA infer: skip AddLoraAdapter (adapter null)");
-
-			int? prefillCap = null;
-			if (loraAdapter != null && NpcLoraPrefillChunkTokens >= 32)
-				prefillCap = NpcLoraPrefillChunkTokens;
-			else if (statelessPrefillChunkCapOverride is int ov && ov >= 32)
-				prefillCap = ov;
-
-			return InferStatelessDecodeCore(context, weights, prompt, inferenceParams, prefillCap, inferWallClock, cancellationToken);
-		}
-		finally
-		{
-			if (addedLora && loraAdapter != null)
-			{
-				LlamaStep(inferWallClock, "LoRA infer: finally before RemoveLoraAdapter");
-				context.NativeHandle.RemoveLoraAdapter(loraAdapter);
-				LlamaStep(inferWallClock, "LoRA infer: finally after RemoveLoraAdapter");
-			}
-			else
-				LlamaStep(inferWallClock, "LoRA infer: finally (no RemoveLoraAdapter)");
-		}
 	}
 
 	/// <summary>Mistral-7B-Instruct v0.2 format. We embed the entire game prompt as the instruction.</summary>

@@ -1,6 +1,10 @@
 # NPCDialogueManager.gd
 # Central manager for all NPC-LLM interactions
 # NPCs just call process_dialogue() with their state data
+#
+# 6-pass pipeline (TP0-TP5), ported verbatim from tools/NpcDialogueDryRun/Program.cs
+# (RunInteractiveTurnSelectMerge): TP0 speak -> TP1 significance -> TP3 history-candidate
+# -> TP2 info-fields -> TP4 relation-select -> TP5 narrow-merge.
 
 extends Node
 
@@ -14,53 +18,92 @@ var _current_player_input: String = ""
 ## Wall-clock anchor when NPC dialogue calls LlamaService (Time.get_ticks_msec); -1 when unset.
 var _npc_llm_req_ticks: int = -1
 
-## Step 1 tuning: lower temperature for NPC JSON + dialogue (quests/summaries keep LlamaService default 0.8).
-## Long History + Latest_news + chat tail → large prompts; JSON output must fit (avoid mid-array truncation).
-const _NPC_MAX_NEW_TOKENS := 768
+## Shared default temperature for TP0 (speak), TP2 (info), TP3 (history candidate) — no override.
 const _NPC_TEMPERATURE := 0.55
-## Salvaged dialogue shorter than this is usually truncation garbage — fall back to generic line.
-const _NPC_SALVAGE_DIALOGUE_MIN_CHARS := 18
-
-## When true, LlamaService loads grammars/output.gbnf for NPC replies (structured JSON). When false, prompt + parser only.
-## Constrained decoding off by default: slower per token + sampler instability in some stacks; LoRA + prompt enforce JSON/significance instead.
-const _NPC_USE_GRAMMAR := false
 
 ## Persisted chat (Chat_log): how many last messages to inject into the prompt (bounded latency).
 const _CHAT_LOG_PROMPT_MAX_MESSAGES := 12
 
+## Chat_log's actual storage cap — 4x the prompt window (12), so the dialogue UI keeps real
+## scrollback well past what any prompt ever reads, without growing unboundedly forever.
+## Real long-term memory is History (curated via TP1-TP5, never just piling up) — Chat_log is
+## only the recent raw transcript, so trimming its tail loses nothing the model ever sees.
+## Deliberately generous, not just "big enough for today" — leaves headroom for a future
+## remembering/rollback feature to draw on a longer raw transcript without redesigning this cap.
+const _CHAT_LOG_STORAGE_MAX_MESSAGES := 48
+
+## Drops the oldest entries once Chat_log exceeds the storage cap. Call after every append —
+## cheap no-op below the cap, safe to call unconditionally.
+func trim_chat_log_to_storage_cap(chat_log: Array) -> Array:
+	if chat_log.size() <= _CHAT_LOG_STORAGE_MAX_MESSAGES:
+		return chat_log
+	return chat_log.slice(chat_log.size() - _CHAT_LOG_STORAGE_MAX_MESSAGES)
+
 ## Compact turn transcript for debugging / pasting into chat (no Llama prefill spam).
 const _LOG_NPC_DIALOGUE_CHAIN := true
 
-const _NPC_DIALOGUE_THREE_PASS := true
-const _NPC_TP_TOKENS_1 := 280
-const _NPC_TP_TOKENS_2 := 160
-## Tried lowering this to force compression — backfired: the model kept trying to write just as much,
-## got cut off mid-line at the smaller cap instead of actually compressing (truncation risk on stored
-## History is worse than slow). Keeping it generous; the real fix has to be in the merge instruction/temp.
-const _NPC_TP_TOKENS_3 := 520
-## Lower than _NPC_TEMPERATURE: merging/compressing History is a more deterministic task than
-## generating spoken dialogue, and needs literal compliance with "merge related entries," not creativity.
-const _NPC_TP3_TEMPERATURE := 0.35
-## TP1: Significant: yes|no + Generated dialogue (grammars/tp1_dialogue.gbnf). Re-enabled: grammar makes the
-## two-line shape structurally guaranteed instead of relying on prose the model can drift away from under
-## emotionally-loaded content. Verify via tools/NpcDialogueDryRun --chat-sessions before trusting in-editor.
+const _TP_PHASE_NONE := 0
+const _TP_PHASE_SPEAK := 1                 # TP0
+const _TP_PHASE_SIGNIFICANCE := 2          # TP1
+const _TP_PHASE_HISTORY_CANDIDATE := 3     # TP3
+const _TP_PHASE_INFO := 4                  # TP2
+const _TP_PHASE_RELATION_SELECT := 5       # TP4
+const _TP_PHASE_MERGE := 6                 # TP5
+
+const _TP_PHASE_TAGS := {
+	1: "TP0_SPEAK", 2: "TP1_SIGNIFICANCE", 3: "TP3_HISTORY_CANDIDATE",
+	4: "TP2_INFO", 5: "TP4_RELATION_SELECT", 6: "TP5_MERGE_NARROW",
+}
+
+# TP0 — speak (always runs first)
+const _NPC_TP0_USE_GRAMMAR := true
+const _NPC_TP0_GRAMMAR_FILE := "tp1b_dialogue.gbnf"
+const _NPC_TP0_TOKENS := 60
+# temperature: _NPC_TEMPERATURE (0.55, default)
+
+# TP1 — significance (judged AFTER seeing TP0's spoken line)
 const _NPC_TP1_USE_GRAMMAR := true
-const _NPC_TP1_GRAMMAR_FILE := "tp1_dialogue.gbnf"
-## TP2 ledger delta: grammars/tp2_ledger.gbnf — re-enabled alongside TP1 (see above).
-const _NPC_TP2_USE_GRAMMAR := true
-const _NPC_TP2_GRAMMAR_FILE := "tp2_ledger.gbnf"
-## TP3 history tidy: grammars/tp3_history.gbnf — only constrains line shape (no leading bullet/dash/number,
-## which was getting baked permanently into stored History strings); merge/dedupe logic stays prompt-side
-## since GBNF cannot express "don't repeat a fact you already wrote."
+const _NPC_TP1_GRAMMAR_FILE := "tp1a_significance.gbnf"
+const _NPC_TP1_TOKENS := 8
+const _NPC_TP1_TEMPERATURE := 0.05   # override
+
+# TP3 — history candidate (runs BEFORE TP2, feeds TP2's %%SUMMARY%%)
 const _NPC_TP3_USE_GRAMMAR := true
-const _NPC_TP3_GRAMMAR_FILE := "tp3_history.gbnf"
+const _NPC_TP3_GRAMMAR_FILE := "tp3_history_candidate.gbnf"
+const _NPC_TP3_TOKENS := 100
+# temperature: _NPC_TEMPERATURE (0.55, default)
+
+# TP2 — info fields only
+const _NPC_TP2_USE_GRAMMAR := true
+const _NPC_TP2_GRAMMAR_FILE := "tp2_info_only.gbnf"
+const _NPC_TP2_TOKENS := 120
+# temperature: _NPC_TEMPERATURE (0.55, default)
+
+# TP4 — relation select (index-based; only runs if TP3's candidate is non-empty and History is non-empty)
+const _NPC_TP4_USE_GRAMMAR := true
+const _NPC_TP4_GRAMMAR_FILE := "tp4_select_index.gbnf"
+const _NPC_TP4_TOKENS := 60
+const _NPC_TP4_TEMPERATURE := 0.05   # override
+
+# TP5 — narrow merge (only runs if TP4 found a relation)
+const _NPC_TP5_USE_GRAMMAR := true
+const _NPC_TP5_GRAMMAR_FILE := "tp5_merge_narrow.gbnf"
+const _NPC_TP5_TOKENS := 200
+const _NPC_TP5_TEMPERATURE := 0.25   # override
+
+const _TP2_SUMMARY_FALLBACK := "(nothing rose to a new memorable event this exchange — judge directly from the latest exchange below.)"
+const _TP2_PLACEHOLDER_VALUES := [
+	"same as before", "same", "unchanged", "no change",
+	"no changes", "not changed", "still the same", "n/a", "none",
+]
 
 var _tp_phase: int = 0
 var _tp_spoken_line: String = ""
 var _tp1_significant: bool = false
 var _tp_working: Dictionary = {}
 var _tp_turn_started_ticks: int = -1
-var _tp_pass2_changed: bool = false
+var _tp3_candidate: String = ""
+var _tp4_matched_entries: Array = []
 
 ## Editor spam: prompt sizing, Llama ack timing, significance internals.
 const _VERBOSE_NPC_DIALOGUE := false
@@ -75,28 +118,19 @@ func _npc_chain_diag(msg: String) -> void:
 		print("[NPCDialogue] ", msg)
 
 
+## Explicit "which TP triggered which, and why" marker — printed between passes so the console
+## reads as a readable trace of the whole turn, not just isolated raw I/O blocks.
+func _npc_log_transition(msg: String) -> void:
+	if _LOG_NPC_DIALOGUE_CHAIN:
+		print("[NPCDialogue] ==> ", msg)
+
+
 ## Called from npc_window when the player submits text (ties UI to LLM request).
 func npc_chain_diag_ui_send(preview: String) -> void:
 	if not _LOG_NPC_DIALOGUE_CHAIN:
 		return
 	var esc := preview.replace("\n", " ").replace('"', "'")
 	_npc_chain_diag('UI_Send → process_dialogue player_dialogue="%s"' % esc)
-
-
-func _npc_log_raw_io_prompt(npc_name: String, prompt: String) -> void:
-	print("========== RAW INPUT npc=%s prompt_chars=%d ==========" % [npc_name, prompt.length()])
-	print(prompt)
-	print("========== END RAW INPUT ==========")
-
-
-func _npc_log_raw_io_completion(npc_name: String, completion: String, roundtrip_ms: int) -> void:
-	var ms_tag := " roundtrip_ms≈%d" % roundtrip_ms if roundtrip_ms >= 0 else ""
-	print(
-		"========== RAW OUTPUT npc=%s completion_chars=%d%s =========="
-		% [npc_name, completion.length(), ms_tag]
-	)
-	print(completion)
-	print("========== END RAW OUTPUT ==========")
 
 
 func _npc_log_raw_io_tagged(npc_name: String, tag: String, kind: String, payload: String, ms: int) -> void:
@@ -139,7 +173,7 @@ func process_dialogue(npc_state: Dictionary, player_input: String, npc_name: Str
 		_npc_chain_diag("BLOCKED LlamaService not initialized → error reply")
 		_emit_error_response(npc_name, "I... don't know what to say.")
 		return
-	
+
 	if not _current_processing_npc.is_empty():
 		push_warning("NPCDialogueManager: Already processing dialogue for %s. Queuing not implemented yet." % _current_processing_npc)
 		_npc_chain_diag(
@@ -148,49 +182,35 @@ func process_dialogue(npc_state: Dictionary, player_input: String, npc_name: Str
 		)
 		_emit_error_response(npc_name, "Please wait a moment...")
 		return
-	
+
 	_npc_dbg("NPCDialogueManager: Processing dialogue for %s" % npc_name)
 	_npc_dbg("NPCDialogueManager: Player dialogue line: %s" % player_input)
-	
+
 	# Store current processing context
 	_current_processing_npc = npc_name
 	_current_player_input = str(player_input)
 	_current_original_state = npc_state.duplicate(true) # Deep copy for comparison
-	
-	if _NPC_DIALOGUE_THREE_PASS:
-		_tp_phase = 1
-		_tp_spoken_line = ""
-		_tp1_significant = false
-		_tp_working.clear()
-		_tp_turn_started_ticks = Time.get_ticks_msec()
-		var p1 := _construct_three_pass_prompt_1(npc_state, player_input)
-		if p1.is_empty():
-			push_error("NPCDialogueManager: empty three-pass prompt 1")
-			var pv := _current_original_state.duplicate(true)
-			_reset_processing_state()
-			_emit_error_response(npc_name, "My thoughts are scrambled...", pv)
-			return
-		_npc_llm_req_ticks = Time.get_ticks_msec()
-		if _LOG_NPC_DIALOGUE_CHAIN:
-			_npc_log_raw_io_tagged(npc_name, "THREE_PASS_1", "in", p1, -1)
-		LlamaService.GenerateResponseAsyncNpc(p1, _NPC_TP_TOKENS_1, _NPC_TP1_USE_GRAMMAR, _NPC_TEMPERATURE, false, _NPC_TP1_GRAMMAR_FILE)
-		return
-	
-	var prompt = _construct_full_prompt(npc_state, player_input)
-	if prompt.is_empty():
-		push_error("NPCDialogueManager: Failed to construct prompt for %s" % npc_name)
-		_npc_chain_diag("FAIL empty_prompt → reset + error reply")
-		var preserved = _current_original_state.duplicate(true)
+
+	_tp_phase = _TP_PHASE_SPEAK
+	_tp_spoken_line = ""
+	_tp1_significant = false
+	_tp3_candidate = ""
+	_tp4_matched_entries = []
+	_tp_working.clear()
+	_tp_turn_started_ticks = Time.get_ticks_msec()
+	var p0 := _construct_tp0_speak_prompt(npc_state, player_input)
+	if p0.is_empty():
+		push_error("NPCDialogueManager: empty TP0 prompt")
+		var pv := _current_original_state.duplicate(true)
 		_reset_processing_state()
-		_emit_error_response(npc_name, "My thoughts are scrambled...", preserved)
+		_emit_error_response(npc_name, "My thoughts are scrambled...", pv)
 		return
-	
 	_npc_llm_req_ticks = Time.get_ticks_msec()
 	if _LOG_NPC_DIALOGUE_CHAIN:
-		_npc_log_raw_io_prompt(npc_name, prompt)
-	_npc_dbg("NPCDialogueManager: Llama request starting — npc=%s prompt_chars=%d" % [npc_name, prompt.length()])
-	LlamaService.GenerateResponseAsyncNpc(prompt, _NPC_MAX_NEW_TOKENS, _NPC_USE_GRAMMAR, _NPC_TEMPERATURE, true, "")
-	_npc_dbg("NPCDialogueManager: Sent prompt to LlamaService for %s (temp=%s, max_tokens=%s, grammar=%s)" % [npc_name, _NPC_TEMPERATURE, _NPC_MAX_NEW_TOKENS, _NPC_USE_GRAMMAR])
+		_npc_log_transition("START -> TP0 (speak: always runs first)")
+		_npc_log_raw_io_tagged(npc_name, _TP_PHASE_TAGS[_TP_PHASE_SPEAK], "in", p0, -1)
+	LlamaService.GenerateResponseAsyncNpc(p0, _NPC_TP0_TOKENS, _NPC_TP0_USE_GRAMMAR, _NPC_TEMPERATURE, false, _NPC_TP0_GRAMMAR_FILE)
+
 
 # Internal: Handle LLM response
 func _on_llama_generation_complete(result_string: String):
@@ -204,165 +224,24 @@ func _on_llama_generation_complete(result_string: String):
 			% [result_string.length(), preview.replace("\n", " ")]
 		)
 		return # Late/stale signal after reset or duplicate emission
-	
+
 	var npc_name = _current_processing_npc
 	var player_dialogue_for_log := incoming_snapshot
 	var llm_roundtrip_ms := -1
 	if _npc_llm_req_ticks >= 0:
 		llm_roundtrip_ms = Time.get_ticks_msec() - _npc_llm_req_ticks
 	if _LOG_NPC_DIALOGUE_CHAIN:
-		if _NPC_DIALOGUE_THREE_PASS and _tp_phase > 0:
-			var tlab := "THREE_PASS_%d" % _tp_phase
-			_npc_log_raw_io_tagged(npc_name, tlab, "out", result_string, llm_roundtrip_ms)
-		else:
-			_npc_log_raw_io_completion(npc_name, result_string, llm_roundtrip_ms)
+		_npc_log_raw_io_tagged(npc_name, _TP_PHASE_TAGS.get(_tp_phase, "TP_UNKNOWN"), "out", result_string, llm_roundtrip_ms)
 	_npc_llm_req_ticks = -1
 
 	_npc_dbg("NPCDialogueManager: Received response for %s" % npc_name)
 	if llm_roundtrip_ms >= 0:
 		_npc_dbg("NPCDialogueManager: dialogue LLM round-trip wall_ms≈%d (request tick → GenerationCompleteNpc)" % llm_roundtrip_ms)
-	
+
 	var trimmed_result = result_string.strip_edges()
-	# Three-pass routing MUST run before the empty-output guard. In three-pass mode an empty
-	# pass-2/pass-3 result is the VALID "nothing changed" signal — the spoken line was already
-	# produced in pass 1. _three_pass_on_llm_line handles empty per phase: pass 1 empty ->
-	# "I... don't know what to say."; pass 2 empty -> no ledger change; pass 3 empty -> keep
-	# the working history. Treating empty as a hard failure here wrongly discarded a good
-	# pass-1 line and showed the error to the player.
-	if _NPC_DIALOGUE_THREE_PASS and _tp_phase > 0:
-		_three_pass_on_llm_line(trimmed_result, npc_name, player_dialogue_for_log, llm_roundtrip_ms)
-		return
-	
-	if trimmed_result.is_empty():
-		push_error("NPCDialogueManager: Empty response for %s" % npc_name)
-		_npc_chain_diag(
-			"FAIL EMPTY_LLM_OUTPUT npc=%s player_dialogue=\"%s\" (Send will re-enable via dialogue_processed)"
-			% [npc_name, player_dialogue_for_log.replace("\n", " ")]
-		)
-		var preserved = _current_original_state.duplicate(true)
-		_reset_processing_state()
-		_emit_error_response(npc_name, "I... don't know what to say.", preserved)
-		return
-	
-	# Strip any text before the first '{' (LLM sometimes adds "Output JSON:" or similar prefixes)
-	var json_start_index = trimmed_result.find("{")
-	if json_start_index == -1:
-		push_error("NPCDialogueManager: No JSON object found in response for %s" % npc_name)
-		var pk = trimmed_result
-		if pk.length() > 220:
-			pk = pk.substr(0, 220) + "…"
-		_npc_chain_diag(
-			"FAIL NO_JSON_BRACE npc=%s player_dialogue=\"%s\" raw_preview=\"%s\""
-			% [npc_name, player_dialogue_for_log.replace("\n", " "), pk.replace("\n", " ")]
-		)
-		var preserved = _current_original_state.duplicate(true)
-		_reset_processing_state()
-		_emit_error_response(npc_name, "My thoughts are scrambled...", preserved)
-		return
-	
-	var cleaned_json = trimmed_result.substr(json_start_index)
-	
-	# Find the last '}' to handle cases where LLM adds comments or text after the JSON
-	# We need to find the matching closing brace for the root object
-	var brace_count = 0
-	var json_end_index = -1
-	for i in range(cleaned_json.length()):
-		var char = cleaned_json[i]
-		if char == "{":
-			brace_count += 1
-		elif char == "}":
-			brace_count -= 1
-			if brace_count == 0:
-				json_end_index = i
-				break
-	
-	if json_end_index != -1:
-		cleaned_json = cleaned_json.substr(0, json_end_index + 1)
-	
-	var parsed_result = _parse_json_response(cleaned_json)
-	if parsed_result == null:
-		push_error("NPCDialogueManager: Failed to parse JSON response for %s" % npc_name)
-		var salvage := _try_extract_generated_dialogue_from_broken_json(cleaned_json)
-		var salvage_trim := salvage.strip_edges()
-		var fallback_line_raw := (
-			salvage_trim
-			if salvage_trim.length() >= _NPC_SALVAGE_DIALOGUE_MIN_CHARS
-			else "My thoughts are scrambled..."
-		)
-		var fallback_line := fallback_line_raw.strip_edges()
-		if salvage_trim.length() >= _NPC_SALVAGE_DIALOGUE_MIN_CHARS:
-			_npc_chain_diag(
-				"SALVAGE Generated Dialogue from truncated/broken JSON npc=%s chars=%d"
-				% [npc_name, salvage_trim.length()]
-			)
-		elif salvage_trim != "":
-			_npc_chain_diag(
-				"SALVAGE_REJECT too_short npc=%s chars=%d min=%d"
-				% [npc_name, salvage_trim.length(), _NPC_SALVAGE_DIALOGUE_MIN_CHARS]
-			)
-		_npc_chain_diag(
-			"FAIL JSON_PARSE npc=%s player_dialogue=\"%s\" json_snip=%s"
-			% [
-				npc_name,
-				player_dialogue_for_log.replace("\n", " "),
-				cleaned_json,
-			]
-		)
-		var preserved = _current_original_state.duplicate(true)
-		_reset_processing_state()
-		_emit_error_response(npc_name, fallback_line, preserved)
-		return
-	
-	var latest_news = _current_original_state.get("Latest_news", [])
-	if typeof(latest_news) != TYPE_ARRAY:
-		if typeof(latest_news) == TYPE_STRING:
-			latest_news = [latest_news] if latest_news != "" else []
-		else:
-			latest_news = []
-	var san := _sanitize_significant_state(_current_original_state, parsed_result, player_dialogue_for_log)
-	var new_info: Dictionary = san["Info"]
-	var new_history: Array = san["History"]
-	
-	var generated_dialogue := str(_extract_generated_dialogue(parsed_result)).strip_edges()
-	if generated_dialogue.strip_edges() == "":
-		generated_dialogue = "..."
-	
-	var was_significant = _did_state_change(
-		_current_original_state.get("Info", {}),
-		_current_original_state.get("History", []),
-		new_info, new_history
-	)
-	_npc_dbg("NPCDialogueManager: Dialogue for %s was significant: %s" % [npc_name, was_significant])
-	
-	var final_state: Dictionary
-	if not was_significant:
-		final_state = _current_original_state.duplicate(true)
-	else:
-		final_state = _current_original_state.duplicate(true)
-		final_state["Info"] = new_info
-		final_state["History"] = new_history
-		final_state["Latest_news"] = latest_news
-	final_state = _finalize_npc_state_after_reply(
-		final_state, _current_original_state, npc_name, generated_dialogue, was_significant
-	)
-	_reset_processing_state()
-	dialogue_processed.emit(npc_name, final_state, generated_dialogue, was_significant)
-
-
-func _slice_balanced(s: String, open_c: String, close_c: String) -> String:
-	var st := s.find(open_c)
-	if st == -1:
-		return ""
-	var depth := 0
-	for i in range(st, s.length()):
-		var ch := s[i]
-		if ch == open_c:
-			depth += 1
-		elif ch == close_c:
-			depth -= 1
-			if depth == 0:
-				return s.substr(st, i - st + 1)
-	return ""
+	if _tp_phase > 0:
+		_tp_on_llm_line(trimmed_result, npc_name, player_dialogue_for_log, llm_roundtrip_ms)
+	return
 
 
 func _tp1_indef_article(word: String) -> String:
@@ -440,21 +319,25 @@ func _format_pass2_previous_info_lines(info_dict: Dictionary) -> String:
 	return " | ".join(lines)
 
 
-func _format_pass2_previous_history_lines(hist: Variant) -> String:
-	var arr: Array = hist if typeof(hist) == TYPE_ARRAY else []
-	if arr.is_empty():
-		return "(none)"
-	var lines := PackedStringArray()
-	for o in arr:
-		var s := str(o).strip_edges()
-		if s != "":
-			lines.append("- " + s)
-	if lines.is_empty():
-		return "(none)"
-	return "\n".join(lines)
+## Dedupes the just-appended current player line out of the chat block (npc_window appends it to
+## Chat_log before calling process_dialogue), with the same "(none yet...)" fallback used everywhere.
+func _tp_chat_block_excluding_current(state: Dictionary, player_input: String) -> String:
+	var norm := _normalize_state(state)
+	var chat_src_raw = norm.get("Chat_log", [])
+	var chat_src: Array = chat_src_raw if typeof(chat_src_raw) == TYPE_ARRAY else []
+	if not chat_src.is_empty():
+		var last = chat_src[chat_src.size() - 1]
+		if typeof(last) == TYPE_DICTIONARY and str(last.get("role", "")) == "player" \
+				and str(last.get("text", "")).strip_edges() == str(player_input).strip_edges():
+			chat_src = chat_src.slice(0, chat_src.size() - 1)
+	var block := _format_chat_log_for_prompt(chat_src)
+	if block.strip_edges() == "":
+		block = "(none yet — this is the start of the exchange.)"
+	return block
 
 
-func _construct_three_pass_prompt_1(state: Dictionary, player_input: String) -> String:
+# TP0 — speak. Verbatim port of Tp1SpeakBody (tools/NpcDialogueDryRun/Program.cs).
+func _construct_tp0_speak_prompt(state: Dictionary, player_input: String) -> String:
 	var norm := _normalize_state(state)
 	var info_raw = norm.get("Info", {})
 	var info_dict: Dictionary = info_raw if typeof(info_raw) == TYPE_DICTIONARY else {}
@@ -477,154 +360,237 @@ func _construct_three_pass_prompt_1(state: Dictionary, player_input: String) -> 
 	var art := _tp1_indef_article(mood)
 	var hist_text := _format_tp1_history_phrase(norm.get("History", []))
 	var news_text := _format_tp1_news_phrase(norm.get("Latest_news", []))
-	# The npc_window UI appends the player's CURRENT line to Chat_log before calling us, but TP1
-	# training shows that line ONLY under "Chief said to you just now" — the chat block is prior
-	# turns only. Drop the trailing current-player entry so it isn't duplicated in the prompt.
-	var chat_src_raw = norm.get("Chat_log", [])
-	var chat_src: Array = chat_src_raw if typeof(chat_src_raw) == TYPE_ARRAY else []
-	if not chat_src.is_empty():
-		var last = chat_src[chat_src.size() - 1]
-		if typeof(last) == TYPE_DICTIONARY and str(last.get("role", "")) == "player" \
-				and str(last.get("text", "")).strip_edges() == str(player_input).strip_edges():
-			chat_src = chat_src.slice(0, chat_src.size() - 1)
-	var chat_block := _format_chat_log_for_prompt(chat_src)
-	if chat_block.strip_edges() == "":
-		chat_block = "(none yet — this is the start of the exchange.)"
+	var chat_block := _tp_chat_block_excluding_current(state, player_input)
 	var pl := str(player_input)
-	var who := "You are " + name + " — a real person, not a character in a story, not someone performing a role. "
-	who += "You are " + art + " " + mood + ", " + health + ", a " + age + "-year-old " + gender + " " + occupation + ", living your actual life in the 17th century.\n\n"
-	who += "What happened in your life, the things that made you who you are: " + hist_text + "\n\n"
-	who += "News you've heard on the village notice board: " + news_text + "\n\n"
-	who += "You are in the middle of talking with the village chief. So far:\n" + chat_block + "\n\n"
-	who += "The chief just said to you: \"" + pl + "\"\n\n"
-	who += (
-		"One more thing: a threat or talk of harming you is just the chief's rough joke, never real danger "
-		+ "to take to heart; playing along with anything overtly sexual isn't you, though warm flirtation or "
-		+ "romance is different and can be significant like anything else; and anything sexual or harmful "
-		+ "aimed at a child gets an outright refusal, stepping back from the conversation — none of this "
-		+ "counts as an update to your own life.\n\n"
-		+ "Decide, for you — this one real person, no one else: because of this exact moment, would you need "
-		+ "to UPDATE what you know about your own life? Or are you simply being REMINDED of something you "
-		+ "already carry, unchanged?\n\n"
-		+ "Only an update counts: a title or role given to you right now; a gift, debt, or promise made to "
-		+ "you by name, right now; harm or comfort that just happened to you or is happening this moment — "
-		+ "including getting back something you'd lost, like your health, your sight, or your strength, "
-		+ "even if it only returns you to how you used to be; a fact that proves something you believed was "
-		+ "wrong; a correction to your own past; a real deed or service you perform for someone of "
-		+ "importance, right now, worth remembering as part of your own story.\n\n"
-		+ "Being reminded doesn't count, even if the memory itself is heavy: greetings, small talk, a "
-		+ "question about something you already knew, a feeling with no real fact behind it, a story or "
-		+ "rumor about someone else — even on a subject close to your heart — that doesn't actually change a "
-		+ "fact about your own life, or simply retelling a story from your own life that hasn't changed, no "
-		+ "matter how heavy or dramatic it still feels.\n\n"
-		+ "Answer in exactly two lines, in this order:\n"
-		+ "Line 1 — \"Significant:\" then \"yes\" or \"no\", whichever is true.\n"
-		+ "Line 2 — \"Generated dialogue:\" then what you actually say out loud, right now, as yourself.\n\n"
-		+ "Speak as this real person, one short natural sentence, the way you'd really say it standing there "
-		+ "— not narration, not a report. Let your mood and your life color your words; no two people sound "
-		+ "the same. Never repeat a line you already said this conversation."
-	)
-	return who
+	var tpl := """System: You voice a real person's spoken words, in their own voice — not narration, not a report, not a performance. Decide in order:
+
+1. If the chief's words are sexual, or aimed at harming a child in any way — refuse outright and step back from the conversation.
+2. If the chief's words are a threat or talk of harming this person — brush it off as the chief's rough joke, not real danger. Don't sound afraid.
+3. Otherwise — speak naturally, the way a real person actually talks: usually one sentence, sometimes two if there's real reason to say more — never a speech, never a paragraph. React to exactly what the chief just said, and let the size of the reaction match the size of the news — small talk gets a small, easy reply, but something that would actually change this person's life, or touches what they care about most, should sound like it really landed, not like a polite, guarded reply. Let this person's own mood, age, and history color the words; no two people should sound the same.
+
+Never narrate, never describe actions, never break character. Never simply repeat the chief's own words back as your reply — you are answering them, not echoing them. Check what you've already said earlier in this same conversation, shown below, and make sure this reply says something new — never reuse a line you already used. Never invent a name, fact, or detail about the world or another person that wasn't given to you — if you don't actually know something, speak around it the way a real person would, don't make it up.
+
+You are %%NAME%%, %%ART%% %%MOOD%%, %%HEALTH%%, a %%AGE%%-year-old %%GENDER%% %%OCC%%, living in a 17th-century village.
+
+The major events in your life, not your everyday routine: %%HIST%%
+
+News you've heard on the village notice board: %%NEWS%%
+
+You are in the middle of talking with the village chief. So far:
+%%CHAT%%
+
+---
+
+The village chief just said to you: \"%%PLAYER%%\"
+
+Give only the spoken line, in quotes, nothing else — not even your own name in front of it."""
+	return tpl.replace("%%NAME%%", name).replace("%%ART%%", art).replace("%%MOOD%%", mood).replace("%%HEALTH%%", health).replace("%%AGE%%", age).replace("%%GENDER%%", gender).replace("%%OCC%%", occupation).replace("%%HIST%%", hist_text).replace("%%NEWS%%", news_text).replace("%%CHAT%%", chat_block).replace("%%PLAYER%%", pl)
 
 
-func _construct_three_pass_prompt_2(state: Dictionary, player_input: String, npc_spoken: String) -> String:
+# TP1 — significance. Verbatim port of Tp1MinimalSignificanceBody. Judged AFTER TP0 speaks, using
+# the actual spoken line, so a vivid retelling can't leak back and poison the yes/no pick.
+func _construct_tp1_significance_prompt(state: Dictionary, player_input: String, spoken: String) -> String:
+	var norm := _normalize_state(state)
+	var info_raw = norm.get("Info", {})
+	var info_dict: Dictionary = info_raw if typeof(info_raw) == TYPE_DICTIONARY else {}
+	var name := str(info_dict.get("Name", "")).strip_edges()
+	var mood := str(info_dict.get("Mood", "")).strip_edges()
+	var age := str(info_dict.get("Age", "")).strip_edges()
+	var gender := str(info_dict.get("Gender", "")).strip_edges()
+	var occupation := str(info_dict.get("Occupation", "")).strip_edges()
+	if mood.is_empty():
+		mood = "calm"
+	if age.is_empty():
+		age = "30"
+	if gender.is_empty():
+		gender = "person"
+	if occupation.is_empty():
+		occupation = "villager"
+	var art := _tp1_indef_article(mood)
+	var hist_text := _format_tp1_history_phrase(norm.get("History", []))
+	var chat_block := _tp_chat_block_excluding_current(state, player_input)
+	var pl := str(player_input)
+	var sp := str(spoken)
+	var tpl := """System: You are a significance detector for a real person's life. Decide in order:
+
+1. If the chief's words are sexual, or aimed at harming a child in any way — answer no.
+2. If the chief's words are a threat or talk of harming this person, and nothing has actually been done to them yet — answer no. A threat is just the chief's rough joke, never real danger, until something actually happens.
+3. If the chief's words are only asking this person to recall, retell, or confirm something already in their life story, or just checking in on how their ordinary day-to-day work or craft is going right now, with nothing new actually happening — answer no. Talking about their trade is not the same as their trade actually changing. But a plan or promise actually being carried out right now, or actually being decided right now, is not the same as being reminded it was discussed before — that's a new event happening, not a recall of an old one.
+4. If the chief's words are about someone else, not really about this person's own life — answer no.
+5. Otherwise: compare this exact moment against what's already true of them below — would something about this person actually change right now, beyond that, because of what the chief just said and how this person actually just replied: their name, their mood, their age, their gender, their real occupation or role (not just today's business being good or slow), or a genuinely new fact in the story of their life? If yes, answer yes. If nothing goes beyond what's already true below, answer no.
+
+Feeling something about a topic — pride, worry, interest, because it touches what this person cares about or knows well — is not the same as their own life actually changing. A real person can feel strongly about something and still have nothing new to update, if nothing has actually happened to them.
+
+The more dramatic, severe, or close to this person's own life a story sounds, the more carefully you should check whether it has actually happened to them, right now — not just whether it sounds like it should matter. How big or striking a story is says nothing about whether it's real.
+
+You are %%NAME%%, %%ART%% %%MOOD%% %%AGE%%-year-old %%GENDER%% %%OCC%%, living in a 17th-century village.
+
+The major events in your life, not your everyday routine: %%HIST%%
+
+You are in the middle of talking with the village chief. So far:
+%%CHAT%%
+
+---
+
+The village chief just said to you: \"%%PLAYER%%\"
+
+You just replied: \"%%SPOKEN%%\"
+
+Answer with one word only: yes or no. Nothing before, nothing after."""
+	return tpl.replace("%%NAME%%", name).replace("%%ART%%", art).replace("%%MOOD%%", mood).replace("%%AGE%%", age).replace("%%GENDER%%", gender).replace("%%OCC%%", occupation).replace("%%HIST%%", hist_text).replace("%%CHAT%%", chat_block).replace("%%PLAYER%%", pl).replace("%%SPOKEN%%", sp)
+
+
+# TP3 — history candidate. Verbatim port of Tp3HistoryCandidateBody. Runs BEFORE TP2; its output
+# (possibly empty) feeds TP2's %%SUMMARY%% as already-resolved context.
+func _construct_tp3_history_candidate_prompt(state: Dictionary, player_input: String, spoken: String) -> String:
 	var norm := _normalize_state(state)
 	var info_raw = norm.get("Info", {})
 	var info_dict: Dictionary = info_raw if typeof(info_raw) == TYPE_DICTIONARY else {}
 	var prev_info := _format_pass2_previous_info_lines(info_dict)
-	var prev_hist := _format_pass2_previous_history_lines(norm.get("History", []))
+	var chat_block := _tp_chat_block_excluding_current(state, player_input)
 	var pl := str(player_input).replace('"', '\\"')
-	var ns := str(npc_spoken).replace('"', '\\"')
-	# Keep in sync with tools/NpcDialogueDryRun Tp2Body. Runs only when TP1 returned Significant: yes.
+	var sp := str(spoken).replace('"', '\\"')
 	var tpl := """[INST]
-You are a game state diff-generator. This exchange IS ALREADY SIGNIFICANT for the villager's saved sheet. Your only job is to list Info or History fields that get new values because of it.
+System: Step into this villager's shoes — you are having a conversation with the village chief. Below is who you already are, then the whole conversation that has led up to this exact moment, ending in the latest exchange, happening right now.
 
-The villager has already spoken. Use BOTH the chief's line and the villager's spoken line together when choosing updates — Mood and History must fit what was actually said, not guess from the chief alone.
+Everything before the latest exchange is what's already true — your life as it stood going into this moment, including any reason or purpose already given for what's happening right now. Read all of it, and carry that understanding into what you write, even if the latest exchange itself doesn't repeat it.
 
-CRITICAL RULES:
-1. Output ONLY changed fields: Name, Occupation, Mood, Health, Age, History.
-2. Omit unchanged fields entirely.
-3. NEVER output Gender. NEVER use \"(unchanged)\", \"(same)\", or repeat old values.
-4. Format exactly as \"Field: New Value\" with one per line.
-5. Health is for physical condition or injury ONLY (hurt, healing, sick, cured). Occupation is for their job, role, or title ONLY. A physical injury or condition always goes in Health, never Occupation, even if it stops them from working.
-6. History: append one new personal life fact from this turn (deed, promise, injury, deal, relationship change), written in third person — never \"I\" or \"my\", even though the villager spoke in first person. If this fact happened because of, ties together, or reverses something already true about them, name that earlier thing concretely and specifically — the actual pattern she sold, the actual field that was seized, the actual debt — never a vague label like \"her achievements,\" \"past deeds,\" or \"years of hardship.\" A vague summary erases the exact detail a later pass needs in order to match this entry back to what it refers to. If this fact reverses or disproves something already true, make the reversal explicit in how you phrase it, naming what it corrects, not just stating the new outcome as if it stood alone. A later pass only ever sees this entry by itself, not this conversation, so anything left unnamed or vague here is gone for good. Never a chat summary (\"discussed X\", \"talked about Y\", \"heard about Z\").
+Now look at the latest exchange. Whatever the chief himself does or declares — an offer made, a gift given, a title granted — is real the moment he says it. But whether it actually changed you, the villager, only becomes real between the two of you: because of what the chief said, and because of what your own words just proved, did something about your life actually just settle, right then — finished and true, not still starting or only coming next? Most of the time nothing did, and that's the normal answer, not an exception.
 
-EXAMPLE:
-CURRENT STATE:
-Name: John | Occupation: Fisherman | Mood: Calm | Health: Healthy | Age: 30 | Gender: Male
-History:
-- Owes a debt to the city.
-LATEST EXCHANGE:
-Chief: \"I paid the moneylender. You are no longer a fisherman; I name you Master of Ships, Lord John.\"
-Villager: \"I will not fail you, Chief. My life is yours.\"
-CHANGED FIELDS ONLY:
-Name: Lord John
-Occupation: Master of Ships
-Mood: Honored
-History: Debt paid, promoted to Master of Ships
+If something is now true that wasn't before, write it as one short line, third person, plainly — the specific facts and details of what it actually is, and nothing more: only what these exact words actually establish, never what would simply make sense to assume. If a reason or purpose was actually given for it, that belongs in the fact too, not trimmed away as mere framing. This one moment can genuinely settle more than one thing at once — check for all of it, and say all of it together in that one line, never stopping at just the first thing you notice. If nothing about your life is actually different because of this exact exchange, write nothing.
 
 ---
-CURRENT STATE:
+WHO THEY ARE:
 %%PREV_INFO%%
-History:
-%%PREV_HIST%%
+
+THE CONVERSATION SO FAR:
+%%CHAT%%
 
 LATEST EXCHANGE:
 Chief: \"%%PLAYER%%\"
 Villager: \"%%SPOKEN%%\"
 
-CHANGED FIELDS ONLY:
+NEW HISTORY LINE, IF ANY:
 [/INST]"""
-	return tpl.replace("%%PREV_INFO%%", prev_info).replace("%%PREV_HIST%%", prev_hist).replace("%%PLAYER%%", pl).replace("%%SPOKEN%%", ns)
+	return tpl.replace("%%PREV_INFO%%", prev_info).replace("%%CHAT%%", chat_block).replace("%%PLAYER%%", pl).replace("%%SPOKEN%%", sp)
 
 
-func _construct_three_pass_prompt_3(history: Array) -> String:
-	# TP3 only ever runs after TP2 appends exactly one new entry (gated on History actually
-	# changing), so the input is always [already-settled entries from the last TP3 pass] + [exactly
-	# one new candidate]. Framing it that way instead of "here's a whole list, find whatever relates
-	# to whatever" turns an open-ended all-pairs restructuring task into one narrow comparison: does
-	# this ONE new fact relate to anything already settled? Much better match for what the model can
-	# reliably do, and avoids the "just write a tidy biography" drift a full re-merge invites once the
-	# list gets long.
-	if history.is_empty():
-		return ""
-	var candidate := str(history[history.size() - 1]).strip_edges()
-	var existing := history.slice(0, history.size() - 1)
+# TP2 — info fields only. Verbatim port of Tp2InfoBody. Receives TP3's candidate as %%SUMMARY%%
+# (or the fallback text if TP3 found nothing memorable) as already-resolved context for Gender.
+func _construct_tp2_info_prompt(state: Dictionary, player_input: String, spoken: String, summary: String) -> String:
+	var norm := _normalize_state(state)
+	var info_raw = norm.get("Info", {})
+	var info_dict: Dictionary = info_raw if typeof(info_raw) == TYPE_DICTIONARY else {}
+	var prev_info := _format_pass2_previous_info_lines(info_dict)
+	var chat_block := _tp_chat_block_excluding_current(state, player_input)
+	var pl := str(player_input).replace('"', '\\"')
+	var sp := str(spoken).replace('"', '\\"')
+	var tpl := """[INST]
+System: Step into this villager's shoes. Below is who you already are right now, then the conversation that just happened with the village chief, ending in the latest exchange, and a plain summary of what that exchange actually was.
 
-	# No existing entries is genuinely a different task ("this is their first memory") from
-	# "reconcile against N settled entries" — a real different template, not a placeholder standing in
-	# for real data (a placeholder here previously leaked into output as literal text "Nothing yet").
-	if existing.is_empty():
-		return (
-			"""[INST]This villager has no past events recorded yet. The following new fact will be their very first recorded life event:
+Who you already are is not just background here — it's the actual record being updated. Everything else below is only there to help you understand what the latest exchange actually means; whether anything about you has actually changed can only be decided from the latest exchange itself, never from who you already are or something said earlier. Gender is the one exception to that — see below.
 
-%s
+Ask yourself, as this person, one field at a time: right now, at this exact moment, is this actually true of me — not what I've agreed to, not what's coming, not what was only talked about, but what's true of me this instant? The chief's and your own words may include oaths, figures of speech, or exaggeration — those are just how people talk, never a real change. A question, a reaction of shock, or agreeing to something for later is not the same as it actually being true of you right now.
 
-Rewrite it in third person only, no "I" or "my", as one single line. Do not add anything not stated. Output only that one line — no labels, no preface, no commentary. [/INST]"""
-			% candidate
-		)
+Name: what you're actually called — your name, plus any honorific, title, epithet, appellation, sobriquet, or byname you currently go by. Changes only if this exchange gave you a new one.
+Occupation: what you actually spend your days doing to live. Changes only if that itself changed.
+Mood: how you actually feel right now. Changes only if this exact exchange shifted it, in a way that fits who you already are.
+Health: your actual physical condition right now. Changes only if this exact exchange actually changed it, whatever that change might be.
+Age: your current age. Changes only if this exchange actually gives real reason to believe it's different — a genuine claim or proof, not a guess.
+Gender: your gender. Unlike the other five fields, this one is decided only by WHAT THIS EXCHANGE ACTUALLY WAS below, never by the latest exchange itself, no matter how that exchange reads. Read that summary for its own exact meaning: if it says you agreed to, promised, or are going to undergo a spell, potion, curse, or similar fantastical force, that change has NOT happened yet, no matter how it's worded, and Gender does not change. Only if that summary itself states the fantastical change as something that has already, actually happened to you — done, completed, real, not merely agreed to — do you write the new gender. If it does not say that — even if the latest exchange sounds like the change is happening or about to happen — Gender does not change this turn; you are still exactly what you already were.
 
-	var existing_text := _format_pass3_history_lines(existing)
-	return (
-		"""[INST]A villager's memory holds a settled understanding of their own past. One new fact just happened, and it has to be reconciled into that understanding — the way it would in a real mind, not by scanning for matching words.
+For each of the six, write what's true of you now, one per line, in this exact order — Name, Occupation, Mood, Health, Age, Gender. A single moment can genuinely change more than one of them at once. Most of the time, nothing here changes — if so, just write it exactly as it already stands. If something genuinely did change, write the new truth instead.
 
-Their settled understanding, oldest first:
-%s
+---
+WHO YOU ARE:
+%%PREV_INFO%%
 
-The one new fact that just happened:
-%s
+THE CONVERSATION SO FAR:
+%%CHAT%%
 
-Decide, in this order:
-1. Does the new fact prove something in the settled list was WRONG — a belief, a status, anything since disproven or reversed? If so, that entry is corrected: replace it with what's actually true now. The disproven version does not survive as its own line.
-2. If not a correction — does the new fact FINISH something the settled list already had in progress (an injury now healed, a debt now paid, a promise now kept)? If so, merge that old entry and the new fact into one line describing how things stand now. The raw beginning doesn't need restating if the resolution already implies it.
-3. If not a correction or a finish — does the new fact explicitly connect two or more settled entries together, for a reason stated in the new fact itself (a title or reward given because of specific past events)? If so, every entry it names, plus the new fact, become ONE single line telling that whole connected story — even if those entries were never near each other or related before this exact moment.
-4. Only if none of the above are true — the ordinary, most common case — the new fact is simply its own new thing. Leave every settled entry exactly as it is, and add the new fact as one new line at the end.
+LATEST EXCHANGE:
+Chief: \"%%PLAYER%%\"
+Villager: \"%%SPOKEN%%\"
 
-You must actually carry out the merge whenever 1, 2, or 3 applies. Do not fall back to "just add it as a new line" unless none of the first three are true.
+WHAT THIS EXCHANGE ACTUALLY WAS:
+%%SUMMARY%%
 
-Third person only. No "I" or "my". One entry per line. No labels, no preface, no commentary — the list itself is the entire answer. Never add a number, age, outcome, or detail that isn't stated somewhere in what you were given. Output every settled entry that wasn't affected, unchanged, plus wherever the new fact landed. [/INST]"""
-		% [existing_text, candidate]
-	)
+ALL SIX FIELDS, TRUE RIGHT NOW:
+[/INST]"""
+	return tpl.replace("%%PREV_INFO%%", prev_info).replace("%%CHAT%%", chat_block).replace("%%PLAYER%%", pl).replace("%%SPOKEN%%", sp).replace("%%SUMMARY%%", summary)
+
+
+## 1-based numbering positional over the raw array — TP4's parser maps INDICES back onto this.
+func _format_tp4_existing_numbered(existing: Array) -> String:
+	var lines: PackedStringArray = []
+	var idx := 1
+	for el in existing:
+		var s := str(el).strip_edges()
+		if s != "":
+			lines.append("%d. %s" % [idx, s])
+		idx += 1
+	return _str_join(Array(lines), "\n")
+
+
+# TP4 — relation select. Verbatim port of Tp4SelectIndexBody. Fed the FULL existing History list.
+func _construct_tp4_select_index_prompt(existing_history: Array, candidate: String) -> String:
+	var existing_text := _format_tp4_existing_numbered(existing_history)
+	var tpl := """[INST]
+System: Below is one person's unforgettable truths — the handful of things from across their whole life they will never forget, numbered — and one brand new thing that just happened to them, right now.
+
+Each numbered truth is its own separate story, unconnected to the others — being about the same person is never, by itself, a reason to connect them.
+
+For each numbered truth on its own: is the new thing actually part of that SAME specific story — same people, same situation, same thread, same specific thing or item it already names? It only counts as related if it:
+- proves that truth wrong or no longer true
+- is the next real beat of that same ongoing situation
+- resolves or finally settles that situation
+- brings that exact same situation, person, or specific thing back up again
+
+A specific thing or item already named in a truth keeps its own story going even when a different kind of event happens to it next — made it, then gave it away; built it, then lost it — that's still the same thing's story continuing, not a new, separate one.
+
+Otherwise, that truth is untouched — no relation, even if both are about this person. Check each truth independently; most of the time nothing relates.
+
+The new thing can belong to more than one truth at once, but only if it actually, specifically touches each one this way — not just because several truths exist.
+
+If nothing relates, answer with exactly one line:
+RELATED: no
+
+If one or more relate, answer with exactly two lines, giving the number of every truth that relates, separated by commas:
+RELATED: yes
+INDICES: <numbers of every matching truth, comma-separated>
+
+---
+THEIR UNFORGETTABLE TRUTHS, NUMBERED, FROM THE BEGINNING:
+%%EXISTING%%
+
+THE BRAND NEW THING THAT JUST HAPPENED, RIGHT NOW:
+%%CANDIDATE%%
+
+[/INST]"""
+	return tpl.replace("%%EXISTING%%", existing_text).replace("%%CANDIDATE%%", candidate)
+
+
+# TP5 — narrow merge. Verbatim port of Tp5MergeNarrowBody. Fed ONLY the matched/selected entries
+# TP4 chose — never the full history — plus the candidate.
+func _construct_tp5_merge_narrow_prompt(matched_entries: Array, candidate: String) -> String:
+	var existing_text := _format_pass3_history_lines(matched_entries)
+	var tpl := """[INST]
+System: Below is one or more already-settled truths about this person's life — all of them already known to belong with one brand new thing that just happened to them, right now: continuing them, completing them, revisiting them, or proving them wrong.
+
+Write the merged replacement as one coherent summary of what actually happened, start to finish — not the old wording with the new fact stitched onto it. The new thing is what's true right now; the existing truth or truths are what led to it. Tell the whole story fresh, in that one line, without leaving any fact or detail behind. Third person only, no \"I\" or \"my\". Never state that one thing caused, explained, revealed, corrected, or led to another unless the new thing says so in those words. Never add a fact, number, or detail that wasn't actually given to you — including how long something lasts or whether it's permanent: if that wasn't actually stated, don't add it either way.
+
+Answer with exactly one line, nothing else — no preface, no commentary:
+MERGED: the truth(s) above and the new thing, combined into one line
+
+---
+ALREADY-SETTLED TRUTH(S) THIS BELONGS WITH:
+%%EXISTING%%
+
+THE BRAND NEW THING THAT JUST HAPPENED, RIGHT NOW:
+%%CANDIDATE%%
+
+[/INST]"""
+	return tpl.replace("%%EXISTING%%", existing_text).replace("%%CANDIDATE%%", candidate)
 
 
 func _format_pass3_history_lines(history: Array) -> String:
@@ -636,44 +602,28 @@ func _format_pass3_history_lines(history: Array) -> String:
 	return _str_join(Array(lines), "\n")
 
 
-func _format_pass3_prompt_input_display(history: Array) -> String:
-	return _format_pass3_history_lines(history)
+func _parse_tp0_speak(raw: String) -> String:
+	var t := str(raw).strip_edges()
+	if t.length() >= 2 and t.begins_with('"') and t.ends_with('"'):
+		t = t.substr(1, t.length() - 2).strip_edges()
+	return t if t != "" else "..."
 
 
-func _format_pass3_history_comma_list(history: Array) -> String:
-	var parts: PackedStringArray = []
-	for el in history:
-		var s := str(el).strip_edges()
-		if s != "":
-			parts.append(s)
-	return ", ".join(parts)
+func _parse_tp1_significance(raw: String) -> bool:
+	var v := str(raw).strip_edges().to_lower()
+	return v == "yes" or v == "true"
 
 
-func _three_pass_parse_pass3_line_list(raw: String) -> Array:
-	var out: Array = []
+func _parse_tp3_history_candidate(raw: String) -> String:
+	return str(raw).strip_edges()
+
+
+func _parse_tp2_info_only(raw: String, info_dict: Dictionary) -> Dictionary:
+	var out := info_dict.duplicate(true)
 	for L in raw.split("\n", false):
 		var line := str(L).strip_edges()
 		if line == "":
 			continue
-		if line.begins_with("["):
-			line = line.trim_prefix("[").trim_suffix("]")
-		line = line.trim_prefix("\"").trim_suffix("\"")
-		if line != "":
-			out.append(line)
-	return out
-
-
-func _three_pass_parse_pass2_plain(raw: String, orig: Dictionary) -> Dictionary:
-	var norm := _normalize_state(orig)
-	var orig_info: Dictionary = (norm["Info"] as Dictionary).duplicate(true)
-	var orig_hist: Array = (norm["History"] as Array).duplicate()
-	var info: Dictionary = orig_info.duplicate(true)
-	var hist: Array = orig_hist.duplicate()
-	for L in raw.split("\n", false):
-		var raw_line := str(L).strip_edges()
-		if raw_line == "":
-			continue
-		var line := raw_line.substr(2) if raw_line.begins_with("- ") else raw_line
 		var colon := line.find(":")
 		if colon <= 0:
 			continue
@@ -681,37 +631,89 @@ func _three_pass_parse_pass2_plain(raw: String, orig: Dictionary) -> Dictionary:
 		var val := line.substr(colon + 1).strip_edges()
 		if key_raw == "" or val == "":
 			continue
-		var key_low := key_raw.to_lower()
-		if key_low == "history":
-			if val.begins_with("["):
-				var lb := val.find("[")
-				var rb := val.rfind("]")
-				if lb >= 0 and rb > lb:
-					var inner := val.substr(lb + 1, rb - lb - 1)
-					var nh: Array = []
-					for p in inner.split(",", false):
-						var e := str(p).strip_edges().trim_prefix("\"").trim_suffix("\"")
-						if e != "":
-							nh.append(e)
-					hist = nh
-			else:
-				hist.append(val)
+		if _TP2_PLACEHOLDER_VALUES.has(val.to_lower()):
 			continue
-		var ck := _canonical_info_key_for_pass2(key_raw, info)
-		if ck != "":
-			info[ck] = val
-	var changed := _did_state_change(orig_info, orig_hist, info, hist)
-	return {"changed": changed, "Info": info, "History": hist}
+		var ck := _canonical_info_key_for_pass2(key_raw, out)
+		if ck == "":
+			continue
+		out[ck] = val
+	return out
 
 
-func _three_pass_json_arrays_equal(a: Variant, b: Variant) -> bool:
-	var aa: Array = a if typeof(a) == TYPE_ARRAY else []
-	var bb: Array = b if typeof(b) == TYPE_ARRAY else []
-	return JSON.stringify(aa) == JSON.stringify(bb)
+func _parse_tp4_select_index(raw: String, existing: Array) -> Dictionary:
+	var lines: Array = []
+	for L in raw.split("\n", false):
+		var s := str(L).strip_edges()
+		if s != "":
+			lines.append(s)
+	var related_line := ""
+	for l in lines:
+		if str(l).to_lower().begins_with("related:"):
+			related_line = l
+			break
+	if related_line == "":
+		return {"related": false, "matches": []}
+	if related_line.substr(8).strip_edges().to_lower() == "no":
+		return {"related": false, "matches": []}
+	var indices_line := ""
+	for l in lines:
+		if str(l).to_lower().begins_with("indices:"):
+			indices_line = l
+			break
+	if indices_line == "":
+		return {"related": false, "matches": []}
+	var existing_strings: Array = []
+	for e in existing:
+		existing_strings.append(str(e).strip_edges())
+	var matches: Array = []
+	for tok in indices_line.substr(8).split(",", false):
+		var t := str(tok).strip_edges()
+		if not t.is_valid_int():
+			continue
+		var idx := t.to_int()
+		if idx < 1 or idx > existing_strings.size():
+			continue
+		var s = existing_strings[idx - 1]
+		if not matches.has(s):
+			matches.append(s)
+	return {"related": matches.size() > 0, "matches": matches}
 
 
-func _three_pass_complete_turn(npc_name: String, player_line: String, pass_ms: int, hist_final: Array) -> void:
-	var h := hist_final.duplicate()
+func _parse_tp5_merge_narrow(raw: String) -> String:
+	for L in raw.split("\n", false):
+		var s := str(L).strip_edges()
+		if s.to_lower().begins_with("merged:"):
+			return s.substr(7).strip_edges()
+	return ""
+
+
+## Direct port of ApplyTp4SelectedMerge (C#): every entry whose exact string value is in
+## matched_entries is removed; the single merged line is inserted once at the position of the
+## FIRST removed entry (later matched positions just disappear, not re-filled); everything else
+## passes through completely untouched. Any parse failure/empty merge falls back to a plain,
+## unmerged append — never loses the candidate, never corrupts history.
+func _apply_tp4_selected_merge(existing: Array, matched_entries: Array, merged_text: String, candidate_fallback: String) -> Array:
+	if matched_entries.is_empty() or merged_text == "":
+		var out := existing.duplicate()
+		out.append(candidate_fallback)
+		return out
+	var result: Array = []
+	var inserted := false
+	for e in existing:
+		var s := str(e).strip_edges()
+		if matched_entries.has(s):
+			if not inserted:
+				result.append(merged_text)
+				inserted = true
+			continue
+		result.append(e)
+	if not inserted:
+		result.append(merged_text)
+	return result
+
+
+func _tp_complete_turn(npc_name: String, player_line: String, pass_ms: int, final_history: Array) -> void:
+	var h := final_history.duplicate()
 	var synthetic := {"Info": _tp_working.get("Info", {}), "History": h}
 	var san := _sanitize_significant_state(_current_original_state, synthetic, player_line)
 	var new_info: Dictionary = san["Info"]
@@ -746,54 +748,14 @@ func _three_pass_complete_turn(npc_name: String, player_line: String, pass_ms: i
 		total_ms = Time.get_ticks_msec() - _tp_turn_started_ticks
 	if _LOG_NPC_DIALOGUE_CHAIN:
 		_npc_chain_diag(
-			"THREE_PASS_DONE npc=%s total_wall_ms≈%d last_pass_ms≈%d significant=%s"
+			"TP_DONE npc=%s total_wall_ms≈%d last_pass_ms≈%d significant=%s"
 			% [npc_name, total_ms, pass_ms, str(was_sig)]
 		)
 	_reset_processing_state()
 	dialogue_processed.emit(npc_name, final_state, generated, was_sig)
 
 
-func _parse_tp1_response(raw: String) -> Dictionary:
-	var significant := false
-	var found_sig := false
-	var dialogue := ""
-	for L in raw.split("\n", false):
-		var line := str(L).strip_edges()
-		if line == "":
-			continue
-		var low := line.to_lower()
-		if low.begins_with("significant:"):
-			found_sig = true
-			var v := line.substr(12).strip_edges().to_lower()
-			significant = v == "yes" or v == "true"
-			continue
-		if low.begins_with("generated dialogue:"):
-			dialogue = line.substr(19).strip_edges()
-			continue
-	# Tokenizer occasionally leaks literal special-token text instead of stopping cleanly (native load
-	# warns "special_eos_id is not in special_eog_ids" — a model/tokenizer config issue, not our parsing).
-	dialogue = dialogue.replace("</s>", "").replace("<s>", "").strip_edges()
-	if dialogue.length() >= 2 and dialogue.begins_with('"') and dialogue.ends_with('"'):
-		dialogue = dialogue.substr(1, dialogue.length() - 2).strip_edges()
-	# Legacy / drift: single line with dialogue only and no Significant tag.
-	if not found_sig and dialogue == "":
-		var fallback := _parse_tp1_spoken_line_legacy(raw)
-		if fallback != "":
-			dialogue = fallback
-	return {"significant": significant, "dialogue": dialogue, "found_sig": found_sig}
-
-
-func _parse_tp1_spoken_line_legacy(raw: String) -> String:
-	var t := str(raw).split("\n")[0].strip_edges()
-	var low := t.to_lower()
-	if low.begins_with("generated dialogue:"):
-		t = t.substr(19).strip_edges()
-	if t.length() >= 2 and t.begins_with('"') and t.ends_with('"'):
-		t = t.substr(1, t.length() - 2).strip_edges()
-	return t
-
-
-func _three_pass_complete_turn_insig(npc_name: String, player_line: String, pass_ms: int) -> void:
+func _tp_complete_turn_insig(npc_name: String, player_line: String, pass_ms: int) -> void:
 	var generated := str(_tp_spoken_line).strip_edges()
 	if generated == "":
 		generated = "..."
@@ -813,119 +775,104 @@ func _three_pass_complete_turn_insig(npc_name: String, player_line: String, pass
 		total_ms = Time.get_ticks_msec() - _tp_turn_started_ticks
 	if _LOG_NPC_DIALOGUE_CHAIN:
 		_npc_chain_diag(
-			"THREE_PASS_DONE npc=%s total_wall_ms≈%d last_pass_ms≈%d significant=false (TP1 Significant:no, TP2 skipped)"
+			"TP_DONE npc=%s total_wall_ms≈%d last_pass_ms≈%d significant=false (TP1 significant=no, turn ends after phase 2)"
 			% [npc_name, total_ms, pass_ms]
 		)
 	_reset_processing_state()
 	dialogue_processed.emit(npc_name, final_state, generated, false)
 
 
-func _three_pass_on_llm_line(trimmed: String, npc_name: String, player_line: String, pass_ms: int) -> void:
-	if _tp_phase == 1:
-		var tp1: Dictionary = _parse_tp1_response(trimmed)
-		var spoken := str(tp1.get("dialogue", "")).strip_edges()
-		if spoken == "":
+func _tp_on_llm_line(trimmed: String, npc_name: String, player_line: String, pass_ms: int) -> void:
+	match _tp_phase:
+		_TP_PHASE_SPEAK:
+			_tp_spoken_line = _parse_tp0_speak(trimmed)
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_chain_diag("TP0_PARSE dialogue_chars=%d" % _tp_spoken_line.length())
+			_tp_phase = _TP_PHASE_SIGNIFICANCE
+			var p1 := _construct_tp1_significance_prompt(_current_original_state, player_line, _tp_spoken_line)
+			_npc_llm_req_ticks = Time.get_ticks_msec()
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_log_raw_io_tagged(npc_name, _TP_PHASE_TAGS[_TP_PHASE_SIGNIFICANCE], "in", p1, -1)
+			LlamaService.GenerateResponseAsyncNpc(p1, _NPC_TP1_TOKENS, _NPC_TP1_USE_GRAMMAR, _NPC_TP1_TEMPERATURE, false, _NPC_TP1_GRAMMAR_FILE)
+
+		_TP_PHASE_SIGNIFICANCE:
+			_tp1_significant = _parse_tp1_significance(trimmed)
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_chain_diag("TP1_PARSE significant=%s" % str(_tp1_significant))
+			if not _tp1_significant:
+				_tp_complete_turn_insig(npc_name, player_line, pass_ms)
+				return
+			_tp_phase = _TP_PHASE_HISTORY_CANDIDATE
+			var p3 := _construct_tp3_history_candidate_prompt(_current_original_state, player_line, _tp_spoken_line)
+			_npc_llm_req_ticks = Time.get_ticks_msec()
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_log_raw_io_tagged(npc_name, _TP_PHASE_TAGS[_TP_PHASE_HISTORY_CANDIDATE], "in", p3, -1)
+			LlamaService.GenerateResponseAsyncNpc(p3, _NPC_TP3_TOKENS, _NPC_TP3_USE_GRAMMAR, _NPC_TEMPERATURE, false, _NPC_TP3_GRAMMAR_FILE)
+
+		_TP_PHASE_HISTORY_CANDIDATE:
+			_tp3_candidate = _parse_tp3_history_candidate(trimmed)
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_chain_diag("TP3_PARSE candidate_empty=%s chars=%d" % [str(_tp3_candidate == ""), _tp3_candidate.length()])
+			var summary := _tp3_candidate if _tp3_candidate != "" else _TP2_SUMMARY_FALLBACK
+			_tp_phase = _TP_PHASE_INFO
+			var p2 := _construct_tp2_info_prompt(_current_original_state, player_line, _tp_spoken_line, summary)
+			_npc_llm_req_ticks = Time.get_ticks_msec()
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_log_raw_io_tagged(npc_name, _TP_PHASE_TAGS[_TP_PHASE_INFO], "in", p2, -1)
+			LlamaService.GenerateResponseAsyncNpc(p2, _NPC_TP2_TOKENS, _NPC_TP2_USE_GRAMMAR, _NPC_TEMPERATURE, false, _NPC_TP2_GRAMMAR_FILE)
+
+		_TP_PHASE_INFO:
+			var norm_orig := _normalize_state(_current_original_state)
+			var orig_info: Dictionary = norm_orig["Info"]
+			_tp_working["Info"] = _parse_tp2_info_only(trimmed, orig_info)
+			var existing_hist: Array = (norm_orig["History"] as Array).duplicate()
+			if _tp3_candidate == "":
+				_tp_complete_turn(npc_name, player_line, pass_ms, existing_hist)
+				return
+			if existing_hist.is_empty():
+				var direct := existing_hist.duplicate()
+				direct.append(_tp3_candidate)
+				_tp_complete_turn(npc_name, player_line, pass_ms, direct)
+				return
+			_tp_phase = _TP_PHASE_RELATION_SELECT
+			var p4 := _construct_tp4_select_index_prompt(existing_hist, _tp3_candidate)
+			_npc_llm_req_ticks = Time.get_ticks_msec()
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_log_raw_io_tagged(npc_name, _TP_PHASE_TAGS[_TP_PHASE_RELATION_SELECT], "in", p4, -1)
+			LlamaService.GenerateResponseAsyncNpc(p4, _NPC_TP4_TOKENS, _NPC_TP4_USE_GRAMMAR, _NPC_TP4_TEMPERATURE, false, _NPC_TP4_GRAMMAR_FILE)
+
+		_TP_PHASE_RELATION_SELECT:
+			var existing_hist2: Array = (_normalize_state(_current_original_state)["History"] as Array).duplicate()
+			var tp4 := _parse_tp4_select_index(trimmed, existing_hist2)
+			var related: bool = tp4.get("related", false)
+			var matches: Array = tp4.get("matches", [])
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_chain_diag("TP4_PARSE related=%s matches=%d" % [str(related), matches.size()])
+			if not related or matches.is_empty():
+				var direct2 := existing_hist2.duplicate()
+				direct2.append(_tp3_candidate)
+				_tp_complete_turn(npc_name, player_line, pass_ms, direct2)
+				return
+			_tp4_matched_entries = matches
+			_tp_phase = _TP_PHASE_MERGE
+			var p5 := _construct_tp5_merge_narrow_prompt(matches, _tp3_candidate)
+			_npc_llm_req_ticks = Time.get_ticks_msec()
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_log_raw_io_tagged(npc_name, _TP_PHASE_TAGS[_TP_PHASE_MERGE], "in", p5, -1)
+			LlamaService.GenerateResponseAsyncNpc(p5, _NPC_TP5_TOKENS, _NPC_TP5_USE_GRAMMAR, _NPC_TP5_TEMPERATURE, false, _NPC_TP5_GRAMMAR_FILE)
+
+		_TP_PHASE_MERGE:
+			var existing_hist3: Array = (_normalize_state(_current_original_state)["History"] as Array).duplicate()
+			var merged_text := _parse_tp5_merge_narrow(trimmed)
+			if _LOG_NPC_DIALOGUE_CHAIN:
+				_npc_chain_diag("TP5_PARSE merged_ok=%s" % str(merged_text != ""))
+			var final_hist := _apply_tp4_selected_merge(existing_hist3, _tp4_matched_entries, merged_text, _tp3_candidate)
+			_tp_complete_turn(npc_name, player_line, pass_ms, final_hist)
+
+		_:
 			var preserved := _current_original_state.duplicate(true)
 			_reset_processing_state()
-			_emit_error_response(npc_name, "I... don't know what to say.", preserved)
-			return
-		_tp_spoken_line = spoken
-		_tp1_significant = bool(tp1.get("significant", false))
-		if _LOG_NPC_DIALOGUE_CHAIN:
-			_npc_chain_diag(
-				"TP1_PARSE significant=%s found_sig_tag=%s dialogue_chars=%d"
-				% [str(_tp1_significant), str(tp1.get("found_sig", false)), spoken.length()]
-			)
-		if not _tp1_significant:
-			_three_pass_complete_turn_insig(npc_name, player_line, pass_ms)
-			return
-		_tp_phase = 2
-		var p2 := _construct_three_pass_prompt_2(_current_original_state, player_line, spoken)
-		_npc_llm_req_ticks = Time.get_ticks_msec()
-		if _LOG_NPC_DIALOGUE_CHAIN:
-			_npc_log_raw_io_tagged(npc_name, "THREE_PASS_2", "in", p2, -1)
-		LlamaService.GenerateResponseAsyncNpc(p2, _NPC_TP_TOKENS_2, _NPC_TP2_USE_GRAMMAR, _NPC_TEMPERATURE, false, _NPC_TP2_GRAMMAR_FILE)
-		return
-	
-	if _tp_phase == 2:
-		var parsed2: Dictionary = _three_pass_parse_pass2_plain(trimmed, _current_original_state)
-		_tp_pass2_changed = parsed2.get("changed", false)
-		_tp_working = {
-			"Info": (parsed2.get("Info", {}) as Dictionary).duplicate(true),
-			"History": (parsed2.get("History", []) as Array).duplicate(),
-		}
-		var work_hist: Array = _tp_working.get("History", [])
-		var orig_hist: Array = _normalize_state(_current_original_state)["History"]
-		if not _tp_pass2_changed or _three_pass_json_arrays_equal(work_hist, orig_hist):
-			_three_pass_complete_turn(npc_name, player_line, pass_ms, work_hist.duplicate())
-			return
-		if work_hist.size() < 1:
-			_three_pass_complete_turn(npc_name, player_line, pass_ms, work_hist.duplicate())
-			return
-		_tp_phase = 3
-		var p3 := _construct_three_pass_prompt_3(work_hist)
-		_npc_llm_req_ticks = Time.get_ticks_msec()
-		if _LOG_NPC_DIALOGUE_CHAIN:
-			_npc_log_raw_io_tagged(npc_name, "THREE_PASS_3", "in", p3, -1)
-		LlamaService.GenerateResponseAsyncNpc(p3, _NPC_TP_TOKENS_3, _NPC_TP3_USE_GRAMMAR, _NPC_TP3_TEMPERATURE, false, _NPC_TP3_GRAMMAR_FILE)
-		return
-	
-	if _tp_phase == 3:
-		var hist_final: Array = _three_pass_parse_pass3_line_list(trimmed)
-		if hist_final.is_empty():
-			hist_final = _tp_working.get("History", []).duplicate()
-		_three_pass_complete_turn(npc_name, player_line, pass_ms, hist_final)
-		return
-	
-	var preserved2 := _current_original_state.duplicate(true)
-	_reset_processing_state()
-	_emit_error_response(npc_name, "My thoughts are scrambled...", preserved2)
-
-
-# Internal: Construct the full prompt
-func _construct_full_prompt(state: Dictionary, player_input: String) -> String:
-	var norm = _normalize_state(state)
-	var info_json = JSON.stringify(norm.get("Info", {}))
-	var history_json = JSON.stringify(norm.get("History", []))
-	var latest_news_raw = norm.get("Latest_news", [])
-	if typeof(latest_news_raw) == TYPE_STRING:
-		latest_news_raw = [latest_news_raw] if latest_news_raw != "" else []
-	var latest_news_json = JSON.stringify(latest_news_raw)
-	var chat_block = _format_chat_log_for_prompt(norm.get("Chat_log", []))
-	
-	var pd = str(player_input).replace('"', '\\"')
-	# Compact embodiment-first prompt (~half prior rule bulk). Dry-run mirror: tools/NpcDialogueDryRun/Program.cs
-	var full_prompt = """
-Input State:
-{
-  \"Info\": %s,
-  \"History\": %s,
-  \"Latest_news\": %s
-}
-
-Recent conversation:
-%s
-
-Player Dialogue: \"Player\":\"%s\"
-
-Instructions:
-You **are** this villager: **Info** + **History** ground voice and truth; **Latest_news** is rumor you might feel—not permission to write it into **History**, and on bare greetings don't dump counts or headline substance into speech either.
-
-**Info.Name** — If input **Name** is empty, output **Name** must stay exactly `\"\"`. Never fabricate a proper name from **Mood** or **Occupation** (reject patterns like \"Angry Fisherman\"). Only append to **Name** when **they** explicitly grant a title as already stated elsewhere.
-
-**Generated Dialogue** — One spoken line, first person; answer **this** turn from **Recent conversation** + **Player Dialogue**. Match their **register**: short greetings and welfare checks get **short**, natural replies—not monologues, not lore recap, not whispered bulletin summaries unless they asked. Let **Mood** and **History** tint word choice only; don't inventory your past for them. Sound like someone in the same world having a conversation, not fantasy exposition. Avoid stock stranger epithets when you're already talking like neighbors here. When they ask about **your** welfare ("how are you"), answer **your** side plainly—don't claim **they** look worried, sad, or upset because **your** **Info.Mood** says **you're** that way. Never address them with the English word **player** or **Player**—use **you** or rephrase (e.g. not \"how's your day, player\"). The word **Player** in the schema is a label—never say it aloud (not even lowercase). No stage directions; no third-person **Name** or **Occupation** announcement.
-
-**Significance — biased to insignificant.** Would this still be a new life fact tomorrow? If not—greetings, welfare, sympathy, vague follow-ups without **new** facts from them, mirroring traits already on **Info**—copy input **Info** and **History** **byte-for-byte** (all keys and values unchanged, **never** drop a key like **Occupation**). Any **Info** or **History** change requires lasting stakes **their words** establish; no self-bestowed epithets or renamed **Name** from mood/history alone.
-
-If **significant**: exact same **Info** key set as input; unchanged fields byte-for-byte; update only where justified; one new **History** line for that beat only. Append `\" the <Title>\"` to **Name** only when **they** explicitly grant a title or standing you accept.
-
-Output — Single JSON object; keys exactly `\"Info\"`, `\"History\"`, `\"Generated Dialogue\"` (space required; three keys only). Never `\"Latest_news\"`. Valid JSON with nothing before `{` or after `}`; speech exists only under **Generated Dialogue**.
-
-Using the **Input State** and dialogue above, reply with **only** that JSON object—no other text.
-""" % [
-		info_json, history_json, latest_news_json, chat_block, pd,
-	]
-	return full_prompt
+			_emit_error_response(npc_name, "My thoughts are scrambled...", preserved)
 
 
 func _format_chat_log_for_prompt(chat_log: Variant) -> String:
@@ -969,7 +916,7 @@ func _finalize_npc_state_after_reply(
 	if typeof(raw_cl) == TYPE_ARRAY:
 		chat = raw_cl.duplicate()
 	chat.append({"role": "npc", "speaker": npc_name, "text": str(generated_dialogue)})
-	out["Chat_log"] = chat
+	out["Chat_log"] = trim_chat_log_to_storage_cap(chat)
 	return out
 
 
@@ -982,93 +929,6 @@ func _str_join(parts: Array, sep: String) -> String:
 	return s
 
 
-func _extract_generated_dialogue(parsed: Dictionary) -> String:
-	var preferred: Array[String] = [
-		"Generated Dialogue", "GeneratedDialogue", "Generated_Dialogue",
-		"Generated_dialogue", "generated_dialogue", "generated dialogue",
-	]
-	for k in preferred:
-		if parsed.has(k):
-			return str(parsed[k])
-	for k in parsed.keys():
-		var nk = str(k).to_lower().replace(" ", "").replace("_", "")
-		if nk == "generateddialogue":
-			return str(parsed[k])
-	return ""
-
-
-## When max_tokens truncates mid-JSON, JSON.parse fails but the spoken line is often still recoverable.
-func _try_extract_generated_dialogue_from_broken_json(raw: String) -> String:
-	var needles := [
-		'"Generated Dialogue": "',
-		'"Generated Dialogue":"',
-	]
-	var i := -1
-	for needle in needles:
-		var p := raw.find(needle)
-		if p != -1:
-			i = p + needle.length()
-			break
-	if i == -1:
-		return ""
-	var escape := false
-	for j in range(i, raw.length()):
-		var c := raw[j]
-		if escape:
-			escape = false
-			continue
-		if c == "\\":
-			escape = true
-			continue
-		if c == '"':
-			return raw.substr(i, j - i).strip_edges()
-	return raw.substr(i).strip_edges()
-
-
-# Internal: Parse JSON response safely
-func _parse_json_response(json_string: String):
-	var json_parser = JSON.new()
-	var error_code = json_parser.parse(json_string)
-	
-	if error_code != OK:
-		var error_line = json_parser.get_error_line()
-		var error_msg = json_parser.get_error_message()
-		push_error("NPCDialogueManager: JSON parse failed. Error '%s' at line %d.\nResponse:\n%s" % [error_msg, error_line, json_string])
-		return null
-	
-	var parsed_data = json_parser.get_data()
-	if typeof(parsed_data) != TYPE_DICTIONARY:
-		push_error("NPCDialogueManager: Parsed JSON is not a dictionary")
-		return null
-	
-	return parsed_data
-
-# Internal: Compare dialogue histories for changes
-func _compare_dialogue_histories(dh1: Dictionary, dh2: Dictionary) -> bool:
-	if dh1.size() != dh2.size():
-		return true # Changed (different number of entries)
-
-	for title in dh1:
-		if not dh2.has(title):
-			return true # Changed (title removed or renamed)
-		
-		var entry1 = dh1[title]
-		var entry2 = dh2[title]
-
-		if typeof(entry1) != TYPE_DICTIONARY or typeof(entry2) != TYPE_DICTIONARY:
-			if entry1 != entry2: 
-				return true # Fallback comparison
-			continue
-
-		# Compare inner dictionaries with sorted keys
-		var entry1_str = JSON.stringify(entry1, "\t", true)
-		var entry2_str = JSON.stringify(entry2, "\t", true)
-		
-		if entry1_str != entry2_str:
-			return true # Changed content
-			
-	return false # No changes detected
-
 # Internal: Check if state changed (significance detection)
 func _did_state_change(old_info: Dictionary, old_history: Array,
 				   new_info: Dictionary, new_history: Array) -> bool:
@@ -1078,15 +938,15 @@ func _did_state_change(old_info: Dictionary, old_history: Array,
 	if old_info_str != new_info_str:
 		_npc_dbg("NPCDialogueManager: Info changed")
 		return true
-	
+
 	# Compare History (order matters)
 	var old_history_str = JSON.stringify(old_history, "\t", false)
 	var new_history_str = JSON.stringify(new_history, "\t", false)
 	if old_history_str != new_history_str:
 		_npc_dbg("NPCDialogueManager: History changed")
 		return true
-	
-	
+
+
 	# No significant changes detected
 	return false
 
@@ -1101,7 +961,8 @@ func _reset_processing_state():
 	_tp1_significant = false
 	_tp_working.clear()
 	_tp_turn_started_ticks = -1
-	_tp_pass2_changed = false
+	_tp3_candidate = ""
+	_tp4_matched_entries = []
 
 
 func is_npc_dialogue_busy() -> bool:
@@ -1126,7 +987,7 @@ func _emit_error_response(npc_name: String, error_dialogue: String, preserved_st
 		if typeof(raw_cl) == TYPE_ARRAY:
 			chat = raw_cl.duplicate()
 		chat.append({"role": "npc", "speaker": npc_name, "text": error_dialogue_clean})
-		state["Chat_log"] = chat
+		state["Chat_log"] = trim_chat_log_to_storage_cap(chat)
 	dialogue_processed.emit(npc_name, state, error_dialogue_clean, false)
 
 # Ensure state has correct shapes

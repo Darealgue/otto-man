@@ -1,0 +1,9 @@
+# Battle story summary — plain prose only. Model kept wrapping the summary in a
+# ```json {"sentences": [...]} ``` blob despite the prompt explicitly saying "no JSON, just
+# sentences" — wording alone wasn't reliable enough. Same lesson as the TP0-TP5 pipeline: close
+# the whole class of unwanted output structurally instead of prose-banning it. Excludes "{" "}"
+# and the backtick so a JSON object or a markdown code fence is literally impossible to produce.
+# Also excludes '"' — same fix already proven on tp3_history_candidate.gbnf for the same
+# literal-quote-wrapping-each-line artifact.
+
+root ::= [^{}`"]+

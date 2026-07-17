@@ -1,7 +1,7 @@
 extends Node
 
 # When true, never calls LlamaService for battle narratives (single-model VRAM focus; avoids using GenerationCompleteBase).
-const _DISABLE_BATTLE_STORY_LLM := true
+const _DISABLE_BATTLE_STORY_LLM := false
 
 # --- Feature Flags ---
 @export var dynamic_world_enabled: bool = true
@@ -5919,18 +5919,34 @@ func _generate_battle_story(attacker_faction: String, battle_result: Dictionary,
 	
 	# Construct prompt with battle information
 	var prompt = _construct_battle_story_prompt(attacker_faction, battle_result, day, attacker_force, defender_force)
-	
-	# Call LLM without grammar (useGrammar = false)
-	LlamaService.GenerateResponseAsyncBase(prompt, 500, false)  # 500 tokens for longer story
+
+	# battle_story.gbnf structurally forbids "{" "}" and backtick, so a JSON blob / markdown code
+	# fence is impossible to produce — the prompt saying "no JSON" alone wasn't reliable enough
+	# (same lesson as the TP0-TP5 pipeline). appendJsonObjectOutputFooter=false is equally load-bearing:
+	# left at its default true, WrapMistralInstruct appends "Return ONLY the JSON object... Start
+	# with '{'" to this prompt (it has no [INST] of its own) — the model was being told to open
+	# with '{' in the same breath the prompt said not to. 110 tokens keeps the hard-capped
+	# 3-4 short sentences short in practice, not just in instruction.
+	# GDScript calling a C# method must match its real arity exactly — C# default parameter values
+	# are compiler sugar that doesn't apply across the language boundary, so every parameter is
+	# passed explicitly here.
+	LlamaService.GenerateResponseAsyncBase(prompt, 170, true, 0.85, "battle_story.gbnf", false)
 	print("WorldManager: Sent battle story generation request to LlamaService")
 
+## Mock-heroic, bathos-driven battle summary — the tone target is Asterix and Obelix: a
+## grand, pompous windup that never quite matches how the fight actually looked. The joke lives
+## in the mismatch between the swagger and the reality, never in changing what actually happened —
+## the Victor line is fed in as settled fact and the prompt explicitly forbids touching it.
+## Deliberately short (3-4 sentences): the old "describe 3 things across 2-3 paragraphs"
+## structure is exactly what produced page-long stories before — dropped entirely, along with the
+## "Battle Severity" field (battle_result never actually set it, so it was always the dead
+## fallback "moderate" and added nothing).
 func _construct_battle_story_prompt(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> String:
-	"""Construct a prompt for battle story generation"""
+	"""Construct a short, whimsical mock-heroic battle summary prompt"""
 	var victor = battle_result.get("victor", "defender")
 	var defender_losses = battle_result.get("defender_losses", 0)
 	var attacker_losses = battle_result.get("attacker_losses", 0)
-	var severity = battle_result.get("severity", "moderate")
-	
+
 	# Count units for each side
 	var attacker_units = attacker_force.get("units", {})
 	var defender_units = defender_force.get("units", {})
@@ -5940,26 +5956,23 @@ func _construct_battle_story_prompt(attacker_faction: String, battle_result: Dic
 		attacker_total += int(attacker_units[unit_type])
 	for unit_type in defender_units:
 		defender_total += int(defender_units[unit_type])
-	
-	var prompt = """You are a storyteller describing a medieval battle. Write a vivid, engaging narrative of the battle that just occurred.
+
+	var prompt = """System: You are the village bard, a little drunk, telling anyone in the tavern who'll listen how the battle went.
+
+The Victor below is fact and cannot change for the joke, no matter which way the battle actually went — only the telling of it is yours to exaggerate.
 
 Battle Information:
 - Attacker: %s
-- Defender: Village (Köy)
+- Defender: the village
 - Day: %d
 - Victor: %s
-- Attacker Forces: %d total units (Infantry: %d, Archers: %d)
-- Defender Forces: %d total units (Soldiers: %d)
-- Attacker Losses: %d units
-- Defender Losses: %d units
-- Battle Severity: %s
+- Attacker Forces: %d total (Infantry: %d, Archers: %d)
+- Defender Forces: %d total (Soldiers: %d)
+- Attacker Losses: %d / Defender Losses: %d
 
-Write a compelling 2-3 paragraph story describing:
-1. How the battle began and the initial clash
-2. The key moments and turning points
-3. The final outcome and its impact
+Format: exactly 3 to 4 sentences, nothing more. Each one a single short clause, no more than about 12-15 words — no commas stringing two or three ideas into one long sentence; if it needs a comma to fit everything in, it's two sentences, not one. No paragraph breaks, no headers, no bullet points, no title, no lead-in like "Here is the story:". Third person, past tense. Plain prose only — nothing before the first sentence or after the last.
 
-Make it dramatic, immersive, and appropriate for a medieval fantasy setting. Write in third person past tense. Do not include any JSON formatting or special markers - just write the story directly.""" % [
+Now actually tell it — the way Asterix and Obelix would be told: a small, scrappy village against a grander-sounding enemy, narrated with mock-heroic pomp that never quite matches how the fight actually looked. Build the enemy up as fearsome, then let the real fighting be absurdly short, easy, or undignified — the joke is the mismatch between the swagger and how it actually went, never a change to the actual Victor. At least one beat has to turn on something genuinely mundane or petty, not more sword-and-shield description — a dropped pie, a spooked chicken, a stuck gate, a lost boot — never just the casualty numbers restated in fancier words. This should read funny and a little silly, not like a straight heroic-fantasy retelling.""" % [
 		attacker_faction,
 		day,
 		"Village defenders" if victor == "defender" else attacker_faction,
@@ -5969,10 +5982,9 @@ Make it dramatic, immersive, and appropriate for a medieval fantasy setting. Wri
 		defender_total,
 		int(defender_units.get("soldiers", 0)),
 		attacker_losses,
-		defender_losses,
-		severity
+		defender_losses
 	]
-	
+
 	return prompt
 
 func _on_battle_story_generated(story: String) -> void:
