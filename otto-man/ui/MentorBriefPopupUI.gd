@@ -835,7 +835,8 @@ func _scroll_content(delta_px: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible or not _is_open:
 		return
-	if event.is_action_pressed("ui_cancel"):
+	# ui_back = ESC'nin bağlı olduğu ayrı aksiyon (ui_cancel sadece META/gamepad B içeriyor).
+	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
 		get_viewport().set_input_as_handled()
 		hide_popup()
 		return
@@ -861,6 +862,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	# _input'ta işlendi; burada yalnızca yedek
-	if event.is_action_pressed("ui_cancel"):
+	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
 		get_viewport().set_input_as_handled()
 		hide_popup()

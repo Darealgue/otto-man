@@ -258,10 +258,10 @@ func _find_first_button(node: Node) -> Button:
 
 
 # Zorunlu seçim: dim-click ve ESC bilerek bağlanmadı — kart/yol seçimi
-# yapılmadan bu popup kapanmaz. ui_cancel'i burada tüketip alttaki menülerin
-# açılmasını da önlüyoruz.
+# yapılmadan bu popup kapanmaz. ui_cancel/ui_back'i (ESC de buraya dahil) burada tüketip
+# alttaki menülerin (pause menüsü dahil) açılmasını da önlüyoruz.
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event.is_action_pressed("ui_cancel"):
+	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
 		get_viewport().set_input_as_handled()

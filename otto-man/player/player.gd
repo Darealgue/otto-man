@@ -1853,15 +1853,26 @@ func _process_village_interactions_keyboard(delta: float) -> void:
 			_village_interact_hold_active = true
 			_village_interact_hold_time = 0.0
 			_village_npc_hold_fired = false
+			# GEÇİCİ TEŞHİS: köylü ile uzun-basma etkileşiminin klavyede neden anında tetiklendiğini
+			# bulmak için. Bir sonraki tekrar denemesinde bu satırlar konsola basılacak — Godot
+			# editörünün Output panelinden (veya terminalden) kopyalayıp iletilebilir.
+			print("[VillageInteractDBG] hold started | interact_key_name=%s | delta=%.4f | time_scale=%.2f" % [
+				InputManager.get_action_key_name(&"interact") if InputManager.has_method("get_action_key_name") else "?",
+				delta,
+				Engine.time_scale,
+			])
 		_village_interact_hold_time += delta
 		if not _village_npc_hold_fired and _village_interact_hold_time >= VILLAGE_NPC_HOLD_DURATION:
+			print("[VillageInteractDBG] hold threshold reached | accumulated_time=%.4f (need %.2f)" % [_village_interact_hold_time, VILLAGE_NPC_HOLD_DURATION])
 			if _try_hold_npc_interact():
 				_village_npc_hold_fired = true
 	elif _village_interact_hold_active:
 		if not _village_npc_hold_fired and _village_interact_hold_time < VILLAGE_NPC_HOLD_DURATION:
+			print("[VillageInteractDBG] released early as TAP | accumulated_time=%.4f (need %.2f)" % [_village_interact_hold_time, VILLAGE_NPC_HOLD_DURATION])
 			_try_tap_world_interact()
 		_reset_village_interact_hold()
 	if Input.is_action_just_pressed("ui_up"):
+		print("[VillageInteractDBG] ui_up just_pressed -> instant tap (W/hareket tuşu, kasıtlı olarak hep anlık)")
 		_try_tap_world_interact()
 
 
@@ -2047,6 +2058,13 @@ func _on_hitbox_hit(enemy: Node) -> void:
 	pass
 
 func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
+	# Bir köylüyle sohbet penceresi açıkken, arkadan geçen başka bir NPC'nin bu alana girip
+	# çıkması active_dialogue_npc'yi/dialogue_npcs'i değiştirip açık pencereyi kapatabiliyor ya
+	# da başka bir popup'ı tetikleyebiliyordu ("arkada olan biten etkilememeli"). Pencere açıkken
+	# bu sinyalleri tamamen yok sayıyoruz; oyuncu zaten _ui_locked ile hareket edemediği için
+	# kaçırılan bir giriş/çıkış olayı pencere kapanınca önemsiz kalır.
+	if VillageManager.is_any_npc_dialogue_open():
+		return
 	if area.is_in_group("interactables"):
 		if not overlapping_interactables.has(area):
 			overlapping_interactables.push_back(area)
@@ -2058,6 +2076,11 @@ func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
 			_refresh_interact_hints()
 
 func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
+	# bkz. area_entered'daki not — sohbet penceresi açıkken bu sinyalleri de yok sayıyoruz ki
+	# arkadan geçen bir NPC'nin ayrılışı açık pencereyi (CloseNpcWindow çağrısı / active_dialogue_npc
+	# sıfırlanması üzerinden) etkilemesin.
+	if VillageManager.is_any_npc_dialogue_open():
+		return
 	if area.is_in_group("interactables"):
 		var index = overlapping_interactables.find(area)
 		if index != -1:

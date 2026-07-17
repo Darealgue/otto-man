@@ -440,7 +440,8 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible or not _is_open:
 		return
-	if event.is_action_pressed("ui_cancel"):
+	# ui_back = ESC'nin bağlı olduğu ayrı aksiyon (ui_cancel sadece META/gamepad B içeriyor).
+	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
 		get_viewport().set_input_as_handled()
 		hide_popup()
 		return

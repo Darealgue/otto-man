@@ -243,6 +243,11 @@ func _is_popup_open() -> bool:
 	var host := VillageWorldPopups.get_host()
 	if host and host.is_any_popup_open():
 		return true
+	# Mucit Odası paneli lazy/group tabanlı açılıyor (bkz. _on_inventor_upgrades_requested),
+	# _build_popup/_occupied_popup gibi doğrudan bir referansımız yok — grup üzerinden bakıyoruz.
+	var inventor_ui := get_tree().get_first_node_in_group("inventor_workshop_ui")
+	if inventor_ui and "visible" in inventor_ui and bool(inventor_ui.get("visible")):
+		return true
 	return false
 
 

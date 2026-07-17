@@ -2454,6 +2454,21 @@ const STARTING_WORKER_COUNT = 3 # Başlangıç işçi sayısı (CampFire kapasit
 # ---------------------
 var active_dialogue_npc: Node = null
 var dialogue_npcs : Array
+## npc_window.gd tarafından açılış/kapanışta artırılıp azaltılır — proximity tabanlı
+## active_dialogue_npc'den bağımsız, "şu an gerçekten görünür bir NPC diyalog penceresi var mı"
+## sorusunun tek doğru kaynağı. Kalabalık köylerde active_dialogue_npc birden fazla NPC
+## arasında değişebildiği için debug kısayollarının (M ile köylü silme gibi) yanlışlıkla
+## tetiklenmesini engellemek için buna güveniyoruz.
+var _open_npc_dialogue_window_count: int = 0
+
+func is_any_npc_dialogue_open() -> bool:
+	return _open_npc_dialogue_window_count > 0
+
+func register_npc_dialogue_window_shown() -> void:
+	_open_npc_dialogue_window_count += 1
+
+func register_npc_dialogue_window_hidden() -> void:
+	_open_npc_dialogue_window_count = maxi(0, _open_npc_dialogue_window_count - 1)
 
 # === Economy Scaffold (Feature-flagged, non-breaking) ===
 var economy_enabled: bool = true

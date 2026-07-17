@@ -95,9 +95,9 @@ func _is_worker_eligible(worker: Node) -> bool:
 		return false
 	if _node_flag(worker, "is_dungeon_prisoner"):
 		return false
-	if worker.has_node("NpcWindow"):
-		var nw: Node = worker.get_node("NpcWindow")
-		if nw.visible:
+	if "_npc_window_ref" in worker:
+		var nw: Node = worker.get("_npc_window_ref")
+		if is_instance_valid(nw) and nw.visible:
 			return false
 	if _NpcAmbientBubble.has_active_bubble(worker):
 		return false

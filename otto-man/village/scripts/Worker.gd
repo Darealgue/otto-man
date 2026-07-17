@@ -1,7 +1,10 @@
 extends Node2D
 
-@export var NPC_Info : Dictionary 
+@export var NPC_Info : Dictionary
 var NPCWindow = preload("res://ui/npc_window.tscn")
+## npc_window.gd artık _ready()'de kendini bir CanvasLayer'a taşıyor (kamera zoom/pan'dan
+## etkilenmeyen gerçek ekran-uzayı modal için), bu yüzden $NpcWindow yerine bu cache'i kullan.
+var _npc_window_ref: Control = null
 # <<< YENİ: Appearance Resource >>>
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 @export var appearance: VillagerAppearance:
@@ -703,6 +706,7 @@ func _ready() -> void:
 	if is_dungeon_prisoner:
 		_ready_dungeon_prisoner()
 		return
+	_npc_window_ref = $NpcWindow if has_node("NpcWindow") else null
 	add_to_group("Villagers") # Register for global updates like news
 	randomize()
 	
@@ -973,7 +977,7 @@ func Initialize_Existing_Villager(NPCInfo):
 			NPC_Info.erase("History_summary")
 			
 			Update_Villager_Name() # Safe update
-			$NpcWindow.InitializeWindow(NPC_Info)
+			_npc_window_ref.InitializeWindow(NPC_Info)
 			if appearance != null and has_method("update_visuals"):
 				update_visuals()
 			
@@ -989,7 +993,7 @@ func Initialize_New_Villager():
 		printerr("Worker %d: New NPC_Info missing 'Info' key!" % worker_id)
 		
 	Update_Villager_Name() # Use the safe update function
-	$NpcWindow.InitializeWindow(NPC_Info)
+	_npc_window_ref.InitializeWindow(NPC_Info)
 
 func _physics_process(delta: float) -> void:
 	if is_dungeon_prisoner:
@@ -1001,7 +1005,7 @@ func _physics_process(delta: float) -> void:
 			_guest_hourglass_tick = 0.0
 			refresh_guest_hourglass()
 	# Stop worker processing when dialogue window is open
-	if $NpcWindow and $NpcWindow.visible:
+	if _npc_window_ref and _npc_window_ref.visible:
 		return
 	
 	# Köylüler birbirine çok girmesin (cariye/worker/trader arası mesafe)
@@ -1776,7 +1780,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _sync_overhead_ui_flip() -> void:
-	var ui_nodes: Array = [$NamePlateContainer, $InteractButton, $NpcWindow]
+	# NpcWindow artık ekran-uzayı modal (CanvasLayer'a taşınıyor) — karakterle flip olmamalı.
+	var ui_nodes: Array = [$NamePlateContainer, $InteractButton]
 	if _interact_hold_ring:
 		ui_nodes.append(_interact_hold_ring)
 	if _guest_hourglass_label:
@@ -2934,7 +2939,7 @@ func _on_interact_button_pressed() -> void:
 func OpenNpcWindow():
 	if is_dungeon_prisoner:
 		return
-	var nw = $NpcWindow if has_node("NpcWindow") else null
+	var nw = _npc_window_ref
 	if not is_instance_valid(nw):
 		return
 	var vm = get_node_or_null("/root/VillageManager")
@@ -2953,14 +2958,15 @@ func OpenNpcWindow():
 	vm.Village_Player.set_ui_locked(true)
 
 func NpcAnswered(npc_name, new_state, generated_dialogue, was_significant):
-	$NpcWindow.NPCDialogueProcessed(npc_name, new_state, generated_dialogue, was_significant)
+	if _npc_window_ref:
+		_npc_window_ref.NPCDialogueProcessed(npc_name, new_state, generated_dialogue, was_significant)
 
 
 func CloseNpcWindow():
 	if is_dungeon_prisoner:
 		return
-	if has_node("NpcWindow"):
-		$NpcWindow.hide()
+	if _npc_window_ref:
+		_npc_window_ref.hide()
 	if NpcDialogueManager.dialogue_processed.is_connected(NpcAnswered):
 		NpcDialogueManager.dialogue_processed.disconnect(NpcAnswered)
 	var vm = get_node_or_null("/root/VillageManager")

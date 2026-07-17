@@ -189,6 +189,12 @@ func _input(event: InputEvent) -> void:
 		
 		# ESC tuşu (keyboard) - menüyü aç/kapat
 		if (key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE) and key_event.pressed:
+			# Zaten açık değilken, köylü sohbeti / mentor / bina gibi başka bir modal pencere
+			# açıksa ESC'yi ondan çalmayalım — o pencerenin kendi ESC kapatma mantığı çalışsın.
+			# (set_input_as_handled() çağırmadan sadece return ediyoruz ki event normal şekilde
+			# _unhandled_input()'a kadar ilerleyip o pencereyi kapatabilsin.)
+			if not is_paused and _is_other_modal_open():
+				return
 			if is_paused:
 				# Eğer alt menüler açıksa önce onları kapat
 				if load_game_menu and load_game_menu.visible:
@@ -246,6 +252,19 @@ func _input(event: InputEvent) -> void:
 			if is_paused:
 				_close_menu()
 			return
+
+## Köy içi modal pencerelerden biri (köylü sohbeti, mentor, bina inşa/işgal popup'ı, kışla
+## silah popup'ı, tüccar, dinlenme, kart draft'ı) açık mı? Açıksa ESC'yi pause menüsü değil,
+## o pencerenin kendi kapatma mantığı işlesin diye burada kontrol ediyoruz.
+func _is_other_modal_open() -> bool:
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.has_method("is_any_npc_dialogue_open") and bool(vm.call("is_any_npc_dialogue_open")):
+		return true
+	var plot_system := get_tree().get_first_node_in_group("village_plot_system")
+	if plot_system and plot_system.has_method("_is_popup_open") and bool(plot_system.call("_is_popup_open")):
+		return true
+	return false
+
 
 func _open_menu() -> void:
 	if is_paused:

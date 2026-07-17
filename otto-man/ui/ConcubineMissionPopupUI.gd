@@ -33,6 +33,11 @@ var _concubine: Concubine = null
 var _is_open := false
 ## mission_id → selected soldier count (only relevant if required_army_size > 0)
 var _soldier_counts: Dictionary = {}
+## mission_id → {"stepper": Control, "static": Label} — stepper sadece fokuslu/üzerine
+## gelinen kartta görünür, diğerlerinde sadece seçili sayıyı gösteren statik bir etiket var.
+var _soldier_stepper_rows: Dictionary = {}
+var _focused_soldier_mid: String = ""
+var _hovered_soldier_mid: String = ""
 
 
 func _ready() -> void:
@@ -315,6 +320,9 @@ func _render_concubine_portrait(portrait_gen: int) -> void:
 
 func _refresh_missions() -> void:
 	_assign_buttons.clear()
+	_soldier_stepper_rows.clear()
+	_focused_soldier_mid = ""
+	_hovered_soldier_mid = ""
 	for child in _mission_list.get_children():
 		child.queue_free()
 	if _concubine == null:
@@ -409,13 +417,21 @@ func _make_mission_row(mission, available_soldiers: int) -> Control:
 				_soldier_counts[mid] = req_army
 			var cur_soldiers: int = _soldier_counts[mid]
 
+			# Stepper (− / sayı / +): sadece bu kart fokuslu ya da fare üzerindeyken görünür.
+			# Diğer zamanlarda yerine statik bir "seçili asker" etiketi gösteriliyor — hem daha
+			# sade görünüyor hem de hangi kartın şu an ayarlanabilir olduğunu netleştiriyor.
+			var stepper_row := HBoxContainer.new()
+			stepper_row.add_theme_constant_override("separation", 4)
+			stepper_row.visible = false
+			action_row.add_child(stepper_row)
+
 			var minus_btn := Button.new()
 			minus_btn.text = "−"
 			minus_btn.custom_minimum_size = Vector2(30, 30)
 			minus_btn.focus_mode = Control.FOCUS_NONE
 			minus_btn.pressed.connect(_adjust_soldiers.bind(mid, -1, req_army, available_soldiers))
 			_style_focus(minus_btn)
-			action_row.add_child(minus_btn)
+			stepper_row.add_child(minus_btn)
 
 			var soldier_lbl := Label.new()
 			soldier_lbl.text = "⚔ %d / %d" % [cur_soldiers, available_soldiers]
@@ -423,7 +439,7 @@ func _make_mission_row(mission, available_soldiers: int) -> Control:
 			soldier_lbl.custom_minimum_size = Vector2(80, 0)
 			soldier_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			soldier_lbl.name = "SoldierLabel_" + mid
-			action_row.add_child(soldier_lbl)
+			stepper_row.add_child(soldier_lbl)
 
 			var plus_btn := Button.new()
 			plus_btn.text = "+"
@@ -431,7 +447,18 @@ func _make_mission_row(mission, available_soldiers: int) -> Control:
 			plus_btn.focus_mode = Control.FOCUS_NONE
 			plus_btn.pressed.connect(_adjust_soldiers.bind(mid, 1, req_army, available_soldiers))
 			_style_focus(plus_btn)
-			action_row.add_child(plus_btn)
+			stepper_row.add_child(plus_btn)
+
+			var static_lbl := Label.new()
+			static_lbl.text = "⚔ %d asker seçili" % cur_soldiers
+			static_lbl.add_theme_font_size_override("font_size", 12)
+			static_lbl.name = "SoldierStaticLabel_" + mid
+			action_row.add_child(static_lbl)
+
+			_soldier_stepper_rows[mid] = {"stepper": stepper_row, "static": static_lbl}
+			card.mouse_filter = Control.MOUSE_FILTER_PASS
+			card.mouse_entered.connect(_on_mission_card_mouse_entered.bind(mid))
+			card.mouse_exited.connect(_on_mission_card_mouse_exited.bind(mid))
 
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -472,6 +499,36 @@ func _update_soldier_label(mission_id: String, available: int) -> void:
 	var lbl := _find_named_node(_mission_list, "SoldierLabel_" + mission_id)
 	if lbl is Label:
 		(lbl as Label).text = "⚔ %d / %d" % [cur, available]
+	var row: Dictionary = _soldier_stepper_rows.get(mission_id, {})
+	var static_lbl: Label = row.get("static")
+	if is_instance_valid(static_lbl):
+		static_lbl.text = "⚔ %d asker seçili" % cur
+
+
+## Fokuslu (gamepad/klavye) ya da fare üzerinde olan kartın asker stepper'ını gösterir,
+## diğerlerini statik etikete döndürür.
+func _refresh_soldier_stepper_visibility() -> void:
+	var active_mid := _focused_soldier_mid if not _focused_soldier_mid.is_empty() else _hovered_soldier_mid
+	for mid in _soldier_stepper_rows.keys():
+		var row: Dictionary = _soldier_stepper_rows[mid]
+		var stepper: Control = row.get("stepper")
+		var static_lbl: Label = row.get("static")
+		var show_stepper: bool = (String(mid) == active_mid)
+		if is_instance_valid(stepper):
+			stepper.visible = show_stepper
+		if is_instance_valid(static_lbl):
+			static_lbl.visible = not show_stepper
+
+
+func _on_mission_card_mouse_entered(mid: String) -> void:
+	_hovered_soldier_mid = mid
+	_refresh_soldier_stepper_visibility()
+
+
+func _on_mission_card_mouse_exited(mid: String) -> void:
+	if _hovered_soldier_mid == mid:
+		_hovered_soldier_mid = ""
+	_refresh_soldier_stepper_visibility()
 
 
 func _find_named_node(root: Node, target_name: String) -> Node:
@@ -492,11 +549,20 @@ func _get_available_soldiers(mm: Node) -> int:
 	var barracks = mm._find_barracks()
 	if barracks == null:
 		return 0
+	var total := 0
 	if "assigned_workers" in barracks:
-		return int(barracks.assigned_workers)
-	if "assigned_worker_ids" in barracks:
-		return (barracks.assigned_worker_ids as Array).size()
-	return 0
+		total = int(barracks.assigned_workers)
+	elif "assigned_worker_ids" in barracks:
+		total = (barracks.assigned_worker_ids as Array).size()
+	else:
+		return 0
+	# Kışlaya atanmış TOPLAM asker sayısı, o an başka görevlerde olan askerleri düşmüyordu —
+	# birden fazla cariyeye art arda aynı askerler "müsaitmiş" gibi gösterilip atanabiliyordu
+	# (bkz. MissionCenter.gd:_get_available_soldier_count, aynı deseni burada da uyguluyoruz).
+	var on_mission := 0
+	if mm.has_method("get_total_soldiers_on_mission"):
+		on_mission = int(mm.get_total_soldiers_on_mission())
+	return maxi(0, total - on_mission)
 
 
 func _can_assign_mission(mission) -> bool:
@@ -732,7 +798,11 @@ func _on_gui_focus_changed(control: Control) -> void:
 		return
 	if control != null and control is Button and _assign_buttons.find(control) >= 0:
 		_focused_mission_row = _assign_buttons.find(control)
+		_focused_soldier_mid = String(control.get_meta("mission_id")) if control.has_meta("mission_id") else ""
+		_refresh_soldier_stepper_visibility()
 		return
+	_focused_soldier_mid = ""
+	_refresh_soldier_stepper_visibility()
 	call_deferred("_reclaim_mission_focus")
 
 
@@ -780,7 +850,8 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible or not _is_open:
 		return
-	if event.is_action_pressed("ui_cancel"):
+	# ui_back = ESC'nin bağlı olduğu ayrı aksiyon (ui_cancel sadece META/gamepad B içeriyor).
+	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
 		get_viewport().set_input_as_handled()
 		hide_popup()
 		return

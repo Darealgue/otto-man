@@ -619,10 +619,17 @@ func _input(event: InputEvent) -> void:
 				_try_move_on_world_map(1, 0)
 
 func _is_npc_dialogue_open() -> bool:
+	# VillageManager.register_npc_dialogue_window_shown/hidden — npc_window.gd'nin kendi
+	# görünürlük değişiminde çağırdığı, tek doğru kaynak. Eskiden active_dialogue_npc (proximity
+	# tabanlı) kontrol ediliyordu; kalabalık köylerde birden fazla NPC yakınında bu değer başka
+	# bir köylüye kayabildiği için debug kısayolları (M ile köylü silme gibi) sohbet açıkken bile
+	# tetiklenebiliyordu.
+	if VillageManager.is_any_npc_dialogue_open():
+		return true
 	var npc = VillageManager.active_dialogue_npc
 	if not is_instance_valid(npc):
 		return false
-	var npc_window := npc.get_node_or_null("NpcWindow")
+	var npc_window: Node = npc.get("_npc_window_ref") if "_npc_window_ref" in npc else null
 	return is_instance_valid(npc_window) and npc_window.visible
 		
 # Debug methods for testing NPCs (only in editor/debug builds)
