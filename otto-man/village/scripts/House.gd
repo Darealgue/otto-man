@@ -104,19 +104,24 @@ func _sync_floor_instances() -> void:
 func _refresh_windows() -> void:
 	if _floor_instances.is_empty():
 		return
-	var remaining := get_residents_at_home_count()
+	# Pencereler evde kayıtlı (yerleşik) sakin sayısını yansıtır; kişinin o an
+	# işte/dolaşıyor olması pencereyi kapatmamalı, sadece taşınma/tahliye kapatmalı.
+	var remaining := get_occupant_count()
 	var is_night := _is_night_now()
 	for i in _floor_instances.size():
 		var floor_node: Node2D = _floor_instances[i]
 		if not is_instance_valid(floor_node):
 			continue
+		var window_count: int = floor_node.get_window_count() if floor_node.has_method("get_window_count") else 0
 		var states: Array = []
-		for j in capacity_per_floor:
-			if remaining > 0:
-				states.append(true)
-				remaining -= 1
-			else:
-				states.append(false)
+		if window_count > 0:
+			# Her pencere, kattaki kapasitenin bir dilimini temsil eder (3 durum: kapalı/yarı/açık).
+			var units_per_window: int = max(1, int(round(float(capacity_per_floor) / float(window_count))))
+			units_per_window = min(units_per_window, HouseFloorVisual.NUM_WINDOW_STATES - 1)
+			for j in window_count:
+				var units_for_window: int = clamp(remaining, 0, units_per_window)
+				states.append(units_for_window)
+				remaining -= units_for_window
 		if floor_node.has_method("apply_window_states"):
 			floor_node.apply_window_states(states, is_night)
 

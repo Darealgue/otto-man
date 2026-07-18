@@ -1977,8 +1977,13 @@ func _on_fetching_timer_timeout():
 		if _try_night_sleep_or_sick(current_hour, current_minute_fetch):
 			return
 		current_state = State.SOCIALIZING
+		_is_briefly_idling = false
+		_current_idle_activity = "wandering" # <<< DÜZELTME: eksikti — hedef set ediliyordu ama
+		# aktivite "wandering" olmadığı için moving zorla false kalıyor, hiçbir zamanlayıcı da
+		# tekrar tetiklemediği için işçi kalıcı olarak donuyordu (bkz. binadan çıkış donma bug'ı).
 		var wander_range = 150.0
 		move_target_x = global_position.x + randf_range(-wander_range, wander_range)
+		_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 		if is_instance_valid(held_item_sprite):
 			held_item_sprite.hide()
 		_fetch_resource_type = ""

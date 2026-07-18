@@ -18,6 +18,6 @@ texture = ExtResource("2")
 collision_layer = 512
 
 [node name="TopCollision" type="CollisionShape2D" parent="FloorPlatform"]
-position = Vector2(0, -125)
+position = Vector2(0, -128)
 shape = SubResource("SegmentShape2D_roof")
 one_way_collision = true

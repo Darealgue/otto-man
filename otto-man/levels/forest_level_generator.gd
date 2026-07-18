@@ -1808,15 +1808,11 @@ func _setup_day_night_system() -> void:
 	pb.layer = -1
 	add_child(pb)
 
-	# Sky gradient
-	var sky_layer := ParallaxLayer.new()
-	sky_layer.name = "sky"
-	sky_layer.z_index = -100
-	sky_layer.motion_scale = Vector2(0.0, 0.0)
-	pb.add_child(sky_layer)
-	var sky_sprite := Sprite2D.new()
-	sky_sprite.name = "Sky"
-	# Use a simple gradient texture similar to village defaults
+	# Sky gradient — sadece ekran-uzayında (CanvasLayer + tam-viewport TextureRect) render ediliyor.
+	# Eskiden ayrıca dünya-uzayında dev boyutlu (scale ~125x/27x) bir Sprite2D de vardı; o Sprite2D
+	# ParallaxBackground(-1) katmanında, bu CanvasLayer(-1000) katmanının ÖNÜNDE çiziliyordu, yani
+	# ekranı tamamen kaplayıp bu doğru gradyanı hep gizliyordu — kameradan bakınca gradyanın sadece
+	# ufak bir UV dilimi görünüyor, o da neredeyse tek renk gibi duruyordu. Kaldırıldı.
 	var grad := Gradient.new()
 	grad.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_LINEAR
 	grad.set_color(0, Color(0.5, 0.7, 1.0, 1.0))
@@ -1826,13 +1822,6 @@ func _setup_day_night_system() -> void:
 	# Ensure vertical gradient (top -> bottom), like village
 	grad_tex.fill_from = Vector2(0.5, 0.0)
 	grad_tex.fill_to = Vector2(0.5, 1.0)
-	sky_sprite.texture = grad_tex
-	# Keep parallax sky for compatibility, but also add a screen-space sky to guarantee coverage
-	# Parallax sprite (large, world-space) - match village size
-	sky_sprite.centered = false
-	sky_sprite.position = Vector2(-1, -748.501)
-	sky_sprite.scale = Vector2(124.844, 26.5781)
-	sky_layer.add_child(sky_sprite)
 	# Screen-space sky using CanvasLayer + TextureRect (fills viewport)
 	var sky_canvas := CanvasLayer.new()
 	sky_canvas.name = "SkyCanvas"
@@ -1898,12 +1887,15 @@ func _setup_day_night_system() -> void:
 	path.curve = curve
 	celestial_layer.add_child(path)
 	var sun_follow := PathFollow2D.new(); sun_follow.name = "SunFollower"; path.add_child(sun_follow)
-	var sun_sprite := Sprite2D.new(); sun_sprite.name = "SunSprite"; sun_follow.add_child(sun_sprite); sun_sprite.scale = Vector2(0.6, 0.6)
+	# NOT: scale kasıtlı olarak eklenmiyor — village'deki SunSprite/MoonSprite'ta da sprite-seviyesinde
+	# bir scale yok, boyut sadece SunMoonPath'in scale'inden (0.543478) geliyor. Buraya ayrıca 0.6
+	# eklemek forest'teki güneş/ayı village'dekinin %60'ı boyutuna düşürüyordu.
+	var sun_sprite := Sprite2D.new(); sun_sprite.name = "SunSprite"; sun_follow.add_child(sun_sprite)
 	var sun_tex = load("res://village/assets/sun,moon/sun.png")
 	if sun_tex:
 		sun_sprite.texture = sun_tex
 	var moon_follow := PathFollow2D.new(); moon_follow.name = "MoonFollower"; path.add_child(moon_follow)
-	var moon_sprite := Sprite2D.new(); moon_sprite.name = "MoonSprite"; moon_follow.add_child(moon_sprite); moon_sprite.scale = Vector2(0.6, 0.6)
+	var moon_sprite := Sprite2D.new(); moon_sprite.name = "MoonSprite"; moon_follow.add_child(moon_sprite)
 	var moon_tex = load("res://village/assets/sun,moon/moon.png")
 	if moon_tex:
 		moon_sprite.texture = moon_tex

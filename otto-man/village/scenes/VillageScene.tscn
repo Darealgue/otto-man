@@ -378,6 +378,17 @@ sun_sunset_hour = 19.5
 moon_set_hour = 6.0
 celestial_fade_duration = 0.3
 
+[node name="SkyCanvas" type="CanvasLayer" parent="."]
+layer = -1000
+
+[node name="SkyRect" type="TextureRect" parent="SkyCanvas"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("GradientTexture2D_uvxvs")
+
 [node name="ParallaxBackground" type="ParallaxBackground" parent="."]
 layer = -1
 
@@ -448,17 +459,6 @@ motion_scale = Vector2(0, 0.1)
 
 [node name="BackgroundTint" type="CanvasModulate" parent="ParallaxBackground"]
 z_index = -1
-
-[node name="sky" type="ParallaxLayer" parent="ParallaxBackground"]
-z_index = -15
-y_sort_enabled = true
-
-[node name="Sky" type="Sprite2D" parent="ParallaxBackground/sky"]
-z_index = -1
-y_sort_enabled = true
-position = Vector2(44.5004, -1331)
-scale = Vector2(167.641, 44.875)
-texture = SubResource("GradientTexture2D_uvxvs")
 
 [node name="StarsLayer" type="ParallaxLayer" parent="ParallaxBackground"]
 z_index = -12

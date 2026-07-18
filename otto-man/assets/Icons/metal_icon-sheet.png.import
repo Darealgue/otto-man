@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://iii410gatrpx"
-path="res://.godot/imported/armorer1.png-ebf8706e8ddbbf244fa12fd17e0c4af8.ctex"
+uid="uid://c4qhox6hpdm6w"
+path="res://.godot/imported/metal_icon-sheet.png-78e97220681a9564efa41276d8fec6a8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://village/buildings/sprite/armorer1.png"
-dest_files=["res://.godot/imported/armorer1.png-ebf8706e8ddbbf244fa12fd17e0c4af8.ctex"]
+source_file="res://assets/Icons/metal_icon-sheet.png"
+dest_files=["res://.godot/imported/metal_icon-sheet.png-78e97220681a9564efa41276d8fec6a8.ctex"]
 
 [params]
 

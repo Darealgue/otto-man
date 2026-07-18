@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dgo4oqhaa4kx4"
-path="res://.godot/imported/bakery1.png-a5155204f0c85d97a661b7c0864934e2.ctex"
+uid="uid://c32g4yk0oakdj"
+path="res://.godot/imported/bakery_fig1.png-3252e1b233b56b954d761d2cf9b56e1e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://village/buildings/sprite/bakery1.png"
-dest_files=["res://.godot/imported/bakery1.png-a5155204f0c85d97a661b7c0864934e2.ctex"]
+source_file="res://village/buildings/sprite/bakery/bakery_fig1.png"
+dest_files=["res://.godot/imported/bakery_fig1.png-3252e1b233b56b954d761d2cf9b56e1e.ctex"]
 
 [params]
 

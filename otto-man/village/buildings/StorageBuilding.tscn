@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://village/scripts/StorageBuilding.gd" id="1_1p7a7"]
-[ext_resource type="Texture2D" uid="uid://f6qcvfbnt2tw" path="res://village/buildings/sprite/storage1.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://f6qcvfbnt2tw" path="res://village/buildings/sprite/storage/storage1.png" id="2"]
 
 
 [sub_resource type="SegmentShape2D" id="SegmentShape2D_roof"]
@@ -12,12 +12,12 @@ b = Vector2(160, 0)
 script = ExtResource("1_1p7a7")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-position = Vector2(0, -64)
+position = Vector2(0, -250)
 texture = ExtResource("2")
 [node name="FloorPlatform" type="StaticBody2D" parent="."]
 collision_layer = 512
 
 [node name="TopCollision" type="CollisionShape2D" parent="FloorPlatform"]
-position = Vector2(0, -125)
+position = Vector2(0, -128)
 shape = SubResource("SegmentShape2D_roof")
 one_way_collision = true

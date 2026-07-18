@@ -1,0 +1,8 @@
+[gd_scene load_steps=3 format=3 uid="uid://bqx7smokepuff01"]
+
+[ext_resource type="Script" path="res://village/scripts/SmokePuff.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://dbyfb1apu0142" path="res://village/buildings/sprite/bakery/bakery_smoke.png" id="2_smoke"]
+
+[node name="SmokePuff" type="Sprite2D"]
+script = ExtResource("1_script")
+texture = ExtResource("2_smoke")

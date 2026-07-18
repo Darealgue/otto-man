@@ -106,11 +106,13 @@ func remove_occupant(worker: Node = null) -> bool:
 	return true
 
 func get_window_states() -> Array:
-	var at_home := get_residents_at_home_count()
+	# Pencereler kayıtlı sakin sayısını (yerleşim) yansıtır; anlık ev-içi/dışı
+	# durumu (çalışma, dolaşma) pencereyi kapatmamalı.
+	var occupied := get_occupant_count()
 	var slots := get_max_capacity()
 	var states: Array = []
 	for i in range(slots):
-		states.append(i < at_home)
+		states.append(i < occupied)
 	return states
 
 func get_housing_snapshot_scene_path() -> String:

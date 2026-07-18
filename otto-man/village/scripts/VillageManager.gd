@@ -9,6 +9,10 @@ const RESIDENTIAL_CAPACITY_PER_FLOOR := 4
 # Ev katı görseli tam sprite üst kenarından değil, birkaç piksel aşağıdan başlar;
 # bu sabit, dükkan-ev arasındaki görsel boşluğu kapatır.
 const RESIDENTIAL_EXTENSION_OVERLAP_PX: float = 10.0
+# House.gd'nin kendi kat aralığıyla (floor_height) birebir aynı; dükkan üstüne ev
+# eklerken de aynı artış kullanılır ki ev-üstü-ev ile dükkan-üstü-ev collision
+# yüksekliği tutarlı olsun.
+const RESIDENTIAL_FLOOR_HEIGHT_PX: float = 123.0
 const RESIDENTIAL_BASE_EXCLUDED_SCENES := [
 	"res://village/buildings/WoodcutterCamp.tscn",
 	"res://village/buildings/StoneMine.tscn",
@@ -7603,9 +7607,16 @@ func _get_or_create_residential_housing_for_building(building: Node2D, create_if
 		fallback.configure_for_host(building, 0, RESIDENTIAL_MAX_FLOORS, RESIDENTIAL_CAPACITY_PER_FLOOR)
 		return fallback
 
-## Binanın Sprite2D yüksekliğine bakarak, ev katlarının başlayacağı Y ofsetini döndürür.
-## Negatif değer = binanın üstü.
+## Binanın ev katlarının başlayacağı Y ofsetini döndürür. Negatif değer = binanın üstü.
 func _get_building_residential_y_offset(building: Node2D) -> float:
+	# Bina, House ile aynı "FloorPlatform/TopCollision" kalıbını kullanıyorsa (dükkanların
+	# çoğu bunu kullanıyor), ev katlarıyla TAM AYNI floor_height artışını kullan.
+	# Böylece "dükkan üstüne ev" ile "ev üstüne ev" aynı collision yüksekliğini üretir;
+	# aksi halde aşağıdaki sprite-tabanlı tahmin dükkandan dükkana farklı sonuç verip
+	# House.gd'nin sabit floor_height'ıyla uyuşmayabiliyordu.
+	if building.get_node_or_null("FloorPlatform/TopCollision") != null:
+		return -RESIDENTIAL_FLOOR_HEIGHT_PX
+	# Fallback: bu kalıbı kullanmayan binalar için eski sprite-tabanlı tahmin.
 	var best_top: float = INF
 	for child in building.get_children():
 		if child is Sprite2D:

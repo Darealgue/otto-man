@@ -22,7 +22,6 @@ var produced_resource: String = "bread"
 # --- ZAMAN BAZLI EKMEK ÜRETİMİ ---
 var bread_production_progress: float = 0.0
 const BREAD_PRODUCTION_TIME: float = 1650.0 # tam çalışma günü (07-18, 11 saat) = 1 işçi başına 1 ekmek
-var is_producing: bool = false
 
 # --- INPUT FETCH/BUFFER ---
 var input_buffer: Dictionary = {"food": 0}
@@ -39,6 +38,18 @@ var upgrade_time_seconds: float = 12.0
 # --- UI Bağlantıları (Eğer varsa, yolları ayarla) ---
 # @onready var worker_label: Label = %WorkerLabel
 
+# --- Çalışan figürü animasyonu (front/back katmanları arasında) ---
+@onready var fig_sprite: Sprite2D = $FigSprite
+var fig_anim_timer: Timer = null
+const FIG_FRAME_TIME: float = 0.18
+
+# --- Baca dumanı ---
+const SMOKE_SCENE: PackedScene = preload("res://village/scenes/SmokePuff.tscn")
+## Bacanın binaya göre yerel konumu — sanatçı sol üstteki taş çıkıntıya göre ayarladı,
+## kendi çiziminde tam hizalanmadıysa buradan (editörde de) oynatılabilir.
+@export var smoke_spawn_offset: Vector2 = Vector2(-172, -130)
+var smoke_timer: Timer = null
+
 func _ready() -> void:
 	_update_ui()
 	print("%s hazır." % building_name)
@@ -53,21 +64,39 @@ func _ready() -> void:
 	fetch_timer.one_shot = true
 	fetch_timer.timeout.connect(_on_fetch_timeout)
 	add_child(fetch_timer)
+	# Figür animasyon zamanlayıcısı kurulum
+	fig_anim_timer = Timer.new()
+	fig_anim_timer.wait_time = FIG_FRAME_TIME
+	fig_anim_timer.timeout.connect(_on_fig_anim_timeout)
+	add_child(fig_anim_timer)
+	# Baca dumanı zamanlayıcısı kurulum
+	smoke_timer = Timer.new()
+	smoke_timer.wait_time = 0.5 # saniyede 2 duman
+	smoke_timer.timeout.connect(_on_smoke_timer_timeout)
+	add_child(smoke_timer)
 
 # Her frame'de ekmek üretimini kontrol et
 func _process(delta: float) -> void:
 	# Zaman ölçeğini uygula (TimeManager ile tutarlı olması için)
 	var scaled_delta = delta * Engine.time_scale
-	
+
 	# Debug: Bakery _process çağrıldığında delta değerini kontrol et
 	if Engine.time_scale >= 16.0 and delta > 0.1:
-		print("🍞 Bakery _process - Delta: %.3f, Scaled Delta: %.3f, Time Scale: %.1f, Producing: %s, Workers: %d" % [delta, scaled_delta, Engine.time_scale, is_producing, assigned_workers])
-	
+		print("🍞 Bakery _process - Delta: %.3f, Scaled Delta: %.3f, Time Scale: %.1f, Workers: %d" % [delta, scaled_delta, Engine.time_scale, assigned_workers])
+
+	# Fırıncı figürü ve baca dumanı sadece işçi içerideyken ve çalışma saatinde aktif olsun.
+	# NOT: assigned_workers'a göre türetiliyor (ayrı bir is_producing bayrağına değil) — o bayrak
+	# sadece add_worker() içinde set ediliyordu ve kayıttan/sahne yeniden yüklemeden sonra
+	# assigned_workers doğru restore olsa bile false kalıp üretimi/animasyonu kilitli bırakıyordu.
+	var actively_working := assigned_workers > 0 and TimeManager.is_work_time() and not is_upgrading
+	_set_fig_animating(actively_working)
+	_set_smoke_active(actively_working)
+
 	# Çalışma saatleri kontrolü - sadece 7:00-18:00 arası üretim yapılır
 	if not TimeManager.is_work_time():
 		return # Çalışma saatleri dışında üretim yok
-	
-	if is_producing and assigned_workers > 0:
+
+	if assigned_workers > 0:
 		# Gerekli kaynaklar var mı kontrol et
 		# Önce yerel buffer'ı kontrol et; eksikse fetch başlat
 		for resource_name in required_resources.keys():
@@ -152,7 +181,6 @@ func add_worker() -> bool:
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 	
 	# Üretimi başlat
-	is_producing = true
 	bread_production_progress = 0.0
 	
 	print("%s: İşçi (ID: %d) atandı ve üretim başladı (%d/%d). Gerekli kaynaklar: %s" % [
@@ -172,7 +200,6 @@ func remove_worker() -> bool:
 
 	# Üretimi durdur (kalan işçi yoksa)
 	if assigned_workers <= 0:
-		is_producing = false
 		bread_production_progress = 0.0
 
 	if VillageManager.all_workers.has(id):
@@ -207,6 +234,45 @@ func _update_ui() -> void:
 	# if worker_label:
 	#    worker_label.text = "%d / %d" % [assigned_workers, max_workers]
 	pass # Label yoksa veya adı farklıysa hata vermesin
+
+# --- Fırıncı figürü animasyonu ---
+func _set_fig_animating(active: bool) -> void:
+	if fig_sprite == null or active == fig_sprite.visible:
+		return
+	fig_sprite.visible = active
+	if active:
+		fig_sprite.frame = 0
+		fig_anim_timer.start()
+	else:
+		fig_anim_timer.stop()
+
+func _on_fig_anim_timeout() -> void:
+	fig_sprite.frame = (fig_sprite.frame + 1) % 4
+
+# --- Baca dumanı ---
+func _set_smoke_active(active: bool) -> void:
+	if smoke_timer == null:
+		return
+	if active:
+		if smoke_timer.is_stopped():
+			smoke_timer.start()
+			_spawn_smoke_puff() # aktif olur olmaz 1sn beklemeden ilk duman çıksın
+	else:
+		smoke_timer.stop()
+
+func _on_smoke_timer_timeout() -> void:
+	_spawn_smoke_puff()
+
+func _spawn_smoke_puff() -> void:
+	if not SMOKE_SCENE:
+		return
+	var puff: Sprite2D = SMOKE_SCENE.instantiate()
+	# Konum, add_child()'dan ÖNCE atanmalı: add_child, puff._ready()'i senkron tetikliyor ve
+	# SmokePuff._ready() sallanma hareketinin referans noktası olan _start_x'i o anki position.x'ten
+	# okuyor. Sırayı tersine çevirirsen _start_x hep 0 kalır, duman her frame merkeze geri sıçrar.
+	puff.position = smoke_spawn_offset
+	puff.z_index = -1 # BackSprite ile aynı sırada — FrontSprite'ın (z=1) arkasında kalıp bacadan çıkıyormuş gibi görünsün
+	add_child(puff)
 
 func _on_fetch_timeout() -> void:
 	if fetch_target == "":

@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://bplrinm6jpfoi"]
+[gd_scene load_steps=6 format=3 uid="uid://bplrinm6jpfoi"]
 
 [ext_resource type="Script" path="res://village/scripts/Bakery.gd" id="1_xrtks"]
-[ext_resource type="Texture2D" uid="uid://dgo4oqhaa4kx4" path="res://village/buildings/sprite/bakery1.png" id="2"]
-
+[ext_resource type="Texture2D" uid="uid://bky1aw8i7amxp" path="res://village/buildings/sprite/bakery/bakery_back.png" id="2_back"]
+[ext_resource type="Texture2D" uid="uid://c32g4yk0oakdj" path="res://village/buildings/sprite/bakery/bakery_fig1.png" id="3_fig"]
+[ext_resource type="Texture2D" uid="uid://dcf5hockj1u36" path="res://village/buildings/sprite/bakery/bakery_front.png" id="4_front"]
 
 [sub_resource type="SegmentShape2D" id="SegmentShape2D_roof"]
 a = Vector2(-160, 0)
@@ -11,13 +12,26 @@ b = Vector2(160, 0)
 [node name="Bakery" type="Node2D" groups=["WorkBuildings"]]
 script = ExtResource("1_xrtks")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
-position = Vector2(0, -64)
-texture = ExtResource("2")
+[node name="BackSprite" type="Sprite2D" parent="."]
+position = Vector2(0, -250)
+z_index = -1
+texture = ExtResource("2_back")
+
+[node name="FigSprite" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(0, -250)
+texture = ExtResource("3_fig")
+hframes = 4
+
+[node name="FrontSprite" type="Sprite2D" parent="."]
+position = Vector2(0, -250)
+z_index = 1
+texture = ExtResource("4_front")
+
 [node name="FloorPlatform" type="StaticBody2D" parent="."]
 collision_layer = 512
 
 [node name="TopCollision" type="CollisionShape2D" parent="FloorPlatform"]
-position = Vector2(0, -125)
+position = Vector2(0, -128)
 shape = SubResource("SegmentShape2D_roof")
 one_way_collision = true
