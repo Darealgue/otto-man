@@ -90,6 +90,10 @@ func add_dungeon_gold(amount: int) -> void:
 	# Emit signal for UI update
 	if has_signal("dungeon_gold_changed"):
 		dungeon_gold_changed.emit(dungeon_gold)
+	# Bölüm sonu raporu için kalıcı toplam (dungeon_gold hasarla/ölümle azalabilir/sıfırlanabilir).
+	var drs := get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and "gold_collected_total" in drs:
+		drs.gold_collected_total += amount
 
 func transfer_dungeon_gold_to_global() -> int:
 	"""Transfer dungeon gold to global gold. Returns amount transferred."""
@@ -136,6 +140,9 @@ func lose_dungeon_gold_by_fraction(fraction: float) -> int:
 	dungeon_gold = max(0, dungeon_gold - loss)
 	if has_signal("dungeon_gold_changed"):
 		dungeon_gold_changed.emit(dungeon_gold)
+	var drs := get_node_or_null("/root/DungeonRunState")
+	if is_instance_valid(drs) and "gold_lost_total" in drs:
+		drs.gold_lost_total += loss
 	return loss
 
 

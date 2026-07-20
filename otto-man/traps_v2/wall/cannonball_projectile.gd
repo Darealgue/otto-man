@@ -92,5 +92,6 @@ func _apply_explosion_damage() -> void:
 		col.take_damage(damage)
 		# Transition to Hurt state for knockback + invincibility
 		if col.get("state_machine") and col.state_machine.has_node("Hurt"):
-			col.state_machine.current_state = col.state_machine.get_node("Hurt")
-			col.state_machine.current_state.enter()
+			# transition_to kullan — doğrudan atama eski state'in exit()'ini atlayıp
+			# crouch/slide collision shape'inin geri büyümemesine yol açıyordu.
+			col.state_machine.transition_to("Hurt", true)

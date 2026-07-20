@@ -2,6 +2,8 @@ extends Node2D
 
 class_name CampFire
 
+const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
+
 var _interact_hint_label: Label = null
 
 # --- Light System Variables ---
@@ -128,6 +130,9 @@ func _create_interact_hint() -> void:
 	_interact_hint_label.size = Vector2(40, 20)
 	_interact_hint_label.visible = false
 	add_child(_interact_hint_label)
+	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
+	# ekran uzayında takip ettiriliyor.
+	OverheadUiTracker.attach(_interact_hint_label, self, Vector2(0, -50))
 
 func _ensure_sick_indicator() -> void:
 	if is_instance_valid(_sick_indicator):

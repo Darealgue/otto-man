@@ -1,5 +1,6 @@
 extends Node2D
 
+const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
 # <<< YENİ: Appearance Resource >>>
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 @export var appearance: VillagerAppearance:
@@ -1246,6 +1247,9 @@ func _build_world_interact() -> void:
 	_interact_hint.size = Vector2(96, 20)
 	_interact_hint.visible = false
 	add_child(_interact_hint)
+	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
+	# ekran uzayında takip ettiriliyor.
+	OverheadUiTracker.attach(_interact_hint, self, Vector2(0, -82))
 
 
 func _resolve_concubine() -> Concubine:

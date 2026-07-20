@@ -40,7 +40,7 @@ func _ready() -> void:
 	_setup_profile_select_menu()
 	_setup_new_game_tutorial_prompt()
 	_setup_intro_state()
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Mouse imleci tamamen kapalı — menü klavye/gamepad ile kullanılıyor.
 	if LocaleManager.has_signal("locale_changed"):
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()

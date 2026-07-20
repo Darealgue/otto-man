@@ -54,6 +54,8 @@ var _world_manager: Node = null
 var _cursor_q: int = 0
 var _cursor_r: int = 0
 var _status_label: Label = null
+var _expedition_supply_hud: PanelContainer = null
+var _expedition_supply_label: Label = null
 var _camera: Camera2D = null
 var _camera_follow_target: Vector2 = Vector2.ZERO
 var _camera_follow_vel: Vector2 = Vector2.ZERO
@@ -233,6 +235,7 @@ func _ready() -> void:
 	_setup_settlement_action_menu()
 	_setup_player_map_mission_window()
 	_setup_expedition_pack_modal()
+	_setup_expedition_supply_hud()
 	_setup_hex_hover_tooltip()
 	var ps0: Node = get_node_or_null("/root/PlayerStats")
 	if ps0 and ps0.has_signal("world_expedition_supplies_changed"):
@@ -1208,6 +1211,7 @@ func _build_world_map_control_help_lines() -> PackedStringArray:
 
 
 func _update_status_label(extra_line: String = "") -> void:
+	_refresh_expedition_supply_hud()
 	if not SHOW_WORLD_MAP_STATUS_TEXT:
 		if _status_label:
 			_status_label.visible = false
@@ -1873,6 +1877,62 @@ func _format_diplomacy_state_label(state: String) -> String:
 			return "baris"
 		_:
 			return state
+
+## Haritada sürekli görünen, kompakt sefer erzakı göstergesi (yemek/ilaç/altın + ne
+## kadar süre sonra erzak biteceği). SHOW_WORLD_MAP_STATUS_TEXT=false olduğu için
+## bu bilgi hiç görünmüyordu — oyuncu erzağının bittiğini fark etmeden çöküyordu.
+func _setup_expedition_supply_hud() -> void:
+	if _expedition_supply_hud != null:
+		return
+	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
+	if layer == null:
+		return
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.03, 0.03, 0.85)
+	sb.border_color = Color(0.42, 0.4, 0.36, 1.0)
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(8)
+	_expedition_supply_hud = PanelContainer.new()
+	_expedition_supply_hud.name = "ExpeditionSupplyHud"
+	_expedition_supply_hud.add_theme_stylebox_override("panel", sb)
+	_expedition_supply_hud.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_expedition_supply_hud.offset_left = HudLayout.HUD_ORIGIN.x
+	_expedition_supply_hud.offset_top = HudLayout.get_hud_block_bottom(HudLayout.HUD_ORIGIN) + 12.0
+	_expedition_supply_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_expedition_supply_hud)
+	_expedition_supply_label = Label.new()
+	_expedition_supply_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
+	_expedition_supply_label.add_theme_font_size_override("font_size", 14)
+	TextOutline.apply_font_to_control(_expedition_supply_label)
+	_expedition_supply_hud.add_child(_expedition_supply_label)
+	_refresh_expedition_supply_hud()
+
+
+func _refresh_expedition_supply_hud() -> void:
+	if _expedition_supply_label == null or not is_instance_valid(_expedition_supply_label):
+		return
+	var ps: Node = get_node_or_null("/root/PlayerStats")
+	if ps == null:
+		return
+	var ex: Dictionary = ps.call("get_world_expedition_supplies") if ps.has_method("get_world_expedition_supplies") else {}
+	var food: int = int(ex.get("food", 0))
+	var medicine: int = int(ex.get("medicine", 0))
+	var gold: int = int(ex.get("world_gold", 0))
+	var forecast: Dictionary = ps.call("get_world_expedition_survival_forecast") if ps.has_method("get_world_expedition_survival_forecast") else {}
+	var minutes_left: int = int(forecast.get("minutes_until_food_collapse", 0))
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("Yol çantası: yemek %d, ilaç %d, altın %d" % [food, medicine, gold])
+	lines.append("Erzak süresi: ~%s" % _format_minutes_short(maxi(0, minutes_left)))
+	_expedition_supply_label.text = "\n".join(lines)
+	var color: Color
+	if food <= 0:
+		color = Color(1.0, 0.4, 0.35, 1.0)
+	elif minutes_left <= int(PlayerStats.WORLD_EXP_FOOD_MINUTES_PER_UNIT):
+		color = Color(1.0, 0.8, 0.35, 1.0)
+	else:
+		color = Color(0.9, 0.88, 0.82, 1.0)
+	_expedition_supply_label.add_theme_color_override("font_color", color)
+
 
 func _build_carry_summary_text() -> String:
 	var health_text: String = "Can: ?"
@@ -2734,6 +2794,20 @@ func _focus_selected_unit() -> void:
 	_cursor_status_label_throttle = 0.0
 	queue_redraw()
 
+## AcceptDialog "popup_window=false" embedded modda gösteriliyor; arka planı Godot'un
+## varsayılan gri "embedded_border" stiliyle geliyor — projenin siyah temasıyla eşleştir.
+func _apply_black_window_style(dialog: AcceptDialog) -> void:
+	if dialog == null:
+		return
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.03, 0.03, 1.0)
+	sb.border_color = Color(0.42, 0.4, 0.36, 1.0)
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(16)
+	dialog.add_theme_stylebox_override("embedded_border", sb)
+	dialog.add_theme_stylebox_override("panel", sb)
+
+
 func _setup_travel_event_dialog() -> void:
 	if _travel_event_dialog != null:
 		return
@@ -2751,6 +2825,7 @@ func _setup_travel_event_dialog() -> void:
 	_travel_event_dialog.dialog_text = ""
 	_travel_event_dialog.get_ok_button().text = tr("wm.roll_dice")
 	_travel_event_dialog.confirmed.connect(_on_travel_event_roll_dice)
+	_apply_black_window_style(_travel_event_dialog)
 	var content := VBoxContainer.new()
 	content.name = "TravelDiceContent"
 	content.add_theme_constant_override("separation", 8)
@@ -2764,22 +2839,37 @@ func _setup_travel_event_dialog() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 14)
 	content.add_child(row)
+	# Zar yüzleri gerçek zar gibi BEYAZ kare + SİYAH noktalar olsun — bu iki kare,
+	# pencerenin genel siyah temasının kasıtlı bir istisnasıdır.
+	var dice_face_style := StyleBoxFlat.new()
+	dice_face_style.bg_color = Color(0.96, 0.96, 0.94, 1.0)
+	dice_face_style.border_color = Color(0.15, 0.15, 0.15, 1.0)
+	dice_face_style.set_border_width_all(2)
+	dice_face_style.set_corner_radius_all(8)
 	var lp := PanelContainer.new()
 	lp.custom_minimum_size = Vector2(96, 96)
+	lp.add_theme_stylebox_override("panel", dice_face_style)
 	row.add_child(lp)
 	_travel_dice_left_label = Label.new()
+	_travel_dice_left_label.name = "DiceFaceLabel"
 	_travel_dice_left_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_travel_dice_left_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_travel_dice_left_label.add_theme_font_size_override("font_size", 24)
+	_travel_dice_left_label.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05, 1.0))
+	_travel_dice_left_label.add_theme_constant_override("outline_size", 0)
 	_travel_dice_left_label.custom_minimum_size = Vector2(92, 92)
 	lp.add_child(_travel_dice_left_label)
 	var rp := PanelContainer.new()
 	rp.custom_minimum_size = Vector2(96, 96)
+	rp.add_theme_stylebox_override("panel", dice_face_style)
 	row.add_child(rp)
 	_travel_dice_right_label = Label.new()
+	_travel_dice_right_label.name = "DiceFaceLabel"
 	_travel_dice_right_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_travel_dice_right_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_travel_dice_right_label.add_theme_font_size_override("font_size", 24)
+	_travel_dice_right_label.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05, 1.0))
+	_travel_dice_right_label.add_theme_constant_override("outline_size", 0)
 	_travel_dice_right_label.custom_minimum_size = Vector2(92, 92)
 	rp.add_child(_travel_dice_right_label)
 	_travel_event_result_label = Label.new()
@@ -2801,6 +2891,7 @@ func _setup_travel_outcome_dialog() -> void:
 	_travel_outcome_dialog.title = tr("wm.travel_outcome.title")
 	_travel_outcome_dialog.dialog_text = ""
 	_travel_outcome_dialog.get_ok_button().text = tr("wm.ok")
+	_apply_black_window_style(_travel_outcome_dialog)
 	if not _travel_outcome_dialog.visibility_changed.is_connected(_on_travel_outcome_visibility_changed):
 		_travel_outcome_dialog.visibility_changed.connect(_on_travel_outcome_visibility_changed)
 	var layer_o: CanvasLayer = get_node_or_null("CanvasLayer")

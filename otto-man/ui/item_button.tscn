@@ -3,6 +3,42 @@
 [ext_resource type="Script" path="res://ui/item_button.gd" id="1_item_btn"]
 
 [node name="ItemButton" type="Button"]
-custom_minimum_size = Vector2(200, 60)
-text = "Item"
+custom_minimum_size = Vector2(320, 460)
+text = ""
 script = ExtResource("1_item_btn")
+
+[node name="RarityLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 160.0
+offset_bottom = 26.0
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 0
+text = ""
+mouse_filter = 2
+
+[node name="NameLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 235.0
+offset_right = 304.0
+offset_bottom = 285.0
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+text = ""
+mouse_filter = 2
+
+[node name="DescLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 335.0
+offset_right = 304.0
+offset_bottom = 446.0
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 1
+autowrap_mode = 3
+text = ""
+mouse_filter = 2

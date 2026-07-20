@@ -42,9 +42,10 @@ theme_override_font_sizes/font_size = 32
 text = "Choose Your Item"
 horizontal_alignment = 1
 
-[node name="ItemContainer" type="VBoxContainer" parent="Control/CenterContainer/VBoxContainer"]
+[node name="ItemContainer" type="HBoxContainer" parent="Control/CenterContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 24
+alignment = 1
 
 [node name="InfoLabel" type="Label" parent="Control/CenterContainer/VBoxContainer"]
 layout_mode = 2

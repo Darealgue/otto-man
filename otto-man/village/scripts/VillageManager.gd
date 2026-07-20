@@ -198,7 +198,10 @@ const CONSTRUCTION_HOURS_BY_TIER := {1: 1.5, 2: 3.0, 3: 6.0, 4: 10.0, 5: 14.0}
 const UPGRADE_BASE_HOURS_BY_TIER := {1: 1.0, 2: 2.0, 3: 4.0, 4: 7.0, 5: 10.0}
 const MAX_BUILD_OR_UPGRADE_HOURS := 24.0
 const HEALER_CONCUBINE_TREATMENT_COST := {"gold": 35, "medicine": 2}
-const GUEST_DEPARTURE_DAYS: int = 1
+## Barınaksız (misafir) köylülerin köyde kalabildiği süre; bu süre içinde barınak
+## bulunamazsa köyü terk ederler. Eskiden 1 gündü; oyuncuya barınak yapmak için
+## makul bir pencere bıraksın diye 3 güne çıkarıldı.
+const GUEST_DEPARTURE_DAYS: int = 3
 
 # Sinyaller
 signal village_data_changed
@@ -4629,6 +4632,13 @@ func _get_vfx_offsets_for_target(target: Node, for_rooftop_construction: bool = 
 	var base_info: float = -190.0
 	var extra_lift: float = 0.0
 	if is_instance_valid(target):
+		# Hedef zaten bir House ise, üstüne (dükkan üstü) eklenmiş bir konut eklentisi
+		# olamaz — o durumda "ext" hep null'dur, aşağıdaki kontrol sadece dükkan/kaynak
+		# binaları için anlamlıdır.
+		var ext = target.get_node_or_null(RESIDENTIAL_EXTENSION_NODE)
+		var ext_floors: int = 0
+		if is_instance_valid(ext) and ext.has_method("get_current_floors"):
+			ext_floors = int(ext.call("get_current_floors"))
 		# House/ResidentialHousing: yükseltme VFX'i (for_rooftop=false) mevcut üst katın altında hizalanır;
 		# yeni kat şantiyesi (for_rooftop=true) dumanı mevcut çatı hizasına (üstte çalışma) taşır.
 		if target.has_method("get_current_floors") and target.get("floor_height") != null:
@@ -4638,13 +4648,20 @@ func _get_vfx_offsets_for_target(target: Node, for_rooftop_construction: bool = 
 				extra_lift = max(0.0, float(floors) * floor_h)
 			else:
 				extra_lift = max(0.0, float(floors - 1) * floor_h)
-		# Dükkan üstü konut eklentisi (ResidentialHousingExtension) varsa oradan hesapla.
-		var ext = target.get_node_or_null("ResidentialHousingExtension")
-		if is_instance_valid(ext) and ext.has_method("get_current_floors"):
-			var ext_floors := int(ext.call("get_current_floors"))
+		elif target is Node2D and (for_rooftop_construction or ext_floors > 0):
+			# Hedef bir House değil — dükkan/kaynak binası (kereste kampı, fırın vb.).
+			# Çatı yüksekliği SADECE üstüne yeni kat inşa edilirken ya da üstünde zaten
+			# bir ev katı varken eklenir. Düz bir yükseltmede (üstünde hiç kat yokken)
+			# bu ekleme yapılmaz — yoksa duman binanın sahip olmadığı bir "üst kata"
+			# zıplıyordu (bkz. kereste kampı/fırın yükseltme raporları).
+			extra_lift = max(0.0, -_get_building_residential_y_offset(target as Node2D))
+		# Dükkan üstü konut eklentisi (ResidentialHousingExtension) varsa üstüne binen kat
+		# yüksekliğini de ekle (binanın kendi çatı yüksekliğiyle TOPLA, max değil — aksi halde
+		# eklentinin katları binanın gövdesine gömülü hesaplanıyordu).
+		if ext_floors > 0:
 			var ext_floor_h := float(ext.get("floor_height")) if ext.get("floor_height") != null else 123.0
-			var ext_lift: float = max(0.0, float(ext_floors) * ext_floor_h)
-			extra_lift = max(extra_lift, ext_lift)
+			var floors_for_lift: int = ext_floors if for_rooftop_construction else max(0, ext_floors - 1)
+			extra_lift += float(floors_for_lift) * ext_floor_h
 	return {
 		"smoke_y": base_smoke - extra_lift,
 		"tool_y": base_tool - extra_lift,
@@ -4809,6 +4826,8 @@ var debug_force_cariye_has_space: bool = false
 ## Dönüş:
 ##   "occupied"          — tüm barınaklardaki kayıtlı sakin sayısı (kamp ateşi dahil)
 ##   "capacity"          — tüm barınakların toplam kapasitesi
+##   "population"        — barınak arayan TÜM köylü sayısı (barınağı olmayanlar dahil;
+##                          bu yüzden capacity'den büyük olabilir — barınak yetersizliği göstergesi)
 ##   "houses"            — ev (ResidentialHousing) sayısı
 ##   "house_occupied"    — evlerdeki kayıtlı sakin sayısı (kamp ateşi hariç)
 ##   "house_capacity"    — evlerin toplam kapasitesi (kamp ateşi hariç)
@@ -4838,9 +4857,15 @@ func get_housing_summary() -> Dictionary:
 	var occupied: int = 0
 	var house_occupied: int = 0
 	var house_units_occupied: int = 0
+	var population: int = 0
 	for wid in all_workers:
 		var w: Node = _worker_node_from_all_workers_entry(wid, all_workers[wid], true)
-		if w == null or _is_guest_worker(w):
+		if w == null:
+			continue
+		# Nüfus, barınak bekleyen misafir/barınaksız köylüleri de sayar — aksi halde
+		# üst şeritteki X/Y göstergesi barınaksız kalanları hiç yansıtmaz.
+		population += 1
+		if _is_guest_worker(w):
 			continue
 		var hn = w.get("housing_node") if "housing_node" in w else null
 		if not is_instance_valid(hn) or not hn.is_in_group("Housing"):
@@ -4857,6 +4882,7 @@ func get_housing_summary() -> Dictionary:
 	return {
 		"occupied": occupied,
 		"capacity": capacity,
+		"population": population,
 		"houses": houses,
 		"house_occupied": house_occupied,
 		"house_capacity": house_capacity,
@@ -7294,10 +7320,11 @@ func _add_new_worker(NPC_Info = {}, saved_appearance: Dictionary = {}) -> bool:
 	# Barınak atamaya çalış (bu fonksiyon housing_node ve start_x_pos ayarlar)
 	# Worker artık WorkersContainer'da olduğu için housing sadece referans tutacak
 	if not _assign_housing(worker_instance):
-		#printerr("VillageManager: Yeni işçi (ID: %d) İÇİN BARINAK BULUNAMADI, işçi eklenmiyor." % worker_id_counter) 
-		worker_instance.queue_free() # Oluşturulan instance'ı sil
-		# ID sayacını geri almalı mıyız? Şimdilik almıyoruz, ID'ler atlanmış olacak.
-		return false # Başarısız
+		# Barınak yoksa köylü YİNE DE köye katılır — misafir/barınaksız statüsünde
+		# (add_villager_with_data zaten zindan kurtarmalarında bu yolu kullanıyordu).
+		# Kum saati göstergesiyle GUEST_DEPARTURE_DAYS içinde barınak bulunamazsa ayrılır.
+		_finalize_guest_villager(worker_instance, npc_dict)
+		return true # Barınaksız da olsa eklendi
 
 	# Barınak bulunduysa initialize et ve listeye ekle
 	worker_instance.Initialize_Existing_Villager(npc_dict)
@@ -8387,16 +8414,16 @@ func _update_nearest_npc_name_visibility() -> void:
 			if child.is_in_group("cats"):
 				continue
 			if child is Node2D:
-				var name_plate_container = child.get_node_or_null("NamePlateContainer")
-				if name_plate_container:
+				var name_plate_container = child.get_nameplate_container() if child.has_method("get_nameplate_container") else child.get_node_or_null("NamePlateContainer")
+				if is_instance_valid(name_plate_container):
 					all_npcs.append(child)
-	
+
 	# Cariyeleri ekle
 	if concubines_container:
 		for child in concubines_container.get_children():
 			if child is Node2D:
-				var name_plate_container = child.get_node_or_null("NamePlateContainer")
-				if name_plate_container:
+				var name_plate_container = child.get_nameplate_container() if child.has_method("get_nameplate_container") else child.get_node_or_null("NamePlateContainer")
+				if is_instance_valid(name_plate_container):
 					all_npcs.append(child)
 	
 	# En yakın NPC'yi bul (maksimum mesafe: num8 etkileşim mesafesiyle aynı - yaklaşık 35 piksel)
@@ -8416,14 +8443,14 @@ func _update_nearest_npc_name_visibility() -> void:
 	for npc in all_npcs:
 		if not is_instance_valid(npc):
 			continue
-		var name_plate_container = npc.get_node_or_null("NamePlateContainer")
-		if name_plate_container:
+		var name_plate_container = npc.get_nameplate_container() if npc.has_method("get_nameplate_container") else npc.get_node_or_null("NamePlateContainer")
+		if is_instance_valid(name_plate_container):
 			name_plate_container.visible = false
-	
+
 	# En yakın NPC'nin ismini göster
 	if nearest_npc and is_instance_valid(nearest_npc):
-		var name_plate_container = nearest_npc.get_node_or_null("NamePlateContainer")
-		if name_plate_container:
+		var name_plate_container = nearest_npc.get_nameplate_container() if nearest_npc.has_method("get_nameplate_container") else nearest_npc.get_node_or_null("NamePlateContainer")
+		if is_instance_valid(name_plate_container):
 			name_plate_container.visible = true
 
 # Tüm NPC isimlerini gizle (oyuncu yoksa)
@@ -8434,16 +8461,16 @@ func _hide_all_npc_names() -> void:
 			if child.is_in_group("cats"):
 				continue
 			if child is Node2D:
-				var name_plate_container = child.get_node_or_null("NamePlateContainer")
-				if name_plate_container:
+				var name_plate_container = child.get_nameplate_container() if child.has_method("get_nameplate_container") else child.get_node_or_null("NamePlateContainer")
+				if is_instance_valid(name_plate_container):
 					name_plate_container.visible = false
-	
+
 	# Cariyeleri gizle
 	if concubines_container:
 		for child in concubines_container.get_children():
 			if child is Node2D:
-				var name_plate_container = child.get_node_or_null("NamePlateContainer")
-				if name_plate_container:
+				var name_plate_container = child.get_nameplate_container() if child.has_method("get_nameplate_container") else child.get_node_or_null("NamePlateContainer")
+				if is_instance_valid(name_plate_container):
 					name_plate_container.visible = false
 
 

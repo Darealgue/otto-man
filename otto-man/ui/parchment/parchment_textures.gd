@@ -1,6 +1,9 @@
 class_name ParchmentTextures
 extends RefCounted
-## Parşömen PNG yolları. Konum/boyut sahne node'larında kalır; sadece texture değişir.
+## Parşömen teması kaldırıldı: tüm pencereler artık düz siyah + ince kenarlıklı
+## tek bir üretilmiş dokuyla çiziliyor (bkz. get_flat_panel_texture).
+## Sabitler/yol adları (LARGE/COMPACT/MINI/HUD_BAR) ve patch margin'ler eskisiyle
+## uyumluluk için korunuyor — sadece hangi PNG'nin yükleneceği artık önemli değil.
 
 # Büyük menüler, geniş konuşma çubuğu (tutorial), görev merkezi çerçevesi
 const LARGE := "res://assets/UI/menu_ninepatchrect.png"
@@ -17,6 +20,13 @@ const COMPACT_CONTENT_MARGIN := 10
 # İnce üst şerit (geniş, alçak; yoksa LARGE)
 const HUD_BAR := "res://assets/UI/menu_ninepatchrect_hud_bar.png"
 
+const FLAT_PANEL_SIZE := 128
+const FLAT_PANEL_BORDER_PX := 3
+const FLAT_PANEL_FILL_COLOR := Color(0.03, 0.03, 0.03, 1.0)
+const FLAT_PANEL_BORDER_COLOR := Color(0.42, 0.4, 0.36, 1.0)
+
+static var _flat_panel_texture_cache: ImageTexture = null
+
 
 static func load_if_exists(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):
@@ -24,22 +34,39 @@ static func load_if_exists(path: String) -> Texture2D:
 	return load(path) as Texture2D
 
 
+## Düz siyah + ince kenarlıklı, 9-slice olarak her boyuta (mini/compact/large/hud_bar)
+## sorunsuz uyacak şekilde üretilmiş tek bir doku. Kenarlık her zaman FLAT_PANEL_BORDER_PX
+## kalınlığında sabit kalır; patch margin ne olursa olsun (≤ FLAT_PANEL_SIZE/2) ortası düz siyahtır.
+## ParchmentFrame._apply_style() bunu her zaman kullanır (parchment_texture export'u boş
+## bırakılmış olsa bile) — böylece hiçbir pencere eski parşömen PNG'sinde kalmaz.
+static func get_flat_panel_texture() -> ImageTexture:
+	if _flat_panel_texture_cache != null:
+		return _flat_panel_texture_cache
+	var img := Image.create(FLAT_PANEL_SIZE, FLAT_PANEL_SIZE, false, Image.FORMAT_RGBA8)
+	img.fill(FLAT_PANEL_FILL_COLOR)
+	var b := FLAT_PANEL_BORDER_PX
+	img.fill_rect(Rect2i(0, 0, FLAT_PANEL_SIZE, b), FLAT_PANEL_BORDER_COLOR)
+	img.fill_rect(Rect2i(0, FLAT_PANEL_SIZE - b, FLAT_PANEL_SIZE, b), FLAT_PANEL_BORDER_COLOR)
+	img.fill_rect(Rect2i(0, 0, b, FLAT_PANEL_SIZE), FLAT_PANEL_BORDER_COLOR)
+	img.fill_rect(Rect2i(FLAT_PANEL_SIZE - b, 0, b, FLAT_PANEL_SIZE), FLAT_PANEL_BORDER_COLOR)
+	_flat_panel_texture_cache = ImageTexture.create_from_image(img)
+	return _flat_panel_texture_cache
+
+
 static func resolve_mini() -> Texture2D:
-	var tex := load_if_exists(MINI)
-	return tex if tex else load_if_exists(COMPACT)
+	return get_flat_panel_texture()
 
 
 static func resolve_compact() -> Texture2D:
-	var tex := load_if_exists(COMPACT)
-	return tex if tex else load_if_exists(LARGE)
+	return get_flat_panel_texture()
 
 
 static func resolve_large() -> Texture2D:
-	return load_if_exists(LARGE)
+	return get_flat_panel_texture()
 
 
 static func resolve_hud_bar() -> Texture2D:
-	return load_if_exists(HUD_BAR) if load_if_exists(HUD_BAR) else load_if_exists(LARGE)
+	return get_flat_panel_texture()
 
 
 static func apply_mini(frame: ParchmentFrame, content_margin: int = MINI_CONTENT_MARGIN) -> void:

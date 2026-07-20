@@ -2,9 +2,20 @@ extends Node2D
 
 @export var NPC_Info : Dictionary
 var NPCWindow = preload("res://ui/npc_window.tscn")
+const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
 ## npc_window.gd artık _ready()'de kendini bir CanvasLayer'a taşıyor (kamera zoom/pan'dan
 ## etkilenmeyen gerçek ekran-uzayı modal için), bu yüzden $NpcWindow yerine bu cache'i kullan.
 var _npc_window_ref: Control = null
+## OverheadUiTracker bu ikisini de ayrı bir CanvasLayer'a taşıyor (sahne ışığından etkilenmesin
+## diye) — reparent sonrası _nameplate_container / _interact_button yol araması artık çalışmaz,
+## bu yüzden dosyadaki TÜM kullanımlar bu cache'lere çevrildi.
+@onready var _nameplate_container: PanelContainer = $NamePlateContainer
+@onready var _interact_button: Button = $InteractButton
+
+## VillageManager en yakın NPC'nin ismini göstermek için doğrudan $NamePlateContainer path'iyle
+## arama yapıyordu; artık reparent edildiği için bu getter üzerinden erişmesi gerekiyor.
+func get_nameplate_container() -> PanelContainer:
+	return _nameplate_container
 # <<< YENİ: Appearance Resource >>>
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 @export var appearance: VillagerAppearance:
@@ -792,18 +803,22 @@ func _ready() -> void:
 		update_visuals()
 	# <<< YENİ SONU >>>
 	
-	if $InteractButton:
-		var name_label: Label = $NamePlateContainer.get_node_or_null("NamePlate") as Label
-		NpcOverheadUi.apply_frameless_interact_button($InteractButton, name_label)
-		_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, $InteractButton)
+	if _interact_button:
+		var name_label: Label = _nameplate_container.get_node_or_null("NamePlate") as Label
+		NpcOverheadUi.apply_frameless_interact_button(_interact_button, name_label)
+		_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, _interact_button)
 		_update_interact_button_text()
 		var im := get_node_or_null("/root/InputManager")
 		if im and im.has_signal("input_device_changed") and not im.input_device_changed.is_connected(_on_input_device_changed):
 			im.input_device_changed.connect(_on_input_device_changed)
-	
-	if $NamePlateContainer:
-		NpcOverheadUi.apply_frameless_nameplate($NamePlateContainer)
-		$NamePlateContainer.visible = false
+		# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
+		# ekran uzayında takip ettiriliyor.
+		OverheadUiTracker.attach(_interact_button, self, Vector2(1.5, -107.5))
+
+	if _nameplate_container:
+		NpcOverheadUi.apply_frameless_nameplate(_nameplate_container)
+		_nameplate_container.visible = false
+		OverheadUiTracker.attach(_nameplate_container, self, Vector2(0, -85))
 
 func _ready_dungeon_prisoner() -> void:
 	visible = true
@@ -811,9 +826,9 @@ func _ready_dungeon_prisoner() -> void:
 		update_visuals()
 	if NPC_Info.has("Info") and NPC_Info["Info"].has("Name"):
 		Update_Villager_Name()
-	if $NamePlateContainer:
-		NpcOverheadUi.apply_frameless_nameplate($NamePlateContainer)
-		$NamePlateContainer.visible = true
+	if _nameplate_container:
+		NpcOverheadUi.apply_frameless_nameplate(_nameplate_container)
+		_nameplate_container.visible = true
 		# Görsel olarak biraz daha aşağı dursun (fizik pozisyonu bozmadan)
 		$BodySprite.position.y += 3
 		$PantsSprite.position.y += 3
@@ -829,9 +844,9 @@ func _ready_dungeon_prisoner() -> void:
 		if is_instance_valid($HatSprite):
 			$HatSprite.position.y += 3
 	# Zindanda konuşma/etkileşim yok: etkileşim butonunu gizle ve devre dışı bırak
-	if $InteractButton:
-		$InteractButton.hide()
-		$InteractButton.set_process_unhandled_input(false)
+	if _interact_button:
+		_interact_button.hide()
+		_interact_button.set_process_unhandled_input(false)
 	move_target_x = position.x  # İlk hedef kendi konumu
 	dungeon_spawn_x = global_position.x  # Yatay hareket merkezi başlangıç pozisyonu olsun
 	dungeon_move_dir = 1 if randf() < 0.5 else -1
@@ -912,8 +927,8 @@ func _physics_process_dungeon_prisoner(delta: float) -> void:
 			# Yatay hareket
 			global_position.x += float(dungeon_move_dir) * DUNGEON_PRISONER_MOVE_SPEED * delta
 			scale.x = dungeon_move_dir
-			if $NamePlateContainer:
-				$NamePlateContainer.scale.x = -1.0 if scale.x < 0 else 1.0
+			if _nameplate_container:
+				_nameplate_container.scale.x = -1.0 if scale.x < 0 else 1.0
 			if _current_animation_name != "walk":
 				play_animation("walk")
 		# Yürüme süresi dolunca tekrar idle'e dön
@@ -951,15 +966,15 @@ func Save_Villager_Info():
 	#NPC_Info = VillagerInfo
 func Update_Villager_Name():
 	if NPC_Info.has("Info") and NPC_Info["Info"].has("Name"):
-		var name_label = $NamePlateContainer.get_node_or_null("NamePlate")
+		var name_label = _nameplate_container.get_node_or_null("NamePlate")
 		if name_label:
 			name_label.text = NPC_Info["Info"]["Name"]
 	else:
 		print("[Worker] ⚠️ Cannot update name: NPC_Info missing 'Info' or 'Name' key. Info keys: ", NPC_Info.keys())
 	
 	# NamePlate'i varsayılan olarak görünmez yap (zindan mahkûmunda görünür bırak)
-	if $NamePlateContainer and not is_dungeon_prisoner:
-		$NamePlateContainer.visible = false
+	if _nameplate_container and not is_dungeon_prisoner:
+		_nameplate_container.visible = false
 	
 func Initialize_Existing_Villager(NPCInfo):
 		print("Worker %d Initialize_Existing_Villager called with data size: %d" % [worker_id, NPCInfo.size()])
@@ -1781,7 +1796,7 @@ func _physics_process(delta: float) -> void:
 
 func _sync_overhead_ui_flip() -> void:
 	# NpcWindow artık ekran-uzayı modal (CanvasLayer'a taşınıyor) — karakterle flip olmamalı.
-	var ui_nodes: Array = [$NamePlateContainer, $InteractButton]
+	var ui_nodes: Array = [_nameplate_container, _interact_button]
 	if _interact_hold_ring:
 		ui_nodes.append(_interact_hold_ring)
 	if _guest_hourglass_label:
@@ -2574,6 +2589,9 @@ func _try_gather_return_before_sleep(hour: int, minute: int) -> bool:
 		State.SLEEPING,
 		State.SOCIALIZING,
 		State.AWAKE_IDLE,
+		State.FETCHING_RESOURCE,
+		State.WAITING_AT_SOURCE,
+		State.RETURNING_FROM_FETCH,
 	]
 	return _start_returning_from_offscreen_work(spawn_edge)
 
@@ -2757,9 +2775,22 @@ func check_hour_transition(new_hour: int) -> void:
 				visible = true
 				return
 		
+		# Bu üçü (mesafe bazlı kaynak toplama gidiş/bekleme/dönüş) saat kontrolünde hiç
+		# ele alınmıyordu — işçi bu döngüdeyken mesai/uyku saati geçse bile hiçbir
+		# müdahale olmuyor, işçi geceye kadar toplamaya devam edip duruyordu.
+		State.FETCHING_RESOURCE, State.WAITING_AT_SOURCE, State.RETURNING_FROM_FETCH:
+			if current_state == State.WAITING_AT_SOURCE and wait_at_source_timer and not wait_at_source_timer.is_stopped():
+				wait_at_source_timer.stop()
+			if _try_gather_return_before_sleep(new_hour, current_minute):
+				visible = true
+				return
+			if _try_night_sleep_or_sick(new_hour, current_minute):
+				visible = true
+				return
+
 		State.RETURNING_FROM_WORK:
 			pass
-		
+
 		State.WORKING_OFFSCREEN:
 			if _try_gather_return_before_sleep(new_hour, current_minute):
 				visible = true
@@ -2906,8 +2937,8 @@ func _choose_next_idle_activity():
 # <<< YENİ SONU >>>
 
 func _update_interact_button_text() -> void:
-	if $InteractButton:
-		$InteractButton.text = NpcOverheadUi.get_interact_hint_text()
+	if _interact_button:
+		_interact_button.text = NpcOverheadUi.get_interact_hint_text()
 
 
 func set_interact_hold_progress(ratio: float) -> void:
@@ -2916,23 +2947,23 @@ func set_interact_hold_progress(ratio: float) -> void:
 
 
 func _on_input_device_changed(_is_joypad: bool) -> void:
-	if $InteractButton and $InteractButton.visible:
+	if _interact_button and _interact_button.visible:
 		_update_interact_button_text()
 
 
 func ShowInteractButton():
 	if is_dungeon_prisoner:
 		return
-	if $InteractButton:
+	if _interact_button:
 		_update_interact_button_text()
-		$InteractButton.show()
+		_interact_button.show()
 	if _interact_hold_ring:
-		_interact_hold_ring.sync_to_button($InteractButton)
+		_interact_hold_ring.sync_to_button(_interact_button)
 		_interact_hold_ring.set_progress(0.0)
 
 func HideInteractButton():
-	if $InteractButton:
-		$InteractButton.hide()
+	if _interact_button:
+		_interact_button.hide()
 	if _interact_hold_ring:
 		_interact_hold_ring.set_progress(0.0)
 

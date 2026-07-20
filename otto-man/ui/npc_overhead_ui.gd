@@ -80,13 +80,16 @@ static func _get_input_manager() -> Node:
 	return null
 
 
+## Ring, interact_button'ın ÇOCUĞU olarak eklenir (host'un değil) — böylece buton sahne
+## ışığından kaçmak için ayrı bir CanvasLayer'a taşınırsa (bkz. OverheadUiTracker) ring de
+## otomatik olarak onunla birlikte taşınır, ayrıca senkronize edilmesine gerek kalmaz.
 static func attach_hold_ring(host: Node, interact_button: Button) -> NpcInteractHoldRing:
 	if host == null or interact_button == null:
 		return null
 	var ring := NpcInteractHoldRing.new()
 	ring.name = "InteractHoldRing"
 	ring.z_index = interact_button.z_index
-	host.add_child(ring)
+	interact_button.add_child(ring)
 	ring.sync_to_button(interact_button)
 	ring.visible = false
 	return ring

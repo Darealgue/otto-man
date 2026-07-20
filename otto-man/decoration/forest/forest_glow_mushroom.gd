@@ -12,6 +12,8 @@ const NIGHT_MODULATE := Color(1.15, 1.25, 1.05, 1.0)
 @onready var _sprite: Sprite2D = $Sprite
 @onready var _light: PointLight2D = $PointLight2D
 
+const OFFSCREEN_CULL_MARGIN := 400.0
+
 var _time: float = 0.0
 var _random_offset: float = 0.0
 var _noise: FastNoiseLite
@@ -38,6 +40,27 @@ func _ready() -> void:
 		_base_light_energy = _light.energy
 		_base_light_scale = _light.texture_scale
 		_light.energy = 0.0
+	_setup_offscreen_culling()
+
+
+## Ekran dışındayken flicker hesabını durdurur; sabit duran mantarlar da chunk penceresi
+## boyunca aktif kalıp gereksiz yere ışık/gürültü hesaplıyordu.
+func _setup_offscreen_culling() -> void:
+	var notifier := VisibleOnScreenNotifier2D.new()
+	notifier.rect = Rect2(-OFFSCREEN_CULL_MARGIN, -OFFSCREEN_CULL_MARGIN, OFFSCREEN_CULL_MARGIN * 2.0, OFFSCREEN_CULL_MARGIN * 2.0)
+	add_child(notifier)
+	notifier.screen_exited.connect(_on_screen_exited)
+	notifier.screen_entered.connect(_on_screen_entered)
+	if not notifier.is_on_screen():
+		_on_screen_exited()
+
+
+func _on_screen_exited() -> void:
+	set_process(false)
+
+
+func _on_screen_entered() -> void:
+	set_process(true)
 
 
 func _setup_sprite() -> void:

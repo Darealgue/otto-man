@@ -281,8 +281,8 @@ func _open_menu() -> void:
 	else:
 		get_tree().paused = true
 	
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	
+	# Mouse imleci tamamen kapalı — menü klavye/gamepad ile kullanılıyor.
+
 	# Center player camera when menu opens
 	_center_player_camera()
 	

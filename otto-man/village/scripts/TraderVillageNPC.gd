@@ -2,6 +2,8 @@ extends Node2D
 ## Köye gelen tüccarı temsil eden sprite. Merkeze yürüyerek girer, merkez civarında çoğunlukla oturur,
 ## gece geç saatte sabaha kadar uyur. Süre bitince yürüyerek çıkar.
 
+const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
+
 enum State {
 	WALKING_IN,
 	IDLE,
@@ -372,6 +374,9 @@ func _build_world_interact() -> void:
 	NpcOverheadUi.configure_centered_overhead_hint(_interact_hint, 96.0, -88.0, 20.0, INTERACT_HINT_X_SHIFT)
 	_interact_hint.visible = false
 	add_child(_interact_hint)
+	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
+	# ekran uzayında takip ettiriliyor.
+	OverheadUiTracker.attach(_interact_hint, self, Vector2(INTERACT_HINT_X_SHIFT, -78))
 
 
 func can_interact() -> bool:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=81 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=82 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://village/scripts/PortalArea.gd" id="2_v83n0"]
 [ext_resource type="PackedScene" uid="uid://dc45tnfhvti72" path="res://village/scenes/CariyeManagementUI.tscn" id="4_fbyh8"]
 [ext_resource type="PackedScene" uid="uid://dptamh04yqugv" path="res://village/scenes/VillageStatusUI.tscn" id="5_3scu2"]
+[ext_resource type="PackedScene" uid="uid://dmoralejar01" path="res://village/scenes/MoraleJarUI.tscn" id="5_moralejar"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="6_nhirr"]
 [ext_resource type="PackedScene" uid="uid://ip73ci5ccf8t" path="res://village/scenes/TimeDisplayUI.tscn" id="7_miuw4"]
 [ext_resource type="PackedScene" uid="uid://d1hjdmbn1joxm" path="res://village/scenes/BuildMenuUI.tscn" id="8_buildmenu"]
@@ -328,8 +329,25 @@ payload_reason = "portal_dungeon"
 position = Vector2(167.3, -147.4)
 shape = SubResource("RectangleShape2D_dungeon_portal")
 
+[node name="TopBarBackground" type="CanvasLayer" parent="."]
+layer = 150
+
+[node name="TopBarStrip" type="ColorRect" parent="TopBarBackground"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -64.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
 [node name="VillageStatusUI" parent="." instance=ExtResource("5_3scu2")]
 layer = 200
+
+[node name="MoraleJarUI" parent="." instance=ExtResource("5_moralejar")]
+layer = 201
 
 [node name="Camera2D" type="Camera2D" parent="."]
 visible = false

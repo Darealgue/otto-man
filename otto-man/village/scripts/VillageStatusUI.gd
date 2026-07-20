@@ -17,11 +17,17 @@ extends MarginContainer # .tscn dosyasındaki kök node türü
 @onready var bread_label: Label = %BreadLabel
 var _water_row: Control = null
 @onready var summary_container: HBoxContainer = %SummaryHBox
-@onready var resource_list_container: VBoxContainer = %ResourceList
-# Events & Morale
+@onready var resource_list_container: HFlowContainer = %ResourceList
+# Şeridin ortasındaki cam fanus (MoraleJarUI) metinlerin altında kalmasın diye
+# sol/sağ grupları dengeleyen boşluklar.
+@onready var _left_group: HBoxContainer = %LeftGroup
+@onready var _right_group: HBoxContainer = %RightGroup
+@onready var _outer_left_pad: Control = %OuterLeftPad
+@onready var _outer_right_pad: Control = %OuterRightPad
+# Events (Morale artık üst şeritteki cam fanus göstergesinde — MoraleJarUI.gd)
+# EventsSlot: olay yokken bile sabit genişlikte boşluk bırakır, layout zıplamaz.
+@onready var _events_slot: Control = %EventsSlot
 @onready var events_label: Label = %EventsLabel
-@onready var morale_label: Label = %MoraleLabel
-@onready var economy_stats_label: Label = %EconomyStatsLabel
 var housing_label: Label = null
 # İleride eklenecek diğer label'lar için @onready değişkenler...
 
@@ -48,8 +54,17 @@ const PRODUCER_SCRIPTS := {
 var _extra_resource_labels: Dictionary = {}
 var _cached_disaster_hints: Dictionary = {}
 
+const StatChangeFX = preload("res://ui/stat_change_fx.gd")
+## Oyuncu köyden uzaktayken (zindanda) değişen sayıları fark edebilsin diye,
+## bu değerler her _update_labels çağrısında önceki değerle kıyaslanır; fark
+## varsa StatChangeFX ile sallanma + renkli (+/-) popup oynatılır.
+var _prev_soldier_count: int = -1
+var _prev_housing_occupied: int = -1
+
 # Icon sizing for resource rows
 const RESOURCE_ICON_SIZE := Vector2(25, 25)
+## İkon ile kendi sayısı arası sıkı boşluk (bir sonraki ikonla arayı ayırt etmek için).
+const RESOURCE_ROW_SEPARATION := 3
 
 # --- Periyodik Güncelleme ---
 var update_interval: float = 0.5 # Saniyede 2 kez güncelle
@@ -59,10 +74,8 @@ var time_since_last_update: float = 0.0
 var _parchment_debug: bool = false
 var _canvas_layer: CanvasLayer
 var _last_top_bar_size := Vector2.ZERO
-var _last_resource_panel_size := Vector2.ZERO
-const RESOURCE_PANEL_LEFT := 10.0
-## Parşömen köşe çiziminin (patch) içinde, yazı ile çerçeve arası ek boşluk.
-const RESOURCE_PANEL_INSET := 5
+## Alttaki siyah şerit sabit/dar (64px) — bar bunun üstüne taşmasın diye tavan burada.
+const TOP_BAR_MAX_HEIGHT := 60.0
 
 func _ready() -> void:
 	add_to_group("village_status_ui")
@@ -76,6 +89,10 @@ func _ready() -> void:
 		printerr("VillageStatusUI Warning: SummaryHBox veya ResourceList bulunamadı! Düzen yerleşimini kontrol edin.")
 
 	TextOutline.apply_to_tree(self)
+	# Üst şerit artık parşömen değil, düz siyah — bu satırdaki metinler beyaz olmalı.
+	_apply_top_bar_label_color(gold_label)
+	_apply_top_bar_label_color(worker_label)
+	_apply_top_bar_label_color(asker_label)
 
 	# Wrap static labels with icons if icons exist
 	_wrap_label_with_icon(wood_label, "wood")
@@ -107,6 +124,46 @@ func _ready() -> void:
 	print("VillageStatusUI Ready. (F9 = parşömen overlay | F10 = ölçü raporu)")
 
 
+## Üst siyah şerit için varsayılan (durum rengi yokken) metin rengi: beyaz + siyah kontur.
+func _apply_top_bar_label_color(label: Label) -> void:
+	if not is_instance_valid(label):
+		return
+	label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	label.add_theme_constant_override("outline_size", 3)
+
+
+## Net üretim etiketi rengi: eksi kırmızı, artı yeşil, sıfır beyaz.
+func _apply_net_label_color(label: Label, net_int: int) -> void:
+	if not is_instance_valid(label):
+		return
+	var color: Color
+	if net_int > 0:
+		color = Color(0.45, 0.9, 0.5)
+	elif net_int < 0:
+		color = Color(1.0, 0.45, 0.45)
+	else:
+		color = Color(1, 1, 1, 1)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	label.add_theme_constant_override("outline_size", 3)
+
+
+## LeftGroup (Altın/İşçi/Barınma) ile RightGroup (Asker) genişlikleri metne göre
+## sürekli değiştiği için, aradaki JarGap'in ekran ortasında (fanusun altında)
+## kalması için kısa taraf dış kenardan aynı miktarda içeri itilir.
+func _balance_top_bar_groups() -> void:
+	if not is_instance_valid(_left_group) or not is_instance_valid(_right_group):
+		return
+	if not is_instance_valid(_outer_left_pad) or not is_instance_valid(_outer_right_pad):
+		return
+	var left_w := _left_group.get_combined_minimum_size().x
+	var right_w := _right_group.get_combined_minimum_size().x
+	var diff := left_w - right_w
+	_outer_left_pad.custom_minimum_size = Vector2(maxf(0.0, -diff), 1)
+	_outer_right_pad.custom_minimum_size = Vector2(maxf(0.0, diff), 1)
+
+
 func _on_locale_changed(_locale: String = "") -> void:
 	_update_labels()
 
@@ -126,10 +183,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _set_parchment_debug(enabled: bool) -> void:
 	if _canvas_layer == null:
 		return
-	for node_name in ["TopBarPanel", "ResourcePanel"]:
-		var pf := _canvas_layer.get_node_or_null(node_name) as ParchmentFrame
-		if pf:
-			pf.debug_layout = enabled
+	var pf := _canvas_layer.get_node_or_null("TopBarPanel") as ParchmentFrame
+	if pf:
+		pf.debug_layout = enabled
 	print("\n[VillageStatusUI] Parşömen debug: %s (kırmızı=kenar, yeşil=esneyen orta, mavi=içerik)\n" % ("AÇIK" if enabled else "KAPALI"))
 	if enabled:
 		_log_panel_measurements()
@@ -148,10 +204,8 @@ func _log_panel_measurements() -> void:
 		"",
 	])
 	_log_one_panel(lines, "TopBarPanel (üst status)", _canvas_layer.get_node_or_null("TopBarPanel") as ParchmentFrame, summary_container)
-	_log_one_panel(lines, "ResourcePanel (sol envanter)", _canvas_layer.get_node_or_null("ResourcePanel") as ParchmentFrame, resource_list_container)
 	lines.append("Sahne dosyası offset (tasarım):")
 	lines.append("  TopBarPanel: 765 x 53  (anchor üst-orta)")
-	lines.append("  ResourcePanel: sol %d, ust %.0f (HUD alti)" % [int(RESOURCE_PANEL_LEFT), HudLayout.get_village_resource_panel_top()])
 	lines.append("Öneri: texture boyutu ≈ 'parşömen kutusu' veya içerik+patch; 96x72 envanter için dar kalabilir.")
 	lines.append("==================================================")
 	print("\n".join(lines))
@@ -201,74 +255,19 @@ func _calc_parchment_frame_size(panel: ParchmentFrame, inner: Control) -> Vector
 	)
 
 
-## Parşömen kutusunu içeriğe göre boyutlandır; sol üst / üst-orta konum sabit kalır.
+## Parşömen kutusunu içeriğe göre boyutlandır; üst-orta konum sabit kalır.
 func _sync_parchment_boxes_to_content() -> void:
 	if _canvas_layer == null:
 		return
 	await get_tree().process_frame
 	await get_tree().process_frame
-	_sync_resource_panel_to_content()
 	_sync_top_bar_to_content()
-
-
-func _apply_resource_panel_insets(panel: ParchmentFrame) -> void:
-	## İçerik, NinePatch köşe çiziminin İÇİNE insin: patch + ekstra inset.
-	var pm := panel.get_patch_margins()
-	var slot := panel.get_content_slot()
-	if slot == null:
-		return
-	var ml := pm.x + RESOURCE_PANEL_INSET
-	var mt := pm.y + RESOURCE_PANEL_INSET
-	slot.add_theme_constant_override("margin_left", ml)
-	slot.add_theme_constant_override("margin_top", mt)
-	slot.add_theme_constant_override("margin_right", pm.z)
-	slot.add_theme_constant_override("margin_bottom", pm.w)
-
-
-func _calc_resource_frame_size(panel: ParchmentFrame) -> Vector2:
-	var list_sz := resource_list_container.get_combined_minimum_size()
-	var pad := Vector2(0.0, 0.0)
-	var slot := panel.get_content_slot()
-	if slot:
-		pad.x = float(slot.get_theme_constant("margin_left") + slot.get_theme_constant("margin_right"))
-		pad.y = float(slot.get_theme_constant("margin_top") + slot.get_theme_constant("margin_bottom"))
-	var res_margin := panel.get_node_or_null("Margin/ResourceMargin") as MarginContainer
-	if res_margin:
-		pad.x += float(res_margin.get_theme_constant("margin_left") + res_margin.get_theme_constant("margin_right"))
-		pad.y += float(res_margin.get_theme_constant("margin_top") + res_margin.get_theme_constant("margin_bottom"))
-	return Vector2(list_sz.x + pad.x, list_sz.y + pad.y)
-
-
-## Sol envanter: üst satır sabit (offset_top), liste aşağı doğru uzar.
-func _sync_resource_panel_to_content() -> void:
-	if _canvas_layer == null or resource_list_container == null:
-		return
-	var resource_panel := _canvas_layer.get_node_or_null("ResourcePanel") as ParchmentFrame
-	if resource_panel == null:
-		return
-	_apply_resource_panel_insets(resource_panel)
-	var sz := _calc_resource_frame_size(resource_panel)
-	sz.x = maxf(sz.x, 120.0)
-	sz.y = maxf(sz.y, 72.0)
-	if _last_resource_panel_size != Vector2.ZERO:
-		if absf(sz.x - _last_resource_panel_size.x) < 1.0 and absf(sz.y - _last_resource_panel_size.y) < 1.0:
-			return
-	_last_resource_panel_size = sz
-	var panel_top: float = HudLayout.get_village_resource_panel_top()
-	resource_panel.offset_left = RESOURCE_PANEL_LEFT
-	resource_panel.offset_top = panel_top
-	resource_panel.offset_right = RESOURCE_PANEL_LEFT + sz.x
-	resource_panel.offset_bottom = panel_top + sz.y
 
 
 func _apply_hud_parchment_textures() -> void:
 	if _canvas_layer == null:
 		return
 	var top_bar := _canvas_layer.get_node_or_null("TopBarPanel") as ParchmentFrame
-	var resource_panel := _canvas_layer.get_node_or_null("ResourcePanel") as ParchmentFrame
-	if resource_panel:
-		ParchmentTextures.apply_mini(resource_panel, 5)
-		_apply_resource_panel_insets(resource_panel)
 	if top_bar:
 		var bar_tex := ParchmentTextures.resolve_hud_bar()
 		if bar_tex:
@@ -310,7 +309,9 @@ func _sync_top_bar_to_content() -> void:
 		return
 	top_bar.clip_contents = false
 	var sz := _calc_top_bar_frame_size(top_bar)
-	sz.y = maxf(sz.y, 56.0)
+	# Şerit sabit (daraltılmış) kalsın diye bar'ın yüksekliği bu aralıkla sınırlı tutuluyor;
+	# içerik daha fazlasını isterse şeridin dışına taşmak yerine bu boyuta sığdırılıyor.
+	sz.y = clampf(sz.y, 56.0, TOP_BAR_MAX_HEIGHT)
 	# Metin uzayınca (ikmal, barınma vb.) genişliği tekrar aç
 	if _last_top_bar_size != Vector2.ZERO:
 		if sz.x <= _last_top_bar_size.x + 1.0 and absf(sz.y - _last_top_bar_size.y) < 2.0:
@@ -319,8 +320,8 @@ func _sync_top_bar_to_content() -> void:
 	var half_w := sz.x * 0.5
 	top_bar.offset_left = -half_w
 	top_bar.offset_right = half_w
-	top_bar.offset_top = 0.0
-	top_bar.offset_bottom = sz.y
+	top_bar.offset_top = -sz.y
+	top_bar.offset_bottom = 0.0
 
 
 func _process(delta: float) -> void:
@@ -343,23 +344,17 @@ func _update_labels() -> void:
 		#     VillageManager.disconnect("village_data_changed", Callable(self, "_update_labels"))
 		return
 
-	# Global Veriler
-	gold_label.text = tr("hud.gold") % GlobalPlayerData.gold
+	# Global Veriler — Altın/İşçi/Barınma artık ikon+sayı, kelime öneki yok.
+	gold_label.text = ": %d" % GlobalPlayerData.gold
 	var soldier_count = _get_soldier_count()
-	asker_label.text = tr("hud.soldiers") % soldier_count
-	if is_instance_valid(morale_label):
-		var m := VillageManager.get_morale()
-		morale_label.text = tr("hud.morale") % m
-		if m >= 75.0:
-			TextOutline.apply_label_color(morale_label, Color(0.6, 1.0, 0.6))
-		elif m < 50.0:
-			TextOutline.apply_label_color(morale_label, Color(1.0, 0.6, 0.6))
-		else:
-			TextOutline.reset_label_color(morale_label)
+	asker_label.text = ": %d" % soldier_count
+	if _prev_soldier_count >= 0 and soldier_count != _prev_soldier_count:
+		StatChangeFX.bump(asker_label, soldier_count - _prev_soldier_count)
+	_prev_soldier_count = soldier_count
 	# Diğer gelişmiş kaynaklar...
 
 	# VillageManager Verileri
-	worker_label.text = tr("hud.idle_workers") % VillageManager.idle_workers
+	worker_label.text = ": %d" % VillageManager.idle_workers
 	var projected_nets: Dictionary = {}
 	if VillageManager.has_method("get_projected_daily_resource_nets"):
 		projected_nets = VillageManager.get_projected_daily_resource_nets()
@@ -367,40 +362,27 @@ func _update_labels() -> void:
 	if VillageManager.has_method("get_resource_disaster_hints"):
 		_cached_disaster_hints = VillageManager.get_resource_disaster_hints()
 
-	# Barınma kapasitesi göstergesi
-	# Gösterim: "Barınma: X / Y" — X = tüm barınaklardaki kayıtlı köylü sayısı,
-	# Y = toplam barınak kapasitesi (kamp ateşi dahil).
+	# Barınma kapasitesi göstergesi (ikon+sayı, kelime öneki yok)
+	# X = barınak arayan TÜM köylü sayısı (nüfus), Y = toplam barınak kapasitesi (kamp ateşi dahil).
+	# X, Y'den büyük olabilir — bu durumda barınak yetersiz demektir ve etiket kırmızıya döner.
 	if is_instance_valid(housing_label) and VillageManager.has_method("get_housing_summary"):
 		var hs: Dictionary = VillageManager.get_housing_summary()
-		var h_occ: int = int(hs.get("occupied", 0))
+		var h_pop: int = int(hs.get("population", hs.get("occupied", 0)))
 		var h_cap: int = int(hs.get("capacity", 0))
-		housing_label.text = tr("hud.housing") % [h_occ, h_cap]
-		# Tüm ev slotları doluysa sarıya çevir
-		if h_cap > 0 and h_occ >= h_cap:
+		housing_label.text = ": %d/%d" % [h_pop, h_cap]
+		if _prev_housing_occupied >= 0 and h_pop != _prev_housing_occupied:
+			StatChangeFX.bump(housing_label, h_pop - _prev_housing_occupied)
+		_prev_housing_occupied = h_pop
+		# Nüfus kapasiteyi aşıyorsa (barınaksız köylü var) kırmızı; tam doluysa sarı.
+		if h_cap > 0 and h_pop > h_cap:
+			TextOutline.apply_label_color(housing_label, Color(1, 0.35, 0.3))
+			housing_label.tooltip_text = "Barınak yetersiz — %d köylünün yatacak yeri yok" % (h_pop - h_cap)
+		elif h_cap > 0 and h_pop >= h_cap:
 			TextOutline.apply_label_color(housing_label, Color(1, 0.85, 0.2))
+			housing_label.tooltip_text = ""
 		else:
-			TextOutline.reset_label_color(housing_label)
-
-	# Asker ikmal durumu
-	var status_text: String = tr("hud.supply_ok")
-	var used_shortage: bool = false
-	var shortages: Dictionary = {}
-	var v = VillageManager.get("_last_day_shortages")
-	if v != null and v is Dictionary:
-		shortages = v
-		if shortages.has("soldier_food"):
-			var s_food: int = int(shortages.get("soldier_food", 0))
-			status_text = tr("hud.supply_ok") if s_food == 0 else tr("hud.supply_short")
-			used_shortage = true
-
-	if not used_shortage:
-		var sc: int = soldier_count
-		var req_f: int = int(ceil(float(sc) * 0.5))
-		var have_f: int = int(VillageManager.resource_levels.get("food", 0))
-		if have_f < req_f:
-			status_text = tr("hud.supply_short")
-
-	asker_label.text += tr("hud.supply_suffix") % status_text
+			_apply_top_bar_label_color(housing_label)
+			housing_label.tooltip_text = ""
 
 	_set_resource_visible_and_update(wood_label, "wood", true, false, projected_nets)
 	_set_resource_visible_and_update(stone_label, "stone", true, false, projected_nets)
@@ -426,7 +408,7 @@ func _update_labels() -> void:
 	var summaries = VillageManager.get_active_events_summary(day)
 	if is_instance_valid(events_label):
 		if summaries.is_empty():
-			events_label.text = tr("hud.event_none")
+			events_label.text = ""
 		else:
 			var lines: Array[String] = []
 			for s in summaries:
@@ -442,24 +424,7 @@ func _update_labels() -> void:
 				lines.append(tr("hud.event_line") % [String(s["type"]).capitalize(), level_name, int(s["days_left"])])
 			events_label.text = ", ".join(lines)
 
-	if is_instance_valid(economy_stats_label):
-		var stats = VillageManager.get_economy_last_day_stats()
-		if stats.is_empty():
-			economy_stats_label.text = tr("hud.economy_none")
-		else:
-			var p := float(stats.get("total_production", 0.0))
-			var c := float(stats.get("total_consumption", 0.0))
-			var n := float(stats.get("net", 0.0))
-			economy_stats_label.text = tr("hud.economy_format") % [p, c, n]
-			# Renk kodu
-			if n > 0.01:
-				TextOutline.apply_label_color(economy_stats_label, Color(0.6, 1.0, 0.6))
-			elif n < -0.01:
-				TextOutline.apply_label_color(economy_stats_label, Color(1.0, 0.6, 0.6))
-			else:
-				TextOutline.reset_label_color(economy_stats_label)
-
-	call_deferred("_sync_resource_panel_to_content")
+	_balance_top_bar_groups()
 	call_deferred("_sync_top_bar_to_content")
 
 
@@ -471,28 +436,35 @@ func _hide_water_row() -> void:
 
 
 func _ensure_extra_labels() -> void:
-	# Sahnede yoksa MoraleLabel ve EventsLabel oluşturur
+	# Sahnede yoksa EventsLabel oluşturur (Morale artık MoraleJarUI'da)
 	var container: Node = summary_container if is_instance_valid(summary_container) else (bread_label.get_parent() if bread_label and bread_label.get_parent() else self)
-	if not is_instance_valid(morale_label):
-		morale_label = Label.new()
-		morale_label.name = "MoraleLabel"
-		container.add_child(morale_label)
 	if not is_instance_valid(events_label):
 		events_label = Label.new()
 		events_label.name = "EventsLabel"
-		container.add_child(events_label)
-	if not is_instance_valid(economy_stats_label):
-		economy_stats_label = Label.new()
-		economy_stats_label.name = "EconomyStatsLabel"
-		container.add_child(economy_stats_label)
+		# EventsSlot sabit genişlikte bir boşluk: olay yokken de yer kaplar, layout zıplamaz.
+		var events_parent: Node = _events_slot if is_instance_valid(_events_slot) else (_right_group if is_instance_valid(_right_group) else container)
+		events_parent.add_child(events_label)
+		events_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		events_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		events_label.clip_text = true
+		TextOutline.apply_font_to_control(events_label)
+		_apply_top_bar_label_color(events_label)
 	if not is_instance_valid(housing_label):
 		housing_label = Label.new()
 		housing_label.name = "HousingLabel"
-		var worker_parent: Node = worker_label.get_parent() if is_instance_valid(worker_label) else container
-		worker_parent.add_child(housing_label)
-		var wl_idx: int = worker_parent.get_children().find(worker_label)
-		if wl_idx >= 0:
-			worker_parent.move_child(housing_label, wl_idx + 1)
+		# WorkerLabel artık kendi ikon satırının (WorkerRow) içinde; barınmayı
+		# LeftGroup'a, o satırdan hemen sonra ekle (WorkerRow'un içine değil).
+		var group_parent: Node = _left_group if is_instance_valid(_left_group) else container
+		var worker_row: Node = worker_label.get_parent() if is_instance_valid(worker_label) else null
+		var anchor: Node = worker_row if (is_instance_valid(worker_row) and worker_row.get_parent() == group_parent) else worker_label
+		group_parent.add_child(housing_label)
+		var anchor_idx: int = group_parent.get_children().find(anchor)
+		if anchor_idx >= 0:
+			group_parent.move_child(housing_label, anchor_idx + 1)
+		TextOutline.apply_font_to_control(housing_label)
+		_apply_top_bar_label_color(housing_label)
+		# İkon dosyası (house_icon.png) bulunduğu için kendi satırına sarılır.
+		_wrap_label_with_icon(housing_label, "housing", false)
 
 # Tek bir kaynak etiketini güncelleyen helper fonksiyonu
 func _disaster_hint_suffix(resource_key: String) -> String:
@@ -500,13 +472,6 @@ func _disaster_hint_suffix(resource_key: String) -> String:
 	if parts.is_empty():
 		return ""
 	return " " + " ".join(parts)
-
-func _gather_uncertainty_suffix(resource_key: String) -> String:
-	if not VillageManager.has_method("is_gather_projection_uncertain"):
-		return ""
-	if not VillageManager.is_gather_projection_uncertain(resource_key):
-		return ""
-	return tr("hud.gather_uncertain_marker")
 
 func _apply_gather_uncertainty_tooltip(label_node: Label, resource_key: String) -> void:
 	if not VillageManager.has_method("is_gather_projection_uncertain"):
@@ -524,17 +489,10 @@ func _update_resource_label(label_node: Label, resource_key: String, projected_n
 	var resource_display_name := LocaleManager.get_resource_name(resource_key)
 	var current: int = VillageManager.get_resource_level(resource_key)
 	var cap: int = VillageManager.get_storage_capacity_for(resource_key)
-	var net_per_day := float(projected_nets.get(resource_key, 0.0))
-	var net_text: String
-	if resource_key == "food" and VillageManager.has_method("get_food_daily_balance"):
-		var bal: Dictionary = VillageManager.get_food_daily_balance()
-		net_text = tr("hud.food_net_detail") % [int(bal.get("net", 0)), int(bal.get("gather", 0)), int(bal.get("eat", 0))]
-	else:
-		net_text = tr("hud.resource_net") % ["+" if net_per_day >= 0.0 else "", net_per_day]
-	var uncertainty_suffix := _gather_uncertainty_suffix(resource_key)
-	net_text += uncertainty_suffix
+	# Sade net göstergesi: ayrı, renkli bir etikette "(+1)" / "(-2)" — miktarın rengini karıştırmaz.
+	var net_int := int(round(float(projected_nets.get(resource_key, 0.0))))
 	var disaster_suffix := _disaster_hint_suffix(resource_key)
-	var uncertain := not uncertainty_suffix.is_empty()
+	var uncertain := VillageManager.has_method("is_gather_projection_uncertain") and VillageManager.is_gather_projection_uncertain(resource_key)
 	# Check if label has icon_only meta, or if it's in a Row container with an icon
 	var icon_only := false
 	if label_node.has_meta("icon_only"):
@@ -553,10 +511,10 @@ func _update_resource_label(label_node: Label, resource_key: String, projected_n
 	
 	if cap > 0:
 		if icon_only:
-			label_node.text = "%d/%d%s%s" % [current, cap, net_text, disaster_suffix]
+			label_node.text = ": %d/%d" % [current, cap]
 		else:
-			label_node.text = tr("hud.resource_cap") % [resource_display_name, current, cap, net_text + disaster_suffix]
-			
+			label_node.text = tr("hud.resource_cap") % [resource_display_name, current, cap, disaster_suffix]
+
 		# Highlight when full; felaket uyarısı turuncu
 		var ratio := (float(current) / float(cap)) if cap > 0 else 0.0
 		if current >= cap:
@@ -566,16 +524,25 @@ func _update_resource_label(label_node: Label, resource_key: String, projected_n
 		elif ratio >= 0.8:
 			TextOutline.apply_label_color(label_node, Color(1.0, 0.95, 0.6))
 		else:
-			TextOutline.reset_label_color(label_node)
+			_apply_top_bar_label_color(label_node)
 	else:
 		if icon_only:
-			label_node.text = "%d%s%s" % [current, net_text, disaster_suffix]
+			label_node.text = ": %d" % current
 		else:
-			label_node.text = tr("hud.resource_amount") % [resource_display_name, current, net_text + disaster_suffix]
+			label_node.text = tr("hud.resource_amount") % [resource_display_name, current, disaster_suffix]
 		if not disaster_suffix.is_empty() or uncertain:
 			TextOutline.apply_label_color(label_node, Color(1, 0.72, 0.28))
 		else:
-			TextOutline.reset_label_color(label_node)
+			_apply_top_bar_label_color(label_node)
+
+	var net_label := _ensure_net_label(label_node)
+	if is_instance_valid(net_label):
+		if net_int == 0:
+			net_label.text = ""
+		else:
+			net_label.text = "(%s%d)" % ["+" if net_int >= 0 else "", net_int]
+			_apply_net_label_color(net_label, net_int)
+
 	_apply_gather_uncertainty_tooltip(label_node, resource_key)
 
 # Helper: dinamik kaynak etiketi güncelle/oluştur
@@ -657,7 +624,7 @@ func _create_resource_row_with_icon(resource_key: String, container: Node) -> La
 	var row := HBoxContainer.new()
 	row.name = resource_key.capitalize() + "RowDynamic"
 	row.layout_mode = 2
-	row.add_theme_constant_override("separation", 6)
+	row.add_theme_constant_override("separation", RESOURCE_ROW_SEPARATION)
 
 	var icon_path := _get_icon_path_for_resource(resource_key)
 	if icon_path != "":
@@ -675,9 +642,9 @@ func _create_resource_row_with_icon(resource_key: String, container: Node) -> La
 	lbl.set_meta("icon_only", true)
 	lbl.text = "-"
 	row.add_child(lbl)
+	TextOutline.apply_font_to_control(lbl)
 
 	container.add_child(row)
-	call_deferred("_sync_resource_panel_to_content")
 	return lbl
 
 func _get_icon_path_for_resource(resource_key: String) -> String:
@@ -695,6 +662,11 @@ func _get_icon_path_for_resource(resource_key: String) -> String:
 		]
 	elif resource_key == "weapon_t1" or resource_key == "weapon_t2" or resource_key == "weapon_t3":
 		candidates = ["res://assets/Icons/weapon_icon.png"]
+	elif resource_key == "housing":
+		candidates = [
+			"res://assets/Icons/house_icon.png",
+			"res://assets/Icons/housing_icon.png"
+		]
 	else:
 		candidates = ["res://assets/Icons/%s_icon.png" % resource_key]
 	for path in candidates:
@@ -702,10 +674,12 @@ func _get_icon_path_for_resource(resource_key: String) -> String:
 			return path
 	return ""
 
-func _wrap_label_with_icon(label_node: Label, resource_key: String) -> void:
+## has_net=true olan kaynaklar (odun, taş vb.) satırına ayrı, renkli bir net etiketi eklenir.
+## Barınma gibi net üretimi olmayan göstergeler için has_net=false geçilir.
+func _wrap_label_with_icon(label_node: Label, resource_key: String, has_net: bool = true) -> void:
 	if not is_instance_valid(label_node):
 		return
-	
+
 	var parent := label_node.get_parent()
 	if not is_instance_valid(parent):
 		return
@@ -715,10 +689,13 @@ func _wrap_label_with_icon(label_node: Label, resource_key: String) -> void:
 			if child is TextureRect:
 				# Already wrapped, just ensure icon_only meta is set
 				label_node.set_meta("icon_only", true)
+				if has_net:
+					_ensure_net_label(label_node)
 				return
-	
+
 	var icon_path := _get_icon_path_for_resource(resource_key)
-	if icon_path == "":
+	# İkon yoksa bile net etiketiyle sıkı gruplanabilmesi için yine de satıra sarılır.
+	if icon_path == "" and not has_net:
 		return
 	var index: int = parent.get_children().find(label_node)
 	if index < 0:
@@ -727,16 +704,41 @@ func _wrap_label_with_icon(label_node: Label, resource_key: String) -> void:
 	var row := HBoxContainer.new()
 	row.name = resource_key.capitalize() + "Row"
 	row.layout_mode = 2
-	row.add_theme_constant_override("separation", 6)
-	var icon := TextureRect.new()
-	icon.name = resource_key.capitalize() + "Icon"
-	icon.layout_mode = 2
-	icon.custom_minimum_size = RESOURCE_ICON_SIZE
-	icon.texture = load(icon_path)
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	row.add_child(icon)
+	row.add_theme_constant_override("separation", RESOURCE_ROW_SEPARATION)
+	if icon_path != "":
+		var icon := TextureRect.new()
+		icon.name = resource_key.capitalize() + "Icon"
+		icon.layout_mode = 2
+		icon.custom_minimum_size = RESOURCE_ICON_SIZE
+		icon.texture = load(icon_path)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row.add_child(icon)
 	row.add_child(label_node)
 	parent.add_child(row)
 	parent.move_child(row, index)
 	# Force icon_only meta to ensure text is formatted correctly (just number)
 	label_node.set_meta("icon_only", true)
+	if has_net:
+		_ensure_net_label(label_node)
+
+
+## Bir miktar etiketinin yanına (varsa) hemen sonrasına, ayrı renklendirilebilen
+## bir "net" etiketi ekler/yeniden kullanır. Aynı satırda, sıkı boşlukla durur.
+func _ensure_net_label(amount_label: Label) -> Label:
+	if amount_label.has_meta("net_label"):
+		var existing = amount_label.get_meta("net_label")
+		if is_instance_valid(existing):
+			return existing
+	var row := amount_label.get_parent()
+	if not is_instance_valid(row):
+		return null
+	var net_lbl := Label.new()
+	net_lbl.name = amount_label.name + "NetLabel"
+	net_lbl.layout_mode = 2
+	row.add_child(net_lbl)
+	var idx: int = row.get_children().find(amount_label)
+	if idx >= 0:
+		row.move_child(net_lbl, idx + 1)
+	TextOutline.apply_font_to_control(net_lbl)
+	amount_label.set_meta("net_label", net_lbl)
+	return net_lbl

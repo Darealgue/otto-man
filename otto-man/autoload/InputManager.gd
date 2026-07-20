@@ -95,11 +95,18 @@ static var _current_keyboard_preset: StringName = PRESET_WASD_NUMPAD
 ## Tutorial metinleri: son anlamlı girdi gamepad mi (stick/d-pad) klavye mi.
 var last_input_from_joypad: bool = false
 
+## Oyun tamamen klavye/gamepad ile oynanıyor; mouse imleci hiç görünmesin ve
+## hiçbir şeye tıklamak için kullanılamasın.
 func _ready() -> void:
 	_load_keyboard_preset_from_disk()
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		# Tıklamaları UI/oyun mantığına ulaşmadan tamamen yut.
+		get_viewport().set_input_as_handled()
+		return
 	var was_joypad := last_input_from_joypad
 	if event is InputEventJoypadButton:
 		if event.pressed:
@@ -108,8 +115,6 @@ func _input(event: InputEvent) -> void:
 		if abs(event.axis_value) > 0.35:
 			last_input_from_joypad = true
 	elif event is InputEventKey and event.pressed:
-		last_input_from_joypad = false
-	elif event is InputEventMouseButton and event.pressed:
 		last_input_from_joypad = false
 	if was_joypad != last_input_from_joypad:
 		input_device_changed.emit(last_input_from_joypad)

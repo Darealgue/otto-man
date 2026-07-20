@@ -28,6 +28,8 @@ enum FlightPhase { GLIDE, ARC }
 
 @onready var _sprite: Sprite2D = $Sprite
 
+const OFFSCREEN_CULL_MARGIN := 150.0
+
 var _velocity: Vector2 = Vector2.ZERO
 var _phase: FlightPhase = FlightPhase.GLIDE
 var _phase_timer: float = 0.0
@@ -66,6 +68,27 @@ func _ready() -> void:
 	modulate = Color(1.0, 1.0, 1.0, day_alpha)
 	_begin_glide(true)
 	call_deferred("_apply_wing_color")
+	_setup_offscreen_culling()
+
+
+## Ekran dışındayken uçuş fiziğini durdurur; birden çok chunk aktif kalırken görünmeyen
+## kelebekler boş yere işlemci yiyordu.
+func _setup_offscreen_culling() -> void:
+	var notifier := VisibleOnScreenNotifier2D.new()
+	notifier.rect = Rect2(-OFFSCREEN_CULL_MARGIN, -OFFSCREEN_CULL_MARGIN, OFFSCREEN_CULL_MARGIN * 2.0, OFFSCREEN_CULL_MARGIN * 2.0)
+	add_child(notifier)
+	notifier.screen_exited.connect(_on_screen_exited)
+	notifier.screen_entered.connect(_on_screen_entered)
+	if not notifier.is_on_screen():
+		_on_screen_exited()
+
+
+func _on_screen_exited() -> void:
+	set_process(false)
+
+
+func _on_screen_entered() -> void:
+	set_process(true)
 
 
 func configure_flight(zone_global: Rect2, floor_global_y: float, min_clearance: float, max_clearance: float) -> void:

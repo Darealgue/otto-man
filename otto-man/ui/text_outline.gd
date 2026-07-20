@@ -1,9 +1,9 @@
 class_name TextOutline
 extends RefCounted
-## Parşömen menüler: varsayılan koyu metin; durum renkleri siyah kontürlü.
+## Düz siyah menüler: varsayılan açık (krem) metin; durum renkleri siyah kontürlü.
 
-const FONT_COLOR := Color(0.1, 0.08, 0.06, 1)
-const FONT_COLOR_MUTED := Color(0.32, 0.28, 0.24, 1)
+const FONT_COLOR := Color(0.92, 0.9, 0.85, 1)
+const FONT_COLOR_MUTED := Color(0.62, 0.6, 0.56, 1)
 const OUTLINE_COLOR := Color(0, 0, 0, 1)
 const OUTLINE_SIZE_LABEL := 3
 const OUTLINE_SIZE_RICH := 3
@@ -67,7 +67,7 @@ static func _is_gameplay_floating_text(label: Label) -> bool:
 	var n: Node = label
 	while n != null:
 		match String(n.name):
-			"GoldPickupPopup", "DamageNumber", "DamageRecoveryPickup":
+			"GoldPickupPopup", "DamageNumber", "DamageRecoveryPickup", "DiceFaceLabel", "ManualColorLabel":
 				return true
 		n = n.get_parent()
 	return false

@@ -87,8 +87,9 @@ func _on_body_entered(body: Node2D) -> void:
 			if body.has_method("take_damage"):
 				body.take_damage(damage)
 			if body.get("state_machine") and body.state_machine.has_node("Hurt"):
-				body.state_machine.current_state = body.state_machine.get_node("Hurt")
-				body.state_machine.current_state.enter()
+				# transition_to kullan — doğrudan atama eski state'in exit()'ini atlayıp
+				# crouch/slide collision shape'inin geri büyümemesine yol açıyordu.
+				body.state_machine.transition_to("Hurt", true)
 		_play_break_and_free()
 	else:
 		# Hit wall or other environment

@@ -23,11 +23,12 @@ func _ready() -> void:
 	set_process(true)
 
 
+## control artık bu ring'in PARENT'ı (bkz. NpcOverheadUi.attach_hold_ring) — kendi local
+## uzayında ortalanıyoruz, control'ün position'ı (kendi ebeveynine göre) alakasız.
 func sync_to_control(control: Control) -> void:
 	if control == null:
 		return
-	var center := control.position + control.size * 0.5
-	position = center - size * 0.5
+	position = control.size * 0.5 - size * 0.5
 
 
 func sync_to_button(button: Control) -> void:

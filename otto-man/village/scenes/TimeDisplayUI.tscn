@@ -1,22 +1,30 @@
-[gd_scene load_steps=3 format=3 uid="uid://ip73ci5ccf8t"]
+[gd_scene load_steps=4 format=3 uid="uid://ip73ci5ccf8t"]
 
 [ext_resource type="Script" path="res://village/scripts/TimeDisplayUI.gd" id="1_48lip"]
 [ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="2_theme"]
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_1"]
+
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="TimeDisplayUi" type="MarginContainer" parent="."]
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -1.0
-offset_bottom = 23.0
-grow_horizontal = 0
+anchors_preset = 2
+anchor_left = 0.0
+anchor_right = 0.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_right = 13.0
+offset_top = -56.0
+offset_bottom = -33.0
+grow_horizontal = 1
+grow_vertical = 0
 script = ExtResource("1_48lip")
 
 [node name="PanelContainer" type="PanelContainer" parent="TimeDisplayUi"]
 layout_mode = 2
 theme = ExtResource("2_theme")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_1")
 
 [node name="TimeLabel" type="Label" parent="TimeDisplayUi/PanelContainer"]
 unique_name_in_owner = true

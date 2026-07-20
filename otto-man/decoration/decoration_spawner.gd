@@ -352,12 +352,26 @@ func _create_warm_camp_point_light(sprite_h: float, y_offset: float = 0.0) -> Po
 	return light
 
 
+## camp1/camp2/torch2 orman ve zindan arasında paylaşılan asset'ler; orman için yukarı
+## kaydırılan zemin hizası zindanda bozuluyordu. Zindan bağlamında ekstra +3px aşağı uygula.
+const DUNGEON_SHARED_DECOR_EXTRA_GROUND_OFFSET := 3.0
+
+func _is_dungeon_biome_context() -> bool:
+	if not is_inside_tree():
+		return true
+	var gen := get_tree().get_first_node_in_group("level_generator")
+	return not (gen is ForestLevelGenerator)
+
+
 func _setup_camp1_background(node: Node2D, sprite: Sprite2D) -> void:
 	if not sprite or not sprite.texture:
 		return
 	sprite.centered = false
 	var h := sprite.texture.get_height()
-	sprite.position = Vector2(0, -h + 1)
+	var ground_offset := 1.0
+	if _is_dungeon_biome_context():
+		ground_offset += DUNGEON_SHARED_DECOR_EXTRA_GROUND_OFFSET
+	sprite.position = Vector2(0, -h + ground_offset)
 	node.add_child(_create_warm_camp_point_light(float(h)))
 
 
@@ -390,8 +404,12 @@ func _setup_campfire_background(node: Node2D, sprite: Sprite2D) -> void:
 	anim.name = "Anim"
 	anim.sprite_frames = frames_res
 	anim.centered = false
-	# Bottom-center align similar to other floor decors (with slight 5px grounding offset)
-	anim.position = Vector2(-frame_w * 0.5, -h + 1)
+	# Bottom-center align similar to other floor decors (with slight grounding offset;
+	# zindan bağlamında paylaşılan asset'in orman-uyumlu kaymasını telafi etmek için ekstra iner)
+	var ground_offset := 1.0
+	if _is_dungeon_biome_context():
+		ground_offset += DUNGEON_SHARED_DECOR_EXTRA_GROUND_OFFSET
+	anim.position = Vector2(-frame_w * 0.5, -h + ground_offset)
 	anim.play("idle")
 	
 	# Replace original static sprite
@@ -528,8 +546,8 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 	if DEBUG_DOOR_CHECK:
 		print("[DecorationSpawner] BREAKABLE ready HP=", node.get_meta("hp", 0), " at ", node.global_position)
 
-	# Pot animasyonlarını hazırla (varsa)
-	_setup_pot_animation(node)
+	# Pot animasyonlarını hazırla (varsa); pot2/pot3 gibi varyantlar kendi sheet'ini kullanır
+	_setup_pot_animation(node, data)
 
 ## Düşen altın CollectArea: area_entered ile gelen hitbox/hurtbox'ları yok say.
 ## Kırılan obje yanında saldırı/hurtbox alanı coin ile üst üste binince altın bir kare görünüp anında toplanıyordu.
@@ -950,6 +968,22 @@ func _get_image_from_texture(tex: Texture2D, fallback_path: String) -> Image:
 		return img
 	return null
 
+## [x0, x1] sütun aralığında (dahil) en alttaki görünür (alfa eşiği üstü) satırın index'ini döndürür.
+## Hiç görünür piksel yoksa img.get_height()-1 döner (tüm çerçeveyi görünür kabul et).
+func _find_visible_bottom_row(img: Image, x0: int, x1: int, alpha_threshold: float = 0.01) -> int:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	if w <= 0 or h <= 0:
+		return -1
+	x0 = clampi(x0, 0, w - 1)
+	x1 = clampi(x1, 0, w - 1)
+	for y in range(h - 1, -1, -1):
+		for x in range(x0, x1 + 1):
+			if img.get_pixel(x, y).a > alpha_threshold:
+				return y
+	return h - 1
+
+
 func _slice_regions_by_alpha(tex: Texture2D, src_path: String, expected_count: int) -> Array[Rect2]:
 	var regions: Array[Rect2] = []
 	var img: Image = _get_image_from_texture(tex, src_path)
@@ -1002,7 +1036,9 @@ func _slice_regions_by_alpha(tex: Texture2D, src_path: String, expected_count: i
 		# Close last region
 		if start_x < w:
 			regions.append(Rect2(start_x, 0, max(1, w - start_x), h))
-	# If we got exactly expected_count, return
+	# expected_count artık her pot'un kendi gerçek kare sayısı (pot_frame_count) — bu yüzden
+	# tam eşleşme arıyoruz; tutmazsa (ör. karelerin arasında boşluk yeterince net değilse)
+	# aşağıdaki eşit-genişlik yedeğine düşülür.
 	if regions.size() == expected_count:
 		return regions
 	# Fallback: uniform slicing into expected_count regions
@@ -1016,11 +1052,13 @@ func _slice_regions_by_alpha(tex: Texture2D, src_path: String, expected_count: i
 		fallback.append(Rect2(cursor, 0, width, h))
 		cursor += fw
 	return fallback
-func _setup_pot_animation(node: Node2D) -> void:
+func _setup_pot_animation(node: Node2D, data: Dictionary = {}) -> void:
 	var old_sprite: Node = node.get_node_or_null("Sprite")
+	# pot2/pot3 gibi varyantlar "pot_sheet" ile kendi sheet'ini belirtebilir; yoksa pot1'e düşer.
+	var sheet_path: String = String(data.get("pot_sheet", POT_SHEET_PATH))
 	var tex: Texture2D = null
-	if ResourceLoader.exists(POT_SHEET_PATH):
-		tex = load(POT_SHEET_PATH) as Texture2D
+	if ResourceLoader.exists(sheet_path):
+		tex = load(sheet_path) as Texture2D
 	if tex == null:
 		return
 	# Create AnimatedSprite2D
@@ -1036,9 +1074,10 @@ func _setup_pot_animation(node: Node2D) -> void:
 	frames.add_animation("broken")
 	frames.set_animation_loop("broken", false)
 	frames.set_animation_speed("broken", 0.0)
-	# Slice robustly by scanning alpha columns so trimming or uneven gutters don't break frames
-	var expected_count: int = 5
-	var regions: Array[Rect2] = _slice_regions_by_alpha(tex, POT_SHEET_PATH, expected_count)
+	# Slice robustly by scanning alpha columns so trimming or uneven gutters don't break frames.
+	# Her pot kendi gerçek kare sayısını "pot_frame_count" ile bildirir (pot1=5 varsayılan, pot2=6, pot3=7).
+	var expected_count: int = int(data.get("pot_frame_count", 5))
+	var regions: Array[Rect2] = _slice_regions_by_alpha(tex, sheet_path, expected_count)
 	var count: int = regions.size()
 	if count < 2:
 		count = expected_count
@@ -1069,20 +1108,33 @@ func _setup_pot_animation(node: Node2D) -> void:
 	anim.sprite_frames = frames
 	# Bottom-center anchor for animated sprite
 	anim.centered = false
-	# Compute frame height for pivot
-	var first_region_h: int = 0
+	# Pivot'u ham çerçeve yüksekliğine göre değil, "idle" karesindeki GÖRÜNÜR (alfa) içeriğin
+	# gerçek alt sınırına göre hesapla. Çerçevenin altında şeffaf boşluk varsa (pot2/pot3'te
+	# olduğu gibi, boyları farklı olduğu için) ham yükseklik kullanmak objeyi havada bırakıyordu.
+	# Böylece boy farkı olsa bile pot her zaman aynı zemin çizgisine oturur.
 	var first_region_w: int = 0
+	var visible_bottom_row: int = -1
+	var frame_h: int = 0
 	if frames.get_frame_count("idle") > 0:
 		var tex0: Texture2D = frames.get_frame_texture("idle", 0)
 		if tex0:
 			if tex0 is AtlasTexture:
-				first_region_h = int((tex0 as AtlasTexture).region.size.y)
-				first_region_w = int((tex0 as AtlasTexture).region.size.x)
+				var reg: Rect2 = (tex0 as AtlasTexture).region
+				first_region_w = int(reg.size.x)
+				frame_h = int(reg.size.y)
+				var src_img: Image = _get_image_from_texture(tex, sheet_path)
+				if src_img:
+					visible_bottom_row = _find_visible_bottom_row(src_img, int(reg.position.x), int(reg.position.x + reg.size.x) - 1)
 			elif tex0 is Texture2D:
-				first_region_h = (tex0 as Texture2D).get_height()
 				first_region_w = (tex0 as Texture2D).get_width()
-	# Bottom-center align: center horizontally, place bottom at origin
-	anim.position = Vector2(-first_region_w * 0.5, -first_region_h)
+				frame_h = (tex0 as Texture2D).get_height()
+	if visible_bottom_row < 0:
+		visible_bottom_row = frame_h - 1
+	# Bazı sheet'lerde otomatik hesap birkaç piksel yetersiz kalabiliyor; her pot kendi
+	# "pot_anchor_offset_y" ile ince ayar yapabilir (aşağı = pozitif). Varsayılan 0.
+	var anchor_offset_y: float = float(data.get("pot_anchor_offset_y", 0.0))
+	# Bottom-center align: center horizontally, place görünür taban origin'e otursun
+	anim.position = Vector2(-first_region_w * 0.5, -(visible_bottom_row + 1) + anchor_offset_y)
 	anim.play("idle")
 	if old_sprite and old_sprite is Node:
 		old_sprite.queue_free()

@@ -698,6 +698,8 @@ func _save_village_state() -> Dictionary:
 	state["village_global_multiplier"] = VillageManager.global_multiplier
 	state["village_resource_prod_multiplier"] = VillageManager.resource_prod_multiplier.duplicate(true)
 	state["village_morale"] = VillageManager.village_morale
+	state["village_total_workers"] = VillageManager.total_workers
+	state["village_idle_workers"] = VillageManager.idle_workers
 	state["economy_stats_last_day"] = VillageManager.economy_stats_last_day.duplicate(true)
 	state["village_last_econ_tick_day"] = VillageManager._last_econ_tick_day
 	state["village_last_event_check_day"] = VillageManager._last_village_event_check_day
@@ -1139,6 +1141,17 @@ func _load_village_state(state: Dictionary) -> void:
 			prod_loaded = true
 	if state.has("village_morale"):
 		VillageManager.village_morale = float(state["village_morale"])
+	# total_workers/idle_workers eskiden hiç kaydedilmiyordu — bir kayıttan diğerine
+	# geçildiğinde önceki kaydın nüfusu VillageManager'da (autoload, yok edilmiyor) kalıp
+	# yanlışlıkla yeni köyün nüfusu gibi görünüyordu (ör. VillageCardManager'ın nüfus eşiği
+	# art arda tetiklenip peş peşe kart seçtirmesine yol açıyordu). Eski kayıtlarda bu alan
+	# yoksa aşağıda köylü listesinden yeniden hesaplanır (bkz. _total_workers_loaded_from_save).
+	var _total_workers_loaded_from_save := false
+	if state.has("village_total_workers"):
+		VillageManager.total_workers = int(state["village_total_workers"])
+		_total_workers_loaded_from_save = true
+	if state.has("village_idle_workers"):
+		VillageManager.idle_workers = int(state["village_idle_workers"])
 	if prod_loaded:
 		VillageManager.set("_production_multipliers_restored_from_save", true)
 	if state.has("economy_stats_last_day"):
@@ -1314,7 +1327,12 @@ func _load_village_state(state: Dictionary) -> void:
 			VillagerAiInitializer.reset_to_defaults()
 			VillagerAiInitializer.set_saved_villagers_from_save(saved_villagers_state, true)
 		VillagerAiInitializer.save_array_to_json(VillagerAiInitializer.get_saved_villagers_copy(), "Saved_Villagers.json")
-	
+		# Eski kayıtlarda "village_total_workers" yoktu; köylü listesinin boyutundan
+		# makul bir nüfus sayısı türet — önceki kayıttan sızan değeri kullanma.
+		if not _total_workers_loaded_from_save:
+			VillageManager.total_workers = saved_villagers_state.size()
+			VillageManager.idle_workers = VillageManager.total_workers
+
 	# Village events
 	if state.has("village_events_enabled"):
 		VillageManager.set("village_events_enabled", state["village_events_enabled"])
@@ -1468,11 +1486,11 @@ func _load_mission_state(state: Dictionary) -> void:
 	# Concubines (cariyeler) - Tam statları yükle
 	if state.has("concubines"):
 		var loaded_concubines = state["concubines"]
+		# Önce mevcut cariyeleri temizle (yeni kayıtta hiç cariye yoksa bile!) —
+		# aksi halde bir önceki yüklenen kayıttan kalan cariyeler yeni köye sızıyordu.
+		if "concubines" in MissionManager:
+			MissionManager.concubines.clear()
 		if loaded_concubines is Array and loaded_concubines.size() > 0:
-			# Önce mevcut cariyeleri temizle (yeni oyun başlatılıyorsa)
-			if "concubines" in MissionManager:
-				MissionManager.concubines.clear()
-			
 			for concubine_entry in loaded_concubines:
 				if concubine_entry is Dictionary and "id" in concubine_entry and "data" in concubine_entry:
 					# JSON'dan gelen id float (1.0) olabilir; MissionManager int anahtar kullanıyor
@@ -1513,14 +1531,15 @@ func _load_mission_state(state: Dictionary) -> void:
 	
 	if state.has("mm_settlements"):
 		var lsett: Variant = state["mm_settlements"]
-		if lsett is Array and not (lsett as Array).is_empty():
+		if lsett is Array:
+			# Boş dizi de geçerli bir durumdur — önceki kayıttan kalan yerleşimler sızmasın.
 			MissionManager.settlements.clear()
 			for s in lsett:
 				if s is Dictionary:
 					MissionManager.settlements.append((s as Dictionary).duplicate(true))
 	if state.has("mm_trade_routes"):
 		var ltr: Variant = state["mm_trade_routes"]
-		if ltr is Array and not (ltr as Array).is_empty():
+		if ltr is Array:
 			MissionManager.trade_routes.clear()
 			for r in ltr:
 				if r is Dictionary:
@@ -1565,7 +1584,7 @@ func _load_mission_state(state: Dictionary) -> void:
 					MissionManager.mission_history.append((he as Dictionary).duplicate(true))
 	if state.has("mm_world_events"):
 		var lwe: Variant = state["mm_world_events"]
-		if lwe is Array and not (lwe as Array).is_empty():
+		if lwe is Array:
 			MissionManager.world_events.clear()
 			for ev in lwe:
 				if ev is Dictionary:

@@ -105,8 +105,9 @@ func apply_damage_with_knockback(player: Node2D, knockback_force: float, knockba
 	player.last_hit_knockback = { "force": knockback_force, "up_force": knockback_up_force }
 	deal_damage(player)
 	if player.get("state_machine") and player.state_machine.has_node("Hurt"):
-		player.state_machine.current_state = player.state_machine.get_node("Hurt")
-		player.state_machine.current_state.enter()
+		# transition_to kullan (doğrudan current_state atamak eski state'in exit()'ini
+		# atlıyordu — crouch/slide'ın küçülttüğü collision shape hiç geri büyümüyordu).
+		player.state_machine.transition_to("Hurt", true)
 
 func get_status_effect_manager(player: Node2D) -> StatusEffectManager:
 	if not player:

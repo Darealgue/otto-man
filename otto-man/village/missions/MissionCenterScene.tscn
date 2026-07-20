@@ -288,7 +288,7 @@ layout_mode = 2
 
 [node name="ActiveMissionTitle" type="Label" parent="MissionsPage/MainContent/ActiveMissionsPanel/ActiveMissionsScroll/ActiveMissionsList/ActiveMissionCard1/ActiveMissionVBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 14
 text = "Ayşe → Komşu Köy ile Ticaret"
 
@@ -332,7 +332,7 @@ layout_mode = 2
 
 [node name="AvailableMissionTitle1" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard1/AvailableMissionVBox1"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 16
 text = "Yakındaki Harabeleri Keşfet"
 
@@ -364,7 +364,7 @@ layout_mode = 2
 
 [node name="AvailableMissionTitle2" type="Label" parent="MissionsPage/MainContent/AvailableMissionsPanel/AvailableMissionsScroll/AvailableMissionsList/AvailableMissionCard2/AvailableMissionVBox2"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 16
 text = "Haydut Kampına Baskın"
 
@@ -416,7 +416,7 @@ layout_mode = 2
 
 [node name="CariyeName1" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard1/CariyeVBox1"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 16
 text = "Fatma"
 
@@ -442,7 +442,7 @@ layout_mode = 2
 
 [node name="CariyeName2" type="Label" parent="MissionsPage/CariyeSelectionPanel/CariyeSelectionScroll/CariyeSelectionList/CariyeCard2/CariyeVBox2"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 16
 text = "Zeynep"
 
@@ -537,7 +537,7 @@ layout_mode = 2
 
 [node name="ChainName1" type="Label" parent="MissionsPage/MissionChainsPanel/MissionChainsScroll/MissionChainsList/ChainItem1/ChainVBox1"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 16
 text = "🔗 Kuzey Seferi (Sıralı)"
 
@@ -734,7 +734,7 @@ layout_mode = 2
 
 [node name="VillageNewsTitle1" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem1/VillageNewsVBox1"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 14
 text = "✅ Yeni Bina Tamamlandı"
 
@@ -760,7 +760,7 @@ layout_mode = 2
 
 [node name="VillageNewsTitle2" type="Label" parent="NewsCenterPage/NewsContent/VillageNewsPanel/VillageNewsScroll/VillageNewsList/VillageNewsItem2/VillageNewsVBox2"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 14
 text = "👥 İşçi Atandı"
 
@@ -999,7 +999,7 @@ layout_mode = 2
 
 [node name="ConcubineListName1" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListScroll/ConcubineList/ConcubineListItem1/ConcubineListVBox1"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 16
 text = "Fatma (Lv.3)"
 
@@ -1043,7 +1043,7 @@ layout_mode = 2
 
 [node name="BasicInfoTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/BasicInfoPanel/BasicInfoVBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 18
 text = "👤 Temel Bilgiler"
 
@@ -1067,7 +1067,7 @@ layout_mode = 2
 
 [node name="SkillsTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/SkillsPanel/SkillsVBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 18
 text = "⚔️ Yetenekler"
 
@@ -1091,7 +1091,7 @@ layout_mode = 2
 
 [node name="MissionHistoryTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/MissionHistoryPanel/MissionHistoryVBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 18
 text = "📚 Görev Geçmişi"
 
@@ -1114,7 +1114,7 @@ layout_mode = 2
 
 [node name="AchievementsTitle" type="Label" parent="ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/AchievementsPanel/AchievementsVBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.1, 0.08, 0.06, 1)
+theme_override_colors/font_color = Color(0.92, 0.9, 0.85, 1)
 theme_override_font_sizes/font_size = 18
 text = "🏆 Özel Başarılar"
 

@@ -436,6 +436,42 @@ const BREAKABLE_DECORS = {
 			"res://assets/decorations/crystal_2.png"
 		],
 		"break_effect": "res://effects/crystal_break.tscn"
+	},
+	# pot2/pot3: small_pot ile aynı davranış (kırılabilir çömlek), tek farkları pot1'den
+	# uzun boylu olmaları — bu yüzden spawn olabilmeleri için 3 tile'lık dikey boşluk şart.
+	"pot2": {
+		"weight": 20,
+		"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+		"collision_size": Vector2(40, 150),
+		"hp": 1,
+		"gold_drop": {"min": 1, "max": 3},
+		"width_tiles": 1,
+		"height_tiles": 3,
+		"grow_dir": "up",
+		"sprites": [
+			"res://assets/objects/dungeon/pot2.png"
+		],
+		"pot_sheet": "res://assets/objects/dungeon/pot2.png",
+		"pot_frame_count": 6,
+		"pot_anchor_offset_y": 5.0,
+		"break_effect": "res://effects/pot_break.tscn"
+	},
+	"pot3": {
+		"weight": 20,
+		"locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
+		"collision_size": Vector2(40, 150),
+		"hp": 1,
+		"gold_drop": {"min": 1, "max": 3},
+		"width_tiles": 1,
+		"height_tiles": 3,
+		"grow_dir": "up",
+		"sprites": [
+			"res://assets/objects/dungeon/pot3.png"
+		],
+		"pot_sheet": "res://assets/objects/dungeon/pot3.png",
+		"pot_frame_count": 7,
+		"pot_anchor_offset_y": 5.0,
+		"break_effect": "res://effects/pot_break.tscn"
 	}
 }
 
@@ -589,7 +625,7 @@ const TILE_DECOR_RULES = {
 		"chance": 0.2,
 		"decoration_type": DecorationType.BREAKABLE,
 		"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-		"allowed_decors": ["small_pot", "wooden_barrel"]
+		"allowed_decors": ["small_pot", "wooden_barrel", "pot2", "pot3"]
 	}
 }
 
@@ -634,7 +670,7 @@ const PRIORITY_DECOR_RULES = {
 		{
 			"chance": 0.05, # %5
 			"decoration_type": DecorationType.BREAKABLE,
-			"decoration_names": ["small_pot"]
+			"decoration_names": ["small_pot", "wooden_barrel", "pot2", "pot3"]
 		},
 		{
 			"chance": 0.05, # %5
@@ -664,19 +700,19 @@ const PRIORITY_DECOR_RULES = {
 			"chance": 0.2, # %20 ihtimalle kırılabilir obje
 			"decoration_type": DecorationType.BREAKABLE,
 			"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-			"allowed_decors": ["small_pot", "wooden_barrel"]
+			"decoration_names": ["small_pot", "wooden_barrel", "pot2", "pot3"]
 		},
 		{
 			"chance": 0.05, # %5 ihtimalle dekoratif obje (kemik yığını)
             "decoration_type": DecorationType.BACKGROUND,
             "allowed_locations": [SpawnLocation.FLOOR_CORNER],
-            "allowed_decors": ["bone_pile"]
+            "decoration_names": ["bone_pile"]
         },
         {
             "chance": 0.12,
             "decoration_type": DecorationType.BACKGROUND,
             "allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER],
-            "allowed_decors": ["stone1", "box1", "mum"]
+            "decoration_names": ["stone1", "box1", "mum"]
         }
 	],
 	# Forest-specific tile tag; set TileSet custom data decor_anchor="forest_floor_surface"
@@ -698,7 +734,7 @@ const PRIORITY_DECOR_RULES = {
 		{
 			"chance": 0.38,
 			"decoration_type": DecorationType.BREAKABLE,
-			"decoration_names": ["small_pot", "wooden_barrel"],
+			"decoration_names": ["small_pot", "wooden_barrel", "pot2", "pot3"],
 			"allowed_locations": [SpawnLocation.FLOOR_CENTER, SpawnLocation.FLOOR_CORNER]
 		},
 		{
@@ -740,7 +776,7 @@ const Z_INDEX_RULES = {
 	# Kırılabilir objeler (aydınlatma ve zemin dekorlarının önünde)
 	"breakable": {
 		"z_index": 3,
-		"decorations": ["small_pot", "wooden_barrel", "treasure_chest", "crystal_formation"]
+		"decorations": ["small_pot", "wooden_barrel", "pot2", "pot3", "treasure_chest", "crystal_formation"]
 	},
 
 	# Değerli objeler (breakable ile aynı katman)

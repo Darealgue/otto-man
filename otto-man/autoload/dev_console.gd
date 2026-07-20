@@ -74,6 +74,9 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "items":
 		handle_items_list_command()
 		return
+	if cmd == "test_items":
+		handle_test_items_command()
+		return
 	
 	match cmd:
 		"help":
@@ -471,6 +474,23 @@ func handle_item_command(index: int) -> void:
 	inst.queue_free()
 	print_output("Aktif edildi: [%d] %s (%s)" % [index, item_id, name_str])
 
+## Item kart seçim ekranını (draft UI) doğrudan açar — 'item_<N>' gibi anında aktive etmez,
+## gerçek oyun akışındaki 3 kartlı seçim ekranını test edebilesin diye.
+func handle_test_items_command() -> void:
+	var im = get_node_or_null("/root/ItemManager")
+	if !im:
+		print_output("ItemManager bulunamadı!")
+		return
+	if !im.player:
+		print_output("ItemManager'da oyuncu yok (bir zindan sahnesine girip tekrar dene).")
+		return
+	if im._item_selection_open:
+		print_output("Seçim ekranı zaten açık.")
+		return
+	toggle_console()
+	im.show_item_selection()
+	print_output("Item seçim ekranı açıldı.")
+
 func handle_items_list_command() -> void:
 	var im = get_node_or_null("/root/ItemManager")
 	if !im:
@@ -651,6 +671,7 @@ func show_help() -> void:
 	clear - Clear console output
 	item_<N> - Activate item by index (e.g. item_0, item_1). Use 'items' to list.
 	items - List all item indices and names
+	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	powerup <name> - Activate a powerup
 	heal [amount] - Heal the player (default: 50)
 	damage [amount] - Damage the player (default: 10)

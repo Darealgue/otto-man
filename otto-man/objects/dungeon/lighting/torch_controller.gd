@@ -21,7 +21,15 @@ func _ready():
 	# Find the PointLight2D and AnimatedSprite2D nodes
 	point_light = get_node_or_null("PointLight2D")
 	animated_sprite = get_node_or_null("AnimatedSprite2D")
-	
+
+	# Bu sahne (mesale2) orman ve zindan arasında paylaşılıyor; orman için yukarı kaydırılan
+	# zemin hizası zindanda bozuluyordu. Zindan bağlamında ekstra 3px aşağı telafi et.
+	if _is_dungeon_biome_context():
+		if animated_sprite:
+			animated_sprite.position.y += 3.0
+		if point_light:
+			point_light.position.y += 3.0
+
 	# Create random offset for each torch to avoid synchronization
 	random_offset = randf() * 10.0  # Random offset between 0-10 seconds
 	
@@ -48,6 +56,14 @@ func _ready():
 	else:
 		if DEBUG_TORCH:
 			print("[TorchController] Warning: No AnimatedSprite2D found!")
+
+
+func _is_dungeon_biome_context() -> bool:
+	if not is_inside_tree():
+		return true
+	var gen := get_tree().get_first_node_in_group("level_generator")
+	return not (gen is ForestLevelGenerator)
+
 
 func _process(delta):
 	time += delta

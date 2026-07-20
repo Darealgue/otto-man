@@ -2603,6 +2603,7 @@ _data = {
 size = Vector2(104.75, 49)
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_2"]
+resource_local_to_scene = true
 radius = 9.0
 height = 44.0
 
@@ -2610,6 +2611,7 @@ height = 44.0
 size = Vector2(104.75, 49)
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
+resource_local_to_scene = true
 radius = 11.0
 height = 44.0
 

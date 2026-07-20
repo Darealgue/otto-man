@@ -27,34 +27,35 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if !visible or is_processing_selection:
 		return
-	
-	if InputManager.is_event_action(event, &"ui_up") or InputManager.is_event_action(event, &"ui_down"):
+
+	if InputManager.is_event_action(event, &"ui_left") or InputManager.is_event_action(event, &"ui_right"):
 		get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	if !visible or is_processing_selection:
 		return
-	
+
 	# Update navigation timers
 	if navigation_repeat_timer_up > 0.0:
 		navigation_repeat_timer_up -= delta
 	if navigation_repeat_timer_down > 0.0:
 		navigation_repeat_timer_down -= delta
-	
-	if InputManager.is_ui_up_just_pressed():
+
+	# Kartlar artık yatay sıralı; seçim sol/sağ ile yapılıyor (isimler eski up/down'dan kalma).
+	if InputManager.is_ui_left_just_pressed():
 		_move_selection(-1)
 		navigation_repeat_timer_up = NAVIGATION_INITIAL_DELAY
-	elif InputManager.is_ui_up_pressed():
+	elif InputManager.is_ui_left_pressed():
 		if navigation_repeat_timer_up <= 0.0:
 			_move_selection(-1)
 			navigation_repeat_timer_up = NAVIGATION_REPEAT_DELAY
 	else:
 		navigation_repeat_timer_up = 0.0
-	
-	if InputManager.is_ui_down_just_pressed():
+
+	if InputManager.is_ui_right_just_pressed():
 		_move_selection(1)
 		navigation_repeat_timer_down = NAVIGATION_INITIAL_DELAY
-	elif InputManager.is_ui_down_pressed():
+	elif InputManager.is_ui_right_pressed():
 		if navigation_repeat_timer_down <= 0.0:
 			_move_selection(1)
 			navigation_repeat_timer_down = NAVIGATION_REPEAT_DELAY
@@ -106,7 +107,6 @@ func setup_items(item_scenes: Array[PackedScene]) -> void:
 			
 		var button = preload("res://ui/item_button.tscn").instantiate()
 		button.setup(scene)
-		button.custom_minimum_size = Vector2(400, 80)
 		button.pressed.connect(_on_item_button_pressed.bind(scenes_to_show.find(scene)))
 		
 		item_container.add_child(button)
@@ -117,11 +117,15 @@ func setup_items(item_scenes: Array[PackedScene]) -> void:
 	_update_info()
 	show_ui(true)
 	update_selection()
+	# Container layout'unun oturmasını bekleyip kartların hedef pozisyonunu öyle yakala,
+	# sonra soldan/sağdan/aşağıdan kayarak + hafif büyüyerek içeri giren giriş animasyonu oynat.
+	await get_tree().process_frame
+	CardVisualUtil.play_card_entrance(item_buttons)
 
 func update_selection() -> void:
 	for i in item_buttons.size():
 		var button = item_buttons[i]
-		button.modulate = Color.WHITE if i != selected_index else Color(1, 0.8, 0)
+		button.modulate = Color.WHITE if i == selected_index else Color(0.4, 0.4, 0.4)
 
 func _move_selection(direction: int) -> void:
 	if item_buttons.is_empty():
@@ -139,12 +143,15 @@ func select_item(index: int) -> void:
 	is_processing_selection = true
 	var item_scene = scenes_to_show[index]
 	ItemManager.activate_item(item_scene)
-	
+
 	# Slow time effect when exiting
 	if get_node_or_null("/root/ScreenEffects"):
 		ScreenEffects.slow_time(0.2, 0.3)
-	
-	await get_tree().create_timer(0.2).timeout
+
+	# Seçilmeyen kartlar geldikleri yönün tersine hızlıca kayıp kaybolur, seçilen hafif öne çıkar.
+	CardVisualUtil.play_card_exit(item_buttons, index)
+
+	await get_tree().create_timer(0.25).timeout
 	get_tree().paused = false
 	queue_free()
 

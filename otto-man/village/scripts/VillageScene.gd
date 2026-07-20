@@ -125,7 +125,137 @@ func _ready() -> void:
 	call_deferred("_sync_tutorial_village_ui_gates")
 	call_deferred("_maybe_enqueue_death_mentor_brief")
 	call_deferred("_ensure_plot_system_ready")
+	_prime_hud_intro_state()
+	_setup_hud_intro_trigger()
 # --- UI Açma / Kapatma Fonksiyonları ---
+
+## Sahne açılışında alt şerit (kaynak barı + fanus + saat) aşağıdan yukarı,
+## oyuncu portresi (Player/UI, can/stamina HUD'u) soldan sağa kayarak yerine oturur.
+## SceneManager'ın yükleme perdesi kapanana kadar bekleriz; yoksa animasyon
+## perde hâlâ siyahken oynayıp biter ve kullanıcı hiç görmez.
+const HUD_INTRO_DELAY := 0.0
+const HUD_INTRO_DURATION := 0.5
+const HUD_INTRO_BAR_OFFSET := 220.0
+const HUD_INTRO_PORTRAIT_OFFSET := 420.0
+const HUD_INTRO_FALLBACK_TIMEOUT := 2.0
+const HUD_INTRO_LAYER_NAMES := ["TopBarBackground", "VillageStatusUI", "MoraleJarUI", "TimeDisplayUi"]
+var _hud_intro_played := false
+
+## Perde hâlâ kapalıyken (görünmeden) elemanları başlangıç konumuna al — sonradan
+## "doğru yerden yanlış yere zıplama" flaşı olmasın.
+func _prime_hud_intro_state() -> void:
+	for node_name in HUD_INTRO_LAYER_NAMES:
+		var n := get_node_or_null(node_name)
+		if n is CanvasLayer:
+			(n as CanvasLayer).offset = Vector2(0.0, HUD_INTRO_BAR_OFFSET)
+	var portrait_layer := _find_player_ui_layer()
+	if portrait_layer:
+		portrait_layer.offset = Vector2(-HUD_INTRO_PORTRAIT_OFFSET, 0.0)
+
+
+func _setup_hud_intro_trigger() -> void:
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm and sm.has_signal("scene_change_completed"):
+		sm.scene_change_completed.connect(_on_scene_change_completed_for_hud_intro)
+	call_deferred("_await_hud_intro_fallback")
+
+
+func _on_scene_change_completed_for_hud_intro(_new_path: String) -> void:
+	_run_hud_intro_once()
+
+
+## Sahne SceneManager geçişi olmadan doğrudan açıldıysa (ör. editörde F6) diye yedek tetikleyici.
+func _await_hud_intro_fallback() -> void:
+	await get_tree().create_timer(HUD_INTRO_FALLBACK_TIMEOUT).timeout
+	_run_hud_intro_once()
+
+
+func _run_hud_intro_once() -> void:
+	if _hud_intro_played:
+		return
+	_hud_intro_played = true
+	_play_hud_intro_animation()
+
+
+func _play_hud_intro_animation() -> void:
+	var bar_layers: Array[CanvasLayer] = []
+	for node_name in HUD_INTRO_LAYER_NAMES:
+		var n := get_node_or_null(node_name)
+		if n is CanvasLayer:
+			bar_layers.append(n as CanvasLayer)
+
+	var portrait_layer := _find_player_ui_layer()
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	for layer in bar_layers:
+		tween.tween_property(layer, "offset", Vector2.ZERO, HUD_INTRO_DURATION) \
+			.set_delay(HUD_INTRO_DELAY).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if portrait_layer:
+		tween.tween_property(portrait_layer, "offset", Vector2.ZERO, HUD_INTRO_DURATION) \
+			.set_delay(HUD_INTRO_DELAY).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _find_player_ui_layer() -> CanvasLayer:
+	var player := get_node_or_null("Player")
+	if player == null:
+		var players := get_tree().get_nodes_in_group("player")
+		if players.size() > 0:
+			player = players[0]
+	if player == null:
+		return null
+	return player.get_node_or_null("UI") as CanvasLayer
+
+
+## Oyuncu bir süre kıpırdamazsa HUD kendiliğinden gizlenir, köyü rahat seyredebilsin;
+## hareket eder etmez aynı giriş animasyonuyla (aynı yönlerden) geri döner.
+## Karakterin kendi idle duruşu zaten state machine'de var, burada sadece HUD'u gizliyoruz.
+const HUD_IDLE_HIDE_DELAY := 30.0
+const HUD_IDLE_MOVE_EPSILON := 4.0
+const HUD_IDLE_TRANSITION_DURATION := 0.4
+var _hud_idle_timer := 0.0
+var _hud_idle_hidden := false
+
+
+func _process(delta: float) -> void:
+	_update_hud_idle_visibility(delta)
+
+
+func _update_hud_idle_visibility(delta: float) -> void:
+	if not _hud_intro_played:
+		return
+	var player := get_node_or_null("Player") as CharacterBody2D
+	if player == null:
+		return
+	if player.velocity.length() > HUD_IDLE_MOVE_EPSILON:
+		_hud_idle_timer = 0.0
+		if _hud_idle_hidden:
+			_hud_idle_hidden = false
+			_play_hud_intro_animation()
+		return
+	_hud_idle_timer += delta
+	if _hud_idle_timer >= HUD_IDLE_HIDE_DELAY and not _hud_idle_hidden:
+		_hud_idle_hidden = true
+		_play_hud_idle_hide_animation()
+
+
+func _play_hud_idle_hide_animation() -> void:
+	var bar_layers: Array[CanvasLayer] = []
+	for node_name in HUD_INTRO_LAYER_NAMES:
+		var n := get_node_or_null(node_name)
+		if n is CanvasLayer:
+			bar_layers.append(n as CanvasLayer)
+	var portrait_layer := _find_player_ui_layer()
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	for layer in bar_layers:
+		tween.tween_property(layer, "offset", Vector2(0.0, HUD_INTRO_BAR_OFFSET), HUD_IDLE_TRANSITION_DURATION) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	if portrait_layer:
+		tween.tween_property(portrait_layer, "offset", Vector2(-HUD_INTRO_PORTRAIT_OFFSET, 0.0), HUD_IDLE_TRANSITION_DURATION) \
+			.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+
 
 func Load_Existing_Villagers():
 	VillagerAiInitializer.Load_existing_villagers()

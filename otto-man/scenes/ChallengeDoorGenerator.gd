@@ -64,12 +64,16 @@ func _make_safe_door(is_initial: bool) -> Dictionary:
 	data["label_short"] = _build_minimal_label(data)
 	return data
 
+## Kapı üstündeki her ödül sembolü (altın veya kurtarma kalbi) seçilen ekseni +1 daha zorlaştırır.
+const GOLD_PER_COIN_SYMBOL: float = 0.35
+const RESCUE_SYMBOL_CHANCE: float = 0.35
+
 func _make_procedural_door() -> Dictionary:
-	# Tek kapı = tek kategori (düşman VEYA tuzak VEYA harita); aynı anda çoklu sıçrama yok
+	# Tek kapı = tek eksen (düşman VEYA tuzak); harita büyütme kaldırıldı.
+	# WYSIWYG: taban +1, kapıda görünen her ödül sembolü aynı ekseni +1 daha artırır.
 	var risk_categories: Array = [
 		["enemy_level_delta", "enemy_count_delta"],
 		["trap_level_delta", "trap_count_delta"],
-		["dungeon_size_delta"],
 	]
 	var category: Array = risk_categories[randi() % risk_categories.size()]
 	var key: String = category[randi() % category.size()]
@@ -86,30 +90,16 @@ func _make_procedural_door() -> Dictionary:
 		"modifiers": [],
 	}
 
-	match key:
-		"enemy_level_delta", "enemy_count_delta", "trap_level_delta":
-			data[key] = randi_range(1, 3)
-		"trap_count_delta":
-			data[key] = randi_range(1, 2)
-		"dungeon_size_delta":
-			data[key] = randi_range(0, 1)
-
-	var total_risk: int = _calc_risk_score(data)
-
-	var reward_count := randi_range(1, 2)
-	var use_rescue := false
-	if reward_count > 0 and randf() < 0.45:
-		use_rescue = true
+	# Kaç ödül sembolü olacağını önce belirle; kapının zorluk artışı bununla birebir eşleşsin.
+	var bonus_symbol_count: int = _roll_bonus_symbol_count()
+	var gold_symbol_count: int = bonus_symbol_count
+	if bonus_symbol_count > 0 and randf() < RESCUE_SYMBOL_CHANCE:
 		data["guaranteed_rescue"] = true
+		gold_symbol_count -= 1
 
-	var gold_delta := 0.0
-	if total_risk <= 2:
-		gold_delta = _pick_from([0.25, 0.5])
-	elif total_risk <= 4:
-		gold_delta = _pick_from([0.25, 0.5, 0.75])
-	else:
-		gold_delta = _pick_from([0.5, 0.75, 1.0])
-	data["gold_multiplier_delta"] = gold_delta
+	data[key] = 1 + bonus_symbol_count
+	if gold_symbol_count > 0:
+		data["gold_multiplier_delta"] = GOLD_PER_COIN_SYMBOL * gold_symbol_count
 
 	_apply_random_modifier(data)
 
@@ -117,6 +107,16 @@ func _make_procedural_door() -> Dictionary:
 	data["risk_tier"] = _get_risk_tier(data["risk_score"])
 	data["label_short"] = _build_minimal_label(data)
 	return data
+
+## 0-2 arası ekstra ödül sembolü — her biri seçilen ekseni +1 daha zorlaştırır (taban 1, tavan 3).
+func _roll_bonus_symbol_count() -> int:
+	var roll := randf()
+	if roll < 0.45:
+		return 0
+	elif roll < 0.8:
+		return 1
+	else:
+		return 2
 
 func _apply_random_modifier(data: Dictionary) -> void:
 	if randf() > MODIFIER_ROLL_CHANCE:
@@ -165,8 +165,16 @@ func _get_risk_tier(score: int) -> int:
 		return RiskTier.EXTREME
 
 const SKULL := "\u2620"
-const COIN := "\u2742"
-const HEART := "\u2665"
+
+## Kap\u0131 etiketindeki ger\u00e7ek ikon \u00e7izimleri (rescue/trap yeni eklendi, gold zaten vard\u0131).
+## D\u00fc\u015fman ekseni i\u00e7in hen\u00fcz kendi ikonu yok \u2014 kurukafa placeholder olarak kal\u0131yor.
+const GOLD_ICON_PATH := "res://assets/Icons/gold_icon.png"
+const RESCUE_ICON_PATH := "res://assets/Icons/rescue_icon.png"
+const TRAP_ICON_PATH := "res://assets/Icons/trap_icon.png"
+const DOOR_ICON_PX := 25
+
+func _icon_bbcode(path: String) -> String:
+	return "[img=%dx%d]%s[/img]" % [DOOR_ICON_PX, DOOR_ICON_PX, path]
 
 ## Segment modifier havuzu — risk karşılığı altın / kurtarma bonusu
 const MODIFIER_DEFS: Dictionary = {
@@ -196,17 +204,22 @@ const MODIFIER_DEFS: Dictionary = {
 const MODIFIER_IDS: Array[String] = ["no_parry", "no_heal", "night_mode", "light_only"]
 const MODIFIER_ROLL_CHANCE: float = 0.48
 
-## Oyuncuya gösterilecek minimal etiket: kurukafalar (risk) + semboller (ödül)
+## Oyuncuya gösterilecek etiket: üst satır hangi ekseni ne kadar zorlaştırdığı (WYSIWYG —
+## ikon sayısı = eklenen miktar), alt satır ödül ikonları (altın/kurtarma) + varsa modifier.
 func _build_minimal_label(data: Dictionary) -> String:
 	var tier: int = int(data.get("risk_tier", RiskTier.SAFE))
 	var tier_color: String = RISK_TIER_COLORS.get(tier, "white")
 
-	var skull_count: int = tier
-	var skull_text := ""
-	if skull_count <= 0:
-		skull_text = "[color=%s]Güvenli[/color]" % tier_color
+	var trap_amount: int = int(data.get("trap_level_delta", 0)) + int(data.get("trap_count_delta", 0))
+	var enemy_amount: int = int(data.get("enemy_level_delta", 0)) + int(data.get("enemy_count_delta", 0))
+
+	var axis_text: String
+	if trap_amount > 0:
+		axis_text = "[color=%s]%s[/color]" % [tier_color, _icon_bbcode(TRAP_ICON_PATH).repeat(trap_amount)]
+	elif enemy_amount > 0:
+		axis_text = "[color=%s]%s[/color]" % [tier_color, SKULL.repeat(enemy_amount)]
 	else:
-		skull_text = "[color=%s]%s[/color]" % [tier_color, SKULL.repeat(skull_count)]
+		axis_text = "[color=%s]Güvenli[/color]" % tier_color
 
 	var reward_parts: Array = []
 	if float(data.get("gold_multiplier_delta", 0.0)) > 0.0:
@@ -216,9 +229,9 @@ func _build_minimal_label(data: Dictionary) -> String:
 			gold_icons = 3
 		elif gd_val >= 0.5:
 			gold_icons = 2
-		reward_parts.append("[color=yellow]%s[/color]" % COIN.repeat(gold_icons))
+		reward_parts.append(_icon_bbcode(GOLD_ICON_PATH).repeat(gold_icons))
 	if bool(data.get("guaranteed_rescue", false)):
-		reward_parts.append("[color=green]%s[/color]" % HEART)
+		reward_parts.append(_icon_bbcode(RESCUE_ICON_PATH))
 
 	var mods: Variant = data.get("modifiers", [])
 	if mods is Array:
@@ -229,8 +242,8 @@ func _build_minimal_label(data: Dictionary) -> String:
 				reward_parts.append(mod_label)
 
 	if reward_parts.is_empty():
-		return skull_text
-	return skull_text + "  " + "  ".join(reward_parts)
+		return axis_text
+	return axis_text + "  " + "  ".join(reward_parts)
 
 func _exists_same_challenge(existing: Array, candidate: Dictionary) -> bool:
 	for e in existing:
@@ -250,8 +263,3 @@ func _compare_challenge_dicts(a: Dictionary, b: Dictionary) -> bool:
 		if a.get(k) != b.get(k):
 			return false
 	return true
-
-func _pick_from(values: Array) -> float:
-	if values.is_empty():
-		return 0.0
-	return float(values[randi() % values.size()])

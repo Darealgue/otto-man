@@ -3,6 +3,8 @@ class_name VillageMentorNPC
 ## Köyde gezen mentor. Oyuncunun yürüdüğü zemin platformu + çatılarda hareket eder.
 ## Y bandında float ETMEZ — gerçek fizik (move_and_slide + gravity) kullanır.
 
+const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
+
 enum MentorState {
 	ROAM,
 	IDLE,
@@ -452,6 +454,9 @@ func _create_interact_hint() -> void:
 	_interact_hint_label.size = Vector2(40, 20)
 	_interact_hint_label.visible = false
 	add_child(_interact_hint_label)
+	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
+	# ekran uzayında takip ettiriliyor.
+	OverheadUiTracker.attach(_interact_hint_label, self, Vector2(0, -80))
 
 
 func _find_or_create_speech_bar() -> Node:

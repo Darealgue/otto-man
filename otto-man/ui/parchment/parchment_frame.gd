@@ -57,8 +57,10 @@ func get_patch_margins() -> Vector4i:
 func _apply_style() -> void:
 	if _patch:
 		_patch.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		if parchment_texture:
-			_patch.texture = parchment_texture
+		# Parşömen teması kaldırıldı — parchment_texture export'u ne olursa olsun
+		# (hatta boş bırakılsa bile, sahnedeki varsayılan parşömen PNG'si yerine)
+		# her zaman düz siyah + ince kenarlıklı üretilmiş doku kullanılır.
+		_patch.texture = ParchmentTextures.get_flat_panel_texture()
 		var pm := get_patch_margins()
 		_patch.patch_margin_left = pm.x
 		_patch.patch_margin_top = pm.y

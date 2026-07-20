@@ -615,6 +615,55 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_camera"):  # We'll set this up in Project Settings
 		toggle_camera()
 
+## Uzak chunk'lardaki düşmanları tamamen dondurur (performans için).
+## Forest jeneratöründeki chunk penceresinin aksine, zindanda üretilen tüm chunk'lardaki
+## düşmanlar üretim anında tek seferde sahneye ekleniyor ve hiçbir chunk-bazlı devre dışı
+## bırakma yoktu — oyuncu haritanın öbür ucundayken bile başlangıçtaki düşmanlar çalışmaya
+## devam ediyordu. Burada oyuncu merkezli, 2x2 chunk boyutunda (CHUNK_SIZE*2 x CHUNK_SIZE*2)
+## bir bölge dışındaki tüm "enemies" grubundaki düşmanlar process_mode = DISABLED yapılıyor
+## (kendi SleepPollTimer'ları dahil her şey duruyor); bölgeye girince INHERIT'e dönüp
+## normal (kendi uyku sistemleriyle birlikte) davranışlarına devam ediyorlar.
+const ENEMY_FREEZE_CHECK_INTERVAL := 0.3
+var _enemy_freeze_check_accum := 0.0
+
+func _process(delta: float) -> void:
+	_enemy_freeze_check_accum += delta
+	if _enemy_freeze_check_accum < ENEMY_FREEZE_CHECK_INTERVAL:
+		return
+	_enemy_freeze_check_accum = 0.0
+	_update_far_chunk_enemy_freeze()
+
+
+func _get_player_node_2d() -> Node2D:
+	var p := get_node_or_null("Player") as Node2D
+	if p != null and is_instance_valid(p):
+		return p
+	var players := get_tree().get_nodes_in_group("player")
+	for candidate in players:
+		if candidate is Node2D and is_instance_valid(candidate):
+			return candidate as Node2D
+	return null
+
+
+func _update_far_chunk_enemy_freeze() -> void:
+	var player: Node2D = _get_player_node_2d()
+	if player == null:
+		return
+	var player_pos: Vector2 = player.global_position
+	var half_w: float = CHUNK_SIZE.x
+	var half_h: float = CHUNK_SIZE.y
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(enemy) or not (enemy is Node2D):
+			continue
+		var e2d: Node2D = enemy as Node2D
+		var d: Vector2 = e2d.global_position - player_pos
+		var in_range: bool = absf(d.x) <= half_w and absf(d.y) <= half_h
+		var currently_frozen: bool = (enemy as Node).process_mode == Node.PROCESS_MODE_DISABLED
+		if in_range and currently_frozen:
+			(enemy as Node).process_mode = Node.PROCESS_MODE_INHERIT
+		elif not in_range and not currently_frozen:
+			(enemy as Node).process_mode = Node.PROCESS_MODE_DISABLED
+
 func toggle_camera() -> void:
 	is_overview_active = !is_overview_active
 	var player = get_node_or_null("Player")

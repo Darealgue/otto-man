@@ -16,6 +16,7 @@ const FOREST_SCENE: String = "res://scenes/forest.tscn"
 const WORLD_MAP_SCENE: String = "res://worldmap/scenes/WorldMapScene.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
 const LoadingScreenScene = preload("res://ui/LoadingScreen.tscn")
+const DungeonRunReportScript = preload("res://ui/DungeonRunReport.gd")
 const TimeManagerPath := "/root/TimeManager"
 
 var current_scene_path: String = ""
@@ -121,8 +122,29 @@ func open_settings() -> void:
 
 const DUNGEON_SUCCESS_MORALE_BONUS: float = 2.0
 
+## Zindan run'ı gerçekten bitiyorsa (ölüm veya dünya haritası/köy dönüşü), sahne değişmeden
+## ÖNCE bölüm sonu raporunu göster. run_started/end_run() ile temizlenecek istatistikleri
+## DungeonRunState'ten bu noktada, hâlâ el değmemişken okuyup rapora geçiriyoruz.
+func _maybe_show_dungeon_run_report(payload: Dictionary) -> void:
+	var source: String = String(payload.get("source", ""))
+	if source != "dungeon" and source != "dungeon_death":
+		return
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if not is_instance_valid(drs) or not bool(drs.get("run_started")):
+		return
+	var is_dead: bool = source == "dungeon_death"
+	var report_data: Dictionary = {}
+	if drs.has_method("get_run_report_data"):
+		report_data = drs.call("get_run_report_data", is_dead)
+	report_data["is_dead"] = is_dead
+	report_data["return_reason"] = String(payload.get("return_reason", ""))
+	report_data["is_run_complete"] = bool(drs.call("is_run_complete")) if drs.has_method("is_run_complete") else false
+	await DungeonRunReportScript.run(get_tree(), report_data)
+
+
 func change_to_village(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	payload = _merge_travel_payload_with_current(payload)
+	await _maybe_show_dungeon_run_report(payload)
 	_heal_player_on_world_map_arrival(payload)
 	payload = _finalize_dungeon_rewards_on_safe_return(payload)
 	payload = _finalize_world_expedition_gold_on_safe_return(payload)
@@ -411,6 +433,7 @@ func change_to_world_map(payload: Dictionary = {}, force_reload: bool = false) -
 	if src == "village" and cs_wm != null and String(cs_wm.scene_file_path) == VILLAGE_SCENE:
 		open_world_map_overlay_from_village(payload)
 		return
+	await _maybe_show_dungeon_run_report(payload)
 	if src == "village" or src.is_empty():
 		var vm := get_node_or_null("/root/VillageManager")
 		if is_instance_valid(vm) and vm.has_method("mark_leaving_village_for_travel_out"):

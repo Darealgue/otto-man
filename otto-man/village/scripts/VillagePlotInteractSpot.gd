@@ -2,6 +2,8 @@ extends Node2D
 class_name VillagePlotInteractSpot
 ## Tek inşa parseli — oyuncunun W/↑ etkileşim sistemiyle uyumlu Area2D.
 
+const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
+
 var plot_position: Vector2 = Vector2.ZERO
 var plot_system: VillagePlotSystem = null
 
@@ -47,6 +49,9 @@ func _build_hint() -> void:
 	_interact_hint.size = Vector2(96, 20)
 	_interact_hint.visible = false
 	add_child(_interact_hint)
+	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
+	# ekran uzayında takip ettiriliyor.
+	OverheadUiTracker.attach(_interact_hint, self, Vector2(0, -78))
 
 
 func is_player_inside() -> bool:

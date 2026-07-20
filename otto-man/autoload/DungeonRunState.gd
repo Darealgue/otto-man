@@ -48,6 +48,15 @@ var stealth_clear: bool = false               # Tüm run alarm olmadan tamamland
 var stealth_exit_partial_gold_applied: int = 0  # Gizli çıkışta eklenen kısmi boss altını
 var collected_keys: Array[String] = []  # Run boyunca toplanan kapı anahtarları
 
+## --- Bölüm sonu raporu (DungeonRunReport) için run istatistikleri ---
+## dungeon_gold/kill_count gibi canlı sayaçlar ölümde/çıkışta sıfırlanıp temizlendiği için,
+## rapor ekranının doğru "toplam" gösterebilmesi adına bunlar ayrı ve kalıcı tutulur.
+var enemies_killed_total: int = 0
+var gold_collected_total: int = 0
+var gold_lost_total: int = 0
+var fragile_rescue_lost_total: int = 0
+var run_start_ticks_msec: int = 0
+
 const STEALTH_EXIT_BOSS_GOLD_FRACTION: float = 0.25
 const DEFAULT_DUNGEON_KEY_ID: String = "dungeon_key"
 const SEGMENT_EXIT_KEY_ID: String = "segment_exit_key"
@@ -72,6 +81,11 @@ func start_run_from_village() -> void:
 	boss_skipped = false
 	stealth_clear = false
 	stealth_exit_partial_gold_applied = 0
+	enemies_killed_total = 0
+	gold_collected_total = 0
+	gold_lost_total = 0
+	fragile_rescue_lost_total = 0
+	run_start_ticks_msec = Time.get_ticks_msec()
 	_reset_challenge_state()
 	clear_pending_rescued()
 	collected_keys.clear()
@@ -338,6 +352,7 @@ func _find_living_key_holder() -> Node:
 
 
 func handle_enemy_defeated(enemy: Node) -> void:
+	enemies_killed_total += 1
 	_register_segment_enemy_defeated(enemy)
 	if try_spawn_key_drop_from_enemy(enemy):
 		return
@@ -582,6 +597,7 @@ func purge_fragile_rescues() -> Dictionary:
 	pending_rescued_villagers = kept_villagers
 	pending_rescued_cariyes = kept_cariyes
 	if villagers_lost > 0 or cariyes_lost > 0:
+		fragile_rescue_lost_total += villagers_lost + cariyes_lost
 		print("[DungeonRunState] Kırılgan kurtarmalar kaçtı — köylü=%d cariye=%d" % [villagers_lost, cariyes_lost])
 	return {"villagers": villagers_lost, "cariyes": cariyes_lost}
 
@@ -604,6 +620,44 @@ func get_and_clear_pending_rescued() -> Dictionary:
 	}
 	clear_pending_rescued()
 	return out
+
+## Bölüm sonu raporu (DungeonRunReport) için anlık istatistik özeti.
+## SceneManager tarafından, end_run() (ve dungeon_gold/pending_rescued temizliği) çağrılmadan
+## HEMEN ÖNCE okunmalı — aksi halde canlı sayaçlar sıfırlanmış olur.
+func get_run_report_data(is_dead: bool) -> Dictionary:
+	var rescued_total: int = pending_rescued_villagers.size() + pending_rescued_cariyes.size()
+	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+	var gold_held: int = 0
+	if is_dead:
+		# Ölümde dungeon_gold bu noktaya gelmeden zaten temizlenmiş oluyor (bkz. player.gd);
+		# elde kalan miktarı kendi kalıcı sayaçlarımızdan geri hesaplıyoruz.
+		gold_held = maxi(0, gold_collected_total - gold_lost_total)
+	elif is_instance_valid(gpd) and "dungeon_gold" in gpd:
+		gold_held = int(gpd.get("dungeon_gold"))
+	var gold_delivered: int = 0
+	var gold_lost_final: int = 0
+	if is_dead:
+		gold_lost_final = gold_held
+	else:
+		var mult: float = 1.0 + gold_multiplier_accumulated
+		gold_delivered = int(floor(float(gold_held) * mult))
+	var elapsed: float = 0.0
+	if run_start_ticks_msec > 0:
+		elapsed = float(Time.get_ticks_msec() - run_start_ticks_msec) / 1000.0
+	return {
+		"enemies_killed": enemies_killed_total,
+		"gold_held_at_end": gold_held,
+		"gold_delivered": gold_delivered,
+		"gold_lost_final": gold_lost_final,
+		"rescued_total": (0 if is_dead else rescued_total),
+		"rescued_lost": (rescued_total if is_dead else 0),
+		"fragile_rescue_lost_total": fragile_rescue_lost_total,
+		"segments_completed": run_segments_completed,
+		"segments_target": run_max_segments,
+		"is_warmup": is_warmup_run,
+		"elapsed_seconds": elapsed,
+	}
+
 
 func get_partial_exit_rescued(survivor_chance: float) -> Dictionary:
 	var villagers: Array = []
