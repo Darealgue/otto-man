@@ -216,6 +216,7 @@ func show_for_concubine(concubine: Concubine) -> void:
 	_refresh_missions()
 	visible = true
 	call_deferred("_focus_first_assign_button")
+	_set_player_ui_locked(true)
 
 
 func hide_popup() -> void:
@@ -229,6 +230,17 @@ func hide_popup() -> void:
 	_assign_buttons.clear()
 	get_viewport().gui_release_focus()
 	closed.emit()
+	_set_player_ui_locked(false)
+
+
+## Mentor/Tüccar/Kamp Ateşi popup'larının aksine bu popup açıkken oyuncu _is_any_menu_open()'ın
+## "yumuşak" korumasına (sadece velocity sıfırlama) rağmen hareket edip diyaloğu kapatabiliyordu —
+## state machine kendi input okumasıyla player.gd'nin sıfırlamasını eziyordu. Worker.gd'nin
+## npc_window akışıyla aynı sert kilidi (state machine'i tamamen durduran set_ui_locked) kullanıyoruz.
+func _set_player_ui_locked(locked: bool) -> void:
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.get("Village_Player"):
+		vm.Village_Player.set_ui_locked(locked)
 
 
 func hide_if_for_concubine(concubine_id: int) -> void:

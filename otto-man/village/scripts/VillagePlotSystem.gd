@@ -265,10 +265,15 @@ func _on_build_selected(scene_path: String) -> void:
 		plot_pos = _active_spot.plot_position
 	if plot_pos == Vector2.INF:
 		return
+	# "Bina bitti" ilerlemesi burada değil, inşaat GERÇEKTEN bitince tetikleniyor (bkz.
+	# VillageScene.gd _on_construction_completed_toast -> construction_completed sinyali).
+	# İnşaat artık anında bitmediği için (gerçek süresi var), burada işaretlemek binayı henüz
+	# fiziksel olarak yokken tutorial'ı "bitti" sayıp bekleme adımını atlıyordu. Sadece
+	# "inşaata alındı" bilgisini bildiriyoruz (objective'in "kamp ateşine git"e dönmesi için).
 	if VillageManager.request_build_building_at_plot(scene_path, plot_pos):
 		var key := scene_path.get_file().trim_suffix(".tscn").to_lower()
-		if is_instance_valid(_village_scene) and _village_scene.has_method("_tutorial_on_building_built"):
-			_village_scene.call_deferred("_tutorial_on_building_built", key)
+		if is_instance_valid(_village_scene) and _village_scene.has_method("_tutorial_on_building_queued"):
+			_village_scene.call_deferred("_tutorial_on_building_queued", key)
 
 
 func _on_upgrade_requested() -> void:

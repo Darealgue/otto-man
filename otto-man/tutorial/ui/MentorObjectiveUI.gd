@@ -101,7 +101,9 @@ func _resolve_input_tokens(text: String) -> String:
 	if result.contains("{confirm}"):
 		result = result.replace("{confirm}", "[%s]" % im.get_tutorial_map_confirm_hint())
 	if result.contains("{hex_enter}"):
-		result = result.replace("{hex_enter}", "[%s]" % im.get_tutorial_attack_heavy_hint())
+		# Hex'e giriş gerçekte ui_accept ile tetikleniyor (bkz. WorldMapScene.gd
+		# _confirm_move_to_cursor) — attack_heavy (dövüş tuşu) ile ilgisi yok.
+		result = result.replace("{hex_enter}", "[%s]" % im.get_tutorial_map_confirm_hint())
 	if result.contains("{interact}"):
 		result = result.replace("{interact}", "[%s]" % im.get_tutorial_interact_hint())
 	if result.contains("{ui_up}"):

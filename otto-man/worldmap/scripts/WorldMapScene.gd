@@ -615,7 +615,7 @@ func _process(delta: float) -> void:
 		if _tm:
 			if _tm.village_dungeon_guide_active and not _tm.tutorial_dungeon_guide_complete:
 				keep_marker = true
-			elif _tm.is_village_tutorial_active() and _tm.village_core_step == 1:
+			elif _tm.is_village_tutorial_active() and _tm.village_core_step == 3:
 				keep_marker = true
 		if not keep_marker:
 			_tutorial_marker_active = false
@@ -4500,7 +4500,7 @@ func _refresh_tutorial_map_marker() -> void:
 		_tutorial_marker_active = false
 		return
 
-	if not tm.is_village_tutorial_active() or tm.village_core_step != 1:
+	if not tm.is_village_tutorial_active() or tm.village_core_step != 3:
 		_tutorial_marker_active = false
 		return
 	_tutorial_marker_is_dungeon = false

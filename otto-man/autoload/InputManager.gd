@@ -450,10 +450,12 @@ static func _get_joypad_button_name(event: InputEventJoypadButton) -> String:
 		8: return "R3"
 		9: return "LB"
 		10: return "RB"
-		11: return "D-Pad Up"
-		12: return "D-Pad Down"
-		13: return "D-Pad Left"
-		14: return "D-Pad Right"
+		# Kısa ok glifi (bkz. _tutorial_joy_button_short) — HUD ipuçlarında "D-Pad Up" gibi
+		# uzun metin yerine sadece ok görünsün.
+		11: return "↑"
+		12: return "↓"
+		13: return "←"
+		14: return "→"
 		_: return "Button " + str(event.button_index)
 
 ## Gamepad axis için isim döndürür
@@ -819,11 +821,11 @@ func get_tutorial_overview_camera_hint() -> String:
 
 func get_tutorial_map_move_hint() -> String:
 	if last_input_from_joypad:
-		return "D-Pad / Sol Çubuk"
+		return "← → ↑ ↓"
 	var preset := _current_keyboard_preset
 	if preset == PRESET_ARROWS_QWEASD:
 		return "← → ↑ ↓"
-	return "W/A/S/D"
+	return "W A S D"
 
 
 func get_tutorial_map_confirm_hint() -> String:
@@ -835,14 +837,13 @@ func get_tutorial_map_confirm_hint() -> String:
 	return get_action_key_name(&"ui_accept")
 
 
+## Village'da "interact" tuşu klavye düzenine göre değişik fiziksel tuşlara bağlanabiliyor
+## (WASD_NUMPAD'de Num8, ARROWS_QWEASD'de W — bkz. _KEYBOARD_PRESETS) ve gamepad'de D-Pad Up/sol
+## çubuk yukarı. Hangi tuş olursa olsun anlamı hep "yukarı bas" olduğundan (bkz.
+## NpcOverheadUi.apply_interact_hint_text'teki aynı karar), ham tuş adı yerine sabit ok
+## karakteriyle gösteriyoruz — "Num 8" gibi kafa karıştırıcı isimler tutorial metinlerine sızmasın.
 func get_tutorial_interact_hint() -> String:
-	if last_input_from_joypad:
-		for an in _tutorial_physical_action_names(&"interact"):
-			var g := _tutorial_first_joypad_glyph_for_map_action(an)
-			if not g.is_empty():
-				return g
-		return "Y"
-	return get_action_key_name(&"interact")
+	return "↑"
 
 
 func get_tutorial_cancel_hint() -> String:
@@ -870,7 +871,7 @@ func get_tutorial_page_right_hint() -> String:
 
 func get_tutorial_ui_up_hint() -> String:
 	if last_input_from_joypad:
-		return "D-Pad ↑"
+		return _tutorial_joypad_glyph_for_action(&"ui_up", "semantic_up")
 	var events := InputMap.action_get_events(&"ui_up")
 	for ev in events:
 		if ev is InputEventKey:
@@ -884,7 +885,11 @@ func get_tutorial_ui_up_hint() -> String:
 	return "↑"
 
 
+## village_worker_add InputMap'te birden fazla klavye tuşuna bağlı (bkz. project.godot) ve
+## get_action_key_name ilk eşleşen event'i döndürüyor — bu bazı sistemlerde fiziksel keycode'u
+## yanlış çözüp garip/okunaksız bir isim üretiyordu. VillagePlotInteractSpot.gd'deki üst simge
+## ipucuyla aynı sebepten sabit "E" kullanıyoruz (bkz. project.godot'taki gerçek varsayılan bağlama).
 func get_tutorial_village_worker_add_hint() -> String:
 	if last_input_from_joypad:
 		return "R2"
-	return get_action_key_name(&"village_worker_add")
+	return "E"

@@ -41,7 +41,7 @@ var _roam_left: float = -920.0
 var _roam_right: float = 920.0
 var _player_in_range: bool = false
 var _is_speaking: bool = false
-var _interact_hint_label: Label = null
+var _interact_hint_icon: TextureRect = null
 
 var state: MentorState = MentorState.ROAM
 var roam_target_x: float = 0.0
@@ -76,10 +76,6 @@ func _ready() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm and tm.has_signal("mentor_inbox_changed"):
 		tm.mentor_inbox_changed.connect(_refresh_badge)
-
-	var im := get_node_or_null("/root/InputManager")
-	if im and im.has_signal("input_device_changed"):
-		im.input_device_changed.connect(_on_input_device_changed)
 
 	_pick_new_roam_target()
 	_refresh_badge()
@@ -334,18 +330,15 @@ func _on_player_exited(body: Node2D) -> void:
 
 
 func ShowInteractButton() -> void:
-	if _interact_hint_label == null:
+	if _interact_hint_icon == null:
 		_create_interact_hint()
-	if _interact_hint_label:
-		var im := get_node_or_null("/root/InputManager")
-		if im:
-			_interact_hint_label.text = im.get_tutorial_ui_up_hint()
-		_interact_hint_label.visible = true
+	if _interact_hint_icon:
+		NpcOverheadUi.fade_show_icon(_interact_hint_icon)
 
 
 func HideInteractButton() -> void:
-	if _interact_hint_label:
-		_interact_hint_label.visible = false
+	if _interact_hint_icon:
+		NpcOverheadUi.fade_hide_icon(_interact_hint_icon)
 
 
 func can_interact() -> bool:
@@ -379,6 +372,10 @@ func start_conversation() -> void:
 	if speech_bar == null:
 		_is_speaking = false
 		return
+	# Konuşma balonu açıkken oyuncunun kendi hareket/etkileşim işlemesini tamamen durduruyoruz
+	# (Worker.gd'nin npc_window'u ve ConcubineMissionPopupUI ile aynı desen) — aksi halde balonu
+	# ilerletmek için basılan aynı yukarı-ok, arkadaki bir bina/NPC ile de etkileşime giriyordu.
+	_set_player_ui_locked(true)
 	while tm.has_pending():
 		var msg: Dictionary = tm.drain_next()
 		if msg.is_empty():
@@ -392,9 +389,16 @@ func start_conversation() -> void:
 		await _wait_for_dismiss()
 	if speech_bar.has_method("clear_speech"):
 		speech_bar.clear_speech()
+	_set_player_ui_locked(false)
 	_is_speaking = false
 	_refresh_badge()
 	_on_conversation_finished()
+
+
+func _set_player_ui_locked(locked: bool) -> void:
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm and vm.get("Village_Player"):
+		vm.Village_Player.set_ui_locked(locked)
 
 
 func _resolve_input_tokens(text: String) -> String:
@@ -402,12 +406,20 @@ func _resolve_input_tokens(text: String) -> String:
 	if im == null:
 		return text
 	var result := text
+	# {hex_enter} eskiden get_tutorial_attack_heavy_hint kullanıyordu — ama dünya haritasında
+	# hex'e giriş gerçekte ui_accept aksiyonuyla tetikleniyor (bkz. WorldMapScene.gd
+	# _confirm_move_to_cursor, event.is_action_pressed("ui_accept")), attack_heavy ile hiç ilgisi
+	# yok. Yanlış tuş adı gösteriyordu (ör. dövüş tuşu), aynı get_tutorial_map_confirm_hint'e
+	# çekildi. {move} de aynı sebeple horizontal (sadece A/D) yerine 4 yönlü map hint'ine alındı —
+	# dünya haritasında yukarı/aşağı da gidilebiliyor.
 	var token_map: Dictionary = {
 		"{map}": "get_tutorial_open_map_hint",
-		"{move}": "get_tutorial_horizontal_move_hint",
+		"{move}": "get_tutorial_map_move_hint",
 		"{confirm}": "get_tutorial_map_confirm_hint",
-		"{hex_enter}": "get_tutorial_attack_heavy_hint",
+		"{hex_enter}": "get_tutorial_map_confirm_hint",
 		"{interact}": "get_tutorial_interact_hint",
+		"{ui_up}": "get_tutorial_ui_up_hint",
+		"{village_worker_add}": "get_tutorial_village_worker_add_hint",
 	}
 	for token in token_map.keys():
 		if token in result and im.has_method(token_map[token]):
@@ -421,7 +433,9 @@ func _wait_for_dismiss() -> void:
 	while true:
 		if not is_inside_tree():
 			break
-		if Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("ui_accept"):
+		# ui_accept (Space/Enter) kasıtlı olarak dahil değil — balon sadece gösterilen "yukarı ok"
+		# ile ilerlesin istendi (bkz. interact/ui_up klavye düzenine göre Num8/W'ye bağlanabiliyor).
+		if Input.is_action_just_pressed("interact") or Input.is_action_just_pressed("ui_up"):
 			break
 		await get_tree().process_frame
 
@@ -434,29 +448,13 @@ func _on_conversation_finished() -> void:
 		tm.advance_village_core_after_mentor_welcome()
 
 
-func _on_input_device_changed(_is_joypad: bool) -> void:
-	if _interact_hint_label and _interact_hint_label.visible:
-		var im := get_node_or_null("/root/InputManager")
-		if im:
-			_interact_hint_label.text = im.get_tutorial_ui_up_hint()
-
-
 func _create_interact_hint() -> void:
-	_interact_hint_label = Label.new()
-	_interact_hint_label.name = "InteractHint"
-	_interact_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	TextOutline.apply_font_to_control(_interact_hint_label)
-	_interact_hint_label.add_theme_font_size_override("font_size", 12)
-	_interact_hint_label.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
-	_interact_hint_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
-	_interact_hint_label.add_theme_constant_override("outline_size", 3)
-	_interact_hint_label.position = Vector2(-20, -90)
-	_interact_hint_label.size = Vector2(40, 20)
-	_interact_hint_label.visible = false
-	add_child(_interact_hint_label)
+	_interact_hint_icon = NpcOverheadUi.build_up_arrow_talk_hint_icon()
+	_interact_hint_icon.visible = false
+	add_child(_interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
-	OverheadUiTracker.attach(_interact_hint_label, self, Vector2(0, -80))
+	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(0, -80))
 
 
 func _find_or_create_speech_bar() -> Node:

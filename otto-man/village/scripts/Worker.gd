@@ -1795,13 +1795,13 @@ func _physics_process(delta: float) -> void:
 
 
 func _sync_overhead_ui_flip() -> void:
-	# NpcWindow artık ekran-uzayı modal (CanvasLayer'a taşınıyor) — karakterle flip olmamalı.
-	var ui_nodes: Array = [_nameplate_container, _interact_button]
-	if _interact_hold_ring:
-		ui_nodes.append(_interact_hold_ring)
+	# _nameplate_container / _interact_button / _interact_hold_ring artık OverheadUiTracker ile
+	# ekran-uzayına taşınıyor; host'un transformunu miras almadıkları için flip senkronizasyonuna
+	# ihtiyaçları yok — üstelik halka (butonun ÇOCUĞU) tracker'ın kendi scale sıfırlamasının
+	# dışında kaldığından, buraya eklenirse köylü sola dönükken kalıcı olarak kayıyordu.
+	# _guest_hourglass_label ise hâlâ gerçek (world-space) bir çocuk, ters-flip'e ihtiyacı var.
 	if _guest_hourglass_label:
-		ui_nodes.append(_guest_hourglass_label)
-	NpcOverheadUi.sync_horizontal_flip(self, ui_nodes)
+		NpcOverheadUi.sync_horizontal_flip(self, [_guest_hourglass_label])
 
 
 func _enforce_walkable_vertical_band() -> void:
@@ -2938,7 +2938,7 @@ func _choose_next_idle_activity():
 
 func _update_interact_button_text() -> void:
 	if _interact_button:
-		_interact_button.text = NpcOverheadUi.get_interact_hint_text()
+		NpcOverheadUi.apply_interact_hint_text(_interact_button)
 
 
 func set_interact_hold_progress(ratio: float) -> void:

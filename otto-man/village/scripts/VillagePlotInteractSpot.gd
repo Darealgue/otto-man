@@ -7,8 +7,14 @@ const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
 var plot_position: Vector2 = Vector2.ZERO
 var plot_system: VillagePlotSystem = null
 
+const WORKER_HINT_MARGIN := 14.0
+
 var _interact_area: Area2D
-var _interact_hint: Label
+var _build_hint_icon: TextureRect
+var _worker_remove_hint: Label
+var _worker_add_hint: Label
+var _worker_remove_tracker: OverheadUiTracker
+var _worker_add_tracker: OverheadUiTracker
 var _player_inside := false
 
 
@@ -38,20 +44,40 @@ func _build_area() -> void:
 
 
 func _build_hint() -> void:
-	_interact_hint = Label.new()
-	_interact_hint.name = "InteractHint"
-	_interact_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_interact_hint.add_theme_font_size_override("font_size", 12)
-	_interact_hint.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
-	_interact_hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_interact_hint.add_theme_constant_override("outline_size", 3)
-	_interact_hint.position = Vector2(-48, -88)
-	_interact_hint.size = Vector2(96, 20)
-	_interact_hint.visible = false
-	add_child(_interact_hint)
+	# Ev ikonu artık okun üzerine bindirilmiyor — sprite'ın kendisi zaten "yukarı bas" bilgisini
+	# taşıyor, bu yüzden ayrı bir ok ikonuna gerek kalmadı. Boş parselde de, üzerinde bina olan
+	# parselde de gösteriliyor; ekran uzayında self'i takip ediyor.
+	_build_hint_icon = NpcOverheadUi.build_house_hint_icon()
+	_build_hint_icon.visible = false
+	add_child(_build_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
-	OverheadUiTracker.attach(_interact_hint, self, Vector2(0, -78))
+	OverheadUiTracker.attach(_build_hint_icon, self, Vector2(0, -78))
+
+	# İşçi ekle/çıkar tuş ipuçları — BuildingWorkerCapacityIndicator'ın nokta göstergesinin
+	# solunda (çıkar) ve sağında (ekle) konumlanıyor; genişlik binanın max_workers'ına göre
+	# _update_worker_hints() içinde her seferinde yeniden hesaplanıyor.
+	_worker_remove_hint = _make_worker_key_label("WorkerRemoveHint")
+	add_child(_worker_remove_hint)
+	_worker_remove_tracker = OverheadUiTracker.attach(_worker_remove_hint, self, Vector2.ZERO)
+
+	_worker_add_hint = _make_worker_key_label("WorkerAddHint")
+	add_child(_worker_add_hint)
+	_worker_add_tracker = OverheadUiTracker.attach(_worker_add_hint, self, Vector2.ZERO)
+
+
+func _make_worker_key_label(label_name: String) -> Label:
+	var lbl := Label.new()
+	lbl.name = label_name
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
+	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	lbl.add_theme_constant_override("outline_size", 3)
+	lbl.size = Vector2(40, 20)
+	lbl.visible = false
+	return lbl
 
 
 func is_player_inside() -> bool:
@@ -87,38 +113,66 @@ func interact() -> void:
 
 
 func ShowInteractButton() -> void:
-	if not _interact_hint:
+	if not _build_hint_icon:
 		return
-	var im := get_node_or_null("/root/InputManager")
-	var up_hint := "↑"
-	if im and im.has_method("get_tutorial_ui_up_hint"):
-		up_hint = "[%s]" % im.get_tutorial_ui_up_hint()
+	NpcOverheadUi.fade_show_icon(_build_hint_icon)
 	var building := get_building()
-	if is_instance_valid(building):
-		if building.has_method("add_worker") or "assigned_workers" in building:
-			var worker_hint := _worker_hint(im)
-			_interact_hint.text = "%s  %s" % [up_hint, worker_hint]
-		else:
-			_interact_hint.text = up_hint
+	if is_instance_valid(building) and (building.has_method("add_worker") or "assigned_workers" in building):
+		_update_worker_hints(building)
 	else:
-		_interact_hint.text = "🏗 %s" % up_hint
-	_interact_hint.visible = true
+		_hide_worker_hints()
 
 
-func _worker_hint(im: Node) -> String:
-	if im == null:
-		return "[7−  9+]"
-	var is_pad: bool = bool(im.last_input_from_joypad) if "last_input_from_joypad" in im else false
-	if is_pad:
-		return "[L2−  R2+]"
-	var remove_key: String = InputManager.get_action_key_name(&"village_worker_remove")
-	var add_key: String = InputManager.get_action_key_name(&"village_worker_add")
-	return "[%s−  %s+]" % [remove_key, add_key]
+## Çıkar/ekle tuş ipuçlarını binanın nokta göstergesinin (BuildingWorkerCapacityIndicator)
+## solunda ve sağında ortalar. Hizalamayı kendi kendine (building.global_position +
+## varsayılan Y_OFFSET) yeniden hesaplamak yerine, göstergenin KENDİ global_position'ını ve
+## slot sayısını doğrudan okuyoruz — böylece bina/plaset arasında olabilecek herhangi bir
+## konum farkından (ör. get_building_at_plot_position'daki tolerans payı) tamamen bağımsız,
+## piksel piksel doğru hizalanıyor. Tuş metinleri bilinçli olarak sabit: klavyede Q/E,
+## gamepad'de L2/R2 (bkz. project.godot village_worker_add/remove varsayılan bağlamaları) —
+## dinamik InputMap çözümlemesi bu aksiyonlar için güvenilmez sonuç veriyordu.
+func _update_worker_hints(building: Node2D) -> void:
+	if not _worker_remove_hint or not _worker_add_hint:
+		return
+	var indicator := building.get_node_or_null("WorkerCapacityIndicator")
+	var max_w: int
+	var anchor_world: Vector2
+	if is_instance_valid(indicator) and indicator.has_method("get_slot_count"):
+		max_w = int(indicator.get_slot_count())
+		anchor_world = indicator.global_position
+	else:
+		max_w = int(building.max_workers) if "max_workers" in building else 0
+		anchor_world = building.global_position + Vector2(0, BuildingWorkerCapacityIndicator.Y_OFFSET)
+	if max_w <= 0:
+		_hide_worker_hints()
+		return
+	var total_w := float(max_w) * (BuildingWorkerCapacityIndicator.SLOT_ICON_SIZE + BuildingWorkerCapacityIndicator.SLOT_GAP) - BuildingWorkerCapacityIndicator.SLOT_GAP
+	var half_w := total_w * 0.5 + WORKER_HINT_MARGIN
+	var anchor_offset := anchor_world - global_position
+	if _worker_remove_tracker:
+		_worker_remove_tracker.set_world_center_offset(Vector2(anchor_offset.x - half_w, anchor_offset.y))
+	if _worker_add_tracker:
+		_worker_add_tracker.set_world_center_offset(Vector2(anchor_offset.x + half_w, anchor_offset.y))
+
+	var im := get_node_or_null("/root/InputManager")
+	var is_pad: bool = bool(im.last_input_from_joypad) if im and "last_input_from_joypad" in im else false
+	_worker_remove_hint.text = "L2−" if is_pad else "Q−"
+	_worker_add_hint.text = "R2+" if is_pad else "E+"
+	_worker_remove_hint.visible = true
+	_worker_add_hint.visible = true
+
+
+func _hide_worker_hints() -> void:
+	if _worker_remove_hint:
+		_worker_remove_hint.visible = false
+	if _worker_add_hint:
+		_worker_add_hint.visible = false
 
 
 func HideInteractButton() -> void:
-	if _interact_hint:
-		_interact_hint.visible = false
+	if _build_hint_icon:
+		NpcOverheadUi.fade_hide_icon(_build_hint_icon)
+	_hide_worker_hints()
 
 
 func refresh_visuals() -> void:

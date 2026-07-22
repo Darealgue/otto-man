@@ -114,8 +114,22 @@ func _on_window_shown() -> void:
 	_update_nav_hint()
 	_sync_virtual_keyboard_visibility()
 	_scroll_chat_to_bottom()
-	if is_instance_valid(chat_line_edit):
-		chat_line_edit.grab_focus()
+	_grab_chat_focus_after_interact_release()
+
+
+## Pencere köylüyle "basılı tutarak konuş" tetiklendiğinde açılıyor (bkz. player.gd
+## _process_village_interaction_hold) — eşik aşıldığı anda oyuncu interact/ui_up tuşunu hâlâ
+## fiziksel olarak basılı tutuyor olabilir. grab_focus() hemen çağrılırsa OS'in tuş-basılı-tutma
+## tekrar olayları hâlâ gelmeye devam ettiğinden bunlar chat kutusuna harf olarak sızıyordu (ör.
+## "www"). Tuş bırakılana kadar odağı ertelemek bunu kökten engelliyor.
+func _grab_chat_focus_after_interact_release() -> void:
+	if not is_instance_valid(chat_line_edit):
+		return
+	while Input.is_action_pressed("interact") or Input.is_action_pressed("ui_up"):
+		await get_tree().process_frame
+		if not is_instance_valid(chat_line_edit) or not visible:
+			return
+	chat_line_edit.grab_focus()
 
 
 func _on_window_hidden() -> void:

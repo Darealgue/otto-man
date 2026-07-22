@@ -423,7 +423,7 @@ func _check_and_transfer_forest_resources() -> void:
 	if not has_carried:
 		print("[VillageScene] ℹ️ No carried resources to merge into village stockpile")
 		var tm_early := get_node_or_null("/root/TutorialManager")
-		if tm_early and tm_early.is_village_tutorial_active() and tm_early.village_core_step == 1:
+		if tm_early and tm_early.is_village_tutorial_active() and tm_early.village_core_step == 3:
 			var delivered_early: Dictionary = payload.get("forest_resources_delivered", {})
 			if delivered_early is Dictionary and not delivered_early.is_empty():
 				_tutorial_on_forest_return(delivered_early)
@@ -935,47 +935,25 @@ func _spawn_objective_ui() -> void:
 	get_tree().root.add_child(ui)
 
 
+## Adım 3: üç bina da kurulup işçilendikten sonra ormana gidip odun+yiyecek toplama. Odun/taş
+## artık inşaat için şart değil (ilk kaynak binaları bedava) ama köyün ilk stoğu için hâlâ
+## isteniyor — bu yüzden orman ziyareti inşadan SONRA geliyor, hem odun hem yiyecek arıyor.
+## Yiyecek+odun toplanıp köye dönülünce zindana göndermeden önce adım 4'e (Ev inşa et) geçiliyor.
 func _tutorial_on_forest_return(transferred: Dictionary) -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null or not tm.is_village_tutorial_active():
 		return
-	if tm.village_core_step != 1:
+	if tm.village_core_step != 3:
 		return
 	var wood: int = int(transferred.get("wood", 0))
 	var food: int = int(transferred.get("food", 0))
 	if not tm.tutorial_forest_gather_complete:
-		if wood < 3 and food < 3:
+		if wood < 3 or food < 3:
 			return
-		if wood >= 3 and food >= 3:
-			tm.mark_tutorial_forest_gather_complete()
-	tm.village_core_step = 2
-	tm.village_menu_phase = 0
-	tm.set_objective_tr("tutorial.village.objective_build_plot")
+		tm.mark_tutorial_forest_gather_complete()
+	tm.village_core_step = 4
+	tm.set_objective_tr("tutorial.village.objective_build_house")
 	_sync_tutorial_village_ui_gates()
-
-
-func tutorial_on_plot_build_opened() -> void:
-	var tm := get_node_or_null("/root/TutorialManager")
-	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 2:
-		return
-	tm.try_set_village_menu_objective(
-		1,
-		tr("tutorial.village.objective_build_woodcutter")
-	)
-
-
-func tutorial_on_campfire_menu_opened() -> void:
-	tutorial_on_campfire_rest_opened()
-
-
-func tutorial_on_campfire_rest_opened() -> void:
-	var tm := get_node_or_null("/root/TutorialManager")
-	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 2:
-		return
-	tm.try_set_village_menu_objective(
-		0,
-		tr("tutorial.village.objective_build_plot")
-	)
 
 
 func tutorial_on_mission_page(_page_index: int) -> void:
@@ -983,34 +961,42 @@ func tutorial_on_mission_page(_page_index: int) -> void:
 
 
 func tutorial_on_mission_worker_assigned(building_key: String = "") -> void:
-	if not building_key.is_empty() and not building_key.contains("woodcutter"):
+	_tutorial_on_worker_assigned(building_key)
+
+
+## Adım 1: üç temel kaynak binasından biri inşaata alındı (henüz bitmedi) — üçü de inşaata
+## alınınca objective "kamp ateşine git, zaman geçir"e döner. Adım 4'te ise tek bina Ev.
+func _tutorial_on_building_queued(building_key: String) -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.is_village_tutorial_active():
 		return
-	_tutorial_on_worker_assigned()
+	if tm.village_core_step == 4:
+		if building_key.to_lower() == "house":
+			tm.mark_tutorial_house_queued()
+		return
+	tm.mark_tutorial_starter_building_queued(building_key)
 
 
+## Adım 1: üç temel kaynak binasından biri GERÇEKTEN inşa edildi — üçü de bitince adım 2'ye
+## (işçi atama) geçer. Adım 4'te ise beklenen tek bina Ev — o tamamlanınca zindan rehberi başlar.
 func _tutorial_on_building_built(building_key: String) -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null or not tm.is_village_tutorial_active():
 		return
-	if tm.village_core_step != 2:
+	if tm.village_core_step == 4:
+		if building_key.to_lower() == "house":
+			tm.mark_tutorial_house_built()
 		return
-	if not building_key.contains("woodcutter"):
-		return
-	tm.village_core_step = 3
-	tm.village_menu_phase = 3
-	tm.set_objective_tr("tutorial.village.objective_assign_worker")
+	tm.mark_tutorial_starter_building_built(building_key)
 	_sync_tutorial_village_ui_gates()
 
 
-func _tutorial_on_worker_assigned() -> void:
+## Adım 2: üç binadan birine ilk işçi atandı — üçü de dolunca adım 3'e (orman/yiyecek) geçer.
+func _tutorial_on_worker_assigned(building_key: String = "") -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm == null or not tm.is_village_tutorial_active():
 		return
-	if tm.village_core_step != 3:
-		return
-	tm.village_menu_phase = 5
-	tm.mark_village_core_complete()
-	tm.start_village_dungeon_guide()
+	tm.mark_tutorial_starter_worker_assigned(building_key)
 	_sync_tutorial_village_ui_gates()
 
 

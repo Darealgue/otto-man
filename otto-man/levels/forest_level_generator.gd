@@ -170,7 +170,9 @@ func _apply_biome_settings_from_payload() -> void:
 		if incoming == "forest" or incoming == "mountain" or incoming == "river":
 			biome_type = incoming
 	var tm := get_node_or_null("/root/TutorialManager")
-	var is_tutorial_forest: bool = tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 1
+	# Orman ziyareti artık adım 3'te (bina inşası adım 1'e, işçi ataması adım 2'ye taşındı —
+	# bkz. TutorialManager.gd TUTORIAL_STARTER_BUILDINGS akışı).
+	var is_tutorial_forest: bool = tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 3
 	match biome_type:
 		"forest":
 			prob_continue = 1.0
@@ -545,7 +547,7 @@ func _attach_forest_exit_portal(start_chunk: Node2D) -> void:
 
 func _tutorial_force_spawn_resources() -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
-	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 1:
+	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 3:
 		return
 	var right_chunk: Node2D = null
 	var left_chunk: Node2D = null
@@ -574,7 +576,7 @@ func _tutorial_force_spawn_resources() -> void:
 
 func _is_tutorial_forest_run() -> bool:
 	var tm := get_node_or_null("/root/TutorialManager")
-	return tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 1
+	return tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 3
 
 
 func _tutorial_get_carried_counts() -> Vector2i:
@@ -678,7 +680,7 @@ func _tutorial_spawn_interactables_in_chunk(chunk: Node2D, scene: PackedScene, c
 
 func _on_tutorial_resources_changed(totals: Dictionary) -> void:
 	var tm := get_node_or_null("/root/TutorialManager")
-	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 1:
+	if tm == null or not tm.is_village_tutorial_active() or tm.village_core_step != 3:
 		return
 	var wood: int = int(totals.get("wood", 0))
 	var food: int = int(totals.get("food", 0))
@@ -720,7 +722,7 @@ func _forest_on_resource_spawn_chunk(chunk: Node2D) -> void:
 	if chunk.get_meta("is_start_chunk", false):
 		return
 	var tm := get_node_or_null("/root/TutorialManager")
-	if tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 1:
+	if tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 3:
 		return
 	_resource_spawn_timer -= 1
 	if debug_enabled:
@@ -3282,7 +3284,7 @@ func _populate_forest_enemies_for_chunk(chunk_node: Node2D) -> void:
 	if chunk_node.get_meta("forest_enemy_populated", false):
 		return
 	var _tm := get_node_or_null("/root/TutorialManager")
-	if _tm != null and _tm.is_village_tutorial_active() and _tm.village_core_step == 1:
+	if _tm != null and _tm.is_village_tutorial_active() and _tm.village_core_step == 3:
 		chunk_node.set_meta("forest_enemy_populated", true)
 		return
 

@@ -4164,9 +4164,6 @@ func get_pending_construction_minutes(scene_path: String) -> int:
 func _queue_construction(scene_path: String, position: Vector2, extra: Dictionary = {}, vfx_vertical_anchor: Node2D = null) -> bool:
 	var build_hours: float = get_build_duration_hours(scene_path)
 	var total_minutes: float = max(1.0, build_hours * 60.0)
-	var _tm := get_node_or_null("/root/TutorialManager")
-	if _tm and _tm.has_method("is_village_tutorial_active") and _tm.is_village_tutorial_active():
-		total_minutes = 0.01
 	if not _reserve_build_plot(position):
 		return false
 	var rooftop_vfx: bool = (String(extra.get("pending_kind", "")) == "house_floor") and is_instance_valid(vfx_vertical_anchor)
@@ -5097,6 +5094,9 @@ func _setup_guest_spawn_position(worker_instance: Node2D) -> void:
 		worker_instance.start_x_pos = -400.0
 
 
+## Kamp ateşi aday sayılmaz (false) — bir misafir sadece GERÇEK bir ev bulunca "yerleşmiş"
+## sayılır ve kum saati kalkar; aksi halde kamp ateşinde boş yer varken misafir sessizce oraya
+## "yerleşip" aciliyetini kaybediyordu (kamp ateşi zaten kalıcı barınak değil).
 func _try_settle_guest_villagers() -> void:
 	if get_guest_villager_count() <= 0:
 		return
@@ -5104,13 +5104,13 @@ func _try_settle_guest_villagers() -> void:
 	for worker_id in all_workers.keys():
 		if settled >= get_guest_villager_count():
 			break
-		if _find_available_housing() == null:
+		if _find_available_housing(false) == null:
 			break
 		var worker_data = all_workers.get(worker_id, {})
 		var worker: Node2D = _worker_node_from_all_workers_entry(worker_id, worker_data, true) as Node2D
 		if not _is_guest_worker(worker) or bool(worker.get("is_guest_departing")):
 			continue
-		if not _assign_housing(worker):
+		if not _assign_housing(worker, false):
 			continue
 		worker.is_guest_villager = false
 		worker.guest_arrival_day = -1
@@ -5311,7 +5311,8 @@ func add_villager_with_data(data: Dictionary) -> void:
 		return
 	workers_container.add_child(worker_instance)
 	_apply_worker_appearance(worker_instance, appearance_from_data)
-	if _assign_housing(worker_instance):
+	# Kamp ateşi aday sayılmaz (false) — bkz. _add_new_worker'daki aynı düzeltme.
+	if _assign_housing(worker_instance, false):
 		worker_instance.Initialize_Existing_Villager(npc_info)
 		var worker_data: Dictionary = {
 			"instance": worker_instance,
@@ -7317,9 +7318,12 @@ func _add_new_worker(NPC_Info = {}, saved_appearance: Dictionary = {}) -> bool:
 	
 	workers_container.add_child(worker_instance)
 	
-	# Barınak atamaya çalış (bu fonksiyon housing_node ve start_x_pos ayarlar)
-	# Worker artık WorkersContainer'da olduğu için housing sadece referans tutacak
-	if not _assign_housing(worker_instance):
+	# Barınak atamaya çalış (bu fonksiyon housing_node ve start_x_pos ayarlar). Kamp ateşi burada
+	# aday SAYILMAZ (false) — kamp ateşi gerçek bir barınak değil, sadece ev bulunana kadar
+	# bekleme alanı. Gerçek ev yoksa yeni köylü (oyunun başındaki ilk köylüler dahil) misafir
+	# statüsüne düşüp kum saati/3 günlük sayaç gösterir — aksi halde kamp ateşinde boş yer varken
+	# sessizce "kalıcı" barınmış sayılıp hiç aciliyet göstermiyordu.
+	if not _assign_housing(worker_instance, false):
 		# Barınak yoksa köylü YİNE DE köye katılır — misafir/barınaksız statüsünde
 		# (add_villager_with_data zaten zindan kurtarmalarında bu yolu kullanıyordu).
 		# Kum saati göstergesiyle GUEST_DEPARTURE_DAYS içinde barınak bulunamazsa ayrılır.
@@ -7661,9 +7665,11 @@ func _get_building_residential_y_offset(building: Node2D) -> float:
 		return best_top + RESIDENTIAL_EXTENSION_OVERLAP_PX
 	return -100.0  # makul varsayılan
 
-# Verilen işçiye uygun bir barınak bulup atar ve evin sayacını günceller
-func _assign_housing(worker_instance: Node2D) -> bool:
-	var housing_node = _find_available_housing()
+# Verilen işçiye uygun bir barınak bulup atar ve evin sayacını günceller. include_campfire_fallback
+# false ise kamp ateşi hiç aday sayılmaz — "gerçek ev yoksa bu işçi misafir/aciliyet sayılsın"
+# gereken çağrılar (yeni işçi ekleme, misafir yerleşimi) bunu false geçer.
+func _assign_housing(worker_instance: Node2D, include_campfire_fallback: bool = true) -> bool:
+	var housing_node = _find_available_housing(include_campfire_fallback)
 	if housing_node:
 		worker_instance.housing_node = housing_node
 		
@@ -7734,8 +7740,9 @@ func _find_housing_by_key(housing_key: String) -> Node2D:
 	
 	return null
 
-# Boş kapasitesi olan bir barınak (önce Ev, sonra CampFire) arar
-func _find_available_housing() -> Node2D:
+# Boş kapasitesi olan bir barınak (önce Ev, sonra CampFire) arar. include_campfire_fallback
+# false ise gerçek ev yoksa null döner — kamp ateşi hiç aday sayılmaz.
+func _find_available_housing(include_campfire_fallback: bool = true) -> Node2D:
 	_reconcile_housing_occupant_lists()
 	# #print("DEBUG VillageManager: Searching for available housing...") #<<< Yorumlandı
 	var housing_nodes = get_tree().get_nodes_in_group("Housing")
@@ -7749,6 +7756,9 @@ func _find_available_housing() -> Node2D:
 			continue
 		if node.has_method("can_add_occupant") and node.can_add_occupant():
 			return node
+
+	if not include_campfire_fallback:
+		return null
 
 	# Boş ev yoksa, CampFire'ı kontrol et (varsa)
 	# #print("DEBUG VillageManager: No available house found. Checking for CampFire...") #<<< Yorumlandı

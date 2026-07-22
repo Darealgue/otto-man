@@ -925,10 +925,13 @@ func _flatten_buildings_list():
 				all_buildings_flat.append(building_name)
 
 	var tm := get_node_or_null("/root/TutorialManager")
-	if tm and tm.is_village_tutorial_active() and tm.village_core_step == 2:
-		all_buildings_flat = all_buildings_flat.filter(func(name): return name == "Oduncu")
-		if all_buildings_flat.is_empty() and building_scene_paths.has("Oduncu"):
-			all_buildings_flat.append("Oduncu")
+	if tm and tm.is_village_tutorial_active() and tm.village_core_step == 1:
+		var starter_names := ["Oduncu", "Taş Madeni", "Avcı"]
+		all_buildings_flat = all_buildings_flat.filter(func(name): return name in starter_names)
+		if all_buildings_flat.is_empty():
+			for starter_name in starter_names:
+				if building_scene_paths.has(starter_name):
+					all_buildings_flat.append(starter_name)
 
 	if not previous_name.is_empty() and previous_name in all_buildings_flat:
 		current_building_index = all_buildings_flat.find(previous_name)
@@ -1591,8 +1594,9 @@ func get_all_available_buildings() -> Array:
 	
 	print("[DEBUG] Toplam %d bina bulundu" % all_buildings.size())
 	var tm := get_node_or_null("/root/TutorialManager")
-	if tm and tm.is_village_tutorial_active() and tm.village_core_step == 3:
-		all_buildings = all_buildings.filter(func(b): return String(b.get("type", "")) == "Oduncu")
+	if tm and tm.is_village_tutorial_active() and tm.village_core_step == 2:
+		var starter_types := ["Oduncu", "Taş Madeni", "Avcı"]
+		all_buildings = all_buildings.filter(func(b): return String(b.get("type", "")) in starter_types)
 	return all_buildings
 
 # Bina türü adını al
@@ -8530,18 +8534,7 @@ func open_menu():
 	print("[DEBUG_MC] open_menu: show_page(MISSIONS) çağrılıyor")
 	_refresh_locale()
 	show_page(PageType.MISSIONS)
-	var tm := get_node_or_null("/root/TutorialManager")
-	if tm and tm.is_village_tutorial_active():
-		match tm.village_core_step:
-			2:
-				tm.village_menu_phase = 2
-				tm.set_objective_tr("tutorial.village.objective_build_woodcutter")
-				call_deferred("show_page", PageType.CONSTRUCTION)
-			3:
-				tm.village_menu_phase = 4
-				tm.set_objective_tr("tutorial.village.objective_assign_worker")
-				call_deferred("show_page", PageType.ASSIGNMENT)
-	
+
 	# Layout'u zorla güncelle
 	if missions_page:
 		missions_page.visible = true

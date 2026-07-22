@@ -4,7 +4,7 @@ class_name CampFire
 
 const OverheadUiTracker = preload("res://ui/overhead_ui_tracker.gd")
 
-var _interact_hint_label: Label = null
+var _interact_hint_icon: TextureRect = null
 
 # --- Light System Variables ---
 @export var light_intensity_min: float = 0.5
@@ -82,10 +82,6 @@ func _ready() -> void:
 	noise.frequency = 0.15
 	noise.noise_type = FastNoiseLite.TYPE_PERLIN
 
-	var im := get_node_or_null("/root/InputManager")
-	if im and im.has_signal("input_device_changed"):
-		im.input_device_changed.connect(_on_input_device_changed)
-
 	_ensure_sick_indicator()
 	var vm := get_node_or_null("/root/VillageManager")
 	if vm and vm.has_signal("village_data_changed"):
@@ -97,42 +93,24 @@ func _ready() -> void:
 
 # --- Etkileşim Tuşu Gösterimi ---
 func ShowInteractButton() -> void:
-	if _interact_hint_label == null:
+	if _interact_hint_icon == null:
 		_create_interact_hint()
-	if _interact_hint_label:
-		var im := get_node_or_null("/root/InputManager")
-		if im:
-			_interact_hint_label.text = im.get_tutorial_ui_up_hint()
-		_interact_hint_label.visible = true
+	if _interact_hint_icon:
+		NpcOverheadUi.fade_show_icon(_interact_hint_icon)
 
 
 func HideInteractButton() -> void:
-	if _interact_hint_label:
-		_interact_hint_label.visible = false
-
-
-func _on_input_device_changed(_is_joypad: bool) -> void:
-	if _interact_hint_label and _interact_hint_label.visible:
-		var im := get_node_or_null("/root/InputManager")
-		if im:
-			_interact_hint_label.text = im.get_tutorial_ui_up_hint()
+	if _interact_hint_icon:
+		NpcOverheadUi.fade_hide_icon(_interact_hint_icon)
 
 
 func _create_interact_hint() -> void:
-	_interact_hint_label = Label.new()
-	_interact_hint_label.name = "InteractHint"
-	_interact_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_interact_hint_label.add_theme_font_size_override("font_size", 12)
-	_interact_hint_label.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
-	_interact_hint_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
-	_interact_hint_label.add_theme_constant_override("outline_size", 3)
-	_interact_hint_label.position = Vector2(-20, -60)
-	_interact_hint_label.size = Vector2(40, 20)
-	_interact_hint_label.visible = false
-	add_child(_interact_hint_label)
+	_interact_hint_icon = NpcOverheadUi.build_up_arrow_hint_icon()
+	_interact_hint_icon.visible = false
+	add_child(_interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
-	OverheadUiTracker.attach(_interact_hint_label, self, Vector2(0, -50))
+	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(3, -50))
 
 func _ensure_sick_indicator() -> void:
 	if is_instance_valid(_sick_indicator):

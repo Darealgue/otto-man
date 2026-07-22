@@ -26,6 +26,10 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_console"):
 		toggle_console()
+		# toggle_console() konsolu açarken line_edit'e odak veriyor; bu satır olmadan aynı tuş
+		# basışı (backtick) GUI'ye "yazı girişi" olarak da ulaşıp az önce odaklanan kutuya
+		# kendini yazıyordu — her açılışta önce onu silmek gerekiyordu.
+		get_viewport().set_input_as_handled()
 	elif is_open:
 		# ui_up/ui_down yerine ham Yukarı/Aşağı ok tuşları: bu proje W/S'yi de
 		# ui_up/ui_down'a atadığı için action tabanlı kontrol, konsola "w"/"s" yazmayı

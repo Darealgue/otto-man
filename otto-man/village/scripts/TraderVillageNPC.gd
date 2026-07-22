@@ -53,11 +53,11 @@ var _is_sleeping: bool = false
 var _is_sitting: bool = false
 var _sit_until_time: float = 0.0
 
-# border sprite'larında karakter silueti node merkezinden biraz sola çizili
-const INTERACT_HINT_X_SHIFT: float = -12.0
+# border sprite'larında karakter silueti node merkezinden ~1px sola çizili (piksel bbox ölçümü)
+const INTERACT_HINT_X_SHIFT: float = -1.0
 var _interact_area: Area2D
 var _interact_shape: CollisionShape2D
-var _interact_hint: Label
+var _interact_hint_icon: TextureRect
 
 const SPRITE_OFFSET_Y: float = 48.0
 
@@ -249,7 +249,6 @@ func _physics_process(delta: float) -> void:
 	var foot_y = get_foot_y_position()
 	z_index = _calculate_z_index_from_foot_y(foot_y)
 	_update_interact_area_for_pose()
-	_sync_overhead_ui_flip()
 
 
 func _update_idle_animation(delta: float) -> void:
@@ -364,19 +363,12 @@ func _build_world_interact() -> void:
 	_interact_area.add_child(shape)
 	_interact_shape = shape
 
-	_interact_hint = Label.new()
-	_interact_hint.name = "InteractHint"
-	_interact_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_interact_hint.add_theme_font_size_override("font_size", 12)
-	_interact_hint.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
-	_interact_hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_interact_hint.add_theme_constant_override("outline_size", 3)
-	NpcOverheadUi.configure_centered_overhead_hint(_interact_hint, 96.0, -88.0, 20.0, INTERACT_HINT_X_SHIFT)
-	_interact_hint.visible = false
-	add_child(_interact_hint)
+	_interact_hint_icon = NpcOverheadUi.build_up_arrow_talk_hint_icon()
+	_interact_hint_icon.visible = false
+	add_child(_interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
-	OverheadUiTracker.attach(_interact_hint, self, Vector2(INTERACT_HINT_X_SHIFT, -78))
+	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(INTERACT_HINT_X_SHIFT, -78))
 
 
 func can_interact() -> bool:
@@ -403,11 +395,6 @@ func _update_interact_area_for_pose() -> void:
 		_interact_shape.position = Vector2(0, -40)
 
 
-func _sync_overhead_ui_flip() -> void:
-	if _interact_hint:
-		NpcOverheadUi.sync_horizontal_flip(self, [_interact_hint])
-
-
 func interact() -> void:
 	if not can_interact():
 		return
@@ -423,17 +410,14 @@ func interact() -> void:
 
 
 func ShowInteractButton() -> void:
-	if not _interact_hint or not can_interact():
+	if not _interact_hint_icon or not can_interact():
 		return
-	var im := get_node_or_null("/root/InputManager")
-	if im:
-		_interact_hint.text = im.get_tutorial_ui_up_hint()
-	_interact_hint.visible = true
+	NpcOverheadUi.fade_show_icon(_interact_hint_icon)
 
 
 func HideInteractButton() -> void:
-	if _interact_hint:
-		_interact_hint.visible = false
+	if _interact_hint_icon:
+		NpcOverheadUi.fade_hide_icon(_interact_hint_icon)
 
 
 func _on_interact_body_entered(body: Node2D) -> void:

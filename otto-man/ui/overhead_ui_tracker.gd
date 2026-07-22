@@ -39,6 +39,12 @@ static func attach(control: Control, target: Node2D, world_center_offset: Vector
 	return tracker
 
 
+## Hedefe göre takip merkezini sonradan değiştirmek için (ör. bina değişince işçi
+## ipucu etiketlerinin nokta göstergesine göre yeniden konumlanması gerektiğinde).
+func set_world_center_offset(new_offset: Vector2) -> void:
+	_world_center_offset = new_offset
+
+
 func _cleanup_control() -> void:
 	if is_instance_valid(_control):
 		_control.queue_free()

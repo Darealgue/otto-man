@@ -381,6 +381,11 @@ func _physics_process(delta):
 	
 	# Stop all player updates while UI is locked
 	var menu_open := _is_any_menu_open()
+	# Etkileşim ipuçlarının görünürlüğü _ui_locked/menu_open nedeniyle aşağıdaki erken return'e
+	# takılmadan HER ZAMAN güncellensin diye burada, kilit kontrolünden ÖNCE çağrılıyor —
+	# yoksa menü açılır açılmaz bu fonksiyon hiç çalışmadığından ipuçları gizlenmeden kalıyordu.
+	if _is_village_scene():
+		_update_overhead_hint_visibility(menu_open)
 	if _ui_locked or menu_open:
 		if not _ui_lock_logged_once:
 			var reason: String = ""
@@ -398,7 +403,7 @@ func _physics_process(delta):
 	elif _ui_lock_logged_once:
 		# print("[Player] UI lock released - controls restored")
 		_ui_lock_logged_once = false
-	
+
 	_process_village_interactions(delta)
 	
 	# Update attack cooldown timer
@@ -1839,44 +1844,19 @@ func is_in_combat_state() -> bool:
 func _process_village_interactions(delta: float) -> void:
 	if not _is_village_scene():
 		return
-	var im := get_node_or_null("/root/InputManager")
-	if im != null and im.last_input_from_joypad:
-		_process_village_interactions_joypad(delta)
-	else:
-		_process_village_interactions_keyboard(delta)
+	# Sadece area_entered/exited'te değil her karede yeniden hesaplanır — oyuncu iki
+	# etkileşilebilirin arasında (ikisi de zaten alan içindeyken, yeni bir giriş/çıkış
+	# olayı tetiklenmeden) yürüdüğünde de "en yakın" güncel kalsın diye.
+	_refresh_interact_hints()
+	_process_village_interaction_hold(delta)
 	_update_npc_interact_hold_visual(_get_npc_hold_progress())
 
 
-func _process_village_interactions_keyboard(delta: float) -> void:
-	if Input.is_action_pressed("interact"):
-		if not _village_interact_hold_active:
-			_village_interact_hold_active = true
-			_village_interact_hold_time = 0.0
-			_village_npc_hold_fired = false
-			# GEÇİCİ TEŞHİS: köylü ile uzun-basma etkileşiminin klavyede neden anında tetiklendiğini
-			# bulmak için. Bir sonraki tekrar denemesinde bu satırlar konsola basılacak — Godot
-			# editörünün Output panelinden (veya terminalden) kopyalayıp iletilebilir.
-			print("[VillageInteractDBG] hold started | interact_key_name=%s | delta=%.4f | time_scale=%.2f" % [
-				InputManager.get_action_key_name(&"interact") if InputManager.has_method("get_action_key_name") else "?",
-				delta,
-				Engine.time_scale,
-			])
-		_village_interact_hold_time += delta
-		if not _village_npc_hold_fired and _village_interact_hold_time >= VILLAGE_NPC_HOLD_DURATION:
-			print("[VillageInteractDBG] hold threshold reached | accumulated_time=%.4f (need %.2f)" % [_village_interact_hold_time, VILLAGE_NPC_HOLD_DURATION])
-			if _try_hold_npc_interact():
-				_village_npc_hold_fired = true
-	elif _village_interact_hold_active:
-		if not _village_npc_hold_fired and _village_interact_hold_time < VILLAGE_NPC_HOLD_DURATION:
-			print("[VillageInteractDBG] released early as TAP | accumulated_time=%.4f (need %.2f)" % [_village_interact_hold_time, VILLAGE_NPC_HOLD_DURATION])
-			_try_tap_world_interact()
-		_reset_village_interact_hold()
-	if Input.is_action_just_pressed("ui_up"):
-		print("[VillageInteractDBG] ui_up just_pressed -> instant tap (W/hareket tuşu, kasıtlı olarak hep anlık)")
-		_try_tap_world_interact()
-
-
-func _process_village_interactions_joypad(delta: float) -> void:
+## Klavyede "interact" (Num8/W düzenine göre) ve "ui_up" (W/↑) hem tek başına hem birlikte
+## basılabildiğinden, gamepad'de olduğu gibi ikisini tek bir "basılı mı" sinyalinde
+## birleştiriyoruz — kısa basış bina etkileşimini (tap), basılı tutmak köylü diyaloğunu (hold)
+## tetikler; hangi tuş/düğme kullanıldığından bağımsız.
+func _process_village_interaction_hold(delta: float) -> void:
 	var down := Input.is_action_pressed("interact") or Input.is_action_pressed("ui_up")
 	if down:
 		if not _village_interact_hold_active:
@@ -1888,8 +1868,15 @@ func _process_village_interactions_joypad(delta: float) -> void:
 			if _try_hold_npc_interact():
 				_village_npc_hold_fired = true
 	elif _village_interact_hold_active:
+		# Yakında bir köylü (hold hedefi) varsa ve halka görünür hale gelecek kadar (>= feedback
+		# gecikmesi) basılı tutulduysa, erken bırakma bir binaya/kamp ateşine sızan "tap" saymaz —
+		# sadece iptal olur. Halka hiç görünmediyse (çok kısa basış) veya ortada hold edilebilecek
+		# bir köylü yoksa (sadece bina/kamp ateşi varsa), eskisi gibi normal tap olarak işlenir.
 		if not _village_npc_hold_fired and _village_interact_hold_time < VILLAGE_NPC_HOLD_DURATION:
-			_try_tap_world_interact()
+			var npc_target_present := is_instance_valid(_current_hold_target_npc())
+			var released_before_ring_shown := _village_interact_hold_time < VILLAGE_NPC_HOLD_FEEDBACK_DELAY
+			if not npc_target_present or released_before_ring_shown:
+				_try_tap_world_interact()
 		_reset_village_interact_hold()
 
 
@@ -1900,8 +1887,51 @@ func _reset_village_interact_hold() -> void:
 	_update_npc_interact_hold_visual(0.0)
 
 
+## active_dialogue_npc SADECE alan giriş/çıkış olay sırasına göre güncelleniyor (bkz.
+## _on_interaction_detection_area_area_entered) — VillageManager'daki kendi yorumunun da
+## belirttiği gibi, kalabalık yerlerde (bir köylünün yanından başka bir köylü/Mentor/Tüccar
+## geçtiğinde) en yakın olmasa da bu alana giren SON npc'yi gösterip gerçek hedefi ezebiliyor.
+## Bu yüzden hold-ring'i VE asıl etkileşim hedefini artık ondan değil, mesafeye göre HER FRAME
+## yeniden hesaplanan bu fonksiyondan alıyoruz — halka artık her zaman gerçekten etkileşime
+## girilecek NPC'de doluyor. Bir diyalog penceresi zaten açıksa (is_any_npc_dialogue_open),
+## arkadan geçen biri "daha yakın" olsa bile açık pencerenin sahibini hedeflemeye devam ediyoruz.
+func _current_hold_target_npc() -> Node:
+	if VillageManager.is_any_npc_dialogue_open() and is_instance_valid(VillageManager.active_dialogue_npc):
+		return VillageManager.active_dialogue_npc
+	return _find_best_hold_target_npc()
+
+
+## _find_best_village_character_interactable() sadece "village_priority_interact" grubuna
+## bakar (Mentor/Trader/Concubine) — Worker.gd bu grupta değil (interact() metodu da yok,
+## tetikleyicisi _on_interact_button_pressed), o yüzden o fonksiyon köylüleri hiç döndürmüyordu.
+## Burada basılı-tutma etkileşiminin gerçekte tetikleyebileceği HER iki tür de (Worker dahil)
+## mesafeye göre karşılaştırılıyor — _try_hold_npc_interact()'in dispatch şartlarıyla birebir aynı.
+func _find_best_hold_target_npc() -> Node:
+	var best: Node = null
+	var best_dist_sq: float = INF
+	for i in range(overlapping_interactables.size() - 1, -1, -1):
+		var area: Area2D = overlapping_interactables[i]
+		if not is_instance_valid(area):
+			overlapping_interactables.remove_at(i)
+			continue
+		var node := area.get_parent()
+		if not is_instance_valid(node):
+			continue
+		if not (node.has_method("_on_interact_button_pressed") or _is_village_priority_character(node)):
+			continue
+		if node.has_method("can_interact") and not node.can_interact():
+			continue
+		var dist_sq: float = global_position.distance_squared_to(node.global_position)
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			best = node
+	return best
+
+
+## Basılı-tutma halkası sadece dialogue_npcs (NPC grubu: Worker/Concubine) için anlamlı —
+## Mentor/Trader tek basışla açılan (tap) etkileşimler, onlarda hold-ring hiç gösterilmiyor.
 func _get_npc_hold_progress() -> float:
-	if VillageManager.active_dialogue_npc == null:
+	if not is_instance_valid(_current_hold_target_npc()):
 		return 0.0
 	if _village_npc_hold_fired or not _village_interact_hold_active:
 		return 0.0
@@ -1914,19 +1944,15 @@ func _get_npc_hold_progress() -> float:
 
 
 func _update_npc_interact_hold_visual(ratio: float) -> void:
+	var target := _current_hold_target_npc()
 	for npc in VillageManager.dialogue_npcs:
 		if not is_instance_valid(npc) or not npc.has_method("set_interact_hold_progress"):
 			continue
-		var npc_ratio := ratio
-		if npc != VillageManager.active_dialogue_npc:
-			npc_ratio = 0.0
-		npc.set_interact_hold_progress(npc_ratio)
+		npc.set_interact_hold_progress(ratio if npc == target else 0.0)
 
 
 func _try_hold_npc_interact() -> bool:
-	var npc = VillageManager.active_dialogue_npc
-	if npc == null or not is_instance_valid(npc):
-		npc = _find_best_village_character_interactable()
+	var npc := _current_hold_target_npc()
 	if npc == null or not is_instance_valid(npc):
 		return false
 	if npc.has_method("_on_interact_button_pressed"):
@@ -2072,7 +2098,6 @@ func _on_interaction_detection_area_area_entered(area: Area2D) -> void:
 			if parent_node and parent_node.is_in_group("NPC"):
 				VillageManager.active_dialogue_npc = parent_node
 				VillageManager.dialogue_npcs.append(parent_node)
-				HandleDialogueNpcWindows(parent_node)
 			_refresh_interact_hints()
 
 func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
@@ -2098,8 +2123,11 @@ func _on_interaction_detection_area_area_exited(area: Area2D) -> void:
 			_refresh_interact_hints()
 
 
+## Aynı anda birden fazla etkileşim ipucu (ok/isim/yazı) görünüp kafa karıştırmasın diye —
+## kategori ayrımı yapmadan (köylü/Mentor/bina/kamp ateşi hepsi aynı havuzda) sadece oyuncuya
+## en yakın olanın ipucu gösterilir, geri kalanların ipucu gizlenir.
 func _refresh_interact_hints() -> void:
-	var best_node := _find_best_overlapping_interact_target()
+	var best_node := _find_best_hint_target()
 
 	for area in overlapping_interactables:
 		if not is_instance_valid(area):
@@ -2107,21 +2135,51 @@ func _refresh_interact_hints() -> void:
 		var parent_node = area.get_parent()
 		if not is_instance_valid(parent_node):
 			continue
-		if parent_node.is_in_group("NPC"):
-			continue
 		if not parent_node.has_method("ShowInteractButton"):
 			continue
 		if parent_node == best_node:
 			parent_node.ShowInteractButton()
 		elif parent_node.has_method("HideInteractButton"):
 			parent_node.HideInteractButton()
-					
-func HandleDialogueNpcWindows(last_npc):
-	last_npc.ShowInteractButton()
-	for NPC in VillageManager.dialogue_npcs:
-		if NPC != last_npc:
-			NPC.HideInteractButton()
-			
+
+
+## _resolve_interactable_node (has_method("interact") şartı) kullanmıyoruz — Worker.gd'nin
+## interact() metodu yok (tetikleyicisi _on_interact_button_pressed), bu yüzden o filtreyle
+## hiçbir zaman "best" olamıyor ve ipucu hep gizli kalıyordu. Burada tek şart ShowInteractButton.
+func _find_best_hint_target() -> Node:
+	var best: Node = null
+	var best_dist_sq: float = INF
+	for i in range(overlapping_interactables.size() - 1, -1, -1):
+		var area: Area2D = overlapping_interactables[i]
+		if not is_instance_valid(area):
+			overlapping_interactables.remove_at(i)
+			continue
+		var node := area.get_parent()
+		if not is_instance_valid(node) or not node.has_method("ShowInteractButton"):
+			continue
+		if node.has_method("can_interact") and not node.can_interact():
+			continue
+		var dist_sq: float = global_position.distance_squared_to(node.global_position)
+		if dist_sq < best_dist_sq:
+			best_dist_sq = dist_sq
+			best = node
+	return best
+
+
+## Herhangi bir menü açıkken (bkz. _is_any_menu_open — Mentor/Cariye/Tüccar/Kamp Ateşi/İnşaat
+## menüsü/Mucit Odası/Görev Merkezi dahil) ya da köylü sohbet penceresi açıkken tüm etkileşim
+## ipuçlarını (isim/ok/yazı) tek noktadan gizler — menünün önüne geçip yazıların karışmasını
+## önler. OverheadUiTracker + npc_ambient_bubble ortak bu katmanları kullandığı için tek tek
+## her NPC scriptine dokunmaya gerek kalmıyor.
+func _update_overhead_hint_visibility(menu_open_precomputed: bool) -> void:
+	var menu_open := menu_open_precomputed or VillageManager.is_any_npc_dialogue_open()
+	var root := get_tree().root
+	for layer_name in ["OverheadUiCanvas", "AmbientBubbleCanvas"]:
+		var layer := root.get_node_or_null(layer_name) as CanvasLayer
+		if layer:
+			layer.visible = not menu_open
+
+
 # <<< YENİ FONKSİYON: Animasyondan çağırmak için >>>
 func spawn_attack_effect_by_name(attack_name: String):
 	if not PLAYER_ATTACK_SWING_FX_ENABLED:

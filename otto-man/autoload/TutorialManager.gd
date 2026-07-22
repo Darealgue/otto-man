@@ -17,6 +17,24 @@ var village_tutorial_pending: bool = false
 var village_core_complete: bool = false
 var village_core_step: int = -1
 
+## Adım 1'de ücretsiz inşa edilen 3 temel kaynak binası — anahtar: PlacedBuildings'teki
+## scene_file_path'in kısaltılmış hali (bkz. VillagePlotSystem.gd _on_build_selected /
+## _notify_worker_assigned: dosya adı, ".tscn" atılmış, küçük harfe çevrilmiş).
+const TUTORIAL_STARTER_BUILDINGS: Dictionary = {
+	"woodcuttercamp": "res://village/buildings/WoodcutterCamp.tscn",
+	"stonemine": "res://village/buildings/StoneMine.tscn",
+	"huntergathererhut": "res://village/buildings/HunterGathererHut.tscn",
+}
+## İnşaatı BAŞLATILAN (henüz bitmemiş olabilir) binalar — "İnşa et" objective'inin ne zaman
+## "kamp ateşine git, zaman geçir"e döneceğini belirler. _tutorial_buildings_built ise sadece
+## GERÇEKTEN tamamlanan (construction_completed sinyali) binaları tutar; artık inşaat anında
+## bitmiyor, bu ikisi kasıtlı olarak ayrı.
+var _tutorial_buildings_queued: Dictionary = {}
+var _tutorial_buildings_built: Dictionary = {}
+var _tutorial_workers_staffed: Dictionary = {}
+## Adım 4'te (Ev inşaatı) aynı "inşaata alındı -> kamp ateşine git" akışı, tek bina için.
+var _tutorial_house_queued: bool = false
+
 # --- Bağlamsal hint bayrakları (tek seferlik) ---
 var hint_cariye_delivered: bool = false
 var hint_trader_delivered: bool = false
@@ -118,6 +136,10 @@ func reset_session_flags() -> void:
 	active_objective = ""
 	_objective_tr_key = ""
 	village_menu_phase = 0
+	_tutorial_buildings_queued.clear()
+	_tutorial_buildings_built.clear()
+	_tutorial_workers_staffed.clear()
+	_tutorial_house_queued = false
 	_inbox.clear()
 	_delivered_ids.clear()
 
@@ -232,20 +254,11 @@ func mark_tutorial_forest_gather_complete() -> void:
 	tutorial_forest_gather_complete_changed.emit(true)
 
 
-func try_set_village_menu_objective(min_phase: int, text: String) -> void:
-	if village_core_complete or village_core_step < 2 or village_core_step > 3:
-		return
-	if min_phase < village_menu_phase:
-		return
-	village_menu_phase = min_phase
-	set_objective(text)
-
-
 func advance_village_core_after_mentor_welcome() -> void:
 	if village_core_step != 0:
 		return
 	village_core_step = 1
-	set_objective_tr("tutorial.village.objective_forest")
+	_refresh_village_step1_objective()
 
 
 func begin_village_core_tutorial_messages() -> void:
@@ -259,8 +272,8 @@ func begin_village_core_tutorial_messages() -> void:
 		0
 	)
 	enqueue_message(
-		"go_to_forest",
-		tr("tutorial.village.go_to_forest"),
+		"go_build_starters",
+		tr("tutorial.village.go_build_starters"),
 		"tutorial",
 		1
 	)
@@ -277,30 +290,112 @@ func refresh_village_objective_for_step() -> void:
 		0:
 			set_objective_tr("tutorial.village.objective_mentor")
 		1:
-			if tutorial_forest_gather_complete:
-				set_objective_tr("tutorial.village.objective_build_plot")
-			else:
-				set_objective_tr("tutorial.village.objective_forest")
+			_refresh_village_step1_objective()
 		2:
 			_refresh_village_step2_objective()
 		3:
-			_refresh_village_step3_objective()
+			set_objective_tr("tutorial.village.objective_forest")
+		4:
+			if _tutorial_house_queued:
+				set_objective_tr("tutorial.village.objective_wait_house_construction")
+			else:
+				set_objective_tr("tutorial.village.objective_build_house")
+
+
+## "%s" yer tutucusuna henüz yapılmamış/atanmamış binaları listeleyen bir metin koyar; tamamlanan
+## binalar "✓" ile işaretlenir — oyuncu üç binadan hangilerinin bittiğini hedef metninden takip
+## edebilsin diye. MentorObjectiveUI'daki hedef etiketi düz bir Label (RichTextLabel değil),
+## BBCode desteklemiyor — bu yüzden burada renk etiketi kullanılmıyor.
+func _tutorial_starter_progress_text(done: Dictionary) -> String:
+	var parts: Array[String] = []
+	for key in TUTORIAL_STARTER_BUILDINGS.keys():
+		var building_name := LocaleManager.get_building_name(String(TUTORIAL_STARTER_BUILDINGS[key]))
+		if bool(done.get(key, false)):
+			parts.append("%s ✓" % building_name)
+		else:
+			parts.append(building_name)
+	return ", ".join(parts)
+
+
+## Üçü de sırayla inşaata alınmışsa (henüz bitmemiş olsalar bile) artık gösterilecek bir şey
+## kalmadı — oyuncuyu kamp ateşine (zaman geçirmeye) yönlendiriyoruz; construction_completed
+## sinyaliyle üçü de gerçekten bitince mark_tutorial_starter_building_built adım 2'ye geçirecek.
+func _refresh_village_step1_objective() -> void:
+	if _tutorial_buildings_queued.size() >= TUTORIAL_STARTER_BUILDINGS.size():
+		set_objective_tr("tutorial.village.objective_wait_construction")
+		return
+	_objective_tr_key = ""
+	set_objective(tr("tutorial.village.objective_build_starters") % _tutorial_starter_progress_text(_tutorial_buildings_queued))
 
 
 func _refresh_village_step2_objective() -> void:
-	match village_menu_phase:
-		0:
-			set_objective_tr("tutorial.village.objective_build_plot")
-		_:
-			set_objective_tr("tutorial.village.objective_build_woodcutter")
+	_objective_tr_key = ""
+	set_objective(tr("tutorial.village.objective_assign_workers_starters") % _tutorial_starter_progress_text(_tutorial_workers_staffed))
 
 
-func _refresh_village_step3_objective() -> void:
-	match village_menu_phase:
-		0, 1, 2, 3:
-			set_objective_tr("tutorial.village.objective_assign_worker")
-		_:
-			set_objective_tr("tutorial.village.objective_assign_worker")
+## Bir bina inşaata ALINDIĞINDA (henüz bitmeden) çağrılır — bkz. VillagePlotSystem.gd
+## _on_build_selected. Sadece "İnşa et" objective'inin ne zaman "kamp ateşine git"e döneceğini
+## belirlemek için; adımı ilerletmez (bunu mark_tutorial_starter_building_built yapar).
+func mark_tutorial_starter_building_queued(building_key: String) -> void:
+	if village_core_complete or village_core_step != 1:
+		return
+	var key := building_key.to_lower()
+	if not TUTORIAL_STARTER_BUILDINGS.has(key) or bool(_tutorial_buildings_queued.get(key, false)):
+		return
+	_tutorial_buildings_queued[key] = true
+	_refresh_village_step1_objective()
+
+
+## Adım 1'de bir bina GERÇEKTEN tamamlandığında (construction_completed sinyali) çağrılır; üçü
+## de bitince adım 2'ye (işçi atama) geçer.
+func mark_tutorial_starter_building_built(building_key: String) -> void:
+	if village_core_complete or village_core_step != 1:
+		return
+	var key := building_key.to_lower()
+	if not TUTORIAL_STARTER_BUILDINGS.has(key):
+		return
+	_tutorial_buildings_queued[key] = true
+	if bool(_tutorial_buildings_built.get(key, false)):
+		return
+	_tutorial_buildings_built[key] = true
+	if _tutorial_buildings_built.size() >= TUTORIAL_STARTER_BUILDINGS.size():
+		village_core_step = 2
+		_refresh_village_step2_objective()
+	else:
+		_refresh_village_step1_objective()
+
+
+## Adım 2'de bir binaya ilk işçisini atadığında işaretler; üçü de dolunca adım 3'e (orman/yiyecek) geçer.
+func mark_tutorial_starter_worker_assigned(building_key: String) -> void:
+	if village_core_complete or village_core_step != 2:
+		return
+	var key := building_key.to_lower()
+	if not TUTORIAL_STARTER_BUILDINGS.has(key) or bool(_tutorial_workers_staffed.get(key, false)):
+		return
+	_tutorial_workers_staffed[key] = true
+	if _tutorial_workers_staffed.size() >= TUTORIAL_STARTER_BUILDINGS.size():
+		village_core_step = 3
+		set_objective_tr("tutorial.village.objective_forest")
+	else:
+		_refresh_village_step2_objective()
+
+
+## Ev inşaata ALINDIĞINDA (henüz bitmeden) çağrılır — adım 1'deki üçlü akışın tekli hali.
+func mark_tutorial_house_queued() -> void:
+	if village_core_complete or village_core_step != 4 or _tutorial_house_queued:
+		return
+	_tutorial_house_queued = true
+	set_objective_tr("tutorial.village.objective_wait_house_construction")
+
+
+## Adım 3'te (orman/yiyecek) döndükten sonra, zindana yönlendirmeden ÖNCE oyuncuya bir Ev
+## kurdurup köylülerin barınması gerektiğini öğretiyoruz — bkz. VillageScene.gd
+## _tutorial_on_forest_return. Ev gerçekten tamamlanınca (construction_completed) çağrılır.
+func mark_tutorial_house_built() -> void:
+	if village_core_complete or village_core_step != 4:
+		return
+	mark_village_core_complete()
+	start_village_dungeon_guide()
 
 
 func get_mission_center_locked_page() -> int:
@@ -353,15 +448,15 @@ func can_open_mission_page(page_index: int) -> bool:
 
 
 func is_tutorial_building_allowed(building_scene_path: String) -> bool:
-	if not is_village_tutorial_active() or village_core_step != 2:
+	if not is_village_tutorial_active() or village_core_step != 1:
 		return true
-	return "woodcutter" in String(building_scene_path).to_lower()
+	return TUTORIAL_STARTER_BUILDINGS.values().has(String(building_scene_path))
 
 
 func is_tutorial_worker_assignment_allowed(building_key: String) -> bool:
-	if not is_village_tutorial_active() or village_core_step != 3:
+	if not is_village_tutorial_active() or village_core_step != 2:
 		return true
-	return "woodcutter" in String(building_key).to_lower()
+	return TUTORIAL_STARTER_BUILDINGS.has(String(building_key).to_lower())
 
 
 func export_save_state() -> Dictionary:
@@ -383,6 +478,10 @@ func export_save_state() -> Dictionary:
 		"village_dungeon_guide_active": village_dungeon_guide_active,
 		"tutorial_dungeon_guide_complete": tutorial_dungeon_guide_complete,
 		"village_menu_phase": village_menu_phase,
+		"tutorial_buildings_queued": _tutorial_buildings_queued.keys(),
+		"tutorial_buildings_built": _tutorial_buildings_built.keys(),
+		"tutorial_workers_staffed": _tutorial_workers_staffed.keys(),
+		"tutorial_house_queued": _tutorial_house_queued,
 		"delivered_ids": delivered,
 	}
 
@@ -405,6 +504,13 @@ func import_save_state(data: Dictionary) -> void:
 	village_dungeon_guide_active = bool(data.get("village_dungeon_guide_active", false))
 	tutorial_dungeon_guide_complete = bool(data.get("tutorial_dungeon_guide_complete", false))
 	village_menu_phase = int(data.get("village_menu_phase", 0))
+	for key in data.get("tutorial_buildings_queued", []):
+		_tutorial_buildings_queued[String(key)] = true
+	for key in data.get("tutorial_buildings_built", []):
+		_tutorial_buildings_built[String(key)] = true
+	for key in data.get("tutorial_workers_staffed", []):
+		_tutorial_workers_staffed[String(key)] = true
+	_tutorial_house_queued = bool(data.get("tutorial_house_queued", false))
 	var delivered: Variant = data.get("delivered_ids", [])
 	if delivered is Array:
 		for id in delivered:
@@ -436,10 +542,10 @@ func _rebuild_pending_messages_after_load() -> void:
 				"tutorial",
 				0
 			)
-		if not is_delivered("go_to_forest"):
+		if not is_delivered("go_build_starters"):
 			enqueue_message(
-				"go_to_forest",
-				tr("tutorial.village.go_to_forest"),
+				"go_build_starters",
+				tr("tutorial.village.go_build_starters"),
 				"tutorial",
 				1
 			)
@@ -472,7 +578,7 @@ func enqueue_message(id: String, speech_bbcode: String, kind: String = "tutorial
 			return
 	_inbox.append({
 		"id": id,
-		"speech_bbcode": speech_bbcode,
+		"speech_bbcode": _unescape_newlines(speech_bbcode),
 		"kind": kind,
 		"priority": priority,
 	})
@@ -519,11 +625,20 @@ func is_delivered(id: String) -> bool:
 
 
 ## Aktif görev metnini ayarla (ekran şeridi).
+## Godot'un CSV çeviri sistemi hücre içindeki "\n" yazısını gerçek satır sonuna çevirmiyor —
+## bu yüzden strings.csv'de okunabilirlik için yazılan literal "\n" kaçış dizisi, ekranda
+## OLDUĞU GİBİ (ters eğik çizgi + n) görünüyordu. Tüm tutorial mesajları (mentor konuşması VE
+## hedef metni) tek bu iki giriş noktasından geçtiği için kaçışı burada, tek yerden çözüyoruz.
+static func _unescape_newlines(text: String) -> String:
+	return text.replace("\\n", "\n")
+
+
 func set_objective(text: String) -> void:
-	if active_objective == text:
+	var unescaped := _unescape_newlines(text)
+	if active_objective == unescaped:
 		return
-	active_objective = text
-	village_objective_changed.emit(text)
+	active_objective = unescaped
+	village_objective_changed.emit(unescaped)
 
 
 func set_objective_tr(key: String) -> void:

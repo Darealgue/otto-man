@@ -70,7 +70,8 @@ var _wander_interval_min: float = 5.0
 var _wander_interval_max: float = 15.0
 
 var _interact_area: Area2D
-var _interact_hint: Label
+var _interact_hint_icon: TextureRect
+var _interact_hold_ring: NpcInteractHoldRing
 var _player_near := false
 
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
@@ -572,12 +573,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _sync_overhead_ui_flip() -> void:
-	var ui_nodes: Array = []
+	# _interact_hint_icon (+ üzerindeki basılı-tutma halkası) artık OverheadUiTracker ile
+	# ekran-uzayına taşınıyor, host'un transformunu miras almıyor — flip'e sokulursa halka
+	# köylü sola dönükken kalıcı olarak kayıyordu (bkz. Worker.gd'deki aynı düzeltme).
+	# name_plate_container hâlâ gerçek (world-space) bir çocuk, ters-flip'e ihtiyacı var.
 	if name_plate_container:
-		ui_nodes.append(name_plate_container)
-	if _interact_hint:
-		ui_nodes.append(_interact_hint)
-	NpcOverheadUi.sync_horizontal_flip(self, ui_nodes)
+		NpcOverheadUi.sync_horizontal_flip(self, [name_plate_container])
 
 
 # Köy NPC'leri arası çok hafif mesafe (neredeyse üst üste gelince hafifçe it, alan dışına çıkmasın)
@@ -1236,20 +1237,14 @@ func _build_world_interact() -> void:
 	shape.position = Vector2(0, -45)
 	_interact_area.add_child(shape)
 
-	_interact_hint = Label.new()
-	_interact_hint.name = "InteractHint"
-	_interact_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_interact_hint.add_theme_font_size_override("font_size", 12)
-	_interact_hint.add_theme_color_override("font_color", Color(1.0, 0.96, 0.8, 1.0))
-	_interact_hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_interact_hint.add_theme_constant_override("outline_size", 3)
-	_interact_hint.position = Vector2(-48, -92)
-	_interact_hint.size = Vector2(96, 20)
-	_interact_hint.visible = false
-	add_child(_interact_hint)
+	_interact_hint_icon = NpcOverheadUi.build_up_arrow_talk_hint_icon()
+	_interact_hint_icon.visible = false
+	add_child(_interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
-	# ekran uzayında takip ettiriliyor.
-	OverheadUiTracker.attach(_interact_hint, self, Vector2(0, -82))
+	# ekran uzayında takip ettiriliyor. NamePlateContainer -100/-70 aralığında (merkez -85)
+	# olduğundan, ismin üzerine binmesin diye Worker.gd'deki gibi ismin biraz üstüne alındı.
+	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(0, -107.5))
+	_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, _interact_hint_icon)
 
 
 func _resolve_concubine() -> Concubine:
@@ -1284,17 +1279,21 @@ func _on_interact_button_pressed() -> void:
 
 
 func ShowInteractButton() -> void:
-	if not _interact_hint or not can_interact():
+	if not _interact_hint_icon or not can_interact():
 		return
-	var im := get_node_or_null("/root/InputManager")
-	if im:
-		_interact_hint.text = im.get_tutorial_ui_up_hint()
-	_interact_hint.visible = true
+	NpcOverheadUi.fade_show_icon(_interact_hint_icon)
 
 
 func HideInteractButton() -> void:
-	if _interact_hint:
-		_interact_hint.visible = false
+	if _interact_hint_icon:
+		NpcOverheadUi.fade_hide_icon(_interact_hint_icon)
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(0.0)
+
+
+func set_interact_hold_progress(ratio: float) -> void:
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(ratio)
 
 
 func CloseNpcWindow() -> void:

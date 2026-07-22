@@ -363,12 +363,14 @@ func _update_labels() -> void:
 		_cached_disaster_hints = VillageManager.get_resource_disaster_hints()
 
 	# Barınma kapasitesi göstergesi (ikon+sayı, kelime öneki yok)
-	# X = barınak arayan TÜM köylü sayısı (nüfus), Y = toplam barınak kapasitesi (kamp ateşi dahil).
+	# X = barınak arayan TÜM köylü sayısı (nüfus), Y = toplam EV kapasitesi (kamp ateşi HARİÇ —
+	# kamp ateşi artık gerçek bir barınak sayılmıyor, sadece ev bulunana kadar bekleyen
+	# misafir köylüler için geçici bir alan).
 	# X, Y'den büyük olabilir — bu durumda barınak yetersiz demektir ve etiket kırmızıya döner.
 	if is_instance_valid(housing_label) and VillageManager.has_method("get_housing_summary"):
 		var hs: Dictionary = VillageManager.get_housing_summary()
 		var h_pop: int = int(hs.get("population", hs.get("occupied", 0)))
-		var h_cap: int = int(hs.get("capacity", 0))
+		var h_cap: int = int(hs.get("house_capacity", 0))
 		housing_label.text = ": %d/%d" % [h_pop, h_cap]
 		if _prev_housing_occupied >= 0 and h_pop != _prev_housing_occupied:
 			StatChangeFX.bump(housing_label, h_pop - _prev_housing_occupied)

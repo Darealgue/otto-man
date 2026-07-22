@@ -6,9 +6,13 @@ const DESIGN_VIEWPORT := Vector2(1920.0, 1080.0)
 const DESIGN_BAR_SIZE := Vector2(780.0, 264.0)
 const DESIGN_BOTTOM_MARGIN := 36.0
 const DESIGN_FONT_SIZE := 22
+## "Devam etmek için yukarı bas" ikonu — kutunun sağ-alt köşesinde, tasarım karesi 34px.
+const DESIGN_CONTINUE_ICON_SIZE := 34.0
+const DESIGN_CONTINUE_ICON_MARGIN := 16.0
 
 @onready var _panel: Control = $Frame
 @onready var _rich: RichTextLabel = %SpeechRichText
+@onready var _continue_icon: TextureRect = %ContinueHintIcon
 
 
 func _ready() -> void:
@@ -51,6 +55,17 @@ func _apply_bar_layout() -> void:
 		_rich.add_theme_font_size_override("bold_font_size", fs)
 		_rich.add_theme_font_size_override("bold_italics_font_size", fs)
 		_rich.add_theme_font_size_override("italics_font_size", fs)
+	if is_instance_valid(_continue_icon):
+		var icon_size := DESIGN_CONTINUE_ICON_SIZE * s
+		var icon_margin := DESIGN_CONTINUE_ICON_MARGIN * s
+		_continue_icon.anchor_left = 1.0
+		_continue_icon.anchor_top = 1.0
+		_continue_icon.anchor_right = 1.0
+		_continue_icon.anchor_bottom = 1.0
+		_continue_icon.offset_left = -(icon_size + icon_margin)
+		_continue_icon.offset_top = -(icon_size + icon_margin)
+		_continue_icon.offset_right = -icon_margin
+		_continue_icon.offset_bottom = -icon_margin
 
 
 func _unhandled_input(event: InputEvent) -> void:
