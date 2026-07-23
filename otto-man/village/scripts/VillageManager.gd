@@ -198,6 +198,16 @@ const CONSTRUCTION_HOURS_BY_TIER := {1: 1.5, 2: 3.0, 3: 6.0, 4: 10.0, 5: 14.0}
 const UPGRADE_BASE_HOURS_BY_TIER := {1: 1.0, 2: 2.0, 3: 4.0, 4: 7.0, 5: 10.0}
 const MAX_BUILD_OR_UPGRADE_HOURS := 24.0
 const HEALER_CONCUBINE_TREATMENT_COST := {"gold": 35, "medicine": 2}
+## Cariyeye rol atamak (Concubine.Role) ağır bir karar — önce bu bedel ödenir, sonra bir
+## eğitim görevi tamamlanınca rol gerçekten verilir (bkz. MissionManager.request_concubine_role).
+const ROLE_TRAINING_COST_BY_ROLE := {
+	Concubine.Role.KOMUTAN: {"gold": 180, "weapon_t1": 3},
+	Concubine.Role.AJAN: {"gold": 150, "cloth": 3},
+	Concubine.Role.DİPLOMAT: {"gold": 160, "tea": 3},
+	Concubine.Role.TÜCCAR: {"gold": 140, "garment": 3},
+	Concubine.Role.ALIM: {"gold": 140, "metal": 3},
+	Concubine.Role.TIBBIYECI: {"gold": 130, "medicine": 5},
+}
 ## Barınaksız (misafir) köylülerin köyde kalabildiği süre; bu süre içinde barınak
 ## bulunamazsa köyü terk ederler. Eskiden 1 gündü; oyuncuya barınak yapmak için
 ## makul bir pencere bıraksın diye 3 güne çıkarıldı.
@@ -2985,6 +2995,12 @@ func apply_resource_delta(resource_type: String, delta: int) -> int:
 
 func get_healer_concubine_treatment_cost() -> Dictionary:
 	return HEALER_CONCUBINE_TREATMENT_COST.duplicate(true)
+
+
+## Cariyeye rol atamanın bedeli — boşsa (NONE gibi) o rol için eğitim tanımlı değildir.
+func get_role_training_cost(role: int) -> Dictionary:
+	var cost: Variant = ROLE_TRAINING_COST_BY_ROLE.get(role, {})
+	return (cost as Dictionary).duplicate(true)
 
 func can_healer_concubine_treat(cariye_id: int) -> bool:
 	if not cariyeler.has(cariye_id):
@@ -6979,6 +6995,18 @@ func _make_worker_sick_and_unassign(worker_instance: Node, worker_id: int, build
 		basic_gather_expeditions_by_worker.erase(worker_id)
 	emit_signal("village_data_changed")
 
+func _count_idle_tibbiyeci_concubines() -> int:
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("get_concubines_by_role"):
+		return 0
+	var tibbiyeciler: Array = mm.get_concubines_by_role(Concubine.Role.TIBBIYECI)
+	var count := 0
+	for cariye in tibbiyeciler:
+		if cariye != null and "status" in cariye and cariye.status == Concubine.Status.BOŞTA:
+			count += 1
+	return count
+
+
 func _check_and_heal_sick_workers(current_day: int) -> void:
 	"""Her gün hasta işçileri kontrol et: İlaç varsa iyileştir, yoksa moral düşür."""
 	var sick_workers: Array = []
@@ -6999,12 +7027,29 @@ func _check_and_heal_sick_workers(current_day: int) -> void:
 	
 	if total_sick == 0:
 		return  # Hasta işçi yok
-	
+
 	# İlaç kontrolü
 	var medicine_count: int = int(resource_levels.get("medicine", 0))
 	var healed_count: int = 0
 	var morale_loss: float = 0.0
-	
+
+	# Tıbbiyeci rolündeki boştaki her cariye, ilaca dokunmadan bir hasta işçiyi ücretsiz iyileştirir.
+	var free_heal_slots: int = _count_idle_tibbiyeci_concubines()
+	if free_heal_slots > 0:
+		for worker_instance in sick_workers:
+			if free_heal_slots <= 0:
+				break
+			var sick_since: int = -1
+			if "sick_since_day" in worker_instance:
+				sick_since = worker_instance.sick_since_day
+			if sick_since < 0 or current_day <= sick_since:
+				continue
+			worker_instance.is_sick = false
+			worker_instance.sick_since_day = -1
+			_restore_worker_to_previous_job(worker_instance)
+			healed_count += 1
+			free_heal_slots -= 1
+
 	# İlaç varsa hasta işçileri iyileştir (1 günde iyileşir)
 	if medicine_count > 0:
 		for worker_instance in sick_workers:

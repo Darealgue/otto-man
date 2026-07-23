@@ -226,6 +226,30 @@ func _show_message(message: String) -> void:
 	print("[Barracks] " + message)
 	# TODO: Gerçek UI mesaj sistemi ekle
 
+## Komutan cariye köyde (boşta) ise orduyu canlı olarak güçlendirir — sabit/süreli bir "buff"
+## değil, her savaş gücü hesabında yeniden okunur. Savaş yeteneği ne kadar yüksekse bonus o
+## kadar büyük olur. Birden fazla boştaki Komutan varsa en yüksek yetenekli olan liderlik eder.
+func _get_commander_force_bonus() -> Dictionary:
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("get_concubines_by_role"):
+		return {"attack_bonus": 0.0, "defense_bonus": 0.0}
+	var komutanlar: Array = mm.get_concubines_by_role(Concubine.Role.KOMUTAN)
+	var best_skill: int = -1
+	for cariye in komutanlar:
+		if cariye == null or not ("status" in cariye) or cariye.status != Concubine.Status.BOŞTA:
+			continue
+		var skill: int = cariye.get_skill_level(Concubine.Skill.SAVAŞ)
+		if skill > best_skill:
+			best_skill = skill
+	if best_skill < 0:
+		return {"attack_bonus": 0.0, "defense_bonus": 0.0}
+	var skill_norm: float = clampf(float(best_skill) / 100.0, 0.0, 1.0)
+	return {
+		"attack_bonus": 0.10 + 0.30 * skill_norm,
+		"defense_bonus": 0.08 + 0.22 * skill_norm,
+	}
+
+
 func get_military_force() -> Dictionary:
 	"""Köyün askeri gücünü döndür (silah seviyesi bonusları ile — zırh sistemi kaldırıldı)"""
 	var vm = get_node_or_null("/root/VillageManager")
@@ -250,6 +274,11 @@ func get_military_force() -> Dictionary:
 		survival_weighted += float(count) * float(TIER_SURVIVAL_CHANCE.get(tier, 0.0))
 	# Savunma bonusu, saldırı bonusunun yarısı kadar taşar (iyi silah bir ölçüde savunmaya da yarar)
 	var defense_bonus: float = attack_bonus * 0.5
+
+	# Komutan cariye köyde (boşta) ise orduyu canlı olarak güçlendirir (bkz. _get_commander_force_bonus)
+	var commander_bonus: Dictionary = _get_commander_force_bonus()
+	attack_bonus += float(commander_bonus.get("attack_bonus", 0.0))
+	defense_bonus += float(commander_bonus.get("defense_bonus", 0.0))
 	# Hayatta kalma ihtimali: donanımlı askerler arasında ağırlıklı ortalama
 	var survival_bonus: float = (survival_weighted / float(equipped_total)) if equipped_total > 0 else 0.0
 	

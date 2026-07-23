@@ -402,6 +402,7 @@ mc.header.title,GÖREV MERKEZİ,MISSION CENTER
 mc.nav.footer,%s: Önceki Sayfa | %s: Sonraki Sayfa | %s: Kapat,%s: Previous Page | %s: Next Page | %s: Close
 mc.mission.list.available_empty_short,Yapılabilir görev yok,No available missions
 mc.mission.list.active_empty_short,Aktif görev yok,No active missions
+mc.mission.list.history_empty_short,Henüz tamamlanmış görev yok,No completed missions yet
 mc.mission.badge.chain/🔗 Zincir,🔗 Chain
 mc.mission.badge.urgent,🚨 Acil,🚨 Urgent
 mc.mission.badge.map_order,🗺️ Harita Emri,🗺️ Map Order
@@ -503,6 +504,20 @@ mission.role.tibbiyeci.1.name,%s: Saha Kliniği,%s: Field Clinic
 mission.role.tibbiyeci.1.desc,Tibbiyeci olarak yaralı köylülere saha tedavisi uygular.,As medic she treats wounded villagers in the field.
 mission.role.tibbiyeci.2.name,%s: Salgın Önlemi,%s: Outbreak Prevention
 mission.role.tibbiyeci.2.desc,Hijyen ve ilaç stokunu düzenleyerek salgın riskini azaltır.,She reduces outbreak risk with hygiene and medicine stock.
+mission.role_training.komutan.name,%s: Komutanlık Sınavı,%s: Trial of Command
+mission.role_training.komutan.desc,Rolü hak etmek için askeri liderlik yeteneğini kanıtlamalı.,She must prove her military leadership to earn the role.
+mission.role_training.ajan.name,%s: Gölge Sınavı,%s: Trial of Shadows
+mission.role_training.ajan.desc,Rolü hak etmek için istihbarat toplama becerisini kanıtlamalı.,She must prove her intelligence-gathering skill to earn the role.
+mission.role_training.diplomat.name,%s: Nezaket Sınavı,%s: Trial of Courtesy
+mission.role_training.diplomat.desc,Rolü hak etmek için diplomatik inceliğini kanıtlamalı.,She must prove her diplomatic tact to earn the role.
+mission.role_training.tuccar.name,%s: Kervan Sınavı,%s: Trial of the Caravan
+mission.role_training.tuccar.desc,Rolü hak etmek için ticaret zekasını kanıtlamalı.,She must prove her trading acumen to earn the role.
+mission.role_training.alim.name,%s: Divan Sınavı,%s: Trial of the Council
+mission.role_training.alim.desc,Rolü hak etmek için bürokrasi bilgisini kanıtlamalı.,She must prove her bureaucratic knowledge to earn the role.
+mission.role_training.tibbiyeci.name,%s: Şifa Sınavı,%s: Trial of Healing
+mission.role_training.tibbiyeci.desc,Rolü hak etmek için tıbbi bilgisini kanıtlamalı.,She must prove her medical knowledge to earn the role.
+news.role_granted.title,%s Artık Görevde,%s Now Serves
+news.role_granted.body,Eğitimini tamamladı ve %s rolünü resmen kazandı.,She finished her training and formally earned the %s role.
 mission.story.1.name,%s: Geçmişin Gölgesi,%s: Shadow of the Past
 mission.story.1.desc,Zindandaki anılarını anlatır; köy onu dinler ve kayda geçirir.,She shares dungeon memories; the village listens and records them.
 mission.story.2.name,%s: Güven Bağı,%s: Bond of Trust

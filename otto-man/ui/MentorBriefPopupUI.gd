@@ -276,7 +276,7 @@ func _refresh_content() -> void:
 			_populate_news()
 		Tab.MISSIONS:
 			_setup_single_column_host()
-			_populate_active_missions()
+			_populate_missions_tab()
 		Tab.DIPLOMACY:
 			_setup_single_column_host()
 			_populate_diplomacy()
@@ -352,15 +352,22 @@ func _populate_news() -> void:
 		mm.mark_all_news_read("all")
 
 
-func _populate_active_missions() -> void:
+func _populate_missions_tab() -> void:
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null:
 		_add_empty("Görev sistemi bulunamadı.", _content_list)
 		return
+	_populate_active_missions(mm)
+	_populate_mission_history(mm)
+
+
+## Üst bölüm: o an yürütülmekte olan görevler. Aktif görev yoksa hiçbir şey eklemez
+## (başlık/boş metin dahi yok) — böylece bölüm görsel olarak "küçülür".
+func _populate_active_missions(mm: Node) -> void:
 	var active: Dictionary = mm.get_active_missions() if mm.has_method("get_active_missions") else {}
 	if active.is_empty():
-		_add_empty(tr("mc.mission.list.active_empty_short"), _content_list)
 		return
+	_add_section_header("🟢 Aktif Görevler", _content_list)
 	for cariye_key in active.keys():
 		var cariye_id: int = int(cariye_key)
 		var mission_id: String = String(active[cariye_key])
@@ -369,6 +376,18 @@ func _populate_active_missions() -> void:
 			cariye = mm.concubines[cariye_id] as Concubine
 		var mission_data = mm.missions.get(mission_id) if "missions" in mm and mm.missions.has(mission_id) else null
 		_add_active_mission_card(cariye, mission_data, mission_id, mm)
+
+
+## Alt bölüm: tamamlanmış/başarısız olmuş geçmiş görevler — başarı durumuna göre renklendirilir.
+func _populate_mission_history(mm: Node) -> void:
+	var history: Array = mm.get_mission_history() if mm.has_method("get_mission_history") else []
+	_add_section_header("📜 Geçmiş Görevler", _content_list)
+	if history.is_empty():
+		_add_empty(tr("mc.mission.list.history_empty_short"), _content_list)
+		return
+	for entry in history:
+		if entry is Dictionary:
+			_add_mission_history_card(entry as Dictionary)
 
 
 func _populate_diplomacy() -> void:
@@ -715,6 +734,97 @@ func _add_active_mission_card(cariye: Concubine, mission_data, mission_id: Strin
 	progress_row.add_child(pct_lbl)
 
 	_content_list.add_child(card)
+
+
+func _add_mission_history_card(entry: Dictionary) -> void:
+	var successful: bool = bool(entry.get("successful", false))
+
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.14, 0.11, 0.08, 0.7)
+	sb.corner_radius_top_left = 6
+	sb.corner_radius_top_right = 6
+	sb.corner_radius_bottom_left = 6
+	sb.corner_radius_bottom_right = 6
+	sb.set_content_margin_all(10)
+	sb.border_width_left = 3
+	sb.border_color = Color(0.45, 0.85, 0.4, 0.85) if successful else Color(0.85, 0.35, 0.3, 0.85)
+	card.add_theme_stylebox_override("panel", sb)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	card.add_child(col)
+
+	var cariye_name: String = String(entry.get("cariye_name", tr("cariye.unknown")))
+	var mission_name: String = String(entry.get("mission_name", "?"))
+
+	var title := Label.new()
+	title.text = "%s %s → %s" % ["✅" if successful else "❌", cariye_name, mission_name]
+	title.add_theme_font_size_override("font_size", 15)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(title)
+
+	var badge_row := HBoxContainer.new()
+	badge_row.add_theme_constant_override("separation", 8)
+	col.add_child(badge_row)
+
+	var status_lbl := Label.new()
+	status_lbl.text = tr("mission.status.completed") if successful else tr("mission.status.failed")
+	status_lbl.add_theme_font_size_override("font_size", 11)
+	status_lbl.modulate = Color(0.55, 0.95, 0.5) if successful else Color(0.95, 0.55, 0.5)
+	badge_row.add_child(status_lbl)
+
+	var type_text: String = String(entry.get("mission_type", ""))
+	if not type_text.is_empty():
+		var type_lbl := Label.new()
+		type_lbl.text = "🎯 %s" % type_text
+		type_lbl.add_theme_font_size_override("font_size", 11)
+		type_lbl.modulate = Color(0.65, 0.78, 0.95)
+		badge_row.add_child(type_lbl)
+
+	var diff_text: String = String(entry.get("difficulty", ""))
+	if not diff_text.is_empty():
+		var diff_lbl := Label.new()
+		diff_lbl.text = diff_text
+		diff_lbl.add_theme_font_size_override("font_size", 11)
+		diff_lbl.modulate = Color(0.95, 0.75, 0.45)
+		badge_row.add_child(diff_lbl)
+
+	var time_text: String = _format_time_ago_game(int(entry.get("end_time", 0)))
+	if not time_text.is_empty():
+		var time_lbl := Label.new()
+		time_lbl.text = time_text
+		time_lbl.add_theme_font_size_override("font_size", 11)
+		time_lbl.modulate = Color(1, 1, 1, 0.5)
+		col.add_child(time_lbl)
+
+	var detail_text: String = _mission_history_detail_text(entry, successful)
+	if not detail_text.is_empty():
+		var detail_lbl := Label.new()
+		detail_lbl.text = detail_text
+		detail_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		detail_lbl.add_theme_font_size_override("font_size", 12)
+		detail_lbl.modulate = Color(1, 1, 1, 0.7)
+		col.add_child(detail_lbl)
+
+	_content_list.add_child(card)
+
+
+func _mission_history_detail_text(entry: Dictionary, successful: bool) -> String:
+	var lines: PackedStringArray = PackedStringArray()
+	var rewards: Variant = entry.get("rewards", {})
+	if successful and rewards is Dictionary and not (rewards as Dictionary).is_empty():
+		var reward_parts: PackedStringArray = PackedStringArray()
+		for k in (rewards as Dictionary).keys():
+			reward_parts.append("%s +%s" % [String(k), str((rewards as Dictionary)[k])])
+		lines.append("Ödül: %s" % ", ".join(reward_parts))
+	var penalties: Variant = entry.get("penalties", {})
+	if not successful and penalties is Dictionary and not (penalties as Dictionary).is_empty():
+		var penalty_parts: PackedStringArray = PackedStringArray()
+		for k in (penalties as Dictionary).keys():
+			penalty_parts.append("%s %s" % [String(k), str((penalties as Dictionary)[k])])
+		lines.append("Ceza: %s" % ", ".join(penalty_parts))
+	return "\n".join(lines)
 
 
 func _get_mission_remaining_minutes(mission_data) -> float:

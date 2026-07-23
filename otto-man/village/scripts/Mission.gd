@@ -46,6 +46,9 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 @export var completes_incident_id: String = ""
 ## Muttefik yardim cagrisi (world_player_alliances aid_call); WM `apply_alliance_aid_mission_success`
 @export var completes_alliance_aid_settlement_id: String = ""
+## Rol eğitim görevi: başarıyla tamamlanınca assigned_cariye_id'ye bu rol atanır (bkz.
+## MissionManager.request_concubine_role). -1 = rol vermez, sıradan görev.
+@export var grants_concubine_role: int = -1
 ## Oyuncu haritada world_hex_key konumuna giderek görevi tamamlayabilir (cariye şartsız).
 @export var allow_player_map_completion: bool = true
 ## Oyuncu hedef hex'teyken kaynak harcayarak seçebileceği stratejiler (boşsa: tek zar, success_chance).
@@ -309,6 +312,7 @@ func to_save_dict() -> Dictionary:
 		"world_hex_key": world_hex_key,
 		"completes_incident_id": completes_incident_id,
 		"completes_alliance_aid_settlement_id": completes_alliance_aid_settlement_id,
+		"grants_concubine_role": grants_concubine_role,
 		"allow_player_map_completion": allow_player_map_completion,
 		"player_map_strategies": _duplicate_strategy_rows_for_save(),
 		"chain_id": chain_id,
@@ -372,6 +376,7 @@ static func from_save_dict(d: Dictionary) -> Mission:
 	m.world_hex_key = str(d.get("world_hex_key", ""))
 	m.completes_incident_id = str(d.get("completes_incident_id", ""))
 	m.completes_alliance_aid_settlement_id = str(d.get("completes_alliance_aid_settlement_id", ""))
+	m.grants_concubine_role = int(d.get("grants_concubine_role", -1))
 	m.allow_player_map_completion = bool(d.get("allow_player_map_completion", true))
 	m.player_map_strategies = []
 	if d.get("player_map_strategies") is Array:

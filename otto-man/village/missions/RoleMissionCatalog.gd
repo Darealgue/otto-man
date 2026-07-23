@@ -128,6 +128,68 @@ static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 			return []
 
 
+## Rol atanmadan ÖNCE tamamlanması gereken tek adımlık "eğitim/sınav" görevi — bkz.
+## MissionManager.request_concubine_role. Bu görev başarıyla biterse rol gerçekten atanır.
+static func get_role_training_step(role: Concubine.Role) -> Dictionary:
+	match role:
+		Concubine.Role.KOMUTAN:
+			return {
+				"name_key": "mission.role_training.komutan.name",
+				"desc_key": "mission.role_training.komutan.desc",
+				"type": Mission.MissionType.SAVAŞ,
+				"duration": 130.0,
+				"success": 0.8,
+				"rewards": {"gold": 10},
+			}
+		Concubine.Role.AJAN:
+			return {
+				"name_key": "mission.role_training.ajan.name",
+				"desc_key": "mission.role_training.ajan.desc",
+				"type": Mission.MissionType.İSTİHBARAT,
+				"duration": 120.0,
+				"success": 0.8,
+				"rewards": {"gold": 10},
+			}
+		Concubine.Role.DİPLOMAT:
+			return {
+				"name_key": "mission.role_training.diplomat.name",
+				"desc_key": "mission.role_training.diplomat.desc",
+				"type": Mission.MissionType.DİPLOMASİ,
+				"duration": 120.0,
+				"success": 0.8,
+				"rewards": {"gold": 10},
+			}
+		Concubine.Role.TÜCCAR:
+			return {
+				"name_key": "mission.role_training.tuccar.name",
+				"desc_key": "mission.role_training.tuccar.desc",
+				"type": Mission.MissionType.TİCARET,
+				"duration": 110.0,
+				"success": 0.82,
+				"rewards": {"gold": 10},
+			}
+		Concubine.Role.ALIM:
+			return {
+				"name_key": "mission.role_training.alim.name",
+				"desc_key": "mission.role_training.alim.desc",
+				"type": Mission.MissionType.BÜROKRASİ,
+				"duration": 100.0,
+				"success": 0.84,
+				"rewards": {"gold": 10},
+			}
+		Concubine.Role.TIBBIYECI:
+			return {
+				"name_key": "mission.role_training.tibbiyeci.name",
+				"desc_key": "mission.role_training.tibbiyeci.desc",
+				"type": Mission.MissionType.BÜROKRASİ,
+				"duration": 100.0,
+				"success": 0.84,
+				"rewards": {"gold": 10},
+			}
+		_:
+			return {}
+
+
 static func get_story_steps() -> Array[Dictionary]:
 	return [
 		{

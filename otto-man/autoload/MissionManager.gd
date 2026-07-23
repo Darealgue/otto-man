@@ -909,7 +909,7 @@ func check_active_missions():
 			# Zincir/bağımlılık ilerletme (yalnızca başarılı görevler)
 			if successful:
 				on_mission_completed(mission_id)
-			
+
 			# Aktif görevlerden çıkar
 			_register_world_map_returning_unit(cariye_id, mission_id, mission)
 			completed_missions.append(cariye_id)
@@ -918,10 +918,32 @@ func check_active_missions():
 			mission_completed.emit(cariye_id, mission_id, successful, results)
 			if successful:
 				_try_resolve_world_incident_for_completed_mission(mission)
+				_try_grant_pending_role_for_completed_mission(mission)
 	
 	# Tamamlanan görevleri temizle
 	for cariye_id in completed_missions:
 		active_missions.erase(cariye_id)
+
+
+## Rol eğitim görevi başarıyla bitince gerçek rol ataması burada yapılır (bkz. request_concubine_role).
+func _try_grant_pending_role_for_completed_mission(mission: Mission) -> void:
+	if mission == null or mission.grants_concubine_role < 0:
+		return
+	var cariye_id: int = mission.assigned_cariye_id
+	if not concubines.has(cariye_id):
+		return
+	var role: int = mission.grants_concubine_role
+	var cariye: Concubine = concubines[cariye_id]
+	if not set_concubine_role(cariye_id, role):
+		return
+	post_news(
+		"village",
+		tr("news.role_granted.title") % cariye.name,
+		tr("news.role_granted.body") % cariye.get_role_name(),
+		Color(0.85, 0.92, 1.0),
+		"success"
+	)
+
 
 func _try_resolve_world_incident_for_completed_mission(mission: Mission) -> void:
 	if mission == null:
@@ -1883,6 +1905,7 @@ func _append_player_map_mission_history_and_notify(mission_id: String, m: Missio
 	mission_completed.emit(-1, mission_id, successful, results)
 	if successful:
 		_try_resolve_world_incident_for_completed_mission(m)
+		_try_grant_pending_role_for_completed_mission(m)
 		post_news("village", get_mission_display_name(m), tr("news.map_mission.success"), Color(0.75, 1.0, 0.75), "success")
 	else:
 		post_news("village", get_mission_display_name(m), tr("news.map_mission.failed"), Color(1.0, 0.75, 0.75), "warning")
@@ -3265,6 +3288,7 @@ func _update_active_missions_during_skip(total_hours: float) -> void:
 			mission_completed.emit(cariye_id, mission_id, successful, results)
 			if successful and mission is Mission:
 				_try_resolve_world_incident_for_completed_mission(mission as Mission)
+				_try_grant_pending_role_for_completed_mission(mission as Mission)
 		_register_world_map_returning_unit(cariye_id, mission_id, mission)
 		active_missions.erase(cariye_id)
 
@@ -5146,6 +5170,115 @@ func set_concubine_role(cariye_id: int, role: Concubine.Role) -> bool:
 	_save_concubine_roles()
 	
 	return true
+
+## Oyuncunun rol atamak için çağırdığı ASIL giriş noktası — `set_concubine_role`'ün aksine
+## anlık/ücretsiz değil: rol NONE değilse önce bedel (altın + kaynak) ödenir, ardından bir
+## eğitim görevi başlar; rol ancak bu görev başarıyla bitince gerçekten atanır (bkz.
+## _try_grant_pending_role_for_completed_mission). Rolü bırakmak (NONE) hâlâ ücretsiz/anlıktır.
+func request_concubine_role(cariye_id: int, role: int) -> Dictionary:
+	if not concubines.has(cariye_id):
+		return {"ok": false, "message": "Cariye bulunamadı."}
+	var cariye: Concubine = concubines[cariye_id]
+	if int(cariye.role) == role:
+		return {"ok": false, "message": "Cariye zaten bu rolde."}
+	if role == Concubine.Role.NONE:
+		set_concubine_role(cariye_id, role)
+		return {"ok": true, "message": ""}
+	if get_pending_role_training(cariye_id) >= 0:
+		return {"ok": false, "message": "Cariye zaten bir rol eğitiminde."}
+	if cariye.status != Concubine.Status.BOŞTA:
+		return {"ok": false, "message": "Cariye şu an boşta değil."}
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm == null or not vm.has_method("get_role_training_cost"):
+		return {"ok": false, "message": "Köy sistemi bulunamadı."}
+	var cost: Dictionary = vm.get_role_training_cost(role)
+	if cost.is_empty():
+		return {"ok": false, "message": "Bu rol için eğitim tanımlı değil."}
+	if not vm.can_afford_resources(cost):
+		return {"ok": false, "message": "Yetersiz kaynak: %s" % _format_cost_for_display(cost)}
+	if not vm.spend_resources(cost):
+		return {"ok": false, "message": "Ödeme yapılamadı."}
+	var mission: Mission = _build_role_training_mission(cariye_id, role, cariye.name)
+	missions[mission.id] = mission
+	if not assign_mission_to_concubine(cariye_id, mission.id, 0):
+		missions.erase(mission.id)
+		_refund_resources(cost)
+		return {"ok": false, "message": "Eğitim görevi başlatılamadı."}
+	mission_list_changed.emit()
+	return {"ok": true, "message": "Eğitim görevi başladı: %s" % mission.name}
+
+
+func _build_role_training_mission(cariye_id: int, role: int, cariye_name: String) -> Mission:
+	var step: Dictionary = RoleMissionCatalog.get_role_training_step(role)
+	var display_name: String = cariye_name.strip_edges()
+	if display_name.is_empty():
+		display_name = tr("cariye.unknown")
+	var m := Mission.new()
+	m.id = "role_training_%d_%d_%d" % [cariye_id, role, Time.get_unix_time_from_system()]
+	m.name = tr(String(step.get("name_key", ""))) % display_name
+	m.description = tr(String(step.get("desc_key", ""))) % display_name
+	m.mission_type = int(step.get("type", Mission.MissionType.BÜROKRASİ)) as Mission.MissionType
+	m.difficulty = Mission.Difficulty.ORTA
+	m.duration = float(step.get("duration", 120.0))
+	m.success_chance = float(step.get("success", 0.8))
+	m.required_cariye_level = 1
+	m.required_army_size = 0
+	m.required_concubine_id = cariye_id
+	m.required_concubine_role = -1
+	m.required_resources = {}
+	m.rewards = (step.get("rewards", {}) as Dictionary).duplicate(true)
+	m.penalties = {}
+	m.target_location = tr("mission.rescue_chain.target.village")
+	m.distance = 0.1
+	m.risk_level = tr("mission.rescue_chain.risk.low")
+	m.allow_player_map_completion = false
+	m.status = Mission.Status.MEVCUT
+	m.grants_concubine_role = role
+	return m
+
+
+## Bir cariye şu an bir rol eğitim görevindeyse hangi rol için olduğunu döndürür, yoksa -1.
+func get_pending_role_training(cariye_id: int) -> int:
+	if not active_missions.has(cariye_id):
+		return -1
+	var mid: String = String(active_missions[cariye_id])
+	var m = missions.get(mid)
+	if m is Mission and (m as Mission).grants_concubine_role >= 0:
+		return (m as Mission).grants_concubine_role
+	return -1
+
+
+func _format_cost_for_display(cost: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	if int(cost.get("gold", 0)) > 0:
+		parts.append("%d altın" % int(cost["gold"]))
+	for k in cost.keys():
+		if str(k) == "gold":
+			continue
+		var amt: int = int(cost[k])
+		if amt > 0:
+			parts.append("%d %s" % [amt, LocaleManager.get_resource_name(str(k))])
+	return ", ".join(parts)
+
+
+## `request_concubine_role` içinde ödeme sonrası görev başlatma başarısız olursa harcanan
+## kaynakları geri verir.
+func _refund_resources(cost: Dictionary) -> void:
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm == null:
+		return
+	var g: int = int(cost.get("gold", 0))
+	if g > 0:
+		var gpd := get_node_or_null("/root/GlobalPlayerData")
+		if gpd:
+			gpd.add_gold(g)
+	for k in cost.keys():
+		if str(k) == "gold":
+			continue
+		var amt: int = int(cost[k])
+		if amt > 0 and vm.has_method("apply_resource_delta"):
+			vm.apply_resource_delta(str(k), amt)
+
 
 # Cariye rolünü al
 func get_concubine_role(cariye_id: int) -> Concubine.Role:

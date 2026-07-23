@@ -16,14 +16,24 @@ var _portrait_initial: Label
 var _name_label: Label
 var _status_chip: Label
 var _stats_label: Label
+var _role_btn: Button
+var _role_cost_label: Label
+var _role_confirm_btn: Button
+## Şu an gözatılan (henüz onaylanmamış) rol — cariyenin GERÇEK rolünden farklı olabilir.
+var _role_cursor: int = -1
+var _special_actions_box: VBoxContainer
 var _mission_list: VBoxContainer
 var _mission_scroll: ScrollContainer
 var _info_label: Label
 var _nav_hint_label: Label
 
 # Controller / keyboard navigation
-var _assign_buttons: Array[Button] = []
-var _focused_mission_row: int = 0
+## Kalıcı nav hedefleri: [rol butonu, (varsa) rol-özel aksiyon butonu]. Her _refresh_special_actions
+## çağrısında sıfırdan kurulur.
+var _static_nav_buttons: Array[Button] = []
+## Görev "Ata" butonları — her _refresh_missions çağrısında sıfırdan kurulur.
+var _nav_buttons: Array[Button] = []
+var _focused_nav_row: int = 0
 var _focus_generation: int = 0
 var _suppress_nav_until_msec: int = 0
 var _portrait_generation: int = 0
@@ -149,6 +159,41 @@ func _build_ui() -> void:
 	_stats_label.add_theme_font_size_override("font_size", 12)
 	left.add_child(_stats_label)
 
+	var role_sep := ColorRect.new()
+	role_sep.custom_minimum_size = Vector2(0, 1)
+	role_sep.color = Color(0.6, 0.47, 0.28, 0.5)
+	left.add_child(role_sep)
+
+	var role_label := Label.new()
+	role_label.text = "Rol"
+	role_label.add_theme_font_size_override("font_size", 12)
+	role_label.modulate = Color(0.85, 0.78, 0.6, 0.9)
+	left.add_child(role_label)
+
+	# OptionButton yerine sol/sağ ile döngüsel geçiş yapan tek bir buton — bu popup'ta mouse
+	# yok, tüm gezinme klavye/gamepad ile (bkz. _input, _nav_buttons sistemi). Bu buton sadece
+	# TARAMA yapar (ücretsiz) — gerçek atama ayrı bir onay butonuyla (bkz. _role_confirm_btn).
+	_role_btn = Button.new()
+	_role_btn.focus_mode = Control.FOCUS_ALL
+	_role_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_role_btn.pressed.connect(_cycle_role.bind(1))
+	_style_focus(_role_btn)
+	left.add_child(_role_btn)
+	_static_nav_buttons.append(_role_btn)
+
+	_role_cost_label = Label.new()
+	_role_cost_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_role_cost_label.add_theme_font_size_override("font_size", 10)
+	left.add_child(_role_cost_label)
+
+	_role_confirm_btn = Button.new()
+	_role_confirm_btn.focus_mode = Control.FOCUS_ALL
+	_role_confirm_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_role_confirm_btn.pressed.connect(_on_role_confirm_pressed)
+	_style_focus(_role_confirm_btn)
+	left.add_child(_role_confirm_btn)
+	_static_nav_buttons.append(_role_confirm_btn)
+
 	# ── Divider ──────────────────────────────────────────────────────────────
 	var divider := ColorRect.new()
 	divider.custom_minimum_size = Vector2(2, 0)
@@ -161,6 +206,10 @@ func _build_ui() -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_theme_constant_override("separation", 6)
 	root.add_child(right)
+
+	_special_actions_box = VBoxContainer.new()
+	_special_actions_box.add_theme_constant_override("separation", 4)
+	right.add_child(_special_actions_box)
 
 	var missions_title := Label.new()
 	missions_title.text = "Atanabilir Görevler"
@@ -203,19 +252,22 @@ func _build_ui() -> void:
 
 func show_for_concubine(concubine: Concubine) -> void:
 	_concubine = concubine
+	_role_cursor = -1
 	_soldier_counts.clear()
 	_reapply_full_rect()
 	_is_open = true
 	_focus_generation += 1
-	_focused_mission_row = 0
+	_focused_nav_row = 0
 	_suppress_nav_until_msec = Time.get_ticks_msec() + 250
 	_info_label.text = ""
+	_info_label.modulate = Color(1, 0.55, 0.5, 1)
 	_update_nav_hint()
 	get_viewport().gui_release_focus()
 	_refresh_concubine_info()
 	_refresh_missions()
+	_refresh_special_actions()
 	visible = true
-	call_deferred("_focus_first_assign_button")
+	call_deferred("_focus_first_nav_button")
 	_set_player_ui_locked(true)
 	VillageManager.register_npc_dialogue_window_shown()
 
@@ -228,7 +280,7 @@ func hide_popup() -> void:
 		_PortraitRenderer.clear(_portrait_rect)
 	visible = false
 	_concubine = null
-	_assign_buttons.clear()
+	_nav_buttons.clear()
 	get_viewport().gui_release_focus()
 	closed.emit()
 	_set_player_ui_locked(false)
@@ -277,6 +329,8 @@ func _refresh_concubine_info() -> void:
 		_portrait_initial.visible = true
 
 	_name_label.text = _concubine.name
+
+	_refresh_role_section()
 
 	var status_text: String
 	var status_color: Color
@@ -337,7 +391,7 @@ func _render_concubine_portrait(portrait_gen: int) -> void:
 
 
 func _refresh_missions() -> void:
-	_assign_buttons.clear()
+	_nav_buttons.clear()
 	_soldier_stepper_rows.clear()
 	_focused_soldier_mid = ""
 	_hovered_soldier_mid = ""
@@ -364,6 +418,98 @@ func _add_mission_empty(text: String) -> void:
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.modulate = Color(1, 1, 1, 0.55)
 	_mission_list.add_child(lbl)
+
+
+# ─── Rol-özel aksiyonlar ────────────────────────────────────────────────────────
+
+func _refresh_special_actions() -> void:
+	if not is_instance_valid(_special_actions_box):
+		return
+	for child in _special_actions_box.get_children():
+		child.queue_free()
+	_static_nav_buttons.clear()
+	if is_instance_valid(_role_btn):
+		_static_nav_buttons.append(_role_btn)
+	if is_instance_valid(_role_confirm_btn):
+		_static_nav_buttons.append(_role_confirm_btn)
+	if _concubine == null:
+		return
+	match _concubine.role:
+		Concubine.Role.TIBBIYECI:
+			_add_healer_treat_action()
+		Concubine.Role.TÜCCAR:
+			_add_trader_mission_action()
+		Concubine.Role.KOMUTAN:
+			_add_commander_info_line()
+
+
+func _add_healer_treat_action() -> void:
+	var can_treat: bool = VillageManager.can_healer_concubine_treat(_concubine.id)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	_special_actions_box.add_child(row)
+
+	var btn := Button.new()
+	btn.text = "🩺 Oyuncuyu Tedavi Et (35 altın + 2 ilaç)"
+	btn.disabled = not can_treat
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.pressed.connect(_on_healer_treat_pressed)
+	_style_focus(btn)
+	row.add_child(btn)
+	_static_nav_buttons.append(btn)
+
+	if not can_treat:
+		var reason := Label.new()
+		reason.text = "Oyuncuda tedavi gerektiren bir durum yok."
+		reason.add_theme_font_size_override("font_size", 10)
+		reason.modulate = Color(1, 1, 1, 0.5)
+		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_special_actions_box.add_child(reason)
+
+
+func _on_healer_treat_pressed() -> void:
+	if _concubine == null:
+		return
+	var result: Dictionary = VillageManager.try_healer_concubine_treatment(_concubine.id)
+	_info_label.text = String(result.get("message", ""))
+	_info_label.modulate = Color(0.6, 0.95, 0.55, 1) if bool(result.get("ok", false)) else Color(1, 0.55, 0.5, 1)
+	_refresh_special_actions()
+
+
+func _add_trader_mission_action() -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	_special_actions_box.add_child(row)
+
+	var btn := Button.new()
+	btn.text = "💰 Ticaret Görevi Başlat"
+	btn.disabled = _concubine.status != Concubine.Status.BOŞTA
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.pressed.connect(_on_trader_mission_pressed)
+	_style_focus(btn)
+	row.add_child(btn)
+	_static_nav_buttons.append(btn)
+
+
+func _on_trader_mission_pressed() -> void:
+	if _concubine == null:
+		return
+	var concubine := _concubine
+	var host := VillageWorldPopups.get_host()
+	hide_popup()
+	if host:
+		host.open_trade_mission(concubine)
+
+
+func _add_commander_info_line() -> void:
+	var lbl := Label.new()
+	lbl.text = "🛡 Köyde (boşta) olduğu sürece orduyu güçlendirir — savaş yeteneği arttıkça bonus büyür."
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.modulate = Color(0.95, 0.75, 0.45, 0.9)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_special_actions_box.add_child(lbl)
 
 
 func _make_mission_row(mission, available_soldiers: int) -> Control:
@@ -495,7 +641,7 @@ func _make_mission_row(mission, available_soldiers: int) -> Control:
 			assign_btn.set_meta("req_army", req_army)
 			assign_btn.set_meta("available_soldiers", available_soldiers)
 		action_row.add_child(assign_btn)
-		_assign_buttons.append(assign_btn)
+		_nav_buttons.append(assign_btn)
 
 	return card
 
@@ -726,6 +872,7 @@ func _mission_type_color(mission) -> Color:
 
 func _role_name(role: int) -> String:
 	match role:
+		Concubine.Role.NONE:      return "Yok"
 		Concubine.Role.KOMUTAN:   return "Komutan"
 		Concubine.Role.AJAN:      return "Ajan"
 		Concubine.Role.DİPLOMAT: return "Diplomat"
@@ -733,6 +880,128 @@ func _role_name(role: int) -> String:
 		Concubine.Role.ALIM:     return "Alim"
 		Concubine.Role.TIBBIYECI: return "Tıbbiyeci"
 	return "Belirtilmemiş"
+
+
+## Rol döngüsünde (_cycle_role) sırayla gezilecek role listesi.
+const _ROLE_OPTION_ORDER: Array[int] = [
+	Concubine.Role.NONE,
+	Concubine.Role.KOMUTAN,
+	Concubine.Role.AJAN,
+	Concubine.Role.DİPLOMAT,
+	Concubine.Role.TÜCCAR,
+	Concubine.Role.ALIM,
+	Concubine.Role.TIBBIYECI,
+]
+
+
+# ─── Rol atama ────────────────────────────────────────────────────────────────
+# Rol atama ağır bir karar: önce (ücretsiz) gözat, sonra "Rolü Ata" ile bedeli öde ve bir
+# eğitim görevi başlat — rol ancak o görev başarıyla bitince gerçekten atanır (bkz.
+# MissionManager.request_concubine_role / _try_grant_pending_role_for_completed_mission).
+
+## Rol butonu fokuslanmışken sol/sağ (veya buton tıklanınca) çağrılır — sadece TARAMA
+## amaçlı, backend'e dokunmaz. Cariye zaten bir rol eğitimindeyse tarama kilitlenir.
+func _cycle_role(delta: int) -> void:
+	if _concubine == null:
+		return
+	if _pending_role_training() >= 0:
+		return
+	if _role_cursor < 0:
+		_role_cursor = int(_concubine.role)
+	var current_idx: int = _ROLE_OPTION_ORDER.find(_role_cursor)
+	if current_idx < 0:
+		current_idx = 0
+	var next_idx: int = wrapi(current_idx + delta, 0, _ROLE_OPTION_ORDER.size())
+	_role_cursor = _ROLE_OPTION_ORDER[next_idx]
+	_refresh_role_section()
+
+
+func _pending_role_training() -> int:
+	if _concubine == null:
+		return -1
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("get_pending_role_training"):
+		return -1
+	return int(mm.get_pending_role_training(_concubine.id))
+
+
+func _refresh_role_section() -> void:
+	if _concubine == null or not is_instance_valid(_role_btn):
+		return
+	var pending_role: int = _pending_role_training()
+	if pending_role >= 0:
+		_role_btn.text = "🎓 Eğitimde: %s" % _role_name(pending_role)
+		_role_btn.disabled = true
+		_role_confirm_btn.text = "Rolü Ata"
+		_role_confirm_btn.disabled = true
+		_role_cost_label.text = "Görev tamamlanınca rol atanacak."
+		_role_cost_label.modulate = Color(0.85, 0.78, 0.6, 0.8)
+		return
+
+	_role_btn.disabled = false
+	if _role_cursor < 0:
+		_role_cursor = int(_concubine.role)
+	_role_btn.text = "◄ Rol: %s ►" % _role_name(_role_cursor)
+
+	var is_idle: bool = _concubine.status == Concubine.Status.BOŞTA
+	if _role_cursor == int(_concubine.role):
+		_role_confirm_btn.text = "Mevcut Rol"
+		_role_confirm_btn.disabled = true
+		_role_cost_label.text = ""
+	elif _role_cursor == Concubine.Role.NONE:
+		_role_confirm_btn.text = "Rolü Bırak"
+		_role_confirm_btn.disabled = not is_idle
+		_role_cost_label.text = "Ücretsiz, anında bırakılır."
+		_role_cost_label.modulate = Color(0.6, 0.85, 0.6, 0.85)
+	else:
+		var vm := get_node_or_null("/root/VillageManager")
+		var cost: Dictionary = vm.get_role_training_cost(_role_cursor) if vm and vm.has_method("get_role_training_cost") else {}
+		var afford: bool = not cost.is_empty() and vm.has_method("can_afford_resources") and vm.can_afford_resources(cost)
+		_role_confirm_btn.text = "Rolü Ata"
+		_role_confirm_btn.disabled = cost.is_empty() or not afford or not is_idle
+		if cost.is_empty():
+			_role_cost_label.text = "Bu rol için eğitim tanımlı değil."
+			_role_cost_label.modulate = Color(1, 1, 1, 0.5)
+		else:
+			_role_cost_label.text = "Bedel: %s — sonra bir eğitim görevi gerekir." % _format_role_cost_display(cost)
+			_role_cost_label.modulate = Color(0.6, 0.95, 0.55, 0.9) if afford else Color(1, 0.55, 0.5, 0.9)
+
+
+func _format_role_cost_display(cost: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	if int(cost.get("gold", 0)) > 0:
+		parts.append("%d altın" % int(cost["gold"]))
+	for k in cost.keys():
+		if str(k) == "gold":
+			continue
+		var amt: int = int(cost[k])
+		if amt > 0:
+			parts.append("%d %s" % [amt, LocaleManager.get_resource_name(str(k))])
+	return ", ".join(parts)
+
+
+func _on_role_confirm_pressed() -> void:
+	if _concubine == null:
+		return
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("request_concubine_role"):
+		_info_label.text = "Rol atanamadı."
+		_info_label.modulate = Color(1, 0.55, 0.5, 1)
+		return
+	var requested_role: int = _role_cursor
+	var result: Dictionary = mm.request_concubine_role(_concubine.id, requested_role)
+	var ok: bool = bool(result.get("ok", false))
+	_info_label.text = String(result.get("message", ""))
+	_info_label.modulate = Color(0.6, 0.95, 0.55, 1) if ok else Color(1, 0.55, 0.5, 1)
+	if not ok:
+		return
+	if requested_role == Concubine.Role.NONE:
+		_refresh_concubine_info()
+		_refresh_missions()
+		_refresh_special_actions()
+	else:
+		# Eğitim görevi başladı, cariye artık meşgul — popup'ı kapat (görev atamayla aynı akış).
+		hide_popup()
 
 
 # ─── Assign ───────────────────────────────────────────────────────────────────
@@ -772,41 +1041,54 @@ func _style_focus(button: Button) -> void:
 	button.add_theme_stylebox_override("focus", sb)
 
 
-func _focus_first_assign_button() -> void:
-	_focus_nearest_assign_button(_focused_mission_row)
+## Rol butonu + rol-özel aksiyon + görev "Ata" butonlarının tek, sıralı gezinme listesi.
+func _all_nav_buttons() -> Array[Button]:
+	var combined: Array[Button] = []
+	combined.append_array(_static_nav_buttons)
+	combined.append_array(_nav_buttons)
+	return combined
 
 
-func _focus_nearest_assign_button(preferred_index: int) -> bool:
-	if _assign_buttons.is_empty():
+func _focus_first_nav_button() -> void:
+	# Görev varsa doğrudan ilk göreve odaklan (en sık kullanılan aksiyon); yukarı basınca
+	# doğal olarak rol/özel aksiyon butonlarına dönülür (bkz. wraparound).
+	var start_idx: int = _static_nav_buttons.size() if not _nav_buttons.is_empty() else 0
+	_focus_nearest_nav_button(start_idx)
+
+
+func _focus_nearest_nav_button(preferred_index: int) -> bool:
+	var all := _all_nav_buttons()
+	if all.is_empty():
 		return false
-	var count := _assign_buttons.size()
+	var count := all.size()
 	for offset in range(count):
-		var idx := (preferred_index + offset) % count
-		var btn: Button = _assign_buttons[idx]
+		var idx := wrapi(preferred_index + offset, 0, count)
+		var btn: Button = all[idx]
 		if not is_instance_valid(btn) or btn.disabled:
 			continue
-		_focused_mission_row = idx
+		_focused_nav_row = idx
 		get_viewport().gui_release_focus()
 		btn.grab_focus()
-		if is_instance_valid(_mission_scroll):
+		if is_instance_valid(_mission_scroll) and _nav_buttons.find(btn) >= 0:
 			_mission_scroll.ensure_control_visible(btn)
 		return true
 	return false
 
 
-func _move_mission_focus(direction: int) -> void:
-	if _assign_buttons.is_empty():
+func _move_nav_focus(direction: int) -> void:
+	var all := _all_nav_buttons()
+	if all.is_empty():
 		return
-	var count := _assign_buttons.size()
+	var count := all.size()
 	for step in range(count):
-		var idx := wrapi(_focused_mission_row + direction * (step + 1), 0, count)
-		var btn: Button = _assign_buttons[idx]
+		var idx := wrapi(_focused_nav_row + direction * (step + 1), 0, count)
+		var btn: Button = all[idx]
 		if not is_instance_valid(btn) or btn.disabled:
 			continue
-		_focused_mission_row = idx
+		_focused_nav_row = idx
 		get_viewport().gui_release_focus()
 		btn.grab_focus()
-		if is_instance_valid(_mission_scroll):
+		if is_instance_valid(_mission_scroll) and _nav_buttons.find(btn) >= 0:
 			_mission_scroll.ensure_control_visible(btn)
 		return
 
@@ -814,23 +1096,26 @@ func _move_mission_focus(direction: int) -> void:
 func _on_gui_focus_changed(control: Control) -> void:
 	if not visible or not _is_open:
 		return
-	if control != null and control is Button and _assign_buttons.find(control) >= 0:
-		_focused_mission_row = _assign_buttons.find(control)
-		_focused_soldier_mid = String(control.get_meta("mission_id")) if control.has_meta("mission_id") else ""
-		_refresh_soldier_stepper_visibility()
-		return
+	if control != null and control is Button:
+		var all := _all_nav_buttons()
+		var idx := all.find(control)
+		if idx >= 0:
+			_focused_nav_row = idx
+			_focused_soldier_mid = String(control.get_meta("mission_id")) if control.has_meta("mission_id") else ""
+			_refresh_soldier_stepper_visibility()
+			return
 	_focused_soldier_mid = ""
 	_refresh_soldier_stepper_visibility()
-	call_deferred("_reclaim_mission_focus")
+	call_deferred("_reclaim_nav_focus")
 
 
-func _reclaim_mission_focus() -> void:
+func _reclaim_nav_focus() -> void:
 	if not visible or not _is_open:
 		return
 	var owner := get_viewport().gui_get_focus_owner()
-	if owner is Button and _assign_buttons.find(owner) >= 0:
+	if owner is Button and _all_nav_buttons().find(owner) >= 0:
 		return
-	_focus_nearest_assign_button(_focused_mission_row)
+	_focus_nearest_nav_button(_focused_nav_row)
 
 
 func _update_nav_hint() -> void:
@@ -839,9 +1124,9 @@ func _update_nav_hint() -> void:
 	var im := get_node_or_null("/root/InputManager")
 	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
 	if is_pad:
-		_nav_hint_label.text = "[↑↓] Görev   [◄►] Asker   [A] Ata   [B] Kapat"
+		_nav_hint_label.text = "[↑↓] Seç   [◄►] Rol/Asker   [A] Onayla   [B] Kapat"
 	else:
-		_nav_hint_label.text = "[↑↓] Görev   [◄►] Asker   [Enter] Ata   [Esc] Kapat"
+		_nav_hint_label.text = "[↑↓] Seç   [◄►] Rol/Asker   [Enter] Onayla   [Esc] Kapat"
 
 
 func _find_first_button(node: Node) -> Button:
@@ -855,7 +1140,7 @@ func _find_first_button(node: Node) -> Button:
 
 
 func _grab_initial_focus() -> void:
-	_focus_first_assign_button()
+	_focus_first_nav_button()
 
 
 # ─── Input ────────────────────────────────────────────────────────────────────
@@ -877,23 +1162,27 @@ func _input(event: InputEvent) -> void:
 	if not nav_blocked:
 		if event.is_action_pressed("ui_down"):
 			get_viewport().set_input_as_handled()
-			_move_mission_focus(1)
+			_move_nav_focus(1)
 			return
 		if event.is_action_pressed("ui_up"):
 			get_viewport().set_input_as_handled()
-			_move_mission_focus(-1)
+			_move_nav_focus(-1)
 			return
 		if event.is_action_pressed("ui_accept"):
 			var owner := get_viewport().gui_get_focus_owner()
-			if owner is Button and _assign_buttons.find(owner) >= 0:
+			if owner is Button and _all_nav_buttons().find(owner) >= 0:
 				get_viewport().set_input_as_handled()
 				(owner as Button).pressed.emit()
 				return
 		if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
 			var owner := get_viewport().gui_get_focus_owner()
-			if owner is Button and _assign_buttons.find(owner) >= 0 and owner.has_meta("req_army"):
+			var delta := -1 if event.is_action_pressed("ui_left") else 1
+			if owner == _role_btn:
 				get_viewport().set_input_as_handled()
-				var delta := -1 if event.is_action_pressed("ui_left") else 1
+				_cycle_role(delta)
+				return
+			if owner is Button and _nav_buttons.find(owner) >= 0 and owner.has_meta("req_army"):
+				get_viewport().set_input_as_handled()
 				_adjust_soldiers(
 					String(owner.get_meta("mission_id")),
 					delta,
