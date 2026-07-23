@@ -497,9 +497,24 @@ func _start_wander_timer():
 	_wander_timer.wait_time = randf_range(_wander_interval_min, _wander_interval_max)
 	_wander_timer.start()
 
+func _is_dialogue_frozen() -> bool:
+	if concubine_id < 0:
+		return false
+	var host := VillageWorldPopups.get_host()
+	return host != null and host.is_concubine_dialogue_open_for(concubine_id)
+
 func _physics_process(delta: float) -> void:
 	if is_dungeon_prisoner:
 		_physics_process_dungeon_prisoner(delta)
+		return
+	# Görev penceresi bu cariye için açıkken (biz onunla konuşurken) yerinde beklesin —
+	# aksi halde wander/separation onu oyuncunun etkileşim alanının dışına itip pencereyi
+	# yanlışlıkla kapatabiliyordu.
+	if _is_dialogue_frozen():
+		if _current_animation_name != "idle":
+			play_animation("idle")
+			_current_animation_name = "idle"
+		_sync_overhead_ui_flip()
 		return
 	# Hareket hesaplama (önce hesapla, sonra state handler'larda kullan)
 	# X ve Y eksenlerinde ayrı ayrı kontrol et (Worker sistemindeki gibi)

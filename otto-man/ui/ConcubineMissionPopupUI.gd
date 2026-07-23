@@ -217,6 +217,7 @@ func show_for_concubine(concubine: Concubine) -> void:
 	visible = true
 	call_deferred("_focus_first_assign_button")
 	_set_player_ui_locked(true)
+	VillageManager.register_npc_dialogue_window_shown()
 
 
 func hide_popup() -> void:
@@ -231,6 +232,7 @@ func hide_popup() -> void:
 	get_viewport().gui_release_focus()
 	closed.emit()
 	_set_player_ui_locked(false)
+	VillageManager.register_npc_dialogue_window_hidden()
 
 
 ## Mentor/Tüccar/Kamp Ateşi popup'larının aksine bu popup açıkken oyuncu _is_any_menu_open()'ın
@@ -248,6 +250,10 @@ func hide_if_for_concubine(concubine_id: int) -> void:
 		return
 	if _concubine.id == concubine_id:
 		hide_popup()
+
+
+func is_open_for(concubine_id: int) -> bool:
+	return _is_open and _concubine != null and _concubine.id == concubine_id
 
 
 # ─── Info panel ───────────────────────────────────────────────────────────────

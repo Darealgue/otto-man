@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" uid="uid://dxvvlck8ew3f4" path="res://ui/health_display.tscn" id="1_health"]
 [ext_resource type="PackedScene" uid="uid://c8j6u8o3xv2k4" path="res://ui/stamina_bar.tscn" id="2_stamina"]
 [ext_resource type="PackedScene" uid="uid://dungeon_gold_display" path="res://ui/DungeonGoldDisplay.tscn" id="3_dungeon_gold"]
 [ext_resource type="PackedScene" path="res://ui/CarriedResourcesDisplay.tscn" id="4_carried"]
 [ext_resource type="PackedScene" path="res://ui/xp_bar.tscn" id="5_xp_bar"]
+[ext_resource type="Script" path="res://ui/DungeonCollectiblesDisplay.gd" id="6_collectibles"]
 
 [node name="GameUI" type="CanvasLayer"]
 layer = 200
@@ -54,6 +55,12 @@ offset_left = 118.0
 offset_top = 170.0
 offset_right = 200.0
 offset_bottom = 200.0
+
+[node name="DungeonCollectiblesDisplay" type="Control" parent="Container"]
+layout_mode = 1
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("6_collectibles")
 
 [node name="DungeonGoldDisplay" parent="." instance=ExtResource("3_dungeon_gold")]
 unique_name_in_owner = true

@@ -284,6 +284,21 @@ func derive_normal_path(base_path: String) -> String:
 	return normal_path
 # <<< YENİ SONU >>>
 
+# --- Gender Değişimi (sohbet sırasında ikna edilen köylüler için) ---
+# LLM diyalog sistemi Gender alanını serbest metin olarak yazdığından ("Female"/"female"/vb.)
+# görünüm üretimindeki kesin "Female" eşleşmesine güvenmeden önce ikili bir etikete indirger.
+func normalize_gender_label(raw_gender: String) -> String:
+	return "Female" if raw_gender.strip_edges().to_lower().contains("female") else "Male"
+
+# Cinsiyeti değişen bir köylü için yeni cinsiyetin kıyafet/vücut/saç setini rastgele üretir,
+# ama ten rengini ve saç rengini (parametre olarak verilen mevcut değerleri) korur — oyuncu
+# konuşarak bir köylüyü ikna ettiğinde görünüş değişsin ama "aynı kişi" hissi kaybolmasın.
+func regenerate_appearance_for_gender(new_gender: String, preserved_body_tint: Color, preserved_hair_tint: Color) -> VillagerAppearance:
+	var new_appearance := generate_random_appearance(normalize_gender_label(new_gender))
+	new_appearance.body_tint = preserved_body_tint
+	new_appearance.hair_tint = preserved_hair_tint
+	return new_appearance
+
 # --- Generation Function ---
 func generate_random_appearance(gender: String = "Male") -> VillagerAppearance:
 	if gender == "Female":

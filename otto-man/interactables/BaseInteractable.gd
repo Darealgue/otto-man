@@ -1,17 +1,23 @@
 class_name BaseInteractable
 extends Area2D
 
+const _ArrowHint = preload("res://ui/InteractArrowHint.gd")
+
 @export var minigame_kind: String = ""
 @export var base_context: Dictionary = {}
 @export var auto_disable_on_success: bool = true
 @export var auto_disable_on_failure: bool = false
 @export var player_group: StringName = &"player"
 @export var require_interact_press: bool = true
+## Oyuncu yaklaşınca üstte "yukarı bas" ok ikonu göster
+@export var show_interact_arrow: bool = true
+@export var interact_arrow_offset: Vector2 = Vector2(0.0, -64.0)
 
 var _player_overlapping: bool = false
 var _awaiting_result: bool = false
 var _disabled: bool = false
 var _tracked_players: Array[Node] = []
+var _arrow_hint: Sprite2D = null
 
 func _ready() -> void:
 	input_event.connect(_on_input_event)
@@ -23,8 +29,17 @@ func _ready() -> void:
 	# Ensure monitoring is enabled for Area2D
 	monitoring = true
 	monitorable = true
+	if show_interact_arrow and require_interact_press:
+		_arrow_hint = _ArrowHint.create()
+		_arrow_hint.position = interact_arrow_offset
+		add_child(_arrow_hint)
 
 func _process(_delta: float) -> void:
+	if _arrow_hint != null:
+		if _player_overlapping and not _disabled and not _awaiting_result:
+			_arrow_hint.show_hint()
+		else:
+			_arrow_hint.hide_hint()
 	if _disabled or _awaiting_result:
 		return
 	if !_player_overlapping:
@@ -125,6 +140,8 @@ func set_interactable_enabled(enabled: bool) -> void:
 	if not enabled:
 		_player_overlapping = false
 		_tracked_players.clear()
+		if _arrow_hint != null:
+			_arrow_hint.hide_hint()
 	print("[BaseInteractable] AFTER: _disabled=", _disabled, " monitoring=", monitoring, " monitorable=", monitorable, " process=", is_processing())
 
 func is_interactable_enabled() -> bool:

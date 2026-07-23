@@ -24,7 +24,10 @@ const LEDGE_REJECT_UPWARD_VELOCITY := -120.0
 ## of the wall we're touching. If solid continues for the whole scan window,
 ## the wall is too tall/flat to climb from here and is correctly rejected.
 const WALL_TOP_SCAN_STEP := 4.0        # px per probe step while climbing the wall's face
-const WALL_TOP_SCAN_ABOVE := 140.0     # how far above the wall-hit point we search (~4 tiles)
+## Kept short on purpose: enter() teleports the player straight to whatever top is found,
+## so a large search window let the player snap-grab a corner several tiles above the
+## actual touch point, visually cutting through the solid wall between them.
+const WALL_TOP_SCAN_ABOVE := 64.0      # how far above the wall-hit point we search (~2 tiles)
 const WALL_PROBE_INSET := 4.0          # px into the wall's own footprint, away from the open corridor
 const SHELF_PROBE_FORWARD := 12.0      # px past the corner (climb direction) to confirm a floor
 const SHELF_PROBE_DEPTH := 40.0        # how far below the found top we look for that floor
@@ -186,7 +189,7 @@ func physics_update(delta: float):
 	
 	# Keep player in place
 	player.velocity = Vector2.ZERO
-	player.global_position = ledge_position + (LEDGE_OFFSET * Vector2(facing_direction, 1))  # Flip X offset based on facing direction
+	player.global_position = ledge_position + (LEDGE_OFFSET * Vector2(facing_direction, 1))
 
 func enter():
 	# Ensure player reference is valid before accessing nodes
@@ -206,7 +209,7 @@ func enter():
 
 	animation_player.stop()
 	animation_player.play("ledge_grab")
-	
+
 	# Store current velocity and position
 	var original_velocity = player.velocity
 	var original_position = player.global_position
@@ -288,10 +291,11 @@ func _scan_ledge_side(wall_ray: RayCast2D, side: int) -> Dictionary:
 		return empty
 
 	var collision_point: Vector2 = wall_ray.get_collision_point()
+	var wall_collider: Object = wall_ray.get_collider()
 	if DEBUG_LEDGE:
 		print("[LEDGEGRAB_DEBUG] side=%d collision_point=%s player=%s" % [side, collision_point, player.global_position])
 
-	var top_scan := _find_wall_top(collision_point, side)
+	var top_scan := _find_wall_top(collision_point, side, wall_collider)
 	if not top_scan.found:
 		if DEBUG_LEDGE: print("[LEDGEGRAB_DEBUG] side=%d: wall top not found within scan range -> flat/tall wall, reject" % side)
 		return empty
@@ -337,16 +341,28 @@ func _scan_ledge_side(wall_ray: RayCast2D, side: int) -> Dictionary:
 ##    shapes (e.g. neighboring merged TileMap collision rectangles) can register a
 ##    false "hit" at that seam even though the wall is 100% continuously solid there.
 ## A point-in-shape test has neither problem: it simply asks "is any collider here?".
-func _find_wall_top(collision_point: Vector2, side: int) -> Dictionary:
+##
+## Our tile art also mixes exposed "surface" tiles (which carry a collision polygon)
+## with buried "interior" tiles that are drawn fully solid but deliberately have NO
+## collision polygon (perf: they're normally never touchable). When the wall we're
+## scanning happens to include one of these interior tiles at the probed column - e.g.
+## a mid-wall rock variant placed where it's visible from the corridor - a pure physics
+## point-query reads "not solid" there even though the wall keeps going, both visually
+## and structurally. That produces a bogus ledge in the middle of a flat wall. To guard
+## against that we also check the actual TileMapLayer/TileMap the wall ray hit: if a
+## tile is genuinely painted at that cell, we treat the point as solid regardless of
+## whether that tile's variant carries a collision shape. Only a truly empty cell (no
+## tile at all) counts as a real opening.
+func _find_wall_top(collision_point: Vector2, side: int, wall_collider: Object) -> Dictionary:
 	var probe_x: float = collision_point.x + side * WALL_PROBE_INSET
-	if not _is_solid_point(Vector2(probe_x, collision_point.y)):
+	if not _is_solid_or_tiled_point(Vector2(probe_x, collision_point.y), wall_collider):
 		return {"found": false, "top_y": 0.0}
 
 	var steps: int = int(WALL_TOP_SCAN_ABOVE / WALL_TOP_SCAN_STEP)
 	var last_solid_y: float = collision_point.y
 	for i in range(1, steps):
 		var y: float = collision_point.y - float(i) * WALL_TOP_SCAN_STEP
-		if _is_solid_point(Vector2(probe_x, y)):
+		if _is_solid_or_tiled_point(Vector2(probe_x, y), wall_collider):
 			last_solid_y = y
 		else:
 			return {"found": true, "top_y": last_solid_y}
@@ -364,6 +380,27 @@ func _is_solid_point(pos: Vector2) -> bool:
 	q.collide_with_areas = false
 	q.collide_with_bodies = true
 	return space_state.intersect_point(q, 1).size() > 0
+
+
+## Solid-or-visually-tiled test: true if there's real collision at pos, OR the
+## wall's own TileMapLayer/TileMap has a tile painted at that cell (see _find_wall_top
+## comment - a painted-but-collisionless interior tile must still block the scan).
+func _is_solid_or_tiled_point(pos: Vector2, wall_collider: Object) -> bool:
+	if _is_solid_point(pos):
+		return true
+	return _has_visual_tile(wall_collider, pos)
+
+
+func _has_visual_tile(wall_collider: Object, world_pos: Vector2) -> bool:
+	if wall_collider is TileMapLayer:
+		var layer := wall_collider as TileMapLayer
+		var cell := layer.local_to_map(layer.to_local(world_pos))
+		return layer.get_cell_source_id(cell) != -1
+	if wall_collider is TileMap:
+		var tm := wall_collider as TileMap
+		var cell := tm.local_to_map(tm.to_local(world_pos))
+		return tm.get_cell_source_id(0, cell) != -1
+	return false
 
 
 ## Confirms there's an actual floor to stand on just past the corner (not just an

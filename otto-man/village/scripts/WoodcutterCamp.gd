@@ -62,7 +62,7 @@ func add_worker() -> bool:
 	# İşçinin hedefini ve durumunu ayarla
 	worker_instance.assigned_job_type = "wood"
 	worker_instance.assigned_building_node = self
-	worker_instance.move_target_x = self.global_position.x
+	worker_instance.move_target_x = self.global_position.x + worker_instance._building_arrival_x_offset(self)
 	if VillageManager.has_method("ensure_basic_gather_expedition_for_worker"):
 		VillageManager.ensure_basic_gather_expedition_for_worker(worker_instance.worker_id)
 	

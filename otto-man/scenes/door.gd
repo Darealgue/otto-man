@@ -9,11 +9,14 @@ class_name Door
 signal door_opened(door_type: String)
 signal door_locked(door_type: String)
 
+const _ArrowHint = preload("res://ui/InteractArrowHint.gd")
+
 var is_player_in_range: bool = false
 var is_open: bool = false
 var is_animating: bool = false
 var _alarm_locked: bool = false
 var _lock_flash: Label = null
+var _arrow_hint: Sprite2D = null
 
 # Door states
 enum DoorState {
@@ -49,6 +52,11 @@ func _ready() -> void:
 	# Hide interaction prompt initially
 	if interaction_prompt:
 		interaction_prompt.visible = false
+
+	# "Yukarı bas" ok ikonu (etkileşilebilir durumlarda metin yerine bu görünür)
+	_arrow_hint = _ArrowHint.create()
+	_arrow_hint.position = Vector2(0.0, -115.0)
+	add_child(_arrow_hint)
 	
 	# Wait one frame to ensure all nodes are ready, then initialize appearance
 	call_deferred("_initialize_door")
@@ -100,25 +108,34 @@ func _on_body_exited(body: Node2D) -> void:
 
 func _player_entered_range() -> void:
 	is_player_in_range = true
+	# Etkileşilebilir durumlarda metin yerine ok ikonu; özel durumlar (kilit vs.)
+	# açıklayıcı metinle gösterilmeye devam eder.
+	var label_text := ""
+	if door_type == "Boss" and is_locked:
+		label_text = ""
+	elif is_open:
+		label_text = "Açık"
+	elif _alarm_locked and requires_key and not _has_required_key():
+		label_text = "Kilitli — anahtar düşmanında"
+	elif _segment_exit_key_required() and not _has_required_key():
+		label_text = "🔒 Anahtar gerekli"
+	elif requires_key and not _has_required_key():
+		label_text = "Anahtar gerekli"
 	if interaction_prompt:
-		interaction_prompt.visible = true
-		if door_type == "Boss" and is_locked:
-			interaction_prompt.text = "↑ Yukarı"
-		elif is_open:
-			interaction_prompt.text = "Açık"
-		elif _alarm_locked and requires_key and not _has_required_key():
-			interaction_prompt.text = "Kilitli — anahtar düşmanında"
-		elif _segment_exit_key_required() and not _has_required_key():
-			interaction_prompt.text = "🔒 Anahtar gerekli"
-		elif requires_key and not _has_required_key():
-			interaction_prompt.text = "Anahtar gerekli"
+		interaction_prompt.visible = label_text != ""
+		interaction_prompt.text = label_text
+	if _arrow_hint:
+		if label_text == "":
+			_arrow_hint.show_hint()
 		else:
-			interaction_prompt.text = "↑ Yukarı"
+			_arrow_hint.hide_hint()
 
 func _player_exited_range() -> void:
 	is_player_in_range = false
 	if interaction_prompt:
 		interaction_prompt.visible = false
+	if _arrow_hint:
+		_arrow_hint.hide_hint()
 
 func _interact_with_door() -> void:
 	if is_animating:

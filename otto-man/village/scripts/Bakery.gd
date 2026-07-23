@@ -174,7 +174,7 @@ func add_worker() -> bool:
 	# İşçinin hedefini ve durumunu ayarla
 	worker_instance.assigned_job_type = "bread"
 	worker_instance.assigned_building_node = self
-	worker_instance.move_target_x = self.global_position.x
+	worker_instance.move_target_x = self.global_position.x + worker_instance._building_arrival_x_offset(self)
 	if worker_instance.should_start_shift_on_assignment():
 		worker_instance.current_state = worker_instance.State.GOING_TO_BUILDING_FIRST
 	else:

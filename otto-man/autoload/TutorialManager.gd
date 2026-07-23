@@ -280,11 +280,17 @@ func begin_village_core_tutorial_messages() -> void:
 	set_objective_tr("tutorial.village.objective_mentor")
 
 
+## MentorObjectiveUI (sağ üstteki "► ..." hedef yazısı) get_tree().root'a eklenen kalıcı bir
+## CanvasLayer — sahne değişince/yeni oyun yüklenince otomatik silinmiyor. Tutorial aktif
+## DEĞİLKEN (tamamlanmış, hiç başlamamış veya bu save'de hiç yoksa) burada set_objective("")
+## çağırmazsak, ÖNCEKİ oturumdan kalan eski hedef metni ekranda asılı kalıyordu — tam olarak
+## "tutorial ortasında Load Game yaptım, eski görev kutusu yeni oyuna da geldi" hatası buydu.
 func refresh_village_objective_for_step() -> void:
 	if village_dungeon_guide_active and not tutorial_dungeon_guide_complete:
 		set_objective_tr("tutorial.dungeon_guide.objective")
 		return
 	if village_core_complete:
+		set_objective("")
 		return
 	match village_core_step:
 		0:
@@ -300,6 +306,10 @@ func refresh_village_objective_for_step() -> void:
 				set_objective_tr("tutorial.village.objective_wait_house_construction")
 			else:
 				set_objective_tr("tutorial.village.objective_build_house")
+		_:
+			# village_core_step < 0: tutorial hiç başlamamış (ör. tutorial'ı geçmiş/atlamış bir
+			# save yüklendi) — eski hedef metni varsa temizle.
+			set_objective("")
 
 
 ## "%s" yer tutucusuna henüz yapılmamış/atanmamış binaları listeleyen bir metin koyar; tamamlanan

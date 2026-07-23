@@ -31,10 +31,8 @@ func _connect_signals() -> void:
 
 
 func _process(_delta: float) -> void:
-	var drs := get_node_or_null("/root/DungeonRunState")
-	if not is_instance_valid(drs) or not bool(drs.get("run_started")):
-		visible = false
-		return
+	# run_started şartı yok: editörden direkt açılan test sahnelerinde de çalışsın.
+	# Taşınan hiçbir şey yoksa _refresh zaten gizliyor.
 	_refresh()
 
 
@@ -81,6 +79,25 @@ func _refresh(_arg: Variant = null) -> void:
 			any_visible = true
 		else:
 			key_chip["root"].visible = false
+
+	# Kurtarılan köylü/cariyeler (zindandan sağ çıkınca köye katılacaklar)
+	if is_instance_valid(drs):
+		var villagers: Array = drs.get("pending_rescued_villagers") if drs.get("pending_rescued_villagers") is Array else []
+		var cariyes: Array = drs.get("pending_rescued_cariyes") if drs.get("pending_rescued_cariyes") is Array else []
+		var v_chip := _ensure_chip("rescued_villager", "🧑", Color(0.65, 0.9, 0.6))
+		if villagers.size() > 0:
+			v_chip["count"].text = str(villagers.size())
+			v_chip["root"].visible = true
+			any_visible = true
+		else:
+			v_chip["root"].visible = false
+		var c_chip := _ensure_chip("rescued_cariye", "👩", Color(0.95, 0.6, 0.75))
+		if cariyes.size() > 0:
+			c_chip["count"].text = str(cariyes.size())
+			c_chip["root"].visible = true
+			any_visible = true
+		else:
+			c_chip["root"].visible = false
 
 	if is_instance_valid(ps) and ps.has_method("get_carried_expedition_loot"):
 		var loot: Dictionary = ps.get_carried_expedition_loot()

@@ -406,6 +406,13 @@ var _segment_force_guaranteed_rescue: bool = false
 var effective_trap_level: int = 1   # Tuzak seviyesi (challenge trap_level_offset)
 @export var level_config: LevelConfig  # Reference to our dungeon configuration resource
 
+@export_group("Debug / Test")
+## Editörden aç: her üretimde garanti bir CARİYE (vip) kurtarma odası yerleştirilir.
+@export var debug_force_vip_rescue: bool = false
+## Editörden aç: her üretimde garanti bir KÖYLÜ kurtarma odası yerleştirilir.
+@export var debug_force_villager_rescue: bool = false
+@export_group("")
+
 # --- Boss schedule helpers (debug-only for now) ---
 # Levels mapping for boss events; we keep it data-driven and simple
 # Kapalıyken bitiş her zaman normal "finish" chunk; boss_arena + kilitli kapı spawn olmaz.
@@ -1377,6 +1384,27 @@ func _tag_villager_and_vip_deadends() -> void:
 	var deadends: Array[Vector2i] = _collect_horizontal_rescue_deadends()
 
 	deadends.shuffle()
+
+	# --- Debug/test: editörden garanti kurtarma odası (LevelGenerator inspector) ---
+	var forced_kinds: Array[String] = []
+	if debug_force_vip_rescue:
+		forced_kinds.append("vip")
+	if debug_force_villager_rescue:
+		forced_kinds.append("villager")
+	for kind in forced_kinds:
+		var placed_forced := false
+		for pos in deadends:
+			if _assign_rescue_room_at(pos, kind):
+				placed_forced = true
+				print("[LevelGenerator] 🧪 DEBUG garanti %s kurtarma odası @ %s" % [kind, str(pos)])
+				break
+		if not placed_forced:
+			# Uygun dead-end kalmadıysa haritaya yeni bir tane enjekte et
+			if _inject_emergency_rescue_dead_end(kind):
+				print("[LevelGenerator] 🧪 DEBUG garanti %s kurtarma odası (acil enjeksiyon)" % kind)
+			else:
+				push_warning("[LevelGenerator] 🧪 DEBUG garanti %s kurtarma odası yerleştirilemedi!" % kind)
+
 	var force_guaranteed := _segment_force_guaranteed_rescue
 	var rescue_chance: float = 0.12
 	if force_guaranteed:
@@ -1475,7 +1503,7 @@ func _add_one_rescue_dead_end(all_paths: Array) -> bool:
 	return false
 
 
-func _inject_emergency_rescue_dead_end() -> bool:
+func _inject_emergency_rescue_dead_end(forced_kind: String = "") -> bool:
 	for x in range(2, maxi(3, current_grid_width - 2)):
 		for y in range(current_grid_height):
 			var pos := Vector2i(x, y)
@@ -1496,13 +1524,14 @@ func _inject_emergency_rescue_dead_end() -> bool:
 				var open_from_dead: int = Direction.RIGHT if side_dir == Direction.LEFT else Direction.LEFT
 				set_single_open_connection(dead_pos, open_from_dead)
 				set_grid_connection(pos, side_dir, true)
-				if _assign_rescue_room_at(dead_pos):
+				if _assign_rescue_room_at(dead_pos, forced_kind):
 					print("[LevelGenerator] ♥ Acil kurtarma @ %s" % str(dead_pos))
 					return true
 	return false
 
 
-func _assign_rescue_room_at(pos: Vector2i) -> bool:
+## forced_kind: "" = rastgele 50/50, "villager" veya "vip" = o tür garanti.
+func _assign_rescue_room_at(pos: Vector2i, forced_kind: String = "") -> bool:
 	if not is_valid_position(pos):
 		return false
 	var c: GridCell = grid[pos.x][pos.y] as GridCell
@@ -1511,7 +1540,10 @@ func _assign_rescue_room_at(pos: Vector2i) -> bool:
 	var dir_idx := _single_open_dir_index(c)
 	if dir_idx != Direction.LEFT and dir_idx != Direction.RIGHT:
 		return false
-	if randi() % 2 == 0:
+	var kind := forced_kind
+	if kind != "villager" and kind != "vip":
+		kind = "villager" if randi() % 2 == 0 else "vip"
+	if kind == "villager":
 		c.reserved_chunk = "villager_dead_end_left" if dir_idx == Direction.LEFT else "villager_dead_end_right"
 	else:
 		c.reserved_chunk = "vip_dead_end_left" if dir_idx == Direction.LEFT else "vip_dead_end_right"

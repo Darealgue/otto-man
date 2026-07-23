@@ -39,6 +39,8 @@ var _interact_hold_ring: NpcInteractHoldRing = null
 var dungeon_floor_y: float = -1.0   # -1 = henüz ayarlanmadı (sadece fallback)
 var dungeon_spawn_x: float = 0.0   # Yatay hareket merkezi
 const DUNGEON_PRISONER_WANDER_RANGE: float = 80.0
+## Gezinme yarıçapı; kurtarma odasında DoorInteraction hücre bölgesine göre daraltır.
+var dungeon_wander_range: float = DUNGEON_PRISONER_WANDER_RANGE
 const DUNGEON_PRISONER_GRAVITY: float = 450.0
 const DUNGEON_PRISONER_MOVE_SPEED: float = 42.0
 const WORKER_OFFSCREEN_WORK_DISTANCE: float = 5500.0
@@ -132,7 +134,11 @@ var sleep_minute_offset: int = randi_range(0, 60) #<<< YENİ IDLE UYKU OFFSETİ
 
 # <<< YENİ: Günde Tek Vardiya Kilidi >>>
 # İşçi bugün zaten bir çalışma vardiyasına başladıysa (işten çıkarılıp yeniden atansa bile)
-# aynı gün içinde ikinci kez işe gönderilmesin diye günü damgalıyoruz.
+# aynı gün içinde ikinci kez işe gönderilmesin diye günü damgalıyoruz. Bu kilit SADECE temel
+# kaynak toplama işleri (wood/stone/food — WORKING_OFFSCREEN'de köyden uzağa, ekran dışına
+# giden gerçek "sefer" işçileri) için geçerli. Dükkan/işleme binalarındaki (fırın, dokuma
+# tezgahı vb.) işçiler zaten köyün içinde kalıyor — onlar gün içinde çıkarılıp yeniden
+# atandığında hemen çalışmaya dönebilmeli, bu yüzden bu kilide tabi değiller.
 var _last_shift_start_day: int = -1
 
 func _has_started_shift_today() -> bool:
@@ -141,15 +147,20 @@ func _has_started_shift_today() -> bool:
 func _mark_shift_started_today() -> void:
 	_last_shift_start_day = TimeManager.get_day()
 
+## Kilit sadece uzak sefer gerektiren temel kaynak toplama işleri için uygulanır.
+func _is_shift_lock_applicable() -> bool:
+	return _is_basic_resource_gather_job()
+
 ## Oyuncu bu işçiyi az önce bir binaya atadı (add_worker). Mesai saatleri içindeyse VE
-## bugün için vardiyaya henüz başlamadıysa hemen işe gönderilebilir (ve vardiya damgalanır).
-## Aksi halde AWAKE_IDLE'da bırakılmalı — bu, "gün içinde birden fazla kez işe gönderme"
-## karışıklığını (ör. işçiyi çıkarıp akşam tekrar atayınca aletini alıp işe gitmesi) önler.
+## (dükkan işiyse HER ZAMAN, kaynak toplama işiyse SADECE bugün vardiyaya henüz başlamadıysa)
+## hemen işe gönderilebilir. Aksi halde AWAKE_IDLE'da bırakılmalı — bu, kaynak toplama
+## işçileri için "gün içinde birden fazla kez sefere gönderme" karışıklığını (ör. işçiyi
+## çıkarıp akşam tekrar atayınca aletini alıp işe gitmesi) önler.
 func should_start_shift_on_assignment() -> bool:
 	var hour: int = TimeManager.get_hour()
 	if hour < TimeManager.WORK_START_HOUR or hour >= TimeManager.WORK_END_HOUR:
 		return false
-	if _has_started_shift_today():
+	if _is_shift_lock_applicable() and _has_started_shift_today():
 		return false
 	_mark_shift_started_today()
 	return true
@@ -941,9 +952,9 @@ func _physics_process_dungeon_prisoner(delta: float) -> void:
 				play_animation("sit")
 	# Wander aralığının dışına çok çıkmasın, duvar ray'ı kaçırsa bile geri dönsün
 	var dx_center = global_position.x - dungeon_spawn_x
-	if abs(dx_center) > DUNGEON_PRISONER_WANDER_RANGE:
+	if abs(dx_center) > dungeon_wander_range:
 		var edge_dir = sign(dx_center)
-		global_position.x = dungeon_spawn_x + DUNGEON_PRISONER_WANDER_RANGE * edge_dir
+		global_position.x = dungeon_spawn_x + dungeon_wander_range * edge_dir
 		dungeon_move_dir = -edge_dir
 	# Zindanda sabit z_index (player'dan geride)
 	z_index = 4
@@ -1357,12 +1368,13 @@ func _physics_process(delta: float) -> void:
 				var is_work_start_hour = current_hour == TimeManager.WORK_START_HOUR
 				var passed_offset = current_minute >= work_start_minute_offset
 				
-				# Çalışma saatleri içindeyse, bugün vardiyaya henüz başlamadıysa ve (ilk çalışma
-				# saatinde değilse VEYA dakika offset'i geçmişse) işe git
-				if is_work_time and not _has_started_shift_today() and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
+				# Çalışma saatleri içindeyse, (dükkan işiyse her zaman / kaynak toplama işiyse
+				# bugün vardiyaya henüz başlamadıysa) ve (ilk çalışma saatinde değilse VEYA
+				# dakika offset'i geçmişse) işe git
+				if is_work_time and (not _is_shift_lock_applicable() or not _has_started_shift_today()) and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
 					#print("Worker %d işe gidiyor (%s)!" % [worker_id, assigned_job_type])
 					current_state = State.GOING_TO_BUILDING_FIRST
-					move_target_x = assigned_building_node.global_position.x
+					move_target_x = assigned_building_node.global_position.x + _building_arrival_x_offset(assigned_building_node)
 					_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX) #<<< YENİ: Hedef Y
 					idle_activity_timer.stop() # Aktiviteyi durdur
 					_is_briefly_idling = false # <<< Reset flag >>>
@@ -2134,6 +2146,14 @@ func _is_female_villager() -> bool:
 	return NPC_Info.has("Info") and typeof(NPC_Info["Info"]) == TYPE_DICTIONARY and String(NPC_Info["Info"].get("Gender", "")) == "Female"
 # <<< YENİ SONU >>>
 
+## Sohbet sırasında oyuncu bu köylüyü ikna edip Gender bilgisini değiştirdiğinde çağrılır
+## (bkz. npc_window.gd NPCDialogueProcessed). Görünüşü yeni cinsiyete göre değiştirir ama
+## ten rengini ve saç rengini korur ki "aynı kişi" hissi kaybolmasın.
+func apply_gender_change_appearance(new_gender: String) -> void:
+	var preserved_body_tint: Color = appearance.body_tint if appearance else Color.WHITE
+	var preserved_hair_tint: Color = appearance.hair_tint if appearance else Color.WHITE
+	appearance = AppearanceDB.regenerate_appearance_for_gender(new_gender, preserved_body_tint, preserved_hair_tint)
+
 # <<< YENİ: Animasyon Oynatma Fonksiyonu (Genişletilmiş) >>>
 func play_animation(anim_name: String):
 	if !is_instance_valid(animation_player):
@@ -2391,6 +2411,23 @@ func play_animation(anim_name: String):
 # <<< play_animation fonksiyonu burada biter >>>
 
 # Köy NPC'leri arası çok hafif mesafe (neredeyse üst üste gelince hafifçe it, alan dışına çıkmasın)
+## Aynı binaya aynı anda birden fazla işçi gönderilince hepsi TAM AYNI X hedefine (binanın
+## global_position.x'i) yöneliyordu. Yaklaştıkça birbirlerine de yaklaşmış oluyorlar,
+## _apply_villager_separation() onları itip duruyor — bu itiş yaklaşma hızını dengeleyip hiçbirinin
+## 1px'lik varış eşiğine giremediği bir çıkmaza (sonsuza kadar "walk" animasyonuyla yerinde sayma)
+## yol açabiliyordu. Binadaki atanma sırasına göre küçük bir X ofseti vererek yürüyüş hedeflerini
+## birbirinden ayırıyoruz ki hiçbir zaman tam olarak aynı noktaya yürümesinler.
+func _building_arrival_x_offset(building_node: Node2D) -> float:
+	if building_node == null or not ("assigned_worker_ids" in building_node):
+		return 0.0
+	var ids: Array = building_node.assigned_worker_ids
+	var idx := ids.find(worker_id)
+	if idx < 0:
+		return 0.0
+	const SPACING := 14.0
+	return (float(idx) - (float(ids.size()) - 1.0) * 0.5) * SPACING
+
+
 func _apply_villager_separation() -> void:
 	const MIN_SPACING: float = 10.0
 	const STRENGTH: float = 0.06
@@ -2840,10 +2877,11 @@ func check_hour_transition(new_hour: int) -> void:
 					# İlk çalışma saatinde ise dakika kontrolü de yap (offset'e göre)
 					var is_work_start_hour = new_hour == TimeManager.WORK_START_HOUR
 					var passed_offset = current_minute >= work_start_minute_offset
-					# Bugün vardiyaya henüz başlamadıysa ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
-					if not _has_started_shift_today() and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
+					# (Dükkan işiyse her zaman / kaynak toplama işiyse bugün vardiyaya henüz
+					# başlamadıysa) ve (ilk çalışma saatinde değilse VEYA dakika offset'i geçmişse) işe git
+					if (not _is_shift_lock_applicable() or not _has_started_shift_today()) and (not is_work_start_hour or passed_offset) and _should_start_work_shift_now():
 						current_state = State.GOING_TO_BUILDING_FIRST
-						move_target_x = assigned_building_node.global_position.x
+						move_target_x = assigned_building_node.global_position.x + _building_arrival_x_offset(assigned_building_node)
 						_target_global_y = randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 						idle_activity_timer.stop()
 						_is_briefly_idling = false

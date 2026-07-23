@@ -39,6 +39,7 @@ var _back_panel: PanelContainer
 var _portrait_rect: TextureRect
 var _portrait_color: ColorRect
 var _portrait_initial: Label
+var _portrait_smoke_rect: TextureRect
 var _name_label: Label
 var _stats_label: Label
 var _diary_empty_label: Label
@@ -249,6 +250,17 @@ func _build_left_column(root: HBoxContainer) -> void:
 	_portrait_initial.modulate = Color(0.85, 0.68, 0.38, 0.7)
 	portrait_wrapper.add_child(_portrait_initial)
 
+	# Cinsiyet değişimi "puf" efekti — diğer portre katmanlarının HEPSİNDEN sonra eklendi ki
+	# üstte görünsün (aynı Control ebeveyninde sonraki kardeş öncekinin üzerine çizilir).
+	_portrait_smoke_rect = TextureRect.new()
+	_portrait_smoke_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_smoke_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_portrait_smoke_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait_smoke_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_portrait_smoke_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_portrait_smoke_rect.visible = false
+	portrait_wrapper.add_child(_portrait_smoke_rect)
+
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -431,6 +443,48 @@ func _refresh_portrait() -> void:
 	)
 
 
+# ─── Cinsiyet değişimi "puf" efekti ────────────────────────────────────────────
+## Tek satırlık (yalnızca hframes, vframes=1) yatay sprite sheet bekleniyor — köylülerin
+## walk/idle sprite sheet'leriyle aynı kural. Asset eklenene kadar dosya bulunamazsa efekt
+## sessizce atlanır, portre yine de doğru şekilde günceller.
+const _GENDER_SMOKE_TEXTURE_PATH := "res://assets/effects/npc_fx/smoke_NPCport.png"
+const _GENDER_SMOKE_HFRAMES := 7
+const _GENDER_SMOKE_FRAME_TIME := 0.05
+
+func _play_gender_change_smoke_effect() -> void:
+	if not is_instance_valid(_portrait_smoke_rect):
+		return
+	if not ResourceLoader.exists(_GENDER_SMOKE_TEXTURE_PATH):
+		_refresh_portrait()
+		return
+	var sheet := load(_GENDER_SMOKE_TEXTURE_PATH) as Texture2D
+	if sheet == null or _GENDER_SMOKE_HFRAMES <= 0:
+		_refresh_portrait()
+		return
+	var frame_w := sheet.get_width() / _GENDER_SMOKE_HFRAMES
+	var frame_h := sheet.get_height()
+	var frames: Array[AtlasTexture] = []
+	for i in range(_GENDER_SMOKE_HFRAMES):
+		var atlas := AtlasTexture.new()
+		atlas.atlas = sheet
+		atlas.region = Rect2(i * frame_w, 0, frame_w, frame_h)
+		frames.append(atlas)
+	# Duman en yoğun (ortadaki) karede portrenin altındaki gerçek görünüşü değiştiriyoruz ki
+	# "puf" tam o an gizlemiş olsun — köylü izleyicinin gözü önünde değil, dumanın arkasında değişir.
+	var mid_frame := frames.size() / 2
+	_portrait_smoke_rect.visible = true
+	for i in range(frames.size()):
+		if not is_instance_valid(_portrait_smoke_rect) or not visible:
+			return
+		_portrait_smoke_rect.texture = frames[i]
+		if i == mid_frame:
+			_refresh_portrait()
+		await get_tree().create_timer(_GENDER_SMOKE_FRAME_TIME).timeout
+	if is_instance_valid(_portrait_smoke_rect):
+		_portrait_smoke_rect.visible = false
+		_portrait_smoke_rect.texture = null
+
+
 # ─── Public API (called by Worker.gd) ──────────────────────────────────────────
 
 func InitializeWindow(Info):
@@ -468,11 +522,25 @@ func refresh_diary_from_npcinfo() -> void:
 
 func NPCDialogueProcessed(npc_name: String, new_state: Dictionary, generated_dialogue: String, was_significant: bool):
 	_hide_thinking_indicator()
+	var old_gender := ""
+	if _owner_npc and _owner_npc.NPC_Info is Dictionary and _owner_npc.NPC_Info.get("Info", {}) is Dictionary:
+		old_gender = String(_owner_npc.NPC_Info["Info"].get("Gender", ""))
 	NpcInfo = new_state
 	_ensure_npc_auxiliary_fields(NpcInfo)
+	var gender_changed := false
 	if _owner_npc:
 		_owner_npc.NPC_Info = new_state
 		_owner_npc.Update_Villager_Name()
+		# Sohbet sırasında köylü ikna edilip Gender değiştiyse görünüşü de yeni cinsiyete göre
+		# güncelle (ten/saç rengi korunarak) — bkz. Worker.gd apply_gender_change_appearance.
+		# Portredeki görsel geçiş _play_gender_change_smoke_effect() ile duman efektinin
+		# ardına gizlenerek yapılır (aşağıda), veriyi hemen değiştirmek bunu etkilemez çünkü
+		# portre halihazırda render edilmiş eski appearance'ı gösteren ayrı bir SubViewport'a bakıyor.
+		var new_gender := String(new_state.get("Info", {}).get("Gender", "")) if new_state.get("Info", {}) is Dictionary else ""
+		if not old_gender.is_empty() and not new_gender.is_empty() and _owner_npc.has_method("apply_gender_change_appearance"):
+			if AppearanceDB.normalize_gender_label(old_gender) != AppearanceDB.normalize_gender_label(new_gender):
+				_owner_npc.apply_gender_change_appearance(new_gender)
+				gender_changed = true
 	# Chat_log already includes NPC line from NPCDialogueManager; resync UI.
 	# animate_last_npc_line=true: the fresh reply reveals letter by letter instead of popping in.
 	_rebuild_dialogue_ui_from_chat_log(true)
@@ -480,6 +548,8 @@ func NPCDialogueProcessed(npc_name: String, new_state: Dictionary, generated_dia
 	refresh_diary_from_npcinfo()
 	_refresh_info_panel()
 	_try_dispatch_pending_or_enable_send()
+	if gender_changed:
+		_play_gender_change_smoke_effect()
 
 
 # ─── Chat log rendering ──────────────────────────────────────────────────────

@@ -77,6 +77,12 @@ func close_concubine_missions_for(concubine_id: int) -> void:
 		_concubine_popup.hide_if_for_concubine(concubine_id)
 
 
+## ConcubineNPC._physics_process bu cariyeyle konuşma penceresi açıkken hareketi (ve dolayısıyla
+## interact alanının oyuncudan uzaklaşıp pencereyi yanlışlıkla kapatmasını) durdurmak için kullanır.
+func is_concubine_dialogue_open_for(concubine_id: int) -> bool:
+	return is_instance_valid(_concubine_popup) and _concubine_popup.is_open_for(concubine_id)
+
+
 func open_trader_trade(trader: Dictionary) -> void:
 	if is_instance_valid(_trader_popup):
 		_trader_popup.show_for_trader(trader)

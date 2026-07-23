@@ -37,6 +37,8 @@ static func spawn_dungeon_key(world_pos: Vector2, key_id: String) -> DungeonPhys
 
 func _ready() -> void:
 	add_to_group("dungeon_physical_loot")
+	if _kind == Kind.DUNGEON_KEY:
+		add_to_group("dungeon_key_drop")  # zindan anahtar imleci bu grubu tarar
 	gravity_scale = 1.2
 	freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 	linear_damp = 1.0

@@ -222,15 +222,33 @@ func get_living_segment_key_holder() -> Node:
 	return _find_living_key_holder()
 
 
+## Anahtarı halen taşıyan hedef: canlı taşıyıcı düşman, o ölmüşse yerde duran
+## anahtar item'ı. İkisi de yoksa null (henüz atanmamış veya toplanmış).
+func get_key_target_node() -> Node:
+	var holder: Node = _find_living_key_holder()
+	if holder != null:
+		return holder
+	return _find_dropped_key_node()
+
+
+func _find_dropped_key_node() -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	for node in tree.get_nodes_in_group("dungeon_key_drop"):
+		if is_instance_valid(node):
+			return node
+	return null
+
+
+## Alarm çalar çalmaz aktif olur: düşman öldürme şartı yok, imleç anahtar
+## ekrana girene kadar hep hedefi gösterir (bkz. stealth_status_display.gd).
 func should_show_key_holder_arrow() -> bool:
 	if not segment_exit_requires_key:
 		return false
 	if has_dungeon_key(SEGMENT_EXIT_KEY_ID):
 		return false
-	if segment_alarm_enemy_total <= 0:
-		return false
-	var half_threshold: int = int(ceil(float(segment_alarm_enemy_total) * 0.5))
-	return segment_combat_enemies_defeated >= half_threshold and _find_living_key_holder() != null
+	return get_key_target_node() != null
 
 
 func _snapshot_segment_enemy_quota() -> void:
@@ -550,21 +568,25 @@ func _clear_relic_hp_bonus() -> void:
 func clear_pending_rescued() -> void:
 	pending_rescued_villagers.clear()
 	pending_rescued_cariyes.clear()
+	collectibles_changed.emit()
 
 func add_pending_villager(fragile: bool = false) -> void:
 	pending_rescued_villagers.append({"fragile": fragile})
+	collectibles_changed.emit()
 
 
 func add_pending_villager_data(villager_data: Dictionary, fragile: bool = false) -> void:
 	var entry: Dictionary = villager_data.duplicate(true)
 	entry["fragile"] = fragile
 	pending_rescued_villagers.append(entry)
+	collectibles_changed.emit()
 
 
 func add_pending_cariye(cariye_data: Dictionary, fragile: bool = false) -> void:
 	var entry: Dictionary = cariye_data.duplicate(true)
 	entry["fragile"] = fragile
 	pending_rescued_cariyes.append(entry)
+	collectibles_changed.emit()
 
 
 func count_fragile_rescued() -> Dictionary:

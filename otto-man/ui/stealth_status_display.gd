@@ -245,17 +245,17 @@ func _update_key_holder_arrow() -> void:
 	if not bool(drs.call("should_show_key_holder_arrow")):
 		_key_arrow.visible = false
 		return
-	var holder: Node = null
-	if drs.has_method("get_living_segment_key_holder"):
-		holder = drs.call("get_living_segment_key_holder")
-	if not is_instance_valid(holder) or not holder is Node2D:
+	var target: Node = null
+	if drs.has_method("get_key_target_node"):
+		target = drs.call("get_key_target_node")
+	if not is_instance_valid(target) or not target is Node2D:
 		_key_arrow.visible = false
 		return
 	var viewport: Viewport = get_viewport()
 	if viewport == null:
 		_key_arrow.visible = false
 		return
-	var target_world: Vector2 = (holder as Node2D).global_position
+	var target_world: Vector2 = (target as Node2D).global_position
 	var screen_pos: Vector2 = viewport.get_canvas_transform() * target_world
 	var screen_size: Vector2 = viewport.get_visible_rect().size
 	const EDGE_PADDING: float = 36.0

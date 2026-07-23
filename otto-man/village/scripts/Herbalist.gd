@@ -112,7 +112,7 @@ func add_worker() -> bool:
 	assigned_worker_ids.append(w.worker_id)
 	w.assigned_job_type = "medicine"
 	w.assigned_building_node = self
-	w.move_target_x = global_position.x
+	w.move_target_x = global_position.x + w._building_arrival_x_offset(self)
 	if w.should_start_shift_on_assignment():
 		w.current_state = w.State.GOING_TO_BUILDING_FIRST
 	else:

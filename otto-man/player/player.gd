@@ -386,7 +386,21 @@ func _physics_process(delta):
 	# yoksa menü açılır açılmaz bu fonksiyon hiç çalışmadığından ipuçları gizlenmeden kalıyordu.
 	if _is_village_scene():
 		_update_overhead_hint_visibility(menu_open)
-	if _ui_locked or menu_open:
+	# _ui_locked, set_ui_locked() ile açıkça kilitlenmiş popup'lar için (Worker sohbeti, Cariye
+	# görev popup'u vb.) state machine'i de durdurur. Ama menu_open — is_any_popup_open() gibi
+	# "yumuşak" kontrollere dayanan tüm DİĞER popup'lar (ör. set_ui_locked çağırmayı unutan ya da
+	# unutacak herhangi biri) — eskiden SADECE bu fonksiyonun kendi velocity'sini sıfırlıyordu;
+	# state machine ayrı bir node olarak kendi _physics_process'inde HÂLÂ input okuyup
+	# move_and_slide() çağırabiliyor, bu sıfırlamayı eziyordu (aynı karede state machine Player'dan
+	# SONRA işlenirse). Artık her iki durumda da state machine/animation tree de aynı sertlikte
+	# durduruluyor — hangi popup olursa olsun oyuncu asla "arka planda" yürüyemiyor.
+	var should_lock := _ui_locked or menu_open
+	if state_machine:
+		state_machine.set_process(not should_lock)
+		state_machine.set_physics_process(not should_lock)
+	if animation_tree:
+		animation_tree.active = not should_lock
+	if should_lock:
 		if not _ui_lock_logged_once:
 			var reason: String = ""
 			if _ui_locked:

@@ -26,6 +26,7 @@ var debug_draw_enabled: bool = OS.is_debug_build()
 
 var _hud: Control = null
 var _collectibles_hud: Control = null
+var _collectibles_hud_owned: bool = false  # false: game_ui.tscn'deki kalıcı display benimsendi, silme
 
 
 func _process(delta: float) -> void:
@@ -248,8 +249,16 @@ func _ensure_collectibles_hud() -> void:
 	if parent == null:
 		return
 
+	# game_ui.tscn artık bu display'i kalıcı içeriyor; varsa yenisini ekleme, onu kullan.
+	var existing: Node = parent.get_node_or_null("DungeonCollectiblesDisplay")
+	if existing != null:
+		_collectibles_hud = existing
+		_collectibles_hud_owned = false
+		return
+
 	_collectibles_hud = COLLECTIBLES_HUD_SCRIPT.new()
 	_collectibles_hud.name = "DungeonCollectiblesDisplay"
+	_collectibles_hud_owned = true
 	parent.add_child(_collectibles_hud)
 
 
@@ -261,6 +270,7 @@ func _remove_hud() -> void:
 
 
 func _remove_collectibles_hud() -> void:
-	if _collectibles_hud != null and is_instance_valid(_collectibles_hud):
+	if _collectibles_hud_owned and _collectibles_hud != null and is_instance_valid(_collectibles_hud):
 		_collectibles_hud.queue_free()
 	_collectibles_hud = null
+	_collectibles_hud_owned = false
