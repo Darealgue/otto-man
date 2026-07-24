@@ -34,6 +34,11 @@ const WORLD_MAP_OVERLAY_CANVAS_LAYER_MIN: int = 110
 var _wm_overlay_restore_village_visible: bool = true
 ## CanvasLayer üst düğüm visible=false'dan etkilenmez; köy CanvasLayer'larını tek tek gizleriz.
 var _wm_overlay_village_canvas_visibility_backup: Array = []
+## OverheadUiTracker (bina/NPC etkileşim okları, isim plakaları) içeriğini tree.root'a bağlı,
+## sahneden bağımsız kalıcı bir CanvasLayer'da tutar (bkz. overhead_ui_tracker.gd) — bu yüzden
+## köy sahnesinin altındaki CanvasLayer'ları gizleyen döngüye hiç girmez, ayrıca gizlenmesi gerekir.
+const _WM_OVERLAY_OVERHEAD_UI_CANVAS_NAME := "OverheadUiCanvas"
+var _wm_overlay_overhead_canvas_prev_visible: bool = true
 var _wm_overlay_open_game_minutes: int = -1
 var _wm_overlay_session_left_village_hex: bool = false
 var _wm_overlay_departure_snapshot_done: bool = false
@@ -471,6 +476,7 @@ func open_world_map_overlay_from_village(payload: Dictionary = {}) -> void:
 	cs.visible = false
 	_wm_overlay_village_canvas_visibility_backup.clear()
 	_hide_village_canvas_layers_for_world_map_overlay(cs)
+	_hide_overhead_ui_canvas_for_world_map_overlay()
 	_wm_overlay_session_left_village_hex = false
 	_wm_overlay_departure_snapshot_done = false
 	var tm_open: Node = get_node_or_null(TimeManagerPath)
@@ -649,12 +655,28 @@ func _restore_village_canvas_layers_visibility_after_overlay() -> void:
 	_wm_overlay_village_canvas_visibility_backup.clear()
 
 
+func _hide_overhead_ui_canvas_for_world_map_overlay() -> void:
+	var layer := get_tree().root.get_node_or_null(_WM_OVERLAY_OVERHEAD_UI_CANVAS_NAME) as CanvasLayer
+	if not is_instance_valid(layer):
+		return
+	_wm_overlay_overhead_canvas_prev_visible = layer.visible
+	layer.visible = false
+
+
+func _restore_overhead_ui_canvas_after_world_map_overlay() -> void:
+	var layer := get_tree().root.get_node_or_null(_WM_OVERLAY_OVERHEAD_UI_CANVAS_NAME) as CanvasLayer
+	if not is_instance_valid(layer):
+		return
+	layer.visible = _wm_overlay_overhead_canvas_prev_visible
+
+
 func _dismiss_world_map_overlay_if_present() -> void:
 	if not is_instance_valid(_world_map_overlay_instance):
 		return
 	var cs: Node = get_tree().current_scene
 	var overlay_inst: Node = _world_map_overlay_instance
 	_restore_village_canvas_layers_visibility_after_overlay()
+	_restore_overhead_ui_canvas_after_world_map_overlay()
 	if cs != null:
 		cs.visible = _wm_overlay_restore_village_visible
 		cs.process_mode = Node.PROCESS_MODE_INHERIT
@@ -914,19 +936,24 @@ func clear_payload() -> void:
 	current_payload.clear()
 
 func _change_scene(target_path: String, force_reload: bool = false) -> void:
-	_dismiss_world_map_overlay_if_present()
 	if target_path == "":
 		push_warning("SceneManager: Hedef sahne yolu boş")
+		_dismiss_world_map_overlay_if_present()
 		return
 	if not ResourceLoader.exists(target_path):
 		push_error("SceneManager: Sahne bulunamadı -> %s" % target_path)
+		_dismiss_world_map_overlay_if_present()
 		return
 	var same_scene := current_scene_path == target_path
 	if same_scene and not force_reload:
 		print("[SceneManager] same scene request, ignoring", target_path)
+		_dismiss_world_map_overlay_if_present()
 		return
-	
+
+	# Ekran tam kararana KADAR overlay'i kapatma — aksi halde köy sahnesi bir anlığına
+	# (oyuncu donmuş/zıplama tuşuyla havadayken) siyah perdenin altından görünüyordu.
 	await _show_loading_screen(_get_scene_name(target_path))
+	_dismiss_world_map_overlay_if_present()
 	await _perform_scene_change(target_path, same_scene and force_reload)
 
 func _show_loading_screen(scene_name: String = "") -> void:

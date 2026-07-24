@@ -99,10 +99,14 @@ func clear_speech() -> void:
 
 
 func _normalize_speech_bbcode(bbcode: String) -> String:
+	# CSV çevirilerindeki literal "\n" (backslash+n) Godot'un import sürecinde gerçek
+	# satır sonuna dönüşmüyor; burada elle çeviriyoruz, aksi halde metin tek satırda
+	# kutunun dışına taşıyor ("\n" karakterleri de ekranda görünüyor).
+	var out := bbcode.replace("\\n", "\n")
 	var re := RegEx.new()
 	if re.compile("(?i)\\[color=#c8c8c8\\](.*?)\\[/color\\]") != OK:
-		return bbcode
-	return re.sub(bbcode, "$1", true)
+		return out
+	return re.sub(out, "$1", true)
 
 
 func _apply_visibility() -> void:

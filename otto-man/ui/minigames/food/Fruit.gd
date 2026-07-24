@@ -28,7 +28,15 @@ var _spawn_time: float = 0.0  # Spawn zamanı
 var _collision_delay: float = 1.0  # İlk 1 saniye collision kapalı (dallardan geçmek için)
 ## Çarpışma (monitoring) açıldıktan sonra bu kadar saniye daha toplanamaz — spawn anında sayaç bug'ını önler.
 var _pickup_cooldown_after_collision: float = 0.22
-var _hit_ground: bool = false  # Yere değdi mi?
+var _hit_ground: bool = false  # Yere kalıcı olarak değdi mi (artık bozulmuş)?
+## Meyve ilk yere temasta bir kez seksin, ikinci temasta bozulsun.
+var _bounce_count: int = 0
+const _MAX_BOUNCES: int = 1
+const _BOUNCE_VERTICAL_DAMPING: float = 0.42
+const _BOUNCE_HORIZONTAL_DAMPING: float = 0.55
+## Sekmeden hemen sonra raycast'in aynı temas noktasını tekrar "yere değme" sanmasını önler.
+var _post_bounce_grace: float = 0.0
+const _POST_BOUNCE_GRACE_DURATION: float = 0.15
 var _ground_hit_time: float = 0.0  # Yere değme zamanı
 var _ground_fade_duration: float = 5.0  # Yere değdikten sonra kaybolma süresi (5 saniye)
 var _ground_hit_position: Vector2 = Vector2.ZERO  # Yere değdiği pozisyon
@@ -98,6 +106,8 @@ func launch_from_bush(bush_pos: Vector2, fill_value: float, rng: RandomNumberGen
 	# Yere değme durumunu sıfırla
 	_hit_ground = false
 	_ground_hit_time = 0.0
+	_bounce_count = 0
+	_post_bounce_grace = 0.0
 	
 	# 1 saniye sonra collision'ı aç
 	call_deferred("_enable_collision_after_delay")
@@ -189,6 +199,8 @@ func _process(delta: float) -> void:
 	
 	_air_time += delta
 	_spawn_time += delta  # Spawn zamanını güncelle
+	if _post_bounce_grace > 0.0:
+		_post_bounce_grace = maxf(0.0, _post_bounce_grace - delta)
 	
 	# Yere değdiyse fade out animasyonu
 	if _hit_ground:
@@ -229,6 +241,9 @@ func _check_ground_collision() -> void:
 	# Collision delay süresi dolmadan önce yere değme kontrolü yapma
 	if _spawn_time < _collision_delay:
 		return
+	# Az önce sektiyse, henüz yerden yeterince uzaklaşmadan tekrar "yere değdi" sanmasın.
+	if _post_bounce_grace > 0.0:
+		return
 	
 	# Raycast ile yere değip değmediğini kontrol et
 	var space_state := get_world_2d().direct_space_state
@@ -248,8 +263,13 @@ func _check_ground_collision() -> void:
 
 func _on_ground_hit() -> void:
 	if _hit_ground:
-		return  # Zaten yere değmiş
-	
+		return  # Zaten yere değmiş (kalıcı olarak)
+
+	if _bounce_count < _MAX_BOUNCES:
+		_bounce_count += 1
+		_bounce_fruit()
+		return
+
 	_hit_ground = true
 	_ground_hit_time = 0.0
 	
@@ -297,6 +317,18 @@ func _on_ground_hit() -> void:
 	# Minigame'e bildir - yere düşen meyve artık aktif değil
 	if _minigame_ref != null and is_instance_valid(_minigame_ref) and _minigame_ref.has_method("_on_fruit_grounded"):
 		_minigame_ref._on_fruit_grounded(self)
+
+## İlk yere temasta meyveyi bozmak yerine hafifçe seker; ikinci temasta _on_ground_hit()
+## artık _bounce_count >= _MAX_BOUNCES olduğu için normal (kalıcı) yere düşme akışına girer.
+func _bounce_fruit() -> void:
+	if _ground_hit_position != Vector2.ZERO:
+		global_position = _ground_hit_position
+	_ground_hit_position = Vector2.ZERO
+	_initial_velocity.y = -absf(_initial_velocity.y) * _BOUNCE_VERTICAL_DAMPING
+	_initial_velocity.x *= _BOUNCE_HORIZONTAL_DAMPING
+	_rotation_speed *= 0.5
+	_post_bounce_grace = _POST_BOUNCE_GRACE_DURATION
+
 
 func collect() -> void:
 	if _is_collected:

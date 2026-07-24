@@ -232,21 +232,24 @@ func _show_message(message: String) -> void:
 func _get_commander_force_bonus() -> Dictionary:
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null or not mm.has_method("get_concubines_by_role"):
-		return {"attack_bonus": 0.0, "defense_bonus": 0.0}
+		return {"attack_bonus": 0.0, "defense_bonus": 0.0, "commander_name": ""}
 	var komutanlar: Array = mm.get_concubines_by_role(Concubine.Role.KOMUTAN)
 	var best_skill: int = -1
+	var best_name: String = ""
 	for cariye in komutanlar:
 		if cariye == null or not ("status" in cariye) or cariye.status != Concubine.Status.BOŞTA:
 			continue
 		var skill: int = cariye.get_skill_level(Concubine.Skill.SAVAŞ)
 		if skill > best_skill:
 			best_skill = skill
+			best_name = String(cariye.name) if "name" in cariye else ""
 	if best_skill < 0:
-		return {"attack_bonus": 0.0, "defense_bonus": 0.0}
+		return {"attack_bonus": 0.0, "defense_bonus": 0.0, "commander_name": ""}
 	var skill_norm: float = clampf(float(best_skill) / 100.0, 0.0, 1.0)
 	return {
 		"attack_bonus": 0.10 + 0.30 * skill_norm,
 		"defense_bonus": 0.08 + 0.22 * skill_norm,
+		"commander_name": best_name,
 	}
 
 
@@ -279,6 +282,7 @@ func get_military_force() -> Dictionary:
 	var commander_bonus: Dictionary = _get_commander_force_bonus()
 	attack_bonus += float(commander_bonus.get("attack_bonus", 0.0))
 	defense_bonus += float(commander_bonus.get("defense_bonus", 0.0))
+	var commander_name: String = String(commander_bonus.get("commander_name", ""))
 	# Hayatta kalma ihtimali: donanımlı askerler arasında ağırlıklı ortalama
 	var survival_bonus: float = (survival_weighted / float(equipped_total)) if equipped_total > 0 else 0.0
 	
@@ -304,6 +308,7 @@ func get_military_force() -> Dictionary:
 		},
 		"attack_bonus": attack_bonus,
 		"defense_bonus": defense_bonus,
+		"commander_name": commander_name,  # boşsa aktif Komutan yok (bkz. _get_commander_force_bonus)
 		"survival_bonus": survival_bonus,  # kayıp anında hayatta kalma ihtimali (bkz. remove_soldiers)
 		"morale_multiplier": morale_multiplier,
 		"supplies": {"bread": vm.resource_levels.get("bread", 0), "food": vm.resource_levels.get("food", 0)},

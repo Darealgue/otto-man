@@ -9,7 +9,6 @@ extends Control
 @onready var _load_game_button: Button = $CenterContainer/Menu/Buttons/LoadGameButton
 @onready var _settings_button: Button = $CenterContainer/Menu/Buttons/SettingsButton
 @onready var _quit_button: Button = $CenterContainer/Menu/Buttons/QuitButton
-@onready var _subtitle_label: Label = $CenterContainer/Menu/Subtitle
 @onready var _load_game_menu: Control = $LoadGameMenu
 var _settings_menu: Control = null
 var _profile_menu: Control = null
@@ -19,9 +18,19 @@ var _profile_opened_for_new_game: bool = true
 var _intro_dismissed: bool = false
 var _intro_tween: Tween = null
 var _cold_start_fading: bool = false
+var _cold_start_tween: Tween = null
+var _disclaimer_panel: PanelContainer = null
+var _disclaimer_title_label: Label = null
+var _disclaimer_body_label: Label = null
+var _disclaimer_hint_label: Label = null
+## Saf siyah ekranda uyarı metni gösterilirken true — bu sırada henüz ne "herhangi bir tuşa
+## bas" ekranı ne de menü animasyonu başlamış olur (bkz. _play_disclaimer_phase).
+var _in_disclaimer_phase: bool = false
+var _disclaimer_skip_requested: bool = false
 
 const INTRO_REVEAL_DURATION: float = 0.55
 const COLD_START_FADE_DURATION: float = 4.8
+const DISCLAIMER_FADE_OUT_DURATION: float = 0.35
 
 func _ready() -> void:
 	if not _validate_nodes():
@@ -75,21 +84,114 @@ func _play_startup_fade_if_needed() -> void:
 	if not is_instance_valid(_intro_fade):
 		return
 
-	_cold_start_fading = true
 	_intro_fade.show()
 	_intro_fade.color = Color(0, 0, 0, 1)
 	_intro_fade.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var tween := create_tween()
-	tween.set_ease(Tween.EASE_IN)
-	tween.set_trans(Tween.TRANS_SINE)
-	tween.tween_property(_intro_fade, "color:a", 0.0, COLD_START_FADE_DURATION)
+	# Aşama 1: saf siyah ekran + erken erişim uyarısı — menü/animasyon henüz yok.
+	await _play_disclaimer_phase()
+
+	# Aşama 2: uyarı tamamen söndükten SONRA asıl açılış animasyonu (siyah ekran açılır,
+	# "herhangi bir tuşa bas" belirir) başlar — ikisi artık üst üste binmiyor.
+	_cold_start_fading = true
+	_cold_start_tween = create_tween()
+	_cold_start_tween.set_ease(Tween.EASE_IN)
+	_cold_start_tween.set_trans(Tween.TRANS_SINE)
+	_cold_start_tween.tween_property(_intro_fade, "color:a", 0.0, COLD_START_FADE_DURATION)
 	if _press_prompt:
-		tween.parallel().tween_property(_press_prompt, "modulate:a", 1.0, COLD_START_FADE_DURATION)
-	await tween.finished
+		_cold_start_tween.parallel().tween_property(_press_prompt, "modulate:a", 1.0, COLD_START_FADE_DURATION)
+	await _cold_start_tween.finished
 
 	_clear_intro_fade()
 	_cold_start_fading = false
+	_cold_start_tween = null
+
+
+## Aşama 1: saf siyah ekranda erken erişim uyarısını gösterir; oyuncu bilinçli olarak bir
+## tuşa/gamepad butonuna basana kadar (otomatik zaman aşımı YOK) bekler, sonra yazıyı
+## söndürüp döner.
+func _play_disclaimer_phase() -> void:
+	_show_early_access_disclaimer()
+	if not is_instance_valid(_disclaimer_panel):
+		return
+	_disclaimer_panel.modulate.a = 1.0
+	_disclaimer_panel.show()
+	_in_disclaimer_phase = true
+	_disclaimer_skip_requested = false
+
+	while not _disclaimer_skip_requested:
+		await get_tree().process_frame
+		if not is_instance_valid(self):
+			return
+
+	_in_disclaimer_phase = false
+	var fade_tween := create_tween()
+	fade_tween.tween_property(_disclaimer_panel, "modulate:a", 0.0, DISCLAIMER_FADE_OUT_DURATION)
+	await fade_tween.finished
+	_disclaimer_panel.hide()
+
+
+## Soğuk açılışta (gerçek oyun başlangıcı, menüye oyun içinden dönüşte DEĞİL) siyah ekranın
+## üzerinde bir kerelik "erken erişim/test sürümü" uyarısı gösterir — parşömen çerçeveli,
+## başlık + gövde + "devam" ipucu satırından oluşan süslü bir panel.
+func _show_early_access_disclaimer() -> void:
+	if is_instance_valid(_disclaimer_panel):
+		return
+	if not is_instance_valid(_intro_fade):
+		return
+
+	_disclaimer_panel = PanelContainer.new()
+	_disclaimer_panel.anchor_left = 0.5
+	_disclaimer_panel.anchor_right = 0.5
+	_disclaimer_panel.anchor_top = 0.5
+	_disclaimer_panel.anchor_bottom = 0.5
+	_disclaimer_panel.offset_left = -360
+	_disclaimer_panel.offset_right = 360
+	_disclaimer_panel.offset_top = -150
+	_disclaimer_panel.offset_bottom = 150
+	_disclaimer_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ParchmentTextures.apply_large_panel_style(_disclaimer_panel, 20)
+	_intro_fade.add_child(_disclaimer_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_top", 22)
+	margin.add_theme_constant_override("margin_bottom", 22)
+	_disclaimer_panel.add_child(margin)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(col)
+
+	_disclaimer_title_label = Label.new()
+	_disclaimer_title_label.text = tr("menu.early_access_title")
+	_disclaimer_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_disclaimer_title_label.add_theme_font_size_override("font_size", 27)
+	_disclaimer_title_label.add_theme_color_override("font_color", Color(0.95, 0.82, 0.45, 1.0))
+	col.add_child(_disclaimer_title_label)
+
+	var divider := ColorRect.new()
+	divider.custom_minimum_size = Vector2(0, 2)
+	divider.color = Color(0.78, 0.64, 0.32, 0.85)
+	col.add_child(divider)
+
+	_disclaimer_body_label = Label.new()
+	_disclaimer_body_label.text = tr("menu.early_access_disclaimer")
+	_disclaimer_body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_disclaimer_body_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_disclaimer_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_disclaimer_body_label.add_theme_font_size_override("font_size", 17)
+	_disclaimer_body_label.add_theme_color_override("font_color", Color(0.9, 0.86, 0.76, 1.0))
+	col.add_child(_disclaimer_body_label)
+
+	_disclaimer_hint_label = Label.new()
+	_disclaimer_hint_label.text = tr("menu.early_access_continue_hint")
+	_disclaimer_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_disclaimer_hint_label.add_theme_font_size_override("font_size", 12)
+	_disclaimer_hint_label.modulate = Color(1, 1, 1, 0.55)
+	col.add_child(_disclaimer_hint_label)
 
 
 func _clear_intro_fade() -> void:
@@ -101,18 +203,38 @@ func _clear_intro_fade() -> void:
 
 
 func _process(_delta: float) -> void:
-	if _cold_start_fading or _intro_dismissed or not is_instance_valid(_press_prompt) or not _press_prompt.visible:
+	if _cold_start_fading or _in_disclaimer_phase or _intro_dismissed or not is_instance_valid(_press_prompt) or not _press_prompt.visible:
 		return
 	var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.004)
 	_press_prompt.modulate.a = pulse
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _cold_start_fading or _intro_dismissed:
+	if not _is_intro_dismiss_input(event):
 		return
-	if _is_intro_dismiss_input(event):
+	# Diğer menülerdeki (ör. DungeonRunReport) "tuşa bas = oynayan animasyonu atla" davranışıyla
+	# tutarlı: ne uyarı ekranı ne de soğuk açılış fade'i artık sonuna kadar beklemeyi zorlamıyor.
+	if _in_disclaimer_phase:
 		get_viewport().set_input_as_handled()
-		_dismiss_intro()
+		_disclaimer_skip_requested = true
+		return
+	if _cold_start_fading:
+		get_viewport().set_input_as_handled()
+		_skip_cold_start_fade()
+		return
+	if _intro_dismissed:
+		return
+	get_viewport().set_input_as_handled()
+	_dismiss_intro()
+
+
+## `Tween.custom_step` ile devam eden fade'i anında hedef değerlerine sıçratır — kill()'in
+## aksine bu, "finished" sinyalini de tetikler, böylece _play_startup_fade_if_needed()
+## içindeki `await tween.finished` normal şekilde devam eder.
+func _skip_cold_start_fade() -> void:
+	if not _cold_start_fading or not is_instance_valid(_cold_start_tween) or not _cold_start_tween.is_valid():
+		return
+	_cold_start_tween.custom_step(COLD_START_FADE_DURATION + 1.0)
 
 
 func _is_intro_dismiss_input(event: InputEvent) -> bool:
@@ -176,8 +298,12 @@ func _connect_signals() -> void:
 func _refresh_locale(_locale: String = "") -> void:
 	if _press_prompt:
 		_press_prompt.text = tr("menu.press_any_button")
-	if _subtitle_label:
-		_subtitle_label.text = tr("menu.subtitle")
+	if is_instance_valid(_disclaimer_title_label):
+		_disclaimer_title_label.text = tr("menu.early_access_title")
+	if is_instance_valid(_disclaimer_body_label):
+		_disclaimer_body_label.text = tr("menu.early_access_disclaimer")
+	if is_instance_valid(_disclaimer_hint_label):
+		_disclaimer_hint_label.text = tr("menu.early_access_continue_hint")
 	if _new_game_button:
 		_new_game_button.text = tr("menu.new_game")
 	if _load_game_button:

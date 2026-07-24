@@ -6,7 +6,9 @@ const WoodcutHurtbox = preload("res://ui/minigames/wood/WoodcutHurtbox.gd")
 const FALLING_LEAF_SCENE := preload("res://ui/minigames/wood/falling_leaf.tscn")
 const WOOD_PIECE_SCENE := preload("res://ui/minigames/wood/wood_piece.tscn")
 const FALLING_LEAF_ANIMATOR_SCRIPT := preload("res://ui/minigames/wood/FallingLeafAnimator.gd")
-const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
+## FallingLeafAnimator ile aynı desen: script wood_piece.tscn'e GÖMÜLMEK yerine instantiate
+## sonrası set_script() ile bağlanıyor (bu klasördeki köylü/kanıtlanmış desen).
+const RESOURCE_PIECE_SCRIPT := preload("res://ui/minigames/resource_piece.gd")
 
 @export var base_indicator_speed: float = 0.65
 @export var indicator_speed_variation: float = 0.45
@@ -123,13 +125,15 @@ func _attempt_heavy_strike(_hitbox: PlayerHitbox) -> void:
 			var amount := 2 if (_misses == 0 and _hits >= _required_hits) else 1
 			_cleanup_gauge()
 			_play_tree_fall_animation()
-			_spawn_wood_pieces()
-			_show_resource_gain_text(amount)
+			# Odun artık otomatik envantere eklenmiyor — ağaç devrilince parçalar etrafa
+			# saçılır, oyuncu fiziksel olarak üzerlerine gidip toplamalı (bkz. resource_piece.gd).
+			# Bu yüzden emit_result payload'ında resource_type/amount YOK; MinigameRouter'ın
+			# otomatik envanter ekleme mantığı tetiklenmesin diye.
+			_spawn_wood_pieces(amount)
 			emit_result(true, {
-				"resource_type": _resource_type,
-				"amount": amount,
 				"hits": _hits,
 				"misses": _misses,
+				"pieces_spawned": amount,
 			})
 	else:
 		_misses += 1
@@ -406,65 +410,11 @@ func _spawn_leaf_effect() -> void:
 		# Debug log
 		print("[WoodRhythm] Leaf spawned at: ", spawn_pos, " tree_pos: ", _tree_sprite.global_position if _tree_sprite else "null", " anim_sprite.playing: ", anim_sprite.is_playing(), " leaf.visible: ", leaf.visible)
 
-func _show_resource_gain_text(amount: int) -> void:
-	# Ağacın tepesinde "+1" veya "+2" floating text göster
-	if not _tree_node or not is_instance_valid(_tree_node):
-		return
-	
-	var damage_number := DAMAGE_NUMBER_SCENE.instantiate()
-	if not damage_number:
-		return
-	
-	# Ağacın tepesinde spawn pozisyonu
-	var tree_pos := _tree_node.global_position
-	var text_pos := Vector2(tree_pos.x, tree_pos.y - 100.0)  # Ağacın tepesinde
-	
-	# Scene'e ekle (chunk sistemine uygun)
-	var spawn_parent: Node = null
-	if _tree_node and _tree_node.get_parent():
-		spawn_parent = _tree_node.get_parent()
-	else:
-		spawn_parent = get_tree().current_scene
-	
-	if spawn_parent:
-		spawn_parent.add_child(damage_number)
-		damage_number.global_position = text_pos
-		damage_number.z_index = 200000  # Çok yüksek z-index
-		
-		# "+1" veya "+2" text'i göster (yeşil renk)
-		var label := damage_number.get_node_or_null("Label") as Label
-		if label:
-			# setup() çağrısını yap (animasyon için gerekli)
-			if damage_number.has_method("setup"):
-				damage_number.setup(amount, false, false)
-			# setup() text'i değiştirdi, tekrar "+" ekle
-			label.text = "+" + str(amount)
-			label.modulate = Color(0.2, 1.0, 0.2)  # Yeşil renk
-
-func _spawn_wood_pieces() -> void:
-	# Ağaç kesildiğinde tahta parçaları fırlar
-	print("[WoodRhythm] WOOD PIECES SPAWN DEBUG - Tree position check:")
-	print("  - _tree_node exists: ", _tree_node != null)
-	if _tree_node:
-		print("  - tree_node.global_position: ", _tree_node.global_position)
-		print("  - tree_node.is_inside_tree: ", _tree_node.is_inside_tree())
-		print("  - tree_node.visible: ", _tree_node.visible)
-	print("  - _tree_sprite exists: ", _tree_sprite != null)
-	if _tree_sprite:
-		print("  - tree_sprite.global_position: ", _tree_sprite.global_position)
-		print("  - tree_sprite.position (local): ", _tree_sprite.position)
-
-	var camera := get_viewport().get_camera_2d()
-	if camera:
-		print("  - camera.global_position: ", camera.global_position)
-
-	var scene_root := get_tree().current_scene
-	print("  - scene_root: ", scene_root)
-	print("  - scene_root.is_inside_tree: ", scene_root.is_inside_tree() if scene_root else "null")
-
-	var wood_count := _rng.randi_range(4, 6)
-	print("  - spawning ", wood_count, " wood pieces")
-	for i in range(wood_count):
+## amount: bu turda kazanılan odun sayısı — tam olarak bu kadar toplanabilir parça saçılır
+## (eskiden 4-6 arası dekoratif parça + ayrı bir sayı otomatik envantere ekleniyordu).
+func _spawn_wood_pieces(amount: int) -> void:
+	print("[WoodRhythm] spawning ", amount, " collectible wood pieces")
+	for i in range(amount):
 		_spawn_wood_piece_effect()
 
 func _spawn_wood_piece_effect() -> void:
@@ -507,7 +457,6 @@ func _spawn_wood_piece_effect() -> void:
 	print("  - spawn_parent: ", spawn_parent, " (from tree_node parent)")
 
 	if spawn_parent:
-		wood_piece.global_position = spawn_pos
 		wood_piece.z_index = 100000  # Çok yüksek z-index
 		wood_piece.visible = true
 		# Boyut ayarını değiştirme - senin ayarladığın boyutu kullan
@@ -539,7 +488,29 @@ func _spawn_wood_piece_effect() -> void:
 		# Sprite ayarları
 		sprite.visible = true
 
+		# Toplanabilirlik scripti sahneye eklenmeden ÖNCE bağlanıyor — _ready() bildirimi
+		# ancak node İLK KEZ ağaca girerken script zaten bağlıysa güvenilir şekilde çalışır
+		# (bkz. forest_level_generator.gd'deki kamera kodu: zaten ağaçta olan bir düğüme
+		# set_script() sonradan çağrıldığında _ready() tekrar tetiklenmiyor, force_init()
+		# ile elle çağırmak gerekiyordu — burada aynı tuzağa düşmemek için önce script,
+		# sonra add_child sırası kullanılıyor).
+		wood_piece.set_script(RESOURCE_PIECE_SCRIPT)
+		wood_piece.set("resource_type", "wood")
+		if wood_piece.has_method("set_minigame_ref"):
+			wood_piece.set_minigame_ref(self)
 		spawn_parent.add_child(wood_piece)
+		# KRİTİK: global_position ancak add_child'dan SONRA atanabilir — node ağaca girmeden
+		# önce set edilirse Godot parent'ı yok sayıp bunu düz "position" olarak yazıyor, sonra
+		# add_child ile spawn_parent'ın (chunk) kendi pozisyonu buna tekrar ekleniyor; parça
+		# ağaçtan bir chunk genişliği (~4096px) kadar uzağa, ekran dışına düşüyordu — hiç
+		# görünmemesinin sebebi buydu.
+		wood_piece.global_position = spawn_pos
+		# await'ten ÖNCE, senkron kontrol — minigame bu satırdan hemen sonra queue_free
+		# olsa bile bu print her zaman basılır (bkz. tekrarlanan "hâlâ yok" raporları).
+		print("[WoodRhythm] Wood piece added to tree, immediate check: is_inside_tree=",
+			wood_piece.is_inside_tree(), " has_script=", wood_piece.get_script() != null,
+			" visible=", wood_piece.visible, " global_pos=", wood_piece.global_position,
+			" child_count=", wood_piece.get_child_count())
 
 		# Spawn sonrası detaylı kontrol
 		await get_tree().process_frame
@@ -558,12 +529,7 @@ func _spawn_wood_piece_effect() -> void:
 		print("  - sprite.z_index: ", sprite.z_index)
 		print("  - camera_pos: ", get_viewport().get_camera_2d().global_position if get_viewport().get_camera_2d() else "null")
 
-		# Bir süre sonra otomatik sil (performans için)
-		var timer := wood_piece.get_tree().create_timer(10.0)
-		timer.timeout.connect(func():
-			if is_instance_valid(wood_piece):
-				wood_piece.queue_free()
-		)
+		# Otomatik silinme artık resource_piece.gd'nin kendi MAX_LIFETIME süresiyle yönetiliyor.
 
 		# Debug log
 	print("[WoodRhythm] Wood piece spawned at: ", spawn_pos, " tree_pos: ", _tree_sprite.global_position if _tree_sprite else "null")

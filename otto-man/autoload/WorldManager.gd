@@ -4753,10 +4753,10 @@ func _get_periodic_raid_base_strength(kind: String, day: int) -> float:
 ## dalgalanabiliyor — az yiyecek/silah stoğu varken bile 5 askerle bile ~%40 gibi haksız
 ## sonuçlar verebiliyor) burada KULLANILMIYOR; bunun yerine sadece asker sayısına dayanan,
 ## makul bir garnizonla güvenli hissettiren basit bir formül kullanılıyor.
-func _estimate_periodic_raid_win_chance(atk_units: int, def_units: int, alliance_defender: bool = false, defender_count: int = 0) -> float:
+func _estimate_periodic_raid_win_chance(atk_units: int, def_units: int, alliance_defender: bool = false, defender_count: int = 0, def_force_bonus: float = 0.0) -> float:
 	if def_units <= 0:
 		return 0.0
-	var def_power: float = float(def_units) * 1.6
+	var def_power: float = float(def_units) * 1.6 * (1.0 + def_force_bonus)
 	if alliance_defender:
 		def_power *= (1.0 + 0.10 * float(mini(defender_count, 3)))
 	var atk_power: float = float(maxi(atk_units, 1)) * 1.0
@@ -4764,16 +4764,22 @@ func _estimate_periodic_raid_win_chance(atk_units: int, def_units: int, alliance
 
 
 ## Periyodik haydut/kurt baskınının gerçek savaş sonucunu üretir (CombatResolver'ı atlar —
-## sebep için bkz. _estimate_periodic_raid_win_chance).
+## sebep için bkz. _estimate_periodic_raid_win_chance). `defender_force.defense_bonus` (silah
+## seviyesi + boştaki Komutan cariye bonusu, bkz. Barracks._get_commander_force_bonus) burada
+## kazanma şansına VE kayıp oranlarına yansıtılır — CombatResolver'ı atlasa da bu bonuları
+## görmezden gelmez.
 func _resolve_periodic_raid_battle(attacker_force: Dictionary, defender_force: Dictionary, alliance_defender: bool, defender_count: int) -> Dictionary:
 	var atk_units: int = int(attacker_force.get("units", {}).get("infantry", 0)) + int(attacker_force.get("units", {}).get("archers", 0))
 	var def_units: int = int(defender_force.get("units", {}).get("soldiers", 0))
-	var win_chance: float = _estimate_periodic_raid_win_chance(atk_units, def_units, alliance_defender, defender_count)
+	var def_force_bonus: float = float(defender_force.get("defense_bonus", 0.0))
+	var win_chance: float = _estimate_periodic_raid_win_chance(atk_units, def_units, alliance_defender, defender_count, def_force_bonus)
 	var defender_wins: bool = randf() < win_chance
+	var loss_mult: float = clampf(1.0 - def_force_bonus * 0.5, 0.4, 1.0)
+	var enemy_loss_mult: float = 1.0 + def_force_bonus * 0.5
 	return {
 		"victor": "defender" if defender_wins else "attacker",
-		"defender_losses": int(max(0, round(float(def_units) * randf_range(0.0, 0.25)))) if def_units > 0 else 0,
-		"attacker_losses": int(max(0, round(float(atk_units) * randf_range(0.3, 0.7)))),
+		"defender_losses": int(max(0, round(float(def_units) * randf_range(0.0, 0.25) * loss_mult))) if def_units > 0 else 0,
+		"attacker_losses": int(max(0, round(float(atk_units) * randf_range(0.3, 0.7) * enemy_loss_mult))),
 		"alliance_defender": alliance_defender,
 		"alliance_defender_count": defender_count
 	}
@@ -5457,6 +5463,9 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 		var win_content: String = "%s saldırısı püskürtüldü! Kayıplar: %d asker. Köy zarar görmedi." % [attacker_faction, defender_losses]
 		if soldiers_disarmed > 0:
 			win_content += " Savaşta %d asker silahını kaybetti (stokta yedek kalmadı)." % soldiers_disarmed
+		var commander_name_win: String = String(defender_force.get("commander_name", ""))
+		if not commander_name_win.is_empty():
+			win_content += " Komutan %s savunmaya önderlik etti." % commander_name_win
 		_post_world_news({
 			"category": "world",
 			"subcategory": "success",
@@ -5530,11 +5539,16 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 		loss_parts.append("%d moral" % abs(morale_delta))
 		var loss_text: String = ", ".join(loss_parts)
 
+		var loss_content: String = "%s saldırısı köye zarar verdi! Kayıplar: %d asker, %s." % [attacker_faction, defender_losses, loss_text]
+		var commander_name_loss: String = String(defender_force.get("commander_name", ""))
+		if not commander_name_loss.is_empty():
+			loss_content += " Komutan %s savunmaya önderlik etti, yine de yetmedi." % commander_name_loss
+
 		_post_world_news({
 			"category": "world",
 			"subcategory": "critical",
 			"title": "❌ Savunma Başarısız",
-			"content": "%s saldırısı köye zarar verdi! Kayıplar: %d asker, %s." % [attacker_faction, defender_losses, loss_text],
+			"content": loss_content,
 			"day": day
 		})
 

@@ -8,6 +8,9 @@ const STORY_STAGE3_LEVERAGE: int = 7
 const STORY_STAGE3_LEVEL: int = 5
 
 
+## Rol KAZANILDIKTAN SONRA açılan, o role özel iki imza görevi — eğitim görevinden bilinçli
+## olarak çok daha zor ve günler süren, ama çok daha ödüllü (bkz. LIVING_WORLD_PLAN.md'deki
+## "tek skill, dört sonuç" felsefesiyle uyumlu: rol kazanmak gerçek bir yatırım karşılığı olmalı).
 static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 	match role:
 		Concubine.Role.KOMUTAN:
@@ -16,17 +19,17 @@ static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 					"name_key": "mission.role.komutan.1.name",
 					"desc_key": "mission.role.komutan.1.desc",
 					"type": Mission.MissionType.SAVAŞ,
-					"duration": 140.0,
-					"success": 0.78,
-					"rewards": {"gold": 16, "reputation": 2},
+					"duration": 1440.0,
+					"success": 0.62,
+					"rewards": {"gold": 60, "reputation": 6},
 				},
 				{
 					"name_key": "mission.role.komutan.2.name",
 					"desc_key": "mission.role.komutan.2.desc",
 					"type": Mission.MissionType.SAVAŞ,
-					"duration": 180.0,
-					"success": 0.72,
-					"rewards": {"gold": 22, "reputation": 3},
+					"duration": 2160.0,
+					"success": 0.55,
+					"rewards": {"gold": 90, "reputation": 10},
 				},
 			]
 		Concubine.Role.AJAN:
@@ -35,17 +38,17 @@ static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 					"name_key": "mission.role.ajan.1.name",
 					"desc_key": "mission.role.ajan.1.desc",
 					"type": Mission.MissionType.KEŞİF,
-					"duration": 130.0,
-					"success": 0.8,
-					"rewards": {"gold": 14, "wood": 1},
+					"duration": 1440.0,
+					"success": 0.64,
+					"rewards": {"gold": 55, "wood": 4},
 				},
 				{
 					"name_key": "mission.role.ajan.2.name",
 					"desc_key": "mission.role.ajan.2.desc",
 					"type": Mission.MissionType.İSTİHBARAT,
-					"duration": 170.0,
-					"success": 0.74,
-					"rewards": {"gold": 20, "reputation": 2},
+					"duration": 2160.0,
+					"success": 0.56,
+					"rewards": {"gold": 85, "reputation": 8},
 				},
 			]
 		Concubine.Role.DİPLOMAT:
@@ -54,17 +57,17 @@ static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 					"name_key": "mission.role.diplomat.1.name",
 					"desc_key": "mission.role.diplomat.1.desc",
 					"type": Mission.MissionType.DİPLOMASİ,
-					"duration": 150.0,
-					"success": 0.82,
-					"rewards": {"gold": 15, "reputation": 3},
+					"duration": 1440.0,
+					"success": 0.66,
+					"rewards": {"gold": 58, "reputation": 8},
 				},
 				{
 					"name_key": "mission.role.diplomat.2.name",
 					"desc_key": "mission.role.diplomat.2.desc",
 					"type": Mission.MissionType.DİPLOMASİ,
-					"duration": 190.0,
-					"success": 0.76,
-					"rewards": {"gold": 24, "reputation": 4},
+					"duration": 2160.0,
+					"success": 0.58,
+					"rewards": {"gold": 95, "reputation": 12},
 				},
 			]
 		Concubine.Role.TÜCCAR:
@@ -73,17 +76,17 @@ static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 					"name_key": "mission.role.tuccar.1.name",
 					"desc_key": "mission.role.tuccar.1.desc",
 					"type": Mission.MissionType.TİCARET,
-					"duration": 140.0,
-					"success": 0.84,
-					"rewards": {"gold": 18, "food": 1},
+					"duration": 1440.0,
+					"success": 0.68,
+					"rewards": {"gold": 70, "food": 5},
 				},
 				{
 					"name_key": "mission.role.tuccar.2.name",
 					"desc_key": "mission.role.tuccar.2.desc",
 					"type": Mission.MissionType.TİCARET,
-					"duration": 175.0,
-					"success": 0.78,
-					"rewards": {"gold": 26, "stone": 1},
+					"duration": 2160.0,
+					"success": 0.6,
+					"rewards": {"gold": 105, "stone": 5},
 				},
 			]
 		Concubine.Role.ALIM:
@@ -92,17 +95,17 @@ static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 					"name_key": "mission.role.alim.1.name",
 					"desc_key": "mission.role.alim.1.desc",
 					"type": Mission.MissionType.BÜROKRASİ,
-					"duration": 120.0,
-					"success": 0.86,
-					"rewards": {"gold": 12, "world_stability": 2},
+					"duration": 1440.0,
+					"success": 0.7,
+					"rewards": {"gold": 50, "world_stability": 6},
 				},
 				{
 					"name_key": "mission.role.alim.2.name",
 					"desc_key": "mission.role.alim.2.desc",
 					"type": Mission.MissionType.BÜROKRASİ,
-					"duration": 165.0,
-					"success": 0.8,
-					"rewards": {"gold": 18, "world_stability": 3},
+					"duration": 2160.0,
+					"success": 0.62,
+					"rewards": {"gold": 75, "world_stability": 10},
 				},
 			]
 		Concubine.Role.TIBBIYECI:
@@ -111,17 +114,17 @@ static func get_role_mission_steps(role: Concubine.Role) -> Array[Dictionary]:
 					"name_key": "mission.role.tibbiyeci.1.name",
 					"desc_key": "mission.role.tibbiyeci.1.desc",
 					"type": Mission.MissionType.BÜROKRASİ,
-					"duration": 125.0,
-					"success": 0.85,
-					"rewards": {"gold": 13, "food": 1},
+					"duration": 1440.0,
+					"success": 0.7,
+					"rewards": {"gold": 52, "food": 4},
 				},
 				{
 					"name_key": "mission.role.tibbiyeci.2.name",
 					"desc_key": "mission.role.tibbiyeci.2.desc",
 					"type": Mission.MissionType.BÜROKRASİ,
-					"duration": 160.0,
-					"success": 0.79,
-					"rewards": {"gold": 19, "reputation": 2},
+					"duration": 2160.0,
+					"success": 0.62,
+					"rewards": {"gold": 80, "reputation": 8},
 				},
 			]
 		_:
@@ -140,6 +143,7 @@ static func get_role_training_step(role: Concubine.Role) -> Dictionary:
 				"duration": 130.0,
 				"success": 0.8,
 				"rewards": {"gold": 10},
+				"required_army_size": 2,  # Komutan adayı yanına asker alıp gider
 			}
 		Concubine.Role.AJAN:
 			return {
@@ -226,7 +230,7 @@ static func get_story_steps() -> Array[Dictionary]:
 
 
 static func get_role_chain_rewards() -> Dictionary:
-	return {"gold": 15, "reputation": 4}
+	return {"gold": 40, "reputation": 8}
 
 
 static func get_story_chain_rewards() -> Dictionary:

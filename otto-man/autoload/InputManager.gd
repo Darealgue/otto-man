@@ -415,10 +415,10 @@ static func _get_key_name(event: InputEventKey) -> String:
 		KEY_SHIFT: return "Shift"
 		KEY_CTRL: return "Ctrl"
 		KEY_ALT: return "Alt"
-		KEY_UP: return "↑"
-		KEY_DOWN: return "↓"
-		KEY_LEFT: return "←"
-		KEY_RIGHT: return "→"
+		KEY_UP: return "^"
+		KEY_DOWN: return "v"
+		KEY_LEFT: return "<"
+		KEY_RIGHT: return ">"
 		KEY_KP_0: return "Num 0"
 		KEY_KP_1: return "Num 1"
 		KEY_KP_2: return "Num 2"
@@ -452,10 +452,10 @@ static func _get_joypad_button_name(event: InputEventJoypadButton) -> String:
 		10: return "RB"
 		# Kısa ok glifi (bkz. _tutorial_joy_button_short) — HUD ipuçlarında "D-Pad Up" gibi
 		# uzun metin yerine sadece ok görünsün.
-		11: return "↑"
-		12: return "↓"
-		13: return "←"
-		14: return "→"
+		11: return "^"
+		12: return "v"
+		13: return "<"
+		14: return ">"
 		_: return "Button " + str(event.button_index)
 
 ## Gamepad axis için isim döndürür
@@ -579,10 +579,10 @@ static func _tutorial_joy_button_short(btn_idx: int) -> String:
 		8: return "R3"
 		9: return "LB"
 		10: return "RB"
-		11: return "↑"
-		12: return "↓"
-		13: return "←"
-		14: return "→"
+		11: return "^"
+		12: return "v"
+		13: return "<"
+		14: return ">"
 		_: return "B%d" % btn_idx
 
 
@@ -592,11 +592,11 @@ static func _tutorial_joy_motion_hint(axis: int, axis_value: float) -> String:
 		return ""
 	match axis:
 		0:
-			return "← / →"
+			return "< / >"
 		1:
 			if axis_value > 0.0:
-				return "↓"
-			return "↑"
+				return "v"
+			return "^"
 		_:
 			return ""
 
@@ -621,21 +621,21 @@ static func _tutorial_joypad_glyph_for_action(action_name: StringName, mode: Str
 			if b.button_index == 12:
 				return _tutorial_joy_button_short(12)
 		if not motions.is_empty():
-			return "↓"
+			return "v"
 		if not buttons.is_empty():
 			var ls_only := buttons.size() == 1 and (buttons[0].button_index == 7 or buttons[0].button_index == 8)
 			if ls_only:
-				return "↓"
+				return "v"
 			buttons.sort_custom(func(a: InputEventJoypadButton, b: InputEventJoypadButton) -> bool:
 				return _tutorial_joy_button_sort_key(a.button_index) < _tutorial_joy_button_sort_key(b.button_index)
 			)
 			return _tutorial_joy_button_short(buttons[0].button_index)
-		return "↓"
+		return "v"
 	if mode == "semantic_up":
 		for b in buttons:
 			if b.button_index == 11:
 				return _tutorial_joy_button_short(11)
-		return "↑"
+		return "^"
 	# Blok: RB (sağ omuz); InputMap sırasından önce RB, sonra LB. LS/RS yanıltmaca.
 	if mode == "prefer_shoulder":
 		var has_lb := false
@@ -714,10 +714,10 @@ func get_tutorial_horizontal_move_hint() -> String:
 			return neg
 		if not pos.is_empty():
 			return pos
-		return "← / →"
+		return "< / >"
 	var preset := _current_keyboard_preset
 	if preset == PRESET_ARROWS_QWEASD:
-		return "← / →"
+		return "< / >"
 	return "A / D"
 
 
@@ -738,7 +738,7 @@ func get_tutorial_crouch_hint() -> String:
 			var g := _tutorial_joypad_glyph_for_action(an, "semantic_down")
 			if not g.is_empty():
 				return g
-		return "↓"
+		return "v"
 	return get_action_key_name(&"crouch")
 
 
@@ -748,7 +748,7 @@ func get_tutorial_move_down_hint() -> String:
 			var g := _tutorial_joypad_glyph_for_action(an, "semantic_down")
 			if not g.is_empty():
 				return g
-		return "↓"
+		return "v"
 	return get_action_key_name(&"move_down")
 
 
@@ -758,7 +758,7 @@ func get_tutorial_move_up_hint() -> String:
 			var g := _tutorial_joypad_glyph_for_action(an, "semantic_up")
 			if not g.is_empty():
 				return g
-		return "↑"
+		return "^"
 	return get_action_key_name(&"move_up")
 
 
@@ -821,10 +821,13 @@ func get_tutorial_overview_camera_hint() -> String:
 
 func get_tutorial_map_move_hint() -> String:
 	if last_input_from_joypad:
-		return "← → ↑ ↓"
+		# 4 ayrı ok karakterini yan yana göstermek (eskiden "< > ^ v") hem fontta ok glifi
+		# olmadığından hem de kalabalık göründüğünden kötü duruyordu — çubuk/d-pad'i tek,
+		# derli toplu bir "+" simgesiyle temsil ediyoruz.
+		return "+"
 	var preset := _current_keyboard_preset
 	if preset == PRESET_ARROWS_QWEASD:
-		return "← → ↑ ↓"
+		return "< > ^ v"
 	return "W A S D"
 
 
@@ -843,7 +846,7 @@ func get_tutorial_map_confirm_hint() -> String:
 ## NpcOverheadUi.apply_interact_hint_text'teki aynı karar), ham tuş adı yerine sabit ok
 ## karakteriyle gösteriyoruz — "Num 8" gibi kafa karıştırıcı isimler tutorial metinlerine sızmasın.
 func get_tutorial_interact_hint() -> String:
-	return "↑"
+	return "^"
 
 
 func get_tutorial_cancel_hint() -> String:
@@ -878,11 +881,11 @@ func get_tutorial_ui_up_hint() -> String:
 			var k := ev as InputEventKey
 			var keycode := k.physical_keycode if k.physical_keycode != KEY_NONE else k.keycode
 			match keycode:
-				KEY_UP: return "↑"
+				KEY_UP: return "^"
 				KEY_W: return "W"
 				KEY_KP_8: return "Num 8"
 			return _get_key_name(k)
-	return "↑"
+	return "^"
 
 
 ## village_worker_add InputMap'te birden fazla klavye tuşuna bağlı (bkz. project.godot) ve

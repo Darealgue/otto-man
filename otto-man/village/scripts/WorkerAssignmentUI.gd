@@ -299,7 +299,7 @@ func _create_dynamic_processing_rows() -> void:
 		level_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		var upgrade_button := Button.new()
-		upgrade_button.text = "↑"
+		upgrade_button.text = "^"
 		upgrade_button.pressed.connect(_on_upgrade_button_pressed.bind(String(RESOURCE_SCENE_MAP.get(resource_type, ""))))
 		var add_button := Button.new()
 		add_button.text = "+"
@@ -498,7 +498,7 @@ func update_ui() -> void:
 		# print("-------------------------------") #<<< KALDIRILDI
 		# --- DEBUG END ---
 
-		upgrade_wood_button.text = tr("worker.upgrading") if wood_is_upgrading else "↑"
+		upgrade_wood_button.text = tr("worker.upgrading") if wood_is_upgrading else "^"
 		var wood_upgrade_reqs = VillageManager.get_building_requirements(WOODCUTTER_SCENE)
 		upgrade_wood_button.tooltip_text = _upgrade_button_tooltip(wood_upgrade_reqs, wood_is_max_level_check, not wood_upgrade_reqs.is_empty())
 
@@ -535,7 +535,7 @@ func update_ui() -> void:
 
 		var can_upgrade_stone = not stone_is_upgrading and not stone_is_max_level_check and stone_can_meet_reqs
 		upgrade_stone_button.disabled = not can_upgrade_stone
-		upgrade_stone_button.text = tr("worker.upgrading") if stone_is_upgrading else "↑"
+		upgrade_stone_button.text = tr("worker.upgrading") if stone_is_upgrading else "^"
 		var stone_upgrade_reqs = VillageManager.get_building_requirements(STONE_MINE_SCENE)
 		upgrade_stone_button.tooltip_text = _upgrade_button_tooltip(stone_upgrade_reqs, stone_is_max_level_check, not stone_upgrade_reqs.is_empty())
 
@@ -571,7 +571,7 @@ func update_ui() -> void:
 
 		var can_upgrade_food = not food_is_upgrading and not food_is_max_level_check and food_can_meet_reqs
 		upgrade_food_button.disabled = not can_upgrade_food
-		upgrade_food_button.text = tr("worker.upgrading") if food_is_upgrading else "↑"
+		upgrade_food_button.text = tr("worker.upgrading") if food_is_upgrading else "^"
 		var food_upgrade_reqs = VillageManager.get_building_requirements(HUNTER_HUT_SCENE)
 		upgrade_food_button.tooltip_text = _upgrade_button_tooltip(food_upgrade_reqs, food_is_max_level_check, not food_upgrade_reqs.is_empty())
 
@@ -660,7 +660,7 @@ func _update_generic_row_from_building(
 	if scene_path != "" and not is_max_level:
 		can_upgrade = VillageManager.can_meet_requirements(scene_path)
 	upgrade_button.disabled = is_upgrading or is_max_level or not can_upgrade
-	upgrade_button.text = tr("worker.upgrading") if is_upgrading else "↑"
+	upgrade_button.text = tr("worker.upgrading") if is_upgrading else "^"
 	var reqs = VillageManager.get_building_requirements(scene_path)
 	upgrade_button.tooltip_text = _upgrade_button_tooltip(reqs, is_max_level, not reqs.is_empty())
 	if is_instance_valid(level_indicator):

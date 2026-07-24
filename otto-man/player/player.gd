@@ -1881,6 +1881,13 @@ func _process_village_interaction_hold(delta: float) -> void:
 		if not _village_npc_hold_fired and _village_interact_hold_time >= VILLAGE_NPC_HOLD_DURATION:
 			if _try_hold_npc_interact():
 				_village_npc_hold_fired = true
+			elif not is_instance_valid(_current_hold_target_npc()):
+				# Basılı tutulacak bir NPC yoksa (sadece bina/kamp ateşi varsa), basış tam
+				# hold eşiğini (0.4sn) az farkla geçtiğinde bırakılana kadar beklemek yerine
+				# hemen tap olarak işlensin — aksi halde ne hold hedefi bulunur ne de tap
+				# tetiklenir, etkileşim "sessizce" hiç açılmaz.
+				_try_tap_world_interact()
+				_village_npc_hold_fired = true
 	elif _village_interact_hold_active:
 		# Yakında bir köylü (hold hedefi) varsa ve halka görünür hale gelecek kadar (>= feedback
 		# gecikmesi) basılı tutulduysa, erken bırakma bir binaya/kamp ateşine sızan "tap" saymaz —
@@ -1942,8 +1949,9 @@ func _find_best_hold_target_npc() -> Node:
 	return best
 
 
-## Basılı-tutma halkası sadece dialogue_npcs (NPC grubu: Worker/Concubine) için anlamlı —
-## Mentor/Trader tek basışla açılan (tap) etkileşimler, onlarda hold-ring hiç gösterilmiyor.
+## Basılı-tutma halkası: Worker/Concubine/Mentor/Trader dahil TÜM köylü/NPC etkileşimleri artık
+## sadece basılı tutmayla açılıyor (bkz. _find_best_overlapping_interact_target — NPC'ler ve
+## village_priority_interact karakterleri tap yolundan çıkarıldı), bu yüzden halka hepsinde dolar.
 func _get_npc_hold_progress() -> float:
 	if not is_instance_valid(_current_hold_target_npc()):
 		return 0.0
@@ -1963,6 +1971,10 @@ func _update_npc_interact_hold_visual(ratio: float) -> void:
 		if not is_instance_valid(npc) or not npc.has_method("set_interact_hold_progress"):
 			continue
 		npc.set_interact_hold_progress(ratio if npc == target else 0.0)
+	# Mentor/Trader gibi village_priority_interact karakterleri "NPC" grubunda olmadığı için
+	# dialogue_npcs listesine hiç girmiyor — hedefse halkasını burada ayrıca güncelliyoruz.
+	if is_instance_valid(target) and not VillageManager.dialogue_npcs.has(target) and target.has_method("set_interact_hold_progress"):
+		target.set_interact_hold_progress(ratio)
 
 
 func _try_hold_npc_interact() -> bool:
@@ -2005,18 +2017,21 @@ func _find_best_tap_interactable() -> Node:
 func _try_tap_world_interact() -> void:
 	if _try_village_plot_interact():
 		return
-	if _try_village_character_interact():
-		return
 	var interactable_node := _find_best_overlapping_interact_target()
 	if interactable_node:
 		interactable_node.interact()
 
 
+## Mentor/Trader/Concubine gibi "village_priority_interact" karakterleri artık tap yolundan
+## bulunamıyor (bkz. _find_best_overlapping_interact_target) — bu yüzden mesafe kontrolü ayrı
+## olarak basılı-tutma hedefi listesinden (_find_best_hold_target_npc) yapılıyor.
 func has_village_priority_character_in_range() -> bool:
-	var best := _find_best_overlapping_interact_target()
-	return _is_village_priority_character(best)
+	return _is_village_priority_character(_find_best_hold_target_npc())
 
 
+## Bina/kamp ateşi/vb. kısa basışla (tap) açılır; NPC grubu VE village_priority_interact
+## karakterleri (Mentor/Trader/Concubine) buradan tamamen çıkarıldı — hepsi artık sadece
+## basılı tutmayla (bkz. _find_best_hold_target_npc / _try_hold_npc_interact) açılıyor.
 func _find_best_overlapping_interact_target() -> Node:
 	var best: Node = null
 	var best_dist_sq: float = INF
@@ -2028,37 +2043,9 @@ func _find_best_overlapping_interact_target() -> Node:
 		var node := _resolve_interactable_node(area)
 		if not is_instance_valid(node) or not node.has_method("interact"):
 			continue
-		if node.is_in_group("NPC") and not _is_village_priority_character(node):
+		if node.is_in_group("NPC") or _is_village_priority_character(node):
 			continue
 		if node.has_method("can_interact") and not node.can_interact():
-			continue
-		var dist_sq: float = global_position.distance_squared_to(node.global_position)
-		if dist_sq < best_dist_sq:
-			best_dist_sq = dist_sq
-			best = node
-	return best
-
-
-func _try_village_character_interact() -> bool:
-	var node := _find_best_village_character_interactable()
-	if node == null:
-		return false
-	node.interact()
-	return true
-
-
-func _find_best_village_character_interactable() -> Node:
-	var best: Node = null
-	var best_dist_sq: float = INF
-	for i in range(overlapping_interactables.size() - 1, -1, -1):
-		var area: Area2D = overlapping_interactables[i]
-		if not is_instance_valid(area):
-			overlapping_interactables.remove_at(i)
-			continue
-		var node := _resolve_interactable_node(area)
-		if not _is_village_priority_character(node):
-			continue
-		if not _can_village_character_interact(node):
 			continue
 		var dist_sq: float = global_position.distance_squared_to(node.global_position)
 		if dist_sq < best_dist_sq:
@@ -2076,10 +2063,6 @@ func _resolve_interactable_node(area: Area2D) -> Node:
 
 func _is_village_priority_character(node: Node) -> bool:
 	return node != null and node.is_in_group("village_priority_interact")
-
-
-func _can_village_character_interact(node: Node) -> bool:
-	return node.has_method("interact") and node.has_method("can_interact") and node.can_interact()
 
 
 func _try_village_plot_interact() -> bool:

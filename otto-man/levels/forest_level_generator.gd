@@ -33,7 +33,6 @@ signal level_completed
 @export var ramp_cooldown_segments: int = 2
 @export_enum("forest", "mountain", "river") var biome_type: String = "forest"
 
-@onready var _forest_exit_portal_scene: PackedScene = load("res://chunks/forest/ForestExitPortal.tscn")
 @onready var _tree_interactable_scene: PackedScene = load("res://interactables/forest/TreeInteractable.tscn")
 @onready var _rock_interactable_scene: PackedScene = load("res://interactables/forest/RockInteractable.tscn")
 @onready var _well_interactable_scene: PackedScene = load("res://interactables/forest/WellInteractable.tscn")
@@ -43,7 +42,6 @@ signal level_completed
 var _resource_spawn_timer: int = 0
 var _resource_scenes: Array[PackedScene] = []
 
-var _forest_exit_portal: Node2D = null
 var _forest_start_chunk: Node2D = null
 
 var player: Node2D
@@ -524,25 +522,15 @@ func _spawn_initial_path() -> void:
 	max_discovered_index = 0
 	last_end_x = start.position.x + _get_size(start).x
 	_forest_start_chunk = start
-	_attach_forest_exit_portal(start)
+	# NOT: "start" chunk sahnesinin (start_2x1.tscn) kendi içinde ZATEN bir ForestExitPortal
+	# ("⬆ Köye Dön") var — burada ikinci bir tane daha runtime'da spawn etmek aynı alanda iki
+	# üst üste binen çıkış portalına yol açıyordu. Kaldırıldı; get_spawn_position() artık
+	# sahnedeki bu tek portalın pozisyonunu kullanıyor.
 	for i in range(spawn_ahead_count - 1):
 		_add_next_segment()
 	_add_prev_segment()
 	_sort_active_by_x()
 	_tutorial_force_spawn_resources()
-
-func _attach_forest_exit_portal(start_chunk: Node2D) -> void:
-	if _forest_exit_portal_scene == null:
-		return
-	if _forest_exit_portal and is_instance_valid(_forest_exit_portal):
-		_forest_exit_portal.queue_free()
-	_forest_exit_portal = _forest_exit_portal_scene.instantiate() as Node2D
-	if _forest_exit_portal == null:
-		return
-	add_child(_forest_exit_portal)
-	var base_position := start_chunk.global_position if start_chunk else Vector2.ZERO
-	var offset := Vector2(float(unit_size) * 0.25, -160.0)
-	_forest_exit_portal.global_position = base_position + offset
 
 
 func _tutorial_force_spawn_resources() -> void:
@@ -1721,15 +1709,21 @@ func _get_size(node: Node2D) -> Vector2:
 func _row_to_y(row: int) -> float:
 	return row * unit_size
 
+## Oyuncu, start chunk'ın (start_2x1.tscn) içine gömülü "ForestExitPortal" ("⬆ Köye Dön")
+## düğümüyle aynı x konumunda spawn olsun — girdiği yer ile çıkacağı yer tutarlı olsun diye.
 func get_spawn_position() -> Vector2:
 	if _forest_start_chunk != null and is_instance_valid(_forest_start_chunk):
 		var sz := _get_size(_forest_start_chunk)
-		return Vector2(_forest_start_chunk.position.x + unit_size * 0.5, _forest_start_chunk.position.y + sz.y - unit_size * 0.5)
+		var spawn_x := _forest_start_chunk.position.x + unit_size * 0.25
+		var portal := _forest_start_chunk.get_node_or_null("ForestExitPortal")
+		if portal != null and portal is Node2D:
+			spawn_x = (portal as Node2D).position.x + _forest_start_chunk.position.x
+		return Vector2(spawn_x, _forest_start_chunk.position.y + sz.y - unit_size * 0.5 - 80.0)
 	if active_chunks.is_empty():
 		return Vector2.ZERO
 	var first := active_chunks[0]
 	var sz := _get_size(first)
-	return Vector2(first.position.x + unit_size * 0.5, first.position.y + sz.y - unit_size * 0.5)
+	return Vector2(first.position.x + unit_size * 0.25, first.position.y + sz.y - unit_size * 0.5 - 80.0)
 
 func _spawn_or_move_player_to_start() -> void:
 	var spawn_pos: Vector2 = get_spawn_position()
@@ -1761,6 +1755,12 @@ func _spawn_or_move_player_to_start() -> void:
 							cam.call("force_init")
 						# Keep debug off for normal play
 						cam.set("debug", false)
+				# Orman/dağ/nehir'e özel varsayılan zoom — köy/zindandaki 1.5'ten biraz daha
+				# uzak (1.2), sadece bu üç biyomda geçerli. Tekrar girişlerde de uygulanır ki
+				# önceki bir minigame'den kalan zoom asla bu değere sıkışıp kalmasın.
+				(cam as Camera2D).zoom = Vector2(1.2, 1.2)
+				if cam.has_method("set") and "_default_zoom" in cam:
+					cam.set("_default_zoom", Vector2(1.2, 1.2))
 				(cam as Camera2D).enabled = true
 				(cam as Camera2D).make_current()
 

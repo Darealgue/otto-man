@@ -155,9 +155,12 @@ func _build_ui() -> void:
 	_back_panel.anchor_top = 0.5
 	_back_panel.anchor_bottom = 0.5
 	_back_panel.offset_left = -420
-	_back_panel.offset_top = -300
+	# Ekran merkezine göre biraz yukarı kaydırıldı — VirtualKeyboard ekranın alt kenarına
+	# sabitlendiği için (bkz. aşağıda), pencere tam ortadayken alt kısımlarda düşük dikey
+	# çözünürlüklerde klavye ekran dışına taşıp kesiliyordu.
+	_back_panel.offset_top = -360
 	_back_panel.offset_right = 420
-	_back_panel.offset_bottom = 300
+	_back_panel.offset_bottom = 240
 	ParchmentTextures.apply_large_panel_style(_back_panel, 16)
 	add_child(_back_panel)
 
@@ -183,9 +186,9 @@ func _build_ui() -> void:
 	close_btn.anchor_top = 0.5
 	close_btn.anchor_bottom = 0.5
 	close_btn.offset_left = 382
-	close_btn.offset_top = -296
+	close_btn.offset_top = -356
 	close_btn.offset_right = 414
-	close_btn.offset_bottom = -264
+	close_btn.offset_bottom = -324
 	close_btn.pressed.connect(_on_close_button_pressed)
 	add_child(close_btn)
 
@@ -193,12 +196,15 @@ func _build_ui() -> void:
 	_virtual_keyboard.name = "VirtualKeyboard"
 	_virtual_keyboard.anchor_left = 0.5
 	_virtual_keyboard.anchor_right = 0.5
-	_virtual_keyboard.anchor_top = 1.0
-	_virtual_keyboard.anchor_bottom = 1.0
+	# Ekranın mutlak alt kenarına değil, _back_panel ile AYNI anchor noktasına (0.5) göre
+	# konumlandırılıyor — böylece pencere yukarı taşınınca klavye de onunla birlikte yukarı
+	# gelir, ekranın alt sınırına sabit kalıp kesilmez.
+	_virtual_keyboard.anchor_top = 0.5
+	_virtual_keyboard.anchor_bottom = 0.5
 	_virtual_keyboard.offset_left = -280
 	_virtual_keyboard.offset_right = 280
-	_virtual_keyboard.offset_top = -210
-	_virtual_keyboard.offset_bottom = -16
+	_virtual_keyboard.offset_top = _back_panel.offset_bottom + 14
+	_virtual_keyboard.offset_bottom = _back_panel.offset_bottom + 208
 	add_child(_virtual_keyboard)
 	_virtual_keyboard.attach(chat_line_edit)
 	_virtual_keyboard.closed.connect(_on_virtual_keyboard_closed)

@@ -221,13 +221,24 @@ func _process(delta: float) -> void:
 	_update_hud_idle_visibility(delta)
 
 
+## Köylü diyaloğu (npc_window) veya herhangi bir popup menü (Mentor/Cariye/Tüccar/Kamp Ateşi/
+## İnşaat vb.) açıkken HUD'un gizlenmeye başlamaması/gizliyse geri gelmesi için — oyuncu
+## menüde/sohbette dururken (velocity=0) 30 saniye sonra HUD'un sessizce kaybolması istenmiyor.
+func _is_any_ui_menu_open() -> bool:
+	if VillageManager.is_any_npc_dialogue_open():
+		return true
+	if is_instance_valid(_world_popups) and _world_popups.has_method("is_any_popup_open") and _world_popups.is_any_popup_open():
+		return true
+	return false
+
+
 func _update_hud_idle_visibility(delta: float) -> void:
 	if not _hud_intro_played:
 		return
 	var player := get_node_or_null("Player") as CharacterBody2D
 	if player == null:
 		return
-	if player.velocity.length() > HUD_IDLE_MOVE_EPSILON:
+	if player.velocity.length() > HUD_IDLE_MOVE_EPSILON or _is_any_ui_menu_open():
 		_hud_idle_timer = 0.0
 		if _hud_idle_hidden:
 			_hud_idle_hidden = false

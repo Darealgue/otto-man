@@ -5184,8 +5184,8 @@ func request_concubine_role(cariye_id: int, role: int) -> Dictionary:
 	if role == Concubine.Role.NONE:
 		set_concubine_role(cariye_id, role)
 		return {"ok": true, "message": ""}
-	if get_pending_role_training(cariye_id) >= 0:
-		return {"ok": false, "message": "Cariye zaten bir rol eğitiminde."}
+	if get_role_track_mission(cariye_id) != null:
+		return {"ok": false, "message": "Cariye zaten bir rol görevi bekliyor/görevde."}
 	if cariye.status != Concubine.Status.BOŞTA:
 		return {"ok": false, "message": "Cariye şu an boşta değil."}
 	var vm := get_node_or_null("/root/VillageManager")
@@ -5198,14 +5198,13 @@ func request_concubine_role(cariye_id: int, role: int) -> Dictionary:
 		return {"ok": false, "message": "Yetersiz kaynak: %s" % _format_cost_for_display(cost)}
 	if not vm.spend_resources(cost):
 		return {"ok": false, "message": "Ödeme yapılamadı."}
+	# NOT: Görev burada SADECE oluşturulur, otomatik atanmaz — oyuncu Görevler sekmesinden
+	# manuel "Ata" ile başlatır (bkz. ConcubineMissionPopupUI._refresh_missions filtrelemesi).
 	var mission: Mission = _build_role_training_mission(cariye_id, role, cariye.name)
 	missions[mission.id] = mission
-	if not assign_mission_to_concubine(cariye_id, mission.id, 0):
-		missions.erase(mission.id)
-		_refund_resources(cost)
-		return {"ok": false, "message": "Eğitim görevi başlatılamadı."}
 	mission_list_changed.emit()
-	return {"ok": true, "message": "Eğitim görevi başladı: %s" % mission.name}
+	mission_unlocked.emit(mission.id)
+	return {"ok": true, "message": "Eğitim görevi hazır: %s" % mission.name}
 
 
 func _build_role_training_mission(cariye_id: int, role: int, cariye_name: String) -> Mission:
@@ -5222,7 +5221,7 @@ func _build_role_training_mission(cariye_id: int, role: int, cariye_name: String
 	m.duration = float(step.get("duration", 120.0))
 	m.success_chance = float(step.get("success", 0.8))
 	m.required_cariye_level = 1
-	m.required_army_size = 0
+	m.required_army_size = int(step.get("required_army_size", 0))
 	m.required_concubine_id = cariye_id
 	m.required_concubine_role = -1
 	m.required_resources = {}
@@ -5237,15 +5236,24 @@ func _build_role_training_mission(cariye_id: int, role: int, cariye_name: String
 	return m
 
 
-## Bir cariye şu an bir rol eğitim görevindeyse hangi rol için olduğunu döndürür, yoksa -1.
-func get_pending_role_training(cariye_id: int) -> int:
-	if not active_missions.has(cariye_id):
-		return -1
-	var mid: String = String(active_missions[cariye_id])
-	var m = missions.get(mid)
-	if m is Mission and (m as Mission).grants_concubine_role >= 0:
-		return (m as Mission).grants_concubine_role
-	return -1
+## Bir cariyenin rol kazanmak için ödediği/sürdürdüğü görevi döndürür — ister henüz atanmamış
+## (MEVCUT, oyuncunun "Ata" demesini bekliyor) ister aktif (AKTİF, sürüyor) olsun. Yoksa null.
+## ConcubineMissionPopupUI bunu hem Görevler listesini tek göreve daraltmak hem de Roller
+## sekmesinde kilit/eğitim durumunu göstermek için kullanır.
+func get_role_track_mission(cariye_id: int) -> Mission:
+	if active_missions.has(cariye_id):
+		var active_mid: String = String(active_missions[cariye_id])
+		var active_m = missions.get(active_mid)
+		if active_m is Mission and (active_m as Mission).grants_concubine_role >= 0:
+			return active_m as Mission
+	for mid in missions.keys():
+		var m = missions[mid]
+		if not (m is Mission):
+			continue
+		var mission := m as Mission
+		if mission.grants_concubine_role >= 0 and mission.required_concubine_id == cariye_id and mission.status == Mission.Status.MEVCUT:
+			return mission
+	return null
 
 
 func _format_cost_for_display(cost: Dictionary) -> String:
@@ -5259,25 +5267,6 @@ func _format_cost_for_display(cost: Dictionary) -> String:
 		if amt > 0:
 			parts.append("%d %s" % [amt, LocaleManager.get_resource_name(str(k))])
 	return ", ".join(parts)
-
-
-## `request_concubine_role` içinde ödeme sonrası görev başlatma başarısız olursa harcanan
-## kaynakları geri verir.
-func _refund_resources(cost: Dictionary) -> void:
-	var vm := get_node_or_null("/root/VillageManager")
-	if vm == null:
-		return
-	var g: int = int(cost.get("gold", 0))
-	if g > 0:
-		var gpd := get_node_or_null("/root/GlobalPlayerData")
-		if gpd:
-			gpd.add_gold(g)
-	for k in cost.keys():
-		if str(k) == "gold":
-			continue
-		var amt: int = int(cost[k])
-		if amt > 0 and vm.has_method("apply_resource_delta"):
-			vm.apply_resource_delta(str(k), amt)
 
 
 # Cariye rolünü al

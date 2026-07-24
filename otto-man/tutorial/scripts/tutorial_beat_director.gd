@@ -261,7 +261,7 @@ func _run_combat_objectives() -> void:
 	_co_fall = 0
 	_connect_combat_signals()
 	_refresh_combat_speech()
-	while _co_phase < 7 and _state == _SPEAK and is_instance_valid(_player):
+	while _co_phase < 5 and _state == _SPEAK and is_instance_valid(_player):
 		if not is_inside_tree():
 			break
 		var st_co: SceneTree = get_tree()
@@ -285,12 +285,6 @@ func _connect_combat_signals() -> void:
 	if _player.has_signal("player_blocked"):
 		if not _player.is_connected("player_blocked", _co_on_player_blocked):
 			_player.player_blocked.connect(_co_on_player_blocked)
-	if _player.has_signal("perfect_parry"):
-		if not _player.is_connected("perfect_parry", _co_on_perfect_parry):
-			_player.perfect_parry.connect(_co_on_perfect_parry)
-	if _player.has_signal("player_attack_performed"):
-		if not _player.is_connected("player_attack_performed", _co_on_attack_performed):
-			_player.player_attack_performed.connect(_co_on_attack_performed)
 
 
 func _disconnect_combat_signals() -> void:
@@ -302,10 +296,6 @@ func _disconnect_combat_signals() -> void:
 		_player.player_dodged.disconnect(_co_on_player_dodged)
 	if _player.is_connected("player_blocked", _co_on_player_blocked):
 		_player.player_blocked.disconnect(_co_on_player_blocked)
-	if _player.is_connected("perfect_parry", _co_on_perfect_parry):
-		_player.perfect_parry.disconnect(_co_on_perfect_parry)
-	if _player.is_connected("player_attack_performed", _co_on_attack_performed):
-		_player.player_attack_performed.disconnect(_co_on_attack_performed)
 
 
 func _refresh_combat_speech() -> void:
@@ -327,10 +317,6 @@ func _combat_objective_bbcode() -> String:
 			return tr("tutorial.combat.phase3") % combat_title
 		4:
 			return tr("tutorial.combat.phase4") % combat_title
-		5:
-			return tr("tutorial.combat.phase5") % combat_title
-		6:
-			return tr("tutorial.combat.phase6") % combat_title
 		_:
 			return tr("tutorial.combat.done") % InputManager.format_tutorial_title(tr("tutorial.combat.complete"))
 
@@ -341,20 +327,20 @@ func _co_on_attack_landed(attack_type: String, _damage: float, _targets: Array, 
 	match _co_phase:
 		0:
 			if attack_type == "normal":
-				_co_light = mini(_co_light + 1, 5)
-				if _co_light >= 5:
+				_co_light = mini(_co_light + 1, 2)
+				if _co_light >= 2:
 					_co_phase = 1
 				_refresh_combat_speech()
 		1:
 			if attack_type == "heavy":
-				_co_heavy = mini(_co_heavy + 1, 2)
-				if _co_heavy >= 2:
+				_co_heavy = mini(_co_heavy + 1, 1)
+				if _co_heavy >= 1:
 					_co_phase = 2
 				_refresh_combat_speech()
 		2:
 			if attack_type == "fall":
-				_co_fall = mini(_co_fall + 1, 2)
-				if _co_fall >= 2:
+				_co_fall = mini(_co_fall + 1, 1)
+				if _co_fall >= 1:
 					_co_phase = 3
 				_refresh_combat_speech()
 
@@ -373,22 +359,6 @@ func _co_on_player_blocked(_blocked: float, _attacker: Node2D) -> void:
 		return
 	_co_phase = 5
 	_refresh_combat_speech()
-
-
-func _co_on_perfect_parry() -> void:
-	if _state != _SPEAK or _co_phase != 5:
-		return
-	_co_phase = 6
-	_refresh_combat_speech()
-
-
-func _co_on_attack_performed(attack_name: String, _damage: float) -> void:
-	if _state != _SPEAK or _co_phase != 6:
-		return
-	var n := str(attack_name)
-	if n.begins_with("counter_"):
-		_co_phase = 7
-		_refresh_combat_speech()
 
 
 func _expand_tokens(bbcode: String) -> String:

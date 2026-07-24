@@ -1,24 +1,44 @@
-[gd_scene load_steps=2 format=3 uid="uid://d0mentorobjectiveui"]
+[gd_scene load_steps=3 format=3 uid="uid://d0mentorobjectiveui"]
 
 [ext_resource type="Script" path="res://tutorial/ui/MentorObjectiveUI.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_objective_bg"]
+bg_color = Color(0, 0, 0, 0.7)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
 
 [node name="MentorObjectiveUI" type="CanvasLayer"]
 layer = 90
 script = ExtResource("1_script")
 
-[node name="ObjectiveLabel" type="Label" parent="."]
+[node name="ObjectivePanel" type="PanelContainer" parent="."]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -620.0
-offset_top = 20.0
+offset_left = -640.0
+offset_top = 16.0
 offset_right = -20.0
-offset_bottom = 44.0
-horizontal_alignment = 2
+offset_bottom = 16.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_objective_bg")
+
+[node name="Margin" type="MarginContainer" parent="ObjectivePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="ObjectiveLabel" type="Label" parent="ObjectivePanel/Margin"]
+layout_mode = 2
+horizontal_alignment = 0
+autowrap_mode = 3
 theme_override_colors/font_color = Color(1, 0.95, 0.7, 1)
 theme_override_colors/font_outline_color = Color(0.08, 0.06, 0.03, 1)
 theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 22
 text = ""
 
 [node name="KeysBar" type="Label" parent="."]

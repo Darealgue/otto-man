@@ -579,13 +579,12 @@ func _zoom_camera_out() -> void:
 	
 	# Parallax viewport'u güncelle (zoom değişikliği için)
 	_update_parallax_for_zoom(target_zoom)
-	
-	# Eğer kamera zoom fonksiyonları varsa kullan
-	if camera.has_method("zoom_to_factor"):
-		# 0.7 faktörü ile zoom out (daha geniş görüş)
-		camera.zoom_to_factor(0.7, 0.4)
-		print("[FoodMinigame] Camera zoom out to factor 0.7")
-	elif camera.has_method("zoom_to_vector"):
+
+	# NOT: zoom_to_factor() kamera'nın KENDİ _default_zoom'unu kullanır — bu round'un
+	# başında yakalanan _default_camera_zoom'dan (küçük de olsa) sapabilir ve zoom-out/
+	# zoom-in simetrik olmaz. zoom_to_vector() ile açıkça bizim yakaladığımız değeri
+	# hedefliyoruz, böylece geri dönüş her zaman tam olarak başlangıç seviyesine gelir.
+	if camera.has_method("zoom_to_vector"):
 		camera.zoom_to_vector(target_zoom, 0.4)
 		print("[FoodMinigame] Camera zoom out to: ", target_zoom)
 	else:
@@ -818,54 +817,44 @@ func _save_default_camera_zoom() -> void:
 func _reset_camera_zoom() -> void:
 	if not _camera_zoomed_out:
 		return
+	# _camera_zoomed_out hemen (senkron) kapatılır — _check_fruit_collection_complete() ve
+	# emit_result() aynı turda bu fonksiyonu art arda çağırıyor; eskiden bu flag ancak
+	# await'lerden SONRA kapandığı için ikinci çağrı da tam olarak çalışıyor, kamera script'inin
+	# kalıcı _default_zoom'unu (bkz. aşağıdaki eski camera.set çağrısı) yanlış/geçici bir zoom
+	# değeriyle eziyordu — bir sonraki oyunda zoom-out/zoom-in artık bozuk temelden hesaplanıyordu.
+	_camera_zoomed_out = false
 	# Kamerayı eski haline döndür
 	var camera: Camera2D = _find_player_camera()
 	if not camera:
 		print("[FoodMinigame] ERROR: Could not find player camera for reset zoom")
 		return
-	
+
 	print("[FoodMinigame] Resetting camera zoom - current zoom: ", camera.zoom, " target: ", _default_camera_zoom)
-	
+
 	# Parallax'i orijinal scale'lerine döndür
 	_reset_parallax_scales()
-	
+
 	# Parallax viewport'u güncelle (zoom değişikliği için)
 	_update_parallax_for_zoom(_default_camera_zoom)
-	
-	# Kamera'nın _default_zoom'unu bizim kaydettiğimiz değerle güncelle
-	if camera.has_method("set"):
-		camera.set("_default_zoom", _default_camera_zoom)
-		print("[FoodMinigame] Updated camera script _default_zoom to: ", _default_camera_zoom)
-	
-	# Önce kamera'nın kendi reset_zoom metodunu dene
-	if camera.has_method("reset_zoom"):
-		camera.reset_zoom(0.6)  # Yavaşça dön (0.6 saniye)
-		print("[FoodMinigame] Camera reset zoom via reset_zoom() method")
-		# Callback ile kontrol et
-		await get_tree().create_timer(0.7).timeout
-		print("[FoodMinigame] Camera zoom after reset: ", camera.zoom)
-		# Eğer hala doğru değere dönmediyse, manuel olarak ayarla
-		if camera.zoom.distance_to(_default_camera_zoom) > 0.1:
-			print("[FoodMinigame] WARNING: Camera did not reset correctly, forcing manual reset")
-			camera.zoom = _default_camera_zoom
-		_camera_zoomed_out = false
-		return
-	
-	# Eğer reset_zoom yoksa, manuel olarak zoom_to_vector veya tween kullan
+
+	# NOT: Kamera'nın KENDİ _default_zoom'unu artık burada ezmiyoruz — kamera bunu kendi
+	# _ready()'sinde bir kez doğru ayarlıyor (bkz. ForestSimpleCamera/ForestAdaptiveCamera).
+	# reset_zoom() o değeri kullanır ve round başında yakaladığımız _default_camera_zoom'dan
+	# ufak da olsa sapabilir (zoom-out ile zoom-in simetrik olmaz, "eski seviyeye tam
+	# dönmüyor" hissi verir) — bu yüzden zoom_to_vector() ile açıkça yakaladığımız değeri
+	# hedefliyoruz; reset_zoom() sadece o metot hiç yoksa son çare olarak kullanılıyor.
 	if camera.has_method("zoom_to_vector"):
 		camera.zoom_to_vector(_default_camera_zoom, 0.6)
-		_camera_zoomed_out = false
 		print("[FoodMinigame] Camera reset zoom to: ", _default_camera_zoom)
+	elif camera.has_method("reset_zoom"):
+		camera.reset_zoom(0.6)  # Yavaşça dön (0.6 saniye)
+		print("[FoodMinigame] Camera reset zoom via reset_zoom() method")
 	else:
 		# Manuel zoom animasyonu - kesin çalışır
 		if _camera_zoom_tween and _camera_zoom_tween.is_running():
 			_camera_zoom_tween.kill()
 		_camera_zoom_tween = create_tween()
 		_camera_zoom_tween.tween_property(camera, "zoom", _default_camera_zoom, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		_camera_zoom_tween.tween_callback(func():
-			_camera_zoomed_out = false
-			print("[FoodMinigame] Camera zoom reset complete - final zoom: ", camera.zoom)
-		)
 		print("[FoodMinigame] Camera reset zoom (manual tween) to: ", _default_camera_zoom)
 
 func _find_player_camera() -> Camera2D:

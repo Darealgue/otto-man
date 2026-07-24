@@ -6,7 +6,7 @@ const StoneHurtbox = preload("res://ui/minigames/stone/StoneHurtbox.gd")
 const ROCK_PIECE_SCENE := preload("res://ui/minigames/stone/rock_piece.tscn")
 const ROCK_PIECE_TEXTURE := preload("res://ui/minigames/stone/rock_piece.png")
 const ROCK_PIECE2_TEXTURE := preload("res://ui/minigames/stone/rock_piece2.png")
-const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
+const RESOURCE_PIECE_SCRIPT := preload("res://ui/minigames/resource_piece.gd")
 
 # Bar ayarları
 @export var fill_speed_base: float = 1.2  # Bar dolum hızı (tier 1 için)
@@ -231,12 +231,7 @@ func _on_perfect_hit() -> void:
 	
 	# Taş hit animasyonu
 	_play_rock_hit_animation()
-	
-	# Her başarılı vuruşta 1-2 rock piece fırlat
-	var piece_count := _rng.randi_range(1, 2)
-	for i in range(piece_count):
-		_spawn_rock_piece_effect()
-	
+
 	# Taş çatlama efekti
 	_apply_crack_visual(_current_progress)
 	
@@ -324,28 +319,27 @@ func _apply_crack_visual(progress: float) -> void:
 func _on_success() -> void:
 	# Taş break animasyonu
 	_play_rock_break_animation()
-	
-	# Taş parçalarını spawn et
-	_spawn_rock_pieces()
-	
+
 	# Kaynak kazancı hesapla
 	var total_reward := _base_reward
 	# Üstün başarı: Hiç miss olmadan tüm vuruşları tamamlamak
 	if _total_misses == 0:
 		total_reward += _perfect_bonus
-	
-	# Floating text göster
-	_show_resource_gain_text(total_reward)
-	
+
+	# Taş artık otomatik envantere eklenmiyor — kırılınca tam olarak total_reward kadar
+	# toplanabilir parça saçılır, oyuncu fiziksel olarak üzerlerine gidip toplamalı
+	# (bkz. resource_piece.gd). emit_result payload'ında resource_type/amount YOK; aksi halde
+	# MinigameRouter ayrıca otomatik envantere ekler ve kaynak iki kere verilmiş olur.
+	_spawn_rock_pieces(total_reward)
+
 	# Başarı mesajı
 	if _gauge:
 		_gauge.set_feedback("BAŞARILI! +%d Taş" % total_reward, success_feedback_color)
-	
+
 	# Minigame'i bitir
 	emit_result(true, {
-		"amount": total_reward,
-		"resource_type": _resource_type,
-		"progress": _current_progress
+		"progress": _current_progress,
+		"pieces_spawned": total_reward,
 	})
 
 func emit_result(success: bool, payload: Dictionary) -> void:
@@ -356,10 +350,9 @@ func emit_result(success: bool, payload: Dictionary) -> void:
 	_release_hurtbox()
 	finish(success, payload)
 
-func _spawn_rock_pieces() -> void:
-	# Taş kırıldığında taş parçaları fırlar
-	var rock_count := _rng.randi_range(4, 6)
-	for i in range(rock_count):
+## amount: bu turda kazanılan taş sayısı — tam olarak bu kadar toplanabilir parça saçılır.
+func _spawn_rock_pieces(amount: int) -> void:
+	for i in range(amount):
 		_spawn_rock_piece_effect()
 
 func _spawn_rock_piece_effect() -> void:
@@ -399,7 +392,6 @@ func _spawn_rock_piece_effect() -> void:
 		spawn_parent = get_tree().current_scene
 
 	if spawn_parent:
-		rock_piece.global_position = spawn_pos
 		rock_piece.z_index = 100000  # Çok yüksek z-index
 		rock_piece.visible = true
 		rock_piece.scale = Vector2.ONE
@@ -431,42 +423,19 @@ func _spawn_rock_piece_effect() -> void:
 			sprite.texture = chosen_texture
 			sprite.visible = true
 
+		# Toplanabilirlik scripti sahneye eklenmeden ÖNCE bağlanıyor (bkz. WoodRhythmMinigame.gd
+		# aynı notu) — script zaten bağlıyken node ilk kez ağaca girerse _ready() güvenilir çalışır.
+		rock_piece.set_script(RESOURCE_PIECE_SCRIPT)
+		rock_piece.set("resource_type", "stone")
+		if rock_piece.has_method("set_minigame_ref"):
+			rock_piece.set_minigame_ref(self)
 		spawn_parent.add_child(rock_piece)
-
-func _show_resource_gain_text(amount: int) -> void:
-	# Taşın tepesinde "+X" floating text göster
-	if not _rock_node or not is_instance_valid(_rock_node):
-		return
-	
-	var damage_number := DAMAGE_NUMBER_SCENE.instantiate()
-	if not damage_number:
-		return
-	
-	# Taşın tepesinde spawn pozisyonu
-	var rock_pos := _rock_node.global_position
-	var text_pos := Vector2(rock_pos.x, rock_pos.y - 100.0)  # Taşın tepesinde
-	
-	# Scene'e ekle (chunk sistemine uygun)
-	var spawn_parent: Node = null
-	if _rock_node and _rock_node.get_parent():
-		spawn_parent = _rock_node.get_parent()
-	else:
-		spawn_parent = get_tree().current_scene
-	
-	if spawn_parent:
-		spawn_parent.add_child(damage_number)
-		damage_number.global_position = text_pos
-		damage_number.z_index = 200000  # Çok yüksek z-index
-		
-		# "+X" text'i göster (yeşil renk)
-		var label := damage_number.get_node_or_null("Label") as Label
-		if label:
-			# setup() çağrısını yap (animasyon için gerekli)
-			if damage_number.has_method("setup"):
-				damage_number.setup(amount, false, false)
-			# setup() text'i değiştirdi, tekrar "+" ekle
-			label.text = "+" + str(amount)
-			label.modulate = Color(0.2, 1.0, 0.2)  # Yeşil renk
+		# KRİTİK: global_position ancak add_child'dan SONRA (bkz. WoodRhythmMinigame.gd aynı not).
+		rock_piece.global_position = spawn_pos
+		print("[StoneMinigame] Rock piece added to tree, immediate check: is_inside_tree=",
+			rock_piece.is_inside_tree(), " has_script=", rock_piece.get_script() != null,
+			" visible=", rock_piece.visible, " global_pos=", rock_piece.global_position,
+			" child_count=", rock_piece.get_child_count())
 
 func _cleanup_gauge() -> void:
 	if _gauge and is_instance_valid(_gauge):

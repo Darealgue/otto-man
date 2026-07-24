@@ -4,7 +4,8 @@ extends CanvasLayer
 ## 2) Alt-orta: dinamik tuş kısayolları barı (klavye/gamepad'e göre değişir)
 ## Tuş bilgisi sadece tutorial aktifken veya köy sahnesindeyken görünür.
 
-@onready var _objective_label: Label = $ObjectiveLabel
+@onready var _objective_panel: Control = $ObjectivePanel
+@onready var _objective_label: Label = $ObjectivePanel/Margin/ObjectiveLabel
 @onready var _keys_bar: Label = $KeysBar
 
 var _raw_objective: String = ""
@@ -14,8 +15,9 @@ func _ready() -> void:
 	layer = 90
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = true
+	if _objective_panel:
+		_objective_panel.modulate.a = 0.0
 	if _objective_label:
-		_objective_label.modulate.a = 0.0
 		TextOutline.apply_font_to_control(_objective_label)
 	if _keys_bar:
 		TextOutline.apply_font_to_control(_keys_bar)
@@ -51,14 +53,14 @@ func _on_device_changed(_is_joypad: bool) -> void:
 
 
 func _apply_objective() -> void:
-	if _objective_label == null:
+	if _objective_label == null or _objective_panel == null:
 		return
 	if _raw_objective.is_empty():
 		_objective_label.text = ""
-		_objective_label.modulate.a = 0.0
+		_objective_panel.modulate.a = 0.0
 		return
 	_objective_label.text = "► " + _resolve_input_tokens(_raw_objective)
-	_objective_label.modulate.a = 1.0
+	_objective_panel.modulate.a = 1.0
 
 
 func _refresh_keys_bar() -> void:
@@ -118,10 +120,10 @@ func _resolve_input_tokens(text: String) -> String:
 
 
 func _process(delta: float) -> void:
-	if _objective_label == null:
+	if _objective_panel == null:
 		return
-	if _raw_objective.is_empty() and _objective_label.modulate.a > 0.0:
-		_objective_label.modulate.a = maxf(0.0, _objective_label.modulate.a - 3.0 * delta)
+	if _raw_objective.is_empty() and _objective_panel.modulate.a > 0.0:
+		_objective_panel.modulate.a = maxf(0.0, _objective_panel.modulate.a - 3.0 * delta)
 	var sm := get_node_or_null("/root/SceneManager")
 	var wm_active: bool = sm != null and sm.get("_world_map_overlay_instance") != null and is_instance_valid(sm._world_map_overlay_instance)
 	if _keys_bar:

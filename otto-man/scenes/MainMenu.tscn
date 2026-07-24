@@ -78,20 +78,10 @@ alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.9, 0.86, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.55)
-theme_override_constants/shadow_offset_x = 2
-theme_override_constants/shadow_offset_y = 2
-theme_override_font_sizes/font_size = 54
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 84
 text = "Rogue Harem"
-horizontal_alignment = 1
-
-[node name="Subtitle" type="Label" parent="CenterContainer/Menu"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.721569, 0.721569, 0.721569, 1)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.45)
-theme_override_constants/shadow_offset_x = 1
-theme_override_constants/shadow_offset_y = 1
-theme_override_font_sizes/font_size = 20
-text = "Village & Expedition Beta"
 horizontal_alignment = 1
 
 [node name="Buttons" type="VBoxContainer" parent="CenterContainer/Menu"]

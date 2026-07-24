@@ -55,7 +55,10 @@ var _cursor_q: int = 0
 var _cursor_r: int = 0
 var _status_label: Label = null
 var _expedition_supply_hud: PanelContainer = null
-var _expedition_supply_label: Label = null
+var _expedition_food_count: Label = null
+var _expedition_medicine_count: Label = null
+var _expedition_gold_count: Label = null
+var _expedition_survival_label: Label = null
 var _camera: Camera2D = null
 var _camera_follow_target: Vector2 = Vector2.ZERO
 var _camera_follow_vel: Vector2 = Vector2.ZERO
@@ -236,6 +239,7 @@ func _ready() -> void:
 	_setup_player_map_mission_window()
 	_setup_expedition_pack_modal()
 	_setup_expedition_supply_hud()
+	_reposition_carried_resources_display_for_world_map()
 	_setup_hex_hover_tooltip()
 	var ps0: Node = get_node_or_null("/root/PlayerStats")
 	if ps0 and ps0.has_signal("world_expedition_supplies_changed"):
@@ -446,7 +450,10 @@ func _position_world_map_hud_nodes(hd: Node, sb: Node, xb: Node = null) -> void:
 		var surv := hd_ctrl.get_node_or_null("BarContainer/SurvivalContainer")
 		if surv and surv is Control:
 			var sc := surv as Control
-			sc.position = Vector2(0, HudLayout.get_health_display_size().y + 8.0)
+			# Harita ekranında "yemek sayacı" (bu bar) ile "envanter" (ExpeditionSupplyHud,
+			# bkz. _setup_expedition_supply_hud) yer değiştirdi — yemek sayacı yukarıda,
+			# envanter aşağıda olsun diye bu bar biraz yukarı çekildi.
+			sc.position = Vector2(0, HudLayout.get_health_display_size().y + 8.0 - 40.0)
 		var deb := hd_ctrl.get_node_or_null("BarContainer/DebuffContainer")
 		if deb and deb is Control:
 			var dc := deb as Control
@@ -459,6 +466,24 @@ func _position_world_map_hud_nodes(hd: Node, sb: Node, xb: Node = null) -> void:
 		var xb_ctrl := xb as Control
 		HudLayout.apply_xp_bar(xb_ctrl, HudLayout.HUD_ORIGIN)
 		xb_ctrl.z_index = 30
+
+## game_ui.tscn içindeki CarriedResourcesDisplay (yemek/odun/taş göstergesi) köy/zindan
+## bağlamına göre konumlanmış; haritada bu sabit offset başka bir harita HUD öğesiyle
+## çakışıyor — sadece harita bağlamında 80px yukarı kaydırıyoruz.
+func _reposition_carried_resources_display_for_world_map() -> void:
+	var game_ui := get_node_or_null("GameUI")
+	if game_ui == null:
+		return
+	var container: Node = game_ui.get_node_or_null("Container")
+	if container == null:
+		return
+	var carried := container.get_node_or_null("CarriedResourcesDisplay")
+	if carried == null or not (carried is Control):
+		return
+	var ctrl := carried as Control
+	ctrl.offset_top -= 80.0
+	ctrl.offset_bottom -= 80.0
+
 
 func _exit_tree() -> void:
 	if _world_manager and _world_manager.has_signal("world_map_updated") and _world_manager.world_map_updated.is_connected(_on_world_map_updated):
@@ -1897,19 +1922,56 @@ func _setup_expedition_supply_hud() -> void:
 	_expedition_supply_hud.add_theme_stylebox_override("panel", sb)
 	_expedition_supply_hud.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_expedition_supply_hud.offset_left = HudLayout.HUD_ORIGIN.x
-	_expedition_supply_hud.offset_top = HudLayout.get_hud_block_bottom(HudLayout.HUD_ORIGIN) + 12.0
+	# "Envanter" (bu panel) artık "yemek sayacı" (SurvivalContainer, bkz.
+	# _position_world_map_hud_nodes) barının ALTINDA — yer değiştirme isteği üzerine.
+	_expedition_supply_hud.offset_top = HudLayout.get_hud_block_bottom(HudLayout.HUD_ORIGIN) + 12.0 - 30.0 + 40.0
 	_expedition_supply_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_expedition_supply_hud)
-	_expedition_supply_label = Label.new()
-	_expedition_supply_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
-	_expedition_supply_label.add_theme_font_size_override("font_size", 14)
-	TextOutline.apply_font_to_control(_expedition_supply_label)
-	_expedition_supply_hud.add_child(_expedition_supply_label)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_expedition_supply_hud.add_child(col)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(row)
+	_expedition_food_count = _add_expedition_supply_chip(row, "res://assets/Icons/food_icon.png")
+	_expedition_medicine_count = _add_expedition_supply_chip(row, "res://assets/Icons/medicine_icon.png")
+	_expedition_gold_count = _add_expedition_supply_chip(row, "res://assets/Icons/gold_icon.png")
+
+	_expedition_survival_label = Label.new()
+	_expedition_survival_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
+	_expedition_survival_label.add_theme_font_size_override("font_size", 12)
+	TextOutline.apply_font_to_control(_expedition_survival_label)
+	col.add_child(_expedition_survival_label)
+
 	_refresh_expedition_supply_hud()
 
 
+## Yemek/ilaç/altın için ikon + sayı çipi ekler; sayı Label'ı döndürülür (renk/metin sonradan güncellenir).
+func _add_expedition_supply_chip(row: HBoxContainer, icon_path: String) -> Label:
+	var chip := HBoxContainer.new()
+	chip.add_theme_constant_override("separation", 3)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if ResourceLoader.exists(icon_path):
+		var icon := TextureRect.new()
+		icon.texture = load(icon_path)
+		icon.custom_minimum_size = Vector2(20, 20)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		chip.add_child(icon)
+	var count_label := Label.new()
+	count_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
+	count_label.add_theme_font_size_override("font_size", 15)
+	TextOutline.apply_font_to_control(count_label)
+	chip.add_child(count_label)
+	row.add_child(chip)
+	return count_label
+
+
 func _refresh_expedition_supply_hud() -> void:
-	if _expedition_supply_label == null or not is_instance_valid(_expedition_supply_label):
+	if _expedition_food_count == null or not is_instance_valid(_expedition_food_count):
 		return
 	var ps: Node = get_node_or_null("/root/PlayerStats")
 	if ps == null:
@@ -1920,10 +1982,6 @@ func _refresh_expedition_supply_hud() -> void:
 	var gold: int = int(ex.get("world_gold", 0))
 	var forecast: Dictionary = ps.call("get_world_expedition_survival_forecast") if ps.has_method("get_world_expedition_survival_forecast") else {}
 	var minutes_left: int = int(forecast.get("minutes_until_food_collapse", 0))
-	var lines: PackedStringArray = PackedStringArray()
-	lines.append("Yol çantası: yemek %d, ilaç %d, altın %d" % [food, medicine, gold])
-	lines.append("Erzak süresi: ~%s" % _format_minutes_short(maxi(0, minutes_left)))
-	_expedition_supply_label.text = "\n".join(lines)
 	var color: Color
 	if food <= 0:
 		color = Color(1.0, 0.4, 0.35, 1.0)
@@ -1931,7 +1989,15 @@ func _refresh_expedition_supply_hud() -> void:
 		color = Color(1.0, 0.8, 0.35, 1.0)
 	else:
 		color = Color(0.9, 0.88, 0.82, 1.0)
-	_expedition_supply_label.add_theme_color_override("font_color", color)
+	var neutral_color := Color(0.9, 0.88, 0.82, 1.0)
+	_expedition_food_count.text = str(food)
+	_expedition_food_count.add_theme_color_override("font_color", color)
+	_expedition_medicine_count.text = str(medicine)
+	_expedition_medicine_count.add_theme_color_override("font_color", neutral_color)
+	_expedition_gold_count.text = str(gold)
+	_expedition_gold_count.add_theme_color_override("font_color", neutral_color)
+	_expedition_survival_label.text = "Erzak süresi: ~%s" % _format_minutes_short(maxi(0, minutes_left))
+	_expedition_survival_label.add_theme_color_override("font_color", color)
 
 
 func _build_carry_summary_text() -> String:

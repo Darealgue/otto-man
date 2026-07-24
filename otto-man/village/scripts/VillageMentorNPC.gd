@@ -42,6 +42,7 @@ var _roam_right: float = 920.0
 var _player_in_range: bool = false
 var _is_speaking: bool = false
 var _interact_hint_icon: TextureRect = null
+var _interact_hold_ring: NpcInteractHoldRing = null
 
 var state: MentorState = MentorState.ROAM
 var roam_target_x: float = 0.0
@@ -334,11 +335,24 @@ func ShowInteractButton() -> void:
 		_create_interact_hint()
 	if _interact_hint_icon:
 		NpcOverheadUi.fade_show_icon(_interact_hint_icon)
+	if _interact_hold_ring:
+		_interact_hold_ring.sync_to_control(_interact_hint_icon)
+		_interact_hold_ring.set_progress(0.0)
 
 
 func HideInteractButton() -> void:
 	if _interact_hint_icon:
 		NpcOverheadUi.fade_hide_icon(_interact_hint_icon)
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(0.0)
+
+
+## Diğer köylüler (Worker/Concubine) ile aynı basılı-tutma halkası — bkz. player.gd
+## _update_npc_interact_hold_visual (village_priority_interact karakterleri artık dialogue_npcs
+## listesinde olmasa bile hedefse doğrudan çağrılıyor).
+func set_interact_hold_progress(ratio: float) -> void:
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(ratio)
 
 
 func can_interact() -> bool:
@@ -452,6 +466,7 @@ func _create_interact_hint() -> void:
 	_interact_hint_icon = NpcOverheadUi.build_up_arrow_talk_hint_icon()
 	_interact_hint_icon.visible = false
 	add_child(_interact_hint_icon)
+	_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, _interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
 	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(0, -80))
