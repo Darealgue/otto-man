@@ -196,6 +196,8 @@ func _on_minigame_result(result: Dictionary):
 					appearance_dict = app.to_dict() if app and app.has_method("to_dict") else null
 					if _prisoner_cariye.get("display_name") != "":
 						name_str = _prisoner_cariye.display_name
+					# Not: cariye tutsak node'u spawn'dan beri zaten görünmez (İkna Düellosu
+					# ekranında gösteriliyor) — burada yürüyüp kaybolacak bir görsel yok.
 					_prisoner_cariye.visible = false
 				else:
 					var app = AppearanceDB.generate_random_concubine_appearance()
@@ -242,7 +244,10 @@ func _handle_villager_result(result: Dictionary) -> void:
 				var info = w.NPC_Info.get("Info", {})
 				if info is Dictionary and info.has("Name"):
 					name_str = info["Name"]
-			w.visible = false
+			if w.has_method("start_dungeon_rescue_walkout"):
+				w.call("start_dungeon_rescue_walkout", _get_rescue_walkout_target_x())
+			else:
+				w.visible = false
 		if drs:
 			if drs.has_method("add_pending_villager_data"):
 				drs.call("add_pending_villager_data", {"appearance": appearance_dict, "name": name_str}, fragile)
@@ -275,6 +280,15 @@ func _is_fragile_rescue_context() -> bool:
 	if not sm.has_method("is_stealth_mode"):
 		return false
 	return bool(sm.call("is_stealth_mode"))
+
+## Kurtarılan tutsağın yürüyerek yöneleceği X: oyuncunun bulunduğu konum (yoksa kapının
+## biraz ötesi) — "kurtarılan oyuncuya doğru yürüsün" isteğiyle uyumlu.
+func _get_rescue_walkout_target_x() -> float:
+	var player := get_tree().get_first_node_in_group("player")
+	if player is Node2D:
+		return (player as Node2D).global_position.x
+	return global_position.x
+
 
 func _random_vip_name() -> String:
 	var idx: int = randi() % VIP_NAMES.size()
@@ -367,10 +381,12 @@ func _spawn_pen_barrier(chunk: Node, pen: Node2D) -> void:
 	chunk.add_child(body)
 
 
-## Henüz kurtarılmamış (görünür) ilk köylü mahkumu döndürür.
+## Henüz kurtarılmamış ilk köylü mahkumu döndürür. Kurtarılıp yürüyerek kaybolma
+## animasyonu oynayan (dungeon_is_escaping) mahkum hâlâ görünür olabilir; bu yüzden
+## sadece .visible değil, escaping durumunu da kontrol ediyoruz.
 func _next_unrescued_villager() -> Node:
 	for w in _prisoner_villagers:
-		if is_instance_valid(w) and w.visible:
+		if is_instance_valid(w) and w.visible and not bool(w.get("dungeon_is_escaping")):
 			return w
 	return null
 
@@ -378,7 +394,7 @@ func _next_unrescued_villager() -> Node:
 func _count_unrescued_villagers() -> int:
 	var n := 0
 	for w in _prisoner_villagers:
-		if is_instance_valid(w) and w.visible:
+		if is_instance_valid(w) and w.visible and not bool(w.get("dungeon_is_escaping")):
 			n += 1
 	return n
 

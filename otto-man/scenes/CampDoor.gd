@@ -1,5 +1,7 @@
 extends Area2D
 
+const NpcOverheadUi = preload("res://ui/npc_overhead_ui.gd")
+
 signal door_selected(door: Node)
 
 @export var label_text: String = ""
@@ -16,6 +18,8 @@ var _opening: bool = false
 
 @onready var _label: RichTextLabel = $Label
 @onready var _sprite: AnimatedSprite2D = $Sprite2D
+
+var _hint_icon: TextureRect
 
 func _ready() -> void:
 	if _label:
@@ -37,6 +41,12 @@ func _ready() -> void:
 			_sprite.frame = 0
 			_sprite.frame_progress = 0.0
 			_sprite.animation_finished.connect(_on_animation_finished)
+			_create_interact_hint()
+
+func _create_interact_hint() -> void:
+	_hint_icon = NpcOverheadUi.build_up_arrow_hint_icon()
+	add_child(_hint_icon)
+	_hint_icon.position = Vector2(-_hint_icon.size.x * 0.5, -252.0)
 
 func set_label_text(text: String) -> void:
 	label_text = text

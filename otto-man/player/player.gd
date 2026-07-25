@@ -1819,9 +1819,11 @@ func drop_through_platform() -> void:
 	
 	# Add downward velocity for faster dropping
 	velocity.y = 200.0
-	
-	# Move down slightly to ensure we're no longer colliding
-	position.y += 2
+
+	# Move down past the one-way collision margin (platforms in this project use
+	# margins up to 12px) so the drop registers on the first press instead of
+	# needing a second attempt once already partially sunk in.
+	position.y += 16
 	
 	# Create a timer to restore collision
 	var timer = get_tree().create_timer(0.15)

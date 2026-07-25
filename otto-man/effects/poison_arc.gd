@@ -27,6 +27,12 @@ var _age: float = 0.0
 
 func setup(origin: Vector2, facing: float, attack_name: String = "") -> void:
 	global_position = origin
+	# z_index hiç ayarlanmıyordu (varsayılan 0) — zindan dekorları 1-3, düşmanlar 4, oyuncu
+	# 5 kullanıyor, bu yüzden bu damlalar hepsinin ARKASINDA çiziliyordu. Diğer oyuncu
+	# projectile'larıyla (light_attack_projectile.gd, fireball_projectile.gd) aynı değere
+	# eşitledik.
+	z_as_relative = false
+	z_index = 10
 	_direction = facing  # 1 = sağ, -1 = sol (hızın x'ini bununla çarpacağız)
 	# Düz heavy: yere daha paralel damlalar (ileri-yatay). Yukarı heavy: yukarı fırlayıp yakına yağar.
 	var cone_center: float

@@ -13,7 +13,8 @@ config_version=5
 config/name="otto-man"
 run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.3", "C#", "Forward Plus")
-config/icon="res://icon.svg"
+config/icon="res://app_icon.png"
+config/windows_native_icon="res://app_icon.ico"
 
 [autoload]
 

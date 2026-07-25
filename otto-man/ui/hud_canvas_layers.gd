@@ -29,8 +29,10 @@ static func apply_to_scene_root(scene_root: Node) -> void:
 	if player:
 		var ui := player.get_node_or_null("UI")
 		_set_layer(ui, HUD)
-		if scene_root.get_node_or_null("GameUI") != null and ui is CanvasItem:
-			(ui as CanvasItem).hide()
+		# XpBar'ın "sahne kopyası mı, fazlalık mı" ayrımı artık xp_bar.gd'nin kendi
+		# _process()'ünde HER KAREDE kontrol ediliyor (bkz. _is_redundant_scene_copy) —
+		# burada tek seferlik, zamanlamaya bağlı bir gizleme denemesi YAPMIYORUZ; oyuncu
+		# bu fonksiyon çalıştığında henüz sahnede olmayabilirdi ve bu da kırılgandı.
 
 
 static func apply_to_autoload_fx() -> void:

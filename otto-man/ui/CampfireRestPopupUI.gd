@@ -308,9 +308,7 @@ func _build_rest_message(advance_minutes: int, option_minutes: int, _result: Dic
 	if ps != null and ps.has_method("get_max_health"):
 		var max_hp: float = ps.get_max_health()
 		var cur_hp: float = float(ps.get("current_health")) if "current_health" in ps else max_hp
-		if cur_hp >= max_hp - 0.01:
-			heal_line = "\n\n💚 Canın doldu"
-		elif cur_hp > 0.01:
+		if cur_hp > 0.01 and cur_hp < max_hp - 0.01:
 			heal_line = "\n\n💚 Can: %d / %d" % [int(roundf(cur_hp)), int(roundf(max_hp))]
 	var body: String
 	if option_minutes < 0:

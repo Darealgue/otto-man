@@ -44,6 +44,10 @@ var _rescue_mission_concubine_name: String = ""
 var tutorial_forest_gather_complete: bool = false
 var village_dungeon_guide_active: bool = false
 var tutorial_dungeon_guide_complete: bool = false
+## Zindan rehberi köyde bitmiyor artık: kapı seçimi (simge anlatımı) ve ilk oda (gizlilik
+## anlatımı) da rehberin parçası — village_dungeon_guide_active bu ikisi bitene kadar açık kalır.
+var dungeon_door_intro_shown: bool = false
+var dungeon_stealth_intro_shown: bool = false
 
 const FAREWELL_OBJECTIVE_SECONDS: float = 8.0
 
@@ -223,6 +227,28 @@ func start_village_dungeon_guide() -> void:
 	)
 	village_dungeon_guide_changed.emit()
 	set_objective_tr("tutorial.dungeon_guide.objective")
+
+
+## Kamp sahnesinde kapı seçerken (ilk gerçek zindan girişi) simge anlatımı gösterilsin mi?
+func should_show_dungeon_door_intro() -> bool:
+	return village_dungeon_guide_active and not tutorial_dungeon_guide_complete and not dungeon_door_intro_shown
+
+
+func mark_dungeon_door_intro_shown() -> void:
+	dungeon_door_intro_shown = true
+
+
+## İlk odaya girince (Start kapısı açılınca) gizlilik anlatımı gösterilsin mi?
+func should_show_dungeon_stealth_intro() -> bool:
+	return village_dungeon_guide_active and not tutorial_dungeon_guide_complete and not dungeon_stealth_intro_shown
+
+
+## Gizlilik anlatımı gösterildiğinde zindan rehberi tamamen biter (farewell objective vb.).
+func mark_dungeon_stealth_intro_shown() -> void:
+	if dungeon_stealth_intro_shown:
+		return
+	dungeon_stealth_intro_shown = true
+	mark_tutorial_dungeon_guide_complete()
 
 
 func mark_tutorial_dungeon_guide_complete() -> void:
@@ -487,6 +513,8 @@ func export_save_state() -> Dictionary:
 		"tutorial_forest_gather_complete": tutorial_forest_gather_complete,
 		"village_dungeon_guide_active": village_dungeon_guide_active,
 		"tutorial_dungeon_guide_complete": tutorial_dungeon_guide_complete,
+		"dungeon_door_intro_shown": dungeon_door_intro_shown,
+		"dungeon_stealth_intro_shown": dungeon_stealth_intro_shown,
 		"village_menu_phase": village_menu_phase,
 		"tutorial_buildings_queued": _tutorial_buildings_queued.keys(),
 		"tutorial_buildings_built": _tutorial_buildings_built.keys(),
@@ -513,6 +541,8 @@ func import_save_state(data: Dictionary) -> void:
 	tutorial_forest_gather_complete = bool(data.get("tutorial_forest_gather_complete", false))
 	village_dungeon_guide_active = bool(data.get("village_dungeon_guide_active", false))
 	tutorial_dungeon_guide_complete = bool(data.get("tutorial_dungeon_guide_complete", false))
+	dungeon_door_intro_shown = bool(data.get("dungeon_door_intro_shown", false))
+	dungeon_stealth_intro_shown = bool(data.get("dungeon_stealth_intro_shown", false))
 	village_menu_phase = int(data.get("village_menu_phase", 0))
 	for key in data.get("tutorial_buildings_queued", []):
 		_tutorial_buildings_queued[String(key)] = true

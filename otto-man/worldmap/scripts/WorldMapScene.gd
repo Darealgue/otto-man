@@ -54,11 +54,20 @@ var _world_manager: Node = null
 var _cursor_q: int = 0
 var _cursor_r: int = 0
 var _status_label: Label = null
+const _ResourceType = preload("res://resources/resource_types.gd")
+const _ExpeditionLootType = preload("res://resources/expedition_loot_types.gd")
+
 var _expedition_supply_hud: PanelContainer = null
 var _expedition_food_count: Label = null
 var _expedition_medicine_count: Label = null
 var _expedition_gold_count: Label = null
 var _expedition_survival_label: Label = null
+## Taşınan orman kaynakları + zindan ganimeti — eskiden ayrı CarriedResourcesDisplay panelinde
+## gösteriliyordu, bu panelle üst üste bindiği için (bkz. CarriedResourcesDisplay._is_world_map_scene)
+## artık bu panelin ikinci satırında.
+var _carried_row: HBoxContainer = null
+var _carried_resource_chips: Dictionary = {}
+var _carried_loot_chips: Dictionary = {}
 var _camera: Camera2D = null
 var _camera_follow_target: Vector2 = Vector2.ZERO
 var _camera_follow_vel: Vector2 = Vector2.ZERO
@@ -452,8 +461,8 @@ func _position_world_map_hud_nodes(hd: Node, sb: Node, xb: Node = null) -> void:
 			var sc := surv as Control
 			# Harita ekranında "yemek sayacı" (bu bar) ile "envanter" (ExpeditionSupplyHud,
 			# bkz. _setup_expedition_supply_hud) yer değiştirdi — yemek sayacı yukarıda,
-			# envanter aşağıda olsun diye bu bar biraz yukarı çekildi.
-			sc.position = Vector2(0, HudLayout.get_health_display_size().y + 8.0 - 40.0)
+			# envanter aşağıda olsun diye bu bar biraz yukarı çekildi (+ ek 20px daha yukarı).
+			sc.position = Vector2(0, HudLayout.get_health_display_size().y + 8.0 - 40.0 - 20.0)
 		var deb := hd_ctrl.get_node_or_null("BarContainer/DebuffContainer")
 		if deb and deb is Control:
 			var dc := deb as Control
@@ -816,9 +825,9 @@ func _enter_player_village_from_world_map() -> void:
 
 
 func _enter_dungeon_from_world_map() -> void:
-	var tm := get_node_or_null("/root/TutorialManager")
-	if tm and tm.village_dungeon_guide_active and not tm.tutorial_dungeon_guide_complete:
-		tm.mark_tutorial_dungeon_guide_complete()
+	# NOT: Zindan rehberi burada bitmiyor artık — kapı seçimi (simge anlatımı) ve ilk oda
+	# (gizlilik anlatımı) da rehberin parçası. village_dungeon_guide_active açık kalır;
+	# TutorialManager.mark_dungeon_stealth_intro_shown() ilk oda girişinde rehberi kapatır.
 	var dungeon_id: String = ""
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if _world_manager and _world_manager.has_method("get_world_map_state") and is_instance_valid(dp):
@@ -1947,6 +1956,24 @@ func _setup_expedition_supply_hud() -> void:
 	TextOutline.apply_font_to_control(_expedition_survival_label)
 	col.add_child(_expedition_survival_label)
 
+	_carried_row = HBoxContainer.new()
+	_carried_row.add_theme_constant_override("separation", 10)
+	_carried_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_carried_row.visible = false
+	col.add_child(_carried_row)
+	const _CARRIED_ICON_PATHS := {
+		"wood": "res://assets/Icons/wood_icon.png",
+		"stone": "res://assets/Icons/stone_icon.png",
+		"food": "res://assets/Icons/food_icon.png",
+	}
+	for resource_key in _ResourceType.all():
+		var icon_path: String = _CARRIED_ICON_PATHS.get(resource_key, "")
+		var chip := _add_expedition_supply_chip(_carried_row, icon_path)
+		_carried_resource_chips[resource_key] = chip
+	for loot_id in _ExpeditionLootType.all():
+		var chip := _add_expedition_loot_chip(_carried_row, _ExpeditionLootType.placeholder_emoji(loot_id))
+		_carried_loot_chips[loot_id] = chip
+
 	_refresh_expedition_supply_hud()
 
 
@@ -1963,6 +1990,24 @@ func _add_expedition_supply_chip(row: HBoxContainer, icon_path: String) -> Label
 		chip.add_child(icon)
 	var count_label := Label.new()
 	count_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
+	count_label.add_theme_font_size_override("font_size", 15)
+	TextOutline.apply_font_to_control(count_label)
+	chip.add_child(count_label)
+	row.add_child(chip)
+	return count_label
+
+
+## Taşınan zindan ganimeti (emoji ikonlu) için chip — bkz. _add_expedition_supply_chip.
+func _add_expedition_loot_chip(row: HBoxContainer, emoji: String) -> Label:
+	var chip := HBoxContainer.new()
+	chip.add_theme_constant_override("separation", 3)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var emoji_label := Label.new()
+	emoji_label.text = emoji
+	emoji_label.add_theme_font_size_override("font_size", 16)
+	chip.add_child(emoji_label)
+	var count_label := Label.new()
+	count_label.name = "ManualColorLabel"
 	count_label.add_theme_font_size_override("font_size", 15)
 	TextOutline.apply_font_to_control(count_label)
 	chip.add_child(count_label)
@@ -1998,6 +2043,35 @@ func _refresh_expedition_supply_hud() -> void:
 	_expedition_gold_count.add_theme_color_override("font_color", neutral_color)
 	_expedition_survival_label.text = "Erzak süresi: ~%s" % _format_minutes_short(maxi(0, minutes_left))
 	_expedition_survival_label.add_theme_color_override("font_color", color)
+	_refresh_carried_row(ps)
+
+
+## Taşınan orman kaynakları + zindan ganimeti — ikisinden biri bile 0'dan büyükse satır görünür.
+func _refresh_carried_row(ps: Node) -> void:
+	if _carried_row == null or not is_instance_valid(_carried_row):
+		return
+	var has_any := false
+	if ps.has_method("get_carried_resources"):
+		var carried: Dictionary = ps.call("get_carried_resources")
+		for resource_key in _ResourceType.all():
+			var lbl: Label = _carried_resource_chips.get(resource_key)
+			if lbl == null:
+				continue
+			var amount: int = int(carried.get(resource_key, 0))
+			lbl.text = str(amount)
+			if amount > 0:
+				has_any = true
+	if ps.has_method("get_carried_expedition_loot"):
+		var loot: Dictionary = ps.call("get_carried_expedition_loot")
+		for loot_id in _ExpeditionLootType.all():
+			var lbl: Label = _carried_loot_chips.get(loot_id)
+			if lbl == null:
+				continue
+			var amount: int = int(loot.get(loot_id, 0))
+			lbl.text = str(amount)
+			if amount > 0:
+				has_any = true
+	_carried_row.visible = has_any
 
 
 func _build_carry_summary_text() -> String:

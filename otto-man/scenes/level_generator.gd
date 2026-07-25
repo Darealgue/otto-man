@@ -81,6 +81,8 @@ const CHUNKS = {
 			"res://chunks/dungeon/basic/basic_platform2.tscn",
 			"res://chunks/dungeon/basic/basic_platform3.tscn",
 			"res://chunks/dungeon/basic/basic_platform4.tscn",
+			"res://chunks/dungeon/basic/basic_platform5.tscn",
+			"res://chunks/dungeon/basic/basic_platform6.tscn",
 			"res://chunks/dungeon/basic/basic_platform_exit.tscn"
 		],
 		"ports": {
@@ -225,7 +227,8 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/four_way_hub1.tscn",
 			"res://chunks/dungeon/hub/four_way_hub2.tscn",
 			"res://chunks/dungeon/hub/four_way_hub3.tscn",
-			"res://chunks/dungeon/hub/four_way_hub4.tscn"
+			"res://chunks/dungeon/hub/four_way_hub4.tscn",
+			"res://chunks/dungeon/hub/four_way_hub5.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -3125,7 +3128,14 @@ func setup_level_transitions() -> void:
 			if not start_door.door_opened.is_connected(_on_door_opened):
 				start_door.door_opened.connect(_on_door_opened)
 			print("Connected to pre-placed start door")
-			
+
+			# Start kapısı _ready()'de deferred _initialize_door() ile ANINDA açılıyor; bu
+			# connect'ten önce zaten olmuş olabilir ve sinyal kaçırılmış olabilir (level_started,
+			# enemy/trap spawner, tutorial gizlilik anlatımı bu sinyale bağlı). Kapı zaten açıksa
+			# burada doğrudan tetikleyip kaçırılan olayı telafi ediyoruz.
+			if bool(start_door.get("is_open")):
+				_on_door_opened(String(start_door.door_type))
+
 			# Kapı pozisyonunu kaydet
 			door_positions.append(start_door.global_position)
 			
@@ -3425,6 +3435,28 @@ func _spawn_emergency_key_holder(drs: Node) -> void:
 		_mark_segment_key_holder(enemy)
 
 
+## İlk gerçek zindan odasına girişte (tutorial rehberi hâlâ aktifken) gizlilik mekaniğini
+## kısaca anlat: alarm çalana kadar düşmanlar habersizdir, arkadan vuruş/sessiz çıkış mümkündür.
+## Köydeki mentor konuşmasıyla AYNI çerçeve (TutorialSpeechBar) kullanılıyor.
+func _maybe_show_tutorial_stealth_intro() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.has_method("should_show_dungeon_stealth_intro"):
+		return
+	if not bool(tm.call("should_show_dungeon_stealth_intro")):
+		return
+	tm.call("mark_dungeon_stealth_intro_shown")
+	call_deferred("_show_tutorial_stealth_banner")
+
+
+func _show_tutorial_stealth_banner() -> void:
+	# Tek kutuya sığdırmaya çalışmak metni kırpıyordu (kutu sabit boyutlu, kaydırma yok) —
+	# iki kısa sayfaya bölündü; oyuncu her sayfayı {interact}/{ui_up} ile kapatır.
+	TutorialSpeechHelper.show_pages_and_await_dismiss(self, [
+		tr("tutorial.dungeon.stealth_intro_1"),
+		tr("tutorial.dungeon.stealth_intro_2"),
+	])
+
+
 func _on_door_opened(door_type: String) -> void:
 	if is_transitioning:
 		return
@@ -3433,6 +3465,7 @@ func _on_door_opened(door_type: String) -> void:
 	if door_type == "Start":
 		print("Emitting level_started signal")  # Debug print
 		level_started.emit()
+		_maybe_show_tutorial_stealth_intro()
 	elif door_type == "Finish" or door_type == "Boss":
 		var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
 		var drs_finish = get_node_or_null("/root/DungeonRunState")

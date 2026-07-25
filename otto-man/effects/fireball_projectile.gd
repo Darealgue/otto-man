@@ -14,6 +14,11 @@ func setup(origin: Vector2, direction: Vector2) -> void:
 	global_position = origin
 	_direction = direction.normalized() if direction.length_squared() > 0.01 else Vector2.RIGHT
 	rotation = _direction.angle()
+	# z_index hiç ayarlanmıyordu (varsayılan 0) — zindan dekorları 1-3, düşmanlar 4, oyuncu
+	# 5 kullanıyor, bu yüzden bu projectile hepsinin ARKASINDA çiziliyordu. Tuzak/düşman
+	# projectile'larının zaten kullandığı değerle eşleştirdik (z_index=10, z_as_relative=false).
+	z_as_relative = false
+	z_index = 10
 
 func _physics_process(delta: float) -> void:
 	var move := _direction * SPEED * delta

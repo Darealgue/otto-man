@@ -13,6 +13,7 @@ signal closed
 const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
 const _WORKERS_ICON := "res://assets/Icons/workers_icon.png"
 const _INVENTOR_WORKSHOP_SCENE_PATH := "res://village/buildings/InventorWorkshop.tscn"
+const _ConfirmDialogScene := preload("res://ui/ConfirmDialog.tscn")
 
 var _panel: PanelContainer
 var _title_label: Label
@@ -28,6 +29,8 @@ var _inventor_upgrades_btn: Button
 var _demolish_btn: Button
 var _building: Node2D = null
 var _is_open := false
+var _confirm_dialog: Control = null
+var _pending_confirm_action: String = ""
 
 
 func _ready() -> void:
@@ -370,8 +373,11 @@ func _format_upgrade_cost(scene_path: String, target_level: int) -> String:
 
 
 func _on_upgrade_pressed() -> void:
-	upgrade_requested.emit()
-	hide_popup()
+	_request_confirmation(
+		"upgrade",
+		tr("plot.confirm_upgrade_title"),
+		tr("plot.confirm_upgrade_message")
+	)
 
 
 func _on_build_house_pressed() -> void:
@@ -390,8 +396,58 @@ func _on_inventor_upgrades_pressed() -> void:
 
 
 func _on_demolish_pressed() -> void:
-	demolish_requested.emit()
+	_request_confirmation(
+		"demolish",
+		tr("plot.confirm_demolish_title"),
+		tr("plot.confirm_demolish_message")
+	)
+
+
+## Yükseltme/yıkım gibi geri alınamayan kararlar için "emin misin?" onayı ister.
+## Onaylanırsa ilgili sinyal yayınlanır ve popup kapanır; iptal edilirse popup açık kalır.
+func _request_confirmation(action: String, title: String, message: String) -> void:
+	_ensure_confirm_dialog()
+	if _confirm_dialog == null:
+		# Dialog yüklenemediyse eski davranışa düş (aksiyon hiç engellenmesin).
+		_emit_confirmed_action(action)
+		hide_popup()
+		return
+	_pending_confirm_action = action
+	_confirm_dialog.call("show_dialog", title, message, true)
+
+
+func _ensure_confirm_dialog() -> void:
+	if _confirm_dialog != null and is_instance_valid(_confirm_dialog):
+		return
+	if not _ConfirmDialogScene:
+		_confirm_dialog = null
+		return
+	_confirm_dialog = _ConfirmDialogScene.instantiate()
+	_confirm_dialog.name = "PlotActionConfirmDialog"
+	add_child(_confirm_dialog)
+	if _confirm_dialog.has_signal("confirmed"):
+		_confirm_dialog.confirmed.connect(_on_confirm_dialog_confirmed)
+	if _confirm_dialog.has_signal("cancelled"):
+		_confirm_dialog.cancelled.connect(_on_confirm_dialog_cancelled)
+
+
+func _on_confirm_dialog_confirmed() -> void:
+	var action := _pending_confirm_action
+	_pending_confirm_action = ""
+	_emit_confirmed_action(action)
 	hide_popup()
+
+
+func _on_confirm_dialog_cancelled() -> void:
+	_pending_confirm_action = ""
+
+
+func _emit_confirmed_action(action: String) -> void:
+	match action:
+		"upgrade":
+			upgrade_requested.emit()
+		"demolish":
+			demolish_requested.emit()
 
 
 func _on_dim_gui_input(event: InputEvent) -> void:

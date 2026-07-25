@@ -28,6 +28,19 @@ func _ready() -> void:
 var _force_visible: bool = true  # Allow external control
 
 func _process(_delta: float) -> void:
+	# Sahnenin kendi GameUI kopyası ile oyuncunun gömülü kopyası aynı anda var olabiliyor
+	# (ikisi de aynı veriyi gösterip üst üste "çift XP bar" gibi görünüyordu). Bunu tek seferlik,
+	# zamanlamaya bağlı bir dış çağrıyla (HudCanvasLayers) çözmeye çalışmak kırılgandı — oyuncu
+	# henüz sahneye eklenmemişken çalışırsa hiç etkisi olmuyordu. Bunun yerine burada HER KAREDE
+	# kendi kendine kontrol ediyoruz: oyuncunun kendi XpBar'ı zaten varsa ve ben o değilsem,
+	# ben sahnenin fazlalık kopyasıyımdır — kalıcı olarak gizlenirim.
+	if _is_redundant_scene_copy():
+		_force_visible = false
+		if visible:
+			hide()
+			modulate.a = 0.0
+		return
+
 	if _is_world_map_scene():
 		_force_visible = true
 		visible = true
@@ -40,6 +53,21 @@ func _process(_delta: float) -> void:
 	if !visible and _force_visible:
 		show()
 		modulate.a = 1.0
+
+
+## true dönerse bu düğüm, oyuncunun kendi UI/XpBar kopyası ZATEN varken sahnenin (GameUI/
+## Container) ayrı bir kopyasıdır — gizlenmesi gerekir. Oyuncunun kendisi bu kontrolden
+## muaf (kendi kopyasıyla karşılaştırınca "ben oyum" der, gizlenmez).
+func _is_redundant_scene_copy() -> bool:
+	var players := get_tree().get_nodes_in_group("player")
+	if players.is_empty():
+		return false
+	var player: Node = players[0]
+	var player_ui := player.get_node_or_null("UI")
+	if player_ui == null:
+		return false
+	var player_xp := player_ui.get_node_or_null("XpBar")
+	return player_xp != null and player_xp != self
 
 func _on_kill_count_changed(count: int) -> void:
 	var filled: int

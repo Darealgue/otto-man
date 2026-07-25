@@ -60,6 +60,9 @@ var run_start_ticks_msec: int = 0
 const STEALTH_EXIT_BOSS_GOLD_FRACTION: float = 0.25
 const DEFAULT_DUNGEON_KEY_ID: String = "dungeon_key"
 const SEGMENT_EXIT_KEY_ID: String = "segment_exit_key"
+## Anahtar yönü oku, alarm çalar çalmaz değil; oyuncu bu kadar düşman alt edince açığa çıkar
+## (sanki sorgulayıp anahtarın yerini öğrenmiş gibi).
+const KEY_ARROW_REVEAL_KILL_COUNT: int = 10
 const _DungeonLootDropSpawner = preload("res://interactables/dungeon/DungeonLootDropSpawner.gd")
 
 ## Alarm sonrası çıkış kapısı bu segmentte anahtar ister
@@ -241,12 +244,15 @@ func _find_dropped_key_node() -> Node:
 	return null
 
 
-## Alarm çalar çalmaz aktif olur: düşman öldürme şartı yok, imleç anahtar
-## ekrana girene kadar hep hedefi gösterir (bkz. stealth_status_display.gd).
+## Alarm çalar çalmaz DEĞİL — oyuncu KEY_ARROW_REVEAL_KILL_COUNT kadar düşman alt edene kadar
+## ok gizli kalır; sanki onları sorgulayıp anahtarın yerini öğreniyormuş gibi bir his versin
+## (bkz. stealth_status_display.gd).
 func should_show_key_holder_arrow() -> bool:
 	if not segment_exit_requires_key:
 		return false
 	if has_dungeon_key(SEGMENT_EXIT_KEY_ID):
+		return false
+	if segment_combat_enemies_defeated < KEY_ARROW_REVEAL_KILL_COUNT:
 		return false
 	return get_key_target_node() != null
 
@@ -371,7 +377,16 @@ func _find_living_key_holder() -> Node:
 
 func handle_enemy_defeated(enemy: Node) -> void:
 	enemies_killed_total += 1
+	var was_below_reveal_threshold: bool = segment_combat_enemies_defeated < KEY_ARROW_REVEAL_KILL_COUNT
 	_register_segment_enemy_defeated(enemy)
+	if (
+		segment_exit_requires_key
+		and was_below_reveal_threshold
+		and segment_combat_enemies_defeated >= KEY_ARROW_REVEAL_KILL_COUNT
+	):
+		var sm := get_node_or_null("/root/StealthManager")
+		if is_instance_valid(sm) and sm.has_method("notify_key_location_revealed"):
+			sm.call("notify_key_location_revealed")
 	if try_spawn_key_drop_from_enemy(enemy):
 		return
 	call_deferred("_ensure_alarm_key_available")

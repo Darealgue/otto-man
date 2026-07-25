@@ -199,6 +199,13 @@ func _notify_fragile_rescue_fled(villagers_lost: int, cariyes_lost: int) -> void
 	print("[StealthManager] Kurtarılanlar kaçtı — köylü=%d cariye=%d" % [villagers_lost, cariyes_lost])
 
 
+## Oyuncu yeterince düşman alt edip anahtar taşıyıcının yerini "öğrendiğinde" (bkz.
+## DungeonRunState.KEY_ARROW_REVEAL_KILL_COUNT) çağrılır — ok artık ekranda görünür.
+func notify_key_location_revealed() -> void:
+	if _hud != null and is_instance_valid(_hud) and _hud.has_method("show_key_location_revealed_toast"):
+		_hud.call("show_key_location_revealed_toast")
+
+
 func refresh_fragile_hud() -> void:
 	if _hud != null and is_instance_valid(_hud) and _hud.has_method("refresh_fragile_status"):
 		_hud.call("refresh_fragile_status")
@@ -211,6 +218,23 @@ func _ensure_hud() -> void:
 	var tree: SceneTree = get_tree()
 	if tree == null or tree.current_scene == null:
 		return
+
+	# ÖNEMLİ: bu arama, _hud zaten geçerli görünse bile HER ÇAĞRIDA çalışır — çünkü _hud
+	# önceden (parent yolu tutmadığı için) YANLIŞLIKLA oluşturulmuş bir kopyaya bağlanmış
+	# olabilir; o durumda "zaten geçerli" diye erken çıkmak asıl gömülü kopyayı hiç bulup
+	# temizleyemezdi (tam da yaşanan çift-görünüm hatası). Bulunanlardan _hud'ın kendisi
+	# varsa onu koru (referans değişmesin), yoksa ilkini benimse, gerisini sil.
+	var found: Array = tree.current_scene.find_children("StealthStatusDisplay", "", true, false)
+	if found.size() > 0:
+		var keep: Node = found[0]
+		if is_instance_valid(_hud) and _hud in found:
+			keep = _hud
+		_hud = keep
+		for node in found:
+			if node != keep and is_instance_valid(node):
+				node.queue_free()
+		return
+
 	if _hud != null and is_instance_valid(_hud):
 		return
 
@@ -238,6 +262,27 @@ func _ensure_collectibles_hud() -> void:
 	var tree: SceneTree = get_tree()
 	if tree == null or tree.current_scene == null:
 		return
+
+	# game_ui.tscn bu display'i kalıcı içeriyor; ama parent.get_node_or_null ile sadece TAM
+	# beklenen yolda ararsak, o yol tutmadığında (sahne geçişinde current_scene'in altında
+	# GameUI'nin beklenenden farklı derinlikte kalması gibi durumlarda) İKİNCİ bir kopya daha
+	# oluşturuluyordu — ikisi üst üste render olup ganimet sayıları iki kez görünüyordu.
+	# Bu yüzden burası da (StealthStatusDisplay'deki gibi) _collectibles_hud geçerli görünse
+	# bile HER ÇAĞRIDA tüm sahneyi isimle tarar (owned=false: script ile add_child edilenler
+	# owner'sız kalabiliyor) ve fazlalıkları temizler — daha önce yanlış bir kopyaya bağlanmış
+	# olsa bile kendi kendini onarır.
+	var found: Array = tree.current_scene.find_children("DungeonCollectiblesDisplay", "", true, false)
+	if found.size() > 0:
+		var keep: Node = found[0]
+		if is_instance_valid(_collectibles_hud) and _collectibles_hud in found:
+			keep = _collectibles_hud
+		_collectibles_hud = keep
+		_collectibles_hud_owned = false
+		for node in found:
+			if node != keep and is_instance_valid(node):
+				node.queue_free()
+		return
+
 	if _collectibles_hud != null and is_instance_valid(_collectibles_hud):
 		return
 
@@ -247,13 +292,6 @@ func _ensure_collectibles_hud() -> void:
 		if game_ui:
 			parent = game_ui
 	if parent == null:
-		return
-
-	# game_ui.tscn artık bu display'i kalıcı içeriyor; varsa yenisini ekleme, onu kullan.
-	var existing: Node = parent.get_node_or_null("DungeonCollectiblesDisplay")
-	if existing != null:
-		_collectibles_hud = existing
-		_collectibles_hud_owned = false
 		return
 
 	_collectibles_hud = COLLECTIBLES_HUD_SCRIPT.new()

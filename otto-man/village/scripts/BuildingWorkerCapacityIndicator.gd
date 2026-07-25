@@ -11,7 +11,9 @@ const SLOT_ICON_SIZE := 16.0
 # tuval içinde ~11px genişliğinde figür) — bu yüzden GAP negatif: kutular üst üste biniyor ama
 # görünen siluetler arasında yaklaşık 3px'lik doğal, sıkı bir boşluk kalıyor.
 const SLOT_GAP := -6.0
-const Y_OFFSET := -118.0
+## Bina etkileşim ok ikonunun (VillagePlotInteractSpot, -198) hemen altında bir satırda
+## dursun diye bu değere hizalandı — kendisi ve Q-/E+ ipuçları aynı satırda görünür.
+const Y_OFFSET := -164.0
 const FADE_NEAR := 130.0
 const FADE_FAR := 300.0
 

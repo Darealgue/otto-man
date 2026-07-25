@@ -8,6 +8,8 @@ var plot_position: Vector2 = Vector2.ZERO
 var plot_system: VillagePlotSystem = null
 
 const WORKER_HINT_MARGIN := 14.0
+## İnşa/işçi etkileşim ikonları çok aşağıdaydı — hepsini bu kadar yukarı kaydır.
+const HINT_ICON_RAISE := 120.0
 
 var _interact_area: Area2D
 var _build_hint_icon: TextureRect
@@ -52,7 +54,7 @@ func _build_hint() -> void:
 	add_child(_build_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
-	OverheadUiTracker.attach(_build_hint_icon, self, Vector2(0, -78))
+	OverheadUiTracker.attach(_build_hint_icon, self, Vector2(0, -78 - HINT_ICON_RAISE))
 
 	# İşçi ekle/çıkar tuş ipuçları — BuildingWorkerCapacityIndicator'ın nokta göstergesinin
 	# solunda (çıkar) ve sağında (ekle) konumlanıyor; genişlik binanın max_workers'ına göre
@@ -148,6 +150,9 @@ func _update_worker_hints(building: Node2D) -> void:
 		return
 	var total_w := float(max_w) * (BuildingWorkerCapacityIndicator.SLOT_ICON_SIZE + BuildingWorkerCapacityIndicator.SLOT_GAP) - BuildingWorkerCapacityIndicator.SLOT_GAP
 	var half_w := total_w * 0.5 + WORKER_HINT_MARGIN
+	# anchor_world zaten göstergenin GÜNCEL (bina etkileşim okunun altındaki satıra hizalı,
+	# bkz. BuildingWorkerCapacityIndicator.Y_OFFSET) konumunu yansıtıyor — burada AYRICA
+	# HINT_ICON_RAISE düşülürse ipuçları göstergeden bağımsız, tekrar okun üstüne taşar.
 	var anchor_offset := anchor_world - global_position
 	if _worker_remove_tracker:
 		_worker_remove_tracker.set_world_center_offset(Vector2(anchor_offset.x - half_w, anchor_offset.y))

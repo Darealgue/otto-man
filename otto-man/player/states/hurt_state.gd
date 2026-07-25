@@ -14,6 +14,10 @@ const CHARGE_MIN_HORIZONTAL_KNOCKBACK := 560.0
 const RECOVERY_CROUCH_DURATION := 0.35
 const WALL_STUCK_DROP_SPEED := 240.0
 const WALL_PUSHOUT_DISTANCE := 1.5
+## Oyuncu havada (yerde değil) bu kadar süre kilitli kalırsa (ör. büyük bir düşmanla
+## duvar arasına sıkışıp hiç yere değemezse), stamina/zıplama şartı olmadan zorla
+## kurtarılır — sonsuza kadar çaresiz kalmasın diye son çare güvenlik ağı.
+const LAUNCH_STUCK_TIMEOUT := 1.5
 
 @export var launch_force_threshold: float = 700.0
 @export var launch_up_force_threshold: float = 350.0
@@ -49,6 +53,7 @@ var lie_slide_dust_distance_accum := 0.0
 var active_hurt_duration := HURT_DURATION
 var active_horizontal_decay := HORIZONTAL_DECAY
 var transitioned_to_crouch_recovery := false
+var _launch_no_floor_timer := 0.0
 
 enum LaunchPhase {
 	NONE,
@@ -92,6 +97,7 @@ func enter() -> void:
 	active_hurt_duration = HURT_DURATION
 	active_horizontal_decay = HORIZONTAL_DECAY
 	transitioned_to_crouch_recovery = false
+	_launch_no_floor_timer = 0.0
 	
 	# Get knockback data from the last hit
 	var knockback_data = player.last_hit_knockback
@@ -205,11 +211,14 @@ func physics_update(delta: float) -> void:
 			player.sprite.modulate = Color(1, 1, 1, 1)  # White
 	
 	_apply_hurt_movement(delta)
-	
+
 	player.apply_move_and_slide()
 	_resolve_wall_stuck()
 	_update_launch_phase(delta)
 	if transitioned_to_crouch_recovery:
+		return
+
+	if _check_launch_stuck_failsafe(delta):
 		return
 
 	# Launch akışında çıkışı fazlar yönetir.
@@ -453,20 +462,70 @@ func begin_lethal_sequence() -> void:
 	player.is_jumping = false
 	_set_launch_phase(LaunchPhase.RISE)
 
+## Sonsuza kadar havada (yerde değil) kilitli kalmayı engelleyen son çare: launch fazında
+## bu kadar süre yere değemezsek (bkz. LAUNCH_STUCK_TIMEOUT), stamina/zıplama şartı
+## olmadan zorla hurt state'inden çıkarırız. _resolve_wall_stuck() çoğu durumda kurtarır
+## ama gerçek bir duvar YOKSA (sadece düşman gövdesi varsa) o fonksiyon bilerek hiçbir şey
+## yapmıyor — bu yüzden bu zaman aşımı, tüm senaryolar için garanti bir çıkış sağlıyor.
+## true dönerse çağıran taraf bu karede başka bir şey yapmamalı (state zaten değişti).
+func _check_launch_stuck_failsafe(delta: float) -> bool:
+	if not is_launch_hurt or player.is_on_floor():
+		_launch_no_floor_timer = 0.0
+		return false
+	_launch_no_floor_timer += delta
+	if _launch_no_floor_timer < LAUNCH_STUCK_TIMEOUT:
+		return false
+	_launch_no_floor_timer = 0.0
+	player.velocity = Vector2.ZERO
+	_finish_hurt_state(true)
+	return true
+
+
 func _resolve_wall_stuck() -> void:
 	# Heavy charge / launch sırasında oyuncu duvara itilip havada kilitlenmesin.
 	if not player.is_on_wall() or player.is_on_floor():
 		return
-	var wall_normal: Vector2 = player.get_wall_normal()
+	var wall_normal: Vector2 = _get_real_wall_normal()
 	if wall_normal == Vector2.ZERO:
+		# is_on_wall() sadece bir düşman gövdesine değdiğimiz için true olabilir (düşman
+		# gövdesi de oyuncunun collision mask'inde) — bu durumda normal'in hangi yöne
+		# işaret ettiği güvenilir değil (gerçek duvarın İÇİNE işaret edip oyuncuyu duvara
+		# gömebilir; nadir "haritadan düşme" bug'ının kaynağı da buydu). Sadece içeri giren
+		# hızı iptal ediyoruz, ham pozisyon itmesi yapmıyoruz.
+		player.velocity.x = 0.0
+		player.velocity.y = maxf(player.velocity.y, WALL_STUCK_DROP_SPEED)
 		return
 	# If moving into wall, cancel horizontal into-wall velocity.
 	if player.velocity.x * wall_normal.x < 0.0:
 		player.velocity.x = 0.0
-	# Tiny push-out to avoid remaining interpenetration with continuous enemy pressure.
-	player.global_position.x += wall_normal.x * WALL_PUSHOUT_DISTANCE
+	# Tiny push-out to avoid remaining interpenetration with continuous enemy pressure —
+	# ama önce bu yönde gerçekten boş yer var mı diye çarpışma kontrollü test edelim, aksi
+	# halde oyuncuyu duvarın daha da içine itebiliriz.
+	var push: Vector2 = wall_normal * WALL_PUSHOUT_DISTANCE
+	if not player.test_move(player.global_transform, push):
+		player.global_position += push
 	# Force descent so FALL can eventually reach floor and transition out.
 	player.velocity.y = maxf(player.velocity.y, WALL_STUCK_DROP_SPEED)
+
+
+## is_on_wall() true olsa bile hangi çarpışmanın GERÇEK dünya/platform geometrisinden
+## geldiğini (düşman gövdesinden değil) bulur. Düşman gövdesi (BUILDING_SLOT katmanı)
+## oyuncunun collision mask'inde olduğu için is_on_wall()/get_wall_normal() ikisini
+## ayırt edemiyor — burada slide collision listesini tarayıp sadece WORLD/PLATFORM
+## katmanına ait bir temas varsa onun normalini döndürüyoruz.
+func _get_real_wall_normal() -> Vector2:
+	const REAL_WALL_MASK: int = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	for i in range(player.get_slide_collision_count()):
+		var collision: KinematicCollision2D = player.get_slide_collision(i)
+		if collision == null:
+			continue
+		var collider: Object = collision.get_collider()
+		if collider == null or not (collider is CollisionObject2D):
+			continue
+		var collider_layer: int = (collider as CollisionObject2D).collision_layer
+		if (collider_layer & REAL_WALL_MASK) != 0:
+			return collision.get_normal()
+	return Vector2.ZERO
 
 func _update_lie_slide_animation(delta: float) -> void:
 	if not animation_player:

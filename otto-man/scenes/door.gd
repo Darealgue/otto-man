@@ -420,6 +420,7 @@ func set_alarm_locked(locked: bool, key: String = "") -> void:
 
 func _open_door_immediately() -> void:
 	# Start kapısı için animasyon olmadan direkt açık konuma getir
+	var was_open := is_open
 	is_open = true
 	is_animating = false
 	current_state = DoorState.OPEN
@@ -427,7 +428,14 @@ func _open_door_immediately() -> void:
 		sprite.frame = 7  # Son frame (açık kapı)
 	elif sprite:
 		sprite.modulate = Color(1, 1, 1, 1)
-	
+
 	# Update interaction prompt
 	if interaction_prompt:
 		interaction_prompt.text = "Açık"
+
+	# _open_door() (oyuncu etkileşimiyle açılan kapı) door_opened sinyalini yayınlıyor;
+	# bu "anında" yol (ör. hep açık başlayan Start kapısı) aynı state geçişini yapıyor
+	# ama sinyali hiç yayınlamıyordu — level_started, enemy/trap spawner ve tutorial
+	# gizlilik anlatımı gibi dinleyiciler bu yüzden Start kapısında asla tetiklenmiyordu.
+	if not was_open:
+		door_opened.emit(door_type)

@@ -1,12 +1,14 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://village/scripts/PortalArea.gd" id="1_jc0h0"]
+[ext_resource type="Script" path="res://village/scripts/ForestExitPortal.gd" id="2_fxprt"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_q3yfy"]
 size = Vector2(220, 320)
 
 [node name="ForestExitPortal" type="Node2D"]
 z_index = 2
+script = ExtResource("2_fxprt")
 
 [node name="PortalArea" type="Area2D" parent="."]
 collision_layer = 0

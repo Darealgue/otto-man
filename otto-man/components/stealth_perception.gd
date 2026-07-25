@@ -264,9 +264,11 @@ func _process(_delta: float) -> void:
 		return
 	if not visible:
 		visible = true
-	var sm: Node = get_node_or_null("/root/StealthManager")
-	if is_instance_valid(sm) and sm.has_method("should_draw_perception") and sm.should_draw_perception():
-		queue_redraw()
+	# Alarm sonrası algı çizimi 3 saniyede söner (get_perception_draw_alpha); redraw'ı burada
+	# şarta bağlarsak alpha 0'a düşünce bir daha hiç redraw tetiklenmez ve _draw()'ın en son
+	# çizdiği koni/daire ekranda donuk kalır. _draw() zaten kendi içinde should_draw_perception()
+	# kontrolüyle boş çiziyor, o yüzden burada koşulsuz redraw isteyip son kareyi temizletiyoruz.
+	queue_redraw()
 
 
 func _draw() -> void:

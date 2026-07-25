@@ -513,36 +513,43 @@ func handle_charge_start(delta: float) -> void:
 
 func handle_charging(delta: float) -> void:
 	charge_timer += delta
+	# Oyuncuya değdiğinde veya duvara çarptığında saldırı ANINDA dursun — önceden sadece
+	# aggro kırılıyordu ama hız aynı kalıyordu, yani vurduktan sonra bile tam hızda itmeye
+	# devam ediyordu. Oyuncu duvara sıkıştıysa bu, oyuncunun havada kilitli kalmasına
+	# (kaçamayacağı, sürekli sıkışan bir "sandviç") sebep oluyordu. Spearman'ın charge'ı
+	# zaten aynı şekilde is_on_wall()/oyuncuya vuruşta duruyor — Heavy'yi de buna uydurduk.
 	if not _charge_hit_registered and _did_charge_hit_player():
 		_charge_hit_registered = true
 		_start_aggro_break_after_charge_hit()
-	
-	
-	# Calculate remaining charge time
-	var time_remaining = charge_duration - charge_timer
-	
-	# Debug velocity and timing every few frames
+		_stop_charge()
+		return
+	if is_on_wall():
+		_stop_charge()
+		return
 
-	
 	# Check if we should start decelerating
 	if charge_timer >= charge_duration * CHARGE_END_THRESHOLD:
 		var decel_factor = (charge_duration - charge_timer) / (charge_duration * (1.0 - CHARGE_END_THRESHOLD))
 		decel_factor = clamp(decel_factor, 0.0, 1.0)
 		var target_speed = charge_speed * decel_factor * direction
 
-		
+
 		# Apply deceleration smoothly
 		velocity.x = move_toward(velocity.x, target_speed, CHARGE_DECELERATION * delta)
 	else:
 		velocity.x = direction * charge_speed
-	
+
 	if charge_timer >= charge_duration:
-		change_behavior("charge_end")
-		disable_all_hitboxes()
-		
-		# Force velocity to zero when ending charge
-		velocity.x = 0
+		_stop_charge()
 		return
+
+
+## Charge saldırısını hemen bitirir (oyuncuya vurunca veya duvara çarpınca çağrılır) —
+## handle_charging()'in normal zaman-aşımı yolunun (charge_duration doldu) yaptığı ile aynı.
+func _stop_charge() -> void:
+	change_behavior("charge_end")
+	disable_all_hitboxes()
+	velocity.x = 0
 
 func _did_charge_hit_player() -> bool:
 	if not hitbox or not hitbox.is_enabled():

@@ -30,6 +30,10 @@ var dungeon_idle_duration: float = 0.0
 var dungeon_is_idling: bool = false
 var dungeon_walk_timer: float = 0.0
 var dungeon_walk_duration: float = 0.0
+## Kurtarma anında: pen içinde gezinmeyi bırakıp oyuncuya doğru yürüyüp kaybolma modu.
+var dungeon_is_escaping: bool = false
+var dungeon_escape_target_x: float = 0.0
+const DUNGEON_PRISONER_ESCAPE_SPEED: float = 70.0
 
 # Durum sistemi (Worker'dan alındı)
 enum State {
@@ -418,6 +422,22 @@ func _physics_process_dungeon_prisoner(delta: float) -> void:
 		dungeon_ledge_ray.global_position = global_position
 		dungeon_ledge_ray.target_position.x = 24 * dungeon_move_dir
 		dungeon_ledge_ray.force_raycast_update()
+	# Kurtarma anında: pen'de gezinmeyi bırak, oyuncuya doğru yürüyüp kaybol.
+	if dungeon_is_escaping:
+		global_position.x += float(dungeon_move_dir) * DUNGEON_PRISONER_ESCAPE_SPEED * delta
+		scale.x = dungeon_move_dir
+		if name_plate_container:
+			name_plate_container.scale.x = -1.0 if scale.x < 0 else 1.0
+		if _current_animation_name != "walk":
+			play_animation("walk")
+		var reached_target: bool = (
+			(dungeon_move_dir > 0 and global_position.x >= dungeon_escape_target_x)
+			or (dungeon_move_dir < 0 and global_position.x <= dungeon_escape_target_x)
+		)
+		if reached_target:
+			_begin_dungeon_rescue_fadeout()
+		z_index = 4
+		return
 	# Basit AI: çoğunlukla idle, arada kısa yürüyüş
 	if dungeon_is_idling:
 		dungeon_idle_timer += delta
@@ -462,6 +482,30 @@ func _physics_process_dungeon_prisoner(delta: float) -> void:
 		dungeon_move_dir = -edge_dir
 	# Zindanda sabit z_index (player'dan geride)
 	z_index = 4
+
+
+## Kurtarma anında DoorInteraction tarafından çağrılır: cariyeyi anında gizlemek yerine,
+## oyuncunun bulunduğu X'e doğru yürütüp sonra soldurarak kaybeder — kurtarma daha bariz olsun.
+func start_dungeon_rescue_walkout(target_global_x: float) -> void:
+	if not is_dungeon_prisoner or dungeon_is_escaping:
+		return
+	dungeon_is_escaping = true
+	dungeon_is_idling = false
+	dungeon_escape_target_x = target_global_x
+	var dir: int = int(sign(target_global_x - global_position.x))
+	dungeon_move_dir = dir if dir != 0 else dungeon_move_dir
+
+
+func _begin_dungeon_rescue_fadeout() -> void:
+	dungeon_is_escaping = false
+	set_physics_process(false)
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(func():
+		visible = false
+		queue_free()
+	)
+
 
 # Cariye ismini güncelle (Worker'daki Update_Villager_Name gibi)
 func update_concubine_name() -> void:

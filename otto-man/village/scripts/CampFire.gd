@@ -109,8 +109,8 @@ func _create_interact_hint() -> void:
 	_interact_hint_icon.visible = false
 	add_child(_interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
-	# ekran uzayında takip ettiriliyor.
-	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(3, -50))
+	# ekran uzayında takip ettiriliyor. Bina etkileşim okuyla aynı miktarda (120px) yukarı alındı.
+	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(3, -50 - 120))
 
 func _ensure_sick_indicator() -> void:
 	if is_instance_valid(_sick_indicator):

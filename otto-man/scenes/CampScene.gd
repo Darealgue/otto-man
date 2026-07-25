@@ -36,6 +36,7 @@ func _ready() -> void:
 		print("[CampScene] Initial camp from village")
 		setup_initial_from_village()
 	_setup_run_stats_ui()
+	_maybe_show_tutorial_door_intro()
 
 ## Dışarıdan çağrılacak kurulum fonksiyonları
 
@@ -357,6 +358,36 @@ func _camp_entry_title_text() -> String:
 			return "İki kat aşağı — zindan açılıyor"
 		_:
 			return "Derin keşif — patron henüz yok"
+
+
+## İlk gerçek zindan girişinde (tutorial rehberi hâlâ aktifken) kapı simgelerini kısaca anlat.
+## Köydeki mentor konuşmasıyla AYNI çerçeve (TutorialSpeechBar) kullanılıyor — farklı bir
+## kutu tasarımı yerine, oyuncu {interact}/{ui_up} ile kapatana kadar ekranda kalır.
+func _maybe_show_tutorial_door_intro() -> void:
+	if mode != "initial_selection":
+		return
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null:
+		return
+	var guide_active: bool = (
+		bool(tm.get("village_dungeon_guide_active"))
+		and not bool(tm.get("tutorial_dungeon_guide_complete"))
+	)
+	if not guide_active:
+		return
+	# Dünya haritasındaki "işaretli zindana git" objective'i artık zindana girince otomatik
+	# bitmiyor (bkz. mark_dungeon_stealth_intro_shown, ilk oda girişinde tetiklenir) — bu yüzden
+	# kampa her girişte objective'i güncel tutuyoruz, banner daha önce gösterilmiş olsa bile.
+	if tm.has_method("set_objective_tr"):
+		tm.call("set_objective_tr", "tutorial.dungeon_guide.door_objective")
+	if tm.has_method("should_show_dungeon_door_intro") and bool(tm.call("should_show_dungeon_door_intro")):
+		tm.call("mark_dungeon_door_intro_shown")
+		# İki kısa sayfaya bölündü — tek kutuya sığdırmak metni kırpıyordu (bkz. stealth_intro
+		# için aynı sorunun kullanıcı raporu).
+		TutorialSpeechHelper.show_pages_and_await_dismiss(self, [
+			tr("tutorial.dungeon.door_legend_1"),
+			tr("tutorial.dungeon.door_legend_2"),
+		])
 
 
 ## Kamp ortasında oyuncu dostu durum göstergesi

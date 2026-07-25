@@ -198,7 +198,7 @@ const MODIFIER_DEFS: Dictionary = {
 		"risk_score": 2,
 		"gold_bonus": 0.55,
 		"force_rescue": true,
-		"label": "[color=#ffcc44]Sadece hafif[/color]",
+		"label": "[color=#ffcc44]Sadece hafif saldırı[/color]",
 	},
 }
 const MODIFIER_IDS: Array[String] = ["no_parry", "no_heal", "night_mode", "light_only"]

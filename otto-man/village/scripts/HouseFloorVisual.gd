@@ -39,17 +39,23 @@ func _collect_window_sprites() -> void:
 # köşeden (menteşe) büyüyen, centered=false yerleşimli sprite'lardır; WindowSlot'un
 # flip_h değeri hangi kenardan (sol/sağ) büyüdüğünü belirler ve rastgele değiştirilirse
 # pencere olması gereken yerden tamamen kayar.
+#
+# Varyant (hangi kapı/gövde dokusu) dünya konumundan türetilen sabit bir seed ile seçilir —
+# böylece aynı ev köye her dönüşte (sahne yeniden yüklendiğinde) AYNI kapı sprite'ıyla kalır;
+# sadece flip_h hâlâ her seferinde rastgele olabilir ("sadece flip edebilir" isteğiyle uyumlu).
 func _apply_random_variants() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(global_position.round()))
 	var body := get_node_or_null("Body") as Sprite2D
 	if body != null:
 		if body_texture_variants.size() > 0:
-			body.texture = body_texture_variants[randi() % body_texture_variants.size()]
+			body.texture = body_texture_variants[rng.randi() % body_texture_variants.size()]
 		if allow_horizontal_flip:
 			body.flip_h = randf() < 0.5
 	var gate := get_node_or_null("Gate") as Sprite2D
 	if gate != null:
 		if gate_texture_variants.size() > 0:
-			gate.texture = gate_texture_variants[randi() % gate_texture_variants.size()]
+			gate.texture = gate_texture_variants[rng.randi() % gate_texture_variants.size()]
 		if allow_horizontal_flip:
 			gate.flip_h = randf() < 0.5
 

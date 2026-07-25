@@ -48,12 +48,17 @@ func _ready() -> void:
 	_alarm_banner.add_theme_color_override("font_outline_color", Color(0.08, 0.02, 0.02))
 	_alarm_banner.add_theme_constant_override("outline_size", 4)
 	_alarm_banner.visible = false
-	_alarm_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_alarm_banner.offset_top = 72.0
-	_alarm_banner.offset_left = -280.0
-	_alarm_banner.offset_right = 280.0
-	_alarm_banner.offset_bottom = 140.0
+	_alarm_banner.z_index = 150
+	# top_level=true: bu Control'ün ekran konumu artık HİÇBİR ata node'un transformundan
+	# etkilenmiyor (parent'ın veya üstteki bir CanvasLayer'ın konumu/ölçeği bozuksa bile) —
+	# _process()'te doğrudan viewport boyutuna göre konumlandırıyoruz (bkz. _reposition_alarm_banner).
+	# Kullanıcı raporu: banner ekranın çok solunda/sağında, sadece bir köşesi görünüyordu; bu,
+	# anchor tabanlı konumlamanın bir ata node'un beklenmedik transformundan etkilendiğine işaret
+	# ediyordu — top_level + viewport'a göre elle konumlama bundan tamamen bağımsız hale getiriyor.
+	_alarm_banner.top_level = true
+	_alarm_banner.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	add_child(_alarm_banner)
+	_reposition_alarm_banner()
 
 	_key_panel = PanelContainer.new()
 	_key_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -137,12 +142,26 @@ func _position_key_panel() -> void:
 	_key_panel.z_index = 120
 
 
+func _reposition_alarm_banner() -> void:
+	if _alarm_banner == null or not is_instance_valid(_alarm_banner):
+		return
+	var vp := get_viewport()
+	if vp == null:
+		return
+	var screen_size: Vector2 = vp.get_visible_rect().size
+	var width: float = 600.0
+	var height: float = 78.0
+	_alarm_banner.size = Vector2(width, height)
+	_alarm_banner.global_position = Vector2((screen_size.x - width) * 0.5, 72.0)
+
+
 func _process(delta: float) -> void:
 	var sm: Node = get_node_or_null("/root/StealthManager")
 	if not is_instance_valid(sm) or not sm.has_method("is_stealth_enabled") or not sm.is_stealth_enabled():
 		visible = false
 		return
 	visible = true
+	_reposition_alarm_banner()
 	_refresh()
 	_refresh_key_counter()
 	_update_key_holder_arrow()
@@ -177,7 +196,10 @@ func refresh_fragile_status() -> void:
 
 
 func show_alarm_banner() -> void:
-	_alarm_banner.text = tr("stealth.alarm_banner")
+	# CSV çevirisindeki literal "\n" (backslash+n) Godot'un import sürecinde gerçek satır
+	# sonuna dönüşmüyor (bkz. TutorialSpeechBar._normalize_speech_bbcode, aynı sorun) —
+	# elle çevirmezsek ekranda "\n" karakterleri yazı olarak görünüyor.
+	_alarm_banner.text = tr("stealth.alarm_banner").replace("\\n", "\n")
 	_alarm_banner.visible = true
 	_alarm_banner.modulate.a = 1.0
 	_alarm_banner_timer = ALARM_BANNER_HOLD_SEC
@@ -210,6 +232,12 @@ func show_exit_key_required_toast() -> void:
 	_toast.visible = true
 	_toast_timer = 3.5
 	_refresh_key_counter()
+
+
+func show_key_location_revealed_toast() -> void:
+	_toast.text = tr("stealth.key_location_revealed_toast")
+	_toast.visible = true
+	_toast_timer = 3.5
 
 
 func _refresh_key_counter() -> void:
