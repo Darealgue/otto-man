@@ -16,8 +16,8 @@ var _first_attack_ready := false
 
 func _init():
 	item_id = "gorunmezlik_pelerini"
-	item_name = "Görünmezlik Pelerini"
-	description = "Dodge veya dash atıldığında 3 saniye yarı saydam olursun; düşmanlar seni zor görür ve aggro bırakır."
+	item_name = tr("item.gorunmezlik_pelerini.name")
+	description = tr("item.gorunmezlik_pelerini.description")
 	flavor_text = "Gölgeler arasında"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.DODGE

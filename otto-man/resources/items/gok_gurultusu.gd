@@ -13,8 +13,8 @@ var _cooldown := 0.0
 
 func _init():
 	item_id = "gok_gurultusu"
-	item_name = "Gök Gürültüsü"
-	description = "Heavy attack şimşek indirir (8 sn cooldown)"
+	item_name = tr("item.gok_gurultusu.name")
+	description = tr("item.gok_gurultusu.description")
 	flavor_text = "Gök gürültüsü"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK

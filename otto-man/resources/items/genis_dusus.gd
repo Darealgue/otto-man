@@ -7,8 +7,8 @@ const MAX_TARGETS = 2  # Fall attack ile 2 düşmana vur
 
 func _init():
 	item_id = "genis_dusus"
-	item_name = "Geniş Düşüş"
-	description = "Fall attack 2 düşmana vurabilir"
+	item_name = tr("item.genis_dusus.name")
+	description = tr("item.genis_dusus.description")
 	flavor_text = "Daha geniş etki"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.FALL_ATTACK

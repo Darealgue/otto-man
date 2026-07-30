@@ -181,24 +181,28 @@ const MODIFIER_DEFS: Dictionary = {
 	"no_parry": {
 		"risk_score": 1,
 		"gold_bonus": 0.35,
-		"label": "[color=#ff8866]Parry yok[/color]",
+		"label_color": "#ff8866",
+		"label_key": "challenge.modifier.no_parry",
 	},
 	"no_heal": {
 		"risk_score": 1,
 		"gold_bonus": 0.4,
 		"rescue_boost": 0.35,
-		"label": "[color=#66aaff]İyileşme yok[/color]",
+		"label_color": "#66aaff",
+		"label_key": "challenge.modifier.no_heal",
 	},
 	"night_mode": {
 		"risk_score": 1,
 		"gold_bonus": 0.25,
-		"label": "[color=#8888cc]Gece[/color]",
+		"label_color": "#8888cc",
+		"label_key": "challenge.modifier.night_mode",
 	},
 	"light_only": {
 		"risk_score": 2,
 		"gold_bonus": 0.55,
 		"force_rescue": true,
-		"label": "[color=#ffcc44]Sadece hafif saldırı[/color]",
+		"label_color": "#ffcc44",
+		"label_key": "challenge.modifier.light_only",
 	},
 }
 const MODIFIER_IDS: Array[String] = ["no_parry", "no_heal", "night_mode", "light_only"]
@@ -219,7 +223,7 @@ func _build_minimal_label(data: Dictionary) -> String:
 	elif enemy_amount > 0:
 		axis_text = "[color=%s]%s[/color]" % [tier_color, SKULL.repeat(enemy_amount)]
 	else:
-		axis_text = "[color=%s]Güvenli[/color]" % tier_color
+		axis_text = "[color=%s]%s[/color]" % [tier_color, tr("challenge.door.safe")]
 
 	var reward_parts: Array = []
 	if float(data.get("gold_multiplier_delta", 0.0)) > 0.0:
@@ -237,7 +241,8 @@ func _build_minimal_label(data: Dictionary) -> String:
 	if mods is Array:
 		for m in mods:
 			var def: Dictionary = MODIFIER_DEFS.get(String(m), {})
-			var mod_label: String = String(def.get("label", String(m)))
+			var label_key: String = String(def.get("label_key", ""))
+			var mod_label: String = ("[color=%s]%s[/color]" % [String(def.get("label_color", "white")), tr(label_key)]) if not label_key.is_empty() else ""
 			if not mod_label.is_empty():
 				reward_parts.append(mod_label)
 

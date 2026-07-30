@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "simsek_kalkani"
-	item_name = "Şimşek Kalkanı"
-	description = "Block sırasında gelen hasarın %80'i saldırgana şimşek olarak yansır"
+	item_name = tr("item.simsek_kalkani.name")
+	description = tr("item.simsek_kalkani.description")
 	flavor_text = "Elektrikli savunma"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.BLOCK

@@ -193,6 +193,12 @@ var facing_direction := 1.0  # 1 for right, -1 for left
 var _ui_locked: bool = false
 var _ui_lock_logged_once: bool = false
 var _ui_lock_last_reason: String = ""
+## Dismissing a mentor/tutorial popup and interacting with a plot/building share the same key
+## (interact / ui_up). If that key is still physically held the instant a lock releases, the
+## village-interact-hold system would immediately treat it as a fresh press and open whatever
+## the player happens to be standing on. This suppresses that carry-over until the key is
+## actually released once, so a new press is required to start a real interaction.
+var _suppress_village_interact_until_release: bool = false
 
 func _is_any_menu_open() -> bool:
 	var mcs = get_tree().get_first_node_in_group("mission_center")
@@ -213,6 +219,8 @@ func _is_any_menu_open() -> bool:
 	return false
 
 func set_ui_locked(locked: bool) -> void:
+	if _ui_locked and not locked:
+		_suppress_village_interact_until_release = true
 	_ui_locked = locked
 	_ui_lock_logged_once = false
 	_ui_lock_last_reason = "MissionCenter.set_ui_locked(%s)" % (locked)
@@ -1874,6 +1882,10 @@ func _process_village_interactions(delta: float) -> void:
 ## tetikler; hangi tuş/düğme kullanıldığından bağımsız.
 func _process_village_interaction_hold(delta: float) -> void:
 	var down := Input.is_action_pressed("interact") or Input.is_action_pressed("ui_up")
+	if _suppress_village_interact_until_release:
+		if down:
+			return
+		_suppress_village_interact_until_release = false
 	if down:
 		if not _village_interact_hold_active:
 			_village_interact_hold_active = true

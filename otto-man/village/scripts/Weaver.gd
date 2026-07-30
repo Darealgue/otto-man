@@ -135,5 +135,5 @@ func remove_worker() -> bool:
 	return true
 
 func get_production_info() -> String:
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Kumaş: (odun+yiyecek)"
+	return tr("building.weaver.production_info") % [level, assigned_workers]
 

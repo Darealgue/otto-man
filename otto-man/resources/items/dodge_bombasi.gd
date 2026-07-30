@@ -9,8 +9,8 @@ const BOMB_DELAY = 0.5  # 0.5 saniye sonra patlar
 
 func _init():
 	item_id = "dodge_bombasi"
-	item_name = "Dodge Bombası"
-	description = "Dodge kullandığında arkanda bomba bırakır"
+	item_name = tr("item.dodge_bombasi.name")
+	description = tr("item.dodge_bombasi.description")
 	flavor_text = "Patlayıcı kaçış"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE

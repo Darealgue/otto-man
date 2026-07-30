@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "olumcul_sukut"
-	item_name = "Ölümcül Sükût"
-	description = "Blok veya parry yaptıktan sonraki ilk hafif saldırın ekstra hasar verir."
+	item_name = tr("item.olumcul_sukut.name")
+	description = tr("item.olumcul_sukut.description")
 	flavor_text = "Sessizlikten sonra darbe"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY

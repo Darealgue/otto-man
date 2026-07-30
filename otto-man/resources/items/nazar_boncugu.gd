@@ -10,8 +10,8 @@ var _cooldown_timer: float = 0.0
 
 func _init():
 	item_id = "nazar_boncugu"
-	item_name = "Nazar Boncuğu"
-	description = "10 saniyede bir yenilenen kalkan. İlk gelen hasarı tamamen durdurur."
+	item_name = tr("item.nazar_boncugu.name")
+	description = tr("item.nazar_boncugu.description")
 	flavor_text = "Kötü nazara karşı"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.BLOCK

@@ -199,7 +199,7 @@ func _build_ui() -> void:
 	tab_row.add_child(_make_key_chip("Q", "L2"))
 
 	_tab_missions_btn = Button.new()
-	_tab_missions_btn.text = "Görevler"
+	_tab_missions_btn.text = tr("cm_popup.tab_missions")
 	_tab_missions_btn.focus_mode = Control.FOCUS_ALL
 	_tab_missions_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_missions_btn.pressed.connect(_switch_tab.bind(Tab.MISSIONS))
@@ -208,7 +208,7 @@ func _build_ui() -> void:
 	_tab_nav_buttons.append(_tab_missions_btn)
 
 	_tab_roles_btn = Button.new()
-	_tab_roles_btn.text = "Roller"
+	_tab_roles_btn.text = tr("cm_popup.tab_roles")
 	_tab_roles_btn.focus_mode = Control.FOCUS_ALL
 	_tab_roles_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_roles_btn.pressed.connect(_switch_tab.bind(Tab.ROLES))
@@ -233,7 +233,7 @@ func _build_ui() -> void:
 	_missions_tab_box.add_child(_special_actions_box)
 
 	_missions_title_label = Label.new()
-	_missions_title_label.text = "Atanabilir Görevler"
+	_missions_title_label.text = tr("cm_popup.assignable_missions")
 	_missions_title_label.add_theme_font_size_override("font_size", 16)
 	_missions_tab_box.add_child(_missions_title_label)
 
@@ -258,7 +258,7 @@ func _build_ui() -> void:
 	right.add_child(_roles_tab_box)
 
 	var roles_title := Label.new()
-	roles_title.text = "Rol Ata"
+	roles_title.text = tr("cm_popup.assign_role")
 	roles_title.add_theme_font_size_override("font_size", 16)
 	_roles_tab_box.add_child(roles_title)
 
@@ -285,7 +285,7 @@ func _build_ui() -> void:
 	info_wrapper.add_child(_role_info_label)
 
 	_drop_role_btn = Button.new()
-	_drop_role_btn.text = "Rolü Bırak (Ücretsiz)"
+	_drop_role_btn.text = tr("cm_popup.drop_role")
 	_drop_role_btn.focus_mode = Control.FOCUS_ALL
 	_drop_role_btn.visible = false
 	_drop_role_btn.pressed.connect(_on_drop_role_pressed)
@@ -396,16 +396,16 @@ func _refresh_concubine_info() -> void:
 	var status_color: Color
 	match _concubine.status:
 		Concubine.Status.BOŞTA:
-			status_text = "● Müsait"
+			status_text = tr("cm_popup.status_available")
 			status_color = Color(0.45, 0.85, 0.4)
 		Concubine.Status.GÖREVDE:
-			status_text = "⚑ Görevde"
+			status_text = tr("cm_popup.status_on_mission")
 			status_color = Color(0.95, 0.72, 0.25)
 		Concubine.Status.YARALI:
-			status_text = "✚ Yaralı"
+			status_text = tr("cm_popup.status_injured")
 			status_color = Color(0.9, 0.3, 0.3)
 		Concubine.Status.DİNLENİYOR:
-			status_text = "♥ Dinleniyor"
+			status_text = tr("cm_popup.status_resting")
 			status_color = Color(0.55, 0.72, 0.95)
 		_:
 			status_text = "?"
@@ -414,9 +414,9 @@ func _refresh_concubine_info() -> void:
 	_status_chip.modulate = status_color
 
 	var lines: PackedStringArray = []
-	lines.append("Seviye %d   HP %d/%d" % [_concubine.level, _concubine.health, _concubine.max_health])
-	lines.append("Moral %d/%d" % [_concubine.moral, _concubine.max_moral])
-	lines.append("Rol: %s" % _role_name(int(_concubine.role)))
+	lines.append(tr("cm_popup.level_hp") % [_concubine.level, _concubine.health, _concubine.max_health])
+	lines.append(tr("cm_popup.morale") % [_concubine.moral, _concubine.max_moral])
+	lines.append(tr("cm_popup.role_line") % _role_name(int(_concubine.role)))
 	lines.append("")
 	for skill in _concubine.skills.keys():
 		var val := int(_concubine.skills[skill])
@@ -544,8 +544,8 @@ func _refresh_missions() -> void:
 		return
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null:
-		_missions_title_label.text = "Atanabilir Görevler"
-		_add_mission_empty("Görev sistemi bulunamadı.")
+		_missions_title_label.text = tr("cm_popup.assignable_missions")
+		_add_mission_empty(tr("cm_popup.no_mission_system"))
 		return
 
 	# Cariye ödenmiş ama henüz tamamlanmamış bir rol görevi bekliyorsa, liste SADECE o
@@ -553,15 +553,15 @@ func _refresh_missions() -> void:
 	var track_mission: Mission = mm.get_role_track_mission(_concubine.id) if mm.has_method("get_role_track_mission") else null
 	var missions: Array
 	if track_mission != null and track_mission.status == Mission.Status.MEVCUT:
-		_missions_title_label.text = "Rol Görevi"
+		_missions_title_label.text = tr("cm_popup.role_mission")
 		_add_role_track_banner(track_mission)
 		missions = [track_mission]
 	else:
-		_missions_title_label.text = "Atanabilir Görevler"
+		_missions_title_label.text = tr("cm_popup.assignable_missions")
 		missions = mm.get_available_missions() if mm.has_method("get_available_missions") else []
 
 	if missions.is_empty():
-		_add_mission_empty("Şu an mevcut görev yok.")
+		_add_mission_empty(tr("cm_popup.no_missions_available"))
 		return
 	var available_soldiers := _get_available_soldiers(mm)
 	for mission in missions:
@@ -570,7 +570,7 @@ func _refresh_missions() -> void:
 
 func _add_role_track_banner(mission: Mission) -> void:
 	var lbl := Label.new()
-	lbl.text = "🎓 Bu görev tamamlanınca %s rolü kazanılacak." % _role_name(mission.grants_concubine_role)
+	lbl.text = tr("cm_popup.role_track_banner") % _role_name(mission.grants_concubine_role)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl.add_theme_font_size_override("font_size", 11)
 	lbl.modulate = Color(0.95, 0.8, 0.45, 0.95)
@@ -611,7 +611,7 @@ func _add_healer_treat_action() -> void:
 	_special_actions_box.add_child(row)
 
 	var btn := Button.new()
-	btn.text = "🩺 Oyuncuyu Tedavi Et (35 altın + 2 ilaç)"
+	btn.text = tr("cm_popup.healer_treat_action")
 	btn.disabled = not can_treat
 	btn.focus_mode = Control.FOCUS_ALL
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -622,7 +622,7 @@ func _add_healer_treat_action() -> void:
 
 	if not can_treat:
 		var reason := Label.new()
-		reason.text = "Oyuncuda tedavi gerektiren bir durum yok."
+		reason.text = tr("cm_popup.no_treat_needed")
 		reason.add_theme_font_size_override("font_size", 10)
 		reason.modulate = Color(1, 1, 1, 0.5)
 		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -644,7 +644,7 @@ func _add_trader_mission_action() -> void:
 	_special_actions_box.add_child(row)
 
 	var btn := Button.new()
-	btn.text = "💰 Ticaret Görevi Başlat"
+	btn.text = tr("cm_popup.trader_mission_action")
 	btn.disabled = _concubine.status != Concubine.Status.BOŞTA
 	btn.focus_mode = Control.FOCUS_ALL
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -666,7 +666,7 @@ func _on_trader_mission_pressed() -> void:
 
 func _add_commander_info_line() -> void:
 	var lbl := Label.new()
-	lbl.text = "🛡 Köyde (boşta) olduğu sürece orduyu güçlendirir — savaş yeteneği arttıkça bonus büyür."
+	lbl.text = tr("cm_popup.commander_info")
 	lbl.add_theme_font_size_override("font_size", 11)
 	lbl.modulate = Color(0.95, 0.75, 0.45, 0.9)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -775,7 +775,7 @@ func _make_mission_row(mission, available_soldiers: int) -> Control:
 			stepper_row.add_child(plus_btn)
 
 			var static_lbl := Label.new()
-			static_lbl.text = "⚔ %d asker seçili" % cur_soldiers
+			static_lbl.text = tr("cm_popup.soldiers_selected") % cur_soldiers
 			static_lbl.add_theme_font_size_override("font_size", 12)
 			static_lbl.name = "SoldierStaticLabel_" + mid
 			action_row.add_child(static_lbl)
@@ -790,7 +790,7 @@ func _make_mission_row(mission, available_soldiers: int) -> Control:
 		action_row.add_child(spacer)
 
 		var assign_btn := Button.new()
-		assign_btn.text = "Ata"
+		assign_btn.text = tr("cm_popup.assign_button")
 		assign_btn.custom_minimum_size = Vector2(72, 34)
 		assign_btn.focus_mode = Control.FOCUS_ALL
 		assign_btn.pressed.connect(_on_assign_pressed.bind(mission))
@@ -827,7 +827,7 @@ func _update_soldier_label(mission_id: String, available: int) -> void:
 	var row: Dictionary = _soldier_stepper_rows.get(mission_id, {})
 	var static_lbl: Label = row.get("static")
 	if is_instance_valid(static_lbl):
-		static_lbl.text = "⚔ %d asker seçili" % cur
+		static_lbl.text = tr("cm_popup.soldiers_selected") % cur
 
 
 ## Fokuslu (gamepad/klavye) ya da fare üzerinde olan kartın asker stepper'ını gösterir,
@@ -908,44 +908,44 @@ func _can_assign_mission(mission) -> bool:
 
 func _lock_reason(mission, available_soldiers: int = 0) -> String:
 	if _concubine == null:
-		return "Uygun değil"
+		return tr("cm_popup.not_eligible")
 	match _concubine.status:
 		Concubine.Status.GÖREVDE:
-			return "Cariye zaten görevde"
+			return tr("cm_popup.lock_on_mission")
 		Concubine.Status.YARALI:
-			return "Cariye yaralı — önce dinlenmeli"
+			return tr("cm_popup.lock_injured")
 		Concubine.Status.DİNLENİYOR:
-			return "Cariye dinleniyor"
+			return tr("cm_popup.lock_resting")
 	if not (mission is Mission):
-		return "Uygun değil"
+		return tr("cm_popup.not_eligible")
 	if mission.required_concubine_id >= 0 and _concubine.id != mission.required_concubine_id:
-		return "Bu görev başka bir cariyeye özel"
+		return tr("cm_popup.lock_mission_specific")
 	if mission.required_concubine_role >= 0 and int(_concubine.role) != mission.required_concubine_role:
 		var role_name := _role_name(mission.required_concubine_role)
-		return "Rol gereksinimi: %s" % role_name
+		return tr("cm_popup.lock_role_requirement") % role_name
 	if not mission.is_unlocked_for_concubine(_concubine):
 		if mission.unlock_leverage_min > 0:
-			return "Kilitli — güven puanı yetersiz (min %d)" % mission.unlock_leverage_min
+			return tr("cm_popup.lock_leverage") % mission.unlock_leverage_min
 		if mission.unlock_level_min > 0:
-			return "Kilitli — seviye %d gerekli" % mission.unlock_level_min
-		return "Kilitli — hikâye koşulu"
+			return tr("cm_popup.lock_level") % mission.unlock_level_min
+			return tr("cm_popup.lock_story")
 	if _concubine.level < mission.required_cariye_level:
-		return "Seviye %d gerekli (mevcut: %d)" % [mission.required_cariye_level, _concubine.level]
+		return tr("cm_popup.lock_cariye_level") % [mission.required_cariye_level, _concubine.level]
 	if mission.required_army_size > 0 and available_soldiers < mission.required_army_size:
-		return "Yetersiz asker — kışlada %d, görev min %d ister" % [available_soldiers, mission.required_army_size]
+		return tr("cm_popup.lock_insufficient_soldiers") % [available_soldiers, mission.required_army_size]
 	if _concubine.health < 30:
-		return "Sağlık çok düşük"
+		return tr("cm_popup.lock_health_low")
 	if _concubine.moral < 20:
-		return "Moral çok düşük"
-	return "Uygun değil"
+		return tr("cm_popup.lock_morale_low")
+	return tr("cm_popup.not_eligible")
 
 
 func _mission_name(mission) -> String:
 	if mission is Mission:
 		return mission.name
 	if mission is Dictionary:
-		return String(mission.get("name", "Görev"))
-	return "Görev"
+		return String(mission.get("name", tr("cm_popup.mission_fallback")))
+	return tr("cm_popup.mission_fallback")
 
 
 func _mission_id(mission) -> String:
@@ -976,11 +976,11 @@ func _mission_detail_line(mission, available_soldiers: int) -> String:
 		if mission.required_cariye_level > 1:
 			parts.append("Lv.%d+" % mission.required_cariye_level)
 		if mission.required_army_size > 0:
-			parts.append("⚔ min %d asker (mevcut: %d)" % [mission.required_army_size, available_soldiers])
+			parts.append(tr("cm_popup.min_soldiers") % [mission.required_army_size, available_soldiers])
 	elif mission is Dictionary:
 		var army := int(mission.get("required_army_size", 0))
 		if army > 0:
-			parts.append("⚔ min %d asker (mevcut: %d)" % [army, available_soldiers])
+			parts.append(tr("cm_popup.min_soldiers") % [army, available_soldiers])
 	return "  •  ".join(parts)
 
 
@@ -992,34 +992,34 @@ func _format_duration(minutes: float) -> String:
 	var h := (total % 1440) / 60
 	var m := total % 60
 	if d > 0:
-		return "%dg %dsa" % [d, h] if h > 0 else "%d gün" % d
+		return tr("cm_popup.duration_days_hours") % [d, h] if h > 0 else tr("cm_popup.duration_days") % d
 	if h > 0 and m > 0:
-		return "%dsa %ddak" % [h, m]
+		return tr("cm_popup.duration_hours_minutes") % [h, m]
 	elif h > 0:
-		return "%d saat" % h
-	return "%d dak" % m
+		return tr("cm_popup.duration_hours") % h
+	return tr("cm_popup.duration_minutes") % m
 
 
 func _difficulty_label(difficulty: int) -> String:
 	match difficulty:
-		Mission.Difficulty.KOLAY:     return "Kolay"
-		Mission.Difficulty.ORTA:      return "Orta"
-		Mission.Difficulty.ZOR:       return "Zor"
-		Mission.Difficulty.EFSANEVİ: return "Efsanevi"
+		Mission.Difficulty.KOLAY:     return tr("cm_popup.difficulty_easy")
+		Mission.Difficulty.ORTA:      return tr("cm_popup.difficulty_medium")
+		Mission.Difficulty.ZOR:       return tr("cm_popup.difficulty_hard")
+		Mission.Difficulty.EFSANEVİ: return tr("cm_popup.difficulty_legendary")
 	return ""
 
 
 func _mission_type_label(mission) -> String:
 	if not (mission is Mission):
-		return "[Görev]"
+		return tr("cm_popup.type_mission")
 	match mission.mission_type:
-		Mission.MissionType.SAVAŞ:       return "[Savaş]"
-		Mission.MissionType.KEŞİF:       return "[Keşif]"
-		Mission.MissionType.DİPLOMASİ:   return "[Diplomasi]"
-		Mission.MissionType.TİCARET:     return "[Ticaret]"
-		Mission.MissionType.İSTİHBARAT:  return "[İstihbarat]"
-		Mission.MissionType.BÜROKRASİ:   return "[Bürokrasi]"
-	return "[Görev]"
+		Mission.MissionType.SAVAŞ:       return tr("cm_popup.type_war")
+		Mission.MissionType.KEŞİF:       return tr("cm_popup.type_discovery")
+		Mission.MissionType.DİPLOMASİ:   return tr("cm_popup.type_diplomacy")
+		Mission.MissionType.TİCARET:     return tr("cm_popup.type_trade")
+		Mission.MissionType.İSTİHBARAT:  return tr("cm_popup.type_intel")
+		Mission.MissionType.BÜROKRASİ:   return tr("cm_popup.type_bureaucracy")
+	return tr("cm_popup.type_mission")
 
 
 func _mission_type_color(mission) -> Color:
@@ -1037,14 +1037,14 @@ func _mission_type_color(mission) -> Color:
 
 func _role_name(role: int) -> String:
 	match role:
-		Concubine.Role.NONE:      return "Yok"
-		Concubine.Role.KOMUTAN:   return "Komutan"
-		Concubine.Role.AJAN:      return "Ajan"
-		Concubine.Role.DİPLOMAT: return "Diplomat"
-		Concubine.Role.TÜCCAR:   return "Tüccar"
-		Concubine.Role.ALIM:     return "Alim"
-		Concubine.Role.TIBBIYECI: return "Tıbbiyeci"
-	return "Belirtilmemiş"
+		Concubine.Role.NONE:      return tr("cm_popup.role_none")
+		Concubine.Role.KOMUTAN:   return tr("cm_popup.role_commander")
+		Concubine.Role.AJAN:      return tr("cm_popup.role_agent")
+		Concubine.Role.DİPLOMAT: return tr("cm_popup.role_diplomat")
+		Concubine.Role.TÜCCAR:   return tr("cm_popup.role_trader")
+		Concubine.Role.ALIM:     return tr("cm_popup.role_scholar")
+		Concubine.Role.TIBBIYECI: return tr("cm_popup.role_physician")
+	return tr("cm_popup.role_unspecified")
 
 
 # ─── Roller sekmesi ─────────────────────────────────────────────────────────────
@@ -1125,7 +1125,7 @@ func _on_role_button_pressed(role: int) -> void:
 		return
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null or not mm.has_method("request_concubine_role"):
-		_info_label.text = "Rol atanamadı."
+		_info_label.text = tr("cm_popup.role_assign_failed")
 		_info_label.modulate = Color(1, 0.55, 0.5, 1)
 		return
 	var result: Dictionary = mm.request_concubine_role(_concubine.id, role)
@@ -1164,44 +1164,44 @@ func _update_role_info_panel(role: int) -> void:
 	lines.append(_role_benefit_text(role))
 	lines.append("")
 	if int(_concubine.role) == role:
-		lines.append("Bu cariyenin şu anki rolü.")
+		lines.append(tr("cm_popup.current_role_note"))
 	else:
 		var track_mission: Mission = mm.get_role_track_mission(_concubine.id) if mm and mm.has_method("get_role_track_mission") else null
 		if track_mission != null and int(track_mission.grants_concubine_role) == role:
-			lines.append("Eğitim görevi hazır — Görevler sekmesinden ata.")
+			lines.append(tr("cm_popup.training_ready"))
 		elif track_mission != null:
-			lines.append("Başka bir rol için görev sürüyor — önce onu bitir.")
+			lines.append(tr("cm_popup.other_role_in_progress"))
 		else:
 			var cost: Dictionary = vm.get_role_training_cost(role) if vm and vm.has_method("get_role_training_cost") else {}
 			if cost.is_empty():
-				lines.append("Bu rol için eğitim tanımlı değil.")
+				lines.append(tr("cm_popup.no_training_defined"))
 			else:
-				lines.append("Bedel: %s" % _format_role_cost_display(cost))
-				lines.append("Ödendikten sonra Görevler sekmesinde bu rolü kazandıracak tek bir görev belirir.")
+				lines.append(tr("cm_popup.cost_line") % _format_role_cost_display(cost))
+				lines.append(tr("cm_popup.training_after_payment"))
 	_role_info_label.text = "\n".join(lines)
 
 
 func _role_benefit_text(role: int) -> String:
 	match role:
 		Concubine.Role.KOMUTAN:
-			return "Köyde boştayken orduyu güçlendirir: savaş yeteneğine göre askerlere %10-%40 saldırı, %8-%30 savunma bonusu verir. Bu bonus hem köy savunmasında hem saldırı/yağma görevlerinde geçerlidir."
+			return tr("cm_popup.benefit_commander")
 		Concubine.Role.AJAN:
-			return "Keşfedilmemiş komşu köylerdeki krizler hakkında duyum alma ihtimalini artırır; müttefik köylerin paylaşımlı istihbarat menzilini genişletir."
+			return tr("cm_popup.benefit_agent")
 		Concubine.Role.DİPLOMAT:
-			return "Komşu köylerdeki kriz sürelerini kısaltır; günlük istikrar toparlanmasını hızlandırır."
+			return tr("cm_popup.benefit_diplomat")
 		Concubine.Role.TÜCCAR:
-			return "Diğer köylere ticaret/kervan görevi başlatabilirsiniz — malzeme satarak altın ve ilişki kazanırsınız. Müttefik köylerden gelen günlük vergi gelirini artırır."
+			return tr("cm_popup.benefit_trader")
 		Concubine.Role.ALIM:
-			return "Kıtlık ve salgın söylentisi olaylarının şiddetini azaltır."
+			return tr("cm_popup.benefit_scholar")
 		Concubine.Role.TIBBIYECI:
-			return "Oyuncuyu ölüm sonrası debufftan tedavi edebilir (35 altın + 2 ilaç). Köydeki hasta işçilerin bir kısmını ücretsiz iyileştirir."
+			return tr("cm_popup.benefit_physician")
 	return ""
 
 
 func _format_role_cost_display(cost: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	if int(cost.get("gold", 0)) > 0:
-		parts.append("%d altın" % int(cost["gold"]))
+		parts.append(tr("cm_popup.cost_gold") % int(cost["gold"]))
 	for k in cost.keys():
 		if str(k) == "gold":
 			continue
@@ -1221,14 +1221,14 @@ func _on_assign_pressed(mission) -> void:
 		return
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null or not mm.has_method("assign_mission_to_concubine"):
-		_info_label.text = "Atama başarısız."
+		_info_label.text = tr("cm_popup.assign_failed")
 		return
 	var soldiers := _soldier_counts.get(mid, 0) as int
 	if mm.assign_mission_to_concubine(_concubine.id, mid, soldiers):
 		mission_assigned.emit(_concubine.id, mid)
 		hide_popup()
 	else:
-		_info_label.text = "Görev atanamadı."
+		_info_label.text = tr("cm_popup.mission_assign_failed")
 
 
 # ─── Styling ──────────────────────────────────────────────────────────────────
@@ -1342,9 +1342,9 @@ func _update_nav_hint() -> void:
 	var im := get_node_or_null("/root/InputManager")
 	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
 	if is_pad:
-		_nav_hint_label.text = "[↑↓] Seç   [◄►] Asker   [L2/R2] Sekme   [A] Onayla   [B] Kapat"
+		_nav_hint_label.text = tr("cm_popup.nav_hint_gamepad")
 	else:
-		_nav_hint_label.text = "[↑↓] Seç   [◄►] Asker   [Q/E] Sekme   [Enter] Onayla   [Esc] Kapat"
+		_nav_hint_label.text = tr("cm_popup.nav_hint_keyboard")
 
 
 func _find_first_button(node: Node) -> Button:

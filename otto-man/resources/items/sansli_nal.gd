@@ -5,8 +5,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "sansli_nal"
-	item_name = "Şanslı Nal"
-	description = "Parry sonrası ilk vuruş ve görünmezlikten ilk vuruş her zaman kritik"
+	item_name = tr("item.sansli_nal.name")
+	description = tr("item.sansli_nal.description")
 	flavor_text = "Şans, hazırlıklı olanı sever"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL

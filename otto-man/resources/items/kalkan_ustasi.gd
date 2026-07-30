@@ -7,8 +7,8 @@ const BLOCK_DAMAGE_REDUCTION = 0.9  # 90% damage reduction
 
 func _init():
 	item_id = "kalkan_ustasi"
-	item_name = "Kalkan Ustası"
-	description = "Block %90 hasar engeller"
+	item_name = tr("item.kalkan_ustasi.name")
+	description = tr("item.kalkan_ustasi.description")
 	flavor_text = "Güçlü savunma"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.BLOCK

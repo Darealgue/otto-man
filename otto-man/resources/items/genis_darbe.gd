@@ -7,8 +7,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "genis_darbe"
-	item_name = "Geniş Darbe"
-	description = "Light attack vurduğunda yakındaki düşmanlara %40 hasar"
+	item_name = tr("item.genis_darbe.name")
+	description = tr("item.genis_darbe.description")
 	flavor_text = "Geniş kavis"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK

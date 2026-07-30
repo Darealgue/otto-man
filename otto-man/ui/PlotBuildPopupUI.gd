@@ -77,13 +77,13 @@ func _build_ui() -> void:
 	_panel.add_child(root)
 
 	var title := Label.new()
-	title.text = "İnşa Et"
+	title.text = tr("plot_build.title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 26)
 	root.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Yapmak istediğin binayı seç"
+	subtitle.text = tr("plot_build.subtitle")
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 13)
 	subtitle.modulate = Color(1, 1, 1, 0.75)
@@ -182,7 +182,7 @@ func _make_close_hint_bar() -> Control:
 	chip.add_child(chip_lbl)
 	bar.add_child(chip)
 	var close_lbl := Label.new()
-	close_lbl.text = "Kapat"
+	close_lbl.text = tr("plot_build.close")
 	close_lbl.add_theme_font_size_override("font_size", 10)
 	close_lbl.modulate = Color(1, 1, 1, 0.45)
 	close_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -449,7 +449,7 @@ func _refresh_building_list() -> void:
 	var scenes := _Categories.get_scenes_for_category(_active_category as _Categories.Category)
 	if scenes.is_empty():
 		var empty := Label.new()
-		empty.text = "Bu kategoride henüz bina yok."
+		empty.text = tr("plot_build.no_buildings_in_category")
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.modulate = Color(1, 1, 1, 0.6)
 		_building_list.add_child(empty)
@@ -521,7 +521,7 @@ func _make_building_row(scene_path: String) -> Control:
 		text_col.add_child(reason)
 
 	var build_btn := Button.new()
-	build_btn.text = "İnşa Et" if can_build else "Kilitli"
+	build_btn.text = tr("plot_build.build") if can_build else tr("plot_build.locked")
 	build_btn.disabled = not can_build
 	build_btn.focus_mode = Control.FOCUS_ALL
 	build_btn.custom_minimum_size = Vector2(96, 40)
@@ -558,7 +558,7 @@ func _populate_cost_row(cost_row: HBoxContainer, scene_path: String, can_build: 
 
 	if not has_any_positive_amount:
 		var free_lbl := Label.new()
-		free_lbl.text = "Bedava"
+		free_lbl.text = tr("plot_build.free")
 		free_lbl.add_theme_font_size_override("font_size", 12)
 		free_lbl.modulate = Color(0.6, 1.0, 0.6, 1.0) if can_build else Color(1, 1, 1, 0.5)
 		cost_row.add_child(free_lbl)
@@ -600,9 +600,9 @@ func _resource_icon_path(resource_key: String) -> String:
 
 func _format_lock_reason(scene_path: String) -> String:
 	if not is_instance_valid(VillageManager):
-		return "Gereksinimler karşılanmıyor."
+		return tr("plot_build.requirements_not_met")
 	if scene_path != VillageManager.HOUSE_SCENE_PATH and VillageManager.does_building_exist(scene_path):
-		return "Bu bina zaten mevcut."
+		return tr("plot_build.already_exists")
 	var reqs := VillageManager.get_building_requirements(scene_path)
 	var cost: Dictionary = VillageManager.get_effective_build_cost(scene_path)
 	var missing: PackedStringArray = PackedStringArray()
@@ -615,15 +615,15 @@ func _format_lock_reason(scene_path: String) -> String:
 		if current < required:
 			missing.append("%s %d/%d" % [LocaleManager.get_resource_name(key_str), current, required])
 	if not missing.is_empty():
-		return "Yetersiz: " + ", ".join(missing)
+		return tr("plot_build.insufficient_prefix") + ", ".join(missing)
 	var levels: Dictionary = reqs.get("requires_level", {})
 	for key in levels.keys():
 		var key_str := String(key)
 		var required_level := int(levels[key])
 		var current_level := int(VillageManager.get_available_resource_level(key_str))
 		if current_level < required_level:
-			return "Gerekli: %s Lv.%d" % [LocaleManager.get_resource_name(key_str), required_level]
-	return "Gereksinimler karşılanmıyor."
+			return tr("plot_build.required_level") % [LocaleManager.get_resource_name(key_str), required_level]
+	return tr("plot_build.requirements_not_met")
 
 
 func _can_build_scene(scene_path: String) -> bool:
@@ -639,7 +639,7 @@ func _can_build_scene(scene_path: String) -> bool:
 
 func _on_build_pressed(scene_path: String) -> void:
 	if not _can_build_scene(scene_path):
-		_info_label.text = "Gereksinimler karşılanmıyor veya bina zaten var."
+		_info_label.text = tr("plot_build.requirements_or_exists")
 		return
 	build_selected.emit(scene_path)
 	hide_popup()

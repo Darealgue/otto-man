@@ -9,8 +9,8 @@ const TICK_INTERVAL = 2.0  # 2 saniyede bir tick
 
 func _init():
 	item_id = "zehirli_tirnak"
-	item_name = "Zehirli Tırnak"
-	description = "Light attack'lar zehir verir (max 5 stack, 2 sn'de 1 hasar/stack)"
+	item_name = tr("item.zehirli_tirnak.name")
+	description = tr("item.zehirli_tirnak.description")
 	flavor_text = "Zehirli dokunuş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

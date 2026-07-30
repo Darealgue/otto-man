@@ -10,8 +10,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "berserker_ruhu"
-	item_name = "Berserker Ruhu"
-	description = "Canın azaldıkça verdiğin hasar artar (en fazla iki kat). Daha fazla hasar alırsın."
+	item_name = tr("item.berserker_ruhu.name")
+	description = tr("item.berserker_ruhu.description")
 	flavor_text = "Öfke güç verir"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

@@ -415,6 +415,13 @@ func _refresh_static_labels() -> void:
 	_mc_set_label("MissionsPage/MissionChainsPanel/MissionChainsTitle", tr("mc.mission.chains.title"))
 	_mc_set_label("NewsCenterPage/RandomEventsPanel/RandomEventsTitle", tr("mc.news.random_events"))
 	_mc_set_label("NewsCenterPage/NewsControls", tr("mc.news.controls"))
+	_mc_set_label("NewsCenterPage/NewsHeader/NewsTimeLabel", tr("mc.news.time_label"))
+	_mc_set_label("ConcubineDetailsPage/ConcubineHeader/TitlePanel/ConcubineTitle", tr("mc.concubine.title"))
+	_mc_set_label("ConcubineDetailsPage/ConcubineHeader/ConcubineBackButton", tr("mc.concubine.back"))
+	_mc_set_label("ConcubineDetailsPage/ConcubineContent/ConcubineListPanel/ConcubineListTitle", tr("mc.concubine.list_title"))
+	_mc_set_label("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsTitle", tr("mc.concubine.details_title"))
+	_mc_set_label("ConcubineDetailsPage/ConcubineContent/ConcubineDetailsPanel/ConcubineDetailsScroll/ConcubineDetailsContent/AchievementsPanel/AchievementsVBox/AchievementsTitle", tr("mc.concubine.achievements_title"))
+	_mc_set_label("ConcubineDetailsPage/ConcubineControls", tr("mc.concubine.controls"))
 	if category_names.size() > 0:
 		_mc_set_label(
 			"ConstructionPage/CategoryRow/CategoryLabel",
@@ -1908,7 +1915,7 @@ func get_building_status_info(building_type: String) -> String:
 	var existing_buildings = find_existing_buildings(building_type)
 	
 	if existing_buildings.is_empty():
-		return "❌ Yok"
+		return tr("mc.building.not_built")
 	
 	var building = existing_buildings[0]
 	var info = ""
@@ -1929,7 +1936,7 @@ func get_building_status_info(building_type: String) -> String:
 				var left := float(building.upgrade_timer.time_left)
 				var ratio: float = clamp((total - left) / total, 0.0, 1.0)
 				var pct: int = int(round(ratio * 100.0))
-				info += " ⏳" + str(int(ceil(left))) + "sn (" + str(pct) + "%)"
+				info += tr("mc.building.upgrade_time_left") % [str(int(ceil(left))), pct]
 	elif "level" in building and "max_level" in building and building.level >= building.max_level:
 		info += " ✅"
 	
@@ -1948,7 +1955,7 @@ func get_building_status_info(building_type: String) -> String:
 					info += " 💰" + str(upgrade_cost["gold"])
 			# Süre bilgisi
 			if "upgrade_time_seconds" in building:
-				info += " ⏱" + str(int(building.upgrade_time_seconds)) + "sn"
+				info += tr("mc.building.upgrade_time_seconds") % int(building.upgrade_time_seconds)
 			# Basit etki önizleme
 			if "max_workers" in building:
 				var cur_workers := int(building.max_workers)
@@ -6779,7 +6786,7 @@ func _open_building_info_popup():
 	_construction_info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	inner.add_child(_construction_info_label)
 	var info_text = get_building_status_info(building_name)
-	_construction_info_label.text = building_name + "\n\n" + info_text + "\n\n[B ile kapat]"
+	_construction_info_label.text = _mc_building_display_name(building_name) + "\n\n" + info_text + "\n\n" + tr("mc.construction.close_hint")
 
 func _close_building_info_popup():
 	if _construction_info_popup:

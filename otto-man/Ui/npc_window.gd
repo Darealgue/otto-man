@@ -303,12 +303,12 @@ func _build_left_column(root: HBoxContainer) -> void:
 	inner.add_child(diary_sep)
 
 	var diary_title := Label.new()
-	diary_title.text = "📖 Günlük"
+	diary_title.text = tr("npc_window.diary_title")
 	diary_title.add_theme_font_size_override("font_size", 13)
 	inner.add_child(diary_title)
 
 	_diary_empty_label = Label.new()
-	_diary_empty_label.text = "Henüz kayda değer bir hikâyesi yok."
+	_diary_empty_label.text = tr("npc_window.diary_empty")
 	_diary_empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_diary_empty_label.add_theme_font_size_override("font_size", 11)
 	_diary_empty_label.modulate = Color(1, 1, 1, 0.55)
@@ -330,7 +330,7 @@ func _build_right_column(root: HBoxContainer) -> void:
 	root.add_child(right)
 
 	var title := Label.new()
-	title.text = "Sohbet"
+	title.text = tr("npc_window.chat_title")
 	title.add_theme_font_size_override("font_size", 15)
 	right.add_child(title)
 
@@ -355,11 +355,11 @@ func _build_right_column(root: HBoxContainer) -> void:
 
 	chat_line_edit = LineEdit.new()
 	chat_line_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	chat_line_edit.placeholder_text = "Mesajınızı yazın..."
+	chat_line_edit.placeholder_text = tr("npc_window.message_placeholder")
 	input_row.add_child(chat_line_edit)
 
 	send_button = Button.new()
-	send_button.text = "Gönder"
+	send_button.text = tr("npc_window.send")
 	input_row.add_child(send_button)
 
 	_nav_hint_label = Label.new()
@@ -383,7 +383,7 @@ func _refresh_info_panel() -> void:
 	var age_gender: PackedStringArray = []
 	var age := str(info.get("Age", "")).strip_edges()
 	if age != "":
-		age_gender.append("%s yaş" % age)
+		age_gender.append(tr("npc_window.age_suffix") % age)
 	var gender_tr := _translate_gender(str(info.get("Gender", "")))
 	if gender_tr != "":
 		age_gender.append(gender_tr)
@@ -393,32 +393,32 @@ func _refresh_info_panel() -> void:
 		lines.append("  •  ".join(age_gender))
 	var occupation := str(info.get("Occupation", "")).strip_edges()
 	if occupation != "":
-		lines.append("Eskiden: %s" % occupation)
-	lines.append("Şu an: %s" % _resolve_workplace())
+		lines.append(tr("npc_window.formerly") % occupation)
+	lines.append(tr("npc_window.currently") % _resolve_workplace())
 	var mood := str(info.get("Mood", "")).strip_edges()
 	if mood != "":
-		lines.append("Ruh hali: %s" % mood)
+		lines.append(tr("npc_window.mood_label") % mood)
 	var health := str(info.get("Health", "")).strip_edges()
 	if health != "":
-		lines.append("Sağlık: %s" % health)
+		lines.append(tr("npc_window.health_label") % health)
 	_stats_label.text = "\n".join(lines)
 
 
 func _translate_gender(g: String) -> String:
 	match g:
 		"Male":
-			return "Erkek"
+			return tr("npc_window.gender_male")
 		"Female":
-			return "Kadın"
+			return tr("npc_window.gender_female")
 		_:
 			return g
 
 
 func _resolve_workplace() -> String:
 	if _owner_npc == null or not is_instance_valid(_owner_npc):
-		return "Boşta"
+		return tr("npc_window.idle")
 	if "assigned_job_type" in _owner_npc and str(_owner_npc.get("assigned_job_type")) == "soldier":
-		return "Asker"
+		return tr("npc_window.soldier")
 	if "assigned_building_node" in _owner_npc:
 		var building = _owner_npc.get("assigned_building_node")
 		if building != null and is_instance_valid(building):
@@ -426,7 +426,7 @@ func _resolve_workplace() -> String:
 			if vm and vm.has_method("get_building_display_name_for_scene"):
 				return str(vm.get_building_display_name_for_scene(building.scene_file_path))
 			return str(building.name)
-	return "Boşta"
+	return tr("npc_window.idle")
 
 
 func _refresh_portrait() -> void:
@@ -837,4 +837,4 @@ func _process(delta: float) -> void:
 func _update_nav_hint() -> void:
 	if _nav_hint_label == null:
 		return
-	_nav_hint_label.text = "[%s] Kapat" % InputManager.get_tutorial_cancel_hint()
+	_nav_hint_label.text = tr("npc_window.close_hint") % InputManager.get_tutorial_cancel_hint()

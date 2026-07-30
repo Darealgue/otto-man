@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "golge_pelerini"
-	item_name = "Gölge Pelerini"
-	description = "Düşmanların görüş menzili -%20"
+	item_name = tr("item.golge_pelerini.name")
+	description = tr("item.golge_pelerini.description")
 	flavor_text = "Gölgelerde kaybol"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL

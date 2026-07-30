@@ -11,8 +11,8 @@ var _cooldown := 0.0
 
 func _init():
 	item_id = "lav_cekici"
-	item_name = "Lav Çekici"
-	description = "Heavy attack alev topu fırlatır; değen düşman yanar (8 sn cooldown)"
+	item_name = tr("item.lav_cekici.name")
+	description = tr("item.lav_cekici.description")
 	flavor_text = "Ateşli top"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK

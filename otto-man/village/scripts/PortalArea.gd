@@ -34,11 +34,24 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
 	set_process(true)
+	_apply_info_label_translation()
 	if not unique_key.is_empty():
 		if _unique_registry.has(unique_key):
 			queue_free()
 			return
 		_unique_registry[unique_key] = true
+
+## Bazı portal sahnelerinde (bkz. DungeonExitPortal.tscn, ForestExitPortal.tscn) kardeş bir
+## "Info" Label'ı var — sabit metin yerine locale'e göre çeviriyoruz. Böyle bir düğüm yoksa
+## (bkz. VillageScene.tscn'deki portallar) sessizce hiçbir şey yapmaz.
+func _apply_info_label_translation() -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var info := parent.get_node_or_null("Info") as Label
+	if info == null:
+		return
+	info.text = tr("portal.return_to_village")
 
 func _process(_delta: float) -> void:
 	if _transition_triggered:
@@ -268,7 +281,7 @@ func _check_and_show_mission_result(payload: Dictionary) -> void:
 	
 	if is_dead:
 		result_type = "death"
-		mission_name = "Ölüm"
+		mission_name = tr("portal.death_label")
 		# Store inventory count for death message
 		payload["lost_items_count"] = inventory_count_before_death
 		# Ölümde kurtarılanları köye ekleme; listeyi temizle

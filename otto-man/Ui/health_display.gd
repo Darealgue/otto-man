@@ -213,12 +213,12 @@ func _setup_debuff_ui() -> void:
 	
 	debuff_title_label = Label.new()
 	debuff_title_label.name = "DebuffTitle"
-	debuff_title_label.text = "DEBUFF: -"
+	debuff_title_label.text = tr("hud.debuff_prefix") % tr("hud.debuff_placeholder")
 	debuff_container.add_child(debuff_title_label)
-	
+
 	debuff_time_label = Label.new()
 	debuff_time_label.name = "DebuffTime"
-	debuff_time_label.text = "Kalan: -"
+	debuff_time_label.text = tr("hud.debuff_remaining_prefix") % tr("hud.debuff_placeholder")
 	debuff_container.add_child(debuff_time_label)
 	
 	debuff_container.visible = false
@@ -314,12 +314,13 @@ func _refresh_debuff_ui() -> void:
 	var names: PackedStringArray = []
 	var durations: PackedStringArray = []
 	for deb in active:
-		var dn: String = String(deb.get("name", "Yaralanma"))
+		var raw_name: String = String(deb.get("name", ""))
+		var dn: String = LocaleManager.get_debuff_name(raw_name)
 		var mins_left: int = int(deb.get("minutes_left", 0))
 		names.append(dn)
 		durations.append("%s: %s" % [dn, _format_days_left(mins_left)])
-	debuff_title_label.text = "DEBUFF: " + ", ".join(names)
-	debuff_time_label.text = "Kalan: " + " | ".join(durations)
+	debuff_title_label.text = tr("hud.debuff_prefix") % ", ".join(names)
+	debuff_time_label.text = tr("hud.debuff_remaining_prefix") % " | ".join(durations)
 	debuff_container.visible = true
 
 func _format_days_left(minutes_left: int) -> String:
@@ -328,7 +329,7 @@ func _format_days_left(minutes_left: int) -> String:
 	if tm and "MINUTES_PER_HOUR" in tm and "HOURS_PER_DAY" in tm:
 		minutes_per_day = int(tm.MINUTES_PER_HOUR) * int(tm.HOURS_PER_DAY)
 	var days_left: int = int(ceil(float(maxi(0, minutes_left)) / float(maxi(1, minutes_per_day))))
-	return "%d gun" % days_left
+	return tr("hud.debuff_days_left") % days_left
 
 func update_health_display(current_health: float, max_health: float) -> void:
 	

@@ -4,8 +4,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "kan_bedeli"
-	item_name = "Kan Bedeli"
-	description = "Stamina bittiğinde, güç asla reddedilmez — bedel candan kesilir"
+	item_name = tr("item.kan_bedeli.name")
+	description = tr("item.kan_bedeli.description")
 	flavor_text = "Nefesin bitse de kanın akar"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.STAMINA

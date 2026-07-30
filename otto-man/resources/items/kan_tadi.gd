@@ -13,8 +13,8 @@ var _stack_timer: float = 0.0
 
 func _init():
 	item_id = "kan_tadi"
-	item_name = "Kan Tadı"
-	description = "Vuruş isabet ettikçe güçlenirsin (en fazla 3 stack). Her stack: +%10 saldırı ve hareket hızı."
+	item_name = tr("item.kan_tadi.name")
+	description = tr("item.kan_tadi.description")
 	flavor_text = "Kan döktükçe açılır"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

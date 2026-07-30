@@ -7,8 +7,8 @@ const DAMAGE_BOOST = 0.3
 
 func _init():
 	item_id = "guc_kayasi"
-	item_name = "Güç Kayası"
-	description = "Heavy attack hasarı +%30"
+	item_name = tr("item.guc_kayasi.name")
+	description = tr("item.guc_kayasi.description")
 	flavor_text = "Daha güçlü vuruş"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.HEAVY_ATTACK

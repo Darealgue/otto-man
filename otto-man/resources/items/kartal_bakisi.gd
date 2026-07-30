@@ -6,8 +6,8 @@ const CRIT_MULT := 1.75
 
 func _init():
 	item_id = "kartal_bakisi"
-	item_name = "Kartal Bakışı"
-	description = "Mermilerin menzili sınırsızdır; 300px+ mesafeden isabet kritik sayılır"
+	item_name = tr("item.kartal_bakisi.name")
+	description = tr("item.kartal_bakisi.description")
 	flavor_text = "Uzağı gören, doğru vurur"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

@@ -8,8 +8,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "keskin_nazar"
-	item_name = "Keskin Nazar"
-	description = "%15 kritik şansı, kritikler %75 fazla hasar verir"
+	item_name = tr("item.keskin_nazar.name")
+	description = tr("item.keskin_nazar.description")
 	flavor_text = "Gözü keskin olanın kılıcı da keskindir"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.SPECIAL

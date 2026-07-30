@@ -10,8 +10,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "cift_ziplama"
-	item_name = "Çift Zıplama"
-	description = "3. zıplama hakkı; 3. zıplamada altında patlama olur, can gider"
+	item_name = tr("item.cift_ziplama.name")
+	description = tr("item.cift_ziplama.description")
 	flavor_text = "Ekstra zıplama"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.JUMP

@@ -14,8 +14,8 @@ var _time_slow_accumulator := 0.0
 
 func _init():
 	item_id = "zaman_durdurucu"
-	item_name = "Zaman Durdurucu"
-	description = "Perfect parry sonrası zaman yavaşlar; sen normal hızında hareket edersin"
+	item_name = tr("item.zaman_durdurucu.name")
+	description = tr("item.zaman_durdurucu.description")
 	flavor_text = "Zamanı kontrol et"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY

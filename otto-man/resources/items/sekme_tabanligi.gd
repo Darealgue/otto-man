@@ -3,8 +3,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "sekme_tabanligi"
-	item_name = "Sekme Tabanlığı"
-	description = "Düşüş saldırısı yere çarpınca otomatik pogo zıplaması yapar"
+	item_name = tr("item.sekme_tabanligi.name")
+	description = tr("item.sekme_tabanligi.description")
 	flavor_text = "Yer, senin için bir yaydır"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK

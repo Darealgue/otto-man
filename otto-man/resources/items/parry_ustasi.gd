@@ -7,8 +7,8 @@ const PARRY_WINDOW_BOOST = 0.4
 
 func _init():
 	item_id = "parry_ustasi"
-	item_name = "Parry Ustası"
-	description = "Perfect parry penceresi +%40"
+	item_name = tr("item.parry_ustasi.name")
+	description = tr("item.parry_ustasi.description")
 	flavor_text = "Daha kolay parry"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.PARRY

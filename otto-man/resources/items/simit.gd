@@ -13,8 +13,8 @@ var _boost_timer := 0.0
 
 func _init():
 	item_id = "simit"
-	item_name = "Simit"
-	description = "Stamina sıfırlanınca 5 sn %100 hızlı regen"
+	item_name = tr("item.simit.name")
+	description = tr("item.simit.description")
 	flavor_text = "Simitçi geçti!"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.STAMINA

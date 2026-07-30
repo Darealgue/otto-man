@@ -68,7 +68,7 @@ func _build_ui() -> void:
 	_panel.add_child(root)
 
 	_title_label = Label.new()
-	_title_label.text = "Rehber"
+	_title_label.text = tr("mentor_brief.title")
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 28)
 	root.add_child(_title_label)
@@ -81,7 +81,7 @@ func _build_ui() -> void:
 	tab_row.add_child(_make_key_chip("Q", "L2"))
 
 	_tab_news_btn = Button.new()
-	_tab_news_btn.text = "Haberler"
+	_tab_news_btn.text = tr("mentor_brief.tab_news")
 	_tab_news_btn.toggle_mode = true
 	_tab_news_btn.focus_mode = Control.FOCUS_NONE
 	_tab_news_btn.custom_minimum_size = Vector2(120, 40)
@@ -89,7 +89,7 @@ func _build_ui() -> void:
 	tab_row.add_child(_tab_news_btn)
 
 	_tab_missions_btn = Button.new()
-	_tab_missions_btn.text = "Görevler"
+	_tab_missions_btn.text = tr("mentor_brief.tab_missions")
 	_tab_missions_btn.toggle_mode = true
 	_tab_missions_btn.focus_mode = Control.FOCUS_NONE
 	_tab_missions_btn.custom_minimum_size = Vector2(120, 40)
@@ -97,7 +97,7 @@ func _build_ui() -> void:
 	tab_row.add_child(_tab_missions_btn)
 
 	_tab_diplo_btn = Button.new()
-	_tab_diplo_btn.text = "Diplomasi"
+	_tab_diplo_btn.text = tr("mentor_brief.tab_diplomacy")
 	_tab_diplo_btn.toggle_mode = true
 	_tab_diplo_btn.focus_mode = Control.FOCUS_NONE
 	_tab_diplo_btn.custom_minimum_size = Vector2(120, 40)
@@ -105,7 +105,7 @@ func _build_ui() -> void:
 	tab_row.add_child(_tab_diplo_btn)
 
 	_tab_combat_btn = Button.new()
-	_tab_combat_btn.text = "Savaş Geçmişi"
+	_tab_combat_btn.text = tr("mentor_brief.tab_combat")
 	_tab_combat_btn.toggle_mode = true
 	_tab_combat_btn.focus_mode = Control.FOCUS_NONE
 	_tab_combat_btn.custom_minimum_size = Vector2(120, 40)
@@ -129,7 +129,7 @@ func _build_ui() -> void:
 	root.add_child(_content_scroll)
 
 	var scroll_hint := Label.new()
-	scroll_hint.text = "↑ ↓ kaydır  ·  Q/E sekme"
+	scroll_hint.text = tr("mentor_brief.scroll_hint")
 	scroll_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	scroll_hint.add_theme_font_size_override("font_size", 11)
 	scroll_hint.modulate = Color(1, 1, 1, 0.4)
@@ -146,7 +146,7 @@ func _make_close_hint_bar() -> Control:
 	var chip := _make_escape_chip()
 	bar.add_child(chip)
 	var lbl := Label.new()
-	lbl.text = "Kapat"
+	lbl.text = tr("mentor_brief.close")
 	lbl.add_theme_font_size_override("font_size", 10)
 	lbl.modulate = Color(1, 1, 1, 0.45)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -328,23 +328,23 @@ func _setup_news_columns_host() -> void:
 func _populate_news() -> void:
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null:
-		_add_empty("Haber kaynağı bulunamadı.", _news_village_col)
+		_add_empty(tr("mentor_brief.no_news_source"), _news_village_col)
 		return
 	var village_news: Array = mm.get_village_news() if mm.has_method("get_village_news") else []
 	var world_news: Array = mm.get_world_news() if mm.has_method("get_world_news") else []
 	if village_news.is_empty() and world_news.is_empty():
-		_add_empty("Henüz haber yok.", _news_village_col)
-		_add_empty("Henüz haber yok.", _news_world_col)
+		_add_empty(tr("mentor_brief.no_news_yet"), _news_village_col)
+		_add_empty(tr("mentor_brief.no_news_yet"), _news_world_col)
 		return
-	_add_section_header("🏘 Köy Haberleri", _news_village_col)
+	_add_section_header(tr("mentor_brief.village_news_header"), _news_village_col)
 	if village_news.is_empty():
-		_add_empty("Köy haberi yok.", _news_village_col)
+		_add_empty(tr("mentor_brief.no_village_news"), _news_village_col)
 	else:
 		for n in village_news:
 			_add_news_card(n, _news_village_col)
-	_add_section_header("🌍 Dünya Haberleri", _news_world_col)
+	_add_section_header(tr("mentor_brief.world_news_header"), _news_world_col)
 	if world_news.is_empty():
-		_add_empty("Dünya haberi yok.", _news_world_col)
+		_add_empty(tr("mentor_brief.no_world_news"), _news_world_col)
 	else:
 		for n in world_news:
 			_add_news_card(n, _news_world_col)
@@ -355,7 +355,7 @@ func _populate_news() -> void:
 func _populate_missions_tab() -> void:
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null:
-		_add_empty("Görev sistemi bulunamadı.", _content_list)
+		_add_empty(tr("mentor_brief.no_mission_system"), _content_list)
 		return
 	_populate_active_missions(mm)
 	_populate_mission_history(mm)
@@ -367,7 +367,7 @@ func _populate_active_missions(mm: Node) -> void:
 	var active: Dictionary = mm.get_active_missions() if mm.has_method("get_active_missions") else {}
 	if active.is_empty():
 		return
-	_add_section_header("🟢 Aktif Görevler", _content_list)
+	_add_section_header(tr("mentor_brief.active_missions_header"), _content_list)
 	for cariye_key in active.keys():
 		var cariye_id: int = int(cariye_key)
 		var mission_id: String = String(active[cariye_key])
@@ -381,7 +381,7 @@ func _populate_active_missions(mm: Node) -> void:
 ## Alt bölüm: tamamlanmış/başarısız olmuş geçmiş görevler — başarı durumuna göre renklendirilir.
 func _populate_mission_history(mm: Node) -> void:
 	var history: Array = mm.get_mission_history() if mm.has_method("get_mission_history") else []
-	_add_section_header("📜 Geçmiş Görevler", _content_list)
+	_add_section_header(tr("mentor_brief.mission_history_header"), _content_list)
 	if history.is_empty():
 		_add_empty(tr("mc.mission.list.history_empty_short"), _content_list)
 		return
@@ -393,14 +393,14 @@ func _populate_mission_history(mm: Node) -> void:
 func _populate_diplomacy() -> void:
 	var wm := get_node_or_null("/root/WorldManager")
 	if wm == null:
-		_add_empty("Dünya haritası bilgisi yok.", _content_list)
+		_add_empty(tr("mentor_brief.no_world_map_info"), _content_list)
 		return
 	if not wm.has_method("get_discovered_settlements"):
-		_add_empty("Henüz keşfedilen köy yok.", _content_list)
+		_add_empty(tr("mentor_brief.no_discovered_village"), _content_list)
 		return
 	var discovered: Array = wm.get_discovered_settlements()
 	if discovered.is_empty():
-		_add_empty("Henüz keşfedilen köy yok.\nDünya haritasında komşu köyleri keşfet.", _content_list)
+		_add_empty(tr("mentor_brief.no_discovered_village_hint"), _content_list)
 		return
 	var rows: Array[Dictionary] = []
 	for raw in discovered:
@@ -421,7 +421,7 @@ func _populate_diplomacy() -> void:
 		return String(a.get("name", "")).nocasecmp_to(String(b.get("name", ""))) < 0
 	)
 	var dm := get_node_or_null("/root/DiplomacyManager")
-	_add_section_header("Keşfedilen Köyler", _content_list)
+	_add_section_header(tr("mentor_brief.discovered_villages_header"), _content_list)
 	for row in rows:
 		var rel_val: int = int(row.get("relation", 0))
 		var stance: String = String(dm.get_stance(rel_val)) if dm and dm.has_method("get_stance") else "?"
@@ -431,13 +431,13 @@ func _populate_diplomacy() -> void:
 func _populate_combat_history() -> void:
 	var wm := get_node_or_null("/root/WorldManager")
 	if wm == null or not wm.has_method("get_combat_history"):
-		_add_empty("Savaş geçmişi bulunamadı.", _content_list)
+		_add_empty(tr("mentor_brief.no_combat_history_1"), _content_list)
 		return
 	var history: Array = wm.get_combat_history()
 	if history.is_empty():
-		_add_empty("Henüz kayıtlı bir saldırı yok.", _content_list)
+		_add_empty(tr("mentor_brief.no_combat_history_2"), _content_list)
 		return
-	_add_section_header("⚔ Savaş Geçmişi", _content_list)
+	_add_section_header(tr("mentor_brief.combat_history_header"), _content_list)
 	for entry in history:
 		if entry is Dictionary:
 			_add_combat_history_card(entry as Dictionary)
@@ -472,9 +472,9 @@ func _add_combat_history_card(entry: Dictionary) -> void:
 	var title := Label.new()
 	var title_text: String
 	if is_incoming:
-		title_text = "%s %s → %s" % ["🛡" if won else "💥", attacker, "Savunma başarılı" if won else "Savunma başarısız"]
+		title_text = "%s %s → %s" % ["🛡" if won else "💥", attacker, tr("mentor_brief.defense_success") if won else tr("mentor_brief.defense_fail")]
 	else:
-		title_text = "⚔ Köy → %s (%s)" % [String(entry.get("target", "?")), String(entry.get("status", "gönderildi"))]
+		title_text = "⚔ %s → %s (%s)" % [tr("mentor_brief.village_label"), String(entry.get("target", "?")), String(entry.get("status", tr("mentor_brief.status_sent")))]
 	title.text = title_text
 	title.add_theme_font_size_override("font_size", 15)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -495,7 +495,7 @@ func _add_combat_history_card(entry: Dictionary) -> void:
 	col.add_child(detail_lbl)
 
 	var hint_lbl := Label.new()
-	hint_lbl.text = "▸ detaylar için tıkla"
+	hint_lbl.text = tr("mentor_brief.show_details")
 	hint_lbl.add_theme_font_size_override("font_size", 10)
 	hint_lbl.modulate = Color(1, 1, 1, 0.4)
 	col.add_child(hint_lbl)
@@ -504,7 +504,7 @@ func _add_combat_history_card(entry: Dictionary) -> void:
 	card.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 			detail_lbl.visible = not detail_lbl.visible
-			hint_lbl.text = "▾ detayları gizle" if detail_lbl.visible else "▸ detaylar için tıkla"
+			hint_lbl.text = tr("mentor_brief.hide_details") if detail_lbl.visible else tr("mentor_brief.show_details")
 	)
 
 	_content_list.add_child(card)
@@ -513,33 +513,33 @@ func _add_combat_history_card(entry: Dictionary) -> void:
 func _combat_history_detail_text(entry: Dictionary, is_incoming: bool, won: bool) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	if is_incoming:
-		lines.append("Kayıp asker: %d" % int(entry.get("defender_losses", 0)))
+		lines.append(tr("mentor_brief.lost_soldiers") % int(entry.get("defender_losses", 0)))
 		var atk_losses: int = int(entry.get("attacker_losses", 0))
 		if atk_losses > 0:
-			lines.append("Saldırgan kaybı: %d" % atk_losses)
+			lines.append(tr("mentor_brief.attacker_losses") % atk_losses)
 		var soldiers_disarmed: int = int(entry.get("soldiers_disarmed", 0))
 		if soldiers_disarmed > 0:
-			lines.append("Silahsız kalan asker: %d" % soldiers_disarmed)
+			lines.append(tr("mentor_brief.soldiers_disarmed") % soldiers_disarmed)
 		if not won:
 			var gold_loss: int = int(entry.get("gold_loss", 0))
 			if gold_loss > 0:
-				lines.append("Kayıp altın: %d" % gold_loss)
+				lines.append(tr("mentor_brief.gold_lost") % gold_loss)
 			var resource_losses: Variant = entry.get("resource_losses", {})
 			if resource_losses is Dictionary:
 				for res in (resource_losses as Dictionary).keys():
-					lines.append("Kayıp %s: %d" % [String(res), int((resource_losses as Dictionary)[res])])
+					lines.append(tr("mentor_brief.resource_lost") % [String(res), int((resource_losses as Dictionary)[res])])
 		var morale_delta: int = int(entry.get("morale_delta", 0))
 		if morale_delta != 0:
-			lines.append("Moral: %s%d" % ["+" if morale_delta > 0 else "", morale_delta])
+			lines.append(tr("mentor_brief.morale_delta") % ["+" if morale_delta > 0 else "", morale_delta])
 		if bool(entry.get("alliance_defender", false)):
-			lines.append("Müttefik desteği devreye girdi.")
+			lines.append(tr("mentor_brief.allied_support"))
 	else:
 		var gold_cost: int = int(entry.get("gold_cost", 0))
 		if gold_cost > 0:
-			lines.append("Harcanan altın: %d" % gold_cost)
-		lines.append("Sonuç: göreve cariye atayarak takip edilebilir (Görevler sekmesi).")
+			lines.append(tr("mentor_brief.gold_spent") % gold_cost)
+		lines.append(tr("mentor_brief.raid_result_hint"))
 	if lines.is_empty():
-		lines.append("Ek detay yok.")
+		lines.append(tr("mentor_brief.no_further_details"))
 	return "\n".join(lines)
 
 
@@ -554,17 +554,17 @@ func _format_time_ago_game(game_time_minutes: int) -> String:
 	var now: int = int(tm.get_total_game_minutes())
 	var diff: int = maxi(0, now - game_time_minutes)
 	if diff < 1:
-		return "az önce"
+		return tr("mentor_brief.just_now")
 	if diff < 60:
-		return "%d dk önce" % diff
+		return tr("mentor_brief.minutes_ago") % diff
 	if diff < 1440:
 		var hours: int = diff / 60
 		var mins: int = diff % 60
 		if mins > 0:
-			return "%d sa %d dk önce" % [hours, mins]
-		return "%d sa önce" % hours
+			return tr("mentor_brief.hours_minutes_ago") % [hours, mins]
+		return tr("mentor_brief.hours_ago") % hours
 	var days: int = diff / 1440
-	return "%d gün önce" % days
+	return tr("mentor_brief.days_ago") % days
 
 
 func _add_section_header(text: String, parent: VBoxContainer) -> void:
@@ -614,7 +614,7 @@ func _add_news_card(news: Dictionary, parent: VBoxContainer) -> void:
 	card.add_child(col)
 
 	var title := Label.new()
-	title.text = news.get("title", "Haber")
+	title.text = news.get("title", tr("mentor_brief.news_fallback"))
 	title.add_theme_font_size_override("font_size", 16)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(title)
@@ -817,13 +817,13 @@ func _mission_history_detail_text(entry: Dictionary, successful: bool) -> String
 		var reward_parts: PackedStringArray = PackedStringArray()
 		for k in (rewards as Dictionary).keys():
 			reward_parts.append("%s +%s" % [String(k), str((rewards as Dictionary)[k])])
-		lines.append("Ödül: %s" % ", ".join(reward_parts))
+		lines.append(tr("mentor_brief.reward_prefix") + ", ".join(reward_parts))
 	var penalties: Variant = entry.get("penalties", {})
 	if not successful and penalties is Dictionary and not (penalties as Dictionary).is_empty():
 		var penalty_parts: PackedStringArray = PackedStringArray()
 		for k in (penalties as Dictionary).keys():
 			penalty_parts.append("%s %s" % [String(k), str((penalties as Dictionary)[k])])
-		lines.append("Ceza: %s" % ", ".join(penalty_parts))
+		lines.append(tr("mentor_brief.penalty_prefix") + ", ".join(penalty_parts))
 	return "\n".join(lines)
 
 

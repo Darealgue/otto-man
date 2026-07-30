@@ -7,8 +7,8 @@ const SPEED_BOOST = 0.5  # %50 artış
 
 func _init():
 	item_id = "tunel_ustasi"
-	item_name = "Tünel Ustası"
-	description = "Crawl hızı +%50"
+	item_name = tr("item.tunel_ustasi.name")
+	description = tr("item.tunel_ustasi.description")
 	flavor_text = "Daha hızlı sürünme"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.CROUCH

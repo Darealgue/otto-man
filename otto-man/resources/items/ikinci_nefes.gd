@@ -7,8 +7,8 @@ var _used := false
 
 func _init():
 	item_id = "ikinci_nefes"
-	item_name = "İkinci Nefes"
-	description = "İlk ölümde 1 canla dirilirsin (tek kullanım)"
+	item_name = tr("item.ikinci_nefes.name")
+	description = tr("item.ikinci_nefes.description")
 	flavor_text = "İkinci şans"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

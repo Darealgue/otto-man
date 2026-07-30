@@ -3,8 +3,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "panzehir_derisi"
-	item_name = "Panzehir Derisi"
-	description = "Zehir tuzaklarına ve bulutlarına bağışıklık"
+	item_name = tr("item.panzehir_derisi.name")
+	description = tr("item.panzehir_derisi.description")
 	flavor_text = "Zehir artık sana su gibi gelir"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

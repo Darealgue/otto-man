@@ -3,8 +3,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "son_kale"
-	item_name = "Son Kale"
-	description = "Blok sırasında stamina biterse gard kırılması yerine şok dalgası patlar"
+	item_name = tr("item.son_kale.name")
+	description = tr("item.son_kale.description")
 	flavor_text = "Duvar yıkılınca gürler"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.BLOCK

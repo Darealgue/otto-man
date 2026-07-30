@@ -7,8 +7,8 @@ const SPEED_BOOST = 0.25  # +25% attack speed
 
 func _init():
 	item_id = "hizli_el"
-	item_name = "Hızlı El"
-	description = "Light attack hızı +%25"
+	item_name = tr("item.hizli_el.name")
+	description = tr("item.hizli_el.description")
 	flavor_text = "Daha hızlı vuruşlar"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.LIGHT_ATTACK

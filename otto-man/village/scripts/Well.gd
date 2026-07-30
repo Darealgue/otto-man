@@ -184,7 +184,7 @@ func get_production_info() -> String:
 	# Seviyeye bağlı kapasite bilgisi: işçi sayısı üretimi etkiler
 	var workers: int = assigned_workers if "assigned_workers" in self else 0
 	var level_info := "Lv." + str(level) if "level" in self else "Lv.?"
-	return level_info + " • İşçi:" + str(workers) + " • Su üretimi: " + str(workers) + "/tick"
+	return level_info + tr("building.well.production_info") % [workers, workers]
 
 func get_next_upgrade_cost() -> Dictionary:
 	return BuildingUpgradeMixin.get_next_cost(self)

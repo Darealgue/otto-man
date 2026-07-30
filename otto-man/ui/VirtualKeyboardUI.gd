@@ -77,16 +77,16 @@ func _build_ui() -> void:
 	action_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_child(action_hbox)
 
-	var space_btn := _make_key_button("Boşluk", 140)
-	var backspace_btn := _make_key_button("⌫", 60)
-	var send_btn := _make_key_button("Gönder ✓", 100)
+	var space_btn := _make_key_button(tr("vkeyboard.space"), 140, "space")
+	var backspace_btn := _make_key_button("⌫", 60, "backspace")
+	var send_btn := _make_key_button(tr("vkeyboard.send"), 100, "send")
 	action_hbox.add_child(space_btn)
 	action_hbox.add_child(backspace_btn)
 	action_hbox.add_child(send_btn)
 	_action_row = [space_btn, backspace_btn, send_btn]
 
 	var hint := Label.new()
-	hint.text = "[Yön] Gez   [A] Seç   [B] Klavyeyi kapat"
+	hint.text = tr("vkeyboard.nav_hint")
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 10)
 	hint.modulate = Color(1, 1, 1, 0.55)
@@ -95,11 +95,17 @@ func _build_ui() -> void:
 	TextOutline.apply_to_tree(self)
 
 
-func _make_key_button(label_text: String, min_w: int) -> Button:
+## "action" boşsa (harf tuşları) match'te "" koluna düşer ve btn.text karaktleri eklenir.
+## Sabit fonksiyon çağrısı (tr()) match pattern'de kullanılamıyor (GDScript kısıtı: pattern
+## sabit ifade/identifier/attribute olmalı) — bu yüzden çeviriye bağlı btn.text yerine
+## locale'den bağımsız sabit bir "action" meta etiketiyle eşleştiriyoruz.
+func _make_key_button(label_text: String, min_w: int, action: String = "") -> Button:
 	var btn := Button.new()
 	btn.text = label_text
 	btn.custom_minimum_size = Vector2(min_w, 34)
 	btn.focus_mode = Control.FOCUS_NONE
+	if not action.is_empty():
+		btn.set_meta("action", action)
 	btn.pressed.connect(_on_key_activated.bind(btn))
 	return btn
 
@@ -107,12 +113,13 @@ func _make_key_button(label_text: String, min_w: int) -> Button:
 # ─── Key activation ───────────────────────────────────────────────────────────
 
 func _on_key_activated(btn: Button) -> void:
-	match btn.text:
-		"Boşluk":
+	var action: String = String(btn.get_meta("action", ""))
+	match action:
+		"space":
 			_insert(" ")
-		"⌫":
+		"backspace":
 			_backspace()
-		"Gönder ✓":
+		"send":
 			_send()
 		_:
 			_insert(btn.text)

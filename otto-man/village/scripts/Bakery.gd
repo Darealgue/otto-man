@@ -335,4 +335,4 @@ func finished_fetching() -> void:
 # Basit üretim bilgisini döndürür (UI için)
 func get_production_info() -> String:
 	var level_info := "Lv." + str(level)
-	return level_info + " • İşçi:" + str(assigned_workers) + " • Ekmek (odun+yiyecek): 1/" + str(int(BREAD_PRODUCTION_TIME / max(1.0, float(assigned_workers)))) + "sn"
+	return level_info + tr("building.bakery.production_info") % [assigned_workers, int(BREAD_PRODUCTION_TIME / max(1.0, float(assigned_workers)))]

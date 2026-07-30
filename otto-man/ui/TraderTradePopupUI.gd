@@ -98,7 +98,7 @@ func _make_close_hint_bar() -> Control:
 	var chip := _make_escape_chip()
 	bar.add_child(chip)
 	var lbl := Label.new()
-	lbl.text = "Kapat"
+	lbl.text = tr("trader.close")
 	lbl.add_theme_font_size_override("font_size", 10)
 	lbl.modulate = Color(1, 1, 1, 0.45)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -145,10 +145,10 @@ func hide_popup() -> void:
 
 
 func _refresh() -> void:
-	_title_label.text = String(_trader.get("name", "Tüccar"))
+	_title_label.text = String(_trader.get("name", tr("trader.default_name")))
 	var gpd := get_node_or_null("/root/GlobalPlayerData")
 	var gold := int(gpd.gold) if gpd else 0
-	_gold_label.text = "Altın: %d" % gold
+	_gold_label.text = tr("trader.gold_label") % gold
 
 	for child in _product_list.get_children():
 		child.queue_free()
@@ -156,7 +156,7 @@ func _refresh() -> void:
 	var products: Array = _trader.get("products", [])
 	if products.is_empty():
 		var empty := Label.new()
-		empty.text = "Satılık ürün yok."
+		empty.text = tr("trader.no_products")
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.modulate = Color(1, 1, 1, 0.55)
 		_product_list.add_child(empty)
@@ -205,7 +205,7 @@ func _make_product_row(product: Dictionary) -> Control:
 	info.add_child(name_lbl)
 
 	var price_lbl := Label.new()
-	price_lbl.text = "%d altın / birim" % price
+	price_lbl.text = tr("trader.price_per_unit") % price
 	price_lbl.add_theme_font_size_override("font_size", 11)
 	price_lbl.modulate = Color(1, 1, 1, 0.7)
 	info.add_child(price_lbl)
@@ -234,13 +234,13 @@ func _on_buy_pressed(resource: String, quantity: int) -> void:
 		return
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null or not mm.has_method("buy_from_trader"):
-		_info_label.text = "Satın alma başarısız."
+		_info_label.text = tr("trader.purchase_failed")
 		return
 	if mm.buy_from_trader(tid, resource, quantity):
 		_info_label.text = ""
 		_refresh()
 	else:
-		_info_label.text = "Yetersiz altın veya stok yok."
+		_info_label.text = tr("trader.insufficient_gold_or_stock")
 
 
 func _style_focus(button: Button) -> void:

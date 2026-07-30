@@ -4,8 +4,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "sadik_golge"
-	item_name = "Sadık Gölge"
-	description = "Ruh Avcısı hayaletleri kalıcı dolaşır (en fazla 2)"
+	item_name = tr("item.sadik_golge.name")
+	description = tr("item.sadik_golge.description")
 	flavor_text = "Sadık ruhlar sahibini terk etmez"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

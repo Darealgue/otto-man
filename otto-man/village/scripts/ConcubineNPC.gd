@@ -517,7 +517,7 @@ func update_concubine_name() -> void:
 	elif concubine_data and concubine_data.name:
 		name_plate.text = concubine_data.name
 	else:
-		name_plate.text = "İsimsiz Cariye"
+		name_plate.text = tr("concubine.unnamed")
 		if concubine_data:
 			printerr("[ConcubineNPC] Cariye (ID: %d) için isim bulunamadı!" % concubine_id)
 	

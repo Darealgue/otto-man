@@ -7,8 +7,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "hacivat_golgesi"
-	item_name = "Hacivat'ın Gölgesi"
-	description = "Ortaoyunu gölgesi elemental saldırılarını taklit eder. Zehir, ateş, buz veya şimşek vurdukça gölge de aynı elementi uygular."
+	item_name = tr("item.hacivat_golgesi.name")
+	description = tr("item.hacivat_golgesi.description")
 	flavor_text = "Elemental gölge"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

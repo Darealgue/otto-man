@@ -13,8 +13,8 @@ var _cooldown := 0.0
 
 func _init():
 	item_id = "donma_cekici"
-	item_name = "Donma Çekici"
-	description = "Heavy attack donma AoE (yavaşlatma, 8 sn cooldown)"
+	item_name = tr("item.donma_cekici.name")
+	description = tr("item.donma_cekici.description")
 	flavor_text = "Buz dalgası"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK

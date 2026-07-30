@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "element_izi"
-	item_name = "Element İzi"
-	description = "Dodge, aktif elementinin zemin izini bırakır"
+	item_name = tr("item.element_izi.name")
+	description = tr("item.element_izi.description")
 	flavor_text = "Yürüdüğün yol seni hatırlar"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE

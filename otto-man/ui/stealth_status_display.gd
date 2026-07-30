@@ -209,12 +209,12 @@ func show_alarm_banner() -> void:
 func show_flee_toast(villagers_lost: int, cariyes_lost: int) -> void:
 	var parts: PackedStringArray = PackedStringArray()
 	if villagers_lost > 0:
-		parts.append("%d köylü" % villagers_lost)
+		parts.append(tr("stealth.flee_villager_count") % villagers_lost)
 	if cariyes_lost > 0:
-		parts.append("%d cariye" % cariyes_lost)
+		parts.append(tr("stealth.flee_cariye_count") % cariyes_lost)
 	if parts.is_empty():
 		return
-	_toast.text = "Korkup kaçtı: " + ", ".join(parts)
+	_toast.text = tr("stealth.fled_in_fear") + ", ".join(parts)
 	_toast.visible = true
 	_toast_timer = 3.5
 	_refresh()
@@ -321,7 +321,7 @@ func _refresh() -> void:
 	if not is_instance_valid(sm):
 		return
 	if sm.segment_alarm:
-		_label.text = "ALARM"
+		_label.text = tr("stealth.badge_alarm")
 		_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
 		if _badge:
 			var alarm_style := StyleBoxFlat.new()
@@ -332,7 +332,7 @@ func _refresh() -> void:
 			_badge.add_theme_stylebox_override("panel", alarm_style)
 	else:
 		var fragile_text := _fragile_badge_suffix()
-		_label.text = "Gizli" + fragile_text
+		_label.text = tr("stealth.badge_hidden") + fragile_text
 		_label.add_theme_color_override("font_color", Color(0.55, 0.95, 0.65))
 		if _badge:
 			var stealth_style := StyleBoxFlat.new()

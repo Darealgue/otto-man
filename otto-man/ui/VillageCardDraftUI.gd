@@ -71,7 +71,7 @@ func _build_ui() -> void:
 	_panel.add_child(root)
 
 	_title_label = Label.new()
-	_title_label.text = "Mentor'un Önerisi"
+	_title_label.text = tr("card_draft.mentor_suggestion")
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 26)
 	root.add_child(_title_label)
@@ -101,7 +101,7 @@ func _build_ui() -> void:
 	scroll.add_child(_card_row)
 
 	var hint := Label.new()
-	hint.text = "Bir seçenek belirle — görülüp seçilmeyenler bu oyunda bir daha çıkmaz."
+	hint.text = tr("card_draft.hint")
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.modulate = Color(1, 1, 1, 0.5)
@@ -161,7 +161,7 @@ func _make_option_card(name_text: String, desc_text: String, tag_text: String, o
 	col.add_child(desc)
 
 	var btn := Button.new()
-	btn.text = "Seç"
+	btn.text = tr("card_draft.select")
 	btn.custom_minimum_size = Vector2(0, 40)
 	btn.pressed.connect(on_press)
 	col.add_child(btn)
@@ -172,8 +172,8 @@ func _make_option_card(name_text: String, desc_text: String, tag_text: String, o
 # ─── Yol seçimi ─────────────────────────────────────────────────────────────
 
 func _on_path_choice_ready() -> void:
-	_title_label.text = "Köyün Yolu"
-	_subtitle_label.text = "Nüfusun büyüdü. Köyün nasıl büyüyeceğini seç — bu seçim, önünde açılacak kart yolunu belirler."
+	_title_label.text = tr("card_draft.village_path")
+	_subtitle_label.text = tr("card_draft.village_path_subtitle")
 	_clear_cards()
 	for path_key in ["eskiya", "pasa", "koylu"]:
 		var pname := VillageCardDatabase.get_path_display_name(path_key)
@@ -198,11 +198,11 @@ func _on_draft_ready(cards: Array) -> void:
 	var path_name: String = VillageCardDatabase.get_path_display_name(String(cm.chosen_path)) if cm else ""
 
 	if is_dilemma:
-		_title_label.text = "İkilem"
-		_subtitle_label.text = "%s yolunun bir dönüm noktası — sadece biri seçilebilir." % path_name
+		_title_label.text = tr("card_draft.dilemma")
+		_subtitle_label.text = tr("card_draft.dilemma_subtitle") % path_name
 	else:
 		_title_label.text = "Yeni Kart"
-		_subtitle_label.text = "%s yolundan bir kart seç." % path_name
+		_subtitle_label.text = tr("card_draft.pick_card_subtitle") % path_name
 
 	_clear_cards()
 	for card in cards:

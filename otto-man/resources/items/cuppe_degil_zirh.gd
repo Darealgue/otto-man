@@ -15,8 +15,8 @@ var _no_hit_timer := 0.0
 
 func _init():
 	item_id = "cuppe_degil_zirh"
-	item_name = "Cüppe Değil Zırh"
-	description = "Element hasarı verdikçe kalkan biriktirirsin (max %30 max can, 3sn hasarsızlıkta sıfırlanır)"
+	item_name = tr("item.cuppe_degil_zirh.name")
+	description = tr("item.cuppe_degil_zirh.description")
 	flavor_text = "Büyücü de zırh giyer"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

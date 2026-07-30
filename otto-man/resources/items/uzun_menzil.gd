@@ -7,8 +7,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "uzun_menzil"
-	item_name = "Uzun Menzil"
-	description = "Light attack ayrıca ileri projectile fırlatır"
+	item_name = tr("item.uzun_menzil.name")
+	description = tr("item.uzun_menzil.description")
 	flavor_text = "Uzaktan da vurur"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK

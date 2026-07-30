@@ -90,13 +90,13 @@ func _build_ui() -> void:
 	_panel.add_child(root)
 
 	var title := Label.new()
-	title.text = "Kamp Ateşi"
+	title.text = tr("campfire.title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
 	root.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Dinlen ve zamanı ilerlet"
+	subtitle.text = tr("campfire.subtitle")
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 13)
 	subtitle.modulate = Color(1, 1, 1, 0.75)
@@ -116,9 +116,9 @@ func _build_ui() -> void:
 	actions.add_theme_constant_override("separation", 6)
 	root.add_child(actions)
 
-	_add_rest_button(actions, "1 Saat Dinlen", 60, "🔥")
-	_add_rest_button(actions, "4 Saat Dinlen", 240, "🔥🔥")
-	_add_rest_button(actions, "Sabaha Kadar Uyu", -1, "🌙")
+	_add_rest_button(actions, tr("campfire.rest_1h"), 60, "🔥")
+	_add_rest_button(actions, tr("campfire.rest_4h"), 240, "🔥🔥")
+	_add_rest_button(actions, tr("campfire.rest_until_morning"), -1, "🌙")
 
 	_info_label = Label.new()
 	_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -138,7 +138,7 @@ func _make_close_hint_bar() -> Control:
 	var chip := _make_key_chip()
 	bar.add_child(chip)
 	var lbl := Label.new()
-	lbl.text = "Kapat"
+	lbl.text = tr("campfire.close")
 	lbl.add_theme_font_size_override("font_size", 10)
 	lbl.modulate = Color(1, 1, 1, 0.45)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -309,20 +309,20 @@ func _build_rest_message(advance_minutes: int, option_minutes: int, _result: Dic
 		var max_hp: float = ps.get_max_health()
 		var cur_hp: float = float(ps.get("current_health")) if "current_health" in ps else max_hp
 		if cur_hp > 0.01 and cur_hp < max_hp - 0.01:
-			heal_line = "\n\n💚 Can: %d / %d" % [int(roundf(cur_hp)), int(roundf(max_hp))]
+			heal_line = "\n\n" + tr("campfire.health_line") % [int(roundf(cur_hp)), int(roundf(max_hp))]
 	var body: String
 	if option_minutes < 0:
-		body = "🌙 Sabah oldu\n\n%s" % time_line
+		body = "🌙 " + tr("campfire.morning") + "\n\n%s" % time_line
 	elif advance_minutes == 60:
-		body = "🔥 1 saat geçti\n\n%s" % time_line
+		body = "🔥 " + (tr("campfire.hours_passed_int") % 1) + "\n\n%s" % time_line
 	elif advance_minutes == 240:
-		body = "🔥 4 saat geçti\n\n%s" % time_line
+		body = "🔥 " + (tr("campfire.hours_passed_int") % 4) + "\n\n%s" % time_line
 	else:
 		var hours: float = float(advance_minutes) / 60.0
 		if absf(hours - roundf(hours)) < 0.01:
-			body = "🔥 %d saat geçti\n\n%s" % [int(roundf(hours)), time_line]
+			body = "🔥 " + (tr("campfire.hours_passed_int") % int(roundf(hours))) + "\n\n%s" % time_line
 		else:
-			body = "🔥 %.1f saat geçti\n\n%s" % [hours, time_line]
+			body = "🔥 " + (tr("campfire.hours_passed_float") % hours) + "\n\n%s" % time_line
 	return body + heal_line
 
 

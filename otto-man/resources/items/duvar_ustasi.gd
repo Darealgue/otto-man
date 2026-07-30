@@ -3,8 +3,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "duvar_ustasi"
-	item_name = "Duvar Ustası"
-	description = "Duvarda bir süre yerçekimine karşı durabilirsin"
+	item_name = tr("item.duvar_ustasi.name")
+	description = tr("item.duvar_ustasi.description")
 	flavor_text = "Taş da senin yolunu tutamaz"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.WALL_SLIDE

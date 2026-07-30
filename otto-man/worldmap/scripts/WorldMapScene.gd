@@ -559,7 +559,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _player_on_own_village_hex():
 				_try_close_overlay_or_go_to_village()
 			else:
-				_update_status_label("Koye donmek icin once kendi koy hex ine var.")
+				_update_status_label(tr("wm.status.need_own_village_hex"))
 			get_viewport().set_input_as_handled()
 		return
 	# Numpad Enter hem ui_accept ile cakisir; haritayi acan tus haritayi da kapatsin.
@@ -567,7 +567,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _player_on_own_village_hex():
 			_try_close_overlay_or_go_to_village()
 		else:
-			_update_status_label("Koye donmek icin once kendi koy hex ine var.")
+			_update_status_label(tr("wm.status.need_own_village_hex"))
 		get_viewport().set_input_as_handled()
 		return
 	if _travel_anim_active and not _is_blocking_world_map_ui_open() and (event.is_action_pressed("ui_cancel") or event.is_action_pressed("dash")):
@@ -851,9 +851,9 @@ func _visit_landmark_at(q: int, r: int) -> void:
 		var summary: String = String(result.get("summary", ""))
 		if summary.is_empty():
 			summary = String(result.get("display_name", "Keşif"))
-		_update_status_label("Ziyaret: %s" % summary)
+		_update_status_label(tr("wm.status.visit") % summary)
 	else:
-		_update_status_label("Bu nokta zaten ziyaret edilmiş veya erişilemez.")
+		_update_status_label(tr("wm.status.already_visited"))
 	_invalidate_world_map_state_cache()
 	queue_redraw()
 
@@ -952,7 +952,7 @@ func _cancel_active_travel() -> void:
 	_travel_anim_stop()
 	if _world_manager and _world_manager.has_method("cancel_world_travel_session"):
 		_world_manager.cancel_world_travel_session()
-	_update_status_label("Yolculuk durduruldu.")
+	_update_status_label(tr("wm.status.journey_stopped"))
 
 func _travel_anim_on_segment_finished() -> void:
 	if not _world_manager or not _world_manager.has_method("advance_world_travel_step"):
@@ -964,7 +964,7 @@ func _travel_anim_on_segment_finished() -> void:
 		_invalidate_world_map_state_cache()
 		_camera_follow_target = _get_player_visual_pixel_pos()
 		if String(adv.get("reason", "")) != "no_session":
-			_update_status_label("Yolculuk kesildi.")
+			_update_status_label(tr("wm.status.journey_interrupted"))
 		queue_redraw()
 		return
 	if bool(adv.get("collapsed", false)):
@@ -980,7 +980,7 @@ func _travel_anim_on_segment_finished() -> void:
 		_invalidate_world_map_state_cache()
 		_camera_follow_target = _get_player_visual_pixel_pos()
 		_pending_travel_event_resolution = {}
-		_update_status_label("Yolculuk olayi: karar bekleniyor.")
+		_update_status_label(tr("wm.status.event_pending"))
 		queue_redraw()
 		return
 	if bool(adv.get("done", false)):
@@ -1014,13 +1014,13 @@ func _execute_travel_to_cursor() -> void:
 	var ok: bool = bool(result.get("ok", false))
 	if not ok:
 		_pending_travel_event_resolution = {}
-		_update_status_label("Yolculuk yapilamadi (yol yok veya gecersiz hedef).")
+		_update_status_label(tr("wm.status.travel_failed"))
 		return
 	var path: Array = result.get("path", [])
 	if path.size() <= 1:
 		if _try_enter_hex_at_player_pos():
 			return
-		_update_status_label("Zaten bu hedeftesin.")
+		_update_status_label(tr("wm.status.already_there"))
 		_try_resolve_player_map_missions_at(_cursor_q, _cursor_r)
 		queue_redraw()
 		return
@@ -1044,7 +1044,7 @@ func _show_high_risk_move_dialog() -> void:
 		_execute_travel_to_cursor()
 		return
 	var risk_pct: int = int(round(_preview_incident_risk * 100.0))
-	_high_risk_move_dialog.dialog_text = "Bu rota YUKSEK riskli (~%%%d olay) ve teslim edilmemis yuk tasiyorsun.\nYine de yola cikilsin mi?" % risk_pct
+	_high_risk_move_dialog.dialog_text = tr("wm.status.high_risk_cargo_warning") % risk_pct
 	_high_risk_move_dialog.popup_centered(Vector2i(560, 180))
 
 func _has_tile(q: int, r: int) -> bool:
@@ -1771,7 +1771,7 @@ func _build_settlement_status_text(settlement_id: String) -> String:
 	var food_stock: int = int(state.get("food_stock", 0))
 	var security: int = int(state.get("security", 0))
 	var stability: int = int(state.get("stability", 0))
-	var summary: String = "Durum: nufus %d | erzak %d | guvenlik %d | istikrar %d" % [
+	var summary: String = tr("wm.settlement.status_line") % [
 		population, food_stock, security, stability
 	]
 	var economy: Dictionary = state.get("economy_profile", {})
@@ -1783,19 +1783,19 @@ func _build_settlement_status_text(settlement_id: String) -> String:
 		if not economy_label.is_empty():
 			economy_parts.append(economy_label)
 		if produces is Array and not produces.is_empty():
-			economy_parts.append("uretim: " + ", ".join(produces))
+			economy_parts.append(tr("wm.settlement.produces") + ", ".join(produces))
 		if scarce is Array and not scarce.is_empty():
-			economy_parts.append("eksik: " + ", ".join(scarce))
+			economy_parts.append(tr("wm.settlement.scarce") + ", ".join(scarce))
 		if not economy_parts.is_empty():
-			summary += "\nEkonomi: " + " | ".join(economy_parts)
+			summary += "\n" + tr("wm.settlement.economy_prefix") + " | ".join(economy_parts)
 	if _world_manager.has_method("get_active_settlement_incident"):
 		var incident: Dictionary = _world_manager.call("get_active_settlement_incident", settlement_id)
 		if not incident.is_empty():
-			summary += "\nAktif kriz: %s" % _format_incident_type_label(String(incident.get("type", "")))
+			summary += "\n" + tr("wm.settlement.active_crisis") % _format_incident_type_label(String(incident.get("type", "")))
 	if _world_manager.has_method("get_active_event_chain_for_settlement"):
 		var chain: Dictionary = _world_manager.call("get_active_event_chain_for_settlement", settlement_id)
 		if not chain.is_empty():
-			summary += "\nAktif zincir: %s (%s)" % [
+			summary += "\n" + tr("wm.settlement.active_chain") % [
 				String(chain.get("chain_type", "")),
 				String(chain.get("stage", ""))
 			]
@@ -1805,13 +1805,13 @@ func _build_settlement_status_text(settlement_id: String) -> String:
 		var outgoing: Array = migrations.get("outgoing", [])
 		if not incoming.is_empty():
 			var first_in: Dictionary = incoming[0]
-			summary += "\nGelen goc: %s'tan ~%d kisi" % [
+			summary += "\n" + tr("wm.settlement.migration_in") % [
 				String(first_in.get("source_name", "?")),
 				int(first_in.get("total", 0))
 			]
 		if not outgoing.is_empty():
 			var first_out: Dictionary = outgoing[0]
-			summary += "\nGiden goc: %s'a ~%d kisi" % [
+			summary += "\n" + tr("wm.settlement.migration_out") % [
 				String(first_out.get("target_name", "?")),
 				int(first_out.get("total", 0))
 			]
@@ -1827,41 +1827,41 @@ func _build_settlement_status_text(settlement_id: String) -> String:
 					_format_diplomacy_state_label(String(entry.get("state", "")))
 				])
 			if not lines.is_empty():
-				summary += "\nDiplomasi: " + ", ".join(lines)
+				summary += "\n" + tr("wm.settlement.diplomacy_prefix") + ", ".join(lines)
 	# Ittifak rozeti
 	if _world_manager.has_method("is_player_allied") and bool(_world_manager.call("is_player_allied", settlement_id)):
-		summary += "\n[Muttefik]"
+		summary += "\n" + tr("wm.settlement.allied_badge")
 		var aid_active_local: bool = false
 		if _world_manager.has_method("get_player_alliance"):
 			var alliance: Dictionary = _world_manager.call("get_player_alliance", settlement_id)
 			if bool(alliance.get("aid_call_active", false)):
 				aid_active_local = true
-				var reason: String = String(alliance.get("aid_call_reason", "kriz"))
-				summary += " | Yardim cagrisi aktif: %s" % reason
+				var reason: String = String(alliance.get("aid_call_reason", tr("wm.settlement.aid_call_default_reason")))
+				summary += tr("wm.settlement.aid_call_active") % reason
 		# Tribute uygunlugu (kriz yoksa)
 		if not aid_active_local:
 			var stability_local: int = int(state.get("stability", 0))
 			var food_local: int = int(state.get("food_stock", 0))
 			if stability_local >= 50 and food_local >= 80:
-				summary += "\nTribute aktif: gunluk pasif altin/erzak"
+				summary += "\n" + tr("wm.settlement.tribute_active")
 			else:
-				summary += "\nTribute pasif: stabilite/erzak yetersiz"
+				summary += "\n" + tr("wm.settlement.tribute_inactive")
 		# Defansif destek uygunlugu
 		if _world_manager.has_method("get_alliance_defender_eligibility"):
 			var def_info: Dictionary = _world_manager.call("get_alliance_defender_eligibility", settlement_id)
 			if bool(def_info.get("eligible", false)):
-				summary += "\nDefans hazir: %d/%d hex menzil" % [int(def_info.get("distance", 0)), int(def_info.get("max_range", 0))]
+				summary += "\n" + tr("wm.settlement.defense_ready") % [int(def_info.get("distance", 0)), int(def_info.get("max_range", 0))]
 			else:
 				var reason_label: String = _format_alliance_defender_reason(String(def_info.get("reason", "")))
 				if not reason_label.is_empty():
-					summary += "\nDefans hazir degil: %s" % reason_label
+					summary += "\n" + tr("wm.settlement.defense_not_ready") % reason_label
 	# Hostility rozeti (oyuncuya dusmanca)
 	elif _world_manager.has_method("is_settlement_hostile_to_player") and bool(_world_manager.call("is_settlement_hostile_to_player", settlement_id)):
 		var rel_score: int = 0
 		if _world_manager.has_method("get_relation"):
 			rel_score = int(_world_manager.call("get_relation", "Köy", String(state.get("name", settlement_id))))
-		summary += "\n[Sana karsi dusmanca] iliski: %d" % rel_score
-		summary += "\nBaskin riski + yakin hex'lerde yol riski yukselir."
+		summary += "\n" + tr("wm.settlement.hostile_badge") % rel_score
+		summary += "\n" + tr("wm.settlement.raid_risk_warning")
 	# Mudahale ipucu
 	var intervention_hints: PackedStringArray = PackedStringArray()
 	if _world_manager.has_method("get_war_support_options"):
@@ -1883,15 +1883,15 @@ func _build_settlement_status_text(settlement_id: String) -> String:
 func _format_alliance_defender_reason(reason: String) -> String:
 	match reason:
 		"in_crisis":
-			return "muttefik krizde"
+			return tr("wm.settlement.defender_reason.in_crisis")
 		"low_food":
-			return "erzak yetersiz"
+			return tr("wm.settlement.defender_reason.low_food")
 		"low_security":
-			return "guvenlik dusuk"
+			return tr("wm.settlement.defender_reason.low_security")
 		"out_of_range":
-			return "menzil disi"
+			return tr("wm.settlement.defender_reason.out_of_range")
 		"no_player_village":
-			return "koy konumu yok"
+			return tr("wm.settlement.defender_reason.no_player_village")
 		"":
 			return ""
 		_:
@@ -1900,15 +1900,15 @@ func _format_alliance_defender_reason(reason: String) -> String:
 func _format_diplomacy_state_label(state: String) -> String:
 	match state:
 		"tension":
-			return "gergin"
+			return tr("wm.settlement.diplo.tension")
 		"cold_war":
-			return "soguk savas"
+			return tr("wm.settlement.diplo.cold_war")
 		"open_war":
-			return "savas"
+			return tr("wm.settlement.diplo.open_war")
 		"ceasefire":
-			return "ateskes"
+			return tr("wm.settlement.diplo.ceasefire")
 		"peace":
-			return "baris"
+			return tr("wm.settlement.diplo.peace")
 		_:
 			return state
 
@@ -2041,7 +2041,7 @@ func _refresh_expedition_supply_hud() -> void:
 	_expedition_medicine_count.add_theme_color_override("font_color", neutral_color)
 	_expedition_gold_count.text = str(gold)
 	_expedition_gold_count.add_theme_color_override("font_color", neutral_color)
-	_expedition_survival_label.text = "Erzak süresi: ~%s" % _format_minutes_short(maxi(0, minutes_left))
+	_expedition_survival_label.text = tr("wm.expedition.supply_duration") % _format_minutes_short(maxi(0, minutes_left))
 	_expedition_survival_label.add_theme_color_override("font_color", color)
 	_refresh_carried_row(ps)
 
@@ -2908,7 +2908,7 @@ func _try_resolve_player_map_missions_at(q: int, r: int) -> void:
 func _cycle_selected_unit(step: int) -> void:
 	if _active_unit_markers.is_empty():
 		_selected_unit_index = -1
-		_update_status_label("Secilebilir ekip yok.")
+		_update_status_label(tr("wm.status.no_team"))
 		return
 	if _selected_unit_index < 0:
 		_selected_unit_index = 0
@@ -3175,9 +3175,9 @@ func _set_travel_event_dice_preview(d1: int, d2: int, rolling: bool) -> void:
 		_travel_dice_right_label.text = _dice_face_glyph(d2)
 	if _travel_event_info_label:
 		if rolling:
-			_travel_event_info_label.text = _travel_event_intro_text + "\n\nZarlar donuyor..."
+			_travel_event_info_label.text = _travel_event_intro_text + "\n\n" + tr("wm.dice.rolling")
 		else:
-			_travel_event_info_label.text = _travel_event_intro_text + "\n\nZarlar hazir."
+			_travel_event_info_label.text = _travel_event_intro_text + "\n\n" + tr("wm.dice.ready")
 
 func _focus_travel_event_primary_button() -> void:
 	if _travel_event_dialog == null:
@@ -3336,16 +3336,16 @@ func _open_settlement_actions_at(pq: int, pr: int, tile: Dictionary) -> void:
 	if String(tile.get("poi_type", "")) != "neighbor_village":
 		return
 	_pending_settlement_id = String(tile.get("settlement_id", ""))
-	_pending_settlement_name = String(tile.get("settlement_name", "Komsu Koy"))
+	_pending_settlement_name = String(tile.get("settlement_name", tr("wm.settlement.default_name")))
 	var target_q: int = int(tile.get("q", 0))
 	var target_r: int = int(tile.get("r", 0))
 	_pending_settlement_distance = int(_hex_distance(pq, pr, target_q, target_r))
 	var trade_preview: Dictionary = _get_settlement_action_preview("trade")
 	var diplomacy_preview: Dictionary = _get_settlement_action_preview("diplomacy")
 	var raid_preview: Dictionary = _get_settlement_action_preview("raid")
-	_settlement_action_menu.set_item_text(0, "Ticaret Baslat (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(trade_preview.get("duration_minutes", 0))), String(trade_preview.get("risk_level", "Dusuk"))])
-	_settlement_action_menu.set_item_text(1, "Diplomasi Girisimi (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(diplomacy_preview.get("duration_minutes", 0))), String(diplomacy_preview.get("risk_level", "Dusuk"))])
-	_settlement_action_menu.set_item_text(2, "Asker Gonder (Sure: ~%s | Risk: %s)" % [_format_minutes_short(int(raid_preview.get("duration_minutes", 0))), String(raid_preview.get("risk_level", "Orta"))])
+	_settlement_action_menu.set_item_text(0, tr("wm.settlement.action.trade_preview") % [_format_minutes_short(int(trade_preview.get("duration_minutes", 0))), LocaleManager.get_risk_level_name(String(trade_preview.get("risk_level", "Dusuk")))])
+	_settlement_action_menu.set_item_text(1, tr("wm.settlement.action.diplomacy_preview") % [_format_minutes_short(int(diplomacy_preview.get("duration_minutes", 0))), LocaleManager.get_risk_level_name(String(diplomacy_preview.get("risk_level", "Dusuk")))])
+	_settlement_action_menu.set_item_text(2, tr("wm.settlement.action.raid_preview") % [_format_minutes_short(int(raid_preview.get("duration_minutes", 0))), LocaleManager.get_risk_level_name(String(raid_preview.get("risk_level", "Orta")))])
 	_refresh_aid_menu_item()
 	_refresh_war_support_menu_item()
 	_refresh_mediation_menu_item()
@@ -3354,7 +3354,7 @@ func _open_settlement_actions_at(pq: int, pr: int, tile: Dictionary) -> void:
 	_refresh_offensive_raid_menu_item()
 	_settlement_action_menu.position = Vector2i(40, 210)
 	_settlement_action_menu.popup()
-	var status_text: String = "%s: Ticaret/Diplomasi/Asker secimi yap." % _pending_settlement_name
+	var status_text: String = tr("wm.settlement.action_prompt") % _pending_settlement_name
 	var detail_text: String = _build_settlement_status_text(_pending_settlement_id)
 	if not detail_text.is_empty():
 		status_text += "\n" + detail_text
@@ -3399,17 +3399,17 @@ func _setup_settlement_action_menu() -> void:
 	_settlement_action_menu = PopupMenu.new()
 	if MEDIEVAL_THEME:
 		_settlement_action_menu.theme = MEDIEVAL_THEME
-	_settlement_action_menu.add_item("Ticaret Baslat", 1)
-	_settlement_action_menu.add_item("Diplomasi Girisimi", 2)
-	_settlement_action_menu.add_item("Asker Gonder (Baskin)", 3)
-	_settlement_action_menu.add_item("Yardim Gonder", 4)
-	_settlement_action_menu.add_item("Savasta Destek", 5)
-	_settlement_action_menu.add_item("Aracilik Yap", 6)
-	_settlement_action_menu.add_item("Ittifak Onerisi", 7)
-	_settlement_action_menu.add_item("Ittifaki Boz", 8)
-	_settlement_action_menu.add_item("Ofansif Baskin", 10)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.start_trade"), 1)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.diplomacy_initiative"), 2)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.send_soldiers"), 3)
+	_settlement_action_menu.add_item(tr("wm.send_aid"), 4)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.war_support"), 5)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.mediate"), 6)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.propose_alliance"), 7)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.break_alliance"), 8)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.offensive_raid"), 10)
 	_settlement_action_menu.add_separator()
-	_settlement_action_menu.add_item("Vazgec", 9)
+	_settlement_action_menu.add_item(tr("wm.cancel"), 9)
 	_settlement_action_menu.id_pressed.connect(_on_settlement_action_selected)
 	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
 	if layer:
@@ -3438,7 +3438,7 @@ func _on_settlement_action_selected(action_id: int) -> void:
 		10:
 			_execute_settlement_offensive_raid()
 		_:
-			_update_status_label("%s ile etkileşim iptal edildi." % _pending_settlement_name)
+			_update_status_label(tr("wm.settlement.cancelled") % _pending_settlement_name)
 
 func _refresh_aid_menu_item() -> void:
 	if _settlement_action_menu == null:
@@ -3448,25 +3448,25 @@ func _refresh_aid_menu_item() -> void:
 		return
 	_pending_aid_option = {}
 	if _world_manager == null or not _world_manager.has_method("get_settlement_aid_options"):
-		_settlement_action_menu.set_item_text(aid_index, "Yardim Gonder (kriz yok)")
+		_settlement_action_menu.set_item_text(aid_index, tr("wm.settlement.action.aid_no_crisis"))
 		_settlement_action_menu.set_item_disabled(aid_index, true)
 		return
 	var options: Array = _world_manager.call("get_settlement_aid_options", _pending_settlement_id)
 	if not (options is Array) or options.is_empty():
-		_settlement_action_menu.set_item_text(aid_index, "Yardim Gonder (kriz yok)")
+		_settlement_action_menu.set_item_text(aid_index, tr("wm.settlement.action.aid_no_crisis"))
 		_settlement_action_menu.set_item_disabled(aid_index, true)
 		return
 	var option: Dictionary = options[0]
 	_pending_aid_option = option
-	var label: String = String(option.get("label", "Yardim Gonder"))
+	var label: String = String(option.get("label", tr("wm.send_aid")))
 	var cost: Dictionary = option.get("cost", {})
 	var cost_parts: PackedStringArray = PackedStringArray()
 	if int(cost.get("gold", 0)) > 0:
-		cost_parts.append("%d altin" % int(cost.get("gold", 0)))
+		cost_parts.append(tr("wm.settlement.cost_gold_unit") % int(cost.get("gold", 0)))
 	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount > 0:
-			cost_parts.append("%d %s" % [amount, resource_type])
+			cost_parts.append("%d %s" % [amount, LocaleManager.get_resource_name(resource_type)])
 	var summary: String = String(option.get("summary", ""))
 	var menu_text: String = label
 	if not cost_parts.is_empty():
@@ -3489,80 +3489,80 @@ func _find_settlement_menu_index_by_id(target_id: int) -> int:
 
 func _execute_settlement_aid() -> void:
 	if _world_manager == null or not _world_manager.has_method("apply_settlement_aid"):
-		_update_status_label("Yardim sistemi su an mevcut degil.")
+		_update_status_label(tr("wm.settlement.aid_unavailable"))
 		return
 	if _pending_aid_option.is_empty():
-		_update_status_label("Yardim icin uygun bir kriz yok.")
+		_update_status_label(tr("wm.settlement.aid_no_crisis_msg"))
 		return
 	var option_id: String = String(_pending_aid_option.get("id", ""))
 	if option_id.is_empty():
-		_update_status_label("Yardim secimi tanimlanamadi.")
+		_update_status_label(tr("wm.settlement.aid_undetermined"))
 		return
 	if _world_manager.has_method("can_afford_settlement_aid") and not bool(_world_manager.call("can_afford_settlement_aid", _pending_aid_option)):
-		_update_status_label("Yardim icin yeterli kaynagin yok.")
+		_update_status_label(tr("wm.settlement.aid_insufficient"))
 		return
 	_pending_aid_kind = "aid"
 	if _settlement_aid_confirm_dialog == null:
 		_perform_pending_intervention_now()
 		return
-	_settlement_aid_confirm_dialog.title = "Yardim Onayi"
+	_settlement_aid_confirm_dialog.title = tr("wm.settlement.confirm.aid_title")
 	_settlement_aid_confirm_dialog.dialog_text = _build_aid_confirm_text(_pending_settlement_name, _pending_aid_option)
 	_settlement_aid_confirm_dialog.popup_centered(Vector2i(560, 200))
 
 func _execute_settlement_war_support() -> void:
 	if _pending_war_support_option.is_empty():
-		_update_status_label("Su an destek verilebilecek aktif savas yok.")
+		_update_status_label(tr("wm.settlement.war_support_none_msg"))
 		return
 	if _world_manager and _world_manager.has_method("can_afford_diplomatic_intervention") and not bool(_world_manager.call("can_afford_diplomatic_intervention", _pending_war_support_option)):
-		_update_status_label("Savas destegi icin yeterli kaynagin yok.")
+		_update_status_label(tr("wm.settlement.war_support_insufficient"))
 		return
 	_pending_aid_kind = "war_support"
 	if _settlement_aid_confirm_dialog == null:
 		_perform_pending_intervention_now()
 		return
-	_settlement_aid_confirm_dialog.title = "Savas Destegi Onayi"
+	_settlement_aid_confirm_dialog.title = tr("wm.settlement.confirm.war_support_title")
 	_settlement_aid_confirm_dialog.dialog_text = _build_aid_confirm_text(_pending_settlement_name, _pending_war_support_option)
 	_settlement_aid_confirm_dialog.popup_centered(Vector2i(560, 200))
 
 func _execute_settlement_mediation() -> void:
 	if _pending_mediation_option.is_empty():
-		_update_status_label("Su an aracilik yapilabilecek bir gerilim yok.")
+		_update_status_label(tr("wm.settlement.mediation_none_msg"))
 		return
 	if _world_manager and _world_manager.has_method("can_afford_diplomatic_intervention") and not bool(_world_manager.call("can_afford_diplomatic_intervention", _pending_mediation_option)):
-		_update_status_label("Aracilik icin yeterli kaynagin yok.")
+		_update_status_label(tr("wm.settlement.mediation_insufficient"))
 		return
 	_pending_aid_kind = "mediation"
 	if _settlement_aid_confirm_dialog == null:
 		_perform_pending_intervention_now()
 		return
-	_settlement_aid_confirm_dialog.title = "Aracilik Onayi"
+	_settlement_aid_confirm_dialog.title = tr("wm.settlement.confirm.mediation_title")
 	_settlement_aid_confirm_dialog.dialog_text = _build_aid_confirm_text(_pending_settlement_name, _pending_mediation_option)
 	_settlement_aid_confirm_dialog.popup_centered(Vector2i(560, 200))
 
 func _execute_settlement_alliance_propose() -> void:
 	if _pending_alliance_propose_option.is_empty():
-		_update_status_label("Bu koy zaten muttefik veya iliski cok dusuk.")
+		_update_status_label(tr("wm.settlement.alliance_ineligible"))
 		return
 	if _world_manager and _world_manager.has_method("can_afford_diplomatic_intervention") and not bool(_world_manager.call("can_afford_diplomatic_intervention", _pending_alliance_propose_option)):
-		_update_status_label("Ittifak teklifi icin yeterli kaynagin yok.")
+		_update_status_label(tr("wm.settlement.alliance_insufficient"))
 		return
 	_pending_aid_kind = "alliance_propose"
 	if _settlement_aid_confirm_dialog == null:
 		_perform_pending_intervention_now()
 		return
-	_settlement_aid_confirm_dialog.title = "Ittifak Teklifi Onayi"
+	_settlement_aid_confirm_dialog.title = tr("wm.settlement.confirm.alliance_propose_title")
 	_settlement_aid_confirm_dialog.dialog_text = _build_aid_confirm_text(_pending_settlement_name, _pending_alliance_propose_option)
 	_settlement_aid_confirm_dialog.popup_centered(Vector2i(560, 200))
 
 func _execute_settlement_alliance_break() -> void:
 	if _pending_alliance_break_option.is_empty():
-		_update_status_label("Bu koyle aktif ittifak yok.")
+		_update_status_label(tr("wm.settlement.no_alliance"))
 		return
 	_pending_aid_kind = "alliance_break"
 	if _settlement_aid_confirm_dialog == null:
 		_perform_pending_intervention_now()
 		return
-	_settlement_aid_confirm_dialog.title = "Ittifak Bozma Onayi"
+	_settlement_aid_confirm_dialog.title = tr("wm.settlement.confirm.alliance_break_title")
 	_settlement_aid_confirm_dialog.dialog_text = _build_aid_confirm_text(_pending_settlement_name, _pending_alliance_break_option)
 	_settlement_aid_confirm_dialog.popup_centered(Vector2i(560, 200))
 
@@ -3574,17 +3574,17 @@ func _refresh_alliance_propose_menu_item() -> void:
 		return
 	_pending_alliance_propose_option = {}
 	if _world_manager == null or not _world_manager.has_method("get_alliance_proposal_options"):
-		_settlement_action_menu.set_item_text(idx, "Ittifak Onerisi (sistem yok)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.alliance_no_system"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	# Halihazirda muttefik mi?
 	if _world_manager.has_method("is_player_allied") and bool(_world_manager.call("is_player_allied", _pending_settlement_id)):
-		_settlement_action_menu.set_item_text(idx, "Ittifak Onerisi (zaten muttefik)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.alliance_already"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var options: Array = _world_manager.call("get_alliance_proposal_options", _pending_settlement_id)
 	if not (options is Array) or options.is_empty():
-		_settlement_action_menu.set_item_text(idx, "Ittifak Onerisi (gecersiz)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.alliance_invalid"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var option: Dictionary = options[0]
@@ -3596,7 +3596,7 @@ func _refresh_alliance_propose_menu_item() -> void:
 	if _world_manager.has_method("get") and "ALLIANCE_MIN_RELATION" in _world_manager:
 		min_rel = int(_world_manager.get("ALLIANCE_MIN_RELATION"))
 	_pending_alliance_propose_option = option
-	var menu_text: String = _format_intervention_menu_text(option) + " (iliski: %d/%d)" % [current_rel, min_rel]
+	var menu_text: String = _format_intervention_menu_text(option) + tr("wm.settlement.relation_suffix") % [current_rel, min_rel]
 	_settlement_action_menu.set_item_text(idx, menu_text)
 	var affordable: bool = false
 	if _world_manager.has_method("can_afford_diplomatic_intervention"):
@@ -3611,12 +3611,12 @@ func _refresh_alliance_break_menu_item() -> void:
 		return
 	_pending_alliance_break_option = {}
 	if _world_manager == null or not _world_manager.has_method("get_alliance_break_options"):
-		_settlement_action_menu.set_item_text(idx, "Ittifaki Boz (sistem yok)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.break_no_system"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var options: Array = _world_manager.call("get_alliance_break_options", _pending_settlement_id)
 	if not (options is Array) or options.is_empty():
-		_settlement_action_menu.set_item_text(idx, "Ittifaki Boz (muttefik degil)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.break_not_allied"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var option: Dictionary = options[0]
@@ -3631,16 +3631,16 @@ func _refresh_offensive_raid_menu_item() -> void:
 	if idx < 0:
 		return
 	if _world_manager == null or not _world_manager.has_method("get_offensive_raid_options"):
-		_settlement_action_menu.set_item_text(idx, "Ofansif Baskin (sistem yok)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.raid_no_system"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var options: Array = _world_manager.call("get_offensive_raid_options", _pending_settlement_id)
 	if not (options is Array) or options.is_empty():
-		_settlement_action_menu.set_item_text(idx, "Ofansif Baskin (dusman degil)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.raid_not_hostile"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var opt: Dictionary = options[0]
-	var label: String = "Ofansif Baskin (%s | %d altin | %d/%d asker)" % [
+	var label: String = tr("wm.settlement.action.raid_label") % [
 		String(opt.get("difficulty", "medium")),
 		int(opt.get("cost_gold", 0)),
 		int(opt.get("current_soldiers", 0)),
@@ -3651,16 +3651,16 @@ func _refresh_offensive_raid_menu_item() -> void:
 
 func _execute_settlement_offensive_raid() -> void:
 	if _world_manager == null or not _world_manager.has_method("get_offensive_raid_options"):
-		_update_status_label("Ofansif baskin sistemi mevcut degil.")
+		_update_status_label(tr("wm.settlement.raid_system_unavailable"))
 		return
 	var options: Array = _world_manager.call("get_offensive_raid_options", _pending_settlement_id)
 	if not (options is Array) or options.is_empty() or not bool(options[0].get("enabled", false)):
 		var reason: String = options[0].get("reason", "Yetersiz") if not options.is_empty() else "Dusman degil"
-		_update_status_label("Ofansif baskin yapilamaz: %s" % reason)
+		_update_status_label(tr("wm.settlement.raid_cannot") % reason)
 		return
 	_pending_aid_kind = "offensive_raid"
 	var opt: Dictionary = options[0]
-	var confirm_text: String = "%s koyune baskin duzenlenmek uzere.\nMaliyet: %d altin\nGerekli asker: %d\nZorluk: %s\nBaskin basarili olursa: altin/erzak ganimeti + hedef zayiflar\nBasarisiz olursa: asker kaybi + iliski kotulesmesi\n\nDevam edilsin mi?" % [
+	var confirm_text: String = tr("wm.settlement.raid_confirm_body") % [
 		_pending_settlement_name,
 		int(opt.get("cost_gold", 0)),
 		int(opt.get("min_soldiers", 0)),
@@ -3669,22 +3669,22 @@ func _execute_settlement_offensive_raid() -> void:
 	if _settlement_aid_confirm_dialog == null:
 		_perform_pending_intervention_now()
 		return
-	_settlement_aid_confirm_dialog.title = "Ofansif Baskin Onayi"
+	_settlement_aid_confirm_dialog.title = tr("wm.settlement.confirm.raid_title")
 	_settlement_aid_confirm_dialog.dialog_text = confirm_text
-	_settlement_aid_confirm_dialog.get_ok_button().text = "Baskin Emri"
+	_settlement_aid_confirm_dialog.get_ok_button().text = tr("wm.raid_order")
 	_settlement_aid_confirm_dialog.popup_centered(Vector2i(560, 280))
 
 func _perform_offensive_raid_now() -> void:
 	if _world_manager == null or not _world_manager.has_method("launch_offensive_raid"):
-		_update_status_label("Ofansif baskin sistemi mevcut degil.")
+		_update_status_label(tr("wm.settlement.raid_system_unavailable"))
 		return
 	var result: Dictionary = _world_manager.call("launch_offensive_raid", _pending_settlement_id)
 	if bool(result.get("success", false)):
-		_update_status_label("Ofansif baskin gorevi olusturuldu! Cariye atayarak gorevi baslat.")
+		_update_status_label(tr("wm.settlement.raid_mission_created"))
 	else:
-		_update_status_label("Baskin yapilamadi: %s" % String(result.get("reason", "bilinmeyen")))
+		_update_status_label(tr("wm.settlement.raid_launch_failed") % String(result.get("reason", "bilinmeyen")))
 	if _settlement_aid_confirm_dialog:
-		_settlement_aid_confirm_dialog.get_ok_button().text = "Yardim Gonder"
+		_settlement_aid_confirm_dialog.get_ok_button().text = tr("wm.send_aid")
 
 func _refresh_war_support_menu_item() -> void:
 	if _settlement_action_menu == null:
@@ -3694,12 +3694,12 @@ func _refresh_war_support_menu_item() -> void:
 		return
 	_pending_war_support_option = {}
 	if _world_manager == null or not _world_manager.has_method("get_war_support_options"):
-		_settlement_action_menu.set_item_text(idx, "Savasta Destek (savas yok)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.war_support_none"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var options: Array = _world_manager.call("get_war_support_options", _pending_settlement_id)
 	if not (options is Array) or options.is_empty():
-		_settlement_action_menu.set_item_text(idx, "Savasta Destek (savas yok)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.war_support_none"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var option: Dictionary = options[0]
@@ -3718,12 +3718,12 @@ func _refresh_mediation_menu_item() -> void:
 		return
 	_pending_mediation_option = {}
 	if _world_manager == null or not _world_manager.has_method("get_mediation_options"):
-		_settlement_action_menu.set_item_text(idx, "Aracilik Yap (gerilim yok)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.mediate_none"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var options: Array = _world_manager.call("get_mediation_options", _pending_settlement_id)
 	if not (options is Array) or options.is_empty():
-		_settlement_action_menu.set_item_text(idx, "Aracilik Yap (gerilim yok)")
+		_settlement_action_menu.set_item_text(idx, tr("wm.settlement.action.mediate_none"))
 		_settlement_action_menu.set_item_disabled(idx, true)
 		return
 	var option: Dictionary = options[0]
@@ -3735,15 +3735,15 @@ func _refresh_mediation_menu_item() -> void:
 	_settlement_action_menu.set_item_disabled(idx, not affordable)
 
 func _format_intervention_menu_text(option: Dictionary) -> String:
-	var label: String = String(option.get("label", "Mudahale"))
+	var label: String = String(option.get("label", tr("wm.settlement.intervention_fallback")))
 	var cost: Dictionary = option.get("cost", {})
 	var cost_parts: PackedStringArray = PackedStringArray()
 	if int(cost.get("gold", 0)) > 0:
-		cost_parts.append("%d altin" % int(cost.get("gold", 0)))
+		cost_parts.append(tr("wm.settlement.cost_gold_unit") % int(cost.get("gold", 0)))
 	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount > 0:
-			cost_parts.append("%d %s" % [amount, resource_type])
+			cost_parts.append("%d %s" % [amount, LocaleManager.get_resource_name(resource_type)])
 	var summary: String = String(option.get("summary", ""))
 	var menu_text: String = label
 	if not cost_parts.is_empty():
@@ -3765,15 +3765,15 @@ func _perform_settlement_aid_now() -> void:
 		var reason: String = String(result.get("reason", ""))
 		match reason:
 			"cannot_afford":
-				_update_status_label("Yardim icin yeterli kaynagin yok.")
+				_update_status_label(tr("wm.settlement.aid_insufficient"))
 			"no_active_incident":
-				_update_status_label("Bu koyde su an yardim gerektiren bir kriz yok.")
+				_update_status_label(tr("wm.settlement.no_crisis_needs_aid"))
 			"invalid_option":
-				_update_status_label("Bu kriz turu icin yardim secenegi yok.")
+				_update_status_label(tr("wm.settlement.no_aid_option_for_crisis"))
 			_:
-				_update_status_label("Yardim uygulanamadi.")
+				_update_status_label(tr("wm.settlement.aid_failed_default"))
 		return
-	var summary: String = String(result.get("summary", "Yardim uygulandi."))
+	var summary: String = String(result.get("summary", tr("wm.settlement.aid_provided_default")))
 	_update_status_label(summary)
 	queue_redraw()
 
@@ -4239,7 +4239,7 @@ func _on_expedition_pack_confirm_pressed() -> void:
 	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
 	if bg > 0:
 		if gpd == null or int(gpd.gold) < bg:
-			_update_status_label("Kasada yeterli altin yok.")
+			_update_status_label(tr("wm.settlement.vault_insufficient_gold"))
 			return
 	var cost_v: Dictionary = {}
 	if bf > 0:
@@ -4248,10 +4248,10 @@ func _on_expedition_pack_confirm_pressed() -> void:
 		cost_v["medicine"] = bm
 	if not cost_v.is_empty():
 		if not vm.has_method("can_afford_resources") or not bool(vm.call("can_afford_resources", cost_v)):
-			_update_status_label("Koy stogu yetersiz.")
+			_update_status_label(tr("wm.settlement.village_stock_insufficient"))
 			return
 		if not vm.has_method("spend_resources") or not bool(vm.call("spend_resources", cost_v)):
-			_update_status_label("Erzak alinamadi.")
+			_update_status_label(tr("wm.settlement.supplies_not_taken"))
 			return
 	if bg > 0 and gpd:
 		if gpd.has_method("add_gold"):
@@ -4270,7 +4270,7 @@ func _on_expedition_pack_confirm_pressed() -> void:
 			ps.call("add_world_expedition_supplies", add_d)
 	if _expedition_pack_modal:
 		_expedition_pack_modal.hide()
-	_update_status_label("Erzak cantana eklendi.")
+	_update_status_label(tr("wm.settlement.supplies_added"))
 	queue_redraw()
 
 func _on_settlement_aid_confirmed() -> void:
@@ -4279,15 +4279,15 @@ func _on_settlement_aid_confirmed() -> void:
 func _on_settlement_aid_canceled() -> void:
 	match _pending_aid_kind:
 		"war_support":
-			_update_status_label("Savas destegi iptal edildi.")
+			_update_status_label(tr("wm.settlement.war_support_cancelled"))
 		"mediation":
-			_update_status_label("Aracilik iptal edildi.")
+			_update_status_label(tr("wm.settlement.mediation_cancelled"))
 		"offensive_raid":
-			_update_status_label("Ofansif baskin iptal edildi.")
+			_update_status_label(tr("wm.settlement.raid_cancelled"))
 			if _settlement_aid_confirm_dialog:
-				_settlement_aid_confirm_dialog.get_ok_button().text = "Yardim Gonder"
+				_settlement_aid_confirm_dialog.get_ok_button().text = tr("wm.send_aid")
 		_:
-			_update_status_label("Yardim gonderme iptal edildi.")
+			_update_status_label(tr("wm.settlement.aid_send_cancelled"))
 	_pending_aid_kind = ""
 
 func _perform_pending_intervention_now() -> void:
@@ -4308,80 +4308,80 @@ func _perform_pending_intervention_now() -> void:
 
 func _perform_alliance_propose_now() -> void:
 	if _world_manager == null or not _world_manager.has_method("propose_alliance"):
-		_update_status_label("Ittifak sistemi su an mevcut degil.")
+		_update_status_label(tr("wm.settlement.alliance_system_unavailable"))
 		return
 	if _pending_alliance_propose_option.is_empty():
-		_update_status_label("Ittifak teklifi hedefi belirlenemedi.")
+		_update_status_label(tr("wm.settlement.alliance_target_undetermined"))
 		return
 	var sid: String = String(_pending_alliance_propose_option.get("settlement_id", ""))
 	if sid.is_empty():
-		_update_status_label("Ittifak teklifi hedefi belirlenemedi.")
+		_update_status_label(tr("wm.settlement.alliance_target_undetermined"))
 		return
 	var result: Dictionary = _world_manager.call("propose_alliance", sid)
-	_handle_intervention_result(result, "Ittifak teklifi uygulanamadi.")
+	_handle_intervention_result(result, tr("wm.settlement.alliance_propose_failed"))
 
 func _perform_alliance_break_now() -> void:
 	if _world_manager == null or not _world_manager.has_method("break_alliance"):
-		_update_status_label("Ittifak sistemi su an mevcut degil.")
+		_update_status_label(tr("wm.settlement.alliance_system_unavailable"))
 		return
 	if _pending_alliance_break_option.is_empty():
-		_update_status_label("Bozulacak ittifak bulunamadi.")
+		_update_status_label(tr("wm.settlement.no_alliance_to_break"))
 		return
 	var sid: String = String(_pending_alliance_break_option.get("settlement_id", ""))
 	if sid.is_empty():
-		_update_status_label("Bozulacak ittifak bulunamadi.")
+		_update_status_label(tr("wm.settlement.no_alliance_to_break"))
 		return
 	var result: Dictionary = _world_manager.call("break_alliance", sid)
-	_handle_intervention_result(result, "Ittifak bozulamadi.")
+	_handle_intervention_result(result, tr("wm.settlement.alliance_break_failed"))
 
 func _perform_war_support_now() -> void:
 	if _world_manager == null or not _world_manager.has_method("apply_war_support"):
-		_update_status_label("Savas destegi sistemi su an mevcut degil.")
+		_update_status_label(tr("wm.settlement.war_support_system_unavailable"))
 		return
 	if _pending_war_support_option.is_empty():
-		_update_status_label("Destek verilebilecek aktif savas yok.")
+		_update_status_label(tr("wm.settlement.war_support_no_active"))
 		return
 	var supported_id: String = String(_pending_war_support_option.get("supported_id", ""))
 	var opponent_id: String = String(_pending_war_support_option.get("opponent_id", ""))
 	if supported_id.is_empty() or opponent_id.is_empty():
-		_update_status_label("Savas destegi hedefi belirlenemedi.")
+		_update_status_label(tr("wm.settlement.war_support_target_undetermined"))
 		return
 	var result: Dictionary = _world_manager.call("apply_war_support", supported_id, opponent_id)
-	_handle_intervention_result(result, "Savas destegi uygulanamadi.")
+	_handle_intervention_result(result, tr("wm.settlement.war_support_failed"))
 
 func _perform_mediation_now() -> void:
 	if _world_manager == null or not _world_manager.has_method("apply_mediation"):
-		_update_status_label("Aracilik sistemi su an mevcut degil.")
+		_update_status_label(tr("wm.settlement.mediation_system_unavailable"))
 		return
 	if _pending_mediation_option.is_empty():
-		_update_status_label("Aracilik yapilabilecek bir gerilim yok.")
+		_update_status_label(tr("wm.settlement.mediation_none_available"))
 		return
 	var a: String = String(_pending_mediation_option.get("between_a", ""))
 	var b: String = String(_pending_mediation_option.get("between_b", ""))
 	if a.is_empty() or b.is_empty():
-		_update_status_label("Aracilik hedefi belirlenemedi.")
+		_update_status_label(tr("wm.settlement.mediation_target_undetermined"))
 		return
 	var result: Dictionary = _world_manager.call("apply_mediation", a, b)
-	_handle_intervention_result(result, "Aracilik uygulanamadi.")
+	_handle_intervention_result(result, tr("wm.settlement.mediation_failed"))
 
 func _handle_intervention_result(result: Dictionary, fallback_msg: String) -> void:
 	if not bool(result.get("ok", false)):
 		var reason: String = String(result.get("reason", ""))
 		match reason:
 			"cannot_afford":
-				_update_status_label("Mudahale icin yeterli kaynagin yok.")
+				_update_status_label(tr("wm.settlement.intervention_insufficient"))
 			"not_at_war":
-				_update_status_label("Bu koy su an aktif bir savasta degil.")
+				_update_status_label(tr("wm.settlement.not_at_war"))
 			"no_conflict":
-				_update_status_label("Aracilik icin uygun bir gerilim/savas yok.")
+				_update_status_label(tr("wm.settlement.no_conflict"))
 			"already_allied":
-				_update_status_label("Bu koy zaten muttefik.")
+				_update_status_label(tr("wm.settlement.already_allied"))
 			"not_allied":
-				_update_status_label("Bu koyle ittifak yok.")
+				_update_status_label(tr("wm.settlement.not_allied"))
 			"relation_too_low":
-				_update_status_label("Iliski cok dusuk, ittifak teklifi reddedildi.")
+				_update_status_label(tr("wm.settlement.relation_too_low"))
 			"invalid_settlement":
-				_update_status_label("Hedef koy gecersiz.")
+				_update_status_label(tr("wm.settlement.invalid_target"))
 			_:
 				_update_status_label(fallback_msg)
 		return
@@ -4390,23 +4390,23 @@ func _handle_intervention_result(result: Dictionary, fallback_msg: String) -> vo
 	queue_redraw()
 
 func _build_aid_confirm_text(settlement_name: String, option: Dictionary) -> String:
-	var label: String = String(option.get("label", "Yardim"))
+	var label: String = String(option.get("label", tr("wm.settlement.aid_fallback")))
 	var summary: String = String(option.get("summary", ""))
 	var cost: Dictionary = option.get("cost", {})
 	var cost_parts: PackedStringArray = PackedStringArray()
 	if int(cost.get("gold", 0)) > 0:
-		cost_parts.append("%d altin" % int(cost.get("gold", 0)))
+		cost_parts.append(tr("wm.settlement.cost_gold_unit") % int(cost.get("gold", 0)))
 	for resource_type in ["food", "wood", "stone"]:
 		var amount: int = int(cost.get(resource_type, 0))
 		if amount > 0:
-			cost_parts.append("%d %s" % [amount, resource_type])
-	var cost_text: String = "(maliyet yok)" if cost_parts.is_empty() else "Maliyet: " + ", ".join(cost_parts)
+			cost_parts.append("%d %s" % [amount, LocaleManager.get_resource_name(resource_type)])
+	var cost_text: String = tr("wm.settlement.no_cost") if cost_parts.is_empty() else tr("wm.settlement.cost_prefix") + ", ".join(cost_parts)
 	var lines: PackedStringArray = PackedStringArray()
-	lines.append("%s icin %s" % [settlement_name, label])
+	lines.append(tr("wm.settlement.confirm_for") % [settlement_name, label])
 	lines.append(cost_text)
 	if not summary.is_empty():
-		lines.append("Etki: " + summary)
-	lines.append("Bu islem geri alinamaz.")
+		lines.append(tr("wm.settlement.effect_prefix") + summary)
+	lines.append(tr("wm.settlement.irreversible"))
 	return "\n".join(lines)
 
 func _execute_settlement_trade() -> void:
@@ -4416,7 +4416,7 @@ func _execute_settlement_trade() -> void:
 	var day: int = _get_current_day()
 	if mm.has_method("create_world_map_action_mission"):
 		mm.call("create_world_map_action_mission", "trade", _pending_settlement_id, _pending_settlement_name, day, _pending_settlement_distance)
-	_update_status_label("%s icin ticaret gorevi olusturuldu." % _pending_settlement_name)
+	_update_status_label(tr("wm.settlement.trade_mission_created") % _pending_settlement_name)
 
 func _execute_settlement_diplomacy() -> void:
 	var mm: Node = get_node_or_null("/root/MissionManager")
@@ -4425,7 +4425,7 @@ func _execute_settlement_diplomacy() -> void:
 	var day: int = _get_current_day()
 	if mm.has_method("create_world_map_action_mission"):
 		mm.call("create_world_map_action_mission", "diplomacy", _pending_settlement_id, _pending_settlement_name, day, _pending_settlement_distance)
-	_update_status_label("%s icin diplomasi gorevi olusturuldu." % _pending_settlement_name)
+	_update_status_label(tr("wm.settlement.diplomacy_mission_created") % _pending_settlement_name)
 
 func _execute_settlement_raid() -> void:
 	var mm: Node = get_node_or_null("/root/MissionManager")
@@ -4435,12 +4435,12 @@ func _execute_settlement_raid() -> void:
 	var day: int = _get_current_day()
 	if mm.has_method("create_world_map_action_mission"):
 		mm.call("create_world_map_action_mission", "raid", _pending_settlement_id, _pending_settlement_name, day, _pending_settlement_distance)
-	_update_status_label("%s icin baskin gorevi olusturuldu." % _pending_settlement_name)
+	_update_status_label(tr("wm.settlement.raid_mission_created2") % _pending_settlement_name)
 
 func _format_minutes_short(total_minutes: int) -> String:
 	var hours: int = total_minutes / 60
 	var mins: int = total_minutes % 60
-	return "%dsa %02ddk" % [hours, mins]
+	return tr("wm.duration_short") % [hours, mins]
 
 func _get_settlement_action_preview(action_type: String) -> Dictionary:
 	var mm: Node = get_node_or_null("/root/MissionManager")

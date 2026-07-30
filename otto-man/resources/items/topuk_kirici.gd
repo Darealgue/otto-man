@@ -8,8 +8,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "topuk_kirici"
-	item_name = "Topuk Kırıcı"
-	description = "Çömelmeden veya kaymadan çıktıktan hemen sonra yaptığın ilk vuruş ekstra hasar verir."
+	item_name = tr("item.topuk_kirici.name")
+	description = tr("item.topuk_kirici.description")
 	flavor_text = "Ayağa kalkarken vur"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SLIDE

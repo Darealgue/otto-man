@@ -11,8 +11,8 @@ var _trail_timer := 0.0
 
 func _init():
 	item_id = "ziplama_zehiri"
-	item_name = "Zıplama Zehiri"
-	description = "Zıplarken havada zehir izi bırakırsın"
+	item_name = tr("item.ziplama_zehiri.name")
+	description = tr("item.ziplama_zehiri.description")
 	flavor_text = "Zehirli sıçrama"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.JUMP

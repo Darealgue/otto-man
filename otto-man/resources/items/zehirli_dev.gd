@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "zehirli_dev"
-	item_name = "Zehirli Dev"
-	description = "Heavy attack zehir püskürtür (yay çizen damlalar)"
+	item_name = tr("item.zehirli_dev.name")
+	description = tr("item.zehirli_dev.description")
 	flavor_text = "Zehirli patlama"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK

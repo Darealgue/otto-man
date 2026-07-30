@@ -5,8 +5,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "ters_darbe"
-	item_name = "Ters Darbe"
-	description = "Perfect parry sonrası otomatik karşı saldırı"
+	item_name = tr("item.ters_darbe.name")
+	description = tr("item.ters_darbe.description")
 	flavor_text = "Savunma = saldırı"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY

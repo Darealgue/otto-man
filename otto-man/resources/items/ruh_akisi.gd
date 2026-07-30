@@ -5,8 +5,8 @@ const RESTORE_AMOUNT := 0.5
 
 func _init():
 	item_id = "ruh_akisi"
-	item_name = "Ruh Akışı"
-	description = "Her düşman öldürüşünde yarım stamina hücresi geri gelir"
+	item_name = tr("item.ruh_akisi.name")
+	description = tr("item.ruh_akisi.description")
 	flavor_text = "Düşen her can, sana nefes olur"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.STAMINA

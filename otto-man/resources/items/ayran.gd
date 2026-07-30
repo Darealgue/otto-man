@@ -7,8 +7,8 @@ const REGEN_BOOST = 0.5  # +50% faster regen
 
 func _init():
 	item_id = "ayran"
-	item_name = "Ayran"
-	description = "Stamina regen +%50"
+	item_name = tr("item.ayran.name")
+	description = tr("item.ayran.description")
 	flavor_text = "Serinletici ve ferahlatıcı"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.STAMINA

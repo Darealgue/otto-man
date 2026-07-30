@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "dodge_zehiri"
-	item_name = "Dodge Zehiri"
-	description = "Dodge kullandığında arkanda zehir bulutu bırakırsın"
+	item_name = tr("item.dodge_zehiri.name")
+	description = tr("item.dodge_zehiri.description")
 	flavor_text = "Zehirli kaçış"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE

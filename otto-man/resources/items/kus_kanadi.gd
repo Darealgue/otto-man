@@ -7,8 +7,8 @@ const AIR_CONTROL_REDUCTION = 0.75  # %75 azalma
 
 func _init():
 	item_id = "kus_kanadi"
-	item_name = "Kuş Kanadı"
-	description = "Triple jump, air kontrolü %75 azalır"
+	item_name = tr("item.kus_kanadi.name")
+	description = tr("item.kus_kanadi.description")
 	flavor_text = "Kuş gibi zıplama"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.JUMP

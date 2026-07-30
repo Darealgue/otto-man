@@ -11,8 +11,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "miknatis"
-	item_name = "Mıknatıs"
-	description = "Belli mesafeden paraları oyuncuya doğru çeker"
+	item_name = tr("item.miknatis.name")
+	description = tr("item.miknatis.description")
 	flavor_text = "Paralar sana gelsin"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL

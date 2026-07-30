@@ -7,8 +7,8 @@ var _light_attack_count := 0
 
 func _init():
 	item_id = "ucuncu_vurus"
-	item_name = "Üçüncü Vuruş"
-	description = "Her 3. light attack %50 ek hasar verir"
+	item_name = tr("item.ucuncu_vurus.name")
+	description = tr("item.ucuncu_vurus.description")
 	flavor_text = "Üçün bir gücü"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

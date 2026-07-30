@@ -167,7 +167,7 @@ func _update_info() -> void:
 		return
 	
 	var active_count = ItemManager.get_active_items().size()
-	var info := "Aktif Item'lar: " + str(active_count)
+	var info := tr("item_selection.active_items") + str(active_count)
 	var sets := ItemManager.get_active_item_sets()
 	if not sets.is_empty():
 		info += "\n"

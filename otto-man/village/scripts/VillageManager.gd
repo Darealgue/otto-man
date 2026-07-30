@@ -3725,27 +3725,10 @@ func format_village_cost(cost: Dictionary) -> String:
 
 
 func get_building_display_name_for_scene(scene_path: String) -> String:
-	match scene_path:
-		"res://village/buildings/WoodcutterCamp.tscn": return "Odun Kampı"
-		"res://village/buildings/StoneMine.tscn": return "Taş Madeni"
-		"res://village/buildings/HunterGathererHut.tscn": return "Avcı Kulübesi"
-		"res://village/buildings/Well.tscn": return "Kuyu"
-		"res://village/buildings/Sawmill.tscn": return "Kerestehane"
-		"res://village/buildings/Brickworks.tscn": return "Tuğla Ocağı"
-		"res://village/buildings/Bakery.tscn": return "Fırın"
-		"res://village/buildings/Weaver.tscn": return "Dokuma Atölyesi"
-		"res://village/buildings/Tailor.tscn": return "Terzi"
-		"res://village/buildings/TeaHouse.tscn": return "Çay Evi"
-		"res://village/buildings/SoapMaker.tscn": return "Sabun Atölyesi"
-		"res://village/buildings/Blacksmith.tscn": return "Demirci"
-		"res://village/buildings/Herbalist.tscn": return "Otacı"
-		"res://village/buildings/Gunsmith.tscn": return "Silah Ustası"
-		"res://village/buildings/Barracks.tscn": return "Kışla"
-		"res://village/buildings/StorageBuilding.tscn": return "Depo"
-		"res://village/buildings/InventorWorkshop.tscn": return "Mucit Odası"
-		"res://village/buildings/House.tscn": return "Ev"
-		_:
-			return scene_path.get_file().trim_suffix(".tscn")
+	var lm := get_node_or_null("/root/LocaleManager")
+	if lm and lm.has_method("get_building_name"):
+		return String(lm.call("get_building_name", scene_path))
+	return scene_path.get_file().trim_suffix(".tscn")
 
 
 # Bina gereksinimlerinin karşılanıp karşılanmadığını kontrol eder (Altın, Kaynak ve Seviye)
@@ -4212,7 +4195,7 @@ func _spawn_construction_site(scene_path: String, position: Vector2, vfx_vertica
 	parent.add_child(site)
 	var info := Label.new()
 	info.name = "Info"
-	info.text = "İnşaat başlıyor..."
+	info.text = tr("village.construction.starting")
 	var vfx_node: Node = vfx_vertical_ref if is_instance_valid(vfx_vertical_ref) else null
 	var offsets := _get_vfx_offsets_for_target(vfx_node, rooftop_construction)
 	info.position = Vector2(-80, float(offsets.get("info_y", -190.0)))
@@ -4342,7 +4325,7 @@ func _update_construction_site_ui(entry: Dictionary) -> void:
 		var total: float = max(1.0, float(entry.get("total_minutes", 1.0)))
 		var pct := int(round(((total - rem) / total) * 100.0))
 		var rem_hours: float = rem / 60.0
-		info.text = "İnşaat: %d%% (%.1f saat)" % [pct, rem_hours]
+		info.text = tr("village.construction.progress") % [pct, rem_hours]
 
 func _remove_construction_site(entry: Dictionary) -> void:
 	var site_path: NodePath = entry.get("site_path", NodePath(""))

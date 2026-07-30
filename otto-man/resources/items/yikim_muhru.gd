@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "yikim_muhru"
-	item_name = "Yıkım Mührü"
-	description = "Ağır saldırı sırasında tuşu basılı tutup 1 stamina hücresi yakarsan ek patlama olur"
+	item_name = tr("item.yikim_muhru.name")
+	description = tr("item.yikim_muhru.description")
 	flavor_text = "Fazla güç, fazla bedel ister"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.STAMINA

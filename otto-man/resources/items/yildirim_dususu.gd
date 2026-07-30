@@ -13,8 +13,8 @@ var _cooldown := 0.0
 
 func _init():
 	item_id = "yildirim_dususu"
-	item_name = "Yıldırım Düşüşü"
-	description = "Fall attack şimşek çakar (10 sn cooldown)"
+	item_name = tr("item.yildirim_dususu.name")
+	description = tr("item.yildirim_dususu.description")
 	flavor_text = "Şimşekli düşüş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK

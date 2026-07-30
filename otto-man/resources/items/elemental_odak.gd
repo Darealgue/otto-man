@@ -10,8 +10,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "elemental_odak"
-	item_name = "Elemental Odak"
-	description = "Elemental hasar (zehir, ateş, buz, şimşek) +%300 artar. Fiziksel hasar -%75 düşer."
+	item_name = tr("item.elemental_odak.name")
+	description = tr("item.elemental_odak.description")
 	flavor_text = "Büyücü ruhu"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

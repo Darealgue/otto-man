@@ -12,8 +12,8 @@ var _cloud_cooldown := 0.0
 
 func _init():
 	item_id = "zehirli_dusus"
-	item_name = "Zehirli Düşüş"
-	description = "Fall attack zehir bulutu bırakır (10 sn cooldown)"
+	item_name = tr("item.zehirli_dusus.name")
+	description = tr("item.zehirli_dusus.description")
 	flavor_text = "Zehirli düşüş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK

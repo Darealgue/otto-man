@@ -56,7 +56,7 @@ func _on_upgrade_finished() -> void:
 	VillageManager.notify_building_state_changed(self)
 
 func get_production_info() -> String:
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • Çay: (tuğla+şifalı bitki)"
+	return tr("building.teahouse.production_info") % [level, assigned_workers]
 
 # --- Worker Management (simple placeholder) ---
 var assigned_worker_ids: Array[int] = []

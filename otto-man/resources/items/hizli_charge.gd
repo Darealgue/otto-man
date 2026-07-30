@@ -7,8 +7,8 @@ const CHARGE_SPEED_BOOST = 0.5  # %50 daha hızlı = animation speed 1.5x
 
 func _init():
 	item_id = "hizli_charge"
-	item_name = "Hızlı Charge"
-	description = "Heavy attack charge süresi -%50"
+	item_name = tr("item.hizli_charge.name")
+	description = tr("item.hizli_charge.description")
 	flavor_text = "Daha hızlı hazırlık"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.HEAVY_ATTACK

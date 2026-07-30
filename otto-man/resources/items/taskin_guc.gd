@@ -7,8 +7,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "taskin_guc"
-	item_name = "Taşkın Güç"
-	description = "Stamina tamamen doluyken saldırılar +%30 hasar verir"
+	item_name = tr("item.taskin_guc.name")
+	description = tr("item.taskin_guc.description")
 	flavor_text = "Dolu kadeh en sert çarpar"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.STAMINA

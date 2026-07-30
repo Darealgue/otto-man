@@ -10,8 +10,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "ortaoyunu"
-	item_name = "Ortaoyunu"
-	description = "Dodge veya dash bastığında arkanda gölge bir kopya bırakırsın. Düşmanlar ona saldırabilir ama hasar almaz. 3 sn sonra kaybolur."
+	item_name = tr("item.ortaoyunu.name")
+	description = tr("item.ortaoyunu.description")
 	flavor_text = "Gölge oyunu"
 	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.DODGE

@@ -3,8 +3,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "yanki_oku"
-	item_name = "Yankı Oku"
-	description = "Mermiler çarptıktan 1sn sonra aynı noktada ikinci kez patlar"
+	item_name = tr("item.yanki_oku.name")
+	description = tr("item.yanki_oku.description")
 	flavor_text = "Ses gider, yankı kalır"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

@@ -27,6 +27,11 @@ var _disclaimer_hint_label: Label = null
 ## bas" ekranı ne de menü animasyonu başlamış olur (bkz. _play_disclaimer_phase).
 var _in_disclaimer_phase: bool = false
 var _disclaimer_skip_requested: bool = false
+## İlk açılış dil seçimi (bkz. _play_language_gate_phase) — henüz hiç locale kaydedilmemişse
+## erken erişim uyarısından ÖNCE gösterilir, böylece uyarı zaten doğru dilde çıkar.
+var _language_gate_panel: PanelContainer = null
+var _in_language_gate_phase: bool = false
+var _language_gate_choice: String = ""
 
 const INTRO_REVEAL_DURATION: float = 0.55
 const COLD_START_FADE_DURATION: float = 4.8
@@ -88,6 +93,12 @@ func _play_startup_fade_if_needed() -> void:
 	_intro_fade.color = Color(0, 0, 0, 1)
 	_intro_fade.mouse_filter = Control.MOUSE_FILTER_STOP
 
+	# Aşama 0: demo sürümünde HER soğuk açılışta dil seçtir (kasıtlı — bkz. LocaleManager.
+	# has_persisted_locale). Bir sonraki versiyonda bunu tekrar "sadece ilk açılış" yapacağız;
+	# o zaman aşağıdaki satırı `if not LocaleManager.has_persisted_locale():` ile sarmak yeterli
+	# — has_persisted_locale() zaten hazır, sadece burada kullanılmıyor.
+	await _play_language_gate_phase()
+
 	# Aşama 1: saf siyah ekran + erken erişim uyarısı — menü/animasyon henüz yok.
 	await _play_disclaimer_phase()
 
@@ -105,6 +116,103 @@ func _play_startup_fade_if_needed() -> void:
 	_clear_intro_fade()
 	_cold_start_fading = false
 	_cold_start_tween = null
+
+
+## Aşama 0: hiç locale kaydedilmemiş ilk açılışta iki dil butonu gösterir; oyuncu birini
+## seçene kadar bekler (herhangi bir tuşla atlanamaz — bilinçli bir seçim gerekir), locale'i
+## kaydeder, sonra paneli söndürüp döner. Butonların kendi metni KASITLI OLARAK tr() KULLANMAZ:
+## henüz hangi dilde gösterileceğimizi bilmiyoruz, bu yüzden her iki dil de kendi adıyla yazılı.
+func _play_language_gate_phase() -> void:
+	_show_language_gate()
+	if not is_instance_valid(_language_gate_panel):
+		return
+	_language_gate_panel.modulate.a = 1.0
+	_language_gate_panel.show()
+	_in_language_gate_phase = true
+	_language_gate_choice = ""
+
+	while _language_gate_choice.is_empty():
+		await get_tree().process_frame
+		if not is_instance_valid(self):
+			return
+
+	LocaleManager.set_locale(_language_gate_choice)
+	LocaleManager.persist_locale(_language_gate_choice)
+
+	_in_language_gate_phase = false
+	var fade_tween := create_tween()
+	fade_tween.tween_property(_language_gate_panel, "modulate:a", 0.0, DISCLAIMER_FADE_OUT_DURATION)
+	await fade_tween.finished
+	_language_gate_panel.hide()
+	_language_gate_panel.queue_free()
+	_language_gate_panel = null
+
+
+func _show_language_gate() -> void:
+	if is_instance_valid(_language_gate_panel):
+		return
+	if not is_instance_valid(_intro_fade):
+		return
+
+	_language_gate_panel = PanelContainer.new()
+	_language_gate_panel.anchor_left = 0.5
+	_language_gate_panel.anchor_right = 0.5
+	_language_gate_panel.anchor_top = 0.5
+	_language_gate_panel.anchor_bottom = 0.5
+	_language_gate_panel.offset_left = -240
+	_language_gate_panel.offset_right = 240
+	_language_gate_panel.offset_top = -90
+	_language_gate_panel.offset_bottom = 90
+	_language_gate_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	ParchmentTextures.apply_large_panel_style(_language_gate_panel, 20)
+	_intro_fade.add_child(_language_gate_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	_language_gate_panel.add_child(margin)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 16)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(col)
+
+	var title := Label.new()
+	title.text = "Language / Dil"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(0.95, 0.82, 0.45, 1.0))
+	col.add_child(title)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 20)
+	col.add_child(row)
+
+	var en_btn := Button.new()
+	en_btn.text = "English"
+	en_btn.custom_minimum_size = Vector2(140, 46)
+	en_btn.add_theme_font_size_override("font_size", 18)
+	en_btn.pressed.connect(_on_language_gate_choice.bind("en"))
+	row.add_child(en_btn)
+
+	var tr_btn := Button.new()
+	tr_btn.text = "Türkçe"
+	tr_btn.custom_minimum_size = Vector2(140, 46)
+	tr_btn.add_theme_font_size_override("font_size", 18)
+	tr_btn.pressed.connect(_on_language_gate_choice.bind("tr"))
+	row.add_child(tr_btn)
+
+	en_btn.grab_focus()
+
+
+func _on_language_gate_choice(locale: String) -> void:
+	if not _language_gate_choice.is_empty():
+		return
+	_play_click()
+	_language_gate_choice = locale
 
 
 ## Aşama 1: saf siyah ekranda erken erişim uyarısını gösterir; oyuncu bilinçli olarak bir
@@ -212,6 +320,11 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _is_intro_dismiss_input(event):
 		return
+	# Dil seçimi ekranı sadece butonlara tıklanarak/onaylanarak geçilir — "herhangi bir tuşla"
+	# atlanamaz, bu yüzden burada input'u yutup hiçbir şey yapmıyoruz.
+	if _in_language_gate_phase:
+		get_viewport().set_input_as_handled()
+		return
 	# Diğer menülerdeki (ör. DungeonRunReport) "tuşa bas = oynayan animasyonu atla" davranışıyla
 	# tutarlı: ne uyarı ekranı ne de soğuk açılış fade'i artık sonuna kadar beklemeyi zorlamıyor.
 	if _in_disclaimer_phase:
@@ -312,6 +425,9 @@ func _refresh_locale(_locale: String = "") -> void:
 		_settings_button.text = tr("menu.settings")
 	if _quit_button:
 		_quit_button.text = tr("menu.quit")
+	var footer := get_node_or_null("CenterContainer/Menu/Footer") as Label
+	if footer:
+		footer.text = tr("menu.beta_footer")
 
 func _on_new_game_pressed() -> void:
 	_play_click()

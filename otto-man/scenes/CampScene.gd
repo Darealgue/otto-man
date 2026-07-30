@@ -322,9 +322,9 @@ func _sort_spots_by_x(a: Node2D, b: Node2D) -> bool:
 ## Kapı etiketi: generator'dan gelen minimal label veya çıkış metni
 func _build_door_label_bbcode(challenge: Dictionary) -> String:
 	if bool(challenge.get("is_exit", false)):
-		return "[color=green]Zindandan Çık[/color]"
+		return "[color=green]%s[/color]" % tr("camp.door.exit_dungeon")
 	if bool(challenge.get("is_stealth_exit", false)):
-		return "[color=#88ccff]Gizli Geçit[/color]"
+		return "[color=#88ccff]%s[/color]" % tr("camp.door.secret_passage")
 	if bool(challenge.get("is_boss", false)):
 		var bid: String = String(challenge.get("boss_id", BossRoomRegistry.DEFAULT_BOSS_ID))
 		return "[color=orange]%s[/color]" % BossRoomRegistry.get_display_name(bid)
@@ -345,19 +345,19 @@ func _camp_entry_title_text() -> String:
 	var drs = _get_dungeon_run_state()
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if not is_instance_valid(dp) or not dp.has_method("configure_run_warmup"):
-		return "Bir kapı seç — zindana in"
+		return tr("camp.entry.choose_door")
 	var did: String = String(drs.dungeon_id) if drs and String(drs.dungeon_id).strip_edges() != "" else ""
 	var cfg: Dictionary = dp.call("configure_run_warmup", did) if not did.is_empty() else dp.call("configure_run_warmup")
 	if not bool(cfg.get("is_warmup", false)):
-		return "Derinlere in — bir kapı seç"
+		return tr("camp.entry.go_deeper")
 	var idx: int = int(cfg.get("warmup_index", 1))
 	match idx:
 		1:
-			return "Dış koridor — kısa keşif"
+			return tr("camp.entry.warmup_1")
 		2:
-			return "İki kat aşağı — zindan açılıyor"
+			return tr("camp.entry.warmup_2")
 		_:
-			return "Derin keşif — patron henüz yok"
+			return tr("camp.entry.warmup_default")
 
 
 ## İlk gerçek zindan girişinde (tutorial rehberi hâlâ aktifken) kapı simgelerini kısaca anlat.

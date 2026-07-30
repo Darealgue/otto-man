@@ -14,8 +14,8 @@ var _timer := 0.0
 
 func _init():
 	item_id = "slide_simsegi"
-	item_name = "Slide Şimşeği"
-	description = "Kayarken şimşek çakar (yakındaki düşmanlara hasar). Slide kontrolü -%20"
+	item_name = tr("item.slide_simsegi.name")
+	description = tr("item.slide_simsegi.description")
 	flavor_text = "Elektrikli kayma"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SLIDE

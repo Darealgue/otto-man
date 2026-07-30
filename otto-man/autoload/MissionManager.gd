@@ -3496,8 +3496,8 @@ func _create_conflict_missions(attacker: Dictionary, defender: Dictionary, event
 	var df_name: String = String(defender.get("name", "?"))
 	var defend := Mission.new()
 	defend.id = "defend_%d" % Time.get_unix_time_from_system()
-	defend.name = "Savunma Yardımı: %s" % df_name
-	defend.description = "%s'nin saldırısına karşı %s'yi savun." % [at_name, df_name]
+	defend.name = tr("mission.gen.defend.name") % df_name
+	defend.description = tr("mission.gen.defend.desc") % [at_name, df_name]
 	defend.mission_type = Mission.MissionType.SAVAŞ
 	defend.difficulty = Mission.Difficulty.ORTA
 	defend.duration = 240.0

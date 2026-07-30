@@ -7,8 +7,8 @@ const GhostMinionScript = preload("res://effects/ghost_minion.gd")
 
 func _init():
 	item_id = "ruh_avcisi"
-	item_name = "Ruh Avcısı"
-	description = "Öldürdüğün düşmandan kısa süreli hayalet minion çıkar"
+	item_name = tr("item.ruh_avcisi.name")
+	description = tr("item.ruh_avcisi.description")
 	flavor_text = "Ruh ordusu"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL

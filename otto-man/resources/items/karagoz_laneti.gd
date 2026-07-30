@@ -7,8 +7,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "karagoz_laneti"
-	item_name = "Karagöz'ün Laneti"
-	description = "Ortaoyunu gölgesi fiziksel saldırılarını taklit eder. Sen vurdukça gölge de kendi yönüne saldırır."
+	item_name = tr("item.karagoz_laneti.name")
+	description = tr("item.karagoz_laneti.description")
 	flavor_text = "Gölge yumruğu"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

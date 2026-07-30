@@ -10,8 +10,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "cevher_dili"
-	item_name = "Cevher Dili"
-	description = "Hafif saldırılar staminayla elemental patlamaya dönüşür (×2.5 + alan hasarı)"
+	item_name = tr("item.cevher_dili.name")
+	description = tr("item.cevher_dili.description")
 	flavor_text = "Güç, nefesin bedelidir"
 	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.STAMINA

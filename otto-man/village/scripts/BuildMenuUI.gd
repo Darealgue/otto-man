@@ -116,6 +116,7 @@ func _ready() -> void:
 	if build_well_button:
 		build_well_button.visible = false
 		build_well_button.disabled = true
+		build_well_button.text = tr(BUILDING_BUTTON_LABELS.get(WELL_SCENE, ""))
 	
 	if build_bakery_button:
 		build_bakery_button.pressed.connect(_on_build_button_pressed.bind(BAKERY_SCENE))

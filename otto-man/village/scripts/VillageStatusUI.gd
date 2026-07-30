@@ -378,7 +378,7 @@ func _update_labels() -> void:
 		# Nüfus kapasiteyi aşıyorsa (barınaksız köylü var) kırmızı; tam doluysa sarı.
 		if h_cap > 0 and h_pop > h_cap:
 			TextOutline.apply_label_color(housing_label, Color(1, 0.35, 0.3))
-			housing_label.tooltip_text = "Barınak yetersiz — %d köylünün yatacak yeri yok" % (h_pop - h_cap)
+			housing_label.tooltip_text = tr("village.housing_shortage_tooltip") % (h_pop - h_cap)
 		elif h_cap > 0 and h_pop >= h_cap:
 			TextOutline.apply_label_color(housing_label, Color(1, 0.85, 0.2))
 			housing_label.tooltip_text = ""

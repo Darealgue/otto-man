@@ -16,11 +16,11 @@ const CATEGORY_ORDER: Array[Category] = [
 	Category.DECORATION,
 ]
 
-const CATEGORY_LABELS: Dictionary = {
-	Category.RESOURCE: "Kaynak & Üretim",
-	Category.UTILITY: "Yardımcı",
-	Category.MILITARY: "Askeri",
-	Category.DECORATION: "Dekorasyon",
+const CATEGORY_LABEL_KEYS: Dictionary = {
+	Category.RESOURCE: "building_category.resource",
+	Category.UTILITY: "building_category.utility",
+	Category.MILITARY: "building_category.military",
+	Category.DECORATION: "building_category.decoration",
 }
 
 const SCENE_PATHS: Dictionary = {
@@ -51,8 +51,13 @@ const SCENE_PATHS: Dictionary = {
 }
 
 
+## static func'ta "self" yok, bu yüzden Object.tr() değil doğrudan TranslationServer
+## kullanılıyor (tr() bir Object metodu, static context'te çağrılamaz).
 static func get_category_label(cat: Category) -> String:
-	return String(CATEGORY_LABELS.get(cat, "Bina"))
+	var key: String = String(CATEGORY_LABEL_KEYS.get(cat, ""))
+	if key.is_empty():
+		key = "building_category.fallback"
+	return TranslationServer.translate(key)
 
 
 static func get_scenes_for_category(cat: Category) -> Array[String]:

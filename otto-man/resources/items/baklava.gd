@@ -5,8 +5,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "baklava"
-	item_name = "Baklava"
-	description = "+1 Stamina Bar"
+	item_name = tr("item.baklava.name")
+	description = tr("item.baklava.description")
 	flavor_text = "Tatlı ama ağır değil, sadece enerji verir"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.STAMINA

@@ -5,8 +5,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "dikenli_kalkan"
-	item_name = "Dikenli Kalkan"
-	description = "Yediğin hasar saldırgana yansır (blok şart değil)"
+	item_name = tr("item.dikenli_kalkan.name")
+	description = tr("item.dikenli_kalkan.description")
 	flavor_text = "Dikenli savunma"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK

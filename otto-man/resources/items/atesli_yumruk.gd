@@ -5,8 +5,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "atesli_yumruk"
-	item_name = "Ateşli Yumruk"
-	description = "Light attack'lar yakar (1 hasar/sn, 3 tick, max 3 stack)"
+	item_name = tr("item.atesli_yumruk.name")
+	description = tr("item.atesli_yumruk.description")
 	flavor_text = "Ateşli yumruk"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

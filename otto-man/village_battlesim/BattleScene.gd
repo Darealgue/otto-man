@@ -291,7 +291,7 @@ func _process(delta: float) -> void:
 			enemy_active_count += 1
 	# Sayım etiketini güncelle
 	if unit_count_label != null:
-		unit_count_label.text = "Oyuncu: %d | Düşman: %d" % [player_active_count, enemy_active_count]
+		unit_count_label.text = tr("battle.unit_count") % [player_active_count, enemy_active_count]
 
 func _physics_process(delta: float) -> void:
 	# Savaş Başlatma Kontrolü
@@ -374,12 +374,12 @@ func _end_battle(winning_team: int) -> void:
 			final_enemy_active_count += 1
 			
 	if unit_count_label != null:
-		unit_count_label.text = "Oyuncu: %d | Düşman: %d" % [final_player_active_count, final_enemy_active_count]
+		unit_count_label.text = tr("battle.unit_count") % [final_player_active_count, final_enemy_active_count]
 
 	# <<< GÜNCELLENDİ: Game Over Etiketini Ayarla ve Göster >>>
 	var game_over_text = ""
 	if winner_team_id == 0:
-		game_over_text = "PLAYER KAZANDI!"
+		game_over_text = tr("battle.player_won")
 		print("-------------------") # Konsol logları kalsın
 		print("  PLAYER KAZANDI!  ")
 		print("-------------------")
@@ -388,7 +388,7 @@ func _end_battle(winning_team: int) -> void:
 			if is_instance_valid(unit) and unit.get_current_state() != Unit.State.DEAD and unit.get_current_state() != Unit.State.FAINTED:
 				unit.enter_victory_state()
 	elif winner_team_id == 1:
-		game_over_text = "DÜŞMAN KAZANDI!"
+		game_over_text = tr("battle.enemy_won")
 		print("-------------------")
 		print("  DÜŞMAN KAZANDI!  ")
 		print("-------------------")
@@ -397,7 +397,7 @@ func _end_battle(winning_team: int) -> void:
 			if is_instance_valid(unit) and unit.get_current_state() != Unit.State.DEAD and unit.get_current_state() != Unit.State.FAINTED:
 				unit.enter_victory_state()
 	elif winner_team_id == -2: # Beraberlik durumu
-		game_over_text = "BERABERE!"
+		game_over_text = tr("battle.draw")
 		print("-------------------")
 		print("     BERABERE!     ")
 		print("-------------------")

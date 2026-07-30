@@ -6,8 +6,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "kum_saati"
-	item_name = "Kum Saati"
-	description = "Zaman Durdurucu ile: zaman 2x daha yavaş akar, 4 sn sürer."
+	item_name = tr("item.kum_saati.name")
+	description = tr("item.kum_saati.description")
 	flavor_text = "Kum akıyor..."
 	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY

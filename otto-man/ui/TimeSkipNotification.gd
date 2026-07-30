@@ -52,37 +52,19 @@ func show_time_skip_notification(total_hours: float, produced_resources: Diction
 	notification_label.add_theme_color_override("default_color", Color.WHITE)
 	notification_label.text_direction = Control.TEXT_DIRECTION_AUTO
 	
-	var resource_names: Dictionary = {
-		"wood": "Odun",
-		"stone": "Taş",
-		"food": "Yiyecek",
-		"water": "Su",
-		"lumber": "Kereste",
-		"brick": "Tuğla",
-		"metal": "Metal",
-		"cloth": "Kumaş",
-		"garment": "Giyim",
-		"bread": "Ekmek",
-		"tea": "Çay",
-		"medicine": "İlaç",
-		"soap": "Sabun",
-		"weapon": "Silah",
-		"armor": "Zırh"
-	}
-	
 	# Build text with proper formatting
 	var text_parts: Array[String] = []
-	text_parts.append("Zaman Atlama Tamamlandı")
+	text_parts.append(tr("timeskip.title"))
 	text_parts.append("")
-	text_parts.append("%.1f saat geçti" % total_hours)
+	text_parts.append(tr("timeskip.hours_passed") % total_hours)
 	text_parts.append("")
-	
+
 	if produced_resources.is_empty():
-		text_parts.append("Bu sürede kaynak üretilmedi")
+		text_parts.append(tr("timeskip.no_resources"))
 	else:
-		text_parts.append("Üretilen Kaynaklar:")
+		text_parts.append(tr("timeskip.produced_resources"))
 		for res in produced_resources.keys():
-			var res_name = resource_names.get(res, res)
+			var res_name = LocaleManager.get_resource_name(res)
 			var amount = produced_resources[res]
 			text_parts.append("%s: +%d" % [res_name, amount])
 	if construction_footnote != "":

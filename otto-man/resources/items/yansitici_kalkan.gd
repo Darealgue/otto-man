@@ -7,8 +7,8 @@ const REFLECT_PERCENTAGE = 0.5  # 50% of blocked damage reflected
 
 func _init():
 	item_id = "yansitici_kalkan"
-	item_name = "Yansıtıcı Kalkan"
-	description = "Block sırasında gelen hasarın %50'si düşmana yansır"
+	item_name = tr("item.yansitici_kalkan.name")
+	description = tr("item.yansitici_kalkan.description")
 	flavor_text = "Savunma = saldırı"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK

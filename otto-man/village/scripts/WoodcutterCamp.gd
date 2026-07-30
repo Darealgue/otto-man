@@ -287,4 +287,4 @@ func _update_ui() -> void:
 func get_production_info() -> String:
 	var workers: int = assigned_workers if "assigned_workers" in self else 0
 	var level_info := "Lv." + str(level)
-	return level_info + " • İşçi:" + str(workers) + " • Odun üretimi: " + str(workers) + "/tick"
+	return level_info + tr("building.woodcutter_camp.production_info") % [workers, workers]

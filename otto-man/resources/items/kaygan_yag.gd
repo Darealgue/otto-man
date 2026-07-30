@@ -10,8 +10,8 @@ var _slide_state: Node = null
 
 func _init():
 	item_id = "kaygan_yag"
-	item_name = "Kaygan Yağ"
-	description = "Slide mesafesi +%100"
+	item_name = tr("item.kaygan_yag.name")
+	description = tr("item.kaygan_yag.description")
 	flavor_text = "Süper kaygan"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SLIDE

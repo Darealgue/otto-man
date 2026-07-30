@@ -13,8 +13,8 @@ var _cooldown := 0.0
 
 func _init():
 	item_id = "buz_cagi"
-	item_name = "Buz Çağı"
-	description = "Fall attack donma dalgası (yakındakileri yavaşlatır, 10 sn cooldown)"
+	item_name = tr("item.buz_cagi.name")
+	description = tr("item.buz_cagi.description")
 	flavor_text = "Buzlu düşüş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK

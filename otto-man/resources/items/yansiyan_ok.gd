@@ -6,8 +6,8 @@ const BOUNCE_COUNT := 1
 
 func _init():
 	item_id = "yansiyan_ok"
-	item_name = "Yansıyan Ok"
-	description = "Mermiler ilk hedeften sekip yakındaki ikinci düşmana da çarpar"
+	item_name = tr("item.yansiyan_ok.name")
+	description = tr("item.yansiyan_ok.description")
 	flavor_text = "Bir taş, iki kuş"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK

@@ -94,36 +94,45 @@ func shake(duration: float, strength: float):
 		_find_camera()  # Try to find camera again if not found
 		if not camera:
 			return  # No camera found, can't shake
-	
+
 	shake_duration = duration
 	shake_strength = strength
 	shake_timer = duration
-	
-	# Store original offset if not already stored
+
+	# Store original offset if not already stored (fallback path only — see _process).
 	if original_camera_offset == Vector2.ZERO and camera:
 		original_camera_offset = camera.offset
 
+## Cameras that own a look-ahead/offset system of their own (currently just player_camera.gd)
+## expose set_shake_offset() so shake combines additively with their own offset math in one
+## place, instead of this script overwriting `offset` wholesale and stomping whatever the other
+## system just computed. Cameras without that method fall back to the old direct-write behavior.
 func _process(delta: float):
 	if shake_timer > 0:
 		shake_timer -= delta
-		
+
 		if not camera:
 			_find_camera()
 			if not camera:
 				shake_timer = 0
 				return
-		
+
 		if shake_timer <= 0:
-			# Shake finished, reset camera offset
+			# Shake finished, clear the shake contribution.
 			if camera:
-				camera.offset = original_camera_offset
+				if camera.has_method("set_shake_offset"):
+					camera.set_shake_offset(Vector2.ZERO)
+				else:
+					camera.offset = original_camera_offset
 			shake_strength = 0.0
 		else:
-			# Apply shake using camera offset (more visible than CanvasLayer)
 			if camera:
 				var shake_amount = shake_strength * (shake_timer / shake_duration)
 				var shake_offset = Vector2(
 					randf_range(-shake_amount, shake_amount),
 					randf_range(-shake_amount, shake_amount)
 				)
-				camera.offset = original_camera_offset + shake_offset
+				if camera.has_method("set_shake_offset"):
+					camera.set_shake_offset(shake_offset)
+				else:
+					camera.offset = original_camera_offset + shake_offset

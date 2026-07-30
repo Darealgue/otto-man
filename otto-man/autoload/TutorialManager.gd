@@ -303,6 +303,30 @@ func begin_village_core_tutorial_messages() -> void:
 		"tutorial",
 		1
 	)
+	enqueue_message(
+		"dialogue_mechanics_1",
+		tr("tutorial.village.dialogue_mechanics_1"),
+		"tutorial",
+		2
+	)
+	enqueue_message(
+		"dialogue_mechanics_2",
+		tr("tutorial.village.dialogue_mechanics_2"),
+		"tutorial",
+		3
+	)
+	enqueue_message(
+		"villager_individuality_1",
+		tr("tutorial.village.villager_individuality_1"),
+		"tutorial",
+		4
+	)
+	enqueue_message(
+		"villager_individuality_2",
+		tr("tutorial.village.villager_individuality_2"),
+		"tutorial",
+		5
+	)
 	set_objective_tr("tutorial.village.objective_mentor")
 
 
@@ -588,6 +612,34 @@ func _rebuild_pending_messages_after_load() -> void:
 				tr("tutorial.village.go_build_starters"),
 				"tutorial",
 				1
+			)
+		if not is_delivered("dialogue_mechanics_1"):
+			enqueue_message(
+				"dialogue_mechanics_1",
+				tr("tutorial.village.dialogue_mechanics_1"),
+				"tutorial",
+				2
+			)
+		if not is_delivered("dialogue_mechanics_2"):
+			enqueue_message(
+				"dialogue_mechanics_2",
+				tr("tutorial.village.dialogue_mechanics_2"),
+				"tutorial",
+				3
+			)
+		if not is_delivered("villager_individuality_1"):
+			enqueue_message(
+				"villager_individuality_1",
+				tr("tutorial.village.villager_individuality_1"),
+				"tutorial",
+				4
+			)
+		if not is_delivered("villager_individuality_2"):
+			enqueue_message(
+				"villager_individuality_2",
+				tr("tutorial.village.villager_individuality_2"),
+				"tutorial",
+				5
 			)
 	elif not is_delivered("village_core_complete") and village_core_step >= 99:
 		enqueue_message(

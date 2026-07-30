@@ -7,8 +7,8 @@ const DAMAGE_BOOST = 0.3
 
 func _init():
 	item_id = "gokten_dusus"
-	item_name = "Gökten Düşüş"
-	description = "Fall attack hasarı +%30"
+	item_name = tr("item.gokten_dusus.name")
+	description = tr("item.gokten_dusus.description")
 	flavor_text = "Daha güçlü düşüş"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.FALL_ATTACK

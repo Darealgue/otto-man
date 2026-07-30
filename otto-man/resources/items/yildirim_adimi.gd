@@ -8,8 +8,8 @@ const BOOST_DURATION = 2.0  # 2 saniye
 
 func _init():
 	item_id = "yildirim_adimi"
-	item_name = "Yıldırım Adımı"
-	description = "Dodge/dash sonrası kısa süreli hız bonusu"
+	item_name = tr("item.yildirim_adimi.name")
+	description = tr("item.yildirim_adimi.description")
 	flavor_text = "Şimşek hızı"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE

@@ -8,8 +8,8 @@ var _hitbox: Node = null
 
 func _init():
 	item_id = "cenk_meydani"
-	item_name = "Cenk Meydanı"
-	description = "Ağır saldırı %40 genişler ve 3 düşmana birden vurabilir"
+	item_name = tr("item.cenk_meydani.name")
+	description = tr("item.cenk_meydani.description")
 	flavor_text = "Meydan senin"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK

@@ -9,8 +9,8 @@ var _slide_spawn_timer := 0.0
 
 func _init():
 	item_id = "buzlu_kayma"
-	item_name = "Buzlu Kayma"
-	description = "Kayarken yere buz bırakır; değen düşmanlar 1 buz stack alır"
+	item_name = tr("item.buzlu_kayma.name")
+	description = tr("item.buzlu_kayma.description")
 	flavor_text = "Kaydığın yer donar"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SLIDE

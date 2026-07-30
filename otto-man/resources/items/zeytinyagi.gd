@@ -7,8 +7,8 @@ const SLIDE_DISTANCE_MULTIPLIER = 1.8  # +80%
 
 func _init():
 	item_id = "zeytinyagi"
-	item_name = "Zeytinyağı"
-	description = "Slide mesafesi +%80"
+	item_name = tr("item.zeytinyagi.name")
+	description = tr("item.zeytinyagi.description")
 	flavor_text = "Kaygan zemin"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.SLIDE

@@ -71,7 +71,7 @@ func _ready():
 	_randomize_window()
 	_refresh_status()
 	_update_pips()
-	hint_label.text = "İğne yeşil penceredeyken vur! (Zıpla / Onay)"
+	hint_label.text = tr("lockpick.hint")
 
 
 func _apply_context() -> void:
@@ -129,10 +129,10 @@ func _handle_hit() -> void:
 			return
 		_update_difficulty()
 		result_label.add_theme_color_override("font_color", Color(0.35, 0.9, 0.5))
-		result_label.text = "%d. köylü kurtarıldı! Sıradaki kilit daha sağlam..." % _rescued
+		result_label.text = tr("lockpick.rescued_next") % _rescued
 	else:
 		result_label.add_theme_color_override("font_color", Color(0.35, 0.9, 0.5))
-		result_label.text = "Sağlam vuruş!"
+		result_label.text = tr("lockpick.solid_hit")
 	_randomize_window()
 	_phase = Phase.AIM
 
@@ -146,7 +146,7 @@ func _handle_fail() -> void:
 		_finish()
 		return
 	result_label.add_theme_color_override("font_color", Color(0.92, 0.3, 0.25))
-	result_label.text = "Elini demire çarptın! (%d hak kaldı)" % _fails_left
+	result_label.text = tr("lockpick.missed") % _fails_left
 	_randomize_window()
 	_phase = Phase.AIM
 
@@ -157,13 +157,13 @@ func _finish() -> void:
 	var success := _rescued >= _villager_total
 	if success:
 		result_label.add_theme_color_override("font_color", Color(0.35, 0.9, 0.5))
-		result_label.text = "Tüm köylüler kurtarıldı!"
+		result_label.text = tr("lockpick.all_rescued")
 	elif _rescued > 0:
 		result_label.add_theme_color_override("font_color", Color(0.95, 0.78, 0.3))
-		result_label.text = "%d köylü kurtarıldı, %d hücrede kaldı..." % [_rescued, _villager_total - _rescued]
+		result_label.text = tr("lockpick.partial_rescue") % [_rescued, _villager_total - _rescued]
 	else:
 		result_label.add_theme_color_override("font_color", Color(0.92, 0.3, 0.25))
-		result_label.text = "Kilit açılamadı..."
+		result_label.text = tr("lockpick.lock_failed")
 	await get_tree().create_timer(1.2).timeout
 	emit_signal("completed", success, {"rescued_count": _rescued})
 
@@ -257,7 +257,7 @@ func _build_ui() -> void:
 
 
 func _refresh_status() -> void:
-	title_label.text = "Kilidi Kır! (%d köylü)" % _villager_total
+	title_label.text = tr("lockpick.title") % _villager_total
 	var row := "[center]"
 	for i in range(_villager_total):
 		if i < _rescued:

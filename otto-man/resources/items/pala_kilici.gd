@@ -7,8 +7,8 @@ var _hitbox: Node = null
 
 func _init():
 	item_id = "pala_kilici"
-	item_name = "Pala Kılıcı"
-	description = "Hafif saldırılar 2 düşmana birden vurabilir"
+	item_name = tr("item.pala_kilici.name")
+	description = tr("item.pala_kilici.description")
 	flavor_text = "Tek savuruş, iki bela"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

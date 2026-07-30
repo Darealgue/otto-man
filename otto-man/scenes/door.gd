@@ -114,13 +114,13 @@ func _player_entered_range() -> void:
 	if door_type == "Boss" and is_locked:
 		label_text = ""
 	elif is_open:
-		label_text = "Açık"
+		label_text = tr("door.status.open")
 	elif _alarm_locked and requires_key and not _has_required_key():
-		label_text = "Kilitli — anahtar düşmanında"
+		label_text = tr("door.status.locked_enemy_key")
 	elif _segment_exit_key_required() and not _has_required_key():
-		label_text = "🔒 Anahtar gerekli"
+		label_text = tr("door.status.key_required_icon")
 	elif requires_key and not _has_required_key():
-		label_text = "Anahtar gerekli"
+		label_text = tr("door.status.key_required")
 	if interaction_prompt:
 		interaction_prompt.visible = label_text != ""
 		interaction_prompt.text = label_text
@@ -188,7 +188,7 @@ func _show_lock_denied() -> void:
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
 		SoundManager.play_sfx("door_locked", global_position)
 	if interaction_prompt:
-		interaction_prompt.text = "🔒 Kilitli"
+		interaction_prompt.text = tr("door.status.locked_icon")
 	if _lock_flash:
 		_lock_flash.visible = true
 		_lock_flash.modulate.a = 1.0
@@ -218,9 +218,9 @@ func _handle_locked_door() -> void:
 	
 	if interaction_prompt:
 		if _alarm_locked and requires_key and not _has_required_key():
-			interaction_prompt.text = "Alarm! Anahtar için düşman ara"
+			interaction_prompt.text = tr("door.status.alarm_search_enemy")
 		else:
-			interaction_prompt.text = "Kilitli!"
+			interaction_prompt.text = tr("door.status.locked")
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
 			_player_entered_range()
@@ -232,9 +232,9 @@ func _handle_missing_key() -> void:
 	
 	if interaction_prompt:
 		if _alarm_locked:
-			interaction_prompt.text = "Anahtar düşmanında — yen ve al"
+			interaction_prompt.text = tr("door.status.key_on_enemy")
 		else:
-			interaction_prompt.text = "Anahtar gerekli!"
+			interaction_prompt.text = tr("door.status.key_required_exclaim")
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
 			_player_entered_range()
@@ -245,10 +245,10 @@ func _handle_boss_door_locked() -> void:
 	
 	# Show boss locked message
 	if interaction_prompt:
-		interaction_prompt.text = "Boss'u yen!"
+		interaction_prompt.text = tr("door.status.defeat_boss")
 		await get_tree().create_timer(2.0).timeout
 		if is_player_in_range:
-			interaction_prompt.text = "↑ Yukarı"
+			interaction_prompt.text = tr("door.status.up_hint")
 
 func _has_required_key() -> bool:
 	if door_type == "Finish" and _segment_exit_key_required():
@@ -307,7 +307,7 @@ func _open_door() -> void:
 	
 	# Update interaction prompt
 	if interaction_prompt:
-		interaction_prompt.text = "Açık"
+		interaction_prompt.text = tr("door.status.open")
 
 func _close_door() -> void:
 	if is_animating:
@@ -340,7 +340,7 @@ func _close_door() -> void:
 	
 	# Update interaction prompt
 	if interaction_prompt and is_player_in_range:
-		interaction_prompt.text = "↑ Yukarı"
+		interaction_prompt.text = tr("door.status.up_hint")
 
 func _update_door_appearance() -> void:
 	if not sprite:
@@ -431,7 +431,7 @@ func _open_door_immediately() -> void:
 
 	# Update interaction prompt
 	if interaction_prompt:
-		interaction_prompt.text = "Açık"
+		interaction_prompt.text = tr("door.status.open")
 
 	# _open_door() (oyuncu etkileşimiyle açılan kapı) door_opened sinyalini yayınlıyor;
 	# bu "anında" yol (ör. hep açık başlayan Start kapısı) aynı state geçişini yapıyor

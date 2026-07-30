@@ -115,7 +115,7 @@ func _build_ui() -> void:
 	root.add_child(actions)
 
 	_upgrade_btn = Button.new()
-	_upgrade_btn.text = "Yükselt"
+	_upgrade_btn.text = tr("plot.upgrade")
 	_upgrade_btn.custom_minimum_size = Vector2(0, 38)
 	_upgrade_btn.pressed.connect(_on_upgrade_pressed)
 	_style_focus(_upgrade_btn)
@@ -128,7 +128,7 @@ func _build_ui() -> void:
 	actions.add_child(_upgrade_cost_label)
 
 	_build_house_btn = Button.new()
-	_build_house_btn.text = "Ev İnşa Et"
+	_build_house_btn.text = tr("plot.build_house")
 	_build_house_btn.custom_minimum_size = Vector2(0, 38)
 	_build_house_btn.pressed.connect(_on_build_house_pressed)
 	_style_focus(_build_house_btn)
@@ -141,21 +141,21 @@ func _build_ui() -> void:
 	actions.add_child(_build_house_cost_label)
 
 	_weaponize_btn = Button.new()
-	_weaponize_btn.text = "Silahlandır"
+	_weaponize_btn.text = tr("plot.weaponize")
 	_weaponize_btn.custom_minimum_size = Vector2(0, 38)
 	_weaponize_btn.pressed.connect(_on_weaponize_pressed)
 	_style_focus(_weaponize_btn)
 	actions.add_child(_weaponize_btn)
 
 	_inventor_upgrades_btn = Button.new()
-	_inventor_upgrades_btn.text = "Yükseltmeler"
+	_inventor_upgrades_btn.text = tr("plot.inventor_upgrades")
 	_inventor_upgrades_btn.custom_minimum_size = Vector2(0, 38)
 	_inventor_upgrades_btn.pressed.connect(_on_inventor_upgrades_pressed)
 	_style_focus(_inventor_upgrades_btn)
 	actions.add_child(_inventor_upgrades_btn)
 
 	_demolish_btn = Button.new()
-	_demolish_btn.text = "Yık"
+	_demolish_btn.text = tr("plot.demolish")
 	_demolish_btn.custom_minimum_size = Vector2(0, 34)
 	_demolish_btn.pressed.connect(_on_demolish_pressed)
 	_style_focus(_demolish_btn)
@@ -172,13 +172,13 @@ func _make_worker_key_bar() -> Control:
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar.add_theme_constant_override("separation", 4)
 	if is_pad:
-		bar.add_child(_make_chip("L2")); _add_bar_label(bar, "çıkar")
-		bar.add_child(_make_chip("R2")); _add_bar_label(bar, "ekle")
+		bar.add_child(_make_chip("L2")); _add_bar_label(bar, tr("plot.worker_remove_hint"))
+		bar.add_child(_make_chip("R2")); _add_bar_label(bar, tr("plot.worker_add_hint"))
 	else:
 		var rem: String = InputManager.get_action_key_name(&"village_worker_remove")
 		var add_: String = InputManager.get_action_key_name(&"village_worker_add")
-		bar.add_child(_make_chip(rem)); _add_bar_label(bar, "çıkar")
-		bar.add_child(_make_chip(add_)); _add_bar_label(bar, "ekle")
+		bar.add_child(_make_chip(rem)); _add_bar_label(bar, tr("plot.worker_remove_hint"))
+		bar.add_child(_make_chip(add_)); _add_bar_label(bar, tr("plot.worker_add_hint"))
 	return bar
 
 
@@ -189,7 +189,7 @@ func _make_close_hint_bar() -> Control:
 	bar.alignment = BoxContainer.ALIGNMENT_END
 	bar.add_theme_constant_override("separation", 4)
 	bar.add_child(_make_chip("Ⓑ" if is_pad else "ESC"))
-	_add_bar_label(bar, "Kapat", Color(1, 1, 1, 0.45))
+	_add_bar_label(bar, tr("plot.close"), Color(1, 1, 1, 0.45))
 	return bar
 
 
@@ -282,7 +282,7 @@ func _refresh() -> void:
 	var workers := int(_building.assigned_workers) if "assigned_workers" in _building else 0
 	var max_w := int(_building.max_workers) if "max_workers" in _building else 0
 
-	_level_label.text = "Seviye %d / %d" % [lvl, max_lvl]
+	_level_label.text = tr("plot.level_display") % [lvl, max_lvl]
 
 	if max_w > 0:
 		_worker_row.visible = true
@@ -297,15 +297,15 @@ func _refresh() -> void:
 	_upgrade_cost_label.visible = supports_upgrade
 	if supports_upgrade:
 		if upgrading:
-			_upgrade_btn.text = "Yükseltiliyor..."
+			_upgrade_btn.text = tr("plot.upgrading")
 			_upgrade_btn.disabled = true
 			_upgrade_cost_label.text = ""
 		elif lvl >= max_lvl:
-			_upgrade_btn.text = "Maksimum Seviye"
+			_upgrade_btn.text = tr("plot.max_level")
 			_upgrade_btn.disabled = true
 			_upgrade_cost_label.text = ""
 		else:
-			_upgrade_btn.text = "Yükselt (Lv.%d)" % (lvl + 1)
+			_upgrade_btn.text = tr("plot.upgrade_leveled") % (lvl + 1)
 			_upgrade_btn.disabled = false
 			_upgrade_cost_label.text = _format_upgrade_cost(scene_path, lvl + 1)
 
@@ -321,16 +321,16 @@ func _refresh() -> void:
 		if is_instance_valid(VillageManager):
 			pending_min = VillageManager.get_pending_house_floor_minutes_on(_building as Node2D)
 		if pending_min > 0:
-			_build_house_btn.text = "İnşa ediliyor..."
+			_build_house_btn.text = tr("plot.building")
 			_build_house_btn.disabled = true
-			_build_house_cost_label.text = "Kalan: %.1f saat" % (float(pending_min) / 60.0)
+			_build_house_cost_label.text = tr("plot.remaining_hours") % (float(pending_min) / 60.0)
 		else:
 			var has_floors := scene_path == VillageManager.HOUSE_SCENE_PATH
 			if not has_floors:
 				var ext := _building.get_node_or_null("ResidentialHousingExtension")
 				if ext != null and "current_floors" in ext:
 					has_floors = int(ext.current_floors) > 0
-			_build_house_btn.text = "Kat Ekle" if has_floors else "Ev İnşa Et"
+			_build_house_btn.text = tr("plot.add_floor") if has_floors else tr("plot.build_house")
 			_build_house_btn.disabled = not VillageManager.can_build_residential_floor_on(_building as Node2D)
 			_build_house_cost_label.text = _format_house_build_cost()
 
@@ -354,7 +354,7 @@ func _format_house_build_cost() -> String:
 		parts.append("%d %s" % [amount, LocaleManager.get_resource_name(String(key))])
 	if parts.is_empty():
 		return ""
-	return "Maliyet: " + ", ".join(parts)
+	return tr("plot.cost_prefix") + ", ".join(parts)
 
 
 func _format_upgrade_cost(scene_path: String, target_level: int) -> String:
@@ -369,7 +369,7 @@ func _format_upgrade_cost(scene_path: String, target_level: int) -> String:
 		parts.append("%d %s" % [amount, LocaleManager.get_resource_name(String(key))])
 	if parts.is_empty():
 		return ""
-	return "Maliyet: " + ", ".join(parts)
+	return tr("plot.cost_prefix") + ", ".join(parts)
 
 
 func _on_upgrade_pressed() -> void:

@@ -46,6 +46,26 @@ const FEMALE_NAMES_OTTOMAN: Array[String] = [
 	"Aişe", "Halime", "Ümmühan", "Nazende", "Nesrin", "Amine", "Reyhan", "Selma"
 ]
 
+# Seed pool'daki bazı Occupation değerleri cinsiyete özgü (ör. "Washerwoman"). Gender rastgele
+# yeniden atandığı için (bkz. get_villager_info) Occupation da o an atanan cinsiyete göre
+# eşleştirilmeli — aksi halde "Male" bir villager "Washerwoman" mesleğiyle spawn olabilir.
+const GENDERED_OCCUPATION_PAIRS := {
+	"Fisherman": {"Male": "Fisherman", "Female": "Fisherwoman"},
+	"Fisherwoman": {"Male": "Fisherman", "Female": "Fisherwoman"},
+	"Ferryman": {"Male": "Ferryman", "Female": "Ferrywoman"},
+	"Ferrywoman": {"Male": "Ferryman", "Female": "Ferrywoman"},
+	"Washerman": {"Male": "Washerman", "Female": "Washerwoman"},
+	"Washerwoman": {"Male": "Washerman", "Female": "Washerwoman"},
+	"Village-watchman": {"Male": "Village-watchman", "Female": "Village-watchwoman"},
+	"Village-watchwoman": {"Male": "Village-watchman", "Female": "Village-watchwoman"},
+	"Dairyman": {"Male": "Dairyman", "Female": "Dairywoman"},
+	"Dairywoman": {"Male": "Dairyman", "Female": "Dairywoman"},
+	"Henna-man": {"Male": "Henna-man", "Female": "Henna-woman"},
+	"Henna-woman": {"Male": "Henna-man", "Female": "Henna-woman"},
+	"Raftsman": {"Male": "Raftsman", "Female": "Raftswoman"},
+	"Raftswoman": {"Male": "Raftsman", "Female": "Raftswoman"},
+}
+
 var Saved_Villagers : Array = []
 var Villager_Info_Pool : Array =[
 	{
@@ -59,7 +79,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Pulled three drowning boys from the strait during a winter squall",
-			"Lost his father's boat when the moneylender seized it for debt"
+			"Lost the family's fishing boat when the moneylender seized it for debt"
 		],
 		"Latest_news": []
 	},
@@ -89,7 +109,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Rowed a stranded pasha across the strait through a night storm",
-			"Was the only one of four boys to swim ashore when his skiff capsized"
+			"Was the only one of four aboard to swim ashore when the skiff capsized"
 		],
 		"Latest_news": []
 	},
@@ -104,7 +124,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Refused to flee when fever swept the lower quarter",
-			"Lost a mother and her child on the same night and never forgot it"
+			"Lost a mother and child on the same night and never forgot it"
 		],
 		"Latest_news": []
 	},
@@ -118,7 +138,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Burn-scarred"
 		},
 		"History": [
-			"Burned his arms badly the night his workshop caught fire",
+			"Burned both arms badly the night the workshop caught fire",
 			"Engraved a tray that was sent to the capital as a wedding gift"
 		],
 		"Latest_news": []
@@ -133,8 +153,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Frail"
 		},
 		"History": [
-			"Was widowed young when her husband fell from the mill roof",
-			"Watched the bey's steward seize her family's only field"
+			"Was widowed young when a spouse fell from the mill roof",
+			"Watched the bey's steward seize the family's only field"
 		],
 		"Latest_news": []
 	},
@@ -148,7 +168,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Limping"
 		},
 		"History": [
-			"Came home from his third campaign with a shattered knee",
+			"Came home from a third campaign with a shattered knee",
 			"Carried a wounded comrade two days through the mountains to safety"
 		],
 		"Latest_news": []
@@ -164,7 +184,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Won the prize at the regional wine fair two years running",
-			"Eloped with the man her father had forbidden her to marry"
+			"Eloped with the one the family had forbidden this marriage to"
 		],
 		"Latest_news": []
 	},
@@ -179,7 +199,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Copied a full Quran and a Gospel in the same year for two patrons",
-			"Began losing his sight the winter he finished his largest manuscript"
+			"Began losing sight the winter the largest manuscript was finished"
 		],
 		"Latest_news": []
 	},
@@ -193,8 +213,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Stout and hearty"
 		},
 		"History": [
-			"Chased down and caught a bread thief with her peel in hand",
-			"Kept the whole village fed from her oven through the famine winter"
+			"Chased down and caught a bread thief, peel still in hand",
+			"Kept the whole village fed from the bakery oven through the famine winter"
 		],
 		"Latest_news": []
 	},
@@ -209,7 +229,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Built the doors and shutters for half the houses in the village",
-			"Carved the coffin for his own wife with his own hands"
+			"Carved a spouse's coffin with their own hands"
 		],
 		"Latest_news": []
 	},
@@ -224,7 +244,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Wove a pattern the valley had never seen and sold it to a city merchant",
-			"Saved three years' wages toward a loom-house of her own"
+			"Saved three years' wages toward a loom-house of their own"
 		],
 		"Latest_news": []
 	},
@@ -238,8 +258,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Weak chest"
 		},
 		"History": [
-			"Lost the woman he meant to marry when her family balked at his trade",
-			"Fell so deep into debt to the grocer that he signed over his hides"
+			"Lost the one meant to marry when the family balked at the trade",
+			"Fell so deep into debt to the grocer that the hides went over as payment"
 		],
 		"Latest_news": []
 	},
@@ -268,7 +288,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Gout-ridden"
 		},
 		"History": [
-			"Bought out the last rival mill and left three villages dependent on him",
+			"Bought out the last rival mill and left three villages dependent on it",
 			"Was hauled before the kadi for shorting grain but walked free"
 		],
 		"Latest_news": []
@@ -283,7 +303,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Half-deaf"
 		},
 		"History": [
-			"Buried all four of her children, the last to the coughing sickness",
+			"Buried all four children, the last to the coughing sickness",
 			"Made the lace veil worn by three generations of village brides"
 		],
 		"Latest_news": []
@@ -299,7 +319,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Lost the whole flock in a mountain fog and found every goat by dawn",
-			"Carved his first kaval from a reed and taught himself to play in one summer"
+			"Carved a first kaval from a reed and learned to play it in one summer"
 		],
 		"Latest_news": []
 	},
@@ -314,7 +334,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Smuggled a sack of saffron past the toll and made a small fortune",
-			"Ruined a rival merchant by spreading what she knew of his debts"
+			"Ruined a rival merchant by spreading what was known of their debts"
 		],
 		"Latest_news": []
 	},
@@ -328,8 +348,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Missing two fingers"
 		},
 		"History": [
-			"Lost two fingers to his own hammer in a single careless blow",
-			"Drove out the apprentice he swore had robbed his strongbox"
+			"Lost two fingers to a hammer in a single careless blow",
+			"Drove out the apprentice sworn to have robbed the strongbox"
 		],
 		"Latest_news": []
 	},
@@ -343,8 +363,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Limping"
 		},
 		"History": [
-			"Took over the roadside inn alone after her husband vanished on the road",
-			"Was beaten by soldiers the night they found a debtor in her cellar"
+			"Took over the roadside inn alone after a spouse vanished on the road",
+			"Was beaten by soldiers the night they found a debtor in the cellar"
 		],
 		"Latest_news": []
 	},
@@ -359,7 +379,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Was stung half-blind one spring and stayed with the hives regardless",
-			"Gave his whole season's honey to the village the year the crops failed"
+			"Gave a whole season's honey to the village the year the crops failed"
 		],
 		"Latest_news": []
 	},
@@ -373,8 +393,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Nursing a newborn"
 		},
 		"History": [
-			"Nursed the late chief's son alongside her own child",
-			"Lost her first baby to the winter cold and took in a foundling soon after"
+			"Nursed the late chief's son alongside their own child",
+			"Lost a first baby to the winter cold and took in a foundling soon after"
 		],
 		"Latest_news": []
 	},
@@ -389,7 +409,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Spent a whole winter alone at the mountain kilns and came down changed",
-			"Took up the cough the year the kiln smoke filled his hut"
+			"Took up the cough the year the kiln smoke filled the hut"
 		],
 		"Latest_news": []
 	},
@@ -404,7 +424,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Threw a cheating buyer's whole basket into the sea before the whole market",
-			"Out-haggled a city merchant so badly he never came back"
+			"Out-haggled a city merchant so badly they never came back"
 		],
 		"Latest_news": []
 	},
@@ -419,7 +439,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Set the leg that let a crippled wrestler return and win the regional belt",
-			"Lost a patient to a botched setting the first time his hands betrayed him"
+			"Lost a patient to a botched setting the first time the hands betrayed their trust"
 		],
 		"Latest_news": []
 	},
@@ -434,7 +454,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Made a rose soap the bathhouse women came to fight over",
-			"Was betrothed to a boy the spring before he left with a trade caravan"
+			"Was betrothed the spring before the match left with a trade caravan"
 		],
 		"Latest_news": []
 	},
@@ -448,7 +468,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Hunched back"
 		},
 		"History": [
-			"Bent his back lifting barrels as a boy and never stood straight again",
+			"Bent the back lifting barrels young and never stood straight again",
 			"Made the casks that carried the village's wine to the coast market"
 		],
 		"Latest_news": []
@@ -478,7 +498,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Scarred"
 		},
 		"History": [
-			"His hawk took a hare clean in front of a visiting bey",
+			"The hawk took a hare clean in front of a visiting bey",
 			"Was clawed across the face training a half-wild goshawk"
 		],
 		"Latest_news": []
@@ -494,7 +514,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Sewed the burial shrouds for the whole village through the last fever",
-			"Strained her eyes to near blindness finishing a wedding gown by lamplight"
+			"Strained the eyes to near blindness finishing a wedding gown by lamplight"
 		],
 		"Latest_news": []
 	},
@@ -509,7 +529,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Laid the cornerstone of the new village fountain",
-			"Pulled a fellow mason from a collapsed wall and carried him out"
+			"Pulled a fellow mason from a collapsed wall and carried them out"
 		],
 		"Latest_news": []
 	},
@@ -523,7 +543,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Healthy"
 		},
 		"History": [
-			"Refused the marriage her father arranged and took to the high pastures",
+			"Refused the marriage arranged for them and took to the high pastures",
 			"Killed a wolf with a sling the night it came for the kids"
 		],
 		"Latest_news": []
@@ -554,7 +574,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Dyed the deepest indigo cloth the market had ever seen",
-			"Stained her hands permanently blue the year she perfected the dye"
+			"Stained the hands permanently blue the year the dye was perfected"
 		],
 		"Latest_news": []
 	},
@@ -569,7 +589,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Felled the great oak the whole village swore could not be moved",
-			"Came to blows with his brother over their dead father's axe"
+			"Came to blows with a sibling over their dead father's axe"
 		],
 		"Latest_news": []
 	},
@@ -583,8 +603,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Healthy"
 		},
 		"History": [
-			"Exposed a man's gambling debts to his wife across a crowded room",
-			"Inherited the coffeehouse when its old keeper died owing her wages"
+			"Exposed a gambler's debts to the family across a crowded room",
+			"Inherited the coffeehouse when its old keeper died owing back wages"
 		],
 		"Latest_news": []
 	},
@@ -599,7 +619,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Set the stone in the chief's daughter's wedding ring",
-			"Was robbed in the night once and has slept in his shop ever since"
+			"Was robbed in the night once and has slept in the shop ever since"
 		],
 		"Latest_news": []
 	},
@@ -614,7 +634,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Distilled an attar so fine a city perfumer rode out to buy it",
-			"Replanted her whole rose field after a frost killed it in a single night"
+			"Replanted the whole rose field after a frost killed it in a single night"
 		],
 		"Latest_news": []
 	},
@@ -688,7 +708,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Healthy"
 		},
 		"History": [
-			"Left his home village after a bitter quarrel and never settled again",
+			"Left the home village after a bitter quarrel and never settled again",
 			"Ground the blades for a whole wedding feast in a single afternoon"
 		],
 		"Latest_news": []
@@ -718,7 +738,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Trembling hands"
 		},
 		"History": [
-			"Was passed over for the town clerkship he believed he had earned",
+			"Was passed over for the town clerkship they believed had been earned",
 			"Wrote the petition that won a widow back her seized house"
 		],
 		"Latest_news": []
@@ -734,7 +754,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Wove a soldier's name into a rug's border where no one could read it",
-			"Watched the man she loved march off to the front"
+			"Watched the one they loved march off to the front"
 		],
 		"Latest_news": []
 	},
@@ -779,7 +799,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Lost two children to the summer fever in a single week",
-			"Washed the burial shrouds of her own children with her own hands"
+			"Washed the burial shrouds of their own children with their own hands"
 		],
 		"Latest_news": []
 	},
@@ -794,7 +814,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Drummed three days straight for a visiting pasha's feast",
-			"Took up his late father's drum the morning after he was buried"
+			"Took up the late father's drum the morning after the burial"
 		],
 		"Latest_news": []
 	},
@@ -838,8 +858,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Healthy"
 		},
 		"History": [
-			"Passed her verses hand to hand among the village's young women",
-			"Was forbidden a book of her own and kept writing in secret regardless"
+			"Passed their verses hand to hand among the village's young women",
+			"Was forbidden a book of their own and kept writing in secret regardless"
 		],
 		"Latest_news": []
 	},
@@ -854,7 +874,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Resoled the boots of three generations of the same families",
-			"Was crippled by gout the winter he turned forty"
+			"Was crippled by gout the winter forty came"
 		],
 		"Latest_news": []
 	},
@@ -869,7 +889,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Outlived two husbands and worked through the mourning of both",
-			"Refused to buy a loom and beat her felt by hand into old age"
+			"Refused to buy a loom and beat the felt by hand into old age"
 		],
 		"Latest_news": []
 	},
@@ -899,7 +919,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Cornered the pepper trade the year the coast road was closed",
-			"Ruined a rival by buying up his stock and letting it rot in the storehouse"
+			"Ruined a rival by buying up the stock and letting it rot in the storehouse"
 		],
 		"Latest_news": []
 	},
@@ -914,7 +934,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Patched the pots and pans of the whole valley for forty years",
-			"Gave up the finest work the year his eyes began to fail"
+			"Gave up the finest work the year eyesight began to fail"
 		],
 		"Latest_news": []
 	},
@@ -928,7 +948,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Robust"
 		},
 		"History": [
-			"Carried on her mother's cheese-making the season after she passed",
+			"Carried on the family's cheese-making tradition after a mother's passing",
 			"Saved the herd from the murrain that struck the neighboring village"
 		],
 		"Latest_news": []
@@ -959,7 +979,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Saved the chief's son from a fever the bonesetter had given up on",
-			"Swore an oath to her dying teacher to keep the remedies secret"
+			"Swore an oath to a dying teacher to keep the remedies secret"
 		],
 		"Latest_news": []
 	},
@@ -974,7 +994,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Came to the lodge years ago and never once left again",
-			"Gave away the last of his food during a famine and fasted for weeks"
+			"Gave away the last of the food during a famine and fasted for weeks"
 		],
 		"Latest_news": []
 	},
@@ -988,8 +1008,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Pregnant"
 		},
 		"History": [
-			"Won her market stall in a wager and never gave it back",
-			"Drove off a fox with nothing but a broom and her flock of geese"
+			"Won the market stall in a wager and never gave it back",
+			"Drove off a fox with nothing but a broom and a flock of geese"
 		],
 		"Latest_news": []
 	},
@@ -1004,7 +1024,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Made the bricks that built the new mosque's outer wall",
-			"Lost the use of one hand when a kiln burst beside him"
+			"Lost the use of one hand when a kiln burst nearby"
 		],
 		"Latest_news": []
 	},
@@ -1019,7 +1039,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Embroidered the cloth that draped the old chief's bier",
-			"Lost most of her hearing to a fever in her fortieth year"
+			"Lost most of the hearing to a fever in the fortieth year"
 		],
 		"Latest_news": []
 	},
@@ -1048,7 +1068,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Healthy"
 		},
 		"History": [
-			"Turned down a rich marriage so she could keep singing",
+			"Turned down a rich marriage to keep singing",
 			"Sang at the wedding of nearly every family in the district one busy year"
 		],
 		"Latest_news": []
@@ -1064,7 +1084,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Twisted the rope that still hauls the quarter's well bucket",
-			"Wore the skin from his hands the year he filled a shipwright's whole order"
+			"Wore the skin from bare hands the year a shipwright's whole order was filled"
 		],
 		"Latest_news": []
 	},
@@ -1108,7 +1128,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Aching joints"
 		},
 		"History": [
-			"Picked the same grove every harvest since she was a small girl",
+			"Picked the same grove every harvest since early childhood",
 			"Fell from an old olive tree and climbed straight back up the next morning"
 		],
 		"Latest_news": []
@@ -1124,7 +1144,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Broke the bey's wild stallion after three other men had failed",
-			"Was thrown and trampled once and still bears the hoof-mark on his ribs"
+			"Was thrown and trampled once and still bears the hoof-mark on the ribs"
 		],
 		"Latest_news": []
 	},
@@ -1139,7 +1159,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Wailed at every funeral in three villages for thirty years",
-			"Buried her own husband and could not weep a single tear"
+			"Buried a spouse and could not weep a single tear"
 		],
 		"Latest_news": []
 	},
@@ -1169,7 +1189,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Painted the bridal henna for half the marriages in the district",
-			"Broke off a match by telling the bride what she knew of the groom"
+			"Broke off a match by telling the bride what was known of the groom"
 		],
 		"Latest_news": []
 	},
@@ -1184,7 +1204,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Painted the icons that still hang in the hillside chapel",
-			"Finished his largest icon the year his sight began to dim"
+			"Finished the largest icon the year eyesight began to dim"
 		],
 		"Latest_news": []
 	},
@@ -1214,7 +1234,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Perfected a coffee blend that kept the coffeehouse always full",
-			"Refused a rich man's gold for the secret of his roast"
+			"Refused a rich man's gold for the secret of the roast"
 		],
 		"Latest_news": []
 	},
@@ -1228,7 +1248,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Stout and hearty"
 		},
 		"History": [
-			"Took over her late husband's ledgers and ran them harder than he ever had",
+			"Took over a late spouse's ledgers and ran them harder than ever before",
 			"Forgave a single debt in twenty years, for a widow left with nothing"
 		],
 		"Latest_news": []
@@ -1244,7 +1264,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Carved the headstones for both the church and the mosque yards",
-			"Refused a rich man's coin to cut a lie into a tombstone"
+			"Refused a rich patron's coin to cut a lie into a tombstone"
 		],
 		"Latest_news": []
 	},
@@ -1274,7 +1294,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Made the saddle a courier rode all the way to the capital",
-			"Gave up the fine stitching the year his hands began to shake"
+			"Gave up the fine stitching the year the hands began to shake"
 		],
 		"Latest_news": []
 	},
@@ -1318,8 +1338,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Healthy"
 		},
 		"History": [
-			"Wove a secret pattern of two birds into her dowry rug",
-			"Was promised to a man her family later refused"
+			"Wove a secret pattern of two birds into a dowry rug",
+			"Was promised to a match the family later refused"
 		],
 		"Latest_news": []
 	},
@@ -1364,7 +1384,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Wove the baskets the whole market still carries its goods in",
-			"Kept weaving by feel alone the year her eyes began to fail"
+			"Kept weaving by feel alone the year eyesight began to fail"
 		],
 		"Latest_news": []
 	},
@@ -1393,8 +1413,8 @@ var Villager_Info_Pool : Array =[
 			"Health": "Robust"
 		},
 		"History": [
-			"Faced down a tax-clerk who tried to count her pigs twice",
-			"Kept the only swine herd through years of scorn from her neighbors"
+			"Faced down a tax-clerk who tried to count the pigs twice",
+			"Kept the only swine herd through years of scorn from the neighbors"
 		],
 		"Latest_news": []
 	},
@@ -1424,7 +1444,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Spun the finest silk thread the valley had ever seen",
-			"Saved three years toward a dowry no father had yet demanded of her"
+			"Saved three years toward a dowry no one had yet demanded"
 		],
 		"Latest_news": []
 	},
@@ -1439,7 +1459,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Dove the deepest reef in the bay for sponges none else would reach",
-			"Took the chest-pain that never left him after one too-deep dive"
+			"Took the chest-pain that never left after one too-deep dive"
 		],
 		"Latest_news": []
 	},
@@ -1453,7 +1473,7 @@ var Villager_Info_Pool : Array =[
 			"Health": "Robust"
 		},
 		"History": [
-			"Carried her yogurt jars through every lane at first light for years",
+			"Carried the yogurt jars through every lane at first light for years",
 			"Fed the orphans for free the winter the herds nearly starved"
 		],
 		"Latest_news": []
@@ -1499,7 +1519,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Kept the toll bridge for forty stubborn years",
-			"Lost most of his hearing to a fever the same year his wife died"
+			"Lost most of the hearing to a fever the same year a spouse died"
 		],
 		"Latest_news": []
 	},
@@ -1514,7 +1534,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Carved the bone buttons the district's tailors all prized",
-			"Lost her steady hand the winter she turned fifty"
+			"Lost a steady hand the winter fifty came"
 		],
 		"Latest_news": []
 	},
@@ -1529,7 +1549,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Smelled the smoke first the night the granary nearly burned to the ground",
-			"Took up the night-crier's round the year his father lost his voice"
+			"Took up the night-crier's round the year a father's voice gave out"
 		],
 		"Latest_news": []
 	},
@@ -1544,7 +1564,7 @@ var Villager_Info_Pool : Array =[
 		},
 		"History": [
 			"Stuffed the winter quilts that kept the village's poor alive through a hard freeze",
-			"Sewed the quilt that wrapped a foundling left at her door one winter"
+			"Sewed the quilt that wrapped a foundling left at the door one winter"
 		],
 		"Latest_news": []
 	}
@@ -1616,6 +1636,9 @@ func get_villager_info():
 			var random_name = name_pool[randi() % name_pool.size()]
 			ChosenInfo["Info"]["Name"] = random_name
 			print("[VillagerAIInitializer] %s villager için Osmanlı dönemi ismi seçildi: %s" % [gender, random_name])
+		var occupation := str(ChosenInfo["Info"].get("Occupation", ""))
+		if GENDERED_OCCUPATION_PAIRS.has(occupation):
+			ChosenInfo["Info"]["Occupation"] = GENDERED_OCCUPATION_PAIRS[occupation][gender]
 	return ChosenInfo
 	
 func _villager_save_base_dir() -> String:

@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "ok_yagmuru"
-	item_name = "Ok Yağmuru"
-	description = "Ağır saldırı ayrıca ileri projectile fırlatır"
+	item_name = tr("item.ok_yagmuru.name")
+	description = tr("item.ok_yagmuru.description")
 	flavor_text = "Gökten ok yağar"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK

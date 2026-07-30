@@ -8,8 +8,8 @@ var _boost_timer := 0.0
 
 func _init():
 	item_id = "hizlanan_yumruk"
-	item_name = "Hızlanan Yumruk"
-	description = "Light attack vurdukça 2 sn %20 hareket hızı"
+	item_name = tr("item.hizlanan_yumruk.name")
+	description = tr("item.hizlanan_yumruk.description")
 	flavor_text = "Vur, kaç"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

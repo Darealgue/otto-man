@@ -36,7 +36,9 @@ pause.save,Kaydet,Save
 pause.load,Yükle,Load
 pause.main_menu,Ana Menü,Main Menu
 pause.confirm_main_menu_title,Ana Menüye Dön,Return to Main Menu
-pause.confirm_main_menu_message,"Ana menüye dönmek istediğinizden emin misiniz?\n(Kaydedilmemiş ilerleme kaybolabilir)","Are you sure you want to return to the main menu?\n(Unsaved progress may be lost.)"
+pause.confirm_main_menu_message,"Ana menüye dönmek istediğinizden emin misiniz?
+(Kaydedilmemiş ilerleme kaybolabilir)","Are you sure you want to return to the main menu?
+(Unsaved progress may be lost.)"
 pause.save_success_title,Başarılı,Success
 pause.save_success_message,Oyun slot %d'ye kaydedildi!,Game saved to slot %d!
 profile.new_game_title,Yeni oyun,New Game
@@ -48,7 +50,11 @@ profile.select_button,Bu profili seç,Select this profile
 profile.delete_button,Profili sil,Delete profile
 profile.back,Geri,Back
 profile.delete_title,Profili sil,Delete profile
-profile.delete_confirm,"Profil %d ve tüm kayıtları (slotlar, otomatik kayıt, yan veriler) kalıcı olarak silinecek.\n\nEmin misin?","Profile %d and all saves (slots, autosave, side data) will be permanently deleted.\n\nAre you sure?"
+profile.delete_confirm,"Profil %d ve tüm kayıtları (slotlar, otomatik kayıt, yan veriler) kalıcı olarak silinecek.
+
+Emin misin?","Profile %d and all saves (slots, autosave, side data) will be permanently deleted.
+
+Are you sure?"
 profile.delete_empty,Bu profilde silinecek kayıt yok.,No saves to delete in this profile.
 profile.delete_success,Profil %d temizlendi.,Profile %d cleared.
 profile.delete_failed,Profil %d silinemedi.,Could not delete profile %d.
@@ -63,15 +69,25 @@ load.title,Oyunu Yükle — Profil %d,Load Game — Profile %d
 common.back,Geri,Back
 slot.empty,Slot %d: (Boş),Slot %d: (Empty)
 slot.invalid,Slot %d: (Hatalı - Yüklenemez),Slot %d: (Invalid — Cannot Load)
-slot.info_overwrite,"Slot %d: %s\nSahne: %s | Süre: %s\n(Üzerine kaydedilecek)","Slot %d: %s\nScene: %s | Time: %s\n(Will overwrite)"
-slot.info,"Slot %d: %s\nSahne: %s | Süre: %s","Slot %d: %s\nScene: %s | Time: %s"
+slot.info_overwrite,"Slot %d: %s
+Sahne: %s | Süre: %s
+(Üzerine kaydedilecek)","Slot %d: %s
+Scene: %s | Time: %s
+(Will overwrite)"
+slot.info,"Slot %d: %s
+Sahne: %s | Süre: %s","Slot %d: %s
+Scene: %s | Time: %s"
 slot.save_button,Kaydet,Save
 slot.load_button,Yükle,Load
 slot.delete_button,Sil,Delete
 autosave.label_none,Otomatik kayıt: (henüz yok),Autosave: (none yet)
-autosave.label_info,"Otomatik kayıt — %s\nSahne: %s | Süre: %s%s","Autosave — %s\nScene: %s | Time: %s%s"
+autosave.label_info,"Otomatik kayıt — %s
+Sahne: %s | Süre: %s%s","Autosave — %s
+Scene: %s | Time: %s%s"
 stealth.exit_locked_toast,Alarm! Çıkış kapısı kilitlendi — anahtarı taşıyan düşmanı yen veya yere düşen anahtarı al.,Alarm! Exit door locked — kill the key carrier or pick up the dropped key.
-stealth.alarm_banner,"ALARM!\nKapılar kilitlendi. Çıkmak için anahtarı almalısın.","ALARM!\nThe doors are locked. You must find the key to get out."
+stealth.alarm_banner,"ALARM!
+Kapılar kilitlendi. Çıkmak için anahtarı almalısın.","ALARM!
+The doors are locked. You must find the key to get out."
 stealth.key_obtained_toast,Çıkış anahtarı alındı! Kapıya dönebilirsin.,Exit key obtained! You can return to the door.
 stealth.exit_key_required_toast,Anahtar olmadan çıkamazsın — 🔑 taşıyan düşmanı yen veya yere düşen anahtarı al.,You need the exit key — kill the key carrier or pick up the dropped key.
 stealth.key_location_revealed_toast,Yeterince düşman sorguladın — anahtarın yeri artık okla gösteriliyor.,You've interrogated enough enemies — the key's location is now shown by the arrow.
@@ -79,7 +95,13 @@ stealth.key_holder_arrow_tooltip,Anahtarı taşıyan düşman bu yönde,Key carr
 dungeon.collectibles_title,Sefer Ganimeti,Expedition Loot
 dungeon.collectible_key,Anahtar,Key
 save.overwrite_title,Kayıt Üzerine Yaz,Overwrite Save
-save.overwrite_message,"Slot %d'de zaten bir kayıt var:\n%s\n\nÜzerine kaydetmek istediğinizden emin misiniz?","Slot %d already has a save:\n%s\n\nAre you sure you want to overwrite it?"
+save.overwrite_message,"Slot %d'de zaten bir kayıt var:
+%s
+
+Üzerine kaydetmek istediğinizden emin misiniz?","Slot %d already has a save:
+%s
+
+Are you sure you want to overwrite it?"
 save.status_saving,Kaydediliyor...,Saving...
 save.status_failed,Kaydetme başarısız!,Save failed!
 save.status_complete,Kayıt tamamlandı!,Save complete!
@@ -132,11 +154,19 @@ mission.result.cancelled_message,'%s' görevi iptal edildi.,Mission '%s' was can
 mission.result.failed_title,❌ Görev Başarısız,❌ Mission Failed
 mission.result.failed_message,'%s' görevi başarısız oldu.,Mission '%s' failed.
 mission.result.death_title,💀 Kayboldunuz,💀 You Were Lost
-mission.result.death_message_items,Zindanda/ormanda kayboldunuz ve köye dönmek zorunda kaldınız.\n\nTopladığınız %d eşya kayboldu.,You were lost in the dungeon/forest and had to return to the village.\n\nYou lost %d items you had collected.
+mission.result.death_message_items,"Zindanda/ormanda kayboldunuz ve köye dönmek zorunda kaldınız.
+
+Topladığınız %d eşya kayboldu.","You were lost in the dungeon/forest and had to return to the village.
+
+You lost %d items you had collected."
 mission.result.death_message,Zindanda/ormanda kayboldunuz ve köye dönmek zorunda kaldınız.,You were lost in the dungeon/forest and had to return to the village.
 mission.result.default_title,Görev Sonucu,Mission Result
-mission.result.rewards,\nÖdüller:,\nRewards:
-mission.result.penalties,\nCeza/Cezalar:,\nPenalties:
+mission.result.rewards,"
+Ödüller:","
+Rewards:"
+mission.result.penalties,"
+Ceza/Cezalar:","
+Penalties:"
 mission.result.reward_line,  • %s: +%s,  • %s: +%s
 mission.result.penalty_line,  • %s: %s,  • %s: %s
 mission.result.confirm,Tamam,OK
@@ -144,7 +174,7 @@ autosave.toast_default,Oyun otomatik kaydedildi,Game autosaved
 tutorial.prompt.title,Öğretici,Tutorial
 tutorial.prompt.body,Temel hareket ve kontrolleri kısa bir alanda öğrenmek ister misin? İstersen doğrudan köye gidebilirsin.,Would you like to learn basic movement and controls in a short area? You can also go straight to the village.
 tutorial.prompt.play,Tutorial'ı oyna,Play Tutorial
-tutorial.prompt.skip,Geç — doğrudan köy,Skip — go to village
+tutorial.prompt.skip,Geç (doğrudan köy),Skip (go to village)
 tutorial.prompt.back,Geri (profil seçimi),Back (profile select)
 resource.gold,Altın,Gold
 resource.wood,Odun,Wood
@@ -179,6 +209,7 @@ building.herbalist,Şifacı,Herbalist
 building.teahouse,Çay Evi,Tea House
 building.soapmaker,Sabun Atölyesi,Soap Workshop
 building.gunsmith,Silahçı,Gunsmith
+building.storage,Depo,Storage
 hud.gold,Altın: %d,Gold: %d
 hud.soldiers,Asker: %d,Soldiers: %d
 hud.morale,Moral: %.0f,Morale: %.0f
@@ -358,7 +389,11 @@ wm.continue,Devam,Continue
 wm.rolling,Atılıyor...,Rolling...
 wm.travel_event.title,Yolculuk Olayı,Travel Event
 wm.travel_outcome.title,Yol sonucu,Travel Outcome
-wm.travel_event.cargo_risk,%s\n\nYük riski çarpanı: x%.2f,%s\n\nCargo risk multiplier: x%.2f
+wm.travel_event.cargo_risk,"%s
+
+Yük riski çarpanı: x%.2f","%s
+
+Cargo risk multiplier: x%.2f"
 wm.dungeon_entry.title,Zindan Girişi,Dungeon Entry
 wm.dungeon_entry.body,Zindan hexine vardın. Zindana girmek istiyor musun?,You reached a dungeon hex. Do you want to enter the dungeon?
 wm.dungeon_entry.cancelled,Zindan girişi iptal edildi.,Dungeon entry cancelled.
@@ -372,9 +407,13 @@ wm.mission_player.default_name,Görev,Mission
 wm.mission_player.subtitle,Köyden kaynak harcayarak bir yöntem seç. Başarı şansı yaklaşıktır; başarısızlıkta cezalar uygulanır.,Choose an approach by spending village resources. Success chance is approximate; failure applies penalties.
 wm.mission_player.cancel,Vazgeç (şimdilik yapma),Cancel (not now)
 wm.mission_strategy.no_cost,%s (~%%%d başarı),%s (~%%%d success)
-wm.mission_strategy.with_cost,%s\n→ %s • ~%%%d başarı,%s\n→ %s • ~%%%d success
+wm.mission_strategy.with_cost,"%s
+→ %s • ~%%%d başarı","%s
+→ %s • ~%%%d success"
 wm.exp_pack.title,Köyden erzak,Supplies from village
-wm.exp_pack.hint,Yukarı/Aşağı: satır | Sol/Sağ: miktar (basılı tut: hızlanır) | Enter: Yanıma al | Esc: Kapat\nFare ile kapatma yok. Yolda olaylar bu çantayı etkiler; kasa altını ayrı.,Up/Down: row | Left/Right: amount (hold to speed up) | Enter: Take with me | Esc: Close\nNo mouse close. Road events affect this pack; vault gold is separate.
+wm.exp_pack.hint,"Yukarı/Aşağı: satır | Sol/Sağ: miktar (basılı tut: hızlanır) | Enter: Yanıma al | Esc: Kapat
+Fare ile kapatma yok. Yolda olaylar bu çantayı etkiler; kasa altını ayrı.","Up/Down: row | Left/Right: amount (hold to speed up) | Enter: Take with me | Esc: Close
+No mouse close. Road events affect this pack; vault gold is separate."
 wm.exp_pack.pocket_gold,Cep altını (kasa),Pocket gold (vault)
 wm.hints.move_gamepad,Hareket: D-Pad,Move: D-Pad
 wm.hints.walk_gamepad,Yürü: A,Walk: A
@@ -419,7 +458,13 @@ mc.mission.result.title,🎯 GÖREV SONUCU,🎯 MISSION RESULT
 mc.mission.history.title,📚 GÖREV GEÇMİŞİ,📚 MISSION HISTORY
 mc.mission.history.stats_title,📊 İSTATİSTİKLER,📊 STATISTICS
 mc.assignment.header,İŞÇİ ATAMA MENÜSÜ,WORKER ASSIGNMENT
-mc.assignment.controls,"KONTROLLER:\nYön Tuşları: Seçim\n[Zıplama]: İşçi Ekle  |  [Saldırı]: İşçi Çıkar  |  [Özel Vuruş]: Detay\nB: Geri","CONTROLS:\nD-Pad: Select\n[Jump]: Add Worker  |  [Attack]: Remove Worker  |  [Heavy Attack]: Details\nB: Back"
+mc.assignment.controls,"KONTROLLER:
+Yön Tuşları: Seçim
+[Zıplama]: İşçi Ekle  |  [Saldırı]: İşçi Çıkar  |  [Özel Vuruş]: Detay
+B: Geri","CONTROLS:
+D-Pad: Select
+[Jump]: Add Worker  |  [Attack]: Remove Worker  |  [Heavy Attack]: Details
+B: Back"
 mc.construction.controls,Yön Tuşları: Seçim  |  A: İnşa/Yükselt  |  X: Yık  |  Y: Bilgi,D-Pad: Select  |  A: Build/Upgrade  |  X: Demolish  |  Y: Info
 mc.construction.active_banner,Devam eden şantiyeler,Ongoing construction
 mc.construction.status.building,İnşa Halinde (%.1fsa),Under Construction (%.1f hr)
@@ -432,49 +477,119 @@ mc.news.world_section,🌍 DÜNYA HABERLERİ,🌍 WORLD NEWS
 wm.tutorial_marker.dungeon,ZİNDAN,DUNGEON
 wm.tutorial_marker.village,KÖY,VILLAGE
 wm.tutorial_marker.forest,ORMAN,FOREST
-tutorial.farewell,Temelleri öğrendin — bol şans!,You learned the basics — good luck!
+tutorial.farewell,"Temelleri öğrendin, bol şans!","You learned the basics, good luck!"
 tutorial.ui.interact,Etkileşim: %s,Interact: %s
 tutorial.ui.menu,Menü: %s,Menu: %s
-tutorial.dungeon.beat0,Kendine geldin. Çabuk ol — fazla zaman yok.,You came to. Hurry — there is not much time.
-tutorial.dungeon.beat1,Zıpla: {jump}.\nNe kadar uzun basılı tutarsan o kadar yüksek zıplarsın.,"Jump: {jump}.\nThe longer you hold it, the higher you jump."
+tutorial.dungeon.beat0,"Kendine geldin. Çabuk ol, fazla zaman yok.","You're awake. Hurry, there's not much time."
+tutorial.dungeon.beat1,"Zıpla: {jump}.
+Ne kadar uzun basılı tutarsan o kadar yüksek zıplarsın.","Jump: {jump}.
+The longer you hold it, the higher you jump."
 tutorial.dungeon.beat2,Bu duvarı [b]çift zıpla[/b]: havadayken tekrar {jump}.,[b]Double jump[/b] this wall: press {jump} again in the air.
 tutorial.dungeon.beat3,Dar geçit: {crouch} ile eğil.,Narrow passage: crouch with {crouch}.
 tutorial.dungeon.beat4,"Tek yönlü platform: {down} basılı tut, {jump} ile aşağı in.",One-way platform: hold {down} and drop with {jump}.
 tutorial.dungeon.beat5,Köşeye zıpla. Tutunmak için {block} basılı tut; tutunurken {up} ile tırman.,Jump to the ledge. Hold {block} to grab; climb with {up} while holding.
-tutorial.dungeon.exit_hint,"[b][color=#3d2008]Çıkışı görüyorum — sağda![/color][/b]\nÇabuk koş, tünelden geç!","[b][color=#3d2008]I can see the exit — it's to the right![/color][/b]\nHurry, run through the tunnel!"
+tutorial.dungeon.exit_hint,"[b][color=#3d2008]Çıkışı görüyorum, sağda![/color][/b]
+Çabuk koş, tünelden geç!","[b][color=#3d2008]I can see the exit. It's to the right![/color][/b]
+Hurry, run through the tunnel!"
 tutorial.dungeon.move_right_title,Sağa git,Go right
-tutorial.dungeon.move_right,%s\n%s ile sağa koş ve [b]yeşil işaretli alana[/b] gir.,%s\nRun right with %s and enter the [b]green marked area[/b].
+tutorial.dungeon.move_right,"%s
+%s ile sağa koş ve [b]yeşil işaretli alana[/b] gir.","%s
+Run right with %s and enter the [b]green marked area[/b]."
 tutorial.dungeon.move_left_title,Sola dön,Turn left
-tutorial.dungeon.move_left,%s\n%s ile sola koş ve diğer işaretli alana gir.\nİleride zıplamak için: %s,%s\nRun left with %s and enter the other marked area.\nTo jump ahead: %s
-tutorial.dungeon.finish,[b]Güzel![/b]\nKöye geçiliyor…,[b]Nice![/b]\nReturning to the village…
+tutorial.dungeon.move_left,"%s
+%s ile sola koş ve diğer işaretli alana gir.
+İleride zıplamak için: %s","%s
+Run left with %s and enter the other marked area.
+To jump ahead: %s"
+tutorial.dungeon.finish,"[b]Güzel![/b]
+Köye geçiliyor…","[b]Nice![/b]
+Returning to the village…"
 tutorial.combat.title,Dövüş pratiği,Combat practice
 tutorial.combat.complete,Tamam!,Done!
-tutorial.combat.phase0,%s (1/5)\nDüşmana {attack} ile [b]2[/b] hafif vuruş (ilerleme: %d/2).\nYer veya havadayken hafif saldırı tuşuna bas; düşmana isabet etsin.,%s (1/5)\nLand [b]2[/b] light hits on the enemy with {attack} (progress: %d/2).\nPress light attack on ground or in air; hits must connect.
-tutorial.combat.phase1,%s (2/5)\nDüşmana {attack_heavy} ile [b]1[/b] ağır vuruş (ilerleme: %d/1).\nAğır saldırı tuşuna bas veya basılı tut; düşmana çarpmalı.,%s (2/5)\nLand [b]1[/b] heavy hit with {attack_heavy} (progress: %d/1).\nPress or hold heavy attack; it must hit the enemy.
-tutorial.combat.phase2,%s (3/5)\nHavadayken {down} + {jump} ile [b]1[/b] düşüş saldırısı (ilerleme: %d/1).\nDüşüş saldırısı düşmana değince sayılır.,%s (3/5)\nPerform [b]1[/b] dive attack with {down} + {jump} in the air (progress: %d/1).\nThe dive attack counts when it hits the enemy.
-tutorial.combat.phase3,"%s (4/5)\n{dodge} ile bir kez kaçın.\nYön tuşlarıyla yüzünü çevir, kaçış tuşu ile yuvarlan.",%s (4/5)\nDodge once with {dodge}.\nFace a direction and roll with the dodge button.
-tutorial.combat.phase4,"%s (5/5)\nBir saldırıyı {block} ile tut: kalkanı aç, vuruşu hasarsız kes.\nParry ya da kontra gerekmiyor — sadece blok yeter.",%s (5/5)\nBlock an attack with {block}: raise your guard and negate damage.\nNo parry or counter needed — a simple block is enough.
-tutorial.combat.done,%s\nArtık hazırsın.,%s\nYou are ready now.
-tutorial.dungeon_guide.message,"Köyün temellerini öğrendin. Şimdi sırada keşif var!\n[color=#f5d76e]{map}[/color] ile dünya haritasını aç — yakındaki bir [color=#ff6655]zindanı[/color] senin için işaretledim.\nOraya yürü, vardığında zindana gir. Cariyeler ve hazineler seni bekliyor olabilir.","You learned the village basics. Time to explore!\nOpen the world map with [color=#f5d76e]{map}[/color] — I marked a nearby [color=#ff6655]dungeon[/color] for you.\nWalk there and enter when you arrive. Concubines and treasure may await."
+tutorial.combat.phase0,"%s (1/5)
+Düşmana {attack} ile [b]2[/b] hafif vuruş (ilerleme: %d/2).
+Yer veya havadayken hafif saldırı tuşuna bas; düşmana isabet etsin.","%s (1/5)
+Land [b]2[/b] light hits on the enemy with {attack} (progress: %d/2).
+Press light attack on ground or in air; hits must connect."
+tutorial.combat.phase1,"%s (2/5)
+Düşmana {attack_heavy} ile [b]1[/b] ağır vuruş (ilerleme: %d/1).
+Ağır saldırı tuşuna bas veya basılı tut; düşmana çarpmalı.","%s (2/5)
+Land [b]1[/b] heavy hit with {attack_heavy} (progress: %d/1).
+Press or hold heavy attack; it must hit the enemy."
+tutorial.combat.phase2,"%s (3/5)
+Havadayken {down} + {jump} ile [b]1[/b] düşüş saldırısı (ilerleme: %d/1).
+Düşüş saldırısı düşmana değince sayılır.","%s (3/5)
+Perform [b]1[/b] dive attack with {down} + {jump} in the air (progress: %d/1).
+The dive attack counts when it hits the enemy."
+tutorial.combat.phase3,"%s (4/5)
+{dodge} ile bir kez kaçın.
+Yön tuşlarıyla yüzünü çevir, kaçış tuşu ile yuvarlan.","%s (4/5)
+Dodge once with {dodge}.
+Face a direction and roll with the dodge button."
+tutorial.combat.phase4,"%s (5/5)
+Bir saldırıyı {block} ile tut: kalkanı aç, vuruşu hasarsız kes.
+Parry ya da kontra gerekmiyor — sadece blok yeter.","%s (5/5)
+Block an attack with {block}: raise your guard and negate damage.
+No parry or counter needed — a simple block is enough."
+tutorial.combat.done,"%s
+Artık hazırsın.","%s
+You are ready now."
+tutorial.dungeon_guide.message,"Köyün temellerini öğrendin. Şimdi sırada keşif var!
+[color=#f5d76e]{map}[/color] ile dünya haritasını aç — yakındaki bir [color=#ff6655]zindanı[/color] senin için işaretledim.
+Oraya yürü, vardığında zindana gir. Cariyeler ve hazineler seni bekliyor olabilir.","You learned the village basics. Time to explore!
+Open the world map with [color=#f5d76e]{map}[/color] — I marked a nearby [color=#ff6655]dungeon[/color] for you.
+Walk there and enter when you arrive. Concubines and treasure may await."
 tutorial.dungeon_guide.objective,"{map} ile haritayı aç, işaretli zindana git, vardığında zindana gir","Open the map with {map}, go to the marked dungeon, and enter when you arrive"
 tutorial.dungeon_guide.door_objective,Bir kapı seç ve içeri gir,Choose a door and go inside
-tutorial.dungeon.door_legend_1,"[b]Kapı üstündeki simgeler[/b]\n☠ = güçlü düşmanlar\nTuzak simgesi = güçlü tuzaklar demektir.","[b]Icons on the doors[/b]\n☠ = tougher enemies\nThe trap icon means tougher traps."
-tutorial.dungeon.door_legend_2,"💰 simgesi: içeride daha çok altın var.\n❤ simgesi: kurtarılacak bir tutsak var.\nHiçbir simge yoksa, orası normal zorlukta bir zindandır.","The gold icon means more gold inside.\nThe heart icon means a captive to rescue.\nNo icon at all means a normal-difficulty room."
-tutorial.dungeon.stealth_intro_1,"[b]Gizlilik[/b]\nBu odaya girdiğinde düşmanlar senden habersiz.\nGörüş alanlarına girmezsen ve sadece arkalarından vurursan, fark ettirmeden kapıdan çıkabilirsin.","[b]Stealth[/b]\nWhen you enter this room, the enemies don't know you're here.\nStay out of their sight and strike only from behind, and you can slip out the door unnoticed."
-tutorial.dungeon.stealth_intro_2,"[b]Alarm[/b]\nGizlilik sırasında tutsak kurtarma gibi görevler daha kolaydır.\nAma alarm çalarsa zindan kapıları kilitlenir — çıkmak için anahtar bulman gerekir.","[b]Alarm[/b]\nTasks like rescuing captives are easier while undetected.\nBut if the alarm goes off, the dungeon doors lock — you'll need to find a key to get out."
-tutorial.village.welcome_hud,"Hayatta kaldın. Bu köy senin.\nAltta [color=#f5d76e]altın[/color], [color=#aaddff]işçi[/color] ve [color=#aaffaa]kaynakları[/color] görürsün.\nKöylülerin her gün [color=#ff9966]yiyecek[/color] tüketir.\nStok biterse [color=#ff6666]moral[/color] düşer — moral sıfırlanırsa oyun biter.","You survived. This village is yours.\nAt the bottom you see [color=#f5d76e]gold[/color], [color=#aaddff]workers[/color], and [color=#aaffaa]resources[/color].\nVillagers consume [color=#ff9966]food[/color] daily.\nIf stocks run out, [color=#ff6666]morale[/color] falls — at zero morale, the game ends."
-tutorial.village.go_build_starters,"İyi haber: ilk kaynak binalarının ([color=#c8a86c]Odun Kampı[/color], [color=#88ccff]Taş Madeni[/color], [color=#ff9966]Avcı Kulübesi[/color]) hiçbir maliyeti yok.\nBoş bir parsele git, {ui_up} ile inşa menüsünü aç ve üçünü de sırayla kur.\nSonra her birinin yanına gidip {village_worker_add} ile işçi ata.","Good news: the first resource buildings ([color=#c8a86c]Woodcutter Camp[/color], [color=#88ccff]Stone Mine[/color], [color=#ff9966]Hunter-Gatherer Hut[/color]) cost nothing.\nGo to an empty plot, open the build menu with {ui_up}, and put up all three.\nThen stand by each one and assign a worker with {village_worker_add}."
+tutorial.dungeon.door_legend_1,"[b]Kapı üstündeki simgeler[/b]
+☠ = güçlü düşmanlar
+Tuzak simgesi = güçlü tuzaklar demektir.","[b]Icons on the doors[/b]
+☠ = tougher enemies
+The trap icon means tougher traps."
+tutorial.dungeon.door_legend_2,"💰 simgesi: içeride daha çok altın var.
+❤ simgesi: kurtarılacak bir tutsak var.
+Hiçbir simge yoksa, orası normal zorlukta bir zindandır.","The gold icon means more gold inside.
+The heart icon means a captive to rescue.
+No icon at all means a normal-difficulty room."
+tutorial.dungeon.stealth_intro_1,"[b]Gizlilik[/b]
+Bu odaya girdiğinde düşmanlar senden habersiz.
+Görüş alanlarına girmezsen ve sadece arkalarından vurursan, fark ettirmeden kapıdan çıkabilirsin.","[b]Stealth[/b]
+When you enter this room, the enemies don't know you're here.
+Stay out of their sight and strike only from behind, and you can slip out the door unnoticed."
+tutorial.dungeon.stealth_intro_2,"[b]Alarm[/b]
+Gizlilik sırasında tutsak kurtarma gibi görevler daha kolaydır.
+Ama alarm çalarsa zindan kapıları kilitlenir — çıkmak için anahtar bulman gerekir.","[b]Alarm[/b]
+Tasks like rescuing captives are easier while undetected.
+But if the alarm goes off, the dungeon doors lock — you'll need to find a key to get out."
+tutorial.village.welcome_hud,"Hayatta kaldın. Bu köy senin.
+Altta [color=#f5d76e]altın[/color], [color=#aaddff]işçi[/color] ve [color=#aaffaa]kaynakları[/color] görürsün.
+Köylülerin her gün [color=#ff9966]yiyecek[/color] tüketir.
+Stok biterse [color=#ff6666]moral[/color] düşer. Moral sıfırlanırsa oyun biter.","You survived. This village is yours.
+At the bottom you see [color=#f5d76e]gold[/color], [color=#aaddff]workers[/color], and [color=#aaffaa]resources[/color].
+Villagers consume [color=#ff9966]food[/color] daily.
+If stocks run out, [color=#ff6666]morale[/color] falls. At zero morale, the game ends."
+tutorial.village.go_build_starters,"İyi haber: ilk kaynak binalarının ([color=#c8a86c]Odun Kampı[/color], [color=#88ccff]Taş Madeni[/color], [color=#ff9966]Avcı Kulübesi[/color]) hiçbir maliyeti yok.
+Boş bir parsele git, {ui_up} ile inşa menüsünü aç ve üçünü de sırayla kur.
+Sonra her birinin yanına gidip {village_worker_add} ile işçi ata.","Good news: the first resource buildings ([color=#c8a86c]Woodcutter Camp[/color], [color=#88ccff]Stone Mine[/color], [color=#ff9966]Hunter-Gatherer Hut[/color]) cost nothing.
+Go to an empty plot, open the build menu with {ui_up}, and put up all three.
+Then stand by each one and assign a worker with {village_worker_add}."
 tutorial.village.objective_mentor,Mentora yaklaş ve {interact} tuşuna basılı tutarak konuş (NPC'lerle konuşmak basılı tutmayı gerektirir),Approach the mentor and hold {interact} to talk (talking to NPCs requires holding the button)
-tutorial.village.objective_build_starters,"Boş parsellere şu binaları ücretsiz inşa et: %s",Build these buildings for free on empty plots: %s
-tutorial.village.objective_wait_construction,"İnşaat sürüyor — kamp ateşine git, {ui_up} ile zaman geçir (binalarla etkileşim için tuşa kısa bas)","Construction is underway — go to the campfire and pass time with {ui_up} (tap the button briefly to interact with buildings)"
+tutorial.village.objective_build_starters,Boş parsellere şu binaları ücretsiz inşa et: %s,Build these buildings for free on empty plots: %s
+tutorial.village.objective_wait_construction,"İnşaat sürüyor. Kamp ateşine git, {ui_up} ile zaman geçir (binalarla etkileşim için tuşa kısa bas)",Construction is underway. Go to the campfire and pass time with {ui_up} (tap the button briefly to interact with buildings)
 tutorial.village.objective_assign_workers_starters,"Bu binaların yanına git, {village_worker_add} ile işçi ata: %s",Stand by these buildings and assign a worker with {village_worker_add}: %s
 tutorial.village.objective_forest,"Odun ve yiyecek toplamak için {map} ile haritayı aç, {move} ile ormana git, {hex_enter} ile gir","To gather wood and food, open the map with {map}, go to the forest with {move}, enter with {hex_enter}"
-tutorial.village.objective_build_house,"Boş bir parsele git, {ui_up} ile inşa menüsünü aç ve bir Ev kur — köylülerin barınması için gerekli","Go to an empty plot, open the build menu with {ui_up}, and build a House — needed to house your villagers"
-tutorial.village.objective_wait_house_construction,"Ev inşaatı sürüyor — kamp ateşine git, {ui_up} ile zaman geçir (binalarla etkileşim için tuşa kısa bas)","The house is under construction — go to the campfire and pass time with {ui_up} (tap the button briefly to interact with buildings)"
-tutorial.village.core_complete,"Temeller atıldı — artık köy senin.\nİstersen mentorla konuş; sırada keşif var.","The basics are in place — the village is yours.\nTalk to the mentor when you want; exploration is next."
-tutorial.hint.first_cariye,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!\nKöyde ona yaklaş ([color=#f5d76e]^[/color] basılı tut) — [color=#f5d76e]Kurtarılanın Yolu[/color] görev zinciri açıldı.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!\nApproach her in the village (hold [color=#f5d76e]^[/color]) — the [color=#f5d76e]Path of the Rescued[/color] chain is available."
-tutorial.rescue_chain.message,"[color=#ff99cc]%s[/color] köye geldi.\nOna yaklaş ve [color=#f5d76e]Kurtarılanın Yolu[/color] zincirinden «Dinlen ve Anlat» görevini ata.","[color=#ff99cc]%s[/color] has arrived.\nApproach her and assign «Rest and Debrief» from the [color=#f5d76e]Path of the Rescued[/color] chain."
-tutorial.rescue_chain.objective,%s ile konuş — «Dinlen ve Anlat» görevini ata,Talk to %s — assign «Rest and Debrief»
+tutorial.village.objective_build_house,"Boş bir parsele git, {ui_up} ile inşa menüsünü aç ve bir Ev kur — köylülerin barınması için gerekli","Go to an empty plot, open the build menu with {ui_up}, and build a House so your villagers have somewhere to live"
+tutorial.village.objective_wait_house_construction,"Ev inşaatı sürüyor. Kamp ateşine git, {ui_up} ile zaman geçir (binalarla etkileşim için tuşa kısa bas)",The house is under construction. Go to the campfire and pass time with {ui_up} (tap the button briefly to interact with buildings)
+tutorial.village.core_complete,"Temeller atıldı. Artık köy senin.
+İstersen mentorla konuş; sırada keşif var.","The basics are in place. The village is yours.
+Talk to the mentor when you want; exploration is next."
+tutorial.hint.first_cariye,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!
+Köyde ona yaklaş ([color=#f5d76e]^[/color] basılı tut) — [color=#f5d76e]Kurtarılanın Yolu[/color] görev zinciri açıldı.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!
+Approach her in the village (hold [color=#f5d76e]^[/color]) — the [color=#f5d76e]Path of the Rescued[/color] chain is available."
+tutorial.rescue_chain.message,"[color=#ff99cc]%s[/color] köye geldi.
+Ona yaklaş ve [color=#f5d76e]Kurtarılanın Yolu[/color] zincirinden «Dinlen ve Anlat» görevini ata.","[color=#ff99cc]%s[/color] has arrived.
+Approach her and assign «Rest and Debrief» from the [color=#f5d76e]Path of the Rescued[/color] chain."
+tutorial.rescue_chain.objective,"%s ile konuş, «Dinlen ve Anlat» görevini ata",Talk to %s and assign «Rest and Debrief»
 mission.rescue_chain.chain_name,Kurtarılanın Yolu,Path of the Rescued
 mission.rescue_chain.target.village,Köy,Village
 mission.rescue_chain.risk.low,Düşük,Low
@@ -549,20 +664,58 @@ item.set.elemental.name,Üç Element,Tri-Element
 item.set.will_activate,set tamamlanır!,set complete!
 item.set.one_more,1 parça kaldı,1 piece left
 item.set.active_short,aktif,active
-tutorial.hint.first_trader,"Köye bir [color=#ffcc44]tüccar[/color] geldi!\nTüccarlarla kaynak alışverişi yapabilirsin.\nKöyün ihtiyaçlarına göre iyi fırsatları kaçırma — tüccarlar sonsuza kadar kalmaz.","A [color=#ffcc44]trader[/color] arrived in the village!\nYou can trade resources with merchants.\nDo not miss good deals — traders do not stay forever."
+tutorial.hint.first_trader,"Köye bir [color=#ffcc44]tüccar[/color] geldi!
+Tüccarlarla kaynak alışverişi yapabilirsin.
+Köyün ihtiyaçlarına göre iyi fırsatları kaçırma. Tüccarlar sonsuza kadar kalmaz.","A [color=#ffcc44]trader[/color] arrived in the village!
+You can trade resources with merchants.
+Do not miss good deals. Traders do not stay forever."
 tutorial.digest.prefix,Yokluğunda:,While you were away:
-mentor.death.return.dungeon,"[color=#ff8888]Zindanda düştün[/color], ama köylüler seni taşıdı.\nCanın [b]1[/b]'e indi; köyde yaklaşık [b]%.1f saat[/b] dinlenerek toparlanacaksın.\nBu sürede zindana gitme — önce iyileş.","You [color=#ff8888]fell in the dungeon[/color], but villagers carried you back.\nHealth dropped to [b]1[/b]; rest in the village for about [b]%.1f hours[/b] to recover.\nAvoid the dungeon until you're healed."
-mentor.death.return.expedition,"[color=#ff8888]Sefer yarıda kaldı[/color] — erzak ve yol seni yordu.\nKöye döndün; canın [b]1[/b], toparlanma yaklaşık [b]%.1f saat[/b] sürecek.\nHaritada tekrar yola çıkmadan önce dinlen.","[color=#ff8888]The expedition collapsed[/color] — supplies and the road wore you down.\nYou're back in the village at [b]1[/b] HP; recovery takes about [b]%.1f hours[/b].\nRest before heading out on the map again."
-mentor.death.return.forest,"[color=#ff8888]Ormanda ağır yaralandın[/color].\nKöylüler seni getirdi; canın [b]1[/b], dinlenme yaklaşık [b]%.1f saat[/b].\nKaynak toplamaya dönmeden önce iyileş.","[color=#ff8888]You were badly hurt in the forest[/color].\nVillagers brought you back at [b]1[/b] HP; rest about [b]%.1f hours[/b].\nHeal before gathering again."
-mentor.death.return.tutorial,"[color=#ff8888]Düştün[/color] — bu seferlik köy seni korudu.\nCanın [b]1[/b]; yaklaşık [b]%.1f saat[/b] dinlen.","[color=#ff8888]You fell[/color] — the village protected you this time.\nHealth is [b]1[/b]; rest about [b]%.1f hours[/b]."
-mentor.death.return.combat,"[color=#ff8888]Savaşta yere serildin[/color].\nKöye taşındın; can [b]1[/b], toparlanma [b]%.1f saat[/b] sürebilir.","[color=#ff8888]You were knocked down in combat[/color].\nCarried to the village at [b]1[/b] HP; recovery may take [b]%.1f hours[/b]."
-mentor.death.return.generic,"[color=#ff8888]Ölümün eşiğinden döndün[/color].\nCanın [b]1[/b]; köyde yaklaşık [b]%.1f saat[/b] dinlenerek toparlanırsın.","[color=#ff8888]You returned from death's edge[/color].\nHealth is [b]1[/b]; rest in the village for about [b]%.1f hours[/b]."
-mentor.death.debuff.rib,"[color=#ffaa66]Kırık kaburga[/color] — maksimum canın geçici olarak düştü.\nSağlık çubuğundaki debuff süresini takip et; iyileşene kadar agresif savaştan kaçın.","[color=#ffaa66]Broken rib[/color] — max health is temporarily reduced.\nWatch the debuff timer on your health bar; avoid aggressive fights until it clears."
-mentor.death.debuff.back,"[color=#ffaa66]Bel tutulması[/color] — ağır saldırıların kilitli.\nHafif combo ve savunmayla idare et; birkaç gün içinde geçer.","[color=#ffaa66]Back strain[/color] — heavy attacks are locked.\nUse light combos and defense; it clears in a few days."
-mentor.death.debuff.balance,"[color=#ffaa66]Denge kaybı[/color] — havadan saldırı yapamazsın.\nYere yakın dövüşe odaklan; debuff süresi dolunca normale dönersin.","[color=#ffaa66]Balance loss[/color] — aerial attacks are disabled.\nFight close to the ground; you'll return to normal when the debuff expires."
-mentor.death.debuff.generic,"[color=#ffaa66]Yaralanma[/color] geçici bir ceza bıraktı.\nSağlık panelindeki debuff'u kontrol et.","[color=#ffaa66]Injury[/color] left a temporary penalty.\nCheck the debuff on your health panel."
-mentor.death.healed,"[color=#88ff88]Ayağa kalktın![/color]\nCanın normale döndü — ama bir sonraki düşüşte yine aynı bedeli ödersin.\nZindana gitmeden önce kaynak ve moralini kontrol et.","[color=#88ff88]You're back on your feet![/color]\nHealth restored — but the next fall costs the same.\nCheck supplies and morale before the dungeon."
-mentor.festival.body,"Köyde [color=#ffdd66]festival[/color] var!\nMoral yükseldi, depolara biraz yiyecek eklendi.\nBu günleri iyi değerlendir — köylüler mutlu üretir.","A [color=#ffdd66]festival[/color] in the village!\nMorale rose and some food was added to stores.\nMake the most of these days — happy villagers produce more."
+mentor.death.return.dungeon,"[color=#ff8888]Zindanda düştün[/color], ama köylüler seni taşıdı.
+Canın [b]1[/b]'e indi; köyde yaklaşık [b]%.1f saat[/b] dinlenerek toparlanacaksın.
+Bu sürede zindana gitme. Önce iyileş.","You [color=#ff8888]fell in the dungeon[/color], but villagers carried you back.
+Health dropped to [b]1[/b]; rest in the village for about [b]%.1f hours[/b] to recover.
+Avoid the dungeon until you're healed."
+mentor.death.return.expedition,"[color=#ff8888]Sefer yarıda kaldı[/color]. Erzak ve yol seni yordu.
+Köye döndün; canın [b]1[/b], toparlanma yaklaşık [b]%.1f saat[/b] sürecek.
+Haritada tekrar yola çıkmadan önce dinlen.","[color=#ff8888]The expedition collapsed[/color]. Supplies and the road wore you down.
+You're back in the village at [b]1[/b] HP; recovery takes about [b]%.1f hours[/b].
+Rest before heading out on the map again."
+mentor.death.return.forest,"[color=#ff8888]Ormanda ağır yaralandın[/color].
+Köylüler seni getirdi; canın [b]1[/b], dinlenme yaklaşık [b]%.1f saat[/b].
+Kaynak toplamaya dönmeden önce iyileş.","[color=#ff8888]You were badly hurt in the forest[/color].
+Villagers brought you back at [b]1[/b] HP; rest about [b]%.1f hours[/b].
+Heal before gathering again."
+mentor.death.return.tutorial,"[color=#ff8888]Düştün[/color]. Bu seferlik köy seni korudu.
+Canın [b]1[/b]; yaklaşık [b]%.1f saat[/b] dinlen.","[color=#ff8888]You fell[/color]. The village protected you this time.
+Health is [b]1[/b]; rest about [b]%.1f hours[/b]."
+mentor.death.return.combat,"[color=#ff8888]Savaşta yere serildin[/color].
+Köye taşındın; can [b]1[/b], toparlanma [b]%.1f saat[/b] sürebilir.","[color=#ff8888]You were knocked down in combat[/color].
+Carried to the village at [b]1[/b] HP; recovery may take [b]%.1f hours[/b]."
+mentor.death.return.generic,"[color=#ff8888]Ölümün eşiğinden döndün[/color].
+Canın [b]1[/b]; köyde yaklaşık [b]%.1f saat[/b] dinlenerek toparlanırsın.","[color=#ff8888]You returned from death's edge[/color].
+Health is [b]1[/b]; rest in the village for about [b]%.1f hours[/b]."
+mentor.death.debuff.rib,"[color=#ffaa66]Kırık kaburga[/color]: maksimum canın geçici olarak düştü.
+Sağlık çubuğundaki debuff süresini takip et; iyileşene kadar agresif savaştan kaçın.","[color=#ffaa66]Broken rib[/color]: max health is temporarily reduced.
+Watch the debuff timer on your health bar; avoid aggressive fights until it clears."
+mentor.death.debuff.back,"[color=#ffaa66]Bel tutulması[/color]: ağır saldırıların kilitli.
+Hafif combo ve savunmayla idare et; birkaç gün içinde geçer.","[color=#ffaa66]Back strain[/color]: heavy attacks are locked.
+Use light combos and defense; it clears in a few days."
+mentor.death.debuff.balance,"[color=#ffaa66]Denge kaybı[/color]: havadan saldırı yapamazsın.
+Yere yakın dövüşe odaklan; debuff süresi dolunca normale dönersin.","[color=#ffaa66]Balance loss[/color]: aerial attacks are disabled.
+Fight close to the ground; you'll return to normal when the debuff expires."
+mentor.death.debuff.generic,"[color=#ffaa66]Yaralanma[/color] geçici bir ceza bıraktı.
+Sağlık panelindeki debuff'u kontrol et.","[color=#ffaa66]Injury[/color] left a temporary penalty.
+Check the debuff on your health panel."
+mentor.death.healed,"[color=#88ff88]Ayağa kalktın![/color]
+Canın normale döndü, ama bir sonraki düşüşte yine aynı bedeli ödersin.
+Zindana gitmeden önce kaynak ve moralini kontrol et.","[color=#88ff88]You're back on your feet![/color]
+Health restored, but the next fall costs the same.
+Check supplies and morale before the dungeon."
+mentor.festival.body,"Köyde [color=#ffdd66]festival[/color] var!
+Moral yükseldi, depolara biraz yiyecek eklendi.
+Bu günleri iyi değerlendir. Köylüler mutlu üretir.","A [color=#ffdd66]festival[/color] in the village!
+Morale rose and some food was added to stores.
+Make the most of these days. Happy villagers produce more."
 village.event.festival.title,🎉 Köy Festivali,🎉 Village Festival
 village.event.festival.body,Köylüler bir araya geldi! Moral +%d; yiyecek +%d.,Villagers gathered! Morale +%d; food +%d.
 village.event.festival.gold_bonus,Komşular hediye olarak %d altın gönderdi.,Neighbors sent %d gold as a gift.
@@ -591,10 +744,14 @@ ambient.conv.guests.a1,Misafirler barınak bekliyor.,Guests are waiting for shel
 ambient.conv.guests.b1,Bir ev daha inşa etsek iyi olur.,We should build another house.
 demo.teaser.title,Demo Sınırı,Demo Limit
 demo.teaser.body,Bu demo %d oyun günü ile sınırlıdır. Tam sürümde mevsimler harita ve daha derin köy hikâyesi açılır.,This demo is limited to %d game days. The full release unlocks seasons the map and deeper village stories.
-demo.teaser.mentor,[color=#c9b3ff]Demo süresi doldu[/color] — ama loop'u denedin!\nTam oyunda festival savunma fraksiyonlar ve cariye hikâyeleri devam eder.\nGeri bildirimini bizimle paylaş.,"[color=#c9b3ff]Demo time is up[/color] — but you tried the loop!\nThe full game continues with festivals defense factions and concubine stories.\nShare your feedback with us."
+demo.teaser.mentor,"[color=#c9b3ff]Demo süresi doldu[/color], ama loop'u denedin!
+Tam oyunda festival savunma fraksiyonlar ve cariye hikâyeleri devam eder.
+Geri bildirimini bizimle paylaş.","[color=#c9b3ff]Demo time is up[/color], but you tried the loop!
+The full game continues with festivals defense factions and concubine stories.
+Share your feedback with us."
 tutorial.forest.complete,"Kaynaklar tamam! Portaldan haritaya dön, köy hex'ine git",Resources complete! Return through the portal to the map and go to the village hex
-tutorial.forest.need_food,Odun: %d/%d  Meyve: %d/%d — Meyve toplamaya devam et,Wood: %d/%d  Food: %d/%d — keep gathering food
-tutorial.forest.need_wood,Odun: %d/%d  Meyve: %d/%d — Odun kesmeye devam et,Wood: %d/%d  Food: %d/%d — keep chopping wood
+tutorial.forest.need_food,Odun: %d/%d  Meyve: %d/%d . Meyve toplamaya devam et,Wood: %d/%d  Food: %d/%d . Keep gathering food
+tutorial.forest.need_wood,Odun: %d/%d  Meyve: %d/%d . Odun kesmeye devam et,Wood: %d/%d  Food: %d/%d . Keep chopping wood
 tutorial.forest.progress,Odun: %d/%d  Meyve: %d/%d,Wood: %d/%d  Food: %d/%d
 mc.mission.controls,[Yukarı/Aşağı: Seçim] [A: Seç/Atama] [B: Geri],[Up/Down: Select] [A: Select/Assign] [B: Back]
 mc.mission.chains.title,🔗 GÖREV ZİNCİRLERİ,🔗 MISSION CHAINS
@@ -608,8 +765,20 @@ mc.construction.category,KATEGORİ: %s,CATEGORY: %s
 mc.construction.action,İŞLEM: %s,ACTION: %s
 mc.construction.duration,Süre: İnşa %.1fsa | Yükselt %.1fsa,Duration: Build %.1f hr | Upgrade %.1f hr
 mc.construction.duration_unknown,Süre: -,Duration: -
-mc.construction.demolish_confirm,\n%s\n\nBu binayı yıkmak istiyor musun?\n\nA: Evet    B: Hayır,\n%s\n\nDemolish this building?\n\nA: Yes    B: No
-mc.assignment.no_buildings,"Atanabilir bina yok.\nÖnce inşaat yapmalısın.","No assignable buildings.\nBuild something first."
+mc.construction.demolish_confirm,"
+%s
+
+Bu binayı yıkmak istiyor musun?
+
+A: Evet    B: Hayır","
+%s
+
+Demolish this building?
+
+A: Yes    B: No"
+mc.assignment.no_buildings,"Atanabilir bina yok.
+Önce inşaat yapmalısın.","No assignable buildings.
+Build something first."
 mc.assignment.workers,İşçiler: %d / %d,Workers: %d / %d
 mc.assignment.building_detail_header,=== BİNA DETAYI ===,=== BUILDING DETAILS ===
 mc.building.info.level,📊 Seviye: %s,📊 Level: %s
@@ -648,7 +817,9 @@ mc.mission.history.stats,Toplam Görev: %d | Başarılı: %d | Başarısız: %d 
 mc.concubine.best_skill,En İyi: %s (%d),Best: %s (%d)
 mc.concubine.status,Durum: %s,Status: %s
 mc.diplomacy.controls,[Yukarı/Aşağı] Fraksiyon • [Sol/Sağ] Eylem • [A] Uygula • [B] Geri,[Up/Down] Faction • [Left/Right] Action • [A] Apply • [B] Back
-mc.trade.no_traders,"Şu anda köyde tüccar yok.\nTüccarlar zaman zaman köye gelecek.","No traders in the village right now.\nTraders will visit from time to time."
+mc.trade.no_traders,"Şu anda köyde tüccar yok.
+Tüccarlar zaman zaman köye gelecek.","No traders in the village right now.
+Traders will visit from time to time."
 mc.trade.trader_title,💰 %s,💰 %s
 mc.trade.default_trader,Tüccar,Trader
 mc.trade.from_settlement,📍 %s'den geldi,📍 Came from %s
@@ -657,7 +828,9 @@ mc.trade.product_line,  • %s (%d altın),  • %s (%d gold)
 mc.trade.more_products,  ... ve %d ürün daha,  ... and %d more products
 mc.trade.leaves_in_days,⏳ %d gün sonra ayrılacak,⏳ Leaves in %d days
 mc.trade.view_products_hint,A: Ürünleri Gör,A: View Products
-mc.trade.no_trader_concubines,"Tüccar rolünde boşta cariye yok.\nCariye yönetiminden rol atayabilirsiniz.","No idle concubines with the trader role.\nAssign roles from Concubine management."
+mc.trade.no_trader_concubines,"Tüccar rolünde boşta cariye yok.
+Cariye yönetiminden rol atayabilirsiniz.","No idle concubines with the trader role.
+Assign roles from Concubine management."
 mc.trade.concubine_title,👤 %s (Tüccar),👤 %s (Trader)
 mc.trade.concubine_skill,Ticaret yeteneği: %d | Seviye: %d,Trade skill: %d | Level: %d
 mc.trade.send_mission_hint,A: Görev Gönder,A: Send Mission
@@ -692,8 +865,14 @@ mc.recipe.soapmaker,Girdi: Yiyecek + Su x2 ⇒ Sabun,Input: Food + Water x2 ⇒ 
 mc.recipe.herbalist,Girdi: Yiyecek + Su ⇒ İlaç,Input: Food + Water ⇒ Medicine
 mc.assignment.equipment.header,=== ASKER SİLAH ATAMA ===,=== SOLDIER WEAPON ASSIGNMENT ===
 mc.assignment.equipment.stock_tiers,📦 Stok: 1.sv:%d | 2.sv:%d | 3.sv:%d,📦 Stock: T1:%d | T2:%d | T3:%d
-mc.assignment.equipment.no_soldiers,Kışlada asker yok!\n\n[%s: Geri],No soldiers in barracks!\n\n[%s: Back]
-mc.assignment.equipment.nav_hint,Yukarı/Aşağı: Asker seç\nSol/Sağ: Silah seviyesi seç,Up/Down: Select soldier\nLeft/Right: Select weapon tier
+mc.assignment.equipment.no_soldiers,"Kışlada asker yok!
+
+[%s: Geri]","No soldiers in barracks!
+
+[%s: Back]"
+mc.assignment.equipment.nav_hint,"Yukarı/Aşağı: Asker seç
+Sol/Sağ: Silah seviyesi seç","Up/Down: Select soldier
+Left/Right: Select weapon tier"
 mc.assignment.equipment.give_hint,%s: Silah Ver/Al,%s: Give/Take Weapon
 mc.assignment.equipment.selected_tier,Seçili Silah Seviyesi: %d,Selected weapon tier: %d
 mc.assignment.equipment.soldier_line_tier,Asker %d %s,Soldier %d %s
@@ -702,7 +881,13 @@ mc.assignment.equipment.error_no_barracks,Hata: Kışla bulunamadı!,Error: Barr
 mc.assignment.equipment.distribute_header,=== ASKER SİLAH DAĞITIMI ===,=== SOLDIER WEAPON DISTRIBUTION ===
 mc.assignment.equipment.soldier_count,👥 Asker Sayısı: %d,👥 Soldiers: %d
 mc.assignment.equipment.weapon_tier_qty,⚔️ %d. sv. Silah: %d,⚔️ Tier-%d Weapon: %d
-mc.assignment.equipment.distribute_controls,"Yukarı/Aşağı: Seviye Seç\nSol/Sağ: Miktar Ayarla\nA tuşu: Dağıt\nB tuşu: İptal","Up/Down: Select tier\nLeft/Right: Adjust amount\nA: Distribute\nB: Cancel"
+mc.assignment.equipment.distribute_controls,"Yukarı/Aşağı: Seviye Seç
+Sol/Sağ: Miktar Ayarla
+A tuşu: Dağıt
+B tuşu: İptal","Up/Down: Select tier
+Left/Right: Adjust amount
+A: Distribute
+B: Cancel"
 mc.diplomacy.no_world_manager,WorldManager bulunamadı. Diplomasi verisi mevcut değil.,WorldManager not found. Diplomacy data unavailable.
 mc.diplomacy.no_factions,Henüz tanımlı fraksiyon yok.,No factions defined yet.
 mc.diplomacy.select_faction,Fraksiyon seçiniz.,Select a faction.
@@ -741,23 +926,49 @@ mc.trade.mission.title_step,🚚 Ticaret Görevi: %s,🚚 Trade Mission: %s
 mc.trade.mission.cariye_named,👤 Cariye: %s,👤 Concubine: %s
 mc.trade.mission.no_routes,Aktif ticaret rotası yok!,No active trade routes!
 mc.trade.mission.route_line,"%s%s (Mesafe: %.1f, Risk: %s, İlişki: %d)","%s%s (Distance: %.1f, Risk: %s, Relations: %d)"
-mc.trade.mission.route_hint,"Yukarı/Aşağı: Rota Seç\nA: Devam Et","Up/Down: Select route\nA: Continue"
+mc.trade.mission.route_hint,"Yukarı/Aşağı: Rota Seç
+A: Devam Et","Up/Down: Select route
+A: Continue"
 mc.trade.mission.soldier_count,Asker Sayısı: %d / %d,Soldier Count: %d / %d
-mc.trade.mission.soldier_hint,"Sol/Sağ: Miktar Ayarla\nA: Devam Et","Left/Right: Adjust amount\nA: Continue"
+mc.trade.mission.soldier_hint,"Sol/Sağ: Miktar Ayarla
+A: Devam Et","Left/Right: Adjust amount
+A: Continue"
 mc.trade.mission.selected_qty,Seçili: %d / %d,Selected: %d / %d
-mc.trade.mission.product_hint,"Yön Tuşları: Ürün Seç  |  A: Miktar Ayarla  |  X: Görevi Başlat","D-Pad: Select product  |  A: Adjust quantity  |  X: Start mission"
-mc.trade.mission.quantity_popup,"📦 %s\n\nMiktar: %d / %d\n\nSol/Sağ: Değiştir\nA: Onayla  |  B: İptal","📦 %s\n\nQuantity: %d / %d\n\nLeft/Right: Change\nA: Confirm  |  B: Cancel"
+mc.trade.mission.product_hint,Yön Tuşları: Ürün Seç  |  A: Miktar Ayarla  |  X: Görevi Başlat,D-Pad: Select product  |  A: Adjust quantity  |  X: Start mission
+mc.trade.mission.quantity_popup,"📦 %s
+
+Miktar: %d / %d
+
+Sol/Sağ: Değiştir
+A: Onayla  |  B: İptal","📦 %s
+
+Quantity: %d / %d
+
+Left/Right: Change
+A: Confirm  |  B: Cancel"
 mc.concubine.skills.title,⚔️ Yetenekler,⚔️ Skills
 mc.concubine.history.title,📚 Görev Geçmişi,📚 Mission History
-mc.concubine.history.summary,"✅ Tamamlanan: %d\n❌ Başarısız: %d\n📊 Başarı Oranı: %d%%","✅ Completed: %d\n❌ Failed: %d\n📊 Success Rate: %d%%"
+mc.concubine.history.summary,"✅ Tamamlanan: %d
+❌ Başarısız: %d
+📊 Başarı Oranı: %d%%","✅ Completed: %d
+❌ Failed: %d
+📊 Success Rate: %d%%"
 mc.concubine.controls.title,🎮 KONTROLLER,🎮 CONTROLS
-mc.concubine.controls.body,"Yukarı/Aşağı: Cariye Seç\nA tuşu: Rol Ata\nB tuşu: Geri","Up/Down: Select concubine\nA: Assign role\nB: Back"
+mc.concubine.controls.body,"Yukarı/Aşağı: Cariye Seç
+A tuşu: Rol Ata
+B tuşu: Geri","Up/Down: Select concubine
+A: Assign role
+B: Back"
 mc.concubine.role.error_not_found,Hata: Cariye bulunamadı!,Error: Concubine not found!
 mc.concubine.role.header,=== CARİYE ROL ATAMA ===,=== CONCUBINE ROLE ASSIGNMENT ===
 mc.concubine.role.cariye_line,👤 Cariye: %s,👤 Concubine: %s
 mc.concubine.role.current,📊 Mevcut Rol: %s,📊 Current Role: %s
 mc.concubine.role.coming_soon, (Gelecekte), (Coming soon)
-mc.concubine.role.controls,"Yukarı/Aşağı: Rol Seç\nA tuşu: Uygula\nB tuşu: İptal","Up/Down: Select role\nA: Apply\nB: Cancel"
+mc.concubine.role.controls,"Yukarı/Aşağı: Rol Seç
+A tuşu: Uygula
+B tuşu: İptal","Up/Down: Select role
+A: Apply
+B: Cancel"
 concubine.skill.combat,Savaş,Combat
 concubine.skill.diplomacy,Diplomasi,Diplomacy
 concubine.skill.trade,Ticaret,Trade
@@ -808,7 +1019,11 @@ mc.concubine.history.completed,✅ Tamamlanan: %d görev,✅ Completed: %d missi
 mc.concubine.history.failed,❌ Başarısız: %d görev,❌ Failed: %d missions
 mc.concubine.history.rate,📊 Başarı Oranı: %.1f%%,📊 Success Rate: %.1f%%
 mc.concubine.history.total_xp,🏆 Toplam Deneyim: %d XP,🏆 Total Experience: %d XP
-mc.concubine.achievements.empty,"🌟 Henüz başarı kazanılmadı\n\nBaşarılar görev tamamlama, seviye atlama ve yetenek geliştirme ile kazanılır.","🌟 No achievements yet\n\nEarn achievements by completing missions, leveling up, and improving skills."
+mc.concubine.achievements.empty,"🌟 Henüz başarı kazanılmadı
+
+Başarılar görev tamamlama, seviye atlama ve yetenek geliştirme ile kazanılır.","🌟 No achievements yet
+
+Earn achievements by completing missions, leveling up, and improving skills."
 mc.concubine.achievements.total,🏆 Toplam %d Başarı Kazanıldı,🏆 %d Achievements Earned
 world_event.kuraklik.name,Kuraklık,Drought
 world_event.kuraklik.desc,Bölgede kuraklık başladı. Su kaynakları azalıyor.,A drought has begun in the region. Water sources are dwindling.
@@ -925,13 +1140,13 @@ mission.proc.intel.secret_info,Gizli Bilgi Topla,Gather Secret Information
 mission.proc.intel.enemy_forces,Düşman Güçlerini Keşfet,Scout Enemy Forces
 mission.proc.intel.insider,İçeriden Bilgi Al,Get Insider Information
 mission.proc.intel.desc,Gizli bilgi toplayarak düşman hakkında istihbarat elde et.,Gather intelligence about the enemy.
-mission.strategy.savas.0,"Konvoya siper ol, düşmanı uzun mesafeden oyala.","Take cover for the convoy and harass the enemy from range."
+mission.strategy.savas.0,"Konvoya siper ol, düşmanı uzun mesafeden oyala.",Take cover for the convoy and harass the enemy from range.
 mission.strategy.savas.1,"Yemek ve su ile ekibi güçlendir, karşı saldırıya geç.","Strengthen the team with food and water, then counterattack."
-mission.strategy.savas.2,"İlaç ve erzakla tam baskın: yol kesenleri dağıt.","Full raid with medicine and supplies: scatter the ambushers."
+mission.strategy.savas.2,İlaç ve erzakla tam baskın: yol kesenleri dağıt.,Full raid with medicine and supplies: scatter the ambushers.
 mission.strategy.kesif.0,Hafif erzakla dikkatli keşif.,Careful scouting with light supplies.
 mission.strategy.kesif.1,Daha iyi malzeme ve su ile yolu netleştir.,Clear the path with better supplies and water.
 mission.strategy.kesif.2,Tam donanımla alanı haritalandır.,Map the area with full equipment.
-mission.strategy.ticaret.0,"Temkinli pazarlık yap, kervanı görünmeden geçir.","Negotiate cautiously and pass the caravan unseen."
+mission.strategy.ticaret.0,"Temkinli pazarlık yap, kervanı görünmeden geçir.",Negotiate cautiously and pass the caravan unseen.
 mission.strategy.ticaret.1,Rüşvet ve ikna ile geçiş aç.,Open passage with bribes and persuasion.
 mission.strategy.ticaret.2,"Silahlı refakat kur, hızlı geçiş dene.",Escort with arms and attempt a fast passage.
 news.relief.title,Yardım Görevi,Relief Mission
@@ -1211,3 +1426,855 @@ narrative.mission.worldmap_raid.mechanical_name,Baskın: %s,Raid: %s
 narrative.mission.worldmap_raid.mechanical_desc,%s hedefine baskın düzenle.,Launch a raid against %s.
 narrative.mission.incident_relief.mechanical_name,Yardım — %s,Relief — %s
 narrative.mission.incident_relief.mechanical_desc,%s köyündeki %s krizine destek gönder.,Send aid to %s facing a %s crisis.
+battle.unit_count,Oyuncu: %d | Düşman: %d,Player: %d | Enemy: %d
+battle.player_won,PLAYER KAZANDI!,PLAYER WINS!
+battle.enemy_won,DÜŞMAN KAZANDI!,ENEMY WINS!
+battle.draw,BERABERE!,DRAW!
+village.button.open_worker_ui,Kamp Ateşi,Camp Fire
+village.button.open_cariye_ui,Cariye,Cariye
+village.button.open_build_ui,İnşa,Build
+village.button.add_villager,Köylü lütfen,"Villager, please"
+door.status.open,Açık,Open
+door.status.locked_enemy_key,Kilitli — anahtar düşmanında,Locked — key is on an enemy
+door.status.key_required_icon,🔒 Anahtar gerekli,🔒 Key required
+door.status.key_required,Anahtar gerekli,Key required
+door.status.locked_icon,🔒 Kilitli,🔒 Locked
+door.status.alarm_search_enemy,Alarm! Anahtar için düşman ara,Alarm! Search an enemy for the key
+door.status.locked,Kilitli!,Locked!
+door.status.key_on_enemy,Anahtar düşmanında — yen ve al,The key is on an enemy — defeat it and take it
+door.status.key_required_exclaim,Anahtar gerekli!,Key required!
+door.status.defeat_boss,Boss'u yen!,Defeat the boss!
+door.status.up_hint,↑ Yukarı,↑ Up
+challenge.door.safe,Güvenli,Safe
+challenge.modifier.no_parry,Parry yok,No parry
+challenge.modifier.no_heal,İyileşme yok,No healing
+challenge.modifier.night_mode,Gece,Night
+challenge.modifier.light_only,Sadece hafif saldırı,Light attacks only
+camp.door.exit_dungeon,Zindandan Çık,Exit the Dungeon
+camp.door.secret_passage,Gizli Geçit,Secret Passage
+camp.entry.choose_door,Bir kapı seç — zindana in,Choose a door — descend into the dungeon
+camp.entry.go_deeper,Derinlere in — bir kapı seç,Descend deeper — choose a door
+camp.entry.warmup_1,Dış koridor — kısa keşif,Outer corridor — a short exploration
+camp.entry.warmup_2,İki kat aşağı — zindan açılıyor,Two floors down — the dungeon opens up
+camp.entry.warmup_default,Derin keşif — patron henüz yok,Deep exploration — no boss yet
+fountain.heal_disabled,Bu bölümde iyileşme kapalı,Healing is disabled in this segment
+fountain.drink_prompt,E veya Yukarı - Su iç (can),E or Up - Drink (heal)
+fountain.used,Kullanıldı,Used
+portal.return_to_village,⬆ Köye Dön,⬆ Return to Village
+portal.death_label,Ölüm,Death
+lockpick.hint,İğne yeşil penceredeyken vur! (Zıpla / Onay),Hit when the needle is in the green window! (Jump / Confirm)
+lockpick.rescued_next,%d. köylü kurtarıldı! Sıradaki kilit daha sağlam...,Villager %d rescued! The next lock is tougher...
+lockpick.solid_hit,Sağlam vuruş!,Solid hit!
+lockpick.missed,Elini demire çarptın! (%d hak kaldı),You hit the iron! (%d chances left)
+lockpick.all_rescued,Tüm köylüler kurtarıldı!,All villagers rescued!
+lockpick.partial_rescue,"%d köylü kurtarıldı, %d hücrede kaldı...","%d villagers rescued, %d remain in the cell..."
+lockpick.lock_failed,Kilit açılamadı...,Couldn't break the lock...
+lockpick.title,Kilidi Kır! (%d köylü),Break the Lock! (%d villagers)
+dealduel.title,%s ile İkna Düellosu,Persuasion Duel with %s
+dealduel.name_left,Sen,You
+dealduel.impatient,%s sabırsızlandı! (-1),%s grew impatient! (-1)
+dealduel.hint,Cariyenin hamlesiyle AYNI renkteki bölgede tuşa bas! (Zıpla / Onay),Press in the zone that matches her move! (Jump / Confirm)
+dealduel.bluff_prefix,Fikrini değiştirdi! ,She changed her mind! 
+dealduel.perfect_hit,Tam yerine oturdu! (+2),Perfect fit! (+2)
+dealduel.effective,Etkili söz. (+1),Effective words. (+1)
+dealduel.countered,%s lafı gediğine koydu! (-1),%s had the perfect comeback! (-1)
+dealduel.won_convinced,%s ikna oldu!,%s is convinced!
+dealduel.win_quote,Peki... Seninle geliyorum.,Fine... I'll come with you.
+dealduel.won_lost,%s sözü kazandı.,%s won the argument.
+dealduel.lose_quote,Ben burada kalıyorum. Git başımdan.,I'm staying here. Leave me alone.
+dealduel.perfect_banner,TAM İSABET!,PERFECT HIT!
+dealduel.stance.duygu.name,Duygu Sömürüsü,Emotional Manipulation
+dealduel.stance.duygu.counter,Güven Ver,Reassure Her
+dealduel.stance.duygu.quote1,"Beni burada bırakacaksın, değil mi...?","You're going to leave me here, aren't you...?"
+dealduel.stance.duygu.quote2,Kimsem yok benim...,I have no one...
+dealduel.stance.duygu.quote3,Sana nasıl güveneyim?,How can I trust you?
+dealduel.stance.pazarlik.name,Pazarlık,Bargaining
+dealduel.stance.pazarlik.counter,Cazip Teklif,Sweeten the Deal
+dealduel.stance.pazarlik.quote1,Gelirim ama şartlarım var.,"I'll come, but I have conditions."
+dealduel.stance.pazarlik.quote2,Bana ne vereceksin?,What will you give me?
+dealduel.stance.pazarlik.quote3,Bedava iş yok bu dünyada.,Nothing's free in this world.
+dealduel.stance.naz.name,Naz,Playing Hard to Get
+dealduel.stance.naz.counter,Blöfü Gör,See Through the Bluff
+dealduel.stance.naz.quote1,Belki de burada kalmak istiyorum.,Maybe I want to stay here.
+dealduel.stance.naz.quote2,Neden seninle geleyim ki?,Why would I come with you?
+dealduel.stance.naz.quote3,Beni etkilemen gerek.,You'll have to impress me.
+minigame.forest_fruit.title,Meyve Toplama (Placeholder),Fruit Gathering (Placeholder)
+minigame.forest_fruit.description,Attack tuşu ile havadaki meyveleri yakala.,Use the attack button to catch fruit in the air.
+minigame.forest_fruit.failure,Jump tuşu ile iptal et.,Use the jump button to cancel.
+mc.news.time_label,🕐 Son Güncelleme: Şimdi,🕐 Last Update: Now
+mc.concubine.title,👤 CARİYE DETAYLARI,👤 CONCUBINE DETAILS
+mc.concubine.back,← Geri Dön,← Go Back
+mc.concubine.list_title,📋 CARİYE LİSTESİ,📋 CONCUBINE LIST
+mc.concubine.details_title,📊 DETAYLI BİLGİLER,📊 DETAILED INFO
+mc.concubine.achievements_title,🏆 Özel Başarılar,🏆 Special Achievements
+mc.concubine.controls,KONTROLLER: [Yukarı/Aşağı: Cariye seçimi] [A: Detay] [B: Geri],CONTROLS: [Up/Down: Select concubine] [A: Detail] [B: Back]
+menu.beta_footer,Beta Yapım Aşaması,Beta Under Development
+item_selection.active_items,Aktif Item'lar: ,Active Items: 
+concubine.unnamed,İsimsiz Cariye,Unnamed Concubine
+chest.name,Sandık,Chest
+campfire.title,Kamp Ateşi,Campfire
+campfire.subtitle,Dinlen ve zamanı ilerlet,Rest and pass time
+inventor.title,Mucit Odası,Inventor's Workshop
+inventor.manager_missing,MetaUpgradeManager bulunamadı.,MetaUpgradeManager not found.
+inventor.village_stock,Köy stoku: ,Village stock: 
+inventor.max_level,✓ Maksimum seviyeye ulaştın.,✓ You've reached the maximum level.
+inventor.next_level_cost,Sıradaki seviye maliyeti: %s   [Satın almak için seç],Next level cost: %s   [Select to purchase]
+inventor.nav_hint_gamepad,[↑↓◄►] Geliştirme seç   [A] Satın al   [B] Kapat,[↑↓◄►] Select upgrade   [A] Purchase   [B] Close
+inventor.nav_hint_keyboard,[↑↓◄►] Geliştirme seç   [Enter] Satın al   [Esc] Kapat,[↑↓◄►] Select upgrade   [Enter] Purchase   [Esc] Close
+card_draft.mentor_suggestion,Mentor'un Önerisi,The Mentor's Suggestion
+card_draft.hint,Bir seçenek belirle — görülüp seçilmeyenler bu oyunda bir daha çıkmaz.,Choose an option — the ones you don't pick won't appear again this game.
+card_draft.select,Seç,Select
+card_draft.village_path,Köyün Yolu,The Village's Path
+card_draft.village_path_subtitle,"Nüfusun büyüdü. Köyün nasıl büyüyeceğini seç — bu seçim, önünde açılacak kart yolunu belirler.",Your population has grown. Choose how your village will grow — this choice determines the card path ahead of you.
+card_draft.dilemma,İkilem,Dilemma
+card_draft.dilemma_subtitle,%s yolunun bir dönüm noktası — sadece biri seçilebilir.,A turning point on the %s path — only one can be chosen.
+card_draft.pick_card_subtitle,%s yolundan bir kart seç.,Choose a card from the %s path.
+npc_window.diary_title,📖 Günlük,📖 Diary
+npc_window.diary_empty,Henüz kayda değer bir hikâyesi yok.,No notable story yet.
+npc_window.send,Gönder,Send
+mentor_brief.tab_missions,Görevler,Missions
+mentor_brief.tab_combat,Savaş Geçmişi,Combat History
+mentor_brief.scroll_hint,↑ ↓ kaydır  ·  Q/E sekme,↑ ↓ scroll  ·  Q/E tab
+mentor_brief.show_details,▸ detaylar için tıkla,▸ click for details
+mentor_brief.hide_details,▾ detayları gizle,▾ hide details
+plot.upgrade,Yükselt,Upgrade
+plot.build_house,Ev İnşa Et,Build House
+plot.weaponize,Silahlandır,Weaponize
+plot.inventor_upgrades,Yükseltmeler,Upgrades
+plot.demolish,Yık,Demolish
+plot.upgrading,Yükseltiliyor...,Upgrading...
+plot.upgrade_leveled,Yükselt (Lv.%d),Upgrade (Lv.%d)
+plot.building,İnşa ediliyor...,Building...
+npc_window.message_placeholder,Mesajınızı yazın...,Type your message...
+npc_window.age_suffix,%s yaş,%s years old
+npc_window.formerly,Eskiden: %s,Formerly: %s
+npc_window.currently,Şu an: %s,Currently: %s
+npc_window.mood_label,Ruh hali: %s,Mood: %s
+npc_window.health_label,Sağlık: %s,Health: %s
+npc_window.gender_male,Erkek,Male
+npc_window.gender_female,Kadın,Female
+npc_window.idle,Boşta,Idle
+npc_window.soldier,Asker,Soldier
+item.ates_topu_dususu.name,Ateş Topu Düşüşü,Fireball Drop
+item.ates_topu_dususu.description,"Fall attack alev patlaması (hasar + yanma, 10 sn cooldown)","Fall attack causes a fire explosion (damage + burn, 10s cooldown)"
+item.atesli_kayma.name,Ateşli Kayma,Fiery Slide
+item.atesli_kayma.description,Kayarken yere ateş bırakır; değen düşmanlar 1 ateş stack alır,Leaves fire on the ground while sliding; enemies that touch it get 1 fire stack
+item.atesli_yumruk.name,Ateşli Yumruk,Fiery Fist
+item.atesli_yumruk.description,"Light attack'lar yakar (1 hasar/sn, 3 tick, max 3 stack)","Light attacks burn (1 damage/sec, 3 ticks, max 3 stacks)"
+item.ayran.name,Ayran,Ayran
+item.ayran.description,Stamina regen +%50,Stamina regen +50%
+item.baklava.name,Baklava,Baklava
+item.baklava.description,+1 Stamina Bar,+1 Stamina Bar
+item.barut_zirhi.name,Barut Zırhı,Gunpowder Armor
+item.barut_zirhi.description,Patlama kaynaklı tüm hasara bağışıklık,Immunity to all explosion damage
+item.berserker_ruhu.name,Berserker Ruhu,Berserker Spirit
+item.berserker_ruhu.description,Canın azaldıkça verdiğin hasar artar (en fazla iki kat). Daha fazla hasar alırsın.,Damage dealt increases as your health drops (up to double). You take more damage.
+item.buz_cagi.name,Buz Çağı,Ice Age
+item.buz_cagi.description,"Fall attack donma dalgası (yakındakileri yavaşlatır, 10 sn cooldown)","Fall attack creates a freezing wave (slows nearby enemies, 10s cooldown)"
+item.buzlu_kayma.name,Buzlu Kayma,Icy Slide
+item.buzlu_kayma.description,Kayarken yere buz bırakır; değen düşmanlar 1 buz stack alır,Leaves ice on the ground while sliding; enemies that touch it get 1 ice stack
+item.buzlu_kilic.name,Buzlu Kılıç,Icy Sword
+item.buzlu_kilic.description,"Light attack'lar yavaşlatır (1-5 stack %%20, 6-10 %%40, 11-15 %%60; 1/s decay)","Light attacks slow (1-5 stacks %%20, 6-10 %%40, 11-15 %%60; decays 1/s)"
+item.cenk_meydani.name,Cenk Meydanı,Battlefield
+item.cenk_meydani.description,Ağır saldırı %40 genişler ve 3 düşmana birden vurabilir,Heavy attack range +40% and can hit up to 3 enemies at once
+item.ceset_tekmesi.name,Ceset Tekmesi,Corpse Kick
+item.ceset_tekmesi.description,"Dodge ile cesedin içinden geçince ceset fırlar, çarptığı düşmana hasar verir","Dodging through a corpse launches it, damaging the enemy it hits"
+item.cevher_dili.name,Cevher Dili,Ore Tongue
+item.cevher_dili.description,Hafif saldırılar staminayla elemental patlamaya dönüşür (×2.5 + alan hasarı),Light attacks convert into an elemental explosion using stamina (x2.5 + area damage)
+item.cift_vurus.name,Çift Vuruş,Double Strike
+item.cift_vurus.description,Light attack'lar 2 kez vurur (%60 hasar),Light attacks hit twice (60% damage)
+item.cift_ziplama.name,Çift Zıplama,Double Jump
+item.cift_ziplama.description,"3. zıplama hakkı; 3. zıplamada altında patlama olur, can gider","Grants a 3rd jump; the 3rd jump triggers an explosion below you, costing health"
+item.combo_ustasi.name,Combo Ustası,Combo Master
+item.combo_ustasi.description,Combo hasarı +%20,Combo damage +20%
+item.cuppe_degil_zirh.name,Cüppe Değil Zırh,"Armor, Not a Robe"
+item.cuppe_degil_zirh.description,"Element hasarı verdikçe kalkan biriktirirsin (max %30 max can, 3sn hasarsızlıkta sıfırlanır)","Dealing elemental damage builds a shield (max 30% of max health, resets after 3s without taking damage)"
+item.demir_kalkan.name,Demir Kalkan,Iron Shield
+item.demir_kalkan.description,Block hasar azaltma %90,Block damage reduction 90%
+item.dikenli_kalkan.name,Dikenli Kalkan,Spiked Shield
+item.dikenli_kalkan.description,Yediğin hasar saldırgana yansır (blok şart değil),Damage you take reflects onto the attacker (blocking not required)
+item.dodge_bombasi.name,Dodge Bombası,Dodge Bomb
+item.dodge_bombasi.description,Dodge kullandığında arkanda bomba bırakır,Leaves a bomb behind you when you dodge
+item.dodge_zehiri.name,Dodge Zehiri,Dodge Poison
+item.dodge_zehiri.description,Dodge kullandığında arkanda zehir bulutu bırakırsın,Leaves a poison cloud behind you when you dodge
+item.donma_cekici.name,Donma Çekici,Freezing Hammer
+item.donma_cekici.description,"Heavy attack donma AoE (yavaşlatma, 8 sn cooldown)","Heavy attack creates a freezing AoE (slow, 8s cooldown)"
+item.duvar_ustasi.name,Duvar Ustası,Wall Master
+item.duvar_ustasi.description,Duvarda bir süre yerçekimine karşı durabilirsin,You can resist gravity on walls for a while
+item.element_degisimi.name,Element Değişimi,Element Shift
+item.element_degisimi.description,Her 4. vuruşta aktif elementlerinden biri 3 kat güçte patlar,"Every 4th hit, one of your active elements explodes at 3x power"
+item.element_izi.name,Element İzi,Element Trail
+item.element_izi.description,"Dodge, aktif elementinin zemin izini bırakır",Dodging leaves a ground trail of your active element
+item.elemental_odak.name,Elemental Odak,Elemental Focus
+item.elemental_odak.description,"Elemental hasar (zehir, ateş, buz, şimşek) +%300 artar. Fiziksel hasar -%75 düşer.","Elemental damage (poison, fire, ice, lightning) increases +300%. Physical damage decreases -75%."
+item.falci_kadin.name,Falcı Kadın,Fortune Teller
+item.falci_kadin.description,İtem seçeneklerinden biri build'ine yakın kategoriden gelme eğilimi kazanır,One of your item choices leans toward a category close to your build
+item.firlatma_parry.name,Fırlatma Parry,Launch Parry
+item.firlatma_parry.description,"Parry sonrası zıplama tuşu, düşmanı havaya fırlatır",Pressing jump after a parry launches the enemy into the air
+item.flank_avantaji.name,Flank Avantajı,Flank Advantage
+item.flank_avantaji.description,Düşmana arkadan vurduğunda +%50 hasar verir. Görünmezlikle birleşince çok güçlü.,Deals +50% damage when hitting an enemy from behind. Very strong combined with invisibility.
+item.genis_darbe.name,Geniş Darbe,Wide Strike
+item.genis_darbe.description,Light attack vurduğunda yakındaki düşmanlara %40 hasar,Light attack hits deal 40% damage to nearby enemies
+item.genis_dusus.name,Geniş Düşüş,Wide Fall
+item.genis_dusus.description,Fall attack 2 düşmana vurabilir,Fall attack can hit 2 enemies
+item.gerilmis_yay.name,Gerilmiş Yay,Drawn Bow
+item.gerilmis_yay.description,"Hafif saldırıyı basılı tutup bırakırsan, şarj oranlı güçlü bir mermi fırlatırsın",Hold and release light attack to fire a powerful projectile scaled by charge time
+item.gok_gurultusu.name,Gök Gürültüsü,Thunderclap
+item.gok_gurultusu.description,Heavy attack şimşek indirir (8 sn cooldown),Heavy attack calls down lightning (8s cooldown)
+item.gokten_dusus.name,Gökten Düşüş,Fall From the Sky
+item.gokten_dusus.description,Fall attack hasarı +%30,Fall attack damage +30%
+item.golge_adimi.name,Gölge Adımı,Shadow Step
+item.golge_adimi.description,"Parry sonrası eğilme tuşu, düşmanın arkasına ışınlar",Pressing crouch after a parry teleports you behind the enemy
+item.golge_pelerini.name,Gölge Pelerini,Cloak of Shadows
+item.golge_pelerini.description,Düşmanların görüş menzili -%20,Enemy sight range -20%
+item.gorunmezlik_pelerini.name,Görünmezlik Pelerini,Cloak of Invisibility
+item.gorunmezlik_pelerini.description,Dodge veya dash atıldığında 3 saniye yarı saydam olursun; düşmanlar seni zor görür ve aggro bırakır.,Dodging or dashing makes you semi-transparent for 3 seconds; enemies struggle to see you and drop aggro.
+item.guc_kayasi.name,Güç Kayası,Stone of Power
+item.guc_kayasi.description,Heavy attack hasarı +%30,Heavy attack damage +30%
+item.hacivat_golgesi.name,Hacivat'ın Gölgesi,Hacivat's Shadow
+item.hacivat_golgesi.description,"Ortaoyunu gölgesi elemental saldırılarını taklit eder. Zehir, ateş, buz veya şimşek vurdukça gölge de aynı elementi uygular.","Your Ortaoyunu shadow mimics your elemental attacks. When you hit with poison, fire, ice, or lightning, the shadow applies the same element."
+item.havada_kal.name,Havada Kal,Stay Airborne
+item.havada_kal.description,Jump basılı tutunca düşerken süzülürsün,Holding jump lets you glide while falling
+item.hayalet_adim.name,Hayalet Adım,Ghost Step
+item.hayalet_adim.description,"Dodge sırasında eğilme, sahte kopya bırakıp geriye ışınlar",Pressing crouch during a dodge leaves a decoy and teleports you backward
+item.hizlanan_yumruk.name,Hızlanan Yumruk,Accelerating Fist
+item.hizlanan_yumruk.description,Light attack vurdukça 2 sn %20 hareket hızı,Landing light attacks grants +20% move speed for 2s
+item.hizli_charge.name,Hızlı Charge,Fast Charge
+item.hizli_charge.description,Heavy attack charge süresi -%50,Heavy attack charge time -50%
+item.hizli_el.name,Hızlı El,Quick Hand
+item.hizli_el.description,Light attack hızı +%25,Light attack speed +25%
+item.ikinci_nefes.name,İkinci Nefes,Second Wind
+item.ikinci_nefes.description,İlk ölümde 1 canla dirilirsin (tek kullanım),Revive with 1 HP on your first death (one-time use)
+item.kalkan_ustasi.name,Kalkan Ustası,Shield Master
+item.kalkan_ustasi.description,Block %90 hasar engeller,Block prevents 90% damage
+item.kan_bedeli.name,Kan Bedeli,Blood Price
+item.kan_bedeli.description,"Stamina bittiğinde, güç asla reddedilmez — bedel candan kesilir","When stamina runs out, power is never denied -- the cost is paid in health instead"
+item.kan_tadi.name,Kan Tadı,Taste of Blood
+item.kan_tadi.description,Vuruş isabet ettikçe güçlenirsin (en fazla 3 stack). Her stack: +%10 saldırı ve hareket hızı.,Landing hits makes you stronger (up to 3 stacks). Each stack: +10% attack and move speed.
+item.kara_barut.name,Kara Barut,Black Powder
+item.kara_barut.description,"Patlama yarıçapı +%30, ama her patlama sana da az tepme hasarı verir","Explosion radius +30%, but every explosion also deals a small amount of recoil damage to you"
+item.karagoz_laneti.name,Karagöz'ün Laneti,Karagoz's Curse
+item.karagoz_laneti.description,Ortaoyunu gölgesi fiziksel saldırılarını taklit eder. Sen vurdukça gölge de kendi yönüne saldırır.,"Your Ortaoyunu shadow mimics your physical attacks. When you land a hit, the shadow attacks in its own direction too."
+item.kartal_bakisi.name,Kartal Bakışı,Eagle Eye
+item.kartal_bakisi.description,Mermilerin menzili sınırsızdır; 300px+ mesafeden isabet kritik sayılır,Projectiles have unlimited range; hits from 300px+ away count as critical
+item.kaygan_yag.name,Kaygan Yağ,Slippery Oil
+item.kaygan_yag.description,Slide mesafesi +%100,Slide distance +100%
+item.keskin_nazar.name,Keskin Nazar,Piercing Evil Eye
+item.keskin_nazar.description,"%15 kritik şansı, kritikler %75 fazla hasar verir","15% critical chance, critical hits deal 75% extra damage"
+item.kum_saati.name,Kum Saati,Hourglass
+item.kum_saati.description,"Zaman Durdurucu ile: zaman 2x daha yavaş akar, 4 sn sürer.","With Time Stopper: time flows 2x slower, lasting 4 seconds."
+item.kus_kanadi.name,Kuş Kanadı,Bird's Wing
+item.kus_kanadi.description,"Triple jump, air kontrolü %75 azalır",Grants a triple jump; air control reduced by 75%
+item.lav_cekici.name,Lav Çekici,Lava Hammer
+item.lav_cekici.description,Heavy attack alev topu fırlatır; değen düşman yanar (8 sn cooldown),Heavy attack hurls a fireball; enemies hit catch fire (8s cooldown)
+item.les_gazi.name,Leş Gazı,Carrion Gas
+item.les_gazi.description,Elit düşman cesedine vurunca zehirli gaz bulutu patlar,Hitting an elite enemy's corpse releases a cloud of poison gas
+item.miknatis.name,Mıknatıs,Magnet
+item.miknatis.description,Belli mesafeden paraları oyuncuya doğru çeker,Pulls gold toward the player from a set distance
+item.nazar_boncugu.name,Nazar Boncuğu,Evil Eye Bead
+item.nazar_boncugu.description,10 saniyede bir yenilenen kalkan. İlk gelen hasarı tamamen durdurur.,A shield that recharges every 10 seconds. Completely blocks the first hit of damage.
+item.ok_yagmuru.name,Ok Yağmuru,Arrow Rain
+item.ok_yagmuru.description,Ağır saldırı ayrıca ileri projectile fırlatır,Heavy attack also fires a forward projectile
+item.olumcul_sukut.name,Ölümcül Sükût,Fatal Silence
+item.olumcul_sukut.description,Blok veya parry yaptıktan sonraki ilk hafif saldırın ekstra hasar verir.,Your first light attack after a block or parry deals extra damage.
+item.ortaoyunu.name,Ortaoyunu,Ortaoyunu
+item.ortaoyunu.description,Dodge veya dash bastığında arkanda gölge bir kopya bırakırsın. Düşmanlar ona saldırabilir ama hasar almaz. 3 sn sonra kaybolur.,Dodging or dashing leaves a shadow copy of yourself behind. Enemies can attack it but it takes no damage. Disappears after 3 seconds.
+item.pala_kilici.name,Pala Kılıcı,Cutlass
+item.pala_kilici.description,Hafif saldırılar 2 düşmana birden vurabilir,Light attacks can hit 2 enemies at once
+item.panzehir_derisi.name,Panzehir Derisi,Antidote Skin
+item.panzehir_derisi.description,Zehir tuzaklarına ve bulutlarına bağışıklık,Immunity to poison traps and clouds
+item.parry_ruhu.name,Parry Ruhu,Parry Spirit
+item.parry_ruhu.description,Perfect parry sonrası stamina restore +1,Perfect parry restores +1 stamina
+item.parry_ustasi.name,Parry Ustası,Parry Master
+item.parry_ustasi.description,Perfect parry penceresi +%40,Perfect parry window +40%
+item.patlama_topuzu.name,Patlama Topuzu,Explosive Mace
+item.patlama_topuzu.description,Heavy attack patlama yaratır (yakındaki düşmanlara hasar). Charge süresi +%30,Heavy attack creates an explosion (damages nearby enemies). Charge time +30%
+item.patlama_zinciri.name,Patlama Zinciri,Chain Explosion
+item.patlama_zinciri.description,Öldürdüğün düşman 2 sn sonra patlar (düşman + oyuncu hasar alabilir),Enemies you kill explode after 2 seconds (can damage both enemies and the player)
+item.ruh_akisi.name,Ruh Akışı,Spirit Flow
+item.ruh_akisi.description,Her düşman öldürüşünde yarım stamina hücresi geri gelir,Killing an enemy restores half a stamina cell
+item.ruh_avcisi.name,Ruh Avcısı,Soul Hunter
+item.ruh_avcisi.description,Öldürdüğün düşmandan kısa süreli hayalet minion çıkar,Enemies you kill spawn a short-lived ghost minion
+item.ruzgar_hanceri.name,Rüzgar Hançeri,Wind Dagger
+item.ruzgar_hanceri.description,"Dodge roll → Dash'e dönüşür, havada kullanılabilir","Dodge roll becomes a dash, usable in the air"
+item.ruzgarin_nisani.name,Rüzgârın Nişanı,Mark of the Wind
+item.ruzgarin_nisani.description,Menzilli vuruşlar aktif elementini (zehir/ateş/buz) mermiye bulaştırır,Ranged hits infuse your active element (poison/fire/ice) into the projectile
+item.sadik_golge.name,Sadık Gölge,Loyal Shadow
+item.sadik_golge.description,Ruh Avcısı hayaletleri kalıcı dolaşır (en fazla 2),Soul Hunter ghosts roam permanently (up to 2)
+item.sansli_nal.name,Şanslı Nal,Lucky Horseshoe
+item.sansli_nal.description,Parry sonrası ilk vuruş ve görünmezlikten ilk vuruş her zaman kritik,The first hit after a parry and the first hit out of invisibility are always critical
+item.sekme_tabanligi.name,Sekme Tabanlığı,Bounce Sole
+item.sekme_tabanligi.description,Düşüş saldırısı yere çarpınca otomatik pogo zıplaması yapar,Fall attack automatically pogo-bounces on landing
+item.sessiz_ayakkabi.name,Sessiz Ayakkabı,Silent Shoe
+item.sessiz_ayakkabi.description,Hareket gürültüsü -%50,Movement noise -50%
+item.simit.name,Simit,Simit
+item.simit.description,Stamina sıfırlanınca 5 sn %100 hızlı regen,"When stamina hits zero, regen 100% faster for 5s"
+item.simsek_kalkani.name,Şimşek Kalkanı,Lightning Shield
+item.simsek_kalkani.description,Block sırasında gelen hasarın %80'i saldırgana şimşek olarak yansır,80% of damage taken while blocking reflects onto the attacker as lightning
+item.simsek_parmagi.name,Şimşek Parmak,Lightning Finger
+item.simsek_parmagi.description,Light attack belli ihtimalle şimşek çakar; buzlu düşmanda ihtimal 2x,Light attacks have a chance to strike lightning; the chance doubles against frozen enemies
+item.slide_simsegi.name,Slide Şimşeği,Slide Lightning
+item.slide_simsegi.description,Kayarken şimşek çakar (yakındaki düşmanlara hasar). Slide kontrolü -%20,Strikes lightning while sliding (damages nearby enemies). Slide control -20%
+item.son_kale.name,Son Kale,Last Stand
+item.son_kale.description,Blok sırasında stamina biterse gard kırılması yerine şok dalgası patlar,"If stamina runs out while blocking, a shockwave erupts instead of breaking your guard"
+item.tas_yurek.name,Taş Yürek,Heart of Stone
+item.tas_yurek.description,Canın %25'in altına indiyse gelen tüm hasarlar %50 azalır.,"If your health drops below 25%, all incoming damage is reduced by 50%."
+item.taskin_guc.name,Taşkın Güç,Overflowing Power
+item.taskin_guc.description,Stamina tamamen doluyken saldırılar +%30 hasar verir,Attacks deal +30% damage while stamina is full
+item.ters_darbe.name,Ters Darbe,Reverse Strike
+item.ters_darbe.description,Perfect parry sonrası otomatik karşı saldırı,Automatic counterattack after a perfect parry
+item.topuk_kirici.name,Topuk Kırıcı,Heel Breaker
+item.topuk_kirici.description,Çömelmeden veya kaymadan çıktıktan hemen sonra yaptığın ilk vuruş ekstra hasar verir.,Your first hit right after leaving a crouch or slide deals extra damage.
+item.tunel_ustasi.name,Tünel Ustası,Tunnel Master
+item.tunel_ustasi.description,Crawl hızı +%50,Crawl speed +50%
+item.tuzak_fisildayan.name,Tuzak Fısıldayan,Trap Whisperer
+item.tuzak_fisildayan.description,Zindan tuzakları düşmanlara da hasar verir,Dungeon traps also damage enemies
+item.ucuncu_vurus.name,Üçüncü Vuruş,Third Strike
+item.ucuncu_vurus.description,Her 3. light attack %50 ek hasar verir,Every 3rd light attack deals 50% extra damage
+item.uzun_menzil.name,Uzun Menzil,Long Range
+item.uzun_menzil.description,Light attack ayrıca ileri projectile fırlatır,Light attack also fires a forward projectile
+item.yanki_oku.name,Yankı Oku,Echo Arrow
+item.yanki_oku.description,Mermiler çarptıktan 1sn sonra aynı noktada ikinci kez patlar,Projectiles explode a second time at the same spot 1s after impact
+item.yansitici_kalkan.name,Yansıtıcı Kalkan,Reflective Shield
+item.yansitici_kalkan.description,Block sırasında gelen hasarın %50'si düşmana yansır,50% of damage taken while blocking reflects onto the enemy
+item.yansiyan_ok.name,Yansıyan Ok,Ricocheting Arrow
+item.yansiyan_ok.description,Mermiler ilk hedeften sekip yakındaki ikinci düşmana da çarpar,Projectiles ricochet off their first target and hit a second nearby enemy
+item.yikim_muhru.name,Yıkım Mührü,Seal of Destruction
+item.yikim_muhru.description,Ağır saldırı sırasında tuşu basılı tutup 1 stamina hücresi yakarsan ek patlama olur,Holding the button during a heavy attack and burning 1 stamina cell triggers an extra explosion
+item.yildirim_adimi.name,Yıldırım Adımı,Lightning Step
+item.yildirim_adimi.description,Dodge/dash sonrası kısa süreli hız bonusu,Brief speed boost after a dodge/dash
+item.yildirim_dususu.name,Yıldırım Düşüşü,Lightning Fall
+item.yildirim_dususu.description,Fall attack şimşek çakar (10 sn cooldown),Fall attack strikes lightning (10s cooldown)
+item.zaman_durdurucu.name,Zaman Durdurucu,Time Stopper
+item.zaman_durdurucu.description,Perfect parry sonrası zaman yavaşlar; sen normal hızında hareket edersin,Time slows after a perfect parry; you move at normal speed
+item.zehirli_dev.name,Zehirli Dev,Poison Giant
+item.zehirli_dev.description,Heavy attack zehir püskürtür (yay çizen damlalar),Heavy attack sprays poison (arcing droplets)
+item.zehirli_dusus.name,Zehirli Düşüş,Poison Fall
+item.zehirli_dusus.description,Fall attack zehir bulutu bırakır (10 sn cooldown),Fall attack leaves a poison cloud (10s cooldown)
+item.zehirli_tirnak.name,Zehirli Tırnak,Poison Claw
+item.zehirli_tirnak.description,"Light attack'lar zehir verir (max 5 stack, 2 sn'de 1 hasar/stack)","Light attacks apply poison (max 5 stacks, 1 damage/stack every 2s)"
+item.zeytinyagi.name,Zeytinyağı,Olive Oil
+item.zeytinyagi.description,Slide mesafesi +%80,Slide distance +80%
+item.ziplama_zehiri.name,Zıplama Zehiri,Jump Poison
+item.ziplama_zehiri.description,Zıplarken havada zehir izi bırakırsın,Leaves a poison trail in the air while jumping
+mc.construction.close_hint,[B ile kapat],[B to close]
+building.weaver.production_info,Lv.%s • İşçi:%s • Kumaş: (odun+yiyecek),Lv.%s • Worker:%s • Cloth: (wood+food)
+building.well.production_info, • İşçi:%s • Su üretimi: %s/tick, • Worker:%s • Water production: %s/tick
+building.woodcutter_camp.production_info, • İşçi:%s • Odun üretimi: %s/tick, • Worker:%s • Wood production: %s/tick
+building.brickworks.production_info,Lv.%s • İşçi:%s • Tuğla: (taş),Lv.%s • Worker:%s • Brick: (stone)
+building.herbalist.production_info,Lv.%s • İşçi:%s • Şifalı Bitki: (taş+yiyecek),Lv.%s • Worker:%s • Medicinal Herb: (stone+food)
+building.sawmill.production_info,Lv.%s • İşçi:%s • Kereste: (odun),Lv.%s • Worker:%s • Lumber: (wood)
+building.soapmaker.production_info,Lv.%s • İşçi:%s • Sabun: (kereste+metal),Lv.%s • Worker:%s • Soap: (lumber+metal)
+building.stone_mine.production_info, • İşçi:%s • Taş üretimi: %s/tick, • Worker:%s • Stone production: %s/tick
+building.tailor.production_info,Lv.%s • İşçi:%s • Giysi: (ekmek+kumaş),Lv.%s • Worker:%s • Clothing: (bread+cloth)
+building.teahouse.production_info,Lv.%s • İşçi:%s • Çay: (tuğla+şifalı bitki),Lv.%s • Worker:%s • Tea: (brick+medicinal herb)
+building.blacksmith.production_info,Lv.%s • İşçi:%s • Metal: (taş+odun),Lv.%s • Worker:%s • Metal: (stone+wood)
+building.armorer.production_info,Lv.%s • İşçi:%s • Zırh: (metal x2),Lv.%s • Worker:%s • Armor: (metal x2)
+building.bakery.production_info, • İşçi:%s • Ekmek (odun+yiyecek): 1/%ssn, • Worker:%s • Bread (wood+food): 1/%ss
+building.gunsmith.recipe_tier1,odun+taş → 1.sv. silah,wood+stone -> tier 1 weapon
+building.gunsmith.recipe_tier2,kereste+tuğla → 2.sv. silah,lumber+brick -> tier 2 weapon
+building.gunsmith.recipe_tier3,metal+kumaş → 3.sv. silah,metal+cloth -> tier 3 weapon
+building.gunsmith.production_info,Lv.%s • İşçi:%s • %s,Lv.%s • Worker:%s • %s
+building.storage.production_info,Lv.%d • Depo kapasitesi: +%d (tüm temel kaynaklar),Lv.%d • Storage capacity: +%d (all base resources)
+mc.building.not_built,❌ Yok,❌ Not built
+mc.building.upgrade_time_left, ⏳%ssn (%s%%), ⏳%ss (%s%%)
+mc.building.upgrade_time_seconds, ⏱%ssn, ⏱%ss
+village.housing_shortage_tooltip,Barınak yetersiz — %d köylünün yatacak yeri yok,Not enough housing — %d villagers have nowhere to sleep
+trade_mission.title,Ticaret Görevi,Trade Mission
+trade_mission.select_route,Rota Seç,Select Route
+trade_mission.close,Kapat,Close
+trade_mission.no_routes,Şu an aktif ticaret rotası yok.,No active trade routes right now.
+trade_mission.route_button,"→ %s  (mesafe %.1f gün, risk %s)","-> %s  (distance %.1f days, risk %s)"
+trade_mission.route_summary,%s → %s  •  risk %s  •  mesafe %.1f gün,%s -> %s  •  risk %s  •  distance %.1f days
+trade_mission.goods_title,Satılacak Mallar,Goods to Sell
+trade_mission.no_stock,Bu rotada satılabilecek stoklu bir mal yok.,No stocked goods available on this route.
+trade_mission.escort_title,Eskort Asker,Escort Soldiers
+trade_mission.start_button,Ticaret Görevini Başlat,Start Trade Mission
+trade_mission.select_at_least_one,En az bir mal seçmelisiniz.,You must select at least one good.
+trade_mission.system_missing,Görev sistemi bulunamadı.,Mission system not found.
+trade_mission.insufficient_resource,Yetersiz kaynak: %s,Insufficient resource: %s
+trade_mission.creation_failed,Görev oluşturulamadı.,Failed to create mission.
+trade_mission.start_failed,Görev başlatılamadı.,Failed to start mission.
+trader.close,Kapat,Close
+trader.default_name,Tüccar,Trader
+trader.gold_label,Altın: %d,Gold: %d
+trader.no_products,Satılık ürün yok.,No products for sale.
+trader.price_per_unit,%d altın / birim,%d gold / unit
+trader.purchase_failed,Satın alma başarısız.,Purchase failed.
+trader.insufficient_gold_or_stock,Yetersiz altın veya stok yok.,Insufficient gold or out of stock.
+stealth.flee_villager_count,%d köylü,%d villager(s)
+stealth.flee_cariye_count,%d cariye,%d cariye
+stealth.fled_in_fear,Korkup kaçtı: ,Fled in fear: 
+stealth.badge_alarm,ALARM,ALARM
+stealth.badge_hidden,Gizli,Hidden
+plot.worker_remove_hint,çıkar,remove
+plot.worker_add_hint,ekle,add
+plot.close,Kapat,Close
+plot.level_display,Seviye %d / %d,Level %d / %d
+plot.max_level,Maksimum Seviye,Maximum Level
+plot.remaining_hours,Kalan: %.1f saat,Remaining: %.1f hours
+plot.add_floor,Kat Ekle,Add Floor
+plot.cost_prefix,Maliyet: ,Cost: 
+barracks_weapon.title,Kışla — Silahlandırma,Barracks — Arming
+barracks_weapon.equip_all,Tümünü Silahlandır,Equip All
+barracks_weapon.close,Kapat,Close
+barracks_weapon.stock_line,Stokta: %s %d   %s %d   %s %d,In stock: %s %d   %s %d   %s %d
+barracks_weapon.no_soldiers,Kışlada asker yok. Önce köylü ata.,No soldiers in the barracks. Assign a villager first.
+barracks_weapon.tier1,⚔ 1. Seviye Silah,⚔ Tier 1 Weapon
+barracks_weapon.tier2,⚔ 2. Seviye Silah,⚔ Tier 2 Weapon
+barracks_weapon.tier3,⚔ 3. Seviye Silah,⚔ Tier 3 Weapon
+barracks_weapon.unarmed,Silahsız,Unarmed
+barracks_weapon.soldier_number,Asker #%d,Soldier #%d
+barracks_weapon.no_weapons_in_storage,Depoda hiç silah yok.,No weapons in storage.
+barracks_weapon.operation_failed,İşlem başarısız.,Operation failed.
+barracks_weapon.nav_hint_gamepad,[↑↓] Asker seç   [A] Silahı değiştir   [B] Kapat,[↑↓] Select soldier   [A] Change weapon   [B] Close
+barracks_weapon.nav_hint_keyboard,[↑↓] Asker seç   [Enter] Silahı değiştir   [Esc] Kapat,[↑↓] Select soldier   [Enter] Change weapon   [Esc] Close
+plot_build.title,İnşa Et,Build
+plot_build.subtitle,Yapmak istediğin binayı seç,Choose the building you want to make
+plot_build.close,Kapat,Close
+plot_build.no_buildings_in_category,Bu kategoride henüz bina yok.,No buildings in this category yet.
+plot_build.build,İnşa Et,Build
+plot_build.locked,Kilitli,Locked
+plot_build.free,Bedava,Free
+plot_build.requirements_not_met,Gereksinimler karşılanmıyor.,Requirements not met.
+plot_build.already_exists,Bu bina zaten mevcut.,This building already exists.
+plot_build.insufficient_prefix,Yetersiz: ,Insufficient: 
+plot_build.required_level,Gerekli: %s Lv.%d,Required: %s Lv.%d
+plot_build.requirements_or_exists,Gereksinimler karşılanmıyor veya bina zaten var.,Requirements not met or the building already exists.
+building_category.resource,Kaynak & Üretim,Resources & Production
+building_category.utility,Yardımcı,Utility
+building_category.military,Askeri,Military
+building_category.decoration,Dekorasyon,Decoration
+building_category.fallback,Bina,Building
+dungeon_report.continue_hint,Devam etmek için onayla,Press confirm to continue
+dungeon_report.title_dead,ÖLDÜN,YOU DIED
+dungeon_report.sub_dead,Zindanda düştün — toplanan ganimet kayboldu.,You fell in the dungeon — the loot you collected was lost.
+dungeon_report.title_victory,ZAFER!,VICTORY!
+dungeon_report.sub_victory,"Boss yenildi, zindandan sağ çıktın.","The boss was defeated, you made it out of the dungeon."
+dungeon_report.title_stealth_exit,GİZLİCE KAÇTIN,YOU SLIPPED AWAY
+dungeon_report.sub_stealth_exit,Fark edilmeden zindandan sıvıştın.,You slipped out of the dungeon unnoticed.
+dungeon_report.title_complete,KEŞİF TAMAMLANDI,EXPLORATION COMPLETE
+dungeon_report.sub_complete,Zindandan sağ çıktın.,You made it out of the dungeon.
+dungeon_report.title_early_exit,ERKEN ÇIKIŞ,EARLY EXIT
+dungeon_report.sub_early_exit,Zindanı bitirmeden ayrıldın.,You left before finishing the dungeon.
+dungeon_report.row_duration,Süre,Duration
+dungeon_report.warmup_suffix,  (alıştırma),  (warmup)
+dungeon_report.row_segments,Geçilen Bölüm,Segments Cleared
+dungeon_report.row_enemies_killed,Öldürülen Düşman,Enemies Killed
+dungeon_report.row_gold_collected,Toplanan Altın,Gold Collected
+dungeon_report.row_gold_lost,    zindanda kaybedilen,    lost in the dungeon
+dungeon_report.row_gold_delivered,    kasaya teslim edilen,    delivered to the treasury
+dungeon_report.row_rescued,Kurtarılan,Rescued
+dungeon_report.row_rescued_lost,    zindanda kaldı,    left behind in the dungeon
+dungeon_report.row_fragile_lost,    kaçarken kaybedilen esir,    captive lost while fleeing
+vkeyboard.space,Boşluk,Space
+vkeyboard.send,Gönder ✓,Send ✓
+vkeyboard.nav_hint,[Yön] Gez   [A] Seç   [B] Klavyeyi kapat,[Dir] Move   [A] Select   [B] Close keyboard
+mentor_brief.title,Rehber,Guide
+mentor_brief.tab_news,Haberler,News
+mentor_brief.tab_diplomacy,Diplomasi,Diplomacy
+mentor_brief.close,Kapat,Close
+mentor_brief.no_news_source,Haber kaynağı bulunamadı.,News source not found.
+mentor_brief.no_news_yet,Henüz haber yok.,No news yet.
+mentor_brief.village_news_header,🏘 Köy Haberleri,🏘 Village News
+mentor_brief.no_village_news,Köy haberi yok.,No village news.
+mentor_brief.world_news_header,🌍 Dünya Haberleri,🌍 World News
+mentor_brief.no_world_news,Dünya haberi yok.,No world news.
+mentor_brief.no_mission_system,Görev sistemi bulunamadı.,Mission system not found.
+mentor_brief.active_missions_header,🟢 Aktif Görevler,🟢 Active Missions
+mentor_brief.mission_history_header,📜 Geçmiş Görevler,📜 Mission History
+mentor_brief.no_world_map_info,Dünya haritası bilgisi yok.,No world map info.
+mentor_brief.no_discovered_village,Henüz keşfedilen köy yok.,No discovered village yet.
+mentor_brief.no_discovered_village_hint,"Henüz keşfedilen köy yok.
+Dünya haritasında komşu köyleri keşfet.","No discovered village yet.
+Explore neighboring villages on the world map."
+mentor_brief.discovered_villages_header,Keşfedilen Köyler,Discovered Villages
+mentor_brief.no_combat_history_1,Savaş geçmişi bulunamadı.,No combat history found.
+mentor_brief.no_combat_history_2,Henüz kayıtlı bir saldırı yok.,No recorded attack yet.
+mentor_brief.combat_history_header,⚔ Savaş Geçmişi,⚔ Combat History
+mentor_brief.defense_success,Savunma başarılı,Defense successful
+mentor_brief.defense_fail,Savunma başarısız,Defense failed
+mentor_brief.village_label,Köy,Village
+mentor_brief.status_sent,gönderildi,sent
+mentor_brief.lost_soldiers,Kayıp asker: %d,Soldiers lost: %d
+mentor_brief.attacker_losses,Saldırgan kaybı: %d,Attacker losses: %d
+mentor_brief.soldiers_disarmed,Silahsız kalan asker: %d,Soldiers left unarmed: %d
+mentor_brief.gold_lost,Kayıp altın: %d,Gold lost: %d
+mentor_brief.resource_lost,Kayıp %s: %d,Lost %s: %d
+mentor_brief.morale_delta,Moral: %s%d,Morale: %s%d
+mentor_brief.allied_support,Müttefik desteği devreye girdi.,Allied support kicked in.
+mentor_brief.gold_spent,Harcanan altın: %d,Gold spent: %d
+mentor_brief.raid_result_hint,Sonuç: göreve cariye atayarak takip edilebilir (Görevler sekmesi).,Result: can be tracked by assigning a concubine to a mission (Missions tab).
+mentor_brief.no_further_details,Ek detay yok.,No further details.
+mentor_brief.just_now,az önce,just now
+mentor_brief.minutes_ago,%d dk önce,%d min ago
+mentor_brief.hours_minutes_ago,%d sa %d dk önce,%dh %dm ago
+mentor_brief.hours_ago,%d sa önce,%dh ago
+mentor_brief.days_ago,%d gün önce,%d days ago
+mentor_brief.news_fallback,Haber,News
+mentor_brief.reward_prefix,Ödül: ,Reward: 
+mentor_brief.penalty_prefix,Ceza: ,Penalty: 
+cm_popup.tab_missions,Görevler,Missions
+cm_popup.tab_roles,Roller,Roles
+cm_popup.assignable_missions,Atanabilir Görevler,Assignable Missions
+cm_popup.assign_role,Rol Ata,Assign Role
+cm_popup.drop_role,Rolü Bırak (Ücretsiz),Drop Role (Free)
+cm_popup.status_available,● Müsait,● Available
+cm_popup.status_on_mission,⚑ Görevde,⚑ On Mission
+cm_popup.status_injured,✚ Yaralı,✚ Injured
+cm_popup.status_resting,♥ Dinleniyor,♥ Resting
+cm_popup.level_hp,Seviye %d   HP %d/%d,Level %d   HP %d/%d
+cm_popup.morale,Moral %d/%d,Morale %d/%d
+cm_popup.role_line,Rol: %s,Role: %s
+cm_popup.no_mission_system,Görev sistemi bulunamadı.,Mission system not found.
+cm_popup.role_mission,Rol Görevi,Role Mission
+cm_popup.no_missions_available,Şu an mevcut görev yok.,No missions available right now.
+cm_popup.role_track_banner,🎓 Bu görev tamamlanınca %s rolü kazanılacak.,🎓 Completing this mission grants the %s role.
+cm_popup.healer_treat_action,🩺 Oyuncuyu Tedavi Et (35 altın + 2 ilaç),🩺 Treat the Player (35 gold + 2 medicine)
+cm_popup.no_treat_needed,Oyuncuda tedavi gerektiren bir durum yok.,The player has no condition requiring treatment.
+cm_popup.trader_mission_action,💰 Ticaret Görevi Başlat,💰 Start Trade Mission
+cm_popup.commander_info,🛡 Köyde (boşta) olduğu sürece orduyu güçlendirir — savaş yeteneği arttıkça bonus büyür.,🛡 Strengthens the army while she's idle in the village — the bonus grows with her combat skill.
+cm_popup.soldiers_selected,⚔ %d asker seçili,⚔ %d soldiers selected
+cm_popup.assign_button,Ata,Assign
+cm_popup.not_eligible,Uygun değil,Not eligible
+cm_popup.lock_on_mission,Cariye zaten görevde,Concubine is already on a mission
+cm_popup.lock_injured,Cariye yaralı — önce dinlenmeli,Concubine is injured — must rest first
+cm_popup.lock_resting,Cariye dinleniyor,Concubine is resting
+cm_popup.lock_mission_specific,Bu görev başka bir cariyeye özel,This mission is specific to another concubine
+cm_popup.lock_role_requirement,Rol gereksinimi: %s,Role required: %s
+cm_popup.lock_leverage,Kilitli — güven puanı yetersiz (min %d),Locked — insufficient trust score (min %d)
+cm_popup.lock_level,Kilitli — seviye %d gerekli,Locked — level %d required
+cm_popup.lock_story,Kilitli — hikâye koşulu,Locked — story condition
+cm_popup.lock_cariye_level,Seviye %d gerekli (mevcut: %d),Level %d required (current: %d)
+cm_popup.lock_insufficient_soldiers,"Yetersiz asker — kışlada %d, görev min %d ister","Insufficient soldiers — %d in barracks, mission requires min %d"
+cm_popup.lock_health_low,Sağlık çok düşük,Health too low
+cm_popup.lock_morale_low,Moral çok düşük,Morale too low
+cm_popup.mission_fallback,Görev,Mission
+cm_popup.min_soldiers,⚔ min %d asker (mevcut: %d),⚔ min %d soldiers (current: %d)
+cm_popup.duration_days_hours,%dg %dsa,%dd %dh
+cm_popup.duration_days,%d gün,%d days
+cm_popup.duration_hours_minutes,%dsa %ddak,%dh %dm
+cm_popup.duration_hours,%d saat,%d hours
+cm_popup.duration_minutes,%d dak,%d min
+cm_popup.difficulty_easy,Kolay,Easy
+cm_popup.difficulty_medium,Orta,Medium
+cm_popup.difficulty_hard,Zor,Hard
+cm_popup.difficulty_legendary,Efsanevi,Legendary
+cm_popup.type_mission,[Görev],[Mission]
+cm_popup.type_war,[Savaş],[War]
+cm_popup.type_discovery,[Keşif],[Discovery]
+cm_popup.type_diplomacy,[Diplomasi],[Diplomacy]
+cm_popup.type_trade,[Ticaret],[Trade]
+cm_popup.type_intel,[İstihbarat],[Intelligence]
+cm_popup.type_bureaucracy,[Bürokrasi],[Bureaucracy]
+cm_popup.role_none,Yok,None
+cm_popup.role_commander,Komutan,Commander
+cm_popup.role_agent,Ajan,Agent
+cm_popup.role_diplomat,Diplomat,Diplomat
+cm_popup.role_trader,Tüccar,Trader
+cm_popup.role_scholar,Alim,Scholar
+cm_popup.role_physician,Tıbbiyeci,Physician
+cm_popup.role_unspecified,Belirtilmemiş,Unspecified
+cm_popup.role_assign_failed,Rol atanamadı.,Failed to assign role.
+cm_popup.current_role_note,Bu cariyenin şu anki rolü.,This is her current role.
+cm_popup.training_ready,Eğitim görevi hazır — Görevler sekmesinden ata.,Training mission ready — assign it from the Missions tab.
+cm_popup.other_role_in_progress,Başka bir rol için görev sürüyor — önce onu bitir.,A mission for another role is in progress — finish it first.
+cm_popup.no_training_defined,Bu rol için eğitim tanımlı değil.,No training defined for this role.
+cm_popup.cost_line,Bedel: %s,Cost: %s
+cm_popup.training_after_payment,Ödendikten sonra Görevler sekmesinde bu rolü kazandıracak tek bir görev belirir.,"Once paid, a single mission that grants this role will appear in the Missions tab."
+cm_popup.benefit_commander,"Köyde boştayken orduyu güçlendirir: savaş yeteneğine göre askerlere %10-%40 saldırı, %8-%30 savunma bonusu verir. Bu bonus hem köy savunmasında hem saldırı/yağma görevlerinde geçerlidir.",Strengthens the army while she's idle in the village: grants soldiers a 10-40% attack and 8-30% defense bonus based on her combat skill. This applies to both village defense and raid missions.
+cm_popup.benefit_agent,Keşfedilmemiş komşu köylerdeki krizler hakkında duyum alma ihtimalini artırır; müttefik köylerin paylaşımlı istihbarat menzilini genişletir.,Increases the chance of hearing about crises in undiscovered neighboring villages; extends the shared intelligence range of allied villages.
+cm_popup.benefit_diplomat,Komşu köylerdeki kriz sürelerini kısaltır; günlük istikrar toparlanmasını hızlandırır.,Shortens crisis durations in neighboring villages; speeds up daily stability recovery.
+cm_popup.benefit_trader,Diğer köylere ticaret/kervan görevi başlatabilirsiniz — malzeme satarak altın ve ilişki kazanırsınız. Müttefik köylerden gelen günlük vergi gelirini artırır.,You can start trade/caravan missions to other villages — sell goods for gold and relationship gains. Increases daily tax income from allied villages.
+cm_popup.benefit_scholar,Kıtlık ve salgın söylentisi olaylarının şiddetini azaltır.,Reduces the severity of famine and plague-rumor events.
+cm_popup.benefit_physician,Oyuncuyu ölüm sonrası debufftan tedavi edebilir (35 altın + 2 ilaç). Köydeki hasta işçilerin bir kısmını ücretsiz iyileştirir.,Can treat the player's post-death debuff (35 gold + 2 medicine). Heals some sick villagers for free.
+cm_popup.cost_gold,%d altın,%d gold
+cm_popup.assign_failed,Atama başarısız.,Assignment failed.
+cm_popup.mission_assign_failed,Görev atanamadı.,Mission could not be assigned.
+cm_popup.nav_hint_gamepad,[↑↓] Seç   [◄►] Asker   [L2/R2] Sekme   [A] Onayla   [B] Kapat,[↑↓] Select   [◄►] Soldiers   [L2/R2] Tab   [A] Confirm   [B] Close
+cm_popup.nav_hint_keyboard,[↑↓] Seç   [◄►] Asker   [Q/E] Sekme   [Enter] Onayla   [Esc] Kapat,[↑↓] Select   [◄►] Soldiers   [Q/E] Tab   [Enter] Confirm   [Esc] Close
+time.day_format,"Gün %d, %02d:%02d","Day %d, %02d:%02d"
+village.construction.starting,İnşaat başlıyor...,Construction starting...
+village.construction.progress,İnşaat: %d%% (%.1f saat),Construction: %d%% (%.1f hours)
+npc_window.chat_title,Sohbet,Chat
+npc_window.close_hint,[%s] Kapat,[%s] Close
+wm.dice.rolling,Zarlar dönüyor...,Rolling the dice...
+wm.dice.ready,Zarlar hazır.,Dice ready.
+resource.armor,Zırh,Armor
+timeskip.title,Zaman Atlama Tamamlandı,Time Skip Complete
+timeskip.hours_passed,%.1f saat geçti,%.1f hours passed
+timeskip.no_resources,Bu sürede kaynak üretilmedi,No resources were produced during this time
+timeskip.produced_resources,Üretilen Kaynaklar:,Resources Produced:
+tutorial.village.dialogue_mechanics_1,"Beni iyi dinle; buralarda insanlarla konuşmak bir senaryodan replik okumaya benzemez. Sadece önceden belirlenmiş seçenekler arasından seçim yapmazsın. Kelimenin tam anlamıyla ne söylemek istiyorsan onu yazabilirsin! Doğal bir şekilde konuş, sorular sor veya bir düşünceni paylaş.","Listen closely: talking to people around here isn't like reading from a script. You don't just pick from a list of set choices. You can literally type out whatever you want to say! Speak naturally, ask questions, or share a thought."
+tutorial.village.dialogue_mechanics_2,"Küçük bir tavsiye: Köydeki herkes İngilizce konuşur. Başka dilleri anlama veya konuşma konusunda iyi değiller, bu yüzden sözlerinin tam olarak yerine ulaşmasını istiyorsan İngilizce'den şaşma.","A quick word of advice: Everyone in the village speaks English. They aren't good at speaking or understanding other languages, so stick to English if you want your words to land properly."
+tutorial.village.villager_individuality_1,"Son bir şey daha var ve bu çok önemli: Köylüler, kendi akılları olan özgün bireylerdir. Kendilerine has kişilikleri, alışkanlıkları, kusurları ve amaçlarıyla bizimle birlikte burada yaşarlar.","One last thing, and this is crucial: the villagers are distinct individuals with their own minds. They live here alongside us, each with their own unique personalities, habits, flaws, and motivations."
+tutorial.village.villager_individuality_2,"Onlar senin hizmetkarın ya da her dediğine itaat eden ruhsuz varlıklar değiller; hiçbir iki insan sana aynı tepkiyi vermez. Burada sohbet etmenin bir hilesi veya evrensel bir formülü yok. Bu yüzden kiminle konuştuğuna dikkat et, onları neyin harekete geçirdiğini çöz ve onlara tamamen özgün birer birey olarak yaklaş.","They aren't your servants or mindlessly compliant entities, and no two people will react to you the same way. There is no trick or universal formula to conversation here. Pay attention to who you are speaking with, learn what makes them tick, and engage with them as unique individuals."
+campfire.rest_1h,1 Saat Dinlen,Rest 1 Hour
+campfire.rest_4h,4 Saat Dinlen,Rest 4 Hours
+campfire.rest_until_morning,Sabaha Kadar Uyu,Sleep Until Morning
+campfire.close,Kapat,Close
+campfire.morning,Sabah oldu,Morning has come
+campfire.hours_passed_int,%d saat geçti,%d hours passed
+campfire.hours_passed_float,%.1f saat geçti,%.1f hours passed
+campfire.health_line,💚 Can: %d / %d,💚 Health: %d / %d
+wm.expedition.supply_duration,Erzak süresi: ~%s,Supply duration: ~%s
+wm.travel.crisis.wolf_attack,%s bolgesindeki kurt gerilimi buraya da siziyor. ,Tension over wolves near %s has spread this way too. 
+wm.travel.crisis.harvest_failure,%s tarafindaki erzak baskisi haberleri yayildi. ,Word has spread of food shortages near %s. 
+wm.travel.crisis.migrant_wave,%s civarinda duzensiz goc hareketleri var. ,There's unusual migrant movement around %s. 
+wm.travel.crisis.bandit_road,%s yolunda haydut tehlikesi bolgede. ,Bandit danger looms on the road near %s. 
+wm.travel.crisis.plague_scare,%s tarafinda hastalik kaygisi dolanıyor. ,Worry about illness is going around near %s. 
+wm.travel.crisis.default,%s civarinda kriz haberi var. ,There's news of a crisis near %s. 
+wm.travel.prompt.orman.0,Sis bir anda coktu; patika secmek zorlasti.,Fog dropped suddenly; picking a path got hard.
+wm.travel.prompt.orman.1,Dallar arasindan gelen sesler ekibi gerdi.,Sounds from among the branches put the group on edge.
+wm.travel.prompt.orman.2,Terk bir kamp atesine rastladin; ici supheli gorunuyor.,You came across an abandoned campfire; something about it looks off.
+wm.travel.prompt.dag.0,Dar gecitte ufak kaya dusmeleri basladi.,Small rockfalls started in the narrow pass.
+wm.travel.prompt.dag.1,Ruzgar bastirdi; adimlar guvensizlesiyor.,The wind picked up; footing is getting unsteady.
+wm.travel.prompt.dag.2,Eski maden agzinda catlak sesleri duyuldu.,Cracking sounds came from the old mine entrance.
+wm.travel.prompt.akarsu.0,Akinti sertlesti; gecis noktasi riskli.,The current turned rough; the crossing point is risky.
+wm.travel.prompt.akarsu.1,"Kopru tahtalari gicirdiyor, zemin oynak.","The bridge planks are creaking, the footing unstable."
+wm.travel.prompt.akarsu.2,Kiyida suruklenen bir sandik dikkat cekti.,A chest washed up on the bank caught your eye.
+wm.travel.prompt.ova.0,Yol catallandi; izler birbirine girdi.,The road forked; the tracks tangled together.
+wm.travel.prompt.ova.1,Kervan izleri bir anda kesildi.,The caravan tracks suddenly broke off.
+wm.travel.prompt.ova.2,Yol kenari enkazinda ters giden bir seyler var.,Something's wrong with the wreckage by the roadside.
+wm.travel.fate_suffix,Talihi iki zar belirleyecek.,Fate will be decided by two dice.
+wm.travel.neutral_roll,Iki zar da 3: ne kazandin ne kaybettin.,Both dice landed on three: you neither gained nor lost anything.
+wm.travel.story.orman.0.intro,"Sis basti, izler kayboldu.","Fog rolled in, the tracks vanished."
+wm.travel.story.orman.0.t4,Yosunlu bir kestirme buldun.,You found a mossy shortcut.
+wm.travel.story.orman.0.t3,Kuru patikayi yakaladin.,You picked up the dry path.
+wm.travel.story.orman.0.t2,Dallari acip ilerledin.,You pushed the branches aside and moved on.
+wm.travel.story.orman.0.t1,Yanlis patikaya sapip geri dondun.,You took a wrong turn and had to backtrack.
+wm.travel.story.orman.0.t0,"Bogucu sis, ekip dagildi ve buyuk zaman kaybi yasandi.","The fog was suffocating, the group scattered, and a lot of time was lost."
+wm.travel.story.orman.1.intro,Yabani hayvan izleri cogaldi.,Wild animal tracks kept multiplying.
+wm.travel.story.orman.1.t4,Hayvanlar senden uzaklasti; guvenli bir gecis yakaladin.,The animals moved away from you; you found a safe way through.
+wm.travel.story.orman.1.t3,Tehlikeyi sessizce atlattin.,You slipped past the danger quietly.
+wm.travel.story.orman.1.t2,Nefesini tutup gecmeyi basardin.,You held your breath and managed to get through.
+wm.travel.story.orman.1.t1,Kacisirken yaralandin.,You got hurt while running for it.
+wm.travel.story.orman.1.t0,Pusuya benzer bir kargasada agir bedel odedin.,You paid dearly in what felt like an ambush.
+wm.travel.story.orman.2.intro,Terk bir kamp atesine rastladin.,You came across an abandoned campfire.
+wm.travel.story.orman.2.t4,"Kamp temizdi, ise yarar erzak buldun.",The camp was clean; you found useful supplies.
+wm.travel.story.orman.2.t3,Kullanisli bir parca cikarabildin.,You managed to salvage something useful.
+wm.travel.story.orman.2.t2,"Kamp bos cikti, yoluna devam ettin.",The camp turned out empty; you moved on.
+wm.travel.story.orman.2.t1,Curuuk malzeme oyalanmana neden oldu.,Rotten supplies cost you some time.
+wm.travel.story.orman.2.t0,Tuzakli kamp buyuk kayba yol acti.,"The camp was a trap, and it cost you dearly."
+wm.travel.story.dag.0.intro,Dar gecitte kaya sesleri yankilandi.,Rock sounds echoed through the narrow pass.
+wm.travel.story.dag.0.t4,Gizli bir dag gecidi buldun.,You found a hidden mountain passage.
+wm.travel.story.dag.0.t3,Saglam zeminden akici gectin.,You crossed smoothly over solid ground.
+wm.travel.story.dag.0.t2,Temkinli adimlarla sorunsuz gectin.,You made it through fine with careful steps.
+wm.travel.story.dag.0.t1,Kucuk bir kayma yavaslatti.,A small slip slowed you down.
+wm.travel.story.dag.0.t0,Kaya dusmesi ekibi zorladi.,A rockslide put the group through the wringer.
+wm.travel.story.dag.1.intro,Sert ruzgar dengeyi bozdu.,A harsh wind threw off everyone's balance.
+wm.travel.story.dag.1.t4,Ruzgari arkana alip hiz kazandin.,You put the wind at your back and picked up speed.
+wm.travel.story.dag.1.t3,"Ruzgar dindi, gecis kolaylasti.","The wind died down, and the crossing got easier."
+wm.travel.story.dag.1.t2,Bekleyip uygun anda gectin.,You waited it out and crossed at the right moment.
+wm.travel.story.dag.1.t1,"Yuk dengesi bozuldu, oyalandin.","The load shifted off balance, costing you time."
+wm.travel.story.dag.1.t0,Ucurum kenarinda panik buyuk kayip getirdi.,Panic at the cliff's edge led to a heavy loss.
+wm.travel.story.dag.2.intro,Eski maden agzinda catlaklar gordun.,You spotted cracks at the old mine entrance.
+wm.travel.story.dag.2.t4,Maden ceplerinden degerli parca topladin.,You picked a valuable piece out of the mine's pockets.
+wm.travel.story.dag.2.t3,Kucuk bir odul buldun.,You found a small reward.
+wm.travel.story.dag.2.t2,Gereksiz risk almayip yoluna devam ettin.,You chose not to risk it and moved on.
+wm.travel.story.dag.2.t1,Cokuntu yuzunden geri adim attin.,A cave-in forced you to step back.
+wm.travel.story.dag.2.t0,Maden agzi cokerken agir gecikme yasandi.,"The mine entrance collapsed, costing you a heavy delay."
+wm.travel.story.akarsu.0.intro,Akinti beklenenden hizliydi.,The current was faster than expected.
+wm.travel.story.akarsu.0.t4,Sakin bir gecit bulup hizla karsiya gectin.,You found a calm crossing and made it across quickly.
+wm.travel.story.akarsu.0.t3,Akintiyi dogru aciyla gectin.,You crossed the current at just the right angle.
+wm.travel.story.akarsu.0.t2,"Islanip toparlandin, yoluna devam.","You got soaked, shook it off, and carried on."
+wm.travel.story.akarsu.0.t1,Sicrama aninda dengeyi kaybettin.,You lost your balance mid-jump.
+wm.travel.story.akarsu.0.t0,"Akinti yukunu surukledi, agir kayip yasandi.","The current swept your cargo away, a heavy loss."
+wm.travel.story.akarsu.1.intro,Kopru tahtalari gicirdamaya basladi.,The bridge planks started to creak.
+wm.travel.story.akarsu.1.t4,Yan servis koprusunu fark ettin.,You noticed a side service bridge.
+wm.travel.story.akarsu.1.t3,Saglam bolmeden gectin.,You crossed through a sturdy section.
+wm.travel.story.akarsu.1.t2,Yavas ama temiz bir gecis oldu.,It was a slow but clean crossing.
+wm.travel.story.akarsu.1.t1,Kopru donusu oyalanmana neden oldu.,Backtracking around the bridge cost you time.
+wm.travel.story.akarsu.1.t0,Kopru kismi cokerken panik buyudu.,"Part of the bridge gave way, and panic took over."
+wm.travel.story.akarsu.2.intro,Kiyida suruklenen bir sandik gordun.,You spotted a chest washed up on the bank.
+wm.travel.story.akarsu.2.t4,Sandiktan degerli seyler cikti.,Valuable things turned up in the chest.
+wm.travel.story.akarsu.2.t3,Az da olsa ise yarar malzeme buldun.,"You found a little useful material, at least."
+wm.travel.story.akarsu.2.t2,Sandik neredeyse bostu.,The chest was nearly empty.
+wm.travel.story.akarsu.2.t1,Sandigi acarken zaman kaybettin.,Prying the chest open cost you time.
+wm.travel.story.akarsu.2.t0,Tuzakli sandik zarar verdi.,"The chest was rigged, and it hurt you."
+wm.travel.story.ova.0.intro,"Yol catallandi, izler karisti.","The road forked, and the tracks got tangled."
+wm.travel.story.ova.0.t4,Kestirme buldun.,You found a shortcut.
+wm.travel.story.ova.0.t3,Dogru kola erken saptin.,You picked the right branch early.
+wm.travel.story.ova.0.t2,Kisa bir tereddutle devam ettin.,"You hesitated briefly, then carried on."
+wm.travel.story.ova.0.t1,Yanlis kola girip geri dondun.,You took the wrong branch and turned back.
+wm.travel.story.ova.0.t0,Uzun bir dolambac buyuk kayip getirdi.,A long detour cost you dearly.
+wm.travel.story.ova.1.intro,Kervan izleri dagilmisti.,The caravan tracks had scattered.
+wm.travel.story.ova.1.t4,Takas icin uygun bir kervanla karsilastin.,You ran into a caravan willing to trade.
+wm.travel.story.ova.1.t3,Yolcu notundan faydali bilgi ciktı.,A traveler's note turned up something useful.
+wm.travel.story.ova.1.t2,Izler anlamsizlasti.,The tracks stopped making any sense.
+wm.travel.story.ova.1.t1,Kucuk bir hirsizlik yasandi.,A small theft happened along the way.
+wm.travel.story.ova.1.t0,Haydut artcisi pusuya dusurdun.,A bandit rearguard ambushed you.
+wm.travel.story.ova.2.intro,Yol kenari enkazi dikkat cekti.,Wreckage by the roadside caught your eye.
+wm.travel.story.ova.2.t4,Enkazdan temiz kazanc elde ettin.,You made a clean profit from the wreckage.
+wm.travel.story.ova.2.t3,Ise yarar bir parca buldun.,You found a useful piece.
+wm.travel.story.ova.2.t2,Risk almadan gectin.,You passed by without taking any risk.
+wm.travel.story.ova.2.t1,Curuk malzeme moral bozdu.,Rotten materials were a letdown.
+wm.travel.story.ova.2.t0,Enkazdaki tehlike buyuk zarar verdi.,Danger in the wreckage caused serious harm.
+wm.travel.fallback.intro,Yol sustu.,The road went quiet.
+wm.travel.fallback.t4,Mukemmel sans.,Perfect luck.
+wm.travel.fallback.t3,Isler yolunda.,Things are going well.
+wm.travel.fallback.t2,Sakin bir gecis.,A calm crossing.
+wm.travel.fallback.t1,Kucuk felaket.,A small disaster.
+wm.travel.fallback.t0,Her sey bir anda kotuye gitti.,Everything suddenly went wrong.
+wm.travel.tier.neutral,Tam notr (3+3),Perfectly Neutral (3+3)
+wm.travel.tier.disaster,"Felaket (2, dü yek)","Disaster (2, snake eyes)"
+wm.travel.tier.bad,Kotu (3-4),Bad (3-4)
+wm.travel.tier.calm,Sakin (5-8),Calm (5-8)
+wm.travel.tier.good,Iyi (9-11),Good (9-11)
+wm.travel.tier.perfect,"Mukemmel (12, düşeş)","Perfect (12, double sixes)"
+wm.duration_short,%dsa %02ddk,%dh %02dm
+mission.gen.defend.name,Savunma Yardımı: %s,Defense Aid: %s
+mission.gen.defend.desc,%s'nin saldırısına karşı %s'yi savun.,Defend %s against the attack from %s.
+debuff.broken_rib,Kırık Kaburga,Broken Rib
+debuff.back_strain,Bel Tutulması,Back Strain
+debuff.balance_loss,Denge Kaybı,Balance Loss
+debuff.generic,Yaralanma,Injury
+hud.debuff_prefix,DEBUFF: %s,DEBUFF: %s
+hud.debuff_remaining_prefix,Kalan: %s,Remaining: %s
+hud.debuff_days_left,%d gün,%d days
+hud.debuff_placeholder,-,-
+wm.settlement.action.start_trade,Ticaret Baslat,Start Trade
+wm.settlement.action.diplomacy_initiative,Diplomasi Girisimi,Diplomatic Initiative
+wm.settlement.action.send_soldiers,Asker Gonder (Baskin),Send Soldiers (Raid)
+wm.settlement.action.war_support,Savasta Destek,War Support
+wm.settlement.action.mediate,Aracilik Yap,Mediate
+wm.settlement.action.propose_alliance,Ittifak Onerisi,Propose Alliance
+wm.settlement.action.break_alliance,Ittifaki Boz,Break Alliance
+wm.settlement.action.offensive_raid,Ofansif Baskin,Offensive Raid
+wm.settlement.action.trade_preview,Ticaret Baslat (Sure: ~%s | Risk: %s),Start Trade (Duration: ~%s | Risk: %s)
+wm.settlement.action.diplomacy_preview,Diplomasi Girisimi (Sure: ~%s | Risk: %s),Diplomatic Initiative (Duration: ~%s | Risk: %s)
+wm.settlement.action.raid_preview,Asker Gonder (Sure: ~%s | Risk: %s),Send Soldiers (Duration: ~%s | Risk: %s)
+wm.settlement.action.aid_no_crisis,Yardim Gonder (kriz yok),Send Aid (no crisis)
+wm.settlement.action.alliance_no_system,Ittifak Onerisi (sistem yok),Propose Alliance (system unavailable)
+wm.settlement.action.alliance_already,Ittifak Onerisi (zaten muttefik),Propose Alliance (already allied)
+wm.settlement.action.alliance_invalid,Ittifak Onerisi (gecersiz),Propose Alliance (unavailable)
+wm.settlement.action.break_no_system,Ittifaki Boz (sistem yok),Break Alliance (system unavailable)
+wm.settlement.action.break_not_allied,Ittifaki Boz (muttefik degil),Break Alliance (not allied)
+wm.settlement.action.raid_no_system,Ofansif Baskin (sistem yok),Offensive Raid (system unavailable)
+wm.settlement.action.raid_not_hostile,Ofansif Baskin (dusman degil),Offensive Raid (not hostile)
+wm.settlement.action.war_support_none,Savasta Destek (savas yok),War Support (no war)
+wm.settlement.action.mediate_none,Aracilik Yap (gerilim yok),Mediate (no tension)
+wm.settlement.action.raid_label,Ofansif Baskin (%s | %d altin | %d/%d asker),Offensive Raid (%s | %d gold | %d/%d soldiers)
+wm.settlement.intervention_fallback,Mudahale,Intervention
+wm.settlement.cost_gold_unit,%d altin,%d gold
+wm.settlement.aid_fallback,Yardim,Aid
+wm.settlement.no_cost,(maliyet yok),(no cost)
+wm.settlement.cost_prefix,Maliyet: ,Cost: 
+wm.settlement.confirm_for,%s icin %s,%s for %s
+wm.settlement.effect_prefix,Etki: ,Effect: 
+wm.settlement.irreversible,Bu islem geri alinamaz.,This action cannot be undone.
+wm.settlement.confirm.aid_title,Yardim Onayi,Confirm Aid
+wm.settlement.confirm.war_support_title,Savas Destegi Onayi,Confirm War Support
+wm.settlement.confirm.mediation_title,Aracilik Onayi,Confirm Mediation
+wm.settlement.confirm.alliance_propose_title,Ittifak Teklifi Onayi,Confirm Alliance Proposal
+wm.settlement.confirm.alliance_break_title,Ittifak Bozma Onayi,Confirm Alliance Break
+wm.settlement.confirm.raid_title,Ofansif Baskin Onayi,Confirm Offensive Raid
+wm.settlement.raid_confirm_body,"%s koyune baskin duzenlenmek uzere.
+Maliyet: %d altin
+Gerekli asker: %d
+Zorluk: %s
+Baskin basarili olursa: altin/erzak ganimeti + hedef zayiflar
+Basarisiz olursa: asker kaybi + iliski kotulesmesi
+
+Devam edilsin mi?","A raid on %s is about to be organized.
+Cost: %d gold
+Soldiers required: %d
+Difficulty: %s
+If the raid succeeds: gold/supply plunder + the target is weakened
+If it fails: soldier losses + relations worsen
+
+Proceed?"
+wm.settlement.status_line,Durum: nufus %d | erzak %d | guvenlik %d | istikrar %d,Status: population %d | food %d | security %d | stability %d
+wm.settlement.produces,uretim: ,produces: 
+wm.settlement.scarce,eksik: ,short on: 
+wm.settlement.economy_prefix,Ekonomi: ,Economy: 
+wm.settlement.active_crisis,Aktif kriz: %s,Active crisis: %s
+wm.settlement.active_chain,Aktif zincir: %s (%s),Active chain: %s (%s)
+wm.settlement.migration_in,Gelen goc: %s'tan ~%d kisi,"Incoming migration: from %s, ~%d people"
+wm.settlement.migration_out,Giden goc: %s'a ~%d kisi,"Outgoing migration: to %s, ~%d people"
+wm.settlement.diplomacy_prefix,Diplomasi: ,Diplomacy: 
+wm.settlement.allied_badge,[Muttefik],[Allied]
+wm.settlement.aid_call_active, | Yardim cagrisi aktif: %s, | Aid call active: %s
+wm.settlement.aid_call_default_reason,kriz,crisis
+wm.settlement.tribute_active,Tribute aktif: gunluk pasif altin/erzak,Tribute active: daily passive gold/supplies
+wm.settlement.tribute_inactive,Tribute pasif: stabilite/erzak yetersiz,Tribute inactive: insufficient stability/supplies
+wm.settlement.defense_ready,Defans hazir: %d/%d hex menzil,Defense ready: %d/%d hex range
+wm.settlement.defense_not_ready,Defans hazir degil: %s,Defense not ready: %s
+wm.settlement.hostile_badge,[Sana karsi dusmanca] iliski: %d,[Hostile to you] relation: %d
+wm.settlement.raid_risk_warning,Baskin riski + yakin hex'lerde yol riski yukselir.,"Raid risk rises, along with travel risk on nearby hexes."
+wm.settlement.diplo.tension,gergin,tense
+wm.settlement.diplo.cold_war,soguk savas,cold war
+wm.settlement.diplo.open_war,savas,war
+wm.settlement.diplo.ceasefire,ateskes,ceasefire
+wm.settlement.diplo.peace,baris,peace
+wm.settlement.defender_reason.in_crisis,muttefik krizde,ally is in crisis
+wm.settlement.defender_reason.low_food,erzak yetersiz,insufficient supplies
+wm.settlement.defender_reason.low_security,guvenlik dusuk,security too low
+wm.settlement.defender_reason.out_of_range,menzil disi,out of range
+wm.settlement.defender_reason.no_player_village,koy konumu yok,no village location
+wm.status.need_own_village_hex,Koye donmek icin once kendi koy hex ine var.,You need to reach your own village hex before you can return to the village.
+wm.status.visit,Ziyaret: %s,Visit: %s
+wm.status.already_visited,Bu nokta zaten ziyaret edilmiş veya erişilemez.,This spot has already been visited or is unreachable.
+wm.status.journey_stopped,Yolculuk durduruldu.,Journey stopped.
+wm.status.journey_interrupted,Yolculuk kesildi.,Journey interrupted.
+wm.status.event_pending,Yolculuk olayi: karar bekleniyor.,Travel event: awaiting your decision.
+wm.status.travel_failed,Yolculuk yapilamadi (yol yok veya gecersiz hedef).,Couldn't travel (no path or invalid destination).
+wm.status.already_there,Zaten bu hedeftesin.,You're already at that destination.
+wm.status.no_team,Secilebilir ekip yok.,No team available to select.
+wm.status.high_risk_cargo_warning,"Bu rota YUKSEK riskli (~%%%d olay) ve teslim edilmemis yuk tasiyorsun.
+Yine de yola cikilsin mi?","This route is HIGH risk (~%%%d event chance) and you're carrying undelivered cargo.
+Set out anyway?"
+wm.settlement.cancelled,%s ile etkileşim iptal edildi.,Interaction with %s cancelled.
+wm.settlement.aid_unavailable,Yardim sistemi su an mevcut degil.,The aid system isn't available right now.
+wm.settlement.aid_no_crisis_msg,Yardim icin uygun bir kriz yok.,There's no crisis suitable for aid right now.
+wm.settlement.aid_undetermined,Yardim secimi tanimlanamadi.,Couldn't determine the aid option.
+wm.settlement.aid_insufficient,Yardim icin yeterli kaynagin yok.,You don't have enough resources for aid.
+wm.settlement.war_support_none_msg,Su an destek verilebilecek aktif savas yok.,There's no active war to support right now.
+wm.settlement.war_support_insufficient,Savas destegi icin yeterli kaynagin yok.,You don't have enough resources for war support.
+wm.settlement.mediation_none_msg,Su an aracilik yapilabilecek bir gerilim yok.,There's no tension to mediate right now.
+wm.settlement.mediation_insufficient,Aracilik icin yeterli kaynagin yok.,You don't have enough resources to mediate.
+wm.settlement.alliance_ineligible,Bu koy zaten muttefik veya iliski cok dusuk.,"This village is already allied, or relations are too low."
+wm.settlement.alliance_insufficient,Ittifak teklifi icin yeterli kaynagin yok.,You don't have enough resources for an alliance proposal.
+wm.settlement.no_alliance,Bu koyle aktif ittifak yok.,There's no active alliance with this village.
+wm.settlement.raid_system_unavailable,Ofansif baskin sistemi mevcut degil.,The offensive raid system isn't available.
+wm.settlement.raid_cannot,Ofansif baskin yapilamaz: %s,Can't launch an offensive raid: %s
+wm.settlement.raid_mission_created,Ofansif baskin gorevi olusturuldu! Cariye atayarak gorevi baslat.,Offensive raid mission created! Assign a concubine to start it.
+wm.settlement.raid_launch_failed,Baskin yapilamadi: %s,The raid failed to launch: %s
+wm.settlement.vault_insufficient_gold,Kasada yeterli altin yok.,Not enough gold in the vault.
+wm.settlement.village_stock_insufficient,Koy stogu yetersiz.,Village stock is insufficient.
+wm.settlement.supplies_not_taken,Erzak alinamadi.,Couldn't take the supplies.
+wm.settlement.supplies_added,Erzak cantana eklendi.,Supplies added to your pack.
+wm.settlement.war_support_cancelled,Savas destegi iptal edildi.,War support cancelled.
+wm.settlement.mediation_cancelled,Aracilik iptal edildi.,Mediation cancelled.
+wm.settlement.raid_cancelled,Ofansif baskin iptal edildi.,Offensive raid cancelled.
+wm.settlement.aid_send_cancelled,Yardim gonderme iptal edildi.,Sending aid cancelled.
+wm.settlement.alliance_system_unavailable,Ittifak sistemi su an mevcut degil.,The alliance system isn't available right now.
+wm.settlement.alliance_target_undetermined,Ittifak teklifi hedefi belirlenemedi.,Couldn't determine the alliance proposal target.
+wm.settlement.no_alliance_to_break,Bozulacak ittifak bulunamadi.,No alliance found to break.
+wm.settlement.war_support_system_unavailable,Savas destegi sistemi su an mevcut degil.,The war support system isn't available right now.
+wm.settlement.war_support_no_active,Destek verilebilecek aktif savas yok.,There's no active war to support.
+wm.settlement.war_support_target_undetermined,Savas destegi hedefi belirlenemedi.,Couldn't determine the war support target.
+wm.settlement.mediation_system_unavailable,Aracilik sistemi su an mevcut degil.,The mediation system isn't available right now.
+wm.settlement.mediation_none_available,Aracilik yapilabilecek bir gerilim yok.,There's no tension available to mediate.
+wm.settlement.mediation_target_undetermined,Aracilik hedefi belirlenemedi.,Couldn't determine the mediation target.
+wm.settlement.intervention_insufficient,Mudahale icin yeterli kaynagin yok.,You don't have enough resources to intervene.
+wm.settlement.not_at_war,Bu koy su an aktif bir savasta degil.,This village isn't in an active war right now.
+wm.settlement.no_conflict,Aracilik icin uygun bir gerilim/savas yok.,There's no suitable tension or war to mediate.
+wm.settlement.already_allied,Bu koy zaten muttefik.,This village is already allied.
+wm.settlement.not_allied,Bu koyle ittifak yok.,There's no alliance with this village.
+wm.settlement.relation_too_low,"Iliski cok dusuk, ittifak teklifi reddedildi.",Relations are too low; the alliance proposal was rejected.
+wm.settlement.invalid_target,Hedef koy gecersiz.,The target village is invalid.
+wm.settlement.alliance_propose_failed,Ittifak teklifi uygulanamadi.,Couldn't carry out the alliance proposal.
+wm.settlement.alliance_break_failed,Ittifak bozulamadi.,Couldn't break the alliance.
+wm.settlement.war_support_failed,Savas destegi uygulanamadi.,Couldn't carry out war support.
+wm.settlement.mediation_failed,Aracilik uygulanamadi.,Couldn't carry out mediation.
+wm.settlement.aid_provided_default,Yardim uygulandi.,Aid provided.
+wm.settlement.aid_failed_default,Yardim uygulanamadi.,Couldn't provide aid.
+wm.settlement.no_crisis_needs_aid,Bu koyde su an yardim gerektiren bir kriz yok.,This village has no crisis requiring aid right now.
+wm.settlement.no_aid_option_for_crisis,Bu kriz turu icin yardim secenegi yok.,There's no aid option for this type of crisis.
+wm.settlement.trade_mission_created,%s icin ticaret gorevi olusturuldu.,Trade mission created for %s.
+wm.settlement.diplomacy_mission_created,%s icin diplomasi gorevi olusturuldu.,Diplomacy mission created for %s.
+wm.settlement.raid_mission_created2,%s icin baskin gorevi olusturuldu.,Raid mission created for %s.
+wm.settlement.action_prompt,%s: Ticaret/Diplomasi/Asker secimi yap.,%s: Choose Trade/Diplomacy/Soldiers.
+wm.settlement.default_name,Komsu Koy,Neighboring Village
+wm.settlement.relation_suffix, (ilişki: %d/%d), (relation: %d/%d)

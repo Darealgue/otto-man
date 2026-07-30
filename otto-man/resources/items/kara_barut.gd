@@ -4,8 +4,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "kara_barut"
-	item_name = "Kara Barut"
-	description = "Patlama yarıçapı +%30, ama her patlama sana da az tepme hasarı verir"
+	item_name = tr("item.kara_barut.name")
+	description = tr("item.kara_barut.description")
 	flavor_text = "Daha çok barut, daha çok tehlike"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL

@@ -5,8 +5,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "ruzgar_hanceri"
-	item_name = "Rüzgar Hançeri"
-	description = "Dodge roll → Dash'e dönüşür, havada kullanılabilir"
+	item_name = tr("item.ruzgar_hanceri.name")
+	description = tr("item.ruzgar_hanceri.description")
 	flavor_text = "Rüzgar gibi geç"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE

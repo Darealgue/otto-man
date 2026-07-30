@@ -1366,44 +1366,44 @@ func _build_world_travel_event_message(tile: Dictionary, linked_incident: Dictio
 		if not nm.is_empty():
 			match it:
 				"wolf_attack":
-					prefix = "%s bolgesindeki kurt gerilimi buraya da siziyor. " % nm
+					prefix = tr("wm.travel.crisis.wolf_attack") % nm
 				"harvest_failure":
-					prefix = "%s tarafindaki erzak baskisi haberleri yayildi. " % nm
+					prefix = tr("wm.travel.crisis.harvest_failure") % nm
 				"migrant_wave":
-					prefix = "%s civarinda duzensiz goc hareketleri var. " % nm
+					prefix = tr("wm.travel.crisis.migrant_wave") % nm
 				"bandit_road":
-					prefix = "%s yolunda haydut tehlikesi bolgede. " % nm
+					prefix = tr("wm.travel.crisis.bandit_road") % nm
 				"plague_scare":
-					prefix = "%s tarafinda hastalik kaygisi dolanıyor. " % nm
+					prefix = tr("wm.travel.crisis.plague_scare") % nm
 				_:
-					prefix = "%s civarinda kriz haberi var. " % nm
+					prefix = tr("wm.travel.crisis.default") % nm
 	var prompts: PackedStringArray = PackedStringArray()
 	match _normalized_travel_story_terrain(terrain):
 		"orman":
 			prompts = [
-				"Sis bir anda coktu; patika secmek zorlasti.",
-				"Dallar arasindan gelen sesler ekibi gerdi.",
-				"Terk bir kamp atesine rastladin; ici supheli gorunuyor."
+				tr("wm.travel.prompt.orman.0"),
+				tr("wm.travel.prompt.orman.1"),
+				tr("wm.travel.prompt.orman.2")
 			]
 		"dag":
 			prompts = [
-				"Dar gecitte ufak kaya dusmeleri basladi.",
-				"Ruzgar bastirdi; adimlar guvensizlesiyor.",
-				"Eski maden agzinda catlak sesleri duyuldu."
+				tr("wm.travel.prompt.dag.0"),
+				tr("wm.travel.prompt.dag.1"),
+				tr("wm.travel.prompt.dag.2")
 			]
 		"akarsu":
 			prompts = [
-				"Akinti sertlesti; gecis noktasi riskli.",
-				"Kopru tahtalari gicirdiyor, zemin oynak.",
-				"Kiyida suruklenen bir sandik dikkat cekti."
+				tr("wm.travel.prompt.akarsu.0"),
+				tr("wm.travel.prompt.akarsu.1"),
+				tr("wm.travel.prompt.akarsu.2")
 			]
 		_:
 			prompts = [
-				"Yol catallandi; izler birbirine girdi.",
-				"Kervan izleri bir anda kesildi.",
-				"Yol kenari enkazinda ters giden bir seyler var."
+				tr("wm.travel.prompt.ova.0"),
+				tr("wm.travel.prompt.ova.1"),
+				tr("wm.travel.prompt.ova.2")
 			]
-	var base: String = prompts[rr.randi_range(0, prompts.size() - 1)] + " Talihi iki zar belirleyecek."
+	var base: String = prompts[rr.randi_range(0, prompts.size() - 1)] + " " + tr("wm.travel.fate_suffix")
 	return prefix + base
 
 func _make_travel_effect(extra_minutes: int, card_text: String, expedition_gain: Dictionary = {}, world_gold_loss_fraction: float = 0.0, health_loss_fraction: float = 0.0, carried_resource_loss_fraction: float = 0.0, dungeon_gold_loss_fraction: float = 0.0, rescued_loss_fraction: float = 0.0, gold_delta: int = 0) -> Dictionary:
@@ -1459,18 +1459,18 @@ func _classify_travel_dice_tier(d1: int, d2: int) -> int:
 
 func _travel_dice_tier_display_name(tier: int, d1: int, d2: int) -> String:
 	if d1 == 3 and d2 == 3:
-		return "Tam notr (3+3)"
+		return tr("wm.travel.tier.neutral")
 	match tier:
 		0:
-			return "Felaket (2 — du yek)"
+			return tr("wm.travel.tier.disaster")
 		1:
-			return "Kotu (3-4)"
+			return tr("wm.travel.tier.bad")
 		2:
-			return "Sakin (5-8)"
+			return tr("wm.travel.tier.calm")
 		3:
-			return "Iyi (9-11)"
+			return tr("wm.travel.tier.good")
 		4:
-			return "Mukemmel (12 — dusek)"
+			return tr("wm.travel.tier.perfect")
 	return ""
 
 func _apply_cargo_and_bridge_to_bad_effect(effect: Dictionary, cargo: float, bridge: bool) -> void:
@@ -1490,27 +1490,27 @@ func _pick_travel_story_bundle(terrain: String, rng: RandomNumberGenerator) -> D
 	match t:
 		"orman":
 			pool = [
-				{"intro": "Sis basti, izler kayboldu.", "t4": "Yosunlu bir kestirme buldun.", "t3": "Kuru patikayi yakaladin.", "t2": "Dallari acip ilerledin.", "t1": "Yanlis patikaya sapip geri dondun.", "t0": "Bogucu sis, ekip dagildi ve buyuk zaman kaybi yasandi."},
-				{"intro": "Yabani hayvan izleri cogaldi.", "t4": "Hayvanlar senden uzaklasti; guvenli bir gecis yakaladin.", "t3": "Tehlikeyi sessizce atlattin.", "t2": "Nefesini tutup gecmeyi basardin.", "t1": "Kacisirken yaralandin.", "t0": "Pusuya benzer bir kargasada agir bedel odedin."},
-				{"intro": "Terk bir kamp atesine rastladin.", "t4": "Kamp temizdi, ise yarar erzak buldun.", "t3": "Kullanisli bir parca cikarabildin.", "t2": "Kamp bos cikti, yoluna devam ettin.", "t1": "Curuuk malzeme oyalanmana neden oldu.", "t0": "Tuzakli kamp buyuk kayba yol acti."}
+				{"intro": tr("wm.travel.story.orman.0.intro"), "t4": tr("wm.travel.story.orman.0.t4"), "t3": tr("wm.travel.story.orman.0.t3"), "t2": tr("wm.travel.story.orman.0.t2"), "t1": tr("wm.travel.story.orman.0.t1"), "t0": tr("wm.travel.story.orman.0.t0")},
+				{"intro": tr("wm.travel.story.orman.1.intro"), "t4": tr("wm.travel.story.orman.1.t4"), "t3": tr("wm.travel.story.orman.1.t3"), "t2": tr("wm.travel.story.orman.1.t2"), "t1": tr("wm.travel.story.orman.1.t1"), "t0": tr("wm.travel.story.orman.1.t0")},
+				{"intro": tr("wm.travel.story.orman.2.intro"), "t4": tr("wm.travel.story.orman.2.t4"), "t3": tr("wm.travel.story.orman.2.t3"), "t2": tr("wm.travel.story.orman.2.t2"), "t1": tr("wm.travel.story.orman.2.t1"), "t0": tr("wm.travel.story.orman.2.t0")}
 			]
 		"dag":
 			pool = [
-				{"intro": "Dar gecitte kaya sesleri yankilandi.", "t4": "Gizli bir dag gecidi buldun.", "t3": "Saglam zeminden akici gectin.", "t2": "Temkinli adimlarla sorunsuz gectin.", "t1": "Kucuk bir kayma yavaslatti.", "t0": "Kaya dusmesi ekibi zorladi."},
-				{"intro": "Sert ruzgar dengeyi bozdu.", "t4": "Ruzgari arkana alip hiz kazandin.", "t3": "Ruzgar dindi, gecis kolaylasti.", "t2": "Bekleyip uygun anda gectin.", "t1": "Yuk dengesi bozuldu, oyalandin.", "t0": "Ucurum kenarinda panik buyuk kayip getirdi."},
-				{"intro": "Eski maden agzinda catlaklar gordun.", "t4": "Maden ceplerinden degerli parca topladin.", "t3": "Kucuk bir odul buldun.", "t2": "Gereksiz risk almayip yoluna devam ettin.", "t1": "Cokuntu yuzunden geri adim attin.", "t0": "Maden agzi cokerken agir gecikme yasandi."}
+				{"intro": tr("wm.travel.story.dag.0.intro"), "t4": tr("wm.travel.story.dag.0.t4"), "t3": tr("wm.travel.story.dag.0.t3"), "t2": tr("wm.travel.story.dag.0.t2"), "t1": tr("wm.travel.story.dag.0.t1"), "t0": tr("wm.travel.story.dag.0.t0")},
+				{"intro": tr("wm.travel.story.dag.1.intro"), "t4": tr("wm.travel.story.dag.1.t4"), "t3": tr("wm.travel.story.dag.1.t3"), "t2": tr("wm.travel.story.dag.1.t2"), "t1": tr("wm.travel.story.dag.1.t1"), "t0": tr("wm.travel.story.dag.1.t0")},
+				{"intro": tr("wm.travel.story.dag.2.intro"), "t4": tr("wm.travel.story.dag.2.t4"), "t3": tr("wm.travel.story.dag.2.t3"), "t2": tr("wm.travel.story.dag.2.t2"), "t1": tr("wm.travel.story.dag.2.t1"), "t0": tr("wm.travel.story.dag.2.t0")}
 			]
 		"akarsu":
 			pool = [
-				{"intro": "Akinti beklenenden hizliydi.", "t4": "Sakin bir gecit bulup hizla karsiya gectin.", "t3": "Akintiyi dogru aciyla gectin.", "t2": "Islanip toparlandin, yoluna devam.", "t1": "Sicrama aninda dengeyi kaybettin.", "t0": "Akinti yukunu surukledi, agir kayip yasandi."},
-				{"intro": "Kopru tahtalari gicirdamaya basladi.", "t4": "Yan servis koprusunu fark ettin.", "t3": "Saglam bolmeden gectin.", "t2": "Yavas ama temiz bir gecis oldu.", "t1": "Kopru donusu oyalanmana neden oldu.", "t0": "Kopru kismi cokerken panik buyudu."},
-				{"intro": "Kiyida suruklenen bir sandik gordun.", "t4": "Sandiktan degerli seyler cikti.", "t3": "Az da olsa ise yarar malzeme buldun.", "t2": "Sandik neredeyse bostu.", "t1": "Sandigi acarken zaman kaybettin.", "t0": "Tuzakli sandik zarar verdi."}
+				{"intro": tr("wm.travel.story.akarsu.0.intro"), "t4": tr("wm.travel.story.akarsu.0.t4"), "t3": tr("wm.travel.story.akarsu.0.t3"), "t2": tr("wm.travel.story.akarsu.0.t2"), "t1": tr("wm.travel.story.akarsu.0.t1"), "t0": tr("wm.travel.story.akarsu.0.t0")},
+				{"intro": tr("wm.travel.story.akarsu.1.intro"), "t4": tr("wm.travel.story.akarsu.1.t4"), "t3": tr("wm.travel.story.akarsu.1.t3"), "t2": tr("wm.travel.story.akarsu.1.t2"), "t1": tr("wm.travel.story.akarsu.1.t1"), "t0": tr("wm.travel.story.akarsu.1.t0")},
+				{"intro": tr("wm.travel.story.akarsu.2.intro"), "t4": tr("wm.travel.story.akarsu.2.t4"), "t3": tr("wm.travel.story.akarsu.2.t3"), "t2": tr("wm.travel.story.akarsu.2.t2"), "t1": tr("wm.travel.story.akarsu.2.t1"), "t0": tr("wm.travel.story.akarsu.2.t0")}
 			]
 		_:
 			pool = [
-				{"intro": "Yol catallandi, izler karisti.", "t4": "Kestirme buldun.", "t3": "Dogru kola erken saptin.", "t2": "Kisa bir tereddutle devam ettin.", "t1": "Yanlis kola girip geri dondun.", "t0": "Uzun bir dolambac buyuk kayip getirdi."},
-				{"intro": "Kervan izleri dagilmisti.", "t4": "Takas icin uygun bir kervanla karsilastin.", "t3": "Yolcu notundan faydali bilgi ciktı.", "t2": "Izler anlamsizlasti.", "t1": "Kucuk bir hirsizlik yasandi.", "t0": "Haydut artcisi pusuya dusurdun."},
-				{"intro": "Yol kenari enkazi dikkat cekti.", "t4": "Enkazdan temiz kazanc elde ettin.", "t3": "Ise yarar bir parca buldun.", "t2": "Risk almadan gectin.", "t1": "Curuk malzeme moral bozdu.", "t0": "Enkazdaki tehlike buyuk zarar verdi."}
+				{"intro": tr("wm.travel.story.ova.0.intro"), "t4": tr("wm.travel.story.ova.0.t4"), "t3": tr("wm.travel.story.ova.0.t3"), "t2": tr("wm.travel.story.ova.0.t2"), "t1": tr("wm.travel.story.ova.0.t1"), "t0": tr("wm.travel.story.ova.0.t0")},
+				{"intro": tr("wm.travel.story.ova.1.intro"), "t4": tr("wm.travel.story.ova.1.t4"), "t3": tr("wm.travel.story.ova.1.t3"), "t2": tr("wm.travel.story.ova.1.t2"), "t1": tr("wm.travel.story.ova.1.t1"), "t0": tr("wm.travel.story.ova.1.t0")},
+				{"intro": tr("wm.travel.story.ova.2.intro"), "t4": tr("wm.travel.story.ova.2.t4"), "t3": tr("wm.travel.story.ova.2.t3"), "t2": tr("wm.travel.story.ova.2.t2"), "t1": tr("wm.travel.story.ova.2.t1"), "t0": tr("wm.travel.story.ova.2.t0")}
 			]
 	return pool[rng.randi_range(0, pool.size() - 1)]
 
@@ -1551,7 +1551,7 @@ func _build_travel_dice_resolution_effect(terrain: String, tier: int, d1: int, d
 	if d1 == 3 and d2 == 3:
 		return _make_travel_effect(
 			0,
-			String(bundle.get("intro", "Yol sustu.")) + " Iki zar da 3: ne kazandin ne kaybettin.",
+			String(bundle.get("intro", tr("wm.travel.fallback.intro"))) + " " + tr("wm.travel.neutral_roll"),
 			{},
 			0.0,
 			0.0,
@@ -1576,7 +1576,7 @@ func _build_travel_dice_resolution_effect(terrain: String, tier: int, d1: int, d
 			var exm: Dictionary = _dice_padded_expedition_gain(merged, terrain, rng, psn)
 			return _make_travel_effect(
 				rng.randi_range(0, 6),
-				String(bundle.get("intro", "")) + " " + String(bundle.get("t4", "Mukemmel sans.")),
+				String(bundle.get("intro", "")) + " " + String(bundle.get("t4", tr("wm.travel.fallback.t4"))),
 				exm,
 				0.0,
 				0.0,
@@ -1590,7 +1590,7 @@ func _build_travel_dice_resolution_effect(terrain: String, tier: int, d1: int, d
 			var g3: Dictionary = _dice_padded_expedition_gain(g3raw, terrain, rng, psn)
 			return _make_travel_effect(
 				rng.randi_range(4, 14),
-				String(bundle.get("intro", "")) + " " + String(bundle.get("t3", "Isler yolunda.")),
+				String(bundle.get("intro", "")) + " " + String(bundle.get("t3", tr("wm.travel.fallback.t3"))),
 				g3,
 				0.0,
 				0.0,
@@ -1602,7 +1602,7 @@ func _build_travel_dice_resolution_effect(terrain: String, tier: int, d1: int, d
 		2:
 			return _make_travel_effect(
 				rng.randi_range(5, 18),
-				String(bundle.get("intro", "")) + " " + String(bundle.get("t2", "Sakin bir gecis.")),
+				String(bundle.get("intro", "")) + " " + String(bundle.get("t2", tr("wm.travel.fallback.t2"))),
 				{},
 				0.0,
 				0.0,
@@ -1615,7 +1615,7 @@ func _build_travel_dice_resolution_effect(terrain: String, tier: int, d1: int, d
 			var p1: Dictionary = _travel_penalty_profile(terrain, 1)
 			var eff1: Dictionary = _make_travel_effect(
 				rng.randi_range(int(p1.get("m_min", 12)), int(p1.get("m_max", 28))),
-				String(bundle.get("intro", "")) + " " + String(bundle.get("t1", "Kucuk felaket.")),
+				String(bundle.get("intro", "")) + " " + String(bundle.get("t1", tr("wm.travel.fallback.t1"))),
 				{},
 				float(p1.get("wg", 0.11)),
 				float(p1.get("hp", 0.07)),
@@ -1630,7 +1630,7 @@ func _build_travel_dice_resolution_effect(terrain: String, tier: int, d1: int, d
 			var p0: Dictionary = _travel_penalty_profile(terrain, 0)
 			var eff0: Dictionary = _make_travel_effect(
 				rng.randi_range(int(p0.get("m_min", 28)), int(p0.get("m_max", 52))),
-				String(bundle.get("intro", "")) + " " + String(bundle.get("t0", "Her sey bir anda kotuye gitti.")),
+				String(bundle.get("intro", "")) + " " + String(bundle.get("t0", tr("wm.travel.fallback.t0"))),
 				{},
 				float(p0.get("wg", 0.22)),
 				float(p0.get("hp", 0.16)),

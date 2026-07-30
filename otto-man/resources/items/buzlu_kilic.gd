@@ -5,8 +5,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "buzlu_kilic"
-	item_name = "Buzlu Kılıç"
-	description = "Light attack'lar yavaşlatır (1-5 stack %%20, 6-10 %%40, 11-15 %%60; 1/s decay)"
+	item_name = tr("item.buzlu_kilic.name")
+	description = tr("item.buzlu_kilic.description")
 	flavor_text = "Buzlu dokunuş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

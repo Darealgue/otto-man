@@ -65,7 +65,7 @@ func _ready() -> void:
 
 	_hint = Label.new()
 	_hint.name = "Hint"
-	_hint.text = "Sandık"
+	_hint.text = tr("chest.name")
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.position = Vector2(-52.0, -58.0)
 	_hint.size = Vector2(104.0, 20.0)
@@ -151,7 +151,7 @@ func _on_body_entered(body: Node2D) -> void:
 		_player_in_range = true
 		if not _opened and not _locked:
 			_hint.visible = true
-			_hint.text = "[↑] Sandık"
+			_hint.text = "[↑] %s" % tr("chest.name")
 
 
 func _on_body_exited(body: Node2D) -> void:
@@ -159,7 +159,7 @@ func _on_body_exited(body: Node2D) -> void:
 		_player_in_range = false
 		if not _opened and not _locked:
 			_hint.visible = false
-			_hint.text = "Sandık"
+			_hint.text = tr("chest.name")
 
 
 func _resolve_closed_texture() -> Texture2D:

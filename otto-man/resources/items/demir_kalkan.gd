@@ -7,8 +7,8 @@ const DAMAGE_REDUCTION_BOOST = 0.9  # %90 hasar azaltma
 
 func _init():
 	item_id = "demir_kalkan"
-	item_name = "Demir Kalkan"
-	description = "Block hasar azaltma %90"
+	item_name = tr("item.demir_kalkan.name")
+	description = tr("item.demir_kalkan.description")
 	flavor_text = "Güçlü savunma"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.BLOCK

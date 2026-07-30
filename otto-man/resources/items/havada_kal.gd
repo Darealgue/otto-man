@@ -7,8 +7,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "havada_kal"
-	item_name = "Havada Kal"
-	description = "Jump basılı tutunca düşerken süzülürsün"
+	item_name = tr("item.havada_kal.name")
+	description = tr("item.havada_kal.description")
 	flavor_text = "Havada süzülme"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.JUMP

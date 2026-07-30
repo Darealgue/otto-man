@@ -7,8 +7,8 @@ const DAMAGE_BOOST = 0.2  # +20% combo damage
 
 func _init():
 	item_id = "combo_ustasi"
-	item_name = "Combo Ustası"
-	description = "Combo hasarı +%20"
+	item_name = tr("item.combo_ustasi.name")
+	description = tr("item.combo_ustasi.description")
 	flavor_text = "Kombo gücü"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.LIGHT_ATTACK

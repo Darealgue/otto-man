@@ -3,7 +3,7 @@ extends Node
 
 signal locale_changed(locale: String)
 
-const DEFAULT_LOCALE := "tr"
+const DEFAULT_LOCALE := "en"
 const SUPPORTED_LOCALES: Array[String] = ["tr", "en"]
 const CSV_PATH := "res://localization/strings.csv"
 const SETTINGS_PATH := "user://settings.cfg"
@@ -94,6 +94,7 @@ const BUILDING_SCENE_KEYS := {
 	"res://village/buildings/Gunsmith.tscn": "building.gunsmith",
 	"res://village/buildings/Barracks.tscn": "building.barracks",
 	"res://village/buildings/InventorWorkshop.tscn": "building.inventor",
+	"res://village/buildings/StorageBuilding.tscn": "building.storage",
 }
 
 
@@ -101,6 +102,22 @@ func get_resource_name(resource_key: String) -> String:
 	var key := "resource.%s" % resource_key
 	var text := tr(key)
 	return text if text != key else resource_key.capitalize()
+
+
+## Internal debuff identifiers (player_stats.gd DEATH_DEBUFF_POOL) stay untranslated raw strings
+## since they're also used for matching active debuffs — this maps them to a display name only.
+const DEBUFF_NAME_KEYS := {
+	"Kirik Kaburga": "debuff.broken_rib",
+	"Bel Tutulmasi": "debuff.back_strain",
+	"Denge Kaybi": "debuff.balance_loss",
+}
+
+func get_debuff_name(internal_name: String) -> String:
+	var tr_key: String = String(DEBUFF_NAME_KEYS.get(internal_name, ""))
+	if tr_key.is_empty():
+		return tr("debuff.generic") if internal_name.is_empty() else internal_name
+	var text := tr(tr_key)
+	return text if text != tr_key else internal_name
 
 
 func get_building_name(scene_path: String) -> String:
@@ -187,3 +204,13 @@ func persist_locale(locale: String) -> void:
 	config.load(SETTINGS_PATH)
 	config.set_value(SETTINGS_SECTION, SETTINGS_KEY, locale)
 	config.save(SETTINGS_PATH)
+
+
+## True only if the player has explicitly chosen/saved a locale before (first-launch
+## language gate in MainMenu.gd uses this to decide whether to show itself at all —
+## returning players who already picked a language should never see it again).
+func has_persisted_locale() -> bool:
+	var config := ConfigFile.new()
+	if config.load(SETTINGS_PATH) != OK:
+		return false
+	return config.has_section_key(SETTINGS_SECTION, SETTINGS_KEY)

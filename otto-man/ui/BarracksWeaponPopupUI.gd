@@ -67,7 +67,7 @@ func _build_ui() -> void:
 	_panel.add_child(root)
 
 	_title_label = Label.new()
-	_title_label.text = "Kışla — Silahlandırma"
+	_title_label.text = tr("barracks_weapon.title")
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 20)
 	root.add_child(_title_label)
@@ -85,7 +85,7 @@ func _build_ui() -> void:
 	root.add_child(_stock_label)
 
 	_equip_all_btn = Button.new()
-	_equip_all_btn.text = "Tümünü Silahlandır"
+	_equip_all_btn.text = tr("barracks_weapon.equip_all")
 	_equip_all_btn.custom_minimum_size = Vector2(0, 34)
 	_equip_all_btn.pressed.connect(_on_equip_all_pressed)
 	_style_focus(_equip_all_btn)
@@ -131,7 +131,7 @@ func _make_close_hint_bar() -> Control:
 	bar.add_theme_constant_override("separation", 4)
 	bar.add_child(_make_chip("Ⓑ" if is_pad else "ESC"))
 	var lbl := Label.new()
-	lbl.text = "Kapat"
+	lbl.text = tr("barracks_weapon.close")
 	lbl.add_theme_font_size_override("font_size", 10)
 	lbl.modulate = Color(1, 1, 1, 0.45)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -216,7 +216,7 @@ func _refresh() -> void:
 
 	var vm := get_node_or_null("/root/VillageManager")
 	var stock := _get_stock(vm)
-	_stock_label.text = "Stokta: %s %d   %s %d   %s %d" % [
+	_stock_label.text = tr("barracks_weapon.stock_line") % [
 		LocaleManager.get_resource_name("weapon_t1"), stock[1],
 		LocaleManager.get_resource_name("weapon_t2"), stock[2],
 		LocaleManager.get_resource_name("weapon_t3"), stock[3],
@@ -227,7 +227,7 @@ func _refresh() -> void:
 
 	var soldier_ids: Array = _building.assigned_worker_ids if "assigned_worker_ids" in _building else []
 	if soldier_ids.is_empty():
-		_add_empty_message("Kışlada asker yok. Önce köylü ata.")
+		_add_empty_message(tr("barracks_weapon.no_soldiers"))
 		return
 
 	for worker_id in soldier_ids:
@@ -283,10 +283,10 @@ func _make_soldier_row(vm: Node, worker_id: int) -> Control:
 
 func _tier_button_text(tier: int) -> String:
 	match tier:
-		1: return "⚔ 1. Seviye Silah"
-		2: return "⚔ 2. Seviye Silah"
-		3: return "⚔ 3. Seviye Silah"
-		_: return "Silahsız"
+		1: return tr("barracks_weapon.tier1")
+		2: return tr("barracks_weapon.tier2")
+		3: return tr("barracks_weapon.tier3")
+		_: return tr("barracks_weapon.unarmed")
 
 
 func _get_soldier_tier(worker_id: int) -> int:
@@ -319,7 +319,7 @@ func _get_worker_name(vm: Node, worker_id: int) -> String:
 					var soldier_name := String(info["Info"]["Name"])
 					if not soldier_name.is_empty():
 						return soldier_name
-	return "Asker #%d" % worker_id
+	return tr("barracks_weapon.soldier_number") % worker_id
 
 
 # ─── Actions ──────────────────────────────────────────────────────────────────
@@ -338,14 +338,14 @@ func _on_tier_button_pressed(worker_id: int) -> void:
 			next = candidate
 			break
 	if next == current:
-		_info_label.text = "Depoda hiç silah yok."
+		_info_label.text = tr("barracks_weapon.no_weapons_in_storage")
 		return
 	var ok: bool
 	if next == 0:
 		ok = _building.unequip_soldier(worker_id)
 	else:
 		ok = _building.equip_soldier(worker_id, next)
-	_info_label.text = "" if ok else "İşlem başarısız."
+	_info_label.text = "" if ok else tr("barracks_weapon.operation_failed")
 	_refresh()
 	_focus_nearest_nav_button(_focused_row)
 
@@ -425,9 +425,9 @@ func _update_nav_hint() -> void:
 	var im := get_node_or_null("/root/InputManager")
 	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
 	if is_pad:
-		_nav_hint_label.text = "[↑↓] Asker seç   [A] Silahı değiştir   [B] Kapat"
+		_nav_hint_label.text = tr("barracks_weapon.nav_hint_gamepad")
 	else:
-		_nav_hint_label.text = "[↑↓] Asker seç   [Enter] Silahı değiştir   [Esc] Kapat"
+		_nav_hint_label.text = tr("barracks_weapon.nav_hint_keyboard")
 
 
 # ─── Input ────────────────────────────────────────────────────────────────────

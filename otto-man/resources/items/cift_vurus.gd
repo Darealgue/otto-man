@@ -7,8 +7,8 @@ const DAMAGE_MULTIPLIER = 0.6  # %60 hasar
 
 func _init():
 	item_id = "cift_vurus"
-	item_name = "Çift Vuruş"
-	description = "Light attack'lar 2 kez vurur (%60 hasar)"
+	item_name = tr("item.cift_vurus.name")
+	description = tr("item.cift_vurus.description")
 	flavor_text = "İkili vuruş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK

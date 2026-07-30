@@ -8,8 +8,8 @@ const ChainExplosionScript = preload("res://effects/chain_explosion.gd")
 
 func _init():
 	item_id = "patlama_zinciri"
-	item_name = "Patlama Zinciri"
-	description = "Öldürdüğün düşman 2 sn sonra patlar (düşman + oyuncu hasar alabilir)"
+	item_name = tr("item.patlama_zinciri.name")
+	description = tr("item.patlama_zinciri.description")
 	flavor_text = "Zincir patlama"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL

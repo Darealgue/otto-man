@@ -51,4 +51,4 @@ func _apply_storage_bonus() -> void:
 
 
 func get_production_info() -> String:
-	return "Lv.%d • Depo kapasitesi: +%d (tüm temel kaynaklar)" % [level, storage_bonus_all]
+	return tr("building.storage.production_info") % [level, storage_bonus_all]

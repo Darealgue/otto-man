@@ -10,8 +10,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "tas_yurek"
-	item_name = "Taş Yürek"
-	description = "Canın %25'in altına indiyse gelen tüm hasarlar %50 azalır."
+	item_name = tr("item.tas_yurek.name")
+	description = tr("item.tas_yurek.description")
 	flavor_text = "Son direnç"
 	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.SPECIAL

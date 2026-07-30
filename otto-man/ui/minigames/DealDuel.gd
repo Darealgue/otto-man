@@ -34,22 +34,22 @@ const RESIST_PER_LEV := 0.09    # cariye köşeye sıkıştıkça direnir: +leve
 
 const STANCES := {
 	"duygu": {
-		"stance": "Duygu Sömürüsü",
-		"counter": "Güven Ver",
+		"stance_key": "dealduel.stance.duygu.name",
+		"counter_key": "dealduel.stance.duygu.counter",
 		"color": Color(0.92, 0.45, 0.62),
-		"quotes": ["Beni burada bırakacaksın, değil mi...?", "Kimsem yok benim...", "Sana nasıl güveneyim?"],
+		"quote_keys": ["dealduel.stance.duygu.quote1", "dealduel.stance.duygu.quote2", "dealduel.stance.duygu.quote3"],
 	},
 	"pazarlik": {
-		"stance": "Pazarlık",
-		"counter": "Cazip Teklif",
+		"stance_key": "dealduel.stance.pazarlik.name",
+		"counter_key": "dealduel.stance.pazarlik.counter",
 		"color": Color(0.95, 0.78, 0.30),
-		"quotes": ["Gelirim ama şartlarım var.", "Bana ne vereceksin?", "Bedava iş yok bu dünyada."],
+		"quote_keys": ["dealduel.stance.pazarlik.quote1", "dealduel.stance.pazarlik.quote2", "dealduel.stance.pazarlik.quote3"],
 	},
 	"naz": {
-		"stance": "Naz",
-		"counter": "Blöfü Gör",
+		"stance_key": "dealduel.stance.naz.name",
+		"counter_key": "dealduel.stance.naz.counter",
 		"color": Color(0.66, 0.50, 0.95),
-		"quotes": ["Belki de burada kalmak istiyorum.", "Neden seninle geleyim ki?", "Beni etkilemen gerek."],
+		"quote_keys": ["dealduel.stance.naz.quote1", "dealduel.stance.naz.quote2", "dealduel.stance.naz.quote3"],
 	},
 }
 
@@ -111,8 +111,8 @@ func _ready():
 		var n := String(context.cariye_name)
 		if n != "":
 			_cariye_name = n
-	title_label.text = "%s ile İkna Düellosu" % _cariye_name
-	name_left.text = "Sen"
+	title_label.text = tr("dealduel.title") % _cariye_name
+	name_left.text = tr("dealduel.name_left")
 	name_left.add_theme_color_override("font_color", Color(0.35, 0.9, 0.5))
 	name_right.text = _cariye_name
 	name_right.add_theme_color_override("font_color", Color(0.92, 0.45, 0.62))
@@ -147,7 +147,7 @@ func _process(delta):
 			if _bluff_at > 0.0 and not _bluffed and _phase_timer >= _bluff_at:
 				_do_bluff()
 			if _phase_timer >= AIM_TIMEOUT:
-				_resolve(-1, "%s sabırsızlandı! (-1)" % _cariye_name, _current_v())
+				_resolve(-1, tr("dealduel.impatient") % _cariye_name, _current_v())
 			elif InputManager.is_jump_just_pressed() or InputManager.is_ui_accept_just_pressed():
 				_resolve_press()
 		Phase.RESOLVE:
@@ -199,7 +199,7 @@ func _next_turn():
 	_hit_marker.visible = false
 	result_label.text = ""
 	if _turn <= 2:
-		hint_label.text = "Cariyenin hamlesiyle AYNI renkteki bölgede tuşa bas! (Zıpla / Onay)"
+		hint_label.text = tr("dealduel.hint")
 	else:
 		hint_label.text = ""
 	_show_stance(false)
@@ -207,11 +207,11 @@ func _next_turn():
 
 func _show_stance(is_bluff: bool) -> void:
 	var info: Dictionary = STANCES[_stance_key]
-	var prefix := "Fikrini değiştirdi! " if is_bluff else ""
-	stance_label.text = "%s%s: %s" % [prefix, _cariye_name, info.stance]
+	var prefix := tr("dealduel.bluff_prefix") if is_bluff else ""
+	stance_label.text = "%s%s: %s" % [prefix, _cariye_name, tr(info.stance_key)]
 	stance_label.add_theme_color_override("font_color", info.color)
-	var quotes: Array = info.quotes
-	quote_label.text = "\"%s\"" % quotes[randi() % quotes.size()]
+	var quotes: Array = info.quote_keys
+	quote_label.text = "\"%s\"" % tr(quotes[randi() % quotes.size()])
 
 
 func _do_bluff() -> void:
@@ -229,11 +229,11 @@ func _resolve_press() -> void:
 	if idx == correct and idx != -1:
 		var d: float = abs(v - _zone_centers[idx])
 		if d <= _zone_half * PERFECT_FRAC:
-			_resolve(2, "Tam yerine oturdu! (+2)", v)
+			_resolve(2, tr("dealduel.perfect_hit"), v)
 		else:
-			_resolve(1, "Etkili söz. (+1)", v)
+			_resolve(1, tr("dealduel.effective"), v)
 	else:
-		_resolve(-1, "%s lafı gediğine koydu! (-1)" % _cariye_name, v)
+		_resolve(-1, tr("dealduel.countered") % _cariye_name, v)
 
 
 func _resolve(delta_lev: int, msg: String, v: float) -> void:
@@ -268,13 +268,13 @@ func _finish(success: bool) -> void:
 	_hide_timer_bar()
 	hint_label.text = ""
 	if success:
-		stance_label.text = "%s ikna oldu!" % _cariye_name
+		stance_label.text = tr("dealduel.won_convinced") % _cariye_name
 		stance_label.add_theme_color_override("font_color", Color(0.35, 0.9, 0.5))
-		quote_label.text = "\"Peki... Seninle geliyorum.\""
+		quote_label.text = tr("dealduel.win_quote")
 	else:
-		stance_label.text = "%s sözü kazandı." % _cariye_name
+		stance_label.text = tr("dealduel.won_lost") % _cariye_name
 		stance_label.add_theme_color_override("font_color", Color(0.92, 0.3, 0.25))
-		quote_label.text = "\"Ben burada kalıyorum. Git başımdan.\""
+		quote_label.text = tr("dealduel.lose_quote")
 	await get_tree().create_timer(1.2).timeout
 	emit_signal("completed", success, {"leverage": _leverage})
 
@@ -338,7 +338,7 @@ func _build_bar_nodes() -> void:
 	_flash_rect.visible = false
 	panel.add_child(_flash_rect)
 	_perfect_label = Label.new()
-	_perfect_label.text = "TAM İSABET!"
+	_perfect_label.text = tr("dealduel.perfect_banner")
 	_perfect_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_perfect_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_perfect_label.add_theme_font_size_override("font_size", 44)
@@ -395,7 +395,7 @@ func _update_zone_rects() -> void:
 		p.position = Vector2(pl, BAR_TOP + 6.0)
 		p.size = Vector2(pr - pl, BAR_BOTTOM - BAR_TOP - 12.0)
 		var l: Label = _zone_labels[i]
-		l.text = info.counter
+		l.text = tr(info.counter_key)
 		l.add_theme_color_override("font_color", info.color)
 		l.position = Vector2(lerp(BAR_LEFT, BAR_RIGHT, c) - 80.0, BAR_BOTTOM + 4.0)
 		l.size = Vector2(160.0, 18.0)

@@ -11,8 +11,8 @@ var _hit_counter := 0
 
 func _init():
 	item_id = "element_degisimi"
-	item_name = "Element Değişimi"
-	description = "Her 4. vuruşta aktif elementlerinden biri 3 kat güçte patlar"
+	item_name = tr("item.element_degisimi.name")
+	description = tr("item.element_degisimi.description")
 	flavor_text = "Hiçbir element yalnız kalmaz"
 	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.SYNERGY

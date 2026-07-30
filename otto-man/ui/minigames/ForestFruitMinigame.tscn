@@ -8,9 +8,9 @@ layer = 100
 resource_type = "food"
 base_amount = 3
 bonus_amount = 2
-title_text = "Meyve Toplama (Placeholder)"
-description_text = "Attack tuşu ile havadaki meyveleri yakala."
-failure_text = "Jump tuşu ile iptal et."
+title_text = "minigame.forest_fruit.title"
+description_text = "minigame.forest_fruit.description"
+failure_text = "minigame.forest_fruit.failure"
 
 [node name="Panel" type="Panel" parent="."]
 anchor_left = 0.5

@@ -10,8 +10,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "patlama_topuzu"
-	item_name = "Patlama Topuzu"
-	description = "Heavy attack patlama yaratır (yakındaki düşmanlara hasar). Charge süresi +%30"
+	item_name = tr("item.patlama_topuzu.name")
+	description = tr("item.patlama_topuzu.description")
 	flavor_text = "Patlayıcı güç"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK

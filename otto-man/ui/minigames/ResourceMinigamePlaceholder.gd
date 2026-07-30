@@ -16,11 +16,11 @@ var _elapsed := 0.0
 
 func _on_minigame_ready() -> void:
 	if _title_label:
-		_title_label.text = title_text
+		_title_label.text = tr(title_text)
 	if _description_label:
-		_description_label.text = description_text
+		_description_label.text = tr(description_text)
 	if _hint_label:
-		_hint_label.text = failure_text
+		_hint_label.text = tr(failure_text)
 	set_process(true)
 	set_process_input(true)
 	set_process_unhandled_input(true)

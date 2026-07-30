@@ -152,9 +152,9 @@ func get_production_info() -> String:
 	var tier: int = clampi(level, 1, 3)
 	var recipe_label := ""
 	match tier:
-		1: recipe_label = "odun+taş → 1.sv. silah"
-		2: recipe_label = "kereste+tuğla → 2.sv. silah"
-		3: recipe_label = "metal+kumaş → 3.sv. silah"
-	return "Lv." + str(level) + " • İşçi:" + str(assigned_workers) + " • " + recipe_label
+		1: recipe_label = tr("building.gunsmith.recipe_tier1")
+		2: recipe_label = tr("building.gunsmith.recipe_tier2")
+		3: recipe_label = tr("building.gunsmith.recipe_tier3")
+	return tr("building.gunsmith.production_info") % [level, assigned_workers, recipe_label]
 
 

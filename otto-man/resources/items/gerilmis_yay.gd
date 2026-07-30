@@ -14,8 +14,8 @@ var _charge_time := 0.0
 
 func _init():
 	item_id = "gerilmis_yay"
-	item_name = "Gerilmiş Yay"
-	description = "Hafif saldırıyı basılı tutup bırakırsan, şarj oranlı güçlü bir mermi fırlatırsın"
+	item_name = tr("item.gerilmis_yay.name")
+	description = tr("item.gerilmis_yay.description")
 	flavor_text = "Sabreden ok, daha derin saplanır"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK

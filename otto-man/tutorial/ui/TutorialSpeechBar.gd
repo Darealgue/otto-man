@@ -3,8 +3,12 @@ extends CanvasLayer
 
 const DESIGN_VIEWPORT := Vector2(1920.0, 1080.0)
 ## 360px texture: yatay orta ~280px; 780 genişlik ≈ 2.5× esneme (1040 = 3.4× bozuyordu).
-const DESIGN_BAR_SIZE := Vector2(780.0, 264.0)
-const DESIGN_BOTTOM_MARGIN := 36.0
+const DESIGN_BAR_SIZE := Vector2(780.0, 320.0)
+## Box can grow taller than DESIGN_BAR_SIZE.y to fit longer messages, up to this design-space cap.
+const DESIGN_BAR_MAX_HEIGHT := 620.0
+## Bottom resource bar occupies the screen's bottom 56px (VillageStatusUI.tscn TopBarPanel) —
+## this must clear that plus a visible gap, or the speech bar sits partially behind it.
+const DESIGN_BOTTOM_MARGIN := 76.0
 const DESIGN_FONT_SIZE := 22
 ## "Devam etmek için yukarı bas" ikonu — kutunun sağ-alt köşesinde, tasarım karesi 34px.
 const DESIGN_CONTINUE_ICON_SIZE := 34.0
@@ -14,6 +18,11 @@ const DESIGN_CONTINUE_ICON_MARGIN := 16.0
 @onready var _rich: RichTextLabel = %SpeechRichText
 @onready var _continue_icon: TextureRect = %ContinueHintIcon
 
+var _highlight: Control
+var _current_scale: float = 1.0
+## Design-space height added on top of DESIGN_BAR_SIZE.y to fit the current message's content.
+var _content_extra_height: float = 0.0
+
 
 func _ready() -> void:
 	layer = 95
@@ -22,6 +31,7 @@ func _ready() -> void:
 		_rich.add_theme_color_override("default_color", TextOutline.FONT_COLOR)
 		_rich.add_theme_constant_override("outline_size", 0)
 		_rich.add_theme_constant_override("line_separation", 5)
+	_setup_highlight()
 	TextOutline.apply_to_tree(self)
 	var root := get_tree().root
 	if not root.size_changed.is_connected(_apply_bar_layout):
@@ -37,8 +47,10 @@ func _apply_bar_layout() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var s := minf(vp.x / DESIGN_VIEWPORT.x, vp.y / DESIGN_VIEWPORT.y)
 	s = maxf(s, 0.5)
+	_current_scale = s
 	var w := DESIGN_BAR_SIZE.x * s
-	var h := DESIGN_BAR_SIZE.y * s
+	var design_h := clampf(DESIGN_BAR_SIZE.y + _content_extra_height, DESIGN_BAR_SIZE.y, DESIGN_BAR_MAX_HEIGHT)
+	var h := design_h * s
 	var bottom := DESIGN_BOTTOM_MARGIN * s
 	frame.anchor_left = 0.5
 	frame.anchor_top = 1.0
@@ -88,10 +100,53 @@ func _unhandled_input(event: InputEvent) -> void:
 	)
 
 
+func _setup_highlight() -> void:
+	if not is_instance_valid(_panel):
+		return
+	var h := preload("res://ui/PulsingHighlight.gd").new()
+	add_child(h)
+	h.follow(_panel)
+	_highlight = h
+
+
+## Every caller in the game — new mentor lines, and in-place text swaps like the movement/
+## combat tutorial progress prompts — funnels through this one function, so this is the single
+## place that needs to notice "the text actually changed" and pulse, regardless of which
+## system triggered the change.
 func set_speech_bbcode(bbcode: String) -> void:
 	if is_instance_valid(_rich):
-		_rich.text = _normalize_speech_bbcode(bbcode)
+		var normalized := _normalize_speech_bbcode(bbcode)
+		var changed := normalized != _rich.text
+		_rich.text = normalized
+		if is_instance_valid(_highlight):
+			if normalized.is_empty():
+				_highlight.stop_pulse()
+			elif changed:
+				_highlight.pulse_once_then_hold()
+		if normalized.is_empty():
+			_content_extra_height = 0.0
+			_apply_bar_layout()
+		else:
+			_refresh_content_height.call_deferred()
 	_apply_visibility()
+
+
+## Grows the box (up to DESIGN_BAR_MAX_HEIGHT) when the current message needs more room than
+## it has, instead of silently clipping the tail of longer messages.
+func _refresh_content_height() -> void:
+	if not is_instance_valid(_rich) or not is_instance_valid(_panel):
+		return
+	await get_tree().process_frame
+	var needed := _rich.get_content_height()
+	var available := _rich.size.y
+	if needed <= available + 1.0:
+		return
+	var overflow := needed - available
+	var design_overflow := overflow / maxf(0.001, _current_scale)
+	var new_extra := clampf(_content_extra_height + design_overflow, 0.0, DESIGN_BAR_MAX_HEIGHT - DESIGN_BAR_SIZE.y)
+	if not is_equal_approx(new_extra, _content_extra_height):
+		_content_extra_height = new_extra
+		_apply_bar_layout()
 
 
 func clear_speech() -> void:

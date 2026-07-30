@@ -91,7 +91,7 @@ func get_day() -> int:
 	return days
 
 func get_time_string() -> String:
-	return "Gün %d, %02d:%02d" % [days, hours, minutes]
+	return tr("time.day_format") % [days, hours, minutes]
 
 
 ## Yeni oyun: yüklemeden kalan gün/saat ve zaman ölçeğini başlangıca çeker.

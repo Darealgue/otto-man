@@ -60,7 +60,7 @@ func _build_ui() -> void:
 	_panel.add_child(root)
 
 	_title_label = Label.new()
-	_title_label.text = "Ticaret Görevi"
+	_title_label.text = tr("trade_mission.title")
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 20)
 	root.add_child(_title_label)
@@ -82,7 +82,7 @@ func _build_ui() -> void:
 	_content_scroll.add_child(content_col)
 
 	var route_title := Label.new()
-	route_title.text = "Rota Seç"
+	route_title.text = tr("trade_mission.select_route")
 	route_title.add_theme_font_size_override("font_size", 14)
 	content_col.add_child(route_title)
 
@@ -104,7 +104,7 @@ func _build_ui() -> void:
 	var close_row := HBoxContainer.new()
 	close_row.alignment = BoxContainer.ALIGNMENT_END
 	var close_btn := Button.new()
-	close_btn.text = "Kapat"
+	close_btn.text = tr("trade_mission.close")
 	close_btn.focus_mode = Control.FOCUS_ALL
 	close_btn.pressed.connect(hide_popup)
 	_style_focus(close_btn)
@@ -157,7 +157,7 @@ func _refresh_routes() -> void:
 	var routes: Array = mm.get_active_trade_routes() if mm and mm.has_method("get_active_trade_routes") else []
 	if routes.is_empty():
 		var lbl := Label.new()
-		lbl.text = "Şu an aktif ticaret rotası yok."
+		lbl.text = tr("trade_mission.no_routes")
 		lbl.modulate = Color(1, 1, 1, 0.55)
 		_route_list.add_child(lbl)
 		return
@@ -172,7 +172,7 @@ func _refresh_routes() -> void:
 
 func _make_route_button(route: Dictionary) -> Button:
 	var btn := Button.new()
-	btn.text = "→ %s  (mesafe %.1f gün, risk %s)" % [
+	btn.text = tr("trade_mission.route_button") % [
 		String(route.get("to_name", "?")),
 		float(route.get("distance", 0.0)),
 		String(route.get("risk", "?")),
@@ -207,7 +207,7 @@ func _refresh_details() -> void:
 	var mm := get_node_or_null("/root/MissionManager")
 
 	var summary := Label.new()
-	summary.text = "%s → %s  •  risk %s  •  mesafe %.1f gün" % [
+	summary.text = tr("trade_mission.route_summary") % [
 		String(_selected_route.get("from_name", "?")),
 		String(_selected_route.get("to_name", "?")),
 		String(_selected_route.get("risk", "?")),
@@ -219,7 +219,7 @@ func _refresh_details() -> void:
 	_details_box.add_child(summary)
 
 	var goods_title := Label.new()
-	goods_title.text = "Satılacak Mallar"
+	goods_title.text = tr("trade_mission.goods_title")
 	goods_title.add_theme_font_size_override("font_size", 13)
 	_details_box.add_child(goods_title)
 
@@ -233,19 +233,19 @@ func _refresh_details() -> void:
 		_details_box.add_child(_make_product_stepper_row(String(resource), available))
 	if not any_available:
 		var none_lbl := Label.new()
-		none_lbl.text = "Bu rotada satılabilecek stoklu bir mal yok."
+		none_lbl.text = tr("trade_mission.no_stock")
 		none_lbl.modulate = Color(1, 1, 1, 0.55)
 		none_lbl.add_theme_font_size_override("font_size", 11)
 		_details_box.add_child(none_lbl)
 
 	var escort_title := Label.new()
-	escort_title.text = "Eskort Asker"
+	escort_title.text = tr("trade_mission.escort_title")
 	escort_title.add_theme_font_size_override("font_size", 13)
 	_details_box.add_child(escort_title)
 	_details_box.add_child(_make_soldier_stepper_row(mm))
 
 	var start_btn := Button.new()
-	start_btn.text = "Ticaret Görevini Başlat"
+	start_btn.text = tr("trade_mission.start_button")
 	start_btn.custom_minimum_size = Vector2(0, 36)
 	start_btn.focus_mode = Control.FOCUS_ALL
 	start_btn.pressed.connect(_on_execute_pressed)
@@ -362,27 +362,27 @@ func _on_execute_pressed() -> void:
 	if _concubine == null or _selected_route.is_empty():
 		return
 	if _selected_products.is_empty():
-		_info_label.text = "En az bir mal seçmelisiniz."
+		_info_label.text = tr("trade_mission.select_at_least_one")
 		return
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm == null or not mm.has_method("create_trade_mission_for_route"):
-		_info_label.text = "Görev sistemi bulunamadı."
+		_info_label.text = tr("trade_mission.system_missing")
 		return
 	for resource in _selected_products.keys():
 		var qty: int = int(_selected_products[resource])
 		var available: int = VillageManager.get_resource_level(String(resource))
 		if qty > available:
-			_info_label.text = "Yetersiz kaynak: %s" % LocaleManager.get_resource_name(String(resource))
+			_info_label.text = tr("trade_mission.insufficient_resource") % LocaleManager.get_resource_name(String(resource))
 			return
 	var route_id: String = String(_selected_route.get("id", ""))
 	var mission = mm.create_trade_mission_for_route(_concubine.id, route_id, _selected_products, _soldier_count)
 	if mission == null:
-		_info_label.text = "Görev oluşturulamadı."
+		_info_label.text = tr("trade_mission.creation_failed")
 		return
 	mm.missions[mission.id] = mission
 	var ok: bool = mm.assign_mission_to_concubine(_concubine.id, mission.id, _soldier_count)
 	if not ok:
-		_info_label.text = "Görev başlatılamadı."
+		_info_label.text = tr("trade_mission.start_failed")
 		return
 	for resource in _selected_products.keys():
 		var qty: int = int(_selected_products[resource])

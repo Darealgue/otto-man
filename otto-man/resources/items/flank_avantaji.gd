@@ -9,8 +9,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "flank_avantaji"
-	item_name = "Flank Avantajı"
-	description = "Düşmana arkadan vurduğunda +%50 hasar verir. Görünmezlikle birleşince çok güçlü."
+	item_name = tr("item.flank_avantaji.name")
+	description = tr("item.flank_avantaji.description")
 	flavor_text = "Sırtından vur"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL

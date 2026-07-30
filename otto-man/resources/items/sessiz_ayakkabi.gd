@@ -10,8 +10,8 @@ var _original_noise_mult: float = 1.0
 
 func _init():
 	item_id = "sessiz_ayakkabi"
-	item_name = "Sessiz Ayakkabı"
-	description = "Hareket gürültüsü -%50"
+	item_name = tr("item.sessiz_ayakkabi.name")
+	description = tr("item.sessiz_ayakkabi.description")
 	flavor_text = "Adımlar yumuşak"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.SPECIAL

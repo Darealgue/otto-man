@@ -14,8 +14,8 @@ var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "simsek_parmagi"
-	item_name = "Şimşek Parmak"
-	description = "Light attack belli ihtimalle şimşek çakar; buzlu düşmanda ihtimal 2x"
+	item_name = tr("item.simsek_parmagi.name")
+	description = tr("item.simsek_parmagi.description")
 	flavor_text = "Elektrikli parmaklar"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK

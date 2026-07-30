@@ -9,6 +9,8 @@ extends CanvasLayer
 @onready var _keys_bar: Label = $KeysBar
 
 var _raw_objective: String = ""
+var _last_resolved_objective: String = ""
+var _highlight: Control
 
 
 func _ready() -> void:
@@ -17,6 +19,7 @@ func _ready() -> void:
 	visible = true
 	if _objective_panel:
 		_objective_panel.modulate.a = 0.0
+		_setup_highlight()
 	if _objective_label:
 		TextOutline.apply_font_to_control(_objective_label)
 	if _keys_bar:
@@ -52,15 +55,30 @@ func _on_device_changed(_is_joypad: bool) -> void:
 	_refresh_keys_bar()
 
 
+func _setup_highlight() -> void:
+	var h := preload("res://ui/PulsingHighlight.gd").new()
+	add_child(h)
+	h.follow(_objective_panel)
+	_highlight = h
+
+
 func _apply_objective() -> void:
 	if _objective_label == null or _objective_panel == null:
 		return
 	if _raw_objective.is_empty():
 		_objective_label.text = ""
 		_objective_panel.modulate.a = 0.0
+		_last_resolved_objective = ""
+		if is_instance_valid(_highlight):
+			_highlight.stop_pulse()
 		return
-	_objective_label.text = "► " + _resolve_input_tokens(_raw_objective)
+	var resolved := _resolve_input_tokens(_raw_objective)
+	var changed := resolved != _last_resolved_objective
+	_last_resolved_objective = resolved
+	_objective_label.text = "► " + resolved
 	_objective_panel.modulate.a = 1.0
+	if changed and is_instance_valid(_highlight):
+		_highlight.pulse_once_then_hold()
 
 
 func _refresh_keys_bar() -> void:

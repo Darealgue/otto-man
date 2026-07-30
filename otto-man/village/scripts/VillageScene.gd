@@ -44,6 +44,12 @@ func _ready() -> void:
 	open_cariye_ui_button.pressed.connect(_on_open_cariye_ui_button_pressed)
 	open_build_ui_button.pressed.connect(_on_open_build_ui_button_pressed)
 	add_villager_button.pressed.connect(VillageManager.add_villager)
+	# Bu 4 buton şu an kalıcı olarak gizli (bkz. aşağıdaki .hide() çağrıları) ama yine de
+	# metinlerini locale'e göre ayarlıyoruz — ileride tekrar gösterilirse hazır olsunlar.
+	open_worker_ui_button.text = tr("village.button.open_worker_ui")
+	open_cariye_ui_button.text = tr("village.button.open_cariye_ui")
+	open_build_ui_button.text = tr("village.button.open_build_ui")
+	add_villager_button.text = tr("village.button.add_villager")
 	# UI görünürlük sinyallerini bağla
 	worker_assignment_ui.visibility_changed.connect(_on_worker_ui_visibility_changed)
 	cariye_management_ui.visibility_changed.connect(_on_cariye_ui_visibility_changed) # Yeni panel bağlandı

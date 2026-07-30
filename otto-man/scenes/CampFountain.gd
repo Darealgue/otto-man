@@ -114,7 +114,7 @@ func _process(_delta: float) -> void:
 		return
 	if not _segment_allows_heal():
 		if _prompt_label:
-			_prompt_label.text = "Bu bölümde iyileşme kapalı"
+			_prompt_label.text = tr("fountain.heal_disabled")
 			_prompt_label.visible = true
 		return
 	if InputManager.is_interact_just_pressed() or InputManager.is_portal_enter_just_pressed():
@@ -130,9 +130,9 @@ func _on_body_entered(body: Node2D) -> void:
 		_player_in_range = true
 		if _prompt_label and not (one_use_per_camp and _used):
 			if not _segment_allows_heal():
-				_prompt_label.text = "Bu bölümde iyileşme kapalı"
+				_prompt_label.text = tr("fountain.heal_disabled")
 			else:
-				_prompt_label.text = "E veya Yukarı - Su iç (can)"
+				_prompt_label.text = tr("fountain.drink_prompt")
 			_prompt_label.visible = true
 
 
@@ -163,6 +163,6 @@ func _try_heal() -> void:
 	_used = true
 	_play_dry_animation()
 	if _prompt_label:
-		_prompt_label.text = "Kullanıldı"
+		_prompt_label.text = tr("fountain.used")
 		_prompt_label.visible = true
 	print("[CampFountain] Healed player to %.1f" % new_health)

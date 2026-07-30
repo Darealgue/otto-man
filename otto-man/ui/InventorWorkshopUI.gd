@@ -82,7 +82,7 @@ func _build_ui() -> void:
 	margin.add_child(root_vbox)
 
 	var title := Label.new()
-	title.text = "Mucit Odası"
+	title.text = tr("inventor.title")
 	title.add_theme_font_size_override("font_size", 24)
 	root_vbox.add_child(title)
 
@@ -254,14 +254,14 @@ func _refresh() -> void:
 		return
 	var mum := get_node_or_null("/root/MetaUpgradeManager")
 	if mum == null:
-		_loot_label.text = "MetaUpgradeManager bulunamadı."
+		_loot_label.text = tr("inventor.manager_missing")
 		return
 	# Her zaman üçünü de göster (0 olsa bile) — oyuncu neyi toplaması gerektiğini görsün.
 	var loot_parts: PackedStringArray = PackedStringArray()
 	for lid in _ExpeditionLootType.all():
 		var n := int(mum.get_village_loot(lid))
 		loot_parts.append("%s: %d" % [_ExpeditionLootType.display_name(lid), n])
-	_loot_label.text = "Köy stoku: " + ", ".join(loot_parts)
+	_loot_label.text = tr("inventor.village_stock") + ", ".join(loot_parts)
 
 	_nav_buttons.clear()
 	_track_ids.clear()
@@ -337,11 +337,11 @@ func _show_description(track_idx: int, mum: Node) -> void:
 	_desc_body_label.text = String(track.get("description", ""))
 
 	if cur_lvl >= max_lvl:
-		_desc_status_label.text = "✓ Maksimum seviyeye ulaştın."
+		_desc_status_label.text = tr("inventor.max_level")
 		_desc_status_label.modulate = Color(0.6, 1.0, 0.55)
 	else:
 		var cost: Dictionary = _MetaUpgradeConfig.get_level_cost(track_id, cur_lvl + 1)
-		_desc_status_label.text = "Sıradaki seviye maliyeti: %s   [Satın almak için seç]" % _MetaUpgradeConfig.format_cost(cost)
+		_desc_status_label.text = tr("inventor.next_level_cost") % _MetaUpgradeConfig.format_cost(cost)
 		_desc_status_label.modulate = Color(1.0, 0.9, 0.5)
 
 
@@ -421,6 +421,6 @@ func _update_nav_hint() -> void:
 	var im := get_node_or_null("/root/InputManager")
 	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
 	if is_pad:
-		_nav_hint_label.text = "[↑↓◄►] Geliştirme seç   [A] Satın al   [B] Kapat"
+		_nav_hint_label.text = tr("inventor.nav_hint_gamepad")
 	else:
-		_nav_hint_label.text = "[↑↓◄►] Geliştirme seç   [Enter] Satın al   [Esc] Kapat"
+		_nav_hint_label.text = tr("inventor.nav_hint_keyboard")

@@ -115,7 +115,7 @@ func _build_ui(data: Dictionary) -> void:
 	_continue_label = Label.new()
 	_continue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_continue_label.add_theme_font_size_override("font_size", 14)
-	_continue_label.text = "Devam etmek için onayla"
+	_continue_label.text = tr("dungeon_report.continue_hint")
 	_continue_label.visible = false
 	content.add_child(_continue_label)
 
@@ -149,16 +149,16 @@ func _resolve_title(data: Dictionary) -> Dictionary:
 	var return_reason: String = String(data.get("return_reason", ""))
 	var is_complete: bool = bool(data.get("is_run_complete", false))
 	if is_dead:
-		return {"text": "ÖLDÜN", "sub": "Zindanda düştün — toplanan ganimet kayboldu.", "color": COLOR_BAD}
+		return {"text": tr("dungeon_report.title_dead"), "sub": tr("dungeon_report.sub_dead"), "color": COLOR_BAD}
 	match return_reason:
 		"boss_defeated":
-			return {"text": "ZAFER!", "sub": "Boss yenildi, zindandan sağ çıktın.", "color": COLOR_GOOD}
+			return {"text": tr("dungeon_report.title_victory"), "sub": tr("dungeon_report.sub_victory"), "color": COLOR_GOOD}
 		"stealth_exit":
-			return {"text": "GİZLİCE KAÇTIN", "sub": "Fark edilmeden zindandan sıvıştın.", "color": Color(0.25, 0.4, 0.55)}
+			return {"text": tr("dungeon_report.title_stealth_exit"), "sub": tr("dungeon_report.sub_stealth_exit"), "color": Color(0.25, 0.4, 0.55)}
 		_:
 			if is_complete:
-				return {"text": "KEŞİF TAMAMLANDI", "sub": "Zindandan sağ çıktın.", "color": COLOR_GOOD}
-			return {"text": "ERKEN ÇIKIŞ", "sub": "Zindanı bitirmeden ayrıldın.", "color": Color(0.55, 0.4, 0.1)}
+				return {"text": tr("dungeon_report.title_complete"), "sub": tr("dungeon_report.sub_complete"), "color": COLOR_GOOD}
+			return {"text": tr("dungeon_report.title_early_exit"), "sub": tr("dungeon_report.sub_early_exit"), "color": Color(0.55, 0.4, 0.1)}
 
 
 ## ---------------- İstatistik satırları ----------------
@@ -167,35 +167,35 @@ func _populate_rows(data: Dictionary) -> void:
 	_rows.clear()
 
 	var elapsed: float = float(data.get("elapsed_seconds", 0.0))
-	_rows.append(_make_row("", "Süre", _format_time(elapsed), COLOR_NEUTRAL))
+	_rows.append(_make_row("", tr("dungeon_report.row_duration"), _format_time(elapsed), COLOR_NEUTRAL))
 
 	var segs_done: int = int(data.get("segments_completed", 0))
 	var segs_target: int = int(data.get("segments_target", 0))
 	var seg_value: String = "%d / %d" % [segs_done, segs_target]
 	if bool(data.get("is_warmup", false)):
-		seg_value += "  (alıştırma)"
-	_rows.append(_make_row("", "Geçilen Bölüm", seg_value, COLOR_NEUTRAL))
+		seg_value += tr("dungeon_report.warmup_suffix")
+	_rows.append(_make_row("", tr("dungeon_report.row_segments"), seg_value, COLOR_NEUTRAL))
 
-	_rows.append(_make_count_up_row("", "Öldürülen Düşman", int(data.get("enemies_killed", 0)), COLOR_NEUTRAL))
+	_rows.append(_make_count_up_row("", tr("dungeon_report.row_enemies_killed"), int(data.get("enemies_killed", 0)), COLOR_NEUTRAL))
 
 	var gold_held: int = int(data.get("gold_held_at_end", 0))
-	_rows.append(_make_count_up_row("res://assets/Icons/gold_icon.png", "Toplanan Altın", gold_held, COLOR_GOLD))
+	_rows.append(_make_count_up_row("res://assets/Icons/gold_icon.png", tr("dungeon_report.row_gold_collected"), gold_held, COLOR_GOLD))
 	var gold_lost: int = int(data.get("gold_lost_final", 0))
 	if gold_lost > 0:
-		_rows.append(_make_row("", "    zindanda kaybedilen", "-%d" % gold_lost, COLOR_BAD))
+		_rows.append(_make_row("", tr("dungeon_report.row_gold_lost"), "-%d" % gold_lost, COLOR_BAD))
 	var gold_delivered: int = int(data.get("gold_delivered", 0))
 	if not bool(data.get("is_dead", false)) and gold_delivered != gold_held:
-		_rows.append(_make_row("", "    kasaya teslim edilen", "%d" % gold_delivered, COLOR_GOOD))
+		_rows.append(_make_row("", tr("dungeon_report.row_gold_delivered"), "%d" % gold_delivered, COLOR_GOOD))
 
 	var rescued_total: int = int(data.get("rescued_total", 0))
 	var rescued_lost: int = int(data.get("rescued_lost", 0))
 	var rescued_color: Color = COLOR_GOOD if rescued_total > 0 else COLOR_NEUTRAL
-	_rows.append(_make_count_up_row("res://assets/Icons/rescue_icon.png", "Kurtarılan", rescued_total, rescued_color))
+	_rows.append(_make_count_up_row("res://assets/Icons/rescue_icon.png", tr("dungeon_report.row_rescued"), rescued_total, rescued_color))
 	if rescued_lost > 0:
-		_rows.append(_make_row("", "    zindanda kaldı", "-%d" % rescued_lost, COLOR_BAD))
+		_rows.append(_make_row("", tr("dungeon_report.row_rescued_lost"), "-%d" % rescued_lost, COLOR_BAD))
 	var fragile_lost: int = int(data.get("fragile_rescue_lost_total", 0))
 	if fragile_lost > 0:
-		_rows.append(_make_row("", "    kaçarken kaybedilen esir", "-%d" % fragile_lost, COLOR_BAD))
+		_rows.append(_make_row("", tr("dungeon_report.row_fragile_lost"), "-%d" % fragile_lost, COLOR_BAD))
 
 	for row in _rows:
 		_rows_container.add_child(row)

@@ -5,8 +5,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "parry_ruhu"
-	item_name = "Parry Ruhu"
-	description = "Perfect parry sonrası stamina restore +1"
+	item_name = tr("item.parry_ruhu.name")
+	description = tr("item.parry_ruhu.description")
 	flavor_text = "Parry ile enerji"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY

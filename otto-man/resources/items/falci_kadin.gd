@@ -3,8 +3,8 @@ extends ItemEffect
 
 func _init():
 	item_id = "falci_kadin"
-	item_name = "Falcı Kadın"
-	description = "İtem seçeneklerinden biri build'ine yakın kategoriden gelme eğilimi kazanır"
+	item_name = tr("item.falci_kadin.name")
+	description = tr("item.falci_kadin.description")
 	flavor_text = "Fal, kader değil ihtimaldir"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SYNERGY
