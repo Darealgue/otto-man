@@ -4725,7 +4725,6 @@ func _trigger_hostile_settlement_attack(attacker_name: String, settlement_id: St
 		"defenders": defenders_arr
 	})
 	_emit_pending_attacks_changed()
-	print("🛡️ Dusman koy baskini zamanlandi: %s -> 6 saat sonra (Gun %d, Saat %.1f)" % [attacker_name, attack_day, attack_hour])
 
 # === Periyodik Haydut/Kurt Baskınları ===
 # Fraksiyon ilişkisinden bağımsız, düzenli aralıklarla (3-5 gün) gelen küçük saldırılar.
@@ -4840,7 +4839,6 @@ func _trigger_periodic_raid_warning(kind: String, attack_day: int, attack_hour: 
 		"deployed": false
 	})
 	_emit_pending_attacks_changed()
-	print("🛡️ Periyodik baskın zamanlandı: %s -> Gün %d, Saat %.1f" % [attacker_name, attack_day, attack_hour])
 
 
 func _resource_display_name(res: String) -> String:
@@ -5286,7 +5284,6 @@ func _trigger_village_attack(attacker_faction: String, day: int) -> void:
 	})
 	_emit_pending_attacks_changed()
 	
-	print("🛡️ Köye saldırı zamanlandı: %s -> 6 saat sonra (Gün %d, Saat %.1f)" % [attacker_faction, attack_day, attack_hour])
 
 func _check_pending_attacks() -> void:
 	"""Zamanlanmış saldırıları kontrol et ve gerçekleştir (saat bazlı)"""
@@ -5328,7 +5325,6 @@ func _check_pending_attacks() -> void:
 			defense_deployment_started.emit(attack_day)
 			attack["deployed"] = true
 			_emit_pending_attacks_changed()
-			print("⚔️ Askerler savaşa hazırlanıyor, ekran dışına yürüyorlar (Saldırı: Gün %d, Saat %.1f)" % [attack_day, attack_hour])
 		
 		# Saldırı zamanı kontrolü
 		var attack_time_reached = false
@@ -5351,7 +5347,6 @@ func _check_pending_attacks() -> void:
 	_emit_pending_attacks_changed()
 
 func _execute_village_defense(attacker_faction: String, day: int, alliance_defender: bool = false, defender_count: int = 0) -> void:
-	print("⚔️ Otomatik savunma: %s saldırısı (muttefik destek: %s, adet: %d)" % [attacker_faction, str(alliance_defender), defender_count])
 	
 	var cr = get_node_or_null("/root/CombatResolver")
 	
@@ -5919,7 +5914,8 @@ func _generate_battle_story(attacker_faction: String, battle_result: Dictionary,
 		print("WorldManager: Battle story LLM disabled (_DISABLE_BATTLE_STORY_LLM); skipping LlamaService call.")
 		return
 	if not LlamaService.IsInitialized():
-		print("WorldManager: LlamaService not available, skipping battle story generation")
+		print("WorldManager: LlamaService not available, emitting fallback battle narration")
+		_emit_fallback_battle_story(attacker_faction, battle_result, day, attacker_force, defender_force)
 		return
 	
 	# Store battle data for when LLM response arrives
@@ -5955,6 +5951,26 @@ func _generate_battle_story(attacker_faction: String, battle_result: Dictionary,
 ## structure is exactly what produced page-long stories before — dropped entirely, along with the
 ## "Battle Severity" field (battle_result never actually set it, so it was always the dead
 ## fallback "moderate" and added nothing).
+## With AI villagers off there is no model to write the battle chronicle. Rather than leaving a
+## silent gap where narration belongs, emit a short in-world line through the SAME signal the
+## generated story uses, so every listener behaves identically whether or not the model is present.
+func _emit_fallback_battle_story(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> void:
+	var ai_node := get_node_or_null("/root/AiVillagers")
+	if ai_node == null or not ai_node.has_method("get_silent_battle_line"):
+		return
+	var line := str(ai_node.call("get_silent_battle_line"))
+	if line.strip_edges() == "":
+		return
+	var battle_data := {
+		"attacker_faction": attacker_faction,
+		"battle_result": battle_result,
+		"day": day,
+		"attacker_force": attacker_force,
+		"defender_force": defender_force,
+	}
+	battle_story_generated.emit(line, battle_data)
+
+
 func _construct_battle_story_prompt(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> String:
 	"""Construct a short, whimsical mock-heroic battle summary prompt"""
 	var victor = battle_result.get("victor", "defender")

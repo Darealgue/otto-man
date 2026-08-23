@@ -24,8 +24,13 @@ const FLAT_PANEL_SIZE := 128
 const FLAT_PANEL_BORDER_PX := 3
 const FLAT_PANEL_FILL_COLOR := Color(0.03, 0.03, 0.03, 1.0)
 const FLAT_PANEL_BORDER_COLOR := Color(0.42, 0.4, 0.36, 1.0)
+## Same fill, dimmed alpha — for panels that sit over live gameplay (e.g. the tutorial/mentor
+## speech bar) where a fully opaque background blocks too much of the scene behind it. The
+## border stays fully opaque so the panel still reads as a clear, framed shape.
+const FLAT_PANEL_FILL_COLOR_TRANSLUCENT := Color(0.03, 0.03, 0.03, 0.7)
 
 static var _flat_panel_texture_cache: ImageTexture = null
+static var _flat_panel_texture_translucent_cache: ImageTexture = null
 
 
 static func load_if_exists(path: String) -> Texture2D:
@@ -51,6 +56,22 @@ static func get_flat_panel_texture() -> ImageTexture:
 	img.fill_rect(Rect2i(FLAT_PANEL_SIZE - b, 0, b, FLAT_PANEL_SIZE), FLAT_PANEL_BORDER_COLOR)
 	_flat_panel_texture_cache = ImageTexture.create_from_image(img)
 	return _flat_panel_texture_cache
+
+
+## Translucent variant of get_flat_panel_texture() — same border, dimmed fill alpha, for panels
+## that overlay live gameplay instead of a dedicated full-screen menu.
+static func get_flat_panel_texture_translucent() -> ImageTexture:
+	if _flat_panel_texture_translucent_cache != null:
+		return _flat_panel_texture_translucent_cache
+	var img := Image.create(FLAT_PANEL_SIZE, FLAT_PANEL_SIZE, false, Image.FORMAT_RGBA8)
+	img.fill(FLAT_PANEL_FILL_COLOR_TRANSLUCENT)
+	var b := FLAT_PANEL_BORDER_PX
+	img.fill_rect(Rect2i(0, 0, FLAT_PANEL_SIZE, b), FLAT_PANEL_BORDER_COLOR)
+	img.fill_rect(Rect2i(0, FLAT_PANEL_SIZE - b, FLAT_PANEL_SIZE, b), FLAT_PANEL_BORDER_COLOR)
+	img.fill_rect(Rect2i(0, 0, b, FLAT_PANEL_SIZE), FLAT_PANEL_BORDER_COLOR)
+	img.fill_rect(Rect2i(FLAT_PANEL_SIZE - b, 0, b, FLAT_PANEL_SIZE), FLAT_PANEL_BORDER_COLOR)
+	_flat_panel_texture_translucent_cache = ImageTexture.create_from_image(img)
+	return _flat_panel_texture_translucent_cache
 
 
 static func resolve_mini() -> Texture2D:

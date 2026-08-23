@@ -2278,3 +2278,62 @@ wm.settlement.raid_mission_created2,%s icin baskin gorevi olusturuldu.,Raid miss
 wm.settlement.action_prompt,%s: Ticaret/Diplomasi/Asker secimi yap.,%s: Choose Trade/Diplomacy/Soldiers.
 wm.settlement.default_name,Komsu Koy,Neighboring Village
 wm.settlement.relation_suffix, (ilişki: %d/%d), (relation: %d/%d)
+mg.hint.heavy_attack,Ağır Saldırı ile vur!,Hit with Heavy Attack!
+mg.hint.heavy_attack_well,Ağır Saldırı ile vur! (3 art arda),Hit with Heavy Attack! (3 in a row)
+mg.feedback.only_heavy_attack,Sadece Ağır Saldırı işe yarar!,Only Heavy Attack works!
+mg.feedback.collect_fruits,Meyveleri topla!,Collect the fruit!
+mg.feedback.miss,Iska! (%d/%d),Miss! (%d/%d)
+mg.feedback.fruit_collected,Meyve toplandı! (%d/%d),Fruit collected! (%d/%d)
+mg.feedback.success_food,BAŞARILI! +%d Yiyecek,SUCCESS! +%d Food
+mg.feedback.fruit_not_collected,Meyve toplanamadı!,Could not collect the fruit!
+mg.feedback.perfect,MÜKEMMEL! (%d/%d),PERFECT! (%d/%d)
+mg.feedback.success_stone,BAŞARILI! +%d Taş,SUCCESS! +%d Stone
+mg.feedback.hit,İsabet!,Hit!
+mg.feedback.hit_progress,İsabet! (%d/%d),Hit! (%d/%d)
+ai.npc.silent.1,"{name} konuşmak için ağzını açıyor. Hiçbir ses çıkmıyor. Ardından gelen bakış, bunun bir süredir devam ettiğini ve birinin artık ""Ayarlar"" menüsündeki ""Yapay Zeka Köylüler"" bölümüne bakması gerektiğini anlatıyor.","{name} opens to speak. Nothing comes out. The look that follows suggests this has been happening for a while, and that someone really ought to look in ""Settings"", under ""AI Villagers""."
+ai.npc.silent.2,"Yaşlılar, ""Ayarlar"" adında uzak bir diyardan söz eder; orada, ""Yapay Zeka Köylüler"" işaretinin altında bir yolcu koca bir kasabaya sesini geri vermiştir. {name} bu hikâyeyi defalarca duydu fakat onu size anlatamıyor.","The elders tell of a distant realm called ""Settings"", where beneath the sign of ""AI Villagers"" a traveler once gave an entire town its voice. {name} has heard this story many times but cannot tell it to you."
+ai.npc.silent.3,"{name} isimli kişinin belli ki söylemek istediği çok şey var. Ne var ki fikirleri kelimelere döken kısım hâlâ ""Ayarlar"" menüsünde, ""Yapay Zeka Köylüler"" bölümünde açılmayı bekliyor.","{name} clearly has a great deal to say. Unfortunately the part that turns thoughts into words is still sitting in ""Settings"", under ""AI Villagers"", waiting to be switched on."
+ai.npc.silent.4,"{name} önce boğazını, sonra ufku, ardından da belli belirsiz ""Ayarlar"" adlı bir şeyi işaret ediyor. Bunun ilk kez olmadığı izlenimine kapılıyorsunuz.","{name} gestures toward a throat, then at the horizon, then vaguely toward something called ""Settings"". You get the impression this is not the first time."
+ai.battle.silent.1,"Ortada bu savaşın hikayesini yazacak kimse yok. ""Ayarlar"" menüsünde, ""Yapay Zeka Köylüler"" bölümünde birinin kendisini çağırmasını bekleyen biri olduğuna dair söylemler var.","There is no one here to write the story of this battle. They say someone waits in ""Settings"", under ""AI Villagers"", for a person to call upon them."
+ai.battle.silent.2,"Bu savaş sessizliğe gömülüyor. Köyün bir kâtibi yok; yine de yaşlılar, ""Ayarlar"" menüsünde ""Yapay Zeka Köylüler"" bölümünde hâlâ birinin bulunabileceğinde ısrar ediyor.","This battle passes into silence. The village has no scribe, though the elders insist one can still be found in ""Settings"", under ""AI Villagers""."
+ai.offer.title,YAŞAYAN KÖYLÜLERİ ETKİNLEŞTİR (YAPAY ZEKA SOHBETLERİ),ENABLE LIVING VILLAGERS (AI CONVERSATIONS)
+ai.offer.experience.header,DENEYİM,THE EXPERIENCE
+ai.offer.experience.body,"Aklınızdan geçenleri tam olarak kelimelere dökerek köyle etkileşime geçin. Gelişmiş yapay zeka ile desteklenen her köylü; benzersiz bir kişiliğe, kişisel bir geçmişe ve gelişen bir hafızaya sahiptir. Sözlerinizi işler ve dinamik olarak yanıt verirler. Köylülerin bildiği tek dil İngilizcedir, bu nedenle onlarla İngilizce konuşmanız gerekmektedir. Sıradan ayaküstü sohbetler zamanla zihinlerinden silinirken, anlamlı diyaloglar onların dünya görüşlerini ve sizinle olan ilişkilerini şekillendiren kalıcı bir etki bırakacaktır.","Engage with the village by typing exactly what is on your mind. Powered by advanced AI, every villager possesses a unique personality, personal history, and evolving memory. They will process your words and reply dynamically. English is the only language the villagers know, so you will need to speak with them in English. While casual small talk will eventually fade from their minds, meaningful conversations will leave a lasting impact that shapes their worldview and their relationship with you."
+ai.offer.privacy.header,%100 YEREL VE GİZLİ,100% LOCAL & PRIVATE
+ai.offer.privacy.body,"Oyun deneyiminiz tamamen size aittir. Yapay zeka, doğrudan kendi bilgisayarınızda yerel olarak çalışır. İlk indirme tamamlandıktan sonra, oyunun bir daha internete bağlanmasına gerek kalmaz. Yazdığınız hiçbir şey asla bir yere yüklenmez, takip edilmez veya bir başkası tarafından görülmez.","Your gameplay remains entirely yours. The AI runs locally on your own machine. Once the initial download is complete, the game never needs to connect to the internet again. Nothing you type is ever uploaded, tracked, or seen by anyone else."
+ai.offer.download.header,İNDİRME VE PERFORMANS,DOWNLOAD & PERFORMANCE
+ai.offer.download.body,"Bu özelliği etkinleştirmek, bir defaya mahsus yaklaşık 7.5 GB'lık bir indirme gerektirir. Depolama alanında yer açmak için bu modülü daha sonra Ayarlar üzerinden silebilirsiniz, ancak bunu yapmak köylülerin konuşma yeteneğini tamamen ortadan kaldıracaktır.","Enabling this feature requires a one-time download of about 7.5 GB. You can delete this module later via Settings to free up space, though doing so will completely remove the villagers' ability to speak."
+ai.offer.download.requirement,Sistem Gereksinimi: Bu özellik yüksek donanım gücü gerektirir ve 10 GB veya üzeri VRAM'e sahip ekran kartları için tasarlanmıştır. Bu donanım özelliklerinin altında kalan sistemler düşük performans gösterebilir veya modülü hiçbir şekilde çalıştıramayabilir. Lütfen unutmayın: Şu anda bu sistem yalnızca NVIDIA ekran kartlarıyla çalışacak şekilde inşa edilmiştir. Diğer donanımları desteklemek için çalışmalarımız aktif olarak devam etmektedir.,"System Requirement: This feature is highly demanding and is built for graphics cards with 10 GB of VRAM or higher. Systems falling below this specification may experience poor performance or fail to run the module entirely. Please note: Currently, this system is built to work only with NVIDIA graphics cards. We are actively working on support for other hardware."
+ai.offer.without.header,BU ÖZELLİK OLMADAN OYNAMAK,PLAYING WITHOUT IT
+ai.offer.without.body,"Ana oyun, bu özellik olmadan da eksiksiz bir deneyim sunar. Köylüler günlük rutinlerine devam edecek, işlerinde çalışacak ve sizinle aynı dünyayı paylaşmayı sürdürecekler; sadece konuşmayacaklar. Fikrinizi her zaman değiştirebilir ve modülü daha sonra Ayarlar menüsünden veya yalnızca birisiyle konuşmaya çalışarak indirebilirsiniz.","The core game is a complete experience without this feature. The villagers will still go about their daily routines, work their jobs, and co-exist in the world. They just will not speak. You can always change your mind and download the module later from the Settings menu, or simply by trying to speak to someone."
+ai.offer.button.enable,İndir ve Etkinleştir,Download & Enable
+ai.offer.button.skip,Şimdilik Atla,Skip for Now
+ai.offer.requirement.header,Sistem Gereksinimi,System Requirement
+ai.offer.requirement.body,Bu özellik yüksek donanım gücü gerektirir ve 10 GB veya üzeri VRAM'e sahip ekran kartları için tasarlanmıştır. Bu donanım özelliklerinin altında kalan sistemler düşük performans gösterebilir veya modülü hiçbir şekilde çalıştıramayabilir. Lütfen unutmayın: Şu anda bu sistem yalnızca NVIDIA ekran kartlarıyla çalışacak şekilde inşa edilmiştir. Diğer donanımları desteklemek için çalışmalarımız aktif olarak devam etmektedir.,"This feature is highly demanding and is built for graphics cards with 10 GB of VRAM or higher. Systems falling below this specification may experience poor performance or fail to run the module entirely. Please note: Currently, this system is built to work only with NVIDIA graphics cards. We are actively working on support for other hardware."
+ai.chip.downloading.title,Köy uyanıyor,The village is waking
+ai.chip.verifying.title,Son kontroller,Final checks
+ai.chip.verifying.detail,Dosya doğrulanıyor,Checking the file
+ai.chip.loading.title,Köylüler kıpırdanıyor,The villagers are stirring
+ai.chip.loading.detail,Neredeyse hazır,Almost ready
+ai.chip.ready.title,Köylüler uyandı,The villagers are awake
+ai.chip.ready.detail,Artık bir köylüyle konuşabilirsiniz.,You can talk to a villager now.
+ai.chip.failed.title,İndirme durdu,Download stopped
+ai.chip.failed.detail,"""Ayarlar"" menüsündeki ""Yapay Zeka Köylüler"" bölümünden tekrar deneyebilirsiniz.","You can try again from ""Settings"", under ""AI Villagers""."
+ai.chip.eta_minutes,yaklaşık %d dakika kaldı,about %d minutes left
+ai.chip.eta_hours,yaklaşık %d saat kaldı,about %d hours left
+ai.chip.eta_unknown,kalan süre hesaplanıyor,estimating time left
+ai.settings.header,Yapay Zeka Köylüler,AI Villagers
+ai.settings.status.off,Kapalı — model indirilmedi,Off — model not downloaded
+ai.settings.status.downloading,İndiriliyor... %%%d,Downloading... %d%%
+ai.settings.status.verifying,Doğrulanıyor...,Verifying...
+ai.settings.status.loading,Model yükleniyor...,Loading model...
+ai.settings.status.on,Açık — köylüler konuşabiliyor,On — villagers can speak
+ai.settings.status.disabled,Kapalı — model hazır,Off — model ready
+ai.settings.status.editor,Editörde devre dışı,Disabled in the editor
+ai.settings.btn.download,İndir (7.5 GB),Download (7.5 GB)
+ai.settings.btn.pause,Duraklat,Pause
+ai.settings.btn.resume,Devam et,Resume
+ai.settings.btn.cancel,İptal et,Cancel
+ai.settings.btn.turn_on,Aç,Turn on
+ai.settings.btn.turn_off,Kapat,Turn off
+ai.settings.btn.delete,Model dosyalarını sil,Delete model files

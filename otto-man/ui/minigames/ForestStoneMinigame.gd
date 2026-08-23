@@ -20,6 +20,7 @@ const RESOURCE_PIECE_SCRIPT := preload("res://ui/minigames/resource_piece.gd")
 # Görsel ayarlar
 @export var success_feedback_color: Color = Color(0.4, 0.9, 0.6, 1.0)
 @export var fail_feedback_color: Color = Color(0.95, 0.35, 0.35, 1.0)
+@export var neutral_feedback_color: Color = Color(0.85, 0.85, 0.85, 1.0)
 @export var anchor_offset_default: Vector2 = Vector2(0, 75)  # Bar aşağıda (taşı kapatmamak için)
 
 # Oyun değişkenleri
@@ -78,6 +79,8 @@ func _on_minigame_ready() -> void:
 	_reset_game_state()
 	_reset_bar()
 	_update_gauge_state()
+	if _gauge:
+		_gauge.set_feedback(tr("mg.hint.heavy_attack"), neutral_feedback_color, -1.0)
 	
 	set_process(true)
 	print("[StoneMinigame] Vertical bar minigame active (hits=%d, max_misses=%d, tier=%d, speed=%.2f, success_zone=%.2f-1.0)" % [_required_hits, _max_misses, _tier, _fill_speed, success_zone_threshold])
@@ -169,7 +172,7 @@ func _on_stone_hurtbox_hit(hitbox: Area2D) -> void:
 	var player_hitbox := hitbox as PlayerHitbox
 	if not _is_heavy_hit(player_hitbox):
 		if _gauge:
-			_gauge.set_feedback("Sadece heavy attack işe yarar!", fail_feedback_color, 0.9)
+			_gauge.set_feedback(tr("mg.feedback.only_heavy_attack"), fail_feedback_color, 0.9)
 		return
 	
 	# Sadece heavy attack ile vuruş yapılabilir
@@ -227,7 +230,7 @@ func _on_perfect_hit() -> void:
 	
 	# Feedback
 	if _gauge:
-		_gauge.set_feedback("PERFECT! (%d/%d)" % [_current_hits, _required_hits], success_feedback_color)
+		_gauge.set_feedback(tr("mg.feedback.perfect") % [_current_hits, _required_hits], success_feedback_color)
 	
 	# Taş hit animasyonu
 	_play_rock_hit_animation()
@@ -250,7 +253,7 @@ func _on_miss(reason: String) -> void:
 	
 	# Feedback
 	if _gauge:
-		_gauge.set_feedback("Iska! (%d/%d)" % [_misses, _max_misses], fail_feedback_color)
+		_gauge.set_feedback(tr("mg.feedback.miss") % [_misses, _max_misses], fail_feedback_color)
 		_gauge.set_hits(_current_hits, _required_hits)
 	
 	# Yeni bar başlat
@@ -334,7 +337,7 @@ func _on_success() -> void:
 
 	# Başarı mesajı
 	if _gauge:
-		_gauge.set_feedback("BAŞARILI! +%d Taş" % total_reward, success_feedback_color)
+		_gauge.set_feedback(tr("mg.feedback.success_stone") % total_reward, success_feedback_color)
 
 	# Minigame'i bitir
 	emit_result(true, {

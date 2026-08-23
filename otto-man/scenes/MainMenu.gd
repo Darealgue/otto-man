@@ -27,6 +27,14 @@ var _disclaimer_hint_label: Label = null
 ## bas" ekranı ne de menü animasyonu başlamış olur (bkz. _play_disclaimer_phase).
 var _in_disclaimer_phase: bool = false
 var _disclaimer_skip_requested: bool = false
+
+## Aşama 1.5: yapay zeka köylüleri teklifi. Sadece dışa aktarılmış sürümde, model diskte yokken ve
+## oyuncu daha önce hiç cevap vermemişken görünür (bkz. AiVillagers.should_show_offer). Editörde
+## ASLA görünmez — geliştirme akışı bundan hiç etkilenmez.
+var _ai_offer_panel: PanelContainer = null
+var _in_ai_offer_phase: bool = false
+## -1 = henüz seçilmedi, 0 = şimdilik atla, 1 = indir ve etkinleştir.
+var _ai_offer_choice: int = -1
 ## İlk açılış dil seçimi (bkz. _play_language_gate_phase) — henüz hiç locale kaydedilmemişse
 ## erken erişim uyarısından ÖNCE gösterilir, böylece uyarı zaten doğru dilde çıkar.
 var _language_gate_panel: PanelContainer = null
@@ -101,6 +109,10 @@ func _play_startup_fade_if_needed() -> void:
 
 	# Aşama 1: saf siyah ekran + erken erişim uyarısı — menü/animasyon henüz yok.
 	await _play_disclaimer_phase()
+
+	# Aşama 1.5: yapay zeka köylüleri teklifi. Kendi içinde koşullu — editörde, model zaten
+	# diskteyken veya oyuncu daha önce cevap vermişken hiçbir şey yapmadan anında döner.
+	await _play_ai_offer_phase()
 
 	# Aşama 2: uyarı tamamen söndükten SONRA asıl açılış animasyonu (siyah ekran açılır,
 	# "herhangi bir tuşa bas" belirir) başlar — ikisi artık üst üste binmiyor.
@@ -215,6 +227,174 @@ func _on_language_gate_choice(locale: String) -> void:
 	_language_gate_choice = locale
 
 
+## Aşama 1.5: yapay zeka köylüleri teklifi.
+##
+## Koşulları tamamen AiVillagers.should_show_offer() belirler: editörde ASLA, model zaten diskteyken
+## ASLA (7.5 GB'lık dosyayı elle koymuş birine ne olduğunu anlatmaya gerek yok) ve oyuncu daha önce
+## bir kez cevap verdiyse ASLA. Cevap kayıt dosyasına değil user://settings.cfg içine yazılır: model
+## profil başına değil makine başına tek bir dosyadır, ayrıca kayıtlar silinse bile indirilmiş model
+## diskte kalır — dolayısıyla seçim de kalmalı.
+##
+## Dil kapısından SONRA çalışır, yani tr() burada zaten doğru dilde metin döndürür.
+func _play_ai_offer_phase() -> void:
+	var ai_node := get_node_or_null("/root/AiVillagers")
+	if ai_node == null or not ai_node.has_method("should_show_offer"):
+		return
+	if not bool(ai_node.call("should_show_offer")):
+		return
+
+	_show_ai_offer()
+	if not is_instance_valid(_ai_offer_panel):
+		return
+	_ai_offer_panel.modulate.a = 1.0
+	_ai_offer_panel.show()
+	_in_ai_offer_phase = true
+	_ai_offer_choice = -1
+
+	while _ai_offer_choice < 0:
+		await get_tree().process_frame
+		if not is_instance_valid(self):
+			return
+
+	var enabled := _ai_offer_choice == 1
+	if ai_node.has_method("set_player_choice"):
+		ai_node.call("set_player_choice", enabled)
+	# İndirici henüz yoksa (has_method koruması) bu satır sessizce hiçbir şey yapmaz; indirici
+	# eklendiğinde teklif ekranı otomatik olarak onu tetiklemeye başlar.
+	if enabled and ai_node.has_method("request_download"):
+		ai_node.call("request_download")
+
+	_in_ai_offer_phase = false
+	var fade_tween := create_tween()
+	fade_tween.tween_property(_ai_offer_panel, "modulate:a", 0.0, DISCLAIMER_FADE_OUT_DURATION)
+	await fade_tween.finished
+	if is_instance_valid(_ai_offer_panel):
+		_ai_offer_panel.hide()
+		_ai_offer_panel.queue_free()
+	_ai_offer_panel = null
+
+
+func _show_ai_offer() -> void:
+	if is_instance_valid(_ai_offer_panel):
+		return
+	if not is_instance_valid(_intro_fade):
+		return
+
+	_ai_offer_panel = PanelContainer.new()
+	# Oyun gamepad/klavye ile oynanıyor; panelin kaydırılması gerekmemeli. Bu yüzden yükseklik
+	# ekrana bağlı (üstten/alttan 40px boşluk) — 1080p'de ~1000px yer açar ve metnin tamamı tek
+	# ekranda sığar. Genişlik kasıtlı olarak sabit: tam ekran genişliğinde satırlar okunamayacak
+	# kadar uzun oluyor.
+	_ai_offer_panel.anchor_left = 0.5
+	_ai_offer_panel.anchor_right = 0.5
+	_ai_offer_panel.anchor_top = 0.0
+	_ai_offer_panel.anchor_bottom = 1.0
+	_ai_offer_panel.offset_left = -520
+	_ai_offer_panel.offset_right = 520
+	_ai_offer_panel.offset_top = 40
+	_ai_offer_panel.offset_bottom = -40
+	_ai_offer_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	ParchmentTextures.apply_large_panel_style(_ai_offer_panel, 20)
+	_intro_fade.add_child(_ai_offer_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_top", 22)
+	margin.add_theme_constant_override("margin_bottom", 22)
+	_ai_offer_panel.add_child(margin)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	margin.add_child(col)
+
+	var title := Label.new()
+	title.text = tr("ai.offer.title")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(0.95, 0.82, 0.45, 1.0))
+	col.add_child(title)
+
+	# Metin uzun; kaydırma çubuğu şart. Yatay kaydırma kapalı olduğu için içerideki etiketler
+	# panel genişliğine göre sarılır (aksi halde autowrap devreye girmez ve metin yana taşar).
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(scroll)
+
+	var body_col := VBoxContainer.new()
+	body_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body_col.add_theme_constant_override("separation", 10)
+	scroll.add_child(body_col)
+
+	_add_ai_offer_section(body_col, "ai.offer.experience.header", "ai.offer.experience.body")
+	_add_ai_offer_section(body_col, "ai.offer.privacy.header", "ai.offer.privacy.body")
+	_add_ai_offer_section(body_col, "ai.offer.download.header", "ai.offer.download.body")
+	_add_ai_offer_subheader(body_col, "ai.offer.requirement.header")
+	_add_ai_offer_body_label(body_col, tr("ai.offer.requirement.body"))
+	_add_ai_offer_section(body_col, "ai.offer.without.header", "ai.offer.without.body")
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 20)
+	col.add_child(row)
+
+	var enable_btn := Button.new()
+	enable_btn.text = tr("ai.offer.button.enable")
+	enable_btn.custom_minimum_size = Vector2(210, 44)
+	enable_btn.add_theme_font_size_override("font_size", 16)
+	enable_btn.pressed.connect(_on_ai_offer_choice.bind(1))
+	row.add_child(enable_btn)
+
+	var skip_btn := Button.new()
+	skip_btn.text = tr("ai.offer.button.skip")
+	skip_btn.custom_minimum_size = Vector2(210, 44)
+	skip_btn.add_theme_font_size_override("font_size", 16)
+	skip_btn.pressed.connect(_on_ai_offer_choice.bind(0))
+	row.add_child(skip_btn)
+
+	enable_btn.grab_focus()
+
+
+func _add_ai_offer_section(parent: VBoxContainer, header_key: String, body_key: String) -> void:
+	var header := Label.new()
+	header.text = tr(header_key)
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_color_override("font_color", Color(0.95, 0.82, 0.45, 1.0))
+	parent.add_child(header)
+	_add_ai_offer_body_label(parent, tr(body_key))
+
+
+## Alt başlık — ana bölüm başlıklarıyla aynı renk ailesinde ama bir tık soluk ve küçük, böylece
+## "İNDİRME VE PERFORMANS"ın altına ait olduğu görülür, ayrı bir bölüm gibi durmaz.
+func _add_ai_offer_subheader(parent: VBoxContainer, header_key: String) -> void:
+	var header := Label.new()
+	header.text = tr(header_key)
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	header.add_theme_font_size_override("font_size", 17)
+	header.add_theme_color_override("font_color", Color(0.88, 0.74, 0.44, 1.0))
+	parent.add_child(header)
+
+
+func _add_ai_offer_body_label(parent: VBoxContainer, text: String) -> void:
+	var label := Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_color_override("font_color", Color(0.9, 0.86, 0.76, 1.0))
+	parent.add_child(label)
+
+
+func _on_ai_offer_choice(choice: int) -> void:
+	if _ai_offer_choice >= 0:
+		return
+	_play_click()
+	_ai_offer_choice = choice
+
+
 ## Aşama 1: saf siyah ekranda erken erişim uyarısını gösterir; oyuncu bilinçli olarak bir
 ## tuşa/gamepad butonuna basana kadar (otomatik zaman aşımı YOK) bekler, sonra yazıyı
 ## söndürüp döner.
@@ -323,6 +503,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Dil seçimi ekranı sadece butonlara tıklanarak/onaylanarak geçilir — "herhangi bir tuşla"
 	# atlanamaz, bu yüzden burada input'u yutup hiçbir şey yapmıyoruz.
 	if _in_language_gate_phase:
+		get_viewport().set_input_as_handled()
+		return
+	# Yapay zeka teklifi de dil seçimi gibi bilinçli bir karar gerektirir — "herhangi bir tuşla"
+	# geçilemez, aksi halde oyuncu farkında olmadan varsayılan bir seçime kilitlenirdi.
+	if _in_ai_offer_phase:
 		get_viewport().set_input_as_handled()
 		return
 	# Diğer menülerdeki (ör. DungeonRunReport) "tuşa bas = oynayan animasyonu atla" davranışıyla

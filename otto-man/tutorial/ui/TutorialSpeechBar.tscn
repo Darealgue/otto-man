@@ -37,3 +37,5 @@ unique_name_in_owner = true
 texture = ExtResource("3_continue_icon")
 stretch_mode = 5
 mouse_filter = 2
+
+[editable path="Frame"]

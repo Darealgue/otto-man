@@ -39,10 +39,12 @@ func set_hits(current: int, required: int) -> void:
 	hits_required = max(required, 1)
 	queue_redraw()
 
+## duration < 0 means "persistent" — stays until overwritten by a new set_feedback() call or
+## explicitly cleared, since _process()'s countdown/auto-clear only runs while timer > 0.
 func set_feedback(text: String, color: Color = Color.WHITE, duration: float = 0.6) -> void:
 	feedback_text = text
 	feedback_color = color
-	feedback_timer = max(duration, 0.0)
+	feedback_timer = duration
 	queue_redraw()
 
 func clear_feedback() -> void:

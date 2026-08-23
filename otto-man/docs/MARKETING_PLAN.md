@@ -17,9 +17,10 @@ without it.
 
 ## Phase 0 — Foundations (decide before anything public goes out)
 
-- **Title**: "Rogue Harem" has never been made public — still changeable.
-  Not resolved in planning; keep as an open decision, revisit once art starts
-  taking shape (a piece of key art often clarifies whether a name fits).
+- **Title (locked, 2026-08-09)**: "Rogue Harem" is final. Google + tmsearch.uspto.gov
+  sanity checks turned up no existing registered trademark or shipped game
+  collision. Safe to use across handles, store pages, and the EULA/legal docs
+  from here on.
 - **Positioning (locked in)**: two parallel content tracks, not one blended one.
   - **Safe track** (TikTok, YT Shorts, Instagram Reels): mechanics, LLM-NPC
     moments, comedy — never text/say the title on this track, let a logo card

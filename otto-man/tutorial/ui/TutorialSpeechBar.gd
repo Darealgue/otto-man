@@ -15,8 +15,19 @@ const DESIGN_CONTINUE_ICON_SIZE := 34.0
 const DESIGN_CONTINUE_ICON_MARGIN := 16.0
 
 @onready var _panel: Control = $Frame
-@onready var _rich: RichTextLabel = %SpeechRichText
-@onready var _continue_icon: TextureRect = %ContinueHintIcon
+## Resolved in _ready() rather than via `@onready var x = %Name`.
+##
+## Both of these nodes live INSIDE the instanced parchment_frame.tscn sub-scene, and a node added
+## into an instanced sub-scene does not reliably keep its unique-name registration once the scene
+## is loaded from the binary .scn in an exported build. In the editor `%SpeechRichText` resolved
+## fine; in the export it failed with "Node not found", leaving _rich null — and because
+## _apply_visibility() hides the panel whenever the text is empty, the entire mentor speech bar
+## silently never appeared. Nothing was logged beyond that one line.
+##
+## _resolve_child_nodes() therefore tries the unique name, then the explicit path, then a
+## recursive search by name, so a future scene reshuffle cannot reintroduce this either.
+var _rich: RichTextLabel = null
+var _continue_icon: TextureRect = null
 
 var _highlight: Control
 var _current_scale: float = 1.0
@@ -24,8 +35,68 @@ var _current_scale: float = 1.0
 var _content_extra_height: float = 0.0
 
 
+## Finds a descendant by unique name, then by explicit path, then by recursive search.
+## `owned = false` on the recursive search matters: nodes living inside an instanced sub-scene are
+## not owned by this scene root, so an owned-only search would miss exactly the nodes at issue.
+func _resolve_child(unique_name: String, explicit_path: String) -> Node:
+	var found := get_node_or_null("%" + unique_name)
+	if found != null:
+		return found
+	found = get_node_or_null(explicit_path)
+	if found != null:
+		return found
+	return find_child(unique_name, true, false)
+
+
+func _resolve_child_nodes() -> void:
+	_rich = _resolve_child("SpeechRichText", "Frame/Margin/SpeechRichText") as RichTextLabel
+	_continue_icon = _resolve_child("ContinueHintIcon", "Frame/ContinueHintIcon") as TextureRect
+	if _rich == null:
+		_rich = _create_rich_label()
+
+
+## Builds the speech label from scratch when the scene's own copy is missing.
+##
+## TutorialSpeechBar.tscn declares SpeechRichText with parent="Frame/Margin" — that is, parented
+## INTO the instanced parchment_frame.tscn rather than onto the instance's root. Godot only keeps
+## such a node if the instance is marked `editable_instance`, and this scene is not. The editor
+## honours it anyway, so it works in-editor; the exporter drops the node, and the mentor speech bar
+## silently never appeared in the exported build (empty text hides the whole panel).
+##
+## Rather than depend on that scene-format subtlety continuing to behave, the bar recreates the
+## label with the same properties the .tscn sets. If the scene copy is ever fixed or restored, the
+## resolver above finds it first and this never runs.
+func _create_rich_label() -> RichTextLabel:
+	var slot: Node = get_node_or_null("Frame/Margin")
+	if slot == null:
+		slot = get_node_or_null("Frame")
+	if slot == null:
+		push_error("[TutorialSpeechBar] No Frame to attach the speech label to; mentor lines cannot display.")
+		return null
+
+	var label := RichTextLabel.new()
+	label.name = "SpeechRichText"
+	# Mirrors TutorialSpeechBar.tscn's own settings for this node.
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	label.bbcode_enabled = true
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.scroll_active = false
+	label.text = ""
+	slot.add_child(label)
+	print("[TutorialSpeechBar] Scene copy of SpeechRichText was missing; rebuilt it under %s." % slot.name)
+	return label
+
+
 func _ready() -> void:
+	_resolve_child_nodes()
 	layer = 95
+	# This bar overlays live gameplay (dungeon/combat behind it), unlike full-screen menus, so
+	# it uses a translucent background instead of the default opaque parchment fill.
+	var parchment_frame := _panel as ParchmentFrame
+	if parchment_frame:
+		parchment_frame.parchment_texture = ParchmentTextures.get_flat_panel_texture_translucent()
+		parchment_frame.apply_style_now()
 	if is_instance_valid(_rich):
 		_rich.bbcode_enabled = true
 		_rich.add_theme_color_override("default_color", TextOutline.FONT_COLOR)
@@ -44,7 +115,12 @@ func _apply_bar_layout() -> void:
 	var frame := $Frame as Control
 	if frame == null:
 		return
-	var vp := get_viewport().get_visible_rect().size
+	if not is_inside_tree():
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var vp := viewport.get_visible_rect().size
 	var s := minf(vp.x / DESIGN_VIEWPORT.x, vp.y / DESIGN_VIEWPORT.y)
 	s = maxf(s, 0.5)
 	_current_scale = s
@@ -87,6 +163,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not key.pressed or key.echo:
 		return
 	if key.keycode != KEY_F9:
+		return
+	if not is_inside_tree() or get_viewport() == null:
 		return
 	get_viewport().set_input_as_handled()
 	var parchment := $Frame as ParchmentFrame
@@ -137,6 +215,8 @@ func _refresh_content_height() -> void:
 	if not is_instance_valid(_rich) or not is_instance_valid(_panel):
 		return
 	await get_tree().process_frame
+	if not is_instance_valid(_rich) or not is_instance_valid(_panel) or not is_inside_tree():
+		return
 	var needed := _rich.get_content_height()
 	var available := _rich.size.y
 	if needed <= available + 1.0:

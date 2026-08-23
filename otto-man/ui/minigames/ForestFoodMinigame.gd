@@ -17,6 +17,7 @@ const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
 # Görsel ayarlar
 @export var success_feedback_color: Color = Color(0.4, 0.9, 0.6, 1.0)
 @export var fail_feedback_color: Color = Color(0.95, 0.35, 0.35, 1.0)
+@export var neutral_feedback_color: Color = Color(0.85, 0.85, 0.85, 1.0)
 @export var anchor_offset_default: Vector2 = Vector2(0, 75)  # Bar aşağıda (çalıyı kapatmamak için)
 
 # Oyun değişkenleri
@@ -81,7 +82,9 @@ func _on_minigame_ready() -> void:
 	_reset_game_state()
 	_reset_bar()
 	_update_gauge_state()
-	
+	if _gauge:
+		_gauge.set_feedback(tr("mg.hint.heavy_attack"), neutral_feedback_color, -1.0)
+
 	# Default kamera zoom değerini kaydet
 	_save_default_camera_zoom()
 	_camera_zoomed_out = false
@@ -197,7 +200,7 @@ func _on_food_hurtbox_hit(hitbox: Area2D) -> void:
 	var player_hitbox := hitbox as PlayerHitbox
 	if not _is_heavy_hit(player_hitbox):
 		if _gauge:
-			_gauge.set_feedback("Sadece heavy attack işe yarar!", fail_feedback_color, 0.9)
+			_gauge.set_feedback(tr("mg.feedback.only_heavy_attack"), fail_feedback_color, 0.9)
 		print("[FoodMinigame] BLOCKED: Not a heavy hit")
 		return
 	
@@ -255,7 +258,7 @@ func _attempt_hit() -> void:
 	# Eğer meyveler hala havadaysa, yeni vuruş yapma
 	if _waiting_for_fruits:
 		if _gauge:
-			_gauge.set_feedback("Meyveleri topla!", fail_feedback_color, 0.9)
+			_gauge.set_feedback(tr("mg.feedback.collect_fruits"), fail_feedback_color, 0.9)
 		return
 	
 	# Bar'ın sağ tarafı (fill_value 1.0 = sağ)
@@ -322,7 +325,7 @@ func _on_miss(reason: String) -> void:
 	
 	# Feedback
 	if _gauge:
-		_gauge.set_feedback("Iska! (%d/%d)" % [_misses, _max_misses], fail_feedback_color)
+		_gauge.set_feedback(tr("mg.feedback.miss") % [_misses, _max_misses], fail_feedback_color)
 		_gauge.set_fruits_collected(_fruits_collected, _fruits_to_spawn)
 	
 	# Yeni bar başlat
@@ -405,7 +408,7 @@ func _collect_fruit(fruit: Node2D) -> void:
 	# Feedback
 	if _gauge:
 		_gauge.set_fruits_collected(_fruits_collected, _fruits_to_spawn)
-		_gauge.set_feedback("Meyve toplandı! (%d/%d)" % [_fruits_collected, _fruits_to_spawn], success_feedback_color, 0.8)
+		_gauge.set_feedback(tr("mg.feedback.fruit_collected") % [_fruits_collected, _fruits_to_spawn], success_feedback_color, 0.8)
 	
 	# Meyveyi kaldır
 	if fruit.has_method("collect"):
@@ -495,7 +498,7 @@ func _check_fruit_collection_complete() -> void:
 		print("[FoodMinigame] Showing resource gain text: +", reward)
 		_show_resource_gain_text(reward)
 		if _gauge:
-			_gauge.set_feedback("BAŞARILI! +%d Yiyecek" % reward, success_feedback_color)
+			_gauge.set_feedback(tr("mg.feedback.success_food") % reward, success_feedback_color)
 		
 		emit_result(true, {
 			"resource_type": _resource_type,
@@ -507,7 +510,7 @@ func _check_fruit_collection_complete() -> void:
 		# Hiç meyve toplanamadı
 		print("[FoodMinigame] No reward - fruits_collected=", _fruits_collected)
 		if _gauge:
-			_gauge.set_feedback("Meyve toplanamadı!", fail_feedback_color)
+			_gauge.set_feedback(tr("mg.feedback.fruit_not_collected"), fail_feedback_color)
 		
 		_misses += 1
 		# Tüm meyveler yere düştüyse minigame'i bitir (başarısız)

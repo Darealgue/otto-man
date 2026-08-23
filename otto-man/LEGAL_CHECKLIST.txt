@@ -1,0 +1,209 @@
+ROGUE HAREM — LEGAL / DISCLOSURE / COMPLIANCE CHECKLIST
+=========================================================
+Last updated: 2026-07-31 (expanded: mature-content survey, EULA, loot-box
+regulation, merchant-of-record/VAT, font licensing)
+Purpose: practical, no-lawyer-budget checklist to avoid getting flagged, banned,
+or blocked by platforms/regulators. Not a substitute for real legal advice —
+just a working list so nothing gets missed before release.
+
+
+1. AI-GENERATED CONTENT DISCLOSURE (Steam)
+-------------------------------------------
+[ ] Fill out Steam's AI-content questionnaire under the "Live-Generated AI
+    Content" category (not "pre-generated") — NPC dialogue is created in
+    real time from player input, which is the stricter of the two tiers.
+[ ] Disclose plainly and specifically. Suggested wording to adapt:
+
+    "NPC dialogue is generated in real time by a locally-run, open-weight
+    language model (Mistral-NeMo-12B-Instruct). No player input, chat
+    content, or personal data leaves the player's device — all processing
+    happens on-device. The system is instructed to refuse sexual content
+    and any content involving harm to minors. As with any AI system, we
+    cannot guarantee these safeguards are impossible to circumvent."
+
+[ ] Do NOT certify that inappropriate content is "impossible" to produce —
+    over-promising here is worse than an honest disclosure of a known
+    limitation. State the safeguard AND its limit.
+[ ] Re-check this disclosure if the dialogue system, model, or safety
+    prompt logic changes before release.
+
+[ ] itch.io: lighter requirement — just tag the game accurately with its
+    maturity/content warnings (violence/blood, and AI-generated content if
+    itch adds a formal flag for it by the time you publish).
+
+[ ] SEPARATE FROM THE ABOVE: Steam also has its own standard "Mature
+    Content / Adult Only Sexual Content" survey that every game with
+    romance or suggestive content fills out, independent of the AI-content
+    questionnaire. This applies regardless of whether the content is
+    AI-generated or hand-written — don't skip it just because section 1 is
+    done.
+
+
+2. AGE RATING / CONTENT RATING
+--------------------------------
+[ ] Combat has blood — this alone likely pushes the game out of an
+    all-ages rating. Get ahead of it rather than let a rating body flag it.
+[ ] Run Steam's IARC rating questionnaire (free, self-service, built into
+    Steamworks) to get an actual PEGI/ESRB/USK-equivalent rating rather
+    than guessing. Do this before store page goes live.
+[ ] Make sure the AI-dialogue disclosure (section 1) and the age rating
+    are consistent with each other — an AI system with romance content and
+    a refusal-only (not example-calibrated) safety boundary should not be
+    paired with an all-ages rating.
+[ ] itch.io: set the page's maturity rating / content warning accordingly.
+
+
+3. THIRD-PARTY LICENSE ATTRIBUTION (legally required, low effort)
+--------------------------------------------------------------------
+Both of these are triggered because the model weights and inference engine
+are BUNDLED INSIDE the shipped game, not called over a network — that
+counts as redistribution under both licenses below, which requires
+attribution. Neither requires anything prominent — a single bundled text
+file or in-game "Credits / Open Source Licenses" screen satisfies both.
+
+[ ] Mistral-NeMo-12B-Instruct — Apache License 2.0 (Mistral AI).
+    Include: a copy of the Apache 2.0 license text + a short attribution
+    line, e.g. "This game includes Mistral-NeMo-12B-Instruct, © Mistral AI,
+    licensed under the Apache License, Version 2.0."
+[ ] llama.cpp — MIT License.
+    Include: the MIT license text + copyright notice from the llama.cpp
+    repo.
+[ ] Double-check the specific quantized .gguf file in use was not
+    re-released under any additional/different terms by whoever quantized
+    it (check the HuggingFace model card it came from — usually a
+    non-issue, but a 30-second check before shipping commercially is
+    cheap insurance).
+[!] FONT — IDENTIFIED 2026-08-23, BLOCKS PUBLIC RELEASE.
+    assets/fonts/main_font.ttf was identified from its own embedded
+    metadata as "Fiery Turk", Copyright (c) 2008 Beycan Çetin, marked
+    "All rights reserved" and claiming "Fiery Turk One" as a trademark
+    (www.beycancetin.com). That grants NO redistribution or commercial
+    rights. Shipping it commercially without written permission would
+    infringe. Resolve by either (a) getting written permission covering
+    commercial use and redistribution in a game, or (b) replacing it with
+    an SIL Open Font License font (assets/fonts/README.txt already
+    suggests Cinzel or MedievalSharp). Private test builds to a handful
+    of people are low risk; a store page is not.
+[x] DONE (2026-08-23): Created THIRD_PARTY_LICENSES.txt at the project
+    root covering Godot (MIT), llama.cpp (MIT), LLamaSharp (MIT), the
+    Microsoft .NET libraries (MIT), and Mistral-NeMo (Apache 2.0), plus
+    the unresolved font above.
+[!] TWO DISTRIBUTION ARRANGEMENTS — different obligations each:
+    * Pre-Steam test builds: weights NOT bundled, player downloads them
+      from Hugging Face. No redistribution by us.
+    * Steam release: weights ARE bundled and shipped as a free DLC depot.
+      That IS redistribution, so the FULL Apache 2.0 text is required.
+    THIRD_PARTY_LICENSES.txt carries the full Apache 2.0 text in every
+    build regardless, deliberately — one file that is always correct
+    removes any chance of shipping the Steam depot with the wrong notice.
+[ ] BEFORE THE STEAM BUILD: check the upstream model repo for a NOTICE
+    file. Apache 2.0 §4(d) requires carrying any such NOTICE along with
+    the redistribution. If one exists, paste it into section 5.
+[ ] Steam DLC store description should state that the DLC contains
+    third-party model weights licensed under Apache 2.0.
+[ ] Copy THIRD_PARTY_LICENSES.txt next to the .exe after each export — it
+    is deliberately NOT inside the .pck, so players can actually read it.
+
+
+4. DATA PRIVACY
+------------------
+[ ] Confirmed: all LLM processing is local, no network calls, no player
+    conversation data leaves the device. This is a strong position —
+    document it explicitly rather than leaving it assumed:
+[ ] Write a short, honest privacy statement (a few sentences is enough
+    given there's genuinely little to disclose) for the Steam store page /
+    itch.io page, e.g.:
+
+    "This game does not collect, transmit, or store any personal data.
+    All AI processing happens locally on your device."
+
+[ ] If this ever changes (analytics added, crash reporting with content,
+    cloud saves, etc.) — revisit this section and the disclosure above
+    immediately, don't let it drift out of date.
+[ ] Turkey (KVKK) / EU (GDPR): minimal exposure as long as the above stays
+    true (no data transmission = no data processing to regulate). Re-check
+    if that ever changes.
+
+
+5. EU AI ACT — TRANSPARENCY OBLIGATION
+------------------------------------------
+[ ] Article 50 requires telling users they're interacting with an AI
+    system, unless it's obvious from context. A video game NPC is about as
+    "obviously AI/fictional" as it gets, so risk here looks low — but this
+    is a genuinely new, still-developing area of enforcement.
+[ ] The Steam disclosure in section 1 likely satisfies the spirit of this
+    already (it explicitly says the dialogue is AI-generated). No extra
+    action identified right now beyond keeping that disclosure accurate.
+[ ] Revisit this section periodically — EU AI Act guidance is still
+    rolling out through 2025-2027 and could clarify additional
+    obligations for conversational game NPCs specifically.
+
+
+6. API KEYS / CREDENTIALS HYGIENE (lesson learned — keep doing this)
+-------------------------------------------------------------------------
+[x] DONE (2026-07-31): Found and permanently deleted a hardcoded, live
+    Google Gemini API key in ui/gemini_test.gd (leftover unused prototype
+    script), which had caused a Google Cloud project suspension for
+    "abusive activity consistent with hijacking." Files removed, full
+    project re-scanned, confirmed clean.
+[ ] Before any future publish, backup, cloud sync, or repo push: re-scan
+    the project for hardcoded API keys/secrets (pattern: AIza..., sk-...,
+    ghp_..., or anything named *_KEY / *_SECRET / *_TOKEN with a literal
+    value next to it). Takes a few minutes, prevents a repeat of this.
+[ ] Going forward, no API keys should ever be hardcoded in source at all —
+    if a cloud API is ever reintroduced for anything, keep the key out of
+    the repo/build entirely (environment variable or local, gitignored
+    config file).
+
+
+7. TRADEMARK / NAMING (self-check only, not a formal search)
+-----------------------------------------------------------------
+[x] DONE (2026-08-09): Title locked as "Rogue Harem." Checked Google and
+    tmsearch.uspto.gov — no existing registered trademark or shipped game
+    collision found. Not a formal legal clearance, just a sanity check —
+    but clear.
+
+
+8. EULA / TERMS OF SERVICE
+------------------------------
+[ ] Write a short End User License Agreement — covers things like "this is
+    a license to play, not a sale of the software," liability limits, and
+    that AI-generated content may vary/be unpredictable. Doesn't need to
+    be long or custom-drafted from scratch; plenty of indie-friendly EULA
+    templates exist to adapt. Steam/itch.io both allow linking one from
+    the store page.
+
+
+9. RANDOMIZED-REWARD / LOOT-BOX REGULATION
+-----------------------------------------------
+[ ] NOT CURRENTLY APPLICABLE — confirmed no real-money purchases are tied
+    to randomized in-game contents (all randomness is free gameplay).
+    This sidesteps loot-box-specific regulation entirely (e.g. Belgium's
+    gambling-adjacent rules for paid randomized rewards).
+[ ] If monetization plans ever change to include ANY real-money purchase
+    with randomized contents (loot boxes, gacha, mystery bundles) —
+    revisit this section before shipping that feature. Belgium in
+    particular treats this as regulated gambling regardless of how small
+    the purchase is.
+
+
+10. MERCHANT OF RECORD / VAT
+--------------------------------
+[ ] Confirm Steam is acting as merchant of record for your sales (it
+    normally is by default) — this means Steam handles EU VAT collection
+    and remittance on your behalf, not you.
+[ ] Confirm the same for itch.io specifically — itch's merchant-of-record
+    behavior can depend on which payout method/processor you've configured
+    (Stripe vs. PayPal vs. others), so don't assume it matches Steam's
+    setup without checking your actual itch.io payout settings.
+
+
+HOW TO USE THIS FILE
+-----------------------
+Treat every unchecked [ ] as a real pre-release blocker, not a nice-to-have.
+None of these require a lawyer or meaningful budget — they're all either
+free (Steam's IARC tool, a bundled text file, honest disclosure wording) or
+a few minutes of checking. Update this file whenever the AI system, data
+handling, or distribution plans change — a lot of the above is only true
+because the system is local-only and refusal-gated; if that changes, this
+whole file needs a re-pass.

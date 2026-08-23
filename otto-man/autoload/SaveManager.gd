@@ -129,7 +129,10 @@ func _show_autosave_toast() -> void:
 		_autosave_toast = sc.instantiate() as CanvasLayer
 		get_tree().root.add_child(_autosave_toast)
 	if _autosave_toast and _autosave_toast.has_method("show_toast"):
-		_autosave_toast.show_toast("Oyun otomatik kaydedildi")
+		# No argument on purpose: AutosaveToast.show_toast() already falls back to
+		# tr("autosave.toast_default"), so the localized string has exactly one definition.
+		# This previously passed a hardcoded Turkish literal, which leaked into English builds.
+		_autosave_toast.show_toast()
 
 
 func load_autosave() -> bool:

@@ -500,6 +500,9 @@ func InitializeWindow(Info):
 	refresh_diary_from_npcinfo()
 	_rebuild_dialogue_ui_from_chat_log()
 	_refresh_info_panel()
+	# Runs last: it appends a narration row on top of the freshly rebuilt chat log, so it must not
+	# be undone by the rebuild above.
+	_apply_ai_availability()
 	print("INITIALIZED WORKER")
 	print("WindowInfo: ", Info)
 
@@ -681,6 +684,71 @@ func _add_chat_label_row(talker: String, sanitized_message: String, animate: boo
 	chat_vbox.add_child(label)
 	if animate:
 		_reveal_label_letter_by_letter(label, full_text)
+
+
+## Dimming applied to the chat input when AI villagers are unavailable.
+const _AI_OFF_DIM := Color(1, 1, 1, 0.35)
+## Narration is tinted slightly apart from real dialogue so it does not read as something spoken.
+const _AI_OFF_NARRATION := Color(0.86, 0.82, 0.72, 1.0)
+
+
+## Adds a chat row with NO "Name : " prefix. This is narration *about* the villager, not something
+## the villager says — they cannot speak, which is the whole point. Reuses the same letter-by-letter
+## reveal as a real reply so it arrives the same way dialogue would.
+func _add_narration_row(text: String) -> void:
+	if not is_instance_valid(chat_vbox) or text.strip_edges() == "":
+		return
+	var label := Label.new()
+	label.set_meta(_META_CHAT_DYNAMIC, true)
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	label.modulate = _AI_OFF_NARRATION
+	chat_vbox.add_child(label)
+	_reveal_label_letter_by_letter(label, text)
+	TextOutline.apply_to_tree(chat_vbox)
+	_scroll_chat_to_bottom()
+
+
+## Applies the AI-villagers on/off state to this window.
+##
+## When off: the input row is dimmed and made genuinely unusable (not merely disabled-looking), and
+## one narration line appears where the villager's reply would be. The Info and Diary/History panels
+## are deliberately untouched — the player can still read everything about this villager, they just
+## cannot hold a conversation.
+##
+## The narration line is display-only and is deliberately NOT appended to Chat_log. Chat_log is fed
+## back into the TP0-TP5 prompts, so writing menu instructions into it would leak meta-text into the
+## villager's remembered history the moment AI is switched on later.
+func _apply_ai_availability() -> void:
+	var ai_node := get_node_or_null("/root/AiVillagers")
+	var ai_on := true
+	if ai_node != null and ai_node.has_method("is_available"):
+		ai_on = bool(ai_node.call("is_available"))
+
+	if is_instance_valid(chat_line_edit):
+		chat_line_edit.editable = ai_on
+		chat_line_edit.focus_mode = Control.FOCUS_ALL if ai_on else Control.FOCUS_NONE
+		chat_line_edit.mouse_filter = Control.MOUSE_FILTER_STOP if ai_on else Control.MOUSE_FILTER_IGNORE
+		chat_line_edit.modulate = Color(1, 1, 1, 1) if ai_on else _AI_OFF_DIM
+		chat_line_edit.placeholder_text = tr("npc_window.message_placeholder") if ai_on else ""
+		if not ai_on:
+			chat_line_edit.text = ""
+	if is_instance_valid(send_button):
+		send_button.disabled = not ai_on
+		send_button.focus_mode = Control.FOCUS_ALL if ai_on else Control.FOCUS_NONE
+		send_button.mouse_filter = Control.MOUSE_FILTER_STOP if ai_on else Control.MOUSE_FILTER_IGNORE
+		send_button.modulate = Color(1, 1, 1, 1) if ai_on else _AI_OFF_DIM
+
+	if ai_on:
+		return
+
+	var npc_display_name := ""
+	if NpcInfo != null:
+		npc_display_name = str(NpcInfo.get("Info", {}).get("Name", ""))
+	var line := ""
+	if ai_node != null and ai_node.has_method("get_silent_villager_line"):
+		line = str(ai_node.call("get_silent_villager_line", npc_display_name))
+	_add_narration_row(line)
 
 
 ## Progressively reveals `full_text` on `label` (letter by letter, not an instant pop-in) —

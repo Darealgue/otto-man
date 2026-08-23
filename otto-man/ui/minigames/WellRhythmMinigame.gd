@@ -59,7 +59,7 @@ func _on_minigame_ready() -> void:
 	_reset_indicator(true)
 	_update_gauge_state()
 	if _gauge:
-		_gauge.set_feedback("Heavy Attack ile vur! (3 artarda)", neutral_feedback_color, 1.4)
+		_gauge.set_feedback(tr("mg.hint.heavy_attack_well"), neutral_feedback_color, -1.0)
 	set_process(true)
 	print("[WellRhythmMinigame] Water minigame active (hits=%d, max_misses=%d)" % [_required_hits, _max_misses])
 
@@ -86,7 +86,7 @@ func _on_well_hurtbox_hit(hitbox: Area2D) -> void:
 	var player_hitbox := hitbox as PlayerHitbox
 	if not _is_heavy_hit(player_hitbox):
 		if _gauge:
-			_gauge.set_feedback("Sadece heavy attack işe yarar!", fail_feedback_color, 0.9)
+			_gauge.set_feedback(tr("mg.feedback.only_heavy_attack"), fail_feedback_color, 0.9)
 		return
 	_attempt_heavy_strike(player_hitbox)
 
@@ -107,7 +107,7 @@ func _attempt_heavy_strike(_hitbox: PlayerHitbox) -> void:
 		_play_well_hit_animation()
 		if _gauge:
 			_gauge.set_hits(_hits, _required_hits)
-			_gauge.set_feedback("İsabet! (%d/%d)" % [_hits, _required_hits], success_feedback_color)
+			_gauge.set_feedback(tr("mg.feedback.hit_progress") % [_hits, _required_hits], success_feedback_color)
 		_reset_indicator(true)
 		if _hits >= _required_hits:
 			# Başarılı: 3 artarda vuruş
@@ -124,7 +124,7 @@ func _attempt_heavy_strike(_hitbox: PlayerHitbox) -> void:
 		_misses += 1
 		if _gauge:
 			_gauge.set_hits(_hits, _required_hits)
-			_gauge.set_feedback("Iska! (%d/%d)" % [_misses, _max_misses], fail_feedback_color)
+			_gauge.set_feedback(tr("mg.feedback.miss") % [_misses, _max_misses], fail_feedback_color)
 			_gauge.flash_fail_region()
 		_reset_indicator(false)
 		if _misses >= _max_misses:

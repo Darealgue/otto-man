@@ -80,7 +80,6 @@ func _ready() -> void:
 func _on_scene_change_completed(new_path: String) -> void:
 	# Scene reload sonrası kontrol flag'ini resetle (bir sonraki _process'te kontrol yapılsın)
 	_load_check_done = false
-	print("[WeatherManager] Scene change completed, resetting load check flag")
 	
 	# ÖNEMLİ: Sahne değişikliği sırasında zaman ilerlemiş olabilir (örneğin yolculuk süresi)
 	# Storm aktifse, bu zaman ilerlemesini hemen storm progression'a yansıtmalıyız
@@ -90,7 +89,6 @@ func _on_scene_change_completed(new_path: String) -> void:
 		
 		if current_minutes != old_minutes:
 			var minutes_advanced: int = current_minutes - old_minutes
-			print("[WeatherManager] ⚡ Scene change detected time advance: %d minutes (storm active, updating progression)" % minutes_advanced)
 			
 			# Zamanı güncelle ve storm progression'ı hemen hesapla
 			_last_total_game_minutes = current_minutes

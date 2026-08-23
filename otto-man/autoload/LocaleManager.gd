@@ -150,7 +150,45 @@ func get_risk_level_name(risk: String) -> String:
 			return risk
 
 
+## Godot imports strings.csv into .translation resources and ships THOSE in an exported build —
+## the raw .csv is an import source and is not packed unless explicitly listed in the export
+## filters. Reading only the .csv therefore worked in the editor but silently failed in every
+## export, leaving every tr() call showing its raw key on screen.
+##
+## So: load the imported resources first (always present in exports, since export_filter is
+## "all_resources"), and fall back to parsing the .csv when they are missing. The fallback keeps
+## working in the editor before a first import, and means a broken export filter can no longer
+## take the whole UI's text down.
+const TRANSLATION_RESOURCE_PATHS := [
+	"res://localization/strings.tr.translation",
+	"res://localization/strings.en.translation",
+]
+
+
 func _load_translations_from_csv() -> void:
+	if _load_imported_translations():
+		_translations_loaded = true
+		return
+	_load_translations_from_csv_source()
+
+
+func _load_imported_translations() -> bool:
+	var loaded_any := false
+	for path in TRANSLATION_RESOURCE_PATHS:
+		if not ResourceLoader.exists(path):
+			continue
+		var res := load(path)
+		var translation := res as Translation
+		if translation == null:
+			continue
+		TranslationServer.add_translation(translation)
+		loaded_any = true
+	if loaded_any:
+		print("LocaleManager: imported .translation resources loaded.")
+	return loaded_any
+
+
+func _load_translations_from_csv_source() -> void:
 	var file := FileAccess.open(CSV_PATH, FileAccess.READ)
 	if file == null:
 		push_error("LocaleManager: CSV açılamadı: %s" % CSV_PATH)

@@ -72,6 +72,101 @@ public partial class LlamaService : Node, IDisposable
 	/// tuning could not clear. See docs/MODEL_UPGRADE_GUIDE.md.</summary>
 	private static readonly string DefaultModelFileName = "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf";
 
+	/// <summary>
+	/// Directory the model is expected to live in, as a REAL filesystem path.
+	/// <para>Editor: <c>res://models/</c> — the dev copy that sits in the project folder. Unchanged
+	/// from how development has always worked, and the in-game downloader never runs here.</para>
+	/// <para>Export: <c>user://models/</c> — globalizes to <c>%APPDATA%\Godot\app_userdata\otto-man\models\</c>.
+	/// The download target deliberately does NOT sit next to the .exe: when the game is installed under
+	/// Program Files or a Steam library that folder is not writable, which is exactly the failure seen
+	/// on a second machine previously.</para>
+	/// Both branches return real OS paths because llama.cpp memory-maps the file natively and cannot
+	/// read out of Godot's .pck archive.
+	/// </summary>
+	public static string GetModelDirectory()
+	{
+		string root = OS.HasFeature("editor")
+			? ProjectSettings.GlobalizePath("res://")
+			: ProjectSettings.GlobalizePath("user://");
+		if (string.IsNullOrEmpty(root))
+			throw new Exception("LlamaService: failed to globalize the model root path.");
+		return Path.Combine(root, "models");
+	}
+
+	/// <summary>Full path the model is expected at, whether or not it exists yet. Download target.</summary>
+	public static string GetModelFilePath() => Path.Combine(GetModelDirectory(), DefaultModelFileName);
+
+	/// <summary>
+	/// True when the model file is on disk. Callers use this to decide whether AI villagers can be
+	/// offered at all, without attempting a (slow) load first.
+	/// </summary>
+	public static bool IsModelPresent()
+	{
+		try { return File.Exists(GetModelFilePath()); }
+		catch { return false; }
+	}
+
+	// --- GDScript-facing wrappers ---
+	// Godot only exposes INSTANCE methods to GDScript; the statics above are invisible from .gd files
+	// (this is why the existing IsInitialized() is an instance method). Everything GDScript needs to
+	// ask about the model goes through these.
+
+	/// <summary>True when the model file exists on disk. Safe to call before initialization.</summary>
+	public bool HasModelFile() => IsModelPresent();
+
+	/// <summary>Absolute path the model is expected at. This is the download target.</summary>
+	public string ModelFilePath() => GetModelFilePath();
+
+	/// <summary>Absolute directory the model belongs in. Created by the downloader if missing.</summary>
+	public string ModelDirectory() => GetModelDirectory();
+
+	/// <summary>The bare GGUF filename, so the downloader does not have to hardcode it.</summary>
+	public string ModelFileName() => DefaultModelFileName;
+
+	/// <summary>
+	/// Picks the model path to load, preferring the canonical location above but still honouring the
+	/// older layouts so builds and dev machines that already have the file somewhere else keep working.
+	/// </summary>
+	private static string ResolveModelPath(string modelFilename)
+	{
+		var candidates = new List<string>();
+
+		// Canonical location (editor: res://models/, export: user://models/).
+		try { candidates.Add(Path.Combine(GetModelDirectory(), modelFilename)); }
+		catch (Exception ex) { GD.PushWarning($"LlamaService: could not resolve model directory: {ex.Message}"); }
+
+		// Legacy export layouts: beside the .exe. Kept so previously shipped builds still find their model.
+		if (!OS.HasFeature("editor"))
+		{
+			string exeDir = Path.GetDirectoryName(OS.GetExecutablePath());
+			if (!string.IsNullOrEmpty(exeDir))
+			{
+				candidates.Add(Path.Combine(exeDir, "models", modelFilename));
+				candidates.Add(Path.Combine(exeDir, modelFilename));
+			}
+		}
+
+		// Explicit developer override, useful for pointing at a model kept outside the project.
+		string envDir = System.Environment.GetEnvironmentVariable("OTTO_MODEL_DIR");
+		if (!string.IsNullOrWhiteSpace(envDir))
+			candidates.Add(Path.Combine(envDir, modelFilename));
+
+		foreach (string candidate in candidates)
+		{
+			if (File.Exists(candidate))
+			{
+				GD.Print($"LlamaService: model found at {candidate}");
+				return candidate;
+			}
+		}
+
+		// Nothing found. Return the canonical path anyway so the error message names the place the
+		// model is actually supposed to go, rather than whichever legacy path happened to be last.
+		string expected = candidates.Count > 0 ? candidates[0] : modelFilename;
+		GD.Print($"LlamaService: no model found. Expected location: {expected}");
+		return expected;
+	}
+
 	// --- TP1 (spoken dialogue) anti-repetition sampling (applied ONLY to three-pass pass 1) ---
 	// Stops the NPC from echoing its own previous line once that line is in the chat-history context.
 	// Keep mild so in-character vocabulary survives; raise RepeatPenalty / FrequencyPenalty if loops persist.
@@ -257,6 +352,8 @@ public partial class LlamaService : Node, IDisposable
 
 		TryAddDir(AppContext.BaseDirectory);
 
+		// Layout 1 — development: NuGet keeps natives in runtimes/win-x64/native/cuda12 beside the
+		// managed assemblies.
 		foreach (string root in candidates)
 		{
 			string cuda12 = Path.Combine(root, "runtimes", "win-x64", "native", "cuda12");
@@ -271,6 +368,30 @@ public partial class LlamaService : Node, IDisposable
 
 			if (Directory.Exists(cuda12))
 				return cuda12;
+		}
+
+		// Layout 2 — exported build: Godot FLATTENS everything into data_<project>_windows_x86_64/,
+		// so llama.dll and the ggml-* DLLs sit directly next to the managed assemblies and the
+		// runtimes/ tree does not exist at all. Without this branch the resolver returned null in
+		// every export, LoadLibraryEx was never called, the native library was never preloaded, and
+		// the first P/Invoke died with "Could not load type 'LLama.Native.NativeApi' ... has no
+		// implementation (no RVA)" — which reads like a managed assembly problem but is really a
+		// native-load failure.
+		foreach (string root in candidates)
+		{
+			try
+			{
+				string flattened = Path.GetFullPath(root);
+				if (File.Exists(Path.Combine(flattened, "llama.dll")))
+				{
+					GD.Print($"LlamaService: native DLLs found flattened (export layout) at {flattened}");
+					return flattened;
+				}
+			}
+			catch
+			{
+				continue;
+			}
 		}
 
 		return null;
@@ -480,7 +601,9 @@ public partial class LlamaService : Node, IDisposable
 		if (cuda12 == null)
 		{
 			GD.PrintErr(
-				"LlamaService: runtimes/win-x64/native/cuda12 not found next to game or LLamaSharp DLL — rebuild C# (dotnet build) so NuGet copies runtimes.");
+				"LlamaService: native llama DLLs not found — neither runtimes/win-x64/native/cuda12 "
+				+ "(dev layout) nor llama.dll flattened beside the managed assemblies (export layout). "
+				+ "In development, rebuild C# (dotnet build) so NuGet copies runtimes.");
 			return;
 		}
 
@@ -542,6 +665,47 @@ public partial class LlamaService : Node, IDisposable
 	public delegate void GenerationCompleteBaseEventHandler(string result);
 	[Signal]
 	public delegate void GenerationCompleteNpcEventHandler(string result);
+
+	/// <summary>Fires once an <see cref="InitializeAsync"/> attempt settles. Always on the main thread.</summary>
+	[Signal]
+	public delegate void ModelLoadCompleteEventHandler(bool success);
+
+	/// <summary>
+	/// Loads the model off the main thread and reports back via <see cref="ModelLoadCompleteEventHandler"/>.
+	/// <para>Used when the model arrives mid-session (the player downloaded it while playing): a plain
+	/// Initialize() call reads ~7 GB off disk and pushes it to the GPU, which would freeze the game for
+	/// tens of seconds. Startup still uses the synchronous path in _Ready, where a stall is invisible.</para>
+	/// <para>Safe to call when already initialized — it reports success immediately without reloading.</para>
+	/// </summary>
+	public void InitializeAsync()
+	{
+		if (_isInitialized)
+		{
+			CallDeferred("emit_signal", SignalName.ModelLoadComplete, true);
+			return;
+		}
+		if (_isDisposed)
+		{
+			CallDeferred("emit_signal", SignalName.ModelLoadComplete, false);
+			return;
+		}
+
+		Task.Run(() =>
+		{
+			bool ok;
+			try
+			{
+				ok = Initialize(DefaultModelFileName);
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"LlamaService.InitializeAsync failed: {ex.Message}");
+				ok = false;
+			}
+			// Marshal back to the main thread; signals must not be emitted from a worker thread.
+			CallDeferred("emit_signal", SignalName.ModelLoadComplete, ok);
+		});
+	}
 
 	// --- P/Invoke Declarations Removed --- 
 
@@ -606,44 +770,11 @@ public partial class LlamaService : Node, IDisposable
 				}
 			}
 
-			// 1. Construct Model Path — BASE GGUF must exist on disk.
-			string modelLoadPath;
-			if (OS.HasFeature("editor"))
-			{
-				string projectRoot = ProjectSettings.GlobalizePath("res://");
-				if (string.IsNullOrEmpty(projectRoot)) { throw new Exception("Failed to globalize project path res://"); }
-				modelLoadPath = Path.Combine(projectRoot, "models", modelFilename);
-				GD.Print($"Editor Mode: Model path: {modelLoadPath}");
-			}
-			else
-			{
-				string exePath = OS.GetExecutablePath();
-				string exeDir = Path.GetDirectoryName(exePath);
-				if (string.IsNullOrEmpty(exeDir)) { throw new Exception("Failed to get executable directory!"); }
-				string packagedModelPath = Path.Combine(exeDir, "models", modelFilename);
-				if (File.Exists(packagedModelPath))
-				{
-					modelLoadPath = packagedModelPath;
-					GD.Print($"Exported Mode: Model path (packaged): {modelLoadPath}");
-				}
-				else
-				{
-					modelLoadPath = Path.Combine(exeDir, modelFilename);
-					GD.Print($"Exported Mode: Model path: {modelLoadPath}");
-				}
-
-				if (!File.Exists(modelLoadPath))
-				{
-					string envDir = System.Environment.GetEnvironmentVariable("OTTO_MODEL_DIR");
-					string fallbackDir = !string.IsNullOrWhiteSpace(envDir) ? envDir : "C:\\otto_exp";
-					string fallbackPath = Path.Combine(fallbackDir, modelFilename);
-					if (File.Exists(fallbackPath))
-					{
-						GD.Print($"Model not found in exe directory, using fallback path: {fallbackPath}");
-						modelLoadPath = fallbackPath;
-					}
-				}
-			}
+			// 1. Construct Model Path — BASE GGUF must exist on disk as a REAL file.
+			// llama.cpp memory-maps the weights through native code, so the path handed to ModelParams
+			// must be an actual filesystem path. Godot's .pck archive is invisible to System.IO and to
+			// native code alike, which is why the model is never packed into the export.
+			string modelLoadPath = ResolveModelPath(modelFilename);
 
 			modelLoadPath = Path.GetFullPath(modelLoadPath);
 			GD.Print($"Normalized model path: {modelLoadPath}");
@@ -836,41 +967,29 @@ public partial class LlamaService : Node, IDisposable
 
 		string fileName = string.IsNullOrWhiteSpace(grammarFileName) ? "output.gbnf" : grammarFileName.Trim();
 
-		// Same root as models/ — do NOT use GetBaseDir() on globalized res:// (that walks up one folder).
-		string grammarDir;
-		if (OS.HasFeature("editor"))
-		{
-			string projectRoot = ProjectSettings.GlobalizePath("res://");
-			if (string.IsNullOrEmpty(projectRoot))
-			{
-				GD.PrintErr("Failed to globalize project path res:// for grammar.");
-				return "";
-			}
-			grammarDir = Path.Combine(projectRoot, "grammars");
-		}
-		else
-		{
-			string exeDir = Path.GetDirectoryName(OS.GetExecutablePath());
-			if (string.IsNullOrEmpty(exeDir))
-			{
-				GD.PrintErr("Failed to determine executable directory for grammar.");
-				return "";
-			}
-			grammarDir = Path.Combine(exeDir, "grammars");
-		}
-
-		string grammarPath = Path.Combine(grammarDir, fileName);
+		// Read through Godot's virtual filesystem, NOT System.IO. Grammars are small and travel inside
+		// the exported .pck (they must stay listed in export_presets.cfg include_filter for that).
+		// System.IO cannot see into a .pck, so the previous exe-relative File.ReadAllText silently failed
+		// in every exported build: every grammar came back empty and the whole TP0-TP5 chain then ran
+		// unconstrained. res:// behaves identically in the editor and in exports, so this is one path for
+		// both. Godot.FileAccess must be fully qualified here — System.IO.FileAccess is also in scope.
+		string grammarPath = "res://grammars/" + fileName;
 		if (VerboseInferLogs())
 			GD.Print($"Attempting to load grammar from: {grammarPath}");
-		if (!File.Exists(grammarPath))
+
+		if (!Godot.FileAccess.FileExists(grammarPath))
 		{
 			GD.PrintErr($"Grammar file not found at {grammarPath}");
 			return "";
 		}
 
-		if (VerboseInferLogs())
-			GD.Print($"Grammar file exists. Last modified: {new FileInfo(grammarPath).LastWriteTime}");
-		string grammarContent = File.ReadAllText(grammarPath);
+		string grammarContent = Godot.FileAccess.GetFileAsString(grammarPath);
+		if (string.IsNullOrEmpty(grammarContent))
+		{
+			GD.PrintErr($"Grammar file at {grammarPath} was empty or unreadable (error {Godot.FileAccess.GetOpenError()}).");
+			return "";
+		}
+
 		return grammarContent.Replace("\r\n", "\n");
 	}
 

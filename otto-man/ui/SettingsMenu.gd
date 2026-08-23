@@ -57,6 +57,14 @@ const DEFAULT_SETTINGS := {
 @onready var back_button: Button = $Panel/VBoxContainer/ButtonContainer/BackButton
 
 var _locale_option: OptionButton = null
+
+## Settings > Game > AI Villagers. Built in code (same approach as the language row) rather than
+## in the .tscn, so the whole feature stays contained in scripts.
+var _ai_section: VBoxContainer = null
+var _ai_header: Label = null
+var _ai_status: Label = null
+var _ai_primary_button: Button = null
+var _ai_secondary_button: Button = null
 var _locale_label: Label = null
 var _current_settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
 
@@ -67,6 +75,7 @@ func _ready() -> void:
 		ParchmentTextures.apply_large_panel_style(panel, 14)
 	TextOutline.apply_to_tree(self)
 	_ensure_locale_controls()
+	_ensure_ai_controls()
 	hide_menu()
 	_connect_signals()
 	_load_settings_from_disk()
@@ -100,6 +109,153 @@ func _ensure_locale_controls() -> void:
 	game_tab.move_child(row, 0)
 
 
+## Builds the AI Villagers section at the bottom of the Game tab.
+##
+## The row is entirely state-driven: the two buttons change label and purpose depending on
+## whether the model is absent, downloading, present-but-off, or running. That keeps it to two
+## controls instead of a wall of buttons that are mostly disabled.
+func _ensure_ai_controls() -> void:
+	if _ai_section != null:
+		return
+	var game_tab: VBoxContainer = $Panel/VBoxContainer/TabContainer/GameTab
+	if game_tab == null:
+		return
+
+	_ai_section = VBoxContainer.new()
+	_ai_section.name = "AiVillagersSection"
+	_ai_section.add_theme_constant_override("separation", 4)
+
+	_ai_header = Label.new()
+	_ai_header.add_theme_font_size_override("font_size", 16)
+	_ai_header.add_theme_color_override("font_color", Color(0.95, 0.82, 0.45, 1.0))
+	_ai_section.add_child(_ai_header)
+
+	_ai_status = Label.new()
+	_ai_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_ai_status.add_theme_font_size_override("font_size", 13)
+	_ai_status.add_theme_color_override("font_color", Color(0.88, 0.84, 0.74, 1.0))
+	_ai_section.add_child(_ai_status)
+
+	var button_row := HBoxContainer.new()
+	button_row.add_theme_constant_override("separation", 10)
+	_ai_section.add_child(button_row)
+
+	_ai_primary_button = Button.new()
+	_ai_primary_button.focus_mode = Control.FOCUS_ALL
+	_ai_primary_button.pressed.connect(_on_ai_primary_pressed)
+	button_row.add_child(_ai_primary_button)
+
+	_ai_secondary_button = Button.new()
+	_ai_secondary_button.focus_mode = Control.FOCUS_ALL
+	_ai_secondary_button.pressed.connect(_on_ai_secondary_pressed)
+	button_row.add_child(_ai_secondary_button)
+
+	game_tab.add_child(_ai_section)
+	_refresh_ai_section()
+
+
+func _ai_node() -> Node:
+	return get_node_or_null("/root/AiVillagers")
+
+
+## Keeps the download percentage live while the panel is open. Only runs while this menu is
+## actually visible and something is in flight, so it costs nothing the rest of the time.
+func _process(_delta: float) -> void:
+	if not visible or _ai_section == null:
+		return
+	var ai := _ai_node()
+	if ai == null:
+		return
+	if bool(ai.call("is_downloading")) or bool(ai.call("is_loading_model")):
+		_refresh_ai_section()
+
+
+func _refresh_ai_section() -> void:
+	if _ai_section == null or not is_instance_valid(_ai_status):
+		return
+	var ai := _ai_node()
+	if ai == null:
+		_ai_section.visible = false
+		return
+	_ai_section.visible = true
+	_ai_header.text = tr("ai.settings.header")
+
+	# In the editor the model is read straight from res://models/ and downloading is disabled by
+	# design, so the controls would be meaningless.
+	if bool(ai.call("is_editor")):
+		_ai_status.text = tr("ai.settings.status.editor")
+		_ai_primary_button.visible = false
+		_ai_secondary_button.visible = false
+		return
+
+	var downloading := bool(ai.call("is_downloading"))
+	var present := bool(ai.call("is_model_present"))
+	var available := bool(ai.call("is_available"))
+	var loading := bool(ai.call("is_loading_model"))
+
+	_ai_primary_button.visible = true
+	_ai_secondary_button.visible = true
+
+	if downloading:
+		var verifying := float(ai.call("get_verify_progress")) > 0.0
+		if verifying:
+			_ai_status.text = tr("ai.settings.status.verifying")
+		else:
+			_ai_status.text = tr("ai.settings.status.downloading") % int(
+				round(float(ai.call("get_download_progress")) * 100.0)
+			)
+		_ai_primary_button.text = tr("ai.settings.btn.pause")
+		_ai_secondary_button.text = tr("ai.settings.btn.cancel")
+		return
+
+	if loading:
+		_ai_status.text = tr("ai.settings.status.loading")
+		_ai_primary_button.visible = false
+		_ai_secondary_button.visible = false
+		return
+
+	if not present:
+		_ai_status.text = tr("ai.settings.status.off")
+		_ai_primary_button.text = tr("ai.settings.btn.download")
+		_ai_secondary_button.visible = false
+		return
+
+	# Model is on disk from here on.
+	if available:
+		_ai_status.text = tr("ai.settings.status.on")
+		_ai_primary_button.text = tr("ai.settings.btn.turn_off")
+	else:
+		_ai_status.text = tr("ai.settings.status.disabled")
+		_ai_primary_button.text = tr("ai.settings.btn.turn_on")
+	_ai_secondary_button.text = tr("ai.settings.btn.delete")
+
+
+func _on_ai_primary_pressed() -> void:
+	var ai := _ai_node()
+	if ai == null:
+		return
+	if bool(ai.call("is_downloading")):
+		ai.call("pause_download")
+	elif not bool(ai.call("is_model_present")):
+		ai.call("set_enabled", true)
+	elif bool(ai.call("is_available")):
+		ai.call("set_enabled", false)
+	else:
+		ai.call("set_enabled", true)
+	_refresh_ai_section()
+
+
+func _on_ai_secondary_pressed() -> void:
+	var ai := _ai_node()
+	if ai == null:
+		return
+	if bool(ai.call("is_downloading")):
+		ai.call("cancel_download")
+	else:
+		ai.call("delete_model")
+	_refresh_ai_section()
+
+
 func _connect_signals() -> void:
 	master_volume_slider.value_changed.connect(_on_master_volume_changed)
 	music_volume_slider.value_changed.connect(_on_music_volume_changed)
@@ -117,6 +273,7 @@ func show_menu() -> void:
 	_load_settings_from_disk()
 	_apply_settings_to_controls()
 	_refresh_locale()
+	_refresh_ai_section()
 	call_deferred("_focus_first_control")
 
 
@@ -302,6 +459,7 @@ func _apply_vsync(enabled: bool) -> void:
 
 
 func _refresh_locale(_locale: String = "") -> void:
+	_refresh_ai_section()
 	if _title_label:
 		_title_label.text = tr("settings.title")
 	if _hint_label:

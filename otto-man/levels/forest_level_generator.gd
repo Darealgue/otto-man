@@ -548,11 +548,17 @@ func _tutorial_force_spawn_resources() -> void:
 		elif chunk.position.x < 0.0:
 			if left_chunk == null or chunk.position.x > left_chunk.position.x:
 				left_chunk = chunk
+	# Both resource types are seeded on BOTH sides (3 of one + 2 of the other, mirrored) so a
+	# tutorial player who commits to exploring in either direction still finds wood and food —
+	# previously trees were only ever forced onto the right chunk and bushes only onto the left,
+	# so whichever way a player ran first, they'd never encounter the other resource type at all.
 	if right_chunk:
-		_tutorial_spawn_interactables_in_chunk(right_chunk, _tree_interactable_scene, 5)
+		_tutorial_spawn_interactables_in_chunk(right_chunk, _tree_interactable_scene, 3)
+		_tutorial_spawn_interactables_in_chunk(right_chunk, _bush_interactable_scene, 2)
 		_tutorial_chunks_seeded[right_chunk.get_instance_id()] = true
 	if left_chunk:
-		_tutorial_spawn_interactables_in_chunk(left_chunk, _bush_interactable_scene, 5)
+		_tutorial_spawn_interactables_in_chunk(left_chunk, _bush_interactable_scene, 3)
+		_tutorial_spawn_interactables_in_chunk(left_chunk, _tree_interactable_scene, 2)
 		_tutorial_chunks_seeded[left_chunk.get_instance_id()] = true
 	var ps := get_node_or_null("/root/PlayerStats")
 	if ps and ps.has_signal("carried_resources_changed"):

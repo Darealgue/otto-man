@@ -1,6 +1,14 @@
 <Project Sdk="Godot.NET.Sdk/4.3.0">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <!-- net8.0, NOT net6.0. LLamaSharp 0.24 ships only lib/net8.0 and lib/netstandard2.0. A net6.0
+         project cannot consume net8.0 assets, so NuGet silently falls back to the netstandard2.0
+         shim — whose native methods carry no implementation. That produced
+         "Could not load type 'LLama.Native.NativeApi' ... 'llama_backend_free' has no
+         implementation (no RVA)" at the first ModelParams construction, AFTER llama.dll itself had
+         loaded successfully, which made it look like a native problem when it was an assembly
+         selection problem. Verify after changing: the LLamaSharp.dll that lands in the build output
+         must be the ~254 KB net8.0 build, not the ~237 KB netstandard2.0 one. -->
+    <TargetFramework>net8.0</TargetFramework>
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net7.0</TargetFramework>
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'ios' ">net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
@@ -9,6 +17,16 @@
     <!-- LLamaSharp CUDA12 on Windows: AnyCPU / prefer-32 can prevent native loader from binding cuda12 llama.dll (CPU fallback). -->
     <PlatformTarget Condition="'$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios'">x64</PlatformTarget>
     <Prefer32Bit Condition="'$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios'">false</Prefer32Bit>
+    <!-- Backend.Cpu and Backend.Cuda12 both ship native files (ggml-base.dll and friends) that
+         resolve to the same publish-relative path. `dotnet build` tolerates this, but the publish
+         step Godot runs during export fails hard with
+         "Found multiple publish output files with the same relative path".
+         Referencing both backends is deliberate (see the comment on the PackageReferences below:
+         the CUDA stack links ggml-cpu.dll, which only Backend.Cpu provides), so the duplicate is
+         expected rather than a mistake. Letting publish pick one keeps the export working; the
+         FlattenLlamaSharpCuda12DllsToOutput target below then puts the CUDA natives where the
+         loader actually looks, which is what decides whether the GPU path is used. -->
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="LLamaSharp" Version="0.24.0" />
@@ -17,6 +35,49 @@
     <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.24.0" />
     <PackageReference Include="LLamaSharp.semantic-kernel" Version="0.24.0" />
   </ItemGroup>
+
+  <!-- NVIDIA CUDA redistributables. ggml-cuda.dll imports cudart64_12.dll and cublas64_12.dll
+       (which itself needs cublasLt64_12.dll); none of the three ship with an NVIDIA game driver,
+       only with the CUDA toolkit. Without them a player's machine cannot load the CUDA backend and
+       falls back to CPU, which is unusably slow for a 12B model. They are kept in the repo under
+       native_redist/cuda12/ rather than copied from a toolkit path so the build does not depend on
+       the toolkit being installed. ~752 MB. Redistribution is permitted by the NVIDIA CUDA EULA;
+       see THIRD_PARTY_LICENSES.txt. -->
+  <ItemGroup>
+    <CudaRedist Include="$(MSBuildProjectDirectory)\native_redist\cuda12\*.dll" />
+  </ItemGroup>
+
+  <Target Name="CopyCudaRedistToOutput" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT' AND '$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios'">
+    <Copy SourceFiles="@(CudaRedist)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Publish is what Godot's export runs, and it does not inherit the Build-time copy above. -->
+  <Target Name="CopyCudaRedistToPublish" AfterTargets="Publish" Condition="'$(OS)' == 'Windows_NT' AND '$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios'">
+    <Copy SourceFiles="@(CudaRedist)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- CRITICAL: force the CUDA natives to win in the PUBLISH output.
+       Publish flattens every backend's runtimes/win-x64/native/** into the publish root, and both
+       Backend.Cpu (avx/avx2/avx512/noavx) and Backend.Cuda12 ship a file named llama.dll. Whichever
+       is copied last wins, and in practice the CPU *noavx* build won — the slowest variant that
+       exists. Symptom: the model loads and generates, but llama.cpp's system info line reports only
+       CPU features and the machine grinds. The FlattenLlamaSharpCuda12DllsToOutput target below
+       does not help here because it runs AfterTargets="Build", before publish overwrites things.
+       Copying again AfterTargets="Publish" is what makes CUDA actually win.
+       Verify after export: llama.dll beside the exe must match the cuda12 package copy, and the
+       log must show a CUDA line in "llama.cpp system info". -->
+  <ItemGroup>
+    <Cuda12Native Include="$(NuGetPackageRoot)llamasharp.backend.cuda12.windows\0.24.0\runtimes\win-x64\native\cuda12\*.dll" />
+    <!-- The CUDA ggml stack links ggml-cpu.dll, which only Backend.Cpu provides. avx2 is the
+         sensible baseline for any machine capable of running a 12B model. -->
+    <Cuda12CpuHelper Include="$(NuGetPackageRoot)llamasharp.backend.cpu\0.24.0\runtimes\win-x64\native\avx2\ggml-cpu.dll" />
+  </ItemGroup>
+
+  <Target Name="ForceCuda12NativesInPublish" AfterTargets="Publish" Condition="'$(OS)' == 'Windows_NT' AND '$(GodotTargetPlatform)' != 'android' AND '$(GodotTargetPlatform)' != 'ios'">
+    <Copy SourceFiles="@(Cuda12Native)" DestinationFolder="$(PublishDir)" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="@(Cuda12CpuHelper)" DestinationFolder="$(PublishDir)" OverwriteReadOnlyFiles="true" />
+    <Message Importance="high" Text="Forced CUDA12 natives into publish output: $(PublishDir)" />
+  </Target>
 
   <!-- LLamaSharp publishes CUDA12 binaries under runtimes/win-x64/native/cuda12/. Some hosts still bind CPU llama.dll unless
        those DLLs are also next to otto-man.dll (SciSharp/LLamaSharp#1221).
