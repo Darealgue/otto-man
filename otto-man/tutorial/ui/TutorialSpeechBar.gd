@@ -13,6 +13,9 @@ const DESIGN_FONT_SIZE := 22
 ## "Devam etmek için yukarı bas" ikonu — kutunun sağ-alt köşesinde, tasarım karesi 34px.
 const DESIGN_CONTINUE_ICON_SIZE := 34.0
 const DESIGN_CONTINUE_ICON_MARGIN := 16.0
+## Normal balon şeffaflığı; combat objective adımlarından bazıları (ör. düşüş saldırısı) balonu
+## geçici olarak bunun altına indirir, çünkü balon o an düşmanın önüne geçebiliyor.
+const NORMAL_PANEL_ALPHA := 1.0
 
 @onready var _panel: Control = $Frame
 ## Resolved in _ready() rather than via `@onready var x = %Name`.
@@ -229,8 +232,17 @@ func _refresh_content_height() -> void:
 		_apply_bar_layout()
 
 
+## Balonun saydamlığını ayarlar (0.0-1.0). Ör. düşüş saldırısı adımında balon düşmanın önüne
+## geçebildiği için Director burayı geçici olarak düşürür, adım bitince NORMAL_PANEL_ALPHA'ya
+## geri döner.
+func set_panel_opacity(alpha: float) -> void:
+	if is_instance_valid(_panel):
+		_panel.modulate.a = alpha
+
+
 func clear_speech() -> void:
 	set_speech_bbcode("")
+	set_panel_opacity(NORMAL_PANEL_ALPHA)
 
 
 func _normalize_speech_bbcode(bbcode: String) -> String:

@@ -9,7 +9,7 @@ extends Camera2D
 # easing never mathematically reaches the target, which reads as a sub-pixel wobble in pixel art
 # if left to approach forever.
 
-@export var look_ahead_x: float = 140.0
+@export var look_ahead_x: float = 25.0
 ## Roughly how long the offset takes to settle on a new target after it changes.
 @export var look_ahead_smooth_time: float = 0.22
 ## Caps how fast the offset itself can move, so sustained same-direction acceleration can't make

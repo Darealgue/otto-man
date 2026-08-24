@@ -8,6 +8,7 @@ extends Control
 @onready var _new_game_button: Button = $CenterContainer/Menu/Buttons/NewGameButton
 @onready var _load_game_button: Button = $CenterContainer/Menu/Buttons/LoadGameButton
 @onready var _settings_button: Button = $CenterContainer/Menu/Buttons/SettingsButton
+@onready var _discord_button: Button = $CenterContainer/Menu/Buttons/DiscordButton
 @onready var _quit_button: Button = $CenterContainer/Menu/Buttons/QuitButton
 @onready var _load_game_menu: Control = $LoadGameMenu
 var _settings_menu: Control = null
@@ -44,6 +45,13 @@ var _language_gate_choice: String = ""
 const INTRO_REVEAL_DURATION: float = 0.55
 const COLD_START_FADE_DURATION: float = 4.8
 const DISCLAIMER_FADE_OUT_DURATION: float = 0.35
+
+## TODO: sunucu kurulunca gerçek davet linkiyle doldur (bkz. DISCORD_KURULUM.md).
+## Boş bırakılırsa buton tıklandığında sessizce hiçbir şey yapmaz (uyarı log'lanır).
+const DISCORD_INVITE_URL: String = "https://discord.gg/KcTGKkPej2"
+## Discord ikonu için beklenen yol — piksel art sembolü buraya bu adla eklemen yeterli,
+## kod tarafında başka bir şey değiştirmene gerek yok.
+const DISCORD_ICON_PATH: String = "res://assets/Icons/discord_icon.png"
 
 func _ready() -> void:
 	if not _validate_nodes():
@@ -581,6 +589,9 @@ func _validate_nodes() -> bool:
 	if not is_instance_valid(_settings_button):
 		push_error("MainMenu: SettingsButton bulunamadı")
 		return false
+	if not is_instance_valid(_discord_button):
+		push_error("MainMenu: DiscordButton bulunamadı; node path kontrol et")
+		return false
 	if not is_instance_valid(_quit_button):
 		push_error("MainMenu: QuitButton bulunamadı")
 		return false
@@ -590,7 +601,21 @@ func _connect_signals() -> void:
 	_new_game_button.pressed.connect(_on_new_game_pressed)
 	_load_game_button.pressed.connect(_on_load_game_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
+	_discord_button.pressed.connect(_on_discord_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
+	_setup_discord_icon()
+
+
+## Piksel art ikon henüz yoksa (dosya diskte yoksa) sessizce metinle devam eder — ikon
+## eklendiğinde başka bir şey değiştirmeden otomatik görünür.
+func _setup_discord_icon() -> void:
+	if not is_instance_valid(_discord_button):
+		return
+	if not ResourceLoader.exists(DISCORD_ICON_PATH):
+		return
+	var icon_tex: Texture2D = load(DISCORD_ICON_PATH) as Texture2D
+	if icon_tex:
+		_discord_button.icon = icon_tex
 
 
 func _refresh_locale(_locale: String = "") -> void:
@@ -608,6 +633,8 @@ func _refresh_locale(_locale: String = "") -> void:
 		_load_game_button.text = tr("menu.load_game")
 	if _settings_button:
 		_settings_button.text = tr("menu.settings")
+	if _discord_button:
+		_discord_button.text = tr("menu.discord")
 	if _quit_button:
 		_quit_button.text = tr("menu.quit")
 	var footer := get_node_or_null("CenterContainer/Menu/Footer") as Label
@@ -634,6 +661,13 @@ func _on_settings_pressed() -> void:
 			_settings_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
 	else:
 		push_warning("SettingsMenu not available")
+
+func _on_discord_pressed() -> void:
+	_play_click()
+	if DISCORD_INVITE_URL.is_empty():
+		push_warning("[MainMenu] DISCORD_INVITE_URL henüz ayarlanmadı — MainMenu.gd içindeki sabiti doldur")
+		return
+	OS.shell_open(DISCORD_INVITE_URL)
 
 func _on_quit_pressed() -> void:
 	_play_click()
@@ -804,6 +838,8 @@ func _disable_main_menu_focus() -> void:
 		_load_game_button.focus_mode = Control.FOCUS_NONE
 	if _settings_button:
 		_settings_button.focus_mode = Control.FOCUS_NONE
+	if _discord_button:
+		_discord_button.focus_mode = Control.FOCUS_NONE
 	if _quit_button:
 		_quit_button.focus_mode = Control.FOCUS_NONE
 
@@ -815,6 +851,8 @@ func _enable_main_menu_focus() -> void:
 		_load_game_button.focus_mode = Control.FOCUS_ALL
 	if _settings_button:
 		_settings_button.focus_mode = Control.FOCUS_ALL
+	if _discord_button:
+		_discord_button.focus_mode = Control.FOCUS_ALL
 	if _quit_button:
 		_quit_button.focus_mode = Control.FOCUS_ALL
 

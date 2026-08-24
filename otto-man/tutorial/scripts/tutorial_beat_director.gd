@@ -298,10 +298,19 @@ func _disconnect_combat_signals() -> void:
 		_player.player_blocked.disconnect(_co_on_player_blocked)
 
 
+## Düşüş saldırısı (fall attack) adımını öğreten balon (phase 2: {down}+{jump}) ekranın altında
+## düşmanın önüne geçip dövüşü zorlaştırabiliyor; bu adımda balonu biraz saydamlaştırıyoruz.
+const _FALL_ATTACK_PHASE := 2
+const _FALL_ATTACK_BUBBLE_ALPHA := 0.55
+
+
 func _refresh_combat_speech() -> void:
 	var raw := _combat_objective_bbcode()
 	if is_instance_valid(_speech) and _speech.has_method("set_speech_bbcode"):
 		_speech.call("set_speech_bbcode", _expand_tokens(raw))
+	if is_instance_valid(_speech) and _speech.has_method("set_panel_opacity"):
+		var alpha := _FALL_ATTACK_BUBBLE_ALPHA if _co_phase == _FALL_ATTACK_PHASE else 1.0
+		_speech.call("set_panel_opacity", alpha)
 
 
 func _combat_objective_bbcode() -> String:

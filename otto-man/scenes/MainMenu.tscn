@@ -106,6 +106,12 @@ size_flags_horizontal = 3
 focus_mode = 0
 text = "Ayarlar"
 
+[node name="DiscordButton" type="Button" parent="CenterContainer/Menu/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Discord"
+
 [node name="QuitButton" type="Button" parent="CenterContainer/Menu/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3

@@ -3,6 +3,7 @@ menu.new_game,Yeni Oyun,New Game
 menu.load_game,Oyunu Yükle,Load Game
 menu.settings,Ayarlar,Settings
 menu.quit,Çıkış,Quit
+menu.discord,Discord,Discord
 menu.press_any_button,Devam etmek için herhangi bir tuşa bas,Press any button to continue
 menu.early_access_title,Geliştirme Aşamasında,In Development
 menu.early_access_disclaimer,Bu oyun henüz tamamlanmadı ve aktif olarak geliştiriliyor. Yolculuğunuz sırasında beklenmedik hatalarla ve eksik özelliklerle karşılaşabilirsiniz. Sabrınız ve anlayışınız için şimdiden teşekkür ederiz.,This game is not yet finished and is under active development. You may encounter unexpected bugs and missing features along the way. Thank you for your patience and understanding.
