@@ -104,6 +104,10 @@ var ledge_grab_cooldown_timer: float = 0.0  # Cooldown timer for ledge grabbing
 var invincibility_timer: float = 0.0  # Invincibility timer after getting hit
 var attack_cooldown_timer: float = 0.0 # <<< YENİ DEĞİŞKEN >>>
 var is_dodging: bool = false  # Track if player is currently dodging
+var dodge_air_carry: bool = false  # Dodge havada bitti: Fall uçuş animasyonunu devralsın (sadece görsel)
+var dodge_air_carry_dir: float = 1.0  # Devredilen dodge'un yönü; inişteki taklanın itişi bunu kullanır
+var _drop_through_active: bool = false  # Platformdan inme sürüyor: ikinci basış yığılmasın
+const DEBUG_DROP_THROUGH: bool = false  # true yapınca ayak altında ne olduğunu konsola yazar
 var hit_recoil_lock_timer: float = 0.0  # Lock facing direction during hit recoil
 var jump_input_blocked: bool = false  # Block jump input during dodge
 var jump_block_timer: float = 0.0  # Timer to keep jump blocked after dodge
@@ -449,9 +453,20 @@ func _physics_process(delta):
 			counter_window_timer = 0.0
 		
 	# Handle drop-through platform
-	if is_on_floor() and Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
-		drop_through_platform()
-		return  # Skip other processing for this frame
+	# Ayağımızın altındaki yüzey gerçekten geçilebilir değilse çalıştırma: drop_through_platform()
+	# oyuncuyu koşulsuz 16 px aşağı ışınlıyor ve katı zeminde bu, zeminin içine girmek demek.
+	if Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
+		if DEBUG_DROP_THROUGH:
+			print("[DropThrough] --- basildi --- on_floor=", is_on_floor(),
+				" active=", _drop_through_active, " mask=", collision_mask,
+				" pos=", global_position, " state=", ($StateMachine.current_state.name if $StateMachine and $StateMachine.current_state else "?"))
+		if is_on_floor() and not _drop_through_active and _can_drop_through():
+			if DEBUG_DROP_THROUGH:
+				print("[DropThrough] SONUC: iniliyor")
+			drop_through_platform()
+			return  # Skip other processing for this frame
+		elif DEBUG_DROP_THROUGH:
+			print("[DropThrough] SONUC: reddedildi")
 	
 	# Update dash cooldown
 	if dash_state and dash_state.has_method("cooldown_update"):
@@ -1820,11 +1835,152 @@ func apply_movement(delta: float, input_dir: float) -> void:
 	else:
 		apply_friction(delta, input_dir)
 
+# Ayağımızın altındaki yüzeyden aşağı inilebilir mi?
+# İki ayrı durum var:
+#  - Layer 10'daki gövdeler (moving_platform.tscn, köy binaları): maske kapatılarak geçilir.
+#  - TileMap tile'ları: zindan tileset'inde TEK fizik katmanı var (collision_layer = 1),
+#    yani zemin ile platform aynı gövdede. Ayrım tile başına one_way bayrağında.
+#    Bu yüzden burada layer kontrolü yetmez, tile verisine bakmak gerekir.
+# Ayak altını ışın taramasıyla buluyoruz: get_slide_collision() yerçekimiyle zemine
+# bastırılmadığımız karelerde boş dönebiliyor, o zaman platformdan inme sessizce çalışmaz olurdu.
+# Gövde kapsülü y = -44..0 aralığında, yani origin ayak hizasında.
+func _can_drop_through() -> bool:
+	var space := get_world_2d().direct_space_state
+	if space == null:
+		return false
+	var from: Vector2 = global_position + Vector2(0, -6)
+	var to: Vector2 = global_position + Vector2(0, 14)
+	var query := PhysicsRayQueryParameters2D.create(from, to, collision_mask)
+	query.exclude = [get_rid()]
+	var hit: Dictionary = space.intersect_ray(query)
+	if hit.is_empty():
+		if DEBUG_DROP_THROUGH:
+			print("[DropThrough] ışın hiçbir şeye çarpmadı | ayak=", global_position, " mask=", collision_mask)
+		return false
+
+	var collider: Object = hit.get("collider")
+	if collider == null:
+		return false
+
+	if DEBUG_DROP_THROUGH:
+		var dbg_layer: int = (collider as CollisionObject2D).collision_layer if collider is CollisionObject2D else -1
+		print("[DropThrough] çarpılan=", collider.get_class(), " ad=", (collider as Node).name if collider is Node else "?",
+			" shape=", hit.get("shape", -1), " layer=", dbg_layer, " pos=", hit.get("position"))
+
+	if collider is CollisionObject2D:
+		var body := collider as CollisionObject2D
+		# 1) Layer 10 gövdeler (moving_platform.tscn, köy binaları): maske kapatılarak geçilir.
+		if body.get_collision_layer_value(10):
+			return true
+		# 2) one_way_collision işaretli şekiller - zindan/şehir chunk'larındaki platformların
+		#    büyük çoğunluğu böyle. Tam olarak ışının çarptığı şekle bakıyoruz: aynı gövdede
+		#    hem katı hem tek yönlü şekil olabiliyor (ör. chunks/city/.../orta1.tscn).
+		var shape_idx: int = int(hit.get("shape", -1))
+		if shape_idx >= 0:
+			var owner_id: int = body.shape_find_owner(shape_idx)
+			if owner_id != -1 and body.is_shape_owner_one_way_collision_enabled(owner_id):
+				return true
+
+	# 3) TileMap tile'ları: zindan tileset'i tek fizik katmanı kullanıyor (collision_layer = 1),
+	#    ayrım tile başına one_way bayrağında. Tileset'te 17 böyle tile tanımlı.
+	if collider is TileMapLayer:
+		var tml := collider as TileMapLayer
+		# moving_platform.tscn gibi: çarpışma alt düğümdeki TileMapLayer'da ve tileset'i
+		# layer 10'da. Bu durumda maske hilesi geçerli, tile bayrağına bakmaya gerek yok.
+		var ts: TileSet = tml.tile_set
+		if ts != null:
+			for li in ts.get_physics_layers_count():
+				if (ts.get_physics_layer_collision_layer(li) & (1 << 9)) != 0:
+					return true
+		var hit_pos: Vector2 = hit.get("position", to)
+		if DEBUG_DROP_THROUGH:
+			var c0: Vector2i = tml.local_to_map(tml.to_local(hit_pos))
+			var c1: Vector2i = c0 + Vector2i(0, 1)
+			print("[DropThrough] TileMapLayer=", tml.name, " tile_size=", (ts.tile_size if ts else Vector2i.ZERO),
+				" | hucre=", c0, " dolu=", tml.get_cell_source_id(c0) != -1, " one_way=", _cell_is_one_way(tml, c0),
+				" | alt hucre=", c1, " dolu=", tml.get_cell_source_id(c1) != -1, " one_way=", _cell_is_one_way(tml, c1))
+		return _tile_at_is_one_way(tml, hit_pos, hit.get("normal", Vector2.UP))
+
+	# 4) Eski tip TileMap. Zindanda ayağımızın altındaki zemin BU: LevelGenerator terrain
+	#    birleştirme adımında bütün chunk TileMapLayer'larını tek bir TileMap'te topluyor.
+	if collider is TileMap:
+		var tm := collider as TileMap
+		var ts2: TileSet = tm.tile_set
+		if ts2 != null:
+			for li in ts2.get_physics_layers_count():
+				if (ts2.get_physics_layer_collision_layer(li) & (1 << 9)) != 0:
+					return true
+		var tm_hit: Vector2 = hit.get("position", to)
+		if DEBUG_DROP_THROUGH:
+			var tc0: Vector2i = tm.local_to_map(tm.to_local(tm_hit))
+			var tc1: Vector2i = tc0 + Vector2i(0, 1)
+			var parts: Array[String] = []
+			for li2 in range(tm.get_layers_count()):
+				parts.append("k%d[%s dolu=%s ow=%s | %s dolu=%s ow=%s]" % [li2,
+					str(tc0), str(tm.get_cell_source_id(li2, tc0) != -1), str(_tm_cell_is_one_way(tm, li2, tc0)),
+					str(tc1), str(tm.get_cell_source_id(li2, tc1) != -1), str(_tm_cell_is_one_way(tm, li2, tc1))])
+			print("[DropThrough] TileMap katman=", tm.get_layers_count(), " tile_size=", (ts2.tile_size if ts2 else Vector2i.ZERO), " ", " ".join(parts))
+		return _tilemap_at_is_one_way(tm, tm_hit, hit.get("normal", Vector2.UP))
+
+	return false
+
+
+func _tile_at_is_one_way(tilemap: TileMapLayer, world_pos: Vector2, surface_normal: Vector2) -> bool:
+	var cell: Vector2i = tilemap.local_to_map(tilemap.to_local(world_pos))
+	if _cell_is_one_way(tilemap, cell):
+		return true
+	# Temas noktası hücre sınırına denk gelebilir; üst yüzeyde bir alttaki hücreye de bak.
+	if surface_normal.y < 0.0:
+		if _cell_is_one_way(tilemap, cell + Vector2i(0, 1)):
+			return true
+	return false
+
+
+func _cell_is_one_way(tilemap: TileMapLayer, cell: Vector2i) -> bool:
+	if tilemap.get_cell_source_id(cell) == -1:
+		return false
+	return _tile_data_is_one_way(tilemap.get_cell_tile_data(cell), tilemap.tile_set)
+
+
+# LevelGenerator "Phase 3: Unifying terrain" adımında bütün chunk TileMapLayer'larını tek bir
+# ESKİ TİP TileMap'e birleştiriyor. Yani oyunda ayağımızın altındaki zemin TileMapLayer değil
+# TileMap oluyor; iki sınıfın API'si farklı (TileMap'te katman indeksi ilk parametre).
+func _tilemap_at_is_one_way(tm: TileMap, world_pos: Vector2, surface_normal: Vector2) -> bool:
+	var cell: Vector2i = tm.local_to_map(tm.to_local(world_pos))
+	for li in range(tm.get_layers_count()):
+		if _tm_cell_is_one_way(tm, li, cell):
+			return true
+		# Temas noktası hücre sınırına denk gelebilir; üst yüzeyde bir alttaki hücreye de bak.
+		if surface_normal.y < 0.0 and _tm_cell_is_one_way(tm, li, cell + Vector2i(0, 1)):
+			return true
+	return false
+
+
+func _tm_cell_is_one_way(tm: TileMap, layer: int, cell: Vector2i) -> bool:
+	if tm.get_cell_source_id(layer, cell) == -1:
+		return false
+	return _tile_data_is_one_way(tm.get_cell_tile_data(layer, cell), tm.tile_set)
+
+
+func _tile_data_is_one_way(tile_data: TileData, ts: TileSet) -> bool:
+	if tile_data == null:
+		return false
+	var physics_layers: int = ts.get_physics_layers_count() if ts != null else 1
+	for pl in range(maxi(physics_layers, 1)):
+		for poly_idx in range(tile_data.get_collision_polygons_count(pl)):
+			if tile_data.is_collision_polygon_one_way(pl, poly_idx):
+				return true
+	return false
+
+
 func drop_through_platform() -> void:
-	
+	# Üst üste binmeyi engelle: aktif bir drop-through varken ikinci basış yığılıp
+	# oyuncuyu zeminin içine gömüyordu (aşağıdaki position.y kaydırması her seferinde ekleniyor).
+	_drop_through_active = true
+
 	# Temporarily disable collision with platform layer (layer 10)
 	set_collision_mask_value(10, false)  # Disable collision with platforms
-	
+
 	# Add downward velocity for faster dropping
 	velocity.y = 200.0
 
@@ -1832,17 +1988,19 @@ func drop_through_platform() -> void:
 	# margins up to 12px) so the drop registers on the first press instead of
 	# needing a second attempt once already partially sunk in.
 	position.y += 16
-	
+
 	# Create a timer to restore collision
 	var timer = get_tree().create_timer(0.15)
 	timer.timeout.connect(func():
 		if not Input.is_action_pressed("down"):
 			set_collision_mask_value(10, true)  # Re-enable platform collision
+			_drop_through_active = false
 		else:
 			# If still holding down, start another timer
 			var extended_timer = get_tree().create_timer(0.1)
 			extended_timer.timeout.connect(func():
 				set_collision_mask_value(10, true)  # Re-enable platform collision
+				_drop_through_active = false
 			)
 	)
 

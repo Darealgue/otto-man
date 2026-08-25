@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://bloadindicator01"]
 
 [ext_resource type="Script" path="res://ui/LoadingIndicator.gd" id="1_indicator"]
-[ext_resource type="Texture2D" uid="uid://c4loadhourglass" path="res://assets/ui/loading_hourglass.svg" id="2_hourglass"]
+[ext_resource type="SpriteFrames" uid="uid://bulvhcxb0k6qq" path="res://ui/loading_hourglass_frames.tres" id="2_hourglass"]
 
 [node name="LoadingIndicator" type="Control"]
 custom_minimum_size = Vector2(112, 112)
@@ -10,7 +10,8 @@ anchors_preset = 0
 offset_right = 112.0
 offset_bottom = 112.0
 script = ExtResource("1_indicator")
-texture = ExtResource("2_hourglass")
+visual_mode = 1
+sprite_frames = ExtResource("2_hourglass")
 
 [node name="Pivot" type="Control" parent="."]
 unique_name_in_owner = true
@@ -37,14 +38,17 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-texture = ExtResource("2_hourglass")
 expand_mode = 1
 stretch_mode = 5
 
 [node name="AnimatedSprite" type="AnimatedSprite2D" parent="Pivot"]
 unique_name_in_owner = true
+texture_filter = 1
 visible = false
 position = Vector2(56, 56)
+scale = Vector2(2, 2)
+sprite_frames = ExtResource("2_hourglass")
+autoplay = "default"
 
 [node name="CustomSlot" type="Control" parent="Pivot"]
 unique_name_in_owner = true

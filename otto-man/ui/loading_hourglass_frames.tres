@@ -1,0 +1,39 @@
+[gd_resource type="SpriteFrames" load_steps=6 format=3 uid="uid://bulvhcxb0k6qq"]
+
+[ext_resource type="Texture2D" uid="uid://bkajd4shcubr" path="res://assets/UI/hour_glass.png" id="1_ckfiy"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_stypy"]
+atlas = ExtResource("1_ckfiy")
+region = Rect2(0, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_g6d13"]
+atlas = ExtResource("1_ckfiy")
+region = Rect2(64, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nwdeo"]
+atlas = ExtResource("1_ckfiy")
+region = Rect2(128, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jndqa"]
+atlas = ExtResource("1_ckfiy")
+region = Rect2(192, 0, 64, 64)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_stypy")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_g6d13")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nwdeo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jndqa")
+}],
+"loop": true,
+"name": &"default",
+"speed": 4.0
+}]

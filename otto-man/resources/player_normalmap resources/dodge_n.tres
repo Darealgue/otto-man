@@ -1,0 +1,8 @@
+[gd_resource type="CanvasTexture" load_steps=3 format=3 uid="uid://cr17vhujdgajr"]
+
+[ext_resource type="Texture2D" uid="uid://bk1wa6knysx34" path="res://assets/player/sprite/otto_dodge_border.png" id="1_fh5sg"]
+[ext_resource type="Texture2D" uid="uid://bn5hev1vt5h4a" path="res://assets/player/normal/otto_dodge_border_n.png" id="2_hav7v"]
+
+[resource]
+diffuse_texture = ExtResource("1_fh5sg")
+normal_texture = ExtResource("2_hav7v")

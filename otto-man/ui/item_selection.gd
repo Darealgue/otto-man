@@ -20,6 +20,12 @@ var navigation_repeat_timer_down := 0.0
 const NAVIGATION_INITIAL_DELAY := 0.25
 const NAVIGATION_REPEAT_DELAY := 0.12
 
+# Kart giriş animasyonu: 3 kart, kart başına 0.08 gecikme + 0.45 süre (bkz. CardVisualUtil).
+# Kartlar tam görünür olmadan seçim kabul edilmesin.
+const SELECT_LOCKOUT_DURATION := 0.65
+var _select_lockout := 0.0
+var _jump_released_once := false
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	show_ui(false)
@@ -62,8 +68,22 @@ func _process(delta: float) -> void:
 	else:
 		navigation_repeat_timer_down = 0.0
 	
-	# Selection: Use jump button
-	var selecting := InputManager.is_jump_pressed()
+	# Selection: Use jump button. İki koruma var, ikisi de aynı sorunu kapatıyor:
+	#  1) Kart giriş animasyonu bitene kadar seçim sayılmaz.
+	#  2) UI açılırken zıplama zaten basılıysa, bir kez BIRAKILANA kadar sayılmaz. Eskiden
+	#     oyundan devreden basılı zıplama tuşu kartlar görünmeden 0.2s'de rastgele seçim
+	#     yapıyordu (is_jump_pressed basılı durumu okuyor, "yeni basıldı"yı değil).
+	var jump_held := InputManager.is_jump_pressed()
+	if not _jump_released_once:
+		if jump_held:
+			jump_held = false
+		else:
+			_jump_released_once = true
+	if _select_lockout > 0.0:
+		_select_lockout -= delta
+		jump_held = false
+
+	var selecting := jump_held
 	if selecting:
 		selection_hold_time += delta
 		if selection_hold_time >= SELECTION_HOLD_DURATION:
@@ -97,6 +117,9 @@ func setup_items(item_scenes: Array[PackedScene]) -> void:
 	navigation_repeat_timer_up = 0.0
 	navigation_repeat_timer_down = 0.0
 	
+	_select_lockout = SELECT_LOCKOUT_DURATION
+	_jump_released_once = false
+
 	scenes_to_show = item_scenes.duplicate()
 	
 	# Create buttons for each item

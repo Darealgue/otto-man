@@ -7,6 +7,18 @@ var wall_transition_timer := 0.0
 const WALL_TRANSITION_DELAY := 0.15
 const MIN_WALL_CONTACT_TIME := 0.05
 const WALL_DETACH_GRACE := 0.2  # Grace period after detaching from wall
+const DODGE_AIR_CARRY_TIME := 0.5  # Dodge bittikten sonra uçuş animasyonunun havada sürdürüleceği süre
+# Dodge havada biterken yayın kırılmaması için: yatay hız tek karede kesilmek yerine
+# sabit ivmeyle yavaşlar, yer çekimi de dodge'un çarpanından normale yumuşak geçer.
+const DODGE_EXIT_GRAVITY_MULT := 0.6  # dodge_state'teki uçuş yer çekimi çarpanıyla aynı
+const DODGE_AIR_DECEL := 1550.0       # Uçuş penceresinde yatay yavaşlama (px/s^2)
+const DODGE_AIR_MIN_SPEED := 95.0    # Bu hızın altına inmez; pencere bitince normal kurallar devralır
+const POST_DODGE_CROUCH_DURATION := 0.15  # Havadan inen dodge sonrası toparlanma çömelmesi
+
+# Dodge havada bittiğinde uçuş animasyonu burada devam eder, yere değince takla oynar.
+# Tamamen görsel: fizik, girdi ve state geçişleri bu bayraklardan etkilenmez.
+var dodge_carry_timer := 0.0
+var dodge_rolling := false
 
 var wall_contact_timer := 0.0
 var wall_detach_grace_timer := 0.0
@@ -52,11 +64,21 @@ func enter():
 		if collision_shape:
 			collision_shape.position = Vector2(52.625, -22.5)
 	
+	# Dodge havada bitti mi? Öyleyse uçuş loop'unu burada devral.
+	dodge_carry_timer = 0.0
+	dodge_rolling = false
+	if player.dodge_air_carry:
+		player.dodge_air_carry = false
+		if animation_player.has_animation("dodge_air") and not player.is_on_floor():
+			dodge_carry_timer = DODGE_AIR_CARRY_TIME
+
 	# Only play fall animation if we're not in a special animation
 	var current_anim = animation_player.current_animation
-	
+
 	# If we're in the middle of a transition animation, let it finish
-	if current_anim == "jump_to_fall":
+	if dodge_carry_timer > 0.0:
+		animation_player.play("dodge_air")
+	elif current_anim == "jump_to_fall":
 		is_transitioning = true
 	elif current_anim == "double_jump" or current_anim == "double_jump_alt":
 		is_double_jumping = true
@@ -79,6 +101,12 @@ func enter():
 		animation_player.connect("animation_finished", _on_animation_finished)
 
 func physics_update(delta: float):
+	# Dodge uçuş devri: süre dolunca normal düşüş animasyonuna dön
+	if dodge_carry_timer > 0.0:
+		dodge_carry_timer -= delta
+		if dodge_carry_timer <= 0.0 and animation_player.current_animation == "dodge_air":
+			animation_player.play("fall")
+
 	# Update wall slide cooldown
 	if wall_slide_state:
 		wall_slide_state.update_cooldown(delta)
@@ -210,12 +238,27 @@ func physics_update(delta: float):
 	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	
 	# Handle horizontal movement using new air movement system
-	player.apply_movement(delta, input_dir)
+	if dodge_carry_timer > 0.0 and input_dir == 0:
+		# Dodge uçuşu sürerken apply_movement'in ani momentum kesmesi (velocity.x *= 0.85,
+		# saniyede ~%99.99) devreye girmesin: süzülme pozu oynarken yatay hareketin bir
+		# anda durması "görünmez duvara çarpma" hissi veriyordu. Bunun yerine sabit ivmeyle
+		# yavaşlasın. Yön tuşuna basılırsa hava kontrolü normal işler.
+		if absf(player.velocity.x) > DODGE_AIR_MIN_SPEED:
+			var floor_speed: float = DODGE_AIR_MIN_SPEED * signf(player.velocity.x)
+			player.velocity.x = move_toward(player.velocity.x, floor_speed, DODGE_AIR_DECEL * delta)
+	elif dodge_rolling:
+		# Takla kendi itişini sürüyor (_drive_dodge_roll); apply_movement yön tuşuna göre
+		# hızı normal koşu hızına çekmeye çalışıp itişle çekişmesin.
+		pass
+	else:
+		player.apply_movement(delta, input_dir)
 	
 	# Only flip sprite if:
 	# 1. We're not in wall detach grace period, OR
 	# 2. We're pressing in the opposite direction of our last wall
-	if input_dir != 0:
+	# 3. Takla oynarken yön tuşu sprite'ı çevirmesin - karakter ileri yuvarlanırken
+	#    geriye bakmış olurdu.
+	if input_dir != 0 and not dodge_rolling:
 		if wall_detach_grace_timer <= 0:
 			# Normal sprite control
 			player.sprite.flip_h = input_dir < 0
@@ -242,6 +285,12 @@ func physics_update(delta: float):
 			# Havada Kal: jump basılıyken düşerken süzülme (düşük yer çekimi)
 			if player.velocity.y > 0 and Input.is_action_pressed("jump") and has_node("/root/ItemManager") and ItemManager.has_active_item("havada_kal"):
 				gravity_multiplier *= 0.28
+			# Dodge uçuşundan çıkarken yer çekimini yumuşak devral. Doğrudan Hollow Knight
+			# eğrisine geçmek yayı bozuyordu: çarpan önce dodge'un 0.6'sından apex'in 0.3'üne
+			# DÜŞÜP (bir anlık ters bükülme) sonra ~0.17s içinde 3.5'e fırlıyordu.
+			if dodge_carry_timer > 0.0:
+				var carry_t: float = clampf(1.0 - (dodge_carry_timer / DODGE_AIR_CARRY_TIME), 0.0, 1.0)
+				gravity_multiplier = lerpf(DODGE_EXIT_GRAVITY_MULT, float(gravity_multiplier), carry_t)
 			player.velocity.y += player.gravity * gravity_multiplier * delta
 		
 		# Apply maximum fall speed
@@ -270,10 +319,46 @@ func physics_update(delta: float):
 	
 	# Finally check for landing
 	if player.is_on_floor():
-		# Only play landing animation if we're not already playing it
-		if animation_player.current_animation != "landing":
+		if dodge_carry_timer > 0.0 and animation_player.has_animation("dodge_roll"):
+			# Dodge uçuşundan iniş: normal landing yerine takla oynat
+			dodge_carry_timer = 0.0
+			dodge_rolling = true
+			animation_player.play("dodge_roll")
+			_drive_dodge_roll()
+		elif dodge_rolling:
+			# Yön tuşu taklayı KESMEZ. Kestiğinde ileri basılı tutan oyuncu (yani normal
+			# durum) taklayı hiç göremiyor, doğrudan koşuya geçip saçma duruyordu.
+			# Takla zaten kendi hızıyla ilerlediği için "yürürken yuvarlanma" sorunu da yok.
+			# Saldırı ve zıplama yukarıdaki bloklarda hâlâ kesiyor.
+			_drive_dodge_roll()
+		elif animation_player.current_animation != "landing":
+			# Only play landing animation if we're not already playing it
 			animation_player.play("landing")
 		return
+
+# Havadan inen dodge'un taklası sonuna kadar oynadıysa kısa bir toparlanma çömelmesi
+# yaptırır: slide çıkışındaki hissin aynısı, "yere düşüp doğruluyor" izlenimi verir ve
+# dodge'u boşluğa savurmanın küçük bir zaman bedeli olur.
+# Takla saldırı/zıplama/yön tuşuyla kesilirse buraya hiç gelinmez - ceza da olmaz.
+# Düz zemindeki dodge bu yoldan geçmez; onun taklası Dodge state'inin içinde bitiyor.
+func _finish_dodge_landing() -> void:
+	var crouch = state_machine.get_node_or_null("Crouch")
+	if crouch == null or not crouch.has_method("force_crouch") or not player.is_on_floor():
+		state_machine.transition_to("Idle")
+		return
+	state_machine.transition_to("Crouch")
+	crouch.force_crouch(POST_DODGE_CROUCH_DURATION)
+
+
+# Dodge inişindeki taklaya, Dodge state'inin kullandığı hızın aynısını uygular.
+# Hız tek yerde tanımlı (dodge_state.gd), burada kopyalanmıyor.
+func _drive_dodge_roll() -> void:
+	# Tip verilmiyor: sabite ancak dinamik erisimle ulasilabiliyor (Node tipinde statik analiz reddediyor)
+	var dodge = state_machine.get_node_or_null("Dodge")
+	if dodge == null:
+		return
+	player.velocity.x = float(dodge.DODGE_ROLL_SPEED) * player.dodge_air_carry_dir
+
 
 func _on_animation_finished(anim_name: String):
 	match anim_name:
@@ -287,6 +372,10 @@ func _on_animation_finished(anim_name: String):
 		"landing":
 			# Always transition to idle when landing animation finishes
 			state_machine.transition_to("Idle")
+		"dodge_roll":
+			# Dodge inişi taklası bitti - kısa toparlanma çömelmesine geç
+			dodge_rolling = false
+			_finish_dodge_landing()
 		"fall":
 			# If we're on the floor and fall animation finishes, play landing
 			if player.is_on_floor():
@@ -300,5 +389,7 @@ func exit():
 	wall_contact_timer = 0.0
 	wall_detach_grace_timer = 0.0
 	last_wall_normal = Vector2.ZERO
+	dodge_carry_timer = 0.0
+	dodge_rolling = false
 	if animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.disconnect("animation_finished", _on_animation_finished)

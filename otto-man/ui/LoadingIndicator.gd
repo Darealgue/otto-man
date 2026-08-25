@@ -26,8 +26,12 @@ var _custom_instance: Node = null
 
 func _ready() -> void:
 	custom_minimum_size = indicator_size
+	if sprite_frames == null:
+		sprite_frames = load("res://ui/loading_hourglass_frames.tres") as SpriteFrames
 	if texture == null:
-		texture = load("res://assets/ui/loading_hourglass.svg") as Texture2D
+		# TEXTURE moduna elle geçilirse diye duran yedek. Dikkat: klasörün gerçek adı "UI";
+		# küçük harfli yazım editörde çalışır ama export'ta çözülmez (CLAUDE.md).
+		texture = load("res://assets/UI/loading_hourglass.svg") as Texture2D
 	_refresh_visual()
 
 

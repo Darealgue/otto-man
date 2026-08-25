@@ -537,7 +537,8 @@ func on_enemy_killed(enemy: Node2D = null) -> void:
 func _on_xp_orb_collected() -> void:
 	xp_orbs_collected += 1
 	xp_orbs_collected_changed.emit(xp_orbs_collected)
-	if xp_orbs_collected % KILLS_PER_ITEM == 0 and not _item_selection_open:
+	# Eşiğe ulaşıldı mı? Sayaç kart seçimi kapanınca sıfırlandığı için modulo yerine >= .
+	if xp_orbs_collected >= KILLS_PER_ITEM and not _item_selection_open:
 		await get_tree().create_timer(0.15).timeout
 		show_item_selection()
 
@@ -591,6 +592,10 @@ func show_item_selection() -> void:
 
 func _on_item_selection_closed() -> void:
 	_item_selection_open = false
+	# Ödül alındı, sayaç sıfırdan başlasın. Eskiden sayaç toplam olarak artmaya devam ettiği
+	# için bar 10'da dolu kalıyor ve ancak 11. orb geldiğinde 1'e düşüyordu ("bir geriden").
+	xp_orbs_collected = 0
+	xp_orbs_collected_changed.emit(xp_orbs_collected)
 
 func get_random_items(count: int = 3) -> Array[PackedScene]:
 	var available_ids: Array[String] = []

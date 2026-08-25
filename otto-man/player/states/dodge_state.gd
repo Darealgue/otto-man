@@ -1,10 +1,32 @@
 extends "res://player/states/state.gd"
 
-const DODGE_SPEED := 800.0  # Daha yavaş hareket (Dash: 2500)
+const DODGE_SPEED := 620.0  # İleri atılma / havada uçuş hızı (Dash: 2500)
+# Takla fazının kendi ilerleme hızı. Takla SADECE yerdeyken oynadığı için bu değer
+# boşluk aşma menzilini etkilemez - o tamamen DODGE_SPEED'e bağlı. Yani yerdeki dodge
+# mesafesini buradan serbestçe ayarlayabilirsin.
+# Toplam mesafe (yerde, tuşsuz) = 0.20 * DODGE_SPEED + 0.25 * DODGE_ROLL_SPEED + çıkış kayması
+const DODGE_ROLL_SPEED := 850.0
 const DODGE_DURATION := 0.45  # Animasyon süresine eşit (0.45s)
 const DODGE_COOLDOWN := 0.0   # Cooldown kaldırıldı (stamina ile sınırlı)
 const DODGE_END_SPEED_MULTIPLIER := 0.4  # Dodge sonrası hız korunma
+# Animasyon fazları: dodge_start (kare 0-3) -> dodge_air (kare 9-12 loop) veya dodge_roll (kare 4-8).
+# Kare 4 iniş hareketinin başlangıcı olduğu için uçuş fazına değil taklaya ait.
+# Süreler eski tek parça "dodge" animasyonunun kare dağılımıyla birebir aynı (0.05'lik adımlar),
+# bu yüzden düz zeminde dodge bugünküyle aynı görünür ve aynı sürer.
+const DODGE_FLIGHT_START := 0.20  # Kare 3'ten sonrası: yerdeyse takla (kare 4-8), havadaysa uçuş loop'u (kare 9-12)
+const DODGE_ROLL_LENGTH := 0.25   # dodge_roll animasyonunun süresi (kare 4-8)
 const DEBUG_DODGE: bool = false
+
+# Animasyon fazı: 0 = start (kare 0-3), 1 = havada uçuş loop'u (kare 9-12), 2 = takla (kare 4-8)
+enum DodgePhase { START, AIR, ROLL }
+var _phase: int = DodgePhase.START
+var _jumped_during_dodge := false  # Zıplayarak dodge'dan çıkıldıysa takla/uçuş devri yapılmaz
+var _dodge_dir := 1.0  # enter()'da bir kez belirlenir; sprite.flip_h'a geri beslemeyi önler
+var _roll_time_left := 0.0  # Takla animasyonundan kalan süre (pencere bitse de tamamlanır)
+var _window_finished := false  # 0.45s pencere sonu işleri bir kez çalışsın
+var _roll_air_time := 0.0  # Takla uzatmasında zemin temasının koptuğu süre
+const ROLL_AIR_GRACE := 0.10  # Bu kadarlık kopma tolere edilir
+
 var dodge_timer := 0.0
 var cooldown_timer := 0.0
 var can_dodge := true
@@ -28,6 +50,14 @@ func enter():
 	
 	# Zıplama input'unu engelle
 	player.jump_input_blocked = true
+
+	# Animasyon fazını sıfırla ve olası eski uçuş devrini temizle
+	_phase = DodgePhase.START
+	_jumped_during_dodge = false
+	_roll_time_left = 0.0
+	_window_finished = false
+	_roll_air_time = 0.0
+	player.dodge_air_carry = false
 	
 	# Charges sistemi kaldırıldı - sadece stamina kontrolü
 	
@@ -70,15 +100,20 @@ func enter():
 		if not anim_player.is_connected("animation_finished", _on_animation_finished):
 			anim_player.connect("animation_finished", _on_animation_finished)
 		
-		# Check if dodge animation exists
-		if anim_player.has_animation("dodge"):
+		# Check if dodge animation exists (yeni 3 parçalı sistem, yoksa eski tek parçaya düş)
+		if anim_player.has_animation("dodge_start"):
+			anim_player.play("dodge_start")
+			_play_dash_sfx()
+			if DEBUG_DODGE:
+				print("[Dodge] Playing dodge_start animation - SUCCESS")
+		elif anim_player.has_animation("dodge"):
 			anim_player.play("dodge")
 			_play_dash_sfx()
 			if DEBUG_DODGE:
-				print("[Dodge] Playing dodge animation - SUCCESS")
+				print("[Dodge] Fallback: playing legacy 'dodge' animation")
 		else:
 			if DEBUG_DODGE:
-				print("[Dodge] ERROR: 'dodge' animation not found in AnimationPlayer!")
+				print("[Dodge] ERROR: 'dodge_start' animation not found in AnimationPlayer!")
 				print("[Dodge] Available animations: ", anim_player.get_animation_list())
 	else:
 		if DEBUG_DODGE:
@@ -86,6 +121,7 @@ func enter():
 	
 	# Set initial dodge velocity based on facing direction
 	var dodge_direction = -1 if player.sprite.flip_h else 1
+	_dodge_dir = float(dodge_direction)
 	player.velocity.x = DODGE_SPEED * dodge_direction
 	# Yer çekimi çalışmaya devam etsin (dash'ten farklı olarak)
 	# player.velocity.y = 0  # Bu satırı kaldırdık
@@ -110,7 +146,17 @@ func physics_update(delta: float):
 	# Zıplama kontrolü: İlk yarıda zıplama engellensin, son yarıda serbest olsun
 	var dodge_progress = 1.0 - (dodge_timer / DODGE_DURATION)  # 0.0 = başlangıç, 1.0 = bitiş
 	var can_jump_during_dodge = dodge_progress >= 0.5  # Son yarıda zıplama serbest
-	
+
+	# Animasyon fazı güncellemesi (sadece görsel - fizik/i-frame timeline'ına dokunmaz)
+	_update_animation_phase()
+
+	# Faza göre ileri itiş. Zıplayarak dodge'dan çıkıldıysa zıplamanın momentumuna karışma.
+	if not _jumped_during_dodge:
+		if _phase == DodgePhase.ROLL:
+			player.velocity.x = DODGE_ROLL_SPEED * _dodge_dir
+		else:
+			player.velocity.x = DODGE_SPEED * _dodge_dir
+
 	# Debug: Dodge state info
 	if DEBUG_DODGE:
 		print("[DODGE_DEBUG] Progress: ", dodge_progress, " Timer: ", dodge_timer, " is_on_floor: ", player.is_on_floor(), " velocity: ", player.velocity, " gravity_active: ", dodge_timer < (DODGE_DURATION - 0.1), " block_blocked_timer: ", player.block_input_blocked_timer)
@@ -136,6 +182,8 @@ func physics_update(delta: float):
 				print("[Dodge] Jump allowed in second half - progress: ", dodge_progress)
 			# Dodge'u iptal etmeden zıplama yap - dodge devam etsin
 			player.start_jump()
+			# Zıplandığı için havada uçuş loop'una geçilmesin, eski davranış korunsun
+			_jumped_during_dodge = true
 			# Dodge state'den çıkma, sadece zıplama yap
 			return
 		else:
@@ -153,29 +201,78 @@ func physics_update(delta: float):
 		# Dodge sırasında daha yumuşak gravity - normal gravity'nin %60'ı
 		player.velocity.y += player.gravity * 0.6 * delta
 	
+	if _phase == DodgePhase.ROLL and _roll_time_left > 0.0:
+		_roll_time_left -= delta
+
 	if dodge_timer <= 0:
-		# Emit signal for items
-		var end_pos = player.position
-		var dodge_dir = -1 if player.sprite.flip_h else 1
-		if player.has_signal("player_dodged"):
-			if DEBUG_DODGE:
-				print("[Dodge] Emitting player_dodged signal: dir=", dodge_dir, " start=", dodge_start_position, " end=", end_pos)
-			player.emit_signal("player_dodged", dodge_dir, dodge_start_position, end_pos)
+		# Pencere sonu işleri SADECE BİR KEZ: sinyal, hız kesme, çarpışma/i-frame geri alma.
+		# Takla animasyonu için state uzatılabildiğinden bu blok tekrar çalışmamalı.
+		var will_carry_flight: bool = false
+		if not _window_finished:
+			_window_finished = true
+			# Emit signal for items
+			var end_pos = player.position
+			var dodge_dir = -1 if player.sprite.flip_h else 1
+			if player.has_signal("player_dodged"):
+				if DEBUG_DODGE:
+					print("[Dodge] Emitting player_dodged signal: dir=", dodge_dir, " start=", dodge_start_position, " end=", end_pos)
+				player.emit_signal("player_dodged", dodge_dir, dodge_start_position, end_pos)
+			else:
+				if DEBUG_DODGE:
+					print("[Dodge] ❌ player_dodged signal yok!")
+
+			# Havada bitip uçuş Fall'a devredilecek mi? Öyleyse hızı burada tek karede kesme -
+			# 800'den 320'ye anlık düşüş yayı kırıyordu. Fall içinde sabit ivmeyle yavaşlıyor.
+			will_carry_flight = (not player.is_on_floor()) \
+				and _phase == DodgePhase.AIR and not _jumped_during_dodge
+
+			# Reduce speed when ending dodge to prevent excessive drift
+			if not will_carry_flight:
+				player.velocity.x *= DODGE_END_SPEED_MULTIPLIER
+			# Restore collision settings and end dodge
+			player.collision_mask = original_collision_mask
+			player.collision_layer = original_collision_layer
+			var hb = player.get_node_or_null("Hurtbox")
+			if hb:
+				hb.monitoring = true
+			# Dodge mekanik olarak burada bitti. Aşağıdaki takla uzatması sırasında tuzak
+			# bağışıklığı sürmesin diye bayrağı da şimdi düşürüyoruz.
+			player.is_dodging = false
 		else:
-			if DEBUG_DODGE:
-				print("[Dodge] ❌ player_dodged signal yok!")
-		
-		# Reduce speed when ending dodge to prevent excessive drift
-		player.velocity.x *= DODGE_END_SPEED_MULTIPLIER
-		# Restore collision settings and end dodge
-		player.collision_mask = original_collision_mask
-		player.collision_layer = original_collision_layer
-		
+			will_carry_flight = (not player.is_on_floor()) \
+				and _phase == DodgePhase.AIR and not _jumped_during_dodge
+
+		# Yerde ve takla hâlâ oynuyorsa animasyonun bitmesini bekle. 1 tile yükseklikten
+		# inişte yere pencere kapanmadan hemen önce değiliyor; eskiden takla burada
+		# kesilip doğrudan Idle/Run'a geçiliyordu.
+		if _phase == DodgePhase.ROLL and _roll_time_left > 0.0:
+			# Zemin teması bir iki kare kopabiliyor (tile dikişi, iniş sekmesi). Kısa bir
+			# tolerans tanımazsak takla o tek karede kesiliyor. Gerçekten uçurumdan
+			# yuvarlanırsak tolerans dolar ve normal düşüşe geçeriz.
+			if player.is_on_floor():
+				_roll_air_time = 0.0
+			else:
+				_roll_air_time += delta
+				player.velocity.y += player.gravity * delta
+			if _roll_air_time < ROLL_AIR_GRACE:
+				player.apply_move_and_slide()
+				return
+
 		# Transition to appropriate state based on player state
 		if player.is_on_floor():
 			if DEBUG_DODGE:
 				print("[Dodge] Transitioning to Idle state")
 			state_machine.transition_to("Idle")
+		elif will_carry_flight:
+			# Dodge penceresi bitti ama oyuncu hâlâ havada: mekanik olarak normal
+			# düşüşe geçiyoruz (tuzak bağışıklığı, hava kontrolü, i-frame'ler bugünkü
+			# gibi burada bitiyor), sadece uçuş animasyonu Fall içinde devam ediyor
+			# ve yere değince takla oynuyor.
+			player.dodge_air_carry = true
+			player.dodge_air_carry_dir = _dodge_dir
+			if DEBUG_DODGE:
+				print("[Dodge] Handing flight animation over to Fall state")
+			state_machine.transition_to("Fall")
 		else:
 			if DEBUG_DODGE:
 				print("[Dodge] Transitioning to Fall state")
@@ -238,11 +335,48 @@ func set_dodge_charges(charges: int) -> void:
 	print("[Dodge State] Set dodge charges: " + str(charges))
 
 func _on_animation_finished(anim_name: String):
-	if anim_name == "dodge":
+	# Not: bu sinyal bağlantısı state'ten çıkınca da açık kalıyor, bu yüzden burada
+	# state geçişi YAPMIYORUZ. Bütün geçişler physics_update'te dodge_timer ile sürüyor.
+	if anim_name == "dodge" or anim_name == "dodge_start" or anim_name == "dodge_roll":
 		if DEBUG_DODGE:
-			print("[Dodge] Animation finished, transitioning to appropriate state")
-		# Animation finished, but physics_update will handle the actual transition
-		# when dodge_timer reaches 0
+			print("[Dodge] Animation finished: ", anim_name)
+
+
+# Animasyonu üç faza böler: dodge_start (kare 0-3) -> dodge_air (kare 9-12 loop) ya da dodge_roll (kare 4-8).
+# Sadece hangi klibin oynadığına karar verir; yerçekimi, i-frame'ler, zıplama iptali ve
+# dodge_timer'a bağlı her şey bu fonksiyondan tamamen bağımsız çalışmaya devam eder.
+func _update_animation_phase() -> void:
+	var anim_player := player.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	if anim_player == null or not anim_player.has_animation("dodge_start"):
+		return  # Eski tek parçalı "dodge" klibi oynuyor, karışma
+
+	var elapsed: float = DODGE_DURATION - dodge_timer
+	if elapsed < DODGE_FLIGHT_START:
+		return
+
+	if _phase == DodgePhase.START:
+		# Düz zeminde (ve dodge'dan zıplandığında) bugünkü gibi doğrudan taklaya geç (kare 4'ten).
+		if player.is_on_floor() or _jumped_during_dodge:
+			_start_roll_animation(anim_player)
+		else:
+			_phase = DodgePhase.AIR
+			if anim_player.has_animation("dodge_air"):
+				anim_player.play("dodge_air")
+	elif _phase == DodgePhase.AIR and player.is_on_floor():
+		# Dodge penceresi kapanmadan yere inildi (küçük boşluk): taklayı hemen başlat.
+		_start_roll_animation(anim_player)
+
+
+func _start_roll_animation(anim_player: AnimationPlayer) -> void:
+	_phase = DodgePhase.ROLL
+	if not anim_player.has_animation("dodge_roll"):
+		return
+	# Takla her zaman normal hızında ve TAM oynar. Eskiden kalan pencereye sığdırmak için
+	# hızlandırılıyordu; 1 tile yükseklikten inişte yere ~0.43s'de değildiği için kalan 0.02s'ye
+	# sıkışıyor ve takla tek karede kesiliyordu. Artık pencere biterse state animasyon
+	# bitene kadar bekliyor (bkz. physics_update sonundaki uzatma).
+	_roll_time_left = DODGE_ROLL_LENGTH
+	anim_player.play("dodge_roll")
 
 
 func _do_hayalet_adim() -> void:

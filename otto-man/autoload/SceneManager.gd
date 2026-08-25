@@ -982,6 +982,44 @@ func _hide_loading_screen() -> void:
 	if is_instance_valid(_loading_screen_instance) and _loading_screen_instance.has_method("hide_loading"):
 		await _loading_screen_instance.hide_loading()
 
+const THREADED_LOAD_TIMEOUT_SEC: float = 30.0
+
+# Sahneyi ayrı bir thread'de yükler ve her karede durumu yoklar.
+# change_scene_to_file() / reload_current_scene() yüklemeyi ANA THREAD'de senkron yapıyor;
+# o sırada hiçbir kare çizilmediği için yükleme ekranındaki kum saati donuyordu.
+# Böylece yüklemenin ağır kısmı (doku, ses, alt sahneler) arka plana taşınır ve ekran
+# çizilmeye devam eder. Not: örnekleme hâlâ ana thread'de olur, orada kısa bir takılma kalır.
+# Başarısızlıkta null döner; çağıran taraf mevcut hata akışını kullanır.
+func _load_scene_threaded(path: String) -> PackedScene:
+	var req := ResourceLoader.load_threaded_request(path, "PackedScene")
+	if req != OK:
+		push_error("[SceneManager] load_threaded_request başarısız: %s (kod %d)" % [path, req])
+		return null
+
+	var progress: Array = []
+	var started_ms: int = Time.get_ticks_msec()
+	while true:
+		var status := ResourceLoader.load_threaded_get_status(path, progress)
+		if status == ResourceLoader.THREAD_LOAD_LOADED:
+			return ResourceLoader.load_threaded_get(path) as PackedScene
+		if status != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			push_error("[SceneManager] threaded yükleme başarısız: %s (durum %d)" % [path, status])
+			return null
+
+		# 25 zaten set edilmiş durumda; yüklemeyi 25-95 aralığına yay, 100'ü sahne hazır olunca ver
+		if is_instance_valid(_loading_screen_instance) and progress.size() > 0:
+			_loading_screen_instance.set_progress(25.0 + float(progress[0]) * 70.0)
+
+		var tree := get_tree()
+		if tree == null:
+			return null
+		await tree.process_frame
+		# Kare sayısı değil gerçek saat: yavaş makinede erken tetiklenmesin
+		if float(Time.get_ticks_msec() - started_ms) / 1000.0 > THREADED_LOAD_TIMEOUT_SEC:
+			push_error("[SceneManager] threaded yükleme zaman aşımı (%.0fs): %s" % [THREADED_LOAD_TIMEOUT_SEC, path])
+			return null
+	return null
+
 func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	# Allow the loading screen to render before heavy operations
 	await get_tree().process_frame
@@ -1002,7 +1040,17 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 		if is_instance_valid(_loading_screen_instance):
 			_loading_screen_instance.set_progress(25.0)
 		
-		var reload_err := get_tree().reload_current_scene()
+		# reload_current_scene() ana thread'i bloke ederdi; aynı dosyayı arka planda yükleyip
+		# hazır sahneye geçiyoruz (bu dalda target_path zaten mevcut sahnenin yolu).
+		var reload_packed := await _load_scene_threaded(target_path)
+		if reload_packed == null:
+			var load_error_msg = "Sahne yeniden yüklenemedi: %s" % target_path
+			push_error("SceneManager: %s" % load_error_msg)
+			await _hide_loading_screen()
+			_handle_scene_load_error(load_error_msg, target_path)
+			return
+
+		var reload_err := get_tree().change_scene_to_packed(reload_packed)
 		if reload_err != OK:
 			var error_msg = "Sahne yeniden yüklenemedi: %s\nHata kodu: %d" % [target_path, reload_err]
 			push_error("SceneManager: %s" % error_msg)
@@ -1034,8 +1082,17 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	# Reset time scale before scene change to prevent player state issues
 	Engine.time_scale = 1.0
 	
-	# Change scene
-	var err := get_tree().change_scene_to_file(target_path)
+	# Change scene - önce arka planda yükle, sonra hazır sahneye geç.
+	# change_scene_to_file() yüklemeyi ana thread'de yaptığı için yükleme ekranı donuyordu.
+	var packed := await _load_scene_threaded(target_path)
+	if packed == null:
+		var load_error_msg = "Sahne yüklenemedi: %s" % target_path
+		push_error("SceneManager: %s" % load_error_msg)
+		await _hide_loading_screen()
+		_handle_scene_load_error(load_error_msg, target_path)
+		return
+
+	var err := get_tree().change_scene_to_packed(packed)
 	if err != OK:
 		var error_msg = "Sahne yüklenemedi: %s\nHata kodu: %d" % [target_path, err]
 		push_error("SceneManager: %s" % error_msg)
