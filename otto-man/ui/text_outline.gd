@@ -5,8 +5,8 @@ extends RefCounted
 const FONT_COLOR := Color(0.92, 0.9, 0.85, 1)
 const FONT_COLOR_MUTED := Color(0.62, 0.6, 0.56, 1)
 const OUTLINE_COLOR := Color(0, 0, 0, 1)
-const OUTLINE_SIZE_LABEL := 3
-const OUTLINE_SIZE_RICH := 3
+const OUTLINE_SIZE_LABEL := 1
+const OUTLINE_SIZE_RICH := 1
 const GAME_FONT: FontFile = preload("res://assets/fonts/main_font.ttf")
 
 

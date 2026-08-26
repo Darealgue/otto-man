@@ -232,6 +232,50 @@ func get_active_profile_id() -> int:
 	return active_profile_id
 
 
+## Oyuncu daha önce hiç profil seçti mi? Açılıştaki profil kapısı bunu kullanıyor: bir kez
+## seçen oyuncuya bir daha sorulmaz, seçimini ana menüdeki "Profil değiştir" ile değiştirir.
+## LocaleManager.has_persisted_locale() ile aynı mantık.
+func has_persisted_profile() -> bool:
+	return FileAccess.file_exists(SAVE_ROOT + "active_profile.json")
+
+
+## Bir profildeki EN YENİ kayıt: otomatik kayıt ile manuel slotlar birlikte değerlendirilir.
+## Boş sözlük dönerse o profilde hiç kayıt yoktur ("Devam et" butonu gizlenir).
+## Dönen yapı: { "slot_id": int, "is_autosave": bool, "metadata": Dictionary }
+## save_date ISO benzeri sıralanabilir bir metin olduğu için düz metin karşılaştırması yeterli;
+## get_profile_summary() de en yeni kaydı aynı şekilde buluyor.
+func get_latest_save_entry(for_profile_id: int = -1) -> Dictionary:
+	var pid: int = active_profile_id if for_profile_id < 1 else for_profile_id
+	var best: Dictionary = {}
+	var best_date: String = ""
+
+	var auto_meta: Dictionary = get_autosave_metadata(pid)
+	if not auto_meta.is_empty():
+		best_date = str(auto_meta.get("save_date", ""))
+		best = {"slot_id": AUTOSAVE_UI_SLOT_ID, "is_autosave": true, "metadata": auto_meta}
+
+	for slot_id in range(1, MAX_SAVE_SLOTS + 1):
+		var meta: Dictionary = get_save_metadata(slot_id, pid)
+		if meta.is_empty():
+			continue
+		var sd: String = str(meta.get("save_date", ""))
+		if sd > best_date:
+			best_date = sd
+			best = {"slot_id": slot_id, "is_autosave": false, "metadata": meta}
+	return best
+
+
+## Ana menüdeki "Devam et": aktif profildeki en yeni kaydı yükler.
+## Hiç kayıt yoksa hiçbir şey yapmadan false döner.
+func continue_latest() -> bool:
+	var entry: Dictionary = get_latest_save_entry()
+	if entry.is_empty():
+		return false
+	if bool(entry.get("is_autosave", false)):
+		return load_autosave()
+	return load_game(int(entry.get("slot_id", 1)))
+
+
 func set_active_profile(profile_id: int) -> bool:
 	if profile_id < 1 or profile_id > PROFILE_COUNT:
 		push_error("[SaveManager] Geçersiz profil: %d" % profile_id)

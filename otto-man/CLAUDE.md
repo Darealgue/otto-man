@@ -13,10 +13,25 @@ Studio name: One Percent Games. Title "Rogue Harem" is LOCKED (trademark sanity 
 These do **not** block private test builds to a handful of people. They **do** block itch.io,
 Steam, or any store page.
 
-### 1. ~~FONT~~ — RESOLVED 2026-08-23
-`assets/fonts/main_font.ttf` is now **Pixelify Sans**, SIL Open Font License 1.1,
-`Copyright 2021 The Pixelify Sans Project Authors`, no Reserved Font Name (so the filename is
-fine). Full OFL text is in `THIRD_PARTY_LICENSES.txt` §9, as the OFL requires.
+### 1. ~~FONT~~ — RESOLVED 2026-08-23, font swapped again 2026-08-26
+`assets/fonts/main_font.ttf` is **Grenze** and `assets/fonts/title_font.ttf` is **Grenze
+Gotisch**, both by Omnibus-Type, both SIL Open Font License 1.1, neither with a Reserved Font
+Name (so renaming the files is fine — verified by reading both `OFL.txt` copyright lines). Full
+notices and OFL text are in `THIRD_PARTY_LICENSES.txt` §10, as the OFL requires.
+
+Both are **variable fonts** with a `wght` axis. Note that in Grenze the weight axis does **not**
+change advance widths — a heavier weight will not reflow text, and you cannot detect the axis
+with `get_string_size()`. Verify weight changes visually, not by measuring.
+
+These replaced **Pixelify Sans** (also OFL, legally fine) on 2026-08-26. It was dropped for
+legibility: it is a pixel face whose glyphs need ≥20px to render evenly, while ~265 of this
+project's font-size overrides sit at 10-14px, and its `5` reads as an `S`.
+
+**🔴 The import settings are font-class-specific — do not carry them over blindly.** A pixel font
+wants antialiasing off; a serif wants it on. Grenze needs
+`antialiasing=1` (Gray), `hinting=2` (Normal), `subpixel_positioning=1` (Auto) in
+`main_font.ttf.import`. With the pixel-font settings (all `0`) a serif is unreadable at small
+sizes and it looks like the font is at fault.
 
 The previous font was **"Fiery Turk", © 2008 Beycan Çetin, "All rights reserved"** — no
 redistribution or commercial rights. It has been **deleted from the project entirely**. Do not

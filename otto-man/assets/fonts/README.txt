@@ -1,5 +1,17 @@
-Please download a medieval font (e.g., Cinzel, MedievalSharp) and place it in this folder.
-Rename the font file to: main_font.ttf
+main_font.ttf  = Grenze              (govde, HUD, menu)
+title_font.ttf = Grenze Gotisch      (baslik icin, henuz hicbir yere baglanmadi)
 
-The game theme is configured to look for "res://assets/fonts/main_font.ttf".
-If this file is missing, the default font will be used (or you might see errors in the editor).
+Ikisi de Omnibus-Type, SIL Open Font License 1.1, Reserved Font Name yok.
+Tam telif metni ve lisans: THIRD_PARTY_LICENSES.txt bolum 10.
+
+Kaynak:
+  https://github.com/google/fonts/tree/main/ofl/grenze
+  https://github.com/google/fonts/tree/main/ofl/grenzegotisch
+
+Font degistirilirse main_font.ttf.import icindeki su ayarlar gozden gecirilmeli:
+  serif  icin -> antialiasing=1 (Gray), hinting=2 (Normal), subpixel_positioning=1 (Auto)
+  piksel icin -> antialiasing=0,        hinting=0,          subpixel_positioning=0
+Yanlis sinifin ayariyla font okunmaz hale gelir.
+
+Fontu tema atiyor: resources/medieval_theme.tres -> default_font.
+Tek tek kontrole font atamaya gerek yok.

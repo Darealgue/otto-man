@@ -9,6 +9,8 @@ const IMPACT_DURATION := 0.15
 const IMPACT_OFFSET := Vector2(0, 16)
 ## Hasar veren (hurtbox'a temas eden) fall attack sonrası tekrar fall attack bekleme süresi.
 const DAMAGE_FALL_ATTACK_COOLDOWN_SEC := 2.0
+## Güvenlik ağı: fall attack bu süreden uzun sürerse oyuncu zorla Fall state'ine döner.
+const MAX_FALL_ATTACK_DURATION := 3.0
 
 static var damage_fall_attack_cooldown_remaining := 0.0
 static var was_double_jumping := false
@@ -19,6 +21,7 @@ var impact_timer := 0.0
 var original_sprite_position := Vector2.ZERO
 var hitbox_enabled := false
 var _pogo_active := false  # Sekme Tabanlık: zemine değince otomatik tekrar zıplama
+var state_timer := 0.0  # Fall attack state'inde geçen toplam süre
 
 static func is_on_cooldown() -> bool:
 	if was_double_jumping:
@@ -36,6 +39,7 @@ static func set_was_double_jumping(value: bool) -> void:
 	was_double_jumping = value
 
 func enter():
+	state_timer = 0.0
 	if not player.can_use_fall_attack():
 		state_machine.transition_to("Fall")
 		return
@@ -133,6 +137,12 @@ func start_impact():
 	animation_player.play("landing")
 
 func physics_update(delta: float):
+	# Güvenlik ağı: fall attack takılıp kalırsa oyuncuyu normal düşüşe döndür.
+	state_timer += delta
+	if state_timer >= MAX_FALL_ATTACK_DURATION:
+		state_machine.transition_to("Fall")
+		return
+
 	# Keep fall attack velocity constant unless impacting or pogo-bouncing (Sekme Tabanlık)
 	if _pogo_active:
 		player.velocity.y += player.gravity * delta

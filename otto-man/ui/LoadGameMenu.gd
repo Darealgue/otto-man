@@ -6,19 +6,22 @@ signal slot_selected(slot_id: int)
 signal delete_requested(slot_id: int)
 signal back_requested()
 
-@onready var slots_container: VBoxContainer = $Panel/VBoxContainer/SlotsContainer
-@onready var title_label: Label = $Panel/VBoxContainer/Title
-@onready var back_button: Button = $Panel/VBoxContainer/BackButton
-@onready var status_label: Label = $Panel/VBoxContainer/StatusLabel
+@onready var slots_container: VBoxContainer = $Panel/Margin/VBoxContainer/SlotsContainer
+@onready var title_label: Label = $Panel/Margin/VBoxContainer/Title
+@onready var back_button: Button = $Panel/Margin/VBoxContainer/BackButton
+@onready var status_label: Label = $Panel/Margin/VBoxContainer/StatusLabel
 @onready var confirm_dialog: Control = $ConfirmDialog
 
 const MAX_SLOTS: int = 5
+const SaveSlotRow = preload("res://ui/save_slot_row.gd")
 var _pending_delete_slot: int = -1
 var slot_buttons: Array[Button] = []
 var slot_labels: Array[Label] = []
 var _delete_buttons: Array[Button] = []
 var _autosave_label: Label = null
 var _autosave_load_button: Button = null
+var _autosave_row = null
+var _slot_rows: Array = []
 
 
 func _ready() -> void:
@@ -51,55 +54,41 @@ func _create_slot_ui() -> void:
 	slot_buttons.clear()
 	slot_labels.clear()
 	_delete_buttons.clear()
+	_slot_rows.clear()
 
-	var auto_row := HBoxContainer.new()
-	auto_row.name = "AutosaveRow"
-	_autosave_label = Label.new()
-	_autosave_label.name = "AutosaveLabel"
-	_autosave_label.text = tr("autosave.label_none")
-	_autosave_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_autosave_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_autosave_load_button = Button.new()
+	# Otomatik kayıt satırı: Sil butonu yok, yerini görünmez dolgu koruyor ki Yükle
+	# butonu alttaki satırlarla aynı sütunda kalsın.
+	_autosave_row = SaveSlotRow.new()
+	_autosave_row.name = "AutosaveRow"
+	_autosave_row.hide_secondary_button()
+	_autosave_load_button = _autosave_row.primary_button
 	_autosave_load_button.name = "AutosaveLoadButton"
 	_autosave_load_button.text = tr("slot.load_button")
 	_autosave_load_button.pressed.connect(_on_slot_load_pressed.bind(SaveManager.AUTOSAVE_UI_SLOT_ID))
-	var delete_spacer := Control.new()
-	delete_spacer.custom_minimum_size = Vector2(72, 10)
-	auto_row.add_child(_autosave_label)
-	auto_row.add_child(_autosave_load_button)
-	auto_row.add_child(delete_spacer)
-	slots_container.add_child(auto_row)
+	_autosave_label = _autosave_row.sub_label
+	slots_container.add_child(_autosave_row)
 
 	for i in range(MAX_SLOTS):
 		var slot_id = i + 1
 
-		var slot_container = HBoxContainer.new()
-		slot_container.name = "Slot%dContainer" % slot_id
+		var row := SaveSlotRow.new()
+		row.name = "Slot%dRow" % slot_id
 
-		var label = Label.new()
-		label.name = "Slot%dLabel" % slot_id
-		label.text = tr("slot.empty") % slot_id
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-		var load_button = Button.new()
+		var load_button := row.primary_button
 		load_button.name = "Slot%dLoadButton" % slot_id
 		load_button.text = tr("slot.load_button")
 		load_button.pressed.connect(_on_slot_load_pressed.bind(slot_id))
 
-		var delete_button = Button.new()
+		var delete_button := row.secondary_button
 		delete_button.name = "Slot%dDeleteButton" % slot_id
 		delete_button.text = tr("slot.delete_button")
 		delete_button.pressed.connect(_on_slot_delete_pressed.bind(slot_id))
 
-		slot_container.add_child(label)
-		slot_container.add_child(load_button)
-		slot_container.add_child(delete_button)
+		slots_container.add_child(row)
 
-		slots_container.add_child(slot_container)
-
+		_slot_rows.append(row)
 		slot_buttons.append(load_button)
-		slot_labels.append(label)
+		slot_labels.append(row.sub_label)
 		_delete_buttons.append(delete_button)
 
 
@@ -126,45 +115,49 @@ func _refresh_slots() -> void:
 
 	for i in range(MAX_SLOTS):
 		var slot_id = i + 1
+		var row = _slot_rows[i]
 		var validation = SaveManager.validate_save_file(slot_id)
-		var label = slot_labels[i]
 		var load_button = slot_buttons[i]
+		var delete_button: Button = _delete_buttons[i]
+		var slot_title: String = tr("slot.title") % slot_id
 
 		if not validation["valid"]:
 			var metadata = SaveManager.get_save_metadata(slot_id)
-			if metadata.is_empty():
-				label.text = tr("slot.empty") % slot_id
-			else:
-				label.text = tr("slot.invalid") % slot_id
+			var is_broken: bool = not metadata.is_empty()
+			row.set_placeholder(
+				slot_title,
+				tr("slot.state_invalid") if is_broken else tr("slot.state_empty"),
+				is_broken
+			)
 			load_button.disabled = true
+			delete_button.disabled = not is_broken
 		else:
 			var metadata = validation["metadata"]
-			var save_date = metadata.get("save_date", "")
-			var playtime = metadata.get("playtime_seconds", 0)
-			var scene = metadata.get("scene", "")
-			var scene_name = LocaleManager.get_scene_display_name(scene)
-			var playtime_str = LocaleManager.format_playtime_slot(playtime)
-			label.text = tr("slot.info") % [slot_id, save_date, scene_name, playtime_str]
+			var playtime_str = LocaleManager.format_playtime_slot(int(metadata.get("playtime_seconds", 0)))
+			row.set_filled(
+				slot_title,
+				playtime_str + SaveSlotRow.location_suffix(str(metadata.get("scene", ""))),
+				LocaleManager.format_save_date(str(metadata.get("save_date", "")))
+			)
 			load_button.disabled = false
+			delete_button.disabled = false
 
 
 func _refresh_autosave_slot() -> void:
-	if _autosave_label == null or _autosave_load_button == null:
+	if _autosave_row == null or _autosave_load_button == null:
 		return
 	var validation: Dictionary = SaveManager.validate_autosave_file()
 	if not validation["valid"]:
-		_autosave_label.text = tr("autosave.label_none")
+		_autosave_row.set_placeholder(tr("autosave.title"), tr("autosave.state_none"))
 		_autosave_load_button.disabled = true
 		return
 	var metadata: Dictionary = validation["metadata"]
-	var save_date: String = str(metadata.get("save_date", ""))
-	var playtime: int = int(metadata.get("playtime_seconds", 0))
-	var scene: String = str(metadata.get("scene", ""))
-	var scene_name: String = LocaleManager.get_scene_display_name(scene)
-	var playtime_str: String = LocaleManager.format_playtime_slot(playtime)
-	var reason: String = str(metadata.get("autosave_reason", ""))
-	var reason_suffix: String = (" | " + reason) if not reason.is_empty() else ""
-	_autosave_label.text = tr("autosave.label_info") % [save_date, scene_name, playtime_str, reason_suffix]
+	var playtime_str: String = LocaleManager.format_playtime_slot(int(metadata.get("playtime_seconds", 0)))
+	_autosave_row.set_filled(
+		tr("autosave.title"),
+		playtime_str + SaveSlotRow.location_suffix(str(metadata.get("scene", ""))),
+		LocaleManager.format_save_date(str(metadata.get("save_date", "")))
+	)
 	_autosave_load_button.disabled = false
 
 

@@ -58,6 +58,35 @@ func get_scene_display_name(scene_path: String) -> String:
 	return tr("scene.unknown")
 
 
+## Kayıt tarihini okunabilir hale getirir. SaveManager tarihi yerel saatle
+## "2026-07-12T16:56:00" biçiminde yazıyor; bu ham haliyle bir bakışta okunmuyor.
+## Bugün ve dün özel olarak adlandırılır, eskiler "12 Tem 2026 · 16:56" olur.
+func format_save_date(iso_date: String) -> String:
+	var raw := iso_date.strip_edges()
+	if raw.is_empty():
+		return tr("date.unknown")
+	var dt: Dictionary = Time.get_datetime_dict_from_datetime_string(raw, false)
+	if dt.is_empty() or not dt.has("year"):
+		return raw
+	var clock: String = "%02d:%02d" % [int(dt.get("hour", 0)), int(dt.get("minute", 0))]
+
+	# Gün farkı: iki tarih de aynı şekilde yorumlandığı için fark tutarlı çıkar.
+	var now: Dictionary = Time.get_datetime_dict_from_system()
+	var midnight := "%04d-%02d-%02dT00:00:00" % [int(now.get("year", 0)), int(now.get("month", 1)), int(now.get("day", 1))]
+	var saved_unix: int = int(Time.get_unix_time_from_datetime_string(raw))
+	var today_unix: int = int(Time.get_unix_time_from_datetime_string(midnight))
+	var day_diff: int = int(floor(float(saved_unix - today_unix) / 86400.0))
+	if day_diff == 0:
+		return tr("date.today") % clock
+	if day_diff == -1:
+		return tr("date.yesterday") % clock
+
+	var months: PackedStringArray = tr("date.months_short").split("|")
+	var month_index: int = clampi(int(dt.get("month", 1)) - 1, 0, 11)
+	var month_name: String = months[month_index] if months.size() == 12 else str(int(dt.get("month", 1)))
+	return tr("date.full") % [int(dt.get("day", 1)), month_name, int(dt.get("year", 0)), clock]
+
+
 func format_playtime_profile(seconds: int) -> String:
 	var hours: int = seconds / 3600
 	var minutes: int = (seconds % 3600) / 60
@@ -68,12 +97,11 @@ func format_playtime_profile(seconds: int) -> String:
 	return tr("time.profile_seconds") % maxi(1, seconds)
 
 
+## Kayıt satırlarındaki oynanış süresi. Eskiden "time.slot_hours" ile "18:48 h" gibi
+## yazılıyordu; yanındaki kayıt saatiyle karışıyordu. Artık profil ekranıyla aynı
+## "18 sa 48 dk" biçimi kullanılıyor, süre ile saat birbirine benzemiyor.
 func format_playtime_slot(seconds: int) -> String:
-	var hours: int = seconds / 3600
-	var minutes: int = (seconds % 3600) / 60
-	if hours > 0:
-		return tr("time.slot_hours") % [hours, minutes]
-	return tr("time.slot_minutes") % minutes
+	return format_playtime_profile(seconds)
 
 
 const BUILDING_SCENE_KEYS := {

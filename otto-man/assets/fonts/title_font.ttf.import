@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://cgpcxt1dhpha"
-path="res://.godot/imported/main_font.ttf-36d79ba454878c9b3ab34b1c4d76239a.fontdata"
+uid="uid://bcynnf3l5bucn"
+path="res://.godot/imported/title_font.ttf-19ff4009fd8857dee3fd8cb8ff4483bf.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/main_font.ttf"
-dest_files=["res://.godot/imported/main_font.ttf-36d79ba454878c9b3ab34b1c4d76239a.fontdata"]
+source_file="res://assets/fonts/title_font.ttf"
+dest_files=["res://.godot/imported/title_font.ttf-19ff4009fd8857dee3fd8cb8ff4483bf.fontdata"]
 
 [params]
 
@@ -21,7 +21,7 @@ msdf_pixel_range=8
 msdf_size=48
 allow_system_fallback=true
 force_autohinter=false
-hinting=2
+hinting=1
 subpixel_positioning=1
 oversampling=0.0
 Fallbacks=null

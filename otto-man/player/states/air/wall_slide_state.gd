@@ -128,9 +128,8 @@ func physics_update(delta: float):
 	if !player:
 		return
 	
-	# Update cooldown timer
-	update_cooldown(delta)
-	
+	# Cooldown timer artık player.gd _physics_process içinde merkezi olarak işliyor.
+
 	# Track wall collision
 	var is_on_wall = player.is_on_wall()
 	var wall_normal = player.get_wall_normal()

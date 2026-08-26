@@ -145,7 +145,10 @@ func enter():
 		if not used_counter and player.is_on_floor():
 			var up_strength = Input.get_action_strength("up")
 			var down_strength = Input.get_action_strength("down")
-			var is_crouching = state_machine.current_state.name == "Crouch"
+			# NOT: current_state bu noktada zaten Attack'e set edilmiş oluyor
+			# (state_machine.transition_to önce current_state'i değiştirip sonra enter() çağırıyor),
+			# yani "current_state.name == Crouch" her zaman false dönüyordu. entered_from_crouch doğru bilgi.
+			var is_crouching = entered_from_crouch
 			
 			# Check if player is forced to crouch due to ceiling
 			var is_forced_to_crouch = _is_player_forced_to_crouch()
@@ -253,6 +256,12 @@ func exit():
 	
 	# Reset animation speed
 	animation_player.speed_scale = 1.0
+
+	# Crouch'tan gelen saldırıda kapsül küçültülmüştü; burada geri büyütülmezse
+	# oyuncu ayağa kalkıp koşarken collision box küçük kalıyordu.
+	# Crouch'a dönülüyorsa Crouch.enter() şekli yeniden uyguluyor, sorun olmaz.
+	if entered_from_crouch:
+		_restore_standing_collision_if_possible()
 
 func update(delta: float):
 	# Skip all processing if game is paused
@@ -750,6 +759,17 @@ func _maintain_crouch_collision():
 	var crouch_state = state_machine.get_node_or_null("Crouch")
 	if crouch_state and crouch_state.has_method("apply_crouch_shape_now"):
 		crouch_state.apply_crouch_shape_now()
+
+# Ayakta kapsülü geri yükle. Tavan hala engelliyorsa dokunma; o durumda kapsülün
+# küçük kalması doğru, yoksa oyuncu tavanın içine gömülür.
+func _restore_standing_collision_if_possible() -> void:
+	if !player:
+		return
+	if _is_player_forced_to_crouch():
+		return
+	var crouch_state = state_machine.get_node_or_null("Crouch")
+	if crouch_state and crouch_state.has_method("restore_standing_shape_now"):
+		crouch_state.restore_standing_shape_now()
 
 # Helper function to check if player is forced to crouch due to ceiling
 func _is_player_forced_to_crouch() -> bool:

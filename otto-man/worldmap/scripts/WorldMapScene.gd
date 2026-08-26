@@ -18,6 +18,13 @@ const ZOOM_FARTHEST: float = 0.6
 const ZOOM_CLOSEST: float = 1.6
 const CURSOR_TOP_HALF_WIDTH: float = 30.0
 const CURSOR_TOP_HALF_HEIGHT: float = 12.0
+## Rota önizlemesindeki noktalar. Komşu hex merkezleri arası mesafe yatayda 48, çaprazda
+## 40 piksel; 17 piksellik aralık karo başına 2-3 nokta veriyor.
+const PATH_DOT_SPACING: float = 17.0
+const PATH_DOT_RADIUS: float = 2.6
+const PATH_DOT_RADIUS_END: float = 4.0
+const PATH_DOT_COLOR := Color(1.0, 1.0, 1.0, 0.95)
+const PATH_DOT_OUTLINE_COLOR := Color(0.05, 0.05, 0.08, 0.55)
 const CURSOR_HOLD_DELAY_SEC: float = 0.38
 const CURSOR_REPEAT_INTERVAL_SEC: float = 0.075
 const CAMERA_FOLLOW_SNAP_DISTANCE: float = 900.0
@@ -171,6 +178,26 @@ var _travel_anim_active: bool = false
 var _travel_anim_path: Array = []
 var _travel_anim_dest_index: int = 1
 var _travel_anim_t: float = 0.0
+
+# --- Oyuncu piyonu (pokemon tarzi mini karakter) ---------------------------------------------
+## Dort yon icin ayri sayfa, her biri 448x32 = 14 kare x 32x32.
+const PAWN_SHEETS := {
+	"down": "res://assets/player/mini/ottovil_walkborder.png",
+	"up": "res://assets/player/mini/ottovil_walk_backborder.png",
+	"left": "res://assets/player/mini/ottovil_walk_leftborder.png",
+	"right": "res://assets/player/mini/ottovil_walk_rightborder.png",
+}
+const PAWN_FRAME_SIZE: int = 32
+const PAWN_FRAME_COUNT: int = 14
+const PAWN_FPS: float = 12.0
+## Sprite ortadan hizali; ayaklarin karo yuzeyine basmasi icin yukari kaydiriyoruz.
+const PAWN_Y_OFFSET: float = -12.0
+## Harita tamamen _draw() ile ciziliyor, piyon ise gercek bir dugum: cocuk oldugu icin
+## zaten ustte kaliyor, z_index sadece guvence.
+const PAWN_Z_INDEX: int = 50
+
+var _player_pawn: AnimatedSprite2D = null
+var _pawn_facing: String = "down"
 var _hud_force_timer: float = 0.0
 
 func _invalidate_world_map_state_cache() -> void:
@@ -226,6 +253,7 @@ func _ready() -> void:
 	if _status_label:
 		_status_label.visible = SHOW_WORLD_MAP_STATUS_TEXT
 	_load_terrain_textures()
+	_setup_player_pawn()
 	if _world_manager and _world_manager.has_method("get_world_map_state"):
 		_invalidate_world_map_state_cache()
 		var state: Dictionary = _get_world_map_state_cached()
@@ -642,6 +670,7 @@ func _process(delta: float) -> void:
 		if _expedition_pack_modal != null and _expedition_pack_modal.visible:
 			_update_expedition_pack_left_right_repeat(delta)
 		_update_cursor_key_navigation(delta)
+	_update_player_pawn()
 	_update_camera_follow(delta)
 	if _tutorial_marker_active:
 		var _tm := get_node_or_null("/root/TutorialManager")
@@ -728,8 +757,9 @@ func _draw() -> void:
 	_draw_active_unit_markers()
 	_draw_mission_objective_markers()
 	_draw_path_preview()
+	# Oyuncunun kendisi artik PlayerPawn (AnimatedSprite2D) olarak ciziliyor; buradaki
+	# turkuaz daire onun yerini tutuyordu, kaldirildi. Konum hesabi yuk ikonu icin duruyor.
 	var player_center: Vector2 = _get_player_visual_pixel_pos()
-	draw_circle(player_center, 7.0, Color(0.15, 0.95, 0.95, 1.0))
 	if _get_has_unsecured_cargo_cached():
 		_draw_unsecured_cargo_icon(player_center + Vector2(14.0, -18.0))
 	if _tutorial_marker_active:
@@ -924,6 +954,88 @@ func _confirm_move_to_cursor() -> void:
 		_show_high_risk_move_dialog()
 		return
 	_execute_travel_to_cursor()
+
+## Dort yon sayfasindan SpriteFrames uretir ve piyonu sahneye ekler.
+func _setup_player_pawn() -> void:
+	if _player_pawn != null:
+		return
+	var frames := SpriteFrames.new()
+	frames.remove_animation("default")
+	for dir_name in PAWN_SHEETS.keys():
+		var path: String = String(PAWN_SHEETS[dir_name])
+		var sheet: Texture2D = load(path) as Texture2D
+		if sheet == null:
+			push_warning("[WorldMap] Piyon sayfasi yuklenemedi: %s" % path)
+			continue
+		var anim := StringName("walk_%s" % dir_name)
+		frames.add_animation(anim)
+		frames.set_animation_speed(anim, PAWN_FPS)
+		frames.set_animation_loop(anim, true)
+		for i in range(PAWN_FRAME_COUNT):
+			var at := AtlasTexture.new()
+			at.atlas = sheet
+			at.region = Rect2(i * PAWN_FRAME_SIZE, 0, PAWN_FRAME_SIZE, PAWN_FRAME_SIZE)
+			frames.add_frame(anim, at)
+	if frames.get_animation_names().is_empty():
+		push_warning("[WorldMap] Piyon icin hicbir animasyon uretilemedi")
+		return
+
+	_player_pawn = AnimatedSprite2D.new()
+	_player_pawn.name = "PlayerPawn"
+	_player_pawn.sprite_frames = frames
+	_player_pawn.z_index = PAWN_Z_INDEX
+	_player_pawn.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_player_pawn.animation = &"walk_down"
+	add_child(_player_pawn)
+	_update_player_pawn(true)
+
+
+## Her karede piyonun yerini, baktigi yonu ve yuruyup yurumedigini gunceller.
+func _update_player_pawn(force_idle: bool = false) -> void:
+	if _player_pawn == null:
+		return
+	_player_pawn.position = _get_player_visual_pixel_pos() + Vector2(0.0, PAWN_Y_OFFSET)
+
+	var moving: bool = _travel_anim_active and not force_idle
+	if moving:
+		var step: Vector2 = _current_travel_step_direction()
+		if step != Vector2.ZERO:
+			_pawn_facing = _facing_from_delta(step)
+
+	var anim := StringName("walk_%s" % _pawn_facing)
+	if not _player_pawn.sprite_frames.has_animation(anim):
+		anim = &"walk_down"
+	if _player_pawn.animation != anim:
+		_player_pawn.animation = anim
+	if moving:
+		if not _player_pawn.is_playing():
+			_player_pawn.play()
+	else:
+		# Duruyorken yuruyus dongusu donmesin; son yonun ilk karesinde beklesin.
+		if _player_pawn.is_playing():
+			_player_pawn.stop()
+		_player_pawn.frame = 0
+
+
+## Su an yurunen ara adimin piksel yonu. Yolculuk animasyonu yoksa sifir.
+func _current_travel_step_direction() -> Vector2:
+	if not _travel_anim_active or _travel_anim_path.size() < 2:
+		return Vector2.ZERO
+	var di: int = int(clampf(float(_travel_anim_dest_index), 1.0, float(_travel_anim_path.size() - 1)))
+	var from_n: Dictionary = _travel_anim_path[di - 1]
+	var to_n: Dictionary = _travel_anim_path[di]
+	var a: Vector2 = _axial_to_pixel(int(from_n.get("q", 0)), int(from_n.get("r", 0)))
+	var b: Vector2 = _axial_to_pixel(int(to_n.get("q", 0)), int(to_n.get("r", 0)))
+	return b - a
+
+
+## Hex komsuluklarinda saf yatay hareket dogu/bati, geri kalan dort capraz ise
+## agirlikli olarak dikey (|dy| > |dx|). Bu esikle dort sprite'in dordu de kullaniliyor.
+func _facing_from_delta(delta_px: Vector2) -> String:
+	if absf(delta_px.y) > absf(delta_px.x):
+		return "up" if delta_px.y < 0.0 else "down"
+	return "left" if delta_px.x < 0.0 else "right"
+
 
 func _get_player_visual_pixel_pos() -> Vector2:
 	if _travel_anim_active and _travel_anim_path.size() >= 2:
@@ -2691,7 +2803,36 @@ func _draw_path_preview() -> void:
 			var q: int = int(node.get("q", 0))
 			var r: int = int(node.get("r", 0))
 			points.append(_axial_to_pixel(q, r))
-	draw_polyline(points, _get_preview_risk_color(), 3.5, false)
+	_draw_dotted_path(points)
+
+
+## Rota önizlemesi düz çizgi yerine eşit aralıklı noktalarla çiziliyor. Noktalar yol boyunca
+## yay uzunluğuna göre yerleştiriliyor, köşe düğümlerine göre değil; böylece aralık yolun
+## kıvrımlarından bağımsız olarak sabit kalıyor.
+func _draw_dotted_path(points: PackedVector2Array) -> void:
+	if points.size() < 2:
+		return
+	var carry: float = PATH_DOT_SPACING * 0.5  # ilk nokta oyuncunun tam üstüne gelmesin
+	for i in range(points.size() - 1):
+		var a: Vector2 = points[i]
+		var b: Vector2 = points[i + 1]
+		var seg: float = a.distance_to(b)
+		if seg <= 0.001:
+			continue
+		var dir: Vector2 = (b - a) / seg
+		var travelled: float = PATH_DOT_SPACING - carry
+		while travelled <= seg:
+			_draw_path_dot(a + dir * travelled)
+			travelled += PATH_DOT_SPACING
+		carry = fmod(carry + seg, PATH_DOT_SPACING)
+	# Hedef her zaman işaretlensin: son nokta biraz daha büyük.
+	_draw_path_dot(points[points.size() - 1], PATH_DOT_RADIUS_END)
+
+
+func _draw_path_dot(at: Vector2, radius: float = PATH_DOT_RADIUS) -> void:
+	# Açık arazide (kum, çayır) beyaz nokta kaybolmasın diye ince koyu bir taban.
+	draw_circle(at, radius + 1.0, PATH_DOT_OUTLINE_COLOR)
+	draw_circle(at, radius, PATH_DOT_COLOR)
 
 func _get_preview_risk_color() -> Color:
 	match _preview_risk_label:

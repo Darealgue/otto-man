@@ -5,6 +5,9 @@ const _DISABLE_BATTLE_STORY_LLM := false
 
 # --- Feature Flags ---
 @export var dynamic_world_enabled: bool = true
+# Harita yolculugundaki rasgele karsilasma (zar) eventleri henuz tamamlanmadigi icin gecici olarak kapali.
+# Sistem yerinde duruyor, sadece tetiklenmiyor. Gelistirme bitince true yapmak yeterli.
+const WORLD_TRAVEL_EVENTS_ENABLED: bool = false
 
 # --- Signals ---
 signal world_event_started(event: Dictionary)
@@ -971,6 +974,8 @@ func _get_world_tile_travel_cost(tile: Dictionary, route_mode: String) -> float:
 	return base_cost
 
 func _should_trigger_world_travel_event(tile: Dictionary, rng: RandomNumberGenerator) -> bool:
+	if not WORLD_TRAVEL_EVENTS_ENABLED:
+		return false
 	var terrain: String = String(tile.get("terrain_type", "ova"))
 	var chance: float = 0.045
 	match terrain:

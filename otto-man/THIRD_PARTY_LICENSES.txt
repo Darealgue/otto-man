@@ -357,26 +357,41 @@ loose, reusable files, which is ordinary use rather than redistribution.
 
 
 ----------------------------------------------------------------------------
-10. FONT — Pixelify Sans  (SIL Open Font License 1.1)
+10. FONTS — Grenze and Grenze Gotisch  (SIL Open Font License 1.1)
 ----------------------------------------------------------------------------
-The game's UI font, shipped as assets/fonts/main_font.ttf, is Pixelify Sans.
+The game's UI font, shipped as assets/fonts/main_font.ttf, is Grenze. The
+display font for titles, shipped as assets/fonts/title_font.ttf, is Grenze
+Gotisch. Both are by Omnibus-Type and both are variable fonts with a weight
+axis.
 
-    Copyright 2021 The Pixelify Sans Project Authors
-    (https://github.com/eifetx/Pixelify-Sans)
+    Copyright 2019, The Grenze Project Authors
+    (https://github.com/Omnibus-Type/Grenze)
 
-No Reserved Font Name is declared for this font, so renaming the file for use
-in this project is permitted. The OFL requires that the copyright notice above
-and the full license text below accompany the font wherever it is distributed,
-which is why both are reproduced here in full.
+    Copyright 2020 The Grenze Gotisch Project Authors
+    (https://github.com/Omnibus-Type/Grenze-Gotisch)
+
+Neither declares a Reserved Font Name, so renaming the files for use in this
+project is permitted. Verified 2026-08-26 by reading both OFL.txt files: the
+only occurrence of the phrase "Reserved Font Name" is in the license's own
+definitions section, not appended to either copyright line. The OFL requires
+that the copyright notices above and the full license text below accompany the
+fonts wherever they are distributed, which is why both are reproduced here.
 
 Obtained from the official Google Fonts repository:
-https://github.com/google/fonts/tree/main/ofl/pixelifysans
+https://github.com/google/fonts/tree/main/ofl/grenze
+https://github.com/google/fonts/tree/main/ofl/grenzegotisch
 
-HISTORY: this replaced a font previously shipped as main_font.ttf which was
-identified on 2026-08-23 from its own embedded metadata as "Fiery Turk",
-Copyright (c) 2008 Beycan Çetin, marked "All rights reserved" and claiming a
-trademark. That font granted no redistribution or commercial rights and was
-removed for that reason. Do not reintroduce it.
+HISTORY 1: these replaced Pixelify Sans (Copyright 2021 The Pixelify Sans
+Project Authors, OFL 1.1, https://github.com/eifetx/Pixelify-Sans), which
+shipped as main_font.ttf until 2026-08-26. That font carried no legal problem;
+it was replaced because it was unreadable at the small sizes this project's UI
+uses and because its "5" glyph reads as an "S".
+
+HISTORY 2: Pixelify Sans had itself replaced a font identified on 2026-08-23
+from its own embedded metadata as "Fiery Turk", Copyright (c) 2008 Beycan
+Çetin, marked "All rights reserved" and claiming a trademark. That font granted
+no redistribution or commercial rights and was removed for that reason. Do not
+reintroduce it.
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007

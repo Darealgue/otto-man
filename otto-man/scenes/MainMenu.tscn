@@ -88,6 +88,12 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_constants/separation = 12
 
+[node name="ContinueButton" type="Button" parent="CenterContainer/Menu/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Devam Et"
+
 [node name="NewGameButton" type="Button" parent="CenterContainer/Menu/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -99,6 +105,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
 text = "Oyunu Yükle"
+
+[node name="ChangeProfileButton" type="Button" parent="CenterContainer/Menu/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+text = "Profil Değiştir"
 
 [node name="SettingsButton" type="Button" parent="CenterContainer/Menu/Buttons"]
 layout_mode = 2

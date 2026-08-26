@@ -5,7 +5,9 @@ class_name ProfileSelectMenu
 signal profile_chosen(profile_id: int)
 signal back_requested
 
-enum MenuIntent { NEW_GAME, LOAD }
+## SELECT = açılıştaki profil kapısı ve ana menüdeki "Profil değiştir". Yeni oyun/yükleme
+## niyeti taşımaz, sadece hangi profille oynanacağını belirler.
+enum MenuIntent { NEW_GAME, LOAD, SELECT }
 
 const CARD_COUNT: int = 3
 const _ConfirmDialogScene := preload("res://ui/ConfirmDialog.tscn")
@@ -33,11 +35,14 @@ func _ready() -> void:
 	_refresh_locale()
 
 
-func show_menu(intent: MenuIntent) -> void:
+## allow_back = false: açılıştaki profil kapısında geri dönülecek bir yer yok, buton gizlenir.
+func show_menu(intent: MenuIntent, allow_back: bool = true) -> void:
 	_intent = intent
 	_set_status("")
 	_refresh_header()
 	_refresh_card_texts()
+	if _back_button:
+		_back_button.visible = allow_back
 	visible = true
 	set_process_mode(Node.PROCESS_MODE_ALWAYS)
 	call_deferred("_focus_first_select_button")
@@ -87,6 +92,9 @@ func _refresh_header() -> void:
 		MenuIntent.LOAD:
 			_title.text = tr("profile.load_title")
 			_sub.text = tr("profile.load_sub")
+		MenuIntent.SELECT:
+			_title.text = tr("profile.select_title")
+			_sub.text = tr("profile.select_sub")
 
 
 func _refresh_locale(_locale: String = "") -> void:

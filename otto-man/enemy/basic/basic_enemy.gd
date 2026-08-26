@@ -55,6 +55,15 @@ var _just_bounced: bool = false  # Prevent multiple bounces in same landing fram
 var _bounce_cooldown: float = 0.0  # Cooldown to prevent rapid bounce loops
 const BOUNCE_COOLDOWN_DURATION: float = 0.1  # Minimum time between bounces
 
+# Hurt state'te yere çarpınca çıkan toz bulutu (oyuncunun iniş efektiyle aynı sahne)
+const DUST_CLOUD_EFFECT = preload("res://assets/effects/player fx/dust_cloud_effect.tscn")
+# Efektin içindeki AnimatedSprite2D 96x96 ve y = -100'de duruyor, yani karenin alt
+# kenarı efekt origin'inin 52px yukarısına denk geliyor. Toz yere otursun diye
+# origin'i ayak hizasının bu kadar altına koyuyoruz (player.gd'deki hizalamanın aynısı).
+const DUST_GROUND_OFFSET: float = 52.0
+# Bu hızın altındaki çarpmalarda toz çıkmaz, ufak düşüşlerde efekt spam olmasın
+const DUST_MIN_LAND_VELOCITY: float = 150.0
+
 # Direction change throttle to prevent flip-flopping
 var _direction_change_cooldown_timer: float = 0.0
 const DIRECTION_CHANGE_COOLDOWN: float = 0.2  # Minimum time between direction changes
@@ -1072,7 +1081,8 @@ func handle_hurt_behavior(delta: float) -> void:
 	if _was_in_air and is_on_floor() and not _just_bounced and _bounce_cooldown <= 0.0:
 		# Just landed - check fall velocity for bounce
 		var fall_velocity = abs(_previous_velocity_y)
-		
+		_spawn_landing_dust(fall_velocity)
+
 		# Determine max bounces based on fall velocity
 		if fall_velocity >= HIGH_FALL_VELOCITY:
 			_max_bounces = 2  # High fall = 2 bounces
@@ -1159,7 +1169,8 @@ func handle_hurt_behavior(delta: float) -> void:
 		if _was_in_air and not _just_bounced and _bounce_cooldown <= 0.0:
 			# Just hit ground - check fall velocity for bounce
 			var fall_velocity = abs(_previous_velocity_y)
-			
+			_spawn_landing_dust(fall_velocity)
+
 			# Determine max bounces based on fall velocity
 			if fall_velocity >= HIGH_FALL_VELOCITY:
 				_max_bounces = 2  # High fall = 2 bounces
@@ -1258,6 +1269,27 @@ func handle_hurt_behavior(delta: float) -> void:
 		if hurtbox:
 			hurtbox.monitoring = true
 			hurtbox.monitorable = true
+
+## Hurt state'te yere çarpma anında toz bulutu. Sekmelerde ve ölüm inişinde de çalışır,
+## hepsi zemine çarpma anı olduğu için.
+func _spawn_landing_dust(fall_velocity: float) -> void:
+	if fall_velocity < DUST_MIN_LAND_VELOCITY:
+		return
+	var scene_root := get_tree().current_scene
+	if scene_root == null:
+		return
+	var dust := DUST_CLOUD_EFFECT.instantiate()
+	dust.animation_to_play = "puff_down"
+	dust.global_position = _get_foot_position() + Vector2(0, DUST_GROUND_OFFSET)
+	scene_root.add_child(dust)
+
+## Gövde kutusunun alt kenarı. Şekil değişirse hizalama kendiliğinden uyar.
+func _get_foot_position() -> Vector2:
+	var body_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if body_shape and body_shape.shape is RectangleShape2D:
+		var rect := body_shape.shape as RectangleShape2D
+		return global_position + Vector2(0, body_shape.position.y + rect.size.y * 0.5)
+	return global_position + Vector2(0, 24.0)
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if current_behavior == new_behavior and not force:

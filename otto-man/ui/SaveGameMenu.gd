@@ -5,16 +5,18 @@ extends Control
 signal slot_selected(slot_id: int)
 signal back_requested()
 
-@onready var slots_container: VBoxContainer = $Panel/VBoxContainer/SlotsContainer
-@onready var title_label: Label = $Panel/VBoxContainer/Title
-@onready var back_button: Button = $Panel/VBoxContainer/BackButton
-@onready var status_label: Label = $Panel/VBoxContainer/StatusLabel
+@onready var slots_container: VBoxContainer = $Panel/Margin/VBoxContainer/SlotsContainer
+@onready var title_label: Label = $Panel/Margin/VBoxContainer/Title
+@onready var back_button: Button = $Panel/Margin/VBoxContainer/BackButton
+@onready var status_label: Label = $Panel/Margin/VBoxContainer/StatusLabel
 @onready var confirm_dialog: Control = $ConfirmDialog
 
 const MAX_SLOTS: int = 5
+const SaveSlotRow = preload("res://ui/save_slot_row.gd")
 var _pending_save_slot: int = -1
 var slot_buttons: Array[Button] = []
 var slot_labels: Array[Label] = []
+var _slot_rows: Array = []
 
 
 func _ready() -> void:
@@ -46,31 +48,27 @@ func _create_slot_ui() -> void:
 
 	slot_buttons.clear()
 	slot_labels.clear()
+	_slot_rows.clear()
 
 	for i in range(MAX_SLOTS):
 		var slot_id = i + 1
 
-		var slot_container = HBoxContainer.new()
-		slot_container.name = "Slot%dContainer" % slot_id
+		# Yükle ekranıyla aynı satır bileşeni. Burada ikinci buton (Sil) yok, yerini
+		# görünmez dolgu koruyor; böylece iki ekranın sütunları da aynı hizada.
+		var row := SaveSlotRow.new()
+		row.name = "Slot%dRow" % slot_id
+		row.hide_secondary_button(false)
 
-		var label = Label.new()
-		label.name = "Slot%dLabel" % slot_id
-		label.text = tr("slot.empty") % slot_id
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-		var save_button = Button.new()
+		var save_button := row.primary_button
 		save_button.name = "Slot%dSaveButton" % slot_id
 		save_button.text = tr("slot.save_button")
 		save_button.pressed.connect(_on_slot_save_pressed.bind(slot_id))
 
-		slot_container.add_child(label)
-		slot_container.add_child(save_button)
+		slots_container.add_child(row)
 
-		slots_container.add_child(slot_container)
-
+		_slot_rows.append(row)
 		slot_buttons.append(save_button)
-		slot_labels.append(label)
+		slot_labels.append(row.sub_label)
 
 
 func _refresh_locale(_locale: String = "") -> void:
@@ -91,17 +89,24 @@ func _refresh_slots() -> void:
 	for i in range(MAX_SLOTS):
 		var slot_id = i + 1
 		var metadata = SaveManager.get_save_metadata(slot_id)
-		var label = slot_labels[i]
+		var row = _slot_rows[i]
+		var slot_title: String = tr("slot.title") % slot_id
 
 		if metadata.is_empty():
-			label.text = tr("slot.empty") % slot_id
+			row.set_placeholder(slot_title, tr("slot.state_empty"))
 		else:
-			var save_date = metadata.get("save_date", "")
-			var playtime = metadata.get("playtime_seconds", 0)
-			var scene = metadata.get("scene", "")
-			var scene_name = LocaleManager.get_scene_display_name(scene)
-			var playtime_str = LocaleManager.format_playtime_slot(playtime)
-			label.text = tr("slot.info_overwrite") % [slot_id, save_date, scene_name, playtime_str]
+			var playtime_str = LocaleManager.format_playtime_slot(int(metadata.get("playtime_seconds", 0)))
+			# Dolu slota kaydetmek üzerine yazmak demek; alt satırda uyarı olarak belirtilir.
+			var subtitle: String = "%s%s · %s" % [
+				playtime_str,
+				SaveSlotRow.location_suffix(str(metadata.get("scene", ""))),
+				tr("slot.state_overwrite")
+			]
+			row.set_filled(
+				slot_title,
+				subtitle,
+				LocaleManager.format_save_date(str(metadata.get("save_date", "")))
+			)
 
 
 func _setup_confirm_dialog() -> void:

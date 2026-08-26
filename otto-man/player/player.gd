@@ -481,7 +481,14 @@ func _physics_process(delta):
 	var fall_attack_state_node = state_machine.get_node_or_null("FallAttack") if state_machine else null
 	if fall_attack_state_node and fall_attack_state_node.has_method("update_cooldown"):
 		fall_attack_state_node.update_cooldown(delta)
-	
+
+	# Wall slide yeniden giriş cooldown'ı: süre her durumda aksın.
+	# Eskiden yalnızca Fall ve WallSlide state'leri işletiyordu; wall jump sonrası
+	# Jump state'inde timer donuyor ve yükseliş boyunca duvara yapışmak imkansız oluyordu.
+	var wall_slide_state_node = state_machine.get_node_or_null("WallSlide") if state_machine else null
+	if wall_slide_state_node and wall_slide_state_node.has_method("update_cooldown"):
+		wall_slide_state_node.update_cooldown(delta)
+
 	# Update jump block timer
 	if jump_block_timer > 0:
 		jump_block_timer -= delta

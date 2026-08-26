@@ -107,10 +107,8 @@ func physics_update(delta: float):
 		if dodge_carry_timer <= 0.0 and animation_player.current_animation == "dodge_air":
 			animation_player.play("fall")
 
-	# Update wall slide cooldown
-	if wall_slide_state:
-		wall_slide_state.update_cooldown(delta)
-	
+	# Wall slide cooldown'ı artık player.gd _physics_process içinde merkezi olarak işliyor.
+
 	# Update grace period timer
 	if wall_detach_grace_timer > 0:
 		wall_detach_grace_timer -= delta

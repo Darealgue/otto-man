@@ -2338,3 +2338,18 @@ ai.settings.btn.cancel,İptal et,Cancel
 ai.settings.btn.turn_on,Aç,Turn on
 ai.settings.btn.turn_off,Kapat,Turn off
 ai.settings.btn.delete,Model dosyalarını sil,Delete model files
+menu.continue,Devam Et,Continue
+menu.change_profile,Profil Değiştir,Change Profile
+profile.select_title,Oyuncu profili,Player Profile
+profile.select_sub,Hangi profille oynamak istiyorsun? Her profilin kayıtları birbirinden bağımsızdır.,Which profile do you want to play with? Each profile's saves are independent.
+slot.title,Slot %d,Slot %d
+autosave.title,Otomatik kayıt,Autosave
+slot.state_empty,Boş,Empty
+slot.state_invalid,"Hatalı, yüklenemez","Damaged, cannot load"
+slot.state_overwrite,Üzerine yazılacak,Will be overwritten
+autosave.state_none,Henüz otomatik kayıt yok,No autosave yet
+date.today,Bugün %s,Today %s
+date.yesterday,Dün %s,Yesterday %s
+date.full,%d %s %d · %s,%d %s %d · %s
+date.months_short,Oca|Şub|Mar|Nis|May|Haz|Tem|Ağu|Eyl|Eki|Kas|Ara,Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
+date.unknown,Tarih yok,No date

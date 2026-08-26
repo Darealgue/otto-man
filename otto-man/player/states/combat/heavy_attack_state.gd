@@ -128,6 +128,10 @@ func exit():
 		hitbox.disable_combo()
 	animation_player.speed_scale = 1.0
 
+	# Crouch'tan gelen saldırıda kapsül küçültülmüştü; geri büyütülmezse küçük takılı kalıyor.
+	if entered_from_crouch:
+		_restore_standing_collision_if_possible()
+
 func update(delta: float):
 	if get_tree().paused:
 		return
@@ -393,6 +397,16 @@ func _maintain_crouch_collision():
 	var crouch_state = state_machine.get_node_or_null("Crouch")
 	if crouch_state and crouch_state.has_method("apply_crouch_shape_now"):
 		crouch_state.apply_crouch_shape_now()
+
+# Ayakta kapsülü geri yükle. Tavan hala engelliyorsa dokunma.
+func _restore_standing_collision_if_possible() -> void:
+	if !player:
+		return
+	if _is_player_forced_to_crouch():
+		return
+	var crouch_state = state_machine.get_node_or_null("Crouch")
+	if crouch_state and crouch_state.has_method("restore_standing_shape_now"):
+		crouch_state.restore_standing_shape_now()
 
 # Helper function to check if player is forced to crouch due to ceiling
 func _is_player_forced_to_crouch() -> bool:

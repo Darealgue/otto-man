@@ -248,7 +248,9 @@ func _handle_flying_state(delta: float) -> void:
 	
 	# Mesafe kontrolü - daha geniş range ile hysteresis
 	var distance_to_player = global_position.distance_to(target.global_position)
-	if distance_to_player > stats.detection_range * 2.0:  # Oyuncu çok uzaklaştı (2x range)
+	# stats atanmamış olabilir (base_enemy her yerde bu şekilde yedekliyor)
+	var detect_range: float = stats.detection_range if stats else 300.0
+	if distance_to_player > detect_range * 2.0:  # Oyuncu çok uzaklaştı (2x range)
 		change_behavior("fall")
 		return
 	

@@ -5,6 +5,8 @@ extends Control
 @onready var _intro_fade: ColorRect = $IntroFade
 @onready var _press_prompt: Label = $PressPrompt
 @onready var _menu_root: CenterContainer = $CenterContainer
+@onready var _continue_button: Button = $CenterContainer/Menu/Buttons/ContinueButton
+@onready var _change_profile_button: Button = $CenterContainer/Menu/Buttons/ChangeProfileButton
 @onready var _new_game_button: Button = $CenterContainer/Menu/Buttons/NewGameButton
 @onready var _load_game_button: Button = $CenterContainer/Menu/Buttons/LoadGameButton
 @onready var _settings_button: Button = $CenterContainer/Menu/Buttons/SettingsButton
@@ -15,7 +17,10 @@ var _settings_menu: Control = null
 var _profile_menu: Control = null
 var _tutorial_prompt: Control = null
 ## Hangi akıştan profil menüsü açıldı (geri dönüşte odak için)
-var _profile_opened_for_new_game: bool = true
+## Açılıştaki profil kapısı ve menüdeki "Profil değiştir" için: seçim yapıldıktan sonra
+## yeni oyun / yükleme ekranı AÇILMAMALI, sadece profil değişip menüye dönülmeli.
+var _in_profile_gate_phase: bool = false
+var _profile_gate_done: bool = false
 var _intro_dismissed: bool = false
 var _intro_tween: Tween = null
 var _cold_start_fading: bool = false
@@ -74,8 +79,11 @@ func _ready() -> void:
 	if LocaleManager.has_signal("locale_changed"):
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
+	_refresh_continue_button()
 	_apply_startup_audio_settings()
 	await _play_startup_fade_if_needed()
+	# Profil kapısı aktif profili değiştirmiş olabilir; "Devam et" ona göre yeniden değerlendirilir.
+	_refresh_continue_button()
 
 
 func _setup_intro_state() -> void:
@@ -109,11 +117,11 @@ func _play_startup_fade_if_needed() -> void:
 	_intro_fade.color = Color(0, 0, 0, 1)
 	_intro_fade.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Aşama 0: demo sürümünde HER soğuk açılışta dil seçtir (kasıtlı — bkz. LocaleManager.
-	# has_persisted_locale). Bir sonraki versiyonda bunu tekrar "sadece ilk açılış" yapacağız;
-	# o zaman aşağıdaki satırı `if not LocaleManager.has_persisted_locale():` ile sarmak yeterli
-	# — has_persisted_locale() zaten hazır, sadece burada kullanılmıyor.
-	await _play_language_gate_phase()
+	# Aşama 0: dil seçimi SADECE ilk açılışta sorulur. Oyuncu bir kez seçtikten sonra tercih
+	# user://settings.cfg içinde saklanır (LocaleManager.persist_locale) ve bir daha sorulmaz.
+	# Sonradan değiştirmek isteyen Ayarlar menüsündeki dil satırını kullanır.
+	if not LocaleManager.has_persisted_locale():
+		await _play_language_gate_phase()
 
 	# Aşama 1: saf siyah ekran + erken erişim uyarısı — menü/animasyon henüz yok.
 	await _play_disclaimer_phase()
@@ -121,6 +129,12 @@ func _play_startup_fade_if_needed() -> void:
 	# Aşama 1.5: yapay zeka köylüleri teklifi. Kendi içinde koşullu — editörde, model zaten
 	# diskteyken veya oyuncu daha önce cevap vermişken hiçbir şey yapmadan anında döner.
 	await _play_ai_offer_phase()
+
+	# Aşama 1.75: profil seçimi. Dil kapısıyla aynı mantık — sadece hiç profil seçilmemişken
+	# sorulur, sonrasında active_profile.json'dan hatırlanır. Menü açılmadan önce olması
+	# şart: "Devam et" butonu ve otomatik kayıt hangi profille çalışacağını bilmek zorunda.
+	if not (is_instance_valid(SaveManager) and SaveManager.has_persisted_profile()):
+		await _play_profile_gate_phase()
 
 	# Aşama 2: uyarı tamamen söndükten SONRA asıl açılış animasyonu (siyah ekran açılır,
 	# "herhangi bir tuşa bas" belirir) başlar — ikisi artık üst üste binmiyor.
@@ -575,9 +589,9 @@ func _dismiss_intro() -> void:
 func _on_intro_reveal_finished() -> void:
 	if _menu_root:
 		_menu_root.mouse_filter = Control.MOUSE_FILTER_PASS
+	_refresh_continue_button()
 	_enable_main_menu_focus()
-	if _new_game_button:
-		_new_game_button.grab_focus()
+	_focus_first_menu_button()
 
 func _validate_nodes() -> bool:
 	if not is_instance_valid(_new_game_button):
@@ -598,6 +612,10 @@ func _validate_nodes() -> bool:
 	return true
 
 func _connect_signals() -> void:
+	if is_instance_valid(_continue_button):
+		_continue_button.pressed.connect(_on_continue_pressed)
+	if is_instance_valid(_change_profile_button):
+		_change_profile_button.pressed.connect(_on_change_profile_pressed)
 	_new_game_button.pressed.connect(_on_new_game_pressed)
 	_load_game_button.pressed.connect(_on_load_game_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
@@ -627,6 +645,10 @@ func _refresh_locale(_locale: String = "") -> void:
 		_disclaimer_body_label.text = tr("menu.early_access_disclaimer")
 	if is_instance_valid(_disclaimer_hint_label):
 		_disclaimer_hint_label.text = tr("menu.early_access_continue_hint")
+	if _continue_button:
+		_continue_button.text = tr("menu.continue")
+	if _change_profile_button:
+		_change_profile_button.text = tr("menu.change_profile")
 	if _new_game_button:
 		_new_game_button.text = tr("menu.new_game")
 	if _load_game_button:
@@ -641,15 +663,36 @@ func _refresh_locale(_locale: String = "") -> void:
 	if footer:
 		footer.text = tr("menu.beta_footer")
 
+## Profil artık menü açılmadan önce seçilmiş oluyor, bu yüzden Yeni Oyun ve Oyunu Yükle
+## araya profil ekranı sokmadan doğrudan kendi işlerine gidiyor.
 func _on_new_game_pressed() -> void:
 	_play_click()
-	_profile_opened_for_new_game = true
-	_open_profile_menu(ProfileSelectMenu.MenuIntent.NEW_GAME)
+	_show_new_game_tutorial_choice()
 
 func _on_load_game_pressed() -> void:
 	_play_click()
-	_profile_opened_for_new_game = false
-	_open_profile_menu(ProfileSelectMenu.MenuIntent.LOAD)
+	if _load_game_menu and _load_game_menu.has_method("show_menu"):
+		_disable_main_menu_focus()
+		_load_game_menu.show_menu()
+		if _load_game_menu.has_method("set_process_mode"):
+			_load_game_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
+
+## Devam et: aktif profildeki en yeni kaydı (otomatik kayıt veya manuel slot, hangisi
+## daha yeniyse) doğrudan yükler. Buton zaten kayıt yokken gizleniyor, yine de
+## savunmacı davranıyoruz.
+func _on_continue_pressed() -> void:
+	_play_click()
+	if not is_instance_valid(SaveManager):
+		return
+	if not SaveManager.continue_latest():
+		push_warning("[MainMenu] Devam et: yüklenecek kayıt bulunamadı")
+		_refresh_continue_button()
+
+func _on_change_profile_pressed() -> void:
+	_play_click()
+	_in_profile_gate_phase = true
+	_profile_gate_done = false
+	_open_profile_menu(ProfileSelectMenu.MenuIntent.SELECT)
 
 func _on_settings_pressed() -> void:
 	_play_click()
@@ -713,6 +756,9 @@ func _setup_new_game_tutorial_prompt() -> void:
 
 func _show_new_game_tutorial_choice() -> void:
 	if _tutorial_prompt and _tutorial_prompt.has_method("show_prompt"):
+		# Eskiden buraya profil ekranı üzerinden geliniyordu ve odağı o kapatıyordu.
+		# Artık Yeni Oyun doğrudan buraya geldiği için odağı burada kapatmak gerekiyor.
+		_disable_main_menu_focus()
 		move_child(_tutorial_prompt, maxi(0, get_child_count() - 1))
 		_tutorial_prompt.show_prompt()
 	elif is_instance_valid(SceneManager) and SceneManager.has_method("start_new_game"):
@@ -735,11 +781,15 @@ func _on_new_game_tutorial_skip() -> void:
 		SceneManager.start_new_game(false)
 
 
+## Tutorial seçiminden geri: profil zaten seçili olduğu için artık profil ekranına değil,
+## doğrudan ana menüye dönülüyor.
 func _on_new_game_tutorial_back() -> void:
 	_play_click()
 	if _tutorial_prompt and _tutorial_prompt.has_method("hide_prompt"):
 		_tutorial_prompt.hide_prompt()
-	_open_profile_menu(ProfileSelectMenu.MenuIntent.NEW_GAME)
+	_enable_main_menu_focus()
+	if _new_game_button:
+		_new_game_button.grab_focus()
 
 
 func _setup_profile_select_menu() -> void:
@@ -760,17 +810,33 @@ func _setup_profile_select_menu() -> void:
 		_profile_menu.hide_menu()
 
 
-func _open_profile_menu(intent: ProfileSelectMenu.MenuIntent) -> void:
+func _open_profile_menu(intent: ProfileSelectMenu.MenuIntent, allow_back: bool = true) -> void:
 	if _profile_menu and _profile_menu.has_method("show_menu"):
 		_disable_main_menu_focus()
 		move_child(_profile_menu, maxi(0, get_child_count() - 1))
-		_profile_menu.show_menu(intent)
+		_profile_menu.show_menu(intent, allow_back)
 	else:
 		push_warning("[MainMenu] Profil menüsü yok — doğrudan devam")
 		if intent == ProfileSelectMenu.MenuIntent.NEW_GAME and is_instance_valid(SceneManager):
 			_show_new_game_tutorial_choice()
 		elif intent == ProfileSelectMenu.MenuIntent.LOAD and _load_game_menu and _load_game_menu.has_method("show_menu"):
 			_load_game_menu.show_menu()
+		else:
+			# Profil kapısı: menü yoksa kilitlenmeyelim, kayıtlı/varsayılan profille devam et.
+			_profile_gate_done = true
+
+
+## Aşama 1.75: ilk açılışta profil seçtirir. Oyuncu bir profil seçene kadar bekler —
+## geri butonu gizli, çünkü menü henüz yok, dönülecek bir yer de yok.
+func _play_profile_gate_phase() -> void:
+	if _profile_menu == null or not _profile_menu.has_method("show_menu"):
+		return
+	_in_profile_gate_phase = true
+	_profile_gate_done = false
+	_open_profile_menu(ProfileSelectMenu.MenuIntent.SELECT, false)
+	while not _profile_gate_done:
+		await get_tree().process_frame
+	_in_profile_gate_phase = false
 
 
 func _on_profile_chosen(profile_id: int) -> void:
@@ -778,26 +844,43 @@ func _on_profile_chosen(profile_id: int) -> void:
 		SaveManager.set_active_profile(profile_id)
 	if _profile_menu and _profile_menu.has_method("hide_menu"):
 		_profile_menu.hide_menu()
-	if _profile_opened_for_new_game:
-		_show_new_game_tutorial_choice()
-	else:
-		if _load_game_menu and _load_game_menu.has_method("show_menu"):
-			_load_game_menu.show_menu()
-			if _load_game_menu.has_method("set_process_mode"):
-				_load_game_menu.set_process_mode(Node.PROCESS_MODE_ALWAYS)
-		# Yükleme ekranı açıkken ana menü butonları kapalı kalsın; Load geri de enable eder
+
+	# Profil ekranı artık yalnızca açılış kapısı ve "Profil değiştir" için açılıyor:
+	# her iki durumda da sadece profil değişir ve menüye dönülür.
+	_profile_gate_done = true
+	_refresh_continue_button()
+	_enable_main_menu_focus()
+	_focus_first_menu_button()
 
 
+## Geri: profil değişmedi, menüye dön. Açılış kapısında bu buton gizli olduğu için
+## buraya yalnızca "Profil değiştir" akışından gelinir.
 func _on_profile_menu_back() -> void:
 	if _profile_menu and _profile_menu.has_method("hide_menu"):
 		_profile_menu.hide_menu()
+	_in_profile_gate_phase = false
+	_profile_gate_done = true
 	_enable_main_menu_focus()
-	if _profile_opened_for_new_game:
-		if _new_game_button:
-			_new_game_button.grab_focus()
-	else:
-		if _load_game_button:
-			_load_game_button.grab_focus()
+	_focus_first_menu_button()
+
+
+## Devam et butonu sadece aktif profilde yüklenecek bir kayıt varken görünür.
+func _refresh_continue_button() -> void:
+	if not is_instance_valid(_continue_button):
+		return
+	var has_save: bool = false
+	if is_instance_valid(SaveManager) and SaveManager.has_method("get_latest_save_entry"):
+		has_save = not SaveManager.get_latest_save_entry().is_empty()
+	_continue_button.visible = has_save
+	_continue_button.focus_mode = Control.FOCUS_ALL if has_save else Control.FOCUS_NONE
+
+
+## Menüde odaklanılacak ilk buton: kayıt varsa Devam et, yoksa Yeni Oyun.
+func _focus_first_menu_button() -> void:
+	if is_instance_valid(_continue_button) and _continue_button.visible:
+		_continue_button.grab_focus()
+	elif is_instance_valid(_new_game_button):
+		_new_game_button.grab_focus()
 
 
 func _setup_settings_menu() -> void:
@@ -824,7 +907,7 @@ func _on_settings_back() -> void:
 	if _settings_menu and _settings_menu.has_method("hide_menu"):
 		_settings_menu.hide_menu()
 	_enable_main_menu_focus()
-	_new_game_button.grab_focus()
+	_focus_first_menu_button()
 
 
 func _on_settings_applied(_settings: Dictionary) -> void:
@@ -832,6 +915,10 @@ func _on_settings_applied(_settings: Dictionary) -> void:
 
 func _disable_main_menu_focus() -> void:
 	# Disable focus on all buttons so they can't be navigated to while settings is open
+	if _continue_button:
+		_continue_button.focus_mode = Control.FOCUS_NONE
+	if _change_profile_button:
+		_change_profile_button.focus_mode = Control.FOCUS_NONE
 	if _new_game_button:
 		_new_game_button.focus_mode = Control.FOCUS_NONE
 	if _load_game_button:
@@ -845,6 +932,11 @@ func _disable_main_menu_focus() -> void:
 
 func _enable_main_menu_focus() -> void:
 	# Re-enable focus on all buttons
+	# Devam et butonu kayıt yoksa gizli kalır; gizliyken odak alması istenmez.
+	if _continue_button:
+		_continue_button.focus_mode = Control.FOCUS_ALL if _continue_button.visible else Control.FOCUS_NONE
+	if _change_profile_button:
+		_change_profile_button.focus_mode = Control.FOCUS_ALL
 	if _new_game_button:
 		_new_game_button.focus_mode = Control.FOCUS_ALL
 	if _load_game_button:

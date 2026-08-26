@@ -143,6 +143,15 @@ func _process(delta: float) -> void:
 	if _raw_objective.is_empty() and _objective_panel.modulate.a > 0.0:
 		_objective_panel.modulate.a = maxf(0.0, _objective_panel.modulate.a - 3.0 * delta)
 	var sm := get_node_or_null("/root/SceneManager")
+
+	# Bu CanvasLayer get_tree().root'a ekleniyor (bkz. VillageScene._spawn_objective_ui), yani
+	# sahne değişince silinmiyor. Ana menüye dönüldüğünde tuş ipucu barı ekranda asılı kalıyordu.
+	# Aynı tuzak hedef metni için TutorialManager'da zaten not düşülmüş; barın karşılığı eksikti.
+	var in_main_menu: bool = sm != null and String(sm.current_scene_path) == sm.MAIN_MENU_SCENE
+	visible = not in_main_menu
+	if in_main_menu:
+		return
+
 	var wm_active: bool = sm != null and sm.get("_world_map_overlay_instance") != null and is_instance_valid(sm._world_map_overlay_instance)
 	if _keys_bar:
 		_keys_bar.visible = not wm_active
