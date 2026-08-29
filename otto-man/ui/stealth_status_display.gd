@@ -191,10 +191,6 @@ func _on_alarm_raised(_reason: String) -> void:
 	show_alarm_banner()
 
 
-func refresh_fragile_status() -> void:
-	_refresh()
-
-
 func show_alarm_banner() -> void:
 	# CSV çevirisindeki literal "\n" (backslash+n) Godot'un import sürecinde gerçek satır
 	# sonuna dönüşmüyor (bkz. TutorialSpeechBar._normalize_speech_bbcode, aynı sorun) —
@@ -204,20 +200,6 @@ func show_alarm_banner() -> void:
 	_alarm_banner.modulate.a = 1.0
 	_alarm_banner_timer = ALARM_BANNER_HOLD_SEC
 	_refresh_key_counter()
-
-
-func show_flee_toast(villagers_lost: int, cariyes_lost: int) -> void:
-	var parts: PackedStringArray = PackedStringArray()
-	if villagers_lost > 0:
-		parts.append(tr("stealth.flee_villager_count") % villagers_lost)
-	if cariyes_lost > 0:
-		parts.append(tr("stealth.flee_cariye_count") % cariyes_lost)
-	if parts.is_empty():
-		return
-	_toast.text = tr("stealth.fled_in_fear") + ", ".join(parts)
-	_toast.visible = true
-	_toast_timer = 3.5
-	_refresh()
 
 
 func show_key_obtained_toast() -> void:
@@ -331,8 +313,7 @@ func _refresh() -> void:
 			alarm_style.set_corner_radius_all(4)
 			_badge.add_theme_stylebox_override("panel", alarm_style)
 	else:
-		var fragile_text := _fragile_badge_suffix()
-		_label.text = tr("stealth.badge_hidden") + fragile_text
+		_label.text = tr("stealth.badge_hidden")
 		_label.add_theme_color_override("font_color", Color(0.55, 0.95, 0.65))
 		if _badge:
 			var stealth_style := StyleBoxFlat.new()
@@ -342,13 +323,3 @@ func _refresh() -> void:
 			stealth_style.set_corner_radius_all(4)
 			_badge.add_theme_stylebox_override("panel", stealth_style)
 
-
-func _fragile_badge_suffix() -> String:
-	var drs: Node = get_node_or_null("/root/DungeonRunState")
-	if not is_instance_valid(drs) or not drs.has_method("count_fragile_rescued"):
-		return ""
-	var counts: Dictionary = drs.call("count_fragile_rescued")
-	var total: int = int(counts.get("villagers", 0)) + int(counts.get("cariyes", 0))
-	if total <= 0:
-		return ""
-	return " · %d⚠" % total

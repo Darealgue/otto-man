@@ -49,3 +49,51 @@ SoundManager.play_sfx("door_open", global_position)
 ```
 
 Yeni ses eklemek için `autoload/SoundCatalog.gd` içindeki `SFX_FILES` sözlüğüne bir satır ekle.
+
+---
+
+## Müzik (`assets/audio/music/`)
+
+Ambient'ten **ayrı** çalar: kendi `AudioStreamPlayer`'ı var ve **Music bus**'ına bağlı.
+Ambient/BGS ise **SFX bus**'ında — böylece oyuncu ayarlardan müzik ile ortam sesini
+ayrı ayrı kısabiliyor.
+
+| Oyun ID | Dosya adı (uzantısız) | Nerede çalar |
+|---------|------------------------|--------------|
+| `dungeon_1` | `dungeon_theme` | `dungeon` çalma listesi |
+| `dungeon_2` | `dungeon_theme_2` | `dungeon` çalma listesi |
+| `menu` | `menu_ambient` | (hook yok) |
+
+### Çalma listeleri — run başına tek parça
+
+`MUSIC_PLAYLISTS` profil → parça listesi eşlemesi. Oyuncu zindana **her girdiğinde**
+listeden rastgele bir parça seçilir ve **o run boyunca değişmez** (zindan → kamp →
+zindan → boss hep aynı parça). Köye/dünya haritasına dönünce seçim sıfırlanır,
+sonraki girişte yeniden seçilir. Üst üste aynı parça gelmez.
+
+Yeni parça eklemek: dosyayı koy → `MUSIC_FILES`'a id ver → id'yi `MUSIC_PLAYLISTS`
+içindeki listeye ekle. Başka hiçbir yere dokunma.
+
+### Uzun parça eklerken
+
+1. **`.ogg` (Vorbis, 128-160 kbps)** olarak dışa aktar. `.wav` KULLANMA — Godot WAV'ı
+   `AudioStreamWAV` yapıp tamamen RAM'e açar; 6 dakikalık stereo WAV ≈ 63 MB.
+   OGG diskten stream edilir.
+2. Dosyayı `assets/audio/music/` altına koy.
+3. Godot'ta dosyaya çift tıkla → **Import** sekmesi → **Loop** işaretle → **Reimport**.
+   İşaretlemezsen kod `finished` sinyaliyle yeniden başlatır ve her turda duyulur bir
+   boşluk kalır.
+4. **Kuyruk kontrolü — atlama.** DAW export'ları parçanın sonuna reverb kuyruğu ve
+   dijital sessizlik ekler. Motorun kendi loop'u dosyanın **en sonuna** kadar çalar,
+   yani o sessizlik her turda boşluk olarak duyulur. Mevcut iki parçada ölçülen:
+   `dungeon_theme` 5.0 sn, `dungeon_theme_2` 2.5 sn kuyruk.
+   Çözüm: `SoundCatalog.MUSIC_LOOP_POINTS` içine parçanın `end` süresini yaz —
+   kod oraya gelince `start`a sarar. Değerler müziğin gerçekten bittiği ana göre
+   ölçülmeli (kuyruğun ilk ~0.2 sn'sini bırak, kesme sert duyulmasın).
+   **Parçayı yeniden export edersen bu değerleri de güncelle.**
+5. Mixaj hedefi: **-16 … -14 LUFS integrated, true peak -1 dBTP**. Oyun içi ek kısma
+   `SoundManager.MUSIC_VOLUME_LINEAR` ile ayarlanır.
+6. Parçanın sonu başına temiz bağlanmalı; reverb kuyruğu sonda kesilirse dikiş duyulur.
+
+Profil geçişlerinde 1.2 sn müzik / 0.6 sn ambient fade uygulanır. Aynı profil içinde
+(zindan → kamp → zindan → boss) parça **baştan başlamaz**, kaldığı yerden devam eder.

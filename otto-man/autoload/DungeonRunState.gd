@@ -54,7 +54,6 @@ var collected_keys: Array[String] = []  # Run boyunca toplanan kapı anahtarlar�
 var enemies_killed_total: int = 0
 var gold_collected_total: int = 0
 var gold_lost_total: int = 0
-var fragile_rescue_lost_total: int = 0
 var run_start_ticks_msec: int = 0
 
 const STEALTH_EXIT_BOSS_GOLD_FRACTION: float = 0.25
@@ -87,7 +86,6 @@ func start_run_from_village() -> void:
 	enemies_killed_total = 0
 	gold_collected_total = 0
 	gold_lost_total = 0
-	fragile_rescue_lost_total = 0
 	run_start_ticks_msec = Time.get_ticks_msec()
 	_reset_challenge_state()
 	clear_pending_rescued()
@@ -585,75 +583,25 @@ func clear_pending_rescued() -> void:
 	pending_rescued_cariyes.clear()
 	collectibles_changed.emit()
 
-func add_pending_villager(fragile: bool = false) -> void:
-	pending_rescued_villagers.append({"fragile": fragile})
+func add_pending_villager() -> void:
+	pending_rescued_villagers.append({})
 	collectibles_changed.emit()
 
 
-func add_pending_villager_data(villager_data: Dictionary, fragile: bool = false) -> void:
-	var entry: Dictionary = villager_data.duplicate(true)
-	entry["fragile"] = fragile
-	pending_rescued_villagers.append(entry)
+func add_pending_villager_data(villager_data: Dictionary) -> void:
+	pending_rescued_villagers.append(villager_data.duplicate(true))
 	collectibles_changed.emit()
 
 
-func add_pending_cariye(cariye_data: Dictionary, fragile: bool = false) -> void:
-	var entry: Dictionary = cariye_data.duplicate(true)
-	entry["fragile"] = fragile
-	pending_rescued_cariyes.append(entry)
+func add_pending_cariye(cariye_data: Dictionary) -> void:
+	pending_rescued_cariyes.append(cariye_data.duplicate(true))
 	collectibles_changed.emit()
 
-
-func count_fragile_rescued() -> Dictionary:
-	var villagers: int = 0
-	var cariyes: int = 0
-	for v in pending_rescued_villagers:
-		if v is Dictionary and bool((v as Dictionary).get("fragile", false)):
-			villagers += 1
-	for c in pending_rescued_cariyes:
-		if c is Dictionary and bool((c as Dictionary).get("fragile", false)):
-			cariyes += 1
-	return {"villagers": villagers, "cariyes": cariyes}
-
-
-func purge_fragile_rescues() -> Dictionary:
-	var villagers_lost: int = 0
-	var cariyes_lost: int = 0
-	var kept_villagers: Array = []
-	for v in pending_rescued_villagers:
-		if v is Dictionary and bool((v as Dictionary).get("fragile", false)):
-			villagers_lost += 1
-		else:
-			kept_villagers.append(v.duplicate(true) if v is Dictionary else v)
-	var kept_cariyes: Array = []
-	for c in pending_rescued_cariyes:
-		if c is Dictionary and bool((c as Dictionary).get("fragile", false)):
-			cariyes_lost += 1
-		else:
-			kept_cariyes.append(c.duplicate(true) if c is Dictionary else c)
-	pending_rescued_villagers = kept_villagers
-	pending_rescued_cariyes = kept_cariyes
-	if villagers_lost > 0 or cariyes_lost > 0:
-		fragile_rescue_lost_total += villagers_lost + cariyes_lost
-		print("[DungeonRunState] Kırılgan kurtarmalar kaçtı — köylü=%d cariye=%d" % [villagers_lost, cariyes_lost])
-	return {"villagers": villagers_lost, "cariyes": cariyes_lost}
-
-
-func _strip_fragile_flags_for_delivery(entries: Array) -> Array:
-	var out: Array = []
-	for entry in entries:
-		if entry is Dictionary:
-			var d: Dictionary = (entry as Dictionary).duplicate(true)
-			d.erase("fragile")
-			out.append(d)
-		else:
-			out.append(entry)
-	return out
 
 func get_and_clear_pending_rescued() -> Dictionary:
 	var out := {
-		"villagers": _strip_fragile_flags_for_delivery(pending_rescued_villagers.duplicate(true)),
-		"cariyes": _strip_fragile_flags_for_delivery(pending_rescued_cariyes.duplicate(true))
+		"villagers": pending_rescued_villagers.duplicate(true),
+		"cariyes": pending_rescued_cariyes.duplicate(true)
 	}
 	clear_pending_rescued()
 	return out
@@ -688,7 +636,6 @@ func get_run_report_data(is_dead: bool) -> Dictionary:
 		"gold_lost_final": gold_lost_final,
 		"rescued_total": (0 if is_dead else rescued_total),
 		"rescued_lost": (rescued_total if is_dead else 0),
-		"fragile_rescue_lost_total": fragile_rescue_lost_total,
 		"segments_completed": run_segments_completed,
 		"segments_target": run_max_segments,
 		"is_warmup": is_warmup_run,

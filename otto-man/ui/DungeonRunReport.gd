@@ -193,9 +193,6 @@ func _populate_rows(data: Dictionary) -> void:
 	_rows.append(_make_count_up_row("res://assets/Icons/rescue_icon.png", tr("dungeon_report.row_rescued"), rescued_total, rescued_color))
 	if rescued_lost > 0:
 		_rows.append(_make_row("", tr("dungeon_report.row_rescued_lost"), "-%d" % rescued_lost, COLOR_BAD))
-	var fragile_lost: int = int(data.get("fragile_rescue_lost_total", 0))
-	if fragile_lost > 0:
-		_rows.append(_make_row("", tr("dungeon_report.row_fragile_lost"), "-%d" % fragile_lost, COLOR_BAD))
 
 	for row in _rows:
 		_rows_container.add_child(row)

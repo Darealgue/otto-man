@@ -17,6 +17,7 @@ var _streams: Dictionary = {}
 var _stream_source: Dictionary = {}
 var _ui_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
+var _ambient_player: AudioStreamPlayer
 var _loop_sfx_player: AudioStreamPlayer
 var _pool: Array[AudioStreamPlayer2D] = []
 var _pool_index: int = 0
@@ -24,10 +25,20 @@ var _hurt_cooldown_sec: float = 0.0
 var _combat_hit_cooldown_sec: float = 0.0
 var _enabled: bool = true
 var _current_music_id: String = ""
+var _current_ambient_id: String = ""
+## Bu run için seçilen parça. Profilden çıkılınca sıfırlanır, tekrar girişte yeniden seçilir.
+var _run_music_id: String = ""
+## Üst üste aynı parçayı seçmemek için son run'ın parçası.
+var _last_run_music_id: String = ""
 var _ambient_profile: String = ""
 var _ambient_is_night: bool = false
 var _loop_sfx_id: String = ""
 var _music_should_loop: bool = false
+var _ambient_should_loop: bool = false
+## Çalan parçanın özel loop noktası; _music_loop_end 0.0 ise dosya sonuna kadar çalar.
+var _music_loop_start: float = 0.0
+var _music_loop_end: float = 0.0
+var _fade_tweens: Dictionary = {}
 var _light_attack_pitch_step: int = 0
 
 const LIGHT_ATTACK_PITCH_MIN: float = 0.88
@@ -36,16 +47,27 @@ const LIGHT_ATTACK_PITCH_STEPS: int = 6
 const HEAVY_ATTACK_PITCH_MIN: float = 0.52
 const HEAVY_ATTACK_PITCH_MAX: float = 0.68
 const AMBIENT_VOLUME_LINEAR: float = 0.6
+## Müzik yatağı: dövüş SFX'ini boğmasın diye Music bus'ın altında headroom bırakır.
+const MUSIC_VOLUME_LINEAR: float = 0.7
+const MUSIC_FADE_SEC: float = 1.2
+const AMBIENT_FADE_SEC: float = 0.6
+const FADE_SILENCE_DB: float = -40.0
 const SLIDE_VOLUME_LINEAR: float = 0.6
 
 
 func _ready() -> void:
+	# Fade tween'leri duraklatılmış oyunda da ilerlesin.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_ensure_audio_buses()
 	_ui_player = _make_stream_player("UiSfxPlayer", _resolve_bus(SFX_BUS))
 	_music_player = _make_stream_player("MusicPlayer", _resolve_bus(MUSIC_BUS))
+	# Ambient SFX bus'ında: oyuncu müzik ile ortam sesini ayrı ayrı kısabilsin.
+	_ambient_player = _make_stream_player("AmbientPlayer", _resolve_bus(SFX_BUS))
 	_loop_sfx_player = _make_stream_player("LoopSfxPlayer", _resolve_bus(SFX_BUS))
 	if not _music_player.finished.is_connected(_on_music_player_finished):
 		_music_player.finished.connect(_on_music_player_finished)
+	if not _ambient_player.finished.is_connected(_on_ambient_player_finished):
+		_ambient_player.finished.connect(_on_ambient_player_finished)
 	if not _loop_sfx_player.finished.is_connected(_on_loop_sfx_player_finished):
 		_loop_sfx_player.finished.connect(_on_loop_sfx_player_finished)
 	for i in POOL_SIZE:
@@ -115,6 +137,19 @@ func _process(delta: float) -> void:
 		_hurt_cooldown_sec = maxf(0.0, _hurt_cooldown_sec - delta)
 	if _combat_hit_cooldown_sec > 0.0:
 		_combat_hit_cooldown_sec = maxf(0.0, _combat_hit_cooldown_sec - delta)
+	_update_music_loop_point()
+
+
+## Parçanın sonundaki reverb kuyruğu + sessizliği atlayıp erken başa sarar.
+## Import'taki `loop=true` emniyet ağı olarak duruyor: burası bir sebeple
+## kaçırırsa parça yine de durmaz, sadece boşluk duyulur.
+func _update_music_loop_point() -> void:
+	if _music_loop_end <= 0.0 or not _music_should_loop:
+		return
+	if not is_instance_valid(_music_player) or not _music_player.playing:
+		return
+	if _music_player.get_playback_position() >= _music_loop_end:
+		_music_player.seek(_music_loop_start)
 
 
 func set_enabled(on: bool) -> void:
@@ -193,36 +228,98 @@ func play_combat_hit(position: Vector2 = Vector2.ZERO, is_heavy: bool = false) -
 	play_sfx(hit_id, position, pitch)
 
 
+## Gerçek müzik parçası (Music bus). `assets/audio/music/` altından okur.
+## Boş id verilirse müziği fade ile durdurur.
 func play_music(track_id: String, loop := true, force_restart := false) -> void:
-	if not _enabled:
+	if not _enabled or not is_instance_valid(_music_player):
 		return
-	if not is_instance_valid(_music_player):
+	if track_id.is_empty():
+		stop_music()
 		return
 	if not force_restart and track_id == _current_music_id and _music_player.playing:
 		return
-	var path: String = SoundCatalog.resolve_ambient_path(track_id)
-	if path.is_empty():
-		path = SoundCatalog.resolve_music_path(track_id)
+	var path: String = SoundCatalog.resolve_music_path(track_id)
 	var stream: AudioStream = _load_stream_at_path(path)
 	if stream == null:
-		var stem: String = SoundCatalog.get_ambient_file_stem(track_id)
-		if stem.is_empty():
-			stem = SoundCatalog.get_music_file_stem(track_id)
-		var def: Dictionary = AudioPlaceholderTones.MUSIC_STEMS.get(stem, {})
+		# Müzikte sentez placeholder yok: dosya yoksa bip çalmaktansa sessiz kal.
+		push_warning(
+			"[SoundManager] Music asset missing for track '%s' (expected: %s%s.ogg)"
+			% [track_id, SoundCatalog.MUSIC_ROOT, SoundCatalog.get_music_file_stem(track_id)]
+		)
+		stop_music()
+		return
+	_music_should_loop = loop
+	_current_music_id = track_id
+	_music_loop_start = SoundCatalog.get_music_loop_start(track_id)
+	_music_loop_end = SoundCatalog.get_music_loop_end(track_id)
+	_start_stream_with_fade(_music_player, stream, linear_to_db(MUSIC_VOLUME_LINEAR), MUSIC_FADE_SEC)
+	print(
+		"[SoundManager] Music play: %s | path=%s | bus=%s | loop=%.1f-%.1f sn"
+		% [track_id, path, _music_player.bus, _music_loop_start, _music_loop_end]
+	)
+
+
+## Ortam sesi (SFX bus). `assets/audio/bgs/` altından okur, yoksa sentez placeholder.
+func play_ambient(track_id: String, loop := true, force_restart := false) -> void:
+	if not _enabled or not is_instance_valid(_ambient_player):
+		return
+	if track_id.is_empty():
+		stop_ambient()
+		return
+	if not force_restart and track_id == _current_ambient_id and _ambient_player.playing:
+		return
+	var path: String = SoundCatalog.resolve_ambient_path(track_id)
+	var stream: AudioStream = _load_stream_at_path(path)
+	if stream == null:
+		var def: Dictionary = AudioPlaceholderTones.MUSIC_STEMS.get(SoundCatalog.get_ambient_file_stem(track_id), {})
 		if not def.is_empty():
 			stream = _synthesize(def)
 	if stream == null:
-		push_warning("[SoundManager] Music not found for track '%s' (path: %s)" % [track_id, path])
+		push_warning("[SoundManager] Ambient not found for track '%s' (path: %s)" % [track_id, path])
+		stop_ambient()
 		return
-	_music_should_loop = loop
-	_music_player.stream = stream
-	_music_player.volume_db = linear_to_db(AMBIENT_VOLUME_LINEAR) if _is_ambient_track(track_id) else 0.0
-	_current_music_id = track_id
-	_music_player.play()
+	_ambient_should_loop = loop
+	_current_ambient_id = track_id
+	_start_stream_with_fade(_ambient_player, stream, linear_to_db(AMBIENT_VOLUME_LINEAR), AMBIENT_FADE_SEC)
 	print(
-		"[SoundManager] Ambient play: %s | path=%s | bus=%s | playing=%s"
-		% [track_id, path if not path.is_empty() else "synth", _music_player.bus, _music_player.playing]
+		"[SoundManager] Ambient play: %s | path=%s | bus=%s"
+		% [track_id, path if not path.is_empty() else "synth", _ambient_player.bus]
 	)
+
+
+func _kill_fade(player: AudioStreamPlayer) -> void:
+	var key: int = player.get_instance_id()
+	var t: Tween = _fade_tweens.get(key, null)
+	if t != null and t.is_valid():
+		t.kill()
+	_fade_tweens.erase(key)
+
+
+func _start_stream_with_fade(player: AudioStreamPlayer, stream: AudioStream, target_db: float, fade_sec: float) -> void:
+	_kill_fade(player)
+	player.stream = stream
+	if fade_sec <= 0.0:
+		player.volume_db = target_db
+		player.play()
+		return
+	player.volume_db = FADE_SILENCE_DB
+	player.play()
+	var t: Tween = create_tween()
+	t.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	t.tween_property(player, "volume_db", target_db, fade_sec)
+	_fade_tweens[player.get_instance_id()] = t
+
+
+func _fade_out_and_stop(player: AudioStreamPlayer, fade_sec: float) -> void:
+	_kill_fade(player)
+	if not player.playing or fade_sec <= 0.0:
+		player.stop()
+		return
+	var t: Tween = create_tween()
+	t.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	t.tween_property(player, "volume_db", FADE_SILENCE_DB, fade_sec)
+	t.tween_callback(player.stop)
+	_fade_tweens[player.get_instance_id()] = t
 
 
 func is_loop_sfx_active(sfx_id: String) -> bool:
@@ -266,6 +363,13 @@ func _on_music_player_finished() -> void:
 		_music_player.play()
 
 
+func _on_ambient_player_finished() -> void:
+	if not _ambient_should_loop or _current_ambient_id.is_empty():
+		return
+	if is_instance_valid(_ambient_player) and _ambient_player.stream != null:
+		_ambient_player.play()
+
+
 func _on_loop_sfx_player_finished() -> void:
 	if _loop_sfx_id.is_empty():
 		return
@@ -278,7 +382,9 @@ func play_ambient_for_scene(scene_path: String) -> void:
 		scene_path = _resolve_active_scene_path()
 	_ambient_profile = _ambient_profile_from_scene(scene_path)
 	print("[SoundManager] Ambient profile '%s' for scene: %s" % [_ambient_profile, scene_path])
-	_refresh_ambient_music(true)
+	# force_restart YOK: zindan → kamp → zindan → boss geçişlerinde aynı parça
+	# baştan başlamasın, yoksa uzun müziğin sadece ilk saniyeleri duyulur.
+	_refresh_ambient_music(false)
 
 
 func _on_scene_change_completed(scene_path: String) -> void:
@@ -291,7 +397,7 @@ func _on_hour_changed_ambient(_hour: int) -> void:
 	var night_now: bool = _is_night_ambient()
 	if night_now == _ambient_is_night:
 		return
-	_refresh_ambient_music(true)
+	_refresh_ambient_music(false)
 
 
 func _ambient_profile_from_scene(scene_path: String) -> String:
@@ -309,10 +415,6 @@ func _ambient_profile_from_scene(scene_path: String) -> String:
 
 func _is_night_ambient() -> bool:
 	return ForestNightLightUtil.get_night_blend() >= 0.5
-
-
-func _is_ambient_track(track_id: String) -> bool:
-	return SoundCatalog.AMBIENT_FILES.has(track_id)
 
 
 func _footstep_sfx_id_for_scene(scene_path: String) -> String:
@@ -337,34 +439,67 @@ func _refresh_ambient_music(force_restart := false) -> void:
 	if _ambient_profile.is_empty():
 		clear_ambient_profile()
 		return
-	var track_id: String = ""
+	var ambient_id: String = ""
 	match _ambient_profile:
 		"village":
 			_ambient_is_night = _is_night_ambient()
-			track_id = "village_night" if _ambient_is_night else "village_day"
+			ambient_id = "village_night" if _ambient_is_night else "village_day"
 		"forest":
 			_ambient_is_night = _is_night_ambient()
-			track_id = "forest_night" if _ambient_is_night else "forest_day"
+			ambient_id = "forest_night" if _ambient_is_night else "forest_day"
 		"dungeon":
 			_ambient_is_night = false
-			track_id = "dungeon"
-	if track_id.is_empty():
+			ambient_id = "dungeon"
+	var music_id: String = _pick_profile_music(_ambient_profile)
+	if ambient_id.is_empty() and music_id.is_empty():
 		clear_ambient_profile()
 		return
-	play_music(track_id, true, force_restart)
+	play_ambient(ambient_id, true, force_restart)
+	play_music(music_id, true, force_restart)
+
+
+## Profilin çalma listesinden bu run'ın parçasını döndürür.
+## Aynı profil içinde (zindan → kamp → zindan → boss) hep aynı parçayı verir;
+## profilden çıkılıp geri girilince yeniden seçer.
+func _pick_profile_music(profile: String) -> String:
+	var playlist: Array[String] = SoundCatalog.get_music_playlist(profile)
+	if playlist.is_empty():
+		# Bu profilde müzik yok — sonraki girişte yeni parça seçilsin diye sıfırla.
+		_run_music_id = ""
+		return ""
+	if not _run_music_id.is_empty() and playlist.has(_run_music_id):
+		return _run_music_id
+	var candidates: Array[String] = playlist.duplicate()
+	if candidates.size() > 1 and candidates.has(_last_run_music_id):
+		candidates.erase(_last_run_music_id)
+	_run_music_id = candidates[randi() % candidates.size()]
+	_last_run_music_id = _run_music_id
+	print("[SoundManager] Run music picked for profile '%s': %s" % [profile, _run_music_id])
+	return _run_music_id
 
 
 func stop_music() -> void:
 	_current_music_id = ""
 	_music_should_loop = false
+	_music_loop_start = 0.0
+	_music_loop_end = 0.0
 	if is_instance_valid(_music_player):
-		_music_player.stop()
+		_fade_out_and_stop(_music_player, MUSIC_FADE_SEC)
+
+
+func stop_ambient() -> void:
+	_current_ambient_id = ""
+	_ambient_should_loop = false
+	if is_instance_valid(_ambient_player):
+		_fade_out_and_stop(_ambient_player, AMBIENT_FADE_SEC)
 
 
 func clear_ambient_profile() -> void:
 	_ambient_profile = ""
 	_ambient_is_night = false
+	_run_music_id = ""
 	stop_music()
+	stop_ambient()
 
 
 func set_master_volume_db(db: float) -> void:

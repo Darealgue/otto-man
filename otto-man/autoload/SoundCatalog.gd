@@ -56,9 +56,44 @@ const AMBIENT_FILES: Dictionary = {
 	"river": "river_ambient",
 }
 
+## Gerçek müzik parçaları (`assets/audio/music/`). Ambient'ten AYRI çalar:
+## ayrı player, ayrı bus (Music). Uzun parçalar için `.ogg` kullan.
 const MUSIC_FILES: Dictionary = {
 	"menu": "menu_ambient",
+	"dungeon_1": "dungeon_theme",
+	"dungeon_2": "dungeon_theme_2",
 }
+
+## Ambient profili → o profilde çalabilecek müzik id'leri.
+## Profile her YENİ girişte listeden bir parça seçilir ve o run boyunca değişmez.
+## Yeni parça eklemek için: dosyayı `music/` altına koy, MUSIC_FILES'a bir id ver,
+## id'yi buradaki listeye ekle. Başka hiçbir yere dokunma.
+const MUSIC_PLAYLISTS: Dictionary = {
+	"dungeon": ["dungeon_1", "dungeon_2"],
+}
+
+## Parça başına özel loop noktası (saniye). Dosyaların sonunda reverb kuyruğu +
+## dijital sessizlik var; motorun kendi loop'u dosyanın en sonuna kadar çaldığı
+## için turlar arasında boşluk duyuluyordu. Kod `end`e gelince `start`a sarar.
+## Ölçülen değerler (tepe genlik taraması):
+##   dungeon_theme.ogg   — dosya 307.22 sn, son vuruş 302.2, sonrası kuyruk+sessizlik
+##   dungeon_theme_2.ogg — dosya 238.53 sn, son vuruş 236.0, sonrası kuyruk+sessizlik
+## `end` değerleri kuyruğun ilk ~0.2 sn'sini bırakır, kesme sert duyulmasın diye.
+## Parça değişirse bu değerler de güncellenmeli. Listede olmayan parça dosya
+## sonuna kadar normal çalar.
+const MUSIC_LOOP_POINTS: Dictionary = {
+	"dungeon_1": {"start": 0.0, "end": 302.4},
+	"dungeon_2": {"start": 0.0, "end": 236.2},
+}
+
+
+static func get_music_loop_start(track_id: String) -> float:
+	return float((MUSIC_LOOP_POINTS.get(track_id, {}) as Dictionary).get("start", 0.0))
+
+
+## 0.0 dönerse özel loop noktası yok demektir.
+static func get_music_loop_end(track_id: String) -> float:
+	return float((MUSIC_LOOP_POINTS.get(track_id, {}) as Dictionary).get("end", 0.0))
 
 
 static func get_sfx_file_stem(sound_id: String) -> String:
@@ -92,10 +127,17 @@ static func resolve_ambient_path(track_id: String) -> String:
 
 
 static func resolve_music_path(track_id: String) -> String:
-	var ambient: String = resolve_ambient_path(track_id)
-	if not ambient.is_empty():
-		return ambient
 	return _resolve_in_folder(MUSIC_ROOT, get_music_file_stem(track_id))
+
+
+## Bir profilin çalma listesi. Dosyası gerçekten var olan parçalar döner.
+static func get_music_playlist(profile: String) -> Array[String]:
+	var ids: Array[String] = []
+	for id in MUSIC_PLAYLISTS.get(profile, []):
+		var track_id: String = String(id)
+		if not resolve_music_path(track_id).is_empty():
+			ids.append(track_id)
+	return ids
 
 
 static func list_sfx_ids() -> Array[String]:
@@ -115,8 +157,6 @@ static func list_ambient_ids() -> Array[String]:
 static func list_music_ids() -> Array[String]:
 	var ids: Array[String] = []
 	for k in MUSIC_FILES.keys():
-		ids.append(String(k))
-	for k in AMBIENT_FILES.keys():
 		ids.append(String(k))
 	return ids
 

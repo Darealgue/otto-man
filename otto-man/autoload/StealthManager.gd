@@ -164,16 +164,6 @@ func _apply_alarm_world_effects() -> void:
 	for chest in tree.get_nodes_in_group(STEALTH_CHEST_GROUP):
 		if is_instance_valid(chest) and chest.has_method("lock_on_alarm"):
 			chest.call("lock_on_alarm", alarm_reason)
-	var drs: Node = get_node_or_null("/root/DungeonRunState")
-	var lost: Dictionary = {"villagers": 0, "cariyes": 0}
-	if is_instance_valid(drs) and drs.has_method("purge_fragile_rescues"):
-		lost = drs.call("purge_fragile_rescues")
-	var v_lost: int = int(lost.get("villagers", 0))
-	var c_lost: int = int(lost.get("cariyes", 0))
-	if v_lost > 0 or c_lost > 0:
-		_notify_fragile_rescue_fled(v_lost, c_lost)
-	if _hud != null and is_instance_valid(_hud) and _hud.has_method("refresh_fragile_status"):
-		_hud.call("refresh_fragile_status")
 	_lock_segment_finish_door()
 
 
@@ -192,23 +182,11 @@ func _lock_segment_finish_door() -> void:
 		_hud.call("show_alarm_banner")
 
 
-func _notify_fragile_rescue_fled(villagers_lost: int, cariyes_lost: int) -> void:
-	if _hud != null and is_instance_valid(_hud) and _hud.has_method("show_flee_toast"):
-		_hud.call("show_flee_toast", villagers_lost, cariyes_lost)
-		return
-	print("[StealthManager] Kurtarılanlar kaçtı — köylü=%d cariye=%d" % [villagers_lost, cariyes_lost])
-
-
 ## Oyuncu yeterince düşman alt edip anahtar taşıyıcının yerini "öğrendiğinde" (bkz.
 ## DungeonRunState.KEY_ARROW_REVEAL_KILL_COUNT) çağrılır — ok artık ekranda görünür.
 func notify_key_location_revealed() -> void:
 	if _hud != null and is_instance_valid(_hud) and _hud.has_method("show_key_location_revealed_toast"):
 		_hud.call("show_key_location_revealed_toast")
-
-
-func refresh_fragile_hud() -> void:
-	if _hud != null and is_instance_valid(_hud) and _hud.has_method("refresh_fragile_status"):
-		_hud.call("refresh_fragile_status")
 
 
 func _ensure_hud() -> void:

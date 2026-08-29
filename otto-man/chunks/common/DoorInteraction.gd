@@ -185,7 +185,6 @@ func _on_minigame_result(result: Dictionary):
 		# Kapı zaten açık (minigame başlamadan açıldı); açık kalır.
 		var drs = get_node_or_null("/root/DungeonRunState")
 		if drs:
-			var fragile: bool = _is_fragile_rescue_context()
 			if minigame_kind == "vip":
 				var payload: Dictionary = result.get("payload", {})
 				var leverage: int = int(payload.get("leverage", 0))
@@ -207,14 +206,7 @@ func _on_minigame_result(result: Dictionary):
 					"leverage": leverage,
 					"appearance": appearance_dict
 				}
-				if drs.has_method("add_pending_cariye"):
-					drs.call("add_pending_cariye", cariye_data, fragile)
-				else:
-					drs.add_pending_cariye(cariye_data)
-			if fragile:
-				var sm: Node = get_node_or_null("/root/StealthManager")
-				if is_instance_valid(sm) and sm.has_method("refresh_fragile_hud"):
-					sm.call_deferred("refresh_fragile_hud")
+				drs.add_pending_cariye(cariye_data)
 	else:
 		# Kaybedilen kurtarma tekrar denenemez: oda kapanır
 		_consumed = true
@@ -232,7 +224,6 @@ func _handle_villager_result(result: Dictionary) -> void:
 	var payload: Dictionary = result.get("payload", {})
 	var rescued_count: int = int(payload.get("rescued_count", 1 if result.get("success", false) else 0))
 	var drs = get_node_or_null("/root/DungeonRunState")
-	var fragile: bool = _is_fragile_rescue_context()
 	for i in range(rescued_count):
 		var w: Node = _next_unrescued_villager()
 		var appearance_dict = null
@@ -249,16 +240,8 @@ func _handle_villager_result(result: Dictionary) -> void:
 			else:
 				w.visible = false
 		if drs:
-			if drs.has_method("add_pending_villager_data"):
-				drs.call("add_pending_villager_data", {"appearance": appearance_dict, "name": name_str}, fragile)
-			else:
-				drs.add_pending_villager_data({"appearance": appearance_dict, "name": name_str})
-	if rescued_count > 0:
-		if fragile:
-			var sm: Node = get_node_or_null("/root/StealthManager")
-			if is_instance_valid(sm) and sm.has_method("refresh_fragile_hud"):
-				sm.call_deferred("refresh_fragile_hud")
-	else:
+			drs.add_pending_villager_data({"appearance": appearance_dict, "name": name_str})
+	if rescued_count <= 0:
 		_apply_failure_penalty()
 
 func _apply_failure_penalty() -> void:
@@ -270,16 +253,6 @@ func _apply_failure_penalty() -> void:
 		var new_h: float = cur_h - damage
 		ps.set_current_health(new_h, true)
 
-
-func _is_fragile_rescue_context() -> bool:
-	var sm: Node = get_node_or_null("/root/StealthManager")
-	if not is_instance_valid(sm):
-		return false
-	if not sm.has_method("is_stealth_enabled") or not bool(sm.call("is_stealth_enabled")):
-		return false
-	if not sm.has_method("is_stealth_mode"):
-		return false
-	return bool(sm.call("is_stealth_mode"))
 
 ## Kurtarılan tutsağın yürüyerek yöneleceği X: oyuncunun bulunduğu konum (yoksa kapının
 ## biraz ötesi) — "kurtarılan oyuncuya doğru yürüsün" isteğiyle uyumlu.
