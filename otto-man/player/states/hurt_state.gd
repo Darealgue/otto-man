@@ -200,15 +200,22 @@ func physics_update(delta: float) -> void:
 		player.sprite.flip_h = to_enemy_dir.x < 0
 	
 	# Handle red flashing effect (keep sprite visible, toggle between red and white)
-	flash_timer -= delta
-	if flash_timer <= 0:
-		flash_timer = FLASH_INTERVAL
-		# Toggle between red and white
-		is_red_flash = !is_red_flash
+	# Ölümcül dizide yanıp sönme durur: oyuncu ölürken Hurt state'inde kaldığı için
+	# ceset yerde yatarken de kırmızı/beyaz yanıp sönmeye devam ediyordu.
+	if lethal_sequence_active:
 		if is_red_flash:
-			player.sprite.modulate = Color(1, 0, 0, 1)  # Red
-		else:
-			player.sprite.modulate = Color(1, 1, 1, 1)  # White
+			is_red_flash = false
+			player.sprite.modulate = Color(1, 1, 1, 1)
+	else:
+		flash_timer -= delta
+		if flash_timer <= 0:
+			flash_timer = FLASH_INTERVAL
+			# Toggle between red and white
+			is_red_flash = !is_red_flash
+			if is_red_flash:
+				player.sprite.modulate = Color(1, 0, 0, 1)  # Red
+			else:
+				player.sprite.modulate = Color(1, 1, 1, 1)  # White
 	
 	_apply_hurt_movement(delta)
 

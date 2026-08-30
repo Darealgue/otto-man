@@ -2353,3 +2353,4 @@ date.yesterday,Dün %s,Yesterday %s
 date.full,%d %s %d · %s,%d %s %d · %s
 date.months_short,Oca|Şub|Mar|Nis|May|Haz|Tem|Ağu|Eyl|Eki|Kas|Ara,Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
 date.unknown,Tarih yok,No date
+boss.name.orb_scatter,Cadı,Witch

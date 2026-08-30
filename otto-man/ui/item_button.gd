@@ -6,6 +6,16 @@ extends Button
 var item_scene: PackedScene
 var progress: float = 0.0
 
+## Açıklama puntosu karta göre otomatik seçilir: sığan en büyük punto kullanılır.
+## Sabit 14 punto hem okunmuyordu hem de uzun açıklamaların bir kısmı kutuya sığmıyordu.
+const DESC_FONT_MAX := 22
+const DESC_FONT_MIN := 13
+
+
+func _ready() -> void:
+	# setup() buton ağaca eklenmeden çalışıyor; tema fontu ancak ağaçtayken çözülüyor.
+	_fit_desc_font()
+
 func setup(scene: PackedScene) -> void:
 	item_scene = scene
 
@@ -67,6 +77,30 @@ func _set_card_text(card_name: String, description: String, tag_text: String = "
 	if tag_label:
 		tag_label.text = tag_text
 		tag_label.add_theme_color_override("font_color", tag_color)
+
+## Açıklama kutusuna sığan en büyük puntoyu bulup uygular. Kutu ölçüleri kartın
+## arka plan şablonundaki (card_template.png) açıklama paneline göre ayarlı.
+func _fit_desc_font() -> void:
+	var label := get_node_or_null("DescLabel") as Label
+	if label == null or label.text.is_empty():
+		return
+	var font: Font = label.get_theme_font("font")
+	if font == null:
+		return
+	var box_w: float = label.offset_right - label.offset_left
+	var box_h: float = label.offset_bottom - label.offset_top
+	if box_w <= 0.0 or box_h <= 0.0:
+		return
+	var spacing: int = label.get_theme_constant("line_spacing")
+	for fs in range(DESC_FONT_MAX, DESC_FONT_MIN - 1, -1):
+		var sz: Vector2 = font.get_multiline_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, box_w, fs)
+		var line_h: float = maxf(1.0, font.get_height(fs))
+		var lines: int = maxi(1, int(round(sz.y / line_h)))
+		if sz.y + float(spacing * (lines - 1)) <= box_h:
+			label.add_theme_font_size_override("font_size", fs)
+			return
+	label.add_theme_font_size_override("font_size", DESC_FONT_MIN)
+
 
 ## Şablon kart çizimini (card_template.png) rarity rengine göre boyayıp buton arka planına basar.
 func _apply_card_tint(tint: Color) -> void:

@@ -59,7 +59,7 @@ const AMBIENT_FILES: Dictionary = {
 ## Gerçek müzik parçaları (`assets/audio/music/`). Ambient'ten AYRI çalar:
 ## ayrı player, ayrı bus (Music). Uzun parçalar için `.ogg` kullan.
 const MUSIC_FILES: Dictionary = {
-	"menu": "menu_ambient",
+	"menu": "menu_theme",
 	"dungeon_1": "dungeon_theme",
 	"dungeon_2": "dungeon_theme_2",
 }
@@ -69,6 +69,7 @@ const MUSIC_FILES: Dictionary = {
 ## Yeni parça eklemek için: dosyayı `music/` altına koy, MUSIC_FILES'a bir id ver,
 ## id'yi buradaki listeye ekle. Başka hiçbir yere dokunma.
 const MUSIC_PLAYLISTS: Dictionary = {
+	"menu": ["menu"],
 	"dungeon": ["dungeon_1", "dungeon_2"],
 }
 
@@ -78,10 +79,15 @@ const MUSIC_PLAYLISTS: Dictionary = {
 ## Ölçülen değerler (tepe genlik taraması):
 ##   dungeon_theme.ogg   — dosya 307.22 sn, son vuruş 302.2, sonrası kuyruk+sessizlik
 ##   dungeon_theme_2.ogg — dosya 238.53 sn, son vuruş 236.0, sonrası kuyruk+sessizlik
+##   menu_theme.ogg      — dosya  90.71 sn, son vuruş  86.9, sonrası kuyruk+sessizlik
 ## `end` değerleri kuyruğun ilk ~0.2 sn'sini bırakır, kesme sert duyulmasın diye.
 ## Parça değişirse bu değerler de güncellenmeli. Listede olmayan parça dosya
 ## sonuna kadar normal çalar.
 const MUSIC_LOOP_POINTS: Dictionary = {
+	# menu: ilk ~1 sn yumuşak giriş, son ~4 sn seyrek outro. Ölçümde bu haliyle
+	# loop boşluğu 0.05 sn (zindan parçalarıyla aynı seviye). Daha sıkı istenirse
+	# start=1.05 girişi turlarda atlar — ama besteye müdahale olur.
+	"menu": {"start": 0.0, "end": 86.9},
 	"dungeon_1": {"start": 0.0, "end": 302.4},
 	"dungeon_2": {"start": 0.0, "end": 236.2},
 }

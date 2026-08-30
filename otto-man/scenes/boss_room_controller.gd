@@ -24,6 +24,14 @@ var _leaving_dungeon: bool = false
 var _loot_spawner: DecorationSpawner = null
 
 
+## Çizim katmanları. Kapı _ready içinde add_child ile ağacın SONUNA eklendiği için,
+## z_index verilmezse hepsi 0'da kalır ve kapı boss'un da oyuncunun da üstüne çizilir.
+const Z_DOOR: int = 0
+const Z_PROJECTILES: int = 5
+const Z_BOSS: int = 6
+const Z_PLAYER: int = 7
+
+
 func _ready() -> void:
 	_setup_camera()
 	_setup_containers()
@@ -31,6 +39,21 @@ func _ready() -> void:
 	_spawn_player()
 	_spawn_boss()
 	_setup_boss_bar()
+	_setup_draw_order()
+
+
+## Boss odasına özel katman sırası — paylaşılan door.tscn / player.tscn'e dokunmaz.
+func _setup_draw_order() -> void:
+	if is_instance_valid(_entrance_door):
+		_entrance_door.z_index = Z_DOOR
+	if is_instance_valid(_projectile_container):
+		_projectile_container.z_index = Z_PROJECTILES
+	if is_instance_valid(_boss):
+		_boss.z_index = Z_BOSS
+	# _player: Node olarak tutuluyor, z_index için CanvasItem'a çevir.
+	var player_ci: CanvasItem = _player as CanvasItem
+	if is_instance_valid(player_ci):
+		player_ci.z_index = Z_PLAYER
 
 
 func _process(_delta: float) -> void:

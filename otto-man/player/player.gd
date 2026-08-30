@@ -1438,18 +1438,20 @@ func _finalize_player_death() -> void:
 		else:
 			animation_player.stop()
 	
-	# Fade out sprite after a delay
-	call_deferred("_fade_out_on_death")
+	# Cesedi tam görünür bırak (eskiden fade out vardı)
+	call_deferred("_settle_corpse_on_death")
 	
 	# Auto-return to village after a delay (roguelike style)
 	await get_tree().create_timer(2.0).timeout
 	_return_to_village_on_death()
 
-func _fade_out_on_death() -> void:
+## Ceset sahne değişene kadar yerinde ve tam görünür kalır.
+## Eskiden burada 1 sn'lik fade + visible = false vardı; ceset gözden kayboluyordu.
+## Sahne zaten _return_to_village_on_death() ile 2 sn sonra değiştiği için
+## cesedin ayrıca temizlenmesine gerek yok.
+func _settle_corpse_on_death() -> void:
 	if sprite:
-		var tween = create_tween()
-		tween.tween_property(sprite, "modulate:a", 0.0, 1.0)
-		tween.tween_callback(func(): visible = false)
+		sprite.modulate = Color(1, 1, 1, 1)
 
 const DUNGEON_DEATH_MORALE_PENALTY: float = 10.0
 

@@ -60,9 +60,9 @@ ayrı ayrı kısabiliyor.
 
 | Oyun ID | Dosya adı (uzantısız) | Nerede çalar |
 |---------|------------------------|--------------|
+| `menu` | `menu_theme` | Ana menü (`menu` profili, ortam sesi yok) |
 | `dungeon_1` | `dungeon_theme` | `dungeon` çalma listesi |
 | `dungeon_2` | `dungeon_theme_2` | `dungeon` çalma listesi |
-| `menu` | `menu_ambient` | (hook yok) |
 
 ### Çalma listeleri — run başına tek parça
 

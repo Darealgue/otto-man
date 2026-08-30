@@ -9,6 +9,13 @@ var current_health: float = 100.0
 var delayed_health: float = 100.0
 var visible_tweening: bool = false
 var defer_reveal: bool = false
+var _active_tween: Tween = null
+
+
+func _kill_active_tween() -> void:
+	if _active_tween != null and _active_tween.is_valid():
+		_active_tween.kill()
+	_active_tween = null
 
 func _ready() -> void:
 	# Center pivot for nicer scale pop
@@ -54,9 +61,11 @@ func _show_bar() -> void:
 	if visible_tweening:
 		return
 	visible_tweening = true
+	_kill_active_tween()
 	modulate.a = 0.0
 	show()
 	var t = create_tween()
+	_active_tween = t
 	t.tween_property(self, "modulate:a", 1.0, 0.2)
 	t.finished.connect(func(): visible_tweening = false)
 
@@ -65,10 +74,12 @@ func reveal() -> void:
 		return
 	defer_reveal = false
 	visible_tweening = true
+	_kill_active_tween()
 	show()
 	modulate.a = 0.0
 	scale = Vector2(0.9, 0.9)
 	var t = create_tween()
+	_active_tween = t
 	# Fade in and scale up slightly
 	t.tween_property(self, "modulate:a", 1.0, 0.18)
 	t.parallel().tween_property(self, "scale", Vector2(1.05, 1.05), 0.18)
@@ -77,11 +88,14 @@ func reveal() -> void:
 	t.finished.connect(func(): visible_tweening = false)
 
 func conceal() -> void:
-	if visible_tweening:
-		return
+	# Erken return YOK: öldürücü vuruş önce health_changed -> _show_bar() tetikliyor,
+	# o fade-in tween'i sürerken visible_tweening true oluyor ve bar hiç gizlenmiyordu.
+	# Gizlenme her zaman öncelikli — varsa mevcut tween iptal edilip devralınıyor.
+	_kill_active_tween()
 	defer_reveal = true
 	visible_tweening = true
 	var t = create_tween()
+	_active_tween = t
 	# Quick fade-out and slight scale down
 	t.tween_property(self, "modulate:a", 0.0, 0.15)
 	t.parallel().tween_property(self, "scale", Vector2(0.98, 0.98), 0.15)

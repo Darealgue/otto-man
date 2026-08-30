@@ -13,8 +13,14 @@ const BOSS_SCENES: Dictionary = {
 	# "tepegoz": "res://scenes/boss_rooms/tepegoz_boss_room.tscn",
 }
 
+## Çeviri bulunamazsa kullanılan yedek adlar (DEFAULT_LOCALE "en").
 const BOSS_DISPLAY_NAMES: Dictionary = {
-	"orb_scatter": "Orb Scatter",
+	"orb_scatter": "Witch",
+}
+
+## boss_id -> localization anahtarı.
+const BOSS_NAME_KEYS: Dictionary = {
+	"orb_scatter": "boss.name.orb_scatter",
 }
 
 ## Eski tek sahne yolu — geriye dönük referanslar için.
@@ -29,6 +35,12 @@ static func get_display_name(boss_id: String = "") -> String:
 	var id := boss_id.strip_edges()
 	if id.is_empty():
 		id = DEFAULT_BOSS_ID
+	# static olduğu için tr() yok; TranslationServer doğrudan kullanılıyor.
+	if BOSS_NAME_KEYS.has(id):
+		var key := String(BOSS_NAME_KEYS[id])
+		var translated := String(TranslationServer.translate(key))
+		if not translated.is_empty() and translated != key:
+			return translated
 	return String(BOSS_DISPLAY_NAMES.get(id, id.replace("_", " ").capitalize()))
 
 

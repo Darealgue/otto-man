@@ -11,6 +11,41 @@ const DAMAGE_NUMBER_SCENE := preload("res://effects/damage_number.tscn")
 const ENEMY_HITBOX_SCRIPT := preload("res://components/enemy_hitbox.gd")
 const SCATTER_ANGLE_OFFSET := PI / 8.0
 
+const SPRITE_DIR := "res://enemy/witch/sprite/"
+const FRAME_SIZE := 240
+const ANIM_FPS := 12.0
+
+const SHEETS := {
+	"intro": "witch_intro_border.png",
+	"idle": "witch_idle_border.png",
+	"move": "witch_move_border.png",
+	"scatter": "witch_scatter_border.png",
+	"charge": "witch_charge_border.png",
+	"vulnerable": "witch_vulnerable_border.png",
+	"hurt": "witch_hurt_border.png",
+	"death": "witch_death_border.png",
+}
+
+## anim adı -> [sheet anahtarı, ilk kare (0-indeksli), kare sayısı, loop]
+const ANIMS := {
+	"intro": ["intro", 0, 21, false],
+	"idle": ["idle", 0, 6, true],
+	"move": ["move", 0, 6, true],
+	"scatter_telegraph": ["scatter", 0, 14, false],
+	"scatter_fire": ["scatter", 14, 12, false],
+	"charge_telegraph": ["charge", 0, 19, false],
+	"charge_dash": ["charge", 19, 8, true],
+	"charge_recover": ["charge", 27, 2, false],
+	# Charge sheet'i minik topta bitiyor, geri açılma çizilmemiş.
+	# Scatter sheet'inin kuyruğu (22-26) tam olarak o top -> cadı geçişi.
+	"charge_unfurl": ["scatter", 21, 5, false],
+	"vulnerable_open": ["vulnerable", 0, 9, false],
+	"vulnerable_loop": ["vulnerable", 9, 9, true],
+	"vulnerable_close": ["vulnerable", 18, 3, false],
+	"hurt": ["hurt", 0, 6, false],
+	"death": ["death", 0, 36, false],
+}
+
 @export var max_health: float = 200.0
 @export var scatter_cycles_before_vulnerable: int = 3
 @export var orbs_per_scatter: int = 8
@@ -19,13 +54,16 @@ const SCATTER_ANGLE_OFFSET := PI / 8.0
 @export var orb_max_bounces: int = 3
 @export var move_speed: float = 420.0
 @export var vulnerable_duration: float = 4.0
-@export var scatter_telegraph_time: float = 0.55
-@export var pause_after_scatter: float = 0.9
+## Animasyon uzunluklarına göre ayarlandı (scatter_telegraph 14 kare @ 12fps).
+@export var scatter_telegraph_time: float = 1.17
+## scatter_fire 12 kare @ 12fps.
+@export var pause_after_scatter: float = 1.0
 @export var charge_damage: float = 18.0
 @export var contact_damage: float = 14.0
 @export var charge_speed: float = 900.0
 @export var charge_dash_count: int = 4
-@export var charge_telegraph_time: float = 0.28
+## charge_telegraph 19 kare @ 12fps.
+@export var charge_telegraph_time: float = 1.58
 @export var charge_dash_time: float = 0.72
 @export var pause_after_charge: float = 0.75
 
@@ -36,9 +74,35 @@ var arena_bounds: Rect2 = Rect2(80.0, 120.0, 1760.0, 880.0)
 
 @onready var hurtbox: Area2D = $Hurtbox
 var visual_root: Node2D = null
+var _sprite: AnimatedSprite2D = null
+var _danger_aura: CanvasGroup = null
+var _aura_sprites: Array[AnimatedSprite2D] = []
+var _aura_material: ShaderMaterial = null
+var _current_anim: String = ""
+var _contact_active: bool = false
+var _aura_phase: float = 0.0
 
-var _base_color: Color = Color(0.85, 0.25, 0.35, 1.0)
-var _vulnerable_color: Color = Color(1.0, 0.92, 0.35, 1.0)
+## Temas hasarı açıkken cadının arkasında yanıp sönen tehlike halesi.
+##
+## Ölçekleyerek hale yapılmıyor: cadı 240x240 karenin içinde ortalanmış değil
+## (idle merkez y=125, vulnerable y=147) ve ölçekleme kalınlığı merkeze uzaklıkla
+## orantılı yaptığı için halka bir kenarda kalın, diğerinde ince çıkıyordu.
+## Bunun yerine siluet 8 yöne sabit piksel kaydırılıp çiziliyor -> her yerde eşit kontur.
+const AURA_OUTLINE_RADIUS: float = 7.0
+const AURA_DIRECTIONS: Array = [
+	Vector2(1.0, 0.0), Vector2(-1.0, 0.0), Vector2(0.0, 1.0), Vector2(0.0, -1.0),
+	Vector2(0.7071, 0.7071), Vector2(-0.7071, 0.7071),
+	Vector2(0.7071, -0.7071), Vector2(-0.7071, -0.7071),
+]
+const AURA_COLOR: Color = Color(1.0, 0.35, 0.18)
+const AURA_COLOR_CHARGE: Color = Color(1.0, 0.12, 0.08)
+const AURA_PULSE_SPEED: float = 5.0
+const AURA_PULSE_SPEED_CHARGE: float = 13.0
+const AURA_ALPHA_MIN: float = 0.20
+const AURA_ALPHA_MAX: float = 0.60
+const AURA_ALPHA_MIN_CHARGE: float = 0.55
+const AURA_ALPHA_MAX_CHARGE: float = 1.0
+
 var _attacks_done: int = 0
 var _move_target: Vector2 = Vector2.ZERO
 var _is_moving: bool = false
@@ -70,7 +134,7 @@ func _ready() -> void:
 	add_to_group("enemies")
 	health = max_health
 	_setup_hurtbox()
-	_build_placeholder_visual()
+	_build_sprite_visual()
 	_build_contact_hitbox()
 	_health_emit_changed()
 
@@ -100,21 +164,25 @@ func _setup_hurtbox() -> void:
 
 func _process(delta: float) -> void:
 	if state == BossState.DEFEATED:
+		_update_danger_aura(delta)
 		return
 	if state == BossState.ACTIVE:
 		_process_active(delta)
 	elif state == BossState.VULNERABLE:
 		_process_vulnerable(delta)
+	_update_danger_aura(delta)
 
 
 func begin_intro() -> void:
 	state = BossState.INTRO
+	_play("intro", true)
 
 
 func finish_intro() -> void:
 	if state == BossState.DEFEATED:
 		return
 	state = BossState.ACTIVE
+	_play("idle")
 	_update_contact_hitbox()
 
 
@@ -125,12 +193,35 @@ func enter_vulnerability(duration: float) -> void:
 	state = BossState.VULNERABLE
 	is_vulnerable = true
 	_set_hurtbox_active(true)
-	_apply_vulnerable_visual(true)
 	vulnerability_changed.emit(true)
-	if is_instance_valid(visual_root):
-		visual_root.rotation = 0.0
+	_play("vulnerable_open", true)
+
+	# Açılış animasyonu bitince savunmasız döngüye geç.
+	var open_timer := get_tree().create_timer(_anim_duration("vulnerable_open"))
+	open_timer.timeout.connect(_on_vulnerable_open_finished)
+
+	# Kapanış animasyonu, süre dolmadan hemen önce başlasın.
+	var close_dur := _anim_duration("vulnerable_close")
+	var close_at := maxf(duration - close_dur, 0.0)
+	if close_at > 0.0:
+		var close_timer := get_tree().create_timer(close_at)
+		close_timer.timeout.connect(_on_vulnerable_close_cue)
+
 	var timer := get_tree().create_timer(duration)
 	timer.timeout.connect(_on_vulnerability_timeout)
+
+
+func _on_vulnerable_open_finished() -> void:
+	if state != BossState.VULNERABLE:
+		return
+	if _current_anim == "vulnerable_open":
+		_play("vulnerable_loop")
+
+
+func _on_vulnerable_close_cue() -> void:
+	if state != BossState.VULNERABLE:
+		return
+	_play("vulnerable_close", true)
 
 
 func _on_vulnerability_timeout() -> void:
@@ -144,11 +235,9 @@ func exit_vulnerability() -> void:
 		return
 	is_vulnerable = false
 	_set_hurtbox_active(false)
-	_apply_vulnerable_visual(false)
 	vulnerability_changed.emit(false)
 	state = BossState.ACTIVE
-	if is_instance_valid(visual_root):
-		visual_root.scale = Vector2.ONE
+	_play("idle")
 	_begin_next_scatter_cycle()
 
 
@@ -159,6 +248,8 @@ func take_damage(amount: float, _knockback_force: float = 0.0, _knockback_up_for
 	health = maxf(0.0, health - amount)
 	_health_emit_changed()
 	_flash_damage()
+	if health > 0.0:
+		_play("hurt", true)
 
 	var damage_number: Node = DAMAGE_NUMBER_SCENE.instantiate()
 	get_tree().current_scene.add_child(damage_number)
@@ -216,10 +307,11 @@ func _set_hurtbox_active(active: bool) -> void:
 		hurtbox.get_node("CollisionShape2D").disabled = not active
 
 
-func _apply_vulnerable_visual(vulnerable: bool) -> void:
+## Savunmasızlık artık animasyonla anlatılıyor; tint yalnızca sıfırlanıyor.
+func _apply_vulnerable_visual(_vulnerable: bool) -> void:
 	if not is_instance_valid(visual_root):
 		return
-	visual_root.modulate = _vulnerable_color if vulnerable else Color.WHITE
+	visual_root.modulate = Color.WHITE
 
 
 func _flash_damage() -> void:
@@ -227,10 +319,10 @@ func _flash_damage() -> void:
 		return
 	visual_root.modulate = Color(1.0, 0.4, 0.4)
 	var tween := create_tween()
-	tween.tween_property(visual_root, "modulate", _vulnerable_color if is_vulnerable else Color.WHITE, 0.12)
+	tween.tween_property(visual_root, "modulate", Color.WHITE, 0.12)
 
 
-func _build_placeholder_visual() -> void:
+func _build_sprite_visual() -> void:
 	if is_instance_valid(visual_root):
 		for child in visual_root.get_children():
 			child.queue_free()
@@ -239,29 +331,170 @@ func _build_placeholder_visual() -> void:
 		visual_root.name = "Visual"
 		add_child(visual_root)
 
-	var ring := Polygon2D.new()
-	ring.name = "Ring"
-	ring.color = Color(0.55, 0.15, 0.55, 0.85)
-	ring.polygon = _make_ring_points(72.0, 52.0, 24)
-	visual_root.add_child(ring)
+	var textures: Dictionary = {}
+	for key in SHEETS.keys():
+		var tex: Texture2D = load(SPRITE_DIR + String(SHEETS[key])) as Texture2D
+		if tex != null:
+			textures[key] = tex
 
-	var core := Polygon2D.new()
-	core.name = "Core"
-	core.color = _base_color
-	core.polygon = _make_circle_points(38.0, 12)
-	visual_root.add_child(core)
+	if textures.is_empty():
+		push_warning("OrbScatterBoss: witch sprite sheet'leri yüklenemedi (%s)" % SPRITE_DIR)
+		return
 
-	var eye_l := Polygon2D.new()
-	eye_l.color = Color(0.95, 0.95, 0.95, 1.0)
-	eye_l.polygon = _make_circle_points(7.0, 8)
-	eye_l.position = Vector2(-16.0, -8.0)
-	visual_root.add_child(eye_l)
+	var frames := SpriteFrames.new()
+	for anim_name in ANIMS.keys():
+		var spec: Array = ANIMS[anim_name]
+		var sheet_key: String = String(spec[0])
+		if not textures.has(sheet_key):
+			continue
+		var source: Texture2D = textures[sheet_key]
+		frames.add_animation(anim_name)
+		frames.set_animation_loop(anim_name, bool(spec[3]))
+		frames.set_animation_speed(anim_name, ANIM_FPS)
+		var first: int = int(spec[1])
+		for i in range(int(spec[2])):
+			var atlas := AtlasTexture.new()
+			atlas.atlas = source
+			atlas.region = Rect2(
+				float((first + i) * FRAME_SIZE), 0.0,
+				float(FRAME_SIZE), float(FRAME_SIZE)
+			)
+			frames.add_frame(anim_name, atlas)
 
-	var eye_r := Polygon2D.new()
-	eye_r.color = Color(0.95, 0.95, 0.95, 1.0)
-	eye_r.polygon = _make_circle_points(7.0, 8)
-	eye_r.position = Vector2(16.0, -8.0)
-	visual_root.add_child(eye_r)
+	if frames.has_animation("default"):
+		frames.remove_animation("default")
+
+	# modulate çarpma yaptığı için mor sprite'ı kahverengiye çevirirdi.
+	# Shader, dokunun yalnızca alfasını kullanıp düz renkli bir siluet basar.
+	var shader := Shader.new()
+	shader.code = """
+shader_type canvas_item;
+uniform vec4 aura_color : source_color = vec4(1.0, 0.35, 0.18, 1.0);
+void fragment() {
+	COLOR = vec4(aura_color.rgb, texture(TEXTURE, UV).a);
+}
+"""
+	_aura_material = ShaderMaterial.new()
+	_aura_material.shader = shader
+
+	# CanvasGroup şart: 8 kopya üst üste bindiği için normalde alfaları çarpışıp
+	# nabız kaybolurdu. CanvasGroup önce hepsini tek tampona çizip modulate'i
+	# sonucun tamamına bir kez uyguluyor.
+	# Cadıdan ÖNCE eklenir ki arkada kalsın.
+	_danger_aura = CanvasGroup.new()
+	_danger_aura.name = "DangerAura"
+	_danger_aura.visible = false
+	visual_root.add_child(_danger_aura)
+
+	_aura_sprites.clear()
+	for dir in AURA_DIRECTIONS:
+		var aura_part := AnimatedSprite2D.new()
+		aura_part.sprite_frames = frames
+		aura_part.centered = true
+		aura_part.position = (dir as Vector2) * AURA_OUTLINE_RADIUS
+		aura_part.material = _aura_material  # paylaşılan: tek parametre hepsini günceller
+		_danger_aura.add_child(aura_part)
+		_aura_sprites.append(aura_part)
+
+	_sprite = AnimatedSprite2D.new()
+	_sprite.name = "WitchSprite"
+	_sprite.sprite_frames = frames
+	_sprite.centered = true
+	visual_root.add_child(_sprite)
+	if not _sprite.animation_finished.is_connected(_on_animation_finished):
+		_sprite.animation_finished.connect(_on_animation_finished)
+	# Her karede kopyalamak haleyi bir kare geriden takip ettiriyordu; sinyalle
+	# tam kare değiştiği anda senkronlanıyor.
+	if not _sprite.frame_changed.is_connected(_sync_aura_frame):
+		_sprite.frame_changed.connect(_sync_aura_frame)
+	if not _sprite.animation_changed.is_connected(_sync_aura_frame):
+		_sprite.animation_changed.connect(_sync_aura_frame)
+	_play("idle")
+
+
+func _sync_aura_frame() -> void:
+	if not is_instance_valid(_sprite):
+		return
+	for aura_part in _aura_sprites:
+		if not is_instance_valid(aura_part):
+			continue
+		if aura_part.animation != _sprite.animation:
+			aura_part.animation = _sprite.animation
+		aura_part.frame = _sprite.frame
+		aura_part.flip_h = _sprite.flip_h
+
+
+## Animasyonu oynatır. Aynı animasyon zaten seçiliyse tekrar başlatmaz —
+## bu sayede _process içinden her karede güvenle çağrılabilir.
+func _play(anim: String, force_restart: bool = false) -> void:
+	if not is_instance_valid(_sprite) or _sprite.sprite_frames == null:
+		return
+	if not _sprite.sprite_frames.has_animation(anim):
+		return
+	if _current_anim == anim and not force_restart:
+		return
+	_current_anim = anim
+	_sprite.play(anim)
+
+
+func _anim_duration(anim: String) -> float:
+	if not ANIMS.has(anim):
+		return 0.0
+	var spec: Array = ANIMS[anim]
+	return float(int(spec[2])) / ANIM_FPS
+
+
+func _on_animation_finished() -> void:
+	# Hurt bitince savunmasız döngüye geri dön.
+	if _current_anim == "hurt" and state == BossState.VULNERABLE:
+		_play("vulnerable_loop", true)
+		return
+	# Top küçüldükten sonra cadı formuna geri açıl.
+	if _current_anim == "charge_recover" and state == BossState.ACTIVE:
+		_play("charge_unfurl", true)
+
+
+## Temas hasarı açıkken nabız gibi yanıp sönen hale; charge sırasında daha hızlı ve parlak.
+func _update_danger_aura(delta: float) -> void:
+	if not is_instance_valid(_danger_aura) or not is_instance_valid(_sprite):
+		return
+
+	if not _contact_active:
+		if _danger_aura.visible:
+			_danger_aura.visible = false
+		_aura_phase = 0.0
+		return
+
+	if not _danger_aura.visible:
+		# Görünür olduğu ilk karede doğru poza otur.
+		_sync_aura_frame()
+		_danger_aura.visible = true
+
+	_aura_phase += delta * (AURA_PULSE_SPEED_CHARGE if _is_charging else AURA_PULSE_SPEED)
+	var t: float = 0.5 + 0.5 * sin(_aura_phase)
+
+	if _aura_material:
+		_aura_material.set_shader_parameter(
+			"aura_color", AURA_COLOR_CHARGE if _is_charging else AURA_COLOR
+		)
+
+	# Nabız alfası CanvasGroup'un tamamına uygulanıyor, tek tek kopyalara değil.
+	_danger_aura.self_modulate.a = lerpf(
+		AURA_ALPHA_MIN_CHARGE if _is_charging else AURA_ALPHA_MIN,
+		AURA_ALPHA_MAX_CHARGE if _is_charging else AURA_ALPHA_MAX,
+		t
+	)
+
+
+func _face_player() -> void:
+	if not is_instance_valid(_sprite):
+		return
+	var player_pos := _get_player_position()
+	if player_pos == Vector2.INF:
+		return
+	if absf(player_pos.x - global_position.x) < 12.0:
+		return
+	_sprite.flip_h = player_pos.x < global_position.x
 
 
 func _build_contact_hitbox() -> void:
@@ -288,6 +521,7 @@ func _build_contact_hitbox() -> void:
 func _set_contact_hitbox_active(active: bool, use_charge_damage: bool = false) -> void:
 	if not is_instance_valid(_contact_hitbox):
 		return
+	_contact_active = active
 	if active:
 		_contact_hitbox.damage = charge_damage if use_charge_damage else contact_damage
 		_contact_hitbox.enable()
@@ -315,7 +549,7 @@ func _set_charge_hitbox_active(active: bool) -> void:
 func _start_fight() -> void:
 	begin_intro()
 	global_position = _anchor_points[2]
-	var intro_timer := get_tree().create_timer(1.0)
+	var intro_timer := get_tree().create_timer(maxf(_anim_duration("intro"), 0.1))
 	intro_timer.timeout.connect(_on_intro_complete)
 
 
@@ -337,14 +571,15 @@ func _process_active(delta: float) -> void:
 			_is_moving = false
 			_on_arrived_at_anchor()
 
-	if is_instance_valid(visual_root) and not is_vulnerable and not _attack_busy:
-		visual_root.rotation += delta * 0.8
+	if _attack_busy:
+		return
+
+	_face_player()
+	_play("move" if _is_moving else "idle")
 
 
-func _process_vulnerable(delta: float) -> void:
-	if is_instance_valid(visual_root):
-		var pulse := 1.0 + sin(Time.get_ticks_msec() * 0.012) * 0.08
-		visual_root.scale = Vector2(pulse, pulse)
+func _process_vulnerable(_delta: float) -> void:
+	_face_player()
 
 
 func _begin_next_scatter_cycle() -> void:
@@ -375,10 +610,8 @@ func _start_scatter_telegraph() -> void:
 	if state != BossState.ACTIVE or _attack_busy:
 		return
 	_attack_busy = true
-	if is_instance_valid(visual_root):
-		var tween := create_tween()
-		tween.tween_property(visual_root, "scale", Vector2(1.25, 1.25), scatter_telegraph_time * 0.5)
-		tween.tween_property(visual_root, "scale", Vector2.ONE, scatter_telegraph_time * 0.5)
+	_face_player()
+	_play("scatter_telegraph", true)
 	var telegraph_timer := get_tree().create_timer(scatter_telegraph_time)
 	telegraph_timer.timeout.connect(_do_scatter)
 
@@ -387,6 +620,8 @@ func _do_scatter() -> void:
 	if state != BossState.ACTIVE:
 		_attack_busy = false
 		return
+
+	_play("scatter_fire", true)
 
 	for i in range(orbs_per_scatter):
 		var angle := SCATTER_ANGLE_OFFSET + TAU * float(i) / float(orbs_per_scatter)
@@ -415,11 +650,8 @@ func _start_charge_telegraph() -> void:
 	_charge_dashes_remaining = charge_dash_count
 	_charge_direction = Vector2.ZERO
 
-	if is_instance_valid(visual_root):
-		visual_root.modulate = Color(1.0, 0.45, 0.45)
-		var tween := create_tween()
-		tween.tween_property(visual_root, "scale", Vector2(1.35, 1.35), charge_telegraph_time * 0.5)
-		tween.tween_property(visual_root, "scale", Vector2.ONE, charge_telegraph_time * 0.5)
+	_face_player()
+	_play("charge_telegraph", true)
 
 	var telegraph_timer := get_tree().create_timer(charge_telegraph_time)
 	telegraph_timer.timeout.connect(_do_charge_dash)
@@ -432,13 +664,7 @@ func _do_charge_dash() -> void:
 
 	_charge_direction = _pick_charge_direction()
 	_set_charge_hitbox_active(true)
-
-	if is_instance_valid(visual_root):
-		visual_root.modulate = Color(1.0, 0.25, 0.25)
-		if _charge_direction.x != 0.0:
-			visual_root.scale = Vector2(1.45, 0.85)
-		else:
-			visual_root.scale = Vector2(0.85, 1.45)
+	_play("charge_dash")
 
 	var dash_distance := charge_speed * charge_dash_time
 	var target := global_position + _charge_direction * dash_distance
@@ -453,14 +679,11 @@ func _on_charge_dash_finished() -> void:
 	_set_charge_hitbox_active(false)
 	_charge_dashes_remaining -= 1
 
-	if is_instance_valid(visual_root):
-		visual_root.scale = Vector2.ONE
-		visual_root.modulate = Color.WHITE
-
 	if _charge_dashes_remaining <= 0 or state != BossState.ACTIVE:
 		_end_charge_sequence()
 		return
 
+	# Dash'ler arasında top formunda kalır, animasyon dönmeye devam eder.
 	var pause_timer := get_tree().create_timer(0.12)
 	pause_timer.timeout.connect(_do_charge_dash)
 
@@ -468,11 +691,12 @@ func _on_charge_dash_finished() -> void:
 func _end_charge_sequence() -> void:
 	_is_charging = false
 	_set_charge_hitbox_active(false)
-	if is_instance_valid(visual_root):
-		visual_root.scale = Vector2.ONE
-		visual_root.modulate = Color.WHITE
+	_play("charge_recover", true)
 
-	var pause_timer := get_tree().create_timer(pause_after_charge)
+	# charge_recover bitince _on_animation_finished charge_unfurl'e zincirliyor;
+	# bekleme ikisini birden kapsamalı, yoksa yarıda kesilip idle'a atlar.
+	var return_time := _anim_duration("charge_recover") + _anim_duration("charge_unfurl")
+	var pause_timer := get_tree().create_timer(maxf(pause_after_charge, return_time))
 	pause_timer.timeout.connect(_finish_attack)
 
 
@@ -558,9 +782,9 @@ func _finish_attack() -> void:
 func _on_defeated() -> void:
 	_clear_projectiles()
 	if is_instance_valid(visual_root):
-		var tween := create_tween()
-		tween.tween_property(visual_root, "modulate:a", 0.0, 0.8)
-		tween.parallel().tween_property(visual_root, "scale", Vector2(0.2, 0.2), 0.8)
+		visual_root.modulate = Color.WHITE
+		visual_root.scale = Vector2.ONE
+	_play("death", true)
 
 
 func _clear_projectiles() -> void:
@@ -569,20 +793,3 @@ func _clear_projectiles() -> void:
 			node.queue_free()
 
 
-static func _make_circle_points(radius: float, segments: int) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	for i in range(segments):
-		var angle := TAU * float(i) / float(segments)
-		points.append(Vector2(cos(angle), sin(angle)) * radius)
-	return points
-
-
-static func _make_ring_points(outer_radius: float, inner_radius: float, segments: int) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	for i in range(segments + 1):
-		var angle := TAU * float(i) / float(segments)
-		points.append(Vector2(cos(angle), sin(angle)) * outer_radius)
-	for i in range(segments, -1, -1):
-		var angle := TAU * float(i) / float(segments)
-		points.append(Vector2(cos(angle), sin(angle)) * inner_radius)
-	return points

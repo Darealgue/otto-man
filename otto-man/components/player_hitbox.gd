@@ -20,6 +20,22 @@ var _registered_hit_target_ids: Array = []  # Instance IDs of enemies that can t
 var base_damage: float = 15.0  # Base damage value
 var combo_enabled: bool = false  # Added missing property
 
+## İsabetli vuruşta geri tepme.
+## Saldırı başında oyuncuya facing * ATTACK_FORWARD_MOMENTUM (80) uygulanıyor ve
+## kare başına lerp(v, 0, delta*3) ile sönüyor — vuruş başına ~19px ileri kayma,
+## 4'lü komboda ~75px. Geri tepme bunu isabet ANINDA dengeliyor; ıskalarsa
+## atılış olduğu gibi kalıyor (zaten mesafe kapatmak için var).
+@export var hit_recoil_enabled: bool = true
+## Temel geri tepme kuvveti. İleri atılışla (80) eşleşince net kayma ~sıfır olur.
+@export var hit_recoil_force: float = 80.0
+## Geri tepme sırasında yön kilidi süresi (sn). Bkz. _apply_player_hit_recoil.
+@export var hit_recoil_facing_lock: float = 0.3
+## Saldırı türüne göre çarpanlar (orijinal değerler: ağır 120, aşağı 100, yukarı 90).
+const RECOIL_MULT_HEAVY: float = 1.5
+const RECOIL_MULT_DOWN: float = 1.25
+const RECOIL_MULT_UP: float = 1.125
+const RECOIL_MAX_SPEED: float = 150.0
+
 @onready var attack_manager = get_node("/root/AttackManager")
 
 const _HitSplashEffectScript = preload("res://effects/hit_splash_effect.gd")
@@ -362,6 +378,9 @@ func _on_area_entered(area: Area2D) -> void:
 	# Hit FX + hitstop: düşman hurtbox → apply_killing_blow_effects (ölümcül vuruş dahil).
 	if current_attack_name != "fall_attack":
 		_apply_air_combo_float()
+	# Yalnızca YAŞAYAN düşmana isabette geri tepme (ceset dalı yukarıda return ediyor).
+	# has_hit_enemy sayesinde saldırı başına bir kez çalışır.
+	_apply_player_hit_recoil()
 	hit_enemy.emit(enemy)
 
 func _get_enemy_sprite_metrics(enemy: Node) -> Dictionary:
@@ -648,66 +667,68 @@ func _get_hit_effect_data() -> Dictionary:
 		_:
 			return {"effect_type": -1, "scale": 1.0}  # rastgele, normal boyut
 
-func _apply_player_hit_recoil(player: Node, enemy_hurtbox: Area2D) -> void:
-	"""Apply slight knockback to player when hitting an enemy for better hit feedback.
-	Player stays facing the enemy but moves backward slightly (like Hollow Knight Silksong)."""
-	if not player or not enemy_hurtbox:
+## Oyuncuyu bulur. _apply_air_combo_float ile aynı desen: önce damage_source
+## meta'sı, yoksa ebeveyn zincirinde oyuncuya özgü bir alan aranır.
+func _resolve_player_node() -> Node:
+	var player_node: Node = get_meta("damage_source") if has_meta("damage_source") else null
+	if player_node and player_node.get("hit_recoil_lock_timer") != null:
+		return player_node
+	var p: Node = get_parent()
+	while p:
+		if p.get("hit_recoil_lock_timer") != null:
+			return p
+		p = p.get_parent()
+	return null
+
+
+## İsabetli vuruşta oyuncuyu hafifçe geri iter, böylece saldırı atılışı dövüş
+## boyunca birikip oyuncuyu düşmanın içine sürüklemez (Hollow Knight tarzı).
+##
+## İki nokta önemli:
+##  - Yalnızca YERDEKİ saldırılarda. İleri atılış da yalnızca yerde uygulanıyor
+##    (attack_state.gd), havada geri tepme eklemek dengelenecek bir şey olmadan
+##    hava kombolarını bozardı.
+##  - hit_recoil_lock_timer set edilmek ZORUNDA. attack_state.gd:525 hızın işaretine
+##    bakıp sprite'ı çeviriyor; geri tepme hızı negatif olduğu için kilit olmadan
+##    oyuncu vuruş anında arkasına dönerdi.
+func _apply_player_hit_recoil() -> void:
+	if not hit_recoil_enabled:
 		return
-	
-	# Player must be CharacterBody2D to have velocity
-	if not player is CharacterBody2D:
+
+	var player_node: Node = _resolve_player_node()
+	if not player_node or not (player_node is CharacterBody2D):
 		return
-	
-	var player_body: CharacterBody2D = player as CharacterBody2D
-	
-	# Get enemy position to ensure player faces the enemy
-	var enemy = enemy_hurtbox.get_parent()
-	if not enemy:
+
+	var player_body: CharacterBody2D = player_node as CharacterBody2D
+
+	# Yalnızca yerdeki saldırılar — ileri atılışın uygulandığı yer burası.
+	if player_body.has_method("is_on_floor") and not player_body.is_on_floor():
 		return
-	
-	var player_pos: Vector2 = player_body.global_position
-	
-	# Get current facing direction (don't change it)
-	var current_facing: float = 1.0
-	if "facing_direction" in player:
-		current_facing = player.facing_direction
-	else:
-		# Fallback: use sprite flip
-		if "sprite" in player and player.sprite:
-			current_facing = -1.0 if player.sprite.flip_h else 1.0
-	
-	# Recoil direction is opposite of current facing direction (backward)
-	var recoil_direction: Vector2 = Vector2(-current_facing, 0.0)
-	
-	# Calculate recoil force based on attack type
-	# Pure horizontal recoil - no vertical component to keep player grounded for combos
-	var recoil_force: float = 80.0  # Base recoil force (horizontal only)
-	var recoil_up: float = 0.0      # No upward component - keep player grounded
-	
-	# Heavy attacks have more recoil
+
+	var facing: float = 1.0
+	if player_node.get("facing_direction") != null and player_node.facing_direction != 0:
+		facing = signf(player_node.facing_direction)
+	elif player_node.get("sprite") != null and player_node.sprite:
+		facing = -1.0 if player_node.sprite.flip_h else 1.0
+
+	var force: float = hit_recoil_force
 	if current_attack_name.find("heavy") != -1:
-		recoil_force = 120.0  # Stronger horizontal recoil
-		recoil_up = 0.0       # Still no vertical component
-	# Down attacks have more recoil (still horizontal)
+		force *= RECOIL_MULT_HEAVY
 	elif current_attack_name.find("down") != -1:
-		recoil_force = 100.0
-		recoil_up = 0.0       # No vertical component
-	# Up attacks have more recoil (still horizontal)
+		force *= RECOIL_MULT_DOWN
 	elif current_attack_name.find("up") != -1:
-		recoil_force = 90.0
-		recoil_up = 0.0       # No vertical component
-	
-	# Apply recoil to player velocity (backward relative to facing direction)
-	# Only apply horizontal recoil, preserve vertical velocity (gravity, jump, etc.)
-	var current_velocity: Vector2 = player_body.velocity
-	var recoil_velocity: Vector2 = recoil_direction * recoil_force
-	player_body.velocity.x = current_velocity.x + recoil_velocity.x
-	# Don't modify vertical velocity - let gravity and other systems handle it
-	
-	# Clamp horizontal recoil to prevent excessive knockback (but preserve vertical velocity)
-	var max_horizontal_recoil: float = 150.0
-	if abs(player_body.velocity.x) > max_horizontal_recoil:
-		player_body.velocity.x = sign(player_body.velocity.x) * max_horizontal_recoil
+		force *= RECOIL_MULT_UP
+
+	# Yalnızca yatay: dikey hız yerçekimi/zıplama sistemlerine ait.
+	player_body.velocity.x -= facing * force
+	if absf(player_body.velocity.x) > RECOIL_MAX_SPEED:
+		player_body.velocity.x = signf(player_body.velocity.x) * RECOIL_MAX_SPEED
+
+	# Yön kilidi: oyuncu geri giderken düşmana bakmaya devam etsin.
+	if player_node.get("hit_recoil_lock_timer") != null:
+		player_node.hit_recoil_lock_timer = maxf(
+			player_node.hit_recoil_lock_timer, hit_recoil_facing_lock
+		)
 
 func _physics_process(_delta: float) -> void:
 	# Safety check - if not active but monitoring is on, disable it

@@ -61,7 +61,12 @@ const DISCORD_ICON_PATH: String = "res://assets/Icons/discord_icon.png"
 func _ready() -> void:
 	if not _validate_nodes():
 		return
-	
+
+	# Menü müziği karşılama müziği: dil seçimi / erken erişim uyarısı / AI teklifi /
+	# profil kapısı boyunca çalmaz. Kilit burada, SoundManager sahneyi görüp müziği
+	# başlatmadan önce kurulur; parallax açılırken _unlock_menu_music() ile açılır.
+	_lock_menu_music()
+
 	# Ensure game is not paused (use GameState if available)
 	if is_instance_valid(GameState) and GameState.has_method("resume"):
 		GameState.resume()
@@ -86,6 +91,20 @@ func _ready() -> void:
 	_refresh_continue_button()
 
 
+## Autoload'a çıplak isimle değil node yoluyla erişiyoruz (bkz. CLAUDE.md): dosya
+## --check-only ile tek başına doğrulanabilsin.
+func _lock_menu_music() -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("lock_music"):
+		sm.lock_music()
+
+
+func _unlock_menu_music() -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm and sm.has_method("unlock_music"):
+		sm.unlock_music()
+
+
 func _setup_intro_state() -> void:
 	_intro_dismissed = false
 	if _menu_root:
@@ -108,9 +127,12 @@ func _should_play_cold_start_fade() -> bool:
 
 func _play_startup_fade_if_needed() -> void:
 	if not _should_play_cold_start_fade():
+		# Oyundan menüye dönüş: giriş akışı yok, müzik hemen başlasın.
 		_clear_intro_fade()
+		_unlock_menu_music()
 		return
 	if not is_instance_valid(_intro_fade):
+		_unlock_menu_music()
 		return
 
 	_intro_fade.show()
@@ -138,6 +160,9 @@ func _play_startup_fade_if_needed() -> void:
 
 	# Aşama 2: uyarı tamamen söndükten SONRA asıl açılış animasyonu (siyah ekran açılır,
 	# "herhangi bir tuşa bas" belirir) başlar — ikisi artık üst üste binmiyor.
+	# Müzik tam burada başlar: siyah ekran açılıp parallax manzara ve "herhangi bir
+	# tuşa bas" belirirken müzik de kendi fade'iyle yükselir, ikisi birlikte gelir.
+	_unlock_menu_music()
 	_cold_start_fading = true
 	_cold_start_tween = create_tween()
 	_cold_start_tween.set_ease(Tween.EASE_IN)

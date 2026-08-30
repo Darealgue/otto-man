@@ -38,6 +38,12 @@ var _ambient_should_loop: bool = false
 ## Çalan parçanın özel loop noktası; _music_loop_end 0.0 ise dosya sonuna kadar çalar.
 var _music_loop_start: float = 0.0
 var _music_loop_end: float = 0.0
+## Ana menüde müzik sahne yüklenir yüklenmez değil, giriş akışı (dil seçimi, erken
+## erişim uyarısı, AI teklifi, profil kapısı) bitip parallax menü göründüğünde
+## başlasın diye. MainMenu açılışta lock_music(), karşılama anında unlock_music()
+## çağırır. Kilitliyken istenen parça saklanır, kilit açılınca çalar.
+var _music_locked: bool = false
+var _music_pending_id: String = ""
 var _fade_tweens: Dictionary = {}
 var _light_attack_pitch_step: int = 0
 
@@ -236,6 +242,9 @@ func play_music(track_id: String, loop := true, force_restart := false) -> void:
 	if track_id.is_empty():
 		stop_music()
 		return
+	if _music_locked:
+		_music_pending_id = track_id
+		return
 	if not force_restart and track_id == _current_music_id and _music_player.playing:
 		return
 	var path: String = SoundCatalog.resolve_music_path(track_id)
@@ -381,6 +390,11 @@ func play_ambient_for_scene(scene_path: String) -> void:
 	if scene_path.is_empty():
 		scene_path = _resolve_active_scene_path()
 	_ambient_profile = _ambient_profile_from_scene(scene_path)
+	# Menü kilidi oyuna sızmasın: menü dışındaki her sahnede kilit düşer ve bekleyen
+	# menü parçası atılır (menüden çıkarken o parçanın çalmaya başlaması istenmez).
+	if _ambient_profile != "menu":
+		_music_locked = false
+		_music_pending_id = ""
 	print("[SoundManager] Ambient profile '%s' for scene: %s" % [_ambient_profile, scene_path])
 	# force_restart YOK: zindan → kamp → zindan → boss geçişlerinde aynı parça
 	# baştan başlamasın, yoksa uzun müziğin sadece ilk saniyeleri duyulur.
@@ -409,7 +423,7 @@ func _ambient_profile_from_scene(scene_path: String) -> String:
 	if p.contains("dungeon") or p.contains("test_level") or p.contains("campscene") or p.contains("boss") or p.contains("tutorial"):
 		return "dungeon"
 	if p.contains("mainmenu"):
-		return ""
+		return "menu"
 	return ""
 
 
@@ -441,6 +455,9 @@ func _refresh_ambient_music(force_restart := false) -> void:
 		return
 	var ambient_id: String = ""
 	match _ambient_profile:
+		"menu":
+			# Ana menüde ortam sesi yok, sadece müzik.
+			_ambient_is_night = false
 		"village":
 			_ambient_is_night = _is_night_ambient()
 			ambient_id = "village_night" if _ambient_is_night else "village_day"
@@ -473,14 +490,34 @@ func _pick_profile_music(profile: String) -> String:
 	if candidates.size() > 1 and candidates.has(_last_run_music_id):
 		candidates.erase(_last_run_music_id)
 	_run_music_id = candidates[randi() % candidates.size()]
-	_last_run_music_id = _run_music_id
+	# Tek parçalık liste (ör. menü) "son çalan"ı ezmesin, yoksa menüden her geçiş
+	# zindanın üst üste aynı parça çıkmasın korumasını sıfırlar.
+	if playlist.size() > 1:
+		_last_run_music_id = _run_music_id
 	print("[SoundManager] Run music picked for profile '%s': %s" % [profile, _run_music_id])
 	return _run_music_id
+
+
+## Müziği bekletmeye başlar: bu andan sonraki play_music() çağrıları çalmaz,
+## istenen parçayı saklar. unlock_music() gelince saklanan parça başlar.
+func lock_music() -> void:
+	_music_locked = true
+
+
+func unlock_music() -> void:
+	if not _music_locked:
+		return
+	_music_locked = false
+	var pending: String = _music_pending_id
+	_music_pending_id = ""
+	if not pending.is_empty():
+		play_music(pending, true, false)
 
 
 func stop_music() -> void:
 	_current_music_id = ""
 	_music_should_loop = false
+	_music_pending_id = ""
 	_music_loop_start = 0.0
 	_music_loop_end = 0.0
 	if is_instance_valid(_music_player):
