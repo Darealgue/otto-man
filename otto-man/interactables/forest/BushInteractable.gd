@@ -10,6 +10,11 @@ const BUSH_END_PATH := "res://ui/minigames/food/berry_bush_end.png"
 const BUSH_HIT_FRAMES := 6  # Hit animasyonu frame sayısı
 const BUSH_HIT_FPS := 12.0
 
+## Etkileşim alanı — .tscn ile AYNI değerler (bkz. BushInteractable.tscn). Çalı görseli
+## 100x100 px; eski 64x48 alan oyuncunun tam ortasında durmasını gerektiriyordu.
+const INTERACT_AREA_SIZE := Vector2(150.0, 120.0)
+const INTERACT_AREA_OFFSET := Vector2(0.0, -60.0)
+
 # Texture'ları yükle (conditional)
 var BUSH_IDLE_TEXTURE: Texture2D = null
 var BUSH_IDLE_HIGHLIGHT_TEXTURE: Texture2D = null
@@ -29,6 +34,8 @@ func _ready() -> void:
 	print("[BushInteractable] _ready() called for: ", name, " at ", global_position)
 	minigame_kind = "forest_food"
 	require_interact_press = true
+	# Ok ipucu çalının üstünde dursun (görsel 100 px yüksek; varsayılan -64 içine gömülüyordu).
+	interact_arrow_offset = Vector2(0.0, -140.0)
 	# Çalı bir kere oynandıktan sonra bir daha oynanamaz (başarılı olsun ya da olmasın)
 	auto_disable_on_success = true
 	auto_disable_on_failure = true
@@ -121,9 +128,9 @@ func _ensure_minimum_nodes() -> void:
 		var cs := CollisionShape2D.new()
 		cs.name = "CollisionShape2D"
 		var rect := RectangleShape2D.new()
-		rect.size = Vector2(64, 48)  # Çalı daha küçük
+		rect.size = INTERACT_AREA_SIZE
 		cs.shape = rect
-		cs.position = Vector2(0, -24)
+		cs.position = INTERACT_AREA_OFFSET
 		add_child(cs)
 	if not has_node("BushIdleSprite"):
 		var anim_sprite := AnimatedSprite2D.new()

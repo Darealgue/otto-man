@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://interactables/forest/BushInteractable.gd" id="1"]
 
 [sub_resource type="RectangleShape2D" id="Shape"]
-size = Vector2(64, 48)
+size = Vector2(150, 120)
 
 [node name="BushInteractable" type="Area2D"]
 script = ExtResource("1")
@@ -12,7 +12,7 @@ collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("Shape")
-position = Vector2(0, -24)
+position = Vector2(0, -60)
 
 [node name="BushIdleSprite" type="AnimatedSprite2D" parent="."]
 centered = false
@@ -22,4 +22,3 @@ position = Vector2(0, -48)
 centered = false
 position = Vector2(0, -48)
 visible = false
-

@@ -33,6 +33,7 @@ func _ready() -> void:
 	if LocaleManager.has_signal("locale_changed"):
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
+	_register_ui_font_scale()
 
 
 func _ensure_nodes() -> void:
@@ -221,3 +222,13 @@ func _set_save_menu_focus() -> void:
 
 func hide_menu() -> void:
 	visible = false
+
+
+## Menü yazı boyutu ayarı (Ayarlar > Görüntü > Arayüz Boyutu). register() bu kökü kapsama alır:
+## şimdi bir kez uygular, sonra ölçek her değiştiğinde yeniden uygular. Autoload'a node yoluyla
+## erişiyoruz ki dosya --check-only ile tek başına doğrulanabilsin (bkz. CLAUDE.md).
+## İkinci argüman panelin kendisi: yazılar büyüyünce sabit boyutlu kutu da büyümeli.
+func _register_ui_font_scale() -> void:
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null and scaler.has_method("register"):
+		scaler.call("register", self, get_node_or_null("Panel"))

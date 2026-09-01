@@ -1,0 +1,143 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scenes/StudioSplash.gd" id="1_studio_splash"]
+[ext_resource type="Texture2D" path="res://assets/logo/white blur.png" id="2_white_glow"]
+[ext_resource type="Texture2D" path="res://assets/logo/red blur.png" id="3_red_glow"]
+[ext_resource type="Texture2D" path="res://assets/logo/wordmark blur.png" id="4_text_glow"]
+[ext_resource type="Texture2D" path="res://assets/logo/white.png" id="5_white"]
+[ext_resource type="Texture2D" path="res://assets/logo/red.png" id="6_red"]
+[ext_resource type="Texture2D" path="res://assets/logo/wordmark.png" id="7_text"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_glow"]
+blend_mode = 1
+
+[node name="StudioSplash" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_studio_splash")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Logo" type="Control" parent="Center"]
+custom_minimum_size = Vector2(720, 720)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="WhiteGlow" type="TextureRect" parent="Center/Logo"]
+texture_filter = 2
+material = SubResource("CanvasItemMaterial_glow")
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_white_glow")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RedGlow" type="TextureRect" parent="Center/Logo"]
+texture_filter = 2
+material = SubResource("CanvasItemMaterial_glow")
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_red_glow")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TextGlow" type="TextureRect" parent="Center/Logo"]
+texture_filter = 2
+material = SubResource("CanvasItemMaterial_glow")
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("4_text_glow")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="White" type="TextureRect" parent="Center/Logo"]
+texture_filter = 2
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_white")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Red" type="TextureRect" parent="Center/Logo"]
+texture_filter = 2
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_red")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Text" type="TextureRect" parent="Center/Logo"]
+texture_filter = 2
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("7_text")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Fade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)

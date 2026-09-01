@@ -16,9 +16,10 @@ const MARGIN := 18.0
 ## screen and is 56px tall, so an 18px bottom margin puts the chip straight behind it. The player
 ## spends most of the download in the village, so the chip has to clear that bar plus a gap.
 const BOTTOM_MARGIN := 78.0
-## Tall enough for the title, a two-line detail (bytes + time remaining) and the bar. When this was
-## 92px the progress bar overflowed the panel and was simply not visible.
-const PANEL_HEIGHT := 138.0
+## Tall enough for the title, a two-line detail (bytes + time remaining), the "you can keep
+## playing" hint and the bar. When this was 92px the progress bar overflowed the panel and was
+## simply not visible; the hint line added on 2026-08-31 needs another ~34px on top of that.
+const PANEL_HEIGHT := 172.0
 ## How long the finished/failed message lingers before the chip fades out.
 const READY_LINGER_SEC := 9.0
 const FAILED_LINGER_SEC := 14.0
@@ -32,6 +33,10 @@ var _mode: int = Mode.HIDDEN
 var _panel: PanelContainer = null
 var _title_label: Label = null
 var _detail_label: Label = null
+## "Bu sırada oynamaya devam edebilirsiniz." — ilk playtest (2026-08-31): oyuncu ilerleme
+## çubuğunu bir yükleme ekranı sanıp indirme bitene kadar bekledi. Bu satır indirme/doğrulama
+## /model yükleme boyunca görünür, hazır ve hata durumlarında gizlenir.
+var _hint_label: Label = null
 var _bar: ProgressBar = null
 
 var _rate_samples: Array[float] = []
@@ -86,6 +91,13 @@ func _build() -> void:
 	_detail_label.add_theme_color_override("font_color", Color(0.88, 0.84, 0.74, 1.0))
 	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_detail_label)
+
+	_hint_label = Label.new()
+	_hint_label.text = tr("ai.chip.keep_playing")
+	_hint_label.add_theme_font_size_override("font_size", 13)
+	_hint_label.add_theme_color_override("font_color", Color(0.72, 0.90, 0.66, 1.0))
+	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_hint_label)
 
 	_bar = ProgressBar.new()
 	_bar.min_value = 0.0
@@ -142,6 +154,10 @@ func _apply_mode(mode: int) -> void:
 		return
 	_panel.modulate.a = 1.0
 	_panel.visible = mode != Mode.HIDDEN
+	# Hazır/hata satırları zaten ne yapılacağını söylüyor; ipucu yalnızca beklemenin
+	# gereksiz olduğu aşamalarda anlamlı.
+	_hint_label.text = tr("ai.chip.keep_playing")
+	_hint_label.visible = mode == Mode.DOWNLOADING or mode == Mode.VERIFYING or mode == Mode.LOADING
 
 	match mode:
 		Mode.DOWNLOADING:

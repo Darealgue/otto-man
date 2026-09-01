@@ -30,44 +30,40 @@ func register_minigame(kind: String, scene_path: String) -> void:
 func has_minigame(kind: String) -> bool:
 	return _minigame_scenes.has(kind)
 
+## 🔴 BURADA `FileAccess.file_exists("res://…​.tscn")` KULLANMA — dışa aktarılmış sürümde HER
+## ZAMAN false döner ve bütün minigame sistemini sessizce öldürür.
+##
+## Godot dışa aktarırken metin sahneleri ikiliye çevirip pck'ye `X.tscn.remap` + gerçek `.scn`
+## olarak yazar; `X.tscn` diye bir kayıt dosya tablosunda HİÇ yoktur. `FileAccess.file_exists()`
+## ise doğrudan o tabloya bakar (PackedData::has_path), remap'i uygulamaz. Editörde gerçek dosya
+## diskte durduğu için her şey çalışır, export'ta ise `start_minigame()` daha ilk satırda false
+## dönerdi.
+##
+## Sonuç (ilk playtest, 2026-08-31): oyuncu ormanda ağaca yaklaşıyor, sarı vurgu ve ok ipucu
+## çıkıyor, etkileşim tuşuna basıyor — ve HİÇBİR ŞEY olmuyor. Odun, yiyecek, taş, su, meyve,
+## cariye kilidi ve VIP düellosu: dışa aktarılmış her sürümde tüm minigame'ler ölüydü.
+## 2026-08-30 tarihli otto-man.pck'nin dosya tablosu ayrıştırılarak doğrulandı: 3715 kaydın
+## içinde `res://ui/minigames/ForestWoodcutMinigame.tscn` yok, yalnızca `.tscn.remap` var.
+##
+## Tek güvenilir kontrol `load()`'un sonucudur: remap'i uygulayan yol odur.
 func start_minigame(kind: String, context := {}) -> bool:
-	if _active_minigame:
+	# is_instance_valid şart: minigame düğümü get_tree().root'a ekleniyor, "completed"
+	# sinyali gelmeden serbest bırakılırsa referans sallantıda kalır ve bir daha HİÇBİR
+	# minigame açılamazdı.
+	if is_instance_valid(_active_minigame):
 		print("[MinigameRouter] Cannot start %s, another minigame already active" % kind)
 		return false
+	_active_minigame = null
 	if !has_minigame(kind):
 		print("[MinigameRouter] has_minigame returned false for kind=%s" % kind)
 		push_warning("[MinigameRouter] Unknown minigame kind: %s" % kind)
 		return false
 	var scene_path: String = _minigame_scenes[kind]
 	print("[MinigameRouter] Attempting to load scene: %s (kind: %s)" % [scene_path, kind])
-	if !FileAccess.file_exists(scene_path):
-		print("[MinigameRouter] ❌ Scene path missing: %s" % scene_path)
-		push_warning("[MinigameRouter] Minigame scene missing at %s (kind: %s)" % [scene_path, kind])
-		return false
-	if !ResourceLoader.exists(scene_path):
-		print("[MinigameRouter] ❌ ResourceLoader.exists() returned false for: %s" % scene_path)
-		push_warning("[MinigameRouter] ResourceLoader cannot find scene at %s (kind: %s)" % [scene_path, kind])
-		return false
 	var ps := load(scene_path)
 	if ps == null:
 		print("[MinigameRouter] ❌ load() returned null for scene %s" % scene_path)
-		print("[MinigameRouter] Checking scene file content...")
-		# Read the scene file to check what script it references
-		var file := FileAccess.open(scene_path, FileAccess.READ)
-		if file:
-			var content := file.get_as_text()
-			file.close()
-			var script_match := RegEx.new()
-			script_match.compile('path="([^"]+\\.gd)"')
-			var result := script_match.search(content)
-			if result:
-				var referenced_script := result.get_string(1)
-				print("[MinigameRouter] Scene references script: %s" % referenced_script)
-				if FileAccess.file_exists(referenced_script):
-					print("[MinigameRouter] ✅ Referenced script exists: %s" % referenced_script)
-				else:
-					print("[MinigameRouter] ❌ Referenced script missing: %s" % referenced_script)
-		push_warning("[MinigameRouter] Failed to load scene for minigame kind: %s" % kind)
+		push_warning("[MinigameRouter] Failed to load scene for minigame kind: %s (%s)" % [kind, scene_path])
 		return false
 	print("[MinigameRouter] ✅ Scene loaded successfully: %s" % scene_path)
 	_active_minigame = ps.instantiate()

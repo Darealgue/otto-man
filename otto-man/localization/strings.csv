@@ -2354,3 +2354,10 @@ date.full,%d %s %d · %s,%d %s %d · %s
 date.months_short,Oca|Şub|Mar|Nis|May|Haz|Tem|Ağu|Eyl|Eki|Kas|Ara,Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec
 date.unknown,Tarih yok,No date
 boss.name.orb_scatter,Cadı,Witch
+ai.chip.keep_playing,Bu sırada oynamaya devam edebilirsiniz.,You can keep playing while this downloads.
+ai.offer.download.background,"İndirme arka planda sürer. Beklemeniz gerekmez, seçiminizi yaptıktan sonra hemen oynamaya başlayabilirsiniz. Köylüler indirme bittiğinde konuşmaya başlar.","The download runs in the background. You do not have to wait, you can start playing as soon as you make your choice. The villagers begin speaking once it finishes."
+settings.hint.format,[← / →] Değer   [↑ / ↓] Satır   [%s / %s] Sekme   [ESC] Geri,[← / →] Value   [↑ / ↓] Row   [%s / %s] Tab   [ESC] Back
+settings.video.ui_scale,Arayüz Boyutu,Interface Size
+settings.video.ui_scale.normal,Normal,Normal
+settings.video.ui_scale.large,Büyük,Large
+settings.video.ui_scale.huge,Çok Büyük,Very Large

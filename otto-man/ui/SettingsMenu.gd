@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS := {
 	"video": {
 		"fullscreen": false,
 		"vsync": true,
+		"ui_font_scale": 1.0,
 	},
 	"game": {
 		"show_damage_numbers": true,
@@ -57,6 +58,10 @@ const DEFAULT_SETTINGS := {
 @onready var back_button: Button = $Panel/VBoxContainer/ButtonContainer/BackButton
 
 var _locale_option: OptionButton = null
+## Görüntü sekmesindeki "Arayüz Boyutu" satırı. Dil satırıyla aynı yaklaşım: .tscn'e değil
+## koda gömülü, böylece özellik tek dosyada duruyor.
+var _ui_scale_label: Label = null
+var _ui_scale_option: OptionButton = null
 
 ## Settings > Game > AI Villagers. Built in code (same approach as the language row) rather than
 ## in the .tscn, so the whole feature stays contained in scripts.
@@ -68,13 +73,24 @@ var _ai_secondary_button: Button = null
 var _locale_label: Label = null
 var _current_settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
 
+## Odaklanan satırın arkasına çizilen parlak şerit.
+##
+## İlk playtest (2026-08-31): "hangi satırda olduğun belli değil, özellikle ayarlarda".
+## Tema artık butonlara/kutucuklara güçlü bir odak çerçevesi çiziyor ama HSlider'a Godot
+## odak çerçevesi ÇİZMEZ, ayrıca ses satırlarında asıl okunan şey etikettir (üstteki Label).
+## Bu şerit, odaklanan denetimin bulunduğu SATIRIN tamamını boyar; parşömen zeminin üstünde
+## ama içeriğin altında durur (Panel'in 0. çocuğu).
+var _focus_highlight: Panel = null
+
 
 func _ready() -> void:
 	var panel := get_node_or_null("Panel") as Panel
 	if panel:
 		ParchmentTextures.apply_large_panel_style(panel, 14)
 	TextOutline.apply_to_tree(self)
+	_ensure_focus_highlight()
 	_ensure_locale_controls()
+	_ensure_ui_scale_controls()
 	_ensure_ai_controls()
 	hide_menu()
 	_connect_signals()
@@ -85,6 +101,69 @@ func _ready() -> void:
 	if LocaleManager.has_signal("locale_changed"):
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
+	_register_ui_font_scale()
+
+
+func _ensure_focus_highlight() -> void:
+	if _focus_highlight != null:
+		return
+	var panel := get_node_or_null("Panel") as Panel
+	if panel == null:
+		return
+	_focus_highlight = Panel.new()
+	_focus_highlight.name = "FocusHighlight"
+	_focus_highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_focus_highlight.visible = false
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.85, 0.68, 0.28, 0.2)
+	style.border_width_left = 5
+	style.border_color = Color(1, 0.87, 0.45, 1)
+	style.set_corner_radius_all(3)
+	_focus_highlight.add_theme_stylebox_override("panel", style)
+	panel.add_child(_focus_highlight)
+	# Parşömen zeminin üstünde, VBoxContainer içeriğinin altında.
+	panel.move_child(_focus_highlight, 0)
+
+
+## Her karede güncellenir: sekme değişimi, dil değişimi ve pencere yeniden boyutlandırması
+## satırların yerini oynatıyor; tek seferlik bir sinyal bağlamak yerine takip etmek daha ucuz
+## ve her durumda doğru. Menü kapalıyken process_mode DISABLED olduğu için hiç çalışmaz.
+## Çağrısı aşağıdaki tek _process() içinden yapılır.
+func _update_focus_highlight() -> void:
+	if _focus_highlight == null:
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if not visible or focused == null or not is_ancestor_of(focused):
+		_focus_highlight.visible = false
+		return
+	var row := _focus_row_for(focused)
+	if row == null or row.size == Vector2.ZERO:
+		_focus_highlight.visible = false
+		return
+	# Satır çoğu zaman panelin tüm genişliğini kaplıyor; ham dolgu eklersek vurgu parşömen
+	# çerçevesinin dışına taşar. Bu yüzden sonucu panelin içine kırpıyoruz.
+	var rect := Rect2(row.global_position - Vector2(10, 4), row.size + Vector2(20, 8))
+	var panel := get_node_or_null("Panel") as Control
+	if panel != null:
+		rect = rect.intersection(Rect2(panel.global_position, panel.size).grow(-6.0))
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		_focus_highlight.visible = false
+		return
+	_focus_highlight.visible = true
+	_focus_highlight.global_position = rect.position
+	_focus_highlight.size = rect.size
+
+
+## Odaklanan denetimin ait olduğu satırı bulur. Ses ayarlarında satır "Label + HSlider"
+## sarmalayıcısıdır; sekme kökünün kendisi asla satır sayılmaz, yoksa tüm sekme boyanırdı.
+func _focus_row_for(control: Control) -> Control:
+	if tab_container == null or not tab_container.is_ancestor_of(control):
+		return control
+	var tab_root := tab_container.get_current_tab_control()
+	var parent := control.get_parent() as Control
+	if parent != null and parent != tab_root and parent is BoxContainer:
+		return parent
+	return control
 
 
 func _ensure_locale_controls() -> void:
@@ -107,6 +186,81 @@ func _ensure_locale_controls() -> void:
 	row.add_child(_locale_option)
 	game_tab.add_child(row)
 	game_tab.move_child(row, 0)
+
+
+## Görüntü sekmesine "Arayüz Boyutu" satırını ekler. Seçim anında uygulanır (Uygula'yı
+## beklemez): oyuncunun büyüklüğü görmeden seçmesi anlamsız olurdu. Kalıcı kayıt yine
+## Uygula ile settings.cfg'ye yazılır.
+func _ensure_ui_scale_controls() -> void:
+	if _ui_scale_option != null:
+		return
+	var video_tab := get_node_or_null("Panel/VBoxContainer/TabContainer/VideoTab") as VBoxContainer
+	if video_tab == null:
+		return
+	var row := HBoxContainer.new()
+	row.name = "UiScaleRow"
+	row.add_theme_constant_override("separation", 12)
+	_ui_scale_label = Label.new()
+	_ui_scale_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_ui_scale_label)
+	_ui_scale_option = OptionButton.new()
+	_ui_scale_option.focus_mode = Control.FOCUS_ALL
+	_ui_scale_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_ui_scale_option)
+	video_tab.add_child(row)
+	video_tab.move_child(row, 0)
+	_populate_ui_scale_option()
+	_ui_scale_option.item_selected.connect(_on_ui_scale_selected)
+
+
+func _populate_ui_scale_option() -> void:
+	if _ui_scale_option == null:
+		return
+	var selected := _ui_scale_option.selected
+	_ui_scale_option.clear()
+	var labels := ["settings.video.ui_scale.normal", "settings.video.ui_scale.large", "settings.video.ui_scale.huge"]
+	var scales := _ui_scale_values()
+	for i in range(scales.size()):
+		var key: String = labels[i] if i < labels.size() else "settings.video.ui_scale.normal"
+		_ui_scale_option.add_item(tr(key), i)
+		_ui_scale_option.set_item_metadata(i, scales[i])
+	if selected >= 0 and selected < _ui_scale_option.item_count:
+		_ui_scale_option.select(selected)
+
+
+func _ui_scale_values() -> Array:
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null:
+		return Array(scaler.SCALES)
+	return [1.0, 1.2, 1.4]
+
+
+func _select_ui_scale_option(value: float) -> void:
+	if _ui_scale_option == null:
+		return
+	var scales := _ui_scale_values()
+	for i in range(scales.size()):
+		if is_equal_approx(float(scales[i]), value):
+			_ui_scale_option.select(i)
+			return
+	_ui_scale_option.select(0)
+
+
+func _get_selected_ui_scale() -> float:
+	if _ui_scale_option == null or _ui_scale_option.selected < 0:
+		return 1.0
+	var meta = _ui_scale_option.get_item_metadata(_ui_scale_option.selected)
+	return float(meta) if meta != null else 1.0
+
+
+func _on_ui_scale_selected(_index: int) -> void:
+	_apply_ui_font_scale(_get_selected_ui_scale())
+
+
+func _apply_ui_font_scale(value: float) -> void:
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null and scaler.has_method("set_scale"):
+		scaler.call("set_scale", value)
 
 
 ## Builds the AI Villagers section at the bottom of the Game tab.
@@ -161,6 +315,7 @@ func _ai_node() -> Node:
 ## Keeps the download percentage live while the panel is open. Only runs while this menu is
 ## actually visible and something is in flight, so it costs nothing the rest of the time.
 func _process(_delta: float) -> void:
+	_update_focus_highlight()
 	if not visible or _ai_section == null:
 		return
 	var ai := _ai_node()
@@ -274,6 +429,9 @@ func show_menu() -> void:
 	_apply_settings_to_controls()
 	_refresh_locale()
 	_refresh_ai_section()
+	# Yapay zeka bölümü ve dil satırı gibi kodla üretilen denetimler burada tazelendiği için
+	# yazı ölçeğini de yeniden uygularız (metadata sayesinde katlanmaz).
+	_register_ui_font_scale()
 	call_deferred("_focus_first_control")
 
 
@@ -356,6 +514,8 @@ func _on_apply_pressed() -> void:
 	_play_ui_sfx("confirm")
 	_apply_controls_to_settings()
 	_apply_current_settings_to_runtime()
+	# Kontrol preseti burada değişmiş olabilir; alttaki tuş ipucu satırı yeni tuşları göstersin.
+	_refresh_locale()
 	_save_settings_to_disk()
 	settings_applied.emit(_current_settings.duplicate(true))
 
@@ -380,6 +540,7 @@ func _apply_settings_to_controls() -> void:
 
 	fullscreen_checkbox.button_pressed = _current_settings["video"]["fullscreen"]
 	vsync_checkbox.button_pressed = _current_settings["video"]["vsync"]
+	_select_ui_scale_option(float(_current_settings["video"]["ui_font_scale"]))
 
 	show_damage_checkbox.button_pressed = _current_settings["game"]["show_damage_numbers"]
 	show_fps_checkbox.button_pressed = _current_settings["game"]["show_fps"]
@@ -397,6 +558,7 @@ func _apply_controls_to_settings() -> void:
 
 	_current_settings["video"]["fullscreen"] = fullscreen_checkbox.button_pressed
 	_current_settings["video"]["vsync"] = vsync_checkbox.button_pressed
+	_current_settings["video"]["ui_font_scale"] = _get_selected_ui_scale()
 
 	_current_settings["game"]["show_damage_numbers"] = show_damage_checkbox.button_pressed
 	_current_settings["game"]["show_fps"] = show_fps_checkbox.button_pressed
@@ -412,6 +574,7 @@ func _apply_current_settings_to_runtime() -> void:
 
 	_apply_fullscreen(_current_settings["video"]["fullscreen"])
 	_apply_vsync(_current_settings["video"]["vsync"])
+	_apply_ui_font_scale(float(_current_settings["video"]["ui_font_scale"]))
 	InputManager.apply_keyboard_preset(_current_settings["controls"]["preset"])
 	LocaleManager.set_locale(String(_current_settings["game"]["locale"]))
 	_sync_sound_manager_volumes()
@@ -463,13 +626,22 @@ func _refresh_locale(_locale: String = "") -> void:
 	if _title_label:
 		_title_label.text = tr("settings.title")
 	if _hint_label:
-		_hint_label.text = tr("settings.hint")
+		# Sekme tuşları presete göre değişiyor (wasd_numpad'de Numpad 7/9, arrows_qweasd'de Q/E),
+		# eski sabit metin ise her zaman "Q/E" diyordu. Ok tuşları artık her presette çalıştığı
+		# için satır/değer kısmı sabit kalabilir.
+		_hint_label.text = tr("settings.hint.format") % [
+			InputManager.get_action_key_name(&"ui_page_left"),
+			InputManager.get_action_key_name(&"ui_page_right"),
+		]
 	if _locale_label:
 		_locale_label.text = tr("settings.game.language")
 	if fullscreen_checkbox:
 		fullscreen_checkbox.text = tr("settings.video.fullscreen")
 	if vsync_checkbox:
 		vsync_checkbox.text = tr("settings.video.vsync")
+	if _ui_scale_label:
+		_ui_scale_label.text = tr("settings.video.ui_scale")
+	_populate_ui_scale_option()
 	if show_damage_checkbox:
 		show_damage_checkbox.text = tr("settings.game.show_damage")
 	if show_fps_checkbox:
@@ -526,6 +698,7 @@ func _load_settings_from_disk() -> void:
 
 	_current_settings["video"]["fullscreen"] = config.get_value("video", "fullscreen", DEFAULT_SETTINGS["video"]["fullscreen"])
 	_current_settings["video"]["vsync"] = config.get_value("video", "vsync", DEFAULT_SETTINGS["video"]["vsync"])
+	_current_settings["video"]["ui_font_scale"] = float(config.get_value("video", "ui_font_scale", DEFAULT_SETTINGS["video"]["ui_font_scale"]))
 
 	_current_settings["game"]["show_damage_numbers"] = config.get_value("game", "show_damage_numbers", DEFAULT_SETTINGS["game"]["show_damage_numbers"])
 	_current_settings["game"]["show_fps"] = config.get_value("game", "show_fps", DEFAULT_SETTINGS["game"]["show_fps"])
@@ -542,6 +715,7 @@ func _save_settings_to_disk() -> void:
 	config.set_value("audio", "sfx_volume", _current_settings["audio"]["sfx_volume"])
 	config.set_value("video", "fullscreen", _current_settings["video"]["fullscreen"])
 	config.set_value("video", "vsync", _current_settings["video"]["vsync"])
+	config.set_value("video", "ui_font_scale", _current_settings["video"]["ui_font_scale"])
 	config.set_value("game", "show_damage_numbers", _current_settings["game"]["show_damage_numbers"])
 	config.set_value("game", "show_fps", _current_settings["game"]["show_fps"])
 	config.set_value("game", "camera_shake", _current_settings["game"]["camera_shake"])
@@ -609,3 +783,13 @@ func _play_ui_sfx(sound_id: String) -> void:
 
 func _on_preset_selected(index: int) -> void:
 	_current_settings["controls"]["preset"] = _get_preset_name(index)
+
+
+## Menü yazı boyutu ayarı (Ayarlar > Görüntü > Arayüz Boyutu). register() bu kökü kapsama alır:
+## şimdi bir kez uygular, sonra ölçek her değiştiğinde yeniden uygular. Autoload'a node yoluyla
+## erişiyoruz ki dosya --check-only ile tek başına doğrulanabilsin (bkz. CLAUDE.md).
+## İkinci argüman panelin kendisi: yazılar büyüyünce sabit boyutlu kutu da büyümeli.
+func _register_ui_font_scale() -> void:
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null and scaler.has_method("register"):
+		scaler.call("register", self, get_node_or_null("Panel"))

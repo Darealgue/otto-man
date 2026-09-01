@@ -62,8 +62,15 @@ const _KEYBOARD_PRESETS := {
 		StringName("attack_heavy"): [KEY_KP_5],
 		StringName("block"): [KEY_KP_6],
 		StringName("ui_page_left"): [KEY_KP_7],
+		# W İLK SIRADA OLMALI. İlk playtest (2026-08-31): oyuncu ormanda ağaç/çalıyla
+		# etkileşime geçemedi. Bu preset'te `interact` yalnızca Numpad 8'e bağlıydı — dizüstü
+		# ya da TKL klavyede numpad hiç yok, yani oyuncunun basacağı bir etkileşim tuşu da yok.
+		# W zaten `ui_up` üzerinden çalışıyordu ama bunu sadece ui_up'ı da kontrol eden yerler
+		# (BaseInteractable, player.gd) biliyordu; `interact`i tek başına soran yerler sessizce
+		# hiçbir şey yapmıyordu. Ayrıca get_action_key_name(&"interact") artık "Num 8" değil
+		# "W" döndürüyor — tutorial metinlerinin zaten söylediği tuşla aynı.
 		StringName("ui_page_right"): [KEY_KP_9],
-		StringName("interact"): [KEY_KP_8],
+		StringName("interact"): [KEY_W, KEY_KP_8],
 		StringName("crouch"): [KEY_S],
 	},
 	PRESET_ARROWS_QWEASD: {
@@ -86,9 +93,30 @@ const _KEYBOARD_PRESETS := {
 		StringName("block"): [KEY_D],
 		StringName("ui_page_left"): [KEY_Q],
 		StringName("ui_page_right"): [KEY_E],
-		StringName("interact"): [KEY_W],
+		# Ok tuşu düzeninde tutorial ipucu "^" diyor (get_tutorial_ui_up_hint) ama `interact`
+		# yalnızca W'ye bağlıydı; yukarı ok da gerçekten etkileşime girsin.
+		StringName("interact"): [KEY_W, KEY_UP],
 		StringName("crouch"): [KEY_DOWN, KEY_KP_5],
 	},
+}
+
+## Menü gezinme tuşları presetten BAĞIMSIZ olarak her zaman çalışır.
+##
+## İlk playtest (2026-08-31): oyuncu dil seçimi ekranında ve menülerde önce ok tuşlarına
+## basıyor, hiçbiri çalışmıyordu. Sebep _replace_action_keys(): bir preset uygulanırken
+## aksiyondaki TÜM klavye olaylarını siliyor, dolayısıyla varsayılan wasd_numpad preseti
+## project.godot'un `ui_left/right/up/down` üzerindeki ok tuşlarını kaldırıyordu.
+##
+## Presetler yalnızca oyun içi hareket/aksiyon tuşlarını belirlemeli; menü gezinmesi her
+## zaman ok tuşları + Enter ile de yapılabilmeli. Bu liste her preset uygulamasından SONRA
+## eklenir ve preset'in kendi tuşlarını silmez, yalnızca eksik olanları tamamlar.
+const _UI_NAVIGATION_ALWAYS_KEYS := {
+	StringName("ui_left"): [KEY_LEFT],
+	StringName("ui_right"): [KEY_RIGHT],
+	StringName("ui_up"): [KEY_UP],
+	StringName("ui_down"): [KEY_DOWN],
+	StringName("ui_accept"): [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE],
+	StringName("ui_cancel"): [KEY_ESCAPE],
 }
 
 static var _current_keyboard_preset: StringName = PRESET_WASD_NUMPAD
@@ -501,6 +529,8 @@ static func apply_keyboard_preset(preset: StringName) -> void:
 		return
 	for action_name in _KEYBOARD_PRESETS[preset].keys():
 		_replace_action_keys(action_name, _KEYBOARD_PRESETS[preset][action_name])
+	# Preset ne olursa olsun menüler ok tuşları ve Enter ile de kullanılabilir kalsın.
+	_apply_ui_navigation_fallback()
 	_current_keyboard_preset = preset
 
 static func get_current_keyboard_preset() -> StringName:
@@ -524,6 +554,33 @@ static func _replace_action_keys(action: StringName, keycodes: Array) -> void:
 		event.physical_keycode = keycode
 		event.keycode = keycode
 		InputMap.action_add_event(action, event)
+
+## Ok tuşlarını / Enter / Escape'i menü aksiyonlarına (yoksa) ekler. Var olanları silmez,
+## böylece iki preset de aynı menü gezinmesini paylaşır.
+static func _apply_ui_navigation_fallback() -> void:
+	for action_name in _UI_NAVIGATION_ALWAYS_KEYS.keys():
+		_ensure_action_keys(action_name, _UI_NAVIGATION_ALWAYS_KEYS[action_name])
+
+
+static func _ensure_action_keys(action: StringName, keycodes: Array) -> void:
+	if not InputMap.has_action(action):
+		push_warning("[InputManager] Action not found: %s" % str(action))
+		return
+	var existing: Array[int] = []
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			existing.append(event.physical_keycode if event.physical_keycode != 0 else event.keycode)
+	for keycode in keycodes:
+		if typeof(keycode) != TYPE_INT:
+			continue
+		if existing.has(keycode):
+			continue
+		var event := InputEventKey.new()
+		event.physical_keycode = keycode
+		event.keycode = keycode
+		InputMap.action_add_event(action, event)
+		existing.append(keycode)
+
 
 static func _load_keyboard_preset_from_disk() -> void:
 	var config := ConfigFile.new()

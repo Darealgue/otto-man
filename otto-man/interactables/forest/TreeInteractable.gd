@@ -12,6 +12,11 @@ const TREE_FALL_FRAMES := 12
 const TREE_HIT_FPS := 12.0
 const TREE_FALL_FPS := 12.0
 
+## Etkileşim alanı — .tscn ile AYNI değerler. Kod içindeki yedek yollar (placeholder modu,
+## eksik düğüm tamamlama) da aynı ölçüyü kullansın diye burada tek yerde duruyor.
+const INTERACT_AREA_SIZE := Vector2(240.0, 220.0)
+const INTERACT_AREA_OFFSET := Vector2(0.0, -100.0)
+
 @export_range(1, 5, 1) var difficulty_level: int = 1
 @export_enum("default", "syncopated", "rapid") var rhythm_pattern: String = "default"
 @export var base_hits_required: int = 1
@@ -32,6 +37,16 @@ var _highlight_sprite: Sprite2D = null
 func _ready() -> void:
 	minigame_kind = "forest_woodcut"
 	require_interact_press = true
+	# İlk playtest (2026-08-31): oyuncu ormanda ağaçlarla etkileşime hiç geçemedi. Sebep
+	# etkileşim alanının görselle taban tabana zıt ölçüsüydü: ağaç sprite'ı 700x600 px, alan
+	# ise 64x128 idi ve tabanın yarısı zeminin altında kalıyordu. Oyuncunun kendi çarpışma
+	# kapsülü de sadece 22 px geniş, yani oyuncu ağacın tam gövde merkezinden ±43 px içinde
+	# durmadıkça hiçbir şey olmuyordu — ekranda ağacın üstünde duruyor gibi görünürken.
+	# Alan artık .tscn'de 240x220 ve tamamı zeminin üstünde (bkz. TreeInteractable.tscn).
+	#
+	# Ok ipucu da tabandan 64 px yukarıdaydı, yani 600 px'lik ağacın gövdesinin içinde
+	# kayboluyordu. Oyuncunun başının üzerine, gövdenin görünür kısmına alındı.
+	interact_arrow_offset = Vector2(0.0, -240.0)
 	_ensure_minimum_nodes()
 	super._ready()
 	_setup_idle_tree_visual()
@@ -149,17 +164,17 @@ func _apply_placeholder_visual() -> void:
 		var shape := $CollisionShape2D
 		if shape.shape is RectangleShape2D:
 			var rect := shape.shape as RectangleShape2D
-			rect.size = Vector2(64, 128)
-			shape.position = Vector2(0, -64)
+			rect.size = INTERACT_AREA_SIZE
+			shape.position = INTERACT_AREA_OFFSET
 
 func _ensure_minimum_nodes() -> void:
 	if not has_node("CollisionShape2D"):
 		var cs := CollisionShape2D.new()
 		cs.name = "CollisionShape2D"
 		var rect := RectangleShape2D.new()
-		rect.size = Vector2(64, 128)
+		rect.size = INTERACT_AREA_SIZE
 		cs.shape = rect
-		cs.position = Vector2(0, -64)
+		cs.position = INTERACT_AREA_OFFSET
 		add_child(cs)
 	if not has_node("Sprite2D"):
 		var sprite := Sprite2D.new()

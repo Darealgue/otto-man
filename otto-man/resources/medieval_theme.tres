@@ -1,7 +1,27 @@
-[gd_resource type="Theme" load_steps=6 format=3 uid="uid://cl5jbc0pw6h15"]
+[gd_resource type="Theme" load_steps=9 format=3 uid="uid://cl5jbc0pw6h15"]
 
 [ext_resource type="StyleBox" uid="uid://csrekf8658hcv" path="res://resources/ui_panel_style_parchment.tres" id="1_panel_style"]
 [ext_resource type="FontFile" uid="uid://cgpcxt1dhpha" path="res://assets/fonts/main_font.ttf" id="2_main_font"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_focus"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.85, 0.68, 0.28, 0.28)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.87, 0.45, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+expand_margin_left = 4.0
+expand_margin_top = 2.0
+expand_margin_right = 4.0
+expand_margin_bottom = 2.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
 bg_color = Color(0.3, 0.24, 0.18, 1)
@@ -39,22 +59,65 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_selected"]
+content_margin_left = 16.0
+content_margin_top = 7.0
+content_margin_right = 16.0
+content_margin_bottom = 7.0
+bg_color = Color(0.55, 0.42, 0.18, 1)
+border_width_left = 2
+border_width_top = 4
+border_width_right = 2
+border_color = Color(1, 0.87, 0.45, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_unselected"]
+content_margin_left = 16.0
+content_margin_top = 7.0
+content_margin_right = 16.0
+content_margin_bottom = 7.0
+bg_color = Color(0.13, 0.11, 0.09, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_color = Color(0.32, 0.26, 0.18, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+
 [resource]
 default_font = ExtResource("2_main_font")
 default_font_size = 20
 Button/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 Button/constants/outline_size = 0
+Button/styles/focus = SubResource("StyleBoxFlat_focus")
 Button/styles/hover = SubResource("StyleBoxFlat_button_hover")
 Button/styles/normal = SubResource("StyleBoxFlat_button_normal")
 Button/styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+CheckBox/styles/focus = SubResource("StyleBoxFlat_focus")
+CheckButton/styles/focus = SubResource("StyleBoxFlat_focus")
 ItemList/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 ItemList/colors/font_outline_color = Color(0, 0, 0, 1)
 ItemList/constants/outline_size = 1
 Label/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 Label/colors/font_outline_color = Color(0, 0, 0, 1)
 Label/constants/outline_size = 1
+LinkButton/styles/focus = SubResource("StyleBoxFlat_focus")
+MenuButton/styles/focus = SubResource("StyleBoxFlat_focus")
+OptionButton/styles/focus = SubResource("StyleBoxFlat_focus")
 Panel/styles/panel = ExtResource("1_panel_style")
 PanelContainer/styles/panel = ExtResource("1_panel_style")
 RichTextLabel/colors/default_color = Color(0.95, 0.93, 0.88, 1)
 RichTextLabel/colors/font_outline_color = Color(0, 0, 0, 1)
 RichTextLabel/constants/outline_size = 1
+TabBar/colors/font_selected_color = Color(1, 0.94, 0.72, 1)
+TabBar/colors/font_unselected_color = Color(0.58, 0.52, 0.43, 1)
+TabBar/styles/tab_hovered = SubResource("StyleBoxFlat_tab_selected")
+TabBar/styles/tab_selected = SubResource("StyleBoxFlat_tab_selected")
+TabBar/styles/tab_unselected = SubResource("StyleBoxFlat_tab_unselected")
+TabContainer/colors/font_hovered_color = Color(1, 0.94, 0.72, 1)
+TabContainer/colors/font_selected_color = Color(1, 0.94, 0.72, 1)
+TabContainer/colors/font_unselected_color = Color(0.58, 0.52, 0.43, 1)
+TabContainer/styles/tab_hovered = SubResource("StyleBoxFlat_tab_selected")
+TabContainer/styles/tab_selected = SubResource("StyleBoxFlat_tab_selected")
+TabContainer/styles/tab_unselected = SubResource("StyleBoxFlat_tab_unselected")

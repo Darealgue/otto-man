@@ -19,9 +19,25 @@ Gotisch**, both by Omnibus-Type, both SIL Open Font License 1.1, neither with a 
 Name (so renaming the files is fine — verified by reading both `OFL.txt` copyright lines). Full
 notices and OFL text are in `THIRD_PARTY_LICENSES.txt` §10, as the OFL requires.
 
-Both are **variable fonts** with a `wght` axis. Note that in Grenze the weight axis does **not**
-change advance widths — a heavier weight will not reflow text, and you cannot detect the axis
-with `get_string_size()`. Verify weight changes visually, not by measuring.
+Both are **variable fonts** with a `wght` axis (100-900).
+
+**🔴 `variation_opentype` silently ignores String keys.** `{"wght": 900}` parses fine, raises no
+error, and changes nothing — the font renders at its default weight. Only the **integer OpenType
+tag** works: `{2003265652: 900}` (that is `"wght"` as a big-endian 4-char tag, and it is what
+Godot's own inspector serialises). Measured 2026-08-31 by summing glyph-atlas alpha through
+`TextServer.font_get_texture_image()`: default 4159, String key `wght=900` 4159 (i.e. no effect),
+integer key `wght=900` 7725.
+
+This corrects an earlier note here claiming the weight axis does not change advance widths and
+cannot be detected with `get_string_size()`. It does and it can — that conclusion came from the
+String-key bug above. Measured widths of `"ONE PERCENT"` at 84px with integer keys:
+
+| wght | 100 | 300 | 400 | 600 | 900 |
+|---|---|---|---|---|---|
+| px | 413 | 434 | 444 | 471 | 511 |
+
+So a weight change **does** reflow text — budget for it in fixed-width UI.
+
 
 These replaced **Pixelify Sans** (also OFL, legally fine) on 2026-08-26. It was dropped for
 legibility: it is a pixel face whose glyphs need ≥20px to render evenly, while ~265 of this
@@ -140,10 +156,32 @@ the CUDA stack links `ggml-cpu.dll`, which only Backend.Cpu provides.
 
 Verified 2026-08-23: CUDA natives DO survive publish, flattened to the output root
 (`ggml-cuda.dll` ~407 MB, `llama.dll`, `ggml*.dll`). Expected export size is therefore
-**~900 MB – 1.1 GB**, not a few hundred MB.
+**~1.4 GB** (re-verified 2026-09-02), not a few hundred MB. That figure now includes the ~735 MB of
+NVIDIA CUDA redistributables copied in from `native_redist/cuda12/` — see `native_redist/README.md`.
+Without them the export is ~700 MB and silently CPU-only on any machine without a CUDA toolkit,
+i.e. every playtester's.
 
-`rcedit` (optional) stamps the exe metadata above; without it Godot warns and the file properties
-stay blank. The exe itself works fine either way.
+## 🔴 `rcedit` IS NOT OPTIONAL — without it the exe ships with the GODOT ICON
+
+Godot 4.3 does **not** write Windows PE resources itself. `application/icon`,
+`application/console_wrapper_icon` and every `application/*_name` / `*_version` /
+`copyright` field in `export_presets.cfg` are applied by an external tool, `rcedit.exe`,
+whose path lives in **Editor Settings → Export → Windows → Rcedit**
+(`export/windows/rcedit` in `%APPDATA%\Godot\editor_settings-4.3.tres`).
+
+If that setting is empty, the export still succeeds with only a warning in the log
+("Could not start rcedit executable. Configure rcedit path in the Editor Settings") and the
+resulting `.exe` keeps the **Godot robot icon** and `ProductName = Godot Engine`. This is
+exactly what happened to the 2026-08-30 build. Verify after every export:
+
+```powershell
+(Get-Item "path\to\otto-man.exe").VersionInfo | Format-List ProductName,CompanyName,FileVersion
+# must say "Rogue Harem" / "One Percent Games" / 0.1.0.0 — NOT "Godot Engine"
+```
+
+Windows caches exe icons aggressively; if the metadata is right but Explorer still shows the
+old icon, refresh with `ie4uinit.exe -show`.
+
 
 ## 📦 MANUAL STEP AFTER EVERY EXPORT
 
@@ -153,6 +191,42 @@ Copy `THIRD_PARTY_LICENSES.txt` next to the exported `.exe`. It is deliberately 
 Export output: `D:\otto_exp\otto-man.exe`. Uncheck "Export With Debug".
 
 ---
+
+## 🎬 Açılış: Godot logosu kapalı, yerinde StudioSplash var
+
+`application/boot_splash/show_image=false` — motorun kendi kocaman logosu artık çıkmıyor,
+onun yerine düz siyah (`boot_splash/bg_color`) görünüyor. `run/main_scene` de
+`res://scenes/StudioSplash.tscn`; One Percent Games logo animasyonu orada oynayıp
+(~4.6 sn, herhangi bir tuşla atlanabilir) ana menüye geçiyor.
+
+- Katmanlar `assets/logo/` altında ayrı PNG'ler: `white` (pil gövdesi), `red` (%1 göstergesi),
+  `wordmark` (stüdyo adı) ve her birinin `* blur`'u. Hepsi 480x480 ve üst üste hizalı — sahne
+  bunları üst üste bindirilmiş TextureRect'ler olarak tutuyor, animasyon sadece `modulate.a`
+  sürüyor, hiçbir hizalama hesaplanmıyor.
+- **`wordmark.png` / `wordmark blur.png` elle çizilmedi**, projenin kendi fontundan üretildi:
+  Grenze (`main_font.ttf`) wght 900, "ONE PERCENT", punto 55, harf aralığı 4, blur sigma 4,
+  480x480 tuvale, taban çizgisi eski `text.png` ile aynı banda oturacak şekilde. Yazıyı
+  değiştirmek gerekirse **ikisini birlikte** yeniden üret; sadece birini değiştirirsen ışıma
+  ile yazı ayrışır. Eski elle çizilmiş `text.png` / `text blur.png` artık kullanılmıyor
+  (dosyalar duruyor, silinebilir).
+- Yazının ışıması bilerek **gerçek Gaussian blur**, Godot'un `outline_size`'ı değil: kontur
+  sert kenarlı çıkıyor ve pilin yumuşak blur'larının yanında çıkartma gibi duruyor. Denendi,
+  atıldı.
+- Blur katmanları **toplamalı (additive) CanvasItemMaterial** ile çiziliyor; siyah zeminde
+  ışık saçma hissini veren şey bu. `Mix`e çevirirsen sadece bulanık bir kopya olur.
+- `texture_filter = 2` (Linear) bilinçli: proje geneli `default_texture_filter=0` (Nearest)
+  ama bu logo piksel art değil, blur'lar Nearest ile basamaklanıyor.
+- Zamanlama Inspector'dan ayarlanır: `Logo Size`, `Glow Strength`, `Speed Scale`, `Hold Duration`,
+  `Fade Out Duration`. En pratiği `Speed Scale` — tüm akışı birden hızlandırır/yavaşlatır.
+- Splash menüye `get_tree().change_scene_to_file()` ile geçer ve `SceneManager.previous_scene_path`'e
+  **bilerek dokunmaz**: `MainMenu._should_play_cold_start_fade()` onun boş olmasına bakarak soğuk
+  açılış akışını (dil kapısı → erken erişim uyarısı → AI teklifi → profil kapısı → siyah fade)
+  oynatıyor. Orayı doldurursan ilk açılış akışı tamamen kaybolur.
+- `SceneManager.current_scene_path` ise menüye geçerken elle düzeltilir (`MentorObjectiveUI` gibi
+  yerler "menüde miyiz" diye ona bakıyor).
+- Açılış sahnesi artık menü olmadığı için `SoundManager`'ın kendi bootstrap'i menü profilini
+  yakalayamaz; menü müziğini `MainMenu._ready()` içindeki `play_ambient_for_scene(scene_file_path)`
+  çağrısı istiyor. O satır silinirse menü müziği hiç başlamaz.
 
 ## Architecture facts that are easy to get wrong
 
@@ -166,7 +240,7 @@ Export output: `D:\otto_exp\otto-man.exe`. Uncheck "Export With Debug".
   belong in the pck; the model must not (llama.cpp memory-maps it natively and cannot read a pck,
   so packing it added 7.5 GB of dead weight).
 - **Model location**: editor → `res://models/`; export → `user://models/`
-  (`%APPDATA%\Godot\app_userdata\otto-man\models\`). Never next to the exe — that folder is
+  (`%APPDATA%\Rogue Harem\models\` — see the user-dir section below). Never next to the exe — that folder is
   unwritable under Program Files / Steam, which broke on a second machine before.
 - **GDScript cannot call `static` C# methods** through an autoload. `LlamaService` exposes instance
   wrappers (`HasModelFile`, `ModelFilePath`, `ModelDirectory`, `ModelFileName`) for this reason.
@@ -250,10 +324,96 @@ Export output: `D:\otto_exp\otto-man.exe`. Uncheck "Export With Debug".
   instead — the raw `.csv` is not in the pck. That worked in the editor and silently failed in
   every export, showing raw keys (`ai.offer.title`) on screen instead of text. It now loads the
   `.translation` resources first and falls back to CSV parsing. Do not "simplify" it back.
+
+  **🔴 Adding a row to `strings.csv` is NOT enough — the `.translation` files must be reimported.**
+  Until then `tr("your.new.key")` returns the key itself, and if the call site does
+  `tr(key) % [...]` you get `not all arguments converted during string formatting` and a garbage
+  label instead of an obvious missing-key error. Reimport headlessly after every CSV change:
+  ```bash
+  "…\Godot_v4.3-stable_mono_win64_console.exe" --headless --path . --import
+  ```
+  `localization/strings.{tr,en}.translation` are tracked in git and must be committed with the CSV.
+- **🔴 `InputManager.apply_keyboard_preset()` ERASES every keyboard event on the actions it
+  touches** (`_replace_action_keys`), so whatever `project.godot` binds is irrelevant for those
+  actions. This silently cost the arrow keys in every menu: `wasd_numpad` rebound
+  `ui_left/right/up/down` to A/D/W/S only. `_apply_ui_navigation_fallback()` now re-adds
+  arrows + Enter/Space/Escape after every preset so menus always work with what players reach for
+  first. **Any new preset key must assume the whole action is wiped first.**
+- **`interact` needs a letter key in every preset.** `wasd_numpad` bound it to Numpad 8 alone, so on
+  a laptop or TKL keyboard the dedicated interact key did not physically exist; W only worked by
+  accident, at the call sites that also check `ui_up` (`BaseInteractable`, `player.gd`). Both
+  presets now list `KEY_W` **first** — the order matters, `get_action_key_name(&"interact")`
+  returns the first key and that string goes into tutorial text.
+- **`UiFontScale` (autoload) scales menu fonts, and MENUS ONLY.** A menu opts in with
+  `register(self, panel)` in `_ready`; it stores each control's original `font_size` in `meta` so
+  it can be re-applied any number of times without compounding, and it scales the fixed offsets of
+  a centered `Panel` too (at 140% the text does not fit a 640x520 box otherwise). HUD, village
+  resource bar and world map are deliberately out of scope. Setting lives in
+  `settings.cfg [video] ui_font_scale`.
+- **🔴 NEVER use `FileAccess.file_exists("res://….tscn")` — it is ALWAYS false in an export.**
+  Godot converts text scenes to binary and packs them as `X.tscn.remap` plus the real `.scn`;
+  there is no `X.tscn` entry in the pck file table at all, and `FileAccess.file_exists()` reads
+  exactly that table (`PackedData::has_path`) without applying remaps. In the editor the real file
+  is on disk, so the check passes and everything looks fine.
+
+  This killed **every minigame in every exported build**: `MinigameRouter.start_minigame()` began
+  with that guard, so woodcut, food, fruit, stone, water, the villager lockpick and the VIP duel
+  all returned `false` before loading anything. On screen: walk up to a tree, the yellow highlight
+  and the arrow hint appear, press interact, and **nothing happens, ever** — which is exactly what
+  the first playtester reported and why they could not finish the tutorial. `city_level_generator`
+  had the same guard on its chunk scenes.
+
+  Verified 2026-08-31 by parsing the 2026-08-30 `otto-man.pck` file table (3715 entries):
+  `res://ui/minigames/ForestWoodcutMinigame.tscn` is absent, only `.tscn.remap` is present.
+
+  **The only trustworthy existence check for a `res://` resource is `load()` returning non-null.**
+  Do not "harden" such code by adding a file check back.
+- **🔴 An interactable's Area2D must match what the player SEES, not the sprite's origin.**
+  `TreeInteractable` shipped with a 700x600 px tree drawn over a **64x128** trigger box whose lower
+  half sat below the floor. The player capsule is only 22 px wide, so the whole interaction window
+  was ~86 px on a tree that looks 700 px wide — the first playtester concluded chopping was broken
+  and never finished the tutorial. Sizes now live in `INTERACT_AREA_SIZE` / `INTERACT_AREA_OFFSET`
+  on each interactable (`.tscn` and the code fallbacks read the same constants) and are measured,
+  not guessed: tree 240x220 (260 px window), bush 150x120 (160 px). `BaseInteractable`'s
+  `interact_arrow_offset` defaults to `-64`, which is *inside* a tall sprite — set it per
+  interactable so the hint floats above the art.
+- **🔴 `DungeonRunState.sync_warmup_limits()` freezes once the run's warmup completion is
+  recorded.** `DungeonProgress.get_max_segments_for_run()` returns `warmup_completions + 1`, so the
+  moment `try_finalize_warmup_progress()` bumps that counter the *finished* run's target grows.
+  `CampScene._handle_mid_run_selection()` calls it on the exit door **before**
+  `change_to_world_map()` shows the report, so a 1/1 run was re-read as 1/2 and the report said
+  "ERKEN ÇIKIŞ" for the one exit the player was forced to take. Never recompute an active run's
+  limits from persistent progress after that progress has been written.
+- **🔴 `TutorialManager.set_objective("")` does NOT clear the objective box if the text is already
+  empty** — it early-returns and never emits `village_objective_changed`. `MentorObjectiveUI` is a
+  **persistent CanvasLayer on `get_tree().root`** that survives scene changes and only listens to
+  that signal, so it keeps showing the previous session's objective forever. Use
+  `clear_objective()`, which always emits. `reset_session_flags()` used to null the field directly
+  and that is exactly how "New Game → Skip Tutorial" still showed the forest's "Odun: 0/3" line.
 - The 6-pass TP0-TP5 port into Godot is **DONE**. `docs/GODOT_NPC_LLM_ARCHITECTURE.md` still
   describes it as pending — that doc is stale on this point.
 
 ---
+
+## 💾 Oyuncu verisi: `%APPDATA%\Rogue Harem\`
+
+`application/config/use_custom_user_dir=true` + `custom_user_dir_name="Rogue Harem"` (2026-08-31).
+Öncesinde `%APPDATA%\Godot\app_userdata\otto-man\` idi — yayınlanacak bir oyun için kötüydü:
+"Godot" altında duruyordu, adı ürünle uyuşmuyordu ve adı otto-man olan başka bir Godot
+projesiyle çakışırdı. **Bu tarihten önceki kayıtlar eski klasörde kaldı, oyun onları görmez.**
+
+Altında ne var: `otto-man-save/` (profile_1..3, `save_*.json`, `active_profile.json`),
+`settings.cfg` (ses/video/dil/kontrol preset'i/AI tercihi), `models/` (7.5 GB gguf), `logs/`.
+
+**🔴 `user://` editör ile dışa aktarılmış sürüm arasında ORTAKTIR.** Aynı makinede editörde
+oynayınca oluşan profiller, senin çalıştırdığın exe'de de görünür — bu bir export hatası
+değil, Godot'un normal davranışı. Godot'ta bunu değiştiren bir komut satırı seçeneği de yok.
+
+Bu yüzden **"oyun benim save'lerimle export ediliyor" diye bir şey yok.** 2026-08-31'de
+`otto-man.pck`'nin dosya tablosu ayrıştırılarak doğrulandı: 3715 kaydın hiçbiri save verisi
+değil, kodun tamamı `user://`'ye yazıyor, `res://`'e veya exe'nin yanına yazan tek satır yok.
+Sıfırdan açılışı test etmek için user klasörünü geçici olarak başka bir ada taşı, oyunu
+çalıştır, sonra oyunun oluşturduğu boş klasörü silip yedeği geri koy.
 
 ## Verification discipline (non-negotiable in this project)
 

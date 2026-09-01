@@ -45,10 +45,9 @@ func _load_chunk_scenes() -> void:
 		var path = scene_paths[type]
 		print("  Loading", type, "chunk from:", path)
 		
-		if not FileAccess.file_exists(path):
-			push_error("[CityLevelGenerator] Chunk scene file not found:", path)
-			continue
-			
+		# FileAccess.file_exists() burada KULLANILAMAZ: dışa aktarılmış sürümde .tscn dosya
+		# tablosunda yoktur (yalnızca .tscn.remap vardır) ve her chunk atlanırdı — bkz.
+		# MinigameRouter.start_minigame() başındaki uzun not. load() remap'i uygular.
 		var scene = load(path)
 		if scene:
 			chunk_scenes[type] = scene

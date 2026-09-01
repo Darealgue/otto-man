@@ -33,6 +33,7 @@ func _ready() -> void:
 	if LocaleManager.has_signal("locale_changed"):
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
+	_register_ui_font_scale()
 
 
 ## allow_back = false: açılıştaki profil kapısında geri dönülecek bir yer yok, buton gizlenir.
@@ -292,3 +293,12 @@ func _focus_first_select_button() -> void:
 func _play_click() -> void:
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_ui"):
 		SoundManager.play_ui("click")
+
+
+## Menü yazı boyutu ayarı (Ayarlar > Görüntü > Arayüz Boyutu). register() bu kökü kapsama alır:
+## şimdi bir kez uygular, sonra ölçek her değiştiğinde yeniden uygular. Autoload'a node yoluyla
+## erişiyoruz ki dosya --check-only ile tek başına doğrulanabilsin (bkz. CLAUDE.md).
+func _register_ui_font_scale() -> void:
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null and scaler.has_method("register"):
+		scaler.call("register", self)

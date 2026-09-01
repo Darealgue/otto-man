@@ -2,7 +2,16 @@ class_name NpcInteractHoldRing
 extends Control
 
 ## Köylü etkileşim tuşu etrafında basılı tutma ilerlemesi.
-## Yalnızca gerçek basılı tutmada görünür; bırakınca hızla kaybolur.
+##
+## İlk playtest (2026-08-31): "etkileşim tuşuna nerede basılı tutacağını nerede basıp
+## bırakacağını anlamak zor". Köyde kural şu: NPC ile konuşmak tuşu BASILI TUTMAYI, bina /
+## kamp ateşi gibi şeylerse KISA BASMAYI ister (bkz. player.gd
+## _process_village_interaction_hold). Halka eskiden yalnızca oyuncu tuşa bastıktan sonra
+## görünüyordu, yani ipucu ancak doğru tuşu zaten bulmuş oyuncuya gösteriliyordu.
+##
+## Artık halka ok ikonu görünür olduğu sürece HEP çizilir: soluk halka "bu hedef basılı tutmak
+## istiyor" demek, dolan altın yay ise ilerlemedir. Basılı tutma gerektirmeyen hedeflerde
+## (bina, kamp ateşi, portal) halka hiç yok — ikisi bir bakışta ayrılıyor.
 
 const RING_SIZE := 34.0
 const LINE_WIDTH := 2.5
@@ -19,7 +28,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(RING_SIZE, RING_SIZE)
 	size = Vector2(RING_SIZE, RING_SIZE)
-	visible = false
+	# Ebeveyni (ok ikonu / etkileşim butonu) zaten menzil dışında gizleniyor; halkanın kendi
+	# görünürlüğünü kapatmıyoruz ki "basılı tut" işareti ipucuyla birlikte gelsin.
+	visible = true
 	set_process(true)
 
 
@@ -37,8 +48,6 @@ func sync_to_button(button: Control) -> void:
 
 func set_progress(ratio: float) -> void:
 	_target_progress = clampf(ratio, 0.0, 1.0)
-	if _target_progress > 0.0:
-		visible = true
 
 
 func _process(delta: float) -> void:
@@ -51,12 +60,9 @@ func _process(delta: float) -> void:
 		queue_redraw()
 	if _target_progress <= 0.0 and _display_progress <= 0.001:
 		_display_progress = 0.0
-		visible = false
 
 
 func _draw() -> void:
-	if not visible:
-		return
 	var center := size * 0.5
 	var radius := minf(size.x, size.y) * 0.5 - LINE_WIDTH * 0.5
 	draw_arc(center, radius, 0.0, TAU, 48, RING_COLOR_BG, LINE_WIDTH, true)

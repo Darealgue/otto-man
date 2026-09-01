@@ -652,8 +652,11 @@ func _tutorial_spawn_interactables_in_chunk(chunk: Node2D, scene: PackedScene, c
 		spawn_pos.y -= float(tile_size.y) * 0.5
 		spawn_pos.y += 5.0
 		var too_close: bool = false
+		# 120 iken etkileşim alanları da dardı; alanlar görsele uyacak şekilde genişletilince
+		# (bkz. TreeInteractable.INTERACT_AREA_SIZE) iki komşu ağaç aynı anda menzile
+		# girebiliyordu ve oyuncunun hangisini kestiği belirsizleşiyordu.
 		for existing in used_positions:
-			if spawn_pos.distance_to(existing) < 120.0:
+			if spawn_pos.distance_to(existing) < 300.0:
 				too_close = true
 				break
 		if too_close:

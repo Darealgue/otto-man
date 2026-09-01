@@ -67,6 +67,14 @@ func _ready() -> void:
 	# başlatmadan önce kurulur; parallax açılırken _unlock_menu_music() ile açılır.
 	_lock_menu_music()
 
+	# Açılış sahnesi artık StudioSplash olduğu için SoundManager'ın kendi bootstrap'i
+	# menü profilini yakalayamaz (o an sahne menü değil). Menü müziğini burada kendimiz
+	# isteriz: kilit hemen yukarıda kurulduğu için çalmaz, bekleyen parça olarak durur ve
+	# karşılama anında _unlock_menu_music() ile başlar.
+	var sound_manager := get_node_or_null("/root/SoundManager")
+	if sound_manager and sound_manager.has_method("play_ambient_for_scene"):
+		sound_manager.play_ambient_for_scene(scene_file_path)
+
 	# Ensure game is not paused (use GameState if available)
 	if is_instance_valid(GameState) and GameState.has_method("resume"):
 		GameState.resume()
@@ -85,6 +93,7 @@ func _ready() -> void:
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
 	_refresh_continue_button()
+	_register_ui_font_scale()
 	_apply_startup_audio_settings()
 	await _play_startup_fade_if_needed()
 	# Profil kapısı aktif profili değiştirmiş olabilir; "Devam et" ona göre yeniden değerlendirilir.
@@ -264,7 +273,20 @@ func _show_language_gate() -> void:
 	tr_btn.pressed.connect(_on_language_gate_choice.bind("tr"))
 	row.add_child(tr_btn)
 
+	_link_horizontal_focus(en_btn, tr_btn)
+	_register_ui_font_scale()
 	en_btn.grab_focus()
+
+
+## Yan yana duran iki butonu DÖRT ok yönüyle de birbirine bağlar. Godot'un otomatik komşu
+## bulması yalnızca sol/sağ için çalışırdı; oyuncular yukarı/aşağıya da basıyor (ilk playtest,
+## 2026-08-31) ve o zaman odak hiç kımıldamıyordu.
+func _link_horizontal_focus(left: Control, right: Control) -> void:
+	var left_path := left.get_path()
+	var right_path := right.get_path()
+	for neighbor in ["focus_neighbor_left", "focus_neighbor_right", "focus_neighbor_top", "focus_neighbor_bottom", "focus_next", "focus_previous"]:
+		left.set(neighbor, right_path)
+		right.set(neighbor, left_path)
 
 
 func _on_language_gate_choice(locale: String) -> void:
@@ -378,6 +400,10 @@ func _show_ai_offer() -> void:
 	_add_ai_offer_section(body_col, "ai.offer.experience.header", "ai.offer.experience.body")
 	_add_ai_offer_section(body_col, "ai.offer.privacy.header", "ai.offer.privacy.body")
 	_add_ai_offer_section(body_col, "ai.offer.download.header", "ai.offer.download.body")
+	# İlk playtest (2026-08-31): oyuncu indirmeyi bir yükleme ekranı sanıp bitmesini bekledi.
+	# İndirmenin arka planda sürdüğünü teklif ekranında açıkça söylüyoruz; ekranın sağ alt
+	# köşesindeki ilerleme kutusu da aynı cümleyi tekrar ediyor (AiVillagersChip).
+	_add_ai_offer_highlight_label(body_col, tr("ai.offer.download.background"))
 	_add_ai_offer_subheader(body_col, "ai.offer.requirement.header")
 	_add_ai_offer_body_label(body_col, tr("ai.offer.requirement.body"))
 	_add_ai_offer_section(body_col, "ai.offer.without.header", "ai.offer.without.body")
@@ -401,6 +427,8 @@ func _show_ai_offer() -> void:
 	skip_btn.pressed.connect(_on_ai_offer_choice.bind(0))
 	row.add_child(skip_btn)
 
+	_link_horizontal_focus(enable_btn, skip_btn)
+	_register_ui_font_scale()
 	enable_btn.grab_focus()
 
 
@@ -423,6 +451,18 @@ func _add_ai_offer_subheader(parent: VBoxContainer, header_key: String) -> void:
 	header.add_theme_font_size_override("font_size", 17)
 	header.add_theme_color_override("font_color", Color(0.88, 0.74, 0.44, 1.0))
 	parent.add_child(header)
+
+
+## Gövde metniyle aynı boyutta ama yeşilimsi ve kalın: okumayı atlayan oyuncunun bile gözüne
+## çarpması gereken tek cümle bu (indirme sırasında oynanabilir).
+func _add_ai_offer_highlight_label(parent: VBoxContainer, text: String) -> void:
+	var label := Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_color_override("font_color", Color(0.72, 0.90, 0.66, 1.0))
+	parent.add_child(label)
 
 
 func _add_ai_offer_body_label(parent: VBoxContainer, text: String) -> void:
@@ -480,10 +520,13 @@ func _show_early_access_disclaimer() -> void:
 	_disclaimer_panel.anchor_right = 0.5
 	_disclaimer_panel.anchor_top = 0.5
 	_disclaimer_panel.anchor_bottom = 0.5
-	_disclaimer_panel.offset_left = -360
-	_disclaimer_panel.offset_right = 360
-	_disclaimer_panel.offset_top = -150
-	_disclaimer_panel.offset_bottom = 150
+	# Panel, büyütülen puntolara göre genişletildi (ilk playtest, 2026-08-31: "geliştirme
+	# aşaması yazısı küçük, alttaki 'bir tuşa bas' satırı hiç okunmuyor"). Metin sarmalandığı
+	# için yükseklik cömert tutuldu; dar bir kutu satır sayısı arttığında taşardı.
+	_disclaimer_panel.offset_left = -430
+	_disclaimer_panel.offset_right = 430
+	_disclaimer_panel.offset_top = -230
+	_disclaimer_panel.offset_bottom = 230
 	_disclaimer_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ParchmentTextures.apply_large_panel_style(_disclaimer_panel, 20)
 	_intro_fade.add_child(_disclaimer_panel)
@@ -503,7 +546,7 @@ func _show_early_access_disclaimer() -> void:
 	_disclaimer_title_label = Label.new()
 	_disclaimer_title_label.text = tr("menu.early_access_title")
 	_disclaimer_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_disclaimer_title_label.add_theme_font_size_override("font_size", 27)
+	_disclaimer_title_label.add_theme_font_size_override("font_size", 36)
 	_disclaimer_title_label.add_theme_color_override("font_color", Color(0.95, 0.82, 0.45, 1.0))
 	col.add_child(_disclaimer_title_label)
 
@@ -517,16 +560,30 @@ func _show_early_access_disclaimer() -> void:
 	_disclaimer_body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_disclaimer_body_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_disclaimer_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_disclaimer_body_label.add_theme_font_size_override("font_size", 17)
+	_disclaimer_body_label.add_theme_font_size_override("font_size", 23)
 	_disclaimer_body_label.add_theme_color_override("font_color", Color(0.9, 0.86, 0.76, 1.0))
 	col.add_child(_disclaimer_body_label)
+
+	# İpucu satırı gövde metnine yapışınca paragrafın devamı gibi okunuyordu; araya boşluk.
+	var hint_spacer := Control.new()
+	hint_spacer.custom_minimum_size = Vector2(0, 10)
+	hint_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(hint_spacer)
 
 	_disclaimer_hint_label = Label.new()
 	_disclaimer_hint_label.text = tr("menu.early_access_continue_hint")
 	_disclaimer_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_disclaimer_hint_label.add_theme_font_size_override("font_size", 12)
-	_disclaimer_hint_label.modulate = Color(1, 1, 1, 0.55)
+	_disclaimer_hint_label.add_theme_font_size_override("font_size", 22)
+	# 12 punto + %55 saydamlık okunmuyordu; hem büyütüldü hem neredeyse tam opak yapıldı.
+	_disclaimer_hint_label.modulate = Color(1, 1, 1, 0.92)
 	col.add_child(_disclaimer_hint_label)
+
+	_register_ui_font_scale()
+	# "Arayüz Boyutu" ayarı büyükse yazılarla birlikte kutu da büyüsün, yoksa metin taşar.
+	# Panel açılışta bir kez kurulduğu için tek seferlik uygulamak yeterli.
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null and scaler.has_method("scale_panel"):
+		scaler.call("scale_panel", _disclaimer_panel)
 
 
 func _clear_intro_fade() -> void:
@@ -540,7 +597,10 @@ func _clear_intro_fade() -> void:
 func _process(_delta: float) -> void:
 	if _cold_start_fading or _in_disclaimer_phase or _intro_dismissed or not is_instance_valid(_press_prompt) or not _press_prompt.visible:
 		return
-	var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.004)
+	# Eski aralık 0.10 - 1.00 idi: yazı nabzın dip noktasında pratikte görünmez oluyordu ve
+	# 22 puntoyla birleşince "hiç okunmuyor" şikayetine yol açtı (ilk playtest, 2026-08-31).
+	# Nefes alma hissi korunuyor, taban çok daha yukarıda.
+	var pulse := 0.78 + 0.22 * sin(Time.get_ticks_msec() * 0.004)
 	_press_prompt.modulate.a = pulse
 
 
@@ -1031,3 +1091,12 @@ func _play_click() -> void:
 func _apply_startup_audio_settings() -> void:
 	if is_instance_valid(SoundManager) and SoundManager.has_method("_apply_saved_volume_from_settings"):
 		SoundManager._apply_saved_volume_from_settings()
+
+
+## Menü yazı boyutu ayarı (Ayarlar > Görüntü > Arayüz Boyutu). register() bu kökü kapsama alır:
+## şimdi bir kez uygular, sonra ölçek her değiştiğinde yeniden uygular. Autoload'a node yoluyla
+## erişiyoruz ki dosya --check-only ile tek başına doğrulanabilsin (bkz. CLAUDE.md).
+func _register_ui_font_scale() -> void:
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null and scaler.has_method("register"):
+		scaler.call("register", self)

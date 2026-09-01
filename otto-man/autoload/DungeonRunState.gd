@@ -119,7 +119,17 @@ func start_run_from_village() -> void:
 
 
 ## Kamp / bölüm bitişi öncesi: DungeonProgress'ten alıştırma limitlerini yenile.
+##
+## 🔴 Bu run'ın alıştırma tamamlaması KAYDEDİLDİKTEN sonra limitler DONDURULUR.
+## İlk playtest (2026-08-31): oyuncu ilk zindanın tek bölümünü bitiriyor, oyun onu son kampa
+## çıkarıyor ve orada çıkış kapısından başka seçenek yok — ama rapor "ERKEN ÇIKIŞ" diyordu.
+## Sebep: CampScene çıkış kapısında önce try_finalize_warmup_progress() çağırıyor
+## (warmup_completions 0 -> 1), hemen ardından rapor is_run_complete() soruyor, o da buradan
+## geçip DungeonProgress.get_max_segments_for_run()'ı yeniden okuyor ve hedefi warmups+1 = 2
+## yapıyordu. Böylece az önce 1/1 biten run geriye dönük 1/2 (yarım) görünüyordu.
 func sync_warmup_limits() -> void:
+	if warmup_completion_recorded:
+		return
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if not is_instance_valid(dp):
 		run_max_segments = MAX_SEGMENTS

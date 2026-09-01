@@ -171,5 +171,7 @@ static func attach_hold_ring(host: Node, target_control: Control) -> NpcInteract
 	ring.z_index = target_control.z_index
 	target_control.add_child(ring)
 	ring.sync_to_control(target_control)
-	ring.visible = false
+	# Halka bilerek görünür bırakılıyor: soluk çemberin kendisi "bu hedefte tuşu basılı tut"
+	# işaretidir (bkz. NpcInteractHoldRing). Ebeveyn ikon menzil dışında gizlendiği için halka
+	# da onunla birlikte kaybolur.
 	return ring

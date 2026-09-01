@@ -137,8 +137,7 @@ func reset_session_flags() -> void:
 	tutorial_forest_gather_complete = false
 	village_dungeon_guide_active = false
 	tutorial_dungeon_guide_complete = false
-	active_objective = ""
-	_objective_tr_key = ""
+	clear_objective()
 	village_menu_phase = 0
 	_tutorial_buildings_queued.clear()
 	_tutorial_buildings_built.clear()
@@ -171,6 +170,9 @@ func mark_skipped_tutorial_run() -> void:
 	rescue_mission_guide_complete = true
 	tutorial_dungeon_guide_complete = true
 	village_dungeon_guide_active = false
+	# Tutorial atlandığında gösterilecek hiçbir hedef yok; önceki oturumdan kalan metin
+	# kesin olarak ekrandan kalksın (bkz. clear_objective).
+	clear_objective()
 	_reveal_nearest_dungeon_hex_for_skip()
 
 
@@ -731,6 +733,24 @@ func set_objective(text: String) -> void:
 		return
 	active_objective = unescaped
 	village_objective_changed.emit(unescaped)
+
+
+## Hedefi temizler ve sinyali KOŞULSUZ yayar.
+##
+## 🔴 set_objective("") bunun yerine kullanılamaz: metin zaten boşsa erken dönüp sinyali hiç
+## yaymıyor. MentorObjectiveUI (sağ üstteki "► ..." kutusu) get_tree().root'a bağlı KALICI bir
+## CanvasLayer ve sadece bu sinyali dinliyor — yani kimse ona haber vermezse eski metni sonsuza
+## kadar gösterir.
+##
+## İlk playtest (2026-08-31): oyuncu ormanda takılınca ana menüye dönüp "Yeni Oyun > Tutorial'ı
+## geç" dedi, buna rağmen ekranda önceki oturumun "Odun: 0/3 Meyve: 0/3" görevi asılı kaldı.
+## Zincir şuydu: reset_session_flags() active_objective'i doğrudan "" yapıyor (sinyal yok),
+## sonra köy sahnesi refresh_village_objective_for_step() -> set_objective("") çağırıyor ve o da
+## "değer zaten aynı" deyip erken dönüyordu.
+func clear_objective() -> void:
+	_objective_tr_key = ""
+	active_objective = ""
+	village_objective_changed.emit("")
 
 
 func set_objective_tr(key: String) -> void:

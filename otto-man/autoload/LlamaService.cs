@@ -76,7 +76,10 @@ public partial class LlamaService : Node, IDisposable
 	/// Directory the model is expected to live in, as a REAL filesystem path.
 	/// <para>Editor: <c>res://models/</c> — the dev copy that sits in the project folder. Unchanged
 	/// from how development has always worked, and the in-game downloader never runs here.</para>
-	/// <para>Export: <c>user://models/</c> — globalizes to <c>%APPDATA%\Godot\app_userdata\otto-man\models\</c>.
+	/// <para>Export: <c>user://models/</c> — globalizes to <c>%APPDATA%\Rogue Harem\models\</c>, NOT
+	/// <c>%APPDATA%\Godot\app_userdata\otto-man\</c>: project.godot sets
+	/// <c>config/use_custom_user_dir=true</c> with <c>custom_user_dir_name="Rogue Harem"</c>.
+	/// Placing a model by hand in the app_userdata path leaves the export reporting "no model found".
 	/// The download target deliberately does NOT sit next to the .exe: when the game is installed under
 	/// Program Files or a Steam library that folder is not writable, which is exactly the failure seen
 	/// on a second machine previously.</para>

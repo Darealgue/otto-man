@@ -53,6 +53,7 @@ func _ready() -> void:
 	_camera_freeze_timer.timeout.connect(_freeze_camera_position)
 	_camera_freeze_timer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_camera_freeze_timer)
+	_register_ui_font_scale()
 
 func _connect_locale() -> void:
 	if LocaleManager.has_signal("locale_changed"):
@@ -784,3 +785,13 @@ func _show_error(title: String, message: String) -> void:
 		get_tree().root.add_child(error_dialog)
 		if error_dialog.has_method("show_error"):
 			error_dialog.show_error(title, message)
+
+
+## Menü yazı boyutu ayarı (Ayarlar > Görüntü > Arayüz Boyutu). register() bu kökü kapsama alır:
+## şimdi bir kez uygular, sonra ölçek her değiştiğinde yeniden uygular. Autoload'a node yoluyla
+## erişiyoruz ki dosya --check-only ile tek başına doğrulanabilsin (bkz. CLAUDE.md).
+## İkinci argüman panelin kendisi: yazılar büyüyünce sabit boyutlu kutu da büyümeli.
+func _register_ui_font_scale() -> void:
+	var scaler := get_node_or_null("/root/UiFontScale")
+	if scaler != null and scaler.has_method("register"):
+		scaler.call("register", self, get_node_or_null("Panel"))

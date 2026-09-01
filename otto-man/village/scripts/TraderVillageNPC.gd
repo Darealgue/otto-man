@@ -58,6 +58,9 @@ const INTERACT_HINT_X_SHIFT: float = -1.0
 var _interact_area: Area2D
 var _interact_shape: CollisionShape2D
 var _interact_hint_icon: TextureRect
+## Basılı tutma halkası — Mentor/Worker ile aynı: tüccar da "village_priority_interact"
+## grubunda olduğu için basılı tutmayla açılıyor, ipucu da onlarla aynı görünmeli.
+var _interact_hold_ring: NpcInteractHoldRing = null
 
 const SPRITE_OFFSET_Y: float = 48.0
 
@@ -368,6 +371,7 @@ func _build_world_interact() -> void:
 	add_child(_interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
+	_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, _interact_hint_icon)
 	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(INTERACT_HINT_X_SHIFT, -78))
 
 
@@ -413,11 +417,16 @@ func ShowInteractButton() -> void:
 	if not _interact_hint_icon or not can_interact():
 		return
 	NpcOverheadUi.fade_show_icon(_interact_hint_icon)
+	if _interact_hold_ring:
+		_interact_hold_ring.sync_to_control(_interact_hint_icon)
+		_interact_hold_ring.set_progress(0.0)
 
 
 func HideInteractButton() -> void:
 	if _interact_hint_icon:
 		NpcOverheadUi.fade_hide_icon(_interact_hint_icon)
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(0.0)
 
 
 func _on_interact_body_entered(body: Node2D) -> void:
@@ -428,3 +437,9 @@ func _on_interact_body_entered(body: Node2D) -> void:
 func _on_interact_body_exited(body: Node2D) -> void:
 	if body.is_in_group("player") or body.is_in_group("Player"):
 		HideInteractButton()
+
+
+## Mentor/Worker ile aynı basılı-tutma halkası (bkz. player.gd _update_npc_interact_hold_visual).
+func set_interact_hold_progress(ratio: float) -> void:
+	if _interact_hold_ring:
+		_interact_hold_ring.set_progress(ratio)

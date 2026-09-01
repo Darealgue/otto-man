@@ -21,3 +21,10 @@ training/output/**
 # architecture that's now live in LlamaService.cs and NPCDialogueManager.gd. Kept on disk
 # locally for reference, but never tracked or pushed.
 tools/**
+
+# NVIDIA CUDA redistributables (otto-man/native_redist/cuda12/*.dll, ~735 MB).
+# ggml-cuda.dll imports cudart64_12 / cublas64_12 / cublasLt64_12; these ship only with the CUDA
+# toolkit, not with a game driver, so they must sit beside the exe in the export or the game
+# silently falls back to CPU. Far over GitHub's 100 MB per-file limit — each developer copies them
+# from their own CUDA toolkit instead. See otto-man/native_redist/README.md (which stays tracked).
+otto-man/native_redist/**/*.dll
