@@ -17,6 +17,14 @@ func _ready() -> void:
 		return
 		
 	console.hide()
+
+	# Geliştirici konsolu SADECE editörde. OS.has_feature("editor") editörden çalıştırınca true,
+	# export edilmiş bir build'de false döner — yani oyuncuda backtick tuşu hiçbir şey yapmaz.
+	# set_process_input(false): _input hiç çağrılmaz, konsol açılamaz, komutlar erişilemez olur.
+	if not OS.has_feature("editor"):
+		set_process_input(false)
+		return
+
 	line_edit.text_submitted.connect(_on_command_submitted)
 	
 	# Initial output

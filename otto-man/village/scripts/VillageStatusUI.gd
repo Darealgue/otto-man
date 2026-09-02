@@ -169,6 +169,10 @@ func _on_locale_changed(_locale: String = "") -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# F9 parşömen debug görünümü, F10 panel ölçüm log'u — ikisi de geliştirici aracı,
+	# SADECE editörde. (F9 ormandaki dump_level_debug ile de çakışıyordu.)
+	if not OS.has_feature("editor"):
+		return
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_F9:

@@ -6,6 +6,7 @@ extends Sprite2D
 ##   var a = ArrowHint.create(); a.position = ...; add_child(a)
 ##   a.show_hint() / a.hide_hint()
 
+const InteractBand = preload("res://ui/InteractBand.gd")
 const TEX: Texture2D = preload("res://assets/Icons/up_arrow_icon.png")
 const BOB_AMPLITUDE := 4.0
 const BOB_PERIOD := 1.2
@@ -24,6 +25,9 @@ static func create() -> Sprite2D:
 	arrow.z_index = 80
 	arrow.modulate.a = 0.0
 	arrow.visible = false
+	# Arkasına sönümlenen şerit. Çocuk olduğu için okun salınımını, fade'ini ve
+	# z_index'ini kendiliğinden takip ediyor; ayrıca yönetmek gerekmiyor.
+	InteractBand.attach_to_sprite(arrow)
 	return arrow
 
 

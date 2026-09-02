@@ -8,6 +8,8 @@ const NAMEPLATE_OUTLINE_COLOR := Color(0, 0, 0, 1)
 const NAMEPLATE_OUTLINE_SIZE := 3
 const NAMEPLATE_FONT_SIZE := 16
 
+const InteractBand = preload("res://ui/InteractBand.gd")
+
 const UP_ARROW_ICON: Texture2D = preload("res://assets/Icons/up_arrow_icon.png")
 const ARROW_ICON_SIZE := Vector2(20.0, 20.0)
 
@@ -29,6 +31,8 @@ static func build_up_arrow_hint_icon() -> TextureRect:
 	icon.size = ARROW_ICON_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Açık zeminlerde (gökyüzü, kar, ateş ışığı) ikon kayboluyordu — arkasına şerit.
+	InteractBand.attach(icon)
 	return icon
 
 
@@ -43,6 +47,8 @@ static func build_up_arrow_talk_hint_icon() -> TextureRect:
 	icon.size = ARROW_ICON_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Açık zeminlerde (gökyüzü, kar, ateş ışığı) ikon kayboluyordu — arkasına şerit.
+	InteractBand.attach(icon)
 	return icon
 
 
@@ -56,6 +62,8 @@ static func build_house_hint_icon() -> TextureRect:
 	icon.size = HOUSE_ICON_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Açık zeminlerde (gökyüzü, kar, ateş ışığı) ikon kayboluyordu — arkasına şerit.
+	InteractBand.attach(icon)
 	return icon
 
 
@@ -101,6 +109,14 @@ static func apply_frameless_nameplate(container: PanelContainer) -> void:
 	if container == null:
 		return
 	container.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	# Şerit PanelContainer'a değil içindeki Label'a takılıyor. PanelContainer bir kapsayıcı
+	# ve bütün Control çocuklarını kendi dikdörtgenine oturtuyor — şerit ona takılsaydı
+	# iki yana taşamaz, sönümlenme diye bir şey kalmazdı. Label kapsayıcı olmadığı için
+	# çocuğun konumuna karışmıyor; container da clip_contents=false olduğundan taşma kırpılmıyor.
+	for child in container.get_children():
+		if child is Label:
+			InteractBand.attach(child as Label)
+			break
 
 
 static func apply_frameless_interact_button(button: Button, name_reference: Label = null) -> void:
@@ -111,6 +127,11 @@ static func apply_frameless_interact_button(button: Button, name_reference: Labe
 	button.focus_mode = Control.FOCUS_NONE
 	for style_name: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 		button.add_theme_stylebox_override(style_name, empty)
+	# Köylülerin üstündeki etkileşim oku TextureRect değil, ikon atanmış bir Button
+	# (bkz. apply_interact_hint_text). Yukarıdaki ikon üreticilerinden geçmediği için
+	# şeridi ayrıca burada alması gerekiyor — yoksa oyunda en sık görülen gösterge
+	# şeritsiz kalırdı.
+	InteractBand.attach(button, name_reference)
 	apply_nameplate_text_style(button, name_reference)
 
 

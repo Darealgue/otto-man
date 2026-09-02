@@ -72,6 +72,79 @@ license established before it ships.
 
 ---
 
+## ⏳ RUNNING THE GAME: PASS `-- --skip-llm` WHEN THE LLM IS NOT WHAT YOU ARE TESTING
+
+```bash
+godot --path <project> res://<scene>.tscn -- --skip-llm
+```
+
+The `--` matters: it is what puts the argument into `OS.GetCmdlineUserArgs()`. Everything but AI
+villagers behaves normally. Still worth using for UI/scene work — it skips the model load entirely
+rather than merely backgrounding it.
+
+### Startup model load is asynchronous (fixed 2026-09-02)
+
+`LlamaService._Ready()` used to call `Initialize()` **synchronously on the main thread**, reading
+the ~7 GB GGUF and uploading it to the GPU before Godot drew anything — every launch began with a
+black, unresponsive window, for agents and players alike. It now calls `InitializeAsync()`.
+
+Measured after the change: first frame at **5.8 s**, model ready **9.2 s later**, and **1053 frames
+rendered during that window** — i.e. fully interactive throughout (a frozen main thread would have
+drawn ~0). Those numbers are with a warm OS file cache; a first launch after a reboot reads more
+from disk and takes longer, which is exactly the case that used to hurt most.
+
+This was safe because every consumer already checks at the moment of use: `NPCDialogueManager`,
+`WorldManager` and `AiVillagers` all guard on `IsInitialized()`, and `NarrativeSpawnPipeline`
+falls back to its mechanical path. **The one behavioural consequence**: narrative generated in the
+first seconds of a session takes that mechanical path rather than the LLM one. A degrade, not a
+break — but do not "fix" it by making anything wait synchronously for the model.
+
+`AiVillagers._watch_startup_model_load()` shows the "loading" chip during the wait and flips it to
+"ready" on `ModelLoadComplete` (verified end to end), so the delay is visible instead of mysterious.
+
+---
+
+## 🔢 VERSIONING — the agent bumps it, never the user
+
+The user has explicitly asked not to be the one who decides or remembers this. **Bump the version
+as part of the work, in the same change, without being asked.** If a session produced anything
+shippable, it ends with a version bump.
+
+**Scheme: `MAJOR.MINOR.PATCH`.** Windows PE fields need four numbers, so they carry a trailing
+`.0` (`0.1.1` → `0.1.1.0`).
+
+| Part | Bump it when | Examples from this project |
+|---|---|---|
+| **PATCH** `0.1.X` | Fixes, balance, art, UX, polish. Nothing new the player can *do*. | Interaction bands, logo redraw, menu font, dev-key gating |
+| **MINOR** `0.X.0` | A new system or a meaningful chunk of content the player can actually use. | A new biome, a new minigame, a new NPC role, the trade system |
+| **MAJOR** `X.0.0` | **Reserved for public release.** Stays `0` until then. | — |
+
+`0` as MAJOR is the honest signal for "half-finished features, thin content" — the state the user
+described on 2026-09-02. Climb toward `1.0.0`; do not rush it.
+
+**Two files must change together** (there is no way to make one reference the other — Godot's
+export preset values are literal strings):
+
+1. `project.godot` → `application/config/version` — the source of truth, read at runtime
+2. `export_presets.cfg` → `application/file_version` **and** `application/product_version`, same
+   number plus `.0`
+
+The main menu footer reads setting 1 at runtime (`MainMenu.gd`, `menu.beta_footer`), so the number
+a playtester reports always matches the build they ran. Do not hardcode it there.
+
+### 🔴 `SaveManager.SAVE_VERSION` IS NOT THE GAME VERSION
+
+They are both `0.1.x` right now, which makes them look like the same thing. They are not, and
+syncing them would destroy player saves: `_is_version_compatible()` accepts **only an exact
+MAJOR.MINOR match**, so moving `SAVE_VERSION` from `0.1.0` to `0.2.0` invalidates every existing
+save file.
+
+`SAVE_VERSION` changes **only** when the save *format* changes incompatibly — never because the
+game version moved. When the game reaches `0.2.0`, `SAVE_VERSION` stays `0.1.0` unless the format
+itself broke.
+
+---
+
 ## ⚠️ TEMPORARY FLAGS — must be `false` before any export
 
 Both are dev-only conveniences. Grep them before exporting; never ship either as `true`.
@@ -83,6 +156,35 @@ Both are dev-only conveniences. Grep them before exporting; never ship either as
 
 `TEST_MODE` swaps the 7.5 GB model download for a small test file. `_PREVIEW_OFFER_IN_EDITOR`
 forces the AI offer screen in-editor and suppresses saving the player's choice.
+
+---
+
+## 🔑 DEV SHORTCUTS ARE GATED ON `OS.has_feature("editor")` — NOT on a manual flag
+
+Every developer keybind is wrapped in `if not OS.has_feature("editor"): return`. That feature tag is
+true when running from the editor and false in an export template build, so there is nothing to
+remember to switch off before shipping. Verified on this project: the exported build takes the
+`user://` branch in `LlamaService.GetModelDirectory()`, which is the same tag.
+
+| Keys | Where | What they did |
+|---|---|---|
+| `` ` `` (backtick) | `autoload/dev_console.gd` (`_ready` calls `set_process_input(false)`) | Opens the dev console |
+| `1` `2` `3` `T`, `N`, `M`, `Alt`+arrows | `village/scripts/VillageScene.gd` `_input` | Time scale x1/x4/x16 + cycle; add test villager; **delete a random worker**; jump on the world map |
+| `1` `2` `3` `T`, Numpad Enter, `F9` | `levels/forest_level_generator.gd` `_input` | A second copy of the time-scale keys (`toggle_camera`, `dump_level_debug`) |
+| `Ctrl+Shift+U` | `levels/forest_level_generator.gd` `_unhandled_input` | Buried-decor metric dump |
+| `F9`, `F10` | `village/scripts/VillageStatusUI.gd` `_unhandled_input` | Parchment debug view, panel measurement log |
+
+Two traps worth knowing:
+
+**The time-scale block exists twice** — village and forest, the forest one commented "Mirror village
+time controls". Gating only one leaves the keys live in the other scene.
+
+**`DEBUG_UNDERGROUND_FOREST_DECOR` is still `true`** and now also carries an `OS.has_feature("editor")`
+check on its `_physics_process` branch. That branch ran a decor scan every 0.5s in shipped builds
+purely to `print()`; `_scan_nearby_for_buried_forest_decor` mutates nothing.
+
+When adding a real gameplay key to any of these `_input` functions, put it **above** the guard —
+below it, the binding silently dies in every export.
 
 ---
 
@@ -189,6 +291,27 @@ Copy `THIRD_PARTY_LICENSES.txt` next to the exported `.exe`. It is deliberately 
 `.pck` — inside the pck no player could read it, which defeats the purpose of a notices file.
 
 Export output: `D:\otto_exp\otto-man.exe`. Uncheck "Export With Debug".
+
+---
+
+## 🔴 EXPORTING INTO A MISSING FOLDER "SUCCEEDS" AND WRITES NOTHING
+
+`godot --headless --export-release "Windows Desktop" <path>` does **not** create the target
+directory. If its parent is missing, the export writes no files, prints no error, and **exits 0**.
+
+Hit 2026-09-02: the output folder had been deleted between exports. The run finished in seconds,
+the log looked ordinary, the exit code was 0, and nothing had been written.
+
+**Do not try to diagnose this from the log.** The failing run and the good run that followed
+produced logs of the same length, and a short log usually just means the command was piped through
+`tail`. The only reliable check is the output itself:
+
+```powershell
+Get-ChildItem <export-dir> -Recurse | Measure-Object Length -Sum   # a real export is ~1.35 GB
+```
+
+So `mkdir` the output folder before exporting, and confirm the size afterwards. Exit code 0 proves
+nothing here.
 
 ---
 

@@ -725,6 +725,15 @@ func _input(event: InputEvent) -> void:
 
 	# Sadece klavye tuş basımlarını dinle
 	if event is InputEventKey and event.pressed and not event.is_echo():
+		# Bu bloktaki HER ŞEY geliştirici kısayolu: 1/2/3 ve T zaman hızı, N test köylüsü ekler,
+		# M rastgele bir işçiyi siler (geri alınamaz), Alt+oklar dünya haritasında zıplatır.
+		# OS.has_feature("editor") export edilmiş build'de false, editörden çalıştırınca true
+		# döner — yani oyuncuda bu tuşların hiçbiri çalışmaz, editörde her şey aynen kalır.
+		# set_input_as_handled() ÇAĞIRMIYORUZ: olay diğer node'lara gitmeye devam etsin.
+		# DİKKAT: buraya gerçek bir oyun kısayolu eklersen bu guard'ın ALTINA değil ÜSTÜNE
+		# koy, yoksa export'ta sessizce ölür. Yukarıdaki open_world_map aksiyonu öyle duruyor.
+		if not OS.has_feature("editor"):
+			return
 		# 1 tuşu: Normal hız (x1)
 		if event.keycode == KEY_1:
 			if time_manager: # Null kontrolü

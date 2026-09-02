@@ -286,7 +286,10 @@ func _physics_process(_delta: float) -> void:
 	if not player:
 		return
 	_sync_river_water_overlay_to_player(_delta)
-	if DEBUG_UNDERGROUND_FOREST_DECOR:
+	# Gömülü dekor taraması: yarım saniyede bir yakındaki tüm dekoru gezip sadece print
+	# basıyor (_scan_nearby_for_buried_forest_decor hiçbir şeyi değiştirmiyor). Oyuncunun
+	# build'inde bedava CPU yakmasın diye editöre kilitlendi.
+	if DEBUG_UNDERGROUND_FOREST_DECOR and OS.has_feature("editor"):
 		_underground_scan_accum_s += _delta
 		if _underground_scan_accum_s >= 0.5:
 			_underground_scan_accum_s = 0.0
@@ -306,7 +309,8 @@ func _process(_delta: float) -> void:
 	_process_chunk_postprocess_queue()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not DEBUG_UNDERGROUND_FOREST_DECOR:
+	# Ctrl+Shift+U dekor metrik dökümü — sadece log basar, oyuncuya faydası yok.
+	if not DEBUG_UNDERGROUND_FOREST_DECOR or not OS.has_feature("editor"):
 		return
 	if event is InputEventKey:
 		var key_ev := event as InputEventKey
@@ -466,6 +470,11 @@ func _process_chunk_postprocess_queue() -> void:
 		budget -= 1
 
 func _input(event: InputEvent) -> void:
+	# Bu fonksiyondaki her şey geliştirici kısayolu: Numpad Enter genel bakış kamerası,
+	# F9 chunk dökümü, 1/2/3 ve T zaman hızı (köydeki blokun kopyası — sadece birini
+	# kapatmak oyuncuya ormanda çalışan zaman tuşları bırakırdı). SADECE editörde.
+	if not OS.has_feature("editor"):
+		return
 	if event.is_action_pressed("toggle_camera"):
 		toggle_camera()
 	if event.is_action_pressed("dump_level_debug"):

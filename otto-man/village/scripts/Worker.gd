@@ -828,12 +828,22 @@ func _ready() -> void:
 			im.input_device_changed.connect(_on_input_device_changed)
 		# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 		# ekran uzayında takip ettiriliyor.
-		OverheadUiTracker.attach(_interact_button, self, Vector2(1.5, -107.5))
+		# -112.5 keyfi değil: OverheadUiTracker ofseti MERKEZ olarak uyguluyor, buton 25 px
+		# yüksek, yani alt kenarı -100'e oturuyor — bu da isim plakasının (merkez -85,
+		# yükseklik 30) üst kenarıyla tam olarak aynı yer. InteractBand lekeleri host'un
+		# dikdörtgeni kadar olduğundan iki leke böylece boşluksuz ve çakışmasız teğet
+		# duruyor. Eskiden -107.5'ti ve 5 px çakışıyordu; çakışma bölgesinde alfalar
+		# toplanıp gözle görülür koyu bir çizgi çıkıyordu. Bu değeri, plakanın konumunu
+		# ya da buton yüksekliğini değiştirirsen üçünü birlikte yeniden hesapla.
+		OverheadUiTracker.attach(_interact_button, self, Vector2(1.5, -112.5))
 
 	if _nameplate_container:
 		NpcOverheadUi.apply_frameless_nameplate(_nameplate_container)
 		_nameplate_container.visible = false
-		OverheadUiTracker.attach(_nameplate_container, self, Vector2(0, -85))
+		# x=1.5, ok butonuyla aynı (karakterin görsel merkezi orası; InteractionArea'nın
+		# çarpışma şekli de 1.5'te). Eskiden 0'dı ve iki lekenin dikey kenarları 1.5 px
+		# kayık kalıyordu — teğet sütunun kenarında ince bir basamak olarak görünüyordu.
+		OverheadUiTracker.attach(_nameplate_container, self, Vector2(1.5, -85))
 
 func _ready_dungeon_prisoner() -> void:
 	visible = true

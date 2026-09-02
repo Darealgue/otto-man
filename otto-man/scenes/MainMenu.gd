@@ -746,7 +746,12 @@ func _refresh_locale(_locale: String = "") -> void:
 		_quit_button.text = tr("menu.quit")
 	var footer := get_node_or_null("CenterContainer/Menu/Footer") as Label
 	if footer:
-		footer.text = tr("menu.beta_footer")
+		# Sürüm numarası tek kaynaktan (project.godot → application/config/version) okunuyor,
+		# elle yazılmıyor: playtester "şu sürümde çöktü" dediğinde numaranın gerçekten o
+		# build'e ait olduğuna güvenebilmek için. Çeviri anahtarı bozulmasın diye metne
+		# sonradan ekleniyor, strings.csv'ye sürüm sızmıyor.
+		var ver: String = str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
+		footer.text = "%s  ·  v%s" % [tr("menu.beta_footer"), ver]
 
 ## Profil artık menü açılmadan önce seçilmiş oluyor, bu yüzden Yeni Oyun ve Oyunu Yükle
 ## araya profil ekranı sokmadan doğrudan kendi işlerine gidiyor.

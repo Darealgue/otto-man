@@ -675,9 +675,9 @@ public partial class LlamaService : Node, IDisposable
 
 	/// <summary>
 	/// Loads the model off the main thread and reports back via <see cref="ModelLoadCompleteEventHandler"/>.
-	/// <para>Used when the model arrives mid-session (the player downloaded it while playing): a plain
-	/// Initialize() call reads ~7 GB off disk and pushes it to the GPU, which would freeze the game for
-	/// tens of seconds. Startup still uses the synchronous path in _Ready, where a stall is invisible.</para>
+	/// <para>This is now the ONLY path that loads the model — startup (<c>_Ready</c>) included. A plain
+	/// Initialize() call reads ~7 GB off disk and pushes it to the GPU on the calling thread, freezing
+	/// the game; at startup that meant minutes of black screen before the first frame.</para>
 	/// <para>Safe to call when already initialized — it reports success immediately without reloading.</para>
 	/// </summary>
 	public void InitializeAsync()
@@ -733,12 +733,39 @@ public partial class LlamaService : Node, IDisposable
 	{
 		base._Ready();
 		GD.Print("LlamaService Autoload _Ready.");
-		
-		// Initialize: single shared BASE GGUF (Mistral-NeMo), used for both summaries and NPC dialogue.
-		if (!Initialize(DefaultModelFileName))
+
+		// Dev escape hatch: launch with `-- --skip-llm` to start without the model.
+		// Initialize() below reads ~7 GB off disk and pushes it to the GPU ON THE MAIN THREAD,
+		// so nothing is drawn until it finishes — the window sits black and unresponsive for
+		// minutes. That is fine once per play session, but it makes opening the game just to
+		// look at a menu or a scene unusable. With this flag the game reaches the first frame
+		// immediately; AI villagers simply stay unavailable, everything else works.
+		// Not gated on OS.HasFeature("editor"): passing a command-line argument is not something
+		// a player does by accident, and being able to spot-check an exported build without the
+		// wait is worth more than the theoretical risk.
+		if (System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--skip-llm") >= 0)
 		{
-			GD.PrintErr("Failed to initialize LlamaService with model.");
+			GD.Print("LlamaService: --skip-llm given, model not loaded (AI villagers disabled this run).");
+			return;
 		}
+
+		// Single shared BASE GGUF (Mistral-NeMo), used for both summaries and NPC dialogue.
+		//
+		// ASYNCHRONOUS ON PURPOSE (changed 2026-09-02). This used to be a plain Initialize()
+		// call, which reads ~7 GB off disk and uploads it to the GPU on the main thread — Godot
+		// drew nothing until it returned, so every launch began with minutes of a black,
+		// unresponsive window. The old comment on InitializeAsync claimed a startup stall was
+		// "invisible"; it is not, it is the first thing a player sees.
+		//
+		// Every consumer already copes with the model not being ready: NPCDialogueManager,
+		// WorldManager and AiVillagers each check IsInitialized() at the moment they need it,
+		// and NarrativeSpawnPipeline falls back to its mechanical path. The one behavioural
+		// consequence is that narrative generated in the first minute or two of a session takes
+		// that mechanical path instead of the LLM one — a degrade, not a break.
+		//
+		// AiVillagers listens for ModelLoadComplete and shows the "loading" chip meanwhile, so
+		// the wait is visible rather than mysterious.
+		InitializeAsync();
 	}
 
 	// --- Initialization and Cleanup (To be re-implemented with LLamaSharp) ---

@@ -1302,7 +1302,11 @@ func _build_world_interact() -> void:
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor. NamePlateContainer -100/-70 aralığında (merkez -85)
 	# olduğundan, ismin üzerine binmesin diye Worker.gd'deki gibi ismin biraz üstüne alındı.
-	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(0, -107.5))
+	# -110.0: ikon 20 px yüksek ve ofset MERKEZ olarak uygulanıyor, yani alt kenarı -100'e
+	# oturuyor — isim plakasının üst kenarıyla aynı yer (Concubine.tscn'de offset_top -100).
+	# InteractBand lekeleri böylece teğet kalıyor, çakışıp koyu çizgi yapmıyor. Worker.gd'de
+	# aynı hesap -112.5 veriyor (orada buton 25 px). Ayrıntı için Worker.gd'deki yoruma bak.
+	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(0, -110.0))
 	_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, _interact_hint_icon)
 
 

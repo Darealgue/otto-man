@@ -65,6 +65,25 @@ func _ready() -> void:
 	_rng.randomize()
 	# Deferred so LlamaService has finished its own _ready() before we ask it anything.
 	_maybe_resume_download.call_deferred()
+	_watch_startup_model_load.call_deferred()
+
+
+## LlamaService artık modeli açılışta ARKA PLANDA yüklüyor (bkz. LlamaService._Ready).
+## Yükleme bitene kadar oyun tamamen oynanabilir, sadece AI köylüler cevap veremez; bu
+## süre boyunca chip'i "loading" yapıp bitişini dinliyoruz ki oyuncu neden konuşamadığını
+## anlasın. Eskiden yükleme ana iş parçacığındaydı ve oyun zaten açılmıyordu, o yüzden
+## böyle bir geri bildirime gerek yoktu.
+func _watch_startup_model_load() -> void:
+	if not is_model_present():
+		return
+	var service := _llama()
+	if service == null:
+		return
+	if bool(_llama_call("IsInitialized", false)):
+		return
+	if not service.is_connected("ModelLoadComplete", _on_model_load_complete):
+		service.connect("ModelLoadComplete", _on_model_load_complete)
+	_set_chip_mode("loading")
 
 
 ## Picks an interrupted download back up on the next launch. Conditions are deliberately strict:
