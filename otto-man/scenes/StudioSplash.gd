@@ -10,11 +10,13 @@ extends Control
 ## birkaç saniye durur ve söner. TitleLayer sahne ağacında Fade'in ALTINDA (yani üstünde
 ## çizilen) duruyor; yazının siyah perdenin önünde görünmesini sağlayan tek şey bu sıra.
 ##
-## Yazı Grenze Gotisch (assets/fonts/title_font.ttf, OFL). Işıma için hazır blur PNG'si
-## yok, o yüzden hale kodda kuruluyor: net Label'ın birkaç kopyası, her biri daha kalın
-## konturla ve daha sönük, toplamalı (additive) karışımla üst üste. İlk denemede tek kalın
-## kontur kullanılmıştı — ışıma değil çıkartma kenarı gibi duruyordu; sönümlenmeyi veren
-## şey katman sayısı. Ayrıntı için _GLOW_STEPS.
+## Yazı Grenze Gotisch (assets/fonts/title_font.ttf, OFL). Işıma için hazır blur PNG'si yok,
+## o yüzden hale çalışma anında üretiliyor: yazının küçültülmüş bir kopyası iki geçişli
+## GERÇEK Gaussian blur'dan geçirilip toplamalı (additive) karışımla net yazının arkasına
+## çiziliyor (bkz. _build_title_glow ve shaders/text_glow_blur.gdshader). Önceki hâl gitgide
+## kalınlaşan outline_size kopyalarını üst üste bindiriyordu; her kopya keskin kenarlı bir
+## halka bıraktığı için ortaya ışıma değil izohips haritası çıkıyordu — logonun blur'ları
+## için de aynı sebeple outline_size denenip atılmıştı (bkz. CLAUDE.md, "Açılış").
 ##
 ## Katmanlar assets/logo/ altında ayrı PNG'ler: white / red / wordmark ve her birinin blur'u.
 ## Hepsi 480x480 ve üst üste hizalı, o yüzden hizalama için hiçbir şey hesaplanmıyor —
@@ -76,26 +78,16 @@ const MAIN_MENU_SCENE: String = "res://scenes/MainMenu.tscn"
 @onready var _title_layer: Control = $TitleLayer
 @onready var _title: Label = $TitleLayer/Title
 
-## Halenin katmanları. `ratio` = konturun font boyutuna oranı, `alpha` = o katmanın
-## parlaklığı. Toplamalı karışım yüzünden harfe yakın noktalar bütün katmanlardan ışık
-## toplar, uzaklaştıkça katmanlar teker teker biter — sönümlenme buradan çıkıyor.
-## Oran kullanılmasının sebebi title_font_size değişince halenin de ölçeklenmesi.
-## Alfalar tek tek seçilmedi, hedeflenen sönümlenme eğrisinden çıkarıldı: bir noktada
-## toplanan ışık, o noktadan daha kalın olan BÜTÜN katmanların alfa toplamı. Yani harfin
-## dibinde ~0.95, en dışta ~0.05 olsun istiyorsak her katmanın alfası "kendi hedefi eksi
-## bir sonrakinin hedefi" oluyor. Dört katmanla denenmişti; dıştakiler görünmeyecek kadar
-## sönük (0.07) kalıp hale dar görünüyordu. Sekiz katman aynı toplam parlaklığı daha
-## küçük adımlara bölüyor, geçiş de o yüzden yumuşak.
-const _GLOW_STEPS: Array[Dictionary] = [
-	{"ratio": 0.035, "alpha": 0.17},
-	{"ratio": 0.071, "alpha": 0.16},
-	{"ratio": 0.118, "alpha": 0.15},
-	{"ratio": 0.176, "alpha": 0.13},
-	{"ratio": 0.247, "alpha": 0.12},
-	{"ratio": 0.329, "alpha": 0.10},
-	{"ratio": 0.424, "alpha": 0.07},
-	{"ratio": 0.529, "alpha": 0.05},
-]
+## Halenin küçültme oranı: kaynak yazı ekranın 1/4'ü boyutunda bir SubViewport'a çizilir.
+## Blur bu küçük dokuda yapılıp geri büyütülüyor — hem ucuz, hem de büyütmenin lineer
+## süzgeci fazladan bir yumuşatma katıyor.
+const _GLOW_DOWNSCALE: int = 4
+## Blur'un standart sapması, küçültülmüş piksel cinsinden. Halenin ekrandaki yayılımı kabaca
+## 3 * _GLOW_SIGMA * _GLOW_DOWNSCALE ≈ 96 px — eski kontur yığınının en dış halkasıyla aynı
+## genişlik. Işımayı genişletip daraltmak için buraya dokunulur; shader'daki RADIUS (24)
+## 3 sigma'yı karşılayacak kadar geniş, sigma'yı büyütürsen orayı da büyüt.
+const _GLOW_SIGMA: float = 8.0
+const _GLOW_BLUR_SHADER: Shader = preload("res://shaders/text_glow_blur.gdshader")
 ## Halenin rengi: sıcak kehribar. Siyah zeminde altın hissi veriyor, kırmızı logodan
 ## sonra gelen perdeyi aynı sıcaklıkta tutuyor.
 const _GLOW_COLOR: Color = Color(1.0, 0.72, 0.32)
@@ -124,25 +116,81 @@ func _ready() -> void:
 	_tween.finished.connect(_go_to_main_menu)
 
 
-## Net yazının arkasına _GLOW_STEPS kadar kopya koyar. Kopyalar duplicate() ile üretiliyor
-## ki metin, font, hizalama tek yerde (sahnedeki Title) kalsın; burada sadece kontur, renk
-## ve parlaklık eziliyor. Hepsi index 0'a taşınıyor, yani net yazı her zaman en üstte.
+## Işımayı kurar: yazının küçültülmüş bir kopyası iki geçişli gerçek Gaussian blur'dan
+## geçirilip net yazının ARKASINA toplamalı olarak çizilir.
+##
+## Zincir üç adım: (1) küçük bir SubViewport'a yazı, hale renginde, siyah zeminde;
+## (2) ikinci bir SubViewport'a onun yatay blur'u; (3) ekrana, tam boyutta, dikey blur'u.
+## Kaynağın küçültülmesi hem blur'u ucuzlatıyor hem de son adımdaki lineer büyütme
+## fazladan bir yumuşatma katıyor.
+##
+## Kopya duplicate() ile üretiliyor ki metin, font ve hizalama tek yerde (sahnedeki Title)
+## kalsın; burada sadece renk ve ölçek eziliyor.
 func _build_title_glow() -> void:
 	_title.add_theme_font_size_override("font_size", title_font_size)
-	var add_material := CanvasItemMaterial.new()
-	add_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	for step in _GLOW_STEPS:
-		var layer: Label = _title.duplicate() as Label
-		layer.material = add_material
-		layer.add_theme_font_size_override("font_size", title_font_size)
-		layer.add_theme_color_override("font_color", _GLOW_COLOR)
-		layer.add_theme_color_override("font_outline_color", _GLOW_COLOR)
-		layer.add_theme_constant_override(
-			"outline_size", int(round(float(title_font_size) * float(step["ratio"])))
-		)
-		layer.modulate.a = float(step["alpha"]) * glow_strength
-		_title_layer.add_child(layer)
-		_title_layer.move_child(layer, 0)
+
+	var screen: Vector2 = get_viewport_rect().size
+	var small := Vector2i(
+		maxi(1, int(screen.x) / _GLOW_DOWNSCALE),
+		maxi(1, int(screen.y) / _GLOW_DOWNSCALE)
+	)
+
+	# 1) Kaynak: net yazının hale renginde, küçültülmüş kopyası.
+	var source_viewport := _make_glow_viewport(small)
+	_title_layer.add_child(source_viewport)
+	var source_text: Label = _title.duplicate() as Label
+	source_text.add_theme_font_size_override("font_size", title_font_size)
+	source_text.add_theme_color_override("font_color", _GLOW_COLOR)
+	source_text.add_theme_constant_override("outline_size", 0)
+	source_text.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	source_text.size = screen
+	source_text.scale = Vector2.ONE / float(_GLOW_DOWNSCALE)
+	source_viewport.add_child(source_text)
+
+	# 2) Yatay geçiş, yine küçük bir viewport'a.
+	var blur_viewport := _make_glow_viewport(small)
+	_title_layer.add_child(blur_viewport)
+	blur_viewport.add_child(_make_glow_rect(source_viewport.get_texture(), Vector2(1.0, 0.0)))
+
+	# 3) Dikey geçiş, doğrudan ekrana. move_child(0) net yazının her zaman en üstte
+	#    kalmasını sağlıyor; hale onun arkasından ışıyor.
+	var glow := _make_glow_rect(blur_viewport.get_texture(), Vector2(0.0, 1.0))
+	glow.modulate = Color(1.0, 1.0, 1.0, glow_strength)
+	_title_layer.add_child(glow)
+	_title_layer.move_child(glow, 0)
+
+
+## Hale zincirindeki ara hedef. Zemin KASITLI olarak elle konmuş opak siyah bir ColorRect:
+## viewport'un kendi temizleme rengi proje ayarına bağlı ve toplamalı karışımda sabit bir
+## renk halenin üstüne binerdi.
+func _make_glow_viewport(size: Vector2i) -> SubViewport:
+	var viewport := SubViewport.new()
+	viewport.size = size
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Proje geneli Nearest; burada küçültülmüş doku geri büyütülerek okunduğu için Linear şart.
+	viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0, 0, 0, 1)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	viewport.add_child(backdrop)
+	return viewport
+
+
+## Tek eksenli blur geçişini çizen dikdörtgen; kaynak dokuyu kaplayacağı alana esnetir.
+func _make_glow_rect(source: Texture2D, blur_direction: Vector2) -> TextureRect:
+	var rect := TextureRect.new()
+	rect.texture = source
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_SCALE
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var mat := ShaderMaterial.new()
+	mat.shader = _GLOW_BLUR_SHADER
+	mat.set_shader_parameter("direction", blur_direction)
+	mat.set_shader_parameter("sigma", _GLOW_SIGMA)
+	rect.material = mat
+	return rect
 
 
 ## Katman çiftini (net + ışıma) tek seferde açar/kapatır. Işıma her zaman glow_strength

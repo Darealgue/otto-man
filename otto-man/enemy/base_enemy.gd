@@ -499,6 +499,15 @@ func _get_elemental_damage_mult() -> float:
 		mult *= im.get_set_bonus("elemental_damage_mult", 1.0)
 	return mult
 
+## Element Reaksiyon Matrisi (bkz. docs/ITEM_PIPELINE_DESIGN.md §3) — 4 element =
+## 6 olası çift. Zehir+Ateş zaten vardı (aşağıda); bu fonksiyonlarda kalan
+## çiftlerden ikisi eklendi (Ateş+Buz, Zehir+Buz). Şimşeğin kalıcı bir stack'i
+## olmadığı için (bkz. add_poison_stack/add_burn_stack ile aynı desen yok) onu
+## içeren üç çift (Buz+Şimşek, Zehir+Şimşek, Ateş+Şimşek)
+## `autoload/item_manager.gd`'nin `apply_element_to_enemy()`'sinde, şimşek
+## uygulandığı anda kontrol ediliyor — orası "şimşek şu an uygulanıyor" bilgisinin
+## tek gerçek kaynağı.
+
 func add_poison_stack(max_stacks: int, damage_per_stack: float, tick_interval: float) -> void:
 	# Add poison stack (cap at max_stacks)
 	poison_stacks = min(poison_stacks + 1, max_stacks)
@@ -513,13 +522,74 @@ func add_burn_stack() -> void:
 		var explosion = POISON_FIRE_EXPLOSION_SCENE.instantiate()
 		get_tree().current_scene.add_child(explosion)
 		explosion.global_position = global_position
+	# Ateş + buz = buhar patlaması: üzerindeki don ateşle buharlaşır, biriken don kadar bonus hasar verir
+	if frost_stacks > 0:
+		var steam_bonus_damage := float(frost_stacks) * 1.5
+		frost_stacks = 0
+		frost_decay_timer = 0.0
+		var steam = POISON_FIRE_EXPLOSION_SCENE.instantiate()
+		get_tree().current_scene.add_child(steam)
+		steam.global_position = global_position
+		take_damage(steam_bonus_damage, 0.0, 0.0, false)
 	# 3 tick per stack, max 3 stacks (9 tick), 1 dmg per tick per second
 	burn_remaining_ticks = mini(burn_remaining_ticks + 3, 9)
 	burn_tick_timer = 0.0
 
 func add_frost_stack(amount: int = 1) -> void:
+	# Zehir + buz = bulaşıcı don: zehirliyken don alırsan zehir yakındaki bir düşmana sıçrar
+	if poison_stacks > 0:
+		_spread_poison_to_nearest_enemy()
 	frost_stacks = mini(frost_stacks + amount, 15)
 	frost_decay_timer = 0.0
+
+## Toplu Kaldırma: bu düşman gerçek bir fırlatma (up_force>=150) alınca, 80px
+## içindeki diğer düşmanları da aynı kuvvetle havaya kaldırır. Ekstra hasar
+## VERMEZ — sadece hedef seçimini genişletir (bkz. docs/ITEM_PIPELINE_DESIGN.md §2.4).
+func _try_group_launch_nearby_enemies(up_force: float) -> void:
+	var im := get_node_or_null("/root/ItemManager")
+	if not im or not im.has_active_item("toplu_kaldirma"):
+		return
+	const GROUP_LAUNCH_RADIUS := 80.0
+	var tree := get_tree()
+	if not tree:
+		return
+	for node in tree.get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or node == self:
+			continue
+		if node.get("current_behavior") == "dead":
+			continue
+		if global_position.distance_to(node.global_position) > GROUP_LAUNCH_RADIUS:
+			continue
+		if node.get("velocity") == null:
+			continue
+		node.velocity.y = -up_force
+		if node.get("air_float_timer") != null and node.get("air_float_duration") != null:
+			node.air_float_timer = node.air_float_duration
+		if node.has_method("change_behavior"):
+			node.change_behavior("hurt")
+			node.behavior_timer = 0.0
+
+## Zehir+buz reaksiyonu için: en yakın BAŞKA düşmana 1 zehir stack'i bulaştırır.
+func _spread_poison_to_nearest_enemy() -> void:
+	const SPREAD_RADIUS := 160.0
+	var tree := get_tree()
+	if not tree:
+		return
+	var nearest: Node2D = null
+	var nearest_dist := SPREAD_RADIUS
+	for node in tree.get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or node == self:
+			continue
+		if node.get("current_behavior") == "dead":
+			continue
+		if not node.has_method("add_poison_stack"):
+			continue
+		var d: float = global_position.distance_to(node.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = node
+	if nearest:
+		nearest.add_poison_stack(5, poison_damage_per_stack, poison_tick_interval)
 
 func set_standing_on_ice_ground(on: bool) -> void:
 	standing_on_ice_ground = on
@@ -614,6 +684,10 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 				# Enter hurt state only if knockback is applied
 				change_behavior("hurt")
 				behavior_timer = 0.0
+				# Toplu Kaldırma: gerçek bir fırlatmaysa (yeterince büyük up_force),
+				# yakındaki diğer düşmanlar da havalanır — bkz. docs/ITEM_PIPELINE_DESIGN.md §2.4
+				if knockback_up_force >= 150.0:
+					_try_group_launch_nearby_enemies(knockback_up_force)
 	else:
 		# Çok hafif geri itme (projectile vb.), hurt animasyonu yok
 		velocity.x = -direction * 18.0

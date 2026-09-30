@@ -10,6 +10,7 @@ func _init():
 	flavor_text = "Ateşli yumruk"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
+	tags = ["elemental_fire"]
 	affected_stats = ["burn_dot"]
 
 var _player: CharacterBody2D = null

@@ -14,6 +14,7 @@ func _init():
 	flavor_text = "Zehirli dokunuş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
+	tags = ["elemental_poison"]
 	affected_stats = ["poison_dot"]
 
 var _player: CharacterBody2D = null

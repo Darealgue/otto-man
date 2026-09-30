@@ -261,6 +261,12 @@ var concubines_container: Node = null
 var traders_container: Node2D = null
 var trader_npc_by_id: Dictionary = {}  # trader_id -> TraderVillageNPC
 const TraderVillageNPCScene = preload("res://village/scenes/TraderVillageNPC.tscn")
+## Gezgin falcı: ticaret listesine bağlı değil, takvimi ItemManager'da
+## (satacak ürünü yok, ticaret arayüzünde ürünsüz satıcı olarak görünmemeli).
+const FalciVillageNPCScene = preload("res://village/scenes/FalciVillageNPC.tscn")
+var falci_npc: Node2D = null
+## Falcı tüccarlarla aynı noktada durmasın diye merkezden biraz kaydırılıyor.
+const FALCI_CENTER_X_OFFSET: float = 190.0
 const TRADER_ENTRY_X: float = -2800.0
 const TRADER_CENTER_X: float = 0.0
 const TRADER_EXIT_X: float = 2800.0
@@ -2687,6 +2693,12 @@ func register_village_scene(scene: Node2D) -> void:
 			if not mm.active_traders_updated.is_connected(_sync_trader_npcs):
 				mm.active_traders_updated.connect(_sync_trader_npcs)
 			call_deferred("_sync_trader_npcs")
+		# Falcının gelip gitmesi tüccar listesinden bağımsız (takvimi ItemManager'da)
+		var im_v = get_node_or_null("/root/ItemManager")
+		if im_v and im_v.has_signal("falci_presence_changed"):
+			if not im_v.falci_presence_changed.is_connected(_on_falci_presence_changed):
+				im_v.falci_presence_changed.connect(_on_falci_presence_changed)
+		call_deferred("_sync_falci_npc")
 	
 	# Cariyeleri sahneye ekle
 	_spawn_concubines_in_scene()
@@ -7418,6 +7430,39 @@ func _sync_trader_npcs() -> void:
 				npc.start_leaving()
 		elif not is_instance_valid(trader_npc_by_id[tid]):
 			trader_npc_by_id.erase(tid)
+	_sync_falci_npc()
+
+
+func _on_falci_presence_changed(_present: bool) -> void:
+	_sync_falci_npc()
+
+
+## Falcı köyde mi? ItemManager'ın ziyaret takvimine göre sprite'ı ekler / yürüterek çıkarır.
+func _sync_falci_npc() -> void:
+	if not is_instance_valid(traders_container):
+		return
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(im) or not im.has_method("is_falci_in_village"):
+		return
+	var present: bool = bool(im.call("is_falci_in_village"))
+	if present:
+		if not is_instance_valid(falci_npc):
+			var npc = FalciVillageNPCScene.instantiate()
+			if npc.has_method("setup"):
+				npc.setup(
+					"falci",
+					TRADER_ENTRY_X,
+					TRADER_CENTER_X + FALCI_CENTER_X_OFFSET,
+					TRADER_EXIT_X,
+					TRADER_CENTER_Y
+				)
+			traders_container.add_child(npc)
+			falci_npc = npc
+	elif is_instance_valid(falci_npc):
+		var leaving = falci_npc
+		falci_npc = null
+		if leaving.has_method("start_leaving"):
+			leaving.start_leaving()
 
 # Cariyeleri sahneye ekle
 func _spawn_concubines_in_scene() -> void:

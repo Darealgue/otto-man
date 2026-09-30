@@ -14,6 +14,11 @@ signal draft_ready(cards: Array)
 signal card_taken(card: Dictionary)
 signal state_changed
 
+## Sistem yarım kalmış durumda; playtester build'lerine sızmasın diye kapalı.
+## Geliştirmeye devam etmek için elle true yap — ama export'tan önce mutlaka
+## geri false'a çevir (bkz. CLAUDE.md "TEMPORARY FLAGS").
+const ROGUELITE_CARDS_ENABLED: bool = false
+
 const DRAFT_POPULATION_STEP: int = 5
 const WILDCARD_STARTS_AT_DRAFT: int = 4
 ## Bir draftta ikilem çifti çıkma ihtimali (o yolda hâlâ tam çift kaldıysa)
@@ -57,6 +62,8 @@ func _next_draft_threshold() -> int:
 
 
 func _check_population_trigger() -> void:
+	if not ROGUELITE_CARDS_ENABLED:
+		return
 	if pending_choice_type != "":
 		return  # Zaten cevap bekleyen bir seçim var
 	var population := _get_population()
@@ -233,6 +240,8 @@ func load_from_save(data: Dictionary) -> void:
 				pending_draft_cards.append((c as Dictionary).duplicate(true))
 	pending_is_dilemma_draft = bool(data.get("pending_is_dilemma_draft", false))
 	state_changed.emit()
+	if not ROGUELITE_CARDS_ENABLED:
+		return
 	# Yükleme sonrası bekleyen bir seçim varsa UI bunu dinleyip yeniden gösterecek.
 	if pending_choice_type == "path":
 		call_deferred("emit_signal", "path_choice_ready")

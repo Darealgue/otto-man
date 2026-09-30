@@ -29,6 +29,10 @@ const _THINKING_DOT_STATES := ["·", "··", "···"]
 const _THINKING_DOT_INTERVAL_SEC := 0.45
 var _thinking_label: Label = null
 var _thinking_anim_id: int = 0
+## İlk sohbet brifingi eklendiğinde açılır: kaydırma çubuğu her büyüdüğünde otomatik en alta
+## inen davranışı geçici olarak tersine çevirir, yani metin baştan okunur. İlk gerçek sohbet
+## satırı gelince ya da pencere kapanınca sıfırlanır (bkz. _maybe_deliver_first_chat_brief).
+var _hold_chat_scroll_top := false
 
 var _owner_npc: Node2D = null
 var _portrait_generation: int = 0
@@ -154,12 +158,12 @@ func _build_ui() -> void:
 	_back_panel.anchor_right = 0.5
 	_back_panel.anchor_top = 0.5
 	_back_panel.anchor_bottom = 0.5
-	_back_panel.offset_left = -420
+	_back_panel.offset_left = -500
 	# Ekran merkezine göre biraz yukarı kaydırıldı — VirtualKeyboard ekranın alt kenarına
 	# sabitlendiği için (bkz. aşağıda), pencere tam ortadayken alt kısımlarda düşük dikey
 	# çözünürlüklerde klavye ekran dışına taşıp kesiliyordu.
-	_back_panel.offset_top = -360
-	_back_panel.offset_right = 420
+	_back_panel.offset_top = -420
+	_back_panel.offset_right = 500
 	_back_panel.offset_bottom = 240
 	ParchmentTextures.apply_large_panel_style(_back_panel, 16)
 	add_child(_back_panel)
@@ -212,7 +216,7 @@ func _build_ui() -> void:
 
 func _build_left_column(root: HBoxContainer) -> void:
 	var left := VBoxContainer.new()
-	left.custom_minimum_size = Vector2(260, 0)
+	left.custom_minimum_size = Vector2(320, 0)
 	left.add_theme_constant_override("separation", 8)
 	root.add_child(left)
 
@@ -270,7 +274,7 @@ func _build_left_column(root: HBoxContainer) -> void:
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_name_label.add_theme_font_size_override("font_size", 20)
+	_name_label.add_theme_font_size_override("font_size", 24)
 	_name_label.text = "NPC"
 	left.add_child(_name_label)
 
@@ -294,7 +298,7 @@ func _build_left_column(root: HBoxContainer) -> void:
 
 	_stats_label = Label.new()
 	_stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_stats_label.add_theme_font_size_override("font_size", 12)
+	_stats_label.add_theme_font_size_override("font_size", 17)
 	inner.add_child(_stats_label)
 
 	var diary_sep := ColorRect.new()
@@ -304,13 +308,13 @@ func _build_left_column(root: HBoxContainer) -> void:
 
 	var diary_title := Label.new()
 	diary_title.text = tr("npc_window.diary_title")
-	diary_title.add_theme_font_size_override("font_size", 13)
+	diary_title.add_theme_font_size_override("font_size", 18)
 	inner.add_child(diary_title)
 
 	_diary_empty_label = Label.new()
 	_diary_empty_label.text = tr("npc_window.diary_empty")
 	_diary_empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_diary_empty_label.add_theme_font_size_override("font_size", 11)
+	_diary_empty_label.add_theme_font_size_override("font_size", 16)
 	_diary_empty_label.modulate = Color(1, 1, 1, 0.55)
 	_diary_empty_label.visible = false
 	inner.add_child(_diary_empty_label)
@@ -331,7 +335,7 @@ func _build_right_column(root: HBoxContainer) -> void:
 
 	var title := Label.new()
 	title.text = tr("npc_window.chat_title")
-	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_font_size_override("font_size", 19)
 	right.add_child(title)
 
 	chat_scroll = ScrollContainer.new()
@@ -364,7 +368,7 @@ func _build_right_column(root: HBoxContainer) -> void:
 
 	_nav_hint_label = Label.new()
 	_nav_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_nav_hint_label.add_theme_font_size_override("font_size", 10)
+	_nav_hint_label.add_theme_font_size_override("font_size", 14)
 	_nav_hint_label.modulate = Color(1, 1, 1, 0.45)
 	right.add_child(_nav_hint_label)
 	_update_nav_hint()
@@ -496,6 +500,7 @@ func _play_gender_change_smoke_effect() -> void:
 func InitializeWindow(Info):
 	NpcInfo = Info
 	_pending_player_turns.clear()
+	_hold_chat_scroll_top = false
 	_ensure_npc_auxiliary_fields(NpcInfo)
 	refresh_diary_from_npcinfo()
 	_rebuild_dialogue_ui_from_chat_log()
@@ -525,7 +530,7 @@ func refresh_diary_from_npcinfo() -> void:
 		var historylabel := Label.new()
 		_diary_vbox.add_child(historylabel)
 		historylabel.autowrap_mode = TextServer.AUTOWRAP_WORD
-		historylabel.add_theme_font_size_override("font_size", 11)
+		historylabel.add_theme_font_size_override("font_size", 16)
 		historylabel.text = "• %s" % str(item)
 
 
@@ -676,6 +681,8 @@ func _sanitize_dialogue_text(text: String) -> String:
 
 
 func _add_chat_label_row(talker: String, sanitized_message: String, animate: bool = false) -> void:
+	# Gerçek bir sohbet satırı geldi: brifing için açılmış "en üstte tut" kilidi burada kalkar.
+	_hold_chat_scroll_top = false
 	var label := Label.new()
 	label.set_meta(_META_CHAT_DYNAMIC, true)
 	var full_text := "%s : %s" % [talker, sanitized_message]
@@ -693,9 +700,9 @@ const _AI_OFF_NARRATION := Color(0.86, 0.82, 0.72, 1.0)
 
 
 ## Adds a chat row with NO "Name : " prefix. This is narration *about* the villager, not something
-## the villager says — they cannot speak, which is the whole point. Reuses the same letter-by-letter
-## reveal as a real reply so it arrives the same way dialogue would.
-func _add_narration_row(text: String) -> void:
+## the villager says. `animate` kapatılabiliyor: tek bir satır için harf harf açılış hoş, ama ilk
+## sohbet brifingi gibi dört paragraf birden eklendiğinde hepsi aynı anda akıp okunmaz oluyor.
+func _add_narration_row(text: String, animate: bool = true) -> void:
 	if not is_instance_valid(chat_vbox) or text.strip_edges() == "":
 		return
 	var label := Label.new()
@@ -704,7 +711,8 @@ func _add_narration_row(text: String) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	label.modulate = _AI_OFF_NARRATION
 	chat_vbox.add_child(label)
-	_reveal_label_letter_by_letter(label, text)
+	if animate:
+		_reveal_label_letter_by_letter(label, text)
 	TextOutline.apply_to_tree(chat_vbox)
 	_scroll_chat_to_bottom()
 
@@ -740,6 +748,7 @@ func _apply_ai_availability() -> void:
 		send_button.modulate = Color(1, 1, 1, 1) if ai_on else _AI_OFF_DIM
 
 	if ai_on:
+		_maybe_deliver_first_chat_brief()
 		return
 
 	var npc_display_name := ""
@@ -749,6 +758,54 @@ func _apply_ai_availability() -> void:
 	if ai_node != null and ai_node.has_method("get_silent_villager_line"):
 		line = str(ai_node.call("get_silent_villager_line", npc_display_name))
 	_add_narration_row(line)
+
+
+## Oyuncunun köylülerle nasıl konuştuğunu anlatan bir kerelik brifing — dört paragraf.
+##
+## Eskiden bunlar köye ilk varışta MENTORUN brifingine tıkıştırılmıştı: oyuncuya ev kurmayı
+## öğretirken araya, o an hiçbir işe yaramayan dört paragraf giriyordu (playtest, 2026-09-02).
+## Artık tam ihtiyaç duyulduğu yerde — oyuncunun kendi açtığı ilk köylü sohbetinde — çıkıyor.
+##
+## Yalnızca yapay zeka GERÇEKTEN çalışıyorken çağrılıyor (bkz. _apply_ai_availability'deki
+## ai_on dalı): modeli indirmemiş ya da kapatmış bir oyuncuya "istediğini yazabilirsin" demek
+## yanlış olurdu, ona zaten sessiz köylü satırı gösteriliyor. Model hâlâ yükleniyorsa da
+## çıkmaz, bir sonraki sohbette çıkar.
+##
+## "Bir daha gösterme" kaydı TutorialManager'ın teslim edilmiş mesaj listesinde tutuluyor, yani
+## kayıt dosyasına diğer tutorial mesajlarıyla aynı yerden yazılıyor. Tutorial atlanmış olsa da
+## gösteriliyor: bu bir kontrol şeması dersi değil, oyuncunun başka hiçbir yerde öğrenemeyeceği
+## bir sistem anlatımı (köylülerin sadece İngilizce anladığı gibi).
+##
+## Satırlar anlatım (narration) olarak ekleniyor, yani Chat_log'a YAZILMIYOR — Chat_log TP0-TP5
+## istemlerine geri besleniyor, meta metin oraya sızmamalı (bkz. _apply_ai_availability notu).
+const _FIRST_CHAT_BRIEF_IDS := [
+	"dialogue_mechanics_1",
+	"dialogue_mechanics_2",
+	"villager_individuality_1",
+	"villager_individuality_2",
+]
+
+
+func _maybe_deliver_first_chat_brief() -> void:
+	var tm := get_node_or_null("/root/TutorialManager")
+	if tm == null or not tm.has_method("mark_delivered"):
+		return
+	var delivered_any := false
+	for id in _FIRST_CHAT_BRIEF_IDS:
+		if bool(tm.call("is_delivered", id)):
+			continue
+		# CSV'deki okunabilirlik için yazılan literal "\n" kaçışını Godot'un çeviri sistemi
+		# çözmüyor; TutorialManager kendi giriş noktalarında aynı şeyi yapıyor
+		# (bkz. TutorialManager._unescape_newlines), burası üçüncü giriş noktası.
+		_add_narration_row(tr("tutorial.village.%s" % id).replace("\\n", "\n"), false)
+		tm.call("mark_delivered", id)
+		delivered_any = true
+	if not delivered_any:
+		return
+	# Brifing sohbet kutusundan uzun. Otomatik "en alta kaydır" davranışı oyuncuyu son
+	# paragrafın dibine bırakırdı; ilk gerçek sohbet satırı gelene kadar en üstte tutuyoruz.
+	_hold_chat_scroll_top = true
+	_scroll_chat_to_bottom()
 
 
 ## Progressively reveals `full_text` on `label` (letter by letter, not an instant pop-in) —
@@ -830,8 +887,12 @@ func _scroll_chat_to_bottom() -> void:
 ## v_scroll_bar.changed sinyaline bağlı — kaydırma aralığı her büyüdüğünde (yeni satır eklendi,
 ## pencere yeniden açılıp geçmiş yeniden çizildi vb.) anında en alta sabitler.
 func _snap_chat_scroll_to_bottom() -> void:
-	if is_instance_valid(chat_scroll) and chat_scroll.get_v_scroll_bar():
-		chat_scroll.scroll_vertical = chat_scroll.get_v_scroll_bar().max_value
+	if not is_instance_valid(chat_scroll) or chat_scroll.get_v_scroll_bar() == null:
+		return
+	if _hold_chat_scroll_top:
+		chat_scroll.scroll_vertical = 0
+		return
+	chat_scroll.scroll_vertical = chat_scroll.get_v_scroll_bar().max_value
 
 
 # ─── Virtual keyboard (gamepad text entry) ─────────────────────────────────────

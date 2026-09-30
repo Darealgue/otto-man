@@ -1,15 +1,14 @@
-[gd_scene load_steps=5 format=3 uid="uid://borbtestroom001"]
+[gd_scene load_steps=5 format=3 uid="uid://ct1nir7d3h57a"]
 
 [ext_resource type="Script" path="res://scenes/boss_room_controller.gd" id="1_controller"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="2_player"]
-[ext_resource type="PackedScene" uid="uid://c8orbscatterboss01" path="res://boss/orb_scatter_boss.tscn" id="3_boss"]
+[ext_resource type="PackedScene" uid="uid://beo4pvuphj1s7" path="res://boss/orb_scatter_boss.tscn" id="3_boss"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
 size = Vector2(1920, 40)
 
 [node name="OrbBossRoomTest" type="Node2D"]
 script = ExtResource("1_controller")
-boss_id = "orb_scatter"
 boss_scene = ExtResource("3_boss")
 
 [node name="Camera2D" type="Camera2D" parent="."]
@@ -32,14 +31,14 @@ color = Color(0.2, 0.2, 0.22, 1)
 position = Vector2(32, 540)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="WallLeft"]
-rotation = 1.5707964
+rotation = 1.5708
 shape = SubResource("RectangleShape2D_floor")
 
 [node name="WallRight" type="StaticBody2D" parent="."]
 position = Vector2(1888, 540)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="WallRight"]
-rotation = 1.5707964
+rotation = 1.5708
 shape = SubResource("RectangleShape2D_floor")
 
 [node name="WallTop" type="StaticBody2D" parent="."]

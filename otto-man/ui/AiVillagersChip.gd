@@ -9,18 +9,40 @@ extends CanvasLayer
 ## playing while 7.5 GB arrives. It shows itself when there is something to report and hides
 ## again afterwards.
 
+const _FadeBand := preload("res://ui/FadeBandTexture.gd")
+
 ## Design-space size; the CanvasLayer follows the project's stretch settings.
-const PANEL_WIDTH := 360.0
-const MARGIN := 18.0
+## Genişlik 360'tan 480'e çıktı: punto büyüyünce "Köylüler kıpırdanıyor" tek satıra sığmıyordu.
+const PANEL_WIDTH := 480.0
+## Sağ kenardan uzaklık. 18'den 90'a çıktı (2026-09-02): şerit içerik dikdörtgeninin iki yanına
+## BAND_BLEED kadar taşıyor ve 18 px ile sağ taşma ekran dışında kalıp solma tam ortasından
+## kesiliyordu — sağda sert bir kenar, solda yumuşak bir uç. MARGIN = BAND_BLEED olduğunda
+## şeridin sağ ucu tam ekran kenarında sıfırlanıyor.
+const MARGIN := 90.0
 ## The village's resource bar (VillageStatusUI's TopBarPanel) is anchored to the BOTTOM of the
 ## screen and is 56px tall, so an 18px bottom margin puts the chip straight behind it. The player
 ## spends most of the download in the village, so the chip has to clear that bar plus a gap.
 const BOTTOM_MARGIN := 78.0
-## Tall enough for the title, a two-line detail (bytes + time remaining), the "you can keep
-## playing" hint and the bar. When this was 92px the progress bar overflowed the panel and was
-## simply not visible; the hint line added on 2026-08-31 needs another ~34px on top of that.
-const PANEL_HEIGHT := 172.0
-## How long the finished/failed message lingers before the chip fades out.
+## Başlık, iki satırlık detay (bayt + kalan süre), "oynamaya devam edebilirsiniz" ipucu ve
+## çubuk için yeterli. 92px iken çubuk taşıp hiç görünmüyordu; 2026-09-02'de punto'lar
+## büyütülünce 172'den 168'e indi — içerik ortalandığı için artan boşluk iki yana bölünüyor.
+const PANEL_HEIGHT := 168.0
+## Şeridin içerik dikdörtgeninin iki yanına taştığı miktar. MainMenu'deki başlık şeridi de aynı
+## numarayı yapıyor (orada ±300): gradyanın solma bölgesi yazının dışında kalsın, metin şeridin
+## tam opak orta bandında dursun diye.
+const BAND_BLEED := 90.0
+## Şeridin orta bandının siyah alfası ve alt/üst yumuşatma oranı — dokuyu ui/FadeBandTexture.gd
+## üretiyor, oradaki açıklamaya bak.
+const BAND_ALPHA := 0.62
+## Şeridin alt/üst uçlarının yumuşatıldığı bölge, yüksekliğe oran olarak. 0 = menüdeki şeridin
+## birebir aynısı (sert alt/üst kenar).
+const BAND_FEATHER := 0.20
+## Punto'lar. İlk hâlinde 15/12/13 idi ve ekranın köşesinde ne yazdığı okunmuyordu
+## (playtest geri bildirimi, 2026-09-02).
+const TITLE_FONT_SIZE := 26
+const DETAIL_FONT_SIZE := 18
+const HINT_FONT_SIZE := 17
+
 const READY_LINGER_SEC := 9.0
 const FAILED_LINGER_SEC := 14.0
 const FADE_SEC := 0.5
@@ -30,7 +52,7 @@ const RATE_SAMPLES := 12
 enum Mode { HIDDEN, DOWNLOADING, VERIFYING, LOADING, READY, FAILED }
 
 var _mode: int = Mode.HIDDEN
-var _panel: PanelContainer = null
+var _panel: Control = null
 var _title_label: Label = null
 var _detail_label: Label = null
 ## "Bu sırada oynamaya devam edebilirsiniz." — ilk playtest (2026-08-31): oyuncu ilerleme
@@ -38,6 +60,22 @@ var _detail_label: Label = null
 ## /model yükleme boyunca görünür, hazır ve hata durumlarında gizlenir.
 var _hint_label: Label = null
 var _bar: ProgressBar = null
+
+## Açılış perdesi. Chip, oyuncu ana menüye (Yeni Oyun / Ayarlar satırlarının olduğu ekrana)
+## ULAŞANA kadar hiç çizilmez: stüdyo logosunun, dil seçiminin, erken erişim uyarısının ve
+## "herhangi bir tuşa bas" ekranının üstünde beliren "Köylüler kıpırdanıyor" kutusu bütün
+## açılışın havasını bozuyordu (2026-09-02). Perdeyi MainMenu._dismiss_intro() açtırıyor.
+##
+## Mod bu sırada normal şekilde ilerler — sadece panel görünmez ve hazır/hata mesajlarının
+## sayacı işlemez, böylece indirme açılış sırasında biterse "Köylüler uyandı" mesajı menüye
+## gelindiğinde hâlâ görülür.
+var _gate_open := false
+## Perdenin kapalı kalmasının anlamlı olduğu tek yer açılış akışı. Bunların dışında bir
+## sahne çalışıyorsa (ör. editörden doğrudan köy sahnesi) perde kendiliğinden açılır.
+const _INTRO_SCENES: Array[String] = [
+	"res://scenes/StudioSplash.tscn",
+	"res://scenes/MainMenu.tscn",
+]
 
 var _rate_samples: Array[float] = []
 var _last_sample_time := 0.0
@@ -56,7 +94,7 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	_panel = PanelContainer.new()
+	_panel = Control.new()
 	_panel.anchor_left = 1.0
 	_panel.anchor_right = 1.0
 	_panel.anchor_top = 1.0
@@ -66,37 +104,46 @@ func _build() -> void:
 	_panel.offset_top = -(BOTTOM_MARGIN + PANEL_HEIGHT)
 	_panel.offset_bottom = -BOTTOM_MARGIN
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ParchmentTextures.apply_large_panel_style(_panel, 12)
 	add_child(_panel)
 
+	var band := TextureRect.new()
+	band.texture = _FadeBand.make(BAND_ALPHA, BAND_FEATHER)
+	band.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	band.stretch_mode = TextureRect.STRETCH_SCALE
+	# Proje geneli Nearest; gradyan dokusu 512x4 ve buraya kadar esnetiliyor, Nearest ile
+	# solma basamaklanırdı.
+	band.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	band.offset_left = -BAND_BLEED
+	band.offset_right = BAND_BLEED
+	_panel.add_child(band)
+
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 14)
-	margin.add_theme_constant_override("margin_right", 14)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 16)
 	margin.add_theme_constant_override("margin_top", 10)
 	margin.add_theme_constant_override("margin_bottom", 10)
 	_panel.add_child(margin)
 
+	# ALIGNMENT_CENTER: şerit her modda aynı yükseklikte duruyor ama içerik değişiyor
+	# (hazır/hata durumunda ne çubuk ne ipucu satırı var). Ortalama olmadan iki satırlık
+	# metin şeridin tepesine yapışıp altında kocaman bir boşluk bırakıyordu.
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 5)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 6)
 	margin.add_child(col)
 
-	_title_label = Label.new()
-	_title_label.add_theme_font_size_override("font_size", 15)
-	_title_label.add_theme_color_override("font_color", Color(0.95, 0.82, 0.45, 1.0))
-	_title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title_label = _make_label(TITLE_FONT_SIZE, Color(0.95, 0.82, 0.45, 1.0))
 	col.add_child(_title_label)
 
-	_detail_label = Label.new()
-	_detail_label.add_theme_font_size_override("font_size", 12)
-	_detail_label.add_theme_color_override("font_color", Color(0.88, 0.84, 0.74, 1.0))
-	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail_label = _make_label(DETAIL_FONT_SIZE, Color(0.88, 0.84, 0.74, 1.0))
 	col.add_child(_detail_label)
 
-	_hint_label = Label.new()
+	_hint_label = _make_label(HINT_FONT_SIZE, Color(0.72, 0.90, 0.66, 1.0))
 	_hint_label.text = tr("ai.chip.keep_playing")
-	_hint_label.add_theme_font_size_override("font_size", 13)
-	_hint_label.add_theme_color_override("font_color", Color(0.72, 0.90, 0.66, 1.0))
-	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_hint_label)
 
 	_bar = ProgressBar.new()
@@ -104,10 +151,10 @@ func _build() -> void:
 	_bar.max_value = 1.0
 	_bar.step = 0.001
 	_bar.show_percentage = false
-	_bar.custom_minimum_size = Vector2(0, 12)
-	_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bar.custom_minimum_size = Vector2(300, 14)
+	_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# Explicit styles: the default theme's ProgressBar is nearly invisible against the dark
-	# parchment panel, which made it look like the bar was missing entirely.
+	# band, which made it look like the bar was missing entirely.
 	var bg := StyleBoxFlat.new()
 	bg.bg_color = Color(0.12, 0.10, 0.08, 1.0)
 	bg.border_color = Color(0.45, 0.38, 0.26, 1.0)
@@ -121,7 +168,30 @@ func _build() -> void:
 	col.add_child(_bar)
 
 
+## Şeritteki satırlar hep aynı biçimde: ortalanmış, sarmalı ve gölgeli. Gölge, çerçevesiz
+## şeridin parlak bir gündüz köyünün üstüne denk geldiği durumda okunabilirliği ayakta tutuyor.
+func _make_label(font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.75))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
+
+
 # --- public API, driven by AiVillagers ---
+
+## AiVillagers çağırır; perde bir kez açıldıktan sonra oyun boyunca açık kalır.
+func set_gate_open(open: bool) -> void:
+	if _gate_open == open:
+		return
+	_gate_open = open
+	_refresh_visibility()
+
 
 func show_downloading() -> void:
 	_apply_mode(Mode.DOWNLOADING)
@@ -147,13 +217,35 @@ func hide_chip() -> void:
 	_apply_mode(Mode.HIDDEN)
 
 
+func _refresh_visibility() -> void:
+	if not is_instance_valid(_panel):
+		return
+	_panel.visible = _gate_open and _mode != Mode.HIDDEN
+
+
+## Güvenlik ağı: perdeyi normalde menü açar, ama oyun her zaman menüden başlamıyor
+## (editörde doğrudan bir sahne çalıştırmak gibi). Açılış sahnelerinin dışındaysak chip'in
+## sonsuza kadar gizli kalmaması için perdeyi kendimiz açtırıyoruz.
+func _open_gate_outside_intro() -> void:
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	if tree.current_scene.scene_file_path in _INTRO_SCENES:
+		return
+	var ai := get_parent()
+	if ai != null and ai.has_method("open_chip_gate"):
+		ai.call("open_chip_gate")
+	else:
+		set_gate_open(true)
+
+
 func _apply_mode(mode: int) -> void:
 	_mode = mode
 	_fading = false
 	if not is_instance_valid(_panel):
 		return
 	_panel.modulate.a = 1.0
-	_panel.visible = mode != Mode.HIDDEN
+	_refresh_visibility()
 	# Hazır/hata satırları zaten ne yapılacağını söylüyor; ipucu yalnızca beklemenin
 	# gereksiz olduğu aşamalarda anlamlı.
 	_hint_label.text = tr("ai.chip.keep_playing")
@@ -186,6 +278,8 @@ func _apply_mode(mode: int) -> void:
 
 
 func _process(delta: float) -> void:
+	if not _gate_open:
+		_open_gate_outside_intro()
 	match _mode:
 		Mode.DOWNLOADING:
 			_tick_downloading()
@@ -216,6 +310,10 @@ func _tick_verifying() -> void:
 
 
 func _tick_linger(delta: float) -> void:
+	# Perde kapalıyken sayaç işlemez: "Köylüler uyandı" mesajı, oyuncu menüye gelmeden
+	# görünmeden sönmüş olurdu.
+	if not _gate_open:
+		return
 	if _fading:
 		return
 	_linger_left -= delta

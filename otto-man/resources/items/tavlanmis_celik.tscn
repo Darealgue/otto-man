@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://tavlanmis_celik_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/tavlanmis_celik.gd" id="1_tavlanmis"]
+
+[node name="TavlanmisCelik" type="Node"]
+script = ExtResource("1_tavlanmis")

@@ -162,6 +162,9 @@ var damage_multipliers: Array[float] = []  # Array to store all active multiplie
 # Berserker Ruhu: can azaldıkça verilen hasar artar (0-1 bonus), alınan hasar artar
 var berserker_damage_bonus: float = 0.0  # 0 = normal, 1 = +%100 verilen hasar
 var incoming_damage_multiplier: float = 1.0  # 1 = normal, >1 = daha fazla hasar alır
+## Son heavy attack "just" (60ms mükemmel zamanlama) bonusuyla mı vurdu?
+## heavy_attack_impact emit edilmeden hemen önce yazılır; Falya gibi itemler okur.
+var last_heavy_just_bonus: bool = false
 # Nazar Boncuğu: aktifken ilk gelen hasar bloklanır
 var nazar_shield_active: bool = false
 # Taş Yürek: can %25 altındayken gelen hasar çarpanı (0.5 = %50 azalma)

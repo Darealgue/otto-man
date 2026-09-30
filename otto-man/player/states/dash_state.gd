@@ -22,6 +22,12 @@ func _ready() -> void:
 
 var dash_start_position := Vector2.ZERO
 
+# Hareket ailesi temas hasarı — dodge_state.gd ile aynı mekanik ve aynı ItemManager
+# fonksiyonunu paylaşır (bkz. ItemManager.apply_movement_contact_tick()).
+var _movement_contact_hit_ids: Array = []
+const MOVEMENT_CONTACT_RADIUS := 50.0
+const MOVEMENT_CONTACT_DAMAGE := 5.0
+
 func enter():
 	
 	# Call parent enter to emit signal
@@ -31,6 +37,7 @@ func enter():
 	
 	# Store dash start position for bomb
 	dash_start_position = player.position
+	_movement_contact_hit_ids.clear()
 	
 	# Store original collision settings
 	original_collision_mask = player.collision_mask
@@ -64,14 +71,19 @@ func enter():
 
 func physics_update(delta: float):
 	dash_timer -= delta
-	
+	_movement_contact_tick()
+
 	if dash_timer <= 0:
 		# Emit player_dodged signal for items (like Dodge Bombası)
 		var dash_end_pos = player.position
 		var dash_dir = -1 if player.sprite.flip_h else 1
 		if player.has_signal("player_dodged"):
 			player.emit_signal("player_dodged", dash_dir, dash_start_position, dash_end_pos)
-		
+		var im := get_node_or_null("/root/ItemManager")
+		if im:
+			im.spawn_element_trail_if_active(dash_end_pos)
+			im.apply_movement_trail_if_active(_movement_contact_hit_ids, dash_start_position, dash_end_pos)
+
 		# Reduce speed when ending dash to prevent excessive drift
 		player.velocity.x *= DASH_END_SPEED_MULTIPLIER
 		# Restore collision settings and end dash
@@ -130,3 +142,13 @@ func _play_dash_sfx() -> void:
 	var sm := get_node_or_null("/root/SoundManager")
 	if sm and sm.has_method("play_sfx"):
 		sm.play_sfx("dash", player.global_position)
+
+
+## Dash sırasında içinden geçilen düşmanlara bu dash başına bir kez temas hasarı +
+## aktif element(ler). dodge_state.gd ile aynı ItemManager fonksiyonunu paylaşır —
+## bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4.
+func _movement_contact_tick() -> void:
+	var im := get_node_or_null("/root/ItemManager")
+	if im == null:
+		return
+	im.apply_movement_contact_tick(_movement_contact_hit_ids, MOVEMENT_CONTACT_RADIUS, MOVEMENT_CONTACT_DAMAGE)

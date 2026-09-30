@@ -49,6 +49,11 @@ func _process(delta):
 		return
 		
 	if recharging_index >= 0 and recharging_index < charges.size():
+		# Cellat Nefesi: pasif zamanlı yenilenme tamamen durur, sadece isabetli vuruş doldurur
+		# (bkz. resources/items/cellat_nefesi.gd _on_player_attack_landed).
+		var im := get_node_or_null("/root/ItemManager")
+		if im and im.has_method("has_active_item") and im.has_active_item("cellat_nefesi"):
+			return
 		var regen_mult: float = 1.0
 		if player_stats and player_stats.has_method("get_stamina_regen_multiplier"):
 			regen_mult = maxf(0.1, float(player_stats.get_stamina_regen_multiplier()))

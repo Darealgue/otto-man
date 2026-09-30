@@ -799,4 +799,6 @@ layer = 210
 [node name="PauseMenu" parent="PauseMenuLayer" instance=ExtResource("52_pausemenu")]
 z_index = 200
 
+[node name="Node" type="Node" parent="."]
+
 [editable path="CampFire"]

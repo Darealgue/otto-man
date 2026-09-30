@@ -97,6 +97,9 @@ func start_new_game(play_tutorial: bool = false) -> void:
 	var im: Node = get_node_or_null("/root/ItemManager")
 	if im and im.has_method("clear_all_items"):
 		im.call("clear_all_items")
+	# Kalıcı item koleksiyonunu başlangıç loadout'una döndür (kayıttan kalan unlock'lar taşınmasın)
+	if im and im.has_method("reset_for_new_game"):
+		im.call("reset_for_new_game")
 	var pum: Node = get_node_or_null("/root/PowerupManager")
 	if pum and pum.has_method("clear_all_powerups"):
 		pum.call("clear_all_powerups")

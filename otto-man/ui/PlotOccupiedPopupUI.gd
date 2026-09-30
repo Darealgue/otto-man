@@ -60,9 +60,9 @@ func _build_ui() -> void:
 	_panel.anchor_top = 0.5
 	_panel.anchor_right = 0.5
 	_panel.anchor_bottom = 0.5
-	_panel.offset_left = -200
+	_panel.offset_left = -260
 	_panel.offset_top = -195
-	_panel.offset_right = 200
+	_panel.offset_right = 260
 	_panel.offset_bottom = 195
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -75,7 +75,7 @@ func _build_ui() -> void:
 
 	_title_label = Label.new()
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_font_size_override("font_size", 22)
+	_title_label.add_theme_font_size_override("font_size", 26)
 	root.add_child(_title_label)
 
 	var divider := ColorRect.new()
@@ -88,7 +88,7 @@ func _build_ui() -> void:
 	root.add_child(stats)
 
 	_level_label = Label.new()
-	_level_label.add_theme_font_size_override("font_size", 14)
+	_level_label.add_theme_font_size_override("font_size", 17)
 	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stats.add_child(_level_label)
 
@@ -99,13 +99,13 @@ func _build_ui() -> void:
 
 	if ResourceLoader.exists(_WORKERS_ICON):
 		var icon := TextureRect.new()
-		icon.custom_minimum_size = Vector2(18, 18)
+		icon.custom_minimum_size = Vector2(22, 22)
 		icon.texture = load(_WORKERS_ICON)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		_worker_row.add_child(icon)
 
 	_worker_label = Label.new()
-	_worker_label.add_theme_font_size_override("font_size", 14)
+	_worker_label.add_theme_font_size_override("font_size", 17)
 	_worker_row.add_child(_worker_label)
 
 	stats.add_child(_make_worker_key_bar())
@@ -116,47 +116,47 @@ func _build_ui() -> void:
 
 	_upgrade_btn = Button.new()
 	_upgrade_btn.text = tr("plot.upgrade")
-	_upgrade_btn.custom_minimum_size = Vector2(0, 38)
+	_upgrade_btn.custom_minimum_size = Vector2(0, 44)
 	_upgrade_btn.pressed.connect(_on_upgrade_pressed)
 	_style_focus(_upgrade_btn)
 	actions.add_child(_upgrade_btn)
 
 	_upgrade_cost_label = Label.new()
 	_upgrade_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_upgrade_cost_label.add_theme_font_size_override("font_size", 11)
+	_upgrade_cost_label.add_theme_font_size_override("font_size", 15)
 	_upgrade_cost_label.modulate = Color(1, 1, 1, 0.75)
 	actions.add_child(_upgrade_cost_label)
 
 	_build_house_btn = Button.new()
 	_build_house_btn.text = tr("plot.build_house")
-	_build_house_btn.custom_minimum_size = Vector2(0, 38)
+	_build_house_btn.custom_minimum_size = Vector2(0, 44)
 	_build_house_btn.pressed.connect(_on_build_house_pressed)
 	_style_focus(_build_house_btn)
 	actions.add_child(_build_house_btn)
 
 	_build_house_cost_label = Label.new()
 	_build_house_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_house_cost_label.add_theme_font_size_override("font_size", 11)
+	_build_house_cost_label.add_theme_font_size_override("font_size", 15)
 	_build_house_cost_label.modulate = Color(1, 1, 1, 0.75)
 	actions.add_child(_build_house_cost_label)
 
 	_weaponize_btn = Button.new()
 	_weaponize_btn.text = tr("plot.weaponize")
-	_weaponize_btn.custom_minimum_size = Vector2(0, 38)
+	_weaponize_btn.custom_minimum_size = Vector2(0, 44)
 	_weaponize_btn.pressed.connect(_on_weaponize_pressed)
 	_style_focus(_weaponize_btn)
 	actions.add_child(_weaponize_btn)
 
 	_inventor_upgrades_btn = Button.new()
 	_inventor_upgrades_btn.text = tr("plot.inventor_upgrades")
-	_inventor_upgrades_btn.custom_minimum_size = Vector2(0, 38)
+	_inventor_upgrades_btn.custom_minimum_size = Vector2(0, 44)
 	_inventor_upgrades_btn.pressed.connect(_on_inventor_upgrades_pressed)
 	_style_focus(_inventor_upgrades_btn)
 	actions.add_child(_inventor_upgrades_btn)
 
 	_demolish_btn = Button.new()
 	_demolish_btn.text = tr("plot.demolish")
-	_demolish_btn.custom_minimum_size = Vector2(0, 34)
+	_demolish_btn.custom_minimum_size = Vector2(0, 40)
 	_demolish_btn.pressed.connect(_on_demolish_pressed)
 	_style_focus(_demolish_btn)
 	actions.add_child(_demolish_btn)
@@ -207,7 +207,7 @@ func _make_chip(key_text: String) -> Control:
 	chip.add_theme_stylebox_override("panel", sb)
 	var lbl := Label.new()
 	lbl.text = key_text
-	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_font_size_override("font_size", 15)
 	chip.add_child(lbl)
 	return chip
 
@@ -215,7 +215,7 @@ func _make_chip(key_text: String) -> Control:
 func _add_bar_label(bar: HBoxContainer, text: String, color: Color = Color(1, 1, 1, 0.6)) -> void:
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.add_theme_font_size_override("font_size", 15)
 	lbl.modulate = color
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	bar.add_child(lbl)

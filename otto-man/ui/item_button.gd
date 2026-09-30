@@ -16,6 +16,14 @@ func _ready() -> void:
 	# setup() buton ağaca eklenmeden çalışıyor; tema fontu ancak ağaçtayken çözülüyor.
 	_fit_desc_font()
 
+
+## Ağaca eklenmemiş buton için autoload erişimi (bkz. setup içindeki not).
+func _item_manager() -> Node:
+	var loop := Engine.get_main_loop()
+	if loop is SceneTree:
+		return (loop as SceneTree).root.get_node_or_null("ItemManager")
+	return null
+
 func setup(scene: PackedScene) -> void:
 	item_scene = scene
 
@@ -53,8 +61,12 @@ func setup(scene: PackedScene) -> void:
 		_apply_card_tint(rarity_color)
 
 		var desc_full: String = description
-		if has_node("/root/ItemManager") and ItemManager.has_method("get_set_hint_if_selected"):
-			var hint := ItemManager.get_set_hint_if_selected(item.item_id)
+		# setup() buton daha ağaca EKLENMEDEN çağrılıyor; has_node("/root/...") burada
+		# "Can't use get_node() with absolute paths from outside the active scene tree"
+		# hatası veriyor ve set ipucu hiç görünmüyordu. Autoload'a ana döngü üzerinden eriş.
+		var im: Node = _item_manager()
+		if im and im.has_method("get_set_hint_if_selected"):
+			var hint: String = im.call("get_set_hint_if_selected", item.item_id)
 			if not hint.is_empty():
 				desc_full += "\n" + hint
 		_set_card_text(item_name, desc_full, rarity_text, rarity_color)
@@ -111,6 +123,53 @@ func _apply_card_tint(tint: Color) -> void:
 	add_theme_stylebox_override("hover", sb)
 	add_theme_stylebox_override("pressed", sb)
 	add_theme_stylebox_override("focus", sb)
+
+const GOLD_ICON := preload("res://assets/Icons/gold_icon.png")
+
+## Dükkân modu: kartın ALTINA büyük bir fiyat şeridi koyar (altın ikonu + sayı).
+## Köşede küçük punto denendi, okunmuyordu (playtest geri bildirimi).
+func set_price_tag(price: int, affordable: bool) -> void:
+	var row := get_node_or_null("PriceRow") as HBoxContainer
+	if row == null:
+		row = HBoxContainer.new()
+		row.name = "PriceRow"
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 8)
+		# Kartın üst görsel alanında, ortalanmış. Alt bölge açıklama panelinin kutusu,
+		# oraya konursa metnin üstüne biner.
+		row.offset_left = 0.0
+		row.offset_right = 320.0
+		row.offset_top = 60.0
+		row.offset_bottom = 112.0
+		add_child(row)
+
+		var icon := TextureRect.new()
+		icon.name = "GoldIcon"
+		icon.texture = GOLD_ICON
+		icon.custom_minimum_size = Vector2(40, 40)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
+
+		var label := Label.new()
+		label.name = "PriceLabel"
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_font_size_override("font_size", 34)
+		label.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.02))
+		label.add_theme_constant_override("outline_size", 5)
+		row.add_child(label)
+
+	var price_label := row.get_node_or_null("PriceLabel") as Label
+	if price_label:
+		price_label.text = str(price)
+		price_label.add_theme_color_override(
+			"font_color",
+			Color(1.0, 0.86, 0.35) if affordable else Color(0.92, 0.34, 0.30)
+		)
+
 
 func set_progress(value: float) -> void:
 	progress = value

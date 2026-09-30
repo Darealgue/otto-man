@@ -38,8 +38,5 @@ func deactivate(player: CharacterBody2D):
 		# Restore to original rate (other items will reapply their bonuses)
 		var original_rate = stamina_bar.get_meta("original_recharge_rate")
 		stamina_bar.RECHARGE_RATE = original_rate
-		# Reapply other regen bonuses if any
-		if stamina_bar.has_meta("original_recharge_rate_simit"):
-			stamina_bar.RECHARGE_RATE = stamina_bar.RECHARGE_RATE / 1.2  # Simit's boost
 		stamina_bar.remove_meta("original_recharge_rate")
 		print("[Ayran] ❌ Stamina regen restored")

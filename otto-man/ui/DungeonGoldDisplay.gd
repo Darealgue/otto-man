@@ -210,6 +210,12 @@ func _on_feedback_tween_finished_log() -> void:
 
 
 func _update_visibility() -> void:
+	# Sahne geçişi sırasında bu HUD anlık olarak tree dışında kalabilir
+	# (scene_change_completed sinyali eski sahnenin çıkışıyla yeni sahnenin
+	# girişi arasındaki dar pencerede ateşleniyor). get_tree() o an null döner;
+	# aşağıdaki get_tree().current_scene erişimi korumasız çökerdi.
+	if not is_inside_tree():
+		return
 	var scene_manager := get_node_or_null("/root/SceneManager")
 	var is_combat_scene: bool = false
 	var cur_path: String = ""

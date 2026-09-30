@@ -43,10 +43,15 @@ func _ready() -> void:
 			_sprite.animation_finished.connect(_on_animation_finished)
 			_create_interact_hint()
 
+## Ok ipucu BAŞLANGIÇTA GİZLİ. Eskiden kurulur kurulmaz görünüyordu ve kamptaki bütün
+## kapıların üstünde sürekli asılı duruyordu — oysa ok "şu anda buraya basabilirsin" demek
+## (playtest, 2026-09-02). Zindan içindeki kapılar bunu zaten doğru yapıyor, bkz. scenes/door.gd.
 func _create_interact_hint() -> void:
 	_hint_icon = NpcOverheadUi.build_up_arrow_hint_icon()
 	add_child(_hint_icon)
 	_hint_icon.position = Vector2(-_hint_icon.size.x * 0.5, -252.0)
+	_hint_icon.visible = false
+	_hint_icon.modulate.a = 0.0
 
 func set_label_text(text: String) -> void:
 	label_text = text
@@ -76,14 +81,17 @@ func _process(_delta: float) -> void:
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group(PLAYER_GROUP):
 		_player_in_range = true
+		_set_hint_visible(true)
 
 func _on_body_exited(body: Node2D) -> void:
 	if body.is_in_group(PLAYER_GROUP):
 		_player_in_range = false
+		_set_hint_visible(false)
 		_hold_timer = 0.0
 
 func _start_open() -> void:
 	_opening = true
+	_set_hint_visible(false)
 	_hold_timer = 0.0
 	if _sprite:
 		_sprite.play(&"open")
@@ -94,3 +102,14 @@ func _on_animation_finished() -> void:
 	_opening = false
 	door_selected.emit(self)
 
+
+
+## Ok ipucunu yumuşak geçişle açar/kapatır. Kapı açılırken de gizleniyor: animasyon başladıktan
+## sonra "basabilirsin" demenin anlamı yok.
+func _set_hint_visible(shown: bool) -> void:
+	if _hint_icon == null or not is_instance_valid(_hint_icon):
+		return
+	if shown and not _opening:
+		NpcOverheadUi.fade_show_icon(_hint_icon)
+	else:
+		NpcOverheadUi.fade_hide_icon(_hint_icon)

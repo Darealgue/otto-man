@@ -3,6 +3,8 @@ extends Control
 signal back_requested
 signal settings_applied(settings: Dictionary)
 
+const _KeyChipScript := preload("res://ui/KeyChip.gd")
+
 const SETTINGS_PATH := "user://settings.cfg"
 const MASTER_BUS := "Master"
 const MUSIC_BUS := "Music"
@@ -72,6 +74,17 @@ var _ai_primary_button: Button = null
 var _ai_secondary_button: Button = null
 var _locale_label: Label = null
 var _current_settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
+## Sekme değiştirme ipucu rozetleri: klavyede Q/E, gamepad'de L2/R2 (bkz. ui/KeyChip.gd, cihaz
+## değişince kendini günceller). Oyuncuya sekmelerin nasıl değiştirileceğini söyleyen hiçbir
+## görsel işaret yoktu (playtest, 2026-09-02).
+##
+## Panel'in DOĞRUDAN çocuğu olarak duruyorlar (Panel bir Container değil, çocuklarının
+## konumuna karışmıyor) ve TabContainer'ın sekme şeridinin dikey ortasına hizalanıyorlar.
+## Sabit bir Y kullanmıyoruz: "Arayüz Boyutu" ayarı başlık ve sekme puntosunu değiştirebiliyor,
+## şeridin yeri de onunla birlikte kayıyor.
+var _tab_hint_left: PanelContainer = null
+var _tab_hint_right: PanelContainer = null
+const _TAB_HINT_MARGIN := 14.0
 
 ## Odaklanan satırın arkasına çizilen parlak şerit.
 ##
@@ -92,6 +105,7 @@ func _ready() -> void:
 	_ensure_locale_controls()
 	_ensure_ui_scale_controls()
 	_ensure_ai_controls()
+	_ensure_tab_hints()
 	hide_menu()
 	_connect_signals()
 	_load_settings_from_disk()
@@ -102,6 +116,58 @@ func _ready() -> void:
 		LocaleManager.locale_changed.connect(_refresh_locale)
 	_refresh_locale()
 	_register_ui_font_scale()
+
+
+func _ensure_tab_hints() -> void:
+	if _tab_hint_left != null:
+		return
+	var panel := get_node_or_null("Panel") as Panel
+	if panel == null or tab_container == null:
+		return
+	_tab_hint_left = _KeyChipScript.new()
+	_tab_hint_left.name = "TabHintLeft"
+	_tab_hint_left.setup("Q", "L2")
+	panel.add_child(_tab_hint_left)
+	_tab_hint_right = _KeyChipScript.new()
+	_tab_hint_right.name = "TabHintRight"
+	_tab_hint_right.setup("E", "R2")
+	panel.add_child(_tab_hint_right)
+	# Rozetin metni cihaz değişince Q ↔ L2 olarak değişiyor, yani genişliği de değişiyor —
+	# sağdaki rozetin sağa yaslı kalması için yeniden yerleştirmek şart.
+	for chip in [_tab_hint_left, _tab_hint_right]:
+		if not chip.resized.is_connected(_layout_tab_hints):
+			chip.resized.connect(_layout_tab_hints)
+	if not panel.resized.is_connected(_layout_tab_hints):
+		panel.resized.connect(_layout_tab_hints)
+	if not tab_container.resized.is_connected(_layout_tab_hints):
+		tab_container.resized.connect(_layout_tab_hints)
+	_layout_tab_hints.call_deferred()
+
+
+## Rozetleri sekme şeridinin dikey ortasına, panelin iki kenarına hizalar. Şeridin yerini
+## TabContainer'ın kendi TabBar'ından okuyoruz; böylece başlık puntosu ya da sekme yüksekliği
+## değişse de ipuçları sekmelerle aynı hizada kalıyor.
+func _layout_tab_hints() -> void:
+	if _tab_hint_left == null or _tab_hint_right == null or tab_container == null:
+		return
+	var panel := get_node_or_null("Panel") as Panel
+	if panel == null:
+		return
+	var strip_global_y: float = tab_container.global_position.y
+	var strip_height: float = 32.0
+	if tab_container.has_method("get_tab_bar"):
+		var bar: Control = tab_container.get_tab_bar()
+		if is_instance_valid(bar):
+			strip_global_y = bar.global_position.y
+			strip_height = bar.size.y
+	var center_y: float = (strip_global_y + strip_height * 0.5) - panel.global_position.y
+	_tab_hint_left.position = Vector2(
+		_TAB_HINT_MARGIN, center_y - _tab_hint_left.size.y * 0.5
+	)
+	_tab_hint_right.position = Vector2(
+		panel.size.x - _TAB_HINT_MARGIN - _tab_hint_right.size.x,
+		center_y - _tab_hint_right.size.y * 0.5
+	)
 
 
 func _ensure_focus_highlight() -> void:
@@ -306,6 +372,7 @@ func _ensure_ai_controls() -> void:
 
 	game_tab.add_child(_ai_section)
 	_refresh_ai_section()
+	_layout_tab_hints.call_deferred()
 
 
 func _ai_node() -> Node:
@@ -398,6 +465,7 @@ func _on_ai_primary_pressed() -> void:
 	else:
 		ai.call("set_enabled", true)
 	_refresh_ai_section()
+	_layout_tab_hints.call_deferred()
 
 
 func _on_ai_secondary_pressed() -> void:
@@ -409,6 +477,7 @@ func _on_ai_secondary_pressed() -> void:
 	else:
 		ai.call("delete_model")
 	_refresh_ai_section()
+	_layout_tab_hints.call_deferred()
 
 
 func _connect_signals() -> void:
@@ -429,6 +498,7 @@ func show_menu() -> void:
 	_apply_settings_to_controls()
 	_refresh_locale()
 	_refresh_ai_section()
+	_layout_tab_hints.call_deferred()
 	# Yapay zeka bölümü ve dil satırı gibi kodla üretilen denetimler burada tazelendiği için
 	# yazı ölçeğini de yeniden uygularız (metadata sayesinde katlanmaz).
 	_register_ui_font_scale()
@@ -623,6 +693,7 @@ func _apply_vsync(enabled: bool) -> void:
 
 func _refresh_locale(_locale: String = "") -> void:
 	_refresh_ai_section()
+	_layout_tab_hints.call_deferred()
 	if _title_label:
 		_title_label.text = tr("settings.title")
 	if _hint_label:

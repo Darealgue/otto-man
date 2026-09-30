@@ -265,6 +265,10 @@ func _handle_mid_run_selection(index: int) -> void:
 	if bool(challenge.get("is_exit", false)):
 		if drs.has_method("try_finalize_warmup_progress"):
 			drs.call("try_finalize_warmup_progress")
+		# Keşif ödülü zindandan çıkmadan gösterilir — ödül eylemle aynı anda gelmeli,
+		# köye dönüş yolunda değil (bkz. docs/ITEM_UNLOCK_SISTEMI.md bölüm 10).
+		if ItemManager.has_pending_unlock_offers():
+			await ItemManager.resolve_pending_unlock_offers()
 		if sm and sm.has_method("change_to_world_map"):
 			sm.change_to_world_map({"source": "dungeon", "return_reason": "dungeon_exit"})
 		return
@@ -399,23 +403,26 @@ func _setup_run_stats_ui() -> void:
 	add_child(layer)
 	var panel := Panel.new()
 	panel.name = "RunStatsPanel"
-	var viewport_w: int = get_viewport().get_visible_rect().size.x
+	# Genişlik piksel değil ORAN: eskiden viewport genişliğinin %30'u kadar iki yandan piksel
+	# ofset veriliyordu, o da pencere boyutuna göre tutarsız duruyordu. %22-%78 arası, iki
+	# satırlık metni sarmadan taşıyacak kadar geniş.
 	panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	panel.set_anchor(SIDE_LEFT, 0.0)
+	panel.set_anchor(SIDE_LEFT, 0.22)
 	panel.set_anchor(SIDE_TOP, 0.0)
-	panel.set_anchor(SIDE_RIGHT, 1.0)
+	panel.set_anchor(SIDE_RIGHT, 0.78)
 	panel.set_anchor(SIDE_BOTTOM, 0.0)
-	panel.offset_left = viewport_w * 0.3
-	panel.offset_right = -viewport_w * 0.3
+	panel.offset_left = 0.0
+	panel.offset_right = 0.0
 	panel.offset_top = 12.0
-	panel.offset_bottom = 72.0
+	# 72 idi; punto 14/12'den 22/18'e çıkınca iki satır sığmıyordu.
+	panel.offset_bottom = 104.0
 	layer.add_child(panel)
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vbox.offset_left = 8.0
-	vbox.offset_top = 6.0
-	vbox.offset_right = -8.0
-	vbox.offset_bottom = -6.0
+	vbox.offset_left = 14.0
+	vbox.offset_top = 8.0
+	vbox.offset_right = -14.0
+	vbox.offset_bottom = -8.0
 	vbox.add_theme_constant_override("separation", 4)
 	panel.add_child(vbox)
 	var title := RichTextLabel.new()
@@ -423,14 +430,17 @@ func _setup_run_stats_ui() -> void:
 	title.bbcode_enabled = true
 	title.fit_content = true
 	title.scroll_active = false
-	title.add_theme_font_size_override("normal_font_size", 14)
+	# 14 idi ve ekranın tepesinde hiç okunmuyordu (playtest, 2026-09-02).
+	title.add_theme_font_size_override("normal_font_size", 22)
+	title.add_theme_font_size_override("bold_font_size", 22)
 	vbox.add_child(title)
 	var detail := RichTextLabel.new()
 	detail.name = "Detail"
 	detail.bbcode_enabled = true
 	detail.fit_content = true
 	detail.scroll_active = false
-	detail.add_theme_font_size_override("normal_font_size", 12)
+	detail.add_theme_font_size_override("normal_font_size", 18)
+	detail.add_theme_font_size_override("bold_font_size", 18)
 	vbox.add_child(detail)
 	_run_stats_panel = panel
 	_update_run_stats_ui()

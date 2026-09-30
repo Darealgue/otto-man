@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://falya_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/falya.gd" id="1_falya"]
+
+[node name="Falya" type="Node"]
+script = ExtResource("1_falya")

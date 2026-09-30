@@ -63,7 +63,6 @@ var _host: Control = null
 ## kullansaydı ismin geniş lekesiyle birleşip "T" şeklinde bir basamak yapardı. Aynı
 ## genişliği paylaştıklarında ikisinin birleşimi tek bir yumuşak dikdörtgen oluyor.
 var _width_source: Control = null
-var _last_content: Vector2 = Vector2.ZERO
 var _last_text: String = "￿"
 var _last_host_size: Vector2 = Vector2(-1, -1)
 var _last_frame_size: Vector2 = Vector2(-1, -1)
@@ -152,9 +151,14 @@ func _process(_delta: float) -> void:
 	var content: Vector2 = _measure(_host)
 	if is_instance_valid(_width_source):
 		content.x = _measure(_width_source).x
-	if content.is_equal_approx(_last_content):
-		return
-	_last_content = content
+	# KASITLI olarak "içerik değişmediyse çık" kısayolu YOK. _refit yalnızca yazının ölçüsüne
+	# değil, host'un KUTUSUNA da bakıyor (konum = (host.size.x - w) / 2). Köylüde
+	# apply_frameless_nameplate, Worker._ready içinde — yani düzen daha oturmadan, Label hâlâ
+	# 0 genişlikteyken — çağrılıyor. İlk _process o anda çalışıp şeridi -w/2'ye koyuyor; bir
+	# frame sonra Label 120 px'e genişlediğinde metin ortalanıyor ama YAZI DEĞİŞMEDİĞİ için
+	# eski kısayol _refit'i atlıyor ve şerit solda takılı kalıyordu (playtest, 2026-09-02).
+	# Yukarıdaki yoklama zaten "hiçbir şey değişmediyse" burayı hiç çalıştırmıyor, texture_for
+	# de önbellekli — dolayısıyla her değişiklikte yeniden yerleştirmek bedava.
 	_refit(content)
 
 

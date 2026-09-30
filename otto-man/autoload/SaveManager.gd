@@ -526,6 +526,7 @@ func _collect_save_data_dictionary(is_autosave: bool, autosave_reason: String) -
 	save_data["time"] = _save_time_state()
 	save_data["weather"] = _save_weather_state()
 	save_data["dungeon_progress"] = _save_dungeon_progress_state()
+	save_data["item_unlocks"] = _save_item_unlock_state()
 	save_data["tutorial"] = _save_tutorial_state()
 	return save_data
 
@@ -672,6 +673,7 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 	_load_time_state(save_data.get("time", {}))
 	_load_weather_state(save_data.get("weather", {}))
 	_load_dungeon_progress_state(save_data.get("dungeon_progress", {}))
+	_load_item_unlock_state(save_data.get("item_unlocks", {}))
 	_load_tutorial_state(save_data.get("tutorial", {}))
 	
 	var tm_after: Node = get_node_or_null("/root/TimeManager")
@@ -1096,6 +1098,19 @@ func _load_dungeon_progress_state(state: Dictionary) -> void:
 	var dp: Node = get_node_or_null("/root/DungeonProgress")
 	if is_instance_valid(dp) and dp.has_method("load_save_data"):
 		dp.call("load_save_data", state)
+
+
+func _save_item_unlock_state() -> Dictionary:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("get_save_data"):
+		return im.call("get_save_data")
+	return {}
+
+
+func _load_item_unlock_state(state: Dictionary) -> void:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("load_save_data"):
+		im.call("load_save_data", state)
 
 
 func _save_tutorial_state() -> Dictionary:

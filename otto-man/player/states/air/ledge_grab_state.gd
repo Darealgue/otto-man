@@ -175,15 +175,17 @@ func physics_update(delta: float):
 		player.velocity = CLIMB_FORCE
 		player.velocity.x = facing_direction * 150  # Horizontal boost for smoother climb
 		animation_player.play("jump_upwards")  # Play jump animation when climbing
+		_apply_kesintisiz_akrobasi()
 		state_machine.transition_to("Jump")
 		return
-	
+
 	# Handle letting go
 	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	if Input.is_action_just_pressed("down") or input_dir * facing_direction < 0:
 		player.velocity = Vector2.ZERO  # Reset velocity before falling
 		player.ledge_grab_cooldown_timer = LEDGE_GRAB_COOLDOWN  # Start cooldown
 		animation_player.play("fall")  # Play fall animation when letting go
+		_apply_kesintisiz_akrobasi()
 		state_machine.transition_to("Fall")
 		return
 	
@@ -230,7 +232,11 @@ func enter():
 	if ledge_position == Vector2.ZERO:
 		state_machine.transition_to("Fall")
 		return
-	
+
+	var im := get_node_or_null("/root/ItemManager")
+	if im:
+		im.apply_parkour_momentum_tick()
+
 	# Snap to ledge position with offset (flipped based on direction)
 	player.global_position = ledge_position + (LEDGE_OFFSET * Vector2(facing_direction, 1))
 	# Nudge away from wall if overlapping solid (forest chunk seams / thick tiles)
@@ -418,6 +424,14 @@ func _has_standable_shelf(collision_point: Vector2, side: int, top_y: float) -> 
 		if DEBUG_LEDGE: print("[LEDGEGRAB_DEBUG] side=%d: shelf is a one-way platform, rejecting" % side)
 		return false
 	return true
+
+## Kesintisiz Akrobasi: kenar tutunmadan çıkarken (tırmanarak ya da bırakarak)
+## çift zıplama hakkı otomatik yenilenir.
+func _apply_kesintisiz_akrobasi() -> void:
+	var im = get_node_or_null("/root/ItemManager")
+	if im and im.has_active_item("kesintisiz_akrobasi"):
+		player.enable_double_jump()
+
 
 func can_ledge_grab() -> bool:
 	# Node checks are now handled inside _get_ledge_position

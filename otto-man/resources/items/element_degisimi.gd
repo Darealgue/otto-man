@@ -39,21 +39,15 @@ func _on_player_attack_landed(_attack_type: String, damage: float, _targets: Arr
 	var im = get_node_or_null("/root/ItemManager")
 	if not im:
 		return
-	var elements: Array[String] = []
-	if im.has_active_item("zehirli_tirnak") or im.has_active_item("zehirli_dev"):
-		elements.append("poison")
-	if im.has_active_item("atesli_yumruk") or im.has_active_item("lav_cekici"):
-		elements.append("fire")
-	if im.has_active_item("buzlu_kilic") or im.has_active_item("donma_cekici"):
-		elements.append("frost")
-	if im.has_active_item("simsek_parmagi") or im.has_active_item("gok_gurultusu"):
-		elements.append("lightning")
+	# Merkezi tag registry (bkz. docs/ITEM_SYNERGY_DESIGN.md §10) — element
+	# üreten item'lardan otomatik türer, elle ID listesi tutmaya gerek yok.
+	var elements: Array[String] = im.get_active_elements()
 	if elements.size() < 2:
 		return
 	var picked: String = elements[randi() % elements.size()]
-	_trigger_explosion(position, damage, picked)
+	_trigger_explosion(position, damage, picked, im)
 
-func _trigger_explosion(position: Vector2, base_damage: float, element: String) -> void:
+func _trigger_explosion(position: Vector2, base_damage: float, element: String, im) -> void:
 	var tree = _player.get_tree()
 	if not tree:
 		return
@@ -65,13 +59,7 @@ func _trigger_explosion(position: Vector2, base_damage: float, element: String) 
 			continue
 		if node.has_method("take_damage"):
 			node.take_damage(dmg, 150.0, 100.0, true)
-		match element:
-			"poison":
-				if node.has_method("add_poison_stack"):
-					node.add_poison_stack(5, 2.0, 1.0)
-			"fire":
-				if node.has_method("add_burn_stack"):
-					node.add_burn_stack()
-			"frost":
-				if node.has_method("add_frost_stack"):
-					node.add_frost_stack(3)
+		# "lightning" dahil dört element de artık tek yerden uygulanıyor —
+		# önceki match bloğunda şimşek case'i unutulmuştu, bu yüzden şimşek
+		# seçildiğinde patlamanın elemental kısmı hiç uygulanmıyordu.
+		im.apply_element_to_enemy(node, element)

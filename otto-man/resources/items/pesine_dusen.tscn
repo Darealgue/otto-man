@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://pesine_dusen_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/pesine_dusen.gd" id="1_script"]
+
+[node name="PesineDusen" type="Node"]
+script = ExtResource("1_script")

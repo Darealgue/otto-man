@@ -16,7 +16,6 @@ func _init():
 
 var _player: CharacterBody2D = null
 var _original_light_multiplier: float = 1.0
-var _last_attack_id: String = ""
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
@@ -48,13 +47,7 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 		return  # Karagöz gölgesi: sadece fiziksel; Çift Vuruş uygulanmasın
 	if not _player or attack_type != "normal":
 		return  # Only for light attacks
-	
-	# Prevent double triggering
-	var attack_id = str(Time.get_ticks_msec())
-	if attack_id == _last_attack_id:
-		return
-	_last_attack_id = attack_id
-	
+
 	# Wait a tiny bit then apply second hit
 	await get_tree().create_timer(0.05).timeout
 	

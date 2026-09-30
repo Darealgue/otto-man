@@ -21,14 +21,11 @@ var _player: CharacterBody2D = null
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	# Connect to player_dodged signal (dodge)
+	# player_dodged hem dodge hem dash sonunda tetiklenir (bkz. dash_state.gd) —
+	# ayrıca dash_started bağlantısı hiçbir şey yapmıyordu (boş handler), kaldırıldı.
 	if player.has_signal("player_dodged"):
 		if not player.is_connected("player_dodged", _on_player_dodged):
 			player.connect("player_dodged", _on_player_dodged)
-	# Connect to dash_started signal (dash)
-	if player.has_signal("dash_started"):
-		if not player.is_connected("dash_started", _on_dash_started):
-			player.connect("dash_started", _on_dash_started)
 		print("[Dodge Bombası] ✅ Dodge/dash sonrası bomba bırakır")
 
 func deactivate(player: CharacterBody2D):
@@ -37,8 +34,6 @@ func deactivate(player: CharacterBody2D):
 	if _player:
 		if _player.has_signal("player_dodged") and _player.is_connected("player_dodged", _on_player_dodged):
 			_player.disconnect("player_dodged", _on_player_dodged)
-		if _player.has_signal("dash_started") and _player.is_connected("dash_started", _on_dash_started):
-			_player.disconnect("dash_started", _on_dash_started)
 	_player = null
 	print("[Dodge Bombası] ❌ Dodge Bombası kaldırıldı")
 
@@ -46,12 +41,6 @@ func _on_player_dodged(direction: int, start_pos: Vector2, end_pos: Vector2):
 	if not _player:
 		return
 	_spawn_bomb_at_position(start_pos)
-
-func _on_dash_started():
-	# Dash başlangıç pozisyonunu almak için dash state'den bilgi almalıyız
-	# Ama daha iyi: player_dodged signal'i dash bitince emit edilecek (dash_state'de ekledik)
-	# Bu yüzden burada bir şey yapmaya gerek yok
-	pass
 
 func _spawn_bomb_at_position(bomb_pos: Vector2):
 	var tree = get_tree()

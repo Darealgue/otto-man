@@ -7,7 +7,11 @@ const _ICON_PATHS := {
 	"stone": "res://assets/Icons/stone_icon.png",
 	"food": "res://assets/Icons/food_icon.png",
 }
-const _ICON_SIZE := Vector2(22, 22)
+## Simge/punto ölçüleri dünya haritasındaki sefer envanteriyle aynı hizada tutuluyor
+## (bkz. WorldMapScene EXP_HUD_ICON_SIZE): ikisi de aynı sayıları gösteriyor, biri okunup
+## diğeri okunmaması saçma olurdu (playtest, 2026-09-02).
+const _ICON_SIZE := Vector2(30, 30)
+const _COUNT_FONT_SIZE := 20
 
 @onready var _hbox: HBoxContainer = $HBoxContainer
 
@@ -53,7 +57,7 @@ func _resource_tint(resource_key: String) -> Color:
 ## icon_path boşsa (henüz asset yoksa) ikon yerine boş bırakılır, sadece sayı görünür.
 func _build_icon_count_chip(icon_path: String, tint: Color) -> HBoxContainer:
 	var chip := HBoxContainer.new()
-	chip.add_theme_constant_override("separation", 3)
+	chip.add_theme_constant_override("separation", 5)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if icon_path != "" and ResourceLoader.exists(icon_path):
 		var icon := TextureRect.new()
@@ -65,7 +69,7 @@ func _build_icon_count_chip(icon_path: String, tint: Color) -> HBoxContainer:
 	var count_label := Label.new()
 	count_label.name = "CountLabel"
 	count_label.text = "0"
-	count_label.add_theme_font_size_override("font_size", 15)
+	count_label.add_theme_font_size_override("font_size", _COUNT_FONT_SIZE)
 	count_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	count_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	count_label.add_theme_constant_override("outline_size", 3)

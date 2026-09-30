@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://koruk_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/koruk.gd" id="1_koruk"]
+
+[node name="Koruk" type="Node"]
+script = ExtResource("1_koruk")

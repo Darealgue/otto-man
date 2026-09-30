@@ -72,14 +72,10 @@ const ITEM_SCENES: Dictionary = {
 	"patlama_topuzu": preload("res://resources/items/patlama_topuzu.tscn"),
 	"ruh_avcisi": preload("res://resources/items/ruh_avcisi.tscn"),
 	"buz_cagi": preload("res://resources/items/buz_cagi.tscn"),
-	"miknatis": preload("res://resources/items/miknatis.tscn"),
 	"ikinci_nefes": preload("res://resources/items/ikinci_nefes.tscn"),
-	"slide_simsegi": preload("res://resources/items/slide_simsegi.tscn"),
 	"cift_ziplama": preload("res://resources/items/cift_ziplama.tscn"),
 	"havada_kal": preload("res://resources/items/havada_kal.tscn"),
-	"dodge_zehiri": preload("res://resources/items/dodge_zehiri.tscn"),
 	"ortaoyunu": preload("res://resources/items/ortaoyunu.tscn"),
-	"ziplama_zehiri": preload("res://resources/items/ziplama_zehiri.tscn"),
 	"gorunmezlik_pelerini": preload("res://resources/items/gorunmezlik_pelerini.tscn"),
 	"berserker_ruhu": preload("res://resources/items/berserker_ruhu.tscn"),
 	"nazar_boncugu": preload("res://resources/items/nazar_boncugu.tscn"),
@@ -108,6 +104,11 @@ const ITEM_SCENES: Dictionary = {
 	"yanki_oku": preload("res://resources/items/yanki_oku.tscn"),
 	"kartal_bakisi": preload("res://resources/items/kartal_bakisi.tscn"),
 	"gerilmis_yay": preload("res://resources/items/gerilmis_yay.tscn"),
+	"golge_nisanci": preload("res://resources/items/golge_nisanci.tscn"),
+	"suru_oku": preload("res://resources/items/suru_oku.tscn"),
+	"pesine_dusen": preload("res://resources/items/pesine_dusen.tscn"),
+	"agir_mermi": preload("res://resources/items/agir_mermi.tscn"),
+	"ruh_mermisi": preload("res://resources/items/ruh_mermisi.tscn"),
 	# --- Dalga 3: tuzak / patlama / bağışıklık / meta ---
 	"tuzak_fisildayan": preload("res://resources/items/tuzak_fisildayan.tscn"),
 	"barut_zirhi": preload("res://resources/items/barut_zirhi.tscn"),
@@ -131,6 +132,55 @@ const ITEM_SCENES: Dictionary = {
 	"cevher_dili": preload("res://resources/items/cevher_dili.tscn"),
 	"yikim_muhru": preload("res://resources/items/yikim_muhru.tscn"),
 	"kan_bedeli": preload("res://resources/items/kan_bedeli.tscn"),
+	# --- Dalga 7: unlock sistemi Faz 2 (docs/ITEM_UNLOCK_SISTEMI.md 5.7-5.9) ---
+	# Ateş zindanı: yanmaya payoff + eksik savunma verb'ü
+	"koz_tutan": preload("res://resources/items/koz_tutan.tscn"),
+	"koruk": preload("res://resources/items/koruk.tscn"),
+	"tavlanmis_celik": preload("res://resources/items/tavlanmis_celik.tscn"),
+	"ocak": preload("res://resources/items/ocak.tscn"),
+	# Barut zindanı: giriş + mobilite
+	"falya": preload("res://resources/items/falya.tscn"),
+	"lagimci": preload("res://resources/items/lagimci.tscn"),
+	"tepme": preload("res://resources/items/tepme.tscn"),
+	# Zehir zindanı: zehrin eksik olan RARE tavanı
+	"sabir_tasi": preload("res://resources/items/sabir_tasi.tscn"),
+	"yankesici": preload("res://resources/items/yankesici.tscn"),
+	"serbetci": preload("res://resources/items/serbetci.tscn"),
+	# "Fiil değiştiren" item'lar (stamina ekonomisini yeniden yazar)
+	"yansiyan_irade": preload("res://resources/items/yansiyan_irade.tscn"),
+	"zehirli_sekme": preload("res://resources/items/zehirli_sekme.tscn"),
+	"kesintisiz_akis": preload("res://resources/items/kesintisiz_akis.tscn"),
+	# Havaya Fırlatma boru hattı (bkz. docs/ITEM_PIPELINE_DESIGN.md §2.4)
+	"ziplatan_yumruk": preload("res://resources/items/ziplatan_yumruk.tscn"),
+	"toplu_kaldirma": preload("res://resources/items/toplu_kaldirma.tscn"),
+	"agirliksiz": preload("res://resources/items/agirliksiz.tscn"),
+	"kader_ani": preload("res://resources/items/kader_ani.tscn"),
+	# Kaçınma boru hattı (bkz. docs/ITEM_PIPELINE_DESIGN.md §2.2)
+	"refleks": preload("res://resources/items/refleks.tscn"),
+	"kavis_adimi": preload("res://resources/items/kavis_adimi.tscn"),
+	"soguk_temas": preload("res://resources/items/soguk_temas.tscn"),
+	"iz_birakan": preload("res://resources/items/iz_birakan.tscn"),
+	# Temas Saldırısı boru hattı (bkz. docs/ITEM_PIPELINE_DESIGN.md §2.1)
+	"artan_guc": preload("res://resources/items/artan_guc.tscn"),
+	"kesintisiz_zincir": preload("res://resources/items/kesintisiz_zincir.tscn"),
+	"daire_darbesi": preload("res://resources/items/daire_darbesi.tscn"),
+	"sirt_darbesi": preload("res://resources/items/sirt_darbesi.tscn"),
+	"kesme_yayi": preload("res://resources/items/kesme_yayi.tscn"),
+	"guc_devri": preload("res://resources/items/guc_devri.tscn"),
+	"zincirleme_vurus": preload("res://resources/items/zincirleme_vurus.tscn"),
+	"sarsici_darbe": preload("res://resources/items/sarsici_darbe.tscn"),
+	# Savunma boru hattı (bkz. docs/ITEM_PIPELINE_DESIGN.md §2.3)
+	"alan_parrysi": preload("res://resources/items/alan_parrysi.tscn"),
+	"emici_kalkan": preload("res://resources/items/emici_kalkan.tscn"),
+	"karsi_mermi": preload("res://resources/items/karsi_mermi.tscn"),
+	"cellat_nefesi": preload("res://resources/items/cellat_nefesi.tscn"),
+	# Hareket/Parkur boru hattı (bkz. docs/ITEM_PIPELINE_DESIGN.md §2.5)
+	"duvar_kirici": preload("res://resources/items/duvar_kirici.tscn"),
+	"ruzgar_toplama": preload("res://resources/items/ruzgar_toplama.tscn"),
+	"kesintisiz_akrobasi": preload("res://resources/items/kesintisiz_akrobasi.tscn"),
+	# Wildcard/Joker (bkz. docs/ITEM_PIPELINE_DESIGN.md §7)
+	"usta_isci": preload("res://resources/items/usta_isci.tscn"),
+	"tek_sanat": preload("res://resources/items/tek_sanat.tscn"),
 }
 
 # Ön koşul: bu item_id sadece listelenen item'lar aktifken seçenekte çıkar (örn. Kum Saati → Zaman Durdurucu)
@@ -138,7 +188,8 @@ const ITEM_REQUIREMENTS: Dictionary = {
 	"kum_saati": ["zaman_durdurucu"],
 	"karagoz_laneti": ["ortaoyunu"],
 	"hacivat_golgesi": ["ortaoyunu"],
-	"sadik_golge": ["ruh_avcisi"],
+	"kesintisiz_zincir": ["artan_guc"],
+	"kesintisiz_akis": ["zehirli_sekme"],
 }
 
 # Ön koşul (VEYA): listedeki item'lardan EN AZ BİRİ aktifse seçenekte çıkar
@@ -148,6 +199,11 @@ const ITEM_REQUIREMENTS_ANY: Dictionary = {
 	"yanki_oku": ["uzun_menzil", "ok_yagmuru"],
 	"kartal_bakisi": ["uzun_menzil", "ok_yagmuru"],
 	"gerilmis_yay": ["uzun_menzil", "ok_yagmuru"],
+	"golge_nisanci": ["uzun_menzil", "ok_yagmuru"],
+	"suru_oku": ["uzun_menzil", "ok_yagmuru"],
+	"pesine_dusen": ["uzun_menzil", "ok_yagmuru"],
+	"agir_mermi": ["uzun_menzil", "ok_yagmuru"],
+	"ruh_mermisi": ["uzun_menzil", "ok_yagmuru"],
 	"kan_bedeli": ["cevher_dili", "yikim_muhru"],
 }
 
@@ -155,7 +211,7 @@ const ITEM_REQUIREMENTS_ANY: Dictionary = {
 const ITEM_SET_DEFINITIONS: Dictionary = {
 	"poison_mastery": {
 		"name_key": "item.set.poison.name",
-		"items": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "dodge_zehiri", "ziplama_zehiri"],
+		"items": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus"],
 		"pieces_for_bonus": 2,
 		"bonuses": {"poison_damage_mult": 1.4, "poison_max_stacks_bonus": 2},
 	},
@@ -171,19 +227,432 @@ const ITEM_SET_DEFINITIONS: Dictionary = {
 		"pieces_for_bonus": 2,
 		"bonuses": {"fall_damage_mult": 1.3, "fall_effect_damage_mult": 1.35, "fall_effect_radius_mult": 1.2},
 	},
+	# "items" yerine "tag_prefix" kullanıyor (bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 3).
+	# Eskiden ["atesli_yumruk", "buzlu_kilic", "simsek_parmagi"] elle listeliyordu; bu üç
+	# item'ın ağır/düşüş eşdeğerlerini (lav_cekici, donma_cekici, gok_gurultusu, vb.) ve
+	# zehiri hiç saymıyordu. Artık "elemental_" ile başlayan herhangi bir tag'i taşıyan
+	# aktif item'lar otomatik sayılıyor — yeni bir elemental item eklendiğinde bu listeye
+	# elle eklenmesi gerekmez. Havuz 3 item'dan 12'ye çıktığı için eşik de 2'den 3'e çekildi.
 	"tri_element": {
 		"name_key": "item.set.elemental.name",
-		"items": ["atesli_yumruk", "buzlu_kilic", "simsek_parmagi"],
-		"pieces_for_bonus": 2,
+		"tag_prefix": "elemental_",
+		"pieces_for_bonus": 3,
 		"bonuses": {"elemental_damage_mult": 1.25},
 	},
+	# "category_family" kullanıyor — bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4.
+	# Her item zaten TEK bir ItemCategory taşıyor (item_effect.gd); burada yeni bir tag
+	# eklemeye gerek yok, sadece hangi kategorilerin "hareket" sayıldığını gruplayıp
+	# eşik koyuyoruz. Sayısal bonus yok — bu setin AKTİF OLMASI kendi başına bir
+	# davranış kapısı: apply_movement_contact_tick() bunu okuyup dodge/dash'i temas
+	# hasarı verir hale getiriyor (bkz. o fonksiyon ve dodge_state.gd/dash_state.gd).
+	"restless_body": {
+		"name_key": "item.set.movement.name",
+		"category_family": [ItemEffect.ItemCategory.DODGE, ItemEffect.ItemCategory.SLIDE, ItemEffect.ItemCategory.WALL_SLIDE, ItemEffect.ItemCategory.JUMP, ItemEffect.ItemCategory.CROUCH],
+		"pieces_for_bonus": 3,
+		"bonuses": {},
+	},
+	# Aynı desen, dövüş kategorileri için. Aktifken _on_global_attack_landed_brawl_family
+	# her isabetli vuruşa (light/heavy/fall, tip fark etmez) aktif element(ler)i uygular —
+	# oyuncu bunun için ayrıca element item'ının "doğru" saldırı tipini bulmasına gerek kalmaz.
+	"brawler_instinct": {
+		"name_key": "item.set.brawl.name",
+		"category_family": [ItemEffect.ItemCategory.LIGHT_ATTACK, ItemEffect.ItemCategory.HEAVY_ATTACK, ItemEffect.ItemCategory.FALL_ATTACK],
+		"pieces_for_bonus": 4,
+		"bonuses": {},
+	},
 }
+
+## ============================================================================
+## UNLOCK SİSTEMİ (docs/ITEM_UNLOCK_SISTEMI.md)
+## Oyuncu dar bir başlangıç havuzuyla başlar; zindan tamamladıkça yeni item'lar
+## kalıcı olarak koleksiyona girer. get_random_items() sadece açılmışları teklif eder.
+## ============================================================================
+
+signal item_unlocked(item_id: String)
+signal unlock_offer_resolved()
+
+## Oyunun başında açık olan item'lar. Element yok — başlangıç havuzu fiilleri öğretir.
+## Zayıf item kuralı: zayıf item ödül olamaz, başlangıçta olur (baklava, topuk_kirici).
+## 2026-09-30: ayran/zeytinyagi/gokten_dusus/guc_kayasi/hizli_charge/tunel_ustasi
+## çıkarıldı — hepsi zaten itemsiz de var olan bir fiile (%X) düz bonus ekliyordu,
+## oyuncunun ilk izlenimi tamamen "stat sopası" oluyordu (kullanıcı geri bildirimi:
+## "hep eski itemler geldi... yüzde elli daha hızlı stamina doldurma... bunları
+## istemiyorum"). Yerlerine gerçekten fiil/davranış değiştiren, önkoşulsuz COMMON/
+## UNCOMMON boru hattı item'ları kondu (bkz. docs/ITEM_PIPELINE_DESIGN.md).
+const STARTER_ITEM_IDS: Array[String] = [
+	"baklava", "simit",
+	"hizli_el", "combo_ustasi", "cift_vurus", "ucuncu_vurus",
+	"demir_kalkan", "kalkan_ustasi", "parry_ruhu",
+	"cift_ziplama", "kus_kanadi", "ruzgar_hanceri",
+	"topuk_kirici",
+	"duvar_kirici", "soguk_temas", "sarsici_darbe", "kesme_yayi", "artan_guc", "emici_kalkan",
+	# Mermi açıcıları: burada olmaları TÜM Mermi yükseltme item'larını (yansiyan_ok,
+	# ruzgarin_nisani, yanki_oku, kartal_bakisi, gerilmis_yay, golge_nisanci, suru_oku,
+	# pesine_dusen, agir_mermi, ruh_mermisi — ITEM_REQUIREMENTS_ANY ile bunlara bağlı)
+	# oyunun başından itibaren cascade ile açar. Kullanıcı isteği: ranged item'ları
+	# firtina zindanı boss'una kadar beklemeden direkt deneyebilsin (2026-09-30).
+	"uzun_menzil", "ok_yagmuru",
+]
+
+## Havuza hiç girmeyen item'lar (dosyaları duruyor ama teklif edilmiyor).
+## Not: miknatis (altın çekme) buraya değil, tamamen silindi — akrobat hırsız ilkesine
+## aykırıydı: altın toplamak bir beceri ifadesi, otomatikleştirilmemeli.
+## bkz. docs/ITEM_UNLOCK_SISTEMI.md bölüm 3
+## 2026-09-30: aşağıdaki 14 item, docs/ITEM_PIPELINE_DESIGN.md §8.3'te "Atılır" olarak
+## işaretlenmişti (düz stat sopası, hiçbir boru hattının bir "adımı" değil) ama havuzlardan
+## hiç çıkarılmamıştı — kullanıcı geri bildirimi ("hep eski itemler geldi, bunları
+## istemiyorum") üzerine artık gerçekten teklif edilmiyorlar. sadik_golge, ebeveyni
+## ruh_avcisi burada olduğu için zaten cascade ile de açılamaz; açıklık için ayrıca eklendi.
+const EXCLUDED_ITEM_IDS: Array[String] = [
+	"hizlanan_yumruk", "ruh_avcisi", "ikinci_nefes", "berserker_ruhu", "kan_tadi",
+	"tas_yurek", "sessiz_ayakkabi", "golge_pelerini", "sadik_golge", "barut_zirhi",
+	"kara_barut", "panzehir_derisi", "kaygan_yag", "keskin_nazar",
+]
+
+const UNLOCK_TIER_KESIF: String = "kesif"
+const UNLOCK_TIER_BOSS: String = "boss"
+
+## Zindan teması -> {kesif: [...], boss: [...]}
+## kesif = keşif run 1-3 ödülü (giriş item'ları), boss = boss clear ödülü (derinlik).
+## Ön koşullu item'lar burada YOK: ebeveynleriyle bedava gelirler (bkz. _cascade_unlocks).
+const DUNGEON_THEME_POOLS: Dictionary = {
+	"ates": {
+		"kesif": ["atesli_yumruk", "ates_topu_dususu", "pala_kilici", "taskin_guc", "koz_tutan", "koruk", "tavlanmis_celik", "gokten_dusus", "guc_kayasi"],
+		"boss": ["atesli_kayma", "genis_darbe", "ocak", "ziplatan_yumruk", "agirliksiz", "sirt_darbesi", "tek_sanat"],
+	},
+	"buz": {
+		"kesif": ["buzlu_kilic", "donma_cekici", "buz_cagi", "yansitici_kalkan", "dikenli_kalkan", "ters_darbe", "parry_ustasi", "olumcul_sukut", "sansli_nal"],
+		"boss": ["buzlu_kayma", "nazar_boncugu", "son_kale", "cuppe_degil_zirh", "zaman_durdurucu", "yansiyan_irade", "alan_parrysi"],
+	},
+	"zehir": {
+		"kesif": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "ceset_tekmesi", "les_gazi", "zeytinyagi"],
+		"boss": ["gorunmezlik_pelerini", "hayalet_adim", "flank_avantaji", "sabir_tasi", "yankesici", "serbetci", "zehirli_sekme", "kavis_adimi", "iz_birakan", "refleks"],
+	},
+	"firtina": {
+		"kesif": ["gok_gurultusu", "yildirim_dususu", "yildirim_adimi", "havada_kal", "sekme_tabanligi", "genis_dusus", "firlatma_parry"],
+		"boss": ["simsek_parmagi", "simsek_kalkani", "duvar_ustasi", "karsi_mermi"],
+	},
+	"barut": {
+		"kesif": ["patlama_zinciri", "dodge_bombasi", "lav_cekici", "falya", "lagimci", "tepme", "zincirleme_vurus", "hizli_charge"],
+		"boss": ["patlama_topuzu", "tuzak_fisildayan", "cenk_meydani", "yikim_muhru", "cevher_dili", "cellat_nefesi", "toplu_kaldirma", "daire_darbesi", "guc_devri"],
+	},
+	"golge": {
+		"kesif": ["element_izi", "ruh_akisi", "ruzgar_toplama", "ayran", "tunel_ustasi"],
+		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "kesintisiz_akrobasi", "usta_isci"],
+	},
+}
+
+const DEFAULT_DUNGEON_THEME: String = "ates"
+
+## Kalıcı koleksiyon. Sadece buradakiler run içinde kart olarak teklif edilir.
+var unlocked_item_ids: Array[String] = []
+## Bekleyen unlock teklifleri: [{theme: String, tier: String, picks: int}]
+## Sahne geçişi teklifi yutmasın diye kuyruğa alınır ve kayda yazılır.
+var _pending_unlock_offers: Array[Dictionary] = []
+var _unlock_selection_open: bool = false
+
 
 func _ready() -> void:
 	var container = Node.new()
 	container.name = "ActiveItems"
 	add_child(container)
 	set_process(true)
+	if unlocked_item_ids.is_empty():
+		_reset_unlocks_to_starter()
+	if OS.is_debug_build():
+		_validate_unlock_pools()
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if is_instance_valid(tm) and tm.has_signal("day_changed"):
+		if not tm.is_connected("day_changed", _on_day_changed):
+			tm.connect("day_changed", _on_day_changed)
+	refresh_falci_schedule()
+
+
+func _on_day_changed(_new_day: int) -> void:
+	refresh_falci_schedule()
+
+
+## --- Sorgular ---
+
+func is_unlocked(item_id: String) -> bool:
+	return item_id in unlocked_item_ids
+
+
+func get_unlocked_item_ids() -> Array[String]:
+	return unlocked_item_ids.duplicate()
+
+
+## Bir temanın toplam item sayısı ve kaçının açıldığı — dünya haritası göstergesi için.
+func get_theme_unlock_progress(theme: String) -> Dictionary:
+	var pool: Array[String] = _theme_pool(theme, "")
+	var owned: int = 0
+	for id in pool:
+		if is_unlocked(id):
+			owned += 1
+	return {"unlocked": owned, "total": pool.size()}
+
+
+## --- Unlock ---
+
+func unlock_item(item_id: String) -> bool:
+	if item_id.is_empty() or item_id in EXCLUDED_ITEM_IDS:
+		return false
+	if not ITEM_SCENES.has(item_id):
+		push_warning("[ItemManager] Bilinmeyen item unlock denemesi: %s" % item_id)
+		return false
+	if is_unlocked(item_id) or is_permanently_banished(item_id):
+		return false
+	unlocked_item_ids.append(item_id)
+	item_unlocked.emit(item_id)
+	print("[ItemManager] Item açıldı: %s" % item_id)
+	_cascade_unlocks()
+	return true
+
+
+## Ön koşulu karşılanan çocuk item'ları otomatik açar (sabit noktaya kadar).
+## Aksi halde koleksiyonda ölü ağırlık olurlar: teklif edilmezler ama sayılırlar.
+func _cascade_unlocks() -> void:
+	var changed: bool = true
+	while changed:
+		changed = false
+		for child_id in _dependent_item_ids():
+			if is_unlocked(child_id) or child_id in EXCLUDED_ITEM_IDS:
+				continue
+			if not _requirements_met_by_unlocks(child_id):
+				continue
+			unlocked_item_ids.append(child_id)
+			item_unlocked.emit(child_id)
+			print("[ItemManager] Ön koşul karşılandı, bedava açıldı: %s" % child_id)
+			changed = true
+
+
+func _requirements_met_by_unlocks(item_id: String) -> bool:
+	if item_id in ITEM_REQUIREMENTS:
+		for req_id in ITEM_REQUIREMENTS[item_id]:
+			if not is_unlocked(String(req_id)):
+				return false
+	if item_id in ITEM_REQUIREMENTS_ANY:
+		var any_met: bool = false
+		for req_id in ITEM_REQUIREMENTS_ANY[item_id]:
+			if is_unlocked(String(req_id)):
+				any_met = true
+				break
+		if not any_met:
+			return false
+	return true
+
+
+func _dependent_item_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for key in ITEM_REQUIREMENTS:
+		ids.append(String(key))
+	for key in ITEM_REQUIREMENTS_ANY:
+		var k: String = String(key)
+		if k not in ids:
+			ids.append(k)
+	return ids
+
+
+func _theme_pool(theme: String, tier: String) -> Array[String]:
+	var themed: Dictionary = DUNGEON_THEME_POOLS.get(theme, {})
+	if themed.is_empty():
+		return []
+	var out: Array[String] = []
+	var tiers: Array = [tier] if not tier.is_empty() else [UNLOCK_TIER_KESIF, UNLOCK_TIER_BOSS]
+	for t in tiers:
+		for id in themed.get(t, []):
+			out.append(String(id))
+	return out
+
+
+## Teklif edilebilecek adaylar: temada, doğru kademede, henüz açılmamış.
+func get_unlock_candidates(theme: String, tier: String) -> Array[String]:
+	var out: Array[String] = []
+	for id in _theme_pool(theme, tier):
+		if is_unlocked(id) or id in EXCLUDED_ITEM_IDS:
+			continue
+		if is_permanently_banished(id):
+			continue  # Falcı kalıcı olarak eledi
+		out.append(id)
+	return out
+
+
+## Bu temada bu kademede açılacak bir şey kaldı mı? (tükenmiş zindan kontrolü)
+func has_unlock_candidates(theme: String, tier: String) -> bool:
+	return not get_unlock_candidates(theme, tier).is_empty()
+
+
+## --- Teklif kuyruğu ---
+
+func queue_unlock_offer(theme: String, tier: String, picks: int = 1) -> void:
+	var key: String = theme if DUNGEON_THEME_POOLS.has(theme) else DEFAULT_DUNGEON_THEME
+	if not has_unlock_candidates(key, tier):
+		print("[ItemManager] Unlock teklifi atlandı — %s/%s havuzu tükendi" % [key, tier])
+		return
+	_pending_unlock_offers.append({"theme": key, "tier": tier, "picks": maxi(1, picks)})
+	print("[ItemManager] Unlock teklifi kuyruğa alındı: %s/%s x%d" % [key, tier, maxi(1, picks)])
+
+
+func has_pending_unlock_offers() -> bool:
+	return not _pending_unlock_offers.is_empty()
+
+
+## Bekleyen tüm teklifleri sırayla gösterir. Çağıran await edebilir:
+##   await ItemManager.resolve_pending_unlock_offers()
+func resolve_pending_unlock_offers() -> void:
+	while not _pending_unlock_offers.is_empty():
+		if not is_instance_valid(player):
+			return  # Oyuncu yok — teklifler kuyrukta kalır, kayda yazılır
+		var offer: Dictionary = _pending_unlock_offers[0]
+		var picks: int = maxi(1, int(offer.get("picks", 1)))
+		var theme: String = String(offer.get("theme", DEFAULT_DUNGEON_THEME))
+		var tier: String = String(offer.get("tier", UNLOCK_TIER_KESIF))
+		var shown_any: bool = false
+		for _i in range(picks):
+			if not has_unlock_candidates(theme, tier):
+				break
+			var ok: bool = await _show_unlock_selection(theme, tier)
+			if not ok:
+				break
+			shown_any = true
+		_pending_unlock_offers.pop_front()
+		if not shown_any:
+			continue
+	unlock_offer_resolved.emit()
+
+
+func _show_unlock_selection(theme: String, tier: String) -> bool:
+	if _unlock_selection_open or _item_selection_open:
+		return false
+	var candidates: Array[String] = get_unlock_candidates(theme, tier)
+	if candidates.is_empty():
+		return false
+	candidates.shuffle()
+	var picked_ids: Array[String] = candidates.slice(0, mini(3, candidates.size()))
+
+	# Kehanet: falcıya para verdiysen bir slot istediğin kategoriye yönlendirilir
+	var focus: int = consume_oracle_category()
+	if focus != -1 and not picked_ids.is_empty():
+		for candidate_id in candidates:
+			if candidate_id in picked_ids:
+				continue
+			if _get_item_category(candidate_id) == focus:
+				picked_ids[picked_ids.size() - 1] = candidate_id
+				print("[ItemManager] 🔮 Kehanet tuttu: %s" % candidate_id)
+				break
+	var scenes: Array[PackedScene] = []
+	for id in picked_ids:
+		scenes.append(ITEM_SCENES[id])
+
+	_unlock_selection_open = true
+	var selection_ui = ItemSelection.instantiate()
+	get_tree().root.add_child(selection_ui)
+	selection_ui.setup_unlock(scenes, picked_ids, theme, tier)
+	get_tree().paused = true
+	await selection_ui.tree_exited
+	_unlock_selection_open = false
+	return true
+
+
+## --- Kayıt / sıfırlama ---
+
+func _reset_unlocks_to_starter() -> void:
+	unlocked_item_ids.clear()
+	for id in STARTER_ITEM_IDS:
+		if ITEM_SCENES.has(id) and id not in EXCLUDED_ITEM_IDS:
+			unlocked_item_ids.append(id)
+	_cascade_unlocks()
+
+
+func reset_for_new_game() -> void:
+	_pending_unlock_offers.clear()
+	permanently_banished_ids.clear()
+	oracle_category = -1
+	falci_arrives_day = -1
+	falci_leaves_day = -1
+	_falci_present_cache = false
+	_reset_unlocks_to_starter()
+	refresh_falci_schedule()
+
+
+func get_save_data() -> Dictionary:
+	return {
+		"unlocked_items": unlocked_item_ids.duplicate(),
+		"pending_unlock_offers": _pending_unlock_offers.duplicate(true),
+		"permanently_banished": permanently_banished_ids.duplicate(),
+		"oracle_category": oracle_category,
+		"falci_arrives_day": falci_arrives_day,
+		"falci_leaves_day": falci_leaves_day,
+	}
+
+
+func load_save_data(data: Variant) -> void:
+	_pending_unlock_offers.clear()
+	permanently_banished_ids.clear()
+	oracle_category = -1
+	if not data is Dictionary:
+		_reset_unlocks_to_starter()
+		return
+	var d: Dictionary = data as Dictionary
+	var banished: Variant = d.get("permanently_banished", null)
+	if banished is Array:
+		for bid in (banished as Array):
+			var b: String = String(bid).strip_edges()
+			if ITEM_SCENES.has(b) and b not in permanently_banished_ids:
+				permanently_banished_ids.append(b)
+	oracle_category = int(d.get("oracle_category", -1))
+	falci_arrives_day = int(d.get("falci_arrives_day", -1))
+	falci_leaves_day = int(d.get("falci_leaves_day", -1))
+	_falci_present_cache = is_falci_in_village()
+	var raw: Variant = d.get("unlocked_items", null)
+	if not (raw is Array) or (raw as Array).is_empty():
+		# Unlock verisi olmayan eski kayıt: başlangıç havuzuyla başlat.
+		_reset_unlocks_to_starter()
+	else:
+		unlocked_item_ids.clear()
+		for rid in (raw as Array):
+			var id: String = String(rid).strip_edges()
+			if id.is_empty() or id in EXCLUDED_ITEM_IDS:
+				continue
+			if ITEM_SCENES.has(id) and id not in unlocked_item_ids:
+				unlocked_item_ids.append(id)
+		_cascade_unlocks()
+	var pending: Variant = d.get("pending_unlock_offers", null)
+	if pending is Array:
+		for entry in (pending as Array):
+			if entry is Dictionary:
+				_pending_unlock_offers.append((entry as Dictionary).duplicate(true))
+
+
+## Debug: her item tam bir kez atanmış mı? Liste elle tutulduğu için sapma yakalar.
+func _validate_unlock_pools() -> void:
+	var seen: Dictionary = {}
+	var dupes: Array[String] = []
+	for id in STARTER_ITEM_IDS:
+		if seen.has(id):
+			dupes.append(id)
+		seen[id] = true
+	for theme in DUNGEON_THEME_POOLS:
+		for tier in [UNLOCK_TIER_KESIF, UNLOCK_TIER_BOSS]:
+			for id in DUNGEON_THEME_POOLS[theme].get(tier, []):
+				var sid: String = String(id)
+				if seen.has(sid):
+					dupes.append(sid)
+				seen[sid] = true
+				if not ITEM_SCENES.has(sid):
+					push_warning("[ItemManager] Havuzda olup ITEM_SCENES'te olmayan item: %s (%s/%s)" % [sid, theme, tier])
+	for id in _dependent_item_ids():
+		seen[id] = true
+	for id in EXCLUDED_ITEM_IDS:
+		seen[id] = true
+	var unassigned: Array[String] = []
+	for id in ITEM_SCENES:
+		if not seen.has(String(id)):
+			unassigned.append(String(id))
+	if not dupes.is_empty():
+		push_warning("[ItemManager] Birden fazla havuzda geçen item: %s" % ", ".join(dupes))
+	if not unassigned.is_empty():
+		push_warning("[ItemManager] Hiçbir havuza atanmamış item: %s" % ", ".join(unassigned))
 
 func _process(delta: float) -> void:
 	# Scene transition sirasinda player veya item instance'i freed olabilir.
@@ -215,10 +684,19 @@ func register_player(p: CharacterBody2D) -> void:
 	if is_instance_valid(old_player) and old_player.has_signal("decoy_fall_attack_impacted"):
 		if old_player.is_connected("decoy_fall_attack_impacted", _on_decoy_fall_attack_impacted):
 			old_player.decoy_fall_attack_impacted.disconnect(_on_decoy_fall_attack_impacted)
+	if is_instance_valid(old_player) and old_player.has_signal("player_attack_landed"):
+		if old_player.is_connected("player_attack_landed", _on_global_attack_landed_brawl_family):
+			old_player.player_attack_landed.disconnect(_on_global_attack_landed_brawl_family)
 	player = p
 	if player and player.has_signal("decoy_fall_attack_impacted"):
 		if not player.is_connected("decoy_fall_attack_impacted", _on_decoy_fall_attack_impacted):
 			player.decoy_fall_attack_impacted.connect(_on_decoy_fall_attack_impacted)
+	# Brawl ailesi sinerjisi (bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4): tek bir merkezi
+	# dinleyici, item-özel değil — her item'ın kendi _on_player_attack_landed'ını yazmasına
+	# gerek yok, eşik sağlandığında otomatik devreye girer.
+	if player and player.has_signal("player_attack_landed"):
+		if not player.is_connected("player_attack_landed", _on_global_attack_landed_brawl_family):
+			player.player_attack_landed.connect(_on_global_attack_landed_brawl_family)
 	# Reactivate any existing items for the new player
 	for item in active_items:
 		if item.has_method("activate"):
@@ -374,6 +852,7 @@ func clear_all_items() -> void:
 	_set_bonus_cache.clear()
 	enemy_kill_count = 0  # Sonraki zindan run için sıfırla
 	xp_orbs_collected = 0
+	_run_banished_ids.clear()  # Tüccarın elemesi run'a özgü
 	xp_orbs_collected_changed.emit(xp_orbs_collected)
 	print("[ItemManager] 🗑️ All items cleared")
 
@@ -597,12 +1076,180 @@ func _on_item_selection_closed() -> void:
 	xp_orbs_collected = 0
 	xp_orbs_collected_changed.emit(xp_orbs_collected)
 
-func get_random_items(count: int = 3) -> Array[PackedScene]:
-	var available_ids: Array[String] = []
+## Bu run boyunca teklif havuzundan elenen item'lar (zindan tüccarının hizmeti).
+## Run bitince clear_all_items() ile sıfırlanır — kalıcı silme falcının işi (aşağıda).
+var _run_banished_ids: Array[String] = []
 
+## FALCI (kalıcı, kayda yazılır)
+## Kalıcı olarak teklif havuzundan çıkarılan item'lar. Meta-progression'ın en güçlü
+## kaldıracı: gelecekteki BÜTÜN run'ların kart kalitesini yükseltir.
+var permanently_banished_ids: Array[String] = []
+## Kehanet: bir sonraki unlock teklifinde bir slot bu kategoriye yönlendirilir (-1 = yok).
+var oracle_category: int = -1
+
+
+## Falcının köy ziyaret takvimi. Kervanla gelir gibi düşünülüyor ama tüccar sistemine
+## bağlanmadı: tüccar listesi kaynak/ürün satışı üzerine kurulu, falcının satacak ürünü yok
+## ve ticaret arayüzünde ürünsüz bir satıcı olarak görünürdü. Takvim burada duruyor çünkü
+## verdiği hizmetlerin tamamı zaten bu sınıfın state'i (kayıt da buraya bağlı).
+signal falci_presence_changed(present: bool)
+
+const FALCI_VISIT_INTERVAL_MIN: int = 6
+const FALCI_VISIT_INTERVAL_MAX: int = 9
+const FALCI_STAY_DAYS: int = 2
+
+var falci_arrives_day: int = -1
+var falci_leaves_day: int = -1
+var _falci_present_cache: bool = false
+
+
+func is_falci_in_village() -> bool:
+	if falci_arrives_day < 0:
+		return false
+	var day: int = _current_day()
+	return day >= falci_arrives_day and day < falci_leaves_day
+
+
+## Gün değişiminde çağrılır: ziyaret bittiyse bir sonrakini planlar.
+func refresh_falci_schedule() -> void:
+	var day: int = _current_day()
+	if falci_arrives_day < 0:
+		_schedule_next_falci_visit(day)
+	elif day >= falci_leaves_day:
+		_schedule_next_falci_visit(day)
+	var present: bool = is_falci_in_village()
+	if present != _falci_present_cache:
+		_falci_present_cache = present
+		falci_presence_changed.emit(present)
+
+
+func _schedule_next_falci_visit(from_day: int) -> void:
+	var gap: int = randi_range(FALCI_VISIT_INTERVAL_MIN, FALCI_VISIT_INTERVAL_MAX)
+	falci_arrives_day = from_day + gap
+	falci_leaves_day = falci_arrives_day + FALCI_STAY_DAYS
+	print("[ItemManager] 🔮 Falcı %d. günde gelecek, %d. günde gidecek" % [falci_arrives_day, falci_leaves_day])
+
+
+func _current_day() -> int:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if is_instance_valid(tm) and tm.has_method("get_day"):
+		return int(tm.call("get_day"))
+	return 0
+
+
+## Dev/test: falcıyı hemen köye getirir.
+func force_falci_visit_now() -> void:
+	var day: int = _current_day()
+	falci_arrives_day = day
+	falci_leaves_day = day + FALCI_STAY_DAYS
+	_falci_present_cache = true
+	falci_presence_changed.emit(true)
+
+
+func banish_item_permanently(item_id: String) -> bool:
+	if item_id.is_empty() or not ITEM_SCENES.has(item_id):
+		return false
+	if item_id in permanently_banished_ids:
+		return false
+	permanently_banished_ids.append(item_id)
+	print("[ItemManager] 🔮 Kalıcı olarak elendi: %s" % item_id)
+	return true
+
+
+func is_permanently_banished(item_id: String) -> bool:
+	return item_id in permanently_banished_ids
+
+
+## Takas edilebilir mi? Ön koşul zincirinin ebeveyni olan item takas edilemez —
+## çıkarılırsa çocukları koleksiyonda ölü ağırlık olarak kalır.
+func can_swap_unlocked_item(item_id: String) -> bool:
+	if not is_unlocked(item_id) or item_id in STARTER_ITEM_IDS:
+		return false
+	for child_id in _dependent_item_ids():
+		if not is_unlocked(child_id):
+			continue
+		if item_id in ITEM_REQUIREMENTS.get(child_id, []):
+			return false
+		if item_id in ITEM_REQUIREMENTS_ANY.get(child_id, []):
+			# VEYA koşulu: başka bir ebeveyn hâlâ açıksa çıkarmak güvenli
+			var other_parent_open: bool = false
+			for parent_id in ITEM_REQUIREMENTS_ANY[child_id]:
+				if String(parent_id) != item_id and is_unlocked(String(parent_id)):
+					other_parent_open = true
+					break
+			if not other_parent_open:
+				return false
+	return true
+
+
+## Takas: verilen item koleksiyondan çıkar, yerine aynı rarity'den rastgele kapalı bir item
+## açılır. Yeni item'ın id'sini döner; takas mümkün değilse boş string.
+func swap_unlocked_item(item_id: String) -> String:
+	if not can_swap_unlocked_item(item_id):
+		return ""
+	var meta: Dictionary = get_item_meta(item_id)
+	if meta.is_empty():
+		return ""
+	var target_rarity: int = int(meta.get("rarity", 0))
+	var candidates: Array[String] = []
+	for other_id in ITEM_SCENES:
+		var oid: String = String(other_id)
+		if is_unlocked(oid) or oid == item_id:
+			continue
+		if is_permanently_banished(oid) or oid in EXCLUDED_ITEM_IDS:
+			continue
+		if oid in _dependent_item_ids():
+			continue  # Ön koşullu item'lar ebeveyniyle gelir, takasla değil
+		if int(get_item_meta(oid).get("rarity", -1)) == target_rarity:
+			candidates.append(oid)
+	if candidates.is_empty():
+		return ""
+	unlocked_item_ids.erase(item_id)
+	var replacement: String = candidates[randi() % candidates.size()]
+	unlocked_item_ids.append(replacement)
+	item_unlocked.emit(replacement)
+	print("[ItemManager] 🔮 Takas: %s -> %s" % [item_id, replacement])
+	return replacement
+
+
+## Kehanet: sonraki unlock teklifinde bir slotu bu kategoriye yönlendirir.
+func set_oracle_category(category: int) -> void:
+	oracle_category = category
+
+
+func consume_oracle_category() -> int:
+	var c: int = oracle_category
+	oracle_category = -1
+	return c
+
+
+func banish_item_for_run(item_id: String) -> bool:
+	if item_id.is_empty() or item_id in _run_banished_ids:
+		return false
+	if not ITEM_SCENES.has(item_id):
+		return false
+	_run_banished_ids.append(item_id)
+	print("[ItemManager] 🚫 Bu run boyunca teklif edilmeyecek: %s" % item_id)
+	return true
+
+
+func is_banished_for_run(item_id: String) -> bool:
+	return item_id in _run_banished_ids
+
+
+## Şu anda kart olarak teklif edilebilecek item id'leri (açık, aktif değil, ön koşulu tam,
+## bu run'da elenmemiş). Hem draft hem tüccar stoğu buradan beslenir.
+func get_offer_candidate_ids() -> Array[String]:
+	var available_ids: Array[String] = []
 	for item_id in ITEM_SCENES:
+		# Koleksiyonda olmayan item run içinde teklif edilmez (bkz. UNLOCK SİSTEMİ)
+		if not is_unlocked(item_id):
+			continue
 		# Zaten seçilmiş item tekrar çıkmasın
 		if has_active_item(item_id):
+			continue
+		# Tüccara "bunu bir daha gösterme" dedik (bu run) / falcı kalıcı olarak eledi
+		if is_banished_for_run(item_id) or is_permanently_banished(item_id):
 			continue
 		# Ön koşullu item: gerekli item(lar) yoksa seçenekte gösterme
 		if item_id in ITEM_REQUIREMENTS:
@@ -625,7 +1272,11 @@ func get_random_items(count: int = 3) -> Array[PackedScene]:
 			if not any_met:
 				continue
 		available_ids.append(item_id)
+	return available_ids
 
+
+func get_random_items(count: int = 3) -> Array[PackedScene]:
+	var available_ids: Array[String] = get_offer_candidate_ids()
 	available_ids.shuffle()
 	var picked_ids: Array[String] = available_ids.slice(0, min(count, available_ids.size()))
 
@@ -659,6 +1310,50 @@ func _get_favored_category() -> int:
 			best_count = int(counts[cat])
 			best_cat = cat
 	return best_cat
+
+## Bir item'ın gösterim bilgisi (ad, açıklama, rarity, kategori). Sahneyi instantiate eder,
+## o yüzden sadece birkaç kart için çağır — kart çekiminde değil, tüccar vitrininde.
+## Ad tr() ile üretildiği için önbelleğe alınmıyor: dil değişince güncel kalsın.
+func get_item_meta(item_id: String) -> Dictionary:
+	if not ITEM_SCENES.has(item_id):
+		return {}
+	var temp = ITEM_SCENES[item_id].instantiate()
+	if temp == null:
+		return {}
+	var meta: Dictionary = {
+		"id": item_id,
+		"name": String(temp.item_name),
+		"description": String(temp.description),
+		"rarity": int(temp.rarity),
+		"category": int(temp.category),
+	}
+	temp.queue_free()
+	return meta
+
+
+## Tüccar vitrini: build'e ağırlıklı kart stoğu.
+## Aktif item'larda baskın bir kategori varsa kartların bir kısmı ona yönlendirilir —
+## Falcı Kadın'ın kart çekimindeki mantığının aynısı, vitrine uygulanmış hâli.
+func pick_merchant_stock(count: int = 3) -> Array[String]:
+	var candidates: Array[String] = get_offer_candidate_ids()
+	if candidates.is_empty():
+		return []
+	candidates.shuffle()
+	var picked: Array[String] = []
+	var favored: int = _get_favored_category()
+	if favored != -1:
+		for id in candidates:
+			if picked.size() >= maxi(1, count / 2):
+				break
+			if _get_item_category(id) == favored:
+				picked.append(id)
+	for id in candidates:
+		if picked.size() >= count:
+			break
+		if id not in picked:
+			picked.append(id)
+	return picked
+
 
 func _get_item_category(item_id: String) -> int:
 	if not ITEM_SCENES.has(item_id):
@@ -698,6 +1393,435 @@ func get_set_bonus_int(bonus_key: String, default_value: int = 0) -> int:
 	return int(_set_bonus_cache.get(bonus_key, default_value))
 
 
+## ============================================================================
+## TAG SİSTEMİ — bkz. docs/ITEM_SYNERGY_DESIGN.md §10.
+## Element üreten item'lar (zehirli_tirnak, atesli_yumruk, buzlu_kilic,
+## simsek_parmagi ve ağır/düşüş eşdeğerleri) "elemental_poison/fire/ice/lightning"
+## tag'lerini taşır. Element TÜKETEN yeni mekanikler (zehirli_sekme, element_degisimi)
+## artık kendi elementini hardcode etmek yerine bu iki fonksiyonu kullanır.
+## ============================================================================
+
+## Aktif item'ların "elemental_*" tag'lerinden türetilen benzersiz element listesi.
+func get_active_elements() -> Array[String]:
+	var out: Array[String] = []
+	for item in active_items:
+		if not is_instance_valid(item):
+			continue
+		for t in item.tags:
+			if String(t).begins_with("elemental_"):
+				var el: String = String(t).trim_prefix("elemental_")
+				if not out.has(el):
+					out.append(el)
+	return out
+
+
+## Tek merkezi element uygulama noktası. "poison"/"fire"/"ice" düşmanın kendi
+## add_X_stack metoduna (varsa) yönlendirilir; poison_mastery set bonusu burada
+## da geçerli olsun diye zehirli_tirnak.gd ile aynı get_set_bonus okumaları
+## kullanılıyor. "lightning" düşmanda kalıcı bir stack sistemine sahip değil
+## (bkz. simsek_parmagi.gd — anlık zincir hasarı), bu yüzden burada da tek
+## seferlik doğrudan hasar olarak uygulanıyor.
+const _ELEMENT_LIGHTNING_TOUCH_DAMAGE := 5.0
+
+func apply_element_to_enemy(enemy: Node2D, element: String) -> void:
+	if not is_instance_valid(enemy):
+		return
+	match element:
+		"poison":
+			if enemy.has_method("add_poison_stack"):
+				var max_stacks := 5 + get_set_bonus_int("poison_max_stacks_bonus", 0)
+				var dmg_per_stack := 1.0 * get_set_bonus("poison_damage_mult", 1.0)
+				enemy.add_poison_stack(max_stacks, dmg_per_stack, 2.0)
+		"fire":
+			if enemy.has_method("add_burn_stack"):
+				enemy.add_burn_stack()
+		"ice":
+			if enemy.has_method("add_frost_stack"):
+				enemy.add_frost_stack(1)
+		"lightning":
+			if enemy.has_method("take_damage"):
+				enemy.take_damage(_ELEMENT_LIGHTNING_TOUCH_DAMAGE, 0.0, 0.0, true)
+			_apply_lightning_reactions(enemy)
+
+
+## Element Reaksiyon Matrisi (bkz. docs/ITEM_PIPELINE_DESIGN.md §3): şimşeğin
+## `enemy/base_enemy.gd`'deki poison_stacks/burn_remaining_ticks/frost_stacks
+## gibi kalıcı bir stack'i yok (anlık hasar) — bu yüzden buz/zehir/ateşle olan
+## reaksiyonları, şimşeğin uygulandığı BU anda kontrol ediyoruz. Zehir+Ateş ve
+## Ateş+Buz ve Zehir+Buz reaksiyonları bunun yerine base_enemy.gd'nin kendi
+## add_burn_stack()/add_frost_stack() fonksiyonlarında (kalıcı stack'ler
+## arasında, sıraya bakılmaksızın kontrol edilebildiği için) yaşıyor.
+func _apply_lightning_reactions(enemy: Node2D) -> void:
+	if not enemy.has_method("take_damage"):
+		return
+	var frost: int = int(enemy.get("frost_stacks")) if enemy.get("frost_stacks") != null else 0
+	if frost > 0:
+		# Buz + Şimşek = Kırılma: donmuş düşman büyük bonus hasar alır, don tüketilir
+		var shatter_damage := float(frost) * 2.0
+		enemy.set("frost_stacks", 0)
+		enemy.take_damage(shatter_damage, 0.0, 0.0, true)
+	var poison: int = int(enemy.get("poison_stacks")) if enemy.get("poison_stacks") != null else 0
+	if poison > 0:
+		# Zehir + Şimşek = Uçucu Zehir: biriken zehir anında patlar, stack'ler tüketilir
+		var dmg_per_stack: float = float(enemy.get("poison_damage_per_stack")) if enemy.get("poison_damage_per_stack") != null else 1.0
+		var burst_damage := float(poison) * dmg_per_stack * 2.0
+		enemy.set("poison_stacks", 0)
+		enemy.take_damage(burst_damage, 0.0, 0.0, true)
+	var burn: int = int(enemy.get("burn_remaining_ticks")) if enemy.get("burn_remaining_ticks") != null else 0
+	if burn > 0:
+		# Ateş + Şimşek = Aşırı Yükleme: yanan düşman ekstra şok hasarı alır (en hafif ikili)
+		enemy.take_damage(float(burn) * 0.5, 0.0, 0.0, true)
+
+
+## ============================================================================
+## HAREKET AİLESİ SİNERJİSİ — bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4.
+## zehirli_sekme'nin özel davranışı (dodge/dash temas hasarı + aktif element)
+## artık tek bir item'a bağlı değil: "restless_body" ailesi (3+ hareket kategorili
+## item) eşiği sağlandığında da otomatik açılır. dodge_state.gd ve dash_state.gd
+## bu tek fonksiyonu çağırır, mantığı kendi içlerinde tekrar etmezler.
+## ============================================================================
+
+func movement_contact_damage_enabled() -> bool:
+	return has_active_item("zehirli_sekme") or active_item_sets.has("restless_body")
+
+
+## Soğuk Temas (Kaçınma pipeline, bkz. docs/ITEM_PIPELINE_DESIGN.md §2.2) bu
+## turdaki temas döngüsünü Zehirli Sekme/restless_body olmadan da çalıştırır.
+func movement_contact_tick_enabled() -> bool:
+	return movement_contact_damage_enabled() or has_active_item("soguk_temas")
+
+
+## Kavis Adımı (Kaçınma pipeline): temas yarıçapını genişletir.
+func get_movement_contact_radius(base_radius: float) -> float:
+	if has_active_item("kavis_adimi"):
+		return base_radius * 1.6
+	return base_radius
+
+
+## hit_ids: çağıran state'in (dodge/dash) kendi "bu hareket başına bir kez vur"
+## dizisi — paylaşılmaz, her state kendi Array'ini tutar.
+func apply_movement_contact_tick(hit_ids: Array, radius: float, base_damage: float) -> void:
+	if not movement_contact_tick_enabled() or not is_instance_valid(player):
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var effective_radius := get_movement_contact_radius(radius)
+	var elements := get_active_elements()
+	var deal_contact_damage := movement_contact_damage_enabled()
+	var apply_frost := has_active_item("soguk_temas")
+	var specialist_mult := get_specialist_multiplier("kacinma")
+	for node in tree.get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+			continue
+		if hit_ids.has(node.get_instance_id()):
+			continue
+		if player.global_position.distance_to(node.global_position) > effective_radius:
+			continue
+		hit_ids.append(node.get_instance_id())
+		if deal_contact_damage:
+			if node.has_method("take_damage"):
+				node.take_damage(base_damage * specialist_mult, 80.0, 60.0, true)
+			for element in elements:
+				apply_element_to_enemy(node, element)
+		if apply_frost and node.has_method("add_frost_stack"):
+			node.add_frost_stack(1)
+
+
+## İz Bırakan (Kaçınma pipeline, bkz. docs/ITEM_PIPELINE_DESIGN.md §2.2): dodge/dash
+## yolunun tamamına küçük bir hasar taraması yapar — kalıcı bir tuzak sahnesi
+## eklemek yerine, yol boyunca birkaç örnek noktada anlık bir "kılıç darbesi"
+## gibi davranır. hit_ids ile aynı dodge/dash içinde bir düşmana tekrar vurmaz.
+func apply_movement_trail_if_active(hit_ids: Array, start_pos: Vector2, end_pos: Vector2) -> void:
+	if not has_active_item("iz_birakan"):
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	const TRAIL_SAMPLES := 4
+	const TRAIL_RADIUS := 40.0
+	const TRAIL_DAMAGE := 3.0
+	var specialist_mult := get_specialist_multiplier("kacinma")
+	for i in range(1, TRAIL_SAMPLES + 1):
+		var t: float = float(i) / float(TRAIL_SAMPLES)
+		var sample_pos: Vector2 = start_pos.lerp(end_pos, t)
+		for node in tree.get_nodes_in_group("enemies"):
+			if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+				continue
+			if hit_ids.has(node.get_instance_id()):
+				continue
+			if sample_pos.distance_to(node.global_position) > TRAIL_RADIUS:
+				continue
+			hit_ids.append(node.get_instance_id())
+			if node.has_method("take_damage"):
+				node.take_damage(TRAIL_DAMAGE * specialist_mult, 0.0, 0.0, true)
+
+
+## ============================================================================
+## ELEMENT İZİ — bkz. docs/ITEM_PIPELINE_DESIGN.md §8.2 madde 1.
+## Eskiden element_izi/dodge_zehiri/ziplama_zehiri/slide_simsegi dört ayrı item
+## olarak, dört ayrı hareket fiiline (dodge/dodge/zıplama/slide) bağlı, çoğu tek
+## elemente sabit olarak yazılmıştı. Tek bir "element_izi" item'ında birleştirildi;
+## dodge_state.gd, dash_state.gd, jump_state.gd, slide_state.gd bu TEK fonksiyonu
+## çağırır. element_izi.gd artık pasif bir işarettir, gerçek mantık burada.
+## ============================================================================
+
+const _ELEMENT_TRAIL_LIGHTNING_RADIUS := 70.0
+const _ELEMENT_TRAIL_LIGHTNING_DAMAGE := 4.0
+const _FirePatchScene := preload("res://effects/ground_fire_patch.tscn")
+const _IcePatchScene := preload("res://effects/ground_ice_patch.tscn")
+const _PoisonCloudScript := preload("res://effects/poison_cloud.gd")
+const _LightningFlashScript := preload("res://effects/lightning_flash.gd")
+
+func spawn_element_trail_if_active(pos: Vector2) -> void:
+	if not has_active_item("element_izi"):
+		return
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	for element in get_active_elements():
+		match element:
+			"poison":
+				var cloud = Node2D.new()
+				cloud.set_script(_PoisonCloudScript)
+				tree.current_scene.add_child(cloud)
+				cloud.global_position = pos
+			"fire":
+				var fire_patch = _FirePatchScene.instantiate()
+				tree.current_scene.add_child(fire_patch)
+				fire_patch.global_position = pos
+			"ice":
+				var ice_patch = _IcePatchScene.instantiate()
+				tree.current_scene.add_child(ice_patch)
+				ice_patch.global_position = pos
+			"lightning":
+				# Şimşeğin kalıcı bir zemin sahnesi yok (bkz. apply_element_to_enemy) —
+				# burada da aynı "anlık, kalıcı değil" karaktere sadık kalınıyor.
+				var flash = Node2D.new()
+				flash.set_script(_LightningFlashScript)
+				tree.current_scene.add_child(flash)
+				flash.global_position = pos
+				for node in tree.get_nodes_in_group("enemies"):
+					if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+						continue
+					if pos.distance_to(node.global_position) <= _ELEMENT_TRAIL_LIGHTNING_RADIUS and node.has_method("take_damage"):
+						node.take_damage(_ELEMENT_TRAIL_LIGHTNING_DAMAGE, 0.0, 0.0, true)
+
+
+## ============================================================================
+## HAREKET/PARKUR BORU HATTI — bkz. docs/ITEM_PIPELINE_DESIGN.md §2.5.
+## Duvar Kırıcı ve Rüzgâr Toplama pasif işaretlerdir; gerçek mantık burada,
+## wall_slide_state.gd/ledge_grab_state.gd/slide_state.gd/jump_state.gd'nin
+## dört ayrı parkur eylemi noktasından çağrılır (Kesintisiz Akrobasi bu
+## merkezi fonksiyonlara ihtiyaç duymuyor — ledge_grab_state.gd doğrudan
+## has_active_item ile player.enable_double_jump() çağırıyor).
+## ============================================================================
+
+const _WALL_JUMP_BURST_RADIUS := 90.0
+const _WALL_JUMP_BURST_DAMAGE := 6.0
+
+func apply_wall_jump_burst(pos: Vector2) -> void:
+	if not has_active_item("duvar_kirici"):
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var specialist_mult := get_specialist_multiplier("hareket")
+	for node in tree.get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+			continue
+		if pos.distance_to(node.global_position) > _WALL_JUMP_BURST_RADIUS:
+			continue
+		if node.has_method("take_damage"):
+			node.take_damage(_WALL_JUMP_BURST_DAMAGE * specialist_mult, 100.0, 60.0, true)
+
+
+## Rüzgâr Toplama: her ayrı parkur eylemi (duvar zıplama/kenar tutunma/slide/
+## çift zıplama) küçük bir kesirli stamina şarjı iade eder — "hiç durmadan
+## hareket eden" bir build'i stamina ekonomisiyle ödüllendirir.
+const _PARKOUR_MOMENTUM_RESTORE := 0.1
+
+func apply_parkour_momentum_tick() -> void:
+	if not has_active_item("ruzgar_toplama"):
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var bar = tree.get_first_node_in_group("stamina_bar")
+	if bar and bar.has_method("restore_partial_charge"):
+		bar.restore_partial_charge(_PARKOUR_MOMENTUM_RESTORE * get_specialist_multiplier("hareket"))
+
+
+## ============================================================================
+## MERMİ ALT-DALI — bkz. docs/ITEM_PIPELINE_DESIGN.md §2.1 "Mermi alt-dalı".
+## uzun_menzil/ok_yagmuru/golge_nisanci (Tetik katmanı, açıcılar) buradaki TEK
+## fonksiyonu çağırır; Sürü Oku/Yansıyan Ok/Rüzgârın Nişanı/Yankı Oku/Kartal
+## Bakışı/Ağır Mermi/Peşine Düşen/Ruh Mermisi (Hedef/Yük/Son-etki) hepsi pasif
+## işaret, gerçek uygulama burada. Önceden uzun_menzil.gd ve ok_yagmuru.gd'de
+## birbirinin aynısı iki kopya olarak duran _apply_projectile_upgrades()
+## buraya taşındı — Sürü Oku'nun yelpaze-spawn'ı üçüncü bir kopya (Gölge
+## Nişancı) gerektirdiği için merkezileştirmek daha az riskli hale geldi.
+## ============================================================================
+
+const _MermiProjectileScript = preload("res://effects/light_attack_projectile.gd")
+const _SURU_OKU_SPREAD_DEG := 15.0
+const _SURU_OKU_DAMAGE_RATIO := 0.4
+
+## scene_root: proj'un ekleneceği sahne kökü (çağıranın tree.current_scene'i).
+## max_distance_override: -1.0 ise projectile'ın kendi varsayılanı korunur.
+func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vector2, damage: float, max_distance_override: float = -1.0) -> void:
+	if not scene_root:
+		return
+	var directions: Array[Vector2] = [direction]
+	var damage_ratio := 1.0
+	if has_active_item("suru_oku"):
+		directions = [
+			direction.rotated(deg_to_rad(-_SURU_OKU_SPREAD_DEG)),
+			direction,
+			direction.rotated(deg_to_rad(_SURU_OKU_SPREAD_DEG)),
+		]
+		damage_ratio = _SURU_OKU_DAMAGE_RATIO
+	damage_ratio *= get_specialist_multiplier("temas")
+	for dir in directions:
+		var proj = Node2D.new()
+		proj.set_script(_MermiProjectileScript)
+		scene_root.add_child(proj)
+		proj.setup(origin, dir, damage * damage_ratio)
+		if max_distance_override > 0.0:
+			proj.max_distance = max_distance_override
+		_apply_projectile_item_upgrades(proj)
+
+
+func _apply_projectile_item_upgrades(proj: Node) -> void:
+	if has_active_item("yansiyan_ok"):
+		proj.bounce_remaining = 1
+	if has_active_item("ruzgarin_nisani"):
+		var RuzgarinNisani = load("res://resources/items/ruzgarin_nisani.gd")
+		proj.element = RuzgarinNisani.detect_active_element(self)
+	if has_active_item("yanki_oku"):
+		proj.echo = true
+	if has_active_item("kartal_bakisi"):
+		proj.unlimited_range = true
+	if has_active_item("agir_mermi"):
+		proj.knockback_force = 140.0
+		proj.knockback_up_force = 80.0
+	if has_active_item("pesine_dusen"):
+		proj.homing_strength = 2.5
+	if has_active_item("ruh_mermisi"):
+		proj.soul_chain = true
+
+
+## ============================================================================
+## WILDCARD/JOKER — bkz. docs/ITEM_PIPELINE_DESIGN.md §7.
+## "Kaç FARKLI boru hattına item ekledin" (Usta İşçi) / "hangi TEK hatta
+## uzmanlaştın" (Tek Sanat) sorusu, her item'ın zaten taşıdığı `category`
+## alanından türetilir — item dosyalarına yeni bir alan eklemek gerekmedi.
+## Kategori → hat eşlemesi çoğu item için otomatik doğru sonuç verir; 3
+## istisna (toplu_kaldirma/agirliksiz/kader_ani, hepsi HEAVY_ATTACK ama
+## gerçekte Havaya Fırlatma'ya ait) _PIPELINE_OVERRIDES ile düzeltiliyor.
+## Mermi alt-dalı ayrı sayılmaz — doküman "Mermi ayrı bir hat değil, Temas
+## Saldırısı'nın alt dalı" diyor ve zaten LIGHT_ATTACK/HEAVY_ATTACK/
+## FALL_ATTACK kategorili, otomatik "temas"a düşüyor. STAMINA/SPECIAL/
+## SYNERGY kategorili item'lar (düz stat item'ları, wildcard'ların kendisi)
+## hiçbir hatta sayılmaz — "hangi FİİLİ değiştirdin" sorusunun cevabı yok.
+## ============================================================================
+
+const _CATEGORY_PIPELINE_MAP := {
+	ItemEffect.ItemCategory.LIGHT_ATTACK: "temas",
+	ItemEffect.ItemCategory.HEAVY_ATTACK: "temas",
+	ItemEffect.ItemCategory.FALL_ATTACK: "temas",
+	ItemEffect.ItemCategory.DODGE: "kacinma",
+	ItemEffect.ItemCategory.BLOCK: "savunma",
+	ItemEffect.ItemCategory.PARRY: "savunma",
+	ItemEffect.ItemCategory.WALL_SLIDE: "hareket",
+	ItemEffect.ItemCategory.SLIDE: "hareket",
+	ItemEffect.ItemCategory.CROUCH: "hareket",
+	ItemEffect.ItemCategory.JUMP: "hareket",
+}
+const _PIPELINE_OVERRIDES := {
+	"toplu_kaldirma": "havaya",
+	"agirliksiz": "havaya",
+	"kader_ani": "havaya",
+}
+
+func _get_item_pipeline(item: ItemEffect) -> String:
+	if _PIPELINE_OVERRIDES.has(item.item_id):
+		return _PIPELINE_OVERRIDES[item.item_id]
+	return _CATEGORY_PIPELINE_MAP.get(item.category, "")
+
+
+## pipeline_id -> o hatta ait aktif item sayısı. Usta İşçi ve Tek Sanat'ın
+## ortak veri kaynağı.
+func get_pipeline_item_counts() -> Dictionary:
+	var counts := {}
+	for item in active_items:
+		if not is_instance_valid(item):
+			continue
+		var pipeline := _get_item_pipeline(item)
+		if pipeline == "":
+			continue
+		counts[pipeline] = counts.get(pipeline, 0) + 1
+	return counts
+
+
+func count_active_pipelines() -> int:
+	return get_pipeline_item_counts().size()
+
+
+## Tek Sanat: oyuncunun item'ları SADECE bir hatta toplanmışsa (başka hiçbir
+## hatta item yok) ve o hatta 5+ item varsa, o hattın numeric çıktısı (hasar/
+## iade miktarı) 1.5x güçlenir. Aksi halde 1.0 (no-op) — çağıran yerler bunu
+## koşulsuz çarpabilir.
+const TEK_SANAT_MIN_ITEMS := 5
+const TEK_SANAT_MULTIPLIER := 1.5
+
+func get_specialist_multiplier(pipeline: String) -> float:
+	if not has_active_item("tek_sanat"):
+		return 1.0
+	var counts := get_pipeline_item_counts()
+	if counts.size() != 1:
+		return 1.0
+	if not counts.has(pipeline) or counts[pipeline] < TEK_SANAT_MIN_ITEMS:
+		return 1.0
+	return TEK_SANAT_MULTIPLIER
+
+
+## ============================================================================
+## DÖVÜŞ AİLESİ SİNERJİSİ — bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4.
+## "brawler_instinct" ailesi (4+ light/heavy/fall kategorili item) eşiği sağlandığında,
+## HER isabetli vuruş (saldırı tipi fark etmeden) aktif element(ler)i uygular — oyuncunun
+## "doğru" saldırı-tipi item'ını bulmasına gerek kalmaz. register_player() içinde TEK
+## seferlik bağlanır, item-özel bir sinyal dinleyicisi değildir.
+## ============================================================================
+
+func _resolve_attack_target_enemy(target: Node) -> Node:
+	if not is_instance_valid(target):
+		return null
+	if target.has_method("take_damage"):
+		return target
+	var p = target.get_parent()
+	if p and p.has_method("take_damage"):
+		return p
+	if p and p.get_parent() and p.get_parent().has_method("take_damage"):
+		return p.get_parent()
+	return null
+
+
+func _on_global_attack_landed_brawl_family(_attack_type: String, _damage: float, targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
+	if effect_filter == "physical_only":
+		return
+	if not active_item_sets.has("brawler_instinct"):
+		return
+	var elements := get_active_elements()
+	if elements.is_empty():
+		return
+	for t in targets:
+		var enemy := _resolve_attack_target_enemy(t)
+		if enemy and is_instance_valid(enemy) and enemy.get("current_behavior") != "dead":
+			for element in elements:
+				apply_element_to_enemy(enemy, element)
+
+
 func get_active_item_sets() -> Array[String]:
 	return active_item_sets.duplicate()
 
@@ -731,14 +1855,48 @@ func _count_owned_set_pieces(member_ids: Array) -> int:
 	return n
 
 
+## Belirli bir tag ön ekiyle başlayan (ör. "elemental_") herhangi bir tag'i taşıyan
+## aktif item sayısı. ID listesi tutmaya gerek yok — yeni bir item o tag'i taşıdığı
+## an otomatik sayılır. Bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 3.
+func _count_active_items_with_tag_prefix(prefix: String) -> int:
+	var n := 0
+	for item in active_items:
+		if not is_instance_valid(item):
+			continue
+		for t in item.tags:
+			if String(t).begins_with(prefix):
+				n += 1
+				break  # bir item aynı ön ekten birden fazla tag taşısa bile 1 kez sayılır
+	return n
+
+
+## Belirli ItemCategory değerlerinden birini taşıyan aktif item sayısı. Her item
+## zaten tek bir `category`'ye sahip (item_effect.gd) — burada yeni bir alan
+## eklemeye gerek yok, sadece kategoriler bir "aile" olarak gruplanıyor.
+## Bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4.
+func _count_active_items_with_category_family(categories: Array) -> int:
+	var n := 0
+	for item in active_items:
+		if not is_instance_valid(item):
+			continue
+		if categories.has(item.category):
+			n += 1
+	return n
+
+
 func _recalculate_item_sets() -> void:
 	var previous := active_item_sets.duplicate()
 	active_item_sets.clear()
 	_set_bonus_cache.clear()
 	for set_id in ITEM_SET_DEFINITIONS.keys():
 		var def: Dictionary = ITEM_SET_DEFINITIONS[set_id]
-		var members: Array = def.get("items", [])
-		var owned := _count_owned_set_pieces(members)
+		var owned := 0
+		if def.has("tag_prefix"):
+			owned = _count_active_items_with_tag_prefix(String(def["tag_prefix"]))
+		elif def.has("category_family"):
+			owned = _count_active_items_with_category_family(def["category_family"])
+		else:
+			owned = _count_owned_set_pieces(def.get("items", []))
 		if owned >= int(def.get("pieces_for_bonus", 2)):
 			active_item_sets.append(set_id)
 			var bonuses: Dictionary = def.get("bonuses", {})

@@ -14,6 +14,7 @@ func _init():
 	flavor_text = "Zehirli patlama"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
+	tags = ["elemental_poison"]
 	affected_stats = ["heavy_poison_arc"]
 
 func activate(player: CharacterBody2D):

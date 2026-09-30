@@ -10,6 +10,7 @@ func _init():
 	flavor_text = "Buzlu dokunuş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
+	tags = ["elemental_ice"]
 	affected_stats = ["frost_slow"]
 
 var _player: CharacterBody2D = null

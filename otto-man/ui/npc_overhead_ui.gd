@@ -15,14 +15,17 @@ const ARROW_ICON_SIZE := Vector2(20.0, 20.0)
 
 const UP_ARROW_TALK_ICON: Texture2D = preload("res://assets/Icons/up_arrow_talk_icon.png")
 
+const UP_ARROW_CAMPFIRE_ICON: Texture2D = preload("res://assets/Icons/up_arrow_campfire_icon.png")
+
 const HOUSE_HINT_ICON: Texture2D = preload("res://assets/Icons/menu_house_icon.png")
 const HOUSE_ICON_SIZE := Vector2(20.0, 20.0)
 
 
 ## "Yukarı bas" tipi etkileşimler için cihazdan bağımsız sabit bir ok ikonu — klavye/gamepad
 ## metnine göre değişmiyor, bu yüzden "D-Pad" gibi metinlerin sızması da kökten mümkün değil.
-## Konuşulabilen NPC'ler (köylü/mentor/tüccar) için build_up_arrow_talk_hint_icon() kullanılır;
-## bu düz ok, inşaat/kamp ateşi gibi konuşma içermeyen etkileşimler içindir.
+## Konuşulabilen NPC'ler için build_up_arrow_talk_hint_icon(), kamp ateşi için ise
+## build_up_arrow_campfire_hint_icon() var; bu DÜZ ok, kendi simgesi olmayan geri kalan
+## etkileşimler (inşaat parseli, portal, kamp kapısı) içindir.
 static func build_up_arrow_hint_icon() -> TextureRect:
 	var icon := TextureRect.new()
 	icon.name = "InteractHintIcon"
@@ -37,8 +40,8 @@ static func build_up_arrow_hint_icon() -> TextureRect:
 
 
 ## Konuşma balonu içeren ok ikonu — köylü/mentor/tüccar gibi diyalog açan NPC'lerin üzerinde
-## gösterilir; inşaat/kamp ateşi gibi konuşma içermeyen etkileşimlerde düz build_up_arrow_hint_icon()
-## kullanılmaya devam eder.
+## gösterilir; inşaat/portal gibi konuşma içermeyen etkileşimlerde düz build_up_arrow_hint_icon(),
+## kamp ateşinde ise build_up_arrow_campfire_hint_icon() kullanılır.
 static func build_up_arrow_talk_hint_icon() -> TextureRect:
 	var icon := TextureRect.new()
 	icon.name = "InteractHintIcon"
@@ -51,6 +54,21 @@ static func build_up_arrow_talk_hint_icon() -> TextureRect:
 	InteractBand.attach(icon)
 	return icon
 
+
+## Kamp ateşi için ok ikonu. Konuşma balonlu (NPC) ve düz (inşaat/portal/kapı) okların
+## kardeşi: kamp ateşinde yapılan şey konuşmak değil "zaman geçirmek" olduğu için kendi
+## simgesi var, oyuncu okun şekline bakıp orada ne olacağını anlıyor.
+static func build_up_arrow_campfire_hint_icon() -> TextureRect:
+	var icon := TextureRect.new()
+	icon.name = "InteractHintIcon"
+	icon.texture = UP_ARROW_CAMPFIRE_ICON
+	icon.custom_minimum_size = ARROW_ICON_SIZE
+	icon.size = ARROW_ICON_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Açık zeminlerde (gökyüzü, kar, ateş ışığı) ikon kayboluyordu — arkasına şerit.
+	InteractBand.attach(icon)
+	return icon
 
 ## İnşaat parsellerinde (boş veya üzerinde bina olan) tek başına gösterilen ev ikonu — "yukarı
 ## basınca inşaat yap / binaya gir" bilgisini metinsiz, cihazdan bağımsız şekilde verir.

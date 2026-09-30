@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://tepme_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/tepme.gd" id="1_tepme"]
+
+[node name="Tepme" type="Node"]
+script = ExtResource("1_tepme")

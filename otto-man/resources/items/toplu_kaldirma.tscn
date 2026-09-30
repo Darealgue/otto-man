@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://toplu_kaldirma_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/toplu_kaldirma.gd" id="1_script"]
+
+[node name="TopluKaldirma" type="Node"]
+script = ExtResource("1_script")

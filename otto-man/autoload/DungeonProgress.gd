@@ -88,6 +88,7 @@ func record_warmup_complete(dungeon_id: String = "") -> void:
 	var next: int = get_warmup_completions(key) + 1
 	_warmup_completions_by_id[key] = next
 	print("[DungeonProgress] Alıştırma run tamamlandı: %s (%d/%d)" % [key, next, WARMUP_RUNS_REQUIRED])
+	_queue_item_unlock_offer(key, "kesif", 1)
 
 
 func reset_warmup_progress(dungeon_id: String = "") -> void:
@@ -102,8 +103,28 @@ func record_clear(dungeon_id: String = "") -> void:
 	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
 	if key.is_empty():
 		return
-	_clears_by_id[key] = get_clear_count(key) + 1
+	var clears: int = get_clear_count(key) + 1
+	_clears_by_id[key] = clears
 	_try_unlock_relics_for_dungeon(key)
+	# İlk clear 1 seçim, sonrakiler 2 — tempo tekrar clear'lara dayanıyor.
+	_queue_item_unlock_offer(key, "boss", 1 if clears <= 1 else 2)
+
+
+## Zindanın temasına göre item unlock teklifi kuyruğa alır (bkz. docs/ITEM_UNLOCK_SISTEMI.md).
+## Teklif ItemManager'da kuyruklanır; UI'ı çağıran taraf (CampScene / boss odası) gösterir.
+func _queue_item_unlock_offer(dungeon_id: String, tier: String, picks: int) -> void:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(im) or not im.has_method("queue_unlock_offer"):
+		return
+	im.call("queue_unlock_offer", get_dungeon_theme(dungeon_id), tier, picks)
+
+
+func get_dungeon_theme(dungeon_id: String = "") -> String:
+	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if is_instance_valid(wm) and wm.has_method("get_dungeon_theme"):
+		return String(wm.call("get_dungeon_theme", key))
+	return "ates"
 
 
 func record_stealth_skip(dungeon_id: String = "") -> void:

@@ -89,6 +89,15 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "test_items":
 		handle_test_items_command()
 		return
+	if cmd == "market":
+		handle_market_command(args)
+		return
+	if cmd == "unlock_offer":
+		handle_unlock_offer_command(args)
+		return
+	if cmd == "falci":
+		handle_falci_command(args)
+		return
 	
 	match cmd:
 		"help":
@@ -503,6 +512,114 @@ func handle_test_items_command() -> void:
 	im.show_item_selection()
 	print_output("Item seçim ekranı açıldı.")
 
+## Marketi elle test etmek için: kapıyı oyuncunun yanına koyar ve DOĞRU cüzdanı doldurur.
+## Cüzdan ayrımı önemli — zindanda harcanan altın dungeon_gold, köyde gold.
+## "add_resources gold" köy altınına eklediği için zindanda hiçbir işe yaramaz.
+func handle_market_command(args: Array) -> void:
+	var im = get_node_or_null("/root/ItemManager")
+	if !im:
+		print_output("ItemManager bulunamadı!")
+		return
+	var player = im.player
+	if !is_instance_valid(player):
+		print_output("Oyuncu yok. Bir zindan/orman sahnesine girip tekrar dene.")
+		return
+
+	var amount: int = 500
+	if args.size() > 0 and String(args[0]).is_valid_int():
+		amount = int(args[0])
+	var gpd = get_node_or_null("/root/GlobalPlayerData")
+	if gpd:
+		if gpd.has_method("uses_dungeon_loot_wallet") and gpd.uses_dungeon_loot_wallet():
+			gpd.dungeon_gold = int(gpd.dungeon_gold) + amount
+			if gpd.has_signal("dungeon_gold_changed"):
+				gpd.emit_signal("dungeon_gold_changed")
+			print_output("Zindan cüzdanına +%d altın (toplam %d)." % [amount, int(gpd.dungeon_gold)])
+		else:
+			gpd.add_gold(amount)
+			print_output("Köy cüzdanına +%d altın (toplam %d)." % [amount, int(gpd.gold)])
+
+	var stock: Array = im.pick_merchant_stock(3) if im.has_method("pick_merchant_stock") else []
+	if stock.is_empty():
+		print_output("UYARI: satılabilecek kart yok (hepsi zaten aktif olabilir).")
+
+	var EventScript = load("res://interactables/dungeon/DungeonEventInteractable.gd")
+	var ev = EventScript.new()
+	ev.setup("merchant", 1)
+	var parent = get_tree().current_scene
+	if parent == null:
+		print_output("Aktif sahne yok.")
+		return
+	parent.add_child(ev)
+	# Y'yi hassas hesaplamaya çalışma: kapı ilk karede aşağı ışın atıp kendini zemine
+	# oturtuyor (_snap_to_ground). Burada player.get_foot_position() KULLANMA — o fonksiyon
+	# sprite'ın -48 yerel ofsetini saymadığı için ayak hizasının altını döndürüyor.
+	ev.global_position = player.global_position + Vector2(110, 0)
+	print_output("Market kapısı oyuncunun 110 piksel sağına kondu (zemine kendi oturur). Yaklaşıp yukarı tuşuna bas.")
+	for id in stock:
+		var m: Dictionary = im.get_item_meta(id)
+		print_output("  stok: %s (rarity %d)" % [String(m.get("name", id)), int(m.get("rarity", 0))])
+	toggle_console()
+
+
+## Unlock teklifini elle tetikler: kart ekranının "koleksiyona ekle" modunu test etmek için.
+func handle_unlock_offer_command(args: Array) -> void:
+	var im = get_node_or_null("/root/ItemManager")
+	if !im:
+		print_output("ItemManager bulunamadı!")
+		return
+	if !is_instance_valid(im.player):
+		print_output("Oyuncu yok. Bir zindan sahnesine girip tekrar dene.")
+		return
+	var tier: String = "kesif"
+	if args.size() > 0 and String(args[0]) in ["kesif", "boss"]:
+		tier = String(args[0])
+	var theme: String = ""
+	if args.size() > 1:
+		theme = String(args[1])
+	if theme.is_empty():
+		var dp = get_node_or_null("/root/DungeonProgress")
+		theme = String(dp.call("get_dungeon_theme")) if dp and dp.has_method("get_dungeon_theme") else "ates"
+	if not im.DUNGEON_THEME_POOLS.has(theme):
+		print_output("Bilinmeyen tema: %s (ates, buz, zehir, firtina, barut, golge)" % theme)
+		return
+	if not im.has_unlock_candidates(theme, tier):
+		print_output("%s/%s havuzunda açılacak bir şey kalmamış." % [theme, tier])
+		return
+	im.queue_unlock_offer(theme, tier, 1)
+	print_output("%s zindanı, %s ödülü kuyruğa alındı." % [theme, tier])
+	toggle_console()
+	im.resolve_pending_unlock_offers()
+
+
+## Falcıyı hemen köye çağırır. Köy sahnesinde çalıştırılmalı; falcı haritanın solundan
+## yürüyerek gelir, merkeze varınca yukarı tuşuyla konuşulur.
+func handle_falci_command(args: Array) -> void:
+	var im = get_node_or_null("/root/ItemManager")
+	if !im or not im.has_method("force_falci_visit_now"):
+		print_output("ItemManager bulunamadı!")
+		return
+	var amount: int = 600
+	if args.size() > 0 and String(args[0]).is_valid_int():
+		amount = int(args[0])
+	var gpd = get_node_or_null("/root/GlobalPlayerData")
+	if gpd and gpd.has_method("add_gold"):
+		gpd.add_gold(amount)
+		print_output("Köy cüzdanına +%d altın (toplam %d)." % [amount, int(gpd.gold)])
+
+	im.call("force_falci_visit_now")
+	var vm = get_node_or_null("/root/VillageManager")
+	if vm and vm.has_method("_sync_falci_npc"):
+		vm.call("_sync_falci_npc")
+		print_output("Falcı köye çağrıldı, soldan yürüyerek geliyor. Yanına gidip yukarı tuşuna bas.")
+	else:
+		print_output("Falcı takvimi ayarlandı ama köy sahnesinde değilsin; köye girince gelecek.")
+	var banished: int = (im.get("permanently_banished_ids") as Array).size()
+	print_output("Koleksiyon: %d açık, %d kalıcı elenmiş, kehanet=%d" % [
+		(im.call("get_unlocked_item_ids") as Array).size(), banished, int(im.get("oracle_category"))])
+	toggle_console()
+
+
 func handle_items_list_command() -> void:
 	var im = get_node_or_null("/root/ItemManager")
 	if !im:
@@ -684,6 +801,9 @@ func show_help() -> void:
 	item_<N> - Activate item by index (e.g. item_0, item_1). Use 'items' to list.
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
+	market [gold] - Spawn the market door next to the player and top up the run wallet (default 500)
+	unlock_offer [kesif|boss] [theme] - Queue and show an item unlock offer (default: kesif, current dungeon theme)
+	falci [gold] - Bring the fortune teller to the village now and top up village gold (default 600)
 	powerup <name> - Activate a powerup
 	heal [amount] - Heal the player (default: 50)
 	damage [amount] - Damage the player (default: 10)

@@ -7,6 +7,7 @@ signal closed
 
 const _Categories = preload("res://village/scripts/VillageBuildingCategories.gd")
 const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
+const _KeyChipScript := preload("res://ui/KeyChip.gd")
 
 const _CATEGORY_ACCENT := {
 	0: Color(0.45, 0.75, 0.35, 1.0),  # RESOURCE - yeşil
@@ -63,9 +64,9 @@ func _build_ui() -> void:
 	_panel.anchor_top = 0.5
 	_panel.anchor_right = 0.5
 	_panel.anchor_bottom = 0.5
-	_panel.offset_left = -320
+	_panel.offset_left = -400
 	_panel.offset_top = -540
-	_panel.offset_right = 320
+	_panel.offset_right = 400
 	_panel.offset_bottom = 540
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -79,13 +80,13 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.text = tr("plot_build.title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_font_size_override("font_size", 30)
 	root.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = tr("plot_build.subtitle")
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 13)
+	subtitle.add_theme_font_size_override("font_size", 17)
 	subtitle.modulate = Color(1, 1, 1, 0.75)
 	root.add_child(subtitle)
 
@@ -103,7 +104,7 @@ func _build_ui() -> void:
 
 	var arrow_left := Label.new()
 	arrow_left.text = "◄"
-	arrow_left.add_theme_font_size_override("font_size", 18)
+	arrow_left.add_theme_font_size_override("font_size", 20)
 	arrow_left.modulate = Color(0.85, 0.72, 0.4)
 	category_row.add_child(arrow_left)
 
@@ -114,7 +115,7 @@ func _build_ui() -> void:
 
 	var arrow_right := Label.new()
 	arrow_right.text = "►"
-	arrow_right.add_theme_font_size_override("font_size", 18)
+	arrow_right.add_theme_font_size_override("font_size", 20)
 	arrow_right.modulate = Color(0.85, 0.72, 0.4)
 	category_row.add_child(arrow_right)
 
@@ -139,7 +140,7 @@ func _build_ui() -> void:
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_info_label.add_theme_font_size_override("font_size", 12)
+	_info_label.add_theme_font_size_override("font_size", 16)
 	_info_label.modulate = Color(1, 0.55, 0.5, 1)
 	bottom.add_child(_info_label)
 
@@ -150,7 +151,7 @@ func _build_ui() -> void:
 		btn.text = _Categories.get_category_label(cat)
 		btn.toggle_mode = true
 		btn.focus_mode = Control.FOCUS_NONE
-		btn.custom_minimum_size = Vector2(120, 38)
+		btn.custom_minimum_size = Vector2(150, 46)
 		btn.set_meta("category", int(cat))
 		btn.pressed.connect(_on_category_pressed.bind(int(cat)))
 		_category_tabs.add_child(btn)
@@ -178,56 +179,24 @@ func _make_close_hint_bar() -> Control:
 	chip.add_theme_stylebox_override("panel", sb_c)
 	var chip_lbl := Label.new()
 	chip_lbl.text = "Ⓑ" if is_pad else "ESC"
-	chip_lbl.add_theme_font_size_override("font_size", 11)
+	chip_lbl.add_theme_font_size_override("font_size", 15)
 	chip.add_child(chip_lbl)
 	bar.add_child(chip)
 	var close_lbl := Label.new()
 	close_lbl.text = tr("plot_build.close")
-	close_lbl.add_theme_font_size_override("font_size", 10)
+	close_lbl.add_theme_font_size_override("font_size", 15)
 	close_lbl.modulate = Color(1, 1, 1, 0.45)
 	close_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	bar.add_child(close_lbl)
 	return bar
 
 
-## Klavye tuşu + gamepad tetikleyicisini birlikte gösteren küçük "tuş" rozeti.
-func _make_key_chip(key_top: String, key_bottom: String) -> Control:
-	var chip := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.22, 0.16, 0.08, 0.95)
-	sb.border_width_left = 2
-	sb.border_width_top = 2
-	sb.border_width_right = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(0.78, 0.64, 0.32, 1.0)
-	sb.corner_radius_top_left = 5
-	sb.corner_radius_top_right = 5
-	sb.corner_radius_bottom_left = 5
-	sb.corner_radius_bottom_right = 5
-	sb.content_margin_left = 7
-	sb.content_margin_right = 7
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 2
-	chip.add_theme_stylebox_override("panel", sb)
-
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", -2)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	chip.add_child(col)
-
-	var top_lbl := Label.new()
-	top_lbl.text = key_top
-	top_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	top_lbl.add_theme_font_size_override("font_size", 13)
-	col.add_child(top_lbl)
-
-	var bottom_lbl := Label.new()
-	bottom_lbl.text = key_bottom
-	bottom_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bottom_lbl.add_theme_font_size_override("font_size", 9)
-	bottom_lbl.modulate = Color(1, 1, 1, 0.65)
-	col.add_child(bottom_lbl)
-
+## Sekme değiştirme tuş rozeti. Ortak widget: ui/KeyChip.gd — oyuncunun O ANDA kullandığı
+## cihaza göre klavye tuşunu VEYA gamepad karşılığını gösterir, cihaz değişince kendini
+## günceller. Eskiden ikisi alt alta yazılıyor ve sığdırmak için punto 13/9'a düşürülüyordu.
+func _make_key_chip(keyboard_text: String, joypad_text: String) -> Control:
+	var chip: PanelContainer = _KeyChipScript.new()
+	chip.setup(keyboard_text, joypad_text)
 	return chip
 
 
@@ -502,7 +471,7 @@ func _make_building_row(scene_path: String) -> Control:
 
 	var name_lbl := Label.new()
 	name_lbl.text = LocaleManager.get_building_name(scene_path)
-	name_lbl.add_theme_font_size_override("font_size", 16)
+	name_lbl.add_theme_font_size_override("font_size", 21)
 	if not can_build:
 		name_lbl.modulate = Color(1, 1, 1, 0.55)
 	text_col.add_child(name_lbl)
@@ -515,7 +484,7 @@ func _make_building_row(scene_path: String) -> Control:
 	if not can_build:
 		var reason := Label.new()
 		reason.text = _format_lock_reason(scene_path)
-		reason.add_theme_font_size_override("font_size", 11)
+		reason.add_theme_font_size_override("font_size", 15)
 		reason.modulate = Color(1, 0.55, 0.5, 0.9)
 		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(reason)
@@ -524,7 +493,7 @@ func _make_building_row(scene_path: String) -> Control:
 	build_btn.text = tr("plot_build.build") if can_build else tr("plot_build.locked")
 	build_btn.disabled = not can_build
 	build_btn.focus_mode = Control.FOCUS_ALL
-	build_btn.custom_minimum_size = Vector2(96, 40)
+	build_btn.custom_minimum_size = Vector2(124, 48)
 	build_btn.pressed.connect(_on_build_pressed.bind(scene_path))
 	build_btn.focus_entered.connect(_on_build_button_focus_entered.bind(_build_buttons.size()))
 	_style_focus(build_btn)
@@ -559,7 +528,7 @@ func _populate_cost_row(cost_row: HBoxContainer, scene_path: String, can_build: 
 	if not has_any_positive_amount:
 		var free_lbl := Label.new()
 		free_lbl.text = tr("plot_build.free")
-		free_lbl.add_theme_font_size_override("font_size", 12)
+		free_lbl.add_theme_font_size_override("font_size", 16)
 		free_lbl.modulate = Color(0.6, 1.0, 0.6, 1.0) if can_build else Color(1, 1, 1, 0.5)
 		cost_row.add_child(free_lbl)
 		return
@@ -572,13 +541,13 @@ func _populate_cost_row(cost_row: HBoxContainer, scene_path: String, can_build: 
 		var icon_path := _resource_icon_path(key_str)
 		if not icon_path.is_empty():
 			var icon := TextureRect.new()
-			icon.custom_minimum_size = Vector2(16, 16)
+			icon.custom_minimum_size = Vector2(21, 21)
 			icon.texture = load(icon_path)
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			cost_row.add_child(icon)
 		var amt_lbl := Label.new()
 		amt_lbl.text = str(amount)
-		amt_lbl.add_theme_font_size_override("font_size", 12)
+		amt_lbl.add_theme_font_size_override("font_size", 16)
 		if not can_build:
 			amt_lbl.modulate = Color(1, 1, 1, 0.5)
 		cost_row.add_child(amt_lbl)

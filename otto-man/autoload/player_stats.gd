@@ -980,6 +980,16 @@ func apply_world_travel_ration_cost(travel_minutes: int) -> Dictionary:
 		if _world_exp_get("food") > 0:
 			_world_exp_set("food", _world_exp_get("food") - 1, false)
 			food_used += 1
+		elif remove_carried_resource(ResourceType.FOOD, 1) > 0:
+			# Erzak bitti ama sırt çantasında ormandan toplanmış yiyecek var — o yenir.
+			# Oyuncunun ilk içgüdüsü "acıktım, ormana girip meyve toplayayım" oluyor ve bunun
+			# işe yaraması gerekiyor; eskiden çantasında 3 meyveyle açlıktan ölüyordu
+			# (playtest, 2026-09-02).
+			#
+			# Meyve erzak paketine AKTARILMIYOR, olduğu yerde tüketiliyor: böylece paket tavanı
+			# (WORLD_EXP_FOOD_PACK_CAP = 1 birim) meyveyi kırpmıyor ve artan meyve yine köye
+			# götürülüp depoya bırakılabiliyor.
+			food_used += 1
 		else:
 			world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
 			return {
@@ -1045,15 +1055,22 @@ func apply_world_expedition_gold_delta(delta: int) -> int:
 func get_world_expedition_total_weight_score() -> int:
 	return _world_exp_get("food") + _world_exp_get("medicine") * 2 + _world_exp_get("world_gold") / 8
 
-
+## Tahmin, karnı doyuran HER ŞEYİ sayar: erzak paketi + sırt çantasındaki (ormanda toplanmış)
+## yiyecek. Yalnızca erzağı sayarsa "Erzak süresi" satırı, oyuncu çantasında meyveyle
+## gezerken ölüme yakın olduğunu söyler — oysa artık o meyve de yeniyor
+## (bkz. apply_world_travel_ration_cost).
 func get_world_expedition_survival_forecast() -> Dictionary:
-	var food_units: int = _world_exp_get("food")
+	var ration_units: int = _world_exp_get("food")
+	var carried_units: int = maxi(0, int(carried_resources.get(ResourceType.FOOD, 0)))
+	var food_units: int = ration_units + carried_units
 	var to_food_tick: int = int(ceil(maxf(0.0, (1.0 - _world_exp_food_debt) * WORLD_EXP_FOOD_MINUTES_PER_UNIT)))
 	if to_food_tick <= 0:
 		to_food_tick = int(maxi(1, int(round(WORLD_EXP_FOOD_MINUTES_PER_UNIT))))
 	var food_minutes_until_hp: int = int(maxi(0, to_food_tick + int(round(float(food_units) * WORLD_EXP_FOOD_MINUTES_PER_UNIT))))
 	return {
 		"food_units": food_units,
+		"ration_units": ration_units,
+		"carried_food_units": carried_units,
 		"water_units": 0,
 		"minutes_until_food_hp_loss": food_minutes_until_hp,
 		"minutes_until_water_hp_loss": 999999,

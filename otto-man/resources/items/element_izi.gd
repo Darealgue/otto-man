@@ -1,11 +1,13 @@
-# UNCOMMON - Dodge, sende aktif olan elementin zemin izini bırakır (Ateşli/Buzlu Kayma deseniyle, dodge'a bağlı)
+# element_izi.gd
+# UNCOMMON - Dodge/dash, zıplama ve slide sırasında aktif elementinin izini bırakır.
+# Eskiden dört ayrı item (element_izi/dodge_zehiri/ziplama_zehiri/slide_simsegi)
+# dört ayrı hareket fiiline bağlıydı, çoğu tek elemente sabitti. Artık hepsi bu
+# TEK item'da birleşti (bkz. docs/ITEM_PIPELINE_DESIGN.md §8.2 madde 1).
+# Davranış player/states/{dodge,dash,air/jump,ground/slide}_state.gd içinde
+# ItemManager.spawn_element_trail_if_active() çağrılarak kontrol edilir — bu
+# item pasif bir işarettir.
+
 extends ItemEffect
-
-const FirePatchScene = preload("res://effects/ground_fire_patch.tscn")
-const IcePatchScene = preload("res://effects/ground_ice_patch.tscn")
-const PoisonCloudScript = preload("res://effects/poison_cloud.gd")
-
-var _player: CharacterBody2D = null
 
 func _init():
 	item_id = "element_izi"
@@ -14,35 +16,12 @@ func _init():
 	flavor_text = "Yürüdüğün yol seni hatırlar"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
-	affected_stats = ["dodge_element_trail"]
+	affected_stats = ["movement_element_trail"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	_player = player
-	print("[Element İzi] ✅ Dodge element izi bırakıyor")
+	print("[Element İzi] ✅ Hareket ederken aktif elementinin izini bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	_player = null
 	print("[Element İzi] ❌ Kaldırıldı")
-
-func _on_player_dodged(_direction: int, start_pos: Vector2, end_pos: Vector2) -> void:
-	var im = get_node_or_null("/root/ItemManager")
-	if not im:
-		return
-	var tree = get_tree()
-	if not tree or not tree.current_scene:
-		return
-	if im.has_active_item("atesli_yumruk"):
-		var patch = FirePatchScene.instantiate()
-		tree.current_scene.add_child(patch)
-		patch.global_position = end_pos
-	elif im.has_active_item("buzlu_kilic"):
-		var patch = IcePatchScene.instantiate()
-		tree.current_scene.add_child(patch)
-		patch.global_position = end_pos
-	elif im.has_active_item("zehirli_tirnak") or im.has_active_item("zehirli_dev"):
-		var cloud = Node2D.new()
-		cloud.set_script(PoisonCloudScript)
-		tree.current_scene.add_child(cloud)
-		cloud.global_position = end_pos

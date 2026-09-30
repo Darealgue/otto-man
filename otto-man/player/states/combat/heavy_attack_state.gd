@@ -286,6 +286,7 @@ func _update_hitbox_by_timing() -> void:
 		var dmg_mult: float = DAMAGE_MULTIPLIER * player.heavy_attack_damage_multiplier
 		var kb_mult := 1.0
 		var kb_up_mult := 1.0
+		var just_landed := false
 		if player.has_method("is_counter_window_active") and player.is_counter_window_active():
 			dmg_mult *= (1.0 + player.counter_damage_bonus)
 			kb_mult *= (1.0 + player.counter_knockback_bonus)
@@ -303,9 +304,12 @@ func _update_hitbox_by_timing() -> void:
 					kb_up_mult *= JUST_KB_BONUS
 					print("[HeavyAttack] JUST bonus applied!")
 					just_bonus_ready = false
+					just_landed = true
 		hitbox.enable_combo(current_attack, dmg_mult, kb_mult, kb_up_mult)
 		hitbox.enable()
 		hitbox_enabled = true
+		# Falya vb. itemler için: bu vuruş just penceresini tutturdu mu?
+		player.last_heavy_just_bonus = just_landed
 		# Zehirli Dev: vursa da vurmasa da tam bu karede partiküller fırlasın
 		if not has_emitted_impact and player.has_signal("heavy_attack_impact"):
 			player.emit_signal("heavy_attack_impact", current_attack)

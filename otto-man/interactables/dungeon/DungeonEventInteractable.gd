@@ -16,11 +16,35 @@ var _placeholder: Polygon2D
 var _sprite: Sprite2D
 var _hint: Label
 
+## Marketin kart vitrini (bkz. docs/ITEM_UNLOCK_SISTEMI.md bölüm 8).
+## Sattığı kartlar RUN İÇİ: kalıcı unlock değil. Altınla kalıcı koleksiyon alınabilseydi
+## oyuncu en kolay zindanı farmlayıp her şeyi satın alır, zindan coğrafyası çökerdi.
+var _card_stock: Array[String] = []
+var _ground_snapped: bool = false
+const CARD_STOCK_SIZE: int = 3
+## Zemin arama menzili: yukarı doğru biraz pay, aşağı doğru bir kaç karo.
+const GROUND_SNAP_UP: float = 96.0
+const GROUND_SNAP_DOWN: float = 320.0
+## Işının bulduğu zeminin bu kadar üstüne oturur. Kapı çerçevesinin alt kenarı
+## zemin karosunun üst pikselleriyle çakışmasın diye (göz kararı ayar).
+const GROUND_SNAP_LIFT: float = 4.0
+const _MARKET_UI := preload("res://ui/item_selection.tscn")
+
+## Market fiyatları KASITLI OLARAK FAHİŞ. Run altını çıkışta köye taşınıyor
+## (DungeonRunState.gold_multiplier_accumulated), yani buradan kart almak doğrudan
+## köy geliştirmesinden feragat etmek demek. Ucuz olsaydı seçim olmazdı.
+const CARD_PRICE_BY_RARITY: Array[int] = [45, 70, 110, 180]
+const CARD_PRICE_PER_LEVEL: int = 6
+
+## Market bir KAPI. Zindanın kendi kapı sanatını kullanır (door_1.png, 8 kareli sheet;
+## kapalı kare 0 gösterilir). Sandık/varil değil: oyuncu kapıyı açıp içeri girdiğinde
+## market açılıyormuş hissi veriyor.
 const MERCHANT_TEXTURE_PATHS: Array[String] = [
-	"res://assets/decorations/crate_1.png",
-	"res://assets/decorations/barrel_1.png",
-	"res://assets/decorations/chest_1.png",
+	"res://assets/objects/dungeon/door_1.png",
 ]
+const MERCHANT_DOOR_HFRAMES: int = 8
+## CampDoor.tscn ile birebir: düğüm zeminde, sprite 97 piksel yukarıda.
+const MERCHANT_DOOR_SPRITE_OFFSET := Vector2(0.0, -97.0)
 const CURSE_TEXTURE_PATHS: Array[String] = [
 	"res://assets/decorations/crystal_1.png",
 	"res://assets/decorations/pillar_1.png",
@@ -43,7 +67,12 @@ func _ready() -> void:
 
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
-	rect.size = Vector2(80.0, 64.0)
+	if event_type == "curse":
+		rect.size = Vector2(80.0, 64.0)
+	else:
+		# Kapı gövdesiyle örtüşsün: zeminden yukarı doğru, sunağınkinden yüksek
+		rect.size = Vector2(90.0, 120.0)
+		shape.position = Vector2(0.0, -56.0)
 	shape.shape = rect
 	add_child(shape)
 
@@ -63,19 +92,30 @@ func _ready() -> void:
 		])
 	add_child(_placeholder)
 
-	var tex_paths: Array = CURSE_TEXTURE_PATHS if event_type == "curse" else MERCHANT_TEXTURE_PATHS
-	_sprite = InteractableVisualHelper.attach_centered_sprite(
-		self,
-		tex_paths,
-		Vector2(0.0, -8.0),
-		Vector2(64.0, 56.0),
-		[_placeholder]
-	)
+	var is_curse: bool = event_type == "curse"
+	if is_curse:
+		_sprite = InteractableVisualHelper.attach_centered_sprite(
+			self, CURSE_TEXTURE_PATHS, Vector2(0.0, -8.0), Vector2(64.0, 56.0), [_placeholder]
+		)
+	else:
+		# Kapı GERÇEK kapılarla aynı ölçüde ve aynı şekilde oturur: ölçek 1, sprite
+		# düğümün 97 piksel üstünde (CampDoor.tscn ile birebir). Küçültülüp merkeze
+		# konduğunda hem cılız duruyordu hem yarısı zemine gömülüyordu.
+		_sprite = InteractableVisualHelper.attach_centered_sprite(
+			self,
+			MERCHANT_TEXTURE_PATHS,
+			MERCHANT_DOOR_SPRITE_OFFSET,
+			Vector2.ZERO,  # ölçek sınırı yok, texture kendi boyutunda
+			[_placeholder],
+			MERCHANT_DOOR_HFRAMES,
+			0
+		)
 
 	_hint = Label.new()
 	_hint.name = "Hint"
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.position = Vector2(-64.0, -62.0)
+	# İpucu kapının tepesinin üstünde dursun (kapı 194 piksel yüksek), sunakta eski yerinde
+	_hint.position = Vector2(-64.0, -62.0) if event_type == "curse" else Vector2(-64.0, -216.0)
 	_hint.size = Vector2(128.0, 22.0)
 	_hint.add_theme_font_size_override("normal_font_size", 11)
 	_hint.add_theme_color_override("font_color", Color(0.92, 0.82, 1.0))
@@ -89,10 +129,39 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if not _ground_snapped:
+		_snap_to_ground()
 	if _resolved or _dialog_open or not _player_in_range:
 		return
 	if InputManager.is_ui_up_just_pressed():
 		_open_event_dialog()
+
+
+## Kapıyı zemine oturtur. İlk karede bir kez çalışır — _ready() değil, çünkü hem
+## level_generator hem dev konsolu global_position'ı add_child()'DAN SONRA atıyor.
+##
+## Neden gerekli: yerleştiren tarafın "zemin" referansı güvenilir değil.
+## level_generator dekorasyon konvansiyonunu kullanıyor (zemin karosunun üstü eksi 20,
+## artı 5) — küçük merkez pivotlu sandık için doğru ama alt kenarından hizalanan
+## 192 piksellik kapı için 16 piksel boşluk bırakıyordu. Dev konsolu ise
+## player.get_foot_position() kullanıyordu; o fonksiyon sprite'ın kendi -48 piksellik
+## yerel ofsetini hesaba katmadığı için ayak hizasının epeyce ALTINI döndürüyor ve
+## kapı zemine gömülüyordu. Aşağı doğru ışın atıp gerçek zemini bulmak ikisini de çözer.
+func _snap_to_ground() -> void:
+	_ground_snapped = true
+	if event_type == "curse":
+		return  # Sunak küçük ve merkez pivotlu, mevcut yerleşimi doğru
+	var space := get_world_2d().direct_space_state
+	if space == null:
+		return
+	var from: Vector2 = global_position + Vector2(0.0, -GROUND_SNAP_UP)
+	var to: Vector2 = global_position + Vector2(0.0, GROUND_SNAP_DOWN)
+	var query := PhysicsRayQueryParameters2D.create(from, to, CollisionLayers.WORLD)
+	query.hit_from_inside = true
+	var hit: Dictionary = space.intersect_ray(query)
+	if hit.is_empty():
+		return
+	global_position.y = float(hit.position.y) - GROUND_SNAP_LIFT
 
 
 func _on_body_entered(body: Node2D) -> void:
@@ -100,7 +169,7 @@ func _on_body_entered(body: Node2D) -> void:
 		return
 	_player_in_range = true
 	_hint.visible = true
-	_hint.text = "[↑] %s" % ("Lanetli Sunak" if event_type == "curse" else "Gizli Tüccar")
+	_hint.text = "[↑] %s" % tr("dungeon.event.curse" if event_type == "curse" else "dungeon.event.market")
 
 
 func _on_body_exited(body: Node2D) -> void:
@@ -126,16 +195,72 @@ func _open_event_dialog() -> void:
 			]
 		)
 	else:
-		_show_choice_dialog(
-			"Gizli Tüccar",
-			"Yol kenarında bir tüccar kamp kurmuş. Erzak ve altın takası yapabilirsin.",
-			[
-				{"id": "supplies", "label": "Erzak al (%d altın)" % _merchant_supply_cost()},
-				{"id": "key", "label": "Anahtar al (%d altın)" % _merchant_key_cost()},
-				{"id": "gamble", "label": "Pazarlık (%d altın)" % _merchant_gamble_cost()},
-				{"id": "leave", "label": "Devam et"},
-			]
-		)
+		_open_market()
+
+
+## Market: kart vitrinini kart arayüzüyle (item_selection "dükkân" modu) açar.
+## Stok event başına bir kez belirlenir; kapıyı kapatıp açmak vitrini yenilemez,
+## yoksa oyuncu istediği kart çıkana kadar açıp kapatırdı.
+func _open_market() -> void:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(im) or not im.has_method("pick_merchant_stock"):
+		_dialog_open = false
+		return
+	if _card_stock.is_empty():
+		for id in im.call("pick_merchant_stock", CARD_STOCK_SIZE):
+			_card_stock.append(String(id))
+	if _card_stock.is_empty():
+		_show_feedback(tr("dungeon.market.sold_out"))
+		_dialog_open = false
+		_resolved = true
+		_finish_event()
+		return
+
+	var scenes: Array[PackedScene] = []
+	var ids: Array[String] = []
+	var prices: Array[int] = []
+	for id in _card_stock:
+		var meta: Dictionary = im.call("get_item_meta", id)
+		if meta.is_empty() or not im.ITEM_SCENES.has(id):
+			continue
+		scenes.append(im.ITEM_SCENES[id])
+		ids.append(id)
+		prices.append(_card_cost(int(meta.get("rarity", 0))))
+	if scenes.is_empty():
+		_dialog_open = false
+		return
+
+	var shop = _MARKET_UI.instantiate()
+	get_tree().root.add_child(shop)
+	shop.shop_closed.connect(_on_market_closed)
+	shop.setup_shop(scenes, ids, prices, Callable(self, "_try_purchase"))
+	get_tree().paused = true
+
+
+## Dükkân her satın almada bunu senkron çağırır. Ödeme geçerse true döner, kart tezgâhtan
+## kalkar ve dükkân açık kalır — oyuncu parası yettiği sürece alışverişe devam eder.
+func _try_purchase(item_id: String, price: int) -> bool:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(im) or not im.ITEM_SCENES.has(item_id):
+		return false
+	if not _spend_run_gold(price):
+		return false
+	if im.has_method("activate_item"):
+		im.call("activate_item", im.ITEM_SCENES[item_id])
+	_card_stock.erase(item_id)
+	return true
+
+
+func _on_market_closed(_bought_item_id: String) -> void:
+	_dialog_open = false
+	if _card_stock.is_empty():
+		# Tezgâh boşaldı: kapı kapanır
+		_resolved = true
+		_finish_event()
+		return
+	# Kalan mal var: kapı açık, oyuncu geri dönüp alabilir
+	if _player_in_range:
+		_hint.visible = true
 
 
 func _show_choice_dialog(title: String, body: String, options: Array) -> void:
@@ -185,54 +310,11 @@ func _on_dialog_choice(choice_id: String, win: Window) -> void:
 	_dialog_open = false
 	if _resolved:
 		return
-	match event_type:
-		"merchant":
-			_resolve_merchant(choice_id)
-		"curse":
-			_resolve_curse(choice_id)
+	# Market artık metin diyaloğu değil kart arayüzü kullanıyor; buraya sadece sunak düşer.
+	if event_type == "curse":
+		_resolve_curse(choice_id)
 	if _resolved:
 		_finish_event()
-
-
-func _resolve_merchant(choice_id: String) -> void:
-	match choice_id:
-		"supplies":
-			var cost: int = _merchant_supply_cost()
-			if not _spend_run_gold(cost):
-				_show_feedback("Yeterli altın yok (%d gerekli)." % cost)
-				return
-			var ps: Node = get_node_or_null("/root/PlayerStats")
-			if ps and ps.has_method("add_carried_resources"):
-				var bundle: Dictionary = {"medicine": 2, "food": 1}
-				if level >= 4:
-					bundle["food"] = 1
-				ps.add_carried_resources(bundle)
-			_show_feedback("Tüccardan erzak aldın.")
-			_resolved = true
-		"key":
-			var key_cost: int = _merchant_key_cost()
-			if not _spend_run_gold(key_cost):
-				_show_feedback("Yeterli altın yok (%d gerekli)." % key_cost)
-				return
-			if _grant_dungeon_key():
-				_show_feedback("Demir anahtar aldın.")
-				_resolved = true
-			else:
-				_show_feedback("Bu anahtar zaten sende.")
-		"gamble":
-			var cost: int = _merchant_gamble_cost()
-			if not _spend_run_gold(cost):
-				_show_feedback("Yeterli altın yok (%d gerekli)." % cost)
-				return
-			if randf() < 0.55:
-				var gain: int = randi_range(12, 22) + level
-				_credit_run_gold(gain)
-				_show_feedback("Pazarlık tuttu! +%d altın." % gain)
-			else:
-				_show_feedback("Tüccar seni dolandırdı.")
-			_resolved = true
-		_:
-			pass
 
 
 func _resolve_curse(choice_id: String) -> void:
@@ -269,28 +351,10 @@ func _resolve_curse(choice_id: String) -> void:
 			pass
 
 
-func _merchant_supply_cost() -> int:
-	return 8 + level
 
-
-func _merchant_gamble_cost() -> int:
-	return 5 + int(level / 2)
-
-
-func _merchant_key_cost() -> int:
-	return 12 + level * 2
-
-
-func _grant_dungeon_key(key_id: String = "") -> bool:
-	var drs: Node = get_node_or_null("/root/DungeonRunState")
-	if not is_instance_valid(drs) or not drs.has_method("add_dungeon_key"):
-		return false
-	var id: String = key_id
-	if id.is_empty() and "DEFAULT_DUNGEON_KEY_ID" in drs:
-		id = String(drs.get("DEFAULT_DUNGEON_KEY_ID"))
-	if id.is_empty():
-		id = "dungeon_key"
-	return bool(drs.call("add_dungeon_key", id))
+func _card_cost(rarity: int) -> int:
+	var idx: int = clampi(rarity, 0, CARD_PRICE_BY_RARITY.size() - 1)
+	return CARD_PRICE_BY_RARITY[idx] + level * CARD_PRICE_PER_LEVEL
 
 
 func _cleanse_cost() -> int:

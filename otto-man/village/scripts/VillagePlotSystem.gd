@@ -202,6 +202,14 @@ func _should_defer_to_village_character() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Bu düğüm PROCESS_MODE_ALWAYS (popup'lar açıkken _process'in dönmeye devam etmesi
+	# gerekiyor), yani ağaç DURAKLATILMIŞKEN de girdi almaya devam ediyor. Duraklamayı burada
+	# elle eliyoruz: duraklatma menüsünde/ayarlarda sekme değiştirmek için basılan Q/E aslında
+	# l2_trigger/r2_trigger aksiyonları (bkz. project.godot) ve buraya menüden ÖNCE ulaşıyordu.
+	# Sonuç: oyuncu ayarlarda sekme değiştirmeye çalışırken arkadaki binaya işçi atanıyor,
+	# üstelik atama başarılıysa olay tüketilip menüye hiç varmıyordu (playtest, 2026-09-02).
+	if get_tree().paused:
+		return
 	if _is_popup_open():
 		return
 	if not _is_in_village():

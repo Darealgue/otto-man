@@ -59,6 +59,10 @@ var _chip: CanvasLayer = null
 ## show_* methods every frame would reset the download-rate samples continuously and make the
 ## time estimate useless.
 var _chip_mode := ""
+## Açılış perdesi: chip, oyuncu ana menüye ulaşana kadar çizilmez (bkz. AiVillagersChip).
+## Bayrak chip'te değil BURADA duruyor çünkü chip tembel yaratılıyor — perde chip'ten önce
+## de açılabilmeli ve chip doğduğunda doğru durumla doğmalı.
+var _chip_gate_open := false
 
 
 func _ready() -> void:
@@ -237,6 +241,17 @@ func _on_model_load_complete(success: bool) -> void:
 
 # --- progress chip ---
 
+## Açılış akışı bitip ana menü göründüğünde MainMenu çağırır (bkz. MainMenu._dismiss_intro).
+## Bir kez açılınca oyun boyunca açık kalır: menüden oyuna, oyundan menüye dönüşlerde chip
+## normal şekilde görünmeye devam eder.
+func open_chip_gate() -> void:
+	if _chip_gate_open:
+		return
+	_chip_gate_open = true
+	if _chip != null and is_instance_valid(_chip):
+		_chip.call("set_gate_open", true)
+
+
 ## Created lazily and only when there is something to show, so the editor and no-AI sessions
 ## never carry an extra CanvasLayer around.
 func _ensure_chip() -> void:
@@ -246,6 +261,7 @@ func _ensure_chip() -> void:
 	_chip.set_script(_CHIP_SCRIPT)
 	_chip.name = "AiVillagersChip"
 	add_child(_chip)
+	_chip.call("set_gate_open", _chip_gate_open)
 
 
 func _set_chip_mode(mode: String) -> void:

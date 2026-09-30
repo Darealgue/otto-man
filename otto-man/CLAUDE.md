@@ -153,9 +153,14 @@ Both are dev-only conveniences. Grep them before exporting; never ship either as
 |---|---|---|
 | `_PREVIEW_OFFER_IN_EDITOR` | `autoload/AiVillagers.gd` | `false` |
 | `TEST_MODE` | `autoload/AiModelDownloader.gd` | `false` |
+| `ROGUELITE_CARDS_ENABLED` | `autoload/VillageCardManager.gd` | `false` |
 
 `TEST_MODE` swaps the 7.5 GB model download for a small test file. `_PREVIEW_OFFER_IN_EDITOR`
 forces the AI offer screen in-editor and suppresses saving the player's choice.
+`ROGUELITE_CARDS_ENABLED` gates the köy roguelite kart draft sistemi (nüfus eşiğinde
+yol seçimi + kart draftı) — sistem henüz yarım, playtester build'lerinde hiç tetiklenmemeli.
+Flip it to `true` locally to keep developing/testing it; flip back to `false` before any export,
+including private test builds you hand to playtesters.
 
 ---
 
@@ -335,6 +340,13 @@ onun yerine düz siyah (`boot_splash/bg_color`) görünüyor. `run/main_scene` d
 - Yazının ışıması bilerek **gerçek Gaussian blur**, Godot'un `outline_size`'ı değil: kontur
   sert kenarlı çıkıyor ve pilin yumuşak blur'larının yanında çıkartma gibi duruyor. Denendi,
   atıldı.
+- **Oyun adının ("Rogue Harem") halesi de aynı kurala tabi ama hazır PNG'si yok**: çalışma
+  anında `shaders/text_glow_blur.gdshader` ile üretiliyor. Yazının 1/4 boyutlu bir kopyası iki
+  SubViewport üzerinden yatay + dikey ayrılabilir Gaussian'dan geçip net yazının arkasına
+  toplamalı çiziliyor (`StudioSplash._build_title_glow`). Önceki hâl gitgide kalınlaşan
+  `outline_size` kopyalarını üst üste bindiriyordu; her kopya keskin kenarlı bir halka
+  bıraktığı için ortaya ışıma değil **izohips haritası** çıkıyordu (düzeltildi 2026-09-02).
+  Halenin genişliği `_GLOW_SIGMA` ile ayarlanır; büyütürsen shader'daki `RADIUS`'u da büyüt.
 - Blur katmanları **toplamalı (additive) CanvasItemMaterial** ile çiziliyor; siyah zeminde
   ışık saçma hissini veren şey bu. `Mix`e çevirirsen sadece bulanık bir kopya olur.
 - `texture_filter = 2` (Linear) bilinçli: proje geneli `default_texture_filter=0` (Nearest)
@@ -350,6 +362,21 @@ onun yerine düz siyah (`boot_splash/bg_color`) görünüyor. `run/main_scene` d
 - Açılış sahnesi artık menü olmadığı için `SoundManager`'ın kendi bootstrap'i menü profilini
   yakalayamaz; menü müziğini `MainMenu._ready()` içindeki `play_ambient_for_scene(scene_file_path)`
   çağrısı istiyor. O satır silinirse menü müziği hiç başlamaz.
+- **"Köylüler kıpırdanıyor / uyandı" kutusu (`AiVillagersChip`) açılış boyunca ÇİZİLMEZ.**
+  Perdeyi `AiVillagers.open_chip_gate()` açar ve bunu tek bir yer çağırır:
+  `MainMenu._dismiss_intro()`, yani menünün (Yeni Oyun / Ayarlar) göründüğü an. Kutu daha önce
+  stüdyo logosunun ve "herhangi bir tuşa bas" ekranının üstünde belirip bütün açılışın havasını
+  bozuyordu (düzeltildi 2026-09-02). Perde kapalıyken mod normal ilerler ama hazır/hata
+  sayacı durur — indirme açılış sırasında biterse "Köylüler uyandı" menüde hâlâ görülür.
+  Chip'in kendi güvenlik ağı var: açılış sahnelerinin (`StudioSplash`, `MainMenu`) dışında bir
+  sahne çalışıyorsa perde kendiliğinden açılır, yani editörden doğrudan sahne çalıştırmak
+  kutuyu sonsuza kadar gizlemez.
+- **Kutunun arkasında klasik parşömen çerçeve YOK**, MainMenu'deki başlık şeridinin aynısı var:
+  iki uçta saydama giden %62 siyah bir bant (`AiVillagersChip._make_band_texture`). Çerçeveli
+  hâli oyunun üstünde bir diyalog kutusu gibi duruyordu. Yatay profil menüdeki gradyanla birebir
+  aynı; tek fark alt/üst uçların da yumuşatılması (`BAND_FEATHER`), çünkü buradaki şerit 168 px
+  yüksekliğinde ve sert kenarlar çerçeve hissini geri getiriyordu. Punto'lar da 15/12/13'ten
+  26/18/17'ye çıktı — köşedeki yazı okunmuyordu (2026-09-02).
 
 ## Architecture facts that are easy to get wrong
 
@@ -513,6 +540,75 @@ onun yerine düz siyah (`boot_splash/bg_color`) görünüyor. `run/main_scene` d
   that signal, so it keeps showing the previous session's objective forever. Use
   `clear_objective()`, which always emits. `reset_session_flags()` used to null the field directly
   and that is exactly how "New Game → Skip Tutorial" still showed the forest's "Odun: 0/3" line.
+- **Yapay zeka sohbet brifingi (`dialogue_mechanics_*`, `villager_individuality_*`) MENTORDA
+  DEĞİL.** Bu dört paragraf köye ilk varışta mentorun bina brifingine tıkıştırılmıştı: oyuncuya
+  ev kurmayı öğretirken araya, o an hiçbir işe yaramayan bir metin yığını giriyordu (playtest,
+  2026-09-02). Artık oyuncunun kendi açtığı **ilk köylü sohbetinde** anlatım (narration) satırı
+  olarak veriliyor — `ui/npc_window.gd`, `_maybe_deliver_first_chat_brief`. Üç şeyi birden
+  çözüyor: bina akışını kesmiyor, bilgi tam kullanılacağı anda geliyor ve **yalnızca yapay zeka
+  gerçekten çalışıyorken** çıkıyor (modeli indirmemiş oyuncuya "istediğini yazabilirsin" demek
+  yanlıştı; ona zaten `ai.npc.silent.*` satırı gösteriliyor). Mentorun kuyruğuna geri koyma.
+  "Bir daha gösterme" kaydı `TutorialManager.mark_delivered()` üzerinden, diğer tutorial
+  mesajlarıyla aynı `delivered_ids` listesinde tutuluyor.
+- **Klavyede Q ve E, `l2_trigger` / `r2_trigger` aksiyonlarına bağlı** (bkz. project.godot) —
+  yani "sekme değiştir" tuşu ile "binaya işçi ekle/çıkar" tuşu AYNI aksiyonlar. `VillagePlotSystem`
+  `PROCESS_MODE_ALWAYS` olduğu için (popup açıkken `_process` dönmeli) ağaç duraklatılmışken de
+  girdi alıyordu: oyuncu duraklatma menüsünde/ayarlarda sekme değiştirmeye çalışırken arkadaki
+  binaya işçi atanıyor, atama başarılıysa olay tüketilip menüye hiç varmıyordu (2026-09-02).
+  `_unhandled_input`'un başındaki `if get_tree().paused: return` bunu kesiyor — kaldırma.
+- **Sekme değiştirme tuş rozetleri tek ortak widget:** `ui/KeyChip.gd`. Oyuncunun O ANDA
+  kullandığı cihaza göre klavye tuşunu VEYA gamepad karşılığını gösterir ve
+  `InputManager.input_device_changed` ile kendini günceller. Öncesinde her menüde ayrı ayrı
+  kopyalanmış, ikisini birden alt alta yazan ve sığdırmak için puntoyu 13/9'a düşüren bir
+  rozet vardı — hiçbiri okunmuyordu. Yeni bir menüye rozet eklerken bunu kullan, kopyalama.
+  Ayarlar menüsünde rozetler sekme şeridinin iki yanında duruyor; şerit bu yüzden
+  `tab_alignment = 1` (ortalı), aksi halde soldaki rozet ilk sekmenin üstüne biniyordu.
+- **Köy arayüzlerinde 10-13 punto kullanma.** `PlotBuildPopupUI`, `PlotOccupiedPopupUI` ve
+  `ui/npc_window.gd` bu puntolarla yazılmıştı ve 1920x1080 tasarım alanında hiçbiri okunmuyordu
+  (playtest, 2026-09-02). Taban artık 15-17; başlıklar 21-30. Panel genişlikleri de bununla
+  birlikte büyütüldü (inşa 640→800, bina 400→520, köylü penceresi 840→1000) — punto büyütüp
+  paneli olduğu gibi bırakırsan metinler sarılıp taşıyor.
+- **`InteractBand._process` içinde "içerik değişmediyse çık" kısayolu YOK, olmamalı.** Şeridin
+  KONUMU `(host.size.x - w) / 2` — yani yazının ölçüsüne değil host'un KUTUSUNA bağlı.
+  `apply_frameless_nameplate` Worker._ready içinde, düzen daha oturmadan çağrılıyor; ilk
+  _process Label hâlâ dar iken şeridi yerleştiriyor, sonra Label 120 px'e genişliyor ama yazı
+  değişmediği için eski kısayol yeniden yerleştirmeyi atlıyor ve şerit isimden kaymış olarak
+  donuyordu (2026-09-02). Yoklama zaten değişiklik yokken hiç çalışmıyor, `texture_for` de
+  önbellekli — her değişiklikte yeniden yerleştirmenin maliyeti yok.
+- **Etkileşim oku "şu anda basabilirsin" demektir; sürekli görünmez.** `scenes/door.gd` bunu
+  baştan doğru yapıyordu, `scenes/CampDoor.gd` yapmıyordu: kamp odasındaki bütün kapıların
+  üstünde ok sürekli asılıydı (2026-09-02). Artık `_set_hint_visible()` ile menzile
+  girince/çıkınca fade'leniyor ve kapı açılırken gizleniyor. Yeni bir etkileşim noktası
+  eklerken oku menzile bağlamayı unutma. Ok ikonunun üç çeşidi var (bkz. ui/npc_overhead_ui.gd):
+  konuşulabilen NPC için balonlu, kamp ateşi için alevli, geri kalan her şey için düz.
+- **Bilgi balonlarında nasıl oynanacağı YAZMAZ.** Dünya haritası hex balonları "buraya yürüyüp
+  Onayla'ya bas" gibi satırlarla doluydu; oyuncu hareket etmeyi zaten biliyor ve o metin her
+  hex'te tekrar okunuyordu (playtest, 2026-09-02). Balon artık yalnızca o karonun BİLGİSİNİ
+  taşıyor: zindanda ad + mevcut zorluk, komşu köyde ad + nüfus + oyuncuyla ilişki (puan ve
+  sözle karşılığı) + varsa aktif kriz. "Kriz: yok" gibi boş satırlar da kaldırıldı — balon
+  söyleyecek bir şey olmadığında büyümesin.
+- **Balonun zemini parşömen kutu değil, iki ucu saydama giden siyah şerit** —
+  `ui/FadeBandTexture.gd`. Aynı doku `AiVillagersChip`te de kullanılıyor; ÜÇÜNCÜ bir yere
+  lazım olursa oradan al, kopyalama (tuş rozetlerinde aynı hatayı yapmıştık).
+- **Balon imlecin ve oyuncu piyonunun üstüne gelmez.** İkisinin çevresinde kamera zoom'uyla
+  ölçeklenen birer "boş kalsın" dikdörtgeni var; imlecin üstü/altı/sağı/solu sırasıyla
+  denenip ilk temiz aday seçiliyor, hiçbiri temiz değilse en az örtüşen. Balonu sabit bir
+  ofsetle imlecin köşesine koymaya geri dönme — oyuncu tam da bakmak istediği şeyi kapatır.
+- **Yiyecek İKİ ayrı kapta ve ikisi de karın doyurur.** `world_expedition_supplies.food` köyden
+  alınan sefer erzağı (paket tavanı `WORLD_EXP_FOOD_PACK_CAP` = 1 birim), `carried_resources.food`
+  ise ormandan toplanan yiyecek. `apply_world_travel_ration_cost` önce erzağı, o bitince
+  çantadaki yiyeceği tüketir — çantadakini erzağa AKTARMADAN (aktarsaydık paket tavanı fazlasını
+  sessizce yok ederdi). Öncesinde meyve hiç sayılmıyordu ve oyuncu "acıktım, ormana girip meyve
+  toplayayım" deyip çantasında 3 meyveyle açlıktan ölüyordu (playtest, 2026-09-02).
+  `get_world_expedition_survival_forecast` de ikisinin toplamına bakar; yalnızca erzağa bakarsa
+  "Erzak süresi" satırı yalan söyler.
+- **Sefer envanteri paneli tek bir `HFlowContainer`.** Erzak/ilaç/altın ile sırt çantası eskiden
+  iki ayrı HBox'taydı ve aralarına "Erzak süresi" satırı giriyordu; ekranda bazı simgeler yan
+  yana, bazıları bir alt satırda görünüyordu ve sebebi belli değildi. Sırt çantası çipleri
+  sıfırken gizlenir (yoksa panel anlamsız "0"larla dolu), sefer üçlüsü sıfırken de görünür.
+  **Erzak simgesi ekmek, çantadaki yiyecek elma** — ikisi de elmayken oyuncu "envanterde iki
+  elma var, biri 0 biri 3" diye bakıyordu. Simge/punto ölçüleri `EXP_HUD_*` sabitlerinde ve
+  `ui/CarriedResourcesDisplay.gd` ile aynı hizada tutuluyor.
 - The 6-pass TP0-TP5 port into Godot is **DONE**. `docs/GODOT_NPC_LLM_ARCHITECTURE.md` still
   describes it as pending — that doc is stale on this point.
 

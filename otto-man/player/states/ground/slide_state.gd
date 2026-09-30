@@ -58,6 +58,10 @@ func enter():
 	floor_check_timer = 0.0
 	slide_start_time = Time.get_ticks_msec() / 1000.0
 	slide_start_position = player.position
+
+	var im := get_node_or_null("/root/ItemManager")
+	if im:
+		im.apply_parkour_momentum_tick()
 	
 	# Store initial floor position
 	last_floor_position = player.position
@@ -114,6 +118,10 @@ func exit():
 	# Topuk Kırıcı: slide'dan çıkınca ilk vuruş bonusu
 	if has_node("/root/ItemManager") and ItemManager.has_active_item("topuk_kirici"):
 		player.topuk_kirici_next_hit_bonus = 1.5
+	# Element İzi: slide bitince aktif elementin izini bırakır (bkz.
+	# resources/items/element_izi.gd, docs/ITEM_PIPELINE_DESIGN.md §8.2 madde 1)
+	if has_node("/root/ItemManager"):
+		ItemManager.spawn_element_trail_if_active(player.global_position)
 	# Restore original collision shape and hurtbox height and position
 	var collision_shape = player.get_node("CollisionShape2D")
 	var hurtbox_shape = player.get_node("Hurtbox/CollisionShape2D")

@@ -35,6 +35,14 @@ var rarity: ItemRarity = ItemRarity.COMMON
 var category: ItemCategory = ItemCategory.SPECIAL
 var affected_stats: Array[String] = []
 
+## Çoklu sınıflandırma etiketleri (bkz. docs/ITEM_SYNERGY_DESIGN.md §10).
+## Mevcut tekli `category` enum'unun yanında, onu bozmadan durur — sinerji
+## sorguları (ör. "aktif elementler neler?") bunu okur. Örnek: ["elemental_poison"].
+var tags: Array[String] = []
+
+func has_tag(t: String) -> bool:
+	return tags.has(t)
+
 @onready var player_stats = get_node("/root/PlayerStats")
 
 func _ready() -> void:

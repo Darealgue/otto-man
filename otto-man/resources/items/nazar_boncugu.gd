@@ -1,5 +1,10 @@
 # nazar_boncugu.gd
 # RARE - 10 saniyede bir yenilenen kalkan; ilk gelen hasarı tamamen bloklar.
+# Not (2026-09-29): kısa süreliğine stamina-bazlı yenilenmeye çevrilmişti, geri alındı —
+# stamina rejenerasyonu zaten hızlı olduğu için kalkan neredeyse sürekli aktif kalıp
+# aşırı güçlü oluyordu. Sabit süreli cooldown, ücretsiz bir "her X saniyede bedava blok"
+# olduğu için burada bilinçli olarak korunuyor (diğer AoE tetikleyici item'ların aksine
+# bu kaynak tüketmeyen pasif bir güvenlik ağı, dengesi farklı kurulmalı).
 
 extends ItemEffect
 

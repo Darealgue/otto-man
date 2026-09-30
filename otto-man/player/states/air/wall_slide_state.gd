@@ -282,7 +282,12 @@ func _perform_wall_jump(wall_normal: Vector2):
 		WALL_JUMP_FORCE.x * wall_normal.x,
 		WALL_JUMP_FORCE.y
 	)
-	
+
+	var im := get_node_or_null("/root/ItemManager")
+	if im:
+		im.apply_wall_jump_burst(player.global_position)
+		im.apply_parkour_momentum_tick()
+
 	_end_wall_slide()
 	
 	# Set player state for wall jump

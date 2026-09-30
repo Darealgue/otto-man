@@ -19,6 +19,7 @@ func _init():
 	flavor_text = "Elektrikli parmaklar"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
+	tags = ["elemental_lightning"]
 	affected_stats = ["lightning_chain"]
 
 func activate(player: CharacterBody2D):

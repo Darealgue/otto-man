@@ -5,6 +5,7 @@ class_name MentorBriefPopupUI
 signal closed
 
 const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
+const _KeyChipScript := preload("res://ui/KeyChip.gd")
 
 enum Tab { NEWS, MISSIONS, DIPLOMACY, COMBAT }
 
@@ -175,42 +176,12 @@ func _make_escape_chip() -> Control:
 	return chip
 
 
-func _make_key_chip(key_top: String, key_bottom: String) -> Control:
-	var chip := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.22, 0.16, 0.08, 0.95)
-	sb.border_width_left = 2
-	sb.border_width_top = 2
-	sb.border_width_right = 2
-	sb.border_width_bottom = 2
-	sb.border_color = Color(0.78, 0.64, 0.32, 1.0)
-	sb.corner_radius_top_left = 5
-	sb.corner_radius_top_right = 5
-	sb.corner_radius_bottom_left = 5
-	sb.corner_radius_bottom_right = 5
-	sb.content_margin_left = 7
-	sb.content_margin_right = 7
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 2
-	chip.add_theme_stylebox_override("panel", sb)
-
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", -2)
-	chip.add_child(col)
-
-	var top_lbl := Label.new()
-	top_lbl.text = key_top
-	top_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	top_lbl.add_theme_font_size_override("font_size", 13)
-	col.add_child(top_lbl)
-
-	var bottom_lbl := Label.new()
-	bottom_lbl.text = key_bottom
-	bottom_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bottom_lbl.add_theme_font_size_override("font_size", 9)
-	bottom_lbl.modulate = Color(1, 1, 1, 0.65)
-	col.add_child(bottom_lbl)
-
+## Sekme değiştirme tuş rozeti. Ortak widget: ui/KeyChip.gd — oyuncunun O ANDA kullandığı
+## cihaza göre klavye tuşunu VEYA gamepad karşılığını gösterir, cihaz değişince kendini
+## günceller. Eskiden ikisi alt alta yazılıyor ve sığdırmak için punto 13/9'a düşürülüyordu.
+func _make_key_chip(keyboard_text: String, joypad_text: String) -> Control:
+	var chip: PanelContainer = _KeyChipScript.new()
+	chip.setup(keyboard_text, joypad_text)
 	return chip
 
 

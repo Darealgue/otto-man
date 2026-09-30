@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ocak_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/ocak.gd" id="1_ocak"]
+
+[node name="Ocak" type="Node"]
+script = ExtResource("1_ocak")

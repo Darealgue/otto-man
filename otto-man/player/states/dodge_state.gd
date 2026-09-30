@@ -36,6 +36,13 @@ var original_collision_mask := 0  # Store original collision mask
 var original_collision_layer := 0  # Store original collision layer
 var dodge_start_position := Vector2.ZERO  # Store start position for signal
 
+# Hareket ailesi temas hasarı (zehirli_sekme veya "restless_body" eşiği): dodge sırasında
+# içinden geçilen düşmanlara bu dodge başına bir kez temas hasarı + aktif element(ler).
+# Gerçek mantık ItemManager.apply_movement_contact_tick() içinde — bkz. o fonksiyon.
+var _movement_contact_hit_ids: Array = []
+const MOVEMENT_CONTACT_RADIUS := 50.0
+const MOVEMENT_CONTACT_DAMAGE := 5.0
+
 func _ready() -> void:
 	await owner.ready  # Wait for owner to be ready
 	if player:
@@ -58,7 +65,8 @@ func enter():
 	_window_finished = false
 	_roll_air_time = 0.0
 	player.dodge_air_carry = false
-	
+	_movement_contact_hit_ids.clear()
+
 	# Charges sistemi kaldırıldı - sadece stamina kontrolü
 	
 	# Store original collision settings
@@ -142,6 +150,8 @@ func physics_update(delta: float):
 			_do_hayalet_adim()
 			return
 
+	_movement_contact_tick()
+
 
 	# Zıplama kontrolü: İlk yarıda zıplama engellensin, son yarıda serbest olsun
 	var dodge_progress = 1.0 - (dodge_timer / DODGE_DURATION)  # 0.0 = başlangıç, 1.0 = bitiş
@@ -220,6 +230,10 @@ func physics_update(delta: float):
 			else:
 				if DEBUG_DODGE:
 					print("[Dodge] ❌ player_dodged signal yok!")
+			var im := get_node_or_null("/root/ItemManager")
+			if im:
+				im.spawn_element_trail_if_active(end_pos)
+				im.apply_movement_trail_if_active(_movement_contact_hit_ids, dodge_start_position, end_pos)
 
 			# Havada bitip uçuş Fall'a devredilecek mi? Öyleyse hızı burada tek karede kesme -
 			# 800'den 320'ye anlık düşüş yayı kırıyordu. Fall içinde sabit ivmeyle yavaşlıyor.
@@ -377,6 +391,17 @@ func _start_roll_animation(anim_player: AnimationPlayer) -> void:
 	# bitene kadar bekliyor (bkz. physics_update sonundaki uzatma).
 	_roll_time_left = DODGE_ROLL_LENGTH
 	anim_player.play("dodge_roll")
+
+
+## Dodge sırasında (dokunulmazlık penceresi boyunca) içinden geçilen her düşmana bu
+## dodge başına yalnızca bir kez temas hasarı + aktif element(ler). zehirli_sekme item'ı
+## VEYA "restless_body" hareket ailesi eşiği (3+ hareket kategorili item) bunu açar —
+## bkz. ItemManager.apply_movement_contact_tick(), docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4.
+func _movement_contact_tick() -> void:
+	var im := get_node_or_null("/root/ItemManager")
+	if im == null:
+		return
+	im.apply_movement_contact_tick(_movement_contact_hit_ids, MOVEMENT_CONTACT_RADIUS, MOVEMENT_CONTACT_DAMAGE)
 
 
 func _do_hayalet_adim() -> void:

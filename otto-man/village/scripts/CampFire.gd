@@ -105,7 +105,7 @@ func HideInteractButton() -> void:
 
 
 func _create_interact_hint() -> void:
-	_interact_hint_icon = NpcOverheadUi.build_up_arrow_hint_icon()
+	_interact_hint_icon = NpcOverheadUi.build_up_arrow_campfire_hint_icon()
 	_interact_hint_icon.visible = false
 	add_child(_interact_hint_icon)
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp

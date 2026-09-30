@@ -3,13 +3,11 @@
 
 extends ItemEffect
 
-const COOLDOWN_DURATION := 8.0
 const LIGHTNING_RADIUS := 100.0
 const LIGHTNING_DAMAGE := 6.0
 const LightningFlashScript = preload("res://effects/lightning_flash.gd")
 
 var _player: CharacterBody2D = null
-var _cooldown := 0.0
 
 func _init():
 	item_id = "gok_gurultusu"
@@ -18,27 +16,25 @@ func _init():
 	flavor_text = "Gök gürültüsü"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
+	tags = ["elemental_lightning"]
 	affected_stats = ["heavy_lightning"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	_cooldown = 0.0
-	print("[Gök Gürültüsü] ✅ Heavy attack şimşek (8 sn cooldown)")
+	print("[Gök Gürültüsü] ✅ Heavy attack şimşek (1 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
 	print("[Gök Gürültüsü] ❌ Kaldırıldı")
 
-func process(player: CharacterBody2D, delta: float) -> void:
-	if _cooldown > 0:
-		_cooldown -= delta
-
 func _on_heavy_attack_impact(_attack_name: String = "") -> void:
-	if not _player or not is_instance_valid(_player) or _cooldown > 0:
+	if not _player or not is_instance_valid(_player):
 		return
-	_cooldown = COOLDOWN_DURATION
+	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
+	if not stamina_bar or not stamina_bar.use_charge():
+		return
 	var tree = get_tree()
 	if not tree or not tree.current_scene:
 		return

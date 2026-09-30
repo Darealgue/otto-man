@@ -1,35 +1,36 @@
 # kalkan_ustasi.gd
-# COMMON item - Block %90 hasar engeller (normal %50 yerine)
+# COMMON item - %25 şansla normal block hiç stamina tüketmez.
+# Not (2026-09-29): bu dosya önceden demir_kalkan ile BİREBİR AYNI efekti
+# (block damage reduction %90) taşıyordu — iki COMMON starter item aynı şeyi
+# yapıyordu, biri seçilince diğeri anlamsız kalıyordu. docs/ITEM_DATABASE_V2.txt
+# bu item'ın gerçek tasarımını hep belgeliyordu (satır 19) ve tüketici taraf
+# (block_state.gd:242-246, stamina_save_chance meta okuması) zaten koddaydı —
+# sadece bu dosya o meta'yı hiç set etmiyordu. Şimdi belgelenen davranışa
+# döndürüldü.
 
 extends ItemEffect
 
-const BLOCK_DAMAGE_REDUCTION = 0.9  # 90% damage reduction
+const STAMINA_SAVE_CHANCE := 0.25  # %25 şansla block stamina tüketmez
 
 func _init():
 	item_id = "kalkan_ustasi"
 	item_name = tr("item.kalkan_ustasi.name")
 	description = tr("item.kalkan_ustasi.description")
-	flavor_text = "Güçlü savunma"
+	flavor_text = "Usta eli, boşa güç harcamaz"
 	rarity = ItemRarity.COMMON
 	category = ItemCategory.BLOCK
-	affected_stats = ["block_damage_reduction"]
+	affected_stats = ["block_stamina_save_chance"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	
-	# Set block damage reduction to 90%
 	var block_state = player.get_node_or_null("StateMachine/Block")
 	if block_state:
-		if not block_state.has_meta("original_block_reduction"):
-			block_state.set_meta("original_block_reduction", block_state.BLOCK_DAMAGE_REDUCTION)
-		block_state.BLOCK_DAMAGE_REDUCTION = BLOCK_DAMAGE_REDUCTION
-		print("[Kalkan Ustası] ✅ Block %90 hasar engeller")
+		block_state.set_meta("stamina_save_chance", STAMINA_SAVE_CHANCE)
+		print("[Kalkan Ustası] ✅ %25 şansla block stamina tüketmez")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	
 	var block_state = player.get_node_or_null("StateMachine/Block")
-	if block_state and block_state.has_meta("original_block_reduction"):
-		block_state.BLOCK_DAMAGE_REDUCTION = block_state.get_meta("original_block_reduction")
-		block_state.remove_meta("original_block_reduction")
-		print("[Kalkan Ustası] ❌ Block eski haline döndü (%50)")
+	if block_state and block_state.has_meta("stamina_save_chance"):
+		block_state.remove_meta("stamina_save_chance")
+		print("[Kalkan Ustası] ❌ Kaldırıldı")

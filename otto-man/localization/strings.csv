@@ -1557,7 +1557,7 @@ npc_window.gender_female,Kadın,Female
 npc_window.idle,Boşta,Idle
 npc_window.soldier,Asker,Soldier
 item.ates_topu_dususu.name,Ateş Topu Düşüşü,Fireball Drop
-item.ates_topu_dususu.description,"Fall attack alev patlaması (hasar + yanma, 10 sn cooldown)","Fall attack causes a fire explosion (damage + burn, 10s cooldown)"
+item.ates_topu_dususu.description,Fall attack alev patlaması (hasar + yanma); tetiklemek 1 stamina hücresi harcar.,Fall attack causes a fire explosion (damage + burn); costs 1 stamina charge to trigger.
 item.atesli_kayma.name,Ateşli Kayma,Fiery Slide
 item.atesli_kayma.description,Kayarken yere ateş bırakır; değen düşmanlar 1 ateş stack alır,Leaves fire on the ground while sliding; enemies that touch it get 1 fire stack
 item.atesli_yumruk.name,Ateşli Yumruk,Fiery Fist
@@ -1571,7 +1571,7 @@ item.barut_zirhi.description,Patlama kaynaklı tüm hasara bağışıklık,Immun
 item.berserker_ruhu.name,Berserker Ruhu,Berserker Spirit
 item.berserker_ruhu.description,Canın azaldıkça verdiğin hasar artar (en fazla iki kat). Daha fazla hasar alırsın.,Damage dealt increases as your health drops (up to double). You take more damage.
 item.buz_cagi.name,Buz Çağı,Ice Age
-item.buz_cagi.description,"Fall attack donma dalgası (yakındakileri yavaşlatır, 10 sn cooldown)","Fall attack creates a freezing wave (slows nearby enemies, 10s cooldown)"
+item.buz_cagi.description,Fall attack donma dalgası (yakındakileri yavaşlatır); tetiklemek 1 stamina hücresi harcar.,Fall attack creates a freezing wave (slows nearby enemies); costs 1 stamina charge to trigger.
 item.buzlu_kayma.name,Buzlu Kayma,Icy Slide
 item.buzlu_kayma.description,Kayarken yere buz bırakır; değen düşmanlar 1 buz stack alır,Leaves ice on the ground while sliding; enemies that touch it get 1 ice stack
 item.buzlu_kilic.name,Buzlu Kılıç,Icy Sword
@@ -1596,16 +1596,14 @@ item.dikenli_kalkan.name,Dikenli Kalkan,Spiked Shield
 item.dikenli_kalkan.description,Yediğin hasar saldırgana yansır (blok şart değil),Damage you take reflects onto the attacker (blocking not required)
 item.dodge_bombasi.name,Dodge Bombası,Dodge Bomb
 item.dodge_bombasi.description,Dodge kullandığında arkanda bomba bırakır,Leaves a bomb behind you when you dodge
-item.dodge_zehiri.name,Dodge Zehiri,Dodge Poison
-item.dodge_zehiri.description,Dodge kullandığında arkanda zehir bulutu bırakırsın,Leaves a poison cloud behind you when you dodge
 item.donma_cekici.name,Donma Çekici,Freezing Hammer
-item.donma_cekici.description,"Heavy attack donma AoE (yavaşlatma, 8 sn cooldown)","Heavy attack creates a freezing AoE (slow, 8s cooldown)"
+item.donma_cekici.description,Heavy attack donma AoE (yavaşlatma); tetiklemek 1 stamina hücresi harcar.,Heavy attack creates a freezing AoE (slow); costs 1 stamina charge to trigger.
 item.duvar_ustasi.name,Duvar Ustası,Wall Master
 item.duvar_ustasi.description,Duvarda bir süre yerçekimine karşı durabilirsin,You can resist gravity on walls for a while
 item.element_degisimi.name,Element Değişimi,Element Shift
 item.element_degisimi.description,Her 4. vuruşta aktif elementlerinden biri 3 kat güçte patlar,"Every 4th hit, one of your active elements explodes at 3x power"
 item.element_izi.name,Element İzi,Element Trail
-item.element_izi.description,"Dodge, aktif elementinin zemin izini bırakır",Dodging leaves a ground trail of your active element
+item.element_izi.description,"Dodge/dash, zıplama ve slide sırasında aktif elementinin izini bırakır.","Dodging, dashing, jumping and sliding leave a trail of your active element."
 item.elemental_odak.name,Elemental Odak,Elemental Focus
 item.elemental_odak.description,"Elemental hasar (zehir, ateş, buz, şimşek) +%300 artar. Fiziksel hasar -%75 düşer.","Elemental damage (poison, fire, ice, lightning) increases +300%. Physical damage decreases -75%."
 item.falci_kadin.name,Falcı Kadın,Fortune Teller
@@ -1621,7 +1619,7 @@ item.genis_dusus.description,Fall attack 2 düşmana vurabilir,Fall attack can h
 item.gerilmis_yay.name,Gerilmiş Yay,Drawn Bow
 item.gerilmis_yay.description,"Hafif saldırıyı basılı tutup bırakırsan, şarj oranlı güçlü bir mermi fırlatırsın",Hold and release light attack to fire a powerful projectile scaled by charge time
 item.gok_gurultusu.name,Gök Gürültüsü,Thunderclap
-item.gok_gurultusu.description,Heavy attack şimşek indirir (8 sn cooldown),Heavy attack calls down lightning (8s cooldown)
+item.gok_gurultusu.description,Heavy attack şimşek indirir; tetiklemek 1 stamina hücresi harcar.,Heavy attack calls down lightning; costs 1 stamina charge to trigger.
 item.gokten_dusus.name,Gökten Düşüş,Fall From the Sky
 item.gokten_dusus.description,Fall attack hasarı +%30,Fall attack damage +30%
 item.golge_adimi.name,Gölge Adımı,Shadow Step
@@ -1647,7 +1645,7 @@ item.hizli_el.description,Light attack hızı +%25,Light attack speed +25%
 item.ikinci_nefes.name,İkinci Nefes,Second Wind
 item.ikinci_nefes.description,İlk ölümde 1 canla dirilirsin (tek kullanım),Revive with 1 HP on your first death (one-time use)
 item.kalkan_ustasi.name,Kalkan Ustası,Shield Master
-item.kalkan_ustasi.description,Block %90 hasar engeller,Block prevents 90% damage
+item.kalkan_ustasi.description,%25 şansla normal block hiç stamina tüketmez.,Normal blocking has a 25% chance to cost no stamina.
 item.kan_bedeli.name,Kan Bedeli,Blood Price
 item.kan_bedeli.description,"Stamina bittiğinde, güç asla reddedilmez — bedel candan kesilir","When stamina runs out, power is never denied -- the cost is paid in health instead"
 item.kan_tadi.name,Kan Tadı,Taste of Blood
@@ -1665,13 +1663,11 @@ item.keskin_nazar.description,"%15 kritik şansı, kritikler %75 fazla hasar ver
 item.kum_saati.name,Kum Saati,Hourglass
 item.kum_saati.description,"Zaman Durdurucu ile: zaman 2x daha yavaş akar, 4 sn sürer.","With Time Stopper: time flows 2x slower, lasting 4 seconds."
 item.kus_kanadi.name,Kuş Kanadı,Bird's Wing
-item.kus_kanadi.description,"Triple jump, air kontrolü %75 azalır",Grants a triple jump; air control reduced by 75%
+item.kus_kanadi.description,Üçüncü bir zıplama hakkı verir. Bu bonus zıplama 2 stamina hücresi harcar.,Grants a third jump. This bonus jump costs 2 stamina charges.
 item.lav_cekici.name,Lav Çekici,Lava Hammer
-item.lav_cekici.description,Heavy attack alev topu fırlatır; değen düşman yanar (8 sn cooldown),Heavy attack hurls a fireball; enemies hit catch fire (8s cooldown)
+item.lav_cekici.description,Heavy attack alev topu fırlatır; değen düşman yanar; tetiklemek 1 stamina hücresi harcar.,Heavy attack hurls a fireball; enemies hit catch fire; costs 1 stamina charge to trigger.
 item.les_gazi.name,Leş Gazı,Carrion Gas
 item.les_gazi.description,Elit düşman cesedine vurunca zehirli gaz bulutu patlar,Hitting an elite enemy's corpse releases a cloud of poison gas
-item.miknatis.name,Mıknatıs,Magnet
-item.miknatis.description,Belli mesafeden paraları oyuncuya doğru çeker,Pulls gold toward the player from a set distance
 item.nazar_boncugu.name,Nazar Boncuğu,Evil Eye Bead
 item.nazar_boncugu.description,10 saniyede bir yenilenen kalkan. İlk gelen hasarı tamamen durdurur.,A shield that recharges every 10 seconds. Completely blocks the first hit of damage.
 item.ok_yagmuru.name,Ok Yağmuru,Arrow Rain
@@ -1714,8 +1710,6 @@ item.simsek_kalkani.name,Şimşek Kalkanı,Lightning Shield
 item.simsek_kalkani.description,Block sırasında gelen hasarın %80'i saldırgana şimşek olarak yansır,80% of damage taken while blocking reflects onto the attacker as lightning
 item.simsek_parmagi.name,Şimşek Parmak,Lightning Finger
 item.simsek_parmagi.description,Light attack belli ihtimalle şimşek çakar; buzlu düşmanda ihtimal 2x,Light attacks have a chance to strike lightning; the chance doubles against frozen enemies
-item.slide_simsegi.name,Slide Şimşeği,Slide Lightning
-item.slide_simsegi.description,Kayarken şimşek çakar (yakındaki düşmanlara hasar). Slide kontrolü -%20,Strikes lightning while sliding (damages nearby enemies). Slide control -20%
 item.son_kale.name,Son Kale,Last Stand
 item.son_kale.description,Blok sırasında stamina biterse gard kırılması yerine şok dalgası patlar,"If stamina runs out while blocking, a shockwave erupts instead of breaking your guard"
 item.tas_yurek.name,Taş Yürek,Heart of Stone
@@ -1745,19 +1739,17 @@ item.yikim_muhru.description,Ağır saldırı sırasında tuşu basılı tutup 1
 item.yildirim_adimi.name,Yıldırım Adımı,Lightning Step
 item.yildirim_adimi.description,Dodge/dash sonrası kısa süreli hız bonusu,Brief speed boost after a dodge/dash
 item.yildirim_dususu.name,Yıldırım Düşüşü,Lightning Fall
-item.yildirim_dususu.description,Fall attack şimşek çakar (10 sn cooldown),Fall attack strikes lightning (10s cooldown)
+item.yildirim_dususu.description,Fall attack şimşek çakar; tetiklemek 1 stamina hücresi harcar.,Fall attack strikes lightning; costs 1 stamina charge to trigger.
 item.zaman_durdurucu.name,Zaman Durdurucu,Time Stopper
 item.zaman_durdurucu.description,Perfect parry sonrası zaman yavaşlar; sen normal hızında hareket edersin,Time slows after a perfect parry; you move at normal speed
 item.zehirli_dev.name,Zehirli Dev,Poison Giant
 item.zehirli_dev.description,Heavy attack zehir püskürtür (yay çizen damlalar),Heavy attack sprays poison (arcing droplets)
 item.zehirli_dusus.name,Zehirli Düşüş,Poison Fall
-item.zehirli_dusus.description,Fall attack zehir bulutu bırakır (10 sn cooldown),Fall attack leaves a poison cloud (10s cooldown)
+item.zehirli_dusus.description,Fall attack zehir bulutu bırakır; tetiklemek 1 stamina hücresi harcar.,Fall attack leaves a poison cloud; costs 1 stamina charge to trigger.
 item.zehirli_tirnak.name,Zehirli Tırnak,Poison Claw
 item.zehirli_tirnak.description,"Light attack'lar zehir verir (max 5 stack, 2 sn'de 1 hasar/stack)","Light attacks apply poison (max 5 stacks, 1 damage/stack every 2s)"
 item.zeytinyagi.name,Zeytinyağı,Olive Oil
 item.zeytinyagi.description,Slide mesafesi +%80,Slide distance +80%
-item.ziplama_zehiri.name,Zıplama Zehiri,Jump Poison
-item.ziplama_zehiri.description,Zıplarken havada zehir izi bırakırsın,Leaves a poison trail in the air while jumping
 mc.construction.close_hint,[B ile kapat],[B to close]
 building.weaver.production_info,Lv.%s • İşçi:%s • Kumaş: (odun+yiyecek),Lv.%s • Worker:%s • Cloth: (wood+food)
 building.well.production_info, • İşçi:%s • Su üretimi: %s/tick, • Worker:%s • Water production: %s/tick
@@ -2361,3 +2353,132 @@ settings.video.ui_scale,Arayüz Boyutu,Interface Size
 settings.video.ui_scale.normal,Normal,Normal
 settings.video.ui_scale.large,Büyük,Large
 settings.video.ui_scale.huge,Çok Büyük,Very Large
+item.koz_tutan.name,Köz Tutan,Emberkeeper
+item.koz_tutan.description,Yanarak ölen düşmanın alevi en yakın düşmana sıçrar,"When a burning enemy dies, the flame leaps to the nearest enemy"
+item.koruk.name,Körük,Bellows
+item.koruk.description,5 vuruşluk combo sonrası 4 saniye tutuşursun ve çevredeki düşmanlar yanar. Tutuşukken aldığın hasar %20 artar,"After a 5 hit combo you ignite for 4 seconds and burn nearby enemies. While lit, you take 20% more damage"
+item.tavlanmis_celik.name,Tavlanmış Çelik,Tempered Steel
+item.tavlanmis_celik.description,Blok yapmak kalkanını 3 saniye kızdırır. Kızgın kalkanla blok saldırganı yakar ama bir stamina hücresi daha harcar,Blocking heats your shield for 3 seconds. A hot block burns the attacker but costs an extra stamina cell
+item.ocak.name,Ocak,Hearth
+item.ocak.description,"Yanarak ölen düşman 3 saniye kalan bir kor bırakır. Korun üstünden geçen düşman yanar, sen geçersen stamina kazanırsın","Enemies that die burning leave embers for 3 seconds. Enemies crossing them burn, you gain stamina"
+item.falya.name,Falya,Touchhole
+item.falya.description,Tam zamanında vurulan ağır saldırıya küçük bir patlama eklenir,A perfectly timed heavy attack adds a small explosion
+item.lagimci.name,Lağımcı,Sapper
+item.lagimci.description,"Kayarken arkanda barut izi bırakırsın. İz 3 saniye sonra ya da bir düşman değince patlar, seni de yakar","Sliding leaves a powder trail. It detonates after 3 seconds or on contact, and it burns you too"
+item.tepme.name,Tepme,Recoil
+item.tepme.description,"Havadayken yapılan ağır saldırı seni ters yöne fırlatır. Bedeli maksimum canının %3'ü, Barut Zırhı bu bedeli kaldırır","An airborne heavy attack launches you backwards. It costs 3% of max health, negated by Powder Armor"
+item.sabir_tasi.name,Sabır Taşı,Patience Stone
+item.sabir_tasi.description,"Zehirli düşmana dokunmadıkça zehir hasarı saniyede %15 artar, en fazla 5 katına çıkar. Ona vurduğun anda sıfırlanır",Poison damage grows 15% per second up to 5x while you leave the enemy alone. Hitting it resets the bonus
+item.yankesici.name,Yankesici,Cutpurse
+item.yankesici.description,Zehirli bir düşmanın yanından kaçarak geçince ondan altın çalarsın. Her çalma bir zehir katmanı tüketir,Dodging past a poisoned enemy steals gold from it. Each theft consumes one poison stack
+item.serbetci.name,Şerbetçi,Sherbet Seller
+item.serbetci.description,"Zehirli düşman ölünce zehir katmanları en yakın düşmana geçer, her geçişte bir azalır","When a poisoned enemy dies its poison stacks pass to the nearest enemy, losing one each hop"
+dungeon.theme.ates.name,Ateş,Fire
+dungeon.theme.buz.name,Buz,Ice
+dungeon.theme.zehir.name,Zehir,Poison
+dungeon.theme.firtina.name,Fırtına,Storm
+dungeon.theme.barut.name,Barut,Powder
+dungeon.theme.golge.name,Gölge,Shadow
+wm.tooltip.dungeon.theme_progress,%s zindanı: %d/%d eşya açık,%s dungeon: %d/%d items unlocked
+item_selection.unlock.kesif,Keşfin ödülü,Reward for scouting
+item_selection.unlock.boss,Patronun ödülü,Reward for the boss
+item_selection.unlock.body,Seçtiğin eşya kalıcı olarak koleksiyonuna girer.,The item you choose joins your collection permanently.
+item_selection.shop.body,Kesende %d altın var.,You are carrying %d gold.
+item_selection.shop.hint,"Seçmek için zıplama tuşunu basılı tut, ayrılmak için Escape.","Hold jump to buy, press Escape to leave."
+item_selection.shop.poor,Altının yetmiyor.,You cannot afford that.
+item_selection.title.draft,Eşyanı Seç,Choose Your Item
+item_selection.title.unlock,Koleksiyonuna Ekle,Add to Your Collection
+item_selection.title.shop,Tüccarın Tezgâhı,Merchant's Stall
+item_selection.shop.sold_out,Tezgâhta başka bir şey kalmadı.,Nothing else is left on the stall.
+falci.title,Falcı,Fortune Teller
+falci.close,Kapatmak için Escape,Press Escape to close
+falci.oracle.title,Kehanet (%d altın),Divination (%d gold)
+falci.oracle.desc,Bir sonraki zindan ödülünde kartlardan biri seçtiğin türden gelir.,"On your next dungeon reward, one of the cards will be of the type you choose."
+falci.oracle.active,Kehanet okundu: %s,Divination read: %s
+falci.collection.title,"Koleksiyonun  (Sil %d altın, Takas %d altın)","Your collection  (Erase %d gold, Trade %d gold)"
+falci.collection.empty,Falcının dokunabileceği bir eşyan yok. Zindanlardan yeni eşya açtıkça burası dolar.,You have nothing the fortune teller can touch. This fills as you unlock items in dungeons.
+falci.action.banish,Sil (%d),Erase (%d)
+falci.action.swap,Takas (%d),Trade (%d)
+falci.info.no_gold,Altının yetmiyor.,You cannot afford that.
+falci.info.oracle_set,Kehanet okundu: %s,Divination read: %s
+falci.info.banished,%s bir daha karşına çıkmayacak.,%s will never appear again.
+falci.info.swapped,"%s gitti, yerine %s geldi.","%s is gone, replaced by %s."
+falci.info.swap_failed,Falcı bu eşya için takas bulamadı.,The fortune teller found no trade for this item.
+falci.cat.light_attack,Hafif saldırı,Light attack
+falci.cat.heavy_attack,Ağır saldırı,Heavy attack
+falci.cat.block,Blok,Block
+falci.cat.parry,Parry,Parry
+falci.cat.dodge,Kaçış,Dodge
+falci.cat.special,Özel,Special
+dungeon.event.market,Market,Market
+dungeon.event.curse,Lanetli Sunak,Cursed Altar
+dungeon.market.sold_out,Tezgâh boş.,The stall is empty.
+item_selection.unlock.header,%s: %s zindanı,%s: %s dungeon
+item.yansiyan_irade.name,Yansıyan İrade,Reflected Will
+item.yansiyan_irade.description,"Kusursuz parry, 1 stamina hücresini anında geri kazandırır.",A perfect parry instantly restores one stamina charge.
+item.zehirli_sekme.name,Zehirli Sekme,Poison Skid
+item.zehirli_sekme.description,"Dodge sırasında içinden geçtiğin düşmanlar temas hasarı alır; aktif elementin varsa (zehir, ateş, buz, şimşek) o da uygulanır.","Enemies you dodge through take contact damage; if you have an active element (poison, fire, ice, lightning), it applies too."
+item.kesintisiz_akis.name,Kesintisiz Akış,Unbroken Flow
+item.kesintisiz_akis.description,"Dodge veya dash sırasında bir düşman ölürse, harcanan stamina anında geri gelir.",Killing an enemy during a dodge or dash instantly refunds the stamina spent.
+item.cellat_nefesi.name,Cellat Nefesi,Executioner's Breath
+item.cellat_nefesi.description,"Stamina artık zamanla değil, isabetli vuruşlarla yenilenir.",Stamina no longer regenerates over time - only landing hits refill it.
+item.set.movement.name,Huzursuz Beden,Restless Body
+item.set.brawl.name,Kavgacı İçgüdü,Brawler Instinct
+item.ziplatan_yumruk.name,Zıplatan Yumruk,Launching Fist
+item.ziplatan_yumruk.description,Normal heavy attack artık up_heavy'nin fırlatma kuvvetini kullanır — düşmanı havaya kaldırır.,"Normal heavy attacks now use up_heavy's launch force, knocking enemies into the air."
+item.toplu_kaldirma.name,Toplu Kaldırma,Mass Launch
+item.toplu_kaldirma.description,"Bir düşman fırlatıldığında, 80px içindeki diğer tüm düşmanlar da aynı kuvvetle havalanır.","When an enemy is launched, all others within 80px are launched with the same force."
+item.agirliksiz.name,Ağırlıksız,Weightless
+item.agirliksiz.description,Havadaki düşmana vurunca kendi yerçekimin daha da azalır; juggle penceresi uzar.,Hitting an airborne enemy reduces your own gravity further; the juggle window lasts longer.
+item.kader_ani.name,Kader Anı,Moment of Fate
+item.kader_ani.description,Havadayken yaptığın her saldırı garanti kritik olur ve aktif elementini uygular.,Every attack you make while airborne is a guaranteed critical hit and applies your active element.
+item.alan_parrysi.name,Alan Parry'si,Area Parry
+item.alan_parrysi.description,"Perfect parry artık sadece saldırganı değil, 100px içindeki tüm düşmanları sersemletip hafif hasar veriyor","Perfect parry now staggers and lightly damages every enemy within 100px, not just the attacker"
+item.emici_kalkan.name,Emici Kalkan,Absorbing Shield
+item.emici_kalkan.description,"Bloklanan hasarın %40'ı birikir, sıradaki saldırına düz hasar olarak eklenir",40% of blocked damage is banked and added as flat bonus damage to your next attack
+item.karsi_mermi.name,Karşı Mermi,Counter Shot
+item.karsi_mermi.description,Perfect parry saldırgana otomatik bir mermi fırlatır (Uzun Menzil veya Ok Yağmuru gerekir),Perfect parry automatically fires a projectile at the attacker (requires Long Range or Arrow Rain)
+item.duvar_kirici.name,Duvar Kırıcı,Wall Breaker
+item.duvar_kirici.description,Duvardan zıplarken yakındaki düşmanlara hafif hasar ve fırlatma verir,Wall jumping deals light damage and knockback to nearby enemies
+item.ruzgar_toplama.name,Rüzgâr Toplama,Gathering Wind
+item.ruzgar_toplama.description,"Her parkur eylemi (duvar zıplama, kenar tutunma, slide, çift zıplama) küçük bir stamina şarjı iade eder","Every parkour action (wall jump, ledge grab, slide, double jump) refunds a small amount of stamina"
+item.kesintisiz_akrobasi.name,Kesintisiz Akrobasi,Unbroken Acrobatics
+item.kesintisiz_akrobasi.description,Kenar tutunmadan çıkarken çift zıplama hakkı otomatik yenilenir,Leaving a ledge grab automatically refreshes your double jump
+item.golge_nisanci.name,Gölge Nişancı,Shadow Marksman
+item.golge_nisanci.description,Fall attack yere değdiği noktadan aşağı yönlü bir mermi fırlatır (Uzun Menzil veya Ok Yağmuru gerekir),Fall attack fires a downward projectile from the impact point (requires Long Range or Arrow Rain)
+item.suru_oku.name,Sürü Oku,Arrow Swarm
+item.suru_oku.description,"Mermiler 3'e ayrılır (dar bir yelpaze), her biri %40 hasar verir","Projectiles split into 3 in a narrow fan, each dealing 40% damage"
+item.pesine_dusen.name,Peşine Düşen,Pursuing Shot
+item.pesine_dusen.description,"Mermiler hafif homing kazanır, en yakın düşmana doğru yolunu büker","Projectiles gain light homing, gently curving toward the nearest enemy"
+item.agir_mermi.name,Ağır Mermi,Heavy Shot
+item.agir_mermi.description,Mermiler artık fırlatma da verir,Projectiles now also deal knockback
+item.ruh_mermisi.name,Ruh Mermisi,Soul Bullet
+item.ruh_mermisi.description,"Bir mermi bir düşmanı öldürürse, anında en yakın başka düşmana yönelip yoluna devam eder","When a projectile kills an enemy, it instantly redirects to the nearest remaining enemy and keeps flying"
+item.usta_isci.name,Usta İşçi,Master Craftsman
+item.usta_isci.description,"Kaç farklı boru hattına yayıldığına göre periyodik olarak stamina iade eder (3+ hat: küçük, 5 hat: büyük)","Periodically refunds stamina based on how many different pipelines you've spread into (3+: small, 5: large)"
+item.tek_sanat.name,Tek Sanat,One True Art
+item.tek_sanat.description,"Item'ların SADECE bir boru hattına yığılmışsa (5+ item, başka hatta hiç yok), o hattın gücü 1.5x artar","If all your items are concentrated in a single pipeline (5+ items, none elsewhere), that pipeline's power increases by 1.5x"
+item.refleks.name,Refleks,Reflex
+item.refleks.description,Rundan 1 kez: hasar aldığında hasar anında iade edilir ve kısa süreli dokunulmazlık kazanılır,"Once per run: when you take damage, it's instantly healed back and you gain brief invincibility"
+item.kavis_adimi.name,Kavis Adımı,Wide Arc Step
+item.kavis_adimi.description,Dodge/dash'in temas alanı %60 genişler,Dodge/dash's contact area widens by 60%
+item.soguk_temas.name,Soğuk Temas,Cold Contact
+item.soguk_temas.description,Dodge/dash sırasında temas ettiğin düşmanlar hafifçe donar,Enemies you touch during a dodge/dash are lightly frosted
+item.iz_birakan.name,İz Bırakan,Trailblazer
+item.iz_birakan.description,"Dodge/dash'in geçtiği yol, hareket biter bitmez bir hasar taraması yapar",The path your dodge/dash travels sweeps for damage the instant the move ends
+item.artan_guc.name,Artan Güç,Rising Power
+item.artan_guc.description,"Art arda inen light attack'lar birbirini güçlendirir, her ardışık vuruş bir öncekinden %10 güçlü (5. vuruşta tavan)","Consecutive light attacks strengthen each other, each hit 10% stronger than the last (caps at the 5th)"
+item.kesintisiz_zincir.name,Kesintisiz Zincir,Unbroken Chain
+item.kesintisiz_zincir.description,"Artan Güç'ün streak penceresini 2 katına çıkarır, zincir daha zor kırılır","Doubles Rising Power's streak window, making the chain much harder to break"
+item.daire_darbesi.name,Daire Darbesi,Circle Strike
+item.daire_darbesi.description,"Ağır saldırı artık yönsüz vurur, 100px çevrendeki tüm düşmanlar da aynı hasarı alır","Heavy attack now strikes all around you, every enemy within 100px takes the same damage"
+item.sirt_darbesi.name,Sırt Darbesi,Back Strike
+item.sirt_darbesi.description,"Combo'nun 3. vuruşu artık arkana da vurur, çevrelenirsen sırtındaki düşmanı da yakalarsın","The 3rd combo hit now also strikes behind you, catching enemies at your back if you're surrounded"
+item.kesme_yayi.name,Kesme Yayı,Cleaving Arc
+item.kesme_yayi.description,Combo'nun son vuruşu geniş bir yay çizip çevrendeki herkese değer (180°),"The final combo hit sweeps a wide arc, hitting everyone around you (180 degrees)"
+item.guc_devri.name,Güç Devri,Power Transfer
+item.guc_devri.description,"Bir vuruş öldürürse, sıradaki vuruşun hasarı %50 artar","When a hit kills an enemy, your next attack deals 50% more damage"
+item.zincirleme_vurus.name,Zincirleme Vuruş,Chain Strike
+item.zincirleme_vurus.description,"Bir vuruş bir düşmanı öldürürse, 60px içindeki başka bir düşman da hemen hasar alır","When a hit kills an enemy, another enemy within 60px instantly takes damage too"
+item.sarsici_darbe.name,Sarsıcı Darbe,Shockwave Strike
+item.sarsici_darbe.description,Her 3. isabetli vuruşta etrafına küçük bir şok dalgası yayılır,Every 3rd landed hit unleashes a small shockwave around you

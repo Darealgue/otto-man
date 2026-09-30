@@ -52,7 +52,8 @@ func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	# Başka sistemler (hitstop vb.) time_scale’i sıfırlayabilir; her frame tekrar uygula
 	var scale_to_use: float = TIME_SLOW_SCALE
 	var duration_to_use: float = TIME_SLOW_REAL_DURATION
-	if ItemManager and ItemManager.has_active_item("kum_saati"):
+	var im := get_node_or_null("/root/ItemManager")
+	if im and im.has_active_item("kum_saati"):
 		scale_to_use = 0.25
 		duration_to_use = 4.0
 	Engine.time_scale = scale_to_use
@@ -85,7 +86,8 @@ func _apply_time_slow() -> void:
 	_time_slow_active = true
 	_time_slow_accumulator = 0.0
 	var scale_to_use: float = TIME_SLOW_SCALE
-	if ItemManager and ItemManager.has_active_item("kum_saati"):
+	var im := get_node_or_null("/root/ItemManager")
+	if im and im.has_active_item("kum_saati"):
 		scale_to_use = 0.25
 	Engine.time_scale = scale_to_use
 	var player_mult: float = 1.0 / scale_to_use

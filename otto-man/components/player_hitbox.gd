@@ -16,6 +16,16 @@ var max_targets_light: int = -1
 var max_targets_heavy: int = -1
 # Ağır saldırıda collision shape genişletme çarpanı (Cenk Meydanı); 1.0 = kapalı
 var heavy_shape_scale_x: float = 1.0
+# Zıplatan Yumruk: true ise heavy_neutral de up_heavy'nin fırlatma kuvvetini kullanır
+var force_heavy_launch: bool = false
+# Kader Anı: >1.0 ise oyuncu havadayken (is_on_floor()==false) her saldırı bu çarpanla kritik olur
+var force_air_crit_multiplier: float = 1.0
+# Artan Güç: ardışık light attack streak çarpanı (item her vuruşta günceller)
+var light_streak_damage_multiplier: float = 1.0
+# Güç Devri: >1.0 ise SIRADAKİ saldırı bu çarpanla güçlenir, kullanılınca 1.0'a döner
+var next_attack_bonus_multiplier: float = 1.0
+# Emici Kalkan: bloklanan hasardan biriken, SIRADAKİ saldırıya eklenen düz bonus
+var pending_flat_damage_bonus: float = 0.0
 var _registered_hit_target_ids: Array = []  # Instance IDs of enemies that can take this hit
 var base_damage: float = 15.0  # Base damage value
 var combo_enabled: bool = false  # Added missing property
@@ -94,7 +104,26 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 	
 	# Apply damage multiplier (used by heavy or just timing bonus)
 	damage *= max(0.0, damage_multiplier)
-	
+
+	# Artan Güç: ardışık light attack streak çarpanı (sadece light saldırılarda)
+	if attack_type == "light" and light_streak_damage_multiplier != 1.0:
+		damage *= light_streak_damage_multiplier
+
+	# Güç Devri: bir önceki öldürmenin bonusu, tek seferlik tüketilir
+	if next_attack_bonus_multiplier != 1.0:
+		damage *= next_attack_bonus_multiplier
+		next_attack_bonus_multiplier = 1.0
+
+	# Emici Kalkan: biriken bloklanan hasar, tek seferlik düz bonus olarak eklenir
+	if pending_flat_damage_bonus > 0.0:
+		damage += pending_flat_damage_bonus
+		pending_flat_damage_bonus = 0.0
+
+	# Tek Sanat: item'ların SADECE Temas Saldırısı'na (5+ item) odaklanmışsa melee hasarı 1.5x
+	var im_wildcard := get_node_or_null("/root/ItemManager")
+	if im_wildcard:
+		damage *= im_wildcard.get_specialist_multiplier("temas")
+
 	# Base knockback from AttackManager (then override per variant)
 	if attack_manager and attack_manager.has_method("calculate_knockback"):
 		var kb: Dictionary = attack_manager.calculate_knockback(get_parent(), attack_type, attack_name)
@@ -144,7 +173,21 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 		else:
 			knockback_force = 140.0
 			knockback_up_force = 8.0
-	
+
+	# Zıplatan Yumruk: heavy_neutral de up_heavy'nin fırlatma kuvvetini kullanır
+	if force_heavy_launch and attack_name == "heavy_neutral":
+		knockback_force = 160.0
+		knockback_up_force = 190.0
+
+	# Kader Anı: oyuncu havadaysa (juggle penceresi) bu saldırı garanti kritik
+	if force_air_crit_multiplier > 1.0:
+		var owner_body = get_parent()
+		if owner_body and owner_body.has_method("is_on_floor") and not owner_body.is_on_floor():
+			var air_crit := force_air_crit_multiplier
+			if im_wildcard:
+				air_crit *= im_wildcard.get_specialist_multiplier("havaya")
+			damage *= air_crit
+
 	# Apply knockback multipliers (for perfect timing window)
 	knockback_force *= max(0.0, kb_multiplier)
 	knockback_up_force *= max(0.0, kb_up_multiplier)

@@ -280,6 +280,10 @@ func _on_boss_defeated() -> void:
 	_entrance_door.unlock_door()
 	_entrance_door.close_door_now()
 	print("[BossRoom] Boss yenildi — giriş kapısından çıkabilirsin")
+	# Boss ödülü: kapı açıldıktan sonra göster, böylece UI kapanınca çıkış hazır.
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("has_pending_unlock_offers") and bool(im.call("has_pending_unlock_offers")):
+		await im.call("resolve_pending_unlock_offers")
 
 
 func _on_entrance_door_opened(_door_type: String) -> void:

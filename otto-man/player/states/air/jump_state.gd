@@ -42,6 +42,7 @@ func enter():
 		wall_jump_grace_timer = WALL_JUMP_GRACE_PERIOD
 		animation_player.play("wall_jump")
 		_play_jump_sfx()
+		_spawn_element_trail()
 		# Face away from the wall we jumped from and store the direction
 		wall_jump_sprite_direction = player.wall_jump_direction < 0
 		player.sprite.flip_h = wall_jump_sprite_direction
@@ -69,6 +70,7 @@ func enter():
 				# First jump - play jump prepare animation
 				animation_player.play("jump_prepare")
 				_play_jump_sfx()
+			_spawn_element_trail()
 			player.enable_double_jump()
 			# Increment jump count AFTER animation selection
 			if can_triple_jump:
@@ -143,10 +145,27 @@ func physics_update(delta: float):
 	elif jump_pressed and not down_pressed and not player.jump_input_blocked and player.jump_block_timer <= 0:
 		# Check for triple jump item (Kuş Kanadı)
 		var can_triple_jump = player.has_meta("kus_kanadi_active")
+		# jump_count = şu ana kadar YAPILMIŞ zıplama sayısı (yer zıplaması dahil,
+		# enter()'da her zıplama girişinden sonra +1 artıyor).
 		var jump_count = player.get_meta("kus_kanadi_jump_count", 0) if can_triple_jump else 0
-		
-		# Allow jump if: normal double jump OR (triple jump item AND jump count < 2, meaning max 3 jumps: 0, 1, 2)
-		if not player.has_double_jumped or (can_triple_jump and jump_count < 2):
+
+		# Kuş Kanadı'nın kattığı BONUS zıplama: 2 zıplama zaten yapılmışsa (yer +
+		# ilk bedava hava zıplaması), başlamak üzere olan bu 3. zıplama 2 stamina
+		# hücresi harcar. İlk hava zıplaması (jump_count 1 iken, yani henüz sadece
+		# yer zıplaması yapılmışken) herkesin sahip olduğu bedava çift zıplamayla
+		# aynı, ona dokunulmuyor.
+		var bonus_jump_allowed := true
+		if can_triple_jump and jump_count == 2:
+			bonus_jump_allowed = _consume_kus_kanadi_bonus_jump_stamina()
+
+		# Kuş Kanadı'nda cap gerçekten 3 zıplamayla sınırlanır (jump_count < 3);
+		# itemsiz oyuncuda eski `not has_double_jumped` mantığı korunur. Önceki
+		# hâlde bu ikisi "or" ile birleşikti ve has_double_jumped triple-jump
+		# yolunda hiç true olmadığı için cap fiilen hiç uygulanmıyordu (4.+
+		# hava zıplaması sessizce izin veriliyordu).
+		var allow_jump: bool = (jump_count < 3 and bonus_jump_allowed) if can_triple_jump else not player.has_double_jumped
+
+		if allow_jump:
 			is_double_jumping = true
 			if can_triple_jump:
 				# Jump count will be incremented in enter() function
@@ -155,6 +174,9 @@ func physics_update(delta: float):
 			else:
 				player.has_double_jumped = true
 			player.start_double_jump()
+			var im_momentum := get_node_or_null("/root/ItemManager")
+			if im_momentum:
+				im_momentum.apply_parkour_momentum_tick()
 			# Randomly choose between two double jump animations
 			var double_jump_animations = ["double_jump", "double_jump_alt"]
 			var random_animation = double_jump_animations[randi() % double_jump_animations.size()]
@@ -262,3 +284,30 @@ func _play_jump_sfx() -> void:
 	var sm := get_node_or_null("/root/SoundManager")
 	if sm and sm.has_method("play_sfx"):
 		sm.play_sfx("jump", player.global_position)
+
+
+## Element İzi: her zıplama girişinde (yer/duvar) aktif elementin izini bırakır.
+## Gerçek mantık ItemManager.spawn_element_trail_if_active()'da — bkz.
+## resources/items/element_izi.gd, docs/ITEM_PIPELINE_DESIGN.md §8.2 madde 1.
+func _spawn_element_trail() -> void:
+	if not is_instance_valid(player):
+		return
+	var im := get_node_or_null("/root/ItemManager")
+	if im:
+		im.spawn_element_trail_if_active(player.global_position)
+
+
+## Kuş Kanadı'nın bonus (3.) zıplaması 2 stamina hücresi harcar. İkinci hücre
+## yoksa ilkini geri veriyoruz — ya ikisi de gider ya hiçbiri (yarım harcama yok).
+func _consume_kus_kanadi_bonus_jump_stamina() -> bool:
+	if not is_instance_valid(player):
+		return false
+	var stamina_bar = player.get_tree().get_first_node_in_group("stamina_bar")
+	if not stamina_bar:
+		return false
+	if not stamina_bar.use_charge():
+		return false
+	if not stamina_bar.use_charge():
+		stamina_bar.restore_partial_charge(1.0)
+		return false
+	return true

@@ -656,6 +656,9 @@ func _dismiss_intro() -> void:
 	if _intro_dismissed:
 		return
 	_intro_dismissed = true
+	# Yapay zeka indirme/uyanma kutusu bütün açılış boyunca gizliydi; menünün göründüğü an
+	# olan burası, onun da çizilmeye başladığı yer (bkz. AiVillagersChip).
+	_open_ai_chip_gate()
 	if _press_prompt:
 		_press_prompt.hide()
 	if _intro_tween and _intro_tween.is_valid():
@@ -669,6 +672,16 @@ func _dismiss_intro() -> void:
 	if _menu_root:
 		_intro_tween.tween_property(_menu_root, "modulate:a", 1.0, INTRO_REVEAL_DURATION)
 	_intro_tween.finished.connect(_on_intro_reveal_finished)
+
+
+## "Köylüler kıpırdanıyor / uyandı" kutusunun perdesini açar. Stüdyo logosunun, dil
+## seçiminin, erken erişim uyarısının ve "herhangi bir tuşa bas" ekranının üstünde beliren
+## bu kutu açılışın havasını bozuyordu (2026-09-02), o yüzden menü görünene kadar bekliyor.
+## Autoload'a çıplak isimle değil node yoluyla erişiyoruz (bkz. CLAUDE.md).
+func _open_ai_chip_gate() -> void:
+	var ai := get_node_or_null("/root/AiVillagers")
+	if ai != null and ai.has_method("open_chip_gate"):
+		ai.call("open_chip_gate")
 
 
 func _on_intro_reveal_finished() -> void:

@@ -585,6 +585,7 @@ func set_world_map_state(state: Dictionary) -> void:
 		return
 	_upgrade_world_map_state_if_needed(state)
 	_ensure_map_content_extensions()
+	_backfill_dungeon_themes_if_missing()
 	_initialize_world_settlement_states()
 	_refresh_visible_tiles()
 	var mm_map: Node = get_node_or_null("/root/MissionManager")
@@ -1958,6 +1959,74 @@ func _place_dungeons_on_map(rng: RandomNumberGenerator) -> void:
 			world_map_tiles[key2]["poi_type"] = "dungeon"
 			world_map_tiles[key2]["dungeon_name"] = WorldDungeonNames.pick_dungeon_name(rng)
 			placed.append({"q": q2, "r": r2})
+	_assign_dungeon_themes()
+
+
+## Zindan temaları harita üretiminde SABİT atanır — "zehir zindanı" bir yer, sıra numarası değil.
+## Sıra köye yakınlıkla: tutorial zindanı ateş, en uzak zindan gölge (sinerji zindanı, en son).
+## bkz. docs/ITEM_UNLOCK_SISTEMI.md bölüm 3
+const DUNGEON_THEME_ORDER: Array[String] = ["ates", "buz", "zehir", "firtina", "barut", "golge"]
+
+
+func _assign_dungeon_themes() -> void:
+	var vq: int = int(world_map_player_pos.get("q", 0))
+	var vr: int = int(world_map_player_pos.get("r", 0))
+	var tutorial_key: String = ""
+	var others: Array[Dictionary] = []
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("poi_type", "")) != "dungeon":
+			continue
+		if bool(tile.get("tutorial_dungeon", false)):
+			tutorial_key = String(key)
+			continue
+		others.append({
+			"key": String(key),
+			"dist": _hex_distance(vq, vr, int(tile.get("q", 0)), int(tile.get("r", 0))),
+		})
+	others.sort_custom(func(a, b): return int(a["dist"]) < int(b["dist"]))
+
+	var ordered_keys: Array[String] = []
+	if not tutorial_key.is_empty():
+		ordered_keys.append(tutorial_key)
+	for entry in others:
+		ordered_keys.append(String(entry["key"]))
+
+	for i in ordered_keys.size():
+		var k: String = ordered_keys[i]
+		# Zindan sayısı tema sayısını aşarsa baştan sar — fazladan zindan da bir kimlik alsın.
+		world_map_tiles[k]["dungeon_theme"] = DUNGEON_THEME_ORDER[i % DUNGEON_THEME_ORDER.size()]
+
+
+## Tema alanı eklenmeden önce oluşturulmuş kayıtlar için: eksikse aynı kuralla doldur.
+func _backfill_dungeon_themes_if_missing() -> void:
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("poi_type", "")) != "dungeon":
+			continue
+		if String(tile.get("dungeon_theme", "")).is_empty():
+			_assign_dungeon_themes()
+			return
+
+
+## Tema kimliğinin oyuncuya gösterilen adı. Tek kaynak: hem dünya haritası balonu
+## hem kart ekranı buradan okur, tema adı iki yerde ayrı ayrı yazılmasın.
+func get_dungeon_theme_display_name(theme: String) -> String:
+	var key: String = "dungeon.theme.%s.name" % theme
+	var localized: String = tr(key)
+	return theme if localized == key else localized
+
+
+## dungeon_id ("q,r") -> tema. Bilinmeyen/köy portalı için ilk tema döner.
+func get_dungeon_theme(dungeon_id: String) -> String:
+	var parts: PackedStringArray = dungeon_id.strip_edges().split(",")
+	if parts.size() == 2:
+		var key: String = _hex_key(int(parts[0]), int(parts[1]))
+		if world_map_tiles.has(key):
+			var theme: String = String(world_map_tiles[key].get("dungeon_theme", ""))
+			if not theme.is_empty():
+				return theme
+	return DUNGEON_THEME_ORDER[0]
 
 
 func _place_landmarks_on_map(rng: RandomNumberGenerator) -> void:

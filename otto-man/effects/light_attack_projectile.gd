@@ -5,6 +5,9 @@
 #   element           - Rüzgârın Nişanı: "poison"/"fire"/"frost" ise çarpışta ilgili stack uygulanır
 #   echo              - Yankı Oku: çarpışma noktasında 1sn sonra %60 hasarlık ikinci patlama
 #   unlimited_range / crit_range / crit_mult - Kartal Bakışı: menzil sınırı kalkar, uzak mesafe kritik
+#   knockback_force / knockback_up_force - Ağır Mermi: >0 ise isabette fırlatma da uygulanır
+#   homing_strength   - Peşine Düşen: >0 ise en yakın düşmana doğru saniyede bu oranda döner
+#   soul_chain        - Ruh Mermisi: isabet öldürürse en yakın başka düşmana yönelip devam eder
 extends Node2D
 
 const SPEED := 1100.0
@@ -13,6 +16,8 @@ const HIT_RADIUS := 56.0
 const BALL_RADIUS := 10.0
 const PROJECTILE_COLOR := Color(0.9, 0.85, 0.5)
 const BOUNCE_RANGE := 140.0
+const CHAIN_RANGE := 200.0
+const HOMING_RANGE := 220.0
 const ECHO_DELAY := 1.0
 const ECHO_DAMAGE_RATIO := 0.6
 const ECHO_RADIUS := 60.0
@@ -29,6 +34,10 @@ var echo: bool = false
 var unlimited_range: bool = false
 var crit_range: float = 300.0
 var crit_mult: float = 1.75
+var knockback_force: float = 0.0
+var knockback_up_force: float = 0.0
+var homing_strength: float = 0.0
+var soul_chain: bool = false
 
 func setup(origin: Vector2, direction: Vector2, damage: float) -> void:
 	global_position = origin
@@ -44,6 +53,12 @@ func setup(origin: Vector2, direction: Vector2, damage: float) -> void:
 	z_index = 10
 
 func _physics_process(delta: float) -> void:
+	if homing_strength > 0.0:
+		var homing_target := _find_nearest_enemy(null, global_position, HOMING_RANGE)
+		if homing_target:
+			var desired: Vector2 = (homing_target.global_position - global_position).normalized()
+			_direction = _direction.lerp(desired, clampf(homing_strength * delta, 0.0, 1.0)).normalized()
+			rotation = _direction.angle()
 	var move := _direction * SPEED * delta
 	_traveled += move.length()
 	if not unlimited_range and _traveled >= max_distance:
@@ -73,17 +88,30 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _on_hit(node: Node, world_pos: Vector2) -> void:
+	var killed_by_this_hit := false
 	if node.has_method("take_damage"):
 		var dmg := _damage
 		if unlimited_range and _traveled > crit_range:
 			dmg *= crit_mult
-		# Sadece hasar; knockback ve hurt animasyonu yok (apply_knockback = false)
-		node.take_damage(dmg, 0.0, 0.0, false)
+		if knockback_force > 0.0:
+			# Ağır Mermi: fırlatma da uygulanır (hurt animasyonu tetiklenir)
+			node.take_damage(dmg, knockback_force, knockback_up_force, true)
+		else:
+			# Varsayılan: sadece hasar; knockback ve hurt animasyonu yok
+			node.take_damage(dmg, 0.0, 0.0, false)
+		killed_by_this_hit = node.get("current_behavior") == "dead"
 	_apply_element(node)
 	if echo:
 		_spawn_echo(world_pos)
+	if soul_chain and killed_by_this_hit:
+		var chain_target := _find_nearest_enemy(node, world_pos, CHAIN_RANGE)
+		if chain_target:
+			_traveled = 0.0
+			_direction = (chain_target.global_position - world_pos).normalized()
+			rotation = _direction.angle()
+			return
 	if bounce_remaining > 0:
-		var next_target := _find_bounce_target(node, world_pos)
+		var next_target := _find_nearest_enemy(node, world_pos, BOUNCE_RANGE)
 		if next_target:
 			bounce_remaining -= 1
 			_traveled = 0.0
@@ -106,12 +134,15 @@ func _apply_element(node: Node) -> void:
 			if node.has_method("add_frost_stack"):
 				node.add_frost_stack(1)
 
-func _find_bounce_target(exclude: Node, from_pos: Vector2) -> Node:
+## Yansıyan Ok (bounce), Ruh Mermisi (soul_chain) ve homing için paylaşılan
+## "en yakın canlı düşman" arayıcısı. exclude null olabilir (homing'de kendi
+## dışında hariç tutulacak bir düşman yok).
+func _find_nearest_enemy(exclude: Node, from_pos: Vector2, max_range: float) -> Node:
 	var tree = get_tree()
 	if not tree:
 		return null
 	var best: Node = null
-	var best_dist := BOUNCE_RANGE
+	var best_dist := max_range
 	for node in tree.get_nodes_in_group("enemies"):
 		if not is_instance_valid(node) or node == exclude:
 			continue

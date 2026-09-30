@@ -305,30 +305,11 @@ func begin_village_core_tutorial_messages() -> void:
 		"tutorial",
 		1
 	)
-	enqueue_message(
-		"dialogue_mechanics_1",
-		tr("tutorial.village.dialogue_mechanics_1"),
-		"tutorial",
-		2
-	)
-	enqueue_message(
-		"dialogue_mechanics_2",
-		tr("tutorial.village.dialogue_mechanics_2"),
-		"tutorial",
-		3
-	)
-	enqueue_message(
-		"villager_individuality_1",
-		tr("tutorial.village.villager_individuality_1"),
-		"tutorial",
-		4
-	)
-	enqueue_message(
-		"villager_individuality_2",
-		tr("tutorial.village.villager_individuality_2"),
-		"tutorial",
-		5
-	)
+	# dialogue_mechanics_* ve villager_individuality_* mesajları BİLEREK burada değil. Köye ilk
+	# varışta mentorun bina brifingine tıkıştırılmışlardı: oyuncuya ev kurmayı öğretirken araya,
+	# o an hiçbir işe yaramayan dört paragraf giriyordu (playtest, 2026-09-02). Artık oyuncunun
+	# kendi açtığı ilk köylü sohbetinde, yapay zeka gerçekten çalışıyorken anlatım satırı olarak
+	# veriliyorlar — bkz. ui/npc_window.gd, _maybe_deliver_first_chat_brief.
 	set_objective_tr("tutorial.village.objective_mentor")
 
 
@@ -615,34 +596,8 @@ func _rebuild_pending_messages_after_load() -> void:
 				"tutorial",
 				1
 			)
-		if not is_delivered("dialogue_mechanics_1"):
-			enqueue_message(
-				"dialogue_mechanics_1",
-				tr("tutorial.village.dialogue_mechanics_1"),
-				"tutorial",
-				2
-			)
-		if not is_delivered("dialogue_mechanics_2"):
-			enqueue_message(
-				"dialogue_mechanics_2",
-				tr("tutorial.village.dialogue_mechanics_2"),
-				"tutorial",
-				3
-			)
-		if not is_delivered("villager_individuality_1"):
-			enqueue_message(
-				"villager_individuality_1",
-				tr("tutorial.village.villager_individuality_1"),
-				"tutorial",
-				4
-			)
-		if not is_delivered("villager_individuality_2"):
-			enqueue_message(
-				"villager_individuality_2",
-				tr("tutorial.village.villager_individuality_2"),
-				"tutorial",
-				5
-			)
+		# Yapay zeka sohbet brifingi burada da yeniden kuyruğa alınmıyor; artık mentorun değil,
+		# ilk köylü sohbetinin işi (bkz. begin_village_core_tutorial_messages'taki not).
 	elif not is_delivered("village_core_complete") and village_core_step >= 99:
 		enqueue_message(
 			"village_core_complete",
@@ -716,6 +671,17 @@ func drain_all() -> Array[Dictionary]:
 ## Mesaj daha önce teslim edildi mi?
 func is_delivered(id: String) -> bool:
 	return _delivered_ids.has(id)
+
+
+## Posta kutusundan GEÇMEDEN, başka bir yerde gösterilmiş bir mesajı teslim edilmiş say.
+## Şu anki tek kullanıcısı ui/npc_window.gd: yapay zeka sohbet brifingi mentorun ağzından değil,
+## oyuncunun açtığı ilk köylü sohbetinde anlatım satırı olarak veriliyor. "Bir daha gösterme"
+## kaydı yine de buradan geçiyor ki kayıt dosyasına diğer mesajlarla aynı yerden yazılsın
+## (bkz. export_save_state / delivered_ids).
+func mark_delivered(id: String) -> void:
+	if id.is_empty() or _delivered_ids.has(id):
+		return
+	_delivered_ids[id] = true
 
 
 ## Aktif görev metnini ayarla (ekran şeridi).

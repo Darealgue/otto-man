@@ -14,6 +14,7 @@ func _init():
 	flavor_text = "Kaydığın yer yanar"
 	rarity = ItemRarity.RARE
 	category = ItemCategory.SLIDE
+	tags = ["elemental_fire"]
 	affected_stats = ["slide_trail_fire"]
 
 func activate(player: CharacterBody2D):

@@ -10,6 +10,32 @@ const TILE_DEAD_BOTTOM: float = 16.0
 const TILE_TOP_SURFACE: float = 32.0
 const HEX_STEP_X: float = 48.0
 const HEX_STEP_Y: float = 32.0
+
+const _FadeBand := preload("res://ui/FadeBandTexture.gd")
+## Bilgi balonu (hex bilgi şeridi) ölçüleri.
+const TOOLTIP_TITLE_FONT_SIZE := 20
+const TOOLTIP_BODY_FONT_SIZE := 16
+const TOOLTIP_LINE_GAP := 4
+const TOOLTIP_PAD_X := 18.0
+const TOOLTIP_PAD_Y := 12.0
+## Metnin sarılmadan önce ulaşabileceği en fazla genişlik.
+const TOOLTIP_MAX_TEXT_WIDTH := 320.0
+## Şeridin içerik dikdörtgeninin iki yanına taştığı miktar — solma bölgesi yazının dışında
+## kalsın diye (aynı numara: ui/AiVillagersChip.gd BAND_BLEED).
+const TOOLTIP_BAND_BLEED := 70.0
+## Balonun imleçten/piyondan uzak duracağı boşluk ve onların çevresinde boş bırakılan alanın
+## taban yarıçapı (karo sanatının yarısı + pay; kamera zoom'u ile ölçekleniyor).
+const TOOLTIP_GAP := 14.0
+const TOOLTIP_KEEP_CLEAR_BASE := 40.0
+const TOOLTIP_KEEP_CLEAR_MIN := 26.0
+## Sefer envanteri paneli (dünya haritası sol üst). Simge/punto ölçüleri burada tek yerde:
+## eskisi 20 px simge + 15 punto idi ve 1920x1080 tasarım alanında okunmuyordu (playtest,
+## 2026-09-02).
+const EXP_HUD_ICON_SIZE := Vector2(30, 30)
+const EXP_HUD_COUNT_FONT_SIZE := 20
+const EXP_HUD_SURVIVAL_FONT_SIZE := 16
+## Akışın sarma genişliği; panel sayı değiştikçe zıplamasın diye taban genişlik.
+const EXP_HUD_MIN_WIDTH := 320.0
 const ZOOM_STEP: float = 0.1
 ## Godot 4 Camera2D.zoom: BUYUK deger = yakin (buyuk karolar), KUCUK = uzak (genis alan).
 ## En uzaga (haritayi kucuk goster); onceki varsayilan giris ~0.6 bundan oteye inilmez.
@@ -72,7 +98,7 @@ var _expedition_survival_label: Label = null
 ## Taşınan orman kaynakları + zindan ganimeti — eskiden ayrı CarriedResourcesDisplay panelinde
 ## gösteriliyordu, bu panelle üst üste bindiği için (bkz. CarriedResourcesDisplay._is_world_map_scene)
 ## artık bu panelin ikinci satırında.
-var _carried_row: HBoxContainer = null
+var _supply_flow: HFlowContainer = null
 var _carried_resource_chips: Dictionary = {}
 var _carried_loot_chips: Dictionary = {}
 var _camera: Camera2D = null
@@ -95,6 +121,9 @@ var _cursor_h_last_horizontal_sign: int = 0
 # Ilk uzun bekleme bitip otomatik tekrar basladiktan sonra true; yon degisince hizi sifirlamamak icin.
 var _cursor_in_fast_repeat: bool = false
 var _terrain_textures: Dictionary = {}
+## POI (yerleşim / zindan) simgeleri. Arazi karolarıyla aynı 64x64 tuvalde ve saydam zeminli:
+## karonun YERİNE değil, aynı çizim konumunda ÜSTÜNE çiziliyorlar.
+var _poi_textures: Dictionary = {}
 var _debug_tile_overlay: bool = false
 var _debug_akarsu_overlay: bool = false
 var _route_mode: String = "shortest"
@@ -116,8 +145,9 @@ var _travel_event_info_label: Label = null
 var _travel_event_result_label: Label = null
 ## Imlec hex uzerinde koy / gorev / zindan ozeti (CanvasLayer, ekran koordinati).
 var _hex_tooltip_layer: CanvasLayer = null
-var _hex_tooltip_panel: PanelContainer = null
+var _hex_tooltip_panel: Control = null
 var _hex_tooltip_label: Label = null
+var _hex_tooltip_title: Label = null
 var _high_risk_move_dialog: ConfirmationDialog = null
 var _settlement_aid_confirm_dialog: ConfirmationDialog = null
 var _settlement_action_menu: PopupMenu = null
@@ -253,6 +283,7 @@ func _ready() -> void:
 	if _status_label:
 		_status_label.visible = SHOW_WORLD_MAP_STATUS_TEXT
 	_load_terrain_textures()
+	_load_poi_textures()
 	_setup_player_pawn()
 	if _world_manager and _world_manager.has_method("get_world_map_state"):
 		_invalidate_world_map_state_cache()
@@ -281,6 +312,10 @@ func _ready() -> void:
 	var ps0: Node = get_node_or_null("/root/PlayerStats")
 	if ps0 and ps0.has_signal("world_expedition_supplies_changed"):
 		ps0.world_expedition_supplies_changed.connect(_on_world_expedition_supplies_changed)
+	# Çantadaki yiyecek de artık karnı doyurduğu için (bkz. PlayerStats.apply_world_travel_ration_cost)
+	# panel onun değişimini de dinlemek zorunda — yoksa meyve yenip bittiğinde sayı ekranda kalıyor.
+	if ps0 and ps0.has_signal("carried_resources_changed"):
+		ps0.carried_resources_changed.connect(_on_world_expedition_supplies_changed)
 	_refresh_path_preview()
 	_refresh_active_unit_markers()
 	_last_marker_arrays_signature = _marker_arrays_signature()
@@ -530,6 +565,8 @@ func _exit_tree() -> void:
 	var ps_ex: Node = get_node_or_null("/root/PlayerStats")
 	if ps_ex and ps_ex.has_signal("world_expedition_supplies_changed") and ps_ex.world_expedition_supplies_changed.is_connected(_on_world_expedition_supplies_changed):
 		ps_ex.world_expedition_supplies_changed.disconnect(_on_world_expedition_supplies_changed)
+	if ps_ex and ps_ex.has_signal("carried_resources_changed") and ps_ex.carried_resources_changed.is_connected(_on_world_expedition_supplies_changed):
+		ps_ex.carried_resources_changed.disconnect(_on_world_expedition_supplies_changed)
 
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree():
@@ -737,13 +774,8 @@ func _draw() -> void:
 		_draw_terrain_tile(center, tile, q, r)
 		var poi: String = String(tile.get("poi_type", ""))
 		var discovered: bool = bool(tile.get("discovered", false))
-		if discovered and (poi == "player_village" or poi == "neighbor_village" or poi == "dungeon"):
-			var poi_color: Color = Color(1, 1, 1, 0.9)
-			if poi == "player_village":
-				poi_color = Color(1.0, 0.95, 0.35, 1.0)
-			elif poi == "dungeon":
-				poi_color = Color(0.9, 0.25, 0.2, 1.0)
-			draw_circle(center, 5.0, poi_color)
+		if discovered and _poi_textures.has(poi):
+			_draw_poi_marker(center, tile, poi)
 		if discovered and poi.begins_with("landmark_"):
 			var landmark_color: Color = Color(0.75, 0.55, 1.0, 1.0)
 			if bool(tile.get("landmark_claimed", false)):
@@ -771,6 +803,28 @@ func _draw() -> void:
 		2.8,
 		true
 	)
+	_redraw_cursor_tile_poi(cursor_center)
+
+
+## İmleç çerçevesi köy / zindan / kamp simgesinin üstünden geçiyordu; simge önde olmalı.
+##
+## Simgeler karolarla BİRLİKTE, arkadan öne (painter) sırayla çiziliyor: öndeki karonun ağaç
+## tepeleri arkadaki köyün altını kapatıyor ve derinlik hissini veren şey bu. Bütün simgeleri
+## toptan imlecin arkasına almak o sırayı bozardı. İmleç her zaman TEK bir karonun üstünde
+## olduğu için sadece o karonun simgesini imleçten sonra bir kez daha çizmek yetiyor —
+## başka hiçbir sıralama değişmiyor.
+func _redraw_cursor_tile_poi(cursor_center: Vector2) -> void:
+	var tile: Dictionary = _get_tile(_cursor_q, _cursor_r)
+	if tile.is_empty() or not bool(tile.get("discovered", false)):
+		return
+	var poi: String = String(tile.get("poi_type", ""))
+	if not _poi_textures.has(poi):
+		return
+	_draw_poi_marker(cursor_center, tile, poi)
+	# Olay uyarısı normalde simgenin üstünde duruyor; yeniden çizerken de öyle kalmalı.
+	if poi == "neighbor_village":
+		_draw_settlement_incident_marker(cursor_center, tile)
+
 
 func _on_world_map_updated() -> void:
 	_invalidate_world_map_state_cache()
@@ -1478,17 +1532,6 @@ func _format_incident_type_label(incident_type: String) -> String:
 		_:
 			return incident_type
 
-func _format_terrain_type_label(terrain_type: String) -> String:
-	match terrain_type:
-		"orman":
-			return tr("wm.terrain.forest")
-		"dag":
-			return tr("wm.terrain.mountain")
-		"akarsu":
-			return tr("wm.terrain.river")
-		_:
-			return terrain_type
-
 func _get_settlement_tooltip_name(tile: Dictionary) -> String:
 	var sid: String = String(tile.get("settlement_id", ""))
 	if _world_manager != null and _world_manager.has_method("_get_settlement_display_name") and not sid.is_empty():
@@ -1536,22 +1579,52 @@ func _setup_hex_hover_tooltip() -> void:
 	_hex_tooltip_layer = CanvasLayer.new()
 	_hex_tooltip_layer.layer = 42
 	add_child(_hex_tooltip_layer)
-	_hex_tooltip_panel = PanelContainer.new()
+	# Parşömen çerçeve değil, iki ucu saydama giden siyah şerit (ui/FadeBandTexture.gd) —
+	# haritanın üstünde duran bir diyalog kutusu gibi değil, altyazı gibi dursun diye.
+	# Kapsayıcı bilerek düz Control: PanelContainer çocuklarını kendi dikdörtgenine oturtur,
+	# şerit de iki yana taşamaz, yani solma diye bir şey kalmazdı.
+	_hex_tooltip_panel = Control.new()
 	_hex_tooltip_panel.visible = false
 	_hex_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if MEDIEVAL_THEME:
-		_hex_tooltip_panel.theme = MEDIEVAL_THEME
 	_hex_tooltip_layer.add_child(_hex_tooltip_panel)
-	var margin: MarginContainer = MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	_hex_tooltip_panel.add_child(margin)
-	_hex_tooltip_label = Label.new()
-	_hex_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hex_tooltip_label.custom_minimum_size = Vector2(268, 0)
-	margin.add_child(_hex_tooltip_label)
+
+	var band := TextureRect.new()
+	band.texture = _FadeBand.make()
+	band.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	band.stretch_mode = TextureRect.STRETCH_SCALE
+	band.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	band.offset_left = -TOOLTIP_BAND_BLEED
+	band.offset_right = TOOLTIP_BAND_BLEED
+	_hex_tooltip_panel.add_child(band)
+
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", TOOLTIP_LINE_GAP)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	_hex_tooltip_panel.add_child(col)
+
+	_hex_tooltip_title = _make_tooltip_label(TOOLTIP_TITLE_FONT_SIZE, Color(0.95, 0.82, 0.45, 1.0))
+	col.add_child(_hex_tooltip_title)
+	_hex_tooltip_label = _make_tooltip_label(TOOLTIP_BODY_FONT_SIZE, Color(0.90, 0.87, 0.80, 1.0))
+	col.add_child(_hex_tooltip_label)
+
+
+## Şerit çerçevesiz olduğu için yazı parlak bir ova karosunun üstüne denk gelebiliyor; gölge
+## okunabilirliği ayakta tutan şey (aynı yaklaşım: ui/AiVillagersChip.gd).
+func _make_tooltip_label(font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.75))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
 
 func _refresh_hex_hover_tooltip() -> void:
 	if not SHOW_WORLD_MAP_HEX_TOOLTIP:
@@ -1568,27 +1641,95 @@ func _refresh_hex_hover_tooltip() -> void:
 	if text.is_empty():
 		_hex_tooltip_panel.visible = false
 		return
-	_hex_tooltip_label.text = text
+	# İlk satır başlık, kalanı gövde. Bütün içerik üreticileri adı/başlığı en başa koyuyor.
+	var split: int = text.find("\n")
+	var title: String = text if split < 0 else text.substr(0, split)
+	var body: String = "" if split < 0 else text.substr(split + 1).strip_edges()
+	_hex_tooltip_title.text = title
+	_hex_tooltip_label.text = body
+	_hex_tooltip_label.visible = not body.is_empty()
+	_hex_tooltip_panel.size = _measure_tooltip(title, body)
 	_hex_tooltip_panel.visible = true
 	_position_hex_tooltip_for_cursor_impl()
 
+
+## Kapsayıcı bir Container'ın içinde olmadığı için boyutunu kendimiz veriyoruz. Sarma
+## yüksekliğini Label'ın minimum boyutundan okumak güvenilir değil (autowrap'te genişlik
+## bilinmeden hesaplanmıyor), o yüzden ölçüyü doğrudan fonttan alıyoruz.
+func _measure_tooltip(title: String, body: String) -> Vector2:
+	var size := Vector2.ZERO
+	size = _grow_to_fit(size, _hex_tooltip_title, title)
+	if not body.is_empty():
+		var body_size: Vector2 = _grow_to_fit(Vector2.ZERO, _hex_tooltip_label, body)
+		size.x = maxf(size.x, body_size.x)
+		size.y += body_size.y + float(TOOLTIP_LINE_GAP)
+	return size + Vector2(TOOLTIP_PAD_X * 2.0, TOOLTIP_PAD_Y * 2.0)
+
+
+func _grow_to_fit(size: Vector2, label: Label, text: String) -> Vector2:
+	var font: Font = label.get_theme_font("font")
+	if font == null:
+		return size + Vector2(TOOLTIP_MAX_TEXT_WIDTH, 18.0)
+	var fs: int = label.get_theme_font_size("font_size")
+	var measured: Vector2 = font.get_multiline_string_size(
+		text, HORIZONTAL_ALIGNMENT_CENTER, TOOLTIP_MAX_TEXT_WIDTH, fs
+	)
+	return Vector2(maxf(size.x, measured.x), size.y + measured.y)
+
+
+## Balon, imlecin (hedefin) VE oyuncu piyonunun üstüne gelmeyecek bir yere konur: ikisinin
+## çevresinde boş bırakılacak birer dikdörtgen tanımlanıp, imlecin üstü/altı/sağı/solu
+## sırasıyla denenir. Hiçbiri tamamen temiz değilse en az örtüşen aday seçilir — böylece en
+## kötü durumda bile balon oyuncunun bakmak istediği şeyi en az kapatan yerde çıkar.
 func _position_hex_tooltip_for_cursor_impl() -> void:
 	if not SHOW_WORLD_MAP_HEX_TOOLTIP:
 		return
 	if _hex_tooltip_panel == null or not _hex_tooltip_panel.visible:
 		return
-	var world_pt: Vector2 = to_global(_axial_to_pixel(_cursor_q, _cursor_r) + Vector2(0.0, -42.0))
-	var scr: Vector2 = get_viewport().get_canvas_transform() * world_pt
-	_hex_tooltip_panel.reset_size()
-	var panel_size: Vector2 = _hex_tooltip_panel.size
-	if panel_size.x < 4.0 or panel_size.y < 4.0:
-		panel_size = _hex_tooltip_panel.get_combined_minimum_size()
-	var pos: Vector2 = Vector2(scr.x + 16.0, scr.y - panel_size.y - 10.0)
+	var canvas: Transform2D = get_viewport().get_canvas_transform()
+	var cursor_scr: Vector2 = canvas * to_global(_axial_to_pixel(_cursor_q, _cursor_r))
+	var pawn_scr: Vector2 = canvas * to_global(_get_player_visual_pixel_pos())
+	var zoom: float = _camera.zoom.x if _camera != null else 1.0
+	var keep_clear: Array[Rect2] = [
+		_tooltip_keep_clear_rect(cursor_scr, zoom),
+		_tooltip_keep_clear_rect(pawn_scr, zoom),
+	]
+	var size: Vector2 = _hex_tooltip_panel.size
+	var margin: float = TOOLTIP_KEEP_CLEAR_BASE * zoom + TOOLTIP_GAP
+	var candidates: Array[Vector2] = [
+		Vector2(cursor_scr.x - size.x * 0.5, cursor_scr.y - margin - size.y),
+		Vector2(cursor_scr.x - size.x * 0.5, cursor_scr.y + margin),
+		Vector2(cursor_scr.x + margin, cursor_scr.y - size.y * 0.5),
+		Vector2(cursor_scr.x - margin - size.x, cursor_scr.y - size.y * 0.5),
+	]
 	var vr: Rect2 = get_viewport().get_visible_rect()
-	pos.x = clampf(pos.x, 8.0, vr.size.x - panel_size.x - 8.0)
-	pos.y = clampf(pos.y, 8.0, vr.size.y - panel_size.y - 8.0)
-	_hex_tooltip_panel.position = pos
+	var best: Vector2 = candidates[0]
+	var best_overlap: float = INF
+	for cand in candidates:
+		var pos := Vector2(
+			clampf(cand.x, TOOLTIP_GAP, maxf(TOOLTIP_GAP, vr.size.x - size.x - TOOLTIP_GAP)),
+			clampf(cand.y, TOOLTIP_GAP, maxf(TOOLTIP_GAP, vr.size.y - size.y - TOOLTIP_GAP))
+		)
+		var overlap: float = 0.0
+		for clear_rect in keep_clear:
+			var inter: Rect2 = Rect2(pos, size).intersection(clear_rect)
+			overlap += inter.size.x * inter.size.y
+		if overlap <= 0.0:
+			best = pos
+			best_overlap = 0.0
+			break
+		if overlap < best_overlap:
+			best_overlap = overlap
+			best = pos
+	_hex_tooltip_panel.position = best
 
+
+## İmleç/piyon çevresinde boş kalması gereken alan. Taban ölçü karo sanatının yarısı (64x64
+## karo, bkz. _tile_draw_position) artı biraz pay; kamera zoom'u ile ölçekleniyor çünkü balon
+## ekran uzayında, karolar dünya uzayında.
+func _tooltip_keep_clear_rect(center_screen: Vector2, zoom: float) -> Rect2:
+	var half: float = maxf(TOOLTIP_KEEP_CLEAR_BASE * zoom, TOOLTIP_KEEP_CLEAR_MIN)
+	return Rect2(center_screen - Vector2(half, half), Vector2(half * 2.0, half * 2.0))
 func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 	var blocks: PackedStringArray = PackedStringArray()
 	var mission_lines: PackedStringArray = _build_world_mission_objective_tooltip_lines_at(cq, cr)
@@ -1695,6 +1836,9 @@ func _format_mission_rewards_penalties_hint(m: Mission) -> String:
 		rp.append(tr("wm.tooltip.penalties") + ", ".join(bits2))
 	return " | ".join(rp)
 
+## Balonda sadece o karo hakkında BİLGİ var, nasıl oynanacağı yok: "buraya yürüyüp Onayla'ya
+## bas" gibi satırlar kaldırıldı (playtest, 2026-09-02). Oyuncu hareket etmeyi zaten biliyor;
+## her hex'te tekrar okuması gereken şey adı ve o an önemli olan durumu.
 func _build_dungeon_hex_tooltip_lines(tile: Dictionary, hex_q: int, hex_r: int) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
 	var dn: String = String(tile.get("dungeon_name", "")).strip_edges()
@@ -1716,84 +1860,119 @@ func _build_dungeon_hex_tooltip_lines(tile: Dictionary, hex_q: int, hex_r: int) 
 			var clears: int = int(dp.call("get_clear_count", did))
 			if clears > 0:
 				lines.append("Temizlenme: %d (+%d zorluk)" % [clears, clears])
-	lines.append(tr("wm.tooltip.dungeon.enter_hint"))
-	var terr: String = String(tile.get("terrain_type", ""))
-	if not terr.is_empty():
-		lines.append(tr("wm.tooltip.terrain") % _format_terrain_type_label(terr))
+		# Koleksiyon doluluğu: bu zindanın teması kaç eşyasını verdi.
+		# Completionist baskısı, oyuncuyu dokunulmamış zindanlara iten en ucuz kaldıraç
+		# (bkz. docs/ITEM_UNLOCK_SISTEMI.md bölüm 10).
+		var theme_line: String = _dungeon_theme_progress_line(did)
+		if not theme_line.is_empty():
+			lines.append(theme_line)
 	return lines
+
+
+func _dungeon_theme_progress_line(dungeon_id: String) -> String:
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(wm) or not is_instance_valid(im):
+		return ""
+	if not wm.has_method("get_dungeon_theme") or not im.has_method("get_theme_unlock_progress"):
+		return ""
+	var theme: String = String(wm.call("get_dungeon_theme", dungeon_id))
+	var progress: Dictionary = im.call("get_theme_unlock_progress", theme)
+	var total: int = int(progress.get("total", 0))
+	if total <= 0:
+		return ""
+	return tr("wm.tooltip.dungeon.theme_progress") % [
+		WorldManager.get_dungeon_theme_display_name(theme),
+		int(progress.get("unlocked", 0)),
+		total,
+	]
 
 func _build_biome_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	var terrain: String = String(tile.get("terrain_type", ""))
-	if terrain != "orman" and terrain != "dag" and terrain != "akarsu":
-		return PackedStringArray()
 	if terrain == "orman":
-		return PackedStringArray([
-			tr("wm.tooltip.forest.title"),
-			tr("wm.tooltip.forest.hint")
-		])
+		return PackedStringArray([tr("wm.tooltip.forest.title")])
 	if terrain == "dag":
-		return PackedStringArray([
-			tr("wm.tooltip.mountain.title"),
-			tr("wm.tooltip.mountain.hint")
-		])
-	return PackedStringArray([
-		tr("wm.tooltip.river.title"),
-		tr("wm.tooltip.river.hint")
-	])
+		return PackedStringArray([tr("wm.tooltip.mountain.title")])
+	if terrain == "akarsu":
+		return PackedStringArray([tr("wm.tooltip.river.title")])
+	return PackedStringArray()
 
 func _build_landmark_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	var poi: String = String(tile.get("poi_type", ""))
-	var name: String = WorldLandmarkConfig.get_display_name(poi)
-	var lines: PackedStringArray = PackedStringArray([name, WorldLandmarkConfig.get_visit_blurb(poi)])
+	var lines: PackedStringArray = PackedStringArray([
+		WorldLandmarkConfig.get_display_name(poi),
+		WorldLandmarkConfig.get_visit_blurb(poi),
+	])
 	if bool(tile.get("landmark_claimed", false)):
 		lines.append("Ziyaret edildi — ödül alındı.")
-	else:
-		lines.append("Buraya varınca ziyaret edebilirsin.")
 	return lines
 
 func _build_player_village_hex_tooltip_lines() -> PackedStringArray:
-	return PackedStringArray([
-		tr("wm.tooltip.player_village.title"),
-		tr("wm.tooltip.player_village.hint"),
-	])
+	return PackedStringArray([tr("wm.tooltip.player_village.title")])
 
 func _build_neighbor_village_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
 	if not bool(tile.get("discovered", false)):
-		lines.append(tr("wm.tooltip.neighbor.undiscovered.title"))
-		lines.append(tr("wm.tooltip.neighbor.undiscovered.hint"))
-		return lines
+		return PackedStringArray([tr("wm.tooltip.neighbor.undiscovered.title")])
 	lines.append(_get_settlement_tooltip_name(tile))
-	var faction_id: String = String(tile.get("settlement_faction", ""))
-	if faction_id.is_empty() and _world_manager != null and _world_manager.has_method("get_settlement_faction"):
-		faction_id = String(_world_manager.call("get_settlement_faction", String(tile.get("settlement_id", ""))))
-	if not faction_id.is_empty():
-		lines.append("Fraksiyon: %s" % WorldFactionProfiles.get_display_label(faction_id))
 	var sid: String = String(tile.get("settlement_id", ""))
+	# Nüfus ve ilişki tek satırda: balon ne kadar kısaysa haritayı o kadar az kapatıyor.
+	var stats: PackedStringArray = PackedStringArray()
 	if _world_manager != null and "world_settlement_states" in _world_manager and not sid.is_empty():
 		var st_var: Variant = _world_manager.world_settlement_states.get(sid, {})
-		if st_var is Dictionary:
-			var st: Dictionary = st_var
-			if not st.is_empty():
-				lines.append(tr("wm.tooltip.neighbor.population") % int(st.get("population", 0)))
+		if st_var is Dictionary and not (st_var as Dictionary).is_empty():
+			stats.append(tr("wm.tooltip.neighbor.population") % int((st_var as Dictionary).get("population", 0)))
+	var relation: String = _build_player_relation_label(sid)
+	if not relation.is_empty():
+		stats.append(relation)
+	if not stats.is_empty():
+		lines.append(" · ".join(stats))
+	# Bela VARSA yazılır. Eskiden "Kriz: yok" satırı da basılıyordu; balon söyleyecek bir şey
+	# olmadığında büyümesin diye kaldırıldı.
 	if _world_manager != null and _world_manager.has_method("get_active_settlement_incident") and not sid.is_empty():
 		var inc_raw: Variant = _world_manager.call("get_active_settlement_incident", sid)
 		var inc: Dictionary = inc_raw as Dictionary if inc_raw is Dictionary else {}
-		if inc.is_empty():
-			lines.append(tr("wm.tooltip.neighbor.no_crisis"))
-		else:
-			var typ_lbl: String = _format_incident_type_label(String(inc.get("type", "")))
-			var sev: float = float(inc.get("severity", 1.0))
-			lines.append(tr("wm.tooltip.neighbor.crisis") % [typ_lbl, sev])
+		if not inc.is_empty():
+			var crisis: String = tr("wm.tooltip.neighbor.crisis") % [
+				_format_incident_type_label(String(inc.get("type", ""))),
+				float(inc.get("severity", 1.0))
+			]
 			var day: int = 0
 			var tm: Node = get_node_or_null("/root/TimeManager")
 			if tm != null and tm.has_method("get_day"):
 				day = int(tm.call("get_day"))
-			var ends: int = int(inc.get("started_day", 0)) + int(inc.get("duration", 0))
-			var left: int = maxi(0, ends - day)
+			var left: int = maxi(0, int(inc.get("started_day", 0)) + int(inc.get("duration", 0)) - day)
 			if left > 0:
-				lines.append(tr("wm.tooltip.neighbor.days_left") % left)
+				crisis += " · " + (tr("wm.tooltip.neighbor.days_left") % left)
+			lines.append(crisis)
 	return lines
+
+
+## "Bize göre durumu": ilişki puanı + sözle karşılığı. Oyuncunun ilişki tablosundaki anahtarı
+## WorldManager'da "Köy" literali (bkz. get_player_hostile_settlements) — burada da aynısı
+## kullanılmak zorunda, yoksa puan hep 0 okunur.
+func _build_player_relation_label(settlement_id: String) -> String:
+	if _world_manager == null or settlement_id.is_empty():
+		return ""
+	if not _world_manager.has_method("get_relation") or not _world_manager.has_method("_get_settlement_display_name"):
+		return ""
+	var s_name: String = String(_world_manager.call("_get_settlement_display_name", settlement_id))
+	if s_name.is_empty():
+		return ""
+	var rel: int = int(_world_manager.call("get_relation", "Köy", s_name))
+	return "%s (%+d)" % [_player_relation_stance_label(rel), rel]
+
+
+## Eşikler WorldManager.get_settlement_stance ile aynı basamaklarda; "düşman" sınırı oyuncuya
+## özel olan ALLIANCE_HOSTILITY_THRESHOLD (-30).
+func _player_relation_stance_label(rel: int) -> String:
+	if rel >= 40:
+		return tr("diplomacy.stance.ally")
+	if rel <= -30:
+		return tr("diplomacy.stance.enemy")
+	if rel <= -15:
+		return tr("wm.settlement.diplo.tension").capitalize()
+	return tr("diplomacy.stance.neutral")
 
 func _build_alliance_status_line() -> String:
 	if _world_manager == null:
@@ -2050,59 +2229,67 @@ func _setup_expedition_supply_hud() -> void:
 	layer.add_child(_expedition_supply_hud)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 2)
+	col.add_theme_constant_override("separation", 8)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_expedition_supply_hud.add_child(col)
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(row)
-	_expedition_food_count = _add_expedition_supply_chip(row, "res://assets/Icons/food_icon.png")
-	_expedition_medicine_count = _add_expedition_supply_chip(row, "res://assets/Icons/medicine_icon.png")
-	_expedition_gold_count = _add_expedition_supply_chip(row, "res://assets/Icons/gold_icon.png")
+	# Tek akış: erzak/ilaç/altın ile sırt çantası ayrı satırlara BÖLÜNMÜYOR. Eskiden ikisi iki
+	# ayrı HBox'taydı ve aralarına "Erzak süresi" satırı giriyordu; sonuç, bazı simgelerin yan
+	# yana bazılarının bir alt satırda olduğu, sebebi görünmeyen bir dağınıklıktı (playtest,
+	# 2026-09-02). HFlowContainer panel genişliğine göre kendisi sarıyor.
+	_supply_flow = HFlowContainer.new()
+	_supply_flow.add_theme_constant_override("h_separation", 16)
+	_supply_flow.add_theme_constant_override("v_separation", 6)
+	_supply_flow.custom_minimum_size = Vector2(EXP_HUD_MIN_WIDTH, 0.0)
+	_supply_flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_supply_flow)
 
-	_expedition_survival_label = Label.new()
-	_expedition_survival_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
-	_expedition_survival_label.add_theme_font_size_override("font_size", 12)
-	TextOutline.apply_font_to_control(_expedition_survival_label)
-	col.add_child(_expedition_survival_label)
+	# Sefer durumu — sayı 0 olsa da görünür: "erzağım kalmadı" da bir bilgi.
+	# Erzak simgesi bilerek EKMEK: ormandan toplanan yiyecek de elma simgesiyle bu panelde
+	# duruyor ve ikisi aynı simgeyken oyuncu "envanterde iki elma var, biri 0 biri 3" diye
+	# bakıyordu. Farklı simge, farklı kap.
+	_expedition_food_count = _add_expedition_supply_chip(_supply_flow, "res://assets/Icons/bread_icon.png")
+	_expedition_medicine_count = _add_expedition_supply_chip(_supply_flow, "res://assets/Icons/medicine_icon.png")
+	_expedition_gold_count = _add_expedition_supply_chip(_supply_flow, "res://assets/Icons/gold_icon.png")
 
-	_carried_row = HBoxContainer.new()
-	_carried_row.add_theme_constant_override("separation", 10)
-	_carried_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_carried_row.visible = false
-	col.add_child(_carried_row)
 	const _CARRIED_ICON_PATHS := {
 		"wood": "res://assets/Icons/wood_icon.png",
 		"stone": "res://assets/Icons/stone_icon.png",
 		"food": "res://assets/Icons/food_icon.png",
 	}
+	# Sırt çantası — sıfırken GİZLENİR (bkz. _refresh_carried_chips), yoksa panel sürekli
+	# anlamsız "0"larla dolu duruyor.
 	for resource_key in _ResourceType.all():
 		var icon_path: String = _CARRIED_ICON_PATHS.get(resource_key, "")
-		var chip := _add_expedition_supply_chip(_carried_row, icon_path)
+		var chip := _add_expedition_supply_chip(_supply_flow, icon_path)
 		_carried_resource_chips[resource_key] = chip
 	for loot_id in _ExpeditionLootType.all():
-		var chip := _add_expedition_loot_chip(_carried_row, _ExpeditionLootType.placeholder_emoji(loot_id))
+		var chip := _add_expedition_loot_chip(_supply_flow, _ExpeditionLootType.placeholder_emoji(loot_id))
 		_carried_loot_chips[loot_id] = chip
+
+	_expedition_survival_label = Label.new()
+	_expedition_survival_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
+	_expedition_survival_label.add_theme_font_size_override("font_size", EXP_HUD_SURVIVAL_FONT_SIZE)
+	TextOutline.apply_font_to_control(_expedition_survival_label)
+	col.add_child(_expedition_survival_label)
 
 	_refresh_expedition_supply_hud()
 
 
 ## Yemek/ilaç/altın için ikon + sayı çipi ekler; sayı Label'ı döndürülür (renk/metin sonradan güncellenir).
-func _add_expedition_supply_chip(row: HBoxContainer, icon_path: String) -> Label:
+func _add_expedition_supply_chip(row: Container, icon_path: String) -> Label:
 	var chip := HBoxContainer.new()
 	chip.add_theme_constant_override("separation", 3)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if ResourceLoader.exists(icon_path):
 		var icon := TextureRect.new()
 		icon.texture = load(icon_path)
-		icon.custom_minimum_size = Vector2(20, 20)
+		icon.custom_minimum_size = EXP_HUD_ICON_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		chip.add_child(icon)
 	var count_label := Label.new()
 	count_label.name = "ManualColorLabel"  # TextOutline'ın genel tarama boyamasından muaf tutar; rengi burada elle yönetiyoruz.
-	count_label.add_theme_font_size_override("font_size", 15)
+	count_label.add_theme_font_size_override("font_size", EXP_HUD_COUNT_FONT_SIZE)
 	TextOutline.apply_font_to_control(count_label)
 	chip.add_child(count_label)
 	row.add_child(chip)
@@ -2110,17 +2297,17 @@ func _add_expedition_supply_chip(row: HBoxContainer, icon_path: String) -> Label
 
 
 ## Taşınan zindan ganimeti (emoji ikonlu) için chip — bkz. _add_expedition_supply_chip.
-func _add_expedition_loot_chip(row: HBoxContainer, emoji: String) -> Label:
+func _add_expedition_loot_chip(row: Container, emoji: String) -> Label:
 	var chip := HBoxContainer.new()
 	chip.add_theme_constant_override("separation", 3)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var emoji_label := Label.new()
 	emoji_label.text = emoji
-	emoji_label.add_theme_font_size_override("font_size", 16)
+	emoji_label.add_theme_font_size_override("font_size", EXP_HUD_ICON_SIZE.y)
 	chip.add_child(emoji_label)
 	var count_label := Label.new()
 	count_label.name = "ManualColorLabel"
-	count_label.add_theme_font_size_override("font_size", 15)
+	count_label.add_theme_font_size_override("font_size", EXP_HUD_COUNT_FONT_SIZE)
 	TextOutline.apply_font_to_control(count_label)
 	chip.add_child(count_label)
 	row.add_child(chip)
@@ -2139,8 +2326,11 @@ func _refresh_expedition_supply_hud() -> void:
 	var gold: int = int(ex.get("world_gold", 0))
 	var forecast: Dictionary = ps.call("get_world_expedition_survival_forecast") if ps.has_method("get_world_expedition_survival_forecast") else {}
 	var minutes_left: int = int(forecast.get("minutes_until_food_collapse", 0))
+	# Renk toplam yiyeceğe bakar (erzak + çantadaki meyve): çantasında meyve olan oyuncuya
+	# kırmızı "erzak bitti" göstermek yanlış olurdu, o meyve de yeniyor.
+	var total_food: int = int(forecast.get("food_units", food))
 	var color: Color
-	if food <= 0:
+	if total_food <= 0:
 		color = Color(1.0, 0.4, 0.35, 1.0)
 	elif minutes_left <= int(PlayerStats.WORLD_EXP_FOOD_MINUTES_PER_UNIT):
 		color = Color(1.0, 0.8, 0.35, 1.0)
@@ -2155,35 +2345,34 @@ func _refresh_expedition_supply_hud() -> void:
 	_expedition_gold_count.add_theme_color_override("font_color", neutral_color)
 	_expedition_survival_label.text = tr("wm.expedition.supply_duration") % _format_minutes_short(maxi(0, minutes_left))
 	_expedition_survival_label.add_theme_color_override("font_color", color)
-	_refresh_carried_row(ps)
+	_refresh_carried_chips(ps)
 
 
-## Taşınan orman kaynakları + zindan ganimeti — ikisinden biri bile 0'dan büyükse satır görünür.
-func _refresh_carried_row(ps: Node) -> void:
-	if _carried_row == null or not is_instance_valid(_carried_row):
+## Sırt çantası çipleri: sıfır olanlar GİZLENİR. Eskiden hepsi birden görünüyordu ve panel
+## sürekli anlamsız "0"larla doluydu — üstelik erzak elması ile çantadaki meyve elması aynı
+## simge olduğu için oyuncu "envanterde iki elma var, biri 0 biri 3" diye bakıyordu
+## (playtest, 2026-09-02). Erzak artık ekmek simgesi, boşlar da hiç çizilmiyor.
+func _refresh_carried_chips(ps: Node) -> void:
+	if _supply_flow == null or not is_instance_valid(_supply_flow):
 		return
-	var has_any := false
 	if ps.has_method("get_carried_resources"):
 		var carried: Dictionary = ps.call("get_carried_resources")
 		for resource_key in _ResourceType.all():
-			var lbl: Label = _carried_resource_chips.get(resource_key)
-			if lbl == null:
-				continue
-			var amount: int = int(carried.get(resource_key, 0))
-			lbl.text = str(amount)
-			if amount > 0:
-				has_any = true
+			_apply_carried_chip(_carried_resource_chips.get(resource_key), int(carried.get(resource_key, 0)))
 	if ps.has_method("get_carried_expedition_loot"):
 		var loot: Dictionary = ps.call("get_carried_expedition_loot")
 		for loot_id in _ExpeditionLootType.all():
-			var lbl: Label = _carried_loot_chips.get(loot_id)
-			if lbl == null:
-				continue
-			var amount: int = int(loot.get(loot_id, 0))
-			lbl.text = str(amount)
-			if amount > 0:
-				has_any = true
-	_carried_row.visible = has_any
+			_apply_carried_chip(_carried_loot_chips.get(loot_id), int(loot.get(loot_id, 0)))
+
+
+func _apply_carried_chip(count_label: Variant, amount: int) -> void:
+	var lbl: Label = count_label as Label
+	if lbl == null or not is_instance_valid(lbl):
+		return
+	lbl.text = str(amount)
+	var chip: Control = lbl.get_parent() as Control
+	if chip != null:
+		chip.visible = amount > 0
 
 
 func _build_carry_summary_text() -> String:
@@ -2748,6 +2937,35 @@ func _load_terrain_textures() -> void:
 	_terrain_textures["orman"] = load("res://Tile set/Hex Tiles/hex_orman.png")
 	_terrain_textures["dag"] = load("res://Tile set/Hex Tiles/hex_dag.png")
 	_terrain_textures["deniz"] = load("res://Tile set/Hex Tiles/hex_deniz.png")
+
+func _load_poi_textures() -> void:
+	_poi_textures.clear()
+	_poi_textures["player_village"] = load("res://Tile set/Hex Tiles/hex_camp.png")
+	_poi_textures["neighbor_village"] = load("res://Tile set/Hex Tiles/hex_village.png")
+	_poi_textures["dungeon"] = load("res://Tile set/Hex Tiles/hex_dungeon.png")
+
+## Yerleşim / zindan simgesi. Arazi karosuyla AYNI çizim konumunu kullanıyor: ikisi de 64x64 ve
+## POI sprite'ının içeriği tuvalin ortasında duruyor, dolayısıyla simge karonun üst yüzeyine
+## kendiliğinden oturuyor — hizalama için hesaplanan hiçbir şey yok (arazi karolarındaki desenin
+## aynısı, bkz. _tile_draw_position).
+##
+## Keşfedilmiş ama şu an görüş alanında OLMAYAN karolar griye çekiliyor; simge de aynı çarpanı
+## alıyor, yoksa sönük bir karonun üstünde pırıl pırıl bir köy duruyor.
+func _draw_poi_marker(center: Vector2, tile: Dictionary, poi: String) -> void:
+	var tint: Color = Color(1, 1, 1, 1)
+	if not bool(tile.get("visible", false)):
+		tint = Color(0.62, 0.62, 0.62, 1.0)
+	var tex: Texture2D = _poi_textures.get(poi, null)
+	if tex == null:
+		# Sanat eksikse eski renkli daireye düşülür (_draw_terrain_tile ile aynı yaklaşım).
+		var fallback: Color = Color(1, 1, 1, 0.9)
+		if poi == "player_village":
+			fallback = Color(1.0, 0.95, 0.35, 1.0)
+		elif poi == "dungeon":
+			fallback = Color(0.9, 0.25, 0.2, 1.0)
+		draw_circle(center, 5.0, fallback * tint)
+		return
+	draw_texture(tex, _tile_draw_position(center), tint)
 
 func _adjust_zoom(delta: float) -> void:
 	if not _camera:

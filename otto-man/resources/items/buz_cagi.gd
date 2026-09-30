@@ -3,13 +3,11 @@
 
 extends ItemEffect
 
-const COOLDOWN_DURATION := 10.0
 const FROST_RADIUS := 100.0
 const FROST_STACKS := 5
 const FROST_DAMAGE := 3.0
 
 var _player: CharacterBody2D = null
-var _cooldown := 0.0
 
 func _init():
 	item_id = "buz_cagi"
@@ -18,16 +16,16 @@ func _init():
 	flavor_text = "Buzlu düşüş"
 	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK
+	tags = ["elemental_ice"]
 	affected_stats = ["fall_frost"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	_cooldown = 0.0
 	if player.has_signal("fall_attack_impacted"):
 		if not player.is_connected("fall_attack_impacted", _on_fall_attack_impacted):
 			player.connect("fall_attack_impacted", _on_fall_attack_impacted)
-	print("[Buz Çağı] ✅ Fall attack donma dalgası (10 sn cooldown)")
+	print("[Buz Çağı] ✅ Fall attack donma dalgası (1 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -37,18 +35,14 @@ func deactivate(player: CharacterBody2D):
 	_player = null
 	print("[Buz Çağı] ❌ Kaldırıldı")
 
-func process(_player_node: CharacterBody2D, delta: float) -> void:
-	if _cooldown > 0:
-		_cooldown -= delta
-
 func _on_fall_attack_impacted(position: Vector2) -> void:
 	apply_fall_attack_effect_at(position, false)
 
 func apply_fall_attack_effect_at(position: Vector2, is_decoy: bool) -> void:
 	if not is_decoy:
-		if _cooldown > 0:
+		var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
+		if not stamina_bar or not stamina_bar.use_charge():
 			return
-		_cooldown = COOLDOWN_DURATION
 	var tree = get_tree()
 	if not tree:
 		return
