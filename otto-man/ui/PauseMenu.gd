@@ -657,7 +657,12 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 		
 		# Unpause before loading (loading will change scenes)
 		get_tree().paused = false
-		if SaveManager.load_game(slot_id):
+		var loaded_ok: bool = false
+		if slot_id == SaveManager.AUTOSAVE_UI_SLOT_ID:
+			loaded_ok = SaveManager.load_autosave()
+		else:
+			loaded_ok = SaveManager.load_game(slot_id)
+		if loaded_ok:
 			print("[PauseMenu] ✅ Game loaded successfully")
 			# Menu will be closed when scene changes
 		else:
