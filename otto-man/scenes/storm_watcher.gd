@@ -16,8 +16,8 @@ var damage: float = 14.0
 ## Bu kadar pikselden fazla uzaklaşmak "kıpırdadı" sayılır.
 const MOVE_THRESHOLD: float = 28.0
 ## Yıldırımın vurduğu alan (yatay yarıçap / oyuncu ayağından yukarı yükseklik)
-const STRIKE_RADIUS: float = 44.0
-const STRIKE_HEIGHT: float = 80.0
+const STRIKE_RADIUS: float = 96.0
+const STRIKE_HEIGHT: float = 140.0
 const BOLT_TOP: float = 700.0
 const WARN_COLOR := Color(1.0, 0.85, 0.2)
 
@@ -108,7 +108,7 @@ func _strike() -> void:
 
 func _in_strike_zone(pos: Vector2) -> bool:
 	var d: Vector2 = pos - _strike_pos
-	return absf(d.x) <= STRIKE_RADIUS and d.y >= -STRIKE_HEIGHT and d.y <= 24.0
+	return absf(d.x) <= STRIKE_RADIUS and d.y >= -STRIKE_HEIGHT and d.y <= 40.0
 
 
 ## Hasar + şok (1 sn stun). Itme/Hurt yok: oyuncu olduğu yerde donar. Şok bitince kısa süre
@@ -146,8 +146,8 @@ func _draw() -> void:
 			draw_arc(_strike_pos, r, 0.0, TAU, 40, Color(WARN_COLOR.r, WARN_COLOR.g, WARN_COLOR.b, 0.4 + 0.5 * k), 3.0)
 			draw_circle(_strike_pos, r, Color(1.0, 0.95, 0.5, 0.08 + 0.12 * k))
 			# Zeminden fışkıran kıvılcımlar
-			for i in range(7):
-				var ang: float = float(i) / 7.0 * TAU + _t * 6.0
+			for i in range(12):
+				var ang: float = float(i) / 12.0 * TAU + _t * 6.0
 				var base: Vector2 = _strike_pos + Vector2(cos(ang) * r * 0.8, 0.0)
 				var spark_len: float = 8.0 + 14.0 * k * (0.5 + 0.5 * sin(_t * 30.0 + float(i) * 2.1))
 				draw_line(base, base + Vector2(randf_range(-4.0, 4.0), -spark_len), Color(0.8, 0.9, 1.0, 0.9), 2.0)

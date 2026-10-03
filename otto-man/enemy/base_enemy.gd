@@ -487,6 +487,13 @@ const SHOCK_DURATION: float = 1.0
 const SHOCK_TINT := Color(1.5, 1.4, 0.45, 1.0)
 var _shocked: bool = false
 var _shock_timer_node: Timer = null
+var _shock_jitter_timer: Timer = null
+var _shock_orig_offset: Vector2 = Vector2.ZERO
+const SHOCK_JITTER_PX: float = 2.5
+
+func _on_shock_jitter() -> void:
+	if sprite and _shocked:
+		sprite.offset = _shock_orig_offset + Vector2(randf_range(-SHOCK_JITTER_PX, SHOCK_JITTER_PX), randf_range(-SHOCK_JITTER_PX * 0.6, SHOCK_JITTER_PX * 0.6))
 
 func is_shocked() -> bool:
 	return _shocked
@@ -502,6 +509,11 @@ func apply_shock(duration: float = SHOCK_DURATION) -> void:
 		_shock_timer_node.one_shot = true
 		_shock_timer_node.timeout.connect(_end_shock)
 		add_child(_shock_timer_node)
+		# Titreme: physics durduğu için kendi zamanlayıcısıyla (~30 Hz) sprite'ı kaydırır
+		_shock_jitter_timer = Timer.new()
+		_shock_jitter_timer.wait_time = 0.033
+		_shock_jitter_timer.timeout.connect(_on_shock_jitter)
+		add_child(_shock_jitter_timer)
 	# Süre yenilenir (üst üste binmez)
 	_shock_timer_node.start(duration)
 	if _shocked:
@@ -512,16 +524,22 @@ func apply_shock(duration: float = SHOCK_DURATION) -> void:
 	set_physics_process(false)
 	velocity.x = 0.0
 	if sprite:
+		_shock_orig_offset = sprite.offset
 		if sprite.has_method("pause"):
 			sprite.pause()
 		sprite.self_modulate = SHOCK_TINT
+	if _shock_jitter_timer:
+		_shock_jitter_timer.start()
 
 func _end_shock() -> void:
 	if not _shocked:
 		return
 	_shocked = false
 	set_physics_process(true)
+	if _shock_jitter_timer:
+		_shock_jitter_timer.stop()
 	if sprite:
+		sprite.offset = _shock_orig_offset
 		sprite.self_modulate = Color.WHITE
 		if sprite.has_method("play") and sprite.sprite_frames and not sprite.is_playing():
 			sprite.play()

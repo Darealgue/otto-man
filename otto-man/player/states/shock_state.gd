@@ -6,6 +6,8 @@ extends State
 ## Bu state sahnede değil, player.gd _ready içinde koda eklenir (bkz. player.gd "Shock").
 
 const STOP_DECEL := 3000.0
+const JITTER_X := 3.0
+const JITTER_Y := 2.0
 
 var _timer: float = 0.0
 
@@ -25,7 +27,21 @@ func enter() -> void:
 	_timer = player.shock_duration
 
 
+func exit() -> void:
+	super.exit()
+	_set_jitter(false)
+
+
+## Şok titremesi: sprite'ı birkaç piksel rastgele kaydırır (offset; animasyonlar offset'e dokunmaz).
+func _set_jitter(on: bool) -> void:
+	var spr = player.get("sprite")
+	if spr == null:
+		return
+	spr.offset = Vector2(randf_range(-JITTER_X, JITTER_X), randf_range(-JITTER_Y, JITTER_Y)) if on else Vector2.ZERO
+
+
 func physics_update(delta: float) -> void:
+	_set_jitter(true)
 	_timer -= delta
 	player.velocity.x = move_toward(player.velocity.x, 0.0, STOP_DECEL * delta)
 	player.apply_move_and_slide()
