@@ -570,7 +570,7 @@ func _check_cancel_conditions() -> bool:
 		return true
 	
 	# Cancel into block - ONLY if on ground (havadayken block sadece ledge grab için kullanılır)
-	if Input.is_action_just_pressed("block") and state_machine.has_node("Block") and player.is_on_floor():
+	if Input.is_action_just_pressed("block") and state_machine.has_node("Block") and player.is_on_floor() and not player.mobile_guard_active:
 		_cancel_into_state("Block")
 		return true
 	

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/karsi_atilim.gd" id="1_karsi_atilim"]
+
+[node name="KarsiAtilim" type="Node"]
+script = ExtResource("1_karsi_atilim")

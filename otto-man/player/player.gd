@@ -189,9 +189,28 @@ var physical_damage_mult: float = 1.0
 var taskin_guc_mult: float = 1.0
 # Cüppe Değil Zırh: element vuruşlarıyla biriken, gelen hasarı emen kalkan (mutlak miktar)
 var element_shield: float = 0.0
-# Taşan Kaynak: kamp çeşmesinin max_health üstünde bıraktığı fazlalık — gelen
-# hasarı gerçek candan ÖNCE emer (element_shield'la aynı desen, ayrı bir havuz)
-var overheal: float = 0.0
+# Ortak kalkan havuzu: canın önünde hasar emen mutlak miktar. İki kaynağı var:
+# Parry Zırhı (parry başına +10, parry kaynaklı kısım için tavan) ve Taşan Kaynak
+# (kamp çeşmesinin max_health üstünde bıraktığı fazlalık, add_overheal ile). Tek değişken.
+var guard_shield: float = 0.0
+# Kalkan Küresi: hareket halinde savunma. Item aktifken true; Block state'i yerine balon kullanılır.
+var mobile_guard_active: bool = false
+var guard_bubble: Node2D = null
+var _bubble_guard_hit: bool = false
+# Savunma Öfkesi: blok/parry sonrası verilen hasar çarpanı (1.0 = yok).
+# guard_empower_consume true ise ilk isabette sıfırlanır; false ise süre (item) bitince sıfırlanır.
+var guard_empower_mult: float = 1.0
+var guard_empower_consume: bool = false
+# Keskin Refleks: parry penceresi kapandıktan sonra kaç saniye daha parry sayılır
+var parry_grace: float = 0.0
+# Altın Pencere: parry penceresi çarpanı (1.0 = normal)
+var parry_window_mult: float = 1.0
+# Yankılanan Parry: son parry'lenen vuruşun hasarı
+var last_parried_damage: float = 0.0
+# Karşı Atılım: parry sonrası ilk dodge/dash bedava ve uzun. Değer = bitiş zamanı (msec), 0 = yok
+var counter_dash_until_msec: int = 0
+# Nöbetçi: sabit savunmada stamina yenilenme çarpanı
+var block_regen_mult: float = 1.0
 # Şanslı Nal: garanti kritik — parry sonrası / görünmezlik ilk vuruşu (tek kullanım)
 var sansli_nal_active: bool = false
 var sansli_nal_crit_next: bool = false
@@ -851,6 +870,12 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 			emit_signal("nazar_shield_consumed")
 		return
 	amount *= incoming_damage_multiplier
+	# Parry Zırhı: parry ile biriken kalkan önce emer
+	if amount > 0 and guard_shield > 0.0:
+		var guard_absorbed: float = min(guard_shield, amount)
+		guard_shield -= guard_absorbed
+		amount -= guard_absorbed
+		_flash_shield_absorb()
 	# Cüppe Değil Zırh: elemental hasar biriktirdiği kalkan hasarı emer
 	if amount > 0 and element_shield > 0.0:
 		var absorbed: float = min(element_shield, amount)
@@ -863,11 +888,6 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 			var ratio = ps.get_current_health() / ps.get_max_health()
 			if ratio <= 0.25:
 				amount *= (1.0 - tas_yurek_reduction)
-	# Taşan Kaynak: max_health üstündeki fazlalık, gerçek candan ÖNCE emer
-	if amount > 0 and overheal > 0.0:
-		var absorbed_overheal: float = min(overheal, amount)
-		overheal -= absorbed_overheal
-		amount -= absorbed_overheal
 	var player_stats = get_node("/root/PlayerStats")
 	if player_stats:
 		var current_health = player_stats.get_current_health()
@@ -912,6 +932,62 @@ func _is_flying_enemy_attacker(attacker: Node2D) -> bool:
 			return true
 	return false
 
+## Parry Zırhı: kalkan ekle (cap = üst sınır). Eklenen gerçek miktarı döndürür.
+func add_guard_shield(amount: float, cap: float) -> float:
+	# Tavan sadece parry kazancını sınırlar; çeşme fazlalığı yüzünden zaten tavanın üstündeyse düşürme.
+	var gained: float = max(0.0, min(amount, cap - guard_shield))
+	guard_shield += gained
+	if gained > 0.0 and sprite:
+		sprite.modulate = Color(0.6, 0.85, 1.4, 1.0)
+		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), 0.25)
+	return gained
+
+func _flash_shield_absorb() -> void:
+	if sprite:
+		sprite.modulate = Color(0.7, 0.9, 1.3, 1.0)
+		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), 0.15)
+
+## Kalkan Küresi: balonu oluştur / kaldır (item activate/deactivate çağırır).
+func enable_mobile_guard() -> void:
+	if mobile_guard_active and is_instance_valid(guard_bubble):
+		return
+	mobile_guard_active = true
+	var bubble = preload("res://player/guard_bubble.gd").new()
+	bubble.name = "GuardBubble"
+	add_child(bubble)
+	bubble.setup(self)
+	guard_bubble = bubble
+
+func disable_mobile_guard() -> void:
+	mobile_guard_active = false
+	_bubble_guard_hit = false
+	if is_instance_valid(guard_bubble):
+		guard_bubble.queue_free()
+	guard_bubble = null
+
+## Karşı Atılım: hazırsa tüketir ve mesafe çarpanını (2.0) döndürür, değilse 1.0.
+func consume_counter_dash() -> float:
+	if counter_dash_until_msec > 0 and Time.get_ticks_msec() <= counter_dash_until_msec:
+		counter_dash_until_msec = 0
+		return 2.0
+	counter_dash_until_msec = 0
+	return 1.0
+
+## Nöbetçi: oyuncu yerinde savunma yapıyor mu? (Block state ya da yerde duran açık balon)
+func is_guard_stationary() -> bool:
+	if state_machine and state_machine.current_state and state_machine.current_state.name == "Block":
+		return true
+	return is_instance_valid(guard_bubble) and guard_bubble.is_open and is_on_floor() and absf(velocity.x) < 10.0
+
+## PlayerHurtbox çağırır: balon bu vuruşu karşıladıysa true.
+func try_bubble_guard(hitbox: Area2D) -> bool:
+	if not mobile_guard_active or not is_instance_valid(guard_bubble):
+		return false
+	if guard_bubble.handle_hit(hitbox):
+		_bubble_guard_hit = true
+		return true
+	return false
+
 func heal(amount: float):
 	var player_stats = get_node("/root/PlayerStats")
 	if player_stats:
@@ -922,7 +998,7 @@ func heal(amount: float):
 ## set_current_health() clamp'ini hiç görmez, bu yüzden max'ı aşabiliyor). take_damage()
 ## bunu gerçek candan önce tüketir.
 func add_overheal(amount: float) -> void:
-	overheal += max(0.0, amount)
+	guard_shield += max(0.0, amount)
 
 
 func _spawn_player_blood_particles(damage_amount: float, attacker: Node2D = null) -> void:
@@ -1204,6 +1280,10 @@ func wall_jump():
 	enable_double_jump()
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
+	# Kalkan Küresi balonu hasarı halletti mi? (PlayerHurtbox try_bubble_guard ile işaretler).
+	# Erken return'lerde bayrak asılı kalmasın diye en başta okunup sıfırlanır.
+	var bubble_handled: bool = _bubble_guard_hit
+	_bubble_guard_hit = false
 	# Check if player is invincible
 	if invincibility_timer > 0:
 		return
@@ -1221,7 +1301,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	var health_before: float = PlayerStats.get_current_health()
 	var incoming_damage: float = 0.0
 	# Check if we're in block state
-	if state_machine and state_machine.current_state.name == "Block":
+	if bubble_handled or (state_machine and state_machine.current_state.name == "Block"):
 		# Use the damage value set by block state (0 for parry, reduced for block)
 		var is_parry = hurtbox.last_damage == 0  # Check if this was a parry
 		incoming_damage = hurtbox.last_damage

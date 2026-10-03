@@ -96,7 +96,7 @@ func _on_command_submitted(command: String) -> void:
 		var oh_im = get_node_or_null("/root/ItemManager")
 		if oh_im and is_instance_valid(oh_im.player) and oh_im.player.has_method("add_overheal"):
 			oh_im.player.add_overheal(oh_amount)
-			print_output("Taşan can eklendi: +%d (toplam %d)" % [oh_amount, oh_im.player.overheal])
+			print_output("Taşan can eklendi: +%d (toplam %d)" % [oh_amount, oh_im.player.guard_shield])
 		else:
 			print_output("Oyuncu yok (bir zindan sahnesine girip tekrar dene).")
 		return

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/hasar_donusumu.gd" id="1_hasar_donusumu"]
+
+[node name="HasarDonusumu" type="Node"]
+script = ExtResource("1_hasar_donusumu")

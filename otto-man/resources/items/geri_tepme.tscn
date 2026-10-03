@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/geri_tepme.gd" id="1_geri_tepme"]
+
+[node name="GeriTepme" type="Node"]
+script = ExtResource("1_geri_tepme")

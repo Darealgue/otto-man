@@ -34,7 +34,8 @@ func physics_update(delta: float):
 		
 	# Check for block input - sadece charge varsa işle
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
-	if stamina_bar and stamina_bar.has_charges():
+	# Kalkan Küresi aktifken savunmayı balon yönetir (Block state'ine girilmez)
+	if stamina_bar and stamina_bar.has_charges() and not player.mobile_guard_active:
 		if Input.is_action_just_pressed("block") or Input.is_action_pressed("block"):
 			# Check if block input is blocked by dodge state (only for just_pressed)
 			if Input.is_action_just_pressed("block"):

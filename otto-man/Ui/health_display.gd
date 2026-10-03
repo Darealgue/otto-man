@@ -196,14 +196,14 @@ func _setup_shield_bar() -> void:
 	container.move_child(shield_bar, health_label.get_index())
 
 
-## player.overheal gerçek candan ÖNCE hasar emdiği için PlayerStats.health_changed ateşlenmeyebilir;
+## player.guard_shield (ortak kalkan: Parry Zırhı + Taşan Kaynak) gerçek candan ÖNCE hasar emdiği için PlayerStats.health_changed ateşlenmeyebilir;
 ## bu yüzden değişimi burada yoklayıp barı güncelliyoruz.
 func _poll_overheal() -> void:
 	var im := get_node_or_null("/root/ItemManager")
 	var p = im.get("player") if im else null
 	var oh: float = 0.0
-	if is_instance_valid(p) and p.get("overheal") != null:
-		oh = maxf(float(p.get("overheal")), 0.0)
+	if is_instance_valid(p) and p.get("guard_shield") != null:
+		oh = maxf(float(p.get("guard_shield")), 0.0)
 	if is_equal_approx(oh, _last_overheal):
 		return
 	_last_overheal = oh
