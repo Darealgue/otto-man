@@ -184,6 +184,8 @@ func _on_command_submitted(command: String) -> void:
 			handle_list_debuffs_command()
 		"tutorial2":
 			handle_tutorial2_command()
+		"boss":
+			handle_boss_command(args)
 		_:
 			print_output("Unknown command: " + cmd)
 
@@ -810,6 +812,7 @@ func show_help() -> void:
 	kill - Instantly kill the player
 	god - Toggle god mode
 	reset - Reset the current scene
+	boss [id] - Jump straight to the dungeon boss room (default: orb_scatter)
 	
 	=== DÜNYA SİSTEMİ ===
 	force_event <type> <faction> - Force a world event
@@ -1172,6 +1175,27 @@ func navigate_history(direction: int) -> void:
 		line_edit.caret_column = line_edit.text.length()
 	else:
 		line_edit.clear()
+
+
+## Zindan boss odasına doğrudan ışınlar. Kullanım: boss [boss_id]  (varsayılan: orb_scatter)
+func handle_boss_command(args: Array) -> void:
+	if not BossRoomRegistry.is_enabled():
+		print_output("Boss dövüşleri devre dışı (BossRoomRegistry).")
+		return
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm == null or not sm.has_method("change_to_boss_room"):
+		print_output("SceneManager bulunamadı!")
+		return
+	var boss_id: String = BossRoomRegistry.DEFAULT_BOSS_ID
+	if args.size() > 0:
+		boss_id = String(args[0]).to_lower()
+	if not BossRoomRegistry.BOSS_SCENES.has(boss_id):
+		print_output("Bilinmeyen boss: %s (geçerli: %s)" % [boss_id, ", ".join(BossRoomRegistry.BOSS_SCENES.keys())])
+		return
+	print_output("Boss odasına gidiliyor: %s" % boss_id)
+	if is_open:
+		toggle_console()  # konsolu kapat ve ağacın duraklatmasını kaldır
+	sm.change_to_boss_room({"source": "dev_console", "boss_id": boss_id}, true)
 
 
 func handle_tutorial2_command() -> void:
