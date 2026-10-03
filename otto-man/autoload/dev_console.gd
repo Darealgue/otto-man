@@ -89,6 +89,23 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "test_items":
 		handle_test_items_command(1)
 		return
+	if cmd == "boss":
+		var boss_ids: Array = BossRoomRegistry.BOSS_SCENES.keys()
+		var boss_id: String = String(args[0]).to_lower() if args.size() > 0 else BossRoomRegistry.DEFAULT_BOSS_ID
+		if not BossRoomRegistry.is_enabled():
+			print_output("Boss dövüşleri devre dışı (BossRoomRegistry.BOSS_FIGHTS_ENABLED).")
+			return
+		if not BossRoomRegistry.BOSS_SCENES.has(boss_id):
+			print_output("Bilinmeyen boss: %s (mevcut: %s)" % [boss_id, ", ".join(PackedStringArray(boss_ids))])
+			return
+		var boss_sm = get_node_or_null("/root/SceneManager")
+		if boss_sm == null or not boss_sm.has_method("change_to_boss_room"):
+			print_output("SceneManager bulunamadı!")
+			return
+		print_output("Boss odasına gidiliyor: %s" % boss_id)
+		toggle_console()
+		boss_sm.change_to_boss_room({"source": "dev_console", "boss_id": boss_id})
+		return
 	if cmd == "dungeon_theme":
 		var dt_dp = get_node_or_null("/root/DungeonProgress")
 		if dt_dp == null:
@@ -840,6 +857,7 @@ func show_help() -> void:
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
+	boss [boss_id] - Go straight to a boss room (default: orb_scatter; see BossRoomRegistry.BOSS_SCENES)
 	dungeon_theme <ates|buz|zehir|firtina|barut|golge|off> - Force the theme (palette, traps, unlock pool) of the next dungeon you enter
 	overheal [n] - Add n points of overflow health (blue shield on the health bar, default 50)
 	market [gold] - Spawn the market door next to the player and top up the run wallet (default 500)
