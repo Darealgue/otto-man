@@ -19,6 +19,7 @@ const BALL_WALL_RESTITUTION := 0.7
 const BALL_FRICTION := 0.85
 const BALL_MAX_LIFETIME := 4.0
 const BALL_WORLD_MASK := 1
+const BALL_RADIUS := 5.0
 var ball_mode: bool = false
 var ball_velocity: Vector2 = Vector2.ZERO
 var ball_bounces_left: int = 3
@@ -26,9 +27,23 @@ var _ball_age: float = 0.0
 
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 
+func _draw() -> void:
+	if not ball_mode:
+		return
+	# Sıçrayan zehir topu: damla sprite'ı yerine düz yeşil top (koyu gövde + parlak yansıma)
+	draw_circle(Vector2.ZERO, BALL_RADIUS + 1.5, Color(0.08, 0.3, 0.08, 0.9))
+	draw_circle(Vector2.ZERO, BALL_RADIUS, Color(0.3, 0.85, 0.25))
+	draw_circle(Vector2(-2.0, -2.5), BALL_RADIUS * 0.4, Color(0.75, 1.0, 0.65))
+
+
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	add_to_group("trap_projectile")
+	if ball_mode:
+		if sprite:
+			sprite.visible = false
+		queue_redraw()
+		return
 	if sprite and sprite.sprite_frames:
 		# Play default loop animation for the drop
 		if sprite.sprite_frames.has_animation("default"):
@@ -110,7 +125,6 @@ func _spawn_splash_balls() -> void:
 		ball.ball_bounces_left = randi_range(2, 4)
 		holder.add_child(ball)
 		ball.global_position = global_position + Vector2(0.0, -8.0)
-		ball.scale = Vector2(1.25, 1.25)
 
 func _spawn_pool() -> void:
 	var scene_path := "res://traps_v2/ceiling/poison_pool.tscn"

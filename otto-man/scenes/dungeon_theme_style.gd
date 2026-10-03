@@ -28,13 +28,9 @@ const STYLES: Dictionary = {
 		"burn_ticks_bonus": 2,
 	},
 	# Zehir = SİNSİCE ÖLDÜR: yeşil palet; damlalar daha sık, daha uzun zehirler ve yere çarpınca
-	# sağa sola sıçrayan zehir toplarına bölünür. Tavan tuzakları 2-3'lü gruplar halinde çıkar.
-	"zehir": {
+	# sağa sola sıçrayan zehir toplarına bölünür.	"zehir": {
 		"tint_fg": Color(0.84, 1.0, 0.78),
 		"tint_bg": Color(0.58, 0.74, 0.56),
-		"trap_group": {
-			"poison_drip": Vector2i(2, 3),
-		},
 		"trap_params": {
 			"poison_drip": {
 				"splash_balls": 2,
