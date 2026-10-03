@@ -41,7 +41,7 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Uzun dikey kuyu (`SHAFT_FLOOR_ROW`); kuyunun iç genişliğini kaplayan `AnimatableBody2D` asansör zemini
   (kenardan düşme yok). Kamera asansörü izler. Yer düşmanları ekranın üstünden asansöre düşer
   (layout `drop_y`), uçanlar yanlardan girer. Dalga sürerken zemin yavaş yükselir (hız zorlukla artar),
-  dalgalar arasında 420 px'lik "kat" yükselmesi olur. Kuyu duvarlarına tutunulamaz.
+  dalgalar arasında 420 px'lik "kat" yükselmesi olur. Kuyu duvarlarında wall slide/jump yapılabilir.
 - Ödül: rastgele bir temadan, henüz açılmamış rastgele bir item doğrudan koleksiyona açılır.
 - Zindan arenaları her girişte rastgele dekor ve renk paleti (6 palet) alır; karolar ekran dışına taşar.
 - Koruma'da dalga sayısı köylü sayısına bağlı (1-4); payload `wards` ile köylü sayısı verilebilir.

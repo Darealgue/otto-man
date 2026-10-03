@@ -55,9 +55,6 @@ static func build(root: Node2D, biome: String, shaft: bool = false) -> Dictionar
 	layer.name = "TileMapLayer"
 	layer.tile_set = load(TILESET_PATH) as TileSet
 	root.add_child(layer)
-	if shaft:
-		# Kuyu duvarlarına tutunulamaz (bkz. wall_slide_state._ray_hits_slideable)
-		layer.set_meta("no_wall_slide", true)
 
 	var cells: Array[Vector2i] = []
 	# Karolar ekranın (kamera 1920x1080) birkaç sıra dışına taşar: kenar/bitiş çizgisi görünmesin,
