@@ -18,8 +18,6 @@ var random_offset: float = 0.0
 var noise: FastNoiseLite
 
 func _ready():
-	# Zindan ekran karartması (gölge teması) ışık kaynaklarını bu gruptan okur
-	add_to_group("dungeon_torches")
 	# Find the PointLight2D and AnimatedSprite2D nodes
 	point_light = get_node_or_null("PointLight2D")
 	animated_sprite = get_node_or_null("AnimatedSprite2D")

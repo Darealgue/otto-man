@@ -3013,6 +3013,7 @@ func spawn_player() -> void:
 		
 		# Zindan teması zemin tutuşu (buz = kaygan); temasız zindanda 1.0'a döner
 		player.set("ground_traction", DungeonThemeStyle.get_ground_traction(dungeon_theme))
+		_attach_player_light(player)
 
 		# Player pozisyonu artık setup_level_transitions() tarafından ayarlanıyor
 		# Burada sadece kamera ayarlarını yapıyoruz
@@ -4268,6 +4269,10 @@ func add_screen_darkness_controller() -> void:
 	call_deferred("_add_screen_darkness_controller_deferred")
 
 func _add_screen_darkness_controller_deferred() -> void:
+	# Gerçek ışıklandırması olan temada (gölge) ekran perdesi kullanılmaz: ortamı CanvasModulate
+	# karartır, meşale/mum/oyuncu PointLight2D'leri aydınlatır (bkz. _setup_theme_lighting).
+	if not DungeonThemeStyle.get_lighting(dungeon_theme).is_empty():
+		return
 	print("[LevelGenerator] Adding screen darkness controller (deferred)...")
 	
 	# Screen darkness controller'ı oluştur - ColorRect kullanarak
@@ -4286,14 +4291,7 @@ func _add_screen_darkness_controller_deferred() -> void:
 		# Shader parametrelerini ayarla
 		var drs := get_node_or_null("/root/DungeonRunState")
 		var night_mode: bool = is_instance_valid(drs) and drs.has_method("has_segment_modifier") and drs.has_segment_modifier("night_mode")
-		var theme_dark: Dictionary = DungeonThemeStyle.get_darkness(dungeon_theme)
-		if not theme_dark.is_empty():
-			# Tema karanlığı (gölge): oyuncu etrafı dar, meşale/mum çevresi aydınlık
-			shader_material.set_shader_parameter("max_darkness", float(theme_dark.get("max_darkness", 0.95)))
-			shader_material.set_shader_parameter("light_radius", float(theme_dark.get("light_radius", 220.0)))
-			shader_material.set_shader_parameter("ambient_light", float(theme_dark.get("ambient_light", 0.03)))
-			screen_darkness.set_meta("torch_radius", float(theme_dark.get("torch_radius", 0.0)))
-		elif night_mode:
+		if night_mode:
 			shader_material.set_shader_parameter("max_darkness", 0.92)
 			shader_material.set_shader_parameter("light_radius", 280.0)
 			shader_material.set_shader_parameter("ambient_light", 0.05)
@@ -4345,28 +4343,6 @@ func _process(delta):
 	
 	# Shader'a gönder
 	shader_material.set_shader_parameter("player_screen_position", player_screen_pos)
-
-	# Tema ışık kaynakları (meşale/mum): ekrandakileri shader'a ver (en fazla 16)
-	var torch_radius: float = float(get_meta("torch_radius", 0.0))
-	if torch_radius > 0.0:
-		var lights: PackedVector3Array = PackedVector3Array()
-		var r_px: float = torch_radius * camera_zoom.x
-		for t in get_tree().get_nodes_in_group("dungeon_torches"):
-			if lights.size() >= 16:
-				break
-			if not is_instance_valid(t) or not (t is Node2D):
-				continue
-			var t_rel = (t as Node2D).global_position - camera_pos + camera_offset
-			var t_screen = (t_rel * camera_zoom) + viewport_size / 2.0
-			# Ekran dışında ve ışığı ekrana yetişmeyen kaynakları atla
-			if t_screen.x < -r_px or t_screen.x > viewport_size.x + r_px or t_screen.y < -r_px or t_screen.y > viewport_size.y + r_px:
-				continue
-			lights.append(Vector3(t_screen.x, t_screen.y, r_px))
-		var count: int = lights.size()
-		while lights.size() < 16:
-			lights.append(Vector3.ZERO)
-		shader_material.set_shader_parameter("light_sources", lights)
-		shader_material.set_shader_parameter("light_count", count)
 """
 	screen_darkness.set_script(update_script)
 	
@@ -4824,6 +4800,44 @@ func _apply_dungeon_theme_palette() -> void:
 	for bg_layer in find_children("bg", "TileMapLayer", true, false):
 		(bg_layer as CanvasItem).modulate = tint_bg
 	_setup_theme_hazards()
+	_setup_theme_lighting()
+
+
+## Gerçek ışıklandırma (gölge): sahne CanvasModulate ile karartılır; mevcut meşale/mum PointLight2D'leri
+## (shadow'lu) çevrelerini aydınlatır. Oyuncuya da küçük bir fener ışığı eklenir (spawn_player).
+func _setup_theme_lighting() -> void:
+	var lighting: Dictionary = DungeonThemeStyle.get_lighting(dungeon_theme)
+	if lighting.is_empty() or get_node_or_null("ThemeAmbient") != null:
+		return
+	var ambient := CanvasModulate.new()
+	ambient.name = "ThemeAmbient"
+	ambient.color = lighting.get("ambient", Color(0.1, 0.09, 0.16))
+	add_child(ambient)
+
+
+## Oyuncuya fener ışığı: karanlık temada çevresini dar bir daire aydınlatır (PointLight2D, gölgesiz).
+func _attach_player_light(player: Node) -> void:
+	var lighting: Dictionary = DungeonThemeStyle.get_lighting(dungeon_theme)
+	if lighting.is_empty() or player.get_node_or_null("ThemeLantern") != null:
+		return
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 1.0])
+	grad.colors = PackedColorArray([Color(1, 1, 1, 1), Color(0, 0, 0, 1)])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 256
+	tex.height = 256
+	var light := PointLight2D.new()
+	light.name = "ThemeLantern"
+	light.texture = tex
+	light.texture_scale = float(lighting.get("player_light_radius", 220.0)) * 2.0 / 256.0
+	light.energy = float(lighting.get("player_light_energy", 0.9))
+	light.color = lighting.get("player_light_color", Color(1.0, 0.92, 0.8))
+	light.position = Vector2(0.0, -40.0)
+	player.add_child(light)
 
 
 ## Temaya özel zindan geneli tehlikeler (tuzak karolarından bağımsız): şimdilik fırtınada

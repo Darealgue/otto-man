@@ -29,17 +29,17 @@ const STYLES: Dictionary = {
 		"flame_scale": 1.7,
 		"burn_ticks_bonus": 2,
 	},
-	# Gölge = BİRLEŞTİR: mor-lacivert palet ve neredeyse zifiri karanlık. Oyuncunun çevresi çok dar
-	# aydınlanır; meşale ve mumların çevresi de aydınlıktır (ışık kaynağı olmazsa görüş çok kısıtlı).
+	# Gölge = BİRLEŞTİR: mor-lacivert palet ve gerçek ışıkla karanlık: sahne CanvasModulate ile kararır,
+	# meşale/mum PointLight2D'leri ve oyuncunun feneri çevrelerini aydınlatır (ekran perdesi yok).
 	"golge": {
 		"tint_fg": Color(0.74, 0.70, 0.88),
 		"tint_bg": Color(0.42, 0.40, 0.58),
-		"tile_darkness": false,   # karo başına mesafe karartması kapalı; karartmayı ekran katmanı yapar
-		"darkness": {
-			"max_darkness": 0.97,   # uzak yerlerde ne kadar karanlık (1.0 = simsiyah)
-			"light_radius": 210.0,  # oyuncunun etrafındaki aydınlık yarıçapı (ekran pikseli)
-			"ambient_light": 0.03,  # en karanlık yerdeki minimum aydınlık
-			"torch_radius": 260.0,  # meşale/mum aydınlık yarıçapı (dünya pikseli; zoom ile ölçeklenir)
+		"tile_darkness": false,   # karoların kendi mesafe karartması kapalı; ışıklandırma gerçek ışıkla
+		"lighting": {
+			"ambient": Color(0.10, 0.09, 0.17),       # ışıksız yerlerin rengi (CanvasModulate); siyaha yaklaştıkça karanlık
+			"player_light_radius": 230.0,             # oyuncunun fener ışığı yarıçapı (dünya pikseli)
+			"player_light_energy": 0.9,
+			"player_light_color": Color(0.95, 0.88, 1.0),
 		},
 	},
 	# Barut = PATLAT: isli kömür-kahve palet; duvarda toplar daha sık (ok atıcı seyrek) ve
@@ -134,9 +134,9 @@ static func get_trap_params(theme: String, trap_name: String) -> Dictionary:
 	return all.get(trap_name, {})
 
 
-## Ekran karartması ayarı (gölge): boş sözlük = tema karartmayı değiştirmez.
-static func get_darkness(theme: String) -> Dictionary:
-	return get_style(theme).get("darkness", {})
+## Gerçek ışıklandırma ayarı (gölge): CanvasModulate ortamı + oyuncu feneri. Boş = tema ışığa dokunmaz.
+static func get_lighting(theme: String) -> Dictionary:
+	return get_style(theme).get("lighting", {})
 
 
 ## false: karoların kendi mesafe karartması (distance_darkness shader'ı) kapatılır.
