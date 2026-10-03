@@ -399,10 +399,12 @@ func _ready() -> void:
 		if not tm.is_connected("day_changed", _on_day_changed):
 			tm.connect("day_changed", _on_day_changed)
 	refresh_falci_schedule()
+	refresh_ozan_schedule()
 
 
 func _on_day_changed(_new_day: int) -> void:
 	refresh_falci_schedule()
+	refresh_ozan_schedule()
 
 
 ## --- Sorgular ---
@@ -648,8 +650,13 @@ func reset_for_new_game() -> void:
 	falci_arrives_day = -1
 	falci_leaves_day = -1
 	_falci_present_cache = false
+	ozan_arrives_day = -1
+	ozan_leaves_day = -1
+	_ozan_present_cache = false
+	ozan_sung_dungeon_keys.clear()
 	_reset_unlocks_to_starter()
 	refresh_falci_schedule()
+	refresh_ozan_schedule()
 
 
 func get_save_data() -> Dictionary:
@@ -661,6 +668,9 @@ func get_save_data() -> Dictionary:
 		"oracle_category": oracle_category,
 		"falci_arrives_day": falci_arrives_day,
 		"falci_leaves_day": falci_leaves_day,
+		"ozan_arrives_day": ozan_arrives_day,
+		"ozan_leaves_day": ozan_leaves_day,
+		"ozan_sung": ozan_sung_dungeon_keys.duplicate(),
 	}
 
 
@@ -689,6 +699,16 @@ func load_save_data(data: Variant) -> void:
 	falci_arrives_day = int(d.get("falci_arrives_day", -1))
 	falci_leaves_day = int(d.get("falci_leaves_day", -1))
 	_falci_present_cache = is_falci_in_village()
+	ozan_arrives_day = int(d.get("ozan_arrives_day", -1))
+	ozan_leaves_day = int(d.get("ozan_leaves_day", -1))
+	_ozan_present_cache = is_ozan_in_village()
+	ozan_sung_dungeon_keys.clear()
+	var sung: Variant = d.get("ozan_sung", null)
+	if sung is Array:
+		for sk in (sung as Array):
+			var sks: String = String(sk).strip_edges()
+			if not sks.is_empty() and sks not in ozan_sung_dungeon_keys:
+				ozan_sung_dungeon_keys.append(sks)
 	var raw: Variant = d.get("unlocked_items", null)
 	if not (raw is Array) or (raw as Array).is_empty():
 		# Unlock verisi olmayan eski kayıt: başlangıç havuzuyla başlat.
@@ -1285,6 +1305,58 @@ func force_falci_visit_now() -> void:
 	falci_leaves_day = day + FALCI_STAY_DAYS
 	_falci_present_cache = true
 	falci_presence_changed.emit(true)
+
+
+## ---------------------------------------------------------------------------------------------
+## OZAN: köye uğrayan gezgin türkücü. Yemek karşılığı bir zindanın yerini bulanık söyler
+## (bkz. village/scripts/OzanSongs.gd). Takvimi falcıyla aynı desende; kayıt da buraya bağlı.
+## ---------------------------------------------------------------------------------------------
+signal ozan_presence_changed(present: bool)
+
+const OZAN_VISIT_INTERVAL_MIN: int = 5
+const OZAN_VISIT_INTERVAL_MAX: int = 8
+const OZAN_STAY_DAYS: int = 2
+
+var ozan_arrives_day: int = -1
+var ozan_leaves_day: int = -1
+var _ozan_present_cache: bool = false
+## Türküsü söylenmiş zindanlar ("q,r"): aynı zindan tekrar anlatılmaz.
+var ozan_sung_dungeon_keys: Array[String] = []
+
+
+func is_ozan_in_village() -> bool:
+	if ozan_arrives_day < 0:
+		return false
+	var day: int = _current_day()
+	return day >= ozan_arrives_day and day < ozan_leaves_day
+
+
+func refresh_ozan_schedule() -> void:
+	var day: int = _current_day()
+	if ozan_arrives_day < 0:
+		_schedule_next_ozan_visit(day)
+	elif day >= ozan_leaves_day:
+		_schedule_next_ozan_visit(day)
+	var present: bool = is_ozan_in_village()
+	if present != _ozan_present_cache:
+		_ozan_present_cache = present
+		ozan_presence_changed.emit(present)
+
+
+func _schedule_next_ozan_visit(from_day: int) -> void:
+	var gap: int = randi_range(OZAN_VISIT_INTERVAL_MIN, OZAN_VISIT_INTERVAL_MAX)
+	ozan_arrives_day = from_day + gap
+	ozan_leaves_day = ozan_arrives_day + OZAN_STAY_DAYS
+	print("[ItemManager] 🎻 Ozan %d. günde gelecek, %d. günde gidecek" % [ozan_arrives_day, ozan_leaves_day])
+
+
+## Dev/test: ozanı hemen köye getirir.
+func force_ozan_visit_now() -> void:
+	var day: int = _current_day()
+	ozan_arrives_day = day
+	ozan_leaves_day = day + OZAN_STAY_DAYS
+	_ozan_present_cache = true
+	ozan_presence_changed.emit(true)
 
 
 func banish_item_permanently(item_id: String) -> bool:

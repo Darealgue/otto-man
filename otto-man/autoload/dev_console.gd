@@ -89,6 +89,26 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "test_items":
 		handle_test_items_command(1)
 		return
+	if cmd == "ozan":
+		var oz_im = get_node_or_null("/root/ItemManager")
+		if oz_im == null or not oz_im.has_method("force_ozan_visit_now"):
+			print_output("ItemManager bulunamadı!")
+			return
+		var oz_food: int = 10
+		if args.size() > 0 and String(args[0]).is_valid_int():
+			oz_food = int(args[0])
+		var oz_vm = get_node_or_null("/root/VillageManager")
+		if oz_vm and oz_vm.has_method("apply_resource_delta"):
+			oz_vm.call("apply_resource_delta", "food", oz_food)
+			print_output("Köy deposuna +%d yiyecek." % oz_food)
+		oz_im.call("force_ozan_visit_now")
+		if oz_vm and oz_vm.has_method("_sync_ozan_npc"):
+			oz_vm.call("_sync_ozan_npc")
+			print_output("Ozan köye çağrıldı, soldan yürüyerek geliyor (merkezin solunda durur). Yanına gidip yukarı tuşuna bas.")
+		else:
+			print_output("Ozan takvimi ayarlandı ama köy sahnesinde değilsin; köye girince gelecek.")
+		toggle_console()
+		return
 	if cmd == "unlock_theme":
 		var ut_im = get_node_or_null("/root/ItemManager")
 		if ut_im == null:
@@ -881,6 +901,7 @@ func show_help() -> void:
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
+	ozan [food] - Bring the minstrel to the village now and add food to the village stock (default 10)
 	unlock_theme <ates|buz|zehir|firtina|barut|golge|all> - Unlock every item of that dungeon theme's pools (for testing)
 	boss [boss_id] - Go straight to a boss room (default: orb_scatter; see BossRoomRegistry.BOSS_SCENES)
 	dungeon_theme <ates|buz|zehir|firtina|barut|golge|off> - Force the theme (palette, traps, unlock pool) of the next dungeon you enter

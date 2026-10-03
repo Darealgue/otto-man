@@ -77,7 +77,7 @@ func _build_nameplate() -> void:
 	_nameplate.size = NAMEPLATE_SIZE
 	var label := Label.new()
 	label.name = "NamePlate"
-	label.text = tr("falci.title")
+	label.text = tr(_title_key())
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_nameplate.add_child(label)
@@ -143,5 +143,15 @@ func interact() -> void:
 	if not can_interact():
 		return
 	var host := VillageWorldPopups.get_host()
-	if host and host.has_method("open_falci"):
+	if host:
+		_open_popup(host)
+
+
+## Türetilen gezgin NPC'ler (ozan) başlık anahtarını ve açtığı pencereyi buradan değiştirir.
+func _title_key() -> String:
+	return "falci.title"
+
+
+func _open_popup(host: VillageWorldPopups) -> void:
+	if host.has_method("open_falci"):
 		host.open_falci()

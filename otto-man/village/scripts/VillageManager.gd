@@ -267,6 +267,11 @@ const FalciVillageNPCScene = preload("res://village/scenes/FalciVillageNPC.tscn"
 var falci_npc: Node2D = null
 ## Falcı tüccarlarla aynı noktada durmasın diye merkezden biraz kaydırılıyor.
 const FALCI_CENTER_X_OFFSET: float = 190.0
+## Gezgin ozan: takvimi falcıyla aynı desende ItemManager'da; tüccar ve falcıdan farklı bir
+## noktada (merkezin sol tarafı) durur.
+const OzanVillageNPCScene = preload("res://village/scenes/OzanVillageNPC.tscn")
+var ozan_npc: Node2D = null
+const OZAN_CENTER_X_OFFSET: float = -190.0
 const TRADER_ENTRY_X: float = -2800.0
 const TRADER_CENTER_X: float = 0.0
 const TRADER_EXIT_X: float = 2800.0
@@ -2698,7 +2703,11 @@ func register_village_scene(scene: Node2D) -> void:
 		if im_v and im_v.has_signal("falci_presence_changed"):
 			if not im_v.falci_presence_changed.is_connected(_on_falci_presence_changed):
 				im_v.falci_presence_changed.connect(_on_falci_presence_changed)
+		if im_v and im_v.has_signal("ozan_presence_changed"):
+			if not im_v.ozan_presence_changed.is_connected(_on_ozan_presence_changed):
+				im_v.ozan_presence_changed.connect(_on_ozan_presence_changed)
 		call_deferred("_sync_falci_npc")
+		call_deferred("_sync_ozan_npc")
 	
 	# Cariyeleri sahneye ekle
 	_spawn_concubines_in_scene()
@@ -7431,10 +7440,44 @@ func _sync_trader_npcs() -> void:
 		elif not is_instance_valid(trader_npc_by_id[tid]):
 			trader_npc_by_id.erase(tid)
 	_sync_falci_npc()
+	_sync_ozan_npc()
 
 
 func _on_falci_presence_changed(_present: bool) -> void:
 	_sync_falci_npc()
+
+
+func _on_ozan_presence_changed(_present: bool) -> void:
+	_sync_ozan_npc()
+
+
+## Ozan köyde mi? ItemManager'ın ziyaret takvimine göre sprite'ı ekler / yürüterek çıkarır
+## (falcıyla aynı desen, merkezin sol tarafında durur).
+func _sync_ozan_npc() -> void:
+	if not is_instance_valid(traders_container):
+		return
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(im) or not im.has_method("is_ozan_in_village"):
+		return
+	var present: bool = bool(im.call("is_ozan_in_village"))
+	if present:
+		if not is_instance_valid(ozan_npc):
+			var npc = OzanVillageNPCScene.instantiate()
+			if npc.has_method("setup"):
+				npc.setup(
+					"ozan",
+					TRADER_ENTRY_X,
+					TRADER_CENTER_X + OZAN_CENTER_X_OFFSET,
+					TRADER_EXIT_X,
+					TRADER_CENTER_Y
+				)
+			traders_container.add_child(npc)
+			ozan_npc = npc
+	elif is_instance_valid(ozan_npc):
+		var leaving = ozan_npc
+		ozan_npc = null
+		if leaving.has_method("start_leaving"):
+			leaving.start_leaving()
 
 
 ## Falcı köyde mi? ItemManager'ın ziyaret takvimine göre sprite'ı ekler / yürüterek çıkarır.

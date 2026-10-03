@@ -2545,3 +2545,27 @@ item.yankilanan_parry.name,Yankılanan Parry,Echoing Parry
 item.yankilanan_parry.description,"Parry, yakındaki tüm düşmanlara parry'lenen vuruşun hasarının yarısını yansıtır ve yakındaki mermileri yok eder.",A parry reflects half of the parried hit's damage to all nearby enemies and destroys nearby projectiles.
 item.nobetci.name,Nöbetçi,Sentinel
 item.nobetci.description,Yerinde savunma yaparken stamina 2 kat hızlı yenilenir.,Stamina regenerates twice as fast while guarding in place.
+ozan.title,Ozan,Minstrel
+ozan.close,Kapatmak için Escape,Press Escape to close
+ozan.desc,"Ozana yemek ver, sana bir türkü söylesin. Her türküde bir zindanın yeri saklıdır, anlayana.","Feed the minstrel and he will sing you a song. Every song hides the whereabouts of a dungeon, for those who listen."
+ozan.sing,"Yemek ver, türkü dinle (%d yiyecek)","Give food, hear a song (%d food)"
+ozan.food,Köy deposu: %d yiyecek,Village stock: %d food
+ozan.info.no_food,Ozan boş karnına türkü söylemez. Köy deposunda yeterli yiyecek yok.,The minstrel won't sing on an empty stomach. There is not enough food in the village stock.
+ozan.none,"Bildiğim bütün türküleri söyledim. Bir de sen gez, belki yeni türküler çıkar.","I have sung every song I know. Go roam yourself, maybe new songs will come."
+ozan.dir.e,Doğuda,In the east
+ozan.dir.se,Güneydoğuda,In the southeast
+ozan.dir.s,Güneyde,In the south
+ozan.dir.sw,Güneybatıda,In the southwest
+ozan.dir.w,Batıda,In the west
+ozan.dir.nw,Kuzeybatıda,In the northwest
+ozan.dir.n,Kuzeyde,In the north
+ozan.dir.ne,Kuzeydoğuda,In the northeast
+ozan.dist.near,bir günlük yolda,a day's walk away
+ozan.dist.mid,birkaç günlük yolda,several days' walk away
+ozan.dist.far,çok uzaklarda,"far, far away"
+ozan.song.ates,"%s, %s bir ocak yanar; ateşe yürüyen kolunu sağlam tutsun.","%s, %s, a hearth burns; whoever walks into the fire, keep your arm strong."
+ozan.song.buz,"%s, %s soğuk bir kapı durur; kalkanı sağlam olanın yoludur.","%s, %s, a cold gate stands; the path belongs to him with a steady shield."
+ozan.song.zehir,"%s, %s yeşil bir sis çöker; sinsi yürüyen sağ çıkar.","%s, %s, a green mist settles; he who walks softly comes out alive."
+ozan.song.firtina,"%s, %s gök gürler; yerinde duran yıldırım yer, koşan geçer.","%s, %s, the sky thunders; he who stands still is struck, he who runs passes."
+ozan.song.barut,"%s, %s toplar öter; fitili sayan, adımını da sayar.","%s, %s, cannons sing; who counts the fuse counts his steps."
+ozan.song.golge,"%s, %s karanlık bir kuyu var; ışığını yanında taşıyan yolu görür.","%s, %s, there is a dark well; he who carries his own light sees the way."
