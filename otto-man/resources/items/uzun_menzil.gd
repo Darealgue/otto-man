@@ -33,4 +33,4 @@ func _on_player_light_attack_performed(direction: Vector2, position: Vector2, da
 		return
 	# Spawn: gelen position zaten oyuncuya yakın; hafif ek offset ile çıkış
 	var spawn_offset := direction * 10.0
-	im.spawn_upgraded_projectile(tree.current_scene, position + spawn_offset, direction, damage * 0.7)
+	im.spawn_upgraded_projectile(tree.current_scene, position + spawn_offset, direction, damage * 0.7, -1.0, "ok", true)

@@ -143,6 +143,12 @@ func _on_body_exited(body: Node2D) -> void:
 			_prompt_label.visible = false
 
 
+## Taşan Kaynak: çeşmenin doldurduğu can miktarını artırır (heal_amount üstüne
+## bonus); max_health'i aşan kısım boşa gitmez, player.add_overheal() ile
+## geçici tampon olarak üste eklenir. Bu sayede zaten dolu (current>=max_h)
+## bir oyuncu da çeşmeye dokununca bir şey kazanır — normalde erken return eder.
+const TASAN_KAYNAK_BONUS_RATIO := 1.5
+
 func _try_heal() -> void:
 	if one_use_per_camp and _used:
 		return
@@ -153,16 +159,34 @@ func _try_heal() -> void:
 		return
 	var current: float = ps.get_current_health()
 	var max_h: float = ps.get_max_health() if ps.has_method("get_max_health") else 100.0
-	if current >= max_h:
+
+	var im = get_node_or_null("/root/ItemManager")
+	var overheal_active: bool = im != null and im.has_active_item("tasan_kaynak")
+
+	if current >= max_h and not overheal_active:
 		return
+
 	var add: float = heal_amount
 	if heal_fraction_of_max > 0.0:
 		add = max_h * heal_fraction_of_max
-	var new_health: float = minf(current + add, max_h)
+	if overheal_active:
+		add *= TASAN_KAYNAK_BONUS_RATIO
+
+	var deficit: float = maxf(max_h - current, 0.0)
+	var to_real_health: float = minf(add, deficit)
+	var overflow: float = add - to_real_health
+
+	var new_health: float = minf(current + to_real_health, max_h)
 	ps.set_current_health(new_health, false)
+
+	if overflow > 0.0 and overheal_active:
+		var player = get_tree().get_first_node_in_group("player") if get_tree() else null
+		if player and player.has_method("add_overheal"):
+			player.add_overheal(overflow)
+
 	_used = true
 	_play_dry_animation()
 	if _prompt_label:
 		_prompt_label.text = tr("fountain.used")
 		_prompt_label.visible = true
-	print("[CampFountain] Healed player to %.1f" % new_health)
+	print("[CampFountain] Healed player to %.1f (overheal +%.1f)" % [new_health, overflow if overheal_active else 0.0])

@@ -1,8 +1,11 @@
-# RARE - Ağır saldırı ayrıca ileri doğru bir projectile fırlatır (Uzun Menzil'in ağır karşılığı)
+# RARE - Ağır saldırı ayrıca ileri doğru bir Top mermisi fırlatır (Uzun Menzil'in ağır karşılığı).
+# Top: yavaş, iri, isabette güçlü knockback + çevresine alan hasarı (cannon_projectile.gd).
+# Ateş Bombası aktifse bunun yerine zıplayan bir ateş bombası atılır (player_fire_bomb_projectile.gd).
+# Mermi yükseltmeleri (Sürü Oku, Ruh Mermisi, element...) iki türde de aynı şekilde çalışır.
 extends ItemEffect
 
 const DAMAGE_RATIO := 0.5
-const PROJECTILE_RANGE := 180.0
+const PROJECTILE_RANGE := 300.0
 
 var _player: CharacterBody2D = null
 
@@ -37,4 +40,5 @@ func _on_heavy_attack_impact(_attack_name: String) -> void:
 	var direction := Vector2(_player.facing_direction, 0.0)
 	var damage: float = _player.hitbox.damage * DAMAGE_RATIO if _player.hitbox else 10.0
 	var spawn_pos: Vector2 = _player.global_position + Vector2(direction.x * 20.0, -22.0)
-	im.spawn_upgraded_projectile(tree.current_scene, spawn_pos, direction, damage, PROJECTILE_RANGE)
+	var kind := "bomb" if im.has_active_item("ates_bombasi") else "top"
+	im.spawn_upgraded_projectile(tree.current_scene, spawn_pos, direction, damage, PROJECTILE_RANGE, kind)

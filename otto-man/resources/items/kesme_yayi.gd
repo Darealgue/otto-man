@@ -5,7 +5,14 @@
 extends ItemEffect
 
 const ARC_RADIUS := 90.0
-const LAST_HIT_NAME := "attack_1.4"
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const IMPACT_COLOR := Color(1.0, 0.9, 0.6, 0.8)
+## Hafif saldırı varyantları rastgele seçildiği için animasyon adına bağlamak "son vuruş"
+## değil rastgele tetiklenme demekti. Ardışık vuruş sayılıyor (4.'sü).
+const EVERY_NTH_HIT := 4
+const CHAIN_WINDOW := 1.5
+var _chain := 0
+var _chain_timer := 0.0
 
 var _player: CharacterBody2D = null
 var _hitbox: Node = null
@@ -37,12 +44,20 @@ func deactivate(player: CharacterBody2D):
 	_hitbox = null
 	print("[Kesme Yayı] ❌ Kaldırıldı")
 
+func process(_player_ref: CharacterBody2D, delta: float) -> void:
+	if _chain_timer > 0.0:
+		_chain_timer -= delta
+		if _chain_timer <= 0.0:
+			_chain = 0
+
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "physical_only" or attack_type != "normal":
 		return
-	if not is_instance_valid(_player) or not is_instance_valid(_hitbox):
+	if not is_instance_valid(_player):
 		return
-	if String(_hitbox.get("current_attack_name")) != LAST_HIT_NAME:
+	_chain += 1
+	_chain_timer = CHAIN_WINDOW
+	if _chain % EVERY_NTH_HIT != 0:
 		return
 	var already: Array = []
 	for t in targets:
@@ -61,6 +76,11 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 			continue
 		if node.has_method("take_damage"):
 			node.take_damage(damage, 0.0, 0.0, true)
+	if tree.current_scene:
+		var burst = Node2D.new()
+		burst.set_script(_AoeBurstRingScript)
+		tree.current_scene.add_child(burst)
+		burst.setup(_player.global_position, ARC_RADIUS, IMPACT_COLOR)
 
 func _resolve_enemy_node(target: Node) -> Node:
 	if not is_instance_valid(target):

@@ -34,7 +34,7 @@ func deactivate(player: CharacterBody2D):
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all"):
 	if effect_filter == "physical_only":
 		return  # Hacivat gölgesi: sadece elemental; buz uygulanmasın
-	if not _player or attack_type != "normal":
+	if not _player or (attack_type != "normal" and attack_type != "ranged"):
 		return
 	for target in targets:
 		if not is_instance_valid(target):
@@ -44,3 +44,6 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 			enemy = target.get_parent() if target.get_parent() and target.get_parent().has_method("add_frost_stack") else null
 		if enemy and is_instance_valid(enemy) and enemy.has_method("add_frost_stack"):
 			enemy.add_frost_stack(1)
+			var im = get_node_or_null("/root/ItemManager")
+			if im and im.has_method("spawn_element_hit_flash"):
+				im.spawn_element_hit_flash(enemy, "ice")

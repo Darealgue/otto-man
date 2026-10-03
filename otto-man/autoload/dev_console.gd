@@ -87,7 +87,24 @@ func _on_command_submitted(command: String) -> void:
 		handle_items_list_command()
 		return
 	if cmd == "test_items":
-		handle_test_items_command()
+		handle_test_items_command(1)
+		return
+	if cmd == "overheal":
+		var oh_amount := 50.0
+		if args.size() > 0 and String(args[0]).is_valid_float():
+			oh_amount = float(args[0])
+		var oh_im = get_node_or_null("/root/ItemManager")
+		if oh_im and is_instance_valid(oh_im.player) and oh_im.player.has_method("add_overheal"):
+			oh_im.player.add_overheal(oh_amount)
+			print_output("Taşan can eklendi: +%d (toplam %d)" % [oh_amount, oh_im.player.overheal])
+		else:
+			print_output("Oyuncu yok (bir zindan sahnesine girip tekrar dene).")
+		return
+	if cmd == "levelup":
+		var level_count := 5
+		if args.size() > 0 and String(args[0]).is_valid_int():
+			level_count = clampi(int(args[0]), 1, 50)
+		handle_test_items_command(level_count)
 		return
 	if cmd == "market":
 		handle_market_command(args)
@@ -497,7 +514,7 @@ func handle_item_command(index: int) -> void:
 
 ## Item kart seçim ekranını (draft UI) doğrudan açar — 'item_<N>' gibi anında aktive etmez,
 ## gerçek oyun akışındaki 3 kartlı seçim ekranını test edebilesin diye.
-func handle_test_items_command() -> void:
+func handle_test_items_command(count: int = 1) -> void:
 	var im = get_node_or_null("/root/ItemManager")
 	if !im:
 		print_output("ItemManager bulunamadı!")
@@ -509,8 +526,8 @@ func handle_test_items_command() -> void:
 		print_output("Seçim ekranı zaten açık.")
 		return
 	toggle_console()
-	im.show_item_selection()
-	print_output("Item seçim ekranı açıldı.")
+	im.dev_queue_item_selections(count)
+	print_output("Item seçim ekranı açıldı (%d seçim sırayla)." % count)
 
 ## Marketi elle test etmek için: kapıyı oyuncunun yanına koyar ve DOĞRU cüzdanı doldurur.
 ## Cüzdan ayrımı önemli — zindanda harcanan altın dungeon_gold, köyde gold.
@@ -801,6 +818,8 @@ func show_help() -> void:
 	item_<N> - Activate item by index (e.g. item_0, item_1). Use 'items' to list.
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
+	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
+	overheal [n] - Add n points of overflow health (blue shield on the health bar, default 50)
 	market [gold] - Spawn the market door next to the player and top up the run wallet (default 500)
 	unlock_offer [kesif|boss] [theme] - Queue and show an item unlock offer (default: kesif, current dungeon theme)
 	falci [gold] - Bring the fortune teller to the village now and top up village gold (default 600)

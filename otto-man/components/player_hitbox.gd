@@ -26,6 +26,8 @@ var light_streak_damage_multiplier: float = 1.0
 var next_attack_bonus_multiplier: float = 1.0
 # Emici Kalkan: bloklanan hasardan biriken, SIRADAKİ saldırıya eklenen düz bonus
 var pending_flat_damage_bonus: float = 0.0
+# Ağır Yumruk: >1.0 ise havadaki (is_on_floor()==false) hedeflere isabet bu çarpanla güçlenir
+var air_target_damage_multiplier: float = 1.0
 var _registered_hit_target_ids: Array = []  # Instance IDs of enemies that can take this hit
 var base_damage: float = 15.0  # Base damage value
 var combo_enabled: bool = false  # Added missing property
@@ -220,13 +222,16 @@ func sync_from_player_hitbox(source: PlayerHitbox) -> void:
 func get_damage_for_target(enemy: Node) -> float:
 	var player: Node = get_meta("damage_source") if has_meta("damage_source") else get_parent()
 	var attacker_pos: Vector2 = get_meta("attacker_position_override") if has_meta("attacker_position_override") else (player.global_position if player else global_position)
-	if not player:
-		return damage
-	if player is CharacterBody2D:
-		player.set("_last_attack_name_for_modifiers", current_attack_name)
-	if has_node("/root/DamageModifiers"):
-		return DamageModifiers.apply_player_modifiers(player, damage, enemy, attacker_pos, false)
-	return damage
+	var result: float = damage
+	if player:
+		if player is CharacterBody2D:
+			player.set("_last_attack_name_for_modifiers", current_attack_name)
+		if has_node("/root/DamageModifiers"):
+			result = DamageModifiers.apply_player_modifiers(player, damage, enemy, attacker_pos, false)
+	# Ağır Yumruk: hedef havadaysa (juggle'da) hasar güçlenir
+	if air_target_damage_multiplier > 1.0 and is_instance_valid(enemy) and enemy.has_method("is_on_floor") and not enemy.is_on_floor():
+		result *= air_target_damage_multiplier
+	return result
 
 func enable():
 	is_active = true

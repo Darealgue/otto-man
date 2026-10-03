@@ -181,6 +181,18 @@ const ITEM_SCENES: Dictionary = {
 	# Wildcard/Joker (bkz. docs/ITEM_PIPELINE_DESIGN.md §7)
 	"usta_isci": preload("res://resources/items/usta_isci.tscn"),
 	"tek_sanat": preload("res://resources/items/tek_sanat.tscn"),
+	# 2026-09-30 kullanıcı geri bildirimiyle eklenen ek item'lar (firtina/golge
+	# havuzlarını güçlendirme + Havaya Fırlatma derinliği + kamp ekonomisi)
+	"yildirim_zinciri": preload("res://resources/items/yildirim_zinciri.tscn"),
+	"firtina_gozu": preload("res://resources/items/firtina_gozu.tscn"),
+	"yere_cakis": preload("res://resources/items/yere_cakis.tscn"),
+	"agir_yumruk": preload("res://resources/items/agir_yumruk.tscn"),
+	"sessiz_adim": preload("res://resources/items/sessiz_adim.tscn"),
+	"golgeye_karisma": preload("res://resources/items/golgeye_karisma.tscn"),
+	"kalkan_kirigi": preload("res://resources/items/kalkan_kirigi.tscn"),
+	"tasan_kaynak": preload("res://resources/items/tasan_kaynak.tscn"),
+	# Mermi türü: heavy mermisini Top'tan zıplayan bombaya çevirir (ITEM_REQUIREMENTS_ANY: ok_yagmuru)
+	"ates_bombasi": preload("res://resources/items/ates_bombasi.tscn"),
 }
 
 # Ön koşul: bu item_id sadece listelenen item'lar aktifken seçenekte çıkar (örn. Kum Saati → Zaman Durdurucu)
@@ -204,6 +216,7 @@ const ITEM_REQUIREMENTS_ANY: Dictionary = {
 	"pesine_dusen": ["uzun_menzil", "ok_yagmuru"],
 	"agir_mermi": ["uzun_menzil", "ok_yagmuru"],
 	"ruh_mermisi": ["uzun_menzil", "ok_yagmuru"],
+	"ates_bombasi": ["ok_yagmuru"],
 	"kan_bedeli": ["cevher_dili", "yikim_muhru"],
 }
 
@@ -318,26 +331,26 @@ const UNLOCK_TIER_BOSS: String = "boss"
 const DUNGEON_THEME_POOLS: Dictionary = {
 	"ates": {
 		"kesif": ["atesli_yumruk", "ates_topu_dususu", "pala_kilici", "taskin_guc", "koz_tutan", "koruk", "tavlanmis_celik", "gokten_dusus", "guc_kayasi"],
-		"boss": ["atesli_kayma", "genis_darbe", "ocak", "ziplatan_yumruk", "agirliksiz", "sirt_darbesi", "tek_sanat"],
+		"boss": ["atesli_kayma", "genis_darbe", "ocak", "ziplatan_yumruk", "agirliksiz", "sirt_darbesi", "tek_sanat", "agir_yumruk"],
 	},
 	"buz": {
-		"kesif": ["buzlu_kilic", "donma_cekici", "buz_cagi", "yansitici_kalkan", "dikenli_kalkan", "ters_darbe", "parry_ustasi", "olumcul_sukut", "sansli_nal"],
-		"boss": ["buzlu_kayma", "nazar_boncugu", "son_kale", "cuppe_degil_zirh", "zaman_durdurucu", "yansiyan_irade", "alan_parrysi"],
+		"kesif": ["buzlu_kilic", "donma_cekici", "buz_cagi", "yansitici_kalkan", "dikenli_kalkan", "ters_darbe", "parry_ustasi", "olumcul_sukut", "sansli_nal", "kalkan_kirigi"],
+		"boss": ["buzlu_kayma", "nazar_boncugu", "son_kale", "cuppe_degil_zirh", "zaman_durdurucu", "yansiyan_irade", "alan_parrysi", "tasan_kaynak"],
 	},
 	"zehir": {
 		"kesif": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "ceset_tekmesi", "les_gazi", "zeytinyagi"],
 		"boss": ["gorunmezlik_pelerini", "hayalet_adim", "flank_avantaji", "sabir_tasi", "yankesici", "serbetci", "zehirli_sekme", "kavis_adimi", "iz_birakan", "refleks"],
 	},
 	"firtina": {
-		"kesif": ["gok_gurultusu", "yildirim_dususu", "yildirim_adimi", "havada_kal", "sekme_tabanligi", "genis_dusus", "firlatma_parry"],
-		"boss": ["simsek_parmagi", "simsek_kalkani", "duvar_ustasi", "karsi_mermi"],
+		"kesif": ["gok_gurultusu", "yildirim_dususu", "yildirim_adimi", "havada_kal", "sekme_tabanligi", "genis_dusus", "firlatma_parry", "firtina_gozu"],
+		"boss": ["simsek_parmagi", "simsek_kalkani", "duvar_ustasi", "karsi_mermi", "yildirim_zinciri"],
 	},
 	"barut": {
 		"kesif": ["patlama_zinciri", "dodge_bombasi", "lav_cekici", "falya", "lagimci", "tepme", "zincirleme_vurus", "hizli_charge"],
-		"boss": ["patlama_topuzu", "tuzak_fisildayan", "cenk_meydani", "yikim_muhru", "cevher_dili", "cellat_nefesi", "toplu_kaldirma", "daire_darbesi", "guc_devri"],
+		"boss": ["patlama_topuzu", "tuzak_fisildayan", "cenk_meydani", "yikim_muhru", "cevher_dili", "cellat_nefesi", "toplu_kaldirma", "daire_darbesi", "guc_devri", "yere_cakis"],
 	},
 	"golge": {
-		"kesif": ["element_izi", "ruh_akisi", "ruzgar_toplama", "ayran", "tunel_ustasi"],
+		"kesif": ["element_izi", "ruh_akisi", "ruzgar_toplama", "ayran", "tunel_ustasi", "sessiz_adim", "golgeye_karisma"],
 		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "kesintisiz_akrobasi", "usta_isci"],
 	},
 }
@@ -699,8 +712,52 @@ func register_player(p: CharacterBody2D) -> void:
 			player.player_attack_landed.connect(_on_global_attack_landed_brawl_family)
 	# Reactivate any existing items for the new player
 	for item in active_items:
+		if not is_instance_valid(item):
+			continue
+		# Otomatik bağlanan sinyaller (_on_player_light_attack_performed, _on_perfect_parry...)
+		# yalnızca _initialize_item'da, item ilk alındığında ESKİ oyuncuya bağlanıyordu. Yeni
+		# sahnede yeni bir Player gelince bunlar ölü oyuncuda kalıyor, item "aktif" görünüp
+		# hiçbir şey yapmıyordu (Uzun Menzil: melee hitbox kapalı + mermi hiç çıkmıyor).
+		if is_instance_valid(old_player) and old_player != player:
+			_rewire_item_auto_signals(item, old_player, false)
+		_rewire_item_auto_signals(item, player, true)
 		if item.has_method("activate"):
 			item.activate(player)
+
+## _initialize_item/deactivate_item'daki otomatik sinyal bağlantılarının tablo hâli;
+## register_player (sahne değişimi) bunu kullanır. Burada değişiklik yaparsanız iki fonksiyonu da
+## güncelleyin — tools/item_smoke_test.gd yeniden kayıt sonrası bağlantıları doğrular.
+const AUTO_SIGNAL_HOOKS: Array = [
+	["_on_player_dodged", "player_dodged"],
+	["_on_player_slid", "player_slid"],
+	["_on_player_blocked", "player_blocked"],
+	["_on_player_attack_landed", "player_attack_landed"],
+	["_on_player_light_attack_performed", "player_light_attack_performed"],
+	["_on_perfect_parry", "perfect_parry"],
+	["_on_player_took_damage", "player_took_damage"],
+	["_on_fall_attack_impacted", "fall_attack_impacted"],
+	["_on_heavy_attack_performed", "heavy_attack_performed"],
+	["_on_heavy_attack_hit", "heavy_attack_hit"],
+	["_on_heavy_attack_impact", "heavy_attack_impact"],
+]
+
+func _rewire_item_auto_signals(item: Node, target: Node, connect_it: bool) -> void:
+	if not is_instance_valid(item) or not is_instance_valid(target):
+		return
+	for hook in AUTO_SIGNAL_HOOKS:
+		var method: String = hook[0]
+		var sig: String = hook[1]
+		if not item.has_method(method) or not target.has_signal(sig):
+			continue
+		# Zehirli Dev heavy_attack_impact'i kendi activate() içinde bağlıyor
+		if sig == "heavy_attack_impact" and item.get("item_id") == "zehirli_dev":
+			continue
+		var callable := Callable(item, method)
+		if connect_it:
+			if not target.is_connected(sig, callable):
+				target.connect(sig, callable)
+		elif target.is_connected(sig, callable):
+			target.disconnect(sig, callable)
 
 func activate_item(item_scene: PackedScene) -> void:
 	if !player:
@@ -836,6 +893,7 @@ func has_active_item(item_id: String) -> bool:
 	return false
 
 func clear_all_items() -> void:
+	_dev_pending_selections = 0
 	var current_player_valid: bool = is_instance_valid(player)
 	for item in active_items.duplicate():
 		if not is_instance_valid(item):
@@ -1069,8 +1127,18 @@ func show_item_selection() -> void:
 	selection_ui.setup_items(available_items)
 	get_tree().paused = true
 
+## Dev console 'levelup [n]': n kez ardışık draft ekranı. Her seçim kapanınca sıradaki açılır.
+var _dev_pending_selections: int = 0
+
+func dev_queue_item_selections(count: int) -> void:
+	_dev_pending_selections = maxi(count - 1, 0)
+	show_item_selection()
+
 func _on_item_selection_closed() -> void:
 	_item_selection_open = false
+	if _dev_pending_selections > 0:
+		_dev_pending_selections -= 1
+		call_deferred("show_item_selection")
 	# Ödül alındı, sayaç sıfırdan başlasın. Eskiden sayaç toplam olarak artmaya devam ettiği
 	# için bar 10'da dolu kalıyor ve ancak 11. orb geldiğinde 1'e düşüyordu ("bir geriden").
 	xp_orbs_collected = 0
@@ -1422,10 +1490,14 @@ func get_active_elements() -> Array[String]:
 ## (bkz. simsek_parmagi.gd — anlık zincir hasarı), bu yüzden burada da tek
 ## seferlik doğrudan hasar olarak uygulanıyor.
 const _ELEMENT_LIGHTNING_TOUCH_DAMAGE := 5.0
+const _ElementHitFlashScript = preload("res://effects/element_hit_flash.gd")
+const _LightningBoltLineScript = preload("res://effects/lightning_bolt_line.gd")
+const _LIGHTNING_STRIKE_HEIGHT := 260.0
 
 func apply_element_to_enemy(enemy: Node2D, element: String) -> void:
 	if not is_instance_valid(enemy):
 		return
+	spawn_element_hit_flash(enemy, element)
 	match element:
 		"poison":
 			if enemy.has_method("add_poison_stack"):
@@ -1442,6 +1514,43 @@ func apply_element_to_enemy(enemy: Node2D, element: String) -> void:
 			if enemy.has_method("take_damage"):
 				enemy.take_damage(_ELEMENT_LIGHTNING_TOUCH_DAMAGE, 0.0, 0.0, true)
 			_apply_lightning_reactions(enemy)
+			_spawn_lightning_strike_from_above(enemy)
+			# Yıldırım Zinciri: şimşeğin poison_stacks/frost_stacks gibi kalıcı bir
+			# stack'i yok, bu yüzden "bu düşman şimşekle vuruldu mu" bilgisini
+			# geçici bir meta işaretle tutuyoruz — enemy öldüğünde yildirim_zinciri.gd
+			# bunu okuyup zincirlemeyi tetikliyor.
+			if is_instance_valid(enemy):
+				enemy.set_meta("was_lightning_hit", true)
+
+
+## Basit placeholder görsel: element uygulanan düşmanın üstünde kısa bir
+## renkli halka (bkz. effects/element_hit_flash.gd). Kalıcı sanat gelene
+## kadar "element gerçekten isabet etti" bilgisini ekrana taşıyor. Public:
+## zehirli_tirnak/atesli_yumruk/buzlu_kilic gibi element KAYNAĞI item'lar
+## apply_element_to_enemy()'yi çağırmadan doğrudan add_X_stack() kullanıyor
+## (kendi set-bonus/çift-vuruş mantıkları var), bu yüzden görseli kendileri
+## ayrıca tetikliyor.
+func spawn_element_hit_flash(enemy: Node2D, element: String) -> void:
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null or not is_instance_valid(enemy):
+		return
+	var flash = Node2D.new()
+	flash.set_script(_ElementHitFlashScript)
+	tree.current_scene.add_child(flash)
+	flash.setup(enemy.global_position, element)
+
+
+## Basit placeholder görsel: şimşek isabetinde düşmanın tepesinden aşağı inen
+## çentikli bir bolt çizgisi (bkz. effects/lightning_bolt_line.gd). Yıldırım
+## Zinciri'nin sekmesi de aynı script'i iki düşman arasında kullanıyor.
+func _spawn_lightning_strike_from_above(enemy: Node2D) -> void:
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null or not is_instance_valid(enemy):
+		return
+	var bolt = Node2D.new()
+	bolt.set_script(_LightningBoltLineScript)
+	tree.current_scene.add_child(bolt)
+	bolt.setup(enemy.global_position + Vector2(0.0, -_LIGHTNING_STRIKE_HEIGHT), enemy.global_position)
 
 
 ## Element Reaksiyon Matrisi (bkz. docs/ITEM_PIPELINE_DESIGN.md §3): şimşeğin
@@ -1511,6 +1620,10 @@ func apply_movement_contact_tick(hit_ids: Array, radius: float, base_damage: flo
 	var deal_contact_damage := movement_contact_damage_enabled()
 	var apply_frost := has_active_item("soguk_temas")
 	var specialist_mult := get_specialist_multiplier("kacinma")
+	# Fırtına Gözü (Kaçınma → Havaya Fırlatma köprüsü): temas hasarı artık
+	# gerçek bir fırlatma da veriyor (60 -> 220 up_force).
+	var launch_active := has_active_item("firtina_gozu")
+	var contact_up_force: float = 220.0 if launch_active else 60.0
 	for node in tree.get_nodes_in_group("enemies"):
 		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
 			continue
@@ -1521,7 +1634,7 @@ func apply_movement_contact_tick(hit_ids: Array, radius: float, base_damage: flo
 		hit_ids.append(node.get_instance_id())
 		if deal_contact_damage:
 			if node.has_method("take_damage"):
-				node.take_damage(base_damage * specialist_mult, 80.0, 60.0, true)
+				node.take_damage(base_damage * specialist_mult, 80.0, contact_up_force, true)
 			for element in elements:
 				apply_element_to_enemy(node, element)
 		if apply_frost and node.has_method("add_frost_stack"):
@@ -1666,10 +1779,18 @@ func apply_parkour_momentum_tick() -> void:
 const _MermiProjectileScript = preload("res://effects/light_attack_projectile.gd")
 const _SURU_OKU_SPREAD_DEG := 15.0
 const _SURU_OKU_DAMAGE_RATIO := 0.4
+const _CannonProjectileScript = preload("res://effects/cannon_projectile.gd")
+const _FireBombProjectileScript = preload("res://effects/player_fire_bomb_projectile.gd")
+## Mermi türleri: "ok" (light, hızlı/hafif), "top" (heavy varsayılanı, yavaş + alan hasarı + knockback),
+## "bomb" (Ateş Bombası: yerçekimli, zıplar, düşmana değince patlar). Türe göre ana hasar çarpanı:
+const _PROJECTILE_KIND_DAMAGE_MULT := {"ok": 1.0, "top": 1.6, "bomb": 1.3}
 
 ## scene_root: proj'un ekleneceği sahne kökü (çağıranın tree.current_scene'i).
 ## max_distance_override: -1.0 ise projectile'ın kendi varsayılanı korunur.
-func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vector2, damage: float, max_distance_override: float = -1.0) -> void:
+## kind: mermi türü (yukarıya bakın). double_strike: Çift Vuruş bu atış için iki volley atsın mı —
+## Çift Vuruş bir HAFİF saldırı item'ı, bu yüzden sadece Uzun Menzil true geçer (ağır/fall mermileri
+## eskiden yanlışlıkla iki katına çıkıyordu).
+func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vector2, damage: float, max_distance_override: float = -1.0, kind: String = "ok", double_strike: bool = false) -> void:
 	if not scene_root:
 		return
 	var directions: Array[Vector2] = [direction]
@@ -1681,15 +1802,34 @@ func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vec
 			direction.rotated(deg_to_rad(_SURU_OKU_SPREAD_DEG)),
 		]
 		damage_ratio = _SURU_OKU_DAMAGE_RATIO
-	damage_ratio *= get_specialist_multiplier("temas")
-	for dir in directions:
-		var proj = Node2D.new()
-		proj.set_script(_MermiProjectileScript)
-		scene_root.add_child(proj)
-		proj.setup(origin, dir, damage * damage_ratio)
-		if max_distance_override > 0.0:
-			proj.max_distance = max_distance_override
-		_apply_projectile_item_upgrades(proj)
+	# Not: Tek Sanat'ın "temas" çarpanı burada UYGULANMIYOR. Gelen `damage` her çağıranda
+	# (uzun_menzil/ok_yagmuru/golge_nisanci) player_hitbox.enable_combo()'dan geçmiş
+	# hitbox.damage'den türüyor ve çarpan orada zaten uygulanıyor; burada tekrar çarpmak
+	# mermide 1.5 x 1.5 = 2.25x yapıyordu.
+	# Çift Vuruş: melee'de olduğu gibi aynı saldırı 2 kez vurur. Gelen `damage`
+	# zaten light_attack_damage_multiplier üzerinden Çift Vuruş'un kendi %X
+	# indirimini içeriyor (attack_state.gd'nin hesapladığı değer buraya kadar
+	# taşınıyor) — bu yüzden ikinci vuruşa AYRICA bir indirim uygulanmıyor,
+	# tıpkı melee'nin iki vuruşunun da aynı indirimli değerde olması gibi.
+	# Kullanıcı geri bildirimi (2026-09-30): "çift vuruş itemi ranged saldırıyı
+	# da ikiye bölsün" — Sürü Oku'yla da çarpımsal olarak yığılabiliyor.
+	var volleys := 2 if (double_strike and has_active_item("cift_vurus")) else 1
+	var script: Script = _MermiProjectileScript
+	match kind:
+		"top":
+			script = _CannonProjectileScript
+		"bomb":
+			script = _FireBombProjectileScript
+	var kind_mult: float = _PROJECTILE_KIND_DAMAGE_MULT.get(kind, 1.0)
+	for _volley in range(volleys):
+		for dir in directions:
+			var proj = Node2D.new()
+			proj.set_script(script)
+			scene_root.add_child(proj)
+			proj.setup(origin, dir, damage * damage_ratio * kind_mult)
+			if max_distance_override > 0.0:
+				proj.max_distance = max_distance_override
+			_apply_projectile_item_upgrades(proj)
 
 
 func _apply_projectile_item_upgrades(proj: Node) -> void:
@@ -1845,6 +1985,77 @@ func get_set_hint_if_selected(item_id: String) -> String:
 		elif owned == needed - 1:
 			best = "🔗 " + set_name + " — " + tr("item.set.one_more")
 	return best
+
+
+## Kart üzerinde gösterilen sinerji ipuçları: [item_a, item_b, çeviri_anahtarı]. Çift yönlüdür —
+## oyuncu b'ye sahipken a teklif edilirse (ya da tersi) kartta "🔗 <b'nin adı>: <etki>" satırı çıkar.
+## Sadece mekanik olarak gerçekten var olan etkileşimler yazılır (docs/ITEM_PIPELINE_DESIGN.md).
+## tools/item_smoke_test.gd id'lerin ve çevirilerin varlığını doğrular.
+const ITEM_SYNERGY_PAIRS: Array = [
+	# Çift Vuruş mermiyi de ikiye böler (spawn_upgraded_projectile volley)
+	["cift_vurus", "uzun_menzil", "synergy.double_ranged"],
+	["cift_vurus", "suru_oku", "synergy.double_swarm"],
+	# Ateş Bombası (heavy mermi türü)
+	["ates_bombasi", "suru_oku", "synergy.bomb_swarm"],
+	["ates_bombasi", "ruh_mermisi", "synergy.bomb_chain"],
+	["ates_bombasi", "yansiyan_ok", "synergy.bomb_chain"],
+	["ates_bombasi", "ruzgarin_nisani", "synergy.bomb_element"],
+	["ates_bombasi", "zehirli_tirnak", "synergy.bomb_element"],
+	["ates_bombasi", "buzlu_kilic", "synergy.bomb_element"],
+	["ates_bombasi", "simsek_parmagi", "synergy.bomb_element"],
+	# Mermi isabeti "player_attack_landed" yayınlar: isabete bağlı item'lar mermide de çalışır
+	["sarsici_darbe", "uzun_menzil", "synergy.ranged_onhit"],
+	["ucuncu_vurus", "uzun_menzil", "synergy.ranged_onhit"],
+	["koruk", "uzun_menzil", "synergy.ranged_onhit"],
+	["zehirli_tirnak", "uzun_menzil", "synergy.ranged_element"],
+	["atesli_yumruk", "uzun_menzil", "synergy.ranged_element"],
+	["buzlu_kilic", "uzun_menzil", "synergy.ranged_element"],
+	["simsek_parmagi", "uzun_menzil", "synergy.ranged_element"],
+	["flank_avantaji", "uzun_menzil", "synergy.flank_ranged"],
+	# Kaçınma -> Havaya Fırlatma
+	["zehirli_sekme", "firtina_gozu", "synergy.contact_launch"],
+	["zehirli_sekme", "kavis_adimi", "synergy.contact_radius"],
+	["soguk_temas", "kavis_adimi", "synergy.contact_radius"],
+	["firtina_gozu", "toplu_kaldirma", "synergy.contact_group"],
+	# Havaya Fırlatma
+	["ziplatan_yumruk", "toplu_kaldirma", "synergy.group_launch"],
+	["ziplatan_yumruk", "agir_yumruk", "synergy.juggle_damage"],
+	["toplu_kaldirma", "agir_yumruk", "synergy.juggle_damage"],
+	["ziplatan_yumruk", "agirliksiz", "synergy.juggle_hang"],
+	["ziplatan_yumruk", "yere_cakis", "synergy.launch_slam"],
+	["toplu_kaldirma", "yere_cakis", "synergy.launch_slam"],
+	["kader_ani", "zehirli_tirnak", "synergy.air_element"],
+	["kader_ani", "atesli_yumruk", "synergy.air_element"],
+	["kader_ani", "buzlu_kilic", "synergy.air_element"],
+	["kader_ani", "simsek_parmagi", "synergy.air_element"],
+	# Şimşek zinciri, Savunma, Hareket
+	["yildirim_zinciri", "simsek_parmagi", "synergy.lightning_chain"],
+	["alan_parrysi", "parry_ustasi", "synergy.parry_window"],
+	["ruzgar_toplama", "kus_kanadi", "synergy.jump_stamina"],
+	["ruzgar_toplama", "cift_ziplama", "synergy.jump_stamina"],
+	# Element reaksiyon matrisi (6/6)
+	["zehirli_tirnak", "atesli_yumruk", "synergy.react_poison_fire"],
+	["atesli_yumruk", "buzlu_kilic", "synergy.react_fire_ice"],
+	["zehirli_tirnak", "buzlu_kilic", "synergy.react_poison_ice"],
+	["buzlu_kilic", "simsek_parmagi", "synergy.react_ice_lightning"],
+	["zehirli_tirnak", "simsek_parmagi", "synergy.react_poison_lightning"],
+	["atesli_yumruk", "simsek_parmagi", "synergy.react_fire_lightning"],
+]
+
+
+## Teklif edilen item, elindeki bir item'la birleşiyorsa tek satırlık ipucu ("" = yok).
+func get_synergy_hint(item_id: String) -> String:
+	for pair in ITEM_SYNERGY_PAIRS:
+		var other := ""
+		if pair[0] == item_id:
+			other = String(pair[1])
+		elif pair[1] == item_id:
+			other = String(pair[0])
+		else:
+			continue
+		if has_active_item(other):
+			return "🔗 %s: %s" % [tr("item.%s.name" % other), tr(String(pair[2]))]
+	return ""
 
 
 func _count_owned_set_pieces(member_ids: Array) -> int:

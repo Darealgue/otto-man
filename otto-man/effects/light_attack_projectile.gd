@@ -1,5 +1,7 @@
 # Uzun Menzil itemi: light attack ile fırlayan projectile (yatay / 45° yukarı / 45° aşağı)
-# Ok Yağmuru (ağır saldırı) da bu sahneyi kullanır.
+# Mermi TÜRLERİ bu script'ten türer (bkz. cannon_projectile.gd = Top, player_fire_bomb_projectile.gd
+# = Ateş Bombası); ItemManager.spawn_upgraded_projectile(kind) seçer, tüm yükseltmeler (Sürü Oku,
+# Yansıyan Ok, Ruh Mermisi, element...) türden bağımsız aynı alanlar üzerinden çalışır.
 # Opsiyonel özellikler (item'lar setup() sonrası set eder):
 #   bounce_remaining  - Yansıyan Ok: ilk çarpışta bounce_range içindeki 2. düşmana sekme
 #   element           - Rüzgârın Nişanı: "poison"/"fire"/"frost" ise çarpışta ilgili stack uygulanır
@@ -25,6 +27,14 @@ const ECHO_RADIUS := 60.0
 var _direction: Vector2 = Vector2.RIGHT
 var _traveled: float = 0.0
 var _damage: float = 15.0
+
+# Türler bunları setup() içinde değiştirir (Ok varsayılanları const'larla aynı).
+var _speed: float = SPEED
+var _hit_radius: float = HIT_RADIUS
+var _ball_radius: float = BALL_RADIUS
+var _ball_color: Color = PROJECTILE_COLOR
+# Sekme/zincir sonrası az önce vurulan düşmana hemen tekrar çarpmamak için.
+var _recent_hit_id: int = 0
 
 # Uzun Menzil/Ok Yağmuru'nun kendi çağrılarını bozmamak için varsayılan -1 (item set etmezse kapalı)
 var max_distance: float = MAX_DISTANCE
@@ -59,7 +69,7 @@ func _physics_process(delta: float) -> void:
 			var desired: Vector2 = (homing_target.global_position - global_position).normalized()
 			_direction = _direction.lerp(desired, clampf(homing_strength * delta, 0.0, 1.0)).normalized()
 			rotation = _direction.angle()
-	var move := _direction * SPEED * delta
+	var move := _direction * _speed * delta
 	_traveled += move.length()
 	if not unlimited_range and _traveled >= max_distance:
 		queue_free()
@@ -75,24 +85,47 @@ func _physics_process(delta: float) -> void:
 	if space.intersect_point(params).size() > 0:
 		queue_free()
 		return
+	if _check_enemy_hits(world_pos):
+		return
+	queue_redraw()
+
+## Menzildeki ilk canlı düşmana _on_hit uygular. Sekme/zincirle yeni hedefe yönelen mermi,
+## az önce vurduğu düşmandan uzaklaşana kadar onu tekrar vurmaz (eskiden birkaç kare içinde
+## aynı düşmana tekrar çarpabiliyordu). Dönüş: bu karede bir isabet işlendi mi.
+func _check_enemy_hits(world_pos: Vector2) -> bool:
 	var tree = get_tree()
 	if not tree:
-		return
-	var enemies = tree.get_nodes_in_group("enemies")
-	for node in enemies:
+		return false
+	for node in tree.get_nodes_in_group("enemies"):
 		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
 			continue
-		if world_pos.distance_to(node.global_position) <= HIT_RADIUS:
+		var d := world_pos.distance_to(node.global_position)
+		if node.get_instance_id() == _recent_hit_id:
+			if d > _hit_radius * 1.5:
+				_recent_hit_id = 0
+			else:
+				continue
+		if d <= _hit_radius:
 			_on_hit(node, world_pos)
-			return
-	queue_redraw()
+			return true
+	return false
 
 func _on_hit(node: Node, world_pos: Vector2) -> void:
 	var killed_by_this_hit := false
+	var proj_tree := get_tree()
+	var proj_player = proj_tree.get_first_node_in_group("player") if proj_tree else null
 	if node.has_method("take_damage"):
 		var dmg := _damage
 		if unlimited_range and _traveled > crit_range:
 			dmg *= crit_mult
+		# Flank/Stealth arkadan vuruş: melee player_hitbox.gd'nin get_damage_for_target()
+		# üzerinden geçtiği DamageModifiers zincirinden mermiler bypass ediyordu (kullanıcı
+		# geri bildirimi, 2026-09-30) — gizlice yaklaşıp okla arkadan vurmak da aynı bonusu
+		# almalı.
+		var dm = get_node_or_null("/root/DamageModifiers")
+		if dm and dm.has_method("apply_player_modifiers") and proj_player:
+			proj_player.set("_last_attack_name_for_modifiers", "")
+			dmg = dm.apply_player_modifiers(proj_player, dmg, node, global_position, false)
 		if knockback_force > 0.0:
 			# Ağır Mermi: fırlatma da uygulanır (hurt animasyonu tetiklenir)
 			node.take_damage(dmg, knockback_force, knockback_up_force, true)
@@ -100,9 +133,24 @@ func _on_hit(node: Node, world_pos: Vector2) -> void:
 			# Varsayılan: sadece hasar; knockback ve hurt animasyonu yok
 			node.take_damage(dmg, 0.0, 0.0, false)
 		killed_by_this_hit = node.get("current_behavior") == "dead"
+		# player_attack_landed: Uzun Menzil/Ok Yağmuru bir light attack'ı TAMAMEN
+		# mermiye çevirdiğinde (bkz. attack_state.gd use_ranged_only), melee hitbox
+		# hiç ateşlenmiyor ve bu sinyal hiç yayınlanmıyordu — zehirli_tirnak/atesli_yumruk/
+		# buzlu_kilic/simsek_parmagi (element kaynakları), cevher_dili, genis_darbe,
+		# koruk, cuppe_degil_zirh gibi "soyut duruma bakan" item'lar ranged'de tamamen
+		# ölü kalıyordu (kullanıcı geri bildirimi, 2026-09-30). attack_type="ranged"
+		# (düz "normal" değil) kasıtlı: kesme_yayi/sirt_darbesi/yere_cakis (combo
+		# pozisyonuna bağlı) ve daire_darbesi (attack_type=="heavy" ister) ve
+		# cift_vurus (zaten spawn_upgraded_projectile'da volley ile ayrı çözüldü,
+		# tekrar tetiklenmemeli) kendi `!= "normal"` filtreleriyle bunu otomatik
+		# eliyor; sadece attack_type'ı hiç kontrol etmeyen ya da özellikle "ranged"i
+		# de kabul eden item'lar buna tepki veriyor.
+		if proj_player and proj_player.has_signal("player_attack_landed"):
+			proj_player.emit_signal("player_attack_landed", "ranged", dmg, [node], world_pos, "all")
 	_apply_element(node)
 	if echo:
 		_spawn_echo(world_pos)
+	_recent_hit_id = node.get_instance_id()
 	if soul_chain and killed_by_this_hit:
 		var chain_target := _find_nearest_enemy(node, world_pos, CHAIN_RANGE)
 		if chain_target:
@@ -173,4 +221,4 @@ func _spawn_echo(world_pos: Vector2) -> void:
 	)
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, BALL_RADIUS, PROJECTILE_COLOR)
+	draw_circle(Vector2.ZERO, _ball_radius, _ball_color)

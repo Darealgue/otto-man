@@ -4,6 +4,8 @@ extends ItemEffect
 
 const OVERCHARGE_RADIUS := 90.0
 const OVERCHARGE_DAMAGE_MULT := 1.0  # Ana hasarın 1 katı kadar ek alan hasarı (~×2 toplam his)
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const EXPLOSION_COLOR := Color(1.0, 0.5, 0.15, 0.85)
 
 var _player: CharacterBody2D = null
 
@@ -50,6 +52,11 @@ func _on_heavy_attack_impact(_attack_name: String) -> void:
 			continue
 		if center.distance_to(node.global_position) <= OVERCHARGE_RADIUS and node.has_method("take_damage"):
 			node.take_damage(bonus_damage, 100.0, 40.0, true)
+	if tree.current_scene:
+		var burst = Node2D.new()
+		burst.set_script(_AoeBurstRingScript)
+		tree.current_scene.add_child(burst)
+		burst.setup(center, OVERCHARGE_RADIUS, EXPLOSION_COLOR)
 
 ## Kan Bedeli aktifse stamina yerine can harcayarak devam et
 func _try_kan_bedeli_fallback() -> bool:

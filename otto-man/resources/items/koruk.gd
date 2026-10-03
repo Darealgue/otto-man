@@ -10,6 +10,8 @@ const IGNITE_DURATION := 4.0
 const IGNITE_TICK_INTERVAL := 1.0
 const IGNITE_RADIUS := 140.0
 const DAMAGE_TAKEN_PENALTY := 1.20
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const IGNITE_COLOR := Color(1.0, 0.5, 0.15, 0.55)
 
 var _player: CharacterBody2D = null
 var _combo := 0
@@ -47,7 +49,7 @@ func deactivate(player: CharacterBody2D):
 func _on_player_attack_landed(attack_type: String, _damage: float, _targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "elemental_only":
 		return
-	if not is_instance_valid(_player) or attack_type != "normal":
+	if not is_instance_valid(_player) or (attack_type != "normal" and attack_type != "ranged"):
 		return
 	_combo += 1
 	_combo_timer = COMBO_WINDOW
@@ -87,6 +89,11 @@ func process(player: CharacterBody2D, delta: float) -> void:
 			continue
 		if player.global_position.distance_to(node.global_position) <= IGNITE_RADIUS:
 			node.add_burn_stack()
+	if tree.current_scene:
+		var burst = Node2D.new()
+		burst.set_script(_AoeBurstRingScript)
+		tree.current_scene.add_child(burst)
+		burst.setup(player.global_position, IGNITE_RADIUS, IGNITE_COLOR)
 
 func _start_ignite() -> void:
 	_ignite_timer = IGNITE_DURATION

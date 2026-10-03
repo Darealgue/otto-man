@@ -42,3 +42,6 @@ func on_enemy_killed(enemy: Node2D) -> void:
 			nearest = node
 	if nearest:
 		nearest.add_burn_stack()
+		var im = get_node_or_null("/root/ItemManager")
+		if im and im.has_method("spawn_element_hit_flash"):
+			im.spawn_element_hit_flash(nearest, "fire")

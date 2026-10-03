@@ -23,6 +23,14 @@ func _process(delta: float) -> void:
 	if _tick_timer >= TICK_INTERVAL:
 		_tick_timer = 0.0
 		_apply_poison_to_nearby()
+	queue_redraw()
+
+func _draw() -> void:
+	# Basit placeholder: sabit bir yeşil bulut, ömrünün sonuna doğru soluyor.
+	var alpha: float = clampf(_duration_left / CLOUD_DURATION, 0.0, 1.0)
+	var col := Color(0.35, 0.85, 0.25, 0.28 * alpha)
+	draw_circle(Vector2.ZERO, CLOUD_RADIUS, col)
+	draw_arc(Vector2.ZERO, CLOUD_RADIUS, 0.0, TAU, 28, Color(0.45, 0.95, 0.35, 0.5 * alpha), 3.0)
 
 func _apply_poison_to_nearby() -> void:
 	var tree = get_tree()

@@ -6,6 +6,8 @@ extends ItemEffect
 
 const CHAIN_RADIUS := 60.0
 const CHAIN_DAMAGE := 8.0
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const IMPACT_COLOR := Color(1.0, 0.9, 0.6, 0.8)
 
 var _player: CharacterBody2D = null
 
@@ -50,3 +52,8 @@ func on_enemy_killed(enemy: Node2D) -> void:
 			nearest = node
 	if nearest:
 		nearest.take_damage(CHAIN_DAMAGE, 0.0, 0.0, true)
+		if tree.current_scene:
+			var burst = Node2D.new()
+			burst.set_script(_AoeBurstRingScript)
+			tree.current_scene.add_child(burst)
+			burst.setup(origin, CHAIN_RADIUS, IMPACT_COLOR)

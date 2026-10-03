@@ -40,8 +40,8 @@ func deactivate(player: CharacterBody2D):
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all"):
 	if effect_filter == "physical_only":
 		return  # Hacivat gölgesi: sadece elemental; zehir stack uygulanmasın
-	if not _player or attack_type != "normal":
-		return  # Only for light attacks
+	if not _player or (attack_type != "normal" and attack_type != "ranged"):
+		return  # Light attacks, ve Uzun Menzil/Ok Yağmuru'nun dönüştürdüğü mermi vuruşları
 	
 	# Apply poison stack to all targets
 	for target in targets:
@@ -79,3 +79,5 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 					dmg_per_stack *= im.get_set_bonus("poison_damage_mult", 1.0)
 			for i in range(stacks_to_add):
 				enemy.add_poison_stack(max_stacks, dmg_per_stack, TICK_INTERVAL)
+			if im and im.has_method("spawn_element_hit_flash"):
+				im.spawn_element_hit_flash(enemy, "poison")

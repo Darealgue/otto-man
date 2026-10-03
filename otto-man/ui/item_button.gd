@@ -69,6 +69,10 @@ func setup(scene: PackedScene) -> void:
 			var hint: String = im.call("get_set_hint_if_selected", item.item_id)
 			if not hint.is_empty():
 				desc_full += "\n" + hint
+		if im and im.has_method("get_synergy_hint"):
+			var synergy: String = im.call("get_synergy_hint", item.item_id)
+			if not synergy.is_empty():
+				desc_full += "\n" + synergy
 		_set_card_text(item_name, desc_full, rarity_text, rarity_color)
 	else:
 		_set_card_text("Unknown Item", "", "", Color.WHITE)

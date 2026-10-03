@@ -641,3 +641,198 @@ Starter artık 19 item'ın ~9'u flat-stat (%47), önceki 14/19'dan (%74) düşü
   `_validate_unlock_pools()` zaten debug build'de otomatik çalışıyor, temiz
   çıktı) + özel bir script'le starter/pool/excluded arasında çakışma
   olmadığı ve 140 item'ın hepsinin bir yere atandığı doğrulandı.
+- **✅ TAMAMLANDI — 8 yeni item, ince kalan havuzları güçlendirmek ve yeni bir
+  "kamp ekonomisi" kategorisi açmak için (2026-09-30).** Kullanıcıya bir
+  gözden-geçirme + fikir listesi sunuldu (firtina.boss ve golge.kesif'in
+  Atılır-temizliği + ranged-starter taşıması sonrası incelmesi, Havaya
+  Fırlatma'nın hâlâ en yeni/dar hat olması, kamp çeşmesiyle etkileşen HİÇ
+  item olmaması), kullanıcı 7'sini onayladı + "Taşan Kaynak"ı kendi fikrine
+  göre yeniden tanımladı ("Sönmeyen Ocak" fikri elendi). Gerçek hook noktaları:
+  - **Yıldırım Zinciri** (firtina.boss): `apply_element_to_enemy()`'nin
+    lightning dalına `enemy.set_meta("was_lightning_hit", true)` eklendi
+    (şimşeğin kalıcı stack'i yok, geçici meta ile "bu düşman şimşekle
+    vuruldu mu" bilgisi tutuluyor); `on_enemy_killed()` bunu okuyup 150px
+    içindeki en yakına zıplıyor ve onu da işaretliyor (kademeli zincir).
+  - **Fırtına Gözü** (firtina.kesif): `apply_movement_contact_tick()`'in
+    contact-hit up_force'unu (60→220) yükseltiyor — Kaçınma→Havaya Fırlatma
+    köprüsü, temas hasarının kendisi Zehirli Sekme/restless_body'ye bağlı.
+  - **Yere Çakış** (barut.boss): `player_attack_landed`'da attack_type=="normal"
+    + hitbox.current_attack_name air_attack_down1/2 ise iniş noktasına AoE.
+  - **Ağır Yumruk** (ates.boss): `player_hitbox.gd`'ye `air_target_damage_multiplier`
+    eklendi; `get_damage_for_target()` (base_enemy/basic_enemy/boss'ların
+    HEPSİNİN çağırdığı tek hasar-hesaplama noktası) hedefin `is_on_floor()`'una
+    bakıp havadaysa hasarı 1.3x'liyor.
+  - **Sessiz Adım** (golge.kesif): player.gd'nin ZATEN var olan ama hiçbir
+    aktif item tarafından kullanılmayan `stealth_enemy_vision_mult` alanını
+    (stealth_perception.gd:_get_effective_vision_range() tarafından her
+    düşman için otomatik okunuyor) çömelme durumuna göre 0.7/1.0 arası
+    ayarlıyor — hiçbir enemy dosyasına dokunulmadı.
+  - **Gölgeye Karışma** (golge.kesif): Görünmezlik Pelerini'nin modulate+hurtbox
+    deseni, `player_dodged` (dodge/dash'in BİTİŞİNDE ateşleniyor) sinyaline
+    bağlanıp 0.4sn'lik bir flaşa küçültüldü.
+  - **Kalkan Kırığı** (buz.kesif): `player_blocked(blocked_damage, attacker)`'da
+    `attacker.change_behavior("hurt", true)` — oyundaki HER gerçek isabetin
+    zaten kullandığı kesinti mekanizması, burada hasarsız tetikleniyor.
+  - **Taşan Kaynak** (buz.boss, kullanıcı tasarımı): `player.gd`'ye `overheal`
+    alanı + `add_overheal()` eklendi (`take_damage()`'ta element_shield'dan
+    hemen sonra, gerçek candan önce tüketiliyor — `PlayerStats.set_current_health()`
+    her zaman max_health'e clamp'lediği için overheal ayrı bir havuz olmak
+    zorundaydı). `scenes/CampFountain.gd:_try_heal()` item aktifken heal_amount'ı
+    1.5x'liyor VE `current >= max_h` erken-dönüşünü atlıyor; max'ı aşan kısım
+    `player.add_overheal()`'a gidiyor — tam canlı bir oyuncu bile çeşmeden bir
+    şey kazanıyor.
+  Doğrulama: tam proje `--quit` + 12 dosyada ayrı `Parse Error` taraması +
+  kayıt bütünlüğü kontrolü (148 item, sıfır dupe/unassigned/broken-ref) + tüm
+  148 item'ın gerçekten `instantiate()` edilip `item_id` eşleştiği kontrolü +
+  localization (TR/EN, 8 item × 2 satır) eklenip headless reimport + gerçek
+  `tr()` çağrısıyla 8'inin de doğru isim döndürdüğü doğrulandı — hepsi temiz.
+  **Sıradaki adım (kullanıcı isteğiyle, ayrı bir oturum/faz):** bu item'ların
+  ve genel element sisteminin görsel temsili — düşman element vuruşunda renk
+  tonlanması, yıldırım için yukarıdan-inen + zincirleme sekme VFX'i vb.
+  Şu ana kadar hemen hemen hiçbir item'ın bespoke görseli yok (konsol print
+  dışında); kullanıcı kendi çizimlerini eklemeden önce basit placeholder
+  efektlerle başlanması isteniyor.
+- **✅ TAMAMLANDI — görselleştirme faz 2: "görünmez AoE" hatası sınıfı
+  (2026-09-30).** Kullanıcı somut bir örnek verdi: Leş Gazı'nın (elit ceset
+  vurulunca zehir bulutu patlar) hiçbir görseli yoktu — hasar nereden geldiği
+  hiç belli olmuyordu. Bir Explore agent'la TÜM item'lar aynı desen için
+  taranıp (AoE/gecikmeli/on-kill tetikli hasar + hiç görsel spawn'ı yok)
+  17 dosyalık tam bir liste çıkarıldı, hepsi düzeltildi:
+  - **Yeni paylaşılan görsel:** `effects/aoe_burst_ring.gd` — parametrik
+    (pozisyon/yarıçap/renk) genişleyen bir halka; item'ın GERÇEK radius
+    sabitiyle çağrılıyor, uydurma bir boyut değil.
+  - **`poison_cloud.gd`** hiç `_draw()` içermiyordu (bare Node2D+script,
+    kardeşleri ground_fire_patch/ground_ice_patch gibi bir ColorRect'i bile
+    yoktu) — artık soluk yeşil bir daire çiziyor. Tek dosya düzeltmesi
+    zehirli_dusus VE element_izi'nin zehir dalını otomatik düzeltti (ikisi
+    de aynı script'i instantiate ediyor).
+  - **`elite_corpse.gd`** (Leş Gazı): gaz patladığında artık `aoe_burst_ring`
+    (yeşil, GAS_RADIUS) spawn ediyor.
+  - **`koruk.gd`**: 5-combo sonrası oyuncunun etrafını yakan periyodik tik
+    artık her tikte oyuncunun etrafında turuncu bir halka gösteriyor.
+  - **`serbetci.gd`/`koz_tutan.gd`**: on-kill stack transferi artık
+    `ItemManager.spawn_element_hit_flash()` çağırıyor (zehirli_tirnak vb.
+    kaynak item'larla aynı desen).
+  - **11 "kısmi görünür" AoE item'ı** (zaten take_damage() üzerinden kırmızı
+    flaş+hasar sayısı alıyordu ama alanın ŞEKLİ hiç görünmüyordu): Sarsıcı
+    Darbe, Sırt Darbesi, Daire Darbesi, Kesme Yayı, Yere Çakış, Alan Parry'si,
+    Zincirleme Vuruş, Geniş Darbe, Cevher Dili artık nötr sıcak-beyaz bir
+    `aoe_burst_ring`, Yıkım Mührü/Falya (patlama/barut temalı) turuncu-kırmızı
+    bir versiyonuyla kendi GERÇEK radius sabitlerinde gösteriliyor.
+  Doğrulama: 17 dosyada ayrı `Parse Error` taraması + tam proje `--quit` +
+  148 item'ın hepsinin hâlâ hatasız instantiate olduğu kontrolü — hepsi temiz.
+- **✅ DÜZELTİLDİ — Mermi pipeline'ı iki merkezi modifier'ı hiç görmüyordu
+  (kullanıcı geri bildirimi, 2026-09-30).** Kullanıcı ranged item'ı alıp
+  oynarken iki şey fark etti: (1) gizlice arkadan ok atmak, arkadan melee
+  vurmanın aldığı flank/stealth backstab bonusunu (Flank Avantajı item'ı +
+  base-game stealth backstab, `autoload/damage_modifiers.gd`) hiç almıyordu;
+  (2) Çift Vuruş item'ı (light attack'ı indirimli hasarla 2 kez vurduran)
+  ranged saldırıyı hiç ikiye bölmüyordu — hasar doğru indiriliyordu (8→4,
+  Çift Vuruş'un `light_attack_damage_multiplier` indirimi zaten yukarı akıştan
+  geliyor) ama tek mermi atılıyordu. Kök neden ikisinde de aynıydı: Mermi
+  pipeline'ı bu oturumda `light_attack_projectile.gd` ile inşa edilirken,
+  melee'nin `player_hitbox.gd:get_damage_for_target()` → `DamageModifiers`
+  zincirinden ve `player_attack_landed` sinyalinden TAMAMEN bağımsız, kendi
+  `take_damage()` çağrısını yapıyordu — iki sistem birbirini hiç görmüyordu.
+  Düzeltme:
+  - **`light_attack_projectile.gd:_on_hit()`**: isabet anında oyuncuyu
+    gruptan çözüp `DamageModifiers.apply_player_modifiers(player, dmg, enemy,
+    global_position, false)` çağırıyor — aynı merkezi fonksiyon, artık hem
+    melee hem mermi ondan geçiyor. Flank Avantajı ve stealth backstab
+    otomatik olarak mermilere de uygulanıyor.
+  - **`item_manager.gd:spawn_upgraded_projectile()`**: `cift_vurus` aktifken
+    artık 2 "volley" atıyor (her volley kendi yön/Sürü Oku dağılımını tekrar
+    işliyor — Çift Vuruş + Sürü Oku çarpımsal yığılabiliyor, 2×3=6 mermi).
+    Volley'ler arasında ekstra bir hasar indirimi YOK çünkü gelen `damage`
+    zaten Çift Vuruş'un `light_attack_damage_multiplier` indirimini içeriyor
+    (melek'nin iki vuruşu da aynı indirimli değerde olduğu gibi).
+  Doğrulama: her iki dosyada ayrı `Parse Error` taraması + tam proje `--quit`
+  — temiz. **Bu, Mermi pipeline'ının tasarım prensibiyle ("item'lar teslimat
+  mekanizmasına değil soyut duruma bakmalı", §3) tam örtüşen ama ilk
+  implementasyonda unutulmuş bir entegrasyon boşluğuydu** — gelecekte
+  projectile'a yeni bir merkezi modifier eklenirse aynı kontrol tekrar
+  yapılmalı.
+- **✅ DÜZELTİLDİ — proaktif uyumsuzluk taraması: `player_attack_landed`
+  mermilerde hiç yayınlanmıyordu (kullanıcı isteği, 2026-09-30: "bu tarz
+  uyumsuzluklar var mı diye kontrol edebilir misin").** Yukarıdaki
+  DamageModifiers düzeltmesinden sonra kullanıcı "başımıza geldikçe mi
+  görücez" diye sorunca tam bir agent taraması yapıldı. Bulunan: Uzun Menzil
+  bir light attack'ı mermiye çevirdiğinde (`attack_state.gd`'nin
+  `use_ranged_only` dalı) melee hitbox HİÇ ateşlenmiyor — `hitbox.enable()`
+  çağrılmıyor — bu yüzden `player_attack_landed` sinyali o vuruş için asla
+  yayınlanmıyordu. Sinyali dinleyen 23 item dosyası tek tek okunup sınıflandı:
+  - **9 item gerçekten "ölüydü" ve düzeltildi** (soyut bir "isabet aldın"
+    durumuna bakıyorlar, saldırı animasyonuna/combo pozisyonuna bağlı
+    değiller): Zehirli Tırnak, Ateşli Yumruk, Buzlu Kılıç, Şimşek Parmak
+    (4 element KAYNAĞI — Ranged Mage build'i Rüzgârın Nişanı'na muhtaç
+    kalmadan da çalışsın diye), Cevher Dili, Geniş Darbe, Körük, Üçüncü Vuruş.
+  - **7 item zaten `attack_type` kontrolü yapmıyordu**, otomatik düzeldi:
+    Sarsıcı Darbe, Kader Anı, Kan Tadı, Element Değişimi, Cellat Nefesi,
+    Sabır Taşı, Cüppe Değil Zırh.
+  - **6 item BİLEREK dokunulmadı** — gerçekten melee/combo-özgü: Daire
+    Darbesi (`attack_type=="heavy"` ister), Kesme Yayı/Sırt Darbesi/Yere
+    Çakış (`current_attack_name` combo pozisyonuna bakıyor, mermide anlamsız),
+    Artan Güç (`hitbox.light_streak_damage_multiplier`'a doğrudan yazıyor,
+    sinyal gelse bile mermiye faydası yok), Çift Vuruş (zaten
+    `spawn_upgraded_projectile`'da volley ile ayrı çözüldü — TEKRAR
+    tetiklenirse çifte-çift-vuruş olurdu).
+  - **Uygulama**: `light_attack_projectile.gd:_on_hit()` artık isabette
+    `player.emit_signal("player_attack_landed", "ranged", ...)` yayınlıyor —
+    kasıtlı olarak `"normal"` DEĞİL, `"ranged"` string'i. Bu tek seçim, 6
+    melee-özgü item'ın kendi `!= "normal"`/`== "heavy"` filtrelerinden
+    otomatik elenmesini sağlıyor (current_attack_name'in mermi sırasında
+    hangi eski değerde kaldığına güvenmek yerine, temiz bir string ayrımı).
+    9 düzeltilen item'ın gate'i `attack_type != "normal" and attack_type !=
+    "ranged"` olacak şekilde genişletildi.
+  Doğrulama: 9 dosyada ayrı `Parse Error` taraması + tam proje `--quit` —
+  temiz. **Genel ders**: yeni bir saldırı TÜRÜ (mermi) eklerken, o türün
+  eski merkezi noktaların (sinyaller, modifier zincirleri) HEPSİNDEN
+  geçtiğini doğrulamak ayrı bir adım olmalı — "item çalışıyor" ile "item
+  her teslimat mekanizmasında çalışıyor" aynı şey değil.
+- **✅ Test/UX/denetim turu (2026-10-02, v0.11.5).** Dev console: `levelup [n]`
+  (n ardışık item draft'ı, varsayılan 5) ve `overheal [n]`. Kalıcı duman testi:
+  `tools/run_item_smoke_test.ps1` (kayıt bütünlüğü + çeviriler + 134 item'ı gerçek
+  Player'da activate/sinyal/deactivate). Taşan Kaynak için `ui/health_display.gd`'ye
+  mavi kalkan katmanı (etiket `150/100`, max can değişmiyor). Kartlarda sinerji ipucu:
+  `ItemManager.ITEM_SYNERGY_PAIRS` + `get_synergy_hint()` (elindeki partnerle
+  birleşen item'da "Partner: etki" satırı). 134 item'ın TR/EN açıklaması koda karşı
+  denetlendi, 30'u düzeltildi. Denetimin bulduğu gerçek kod hataları: Combo Ustası
+  ile Çift Vuruş `light_attack_damage_multiplier`'a atama yapıp birbirini siliyordu
+  (artık çarpımsal); Kesme Yayı/Sırt Darbesi rastgele seçilen saldırı animasyonuna
+  bağlıydı (artık ardışık 4./3. vuruş sayacı); Tek Sanat çarpanı mermide iki kez
+  uygulanıyordu; Artan Güç zinciri mermi isabetinde beslenmiyordu; Sessiz Adım
+  paylaşılan `stealth_enemy_vision_mult` alanını her karede eziyordu.
+- **✅ DÜZELTİLDİ — sahne değişiminde item'ların ölmesi (kullanıcı raporu, 2026-10-02, v0.11.6).**
+  İkinci bölümde yumruk hasar vermiyor, mermi çıkmıyordu. Kök neden: ItemManager'ın
+  otomatik sinyal bağlantıları (`_on_player_light_attack_performed`, `_on_perfect_parry`,
+  `_on_player_blocked`, `_on_heavy_attack_impact`...) yalnızca `_initialize_item`'da, item
+  ilk alındığında o anki oyuncuya bağlanıyordu; yeni sahnede yeni Player gelince
+  `register_player` sadece `activate()` çağırıyordu. Uzun Menzil'de melee hitbox
+  `has_active_item` yüzünden kapalı kalıp mermi sinyali ölü oyuncuda kaldığı için ne yumruk
+  ne mermi vardı. Etki sadece Uzun Menzil'le sınırlı değildi: base `ItemEffect` her hook'un
+  stub'ını taşıdığı için neredeyse tüm item'ların otomatik bağlantıları sahne değişiminden
+  sonra ölüydü (kendi `activate()` içinde bağlananlar kurtuluyordu). Düzeltme:
+  `register_player` artık `AUTO_SIGNAL_HOOKS` tablosuyla her item'ı yeni oyuncuya yeniden
+  bağlıyor. `tools/item_smoke_test.gd` bunu doğrulayan bir sahne değişimi testi içeriyor
+  (düzeltme kapalıyken 791 hatayla başarısız oluyor, açıkken 819 bağlantı doğrulanıyor).
+  Combo Ustası/Çift Vuruş çarpımları aynı oyuncuya iki kez uygulanmayacak şekilde korundu.
+- **✅ Mermi türleri (2026-10-02, v0.12.0).** Mermi sistemi artık "tür" taşıyor
+  (`ItemManager.spawn_upgraded_projectile(..., kind, double_strike)`); tüm yükseltmeler
+  (Sürü Oku, Yansıyan Ok, Ruh Mermisi, element, Yankı Oku...) türden bağımsız aynı alanlardan
+  çalıştığı için üçü de bunlarla etkileşiyor:
+  - `ok` (`light_attack_projectile.gd`): Uzun Menzil'in hızlı hafif mermisi (çarpan x1.0).
+  - `top` (`cannon_projectile.gd`): Ok Yağmuru'nun **varsayılan** ağır mermisi; yavaş, iri, isabette
+    güçlü knockback + 70px alan hasarı (ana hasarın %50'si, element de patlamaya işler). Çarpan x1.6.
+  - `bomb` (`player_fire_bomb_projectile.gd`): **Ateş Bombası** item'ı (RARE, `ITEM_REQUIREMENTS_ANY`
+    = ok_yagmuru) aktifken Ok Yağmuru Top yerine bunu atar (tuşla geçiş yok). Yerçekimli, düşmana
+    değince patlar; değmezse 2-3 kez sekip (veya 3 sn sonra) olduğu yerde patlar; 90px alan, %80
+    hasar + yanma. Ruh Mermisi/Yansıyan Ok patlayan bombayı sıradaki düşmana yönlendirir. Çarpan x1.3.
+    Peşine Düşen (homing) bombada uygulanmaz.
+  - Çift Vuruş artık yalnızca Uzun Menzil (hafif) atışlarını ikiye katlıyor; ağır/fall mermileri
+    eskiden yanlışlıkla iki katına çıkıyordu.
+  - Sekme/zincir sonrası mermi az önce vurduğu düşmana hemen tekrar çarpmıyor (`_recent_hit_id`).
+  - Test: `tools/item_smoke_test.gd` her türü sahte düşmanlarla (yalın + tüm yükseltmeler) çalıştırıp
+    hasar, "ranged" sinyali ve alan hasarını, ayrıca Ok Yağmuru'nun tür seçimini doğruluyor.
+    Not: havuzlanmış düşmanlar (ObjectPool) (0,0)'da "enemies" grubunda bekler, test mermisini uzağa
+    taşır; ağaç duraklatılmış olabilir, test başında `paused=false` yapılır.
+  - **Denge sayıları henüz oynanmadı** (çarpanlar, splash oranları, sekme sayısı, 3 sn fünye).

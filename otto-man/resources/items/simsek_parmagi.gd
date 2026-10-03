@@ -9,6 +9,8 @@ const CHAIN_RADIUS := 120.0
 const CHAIN_DAMAGE := 3.0
 const MAX_CHAIN_TARGETS := 3
 const LightningFlashScript = preload("res://effects/lightning_flash.gd")
+const LightningBoltLineScript = preload("res://effects/lightning_bolt_line.gd")
+const STRIKE_HEIGHT := 260.0
 
 var _player: CharacterBody2D = null
 
@@ -59,7 +61,7 @@ func _has_frost(enemy: Node) -> bool:
 func _on_player_attack_landed(attack_type: String, _damage: float, targets: Array, position: Vector2, effect_filter: String = "all"):
 	if effect_filter == "physical_only":
 		return  # Hacivat gölgesi: sadece elemental; şimşek uygulanmasın
-	if not _player or attack_type != "normal":
+	if not _player or (attack_type != "normal" and attack_type != "ranged"):
 		return
 	var tree = get_tree()
 	if not tree or not tree.current_scene:
@@ -94,12 +96,16 @@ func _on_player_attack_landed(attack_type: String, _damage: float, targets: Arra
 		if is_instance_valid(enemy) and enemy.has_method("take_damage"):
 			enemy.take_damage(first_dmg, 0.0, 0.0, true)
 			first_pos = enemy.global_position
-	# Görsel: ilk vurulan noktada flaş
+	# Görsel: ilk vurulan noktada flaş + tepeden inen bolt
 	var flash = Node2D.new()
 	flash.set_script(LightningFlashScript)
 	tree.current_scene.add_child(flash)
 	flash.global_position = first_pos
-	# Zincir: yakındaki diğer düşmanlara sıçra
+	var strike = Node2D.new()
+	strike.set_script(LightningBoltLineScript)
+	tree.current_scene.add_child(strike)
+	strike.setup(first_pos + Vector2(0.0, -STRIKE_HEIGHT), first_pos)
+	# Zincir: yakındaki diğer düşmanlara sıçra (her sıçrama görsel bir bolt bırakır)
 	var all_enemies = tree.get_nodes_in_group("enemies")
 	var chain_count := 0
 	for node in all_enemies:
@@ -111,4 +117,8 @@ func _on_player_attack_landed(attack_type: String, _damage: float, targets: Arra
 			continue
 		if first_pos.distance_to(node.global_position) <= CHAIN_RADIUS and node.has_method("take_damage"):
 			node.take_damage(chain_dmg, 0.0, 0.0, true)
+			var chain_bolt = Node2D.new()
+			chain_bolt.set_script(LightningBoltLineScript)
+			tree.current_scene.add_child(chain_bolt)
+			chain_bolt.setup(first_pos, node.global_position)
 			chain_count += 1

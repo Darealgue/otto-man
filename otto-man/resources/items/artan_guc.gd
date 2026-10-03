@@ -64,7 +64,10 @@ func _get_streak_timeout() -> float:
 	return STREAK_TIMEOUT
 
 func _on_player_attack_landed(attack_type: String, _damage: float, _targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
-	if effect_filter == "physical_only" or attack_type != "normal":
+	# "ranged": Uzun Menzil'in dönüştürdüğü mermi isabetleri de zinciri besler. Çarpan her
+	# swing başında enable_combo()'da hitbox.damage'e işlendiği ve mermi hasarı oradan
+	# türediği için ranged'de de uygulanıyor.
+	if effect_filter == "physical_only" or (attack_type != "normal" and attack_type != "ranged"):
 		return
 	_streak = mini(_streak + 1, MAX_STREAK)
 	_streak_timer = _get_streak_timeout()

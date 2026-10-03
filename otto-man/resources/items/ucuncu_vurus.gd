@@ -28,7 +28,7 @@ func deactivate(player: CharacterBody2D):
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "elemental_only":
 		return  # Karagöz gölgesi: sadece fiziksel; üçüncü vuruş bonusu uygulanmasın
-	if not _player or attack_type != "normal":
+	if not _player or (attack_type != "normal" and attack_type != "ranged"):
 		return
 	_light_attack_count += 1
 	if _light_attack_count % 3 != 0:

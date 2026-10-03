@@ -5,6 +5,8 @@ extends ItemEffect
 const AOE_RADIUS := 60.0
 const DAMAGE_MULT := 2.5  # Ana hedefe ek çarpan
 const STAMINA_COST := 0.5
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const IMPACT_COLOR := Color(1.0, 0.9, 0.6, 0.8)
 
 var _player: CharacterBody2D = null
 
@@ -28,8 +30,8 @@ func deactivate(player: CharacterBody2D):
 	print("[Cevher Dili] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, damage: float, _targets: Array, position: Vector2, effect_filter: String = "all") -> void:
-	if attack_type != "normal" or effect_filter == "physical_only":
-		return  # Sadece hafif saldırı; Karagöz'ün fiziksel-only aynası bunu tekrar tetiklemesin
+	if (attack_type != "normal" and attack_type != "ranged") or effect_filter == "physical_only":
+		return  # Hafif saldırı veya ranged'e dönüşmüş hali; Karagöz'ün fiziksel-only aynası bunu tekrar tetiklemesin
 	if not is_instance_valid(_player):
 		return
 	var stamina_bar: Node = _player.get_tree().get_first_node_in_group("stamina_bar")
@@ -49,6 +51,11 @@ func _on_player_attack_landed(attack_type: String, damage: float, _targets: Arra
 			continue
 		if position.distance_to(node.global_position) <= AOE_RADIUS and node.has_method("take_damage"):
 			node.take_damage(extra_damage, 0.0, 0.0, false)
+	if tree.current_scene:
+		var burst = Node2D.new()
+		burst.set_script(_AoeBurstRingScript)
+		tree.current_scene.add_child(burst)
+		burst.setup(position, AOE_RADIUS, IMPACT_COLOR)
 
 ## Kan Bedeli aktifse stamina yerine can harcayarak devam et
 func _try_kan_bedeli_fallback() -> bool:

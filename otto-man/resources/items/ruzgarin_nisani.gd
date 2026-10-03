@@ -1,4 +1,7 @@
-# UNCOMMON - Menzilli vuruşlar aktif melee elementini mermiye bulaştırır
+# UNCOMMON - Mermiler aktif elementten fazladan 1 stack uygular. Element kaynağı item'ları
+# (Zehirli Tırnak/Ateşli Yumruk/Buzlu Kılıç) mermi isabetinde zaten kendi 1 stack'ini uyguluyor
+# (player_attack_landed "ranged"), bu yüzden ikisi birlikteyken menzilli vuruş element 2 stack
+# uygular: bilinçli bir "menzilde element güçlenir" etkisi (2026-10-02 karar).
 extends ItemEffect
 
 func _init():

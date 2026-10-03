@@ -51,4 +51,7 @@ func on_enemy_killed(enemy: Node2D) -> void:
 		return
 	for _i in range(carried):
 		nearest.add_poison_stack(POISON_MAX_STACKS, dmg, interval)
+	var im = get_node_or_null("/root/ItemManager")
+	if im and im.has_method("spawn_element_hit_flash"):
+		im.spawn_element_hit_flash(nearest, "poison")
 	print("[Şerbetçi] ☠ %d zehir stack'i devredildi" % carried)

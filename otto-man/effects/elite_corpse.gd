@@ -13,6 +13,8 @@ const KICK_DAMAGE := 12.0
 const KICK_HIT_RADIUS := 30.0
 const GAS_RADIUS := 100.0
 const KICK_COOLDOWN := 0.3  # Fırlatıldıktan sonra hemen tekrar tekmelenmesin
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const GAS_COLOR := Color(0.45, 0.95, 0.35, 0.8)
 
 var _age := 0.0
 var _consumed := false
@@ -64,6 +66,11 @@ func _spawn_gas() -> void:
 			continue
 		if global_position.distance_to(node.global_position) <= GAS_RADIUS and node.has_method("add_poison_stack"):
 			node.add_poison_stack(5, 2.0, 1.0)
+	if tree.current_scene:
+		var burst = Node2D.new()
+		burst.set_script(_AoeBurstRingScript)
+		tree.current_scene.add_child(burst)
+		burst.setup(global_position, GAS_RADIUS, GAS_COLOR)
 	queue_redraw()
 
 func _on_player_dodged(_direction: int, start_pos: Vector2, end_pos: Vector2) -> void:

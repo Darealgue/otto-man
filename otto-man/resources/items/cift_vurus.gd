@@ -15,14 +15,17 @@ func _init():
 	affected_stats = ["light_attack_double"]
 
 var _player: CharacterBody2D = null
-var _original_light_multiplier: float = 1.0
+var _multiplier_applied_to: Object = null
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	# Store original multiplier and apply 60% reduction
-	_original_light_multiplier = player.light_attack_damage_multiplier
-	player.light_attack_damage_multiplier = _original_light_multiplier * DAMAGE_MULTIPLIER
+	# Çarpımsal: light_attack_damage_multiplier'ı başka item'larla (Combo Ustası) paylaşıyoruz,
+	# atama yapmak sonradan alınanın ilkinin etkisini siliyordu. register_player aynı oyuncuya
+	# activate'i tekrar çağırabildiği için aynı oyuncuya iki kez uygulanmıyor.
+	if _multiplier_applied_to != player:
+		player.light_attack_damage_multiplier *= DAMAGE_MULTIPLIER
+		_multiplier_applied_to = player
 	
 	# Connect to player_attack_landed signal
 	if player.has_signal("player_attack_landed"):
@@ -32,9 +35,9 @@ func activate(player: CharacterBody2D):
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	# Restore original multiplier
-	if _player:
-		_player.light_attack_damage_multiplier = _original_light_multiplier
+	if _player and _multiplier_applied_to == _player:
+		_player.light_attack_damage_multiplier /= DAMAGE_MULTIPLIER
+	_multiplier_applied_to = null
 	# Disconnect signal
 	if _player and _player.has_signal("player_attack_landed"):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):

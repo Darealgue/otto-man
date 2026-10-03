@@ -8,6 +8,8 @@ extends ItemEffect
 
 const EXPLOSION_DAMAGE := 12.0
 const EXPLOSION_RADIUS := 90.0
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const EXPLOSION_COLOR := Color(1.0, 0.5, 0.15, 0.85)
 
 var _player: CharacterBody2D = null
 
@@ -49,5 +51,10 @@ func _on_heavy_attack_impact(_attack_name: String) -> void:
 		if origin.distance_to(node.global_position) <= EXPLOSION_RADIUS:
 			node.take_damage(EXPLOSION_DAMAGE, 0.0, 0.0, false)
 			hit += 1
+	if tree.current_scene:
+		var burst = Node2D.new()
+		burst.set_script(_AoeBurstRingScript)
+		tree.current_scene.add_child(burst)
+		burst.setup(origin, EXPLOSION_RADIUS, EXPLOSION_COLOR)
 	if hit > 0:
 		print("[Falya] 💥 Tam zamanlı patlama — %d düşman" % hit)

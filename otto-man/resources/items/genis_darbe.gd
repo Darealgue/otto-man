@@ -3,6 +3,8 @@ extends ItemEffect
 
 const CLEAVE_RADIUS := 85.0
 const CLEAVE_RATIO := 0.4
+const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
+const IMPACT_COLOR := Color(1.0, 0.9, 0.6, 0.8)
 var _player: CharacterBody2D = null
 
 func _init():
@@ -27,7 +29,7 @@ func deactivate(player: CharacterBody2D):
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "elemental_only":
 		return  # Karagöz gölgesi: sadece fiziksel; geniş darbe uygulanmasın
-	if not _player or attack_type != "normal":
+	if not _player or (attack_type != "normal" and attack_type != "ranged"):
 		return
 	if targets.is_empty():
 		return
@@ -48,3 +50,8 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 			continue
 		if position.distance_to(node.global_position) <= CLEAVE_RADIUS and node.has_method("take_damage"):
 			node.take_damage(cleave_damage, 40.0, -30.0, true)
+	if tree.current_scene:
+		var burst = Node2D.new()
+		burst.set_script(_AoeBurstRingScript)
+		tree.current_scene.add_child(burst)
+		burst.setup(position, CLEAVE_RADIUS, IMPACT_COLOR)

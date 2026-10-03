@@ -14,17 +14,22 @@ func _init():
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["combo_damage"]
 
+var _applied_to: Object = null
+
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	
-	# Apply light attack damage bonus on player (used by all light attack states)
-	if "light_attack_damage_multiplier" in player:
-		player.light_attack_damage_multiplier = 1.0 + DAMAGE_BOOST
+
+	# Apply light attack damage bonus on player (used by all light attack states).
+	# Çarpımsal + aynı oyuncuya tek sefer (register_player activate'i tekrar çağırabilir).
+	if "light_attack_damage_multiplier" in player and _applied_to != player:
+		player.light_attack_damage_multiplier *= 1.0 + DAMAGE_BOOST
+		_applied_to = player
 		print("[Combo Ustası] ✅ Combo hasarı +20%")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	
-	if "light_attack_damage_multiplier" in player:
-		player.light_attack_damage_multiplier = 1.0
+	if "light_attack_damage_multiplier" in player and _applied_to == player:
+		player.light_attack_damage_multiplier /= 1.0 + DAMAGE_BOOST
 		print("[Combo Ustası] ❌ Combo hasarı restored")
+	_applied_to = null

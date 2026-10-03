@@ -1,5 +1,8 @@
 # Item Sistemi - Bug Önleyici Mimari Tasarım
 
+> **Eski tasarım notu (2026-10-03):** Bu dosyadaki `add_modifier`, `conflicts_with`, öncelik tablosu gibi
+> parçalar kodda uygulanmadı. Güncel yazım rehberi: `docs/ITEM_AUTHORING_GUIDE.md`.
+
 ## Amaç
 Çok sayıda item/powerup üst üste geldiğinde bug, çakışma ve beklenmeyen davranışları önlemek için modüler, izole ve öngörülebilir bir sistem.
 

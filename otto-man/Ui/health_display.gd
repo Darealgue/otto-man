@@ -32,6 +32,14 @@ const HEALTH_COLORS = {
 	}
 }
 
+## Taşan Kaynak (overheal): can barının üstüne binen mavi "kalkan" katmanı. Max can değişmez;
+## etiket "150/100" gibi okunur, mavi katman taşan canın max cana oranı kadar dolar.
+const SHIELD_FILL_COLOR := Color(0.25, 0.6, 1.0, 0.65)
+const SHIELD_BORDER_COLOR := Color(0.6, 0.85, 1.0, 0.95)
+const SHIELD_LABEL_COLOR := Color(0.7, 0.9, 1.0)
+var shield_bar: ProgressBar
+var _last_overheal: float = 0.0
+
 var delayed_health: float = 100.0
 var player_stats: Node
 var debuff_container: VBoxContainer
@@ -60,7 +68,8 @@ func _ready() -> void:
 		return
 	
 	_setup_debuff_ui()
-		
+	_setup_shield_bar()
+
 	# Get PlayerStats singleton
 	player_stats = get_node("/root/PlayerStats")
 	
@@ -152,11 +161,55 @@ func _process(delta: float) -> void:
 	if delayed_health > health_bar.value:
 		delayed_health = move_toward(delayed_health, health_bar.value, player_stats.get_max_health() * DELAYED_BAR_SPEED * delta)
 		delayed_bar.value = delayed_health
-	
+
+	_poll_overheal()
+
 	_survival_refresh_timer -= delta
 	if _survival_refresh_timer <= 0.0:
 		_survival_refresh_timer = SURVIVAL_REFRESH_INTERVAL
 		_refresh_survival_ui()
+
+func _setup_shield_bar() -> void:
+	if shield_bar or health_bar == null or health_label == null:
+		return
+	var container := health_bar.get_parent()
+	shield_bar = ProgressBar.new()
+	shield_bar.name = "ShieldBar"
+	shield_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shield_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shield_bar.show_percentage = false
+	shield_bar.min_value = 0.0
+	shield_bar.value = 0.0
+	var bg := StyleBoxEmpty.new()
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = SHIELD_FILL_COLOR
+	fill.border_width_left = 2
+	fill.border_width_top = 2
+	fill.border_width_right = 2
+	fill.border_width_bottom = 2
+	fill.border_color = SHIELD_BORDER_COLOR
+	fill.set_corner_radius_all(3)
+	shield_bar.add_theme_stylebox_override("background", bg)
+	shield_bar.add_theme_stylebox_override("fill", fill)
+	shield_bar.visible = false
+	container.add_child(shield_bar)
+	container.move_child(shield_bar, health_label.get_index())
+
+
+## player.overheal gerçek candan ÖNCE hasar emdiği için PlayerStats.health_changed ateşlenmeyebilir;
+## bu yüzden değişimi burada yoklayıp barı güncelliyoruz.
+func _poll_overheal() -> void:
+	var im := get_node_or_null("/root/ItemManager")
+	var p = im.get("player") if im else null
+	var oh: float = 0.0
+	if is_instance_valid(p) and p.get("overheal") != null:
+		oh = maxf(float(p.get("overheal")), 0.0)
+	if is_equal_approx(oh, _last_overheal):
+		return
+	_last_overheal = oh
+	if player_stats:
+		update_health_display(player_stats.get_current_health(), player_stats.get_max_health())
+
 
 func _on_health_changed(new_health: float) -> void:
 	if not is_inside_tree():
@@ -337,8 +390,16 @@ func update_health_display(current_health: float, max_health: float) -> void:
 		push_error("[HealthDisplay] Missing UI components during update!")
 		return
 		
-	# Update label
-	health_label.text = "%d/%d" % [current_health, max_health]
+	# Update label (taşan can varsa üstüne eklenir: 150/100) ve mavi kalkan katmanı
+	health_label.text = "%d/%d" % [current_health + _last_overheal, max_health]
+	if _last_overheal > 0.0:
+		health_label.add_theme_color_override("font_color", SHIELD_LABEL_COLOR)
+	else:
+		health_label.remove_theme_color_override("font_color")
+	if shield_bar:
+		shield_bar.max_value = max_health
+		shield_bar.value = minf(_last_overheal, max_health)
+		shield_bar.visible = _last_overheal > 0.0
 	
 	# Update progress bars
 	health_bar.max_value = max_health

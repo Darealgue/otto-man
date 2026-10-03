@@ -189,6 +189,9 @@ var physical_damage_mult: float = 1.0
 var taskin_guc_mult: float = 1.0
 # Cüppe Değil Zırh: element vuruşlarıyla biriken, gelen hasarı emen kalkan (mutlak miktar)
 var element_shield: float = 0.0
+# Taşan Kaynak: kamp çeşmesinin max_health üstünde bıraktığı fazlalık — gelen
+# hasarı gerçek candan ÖNCE emer (element_shield'la aynı desen, ayrı bir havuz)
+var overheal: float = 0.0
 # Şanslı Nal: garanti kritik — parry sonrası / görünmezlik ilk vuruşu (tek kullanım)
 var sansli_nal_active: bool = false
 var sansli_nal_crit_next: bool = false
@@ -860,6 +863,11 @@ func take_damage(amount: float, show_damage_number: bool = true, attacker: Node2
 			var ratio = ps.get_current_health() / ps.get_max_health()
 			if ratio <= 0.25:
 				amount *= (1.0 - tas_yurek_reduction)
+	# Taşan Kaynak: max_health üstündeki fazlalık, gerçek candan ÖNCE emer
+	if amount > 0 and overheal > 0.0:
+		var absorbed_overheal: float = min(overheal, amount)
+		overheal -= absorbed_overheal
+		amount -= absorbed_overheal
 	var player_stats = get_node("/root/PlayerStats")
 	if player_stats:
 		var current_health = player_stats.get_current_health()
@@ -909,6 +917,12 @@ func heal(amount: float):
 	if player_stats:
 		var current_health = player_stats.get_current_health()
 		player_stats.set_current_health(current_health + amount)
+
+## Taşan Kaynak: max_health'in ÜSTÜNDE kalıcı bir geçici tampon ekler (PlayerStats'ın
+## set_current_health() clamp'ini hiç görmez, bu yüzden max'ı aşabiliyor). take_damage()
+## bunu gerçek candan önce tüketir.
+func add_overheal(amount: float) -> void:
+	overheal += max(0.0, amount)
 
 
 func _spawn_player_blood_particles(damage_amount: float, attacker: Node2D = null) -> void:

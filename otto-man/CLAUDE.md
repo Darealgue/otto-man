@@ -653,6 +653,15 @@ Full-project check (catches everything, autoloads loaded):
 "C:\Users\Aras\Desktop\Godot_v4.3-stable_mono_win64\Godot_v4.3-stable_mono_win64_console.exe" --headless --path "D:\OttoMan\otto-man\otto-man" --quit
 ```
 
+**Item system smoke test** (run after ANY change under `resources/items/` or `autoload/item_manager.gd`):
+```powershell
+powershell -File tools/run_item_smoke_test.ps1
+```
+Checks registry integrity (dupes / unassigned / broken refs), instantiates every item, verifies TR+EN
+name/description translations resolve, then activates each item on a real Player, fires the typical
+player signals and deactivates it. Expect `SMOKE OK` and no `SCRIPT ERROR` lines (the
+`AnimationTree` / `get_children` lines at boot are known noise of script mode).
+
 Known harmless noise in headless runs: `EnemyStats` resource errors, `.wav` import errors,
 `InputManager` action warnings, RID leak warnings at exit. Ignore those; look for
 `Compile Error` / `SCRIPT ERROR` / `Parse Error`.
@@ -687,6 +696,7 @@ script. Quoting/escaping then comes from the exact parser `LocaleManager` reads 
 |---|---|
 | `LEGAL_CHECKLIST.txt` | AI disclosure, age rating, licenses, privacy, EULA, VAT. Pre-release blockers. |
 | `THIRD_PARTY_LICENSES.txt` | Ships beside the exe. Godot/llama.cpp/LLamaSharp/.NET (MIT) + Mistral (Apache 2.0, full text). |
+| `docs/ITEM_AUTHORING_GUIDE.md` | **Read before adding or changing any dungeon item.** Design principles, 5 pipelines, registration steps, signal hooks, projectile kinds, verification, decided rulings. |
 | `docs/AI_VILLAGERS_TEST_CHECKLIST.md` | Group A (editor) and Group B (export) test steps. |
 | `docs/ROAD_TO_PUBLISHED_GAME.md` | Ordered publishing roadmap. |
 | `docs/SHIP_PLAN.md` | Feature completion status. |
