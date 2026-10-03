@@ -168,6 +168,9 @@ var _world_exp_food_debt: float = 0.0
 const WORLD_EXP_FOOD_MINUTES_PER_UNIT: float = 720.0
 ## Eski: ac/susuzda can kaybi. Artik erzak bitince haritada cokus (olum) tetiklenir.
 const WORLD_EXP_STARVATION_HP: float = 2.0
+## false: harita gezisi yemek tüketmez, erzak bitince çöküş olmaz. Oyuncu serbestçe farklı
+## temalı zindanları keşfetsin diye kapalı (zaman harcamak yeterli bedel). Geri açmak için true yap.
+const WORLD_EXP_FOOD_ENABLED: bool = false
 
 
 # Get the final value of a stat after all multipliers and bonuses
@@ -971,7 +974,7 @@ func add_world_expedition_supplies(amounts: Dictionary) -> void:
 	world_expedition_supplies_changed.emit(world_expedition_supplies.duplicate())
 
 func apply_world_travel_ration_cost(travel_minutes: int) -> Dictionary:
-	if travel_minutes <= 0:
+	if travel_minutes <= 0 or not WORLD_EXP_FOOD_ENABLED:
 		return {"food_used": 0, "water_used": 0, "starvation_hp": 0.0, "collapsed": false}
 	var food_used: int = 0
 	_world_exp_food_debt += float(travel_minutes) / WORLD_EXP_FOOD_MINUTES_PER_UNIT

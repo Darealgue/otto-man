@@ -310,7 +310,7 @@ func _refresh_survival_ui() -> void:
 		_setup_survival_ui()
 	if not survival_container or not player_stats.has_method("get_world_expedition_survival_forecast"):
 		return
-	if not _is_world_map_scene():
+	if not _is_world_map_scene() or not PlayerStats.WORLD_EXP_FOOD_ENABLED:
 		survival_container.visible = false
 		return
 	var fc: Dictionary = player_stats.call("get_world_expedition_survival_forecast")

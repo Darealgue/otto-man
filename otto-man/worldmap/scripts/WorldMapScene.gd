@@ -2345,6 +2345,11 @@ func _refresh_expedition_supply_hud() -> void:
 	_expedition_gold_count.add_theme_color_override("font_color", neutral_color)
 	_expedition_survival_label.text = tr("wm.expedition.supply_duration") % _format_minutes_short(maxi(0, minutes_left))
 	_expedition_survival_label.add_theme_color_override("font_color", color)
+	# Yemek tüketimi kapalıyken erzak çipi ve süre satırı anlamsız; gizle.
+	_expedition_survival_label.visible = PlayerStats.WORLD_EXP_FOOD_ENABLED
+	var food_chip: Node = _expedition_food_count.get_parent()
+	if food_chip is Control:
+		(food_chip as Control).visible = PlayerStats.WORLD_EXP_FOOD_ENABLED
 	_refresh_carried_chips(ps)
 
 
@@ -2407,7 +2412,7 @@ func _build_carry_summary_text() -> String:
 					eparts.append("%s:%d" % [lab, am])
 			if not eparts.is_empty():
 				expedition_text = "Yol cantasi: " + ", ".join(eparts)
-		if ps.has_method("get_world_expedition_survival_forecast"):
+		if PlayerStats.WORLD_EXP_FOOD_ENABLED and ps.has_method("get_world_expedition_survival_forecast"):
 			var fc: Dictionary = ps.call("get_world_expedition_survival_forecast")
 			var m_food: int = int(fc.get("minutes_until_food_collapse", fc.get("minutes_until_food_hp_loss", 0)))
 			survival_text = "Erzak: ~%s" % _format_minutes_short(maxi(0, m_food))
