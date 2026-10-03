@@ -16,6 +16,10 @@ const FLOOR_ROW: int = 29
 const WALL_COLS: int = 3
 const CEILING_ROWS: int = 4
 
+const WALL_BG_PATH := "res://Tile set/Dungeon wall bg2-sheet.png"
+const DOOR_PATH := "res://assets/objects/dungeon/door_1.png"
+const OBJECT_DIR := "res://assets/objects/dungeon/"
+
 const TERRAIN_SET_DUNGEON: int = 0   # "walls"
 const TERRAIN_SET_FOREST: int = 1    # "forest_ground"
 
@@ -47,6 +51,8 @@ static func build(root: Node2D, biome: String) -> Dictionary:
 	var left_x: float = float(WALL_COLS * TILE)
 	var right_x: float = float((COLS - WALL_COLS) * TILE)
 	_add_boundary_walls(root, left_x, right_x, forest)
+	if not forest:
+		_add_dungeon_dressing(root, left_x, right_x, floor_y)
 	return {
 		"bounds": Rect2(left_x, float(CEILING_ROWS * TILE), right_x - left_x, floor_y - float(CEILING_ROWS * TILE)),
 		"floor_y": floor_y,
@@ -81,6 +87,89 @@ static func _add_boundary_walls(root: Node2D, left_x: float, right_x: float, for
 		shape.position = spec[0]
 		body.add_child(shape)
 	root.add_child(body)
+
+
+## Zindan arenasının iç görünümü: duvar arka planı (gerçek chunk'larla aynı 64 px "Dungeon wall bg2"
+## karoları), giriş kapısı ve zemin/tavan dekoru. Hepsi görsel; çarpışma/etkileşim yok.
+static func _add_dungeon_dressing(root: Node2D, left_x: float, right_x: float, floor_y: float) -> void:
+	var ceiling_y: float = float(CEILING_ROWS * TILE)
+	# Arka plan duvarı: chunk'lardaki bg katmanıyla aynı karo seti (yalnız düz tuğla karoları)
+	var bg_tex := load(WALL_BG_PATH) as Texture2D
+	if bg_tex:
+		var atlas := TileSetAtlasSource.new()
+		atlas.texture = bg_tex
+		atlas.texture_region_size = Vector2i(64, 64)
+		var variants: Array[Vector2i] = [Vector2i(1, 1), Vector2i(2, 1), Vector2i(1, 2), Vector2i(2, 2)]
+		for v in variants:
+			atlas.create_tile(v)
+		var ts := TileSet.new()
+		ts.tile_size = Vector2i(64, 64)
+		ts.add_source(atlas, 0)
+		var bg := TileMapLayer.new()
+		bg.name = "WallBackdrop"
+		bg.z_index = -10
+		bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		bg.tile_set = ts
+		# Tuğlaların hemen hep aynı görünmemesi için sabit tohumlu rastgele varyant
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7731
+		var x0: int = int(left_x) / 64
+		var x1: int = int(ceil(right_x / 64.0))
+		var y0: int = int(ceiling_y) / 64
+		var y1: int = int(ceil(floor_y / 64.0))
+		for cx in range(x0, x1):
+			for cy in range(y0, y1):
+				bg.set_cell(Vector2i(cx, cy), 0, variants[rng.randi() % variants.size()])
+		bg.modulate = Color(1.5, 1.5, 1.65)
+		root.add_child(bg)
+
+	# Giriş kapısı: oyuncunun doğduğu uçta, kapı (açık) karesi; yalnızca görsel
+	var door_tex := load(DOOR_PATH) as Texture2D
+	if door_tex:
+		var door := Sprite2D.new()
+		door.name = "EntranceDoor"
+		door.texture = door_tex
+		door.hframes = 8
+		door.frame = 6
+		door.z_index = -4
+		door.position = Vector2(left_x + 96.0, floor_y - 96.0)
+		root.add_child(door)
+
+	# Dekor: [yol, x ofseti (sol duvardan), yer (0 = zemin, 1 = tavandan asılı), ölçek]
+	var items: Array = [
+		["banner1", 330.0, 1, 1.0],
+		["banner1", 760.0, 1, 1.0],
+		["banner1", 1180.0, 1, 1.0],
+		["banner1", 1560.0, 1, 1.0],
+		["web1", 4.0, 1, 2.0],
+		["web2", 1636.0, 1, 2.0],
+		["sculpture1", 560.0, 0, 1.0],
+		["sculpture2", 1400.0, 0, 1.0],
+		["box2", 250.0, 0, 1.0],
+		["box1", 1520.0, 0, 1.0],
+		["box3", 1630.0, 0, 1.0],
+		["stone1", 690.0, 0, 1.0],
+		["bone1", 940.0, 0, 1.2],
+		["bone2", 1100.0, 0, 1.2],
+		["bone1", 1300.0, 0, 1.0],
+	]
+	for item in items:
+		var tex := load(OBJECT_DIR + String(item[0]) + ".png") as Texture2D
+		if tex == null:
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = tex
+		sprite.name = "Decor_" + String(item[0])
+		var s: float = float(item[3])
+		sprite.scale = Vector2(s, s)
+		sprite.z_index = -3
+		var h: float = tex.get_height() * s
+		var px: float = left_x + float(item[1])
+		if int(item[2]) == 1:
+			sprite.position = Vector2(px, ceiling_y + h * 0.5)
+		else:
+			sprite.position = Vector2(px, floor_y + 4.0 - h * 0.5)
+		root.add_child(sprite)
 
 
 static func _add_background(root: Node2D, forest: bool) -> void:
