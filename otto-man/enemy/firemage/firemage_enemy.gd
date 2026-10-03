@@ -178,7 +178,7 @@ func _handle_idle_state(delta: float) -> void:
 	if player and is_instance_valid(player):
 		var distance = global_position.distance_to(player.global_position)
 		# Sadece 400 piksel mesafede tespit et (detection_range'den daha az)
-		if distance <= 400.0:
+		if distance <= 400.0 or has_meta("always_aggro"):
 			target = player
 			change_behavior("takeoff_prepare")
 

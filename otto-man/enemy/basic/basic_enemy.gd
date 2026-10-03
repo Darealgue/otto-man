@@ -2092,9 +2092,13 @@ func _get_chase_target() -> Node2D:
 	if not player:
 		return null
 	
+	# Challenge odası düşmanları (meta "always_aggro"): menzile/histerezise bakmadan hedefe kilitlenir
+	if has_meta("always_aggro"):
+		return player
+
 	var distance = global_position.distance_to(player.global_position)
 	var detection_range = stats.detection_range if stats else 300.0
-	
+
 	if distance > detection_range:
 		return null
 

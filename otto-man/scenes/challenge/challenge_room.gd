@@ -34,6 +34,8 @@ var _message_label: Label = null
 func _ready() -> void:
 	_read_payload()
 	_layout = ChallengeArenaBuilder.build(self, biome)
+	if biome == "orman":
+		_decorate_forest()
 	_setup_camera()
 	_enemy_container = Node2D.new()
 	_enemy_container.name = "Enemies"
@@ -58,6 +60,14 @@ func _read_payload() -> void:
 		kind = "koruma"
 	if biome not in ChallengeRoomRegistry.BIOMES:
 		biome = "orman"
+
+
+## Orman arenası: gerçek orman sahnesinin gökyüzü/güneş/parallax/bulut ve zemin dekoru.
+func _decorate_forest() -> void:
+	var decorator := ForestArenaDecorator.new()
+	decorator.name = "ForestDecor"
+	add_child(decorator)
+	decorator.decorate(self)
 
 
 func _setup_camera() -> void:

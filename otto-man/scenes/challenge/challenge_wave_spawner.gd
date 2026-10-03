@@ -21,6 +21,8 @@ const SPAWN_INTERVAL: float = 0.9
 ## Aynı anda sahnede en fazla bu kadar canlı düşman (fazlası sıraya girer).
 const MAX_ALIVE: int = 9
 const ENEMY_Z_INDEX: int = 4
+## Arena ~1800 px genişliğinde; tespit/takip menzili hepsini kapsar
+const ARENA_DETECTION_RANGE: float = 3000.0
 
 var layout: Dictionary = {}
 var container: Node2D = null
@@ -126,6 +128,14 @@ func _spawn_one(kind: String) -> void:
 		enemy.global_position = Vector2(base.x + jitter, base.y)
 	enemy.z_index = ENEMY_Z_INDEX
 	var stats = enemy.get("stats")
+	if stats:
+		# Kaynak ortak olabilir: kendi kopyası, menzil bütün arenayı kapsasın (uzaktan "mal mal yürüme" olmasın)
+		stats = stats.duplicate(true)
+		enemy.set("stats", stats)
+		stats.detection_range = maxf(stats.detection_range, ARENA_DETECTION_RANGE)
+	if "chase_start_distance" in enemy:
+		enemy.set("chase_start_distance", ARENA_DETECTION_RANGE)
+		enemy.set("chase_stop_distance", ARENA_DETECTION_RANGE + 40.0)
 	if stats and stats.has_method("scale_to_level"):
 		stats.scale_to_level(level - 1)
 	if "enemy_level" in enemy:

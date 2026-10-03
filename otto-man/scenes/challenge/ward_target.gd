@@ -30,7 +30,7 @@ var villager_name: String = "Köylü"
 var _worker: Node2D = null
 var _hurtbox: WardHurtbox = null
 var _flash: float = 0.0
-var _snap_frames: int = 0
+var _grounded: bool = false
 
 
 func _ready() -> void:
@@ -57,13 +57,15 @@ func _build_worker() -> void:
 		_worker.set("appearance", appearance_db.call("generate_random_appearance"))
 	_worker.set("NPC_Info", {"Info": {"Name": villager_name}, "Latest_news": []})
 	add_child(_worker)
-	# Prisoner kipi zemine yerçekimi + aşağı ışınla oturur; ışın yüzeyin tam üstünde başlarsa çarpmayı
-	# kaçırır ve köylü zeminin içinden düşer. Yüzeyin biraz üstünden başlat, kendi oturur.
-	_worker.position = Vector2(0.0, -24.0)
-	# Oturma pozunda sabit kal
+	# Prisoner kipinin kendi fiziği kapalı: karolar ilk fizik karesinden önce çarpışma üretmediğinden
+	# ışını zemini kaçırıyor ve köylü yerin altına düşüyordu. Zemini biz ışınla bulup oturtuyoruz
+	# (bkz. _physics_process); o ana kadar köylü gizli.
+	_worker.set_physics_process(false)
 	_worker.set("dungeon_idle_duration", SIT_FOREVER)
 	_worker.set("dungeon_wander_range", 0.0)
-	_worker.set("dungeon_spawn_x", global_position.x)
+	_worker.set("dungeon_is_idling", true)
+	_worker.position = Vector2(0.0, -4.0)
+	_worker.visible = false
 
 
 func _build_hurtbox() -> void:
@@ -116,17 +118,25 @@ func _die() -> void:
 	queue_redraw()
 
 
+## Gerçek zemin yüzeyini bulana kadar her fizik karesinde dener; bulunca bu düğümü yüzeye indirir
+## ve köylüyü oturma pozunda gösterir.
+func _physics_process(_delta: float) -> void:
+	if _grounded or not is_instance_valid(_worker):
+		return
+	var space := get_world_2d().direct_space_state
+	var from := global_position + Vector2(0.0, -80.0)
+	var query := PhysicsRayQueryParameters2D.create(from, from + Vector2(0.0, 400.0), CollisionLayers.WORLD)
+	var hit: Dictionary = space.intersect_ray(query)
+	if hit.is_empty():
+		return
+	_grounded = true
+	global_position.y = (hit["position"] as Vector2).y
+	_worker.visible = true
+	if _worker.has_method("play_animation"):
+		_worker.call("play_animation", "sit")
+
+
 func _process(delta: float) -> void:
-	# Prisoner kipi yatayda dungeon_spawn_x'e sabitlenir; köylü bu düğümün x'ini izlesin
-	if is_instance_valid(_worker) and not is_dead:
-		_worker.set("dungeon_spawn_x", global_position.x)
-		# Worker zemine kendi oturunca (yüzeyin 4 px üstü) bu düğümü de gerçek zemine indir:
-		# karo çarpışması satır sınırından birkaç piksel farklı olabiliyor; hasar kutusu köylüyle hizalansın.
-		_snap_frames += 1
-		if _snap_frames == 8:
-			global_position.y = _worker.global_position.y + 4.0
-			# Üst düğüm kayınca köylü yüzeyin altına inmesin: ışın yüzeyin üstünden başlasın, yeniden oturur
-			_worker.global_position.y = global_position.y - 24.0
 	if _flash > 0.0:
 		_flash -= delta
 		if is_instance_valid(_worker) and not is_dead:

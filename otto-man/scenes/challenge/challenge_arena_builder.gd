@@ -23,9 +23,12 @@ const TERRAIN_SET_FOREST: int = 1    # "forest_ground"
 ## Arenayı `root` altına kurar ve yerleşim bilgisini döndürür.
 static func build(root: Node2D, biome: String) -> Dictionary:
 	var forest: bool = biome == "orman"
-	_add_background(root, forest)
+	# Orman: gökyüzü, parallax ve dekor ForestArenaDecorator'dan gelir (düz renk arka plan YOK)
+	if not forest:
+		_add_background(root, forest)
 	var layer := TileMapLayer.new()
-	layer.name = "ArenaTiles"
+	# "TileMapLayer" adı orman dekor kodunun karoları bulması için gerekli (chunk sahneleriyle aynı ad)
+	layer.name = "TileMapLayer"
 	layer.tile_set = load(TILESET_PATH) as TileSet
 	root.add_child(layer)
 

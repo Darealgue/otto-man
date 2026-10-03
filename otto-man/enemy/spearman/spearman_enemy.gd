@@ -469,6 +469,16 @@ func handle_hurt_behavior(delta: float) -> void:
 func get_player_in_front() -> Node2D:
 	# Sadece önündeki dikdörtgen alan: genişlik=detection_width, yükseklik=detection_height,
 	# ileri mesafe=detection_forward. Arka ve üst/alt dışarıda kalır
+	# Challenge odası düşmanı (meta "always_aggro"): yön/mesafe bakmadan en yakın hedefe (oyuncu/köylü) kilitlenir
+	if has_meta("always_aggro"):
+		var locked: Node2D = get_nearest_player()
+		if locked != null:
+			memory_time_left = MEMORY_TIME
+			remembered_target_x = locked.global_position.x
+			var dx: float = locked.global_position.x - global_position.x
+			if absf(dx) > 8.0:
+				direction = 1 if dx > 0.0 else -1
+		return locked
 	var players = get_tree().get_nodes_in_group("player")
 	for p in players:
 		if not is_instance_valid(p):
