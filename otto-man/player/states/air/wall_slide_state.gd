@@ -56,11 +56,19 @@ func can_enter() -> bool:
 		return false
 	
 	# Check if we're actually on a wall
-	var left_wall = wall_ray_left.is_colliding()
-	var right_wall = wall_ray_right.is_colliding()
+	var left_wall = _ray_hits_slideable(wall_ray_left)
+	var right_wall = _ray_hits_slideable(wall_ray_right)
 	# print("[WALL_SLIDE_DEBUG] WallSlide: Wall detection - left: ", left_wall, " right: ", right_wall)
-	
+
 	return left_wall or right_wall
+
+
+## Meta "no_wall_slide" taşıyan gövdeler (challenge odası sınır duvarları) çarpışır ama tutunulamaz.
+func _ray_hits_slideable(ray: RayCast2D) -> bool:
+	if not ray.is_colliding():
+		return false
+	var collider: Object = ray.get_collider()
+	return not (collider != null and collider.has_meta("no_wall_slide"))
 
 func reset_cooldown() -> void:
 	reentry_cooldown_timer = 0.0
