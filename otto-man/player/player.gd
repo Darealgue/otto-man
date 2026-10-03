@@ -172,6 +172,9 @@ var tas_yurek_reduction: float = 0.0
 # Kan Tadı: saldırı/hareket hızı bonusu (item tarafından set edilir)
 var attack_speed_multiplier: float = 1.0
 var extra_speed_multiplier: float = 1.0  # hareket hızı ek çarpan (Kan Tadı)
+## Zemin tutuşu: 1.0 normal; <1 buz gibi kaygan zemin (yerdeki hızlanma ve yavaşlama bu oranda azalır).
+## Zindan teması (DungeonThemeStyle "ground_traction") level generator tarafından ayarlanır.
+var ground_traction: float = 1.0
 var status_speed_multiplier: float = 1.0  # durum etkisi (Soğuk/yavaşlatma) çarpanı; StatusEffectManager yönetir
 # Ölümcül Sükût: parry/block sonrası ilk light attack hasar çarpanı (1.0 = yok, >1 = bonus)
 var olumcul_sukut_next_light_bonus: float = 1.0
@@ -674,7 +677,7 @@ func _physics_process(delta):
 		var effective_delta: float = delta * time_slow_player_multiplier
 		var grounded_input := InputManager.get_flattened_axis(&"left", &"right")
 		if grounded_input != 0:
-			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier * extra_speed_multiplier * status_speed_multiplier, acceleration * effective_delta)
+			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier * extra_speed_multiplier * status_speed_multiplier, acceleration * ground_traction * effective_delta)
 		else:
 			apply_friction(effective_delta)
 
@@ -796,7 +799,9 @@ func apply_friction(delta: float, input_dir: float = 0.0, use_precision: bool = 
 	elif input_dir == 0:
 		# Apply stronger friction when stopping
 		current_friction = friction * stop_friction_multiplier
-	
+	if is_on_floor():
+		current_friction *= ground_traction
+
 	velocity.x = move_toward(velocity.x, 0, current_friction * delta)
 
 # Zaman yavaşken hareketi düzeltmek için: state'ler move_and_slide yerine bunu kullanmalı.

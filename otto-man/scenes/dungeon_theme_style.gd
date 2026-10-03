@@ -10,7 +10,8 @@ class_name DungeonThemeStyle
 ##                       (UnifiedTerrain.apply_theme_palette). Beyaz = değişiklik yok.
 ##   trap_weight   : TrapType -> ağırlık çarpanı (tür seçiminde)
 ##   trap_group    : TrapType -> Vector2i(min, max) yan yana grup boyu; seviye tablosunu ezer
-##   flame_scale   : FireTrapV2 alev boyutu çarpanı (görsel + hasar alanı)
+##   ground_traction : oyuncunun yerdeki tutuşu (1.0 normal; <1 kaygan zemin)
+##   flame_scale  : FireTrapV2 alev boyutu çarpanı (görsel + hasar alanı)
 ##   burn_ticks_bonus : FireTrapV2 yanma tick sayısına eklenen değer
 
 const STYLES: Dictionary = {
@@ -30,6 +31,7 @@ const STYLES: Dictionary = {
 	# Buz = DAYAN: mavi palet; duvar ok atıcıları daha sık ve oklar buzlu (isabette 2.5 sn yavaşlatır).
 	# Kaygan zemin karoları sonra, kendi karo dekorlarıyla gelecek.
 	"buz": {
+		"ground_traction": 0.25,  # tüm zeminde buz gibi kayma (1.0 = normal); deneme
 		"tint_fg": Color(0.82, 0.93, 1.0),
 		"tint_bg": Color(0.58, 0.70, 0.88),
 		"trap_weight": {
@@ -84,6 +86,11 @@ static func get_trap_group_override(theme: String, trap_name: String) -> Vector2
 static func get_trap_params(theme: String, trap_name: String) -> Dictionary:
 	var all: Dictionary = get_style(theme).get("trap_params", {})
 	return all.get(trap_name, {})
+
+
+## Oyuncunun yerdeki tutuşu (1.0 = normal, küçüldükçe kaygan).
+static func get_ground_traction(theme: String) -> float:
+	return float(get_style(theme).get("ground_traction", 1.0))
 
 
 static func get_flame_scale(theme: String) -> float:

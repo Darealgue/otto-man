@@ -63,7 +63,7 @@ func physics_update(delta: float):
 		
 	# Check if we're running into a wall
 	var was_on_wall = player.is_on_wall()
-	player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed * player.speed_multiplier * player.extra_speed_multiplier * player.status_speed_multiplier, player.acceleration * delta)
+	player.velocity.x = move_toward(player.velocity.x, input_dir * player.speed * player.speed_multiplier * player.extra_speed_multiplier * player.status_speed_multiplier, player.acceleration * player.ground_traction * delta)
 	player.apply_move_and_slide()
 	
 	# If we hit a wall, stop the run animation and play idle
