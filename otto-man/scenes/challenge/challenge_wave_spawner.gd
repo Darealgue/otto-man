@@ -45,8 +45,15 @@ func configure(arena_layout: Dictionary, enemy_container: Node2D, diff: int, tot
 
 
 ## Dalga sayısı zorluğa bağlı: 1 -> 4, 3 -> 5, 5 -> 6, 9 -> 8
+## Dalga arenası: 3 dalga (oyun testinde dengeli bulundu), yüksek zorlukta 4.
+## Koruma'da dalga sayısı korunan köylü sayısını izler (bkz. waves_for_wards).
 static func waves_for_difficulty(diff: int) -> int:
-	return 3 + (clampi(diff, 1, 9) + 1) / 2
+	return 3 + clampi(diff, 1, 9) / 5
+
+
+## Koruma: tek köylü 1 dalga, 3 köylü 3 dalga, 4 ve üstü 4 dalga.
+static func waves_for_wards(ward_count: int) -> int:
+	return clampi(ward_count, 1, 4)
 
 
 ## Bir dalganın düşman listesi (tür anahtarları, karışık sırada).

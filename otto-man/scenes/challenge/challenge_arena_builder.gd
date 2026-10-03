@@ -20,12 +20,25 @@ const WALL_BG_PATH := "res://Tile set/Dungeon wall bg2-sheet.png"
 const DOOR_PATH := "res://assets/objects/dungeon/door_1.png"
 const OBJECT_DIR := "res://assets/objects/dungeon/"
 
+## Zindan renk paletleri (karo tonu, arka plan tuğla tonu, bayrak renk kaydırması; bayrak aslen mavi)
+const PALETTES: Array[Dictionary] = [
+	{"tile": Color(1.0, 1.0, 1.0), "bg": Color(1.5, 1.5, 1.65), "banner_hue": 0.0},
+	{"tile": Color(1.15, 0.85, 0.8), "bg": Color(1.75, 1.25, 1.2), "banner_hue": 0.36},
+	{"tile": Color(0.85, 1.05, 0.85), "bg": Color(1.2, 1.6, 1.3), "banner_hue": 0.85},
+	{"tile": Color(1.0, 0.85, 1.15), "bg": Color(1.6, 1.3, 1.8), "banner_hue": 0.15},
+	{"tile": Color(1.15, 1.0, 0.8), "bg": Color(1.8, 1.5, 1.1), "banner_hue": 0.45},
+	{"tile": Color(0.85, 1.0, 1.1), "bg": Color(1.2, 1.6, 1.8), "banner_hue": 0.9},
+]
+
+static var _rng := RandomNumberGenerator.new()
+
 const TERRAIN_SET_DUNGEON: int = 0   # "walls"
 const TERRAIN_SET_FOREST: int = 1    # "forest_ground"
 
 
 ## Arenayı `root` altına kurar ve yerleşim bilgisini döndürür.
 static func build(root: Node2D, biome: String) -> Dictionary:
+	_rng.randomize()
 	var forest: bool = biome == "orman"
 	# Orman: gökyüzü, parallax ve dekor ForestArenaDecorator'dan gelir (düz renk arka plan YOK)
 	if not forest:
@@ -52,7 +65,7 @@ static func build(root: Node2D, biome: String) -> Dictionary:
 	var right_x: float = float((COLS - WALL_COLS) * TILE)
 	_add_boundary_walls(root, left_x, right_x, forest)
 	if not forest:
-		_add_dungeon_dressing(root, left_x, right_x, floor_y)
+		_add_dungeon_dressing(root, layer, left_x, right_x, floor_y)
 	return {
 		"bounds": Rect2(left_x, float(CEILING_ROWS * TILE), right_x - left_x, floor_y - float(CEILING_ROWS * TILE)),
 		"floor_y": floor_y,
@@ -91,8 +104,11 @@ static func _add_boundary_walls(root: Node2D, left_x: float, right_x: float, for
 
 ## Zindan arenasının iç görünümü: duvar arka planı (gerçek chunk'larla aynı 64 px "Dungeon wall bg2"
 ## karoları), giriş kapısı ve zemin/tavan dekoru. Hepsi görsel; çarpışma/etkileşim yok.
-static func _add_dungeon_dressing(root: Node2D, left_x: float, right_x: float, floor_y: float) -> void:
+static func _add_dungeon_dressing(root: Node2D, floor_layer: TileMapLayer, left_x: float, right_x: float, floor_y: float) -> void:
 	var ceiling_y: float = float(CEILING_ROWS * TILE)
+	# Her girişte rastgele renk paleti: zemin/duvar karoları, arka plan tuğlaları ve bayrak rengi birlikte döner
+	var palette: Dictionary = PALETTES[_rng.randi() % PALETTES.size()]
+	floor_layer.modulate = palette["tile"]
 	# Arka plan duvarı: chunk'lardaki bg katmanıyla aynı karo seti (yalnız düz tuğla karoları)
 	var bg_tex := load(WALL_BG_PATH) as Texture2D
 	if bg_tex:
@@ -120,7 +136,7 @@ static func _add_dungeon_dressing(root: Node2D, left_x: float, right_x: float, f
 		for cx in range(x0, x1):
 			for cy in range(y0, y1):
 				bg.set_cell(Vector2i(cx, cy), 0, variants[rng.randi() % variants.size()])
-		bg.modulate = Color(1.5, 1.5, 1.65)
+		bg.modulate = palette["bg"]
 		root.add_child(bg)
 
 	# Giriş kapısı: oyuncunun doğduğu uçta, kapı (açık) karesi; yalnızca görsel
@@ -135,41 +151,99 @@ static func _add_dungeon_dressing(root: Node2D, left_x: float, right_x: float, f
 		door.position = Vector2(left_x + 96.0, floor_y - 96.0)
 		root.add_child(door)
 
-	# Dekor: [yol, x ofseti (sol duvardan), yer (0 = zemin, 1 = tavandan asılı), ölçek]
-	var items: Array = [
-		["banner1", 330.0, 1, 1.0],
-		["banner1", 760.0, 1, 1.0],
-		["banner1", 1180.0, 1, 1.0],
-		["banner1", 1560.0, 1, 1.0],
-		["web1", 4.0, 1, 2.0],
-		["web2", 1636.0, 1, 2.0],
-		["sculpture1", 560.0, 0, 1.0],
-		["sculpture2", 1400.0, 0, 1.0],
-		["box2", 250.0, 0, 1.0],
-		["box1", 1520.0, 0, 1.0],
-		["box3", 1630.0, 0, 1.0],
-		["stone1", 690.0, 0, 1.0],
-		["bone1", 940.0, 0, 1.2],
-		["bone2", 1100.0, 0, 1.2],
-		["bone1", 1300.0, 0, 1.0],
-	]
-	for item in items:
-		var tex := load(OBJECT_DIR + String(item[0]) + ".png") as Texture2D
-		if tex == null:
+	# Dekor her girişte rastgele: tavandan bayraklar, köşelerde ağ, yerde birkaç eşya
+	var span: float = right_x - left_x
+	# Tavan: 2-4 bayrak, birbirine en az 260 px uzak (bayrak rengi paletle birlikte döner)
+	var banner_xs: Array[float] = []
+	var banner_count: int = _rng.randi_range(2, 4)
+	for i in range(banner_count * 6):
+		if banner_xs.size() >= banner_count:
+			break
+		var bx: float = _rng.randf_range(120.0, span - 120.0)
+		var clear := true
+		for other in banner_xs:
+			if absf(other - bx) < 260.0:
+				clear = false
+		if clear:
+			banner_xs.append(bx)
+	for bx in banner_xs:
+		_place_decor(root, "banner1", left_x + bx, ceiling_y, floor_y, true, 1.0, false, palette["banner_hue"])
+	# Köşe ağları (rastgele açılır/kapanır, yatay çevrilir)
+	if _rng.randf() < 0.8:
+		_place_decor(root, "web1", left_x + 16.0, ceiling_y, floor_y, true, 2.0, false)
+	if _rng.randf() < 0.8:
+		_place_decor(root, "web2", right_x - 48.0, ceiling_y, floor_y, true, 2.0, true)
+	# Zemin: büyük eşyalar kapıdan ve korunan köylülerin durduğu orta banttan uzak, küçükler her yerde
+	var big_pool: Array[String] = ["sculpture1", "sculpture2", "box2", "box3", "box1", "stone1"]
+	var small_pool: Array[String] = ["bone1", "bone2", "box1", "stone1"]
+	var used: Array[Vector2] = []
+	var center_x: float = span * 0.5
+	var floor_count: int = _rng.randi_range(5, 8)
+	for i in range(floor_count * 8):
+		if used.size() >= floor_count:
+			break
+		var big: bool = _rng.randf() < 0.55
+		var name: String = (big_pool if big else small_pool)[_rng.randi() % (big_pool.size() if big else small_pool.size())]
+		var fx: float = _rng.randf_range(260.0, span - 60.0)
+		if big and absf(fx - center_x) < 260.0:
 			continue
-		var sprite := Sprite2D.new()
-		sprite.texture = tex
-		sprite.name = "Decor_" + String(item[0])
-		var s: float = float(item[3])
-		sprite.scale = Vector2(s, s)
-		sprite.z_index = -3
-		var h: float = tex.get_height() * s
-		var px: float = left_x + float(item[1])
-		if int(item[2]) == 1:
-			sprite.position = Vector2(px, ceiling_y + h * 0.5)
-		else:
-			sprite.position = Vector2(px, floor_y + 4.0 - h * 0.5)
-		root.add_child(sprite)
+		var clear := true
+		for u in used:
+			if absf(u.x - fx) < 110.0:
+				clear = false
+		if not clear:
+			continue
+		used.append(Vector2(fx, 0.0))
+		_place_decor(root, name, left_x + fx, ceiling_y, floor_y, false, 1.0, _rng.randf() < 0.5)
+
+
+## Tek bir dekor sprite'ı yerleştirir (zemine oturur veya tavandan sarkar).
+static func _place_decor(root: Node2D, tex_name: String, x: float, ceiling_y: float, floor_y: float,
+		hang: bool, scale_factor: float, flip: bool, hue: float = -1.0) -> void:
+	var tex := load(OBJECT_DIR + tex_name + ".png") as Texture2D
+	if tex == null:
+		return
+	var sprite := Sprite2D.new()
+	sprite.texture = tex
+	sprite.name = "Decor_" + tex_name
+	sprite.scale = Vector2(scale_factor, scale_factor)
+	sprite.flip_h = flip
+	sprite.z_index = -3
+	var h: float = tex.get_height() * scale_factor
+	sprite.position = Vector2(x, ceiling_y + h * 0.5) if hang else Vector2(x, floor_y + 4.0 - h * 0.5)
+	if hue >= 0.0:
+		var mat := ShaderMaterial.new()
+		mat.shader = _hue_shader()
+		mat.set_shader_parameter("hue_shift", hue)
+		sprite.material = mat
+	root.add_child(sprite)
+
+
+static func _hue_shader() -> Shader:
+	var shader := Shader.new()
+	shader.code = """shader_type canvas_item;
+uniform float hue_shift = 0.0;
+vec3 rgb2hsv(vec3 c) {
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+void fragment() {
+	vec4 col = texture(TEXTURE, UV);
+	vec3 hsv = rgb2hsv(col.rgb);
+	hsv.x = fract(hsv.x + hue_shift);
+	COLOR = vec4(hsv2rgb(hsv), col.a);
+}
+"""
+	return shader
 
 
 static func _add_background(root: Node2D, forest: bool) -> void:

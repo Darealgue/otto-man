@@ -24,6 +24,7 @@ var _spawner: ChallengeWaveSpawner = null
 var _enemy_container: Node2D = null
 var _wards: Array[WardTarget] = []
 var _ward_total: int = 0
+var _ward_override: int = 0
 var _finished: bool = false
 
 var _wave_label: Label = null
@@ -56,6 +57,7 @@ func _read_payload() -> void:
 	kind = String(payload.get("kind", kind))
 	biome = String(payload.get("biome", biome))
 	difficulty = clampi(int(payload.get("difficulty", difficulty)), 1, 9)
+	_ward_override = int(payload.get("wards", 0))
 	if not ChallengeRoomRegistry.KINDS.has(kind):
 		kind = "koruma"
 	if biome not in ChallengeRoomRegistry.BIOMES:
@@ -91,7 +93,8 @@ func _spawn_player() -> void:
 
 
 func _spawn_wards() -> void:
-	_ward_total = clampi(WARDS_BASE + difficulty / 4, 2, 5)
+	# Payload "wards" verilirse o sayı (1-5), yoksa zorluğa göre
+	_ward_total = clampi(_ward_override if _ward_override > 0 else WARDS_BASE + difficulty / 4, 1, 5)
 	var cx: float = float(_layout["center_x"])
 	var spacing: float = 90.0
 	for i in range(_ward_total):
@@ -107,7 +110,8 @@ func _setup_spawner() -> void:
 	_spawner = ChallengeWaveSpawner.new()
 	_spawner.name = "WaveSpawner"
 	add_child(_spawner)
-	_spawner.configure(_layout, _enemy_container, difficulty, ChallengeWaveSpawner.waves_for_difficulty(difficulty))
+	var wave_count: int = ChallengeWaveSpawner.waves_for_wards(_ward_total) if kind == "koruma" else ChallengeWaveSpawner.waves_for_difficulty(difficulty)
+	_spawner.configure(_layout, _enemy_container, difficulty, wave_count)
 	_spawner.wave_started.connect(_on_wave_started)
 	_spawner.wave_cleared.connect(_on_wave_cleared)
 	_spawner.all_waves_cleared.connect(_on_all_waves_cleared)
