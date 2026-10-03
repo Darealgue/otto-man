@@ -21,6 +21,11 @@ func apply_player_modifiers(player: Node, base_damage: float, enemy: Node, attac
 	# Taşkın Güç: stamina doluyken bonus
 	if player.get("taskin_guc_mult") and player.taskin_guc_mult > 1.0:
 		dmg *= player.taskin_guc_mult
+	# Savunma Öfkesi: blok/parry sonrası hasar çarpanı (consume=true ise ilk isabette biter)
+	if player.get("guard_empower_mult") and player.guard_empower_mult > 1.0:
+		dmg *= player.guard_empower_mult
+		if player.guard_empower_consume:
+			player.guard_empower_mult = 1.0
 	# Şanslı Nal: garanti kritik (tek kullanım)
 	if player.get("sansli_nal_crit_next"):
 		dmg *= 1.75

@@ -1591,7 +1591,7 @@ item.combo_ustasi.description,Combo hasarı +%20,Combo damage +20%
 item.cuppe_degil_zirh.name,Cüppe Değil Zırh,"Armor, Not a Robe"
 item.cuppe_degil_zirh.description,"Element hasarı verdikçe kalkan biriktirirsin (max %30 max can, 3sn hasarsızlıkta sıfırlanır)","Dealing elemental damage builds a shield (max 30% of max health, resets after 3s without taking damage)"
 item.demir_kalkan.name,Demir Kalkan,Iron Shield
-item.demir_kalkan.description,Block hasar azaltma %90,Block damage reduction 90%
+item.demir_kalkan.description,+1 stamina hücresi (blok ve parry için fazladan hak),+1 stamina cell (an extra block or parry)
 item.dikenli_kalkan.name,Dikenli Kalkan,Spiked Shield
 item.dikenli_kalkan.description,Yediğin hasar saldırgana yansır (blok şart değil),Damage you take reflects onto the attacker (blocking not required)
 item.dodge_bombasi.name,Dodge Bombası,Dodge Bomb
@@ -1661,7 +1661,7 @@ item.kaygan_yag.description,Slide mesafesi +%100,Slide distance +100%
 item.keskin_nazar.name,Keskin Nazar,Piercing Evil Eye
 item.keskin_nazar.description,"%15 kritik şansı, kritikler %75 fazla hasar verir","15% critical chance, critical hits deal 75% extra damage"
 item.kum_saati.name,Kum Saati,Hourglass
-item.kum_saati.description,"Zaman Durdurucu ile: zaman 2x daha yavaş akar, 4 sn sürer.","With Time Stopper: time flows 2x slower, lasting 4 seconds."
+item.kum_saati.description,"Zaman Durdurucu ile: zaman 2x daha yavaş akar, süreler 2 katına çıkar (blok 2 sn, parry 4 sn).","With Time Stopper: time flows 2x slower and durations double (block 2s, parry 4s)."
 item.kus_kanadi.name,Kuş Kanadı,Bird's Wing
 item.kus_kanadi.description,Üçüncü bir zıplama hakkı verir. Bu bonus zıplama 2 stamina hücresi harcar.,Grants a third jump. This bonus jump costs 2 stamina charges.
 item.lav_cekici.name,Lav Çekici,Lava Hammer
@@ -1741,7 +1741,7 @@ item.yildirim_adimi.description,Dodge/dash sonrası kısa süreli hız bonusu,Br
 item.yildirim_dususu.name,Yıldırım Düşüşü,Lightning Fall
 item.yildirim_dususu.description,Fall attack şimşek çakar; tetiklemek 1 stamina hücresi harcar.,Fall attack strikes lightning; costs 1 stamina charge to trigger.
 item.zaman_durdurucu.name,Zaman Durdurucu,Time Stopper
-item.zaman_durdurucu.description,Perfect parry sonrası zaman yavaşlar; sen normal hızında hareket edersin,Time slows after a perfect parry; you move at normal speed
+item.zaman_durdurucu.description,"Hasar bloklamak zamanı yavaşlatır, parry yavaşlama süresini 2 katına çıkarır; sen normal hızında hareket edersin","Blocking damage slows time, and a parry doubles the slowdown duration; you move at normal speed"
 item.zehirli_dev.name,Zehirli Dev,Poison Giant
 item.zehirli_dev.description,Heavy attack zehir püskürtür (yay çizen damlalar),Heavy attack sprays poison (arcing droplets)
 item.zehirli_dusus.name,Zehirli Düşüş,Poison Fall
@@ -2482,3 +2482,9 @@ item.zincirleme_vurus.name,Zincirleme Vuruş,Chain Strike
 item.zincirleme_vurus.description,"Bir vuruş bir düşmanı öldürürse, 60px içindeki başka bir düşman da hemen hasar alır","When a hit kills an enemy, another enemy within 60px instantly takes damage too"
 item.sarsici_darbe.name,Sarsıcı Darbe,Shockwave Strike
 item.sarsici_darbe.description,Her 3. isabetli vuruşta etrafına küçük bir şok dalgası yayılır,Every 3rd landed hit unleashes a small shockwave around you
+item.kalkan_kuresi.name,Kalkan Küresi,Guard Sphere
+item.kalkan_kuresi.description,"Block tuşu etrafında bir balon açar: koşarken, zıplarken, duvarda kayarken, ledge'de asılıyken bile bloklayabilirsin. Balon açıldığı anki saldırı parry sayılır.","The block button opens a bubble around you: block while running, jumping, wall sliding or hanging from a ledge. An attack landing right as the bubble opens counts as a parry."
+item.parry_zirhi.name,Parry Zırhı,Parry Plating
+item.parry_zirhi.description,Doğru zamanlı parry 10 hasarlık kalkan verir (en fazla 30).,A well timed parry grants a 10 damage shield (up to 30).
+item.savunma_ofkesi.name,Savunma Öfkesi,Guard Fury
+item.savunma_ofkesi.description,Blok: bir sonraki vuruşun 2 kat hasar verir. Parry: sonraki 3 saniye boyunca tüm vuruşların 2 kat hasar verir.,Block: your next hit deals double damage. Parry: all hits deal double damage for 3 seconds.

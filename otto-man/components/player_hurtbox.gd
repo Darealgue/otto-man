@@ -31,6 +31,10 @@ func _on_area_entered(hitbox: Area2D):
 	if parent.has_node("StateMachine") and parent.state_machine.current_state.name == "Block":
 		# Let block state handle the damage value
 		await parent.state_machine.current_state._on_hurtbox_hurt(hitbox)
+	elif parent.has_method("try_bubble_guard"):
+		# Kalkan Küresi: balon açıksa hasarı o karşılar (last_damage orada ayarlanır).
+		# Yerde parry olursa balon Block state'ine geçer; player._on_hurtbox_hurt bunu görür.
+		parent.try_bubble_guard(hitbox)
 	
 	# Start cooldown and emit signal
 	start_cooldown(hitbox)

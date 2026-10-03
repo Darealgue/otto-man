@@ -1,7 +1,7 @@
 extends State
 
 const DEFAULT_PARRY_WINDOW := 0.2  # Default parry window (seconds)
-const DEFAULT_BLOCK_DAMAGE_REDUCTION := 0.5  # 50% damage reduction when blocking
+const DEFAULT_BLOCK_DAMAGE_REDUCTION := 1.0  # Blok gelen hasarı her zaman tamamen durdurur (1 stamina)
 
 # Dynamic values that can be modified by items
 var PARRY_WINDOW := DEFAULT_PARRY_WINDOW
@@ -23,6 +23,12 @@ var block_start_time: float = 0.0  # Track when block started
 var is_parrying := false  # Add this at the top with other vars
 const PARRY_IFRAME := 1.0  # Parry sonrası kısa dokunulmazlık
 var _last_parried_attacker: Node2D = null  # Gölge Adımı / Fırlatma Parry için
+# Kalkan Küresi: balon yerdeyken parry yakalayınca bu state'e sadece parry animasyonu için girer;
+# parry bitince blok tutmaya devam etmez, doğrudan Idle'a döner.
+var bubble_parry_mode := false
+# Aynı vuruş hem hurtbox'tan hem "hurt" sinyalinden iki kez gelir; ikincisini yoksay
+var _last_hit_id := 0
+var _last_hit_msec := 0
 
 func _ready():
 	pass
@@ -82,6 +88,7 @@ func enter():
 
 
 func exit():
+	bubble_parry_mode = false
 	is_blocking = false
 	can_parry = false
 	is_in_impact_animation = false
@@ -192,6 +199,13 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Prevent double parry
 	if is_parrying:
 		return
+	# Aynı vuruşun ikinci bildirimi (hurtbox çağrısı + hurt sinyali): hasar ilkinde ayarlandı
+	if hitbox:
+		var now_ms := Time.get_ticks_msec()
+		if hitbox.get_instance_id() == _last_hit_id and now_ms - _last_hit_msec < 80:
+			return
+		_last_hit_id = hitbox.get_instance_id()
+		_last_hit_msec = now_ms
 	
 	# Check if within parry window and can parry
 	if can_parry:
@@ -284,7 +298,9 @@ func _on_animation_finished(anim_name: String):
 		"parry":
 			is_parrying = false  # Reset parrying flag
 			is_transitioning = false  # Reset transitioning flag
-			if Input.is_action_pressed("block") and stamina_bar and stamina_bar.has_charges():
+			if bubble_parry_mode:
+				state_machine.transition_to("Idle")
+			elif Input.is_action_pressed("block") and stamina_bar and stamina_bar.has_charges():
 				animation_player.play("block")
 			else:
 				_start_finish_animation()

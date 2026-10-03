@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/kalkan_kuresi.gd" id="1_kalkan_kuresi"]
+
+[node name="KalkanKuresi" type="Node"]
+script = ExtResource("1_kalkan_kuresi")

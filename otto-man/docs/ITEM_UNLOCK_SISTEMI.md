@@ -116,8 +116,8 @@ Her zindan iki alt havuza ayrılır. Kod tarafında ayrım `item_manager.gd` iç
 † = yeni tasarım, henüz kodda yok (bkz. bölüm 5.7)
 
 ### 5.2 Zindan 2 — Buz / Savunma-Kontrol
-**Keşif:** `buzlu_kilic`, `donma_cekici`, `buz_cagi`, `yansitici_kalkan`, `dikenli_kalkan`, `ters_darbe`, `parry_ustasi`, `olumcul_sukut`, `sansli_nal`
-**Boss:** `buzlu_kayma`, `nazar_boncugu`, `son_kale`, `cuppe_degil_zirh`, `panzehir_derisi`, `zaman_durdurucu` → `kum_saati`*
+**Keşif:** `buzlu_kilic`, `donma_cekici`, `buz_cagi`, `yansitici_kalkan`, `dikenli_kalkan`, `ters_darbe`, `parry_ustasi`, `olumcul_sukut`, `sansli_nal`, `parry_zirhi`, `savunma_ofkesi`
+**Boss:** `buzlu_kayma`, `nazar_boncugu`, `son_kale`, `cuppe_degil_zirh`, `panzehir_derisi`, `zaman_durdurucu` → `kum_saati`*, `kalkan_kuresi`
 
 ### 5.3 Zindan 3 — Zehir / Vur-kaç
 **Keşif:** `zehirli_tirnak`, `zehirli_dev`, `zehirli_dusus`, `dodge_zehiri`, `ziplama_zehiri`, `ceset_tekmesi`, `les_gazi`, `kaygan_yag`

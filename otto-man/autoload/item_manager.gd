@@ -82,6 +82,9 @@ const ITEM_SCENES: Dictionary = {
 	"kan_tadi": preload("res://resources/items/kan_tadi.tscn"),
 	"tas_yurek": preload("res://resources/items/tas_yurek.tscn"),
 	"olumcul_sukut": preload("res://resources/items/olumcul_sukut.tscn"),
+	"kalkan_kuresi": preload("res://resources/items/kalkan_kuresi.tscn"),
+	"parry_zirhi": preload("res://resources/items/parry_zirhi.tscn"),
+	"savunma_ofkesi": preload("res://resources/items/savunma_ofkesi.tscn"),
 	"topuk_kirici": preload("res://resources/items/topuk_kirici.tscn"),
 	"karagoz_laneti": preload("res://resources/items/karagoz_laneti.tscn"),
 	"hacivat_golgesi": preload("res://resources/items/hacivat_golgesi.tscn"),
@@ -321,8 +324,8 @@ const DUNGEON_THEME_POOLS: Dictionary = {
 		"boss": ["atesli_kayma", "genis_darbe", "ocak", "ziplatan_yumruk", "agirliksiz", "sirt_darbesi", "tek_sanat"],
 	},
 	"buz": {
-		"kesif": ["buzlu_kilic", "donma_cekici", "buz_cagi", "yansitici_kalkan", "dikenli_kalkan", "ters_darbe", "parry_ustasi", "olumcul_sukut", "sansli_nal"],
-		"boss": ["buzlu_kayma", "nazar_boncugu", "son_kale", "cuppe_degil_zirh", "zaman_durdurucu", "yansiyan_irade", "alan_parrysi"],
+		"kesif": ["buzlu_kilic", "donma_cekici", "buz_cagi", "yansitici_kalkan", "dikenli_kalkan", "ters_darbe", "parry_ustasi", "olumcul_sukut", "sansli_nal", "parry_zirhi", "savunma_ofkesi"],
+		"boss": ["buzlu_kayma", "nazar_boncugu", "son_kale", "cuppe_degil_zirh", "zaman_durdurucu", "yansiyan_irade", "alan_parrysi", "kalkan_kuresi"],
 	},
 	"zehir": {
 		"kesif": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "ceset_tekmesi", "les_gazi", "zeytinyagi"],
