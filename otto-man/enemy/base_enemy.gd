@@ -344,29 +344,50 @@ func handle_behavior(delta: float) -> void:
 func _handle_child_behavior(_delta: float) -> void:
 	pass  # Child classes will override this
 
+## Challenge odalarında köylü gibi korunan hedefler ("ward_targets" grubu): düşmanlar oyuncu kadar
+## bunları da hedef alabilir (en yakın olan seçilir). Hedefin `is_dead` alanı ve global_position'ı yeter.
+func _nearest_ward_target(max_dist: float) -> Node2D:
+	var best: Node2D = null
+	var best_d: float = max_dist
+	for ward in get_tree().get_nodes_in_group("ward_targets"):
+		if not is_instance_valid(ward) or not ward.is_inside_tree():
+			continue
+		if "is_dead" in ward and bool(ward.is_dead):
+			continue
+		var d: float = global_position.distance_to((ward as Node2D).global_position)
+		if d < best_d:
+			best_d = d
+			best = ward as Node2D
+	return best
+
+
 func get_nearest_player() -> Node2D:
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() == 0:
 		if Engine.get_physics_frames() % 60 == 0:  # Only print every ~1 second
 			print("[BaseEnemy:%s] No players found in scene" % enemy_id)
 		return null
-	
+
 	var nearest_player = null
 	var min_distance = INF
-	
+
 	for player in players:
 		if not is_instance_valid(player) or not player.is_inside_tree():
 			continue
 		# Do not aggro dead/dying players.
 		if ("is_dead" in player and bool(player.is_dead)) or ("pending_death" in player and bool(player.pending_death)):
 			continue
-			
+
 		var distance = global_position.distance_to(player.global_position)
 		if distance < min_distance:
 			min_distance = distance
 			nearest_player = player
-	
-	
+
+	# Korunan hedef (köylü) oyuncudan daha yakınsa o hedef alınır
+	var ward := _nearest_ward_target(min_distance)
+	if ward != null:
+		return ward
+
 	return nearest_player
 
 
@@ -394,6 +415,9 @@ func get_nearest_player_in_range() -> Node2D:
 	if !player:
 		return null
 		
+	# Challenge odası düşmanları (meta "always_aggro"): menzile bakmadan hedefe yürür
+	if has_meta("always_aggro"):
+		return player
 	var distance = global_position.distance_to(player.global_position)
 	var detection_range = stats.detection_range if stats else 300.0
 	

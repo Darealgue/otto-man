@@ -1227,11 +1227,21 @@ func dev_queue_item_selections(count: int) -> void:
 	_dev_pending_selections = maxi(count - 1, 0)
 	show_item_selection()
 
+## Challenge odaları: n kez ardışık kart seçimi (build kurma / dalga ödülü). Hepsi bitince
+## `item_selection_sequence_finished` yayılır. Havuz oyuncunun açtığı itemlerdir (get_random_items).
+signal item_selection_sequence_finished
+
+func queue_item_selections(count: int) -> void:
+	dev_queue_item_selections(count)
+
+
 func _on_item_selection_closed() -> void:
 	_item_selection_open = false
 	if _dev_pending_selections > 0:
 		_dev_pending_selections -= 1
 		call_deferred("show_item_selection")
+	else:
+		item_selection_sequence_finished.emit()
 	# Ödül alındı, sayaç sıfırdan başlasın. Eskiden sayaç toplam olarak artmaya devam ettiği
 	# için bar 10'da dolu kalıyor ve ancak 11. orb geldiğinde 1'e düşüyordu ("bir geriden").
 	xp_orbs_collected = 0

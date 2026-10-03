@@ -224,6 +224,7 @@ func _sync_world_map_pawn_on_dungeon_return(payload: Dictionary) -> void:
 		current_scene_path == DUNGEON_SCENE
 		or current_scene_path == CAMP_SCENE
 		or BossRoomRegistry.is_boss_room_path(current_scene_path)
+		or ChallengeRoomRegistry.is_challenge_room_path(current_scene_path)
 		or current_scene_path == FOREST_SCENE
 		or src == "dungeon"
 		or src == "dungeon_death"
@@ -400,6 +401,12 @@ func change_to_camp(payload: Dictionary = {}, force_reload: bool = false) -> voi
 	current_payload = payload.duplicate(true)
 	_change_scene(CAMP_SCENE, force_reload)
 
+## Challenge odası (koruma / dalga arenası): tür, mekân ve zorluk payload'dan gelir
+## ({"kind", "biome", "difficulty"}); bkz. scenes/challenge/challenge_room.gd.
+func change_to_challenge_room(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	current_payload = payload.duplicate(true)
+	_change_scene(ChallengeRoomRegistry.SCENE_PATH, force_reload)
+
 func change_to_boss_room(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	if not BossRoomRegistry.is_enabled():
 		push_warning("[SceneManager] Boss dövüşleri devre dışı — dünya haritasına yönlendiriliyor")
@@ -521,7 +528,7 @@ func uses_dungeon_loot_wallet() -> bool:
 		path = _active_scene_file_path_fallback()
 	if path.is_empty():
 		return false
-	if path == FOREST_SCENE or path == DUNGEON_SCENE or path == CAMP_SCENE or BossRoomRegistry.is_boss_room_path(path):
+	if path == FOREST_SCENE or path == DUNGEON_SCENE or path == CAMP_SCENE or BossRoomRegistry.is_boss_room_path(path) or ChallengeRoomRegistry.is_challenge_room_path(path):
 		return true
 	if path == TUTORIAL_DUNGEON_SCENE:
 		return true
@@ -1133,6 +1140,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 		or scene_path == FOREST_SCENE
 		or scene_path == CAMP_SCENE
 		or BossRoomRegistry.is_boss_room_path(scene_path)
+		or ChallengeRoomRegistry.is_challenge_room_path(scene_path)
 		or scene_path == WORLD_MAP_SCENE
 		or scene_path == VILLAGE_SCENE
 	)

@@ -89,6 +89,25 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "test_items":
 		handle_test_items_command(1)
 		return
+	if cmd == "challenge":
+		var ch_kinds: Array = ChallengeRoomRegistry.KINDS.keys()
+		var ch_kind: String = String(args[0]).to_lower() if args.size() > 0 else "koruma"
+		var ch_biome: String = String(args[1]).to_lower() if args.size() > 1 else "orman"
+		var ch_diff: int = int(args[2]) if args.size() > 2 and String(args[2]).is_valid_int() else 1
+		if ch_kind not in ch_kinds:
+			print_output("Bilinmeyen tür: %s (%s)" % [ch_kind, ", ".join(PackedStringArray(ch_kinds))])
+			return
+		if ch_biome not in ChallengeRoomRegistry.BIOMES:
+			print_output("Bilinmeyen mekân: %s (%s)" % [ch_biome, ", ".join(PackedStringArray(ChallengeRoomRegistry.BIOMES))])
+			return
+		var ch_sm = get_node_or_null("/root/SceneManager")
+		if ch_sm == null or not ch_sm.has_method("change_to_challenge_room"):
+			print_output("SceneManager bulunamadı!")
+			return
+		print_output("Challenge odasına gidiliyor: %s / %s / zorluk %d" % [ch_kind, ch_biome, ch_diff])
+		toggle_console()
+		ch_sm.change_to_challenge_room({"source": "dev_console", "kind": ch_kind, "biome": ch_biome, "difficulty": ch_diff})
+		return
 	if cmd == "ozan":
 		var oz_im = get_node_or_null("/root/ItemManager")
 		if oz_im == null or not oz_im.has_method("force_ozan_visit_now"):
@@ -901,6 +920,7 @@ func show_help() -> void:
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
+	challenge [koruma|dalga] [orman|zindan] [zorluk 1-9] - Enter a challenge room directly (default: koruma orman 1)
 	ozan [food] - Bring the minstrel to the village now and add food to the village stock (default 10)
 	unlock_theme <ates|buz|zehir|firtina|barut|golge|all> - Unlock every item of that dungeon theme's pools (for testing)
 	boss [boss_id] - Go straight to a boss room (default: orb_scatter; see BossRoomRegistry.BOSS_SCENES)

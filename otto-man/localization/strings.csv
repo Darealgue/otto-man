@@ -2569,3 +2569,13 @@ ozan.song.zehir,"%s, %s yeşil bir sis çöker; sinsi yürüyen sağ çıkar.","
 ozan.song.firtina,"%s, %s gök gürler; yerinde duran yıldırım yer, koşan geçer.","%s, %s, the sky thunders; he who stands still is struck, he who runs passes."
 ozan.song.barut,"%s, %s toplar öter; fitili sayan, adımını da sayar.","%s, %s, cannons sing; who counts the fuse counts his steps."
 ozan.song.golge,"%s, %s karanlık bir kuyu var; ışığını yanında taşıyan yolu görür.","%s, %s, there is a dark well; he who carries his own light sees the way."
+challenge.kind.koruma,Koruma,Defend
+challenge.kind.dalga,Dalga Arenası,Wave Arena
+challenge.wave,Dalga %d / %d,Wave %d / %d
+challenge.wards,Köylüler: %d / %d,Villagers: %d / %d
+challenge.pick,Build'ini kur: %d seçim,Build your kit: %d picks
+challenge.ready,Hazırlan!,Get ready!
+challenge.cleared,Dalga %d temizlendi!,Wave %d cleared!
+challenge.win.koruma,Köylüleri korudun! %d köylü seninle geliyor.,You protected the villagers! %d villagers will join you.
+challenge.win.dalga,Arena tamamlandı!,Arena complete!
+challenge.fail.koruma,Köylülerin hepsi öldü...,All the villagers have died...

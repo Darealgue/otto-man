@@ -233,6 +233,7 @@ func _update_visibility() -> void:
 				or "forest" in lower
 				or "campscene" in lower
 				or "boss_room" in lower
+				or "challenge_room" in lower
 				or "tutorialdungeon" in lower
 			)
 	var gpd := get_node_or_null("/root/GlobalPlayerData")
