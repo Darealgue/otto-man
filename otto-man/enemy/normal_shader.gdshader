@@ -3,13 +3,17 @@ shader_type canvas_item;
 uniform sampler2D normal_texture : hint_normal;
 uniform bool sprite_flipped;
 
+// Node/self modulate'i (durum rengi: şok sarı, yanma turuncu, buz mavi; hasar flaşı) bu shader'da
+// kaybolmasın diye vertex rengi açıkça taşınıyor. Beyazsa görüntü değişmez.
+varying vec4 v_modulate;
+
 void vertex() {
-	// Called for every vertex the material is visible on.
+	v_modulate = COLOR;
 }
 
 void fragment() {
 	// Called for every pixel the material is visible on.
-	COLOR = texture(TEXTURE, UV);
+	COLOR = texture(TEXTURE, UV) * v_modulate;
 }
 
 void light() {

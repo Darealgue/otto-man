@@ -498,6 +498,43 @@ func _on_shock_jitter() -> void:
 func is_shocked() -> bool:
 	return _shocked
 
+
+## Durum rengi (öncelik: şok > yanma > buz > zehir). `self_modulate` ile verilir: hasar flaşı
+## `modulate`'ı sürekli beyaza çektiği için modulate ile verilen renk silinirdi (oyuncuyla aynı
+## sorun). Efekt yokken zamanlayıcı kendini durdurur ve rengi sıfırlar.
+const STATUS_TINT_BURN := Color(1.5, 0.75, 0.3, 1.0)
+const STATUS_TINT_FROST := Color(0.55, 0.85, 1.4, 1.0)
+const STATUS_TINT_POISON := Color(0.6, 1.3, 0.5, 1.0)
+var _status_tint_timer: Timer = null
+
+func _ensure_status_tint_timer() -> void:
+	if _status_tint_timer == null:
+		_status_tint_timer = Timer.new()
+		_status_tint_timer.wait_time = 0.1
+		_status_tint_timer.timeout.connect(_refresh_status_tint)
+		add_child(_status_tint_timer)
+	if _status_tint_timer.is_stopped():
+		_status_tint_timer.start()
+	_refresh_status_tint()
+
+func _refresh_status_tint() -> void:
+	if sprite == null:
+		return
+	var c := Color.WHITE
+	if current_behavior != "dead":
+		if _shocked:
+			c = SHOCK_TINT
+		elif burn_remaining_ticks > 0:
+			c = STATUS_TINT_BURN
+		elif frost_stacks > 0:
+			c = STATUS_TINT_FROST
+		elif poison_stacks > 0:
+			c = STATUS_TINT_POISON
+	if sprite.self_modulate != c:
+		sprite.self_modulate = c
+	if c == Color.WHITE and _status_tint_timer:
+		_status_tint_timer.stop()
+
 func apply_shock(duration: float = SHOCK_DURATION) -> void:
 	if current_behavior == "dead" or is_sleeping:
 		return
@@ -527,9 +564,9 @@ func apply_shock(duration: float = SHOCK_DURATION) -> void:
 		_shock_orig_offset = sprite.offset
 		if sprite.has_method("pause"):
 			sprite.pause()
-		sprite.self_modulate = SHOCK_TINT
 	if _shock_jitter_timer:
 		_shock_jitter_timer.start()
+	_ensure_status_tint_timer()
 
 func _end_shock() -> void:
 	if not _shocked:
@@ -540,9 +577,9 @@ func _end_shock() -> void:
 		_shock_jitter_timer.stop()
 	if sprite:
 		sprite.offset = _shock_orig_offset
-		sprite.self_modulate = Color.WHITE
 		if sprite.has_method("play") and sprite.sprite_frames and not sprite.is_playing():
 			sprite.play()
+	_refresh_status_tint()  # şok rengi gider; hâlâ yanıyor/donuyorsa o renk kalır
 
 func _disable_stealth_perception() -> void:
 	if stealth_perception != null and is_instance_valid(stealth_perception):
@@ -580,6 +617,7 @@ func add_poison_stack(max_stacks: int, damage_per_stack: float, tick_interval: f
 	poison_tick_interval = tick_interval
 	# Reset tick timer when new stack is added
 	poison_tick_timer = 0.0
+	_ensure_status_tint_timer()
 
 func add_burn_stack() -> void:
 	# Zehir + ateş = patlama: üzerinde zehir varken ateş alırsa AoE patlama (düşman + oyuncu hasar alabilir)
@@ -599,6 +637,7 @@ func add_burn_stack() -> void:
 	# 3 tick per stack, max 3 stacks (9 tick), 1 dmg per tick per second
 	burn_remaining_ticks = mini(burn_remaining_ticks + 3, 9)
 	burn_tick_timer = 0.0
+	_ensure_status_tint_timer()
 
 func add_frost_stack(amount: int = 1) -> void:
 	# Zehir + buz = bulaşıcı don: zehirliyken don alırsan zehir yakındaki bir düşmana sıçrar
@@ -606,6 +645,7 @@ func add_frost_stack(amount: int = 1) -> void:
 		_spread_poison_to_nearest_enemy()
 	frost_stacks = mini(frost_stacks + amount, 15)
 	frost_decay_timer = 0.0
+	_ensure_status_tint_timer()
 
 ## Toplu Kaldırma: bu düşman gerçek bir fırlatma (up_force>=150) alınca, 80px
 ## içindeki diğer düşmanları da aynı kuvvetle havaya kaldırır. Ekstra hasar
