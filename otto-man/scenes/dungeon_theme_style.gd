@@ -27,16 +27,14 @@ const STYLES: Dictionary = {
 		"flame_scale": 1.7,
 		"burn_ticks_bonus": 2,
 	},
-	# Zehir = SİNSİCE ÖLDÜR: yeşil palet; damlalar daha sık, daha uzun zehirler ve yere çarpınca
-	# sağa sola sıçrayan zehir toplarına bölünür.
+	# Zehir = SİNSİCE ÖLDÜR: yeşil palet; damla yere çarpınca sağa sola sıçrayan zehir toplarına
+	# bölünür. Hasar/süre/sıklık bilerek normal bırakıldı (haksızlık hissi yaratmıştı).
 	"zehir": {
 		"tint_fg": Color(0.84, 1.0, 0.78),
 		"tint_bg": Color(0.58, 0.74, 0.56),
 		"trap_params": {
 			"poison_drip": {
 				"splash_balls": 2,
-				"drip_interval": 1.3,
-				"poison_ticks": 7,
 			},
 		},
 	},

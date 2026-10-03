@@ -101,8 +101,8 @@ func _ball_step(delta: float) -> void:
 		ball_velocity.x *= BALL_FRICTION
 		ball_bounces_left -= 1
 		if ball_bounces_left <= 0:
+			# Havuz bırakmaz: zehirli alan yalnızca damlanın düştüğü yerde kalır
 			_hit = true
-			_spawn_pool()
 			queue_free()
 	else:
 		ball_velocity.y = absf(ball_velocity.y) * 0.3
