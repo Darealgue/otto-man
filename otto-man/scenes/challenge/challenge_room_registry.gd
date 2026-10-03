@@ -10,6 +10,7 @@ const SCENE_PATH: String = "res://scenes/challenge/challenge_room.tscn"
 const KINDS: Dictionary = {
 	"koruma": "challenge.kind.koruma",
 	"dalga": "challenge.kind.dalga",
+	"asansor": "challenge.kind.asansor",
 }
 
 const BIOMES: Array[String] = ["orman", "zindan"]

@@ -143,6 +143,11 @@ func _spawn_one(kind: String) -> void:
 	var jitter: float = randf_range(-30.0, 30.0)
 	if kind == "flying":
 		enemy.global_position = Vector2(base.x + jitter, float(layout["air_y"]) + randf_range(-60.0, 60.0))
+	elif layout.has("drop_y"):
+		# Asansör arenası: yer düşmanları ekranın üstünden asansörün üzerine düşer
+		var lx: float = float(layout["left_x"]) + 120.0
+		var rx: float = float(layout["right_x"]) - 120.0
+		enemy.global_position = Vector2(randf_range(lx, rx), float(layout["drop_y"]))
 	else:
 		enemy.global_position = Vector2(base.x + jitter, base.y)
 	enemy.z_index = ENEMY_Z_INDEX

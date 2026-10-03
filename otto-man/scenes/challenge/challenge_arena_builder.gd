@@ -13,6 +13,8 @@ const COLS: int = 60
 const ROWS: int = 34
 ## Zemin satırı (zemin yüzeyi y = FLOOR_ROW * 32)
 const FLOOR_ROW: int = 29
+## Asansör kuyusu: zemin çok aşağıda, asansör buradan yukarı çıkar (~4400 px yükseklik)
+const SHAFT_FLOOR_ROW: int = 140
 const WALL_COLS: int = 3
 ## Karoların ekran dışına taşma miktarı (sıra sayısı)
 const OVERSCAN: int = 6
@@ -39,9 +41,12 @@ const TERRAIN_SET_FOREST: int = 1    # "forest_ground"
 
 
 ## Arenayı `root` altına kurar ve yerleşim bilgisini döndürür.
-static func build(root: Node2D, biome: String) -> Dictionary:
+## `shaft` = true: Asansör Arenası için uzun dikey kuyu (yan duvarlar yukarı kadar sürer, en altta zemin).
+static func build(root: Node2D, biome: String, shaft: bool = false) -> Dictionary:
 	_rng.randomize()
 	var forest: bool = biome == "orman"
+	var floor_row: int = SHAFT_FLOOR_ROW if shaft else FLOOR_ROW
+	var rows: int = floor_row + (ROWS - FLOOR_ROW)
 	# Orman: gökyüzü, parallax ve dekor ForestArenaDecorator'dan gelir (düz renk arka plan YOK)
 	if not forest:
 		_add_background(root, forest)
@@ -50,35 +55,42 @@ static func build(root: Node2D, biome: String) -> Dictionary:
 	layer.name = "TileMapLayer"
 	layer.tile_set = load(TILESET_PATH) as TileSet
 	root.add_child(layer)
+	if shaft:
+		# Kuyu duvarlarına tutunulamaz (bkz. wall_slide_state._ray_hits_slideable)
+		layer.set_meta("no_wall_slide", true)
 
 	var cells: Array[Vector2i] = []
 	# Karolar ekranın (kamera 1920x1080) birkaç sıra dışına taşar: kenar/bitiş çizgisi görünmesin,
 	# duvarlar ve zemin ekran dışına devam ediyormuş gibi dursun. Oynanabilir sınırlar değişmez.
 	for x in range(-OVERSCAN, COLS + OVERSCAN):
-		for y in range(FLOOR_ROW, ROWS + OVERSCAN):
+		for y in range(floor_row, rows + OVERSCAN):
 			cells.append(Vector2i(x, y))
-	if not forest:
-		for y in range(-OVERSCAN, FLOOR_ROW):
+	if not forest or shaft:
+		for y in range(-OVERSCAN, floor_row):
 			for x in range(-OVERSCAN, COLS + OVERSCAN):
-				if x < WALL_COLS or x >= COLS - WALL_COLS or y < CEILING_ROWS:
+				if x < WALL_COLS or x >= COLS - WALL_COLS or (y < CEILING_ROWS and not forest):
 					cells.append(Vector2i(x, y))
 	layer.set_cells_terrain_connect(cells, TERRAIN_SET_FOREST if forest else TERRAIN_SET_DUNGEON, 0)
 
-	var floor_y: float = float(FLOOR_ROW * TILE)
+	var floor_y: float = float(floor_row * TILE)
 	var left_x: float = float(WALL_COLS * TILE)
 	var right_x: float = float((COLS - WALL_COLS) * TILE)
-	_add_boundary_walls(root, left_x, right_x, forest)
+	if not shaft:
+		_add_boundary_walls(root, left_x, right_x, forest)
 	if not forest:
-		_add_dungeon_dressing(root, layer, left_x, right_x, floor_y)
+		_add_dungeon_dressing(root, layer, left_x, right_x, floor_y, shaft)
+	var cam_y: float = floor_y - 388.0 if shaft else 540.0
 	return {
-		"bounds": Rect2(left_x, float(CEILING_ROWS * TILE), right_x - left_x, floor_y - float(CEILING_ROWS * TILE)),
+		"bounds": Rect2(left_x, floor_y - 1100.0 if shaft else float(CEILING_ROWS * TILE), right_x - left_x, 1100.0 if shaft else floor_y - float(CEILING_ROWS * TILE)),
 		"floor_y": floor_y,
+		"left_x": left_x,
+		"right_x": right_x,
 		"center_x": (left_x + right_x) * 0.5,
 		"player_spawn": Vector2(left_x + 140.0, floor_y),
 		"spawn_left": Vector2(left_x + 40.0, floor_y - 40.0),
 		"spawn_right": Vector2(right_x - 40.0, floor_y - 40.0),
 		"air_y": floor_y - 420.0,
-		"camera_position": Vector2(960.0, 540.0),
+		"camera_position": Vector2(960.0, cam_y),
 	}
 
 
@@ -112,7 +124,7 @@ static func _add_boundary_walls(root: Node2D, left_x: float, right_x: float, for
 
 ## Zindan arenasının iç görünümü: duvar arka planı (gerçek chunk'larla aynı 64 px "Dungeon wall bg2"
 ## karoları), giriş kapısı ve zemin/tavan dekoru. Hepsi görsel; çarpışma/etkileşim yok.
-static func _add_dungeon_dressing(root: Node2D, floor_layer: TileMapLayer, left_x: float, right_x: float, floor_y: float) -> void:
+static func _add_dungeon_dressing(root: Node2D, floor_layer: TileMapLayer, left_x: float, right_x: float, floor_y: float, shaft: bool = false) -> void:
 	var ceiling_y: float = float(CEILING_ROWS * TILE)
 	# Her girişte rastgele renk paleti: zemin/duvar karoları, arka plan tuğlaları ve bayrak rengi birlikte döner
 	var palette: Dictionary = PALETTES[_rng.randi() % PALETTES.size()]
@@ -176,6 +188,14 @@ static func _add_dungeon_dressing(root: Node2D, floor_layer: TileMapLayer, left_
 			banner_xs.append(bx)
 	for bx in banner_xs:
 		_place_decor(root, "banner1", left_x + bx, ceiling_y, floor_y, true, 1.0, false, palette["banner_hue"])
+	# Kuyuda: yükseldikçe duvarda bayraklar akıp gitsin (yükseklik boyunca rastgele serpiştirilir)
+	if shaft:
+		var h: float = floor_y - ceiling_y
+		for i in range(int(h / 380.0)):
+			var by: float = ceiling_y + 200.0 + float(i) * 380.0 + _rng.randf_range(-60.0, 60.0)
+			if by > floor_y - 700.0:
+				continue
+			_place_decor(root, "banner1", left_x + _rng.randf_range(120.0, span - 120.0), by, floor_y, true, 1.0, false, palette["banner_hue"])
 	# Köşe ağları (rastgele açılır/kapanır, yatay çevrilir)
 	if _rng.randf() < 0.8:
 		_place_decor(root, "web1", left_x + 16.0, ceiling_y, floor_y, true, 2.0, false)

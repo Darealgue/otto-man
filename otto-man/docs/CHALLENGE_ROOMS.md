@@ -37,7 +37,15 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Köylü görünümü: Worker "dungeon prisoner" kipi (AppearanceDB ile rastgele köylü, oturma pozu); ödülde
   aynı görünüm/ad köye gelir.
 
+## Asansör Arenası (`asansor`)
+- Uzun dikey kuyu (`SHAFT_FLOOR_ROW`); kuyunun iç genişliğini kaplayan `AnimatableBody2D` asansör zemini
+  (kenardan düşme yok). Kamera asansörü izler. Yer düşmanları ekranın üstünden asansöre düşer
+  (layout `drop_y`), uçanlar yanlardan girer. Dalga sürerken zemin yavaş yükselir (hız zorlukla artar),
+  dalgalar arasında 420 px'lik "kat" yükselmesi olur. Kuyu duvarlarına tutunulamaz.
+- Ödül: rastgele bir temadan, henüz açılmamış rastgele bir item doğrudan koleksiyona açılır.
+- Zindan arenaları her girişte rastgele dekor ve renk paleti (6 palet) alır; karolar ekran dışına taşar.
+- Koruma'da dalga sayısı köylü sayısına bağlı (1-4); payload `wards` ile köylü sayısı verilebilir.
+
 ## Henüz yok
 - Otomatik doğma (ömür/sıklık), ozan haberi, giriş kabul ekranı.
-- Asansör Arenası, Tuzak Geçidi, Kovalamaca ve diğer türler (bkz. sohbetteki fikir listesi).
-- Arena arka planı/chunk sanatı (şimdilik düz renk + terrain).
+- Tuzak Geçidi, Kovalamaca ve diğer türler (bkz. sohbetteki fikir listesi).

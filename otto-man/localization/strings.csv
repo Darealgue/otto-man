@@ -2586,3 +2586,7 @@ challenge.biome.orman,Orman,Forest
 challenge.biome.zindan,Zindan,Dungeon
 challenge.tooltip.meta,Mekân: %s  |  Zorluk: %d,Place: %s  |  Difficulty: %d
 challenge.tooltip.days,Kalan süre: %d gün,Time left: %d days
+challenge.kind.asansor,Asansör Arenası,Elevator Arena
+challenge.desc.asansor,"Yükselen asansörde, tepeden inen düşman dalgalarıyla savaş. Ödül: rastgele yeni bir item.",Fight enemy waves dropping from above on a rising elevator. Reward: a random new item.
+challenge.win.asansor,Zirveye ulaştın! Yeni item: %s,You reached the top! New item: %s
+challenge.lift.rising,Asansör yükseliyor...,The elevator is rising...

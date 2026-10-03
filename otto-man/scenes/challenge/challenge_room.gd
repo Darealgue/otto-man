@@ -13,6 +13,11 @@ const START_PICKS: int = 3
 const BREAK_SECONDS: float = 3.0
 const WARDS_BASE: int = 3
 const WARD_HEALTH: float = 70.0
+## Asansör arenası: kat başına yükselme, yükselme süresi, zemin kalınlığı, ulaşılabilecek en yüksek yüzey y'si
+const LIFT_RISE_PER_FLOOR: float = 420.0
+const LIFT_RISE_TIME: float = 3.0
+const LIFT_THICKNESS: float = 32.0
+const LIFT_TOP_LIMIT: float = 900.0
 
 var kind: String = "koruma"
 var biome: String = "orman"
@@ -23,6 +28,10 @@ var _player: Node2D = null
 var _spawner: ChallengeWaveSpawner = null
 var _enemy_container: Node2D = null
 var _wards: Array[WardTarget] = []
+var _cam: Camera2D = null
+var _lift: AnimatableBody2D = null
+var _lift_top: float = 0.0
+var _lift_creeping: bool = false
 var _ward_total: int = 0
 var _ward_override: int = 0
 var _finished: bool = false
@@ -34,13 +43,15 @@ var _message_label: Label = null
 
 func _ready() -> void:
 	_read_payload()
-	_layout = ChallengeArenaBuilder.build(self, biome)
+	_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor")
 	if biome == "orman":
 		_decorate_forest()
 	_setup_camera()
 	_enemy_container = Node2D.new()
 	_enemy_container.name = "Enemies"
 	add_child(_enemy_container)
+	if kind == "asansor":
+		_build_lift()
 	_spawn_player()
 	if kind == "koruma":
 		_spawn_wards()
@@ -79,6 +90,83 @@ func _setup_camera() -> void:
 	add_child(cam)
 	cam.enabled = true
 	cam.make_current()
+	_cam = cam
+
+
+# --- Asansör arenası ------------------------------------------------------------------------
+
+## Kuyunun iç genişliğini kaplayan hareketli zemin: kenardan düşme yok, düşmanlar tepeden iner.
+func _build_lift() -> void:
+	var left_x: float = float(_layout["left_x"])
+	var width: float = float(_layout["right_x"]) - left_x
+	_lift = AnimatableBody2D.new()
+	_lift.name = "Lift"
+	_lift.sync_to_physics = true
+	_lift.collision_layer = CollisionLayers.WORLD
+	_lift.collision_mask = 0
+	_lift.z_index = 2
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(width, LIFT_THICKNESS)
+	shape.shape = rect
+	_lift.add_child(shape)
+	# Görünüm (geçici sanat): ahşap/metal zemin, altında makine gövdesi, kenarlarda ışıklar
+	var plank := ColorRect.new()
+	plank.color = Color(0.42, 0.30, 0.20)
+	plank.size = Vector2(width, 12.0)
+	plank.position = Vector2(-width * 0.5, -LIFT_THICKNESS * 0.5)
+	_lift.add_child(plank)
+	var rim := ColorRect.new()
+	rim.color = Color(0.62, 0.46, 0.30)
+	rim.size = Vector2(width, 3.0)
+	rim.position = Vector2(-width * 0.5, -LIFT_THICKNESS * 0.5)
+	_lift.add_child(rim)
+	var body := ColorRect.new()
+	body.color = Color(0.17, 0.15, 0.15)
+	body.size = Vector2(width, 520.0)
+	body.position = Vector2(-width * 0.5, -LIFT_THICKNESS * 0.5 + 12.0)
+	_lift.add_child(body)
+	var x: float = -width * 0.5 + 60.0
+	while x < width * 0.5:
+		var lamp := ColorRect.new()
+		lamp.color = Color(1.0, 0.72, 0.3)
+		lamp.size = Vector2(10.0, 6.0)
+		lamp.position = Vector2(x, -LIFT_THICKNESS * 0.5 + 18.0)
+		_lift.add_child(lamp)
+		x += 140.0
+	_lift.position = Vector2(float(_layout["center_x"]), 0.0)
+	add_child(_lift)
+	_set_lift_top(float(_layout["floor_y"]) + 4.0)
+
+
+## Asansör yüzeyini (üst kenarını) verilen y'ye taşır; kamera, doğma noktaları ve sınırlar onu izler.
+func _set_lift_top(y: float) -> void:
+	_lift_top = y
+	_lift.position.y = y + LIFT_THICKNESS * 0.5
+	if _cam:
+		_cam.position.y = y - 388.0
+	var left_x: float = float(_layout["left_x"])
+	var right_x: float = float(_layout["right_x"])
+	_layout["floor_y"] = y
+	_layout["bounds"] = Rect2(left_x, y - 1100.0, right_x - left_x, 1100.0)
+	_layout["spawn_left"] = Vector2(left_x + 40.0, y - 40.0)
+	_layout["spawn_right"] = Vector2(right_x - 40.0, y - 40.0)
+	_layout["air_y"] = y - 420.0
+	_layout["drop_y"] = y - 388.0 - 540.0 - 80.0
+
+
+func _rise_lift() -> void:
+	_show_message(tr("challenge.lift.rising"), LIFT_RISE_TIME)
+	var target: float = maxf(_lift_top - LIFT_RISE_PER_FLOOR, LIFT_TOP_LIMIT)
+	var tween := create_tween()
+	tween.tween_method(_set_lift_top, _lift_top, target, LIFT_RISE_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await tween.finished
+
+
+func _physics_process(delta: float) -> void:
+	# Dalga sürerken zemin yavaşça yükselmeye devam eder (hız zorlukla artar)
+	if _lift != null and _lift_creeping and not _finished:
+		_set_lift_top(maxf(_lift_top - (8.0 + 2.0 * float(difficulty)) * delta, LIFT_TOP_LIMIT))
 
 
 func _spawn_player() -> void:
@@ -179,10 +267,20 @@ func _begin_sequence() -> void:
 
 func _on_wave_started(index: int, total: int) -> void:
 	_wave_label.text = tr("challenge.wave") % [index, total]
+	_lift_creeping = _lift != null
 
 
 func _on_wave_cleared(index: int, total: int) -> void:
+	_lift_creeping = false
 	if _finished or index >= total:
+		return
+	if kind == "asansor":
+		await _show_message(tr("challenge.cleared") % index, BREAK_SECONDS)
+		if _finished:
+			return
+		await _rise_lift()
+		if not _finished:
+			_spawner.start_next_wave()
 		return
 	# Dalga arenasında her dalgadan sonra level-up (kart seçimi); korumada kısa nefes
 	if kind == "dalga":
@@ -235,6 +333,8 @@ func _grant_reward() -> String:
 				if is_instance_valid(drs) and drs.has_method("add_pending_villager_data"):
 					drs.call("add_pending_villager_data", w.rescue_data())
 		return tr("challenge.win.koruma") % survivors
+	if kind == "asansor":
+		return _grant_random_item_unlock()
 	# Dalga arenası: koleksiyona yeni item (rastgele temanın keşif havuzundan seçim kartı)
 	var im: Node = get_node_or_null("/root/ItemManager")
 	if is_instance_valid(im) and im.has_method("queue_unlock_offer"):
@@ -243,6 +343,21 @@ func _grant_reward() -> String:
 		im.call("queue_unlock_offer", theme, "kesif", 1)
 		if im.has_method("resolve_pending_unlock_offers"):
 			await im.call("resolve_pending_unlock_offers")
+	return tr("challenge.win.dalga")
+
+
+## Asansör ödülü: rastgele bir temadan, henüz açılmamış rastgele bir item doğrudan koleksiyona eklenir.
+func _grant_random_item_unlock() -> String:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("get_unlock_candidates"):
+		var pool: Array[String] = []
+		for theme in im.DUNGEON_THEME_POOLS.keys():
+			for tier in [im.UNLOCK_TIER_KESIF, im.UNLOCK_TIER_BOSS]:
+				pool.append_array(im.call("get_unlock_candidates", String(theme), String(tier)))
+		pool.shuffle()
+		for id in pool:
+			if bool(im.call("unlock_item", id)):
+				return tr("challenge.win.asansor") % tr("item.%s.name" % id)
 	return tr("challenge.win.dalga")
 
 
