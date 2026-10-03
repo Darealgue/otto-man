@@ -340,28 +340,34 @@ const UNLOCK_TIER_BOSS: String = "boss"
 ## Ön koşullu item'lar burada YOK: ebeveynleriyle bedava gelirler (bkz. _cascade_unlocks).
 const DUNGEON_THEME_POOLS: Dictionary = {
 	"ates": {
-		"kesif": ["atesli_yumruk", "ates_topu_dususu", "pala_kilici", "taskin_guc", "koz_tutan", "koruk", "tavlanmis_celik", "gokten_dusus", "guc_kayasi"],
-		"boss": ["atesli_kayma", "genis_darbe", "ocak", "ziplatan_yumruk", "agirliksiz", "sirt_darbesi", "tek_sanat", "agir_yumruk"],
+		# Ateş = VUR: yanma + ham tek hedef hasarı, ağır vuruş
+		"kesif": ["atesli_yumruk", "ates_topu_dususu", "taskin_guc", "koz_tutan", "koruk", "gokten_dusus", "guc_kayasi", "hizli_charge", "sansli_nal"],
+		"boss": ["atesli_kayma", "ocak", "sirt_darbesi", "guc_devri"],
 	},
 	"buz": {
-		"kesif": ["buzlu_kilic", "donma_cekici", "buz_cagi", "yansitici_kalkan", "dikenli_kalkan", "ters_darbe", "parry_ustasi", "olumcul_sukut", "sansli_nal", "kalkan_kirigi", "parry_zirhi", "savunma_ofkesi", "keskin_refleks", "geri_tepme", "nobetci", "karsi_atilim"],
-		"boss": ["buzlu_kayma", "nazar_boncugu", "son_kale", "cuppe_degil_zirh", "zaman_durdurucu", "yansiyan_irade", "alan_parrysi", "tasan_kaynak", "kalkan_kuresi", "altin_pencere", "hasar_donusumu", "yankilanan_parry"],
+		# Buz = DAYAN: blok, parry, kalkan, yavaşlatma
+		"kesif": ["buzlu_kilic", "donma_cekici", "buz_cagi", "yansitici_kalkan", "dikenli_kalkan", "ters_darbe", "parry_ustasi", "olumcul_sukut", "kalkan_kirigi", "parry_zirhi", "savunma_ofkesi", "keskin_refleks", "geri_tepme", "nobetci", "karsi_atilim", "tavlanmis_celik", "firlatma_parry"],
+		"boss": ["buzlu_kayma", "nazar_boncugu", "son_kale", "cuppe_degil_zirh", "zaman_durdurucu", "yansiyan_irade", "alan_parrysi", "tasan_kaynak", "kalkan_kuresi", "altin_pencere", "hasar_donusumu", "yankilanan_parry", "karsi_mermi", "simsek_kalkani", "refleks"],
 	},
 	"zehir": {
-		"kesif": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "ceset_tekmesi", "les_gazi", "zeytinyagi"],
-		"boss": ["gorunmezlik_pelerini", "hayalet_adim", "flank_avantaji", "sabir_tasi", "yankesici", "serbetci", "zehirli_sekme", "kavis_adimi", "iz_birakan", "refleks"],
+		# Zehir = SİNSİCE ÖLDÜR: zamanla hasar, yayılma, gizlilik, hırsızlık
+		"kesif": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "ceset_tekmesi", "les_gazi", "sessiz_adim", "golgeye_karisma"],
+		"boss": ["gorunmezlik_pelerini", "hayalet_adim", "flank_avantaji", "sabir_tasi", "yankesici", "serbetci"],
 	},
 	"firtina": {
-		"kesif": ["gok_gurultusu", "yildirim_dususu", "yildirim_adimi", "havada_kal", "sekme_tabanligi", "genis_dusus", "firlatma_parry", "firtina_gozu"],
-		"boss": ["simsek_parmagi", "simsek_kalkani", "duvar_ustasi", "karsi_mermi", "yildirim_zinciri"],
+		# Fırtına = HAREKET ET: şimşek, hava, dash/dodge, parkur
+		"kesif": ["gok_gurultusu", "yildirim_dususu", "yildirim_adimi", "havada_kal", "sekme_tabanligi", "firtina_gozu", "zeytinyagi", "ruzgar_toplama", "tunel_ustasi"],
+		"boss": ["simsek_parmagi", "duvar_ustasi", "yildirim_zinciri", "ziplatan_yumruk", "agirliksiz", "agir_yumruk", "toplu_kaldirma", "zehirli_sekme", "kavis_adimi", "iz_birakan", "kesintisiz_akrobasi"],
 	},
 	"barut": {
-		"kesif": ["patlama_zinciri", "dodge_bombasi", "lav_cekici", "falya", "lagimci", "tepme", "zincirleme_vurus", "hizli_charge"],
-		"boss": ["patlama_topuzu", "tuzak_fisildayan", "cenk_meydani", "yikim_muhru", "cevher_dili", "cellat_nefesi", "toplu_kaldirma", "daire_darbesi", "guc_devri", "yere_cakis"],
+		# Barut = PATLAT: alan hasarı, patlama, zincir, çoklu hedef
+		"kesif": ["patlama_zinciri", "dodge_bombasi", "lav_cekici", "falya", "lagimci", "tepme", "zincirleme_vurus", "pala_kilici", "genis_dusus"],
+		"boss": ["patlama_topuzu", "tuzak_fisildayan", "cenk_meydani", "yikim_muhru", "cevher_dili", "daire_darbesi", "yere_cakis", "genis_darbe"],
 	},
 	"golge": {
-		"kesif": ["element_izi", "ruh_akisi", "ruzgar_toplama", "ayran", "tunel_ustasi", "sessiz_adim", "golgeye_karisma"],
-		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "kesintisiz_akrobasi", "usta_isci"],
+		# Gölge = BİRLEŞTİR: sinerji, element dönüşümü, kaynak (stamina)
+		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi"],
+		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "usta_isci", "tek_sanat"],
 	},
 }
 
