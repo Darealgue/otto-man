@@ -1652,7 +1652,10 @@ func reset_death_state() -> void:
 	if sprite:
 		sprite.modulate.a = 1.0
 		sprite.modulate = Color(1, 1, 1, 1)
-	
+	# Ölümden dönerken yanma/zehir/soğuk etkileri ve renkleri temizlensin
+	if status_effects:
+		status_effects.clear_all()
+
 	# Re-enable state machine
 	if state_machine:
 		state_machine.set_process(true)

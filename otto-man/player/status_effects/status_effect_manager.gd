@@ -25,19 +25,13 @@ const POISON_TINT := Color(0.5, 1.0, 0.3, 1.0)
 # Chill (soğuk) state: hareket hızını geçici yavaşlatır, hasar vermez
 var chill_active: bool = false
 var _chill_timer: Timer
-const CHILL_TINT := Color(0.6, 0.85, 1.0, 1.0)
-
-var _original_modulate: Color = Color.WHITE
+const CHILL_TINT := Color(0.45, 0.75, 1.3, 1.0)
 
 func _ready() -> void:
 	_player = get_parent() as CharacterBody2D
 	if not _player:
 		push_error("[StatusEffectManager] Must be a child of a CharacterBody2D (Player)")
 		return
-
-	var sprite = _get_sprite()
-	if sprite:
-		_original_modulate = sprite.modulate
 
 	_burn_timer = Timer.new()
 	_burn_timer.wait_time = BURN_TICK_INTERVAL
@@ -135,26 +129,33 @@ func _get_sprite() -> CanvasItem:
 		s = _player.get_node_or_null("Sprite2D") as CanvasItem
 	return s
 
+## Durum rengi `self_modulate` ile verilir, `modulate` ile DEĞİL: hasar alınca kırmızı flaş ve
+## Hurt state'i `sprite.modulate`'ı sürekli beyaza sıfırlıyor (hurt_state.gd, player.gd), bu yüzden
+## modulate ile verilen renk vurulduğu anda siliniyordu. self_modulate'a kimse dokunmuyor;
+## ikisi çarpılarak birleşir (hasar flaşı + mavi = mor gibi).
+func _status_tint() -> Color:
+	if burn_active:
+		return BURN_TINT
+	if poison_active:
+		return POISON_TINT
+	if chill_active:
+		return CHILL_TINT
+	return Color.WHITE
+
 func _update_visual() -> void:
 	var sprite = _get_sprite()
 	if not sprite:
 		return
-	if burn_active:
-		sprite.modulate = BURN_TINT
-	elif poison_active:
-		sprite.modulate = POISON_TINT
-	elif chill_active:
-		sprite.modulate = CHILL_TINT
-	else:
-		sprite.modulate = _original_modulate
+	sprite.self_modulate = _status_tint()
 
 func _flash_tint(color: Color) -> void:
 	var sprite = _get_sprite()
 	if not sprite:
 		return
-	sprite.modulate = Color.WHITE
+	# Tick'te kısa bir parlama, sonra durum rengine geri dön
+	sprite.self_modulate = Color(1.4, 1.4, 1.4, 1.0)
 	var tw = create_tween()
-	tw.tween_property(sprite, "modulate", color if (burn_active or poison_active) else _original_modulate, 0.15)
+	tw.tween_property(sprite, "self_modulate", _status_tint(), 0.15)
 
 func is_burning() -> bool:
 	return burn_active
