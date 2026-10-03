@@ -22,7 +22,10 @@ func enter() -> void:
 		animation_player.stop()
 		if player.has_method("reset_sprite_visual_to_default"):
 			player.reset_sprite_visual_to_default()
-		if animation_player.has_animation("idle"):
+		# Hurt sprite'ı gösterilir; animasyon bitince son karede (şok boyunca) kalır
+		if animation_player.has_animation("hurt"):
+			animation_player.play("hurt")
+		elif animation_player.has_animation("idle"):
 			animation_player.play("idle")
 	_timer = player.shock_duration
 
