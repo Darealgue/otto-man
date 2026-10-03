@@ -2590,3 +2590,9 @@ challenge.kind.asansor,Asansör Arenası,Elevator Arena
 challenge.desc.asansor,"Yükselen asansörde, tepeden inen düşman dalgalarıyla savaş. Ödül: rastgele yeni bir item.",Fight enemy waves dropping from above on a rising elevator. Reward: a random new item.
 challenge.win.asansor,Zirveye ulaştın! Yeni item: %s,You reached the top! New item: %s
 challenge.lift.rising,Asansör yükseliyor...,The elevator is rising...
+challenge.accept.enter,Gir,Enter
+challenge.accept.cancel,Vazgeç,Cancel
+challenge.accept.warning,"Dikkat: başarısız olursan ölürsün. Etkinlik tek kullanımlık, girince haritadan kalkar.","Warning: if you fail, you die. The event is single use and vanishes from the map once you enter."
+ozan.song.challenge.koruma,"%s, %s bir avuç köylü kuşatılmış; onları koruyan el, minnetin yükünü taşır.","%s, %s a handful of villagers are besieged; the hand that shields them carries the weight of gratitude."
+ozan.song.challenge.dalga,"%s, %s dinmeyen bir kavga kopar; her vuruşta güçlenen, kapıdan başı dik çıkar.","%s, %s a fight that never ends breaks out; he who grows stronger with every blow walks out with his head held high."
+ozan.song.challenge.asansor,"%s, %s yükselen bir zemin var; tepeden yağan düşmana bakma, yukarı bakan kazanır.","%s, %s a rising floor lifts; never mind the foes raining from above, he who looks up wins."

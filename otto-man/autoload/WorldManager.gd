@@ -2059,6 +2059,50 @@ func place_challenge_poi(kind: String, biome: String, difficulty: int, lifetime_
 	return {"ok": true, "key": picked, "q": int(t.get("q", 0)), "r": int(t.get("r", 0))}
 
 
+## Otomatik doğma: harita her açıldığında çağrılır. En fazla CHALLENGE_MAX_ACTIVE etkinlik aynı anda durur;
+## son doğmadan en az CHALLENGE_MIN_GAP_DAYS gün geçmeli ve zar tutmalı. Son doğma günü köy karosunda
+## ("challenge_last_spawn_day") saklanır, böylece harita kaydıyla birlikte kalıcıdır. Doğan etkinliğin
+## {"ok", "key", ...} sonucunu döndürür; doğmadıysa {"ok": false}.
+const CHALLENGE_MAX_ACTIVE: int = 2
+const CHALLENGE_MIN_GAP_DAYS: int = 2
+const CHALLENGE_SPAWN_CHANCE: float = 0.6
+const CHALLENGE_LIFETIME_DAYS: int = 5
+const CHALLENGE_AUTO_KINDS: Array[String] = ["koruma", "dalga", "asansor"]
+
+func maybe_spawn_challenge() -> Dictionary:
+	if world_map_tiles.is_empty():
+		return {"ok": false}
+	purge_expired_challenges()
+	# Zindan rehberi (ilk zindan eğitimi) sürerken harita sade kalsın
+	var tut: Node = get_node_or_null("/root/TutorialManager")
+	if is_instance_valid(tut) and bool(tut.get("village_dungeon_guide_active")) and not bool(tut.get("tutorial_dungeon_guide_complete")):
+		return {"ok": false}
+	var today: int = _current_day_for_challenges()
+	var active: int = 0
+	var village_key: String = ""
+	for key in world_map_tiles:
+		var tile: Dictionary = world_map_tiles[key]
+		var poi: String = String(tile.get("poi_type", ""))
+		if poi == "challenge":
+			active += 1
+		elif poi == "player_village":
+			village_key = String(key)
+	if active >= CHALLENGE_MAX_ACTIVE or village_key.is_empty():
+		return {"ok": false}
+	var vt: Dictionary = world_map_tiles[village_key]
+	var last: int = int(vt.get("challenge_last_spawn_day", -100))
+	if today - last < CHALLENGE_MIN_GAP_DAYS or randf() > CHALLENGE_SPAWN_CHANCE:
+		return {"ok": false}
+	var kind: String = CHALLENGE_AUTO_KINDS[randi() % CHALLENGE_AUTO_KINDS.size()]
+	var biome: String = ChallengeRoomRegistry.biome_for(kind, "orman" if randf() < 0.5 else "zindan")
+	var difficulty: int = clampi(1 + today / 4 + randi_range(-1, 1), 1, 7)
+	var res: Dictionary = place_challenge_poi(kind, biome, difficulty, CHALLENGE_LIFETIME_DAYS)
+	if bool(res.get("ok", false)):
+		vt["challenge_last_spawn_day"] = today
+		world_map_tiles[village_key] = vt
+	return res
+
+
 func get_challenge_at(q: int, r: int) -> Dictionary:
 	var tile: Dictionary = world_map_tiles.get(_hex_key(q, r), {})
 	if String(tile.get("poi_type", "")) != "challenge":

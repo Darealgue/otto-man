@@ -276,6 +276,8 @@ func _ready() -> void:
 	_world_manager = get_node_or_null("/root/WorldManager")
 	if _world_manager and _world_manager.has_method("purge_expired_challenges"):
 		_world_manager.call("purge_expired_challenges")
+	if _world_manager and _world_manager.has_method("maybe_spawn_challenge"):
+		_world_manager.call("maybe_spawn_challenge")
 	_camera = get_node_or_null("Camera2D")
 	if _camera:
 		_camera.zoom = Vector2(ZOOM_CLOSEST, ZOOM_CLOSEST)
@@ -914,9 +916,40 @@ func _enter_player_village_from_world_map() -> void:
 
 
 ## Challenge odasına gir: etkinlik tek kullanımlık, girilince haritadan kalkar (kazan/kaybet fark etmez).
+var _challenge_dialog: ConfirmationDialog = null
+
 func _enter_challenge_from_world_map(q: int, r: int) -> void:
 	if _world_manager == null or not _world_manager.has_method("get_challenge_at"):
 		return
+	var ch: Dictionary = _world_manager.call("get_challenge_at", q, r)
+	if ch.is_empty():
+		return
+	if is_instance_valid(_challenge_dialog):
+		return
+	# Kabul ekranı: ne olduğu, nerede/ne zorlukta geçtiği ve riski gösterilir; onaylanırsa girilir
+	var kind: String = String(ch.get("kind", "koruma"))
+	var kind_key: String = String(ChallengeRoomRegistry.KINDS.get(kind, "challenge.kind.koruma"))
+	var dlg := ConfirmationDialog.new()
+	dlg.theme = MEDIEVAL_THEME
+	dlg.title = tr(kind_key)
+	dlg.dialog_text = "%s\n\n%s\n%s\n\n%s" % [
+		tr("challenge.desc.%s" % kind),
+		tr("challenge.tooltip.meta") % [tr("challenge.biome.%s" % String(ch.get("biome", "orman"))), int(ch.get("difficulty", 1))],
+		tr("challenge.tooltip.days") % int(ch.get("days_left", 0)),
+		tr("challenge.accept.warning"),
+	]
+	dlg.ok_button_text = tr("challenge.accept.enter")
+	dlg.cancel_button_text = tr("challenge.accept.cancel")
+	dlg.confirmed.connect(_start_challenge.bind(q, r))
+	dlg.visibility_changed.connect(func() -> void:
+		if not dlg.visible:
+			dlg.queue_free())
+	_challenge_dialog = dlg
+	add_child(dlg)
+	dlg.popup_centered(Vector2i(720, 360))
+
+
+func _start_challenge(q: int, r: int) -> void:
 	var ch: Dictionary = _world_manager.call("get_challenge_at", q, r)
 	if ch.is_empty():
 		return

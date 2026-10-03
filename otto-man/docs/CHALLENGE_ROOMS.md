@@ -46,6 +46,15 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Zindan arenaları her girişte rastgele dekor ve renk paleti (6 palet) alır; karolar ekran dışına taşar.
 - Koruma'da dalga sayısı köylü sayısına bağlı (1-4); payload `wards` ile köylü sayısı verilebilir.
 
+## Haritada doğma, ozan, kabul ekranı
+- **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
+  son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör rastgele (asansör hep zindan);
+  zorluk gün sayısına göre. Son doğma günü köy karosunda (`challenge_last_spawn_day`) saklanır. Zindan
+  rehberi sürerken doğmaz.
+- **Ozan:** `OzanSongs.pick_clue()` haritada aktif etkinlik varsa (%65) onu söyler: yön + uzaklık + türün türküsü
+  (`ozan.song.challenge.<tür>`). Aynı etkinlik oturum içinde tekrar söylenmez (kayda yazılmaz).
+- **Kabul ekranı:** POI'ye girince `ConfirmationDialog`: tür, açıklama, mekân/zorluk, kalan gün, ölüm uyarısı;
+  "Gir" onaylarsa oda açılır ve karo kalkar, "Vazgeç" hiçbir şeyi tüketmez.
+
 ## Henüz yok
-- Otomatik doğma (ömür/sıklık), ozan haberi, giriş kabul ekranı.
 - Tuzak Geçidi, Kovalamaca ve diğer türler (bkz. sohbetteki fikir listesi).

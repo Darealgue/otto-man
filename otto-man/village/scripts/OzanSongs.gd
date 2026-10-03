@@ -55,15 +55,44 @@ static func candidate_keys() -> Array[String]:
 ## {"dungeon_key", "theme", "dir_key", "dist_key"}; anlatılacak zindan kalmadıysa boş sözlük.
 static func pick_clue() -> Dictionary:
 	var keys := candidate_keys()
-	if keys.is_empty():
+	var challenge_keys := challenge_candidate_keys()
+	if keys.is_empty() and challenge_keys.is_empty():
 		return {}
 	var wm := _node("WorldManager")
 	var village := _village_pos(wm)
 	if village.is_empty():
 		return {}
+	# Haritada geçici bir etkinlik varsa ozan çoğunlukla onu söyler (süresi dolmadan duyurulsun)
+	if not challenge_keys.is_empty() and (keys.is_empty() or randf() < 0.65):
+		var ckey: String = challenge_keys[randi() % challenge_keys.size()]
+		var ctile: Dictionary = wm.world_map_tiles[ckey]
+		var clue: Dictionary = clue_for(village, ctile, ckey)
+		clue["challenge_kind"] = String(ctile.get("challenge_kind", "koruma"))
+		return clue
 	var key: String = keys[randi() % keys.size()]
 	var tile: Dictionary = wm.world_map_tiles[key]
 	return clue_for(village, tile, key)
+
+
+## Hâlâ süresi dolmamış, ozanın bu oturumda henüz söylemediği challenge karoları.
+static func challenge_candidate_keys() -> Array[String]:
+	var out: Array[String] = []
+	var wm := _node("WorldManager")
+	if wm == null:
+		return out
+	for key in wm.world_map_tiles:
+		var tile: Dictionary = wm.world_map_tiles[key]
+		if String(tile.get("poi_type", "")) != "challenge":
+			continue
+		var tag: String = "%s:%d" % [String(key), int(tile.get("challenge_expires_day", 0))]
+		if tag in _sung_challenge_tags:
+			continue
+		out.append(String(key))
+	return out
+
+
+## Bu oturumda söylenen challenge'lar ("q,r:sonGün"); kayda yazılmaz, yeniden yüklemede ozan tekrar anlatabilir.
+static var _sung_challenge_tags: Array[String] = []
 
 
 ## Köy ile zindan karosundan ipucu üretir (test edilebilsin diye ayrı).
@@ -92,6 +121,14 @@ static func clue_for(village: Dictionary, tile: Dictionary, key: String) -> Dict
 static func song_text(clue: Dictionary) -> String:
 	if clue.is_empty():
 		return TranslationServer.translate("ozan.none")
+	if clue.has("challenge_kind"):
+		var ckey := "ozan.song.challenge.%s" % String(clue["challenge_kind"])
+		var ctemplate: String = TranslationServer.translate(ckey)
+		if ctemplate != ckey:
+			return ctemplate % [
+				TranslationServer.translate(String(clue["dir_key"])),
+				TranslationServer.translate(String(clue["dist_key"])),
+			]
 	var song_key := "ozan.song.%s" % String(clue.get("theme", "ates"))
 	var template: String = TranslationServer.translate(song_key)
 	if template == song_key:
@@ -104,6 +141,13 @@ static func song_text(clue: Dictionary) -> String:
 
 ## Türkü söylendi: zindanı "söylenmiş" listesine ekler.
 static func mark_sung(clue: Dictionary) -> void:
+	if clue.has("challenge_kind"):
+		var wm := _node("WorldManager")
+		var ckey: String = String(clue.get("dungeon_key", ""))
+		if wm != null and wm.world_map_tiles.has(ckey):
+			var exp_day: int = int((wm.world_map_tiles[ckey] as Dictionary).get("challenge_expires_day", 0))
+			_sung_challenge_tags.append("%s:%d" % [ckey, exp_day])
+		return
 	var im := _node("ItemManager")
 	var key: String = String(clue.get("dungeon_key", ""))
 	if im != null and not key.is_empty() and key not in im.ozan_sung_dungeon_keys:
