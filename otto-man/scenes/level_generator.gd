@@ -3011,6 +3011,9 @@ func spawn_player() -> void:
 			remove_child(player)
 			add_child(player)
 		
+		# Zindan teması zemin tutuşu (buz = kaygan); temasız zindanda 1.0'a döner
+		player.set("ground_traction", DungeonThemeStyle.get_ground_traction(dungeon_theme))
+
 		# Player pozisyonu artık setup_level_transitions() tarafından ayarlanıyor
 		# Burada sadece kamera ayarlarını yapıyoruz
 		print("Player spawn completed, position will be set by door system")
