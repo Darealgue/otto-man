@@ -28,6 +28,16 @@ const STYLES: Dictionary = {
 		"flame_scale": 1.7,
 		"burn_ticks_bonus": 2,
 	},
+	# Fırtına = HAREKET ET: mavi-mor fırtına paleti; zeminde yıldırım direkleri (yaklaşınca şarj olur,
+	# uyarı sütununa yıldırım düşer). Ateş tuzağı bu zindanda çıkmaz (çarpan 0).
+	"firtina": {
+		"tint_fg": Color(0.80, 0.82, 1.0),
+		"tint_bg": Color(0.52, 0.55, 0.78),
+		"trap_weight": {
+			"lightning_rod": 2.5,
+			"fire_trap": 0.0,
+		},
+	},
 	# Buz = DAYAN: mavi palet; duvar ok atıcıları daha sık ve oklar buzlu (isabette 2.5 sn yavaşlatır).
 	# Kaygan zemin karoları sonra, kendi karo dekorlarıyla gelecek.
 	"buz": {

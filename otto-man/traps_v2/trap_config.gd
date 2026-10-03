@@ -13,7 +13,8 @@ enum TrapType {
 	FIRE_TRAP,
 	ARROW_SHOOTER,
 	CANNON_TRAP,
-	POISON_DRIP
+	POISON_DRIP,
+	LIGHTNING_ROD
 }
 
 const TRAP_DATA = {
@@ -51,14 +52,29 @@ const TRAP_DATA = {
 		"weight": 35,
 		"min_level": 1,
 		"base_damage": 2.0
+	},
+	# Yalnız fırtına zindanında çıkar ("themes" listesi); temasız zindanda hiç seçilmez.
+	TrapType.LIGHTNING_ROD: {
+		"scene_path": "res://traps_v2/ground/lightning_rod_trap.tscn",
+		"surface": SurfaceType.FLOOR,
+		"weight": 40,
+		"min_level": 1,
+		"base_damage": 14.0,
+		"themes": ["firtina"]
 	}
 }
 
-static func get_traps_for_surface(surface: SurfaceType, level: int) -> Array[TrapType]:
+static func get_traps_for_surface(surface: SurfaceType, level: int, theme: String = "") -> Array[TrapType]:
 	var result: Array[TrapType] = []
 	for trap_type in TRAP_DATA:
 		var data: Dictionary = TRAP_DATA[trap_type]
 		if data.min_level > level:
+			continue
+		# Temaya özel tuzaklar (örn. yıldırım direği) yalnız o temada çıkar
+		if data.has("themes") and theme not in data.themes:
+			continue
+		# Tema bu tuzağı tamamen kapatmış olabilir (ağırlık çarpanı 0)
+		if not theme.is_empty() and DungeonThemeStyle.get_trap_weight_mult(theme, trap_name(trap_type)) <= 0.0:
 			continue
 		match surface:
 			SurfaceType.FLOOR:
@@ -89,7 +105,7 @@ static func _effective_weight(surface: SurfaceType, t: TrapType, theme: String) 
 
 
 static func select_random_trap(surface: SurfaceType, level: int, theme: String = "") -> TrapType:
-	var available := get_traps_for_surface(surface, level)
+	var available := get_traps_for_surface(surface, level, theme)
 	if available.is_empty():
 		return TrapType.SPIKE
 	var total_weight: int = 0
