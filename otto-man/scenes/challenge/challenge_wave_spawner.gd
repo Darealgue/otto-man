@@ -44,7 +44,6 @@ func configure(arena_layout: Dictionary, enemy_container: Node2D, diff: int, tot
 	wave_total = maxi(1, total_waves)
 
 
-## Dalga sayısı zorluğa bağlı: 1 -> 4, 3 -> 5, 5 -> 6, 9 -> 8
 ## Dalga arenası: 3 dalga (oyun testinde dengeli bulundu), yüksek zorlukta 4.
 ## Koruma'da dalga sayısı korunan köylü sayısını izler (bkz. waves_for_wards).
 static func waves_for_difficulty(diff: int) -> int:
@@ -109,9 +108,22 @@ func _physics_process(delta: float) -> void:
 
 func _prune_dead() -> void:
 	var still: Array[Node2D] = []
+	var arena: Rect2 = (layout["bounds"] as Rect2).grow(500.0) if layout.has("bounds") else Rect2()
 	for e in _alive:
-		if is_instance_valid(e) and e.get("current_behavior") != "dead":
-			still.append(e)
+		if not is_instance_valid(e) or e.get("current_behavior") == "dead":
+			continue
+		# Dalga bitmeyi engelleyen takılmış düşmanlar: arenanın çok dışına kaçan ya da canı bitmiş
+		# ama ölüm akışına girmemiş olanlar elenir (dalga/ödül akışı asla kilitlenmesin).
+		var stuck: bool = arena.has_area() and not arena.has_point(e.global_position)
+		var hp: Variant = e.get("health")
+		if hp != null and float(hp) <= 0.0:
+			var t: float = float(e.get_meta("_zombie_time", 0.0)) + get_physics_process_delta_time()
+			e.set_meta("_zombie_time", t)
+			stuck = stuck or t > 2.5
+		if stuck:
+			e.queue_free()
+			continue
+		still.append(e)
 	_alive = still
 
 

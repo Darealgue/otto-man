@@ -89,7 +89,9 @@ static func _add_boundary_walls(root: Node2D, left_x: float, right_x: float, for
 		return
 	var body := StaticBody2D.new()
 	body.name = "BoundaryWalls"
-	body.collision_layer = CollisionLayers.WORLD
+	# BUILDING_SLOT katmanı: oyuncu ve düşmanın gövdesini durdurur ama oyuncunun duvar ışınları
+	# (yalnız WORLD'e bakar) görmez; yani bu duvarlara tırmanılamaz, wall slide/jump yapılamaz.
+	body.collision_layer = CollisionLayers.BUILDING_SLOT
 	body.collision_mask = 0
 	var specs := [
 		[Vector2(left_x - 16.0, 540.0), Vector2(32.0, 1400.0)],
