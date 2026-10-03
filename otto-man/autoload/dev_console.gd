@@ -89,6 +89,27 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "test_items":
 		handle_test_items_command(1)
 		return
+	if cmd == "dungeon_theme":
+		var dt_dp = get_node_or_null("/root/DungeonProgress")
+		if dt_dp == null:
+			print_output("DungeonProgress bulunamadı!")
+			return
+		var themes: Array = ["ates", "buz", "zehir", "firtina", "barut", "golge"]
+		if args.is_empty():
+			var cur: String = String(dt_dp.get("debug_theme_override"))
+			print_output("Tema override: %s (kullanım: dungeon_theme <%s|off>)" % [cur if not cur.is_empty() else "kapalı", "|".join(themes)])
+			return
+		var wanted: String = String(args[0]).to_lower()
+		if wanted in ["off", "kapat", "none"]:
+			dt_dp.set("debug_theme_override", "")
+			print_output("Tema override kapatıldı: zindanlar kendi temasında üretilir.")
+			return
+		if wanted not in themes:
+			print_output("Bilinmeyen tema: %s (%s)" % [wanted, ", ".join(themes)])
+			return
+		dt_dp.set("debug_theme_override", wanted)
+		print_output("Sonraki zindan '%s' temasında üretilir. Bir zindana gir (her kapı olur); kapatmak için: dungeon_theme off" % wanted)
+		return
 	if cmd == "overheal":
 		var oh_amount := 50.0
 		if args.size() > 0 and String(args[0]).is_valid_float():
@@ -819,6 +840,7 @@ func show_help() -> void:
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
+	dungeon_theme <ates|buz|zehir|firtina|barut|golge|off> - Force the theme (palette, traps, unlock pool) of the next dungeon you enter
 	overheal [n] - Add n points of overflow health (blue shield on the health bar, default 50)
 	market [gold] - Spawn the market door next to the player and top up the run wallet (default 500)
 	unlock_offer [kesif|boss] [theme] - Queue and show an item unlock offer (default: kesif, current dungeon theme)

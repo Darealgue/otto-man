@@ -119,7 +119,14 @@ func _queue_item_unlock_offer(dungeon_id: String, tier: String, picks: int) -> v
 	im.call("queue_unlock_offer", get_dungeon_theme(dungeon_id), tier, picks)
 
 
+## Dev konsolu (`dungeon_theme`) ile ayarlanır: doluysa her zindan bu temada üretilir ve bu
+## tema için unlock teklifi çıkar. Kaydedilmez; oyun kapanınca sıfırlanır.
+var debug_theme_override: String = ""
+
+
 func get_dungeon_theme(dungeon_id: String = "") -> String:
+	if not debug_theme_override.is_empty():
+		return debug_theme_override
 	var key: String = dungeon_id if not dungeon_id.is_empty() else active_dungeon_id
 	var wm: Node = get_node_or_null("/root/WorldManager")
 	if is_instance_valid(wm) and wm.has_method("get_dungeon_theme"):
