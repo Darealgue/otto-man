@@ -4778,12 +4778,14 @@ func _remove_legacy_enemy_spawners(chunk_node: Node2D) -> void:
 # TRAP POPULATION (V2 tile-based system)
 # ==============================================================================
 
-## Zindan temasının renk paleti: birleşik karo haritasına (duvar/zemin/arka plan karoları) tint.
-## Karakterler, düşmanlar ve tuzaklar etkilenmez. Dekor teması geldiğinde burası genişler.
+## Zindan temasının renk paleti: birleşik karo haritasında zemin/duvar (çarpışmalı) ve arka plan
+## karoları ayrı renklenir. Karakterler, düşmanlar ve tuzaklar etkilenmez.
 func _apply_dungeon_theme_palette() -> void:
 	if not unified_terrain or dungeon_theme.is_empty():
 		return
-	unified_terrain.modulate = DungeonThemeStyle.get_tint(dungeon_theme)
+	unified_terrain.apply_theme_palette(
+		DungeonThemeStyle.get_tint_fg(dungeon_theme),
+		DungeonThemeStyle.get_tint_bg(dungeon_theme))
 
 
 func _populate_traps_on_unified_terrain() -> void:

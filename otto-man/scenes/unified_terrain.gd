@@ -36,6 +36,29 @@ func initialize_darkness_controller() -> void:
 	
 	print("[UnifiedTerrain] Darkness controller initialized and applied to TileMap")
 
+## Zindan teması paleti: çarpışması olan karolar (zemin/duvar) `fg`, çarpışmasız karolar (arka plan)
+## `bg` ile boyanır. Karoların kendi TileData.modulate'ı kullanılır (distance_darkness shader'ı
+## vertex rengini taşır). TileSet chunk sahneleriyle paylaşımlı bir kaynak olduğu için önce
+## kopyalanır, aksi halde sonraki zindanlar da boyalı gelirdi.
+func apply_theme_palette(fg: Color, bg: Color) -> void:
+	if not tile_set:
+		return
+	tile_set = tile_set.duplicate(true)
+	var has_physics: bool = tile_set.get_physics_layers_count() > 0
+	for i in range(tile_set.get_source_count()):
+		var src := tile_set.get_source(tile_set.get_source_id(i)) as TileSetAtlasSource
+		if src == null:
+			continue
+		for t in range(src.get_tiles_count()):
+			var coords: Vector2i = src.get_tile_id(t)
+			for a in range(src.get_alternative_tiles_count(coords)):
+				var td: TileData = src.get_tile_data(coords, src.get_alternative_tile_id(coords, a))
+				if td == null:
+					continue
+				var is_solid: bool = has_physics and td.get_collision_polygons_count(0) > 0
+				td.modulate = fg if is_solid else bg
+
+
 func unify_chunks(chunks: Array) -> void:
 	if DEBUG_UNIFIED_TERRAIN:
 		print("\n=== Starting Terrain Unification ===")

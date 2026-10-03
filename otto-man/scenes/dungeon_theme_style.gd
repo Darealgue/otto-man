@@ -6,7 +6,8 @@ class_name DungeonThemeStyle
 ## Teması listede olmayan zindan (veya run dışı açılan sahne) hiçbir değişiklik görmez.
 ##
 ## Anahtarlar:
-##   tint          : unified_terrain.modulate (duvar/zemin/arka plan karoları). Beyaz = değişiklik yok.
+##   tint_fg / tint_bg : çarpışmalı (zemin/duvar) ve çarpışmasız (arka plan) karoların rengi
+##                       (UnifiedTerrain.apply_theme_palette). Beyaz = değişiklik yok.
 ##   trap_weight   : TrapType -> ağırlık çarpanı (tür seçiminde)
 ##   trap_group    : TrapType -> Vector2i(min, max) yan yana grup boyu; seviye tablosunu ezer
 ##   flame_scale   : FireTrapV2 alev boyutu çarpanı (görsel + hasar alanı)
@@ -15,7 +16,8 @@ class_name DungeonThemeStyle
 const STYLES: Dictionary = {
 	# Ateş = VUR: kızıl-turuncu palet, uzun alevli ve 2-3'lü gruplar halinde ateş tuzakları.
 	"ates": {
-		"tint": Color(1.0, 0.72, 0.58),
+		"tint_fg": Color(1.0, 0.78, 0.62),   # üstünde koştuğumuz (çarpışmalı) karolar
+		"tint_bg": Color(0.55, 0.40, 0.38),  # arka plan duvar karoları: daha koyu, zemin ayrışsın
 		"trap_weight": {
 			"fire_trap": 3.5,
 		},
@@ -32,8 +34,12 @@ static func get_style(theme: String) -> Dictionary:
 	return STYLES.get(theme, {})
 
 
-static func get_tint(theme: String) -> Color:
-	return get_style(theme).get("tint", Color.WHITE)
+static func get_tint_fg(theme: String) -> Color:
+	return get_style(theme).get("tint_fg", Color.WHITE)
+
+
+static func get_tint_bg(theme: String) -> Color:
+	return get_style(theme).get("tint_bg", Color.WHITE)
 
 
 ## trap_name: TrapConfigV2.TrapType anahtarının küçük harfi ("fire_trap", "spike", ...).

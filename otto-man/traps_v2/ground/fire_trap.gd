@@ -56,14 +56,15 @@ func _ready() -> void:
 		sprite.animation_finished.connect(_on_animation_finished)
 		sprite.play("idle")
 
-## Alevi tabanı sabit kalacak şekilde büyütür: sprite (150px kare, merkez 0,3) ve hasar kutusu
-## (28x24, tabanı y=0) yukarı doğru uzar. Şekiller sahnede paylaşımlı olduğu için kopyalanır.
+## Alevi tabanı sabit kalacak şekilde büyütür. Fire.png karelerinde alevin tabanı karenin
+## MERKEZİNDE (yukarı doğru uzanır), bu yüzden sprite'ı merkezinden ölçeklemek tabanı yerinde
+## tutar; konumu kaydırmak alevi havaya kaldırır. Hasar kutusu (28x24, tabanı y=0) yukarı uzar.
+## Şekiller sahnede paylaşımlı olduğu için kopyalanır.
 func _apply_flame_scale() -> void:
 	if is_equal_approx(flame_scale, 1.0):
 		return
 	if sprite:
 		sprite.scale = Vector2(flame_scale, flame_scale)
-		sprite.position.y = 3.0 + 75.0 * (1.0 - flame_scale)
 	var dmg_shape := damage_area.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if dmg_shape and dmg_shape.shape is RectangleShape2D:
 		var rect := (dmg_shape.shape as RectangleShape2D).duplicate() as RectangleShape2D
