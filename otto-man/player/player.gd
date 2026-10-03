@@ -175,6 +175,10 @@ var extra_speed_multiplier: float = 1.0  # hareket hızı ek çarpan (Kan Tadı)
 ## Zemin tutuşu: 1.0 normal; <1 buz gibi kaygan zemin (yerdeki hızlanma ve yavaşlama bu oranda azalır).
 ## Zindan teması (DungeonThemeStyle "ground_traction") level generator tarafından ayarlanır.
 var ground_traction: float = 1.0
+## Kaygan zeminde (ground_traction < 1) hava hissi: normal 0.85/kare momentum kesme çok sert,
+## hiç kesmemek de havada kayıyor hissi veriyor; ikisinin ortası.
+const slippery_air_cancel_rate: float = 0.96   # tuş bırakılınca kare başına (60 FPS'e göre) hız çarpanı
+const slippery_air_carry_decel: float = 700.0  # taşınan momentum hedef hıza bu ivmeyle iner (normal: air_acceleration 1500)
 var status_speed_multiplier: float = 1.0  # durum etkisi (Soğuk/yavaşlatma) çarpanı; StatusEffectManager yönetir
 # Ölümcül Sükût: parry/block sonrası ilk light attack hasar çarpanı (1.0 = yok, >1 = bonus)
 var olumcul_sukut_next_light_bonus: float = 1.0
@@ -1936,10 +1940,11 @@ func apply_movement(delta: float, input_dir: float) -> void:
 			
 			# Quick momentum cancellation when releasing direction in air
 			# Only if not wall jumping to preserve wall jump feel
-			# Kaygan zeminde (buz) yerdeki momentum havaya taşınır: burada kesmek zıplayınca
-			# kaymayı bir anda öldürüp hava kontrolünü "kabız" hissettiriyordu.
-			if input_dir == 0 and !is_wall_jumping and ground_traction >= 1.0:
-				velocity.x *= air_momentum_cancel_rate
+			# Kaygan zeminde (buz) yerdeki momentum havaya kısmen taşınır: normal oyundaki 0.85/kare
+			# kesme kaymayı bir anda öldürüyordu (kabız), hiç kesmemek de havada kayıyor hissi veriyordu.
+			if input_dir == 0 and !is_wall_jumping:
+				var cancel_rate: float = air_momentum_cancel_rate if ground_traction >= 1.0 else slippery_air_cancel_rate
+				velocity.x *= pow(cancel_rate, delta * 60.0)
 			# Add extra friction when changing direction in air
 			elif input_dir != 0 and sign(input_dir) != sign(velocity.x):
 				velocity.x *= 0.95  # Slight momentum reduction when turning
@@ -1950,7 +1955,7 @@ func apply_movement(delta: float, input_dir: float) -> void:
 		var carrying_momentum: bool = ground_traction < 1.0 and !is_on_floor() \
 			and sign(velocity.x) == sign(input_dir) and absf(velocity.x) > absf(input_dir * target_speed)
 		if carrying_momentum:
-			apply_friction(delta, input_dir)
+			velocity.x = move_toward(velocity.x, input_dir * target_speed, slippery_air_carry_decel * delta)
 		else:
 			velocity.x = move_toward(velocity.x, input_dir * target_speed, current_acceleration * delta)
 	else:
