@@ -4783,9 +4783,13 @@ func _remove_legacy_enemy_spawners(chunk_node: Node2D) -> void:
 func _apply_dungeon_theme_palette() -> void:
 	if not unified_terrain or dungeon_theme.is_empty():
 		return
-	unified_terrain.apply_theme_palette(
-		DungeonThemeStyle.get_tint_fg(dungeon_theme),
-		DungeonThemeStyle.get_tint_bg(dungeon_theme))
+	var tint_fg: Color = DungeonThemeStyle.get_tint_fg(dungeon_theme)
+	var tint_bg: Color = DungeonThemeStyle.get_tint_bg(dungeon_theme)
+	unified_terrain.apply_theme_palette(tint_fg, tint_bg)
+	# Arka plan duvarı chunk'ların kendi "bg" TileMapLayer'ında (birleşik haritaya girmez);
+	# aynı arka plan rengini alsın, yoksa boyalı zemin ile boyasız duvar sert ayrışır.
+	for bg_layer in find_children("bg", "TileMapLayer", true, false):
+		(bg_layer as CanvasItem).modulate = tint_bg
 
 
 func _populate_traps_on_unified_terrain() -> void:

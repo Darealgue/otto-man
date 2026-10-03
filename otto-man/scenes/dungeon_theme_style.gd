@@ -16,8 +16,8 @@ class_name DungeonThemeStyle
 const STYLES: Dictionary = {
 	# Ateş = VUR: kızıl-turuncu palet, uzun alevli ve 2-3'lü gruplar halinde ateş tuzakları.
 	"ates": {
-		"tint_fg": Color(1.0, 0.78, 0.62),   # üstünde koştuğumuz (çarpışmalı) karolar
-		"tint_bg": Color(0.55, 0.40, 0.38),  # arka plan duvar karoları: daha koyu, zemin ayrışsın
+		"tint_fg": Color(1.0, 0.84, 0.72),   # üstünde koştuğumuz (çarpışmalı) karolar
+		"tint_bg": Color(0.78, 0.60, 0.54),  # arka plan duvarı (chunk "bg" katmanı + çarpışmasız karolar); fg'ye yakın tutuldu, yumuşak geçiş
 		"trap_weight": {
 			"fire_trap": 3.5,
 		},
