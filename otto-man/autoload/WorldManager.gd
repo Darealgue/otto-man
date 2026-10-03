@@ -2051,7 +2051,7 @@ func place_challenge_poi(kind: String, biome: String, difficulty: int, lifetime_
 	var t: Dictionary = world_map_tiles[picked]
 	t["poi_type"] = "challenge"
 	t["challenge_kind"] = kind
-	t["challenge_biome"] = biome
+	t["challenge_biome"] = ChallengeRoomRegistry.biome_for(kind, biome)
 	t["challenge_difficulty"] = clampi(difficulty, 1, 9)
 	t["challenge_expires_day"] = _current_day_for_challenges() + maxi(1, lifetime_days)
 	world_map_tiles[picked] = t

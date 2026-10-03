@@ -73,6 +73,7 @@ func _read_payload() -> void:
 		kind = "koruma"
 	if biome not in ChallengeRoomRegistry.BIOMES:
 		biome = "orman"
+	biome = ChallengeRoomRegistry.biome_for(kind, biome)
 
 
 ## Orman arenası: gerçek orman sahnesinin gökyüzü/güneş/parallax/bulut ve zemin dekoru.
@@ -167,6 +168,22 @@ func _physics_process(delta: float) -> void:
 	# Dalga sürerken zemin yavaşça yükselmeye devam eder (hız zorlukla artar)
 	if _lift != null and _lift_creeping and not _finished:
 		_set_lift_top(maxf(_lift_top - (8.0 + 2.0 * float(difficulty)) * delta, LIFT_TOP_LIMIT))
+	if _lift != null:
+		_carry_corpses()
+
+
+## Ölünce çarpışması kapanan bazı düşmanların (örn. mızrakçı) cesedi dünyada sabit kalıyor; asansör
+## yükselince cesetler altta kalıp aşağı sızıyordu. Asansör yüzeyine yakın ölenlerin cesedi yüzeyle birlikte taşınır.
+func _carry_corpses() -> void:
+	for e in _enemy_container.get_children():
+		if not (e is Node2D) or e.get("current_behavior") != "dead":
+			continue
+		if not e.has_meta("_lift_off"):
+			var off: float = (e as Node2D).global_position.y - _lift_top
+			e.set_meta("_lift_off", off if absf(off) < 80.0 else INF)
+		var stored: float = float(e.get_meta("_lift_off"))
+		if stored != INF:
+			(e as Node2D).global_position.y = _lift_top + stored
 
 
 func _spawn_player() -> void:

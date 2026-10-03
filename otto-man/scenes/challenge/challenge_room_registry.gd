@@ -16,5 +16,10 @@ const KINDS: Dictionary = {
 const BIOMES: Array[String] = ["orman", "zindan"]
 
 
+## Asansör yalnız zindanda kurulur (ormanda asansör mantıksız görünüyordu); diğer türler istenen mekânda.
+static func biome_for(kind: String, biome: String) -> String:
+	return "zindan" if kind == "asansor" else biome
+
+
 static func is_challenge_room_path(path: String) -> bool:
 	return not path.is_empty() and "challenge_room" in path.to_lower()
