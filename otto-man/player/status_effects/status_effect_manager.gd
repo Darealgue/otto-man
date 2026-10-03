@@ -35,7 +35,7 @@ func _ready() -> void:
 		push_error("[StatusEffectManager] Must be a child of a CharacterBody2D (Player)")
 		return
 
-	var sprite = _player.get_node_or_null("AnimatedSprite2D")
+	var sprite = _get_sprite()
 	if sprite:
 		_original_modulate = sprite.modulate
 
@@ -125,8 +125,18 @@ func _clear_poison() -> void:
 	_poison_timer.stop()
 	_update_visual()
 
+## Oyuncunun sprite'ı Sprite2D (AnimatedSprite2D değil). Eskiden yalnızca AnimatedSprite2D
+## aranıyordu, bu yüzden yanma/zehir/soğuk renkleri oyuncuda hiç görünmüyordu.
+func _get_sprite() -> CanvasItem:
+	if not _player:
+		return null
+	var s := _player.get_node_or_null("AnimatedSprite2D") as CanvasItem
+	if s == null:
+		s = _player.get_node_or_null("Sprite2D") as CanvasItem
+	return s
+
 func _update_visual() -> void:
-	var sprite = _player.get_node_or_null("AnimatedSprite2D") if _player else null
+	var sprite = _get_sprite()
 	if not sprite:
 		return
 	if burn_active:
@@ -139,7 +149,7 @@ func _update_visual() -> void:
 		sprite.modulate = _original_modulate
 
 func _flash_tint(color: Color) -> void:
-	var sprite = _player.get_node_or_null("AnimatedSprite2D") if _player else null
+	var sprite = _get_sprite()
 	if not sprite:
 		return
 	sprite.modulate = Color.WHITE

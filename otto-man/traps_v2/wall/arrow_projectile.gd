@@ -12,8 +12,8 @@ var _hit: bool = false
 ## Buz zindanı: isabet ettiği oyuncuyu yavaşlatır (Soğuk etkisi) ve mavi görünür.
 var frost: bool = false
 const FROST_TINT := Color(0.55, 0.85, 1.35)
-const FROST_DURATION := 2.5
-const FROST_SPEED_MULT := 0.7
+const FROST_DURATION := 3.0
+const FROST_SPEED_MULT := 0.5  # yürüme hızı yarıya iner: kayan zeminde bile belli olsun
 
 const KNOCKBACK_FORCE: float = 420.0
 const KNOCKBACK_UP_FORCE: float = 280.0
