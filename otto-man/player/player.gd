@@ -1936,14 +1936,23 @@ func apply_movement(delta: float, input_dir: float) -> void:
 			
 			# Quick momentum cancellation when releasing direction in air
 			# Only if not wall jumping to preserve wall jump feel
-			if input_dir == 0 and !is_wall_jumping:
+			# Kaygan zeminde (buz) yerdeki momentum havaya taşınır: burada kesmek zıplayınca
+			# kaymayı bir anda öldürüp hava kontrolünü "kabız" hissettiriyordu.
+			if input_dir == 0 and !is_wall_jumping and ground_traction >= 1.0:
 				velocity.x *= air_momentum_cancel_rate
 			# Add extra friction when changing direction in air
 			elif input_dir != 0 and sign(input_dir) != sign(velocity.x):
 				velocity.x *= 0.95  # Slight momentum reduction when turning
 	
 	if input_dir != 0:
-		velocity.x = move_toward(velocity.x, input_dir * target_speed, current_acceleration * delta)
+		# Kaygan zeminde havada hedef hızı aşan momentum (kayarken zıpladın) aynı yöne basarken
+		# hava hızına (speed * air_control_multiplier) hızlıca çekilmesin; yalnız hafif hava sürtünmesi.
+		var carrying_momentum: bool = ground_traction < 1.0 and !is_on_floor() \
+			and sign(velocity.x) == sign(input_dir) and absf(velocity.x) > absf(input_dir * target_speed)
+		if carrying_momentum:
+			apply_friction(delta, input_dir)
+		else:
+			velocity.x = move_toward(velocity.x, input_dir * target_speed, current_acceleration * delta)
 	else:
 		apply_friction(delta, input_dir)
 
