@@ -252,7 +252,7 @@ yansiyan_ok / ruzgarin_nisani / yanki_oku / kartal_bakisi / gerilmis_yay
                  <- uzun_menzil | ok_yagmuru
 ```
 
-**Kural (2026-10 değişti):** çocuk item asla ebeveyninden önce teklif edilmez. Ebeveyn açılınca çocuk **otomatik açılmaz**; ebeveyninin zindan temasının (ve kademesinin) unlock havuzuna aday olur ve sonraki zindan sonunda kart olarak çıkabilir (`_child_ids_for`, `get_unlock_candidates`). Ebeveyni başlangıç item'ı olan çocukların evi `CHILD_HOME_BY_PARENT`, farklı zindanda çıkması gerekenlerin evi `CHILD_HOME_OVERRIDE` ile elle verilir. Yeni çocuk item eklerken evi belirlenemiyorsa smoke test hata verir. Eski kayıtlarda zaten cascade ile açılmış çocuklar açık kalır.
+**Kural (2026-10 değişti):** çocuk item asla ebeveyninden önce teklif edilmez. Ebeveyn açılınca çocuk **otomatik açılmaz**; ebeveyninin zindan temasının (ve kademesinin) unlock havuzuna aday olur ve sonraki zindan sonunda kart olarak çıkabilir (`_child_ids_for`, `get_unlock_candidates`). **Ebeveyn başlangıç item'ıysa** (örn. `uzun_menzil`, `ok_yagmuru`, `artan_guc`) çocuklar, ebeveyn bir run'da en az bir kez ALINMADAN unlock kartı olarak çıkmaz (`taken_item_ids`, kayda yazılır; `_parent_satisfied`). Ebeveyni zindandan açılanlarda açılmış olmak yeter. Ebeveyni başlangıç item'ı olan çocukların evi `CHILD_HOME_BY_PARENT`, farklı zindanda çıkması gerekenlerin evi `CHILD_HOME_OVERRIDE` ile elle verilir. Yeni çocuk item eklerken evi belirlenemiyorsa smoke test hata verir. Eski kayıtlarda zaten cascade ile açılmış çocuklar açık kalır.
 
 Dikkat: `kan_bedeli`nin ebeveynleri Barut zindanında (`cevher_dili`, `yikim_muhru`) ama kendisi Zehir listesinde. Zehir'i tamamlayan oyuncu Barut'a gitmediyse onu göremez — kasıtlı çapraz bağ.
 

@@ -376,6 +376,9 @@ const DEFAULT_DUNGEON_THEME: String = "ates"
 
 ## Kalıcı koleksiyon. Sadece buradakiler run içinde kart olarak teklif edilir.
 var unlocked_item_ids: Array[String] = []
+## Bir run'da en az bir kez ALINMIŞ (aktifleştirilmiş) item'lar; kayda yazılır. Başlangıç item'ı olan
+## ebeveynlerin çocukları (mermi yükseltmeleri vb.) ebeveyn alınmadan unlock kartı olarak çıkmaz.
+var taken_item_ids: Array[String] = []
 ## Bekleyen unlock teklifleri: [{theme: String, tier: String, picks: int}]
 ## Sahne geçişi teklifi yutmasın diye kuyruğa alınır ve kayda yazılır.
 var _pending_unlock_offers: Array[Dictionary] = []
@@ -484,15 +487,24 @@ func _child_ids_for(theme: String, tier: String) -> Array[String]:
 	return out
 
 
+## Ebeveyn, çocuğun unlock havuzuna girmesi için yeterli mi? Açık olmalı; başlangıç item'ıysa
+## (zaten baştan açık) ayrıca bir run'da gerçekten ALINMIŞ olmalı. Aksi halde mermi yükseltmeleri
+## gibi çocuklar, oyuncu mermi itemini hiç kullanmadan unlock kartı olarak çıkıyordu.
+func _parent_satisfied(parent_id: String) -> bool:
+	if not is_unlocked(parent_id):
+		return false
+	return parent_id not in STARTER_ITEM_IDS or parent_id in taken_item_ids
+
+
 func _requirements_met_by_unlocks(item_id: String) -> bool:
 	if item_id in ITEM_REQUIREMENTS:
 		for req_id in ITEM_REQUIREMENTS[item_id]:
-			if not is_unlocked(String(req_id)):
+			if not _parent_satisfied(String(req_id)):
 				return false
 	if item_id in ITEM_REQUIREMENTS_ANY:
 		var any_met: bool = false
 		for req_id in ITEM_REQUIREMENTS_ANY[item_id]:
-			if is_unlocked(String(req_id)):
+			if _parent_satisfied(String(req_id)):
 				any_met = true
 				break
 		if not any_met:
@@ -631,6 +643,7 @@ func _reset_unlocks_to_starter() -> void:
 func reset_for_new_game() -> void:
 	_pending_unlock_offers.clear()
 	permanently_banished_ids.clear()
+	taken_item_ids.clear()
 	oracle_category = -1
 	falci_arrives_day = -1
 	falci_leaves_day = -1
@@ -644,6 +657,7 @@ func get_save_data() -> Dictionary:
 		"unlocked_items": unlocked_item_ids.duplicate(),
 		"pending_unlock_offers": _pending_unlock_offers.duplicate(true),
 		"permanently_banished": permanently_banished_ids.duplicate(),
+		"taken_items": taken_item_ids.duplicate(),
 		"oracle_category": oracle_category,
 		"falci_arrives_day": falci_arrives_day,
 		"falci_leaves_day": falci_leaves_day,
@@ -653,11 +667,18 @@ func get_save_data() -> Dictionary:
 func load_save_data(data: Variant) -> void:
 	_pending_unlock_offers.clear()
 	permanently_banished_ids.clear()
+	taken_item_ids.clear()
 	oracle_category = -1
 	if not data is Dictionary:
 		_reset_unlocks_to_starter()
 		return
 	var d: Dictionary = data as Dictionary
+	var taken: Variant = d.get("taken_items", null)
+	if taken is Array:
+		for tid in (taken as Array):
+			var t: String = String(tid).strip_edges()
+			if not t.is_empty() and t not in taken_item_ids:
+				taken_item_ids.append(t)
 	var banished: Variant = d.get("permanently_banished", null)
 	if banished is Array:
 		for bid in (banished as Array):
@@ -825,6 +846,8 @@ func activate_item(item_scene: PackedScene) -> void:
 	# Add to scene tree and activate
 	$ActiveItems.add_child(item)
 	active_items.append(item)
+	if item.item_id != "" and item.item_id not in taken_item_ids:
+		taken_item_ids.append(item.item_id)
 	item.activate(player)
 	item_activated.emit(item)
 	_recalculate_item_sets()
