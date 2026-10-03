@@ -29,6 +29,21 @@ const STYLES: Dictionary = {
 		"flame_scale": 1.7,
 		"burn_ticks_bonus": 2,
 	},
+	# Barut = PATLAT: isli kömür-kahve palet; duvarda toplar daha sık (ok atıcı seyrek) ve
+	# gülleler daha geniş alanda patlar (patlama halkası uyarır).
+	"barut": {
+		"tint_fg": Color(0.90, 0.84, 0.76),
+		"tint_bg": Color(0.56, 0.50, 0.45),
+		"trap_weight": {
+			"cannon_trap": 2.2,
+			"arrow_shooter": 0.6,
+		},
+		"trap_params": {
+			"cannon_trap": {
+				"explosion_radius": 68.0,
+			},
+		},
+	},
 	# Fırtına = HAREKET ET: mavi-mor fırtına paleti; bir yerde sabit durursan tepeden yıldırım çarpar
 	# (önce "!" işareti ve zemin halkası uyarır, uyarı süresince kaçarsan hasar almazsın).
 	"firtina": {

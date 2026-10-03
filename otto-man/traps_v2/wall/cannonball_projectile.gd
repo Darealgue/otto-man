@@ -68,7 +68,18 @@ func _play_break_and_explode() -> void:
 func _on_break_finished() -> void:
 	queue_free()
 
+func _spawn_blast_visual() -> void:
+	var holder: Node = get_tree().current_scene
+	if holder == null:
+		return
+	var blast := BlastVisualV2.new()
+	holder.add_child(blast)
+	blast.global_position = global_position
+	blast.setup(explosion_radius)
+
+
 func _apply_explosion_damage() -> void:
+	_spawn_blast_visual()
 	if TrapEnemyDamage.is_active():
 		TrapEnemyDamage.damage_enemies_in_radius(get_tree(), global_position, explosion_radius, damage)
 	var space := get_world_2d().direct_space_state
