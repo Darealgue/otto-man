@@ -26,6 +26,8 @@ var light_streak_damage_multiplier: float = 1.0
 var next_attack_bonus_multiplier: float = 1.0
 # Emici Kalkan: bloklanan hasardan biriken, SIRADAKİ saldırıya eklenen düz bonus
 var pending_flat_damage_bonus: float = 0.0
+# Hasar Dönüşümü: sadece sıradaki heavy attack'a eklenen düz bonus
+var pending_heavy_damage_bonus: float = 0.0
 var _registered_hit_target_ids: Array = []  # Instance IDs of enemies that can take this hit
 var base_damage: float = 15.0  # Base damage value
 var combo_enabled: bool = false  # Added missing property
@@ -118,6 +120,11 @@ func enable_combo(attack_name: String, damage_multiplier: float = 1.0, kb_multip
 	if pending_flat_damage_bonus > 0.0:
 		damage += pending_flat_damage_bonus
 		pending_flat_damage_bonus = 0.0
+
+	# Hasar Dönüşümü: bloklanan hasar, sıradaki heavy attack'a eklenir
+	if attack_type == "heavy" and pending_heavy_damage_bonus > 0.0:
+		damage += pending_heavy_damage_bonus
+		pending_heavy_damage_bonus = 0.0
 
 	# Tek Sanat: item'ların SADECE Temas Saldırısı'na (5+ item) odaklanmışsa melee hasarı 1.5x
 	var im_wildcard := get_node_or_null("/root/ItemManager")

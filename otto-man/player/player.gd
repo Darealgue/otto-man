@@ -199,6 +199,16 @@ var _bubble_guard_hit: bool = false
 # guard_empower_consume true ise ilk isabette sıfırlanır; false ise süre (item) bitince sıfırlanır.
 var guard_empower_mult: float = 1.0
 var guard_empower_consume: bool = false
+# Keskin Refleks: parry penceresi kapandıktan sonra kaç saniye daha parry sayılır
+var parry_grace: float = 0.0
+# Altın Pencere: parry penceresi çarpanı (1.0 = normal)
+var parry_window_mult: float = 1.0
+# Yankılanan Parry: son parry'lenen vuruşun hasarı
+var last_parried_damage: float = 0.0
+# Karşı Atılım: parry sonrası ilk dodge/dash bedava ve uzun. Değer = bitiş zamanı (msec), 0 = yok
+var counter_dash_until_msec: int = 0
+# Nöbetçi: sabit savunmada stamina yenilenme çarpanı
+var block_regen_mult: float = 1.0
 # Şanslı Nal: garanti kritik — parry sonrası / görünmezlik ilk vuruşu (tek kullanım)
 var sansli_nal_active: bool = false
 var sansli_nal_crit_next: bool = false
@@ -952,6 +962,20 @@ func disable_mobile_guard() -> void:
 	if is_instance_valid(guard_bubble):
 		guard_bubble.queue_free()
 	guard_bubble = null
+
+## Karşı Atılım: hazırsa tüketir ve mesafe çarpanını (2.0) döndürür, değilse 1.0.
+func consume_counter_dash() -> float:
+	if counter_dash_until_msec > 0 and Time.get_ticks_msec() <= counter_dash_until_msec:
+		counter_dash_until_msec = 0
+		return 2.0
+	counter_dash_until_msec = 0
+	return 1.0
+
+## Nöbetçi: oyuncu yerinde savunma yapıyor mu? (Block state ya da yerde duran açık balon)
+func is_guard_stationary() -> bool:
+	if state_machine and state_machine.current_state and state_machine.current_state.name == "Block":
+		return true
+	return is_instance_valid(guard_bubble) and guard_bubble.is_open and is_on_floor() and absf(velocity.x) < 10.0
 
 ## PlayerHurtbox çağırır: balon bu vuruşu karşıladıysa true.
 func try_bubble_guard(hitbox: Area2D) -> bool:

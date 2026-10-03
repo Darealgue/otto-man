@@ -57,6 +57,11 @@ func _process(delta):
 		var regen_mult: float = 1.0
 		if player_stats and player_stats.has_method("get_stamina_regen_multiplier"):
 			regen_mult = maxf(0.1, float(player_stats.get_stamina_regen_multiplier()))
+		# Nöbetçi: yerinde savunurken yenilenme hızlanır
+		var guard_player = get_tree().get_first_node_in_group("player")
+		if guard_player and guard_player.get("block_regen_mult") != null and guard_player.block_regen_mult > 1.0 \
+				and guard_player.has_method("is_guard_stationary") and guard_player.is_guard_stationary():
+			regen_mult *= guard_player.block_regen_mult
 		charges[recharging_index] = min(charges[recharging_index] + (delta * regen_mult) / RECHARGE_RATE, 1.0)
 		if charges[recharging_index] >= 1.0:
 			# Find next empty segment to recharge (starting from the beginning)

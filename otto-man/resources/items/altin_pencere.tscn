@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/altin_pencere.gd" id="1_altin_pencere"]
+
+[node name="AltinPencere" type="Node"]
+script = ExtResource("1_altin_pencere")

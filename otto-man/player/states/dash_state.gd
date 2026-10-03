@@ -6,6 +6,7 @@ const DASH_COOLDOWN := 0.0  # Cooldown kaldırıldı (stamina ile sınırlı)
 const DASH_END_SPEED_MULTIPLIER := 0.3  # Player will retain 30% of dash speed when ending
 var dash_timer := 0.0
 var cooldown_timer := 0.0
+var _speed_mult := 1.0  # Karşı Atılım: mesafe çarpanı
 var can_dash := true
 var dash_charges := 1  # Number of available dash charges
 var max_dash_charges := 1  # Maximum dash charges
@@ -47,9 +48,11 @@ func enter():
 	player.collision_mask &= ~(1 << 2)  # Remove enemy collision mask (layer 3)
 	player.collision_layer &= ~(1 << 2)  # Remove enemy collision layer (layer 3)
 	
+	# Karşı Atılım: parry sonrası ilk dash bedava ve 2x uzun
+	_speed_mult = player.consume_counter_dash()
 	# Stamina tüket
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
-	if stamina_bar:
+	if stamina_bar and _speed_mult <= 1.0:
 		if stamina_bar.use_charge():
 			print("[Dash] Stamina consumed for dash")
 		else:
@@ -66,7 +69,7 @@ func enter():
 	
 	# Set initial dash velocity based on facing direction
 	var dash_direction = -1 if player.sprite.flip_h else 1
-	player.velocity.x = DASH_SPEED * dash_direction
+	player.velocity.x = DASH_SPEED * _speed_mult * dash_direction
 	player.velocity.y = 0
 
 func physics_update(delta: float):

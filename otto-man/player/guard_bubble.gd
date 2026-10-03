@@ -23,6 +23,7 @@ var player: CharacterBody2D = null
 var is_open := false
 var parry_timer := 0.0
 var _grace := 0.0
+var _window_closed_msec := 0  # Keskin Refleks
 
 # --- görsel durum ---
 var _scale_t := 0.0                # 0 = kapalı, 1 = tam açık
@@ -57,8 +58,8 @@ func _state_name() -> String:
 func _parry_window() -> float:
 	var bs = _block_state()
 	if bs:
-		return float(bs.PARRY_WINDOW)
-	return 0.2
+		return float(bs.PARRY_WINDOW) * player.parry_window_mult
+	return 0.2 * player.parry_window_mult
 
 
 func _parry_allowed() -> bool:
@@ -93,6 +94,8 @@ func _physics_process(delta: float) -> void:
 		_grace -= d
 	if parry_timer > 0.0:
 		parry_timer -= d
+		if parry_timer <= 0.0:
+			_window_closed_msec = Time.get_ticks_msec()
 
 	var pressed := Input.is_action_pressed("block")
 	if is_open:
@@ -105,6 +108,7 @@ func _physics_process(delta: float) -> void:
 		elif Input.is_action_just_pressed("block") and _parry_allowed():
 			# Tekrar basış parry penceresini yeniden kurar (Block state ile aynı)
 			parry_timer = _parry_window()
+			_window_closed_msec = 0
 	else:
 		if pressed and player.block_input_blocked_timer <= 0.0 and _can_guard() and _has_stamina():
 			_open()
@@ -112,6 +116,7 @@ func _physics_process(delta: float) -> void:
 
 func _open() -> void:
 	is_open = true
+	_window_closed_msec = 0
 	parry_timer = _parry_window() if _parry_allowed() else 0.0
 	player.enter_combat_state()
 	var bar = _stamina_bar()
@@ -142,7 +147,9 @@ func handle_hit(hitbox: Area2D) -> bool:
 		return true
 
 	var bar = _stamina_bar()
-	var is_parry := parry_timer > 0.0 and _parry_allowed()
+	var late_ok: bool = player.parry_grace > 0.0 and _window_closed_msec > 0 \
+			and Time.get_ticks_msec() - _window_closed_msec <= int(player.parry_grace * 1000.0)
+	var is_parry := (parry_timer > 0.0 or late_ok) and _parry_allowed()
 	var blocked_damage: float = hitbox.get_damage() if hitbox.has_method("get_damage") else 0.0
 
 	if is_parry:
@@ -190,8 +197,10 @@ func _do_parry(hitbox: Area2D, attacker: Node2D, hit_pos: Vector2, bar: Node) ->
 		return false
 
 	hurtbox.last_damage = 0.0
+	player.last_parried_damage = hitbox.get_damage() if hitbox.has_method("get_damage") else 0.0
 	_grace = POST_HIT_GRACE
 	parry_timer = 0.0
+	_window_closed_msec = 0
 	_play_sfx(hit_pos, true)
 
 	if used_block_state:

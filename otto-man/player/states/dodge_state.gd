@@ -29,6 +29,7 @@ const ROLL_AIR_GRACE := 0.10  # Bu kadarlık kopma tolere edilir
 
 var dodge_timer := 0.0
 var cooldown_timer := 0.0
+var _speed_mult := 1.0  # Karşı Atılım: mesafe çarpanı
 var can_dodge := true
 var dodge_charges := 1  # Number of available dodge charges
 var max_dodge_charges := 1  # Maximum dodge charges
@@ -84,9 +85,11 @@ func enter():
 		if DEBUG_DODGE:
 			print("[Dodge] Hurtbox disabled for invincibility")
 	
+	# Karşı Atılım: parry sonrası ilk dodge bedava ve 2x uzun
+	_speed_mult = player.consume_counter_dash()
 	# Stamina tüket
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
-	if stamina_bar:
+	if stamina_bar and _speed_mult <= 1.0:
 		if stamina_bar.use_charge():
 			if DEBUG_DODGE:
 				print("[Dodge] Stamina consumed for dodge")
@@ -130,7 +133,7 @@ func enter():
 	# Set initial dodge velocity based on facing direction
 	var dodge_direction = -1 if player.sprite.flip_h else 1
 	_dodge_dir = float(dodge_direction)
-	player.velocity.x = DODGE_SPEED * dodge_direction
+	player.velocity.x = DODGE_SPEED * _speed_mult * dodge_direction
 	# Yer çekimi çalışmaya devam etsin (dash'ten farklı olarak)
 	# player.velocity.y = 0  # Bu satırı kaldırdık
 	
@@ -163,9 +166,9 @@ func physics_update(delta: float):
 	# Faza göre ileri itiş. Zıplayarak dodge'dan çıkıldıysa zıplamanın momentumuna karışma.
 	if not _jumped_during_dodge:
 		if _phase == DodgePhase.ROLL:
-			player.velocity.x = DODGE_ROLL_SPEED * _dodge_dir
+			player.velocity.x = DODGE_ROLL_SPEED * _speed_mult * _dodge_dir
 		else:
-			player.velocity.x = DODGE_SPEED * _dodge_dir
+			player.velocity.x = DODGE_SPEED * _speed_mult * _dodge_dir
 
 	# Debug: Dodge state info
 	if DEBUG_DODGE:

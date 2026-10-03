@@ -26,6 +26,8 @@ var _last_parried_attacker: Node2D = null  # Gölge Adımı / Fırlatma Parry i�
 # Kalkan Küresi: balon yerdeyken parry yakalayınca bu state'e sadece parry animasyonu için girer;
 # parry bitince blok tutmaya devam etmez, doğrudan Idle'a döner.
 var bubble_parry_mode := false
+# Keskin Refleks: parry penceresi en son ne zaman kapandı (msec, 0 = kapanmadı/geçersiz)
+var _window_closed_msec := 0
 # Aynı vuruş hem hurtbox'tan hem "hurt" sinyalinden iki kez gelir; ikincisini yoksay
 var _last_hit_id := 0
 var _last_hit_msec := 0
@@ -57,7 +59,8 @@ func enter():
 		
 	is_blocking = false
 	can_parry = _segment_allows_parry()
-	parry_timer = PARRY_WINDOW
+	parry_timer = PARRY_WINDOW * player.parry_window_mult
+	_window_closed_msec = 0
 	is_in_impact_animation = false
 	is_transitioning = false
 	stamina_consumed_this_hit = false
@@ -151,7 +154,8 @@ func physics_update(delta: float):
 	if Input.is_action_just_pressed("block"):
 		if _segment_allows_parry():
 			can_parry = true
-			parry_timer = PARRY_WINDOW
+			parry_timer = PARRY_WINDOW * player.parry_window_mult
+			_window_closed_msec = 0
 			block_start_time = Time.get_ticks_msec() / 1000.0
 			print("[Block] Parry window re-armed")
 		
@@ -160,6 +164,7 @@ func physics_update(delta: float):
 		parry_timer -= delta
 		if parry_timer <= 0:
 			can_parry = false
+			_window_closed_msec = Time.get_ticks_msec()
 			# print("[Block] Parry window closed")
 			if not is_blocking and not is_in_impact_animation and not is_parrying:
 				is_blocking = true
@@ -195,6 +200,12 @@ func _on_finish_timer_timeout():
 	if is_transitioning:
 		state_machine.transition_to("Idle")
 
+## Keskin Refleks: pencere kapandıktan sonra parry_grace saniye içindeki vuruş da parry sayılır.
+func _in_late_parry() -> bool:
+	if player.parry_grace <= 0.0 or _window_closed_msec <= 0 or is_parrying or not _segment_allows_parry():
+		return false
+	return Time.get_ticks_msec() - _window_closed_msec <= int(player.parry_grace * 1000.0)
+
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Prevent double parry
 	if is_parrying:
@@ -207,8 +218,8 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 		_last_hit_id = hitbox.get_instance_id()
 		_last_hit_msec = now_ms
 	
-	# Check if within parry window and can parry
-	if can_parry:
+	# Check if within parry window (or Keskin Refleks tolerance after it closed) and can parry
+	if can_parry or _in_late_parry():
 		print("[Block] PARRY SUCCESS")
 		_last_parried_attacker = hitbox.get_parent() if hitbox else null
 		_play_block_sfx(hitbox.global_position if hitbox else player.global_position, true)
@@ -226,6 +237,8 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 				return
 		
 		player.hurtbox.last_damage = 0  # No damage on successful parry
+		player.last_parried_damage = hitbox.get_damage() if hitbox else 0.0
+		_window_closed_msec = 0
 		
 		# Set parrying flag
 		is_parrying = true
