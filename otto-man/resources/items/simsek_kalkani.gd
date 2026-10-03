@@ -45,3 +45,5 @@ func _on_player_blocked(blocked_damage: float, attacker: Node2D):
 		target = attacker.get_parent()
 	if target and target.has_method("take_damage"):
 		target.take_damage(lightning_damage, 0.0, 0.0, false)
+		if is_instance_valid(target) and target.has_method("apply_shock"):
+			target.apply_shock()  # yansıyan şimşek şoku: 1 sn stun

@@ -19,8 +19,6 @@ const MOVE_THRESHOLD: float = 28.0
 const STRIKE_RADIUS: float = 44.0
 const STRIKE_HEIGHT: float = 80.0
 const BOLT_TOP: float = 700.0
-const KNOCKBACK_FORCE: float = 320.0
-const KNOCKBACK_UP_FORCE: float = 260.0
 const WARN_COLOR := Color(1.0, 0.85, 0.2)
 
 var _phase: Phase = Phase.WATCHING
@@ -95,22 +93,36 @@ func _watch(delta: float) -> void:
 func _strike() -> void:
 	_enter(Phase.STRIKE)
 	_build_bolt(_strike_pos)
-	var d: Vector2 = _player.global_position - _strike_pos
-	if absf(d.x) <= STRIKE_RADIUS and d.y >= -STRIKE_HEIGHT and d.y <= 24.0:
+	if _in_strike_zone(_player.global_position):
 		_hurt_player()
+	# Yıldırım düşmanlara da vurur: hasar + şok (1 sn stun), oyuncuyla aynı etki
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+			continue
+		if _in_strike_zone(node.global_position):
+			if node.has_method("take_damage"):
+				node.take_damage(damage, 0.0, 0.0, true)
+			if is_instance_valid(node) and node.has_method("apply_shock"):
+				node.apply_shock()
 
 
+func _in_strike_zone(pos: Vector2) -> bool:
+	var d: Vector2 = pos - _strike_pos
+	return absf(d.x) <= STRIKE_RADIUS and d.y >= -STRIKE_HEIGHT and d.y <= 24.0
+
+
+## Hasar + şok (1 sn stun). Itme/Hurt yok: oyuncu olduğu yerde donar. Şok bitince kısa süre
+## dokunulmazlık verilir ki arka arkaya hasar zinciri oluşmasın.
 func _hurt_player() -> void:
 	if _player.get("is_dodging") or (_player.get("invincibility_timer") != null and _player.invincibility_timer > 0.0):
 		return
 	if not _player.has_method("take_damage"):
 		return
-	_player.last_hit_position = _strike_pos
-	_player.last_hit_knockback = { "force": KNOCKBACK_FORCE, "up_force": KNOCKBACK_UP_FORCE }
 	_player.take_damage(damage)
-	var sm = _player.get("state_machine")
-	if sm and sm.has_node("Hurt"):
-		sm.transition_to("Hurt", true)
+	var sem = _player.get("status_effects")
+	if sem and sem.has_method("apply_shock"):
+		sem.apply_shock(1.0)
+	_player.invincibility_timer = maxf(float(_player.invincibility_timer), 1.6)
 
 
 func _build_bolt(ground: Vector2) -> void:

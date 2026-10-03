@@ -54,3 +54,5 @@ func _on_heavy_attack_impact(_attack_name: String = "") -> void:
 			continue
 		if pos.distance_to(node.global_position) <= LIGHTNING_RADIUS and node.has_method("take_damage"):
 			node.take_damage(LIGHTNING_DAMAGE, 0.0, 0.0, true)
+			if is_instance_valid(node) and node.has_method("apply_shock"):
+				node.apply_shock()  # şimşek şoku: 1 sn stun

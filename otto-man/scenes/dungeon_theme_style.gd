@@ -35,7 +35,7 @@ const STYLES: Dictionary = {
 		"tint_fg": Color(0.80, 0.82, 1.0),
 		"tint_bg": Color(0.52, 0.55, 0.78),
 		"idle_strike": {
-			"stationary_time": 2.0,  # bu kadar sn kıpırdamazsan uyarı başlar
+			"stationary_time": 1.0,  # bu kadar sn kıpırdamazsan uyarı başlar
 			"warning_time": 0.9,     # uyarıdan vuruşa kadar süre (kaçış penceresi)
 			"cooldown": 3.0,         # vuruştan sonra tekrar saymaya başlamadan önce
 			"damage": 14.0,          # temel hasar (zorluk seviyesiyle artar)

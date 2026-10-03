@@ -1564,6 +1564,9 @@ func apply_element_to_enemy(enemy: Node2D, element: String) -> void:
 			if enemy.has_method("take_damage"):
 				enemy.take_damage(_ELEMENT_LIGHTNING_TOUCH_DAMAGE, 0.0, 0.0, true)
 			_apply_lightning_reactions(enemy)
+			# Şok: 1 sn stun (zehir/ateş/buz gibi şimşeğin durum etkisi)
+			if is_instance_valid(enemy) and enemy.has_method("apply_shock"):
+				enemy.apply_shock()
 			_spawn_lightning_strike_from_above(enemy)
 			# Yıldırım Zinciri: şimşeğin poison_stacks/frost_stacks gibi kalıcı bir
 			# stack'i yok, bu yüzden "bu düşman şimşekle vuruldu mu" bilgisini

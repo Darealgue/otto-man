@@ -62,3 +62,5 @@ func apply_fall_attack_effect_at(position: Vector2, is_decoy: bool) -> void:
 			continue
 		if position.distance_to(node.global_position) <= radius and node.has_method("take_damage"):
 			node.take_damage(damage, 0.0, 0.0, true)
+			if is_instance_valid(node) and node.has_method("apply_shock"):
+				node.apply_shock()  # şimşek şoku: 1 sn stun

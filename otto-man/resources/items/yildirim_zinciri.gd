@@ -52,6 +52,8 @@ func on_enemy_killed(enemy: Node2D) -> void:
 			nearest = node
 	if nearest:
 		nearest.take_damage(CHAIN_DAMAGE, 0.0, 0.0, true)
+		if is_instance_valid(nearest) and nearest.has_method("apply_shock"):
+			nearest.apply_shock()  # şimşek şoku: 1 sn stun
 		nearest.set_meta("was_lightning_hit", true)
 		_spawn_chain_visual(origin, nearest.global_position)
 

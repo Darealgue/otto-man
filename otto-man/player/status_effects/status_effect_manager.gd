@@ -27,6 +27,11 @@ var chill_active: bool = false
 var _chill_timer: Timer
 const CHILL_TINT := Color(0.45, 0.75, 1.3, 1.0)
 
+# Shock (şok) state: oyuncuyu süre boyunca sersemletir (Shock state'i), hasar vermez
+var shock_active: bool = false
+var _shock_timer: Timer
+const SHOCK_TINT := Color(1.5, 1.4, 0.45, 1.0)
+
 func _ready() -> void:
 	_player = get_parent() as CharacterBody2D
 	if not _player:
@@ -47,6 +52,28 @@ func _ready() -> void:
 	_chill_timer.one_shot = true
 	_chill_timer.timeout.connect(_clear_chill)
 	add_child(_chill_timer)
+
+	_shock_timer = Timer.new()
+	_shock_timer.one_shot = true
+	_shock_timer.timeout.connect(_clear_shock)
+	add_child(_shock_timer)
+
+## Şok: oyuncu `duration` saniye sersemler (hareket/saldırı yok) ve sarı görünür.
+## Ölü oyuncuya uygulanmaz. Yeniden uygulamak süreyi yeniler.
+func apply_shock(duration: float = 1.0) -> void:
+	if not _player or bool(_player.get("is_dead")) or bool(_player.get("pending_death")):
+		return
+	_player.shock_duration = duration
+	var sm = _player.get("state_machine")
+	if sm and sm.has_node("Shock"):
+		sm.transition_to("Shock", true)
+	shock_active = true
+	_shock_timer.start(duration)
+	_update_visual()
+
+func _clear_shock() -> void:
+	shock_active = false
+	_update_visual()
 
 ## Soğuk: `duration` saniye boyunca hareket hızı `speed_mult` ile çarpılır. Yeniden uygulamak
 ## süreyi yeniler (üst üste binmez).
@@ -88,6 +115,7 @@ func clear_all() -> void:
 	_clear_burn()
 	_clear_poison()
 	_clear_chill()
+	_clear_shock()
 
 func _on_burn_tick() -> void:
 	if burn_remaining_ticks <= 0:
@@ -134,6 +162,8 @@ func _get_sprite() -> CanvasItem:
 ## modulate ile verilen renk vurulduğu anda siliniyordu. self_modulate'a kimse dokunmuyor;
 ## ikisi çarpılarak birleşir (hasar flaşı + mavi = mor gibi).
 func _status_tint() -> Color:
+	if shock_active:
+		return SHOCK_TINT
 	if burn_active:
 		return BURN_TINT
 	if poison_active:

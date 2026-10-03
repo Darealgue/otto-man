@@ -95,6 +95,8 @@ func _on_player_attack_landed(attack_type: String, _damage: float, targets: Arra
 	for enemy in hit_enemies:
 		if is_instance_valid(enemy) and enemy.has_method("take_damage"):
 			enemy.take_damage(first_dmg, 0.0, 0.0, true)
+			if is_instance_valid(enemy) and enemy.has_method("apply_shock"):
+				enemy.apply_shock()  # şimşek şoku: 1 sn stun
 			first_pos = enemy.global_position
 	# Görsel: ilk vurulan noktada flaş + tepeden inen bolt
 	var flash = Node2D.new()
@@ -117,6 +119,8 @@ func _on_player_attack_landed(attack_type: String, _damage: float, targets: Arra
 			continue
 		if first_pos.distance_to(node.global_position) <= CHAIN_RADIUS and node.has_method("take_damage"):
 			node.take_damage(chain_dmg, 0.0, 0.0, true)
+			if is_instance_valid(node) and node.has_method("apply_shock"):
+				node.apply_shock()  # zincirdeki hedefler de şoklanır
 			var chain_bolt = Node2D.new()
 			chain_bolt.set_script(LightningBoltLineScript)
 			tree.current_scene.add_child(chain_bolt)

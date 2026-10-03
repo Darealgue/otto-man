@@ -176,6 +176,8 @@ var extra_speed_multiplier: float = 1.0  # hareket hızı ek çarpan (Kan Tadı)
 ## yerdeki hızlanma ve yavaşlama bu oranda azalır, havadaki hareket hiç değişmez.
 ## Zindan teması (DungeonThemeStyle "ground_traction") level generator tarafından ayarlanır.
 var ground_traction: float = 1.0
+## Şok (stun) süresi; StatusEffectManager.apply_shock ayarlar, Shock state okur.
+var shock_duration: float = 1.0
 
 ## Şu anki tutuş: yerdeyken ground_traction, havadayken her zaman 1.0 (hava hareketi değişmez).
 func get_traction() -> float:
@@ -308,6 +310,15 @@ func _ready():
 	status_effects = StatusEffectManager.new()
 	status_effects.name = "StatusEffectManager"
 	add_child(status_effects)
+
+	# Şok (stun) state'i: sahnede yok, StateMachine _ready'si (owner.ready bekler) çocukları
+	# başlatmadan önce buradan ekleniyor.
+	var sm_node := get_node_or_null("StateMachine")
+	if sm_node and not sm_node.has_node("Shock"):
+		var shock_state := Node.new()
+		shock_state.set_script(load("res://player/states/shock_state.gd"))
+		shock_state.name = "Shock"
+		sm_node.add_child(shock_state)
 
 	noise_emitter = PLAYER_NOISE_EMITTER_SCRIPT.new()
 	noise_emitter.name = "PlayerNoiseEmitter"

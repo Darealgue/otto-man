@@ -479,6 +479,53 @@ func _process_faint(delta: float) -> void:
 			sprite.play("idle")
 
 
+## ŞOK (şimşek): düşmanı süre boyunca tamamen dondurur (stun). Zehir/yanma/don gibi şimşeğin
+## düşman üzerindeki durum etkisi; yıldırım itemleri ve fırtına zindanı yıldırımı bunu uygular.
+## Tüm düşman türlerinde aynı çalışsın diye türlerin kendi AI akışına girmek yerine düşmanın
+## fizik işlemesi durdurulur ve animasyon duraklatılır. Boss'lar etkilenmez.
+const SHOCK_DURATION: float = 1.0
+const SHOCK_TINT := Color(1.5, 1.4, 0.45, 1.0)
+var _shocked: bool = false
+var _shock_timer_node: Timer = null
+
+func is_shocked() -> bool:
+	return _shocked
+
+func apply_shock(duration: float = SHOCK_DURATION) -> void:
+	if current_behavior == "dead" or is_sleeping:
+		return
+	var boss_flag = get("is_boss")
+	if boss_flag != null and bool(boss_flag):
+		return
+	if _shock_timer_node == null:
+		_shock_timer_node = Timer.new()
+		_shock_timer_node.one_shot = true
+		_shock_timer_node.timeout.connect(_end_shock)
+		add_child(_shock_timer_node)
+	# Süre yenilenir (üst üste binmez)
+	_shock_timer_node.start(duration)
+	if _shocked:
+		return
+	_shocked = true
+	if not enemy_defeated.is_connected(_end_shock):
+		enemy_defeated.connect(_end_shock)
+	set_physics_process(false)
+	velocity.x = 0.0
+	if sprite:
+		if sprite.has_method("pause"):
+			sprite.pause()
+		sprite.self_modulate = SHOCK_TINT
+
+func _end_shock() -> void:
+	if not _shocked:
+		return
+	_shocked = false
+	set_physics_process(true)
+	if sprite:
+		sprite.self_modulate = Color.WHITE
+		if sprite.has_method("play") and sprite.sprite_frames and not sprite.is_playing():
+			sprite.play()
+
 func _disable_stealth_perception() -> void:
 	if stealth_perception != null and is_instance_valid(stealth_perception):
 		if stealth_perception.has_method("deactivate"):
