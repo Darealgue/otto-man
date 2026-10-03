@@ -172,6 +172,7 @@ var tas_yurek_reduction: float = 0.0
 # Kan Tadı: saldırı/hareket hızı bonusu (item tarafından set edilir)
 var attack_speed_multiplier: float = 1.0
 var extra_speed_multiplier: float = 1.0  # hareket hızı ek çarpan (Kan Tadı)
+var status_speed_multiplier: float = 1.0  # durum etkisi (Soğuk/yavaşlatma) çarpanı; StatusEffectManager yönetir
 # Ölümcül Sükût: parry/block sonrası ilk light attack hasar çarpanı (1.0 = yok, >1 = bonus)
 var olumcul_sukut_next_light_bonus: float = 1.0
 # Topuk Kırıcı: crouch/slide çıkışı sonrası ilk vuruş hasar çarpanı
@@ -673,7 +674,7 @@ func _physics_process(delta):
 		var effective_delta: float = delta * time_slow_player_multiplier
 		var grounded_input := InputManager.get_flattened_axis(&"left", &"right")
 		if grounded_input != 0:
-			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier * extra_speed_multiplier, acceleration * effective_delta)
+			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier * extra_speed_multiplier * status_speed_multiplier, acceleration * effective_delta)
 		else:
 			apply_friction(effective_delta)
 

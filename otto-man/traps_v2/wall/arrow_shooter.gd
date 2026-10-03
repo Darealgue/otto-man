@@ -14,6 +14,8 @@ const ARROW_SCENE_PATH := "res://traps_v2/wall/arrow_projectile.tscn"
 @export var fire_interval: float = 2.5
 @export var arrow_speed: float = 400.0
 @export var arrow_max_distance: float = 600.0
+## Buz zindanı: oklar mavi ve isabette oyuncuyu yavaşlatır.
+@export var frost_arrows: bool = false
 
 ## TileTrapSpawner dışında (ör. tutorial) sahneye elle konduysa `initialize()` hiç çağrılmaz; bu açıkken bir sonraki karede otomatik başlatılır.
 @export var auto_activate_if_uninitialized: bool = true
@@ -135,6 +137,7 @@ func _spawn_arrow() -> void:
 	arrow.velocity = _shoot_direction * arrow_speed
 	arrow.damage = _damage
 	arrow.max_distance = arrow_max_distance
+	arrow.frost = frost_arrows
 	arrow.global_position = muzzle.global_position if muzzle else global_position
 	get_tree().current_scene.add_child(arrow)
 

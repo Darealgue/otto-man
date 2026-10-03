@@ -27,6 +27,20 @@ const STYLES: Dictionary = {
 		"flame_scale": 1.7,
 		"burn_ticks_bonus": 2,
 	},
+	# Buz = DAYAN: mavi palet; duvar ok atıcıları daha sık ve oklar buzlu (isabette 2.5 sn yavaşlatır).
+	# Kaygan zemin karoları sonra, kendi karo dekorlarıyla gelecek.
+	"buz": {
+		"tint_fg": Color(0.82, 0.93, 1.0),
+		"tint_bg": Color(0.58, 0.70, 0.88),
+		"trap_weight": {
+			"arrow_shooter": 2.2,
+		},
+		"trap_params": {
+			"arrow_shooter": {
+				"frost_arrows": true,
+			},
+		},
+	},
 	# Zehir = SİNSİCE ÖLDÜR: yeşil palet; damla yere çarpınca sağa sola sıçrayan zehir toplarına
 	# bölünür. Hasar/süre/sıklık bilerek normal bırakıldı (haksızlık hissi yaratmıştı).
 	"zehir": {

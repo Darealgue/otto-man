@@ -9,6 +9,11 @@ var damage: float = 12.0
 var max_distance: float = 600.0 # kept for compatibility, not strictly used
 var _traveled: float = 0.0
 var _hit: bool = false
+## Buz zindanı: isabet ettiği oyuncuyu yavaşlatır (Soğuk etkisi) ve mavi görünür.
+var frost: bool = false
+const FROST_TINT := Color(0.55, 0.85, 1.35)
+const FROST_DURATION := 2.5
+const FROST_SPEED_MULT := 0.7
 
 const KNOCKBACK_FORCE: float = 420.0
 const KNOCKBACK_UP_FORCE: float = 280.0
@@ -22,7 +27,9 @@ func _ready() -> void:
 	# Point arrow sprite in flight direction (add PI if your arrow art points the other way)
 	if velocity.length_squared() > 0:
 		rotation = velocity.angle() + PI
-	
+	if frost:
+		modulate = FROST_TINT
+
 	if anim and anim.sprite_frames:
 		if anim.sprite_frames.has_animation("default"):
 			anim.play("default")
@@ -86,6 +93,10 @@ func _on_body_entered(body: Node2D) -> void:
 			body.last_hit_knockback = { "force": KNOCKBACK_FORCE, "up_force": KNOCKBACK_UP_FORCE }
 			if body.has_method("take_damage"):
 				body.take_damage(damage)
+			if frost:
+				var sem := body.get("status_effects") as StatusEffectManager
+				if sem:
+					sem.apply_chill(FROST_DURATION, FROST_SPEED_MULT)
 			if body.get("state_machine") and body.state_machine.has_node("Hurt"):
 				# transition_to kullan — doğrudan atama eski state'in exit()'ini atlayıp
 				# crouch/slide collision shape'inin geri büyümemesine yol açıyordu.

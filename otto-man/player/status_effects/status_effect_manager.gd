@@ -22,6 +22,11 @@ var poison_damage_per_tick: float = 2.0
 const POISON_TICK_INTERVAL: float = 1.0
 const POISON_TINT := Color(0.5, 1.0, 0.3, 1.0)
 
+# Chill (soğuk) state: hareket hızını geçici yavaşlatır, hasar vermez
+var chill_active: bool = false
+var _chill_timer: Timer
+const CHILL_TINT := Color(0.6, 0.85, 1.0, 1.0)
+
 var _original_modulate: Color = Color.WHITE
 
 func _ready() -> void:
@@ -43,6 +48,27 @@ func _ready() -> void:
 	_poison_timer.wait_time = POISON_TICK_INTERVAL
 	_poison_timer.timeout.connect(_on_poison_tick)
 	add_child(_poison_timer)
+
+	_chill_timer = Timer.new()
+	_chill_timer.one_shot = true
+	_chill_timer.timeout.connect(_clear_chill)
+	add_child(_chill_timer)
+
+## Soğuk: `duration` saniye boyunca hareket hızı `speed_mult` ile çarpılır. Yeniden uygulamak
+## süreyi yeniler (üst üste binmez).
+func apply_chill(duration: float = 3.0, speed_mult: float = 0.65) -> void:
+	if not _player:
+		return
+	_player.status_speed_multiplier = speed_mult
+	chill_active = true
+	_chill_timer.start(duration)
+	_update_visual()
+
+func _clear_chill() -> void:
+	chill_active = false
+	if _player:
+		_player.status_speed_multiplier = 1.0
+	_update_visual()
 
 func apply_burn(ticks: int = 6, damage_per_tick: float = 3.0) -> void:
 	burn_damage_per_tick = damage_per_tick
@@ -67,6 +93,7 @@ func apply_poison(ticks: int = 5, damage_per_tick: float = 2.0) -> void:
 func clear_all() -> void:
 	_clear_burn()
 	_clear_poison()
+	_clear_chill()
 
 func _on_burn_tick() -> void:
 	if burn_remaining_ticks <= 0:
@@ -106,6 +133,8 @@ func _update_visual() -> void:
 		sprite.modulate = BURN_TINT
 	elif poison_active:
 		sprite.modulate = POISON_TINT
+	elif chill_active:
+		sprite.modulate = CHILL_TINT
 	else:
 		sprite.modulate = _original_modulate
 
