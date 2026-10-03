@@ -4286,7 +4286,14 @@ func _add_screen_darkness_controller_deferred() -> void:
 		# Shader parametrelerini ayarla
 		var drs := get_node_or_null("/root/DungeonRunState")
 		var night_mode: bool = is_instance_valid(drs) and drs.has_method("has_segment_modifier") and drs.has_segment_modifier("night_mode")
-		if night_mode:
+		var theme_dark: Dictionary = DungeonThemeStyle.get_darkness(dungeon_theme)
+		if not theme_dark.is_empty():
+			# Tema karanlığı (gölge): oyuncu etrafı dar, meşale/mum çevresi aydınlık
+			shader_material.set_shader_parameter("max_darkness", float(theme_dark.get("max_darkness", 0.95)))
+			shader_material.set_shader_parameter("light_radius", float(theme_dark.get("light_radius", 220.0)))
+			shader_material.set_shader_parameter("ambient_light", float(theme_dark.get("ambient_light", 0.03)))
+			screen_darkness.set_meta("torch_radius", float(theme_dark.get("torch_radius", 0.0)))
+		elif night_mode:
 			shader_material.set_shader_parameter("max_darkness", 0.92)
 			shader_material.set_shader_parameter("light_radius", 280.0)
 			shader_material.set_shader_parameter("ambient_light", 0.05)
@@ -4338,6 +4345,28 @@ func _process(delta):
 	
 	# Shader'a gönder
 	shader_material.set_shader_parameter("player_screen_position", player_screen_pos)
+
+	# Tema ışık kaynakları (meşale/mum): ekrandakileri shader'a ver (en fazla 16)
+	var torch_radius: float = float(get_meta("torch_radius", 0.0))
+	if torch_radius > 0.0:
+		var lights: PackedVector3Array = PackedVector3Array()
+		var r_px: float = torch_radius * camera_zoom.x
+		for t in get_tree().get_nodes_in_group("dungeon_torches"):
+			if lights.size() >= 16:
+				break
+			if not is_instance_valid(t) or not (t is Node2D):
+				continue
+			var t_rel = (t as Node2D).global_position - camera_pos + camera_offset
+			var t_screen = (t_rel * camera_zoom) + viewport_size / 2.0
+			# Ekran dışında ve ışığı ekrana yetişmeyen kaynakları atla
+			if t_screen.x < -r_px or t_screen.x > viewport_size.x + r_px or t_screen.y < -r_px or t_screen.y > viewport_size.y + r_px:
+				continue
+			lights.append(Vector3(t_screen.x, t_screen.y, r_px))
+		var count: int = lights.size()
+		while lights.size() < 16:
+			lights.append(Vector3.ZERO)
+		shader_material.set_shader_parameter("light_sources", lights)
+		shader_material.set_shader_parameter("light_count", count)
 """
 	screen_darkness.set_script(update_script)
 	
@@ -4786,6 +4815,7 @@ func _remove_legacy_enemy_spawners(chunk_node: Node2D) -> void:
 func _apply_dungeon_theme_palette() -> void:
 	if not unified_terrain or dungeon_theme.is_empty():
 		return
+	unified_terrain.tile_darkness_enabled = DungeonThemeStyle.get_tile_darkness(dungeon_theme)
 	var tint_fg: Color = DungeonThemeStyle.get_tint_fg(dungeon_theme)
 	var tint_bg: Color = DungeonThemeStyle.get_tint_bg(dungeon_theme)
 	unified_terrain.apply_theme_palette(tint_fg, tint_bg)

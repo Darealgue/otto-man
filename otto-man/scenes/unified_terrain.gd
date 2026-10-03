@@ -26,7 +26,13 @@ func _ready() -> void:
 	# Player spawn olduktan sonra darkness controller'ı initialize et
 	call_deferred("initialize_darkness_controller")
 
+## false: karoların kendi mesafe karartması hiç kurulmaz (gölge zindanı: karartmayı ekran katmanı
+## yönetir, meşale çevreleri karoda da karanlık kalmasın). Level generator ayarlar.
+var tile_darkness_enabled: bool = true
+
 func initialize_darkness_controller() -> void:
+	if not tile_darkness_enabled:
+		return
 	# Darkness controller'ı oluştur ve ekle
 	darkness_controller = DarknessController.new()
 	add_child(darkness_controller)
