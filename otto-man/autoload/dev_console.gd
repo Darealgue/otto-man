@@ -89,6 +89,30 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "test_items":
 		handle_test_items_command(1)
 		return
+	if cmd == "unlock_theme":
+		var ut_im = get_node_or_null("/root/ItemManager")
+		if ut_im == null:
+			print_output("ItemManager bulunamadı!")
+			return
+		var ut_themes: Array = ut_im.DUNGEON_THEME_POOLS.keys()
+		if args.is_empty():
+			print_output("Kullanım: unlock_theme <%s|all>" % "|".join(PackedStringArray(ut_themes)))
+			return
+		var ut_wanted: String = String(args[0]).to_lower()
+		var ut_targets: Array = ut_themes if ut_wanted == "all" else [ut_wanted]
+		if ut_wanted != "all" and ut_wanted not in ut_themes:
+			print_output("Bilinmeyen tema: %s (%s, all)" % [ut_wanted, ", ".join(PackedStringArray(ut_themes))])
+			return
+		var ut_count := 0
+		for ut_theme in ut_targets:
+			# Havuzdaki itemler + bu temanın evi olan çocuk (mermi yükseltmesi vb.) itemler
+			var ut_ids: Array = ut_im._theme_pool(String(ut_theme), "")
+			ut_ids.append_array(ut_im._child_ids_for(String(ut_theme), ""))
+			for ut_id in ut_ids:
+				if ut_im.unlock_item(String(ut_id)):
+					ut_count += 1
+		print_output("%s: %d yeni item koleksiyona eklendi. (test_items veya levelup ile kartlarda görürsün; çocuk itemler için ebeveyn item'ın aktif olması gerekir)" % [ut_wanted, ut_count])
+		return
 	if cmd == "boss":
 		var boss_ids: Array = BossRoomRegistry.BOSS_SCENES.keys()
 		var boss_id: String = String(args[0]).to_lower() if args.size() > 0 else BossRoomRegistry.DEFAULT_BOSS_ID
@@ -857,6 +881,7 @@ func show_help() -> void:
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
+	unlock_theme <ates|buz|zehir|firtina|barut|golge|all> - Unlock every item of that dungeon theme's pools (for testing)
 	boss [boss_id] - Go straight to a boss room (default: orb_scatter; see BossRoomRegistry.BOSS_SCENES)
 	dungeon_theme <ates|buz|zehir|firtina|barut|golge|off> - Force the theme (palette, traps, unlock pool) of the next dungeon you enter
 	overheal [n] - Add n points of overflow health (blue shield on the health bar, default 50)
