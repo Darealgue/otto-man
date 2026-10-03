@@ -83,6 +83,12 @@ func _run_static_checks() -> void:
 	for id in scenes.keys():
 		if not seen.has(id):
 			_fail("hiçbir yere atanmamış item: %s" % id)
+	# Çocuk item'ın bir unlock havuzu (tema/kademe) olmalı, yoksa asla açılamaz
+	for id in im._dependent_item_ids():
+		if id in im.EXCLUDED_ITEM_IDS:
+			continue
+		if im._child_home(id).size() != 2:
+			_fail("çocuk item'ın evi yok (CHILD_HOME_BY_PARENT'e ebeveyn ekle): %s" % id)
 
 	var tr_res = load("res://localization/strings.tr.translation")
 	var en_res = load("res://localization/strings.en.translation")

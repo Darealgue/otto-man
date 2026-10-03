@@ -176,8 +176,9 @@ yayınlamalı (isabete bağlı item'lar çalışsın).
    - Ve **tam olarak biri**:
      - `STARTER_ITEM_IDS` (oyun başında açık), **veya**
      - `DUNGEON_THEME_POOLS[tema]["kesif" | "boss"]` (zindan ödülü), **veya**
-     - `ITEM_REQUIREMENTS` / `ITEM_REQUIREMENTS_ANY` (önkoşullu; ebeveyniyle **cascade ile
-       bedava açılır, havuza YAZILMAZ**), **veya**
+     - `ITEM_REQUIREMENTS` / `ITEM_REQUIREMENTS_ANY` (önkoşullu; ebeveyni açılınca ebeveynin
+       zindan havuzuna aday olur, havuza YAZILMAZ; ebeveyn başlangıç item'ıysa
+       `CHILD_HOME_BY_PARENT`'e ekle), **veya**
      - `EXCLUDED_ITEM_IDS` (havuza girmez)
    - Smoke test "hiçbir yere atanmamış" ve "birden fazla yerde" durumlarını hata sayar.
    - İki önkoşul türü: `ITEM_REQUIREMENTS` = hepsi aktif olmalı (VE); `_ANY` = en az biri (VEYA).
@@ -250,7 +251,7 @@ Godot console exe yolu ve komutlar `CLAUDE.md` "Verification discipline" bölüm
 - Mermi sekme/zincir sonrası aynı düşmana kare içinde tekrar çarpıyordu → `_recent_hit_id`.
 - `attack_state.gd`: Uzun Menzil aktifken light saldırıda melee hitbox hiç açılmaz; hasar
   çarpanları `enable_combo()` ile hitbox.damage'e önceden işlenir, mermi bu değerden türer.
-- Önkoşullu item'ı havuza yazma (cascade'i bozar); `_validate_unlock_pools` uyarır.
+- Önkoşullu item'ı havuza yazma (ev tema ebeveyninden otomatik türer); `_validate_unlock_pools` uyarır.
 - PowerShell ile proje dosyası düzenleme (BOM, `Â©`) → Edit/Write araçlarını kullan.
 - `FileAccess.file_exists("res://x.tscn")` export'ta hep false; `load()` ile kontrol et.
 - Kaynak yolları export'ta büyük/küçük harf duyarlı.

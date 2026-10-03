@@ -312,8 +312,8 @@ const STARTER_ITEM_IDS: Array[String] = [
 	# Mermi açıcıları: burada olmaları TÜM Mermi yükseltme item'larını (yansiyan_ok,
 	# ruzgarin_nisani, yanki_oku, kartal_bakisi, gerilmis_yay, golge_nisanci, suru_oku,
 	# pesine_dusen, agir_mermi, ruh_mermisi — ITEM_REQUIREMENTS_ANY ile bunlara bağlı)
-	# oyunun başından itibaren cascade ile açar. Kullanıcı isteği: ranged item'ları
-	# firtina zindanı boss'una kadar beklemeden direkt deneyebilsin (2026-09-30).
+	# oyunun başından itibaren fırtına keşif havuzunda aday yapar (CHILD_HOME_BY_PARENT);
+	# artık bedava açılmaz, zindan sonunda kart olarak seçilir.
 	"uzun_menzil", "ok_yagmuru",
 ]
 
@@ -337,7 +337,8 @@ const UNLOCK_TIER_BOSS: String = "boss"
 
 ## Zindan teması -> {kesif: [...], boss: [...]}
 ## kesif = keşif run 1-3 ödülü (giriş item'ları), boss = boss clear ödülü (derinlik).
-## Ön koşullu item'lar burada YOK: ebeveynleriyle bedava gelirler (bkz. _cascade_unlocks).
+## Ön koşullu item'lar burada YOK: ebeveyni açıldığında ebeveynin temasının havuzuna
+## otomatik aday olurlar (bkz. _child_ids_for / CHILD_HOME_BY_PARENT).
 const DUNGEON_THEME_POOLS: Dictionary = {
 	"ates": {
 		# Ateş = VUR: yanma + ham tek hedef hasarı, ağır vuruş
@@ -414,6 +415,7 @@ func get_unlocked_item_ids() -> Array[String]:
 ## Bir temanın toplam item sayısı ve kaçının açıldığı — dünya haritası göstergesi için.
 func get_theme_unlock_progress(theme: String) -> Dictionary:
 	var pool: Array[String] = _theme_pool(theme, "")
+	pool.append_array(_child_ids_for(theme, ""))
 	var owned: int = 0
 	for id in pool:
 		if is_unlocked(id):
@@ -434,25 +436,52 @@ func unlock_item(item_id: String) -> bool:
 	unlocked_item_ids.append(item_id)
 	item_unlocked.emit(item_id)
 	print("[ItemManager] Item açıldı: %s" % item_id)
-	_cascade_unlocks()
 	return true
 
 
-## Ön koşulu karşılanan çocuk item'ları otomatik açar (sabit noktaya kadar).
-## Aksi halde koleksiyonda ölü ağırlık olurlar: teklif edilmezler ama sayılırlar.
-func _cascade_unlocks() -> void:
-	var changed: bool = true
-	while changed:
-		changed = false
-		for child_id in _dependent_item_ids():
-			if is_unlocked(child_id) or child_id in EXCLUDED_ITEM_IDS:
-				continue
-			if not _requirements_met_by_unlocks(child_id):
-				continue
-			unlocked_item_ids.append(child_id)
-			item_unlocked.emit(child_id)
-			print("[ItemManager] Ön koşul karşılandı, bedava açıldı: %s" % child_id)
-			changed = true
+## Ön koşullu (çocuk) item'lar ebeveyniyle BEDAVA açılmaz. Ebeveyn açıldıysa çocuk, ebeveynin
+## zindan temasının/kademesinin unlock havuzuna girer (bkz. _child_ids_for) ve bir sonraki
+## zindan sonunda kart olarak çıkabilir. Başlangıç item'ı olan ebeveynlerin çocukları
+## için ev tema burada elle verilir.
+const CHILD_HOME_BY_PARENT: Dictionary = {
+	"artan_guc": ["ates", "kesif"],
+	"uzun_menzil": ["firtina", "kesif"],
+	"ok_yagmuru": ["firtina", "kesif"],
+}
+## Ebeveyninin temasından farklı bir zindanda çıkması gereken çocuklar.
+const CHILD_HOME_OVERRIDE: Dictionary = {
+	"ates_bombasi": ["barut", "kesif"],
+}
+
+
+## Çocuğun unlock havuzundaki yeri: [tema, kademe]; belirlenemezse boş.
+func _child_home(child_id: String) -> Array:
+	if CHILD_HOME_OVERRIDE.has(child_id):
+		return CHILD_HOME_OVERRIDE[child_id]
+	var parents: Array = []
+	parents.append_array(ITEM_REQUIREMENTS.get(child_id, []))
+	parents.append_array(ITEM_REQUIREMENTS_ANY.get(child_id, []))
+	for parent_id in parents:
+		var pid: String = String(parent_id)
+		for theme in DUNGEON_THEME_POOLS:
+			for tier in [UNLOCK_TIER_KESIF, UNLOCK_TIER_BOSS]:
+				if pid in DUNGEON_THEME_POOLS[theme].get(tier, []):
+					return [String(theme), String(tier)]
+		if CHILD_HOME_BY_PARENT.has(pid):
+			return CHILD_HOME_BY_PARENT[pid]
+	return []
+
+
+## Verilen tema/kademede havuzlanan tüm çocuk item'lar (açık olup olmadıklarına bakmaz).
+func _child_ids_for(theme: String, tier: String) -> Array[String]:
+	var out: Array[String] = []
+	for child_id in _dependent_item_ids():
+		if child_id in EXCLUDED_ITEM_IDS:
+			continue
+		var home: Array = _child_home(child_id)
+		if home.size() == 2 and String(home[0]) == theme and (tier.is_empty() or String(home[1]) == tier):
+			out.append(child_id)
+	return out
 
 
 func _requirements_met_by_unlocks(item_id: String) -> bool:
@@ -502,6 +531,13 @@ func get_unlock_candidates(theme: String, tier: String) -> Array[String]:
 			continue
 		if is_permanently_banished(id):
 			continue  # Falcı kalıcı olarak eledi
+		out.append(id)
+	# Ebeveyni açılmış çocuk item'lar da aynı temanın havuzunda aday olur
+	for id in _child_ids_for(theme, tier):
+		if is_unlocked(id) or is_permanently_banished(id):
+			continue
+		if not _requirements_met_by_unlocks(id):
+			continue
 		out.append(id)
 	return out
 
@@ -590,7 +626,6 @@ func _reset_unlocks_to_starter() -> void:
 	for id in STARTER_ITEM_IDS:
 		if ITEM_SCENES.has(id) and id not in EXCLUDED_ITEM_IDS:
 			unlocked_item_ids.append(id)
-	_cascade_unlocks()
 
 
 func reset_for_new_game() -> void:
@@ -645,7 +680,6 @@ func load_save_data(data: Variant) -> void:
 				continue
 			if ITEM_SCENES.has(id) and id not in unlocked_item_ids:
 				unlocked_item_ids.append(id)
-		_cascade_unlocks()
 	var pending: Variant = d.get("pending_unlock_offers", null)
 	if pending is Array:
 		for entry in (pending as Array):

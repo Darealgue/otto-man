@@ -107,34 +107,33 @@ Her zindan iki alt havuza ayrılır. Kod tarafında ayrım `item_manager.gd` iç
 - **Keşif havuzu** = COMMON + UNCOMMON → keşif run 1-3 ödülü
 - **Boss havuzu** = RARE + LEGENDARY → boss clear ödülü
 
-`*` = ön koşullu item; ebeveyniyle **bedava** gelir, unlock kararı sayılmaz (bkz. bölüm 7).
+`*` = ön koşullu (çocuk) item; ebeveyni açılınca ebeveynin zindan temasının havuzuna **aday** olur ve bir sonraki zindan sonunda kart olarak seçilebilir. Ebeveyn açılınca bedava açılmaz (bkz. bölüm 7).
 
-### 5.1 Zindan 1 — Ateş / Saldırganlık
-**Keşif:** `atesli_yumruk`, `ates_topu_dususu`, `hizlanan_yumruk`, `pala_kilici`, `kan_tadi`, `taskin_guc`, `koz_tutan`†, `koruk`†, `tavlanmis_celik`†
-**Boss:** `atesli_kayma`, `genis_darbe`, `berserker_ruhu`, `ocak`†
+> **Güncel dağılım (2026-10):** Havuzlar her zindanın oyun tarzı fiiline göre yeniden dağıtıldı. Aşağıdaki 5.1–5.6 güncel kodla birebir eşleşir (eski tasarımdaki `EXCLUDED` item'lar çıkarıldı). Tek doğru kaynak: `item_manager.gd` `DUNGEON_THEME_POOLS`.
 
-† = yeni tasarım, henüz kodda yok (bkz. bölüm 5.7)
+### 5.1 Zindan 1 — Ateş / VUR (yanma, ham tek hedef hasarı, ağır vuruş)
+**Keşif:** `atesli_yumruk`, `ates_topu_dususu`, `taskin_guc`, `koz_tutan`, `koruk`, `gokten_dusus`, `guc_kayasi`, `hizli_charge`, `sansli_nal`, `kesintisiz_zincir`*
+**Boss:** `atesli_kayma`, `ocak`, `sirt_darbesi`, `guc_devri`
 
-### 5.2 Zindan 2 — Buz / Savunma-Kontrol
-**Keşif:** `buzlu_kilic`, `donma_cekici`, `buz_cagi`, `yansitici_kalkan`, `dikenli_kalkan`, `ters_darbe`, `parry_ustasi`, `olumcul_sukut`, `sansli_nal`, `parry_zirhi`, `savunma_ofkesi`, `keskin_refleks`, `geri_tepme`, `nobetci`, `karsi_atilim`
-**Boss:** `buzlu_kayma`, `nazar_boncugu`, `son_kale`, `cuppe_degil_zirh`, `panzehir_derisi`, `zaman_durdurucu` → `kum_saati`*, `kalkan_kuresi`, `altin_pencere`, `hasar_donusumu`, `yankilanan_parry`
+### 5.2 Zindan 2 — Buz / DAYAN (blok, parry, kalkan, yavaşlatma)
+**Keşif:** `buzlu_kilic`, `donma_cekici`, `buz_cagi`, `yansitici_kalkan`, `dikenli_kalkan`, `ters_darbe`, `parry_ustasi`, `olumcul_sukut`, `kalkan_kirigi`, `parry_zirhi`, `savunma_ofkesi`, `keskin_refleks`, `geri_tepme`, `nobetci`, `karsi_atilim`, `tavlanmis_celik`, `firlatma_parry`
+**Boss:** `buzlu_kayma`, `nazar_boncugu`, `son_kale`, `cuppe_degil_zirh`, `zaman_durdurucu` → `kum_saati`*, `yansiyan_irade`, `alan_parrysi`, `tasan_kaynak`, `kalkan_kuresi`, `altin_pencere`, `hasar_donusumu`, `yankilanan_parry`, `karsi_mermi`, `simsek_kalkani`, `refleks`
 
-### 5.3 Zindan 3 — Zehir / Vur-kaç
-**Keşif:** `zehirli_tirnak`, `zehirli_dev`, `zehirli_dusus`, `dodge_zehiri`, `ziplama_zehiri`, `ceset_tekmesi`, `les_gazi`, `kaygan_yag`
-**Boss:** `gorunmezlik_pelerini`, `hayalet_adim`, `flank_avantaji`, `sabir_tasi`†, `yankesici`†, `serbetci`†, `kan_bedeli`*
+### 5.3 Zindan 3 — Zehir / SİNSİCE ÖLDÜR (zamanla hasar, yayılma, gizlilik, hırsızlık)
+**Keşif:** `zehirli_tirnak`, `zehirli_dev`, `zehirli_dusus`, `ceset_tekmesi`, `les_gazi`, `sessiz_adim`, `golgeye_karisma`
+**Boss:** `gorunmezlik_pelerini`, `hayalet_adim`, `flank_avantaji`, `sabir_tasi`, `yankesici`, `serbetci`
 
-### 5.4 Zindan 4 — Fırtına / Mobilite-Hava-Menzil
-**Keşif:** `gok_gurultusu`, `yildirim_dususu`, `yildirim_adimi`, `havada_kal`, `sekme_tabanligi`, `genis_dusus`, `firlatma_parry`
-**Boss:** `simsek_parmagi`, `slide_simsegi`, `simsek_kalkani`, `duvar_ustasi`, `uzun_menzil`, `ok_yagmuru` → `kartal_bakisi`*, `yanki_oku`*, `ruzgarin_nisani`*, `yansiyan_ok`*, `gerilmis_yay`*
+### 5.4 Zindan 4 — Fırtına / HAREKET ET (şimşek, hava, dash/dodge, parkur, menzil)
+**Keşif:** `gok_gurultusu`, `yildirim_dususu`, `yildirim_adimi`, `havada_kal`, `sekme_tabanligi`, `firtina_gozu`, `zeytinyagi`, `ruzgar_toplama`, `tunel_ustasi`; `uzun_menzil` / `ok_yagmuru` çocukları: `kartal_bakisi`*, `yanki_oku`*, `ruzgarin_nisani`*, `yansiyan_ok`*, `gerilmis_yay`*, `golge_nisanci`*, `suru_oku`*, `pesine_dusen`*, `agir_mermi`*, `ruh_mermisi`* (ebeveynler başlangıç item'ı olduğu için ev tema `CHILD_HOME_BY_PARENT` ile verilir)
+**Boss:** `simsek_parmagi`, `duvar_ustasi`, `yildirim_zinciri`, `ziplatan_yumruk`, `agirliksiz`, `agir_yumruk`, `toplu_kaldirma`, `zehirli_sekme` → `kesintisiz_akis`*, `kavis_adimi`, `iz_birakan`, `kesintisiz_akrobasi`
 
-### 5.5 Zindan 5 — Barut / Ağır Vuruş
-**Keşif:** `patlama_zinciri`, `kara_barut`, `dodge_bombasi`, `lav_cekici`, `falya`†, `lagimci`†, `tepme`†
-**Boss:** `patlama_topuzu`, `barut_zirhi`, `tuzak_fisildayan`, `cenk_meydani`, `yikim_muhru`, `ikinci_nefes`, `cevher_dili`, `tas_yurek`
+### 5.5 Zindan 5 — Barut / PATLAT (alan hasarı, patlama, zincir, çoklu hedef)
+**Keşif:** `patlama_zinciri`, `dodge_bombasi`, `lav_cekici`, `falya`, `lagimci`, `tepme`, `zincirleme_vurus`, `pala_kilici`, `genis_dusus`, `ates_bombasi`* (`CHILD_HOME_OVERRIDE`)
+**Boss:** `patlama_topuzu`, `tuzak_fisildayan`, `cenk_meydani`, `yikim_muhru`, `cevher_dili` → `kan_bedeli`*, `daire_darbesi`, `yere_cakis`, `genis_darbe`
 
-### 5.6 Zindan 6 — Gölge / Hile-Sinerji
-**Keşif:** `golge_pelerini`, `sessiz_ayakkabi`, `ruh_avcisi`, `element_izi`, `ruh_akisi`, `keskin_nazar`
-**Boss:** `ortaoyunu` → `karagoz_laneti`*, `hacivat_golgesi`*; `golge_adimi`, `element_degisimi`, `elemental_odak`, `falci_kadin`
-**Zincir:** `sadik_golge`* — ebeveyni `ruh_avcisi` keşif havuzunda, orada açılırsa bedava gelir.
+### 5.6 Zindan 6 — Gölge / BİRLEŞTİR (sinerji, element dönüşümü, kaynak)
+**Keşif:** `element_izi`, `ruh_akisi`, `ayran`, `cellat_nefesi` (yeni gölge itemları eklenecek)
+**Boss:** `ortaoyunu` → `karagoz_laneti`*, `hacivat_golgesi`*; `golge_adimi`, `element_degisimi`, `elemental_odak`, `falci_kadin`, `kader_ani`, `usta_isci`, `tek_sanat`
 
 ### 5.7 Yeni Ateş Item'ları (tasarlandı, kodlanacak)
 
@@ -197,18 +196,18 @@ Sönümlü zincir — `patlama_zinciri`nin zehir kardeşi ama daha stratejik: bi
 
 ### 5.10 Havuz büyüklükleri
 
-Ön koşullu item'lar bedava geldiği için **unlock kararı** sayısı item sayısından az.
+Çocuk item'lar artık ebeveyniyle bedava gelmediği için her biri ayrı bir unlock kararıdır; sayıya dahildir.
 
-| Zindan | Keşif | Boss | **Karar** | Bedava |
-|--------|-------|------|-----------|--------|
-| 1 Ateş | 9 | 4 | **13** | — |
-| 2 Buz | 9 | 6 | **15** | 1 |
-| 3 Zehir | 8 | 6 | **14** | 1 |
-| 4 Fırtına | 7 | 6 | **13** | 5 |
-| 5 Barut | 7 | 8 | **15** | — |
-| 6 Gölge | 6 | 5 | **11** | 3 |
+| Zindan | Keşif | Boss | Çocuk (kademe içinde) | **Toplam** |
+|--------|-------|------|-----------------------|------------|
+| 1 Ateş | 9 | 4 | 1 (keşif) | **14** |
+| 2 Buz | 17 | 15 | 1 (boss) | **33** |
+| 3 Zehir | 7 | 6 | — | **13** |
+| 4 Fırtına | 9 | 11 | 10 keşif + 1 boss | **31** |
+| 5 Barut | 9 | 8 | 1 keşif + 1 boss | **19** |
+| 6 Gölge | 4 | 8 | 2 (boss) | **14** |
 
-Toplam 81 unlock kararı. Aralık 11–15; en ince olan Gölge, ki son zindan olduğu için kabul edilebilir.
+Buz kalabalık (savunma itemları zengin), Gölge'nin keşif havuzu ince (yeni gölge itemları eklenecek, bkz. 5.6). Fırtına keşif havuzunu 10 mermi çocuğu şişiriyor; ebeveynleri başlangıç item'ı olduğundan oyunun başından aday olurlar.
 
 ---
 
@@ -253,7 +252,7 @@ yansiyan_ok / ruzgarin_nisani / yanki_oku / kartal_bakisi / gerilmis_yay
                  <- uzun_menzil | ok_yagmuru
 ```
 
-**Kural:** çocuk item asla ebeveyninden önce teklif edilmez; ebeveyn açılınca çocuk **otomatik açılır**. Aksi halde koleksiyonda ölü ağırlık olur ve tempo matematiği bozulur.
+**Kural (2026-10 değişti):** çocuk item asla ebeveyninden önce teklif edilmez. Ebeveyn açılınca çocuk **otomatik açılmaz**; ebeveyninin zindan temasının (ve kademesinin) unlock havuzuna aday olur ve sonraki zindan sonunda kart olarak çıkabilir (`_child_ids_for`, `get_unlock_candidates`). Ebeveyni başlangıç item'ı olan çocukların evi `CHILD_HOME_BY_PARENT`, farklı zindanda çıkması gerekenlerin evi `CHILD_HOME_OVERRIDE` ile elle verilir. Yeni çocuk item eklerken evi belirlenemiyorsa smoke test hata verir. Eski kayıtlarda zaten cascade ile açılmış çocuklar açık kalır.
 
 Dikkat: `kan_bedeli`nin ebeveynleri Barut zindanında (`cevher_dili`, `yikim_muhru`) ama kendisi Zehir listesinde. Zehir'i tamamlayan oyuncu Barut'a gitmediyse onu göremez — kasıtlı çapraz bağ.
 
