@@ -13,7 +13,8 @@ enum TrapType {
 	FIRE_TRAP,
 	ARROW_SHOOTER,
 	CANNON_TRAP,
-	POISON_DRIP
+	POISON_DRIP,
+	BOMB
 }
 
 const TRAP_DATA = {
@@ -51,6 +52,15 @@ const TRAP_DATA = {
 		"weight": 35,
 		"min_level": 1,
 		"base_damage": 2.0
+	},
+	# Yalnız barut zindanında çıkar ("themes" listesi); temasız zindanda hiç seçilmez.
+	TrapType.BOMB: {
+		"scene_path": "res://traps_v2/ground/bomb_trap.tscn",
+		"surface": SurfaceType.FLOOR,
+		"weight": 40,
+		"min_level": 1,
+		"base_damage": 16.0,
+		"themes": ["barut"]
 	}
 }
 

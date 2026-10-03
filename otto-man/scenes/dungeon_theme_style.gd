@@ -37,6 +37,11 @@ const STYLES: Dictionary = {
 		"trap_weight": {
 			"cannon_trap": 2.2,
 			"arrow_shooter": 0.6,
+			"bomb": 2.5,         # zeminde bomba (yakınında fitil yanar, zincirleme patlar)
+			"fire_trap": 0.5,
+		},
+		"trap_group": {
+			"bomb": Vector2i(1, 2),  # yan yana 2'li bombalar zincir reaksiyonu verir
 		},
 		"trap_params": {
 			"cannon_trap": {
