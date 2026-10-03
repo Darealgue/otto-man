@@ -54,6 +54,12 @@ func _spawn_trap() -> bool:
 	if trap is FireTrapV2 and not dungeon_theme.is_empty():
 		(trap as FireTrapV2).flame_scale = DungeonThemeStyle.get_flame_scale(dungeon_theme)
 		(trap as FireTrapV2).burn_ticks += DungeonThemeStyle.get_burn_ticks_bonus(dungeon_theme)
+	# Temanın bu tuzağa verdiği genel parametreler (DungeonThemeStyle "trap_params")
+	if not dungeon_theme.is_empty():
+		var params: Dictionary = DungeonThemeStyle.get_trap_params(dungeon_theme, TrapConfigV2.trap_name(trap_type))
+		for key in params:
+			if key in trap:
+				trap.set(key, params[key])
 	get_parent().add_child(trap)
 	trap.global_position = global_position
 	trap.initialize(current_level, surface_type)

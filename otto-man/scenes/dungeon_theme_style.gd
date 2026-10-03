@@ -27,6 +27,22 @@ const STYLES: Dictionary = {
 		"flame_scale": 1.7,
 		"burn_ticks_bonus": 2,
 	},
+	# Zehir = SİNSİCE ÖLDÜR: yeşil palet; damlalar daha sık, daha uzun zehirler ve yere çarpınca
+	# sağa sola sıçrayan zehir toplarına bölünür. Tavan tuzakları 2-3'lü gruplar halinde çıkar.
+	"zehir": {
+		"tint_fg": Color(0.84, 1.0, 0.78),
+		"tint_bg": Color(0.58, 0.74, 0.56),
+		"trap_group": {
+			"poison_drip": Vector2i(2, 3),
+		},
+		"trap_params": {
+			"poison_drip": {
+				"splash_balls": 2,
+				"drip_interval": 1.3,
+				"poison_ticks": 7,
+			},
+		},
+	},
 }
 
 
@@ -53,6 +69,12 @@ static func get_trap_weight_mult(theme: String, trap_name: String) -> float:
 static func get_trap_group_override(theme: String, trap_name: String) -> Vector2i:
 	var groups: Dictionary = get_style(theme).get("trap_group", {})
 	return groups.get(trap_name, Vector2i.ZERO)
+
+
+## Tuzağın export/değişken adı -> değer. TileTrapSpawner tuzak sahneye girmeden önce uygular.
+static func get_trap_params(theme: String, trap_name: String) -> Dictionary:
+	var all: Dictionary = get_style(theme).get("trap_params", {})
+	return all.get(trap_name, {})
 
 
 static func get_flame_scale(theme: String) -> float:

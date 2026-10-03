@@ -11,6 +11,8 @@ const DROP_SCENE_PATH := "res://traps_v2/ceiling/poison_drop_projectile.tscn"
 @export var drop_speed: float = 480.0
 @export var poison_ticks: int = 5
 @export var poison_damage_per_tick: float = 2.0
+## Zehir zindanı: damla yere düşünce bu kadar sıçrayan zehir topuna bölünür (0 = yok).
+@export var splash_balls: int = 0
 
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var drip_timer: Timer = $DripTimer
@@ -59,6 +61,7 @@ func _spawn_drop() -> void:
 	drop.fall_speed = drop_speed
 	drop.poison_ticks = poison_ticks
 	drop.poison_damage_per_tick = poison_damage_per_tick
+	drop.splash_balls = splash_balls
 	drop.global_position = drip_point.global_position if drip_point else global_position + Vector2(0, 16)
 	get_tree().current_scene.add_child(drop)
 
