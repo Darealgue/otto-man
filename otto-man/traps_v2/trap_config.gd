@@ -13,8 +13,7 @@ enum TrapType {
 	FIRE_TRAP,
 	ARROW_SHOOTER,
 	CANNON_TRAP,
-	POISON_DRIP,
-	LIGHTNING_ROD
+	POISON_DRIP
 }
 
 const TRAP_DATA = {
@@ -52,15 +51,6 @@ const TRAP_DATA = {
 		"weight": 35,
 		"min_level": 1,
 		"base_damage": 2.0
-	},
-	# Yalnız fırtına zindanında çıkar ("themes" listesi); temasız zindanda hiç seçilmez.
-	TrapType.LIGHTNING_ROD: {
-		"scene_path": "res://traps_v2/ground/lightning_rod_trap.tscn",
-		"surface": SurfaceType.FLOOR,
-		"weight": 40,
-		"min_level": 1,
-		"base_damage": 14.0,
-		"themes": ["firtina"]
 	}
 }
 

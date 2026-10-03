@@ -11,7 +11,8 @@ class_name DungeonThemeStyle
 ##   trap_weight   : TrapType -> ağırlık çarpanı (tür seçiminde)
 ##   trap_group    : TrapType -> Vector2i(min, max) yan yana grup boyu; seviye tablosunu ezer
 ##   ground_traction : oyuncunun yerdeki tutuşu (1.0 normal; <1 kaygan zemin)
-##   flame_scale  : FireTrapV2 alev boyutu çarpanı (görsel + hasar alanı)
+##   idle_strike     : sabit durana yıldırım (StormWatcher); stationary_time/warning_time/cooldown/damage
+##   flame_scale : FireTrapV2 alev boyutu çarpanı (görsel + hasar alanı)
 ##   burn_ticks_bonus : FireTrapV2 yanma tick sayısına eklenen değer
 
 const STYLES: Dictionary = {
@@ -28,14 +29,16 @@ const STYLES: Dictionary = {
 		"flame_scale": 1.7,
 		"burn_ticks_bonus": 2,
 	},
-	# Fırtına = HAREKET ET: mavi-mor fırtına paleti; zeminde yıldırım direkleri (yaklaşınca şarj olur,
-	# uyarı sütununa yıldırım düşer). Ateş tuzağı bu zindanda çıkmaz (çarpan 0).
+	# Fırtına = HAREKET ET: mavi-mor fırtına paleti; bir yerde sabit durursan tepeden yıldırım çarpar
+	# (önce "!" işareti ve zemin halkası uyarır, uyarı süresince kaçarsan hasar almazsın).
 	"firtina": {
 		"tint_fg": Color(0.80, 0.82, 1.0),
 		"tint_bg": Color(0.52, 0.55, 0.78),
-		"trap_weight": {
-			"lightning_rod": 2.5,
-			"fire_trap": 0.0,
+		"idle_strike": {
+			"stationary_time": 2.0,  # bu kadar sn kıpırdamazsan uyarı başlar
+			"warning_time": 0.9,     # uyarıdan vuruşa kadar süre (kaçış penceresi)
+			"cooldown": 3.0,         # vuruştan sonra tekrar saymaya başlamadan önce
+			"damage": 14.0,          # temel hasar (zorluk seviyesiyle artar)
 		},
 	},
 	# Buz = DAYAN: mavi palet; duvar ok atıcıları daha sık ve oklar buzlu (isabette 2.5 sn yavaşlatır).
@@ -96,6 +99,11 @@ static func get_trap_group_override(theme: String, trap_name: String) -> Vector2
 static func get_trap_params(theme: String, trap_name: String) -> Dictionary:
 	var all: Dictionary = get_style(theme).get("trap_params", {})
 	return all.get(trap_name, {})
+
+
+## Sabit durana yıldırım (StormWatcher) ayarları; boş sözlük = bu temada yok.
+static func get_idle_strike(theme: String) -> Dictionary:
+	return get_style(theme).get("idle_strike", {})
 
 
 ## Oyuncunun yerdeki tutuşu (1.0 = normal, küçüldükçe kaygan).

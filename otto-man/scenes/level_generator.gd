@@ -4793,6 +4793,19 @@ func _apply_dungeon_theme_palette() -> void:
 	# aynı arka plan rengini alsın, yoksa boyalı zemin ile boyasız duvar sert ayrışır.
 	for bg_layer in find_children("bg", "TileMapLayer", true, false):
 		(bg_layer as CanvasItem).modulate = tint_bg
+	_setup_theme_hazards()
+
+
+## Temaya özel zindan geneli tehlikeler (tuzak karolarından bağımsız): şimdilik fırtınada
+## "sabit durana yıldırım" (StormWatcher).
+func _setup_theme_hazards() -> void:
+	var idle_strike: Dictionary = DungeonThemeStyle.get_idle_strike(dungeon_theme)
+	if idle_strike.is_empty() or get_node_or_null("StormWatcher") != null:
+		return
+	var watcher := StormWatcher.new()
+	watcher.name = "StormWatcher"
+	add_child(watcher)
+	watcher.setup(idle_strike, effective_trap_level)
 
 
 func _populate_traps_on_unified_terrain() -> void:
