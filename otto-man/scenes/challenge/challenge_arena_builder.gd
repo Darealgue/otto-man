@@ -14,6 +14,8 @@ const ROWS: int = 34
 ## Zemin satırı (zemin yüzeyi y = FLOOR_ROW * 32)
 const FLOOR_ROW: int = 29
 const WALL_COLS: int = 3
+## Karoların ekran dışına taşma miktarı (sıra sayısı)
+const OVERSCAN: int = 6
 const CEILING_ROWS: int = 4
 
 const WALL_BG_PATH := "res://Tile set/Dungeon wall bg2-sheet.png"
@@ -50,12 +52,14 @@ static func build(root: Node2D, biome: String) -> Dictionary:
 	root.add_child(layer)
 
 	var cells: Array[Vector2i] = []
-	for x in range(COLS):
-		for y in range(FLOOR_ROW, ROWS):
+	# Karolar ekranın (kamera 1920x1080) birkaç sıra dışına taşar: kenar/bitiş çizgisi görünmesin,
+	# duvarlar ve zemin ekran dışına devam ediyormuş gibi dursun. Oynanabilir sınırlar değişmez.
+	for x in range(-OVERSCAN, COLS + OVERSCAN):
+		for y in range(FLOOR_ROW, ROWS + OVERSCAN):
 			cells.append(Vector2i(x, y))
 	if not forest:
-		for y in range(0, FLOOR_ROW):
-			for x in range(COLS):
+		for y in range(-OVERSCAN, FLOOR_ROW):
+			for x in range(-OVERSCAN, COLS + OVERSCAN):
 				if x < WALL_COLS or x >= COLS - WALL_COLS or y < CEILING_ROWS:
 					cells.append(Vector2i(x, y))
 	layer.set_cells_terrain_connect(cells, TERRAIN_SET_FOREST if forest else TERRAIN_SET_DUNGEON, 0)
