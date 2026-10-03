@@ -2579,3 +2579,10 @@ challenge.cleared,Dalga %d temizlendi!,Wave %d cleared!
 challenge.win.koruma,Köylüleri korudun! %d köylü seninle geliyor.,You protected the villagers! %d villagers will join you.
 challenge.win.dalga,Arena tamamlandı!,Arena complete!
 challenge.fail.koruma,Köylülerin hepsi öldü...,All the villagers have died...
+challenge.tooltip.title,Geçici Etkinlik,Temporary Event
+challenge.desc.koruma,Köylüleri her yönden gelen düşman dalgalarından koru. Ödül: hayatta kalan köylüler seninle gelir.,Protect the villagers from enemy waves coming from every side. Reward: the surviving villagers join you.
+challenge.desc.dalga,"Dalga dalga gelen düşmanlarla savaş, her dalgada build'ini güçlendir. Ödül: yeni bir item.",Fight wave after wave of enemies and strengthen your build with every wave. Reward: a new item.
+challenge.biome.orman,Orman,Forest
+challenge.biome.zindan,Zindan,Dungeon
+challenge.tooltip.meta,Mekân: %s  |  Zorluk: %d,Place: %s  |  Difficulty: %d
+challenge.tooltip.days,Kalan süre: %d gün,Time left: %d days

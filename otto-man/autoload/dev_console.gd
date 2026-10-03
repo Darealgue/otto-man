@@ -89,6 +89,23 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "test_items":
 		handle_test_items_command(1)
 		return
+	if cmd == "challenge_poi":
+		var cp_kind: String = String(args[0]).to_lower() if args.size() > 0 else "koruma"
+		var cp_biome: String = String(args[1]).to_lower() if args.size() > 1 else "orman"
+		var cp_diff: int = int(args[2]) if args.size() > 2 and String(args[2]).is_valid_int() else 1
+		if not ChallengeRoomRegistry.KINDS.has(cp_kind) or cp_biome not in ChallengeRoomRegistry.BIOMES:
+			print_output("Kullanım: challenge_poi [%s] [%s] [zorluk 1-9]" % ["|".join(PackedStringArray(ChallengeRoomRegistry.KINDS.keys())), "|".join(PackedStringArray(ChallengeRoomRegistry.BIOMES))])
+			return
+		var cp_wm = get_node_or_null("/root/WorldManager")
+		if cp_wm == null or not cp_wm.has_method("place_challenge_poi"):
+			print_output("WorldManager bulunamadı!")
+			return
+		var cp_res: Dictionary = cp_wm.call("place_challenge_poi", cp_kind, cp_biome, cp_diff, 4)
+		if bool(cp_res.get("ok", false)):
+			print_output("Challenge haritaya konuldu: %s/%s zorluk %d, hex (%d,%d). Dünya haritasında altın '!' işaretine bak, üstüne gelince açıklaması çıkar." % [cp_kind, cp_biome, cp_diff, int(cp_res["q"]), int(cp_res["r"])])
+		else:
+			print_output("Uygun bir karo bulunamadı (köye 2-10 hex uzaklıkta, keşfedilmiş, boş karo gerekir).")
+		return
 	if cmd == "challenge":
 		var ch_kinds: Array = ChallengeRoomRegistry.KINDS.keys()
 		var ch_kind: String = String(args[0]).to_lower() if args.size() > 0 else "koruma"
@@ -920,6 +937,7 @@ func show_help() -> void:
 	items - List all item indices and names
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
+	challenge_poi [koruma|dalga] [orman|zindan] [zorluk 1-9] - Place a temporary challenge marker on the world map near the village
 	challenge [koruma|dalga] [orman|zindan] [zorluk 1-9] - Enter a challenge room directly (default: koruma orman 1)
 	ozan [food] - Bring the minstrel to the village now and add food to the village stock (default 10)
 	unlock_theme <ates|buz|zehir|firtina|barut|golge|all> - Unlock every item of that dungeon theme's pools (for testing)

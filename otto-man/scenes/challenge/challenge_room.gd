@@ -217,8 +217,9 @@ func _grant_reward() -> String:
 		for w in _wards:
 			if is_instance_valid(w) and not w.is_dead:
 				survivors += 1
-				if is_instance_valid(drs) and drs.has_method("add_pending_villager"):
-					drs.call("add_pending_villager")
+				# Kurtarılan köylü, korunan köylünün kendi görünümü ve adıyla köye gelir
+				if is_instance_valid(drs) and drs.has_method("add_pending_villager_data"):
+					drs.call("add_pending_villager_data", w.rescue_data())
 		return tr("challenge.win.koruma") % survivors
 	# Dalga arenası: koleksiyona yeni item (rastgele temanın keşif havuzundan seçim kartı)
 	var im: Node = get_node_or_null("/root/ItemManager")

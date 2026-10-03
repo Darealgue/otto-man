@@ -29,7 +29,15 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - **SceneManager:** `change_to_challenge_room(payload)`. Yol kontrolü `ChallengeRoomRegistry.is_challenge_room_path`.
 - **Dev komutu:** `challenge [koruma|dalga] [orman|zindan] [zorluk 1-9]`.
 
+## Haritada görünüm (geçici)
+- Karo `poi_type = "challenge"` (+ kind/biome/difficulty/expires_day). Altın "!" işaretçisi koda çiziliyor,
+  üstüne gelince balonda tür, açıklama, mekân + zorluk ve kalan gün yazıyor. Üstüne gidip onaylayınca
+  odaya girilir ve karo kalkar (tek kullanımlık); süresi dolanlar harita açılınca silinir.
+- Dev komutu: `challenge_poi [tür] [mekân] [zorluk]` köye 2-10 hex yakın keşfedilmiş bir karoya koyar.
+- Köylü görünümü: Worker "dungeon prisoner" kipi (AppearanceDB ile rastgele köylü, oturma pozu); ödülde
+  aynı görünüm/ad köye gelir.
+
 ## Henüz yok
-- Haritada geçici POI (ömür, görünüm, ozan haberi), giriş kabul ekranı.
+- Otomatik doğma (ömür/sıklık), ozan haberi, giriş kabul ekranı.
 - Asansör Arenası, Tuzak Geçidi, Kovalamaca ve diğer türler (bkz. sohbetteki fikir listesi).
 - Arena arka planı/chunk sanatı (şimdilik düz renk + terrain).

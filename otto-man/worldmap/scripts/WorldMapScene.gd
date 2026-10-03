@@ -274,6 +274,8 @@ func _flush_path_preview_now() -> void:
 func _ready() -> void:
 	call_deferred("_apply_ui_parchment")
 	_world_manager = get_node_or_null("/root/WorldManager")
+	if _world_manager and _world_manager.has_method("purge_expired_challenges"):
+		_world_manager.call("purge_expired_challenges")
 	_camera = get_node_or_null("Camera2D")
 	if _camera:
 		_camera.zoom = Vector2(ZOOM_CLOSEST, ZOOM_CLOSEST)
@@ -888,6 +890,9 @@ func _try_enter_hex_at_player_pos() -> bool:
 		"dungeon":
 			_enter_dungeon_from_world_map()
 			return true
+		"challenge":
+			_enter_challenge_from_world_map(pq, pr)
+			return true
 		"neighbor_village":
 			_open_settlement_actions_at(pq, pr, tile)
 			return true
@@ -906,6 +911,25 @@ func _enter_player_village_from_world_map() -> void:
 			return
 	if scene_manager != null and scene_manager.has_method("change_to_village"):
 		scene_manager.change_to_village({"source": "world_map", "reason": "player_village_entry"})
+
+
+## Challenge odasına gir: etkinlik tek kullanımlık, girilince haritadan kalkar (kazan/kaybet fark etmez).
+func _enter_challenge_from_world_map(q: int, r: int) -> void:
+	if _world_manager == null or not _world_manager.has_method("get_challenge_at"):
+		return
+	var ch: Dictionary = _world_manager.call("get_challenge_at", q, r)
+	if ch.is_empty():
+		return
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+	if scene_manager == null or not scene_manager.has_method("change_to_challenge_room"):
+		return
+	_world_manager.call("remove_challenge_at", q, r)
+	scene_manager.change_to_challenge_room({
+		"source": "world_map",
+		"kind": String(ch.get("kind", "koruma")),
+		"biome": String(ch.get("biome", "orman")),
+		"difficulty": int(ch.get("difficulty", 1)),
+	})
 
 
 func _enter_dungeon_from_world_map() -> void:
@@ -1744,6 +1768,8 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 	var poi_lines: PackedStringArray = PackedStringArray()
 	if poi == "dungeon":
 		poi_lines = _build_dungeon_hex_tooltip_lines(tile, cq, cr)
+	elif poi == "challenge":
+		poi_lines = _build_challenge_hex_tooltip_lines(cq, cr)
 	elif poi == "neighbor_village":
 		poi_lines = _build_neighbor_village_hex_tooltip_lines(tile)
 	elif poi.begins_with("landmark_"):
@@ -1839,6 +1865,23 @@ func _format_mission_rewards_penalties_hint(m: Mission) -> String:
 ## Balonda sadece o karo hakkında BİLGİ var, nasıl oynanacağı yok: "buraya yürüyüp Onayla'ya
 ## bas" gibi satırlar kaldırıldı (playtest, 2026-09-02). Oyuncu hareket etmeyi zaten biliyor;
 ## her hex'te tekrar okuması gereken şey adı ve o an önemli olan durumu.
+## Geçici etkinlik (challenge) balonu: tür, açıklama, mekân + zorluk, kalan süre.
+func _build_challenge_hex_tooltip_lines(hex_q: int, hex_r: int) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	if _world_manager == null or not _world_manager.has_method("get_challenge_at"):
+		return lines
+	var ch: Dictionary = _world_manager.call("get_challenge_at", hex_q, hex_r)
+	if ch.is_empty():
+		return lines
+	var kind: String = String(ch.get("kind", "koruma"))
+	var kind_key: String = String(ChallengeRoomRegistry.KINDS.get(kind, "challenge.kind.koruma"))
+	lines.append("%s: %s" % [tr("challenge.tooltip.title"), tr(kind_key)])
+	lines.append(tr("challenge.desc.%s" % kind))
+	lines.append(tr("challenge.tooltip.meta") % [tr("challenge.biome.%s" % String(ch.get("biome", "orman"))), int(ch.get("difficulty", 1))])
+	lines.append(tr("challenge.tooltip.days") % int(ch.get("days_left", 0)))
+	return lines
+
+
 func _build_dungeon_hex_tooltip_lines(tile: Dictionary, hex_q: int, hex_r: int) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
 	var dn: String = String(tile.get("dungeon_name", "")).strip_edges()
@@ -2948,6 +2991,8 @@ func _load_poi_textures() -> void:
 	_poi_textures["player_village"] = load("res://Tile set/Hex Tiles/hex_camp.png")
 	_poi_textures["neighbor_village"] = load("res://Tile set/Hex Tiles/hex_village.png")
 	_poi_textures["dungeon"] = load("res://Tile set/Hex Tiles/hex_dungeon.png")
+	# Challenge (geçici etkinlik): kendi simgesi yok; null değer koda çizilen yedek işaretçiyi kullanır
+	_poi_textures["challenge"] = null
 
 ## Yerleşim / zindan simgesi. Arazi karosuyla AYNI çizim konumunu kullanıyor: ikisi de 64x64 ve
 ## POI sprite'ının içeriği tuvalin ortasında duruyor, dolayısıyla simge karonun üst yüzeyine
@@ -2956,11 +3001,27 @@ func _load_poi_textures() -> void:
 ##
 ## Keşfedilmiş ama şu an görüş alanında OLMAYAN karolar griye çekiliyor; simge de aynı çarpanı
 ## alıyor, yoksa sönük bir karonun üstünde pırıl pırıl bir köy duruyor.
+## GEÇİCİ işaretçi: altın daire içinde "!" (kendi simgesi çizilince bu fonksiyon silinir ve
+## _load_poi_textures'a texture eklenir). Üst üste halka, geçici etkinlik hissi verir.
+func _draw_challenge_marker(center: Vector2, tint: Color) -> void:
+	var gold := Color(1.0, 0.82, 0.25, 1.0) * tint
+	var dark := Color(0.18, 0.1, 0.02, 1.0)
+	draw_circle(center, 11.0, Color(gold.r, gold.g, gold.b, 0.30))
+	draw_circle(center, 8.0, dark)
+	draw_circle(center, 6.5, gold)
+	var font: Font = ThemeDB.fallback_font
+	if font != null:
+		draw_string(font, center + Vector2(-3.0, 5.0), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, dark)
+
+
 func _draw_poi_marker(center: Vector2, tile: Dictionary, poi: String) -> void:
 	var tint: Color = Color(1, 1, 1, 1)
 	if not bool(tile.get("visible", false)):
 		tint = Color(0.62, 0.62, 0.62, 1.0)
 	var tex: Texture2D = _poi_textures.get(poi, null)
+	if tex == null and poi == "challenge":
+		_draw_challenge_marker(center, tint)
+		return
 	if tex == null:
 		# Sanat eksikse eski renkli daireye düşülür (_draw_terrain_tile ile aynı yaklaşım).
 		var fallback: Color = Color(1, 1, 1, 0.9)

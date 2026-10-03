@@ -2009,6 +2009,95 @@ func _backfill_dungeon_themes_if_missing() -> void:
 			return
 
 
+## ---------------------------------------------------------------------------------------------
+## CHALLENGE POI'leri (geçici etkinlik odaları, bkz. docs/CHALLENGE_ROOMS.md)
+## Karoda poi_type = "challenge"; challenge_kind / challenge_biome / challenge_difficulty /
+## challenge_expires_day alanları tutulur (dünya haritası kaydıyla birlikte saklanır).
+## ---------------------------------------------------------------------------------------------
+
+func _current_day_for_challenges() -> int:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if is_instance_valid(tm) and tm.has_method("get_day"):
+		return int(tm.call("get_day"))
+	return 0
+
+
+## Köye yakın, keşfedilmiş, boş bir karoya challenge koyar. {"ok", "key", "q", "r"} döndürür.
+func place_challenge_poi(kind: String, biome: String, difficulty: int, lifetime_days: int = 4) -> Dictionary:
+	if world_map_tiles.is_empty():
+		return {"ok": false}
+	purge_expired_challenges()
+	var vq: int = int(world_map_player_pos.get("q", 0))
+	var vr: int = int(world_map_player_pos.get("r", 0))
+	for key in world_map_tiles:
+		var vt: Dictionary = world_map_tiles[key]
+		if String(vt.get("poi_type", "")) == "player_village":
+			vq = int(vt.get("q", 0))
+			vr = int(vt.get("r", 0))
+			break
+	var candidates: Array = []
+	for key in world_map_tiles:
+		var tile: Dictionary = world_map_tiles[key]
+		if not String(tile.get("poi_type", "")).is_empty() or bool(tile.get("contains_village", false)):
+			continue
+		if String(tile.get("terrain_type", "ova")) == "deniz" or not bool(tile.get("discovered", false)):
+			continue
+		var dist: int = _hex_distance(vq, vr, int(tile.get("q", 0)), int(tile.get("r", 0)))
+		if dist >= 2 and dist <= 10:
+			candidates.append(String(key))
+	if candidates.is_empty():
+		return {"ok": false}
+	var picked: String = String(candidates[randi() % candidates.size()])
+	var t: Dictionary = world_map_tiles[picked]
+	t["poi_type"] = "challenge"
+	t["challenge_kind"] = kind
+	t["challenge_biome"] = biome
+	t["challenge_difficulty"] = clampi(difficulty, 1, 9)
+	t["challenge_expires_day"] = _current_day_for_challenges() + maxi(1, lifetime_days)
+	world_map_tiles[picked] = t
+	world_map_updated.emit()
+	return {"ok": true, "key": picked, "q": int(t.get("q", 0)), "r": int(t.get("r", 0))}
+
+
+func get_challenge_at(q: int, r: int) -> Dictionary:
+	var tile: Dictionary = world_map_tiles.get(_hex_key(q, r), {})
+	if String(tile.get("poi_type", "")) != "challenge":
+		return {}
+	return {
+		"kind": String(tile.get("challenge_kind", "koruma")),
+		"biome": String(tile.get("challenge_biome", "orman")),
+		"difficulty": int(tile.get("challenge_difficulty", 1)),
+		"expires_day": int(tile.get("challenge_expires_day", 0)),
+		"days_left": maxi(0, int(tile.get("challenge_expires_day", 0)) - _current_day_for_challenges()),
+	}
+
+
+## Challenge girilince veya süresi dolunca karodan kaldırır.
+func remove_challenge_at(q: int, r: int) -> void:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
+		return
+	var tile: Dictionary = world_map_tiles[key]
+	if String(tile.get("poi_type", "")) != "challenge":
+		return
+	tile["poi_type"] = ""
+	for k in ["challenge_kind", "challenge_biome", "challenge_difficulty", "challenge_expires_day"]:
+		tile.erase(k)
+	world_map_tiles[key] = tile
+	world_map_updated.emit()
+
+
+func purge_expired_challenges() -> void:
+	var today: int = _current_day_for_challenges()
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("poi_type", "")) == "challenge" and int(tile.get("challenge_expires_day", 0)) <= today:
+			tile["poi_type"] = ""
+			for k in ["challenge_kind", "challenge_biome", "challenge_difficulty", "challenge_expires_day"]:
+				tile.erase(k)
+			world_map_tiles[key] = tile
+
+
 ## Tema kimliğinin oyuncuya gösterilen adı. Tek kaynak: hem dünya haritası balonu
 ## hem kart ekranı buradan okur, tema adı iki yerde ayrı ayrı yazılmasın.
 func get_dungeon_theme_display_name(theme: String) -> String:
