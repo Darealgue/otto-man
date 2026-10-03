@@ -172,13 +172,14 @@ var tas_yurek_reduction: float = 0.0
 # Kan Tadı: saldırı/hareket hızı bonusu (item tarafından set edilir)
 var attack_speed_multiplier: float = 1.0
 var extra_speed_multiplier: float = 1.0  # hareket hızı ek çarpan (Kan Tadı)
-## Zemin tutuşu: 1.0 normal; <1 buz gibi kaygan zemin (yerdeki hızlanma ve yavaşlama bu oranda azalır).
+## Zemin tutuşu: 1.0 normal; <1 buz gibi kaygan zemin. SADECE yerdeyken (is_on_floor) etkili:
+## yerdeki hızlanma ve yavaşlama bu oranda azalır, havadaki hareket hiç değişmez.
 ## Zindan teması (DungeonThemeStyle "ground_traction") level generator tarafından ayarlanır.
 var ground_traction: float = 1.0
-## Kaygan zeminde (ground_traction < 1) hava hissi: normal 0.85/kare momentum kesme çok sert,
-## hiç kesmemek de havada kayıyor hissi veriyor; ikisinin ortası.
-const slippery_air_cancel_rate: float = 0.96   # tuş bırakılınca kare başına (60 FPS'e göre) hız çarpanı
-const slippery_air_carry_decel: float = 700.0  # taşınan momentum hedef hıza bu ivmeyle iner (normal: air_acceleration 1500)
+
+## Şu anki tutuş: yerdeyken ground_traction, havadayken her zaman 1.0 (hava hareketi değişmez).
+func get_traction() -> float:
+	return ground_traction if is_on_floor() else 1.0
 var status_speed_multiplier: float = 1.0  # durum etkisi (Soğuk/yavaşlatma) çarpanı; StatusEffectManager yönetir
 # Ölümcül Sükût: parry/block sonrası ilk light attack hasar çarpanı (1.0 = yok, >1 = bonus)
 var olumcul_sukut_next_light_bonus: float = 1.0
@@ -681,7 +682,7 @@ func _physics_process(delta):
 		var effective_delta: float = delta * time_slow_player_multiplier
 		var grounded_input := InputManager.get_flattened_axis(&"left", &"right")
 		if grounded_input != 0:
-			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier * extra_speed_multiplier * status_speed_multiplier, acceleration * ground_traction * effective_delta)
+			velocity.x = move_toward(velocity.x, grounded_input * speed * speed_multiplier * extra_speed_multiplier * status_speed_multiplier, acceleration * get_traction() * effective_delta)
 		else:
 			apply_friction(effective_delta)
 
@@ -1940,24 +1941,14 @@ func apply_movement(delta: float, input_dir: float) -> void:
 			
 			# Quick momentum cancellation when releasing direction in air
 			# Only if not wall jumping to preserve wall jump feel
-			# Kaygan zeminde (buz) yerdeki momentum havaya kısmen taşınır: normal oyundaki 0.85/kare
-			# kesme kaymayı bir anda öldürüyordu (kabız), hiç kesmemek de havada kayıyor hissi veriyordu.
 			if input_dir == 0 and !is_wall_jumping:
-				var cancel_rate: float = air_momentum_cancel_rate if ground_traction >= 1.0 else slippery_air_cancel_rate
-				velocity.x *= pow(cancel_rate, delta * 60.0)
+				velocity.x *= air_momentum_cancel_rate
 			# Add extra friction when changing direction in air
 			elif input_dir != 0 and sign(input_dir) != sign(velocity.x):
 				velocity.x *= 0.95  # Slight momentum reduction when turning
 	
 	if input_dir != 0:
-		# Kaygan zeminde havada hedef hızı aşan momentum (kayarken zıpladın) aynı yöne basarken
-		# hava hızına (speed * air_control_multiplier) hızlıca çekilmesin; yalnız hafif hava sürtünmesi.
-		var carrying_momentum: bool = ground_traction < 1.0 and !is_on_floor() \
-			and sign(velocity.x) == sign(input_dir) and absf(velocity.x) > absf(input_dir * target_speed)
-		if carrying_momentum:
-			velocity.x = move_toward(velocity.x, input_dir * target_speed, slippery_air_carry_decel * delta)
-		else:
-			velocity.x = move_toward(velocity.x, input_dir * target_speed, current_acceleration * delta)
+		velocity.x = move_toward(velocity.x, input_dir * target_speed, current_acceleration * delta)
 	else:
 		apply_friction(delta, input_dir)
 

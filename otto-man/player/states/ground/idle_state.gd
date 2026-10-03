@@ -81,7 +81,7 @@ func physics_update(delta: float):
 		state_machine.transition_to("Run")
 		return
 		
-	player.velocity.x = move_toward(player.velocity.x, 0, player.friction * player.ground_traction * delta)
+	player.velocity.x = move_toward(player.velocity.x, 0, player.friction * player.get_traction() * delta)
 	player.apply_move_and_slide()
 	
 	# Play appropriate idle animation based on combat state
