@@ -22,6 +22,9 @@ enum FireState { DORMANT, OPENING, SUSTAIN, CLOSING }
 ## Fire turns off after this long even if player is still in range (so they don't burn forever).
 @export var max_active_duration: float = 3.0
 
+## Alev boyutu çarpanı (görsel + hasar alanı). Zindan teması ayarlar (ateş zindanı > 1).
+var flame_scale: float = 1.0
+
 const KNOCKBACK_FORCE: float = 360.0
 const KNOCKBACK_UP_FORCE: float = 260.0
 
@@ -44,12 +47,36 @@ func _ready() -> void:
 	if det_shape and det_shape.shape is CircleShape2D:
 		(det_shape.shape as CircleShape2D).radius = detection_radius
 
+	_apply_flame_scale()
+
 	var has_frames := sprite and sprite.sprite_frames and sprite.sprite_frames.get_frame_count("idle") > 0
 	if not has_frames:
 		_create_placeholder(Color(1.0, 0.4, 0.0, 0.6), "FIRE")
 	else:
 		sprite.animation_finished.connect(_on_animation_finished)
 		sprite.play("idle")
+
+## Alevi tabanı sabit kalacak şekilde büyütür: sprite (150px kare, merkez 0,3) ve hasar kutusu
+## (28x24, tabanı y=0) yukarı doğru uzar. Şekiller sahnede paylaşımlı olduğu için kopyalanır.
+func _apply_flame_scale() -> void:
+	if is_equal_approx(flame_scale, 1.0):
+		return
+	if sprite:
+		sprite.scale = Vector2(flame_scale, flame_scale)
+		sprite.position.y = 3.0 + 75.0 * (1.0 - flame_scale)
+	var dmg_shape := damage_area.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if dmg_shape and dmg_shape.shape is RectangleShape2D:
+		var rect := (dmg_shape.shape as RectangleShape2D).duplicate() as RectangleShape2D
+		rect.size = Vector2(rect.size.x, rect.size.y * flame_scale)
+		dmg_shape.shape = rect
+		dmg_shape.position.y = -12.0 * flame_scale
+	# Alev yükseldikçe oyuncuyu daha uzaktan tetiklesin
+	var det_shape := detection_area.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if det_shape and det_shape.shape is CircleShape2D:
+		var circle := (det_shape.shape as CircleShape2D).duplicate() as CircleShape2D
+		circle.radius = detection_radius * (1.0 + (flame_scale - 1.0) * 0.5)
+		det_shape.shape = circle
+
 
 func _physics_process(delta: float) -> void:
 	if is_sleeping:

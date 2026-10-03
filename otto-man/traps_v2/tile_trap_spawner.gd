@@ -10,6 +10,8 @@ class_name TileTrapSpawner
 @export var surface_type: TrapConfigV2.SurfaceType = TrapConfigV2.SurfaceType.FLOOR
 @export var current_level: int = 1
 @export var auto_spawn: bool = true
+## Zindan teması (DungeonThemeStyle); tuzağa tema kimliğini (alev boyu vb.) iletir.
+@export var dungeon_theme: String = ""
 
 var _spawned_trap: BaseTrapV2 = null
 var _is_active: bool = false
@@ -48,6 +50,10 @@ func _spawn_trap() -> bool:
 		return false
 
 	trap.base_damage = TrapConfigV2.get_base_damage(trap_type)
+	# add_child'dan ÖNCE: tuzağın _ready'si bu değerleri okur
+	if trap is FireTrapV2 and not dungeon_theme.is_empty():
+		(trap as FireTrapV2).flame_scale = DungeonThemeStyle.get_flame_scale(dungeon_theme)
+		(trap as FireTrapV2).burn_ticks += DungeonThemeStyle.get_burn_ticks_bonus(dungeon_theme)
 	get_parent().add_child(trap)
 	trap.global_position = global_position
 	trap.initialize(current_level, surface_type)

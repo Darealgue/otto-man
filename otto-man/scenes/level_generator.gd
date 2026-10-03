@@ -407,6 +407,8 @@ var _segment_force_guaranteed_rescue: bool = false
 
 @export var current_level: int = 1  # Effective level (düşman/spawn için; challenge birikiminden)
 var effective_trap_level: int = 1   # Tuzak seviyesi (challenge trap_level_offset)
+## Aktif zindanın teması ("ates", "buz", ...). Run dışında boş: tema paleti/tuzak kimliği uygulanmaz.
+var dungeon_theme: String = ""
 @export var level_config: LevelConfig  # Reference to our dungeon configuration resource
 
 @export_group("Debug / Test")
@@ -559,6 +561,8 @@ func _apply_run_difficulty_from_state() -> void:
 		effective_trap_level = 1 + trap_off + base_diff
 		current_level = clampi(current_level, 1, 9)
 		effective_trap_level = clampi(effective_trap_level, 1, 9)
+		var dp: Node = get_node_or_null("/root/DungeonProgress")
+		dungeon_theme = String(dp.call("get_dungeon_theme")) if is_instance_valid(dp) and dp.has_method("get_dungeon_theme") else ""
 		print(
 			"[LevelGenerator] Run difficulty -> level=%d trap=%d (base_diff=%d enemy_off=%d trap_off=%d size_off=%d)" % [
 				current_level, effective_trap_level, base_diff, enemy_off, trap_off,
@@ -572,6 +576,7 @@ func _apply_run_difficulty_from_state() -> void:
 			)
 		current_level = 1
 		effective_trap_level = 1
+		dungeon_theme = ""
 
 func _ready() -> void:
 	if bool(get_meta("_tutorial_decor_only", false)):
@@ -828,6 +833,7 @@ func generate_level() -> bool:
 					if DEBUG_ENEMY_TILES:
 						_debug_print_ascii_grid()
 					unify_terrain()
+					_apply_dungeon_theme_palette()
 					_populate_traps_on_unified_terrain()
 					setup_level_transitions()
 					spawn_player()
@@ -4772,6 +4778,14 @@ func _remove_legacy_enemy_spawners(chunk_node: Node2D) -> void:
 # TRAP POPULATION (V2 tile-based system)
 # ==============================================================================
 
+## Zindan temasının renk paleti: birleşik karo haritasına (duvar/zemin/arka plan karoları) tint.
+## Karakterler, düşmanlar ve tuzaklar etkilenmez. Dekor teması geldiğinde burası genişler.
+func _apply_dungeon_theme_palette() -> void:
+	if not unified_terrain or dungeon_theme.is_empty():
+		return
+	unified_terrain.modulate = DungeonThemeStyle.get_tint(dungeon_theme)
+
+
 func _populate_traps_on_unified_terrain() -> void:
 	if not unified_terrain:
 		push_error("[TrapPopulate] unified_terrain is null — cannot spawn traps")
@@ -4886,7 +4900,13 @@ func _populate_traps_on_unified_terrain() -> void:
 		var surface: TrapConfigV2.SurfaceType = q.surface
 		var stype_str: String = q.stype_str
 
+		var trap_type := TrapConfigV2.select_random_trap(surface, effective_trap_level, dungeon_theme)
+
 		var size_range := TrapConfigV2.get_group_size_range(effective_trap_level)
+		# Tema kimliği: o temanın tuzağı seviye tablosunu ezen grup boyu isteyebilir (örn. ateş 2-3'lü)
+		var theme_group := DungeonThemeStyle.get_trap_group_override(dungeon_theme, TrapConfigV2.trap_name(trap_type))
+		if theme_group != Vector2i.ZERO and effective_trap_level > 0:
+			size_range = theme_group
 		var max_possible: int = mini(size_range.y, run.size())
 		var min_possible: int = mini(size_range.x, max_possible)
 		var group_size: int = randi_range(min_possible, max_possible)
@@ -4896,8 +4916,6 @@ func _populate_traps_on_unified_terrain() -> void:
 
 		var max_start: int = maxi(0, run.size() - group_size)
 		var start_idx: int = randi_range(0, max_start)
-
-		var trap_type := TrapConfigV2.select_random_trap(surface, effective_trap_level)
 
 		var first_cell: Vector2i = run[start_idx]
 		var first_world_pos: Vector2 = unified_terrain.map_to_local(first_cell) + unified_terrain.global_position
@@ -4936,6 +4954,7 @@ func _populate_traps_on_unified_terrain() -> void:
 			spawner.set("trap_type", trap_type)
 			spawner.set("surface_type", surface)
 			spawner.set("current_level", effective_trap_level)
+			spawner.set("dungeon_theme", dungeon_theme)
 			spawner.global_position = world_pos
 			unified_terrain.add_child(spawner)
 			spawner.global_position = world_pos

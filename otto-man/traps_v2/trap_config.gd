@@ -72,24 +72,33 @@ static func get_traps_for_surface(surface: SurfaceType, level: int) -> Array[Tra
 					result.append(trap_type)
 	return result
 
-static func select_random_trap(surface: SurfaceType, level: int) -> TrapType:
+## DungeonThemeStyle'ın anahtarları: enum adı küçük harfle ("FIRE_TRAP" -> "fire_trap").
+static func trap_name(t: TrapType) -> String:
+	return String(TrapType.keys()[t]).to_lower()
+
+
+static func _effective_weight(surface: SurfaceType, t: TrapType, theme: String) -> int:
+	var w: int = TRAP_DATA[t].weight
+	# Bias: more cannon on left wall so both wall sides get cannons
+	if surface == SurfaceType.LEFT_WALL and t == TrapType.CANNON_TRAP:
+		w = int(w * 1.8)
+	# Zindan teması: kimlikli tuzaklar daha sık çıkar (DungeonThemeStyle)
+	if not theme.is_empty():
+		w = int(w * DungeonThemeStyle.get_trap_weight_mult(theme, trap_name(t)))
+	return maxi(w, 1)
+
+
+static func select_random_trap(surface: SurfaceType, level: int, theme: String = "") -> TrapType:
 	var available := get_traps_for_surface(surface, level)
 	if available.is_empty():
 		return TrapType.SPIKE
 	var total_weight: int = 0
 	for t in available:
-		var w: int = TRAP_DATA[t].weight
-		# Bias: more cannon on left wall so both wall sides get cannons
-		if surface == SurfaceType.LEFT_WALL and t == TrapType.CANNON_TRAP:
-			w = int(w * 1.8)
-		total_weight += w
+		total_weight += _effective_weight(surface, t, theme)
 	var roll: int = randi() % total_weight
 	var cumulative: int = 0
 	for t in available:
-		var w: int = TRAP_DATA[t].weight
-		if surface == SurfaceType.LEFT_WALL and t == TrapType.CANNON_TRAP:
-			w = int(w * 1.8)
-		cumulative += w
+		cumulative += _effective_weight(surface, t, theme)
 		if roll < cumulative:
 			return t
 	return available[0]
