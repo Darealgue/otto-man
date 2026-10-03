@@ -1664,7 +1664,7 @@ item.kum_saati.name,Kum Saati,Hourglass
 item.kum_saati.description,"Zaman Durdurucu ile: zaman 2x daha yavaş akar, süreler 2 katına çıkar (blok 2 sn, parry 4 sn).","With Time Stopper: time flows 2x slower and durations double (block 2s, parry 4s)."
 item.kus_kanadi.name,Kuş Kanadı,Bird's Wing
 item.kus_kanadi.description,Üçüncü bir zıplama hakkı verir. Bu bonus zıplama 2 stamina hücresi harcar.,Grants a third jump. This bonus jump costs 2 stamina charges.
-item.lav_cekici.name,Lav Çekici,Lava Hammer
+item.lav_cekici.name,Top Çekici,Cannon Hammer
 item.lav_cekici.description,Heavy attack alev topu fırlatır; değen düşman yanar; tetiklemek 1 stamina hücresi harcar.,Heavy attack hurls a fireball; enemies hit catch fire; costs 1 stamina charge to trigger.
 item.les_gazi.name,Leş Gazı,Carrion Gas
 item.les_gazi.description,Elit düşman cesedine vurunca zehirli gaz bulutu patlar,Hitting an elite enemy's corpse releases a cloud of poison gas
@@ -1706,7 +1706,7 @@ item.sessiz_ayakkabi.name,Sessiz Ayakkabı,Silent Shoe
 item.sessiz_ayakkabi.description,Hareket gürültüsü -%50,Movement noise -50%
 item.simit.name,Simit,Simit
 item.simit.description,Stamina sıfırlanınca 5 sn %100 hızlı regen,"When stamina hits zero, regen 100% faster for 5s"
-item.simsek_kalkani.name,Şimşek Kalkanı,Lightning Shield
+item.simsek_kalkani.name,Buzlu Tepki,Frosted Recoil
 item.simsek_kalkani.description,Block ile engellediğin hasarın %80'i saldırgana şimşek olarak yansır,80% of the damage you block is reflected onto the attacker as lightning
 item.simsek_parmagi.name,Şimşek Parmak,Lightning Finger
 item.simsek_parmagi.description,Light attack belli ihtimalle şimşek çakar; buzlu düşmanda ihtimal 2x,Light attacks have a chance to strike lightning; the chance doubles against frozen enemies
@@ -2357,8 +2357,8 @@ item.koz_tutan.name,Köz Tutan,Emberkeeper
 item.koz_tutan.description,Yanarak ölen düşmanın alevi en yakın düşmana sıçrar,"When a burning enemy dies, the flame leaps to the nearest enemy"
 item.koruk.name,Körük,Bellows
 item.koruk.description,5 vuruşluk combo sonrası 4 saniye tutuşursun ve çevredeki düşmanlar yanar. Tutuşukken aldığın hasar %20 artar,"After a 5 hit combo you ignite for 4 seconds and burn nearby enemies. While lit, you take 20% more damage"
-item.tavlanmis_celik.name,Tavlanmış Çelik,Tempered Steel
-item.tavlanmis_celik.description,Blok yapmak kalkanını 3 saniye kızdırır. Kızgın kalkanla blok saldırgana aktif elementini uygular ama bir stamina hücresi daha harcar,Blocking heats your shield for 3 seconds. A hot block applies your active element to the attacker but costs an extra stamina cell
+item.tavlanmis_celik.name,Soğuk Çelik,Cold Steel
+item.tavlanmis_celik.description,Blok yapmak kalkanını 3 saniye sertleştirir. Sertleşmiş kalkanla blok saldırgana aktif elementini uygular ama bir stamina hücresi daha harcar,Blocking hardens your shield for 3 seconds. A hardened block applies your active element to the attacker but costs an extra stamina cell
 item.ocak.name,Ocak,Hearth
 item.ocak.description,"Yanarak ölen düşman 3 saniye kalan bir kor bırakır. Korun üstünden geçen düşman yanar, sen geçersen stamina kazanırsın","Enemies that die burning leave embers for 3 seconds. Enemies crossing them burn, you gain stamina"
 item.falya.name,Falya,Touchhole
@@ -2416,7 +2416,7 @@ dungeon.market.sold_out,Tezgâh boş.,The stall is empty.
 item_selection.unlock.header,%s: %s zindanı,%s: %s dungeon
 item.yansiyan_irade.name,Yansıyan İrade,Reflected Will
 item.yansiyan_irade.description,"Kusursuz parry, 1 stamina hücresini anında geri kazandırır.",A perfect parry instantly restores one stamina charge.
-item.zehirli_sekme.name,Zehirli Sekme,Poison Skid
+item.zehirli_sekme.name,Fırtına Sekmesi,Storm Skid
 item.zehirli_sekme.description,"Dodge/dash sırasında içinden geçtiğin düşmanlar 5 temas hasarı alır; aktif elementin varsa (zehir, ateş, buz, şimşek) o da uygulanır","Enemies you dodge/dash through take 5 contact damage; if you have an active element (poison, fire, ice, lightning), it applies too"
 item.kesintisiz_akis.name,Kesintisiz Akış,Unbroken Flow
 item.kesintisiz_akis.description,"Dodge veya dash sırasında bir düşman ölürse, harcanan stamina anında geri gelir.",Killing an enemy during a dodge or dash instantly refunds the stamina spent.
@@ -2461,7 +2461,7 @@ item.tek_sanat.description,"Item'ların SADECE bir boru hattına yığılmışsa
 item.refleks.name,Refleks,Reflex
 item.refleks.description,Rundan 1 kez: ölümcül olmayan hasar anında iade edilir ve 0.3sn dokunulmazlık kazanırsın,Once per run: non-lethal damage is instantly healed back and you gain 0.3s of invincibility
 item.kavis_adimi.name,Kavis Adımı,Wide Arc Step
-item.kavis_adimi.description,Dodge/dash temas alanı %60 genişler (Zehirli Sekme veya Soğuk Temas gibi temas etkileriyle çalışır),Dodge/dash contact area +60% (boosts contact effects such as Poison Skid or Cold Contact)
+item.kavis_adimi.description,Dodge/dash temas alanı %60 genişler (Fırtına Sekmesi veya Soğuk Temas gibi temas etkileriyle çalışır),Dodge/dash contact area +60% (boosts contact effects such as Storm Skid or Cold Contact)
 item.soguk_temas.name,Soğuk Temas,Cold Contact
 item.soguk_temas.description,Dodge/dash sırasında temas ettiğin düşmanlar hafifçe donar,Enemies you touch during a dodge/dash are lightly frosted
 item.iz_birakan.name,İz Bırakan,Trailblazer
@@ -2485,7 +2485,7 @@ item.sarsici_darbe.description,Her 3. isabetli vuruşta etrafına küçük bir �
 item.yildirim_zinciri.name,Yıldırım Zinciri,Lightning Chain
 item.yildirim_zinciri.description,"Şimşekle vurulmuş bir düşman ölürse, yıldırım 150px içindeki en yakın düşmana sıçrar","When a lightning-struck enemy dies, the lightning jumps to the nearest enemy within 150px"
 item.firtina_gozu.name,Fırtına Gözü,Eye of the Storm
-item.firtina_gozu.description,"Zehirli Sekme etkinken, dodge/dash temas hasarı dokunduğu düşmanları havaya fırlatır","While Poison Skid is active, dodge/dash contact damage launches the enemies it touches into the air"
+item.firtina_gozu.description,"Fırtına Sekmesi etkinken, dodge/dash temas hasarı dokunduğu düşmanları havaya fırlatır","While Storm Skid is active, dodge/dash contact damage launches the enemies it touches into the air"
 item.yere_cakis.name,Yere Çakış,Ground Slam
 item.yere_cakis.description,"Havadaki aşağı saldırı isabet ettiğinde, iniş noktasının çevresine küçük bir şok dalgası yayılır","When an airborne downward attack lands, a small shockwave spreads around the impact point"
 item.agir_yumruk.name,Ağır Yumruk,Heavy Fist
@@ -2520,8 +2520,8 @@ synergy.react_poison_ice,Bulaşıcı Don: zehir yakındaki düşmana sıçrar,Co
 synergy.react_ice_lightning,"Kırılma: don tüketilir, büyük bonus hasar",Shatter: consumes frost for big bonus damage
 synergy.react_poison_lightning,Uçucu Zehir: zehir stack'leri anında patlar,Volatile Poison: poison stacks detonate at once
 synergy.react_fire_lightning,Aşırı Yükleme: yanıktan bonus hasar,Overload: bonus damage from burning
-item.ates_bombasi.name,Ateş Bombası,Fire Bomb
-item.ates_bombasi.description,"Ok Yağmuru'nun ağır mermisi yerine zıplayan bir ateş bombası atılır: düşmana değince patlar, değmezse birkaç kez sekip patlar (alan hasarı + yanma)","Arrow Rain fires a bouncing fire bomb instead: it explodes on contact, or bounces a few times before exploding (area damage + burn)"
+item.ates_bombasi.name,Barut Bombası,Powder Bomb
+item.ates_bombasi.description,"Ok Yağmuru'nun ağır mermisi yerine zıplayan bir barut bombası atılır: düşmana değince patlar, değmezse birkaç kez sekip patlar (alan hasarı + yanma)","Arrow Rain fires a bouncing powder bomb instead: it explodes on contact, or bounces a few times before exploding (area damage + burn)"
 synergy.bomb_swarm,3 bomba atar,throws 3 bombs
 synergy.bomb_chain,öldüren bomba patlayıp bir sonraki düşmana sekmeye devam eder,a bomb that kills explodes and keeps bouncing to the next enemy
 synergy.bomb_element,patlama elementini de uygular,the explosion applies its element too
