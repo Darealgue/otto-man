@@ -86,20 +86,29 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 ## Zirve Tırmanışı (`tirmanis`)
 - Yalnız orman (gökyüzü + dağ arka planı); `ChallengeRoomRegistry.biome_for` her zaman "orman" verir. Düşman/kart seçimi yok.
 - `summit_tower_builder.gd` (düzen + çizim), `summit_climb_controller.gd` (kamera, altın, düşme/zirve, gökyüzü, bulutlar).
-- Platform sayısı `14 + 5*zorluk` (zorluk 1 ~20, zorluk 9 ~60; ~35 m / ~115 m). Zorluk düşükse kulenin en sert kısmına ulaşılmaz
-  (`te = t * lerp(0.55, 1.0, ...)`). Yükseldikçe platformlar küçülür, basamak (2-6 satır) ve yatay açıklık (en çok 8 karo) artar.
-- İki platform türü: `wall` (orman zemin karosu, 2 satır, altından zıplanamaz) ve `oneway` (dungeon tileset "walls2" terrain'i, 1 satır,
-  1-7 karo; alttan geçilir). Katı platform, altındaki bir platformun zıplama alanını (11 satır) kapatamaz ve zeminde 2 satır boşluk bırakır.
+- **Başlangıç:** zemin engebeli (sinüs toplamı, komşu sütunlar en çok 1 satır farklı; doğma noktası ve ağaç öbeği düz). Alçak platform yok:
+  sahnedeki hazır `tree1` + `tree3` (dalları tek yönlü çarpışma) bir öbek kurar, dalları ilk platforma giden basamaktır
+  (zemin -> tree1 sağ dal 5.2 satır -> tree3 alt sol -> sağ -> orta sol dal ~15 satır -> ilk platform). Yarısında ayna çevrilir.
+  Dal koordinatları tree1/tree3 tscn'lerinden (sprite merkezi orijinli); ağaç tabanı zemin yüzeyine oturur.
+- Platform sayısı `14 + 5*zorluk` (zorluk 1 ~20, zorluk 9 ~64; ~49 m / ~145 m). Zorluk düşükse kulenin en sert kısmına ulaşılmaz
+  (`te = t * lerp(0.55, 1.0, ...)`). Yükseldikçe platformlar küçülür; basamak 3-4 -> 5-6 satır, açıklık 1-3 -> 3-9 karo.
+- Platform türleri: `wall` (orman zemin karosu; altı pürüzlü ada gibi 2-5 satır, uçlar ince, en az 2 sütunluk parçalar, altından
+  zıplanamaz), `oneway` (dungeon tileset "walls2", 1 satır, 1-7 karo, `OnewayTiles` katmanında kahverengiye boyanır), `branch`
+  (ağaç dalı, düzen verisi), `summit` (aşağıda). Katı platform, altındaki platformun zıplama alanını (11 satır) kapatamaz.
+- **Zirve:** ekranın bir yanındaki dağdan çıkıntı yapan kaya sırtı: serbest uçta 3 satır, duvara doğru 11 satıra kalınlaşır, ekran dışına
+  uzanır; bayrak serbest uçtan 5 karo içeride. Oyuncu yerde durarak çıkıntıya varınca kazanır.
 - Ölçüm (headless, gerçek oyuncu): tek zıplama 5.0 satır, çift zıplama 7.7 satır, koşarak çift zıplama ~18 karo yatay. `MAX_STEP_ROWS = 6`.
-  Rota botu (kaba) zorluk 9'da sıçramaların ~%96'sını geçti; kalanlar dar (1-3 karo) platformlara 5-6 satır çıkışlardı.
-- Altın: ana yolda yüzeyde küçük altınlar, bazen havada tek (zıplamak gerekir) ve boşlukta yay; yol dışı yan çıkıntılarda (1-2 sıçrama)
-  büyük altın (`tier 2`). Değer yükseklikle ve zorlukla artar. Toplanan altın düşünce de kalır (zirve bonusu verilmez).
+  Rota botu (kaba; ağaç dalları ve zeminden ilk dal dahil) zorluk 9'da 128 sıçramanın 126'sını, zorluk 1'de 48'in 48'ini geçti.
+- **Altın:** oyunun normal madeni parası (`coin_small.png`, 8 kare) ve altın kesesi (`pouch.png`), 1.5x. Seyrek: ana yolda platform başına
+  ~%28 tek altın, ~%12 havada tek altın (zıplamak gerekir), ~%6 kese, ~%12 boşlukta yay; yol dışı yan çıkıntılarda (1-2 sıçrama) kese
+  (değer yükseklik ve zorlukla artar). Toplanan altın düşünce de kalır (zirve bonusu verilmez).
 - Düşme: en son durulan en yüksek noktadan 448 px (14 karo) aşağı inilirse = ölüm (alttaki platforma düşmek sayılmaz).
-- Zirve: yerde durarak zirve platformuna çıkınca kazanılır. Ödül: `40 + 30*zorluk` altın + toplanan altın, birkaç taş/odun.
-- Görünüm: ForestArenaDecorator `decor_biome = "mountain"` (dağ parallax'ı, dikey kayma artırıldı), hep gündüz (DayNightController kapatılır),
-  yükseldikçe koyulaşan gökyüzü örtüsü, dünya uzayında akan bulutlar, zirvede bayrak.
+- Ödül: `40 + 30*zorluk` altın + toplanan altın, birkaç taş/odun.
+- **Görünüm:** ForestArenaDecorator `decor_biome = "mountain"` (dağ parallax'ı, dikey kayma artırıldı), hep gündüz (DayNightController kapatılır),
+  yükseldikçe koyulaşan gökyüzü örtüsü, dünya uzayında akan bulutlar. Zemine rastgele orman dekoru (ağaç, çiçek, çalı, kütük, kaya,
+  kelebek): `TileMapLayer` yalnız zemini taşır (dekor bu adı arar), platformlar `PlatformTiles`/`OnewayTiles` katmanlarındadır ve dekorlanmaz
+  (platformdaki dekor ağaçları ek basamak olurdu). Ağaç öbeğinin üstüne rastgele ağaç düşmesin diye `_forest_tree_reserve_px` ile rezerve edilir.
 - Yan duvarlar görünmez ve `no_wall_slide` (duvar zıplamasıyla kenardan tırmanmak platformları atlatırdı).
-
 ## Haritada doğma, ozan, kabul ekranı
 - **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
   son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör/kovalamaca/tuzak/tırmanış rastgele (asansör ve tuzak hep zindan, tırmanış hep orman);
