@@ -640,6 +640,7 @@ static func build(root: Node2D, difficulty: int) -> Dictionary:
 		"plats": plats,
 		"coins": coin_records,
 		"cluster_span": cluster["span"],
+		"ground_rows": ground,
 		"mount": int(data["mount"]),
 		"platform_decor": plat_holder,
 		"summit_decor": summit_holder,

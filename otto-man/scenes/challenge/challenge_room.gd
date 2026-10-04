@@ -522,7 +522,7 @@ func _decorate_summit() -> void:
 		var forest_layer := ParallaxLayer.new()
 		forest_layer.name = "SummitForestTrees"
 		forest_layer.z_index = -4
-		forest_layer.position = Vector2(0, -520)
+		forest_layer.position = Vector2(0, -440)   # bu sahneye özel: ağaçlar 80 px aşağıda
 		forest_layer.motion_scale = Vector2(0.75, 0.62)
 		pb.add_child(forest_layer)
 		var forest_sprite := Sprite2D.new()
@@ -566,8 +566,18 @@ func _populate_summit_life() -> void:
 		_spawn_flyer(holder, _FIREFLY_SCENE, 60.0, 1860.0, ground_y, 50.0, 190.0)
 	for k in range(5):
 		_spawn_flyer(holder, _BUTTERFLY_SCENE, 60.0, 1860.0, ground_y, 95.0, 300.0)
-	for k in range(7):
-		_spawn_mushroom(holder, rng.randf_range(70.0, 1850.0), ground_y)
+	# Zemin engebeli: mantar yalnız düz (komşuları aynı yükseklikte) sütunlara, o sütunun gerçek yüzeyine konur (duvarın içine düşmesin)
+	var rows: Dictionary = _layout["ground_rows"]
+	var placed: int = 0
+	for attempt in range(60):
+		if placed >= 7:
+			break
+		var col: int = rng.randi_range(2, SummitTowerBuilder.COLS - 3)
+		if int(rows[col]) != int(rows[col - 1]) or int(rows[col]) != int(rows[col + 1]):
+			continue
+		var gx: float = float(col * SummitTowerBuilder.TILE) + 16.0 + rng.randf_range(-6.0, 6.0)
+		_spawn_mushroom(holder, gx, float(int(rows[col]) * SummitTowerBuilder.TILE) + SummitTowerBuilder.WALL_SURFACE_OFFSET)
+		placed += 1
 	for p in _layout["plats"]:
 		var kind: String = String(p["kind"])
 		if kind == "branch":
