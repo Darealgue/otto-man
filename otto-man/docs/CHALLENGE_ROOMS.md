@@ -102,19 +102,22 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
   düzen yeniden üretilir (`build`). Son 5 platform zirvenin serbest ucuna doğru yönlendirilir ve yan çıkıntısız kalır; son 8 platform dağa bağlanmaz.
 - Ölçüm (headless, gerçek oyuncu): tek zıplama 5.0 satır, çift zıplama 7.7 satır, koşarak çift zıplama ~18 karo yatay. `MAX_STEP_ROWS = 6`.
   Rota botu (kaba; ağaç dalları ve zeminden ilk dal dahil) zorluk 9'da 128 sıçramanın 126'sını, zorluk 1'de 48'in 48'ini geçti.
-- **Altın:** oyunun normal madeni parası (`coin_small.png`, 8 kare) ve altın kesesi (`pouch.png`), 1.5x. Seyrek: ana yolda platform başına
+- **Altın:** oyunun normal madeni parası (`coin_small.png`, 8 kare dönen şerit) ve altın kesesi (`pouch.png`, yerde duran sabit kare), ORİJİNAL boyutta (ölçek 1, esnetme yok). Toplayınca `coin_pickup` sesi (placeholder sentez; `SoundCatalog` + `AudioPlaceholderTones`; gerçek ses için `assets/audio/sfx/coin_pickup.ogg` koymak yeter). Seyrek: ana yolda platform başına
   ~%28 tek altın, ~%12 havada tek altın (zıplamak gerekir), ~%6 kese, ~%12 boşlukta yay; yol dışı yan çıkıntılarda (1-2 sıçrama) kese
   (değer yükseklik ve zorlukla artar). Toplanan altın düşünce de kalır (zirve bonusu verilmez).
 - Düşme: en son durulan en yüksek noktadan 448 px (14 karo) aşağı inilirse = ölüm (alttaki platforma düşmek sayılmaz).
 - Ödül: `40 + 30*zorluk` altın + toplanan altın, birkaç taş/odun.
-- **Görünüm:** ForestArenaDecorator `decor_biome = "mountain"` (dağ parallax'ı, dikey kayma artırıldı), hep gündüz (DayNightController kapatılır),
-  yükseldikçe koyulaşan gökyüzü örtüsü, dünya uzayında akan bulutlar. Zemine rastgele orman dekoru (ağaç, çiçek, çalı, kütük, kaya,
+- **Görünüm:** ForestArenaDecorator `decor_biome = "mountain"` (dağ parallax'ı, dikey kayma artırıldı), gün saatine göre (DayNightController doğal çalışır: güneş/ay konumu saatle gelir; gece ay ışığı tonu için `night_color` açıldı),
+  ormandaki `forest_biom_trees_1` ağaç katmanı dağ katmanlarının önüne eklenir, yükseldikçe koyulaşan gökyüzü örtüsü, dünya uzayında akan bulutlar.
+  Bulutlar (hem kendi bulutlarımız hem arka plandaki ForestCloudManager katmanları) yerden ~520 px yükselince beliriyor (`CLOUD_FADE_START`).
+  Gece oyuncunun çevresini aydınlatan yumuşak bir fener (`NightLantern`) ve her platformun üstünde ateş böcekleri (gece ışık verir), kelebekler (gündüz)
+  ve parlayan mantarlar (`forest_glow_mushroom`, gece ışık verir) bulunur (`ChallengeRoom._populate_summit_life`). Zemine rastgele orman dekoru (ağaç, çiçek, çalı, kütük, kaya,
   kelebek): `TileMapLayer` yalnız zemini taşır (dekor bu adı arar), platformlar `PlatformTiles`/`OnewayTiles` katmanlarındadır ve dekorlanmaz
   Yol platformları ve zirve ayrı kökler (`PlatformDecor`, `SummitDecorRoot`) taşır; her birinin içindeki `TileMapLayer` ayrıca dekorlanır:
   yol platformlarında çalı/çiçek/çimen/kütük/kaya/kelebek (`ForestLevelGenerator.allow_big_trees = false`, çünkü ağaç dalları ek basamak olurdu),
   zirvede ağaç da gelir (bayrağın 170 px çevresi rezerve). Tek yönlü platformlar dungeon karosu olduğundan dekor almaz.
   Ağaç öbeğinin üstüne rastgele ağaç düşmesin diye `_forest_tree_reserve_px` ile rezerve edilir.
-- Yan duvarlar görünmez ve `no_wall_slide` (duvar zıplamasıyla kenardan tırmanmak platformları atlatırdı).
+- Yan duvarlar görünmez, ekranın tam kenarında (x = 0 ve 1920; `WALL_COLS = 0`, platformlar da tüm genişliği kullanır) ve `no_wall_slide` (duvar zıplamasıyla kenardan tırmanmak platformları atlatırdı).
 ## Haritada doğma, ozan, kabul ekranı
 - **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
   son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör/kovalamaca/tuzak/tırmanış rastgele (asansör ve tuzak hep zindan, tırmanış hep orman);
