@@ -42,6 +42,7 @@ var _lift_top: float = 0.0
 var _lift_creeping: bool = false
 var _chase_floor_y: float = 928.0
 var _swarm: ChaseSwarm = null
+var _climb: SummitClimbController = null
 ## Tuzak Geçidi: zindan teması, kalan süre, sayaç çalışıyor mu
 var _theme: String = ""
 var _time_left: float = 0.0
@@ -61,10 +62,15 @@ func _ready() -> void:
 		_layout = ChaseCorridorBuilder.build(self, biome, difficulty)
 	elif kind == "tuzak":
 		_layout = TrapMazeBuilder.build(self, difficulty, _theme)
+	elif kind == "tirmanis":
+		_layout = SummitTowerBuilder.build(self, difficulty)
 	else:
 		_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor")
 	if biome == "orman":
-		_decorate_forest()
+		if kind == "tirmanis":
+			_decorate_summit()
+		else:
+			_decorate_forest()
 	_setup_camera()
 	_enemy_container = Node2D.new()
 	_enemy_container.name = "Enemies"
@@ -77,12 +83,15 @@ func _ready() -> void:
 	_build_hud()
 	if kind == "tuzak":
 		_setup_trap_run()
+	if kind == "tirmanis":
+		_setup_climb()
 	if kind == "kovalamaca":
 		_setup_chase()
 	elif kind == "tuzak":
 		pass   # düşman/dalga yok
 	else:
-		_setup_spawner()
+		if kind != "tirmanis":
+			_setup_spawner()
 	_begin_sequence()
 
 
@@ -333,7 +342,7 @@ func _build_hud() -> void:
 	_wave_label = _make_label(layer, Vector2(0, 24), 28)
 	_ward_label = _make_label(layer, Vector2(0, 62), 20)
 	_message_label = _make_label(layer, Vector2(0, 300), 40)
-	_ward_label.visible = kind == "koruma" or kind == "kovalamaca" or kind == "tuzak"
+	_ward_label.visible = kind == "koruma" or kind == "kovalamaca" or kind == "tuzak" or kind == "tirmanis"
 	_update_ward_label()
 
 
@@ -369,6 +378,8 @@ func _update_ward_label() -> void:
 	if kind == "kovalamaca":
 		_ward_label.text = tr("challenge.chase.catches") % [_swarm.catch_count if _swarm else 0, CHASE_MAX_CATCHES]
 		return
+	if kind == "tirmanis":
+		return   # etiketi _on_climb_stats yazar
 	var alive: int = 0
 	for w in _wards:
 		if is_instance_valid(w) and not w.is_dead:
@@ -473,6 +484,113 @@ func _grant_trap_reward() -> String:
 				ps.call("add_carried_resource", res_type, 2 + difficulty)
 	return tr("challenge.win.tuzak") % gold
 
+# --- Zirve Tırmanışı ------------------------------------------------------------------------
+
+## Dağ arka planı: ForestArenaDecorator'ın dağ parallax'ı; tırmandıkça dağ ve ağaç katmanları aşağı kayar
+## (varsayılan dikey kayma değerleri yatay koşu içindi, burada belirgin yükselme hissi için artırılır).
+func _decorate_summit() -> void:
+	var decorator := ForestArenaDecorator.new()
+	decorator.name = "SummitDecor"
+	decorator.decor_biome = "mountain"
+	add_child(decorator)
+	_force_summit_daylight(decorator)
+	var pb: Node = decorator.get_node_or_null("ParallaxBackground")
+	if pb == null:
+		return
+	var scales := {
+		"MountainBiomMountain1": Vector2(0.10, 0.14),
+		"MountainBiomMountain2": Vector2(0.05, 0.08),
+		"MountainBiomTrees3": Vector2(0.30, 0.30),
+		"MountainBiomTrees2": Vector2(0.48, 0.45),
+		"MountainBiomTrees1": Vector2(0.65, 0.60),
+	}
+	for layer_name in scales:
+		var layer := pb.get_node_or_null(String(layer_name)) as ParallaxLayer
+		if layer:
+			layer.motion_scale = scales[layer_name]
+
+
+## Hep gündüz: oyun saati akşama/geceye denk gelse bile platformlar ve altınlar okunur kalsın.
+## DayNightController kendi _ready'sinde bir kare bekleyip saate göre renk verdiği için iki kare sonra
+## gündüz renkleri zorlanır ve denetleyicinin _process'i kapatılır.
+func _force_summit_daylight(decorator: Node) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var dnc := decorator.get_node_or_null("DayNightController") as CanvasModulate
+	if dnc == null:
+		return
+	dnc.set_process(false)
+	dnc.color = dnc.day_color
+	var tint := decorator.get_node_or_null("ParallaxBackground/BackgroundTint") as CanvasModulate
+	if tint:
+		tint.color = Color(1, 1, 1, 1)   # dağ/ağaç katmanları kendi renkleriyle görünsün (gökyüzü gradyanı ayrı)
+	if dnc.sky_gradient_resource and dnc.sky_gradient_resource.gradient:
+		var grad: Gradient = dnc.sky_gradient_resource.gradient
+		grad.set_color(0, dnc.bg_day_color)
+		grad.set_color(1, dnc.bg_day_color.lightened(0.3))
+
+
+func _setup_climb() -> void:
+	_climb = SummitClimbController.new()
+	_climb.name = "SummitClimb"
+	add_child(_climb)
+	_climb.setup(_player, _cam, _layout)
+	_climb.stats_changed.connect(_on_climb_stats)
+	_climb.reached_summit.connect(_on_climb_summit)
+	_climb.fell.connect(_on_climb_fell)
+	_on_climb_stats(0, 0, _climb.total_meters)
+
+
+func _start_climb() -> void:
+	await _show_message(tr("challenge.climb.go"), 1.2)
+	if _climb != null and not _finished:
+		_climb.start()
+
+
+func _on_climb_stats(gold: int, meters: int, total_meters: int) -> void:
+	if _ward_label != null:
+		_ward_label.text = tr("challenge.climb.hud") % [gold, meters, total_meters]
+
+
+func _on_climb_summit() -> void:
+	_finish(true)
+
+
+## Düştün: başarısızlık = ölüm. Toplanan altın düşünce de kalır (yol boyunca kazanılmıştı); zirve ödülü verilmez.
+func _on_climb_fell() -> void:
+	if _finished:
+		return
+	_finished = true
+	_pay_gold(_climb.gold if _climb != null else 0)
+	_show_message(tr("challenge.climb.fell"))
+	if is_instance_valid(_player):
+		_player.call("take_damage", 99999.0, true, null)
+		await get_tree().create_timer(1.6).timeout
+		if is_instance_valid(_player) and not bool(_player.get("is_dead")):
+			_player.call("_finalize_player_death")
+
+
+func _pay_gold(amount: int) -> void:
+	if amount <= 0:
+		return
+	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+	if is_instance_valid(gpd) and gpd.has_method("add_gold"):
+		gpd.call("add_gold", amount)
+
+
+## Zirve ödülü: sabit bonus (zorlukla artar) + yolda toplanan altın; birkaç taş/odun.
+func _grant_climb_reward() -> String:
+	var total: int = 40 + 30 * difficulty + (_climb.gold if _climb != null else 0)
+	_pay_gold(total)
+	var ps: Node = get_node_or_null("/root/PlayerStats")
+	if is_instance_valid(ps) and ps.has_method("add_carried_resource"):
+		var carried: Variant = ps.get("carried_resources")
+		for res_type in ["stone", "wood"]:
+			if carried is Dictionary and (carried as Dictionary).has(res_type):
+				ps.call("add_carried_resource", res_type, 2 + difficulty)
+	return tr("challenge.win.tirmanis") % total
+
+
 # --- Akış ---------------------------------------------------------------------------------
 
 func _begin_sequence() -> void:
@@ -481,7 +599,7 @@ func _begin_sequence() -> void:
 	# Build kurma: oyuncunun açtığı item'lardan START_PICKS kez kart seçimi
 	var im: Node = get_node_or_null("/root/ItemManager")
 	# Kovalamaca'da başlangıç build seçimi yok (koşuyu item'larla değil hareketle kazanırsın)
-	if kind != "kovalamaca" and kind != "tuzak" and is_instance_valid(im) and im.has_method("queue_item_selections"):
+	if kind != "kovalamaca" and kind != "tuzak" and kind != "tirmanis" and is_instance_valid(im) and im.has_method("queue_item_selections"):
 		_show_message(tr("challenge.pick") % START_PICKS)
 		im.call("queue_item_selections", START_PICKS)
 		await im.item_selection_sequence_finished
@@ -490,6 +608,9 @@ func _begin_sequence() -> void:
 		return
 	if kind == "tuzak":
 		_start_trap_run()
+		return
+	if kind == "tirmanis":
+		_start_climb()
 		return
 	await _show_message(tr("challenge.ready"), 1.6)
 	_spawner.start_next_wave()
@@ -577,6 +698,8 @@ func _grant_reward() -> String:
 		return _grant_random_item_unlock()
 	if kind == "tuzak":
 		return _grant_trap_reward()
+	if kind == "tirmanis":
+		return _grant_climb_reward()
 	if kind == "kovalamaca":
 		# Sona ulaşmak 1 unlock teklifi; hiç yakalanmadan ulaşmak 2 teklif
 		var flawless: bool = _swarm != null and _swarm.catch_count == 0

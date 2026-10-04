@@ -8,8 +8,12 @@ extends ForestLevelGenerator
 ## (chunk'lar, düşmanlar, kaynaklar) devre dışı bırakıyoruz: _ready, _process ve girdi geçersiz kılındı.
 ## Not: "level_generator" grubuna GİRMEZ (tuzak/düşman kodu o grupla gerçek bir seviye arıyor).
 
+## "forest" ya da "mountain" (Zirve Tırmanışı dağ parallax'ı kullanır); add_child'dan ÖNCE verilmeli.
+var decor_biome: String = "forest"
+
+
 func _ready() -> void:
-	biome_type = "forest"
+	biome_type = decor_biome
 	_decor_spawner = DecorationSpawner.new()
 	add_child(_decor_spawner)
 	_setup_day_night_system()

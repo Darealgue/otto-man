@@ -83,9 +83,26 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Giriş kart seçimi yok (yalnız hareket ve zamanlama).
 - Not: `trap_corridor_traps.gd` yalnız ortak yardımcılar (grup boyu, spawner kurma); `ChaseCorridorBuilder`'ın `trap_mode`
   parametresi artık kullanılmıyor.
+## Zirve Tırmanışı (`tirmanis`)
+- Yalnız orman (gökyüzü + dağ arka planı); `ChallengeRoomRegistry.biome_for` her zaman "orman" verir. Düşman/kart seçimi yok.
+- `summit_tower_builder.gd` (düzen + çizim), `summit_climb_controller.gd` (kamera, altın, düşme/zirve, gökyüzü, bulutlar).
+- Platform sayısı `14 + 5*zorluk` (zorluk 1 ~20, zorluk 9 ~60; ~35 m / ~115 m). Zorluk düşükse kulenin en sert kısmına ulaşılmaz
+  (`te = t * lerp(0.55, 1.0, ...)`). Yükseldikçe platformlar küçülür, basamak (2-6 satır) ve yatay açıklık (en çok 8 karo) artar.
+- İki platform türü: `wall` (orman zemin karosu, 2 satır, altından zıplanamaz) ve `oneway` (dungeon tileset "walls2" terrain'i, 1 satır,
+  1-7 karo; alttan geçilir). Katı platform, altındaki bir platformun zıplama alanını (11 satır) kapatamaz ve zeminde 2 satır boşluk bırakır.
+- Ölçüm (headless, gerçek oyuncu): tek zıplama 5.0 satır, çift zıplama 7.7 satır, koşarak çift zıplama ~18 karo yatay. `MAX_STEP_ROWS = 6`.
+  Rota botu (kaba) zorluk 9'da sıçramaların ~%96'sını geçti; kalanlar dar (1-3 karo) platformlara 5-6 satır çıkışlardı.
+- Altın: ana yolda yüzeyde küçük altınlar, bazen havada tek (zıplamak gerekir) ve boşlukta yay; yol dışı yan çıkıntılarda (1-2 sıçrama)
+  büyük altın (`tier 2`). Değer yükseklikle ve zorlukla artar. Toplanan altın düşünce de kalır (zirve bonusu verilmez).
+- Düşme: en son durulan en yüksek noktadan 448 px (14 karo) aşağı inilirse = ölüm (alttaki platforma düşmek sayılmaz).
+- Zirve: yerde durarak zirve platformuna çıkınca kazanılır. Ödül: `40 + 30*zorluk` altın + toplanan altın, birkaç taş/odun.
+- Görünüm: ForestArenaDecorator `decor_biome = "mountain"` (dağ parallax'ı, dikey kayma artırıldı), hep gündüz (DayNightController kapatılır),
+  yükseldikçe koyulaşan gökyüzü örtüsü, dünya uzayında akan bulutlar, zirvede bayrak.
+- Yan duvarlar görünmez ve `no_wall_slide` (duvar zıplamasıyla kenardan tırmanmak platformları atlatırdı).
+
 ## Haritada doğma, ozan, kabul ekranı
 - **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
-  son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör rastgele (asansör hep zindan);
+  son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör/kovalamaca/tuzak/tırmanış rastgele (asansör ve tuzak hep zindan, tırmanış hep orman);
   zorluk gün sayısına göre. Son doğma günü köy karosunda (`challenge_last_spawn_day`) saklanır. Zindan
   rehberi sürerken doğmaz.
 - **Ozan:** `OzanSongs.pick_clue()` haritada aktif etkinlik varsa (%65) onu söyler: yön + uzaklık + türün türküsü
@@ -94,5 +111,5 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
   "Gir" onaylarsa oda açılır ve karo kalkar, "Vazgeç" hiçbir şeyi tüketmez.
 
 ## Henüz yok
-- Diğer türler (bkz. sohbetteki fikir listesi). Not: otomatik doğma şu an yalnız koruma/dalga/asansör/kovalamaca/tuzak
+- Diğer türler (bkz. sohbetteki fikir listesi). Not: otomatik doğma şu an yalnız koruma/dalga/asansör/kovalamaca/tuzak/tırmanış
   türlerinden seçer; zorluk gün sayısına göre en fazla 7.

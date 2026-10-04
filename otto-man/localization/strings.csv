@@ -2641,3 +2641,10 @@ synergy.shadow_burst,sönen gölge patlar,a fading shadow bursts
 synergy.burst_element,gölge patlaması elementini taşır,the shadow burst carries your element
 synergy.shadow_mark,gölgenin vurduğu düşman işaretlenir,an enemy hit by a shadow gets marked
 ozan.price,%d yiyecek ver,Give %d food
+challenge.kind.tirmanis,Zirve Tırmanışı,Summit Climb
+challenge.desc.tirmanis,"Havada yükselen platformlardan zıplayarak zirveye çık. Yükseldikçe platformlar küçülür, aralar açılır; düşersen her şey biter. Yol boyunca altınlar var, yan çıkıntılardakiler daha değerli. Ödül: altın ve hammadde.","Leap up the platforms rising into the sky to reach the summit. The higher you go the smaller they get and the wider the gaps; if you fall it is over. Gold lies along the way, and the side ledges hold the richest pieces. Reward: gold and materials."
+challenge.win.tirmanis,Zirvedesin! +%d altın,You reached the summit! +%d gold
+challenge.climb.go,Tırman!,Climb!
+challenge.climb.hud,Altın: %d   Yükseklik: %d / %d m,Gold: %d   Height: %d / %d m
+challenge.climb.fell,Düştün!,You fell!
+ozan.song.challenge.tirmanis,"%s, %s bir dağ yükselir; basamakları ufaldıkça yükselir, düşeni geri çağırmaz.","%s, %s a mountain rises; its steps shrink as it climbs, and it never calls back him who falls."

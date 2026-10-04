@@ -13,13 +13,16 @@ const KINDS: Dictionary = {
 	"asansor": "challenge.kind.asansor",
 	"kovalamaca": "challenge.kind.kovalamaca",
 	"tuzak": "challenge.kind.tuzak",
+	"tirmanis": "challenge.kind.tirmanis",
 }
 
 const BIOMES: Array[String] = ["orman", "zindan"]
 
 
-## Asansör ve Tuzak Geçidi yalnız zindanda kurulur (ormanda asansör mantıksız görünüyordu); diğer türler istenen mekânda.
+## Asansör ve Tuzak Geçidi yalnız zindanda, Zirve Tırmanışı yalnız ormanda (gökyüzü/dağ) kurulur; diğer türler istenen mekânda.
 static func biome_for(kind: String, biome: String) -> String:
+	if kind == "tirmanis":
+		return "orman"
 	return "zindan" if kind == "asansor" or kind == "tuzak" else biome
 
 
