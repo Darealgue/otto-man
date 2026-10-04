@@ -2604,3 +2604,11 @@ challenge.chase.caught,Yakalandın!,You were caught!
 challenge.win.kovalamaca,Kuşlardan kurtuldun!,You escaped the birds!
 challenge.win.kovalamaca.flawless,Kuşlar seni yakalayamadı! Çifte ödül.,The birds never caught you! Double reward.
 ozan.song.challenge.kovalamaca,"%s, %s kanatlı bir bulut peşine takılır; ayağı çevik olan kapıya varır.","%s, %s a winged cloud takes up the chase; he with nimble feet reaches the gate."
+challenge.kind.tuzak,Tuzak Geçidi,Trap Gauntlet
+challenge.desc.tuzak,"Düşman yok, yalnızca zindan temasının tuzakları ve zamana karşı bir koşu. Tuzağa çarpmak süreden düşer. Ödül: altın ve hammadde.","No enemies, just a dungeon theme's traps and a race against the clock. Hitting a trap costs time. Reward: gold and materials."
+challenge.win.tuzak,Geçidi aştın! +%d altın,You cleared the gauntlet! +%d gold
+challenge.trap.go,Koş!,Run!
+challenge.trap.time,Süre: %d,Time: %d
+challenge.trap.penalty,Tuzak! -%d sn,Trap! -%d s
+challenge.trap.timeup,Süre doldu!,Time is up!
+ozan.song.challenge.tuzak,"%s, %s tuzaklarla dolu bir geçit uzanır; vaktini tüketen, dişlere yem olur.","%s, %s a passage lined with traps stretches out; he who wastes his time becomes fodder for the fangs."

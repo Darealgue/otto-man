@@ -24,6 +24,8 @@ const CHASE_MAX_CATCHES: int = 3
 const CHASE_TRIGGER_DISTANCE: float = 120.0
 ## Oyuncunun ölçülen düz koşu hızı (px/s); sürü hızı buna oranlanır
 const PLAYER_RUN_SPEED: float = 560.0
+## Tuzak Geçidi: tuzağa çarpınca kalan süreden düşen saniye
+const TRAP_HIT_TIME_PENALTY: float = 4.0
 
 var kind: String = "koruma"
 var biome: String = "orman"
@@ -40,6 +42,10 @@ var _lift_top: float = 0.0
 var _lift_creeping: bool = false
 var _chase_floor_y: float = 928.0
 var _swarm: ChaseSwarm = null
+## Tuzak Geçidi: zindan teması, kalan süre, sayaç çalışıyor mu
+var _theme: String = ""
+var _time_left: float = 0.0
+var _timer_running: bool = false
 var _ward_total: int = 0
 var _ward_override: int = 0
 var _finished: bool = false
@@ -53,6 +59,8 @@ func _ready() -> void:
 	_read_payload()
 	if kind == "kovalamaca":
 		_layout = ChaseCorridorBuilder.build(self, biome, difficulty)
+	elif kind == "tuzak":
+		_layout = ChaseCorridorBuilder.build(self, biome, difficulty, _theme, true)
 	else:
 		_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor")
 	if biome == "orman":
@@ -67,8 +75,12 @@ func _ready() -> void:
 	if kind == "koruma":
 		_spawn_wards()
 	_build_hud()
+	if kind == "tuzak":
+		_setup_trap_run()
 	if kind == "kovalamaca":
 		_setup_chase()
+	elif kind == "tuzak":
+		pass   # düşman/dalga yok
 	else:
 		_setup_spawner()
 	_begin_sequence()
@@ -83,11 +95,15 @@ func _read_payload() -> void:
 	biome = String(payload.get("biome", biome))
 	difficulty = clampi(int(payload.get("difficulty", difficulty)), 1, 9)
 	_ward_override = int(payload.get("wards", 0))
+	_theme = String(payload.get("theme", ""))
 	if not ChallengeRoomRegistry.KINDS.has(kind):
 		kind = "koruma"
 	if biome not in ChallengeRoomRegistry.BIOMES:
 		biome = "orman"
 	biome = ChallengeRoomRegistry.biome_for(kind, biome)
+	if kind == "tuzak" and not DungeonThemeStyle.STYLES.has(_theme):
+		var themes: Array = DungeonThemeStyle.STYLES.keys()
+		_theme = String(themes[randi() % themes.size()])
 
 
 ## Orman arenası: gerçek orman sahnesinin gökyüzü/güneş/parallax/bulut ve zemin dekoru.
@@ -244,8 +260,10 @@ func _update_chase(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _swarm != null:
+	if _swarm != null or kind == "tuzak":
 		_update_chase(delta)
+	if _timer_running and not _finished:
+		_tick_trap_timer(delta)
 	# Dalga sürerken zemin yavaşça yükselmeye devam eder (hız zorlukla artar)
 	if _lift != null and _lift_creeping and not _finished:
 		_set_lift_top(maxf(_lift_top - (8.0 + 2.0 * float(difficulty)) * delta, LIFT_TOP_LIMIT))
@@ -311,7 +329,7 @@ func _build_hud() -> void:
 	_wave_label = _make_label(layer, Vector2(0, 24), 28)
 	_ward_label = _make_label(layer, Vector2(0, 62), 20)
 	_message_label = _make_label(layer, Vector2(0, 300), 40)
-	_ward_label.visible = kind == "koruma" or kind == "kovalamaca"
+	_ward_label.visible = kind == "koruma" or kind == "kovalamaca" or kind == "tuzak"
 	_update_ward_label()
 
 
@@ -341,6 +359,9 @@ func _show_message(text: String, seconds: float = 0.0) -> void:
 func _update_ward_label() -> void:
 	if _ward_label == null:
 		return
+	if kind == "tuzak":
+		_ward_label.text = tr("challenge.trap.time") % maxi(0, int(ceil(_time_left)))
+		return
 	if kind == "kovalamaca":
 		_ward_label.text = tr("challenge.chase.catches") % [_swarm.catch_count if _swarm else 0, CHASE_MAX_CATCHES]
 		return
@@ -351,6 +372,102 @@ func _update_ward_label() -> void:
 	_ward_label.text = tr("challenge.wards") % [alive, _ward_total]
 
 
+# --- Tuzak Geçidi ---------------------------------------------------------------------------
+
+## Tuzakları dizer, temanın zindan kurallarını (kaygan zemin, yıldırım, karanlık) uygular, süreyi hesaplar.
+func _setup_trap_run() -> void:
+	var count: int = TrapCorridorTraps.populate(self, _layout, _theme, difficulty)
+	print("[TuzakGecidi] tema=%s zorluk=%d tuzak=%d" % [_theme, difficulty, count])
+	_apply_theme_rules()
+	# Süre: koridoru ~520 px/s ile koşmanın 1.4 katı + 12 sn pay; tuzağa çarpmak süreden düşer
+	_time_left = float(_layout["length"]) / 520.0 * 1.4 + 12.0
+	if _player.has_signal("player_took_damage"):
+		_player.connect("player_took_damage", _on_trap_hit)
+	_update_ward_label()
+
+
+## Zindan temasının oyuncuya etkileyen kuralları (level_generator'daki gerçek zindanla aynı ayarlar).
+func _apply_theme_rules() -> void:
+	_player.set("ground_traction", DungeonThemeStyle.get_ground_traction(_theme))
+	var idle_strike: Dictionary = DungeonThemeStyle.get_idle_strike(_theme)
+	if not idle_strike.is_empty():
+		var watcher := StormWatcher.new()
+		watcher.name = "StormWatcher"
+		add_child(watcher)
+		watcher.setup(idle_strike, difficulty)
+	var lighting: Dictionary = DungeonThemeStyle.get_lighting(_theme)
+	if not lighting.is_empty():
+		var ambient := CanvasModulate.new()
+		ambient.name = "ThemeAmbient"
+		ambient.color = lighting.get("ambient", Color(0.1, 0.09, 0.16))
+		add_child(ambient)
+		var grad := Gradient.new()
+		grad.offsets = PackedFloat32Array([0.0, 1.0])
+		grad.colors = PackedColorArray([Color(1, 1, 1, 1), Color(0, 0, 0, 1)])
+		var tex := GradientTexture2D.new()
+		tex.gradient = grad
+		tex.fill = GradientTexture2D.FILL_RADIAL
+		tex.fill_from = Vector2(0.5, 0.5)
+		tex.fill_to = Vector2(1.0, 0.5)
+		tex.width = 256
+		tex.height = 256
+		var light := PointLight2D.new()
+		light.name = "ThemeLantern"
+		light.texture = tex
+		light.texture_scale = float(lighting.get("player_light_radius", 220.0)) * 2.0 / 256.0
+		light.energy = float(lighting.get("player_light_energy", 0.9))
+		light.color = lighting.get("player_light_color", Color(1.0, 0.92, 0.8))
+		light.position = Vector2(0.0, -40.0)
+		_player.add_child(light)
+
+
+func _start_trap_run() -> void:
+	await _show_message(tr("challenge.trap.go"), 1.2)
+	_timer_running = true
+
+
+func _tick_trap_timer(delta: float) -> void:
+	_time_left -= delta
+	_update_ward_label()
+	if _time_left <= 0.0:
+		_on_time_up()
+
+
+func _on_trap_hit(_amount: float, _attacker: Node2D) -> void:
+	if _finished:
+		return
+	_time_left -= TRAP_HIT_TIME_PENALTY
+	_show_message(tr("challenge.trap.penalty") % int(TRAP_HIT_TIME_PENALTY), 1.0)
+
+
+## Süre bitti: başarısızlık = ölüm (kovalamacadaki gibi; ölüm takılırsa süre sonunda zorla bitirilir).
+func _on_time_up() -> void:
+	if _finished:
+		return
+	_finished = true
+	_timer_running = false
+	_show_message(tr("challenge.trap.timeup"))
+	if is_instance_valid(_player):
+		_player.call("take_damage", 99999.0, true, null)
+		await get_tree().create_timer(1.6).timeout
+		if is_instance_valid(_player) and not bool(_player.get("is_dead")):
+			_player.call("_finalize_player_death")
+
+
+## Ödül: altın (zorlukla artar) ve kalan süreye göre bonus; hammadde de eklenir.
+func _grant_trap_reward() -> String:
+	var gold: int = 30 + 25 * difficulty + int(maxf(_time_left, 0.0))
+	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+	if is_instance_valid(gpd) and gpd.has_method("add_gold"):
+		gpd.call("add_gold", gold)
+	var ps: Node = get_node_or_null("/root/PlayerStats")
+	if is_instance_valid(ps) and ps.has_method("add_carried_resource"):
+		var carried: Variant = ps.get("carried_resources")
+		for res_type in ["stone", "wood"]:
+			if carried is Dictionary and (carried as Dictionary).has(res_type):
+				ps.call("add_carried_resource", res_type, 2 + difficulty)
+	return tr("challenge.win.tuzak") % gold
+
 # --- Akış ---------------------------------------------------------------------------------
 
 func _begin_sequence() -> void:
@@ -359,12 +476,15 @@ func _begin_sequence() -> void:
 	# Build kurma: oyuncunun açtığı item'lardan START_PICKS kez kart seçimi
 	var im: Node = get_node_or_null("/root/ItemManager")
 	# Kovalamaca'da başlangıç build seçimi yok (koşuyu item'larla değil hareketle kazanırsın)
-	if kind != "kovalamaca" and is_instance_valid(im) and im.has_method("queue_item_selections"):
+	if kind != "kovalamaca" and kind != "tuzak" and is_instance_valid(im) and im.has_method("queue_item_selections"):
 		_show_message(tr("challenge.pick") % START_PICKS)
 		im.call("queue_item_selections", START_PICKS)
 		await im.item_selection_sequence_finished
 	if kind == "kovalamaca":
 		_start_chase()
+		return
+	if kind == "tuzak":
+		_start_trap_run()
 		return
 	await _show_message(tr("challenge.ready"), 1.6)
 	_spawner.start_next_wave()
@@ -416,6 +536,7 @@ func _finish(won: bool) -> void:
 	if _finished:
 		return
 	_finished = true
+	_timer_running = false
 	if _spawner != null:
 		_spawner.set_physics_process(false)
 	if _swarm != null:
@@ -449,6 +570,8 @@ func _grant_reward() -> String:
 		return tr("challenge.win.koruma") % survivors
 	if kind == "asansor":
 		return _grant_random_item_unlock()
+	if kind == "tuzak":
+		return _grant_trap_reward()
 	if kind == "kovalamaca":
 		# Sona ulaşmak 1 unlock teklifi; hiç yakalanmadan ulaşmak 2 teklif
 		var flawless: bool = _swarm != null and _swarm.catch_count == 0

@@ -66,6 +66,18 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
   bitirirse 2 teklif.
 - Başlangıç kart seçimi (3) diğer türlerle aynı.
 
+## Tuzak Geçidi (`tuzak`)
+- Yalnız zindan. Kovalamaca koridorunu (`ChaseCorridorBuilder.build(..., theme, trap_mode = true)`) kullanır; engeller
+  seyrek (aralara tuzak yeri kalsın), renkler `DungeonThemeStyle` temasından. Tema payload `theme` ya da rastgele
+  (ates/zehir/buz/firtina/barut/golge).
+- `trap_corridor_traps.gd`: gerçek zindan tuzak sistemi (`TileTrapSpawner`, `TrapConfigV2`, tema ağırlıkları/grup
+  boyları) ile tuzak dizer: zemin (engeller arası düz boşluklara 1-5'li gruplar), tavan (zehir damlası vb.),
+  duvar (engel duvarlarının oyuncuya bakan yüzüne ok/top). Zorlukla sıklaşır.
+- Tema kuralları oyuncuya uygulanır: kaygan zemin (buz), sabit durana yıldırım (fırtına), karanlık + fener (gölge).
+- Süre: koridor uzunluğu / 520 * 1.4 + 12 sn. Tuzağa çarpmak (oyuncu hasar alınca) -4 sn. Süre biterse başarısızlık = ölüm;
+  çıkış kapısına ulaşırsan kazanırsın. Ödül: altın (30 + 25*zorluk + kalan sn) ve birkaç taş/odun.
+- Giriş kart seçimi yok (yalnız hareket ve zamanlama).
+
 ## Haritada doğma, ozan, kabul ekranı
 - **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
   son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör rastgele (asansör hep zindan);

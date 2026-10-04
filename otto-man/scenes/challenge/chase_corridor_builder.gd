@@ -204,13 +204,15 @@ static var dev_force_template: String = ""
 
 
 ## Koridoru `root` altında kurar. Dönen sözlük ChallengeRoom'un beklediği alanları taşır.
-static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
+## 	heme: boş değilse zindan temasının renkleri kullanılır. 	rap_mode: Tuzak Geçidi (engeller seyrek,
+## aralarında tuzaklara yer kalır; zemin dekoru yok).
+static func build(root: Node2D, biome: String, difficulty: int, theme: String = "", trap_mode: bool = false) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var forest: bool = biome == "orman"
 	# Uzunluk zorlukla doğrusal artar: zorluk 1 = 1x, 2 = 2x, 3 = 3x ... (1x = 260 kolon ~ 8300 px)
 	var total_cols: int = BASE_COLS * clampi(difficulty, 1, 9)
-	var plan: Array = _plan(rng, difficulty, total_cols)
+	var plan: Array = _plan(rng, difficulty, total_cols, trap_mode)
 
 	# Her kolonun zemin satırı (parça içinde başlangıç seviyesi, parçadan sonra bitiş seviyesi)
 	var ground: Array[int] = []
@@ -271,7 +273,7 @@ static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
 	if forest:
 		_add_forest_bounds(root, length)
 	else:
-		_add_dungeon_dressing(root, layer, rng, length, ground, obstacle_spans)
+		_add_dungeon_dressing(root, layer, rng, length, ground, obstacle_spans, theme, trap_mode)
 	return {
 		"bounds": Rect2(0.0, float(CEILING_ROWS * TILE), length, floor_y - float(CEILING_ROWS * TILE)),
 		"floor_y": floor_y,
@@ -282,12 +284,14 @@ static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
 		"center_x": length * 0.5,
 		"plan": plan,
 		"ground": ground,
+		"solid": solid,
+		"spans": obstacle_spans,
 	}
 
 
 ## Engel planı: [{name, x, w, cost, g, g2}] (x/w kolon, g/g2 parça öncesi/sonrası zemin satırı).
 ## İzin verilen maliyet koridor boyunca artar; zemin sınırlarda kalır ve ortaya doğru geri çekilir.
-static func _plan(rng: RandomNumberGenerator, difficulty: int, total_cols: int) -> Array:
+static func _plan(rng: RandomNumberGenerator, difficulty: int, total_cols: int, trap_mode: bool = false) -> Array:
 	var out: Array = []
 	var limit: int = total_cols - END_COLS
 	var G: int = FLOOR_ROW
@@ -301,7 +305,7 @@ static func _plan(rng: RandomNumberGenerator, difficulty: int, total_cols: int) 
 					G += int(t[3])
 					fx += int(t[2]) + 14
 				return out
-	var cap_max: int = 2 + difficulty / 2
+	var cap_max: int = (1 + difficulty / 3) if trap_mode else (2 + difficulty / 2)
 	var x: int = START_COLS
 	var recent: Array[String] = []
 	while x < limit:
@@ -333,7 +337,7 @@ static func _plan(rng: RandomNumberGenerator, difficulty: int, total_cols: int) 
 		var g2: int = G + int(t[3])
 		out.append({"name": t[0], "x": x, "w": int(t[2]), "cost": int(t[1]), "g": G, "g2": g2})
 		G = g2
-		x += int(t[2]) + rng.randi_range(maxi(8, 15 - difficulty), 19)
+		x += int(t[2]) + (rng.randi_range(18, 28) if trap_mode else rng.randi_range(maxi(8, 15 - difficulty), 19))
 	return out
 
 
@@ -359,8 +363,14 @@ static func _add_forest_bounds(root: Node2D, length: float) -> void:
 
 ## Zindan koridoru: arka plan duvarı + paletli karolar, giriş/çıkış kapıları, bayrak ve eşya dekoru.
 static func _add_dungeon_dressing(root: Node2D, layer: TileMapLayer, rng: RandomNumberGenerator,
-		length: float, ground: Array[int], spans: Array[Vector2i]) -> void:
+		length: float, ground: Array[int], spans: Array[Vector2i], theme: String = "", trap_mode: bool = false) -> void:
 	var palette: Dictionary = ChallengeArenaBuilder.PALETTES[rng.randi() % ChallengeArenaBuilder.PALETTES.size()]
+	if not theme.is_empty() and not DungeonThemeStyle.get_style(theme).is_empty():
+		# Tema renkleri (DungeonThemeStyle); arka plan tuğlası koyu olduğundan biraz parlatılır
+		palette = palette.duplicate()
+		palette["tile"] = DungeonThemeStyle.get_tint_fg(theme)
+		palette["bg"] = DungeonThemeStyle.get_tint_bg(theme) * 1.7
+		palette["bg"].a = 1.0
 	layer.modulate = palette["tile"]
 	var bg_tex := load(ChallengeArenaBuilder.WALL_BG_PATH) as Texture2D
 	if bg_tex:
@@ -403,7 +413,7 @@ static func _add_dungeon_dressing(root: Node2D, layer: TileMapLayer, rng: Random
 		bx += rng.randf_range(520.0, 1100.0)
 	# Zemin dekoru yalnızca engellerden uzak düz yerlere; yükseklik o kolonun zemin seviyesinden
 	var fx: float = 700.0
-	while fx < length - 700.0:
+	while not trap_mode and fx < length - 700.0:   # tuzak modunda zemin boş kalır (tuzaklar oraya konur)
 		var col: int = int(fx) / TILE
 		var blocked: bool = false
 		for s in spans:
