@@ -11,7 +11,10 @@ const TILE: int = 32
 const FLOOR_ROW: int = 29
 const CEILING_ROWS: int = 4
 const OVERSCAN: int = 6
-const BASE_COLS: int = 260          # zorluk 1'deki koridor uzunluğu (kolon)
+## Kamera merkezi zeminin bu kadar yukarısında durur (px). Zemin ekranda 540 + bu değer kadar aşağıda
+## görünür: 260 -> y 800 (eskiden 388 -> y 928, karakter ekranın dibinde koşuyordu). Yalnız kovalamaca.
+const CAM_FLOOR_OFFSET: float = 260.0
+const BASE_COLS: int = 260         # zorluk 1'deki koridor uzunluğu (kolon)
 const START_COLS: int = 22          # başlangıçtaki düz alan
 const END_COLS: int = 26            # bitişteki düz alan + kapı
 const WALL_COLS: int = 3
@@ -275,7 +278,7 @@ static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
 		"length": length,
 		"end_x": end_x,
 		"player_spawn": Vector2(300.0, floor_y),
-		"camera_position": Vector2(960.0, floor_y - ChallengeArenaBuilder.CAMERA_FLOOR_OFFSET),
+		"camera_position": Vector2(960.0, floor_y - CAM_FLOOR_OFFSET),
 		"center_x": length * 0.5,
 		"plan": plan,
 		"ground": ground,

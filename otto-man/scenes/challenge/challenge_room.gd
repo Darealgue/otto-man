@@ -158,7 +158,7 @@ func _set_lift_top(y: float) -> void:
 	_lift_top = y
 	_lift.position.y = y + LIFT_THICKNESS * 0.5
 	if _cam:
-		_cam.position.y = y - ChallengeArenaBuilder.CAMERA_FLOOR_OFFSET
+		_cam.position.y = y - 388.0
 	var left_x: float = float(_layout["left_x"])
 	var right_x: float = float(_layout["right_x"])
 	_layout["floor_y"] = y
@@ -166,7 +166,7 @@ func _set_lift_top(y: float) -> void:
 	_layout["spawn_left"] = Vector2(left_x + 40.0, y - 40.0)
 	_layout["spawn_right"] = Vector2(right_x - 40.0, y - 40.0)
 	_layout["air_y"] = y - 420.0
-	_layout["drop_y"] = y - ChallengeArenaBuilder.CAMERA_FLOOR_OFFSET - 540.0 - 80.0
+	_layout["drop_y"] = y - 388.0 - 540.0 - 80.0
 
 
 func _rise_lift() -> void:
@@ -230,7 +230,7 @@ func _update_chase(delta: float) -> void:
 	# (zıplayınca sallanmasın diye havadayken güncellenmez)
 	if bool(_player.call("is_on_floor")):
 		_chase_floor_y = _player.global_position.y
-	_cam.position.y = lerpf(_cam.position.y, _chase_floor_y - ChallengeArenaBuilder.CAMERA_FLOOR_OFFSET, minf(1.0, 4.0 * delta))
+	_cam.position.y = lerpf(_cam.position.y, _chase_floor_y - ChaseCorridorBuilder.CAM_FLOOR_OFFSET, minf(1.0, 4.0 * delta))
 	if _swarm != null:
 		_swarm.floor_y = _chase_floor_y
 	if _danger != null and _swarm != null:
