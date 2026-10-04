@@ -59,7 +59,7 @@ func update(delta: float):
 				hitbox.rotation = 0.0
 				var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 				if collision_shape:
-					collision_shape.position = Vector2(52.625, -22.5)
+					collision_shape.position = Vector2(38.0, -22.5)
 				hitbox.disable()
 		state_machine.transition_to("Idle")
 		return
@@ -133,7 +133,7 @@ func _update_hitbox():
 			var facing_sign = -1.0 if facing_left else 1.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				var pos = Vector2(88.0, -22.5)  # attack_state up ile aynı, daha önde
+				var pos = Vector2(64.0, -22.5)  # attack_state up ile aynı, daha önde
 				pos.x = abs(pos.x) * (-1 if facing_left else 1)
 				collision_shape.position = pos
 			hitbox.rotation = deg_to_rad(-45.0 * facing_sign)
@@ -156,7 +156,7 @@ func _update_hitbox():
 			hitbox.rotation = 0.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				collision_shape.position = Vector2(52.625, -22.5)
+				collision_shape.position = Vector2(38.0, -22.5)
 			hitbox.disable()
 
 func exit():
@@ -174,7 +174,7 @@ func exit():
 			hitbox.rotation = 0.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				collision_shape.position = Vector2(52.625, -22.5)
+				collision_shape.position = Vector2(38.0, -22.5)
 			hitbox.disable()
 	
 	# Up attack combo step'i ilerlet
@@ -213,7 +213,7 @@ func _update_hitbox_position():
 		var facing_sign = -1.0 if facing_left else 1.0
 		var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			var pos = Vector2(88.0, -22.5)
+			var pos = Vector2(64.0, -22.5)
 			pos.x = abs(pos.x) * (-1 if facing_left else 1)
 			collision_shape.position = pos
 		hitbox.rotation = deg_to_rad(-45.0 * facing_sign)

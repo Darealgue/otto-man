@@ -332,11 +332,11 @@ func _update_hitbox_facing(hitbox: Node2D) -> void:
 		# Yukarı heavy: light up ile aynı konum (88, 2.5) + -45°
 		var original_position: Vector2
 		if current_attack == "up_heavy":
-			original_position = Vector2(88.0, 2.5)
+			original_position = Vector2(64.0, 2.5)
 		elif current_attack == "down_heavy":
-			original_position = Vector2(52.625, -22.5)
+			original_position = Vector2(38.0, -22.5)
 		else:
-			original_position = Vector2(52.625, -22.5)
+			original_position = Vector2(38.0, -22.5)
 		var pos = original_position
 		pos.x = abs(pos.x) * (-1 if facing_left else 1)
 		collision_shape.position = pos
