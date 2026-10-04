@@ -20,6 +20,8 @@ const LIFT_THICKNESS: float = 32.0
 const LIFT_TOP_LIMIT: float = 900.0
 ## Kovalamaca: bu kadar yakalanınca başarısız (ölüm)
 const CHASE_MAX_CATCHES: int = 3
+## Oyuncunun ölçülen düz koşu hızı (px/s); sürü hızı buna oranlanır
+const PLAYER_RUN_SPEED: float = 560.0
 
 var kind: String = "koruma"
 var biome: String = "orman"
@@ -183,8 +185,10 @@ func _setup_chase() -> void:
 	_swarm.target = _player
 	_swarm.floor_y = float(_layout["floor_y"])
 	# Oyuncunun koşu hızı ~560 px/s; sürü biraz yavaş (zorlukla artar), açılırsa kauçuk bant yetiştirir
-	# Zorlukla artar (d1 ~494, d3 ~522, d9 ~606) ve koşu boyunca %0.8/sn hızlanır (en çok +%25)
-	_swarm.speed = 480.0 + 14.0 * float(difficulty)
+	# Oyuncunun koşu hızına (~560) oranla: d1 %80, d3 %85, d5 %90, d9 %100 (+ en çok %8 hızlanma, bkz. ChaseSwarm).
+	# Düşük zorlukta kusursuz koşan yakalanmaz; hata (basamak, çukur, düşme) mesafeyi kapatır.
+	# Yüksek zorlukta sürü oyuncudan hızlıya çıkar: kusursuz koşu ve dash gerekir.
+	_swarm.speed = PLAYER_RUN_SPEED * (0.775 + 0.025 * float(difficulty))
 	_swarm.position = Vector2(-450.0, float(_layout["floor_y"]) - 100.0)
 	_swarm.caught.connect(_on_swarm_caught)
 	add_child(_swarm)

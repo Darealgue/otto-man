@@ -16,10 +16,11 @@ const CATCH_DISTANCE: float = 110.0
 const CATCH_COOLDOWN: float = 2.0
 ## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes)
 const RECOIL: float = 420.0
-const RUBBER_GAP: float = 800.0
+## Oyuncu bu kadar açarsa sürü hızlanıp yetişir (kauçuk bant); çarpan oyuncudan hızlı olmasın diye ılımlı
+const RUBBER_GAP: float = 900.0
 ## Koşu boyunca sürü yavaş yavaş hızlanır
-const RAMP_PER_SECOND: float = 0.008
-const RAMP_MAX: float = 1.25
+const RAMP_PER_SECOND: float = 0.004
+const RAMP_MAX: float = 1.08
 
 var speed: float = 340.0
 var target: Node2D = null
@@ -95,7 +96,7 @@ func _physics_process(delta: float) -> void:
 	var g: float = gap()
 	var v: float = speed * minf(1.0 + RAMP_PER_SECOND * _run_time, RAMP_MAX)
 	if g > RUBBER_GAP:
-		v *= 1.3
+		v *= 1.15
 	global_position.x += v * delta
 	# Yükseklik: oyuncunun yüksekliğini yumuşak izler (çukura inerse sürü de iner)
 	var want_y: float = clampf(target.global_position.y - 90.0, floor_y - 330.0, floor_y + 40.0)
