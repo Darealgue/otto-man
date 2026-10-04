@@ -43,6 +43,9 @@ var _run_time: float = 0.0
 var _prev_target_x: float = 0.0
 var _player_vx: float = 0.0
 var _flying_off: bool = false
+var _engulfing: bool = false
+## Kaplama yörüngesi, kuş başına (yarıçap, açı, açısal hız)
+var _orbit: Array[Vector3] = []
 
 
 func _ready() -> void:
@@ -105,8 +108,24 @@ func fly_off() -> void:
 		global_position = target.global_position + Vector2(-420.0, -120.0)
 
 
+## Oyuncu öldü: sürü oyuncunun üstüne çöker, etrafında dönerek onu kaplar.
+func engulf() -> void:
+	running = false
+	_engulfing = true
+	z_index = 9   # bu sefer oyuncunun üstünde: kuşlar karakteri örter
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	_orbit.clear()
+	for i in range(_birds.size()):
+		# (yarıçap, açı, açısal hız): yakın yarıçaplar sık, bir kısmı geniş dolanır
+		_orbit.append(Vector3(rng.randf_range(15.0, 110.0) * (1.0 + 0.6 * rng.randf()), rng.randf_range(0.0, TAU), rng.randf_range(2.5, 6.0) * (1.0 if rng.randf() < 0.5 else -1.0)))
+
+
 func _physics_process(delta: float) -> void:
 	_time += delta
+	if _engulfing:
+		_update_engulf(delta)
+		return
 	_animate_birds()
 	if _flying_off:
 		var dir := Vector2(1.0, -1.0).normalized()
@@ -145,6 +164,21 @@ func _physics_process(delta: float) -> void:
 		catch_count += 1
 		global_position.x -= RECOIL
 		caught.emit(catch_count)
+
+
+func _update_engulf(delta: float) -> void:
+	if is_instance_valid(target):
+		# Sürü merkezi oyuncunun gövdesine akar
+		global_position = global_position.lerp(target.global_position + Vector2(0.0, -26.0), minf(1.0, 6.0 * delta))
+	for i in range(_birds.size()):
+		var o: Vector3 = _orbit[i]
+		o.y += o.z * delta
+		_orbit[i] = o
+		var want := Vector2(cos(o.y) * o.x, sin(o.y) * o.x * 0.7)
+		# Mevcut konumdan yörüngeye yumuşakça girer (uzaktaki kuşlar çekilip gelir)
+		_birds[i].position = _birds[i].position.lerp(want, minf(1.0, 5.0 * delta))
+		# Dönüş yönüne bakarlar
+		_birds[i].flip_h = sin(o.y) * o.z < 0.0
 
 
 func _animate_birds() -> void:

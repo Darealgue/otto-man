@@ -212,7 +212,7 @@ func _on_swarm_caught(count: int) -> void:
 	_player.set("velocity", Vector2(pv.x * 0.2, -260.0))
 	if count >= CHASE_MAX_CATCHES:
 		_finished = true
-		_swarm.running = false
+		_swarm.engulf()
 		_show_message(tr("challenge.chase.caught"))
 		# Başarısızlık = ölüm (normal ölüm akışı)
 		_player.call("take_damage", 99999.0, true, _swarm)
