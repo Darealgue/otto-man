@@ -14,6 +14,8 @@ const START_COLS: int = 12      # soldaki boş başlangıç alanı
 const END_COLS: int = 26        # sağdaki boş bitiş alanı (kapı)
 const WALL_COLS: int = 3
 ## Zıplama sınırları (karo): zıplama + çift zıplamayla çıkılabilen yükseklik ve yatay erişim
+## Yol boyunca ayak karosunun üstünde açık kalan satır sayısı (baş boşluğu)
+const HEAD_ROWS: int = 3
 const MAX_RISE: int = 6
 const MAX_REACH: int = 7
 
@@ -30,7 +32,11 @@ static func build(root: Node2D, difficulty: int, theme: String) -> Dictionary:
 	# rastgele bloklarla doldurulur: yol labirentin içinde kıvrılır, çevresi çıkmaz sokaklarla doludur.
 	var carved: Dictionary = _carve_route(rng, cols)
 	var air: Dictionary = carved["air"]
-	var blocks: Dictionary = _generate(rng, cols, 0.24, air)
+	var blocks: Dictionary = _generate(rng, cols, 0.24, air, CEILING_ROWS, 0.22)
+	# Zemin katı: alt satırlar da yoğun bloklarla dolar; düz yürüyerek geçilecek zemin yolu kalmaz, yalnız oyulan yol açık
+	var floor_mass: Dictionary = _generate(rng, cols, 0.7, air, FLOOR_ROW - 8, 0.6)
+	for c in floor_mass.keys():
+		blocks[c] = true
 	for c in carved["platform"].keys():
 		blocks[c] = true
 	var route: Array[Vector2i] = carved["route"]
@@ -84,11 +90,11 @@ static func build(root: Node2D, difficulty: int, theme: String) -> Dictionary:
 # --- Blok üretimi -------------------------------------------------------------------------------
 
 ## İç hacmi (START_COLS .. cols-END_COLS, tavan ile zemin arası) hedef doluluğa kadar rastgele şekillerle doldurur.
-static func _generate(rng: RandomNumberGenerator, cols: int, density: float, air: Dictionary) -> Dictionary:
+static func _generate(rng: RandomNumberGenerator, cols: int, density: float, air: Dictionary, y_min: int, merge_chance: float) -> Dictionary:
 	var blocks: Dictionary = {}
 	var x0: int = START_COLS
 	var x1: int = cols - END_COLS
-	var y0: int = CEILING_ROWS
+	var y0: int = y_min
 	var y1: int = FLOOR_ROW - 1
 	var area: int = (x1 - x0) * (y1 - y0 + 1)
 	var target: int = int(float(area) * density)
@@ -117,7 +123,7 @@ static func _generate(rng: RandomNumberGenerator, cols: int, density: float, air
 					for dy in range(-2, 3):
 						if blocks.has(Vector2i(p.x + dx, p.y + dy)):
 							touching = true
-			if touching and rng.randf() > 0.22:
+			if touching and rng.randf() > merge_chance:
 				continue
 			for p in placed:
 				blocks[p] = true
@@ -209,15 +215,23 @@ static func _carve_route(rng: RandomNumberGenerator, cols: int) -> Dictionary:
 	ys.fill(FLOOR_ROW - 1)
 	var y: int = FLOOR_ROW - 1
 	var x: int = START_COLS
+	# Yol, tavan ve zemin bandı arasında zikzak yapar: hedef bandı (yüksek ya da alçak) seçer, oraya basamaklarla
+	# ilerler, varınca diğer banda döner. Düz zemin boyunca yürüyerek geçilemez.
+	var low_band := Vector2i(FLOOR_ROW - 6, FLOOR_ROW - 1)
+	var high_band := Vector2i(CEILING_ROWS + 7, CEILING_ROWS + 12)
+	var target: int = rng.randi_range(high_band.x, high_band.y)
 	while x < x_end:
-		var seg: int = rng.randi_range(4, 9)
-		# Son 14 sütunda zemine inilir (çıkış kapısı zeminde)
+		var seg: int = rng.randi_range(3, 6)
 		var delta: int
-		if x >= x_end - 14:
-			delta = mini(3, FLOOR_ROW - 1 - y)
+		if x >= x_end - 18:
+			delta = mini(3, FLOOR_ROW - 1 - y)   # son 18 sütunda zemine inilir (çıkış kapısı zeminde)
 		else:
-			var steps: Array[int] = [-3, -2, -1, -1, 0, 1, 1, 2, 3]
-			delta = steps[rng.randi() % steps.size()]
+			if absi(target - y) <= 1:
+				# Varıldı: karşı banda yönel
+				var go_high: bool = target > (CEILING_ROWS + FLOOR_ROW) / 2
+				target = rng.randi_range(high_band.x, high_band.y) if go_high else rng.randi_range(low_band.x, low_band.y)
+			var dir: int = signi(target - y)
+			delta = dir * rng.randi_range(1, 3)
 		y = clampi(y + delta, CEILING_ROWS + 6, FLOOR_ROW - 1)
 		for i in range(seg):
 			if x + i < cols:
@@ -226,16 +240,16 @@ static func _carve_route(rng: RandomNumberGenerator, cols: int) -> Dictionary:
 	for cx in range(START_COLS / 2, cols):
 		var cy: int = ys[cx]
 		route.append(Vector2i(cx, cy))
-		for r in range(cy - 4, cy + 1):
+		for r in range(cy - HEAD_ROWS, cy + 1):
 			air[Vector2i(cx, r)] = true
 		# Basamak geçişleri: yukarı çıkarken önceki sütunun üstü, aşağı inerken bu sütunun üstü açık kalır
 		if cx > START_COLS / 2:
 			var py: int = ys[cx - 1]
 			if cy < py:
-				for r in range(cy - 4, py + 1):
+				for r in range(cy - HEAD_ROWS, py + 1):
 					air[Vector2i(cx - 1, r)] = true
 			elif cy > py:
-				for r in range(py - 4, cy + 1):
+				for r in range(py - HEAD_ROWS, cy + 1):
 					air[Vector2i(cx, r)] = true
 		for r in [cy + 1, cy + 2]:
 			if r < FLOOR_ROW and cx >= START_COLS:
@@ -268,11 +282,21 @@ static func populate(parent: Node2D, layout: Dictionary, theme: String, level: i
 	var route: Array = layout["route"]
 	var safe: Dictionary = {}
 	for i in range(route.size()):
-		if i % 2 == 0:
+		if i % 4 == 0:
 			var r: Vector2i = route[i]
 			for dx in range(-1, 2):
 				safe[Vector2i(r.x + dx, r.y)] = true
+	# Rota hücreleri ve çevresi daha yoğun tuzaklanır: yol artık tuzaksız bir nefes koridoru değil
+	var route_set: Dictionary = {}
+	var near_route: Dictionary = {}
+	for rc in route:
+		var rv: Vector2i = rc
+		route_set[rv] = true
+		for dx in range(-3, 4):
+			for dy in range(-4, 1):
+				near_route[Vector2i(rv.x + dx, rv.y + dy)] = true
 	var p_floor: float = 0.28 + 0.03 * float(level)
+	var p_route: float = 0.55 + 0.03 * float(level)
 	var p_ceiling: float = 0.05 + 0.012 * float(level)
 	var p_wall: float = 0.05 + 0.008 * float(level)
 	var count: int = 0
@@ -287,10 +311,10 @@ static func populate(parent: Node2D, layout: Dictionary, theme: String, level: i
 				run.append(x)
 			else:
 				if not run.is_empty():
-					count += _place_floor_run(parent, run, y, safe, rng, p_floor, level, theme)
+					count += _place_floor_run(parent, run, y, safe, route_set, rng, p_floor, p_route, level, theme)
 				run = []
 		if not run.is_empty():
-			count += _place_floor_run(parent, run, y, safe, rng, p_floor, level, theme)
+			count += _place_floor_run(parent, run, y, safe, route_set, rng, p_floor, p_route, level, theme)
 
 	# Tavan ve duvar yüzeyleri
 	for x in range(x_min, x_max + 1):
@@ -300,27 +324,28 @@ static func populate(parent: Node2D, layout: Dictionary, theme: String, level: i
 				continue
 			# Tavan: üstü dolu, altı iki karo hava
 			if _is_solid(blocks, Vector2i(x, y - 1), cols) and not _is_solid(blocks, Vector2i(x, y + 1), cols) and not _is_solid(blocks, Vector2i(x, y + 2), cols):
-				if rng.randf() < p_ceiling:
+				if rng.randf() < (p_ceiling * 3.0 if near_route.has(c) else p_ceiling):
 					var ct: TrapConfigV2.TrapType = TrapConfigV2.select_random_trap(TrapConfigV2.SurfaceType.CEILING, level, theme)
 					count += TrapCorridorTraps._spawn(parent, ct, TrapConfigV2.SurfaceType.CEILING, Vector2(float(x * TILE + TILE / 2), float(y * TILE)), level, theme)
 			# Duvar: solu dolu (sağa bakan yüz) ya da sağı dolu (sola bakan yüz); önünde iki karo hava
 			if _is_solid(blocks, Vector2i(x - 1, y), cols) and not _is_solid(blocks, Vector2i(x + 1, y), cols) and not _is_solid(blocks, Vector2i(x + 2, y), cols):
-				if rng.randf() < p_wall and y < FLOOR_ROW - 1:
+				if rng.randf() < (p_wall * 4.0 if near_route.has(c) else p_wall) and y < FLOOR_ROW - 1:
 					var lt: TrapConfigV2.TrapType = TrapConfigV2.select_random_trap(TrapConfigV2.SurfaceType.LEFT_WALL, level, theme)
 					count += TrapCorridorTraps._spawn(parent, lt, TrapConfigV2.SurfaceType.LEFT_WALL, Vector2(float(x * TILE), float(y * TILE + TILE / 2)), level, theme)
 			elif _is_solid(blocks, Vector2i(x + 1, y), cols) and not _is_solid(blocks, Vector2i(x - 1, y), cols) and not _is_solid(blocks, Vector2i(x - 2, y), cols):
-				if rng.randf() < p_wall and y < FLOOR_ROW - 1:
+				if rng.randf() < (p_wall * 4.0 if near_route.has(c) else p_wall) and y < FLOOR_ROW - 1:
 					var rt: TrapConfigV2.TrapType = TrapConfigV2.select_random_trap(TrapConfigV2.SurfaceType.RIGHT_WALL, level, theme)
 					count += TrapCorridorTraps._spawn(parent, rt, TrapConfigV2.SurfaceType.RIGHT_WALL, Vector2(float((x + 1) * TILE), float(y * TILE + TILE / 2)), level, theme)
 	return count
 
 
-static func _place_floor_run(parent: Node2D, run: Array[int], y: int, safe: Dictionary, rng: RandomNumberGenerator,
-		p_floor: float, level: int, theme: String) -> int:
+static func _place_floor_run(parent: Node2D, run: Array[int], y: int, safe: Dictionary, route_set: Dictionary, rng: RandomNumberGenerator,
+		p_floor: float, p_route: float, level: int, theme: String) -> int:
 	var placed: int = 0
 	var i: int = 0
 	while i < run.size():
-		if rng.randf() >= p_floor:
+		var p: float = p_route if route_set.has(Vector2i(run[i], y)) else p_floor
+		if rng.randf() >= p:
 			i += 1
 			continue
 		var t: TrapConfigV2.TrapType = TrapConfigV2.select_random_trap(TrapConfigV2.SurfaceType.FLOOR, level, theme)
