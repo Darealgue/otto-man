@@ -45,6 +45,11 @@ var _bird_drift: Array[Vector4] = []
 ## Kuş başına kuyruk konumu: 0 = baş, (0,1] = kuyruk üzerindeki yer
 var _tail_t: Array[float] = []
 var _retreat_left: float = 0.0
+## Yükseklik geçmişi (halka tampon, 60 Hz) ve kuş başına gecikme (kare)
+const HIST_SIZE: int = 128
+var _y_hist: PackedFloat32Array = PackedFloat32Array()
+var _hist_i: int = 0
+var _delay_frames: Array[int] = []
 ## Geri çekilirken kuş başına daire yarıçapı ve hızı
 var _loop_radius: Array[float] = []
 var _loop_speed: Array[float] = []
@@ -95,6 +100,10 @@ func _ready() -> void:
 			var width: float = lerpf(55.0, 4.0, pow(tail_t, 0.7))
 			oy = -150.0 + rng.randfn(0.0, width)
 		_tail_t.append(tail_t)
+		# Gecikme grupları: kuşların üçte biri 0.5 sn, üçte biri 1.0 sn, üçte biri 1.5 sn geriden takip eder (+-0.1 sn)
+		var group: int = i % 3
+		var delay_s: float = 0.5 + 0.5 * float(group) + rng.randf_range(-0.1, 0.1)
+		_delay_frames.append(clampi(int(delay_s * 60.0), 0, HIST_SIZE - 1))
 		_loop_radius.append(rng.randf_range(140.0, 380.0))
 		_loop_speed.append(rng.randf_range(2.0, 3.6) * (1.0 if rng.randf() < 0.5 else -1.0))
 		oy = clampf(oy, -430.0, 90.0)
@@ -148,6 +157,7 @@ func engulf() -> void:
 
 func _physics_process(delta: float) -> void:
 	_time += delta
+	_record_height()
 	if _engulfing:
 		_update_engulf(delta)
 		return
@@ -215,6 +225,24 @@ func _update_engulf(delta: float) -> void:
 		_birds[i].flip_h = sin(o.y) * o.z < 0.0
 
 
+## Sürünün yüksekliğini her karede halka tamponuna yazar. Kuşlar yukarı/aşağı takibi farklı gecikmelerle
+## (0.5 / 1.0 / 1.5 sn) yapar: oyuncu zıplayıp inince sürü anında değil, kademe kademe tepki verir.
+func _record_height() -> void:
+	if _y_hist.is_empty():
+		_y_hist.resize(HIST_SIZE)
+		_y_hist.fill(global_position.y)
+	_hist_i = (_hist_i + 1) % HIST_SIZE
+	_y_hist[_hist_i] = global_position.y
+
+
+## i. kuşun gecikmeli yüksekliği ile sürü merkezinin şu anki yüksekliği arasındaki fark.
+func _delay_offset_y(i: int) -> float:
+	if _y_hist.is_empty():
+		return 0.0
+	var idx: int = posmod(_hist_i - _delay_frames[i], HIST_SIZE)
+	return _y_hist[idx] - global_position.y
+
+
 ## Sürü gerçekte ekranın solundan uzaktaysa bile kuşlar ekranın sol kenarında uçarak görünür kalır
 ## (yakalanma gerçek konuma göre; görsel kayma gerçek konum kenara varınca sıfırlanır, sıçrama olmaz).
 func _visual_shift() -> float:
@@ -248,5 +276,5 @@ func _animate_birds() -> void:
 			var a: float = _time * _loop_speed[i] + d.w
 			# Daireler zeminin altına inmesin: dikey bileşen hep yukarı (üst yarım daire yayları)
 			circle = Vector2(cos(a), -absf(sin(a)) * 0.8) * _loop_radius[i] * loop
-		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob) + wobble + circle
+		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob + _delay_offset_y(i)) + wobble + circle
 		_birds[i].flip_h = false
