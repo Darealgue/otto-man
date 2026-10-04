@@ -15,6 +15,9 @@ const BIRD_COUNT: int = 264
 const FLY_OFF_SPEED: float = 750.0
 ## Sürü merkezi (baş) en az ekranın sol kenarından bu kadar içeride görünür; kuyruk geride kalan alana uzanır
 const VISIBLE_EDGE_MARGIN: float = 560.0
+## Giriş: süre (sn) ve sürünün başlangıçta sol dışarıda durduğu uzaklık (px)
+const ENTRY_TIME: float = 1.8
+const ENTRY_OFFSET: float = 1500.0
 ## Sürü şekli: başa düşen kuş oranı ve kuyruk uzunluğu (px)
 const HEAD_FRACTION: float = 0.5
 const TAIL_LENGTH: float = 900.0
@@ -45,6 +48,8 @@ var _bird_drift: Array[Vector4] = []
 ## Kuş başına kuyruk konumu: 0 = baş, (0,1] = kuyruk üzerindeki yer
 var _tail_t: Array[float] = []
 var _retreat_left: float = 0.0
+## Giriş animasyonu ilerlemesi (0 -> 1); 1 = tamamlandı
+var _entry: float = 1.0
 ## Yükseklik geçmişi (halka tampon, 60 Hz) ve kuş başına gecikme (kare)
 const HIST_SIZE: int = 128
 var _y_hist: PackedFloat32Array = PackedFloat32Array()
@@ -256,8 +261,20 @@ func _visual_shift() -> float:
 	return maxf(0.0, want_x - global_position.x)
 
 
+## Kovalamaca başlar: sürü görünür olur ve ekranın solundan içeri süzülür (oyuncu koşmaya başlayınca çağrılır).
+func begin() -> void:
+	visible = true
+	_entry = 0.0
+	running = true
+
+
 func _animate_birds() -> void:
 	var shift: float = 0.0 if _flying_off else _visual_shift()
+	# Giriş: sürü başta ekranın solunun dışında, sağa doğru süzülerek yerine gelir
+	if _entry < 1.0:
+		_entry = minf(1.0, _entry + get_physics_process_delta_time() / ENTRY_TIME)
+		var e: float = _entry * _entry * (3.0 - 2.0 * _entry)
+		shift -= (1.0 - e) * ENTRY_OFFSET
 	# Yakalamadan sonra kuşlar geniş daireler çizerek açılır, sonra toparlanır (0 -> 1 -> 0)
 	var loop: float = 0.0
 	if _retreat_left > 0.0:

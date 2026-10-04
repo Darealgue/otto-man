@@ -20,6 +20,8 @@ const LIFT_THICKNESS: float = 32.0
 const LIFT_TOP_LIMIT: float = 900.0
 ## Kovalamaca: bu kadar yakalanınca başarısız (ölüm)
 const CHASE_MAX_CATCHES: int = 3
+## Oyuncu başlangıçtan bu kadar sağa gidince kuşlar sahneye girer (px)
+const CHASE_TRIGGER_DISTANCE: float = 120.0
 ## Oyuncunun ölçülen düz koşu hızı (px/s); sürü hızı buna oranlanır
 const PLAYER_RUN_SPEED: float = 560.0
 
@@ -189,13 +191,18 @@ func _setup_chase() -> void:
 	_swarm.position = Vector2(-450.0, float(_layout["floor_y"]) - 100.0)
 	_swarm.caught.connect(_on_swarm_caught)
 	add_child(_swarm)
+	_swarm.visible = false   # oyuncu koşmaya başlayana kadar görünmez (başta oyuncuyla yan yana beklemesin)
 	_update_ward_label()
 
 
 func _start_chase() -> void:
-	await _show_message(tr("challenge.chase.run"), 1.4)
+	_show_message(tr("challenge.chase.run"), 1.4)
+	# Sürü, oyuncu sağa doğru koşmaya başlayınca ekranın solundan girer
+	var start_x: float = _player.global_position.x
+	while is_instance_valid(_player) and not _finished and _player.global_position.x < start_x + CHASE_TRIGGER_DISTANCE:
+		await get_tree().physics_frame
 	if _swarm != null and not _finished:
-		_swarm.running = true
+		_swarm.begin()
 
 
 func _on_swarm_caught(count: int) -> void:
