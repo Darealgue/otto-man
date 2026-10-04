@@ -16,6 +16,9 @@ const FLOOR_ROW: int = 29
 ## Asansör kuyusu: zemin çok aşağıda, asansör buradan yukarı çıkar (~4400 px yükseklik)
 const SHAFT_FLOOR_ROW: int = 140
 const WALL_COLS: int = 3
+## Challenge odalarında kamera merkezi zeminin bu kadar (px) üstünde: zemin ekranın altına yapışmasın,
+## karakter daha yukarıda görünsün (1080 px ekranda zemin y = 540 + bu değer)
+const CAMERA_FLOOR_OFFSET: float = 290.0
 ## Karoların ekran dışına taşma miktarı (sıra sayısı)
 const OVERSCAN: int = 6
 const CEILING_ROWS: int = 4
@@ -76,7 +79,7 @@ static func build(root: Node2D, biome: String, shaft: bool = false) -> Dictionar
 		_add_boundary_walls(root, left_x, right_x, forest)
 	if not forest:
 		_add_dungeon_dressing(root, layer, left_x, right_x, floor_y, shaft)
-	var cam_y: float = floor_y - 388.0 if shaft else 540.0
+	var cam_y: float = floor_y - CAMERA_FLOOR_OFFSET
 	return {
 		"bounds": Rect2(left_x, floor_y - 1100.0 if shaft else float(CEILING_ROWS * TILE), right_x - left_x, 1100.0 if shaft else floor_y - float(CEILING_ROWS * TILE)),
 		"floor_y": floor_y,

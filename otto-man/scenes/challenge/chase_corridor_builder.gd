@@ -275,7 +275,7 @@ static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
 		"length": length,
 		"end_x": end_x,
 		"player_spawn": Vector2(300.0, floor_y),
-		"camera_position": Vector2(960.0, 540.0),
+		"camera_position": Vector2(960.0, floor_y - ChallengeArenaBuilder.CAMERA_FLOOR_OFFSET),
 		"center_x": length * 0.5,
 		"plan": plan,
 		"ground": ground,
