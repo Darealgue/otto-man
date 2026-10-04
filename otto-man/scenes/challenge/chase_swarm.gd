@@ -14,7 +14,10 @@ const CATCH_DISTANCE: float = 110.0
 const CATCH_COOLDOWN: float = 2.0
 ## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes)
 const RECOIL: float = 420.0
-const RUBBER_GAP: float = 1000.0
+const RUBBER_GAP: float = 800.0
+## Koşu boyunca sürü yavaş yavaş hızlanır
+const RAMP_PER_SECOND: float = 0.008
+const RAMP_MAX: float = 1.25
 
 var speed: float = 340.0
 var target: Node2D = null
@@ -25,6 +28,7 @@ var _cooldown: float = 0.0
 var _birds: Array[AnimatedSprite2D] = []
 var _bird_offsets: Array[Vector2] = []
 var _time: float = 0.0
+var _run_time: float = 0.0
 
 
 func _ready() -> void:
@@ -69,10 +73,11 @@ func _physics_process(delta: float) -> void:
 	_animate_birds()
 	if not running or not is_instance_valid(target):
 		return
+	_run_time += delta
 	var g: float = gap()
-	var v: float = speed
+	var v: float = speed * minf(1.0 + RAMP_PER_SECOND * _run_time, RAMP_MAX)
 	if g > RUBBER_GAP:
-		v *= 1.35
+		v *= 1.3
 	global_position.x += v * delta
 	# Yükseklik: oyuncunun yüksekliğini yumuşak izler (çukura inerse sürü de iner)
 	var want_y: float = clampf(target.global_position.y - 90.0, floor_y - 330.0, floor_y + 40.0)

@@ -182,8 +182,9 @@ func _setup_chase() -> void:
 	_swarm.target = _player
 	_swarm.floor_y = float(_layout["floor_y"])
 	# Oyuncunun koşu hızı ~560 px/s; sürü biraz yavaş (zorlukla artar), açılırsa kauçuk bant yetiştirir
-	_swarm.speed = 390.0 + 10.0 * float(difficulty)
-	_swarm.position = Vector2(-700.0, float(_layout["floor_y"]) - 100.0)
+	# Zorlukla artar (d1 ~494, d3 ~522, d9 ~606) ve koşu boyunca %0.8/sn hızlanır (en çok +%25)
+	_swarm.speed = 480.0 + 14.0 * float(difficulty)
+	_swarm.position = Vector2(-450.0, float(_layout["floor_y"]) - 100.0)
 	_swarm.caught.connect(_on_swarm_caught)
 	add_child(_swarm)
 	_update_ward_label()
