@@ -102,7 +102,7 @@ func enter():
 		reset_hitbox.rotation = 0.0
 		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			collision_shape.position = Vector2(38.0, -22.5)
+			collision_shape.position = Vector2(26.0, -22.5)
 	
 	# Debug print disabled to reduce console spam
 	# print("[AttackState] ENTER | on_floor=", player.is_on_floor())
@@ -595,11 +595,11 @@ func _update_hitbox_position(hitbox: Node2D) -> void:
 		var is_air_up = current_attack.begins_with("air_attack_up")
 		var original_position: Vector2
 		if is_ground_up:
-			original_position = Vector2(64.0, 2.5)   # yerdeki yukarı: 20 px aşağı
+			original_position = Vector2(46.0, 2.5)   # yerdeki yukarı: 20 px aşağı
 		elif is_air_up:
-			original_position = Vector2(64.0, -22.5)
+			original_position = Vector2(46.0, -22.5)
 		else:
-			original_position = Vector2(38.0, -22.5)
+			original_position = Vector2(26.0, -22.5)
 		var pos = original_position
 		var facing_left = player.facing_direction < 0 if player.hit_recoil_lock_timer > 0.0 else player.sprite.flip_h
 		facing_sign = -1.0 if facing_left else 1.0

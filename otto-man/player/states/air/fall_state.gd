@@ -62,7 +62,7 @@ func enter():
 		reset_hitbox.rotation = 0.0
 		var collision_shape = reset_hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			collision_shape.position = Vector2(38.0, -22.5)
+			collision_shape.position = Vector2(26.0, -22.5)
 	
 	# Dodge havada bitti mi? Öyleyse uçuş loop'unu burada devral.
 	dodge_carry_timer = 0.0

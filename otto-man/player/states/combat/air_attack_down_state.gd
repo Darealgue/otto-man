@@ -58,7 +58,7 @@ func update(delta: float):
 				hitbox.rotation = 0.0
 				var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 				if collision_shape:
-					collision_shape.position = Vector2(38.0, -22.5)
+					collision_shape.position = Vector2(26.0, -22.5)
 				hitbox.disable()
 		state_machine.transition_to("Idle")
 		return
@@ -128,7 +128,7 @@ func _update_hitbox():
 			var facing_left = player.sprite.flip_h
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				var pos = Vector2(38.0, -22.5)  # attack_state ile aynı
+				var pos = Vector2(26.0, -22.5)  # attack_state ile aynı
 				pos.x = abs(pos.x) * (-1 if facing_left else 1)
 				collision_shape.position = pos
 			var facing_sign = -1.0 if facing_left else 1.0
@@ -154,7 +154,7 @@ func _update_hitbox():
 			hitbox.rotation = 0.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				collision_shape.position = Vector2(38.0, -22.5)
+				collision_shape.position = Vector2(26.0, -22.5)
 			hitbox.disable()
 
 func exit():
@@ -172,7 +172,7 @@ func exit():
 			hitbox.rotation = 0.0
 			var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 			if collision_shape:
-				collision_shape.position = Vector2(38.0, -22.5)
+				collision_shape.position = Vector2(26.0, -22.5)
 			hitbox.disable()
 
 func _on_animation_finished(anim_name: String):
@@ -207,7 +207,7 @@ func _update_hitbox_position():
 		hitbox.rotation = deg_to_rad(45.0 * facing_sign)
 		var collision_shape = hitbox.get_node_or_null("CollisionShape2D")
 		if collision_shape:
-			var pos = Vector2(38.0, -22.5)
+			var pos = Vector2(26.0, -22.5)
 			pos.x = abs(pos.x) * (-1 if facing_left else 1)
 			collision_shape.position = pos
 
