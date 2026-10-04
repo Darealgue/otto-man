@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://golge_donusu_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/golge_donusu.gd" id="1_script"]
+
+[node name="GolgeDonusu" type="Node"]
+script = ExtResource("1_script")

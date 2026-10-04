@@ -836,3 +836,14 @@ Starter artık 19 item'ın ~9'u flat-stat (%47), önceki 14/19'dan (%74) düşü
     Not: havuzlanmış düşmanlar (ObjectPool) (0,0)'da "enemies" grubunda bekler, test mermisini uzağa
     taşır; ağaç duraklatılmış olabilir, test başında `paused=false` yapılır.
   - **Denge sayıları henüz oynanmadı** (çarpanlar, splash oranları, sekme sayısı, 3 sn fünye).
+
+- **✅ 3 yeni Gölge keşif item'ı (2026-10-04).** golge.kesif havuzu 4 → 7 (hepsi UNCOMMON, hepsi Ortaoyunu'nun
+  `player_decoy` sahnesini `lifetime_override` ile kullanıyor):
+  - **Gölge Dönüşü** (`golge_donusu`, Kaçınma): `player_dodged` (dodge/dash bitişi) başlangıç noktasını saklar;
+    1 sn içinde **Blok** tuşuna basınca oraya ışınlanır, gidilen yerde 1.5 sn gölge kalır, 2 sn bekleme.
+    Eğilme tuşu slide'a ait olduğu için bilerek Blok seçildi (Blok o karede bloklamayı da başlatır).
+  - **Gölge Hasadı** (`golge_hasadi`, Temas): `on_enemy_killed` ölen düşmanın yerinde 4 sn'lik gölge doğurur,
+    0.9 sn'de bir `attack_physical` ile oyuncunun vuruşunu taklit eder; en fazla 2 (en eskisi yenilenir).
+  - **Kukla Oyunu** (`kukla_oyunu`, Savunma): `player_took_damage` %40 şansla (8 sn bekleme) hasarı iade eder
+    (refleks.gd gibi "önle" değil "iade et"), vurandan uzağa `test_move` ile 200/140/80 px ışınlar, eski yerde 2 sn gölge.
+  - Denge sayıları oynanmadı. Smoke test: SMOKE OK.

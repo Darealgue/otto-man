@@ -127,6 +127,9 @@ const ITEM_SCENES: Dictionary = {
 	"falci_kadin": preload("res://resources/items/falci_kadin.tscn"),
 	# --- Dalga 4: parry & mobilite ---
 	"golge_adimi": preload("res://resources/items/golge_adimi.tscn"),
+	"golge_donusu": preload("res://resources/items/golge_donusu.tscn"),
+	"golge_hasadi": preload("res://resources/items/golge_hasadi.tscn"),
+	"kukla_oyunu": preload("res://resources/items/kukla_oyunu.tscn"),
 	"firlatma_parry": preload("res://resources/items/firlatma_parry.tscn"),
 	"hayalet_adim": preload("res://resources/items/hayalet_adim.tscn"),
 	"sekme_tabanligi": preload("res://resources/items/sekme_tabanligi.tscn"),
@@ -367,7 +370,7 @@ const DUNGEON_THEME_POOLS: Dictionary = {
 	},
 	"golge": {
 		# Gölge = BİRLEŞTİR: sinerji, element dönüşümü, kaynak (stamina)
-		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi"],
+		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi", "golge_donusu", "golge_hasadi", "kukla_oyunu"],
 		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "usta_isci", "tek_sanat"],
 	},
 }

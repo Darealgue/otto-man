@@ -2612,3 +2612,9 @@ challenge.trap.time,Süre: %d,Time: %d
 challenge.trap.penalty,Tuzak! -%d sn,Trap! -%d s
 challenge.trap.timeup,Süre doldu!,Time is up!
 ozan.song.challenge.tuzak,"%s, %s tuzaklarla dolu bir geçit uzanır; vaktini tüketen, dişlere yem olur.","%s, %s a passage lined with traps stretches out; he who wastes his time becomes fodder for the fangs."
+item.golge_donusu.name,Gölge Dönüşü,Shadow Return
+item.golge_donusu.description,Dodge veya dash bittikten sonra 1 sn içinde Blok tuşuna basarsan hareketin başladığı yere ışınlanırsın ve gittiğin yerde kısa bir gölge kalır (2 sn bekleme),"Within 1s after a dodge or dash, press Block to teleport back to where it began, leaving a brief shadow behind (2s cooldown)"
+item.golge_hasadi.name,Gölge Hasadı,Shadow Harvest
+item.golge_hasadi.description,Öldürdüğün düşmanın yerinde 4 sn duran bir gölge belirir ve yakındaki düşmanlara senin vuruşunu taklit eder (en fazla 2 gölge),"A shadow rises where an enemy dies, lasts 4s and strikes nearby enemies with your attack (max 2 shadows)"
+item.kukla_oyunu.name,Kukla Oyunu,Puppet Play
+item.kukla_oyunu.description,"Hasar aldığında %40 ihtimalle hasar iade edilir, vurandan uzağa ışınlanırsın ve eski yerinde 2 sn bir gölge kalır (8 sn bekleme)","When hit, 40% chance to heal the damage back, teleport away from the attacker and leave a 2s shadow behind (8s cooldown)"
