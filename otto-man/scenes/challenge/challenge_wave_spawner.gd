@@ -12,10 +12,12 @@ signal enemy_spawned(enemy: Node2D)
 
 const ENEMY_SCENES: Dictionary = {
 	"basic": "res://enemy/basic/basic_enemy.tscn",
-	"turtle": "res://enemy/turtle/turtle_enemy.tscn",
 	"spearman": "res://enemy/spearman/spearman_enemy.tscn",
 	"heavy": "res://enemy/heavy/heavy_enemy.tscn",
 	"flying": "res://enemy/flying/flying_enemy.tscn",
+	"firemage": "res://enemy/firemage/firemage_enemy.tscn",
+	"summoner": "res://enemy/summoner/summoner_enemy.tscn",
+	"hunter": "res://enemy/hunter/hunter_enemy.tscn",
 }
 const SPAWN_INTERVAL: float = 0.9
 ## Aynı anda sahnede en fazla bu kadar canlı düşman (fazlası sıraya girer).
@@ -55,22 +57,67 @@ static func waves_for_wards(ward_count: int) -> int:
 	return clampi(ward_count, 1, 4)
 
 
+## Düşman sınıfları: "basic" (kolay harcanan kalabalık) ve "elit" (tek başına tehdit). Dalga bileşimi:
+## az sayıda elit + çok sayıda basic (örn. 1 elit + 5 basic, 2 elit + 7 basic). Kaplumbağa arenalarda yok.
+const BASIC_KINDS: Array[String] = ["basic", "basic", "basic", "basic", "flying"]
+const CHARGER_KINDS: Array[String] = ["spearman", "heavy"]
+
+
+## Elit havuzu dalga gücüne (dalga + zorluk) göre açılır. Mızrakçı ve ağır (koşan tanklar) "charger"dır;
+## aynı dalgada en fazla 1 charger gelir (güç 9 ve üstünde 2).
+static func _elite_pool(power: int) -> Array[String]:
+	var pool: Array[String] = []
+	if power >= 3:
+		pool.append_array(["spearman", "firemage"])
+	if power >= 4:
+		pool.append("hunter")
+	if power >= 5:
+		pool.append_array(["summoner", "heavy"])
+	if pool.is_empty():
+		pool.append("spearman")
+	return pool
+
+
 ## Bir dalganın düşman listesi (tür anahtarları, karışık sırada).
 static func plan_wave(wave: int, diff: int) -> Array[String]:
-	var count: int = 3 + wave + diff / 2
-	var pool: Array[String] = ["basic", "basic", "basic", "basic", "basic"]
 	var power: int = wave + diff
-	if wave >= 2:
-		pool.append("turtle")
-	if power >= 3:
-		pool.append_array(["spearman", "spearman", "flying", "flying"])
-	if power >= 4:
-		pool.append_array(["heavy", "heavy"])
+	var count: int = 3 + wave + diff / 2
+	var elites: int = 0 if power < 3 else clampi((power + 1) / 4, 1, 3)
+	var basics: int = maxi(2 * elites + 3, count - elites)
 	var out: Array[String] = []
-	for i in range(count):
-		out.append(pool[randi() % pool.size()])
+	var pool: Array[String] = _elite_pool(power)
+	var chargers: int = 0
+	var max_chargers: int = 2 if power >= 9 else 1
+	for i in range(elites):
+		var pick: String = pool[randi() % pool.size()]
+		var tries: int = 0
+		while pick in CHARGER_KINDS and chargers >= max_chargers and tries < 12:
+			pick = pool[randi() % pool.size()]
+			tries += 1
+		if pick in CHARGER_KINDS:
+			if chargers >= max_chargers:
+				pick = "firemage" if "firemage" in pool else "hunter"
+			else:
+				chargers += 1
+		out.append(pick)
+	for i in range(basics):
+		# Güç düşükken uçan düşman çıkmaz (ilk dalga sade kalsın)
+		var kind: String = BASIC_KINDS[randi() % BASIC_KINDS.size()]
+		if kind == "flying" and power < 3:
+			kind = "basic"
+		out.append(kind)
+	out.shuffle()
+	# İlk doğanlar basic olsun: elit kuyruğun gerisine kayar (oyuncuya hazırlanma payı)
+	var first_basic: int = -1
+	for i in range(out.size()):
+		if out[i] in BASIC_KINDS:
+			first_basic = i
+			break
+	if first_basic > 0:
+		var tmp: String = out[0]
+		out[0] = out[first_basic]
+		out[first_basic] = tmp
 	return out
-
 
 func start_next_wave() -> void:
 	if _wave_index >= wave_total:

@@ -24,8 +24,12 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - **Düşman → köylü:** `BaseEnemy.get_nearest_player()` artık "ward_targets" grubundaki hedefleri de
   hesaba katar (en yakın olan seçilir). Köylünün `WardHurtbox`'ı PLAYER_HURTBOX katmanındadır, düşmanların
   `EnemyHitbox`'ı onu yakalar. Meta `always_aggro` olan düşmanlar menzile bakmadan hedefe yürür.
-  Menzilli düşman mermileri (ateş büyücüsü vb.) köylüye vurmaz; challenge dalgalarında yalnız yakın dövüş
-  ve uçan düşmanlar kullanılır.
+  Menzilli düşman mermileri (ateş büyücüsü, avcı) köylüye vurmaz, yalnız oyuncuyu hedefler.
+- **Dalga bileşimi (`plan_wave`):** güçlü düşman (elit: mızrakçı, ağır, ateş büyücüsü, çağırıcı, avcı) sayısı
+  azdır, gerisi hafif (basic, uçan) doldurur: yaklaşık 1 elit + 4-5 basic, zorlukla 2-3 elit + 6-8 basic.
+  Kaplumbağa challenge'larda hiç çıkmaz. Aynı dalgada en fazla bir/iki "charger" (mızrakçı, ağır) olur.
+- **Charger dinlenmesi:** mızrakçı çarpışmadan sonra 2.4-3.6 sn, ağır hücum bitince 2.4 sn idle kalır
+  (bu davranış zindanda da geçerlidir).
 - **SceneManager:** `change_to_challenge_room(payload)`. Yol kontrolü `ChallengeRoomRegistry.is_challenge_room_path`.
 - **Dev komutu:** `challenge [koruma|dalga] [orman|zindan] [zorluk 1-9]`.
 

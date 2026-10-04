@@ -26,6 +26,9 @@ const PARRY_RECOVERY_TIME := 1.1  # parry sonrası karşı saldırı penceresi
 const CHARGE_DAMAGE := 25.0
 const CHARGE_KNOCKBACK := 2400.0
 const CHARGE_UP_KNOCKBACK := 100.0
+## Charge bittikten sonra bu kadar süre (sn) idle bekler, yeni charge atmaz (oyuncuya nefes payı)
+const CHARGE_REST_MIN := 2.4
+const CHARGE_REST_MAX := 3.6
 
 # Detection (front-only rectangle)
 @export var detection_width: float = 520.0
@@ -35,6 +38,7 @@ const CHARGE_UP_KNOCKBACK := 100.0
 # State flags
 var is_charging := false
 var charge_time_left := 0.0
+var charge_rest_left := 0.0
 var crash_time_left := 0.0
 var crash_slide_left := 0.0
 var memory_time_left: float = 0.0
@@ -136,6 +140,8 @@ func _physics_process(delta: float) -> void:
 		turn_cooldown -= delta
 	if post_hurt_charge_lock > 0.0:
 		post_hurt_charge_lock -= delta
+	if charge_rest_left > 0.0:
+		charge_rest_left -= delta
 	if parry_recovery_left > 0.0:
 		parry_recovery_left -= delta
 	if face_delay_timer > 0.0:
@@ -251,16 +257,21 @@ func handle_idle(delta: float) -> void:
 		sprite.flip_h = direction < 0
 
 	var p = _resolve_charge_target()
-	if p and post_hurt_charge_lock <= 0.0 and parry_recovery_left <= 0.0:
+	if p and post_hurt_charge_lock <= 0.0 and parry_recovery_left <= 0.0 and charge_rest_left <= 0.0:
 		start_charge_towards(p)
 		return
 
+	if charge_rest_left > 0.0:
+		return   # dinleniyor: yürüyüşe de geçmez, olduğu yerde bekler
 	if idle_hold_timer > 0.0:
 		return
 	if abs(velocity.x) < 5.0:
 		change_behavior("patrol")
 
 func handle_patrol(delta: float) -> void:
+	if charge_rest_left > 0.0:
+		change_behavior("idle")
+		return
 	# Oyuncu hatırdaysa sürekli o yöne bak
 	if memory_time_left > 0.0:
 		var dx: float = remembered_target_x - global_position.x
@@ -325,6 +336,7 @@ func handle_charge(delta: float) -> void:
 		do_crash("hit")
 		return
 
+	_apply_overlapping_hit_fallback()
 	# Hitbox'u mızrak ucuna taşı ve açık tut
 	if hitbox:
 		if not hitbox.is_in_group("hitbox"):
@@ -413,8 +425,24 @@ func start_charge_towards(p: Node2D) -> void:
 		hitbox.set_meta("owner_id", get_instance_id())
 		hitbox.enable()
 
+## Güvence: mızrak oyuncunun hurtbox'ıyla üst üste biniyorsa ama area_entered hasarı işlenmediyse
+## (ör. alan kapanıp açılırken ya da asansör gibi hareketli zeminde) vuruşu burada işler.
+## PlayerHurtbox kendi bekleme süresiyle çift hasarı engeller.
+func _apply_overlapping_hit_fallback() -> void:
+	if hitbox == null or not hitbox.has_method("get_overlapping_areas") or not hitbox.is_enabled():
+		return
+	for a in hitbox.get_overlapping_areas():
+		if a is PlayerHurtbox and (a as Area2D).is_in_group("player_hurtbox"):
+			var hb := a as PlayerHurtbox
+			if not hb.is_on_cooldown(hitbox) and hb.invincibility_timer <= 0.0:
+				hb._on_area_entered(hitbox)
+				do_crash("hit")
+				return
+
+
 func do_crash(cause: String = "timeout") -> void:
 	is_charging = false
+	charge_rest_left = randf_range(CHARGE_REST_MIN, CHARGE_REST_MAX)
 	invulnerable = false
 	# Crash animasyonu seçimi: çarpışma (hit/wall) => "crash", süre biterse => "stop"
 	if cause == "hit" or cause == "wall":

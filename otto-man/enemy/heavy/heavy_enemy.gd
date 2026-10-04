@@ -43,6 +43,9 @@ var last_known_player_pos: Vector2 = Vector2.ZERO
 const CHARGE_DECELERATION := 4000.0
 const CHARGE_END_THRESHOLD := 0.8
 const AGGRO_BREAK_AFTER_CHARGE_HIT := 2.2
+## Charge bittikten sonra bu kadar süre (sn) olduğu yerde bekler, sonra tekrar kovalar/saldırır
+const POST_CHARGE_REST := 2.4
+var rest_timer: float = 0.0
 var aggro_break_timer: float = 0.0
 var _charge_hit_registered: bool = false
 
@@ -211,6 +214,13 @@ func find_ground_below(start_pos: Vector2) -> Vector2:
 
 func _handle_child_behavior(delta: float) -> void:
 	if is_sleeping:
+		return
+	# Charge sonrası dinlenme: idle'da kal, kovalama/saldırı yok
+	if rest_timer > 0.0 and current_behavior == "idle":
+		rest_timer -= delta
+		velocity.x = 0.0
+		if sprite and sprite.animation != "idle":
+			sprite.play("idle")
 		return
 	if aggro_break_timer > 0.0:
 		aggro_break_timer = maxf(0.0, aggro_break_timer - delta)
@@ -519,6 +529,7 @@ func handle_charging(delta: float) -> void:
 	# (kaçamayacağı, sürekli sıkışan bir "sandviç") sebep oluyordu. Spearman'ın charge'ı
 	# zaten aynı şekilde is_on_wall()/oyuncuya vuruşta duruyor — Heavy'yi de buna uydurduk.
 	if not _charge_hit_registered and _did_charge_hit_player():
+		_force_apply_charge_hit()
 		_charge_hit_registered = true
 		_start_aggro_break_after_charge_hit()
 		_stop_charge()
@@ -562,6 +573,18 @@ func _did_charge_hit_player() -> bool:
 			return true
 	return false
 
+## Güvence: area_entered hasarı işlenmediyse (hareketli zemin vb.) vuruşu burada işler; PlayerHurtbox çift hasarı bekleme süresiyle engeller.
+func _force_apply_charge_hit() -> void:
+	if not hitbox or not hitbox.has_method("get_overlapping_areas"):
+		return
+	for a in hitbox.get_overlapping_areas():
+		if a is PlayerHurtbox and (a as Area2D).is_in_group("player_hurtbox"):
+			var hb := a as PlayerHurtbox
+			if not hb.is_on_cooldown(hitbox) and hb.invincibility_timer <= 0.0:
+				hb._on_area_entered(hitbox)
+				return
+
+
 func _start_aggro_break_after_charge_hit() -> void:
 	aggro_break_timer = AGGRO_BREAK_AFTER_CHARGE_HIT
 	target = null
@@ -571,7 +594,8 @@ func _start_aggro_break_after_charge_hit() -> void:
 func handle_charge_end(delta: float) -> void:
 	if not sprite.is_playing() or sprite.frame >= sprite.sprite_frames.get_frame_count("charge_end") - 1:
 		if current_behavior == "charge_end":  # Only transition if we haven't already
-			change_behavior("chase")
+			rest_timer = POST_CHARGE_REST
+			change_behavior("idle")
 			start_attack_cooldown()
 
 func handle_slam_prepare(delta: float) -> void:
