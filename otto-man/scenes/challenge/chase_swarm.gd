@@ -9,7 +9,9 @@ extends Node2D
 signal caught(count: int)
 
 const BIRD_SCENE_PATH := "res://enemy/flying/flying_enemy.tscn"
-const BIRD_COUNT: int = 11
+const BIRD_COUNT: int = 33
+## Kazanınca kuşlar sağ üste (45 derece) doğru bu hızla uçup ekrandan çıkar
+const FLY_OFF_SPEED: float = 750.0
 const CATCH_DISTANCE: float = 110.0
 const CATCH_COOLDOWN: float = 2.0
 ## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes)
@@ -29,6 +31,7 @@ var _birds: Array[AnimatedSprite2D] = []
 var _bird_offsets: Array[Vector2] = []
 var _time: float = 0.0
 var _run_time: float = 0.0
+var _flying_off: bool = false
 
 
 func _ready() -> void:
@@ -47,7 +50,7 @@ func _ready() -> void:
 		bird.modulate = Color(0.55, 0.4, 0.4)
 		add_child(bird)
 		_birds.append(bird)
-		_bird_offsets.append(Vector2(rng.randf_range(-190.0, 60.0), rng.randf_range(-230.0, 40.0)))
+		_bird_offsets.append(Vector2(rng.randf_range(-320.0, 80.0), rng.randf_range(-300.0, 60.0)))
 
 
 func _load_bird_frames() -> SpriteFrames:
@@ -68,9 +71,24 @@ func gap() -> float:
 	return target.global_position.x - global_position.x if is_instance_valid(target) else 9999.0
 
 
+## Bölüm kazanıldı: kovalamayı bırakıp sağ üste doğru (45 derece) uçarak ekrandan çıkar.
+func fly_off() -> void:
+	running = false
+	_flying_off = true
+	# Sürü oyuncunun hemen solunda toplanır; oradan çaprazlama sağ üste uçup ekranı geçer
+	if is_instance_valid(target):
+		global_position = target.global_position + Vector2(-420.0, -120.0)
+
+
 func _physics_process(delta: float) -> void:
 	_time += delta
 	_animate_birds()
+	if _flying_off:
+		var dir := Vector2(1.0, -1.0).normalized()
+		for i in range(_birds.size()):
+			# Her kuş biraz farklı hızda: dağınık bir sürü olarak çıkarlar
+			_bird_offsets[i] += dir * FLY_OFF_SPEED * (0.85 + 0.3 * float(i % 5) / 4.0) * delta
+		return
 	if not running or not is_instance_valid(target):
 		return
 	_run_time += delta

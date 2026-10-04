@@ -355,7 +355,8 @@ func _begin_sequence() -> void:
 	await get_tree().create_timer(0.6).timeout
 	# Build kurma: oyuncunun açtığı item'lardan START_PICKS kez kart seçimi
 	var im: Node = get_node_or_null("/root/ItemManager")
-	if is_instance_valid(im) and im.has_method("queue_item_selections"):
+	# Kovalamaca'da başlangıç build seçimi yok (koşuyu item'larla değil hareketle kazanırsın)
+	if kind != "kovalamaca" and is_instance_valid(im) and im.has_method("queue_item_selections"):
 		_show_message(tr("challenge.pick") % START_PICKS)
 		im.call("queue_item_selections", START_PICKS)
 		await im.item_selection_sequence_finished
@@ -415,9 +416,15 @@ func _finish(won: bool) -> void:
 	if _spawner != null:
 		_spawner.set_physics_process(false)
 	if _swarm != null:
-		_swarm.running = false
+		if won:
+			_swarm.fly_off()
+		else:
+			_swarm.running = false
 	var reward_text: String = ""
 	if won:
+		if _swarm != null:
+			# Kuşların çıkışını izlemek için ödül ekranından önce bekle
+			await get_tree().create_timer(2.6).timeout
 		reward_text = await _grant_reward()
 		await _show_message(reward_text, 3.2)
 	else:
