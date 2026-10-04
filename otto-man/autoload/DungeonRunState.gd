@@ -664,3 +664,30 @@ func get_partial_exit_rescued(survivor_chance: float) -> Dictionary:
 			cariyes.append(c.duplicate(true) if c is Dictionary else c)
 	clear_pending_rescued()
 	return { "villagers": villagers, "cariyes": cariyes }
+
+
+## Zindandan erken çıkışta (run tamamlanmadan) kurtarılan her kişi bu şansla seninle çıkar.
+const EARLY_EXIT_SURVIVE_CHANCE: float = 0.6
+
+
+## Erken çıkış zarı: her kurtarılan için sonucu önceden çeker, bekleyen listeleri yalnız hayatta kalanlara
+## indirir. Çarkıfelek bu sonuçları gösterir (görsel ve mantık aynı kaynaktan). Dönen liste:
+## [{ "kind": "villager"|"cariye", "data": Dictionary, "survived": bool }]
+func roll_early_exit_rescued(survive_chance: float = EARLY_EXIT_SURVIVE_CHANCE) -> Array:
+	var results: Array = []
+	var kept_villagers: Array = []
+	var kept_cariyes: Array = []
+	for v in pending_rescued_villagers:
+		var ok: bool = randf() < survive_chance
+		results.append({"kind": "villager", "data": (v.duplicate(true) if v is Dictionary else {}), "survived": ok})
+		if ok:
+			kept_villagers.append(v)
+	for c in pending_rescued_cariyes:
+		var ok2: bool = randf() < survive_chance
+		results.append({"kind": "cariye", "data": (c.duplicate(true) if c is Dictionary else {}), "survived": ok2})
+		if ok2:
+			kept_cariyes.append(c)
+	pending_rescued_villagers = kept_villagers
+	pending_rescued_cariyes = kept_cariyes
+	collectibles_changed.emit()
+	return results

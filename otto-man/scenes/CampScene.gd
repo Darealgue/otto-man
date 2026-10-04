@@ -97,6 +97,24 @@ func setup_mid_run() -> void:
 
 	_spawn_entrance_door_and_fountain()
 	_spawn_doors()
+	_spawn_rescued_crowd()
+
+
+## Zindanda kurtarılıp henüz köye taşınmamış köylü/cariyeler çeşmenin çevresinde dolaşır (salt görsel).
+func _spawn_rescued_crowd() -> void:
+	if not has_node("Spots/FountainSpot"):
+		return
+	var old := get_node_or_null("RescuedCrowd")
+	if old:
+		old.queue_free()
+	var crowd := CampRescuedCrowd.new()
+	crowd.name = "RescuedCrowd"
+	add_child(crowd)
+	var spot: Node2D = get_node("Spots/FountainSpot")
+	var floor_pos: Vector2 = spot.global_position + FOUNTAIN_OFFSET_FROM_DOOR + Vector2(0.0, -4.0)
+	var player_node: Node = get_node_or_null("Player")
+	var z: int = (player_node as CanvasItem).z_index - 1 if player_node is CanvasItem else 0
+	crowd.populate(floor_pos, z)
 
 ## Giriş kapısı (açık, dekoratif) + çeşme: FountainSpot'ta kapı, yanında çeşme
 const FOUNTAIN_OFFSET_FROM_DOOR := Vector2(140, 0)
@@ -263,6 +281,11 @@ func _handle_mid_run_selection(index: int) -> void:
 	var challenge: Dictionary = _current_doors[index]
 
 	if bool(challenge.get("is_exit", false)):
+		# Erken çıkış (run tamamlanmadan): kurtarılanların her biri şansla seninle çıkar; çarkıfelek gösterir.
+		if not drs.is_run_complete() and drs.has_method("roll_early_exit_rescued") \
+				and (drs.pending_rescued_villagers.size() + drs.pending_rescued_cariyes.size()) > 0:
+			var wheel_results: Array = drs.call("roll_early_exit_rescued")
+			await RescueWheelOverlay.show_for(self, wheel_results, drs.EARLY_EXIT_SURVIVE_CHANCE)
 		if drs.has_method("try_finalize_warmup_progress"):
 			drs.call("try_finalize_warmup_progress")
 		# Keşif ödülü zindandan çıkmadan gösterilir — ödül eylemle aynı anda gelmeli,
