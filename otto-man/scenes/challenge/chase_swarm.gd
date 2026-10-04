@@ -12,6 +12,8 @@ const BIRD_SCENE_PATH := "res://enemy/flying/flying_enemy.tscn"
 const BIRD_COUNT: int = 33
 ## Kazanınca kuşlar sağ üste (45 derece) doğru bu hızla uçup ekrandan çıkar
 const FLY_OFF_SPEED: float = 750.0
+## Sürü merkezi en az ekranın sol kenarından bu kadar içeride görünür
+const VISIBLE_EDGE_MARGIN: float = 260.0
 const CATCH_DISTANCE: float = 110.0
 const CATCH_COOLDOWN: float = 2.0
 ## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes)
@@ -20,7 +22,7 @@ const RECOIL: float = 420.0
 const RUBBER_GAP: float = 900.0
 ## Koşu boyunca sürü yavaş yavaş hızlanır
 const RAMP_PER_SECOND: float = 0.004
-const RAMP_MAX: float = 1.08
+const RAMP_MAX: float = 1.05
 
 var speed: float = 340.0
 var target: Node2D = null
@@ -111,7 +113,14 @@ func _physics_process(delta: float) -> void:
 
 
 func _animate_birds() -> void:
+	# Sürü gerçekte ekranın solundan uzaktaysa bile kuşlar ekranın sol kenarında uçarak görünür kalır
+	# (yakalanma gerçek konuma göre; görsel kayma gerçek konum kenara varınca sıfırlanır, sıçrama olmaz)
+	var shift: float = 0.0
+	var cam := get_viewport().get_camera_2d()
+	if cam != null and not _flying_off:
+		var edge: float = cam.get_screen_center_position().x - 960.0 + VISIBLE_EDGE_MARGIN
+		shift = maxf(0.0, edge - global_position.x)
 	for i in range(_birds.size()):
 		var bob: float = sin(_time * 6.0 + float(i) * 1.7) * 14.0
-		_birds[i].position = _bird_offsets[i] + Vector2(0.0, bob)
+		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob)
 		_birds[i].flip_h = false
