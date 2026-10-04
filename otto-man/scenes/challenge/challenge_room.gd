@@ -494,6 +494,10 @@ func _decorate_summit() -> void:
 	decorator.decor_biome = "mountain"
 	add_child(decorator)
 	_force_summit_daylight(decorator)
+	# Zemine rastgele orman dekoru (ağaç, çiçek, çalı, kelebek); başlangıç ağaç öbeğinin üstüne ağaç düşmesin
+	var span: Vector2 = _layout["cluster_span"]
+	decorator._forest_tree_reserve_px(span.x, span.y)
+	decorator.decorate(self)
 	var pb: Node = decorator.get_node_or_null("ParallaxBackground")
 	if pb == null:
 		return
