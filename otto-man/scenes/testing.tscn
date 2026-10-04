@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=4 uid="uid://vu2wanoqyytf"]
+[gd_scene load_steps=25 format=4 uid="uid://vu2wanoqyytf"]
 
 [ext_resource type="Texture2D" uid="uid://cep2ia5jw0nf4" path="res://background/bulutlu dağlar/sky_fc.png" id="1_7xew5"]
 [ext_resource type="Texture2D" uid="uid://djoorlgrr8ip4" path="res://background/bulutlu dağlar/far_mountains_fc.png" id="2_mviok"]
@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" uid="uid://bybmn8q8hjp7u" path="res://enemy/spearman/spearman_enemy.tscn" id="14_esqh1"]
 [ext_resource type="PackedScene" uid="uid://jd3pyam6x1c" path="res://objects/dungeon/lighting/mesale2.tscn" id="16_f1kkd"]
 [ext_resource type="PackedScene" uid="uid://blm2rku8ivg17" path="res://enemy/basic/basic_enemy.tscn" id="17_euwxu"]
+[ext_resource type="PackedScene" uid="uid://cd4slg1606llg" path="res://enemy/hunter/hunter_enemy.tscn" id="18_q1nby"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jhvyb"]
 texture = ExtResource("6_2wj3m")
@@ -774,3 +775,6 @@ position = Vector2(242, 683)
 debug_chase_wall = true
 stats = null
 debug_enabled = false
+
+[node name="HunterEnemy" parent="." instance=ExtResource("18_q1nby")]
+position = Vector2(2384, -98)

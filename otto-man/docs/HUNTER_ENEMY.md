@@ -26,6 +26,11 @@ Oyuncuyu gören, tile ve one-way platformları tanıyıp zıplayarak / atlayarak
 - **Takip:** hedefin ayağının bastığı yüzeye rota çizer; oyuncu koşuyorsa biraz ilerisine nişan alır (yolunu kesmeye çalışır).
 - **İz kaybı:** menzil x1.6'nın ötesindeyse sayaç hızlı, görüş hattı yoksa normal ilerler; 4.5 sn dolunca `search` (son görülen yere gider, 2.6 sn bekler, devriyeye döner). Uyku mesafesi (1700 px) ötesinde zaten uyur.
 - **Saldırı (atılma):** 170 px yatay / 90 px dikey içinde, görüş hattı varsa 0.3 sn çömelir, sonra hedefin biraz ötesine iner şekilde atılır. Hasar `attack_damage x 1.1`, 1.6 sn bekleme. Vuruş teması `EnemyHitbox` + çakışma yedeği.
+- **Dövüş taktikleri (yakın mesafede):**
+  - **Blok (`guard`):** oyuncunun Attack durumuna geçtiğini görünce (%55) 0.65 sn kalkan kaldırır. Önden gelen hafif vuruş sıfır hasar (mavi parlama, hafif geri itilir), sonra karşı atılma; ağır vuruş korumayı kırar (%60 hasar), arkadan vuruş geçer. Bekleme 2.2 sn.
+  - **Geri adım (`backstep`):** oyuncuya bakarak geri sıçrar, %60 ihtimalle hemen atılır. Arkası boş olmalı (zemin var, duvar yok).
+  - **Geri koşup atılma (`retreat`):** ~0.8 sn geri koşar, döner, uzun sıçrayışla (+%20 hasar) atılır.
+  - Taktikler arası bekleme ~3 sn (`tactic_cd`); hepsi `_combat_tactics` içinde.
 - **Animasyonlar:** idle / patrol / chase / jump / fall. `death` ve `hurt` yok; kodda `fall` karesinden üretilir (base `die()` çağırdığı için), ölünce dönüp solar.
 
 ## Test
