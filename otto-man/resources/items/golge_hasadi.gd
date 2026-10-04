@@ -54,6 +54,9 @@ func on_enemy_killed(enemy: Node2D) -> void:
 	var flip: bool = _player.sprite.flip_h if _player.get("sprite") else false
 	decoy.setup(enemy.global_position, flip, _player)
 	_shadows.append({"node": decoy, "timer": 0.3})
+	var im := get_node_or_null("/root/ItemManager")
+	if im:
+		im.notify_item_event("_on_harvest_shadow_spawned", [enemy.global_position])
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _shadows.is_empty():

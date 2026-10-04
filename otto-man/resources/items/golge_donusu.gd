@@ -61,8 +61,12 @@ func process(player: CharacterBody2D, delta: float) -> void:
 func _return_now(player: CharacterBody2D) -> void:
 	_window_left = 0.0
 	_cooldown_left = COOLDOWN
-	_spawn_decoy(player.global_position, player)
+	var from_pos: Vector2 = player.global_position
+	_spawn_decoy(from_pos, player)
 	player.global_position = _return_pos
+	var im := get_node_or_null("/root/ItemManager")
+	if im:
+		im.notify_item_event("_on_shadow_return", [from_pos, _return_pos])
 	player.velocity = Vector2.ZERO
 	print("[Gölge Dönüşü] ⚡ Başlangıç noktasına dönüldü")
 

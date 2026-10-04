@@ -847,3 +847,15 @@ Starter artık 19 item'ın ~9'u flat-stat (%47), önceki 14/19'dan (%74) düşü
   - **Kukla Oyunu** (`kukla_oyunu`, Savunma): `player_took_damage` %40 şansla (8 sn bekleme) hasarı iade eder
     (refleks.gd gibi "önle" değil "iade et"), vurandan uzağa `test_move` ile 200/140/80 px ışınlar, eski yerde 2 sn gölge.
   - Denge sayıları oynanmadı. Smoke test: SMOKE OK.
+- **✅ 7 yeni Gölge ailesi item'ı (2026-10-04).** Ortak altyapı: `ItemManager.notify_item_event(method, args)`
+  (sinyalsiz item olayları) ve `player_decoy.gd` artık `_on_decoy_hit_enemy(enemy, pos)` ve
+  `_on_decoy_expired(pos, lifetime)` (>=1 sn yaşayan gölgeler) yayıyor; Gölge Dönüşü `_on_shadow_return(from, to)`,
+  Gölge Hasadı `_on_harvest_shadow_spawned(pos)` yayıyor.
+  - **Gölge Sahnesi** (golge.kesif, UNCOMMON, Savunma): perfect parry'de 3 sn gölge, 2 sn bekleme.
+  - **Gölge Bağı** (RARE, önkoşul VEYA: gölge üreten herhangi biri, ev = golge.boss): gölgenin vurduğu düşman 4 sn
+    işaretli; gerçek ("all" filtreli) sonraki vuruş +%60, işaret tüketilir. Karagöz/Hacivat gölge vuruşları da işaretler.
+  - **Sönen Gölge** (RARE, aynı önkoşul): gölge sönerken 110 px patlama (%80 vuruş hasarı) + tüm aktif elementler.
+  - **Dönüş Darbesi / Perde Arkası / Soluk Alma** (UNCOMMON, önkoşul Gölge Dönüşü): dönüş yolunda hasar (+ İz Bırakan
+    taraması + Element İzi), 1.5 sn görüş x0.2 ve sonraki vuruş x1.5 (çarpımsal, geri alınır), yarım stamina segmenti.
+  - **Ölü Perdesi** (UNCOMMON, önkoşul Gölge Hasadı): hasat gölgesi zehir bulutu bırakır.
+  - `ITEM_SYNERGY_PAIRS`'e 18 gerçek çift eklendi. Denge sayıları oynanmadı. Smoke test: SMOKE OK.

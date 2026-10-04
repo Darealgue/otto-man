@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://perde_arkasi_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/perde_arkasi.gd" id="1_script"]
+
+[node name="PerdeArkasi" type="Node"]
+script = ExtResource("1_script")

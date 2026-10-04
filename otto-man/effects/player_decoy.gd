@@ -26,6 +26,8 @@ const DECOY_HITBOX_OFFSET := 55.0
 const DECOY_ATTACK_RANGE := 120.0
 
 var _timer: float = 0.0
+var _total_lifetime: float = 0.0
+const EXPIRE_EVENT_MIN_LIFETIME := 1.0   # Hayalet Adım gibi çok kısa gölgeler "söndü" olayı yaymaz
 var _anim_time: float = 0.0
 var _sprite: Sprite2D
 var _hurtbox: Area2D
@@ -76,10 +78,13 @@ func setup(world_pos: Vector2, flip_h: bool, player: CharacterBody2D) -> void:
 			_decoy_hitbox.hit_enemy.connect(_on_decoy_hitbox_hit_enemy)
 
 	_timer = LIFETIME if lifetime_override <= 0.0 else lifetime_override
+	_total_lifetime = _timer
 
 func _process(delta: float) -> void:
 	_timer -= delta
 	if _timer <= 0:
+		if _total_lifetime >= EXPIRE_EVENT_MIN_LIFETIME:
+			_notify_items("_on_decoy_expired", [global_position, _total_lifetime])
 		queue_free()
 		return
 	# idle_combat animasyonunu döngüde oynat
@@ -101,7 +106,14 @@ func _process(delta: float) -> void:
 			# Saldırı bitince idle'a dön
 			_restore_idle_sprite()
 
+## Aktif item'lara gölge olayı bildirir (Gölge Bağı, Sönen Gölge vb. dinler).
+func _notify_items(method: String, args: Array) -> void:
+	var im := get_node_or_null("/root/ItemManager")
+	if im and im.has_method("notify_item_event"):
+		im.notify_item_event(method, args)
+
 func _on_decoy_hitbox_hit_enemy(enemy: Node) -> void:
+	_notify_items("_on_decoy_hit_enemy", [enemy, global_position])
 	# Gölge vurduğunda oyuncunun player_attack_landed sinyalini emit et; Çift Vuruş, Ateşli Yumruk vb. aynı hedeflere uygulanır
 	if not _player or not is_instance_valid(_player) or not _player.has_signal("player_attack_landed"):
 		return

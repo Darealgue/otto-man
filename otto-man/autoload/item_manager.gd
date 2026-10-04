@@ -130,6 +130,13 @@ const ITEM_SCENES: Dictionary = {
 	"golge_donusu": preload("res://resources/items/golge_donusu.tscn"),
 	"golge_hasadi": preload("res://resources/items/golge_hasadi.tscn"),
 	"kukla_oyunu": preload("res://resources/items/kukla_oyunu.tscn"),
+	"golge_sahnesi": preload("res://resources/items/golge_sahnesi.tscn"),
+	"golge_bagi": preload("res://resources/items/golge_bagi.tscn"),
+	"sonen_golge": preload("res://resources/items/sonen_golge.tscn"),
+	"donus_darbesi": preload("res://resources/items/donus_darbesi.tscn"),
+	"perde_arkasi": preload("res://resources/items/perde_arkasi.tscn"),
+	"soluk_alma": preload("res://resources/items/soluk_alma.tscn"),
+	"olu_perdesi": preload("res://resources/items/olu_perdesi.tscn"),
 	"firlatma_parry": preload("res://resources/items/firlatma_parry.tscn"),
 	"hayalet_adim": preload("res://resources/items/hayalet_adim.tscn"),
 	"sekme_tabanligi": preload("res://resources/items/sekme_tabanligi.tscn"),
@@ -215,6 +222,10 @@ const ITEM_REQUIREMENTS: Dictionary = {
 	"hacivat_golgesi": ["ortaoyunu"],
 	"kesintisiz_zincir": ["artan_guc"],
 	"kesintisiz_akis": ["zehirli_sekme"],
+	"donus_darbesi": ["golge_donusu"],
+	"perde_arkasi": ["golge_donusu"],
+	"soluk_alma": ["golge_donusu"],
+	"olu_perdesi": ["golge_hasadi"],
 }
 
 # Ön koşul (VEYA): listedeki item'lardan EN AZ BİRİ aktifse seçenekte çıkar
@@ -231,6 +242,9 @@ const ITEM_REQUIREMENTS_ANY: Dictionary = {
 	"ruh_mermisi": ["uzun_menzil", "ok_yagmuru"],
 	"ates_bombasi": ["ok_yagmuru"],
 	"kan_bedeli": ["cevher_dili", "yikim_muhru"],
+	# Gölge üreten herhangi bir item yeter; ortaoyunu başta olduğu için ev havuzu golge/boss
+	"golge_bagi": ["ortaoyunu", "golge_hasadi", "kukla_oyunu", "golge_donusu", "golge_sahnesi"],
+	"sonen_golge": ["ortaoyunu", "golge_hasadi", "kukla_oyunu", "golge_donusu", "golge_sahnesi"],
 }
 
 ## 2 parça = set bonusu (geri bildirim build — 4 set)
@@ -370,7 +384,7 @@ const DUNGEON_THEME_POOLS: Dictionary = {
 	},
 	"golge": {
 		# Gölge = BİRLEŞTİR: sinerji, element dönüşümü, kaynak (stamina)
-		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi", "golge_donusu", "golge_hasadi", "kukla_oyunu"],
+		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi", "golge_donusu", "golge_hasadi", "kukla_oyunu", "golge_sahnesi"],
 		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "usta_isci", "tek_sanat"],
 	},
 }
@@ -1143,6 +1157,14 @@ func _try_spawn_enemy_dungeon_gold(enemy: Node2D) -> void:
 	var total: int = sp.get_scaled_dungeon_gold(base)
 	var pos: Vector2 = enemy.global_position
 	sp.call_deferred("spawn_enemy_gold_burst", pos, total, premium)
+
+
+## Sinyal gerektirmeyen item olayları (gölge doğdu/vurdu/söndü, gölge dönüşü...). Aktif item'lardan
+## metodu olanlara iletilir; metodu olmayanlar sessizce atlanır.
+func notify_item_event(method: String, args: Array = []) -> void:
+	for item in active_items:
+		if is_instance_valid(item) and item.has_method(method):
+			item.callv(method, args)
 
 
 # Called when an enemy is killed
@@ -2201,6 +2223,25 @@ const ITEM_SYNERGY_PAIRS: Array = [
 	["buzlu_kilic", "simsek_parmagi", "synergy.react_ice_lightning"],
 	["zehirli_tirnak", "simsek_parmagi", "synergy.react_poison_lightning"],
 	["atesli_yumruk", "simsek_parmagi", "synergy.react_fire_lightning"],
+	# Gölge ailesi (player_decoy olayları + Gölge Dönüşü olayları)
+	["golge_donusu", "donus_darbesi", "synergy.return_strike"],
+	["golge_donusu", "perde_arkasi", "synergy.return_stealth"],
+	["golge_donusu", "soluk_alma", "synergy.return_stamina"],
+	["donus_darbesi", "iz_birakan", "synergy.return_trail"],
+	["donus_darbesi", "element_izi", "synergy.return_trail"],
+	["golge_hasadi", "olu_perdesi", "synergy.harvest_cloud"],
+	["golge_hasadi", "sonen_golge", "synergy.shadow_burst"],
+	["golge_sahnesi", "sonen_golge", "synergy.shadow_burst"],
+	["ortaoyunu", "sonen_golge", "synergy.shadow_burst"],
+	["sonen_golge", "zehirli_tirnak", "synergy.burst_element"],
+	["sonen_golge", "atesli_yumruk", "synergy.burst_element"],
+	["sonen_golge", "buzlu_kilic", "synergy.burst_element"],
+	["sonen_golge", "simsek_parmagi", "synergy.burst_element"],
+	["golge_bagi", "ortaoyunu", "synergy.shadow_mark"],
+	["golge_bagi", "golge_hasadi", "synergy.shadow_mark"],
+	["golge_bagi", "kukla_oyunu", "synergy.shadow_mark"],
+	["golge_bagi", "karagoz_laneti", "synergy.shadow_mark"],
+	["golge_bagi", "hacivat_golgesi", "synergy.shadow_mark"],
 ]
 
 

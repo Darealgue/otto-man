@@ -2618,3 +2618,25 @@ item.golge_hasadi.name,Gölge Hasadı,Shadow Harvest
 item.golge_hasadi.description,Öldürdüğün düşmanın yerinde 4 sn duran bir gölge belirir ve yakındaki düşmanlara senin vuruşunu taklit eder (en fazla 2 gölge),"A shadow rises where an enemy dies, lasts 4s and strikes nearby enemies with your attack (max 2 shadows)"
 item.kukla_oyunu.name,Kukla Oyunu,Puppet Play
 item.kukla_oyunu.description,"Hasar aldığında %40 ihtimalle hasar iade edilir, vurandan uzağa ışınlanırsın ve eski yerinde 2 sn bir gölge kalır (8 sn bekleme)","When hit, 40% chance to heal the damage back, teleport away from the attacker and leave a 2s shadow behind (8s cooldown)"
+item.golge_sahnesi.name,Gölge Sahnesi,Shadow Stage
+item.golge_sahnesi.description,Perfect parry yaptığında olduğun yerde 3 sn duran bir gölge kalır (2 sn bekleme),A perfect parry leaves a shadow behind for 3s (2s cooldown)
+item.golge_bagi.name,Gölge Bağı,Shadow Bond
+item.golge_bagi.description,"Bir gölgenin vurduğu düşman 4 sn işaretlenir, ona yaptığın sonraki vuruş %60 fazla hasar verir","An enemy hit by a shadow is marked for 4s, and your next hit on it deals 60% more damage"
+item.sonen_golge.name,Sönen Gölge,Fading Shadow
+item.sonen_golge.description,"Bir gölge süresi dolup kaybolurken patlar, yakındaki düşmanlara hasar verir ve sahip olduğun tüm elementleri uygular","When a shadow fades it bursts, damaging nearby enemies and applying all your elements"
+item.donus_darbesi.name,Dönüş Darbesi,Return Strike
+item.donus_darbesi.description,Gölge Dönüşü ile ışınlanırken geçtiğin yoldaki düşmanlar hasar alır,Enemies along the path of your Shadow Return take damage
+item.perde_arkasi.name,Perde Arkası,Behind the Curtain
+item.perde_arkasi.description,Gölge Dönüşü sonrası 1.5 sn düşmanların görüşü kısalır ve sonraki vuruşun %50 fazla hasar verir,"After a Shadow Return, enemy sight shrinks for 1.5s and your next hit deals 50% more damage"
+item.soluk_alma.name,Soluk Alma,Catch Breath
+item.soluk_alma.description,Gölge Dönüşü ile ışınlandığında stamina barının yarım segmenti dolar,Shadow Return refills half a stamina segment
+item.olu_perdesi.name,Ölü Perdesi,Veil of the Dead
+item.olu_perdesi.description,Gölge Hasadı gölgeleri ölen düşmanın yerinde zehirli bir bulut da bırakır,Shadow Harvest shadows also leave a poison cloud where the enemy died
+synergy.return_strike,ışınlanma yolundaki düşmanlar hasar alır,enemies on the return path take damage
+synergy.return_stealth,ışınlanma sonrası gizlilik ve güçlü vuruş,stealth and a stronger hit after returning
+synergy.return_stamina,ışınlanma stamina iade eder,returning refunds stamina
+synergy.return_trail,ışınlanma yolu iz efektlerini de tetikler,the return path also triggers trail effects
+synergy.harvest_cloud,hasat gölgesi zehir bulutu bırakır,harvest shadows leave a poison cloud
+synergy.shadow_burst,sönen gölge patlar,a fading shadow bursts
+synergy.burst_element,gölge patlaması elementini taşır,the shadow burst carries your element
+synergy.shadow_mark,gölgenin vurduğu düşman işaretlenir,an enemy hit by a shadow gets marked
