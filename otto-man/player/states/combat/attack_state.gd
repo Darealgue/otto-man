@@ -154,7 +154,8 @@ func enter():
 			var is_forced_to_crouch = _is_player_forced_to_crouch()
 			
 			if up_strength > 0.6 and not is_forced_to_crouch:
-				current_attack = "up_light"
+				# Yavaş up_light yerine kombodaki hızlı yukarı vuruşlardan biri (ilk vuruş da kombo başlatır)
+				current_attack = _choose_random_up_combo_attack()
 			elif down_strength > 0.6 or is_crouching or is_forced_to_crouch:
 				current_attack = "down_light"
 				# Debug print disabled to reduce console spam
@@ -737,7 +738,7 @@ func _on_enemy_hit(enemy: Node):
 	if not has_activated_hitbox:
 		has_activated_hitbox = true
 		# Enable brief jump-cancel on up_light
-		if current_attack == "up_light":
+		if current_attack == "up_light" or current_attack.begins_with("attack_up"):
 			jump_cancel_enabled = true
 			jump_cancel_timer = 0.12
 
