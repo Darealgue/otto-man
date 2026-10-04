@@ -67,17 +67,22 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Başlangıç kart seçimi (3) diğer türlerle aynı.
 
 ## Tuzak Geçidi (`tuzak`)
-- Yalnız zindan. Kovalamaca koridorunu (`ChaseCorridorBuilder.build(..., theme, trap_mode = true)`) kullanır; engeller
-  seyrek (aralara tuzak yeri kalsın), renkler `DungeonThemeStyle` temasından. Tema payload `theme` ya da rastgele
-  (ates/zehir/buz/firtina/barut/golge).
-- `trap_corridor_traps.gd`: gerçek zindan tuzak sistemi (`TileTrapSpawner`, `TrapConfigV2`, tema ağırlıkları/grup
-  boyları) ile tuzak dizer: zemin (engeller arası düz boşluklara 1-5'li gruplar), tavan (zehir damlası vb.),
-  duvar (engel duvarlarının oyuncuya bakan yüzüne ok/top). Zorlukla sıklaşır.
+- Yalnız zindan. Tek ekrana dikey olarak sığan bir **blok labirenti**: `trap_maze_builder.gd`. Kamera yalnız yatayda kayar.
+  Uzunluk zorlukla artar (60 + 32*zorluk kolon).
+- Üretim: önce garantili bir yol oyulur (`_carve_route`: 1-3 satırlık basamaklarla iniş çıkışlı ayak yolu, 5 satır baş
+  boşluğu, altında 2 karo platform), sonra kalan hacim rastgele bloklarla doldurulur (2x2, 2x6, 3x3, 4x4, L ve T
+  şekilleri; çoğu ayrık, ~%22'si birleşik kümeler). Yolun içine giren şekil atılır, 1 karolu yarıklar doldurulur.
+  Yani her labirent çözülebilir; çevresi çıkmaz sokak ve tuzak doludur.
+- Tuzaklar (`populate`): gerçek zindan tuzak sistemi (`TileTrapSpawner`, `TrapConfigV2`, tema ağırlıkları/grup boyları).
+  Blokların ve zemin/tavanın her açık yüzüne konur: zemin yüzeyleri (1-5'li gruplar), tavan yüzeyleri, duvar yüzleri
+  (ok/top). Rotanın her ikinci duruş noktası (+komşuları) zemin tuzağından muaf: oyuncunun nefes aldığı yerler.
+  Sıklık zorlukla artar. Tema `DungeonThemeStyle`'dan (ates/zehir/buz/firtina/barut/golge); payload `theme` veya rastgele.
 - Tema kuralları oyuncuya uygulanır: kaygan zemin (buz), sabit durana yıldırım (fırtına), karanlık + fener (gölge).
-- Süre: koridor uzunluğu / 520 * 1.4 + 12 sn. Tuzağa çarpmak (oyuncu hasar alınca) -4 sn. Süre biterse başarısızlık = ölüm;
+- Süre: 30 + 0.3 * kolon sn. Tuzağa çarpmak (oyuncu hasar alınca) -4 sn. Süre biterse başarısızlık = ölüm;
   çıkış kapısına ulaşırsan kazanırsın. Ödül: altın (30 + 25*zorluk + kalan sn) ve birkaç taş/odun.
 - Giriş kart seçimi yok (yalnız hareket ve zamanlama).
-
+- Not: `trap_corridor_traps.gd` yalnız ortak yardımcılar (grup boyu, spawner kurma); `ChaseCorridorBuilder`'ın `trap_mode`
+  parametresi artık kullanılmıyor.
 ## Haritada doğma, ozan, kabul ekranı
 - **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
   son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör rastgele (asansör hep zindan);

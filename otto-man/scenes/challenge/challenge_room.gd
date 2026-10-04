@@ -60,7 +60,7 @@ func _ready() -> void:
 	if kind == "kovalamaca":
 		_layout = ChaseCorridorBuilder.build(self, biome, difficulty)
 	elif kind == "tuzak":
-		_layout = ChaseCorridorBuilder.build(self, biome, difficulty, _theme, true)
+		_layout = TrapMazeBuilder.build(self, difficulty, _theme)
 	else:
 		_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor")
 	if biome == "orman":
@@ -248,11 +248,15 @@ func _update_chase(delta: float) -> void:
 	var length: float = float(_layout["length"])
 	var want_x: float = clampf(_player.global_position.x + 160.0, 960.0, length - 960.0)
 	_cam.position.x = lerpf(_cam.position.x, want_x, minf(1.0, 8.0 * delta))
-	# Dikey: zemin seviyesi değişen koridorda kamera, oyuncunun en son bastığı zemini yumuşakça izler
-	# (zıplayınca sallanmasın diye havadayken güncellenmez)
-	if bool(_player.call("is_on_floor")):
-		_chase_floor_y = _player.global_position.y
-	_cam.position.y = lerpf(_cam.position.y, _chase_floor_y - ChaseCorridorBuilder.CAM_FLOOR_OFFSET, minf(1.0, 4.0 * delta))
+	if _layout.has("fixed_cam_y"):
+		# Labirent odası ekrana dikey olarak sığar: kamera yalnız yatayda kayar
+		_cam.position.y = float(_layout["fixed_cam_y"])
+	else:
+		# Dikey: zemin seviyesi değişen koridorda kamera, oyuncunun en son bastığı zemini yumuşakça izler
+		# (zıplayınca sallanmasın diye havadayken güncellenmez)
+		if bool(_player.call("is_on_floor")):
+			_chase_floor_y = _player.global_position.y
+		_cam.position.y = lerpf(_cam.position.y, _chase_floor_y - ChaseCorridorBuilder.CAM_FLOOR_OFFSET, minf(1.0, 4.0 * delta))
 	if _swarm != null:
 		_swarm.floor_y = _chase_floor_y
 	if not _finished and _player.global_position.x >= float(_layout["end_x"]) + 160.0:
@@ -376,11 +380,11 @@ func _update_ward_label() -> void:
 
 ## Tuzakları dizer, temanın zindan kurallarını (kaygan zemin, yıldırım, karanlık) uygular, süreyi hesaplar.
 func _setup_trap_run() -> void:
-	var count: int = TrapCorridorTraps.populate(self, _layout, _theme, difficulty)
+	var count: int = TrapMazeBuilder.populate(self, _layout, _theme, difficulty)
 	print("[TuzakGecidi] tema=%s zorluk=%d tuzak=%d" % [_theme, difficulty, count])
 	_apply_theme_rules()
-	# Süre: koridoru ~520 px/s ile koşmanın 1.4 katı + 12 sn pay; tuzağa çarpmak süreden düşer
-	_time_left = float(_layout["length"]) / 520.0 * 1.4 + 12.0
+	# Süre: labirent uzunluğuna göre; tuzağa çarpmak süreden düşer (kısa ama sık tuzaklı bir yol)
+	_time_left = 30.0 + 0.3 * float(_layout["cols"])
 	if _player.has_signal("player_took_damage"):
 		_player.connect("player_took_damage", _on_trap_hit)
 	_update_ward_label()

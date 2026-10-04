@@ -2605,7 +2605,7 @@ challenge.win.kovalamaca,Kuşlardan kurtuldun!,You escaped the birds!
 challenge.win.kovalamaca.flawless,Kuşlar seni yakalayamadı! Çifte ödül.,The birds never caught you! Double reward.
 ozan.song.challenge.kovalamaca,"%s, %s kanatlı bir bulut peşine takılır; ayağı çevik olan kapıya varır.","%s, %s a winged cloud takes up the chase; he with nimble feet reaches the gate."
 challenge.kind.tuzak,Tuzak Geçidi,Trap Gauntlet
-challenge.desc.tuzak,"Düşman yok, yalnızca zindan temasının tuzakları ve zamana karşı bir koşu. Tuzağa çarpmak süreden düşer. Ödül: altın ve hammadde.","No enemies, just a dungeon theme's traps and a race against the clock. Hitting a trap costs time. Reward: gold and materials."
+challenge.desc.tuzak,"Tuzak dolu bir blok labirentinde sağa giden yolu bul. Düşman yok, her yüzey tema tuzaklarıyla kaplı; tuzağa çarpmak süreden düşer. Ödül: altın ve hammadde.","Find your way right through a maze of blocks packed with traps. No enemies, every surface is lined with theme traps; hitting one costs time. Reward: gold and materials."
 challenge.win.tuzak,Geçidi aştın! +%d altın,You cleared the gauntlet! +%d gold
 challenge.trap.go,Koş!,Run!
 challenge.trap.time,Süre: %d,Time: %d
