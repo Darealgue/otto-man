@@ -13,8 +13,11 @@ const BIRD_SCENE_PATH := "res://enemy/flying/flying_enemy.tscn"
 const BIRD_COUNT: int = 264
 ## Kazanınca kuşlar sağ üste (45 derece) doğru bu hızla uçup ekrandan çıkar
 const FLY_OFF_SPEED: float = 750.0
-## Sürü merkezi en az ekranın sol kenarından bu kadar içeride görünür
-const VISIBLE_EDGE_MARGIN: float = 260.0
+## Sürü merkezi (baş) en az ekranın sol kenarından bu kadar içeride görünür; kuyruk geride kalan alana uzanır
+const VISIBLE_EDGE_MARGIN: float = 560.0
+## Sürü şekli: başa düşen kuş oranı ve kuyruk uzunluğu (px)
+const HEAD_FRACTION: float = 0.5
+const TAIL_LENGTH: float = 900.0
 const CATCH_DISTANCE: float = 110.0
 const CATCH_COOLDOWN: float = 2.0
 ## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes)
@@ -38,6 +41,8 @@ var _birds: Array[AnimatedSprite2D] = []
 var _bird_offsets: Array[Vector2] = []
 ## Kuş başına salınım: (x genliği, y genliği, hız, faz)
 var _bird_drift: Array[Vector4] = []
+## Kuş başına kuyruk konumu: 0 = baş, (0,1] = kuyruk üzerindeki yer
+var _tail_t: Array[float] = []
 var _time: float = 0.0
 var _run_time: float = 0.0
 var _prev_target_x: float = 0.0
@@ -70,12 +75,23 @@ func _ready() -> void:
 		bird.z_index = int(depth * 1.9)
 		add_child(bird)
 		_birds.append(bird)
-		# Organik sürü: öne doğru sivri, arkaya doğru dağılan gözyaşı/komet biçimi (kare kutu değil).
-		# Yatay: ön uçta yoğun, arkaya seyrelen üstel dağılım; dikey sapma arkaya gittikçe açılır.
-		var back: float = minf(-log(maxf(rng.randf(), 0.0001)) * 230.0, 1100.0)
-		var spread_y: float = 60.0 + 0.22 * back
-		var oy: float = clampf(rng.randfn(-150.0, spread_y), -430.0, 90.0)
-		_bird_offsets.append(Vector2(40.0 - back, oy))
+		# Spermatozoa biçimi: önde yoğun yuvarlak bir "baş", arkada giderek incelen dalgalı bir "kuyruk".
+		# Baş kuşların %55'i; kuyruk kuşlarında t (0 = başa yakın, 1 = uç) boyunca genişlik azalır.
+		var tail_t: float = 0.0
+		var ox: float
+		var oy: float
+		if rng.randf() < HEAD_FRACTION:
+			ox = rng.randfn(-70.0, 85.0)
+			oy = rng.randfn(-150.0, 105.0)
+		else:
+			tail_t = rng.randf()
+			ox = -190.0 - tail_t * TAIL_LENGTH
+			# Kuyruk ekseni: başın merkezinden geriye, dalga genliği uca doğru büyür; genişlik uca doğru daralır
+			var width: float = lerpf(55.0, 4.0, pow(tail_t, 0.7))
+			oy = -150.0 + rng.randfn(0.0, width)
+		_tail_t.append(tail_t)
+		oy = clampf(oy, -430.0, 90.0)
+		_bird_offsets.append(Vector2(ox, oy))
 		# Her kuşun kendi salınımı: sürü akışkan görünsün (sabit konumda dizilmesin)
 		_bird_drift.append(Vector4(rng.randf_range(18.0, 70.0), rng.randf_range(18.0, 60.0),
 				rng.randf_range(0.6, 1.8), rng.randf_range(0.0, TAU)))
@@ -188,10 +204,18 @@ func _animate_birds() -> void:
 	var cam := get_viewport().get_camera_2d()
 	if cam != null and not _flying_off:
 		var edge: float = cam.get_screen_center_position().x - 960.0 + VISIBLE_EDGE_MARGIN
-		shift = maxf(0.0, edge - global_position.x)
+		var want_x: float = edge
+		if is_instance_valid(target):
+			want_x = minf(edge, target.global_position.x - 220.0)   # baş asla oyuncunun önüne geçmesin
+		shift = maxf(0.0, want_x - global_position.x)
 	for i in range(_birds.size()):
 		var d: Vector4 = _bird_drift[i]
+		var tt: float = _tail_t[i]
 		var wobble := Vector2(sin(_time * d.z + d.w) * d.x, cos(_time * d.z * 1.3 + d.w) * d.y)
+		if tt > 0.0:
+			# Kuyruk: bireysel salınım azalır, yerine sperm kuyruğu gibi ilerleyen dalga gelir (uca doğru genlik büyür)
+			wobble *= 0.25
+			wobble.y += sin(_time * 4.0 - tt * 9.0) * (14.0 + 70.0 * tt)
 		var bob: float = sin(_time * 6.0 + float(i) * 1.7) * 8.0
 		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob) + wobble
 		_birds[i].flip_h = false
