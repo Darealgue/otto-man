@@ -11,6 +11,7 @@ const TILE: int = 32
 const FLOOR_ROW: int = 29
 const CEILING_ROWS: int = 4
 const OVERSCAN: int = 6
+const BASE_COLS: int = 260          # zorluk 1'deki koridor uzunluğu (kolon)
 const START_COLS: int = 22          # başlangıçtaki düz alan
 const END_COLS: int = 26            # bitişteki düz alan + kapı
 const WALL_COLS: int = 3
@@ -204,7 +205,8 @@ static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var forest: bool = biome == "orman"
-	var total_cols: int = 260 + difficulty * 16
+	# Uzunluk zorlukla doğrusal artar: zorluk 1 = 1x, 2 = 2x, 3 = 3x ... (1x = 260 kolon ~ 8300 px)
+	var total_cols: int = BASE_COLS * clampi(difficulty, 1, 9)
 	var plan: Array = _plan(rng, difficulty, total_cols)
 
 	# Her kolonun zemin satırı (parça içinde başlangıç seviyesi, parçadan sonra bitiş seviyesi)
