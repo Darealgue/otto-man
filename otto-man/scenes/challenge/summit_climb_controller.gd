@@ -35,6 +35,12 @@ var _coins: Array = []
 var _clock: float = 0.0
 var _sky_tint: ColorRect = null
 var _clouds: Array[Dictionary] = []
+var _cloud_holder: Node2D = null
+var _lantern: PointLight2D = null
+var _bg_cloud_layers: Array[CanvasItem] = []
+## Bulutlar yerden bu kadar yükselince görünmeye başlar, +CLOUD_FADE_RANGE px sonra tam görünür
+const CLOUD_FADE_START: float = 520.0
+const CLOUD_FADE_RANGE: float = 650.0
 var _done: bool = false
 
 
@@ -49,7 +55,9 @@ func setup(p_player: Node2D, p_cam: Camera2D, p_layout: Dictionary) -> void:
 	_coins = layout["coins"]
 	total_meters = int((_floor_y - _summit_y) / METER_PX)
 	_build_sky_tint()
+	_build_lantern()
 	_build_clouds()
+	_find_background_clouds()
 
 
 func start() -> void:
@@ -64,6 +72,8 @@ func _physics_process(delta: float) -> void:
 		return
 	_update_camera(delta)
 	_update_sky()
+	_update_cloud_visibility()
+	_update_lantern()
 	if not active or _done:
 		return
 	var on_floor: bool = bool(player.call("is_on_floor"))
@@ -111,8 +121,18 @@ func _collect_coins() -> void:
 			continue
 		c["taken"] = true
 		gold += int(c["v"])
+		_play_pickup_sound(c)
 		_pop_coin(c)
 		stats_changed.emit(gold, int((_floor_y - _best_y) / METER_PX), total_meters)
+
+
+## Placeholder para sesi (SoundManager "coin_pickup"); kese daha tok, madeni para biraz rastgele perdeli.
+func _play_pickup_sound(c: Dictionary) -> void:
+	var sm := get_node_or_null("/root/SoundManager")
+	if sm == null or not sm.has_method("play_sfx"):
+		return
+	var pitch: float = 0.8 if int(c["tier"]) == 2 else randf_range(0.97, 1.12)
+	sm.call("play_sfx", "coin_pickup", Vector2.ZERO, pitch)
 
 
 func _pop_coin(c: Dictionary) -> void:
@@ -149,6 +169,8 @@ func _animate_coins() -> void:
 		i += 1
 		if bool(c["taken"]):
 			continue
+		if int(c["tier"]) == 2:
+			continue   # kese sabit durur
 		var sprite: Sprite2D = c["node"]
 		if is_instance_valid(sprite):
 			sprite.frame = (base + i) % 8
@@ -168,6 +190,58 @@ func _build_sky_tint() -> void:
 	layer.add_child(_sky_tint)
 
 
+## Gece oyuncunun çevresini aydınlatan yumuşak fener (platformlar gece okunur kalsın); gündüz kapalıdır.
+func _build_lantern() -> void:
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 1.0])
+	grad.colors = PackedColorArray([Color(1, 1, 1, 1), Color(0, 0, 0, 1)])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 256
+	tex.height = 256
+	_lantern = PointLight2D.new()
+	_lantern.name = "NightLantern"
+	_lantern.texture = tex
+	_lantern.texture_scale = 440.0 * 2.0 / 256.0
+	_lantern.color = Color(1.0, 0.9, 0.72)
+	_lantern.energy = 0.0
+	_lantern.position = Vector2(0.0, -40.0)
+	ForestNightLightUtil.configure_ground_light(_lantern)
+	player.add_child(_lantern)
+
+
+func _update_lantern() -> void:
+	if is_instance_valid(_lantern):
+		_lantern.energy = 0.85 * ForestNightLightUtil.get_light_night_blend()
+
+
+## Arka plan dekorunun (ForestCloudManager) parallax bulut katmanları: yerde bulut görünmesin diye yükseklikle açılır.
+func _find_background_clouds() -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var pb := parent.get_node_or_null("SummitDecor/ParallaxBackground")
+	if pb == null:
+		return
+	for layer_name in ["ParallaxLayerFar", "ParallaxLayerMid", "ParallaxLayerNear"]:
+		var layer := pb.get_node_or_null(layer_name) as CanvasItem
+		if layer:
+			_bg_cloud_layers.append(layer)
+
+
+func _update_cloud_visibility() -> void:
+	var climbed: float = _floor_y - player.global_position.y
+	var f: float = clampf((climbed - CLOUD_FADE_START) / CLOUD_FADE_RANGE, 0.0, 1.0)
+	if _cloud_holder != null:
+		_cloud_holder.modulate.a = f
+	for layer in _bg_cloud_layers:
+		if is_instance_valid(layer):
+			layer.modulate.a = f
+
+
 func _update_sky() -> void:
 	if _sky_tint == null:
 		return
@@ -183,10 +257,12 @@ func _build_clouds() -> void:
 	var holder := Node2D.new()
 	holder.name = "SummitClouds"
 	holder.z_index = -8
+	holder.modulate.a = 0.0
 	parent.add_child(holder)
+	_cloud_holder = holder
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var y: float = _floor_y - 360.0
+	var y: float = _floor_y - 700.0
 	while y > _summit_y - 700.0:
 		for k in range(rng.randi_range(1, 2)):
 			var sprite := Sprite2D.new()

@@ -22,6 +22,7 @@ const SFX_FILES: Dictionary = {
 	"block": "combat_block",
 	"parry": "combat_parry",
 	"pickup": "pickup",
+	"coin_pickup": "coin_pickup",
 	"build_complete": "build_complete",
 	"attack_swipe": "combat_swipe",
 	"footstep_player": "footstep_player",

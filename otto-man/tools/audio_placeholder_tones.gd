@@ -20,6 +20,7 @@ const SFX_STEMS: Dictionary = {
 	"player_dodge": {"hz": 480.0, "duration": 0.14, "volume": 0.2, "slide_hz": -180.0, "wave": "triangle"},
 	"player_slide": {"hz": 220.0, "duration": 0.12, "volume": 0.22, "slide_hz": -30.0, "wave": "triangle"},
 	"pickup": {"hz": 780.0, "duration": 0.09, "volume": 0.26, "slide_hz": 200.0, "wave": "sine"},
+	"coin_pickup": {"hz": 1180.0, "duration": 0.14, "volume": 0.22, "slide_hz": 520.0, "wave": "sine"},   # placeholder para sesi
 	"build_complete": {"hz": 520.0, "duration": 0.18, "volume": 0.3, "slide_hz": 180.0, "wave": "sine"},
 	"footstep_player": {"hz": 95.0, "duration": 0.04, "volume": 0.18, "slide_hz": -40.0, "wave": "triangle"},
 	"footstep_player_dirt": {"hz": 88.0, "duration": 0.045, "volume": 0.16, "slide_hz": -35.0, "wave": "triangle"},

@@ -19,7 +19,7 @@ const TREE1_PATH := "res://decoration/forest/tree1.tscn"
 const TREE3_PATH := "res://decoration/forest/tree3.tscn"
 const TILE: int = 32
 const COLS: int = 60
-const WALL_COLS: int = 3
+const WALL_COLS: int = 0   # görünmez duvarlar ekranın kenarında: oyuncu ekranın en ucuna kadar yürüyebilir
 const FLOOR_ROW: int = 29
 const GROUND_DEPTH: int = 8
 const OVERSCAN: int = 6
@@ -687,7 +687,7 @@ static func _add_boundaries(root: Node2D, left_x: float, right_x: float, floor_y
 
 
 ## Altınlar: tier 0/1 = oyunun normal madeni parası (8 karelik dönen şerit), tier 2 = altın kesesi.
-## Orijinal boyutlarına yakın çizilir (hafif büyütme); toplamayı oda denetler.
+## Orijinal boyutlarında çizilir (ölçek 1); toplamayı oda denetler.
 static func spawn_coins(root: Node2D, coin_defs: Array) -> Array[Dictionary]:
 	var coin_tex := load(COIN_TEX_PATH) as Texture2D
 	var pouch_tex := load(POUCH_TEX_PATH) as Texture2D
@@ -703,13 +703,11 @@ static func spawn_coins(root: Node2D, coin_defs: Array) -> Array[Dictionary]:
 		if tier == 2:
 			sprite.texture = pouch_tex
 			sprite.hframes = 2
-			sprite.frame = 1
-			sprite.scale = Vector2(1.5, 1.5)
+			sprite.frame = 1   # yerde duran poşet karesi; zıplama animasyonu yok
 		else:
 			sprite.texture = coin_tex
 			sprite.hframes = 8
 			sprite.frame = randi() % 8
-			sprite.scale = Vector2(1.5, 1.5)
 		sprite.position = Vector2(float(c["x"]), float(c["y"]))
 		holder.add_child(sprite)
 		records.append({"node": sprite, "pos": sprite.position, "v": int(c["v"]), "tier": tier, "taken": false})

@@ -493,7 +493,10 @@ func _decorate_summit() -> void:
 	decorator.name = "SummitDecor"
 	decorator.decor_biome = "mountain"
 	add_child(decorator)
-	_force_summit_daylight(decorator)
+	# Gece tam karanlık olmasın (platformlar okunsun): ay ışığı tonu. Ateş böcekleri, mantarlar ve oyuncu feneri üstüne ışık ekler.
+	var day_night := decorator.get_node_or_null("DayNightController")
+	if day_night:
+		day_night.set("night_color", Color(0.5, 0.54, 0.78, 1.0))
 	# Zemine rastgele orman dekoru (ağaç, çiçek, çalı, kelebek); başlangıç ağaç öbeğinin üstüne ağaç düşmesin
 	var span: Vector2 = _layout["cluster_span"]
 	decorator._forest_tree_reserve_px(span.x, span.y)
@@ -513,6 +516,22 @@ func _decorate_summit() -> void:
 		var layer := pb.get_node_or_null(String(layer_name)) as ParallaxLayer
 		if layer:
 			layer.motion_scale = scales[layer_name]
+	# Ormandaki ağaçlı arka planlardan biri (önlere yakın): dağ katmanlarının önüne eklenir
+	var forest_tex := load("res://background/parallax/forest parallax/forest_biom_trees_1.png") as Texture2D
+	if forest_tex:
+		var forest_layer := ParallaxLayer.new()
+		forest_layer.name = "SummitForestTrees"
+		forest_layer.z_index = -4
+		forest_layer.position = Vector2(0, -520)
+		forest_layer.motion_scale = Vector2(0.75, 0.62)
+		pb.add_child(forest_layer)
+		var forest_sprite := Sprite2D.new()
+		forest_sprite.texture = forest_tex
+		forest_sprite.centered = false
+		forest_sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+		forest_layer.add_child(forest_sprite)
+		forest_layer.motion_mirroring = Vector2(float(forest_tex.get_width()), 0.0)
+	call_deferred("_populate_summit_life")
 
 
 ## Yol platformları ve zirve de orman dekoru alır. Yol platformlarında büyük ağaç yok (dalları ek basamak olurdu),
@@ -528,25 +547,70 @@ func _decorate_summit_platforms(decorator: ForestArenaDecorator) -> void:
 	decorator._populate_forest_decorations_for_chunk(_layout["summit_decor"])
 
 
-## Hep gündüz: oyun saati akşama/geceye denk gelse bile platformlar ve altınlar okunur kalsın.
-## DayNightController kendi _ready'sinde bir kare bekleyip saate göre renk verdiği için iki kare sonra
-## gündüz renkleri zorlanır ve denetleyicinin _process'i kapatılır.
-func _force_summit_daylight(decorator: Node) -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var dnc := decorator.get_node_or_null("DayNightController") as CanvasModulate
-	if dnc == null:
-		return
-	dnc.set_process(false)
-	dnc.color = dnc.day_color
-	var tint := decorator.get_node_or_null("ParallaxBackground/BackgroundTint") as CanvasModulate
-	if tint:
-		tint.color = Color(1, 1, 1, 1)   # dağ/ağaç katmanları kendi renkleriyle görünsün (gökyüzü gradyanı ayrı)
-	if dnc.sky_gradient_resource and dnc.sky_gradient_resource.gradient:
-		var grad: Gradient = dnc.sky_gradient_resource.gradient
-		grad.set_color(0, dnc.bg_day_color)
-		grad.set_color(1, dnc.bg_day_color.lightened(0.3))
+# --- Zirve Tırmanışı: yaşam (ateş böceği, kelebek, parlayan mantar) ------------------------------
 
+const _FIREFLY_SCENE: PackedScene = preload("res://decoration/forest/forest_firefly.tscn")
+const _BUTTERFLY_SCENE: PackedScene = preload("res://decoration/forest/forest_butterfly.tscn")
+const _GLOW_MUSHROOM_SCENE: PackedScene = preload("res://decoration/forest/forest_glow_mushroom.tscn")
+
+## Ormandaki dekor mantığının kule uyarlaması: zemine ve her katı platformun üstüne ateş böceği (gece ışık verir),
+## kelebek (gündüz) ve parlayan mantar (gece ışık verir) dağıtılır. Hepsi ekran dışındayken kendini durdurur.
+func _populate_summit_life() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var holder := Node2D.new()
+	holder.name = "SummitLife"
+	add_child(holder)
+	var ground_y: float = float(SummitTowerBuilder.FLOOR_ROW * SummitTowerBuilder.TILE) + SummitTowerBuilder.WALL_SURFACE_OFFSET
+	for k in range(9):
+		_spawn_flyer(holder, _FIREFLY_SCENE, 60.0, 1860.0, ground_y, 50.0, 190.0)
+	for k in range(5):
+		_spawn_flyer(holder, _BUTTERFLY_SCENE, 60.0, 1860.0, ground_y, 95.0, 300.0)
+	for k in range(7):
+		_spawn_mushroom(holder, rng.randf_range(70.0, 1850.0), ground_y)
+	for p in _layout["plats"]:
+		var kind: String = String(p["kind"])
+		if kind == "branch":
+			continue
+		var sp: Vector2 = SummitTowerBuilder.span_px(p)
+		var x0: float = maxf(0.0, sp.x - 40.0)
+		var x1: float = minf(1920.0, sp.y + 40.0)
+		var surface: float = SummitTowerBuilder.surface_y(p)
+		var width: float = sp.y - sp.x
+		if kind == "oneway":
+			if width >= 96.0 and rng.randf() < 0.4:
+				_spawn_flyer(holder, _FIREFLY_SCENE, x0, x1, surface, 45.0, 140.0)
+			continue
+		_spawn_flyer(holder, _FIREFLY_SCENE, x0, x1, surface, 45.0, 150.0)
+		if width >= 200.0 and rng.randf() < 0.6:
+			_spawn_flyer(holder, _FIREFLY_SCENE, x0, x1, surface, 60.0, 170.0)
+		if rng.randf() < 0.3:
+			_spawn_flyer(holder, _BUTTERFLY_SCENE, x0, x1, surface, 60.0, 170.0)
+		var mushrooms: int = 3 if kind == "summit" else (1 if rng.randf() < 0.45 else 0)
+		for k in range(mushrooms):
+			_spawn_mushroom(holder, rng.randf_range(maxf(sp.x, 40.0) + 18.0, minf(sp.y, 1880.0) - 18.0), surface)
+
+
+func _spawn_flyer(holder: Node2D, scene: PackedScene, x0: float, x1: float, floor_y: float, min_clear: float, max_clear: float) -> void:
+	var inst := scene.instantiate() as Node2D
+	if inst == null:
+		return
+	var zone := Rect2(x0, floor_y - max_clear, maxf(48.0, x1 - x0), maxf(24.0, max_clear - min_clear))
+	inst.set_meta("fly_zone", zone)
+	inst.set_meta("fly_floor_y", floor_y)
+	inst.set_meta("fly_min_clearance", min_clear)
+	inst.set_meta("fly_max_clearance", max_clear)
+	holder.add_child(inst)
+	if inst.has_method("configure_flight"):
+		inst.call("configure_flight", zone, floor_y, min_clear, max_clear)
+
+
+func _spawn_mushroom(holder: Node2D, x: float, surface_y: float) -> void:
+	var inst := _GLOW_MUSHROOM_SCENE.instantiate() as Node2D
+	if inst == null:
+		return
+	inst.position = Vector2(x, surface_y + 2.0)
+	holder.add_child(inst)
 
 func _setup_climb() -> void:
 	_climb = SummitClimbController.new()
