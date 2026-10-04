@@ -1,10 +1,9 @@
 class_name ChaseSwarm
 extends Node2D
 
-## Kovalamaca kuş sürüsü: soldan sağa sabit hızla ilerler, oyuncuya yetişirse yakalar.
-## Oyuncudan biraz yavaştır; engelde/çukurda duraksayan oyuncu mesafeyi kaybeder. Çok açılırsa
-## sürü hızlanır (kauçuk bant) ki kovalamaca gerilimi bitmesin. Sürü fiziksel değildir; yakalama
-## mesafe kontrolüyle yapılır ve ChallengeRoom'a sinyalle bildirilir.
+## Kovalamaca kuş sürüsü: oyuncunun hemen ensesinde kalmaya çalışır (gerilim modeli): uzaktayken hızlı,
+## hedef mesafeye yaklaştıkça yavaşlar, oyuncu duraksayınca yetişip yakalar. Sürü fiziksel değildir;
+## yakalama mesafe kontrolüyle yapılır ve ChallengeRoom'a sinyalle bildirilir.
 
 signal caught(count: int)
 
@@ -18,12 +17,15 @@ const CATCH_DISTANCE: float = 110.0
 const CATCH_COOLDOWN: float = 2.0
 ## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes)
 const RECOIL: float = 420.0
-## Oyuncu bu kadar açarsa sürü hızlanıp yetişir (kauçuk bant); çarpan oyuncudan hızlı olmasın diye ılımlı
-const RUBBER_GAP: float = 900.0
-## Koşu boyunca sürü yavaş yavaş hızlanır
-const RAMP_PER_SECOND: float = 0.004
-const RAMP_MAX: float = 1.05
+## Gerilim modeli sabitleri (bkz. _physics_process)
+const FOLLOW_GAIN: float = 1.4              # mesafe farkının hıza etkisi (1/sn)
+const MIN_SPEED: float = 260.0              # sürü en yavaş bu hızla ilerler (duran oyuncuya yetişir)
+const MAX_SPEED: float = 1100.0             # çok uzakta kalınca en çok bu hız
+const TENSION_SHRINK_PER_SECOND: float = 0.005
+const TENSION_SHRINK_MAX: float = 0.3
 
+## Sürünün oyuncunun arkasında tutmaya çalıştığı yatay mesafe (px); zorlukla azalır, ChallengeRoom ayarlar
+var tension_gap: float = 420.0
 var speed: float = 340.0
 var target: Node2D = null
 var running: bool = false
@@ -34,6 +36,8 @@ var _birds: Array[AnimatedSprite2D] = []
 var _bird_offsets: Array[Vector2] = []
 var _time: float = 0.0
 var _run_time: float = 0.0
+var _prev_target_x: float = 0.0
+var _player_vx: float = 0.0
 var _flying_off: bool = false
 
 
@@ -92,13 +96,26 @@ func _physics_process(delta: float) -> void:
 			# Her kuş biraz farklı hızda: dağınık bir sürü olarak çıkarlar
 			_bird_offsets[i] += dir * FLY_OFF_SPEED * (0.85 + 0.3 * float(i % 5) / 4.0) * delta
 		return
-	if not running or not is_instance_valid(target):
+	if not is_instance_valid(target):
+		return
+	# Oyuncunun ileri hızı (yumuşatılmış): bekleyen/yavaşlayan oyuncuyu sürü fark eder.
+	# Sürü koşmasa da izlenir ki ilk kare büyük sıçrama göstermesin.
+	var px: float = target.global_position.x
+	var inst_vx: float = (px - _prev_target_x) / maxf(delta, 0.0001)
+	_prev_target_x = px
+	_player_vx = lerpf(_player_vx, clampf(inst_vx, 0.0, 900.0), minf(1.0, 6.0 * delta))
+	if not running:
 		return
 	_run_time += delta
 	var g: float = gap()
-	var v: float = speed * minf(1.0 + RAMP_PER_SECOND * _run_time, RAMP_MAX)
-	if g > RUBBER_GAP:
-		v *= 1.15
+	# Gerilim modeli: sürü oyuncunun hemen ensesinde (tension_gap) kalmaya çalışır. Uzaktayken
+	# hızla yaklaşır, hedef mesafeye gelince oyuncunun hızına uyar (yavaşlar). Oyuncu duraksar ya da
+	# hata yaparsa mesafe kapanır ve yakalar; kusursuz koşan mesafeyi korur ama rahatlayamaz.
+	# Koşu ilerledikçe hedef mesafe daralır (en çok %30).
+	var want_gap: float = tension_gap * maxf(1.0 - TENSION_SHRINK_PER_SECOND * _run_time, 1.0 - TENSION_SHRINK_MAX)
+	want_gap = maxf(want_gap, CATCH_DISTANCE + 70.0)   # yakalama mesafesine fazla yaklaşıp sürekli yakalamasın
+	var v: float = _player_vx + FOLLOW_GAIN * (g - want_gap)
+	v = clampf(v, MIN_SPEED, MAX_SPEED)
 	global_position.x += v * delta
 	# Yükseklik: oyuncunun yüksekliğini yumuşak izler (çukura inerse sürü de iner)
 	var want_y: float = clampf(target.global_position.y - 90.0, floor_y - 330.0, floor_y + 40.0)

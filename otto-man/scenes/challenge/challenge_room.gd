@@ -185,10 +185,8 @@ func _setup_chase() -> void:
 	_swarm.target = _player
 	_swarm.floor_y = float(_layout["floor_y"])
 	# Oyuncunun koşu hızı ~560 px/s; sürü biraz yavaş (zorlukla artar), açılırsa kauçuk bant yetiştirir
-	# Oyuncunun koşu hızına (~560) oranla: d1 %90, d3 %94, d5 %98, d9 %106 (+ en çok %5 hızlanma, bkz. ChaseSwarm).
-	# Düşük zorlukta kusursuz koşan zor yakalanır; küçük hatalar mesafeyi kapatır.
-	# Yüksek zorlukta sürü oyuncudan hızlıya çıkar: kusursuz koşu ve dash gerekir.
-	_swarm.speed = PLAYER_RUN_SPEED * (0.88 + 0.02 * float(difficulty))
+	# Gerilim: sürü oyuncunun arkasında bu mesafede kalmaya çalışır (zorluk 1: 480, 3: 400, 9: 160 px)
+	_swarm.tension_gap = 520.0 - 40.0 * float(difficulty)
 	_swarm.position = Vector2(-450.0, float(_layout["floor_y"]) - 100.0)
 	_swarm.caught.connect(_on_swarm_caught)
 	add_child(_swarm)
