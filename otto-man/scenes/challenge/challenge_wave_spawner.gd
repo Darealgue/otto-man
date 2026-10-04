@@ -213,5 +213,26 @@ func _spawn_one(kind: String) -> void:
 		enemy.enemy_level = level
 	if "is_sleeping" in enemy:
 		enemy.is_sleeping = false
+	if kind == "flying" and enemy.has_signal("enemy_defeated"):
+		enemy.connect("enemy_defeated", _flee_away.bind(enemy), CONNECT_DEFERRED)
 	_alive.append(enemy)
 	enemy_spawned.emit(enemy)
+
+
+## Uçan düşman "ölünce" düşmek yerine kanat çırparak yukarı ve yana doğru uçup gözden kaybolur.
+func _flee_away(enemy: Node2D) -> void:
+	if not is_instance_valid(enemy):
+		return
+	var spr := enemy.get("sprite") as AnimatedSprite2D
+	if spr != null:
+		spr.play("fly")
+		spr.speed_scale = 1.8
+	var dir: float = 1.0 if enemy.global_position.x >= 960.0 else -1.0
+	if spr != null:
+		spr.flip_h = dir < 0.0
+	var tw := enemy.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(enemy, "global_position", enemy.global_position + Vector2(dir * 700.0, -520.0), 1.4) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(enemy, "modulate:a", 0.0, 1.4).set_delay(0.5)
+	tw.chain().tween_callback(enemy.queue_free)
