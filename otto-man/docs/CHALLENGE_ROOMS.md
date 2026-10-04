@@ -48,8 +48,17 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 
 ## Kovalamaca (`kovalamaca`)
 - `chase_corridor_builder.gd`: ~9-14 bin px uzunluğunda yatay koridor (orman veya zindan). Engeller şablonlardan
-  rastgele dizilir (`TEMPLATES`: alçak/yüksek engel, 3 çukur boyu, duvar, çift engel; her birinin maliyeti var),
-  koridor boyunca izin verilen maliyet yükselir. Çukur 2 karo derin (tırmanılabilir), duvara tutunulabilir.
+  rastgele dizilir (`TEMPLATES`, her birinin maliyeti var; biçimleri `_piece_ops` içinde karo dikdörtgenleri),
+  koridor boyunca izin verilen maliyet yükselir; aynı şablon üst üste gelmez.
+  - Basit: alçak/yüksek engel, 3 çukur boyu, duvar, çift engel.
+  - Tavandan sarkanlar: `low_ceiling` (2 karo boşluk, zıplama yok), `slide_gap` (1 karo, kayarak geç),
+    `stalactites` (sarkıt + alt engeller).
+  - Karmaşık: `hill` (merdiven + tavanlı plato), `bridge_pit` (çukurda taş basamaklar), `chicane` (zıpla-kay-zıpla),
+    iki yollu `fork_block` (bloğun üstü zıplayarak / altı kayarak) ve `fork_trench` (üstte boşluklu platformlar,
+    altta derin hendeğin engelli dibi, sağda merdivenle çıkış).
+  - Oyuncu ~44 px (çömelince ~22): 1 karo aralık yalnız çömelerek/kayarak, 2 karo ayakta geçilir. Kayma ~400 px sürer,
+    tüneller bundan kısa tutuldu. Havada yüzen tek satırlık karo şeritleri terrain'de tile üretmez: platformlar 2 satır.
+  - Test kancası: `ChaseCorridorBuilder.dev_force_template = "fork_trench"` tek şablonu art arda dizer.
 - `chase_swarm.gd`: soldan gelen kuş sürüsü (uçan düşmanın sprite'ları). Oyuncu ~560 px/s koşar; sürü
   430 + 12*zorluk px/s, 1000 px'ten fazla açılırsa 1.35x hızlanır. Yetişirse yakalar: 20 hasar, oyuncu sekip
   yavaşlar, sürü 420 px geri çekilir (2 sn bekleme). 3 yakalanma = ölüm. Sol kenarda yakınlıkla kızaran uyarı.

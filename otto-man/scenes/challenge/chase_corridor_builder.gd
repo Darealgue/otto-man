@@ -14,17 +14,110 @@ const START_COLS: int = 22          # başlangıçtaki düz alan
 const END_COLS: int = 26            # bitişteki düz alan + kapı
 const WALL_COLS: int = 3
 
-## Şablon: [ad, maliyet, genişlik (kolon), yükseklik/derinlik]
+## Şablon: [ad, maliyet, genişlik (kolon)]. Biçimler `_piece_ops` içinde dikdörtgenlerle tanımlı.
+## Oyuncu ~44 px boyunda, çömelince ~22 px: 1 karo (32 px) aralık = kayarak geçilir, 2 karo ayakta geçilir.
 const TEMPLATES: Array = [
-	["hurdle1", 1, 2, 1],
-	["hurdle2", 1, 2, 2],
-	["trench_s", 1, 4, 2],
-	["trench_m", 2, 6, 2],
-	["wall3", 2, 2, 3],
-	["double_hurdle", 3, 8, 2],
-	["trench_l", 3, 9, 2],
-	["wall5", 4, 2, 5],
+	["hurdle1", 1, 2],
+	["hurdle2", 1, 2],
+	["trench_s", 1, 4],
+	["low_ceiling", 1, 10],        # alçak tavan: zıplamadan koş
+	["trench_m", 2, 6],
+	["wall3", 2, 2],
+	["slide_gap", 2, 8],           # tavandan inen blok: kayarak geç
+	["stalactites", 2, 16],        # sarkıtlar + aralarında engeller
+	["hill", 2, 14],               # merdiven, tavanlı plato, iniş
+	["double_hurdle", 3, 8],
+	["trench_l", 3, 9],
+	["bridge_pit", 3, 14],         # çukurda taş basamaklar
+	["fork_block", 3, 19],         # iki yol: blokun üstü (zıpla) veya altı (kay)
+	["chicane", 4, 22],            # zıpla, kay, zıpla ardışık
+	["fork_trench", 4, 30],        # iki yol: üstte platformlar, altta derin hendek
+	["wall5", 4, 2],
 ]
+
+
+## Şablonun karo işlemleri: {"carve": [Rect2i], "solid": [Rect2i]} (x piece başından kolon, y mutlak satır).
+## Önce oyma, sonra dolgu uygulanır. T = ekranın üstüne taşan en üst satır (tavandan sarkanlar için).
+static func _piece_ops(name: String) -> Dictionary:
+	var F: int = FLOOR_ROW
+	var T: int = -OVERSCAN
+	var carve: Array[Rect2i] = []
+	var solid: Array[Rect2i] = []
+	match name:
+		"hurdle1":
+			solid.append(Rect2i(0, F - 1, 2, 1))
+		"hurdle2":
+			solid.append(Rect2i(0, F - 2, 2, 2))
+		"wall3":
+			solid.append(Rect2i(0, F - 3, 2, 3))
+		"wall5":
+			solid.append(Rect2i(0, F - 5, 2, 5))
+		"trench_s":
+			carve.append(Rect2i(0, F, 4, 2))
+		"trench_m":
+			carve.append(Rect2i(0, F, 6, 2))
+		"trench_l":
+			carve.append(Rect2i(0, F, 9, 2))
+		"double_hurdle":
+			solid.append(Rect2i(0, F - 2, 2, 2))
+			solid.append(Rect2i(6, F - 2, 2, 2))
+		"low_ceiling":
+			# Alt kenarı zeminden 2 karo yukarıda (64 px): ayakta geçilir, zıplanamaz
+			solid.append(Rect2i(0, T, 10, (F - 2) - T))
+		"slide_gap":
+			# Alt kenarı zeminden 1 karo yukarıda (32 px): yalnız çömelip kayarak geçilir
+			solid.append(Rect2i(0, T, 8, (F - 1) - T))
+		"stalactites":
+			# 4 sarkıt (alt kenar zeminden 3 karo yukarıda) ve aralarında alçak engeller
+			for k in range(4):
+				solid.append(Rect2i(k * 4 + 1, T, 1 + (k % 2), (F - 3) - T))
+			solid.append(Rect2i(3, F - 1, 2, 1))
+			solid.append(Rect2i(11, F - 1, 2, 1))
+		"chicane":
+			solid.append(Rect2i(0, F - 3, 2, 3))
+			solid.append(Rect2i(8, T, 6, (F - 1) - T))
+			solid.append(Rect2i(19, F - 2, 2, 2))
+		"hill":
+			solid.append(Rect2i(0, F - 1, 2, 1))
+			solid.append(Rect2i(2, F - 2, 2, 2))
+			solid.append(Rect2i(4, F - 3, 6, 3))
+			solid.append(Rect2i(4, T, 6, (F - 6) - T))   # platonun üstünde tavan: 2 karo boşluk
+			solid.append(Rect2i(10, F - 2, 2, 2))
+			solid.append(Rect2i(12, F - 1, 2, 1))
+		"bridge_pit":
+			carve.append(Rect2i(0, F, 14, 2))
+			solid.append(Rect2i(2, F, 2, 2))
+			solid.append(Rect2i(6, F, 2, 2))
+			solid.append(Rect2i(10, F, 2, 2))
+		"fork_block":
+			# Blok: üstü 128 px yüksekte (zıplayıp çık), altında 1 karo aralık (kayarak geç)
+			# (12 karo = 384 px: bir kayma (~400 px) tüneli geçmeye yeter, sürünmeye kalmazsın)
+			solid.append(Rect2i(3, F - 4, 12, 3))
+		"fork_trench":
+			# Üst yol: boşluklu platformlar. Alt yol: 6 karo derin hendeğin dibi (engelli), sağda merdivenle çıkış
+			carve.append(Rect2i(0, F, 30, 6))
+			solid.append(Rect2i(1, F, 4, 2))
+			solid.append(Rect2i(8, F, 4, 2))
+			solid.append(Rect2i(15, F, 4, 2))
+			solid.append(Rect2i(22, F, 3, 2))
+			for k in range(5):
+				solid.append(Rect2i(25 + k, F + 5 - k, 1, 1 + k))
+			solid.append(Rect2i(11, F + 4, 2, 2))
+			solid.append(Rect2i(19, F + 4, 2, 2))
+	return {"carve": carve, "solid": solid}
+
+
+static func _apply_rect(cells: Dictionary, r: Rect2i, px: int, add: bool) -> void:
+	for x in range(px + r.position.x, px + r.position.x + r.size.x):
+		for y in range(r.position.y, r.position.y + r.size.y):
+			if add:
+				cells[Vector2i(x, y)] = true
+			else:
+				cells.erase(Vector2i(x, y))
+
+
+## Boş değilse yalnız bu şablon kullanılır (yalnızca geliştirme/test).
+static var dev_force_template: String = ""
 
 
 ## Koridoru `root` altında kurar. Dönen sözlük ChallengeRoom'un beklediği alanları taşır.
@@ -61,24 +154,12 @@ static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
 	for piece in plan:
 		var px: int = int(piece["x"])
 		var w: int = int(piece["w"])
-		var h: int = int(piece["h"])
 		obstacle_spans.append(Vector2i(px, px + w))
-		match String(piece["name"]):
-			"hurdle1", "hurdle2", "wall3", "wall5":
-				for x in range(px, px + w):
-					for y in range(FLOOR_ROW - h, FLOOR_ROW):
-						solid[Vector2i(x, y)] = true
-			"trench_s", "trench_m", "trench_l":
-				for x in range(px, px + w):
-					for y in range(FLOOR_ROW, FLOOR_ROW + h):
-						solid.erase(Vector2i(x, y))
-			"double_hurdle":
-				for x in range(px, px + 2):
-					for y in range(FLOOR_ROW - h, FLOOR_ROW):
-						solid[Vector2i(x, y)] = true
-				for x in range(px + w - 2, px + w):
-					for y in range(FLOOR_ROW - h, FLOOR_ROW):
-						solid[Vector2i(x, y)] = true
+		var ops: Dictionary = _piece_ops(String(piece["name"]))
+		for r in ops["carve"]:
+			_apply_rect(solid, r, px, false)
+		for r in ops["solid"]:
+			_apply_rect(solid, r, px, true)
 	var cells: Array[Vector2i] = []
 	for c in solid.keys():
 		cells.append(c)
@@ -106,21 +187,35 @@ static func build(root: Node2D, biome: String, difficulty: int) -> Dictionary:
 ## Engel planı: [{name, x, w, h}] (x/w kolon). İzin verilen maliyet koridor boyunca artar.
 static func _plan(rng: RandomNumberGenerator, difficulty: int, total_cols: int) -> Array:
 	var out: Array = []
-	var cap_max: int = 1 + difficulty / 2
+	# Geliştirme kancası: tek bir şablonu art arda diz (görsel/oynanış denemesi için)
+	if not dev_force_template.is_empty():
+		for t in TEMPLATES:
+			if String(t[0]) == dev_force_template:
+				var fx: int = START_COLS
+				while fx + int(t[2]) < total_cols - END_COLS:
+					out.append({"name": t[0], "x": fx, "w": int(t[2]), "cost": int(t[1])})
+					fx += int(t[2]) + 14
+				return out
+	var cap_max: int = 2 + difficulty / 2
 	var x: int = START_COLS
 	var limit: int = total_cols - END_COLS
+	var last_name: String = ""
 	while x < limit:
 		var progress: float = float(x) / float(maxi(limit, 1))
-		var cap: int = clampi(1 + int(progress * float(cap_max)), 1, 4)
+		var cap: int = clampi(1 + int(progress * float(cap_max + 1)), 1, 4)
 		var pool: Array = []
 		for t in TEMPLATES:
-			if int(t[1]) <= cap:
+			# Aynı şablon üst üste gelmesin; başlangıçta yalnız ucuzlar, sonlara doğru pahalılar ağırlıklı
+			if int(t[1]) <= cap and String(t[0]) != last_name:
 				pool.append(t)
+				if int(t[1]) >= cap - 1 and progress > 0.35:
+					pool.append(t)
 		var t: Array = pool[rng.randi() % pool.size()]
 		if x + int(t[2]) >= limit:
 			break
-		out.append({"name": t[0], "x": x, "w": int(t[2]), "h": int(t[3]), "cost": int(t[1])})
-		x += int(t[2]) + rng.randi_range(maxi(9, 17 - difficulty), 21)
+		last_name = String(t[0])
+		out.append({"name": t[0], "x": x, "w": int(t[2]), "cost": int(t[1])})
+		x += int(t[2]) + rng.randi_range(maxi(8, 15 - difficulty), 19)
 	return out
 
 
