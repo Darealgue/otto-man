@@ -787,7 +787,7 @@ func _grant_reward() -> String:
 					drs.call("add_pending_villager_data", w.rescue_data())
 		return tr("challenge.win.koruma") % survivors
 	if kind == "asansor":
-		return _grant_random_item_unlock()
+		return await _grant_random_item_unlock()
 	if kind == "tuzak":
 		return _grant_trap_reward()
 	if kind == "tirmanis":
@@ -816,11 +816,12 @@ func _grant_reward() -> String:
 
 ## Açılacak item'ı kalan (havuzu tükenmemiş) rastgele bir tema + kademe; önce keşif, sonra boss kademesi.
 ## Hiçbiri kalmadıysa boş sözlük döner (ödül altına çevrilir; sessizce ödülsüz kalınmaz).
-func _pick_unlock_theme() -> Dictionary:
+func _pick_unlock_theme(prefer_boss: bool = false) -> Dictionary:
 	var im: Node = get_node_or_null("/root/ItemManager")
 	if not is_instance_valid(im) or not im.has_method("has_unlock_candidates"):
 		return {}
-	for tier in [im.UNLOCK_TIER_KESIF, im.UNLOCK_TIER_BOSS]:
+	var tiers: Array = [im.UNLOCK_TIER_BOSS, im.UNLOCK_TIER_KESIF] if prefer_boss else [im.UNLOCK_TIER_KESIF, im.UNLOCK_TIER_BOSS]
+	for tier in tiers:
 		var opts: Array[String] = []
 		for theme in im.DUNGEON_THEME_POOLS.keys():
 			if bool(im.call("has_unlock_candidates", String(theme), String(tier))):
@@ -837,19 +838,17 @@ func _grant_gold_fallback(mult: int = 1) -> String:
 	return tr("challenge.win.fallback") % gold
 
 
-## Asansör ödülü: rastgele bir temadan, henüz açılmamış rastgele bir item doğrudan koleksiyona eklenir.
+## Asansör ödülü: rastgele bir temanın (önce boss kademesi, sonra keşif) henüz açılmamış itemlerinden
+## 3 kartlık seçim; seçilen item koleksiyona açılır. Açılacak item kalmadıysa altın.
 func _grant_random_item_unlock() -> String:
 	var im: Node = get_node_or_null("/root/ItemManager")
-	if is_instance_valid(im) and im.has_method("get_unlock_candidates"):
-		var pool: Array[String] = []
-		for theme in im.DUNGEON_THEME_POOLS.keys():
-			for tier in [im.UNLOCK_TIER_KESIF, im.UNLOCK_TIER_BOSS]:
-				pool.append_array(im.call("get_unlock_candidates", String(theme), String(tier)))
-		pool.shuffle()
-		for id in pool:
-			if bool(im.call("unlock_item", id)):
-				return tr("challenge.win.asansor") % tr("item.%s.name" % id)
-	return _grant_gold_fallback()
+	var pick: Dictionary = _pick_unlock_theme(true)
+	if pick.is_empty() or not is_instance_valid(im) or not im.has_method("queue_unlock_offer"):
+		return _grant_gold_fallback()
+	im.call("queue_unlock_offer", String(pick["theme"]), String(pick["tier"]), 1)
+	if im.has_method("resolve_pending_unlock_offers"):
+		await im.call("resolve_pending_unlock_offers")
+	return tr("challenge.win.asansor.top")
 
 
 func _leave_to_world_map(won: bool) -> void:
