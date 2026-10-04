@@ -14,6 +14,8 @@ var _current_doors: Array[Dictionary] = []  # Bu kamptaki kapı challenge verile
 var _door_generator: ChallengeDoorGenerator
 
 const MAX_DOORS: int = 4
+## Yeni run'ın ilk kapı seçiminden sonra verilen item seçimi sayısı (3 kart seçimi, hızlı başlangıç)
+const START_ITEM_PICKS: int = 3
 
 var _run_stats_panel: Control = null
 
@@ -255,13 +257,22 @@ func _handle_initial_selection(index: int) -> void:
 	if index < 0 or index >= _current_doors.size():
 		return
 	var drs = _get_dungeon_run_state()
+	var fresh_run: bool = false
 	if drs:
+		fresh_run = not drs.run_started
 		if not drs.run_started:
 			drs.start_run_from_village()
 		elif drs.has_method("sync_warmup_limits"):
 			drs.sync_warmup_limits()
 		var challenge: Dictionary = _current_doors[index]
 		drs.apply_challenge(challenge)
+	# Yeni run: ilk kapı seçiminden sonra hızlı başlangıç için ardışık START_ITEM_PICKS item seçimi
+	if fresh_run:
+		var im: Node = get_node_or_null("/root/ItemManager")
+		if is_instance_valid(im) and im.has_method("queue_item_selections") \
+				and is_instance_valid(im.get("player")):
+			im.call("queue_item_selections", START_ITEM_PICKS)
+			await im.item_selection_sequence_finished
 	# Buradan sonra gerçek zindan sahnesine geçiş yapılacak (SceneManager üzerinden)
 	var sm = _get_scene_manager()
 	if sm and sm.has_method("change_to_dungeon"):
