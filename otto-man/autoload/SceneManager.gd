@@ -17,6 +17,7 @@ const WORLD_MAP_SCENE: String = "res://worldmap/scenes/WorldMapScene.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
 const LoadingScreenScene = preload("res://ui/LoadingScreen.tscn")
 const DungeonRunReportScript = preload("res://ui/DungeonRunReport.gd")
+const _HudLayers = preload("res://ui/hud_canvas_layers.gd")
 const TimeManagerPath := "/root/TimeManager"
 
 var current_scene_path: String = ""
@@ -973,7 +974,7 @@ func _show_loading_screen(scene_name: String = "") -> void:
 	# Create loading screen instance if it doesn't exist
 	if not is_instance_valid(_loading_screen_instance):
 		_loading_screen_instance = LoadingScreenScene.instantiate() as CanvasLayer
-		_loading_screen_instance.layer = HudCanvasLayers.TRANSITION
+		_loading_screen_instance.layer = _HudLayers.TRANSITION
 		get_tree().root.add_child(_loading_screen_instance)
 	
 	# Show loading screen
@@ -1153,9 +1154,9 @@ func _update_ui_visibility(scene_path: String) -> void:
 	await get_tree().process_frame
 	
 	var current_scene := get_tree().current_scene
-	HudCanvasLayers.apply_to_autoload_fx()
+	_HudLayers.apply_to_autoload_fx()
 	if current_scene:
-		HudCanvasLayers.apply_to_scene_root(current_scene)
+		_HudLayers.apply_to_scene_root(current_scene)
 	
 	# Find health display and stamina bar — önce sahne GameUI, yoksa grup
 	var health_display: Node = null

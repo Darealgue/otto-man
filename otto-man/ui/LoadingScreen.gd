@@ -13,6 +13,9 @@ signal fade_out_complete
 var _is_loading: bool = false
 var _fade_tween: Tween = null
 
+## class_name yerine preload: editör sınıf önbelleği henüz hazır değilken bu sahne yüklenirse
+## "Identifier HudCanvasLayers not declared" hatası veriyordu.
+const _HudLayers = preload("res://ui/hud_canvas_layers.gd")
 const FADE_TO_BLACK_DURATION: float = 0.38
 const CONTENT_FADE_DURATION: float = 0.28
 const FADE_FROM_BLACK_DURATION: float = 0.5
@@ -21,7 +24,7 @@ const FADE_FROM_BLACK_DURATION: float = 0.5
 func _ready() -> void:
 	visible = false
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	layer = HudCanvasLayers.TRANSITION
+	layer = _HudLayers.TRANSITION
 	if is_instance_valid(root_control):
 		root_control.mouse_filter = Control.MOUSE_FILTER_STOP
 

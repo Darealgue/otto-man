@@ -1,5 +1,7 @@
 extends Node2D
 
+const _HudLayers = preload("res://ui/hud_canvas_layers.gd")
+
 const MEDIEVAL_THEME = preload("res://resources/medieval_theme.tres")
 const SQRT3: float = 1.7320508
 const HEX_SIZE: float = 26.0
@@ -439,7 +441,7 @@ func _ensure_world_map_hud_visible() -> void:
 	if game_ui and game_ui is CanvasLayer:
 		var gl := game_ui as CanvasLayer
 		gl.visible = true
-		gl.layer = HudCanvasLayers.HUD
+		gl.layer = _HudLayers.HUD
 	if container and container is CanvasItem:
 		(container as CanvasItem).visible = true
 	
@@ -484,7 +486,7 @@ func _force_world_map_hud_visible() -> void:
 	if game_ui is CanvasLayer:
 		var gl := game_ui as CanvasLayer
 		gl.visible = true
-		gl.layer = HudCanvasLayers.HUD
+		gl.layer = _HudLayers.HUD
 	if container is CanvasItem:
 		var ci := container as CanvasItem
 		ci.visible = true

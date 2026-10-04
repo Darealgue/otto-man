@@ -1,5 +1,7 @@
 extends Node2D
 
+const _HudLayers = preload("res://ui/hud_canvas_layers.gd")
+
 # Helper: abstract get_cell_source_id across TileMap vs TileMapLayer APIs
 func _get_cell_source_id_any(tilemap_node: Node, cell: Vector2i) -> int:
 	if tilemap_node == null:
@@ -3641,7 +3643,7 @@ func _attach_boss_bar(mini: Node) -> void:
 	if ui_root == null:
 		var canvas := CanvasLayer.new()
 		canvas.name = "TempUIRoot"
-		canvas.layer = HudCanvasLayers.HUD
+		canvas.layer = _HudLayers.HUD
 		scene_root.add_child(canvas) if scene_root else add_child(canvas)
 		ui_root = canvas
 	# Add bar
@@ -4350,7 +4352,7 @@ func _process(delta):
 	var scene_root = get_tree().current_scene
 	var canvas_layer = CanvasLayer.new()
 	canvas_layer.name = "ScreenDarknessLayer"
-	canvas_layer.layer = HudCanvasLayers.WORLD_VIGNETTE
+	canvas_layer.layer = _HudLayers.WORLD_VIGNETTE
 	
 	screen_darkness.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
@@ -4359,7 +4361,7 @@ func _process(delta):
 	
 	# CanvasLayer'i scene root'a ekle
 	scene_root.add_child(canvas_layer)
-	HudCanvasLayers.apply_to_scene_root(scene_root)
+	_HudLayers.apply_to_scene_root(scene_root)
 
 # ==============================================================================
 # TILE-BASED ENEMY SPAWN SYSTEM

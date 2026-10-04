@@ -1,5 +1,7 @@
 extends Node
 
+const _HudLayers = preload("res://ui/hud_canvas_layers.gd")
+
 @onready var time_slow_effect = $CanvasLayer/TimeSlowEffect
 
 # Screen shake variables
@@ -12,7 +14,7 @@ var original_camera_offset: Vector2
 var shake_layer: CanvasLayer
 
 func _ready():
-	HudCanvasLayers.apply_to_autoload_fx()
+	_HudLayers.apply_to_autoload_fx()
 	# Start with effects disabled
 	time_slow_effect.visible = false
 	Engine.time_scale = 1.0  # Ensure we start with normal time scale
