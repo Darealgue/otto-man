@@ -18,6 +18,8 @@ const LIFT_RISE_PER_FLOOR: float = 420.0
 const LIFT_RISE_TIME: float = 3.0
 const LIFT_THICKNESS: float = 32.0
 const LIFT_TOP_LIMIT: float = 900.0
+## Kovalamaca: bu kadar yakalanınca başarısız (ölüm)
+const CHASE_MAX_CATCHES: int = 3
 
 var kind: String = "koruma"
 var biome: String = "orman"
@@ -32,6 +34,8 @@ var _cam: Camera2D = null
 var _lift: AnimatableBody2D = null
 var _lift_top: float = 0.0
 var _lift_creeping: bool = false
+var _swarm: ChaseSwarm = null
+var _danger: TextureRect = null
 var _ward_total: int = 0
 var _ward_override: int = 0
 var _finished: bool = false
@@ -43,7 +47,10 @@ var _message_label: Label = null
 
 func _ready() -> void:
 	_read_payload()
-	_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor")
+	if kind == "kovalamaca":
+		_layout = ChaseCorridorBuilder.build(self, biome, difficulty)
+	else:
+		_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor")
 	if biome == "orman":
 		_decorate_forest()
 	_setup_camera()
@@ -56,7 +63,10 @@ func _ready() -> void:
 	if kind == "koruma":
 		_spawn_wards()
 	_build_hud()
-	_setup_spawner()
+	if kind == "kovalamaca":
+		_setup_chase()
+	else:
+		_setup_spawner()
 	_begin_sequence()
 
 
@@ -164,7 +174,58 @@ func _rise_lift() -> void:
 	await tween.finished
 
 
+## --- Kovalamaca ---------------------------------------------------------------------------
+
+func _setup_chase() -> void:
+	_swarm = ChaseSwarm.new()
+	_swarm.name = "ChaseSwarm"
+	_swarm.target = _player
+	_swarm.floor_y = float(_layout["floor_y"])
+	# Oyuncunun koşu hızı ~560 px/s; sürü biraz yavaş (zorlukla artar), açılırsa kauçuk bant yetiştirir
+	_swarm.speed = 430.0 + 12.0 * float(difficulty)
+	_swarm.position = Vector2(-700.0, float(_layout["floor_y"]) - 100.0)
+	_swarm.caught.connect(_on_swarm_caught)
+	add_child(_swarm)
+	_update_ward_label()
+
+
+func _start_chase() -> void:
+	await _show_message(tr("challenge.chase.run"), 1.4)
+	if _swarm != null and not _finished:
+		_swarm.running = true
+
+
+func _on_swarm_caught(count: int) -> void:
+	_update_ward_label()
+	if _finished or not is_instance_valid(_player):
+		return
+	# Hasar + sarsıntı + yavaşlama: yakalanan oyuncu havaya sekip hızını kaybeder
+	_player.call("take_damage", 20.0, true, _swarm)
+	var pv: Vector2 = _player.get("velocity")
+	_player.set("velocity", Vector2(pv.x * 0.2, -260.0))
+	if count >= CHASE_MAX_CATCHES:
+		_finished = true
+		_swarm.running = false
+		_show_message(tr("challenge.chase.caught"))
+		# Başarısızlık = ölüm (normal ölüm akışı)
+		_player.call("take_damage", 99999.0, true, _swarm)
+
+
+func _update_chase(delta: float) -> void:
+	if not is_instance_valid(_player) or _cam == null:
+		return
+	var length: float = float(_layout["length"])
+	var want_x: float = clampf(_player.global_position.x + 160.0, 960.0, length - 960.0)
+	_cam.position.x = lerpf(_cam.position.x, want_x, minf(1.0, 8.0 * delta))
+	if _danger != null and _swarm != null:
+		_danger.modulate.a = clampf(1.0 - _swarm.gap() / 800.0, 0.0, 0.75) if _swarm.running else 0.0
+	if not _finished and _player.global_position.x >= float(_layout["end_x"]) + 160.0:
+		_finish(true)
+
+
 func _physics_process(delta: float) -> void:
+	if _swarm != null:
+		_update_chase(delta)
 	# Dalga sürerken zemin yavaşça yükselmeye devam eder (hız zorlukla artar)
 	if _lift != null and _lift_creeping and not _finished:
 		_set_lift_top(maxf(_lift_top - (8.0 + 2.0 * float(difficulty)) * delta, LIFT_TOP_LIMIT))
@@ -230,8 +291,24 @@ func _build_hud() -> void:
 	_wave_label = _make_label(layer, Vector2(0, 24), 28)
 	_ward_label = _make_label(layer, Vector2(0, 62), 20)
 	_message_label = _make_label(layer, Vector2(0, 300), 40)
-	_ward_label.visible = kind == "koruma"
+	_ward_label.visible = kind == "koruma" or kind == "kovalamaca"
 	_update_ward_label()
+	if kind == "kovalamaca":
+		# Kuşlar yaklaştıkça sol kenarda kızaran uyarı
+		var tex := GradientTexture2D.new()
+		var grad := Gradient.new()
+		grad.colors = PackedColorArray([Color(0.9, 0.05, 0.05, 1.0), Color(0.9, 0.05, 0.05, 0.0)])
+		tex.gradient = grad
+		tex.fill_from = Vector2(0.0, 0.5)
+		tex.fill_to = Vector2(1.0, 0.5)
+		_danger = TextureRect.new()
+		_danger.texture = tex
+		_danger.stretch_mode = TextureRect.STRETCH_SCALE
+		_danger.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+		_danger.offset_right = 520.0
+		_danger.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_danger.modulate.a = 0.0
+		layer.add_child(_danger)
 
 
 func _make_label(parent: Node, pos: Vector2, font_size: int) -> Label:
@@ -260,6 +337,9 @@ func _show_message(text: String, seconds: float = 0.0) -> void:
 func _update_ward_label() -> void:
 	if _ward_label == null:
 		return
+	if kind == "kovalamaca":
+		_ward_label.text = tr("challenge.chase.catches") % [_swarm.catch_count if _swarm else 0, CHASE_MAX_CATCHES]
+		return
 	var alive: int = 0
 	for w in _wards:
 		if is_instance_valid(w) and not w.is_dead:
@@ -278,6 +358,9 @@ func _begin_sequence() -> void:
 		_show_message(tr("challenge.pick") % START_PICKS)
 		im.call("queue_item_selections", START_PICKS)
 		await im.item_selection_sequence_finished
+	if kind == "kovalamaca":
+		_start_chase()
+		return
 	await _show_message(tr("challenge.ready"), 1.6)
 	_spawner.start_next_wave()
 
@@ -328,7 +411,10 @@ func _finish(won: bool) -> void:
 	if _finished:
 		return
 	_finished = true
-	_spawner.set_physics_process(false)
+	if _spawner != null:
+		_spawner.set_physics_process(false)
+	if _swarm != null:
+		_swarm.running = false
 	var reward_text: String = ""
 	if won:
 		reward_text = await _grant_reward()
@@ -352,6 +438,16 @@ func _grant_reward() -> String:
 		return tr("challenge.win.koruma") % survivors
 	if kind == "asansor":
 		return _grant_random_item_unlock()
+	if kind == "kovalamaca":
+		# Sona ulaşmak 1 unlock teklifi; hiç yakalanmadan ulaşmak 2 teklif
+		var flawless: bool = _swarm != null and _swarm.catch_count == 0
+		var cim: Node = get_node_or_null("/root/ItemManager")
+		if is_instance_valid(cim) and cim.has_method("queue_unlock_offer"):
+			var cthemes: Array = cim.DUNGEON_THEME_POOLS.keys()
+			cim.call("queue_unlock_offer", String(cthemes[randi() % cthemes.size()]), "kesif", 2 if flawless else 1)
+			if cim.has_method("resolve_pending_unlock_offers"):
+				await cim.call("resolve_pending_unlock_offers")
+		return tr("challenge.win.kovalamaca.flawless" if flawless else "challenge.win.kovalamaca")
 	# Dalga arenası: koleksiyona yeni item (rastgele temanın keşif havuzundan seçim kartı)
 	var im: Node = get_node_or_null("/root/ItemManager")
 	if is_instance_valid(im) and im.has_method("queue_unlock_offer"):

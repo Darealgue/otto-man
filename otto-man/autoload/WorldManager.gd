@@ -2067,7 +2067,7 @@ const CHALLENGE_MAX_ACTIVE: int = 2
 const CHALLENGE_MIN_GAP_DAYS: int = 2
 const CHALLENGE_SPAWN_CHANCE: float = 0.6
 const CHALLENGE_LIFETIME_DAYS: int = 5
-const CHALLENGE_AUTO_KINDS: Array[String] = ["koruma", "dalga", "asansor"]
+const CHALLENGE_AUTO_KINDS: Array[String] = ["koruma", "dalga", "asansor", "kovalamaca"]
 
 func maybe_spawn_challenge() -> Dictionary:
 	if world_map_tiles.is_empty():

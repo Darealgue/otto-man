@@ -2596,3 +2596,11 @@ challenge.accept.warning,"Dikkat: başarısız olursan ölürsün. Etkinlik tek 
 ozan.song.challenge.koruma,"%s, %s bir avuç köylü kuşatılmış; onları koruyan el, minnetin yükünü taşır.","%s, %s a handful of villagers are besieged; the hand that shields them carries the weight of gratitude."
 ozan.song.challenge.dalga,"%s, %s dinmeyen bir kavga kopar; her vuruşta güçlenen, kapıdan başı dik çıkar.","%s, %s a fight that never ends breaks out; he who grows stronger with every blow walks out with his head held high."
 ozan.song.challenge.asansor,"%s, %s yükselen bir zemin var; tepeden yağan düşmana bakma, yukarı bakan kazanır.","%s, %s a rising floor lifts; never mind the foes raining from above, he who looks up wins."
+challenge.kind.kovalamaca,Kovalamaca,Chase
+challenge.desc.kovalamaca,Peşinde bir kuş sürüsü var! Engelleri aşıp çıkış kapısına koş. Ödül: yeni bir item; hiç yakalanmazsan iki seçenek.,A flock of birds is on your tail! Clear the obstacles and run for the exit door. Reward: a new item; two choices if they never catch you.
+challenge.chase.catches,Yakalanma: %d / %d,Caught: %d / %d
+challenge.chase.run,Kaç!,Run!
+challenge.chase.caught,Yakalandın!,You were caught!
+challenge.win.kovalamaca,Kuşlardan kurtuldun!,You escaped the birds!
+challenge.win.kovalamaca.flawless,Kuşlar seni yakalayamadı! Çifte ödül.,The birds never caught you! Double reward.
+ozan.song.challenge.kovalamaca,"%s, %s kanatlı bir bulut peşine takılır; ayağı çevik olan kapıya varır.","%s, %s a winged cloud takes up the chase; he with nimble feet reaches the gate."

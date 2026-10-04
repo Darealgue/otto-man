@@ -11,6 +11,7 @@ const KINDS: Dictionary = {
 	"koruma": "challenge.kind.koruma",
 	"dalga": "challenge.kind.dalga",
 	"asansor": "challenge.kind.asansor",
+	"kovalamaca": "challenge.kind.kovalamaca",
 }
 
 const BIOMES: Array[String] = ["orman", "zindan"]

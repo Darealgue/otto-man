@@ -46,6 +46,17 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Zindan arenaları her girişte rastgele dekor ve renk paleti (6 palet) alır; karolar ekran dışına taşar.
 - Koruma'da dalga sayısı köylü sayısına bağlı (1-4); payload `wards` ile köylü sayısı verilebilir.
 
+## Kovalamaca (`kovalamaca`)
+- `chase_corridor_builder.gd`: ~9-14 bin px uzunluğunda yatay koridor (orman veya zindan). Engeller şablonlardan
+  rastgele dizilir (`TEMPLATES`: alçak/yüksek engel, 3 çukur boyu, duvar, çift engel; her birinin maliyeti var),
+  koridor boyunca izin verilen maliyet yükselir. Çukur 2 karo derin (tırmanılabilir), duvara tutunulabilir.
+- `chase_swarm.gd`: soldan gelen kuş sürüsü (uçan düşmanın sprite'ları). Oyuncu ~560 px/s koşar; sürü
+  430 + 12*zorluk px/s, 1000 px'ten fazla açılırsa 1.35x hızlanır. Yetişirse yakalar: 20 hasar, oyuncu sekip
+  yavaşlar, sürü 420 px geri çekilir (2 sn bekleme). 3 yakalanma = ölüm. Sol kenarda yakınlıkla kızaran uyarı.
+- Kamera oyuncuyu yatayda izler. Çıkış kapısına ulaşan kazanır. Ödül: 1 unlock teklifi, hiç yakalanmadan
+  bitirirse 2 teklif.
+- Başlangıç kart seçimi (3) diğer türlerle aynı.
+
 ## Haritada doğma, ozan, kabul ekranı
 - **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
   son doğmadan en az 2 gün sonra, %60 şansla; ömür 5 gün; tür koruma/dalga/asansör rastgele (asansör hep zindan);
