@@ -213,6 +213,11 @@ func _on_swarm_caught(count: int) -> void:
 		_show_message(tr("challenge.chase.caught"))
 		# Başarısızlık = ölüm (normal ölüm akışı)
 		_player.call("take_damage", 99999.0, true, _swarm)
+		# Ölüm dizisi hurt state'inde zeminde bitmesini bekler; oyuncu alçak tavanın altında kayarken
+		# yakalandıysa fırlama tamamlanamayıp ekranda takılı kalıyordu. Süre dolunca ölümü zorla bitir.
+		await get_tree().create_timer(1.6).timeout
+		if is_instance_valid(_player) and not bool(_player.get("is_dead")):
+			_player.call("_finalize_player_death")
 
 
 func _update_chase(delta: float) -> void:
