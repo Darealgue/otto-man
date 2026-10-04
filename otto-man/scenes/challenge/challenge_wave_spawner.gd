@@ -65,11 +65,11 @@ const CHARGER_KINDS: Array[String] = ["spearman", "heavy"]
 
 ## Elit havuzu dalga gücüne (dalga + zorluk) göre açılır. Mızrakçı ve ağır (koşan tanklar) "charger"dır;
 ## aynı dalgada en fazla 1 charger gelir (güç 9 ve üstünde 2).
-static func _elite_pool(power: int) -> Array[String]:
+static func _elite_pool(power: int, allow_hunter: bool = true) -> Array[String]:
 	var pool: Array[String] = []
 	if power >= 3:
 		pool.append_array(["spearman", "firemage"])
-	if power >= 4:
+	if power >= 4 and allow_hunter:
 		pool.append("hunter")
 	if power >= 5:
 		pool.append_array(["summoner", "heavy"])
@@ -79,13 +79,14 @@ static func _elite_pool(power: int) -> Array[String]:
 
 
 ## Bir dalganın düşman listesi (tür anahtarları, karışık sırada).
-static func plan_wave(wave: int, diff: int) -> Array[String]:
+## allow_hunter: avcı sabit zemin ister (gezinme haritası çıkarır); hareketli asansörde kapalıdır.
+static func plan_wave(wave: int, diff: int, allow_hunter: bool = true) -> Array[String]:
 	var power: int = wave + diff
 	var count: int = 3 + wave + diff / 2
 	var elites: int = 0 if power < 3 else clampi((power + 1) / 4, 1, 3)
 	var basics: int = maxi(2 * elites + 3, count - elites)
 	var out: Array[String] = []
-	var pool: Array[String] = _elite_pool(power)
+	var pool: Array[String] = _elite_pool(power, allow_hunter)
 	var chargers: int = 0
 	var max_chargers: int = 2 if power >= 9 else 1
 	for i in range(elites):
@@ -123,7 +124,7 @@ func start_next_wave() -> void:
 	if _wave_index >= wave_total:
 		return
 	_wave_index += 1
-	_queue = plan_wave(_wave_index, difficulty)
+	_queue = plan_wave(_wave_index, difficulty, not layout.has("drop_y"))
 	_spawn_timer = 0.0
 	_running = true
 	wave_started.emit(_wave_index, wave_total)

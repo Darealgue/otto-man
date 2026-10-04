@@ -1,1027 +1,720 @@
 class_name HunterEnemy
 extends "res://enemy/base_enemy.gd"
 
-const PatrolPointScript = preload("res://enemy/hunter/patrol_point.gd")
+## Avcı: oyuncuyu gören, tile ve one-way platformları tanıyıp zıplayarak/atlayarak/inerek peşinden giden,
+## yeterince hızlı kaçılırsa izini kaybeden akıllı takipçi. Gezinme HunterNav'dadır (bkz. hunter_nav.gd).
 
-# Default stats resource
+const NavScript = preload("res://enemy/hunter/hunter_nav.gd")
+
 @export var default_stats: EnemyStats = preload("res://enemy/hunter/hunter_enemy_stats.tres")
 
-# Node references
 @onready var terrain_detection = $TerrainDetection
-@onready var ground_ray = $TerrainDetection/GroundRayCast
-@onready var ledge_ray_left = $TerrainDetection/LedgeRayCastLeft
-@onready var ledge_ray_right = $TerrainDetection/LedgeRayCastRight
 @onready var wall_ray_left = $TerrainDetection/WallRayCastLeft
 @onready var wall_ray_right = $TerrainDetection/WallRayCastRight
-@onready var platform_ray = $TerrainDetection/PlatformRayCast
-@onready var jump_height_ray = $TerrainDetection/JumpHeightRayCast
-@onready var debug_node = $Debug
+@onready var ledge_ray_left = $TerrainDetection/LedgeRayCastLeft
+@onready var ledge_ray_right = $TerrainDetection/LedgeRayCastRight
 
-# Movement parameters
-const GRAVITY_MULTIPLIER = 2.5
-const JUMP_VELOCITY = -700.0  # Increased jump force further
-const MAX_FALL_SPEED = 600.0  # Increased to match more aggressive movement
-const CHASE_SPEED = 300.0  # Significantly increased chase speed
-const APPROACH_SPEED = 150.0  # Increased approach speed
-const JUMP_COOLDOWN = 0.3  # Reduced cooldown for more frequent jumps
-const MAX_DROP_HEIGHT = 400.0  # Increased drop height for more aggressive pursuit
+# Hareket (HunterNav ile aynı sayılar: simüle edilen yaylar bunlarla yürütülür)
+const GRAV := 1960.0
+const MAX_FALL := 900.0
+const JUMP_SPEED := 920.0
+const AIR_MAX := 340.0
+const FEET_OFF := 26.0   # orijin ile ayak arası (kapsül yüksekliği/2 - ofset)
+const BASE_MASK := 517   # dünya + düşman + platform
 
-# Improved stuck detection and handling
-const STUCK_CHECK_RADIUS = 20.0  # Increased check radius
-const STUCK_MIN_ATTEMPT_INTERVAL = 1.0  # Reduced interval
-const UNSTUCK_JUMP_VELOCITY = -650.0  # Increased unstuck jump force
-const UNSTUCK_MOVE_DURATION = 0.5  # Reduced duration for quicker recovery
-const UNSTUCK_SPEED = 350.0  # Significantly increased unstuck speed
-const VERTICAL_STUCK_THRESHOLD = 200.0  # Increased threshold
-const MAX_VERTICAL_ATTEMPTS = 4  # Increased attempts
-const MAX_CONSECUTIVE_STUCK_ATTEMPTS = 3  # Increased max attempts
-const STUCK_MOMENTUM_PRESERVATION = 0.7  # Increased momentum preservation
+# Algı
+const NEAR_NOTICE := 150.0
+const LOSE_DISTANCE_MULT := 1.6
+const LOSE_TIME_BLIND := 4.5
+const SEARCH_LINGER := 2.6
+const SEARCH_MAX := 9.0
 
-# Platform navigation
-const PLATFORM_CHECK_HEIGHT = 250.0  # Increased height check
-const EDGE_DETECTION_DISTANCE = 50.0  # Increased edge detection
-const PLATFORM_APPROACH_DISTANCE = 80.0  # Increased approach distance
-const MIN_PLATFORM_WIDTH = 60.0  # Reduced minimum platform width requirement
+# Saldırı (atılma)
+const LUNGE_TRIGGER_X := 170.0
+const LUNGE_TRIGGER_Y := 90.0
+const WINDUP_TIME := 0.3
+const LUNGE_SPEED := 520.0
+const LUNGE_UP := 340.0
+const LUNGE_MAX_TIME := 0.9
+const RECOVER_TIME := 0.55
+const LUNGE_COOLDOWN := 1.6
+const LUNGE_DAMAGE_MULT := 1.1
 
-# State tracking
-var jump_cooldown_timer = 0.0
-var is_jumping = false
-var wants_to_jump = false
-var target_platform_height = 0.0
-var last_safe_position = Vector2.ZERO
-var last_unstuck_position := Vector2.ZERO
-var unstuck_attempt_successful := false
-var last_target_position = Vector2.ZERO
-var stuck_timer := 0.0
-var last_behavior_change := 0.0
-var last_successful_path_time := 0.0
+const WALK := 0
+const JUMP := 1
+const DROP := 2
+const DROPTHRU := 3
 
-# Add new constants for improved edge detection and movement
-const EDGE_APPROACH_SPEED = 100.0  # Slower speed when approaching edges
-const EDGE_STOP_DISTANCE = 20.0  # Distance from edge to stop and prepare jump
-const MIN_MOVEMENT_SPEED = 50.0  # Minimum speed to consider as moving
+var nav: RefCounted = null
+var path: Array = []
+var path_i: int = 0
+var nav_cd: float = 0.0
+var move_state: String = "ground"   # ground | air
+var air_t: float = 0.0
+var air_edge: Dictionary = {}
+var jump_cd: float = 0.0
+var lunge_cd: float = 0.0
+var patrol_origin: Vector2 = Vector2.ZERO
+var patrol_dir: float = 1.0
+var patrol_pause: float = 0.0
+var last_known_pos: Vector2 = Vector2.ZERO
+var lose_timer: float = 0.0
+var search_timer: float = 0.0
+var search_arrived: bool = false
+var target_cache_t: float = 0.0
+var stuck_t: float = 0.0
+var stuck_ref: Vector2 = Vector2.ZERO
+var stuck_count: int = 0
+var _thru_active: bool = false
+var _thru_y: float = 0.0
+var _thru_t: float = 0.0
+var _lunge_dir: float = 1.0
+var _shape_radius: float = 13.0
+var _shape_height: float = 56.0
 
-# Combat parameters
-var attack_cooldown = 1.0
-var attack_cooldown_timer: float = 0.0
-var current_combo = 0
-var max_combo = 3
-
-# State tracking
-var jump_count = 0
-var max_jumps = 2
-var target_position = Vector2.ZERO
-var path_points = []
-var current_path_index = 0
-var patrol_start_position = Vector2.ZERO
-var moving_right = true
-var platform_drop_timer = 0.0
-var wants_to_drop = false
-var patrol_points: Array[PatrolPoint] = []
-var current_patrol_target: PatrolPoint = null
-var patrol_scan_timer: float = 0.0
-var last_unstuck_attempt_time := 0.0
-var consecutive_stuck_attempts := 0
-var last_stuck_position := Vector2.ZERO
-
-const MIN_GAP_WIDTH_FOR_JUMP := 32.0
-const MAX_JUMPABLE_GAP := 400.0  # Reduced from 600 to be more realistic
-const JUMP_PREPARATION_DISTANCE := 40.0
-const MAX_JUMP_DISTANCE := 400.0  # Match with MAX_JUMPABLE_GAP
-const MAX_JUMP_HEIGHT := 150.0  # Reduced from 200 to be more realistic
-const MIN_LEDGE_HEIGHT := 32.0
-const VERTICAL_SCAN_INTERVAL := 48.0  # Reduced for more precise scanning
-const JUMP_SKIP_CHANCE := 0.0  # Removed random skip chance
-
-var last_jump_position := Vector2.ZERO
-
-# Patrol system parameters
-const PATROL_SCAN_INTERVAL := 24  # Reduced from 32 for more precise scanning
-const PATROL_RANGE := 800.0  # Increased from 500.0
-const PATROL_SCAN_TIME := 3.0  # Reduced from 5.0 for more frequent updates
-const PATROL_POINT_MIN_DISTANCE := 16.0  # Minimum distance between patrol points
-const PATROL_POINT_MAX_DISTANCE := 600.0  # Maximum distance between connected points
-var current_path: Array[PatrolPoint] = []
-var path_index: int = 0
-
-# Add this near the top of the file with other constants
-const DEBUG_ENABLED = true  # Set to true to show patrol points and paths
-
-# Debug settings
-var debug_throttle_timer: float = 0.0
-const DEBUG_THROTTLE_INTERVAL = 0.5  # Only print debug every 0.5 seconds
-var last_logged_position := Vector2.ZERO
-const MIN_POSITION_CHANGE = 20.0  # Only log position changes greater than this
-
-const PATH_UPDATE_THRESHOLD = 100.0  # Only update path if target moves more than this distance
-const STUCK_TIME_THRESHOLD = 1.0  # Time before considering hunter stuck
-const STUCK_VELOCITY_THRESHOLD = 10.0  # Velocity threshold for stuck detection
-const STUCK_POSITION_THRESHOLD = 5.0  # Position change threshold for stuck detection
-
-var path_update_timer := 0.0
-var no_path_timer := 0.0
-var last_path_attempt_position := Vector2.ZERO
-
-# Add new constants for boundary and unstuck behavior
-const MAX_X_POSITION = 3000.0  # Maximum x position allowed
-const MIN_X_POSITION = 0.0     # Minimum x position allowed
-
-var unstuck_move_timer := 0.0  # Timer for unstuck movement duration
-var unstuck_direction := 1.0   # Direction to move when unstuck (-1 or 1)
-
-# Add patrol and path management constants
-const PATROL_POINT_LIMIT = 30  # Maximum number of patrol points to generate
-const MAX_CONNECTIONS_PER_POINT = 4  # Maximum connections per patrol point
-const PATH_UPDATE_COOLDOWN = 1.0  # Time between path updates
-const NO_PATH_COOLDOWN = 2.0  # Time to wait after failing to find a path
-
-var consecutive_wall_jumps = 0
-
-# Constants for improved chase behavior
-const POSITION_LOG_THRESHOLD = 50.0  # Only log position changes above this threshold
-const MIN_CHASE_DISTANCE = 100.0  # Minimum distance to maintain from target
-const MAX_CHASE_DISTANCE = 800.0  # Maximum distance before disengaging
-
-# State tracking
-var last_logged_distance = 0.0
-var last_path_update_distance = 0.0
 
 func _ready() -> void:
-	# Set sleep distances for performance optimization
-	sleep_distance = 1600.0
-	wake_distance = 1500.0
-	# Initialize stats first
+	sleep_distance = 1700.0
+	wake_distance = 1600.0
 	if not stats:
-		print("[Hunter] Loading default stats...")
 		stats = default_stats
-		if stats:
-			print("[Hunter] Stats loaded - Speed:", stats.movement_speed, " Chase Speed:", stats.chase_speed)
-		else:
-			push_error("[Hunter] Failed to load default stats!")
-	
-	# Call parent _ready
 	super._ready()
-	
-	# Set up collision masks for terrain detection
+	_ensure_extra_animations()
+	collision_layer = 4
+	collision_mask = BASE_MASK
 	for ray in $TerrainDetection.get_children():
 		if ray is RayCast2D:
-			ray.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
+			ray.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
 			ray.enabled = true
-	
-	# Set up collision layers correctly
-	set_collision_layer_value(3, true)   # Enemy layer (layer 3)
-	set_collision_mask_value(1, true)    # Terrain layer (layer 1)
-	set_collision_mask_value(2, true)    # Player layer (layer 2)
-	set_collision_mask_value(10, true)   # Platform layer (layer 10)
-	
-	# Store initial position for patrol
-	patrol_start_position = global_position
-	
-	# Initialize patrol points after physics settles
-	await get_tree().create_timer(0.1).timeout
-	generate_patrol_points()
-	
-	last_target_position = global_position
-	
-	# Start with idle behavior and animation
-	change_behavior("idle")
+	var cs := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if cs and cs.shape is CapsuleShape2D:
+		_shape_radius = (cs.shape as CapsuleShape2D).radius
+		_shape_height = (cs.shape as CapsuleShape2D).height
+	if hitbox:
+		if not hitbox.is_in_group("hitbox"):
+			hitbox.add_to_group("hitbox")
+		if hitbox.has_method("disable"):
+			hitbox.disable()
+	patrol_origin = global_position
+	stuck_ref = global_position
 	if sprite:
 		sprite.play("idle")
+	current_behavior = "idle"
+
+
+## Sahnede olmayan animasyonlar: base die()/hurt bunları çağırır, eksikse hata basar.
+func _ensure_extra_animations() -> void:
+	if sprite == null or sprite.sprite_frames == null:
+		return
+	var sf: SpriteFrames = sprite.sprite_frames
+	for nm in ["death", "hurt"]:
+		if sf.has_animation(nm):
+			continue
+		sf.add_animation(nm)
+		sf.set_animation_loop(nm, false)
+		sf.set_animation_speed(nm, 8.0)
+		if sf.get_frame_count("fall") > 0:
+			sf.add_frame(nm, sf.get_frame_texture("fall", 0))
+
+
+func _ensure_nav() -> void:
+	if nav == null:
+		nav = NavScript.new(self, GRAV, JUMP_SPEED, AIR_MAX, maxf(stats.chase_speed, 120.0),
+				FEET_OFF, _shape_radius, _shape_height)
+
+
+# --- Fizik döngüsü ----------------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
-	# Update jump cooldown
-	if jump_cooldown_timer > 0:
-		jump_cooldown_timer -= delta
-	
-	# Apply gravity
+	if global_position == Vector2.ZERO:
+		return
+	if current_behavior == "dead":
+		super._physics_process(delta)
+		return
+	if _stun_lock_reset_timer > 0.0:
+		_stun_lock_reset_timer = maxf(0.0, _stun_lock_reset_timer - delta)
+		if _stun_lock_reset_timer <= 0.0:
+			_stun_lock_hit_count = 0
+	jump_cd = maxf(0.0, jump_cd - delta)
+	lunge_cd = maxf(0.0, lunge_cd - delta)
+	_update_thru(delta)
 	if not is_on_floor():
-		velocity.y += GRAVITY * GRAVITY_MULTIPLIER * delta
-		velocity.y = min(velocity.y, MAX_FALL_SPEED)
-		
-		# Update animations based on vertical movement
-		if sprite and not is_jumping:  # Only change if not in jump state
-			if velocity.y > 10:  # Moving downward
-				sprite.play("fall")
-	else:
-		is_jumping = false  # Reset jumping state when landing
-	
+		var g_scale := 1.0
+		if current_behavior == "hurt" and air_float_timer > 0.0:
+			g_scale = air_float_gravity_scale
+			air_float_timer = maxf(0.0, air_float_timer - delta)
+		velocity.y = minf(velocity.y + GRAV * g_scale * delta, MAX_FALL)
+	if frost_stacks > 0:
+		velocity.x *= get_frost_speed_multiplier()
 	move_and_slide()
-	
-	handle_behavior(delta)
+	if not is_sleeping:
+		handle_behavior(delta)
 
-func handle_idle(delta):
-	# Use stats for movement speed
-	velocity.x = move_toward(velocity.x, 0, stats.movement_speed * delta)
-	
-	if sprite and sprite.animation != "idle":
-		sprite.play("idle")
-	
-	# Check for player to chase using stats detection range
-	target = update_stealth_target(delta)
-	if target == null:
-		target = get_nearest_player()
-	if target and is_instance_valid(target):
-		var distance = global_position.distance_to(target.global_position)
-		if distance <= stats.detection_range:
-			print("[Hunter] Found target in range (", distance, " <= ", stats.detection_range, "), transitioning to chase")
-			change_behavior("chase")
-			return
-		else:
-			target = null
-	
-	# Only transition to patrol if we're truly idle (no target and almost stopped)
-	if abs(velocity.x) < 10:
-		change_behavior("patrol")
 
-# Add debug function to check player detection
-func get_nearest_player() -> Node2D:
-	var players = get_tree().get_nodes_in_group("player")
-	
-	if players == null or players.size() == 0:
-		return null
-		
-	var nearest_player = players[0]
-	var nearest_distance = global_position.distance_to(nearest_player.global_position)
-	
-	for player in players:
-		var distance = global_position.distance_to(player.global_position)
-		if distance < nearest_distance:
-			nearest_player = player
-			nearest_distance = distance
-	
-	return nearest_player
-
-func handle_chase(delta: float) -> void:
-	if not target or not is_instance_valid(target):
-		change_behavior("idle")
+func _update_thru(delta: float) -> void:
+	if not _thru_active:
 		return
-		
-	# Update path and handle movement
-	update_chase_path()
-	
-	# Handle terrain and movement
-	handle_terrain()
-	apply_gravity(delta)
-	move_and_slide()
-	update_sprite_direction()
+	_thru_t += delta
+	if global_position.y + FEET_OFF > _thru_y or _thru_t > 0.6:
+		_thru_active = false
+		collision_mask = BASE_MASK
 
-func start_jump() -> void:
-	if not is_on_floor():
+
+func handle_behavior(delta: float) -> void:
+	if is_sleeping:
 		return
-		
-	jump_cooldown_timer = JUMP_COOLDOWN
-	velocity.y = JUMP_VELOCITY
-	
-	# Calculate required horizontal velocity
-	if target and is_instance_valid(target):
-		var distance_to_target = target.global_position.x - global_position.x
-		var time_to_peak = -JUMP_VELOCITY / (GRAVITY * GRAVITY_MULTIPLIER)
-		var required_velocity = distance_to_target / (time_to_peak * 2)
-		
-		# Clamp horizontal velocity within reasonable bounds
-		required_velocity = clamp(required_velocity, -CHASE_SPEED * 1.5, CHASE_SPEED * 1.5)
-		velocity.x = required_velocity
-	
-	sprite.play("jump")
-	is_jumping = true
-
-func get_terrain_info() -> Dictionary:
-	var info = {
-		"gap_ahead": false,
-		"wall_ahead": false,
-		"wall_right": wall_ray_right.is_colliding(),
-		"wall_left": wall_ray_left.is_colliding(),
-		"gap_width": 0.0,
-		"platform_above": false,
-		"platform_height": 0.0,
-		"can_jump": false,
-		"can_jump_to_platform": false
-	}
-	
-	var facing_right = not sprite.flip_h
-	
-	# Check for gaps based on facing direction
-	if facing_right:
-		info.gap_ahead = not ledge_ray_right.is_colliding() and ground_ray.is_colliding()
-		info.wall_ahead = wall_ray_right.is_colliding()
-		if info.gap_ahead:
-			info.gap_width = estimate_gap_width(ledge_ray_right.global_position, 1)
-	else:
-		info.gap_ahead = not ledge_ray_left.is_colliding() and ground_ray.is_colliding()
-		info.wall_ahead = wall_ray_left.is_colliding()
-		if info.gap_ahead:
-			info.gap_width = estimate_gap_width(ledge_ray_left.global_position, -1)
-	
-	info.can_jump = info.gap_width > 0 and info.gap_width < MAX_JUMPABLE_GAP and jump_cooldown_timer <= 0
-	
-	return info
-
-func terrain_info() -> Dictionary:
-	var info = {
-		"gap_left": false,
-		"gap_right": false,
-		"gap_width": 0.0,
-		"wall_left": false,
-		"wall_right": false
-	}
-	
-	# Get node references
-	var ground_ray = $TerrainDetection/GroundRayCast
-	var left_ray = $TerrainDetection/LedgeRayCastLeft
-	var right_ray = $TerrainDetection/LedgeRayCastRight
-	var wall_left = $TerrainDetection/WallRayCastLeft
-	var wall_right = $TerrainDetection/WallRayCastRight
-	
-	# Check walls first
-	info.wall_left = wall_left.is_colliding()
-	info.wall_right = wall_right.is_colliding()
-	
-	# Only check for gaps if we're on the ground
-	if is_on_floor():
-		# Check left gap
-		if !left_ray.is_colliding() and ground_ray.is_colliding():
-			info.gap_left = true
-			
-		# Check right gap
-		if !right_ray.is_colliding() and ground_ray.is_colliding():
-			info.gap_right = true
-		
-		# Calculate gap width if there is a gap
-		if info.gap_left or info.gap_right:
-			var space_state = get_world_2d().direct_space_state
-			var start_pos = global_position
-			var direction = Vector2.RIGHT if info.gap_right else Vector2.LEFT
-			var query = PhysicsRayQueryParameters2D.create(start_pos, start_pos + direction * MAX_JUMPABLE_GAP)
-			query.collision_mask = CollisionLayers.WORLD  # Environment layer
-			var result = space_state.intersect_ray(query)
-			
-			if result:
-				info.gap_width = abs(global_position.x - result.position.x)
-				if debug_enabled:
-					print("[Hunter] Found gap - Width:", info.gap_width, ", Direction:", "right" if info.gap_right else "left")
-			else:
-				info.gap_width = MAX_JUMPABLE_GAP
-				if debug_enabled:
-					print("[Hunter] Gap exceeds max jumpable distance")
-	
-	return info
-
-func estimate_gap_width(start_position: Vector2, direction: int) -> float:
-	var space_state = get_world_2d().direct_space_state
-	var max_distance = MAX_JUMP_DISTANCE
-	var step = 10.0  # Smaller step size for more accurate detection
-	
-	# Start checking from the edge of the platform
-	var edge_offset = 20.0
-	var check_pos = start_position
-	check_pos.x += edge_offset * direction
-	
-	for distance in range(0, int(max_distance), int(step)):
-		var ray_start = check_pos + Vector2(distance * direction, 100.0)  # Check further down
-		var ray_end = ray_start + Vector2(0, -50.0)  # Check upward
-		
-		var query = PhysicsRayQueryParameters2D.create(ray_start, ray_end)
-		query.collision_mask = CollisionLayers.WORLD  # Environment layer
-		var result = space_state.intersect_ray(query)
-		
-		if result:
-			return distance - edge_offset  # Subtract the edge offset to get actual gap width
-	
-	return max_distance
-
-func handle_attack(delta):
-	if not target or not is_instance_valid(target):
-		change_behavior("chase")
+	if faint_timer > 0.0:
+		_process_faint(delta)
 		return
-	
-	var distance = global_position.distance_to(target.global_position)
-	if distance > stats.attack_range:
-		change_behavior("chase")
-		return
-	
-	# Start attack cooldown
-	attack_cooldown_timer = attack_cooldown
-
-func handle_death(delta):
-	# Death behavior
-	sprite.play("idle")  # Temporary until we have death animation
-	pass
-
-func _draw() -> void:
-	if not debug_enabled:
-		return
-		
-	# Draw patrol points
-	for point in patrol_points:
-		# Draw point
-		var color = Color.GREEN
-		if point.point_type == PatrolPoint.PointType.PLATFORM:
-			color = Color.BLUE
-		elif point.point_type == PatrolPoint.PointType.LEDGE:
-			color = Color.YELLOW
-		elif point.point_type == PatrolPoint.PointType.DROP_POINT:
-			color = Color.RED
-			
-		draw_circle(to_local(point.position), 5, color)
-		
-		# Draw connections with arrows
-		for connection in point.connections:
-			var line_color = Color.WHITE
-			match point.movement_type:
-				PatrolPoint.MovementType.WALK:
-					line_color = Color.GREEN
-				PatrolPoint.MovementType.JUMP_UP:
-					line_color = Color.YELLOW
-				PatrolPoint.MovementType.JUMP_ACROSS:
-					line_color = Color.RED
-				PatrolPoint.MovementType.DROP_DOWN:
-					line_color = Color.BLUE
-			
-			var start = to_local(point.position)
-			var end = to_local(connection.position)
-			draw_line(start, end, line_color, 2.0)
-			
-			# Draw arrow head
-			var direction = (end - start).normalized()
-			var arrow_size = 10
-			var arrow_angle = PI / 6  # 30 degrees
-			var arrow_point1 = end - direction.rotated(arrow_angle) * arrow_size
-			var arrow_point2 = end - direction.rotated(-arrow_angle) * arrow_size
-			draw_line(end, arrow_point1, line_color, 2.0)
-			draw_line(end, arrow_point2, line_color, 2.0)
-	
-	# Draw current path
-	if not current_path.is_empty():
-		for i in range(current_path.size() - 1):
-			var start = to_local(current_path[i].position)
-			var end = to_local(current_path[i + 1].position)
-			draw_line(start, end, Color.MAGENTA, 3.0)
-		
-		# Draw current target point with a larger circle
-		if current_patrol_target:
-			draw_circle(to_local(current_patrol_target.position), 8.0, Color.MAGENTA)
-			
-	# Draw terrain detection rays
-	if debug_enabled:
-		var ray_length = 50
-		for ray in terrain_detection.get_children():
-			if ray is RayCast2D:
-				var start = to_local(ray.global_position)
-				var end = start + ray.target_position.rotated(ray.global_rotation)
-				var color = Color.RED if ray.is_colliding() else Color.YELLOW
-				draw_line(start, end, color, 1.0)
-
-func generate_patrol_points() -> void:
-	print("[Hunter] Generating patrol points...")
-	patrol_points.clear()
-	
-	# Get current position as starting point
-	var start_pos = global_position
-	var ground_points = []
-	var platform_points = []
-	
-	# Scan for ground points
-	var scan_width = 800
-	var scan_height = 400
-	var scan_interval = 32  # Reduced from 40 for more precise scanning
-	
-	var space_state = get_world_2d().direct_space_state
-	
-	# Scan for ground points with debug info
-	print("[Hunter] Starting ground scan - Width:", scan_width, " Height:", scan_height)
-	
-	for x in range(-scan_width, scan_width + 1, scan_interval):
-		if ground_points.size() >= PATROL_POINT_LIMIT / 2:
-			break
-			
-		var query_pos = start_pos + Vector2(x, -50)  # Start a bit above
-		var query = PhysicsRayQueryParameters2D.create(query_pos, query_pos + Vector2.DOWN * scan_height)
-		query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
-		var result = space_state.intersect_ray(query)
-		
-		if result:
-			var point = PatrolPoint.new(result.position, PatrolPoint.PointType.GROUND)
-			ground_points.append(point)
-			patrol_points.append(point)
-	
-	print("[Hunter] Ground scan complete - Found", ground_points.size(), "points")
-	
-	# Scan for platforms above ground points
-	print("[Hunter] Starting platform scan...")
-	var platform_count = 0
-	
-	for ground_point in ground_points:
-		if platform_points.size() >= PATROL_POINT_LIMIT / 2:
-			break
-			
-		# Scan upward from each ground point
-		var max_height = 300  # Maximum height to scan for platforms
-		var step = 48  # Reduced from 60 for more precise scanning
-		
-		for height in range(step, max_height, step):
-			var scan_pos = ground_point.position + Vector2.UP * height
-			var query = PhysicsRayQueryParameters2D.create(scan_pos + Vector2.UP * 20, scan_pos + Vector2.DOWN * 40)
-			query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
-			var result = space_state.intersect_ray(query)
-			
-			if result:
-				var point = PatrolPoint.new(result.position, PatrolPoint.PointType.PLATFORM)
-				platform_points.append(point)
-				patrol_points.append(point)
-				platform_count += 1
-				
-				# Also scan horizontally from this platform
-				for side_offset in [-80, -40, 40, 80]:  # Added more scan points
-					if platform_points.size() >= PATROL_POINT_LIMIT / 2:
-						break
-						
-					var side_pos = result.position + Vector2(side_offset, 0)
-					var side_query = PhysicsRayQueryParameters2D.create(side_pos + Vector2.UP * 20, side_pos + Vector2.DOWN * 40)
-					side_query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
-					var side_result = space_state.intersect_ray(side_query)
-					
-					if side_result:
-						var side_point = PatrolPoint.new(side_result.position, PatrolPoint.PointType.PLATFORM)
-						platform_points.append(side_point)
-						patrol_points.append(side_point)
-						platform_count += 1
-	
-	print("[Hunter] Platform scan complete - Found", platform_count, "points")
-	if platform_count == 0:
-		print("[Hunter] WARNING: No platform points found - vertical navigation will be limited")
-	print("[Hunter] Total patrol points:", patrol_points.size())
-	
-	# Connect patrol points with limits
-	var connection_count = 0
-	for i in patrol_points.size():
-		var point_a = patrol_points[i]
-		var connection_count_for_point = 0
-		
-		for j in range(i + 1, patrol_points.size()):
-			if connection_count_for_point >= MAX_CONNECTIONS_PER_POINT:
-				break
-				
-			var point_b = patrol_points[j]
-			var distance = point_a.position.distance_to(point_b.position)
-			var height_diff = point_b.position.y - point_a.position.y
-			
-			# More lenient connection rules
-			if distance <= MAX_JUMP_DISTANCE * 1.2 and abs(height_diff) <= MAX_JUMP_HEIGHT:
-				var movement_type = PatrolPoint.MovementType.WALK
-				if height_diff < -20:
-					movement_type = PatrolPoint.MovementType.JUMP_UP
-				elif height_diff > 20:
-					movement_type = PatrolPoint.MovementType.DROP_DOWN
-				elif distance > MIN_GAP_WIDTH_FOR_JUMP:
-					movement_type = PatrolPoint.MovementType.JUMP_ACROSS
-				
-				point_a.movement_type = movement_type
-				point_a.add_connection(point_b)
-				connection_count += 1
-				connection_count_for_point += 1
-	
-	print("[Hunter] Connected patrol points - Total connections:", connection_count)
-
-func update_path_to_target() -> bool:
-	# Don't update path if on cooldown
-	if path_update_timer > 0 or no_path_timer > 0:
-		return false
-		
-	# Don't update if target hasn't moved significantly
-	if target and last_path_attempt_position.distance_to(target.global_position) < PATH_UPDATE_THRESHOLD:
-		return false
-		
-	path_update_timer = PATH_UPDATE_COOLDOWN
-	last_path_attempt_position = target.global_position if target else Vector2.ZERO
-	
-	if not target:
-		return false
-		
-	# Find closest patrol points to start and end
-	var start_point = find_closest_patrol_point(global_position)
-	var end_point = find_closest_patrol_point(target.global_position)
-	
-	if not start_point or not end_point:
-		no_path_timer = NO_PATH_COOLDOWN
-		return false
-	
-	# Find path between points
-	var path = find_path(start_point, end_point)
-	
-	if path.is_empty():
-		no_path_timer = NO_PATH_COOLDOWN
-		return false
-	
-	# Update current path
-	current_path = path
-	return true
-
-func find_path_to_target() -> Array[PatrolPoint]:
-	if not target or not is_instance_valid(target):
-		return []
-		
-	# Get closest patrol points to start and target positions
-	var start_point = get_closest_patrol_point(global_position)
-	var end_point = get_closest_patrol_point(target.global_position)
-	
-	if not start_point or not end_point:
-		print("[Hunter] Could not find valid start/end points for path")
-		return []
-		
-	print("[Hunter] Found path points - Start dist:", start_point.position.distance_to(global_position), " End dist:", end_point.position.distance_to(target_position))
-	
-	var path = find_path(start_point, target_position)
-	if not path or path.is_empty():
-		print("[Hunter] No path found to target")
-		return []
-		
-	print("[Hunter] Found path with", path.size(), "points")
-	return path
-
-func handle_stuck_state() -> void:
-	if target and is_instance_valid(target):
-		var height_diff = target.global_position.y - position.y
-		
-		# Check for platforms above or below
-		var platform_above = check_for_platform(Vector2.UP * PLATFORM_CHECK_HEIGHT)
-		var platform_below = check_for_platform(Vector2.DOWN * PLATFORM_CHECK_HEIGHT)
-		
-		# Reset stuck timer and track attempts
-		stuck_timer = 0.0
-		consecutive_stuck_attempts += 1
-		
-		# Get terrain info for movement decisions
-		var terrain = get_terrain_info()
-		
-		# If target is above and there's a platform above, try to reach it
-		if height_diff < -100 and platform_above:
-			if consecutive_wall_jumps < 3:
-				velocity.y = UNSTUCK_JUMP_VELOCITY * 1.2
-				is_jumping = true
-				consecutive_wall_jumps += 1
-				return
-		
-		# If target is below and there's a safe platform, consider dropping
-		elif height_diff > 100 and platform_below:
-			if abs(height_diff) < MAX_DROP_HEIGHT:
-				unstuck_direction = sign(target.global_position.x - position.x)
-				velocity.x = UNSTUCK_SPEED * 0.5 * unstuck_direction
-				return
-		
-		# Handle gaps and walls
-		if terrain.gap_ahead:
-			if terrain.gap_width < MAX_JUMPABLE_GAP and jump_cooldown_timer <= 0:
-				velocity.y = UNSTUCK_JUMP_VELOCITY
-				velocity.x = UNSTUCK_SPEED * (1 if moving_right else -1)
-				is_jumping = true
-				return
-			else:
-				unstuck_direction = -1.0 if moving_right else 1.0
-				velocity.x = UNSTUCK_SPEED * unstuck_direction
-		elif terrain.wall_ahead:
-			if consecutive_wall_jumps < 2:
-				velocity.y = UNSTUCK_JUMP_VELOCITY
-				velocity.x = UNSTUCK_SPEED * (-1 if terrain.wall_right else 1)
-				is_jumping = true
-				consecutive_wall_jumps += 1
-			else:
-				unstuck_direction = -1.0 if terrain.wall_right else 1.0
-				velocity.x = UNSTUCK_SPEED * unstuck_direction
-				consecutive_wall_jumps = 0
-		
-		# If too many stuck attempts, change behavior
-		if consecutive_stuck_attempts >= MAX_CONSECUTIVE_STUCK_ATTEMPTS:
-			change_behavior("idle")
-			consecutive_stuck_attempts = 0
-			consecutive_wall_jumps = 0
-			velocity = Vector2.ZERO
-			return
-		
-		# Apply movement
-		unstuck_move_timer = UNSTUCK_MOVE_DURATION
-
-func check_for_platform(offset: Vector2) -> bool:
-	var space_state = get_world_2d().direct_space_state
-	var check_pos = global_position + offset
-	
-	# Check for platform at the target height
-	var query = PhysicsRayQueryParameters2D.create(check_pos, check_pos + Vector2.DOWN * 50.0)
-	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
-	var result = space_state.intersect_ray(query)
-	
-	if result:
-		# Check platform width
-		var platform_start = result.position
-		var platform_end = result.position
-		
-		# Check left edge
-		for i in range(MIN_PLATFORM_WIDTH):
-			query = PhysicsRayQueryParameters2D.create(
-				platform_start + Vector2.LEFT * i,
-				platform_start + Vector2.LEFT * i + Vector2.DOWN * 50.0
-			)
-			var left_result = space_state.intersect_ray(query)
-			if not left_result:
-				platform_start = platform_start + Vector2.LEFT * (i - 1)
-				break
-		
-		# Check right edge
-		for i in range(MIN_PLATFORM_WIDTH):
-			query = PhysicsRayQueryParameters2D.create(
-				platform_end + Vector2.RIGHT * i,
-				platform_end + Vector2.RIGHT * i + Vector2.DOWN * 50.0
-			)
-			var right_result = space_state.intersect_ray(query)
-			if not right_result:
-				platform_end = platform_end + Vector2.RIGHT * (i - 1)
-				break
-		
-		# Return true if platform is wide enough
-		return platform_end.x - platform_start.x >= MIN_PLATFORM_WIDTH
-	
-	return false
-
-func find_path(start_point: PatrolPoint, target_pos: Vector2) -> Array[PatrolPoint]:
-	# Reset all patrol points for pathfinding
-	for point in patrol_points:
-		point.reset_pathfinding()
-	
-	# Initialize start point
-	start_point.cost = 0
-	start_point.total_cost = start_point.position.distance_to(target_pos)
-	
-	# Priority queue for A* (implemented as Array for simplicity)
-	var open_set: Array[PatrolPoint] = [start_point]
-	var closed_set: Array[PatrolPoint] = []
-	
-	while open_set.size() > 0:
-		# Find point with lowest total cost
-		var current = open_set[0]
-		var current_index = 0
-		for i in range(1, open_set.size()):
-			if open_set[i].total_cost < current.total_cost:
-				current = open_set[i]
-				current_index = i
-		
-		# Remove current point from open set
-		open_set.remove_at(current_index)
-		closed_set.append(current)
-		
-		# Check if we're close enough to target
-		if current.position.distance_to(target_pos) < 100.0:  # Adjust threshold as needed
-			# Reconstruct path
-			var path: Array[PatrolPoint] = []
-			var path_point = current
-			while path_point != null:
-				path.push_front(path_point)
-				path_point = path_point.parent
-			return path
-		
-		# Process neighbors
-		for neighbor in current.connections:
-			if neighbor in closed_set:
-				continue
-			
-			var tentative_cost = current.cost + current.get_connection_cost(neighbor)
-			
-			if neighbor not in open_set:
-				open_set.append(neighbor)
-			elif tentative_cost >= neighbor.cost:
-				continue
-			
-			# This path is better, record it
-			neighbor.parent = current
-			neighbor.cost = tentative_cost
-			neighbor.total_cost = tentative_cost + neighbor.position.distance_to(target_pos)
-	
-	# No path found
-	return []
-
-func _process(_delta: float) -> void:
-	if debug_enabled:
-		queue_redraw()  # Redraw debug visualization every frame
-
-func can_perform_attack() -> bool:
-	if not target or not is_instance_valid(target):
-		return false
-	if attack_cooldown_timer > 0:
-		return false
-	var distance = global_position.distance_to(target.global_position)
-	if distance > stats.attack_range:
-		return false
-	if not is_on_floor():
-		return false
-	return true
-
-func change_behavior(new_behavior: String, force: bool = false) -> void:
-	if new_behavior != current_behavior:
-		print("[Hunter] Behavior change: ", current_behavior, " -> ", new_behavior)
-		if new_behavior == "chase":
-			print("[Hunter] Chase target position: ", target.global_position if target else "No target")
-		last_behavior_change = Time.get_ticks_msec() / 1000.0
-		
-		# Update animation based on new behavior
-		if sprite:
-			# Don't change animation if jumping or falling
-			if velocity.y < 0:
-				sprite.play("jump")
-			elif velocity.y > 0:
-				sprite.play("fall")
-			else:
-				match new_behavior:
-					"idle":
-						sprite.play("idle")
-					"patrol":
-						sprite.play("patrol")
-					"chase":
-						sprite.play("chase")
-					"attack":
-						sprite.play("chase")  # Use chase animation for attack until we have attack animation
-					"hurt":
-						sprite.play("idle")  # Use idle animation for hurt until we have hurt animation
-	
-	super.change_behavior(new_behavior, force)
-
-func check_ground_ahead(direction: Vector2) -> bool:
-	var space_state = get_world_2d().direct_space_state
-	var check_distance = 50.0  # Distance ahead to check
-	
-	# Start position slightly above current position
-	var start_pos = global_position + Vector2(0, -20)
-	var end_pos = start_pos + Vector2(direction.x * check_distance, 40)  # Check downward
-	
-	var query = PhysicsRayQueryParameters2D.create(start_pos, end_pos)
-	query.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM  # Terrain + Platforms
-	var result = space_state.intersect_ray(query)
-	
-	return result != null
-
-func apply_gravity(delta: float) -> void:
-	if not is_on_floor():
-		velocity.y = minf(velocity.y + GRAVITY_MULTIPLIER * delta, MAX_FALL_SPEED)
-	elif is_jumping:
-		is_jumping = false
-
-func jump() -> void:
-	if is_on_floor() and not is_jumping:
-		print("[Hunter] Starting jump")
-		velocity.y = JUMP_VELOCITY
-		is_jumping = true
-		jump_cooldown_timer = JUMP_COOLDOWN
-		if sprite:
-			sprite.play("jump")
-
-func get_closest_patrol_point(position: Vector2) -> PatrolPoint:
-	var closest_point: PatrolPoint = null
-	var closest_distance: float = INF
-	
-	# Iterate through all patrol points
-	for point in patrol_points:
-		var distance = position.distance_to(point.position)
-		if distance < closest_distance:
-			closest_distance = distance
-			closest_point = point
-	
-	return closest_point
-
-func find_closest_patrol_point(position: Vector2) -> PatrolPoint:
-	var closest_point: PatrolPoint = null
-	var closest_distance: float = INF
-	
-	# Iterate through all patrol points
-	for point in patrol_points:
-		var distance = position.distance_to(point.position)
-		if distance < closest_distance:
-			closest_distance = distance
-			closest_point = point
-	
-	return closest_point
-
-func handle_patrol(delta: float) -> void:
-	# Update animation
-	if sprite and sprite.animation != "patrol":
-		sprite.play("patrol")
-		sprite.flip_h = not moving_right
-	
-	# Check for player to chase
-	target = get_nearest_player()
-	if target and is_instance_valid(target):
-		var distance = global_position.distance_to(target.global_position)
-		if distance <= stats.detection_range:
-			change_behavior("chase")
-			return
-	
-	# Move in patrol direction
-	velocity.x = (stats.movement_speed if stats else 100.0) * (1 if moving_right else -1)
-	
-	# Check for walls or gaps
-	var terrain = get_terrain_info()
-	if terrain.wall_ahead or (terrain.gap_ahead and not terrain.can_jump):
-		moving_right = not moving_right
-		velocity.x = 0
-
-func update_animation() -> void:
-	if not sprite:
-		return
-		
-	# Don't override jump or fall animations
-	if is_jumping:
-		if sprite.animation != "jump":
-			sprite.play("jump")
-		return
-	elif not is_on_floor() and velocity.y > 0:
-		if sprite.animation != "fall":
-			sprite.play("fall")
-		return
-		
-	# Update sprite direction based on movement
-	if abs(velocity.x) > 10:
-		sprite.flip_h = velocity.x < 0
-		
-	# Set animation based on current state
+	behavior_timer += delta
+	_refresh_target(delta)
 	match current_behavior:
 		"idle":
-			if sprite.animation != "idle":
-				sprite.play("idle")
+			_tick_idle(delta)
 		"patrol":
-			if sprite.animation != "patrol":
-				sprite.play("patrol")
+			_tick_patrol(delta)
 		"chase":
-			if sprite.animation != "chase":
-				sprite.play("chase")
-		"attack":
-			if sprite.animation != "chase":  # Use chase animation for attack until we have attack animation
-				sprite.play("chase")
+			_tick_chase(delta)
+		"search":
+			_tick_search(delta)
+		"windup":
+			_tick_windup(delta)
+		"lunge":
+			_tick_lunge(delta)
+		"recover":
+			_tick_recover(delta)
 		"hurt":
-			if sprite.animation != "idle":  # Use idle animation for hurt until we have hurt animation
-				sprite.play("idle")
+			_tick_hurt(delta)
+	_update_anim()
 
-func update_chase_path() -> void:
-	if not target or not is_instance_valid(target):
-		change_behavior("idle")
+
+func change_behavior(new_behavior: String, force: bool = false) -> void:
+	if current_behavior == "dead" and not force:
 		return
-		
-	var distance_to_target = global_position.distance_to(target.global_position)
-	
-	# Only log significant position changes
-	if abs(distance_to_target - last_logged_distance) > POSITION_LOG_THRESHOLD:
-		print("[Hunter] Significant position change - Distance to target:", distance_to_target)
-		last_logged_distance = distance_to_target
-	
-	# Update path only when needed
-	if abs(distance_to_target - last_path_update_distance) > PATH_UPDATE_THRESHOLD:
-		last_path_update_distance = distance_to_target
-		var path = find_path_to_target()
-		if not path.is_empty():
-			current_path = path
-			print("[Hunter] Updated path with", current_path.size(), "points")
+	if (current_behavior == "lunge" or current_behavior == "windup") and new_behavior != "lunge" \
+			and hitbox and hitbox.has_method("disable"):
+		hitbox.disable()
+	current_behavior = new_behavior
+	behavior_timer = 0.0
+
+
+# --- Algı ---------------------------------------------------------------------------------------
+
+func _refresh_target(delta: float) -> void:
+	target_cache_t -= delta
+	if target_cache_t > 0.0 and target != null and is_instance_valid(target):
+		return
+	target_cache_t = 0.15
+	target = get_nearest_player()
+
+
+func _aggro_forced() -> bool:
+	return has_meta("always_aggro")
+
+
+func _eye_pos() -> Vector2:
+	return global_position + Vector2(0.0, -22.0)
+
+
+func _has_los(to: Vector2) -> bool:
+	var q := PhysicsRayQueryParameters2D.create(_eye_pos(), to)
+	q.collision_mask = CollisionLayers.WORLD
+	return get_world_2d().direct_space_state.intersect_ray(q).is_empty()
+
+
+func _can_notice(p: Node2D) -> bool:
+	if _aggro_forced():
+		return true
+	var d: float = global_position.distance_to(p.global_position)
+	if d > stats.detection_range:
+		return false
+	if d <= NEAR_NOTICE:
+		return true
+	return _has_los(p.global_position + Vector2(0.0, -20.0))
+
+
+func _notice_check() -> bool:
+	if target != null and is_instance_valid(target) and _can_notice(target):
+		last_known_pos = target.global_position
+		lose_timer = 0.0
+		change_behavior("chase")
+		path.clear()
+		nav_cd = 0.0
+		return true
+	return false
+
+
+# --- Boşta / devriye / arama --------------------------------------------------------------------
+
+func _tick_idle(delta: float) -> void:
+	_brake(delta)
+	if _notice_check():
+		return
+	if behavior_timer > 1.0:
+		change_behavior("patrol")
+		patrol_dir = -patrol_dir if randf() < 0.5 else patrol_dir
+
+
+func _tick_patrol(delta: float) -> void:
+	if _notice_check():
+		return
+	if patrol_pause > 0.0:
+		patrol_pause -= delta
+		_brake(delta)
+		return
+	if not is_on_floor():
+		return
+	var dist_from_origin: float = global_position.x - patrol_origin.x
+	if absf(dist_from_origin) > 260.0 and signf(dist_from_origin) == patrol_dir:
+		patrol_dir = -patrol_dir
+		patrol_pause = 0.8
+	var wall: bool = wall_ray_right.is_colliding() if patrol_dir > 0.0 else wall_ray_left.is_colliding()
+	var ledge: bool = (not ledge_ray_right.is_colliding()) if patrol_dir > 0.0 else (not ledge_ray_left.is_colliding())
+	if wall or ledge:
+		patrol_dir = -patrol_dir
+		patrol_pause = 0.7
+		return
+	_walk_dir(patrol_dir, stats.movement_speed)
+
+
+func _tick_search(delta: float) -> void:
+	if _notice_check():
+		return
+	search_timer += delta
+	if search_timer > SEARCH_MAX:
+		_give_up()
+		return
+	if not search_arrived:
+		var arrived: bool = absf(global_position.x - last_known_pos.x) < 40.0 and absf(global_position.y - last_known_pos.y) < 120.0
+		if arrived:
+			search_arrived = true
+			behavior_timer = 0.0
 		else:
-			print("[Hunter] No valid path found to target")
-			# Only disengage if really far
-			if distance_to_target > MAX_CHASE_DISTANCE:
-				print("[Hunter] Target too far, disengaging")
-				change_behavior("idle")
-				return
-	
-	# Handle movement based on distance
-	if distance_to_target < MIN_CHASE_DISTANCE:
-		velocity.x = move_toward(velocity.x, 0, stats.chase_speed * get_physics_process_delta_time())
-	else:
-		# Move towards target
-		var direction = (target.global_position - global_position).normalized()
-		velocity.x = move_toward(velocity.x, direction.x * stats.chase_speed, stats.chase_speed * get_physics_process_delta_time())
+			_navigate_to(last_known_pos, delta)
+			return
+	_brake(delta)
+	if behavior_timer > SEARCH_LINGER:
+		_give_up()
 
-func handle_terrain() -> void:
-	var terrain = get_terrain_info()
-	
-	# Handle terrain obstacles
+
+func _give_up() -> void:
+	patrol_origin = global_position
+	path.clear()
+	change_behavior("patrol")
+	patrol_pause = 1.0
+
+
+func _brake(delta: float) -> void:
 	if is_on_floor():
-		var height_diff = target.global_position.y - global_position.y if target else 0
-		
-		# Jump conditions
-		if terrain.gap_ahead and terrain.can_jump:
-			start_jump()
-		elif terrain.wall_ahead and abs(height_diff) < PLATFORM_CHECK_HEIGHT:
-			start_jump()
-		elif height_diff < -50 and jump_cooldown_timer <= 0:
-			start_jump()
-	
-	# Update jump cooldown
-	if jump_cooldown_timer > 0:
-		jump_cooldown_timer -= get_physics_process_delta_time()
+		velocity.x = move_toward(velocity.x, 0.0, 1800.0 * delta)
 
-func update_sprite_direction() -> void:
-	if not sprite:
+
+# --- Takip ---------------------------------------------------------------------------------------
+
+func _tick_chase(delta: float) -> void:
+	if target == null or not is_instance_valid(target):
+		_start_search()
 		return
-		
-	# Update sprite direction based on movement
-	if abs(velocity.x) > 10:
-		sprite.flip_h = velocity.x < 0
-	
-	# Update animation based on state
-	if is_jumping:
-		sprite.play("jump")
-	elif not is_on_floor() and velocity.y > 10:
-		sprite.play("fall")
+	var tp: Vector2 = target.global_position
+	var dist: float = global_position.distance_to(tp)
+	if not _aggro_forced():
+		var visible: bool = dist <= NEAR_NOTICE or _has_los(tp + Vector2(0.0, -20.0))
+		if visible and dist <= stats.detection_range * LOSE_DISTANCE_MULT:
+			last_known_pos = tp
+			lose_timer = 0.0
+		else:
+			lose_timer += delta
+			if dist > stats.detection_range * LOSE_DISTANCE_MULT:
+				lose_timer += delta * 1.5
+		if lose_timer > LOSE_TIME_BLIND:
+			_start_search()
+			return
 	else:
-		sprite.play("chase")
+		last_known_pos = tp
+	if move_state == "ground" and _can_lunge(tp):
+		_start_windup(tp)
+		return
+	_navigate_to(_goal_surface(), delta)
+
+
+func _start_search() -> void:
+	search_timer = 0.0
+	search_arrived = false
+	path.clear()
+	nav_cd = 0.0
+	change_behavior("search")
+
+
+func _can_lunge(tp: Vector2) -> bool:
+	if lunge_cd > 0.0 or not is_on_floor() or _thru_active:
+		return false
+	var dx: float = tp.x - global_position.x
+	var dy: float = tp.y - global_position.y
+	if absf(dx) > LUNGE_TRIGGER_X or absf(dy) > LUNGE_TRIGGER_Y:
+		return false
+	return _has_los(tp + Vector2(0.0, -20.0))
+
+
+## Hedefin ayağının bastığı yüzey; oyuncu koşuyorsa biraz ilerisine nişan alır (yolunu kesmeye çalışır).
+func _goal_surface() -> Vector2:
+	var p: Vector2 = target.global_position
+	var lead: float = 0.0
+	if target is CharacterBody2D:
+		var tb := target as CharacterBody2D
+		if tb.is_on_floor():
+			lead = clampf(tb.velocity.x * 0.45, -180.0, 180.0)
+	for off in [lead, 0.0]:
+		var hit: Variant = _ray_down(Vector2(p.x + off, p.y - 10.0), 700.0)
+		if hit != null:
+			return hit
+	return p
+
+
+func _ray_down(from: Vector2, length: float) -> Variant:
+	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0.0, length))
+	q.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
+	var r: Dictionary = get_world_2d().direct_space_state.intersect_ray(q)
+	if r.is_empty():
+		return null
+	return r["position"]
+
+
+## Hedef yüzeye gitmek için gezinme grafiğini günceller ve rotayı yürütür.
+func _navigate_to(goal_surf: Vector2, delta: float) -> void:
+	_ensure_nav()
+	var feet: Vector2 = global_position + Vector2(0.0, FEET_OFF)
+	nav_cd -= delta
+	var x0: float = minf(feet.x, goal_surf.x)
+	var x1: float = maxf(feet.x, goal_surf.x)
+	var y0: float = minf(feet.y, goal_surf.y)
+	var y1: float = maxf(feet.y, goal_surf.y)
+	var ready: bool = nav.ensure_columns(x0 - 480.0, x1 + 480.0, y0 - 620.0, y1 + 620.0, 30)
+	if nav.search_state == NavScript.Search.SEARCHING:
+		nav.step(1500)
+	if nav.search_state == NavScript.Search.FOUND:
+		_adopt_path(nav.result_path)
+		nav.search_state = NavScript.Search.IDLE
+	elif nav.search_state == NavScript.Search.FAILED:
+		nav.search_state = NavScript.Search.IDLE
+		path.clear()
+	elif nav.search_state == NavScript.Search.IDLE and nav_cd <= 0.0 and ready and move_state == "ground":
+		var start = nav.nearest_node(feet, 48.0)
+		var goal = nav.nearest_node(goal_surf, 96.0)
+		if start != null and goal != null:
+			nav.begin_search(start, goal)
+			nav_cd = 0.4
+	_stuck_tick(delta)
+	if move_state == "air":
+		_tick_air(delta)
+		return
+	if not _follow_path(delta):
+		_simple_chase(goal_surf, delta)
+
+
+func _adopt_path(edges: Array) -> void:
+	# Ardışık yürü kenarlarını tek hamlede birleştir
+	var merged: Array = []
+	for e in edges:
+		if int(e["kind"]) == WALK and not merged.is_empty() and int(merged.back()["kind"]) == WALK:
+			var m: Dictionary = merged.back().duplicate()
+			m["to"] = e["to"]
+			merged[merged.size() - 1] = m
+		else:
+			merged.append(e)
+	path = merged
+	_resync_path()
+
+
+## Rota içinde şu anki konuma en yakın hamleden devam et.
+func _resync_path() -> void:
+	path_i = 0
+	if path.is_empty():
+		return
+	var feet: Vector2 = global_position + Vector2(0.0, FEET_OFF)
+	var best_d: float = INF
+	for i in path.size():
+		var d: float = feet.distance_to(path[i]["from"].surf)
+		if d < best_d:
+			best_d = d
+			path_i = i
+
+
+func _follow_path(delta: float) -> bool:
+	if path_i >= path.size():
+		return false
+	var e: Dictionary = path[path_i]
+	var to = e["to"]
+	var from = e["from"]
+	var speed: float = stats.chase_speed
+	match int(e["kind"]):
+		WALK:
+			var dx: float = to.pos.x - global_position.x
+			if absf(dx) <= 6.0:
+				path_i += 1
+				return _follow_path(delta)
+			_walk_dir(signf(dx), speed)
+		JUMP:
+			var dxj: float = from.pos.x - global_position.x
+			if absf(dxj) > 5.0:
+				_walk_dir(signf(dxj), clampf(absf(dxj) * 10.0, 40.0, speed))
+			elif is_on_floor() and jump_cd <= 0.0:
+				_launch(e, Vector2(float(e["vx"]), -JUMP_SPEED))
+		DROP:
+			var dxd: float = from.pos.x - global_position.x
+			var out_dir: float = signf(float(e["vx"]))
+			if absf(dxd) > 5.0 and signf(dxd) != out_dir:
+				_walk_dir(signf(dxd), clampf(absf(dxd) * 10.0, 40.0, speed))
+			else:
+				_walk_dir(out_dir, maxf(absf(float(e["vx"])), 80.0))
+				if not is_on_floor():
+					_enter_air(e)
+		DROPTHRU:
+			var dxt: float = from.pos.x - global_position.x
+			if absf(dxt) > 5.0:
+				_walk_dir(signf(dxt), clampf(absf(dxt) * 10.0, 40.0, speed))
+			elif is_on_floor():
+				_thru_active = true
+				_thru_t = 0.0
+				_thru_y = from.surf.y + 34.0
+				collision_mask = BASE_MASK & ~CollisionLayers.WORLD
+				velocity = Vector2(float(e["vx"]), 120.0)
+				_enter_air(e)
+	return true
+
+
+func _launch(e: Dictionary, v: Vector2) -> void:
+	velocity = v
+	jump_cd = 0.25
+	_enter_air(e)
+	_face(signf(v.x))
+
+
+func _enter_air(e: Dictionary) -> void:
+	move_state = "air"
+	air_t = 0.0
+	air_edge = e
+
+
+func _tick_air(delta: float) -> void:
+	air_t += delta
+	if air_edge.is_empty():
+		move_state = "ground"
+		return
+	var to = air_edge["to"]
+	var t_total: float = float(air_edge["t"])
+	if velocity.y > 0.0 or int(air_edge["kind"]) != JUMP:
+		var t_left: float = maxf(t_total - air_t, 0.12)
+		velocity.x = clampf((to.pos.x - global_position.x) / t_left, -AIR_MAX, AIR_MAX)
+	if absf(velocity.x) > 10.0:
+		_face(signf(velocity.x))
+	if is_on_floor() and air_t > 0.12:
+		_land()
+	elif air_t > 3.0:
+		_land()
+
+
+func _land() -> void:
+	move_state = "ground"
+	var e: Dictionary = air_edge
+	air_edge = {}
+	velocity.x = 0.0
+	var feet: Vector2 = global_position + Vector2(0.0, FEET_OFF)
+	var node = nav.nearest_node(feet, 40.0) if nav != null else null
+	if not e.is_empty() and node != null and nav.same_run(node, e["to"]):
+		_resync_path()
+		# Yeni konumdan sonraki hamle: inilen koşunun to'su ile eşleşen kenarın ardı
+		for i in path.size():
+			if path[i] == e:
+				path_i = i + 1
+				break
+	else:
+		path.clear()
+		nav_cd = 0.0
+
+
+## Rota yokken ya da bitince: hedefe doğru basit yürüyüş (duvarda zıpla, uçuruma kendini atma).
+func _simple_chase(goal_surf: Vector2, delta: float) -> void:
+	if target == null or not is_instance_valid(target):
+		_brake(delta)
+		return
+	var dx: float = goal_surf.x - global_position.x
+	if absf(dx) < 30.0:
+		_brake(delta)
+		return
+	var dir: float = signf(dx)
+	var wall: bool = wall_ray_right.is_colliding() if dir > 0.0 else wall_ray_left.is_colliding()
+	var ledge: bool = (not ledge_ray_right.is_colliding()) if dir > 0.0 else (not ledge_ray_left.is_colliding())
+	if ledge and goal_surf.y < global_position.y + FEET_OFF + 60.0 and is_on_floor():
+		velocity.x = 0.0
+		_face(dir)
+		return
+	_walk_dir(dir, stats.chase_speed * 0.9)
+	if wall and is_on_floor() and jump_cd <= 0.0:
+		velocity.y = -JUMP_SPEED * 0.9
+		jump_cd = 0.5
+
+
+func _stuck_tick(delta: float) -> void:
+	stuck_t += delta
+	if stuck_t < 0.5:
+		return
+	stuck_t = 0.0
+	var moved: float = global_position.distance_to(stuck_ref)
+	stuck_ref = global_position
+	if move_state == "ground" and moved < 8.0 and current_behavior in ["chase", "search"]:
+		stuck_count += 1
+	else:
+		stuck_count = 0
+	if stuck_count >= 2:
+		stuck_count = 0
+		path.clear()
+		nav_cd = 0.0
+		if is_on_floor():
+			velocity.y = -JUMP_SPEED * 0.8
+			velocity.x = patrol_dir * AIR_MAX * 0.5
+			patrol_dir = -patrol_dir
+
+
+# --- Atılma saldırısı -------------------------------------------------------------------------------
+
+func _start_windup(tp: Vector2) -> void:
+	_lunge_dir = signf(tp.x - global_position.x)
+	if _lunge_dir == 0.0:
+		_lunge_dir = 1.0
+	_face(_lunge_dir)
+	velocity.x = 0.0
+	change_behavior("windup")
+	if sprite:
+		create_tween().tween_property(sprite, "scale:y", 0.82, WINDUP_TIME * 0.9)
+
+
+func _tick_windup(delta: float) -> void:
+	_brake(delta)
+	if target != null and is_instance_valid(target):
+		var d: float = signf(target.global_position.x - global_position.x)
+		if d != 0.0:
+			_lunge_dir = d
+			_face(d)
+	if behavior_timer >= WINDUP_TIME:
+		if sprite:
+			sprite.scale.y = 1.0
+		_start_lunge()
+
+
+func _start_lunge() -> void:
+	change_behavior("lunge")
+	# Havada kalma süresine göre hedefi çok aşmayacak yatay hız (hedefin biraz ötesine iner)
+	var reach: float = LUNGE_TRIGGER_X * 0.6
+	if target != null and is_instance_valid(target):
+		reach = absf(target.global_position.x - global_position.x) + 50.0
+	var air_time: float = 2.0 * LUNGE_UP / GRAV
+	velocity = Vector2(_lunge_dir * clampf(reach / air_time, 220.0, LUNGE_SPEED), -LUNGE_UP)
+	if hitbox:
+		if hitbox.has_method("setup_attack"):
+			hitbox.setup_attack("hunter_lunge", true, 0.0)
+		hitbox.damage = stats.attack_damage * LUNGE_DAMAGE_MULT
+		hitbox.knockback_force = 330.0
+		hitbox.knockback_up_force = 160.0
+		hitbox.set("is_parried", false)
+		hitbox.set_meta("owner_id", get_instance_id())
+		hitbox.enable()
+	_play_enemy_sfx("enemy_attack")
+
+
+func _tick_lunge(_delta: float) -> void:
+	_apply_overlap_hit()
+	if current_behavior != "lunge":
+		return
+	if (is_on_floor() and behavior_timer > 0.15) or behavior_timer > LUNGE_MAX_TIME:
+		velocity.x = 0.0
+		_end_lunge()
+
+
+func _apply_overlap_hit() -> void:
+	if hitbox == null or not hitbox.has_method("is_enabled") or not hitbox.is_enabled():
+		return
+	for a in hitbox.get_overlapping_areas():
+		if a is PlayerHurtbox and (a as Area2D).is_in_group("player_hurtbox"):
+			var hb := a as PlayerHurtbox
+			if not hb.is_on_cooldown(hitbox) and hb.invincibility_timer <= 0.0:
+				hb._on_area_entered(hitbox)
+				velocity = Vector2(-_lunge_dir * 200.0, -240.0)
+				_end_lunge()
+				return
+
+
+func _end_lunge() -> void:
+	lunge_cd = LUNGE_COOLDOWN
+	change_behavior("recover")
+
+
+func _tick_recover(delta: float) -> void:
+	_brake(delta)
+	if behavior_timer >= RECOVER_TIME and is_on_floor():
+		change_behavior("chase")
+		path.clear()
+		nav_cd = 0.0
+
+
+# --- Hasar / ölüm --------------------------------------------------------------------------------
+
+func _tick_hurt(delta: float) -> void:
+	handle_hurt_behavior(delta)
+	move_state = "ground" if is_on_floor() else move_state
+	if current_behavior == "chase":
+		path.clear()
+		nav_cd = 0.0
+		air_edge = {}
+		move_state = "ground"
+
+
+func _on_hurtbox_hurt(hb: Area2D) -> void:
+	super._on_hurtbox_hurt(hb)
+	# Vurulan avcı, vuranı fark eder (görüş menzili dışında olsa bile)
+	if current_behavior in ["idle", "patrol", "search"] and target != null and is_instance_valid(target):
+		last_known_pos = target.global_position
+		lose_timer = 0.0
+		change_behavior("chase")
+
+
+func die() -> void:
+	if current_behavior == "dead":
+		return
+	_thru_active = false
+	collision_mask = BASE_MASK
+	super.die()
+	if sprite:
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(sprite, "rotation", 1.4 * (1.0 if randf() < 0.5 else -1.0), 0.8)
+		tw.tween_property(sprite, "modulate:a", 0.0, 1.0).set_delay(0.5)
+		tw.chain().tween_callback(queue_free)
+
+
+# --- Yardımcılar --------------------------------------------------------------------------------
+
+func _walk_dir(dir: float, speed: float) -> void:
+	velocity.x = dir * speed
+	_face(dir)
+
+
+func _face(dir: float) -> void:
+	if dir == 0.0:
+		return
+	direction = 1 if dir > 0.0 else -1
+	if sprite:
+		sprite.flip_h = dir < 0.0
+
+
+func _update_anim() -> void:
+	if sprite == null or current_behavior == "dead":
+		return
+	var want: String = "idle"
+	if not is_on_floor():
+		want = "jump" if velocity.y < -40.0 else "fall"
+	elif current_behavior in ["windup", "recover", "hurt"]:
+		want = "idle"
+	elif absf(velocity.x) > 20.0:
+		want = "patrol" if current_behavior == "patrol" else "chase"
+	if sprite.animation != want:
+		sprite.play(want)

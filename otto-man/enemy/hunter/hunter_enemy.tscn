@@ -1,4 +1,4 @@
-[gd_scene load_steps=44 format=3 uid="uid://cd4slg1606llg"]
+[gd_scene load_steps=46 format=3 uid="uid://cd4slg1606llg"]
 
 [ext_resource type="Script" path="res://enemy/hunter/hunter_enemy.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://0o3s7mphe1oh" path="res://enemy/hunter/sprites/hunter_chase_short_border.png" id="2_44tqb"]
@@ -6,6 +6,8 @@
 [ext_resource type="Texture2D" uid="uid://cu054g26xmf2s" path="res://enemy/hunter/sprites/hunter_fall_border.png" id="3_d5x5b"]
 [ext_resource type="Texture2D" uid="uid://d2bcqtba4aa00" path="res://enemy/hunter/sprites/hunter_patrol_border.png" id="4_eo5xe"]
 [ext_resource type="Texture2D" uid="uid://v341glggu5xr" path="res://enemy/hunter/sprites/hunter_jump.png" id="5_j1ijs"]
+[ext_resource type="Script" path="res://components/enemy_hitbox.gd" id="6_hitbox"]
+[ext_resource type="Script" path="res://components/hurtbox.gd" id="7_hurtbox"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_collision"]
 radius = 13.0
@@ -278,9 +280,9 @@ height = 58.0
 radius = 26.0
 height = 58.0
 
-[node name="HunterEnemy" type="CharacterBody2D"]
+[node name="HunterEnemy" type="CharacterBody2D" groups=["enemies"]]
 collision_layer = 4
-collision_mask = 515
+collision_mask = 517
 script = ExtResource("1_script")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
@@ -309,17 +311,19 @@ frame_progress = 0.0358202
 
 [node name="Hurt" type="Node" parent="StateMachine"]
 
-[node name="Hitbox" type="Area2D" parent="."]
-collision_layer = 4
+[node name="Hitbox" type="Area2D" parent="." groups=["hitbox"]]
+collision_layer = 64
 collision_mask = 8
+script = ExtResource("6_hitbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hitbox"]
 position = Vector2(0, -3)
 shape = SubResource("CapsuleShape2D_hitbox")
 
-[node name="Hurtbox" type="Area2D" parent="."]
-collision_layer = 4
+[node name="Hurtbox" type="Area2D" parent="." groups=["hurtbox"]]
+collision_layer = 32
 collision_mask = 16
+script = ExtResource("7_hurtbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
 position = Vector2(0, -2)
@@ -367,3 +371,5 @@ position = Vector2(0, -60)
 
 [node name="Debug" type="Node2D" parent="."]
 visible = false
+
+[connection signal="hurt" from="Hurtbox" to="." method="_on_hurtbox_hurt"]

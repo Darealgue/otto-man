@@ -28,6 +28,7 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - **Dalga bileşimi (`plan_wave`):** güçlü düşman (elit: mızrakçı, ağır, ateş büyücüsü, çağırıcı, avcı) sayısı
   azdır, gerisi hafif (basic, uçan) doldurur: yaklaşık 1 elit + 4-5 basic, zorlukla 2-3 elit + 6-8 basic.
   Kaplumbağa challenge'larda hiç çıkmaz. Aynı dalgada en fazla bir/iki "charger" (mızrakçı, ağır) olur.
+- **Avcı:** zorluk/dalga gücü 4 ve üstünde elit olarak çıkar; asansörde çıkmaz (bkz. `docs/HUNTER_ENEMY.md`).
 - **Charger dinlenmesi:** mızrakçı çarpışmadan sonra 2.4-3.6 sn, ağır hücum bitince 2.4 sn idle kalır
   (bu davranış zindanda da geçerlidir).
 - **SceneManager:** `change_to_challenge_room(payload)`. Yol kontrolü `ChallengeRoomRegistry.is_challenge_room_path`.
