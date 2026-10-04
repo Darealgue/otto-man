@@ -34,6 +34,7 @@ var _cam: Camera2D = null
 var _lift: AnimatableBody2D = null
 var _lift_top: float = 0.0
 var _lift_creeping: bool = false
+var _chase_floor_y: float = 928.0
 var _swarm: ChaseSwarm = null
 var _danger: TextureRect = null
 var _ward_total: int = 0
@@ -218,6 +219,13 @@ func _update_chase(delta: float) -> void:
 	var length: float = float(_layout["length"])
 	var want_x: float = clampf(_player.global_position.x + 160.0, 960.0, length - 960.0)
 	_cam.position.x = lerpf(_cam.position.x, want_x, minf(1.0, 8.0 * delta))
+	# Dikey: zemin seviyesi değişen koridorda kamera, oyuncunun en son bastığı zemini yumuşakça izler
+	# (zıplayınca sallanmasın diye havadayken güncellenmez)
+	if bool(_player.call("is_on_floor")):
+		_chase_floor_y = _player.global_position.y
+	_cam.position.y = lerpf(_cam.position.y, _chase_floor_y - 388.0, minf(1.0, 4.0 * delta))
+	if _swarm != null:
+		_swarm.floor_y = _chase_floor_y
 	if _danger != null and _swarm != null:
 		_danger.modulate.a = clampf(1.0 - _swarm.gap() / 800.0, 0.0, 0.75) if _swarm.running else 0.0
 	if not _finished and _player.global_position.x >= float(_layout["end_x"]) + 160.0:
