@@ -20,8 +20,9 @@ const HEAD_FRACTION: float = 0.5
 const TAIL_LENGTH: float = 900.0
 const CATCH_DISTANCE: float = 110.0
 const CATCH_COOLDOWN: float = 2.0
-## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes)
+## Yakalamadan sonra sürü bu kadar geri çekilir (oyuncuya nefes); süre boyunca yavaşlayarak ve daireler çizerek
 const RECOIL: float = 420.0
+const RETREAT_TIME: float = 1.5
 ## Gerilim modeli sabitleri (bkz. _physics_process)
 const FOLLOW_GAIN: float = 1.4              # mesafe farkının hıza etkisi (1/sn)
 const MIN_SPEED: float = 260.0              # sürü en yavaş bu hızla ilerler (duran oyuncuya yetişir)
@@ -43,6 +44,10 @@ var _bird_offsets: Array[Vector2] = []
 var _bird_drift: Array[Vector4] = []
 ## Kuş başına kuyruk konumu: 0 = baş, (0,1] = kuyruk üzerindeki yer
 var _tail_t: Array[float] = []
+var _retreat_left: float = 0.0
+## Geri çekilirken kuş başına daire yarıçapı ve hızı
+var _loop_radius: Array[float] = []
+var _loop_speed: Array[float] = []
 var _time: float = 0.0
 var _run_time: float = 0.0
 var _prev_target_x: float = 0.0
@@ -90,6 +95,8 @@ func _ready() -> void:
 			var width: float = lerpf(55.0, 4.0, pow(tail_t, 0.7))
 			oy = -150.0 + rng.randfn(0.0, width)
 		_tail_t.append(tail_t)
+		_loop_radius.append(rng.randf_range(140.0, 380.0))
+		_loop_speed.append(rng.randf_range(2.0, 3.6) * (1.0 if rng.randf() < 0.5 else -1.0))
 		oy = clampf(oy, -430.0, 90.0)
 		_bird_offsets.append(Vector2(ox, oy))
 		# Her kuşun kendi salınımı: sürü akışkan görünsün (sabit konumda dizilmesin)
@@ -118,10 +125,12 @@ func gap() -> float:
 ## Bölüm kazanıldı: kovalamayı bırakıp sağ üste doğru (45 derece) uçarak ekrandan çıkar.
 func fly_off() -> void:
 	running = false
+	# Kuşlar şu an ekranda göründükleri yerden kalkar: görsel kaymayı (sol kenarda tutan) ofsetlere işle,
+	# yoksa kayma sıfırlanınca sürü ileriye "ışınlanmış" gibi görünür.
+	var shift: float = _visual_shift()
+	for i in range(_birds.size()):
+		_bird_offsets[i] += Vector2(shift, 0.0)
 	_flying_off = true
-	# Sürü oyuncunun hemen solunda toplanır; oradan çaprazlama sağ üste uçup ekranı geçer
-	if is_instance_valid(target):
-		global_position = target.global_position + Vector2(-420.0, -120.0)
 
 
 ## Oyuncu öldü: sürü oyuncunun üstüne çöker, etrafında dönerek onu kaplar.
@@ -161,6 +170,15 @@ func _physics_process(delta: float) -> void:
 		return
 	_run_time += delta
 	var g: float = gap()
+	if _retreat_left > 0.0:
+		# Yakalama sonrası geri çekilme: yavaşlayarak (ease-out) toplam RECOIL kadar geriler; bu sürede takip yok
+		var left_ratio: float = _retreat_left / RETREAT_TIME
+		global_position.x -= RECOIL * 2.0 * left_ratio / RETREAT_TIME * delta
+		_retreat_left = maxf(0.0, _retreat_left - delta)
+		global_position.y = lerpf(global_position.y, clampf(target.global_position.y - 90.0, floor_y - 330.0, floor_y + 40.0), 3.0 * delta)
+		if _cooldown > 0.0:
+			_cooldown -= delta
+		return
 	# Gerilim modeli: sürü oyuncunun hemen ensesinde (tension_gap) kalmaya çalışır. Uzaktayken
 	# hızla yaklaşır, hedef mesafeye gelince oyuncunun hızına uyar (yavaşlar). Oyuncu duraksar ya da
 	# hata yaparsa mesafe kapanır ve yakalar; kusursuz koşan mesafeyi korur ama rahatlayamaz.
@@ -178,7 +196,7 @@ func _physics_process(delta: float) -> void:
 	elif g < CATCH_DISTANCE:
 		_cooldown = CATCH_COOLDOWN
 		catch_count += 1
-		global_position.x -= RECOIL
+		_retreat_left = RETREAT_TIME   # ışınlanma yok: yumuşakça geri çekilir, kuşlar geniş daireler çizer
 		caught.emit(catch_count)
 
 
@@ -197,17 +215,25 @@ func _update_engulf(delta: float) -> void:
 		_birds[i].flip_h = sin(o.y) * o.z < 0.0
 
 
-func _animate_birds() -> void:
-	# Sürü gerçekte ekranın solundan uzaktaysa bile kuşlar ekranın sol kenarında uçarak görünür kalır
-	# (yakalanma gerçek konuma göre; görsel kayma gerçek konum kenara varınca sıfırlanır, sıçrama olmaz)
-	var shift: float = 0.0
+## Sürü gerçekte ekranın solundan uzaktaysa bile kuşlar ekranın sol kenarında uçarak görünür kalır
+## (yakalanma gerçek konuma göre; görsel kayma gerçek konum kenara varınca sıfırlanır, sıçrama olmaz).
+func _visual_shift() -> float:
 	var cam := get_viewport().get_camera_2d()
-	if cam != null and not _flying_off:
-		var edge: float = cam.get_screen_center_position().x - 960.0 + VISIBLE_EDGE_MARGIN
-		var want_x: float = edge
-		if is_instance_valid(target):
-			want_x = minf(edge, target.global_position.x - 220.0)   # baş asla oyuncunun önüne geçmesin
-		shift = maxf(0.0, want_x - global_position.x)
+	if cam == null:
+		return 0.0
+	var edge: float = cam.get_screen_center_position().x - 960.0 + VISIBLE_EDGE_MARGIN
+	var want_x: float = edge
+	if is_instance_valid(target):
+		want_x = minf(edge, target.global_position.x - 220.0)   # baş asla oyuncunun önüne geçmesin
+	return maxf(0.0, want_x - global_position.x)
+
+
+func _animate_birds() -> void:
+	var shift: float = 0.0 if _flying_off else _visual_shift()
+	# Yakalamadan sonra kuşlar geniş daireler çizerek açılır, sonra toparlanır (0 -> 1 -> 0)
+	var loop: float = 0.0
+	if _retreat_left > 0.0:
+		loop = sin(PI * (1.0 - _retreat_left / RETREAT_TIME))
 	for i in range(_birds.size()):
 		var d: Vector4 = _bird_drift[i]
 		var tt: float = _tail_t[i]
@@ -217,5 +243,10 @@ func _animate_birds() -> void:
 			wobble *= 0.25
 			wobble.y += sin(_time * 4.0 - tt * 9.0) * (14.0 + 70.0 * tt)
 		var bob: float = sin(_time * 6.0 + float(i) * 1.7) * 8.0
-		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob) + wobble
+		var circle := Vector2.ZERO
+		if loop > 0.0:
+			var a: float = _time * _loop_speed[i] + d.w
+			# Daireler zeminin altına inmesin: dikey bileşen hep yukarı (üst yarım daire yayları)
+			circle = Vector2(cos(a), -absf(sin(a)) * 0.8) * _loop_radius[i] * loop
+		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob) + wobble + circle
 		_birds[i].flip_h = false
