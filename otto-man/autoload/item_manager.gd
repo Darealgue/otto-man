@@ -1357,6 +1357,9 @@ var ozan_leaves_day: int = -1
 var _ozan_present_cache: bool = false
 ## Türküsü söylenmiş zindanlar ("q,r"): aynı zindan tekrar anlatılmaz.
 var ozan_sung_dungeon_keys: Array[String] = []
+## Bu ziyarette türkü söylendi mi (ozan_arrives_day ile eşitse evet). Kayda yazılmaz: aynı ziyarette
+## sahne yeniden yüklense de ozan tekrar söylemesin diye oturum boyunca tutulur.
+var ozan_sung_visit_day: int = -2
 
 
 func is_ozan_in_village() -> bool:
@@ -1390,6 +1393,7 @@ func force_ozan_visit_now() -> void:
 	var day: int = _current_day()
 	ozan_arrives_day = day
 	ozan_leaves_day = day + OZAN_STAY_DAYS
+	ozan_sung_visit_day = -2
 	_ozan_present_cache = true
 	ozan_presence_changed.emit(true)
 

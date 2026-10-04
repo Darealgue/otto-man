@@ -38,7 +38,7 @@ const _FALLBACK_LIFETIME := 7.0
 static var _active: Array = []  # _BubbleTracker dizisi, eskiden yeniye sıralı
 
 
-static func show_on_npc(npc: Node2D, text: String, duration: float = 3.5) -> void:
+static func show_on_npc(npc: Node2D, text: String, duration: float = 3.5, width: float = _PANEL_WIDTH, font_size: int = 13) -> void:
 	if not is_instance_valid(npc) or text.strip_edges().is_empty():
 		return
 	clear_on_npc(npc)
@@ -46,7 +46,7 @@ static func show_on_npc(npc: Node2D, text: String, duration: float = 3.5) -> voi
 	if tree == null:
 		return
 	var tracker := _BubbleTracker.new()
-	tracker.setup(npc, text)
+	tracker.setup(npc, text, width, font_size)
 	_active.push_back(tracker)
 	_evict_overflow()
 	_reflow()
@@ -142,11 +142,11 @@ static func _resolve_canvas_layer() -> CanvasLayer:
 	return layer
 
 
-static func _build_panel(text: String) -> PanelContainer:
+static func _build_panel(text: String, width: float = _PANEL_WIDTH, font_size: int = 13) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.name = BUBBLE_NAME
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.custom_minimum_size = Vector2(_PANEL_WIDTH, 0.0)
+	panel.custom_minimum_size = Vector2(width, 0.0)
 	var style := StyleBoxFlat.new()
 	# Diğer menülerde kullanılan düz siyah kutu (bkz. DungeonRunReport.gd) — parşömen çerçevesi yok.
 	style.bg_color = _PANEL_BG_COLOR
@@ -161,10 +161,10 @@ static func _build_panel(text: String) -> PanelContainer:
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size = Vector2(_PANEL_WIDTH - 16.0, 0.0)
+	label.custom_minimum_size = Vector2(width - 16.0, 0.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	NpcOverheadUi.apply_nameplate_text_style(label)
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", font_size)
 	panel.add_child(label)
 	panel.reset_size()
 	return panel
@@ -183,9 +183,9 @@ class _BubbleTracker extends Node:
 	var is_fading := false
 
 
-	func setup(p_npc: Node2D, text: String) -> void:
+	func setup(p_npc: Node2D, text: String, width: float = NpcAmbientBubble._PANEL_WIDTH, font_size: int = 13) -> void:
 		npc = p_npc
-		panel = NpcAmbientBubble._build_panel(text)
+		panel = NpcAmbientBubble._build_panel(text, width, font_size)
 		tail = NpcAmbientBubble._SpeechTail.new()
 		tail.fill_color = NpcAmbientBubble._PANEL_BG_COLOR
 		tail.edge_color = NpcAmbientBubble._PANEL_BORDER_COLOR
