@@ -129,6 +129,8 @@ static func plan(difficulty: int, rng: RandomNumberGenerator) -> Dictionary:
 	# Rota ağaç öbeğinin tepesinden (tree3 orta sol dalı) başlar
 	var cur: Dictionary = (cluster["branches"] as Array)[3]
 	var side: int = -1 if bool(cluster["mirror"]) else 1
+	# Zirvenin bağlı olduğu dağ yönü: bağlı çıkıntı platformlar da hep bu yana bağlanır
+	var mount: int = 1 if rng.randf() < 0.5 else -1
 	var prev: Dictionary = cur
 	for i in range(1, n + 1):
 		var t: float = float(i) / float(n)
@@ -136,8 +138,8 @@ static func plan(difficulty: int, rng: RandomNumberGenerator) -> Dictionary:
 		var te: float = t * lerpf(0.55, 1.0, float(d - 1) / 8.0)
 		var placed: Dictionary = {}
 		for attempt in range(40):
-			var cand: Dictionary = _route_candidate(rng, cur, side, te, d, i, attempt)
-			if not _conflicts(plats, cand):
+			var cand: Dictionary = _route_candidate(rng, cur, side, te, d, i, attempt, mount, n)
+			if not _conflicts(plats, cand) and not (bool(cand.get("attached", false)) and _mass_conflicts(plats, cand)):
 				placed = cand
 				break
 		if placed.is_empty():
@@ -148,8 +150,8 @@ static func plan(difficulty: int, rng: RandomNumberGenerator) -> Dictionary:
 		_add_route_coins(rng, coins, placed, cur, t, d)
 		# Yan çıkıntı: yeni platformun gittiği yönün tersinde
 		var went: int = 1 if int(placed["c0"]) >= int(cur["c1"]) else -1
-		if i >= 2 and i < n and rng.randf() < lerpf(0.55, 0.35, t):
-			_try_branch(rng, plats, coins, cur, -went, te, d)
+		if i >= 2 and i < n - 5 and rng.randf() < lerpf(0.55, 0.35, t):
+			_try_branch(rng, plats, coins, cur, -went, te, d, mount)
 		# Sonraki yön: kenara yakınsa içeri, değilse çoğunlukla zikzak
 		var next_side: int = -went if rng.randf() < 0.72 else went
 		var center: float = (float(placed["c0"]) + float(placed["c1"])) * 0.5
@@ -157,19 +159,25 @@ static func plan(difficulty: int, rng: RandomNumberGenerator) -> Dictionary:
 			next_side = 1
 		elif center > float(COLS - 18):
 			next_side = -1
+		if bool(placed.get("attached", false)):
+			next_side = -mount
+		# Son platformlarda zirvenin serbest ucuna yaklaş (dağ yönünde kolon 40/20 civarı)
+		if i >= n - 5:
+			var target_col: float = 34.0 if mount > 0 else 26.0
+			next_side = 1 if center < target_col else -1
 		side = next_side
 		prev = cur
 		cur = placed
 	# Zirve: ekranın bir yanındaki dağdan çıkıntı yapan kaya sırtı
-	var summit: Dictionary = _place_summit(rng, plats, cur, prev)
+	var summit: Dictionary = _place_summit(rng, plats, cur, prev, mount)
 	summit["route"] = true
 	plats.append(summit)
-	return {"plats": plats, "coins": coins, "summit": summit, "top_row": int(summit["r"]), "cluster": cluster}
+	return {"plats": plats, "coins": coins, "summit": summit, "top_row": int(summit["r"]), "cluster": cluster, "mount": mount}
 
 
 ## Ana yol için aday platform: basamak, genişlik, tür ve yatay açıklık ilerlemeye (t) göre.
 ## Basamaklar ve açıklıklar eskisinden büyük: tırmanış kolay olmasın.
-static func _route_candidate(rng: RandomNumberGenerator, cur: Dictionary, side: int, t: float, d: int, index: int, attempt: int) -> Dictionary:
+static func _route_candidate(rng: RandomNumberGenerator, cur: Dictionary, side: int, t: float, d: int, index: int, attempt: int, mount: int = 0, n: int = 0) -> Dictionary:
 	var dy_lo: int = int(round(lerpf(3.0, 5.0, t)))
 	var dy_hi: int = mini(int(round(lerpf(4.0, 6.0, t))), MAX_STEP_ROWS)
 	var dy: int = rng.randi_range(dy_lo, maxi(dy_lo, dy_hi))
@@ -213,9 +221,17 @@ static func _route_candidate(rng: RandomNumberGenerator, cur: Dictionary, side: 
 	c0 = maxi(c0, LEFT_COL)
 	var out: Dictionary = {"c0": c0, "c1": c1, "r": int(cur["r"]) - dy, "kind": "oneway" if oneway else "wall"}
 	if not oneway:
-		var prof: Array[int] = _make_profile(rng, c1 - c0)
-		out["prof"] = prof
-		out["dmax"] = prof.max()
+		# Dağ yanına yakın katı platformlar çoğu zaman dağdan çıkıntı yapar (zirve ile aynı yön); son 8 platformda bağlanmaz
+		var near_edge: bool = (mount > 0 and c1 >= RIGHT_COL - 11) or (mount < 0 and c0 <= LEFT_COL + 11)
+		var mid_col: int = (c0 + c1) / 2
+		var on_mount_half: bool = (mount > 0 and mid_col >= 30) or (mount < 0 and mid_col <= 30)
+		var p_attach: float = 0.85 if near_edge else (0.5 if on_mount_half else 0.0)
+		if index > 1 and mount != 0 and index <= n - 8 and rng.randf() < p_attach:
+			_attach_mass(rng, out, mount)
+		else:
+			var prof: Array[int] = _make_profile(rng, c1 - c0)
+			out["prof"] = prof
+			out["dmax"] = prof.max()
 	return out
 
 
@@ -241,6 +257,28 @@ static func _make_profile(rng: RandomNumberGenerator, w: int) -> Array[int]:
 		remaining -= len
 		first = false
 	return prof
+
+
+## Katı platformu dağa bağlar (zirvedekiyle aynı yön): serbest uç yerinde kalır, platform ekranın kenarına kadar uzanır ve
+## kalınlaşan bir kütleyle dağa bağlanır.
+static func _attach_mass(rng: RandomNumberGenerator, out: Dictionary, mount: int) -> void:
+	if mount > 0:
+		out["pc0"] = int(out["c0"])
+		out["pc1"] = COLS + OVERSCAN
+		out["c1"] = RIGHT_COL
+	else:
+		out["pc0"] = -OVERSCAN
+		out["pc1"] = int(out["c1"])
+		out["c0"] = LEFT_COL
+	var mprof: Array[int] = _mass_profile(rng, int(out["pc1"]) - int(out["pc0"]), mount, 5)
+	out["prof"] = mprof
+	# Standart çakışma denetimi için serbest uca yakın 6 sütunun kalınlığı; tam kütle _mass_conflicts ile sütun sütun denetlenir
+	var near_max: int = 2
+	for k in range(mini(6, mprof.size())):
+		near_max = maxi(near_max, int(mprof[k] if mount > 0 else mprof[mprof.size() - 1 - k]))
+	out["dmax"] = near_max
+	out["attached"] = true
+	out["side"] = mount
 
 
 static func _fallback_oneway(rng: RandomNumberGenerator, cur: Dictionary, t: float) -> Dictionary:
@@ -318,7 +356,7 @@ static func _add_route_coins(rng: RandomNumberGenerator, coins: Array[Dictionary
 
 
 ## Yol dışı yan çıkıntı (ve ara sıra ikinci çıkıntı): ödülü büyük (kese), ulaşması riskli.
-static func _try_branch(rng: RandomNumberGenerator, plats: Array[Dictionary], coins: Array[Dictionary], from_p: Dictionary, dir: int, t: float, d: int) -> void:
+static func _try_branch(rng: RandomNumberGenerator, plats: Array[Dictionary], coins: Array[Dictionary], from_p: Dictionary, dir: int, t: float, d: int, mount: int = 0) -> void:
 	var anchor: Dictionary = from_p
 	var chain: int = 2 if rng.randf() < 0.25 * t + 0.1 else 1
 	for step in range(chain):
@@ -341,7 +379,10 @@ static func _try_branch(rng: RandomNumberGenerator, plats: Array[Dictionary], co
 			var prof: Array[int] = _make_profile(rng, w)
 			cand["prof"] = prof
 			cand["dmax"] = prof.max()
-		if _conflicts(plats, cand):
+		# Dağ yönündeki yan çıkıntılar da dağa bağlanabilir (kese serbest uçta kalır)
+		if not oneway and mount != 0 and dir == mount and rng.randf() < 0.6:
+			_attach_mass(rng, cand, mount)
+		if _conflicts(plats, cand) or (bool(cand.get("attached", false)) and _mass_conflicts(plats, cand)):
 			return
 		plats.append(cand)
 		# Kese: yan çıkıntı ödülü (zincirin sonu daha büyük)
@@ -355,9 +396,11 @@ static func _try_branch(rng: RandomNumberGenerator, plats: Array[Dictionary], co
 
 ## Zirve platformunu arar: önceki platformun yanında (üstünde değil), en çok 6 karo açıklıkta; ekranın
 ## kenarına kadar uzanıp dağa bağlanır. Dağın kalınlığı serbest uçtan duvara doğru artar.
-static func _place_summit(rng: RandomNumberGenerator, plats: Array[Dictionary], cur: Dictionary, prev: Dictionary) -> Dictionary:
+static func _place_summit(rng: RandomNumberGenerator, plats: Array[Dictionary], cur: Dictionary, prev: Dictionary, mount: int = 0) -> Dictionary:
 	var cc: float = (float(cur["c0"]) + float(cur["c1"])) * 0.5
 	var sides: Array = [1, -1] if cc < float(COLS) * 0.5 else [-1, 1]
+	if mount != 0:
+		sides = [mount, -mount]
 	for dy in [4, 5, 3, 6]:
 		for s in sides:
 			var options: Array[Dictionary] = []
@@ -370,10 +413,26 @@ static func _place_summit(rng: RandomNumberGenerator, plats: Array[Dictionary], 
 			if not options.is_empty():
 				return options[rng.randi() % options.size()]
 	# Son çare: çakışma denetimi olmadan yan tarafa
-	var fallback: Dictionary = _summit_candidate(rng, cur, 1 if cc < float(COLS) * 0.5 else -1, 2, 4)
+	var fallback: Dictionary = _summit_candidate(rng, cur, mount if mount != 0 else (1 if cc < float(COLS) * 0.5 else -1), 2, 4)
 	if fallback.is_empty():
 		fallback = _summit_candidate(rng, cur, -1, 2, 4)
 	return fallback
+
+
+## Dağdan çıkıntı kütlesinin sütun kalınlıkları: serbest uçta 3 satır, duvara doğru max_depth satıra kalınlaşır
+## (ikişer üçer sütunluk parçalar, +-1 sapma). side > 0: dağ sağda (serbest uç solda), side < 0: tersi.
+static func _mass_profile(rng: RandomNumberGenerator, width: int, side: int, max_depth: int) -> Array[int]:
+	var prof: Array[int] = []
+	var i: int = 0
+	while i < width:
+		var seg: int = mini(width - i, rng.randi_range(2, 3))
+		var mid: int = i + seg / 2
+		var dist: int = mid if side > 0 else (width - 1 - mid)
+		var depth: int = clampi(3 + dist / 2 + rng.randi_range(-1, 1), 3, max_depth)
+		for k in range(seg):
+			prof.append(depth)
+		i += seg
+	return prof
 
 
 static func _summit_candidate(rng: RandomNumberGenerator, cur: Dictionary, s: int, gap: int, dy: int) -> Dictionary:
@@ -395,22 +454,31 @@ static func _summit_candidate(rng: RandomNumberGenerator, cur: Dictionary, s: in
 		c0 = LEFT_COL
 		pc0 = -OVERSCAN
 		pc1 = c1
-	# Kalınlık: serbest uçta 3 satır, duvara doğru 11'e kadar (ikişer sütunluk parçalar, ±1 sapma)
-	var prof: Array[int] = []
-	var width: int = pc1 - pc0
-	var i: int = 0
-	while i < width:
-		var seg: int = mini(width - i, rng.randi_range(2, 3))
-		var mid: int = i + seg / 2
-		var dist: int = mid if s > 0 else (width - 1 - mid)
-		var depth: int = clampi(3 + dist / 2 + rng.randi_range(-1, 1), 3, 11)
-		for k in range(seg):
-			prof.append(depth)
-		i += seg
+	var prof: Array[int] = _mass_profile(rng, pc1 - pc0, s, 11)
 	return {
 		"kind": "summit", "c0": c0, "c1": c1, "pc0": pc0, "pc1": pc1, "r": int(cur["r"]) - dy,
 		"prof": prof, "dmax": prof.max(), "side": s,
 	}
+
+
+## Dağa bağlı çıkıntının kütlesi başka bir platformla kesişiyor mu (sütun sütun gerçek kalınlıkla, 1 satır/sütun payla)?
+static func _mass_conflicts(plats: Array[Dictionary], cand: Dictionary) -> bool:
+	var r: int = int(cand["r"])
+	var pc0: int = int(cand["pc0"])
+	var prof: Array = cand["prof"]
+	for q in plats:
+		var qc0: int = int(q["c0"])
+		var qc1: int = int(q["c1"])
+		var qr: int = int(q["r"])
+		var qd: int = _depth(q)
+		for i in range(prof.size()):
+			var x: int = pc0 + i
+			if x < qc0 - 1 or x > qc1:
+				continue
+			var sd: int = int(prof[i])
+			if r - 1 < qr + qd and qr - 1 < r + sd:
+				return true
+	return false
 
 
 ## Zirve kütlesi başka bir platformla kesişiyor mu (sütun sütun gerçek kalınlıkla)?
@@ -472,6 +540,11 @@ static func build(root: Node2D, difficulty: int) -> Dictionary:
 	rng.randomize()
 	var d: int = clampi(difficulty, 1, 9)
 	var data: Dictionary = plan(d, rng)
+	# Zirve dağ yönüne bağlanamadıysa (nadir) düzeni yeniden üret
+	for retry in range(6):
+		if int((data["summit"] as Dictionary)["side"]) == int(data["mount"]):
+			break
+		data = plan(d, rng)
 	var plats: Array = data["plats"]
 	var summit: Dictionary = data["summit"]
 	var cluster: Dictionary = data["cluster"]
@@ -483,10 +556,22 @@ static func build(root: Node2D, difficulty: int) -> Dictionary:
 	layer.name = "TileMapLayer"
 	layer.tile_set = load(TILESET_PATH) as TileSet
 	root.add_child(layer)
+	# Yol platformları ve zirve ayrı sahne kökleri: her birinin içindeki "TileMapLayer" orman dekoruna ayrı verilir
+	# (yol platformlarına çalı/çiçek/çimen, zirveye ağaç da). Ağaçlı dekor yalnız zirvede açılır.
+	var plat_holder := Node2D.new()
+	plat_holder.name = "PlatformDecor"
+	root.add_child(plat_holder)
 	var plat_layer := TileMapLayer.new()
-	plat_layer.name = "PlatformTiles"
+	plat_layer.name = "TileMapLayer"
 	plat_layer.tile_set = layer.tile_set
-	root.add_child(plat_layer)
+	plat_holder.add_child(plat_layer)
+	var summit_holder := Node2D.new()
+	summit_holder.name = "SummitDecorRoot"
+	root.add_child(summit_holder)
+	var summit_layer := TileMapLayer.new()
+	summit_layer.name = "TileMapLayer"
+	summit_layer.tile_set = layer.tile_set
+	summit_holder.add_child(summit_layer)
 	# Tek yönlü platformlar ayrı katmanda: renk filtresi yalnız onlara uygulanır
 	var ow_layer := TileMapLayer.new()
 	ow_layer.name = "OnewayTiles"
@@ -499,6 +584,7 @@ static func build(root: Node2D, difficulty: int) -> Dictionary:
 		for y in range(int(ground[x]), FLOOR_ROW + GROUND_DEPTH + 4):
 			ground_cells.append(Vector2i(x, y))
 	var wall_cells: Array[Vector2i] = []
+	var summit_cells: Array[Vector2i] = []
 	var oneway_cells: Array[Vector2i] = []
 	for p in plats:
 		var kind: String = String(p["kind"])
@@ -512,9 +598,13 @@ static func build(root: Node2D, difficulty: int) -> Dictionary:
 		var px0: int = int(p.get("pc0", p["c0"]))
 		for i in range(prof.size()):
 			for k in range(int(prof[i])):
-				wall_cells.append(Vector2i(px0 + i, int(p["r"]) + k))
+				if kind == "summit":
+					summit_cells.append(Vector2i(px0 + i, int(p["r"]) + k))
+				else:
+					wall_cells.append(Vector2i(px0 + i, int(p["r"]) + k))
 	layer.set_cells_terrain_connect(ground_cells, TERRAIN_SET_FOREST, 0)
 	plat_layer.set_cells_terrain_connect(wall_cells, TERRAIN_SET_FOREST, 0)
+	summit_layer.set_cells_terrain_connect(summit_cells, TERRAIN_SET_FOREST, 0)
 	if not oneway_cells.is_empty():
 		ow_layer.set_cells_terrain_connect(oneway_cells, TERRAIN_SET_DUNGEON, TERRAIN_ONEWAY)
 
@@ -550,6 +640,9 @@ static func build(root: Node2D, difficulty: int) -> Dictionary:
 		"plats": plats,
 		"coins": coin_records,
 		"cluster_span": cluster["span"],
+		"mount": int(data["mount"]),
+		"platform_decor": plat_holder,
+		"summit_decor": summit_holder,
 	}
 
 

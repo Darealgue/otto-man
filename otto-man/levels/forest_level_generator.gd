@@ -45,6 +45,8 @@ var _resource_scenes: Array[PackedScene] = []
 var _forest_start_chunk: Node2D = null
 
 var player: Node2D
+## false ise büyük (6 karo genişlikte) ağaçlar yerleştirilmez; çalı/çiçek/çimen/kütük/kaya ve böcekler yine gelir (Zirve Tırmanışı platformları).
+var allow_big_trees: bool = true
 var active_chunks: Array[Node2D] = []
 var current_row: int = 0
 var last_end_x: float = 0.0
@@ -2604,6 +2606,8 @@ func _populate_forest_decorations_for_chunk(chunk_node: Node2D) -> void:
 		if tag6s != "forest_floor_surface" and tag6s != "floor_surface":
 			continue
 		# Need 6 consecutive cells: center +- 2 plus edges
+		if not allow_big_trees:
+			continue
 		var left2 := cell + Vector2i(-2, 0)
 		var left1 := cell + Vector2i(-1, 0)
 		var right1 := cell + Vector2i(1, 0)

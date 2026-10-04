@@ -497,6 +497,7 @@ func _decorate_summit() -> void:
 	# Zemine rastgele orman dekoru (ağaç, çiçek, çalı, kelebek); başlangıç ağaç öbeğinin üstüne ağaç düşmesin
 	var span: Vector2 = _layout["cluster_span"]
 	decorator._forest_tree_reserve_px(span.x, span.y)
+	call_deferred("_decorate_summit_platforms", decorator)   # zemin dekoru (aşağıda) kuyruğa girdikten sonra
 	decorator.decorate(self)
 	var pb: Node = decorator.get_node_or_null("ParallaxBackground")
 	if pb == null:
@@ -512,6 +513,19 @@ func _decorate_summit() -> void:
 		var layer := pb.get_node_or_null(String(layer_name)) as ParallaxLayer
 		if layer:
 			layer.motion_scale = scales[layer_name]
+
+
+## Yol platformları ve zirve de orman dekoru alır. Yol platformlarında büyük ağaç yok (dalları ek basamak olurdu),
+## zirvede ağaç da var ama bayrağın etrafı boş kalır.
+func _decorate_summit_platforms(decorator: ForestArenaDecorator) -> void:
+	if not is_instance_valid(decorator):
+		return
+	decorator.allow_big_trees = false
+	decorator._populate_forest_decorations_for_chunk(_layout["platform_decor"])
+	decorator.allow_big_trees = true
+	var flag_pos: Vector2 = _layout["flag_pos"]
+	decorator._forest_tree_reserve_px(flag_pos.x - 170.0, flag_pos.x + 170.0)
+	decorator._populate_forest_decorations_for_chunk(_layout["summit_decor"])
 
 
 ## Hep gündüz: oyun saati akşama/geceye denk gelse bile platformlar ve altınlar okunur kalsın.

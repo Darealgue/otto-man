@@ -95,8 +95,11 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Platform türleri: `wall` (orman zemin karosu; altı pürüzlü ada gibi 2-5 satır, uçlar ince, en az 2 sütunluk parçalar, altından
   zıplanamaz), `oneway` (dungeon tileset "walls2", 1 satır, 1-7 karo, `OnewayTiles` katmanında kahverengiye boyanır), `branch`
   (ağaç dalı, düzen verisi), `summit` (aşağıda). Katı platform, altındaki platformun zıplama alanını (11 satır) kapatamaz.
-- **Zirve:** ekranın bir yanındaki dağdan çıkıntı yapan kaya sırtı: serbest uçta 3 satır, duvara doğru 11 satıra kalınlaşır, ekran dışına
-  uzanır; bayrak serbest uçtan 5 karo içeride. Oyuncu yerde durarak çıkıntıya varınca kazanır.
+- **Zirve ve dağ yönü:** kule başında bir dağ yönü (`mount`, sağ/sol) seçilir. Zirve o yandaki dağdan çıkıntı yapan kaya sırtıdır: serbest uçta
+  3 satır, duvara doğru 11 satıra kalınlaşır, ekran dışına uzanır; bayrak serbest uçtan 5 karo içeride. Oyuncu yerde durarak çıkıntıya
+  varınca kazanır. Yol platformlarının bir kısmı (ve o yöndeki yan çıkıntıların çoğu) aynı yana, aynı biçimde dağa bağlanır
+  (`_attach_mass`, kütle en çok 5 satır; tam kütle `_mass_conflicts` ile sütun sütun denetlenir). Zirve dağ yönüne bağlanamazsa
+  düzen yeniden üretilir (`build`). Son 5 platform zirvenin serbest ucuna doğru yönlendirilir ve yan çıkıntısız kalır; son 8 platform dağa bağlanmaz.
 - Ölçüm (headless, gerçek oyuncu): tek zıplama 5.0 satır, çift zıplama 7.7 satır, koşarak çift zıplama ~18 karo yatay. `MAX_STEP_ROWS = 6`.
   Rota botu (kaba; ağaç dalları ve zeminden ilk dal dahil) zorluk 9'da 128 sıçramanın 126'sını, zorluk 1'de 48'in 48'ini geçti.
 - **Altın:** oyunun normal madeni parası (`coin_small.png`, 8 kare) ve altın kesesi (`pouch.png`), 1.5x. Seyrek: ana yolda platform başına
@@ -107,7 +110,10 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - **Görünüm:** ForestArenaDecorator `decor_biome = "mountain"` (dağ parallax'ı, dikey kayma artırıldı), hep gündüz (DayNightController kapatılır),
   yükseldikçe koyulaşan gökyüzü örtüsü, dünya uzayında akan bulutlar. Zemine rastgele orman dekoru (ağaç, çiçek, çalı, kütük, kaya,
   kelebek): `TileMapLayer` yalnız zemini taşır (dekor bu adı arar), platformlar `PlatformTiles`/`OnewayTiles` katmanlarındadır ve dekorlanmaz
-  (platformdaki dekor ağaçları ek basamak olurdu). Ağaç öbeğinin üstüne rastgele ağaç düşmesin diye `_forest_tree_reserve_px` ile rezerve edilir.
+  Yol platformları ve zirve ayrı kökler (`PlatformDecor`, `SummitDecorRoot`) taşır; her birinin içindeki `TileMapLayer` ayrıca dekorlanır:
+  yol platformlarında çalı/çiçek/çimen/kütük/kaya/kelebek (`ForestLevelGenerator.allow_big_trees = false`, çünkü ağaç dalları ek basamak olurdu),
+  zirvede ağaç da gelir (bayrağın 170 px çevresi rezerve). Tek yönlü platformlar dungeon karosu olduğundan dekor almaz.
+  Ağaç öbeğinin üstüne rastgele ağaç düşmesin diye `_forest_tree_reserve_px` ile rezerve edilir.
 - Yan duvarlar görünmez ve `no_wall_slide` (duvar zıplamasıyla kenardan tırmanmak platformları atlatırdı).
 ## Haritada doğma, ozan, kabul ekranı
 - **Otomatik doğma:** `WorldManager.maybe_spawn_challenge()` harita her açıldığında çalışır: en çok 2 aktif,
