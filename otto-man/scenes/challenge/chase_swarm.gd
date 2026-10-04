@@ -8,7 +8,9 @@ extends Node2D
 signal caught(count: int)
 
 const BIRD_SCENE_PATH := "res://enemy/flying/flying_enemy.tscn"
-const BIRD_COUNT: int = 33
+## Kuşlar yalnızca görsel (AnimatedSprite2D): fizik/çarpışma yok, yakalama tek mesafe kontrolü; bu yüzden
+## yüzlercesi bile ucuz. 264 = ilk haline (33) göre 8 kat.
+const BIRD_COUNT: int = 264
 ## Kazanınca kuşlar sağ üste (45 derece) doğru bu hızla uçup ekrandan çıkar
 const FLY_OFF_SPEED: float = 750.0
 ## Sürü merkezi en az ekranın sol kenarından bu kadar içeride görünür
@@ -42,7 +44,8 @@ var _flying_off: bool = false
 
 
 func _ready() -> void:
-	z_index = 6
+	# Oyuncunun (z 7) altında kalsın: kalabalık sürü karakteri örtmesin
+	z_index = 5
 	var frames: SpriteFrames = _load_bird_frames()
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
@@ -53,11 +56,18 @@ func _ready() -> void:
 			var anim: StringName = &"fly" if frames.has_animation(&"fly") else &"chase"
 			bird.play(anim)
 			bird.frame = rng.randi() % maxi(1, frames.get_frame_count(anim))
-		bird.scale = Vector2(1.5, 1.5)
-		bird.modulate = Color(0.55, 0.4, 0.4)
+		# Boyut ve ton çeşidi: yakın kuşlar iri/koyu, uzaktakiler küçük/soluk (derinlik hissi)
+		var depth: float = rng.randf()
+		var s: float = lerpf(1.0, 1.8, depth)
+		bird.scale = Vector2(s, s)
+		bird.modulate = Color(0.55, 0.4, 0.4).lerp(Color(0.8, 0.6, 0.55), 1.0 - depth)
+		bird.speed_scale = rng.randf_range(0.8, 1.3)
+		bird.z_index = int(depth * 1.9)
 		add_child(bird)
 		_birds.append(bird)
-		_bird_offsets.append(Vector2(rng.randf_range(-320.0, 80.0), rng.randf_range(-300.0, 60.0)))
+		# Sürü gövdesi geniş ve derin: oyuncuya yakın uç sık, arkaya doğru seyrelir
+		var ox: float = -pow(rng.randf(), 1.4) * 900.0 + 40.0
+		_bird_offsets.append(Vector2(ox, rng.randf_range(-430.0, 90.0)))
 
 
 func _load_bird_frames() -> SpriteFrames:
