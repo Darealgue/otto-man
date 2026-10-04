@@ -440,6 +440,11 @@ func _apply_overlapping_hit_fallback() -> void:
 				return
 
 
+func _crash_after_hit() -> void:
+	if current_behavior == "charge":
+		do_crash("hit")
+
+
 func do_crash(cause: String = "timeout") -> void:
 	is_charging = false
 	charge_rest_left = randf_range(CHARGE_REST_MIN, CHARGE_REST_MAX)
@@ -465,7 +470,9 @@ func do_crash(cause: String = "timeout") -> void:
 func _on_hit_player(_player: Node) -> void:
 	# EnemyHitbox bildirimi ile tek kez crash tetikle
 	if current_behavior == "charge":
-		do_crash("hit")
+		# Ertelenmeli: do_crash hitbox'ı kapatır; PlayerHurtbox'ın kendi area_entered'i bu sinyalden SONRA
+		# işlenirse hitbox kapalı görünür ve hasar/knockback hiç uygulanmazdı (çarpma sprite'ı var, hasar yok).
+		call_deferred("_crash_after_hit")
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Darbe yönünü ve kaynağı hafızaya al, ama hemen şarj etme

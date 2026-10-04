@@ -88,7 +88,7 @@ func _ready() -> void:
 		_find_player()
 		# İlk Y pozisyonunu kaydet
 		if _player:
-			_last_rain_y_position = _player.global_position.y - 800.0
+			_last_rain_y_position = _view_center_y(_player.global_position.y) - 800.0
 
 func _check_if_forest_scene() -> void:
 	_is_forest_scene = false  # Varsayılan: köy sahnesi
@@ -120,6 +120,14 @@ func _check_if_forest_scene() -> void:
 				elif "village" in scene_path.to_lower():
 					_is_forest_scene = false
 	
+	# Challenge odaları (arena, asansör, kovalamaca, tırmanış...) orman gibi davranır: yağmur görüntüye bağlanır
+	if not _is_forest_scene:
+		var par := get_parent()
+		if scene_manager and "challenge" in String(scene_manager.current_scene_path).to_lower():
+			_is_forest_scene = true
+		elif par and par.get_script() and "forest" in String(par.get_script().resource_path).to_lower():
+			_is_forest_scene = true
+
 	# 2. Alternatif: current_scene'dan scene_file_path kontrolü
 	if not _is_forest_scene:
 		var current_scene = get_tree().current_scene
@@ -145,6 +153,16 @@ func _check_if_forest_scene() -> void:
 		if forest_gen and forest_gen.get_script() and forest_gen.get_script().resource_path:
 			if "forest" in forest_gen.get_script().resource_path.to_lower():
 				_is_forest_scene = true
+
+## Ekranda görünen dünya alanının dikey merkezi (kamera/zoom/ofset ne olursa olsun); alınamazsa fallback.
+func _view_center_y(fallback: float) -> float:
+	var vp := get_viewport()
+	if vp == null:
+		return fallback
+	var inv: Transform2D = vp.get_canvas_transform().affine_inverse()
+	var size: Vector2 = vp.get_visible_rect().size
+	return (inv * (size * 0.5)).y
+
 
 func _find_player() -> void:
 	_player = get_tree().get_first_node_in_group("player")
@@ -483,7 +501,9 @@ func _update_forest_position(delta: float) -> void:
 	# Hedefi oyuncu konumuna bağla, sonra yumuşat.
 	var target_x: float = lerp(global_position.x, player_pos.x, follow_ratio)
 	target_x += player_vx * forest_follow_lead_multiplier * maxf(delta, 0.0001)
-	var target_y: float = player_pos.y - 800.0  # Köy sahnesindekiyle aynı offset
+	# Dikey çapa: oyuncu değil EKRANIN merkezi. Sabit kameralı sahnelerde (challenge arenası) ve oyuncudan
+	# kopuk kameralarda (zirve tırmanışı) yağmur her zaman görüntü alanının üstünden başlar.
+	var target_y: float = _view_center_y(player_pos.y) - 800.0  # Köy sahnesindekiyle aynı offset
 	
 	# X ekseni için smooth takip (yatay hareket için yumuşak geçiş)
 	global_position.x = lerp(global_position.x, target_x, clampf(forest_follow_lerp_speed_x, 0.01, 1.0))

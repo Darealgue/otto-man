@@ -205,6 +205,11 @@ func _spawn_one(kind: String) -> void:
 		stats = stats.duplicate(true)
 		enemy.set("stats", stats)
 		stats.detection_range = maxf(stats.detection_range, ARENA_DETECTION_RANGE)
+	# Arenada düşman asla uykuya dalmasın / aggro dışında kalmasın (uyku mesafesi de sınırsız)
+	if "sleep_distance" in enemy:
+		enemy.set("sleep_distance", 1.0e6)
+	if "wake_distance" in enemy:
+		enemy.set("wake_distance", 1.0e6)
 	if "chase_start_distance" in enemy:
 		enemy.set("chase_start_distance", ARENA_DETECTION_RANGE)
 		enemy.set("chase_stop_distance", ARENA_DETECTION_RANGE + 40.0)
