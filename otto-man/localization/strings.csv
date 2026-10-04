@@ -2648,3 +2648,4 @@ challenge.climb.go,Tırman!,Climb!
 challenge.climb.hud,Altın: %d   Yükseklik: %d / %d m,Gold: %d   Height: %d / %d m
 challenge.climb.fell,Düştün!,You fell!
 ozan.song.challenge.tirmanis,"%s, %s bir dağ yükselir; basamakları ufaldıkça yükselir, düşeni geri çağırmaz.","%s, %s a mountain rises; its steps shrink as it climbs, and it never calls back him who falls."
+challenge.win.fallback,Arena tamamlandı! +%d altın,Arena complete! +%d gold

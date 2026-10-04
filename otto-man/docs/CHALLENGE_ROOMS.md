@@ -6,6 +6,7 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 ## Kurallar (kullanıcı kararları)
 - Ödül challenge'ın temasına göre değişir: Koruma → kurtarılan köylüler, Tuzak Geçidi → altın/hammadde,
   Asansör Arenası → rastgele item, Dalga Arenası → koleksiyona unlock kartı.
+- **Ödül özeti:** Koruma → hayatta kalan köylüler; Dalga → 1 unlock kartı; Asansör → rastgele açılmamış item (koleksiyona); Kovalamaca → 1 unlock kartı (hiç yakalanmadan 2); Tuzak → altın + taş/odun; Tırmanış → altın (+toplanan) + taş/odun. Açılacak item kalmadıysa (tüm havuzlar tükenmiş) Dalga/Asansör/Kovalamaca zorlukla artan altına döner (`_grant_gold_fallback`); sessizce ödülsüz bitmez. Unlock kartı için tema `_pick_unlock_theme` ile havuzu tükenmemiş temalardan seçilir.
 - Giriş ücretsiz. Başarısızlık = oyuncunun ölümü (normal ölüm akışı: 1 canla köyde doğar). Koruma'da
   bütün köylüler ölürse ödül yok, haritaya dönülür.
 - Arena itemleri oyuncunun açtığı item havuzundan gelir (başlangıç item'ları + açtıkları; falcı ile

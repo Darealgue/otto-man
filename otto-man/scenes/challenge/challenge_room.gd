@@ -796,21 +796,45 @@ func _grant_reward() -> String:
 		# Sona ulaşmak 1 unlock teklifi; hiç yakalanmadan ulaşmak 2 teklif
 		var flawless: bool = _swarm != null and _swarm.catch_count == 0
 		var cim: Node = get_node_or_null("/root/ItemManager")
-		if is_instance_valid(cim) and cim.has_method("queue_unlock_offer"):
-			var cthemes: Array = cim.DUNGEON_THEME_POOLS.keys()
-			cim.call("queue_unlock_offer", String(cthemes[randi() % cthemes.size()]), "kesif", 2 if flawless else 1)
-			if cim.has_method("resolve_pending_unlock_offers"):
-				await cim.call("resolve_pending_unlock_offers")
+		var cpick: Dictionary = _pick_unlock_theme()
+		if cpick.is_empty() or not is_instance_valid(cim) or not cim.has_method("queue_unlock_offer"):
+			return _grant_gold_fallback(2 if flawless else 1)
+		cim.call("queue_unlock_offer", String(cpick["theme"]), String(cpick["tier"]), 2 if flawless else 1)
+		if cim.has_method("resolve_pending_unlock_offers"):
+			await cim.call("resolve_pending_unlock_offers")
 		return tr("challenge.win.kovalamaca.flawless" if flawless else "challenge.win.kovalamaca")
-	# Dalga arenası: koleksiyona yeni item (rastgele temanın keşif havuzundan seçim kartı)
+	# Dalga arenası: koleksiyona yeni item (açılacak item'ı kalan bir temanın havuzundan seçim kartı)
 	var im: Node = get_node_or_null("/root/ItemManager")
-	if is_instance_valid(im) and im.has_method("queue_unlock_offer"):
-		var themes: Array = im.DUNGEON_THEME_POOLS.keys()
-		var theme: String = String(themes[randi() % themes.size()])
-		im.call("queue_unlock_offer", theme, "kesif", 1)
-		if im.has_method("resolve_pending_unlock_offers"):
-			await im.call("resolve_pending_unlock_offers")
+	var pick: Dictionary = _pick_unlock_theme()
+	if pick.is_empty() or not is_instance_valid(im) or not im.has_method("queue_unlock_offer"):
+		return _grant_gold_fallback()
+	im.call("queue_unlock_offer", String(pick["theme"]), String(pick["tier"]), 1)
+	if im.has_method("resolve_pending_unlock_offers"):
+		await im.call("resolve_pending_unlock_offers")
 	return tr("challenge.win.dalga")
+
+
+## Açılacak item'ı kalan (havuzu tükenmemiş) rastgele bir tema + kademe; önce keşif, sonra boss kademesi.
+## Hiçbiri kalmadıysa boş sözlük döner (ödül altına çevrilir; sessizce ödülsüz kalınmaz).
+func _pick_unlock_theme() -> Dictionary:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(im) or not im.has_method("has_unlock_candidates"):
+		return {}
+	for tier in [im.UNLOCK_TIER_KESIF, im.UNLOCK_TIER_BOSS]:
+		var opts: Array[String] = []
+		for theme in im.DUNGEON_THEME_POOLS.keys():
+			if bool(im.call("has_unlock_candidates", String(theme), String(tier))):
+				opts.append(String(theme))
+		if not opts.is_empty():
+			return {"theme": opts[randi() % opts.size()], "tier": String(tier)}
+	return {}
+
+
+## Açılacak item kalmadığında: zorlukla artan altın (mult ile çarpılır).
+func _grant_gold_fallback(mult: int = 1) -> String:
+	var gold: int = (40 + 30 * difficulty) * mult
+	_pay_gold(gold)
+	return tr("challenge.win.fallback") % gold
 
 
 ## Asansör ödülü: rastgele bir temadan, henüz açılmamış rastgele bir item doğrudan koleksiyona eklenir.
@@ -825,7 +849,7 @@ func _grant_random_item_unlock() -> String:
 		for id in pool:
 			if bool(im.call("unlock_item", id)):
 				return tr("challenge.win.asansor") % tr("item.%s.name" % id)
-	return tr("challenge.win.dalga")
+	return _grant_gold_fallback()
 
 
 func _leave_to_world_map(won: bool) -> void:
