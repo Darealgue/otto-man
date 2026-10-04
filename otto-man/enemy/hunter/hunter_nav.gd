@@ -20,7 +20,7 @@ const MAX_SIMS_PER_NODE := 12
 const FLAT_NORMAL_Y := -0.7
 const COL_Y_QUANT := 256.0
 
-enum Kind { WALK, JUMP, DROP, DROPTHRU }
+enum Kind { WALK, JUMP, DROP, DROPTHRU, DJUMP }
 enum Search { IDLE, SEARCHING, FOUND, FAILED }
 
 class NavNode:
@@ -47,6 +47,7 @@ var jump_speed: float
 var air_max: float
 var run_speed: float
 var feet_off: float
+var dj_speed: float = 780.0   # çift zıplamanın ikinci itkisi (ilk zıplamanın zirvesinde uygulanır)
 
 var nodes: Array = []
 var cols: Dictionary = {}
@@ -244,7 +245,9 @@ func _expand(n) -> void:
 	var thru: bool = n.one_way and (n.cx % 2 == 0)
 	if not launch and not thru:
 		return
-	var apex: float = jump_speed * jump_speed / (2.0 * gravity)
+	var apex1: float = jump_speed * jump_speed / (2.0 * gravity)
+	var apex: float = apex1 + dj_speed * dj_speed / (2.0 * gravity)   # çift zıplamayla toplam yükseklik
+	var ts: float = jump_speed / gravity                              # ilk zıplamanın zirve zamanı
 	var my_root: int = _find(n.id)
 	var cands: Dictionary = {}
 	for cx in range(n.cx - MAX_REACH_COLS, n.cx + MAX_REACH_COLS + 1):
@@ -263,12 +266,22 @@ func _expand(n) -> void:
 			var c_end: float = 60.0 if (not c.has_left or not c.has_right) else 0.0
 			var score: float = absf(dx) + c_end
 			if launch:
+				var single_ok: bool = false
 				var disc: float = jump_speed * jump_speed + 2.0 * gravity * dy
 				if disc >= 0.0:
 					var t: float = (jump_speed + sqrt(disc)) / gravity
 					var vx: float = dx / t
 					if absf(vx) <= air_max:
+						single_ok = true
 						_add_cand(cands, root, Kind.JUMP, score, c, vx, t)
+				if not single_ok:
+					# Tek zıplama yetmiyor (çok yüksek / çok uzak): zirvede ikinci zıplama
+					var disc2: float = dj_speed * dj_speed + 2.0 * gravity * (dy + apex1)
+					if disc2 >= 0.0:
+						var t2d: float = ts + (dj_speed + sqrt(disc2)) / gravity
+						var vx2d: float = dx / t2d
+						if absf(vx2d) <= air_max:
+							_add_cand(cands, root, Kind.DJUMP, score + 40.0, c, vx2d, t2d)
 			if is_end and dy >= 24.0 and ((dx > 0.0 and not n.has_right) or (dx < 0.0 and not n.has_left)):
 				var t2: float = sqrt(2.0 * dy / gravity)
 				var vx2: float = dx / t2
@@ -291,7 +304,9 @@ func _expand(n) -> void:
 			if land != null:
 				var kind: int = cd["kind"]
 				var pen: float = 0.35
-				if kind == Kind.DROP:
+				if kind == Kind.DJUMP:
+					pen = 0.6
+				elif kind == Kind.DROP:
 					pen = 0.1
 				elif kind == Kind.DROPTHRU:
 					pen = 0.3
@@ -314,6 +329,8 @@ func _verify(n, cd: Dictionary):
 	var land = null
 	if kind == Kind.JUMP:
 		land = _simulate(n.pos, cd["vx"], -jump_speed, cd["t"])
+	elif kind == Kind.DJUMP:
+		land = _simulate(n.pos, cd["vx"], -jump_speed, cd["t"], jump_speed / gravity, dj_speed)
 	elif kind == Kind.DROP:
 		var dir: float = signf(cd["vx"])
 		var start: Vector2 = _walk_off_point(n.pos, dir)
@@ -340,13 +357,17 @@ func _walk_off_point(start: Vector2, dir: float) -> Vector2:
 	return p
 
 
-func _simulate(start: Vector2, vx: float, vy0: float, t_hint: float):
+func _simulate(start: Vector2, vx: float, vy0: float, t_hint: float, dj_time: float = -1.0, dj_v: float = 0.0):
 	sims_run += 1
 	var pos: Vector2 = start
 	var vy: float = vy0
 	var steps: int = int(ceilf((t_hint + 0.6) / SIM_DT))
 	var xf := Transform2D(0.0, pos)
+	var dj_done: bool = dj_time < 0.0
 	for i in steps:
+		if not dj_done and i * SIM_DT >= dj_time:
+			vy = -dj_v
+			dj_done = true
 		vy += gravity * SIM_DT
 		var motion := Vector2(vx * SIM_DT, vy * SIM_DT)
 		xf.origin = pos

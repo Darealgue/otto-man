@@ -59,6 +59,8 @@ const WALK := 0
 const JUMP := 1
 const DROP := 2
 const DROPTHRU := 3
+const DJUMP := 4
+const DJ_SPEED := 780.0   # ikinci (havadaki) zıplama itkisi, ilk zıplamanın zirvesinde
 
 var nav: RefCounted = null
 var path: Array = []
@@ -66,6 +68,7 @@ var path_i: int = 0
 var nav_cd: float = 0.0
 var move_state: String = "ground"   # ground | air
 var air_t: float = 0.0
+var _dj_done: bool = true
 var air_edge: Dictionary = {}
 var jump_cd: float = 0.0
 var lunge_cd: float = 0.0
@@ -488,7 +491,7 @@ func _follow_path(delta: float) -> bool:
 				path_i += 1
 				return _follow_path(delta)
 			_walk_dir(signf(dx), speed)
-		JUMP:
+		JUMP, DJUMP:
 			var dxj: float = from.pos.x - global_position.x
 			if absf(dxj) > 5.0:
 				_walk_dir(signf(dxj), clampf(absf(dxj) * 10.0, 40.0, speed))
@@ -528,6 +531,7 @@ func _enter_air(e: Dictionary) -> void:
 	move_state = "air"
 	air_t = 0.0
 	air_edge = e
+	_dj_done = int(e["kind"]) != DJUMP
 
 
 func _tick_air(delta: float) -> void:
@@ -537,7 +541,14 @@ func _tick_air(delta: float) -> void:
 		return
 	var to = air_edge["to"]
 	var t_total: float = float(air_edge["t"])
-	if velocity.y > 0.0 or int(air_edge["kind"]) != JUMP:
+	var is_dj: bool = int(air_edge["kind"]) == DJUMP
+	if is_dj and not _dj_done and air_t >= JUMP_SPEED / GRAV:
+		velocity.y = -DJ_SPEED   # çift zıplama: zirvede ikinci itki
+		_dj_done = true
+		if sprite:
+			sprite.play("jump")
+	var steer_ok: bool = velocity.y > 0.0 and (_dj_done or not is_dj)
+	if steer_ok or int(air_edge["kind"]) in [DROP, DROPTHRU]:
 		var t_left: float = maxf(t_total - air_t, 0.12)
 		velocity.x = clampf((to.pos.x - global_position.x) / t_left, -AIR_MAX, AIR_MAX)
 	if absf(velocity.x) > 10.0:

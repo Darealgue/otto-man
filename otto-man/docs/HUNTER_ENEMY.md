@@ -13,6 +13,7 @@ Oyuncuyu gören, tile ve one-way platformları tanıyıp zıplayarak / atlayarak
 - **Tile'lar önceden işaretlenmez.** Çevre fizik sorgularıyla taranır: her 16 px'de aşağı ışın, basılabilir (düz, tepesi boş) her yüzey bir düğüm. One-way platformlar da yüzey sayılır; altından geçilebilirliği `test_move` ile ölçülüp `one_way` işaretlenir.
 - Yan yana düğümler "yürü" kenarıyla bağlanır (aynı koşu = union-find).
 - **Zıplama / kenardan düşme / platformdan inme kenarları tembel üretilir** (A* düğümü açarken). Analitik yay hesaplanır, sonra gerçek gövdeyle `test_move` ile simüle edilip nereye indiği doğrulanır. Yani kenar listesindeki her hamle bu gövdeyle gerçekten yapılabilir.
+- **Çift zıplama (`DJUMP`):** tek zıplama yetmediğinde (çok yüksek ya da çok uzak hedef) ilk zıplamanın zirvesinde ikinci itki (`DJ_SPEED`) uygulanır; toplam yükseklik ~370 px. Nav bu yayı da aynı `test_move` simülasyonuyla doğrular.
 - A* zaman bütçelidir (kare başına ~1.5 ms), ulaşılamayan hedefte en yakın düğüme kısmi rota verir. Kenarlar önbellekte kalır, ikinci arama hızlıdır.
 - Hareket sabitleri (`GRAV`, `JUMP_SPEED`, `AIR_MAX`) `hunter_enemy.gd` ve nav'da aynıdır; simüle edilen yay yürütülenle birebir olmalı. Birini değiştirirsen hepsi aynı kalır (nav, avcıdan alır).
 - Havada hedef düğüme doğru yatay düzeltme yapılır; beklenmedik yere inerse rota sıfırlanıp yeniden aranır. Takılırsa (0.5 sn'de 8 px'den az) yeniden planlar ve küçük bir zıplama dener.
