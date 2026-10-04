@@ -384,7 +384,8 @@ func _setup_trap_run() -> void:
 	print("[TuzakGecidi] tema=%s zorluk=%d tuzak=%d" % [_theme, difficulty, count])
 	_apply_theme_rules()
 	# Süre: labirent uzunluğuna göre; tuzağa çarpmak süreden düşer (kısa ama sık tuzaklı bir yol)
-	_time_left = 30.0 + 0.3 * float(_layout["cols"])
+	# (çözüm yolundaki hücre sayısı x 3.5 sn + 25 sn pay)
+	_time_left = 25.0 + float(_layout["route_cells"]) / float(TrapMazeBuilder.CELL_W) * 3.5
 	if _player.has_signal("player_took_damage"):
 		_player.connect("player_took_damage", _on_trap_hit)
 	_update_ward_label()

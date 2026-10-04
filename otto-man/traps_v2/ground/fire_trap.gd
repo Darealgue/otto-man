@@ -20,7 +20,7 @@ enum FireState { DORMANT, OPENING, SUSTAIN, CLOSING }
 ## Fire must stay on at least this long after activating (prevents instant off when player steps away).
 @export var min_active_duration: float = 1.2
 ## Fire turns off after this long even if player is still in range (so they don't burn forever).
-@export var max_active_duration: float = 3.0
+@export var max_active_duration: float = 2.0
 
 ## Alev boyutu çarpanı (görsel + hasar alanı). Zindan teması ayarlar (ateş zindanı > 1).
 var flame_scale: float = 1.0
@@ -32,6 +32,7 @@ var _state: FireState = FireState.DORMANT
 var _damage_cooldown: float = 0.0
 var _player_in_range: bool = false
 var _sustain_elapsed: float = 0.0
+var _off_timer: float = 0.0
 
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var detection_area: Area2D = $DetectionArea
@@ -82,6 +83,12 @@ func _apply_flame_scale() -> void:
 func _physics_process(delta: float) -> void:
 	if is_sleeping:
 		return
+	if _off_timer > 0.0:
+		_off_timer -= delta
+	# Kapalı bekleme bitti ve oyuncu hâlâ menzildeyse yeniden yan
+	if _state == FireState.DORMANT and _off_timer <= 0.0 and _player_in_range:
+		_start_opening()
+		return
 	if _state != FireState.SUSTAIN:
 		return
 	_sustain_elapsed += delta
@@ -113,7 +120,7 @@ func _physics_process(delta: float) -> void:
 func _on_detection_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):
 		_player_in_range = true
-		if _state == FireState.DORMANT:
+		if _state == FireState.DORMANT and _off_timer <= 0.0:
 			_start_opening()
 
 func _on_detection_exited(body: Node2D) -> void:
@@ -149,6 +156,7 @@ func _start_closing() -> void:
 
 func _enter_dormant() -> void:
 	_state = FireState.DORMANT
+	_off_timer = cooldown_after_deactivate
 	damage_area.monitoring = false
 	_set_fire_light(false)
 	if sprite and sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"):
@@ -159,10 +167,7 @@ func _on_animation_finished() -> void:
 		FireState.OPENING:
 			_enter_sustain()
 		FireState.CLOSING:
-			if _player_in_range:
-				_start_opening()
-			else:
-				_enter_dormant()
+			_enter_dormant()
 
 func _set_fire_light(on: bool) -> void:
 	if fire_light:

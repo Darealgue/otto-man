@@ -1,45 +1,39 @@
 class_name TrapMazeBuilder
 extends RefCounted
 
-## Tuzak Geçidi labirenti: odanın iç hacmi rastgele bloklarla (2x2, 2x6, L, T, birleşik kümeler) dolar;
-## oyuncu bu bloklar arasından sağa doğru yolunu bulur. Blokların her yüzü tuzakla donatılır (bkz. populate).
-## Yol garantisi: oyuncu hareketi (yürü/zıpla/düş) basitleştirilmiş bir grafikte aranır; yol yoksa yeniden üretilir.
-## Rota üzerindeki duruş noktalarının bir kısmı tuzaksız bırakılır (güvenli nefes alma noktaları).
+## Tuzak Geçidi: gerçek bir labirent. Oda, W x 5 hücrelik bir ızgaraya bölünür (hücre = 7 kolon x 3 satır iç boşluk,
+## 2 satır zemin); rastgele DFS ile "mükemmel labirent" üretilir (her hücreye tek yol), üstüne birkaç duvar daha
+## açılarak alternatif/döngü yollar eklenir. Çoğu yol çıkmaz sokaktır; hangisinin sağdaki çıkışa gittiğini oyuncu
+## gözüyle bulur. Yan geçitler duvar sütunundaki açıklıklardır; dikey geçitler zemindeki 4 kolonluk deliklerdir
+## (aşağı düşersin, yukarı çift zıplamayla çıkarsın). Hücrelerin içi tuzak doludur (bkz. populate).
 
 const TILE: int = 32
 const FLOOR_ROW: int = 29
 const CEILING_ROWS: int = 4
 const OVERSCAN: int = 6
-const START_COLS: int = 12      # soldaki boş başlangıç alanı
-const END_COLS: int = 26        # sağdaki boş bitiş alanı (kapı)
+const START_COLS: int = 12       # soldaki başlangıç alanı
+const END_COLS: int = 26         # sağdaki bitiş alanı (kapı)
 const WALL_COLS: int = 3
-## Zıplama sınırları (karo): zıplama + çift zıplamayla çıkılabilen yükseklik ve yatay erişim
-## Yol boyunca ayak karosunun üstünde açık kalan satır sayısı (baş boşluğu)
-const HEAD_ROWS: int = 3
-const MAX_RISE: int = 6
-const MAX_REACH: int = 7
-
-## Blok şekilleri için dikdörtgen boyları (genişlik, yükseklik)
-const RECTS: Array = [[2, 2], [2, 6], [6, 2], [3, 3], [2, 4], [4, 2], [4, 4], [2, 3], [5, 2]]
+## Hücre ölçüleri: iç genişlik 7 + sağda 1 kolon duvar sütunu; iç yükseklik 3 + 2 satır zemin
+const CELL_W: int = 6
+const PITCH_X: int = 8
+const CELL_AIR: int = 3
+const PITCH_Y: int = 5
+const GRID_H: int = 5
+## Başlangıç/bitiş alanlarının zemin yüksekliği: alt hücre sırasının zemini ile aynı (ayak satırı 26)
+const RAISED_ROWS: Array[int] = [27, 28]
 
 
 ## Labirenti kurar. Dönen sözlük ChallengeRoom'un beklediği alanları taşır.
 static func build(root: Node2D, difficulty: int, theme: String) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var cols: int = 60 + 32 * clampi(difficulty, 1, 9)
-	# Önce garantili yol oyulur (iniş çıkışlı, zıplamayla geçilebilen basamaklı şerit), sonra kalan boşluk
-	# rastgele bloklarla doldurulur: yol labirentin içinde kıvrılır, çevresi çıkmaz sokaklarla doludur.
-	var carved: Dictionary = _carve_route(rng, cols)
-	var air: Dictionary = carved["air"]
-	var blocks: Dictionary = _generate(rng, cols, 0.24, air, CEILING_ROWS, 0.22)
-	# Zemin katı: alt satırlar da yoğun bloklarla dolar; düz yürüyerek geçilecek zemin yolu kalmaz, yalnız oyulan yol açık
-	var floor_mass: Dictionary = _generate(rng, cols, 0.7, air, FLOOR_ROW - 8, 0.6)
-	for c in floor_mass.keys():
-		blocks[c] = true
-	for c in carved["platform"].keys():
-		blocks[c] = true
-	var route: Array[Vector2i] = carved["route"]
+	var gw: int = 4 * clampi(difficulty, 1, 9)   # uzunluk zorlukla orantılı: 1x, 2x ... 9x
+	var cols: int = START_COLS + gw * PITCH_X + END_COLS
+	var maze: Dictionary = _make_maze(rng, gw, GRID_H)
+	var blocks: Dictionary = _build_blocks(rng, maze, gw, cols)
+	var route: Array[Vector2i] = _solution_cells(maze, gw)
+
 	var layer := TileMapLayer.new()
 	layer.name = "TileMapLayer"
 	layer.tile_set = load(ChallengeArenaBuilder.TILESET_PATH) as TileSet
@@ -64,197 +58,178 @@ static func build(root: Node2D, difficulty: int, theme: String) -> Dictionary:
 		cells.append(c)
 	layer.set_cells_terrain_connect(cells, ChallengeArenaBuilder.TERRAIN_SET_DUNGEON, 0)
 
-	var floor_y: float = float(FLOOR_ROW * TILE)
+	var raised_y: float = float(RAISED_ROWS[0] * TILE)
 	var length: float = float(cols * TILE)
-	# Arka plan, kapılar ve bayraklar: koridorun dekor koduyla (zemin sabit, engel parçası yok)
+	# Arka plan, kapılar ve bayraklar: koridorun dekor koduyla (zemin = yükseltilmiş başlangıç/bitiş zemini)
 	var ground: Array[int] = []
 	ground.resize(cols)
-	ground.fill(FLOOR_ROW)
+	ground.fill(RAISED_ROWS[0])
 	var no_spans: Array[Vector2i] = []
 	ChaseCorridorBuilder._add_dungeon_dressing(root, layer, rng, length, ground, no_spans, theme, true)
 	return {
-		"bounds": Rect2(0.0, float(CEILING_ROWS * TILE), length, floor_y - float(CEILING_ROWS * TILE)),
-		"floor_y": floor_y,
+		"bounds": Rect2(0.0, float(CEILING_ROWS * TILE), length, FLOOR_ROW * TILE - float(CEILING_ROWS * TILE)),
+		"floor_y": raised_y,
 		"length": length,
 		"end_x": length - float(END_COLS - 8) * float(TILE),
-		"player_spawn": Vector2(150.0, floor_y),
+		"player_spawn": Vector2(150.0, raised_y),
 		"camera_position": Vector2(960.0, 540.0),
 		"fixed_cam_y": 540.0,
 		"center_x": length * 0.5,
 		"cols": cols,
 		"blocks": blocks,
 		"route": route,
+		"route_cells": route.size(),
 	}
 
 
-# --- Blok üretimi -------------------------------------------------------------------------------
+# --- Labirent grafı -------------------------------------------------------------------------------
 
-## İç hacmi (START_COLS .. cols-END_COLS, tavan ile zemin arası) hedef doluluğa kadar rastgele şekillerle doldurur.
-static func _generate(rng: RandomNumberGenerator, cols: int, density: float, air: Dictionary, y_min: int, merge_chance: float) -> Dictionary:
-	var blocks: Dictionary = {}
-	var x0: int = START_COLS
-	var x1: int = cols - END_COLS
-	var y0: int = y_min
-	var y1: int = FLOOR_ROW - 1
-	var area: int = (x1 - x0) * (y1 - y0 + 1)
-	var target: int = int(float(area) * density)
-	var guard: int = 0
-	while blocks.size() < target and guard < 4000:
-		guard += 1
-		var cells: Array[Vector2i] = _random_shape(rng)
-		var bounds := _bounds(cells)
-		var ox: int = rng.randi_range(x0, maxi(x0, x1 - bounds.size.x))
-		var oy: int = rng.randi_range(y0, maxi(y0, y1 - bounds.size.y + 1))
-		var placed: Array[Vector2i] = []
-		var blocked: bool = false
-		for c in cells:
-			var p := Vector2i(c.x + ox - bounds.position.x, c.y + oy - bounds.position.y)
-			if p.x < x0 or p.x >= x1 or p.y < y0 or p.y > y1:
-				continue
-			if air.has(p):
-				blocked = true   # yolun içine giren şekil tümden atılır (şekil bütünlüğü bozulmasın)
-				break
-			placed.append(p)
-		if not blocked:
-			# Çoğu şekil diğerlerine 2 karodan fazla uzak durur (ayrı bloklar); %22'si birleşik kümelere katılır
-			var touching: bool = false
-			for p in placed:
-				for dx in range(-2, 3):
-					for dy in range(-2, 3):
-						if blocks.has(Vector2i(p.x + dx, p.y + dy)):
-							touching = true
-			if touching and rng.randf() > merge_chance:
-				continue
-			for p in placed:
-				blocks[p] = true
-	# 1 karolu aralıkları (oyuncunun sığamayacağı yarıklar) doldur
-	for pass_i in range(2):
-		for x in range(x0, x1):
-			for y in range(y0, y1 + 1):
-				var c := Vector2i(x, y)
-				if blocks.has(c) or air.has(c):
-					continue
-				var left: bool = blocks.has(Vector2i(x - 1, y)) or x - 1 < x0
-				var right: bool = blocks.has(Vector2i(x + 1, y)) or x + 1 >= x1
-				var up: bool = blocks.has(Vector2i(x, y - 1)) or y - 1 < y0
-				var down: bool = blocks.has(Vector2i(x, y + 1)) or y + 1 > y1
-				if (left and right and x - 1 >= x0 and x + 1 < x1) or (up and down):
-					blocks[c] = true
-	return blocks
+## Mükemmel labirent (DFS) + birkaç ek açıklık. Dönen sözlük:
+##   "h": Dictionary (i, j) -> true   (i,j) ile (i+1,j) arası yan geçit açık
+##   "v": Dictionary (i, j) -> true   (i,j) ile (i,j+1) arası dikey geçit (zemindeki delik) açık
+##   "hole": Dictionary (i, j) -> delik sol kolonu (hücre içi 0 ya da 3)
+static func _make_maze(rng: RandomNumberGenerator, gw: int, gh: int) -> Dictionary:
+	var h: Dictionary = {}
+	var v: Dictionary = {}
+	var visited: Dictionary = {}
+	var stack: Array[Vector2i] = []
+	var start := Vector2i(0, gh - 1)
+	visited[start] = true
+	stack.append(start)
+	while not stack.is_empty():
+		var cur: Vector2i = stack[stack.size() - 1]
+		var options: Array[Vector2i] = []
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = cur + d
+			if n.x >= 0 and n.x < gw and n.y >= 0 and n.y < gh and not visited.has(n):
+				options.append(n)
+		if options.is_empty():
+			stack.pop_back()
+			continue
+		# Dikey hamleler 3 kat ağırlıklı: satırlar kısa parçalara bölünür, düz bir şeritle sona ulaşılamaz
+		var weighted: Array[Vector2i] = []
+		for o in options:
+			for _w in range(3 if o.x == cur.x else 1):
+				weighted.append(o)
+		var nxt: Vector2i = weighted[rng.randi() % weighted.size()]
+		_open_between(h, v, cur, nxt)
+		visited[nxt] = true
+		stack.append(nxt)
+	# Döngüler: duvarların ~%12'si daha açılır (birden fazla yol, kafa karıştırıcı kısa yollar)
+	for i in range(gw):
+		for j in range(gh):
+			if i + 1 < gw and not h.has(Vector2i(i, j)) and rng.randf() < 0.03:
+				h[Vector2i(i, j)] = true
+			if j + 1 < gh and not v.has(Vector2i(i, j)) and rng.randf() < 0.12:
+				v[Vector2i(i, j)] = true
+	var hole: Dictionary = {}
+	for k in v.keys():
+		hole[k] = 0 if rng.randf() < 0.5 else CELL_W - 4
+	return {"h": h, "v": v, "hole": hole}
 
 
-## Rastgele bir şekil: dikdörtgen, L ya da T (hepsi en az 2 karo kalınlığında).
-static func _random_shape(rng: RandomNumberGenerator) -> Array[Vector2i]:
-	var out: Array[Vector2i] = []
-	var kind: int = rng.randi() % 10
-	if kind < 6:
-		var r: Array = RECTS[rng.randi() % RECTS.size()]
-		_add_rect(out, 0, 0, int(r[0]), int(r[1]))
-	elif kind < 8:
-		# L: yatay kol + dikey kol köşede birleşir
-		var a: int = rng.randi_range(4, 7)
-		var b: int = rng.randi_range(4, 7)
-		_add_rect(out, 0, 0, a, 2)
-		_add_rect(out, 0, 0, 2, b)
-		if rng.randf() < 0.5:
-			_mirror_x(out, a)
-		if rng.randf() < 0.5:
-			_mirror_y(out, b)
+static func _open_between(h: Dictionary, v: Dictionary, a: Vector2i, b: Vector2i) -> void:
+	if a.y == b.y:
+		h[Vector2i(mini(a.x, b.x), a.y)] = true
 	else:
-		# T: yatay çubuk + ortadan aşağı ya da yukarı sap
-		var w: int = rng.randi_range(5, 8)
-		var h: int = rng.randi_range(3, 6)
-		_add_rect(out, 0, 0, w, 2)
-		_add_rect(out, w / 2 - 1, 2, 2, h)
-		if rng.randf() < 0.5:
-			_mirror_y(out, h + 2)
+		v[Vector2i(a.x, mini(a.y, b.y))] = true
+
+
+## Başlangıç hücresinden (0, son sıra) bitiş hücresine (gw-1, son sıra) giden hücre yolu (BFS), ayak karolarına çevrilmiş.
+static func _solution_cells(maze: Dictionary, gw: int) -> Array[Vector2i]:
+	var gh: int = GRID_H
+	var h: Dictionary = maze["h"]
+	var v: Dictionary = maze["v"]
+	var start := Vector2i(0, gh - 1)
+	var goal := Vector2i(gw - 1, gh - 1)
+	var parent: Dictionary = {start: start}
+	var queue: Array[Vector2i] = [start]
+	var head: int = 0
+	while head < queue.size():
+		var cur: Vector2i = queue[head]
+		head += 1
+		if cur == goal:
+			break
+		var nbs: Array[Vector2i] = []
+		if h.has(cur):
+			nbs.append(cur + Vector2i(1, 0))
+		if h.has(cur + Vector2i(-1, 0)):
+			nbs.append(cur + Vector2i(-1, 0))
+		if v.has(cur):
+			nbs.append(cur + Vector2i(0, 1))
+		if v.has(cur + Vector2i(0, -1)):
+			nbs.append(cur + Vector2i(0, -1))
+		for n in nbs:
+			if not parent.has(n):
+				parent[n] = cur
+				queue.append(n)
+	var out: Array[Vector2i] = []
+	if not parent.has(goal):
+		return out
+	var path: Array[Vector2i] = []
+	var n: Vector2i = goal
+	while n != start:
+		path.append(n)
+		n = parent[n]
+	path.append(start)
+	path.reverse()
+	for cell in path:
+		var y: int = CEILING_ROWS + cell.y * PITCH_Y + CELL_AIR - 1   # hücrenin ayak satırı
+		for dx in range(CELL_W):
+			out.append(Vector2i(START_COLS + cell.x * PITCH_X + dx, y))
 	return out
 
 
-static func _add_rect(out: Array[Vector2i], x: int, y: int, w: int, h: int) -> void:
-	for i in range(w):
-		for j in range(h):
-			var c := Vector2i(x + i, y + j)
-			if c not in out:
-				out.append(c)
+# --- Bloklar ---------------------------------------------------------------------------------------
 
-
-static func _mirror_x(cells: Array[Vector2i], width: int) -> void:
-	for i in range(cells.size()):
-		cells[i] = Vector2i(width - 1 - cells[i].x, cells[i].y)
-
-
-static func _mirror_y(cells: Array[Vector2i], height: int) -> void:
-	for i in range(cells.size()):
-		cells[i] = Vector2i(cells[i].x, height - 1 - cells[i].y)
-
-
-static func _bounds(cells: Array[Vector2i]) -> Rect2i:
-	var mn := Vector2i(1000000, 1000000)
-	var mx := Vector2i(-1000000, -1000000)
-	for c in cells:
-		mn = Vector2i(mini(mn.x, c.x), mini(mn.y, c.y))
-		mx = Vector2i(maxi(mx.x, c.x), maxi(mx.y, c.y))
-	return Rect2i(mn, mx - mn + Vector2i.ONE)
-
-
-# --- Garantili yol -------------------------------------------------------------------------------
-
-## Soldan sağa iniş çıkışlı bir "ayak yolu" oyar. Her sütunun ayak satırı (ys) segmentler halinde 1-3 satır
-## yükselip alçalır (yukarı basamak = zıplama, aşağı = düşüş; ikisi de oyuncu için kolay). Dönen sözlük:
-##   air:      yol boyunca boş kalacak hücreler (5 satır baş boşluğu + basamak geçişleri) -> bloklar buraya giremez
-##   platform: yolun altındaki 2 karo kalınlığında zemin (zemin satırında yoksa) -> bloklara eklenir
-##   route:    ayak karoları (soldan sağa)
-static func _carve_route(rng: RandomNumberGenerator, cols: int) -> Dictionary:
-	var air: Dictionary = {}
-	var platform: Dictionary = {}
-	var route: Array[Vector2i] = []
-	var x_end: int = cols - END_COLS + 2
-	var ys: Array[int] = []
-	ys.resize(cols)
-	ys.fill(FLOOR_ROW - 1)
-	var y: int = FLOOR_ROW - 1
-	var x: int = START_COLS
-	# Yol, tavan ve zemin bandı arasında zikzak yapar: hedef bandı (yüksek ya da alçak) seçer, oraya basamaklarla
-	# ilerler, varınca diğer banda döner. Düz zemin boyunca yürüyerek geçilemez.
-	var low_band := Vector2i(FLOOR_ROW - 6, FLOOR_ROW - 1)
-	var high_band := Vector2i(CEILING_ROWS + 7, CEILING_ROWS + 12)
-	var target: int = rng.randi_range(high_band.x, high_band.y)
-	while x < x_end:
-		var seg: int = rng.randi_range(3, 6)
-		var delta: int
-		if x >= x_end - 18:
-			delta = mini(3, FLOOR_ROW - 1 - y)   # son 18 sütunda zemine inilir (çıkış kapısı zeminde)
-		else:
-			if absi(target - y) <= 1:
-				# Varıldı: karşı banda yönel
-				var go_high: bool = target > (CEILING_ROWS + FLOOR_ROW) / 2
-				target = rng.randi_range(high_band.x, high_band.y) if go_high else rng.randi_range(low_band.x, low_band.y)
-			var dir: int = signi(target - y)
-			delta = dir * rng.randi_range(1, 3)
-		y = clampi(y + delta, CEILING_ROWS + 6, FLOOR_ROW - 1)
-		for i in range(seg):
-			if x + i < cols:
-				ys[x + i] = y
-		x += seg
-	for cx in range(START_COLS / 2, cols):
-		var cy: int = ys[cx]
-		route.append(Vector2i(cx, cy))
-		for r in range(cy - HEAD_ROWS, cy + 1):
-			air[Vector2i(cx, r)] = true
-		# Basamak geçişleri: yukarı çıkarken önceki sütunun üstü, aşağı inerken bu sütunun üstü açık kalır
-		if cx > START_COLS / 2:
-			var py: int = ys[cx - 1]
-			if cy < py:
-				for r in range(cy - HEAD_ROWS, py + 1):
-					air[Vector2i(cx - 1, r)] = true
-			elif cy > py:
-				for r in range(py - HEAD_ROWS, cy + 1):
-					air[Vector2i(cx, r)] = true
-		for r in [cy + 1, cy + 2]:
-			if r < FLOOR_ROW and cx >= START_COLS:
-				platform[Vector2i(cx, r)] = true
-	return {"air": air, "platform": platform, "route": route}
+## Labirentin katı hücrelerini üretir: zeminler, duvar sütunları, delikler, yan açıklıklar, giriş/çıkış alanları,
+## ve bazı hücrelerin içine zıplanacak 2x2 bloklar.
+static func _build_blocks(rng: RandomNumberGenerator, maze: Dictionary, gw: int, cols: int) -> Dictionary:
+	var blocks: Dictionary = {}
+	var h: Dictionary = maze["h"]
+	var v: Dictionary = maze["v"]
+	var hole: Dictionary = maze["hole"]
+	for j in range(GRID_H):
+		var y0: int = CEILING_ROWS + j * PITCH_Y
+		for i in range(gw):
+			var x0: int = START_COLS + i * PITCH_X
+			# Zemin (2 satır): dikey geçit varsa 4 kolonluk delik
+			var hx: int = int(hole.get(Vector2i(i, j), -1))
+			var has_hole: bool = v.has(Vector2i(i, j))
+			for dx in range(CELL_W):
+				if has_hole and dx >= hx and dx < hx + 4:
+					continue
+				for r in range(CELL_AIR, PITCH_Y):
+					blocks[Vector2i(x0 + dx, y0 + r)] = true
+			# Hücre içi blok (zıplanacak 2x2): delik ve yan açıklık hizasından uzakta, orta kolonlarda
+			if rng.randf() < 0.4:
+				var bx: int = x0 + 2 + rng.randi_range(0, 1)
+				if has_hole and bx + 1 >= x0 + hx and bx <= x0 + hx + 3:
+					bx = x0 + (4 if hx == 0 else 0)   # delikten kaçınmak için karşı yana kaydır
+				for dx in range(2):
+					for r in range(CELL_AIR - 2, CELL_AIR):
+						blocks[Vector2i(bx + dx, y0 + r)] = true
+		# Duvar sütunları: i = 0 .. gw; açık geçit varsa 3 hava satırı oyulur (zemin kalır)
+		for k in range(gw + 1):
+			var px: int = START_COLS - 2 + k * PITCH_X
+			var open_gap: bool = false
+			if k == 0 or k == gw:
+				open_gap = (j == GRID_H - 1)          # sol: başlangıç, sağ: çıkış (alt sıra)
+			else:
+				open_gap = h.has(Vector2i(k - 1, j))
+			for r in range(PITCH_Y):
+				if open_gap and r < CELL_AIR:
+					continue
+				blocks[Vector2i(px, y0 + r)] = true
+				blocks[Vector2i(px + 1, y0 + r)] = true
+	# Başlangıç ve bitiş alanı zeminleri (alt hücre sırasının zemin yüksekliği)
+	for x in range(0, START_COLS - 2):
+		for r in RAISED_ROWS:
+			blocks[Vector2i(x, r)] = true
+	for x in range(START_COLS + gw * PITCH_X, cols):
+		for r in RAISED_ROWS:
+			blocks[Vector2i(x, r)] = true
+	return blocks
 
 
 ## Ayak karosu (x, y): kendisi ve üstü boş, altı dolu (oyuncu ~44 px: 2 satır baş boşluğu).
@@ -270,10 +245,11 @@ static func _standing(blocks: Dictionary, x: int, y: int, cols: int) -> bool:
 	return not _is_solid(blocks, Vector2i(x, y), cols) and not _is_solid(blocks, Vector2i(x, y - 1), cols) \
 			and _is_solid(blocks, Vector2i(x, y + 1), cols)
 
+
 # --- Tuzak yerleşimi -----------------------------------------------------------------------------
 
-## Blokların ve zemin/tavanın her açık yüzüne tema tuzakları koyar. Rota üzerindeki duruş noktalarının bir kısmı
-## (ve komşuları) zemin tuzağından muaf tutulur: oyuncu orada nefes alır.
+## Labirentin her açık yüzüne tema tuzakları koyar: hücre zeminleri, tavanlar, duvar sütunları. Çözüm yolundaki
+## hücrelerin bazı noktaları (ve komşuları) zemin tuzağından muaf: oyuncu orada nefes alır. Çıkmaz sokaklar da dolu.
 static func populate(parent: Node2D, layout: Dictionary, theme: String, level: int) -> int:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
@@ -282,26 +258,20 @@ static func populate(parent: Node2D, layout: Dictionary, theme: String, level: i
 	var route: Array = layout["route"]
 	var safe: Dictionary = {}
 	for i in range(route.size()):
-		if i % 4 == 0:
+		if i % 14 == 3:
 			var r: Vector2i = route[i]
 			for dx in range(-1, 2):
 				safe[Vector2i(r.x + dx, r.y)] = true
-	# Rota hücreleri ve çevresi daha yoğun tuzaklanır: yol artık tuzaksız bir nefes koridoru değil
 	var route_set: Dictionary = {}
-	var near_route: Dictionary = {}
 	for rc in route:
-		var rv: Vector2i = rc
-		route_set[rv] = true
-		for dx in range(-3, 4):
-			for dy in range(-4, 1):
-				near_route[Vector2i(rv.x + dx, rv.y + dy)] = true
-	var p_floor: float = 0.28 + 0.03 * float(level)
-	var p_route: float = 0.55 + 0.03 * float(level)
-	var p_ceiling: float = 0.05 + 0.012 * float(level)
-	var p_wall: float = 0.05 + 0.008 * float(level)
+		route_set[rc] = true
+	var p_floor: float = 0.17 + 0.015 * float(level)
+	var p_route: float = p_floor + 0.07
+	var p_ceiling: float = 0.04 + 0.006 * float(level)
+	var p_wall: float = 0.04 + 0.005 * float(level)
 	var count: int = 0
-	var x_min: int = START_COLS + 1
-	var x_max: int = cols - END_COLS - 1
+	var x_min: int = START_COLS
+	var x_max: int = cols - END_COLS
 
 	# Zemin yüzeyleri: satır satır ardışık hava hücreleri (altı dolu)
 	for y in range(CEILING_ROWS + 1, FLOOR_ROW):
@@ -324,16 +294,16 @@ static func populate(parent: Node2D, layout: Dictionary, theme: String, level: i
 				continue
 			# Tavan: üstü dolu, altı iki karo hava
 			if _is_solid(blocks, Vector2i(x, y - 1), cols) and not _is_solid(blocks, Vector2i(x, y + 1), cols) and not _is_solid(blocks, Vector2i(x, y + 2), cols):
-				if rng.randf() < (p_ceiling * 3.0 if near_route.has(c) else p_ceiling):
+				if rng.randf() < p_ceiling:
 					var ct: TrapConfigV2.TrapType = TrapConfigV2.select_random_trap(TrapConfigV2.SurfaceType.CEILING, level, theme)
 					count += TrapCorridorTraps._spawn(parent, ct, TrapConfigV2.SurfaceType.CEILING, Vector2(float(x * TILE + TILE / 2), float(y * TILE)), level, theme)
 			# Duvar: solu dolu (sağa bakan yüz) ya da sağı dolu (sola bakan yüz); önünde iki karo hava
 			if _is_solid(blocks, Vector2i(x - 1, y), cols) and not _is_solid(blocks, Vector2i(x + 1, y), cols) and not _is_solid(blocks, Vector2i(x + 2, y), cols):
-				if rng.randf() < (p_wall * 4.0 if near_route.has(c) else p_wall) and y < FLOOR_ROW - 1:
+				if rng.randf() < p_wall and y < FLOOR_ROW - 1:
 					var lt: TrapConfigV2.TrapType = TrapConfigV2.select_random_trap(TrapConfigV2.SurfaceType.LEFT_WALL, level, theme)
 					count += TrapCorridorTraps._spawn(parent, lt, TrapConfigV2.SurfaceType.LEFT_WALL, Vector2(float(x * TILE), float(y * TILE + TILE / 2)), level, theme)
 			elif _is_solid(blocks, Vector2i(x + 1, y), cols) and not _is_solid(blocks, Vector2i(x - 1, y), cols) and not _is_solid(blocks, Vector2i(x - 2, y), cols):
-				if rng.randf() < (p_wall * 4.0 if near_route.has(c) else p_wall) and y < FLOOR_ROW - 1:
+				if rng.randf() < p_wall and y < FLOOR_ROW - 1:
 					var rt: TrapConfigV2.TrapType = TrapConfigV2.select_random_trap(TrapConfigV2.SurfaceType.RIGHT_WALL, level, theme)
 					count += TrapCorridorTraps._spawn(parent, rt, TrapConfigV2.SurfaceType.RIGHT_WALL, Vector2(float((x + 1) * TILE), float(y * TILE + TILE / 2)), level, theme)
 	return count

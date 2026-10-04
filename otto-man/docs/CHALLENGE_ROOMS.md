@@ -67,18 +67,18 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - Başlangıç kart seçimi (3) diğer türlerle aynı.
 
 ## Tuzak Geçidi (`tuzak`)
-- Yalnız zindan. Tek ekrana dikey olarak sığan bir **blok labirenti**: `trap_maze_builder.gd`. Kamera yalnız yatayda kayar.
-  Uzunluk zorlukla artar (60 + 32*zorluk kolon).
-- Üretim: önce garantili bir yol oyulur (`_carve_route`: 1-3 satırlık basamaklarla iniş çıkışlı ayak yolu, 5 satır baş
-  boşluğu, altında 2 karo platform), sonra kalan hacim rastgele bloklarla doldurulur (2x2, 2x6, 3x3, 4x4, L ve T
-  şekilleri; çoğu ayrık, ~%22'si birleşik kümeler). Yolun içine giren şekil atılır, 1 karolu yarıklar doldurulur.
-  Yani her labirent çözülebilir; çevresi çıkmaz sokak ve tuzak doludur.
+- Yalnız zindan. Tek ekrana dikey olarak sığan gerçek bir **ızgara labirenti**: `trap_maze_builder.gd`. Kamera yalnız
+  yatayda kayar. Genişlik zorlukla artar (4*zorluk hücre, zorluk 1-9; hücre 8 kolon, 5 satır yükseklik; tuzak sıklığı da zorlukla artar ama düşük tutuldu).
+- Üretim: 5 katlı ızgarada rastgele DFS "mükemmel labirent" (başlangıç sol alt, çıkış sağ alt) + ~%12 ekstra açıklık
+  (döngüler). Her hücrenin 2 satırlık zemini var; dikey geçitler zeminde 4 kolonluk delik (çift zıplama ile çıkılır/inilir),
+  yatay geçitler duvar sütunlarında 3 satırlık açıklık. Hücre içinde %40 ihtimalle 2x2 blok. Çıkmaz sokaklar doğal olarak
+  oluşur; doğru yolu gözle bulmak gerekir (BFS ile çözüm `route` hesaplanır, süre ve güvenli noktalar buna göre).
 - Tuzaklar (`populate`): gerçek zindan tuzak sistemi (`TileTrapSpawner`, `TrapConfigV2`, tema ağırlıkları/grup boyları).
   Blokların ve zemin/tavanın her açık yüzüne konur: zemin yüzeyleri (1-5'li gruplar), tavan yüzeyleri, duvar yüzleri
   (ok/top). Rotanın her ikinci duruş noktası (+komşuları) zemin tuzağından muaf: oyuncunun nefes aldığı yerler.
   Sıklık zorlukla artar. Tema `DungeonThemeStyle`'dan (ates/zehir/buz/firtina/barut/golge); payload `theme` veya rastgele.
 - Tema kuralları oyuncuya uygulanır: kaygan zemin (buz), sabit durana yıldırım (fırtına), karanlık + fener (gölge).
-- Süre: 30 + 0.3 * kolon sn. Tuzağa çarpmak (oyuncu hasar alınca) -4 sn. Süre biterse başarısızlık = ölüm;
+- Süre: 25 + çözüm uzunluğu/7 * 3.5 sn. Tuzağa çarpmak (oyuncu hasar alınca) -4 sn. Süre biterse başarısızlık = ölüm;
   çıkış kapısına ulaşırsan kazanırsın. Ödül: altın (30 + 25*zorluk + kalan sn) ve birkaç taş/odun.
 - Giriş kart seçimi yok (yalnız hareket ve zamanlama).
 - Not: `trap_corridor_traps.gd` yalnız ortak yardımcılar (grup boyu, spawner kurma); `ChaseCorridorBuilder`'ın `trap_mode`
@@ -94,4 +94,5 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
   "Gir" onaylarsa oda açılır ve karo kalkar, "Vazgeç" hiçbir şeyi tüketmez.
 
 ## Henüz yok
-- Tuzak Geçidi, Kovalamaca ve diğer türler (bkz. sohbetteki fikir listesi).
+- Diğer türler (bkz. sohbetteki fikir listesi). Not: otomatik doğma şu an yalnız koruma/dalga/asansör/kovalamaca/tuzak
+  türlerinden seçer; zorluk gün sayısına göre en fazla 7.
