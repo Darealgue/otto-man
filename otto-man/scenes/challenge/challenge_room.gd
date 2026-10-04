@@ -20,6 +20,9 @@ const LIFT_THICKNESS: float = 32.0
 const LIFT_TOP_LIMIT: float = 900.0
 ## Kovalamaca: bu kadar yakalanınca başarısız (ölüm)
 const CHASE_MAX_CATCHES: int = 3
+## Sol kenardaki kırmızı yakınlık uyarısı: genişlik (px) ve en yüksek saydamlık
+const DANGER_WIDTH: float = 200.0
+const DANGER_MAX_ALPHA: float = 0.4
 ## Oyuncunun ölçülen düz koşu hızı (px/s); sürü hızı buna oranlanır
 const PLAYER_RUN_SPEED: float = 560.0
 
@@ -234,7 +237,9 @@ func _update_chase(delta: float) -> void:
 	if _swarm != null:
 		_swarm.floor_y = _chase_floor_y
 	if _danger != null and _swarm != null:
-		_danger.modulate.a = clampf(1.0 - _swarm.gap() / 800.0, 0.0, 0.75) if _swarm.running else 0.0
+		# Yalnızca sürü gerçekten yaklaşınca ve hafifçe: yakalanma mesafesine (110) yaklaştıkça artar
+		var closeness: float = clampf(1.0 - (_swarm.gap() - 110.0) / 260.0, 0.0, 1.0)
+		_danger.modulate.a = closeness * DANGER_MAX_ALPHA if _swarm.running else 0.0
 	if not _finished and _player.global_position.x >= float(_layout["end_x"]) + 160.0:
 		_finish(true)
 
@@ -321,7 +326,7 @@ func _build_hud() -> void:
 		_danger.texture = tex
 		_danger.stretch_mode = TextureRect.STRETCH_SCALE
 		_danger.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
-		_danger.offset_right = 520.0
+		_danger.offset_right = DANGER_WIDTH
 		_danger.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_danger.modulate.a = 0.0
 		layer.add_child(_danger)

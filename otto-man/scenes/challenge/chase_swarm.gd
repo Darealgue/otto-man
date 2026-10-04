@@ -36,6 +36,8 @@ var floor_y: float = 928.0
 var _cooldown: float = 0.0
 var _birds: Array[AnimatedSprite2D] = []
 var _bird_offsets: Array[Vector2] = []
+## Kuş başına salınım: (x genliği, y genliği, hız, faz)
+var _bird_drift: Array[Vector4] = []
 var _time: float = 0.0
 var _run_time: float = 0.0
 var _prev_target_x: float = 0.0
@@ -65,9 +67,15 @@ func _ready() -> void:
 		bird.z_index = int(depth * 1.9)
 		add_child(bird)
 		_birds.append(bird)
-		# Sürü gövdesi geniş ve derin: oyuncuya yakın uç sık, arkaya doğru seyrelir
-		var ox: float = -pow(rng.randf(), 1.4) * 900.0 + 40.0
-		_bird_offsets.append(Vector2(ox, rng.randf_range(-430.0, 90.0)))
+		# Organik sürü: öne doğru sivri, arkaya doğru dağılan gözyaşı/komet biçimi (kare kutu değil).
+		# Yatay: ön uçta yoğun, arkaya seyrelen üstel dağılım; dikey sapma arkaya gittikçe açılır.
+		var back: float = minf(-log(maxf(rng.randf(), 0.0001)) * 230.0, 1100.0)
+		var spread_y: float = 60.0 + 0.22 * back
+		var oy: float = clampf(rng.randfn(-150.0, spread_y), -430.0, 90.0)
+		_bird_offsets.append(Vector2(40.0 - back, oy))
+		# Her kuşun kendi salınımı: sürü akışkan görünsün (sabit konumda dizilmesin)
+		_bird_drift.append(Vector4(rng.randf_range(18.0, 70.0), rng.randf_range(18.0, 60.0),
+				rng.randf_range(0.6, 1.8), rng.randf_range(0.0, TAU)))
 
 
 func _load_bird_frames() -> SpriteFrames:
@@ -148,6 +156,8 @@ func _animate_birds() -> void:
 		var edge: float = cam.get_screen_center_position().x - 960.0 + VISIBLE_EDGE_MARGIN
 		shift = maxf(0.0, edge - global_position.x)
 	for i in range(_birds.size()):
-		var bob: float = sin(_time * 6.0 + float(i) * 1.7) * 14.0
-		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob)
+		var d: Vector4 = _bird_drift[i]
+		var wobble := Vector2(sin(_time * d.z + d.w) * d.x, cos(_time * d.z * 1.3 + d.w) * d.y)
+		var bob: float = sin(_time * 6.0 + float(i) * 1.7) * 8.0
+		_birds[i].position = _bird_offsets[i] + Vector2(shift, bob) + wobble
 		_birds[i].flip_h = false
