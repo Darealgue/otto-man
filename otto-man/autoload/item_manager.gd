@@ -1721,6 +1721,19 @@ func get_active_elements() -> Array[String]:
 ## kullanılıyor. "lightning" düşmanda kalıcı bir stack sistemine sahip değil
 ## (bkz. simsek_parmagi.gd — anlık zincir hasarı), bu yüzden burada da tek
 ## seferlik doğrudan hasar olarak uygulanıyor.
+## Item kaynaklı FIRLATMA (düşmanı havaya kaldırma). `base_enemy.take_damage` fırlatmayı yalnızca "ağır"
+## vuruş adıyla yapar (`_pending_attack_name`'de "heavy" geçmeli); BasicEnemy kendi override'ıyla her
+## çağrıda fırlatır ama diğer tipler (heavy, spearman, summoner, hunter, canonman...) item'ın doğrudan
+## take_damage'ini sadece hafif itme sayar. Bu yardımcı adı ağır işaretleyip çağırır; böylece Barut
+## Sıçrayışı patlaması, Gülle gibi item'lar her düşman tipini gerçekten havaya kaldırır.
+func launch_enemy(enemy: Node, damage: float, knockback: float, up_force: float) -> void:
+	if not is_instance_valid(enemy) or not enemy.has_method("take_damage"):
+		return
+	if enemy.get("_pending_attack_name") != null:
+		enemy.set("_pending_attack_name", "item_launch_heavy")
+	enemy.take_damage(damage, knockback, up_force, true)
+
+
 ## Barut yardımcıları. Bir item `get_explosion_mult() -> float` tanımlayarak tüm patlamaların alanını ve
 ## hasarını büyütebilir (Barut Dolgusu); en yüksek çarpan geçerli. Patlama kaynakları
 ## ExplosionModifiers.announce() ile `_on_explosion(pos, radius)` item olayını yayar.

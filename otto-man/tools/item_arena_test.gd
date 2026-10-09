@@ -103,6 +103,10 @@ func _run() -> void:
 	_player = player_scene.instantiate()
 	_arena.add_child(_player)
 	_player.global_position = Vector2(2200.0, -30.0)
+	# Gerçek dodge/dash stamina çubuğu ister (HUD'da yaşar); arenaya gerçek çubuğu ekle
+	var hud := CanvasLayer.new()
+	_arena.add_child(hud)
+	hud.add_child((load("res://ui/stamina_bar.tscn") as PackedScene).instantiate())
 	await _frames(3)
 	if _im.player != _player:
 		_im.register_player(_player)
@@ -129,6 +133,12 @@ func _run() -> void:
 	await _scenario_alevli_parry()
 	await _scenario_ac_gozlu_toksin()
 	await _scenario_aci_parry()
+	await _scenario_fitil_hatti()
+	await _scenario_barut_dolgusu()
+	await _scenario_pusu_zehri()
+	await _scenario_golge_itemleri_gercek_dodge()
+	await _scenario_barut_bombasi_tur_firlatma()
+	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
 	if _failures == 0:
@@ -523,3 +533,240 @@ func _scenario_aci_parry() -> void:
 	bs.set("_last_parried_attacker", null)
 	_check(_poison_stacks_of(e) >= 3 and _poison_stacks_of(e2) >= 3, "Acı Parry: saldırgan ve yakındaki gerçek düşman 3 katman zehirlendi", "Acı Parry: zehirlenme eksik (saldırgan %d, yakın %d)" % [_poison_stacks_of(e), _poison_stacks_of(e2)])
 	_place_player(2200.0)
+
+## Fitil Hattı: gerçek bir patlama, bekleyen gerçek Dodge Bombası'nı ve Lağımcı izini fitilini beklemeden patlatır.
+func _scenario_fitil_hatti() -> void:
+	await _begin("fitil_hatti")
+	_im.activate_item(_im.ITEM_SCENES["dodge_bombasi"])
+	await process_frame
+	var bomb_item = _active("dodge_bombasi")
+	var e := _spawn_enemy(4660.0)
+	await _frames(40)
+	e.health = 5000.0
+	var hp0 := _enemy_hp(e)
+	var trail := Node2D.new()
+	trail.set_script(load("res://effects/powder_trail.gd"))
+	_arena.add_child(trail)
+	trail.global_position = Vector2(4640.0, -8.0)
+	_player.emit_signal("player_dodged", 1, Vector2(4500.0, -30.0), Vector2(4400.0, -30.0))   # bekleyen Dodge Bombası (fitil 0.5 sn)
+	var pending_ok: bool = bomb_item != null and bomb_item._pending_bombs.size() == 1
+	var jb := Node2D.new()
+	jb.set_script(load("res://effects/jump_bomb.gd"))
+	_arena.add_child(jb)
+	jb.setup(Vector2(4560.0, -20.0), Vector2.ZERO)
+	jb.detonate_now()
+	await _frames(24)   # ~0.4 sn: Dodge Bombası'nın kendi fitili (0.5 sn) dolmadan, Lağımcı'nınki (3 sn) çok önce
+	var bomb_done: bool = bomb_item != null and bomb_item._pending_bombs.size() == 0
+	var trail_done: bool = (not is_instance_valid(trail)) or trail.is_queued_for_deletion()
+	_check(pending_ok, "Fitil Hattı: bekleyen Dodge Bombası kaydı oluştu", "Fitil Hattı: test kurulumu, bekleyen bomba oluşmadı")
+	_check(bomb_done, "Fitil Hattı: bekleyen Dodge Bombası fitilini beklemeden patladı", "Fitil Hattı: bekleyen Dodge Bombası erken patlamadı")
+	_check(trail_done, "Fitil Hattı: Lağımcı izi 3 sn fitilini beklemeden patladı", "Fitil Hattı: Lağımcı izi erken patlamadı")
+	_check(hp0 - _enemy_hp(e) >= 10.0, "Fitil Hattı: zincir patlama yakındaki gerçek düşmana hasar verdi (%.1f)" % (hp0 - _enemy_hp(e)), "Fitil Hattı: zincir patlama gerçek düşmana hasar vermedi (%.1f)" % (hp0 - _enemy_hp(e)))
+
+## Barut Dolgusu: gerçek öldürmeler (ItemManager.on_enemy_killed) patlama çarpanını büyütür, patlama daha çok vurur.
+func _scenario_barut_dolgusu() -> void:
+	await _begin("barut_dolgusu")
+	var victims: Array = []
+	for i in range(3):
+		var v := _spawn_enemy(4800.0 + float(i) * 30.0)
+		victims.append(v)
+	var target := _spawn_enemy(4960.0)
+	await _frames(40)
+	target.health = 5000.0
+	for v in victims:
+		v.health = 1.0
+	for v in victims:
+		v.take_damage(50.0, 0.0, 0.0, false)
+	await _frames(30)
+	var mult: float = ExplosionModifiers.damage_mult()
+	_check(mult >= 1.14 and mult <= 1.76, "Barut Dolgusu: gerçek öldürmeler patlama çarpanını büyüttü (x%.2f)" % mult, "Barut Dolgusu: gerçek öldürmeler çarpanı büyütmedi (x%.2f)" % mult)
+	var hp0 := _enemy_hp(target)
+	var jb := Node2D.new()
+	jb.set_script(load("res://effects/jump_bomb.gd"))
+	_arena.add_child(jb)
+	jb.setup(target.global_position + Vector2(0.0, -10.0), Vector2.ZERO)
+	jb.detonate_now()
+	await _frames(2)
+	var dealt := hp0 - _enemy_hp(target)
+	_check(dealt >= 10.0 * mult - 0.6, "Barut Dolgusu: büyütülmüş patlama daha çok vurdu (%.1f, taban 10)" % dealt, "Barut Dolgusu: patlama hasarı büyümedi (%.1f, beklenen ~%.1f)" % [dealt, 10.0 * mult])
+
+## Pusu Zehri: gerçek dodge ile gerçek görünmezlik, sonra gerçek saldırı: ilk vuruş hedefin zehrini doldurur.
+func _scenario_pusu_zehri() -> void:
+	await _begin("gorunmezlik_pelerini")
+	_im.activate_item(_im.ITEM_SCENES["pusu_zehri"])
+	await process_frame
+	_place_player(4000.0)
+	var e := _spawn_enemy(4110.0)
+	await _frames(40)
+	e.health = 5000.0
+	_place_player(4000.0)
+	await _frames(30)   # teleport sonrası zemine insin (dodge yerde olmayı ister)
+	await _press("dash")
+	await _frames(6)
+	var invisible: bool = float(_player.get("gorunmezlik_first_attack_mult")) > 1.0
+	_check(invisible, "Pusu Zehri: gerçek dodge görünmezlik ilk vuruş bonusunu açtı", "Pusu Zehri: gerçek dodge görünmezlik bonusunu açmadı (Görünmezlik Pelerini)")
+	var stacks := 0
+	for _try in range(8):
+		await _frames(25)
+		_player.attack_cooldown_timer = 0.0
+		var px: float = _player.global_position.x
+		e.global_position = Vector2(px + 55.0, e.global_position.y)
+		await _press("attack")
+		await _frames(25)
+		stacks = _poison_stacks_of(e)
+		if stacks > 0:
+			break
+	_check(stacks >= _im.get_poison_max_stacks(), "Pusu Zehri: gerçek saldırı hedefin zehrini maksimuma çıkardı (%d)" % stacks, "Pusu Zehri: gerçek görünmezlik çıkış vuruşu zehri doldurmadı (%d)" % stacks)
+	_place_player(2200.0)
+
+## Gerçek Ortaoyunu gölgesi: Uzayan Gölge ömrü iki katlar, Gerçek Gölge taklit hasarını tama çıkarır.
+func _scenario_golge_itemleri_gercek_dodge() -> void:
+	await _begin("ortaoyunu")
+	_im.activate_item(_im.ITEM_SCENES["uzayan_golge"])
+	_im.activate_item(_im.ITEM_SCENES["gercek_golge"])
+	await process_frame
+	_place_player(-4500.0)
+	await _frames(30)   # zemine insin
+	await _press("dash")
+	await _frames(4)
+	var decoys: Array = get_nodes_in_group("player_decoy")
+	_check(decoys.size() >= 1, "Gölge itemleri: gerçek dodge Ortaoyunu gölgesi bıraktı", "Gölge itemleri: gerçek dodge gölge bırakmadı")
+	if decoys.size() >= 1:
+		var d = decoys[0]
+		var life: float = float(d.get("_timer"))
+		_check(life > 7.0 and life <= 8.0, "Uzayan Gölge: gerçek gölge ömrü ~8 sn (%.2f)" % life, "Uzayan Gölge: gölge ömrü 8 sn olmalıydı (%.2f)" % life)
+		var e := _spawn_enemy(d.global_position.x + 60.0)
+		await _frames(40)
+		e.health = 5000.0
+		var hb = _player.get_node_or_null("Hitbox")
+		hb.damage = 20.0
+		var hp0 := _enemy_hp(e)
+		_player.emit_signal("player_attack_performed", "attack_1.2", 20.0)
+		await _frames(25)
+		var dealt := hp0 - _enemy_hp(e)
+		_check(dealt >= 15.0, "Gerçek Gölge: gölge taklit saldırısı tam hasar verdi (%.1f / 20)" % dealt, "Gerçek Gölge: gölge hasarı tam olmalıydı (%.1f / 20)" % dealt)
+	_place_player(2200.0)
+
+## Dayanıklılık: TÜM gerçek düşman tipleri; yeni item'ların hepsi aktifken zehir/yanma/korku/delirme/fırlatma/çakma
+## uygulanır. Betik hatası (SCRIPT ERROR) koşucu tarafından raporlanır; burada tür başına davranış bilgisi basılır.
+func _scenario_tum_dusman_tipleri() -> void:
+	var types := {
+		"canonman": "res://enemy/canonman/canonman_enemy.tscn",
+		"firemage": "res://enemy/firemage/firemage_enemy.tscn",
+		"flying": "res://enemy/flying/flying_enemy.tscn",
+		"heavy": "res://enemy/heavy/heavy_enemy.tscn",
+		"hunter": "res://enemy/hunter/hunter_enemy.tscn",
+		"shield_captain": "res://enemy/miniboss/shield_captain/shield_captain.tscn",
+		"spearman": "res://enemy/spearman/spearman_enemy.tscn",
+		"summoner": "res://enemy/summoner/summoner_enemy.tscn",
+		"turtle": "res://enemy/turtle/turtle_enemy.tscn",
+	}
+	_im.clear_all_items()
+	await _cleanup_arena_nodes()
+	for id in ["zehir_delirmesi", "korku_yangini", "gulle", "duvar_carpmasi", "kazik_darbesi", "mesale_dusman", "yangin_yayilimi", "bulasici_darbe", "zehir_havuzu", "hizli_charge", "gokten_dusus", "guc_kayasi", "ac_gozlu_toksin", "yarilan_alev"]:
+		_im.activate_item(_im.ITEM_SCENES[id])
+	await process_frame
+	var enemies := {}
+	var x := -4400.0
+	for name in types.keys():
+		var scene = load(types[name])
+		if scene == null:
+			print("ARENA INFO: %s sahnesi yüklenemedi" % name)
+			continue
+		var e = scene.instantiate()
+		_arena.add_child(e)
+		e.global_position = Vector2(x, -30.0)
+		x += 140.0
+		enemies[name] = e
+	await _frames(60)
+	for name in enemies.keys():
+		var e = enemies[name]
+		if not is_instance_valid(e):
+			continue
+		if e.get("health") != null:
+			e.health = maxf(float(e.health), 5000.0)
+	# durum etkileri
+	var info := {}
+	for name in enemies.keys():
+		var e = enemies[name]
+		if not is_instance_valid(e):
+			continue
+		info[name] = {"hp0": _enemy_hp(e)}
+		if e.has_method("add_poison_stack"):
+			_im.max_out_poison(e)
+		if e.has_method("add_burn_stack"):
+			e.burn_remaining_ticks = 9
+	await _frames(40)
+	var launched := {}
+	for name in enemies.keys():
+		var e = enemies[name]
+		if not is_instance_valid(e) or not e.has_method("take_damage"):
+			continue
+		e.direction = 1
+		e.take_damage(1.0, 150.0, 380.0, true)
+	var peaked := {}
+	for _i in range(40):
+		await physics_frame
+		for name in enemies.keys():
+			var e = enemies[name]
+			if is_instance_valid(e) and e.has_method("is_on_floor") and not e.is_on_floor() and e.get("velocity") != null and e.velocity.y < -60.0:
+				peaked[name] = true
+	for name in enemies.keys():
+		var e = enemies[name]
+		if is_instance_valid(e):
+			_player.emit_signal("player_attack_landed", "fall", 20.0, [e], e.global_position, "all")
+	await _frames(120)   # yere insinler
+	var helper_peaked := {}
+	for name in enemies.keys():
+		var e = enemies[name]
+		if is_instance_valid(e) and e.has_method("take_damage"):
+			e.direction = 1
+			_im.launch_enemy(e, 1.0, 150.0, 380.0)
+	for _i in range(40):
+		await physics_frame
+		for name in enemies.keys():
+			var e = enemies[name]
+			if is_instance_valid(e) and e.has_method("is_on_floor") and not e.is_on_floor() and e.get("velocity") != null and e.velocity.y < -60.0:
+				helper_peaked[name] = true
+	await _frames(100)
+	for name in enemies.keys():
+		var e = enemies[name]
+		var alive: bool = is_instance_valid(e) and e.get("current_behavior") != "dead"
+		var delirious: bool = is_instance_valid(e) and e.has_method("is_delirious") and e.is_delirious()
+		var afraid: bool = is_instance_valid(e) and e.has_method("is_afraid") and e.is_afraid()
+		print("ARENA INFO: tip=%-14s canli=%s ham_firlatma=%s launch_enemy=%s delirmis=%s korkmus=%s" % [name, str(alive), str(peaked.has(name)), str(helper_peaked.has(name)), str(delirious), str(afraid)])
+	_check(true, "Tüm düşman tipleri item'larla çökmeden çalıştı (betik hatalarını koşucu raporlar)", "")
+	_im.clear_all_items()
+	await _cleanup_arena_nodes()
+
+## Barut Sıçrayışı bombası: basic dışındaki düşman tiplerini de gerçekten havaya kaldırır (launch_enemy).
+func _scenario_barut_bombasi_tur_firlatma() -> void:
+	await _begin("barut_sicrayisi")
+	var types := {
+		"canonman": "res://enemy/canonman/canonman_enemy.tscn",
+		"hunter": "res://enemy/hunter/hunter_enemy.tscn",
+		"summoner": "res://enemy/summoner/summoner_enemy.tscn",
+		"turtle": "res://enemy/turtle/turtle_enemy.tscn",
+		"firemage": "res://enemy/firemage/firemage_enemy.tscn",
+	}
+	var x := 4200.0
+	for name in types.keys():
+		var e = (load(types[name]) as PackedScene).instantiate()
+		_arena.add_child(e)
+		e.global_position = Vector2(x, -30.0)
+		await _frames(50)
+		if e.get("health") != null:
+			e.health = maxf(float(e.health), 5000.0)
+		var jb := Node2D.new()
+		jb.set_script(load("res://effects/jump_bomb.gd"))
+		_arena.add_child(jb)
+		jb.setup(e.global_position + Vector2(0.0, -10.0), Vector2.ZERO)
+		jb.detonate_now()
+		var launched := false
+		for _i in range(30):
+			await physics_frame
+			if is_instance_valid(e) and e.has_method("is_on_floor") and not e.is_on_floor() and e.get("velocity") != null and e.velocity.y < -60.0:
+				launched = true
+		_check(launched, "Barut Sıçrayışı: %s tipi bomba patlamasıyla havaya kalktı" % name, "Barut Sıçrayışı: %s tipi bomba patlamasıyla havaya kalkmadı" % name)
+		e.queue_free()
+		x += 40.0

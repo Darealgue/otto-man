@@ -14,3 +14,9 @@ if (-not $p.WaitForExit($TimeoutSec * 1000)) {
 }
 Get-Content $out -Encoding UTF8 | Select-String "ARENA " | ForEach-Object { $_.Line }
 Get-Content $err -ErrorAction SilentlyContinue | Select-String "item_arena_test|Invalid (call|access)|Parse Error" | ForEach-Object { $_.Line }
+# Betik hataları (bilinen açılış gürültüsü hariç): hem stdout hem stderr
+$scriptErrors = @(Get-Content $out, $err -Encoding UTF8 -ErrorAction SilentlyContinue | Select-String "SCRIPT ERROR" | Where-Object { $_.Line -notmatch "get_children' on a null value" })
+if ($scriptErrors.Count -gt 0) {
+    Write-Output "ARENA SCRIPT ERRORS: $($scriptErrors.Count)"
+    $scriptErrors | Select-Object -First 8 | ForEach-Object { Write-Output ("  " + $_.Line) }
+}

@@ -78,11 +78,16 @@ func _explode() -> void:
 		return
 	var radius: float = BLAST_RADIUS * ExplosionModifiers.radius_mult()
 	var dmg: float = BLAST_DAMAGE * ExplosionModifiers.damage_mult()
+	var im := get_node_or_null("/root/ItemManager")
 	for node in tree.get_nodes_in_group("enemies"):
 		if not is_instance_valid(node) or node.get("current_behavior") == "dead" or not node.has_method("take_damage"):
 			continue
 		if global_position.distance_to(node.global_position) <= radius:
-			node.take_damage(dmg, KNOCKBACK, LAUNCH_UP_FORCE, true)
+			# Tüm düşman tiplerini gerçekten havaya kaldırır (bkz. ItemManager.launch_enemy)
+			if im:
+				im.launch_enemy(node, dmg, KNOCKBACK, LAUNCH_UP_FORCE)
+			else:
+				node.take_damage(dmg, KNOCKBACK, LAUNCH_UP_FORCE, true)
 	if tree.current_scene:
 		var ring := Node2D.new()
 		ring.set_script(_AoeBurstRingScript)

@@ -50,7 +50,11 @@ func process(_player_node: CharacterBody2D, _delta: float) -> void:
 		var mult: float = ExplosionModifiers.damage_mult()
 		ball.set_meta(COOLDOWN_META, now + COOLDOWN_MSEC)
 		victim.set_meta(COOLDOWN_META, now + COOLDOWN_MSEC)
-		victim.take_damage(VICTIM_DAMAGE * mult, VICTIM_KNOCKBACK, VICTIM_LAUNCH_UP, true)
+		var im := get_node_or_null("/root/ItemManager")
+		if im:
+			im.launch_enemy(victim, VICTIM_DAMAGE * mult, VICTIM_KNOCKBACK, VICTIM_LAUNCH_UP)   # her düşman tipini havaya kaldırır
+		else:
+			victim.take_damage(VICTIM_DAMAGE * mult, VICTIM_KNOCKBACK, VICTIM_LAUNCH_UP, true)
 		ball.take_damage(SELF_DAMAGE * mult, 0.0, 0.0, true)
 
 func _is_cannonball(node: Node, now: int) -> bool:

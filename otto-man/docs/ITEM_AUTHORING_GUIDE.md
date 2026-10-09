@@ -310,7 +310,11 @@ Item'da metodu tanımlamak yeter (`ItemManager.notify_item_event` ile iletilir, 
 `_on_stealth_opener_hit(enemy)` (Görünmezlik Pelerini'nin 3x ilk vuruşu), `_on_decoy_hit_by_enemy(pos, hitbox)`,
 `_on_decoy_hit_enemy`, `_on_decoy_expired`. Pasif çarpan kancaları (en yüksek değer geçerli):
 `get_shadow_damage_ratio()`, `get_shadow_lifetime_mult()`, `get_explosion_mult()`.
-Yardımcılar: `ItemEffect.resolve_enemy_target(node)`, `ItemManager.add_poison_stacks/max_out_poison/get_poison_max_stacks`,
+Yardımcılar: `ItemEffect.resolve_enemy_target(node)`, `ItemManager.launch_enemy(enemy, dmg, kb, up)` (item kaynaklı fırlatma: `base_enemy.take_damage` fırlatmayı
+yalnız "ağır" vuruş adıyla yapar, bu yardımcı adı işaretler; canonman/firemage/hunter/summoner/turtle/basic/uçan
+kalkar, heavy/shield_captain/spearman bilinçli direnç gösterir; item'ın doğrudan `take_damage(..., up_force)`'i
+bu tiplerde SADECE hafif itmedir),
+`ItemManager.add_poison_stacks/max_out_poison/get_poison_max_stacks`,
 `spawn_fire_patch/spawn_flame_wave`, `ExplosionModifiers.damage_mult()/radius_mult()/announce()`. Yeni bir
 patlama efekti yazarsan hasarına `damage_mult()` uygula ve `announce(pos, radius)` çağır; fitille beklenen yeni
 barut nesnesi `barut_fuse` grubuna girip `detonate_now()` sunarsa Fitil Hattı onu otomatik tetikler.
