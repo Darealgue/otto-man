@@ -7,7 +7,7 @@ extends ItemEffect
 
 const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
 const SLAM_SPEED := 1100.0
-const SLAM_WINDOW_MSEC := 2000
+const SLAM_WINDOW_FRAMES := 150   # ~2.5 sn (fizik karesi: başsız/yavaş çalışmada gerçek saat penceresi erken doluyordu)
 const BLAST_RADIUS := 110.0
 const BLAST_DAMAGE_RATIO := 1.5   # düşme vuruşu hasarının katı (eskiden 0.8: görünmeyecek kadar zayıftı)
 const BLAST_MIN_DAMAGE := 15.0
@@ -25,10 +25,30 @@ func _init():
 	category = ItemCategory.FALL_ATTACK
 	affected_stats = ["air_slam"]
 
+var _player: CharacterBody2D = null
+
+func activate(player: CharacterBody2D):
+	super.activate(player)
+	_player = player
+
+func deactivate(player: CharacterBody2D):
+	super.deactivate(player)
+	_player = null
+
+## Havada AŞAĞI + SALDIR = AirAttackDown (hafif aşağı vuruş, attack_type 'normal'); AŞAĞI + ZIPLA = FallAttack
+## ('fall'). İkisi de çakar: oyuncu hangisini kullanırsa kullansın item çalışır.
+func _is_down_attack_hit(attack_type: String) -> bool:
+	if attack_type == "fall":
+		return true
+	if attack_type != "normal" or not is_instance_valid(_player):
+		return false
+	var sm = _player.get("state_machine")
+	return sm != null and sm.get("current_state") != null and sm.current_state.name == "AirAttackDown"
+
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, _position: Vector2, _effect_filter: String = "all") -> void:
-	if attack_type != "fall":
+	if not _is_down_attack_hit(attack_type):
 		return
-	var now := Time.get_ticks_msec()
+	var now := Engine.get_physics_frames()
 	for target in targets:
 		var enemy := resolve_enemy_target(target)
 		if enemy == null or not enemy.has_method("is_on_floor") or enemy.is_on_floor():
@@ -40,7 +60,7 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 		enemy.velocity.y = SLAM_SPEED
 		if enemy.get("air_float_timer") != null:
 			enemy.air_float_timer = 0.0
-		enemy.set_meta(SLAM_META, {"until": now + SLAM_WINDOW_MSEC, "damage": damage})
+		enemy.set_meta(SLAM_META, {"until": now + SLAM_WINDOW_FRAMES, "damage": damage})
 
 ## Çakma HER KARE uygulanır (düşman yere inene kadar): düşme vuruşunun düşmana kendi yukarı knockback'i de
 ## (ATTACK_UP_FORCE) vuruş anında uygulanır ve hangisinin sonra geleceği sinyal sırasına bağlı; tek seferlik
@@ -49,7 +69,7 @@ func process(_player_node: CharacterBody2D, _delta: float) -> void:
 	var tree := get_tree()
 	if tree == null:
 		return
-	var now := Time.get_ticks_msec()
+	var now := Engine.get_physics_frames()
 	for node in tree.get_nodes_in_group("enemies"):
 		if not is_instance_valid(node) or not node.has_meta(SLAM_META):
 			continue

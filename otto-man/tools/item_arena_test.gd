@@ -115,6 +115,7 @@ func _run() -> void:
 
 	await _scenario_gulle()
 	await _scenario_gulle_yerde_knockback()
+	await _scenario_gulle_knockback_olmadan()
 	await _scenario_duvar_carpmasi()
 	await _scenario_kazik_darbesi()
 	await _scenario_barut_sicrayisi()
@@ -140,6 +141,7 @@ func _run() -> void:
 	await _scenario_golge_itemleri_gercek_dodge()
 	await _scenario_barut_bombasi_tur_firlatma()
 	await _scenario_kazik_darbesi_gercek()
+	await _scenario_kazik_darbesi_asagi_saldir()
 	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
@@ -834,3 +836,83 @@ func _scenario_gulle_yerde_knockback() -> void:
 		"Gülle: yerde savrulan düşman komşuya çarpınca hasar vermedi (%.1f, havaya kalktı=%s)" % [b_dmg, str(left_floor)])
 	a.queue_free()
 	b.queue_free()
+
+## Gülle: knockback ALMADAN kendi başına yüksekten aşağı atlayan/düşen gerçek düşman komşuyu gülle gibi vurmamalı
+## (oyuncu peşinden koşup aşağı atlayan askerler havada birbirine çarpıp hasar alıyordu).
+func _scenario_gulle_knockback_olmadan() -> void:
+	await _begin("gulle")
+	_place_player(2300.0)
+	var b := _spawn_enemy(2150.0)    # oyuncuya yakın: uyumaz
+	var a := _spawn_enemy(1980.0)
+	await _frames(45)
+	a.health = 5000.0
+	b.health = 5000.0
+	b.velocity = Vector2.ZERO
+	b.set_physics_process(false)   # b yerinde dursun; can_process() true kalır, Gülle onu hedef görür
+	# a: peşinden koşup zıplayan asker gibi, KENDİ gücüyle b'nin yanından havada yatay geçer (knockback YOK)
+	a.global_position = Vector2(1980.0, -70.0)
+	var hp_a0 := _enemy_hp(a)
+	var hp_b0 := _enemy_hp(b)
+	var fast := false
+	var min_dist := 99999.0
+	for _i in range(90):
+		if is_instance_valid(a) and a.global_position.x < 2330.0:
+			a.velocity = Vector2(350.0, -30.0)
+		await physics_frame
+		if is_instance_valid(a) and is_instance_valid(b):
+			min_dist = minf(min_dist, a.global_position.distance_to(b.global_position))
+			if a.velocity.length() >= 140.0 and not a.is_on_floor():
+				fast = true
+	print('ARENA DBG gulle zıplayan: en yakin mesafe=%.0f hizli_havada=%s' % [min_dist, str(fast)])
+	var dmg := (hp_a0 - _enemy_hp(a)) + (hp_b0 - _enemy_hp(b))
+	_check(fast and min_dist < 60.0, "Gülle (knockback yok): kendi başına zıplayan düşman komşuya hızla yaklaştı (test kurulumu, mesafe %.0f)" % min_dist, "Gülle (knockback yok): test kurulumu geçersiz (hızlı=%s, en yakın mesafe %.0f)" % [str(fast), min_dist])
+	_check(dmg == 0.0, "Gülle: knockback almadan kendi başına zıplayan/koşan düşman gülle sayılmadı", "Gülle: knockback almamış zıplayan düşman gülle sayıldı (toplam hasar %.1f)" % dmg)
+	a.queue_free()
+	b.queue_free()
+	_place_player(2200.0)
+## Kazık Darbesi, havada AŞAĞI + SALDIR (AirAttackDown) ile: oyuncunun asıl kullandığı vuruş.
+func _scenario_kazik_darbesi_asagi_saldir() -> void:
+	await _begin("kazik_darbesi")
+	var a := _spawn_enemy(1400.0)
+	var b := _spawn_enemy(1470.0)
+	await _frames(45)
+	a.health = 5000.0
+	b.health = 5000.0
+	var hp_b0 := _enemy_hp(b)
+	_place_player(1360.0)
+	await _frames(35)
+	a.direction = 1
+	a.take_damage(1.0, 0.0, 420.0, true)
+	await _frames(40)
+	var ay: float = a.global_position.y
+	var pin_pos: Vector2 = a.global_position   # vuruş penceresinde düşmanı havada sabitle (zirvedeki küçük hareket vuruşu şansa bırakmasın)
+	_player.global_position = Vector2(a.global_position.x - 40.0, ay - 45.0)   # düşman sağda ve biraz aşağıda
+	_player.velocity = Vector2.ZERO
+	_player.set("facing_direction", 1.0)
+	await _frames(3)
+	var sm = _player.get("state_machine")
+	Input.action_press("down")
+	Input.action_press("attack")
+	var slam_seen := false
+	var states := []
+	var trace := []
+	for i in range(150):
+		if not slam_seen and i < 30 and is_instance_valid(a):
+			a.velocity = Vector2.ZERO
+			a.global_position = pin_pos
+		await physics_frame
+		if i == 2:
+			Input.action_release("attack")
+		if i < 12:
+			states.append(str(sm.current_state.name))
+		if is_instance_valid(a) and a.has_meta("kazik_darbesi_slam"):
+			slam_seen = true
+		if i % 10 == 0 and is_instance_valid(a):
+			trace.append('%d:ax=%.0f ay=%.0f avy=%.0f meta=%s bx=%.0f' % [i, a.global_position.x, a.global_position.y, a.velocity.y, str(a.has_meta('kazik_darbesi_slam')), b.global_position.x])
+	Input.action_release("down")
+	print('ARENA DBG kazik iz: ', str(trace))
+	var dmg_b := hp_b0 - _enemy_hp(b)
+	print("ARENA DBG kazik asagi+saldir: durumlar=%s slam=%s komsu hasar=%.1f" % [str(states), str(slam_seen), dmg_b])
+	_check(slam_seen, "Kazık Darbesi (aşağı + saldır): gerçek AirAttackDown vuruşu düşmanı çakmaya aldı", "Kazık Darbesi (aşağı + saldır): AirAttackDown vuruşu düşmanı çakmaya almadı (durumlar %s)" % str(states))
+	_check(dmg_b >= 14.0, "Kazık Darbesi (aşağı + saldır): komşu alan hasarı aldı (%.1f)" % dmg_b, "Kazık Darbesi (aşağı + saldır): komşu alan hasarı almadı (%.1f)" % dmg_b)
+	_place_player(2200.0)

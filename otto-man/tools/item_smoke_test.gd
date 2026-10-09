@@ -296,6 +296,7 @@ var velocity := Vector2.ZERO
 var air_float_timer := 0.0
 var on_wall := false
 var last_up := 0.0
+var last_knockback_msec := -100000
 func take_damage(amount, _kb = 0.0, kb_up = 0.0, _stun = false):
 	hp -= amount
 	last_up = kb_up
@@ -601,6 +602,7 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 	var ball: Node2D = mk.call(Vector2(2000, -100))
 	ball.airborne = true
 	ball.velocity = Vector2(0, -400)
+	ball.last_knockback_msec = Time.get_ticks_msec()   # gerçekten knockback aldı
 	var pin: Node2D = mk.call(Vector2(2030, -100))
 	pin.airborne = false
 	var gulle_item = _active_item(im, "gulle")
@@ -610,6 +612,17 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 	gulle_item.process(player, 0.016)
 	if absf(1000.0 - pin.hp - 10.0) > 0.01:
 		_fail("Gülle bekleme süresine uymadı")
+	# Knockback almadan kendi başına hızla aşağı atlayan/koşan düşman (peşinden zıplayan asker) gülle OLMAMALI
+	var jumper: Node2D = mk.call(Vector2(2600, -100))
+	jumper.airborne = true
+	jumper.velocity = Vector2(200, 400)
+	var bystander: Node2D = mk.call(Vector2(2620, -90))
+	bystander.airborne = false
+	var by_hp0: float = bystander.hp
+	var jp_hp0: float = jumper.hp
+	gulle_item.process(player, 0.016)
+	if bystander.hp != by_hp0 or jumper.hp != jp_hp0:
+		_fail("Gülle: knockback almamış, kendi başına hızla atlayan düşman gülle sayıldı (komşu %s, atlayan %s)" % [str(by_hp0 - bystander.hp), str(jp_hp0 - jumper.hp)])
 	# Regresyon (2026-10-09): ObjectPool'daki bekleyen düşmanlar gizli+devre dışı olarak (0,0)'da üst üste durur;
 	# Gülle onları "havada hızlı uçan düşman" sanıp birbirine vurdurup öldürüyor ve XP veriyordu.
 	var pooled: Array = []

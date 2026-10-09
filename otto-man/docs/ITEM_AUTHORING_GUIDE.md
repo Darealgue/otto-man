@@ -238,6 +238,16 @@ Godot console exe yolu ve komutlar `CLAUDE.md` "Verification discipline" bölüm
      mermilerini uzağa (100000,100000) koy; önceki aşama ağacı duraklatmış olabilir
      (`paused=false`); script modunda `current_scene` yok, test kendisi kurar.
    - Yeni mermi/hasar davranışı eklediysen `_run_projectile_kind_checks` benzeri bir kapsam yaz.
+4a. **Havada iki farklı "aşağı" vuruş var:** AŞAĞI + SALDIR = `AirAttackDown` durumu (hafif aşağı vuruş,
+   `player_attack_landed` türü `"normal"`), AŞAĞI + ZIPLA = `FallAttack` durumu (tür `"fall"`). "Aşağı vuruş"
+   item'ı ikisini de dinlemeli (Kazık Darbesi `_is_down_attack_hit`); sadece `"fall"` dinlemek oyuncunun
+   çoğunlukla yaptığı vuruşu kaçırır. `FallAttack` vuruşu düşmana kendi yukarı knockback'ini de uygular ve
+   item'ın hız atamasıyla sırası belirsizdir: yere çakma gibi hız atamaları tek seferlik değil düşman yere
+   inene kadar HER KARE uygulanmalı. Süre pencerelerini `Time.get_ticks_msec()` yerine
+   `Engine.get_physics_frames()` ile tut (başsız/yavaş çalışmada gerçek saat penceresi erken dolar).
+   **Gerçekten knockback almış düşmanı** tanımak için `enemy.last_knockback_msec` (base_enemy.take_damage,
+   apply_knockback=true) kullan; "hızlı mı, havada mı" diye tahmin etme (kendi başına zıplayan/koşan düşman
+   karışır, Gülle'de yaşandı).
 4b. **Arena testi (gerçek düşmanlarla):** `powershell -File tools/run_item_arena_test.ps1` → `ARENA OK` beklenir.
    `tools/item_arena_test.gd` gerçek `basic_enemy.tscn` düşmanlarını gerçek zemin/duvar fiziğinde koşturur;
    fizik ve yapay zekaya dayanan item'ları (fırlatma, duvar çarpması, çakma, korku, delirme, düşme bombası,

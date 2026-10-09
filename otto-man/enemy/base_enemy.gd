@@ -365,6 +365,8 @@ func _nearest_ward_target(max_dist: float) -> Node2D:
 ## Zehir Delirmesi: delirmiş düşman oyuncuyu değil en yakın DİĞER düşmanı hedef alır
 ## (resources/items/zehir_delirmesi.gd tetikler ve vuruş hasarını işler).
 var delirium_until_msec: int = 0
+## take_damage(apply_knockback=true) en son ne zaman çağrıldı (ms). Gülle savrulan düşmanı buradan tanır.
+var last_knockback_msec: int = -100000
 const DELIRIUM_TARGET_RADIUS := 600.0
 
 func start_delirium(duration_sec: float) -> void:
@@ -811,6 +813,10 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	if current_behavior == "dead":
 		print("[BaseEnemy] No damage: dead")
 		return
+	# Gerçek knockback aldı mı? (Gülle gibi item'lar savrulan düşmanı bundan ayırt eder; DoT/menzilli
+	# vuruşlar apply_knockback=false gelir ve işaretlenmez.)
+	if apply_knockback:
+		last_knockback_msec = Time.get_ticks_msec()
 	if is_sleeping:
 		wake_up()
 

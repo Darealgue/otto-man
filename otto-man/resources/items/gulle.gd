@@ -1,8 +1,9 @@
 # gulle.gd
-# RARE - Darbeyle fırlayan ya da savrulan (knockback alan) düşman başka bir düşmana çarparsa ikisi de hasar
-# alır ve çarpılan düşman da fırlar. Sadece havaya fırlatmalarda değil, HER knockback'te çalışır: düşman
-# "hurt" durumunda, havada ya da ani bir hız sıçramasıyla savruluyorsa (hafif vuruşların yerdeki itmesi dahil)
-# ve yeterince hızlıysa gülle sayılır. Yerdeki savrulmada çarpılan düşman savrulanın gittiği yönde olmalı.
+# RARE - Darbeyle fırlayan ya da savrulan düşman başka bir düşmana çarparsa ikisi de hasar alır ve çarpılan düşman
+# da fırlar. HER knockback'te çalışır (havaya fırlatma, yerdeki savrulma, patlama itmesi) ama SADECE gerçekten
+# knockback almış düşmanlar sayılır: base_enemy.take_damage `last_knockback_msec`i işaretler. Kendi kendine
+# koşan/zıplayan düşmanlar (peşinden koşup aşağı atlayan askerler) knockback almadığı için gülle OLMAZ.
+# Yerdeki savrulmada çarpılan düşman savrulanın gittiği yönde olmalı.
 # Uçan düşmanlar (sürekli havada) gülle sayılmaz. Çarpışan çift kısa süre tekrar çarpışmaz.
 
 extends ItemEffect
@@ -14,11 +15,8 @@ const SELF_DAMAGE := 5.0
 const VICTIM_LAUNCH_UP := 180.0
 const VICTIM_KNOCKBACK := 120.0
 const COOLDOWN_MSEC := 600
-const KNOCK_WINDOW_MSEC := 500        # ani hız sıçramasından sonra düşman bu süre savrulmuş sayılır
-const SPIKE_FROM_SPEED := 80.0        # önceki karede bundan yavaştı...
+const KNOCK_WINDOW_MSEC := 900        # knockback'ten sonra düşman bu süre savrulmuş (gülle) sayılır
 const COOLDOWN_META := "gulle_until"
-const KNOCK_META := "gulle_knock_until"
-const LAST_VX_META := "gulle_last_vx"
 
 func _init():
 	item_id = "gulle"
@@ -28,21 +26,12 @@ func _init():
 	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["enemy_cannonball"]
-
 func process(_player_node: CharacterBody2D, _delta: float) -> void:
 	var tree := get_tree()
 	if tree == null:
 		return
 	var now := Time.get_ticks_msec()
 	var enemies: Array = tree.get_nodes_in_group("enemies")
-	# 1) Ani yatay hız sıçraması = knockback yedi (hafif vuruşun yerdeki itmesi "hurt" durumuna girmez)
-	for e in enemies:
-		if not is_live_enemy(e) or e.get("velocity") == null:
-			continue
-		var vx: float = absf((e.velocity as Vector2).x)
-		if float(e.get_meta(LAST_VX_META, 0.0)) < SPIKE_FROM_SPEED and vx >= MIN_SPEED:
-			e.set_meta(KNOCK_META, now + KNOCK_WINDOW_MSEC)
-		e.set_meta(LAST_VX_META, vx)
 	# 2) Savrulan düşman komşuya çarptı mı?
 	for ball in enemies:
 		if not _is_cannonball(ball, now):
@@ -80,6 +69,7 @@ func process(_player_node: CharacterBody2D, _delta: float) -> void:
 			victim.take_damage(VICTIM_DAMAGE * mult, VICTIM_KNOCKBACK, VICTIM_LAUNCH_UP, true)
 		ball.take_damage(SELF_DAMAGE * mult, 0.0, 0.0, true)
 
+## Gülle: gerçekten knockback almış (son KNOCK_WINDOW_MSEC içinde) ve yeterince hızlı düşman.
 func _is_cannonball(node: Node, now: int) -> bool:
 	if not is_live_enemy(node):
 		return false
@@ -89,7 +79,5 @@ func _is_cannonball(node: Node, now: int) -> bool:
 		return false
 	if int(node.get_meta(COOLDOWN_META, 0)) > now:
 		return false
-	var airborne: bool = node.has_method("is_on_floor") and not node.is_on_floor()
-	var hurt: bool = node.get("current_behavior") == "hurt"
-	var spiked: bool = int(node.get_meta(KNOCK_META, 0)) > now
-	return airborne or hurt or spiked
+	var kb = node.get("last_knockback_msec")
+	return kb != null and now - int(kb) <= KNOCK_WINDOW_MSEC
