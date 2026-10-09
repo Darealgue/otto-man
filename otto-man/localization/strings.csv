@@ -1620,26 +1620,24 @@ item.gerilmis_yay.name,Gerilmiş Yay,Drawn Bow
 item.gerilmis_yay.description,"Hafif saldırıyı basılı tutup bırakırsan, şarj oranlı güçlü bir mermi fırlatırsın",Hold and release light attack to fire a powerful projectile scaled by charge time
 item.gok_gurultusu.name,Gök Gürültüsü,Thunderclap
 item.gok_gurultusu.description,Heavy attack şimşek indirir; tetiklemek 1 stamina hücresi harcar.,Heavy attack calls down lightning; costs 1 stamina charge to trigger.
-item.gokten_dusus.name,Gökten Düşüş,Fall From the Sky
-item.gokten_dusus.description,Fall attack hasarı +%30,Fall attack damage +30%
+item.gokten_dusus.name,Kıvılcım Yağmuru,Spark Shower
+item.gokten_dusus.description,Düşme saldırısı yere inince etrafa zıplayan kıvılcımlar saçılır. Değdikleri düşman yanar.,A fall attack scatters bouncing sparks on impact. Enemies they touch catch fire.
 item.golge_adimi.name,Gölge Adımı,Shadow Step
 item.golge_adimi.description,"Parry sonrası eğilme tuşu, düşmanın arkasına ışınlar",Pressing crouch after a parry teleports you behind the enemy
 item.golge_pelerini.name,Gölge Pelerini,Cloak of Shadows
 item.golge_pelerini.description,Düşmanların görüş menzili -%20,Enemy sight range -20%
 item.gorunmezlik_pelerini.name,Görünmezlik Pelerini,Cloak of Invisibility
 item.gorunmezlik_pelerini.description,"Dodge veya dash sonrası 3sn yarı saydam olursun: düşmanlar seni göremez, hasar almazsın; ilk vuruşun 3x hasar verir","After a dodge or dash you turn semi-transparent for 3s: enemies lose you, you take no damage, and your first hit deals 3x damage"
-item.guc_kayasi.name,Güç Kayası,Stone of Power
-item.guc_kayasi.description,Heavy attack hasarı +%30,Heavy attack damage +30%
-item.hacivat_golgesi.name,Hacivat'ın Gölgesi,Hacivat's Shadow
-item.hacivat_golgesi.description,"Ortaoyunu gölgesi elemental saldırılarını taklit eder. Zehir, ateş, buz veya şimşek vurdukça gölge de aynı elementi uygular.","Your Ortaoyunu shadow mimics your elemental attacks. When you hit with poison, fire, ice, or lightning, the shadow applies the same element."
+item.guc_kayasi.name,Kor Patlatma,Ember Burst
+item.guc_kayasi.description,Yanan düşmana ağır vuruş üzerindeki yanma katmanlarını tüketir ve kalan yanma hasarının 1.5 katını anında vurur.,A heavy hit on a burning enemy consumes its burn stacks and deals 1.5 times the remaining burn damage at once.
 item.havada_kal.name,Havada Kal,Stay Airborne
 item.havada_kal.description,Jump basılı tutunca düşerken süzülürsün,Holding jump lets you glide while falling
 item.hayalet_adim.name,Hayalet Adım,Ghost Step
 item.hayalet_adim.description,"Dodge sırasında eğilme, sahte kopya bırakıp geriye ışınlar",Pressing crouch during a dodge leaves a decoy and teleports you backward
 item.hizlanan_yumruk.name,Hızlanan Yumruk,Accelerating Fist
 item.hizlanan_yumruk.description,Light attack vurdukça 2 sn %20 hareket hızı,Landing light attacks grants +20% move speed for 2s
-item.hizli_charge.name,Hızlı Charge,Fast Charge
-item.hizli_charge.description,Heavy attack hızı +%50 (şarj süresi yaklaşık -%33),Heavy attack speed +50% (charge time about -33%)
+item.hizli_charge.name,Alev Dalgası,Flame Wave
+item.hizli_charge.description,Ağır vuruş isabet edince vurduğun yönde yerde ilerleyen bir alev şeridi çıkar. Şeritteki düşmanlar yanar.,A heavy hit sends a flame strip rolling along the ground in the direction you struck. Enemies in it catch fire.
 item.hizli_el.name,Hızlı El,Quick Hand
 item.hizli_el.description,Light attack hızı +%25,Light attack speed +25%
 item.ikinci_nefes.name,İkinci Nefes,Second Wind
@@ -1652,8 +1650,6 @@ item.kan_tadi.name,Kan Tadı,Taste of Blood
 item.kan_tadi.description,Vuruş isabet ettikçe güçlenirsin (en fazla 3 stack). Her stack: +%10 saldırı ve hareket hızı.,Landing hits makes you stronger (up to 3 stacks). Each stack: +10% attack and move speed.
 item.kara_barut.name,Kara Barut,Black Powder
 item.kara_barut.description,"Patlama yarıçapı +%30, ama her patlama sana da az tepme hasarı verir","Explosion radius +30%, but every explosion also deals a small amount of recoil damage to you"
-item.karagoz_laneti.name,Karagöz'ün Laneti,Karagoz's Curse
-item.karagoz_laneti.description,Ortaoyunu gölgesi fiziksel saldırılarını taklit eder. Sen vurdukça gölge de kendi yönüne saldırır.,"Your Ortaoyunu shadow mimics your physical attacks. When you land a hit, the shadow attacks in its own direction too."
 item.kartal_bakisi.name,Kartal Bakışı,Eagle Eye
 item.kartal_bakisi.description,Mermilerin menzili sınırsızdır; 300px+ mesafeden isabet kritik sayılır,Projectiles have unlimited range; hits from 300px+ away count as critical
 item.kaygan_yag.name,Kaygan Yağ,Slippery Oil
@@ -1675,7 +1671,7 @@ item.ok_yagmuru.description,Ağır saldırı ayrıca yavaş bir top mermisi fır
 item.olumcul_sukut.name,Ölümcül Sükût,Fatal Silence
 item.olumcul_sukut.description,Blok veya parry yaptıktan sonraki ilk hafif saldırın +%50 hasar verir.,Your first light attack after a block or parry deals +50% damage.
 item.ortaoyunu.name,Ortaoyunu,Ortaoyunu
-item.ortaoyunu.description,Dodge veya dash bastığında arkanda gölge bir kopya bırakırsın. Düşmanlar ona saldırabilir ama hasar almaz. 3 sn sonra kaybolur.,Dodging or dashing leaves a shadow copy of yourself behind. Enemies can attack it but it takes no damage. Disappears after 3 seconds.
+item.ortaoyunu.description,"Dodge veya dash bastığında arkanda gölge bir kopya bırakırsın. Gölge sabit durur, düşmanları üzerine çeker, saldırılarını ve mermilerini yarı hasarla taklit eder ama hasar almaz. 4 sn sonra kaybolur.","Dodging or dashing leaves a shadow copy behind. It stays in place, draws enemy attention and mimics your attacks and projectiles at half damage, but takes no damage. Disappears after 4 seconds."
 item.pala_kilici.name,Pala Kılıcı,Cutlass
 item.pala_kilici.description,Hafif saldırılar 2 düşmana birden vurabilir,Light attacks can hit 2 enemies at once
 item.panzehir_derisi.name,Panzehir Derisi,Antidote Skin
@@ -2613,13 +2609,13 @@ challenge.trap.penalty,Tuzak! -%d sn,Trap! -%d s
 challenge.trap.timeup,Süre doldu!,Time is up!
 ozan.song.challenge.tuzak,"%s, %s tuzaklarla dolu bir geçit uzanır; vaktini tüketen, dişlere yem olur.","%s, %s a passage lined with traps stretches out; he who wastes his time becomes fodder for the fangs."
 item.golge_donusu.name,Gölge Dönüşü,Shadow Return
-item.golge_donusu.description,Dodge veya dash bittikten sonra 1 sn içinde Blok tuşuna basarsan hareketin başladığı yere ışınlanırsın ve gittiğin yerde kısa bir gölge kalır (2 sn bekleme),"Within 1s after a dodge or dash, press Block to teleport back to where it began, leaving a brief shadow behind (2s cooldown)"
+item.golge_donusu.description,Dodge veya dash bittikten sonra 1 sn içinde Blok tuşuna basarsan hareketin başladığı yere ışınlanırsın ve gittiğin yerde 3 sn'lik bir gölge kalır (2 sn bekleme),"Within 1s after a dodge or dash, press Block to teleport back to where it began, leaving a 3s shadow behind (2s cooldown)"
 item.golge_hasadi.name,Gölge Hasadı,Shadow Harvest
-item.golge_hasadi.description,Öldürdüğün düşmanın yerinde 4 sn duran bir gölge belirir ve yakındaki düşmanlara senin vuruşunu taklit eder (en fazla 2 gölge),"A shadow rises where an enemy dies, lasts 4s and strikes nearby enemies with your attack (max 2 shadows)"
+item.golge_hasadi.description,Öldürdüğün düşmanın yerinde 5 sn duran bir gölge belirir ve senin saldırılarını taklit eder (en fazla 2 gölge),"A shadow rises where an enemy dies, lasts 5s and mimics your attacks (max 2 shadows)"
 item.kukla_oyunu.name,Kukla Oyunu,Puppet Play
-item.kukla_oyunu.description,"Hasar aldığında %40 ihtimalle hasar iade edilir, vurandan uzağa ışınlanırsın ve eski yerinde 2 sn bir gölge kalır (8 sn bekleme)","When hit, 40% chance to heal the damage back, teleport away from the attacker and leave a 2s shadow behind (8s cooldown)"
+item.kukla_oyunu.description,"Hasar aldığında %40 ihtimalle hasar iade edilir, vurandan uzağa ışınlanırsın ve eski yerinde 3 sn bir gölge kalır (8 sn bekleme)","When hit, 40% chance to heal the damage back, teleport away from the attacker and leave a 3s shadow behind (8s cooldown)"
 item.golge_sahnesi.name,Gölge Sahnesi,Shadow Stage
-item.golge_sahnesi.description,Perfect parry yaptığında olduğun yerde 3 sn duran bir gölge kalır (2 sn bekleme),A perfect parry leaves a shadow behind for 3s (2s cooldown)
+item.golge_sahnesi.description,Perfect parry yaptığında olduğun yerde 4 sn duran bir gölge kalır (2 sn bekleme),A perfect parry leaves a shadow behind for 4s (2s cooldown)
 item.golge_bagi.name,Gölge Bağı,Shadow Bond
 item.golge_bagi.description,"Bir gölgenin vurduğu düşman 4 sn işaretlenir, ona yaptığın sonraki vuruş %60 fazla hasar verir","An enemy hit by a shadow is marked for 4s, and your next hit on it deals 60% more damage"
 item.sonen_golge.name,Sönen Gölge,Fading Shadow
@@ -2659,3 +2655,68 @@ camp.wheel.skip,Hızlandırmak için herhangi bir tuşa bas,Press any key to spe
 camp.wheel.villager,Köylü,Villager
 camp.wheel.cariye,Cariye,Concubine
 challenge.win.asansor.top,Zirveye ulaştın!,You reached the top!
+camp.wheel.item.title,Yeni item şansı,New item chance
+camp.wheel.item.sub,Zindandan erken çıkıyorsun. Yeni item bulma şansın: %%%d,You are leaving the dungeon early. Chance to find a new item: %d%%
+camp.wheel.item.won,Yeni item kazandın!,You won a new item!
+camp.wheel.item.lost,Bu sefer çıkmadı...,No luck this time...
+camp.wheel.item.summary_won,Çıkmadan önce yeni bir item seçeceksin,You will choose a new item before leaving
+camp.wheel.item.summary_lost,Yeni item çıkmadı,No new item found
+ai.chip.load_failed.title,Köylüler uyanamadı,The villagers did not wake
+ai.chip.load_failed.detail,"Model indirildi ama yüklenemedi. ""Ayarlar"" menüsündeki ""Yapay Zeka Köylüler"" bölümünden ""Aç"" düğmesiyle tekrar deneyebilirsiniz.","The model is downloaded but could not be loaded. You can try again from ""Settings"", under ""AI Villagers"", with ""Turn on""."
+item.zehirli_yem.name,Zehirli Yem,Poison Bait
+item.zehirli_yem.description,Hasar aldığında zehir bulutu çıkar. Bir düşman gölgene vurursa da gölgenin yerinde aynı bulut çıkar (1.5 sn bekleme).,"Taking damage releases a poison cloud. If an enemy hits your shadow, the same cloud bursts where the shadow stands (1.5s cooldown)."
+synergy.poison_bait,gölgene vuran düşman zehir bulutuna yakalanır,an enemy that hits your shadow gets caught in a poison cloud
+item.uzayan_golge.name,Uzayan Gölge,Lengthening Shadow
+item.uzayan_golge.description,Bıraktığın gölgeler 2 kat uzun süre kalır.,Shadows you leave behind last twice as long.
+item.gercek_golge.name,Gerçek Gölge,True Shadow
+item.gercek_golge.description,Gölgelerin saldırıları ve mermileri yarım değil tam hasarla taklit edilir.,Your shadows mimic your attacks and projectiles at full damage instead of half.
+item.ac_gozlu_toksin.name,Aç Gözlü Toksin,Hungry Toxin
+item.ac_gozlu_toksin.description,Normal saldırıların hedefteki her zehir katmanı için 1.5 ek hasar verir.,Your normal attacks deal 1.5 extra damage per poison stack on the target.
+item.aci_parry.name,Acı Parry,Bitter Parry
+item.aci_parry.description,Perfect parry saldırganı ve 100 piksel içindeki düşmanları 3 katman zehirler.,A perfect parry applies 3 poison stacks to the attacker and enemies within 100 pixels.
+item.pusu_zehri.name,Pusu Zehri,Ambush Venom
+item.pusu_zehri.description,Görünmezlikten çıkış vuruşun hedefin zehir katmanlarını sonuna kadar doldurur.,Your first strike out of invisibility fills the target's poison stacks to the maximum.
+item.bulasici_darbe.name,Bulaşıcı Darbe,Contagious Blow
+item.bulasici_darbe.description,Havadaki zehirli düşmana her vuruşun yakındaki en fazla 3 düşmana birer zehir katmanı bulaştırır.,Each hit on an airborne poisoned enemy spreads one poison stack to up to 3 nearby enemies.
+item.zehir_havuzu.name,Zehir Havuzu,Poison Pool
+item.zehir_havuzu.description,Zehirli düşmana yaptığın düşme saldırısı vurduğun yere zehir havuzu açar. Havuz düşmandaki katman sayısıyla büyür.,A fall attack on a poisoned enemy opens a poison pool where you hit. The pool grows with the enemy's poison stacks.
+item.tasiyici.name,Taşıyıcı,Carrier
+item.tasiyici.description,Kayarken zehirli bir düşmanın içinden geçersen zehrini kaparsın ve dokunduğun sonraki zehirsiz düşmana bulaştırırsın.,Sliding through a poisoned enemy steals its poison and passes it to the next clean enemy you touch.
+item.zehir_delirmesi.name,Zehir Delirmesi,Venom Madness
+item.zehir_delirmesi.description,Zehir katmanları sonuna kadar dolan düşmanın aklı karışır. 3 sn boyunca en yakın düşmana saldırır (düşman başına 8 sn bekleme).,An enemy whose poison stacks are full goes mad for 3s and attacks the nearest enemy (8s cooldown per enemy).
+synergy.toxin_bonus,zehir katmanları vuruşlarını güçlendirir,poison stacks add damage to your hits
+synergy.poison_juggle,havaya kaldırdığın zehirli düşman zehri yayar,a poisoned enemy you juggle spreads its poison
+synergy.poison_spread,parry ile bulaşan zehir düşman ölünce yayılır,poison from your parry spreads when the enemy dies
+synergy.poison_madness,zehri dolan düşman diğerlerine saldırır,an enemy at full poison attacks the others
+synergy.poison_pool,ikisi de düşme saldırısında zehir bırakır,both leave poison on a fall attack
+item.yangin_yayilimi.name,Yangın Yayılımı,Spreading Fire
+item.yangin_yayilimi.description,Yanan bir düşman başka bir düşmana değerse yanma ona da geçer.,When a burning enemy touches another enemy the fire spreads to it.
+item.alevli_parry.name,Alevli Parry,Flaming Parry
+item.alevli_parry.description,Perfect parry saldırganın yönüne alev dalgası gönderir.,A perfect parry sends a wave of flame toward the attacker.
+item.mesale_dusman.name,Meşale Düşman,Torch Foe
+item.mesale_dusman.description,Havaya fırlatılan yanan düşman arkasında alev bırakır ve yere düştüğü yerde kor birikintisi açar.,A burning enemy launched into the air leaves flames in its wake and opens an ember pool where it lands.
+item.yarilan_alev.name,Yarılan Alev,Splitting Flame
+item.yarilan_alev.description,Dodge ile yanan düşmanın içinden geçersen yanma katmanları patlar ve kalan yanma hasarının 1.5 katı anında vurulur.,Dodging through a burning enemy detonates its burn stacks for 1.5 times the remaining burn damage at once.
+item.korku_yangini.name,Korku Yangını,Panic Blaze
+item.korku_yangini.description,Yanma katmanları dolan düşman panikler ve 1.5 sn boyunca senden kaçar (düşman başına 6 sn bekleme).,An enemy at full burn panics and flees from you for 1.5s (6s cooldown per enemy).
+synergy.burn_consume,ağır vuruş yanan düşmanın yanmasını patlatır,a heavy hit detonates the burn on a burning enemy
+synergy.fire_spread,yanan düşmandan yangın yayılır,fire spreads from burning enemies
+synergy.torch_juggle,havaya kaldırdığın yanan düşman iz bırakır,a burning enemy you juggle leaves a fire trail
+synergy.fear_blaze,yanması dolan düşman kaçar,an enemy at full burn flees
+item.barut_sicrayisi.name,Barut Sıçrayışı,Powder Leap
+item.barut_sicrayisi.description,Hava zıplamasında altına patlama düşer. Yakındaki düşmanları havaya fırlatır.,Your air jump drops an explosion beneath you that launches nearby enemies into the air.
+item.kazik_darbesi.name,Kazık Darbesi,Stake Strike
+item.kazik_darbesi.description,Havada dövülen düşmana düşme saldırısı yaparsan düşman yere çakılır; indiği yerde alan hasarı olur ve elementlerini taşır.,A fall attack on an airborne enemy slams it into the ground; the landing deals area damage and carries your active elements.
+item.gulle.name,Gülle,Cannonball
+item.gulle.description,Havaya fırlatılan düşman başka bir düşmana çarparsa ikisi de hasar alır ve çarpılan da havaya fırlar.,A launched enemy that crashes into another enemy hurts both and sends the other one flying.
+item.fitil_hatti.name,Fitil Hattı,Fuse Line
+item.fitil_hatti.description,Bir patlamanın yakınındaki bekleyen bombalar ve barut izleri hemen patlar. Patlamalar zincirlenir.,Waiting bombs and powder trails near an explosion detonate at once. Explosions chain together.
+item.barut_dolgusu.name,Barut Dolgusu,Powder Packing
+item.barut_dolgusu.description,Art arda öldürdükçe patlamaların alanı ve hasarı büyür; öldürme başına %15 en fazla 5 öldürme; 4 sn sürer.,Chained kills grow the area and damage of your explosions: 15% per kill up to 5 kills; lasts 4s.
+item.duvar_carpmasi.name,Duvar Çarpması,Wall Crash
+item.duvar_carpmasi.description,Düşmanı duvara fırlatırsan çarptığı yerde patlar; çevresindeki düşmanlar ve kendisi hasar alır.,An enemy knocked hard into a wall explodes; it and nearby enemies take damage.
+synergy.fuse_chain,bombalar ve barut izleri zincirleme patlar,bombs and powder trails chain-detonate
+synergy.blast_chain,art arda ölümler patlamaları büyütür,chained kills enlarge your blasts
+synergy.slam_juggle,havada tuttuğun düşmanı yere çakarsın,slam the enemy you are juggling
+synergy.cannonball_group,kaldırılan grup birbirine çarpar,a lifted group crashes together
+synergy.jump_blast,her hava zıplaması patlama bırakır,every air jump leaves a blast

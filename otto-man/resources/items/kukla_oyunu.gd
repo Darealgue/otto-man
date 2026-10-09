@@ -9,7 +9,7 @@ const DecoyScene = preload("res://effects/player_decoy.tscn")
 const CHANCE := 0.4
 const COOLDOWN := 8.0
 const IFRAME_DURATION := 0.6
-const DECOY_LIFETIME := 2.0
+const DECOY_LIFETIME := 3.0
 const HOP_DISTANCES := [200.0, 140.0, 80.0]
 
 var _player: CharacterBody2D = null

@@ -68,6 +68,9 @@ func _on_area_entered(area: Area2D) -> void:
 				else:
 					print("[EnemyHitbox] ❌ ERROR: attack_manager is null!")
 				_apply_enemy_screen_shake()
+			elif not is_parried and player.has_method("on_enemy_hit"):
+				# Gölgeye vuruldu: item'lar (Zehirli Yem vb.) bunu oyuncuya vurulmuş gibi dinler
+				player.on_enemy_hit(self)
 			# Emit so enemies can track target; decoy has take_damage() no-op
 			if not is_parried:
 				hit_player.emit(player)

@@ -31,8 +31,12 @@ func deactivate(player: CharacterBody2D):
 
 func _on_player_attack_landed(attack_type: String, damage: float, _targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if (attack_type != "normal" and attack_type != "ranged") or effect_filter == "physical_only":
-		return  # Hafif saldırı veya ranged'e dönüşmüş hali; Karagöz'ün fiziksel-only aynası bunu tekrar tetiklemesin
+		return  # Sadece hafif saldırı veya ranged'e dönüşmüş hali
 	if not is_instance_valid(_player):
+		return
+	# Gölge vuruşu stamina (veya Kan Bedeli ile can) HARCATAMAZ: gölge kaynak tüketmez
+	var im := get_node_or_null("/root/ItemManager")
+	if im != null and im.is_shadow_hit():
 		return
 	var stamina_bar: Node = _player.get_tree().get_first_node_in_group("stamina_bar")
 	var consumed := false

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://korku_yangini_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/korku_yangini.gd" id="1_script"]
+
+[node name="KorkuYangini" type="Node"]
+script = ExtResource("1_script")

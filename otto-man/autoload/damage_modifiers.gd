@@ -18,6 +18,10 @@ func apply_player_modifiers(player: Node, base_damage: float, enemy: Node, attac
 		# Şanslı Nal: görünmezlikten ilk vuruş garanti kritik
 		if player.get("sansli_nal_active"):
 			player.sansli_nal_crit_next = true
+		# Pusu Zehri vb.: görünmezlikten çıkış vuruşu bir item olayı olarak duyurulur
+		var im: Node = get_node_or_null("/root/ItemManager")
+		if im and is_instance_valid(enemy):
+			im.notify_item_event("_on_stealth_opener_hit", [enemy])
 	# Taşkın Güç: stamina doluyken bonus
 	if player.get("taskin_guc_mult") and player.taskin_guc_mult > 1.0:
 		dmg *= player.taskin_guc_mult

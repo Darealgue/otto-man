@@ -17,6 +17,13 @@ var _exploded := false
 
 func _ready() -> void:
 	z_index = 1
+	add_to_group("barut_fuse")  # Fitil Hattı: komşu bir patlama bu izi hemen tetikleyebilir
+
+## Fitil Hattı çağırır: fitili beklemeden hemen patlar.
+func detonate_now() -> void:
+	var tree := get_tree()
+	if tree:
+		_explode(tree)
 
 func _process(delta: float) -> void:
 	if _exploded:
@@ -47,13 +54,14 @@ func _explode(tree: SceneTree) -> void:
 		if not node.has_method("take_damage"):
 			continue
 		if global_position.distance_to(node.global_position) <= radius:
-			node.take_damage(BLAST_DAMAGE, 0.0, 0.0, false)
+			node.take_damage(BLAST_DAMAGE * ExplosionModifiers.damage_mult(), 0.0, 0.0, false)
 	# Kendi barutun seni de yakar — Barut Zırhı bağışıklık verir
 	var player := tree.get_first_node_in_group("player")
 	if is_instance_valid(player) and global_position.distance_to(player.global_position) <= radius:
 		if not ExplosionModifiers.player_immune_to_explosions() and player.has_method("take_damage"):
 			player.take_damage(SELF_DAMAGE, false, null)
 		ExplosionModifiers.apply_recoil(player)
+	ExplosionModifiers.announce(global_position, radius)
 	queue_free()
 
 func _draw() -> void:

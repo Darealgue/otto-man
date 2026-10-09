@@ -30,6 +30,7 @@ func activate(player: CharacterBody2D):
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
+	_pending_bombs.clear()
 	# Disconnect signals
 	if _player:
 		if _player.has_signal("player_dodged") and _player.is_connected("player_dodged", _on_player_dodged):
@@ -42,19 +43,36 @@ func _on_player_dodged(direction: int, start_pos: Vector2, end_pos: Vector2):
 		return
 	_spawn_bomb_at_position(start_pos)
 
+## Henüz patlamamış bombalar: [{pos: Vector2, done: bool}]. Fitil Hattı komşu bir patlamada bunları
+## fitilini beklemeden patlatabilir (detonate_pending_near).
+var _pending_bombs: Array = []
+
 func _spawn_bomb_at_position(bomb_pos: Vector2):
 	var tree = get_tree()
 	if not tree:
 		return
-	
+
+	var entry := {"pos": bomb_pos, "done": false}
+	_pending_bombs.append(entry)
 	var timer = tree.create_timer(BOMB_DELAY)
 	if timer:
-		timer.timeout.connect(_explode_bomb.bind(bomb_pos))
+		timer.timeout.connect(_explode_bomb.bind(entry))
 
-func _explode_bomb(bomb_position: Vector2):
+## Fitil Hattı: radius içindeki bekleyen bombaları hemen patlatır.
+func detonate_pending_near(pos: Vector2, radius: float) -> void:
+	for entry in _pending_bombs.duplicate():
+		if not entry["done"] and (entry["pos"] as Vector2).distance_to(pos) <= radius:
+			_explode_bomb(entry)
+
+func _explode_bomb(entry: Dictionary):
+	if entry["done"]:
+		return
+	entry["done"] = true
+	_pending_bombs.erase(entry)
+	var bomb_position: Vector2 = entry["pos"]
 	if not is_instance_valid(_player):
 		return
-	
+
 	var tree = get_tree()
 	if not tree:
 		return
@@ -79,10 +97,11 @@ func _explode_bomb(bomb_position: Vector2):
 			continue
 		
 		var distance = bomb_position.distance_to(enemy.global_position)
-		if distance <= BOMB_RADIUS:
+		if distance <= BOMB_RADIUS * ExplosionModifiers.radius_mult():
 			if enemy.has_method("take_damage"):
-				enemy.take_damage(BOMB_DAMAGE)
+				enemy.take_damage(BOMB_DAMAGE * ExplosionModifiers.damage_mult())
 				hit_count += 1
+	ExplosionModifiers.announce(bomb_position, BOMB_RADIUS * ExplosionModifiers.radius_mult())
 	
 	if hit_count > 0:
 		print("[Dodge Bombası] ✅ Bomba patladı! ", hit_count, " düşmana ", BOMB_DAMAGE, " hasar verildi")

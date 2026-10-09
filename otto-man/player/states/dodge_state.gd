@@ -141,7 +141,7 @@ func enter():
 
 const HayaletAdimDecoyScene = preload("res://effects/player_decoy.tscn")
 const HAYALET_ADIM_TELEPORT_DIST := 60.0
-const HAYALET_ADIM_LIFETIME := 0.4
+const HAYALET_ADIM_LIFETIME := 3.0
 
 func physics_update(delta: float):
 	dodge_timer -= delta

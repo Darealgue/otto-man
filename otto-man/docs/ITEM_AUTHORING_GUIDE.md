@@ -267,6 +267,45 @@ Godot console exe yolu ve komutlar `CLAUDE.md` "Verification discipline" bölüm
 - Taşan Kaynak: mavi kalkan barı, 150/100 gösterimi, max can değişmez.
 - Rüzgâr Toplama için görsel geri bildirim: ertelendi ("düşünürüz").
 - Mevcut unlock temposu (kesif = warmup başına 1 seçim) ölçüldü, değiştirilmedi.
+- **Gölge sistemi (2026-10-09, `effects/player_decoy.gd`)**: hangi item bırakırsa bıraksın her gölge
+  varsayılan olarak (1) sabit durur (havadaysa havada), (2) düşman agrosunu HER ZAMAN çeker
+  (`base_enemy.get_nearest_player`: en yakın gölge, gerçek oyuncu daha yakın olsa da hedef olur),
+  (3) oyuncunun saldırılarını en yakın düşmana doğru (sadece sol/sağ; yukarı/aşağı oyuncunun
+  seçimi) ve mermilerini (Sürü Oku dahil, `spawn_upgraded_projectile(..., mirror_to_shadows=true)`)
+  taklit eder. Taklit hasarı `ItemManager.get_shadow_damage_ratio()` = varsayılan **%50**; bir item
+  `get_shadow_damage_ratio() -> float` tanımlayıp oranı yükseltebilir (en yüksek geçerli). Karagöz
+  Laneti ve Hacivat Gölgesi bu yüzden SİLİNDİ; Gölge Hasadı gölgeleri de artık kendi başına
+  saldırmaz, sadece taklit eder. Gölgeye düşman vurunca `_on_decoy_hit_by_enemy(pos, hitbox)` item
+  olayı yayılır (Zehirli Yem dinler).
+  **Gölge ve oyuncu tek varlık gibi sayılır:** gölge vuruşu `player_attack_landed`'ı `"all"` yayar,
+  yani kombo/sayaç item'ları (Artan Güç, Koruk, Kesme Yayı...) ve element item'ları gölge isabetini
+  de görür. Yayın süresince `ItemManager.is_shadow_hit()` true, `shadow_hit_origin` (gölge konumu)
+  ve `shadow_hit_facing` doludur. Kurallar: (1) ikincil etkisini oyuncunun konumunda çıkaran item
+  gölge vuruşunda `shadow_hit_origin`'i kullanır; (2) stamina/can HARCATAN item (Cevher Dili) gölge
+  vuruşunu atlar, gölge oyuncunun kaynağını tüketmez; (3) bir hedefi işaretleyip tüketen item
+  (Gölge Bağı) gölge vuruşunu beslemeye sayar ama tüketmeye saymaz.
+  **Ömür:** gölgeler 3-5 sn (Ortaoyunu 4, Gölge Hasadı 5, Kukla Oyunu 3, Gölge Dönüşü 3, Gölge
+  Sahnesi 4, Hayalet Adım 3). Bir item `get_shadow_lifetime_mult() -> float` tanımlayarak süreyi
+  katlayabilir (`ItemManager.get_shadow_lifetime_mult()`, en yüksek çarpan geçerli, gölge doğarken
+  okunur). Yeni gölge kaynağı item'ı yazarken sadece `DecoyScene.instantiate()` +
+  `lifetime_override` + `setup(pos, flip, player)` yeterli, taklit otomatik.
+
+## 10b. Yeni olay kancaları ve yardımcılar (2026-10-09)
+
+Item'da metodu tanımlamak yeter (`ItemManager.notify_item_event` ile iletilir, sinyal bağlamak gerekmez):
+`_on_air_jump(pos)` (çift/hava zıplaması), `_on_explosion(pos, radius)` (herhangi bir barut patlaması),
+`_on_stealth_opener_hit(enemy)` (Görünmezlik Pelerini'nin 3x ilk vuruşu), `_on_decoy_hit_by_enemy(pos, hitbox)`,
+`_on_decoy_hit_enemy`, `_on_decoy_expired`. Pasif çarpan kancaları (en yüksek değer geçerli):
+`get_shadow_damage_ratio()`, `get_shadow_lifetime_mult()`, `get_explosion_mult()`.
+Yardımcılar: `ItemEffect.resolve_enemy_target(node)`, `ItemManager.add_poison_stacks/max_out_poison/get_poison_max_stacks`,
+`spawn_fire_patch/spawn_flame_wave`, `ExplosionModifiers.damage_mult()/radius_mult()/announce()`. Yeni bir
+patlama efekti yazarsan hasarına `damage_mult()` uygula ve `announce(pos, radius)` çağır; fitille beklenen yeni
+barut nesnesi `barut_fuse` grubuna girip `detonate_now()` sunarsa Fitil Hattı onu otomatik tetikler.
+Düşman durumları (`base_enemy.gd`): `start_delirium/is_delirious` (başka düşmanı hedef alır),
+`start_fear/is_afraid` (hedef kaybeder). **Smoke test uyarısı:** item'ların test sinyali düşman durumlarını
+(zehir/yanma) kirletir; zehir+ateş patlaması oyuncuya da vurup testi kilitlemişti, bu yüzden test her
+item'dan sonra `_reset_enemy_status_effects()` çağırır. Sahte düşman betiğinde CharacterBody2D
+yerel metodunu (`is_on_floor` vb.) ezme, derleme hatası sessizce testi yarıda keser.
 
 ## 11. Kullanıcı için kısa istek şablonu
 

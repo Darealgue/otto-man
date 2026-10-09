@@ -1,8 +1,8 @@
 # golge_bagi.gd
 # RARE - Bir gölgenin vurduğu düşman 4 sn işaretlenir; ona yaptığın sonraki vuruş %60 fazla hasar
 # verir (işaret tüketilir). Gölge üreten her item (Ortaoyunu, Gölge Hasadı, Kukla Oyunu, Gölge
-# Dönüşü, Gölge Sahnesi) bu işareti besler. Gölge vuruşları player_attack_landed'ı "physical_only"
-# / "elemental_only" filtresiyle yayınladığı için yalnızca GERÇEK vuruşlar ("all") bonusu tüketir.
+# Dönüşü, Gölge Sahnesi) bu işareti besler. Gölge vuruşları da player_attack_landed'ı "all"
+# yayınlar; bu yüzden ItemManager.is_shadow_hit() ile ayırt edilir ve yalnızca GERÇEK oyuncu vuruşu bonusu tüketir.
 
 extends ItemEffect
 
@@ -41,6 +41,10 @@ func _on_decoy_hit_enemy(enemy: Node, _decoy_pos: Vector2) -> void:
 # ItemManager player_attack_landed'a otomatik bağlar
 func _on_player_attack_landed(_attack_type: String, damage: float, targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter != "all":
+		return
+	# Gölge vuruşu işareti BESLER, tüketmez: yalnızca gerçek oyuncu vuruşu bonusu alır
+	var im := get_node_or_null("/root/ItemManager")
+	if im != null and im.is_shadow_hit():
 		return
 	var now := Time.get_ticks_msec()
 	for t in targets:

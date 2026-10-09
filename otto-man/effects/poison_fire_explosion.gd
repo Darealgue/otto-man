@@ -23,7 +23,8 @@ func _apply_damage() -> void:
 		if node.get("current_behavior") == "dead":
 			continue
 		if center.distance_to(node.global_position) <= radius and node.has_method("take_damage"):
-			node.take_damage(EXPLOSION_DAMAGE, 120.0, -80.0, true)
+			node.take_damage(EXPLOSION_DAMAGE * ExplosionModifiers.damage_mult(), 120.0, -80.0, true)
+	ExplosionModifiers.announce(center, radius)
 	var player = tree.get_first_node_in_group("player")
 	if is_instance_valid(player) and player.has_method("take_damage"):
 		if center.distance_to(player.global_position) <= radius and not ExplosionModifiers.player_immune_to_explosions():

@@ -55,6 +55,9 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 		return
 	if not is_instance_valid(_player):
 		return
+	# Gölge vuruşu da zinciri besler; sırt vuruşu gölgenin konumunda ve gölgenin arkasında çıkar.
+	var im := get_node_or_null("/root/ItemManager")
+	var shadow_hit: bool = im != null and im.is_shadow_hit()
 	_chain += 1
 	_chain_timer = CHAIN_WINDOW
 	if _chain % EVERY_NTH_HIT != 0:
@@ -66,8 +69,12 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 			already.append(e)
 	# Sırt yönü: oyuncunun baktığı yönün TERSİ
 	var facing_left: bool = _player.sprite.flip_h if _player.sprite else false
+	var origin_pos: Vector2 = _player.global_position
+	if shadow_hit:
+		facing_left = im.shadow_hit_facing < 0.0
+		origin_pos = im.shadow_hit_origin
 	var back_dir := Vector2(1.0 if facing_left else -1.0, 0.0)
-	var back_origin: Vector2 = _player.global_position + back_dir * (BACK_RADIUS * 0.5)
+	var back_origin: Vector2 = origin_pos + back_dir * (BACK_RADIUS * 0.5)
 	var tree = get_tree()
 	if not tree:
 		return

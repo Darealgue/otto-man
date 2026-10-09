@@ -84,6 +84,19 @@ func _on_perfect_parry() -> void:
 func apply_fall_attack_effect_at(_position: Vector2, _is_decoy: bool) -> void:
 	pass
 
+## Bir vuruş hedefini (düşmanın kendisi ya da hurtbox/alt düğümü) take_damage'li düşman düğümüne çözer.
+func resolve_enemy_target(target: Node) -> Node:
+	if not is_instance_valid(target):
+		return null
+	if target.has_method("take_damage"):
+		return target
+	var p: Node = target.get_parent()
+	if p and p.has_method("take_damage"):
+		return p
+	if p and p.get_parent() and p.get_parent().has_method("take_damage"):
+		return p.get_parent()
+	return null
+
 # Stat modification helpers
 func affects_stat(stat_name: String) -> bool:
 	return affected_stats.has(stat_name)

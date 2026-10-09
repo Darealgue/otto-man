@@ -18,7 +18,8 @@ func _process(delta: float) -> void:
 				if not is_instance_valid(node) or node.get("current_behavior") == "dead":
 					continue
 				if global_position.distance_to(node.global_position) <= radius and node.has_method("take_damage"):
-					node.take_damage(DAMAGE, 80.0, -60.0, true)
+					node.take_damage(DAMAGE * ExplosionModifiers.damage_mult(), 80.0, -60.0, true)
+			ExplosionModifiers.announce(global_position, radius)
 	_t += delta
 	if _t >= VISUAL_DURATION:
 		queue_free()

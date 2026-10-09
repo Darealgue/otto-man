@@ -1,16 +1,15 @@
 # golge_hasadi.gd
-# UNCOMMON - Öldürdüğün düşmanın yerinde 4 sn duran bir gölge belirir ve yakınındaki düşmanlara
-# senin vuruşunu taklit ederek saldırır. Aynı anda en fazla 2 gölge.
+# UNCOMMON - Öldürdüğün düşmanın yerinde 5 sn duran bir gölge belirir. Gölge, tüm gölgeler gibi
+# senin saldırılarını taklit eder (player_decoy.gd), kendi başına saldırmaz. Aynı anda en fazla 2 gölge.
 
 extends ItemEffect
 
 const DecoyScene = preload("res://effects/player_decoy.tscn")
-const SHADOW_LIFETIME := 4.0
-const ATTACK_INTERVAL := 0.9
+const SHADOW_LIFETIME := 5.0
 const MAX_SHADOWS := 2
 
 var _player: CharacterBody2D = null
-var _shadows: Array = []   # [{node, timer}]
+var _shadows: Array = []   # [{node}]
 
 func _init():
 	item_id = "golge_hasadi"
@@ -53,27 +52,10 @@ func on_enemy_killed(enemy: Node2D) -> void:
 	tree.current_scene.add_child(decoy)
 	var flip: bool = _player.sprite.flip_h if _player.get("sprite") else false
 	decoy.setup(enemy.global_position, flip, _player)
-	_shadows.append({"node": decoy, "timer": 0.3})
+	_shadows.append({"node": decoy})
 	var im := get_node_or_null("/root/ItemManager")
 	if im:
 		im.notify_item_event("_on_harvest_shadow_spawned", [enemy.global_position])
-
-func process(_player_ref: CharacterBody2D, delta: float) -> void:
-	if _shadows.is_empty():
-		return
-	_prune()
-	for s in _shadows:
-		s["timer"] -= delta
-		if s["timer"] > 0.0:
-			continue
-		s["timer"] = ATTACK_INTERVAL
-		var node = s["node"]
-		if is_instance_valid(node) and node.has_method("attack_physical"):
-			var dmg: float = 10.0
-			var hb = _player.get_node_or_null("Hitbox") if is_instance_valid(_player) else null
-			if hb and hb.get("damage") != null:
-				dmg = float(hb.damage)
-			node.attack_physical(dmg)
 
 func _prune() -> void:
 	var alive: Array = []

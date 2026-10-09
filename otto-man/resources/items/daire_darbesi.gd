@@ -49,12 +49,15 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 	var tree = get_tree()
 	if not tree:
 		return
+	# Gölgenin ağır vuruşu da süpürür; çember gölgenin konumunda çıkar.
+	var im := get_node_or_null("/root/ItemManager")
+	var origin_pos: Vector2 = im.shadow_hit_origin if (im != null and im.is_shadow_hit()) else _player.global_position
 	for node in tree.get_nodes_in_group("enemies"):
 		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
 			continue
 		if already.has(node):
 			continue
-		if _player.global_position.distance_to(node.global_position) > SWEEP_RADIUS:
+		if origin_pos.distance_to(node.global_position) > SWEEP_RADIUS:
 			continue
 		if node.has_method("take_damage"):
 			node.take_damage(damage, 0.0, 0.0, true)
@@ -62,7 +65,7 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 		var burst = Node2D.new()
 		burst.set_script(_AoeBurstRingScript)
 		tree.current_scene.add_child(burst)
-		burst.setup(_player.global_position, SWEEP_RADIUS, IMPACT_COLOR)
+		burst.setup(origin_pos, SWEEP_RADIUS, IMPACT_COLOR)
 
 func _resolve_enemy_node(target: Node) -> Node:
 	if not is_instance_valid(target):

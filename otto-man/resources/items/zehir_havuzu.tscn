@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://zehir_havuzu_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/zehir_havuzu.gd" id="1_script"]
+
+[node name="ZehirHavuzu" type="Node"]
+script = ExtResource("1_script")

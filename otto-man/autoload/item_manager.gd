@@ -52,6 +52,27 @@ const ITEM_SCENES: Dictionary = {
 	"buzlu_kilic": preload("res://resources/items/buzlu_kilic.tscn"),
 	"kaygan_yag": preload("res://resources/items/kaygan_yag.tscn"),
 	"zehirli_dusus": preload("res://resources/items/zehirli_dusus.tscn"),
+	"zehirli_yem": preload("res://resources/items/zehirli_yem.tscn"),
+	"barut_sicrayisi": preload("res://resources/items/barut_sicrayisi.tscn"),
+	"kazik_darbesi": preload("res://resources/items/kazik_darbesi.tscn"),
+	"gulle": preload("res://resources/items/gulle.tscn"),
+	"fitil_hatti": preload("res://resources/items/fitil_hatti.tscn"),
+	"barut_dolgusu": preload("res://resources/items/barut_dolgusu.tscn"),
+	"duvar_carpmasi": preload("res://resources/items/duvar_carpmasi.tscn"),
+	"yangin_yayilimi": preload("res://resources/items/yangin_yayilimi.tscn"),
+	"alevli_parry": preload("res://resources/items/alevli_parry.tscn"),
+	"mesale_dusman": preload("res://resources/items/mesale_dusman.tscn"),
+	"yarilan_alev": preload("res://resources/items/yarilan_alev.tscn"),
+	"korku_yangini": preload("res://resources/items/korku_yangini.tscn"),
+	"ac_gozlu_toksin": preload("res://resources/items/ac_gozlu_toksin.tscn"),
+	"aci_parry": preload("res://resources/items/aci_parry.tscn"),
+	"pusu_zehri": preload("res://resources/items/pusu_zehri.tscn"),
+	"bulasici_darbe": preload("res://resources/items/bulasici_darbe.tscn"),
+	"zehir_havuzu": preload("res://resources/items/zehir_havuzu.tscn"),
+	"tasiyici": preload("res://resources/items/tasiyici.tscn"),
+	"zehir_delirmesi": preload("res://resources/items/zehir_delirmesi.tscn"),
+	"uzayan_golge": preload("res://resources/items/uzayan_golge.tscn"),
+	"gercek_golge": preload("res://resources/items/gercek_golge.tscn"),
 	"simsek_kalkani": preload("res://resources/items/simsek_kalkani.tscn"),
 	"zaman_durdurucu": preload("res://resources/items/zaman_durdurucu.tscn"),
 	"kum_saati": preload("res://resources/items/kum_saati.tscn"),
@@ -93,8 +114,6 @@ const ITEM_SCENES: Dictionary = {
 	"nobetci": preload("res://resources/items/nobetci.tscn"),
 	"savunma_ofkesi": preload("res://resources/items/savunma_ofkesi.tscn"),
 	"topuk_kirici": preload("res://resources/items/topuk_kirici.tscn"),
-	"karagoz_laneti": preload("res://resources/items/karagoz_laneti.tscn"),
-	"hacivat_golgesi": preload("res://resources/items/hacivat_golgesi.tscn"),
 	"flank_avantaji": preload("res://resources/items/flank_avantaji.tscn"),
 	"sessiz_ayakkabi": preload("res://resources/items/sessiz_ayakkabi.tscn"),
 	"golge_pelerini": preload("res://resources/items/golge_pelerini.tscn"),
@@ -218,8 +237,6 @@ const ITEM_SCENES: Dictionary = {
 # Ön koşul: bu item_id sadece listelenen item'lar aktifken seçenekte çıkar (örn. Kum Saati → Zaman Durdurucu)
 const ITEM_REQUIREMENTS: Dictionary = {
 	"kum_saati": ["zaman_durdurucu"],
-	"karagoz_laneti": ["ortaoyunu"],
-	"hacivat_golgesi": ["ortaoyunu"],
 	"kesintisiz_zincir": ["artan_guc"],
 	"kesintisiz_akis": ["zehirli_sekme"],
 	"donus_darbesi": ["golge_donusu"],
@@ -359,8 +376,8 @@ const UNLOCK_TIER_BOSS: String = "boss"
 const DUNGEON_THEME_POOLS: Dictionary = {
 	"ates": {
 		# Ateş = VUR: yanma + ham tek hedef hasarı, ağır vuruş
-		"kesif": ["atesli_yumruk", "ates_topu_dususu", "taskin_guc", "koz_tutan", "koruk", "gokten_dusus", "guc_kayasi", "hizli_charge", "sansli_nal"],
-		"boss": ["atesli_kayma", "ocak", "sirt_darbesi", "guc_devri"],
+		"kesif": ["atesli_yumruk", "ates_topu_dususu", "taskin_guc", "koz_tutan", "koruk", "gokten_dusus", "guc_kayasi", "hizli_charge", "sansli_nal", "yangin_yayilimi"],
+		"boss": ["atesli_kayma", "ocak", "sirt_darbesi", "guc_devri", "alevli_parry", "mesale_dusman", "yarilan_alev", "korku_yangini"],
 	},
 	"buz": {
 		# Buz = DAYAN: blok, parry, kalkan, yavaşlatma
@@ -369,8 +386,8 @@ const DUNGEON_THEME_POOLS: Dictionary = {
 	},
 	"zehir": {
 		# Zehir = SİNSİCE ÖLDÜR: zamanla hasar, yayılma, gizlilik, hırsızlık
-		"kesif": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "ceset_tekmesi", "les_gazi", "sessiz_adim", "golgeye_karisma"],
-		"boss": ["gorunmezlik_pelerini", "hayalet_adim", "flank_avantaji", "sabir_tasi", "yankesici", "serbetci"],
+		"kesif": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus", "ceset_tekmesi", "les_gazi", "sessiz_adim", "golgeye_karisma", "zehirli_yem", "aci_parry", "ac_gozlu_toksin", "zehir_havuzu"],
+		"boss": ["gorunmezlik_pelerini", "hayalet_adim", "flank_avantaji", "sabir_tasi", "yankesici", "serbetci", "pusu_zehri", "bulasici_darbe", "tasiyici", "zehir_delirmesi"],
 	},
 	"firtina": {
 		# Fırtına = HAREKET ET: şimşek, hava, dash/dodge, parkur
@@ -379,13 +396,13 @@ const DUNGEON_THEME_POOLS: Dictionary = {
 	},
 	"barut": {
 		# Barut = PATLAT: alan hasarı, patlama, zincir, çoklu hedef
-		"kesif": ["patlama_zinciri", "dodge_bombasi", "lav_cekici", "falya", "lagimci", "tepme", "zincirleme_vurus", "pala_kilici", "genis_dusus"],
-		"boss": ["patlama_topuzu", "tuzak_fisildayan", "cenk_meydani", "yikim_muhru", "cevher_dili", "daire_darbesi", "yere_cakis", "genis_darbe"],
+		"kesif": ["patlama_zinciri", "dodge_bombasi", "lav_cekici", "falya", "lagimci", "tepme", "zincirleme_vurus", "pala_kilici", "genis_dusus", "barut_sicrayisi", "gulle"],
+		"boss": ["patlama_topuzu", "tuzak_fisildayan", "cenk_meydani", "yikim_muhru", "cevher_dili", "daire_darbesi", "yere_cakis", "genis_darbe", "kazik_darbesi", "fitil_hatti", "barut_dolgusu", "duvar_carpmasi"],
 	},
 	"golge": {
 		# Gölge = BİRLEŞTİR: sinerji, element dönüşümü, kaynak (stamina)
-		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi", "golge_donusu", "golge_hasadi", "kukla_oyunu", "golge_sahnesi"],
-		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "usta_isci", "tek_sanat"],
+		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi", "golge_donusu", "golge_hasadi", "kukla_oyunu", "golge_sahnesi", "uzayan_golge"],
+		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "usta_isci", "tek_sanat", "gercek_golge"],
 	},
 }
 
@@ -1167,6 +1184,37 @@ func notify_item_event(method: String, args: Array = []) -> void:
 			item.callv(method, args)
 
 
+## Gölgelerin oyuncu vuruşunu taklit ederken kullandığı hasar oranı. Varsayılan yarım; bir item
+## `get_shadow_damage_ratio() -> float` metodunu tanımlayarak oranı yükseltebilir (en yükseği geçerli).
+const SHADOW_DAMAGE_RATIO_DEFAULT: float = 0.5
+
+## Bir gölge vuruşu player_attack_landed yayınlarken dolu (aksi halde null): gölgenin konumu ve
+## baktığı yön (-1 sol / +1 sağ). Gölge vuruşu oyuncu vuruşu gibi SAYILIR; ikincil etkisini
+## oyuncunun konumunda çıkaran item'lar `shadow_hit_origin`'i kullanır, stamina harcatan/kazandıran
+## item'lar ise `is_shadow_hit()` ile gölge vuruşunu atlar (gölge kaynak üretmez/tüketmez).
+var shadow_hit_origin: Variant = null
+var shadow_hit_facing: float = 1.0
+
+func is_shadow_hit() -> bool:
+	return shadow_hit_origin != null
+
+## Gölgelerin ömür çarpanı (varsayılan 1x). Bir item `get_shadow_lifetime_mult() -> float`
+## tanımlayarak süreyi uzatabilir (en yüksek çarpan geçerli).
+func get_shadow_lifetime_mult() -> float:
+	var mult: float = 1.0
+	for item in active_items:
+		if is_instance_valid(item) and item.has_method("get_shadow_lifetime_mult"):
+			mult = maxf(mult, float(item.get_shadow_lifetime_mult()))
+	return mult
+
+func get_shadow_damage_ratio() -> float:
+	var ratio: float = SHADOW_DAMAGE_RATIO_DEFAULT
+	for item in active_items:
+		if is_instance_valid(item) and item.has_method("get_shadow_damage_ratio"):
+			ratio = maxf(ratio, float(item.get_shadow_damage_ratio()))
+	return ratio
+
+
 # Called when an enemy is killed
 func on_enemy_killed(enemy: Node2D = null) -> void:
 	enemy_kill_count += 1
@@ -1673,6 +1721,71 @@ func get_active_elements() -> Array[String]:
 ## kullanılıyor. "lightning" düşmanda kalıcı bir stack sistemine sahip değil
 ## (bkz. simsek_parmagi.gd — anlık zincir hasarı), bu yüzden burada da tek
 ## seferlik doğrudan hasar olarak uygulanıyor.
+## Barut yardımcıları. Bir item `get_explosion_mult() -> float` tanımlayarak tüm patlamaların alanını ve
+## hasarını büyütebilir (Barut Dolgusu); en yüksek çarpan geçerli. Patlama kaynakları
+## ExplosionModifiers.announce() ile `_on_explosion(pos, radius)` item olayını yayar.
+func get_explosion_chain_mult() -> float:
+	var mult: float = 1.0
+	for item in active_items:
+		if is_instance_valid(item) and item.has_method("get_explosion_mult"):
+			mult = maxf(mult, float(item.get_explosion_mult()))
+	return mult
+
+
+func notify_explosion(pos: Vector2, radius: float) -> void:
+	notify_item_event("_on_explosion", [pos, radius])
+
+
+## Ateş yardımcıları: yerde yanan alev birikintisi ve bir yöne ilerleyen alev şeridi (Alev Dalgası,
+## Alevli Parry, Meşale Düşman). Birikinti içindeki düşmanlara her 0.5 sn'de bir yanma katmanı verir.
+const _FirePatchScript = preload("res://effects/fire_patch.gd")
+
+func spawn_fire_patch(pos: Vector2, radius: float, duration: float, delay: float = 0.0) -> void:
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	var patch := Node2D.new()
+	patch.set_script(_FirePatchScript)
+	patch.radius = radius
+	patch.duration = duration
+	patch.delay = delay
+	tree.current_scene.add_child(patch)
+	patch.global_position = pos
+
+
+## origin'den dir_x yönünde (-1/+1) `count` birikintilik şerit; dalga ilerliyormuş gibi gecikmeli belirir.
+func spawn_flame_wave(origin: Vector2, dir_x: float, length: float = 270.0, count: int = 6) -> void:
+	var step: float = length / float(count)
+	var side: float = -1.0 if dir_x < 0.0 else 1.0
+	for i in range(count):
+		spawn_fire_patch(origin + Vector2(side * step * float(i + 1), -8.0), 36.0, 1.6, float(i) * 0.07)
+
+
+## Zehir yardımcıları: poison_mastery set bonusu (maks katman, katman başı hasar) burada tek yerde.
+func get_poison_max_stacks() -> int:
+	return 5 + get_set_bonus_int("poison_max_stacks_bonus", 0)
+
+
+## Düşmana `count` zehir katmanı ekler (maks katman ve set bonusuna uyar).
+func add_poison_stacks(enemy: Node, count: int = 1) -> void:
+	if not is_instance_valid(enemy) or not enemy.has_method("add_poison_stack"):
+		return
+	var max_stacks := get_poison_max_stacks()
+	var dmg_per_stack := 1.0 * get_set_bonus("poison_damage_mult", 1.0)
+	for _i in range(count):
+		enemy.add_poison_stack(max_stacks, dmg_per_stack, 2.0)
+	spawn_element_hit_flash(enemy, "poison")
+
+
+## Düşmanın zehir katmanlarını maksimuma tamamlar.
+func max_out_poison(enemy: Node) -> void:
+	if not is_instance_valid(enemy) or enemy.get("poison_stacks") == null:
+		return
+	var missing: int = get_poison_max_stacks() - int(enemy.poison_stacks)
+	if missing > 0:
+		add_poison_stacks(enemy, missing)
+
+
 const _ELEMENT_LIGHTNING_TOUCH_DAMAGE := 5.0
 const _ElementHitFlashScript = preload("res://effects/element_hit_flash.gd")
 const _LightningBoltLineScript = preload("res://effects/lightning_bolt_line.gd")
@@ -1977,9 +2090,16 @@ const _PROJECTILE_KIND_DAMAGE_MULT := {"ok": 1.0, "top": 1.6, "bomb": 1.3}
 ## kind: mermi türü (yukarıya bakın). double_strike: Çift Vuruş bu atış için iki volley atsın mı —
 ## Çift Vuruş bir HAFİF saldırı item'ı, bu yüzden sadece Uzun Menzil true geçer (ağır/fall mermileri
 ## eskiden yanlışlıkla iki katına çıkıyordu).
-func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vector2, damage: float, max_distance_override: float = -1.0, kind: String = "ok", double_strike: bool = false) -> void:
+## mirror_to_shadows: true ise oyuncunun KENDİ atışı gölgelere de yansıtılır (her gölge aynı atışı
+## kendi konumundan en yakın düşmana, get_shadow_damage_ratio() hasarıyla tekrarlar). Gölgenin
+## kendi çağrısı ve diğer tetikleyiciler (Gölge Nişancı, Karşı Mermi) false bırakır.
+func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vector2, damage: float, max_distance_override: float = -1.0, kind: String = "ok", double_strike: bool = false, mirror_to_shadows: bool = false) -> void:
 	if not scene_root:
 		return
+	if mirror_to_shadows:
+		for decoy in get_tree().get_nodes_in_group("player_decoy"):
+			if is_instance_valid(decoy) and decoy.has_method("mimic_projectile"):
+				decoy.mimic_projectile(direction, damage, max_distance_override, kind, double_strike)
 	var directions: Array[Vector2] = [direction]
 	var damage_ratio := 1.0
 	if has_active_item("suru_oku"):
@@ -2069,6 +2189,11 @@ const _PIPELINE_OVERRIDES := {
 	"toplu_kaldirma": "havaya",
 	"agirliksiz": "havaya",
 	"kader_ani": "havaya",
+	"bulasici_darbe": "havaya",
+	"zehir_havuzu": "havaya",
+	"mesale_dusman": "havaya",
+	"kazik_darbesi": "havaya",
+	"gulle": "havaya",
 }
 
 func _get_item_pipeline(item: ItemEffect) -> String:
@@ -2241,11 +2366,24 @@ const ITEM_SYNERGY_PAIRS: Array = [
 	["sonen_golge", "atesli_yumruk", "synergy.burst_element"],
 	["sonen_golge", "buzlu_kilic", "synergy.burst_element"],
 	["sonen_golge", "simsek_parmagi", "synergy.burst_element"],
+	["zehirli_yem", "ortaoyunu", "synergy.poison_bait"],
+	["fitil_hatti", "dodge_bombasi", "synergy.fuse_chain"],
+	["barut_dolgusu", "patlama_zinciri", "synergy.blast_chain"],
+	["kazik_darbesi", "ziplatan_yumruk", "synergy.slam_juggle"],
+	["gulle", "toplu_kaldirma", "synergy.cannonball_group"],
+	["barut_sicrayisi", "cift_ziplama", "synergy.jump_blast"],
+	["guc_kayasi", "atesli_yumruk", "synergy.burn_consume"],
+	["yangin_yayilimi", "koz_tutan", "synergy.fire_spread"],
+	["mesale_dusman", "ziplatan_yumruk", "synergy.torch_juggle"],
+	["korku_yangini", "atesli_yumruk", "synergy.fear_blaze"],
+	["ac_gozlu_toksin", "zehirli_tirnak", "synergy.toxin_bonus"],
+	["bulasici_darbe", "ziplatan_yumruk", "synergy.poison_juggle"],
+	["aci_parry", "serbetci", "synergy.poison_spread"],
+	["zehir_delirmesi", "zehirli_tirnak", "synergy.poison_madness"],
+	["zehir_havuzu", "zehirli_dusus", "synergy.poison_pool"],
 	["golge_bagi", "ortaoyunu", "synergy.shadow_mark"],
 	["golge_bagi", "golge_hasadi", "synergy.shadow_mark"],
 	["golge_bagi", "kukla_oyunu", "synergy.shadow_mark"],
-	["golge_bagi", "karagoz_laneti", "synergy.shadow_mark"],
-	["golge_bagi", "hacivat_golgesi", "synergy.shadow_mark"],
 ]
 
 

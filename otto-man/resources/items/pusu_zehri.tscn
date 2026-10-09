@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://pusu_zehri_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/pusu_zehri.gd" id="1_script"]
+
+[node name="PusuZehri" type="Node"]
+script = ExtResource("1_script")

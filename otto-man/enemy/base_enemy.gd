@@ -106,6 +106,7 @@ var _pending_attack_name: String = ""
 # Alt sınıflar (örn. BasicEnemy) super.take_damage()'dan sonra kendi ek knockback/bounce
 # mantığını çalıştırıyor; bu hasarın kalkan tarafından emildiğini bilip o ek mantığı atlayabilsinler diye.
 var _last_hit_absorbed_by_shield: bool = false
+var _true_damage_pending: bool = false
 
 # Add debug print counter to avoid spam
 var _debug_print_counter: int = 0
@@ -202,7 +203,7 @@ func _process(delta: float) -> void:
 			poison_tick_timer += delta
 			if poison_tick_timer >= poison_tick_interval:
 				var total_damage = poison_stacks * poison_damage_per_stack * _get_elemental_damage_mult()
-				take_damage(total_damage, 0.0, 0.0, false)
+				_take_true_damage(total_damage)
 				poison_tick_timer = 0.0
 				print("[BaseEnemy:", enemy_id, "] ✅ Zehir hasarı: ", total_damage, " (", poison_stacks, " stack x ", poison_damage_per_stack, ")")
 	
@@ -212,7 +213,7 @@ func _process(delta: float) -> void:
 		if burn_tick_timer >= BURN_TICK_INTERVAL:
 			burn_tick_timer = 0.0
 			var burn_dmg = 1.0 * _get_elemental_damage_mult()
-			take_damage(burn_dmg, 0.0, 0.0, false)
+			_take_true_damage(burn_dmg)
 			# Ateş zeminindeyken 1 stack (3 tick) altına inme
 			if standing_on_fire_ground:
 				burn_remaining_ticks = maxi(3, burn_remaining_ticks - 1)
@@ -361,7 +362,45 @@ func _nearest_ward_target(max_dist: float) -> Node2D:
 	return best
 
 
+## Zehir Delirmesi: delirmiş düşman oyuncuyu değil en yakın DİĞER düşmanı hedef alır
+## (resources/items/zehir_delirmesi.gd tetikler ve vuruş hasarını işler).
+var delirium_until_msec: int = 0
+const DELIRIUM_TARGET_RADIUS := 600.0
+
+func start_delirium(duration_sec: float) -> void:
+	delirium_until_msec = Time.get_ticks_msec() + int(duration_sec * 1000.0)
+
+func is_delirious() -> bool:
+	return delirium_until_msec > Time.get_ticks_msec()
+
+func _nearest_other_enemy(max_dist: float) -> Node2D:
+	var best: Node2D = null
+	var best_d := max_dist
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if node == self or not is_instance_valid(node) or not (node is Node2D):
+			continue
+		if node.get("current_behavior") == "dead":
+			continue
+		var d := global_position.distance_to((node as Node2D).global_position)
+		if d < best_d:
+			best_d = d
+			best = node as Node2D
+	return best
+
+## Korku Yangını: yanma katmanı dolan düşman panikler; hedef kaybeder (saldırmaz), kaçışı item sürer.
+var fear_until_msec: int = 0
+
+func start_fear(duration_sec: float) -> void:
+	fear_until_msec = Time.get_ticks_msec() + int(duration_sec * 1000.0)
+
+func is_afraid() -> bool:
+	return fear_until_msec > Time.get_ticks_msec()
+
 func get_nearest_player() -> Node2D:
+	if is_afraid():
+		return null
+	if is_delirious():
+		return _nearest_other_enemy(DELIRIUM_TARGET_RADIUS)
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() == 0:
 		if Engine.get_physics_frames() % 60 == 0:  # Only print every ~1 second
@@ -370,6 +409,8 @@ func get_nearest_player() -> Node2D:
 
 	var nearest_player = null
 	var min_distance = INF
+	var nearest_decoy = null
+	var decoy_distance = INF
 
 	for player in players:
 		if not is_instance_valid(player) or not player.is_inside_tree():
@@ -379,9 +420,19 @@ func get_nearest_player() -> Node2D:
 			continue
 
 		var distance = global_position.distance_to(player.global_position)
+		# Gölgeler her zaman agro çeker: gerçek oyuncu daha yakın olsa bile en yakın gölge hedef olur.
+		if player.has_method("is_decoy") and player.is_decoy():
+			if distance < decoy_distance:
+				decoy_distance = distance
+				nearest_decoy = player
+			continue
 		if distance < min_distance:
 			min_distance = distance
 			nearest_player = player
+
+	if nearest_decoy != null:
+		nearest_player = nearest_decoy
+		min_distance = decoy_distance
 
 	# Korunan hedef (köylü) oyuncudan daha yakınsa o hedef alınır
 	var ward := _nearest_ward_target(min_distance)
@@ -636,11 +687,14 @@ func _get_elemental_damage_mult() -> float:
 
 func add_poison_stack(max_stacks: int, damage_per_stack: float, tick_interval: float) -> void:
 	# Add poison stack (cap at max_stacks)
+	var was_poisoned := poison_stacks > 0
 	poison_stacks = min(poison_stacks + 1, max_stacks)
 	poison_damage_per_stack = damage_per_stack
 	poison_tick_interval = tick_interval
-	# Reset tick timer when new stack is added
-	poison_tick_timer = 0.0
+	# Tick sayacı SIFIRLANMAZ: aralıksız vurulan düşmanda zehir hiç tetiklenmezdi.
+	# Yalnızca ilk stack'te başlar; sonraki vuruşlar mevcut döngüyü sürdürür.
+	if not was_poisoned:
+		poison_tick_timer = 0.0
 	_ensure_status_tint_timer()
 
 func add_burn_stack() -> void:
@@ -657,7 +711,7 @@ func add_burn_stack() -> void:
 		var steam = POISON_FIRE_EXPLOSION_SCENE.instantiate()
 		get_tree().current_scene.add_child(steam)
 		steam.global_position = global_position
-		take_damage(steam_bonus_damage, 0.0, 0.0, false)
+		_take_true_damage(steam_bonus_damage)
 	# 3 tick per stack, max 3 stacks (9 tick), 1 dmg per tick per second
 	burn_remaining_ticks = mini(burn_remaining_ticks + 3, 9)
 	burn_tick_timer = 0.0
@@ -765,7 +819,11 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	_last_hit_absorbed_by_shield = false
 
 	# Kalkan ayaktaysa: hasar kalkana yönlenir, can havuzuna hiç dokunulmaz.
-	if has_shield_affix and shield_health > 0.0 and apply_knockback:
+	# Menzilli vuruşlar (apply_knockback=false) da kalkana çarpar; yalnızca DoT (zehir/yanma)
+	# kalkanı pas geçip doğrudan cana işler (true damage).
+	var is_true_damage := _true_damage_pending
+	_true_damage_pending = false
+	if has_shield_affix and shield_health > 0.0 and not is_true_damage:
 		_last_hit_absorbed_by_shield = true
 		_apply_shield_damage(amount, attack_name, knockback_force, knockback_up_force)
 		return
@@ -847,6 +905,12 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 			die()
 	else:
 		_play_enemy_sfx("enemy_hurt")
+
+## DoT hasarı: kalkanı pas geçer, doğrudan cana işler.
+func _take_true_damage(amount: float) -> void:
+	_true_damage_pending = true
+	take_damage(amount, 0.0, 0.0, false)
+	_true_damage_pending = false
 
 func _is_heavy_attack_name(attack_name: String) -> bool:
 	return attack_name.find("heavy") != -1 or attack_name == "fall_attack"

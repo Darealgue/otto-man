@@ -16,8 +16,13 @@ var _bounces_left: int = 2
 var _fuse: float = FUSE_TIME
 var _exploded: bool = false
 
+## Fitil Hattı çağırır: uçan bomba da komşu bir patlamayla hemen patlar.
+func detonate_now() -> void:
+	_explode_in_place()
+
 func setup(origin: Vector2, direction: Vector2, damage: float) -> void:
 	super.setup(origin, direction, damage)
+	add_to_group("barut_fuse")
 	_speed = 430.0
 	_hit_radius = 56.0
 	_ball_radius = 13.0
@@ -73,6 +78,7 @@ func _explode_in_place() -> void:
 		return
 	_exploded = true
 	_splash(null, global_position)
+	ExplosionModifiers.announce(global_position, splash_radius * ExplosionModifiers.radius_mult())
 	queue_free()
 
 func _draw() -> void:

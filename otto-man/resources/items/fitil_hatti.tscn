@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://fitil_hatti_item_001"]
+
+[ext_resource type="Script" path="res://resources/items/fitil_hatti.gd" id="1_script"]
+
+[node name="FitilHatti" type="Node"]
+script = ExtResource("1_script")

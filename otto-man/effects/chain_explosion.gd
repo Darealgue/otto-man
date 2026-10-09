@@ -31,7 +31,8 @@ func _apply_damage() -> void:
 			continue
 		var dist = center.distance_to(node.global_position)
 		if dist <= radius and node.has_method("take_damage"):
-			node.take_damage(EXPLOSION_DAMAGE, 150.0, -100.0, true)
+			node.take_damage(EXPLOSION_DAMAGE * ExplosionModifiers.damage_mult(), 150.0, -100.0, true)
+	ExplosionModifiers.announce(center, radius)
 	# Oyuncu (hem düşmanlara hem oyuncuya vurur; Barut Zırhı bağışıklık verir)
 	var player = tree.get_first_node_in_group("player")
 	if is_instance_valid(player) and player.has_method("take_damage"):

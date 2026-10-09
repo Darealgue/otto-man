@@ -177,6 +177,8 @@ func physics_update(delta: float):
 			var im_momentum := get_node_or_null("/root/ItemManager")
 			if im_momentum:
 				im_momentum.apply_parkour_momentum_tick()
+				# Barut Sıçrayışı vb.: hava zıplaması bir item olayı olarak duyurulur
+				im_momentum.notify_item_event("_on_air_jump", [player.global_position])
 			# Randomly choose between two double jump animations
 			var double_jump_animations = ["double_jump", "double_jump_alt"]
 			var random_animation = double_jump_animations[randi() % double_jump_animations.size()]

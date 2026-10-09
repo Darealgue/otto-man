@@ -12,7 +12,7 @@ signal decoy_fall_attack_impacted(position: Vector2)  # Gölge konumunda fall-at
 signal player_dodged(direction: int, start_pos: Vector2, end_pos: Vector2)
 signal player_slid(distance: float, duration: float)
 signal player_blocked(blocked_damage: float, attacker: Node2D)
-# effect_filter: "all" = oyuncu vurdu; "physical_only" = Karagöz gölgesi (sadece fiziksel itemler); "elemental_only" = Hacivat gölgesi (sadece elemental itemler)
+# effect_filter: "all" = oyuncu vurdu; gölge vurduğunda iki ayrı yayın gelir: "physical_only" (sadece fiziksel on-hit itemler) ve, element varsa, "elemental_only" (sadece elemental itemler)
 signal player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String)
 signal player_light_attack_performed(direction: Vector2, position: Vector2, damage: float)
 signal heavy_attack_performed  # Heavy attack başladı (vurmadan da)

@@ -5,7 +5,7 @@
 extends ItemEffect
 
 const DecoyScene = preload("res://effects/player_decoy.tscn")
-const DECOY_LIFETIME := 3.0
+const DECOY_LIFETIME := 4.0
 const COOLDOWN := 2.0
 
 var _player: CharacterBody2D = null

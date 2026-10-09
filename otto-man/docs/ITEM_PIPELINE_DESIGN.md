@@ -859,3 +859,27 @@ Starter artık 19 item'ın ~9'u flat-stat (%47), önceki 14/19'dan (%74) düşü
     taraması + Element İzi), 1.5 sn görüş x0.2 ve sonraki vuruş x1.5 (çarpımsal, geri alınır), yarım stamina segmenti.
   - **Ölü Perdesi** (UNCOMMON, önkoşul Gölge Hasadı): hasat gölgesi zehir bulutu bırakır.
   - `ITEM_SYNERGY_PAIRS`'e 18 gerçek çift eklendi. Denge sayıları oynanmadı. Smoke test: SMOKE OK.
+
+- **✅ TAMAMLANDI — Ateş / Zehir / Barut havuzlarını güçlendirme + Gölge sistemi yeniden yazımı (2026-10-09, v0.21.0).**
+  Başlangıç: ateş 14, zehir 14, barut 19 item (buz 33). Kural: sayı değil nitelik, düz stat item'ı fiil değiştirene
+  çevrilir (id aynı kalır). Kullanıcı numara numara onayladı (ITEM listesi kullanıcı sohbetinde).
+  - **Gölge sistemi** (`effects/player_decoy.gd`): her gölge varsayılan olarak sabit durur, agro çeker
+    (`base_enemy.get_nearest_player`), oyuncunun saldırı/mermisini en yakın düşmana (sol/sağ) %50 hasarla taklit eder,
+    vuruşu oyuncu vuruşu SAYILIR (`"all"` + `ItemManager.is_shadow_hit()`). Karagöz Laneti / Hacivat Gölgesi silindi,
+    Gölge Hasadı artık kendi başına saldırmaz. Ömür 3-5 sn. Yeni: **Zehirli Yem**, **Uzayan Gölge** (x2 ömür),
+    **Gerçek Gölge** (%100 hasar). Ayrıntı: `ITEM_AUTHORING_GUIDE.md` §10.
+  - **Zehir (7 yeni):** Aç Gözlü Toksin, Acı Parry, Pusu Zehri, Bulaşıcı Darbe, Zehir Havuzu, Taşıyıcı (kapılan/bırakılan
+    düşman 1.5 sn dokunulmaz: ping pong hatası testte yakalandı), Zehir Delirmesi (`base_enemy.start_delirium`).
+  - **Ateş (3 dönüşüm + 5 yeni):** Güç Kayası→Kor Patlatma, Hızlı Charge→Alev Dalgası, Gökten Düşüş→Kıvılcım Yağmuru;
+    Yangın Yayılımı, Alevli Parry, Meşale Düşman, Yarılan Alev, Korku Yangını (`base_enemy.start_fear`).
+    Yeni efektler: `effects/fire_patch.gd`, `effects/ember_spark.gd`; `ItemManager.spawn_fire_patch/spawn_flame_wave`.
+  - **Barut (6 yeni):** Barut Sıçrayışı, Kazık Darbesi, Gülle, Fitil Hattı, Barut Dolgusu, Duvar Çarpması. Patlama
+    efektleri artık `ExplosionModifiers.damage_mult()/radius_mult()` (Barut Dolgusu çarpanı) kullanır ve
+    `ExplosionModifiers.announce()` ile `_on_explosion` olayı yayar; patlatılabilir barut nesneleri `barut_fuse`
+    grubunda `detonate_now()` sunar; Dodge Bombası bekleyen bombalarını `detonate_pending_near` ile açar.
+  - Havaya Fırlatma hattı genişledi: Bulaşıcı Darbe, Zehir Havuzu, Meşale Düşman, Kazık Darbesi, Gülle
+    (`_PIPELINE_OVERRIDES`).
+  - Doğrulama: tam proje `--quit` temiz; smoke test 188 item `SMOKE OK`, gölge/zehir/ateş/barut için gerçek etki
+    testleri (sahte düşmanlarla). **Denge oynanmadı; Korku Yangını, Zehir Delirmesi, Duvar Çarpması, Kazık Darbesi
+    gerçek düşman yapay zekası/fiziğine dayanıyor ve sadece sahte düşmanlarla + havuzdaki gerçek düşmanın hedef
+    seçimiyle test edildi, gerçek oynanışta doğrulanmalı.**

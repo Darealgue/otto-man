@@ -1,33 +1,49 @@
-# hizli_charge.gd
-# COMMON item - Heavy attack charge süresi -%50
+# hizli_charge.gd  (Alev Dalgası)
+# RARE - Ağır vuruş isabet edince vurduğun yönde yerde ilerleyen bir alev şeridi çıkar; şeritteki
+# düşmanlar yanar. Eski "ağır saldırı hızı +%50" düz stat'ı bu fiille değiştirildi (id aynı kaldı).
+# Gölgenin ağır vuruşu da şerit çıkarır (gölgenin konumundan, gölgenin baktığı yöne).
 
 extends ItemEffect
 
-const CHARGE_SPEED_BOOST = 0.5  # %50 daha hızlı = animation speed 1.5x
+const WAVE_LENGTH := 270.0
+const WAVE_PATCHES := 6
+const COOLDOWN_MSEC := 400
+
+var _player: CharacterBody2D = null
+var _ready_at: int = 0
 
 func _init():
 	item_id = "hizli_charge"
 	item_name = tr("item.hizli_charge.name")
 	description = tr("item.hizli_charge.description")
-	flavor_text = "Daha hızlı hazırlık"
-	rarity = ItemRarity.COMMON
+	flavor_text = "Kor yürür"
+	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
-	affected_stats = ["heavy_charge_speed"]
+	tags = ["elemental_fire"]
+	affected_stats = ["heavy_flame_wave"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	var heavy_attack_state = player.get_node_or_null("StateMachine/HeavyAttack")
-	if heavy_attack_state:
-		# Increase animation speed by 50% (1.5x faster = charge time halved)
-		if not heavy_attack_state.has_meta("original_animation_speed_hizli_charge"):
-			heavy_attack_state.set_meta("original_animation_speed_hizli_charge", heavy_attack_state.ANIMATION_SPEED)
-		heavy_attack_state.ANIMATION_SPEED = heavy_attack_state.ANIMATION_SPEED * (1.0 + CHARGE_SPEED_BOOST)
-		print("[Hızlı Charge] ✅ Heavy attack charge süresi -%50")
+	_player = player
+	_ready_at = 0
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	var heavy_attack_state = player.get_node_or_null("StateMachine/HeavyAttack")
-	if heavy_attack_state and heavy_attack_state.has_meta("original_animation_speed_hizli_charge"):
-		heavy_attack_state.ANIMATION_SPEED = heavy_attack_state.get_meta("original_animation_speed_hizli_charge")
-		heavy_attack_state.remove_meta("original_animation_speed_hizli_charge")
-		print("[Hızlı Charge] ❌ Heavy attack charge süresi eski haline döndü")
+	_player = null
+
+func _on_player_attack_landed(attack_type: String, _damage: float, _targets: Array, _position: Vector2, _effect_filter: String = "all") -> void:
+	if attack_type != "heavy" or not is_instance_valid(_player):
+		return
+	var now := Time.get_ticks_msec()
+	if now < _ready_at:
+		return
+	var im := get_node_or_null("/root/ItemManager")
+	if im == null:
+		return
+	_ready_at = now + COOLDOWN_MSEC
+	var origin: Vector2 = _player.global_position
+	var dir_x: float = float(_player.get("facing_direction")) if _player.get("facing_direction") != null else 1.0
+	if im.is_shadow_hit():
+		origin = im.shadow_hit_origin
+		dir_x = im.shadow_hit_facing
+	im.spawn_flame_wave(origin, dir_x, WAVE_LENGTH, WAVE_PATCHES)

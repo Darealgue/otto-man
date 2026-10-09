@@ -41,4 +41,4 @@ func _on_heavy_attack_impact(_attack_name: String) -> void:
 	var damage: float = _player.hitbox.damage * DAMAGE_RATIO if _player.hitbox else 10.0
 	var spawn_pos: Vector2 = _player.global_position + Vector2(direction.x * 20.0, -22.0)
 	var kind := "bomb" if im.has_active_item("ates_bombasi") else "top"
-	im.spawn_upgraded_projectile(tree.current_scene, spawn_pos, direction, damage, PROJECTILE_RANGE, kind)
+	im.spawn_upgraded_projectile(tree.current_scene, spawn_pos, direction, damage, PROJECTILE_RANGE, kind, false, true)

@@ -13,11 +13,29 @@ static func player_immune_to_explosions() -> bool:
 	var im := _item_manager()
 	return im != null and im.has_method("has_active_item") and im.has_active_item("barut_zirhi")
 
+## Barut Dolgusu: art arda öldürmelerle büyüyen ortak patlama çarpanı (alan VE hasar).
+static func chain_mult() -> float:
+	var im := _item_manager()
+	if im and im.has_method("get_explosion_chain_mult"):
+		return im.get_explosion_chain_mult()
+	return 1.0
+
 static func radius_mult() -> float:
 	var im := _item_manager()
+	var base := 1.0
 	if im and im.has_method("has_active_item") and im.has_active_item("kara_barut"):
-		return 1.3
-	return 1.0
+		base = 1.3
+	return base * chain_mult()
+
+## Patlama hasarı çarpanı (Barut Dolgusu). Yarıçap çarpanıyla birlikte tüm barut efektlerine uygulanır.
+static func damage_mult() -> float:
+	return chain_mult()
+
+## Bir patlama gerçekleştiğini item'lara duyurur (Fitil Hattı komşu barut nesnelerini tetikler).
+static func announce(pos: Vector2, radius: float) -> void:
+	var im := _item_manager()
+	if im and im.has_method("notify_explosion"):
+		im.notify_explosion(pos, radius)
 
 ## Kara Barut'un tepme hasarı: Barut Zırhı aktifse hiç uygulanmaz.
 static func apply_recoil(player: Node) -> void:
