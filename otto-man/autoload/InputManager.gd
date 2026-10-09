@@ -126,15 +126,21 @@ var last_input_from_joypad: bool = false
 ## Oyun tamamen klavye/gamepad ile oynanıyor; mouse imleci hiç görünmesin ve
 ## hiçbir şeye tıklamak için kullanılamasın.
 func _ready() -> void:
+	# Duraklatma menüsünde de çalışsın: aksi halde oyun duraklatılmışken mouse girdisi yutulmaz
+	# ve menü sarmalama devreye girmez.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_keyboard_preset_from_disk()
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		# Tıklamaları UI/oyun mantığına ulaşmadan tamamen yut.
+	if event is InputEventMouseButton or event is InputEventMouseMotion:
+		# Tıklamaları ve imleç hareketini UI/oyun mantığına ulaşmadan tamamen yut. Hareketi de
+		# yutmak şart: imleç görünmese bile düğmelerin üstüne gelince hover vurgusu çıkıyordu
+		# (ilk playtest geri bildirimi, 2026-10-06).
 		get_viewport().set_input_as_handled()
 		return
+	_wrap_menu_focus_vertically(event)
 	var was_joypad := last_input_from_joypad
 	if event is InputEventJoypadButton:
 		if event.pressed:
@@ -146,6 +152,95 @@ func _input(event: InputEvent) -> void:
 		last_input_from_joypad = false
 	if was_joypad != last_input_from_joypad:
 		input_device_changed.emit(last_input_from_joypad)
+
+
+## Menülerde en alttaki öğedeyken aşağı basınca en üste, en üstteyken yukarı basınca en alta
+## geç (ilk playtest, 2026-10-06). Godot'un kendi odak gezinmesi uçta durur; komşu varsa ona
+## hiç karışmıyoruz, yalnızca "o yönde komşu yok" durumunda devreye giriyoruz.
+func _wrap_menu_focus_vertically(event: InputEvent) -> void:
+	var side := -1
+	if event.is_action_pressed(&"ui_down", true):
+		side = SIDE_BOTTOM
+	elif event.is_action_pressed(&"ui_up", true):
+		side = SIDE_TOP
+	else:
+		return
+	var viewport := get_viewport()
+	var focused := viewport.gui_get_focus_owner()
+	if focused == null or not _focus_can_wrap(focused):
+		return
+	if focused.find_valid_focus_neighbor(side) != null:
+		return
+	var target := _find_wrap_target(focused, side)
+	if target == null:
+		return
+	target.grab_focus()
+	viewport.set_input_as_handled()
+
+
+## Metin kutusu, liste, kaydırma çubuğu gibi yukarı/aşağıyı kendi kullanan denetimlerde
+## sarmalama yapma; yalnızca düğme ve kaydırıcı (ses ayarı satırları) için.
+func _focus_can_wrap(control: Control) -> bool:
+	if control is ScrollBar:
+		return false
+	return control is BaseButton or control is Range
+
+
+## En dar kapsayıcıdan başlayıp yukarı doğru çıkarak, odaktaki öğenin KARŞI ucundaki öğeyi bulur.
+## Düğme sırası (Uygula/Sıfırla/Geri) gibi aynı yükseklikteki kardeşler karşı uç sayılmaz; o
+## durumda bir üst kapsayıcıya çıkılır, böylece menünün gerçek ilk/son öğesi seçilir.
+func _find_wrap_target(focused: Control, side: int) -> Control:
+	var focused_center := focused.get_global_rect().get_center()
+	var container := focused.get_parent() as Control
+	while container != null:
+		var best: Control = null
+		var best_y := 0.0
+		var best_dx := 0.0
+		for candidate in _collect_focusable_controls(container):
+			if candidate == focused:
+				continue
+			var center := candidate.get_global_rect().get_center()
+			# Karşı uç: aşağıdan sarıyorsak odaktan KESİN olarak yukarıda olanlar, yukarıdan
+			# sarıyorsak kesin olarak aşağıda olanlar.
+			if side == SIDE_BOTTOM and center.y >= focused_center.y - 1.0:
+				continue
+			if side == SIDE_TOP and center.y <= focused_center.y + 1.0:
+				continue
+			var dx := absf(center.x - focused_center.x)
+			var better := false
+			if best == null:
+				better = true
+			elif side == SIDE_BOTTOM:
+				better = center.y < best_y - 1.0 or (absf(center.y - best_y) <= 1.0 and dx < best_dx)
+			else:
+				better = center.y > best_y + 1.0 or (absf(center.y - best_y) <= 1.0 and dx < best_dx)
+			if better:
+				best = candidate
+				best_y = center.y
+				best_dx = dx
+		if best != null:
+			return best
+		container = container.get_parent() as Control
+	return null
+
+
+func _collect_focusable_controls(root: Node) -> Array[Control]:
+	var found: Array[Control] = []
+	_collect_focusable_into(root, found)
+	return found
+
+
+func _collect_focusable_into(node: Node, into: Array[Control]) -> void:
+	for child in node.get_children():
+		var control := child as Control
+		if control != null:
+			if not control.visible:
+				continue
+			if control.focus_mode == Control.FOCUS_ALL and control.is_visible_in_tree() and _focus_can_wrap(control):
+				var button := control as BaseButton
+				if button == null or not button.disabled:
+					into.append(control)
+		_collect_focusable_into(child, into)
 
 # -- Genel yardımcılar -------------------------------------------------------------------------
 

@@ -13,6 +13,7 @@ const START_PICKS: int = 3
 const BREAK_SECONDS: float = 3.0
 const WARDS_BASE: int = 3
 const WARD_HEALTH: float = 70.0
+const WARD_SPACING: float = 90.0
 ## Asansör arenası: kat başına yükselme, yükselme süresi, zemin kalınlığı, ulaşılabilecek en yüksek yüzey y'si
 const LIFT_RISE_PER_FLOOR: float = 420.0
 const LIFT_RISE_TIME: float = 3.0
@@ -26,6 +27,12 @@ const CHASE_TRIGGER_DISTANCE: float = 120.0
 const PLAYER_RUN_SPEED: float = 560.0
 ## Tuzak Geçidi: tuzağa çarpınca kalan süreden düşen saniye
 const TRAP_HIT_TIME_PENALTY: float = 4.0
+## Koruma arenası ekranın iki yanına bu kadar sütun (32 px) uzar; düşmanlar ekran dışından doğar
+const KORUMA_EXTEND_COLS: int = 16
+## Koruma odalarının bu oranında köylüler solda, düşmanlar yalnız sağdan gelir
+const KORUMA_LEFT_VARIANT_CHANCE: float = 0.4
+## Sol varyantta köylü öbeğinin ortası, sol sınırdan bu kadar sağda
+const WARD_LEFT_CLUSTER_OFFSET: float = 330.0
 
 var kind: String = "koruma"
 var biome: String = "orman"
@@ -49,6 +56,8 @@ var _time_left: float = 0.0
 var _timer_running: bool = false
 var _ward_total: int = 0
 var _ward_override: int = 0
+## Koruma varyantı: köylüler ekranın SOLUNDA, düşmanlar yalnız sağdan gelir (oyuncuya büyük kolaylık)
+var _ward_side_left: bool = false
 var _finished: bool = false
 
 var _wave_label: Label = null
@@ -65,7 +74,9 @@ func _ready() -> void:
 	elif kind == "tirmanis":
 		_layout = SummitTowerBuilder.build(self, difficulty)
 	else:
-		_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor")
+		_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor", KORUMA_EXTEND_COLS if kind == "koruma" else 0)
+		if kind == "koruma" and _ward_side_left:
+			_apply_left_ward_layout()
 	if biome == "orman":
 		if kind == "tirmanis":
 			_decorate_summit()
@@ -104,6 +115,9 @@ func _read_payload() -> void:
 	biome = String(payload.get("biome", biome))
 	difficulty = clampi(int(payload.get("difficulty", difficulty)), 1, 9)
 	_ward_override = int(payload.get("wards", 0))
+	# Payload "ward_side": "left" | "center" ile zorlanabilir, yoksa rastgele
+	var side: String = String(payload.get("ward_side", ""))
+	_ward_side_left = side == "left" or (side != "center" and randf() < KORUMA_LEFT_VARIANT_CHANCE)
 	_theme = String(payload.get("theme", ""))
 	if not ChallengeRoomRegistry.KINDS.has(kind):
 		kind = "koruma"
@@ -298,9 +312,20 @@ func _carry_corpses() -> void:
 			(e as Node2D).global_position.y = _lift_top + stored
 
 
+## Sol varyant: köylüler sol sınıra yakın durur, oyuncu onların sağında doğar, düşmanlar yalnız sağdan gelir.
+func _apply_left_ward_layout() -> void:
+	var count: int = clampi(_ward_override if _ward_override > 0 else WARDS_BASE + difficulty / 4, 1, 5)
+	var half_span: float = float(count - 1) * 0.5 * WARD_SPACING
+	_layout["ward_center_x"] = float(_layout["left_x"]) + WARD_LEFT_CLUSTER_OFFSET
+	_layout["player_spawn"] = Vector2(float(_layout["ward_center_x"]) + half_span + 130.0, float(_layout["floor_y"]))
+	_layout["right_only"] = true
+
+
 func _spawn_player() -> void:
 	_player = PLAYER_SCENE.instantiate() as Node2D
 	add_child(_player)
+	# Arenanın görünmez yan sınırları yalnız oyuncuyu tutar (bkz. ChallengeArenaBuilder._add_boundary_walls)
+	_player.set("collision_mask", int(_player.get("collision_mask")) | CollisionLayers.ARENA_BOUNDARY)
 	_player.global_position = _layout["player_spawn"]
 	_player.z_index = 7
 	# Oyuncu kamerası kapalı: sabit arena kamerası kullanılır (boss odasıyla aynı)
@@ -312,8 +337,8 @@ func _spawn_player() -> void:
 func _spawn_wards() -> void:
 	# Payload "wards" verilirse o sayı (1-5), yoksa zorluğa göre
 	_ward_total = clampi(_ward_override if _ward_override > 0 else WARDS_BASE + difficulty / 4, 1, 5)
-	var cx: float = float(_layout["center_x"])
-	var spacing: float = 90.0
+	var cx: float = float(_layout.get("ward_center_x", _layout["center_x"]))
+	var spacing: float = WARD_SPACING
 	for i in range(_ward_total):
 		var ward := WardTarget.new()
 		ward.max_health = WARD_HEALTH

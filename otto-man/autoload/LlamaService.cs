@@ -693,6 +693,16 @@ public partial class LlamaService : Node, IDisposable
 			return;
 		}
 
+		// Only one load may be in flight. A second call (startup load still running while the player
+		// presses "Turn on" in Settings) would otherwise start a parallel Initialize(): two 7 GB
+		// loads at once, and the loser's failure path disposes the weights the winner is using.
+		// The running load emits ModelLoadComplete once, which every listener already receives.
+		if (System.Threading.Interlocked.CompareExchange(ref _initInFlight, 1, 0) != 0)
+		{
+			GD.Print("LlamaService.InitializeAsync: a load is already running, not starting another.");
+			return;
+		}
+
 		Task.Run(() =>
 		{
 			bool ok;
@@ -704,6 +714,10 @@ public partial class LlamaService : Node, IDisposable
 			{
 				GD.PrintErr($"LlamaService.InitializeAsync failed: {ex.Message}");
 				ok = false;
+			}
+			finally
+			{
+				System.Threading.Interlocked.Exchange(ref _initInFlight, 0);
 			}
 			// Marshal back to the main thread; signals must not be emitted from a worker thread.
 			CallDeferred("emit_signal", SignalName.ModelLoadComplete, ok);
@@ -718,6 +732,8 @@ public partial class LlamaService : Node, IDisposable
 	// <<< Native pointers removed, LLamaSharp objects will replace them >>>
 	private bool _isInitialized = false;
 	private bool _isDisposed = false;
+	/// <summary>1 while an <see cref="InitializeAsync"/> load is running. See the guard there.</summary>
+	private int _initInFlight = 0;
 
 	// <<< LLamaSharp model/context objects will be added here >>>
 	private LLamaWeights _modelWeightsBase;

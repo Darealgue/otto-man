@@ -297,6 +297,12 @@ func _handle_mid_run_selection(index: int) -> void:
 				and (drs.pending_rescued_villagers.size() + drs.pending_rescued_cariyes.size()) > 0:
 			var wheel_results: Array = drs.call("roll_early_exit_rescued")
 			await RescueWheelOverlay.show_for(self, wheel_results, drs.EARLY_EXIT_SURVIVE_CHANCE)
+		# Erken çıkışta ayrıca yeni item şansı çarkı (bölüm başına %20); kazanılırsa seçim aşağıda gösterilir.
+		if not drs.is_run_complete() and drs.has_method("roll_early_exit_item"):
+			var item_chance: float = float(drs.call("get_early_exit_item_chance"))
+			if item_chance > 0.0 and bool(drs.call("has_early_exit_item_candidates")):
+				var item_won: bool = bool(drs.call("roll_early_exit_item"))
+				await RescueWheelOverlay.show_item_wheel(self, item_won, item_chance)
 		if drs.has_method("try_finalize_warmup_progress"):
 			drs.call("try_finalize_warmup_progress")
 		# Keşif ödülü zindandan çıkmadan gösterilir — ödül eylemle aynı anda gelmeli,
@@ -317,6 +323,12 @@ func _handle_mid_run_selection(index: int) -> void:
 		return
 
 	drs.apply_challenge(challenge)
+	# Yeni bölüme başlarken 1 item seçimi
+	var im2: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im2) and im2.has_method("queue_item_selections") \
+			and is_instance_valid(im2.get("player")):
+		im2.call("queue_item_selections", 1)
+		await im2.item_selection_sequence_finished
 	if sm and sm.has_method("change_to_dungeon"):
 		var payload2: Dictionary = {}
 		payload2["source"] = "dungeon"

@@ -187,6 +187,8 @@ func _spawn_one(kind: String) -> void:
 	var level: int = clampi(difficulty + (_wave_index - 1) / 2, 1, 9)
 	container.add_child(enemy)
 	_side_toggle = not _side_toggle
+	if bool(layout.get("right_only", false)):
+		_side_toggle = false   # yalnız sağdan: spawn_right kullanılır
 	var base: Vector2 = layout["spawn_left"] if _side_toggle else layout["spawn_right"]
 	var jitter: float = randf_range(-30.0, 30.0)
 	if kind == "flying":

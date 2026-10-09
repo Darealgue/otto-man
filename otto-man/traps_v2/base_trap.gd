@@ -87,27 +87,32 @@ func _on_wake() -> void:
 func get_damage() -> float:
 	return _damage
 
-func deal_damage(player: Node2D) -> void:
+## Hasar gerçekten uygulandıysa true (dodge / invincibility sırasında false).
+func deal_damage(player: Node2D) -> bool:
 	if not player or not player.has_method("take_damage"):
-		return
+		return false
 	if player.get("is_dodging"):
-		return
+		return false
 	if player.get("invincibility_timer") != null and player.invincibility_timer > 0:
-		return
+		return false
 	player.take_damage(_damage)
 	player_damaged.emit(player, _damage)
+	return true
 
 ## Same as deal_damage but sets knockback and transitions player to Hurt state (like enemy hits).
-func apply_damage_with_knockback(player: Node2D, knockback_force: float, knockback_up_force: float) -> void:
+## Dodge ile geçen oyuncu hasar da almaz, Hurt state'ine de sokulmaz (false döner).
+func apply_damage_with_knockback(player: Node2D, knockback_force: float, knockback_up_force: float) -> bool:
 	if not player or not player.is_in_group("player"):
-		return
+		return false
 	player.last_hit_position = global_position
 	player.last_hit_knockback = { "force": knockback_force, "up_force": knockback_up_force }
-	deal_damage(player)
+	if not deal_damage(player):
+		return false
 	if player.get("state_machine") and player.state_machine.has_node("Hurt"):
 		# transition_to kullan (doğrudan current_state atamak eski state'in exit()'ini
 		# atlıyordu — crouch/slide'ın küçülttüğü collision shape hiç geri büyümüyordu).
 		player.state_machine.transition_to("Hurt", true)
+	return true
 
 func get_status_effect_manager(player: Node2D) -> StatusEffectManager:
 	if not player:

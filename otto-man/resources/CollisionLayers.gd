@@ -27,6 +27,10 @@ const PLATFORM: int = 1 << 9        # Layer 10 (512)
 # Enemy projectiles (used by effects/shockwave.gd)
 const ENEMY_PROJECTILE: int = 1 << 8  # Layer 9 (256)
  
+# Challenge arenası görünmez yan sınırları: yalnız OYUNCU bu katmanı maske olarak alır; düşmanlar
+# içinden geçer (aksi halde hurt/knockback sırasında duvara sıkışıp fırlıyorlardı).
+const ARENA_BOUNDARY: int = 1 << 13  # Layer 14 (8192)
+
 # Generic items (coins, pickups)
 const ITEM: int = 1 << 12            # Layer 13 (4096)
 

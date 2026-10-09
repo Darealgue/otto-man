@@ -201,7 +201,24 @@ func _should_defer_to_village_character() -> bool:
 	return false
 
 
+var _trigger_latched: Dictionary = {}
+
+## Gamepad tetiği (JoypadMotion) için kenar algılama; klavye/düğme olaylarında normal basış.
+func _trigger_edge(event: InputEvent, action: StringName) -> bool:
+	if not event.is_action(action):
+		return false
+	if event is InputEventJoypadMotion:
+		var down: bool = event.is_action_pressed(action)
+		var was_down: bool = bool(_trigger_latched.get(action, false))
+		_trigger_latched[action] = down
+		return down and not was_down
+	return event.is_action_pressed(action)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	# Kenar durumu her olayda güncellenir (erken return'lerden önce), yoksa bırakma kaçar.
+	var add_edge: bool = _trigger_edge(event, "r2_trigger")
+	var remove_edge: bool = _trigger_edge(event, "l2_trigger")
 	# Bu düğüm PROCESS_MODE_ALWAYS (popup'lar açıkken _process'in dönmeye devam etmesi
 	# gerekiyor), yani ağaç DURAKLATILMIŞKEN de girdi almaya devam ediyor. Duraklamayı burada
 	# elle eliyoruz: duraklatma menüsünde/ayarlarda sekme değiştirmek için basılan Q/E aslında
@@ -219,11 +236,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Num7/Num9 klavye + L2/R2 gamepad tetikleyicisini birlikte destekle
 		# (InputMap'teki village_worker_* joypad düğme indeksleri yanıltıcı, gerçek
 		# L2/R2 tetikleyicileri l2_trigger/r2_trigger aksiyonlarından gelir).
-		if event.is_action_pressed("village_worker_add") or event.is_action_pressed("r2_trigger"):
+		# Tetikler eksen olayı: tek basışta eşik üstündeki her hareket olayı "basıldı"
+		# sayılıyordu ve işçiler tek seferde fulleniyordu. _trigger_edge yalnızca
+		# bırakıp yeniden basınca bir kez true döner.
+		if event.is_action_pressed("village_worker_add") or add_edge:
 			if VillageManager.try_add_worker_to_building(_active_building):
 				_notify_worker_assigned(_active_building)
 				get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("village_worker_remove") or event.is_action_pressed("l2_trigger"):
+		elif event.is_action_pressed("village_worker_remove") or remove_edge:
 			if VillageManager.try_remove_worker_from_building(_active_building):
 				get_viewport().set_input_as_handled()
 

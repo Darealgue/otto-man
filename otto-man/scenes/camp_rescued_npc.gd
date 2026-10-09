@@ -34,10 +34,10 @@ func setup(kind: String, data: Dictionary, p_center_x: float, p_range: float, ba
 		_body.set_process(false)
 		_body.position = Vector2.ZERO
 		_body.z_index = 0
-		# İsim levhası kampta kalabalık yapıyor; salt görsel olduğu için gizli
+		# İsim levhası kampta görünür kalır (kurtarılanların adı okunabilsin)
 		var plate: Variant = _body.get("name_plate_container" if is_cariye else "_nameplate_container")
 		if plate is Control:
-			(plate as Control).visible = false
+			(plate as Control).visible = true
 	_target_x = global_position.x
 	_dir = 1.0 if randf() < 0.5 else -1.0
 	_enter("idle", randf_range(0.3, 3.0))

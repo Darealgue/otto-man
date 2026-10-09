@@ -72,6 +72,8 @@ var _ai_header: Label = null
 var _ai_status: Label = null
 var _ai_primary_button: Button = null
 var _ai_secondary_button: Button = null
+## Yapay zeka düğmesine basıldı; düğmeler yeniden görününce odak ona geri verilecek.
+var _ai_refocus_pending := false
 var _locale_label: Label = null
 var _current_settings: Dictionary = DEFAULT_SETTINGS.duplicate(true)
 ## Sekme değiştirme ipucu rozetleri: klavyede Q/E, gamepad'de L2/R2 (bkz. ui/KeyChip.gd, cihaz
@@ -383,6 +385,7 @@ func _ai_node() -> Node:
 ## actually visible and something is in flight, so it costs nothing the rest of the time.
 func _process(_delta: float) -> void:
 	_update_focus_highlight()
+	_restore_lost_focus()
 	if not visible or _ai_section == null:
 		return
 	var ai := _ai_node()
@@ -390,6 +393,24 @@ func _process(_delta: float) -> void:
 		return
 	if bool(ai.call("is_downloading")) or bool(ai.call("is_loading_model")):
 		_refresh_ai_section()
+
+
+## "Aç"a basınca model yüklenirken yapay zeka düğmeleri gizleniyor; odaktaki düğme gizlenince
+## Godot odağı bırakır ve klavye/gamepad ölür, menü donmuş gibi görünürdü (ilk playtest,
+## 2026-10-06). Odak kaybolursa Geri'ye alınır, düğmeler geri gelince eski yerine döner.
+func _restore_lost_focus() -> void:
+	if not visible:
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if _ai_refocus_pending:
+		if is_instance_valid(_ai_primary_button) and _ai_primary_button.is_visible_in_tree():
+			_ai_primary_button.grab_focus()
+			_ai_refocus_pending = false
+			return
+		if focused != null and focused != back_button:
+			_ai_refocus_pending = false
+	if focused == null and back_button != null and back_button.is_visible_in_tree():
+		back_button.grab_focus()
 
 
 func _refresh_ai_section() -> void:
@@ -464,6 +485,7 @@ func _on_ai_primary_pressed() -> void:
 		ai.call("set_enabled", false)
 	else:
 		ai.call("set_enabled", true)
+	_ai_refocus_pending = true
 	_refresh_ai_section()
 	_layout_tab_hints.call_deferred()
 
@@ -476,6 +498,7 @@ func _on_ai_secondary_pressed() -> void:
 		ai.call("cancel_download")
 	else:
 		ai.call("delete_model")
+	_ai_refocus_pending = true
 	_refresh_ai_section()
 	_layout_tab_hints.call_deferred()
 

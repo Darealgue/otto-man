@@ -10,6 +10,7 @@ var _alarm_banner: Label
 var _key_panel: PanelContainer
 var _key_icon: Label
 var _key_count: Label
+var _key_progress: Label
 var _key_arrow: Label
 var _vignette: ColorRect
 var _pulse: float = 0.0
@@ -90,6 +91,12 @@ func _ready() -> void:
 	_key_count.add_theme_font_size_override("font_size", 16)
 	_key_count.add_theme_color_override("font_color", Color(1.0, 0.92, 0.65))
 	key_row.add_child(_key_count)
+
+	# Anahtar yeri ipucu için düşman sayacı: "⚔ 4/10" → 10'a ulaşınca ok açılır, sayaç kaybolur.
+	_key_progress = Label.new()
+	_key_progress.add_theme_font_size_override("font_size", 15)
+	_key_progress.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
+	key_row.add_child(_key_progress)
 
 	_key_arrow = Label.new()
 	_key_arrow.text = "➤"
@@ -239,6 +246,10 @@ func _refresh_key_counter() -> void:
 	if drs.has_method("has_dungeon_key"):
 		has_key = bool(drs.call("has_dungeon_key", drs.get("SEGMENT_EXIT_KEY_ID")))
 	_key_count.text = "1/1" if has_key else "0/1"
+	var reveal_goal: int = int(drs.get("segment_key_reveal_threshold"))
+	var kills: int = int(drs.get("segment_combat_enemies_defeated"))
+	_key_progress.visible = not has_key and kills < reveal_goal
+	_key_progress.text = "⚔ %d/%d" % [kills, reveal_goal]
 	if has_key:
 		_key_count.add_theme_color_override("font_color", Color(0.55, 1.0, 0.55))
 	else:

@@ -42,14 +42,19 @@ const TERRAIN_SET_FOREST: int = 1    # "forest_ground"
 
 ## Arenayı `root` altına kurar ve yerleşim bilgisini döndürür.
 ## `shaft` = true: Asansör Arenası için uzun dikey kuyu (yan duvarlar yukarı kadar sürer, en altta zemin).
-static func build(root: Node2D, biome: String, shaft: bool = false) -> Dictionary:
+## `extend_cols` > 0: zemin (ve zindanda yan duvar/tavan) ekranın iki yanına bu kadar sütun uzar. Oyuncu yine
+## ekran genişliğindeki görünmez sınırlar içinde kalır; düşmanlar ekran DIŞINDAN doğup içeri yürür (Koruma).
+static func build(root: Node2D, biome: String, shaft: bool = false, extend_cols: int = 0) -> Dictionary:
 	_rng.randomize()
+	var ext: int = 0 if shaft else maxi(0, extend_cols)
 	var forest: bool = biome == "orman"
 	var floor_row: int = SHAFT_FLOOR_ROW if shaft else FLOOR_ROW
 	var rows: int = floor_row + (ROWS - FLOOR_ROW)
 	# Orman: gökyüzü, parallax ve dekor ForestArenaDecorator'dan gelir (düz renk arka plan YOK)
 	if not forest:
 		_add_background(root, forest)
+	var arena_left_x: float = float((WALL_COLS - ext) * TILE)
+	var arena_right_x: float = float((COLS - WALL_COLS + ext) * TILE)
 	var layer := TileMapLayer.new()
 	# "TileMapLayer" adı orman dekor kodunun karoları bulması için gerekli (chunk sahneleriyle aynı ad)
 	layer.name = "TileMapLayer"
@@ -59,13 +64,13 @@ static func build(root: Node2D, biome: String, shaft: bool = false) -> Dictionar
 	var cells: Array[Vector2i] = []
 	# Karolar ekranın (kamera 1920x1080) birkaç sıra dışına taşar: kenar/bitiş çizgisi görünmesin,
 	# duvarlar ve zemin ekran dışına devam ediyormuş gibi dursun. Oynanabilir sınırlar değişmez.
-	for x in range(-OVERSCAN, COLS + OVERSCAN):
+	for x in range(-OVERSCAN - ext, COLS + OVERSCAN + ext):
 		for y in range(floor_row, rows + OVERSCAN):
 			cells.append(Vector2i(x, y))
 	if not forest or shaft:
 		for y in range(-OVERSCAN, floor_row):
-			for x in range(-OVERSCAN, COLS + OVERSCAN):
-				if x < WALL_COLS or x >= COLS - WALL_COLS or (y < CEILING_ROWS and not forest):
+			for x in range(-OVERSCAN - ext, COLS + OVERSCAN + ext):
+				if x < WALL_COLS - ext or x >= COLS - WALL_COLS + ext or (y < CEILING_ROWS and not forest):
 					cells.append(Vector2i(x, y))
 	layer.set_cells_terrain_connect(cells, TERRAIN_SET_FOREST if forest else TERRAIN_SET_DUNGEON, 0)
 
@@ -73,55 +78,77 @@ static func build(root: Node2D, biome: String, shaft: bool = false) -> Dictionar
 	var left_x: float = float(WALL_COLS * TILE)
 	var right_x: float = float((COLS - WALL_COLS) * TILE)
 	if not shaft:
-		_add_boundary_walls(root, left_x, right_x, forest)
+		_add_boundary_walls(root, left_x, right_x, forest or ext > 0)
 	if not forest:
-		_add_dungeon_dressing(root, layer, left_x, right_x, floor_y, shaft)
+		_add_dungeon_dressing(root, layer, left_x, right_x, floor_y, shaft, arena_left_x, arena_right_x)
 	var cam_y: float = floor_y - 388.0 if shaft else 540.0
+	var spawn_left := Vector2(left_x + 40.0, floor_y - 40.0)
+	var spawn_right := Vector2(right_x - 40.0, floor_y - 40.0)
+	if ext > 0:
+		# Kamera 0..1920 gösterir: düşmanlar bunun ~250 px dışında doğar, yürüyerek/uçarak ekrana girer
+		spawn_left = Vector2(-250.0, floor_y - 40.0)
+		spawn_right = Vector2(float(COLS * TILE) + 250.0, floor_y - 40.0)
 	return {
-		"bounds": Rect2(left_x, floor_y - 1100.0 if shaft else float(CEILING_ROWS * TILE), right_x - left_x, 1100.0 if shaft else floor_y - float(CEILING_ROWS * TILE)),
+		"bounds": Rect2(arena_left_x if not shaft else left_x, floor_y - 1100.0 if shaft else float(CEILING_ROWS * TILE), (arena_right_x - arena_left_x) if not shaft else (right_x - left_x), 1100.0 if shaft else floor_y - float(CEILING_ROWS * TILE)),
 		"floor_y": floor_y,
 		"left_x": left_x,
 		"right_x": right_x,
 		"center_x": (left_x + right_x) * 0.5,
 		"player_spawn": Vector2(left_x + 140.0, floor_y),
-		"spawn_left": Vector2(left_x + 40.0, floor_y - 40.0),
-		"spawn_right": Vector2(right_x - 40.0, floor_y - 40.0),
+		"spawn_left": spawn_left,
+		"spawn_right": spawn_right,
 		"air_y": floor_y - 420.0,
 		"camera_position": Vector2(960.0, cam_y),
 	}
 
 
-## Orman arenasında duvar yok; oyuncu/düşman kaçmasın diye görünmez sınırlar.
-## Zindanda da tavan/yan duvarlar karo olduğu için yalnız orman için kurulur.
-static func _add_boundary_walls(root: Node2D, left_x: float, right_x: float, forest: bool) -> void:
-	if not forest:
+## Orman arenasında (ve uzatılmış arenada) duvar yok; OYUNCU kaçmasın diye görünmez sınırlar.
+## Yan sınırlar ARENA_BOUNDARY katmanında: yalnız oyuncu bunlarla çarpışır, düşmanlar geçer
+## (düşman knockback/hurt sırasında duvara sıkışıp havaya fırlıyordu; Koruma'da düşmanlar zaten dışarıdan gelir).
+## Tavan WORLD katmanında kalır (uçanlar ve fırlayanlar arenada kalsın).
+## Zindanda tavan/yan duvarlar karo olduğu için yalnız orman (veya uzatılmış arena) için kurulur.
+static func _add_boundary_walls(root: Node2D, left_x: float, right_x: float, needed: bool) -> void:
+	if not needed:
 		return
-	var body := StaticBody2D.new()
-	body.name = "BoundaryWalls"
-	# WORLD katmanında (hurt/dash/dodge gibi durumlar bunu gerçek duvar sayar, içinden geçilemez).
 	# "no_wall_slide" meta'sı: oyuncu çarpışır ama tutunamaz (bkz. wall_slide_state._ray_hits_slideable).
 	# Kalın duvar: sert darbe/knockback ince bir duvarın içinden geçip haritanın dışına atmasın.
-	body.collision_layer = CollisionLayers.WORLD
-	body.collision_mask = 0
-	body.set_meta("no_wall_slide", true)
-	var specs := [
+	var sides := StaticBody2D.new()
+	sides.name = "BoundaryWalls"
+	sides.collision_layer = CollisionLayers.ARENA_BOUNDARY
+	sides.collision_mask = 0
+	sides.set_meta("no_wall_slide", true)
+	var side_specs := [
 		[Vector2(left_x - 200.0, 540.0), Vector2(400.0, 2400.0)],
 		[Vector2(right_x + 200.0, 540.0), Vector2(400.0, 2400.0)],
-		[Vector2(960.0, 96.0 - 200.0), Vector2(4000.0, 400.0)],
 	]
-	for spec in specs:
+	for spec in side_specs:
 		var shape := CollisionShape2D.new()
 		var rect := RectangleShape2D.new()
 		rect.size = spec[1]
 		shape.shape = rect
 		shape.position = spec[0]
-		body.add_child(shape)
-	root.add_child(body)
+		sides.add_child(shape)
+	root.add_child(sides)
+	var ceiling := StaticBody2D.new()
+	ceiling.name = "BoundaryCeiling"
+	ceiling.collision_layer = CollisionLayers.WORLD
+	ceiling.collision_mask = 0
+	ceiling.set_meta("no_wall_slide", true)
+	var cshape := CollisionShape2D.new()
+	var crect := RectangleShape2D.new()
+	crect.size = Vector2(6000.0, 400.0)
+	cshape.shape = crect
+	cshape.position = Vector2(960.0, 96.0 - 200.0)
+	ceiling.add_child(cshape)
+	root.add_child(ceiling)
 
 
 ## Zindan arenasının iç görünümü: duvar arka planı (gerçek chunk'larla aynı 64 px "Dungeon wall bg2"
 ## karoları), giriş kapısı ve zemin/tavan dekoru. Hepsi görsel; çarpışma/etkileşim yok.
-static func _add_dungeon_dressing(root: Node2D, floor_layer: TileMapLayer, left_x: float, right_x: float, floor_y: float, shaft: bool = false) -> void:
+static func _add_dungeon_dressing(root: Node2D, floor_layer: TileMapLayer, left_x: float, right_x: float, floor_y: float, shaft: bool = false, backdrop_left_x: float = NAN, backdrop_right_x: float = NAN) -> void:
+	# Uzatılmış arenada duvar arka planı ekranın dışına da uzanır (gerçek duvar uzakta)
+	var bd_left: float = left_x if is_nan(backdrop_left_x) else backdrop_left_x
+	var bd_right: float = right_x if is_nan(backdrop_right_x) else backdrop_right_x
 	var ceiling_y: float = float(CEILING_ROWS * TILE)
 	# Her girişte rastgele renk paleti: zemin/duvar karoları, arka plan tuğlaları ve bayrak rengi birlikte döner
 	var palette: Dictionary = PALETTES[_rng.randi() % PALETTES.size()]
@@ -146,8 +173,8 @@ static func _add_dungeon_dressing(root: Node2D, floor_layer: TileMapLayer, left_
 		# Tuğlaların hemen hep aynı görünmemesi için sabit tohumlu rastgele varyant
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 7731
-		var x0: int = int(left_x) / 64
-		var x1: int = int(ceil(right_x / 64.0))
+		var x0: int = int(floor(bd_left / 64.0))
+		var x1: int = int(ceil(bd_right / 64.0))
 		var y0: int = int(ceiling_y) / 64
 		var y1: int = int(ceil(floor_y / 64.0))
 		for cx in range(x0, x1):

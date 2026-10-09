@@ -18,6 +18,9 @@ const FAST_SPEED := 6.0
 
 var _results: Array = []
 var _chance: float = 0.6
+## Yeni item şansı çarkı: tek dönüş, kişi vesikalığı yok, kendi metinleri (bkz. show_item_wheel)
+var _item_mode: bool = false
+var _left_box: VBoxContainer = null
 var _fast: bool = false
 var _spin_tween: Tween = null
 var _finished_input: bool = false
@@ -38,6 +41,16 @@ static func show_for(host: Node, results: Array, chance: float) -> void:
 		return
 	var overlay := RescueWheelOverlay.new()
 	overlay._results = results
+	overlay._chance = chance
+	host.get_tree().root.add_child(overlay)
+	await overlay.done
+
+
+## Erken çıkışta "yeni item kazanır mısın" çarkı. Sonuç (won) önceden çekilmiştir; çark yalnız ona iner.
+static func show_item_wheel(host: Node, won: bool, chance: float) -> void:
+	var overlay := RescueWheelOverlay.new()
+	overlay._item_mode = true
+	overlay._results = [{"kind": "item", "data": {}, "survived": won}]
 	overlay._chance = chance
 	host.get_tree().root.add_child(overlay)
 	await overlay.done
@@ -78,9 +91,10 @@ func _build_ui() -> void:
 	root.add_theme_constant_override("separation", 14)
 	add_child(root)
 
-	var title := _make_label(tr("camp.wheel.title"), 46, Color(1.0, 0.86, 0.45))
+	var title := _make_label(tr("camp.wheel.item.title" if _item_mode else "camp.wheel.title"), 46, Color(1.0, 0.86, 0.45))
 	root.add_child(title)
-	root.add_child(_make_label(tr("camp.wheel.sub"), 24, Color(0.85, 0.85, 0.85)))
+	var sub_text: String = tr("camp.wheel.item.sub") % int(round(_chance * 100.0)) if _item_mode else tr("camp.wheel.sub")
+	root.add_child(_make_label(sub_text, 24, Color(0.85, 0.85, 0.85)))
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -91,6 +105,8 @@ func _build_ui() -> void:
 	left.alignment = BoxContainer.ALIGNMENT_CENTER
 	left.add_theme_constant_override("separation", 8)
 	row.add_child(left)
+	_left_box = left
+	left.visible = not _item_mode
 	var frame := PanelContainer.new()
 	frame.custom_minimum_size = Vector2(176, 176)
 	var frame_style := StyleBoxFlat.new()
@@ -160,7 +176,8 @@ func _run() -> void:
 	var survivors: int = 0
 	for i in _results.size():
 		var r: Dictionary = _results[i]
-		_show_person(r)
+		if not _item_mode:
+			_show_person(r)
 		_result_label.text = ""
 		_wheel.set("rot", 0.0)
 		await _wait(0.45)
@@ -179,12 +196,18 @@ func _run() -> void:
 		await _wait(0.2)
 		if ok:
 			survivors += 1
-		_result_label.text = tr("camp.wheel.survive" if ok else "camp.wheel.lost")
+		if _item_mode:
+			_result_label.text = tr("camp.wheel.item.won" if ok else "camp.wheel.item.lost")
+		else:
+			_result_label.text = tr("camp.wheel.survive" if ok else "camp.wheel.lost")
 		_result_label.add_theme_color_override("font_color", COL_GOOD if ok else COL_BAD)
 		_chip_rects[i].color = COL_GOOD if ok else COL_BAD
 		await _wait(0.9)
 	_result_label.text = ""
-	_summary_label.text = tr("camp.wheel.summary") % survivors if survivors > 0 else tr("camp.wheel.summary_none")
+	if _item_mode:
+		_summary_label.text = tr("camp.wheel.item.summary_won" if survivors > 0 else "camp.wheel.item.summary_lost")
+	else:
+		_summary_label.text = tr("camp.wheel.summary") % survivors if survivors > 0 else tr("camp.wheel.summary_none")
 	_skip_label.text = ""
 	_finished_input = false
 	var waited: float = 0.0

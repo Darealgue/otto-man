@@ -697,7 +697,8 @@ func snapshot_state_for_scene_exit() -> void:
 	var previous_buildings: Array = _saved_building_states.duplicate(true)
 	var previous_workers: Array = _saved_worker_states.duplicate(true)
 	var new_buildings: Array = _collect_building_snapshot_from_scene()
-	if _should_keep_previous_building_snapshot(new_buildings):
+	var kept_previous_buildings: bool = _should_keep_previous_building_snapshot(new_buildings)
+	if kept_previous_buildings:
 		_saved_building_states = previous_buildings
 		_refresh_campfire_snapshot_entry(_saved_building_states)
 		print(
@@ -717,7 +718,10 @@ func snapshot_state_for_scene_exit() -> void:
 
 	var new_workers: Array = _collect_worker_snapshot_entries()
 	_enrich_worker_snapshots_from_building_states(new_workers, _saved_building_states)
-	if _should_keep_previous_worker_snapshot(new_workers):
+	# Eski işçi kaydı yalnızca sahne yarım yüklenmişken (bina kaydı da korunduysa) tutulur.
+	# Aksi halde oyuncunun bilerek yaptığı değişiklik (ör. askerleri terhis edip işe dağıtmak)
+	# "daha az işi olan işçi" sayılıp geri alınıyor, köylüler tekrar asker oluyordu.
+	if kept_previous_buildings and _should_keep_previous_worker_snapshot(new_workers):
 		_saved_worker_states = previous_workers
 		_enrich_worker_snapshots_from_building_states(_saved_worker_states, _saved_building_states)
 		print(
@@ -2168,6 +2172,10 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 		var saved_worker_id: int = worker_entry.get("worker_id", -1)
 		var job_type: String = worker_entry.get("job_type", "")
 		var building_key: String = worker_entry.get("building_key", "")
+		var soldier_fix: Dictionary = _resolve_conflicting_soldier_snapshot(saved_worker_id, job_type)
+		if not soldier_fix.is_empty() and not String(soldier_fix.get("job_type", "")).is_empty():
+			job_type = String(soldier_fix["job_type"])
+			building_key = String(soldier_fix["building_key"])
 		print("[VillageManager] 🔍 DEBUG: Processing worker entry - ID: %d, Job: %s, Building Key: %s" % [saved_worker_id, job_type, building_key])
 		
 		var assigned_worker: Node = null
@@ -2398,6 +2406,66 @@ func _apply_saved_worker_states(_restored_buildings_map: Dictionary) -> void:
 			print("[VillageManager] ☀️ DEBUG: Worker %d set to awake idle state" % saved_worker_id)
 	
 	print("[VillageManager] ✅ DEBUG: Applied %d worker states (out of %d saved)" % [applied_count, _saved_worker_states.size()])
+
+## Bina listelerini (assigned_worker_ids / assigned_workers) gerçek işçi atamalarından yeniden kurar.
+## Kayıttaki bina listesi ile işçi listesi birbirinden saparsa (aynı köylünün iki binada görünmesi,
+## köylü sayısından fazla "çalışan") fazlalıklar burada temizlenir; tek doğru kaynak işçinin kendisi.
+func _reconcile_building_worker_lists() -> void:
+	if not is_instance_valid(village_scene_instance):
+		return
+	var placed: Node = village_scene_instance.get_node_or_null("PlacedBuildings")
+	if not is_instance_valid(placed):
+		return
+	var ids_by_building: Dictionary = {}
+	var wids: Array = all_workers.keys()
+	wids.sort()
+	for wid in wids:
+		var inst: Node = _worker_node_from_all_workers_entry(wid, all_workers.get(wid, {}), false)
+		if inst == null or not ("assigned_building_node" in inst):
+			continue
+		var b = inst.get("assigned_building_node")
+		if not is_instance_valid(b):
+			continue
+		if not ids_by_building.has(b):
+			ids_by_building[b] = []
+		(ids_by_building[b] as Array).append(int(wid))
+	for building in placed.get_children():
+		if not ("assigned_worker_ids" in building):
+			continue
+		var fixed_ids: Array[int] = []
+		for id_val in ids_by_building.get(building, []):
+			fixed_ids.append(int(id_val))
+		building.set("assigned_worker_ids", fixed_ids)
+		if "assigned_workers" in building:
+			building.assigned_workers = fixed_ids.size()
+		if "soldier_equipment" in building:
+			for k in (building.soldier_equipment as Dictionary).keys():
+				if not (int(k) in fixed_ids):
+					(building.soldier_equipment as Dictionary).erase(k)
+
+
+## Kayıtta işçi "asker" görünüp kışla listesinde yok ama başka bir binanın listesinde varsa, o işçi
+## aslında oyuncu tarafından oraya dağıtılmıştır (eski hatalı snapshot işçi kaydını bayat bırakmıştı).
+## Bina listesine güven: işi/binayı oraya çevir.
+func _resolve_conflicting_soldier_snapshot(worker_id: int, job_type: String) -> Dictionary:
+	if job_type != "soldier":
+		return {}
+	var other: Dictionary = {}
+	for entry in _saved_building_states:
+		if not (entry is Dictionary) or _is_campfire_snapshot_entry(entry):
+			continue
+		var ids: Variant = entry.get("assigned_worker_ids", [])
+		if not (ids is Array) or not (worker_id in (ids as Array)):
+			continue
+		if String(entry.get("scene_path", "")).ends_with("Barracks.tscn"):
+			return {}
+		if other.is_empty():
+			other = {
+				"job_type": _job_type_from_building_snapshot_entry(entry),
+				"building_key": String(entry.get("key", "")),
+			}
+	return other
+
 
 func _place_worker_for_loaded_idle(worker_instance: Node, assigned_building: Node2D) -> void:
 	if not (worker_instance is Node2D):
@@ -2865,7 +2933,13 @@ func register_village_scene(scene: Node2D) -> void:
 			print("[VillageManager] ✅ DEBUG: Created %d workers, max ID: %d" % [worker_created_count, worker_id_counter])
 			print("[VillageManager] 🔄 DEBUG: Applying saved worker states to buildings...")
 		_apply_saved_worker_states(restored_buildings_map)
+		_reconcile_building_worker_lists()
 		_reconcile_housing_occupant_lists()
+		# "Sonraki snapshot'ı atla" bayrağı yalnızca ESKİ sahnenin çıkışı içindir. Ana menüden
+		# yükleyince eski köy sahnesi olmadığı için bayrak tüketilmeden kalıyor ve oyuncunun yükleme
+		# SONRASI yaptığı değişiklikler (ör. askerleri terhis etmek) ilk kayıtta/çıkışta yok sayılıp
+		# yüklenen eski durum geri yazılıyordu. Köy kurulumu bitince bayrağı temizle.
+		_skip_next_snapshot = false
 		# Görev ormandayken tamamlandıysa askerler geri çağrılmamış olabilir; yükleme sonrası senkronize et
 		call_deferred("_sync_soldiers_with_missions")
 		emit_signal("village_data_changed")

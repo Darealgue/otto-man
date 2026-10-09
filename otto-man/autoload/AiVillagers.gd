@@ -222,7 +222,7 @@ func _begin_model_load() -> void:
 	var service := _llama()
 	if service == null or not service.has_method("InitializeAsync"):
 		push_warning("[AiVillagers] LlamaService cannot load on demand; a restart will be needed.")
-		_set_chip_mode("failed")
+		_set_chip_mode("load_failed")
 		return
 	if not service.is_connected("ModelLoadComplete", _on_model_load_complete):
 		service.connect("ModelLoadComplete", _on_model_load_complete)
@@ -235,8 +235,8 @@ func _on_model_load_complete(success: bool) -> void:
 		_set_chip_mode("ready")
 		villagers_awakened.emit()
 	else:
-		push_error("[AiVillagers] Model failed to load after download.")
-		_set_chip_mode("failed")
+		push_error("[AiVillagers] Model file is on disk but failed to load.")
+		_set_chip_mode("load_failed")
 
 
 # --- progress chip ---
@@ -284,6 +284,8 @@ func _set_chip_mode(mode: String) -> void:
 			_chip.call("show_ready")
 		"failed":
 			_chip.call("show_failed")
+		"load_failed":
+			_chip.call("show_load_failed")
 
 
 ## Polls the downloader so the chip can switch between downloading and verifying. The downloader

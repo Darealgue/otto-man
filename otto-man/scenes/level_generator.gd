@@ -1,6 +1,7 @@
 extends Node2D
 
 const _HudLayers = preload("res://ui/hud_canvas_layers.gd")
+const _TunnelSealer = preload("res://scenes/tunnel_sealer.gd")
 
 # Helper: abstract get_cell_source_id across TileMap vs TileMapLayer APIs
 func _get_cell_source_id_any(tilemap_node: Node, cell: Vector2i) -> int:
@@ -85,7 +86,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/basic/basic_platform4.tscn",
 			"res://chunks/dungeon/basic/basic_platform5.tscn",
 			"res://chunks/dungeon/basic/basic_platform6.tscn",
-			"res://chunks/dungeon/basic/basic_platform_exit.tscn"
+			"res://chunks/dungeon/basic/basic_platform_exit.tscn",
+			"res://chunks/dungeon/basic/basic_platform7.tscn",
+			"res://chunks/dungeon/basic/basic_platform8.tscn",
+			"res://chunks/dungeon/basic/basic_platform9.tscn",
+			"res://chunks/dungeon/basic/basic_platform10.tscn",
+			"res://chunks/dungeon/basic/basic_platform11.tscn",
+			"res://chunks/dungeon/basic/basic_platform12.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -95,7 +102,15 @@ const CHUNKS = {
 		}
 	},
 	"combat": {
-		"scenes": ["res://chunks/dungeon/special/combat_arena.tscn"],
+		"scenes": [
+			"res://chunks/dungeon/special/combat_arena.tscn",
+			"res://chunks/dungeon/special/combat_arena2.tscn",
+			"res://chunks/dungeon/special/combat_arena3.tscn",
+			"res://chunks/dungeon/special/combat_arena4.tscn",
+			"res://chunks/dungeon/special/combat_arena5.tscn",
+			"res://chunks/dungeon/special/combat_arena6.tscn",
+			"res://chunks/dungeon/special/combat_arena7.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.OPEN,
@@ -109,7 +124,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/l_corner_right_down1.tscn",
 			"res://chunks/dungeon/hub/l_corner_right_down2.tscn",
 			"res://chunks/dungeon/hub/l_corner_right_down3.tscn",
-			"res://chunks/dungeon/hub/l_corner_right_down4.tscn"
+			"res://chunks/dungeon/hub/l_corner_right_down4.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down5.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down6.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down7.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down8.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down9.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_down10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
@@ -124,7 +145,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/l_corner_left_up1.tscn",
 			"res://chunks/dungeon/hub/l_corner_left_up2.tscn",
 			"res://chunks/dungeon/hub/l_corner_left_up3.tscn",
-			"res://chunks/dungeon/hub/l_corner_left_up4.tscn"
+			"res://chunks/dungeon/hub/l_corner_left_up4.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up5.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up6.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up7.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up8.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up9.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_up10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -139,7 +166,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/l_corner_left_down1.tscn",
 			"res://chunks/dungeon/hub/l_corner_left_down2.tscn",
 			"res://chunks/dungeon/hub/l_corner_left_down3.tscn",
-			"res://chunks/dungeon/hub/l_corner_left_down4.tscn"
+			"res://chunks/dungeon/hub/l_corner_left_down4.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down5.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down6.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down7.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down8.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down9.tscn",
+			"res://chunks/dungeon/hub/l_corner_left_down10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -154,7 +187,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/l_corner_right_up1.tscn",
 			"res://chunks/dungeon/hub/l_corner_right_up2.tscn",
 			"res://chunks/dungeon/hub/l_corner_right_up3.tscn",
-			"res://chunks/dungeon/hub/l_corner_right_up4.tscn"
+			"res://chunks/dungeon/hub/l_corner_right_up4.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up5.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up6.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up7.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up8.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up9.tscn",
+			"res://chunks/dungeon/hub/l_corner_right_up10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
@@ -169,7 +208,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/t_junction_right1.tscn",
 			"res://chunks/dungeon/hub/t_junction_right2.tscn",
 			"res://chunks/dungeon/hub/t_junction_right3.tscn",
-			"res://chunks/dungeon/hub/t_junction_right4.tscn"
+			"res://chunks/dungeon/hub/t_junction_right4.tscn",
+			"res://chunks/dungeon/hub/t_junction_right5.tscn",
+			"res://chunks/dungeon/hub/t_junction_right6.tscn",
+			"res://chunks/dungeon/hub/t_junction_right7.tscn",
+			"res://chunks/dungeon/hub/t_junction_right8.tscn",
+			"res://chunks/dungeon/hub/t_junction_right9.tscn",
+			"res://chunks/dungeon/hub/t_junction_right10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -184,7 +229,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/t_junction_left1.tscn",
 			"res://chunks/dungeon/hub/t_junction_left2.tscn",
 			"res://chunks/dungeon/hub/t_junction_left3.tscn",
-			"res://chunks/dungeon/hub/t_junction_left4.tscn"
+			"res://chunks/dungeon/hub/t_junction_left4.tscn",
+			"res://chunks/dungeon/hub/t_junction_left5.tscn",
+			"res://chunks/dungeon/hub/t_junction_left6.tscn",
+			"res://chunks/dungeon/hub/t_junction_left7.tscn",
+			"res://chunks/dungeon/hub/t_junction_left8.tscn",
+			"res://chunks/dungeon/hub/t_junction_left9.tscn",
+			"res://chunks/dungeon/hub/t_junction_left10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
@@ -199,7 +250,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/t_junction_up1.tscn",
 			"res://chunks/dungeon/hub/t_junction_up2.tscn",
 			"res://chunks/dungeon/hub/t_junction_up3.tscn",
-			"res://chunks/dungeon/hub/t_junction_up4.tscn"
+			"res://chunks/dungeon/hub/t_junction_up4.tscn",
+			"res://chunks/dungeon/hub/t_junction_up5.tscn",
+			"res://chunks/dungeon/hub/t_junction_up6.tscn",
+			"res://chunks/dungeon/hub/t_junction_up7.tscn",
+			"res://chunks/dungeon/hub/t_junction_up8.tscn",
+			"res://chunks/dungeon/hub/t_junction_up9.tscn",
+			"res://chunks/dungeon/hub/t_junction_up10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -214,7 +271,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/t_junction_down1.tscn",
 			"res://chunks/dungeon/hub/t_junction_down2.tscn",
 			"res://chunks/dungeon/hub/t_junction_down3.tscn",
-			"res://chunks/dungeon/hub/t_junction_down4.tscn"
+			"res://chunks/dungeon/hub/t_junction_down4.tscn",
+			"res://chunks/dungeon/hub/t_junction_down5.tscn",
+			"res://chunks/dungeon/hub/t_junction_down6.tscn",
+			"res://chunks/dungeon/hub/t_junction_down7.tscn",
+			"res://chunks/dungeon/hub/t_junction_down8.tscn",
+			"res://chunks/dungeon/hub/t_junction_down9.tscn",
+			"res://chunks/dungeon/hub/t_junction_down10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -230,7 +293,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/hub/four_way_hub2.tscn",
 			"res://chunks/dungeon/hub/four_way_hub3.tscn",
 			"res://chunks/dungeon/hub/four_way_hub4.tscn",
-			"res://chunks/dungeon/hub/four_way_hub5.tscn"
+			"res://chunks/dungeon/hub/four_way_hub5.tscn",
+			"res://chunks/dungeon/hub/four_way_hub6.tscn",
+			"res://chunks/dungeon/hub/four_way_hub7.tscn",
+			"res://chunks/dungeon/hub/four_way_hub8.tscn",
+			"res://chunks/dungeon/hub/four_way_hub9.tscn",
+			"res://chunks/dungeon/hub/four_way_hub10.tscn",
+			"res://chunks/dungeon/hub/four_way_hub11.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
@@ -245,7 +314,13 @@ const CHUNKS = {
 			"res://chunks/dungeon/vertical/climbing_tower1.tscn",
 			"res://chunks/dungeon/vertical/climbing_tower2.tscn",
 			"res://chunks/dungeon/vertical/climbing_tower3.tscn",
-			"res://chunks/dungeon/vertical/climbing_tower4.tscn"
+			"res://chunks/dungeon/vertical/climbing_tower4.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower5.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower6.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower7.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower8.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower9.tscn",
+			"res://chunks/dungeon/vertical/climbing_tower10.tscn"
 		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
@@ -255,7 +330,15 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_up": {
-		"scenes": ["res://chunks/dungeon/special/dead_end_up.tscn"],
+		"scenes": [
+			"res://chunks/dungeon/special/dead_end_up.tscn",
+			"res://chunks/dungeon/special/dead_end_up2.tscn",
+			"res://chunks/dungeon/special/dead_end_up3.tscn",
+			"res://chunks/dungeon/special/dead_end_up4.tscn",
+			"res://chunks/dungeon/special/dead_end_up5.tscn",
+			"res://chunks/dungeon/special/dead_end_up6.tscn",
+			"res://chunks/dungeon/special/dead_end_up7.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.CLOSED,
@@ -264,7 +347,15 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_down": {
-		"scenes": ["res://chunks/dungeon/special/dead_end_down.tscn"],
+		"scenes": [
+			"res://chunks/dungeon/special/dead_end_down.tscn",
+			"res://chunks/dungeon/special/dead_end_down2.tscn",
+			"res://chunks/dungeon/special/dead_end_down3.tscn",
+			"res://chunks/dungeon/special/dead_end_down4.tscn",
+			"res://chunks/dungeon/special/dead_end_down5.tscn",
+			"res://chunks/dungeon/special/dead_end_down6.tscn",
+			"res://chunks/dungeon/special/dead_end_down7.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.CLOSED,
@@ -273,7 +364,15 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_left": {
-		"scenes": ["res://chunks/dungeon/special/dead_end_left.tscn"],
+		"scenes": [
+			"res://chunks/dungeon/special/dead_end_left.tscn",
+			"res://chunks/dungeon/special/dead_end_left2.tscn",
+			"res://chunks/dungeon/special/dead_end_left3.tscn",
+			"res://chunks/dungeon/special/dead_end_left4.tscn",
+			"res://chunks/dungeon/special/dead_end_left5.tscn",
+			"res://chunks/dungeon/special/dead_end_left6.tscn",
+			"res://chunks/dungeon/special/dead_end_left7.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.OPEN,
 			Direction.RIGHT: Port.CLOSED,
@@ -282,7 +381,15 @@ const CHUNKS = {
 		}
 	},
 	"dead_end_right": {
-		"scenes": ["res://chunks/dungeon/special/dead_end_right.tscn"],
+		"scenes": [
+			"res://chunks/dungeon/special/dead_end_right.tscn",
+			"res://chunks/dungeon/special/dead_end_right2.tscn",
+			"res://chunks/dungeon/special/dead_end_right3.tscn",
+			"res://chunks/dungeon/special/dead_end_right4.tscn",
+			"res://chunks/dungeon/special/dead_end_right5.tscn",
+			"res://chunks/dungeon/special/dead_end_right6.tscn",
+			"res://chunks/dungeon/special/dead_end_right7.tscn"
+		],
 		"ports": {
 			Direction.LEFT: Port.CLOSED,
 			Direction.RIGHT: Port.OPEN,
@@ -404,6 +511,9 @@ var current_path_id_counter: int = 0 # Counter for unique path IDs
 var current_grid_height: int = BASE_GRID_HEIGHT # Dynamic height, calculated per level
 var _exterior_wall_positions: Array[Vector2i] = []
 var _exterior_wall_chunks: Array[Node2D] = []
+## While true, place_chunk only queues decor/enemy spawning; populate_chunks runs the queue after tunnel sealing.
+var _defer_population: bool = false
+var _deferred_population: Array = []
 ## Challenge kalp ödülü: segment boyunca retry'larda da kalır; başarılı üretimde temizlenir.
 var _segment_force_guaranteed_rescue: bool = false
 
@@ -1234,7 +1344,18 @@ func generate_main_path(start_pos: Vector2i, finish_pos: Vector2i, path_gen: Pat
 	return path_points
 
 func populate_chunks() -> bool:
+	var ok: bool = _populate_chunks_inner()
+	# a failed attempt must never leave deferral switched on for whatever places chunks next
+	_defer_population = false
+	if not ok:
+		_deferred_population.clear()
+	return ok
+
+func _populate_chunks_inner() -> bool:
 	print("\nPhase 2: Populating with actual chunks...")
+	# Decor and enemies wait until every chunk is placed and the tunnels are sealed, so nothing spawns inside rock that gets filled
+	_deferred_population.clear()
+	_defer_population = true
 	
 	# 1. Place start chunk first
 	var start_pos = Vector2i(0, current_grid_height / 2) # Use current_grid_height
@@ -1389,6 +1510,13 @@ func populate_chunks() -> bool:
 
 	_place_exterior_wall_chunks()
 
+	# Layout is complete: fill tunnel mouths that lead nowhere, then spawn decor and enemies on the final geometry
+	_defer_population = false
+	_TunnelSealer.seal(grid)
+	for entry in _deferred_population:
+		_populate_chunk_contents(entry[0], String(entry[1]))
+	_deferred_population.clear()
+
 	return true  # Return true if we've successfully populated all required cells
 
 func _tag_villager_and_vip_deadends() -> void:
@@ -1541,7 +1669,10 @@ func _inject_emergency_rescue_dead_end(forced_kind: String = "") -> bool:
 	return false
 
 
-## forced_kind: "" = rastgele 50/50, "villager" veya "vip" = o tür garanti.
+## Rastgele seçimde cariye (vip) odası olasılığı; köylü odası çok daha sık çıkmalı.
+const VIP_RESCUE_ROOM_SHARE: float = 0.2
+
+## forced_kind: "" = rastgele (VIP_RESCUE_ROOM_SHARE ihtimalle vip), "villager" veya "vip" = o tür garanti.
 func _assign_rescue_room_at(pos: Vector2i, forced_kind: String = "") -> bool:
 	if not is_valid_position(pos):
 		return false
@@ -1553,7 +1684,7 @@ func _assign_rescue_room_at(pos: Vector2i, forced_kind: String = "") -> bool:
 		return false
 	var kind := forced_kind
 	if kind != "villager" and kind != "vip":
-		kind = "villager" if randi() % 2 == 0 else "vip"
+		kind = "vip" if randf() < VIP_RESCUE_ROOM_SHARE else "villager"
 	if kind == "villager":
 		c.reserved_chunk = "villager_dead_end_left" if dir_idx == Direction.LEFT else "villager_dead_end_right"
 	else:
@@ -2037,20 +2168,31 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 		chunk.set_meta("stealth_chest_gold", placed_cell.stealth_chest_gold)
 	if not placed_cell.spawn_dungeon_event.is_empty():
 		chunk.set_meta("dungeon_event_type", placed_cell.spawn_dungeon_event)
-	_populate_decorations_from_tilemap(chunk)
+	if _defer_population:
+		_deferred_population.append([chunk, chunk_type])
+	else:
+		_populate_chunk_contents(chunk, chunk_type)
 	
 	# Remove old EnemySpawner nodes from chunk (legacy system)
-	_remove_legacy_enemy_spawners(chunk)
-	
-	# TileMap tabanlı düşmanları oluştur (boss arenada ekstra spawn yok)
-	if chunk_type != "boss_arena":
-		_populate_enemies_from_tilemap(chunk)
+	# (legacy spawner removal and tile based enemies now run in _populate_chunk_contents)
 
 	# NOTE: Trap population moved to after unify_terrain() — see _populate_traps_on_unified_terrain()
 	
 	if DEBUG_ENEMY_TILES:
 		print("Successfully placed " + chunk_type + " at " + str(pos)) # Improved logging
 	return true
+
+## Decor, legacy spawner cleanup and tile based enemies for one placed chunk. Called right after placement, or
+## (during populate_chunks) after the whole layout is placed and unmatched tunnels are sealed.
+func _populate_chunk_contents(chunk: Node2D, chunk_type: String) -> void:
+	if not is_instance_valid(chunk):
+		return
+	_populate_decorations_from_tilemap(chunk)
+	# Remove old EnemySpawner nodes from chunk (legacy system)
+	_remove_legacy_enemy_spawners(chunk)
+	# TileMap tabanlı düşmanları oluştur (boss arenada ekstra spawn yok)
+	if chunk_type != "boss_arena":
+		_populate_enemies_from_tilemap(chunk)
 
 const DEBUG_DECOR_TILES: bool = false
 
@@ -3288,7 +3430,7 @@ func _assign_segment_key_holder_async(attempt: int) -> void:
 		_reveal_segment_key_holder_marker()
 
 
-func is_placed_combat_enemy(enemy: Node) -> bool:
+func is_placed_combat_enemy(enemy: Node, allow_dead: bool = false) -> bool:
 	if not is_instance_valid(enemy):
 		return false
 	if not enemy.is_inside_tree():
@@ -3297,7 +3439,7 @@ func is_placed_combat_enemy(enemy: Node) -> bool:
 		return false
 	if "MiniBoss" in enemy.name:
 		return false
-	if "current_behavior" in enemy and String(enemy.current_behavior) == "dead":
+	if not allow_dead and "current_behavior" in enemy and String(enemy.current_behavior) == "dead":
 		return false
 	if not enemy is Node2D:
 		return false

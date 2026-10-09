@@ -69,6 +69,9 @@ var segment_exit_requires_key: bool = false
 var segment_key_holder_id: String = ""
 var segment_alarm_enemy_total: int = 0
 var segment_combat_enemies_defeated: int = 0
+## Okun açılması için gereken öldürme sayısı. Alarm anında haritada KEY_ARROW_REVEAL_KILL_COUNT'tan
+## az düşman varsa 0'a düşer (ok direkt açılır); bkz. _snapshot_segment_enemy_quota.
+var segment_key_reveal_threshold: int = KEY_ARROW_REVEAL_KILL_COUNT
 
 ## Run başlangıcı / reset
 func start_run_from_village() -> void:
@@ -197,6 +200,7 @@ func reset_segment_exit_state() -> void:
 	segment_key_holder_id = ""
 	segment_alarm_enemy_total = 0
 	segment_combat_enemies_defeated = 0
+	segment_key_reveal_threshold = KEY_ARROW_REVEAL_KILL_COUNT
 	collected_keys.erase(SEGMENT_EXIT_KEY_ID)
 	collectibles_changed.emit()
 
@@ -226,6 +230,8 @@ func notify_segment_exit_key_obtained() -> void:
 
 func arm_segment_exit_key_lock() -> void:
 	segment_exit_requires_key = true
+	# Anahtar yeri ipucu için sadece ALARMDAN SONRA alt edilen düşmanlar sayılır.
+	segment_combat_enemies_defeated = 0
 	call_deferred("_snapshot_segment_enemy_quota")
 
 
@@ -260,7 +266,7 @@ func should_show_key_holder_arrow() -> bool:
 		return false
 	if has_dungeon_key(SEGMENT_EXIT_KEY_ID):
 		return false
-	if segment_combat_enemies_defeated < KEY_ARROW_REVEAL_KILL_COUNT:
+	if segment_combat_enemies_defeated < segment_key_reveal_threshold:
 		return false
 	return get_key_target_node() != null
 
@@ -273,6 +279,14 @@ func _snapshot_segment_enemy_quota() -> void:
 	else:
 		living = _count_placed_enemies_fallback()
 	segment_alarm_enemy_total = living + segment_combat_enemies_defeated
+	# Haritada zaten az düşman kaldıysa 10 öldürmeyi bekletme: anahtar yeri direkt görünsün.
+	if living < KEY_ARROW_REVEAL_KILL_COUNT:
+		segment_key_reveal_threshold = 0
+		var sm := get_node_or_null("/root/StealthManager")
+		if is_instance_valid(sm) and sm.has_method("notify_key_location_revealed"):
+			sm.call("notify_key_location_revealed")
+	else:
+		segment_key_reveal_threshold = KEY_ARROW_REVEAL_KILL_COUNT
 	print("[DungeonRunState] Alarm düşman kotası: %d (canlı=%d, öldürülen=%d)" % [
 		segment_alarm_enemy_total, living, segment_combat_enemies_defeated
 	])
@@ -290,7 +304,9 @@ func _count_placed_enemies_fallback() -> int:
 
 
 func _register_segment_enemy_defeated(enemy: Node) -> void:
-	if not _is_valid_key_holder_node(enemy):
+	# Düşman ölürken current_behavior zaten "dead" olur (ItemManager.on_enemy_killed bundan SONRA
+	# çağrılıyor); ölü düşmanı reddedersek hiçbir ölüm sayılmaz ve anahtar oku hiç açılmaz.
+	if not _is_valid_key_holder_node(enemy, true):
 		return
 	segment_combat_enemies_defeated += 1
 
@@ -352,12 +368,12 @@ func _clear_key_holder_marker(enemy: Node) -> void:
 		marker.queue_free()
 
 
-func _is_valid_key_holder_node(enemy: Node) -> bool:
+func _is_valid_key_holder_node(enemy: Node, allow_dead: bool = false) -> bool:
 	if not is_instance_valid(enemy):
 		return false
 	var lg: Node = find_active_level_generator()
 	if is_instance_valid(lg) and lg.has_method("is_placed_combat_enemy"):
-		return bool(lg.call("is_placed_combat_enemy", enemy))
+		return bool(lg.call("is_placed_combat_enemy", enemy, allow_dead))
 	if not enemy is Node2D:
 		return false
 	return (enemy as Node2D).global_position.length_squared() >= 160000.0
@@ -385,12 +401,12 @@ func _find_living_key_holder() -> Node:
 
 func handle_enemy_defeated(enemy: Node) -> void:
 	enemies_killed_total += 1
-	var was_below_reveal_threshold: bool = segment_combat_enemies_defeated < KEY_ARROW_REVEAL_KILL_COUNT
+	var was_below_reveal_threshold: bool = segment_combat_enemies_defeated < segment_key_reveal_threshold
 	_register_segment_enemy_defeated(enemy)
 	if (
 		segment_exit_requires_key
 		and was_below_reveal_threshold
-		and segment_combat_enemies_defeated >= KEY_ARROW_REVEAL_KILL_COUNT
+		and segment_combat_enemies_defeated >= segment_key_reveal_threshold
 	):
 		var sm := get_node_or_null("/root/StealthManager")
 		if is_instance_valid(sm) and sm.has_method("notify_key_location_revealed"):
@@ -668,6 +684,36 @@ func get_partial_exit_rescued(survivor_chance: float) -> Dictionary:
 
 ## Zindandan erken çıkışta (run tamamlanmadan) kurtarılan her kişi bu şansla seninle çıkar.
 const EARLY_EXIT_SURVIVE_CHANCE: float = 0.6
+
+
+## Erken çıkışta yeni item (keşif unlock teklifi) kazanma şansı: bitirilen bölüm başına %20
+## (1. bölümde %20, 2. bölümde %40...), en çok %80. Run tamamlanmadan çıkılırken çarkıfelekle çekilir.
+const EARLY_EXIT_ITEM_CHANCE_PER_SEGMENT: float = 0.2
+const EARLY_EXIT_ITEM_CHANCE_MAX: float = 0.8
+
+
+func get_early_exit_item_chance() -> float:
+	return clampf(EARLY_EXIT_ITEM_CHANCE_PER_SEGMENT * float(run_segments_completed), 0.0, EARLY_EXIT_ITEM_CHANCE_MAX)
+
+
+## Zindanın temasında açılacak keşif item'ı kaldıysa true (yoksa çark anlamsız olur, hiç gösterilmez).
+func has_early_exit_item_candidates() -> bool:
+	var dp: Node = get_node_or_null("/root/DungeonProgress")
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if not is_instance_valid(dp) or not is_instance_valid(im) or not im.has_method("has_unlock_candidates"):
+		return false
+	return bool(im.call("has_unlock_candidates", String(dp.call("get_dungeon_theme", dungeon_id)), "kesif"))
+
+
+## Erken çıkış item zarı: sonucu önceden çeker; kazanıldıysa keşif unlock teklifini kuyruğa alır
+## (CampScene çıkıştan önce seçim ekranını gösterir). Çarkıfelek yalnız bu sonuca iner.
+func roll_early_exit_item() -> bool:
+	var won: bool = randf() < get_early_exit_item_chance()
+	if won:
+		var dp: Node = get_node_or_null("/root/DungeonProgress")
+		if is_instance_valid(dp) and dp.has_method("_queue_item_unlock_offer"):
+			dp.call("_queue_item_unlock_offer", dungeon_id, "kesif", 1)
+	return won
 
 
 ## Erken çıkış zarı: her kurtarılan için sonucu önceden çeker, bekleyen listeleri yalnız hayatta kalanlara

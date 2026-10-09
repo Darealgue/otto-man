@@ -119,6 +119,53 @@ func start_new_game(play_tutorial: bool = false) -> void:
 			tutorial_mgr.call("mark_skipped_tutorial_run")
 		_change_scene(VILLAGE_SCENE, true)
 
+## Kayıt yüklemeden ÖNCE çağrılır. Autoload'lar sahne değişse de yaşadığı için, yükleme
+## sadece kayıtta bulunan alanları ezer; kayıtta olmayan her şey (can, altın, köylü
+## görevleri, görev listesi, buff'lar...) önceki oyundan kalırdı. Burada yeni oyundaki
+## sıfırlama zinciri çalışır, sonra SaveManager kayıttaki değerleri üstüne yazar.
+## Tutorial/demo bayrakları bilerek dokunulmaz: SaveManager onları kendisi yükler.
+func reset_runtime_state_for_load() -> void:
+	current_payload = {}
+	var tm0: Node = get_node_or_null(TimeManagerPath)
+	if tm0 and tm0.has_method("reset_for_new_game"):
+		tm0.call("reset_for_new_game")
+	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+	if gpd and gpd.has_method("reset_for_new_game"):
+		gpd.call("reset_for_new_game")
+	if is_instance_valid(VillageManager) and VillageManager.has_method("reset_saved_state_for_new_game"):
+		VillageManager.reset_saved_state_for_new_game()
+	var world_manager: Node = get_node_or_null("/root/WorldManager")
+	if is_instance_valid(world_manager) and world_manager.has_method("reset_faction_state_for_new_game"):
+		world_manager.reset_faction_state_for_new_game()
+	var mm0: Node = get_node_or_null("/root/MissionManager")
+	if mm0 and mm0.has_method("reset_for_new_game"):
+		mm0.call("reset_for_new_game")
+	var meta_mgr: Node = get_node_or_null("/root/MetaUpgradeManager")
+	if meta_mgr and meta_mgr.has_method("reset_for_new_game"):
+		meta_mgr.call("reset_for_new_game")
+	if is_instance_valid(WeatherManager) and WeatherManager.storm_active:
+		WeatherManager.reset_storm_completely()
+	var ps_new: Node = get_node_or_null("/root/PlayerStats")
+	if ps_new and ps_new.has_method("reset_world_expedition_supplies"):
+		ps_new.call("reset_world_expedition_supplies")
+	if ps_new and ps_new.has_method("reset_for_new_game"):
+		ps_new.call("reset_for_new_game")
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if drs and drs.has_method("end_run"):
+		drs.call("end_run")
+	var dp_new: Node = get_node_or_null("/root/DungeonProgress")
+	if dp_new and dp_new.has_method("reset_for_new_game"):
+		dp_new.call("reset_for_new_game")
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if im and im.has_method("clear_all_items"):
+		im.call("clear_all_items")
+	if im and im.has_method("reset_for_new_game"):
+		im.call("reset_for_new_game")
+	var pum: Node = get_node_or_null("/root/PowerupManager")
+	if pum and pum.has_method("clear_all_powerups"):
+		pum.call("clear_all_powerups")
+
+
 func return_to_main_menu() -> void:
 	current_payload = {}
 	_change_scene(MAIN_MENU_SCENE)

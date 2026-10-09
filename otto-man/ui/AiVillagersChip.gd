@@ -49,7 +49,7 @@ const FADE_SEC := 0.5
 ## Rate is averaged over this many one-second samples so the ETA does not jitter every frame.
 const RATE_SAMPLES := 12
 
-enum Mode { HIDDEN, DOWNLOADING, VERIFYING, LOADING, READY, FAILED }
+enum Mode { HIDDEN, DOWNLOADING, VERIFYING, LOADING, READY, FAILED, LOAD_FAILED }
 
 var _mode: int = Mode.HIDDEN
 var _panel: Control = null
@@ -213,6 +213,12 @@ func show_failed() -> void:
 	_apply_mode(Mode.FAILED)
 
 
+## Model diskte ama belleğe yüklenemedi. "İndirme durdu" demek yanlış olurdu: indirme bitmişti
+## ve oyuncu aranacak yeri yanlış yerde arıyordu (ilk playtest, 2026-10-06).
+func show_load_failed() -> void:
+	_apply_mode(Mode.LOAD_FAILED)
+
+
 func hide_chip() -> void:
 	_apply_mode(Mode.HIDDEN)
 
@@ -275,6 +281,11 @@ func _apply_mode(mode: int) -> void:
 			_detail_label.text = tr("ai.chip.failed.detail")
 			_bar.visible = false
 			_linger_left = FAILED_LINGER_SEC
+		Mode.LOAD_FAILED:
+			_title_label.text = tr("ai.chip.load_failed.title")
+			_detail_label.text = tr("ai.chip.load_failed.detail")
+			_bar.visible = false
+			_linger_left = FAILED_LINGER_SEC
 
 
 func _process(delta: float) -> void:
@@ -285,7 +296,7 @@ func _process(delta: float) -> void:
 			_tick_downloading()
 		Mode.VERIFYING:
 			_tick_verifying()
-		Mode.READY, Mode.FAILED:
+		Mode.READY, Mode.FAILED, Mode.LOAD_FAILED:
 			_tick_linger(delta)
 
 
@@ -323,7 +334,7 @@ func _tick_linger(delta: float) -> void:
 	var tween := create_tween()
 	tween.tween_property(_panel, "modulate:a", 0.0, FADE_SEC)
 	tween.finished.connect(func() -> void:
-		if _mode == Mode.READY or _mode == Mode.FAILED:
+		if _mode == Mode.READY or _mode == Mode.FAILED or _mode == Mode.LOAD_FAILED:
 			_apply_mode(Mode.HIDDEN)
 	)
 

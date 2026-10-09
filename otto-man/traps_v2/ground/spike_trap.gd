@@ -96,16 +96,16 @@ func _on_body_entered(body: Node2D) -> void:
 	if _has_dealt_damage_this_cycle:
 		return
 	if (_state == SpikeState.RISING or _state == SpikeState.ACTIVE) and body.is_in_group("player"):
-		apply_damage_with_knockback(body, KNOCKBACK_FORCE, KNOCKBACK_UP_FORCE)
-		_has_dealt_damage_this_cycle = true
+		if apply_damage_with_knockback(body, KNOCKBACK_FORCE, KNOCKBACK_UP_FORCE):
+			_has_dealt_damage_this_cycle = true
 
 func _check_overlap() -> void:
 	if _has_dealt_damage_this_cycle or not damage_area:
 		return
 	for body in damage_area.get_overlapping_bodies():
 		if body.is_in_group("player"):
-			apply_damage_with_knockback(body, KNOCKBACK_FORCE, KNOCKBACK_UP_FORCE)
-			_has_dealt_damage_this_cycle = true
+			if apply_damage_with_knockback(body, KNOCKBACK_FORCE, KNOCKBACK_UP_FORCE):
+				_has_dealt_damage_this_cycle = true
 			break
 	# Tuzak Fısıldayan: yükselen dikenler yakındaki düşmanları da deler
 	if TrapEnemyDamage.is_active():

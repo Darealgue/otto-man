@@ -104,6 +104,7 @@ const LEDGE_CHECK_DEPTH: float = 32.0         # How far down to raycast for floo
 # Patrol wall/ledge turn debounce (prevents rapid left-right spam at walls)
 var _patrol_turn_cooldown: float = 0.0
 const PATROL_TURN_COOLDOWN_TIME: float = 0.25
+var _patrol_boundary_wait: float = 0.0
 
 # Ambient (visual flavor) system
 @export var ambient_enabled: bool = true
@@ -688,6 +689,14 @@ func handle_patrol(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, 0, (stats.movement_speed if stats else 80.0) * delta)
 		return
 	
+	# Duvar/uçurum dönüşü sonrası kısa bekleme: kısa yolda sürekli sağ-sol dönüp
+	# oyuncunun arkasına geçilmesini engelleyen titreşimi önler.
+	if _patrol_boundary_wait > 0.0:
+		_patrol_boundary_wait -= delta
+		velocity.x = 0.0
+		_play_idle_or_sit(false)
+		return
+
 	# Determine target patrol point
 	var target_x = patrol_point_right if direction > 0 else patrol_point_left
 	var at_patrol_point = abs(global_position.x - target_x) < 15
@@ -726,7 +735,9 @@ func handle_patrol(delta: float) -> void:
 			if sprite:
 				sprite.flip_h = direction < 0
 			_patrol_turn_cooldown = PATROL_TURN_COOLDOWN_TIME
-			
+			_patrol_boundary_wait = patrol_wait_time
+			velocity.x = 0.0
+
 			# Reset any wall-related state so patrol doesn't get stuck
 			_is_wall_hit = false
 			_backing_off_timer = 0.0

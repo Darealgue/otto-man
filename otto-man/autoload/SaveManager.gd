@@ -643,6 +643,10 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 	if scene_path.is_empty():
 		scene_path = save_data.get("scene", "")
 	
+	# Önceki oyundan kalan autoload durumunu temizle (kayıtta olmayan alanlar sızmasın)
+	if is_instance_valid(SceneManager) and SceneManager.has_method("reset_runtime_state_for_load"):
+		SceneManager.reset_runtime_state_for_load()
+
 	# Load all states
 	_load_village_state(save_data.get("village", {}))
 	_load_mission_state(save_data.get("missions", {}))

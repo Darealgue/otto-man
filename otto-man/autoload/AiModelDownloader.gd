@@ -201,6 +201,19 @@ func start(final_path: String) -> void:
 		download_finished.emit(true, "already_present")
 		return
 
+	# The game may have been closed after the last byte arrived but before the hash pass finished
+	# (it takes a while on 7.5 GB). The .part is then already the whole file. Resuming normally
+	# would trim it back to the last flush boundary and ask the server for the tail, which needs
+	# the network and can fail ("download stopped" on the next launch). Go straight back to
+	# verifying instead; the SHA-256 check is the safety net either way.
+	if _part_file_is_complete():
+		print("[AiModelDownloader] .part is already complete; resuming at verification.")
+		_total = active_total_bytes()
+		_downloaded = _total
+		_resume_offset = _total
+		_begin_verification()
+		return
+
 	_resume_offset = _safe_resume_offset()
 	_downloaded = _resume_offset
 
@@ -209,6 +222,18 @@ func start(final_path: String) -> void:
 	_port = 443
 	_use_tls = true
 	_begin_connection()
+
+
+## True when the .part file already has exactly the expected number of bytes.
+func _part_file_is_complete() -> bool:
+	if not FileAccess.file_exists(_part_path):
+		return false
+	var probe := FileAccess.open(_part_path, FileAccess.READ)
+	if probe == null:
+		return false
+	var size := int(probe.get_length())
+	probe.close()
+	return size == active_total_bytes()
 
 
 ## Works out how many bytes of the existing .part file can be trusted.
