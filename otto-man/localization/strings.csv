@@ -2706,9 +2706,9 @@ synergy.fear_blaze,yanması dolan düşman kaçar,an enemy at full burn flees
 item.barut_sicrayisi.name,Barut Sıçrayışı,Powder Leap
 item.barut_sicrayisi.description,Hava zıplamasında arkanda yer çekiminden etkilenen bir bomba bırakırsın. Yere ya da bir düşmana değince patlar ve yakındaki düşmanları havaya fırlatır.,Your air jump drops a bomb behind you that falls under gravity. It explodes on the ground or an enemy and launches nearby enemies into the air.
 item.kazik_darbesi.name,Kazık Darbesi,Stake Strike
-item.kazik_darbesi.description,Havada dövülen düşmana düşme saldırısı yaparsan düşman yere çakılır; indiği yerde alan hasarı olur ve elementlerini taşır.,A fall attack on an airborne enemy slams it into the ground; the landing deals area damage and carries your active elements.
+item.kazik_darbesi.description,Havada dövülen düşmana düşme saldırısı yaparsan düşman yere çakılır; indiği yerde güçlü bir alan patlaması olur ve yakındakileri havaya fırlatır ve elementlerini taşır.,A fall attack on an airborne enemy slams it into the ground; the landing causes a strong area blast that launches nearby enemies and carries your active elements.
 item.gulle.name,Gülle,Cannonball
-item.gulle.description,Havaya fırlatılan düşman başka bir düşmana çarparsa ikisi de hasar alır ve çarpılan da havaya fırlar.,A launched enemy that crashes into another enemy hurts both and sends the other one flying.
+item.gulle.description,Darbeyle fırlayan ya da savrulan düşman başka bir düşmana çarparsa ikisi de hasar alır ve çarpılan da fırlar.,An enemy launched or knocked back by a hit that crashes into another enemy hurts both and sends the other one flying.
 item.fitil_hatti.name,Fitil Hattı,Fuse Line
 item.fitil_hatti.description,Bir patlamanın yakınındaki bekleyen bombalar ve barut izleri hemen patlar. Patlamalar zincirlenir.,Waiting bombs and powder trails near an explosion detonate at once. Explosions chain together.
 item.barut_dolgusu.name,Barut Dolgusu,Powder Packing

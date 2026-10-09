@@ -114,6 +114,7 @@ func _run() -> void:
 	await _frames(20)
 
 	await _scenario_gulle()
+	await _scenario_gulle_yerde_knockback()
 	await _scenario_duvar_carpmasi()
 	await _scenario_kazik_darbesi()
 	await _scenario_barut_sicrayisi()
@@ -138,6 +139,7 @@ func _run() -> void:
 	await _scenario_pusu_zehri()
 	await _scenario_golge_itemleri_gercek_dodge()
 	await _scenario_barut_bombasi_tur_firlatma()
+	await _scenario_kazik_darbesi_gercek()
 	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
@@ -208,7 +210,7 @@ func _scenario_kazik_darbesi() -> void:
 	await _frames(70)
 	var dmg_b := hp_b0 - _enemy_hp(b)
 	var dmg_a := hp_a0 - _enemy_hp(a)
-	_check(dmg_b >= 10.0, "Kazık Darbesi: çakılan düşmanın yanındaki düşman alan hasarı aldı (%.1f)" % dmg_b,
+	_check(dmg_b >= 14.0, "Kazık Darbesi: çakılan düşmanın yanındaki düşman alan hasarı aldı (%.1f)" % dmg_b,
 		"Kazık Darbesi: çakılma sonrası alan hasarı yok (komşu %.1f, çakılan %.1f)" % [dmg_b, dmg_a])
 
 ## Barut Sıçrayışı: bomba yer çekimiyle gerçek zemine düşüp patlar, gerçek düşmanı havaya fırlatır.
@@ -770,3 +772,65 @@ func _scenario_barut_bombasi_tur_firlatma() -> void:
 		_check(launched, "Barut Sıçrayışı: %s tipi bomba patlamasıyla havaya kalktı" % name, "Barut Sıçrayışı: %s tipi bomba patlamasıyla havaya kalkmadı" % name)
 		e.queue_free()
 		x += 40.0
+
+## Kazık Darbesi GERÇEK akışla: havadaki düşmana gerçek FallAttack durumuyla in. (Önceki senaryo sinyali elle yayınlıyordu.)
+func _scenario_kazik_darbesi_gercek() -> void:
+	await _begin("kazik_darbesi")
+	var a := _spawn_enemy(1000.0)
+	var b := _spawn_enemy(1070.0)
+	await _frames(45)
+	a.health = 5000.0
+	b.health = 5000.0
+	var hp_b0 := _enemy_hp(b)
+	var hp_a0 := _enemy_hp(a)
+	_place_player(1000.0)
+	await _frames(35)   # oyuncu yere insin
+	a.direction = 1
+	a.take_damage(1.0, 0.0, 420.0, true)     # a'yi havaya fırlat
+	await _frames(40)   # düşman zirveye yaklaşsın (yavaşlamış, vurması kolay)
+	var ay: float = a.global_position.y
+	_player.global_position = Vector2(a.global_position.x, ay - 150.0)   # oyuncu düşmanın üstünde, GERÇEKTEN havada
+	_player.velocity = Vector2.ZERO
+	await _frames(3)   # is_on_floor bayatlığı geçsin, oyuncu Fall durumuna girsin
+	var sm = _player.get("state_machine")
+	sm.transition_to("FallAttack")
+	var log := []
+	var slam_meta_seen := false
+	for i in range(150):
+		await physics_frame
+		if i % 6 == 0 and is_instance_valid(a):
+			var fa_hb = _player.get_node_or_null("FallAttack")
+			log.append("%d:p=%s py=%.0f pvy=%.0f a_y=%.0f a_vy=%.0f fa_mon=%s fa_overlap=%d" % [i, str(sm.current_state.name), _player.global_position.y, _player.velocity.y, a.global_position.y, a.velocity.y, str(fa_hb.monitoring if fa_hb else 'yok'), (fa_hb.get_overlapping_areas().size() if fa_hb else -1)])
+		if is_instance_valid(a) and a.has_meta("kazik_darbesi_slam"):
+			slam_meta_seen = true
+	print("ARENA DBG kazik gercek: ", str(log))
+	var dmg_b := hp_b0 - _enemy_hp(b)
+	var dmg_a := hp_a0 - _enemy_hp(a)
+	_check(slam_meta_seen, "Kazık Darbesi (gerçek): gerçek düşme vuruşu çakma işaretini koydu", "Kazık Darbesi (gerçek): gerçek düşme vuruşu havadaki düşmanı çakmaya almadı (a hasar %.1f)" % dmg_a)
+	_check(dmg_b >= 14.0, "Kazık Darbesi (gerçek): komşu alan hasarı aldı (%.1f)" % dmg_b, "Kazık Darbesi (gerçek): komşu alan hasarı almadı (%.1f, a %.1f)" % [dmg_b, dmg_a])
+	_place_player(2200.0)
+
+## Gülle her knockback'te: yerde, hafif vuruşla savrulan (havaya kalkmayan) gerçek düşman yandakine çarpınca hasar verir.
+func _scenario_gulle_yerde_knockback() -> void:
+	await _begin("gulle")
+	var a = (load("res://enemy/canonman/canonman_enemy.tscn") as PackedScene).instantiate()
+	_arena.add_child(a)
+	a.global_position = Vector2(-600.0, -30.0)
+	var b := _spawn_enemy(-540.0)
+	await _frames(50)
+	a.health = 5000.0
+	b.health = 5000.0
+	var hp_b0 := _enemy_hp(b)
+	a.direction = -1                      # velocity.x = -direction * kuvvet * 0.35 -> sağa, yerde (hafif vuruş)
+	a.take_damage(1.0, 900.0, -1.0, true)
+	var left_floor := false
+	for _i in range(40):
+		await physics_frame
+		if is_instance_valid(a) and not a.is_on_floor():
+			left_floor = true
+	var b_dmg := hp_b0 - _enemy_hp(b)
+	print("ARENA DBG gulle yerde: havaya kalktı=%s komsu hasar=%.1f" % [str(left_floor), b_dmg])
+	_check(b_dmg >= 9.0, "Gülle: yerde hafif vuruşla savrulan düşman komşuya çarpıp hasar verdi (%.1f)" % b_dmg,
+		"Gülle: yerde savrulan düşman komşuya çarpınca hasar vermedi (%.1f, havaya kalktı=%s)" % [b_dmg, str(left_floor)])
+	a.queue_free()
+	b.queue_free()

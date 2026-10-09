@@ -590,10 +590,9 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 		_fail("Kazık Darbesi: havadaki düşman 1100 hızla çakılmalı (%s)" % str(slam.velocity.y))
 	slam.airborne = false
 	slam.global_position = base + Vector2(1000, 0)
-	stake._poll_left = 0.0
 	stake.process(player, 0.1)
-	if absf(1000.0 - slam.hp - 16.0) > 0.01 or absf(1000.0 - slam_neighbor.hp - 16.0) > 0.01:
-		_fail("Kazık Darbesi: çakılan ve komşusu 16 hasar almalı (%s / %s)" % [str(1000.0 - slam.hp), str(1000.0 - slam_neighbor.hp)])
+	if absf(1000.0 - slam.hp - 30.0) > 0.01 or absf(1000.0 - slam_neighbor.hp - 30.0) > 0.01:
+		_fail("Kazık Darbesi: çakılan ve komşusu 30 hasar almalı (düşme hasarı 20 x 1.5) (%s / %s)" % [str(1000.0 - slam.hp), str(1000.0 - slam_neighbor.hp)])
 
 	# Gülle: hızla uçan düşman komşuya çarpar: komşu 10 + fırlatma, gülle 5; bekleme süresi var
 	im.clear_all_items()
