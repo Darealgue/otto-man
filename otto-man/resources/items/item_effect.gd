@@ -84,6 +84,17 @@ func _on_perfect_parry() -> void:
 func apply_fall_attack_effect_at(_position: Vector2, _is_decoy: bool) -> void:
 	pass
 
+## Sahnede GERÇEKTEN oynayan, canlı bir düşman mı? ObjectPool'daki bekleyen düşmanlar gizli ve
+## devre dışı (PROCESS_MODE_DISABLED) olarak (0,0)'da "enemies" grubunda durur; "gruptaki herkesi tara"
+## yapan item'lar (Gülle gibi) bunları atlamalı, yoksa haritanın başka yerinde görünmez düşmanlar
+## birbirine çarpıp ölür (ve XP verir).
+func is_live_enemy(node: Node) -> bool:
+	if not is_instance_valid(node) or not node.is_inside_tree():
+		return false
+	if node.get("current_behavior") == "dead":
+		return false
+	return node.can_process()
+
 ## Bir vuruş hedefini (düşmanın kendisi ya da hurtbox/alt düğümü) take_damage'li düşman düğümüne çözer.
 func resolve_enemy_target(target: Node) -> Node:
 	if not is_instance_valid(target):

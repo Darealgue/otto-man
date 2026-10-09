@@ -35,7 +35,7 @@ func process(_player_node: CharacterBody2D, delta: float) -> void:
 		return
 	var now := Time.get_ticks_msec()
 	for node in tree.get_nodes_in_group("enemies"):
-		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+		if not is_live_enemy(node):
 			continue
 		if node.get("burn_remaining_ticks") == null or not node.has_method("is_on_floor"):
 			continue

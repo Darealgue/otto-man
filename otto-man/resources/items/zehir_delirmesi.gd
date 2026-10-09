@@ -37,7 +37,7 @@ func process(_player_node: CharacterBody2D, delta: float) -> void:
 	var now := Time.get_ticks_msec()
 	var max_stacks: int = im.get_poison_max_stacks()
 	for node in tree.get_nodes_in_group("enemies"):
-		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+		if not is_live_enemy(node):
 			continue
 		if not node.has_method("is_delirious"):
 			continue
@@ -64,9 +64,9 @@ func _delirium_hit(madman: Node, im: Node, now: int) -> void:
 	var victim: Node2D = null
 	var best := HIT_RANGE
 	for node in tree.get_nodes_in_group("enemies"):
-		if node == madman or not is_instance_valid(node) or not (node is Node2D):
+		if node == madman or not is_live_enemy(node) or not (node is Node2D):
 			continue
-		if node.get("current_behavior") == "dead" or not node.has_method("take_damage"):
+		if not node.has_method("take_damage"):
 			continue
 		var d: float = madman.global_position.distance_to((node as Node2D).global_position)
 		if d < best:

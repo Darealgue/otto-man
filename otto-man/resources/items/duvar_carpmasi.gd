@@ -30,7 +30,7 @@ func process(_player_node: CharacterBody2D, _delta: float) -> void:
 		return
 	var now := Time.get_ticks_msec()
 	for node in tree.get_nodes_in_group("enemies"):
-		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+		if not is_live_enemy(node):
 			continue
 		if not node.has_method("is_on_wall") or node.get("velocity") == null:
 			continue

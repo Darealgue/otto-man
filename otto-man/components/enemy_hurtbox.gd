@@ -44,4 +44,8 @@ func _on_area_entered(hitbox: Area2D):
 	
 	# Emit hurt signal
 	# print("[EnemyHurtbox] Emitting hurt signal for: ", enemy_name)
-	hurt.emit(hitbox) 
+	hurt.emit(hitbox)
+	# Gölge hitbox'ı: kendi area_entered yolu `hit_enemy` yayınlamıyor (hasar buradan, hurt sinyaliyle
+	# işleniyor). Kombo/element item'ları gölge isabetini görsün diye sinyali burada veriyoruz.
+	if hitbox.get_meta("decoy_hitbox", false) and hitbox.has_signal("hit_enemy") and is_instance_valid(get_parent()):
+		hitbox.emit_signal("hit_enemy", get_parent())

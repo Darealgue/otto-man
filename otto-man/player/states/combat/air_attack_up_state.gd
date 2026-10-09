@@ -145,6 +145,8 @@ func _update_hitbox():
 				var spawn_center: Vector2 = _get_projectile_spawn_near_edge(hitbox, collision_shape)
 				player.emit_signal("player_light_attack_performed", dir, spawn_center, hitbox.damage)
 			else:
+				if not hitbox.hit_enemy.is_connected(_on_enemy_hit):
+					hitbox.hit_enemy.connect(_on_enemy_hit)
 				hitbox.enable()
 			if player.has_signal("player_attack_performed"):
 				player.emit_signal("player_attack_performed", current_attack, hitbox.damage)
@@ -164,6 +166,11 @@ func exit():
 	if animation_player.is_connected("animation_finished", _on_animation_finished):
 		animation_player.animation_finished.disconnect(_on_animation_finished)
 	
+	# Hit bağlantısı state'ten çıkınca kopmalı (başka saldırının isabeti buradan yayın çıkarmasın)
+	var _exit_hitbox = player.get_node_or_null("Hitbox")
+	if _exit_hitbox and _exit_hitbox is PlayerHitbox and _exit_hitbox.hit_enemy.is_connected(_on_enemy_hit):
+		_exit_hitbox.hit_enemy.disconnect(_on_enemy_hit)
+
 	# Koşu animasyonu hızlanma bug'ını önle: speed_scale sıfırla
 	animation_player.speed_scale = 1.0
 	
@@ -235,6 +242,13 @@ func _get_projectile_spawn_near_edge(hitbox: Node2D, collision_shape: Node2D) ->
 	return hitbox.to_global(shape_center_local + face_offset)
 
 func _on_enemy_hit(enemy: Node):
+	# Hava saldırısı da normal (hafif) vuruştur: item'lar player_attack_landed'ı BURADAN alır.
+	# (Önceden bu yayın attack_state'in açık kalan bağlantısından geliyordu.)
+	if player.has_signal("player_attack_landed"):
+		var hitbox = player.get_node_or_null("Hitbox")
+		var damage = hitbox.get_damage() if hitbox else 0.0
+		var targets = [enemy] if enemy else []
+		player.emit_signal("player_attack_landed", "normal", damage, targets, player.position, "all")
 	if not has_activated_hitbox:
 		has_activated_hitbox = true
 

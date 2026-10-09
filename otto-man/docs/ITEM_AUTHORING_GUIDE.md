@@ -238,6 +238,15 @@ Godot console exe yolu ve komutlar `CLAUDE.md` "Verification discipline" bölüm
      mermilerini uzağa (100000,100000) koy; önceki aşama ağacı duraklatmış olabilir
      (`paused=false`); script modunda `current_scene` yok, test kendisi kurar.
    - Yeni mermi/hasar davranışı eklediysen `_run_projectile_kind_checks` benzeri bir kapsam yaz.
+4b. **Arena testi (gerçek düşmanlarla):** `powershell -File tools/run_item_arena_test.ps1` → `ARENA OK` beklenir.
+   `tools/item_arena_test.gd` gerçek `basic_enemy.tscn` düşmanlarını gerçek zemin/duvar fiziğinde koşturur;
+   fizik ve yapay zekaya dayanan item'ları (fırlatma, duvar çarpması, çakma, korku, delirme, düşme bombası,
+   yanma/zehir yayılımı) sahte düşmanın göremediği biçimde doğrular. Yeni fizik/AI'ya dayanan item yazarsan
+   oraya bir senaryo ekle. Öğrenilenler: `BasicEnemy` yerde knockback ile ~120 px kayıp durur (duvar item'ı
+   yakın duvarda çalışır); fırlatılan düşman komşunun ~50 px üstünden geçer (çarpma yarıçapı gövde boyunda
+   olmalı); `ObjectPool`'daki devre dışı düşmanlar `"enemies"` grubunda (0,0)'da yığılıdır, grup tarayan
+   item `is_live_enemy()` kullanmalı; direkt `take_damage(..., up_force)` fırlatması BasicEnemy'de çalışır,
+   `base_enemy` tabanlı tiplerde ağır vuruş adı gerekir.
 5. Oynanış testi kullanıcıda: dev console (backtick) → `levelup [n]` n kez sırayla item seçimi
    açar, `overheal` kalkan verir. Denge sayıları kullanıcı oynayana kadar **tahmindir**; raporda
    "denge oynanmadı" diye belirt.
@@ -287,7 +296,11 @@ Godot console exe yolu ve komutlar `CLAUDE.md` "Verification discipline" bölüm
   **Ömür:** gölgeler 3-5 sn (Ortaoyunu 4, Gölge Hasadı 5, Kukla Oyunu 3, Gölge Dönüşü 3, Gölge
   Sahnesi 4, Hayalet Adım 3). Bir item `get_shadow_lifetime_mult() -> float` tanımlayarak süreyi
   katlayabilir (`ItemManager.get_shadow_lifetime_mult()`, en yüksek çarpan geçerli, gölge doğarken
-  okunur). Yeni gölge kaynağı item'ı yazarken sadece `DecoyScene.instantiate()` +
+  okunur). **Gölge isabeti:** gölgenin hitbox'ı kendi `area_entered` yolundan `hit_enemy` yayınlamaz;
+  hasar `components/enemy_hurtbox.gd` üzerinden `hurt` sinyaliyle işlenir. `decoy_hitbox` meta'lı hitbox
+  için `enemy_hurtbox.gd` `hit_enemy`'yi oradan yayar (yoksa Gölge Bağı/kombo sayaçları gölgeyi hiç
+  görmezdi; arena testi yakaladı). Gölge hitbox'ının şekil ofseti `mimic_attack`'te sıfırlanır (alan
+  konumu/dönüşü yerleşimi belirler; oyuncudan kopyalanan ofset çift sayılıyordu). Yeni gölge kaynağı item'ı yazarken sadece `DecoyScene.instantiate()` +
   `lifetime_override` + `setup(pos, flip, player)` yeterli, taklit otomatik.
 
 ## 10b. Yeni olay kancaları ve yardımcılar (2026-10-09)

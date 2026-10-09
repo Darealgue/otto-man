@@ -36,6 +36,7 @@ var _sprite: Sprite2D
 var _hurtbox: Area2D
 var _decoy_hitbox: Area2D
 var _attack_timer: float = 0.0
+var _hit_ids_this_attack: Dictionary = {}  # bu saldırıda zaten sayılan düşmanlar (çift yayını önler)
 var _player: CharacterBody2D = null  # Oyuncu referansı - etki taşıma için
 var lifetime_override: float = -1.0  # >0 ise LIFETIME yerine bu kullanılır (Hayalet Adım: 0.4s)
 
@@ -79,6 +80,7 @@ func setup(world_pos: Vector2, flip_h: bool, player: CharacterBody2D) -> void:
 	if _decoy_hitbox:
 		_decoy_hitbox.monitoring = false
 		_decoy_hitbox.monitorable = false
+		_decoy_hitbox.set_meta("decoy_hitbox", true)   # base_enemy._on_hurtbox_hurt gölge isabetini buna bakarak yayınlar
 		# Gölge vurduğunda player_attack_landed emit et ki Çift Vuruş, Ateşli Yumruk vb. aynı hedeflere uygulansın
 		if _decoy_hitbox.has_signal("hit_enemy") and not _decoy_hitbox.hit_enemy.is_connected(_on_decoy_hitbox_hit_enemy):
 			_decoy_hitbox.hit_enemy.connect(_on_decoy_hitbox_hit_enemy)
@@ -136,6 +138,12 @@ func _shadow_lifetime_mult() -> float:
 	return 1.0
 
 func _on_decoy_hitbox_hit_enemy(enemy: Node) -> void:
+	# Bir saldırıda aynı düşman için tek yayın (hitbox kendi yolundan da yayınlarsa çift sayılmasın)
+	var eid: int = enemy.get_instance_id() if is_instance_valid(enemy) else 0
+	if eid != 0:
+		if _hit_ids_this_attack.has(eid):
+			return
+		_hit_ids_this_attack[eid] = true
 	_notify_items("_on_decoy_hit_enemy", [enemy, global_position])
 	# Gölge vurduğunda oyuncunun player_attack_landed sinyalini emit et; Çift Vuruş, Ateşli Yumruk vb. aynı hedeflere uygulanır
 	if not _player or not is_instance_valid(_player) or not _player.has_signal("player_attack_landed"):
@@ -317,6 +325,7 @@ func mimic_attack(damage: float, attack_name: String = "attack_1.2") -> void:
 		return
 	if not _decoy_hitbox:
 		return
+	_hit_ids_this_attack.clear()
 	if _decoy_hitbox.has_method("sync_from_player_hitbox"):
 		var player_hb = _player.get_node_or_null("Hitbox") if _player and is_instance_valid(_player) else null
 		if player_hb and player_hb.has_method("sync_from_player_hitbox"):
@@ -326,6 +335,12 @@ func mimic_attack(damage: float, attack_name: String = "attack_1.2") -> void:
 			_decoy_hitbox.knockback_force = 120.0
 			_decoy_hitbox.knockback_up_force = 60.0
 		_decoy_hitbox.damage *= _shadow_damage_ratio()
+		# sync_from_player_hitbox oyuncunun şekil ofsetini (+26, -22) kopyalar; yerleşimi aşağıdaki
+		# _apply_hitbox_variant (alan konumu/dönüşü) belirlediği için şekil ofseti sıfırlanmalı, yoksa
+		# ofset iki kez sayılıp gölgenin hitbox'ı oyuncununkinden ~22 px yukarıda kalıyordu.
+		var dcs: Node = _decoy_hitbox.get_node_or_null("CollisionShape2D")
+		if dcs:
+			dcs.position = Vector2.ZERO
 		_decoy_hitbox.set_meta("damage_source", _player)
 		_decoy_hitbox.set_meta("attacker_position_override", global_position)
 		_apply_hitbox_variant(variant, dir)

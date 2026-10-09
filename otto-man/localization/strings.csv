@@ -2704,7 +2704,7 @@ synergy.fire_spread,yanan düşmandan yangın yayılır,fire spreads from burnin
 synergy.torch_juggle,havaya kaldırdığın yanan düşman iz bırakır,a burning enemy you juggle leaves a fire trail
 synergy.fear_blaze,yanması dolan düşman kaçar,an enemy at full burn flees
 item.barut_sicrayisi.name,Barut Sıçrayışı,Powder Leap
-item.barut_sicrayisi.description,Hava zıplamasında altına patlama düşer. Yakındaki düşmanları havaya fırlatır.,Your air jump drops an explosion beneath you that launches nearby enemies into the air.
+item.barut_sicrayisi.description,Hava zıplamasında arkanda yer çekiminden etkilenen bir bomba bırakırsın. Yere ya da bir düşmana değince patlar ve yakındaki düşmanları havaya fırlatır.,Your air jump drops a bomb behind you that falls under gravity. It explodes on the ground or an enemy and launches nearby enemies into the air.
 item.kazik_darbesi.name,Kazık Darbesi,Stake Strike
 item.kazik_darbesi.description,Havada dövülen düşmana düşme saldırısı yaparsan düşman yere çakılır; indiği yerde alan hasarı olur ve elementlerini taşır.,A fall attack on an airborne enemy slams it into the ground; the landing deals area damage and carries your active elements.
 item.gulle.name,Gülle,Cannonball

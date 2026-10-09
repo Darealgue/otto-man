@@ -126,6 +126,10 @@ func exit():
 	if hitbox and hitbox is PlayerHitbox:
 		hitbox.disable()
 		hitbox.disable_combo()
+		# Bağlantı state'ten çıkınca KOPMALI: açık kalırsa sonraki her normal vuruş da "heavy"
+		# yayını çıkarıyordu (ağır saldırı item'ları normal vuruşta tetikleniyordu).
+		if hitbox.hit_enemy.is_connected(_on_enemy_hit):
+			hitbox.hit_enemy.disconnect(_on_enemy_hit)
 	animation_player.speed_scale = 1.0
 
 	# Crouch'tan gelen saldırıda kapsül küçültülmüştü; geri büyütülmezse küçük takılı kalıyor.

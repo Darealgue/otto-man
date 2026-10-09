@@ -5,7 +5,7 @@
 
 extends ItemEffect
 
-const HIT_RADIUS := 45.0
+const HIT_RADIUS := 65.0   # düşman gövdesi ~60 px: fırlatılan düşman komşunun üstünden geçerken de çarpsın
 const MIN_SPEED := 180.0
 const VICTIM_DAMAGE := 10.0
 const SELF_DAMAGE := 5.0
@@ -35,9 +35,9 @@ func process(_player_node: CharacterBody2D, _delta: float) -> void:
 		var victim: Node2D = null
 		var best := HIT_RADIUS
 		for other in enemies:
-			if other == ball or not is_instance_valid(other) or not (other is Node2D):
+			if other == ball or not is_live_enemy(other) or not (other is Node2D):
 				continue
-			if other.get("current_behavior") == "dead" or not other.has_method("take_damage"):
+			if not other.has_method("take_damage"):
 				continue
 			if int(other.get_meta(COOLDOWN_META, 0)) > now:
 				continue
@@ -54,7 +54,7 @@ func process(_player_node: CharacterBody2D, _delta: float) -> void:
 		ball.take_damage(SELF_DAMAGE * mult, 0.0, 0.0, true)
 
 func _is_cannonball(node: Node, now: int) -> bool:
-	if not is_instance_valid(node) or node.get("current_behavior") == "dead":
+	if not is_live_enemy(node):
 		return false
 	if not node.has_method("is_on_floor") or node.is_on_floor():
 		return false

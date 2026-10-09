@@ -86,6 +86,15 @@ func _on_command_submitted(command: String) -> void:
 	if cmd == "items":
 		handle_items_list_command()
 		return
+	if cmd == "clear_items":
+		# Temiz item testi: art arda item_<N> verince hepsi üst üste aktif kalır, bu hepsini kapatır
+		var ci_im = get_node_or_null("/root/ItemManager")
+		if ci_im == null:
+			print_output("ItemManager bulunamadı!")
+			return
+		ci_im.clear_all_items()
+		print_output("Tüm aktif item'lar temizlendi.")
+		return
 	if cmd == "test_items":
 		handle_test_items_command(1)
 		return
@@ -935,6 +944,7 @@ func show_help() -> void:
 	clear - Clear console output
 	item_<N> - Activate item by index (e.g. item_0, item_1). Use 'items' to list.
 	items - List all item indices and names
+	clear_items - Deactivate every active item (items stack: use this between item tests)
 	test_items - Open the real 3-card item selection/draft UI (needs an active dungeon run)
 	levelup [n] - Run n item drafts back to back, like leveling up n times (default 5, max 50)
 	challenge_poi [koruma|dalga] [orman|zindan] [zorluk 1-9] - Place a temporary challenge marker on the world map near the village

@@ -30,12 +30,12 @@ func process(_player_node: CharacterBody2D, delta: float) -> void:
 	var enemies: Array = tree.get_nodes_in_group("enemies")
 	var burning: Array = []
 	for node in enemies:
-		if is_instance_valid(node) and node.get("current_behavior") != "dead" and node.get("burn_remaining_ticks") != null and int(node.burn_remaining_ticks) > 0:
+		if is_live_enemy(node) and node.get("burn_remaining_ticks") != null and int(node.burn_remaining_ticks) > 0:
 			burning.append(node)
 	if burning.is_empty():
 		return
 	for node in enemies:
-		if not is_instance_valid(node) or node.get("current_behavior") == "dead" or not node.has_method("add_burn_stack"):
+		if not is_live_enemy(node) or not node.has_method("add_burn_stack"):
 			continue
 		if node.get("burn_remaining_ticks") == null or int(node.burn_remaining_ticks) > 0:
 			continue

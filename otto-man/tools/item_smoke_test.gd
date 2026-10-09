@@ -159,6 +159,7 @@ func _run_dynamic_checks() -> void:
 	await _run_poison_item_checks(im, test_scene, player)
 	await _run_fire_item_checks(im, test_scene, player)
 	await _run_powder_item_checks(im, test_scene, player)
+	_run_attack_state_leak_check(player)
 	await _run_scene_change_check(im, test_scene, player, ids, excluded)
 	if is_instance_valid(player):
 		player.queue_free()
@@ -538,11 +539,39 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 	await process_frame
 	var near: Node2D = mk.call(Vector2(50, 0))
 	var far: Node2D = mk.call(Vector2(500, 0))
+	var bomb_path := "res://effects/jump_bomb.gd"
+	var b0 := _count_scripts(test_scene, bomb_path)
 	im.notify_item_event("_on_air_jump", [base])
-	if absf(1000.0 - near.hp - 10.0) > 0.01 or absf(near.last_up - 220.0) > 0.01:
-		_fail("Barut Sıçrayışı: 10 hasar ve 220 fırlatma beklenirdi (hasar %s, fırlatma %s)" % [str(1000.0 - near.hp), str(near.last_up)])
-	if far.hp != 1000.0:
-		_fail("Barut Sıçrayışı: uzaktaki düşmana dokunmamalı")
+	if _count_scripts(test_scene, bomb_path) - b0 != 1:
+		_fail("Barut Sıçrayışı: hava zıplaması 1 bomba bırakmalı, %d" % (_count_scripts(test_scene, bomb_path) - b0))
+	var jump_bomb: Node = null
+	for ch in test_scene.get_children():
+		if ch.get_script() != null and String(ch.get_script().resource_path) == bomb_path:
+			jump_bomb = ch
+	if jump_bomb == null:
+		_fail("Barut Sıçrayışı: bomba düğümü bulunamadı")
+	else:
+		if jump_bomb.velocity.y <= 0.0:
+			_fail("Barut Sıçrayışı: bomba aşağı doğru başlamalı (yer çekimi), hız %s" % str(jump_bomb.velocity))
+		jump_bomb.detonate_now()
+		if absf(1000.0 - near.hp - 10.0) > 0.01 or absf(near.last_up - 220.0) > 0.01:
+			_fail("Barut Sıçrayışı: patlama 10 hasar ve 220 fırlatma vermeli (hasar %s, fırlatma %s)" % [str(1000.0 - near.hp), str(near.last_up)])
+		if far.hp != 1000.0:
+			_fail("Barut Sıçrayışı: uzaktaki düşmana dokunmamalı")
+		# Yer çekimi: bir fizik karesi sonra bomba daha hızlı düşmeli (yeni bomba, patlatmadan)
+		im.notify_item_event("_on_air_jump", [base + Vector2(0, -3000)])
+		var falling: Node = null
+		for ch in test_scene.get_children():
+			if ch.get_script() != null and String(ch.get_script().resource_path) == bomb_path and not ch.is_queued_for_deletion():
+				falling = ch
+		if falling != null:
+			var v0: float = falling.velocity.y
+			await physics_frame
+			await physics_frame
+			if is_instance_valid(falling) and falling.velocity.y <= v0:
+				_fail("Barut Sıçrayışı: bomba yer çekimiyle hızlanmalı (%s -> %s)" % [str(v0), str(falling.velocity.y)])
+			if is_instance_valid(falling):
+				falling.queue_free()
 
 	# Kazık Darbesi: havadaki düşmana düşme vuruşu çakar (velocity.y 1100); inince alan hasarı max(0.8x, 8)
 	im.clear_all_items()
@@ -582,6 +611,33 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 	gulle_item.process(player, 0.016)
 	if absf(1000.0 - pin.hp - 10.0) > 0.01:
 		_fail("Gülle bekleme süresine uymadı")
+	# Regresyon (2026-10-09): ObjectPool'daki bekleyen düşmanlar gizli+devre dışı olarak (0,0)'da üst üste durur;
+	# Gülle onları "havada hızlı uçan düşman" sanıp birbirine vurdurup öldürüyor ve XP veriyordu.
+	var pooled: Array = []
+	for e in get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and e.has_method("take_damage") and not e.can_process() and e.get("health") != null:
+			pooled.append(e)
+	if pooled.size() < 2:
+		print("Gülle havuz regresyon testi atlandı: havuzda devre dışı düşman yok")
+	else:
+		# Önceki aşamalar havuz düşmanlarını (0,0)'da çoktan öldürmüş olabilir: hepsini sağlam hâle getir,
+		# üst üste yığ ve hızlı "uçuyor" göster (gerçek oyundaki bekleyen yığın böyle duruyor).
+		for pe in pooled:
+			pe.health = 60.0
+			pe.set("current_behavior", "idle")
+			pe.global_position = Vector2.ZERO
+			if pe.get("velocity") != null:
+				pe.velocity = Vector2(0.0, -600.0)
+		for _i in range(5):
+			gulle_item.process(player, 0.016)
+		var damaged := 0
+		for pe in pooled:
+			if float(pe.health) != 60.0:
+				damaged += 1
+		if damaged > 0:
+			_fail("Gülle havuzdaki %d devre dışı düşmana dokundu (hasar verdi)" % damaged)
+		for pe in pooled:
+			pe.health = 60.0   # sonraki aşamaları etkilemesin
 
 	# Barut Dolgusu: 3 öldürme = x1.45, üst sınır 5 öldürme = x1.75, süre dolunca sıfırlanır; ExplosionModifiers okur
 	im.clear_all_items()
@@ -669,6 +725,26 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 	im.clear_all_items()
 	await process_frame
 	print("Barut item'ları: Sıçrayış, Kazık, Gülle, Dolgu, Duvar Çarpması, Fitil Hattı kontrol edildi")
+
+## Saldırı state'lerinin hitbox.hit_enemy bağlantısı state'ten çıkınca KOPMALI. Açık kalan bağlantı, başka bir
+## saldırının isabetinde eski state'in player_attack_landed yayınını da çıkarıyordu (Alev Dalgası vb. ağır
+## saldırı item'ları normal vuruşta tetikleniyordu).
+func _run_attack_state_leak_check(player: Node) -> void:
+	var hitbox = player.get_node_or_null("Hitbox")
+	if hitbox == null:
+		_fail("Sızıntı testi: Hitbox yok")
+		return
+	for state_name in ["Attack", "HeavyAttack", "AirAttackUp", "AirAttackDown"]:
+		var state = player.get_node_or_null("StateMachine/%s" % state_name)
+		if state == null or not state.has_method("_on_enemy_hit"):
+			print("Sızıntı testi atlandı: %s state'i bulunamadı" % state_name)
+			continue
+		if not hitbox.hit_enemy.is_connected(state._on_enemy_hit):
+			hitbox.hit_enemy.connect(state._on_enemy_hit)
+		state.exit()
+		if hitbox.hit_enemy.is_connected(state._on_enemy_hit):
+			_fail("%s state'i çıkışta hit_enemy bağlantısını koparmadı (isabet yayını sızar)" % state_name)
+			hitbox.hit_enemy.disconnect(state._on_enemy_hit)
 
 func _reset_enemy_status_effects() -> void:
 	for e in get_nodes_in_group("enemies"):

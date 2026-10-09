@@ -254,7 +254,11 @@ func exit():
 	if hitbox and hitbox is PlayerHitbox:
 		hitbox.disable()
 		hitbox.disable_combo()
-	
+		# Bağlantı state'ten çıkınca KOPMALI: açık kalırsa başka bir saldırının isabeti de buradan
+		# eski current_attack ile "normal" yayını çıkarıyordu (ağır vuruşta çift tetik).
+		if hitbox.hit_enemy.is_connected(_on_enemy_hit):
+			hitbox.hit_enemy.disconnect(_on_enemy_hit)
+
 	# Reset animation speed
 	animation_player.speed_scale = 1.0
 
