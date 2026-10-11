@@ -6211,7 +6211,9 @@ func _pick_and_create_event(current_day: int) -> Dictionary:
 	# (3-5 günde bir) haydut/kurt baskınlarını ayrıca ve öngörülebilir şekilde planlıyor.
 	# Bu havuzda kalsaydı %2 günlük şansla 10 tipten biri olarak neredeyse hiç tetiklenmezdi
 	# (bkz. kullanıcı şikayeti: "saldırılar çok nadir") ve iki sistem aynı anda çakışabilirdi.
-	var pool := ["drought", "famine", "pest", "disease", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike", "bandit_activity"]
+	# NOT: "drought" havuzdan çıkarıldı (su kaynağı kalktığı için kıtlıkla aynı etkiydi). Eski kayıtlarda aktif
+	# bir kuraklık varsa etki/HUD kodu çalışmaya devam eder; yeni kuraklık üretilmez.
+	var pool := ["famine", "pest", "disease", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike", "bandit_activity"]
 	pool.shuffle()
 	for t in pool:
 		var cd_until := int(_event_cooldowns.get(t, 0))
@@ -7293,7 +7295,7 @@ func trigger_specific_world_event(event_type: String, severity: float = -1.0, du
 	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 0
 	
 	# Valid event types (dev console trigger_world_event ile test için)
-	var valid_types: Array[String] = ["drought", "famine", "pest", "disease", "raid", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike", "bandit_activity"]
+	var valid_types: Array[String] = ["famine", "pest", "disease", "raid", "wolf_attack", "severe_storm", "weather_blessing", "worker_strike", "bandit_activity"]
 	if not event_type in valid_types:
 		return false
 	

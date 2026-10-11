@@ -1004,7 +1004,7 @@ concubine.role.trader,Tüccar,Trader
 concubine.role.scholar,Alim,Scholar
 concubine.role.medic,Tibbiyeci,Medic
 mc.news.event.drought.title,🌧️ Kuraklık Başladı,🌧️ Drought Started
-mc.news.event.drought.body,Su üretimi %20 azaldı,Water production reduced by 20%
+mc.news.event.drought.body,Yiyecek toplama seferleri aksıyor,Food gathering trips are failing
 mc.news.event.migrants.title,👥 Göçmenler Geldi,👥 Migrants Arrived
 mc.news.event.migrants.body,Yeni işçi mevcut,New workers available
 mc.news.event.wolves.title,🐺 Kurt Sürüsü,🐺 Wolf Pack
@@ -1416,8 +1416,8 @@ narrative.news.village_event_worker_strike.title,İşçi Grevi,Worker Strike
 narrative.news.village_event_worker_strike.body,%s üretimi durdu (%s).,%s production halted (%s).
 narrative.news.village_event_drought.title,Kuraklık,Drought
 narrative.news.village_event_drought.body,Köyde kuraklık etkisi başladı. Süre: %d gün.,Drought effects began in the village. Duration: %d days.
-narrative.news.village_event_famine.title,Kıtlık,Famine
-narrative.news.village_event_famine.body,Köyde kıtlık baskısı arttı. Süre: %d gün.,Famine pressure increased in the village. Duration: %d days.
+narrative.news.village_event_famine.title,Kötü Hasat,Poor Harvest
+narrative.news.village_event_famine.body,Köyde hasat kötü gitti. Süre: %d gün.,The harvest has gone badly in the village. Duration: %d days.
 narrative.news.village_event_disease.title,Hastalık,Disease
 narrative.news.village_event_disease.body,Köyde hastalık yayılmaya başladı. Süre: %d gün.,Disease is spreading in the village. Duration: %d days.
 narrative.news.village_event_bandit_activity.title,Haydut Faaliyeti,Bandit Activity

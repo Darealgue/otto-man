@@ -1089,7 +1089,7 @@ func handle_trigger_world_event_command(args: Array) -> void:
 			print_output(info)
 		else:
 			print_output("Invalid event type: %s" % event_type)
-			print_output("Valid types: drought, famine, pest, disease, raid, wolf_attack, severe_storm, weather_blessing, worker_strike, bandit_activity")
+			print_output("Valid types: famine, pest, disease, raid, wolf_attack, severe_storm, weather_blessing, worker_strike, bandit_activity")
 			print_output("Usage: trigger_world_event <type> [low|medium|high] [duration]")
 
 func handle_set_event_chance_command(args: Array) -> void:
@@ -1147,7 +1147,6 @@ func handle_list_active_events_command() -> void:
 
 func handle_list_event_types_command() -> void:
 	print_output("=== WORLD EVENTS (3 Seviye: Düşük/Orta/Yüksek) ===")
-	print_output("drought - Su üretimi azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
 	print_output("famine - Yiyecek üretimi azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
 	print_output("pest - Odun üretimi azalır (Düşük: -20%, Orta: -40%, Yüksek: -60%)")
 	print_output("disease - Moral düşer (Düşük: -15, Orta: -25, Yüksek: -40)")
@@ -1194,7 +1193,6 @@ func handle_event_info_command(args: Array) -> void:
 	
 	var event_type: String = args[0].to_lower()
 	var info: Dictionary = {
-		"drought": "Kuraklık - Su üretimini azaltır. Düşük: -20%, Orta: -40%, Yüksek: -60%",
 		"famine": "Kıtlık - Yiyecek üretimini azaltır. Düşük: -20%, Orta: -40%, Yüksek: -60%",
 		"pest": "Zararlı - Odun üretimini azaltır (ağaç zararlıları). Düşük: -20%, Orta: -40%, Yüksek: -60%",
 		"disease": "Hastalık - İşçiler hastalanır, çalışamazlar, evden çıkmazlar. İlaç varsa 1 günde iyileşir, yoksa moral düşer. Düşük: %20 işçi, Orta: %35 işçi, Yüksek: %50 işçi hasta.",
