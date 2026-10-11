@@ -66,7 +66,8 @@ func _start_invisibility():
 	_player.remove_from_group("player")
 	var hb := _player.get_node_or_null("Hurtbox")
 	if hb:
-		_player.set_meta("_gorunmezlik_hurtbox_monitoring", hb.monitoring)
+		# Değer KAYDEDİLMEZ: dodge_state hurtbox'ı kapattıktan sonra sinyal geldiğinden kaydedilen değer
+		# hep false oluyor, görünmezlik bitince hurtbox kalıcı kapanıyordu (bkz. golgeye_karisma.gd notu).
 		hb.monitoring = false
 	_invis_timer = INVIS_DURATION
 	_is_invisible = true
@@ -81,11 +82,16 @@ func _end_invisibility():
 	_player.gorunmezlik_first_attack_mult = 1.0
 	if not _player.is_in_group("player"):
 		_player.add_to_group("player")
-	if _player.has_meta("_gorunmezlik_hurtbox_monitoring"):
+	# Hurtbox'ı yeniden aç (ölüyse ya da hâlâ Dodge içindeyse dokunma: dodge çıkışı zaten açar)
+	var sm = _player.get("state_machine")
+	var in_dodge: bool = sm != null and sm.get("current_state") != null and String(sm.current_state.name) == "Dodge"
+	var dead: bool = _player.get("is_dead") == true or _player.get("pending_death") == true
+	if not in_dodge and not dead:
 		var hb_end := _player.get_node_or_null("Hurtbox")
 		if hb_end:
-			hb_end.monitoring = bool(_player.get_meta("_gorunmezlik_hurtbox_monitoring"))
-		_player.remove_meta("_gorunmezlik_hurtbox_monitoring")
+			hb_end.monitoring = true
+	if _player.has_meta("_gorunmezlik_hurtbox_monitoring"):
+		_player.remove_meta("_gorunmezlik_hurtbox_monitoring")   # eski kayıtlardan kalmış olabilir
 	_invis_timer = 0.0
 	_is_invisible = false
 	_first_attack_ready = false

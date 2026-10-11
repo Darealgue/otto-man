@@ -159,6 +159,7 @@ func _run() -> void:
 	await _scenario_zincir_barut_dolgusu()
 	await _scenario_dusmanlar_oyuncuya_hasar_verir()
 	await _scenario_item_hasar_taramasi()
+	await _scenario_hurtbox_dodge_sonrasi_acik()
 	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
@@ -887,6 +888,44 @@ func _scenario_dusmanlar_oyuncuya_hasar_verir() -> void:
 			e.queue_free()
 		x_base += 400.0
 	_check(all_ok, "Tüm düşman tipleri oyuncuya hasar verebildi", "Bazı düşman tipleri oyuncuya hasar veremedi")
+	_place_player(2200.0)
+
+## REGRESYON (0.26.2): dodge/dash sonrasında hurtbox AÇIK kalmalı. Gölgeye Karışma ve Görünmezlik Pelerini
+## hurtbox.monitoring'i kalıcı kapatıp basic/uçan/ateş büyücüsünün hasarını engelliyordu (yalnızca overlap
+## sorgusuyla vuran charger'lar vurabiliyordu). ARENA_ONLY=hurtbox_taramasi ile TÜM item'lar denenir.
+func _scenario_hurtbox_dodge_sonrasi_acik() -> void:
+	var only: String = OS.get_environment("ARENA_ONLY")
+	var all_items: bool = only == "hurtbox_taramasi"
+	if not (only.is_empty() or all_items or only == "hurtbox_dodge"):
+		return
+	var ids: Array = ["golgeye_karisma", "gorunmezlik_pelerini", "ortaoyunu", "hayalet_adim", "kukla_oyunu", "refleks", "golge_adimi"]
+	if all_items:
+		ids = _im.ITEM_SCENES.keys()
+		ids.sort()
+	var bad: Array = []
+	for id in ids:
+		if not _im.ITEM_SCENES.has(id):
+			continue
+		_im.clear_all_items()
+		await _cleanup_arena_nodes()
+		await _ground_player(-2000.0)
+		_im.activate_item(_im.ITEM_SCENES[id])
+		await process_frame
+		for _round in range(2):
+			_refill_stamina()
+			await _frames(20)
+			await _press("dash")
+			await _frames(70)   # dodge + 3 sn'lik görünmezlik hariç tüm flaşlar (0.4 sn) bitsin; pelerin için 200 kare
+			if id == "gorunmezlik_pelerini":
+				await _frames(150)
+		var hb = _player.get("hurtbox")
+		var st: String = str(_player.get("state_machine").current_state.name)
+		if hb != null and not hb.monitoring and st != "Dodge":
+			bad.append(String(id))
+			print("ARENA INFO: HURTBOX_KAPALI item=%s durum=%s" % [str(id), st])
+		hb.monitoring = true
+	_check(bad.is_empty(), "Dodge sonrası hurtbox açık kaldı (%d item denendi)" % ids.size(), "Dodge sonrası hurtbox KAPALI kalan item'lar: %s" % str(bad))
+	_im.clear_all_items()
 	_place_player(2200.0)
 
 ## TEŞHİS: Her item tek başına aktifken sıradan bir basic düşman oyuncuya vurabiliyor mu? Vuramayanlar (ya da

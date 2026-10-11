@@ -4,6 +4,11 @@
 # geçici kapanır. Görünmezlik Pelerini'nin küçük/ucuz kardeşi — saldırı
 # bonusu yok, sadece kaçış anı. player_dodged sinyali dodge/dash'in
 # BİTİŞİNDE ateşleniyor (bkz. player/states/dodge_state.gd emit noktası).
+#
+# HATA DÜZELTMESİ (0.26.2): eskiden başlangıçta hurtbox.monitoring değeri kaydedilip bitişte geri yükleniyordu.
+# player_dodged, dodge_state hurtbox'ı yeniden açmadan ÖNCE ateşlendiği için kaydedilen değer hep `false`'tu;
+# flaş bitince hurtbox kalıcı olarak kapanıyor, basic/uçan/ateş büyücüsü oyuncuya hiç hasar veremiyordu.
+# Artık kayıt yok: bitişte (ölü ya da hâlâ Dodge değilse) her zaman açılır.
 
 extends ItemEffect
 
@@ -54,7 +59,6 @@ func _start_flash() -> void:
 		_player.remove_from_group("player")
 		var hb := _player.get_node_or_null("Hurtbox")
 		if hb:
-			_player.set_meta("_golgeye_karisma_hurtbox_monitoring", hb.monitoring)
 			hb.monitoring = false
 		_is_invisible = true
 	_flash_timer = FLASH_DURATION
@@ -68,13 +72,22 @@ func _end_flash() -> void:
 	_player.modulate = _saved_modulate
 	if not _player.is_in_group("player"):
 		_player.add_to_group("player")
-	if _player.has_meta("_golgeye_karisma_hurtbox_monitoring"):
-		var hb := _player.get_node_or_null("Hurtbox")
-		if hb:
-			hb.monitoring = bool(_player.get_meta("_golgeye_karisma_hurtbox_monitoring"))
-		_player.remove_meta("_golgeye_karisma_hurtbox_monitoring")
+	_reopen_hurtbox()
 	_is_invisible = false
 	_flash_timer = 0.0
+
+## Hurtbox'ı yeniden aç. Ölüyse dokunma (ölüm akışı kapatmıştır); Dodge içindeyse dodge çıkışı açar.
+func _reopen_hurtbox() -> void:
+	if not _player or not is_instance_valid(_player):
+		return
+	if _player.get("is_dead") == true or _player.get("pending_death") == true:
+		return
+	var sm = _player.get("state_machine")
+	if sm != null and sm.get("current_state") != null and String(sm.current_state.name) == "Dodge":
+		return
+	var hb := _player.get_node_or_null("Hurtbox")
+	if hb:
+		hb.monitoring = true
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _flash_timer <= 0.0:
