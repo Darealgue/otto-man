@@ -742,10 +742,6 @@ func _on_wave_cleared(index: int, total: int) -> void:
 	_lift_creeping = false
 	if _finished or index >= total:
 		return
-	# Koruma: her dalga arasında hayattaki köylülerin canı yenilenir
-	for w in _wards:
-		if is_instance_valid(w):
-			w.heal_full()
 	if kind == "asansor":
 		await _show_message(tr("challenge.cleared") % index, BREAK_SECONDS)
 		if _finished:
