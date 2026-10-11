@@ -1457,7 +1457,8 @@ func _apply_reward(reward_type: String, amount):
 			else:
 				update_player_reputation(int_amount)
 		"special_item", "building", "alliance", "trade_route":
-			print("🏆 Özel ödül (henüz otomatik değil): %s = %s" % [reward_type, str(amount)])
+			# Hiçbir görev bu ödülleri artık üretmiyor; üretilirse sessizce yutulmasın.
+			push_warning("[MissionManager] Uygulanmayan ödül tipi: %s = %s" % [reward_type, str(amount)])
 
 # Ceza uygula
 func _apply_penalty(penalty_type: String, amount):
@@ -4388,9 +4389,13 @@ func _trigger_trade_caravan() -> void:
 	pass
 
 func _trigger_bandit_activity() -> void:
-	_active_rate_add("wood", -1, 2, "Haydut Faaliyeti")
-	_active_rate_add("stone", -1, 2, "Haydut Faaliyeti")
-	_create_bandit_missions()
+	# Tek kaynak: köy event sistemi (ticaret cezası + Haydut Temizliği görevi + bitiş koşulu).
+	# Eskiden burada ayrı bir rate cezası ve ikinci bir görev üretiliyordu, iki sistem çakışıyordu.
+	if bandit_activity_active:
+		return
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	if vm != null and vm.has_method("trigger_specific_world_event"):
+		vm.call("trigger_specific_world_event", "bandit_activity")
 
 func _trigger_random_festival() -> void:
 	if settlements.is_empty():
@@ -4587,7 +4592,7 @@ func create_special_mission(special_type: String) -> Mission:
 			mission.required_cariye_level = 4
 			mission.required_army_size = 8
 			mission.required_resources = {"gold": 20}
-			mission.rewards = {"gold": 40, "wood": 6, "stone": 4, "special_item": "elite_weapon"}
+			mission.rewards = {"gold": 40, "wood": 6, "stone": 4, "reputation": 8}
 			mission.penalties = {"gold": -12, "reputation": -5}
 			mission.target_location = "Elit Kalesi"
 			mission.distance = 8.0

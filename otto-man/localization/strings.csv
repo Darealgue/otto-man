@@ -721,6 +721,57 @@ Make the most of these days. Happy villagers produce more."
 village.event.festival.title,🎉 Köy Festivali,🎉 Village Festival
 village.event.festival.body,Köylüler bir araya geldi! Moral +%d; yiyecek +%d.,Villagers gathered! Morale +%d; food +%d.
 village.event.festival.gold_bonus,Komşular hediye olarak %d altın gönderdi.,Neighbors sent %d gold as a gift.
+village.shortage.title,Erzak sıkıntısı,Supply shortage
+village.shortage.body,Temel erzak tam karşılanamadığı için köy morali düştü (toplam −%.0f).,Village morale dropped because basic supplies were not fully met (total −%.0f).
+village.shortage.food,Yiyecek günlük ihtiyaçtan %d birim eksik kaldı.,Food fell %d units short of the daily need.
+village.shortage.soldier_food,Askerlerin erzakının %d birimi karşılanamadı.,%d units of the soldiers' rations could not be met.
+village.world_event.title,Dünya Olayı,World Event
+village.world_event.trade_boom.start,Ticaret patlaması! Altın kazançları artıyor.,Trade boom! Gold earnings are rising.
+village.world_event.trade_boom.end,Ticaret patlaması sona erdi.,The trade boom has ended.
+village.world_event.famine.start,Kıtlık başladı! Toplayıcılar bazen eli boş dönebilir.,Famine has begun! Gatherers may sometimes return empty handed.
+village.world_event.famine.end,Kıtlık sona erdi.,The famine has ended.
+village.world_event.plague.start,Salgın hastalık! Moral düştü ve üretim aksıyor.,Plague! Morale has fallen and production is suffering.
+village.world_event.plague.end,Salgın hastalık sona erdi.,The plague has ended.
+village.world_event.war.start,Savaş ilanı! Ticaret kesintiye uğradı.,War declared! Trade has been disrupted.
+village.world_event.war.end,Savaş sona erdi.,The war has ended.
+village.world_event.rebellion.start,İsyan çıktı! Üretim kaosu ve moral düşüşü.,Rebellion! Production chaos and falling morale.
+village.world_event.rebellion.end,İsyan bastırıldı.,The rebellion has been put down.
+village.event.discovery.title,🔍 Kaynak Keşfi,🔍 Resource Discovery
+village.event.discovery.body,Köylüler bir %s deposu buldular! +%d %s eklendi.,The villagers found a %s cache! +%d %s added.
+village.event.windfall.title,🍀 Bolluk,🍀 Windfall
+village.event.windfall.body,"İyi bir hasat sezonu geçirdik! +%d odun, +%d taş eklendi.",A good harvest season! +%d wood and +%d stone added.
+village.event.traveler.title,🧳 Seyyah Ziyareti,🧳 Traveler's Visit
+village.event.traveler.body,Bir seyyah köyünüze uğradı. Görev merkezine bıraktığı not: %s.,A traveler stopped by your village. The note left at the mission center: %s.
+village.event.traveler.default_mission,yeni bir görev,a new mission
+village.event.accident.title,⚠️ Küçük Kaza,⚠️ Minor Accident
+village.event.accident.body,Köyde küçük bir kaza oldu. %d %s kaybedildi.,A minor accident hit the village. %d %s lost.
+village.event.immigration.title,👥 Göç Dalgası,👥 Immigration Wave
+village.event.immigration.body,%d yeni köylü köyünüze yerleşti!,%d new villagers settled in your village!
+village.event.immigration.failed,Göçmenler geldi ama barınak yetersiz olduğu için geri döndüler.,Migrants arrived but turned back because there was not enough housing.
+village.event.caravan_miss.title,📭 Karavan gelmedi,📭 No caravan arrived
+village.event.caravan_miss.body,Komşu yollarda gerilim var; tüccar kafilesi bu hafta köyünüze uğramadı.,Tension on the neighboring roads kept the merchant caravan from reaching your village this week.
+village.event.new.title,Yeni Olay: %s,New Event: %s
+village.event.new.body,"Seviye: %s, Süre: %d gün","Level: %s, Duration: %d days"
+village.event.raid.title,🚨 Baskın Uyarısı!,🚨 Raid Warning!
+village.event.raid.body,%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!,%s raid expected in %d days! Ready your soldiers!
+village.event.strike.body,%s. %s üretimi durdu (%s),%s. %s production has stopped (%s)
+village.event.strike.reason.low_morale,Düşük Moral,Low Morale
+village.event.strike.reason.shortage,Kaynak Eksikliği,Resource Shortage
+village.event.strike.reason.discontent,Genel Hoşnutsuzluk,General Discontent
+village.event.level.low,Düşük,Low
+village.event.level.medium,Orta,Medium
+village.event.level.high,Yüksek,High
+village.event.level.unknown,Bilinmeyen,Unknown
+village.event.name.famine,Kötü Hasat,Poor Harvest
+village.event.name.drought,Kuraklık,Drought
+village.event.name.pest,Zararlı,Pests
+village.event.name.disease,Hastalık,Disease
+village.event.name.wolf_attack,Kurt Saldırısı,Wolf Attack
+village.event.name.severe_storm,Şiddetli Fırtına,Severe Storm
+village.event.name.weather_blessing,Hava Bereketi,Favorable Weather
+village.event.name.worker_strike,İşçi Grevi,Worker Strike
+village.event.name.bandit_activity,Haydut Faaliyeti,Bandit Activity
+village.event.name.raid,Baskın,Raid
 ambient.conv.morning.a1,Bugün odun kesimi erken başlasın mı?,Should we start cutting wood early today?
 ambient.conv.morning.b1,Ben hazırım — fırın da ekmek istiyor.,I'm ready — the bakery wants bread too.
 ambient.conv.morning.a2,O zaman kamp ateşine uğrarız.,Then we'll stop by the campfire.
@@ -1200,7 +1251,7 @@ news.neighbors_discovered.title,Komşular Tanımlandı,Neighbors Discovered
 news.neighbors_discovered.body,%d yerleşim keşfedildi,%d settlements discovered
 news.bandit_activity.title,Haydut Faaliyeti,Bandit Activity
 news.bandit_activity.body,Yollarda haydutlar arttı. Ticaret riskli.,Bandits increased on the roads. Trade is risky.
-news.festival.title,Festival,Festival
+news.festival.title,Komşu Köy Festivali,Neighbor Village Festival
 news.festival.body,%s'de bereket festivali! Pazarlar canlandı.,Harvest festival in %s! Markets are bustling.
 news.plague.title,Salgın,Plague
 news.plague.body,Bölgede salgın yayıldı. Üretim düşüyor.,A plague spread in the region. Production is falling.

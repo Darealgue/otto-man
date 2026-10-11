@@ -397,8 +397,6 @@ func _ready() -> void:
 	}
 	# DEBUG cariye/görev üretimi sadece çok eski prototip içindi; gerçek oyunda kullanmayalım.
 	# Cariyeler yalnızca zindan kurtarma (add_concubine_from_rescue) akışıyla oluşur.
-	# _create_debug_cariyeler()
-	# _create_debug_gorevler()
 	
 	# Connect WorldManager signals
 	call_deferred("_connect_world_manager_signals")
@@ -5587,41 +5585,6 @@ func _on_mission_timer_timeout(cariye_id: int, gorev_id: int) -> void:
 	emit_signal("cariye_data_changed")
 	emit_signal("gorev_data_changed") 
 
-# --- DEBUG Fonksiyonları ---
-func _create_debug_cariyeler() -> void:
-	add_cariye({"isim": "Ayşe", "yetenekler": ["Diplomasi", "Ticaret"]})
-	add_cariye({"isim": "Fatma", "yetenekler": ["Liderlik", "Savaş"]})
-	add_cariye({"isim": "Zeynep", "yetenekler": ["Gizlilik", "Keşif"]})
-
-func _create_debug_gorevler() -> void:
-	add_gorev({
-		"isim": "Komşu Köy ile Ticaret Anlaşması",
-		"tur": "TICARET",
-		"sure": 15.0,
-		"basari_sansi": 0.8,
-		"gereken_cariye_yetenek": "Ticaret",
-		"odul": {"iliski_komsu": 5, "altin": 50}
-	})
-	add_gorev({
-		"isim": "Yakındaki Harabeleri Keşfet",
-		"tur": "KESIF",
-		"sure": 20.0,
-		"basari_sansi": 0.6,
-		"gereken_cariye_yetenek": "Keşif",
-		"odul": {"bulunan_esya": "Eski Harita", "altin": 20},
-		"ceza": {"cariye_yaralanma_ihtimali": 0.2}
-	})
-	add_gorev({
-		"isim": "Haydut Kampına Baskın",
-		"tur": "YAGMA",
-		"sure": 30.0,
-		"basari_sansi": 0.5,
-		"gereken_cariye_yetenek": "Liderlik",
-		"gereken_asker": 3, # Henüz uygulanmıyor
-		"odul": {"altin": 150, "odun_seviyesi_artis": 1},
-		"ceza": {"asker_kaybi": 1, "cariye_yaralanma_ihtimali": 0.4}
-	})
-
 # Bir binanın durumu değiştiğinde UI'yi bilgilendirir
 func notify_building_state_changed(building_node: Node) -> void:
 	# #print("VillageManager: notify_building_state_changed called by: ", building_node.name) # DEBUG <<< KALDIRILDI
@@ -5840,16 +5803,16 @@ func apply_world_event_effects(event: Dictionary) -> void:
 			global_multiplier *= gold_mult
 			var trade_bonus := int(effects.get("trade_bonus", 0))
 			# Trade bonus'u MissionManager'a iletebiliriz
-			_post_event_notification("Ticaret patlaması! Altın kazançları artıyor.", "success")
+			_post_event_notification(tr("village.world_event.trade_boom.start"), "success")
 			
 		"famine":
 			var morale_penalty := int(effects.get("morale_penalty", 0))
 			village_morale = max(0.0, village_morale + morale_penalty)
-			_post_event_notification("Kıtlık başladı! Toplayıcılar bazen eli boş dönebilir.", "critical")
+			_post_event_notification(tr("village.world_event.famine.start"), "critical")
 			
 		"plague":
 			village_morale = max(0.0, village_morale - PLAGUE_MORALE_PENALTY)
-			_post_event_notification("Salgın hastalık! Moral düştü; köylüler hasta olabilir.", "critical")
+			_post_event_notification(tr("village.world_event.plague.start"), "critical")
 			
 		"war_declaration":
 			# Savaş ilanı - ticaret kesintisi, askeri odaklanma
@@ -5859,7 +5822,7 @@ func apply_world_event_effects(event: Dictionary) -> void:
 			# Askeri odaklanma için weapon/armor üretimi artışı
 			if resource_prod_multiplier.has("metal"):
 				resource_prod_multiplier["metal"] *= military_focus
-			_post_event_notification("Savaş ilanı! Ticaret kesintiye uğradı.", "warning")
+			_post_event_notification(tr("village.world_event.war.start"), "warning")
 			
 		"rebellion":
 			# İsyan - istikrar ve üretim kaosu
@@ -5867,7 +5830,7 @@ func apply_world_event_effects(event: Dictionary) -> void:
 			var production_chaos := float(effects.get("production_chaos", 1.0))
 			village_morale = max(0.0, village_morale + stability_penalty)
 			global_multiplier *= production_chaos
-			_post_event_notification("İsyan çıktı! Üretim kaosu ve moral düşüşü.", "critical")
+			_post_event_notification(tr("village.world_event.rebellion.start"), "critical")
 	_check_morale_game_over()
 
 func remove_world_event_effects(event: Dictionary) -> void:
@@ -5885,16 +5848,16 @@ func remove_world_event_effects(event: Dictionary) -> void:
 		"trade_boom":
 			var gold_mult := float(effects.get("gold_multiplier", 1.0))
 			global_multiplier /= gold_mult
-			_post_event_notification("Ticaret patlaması sona erdi.", "info")
+			_post_event_notification(tr("village.world_event.trade_boom.end"), "info")
 			
 		"famine":
 			var morale_penalty := int(effects.get("morale_penalty", 0))
 			village_morale = min(100.0, village_morale - morale_penalty)
-			_post_event_notification("Kıtlık sona erdi.", "success")
+			_post_event_notification(tr("village.world_event.famine.end"), "success")
 			
 		"plague":
 			village_morale = min(100.0, village_morale + PLAGUE_MORALE_PENALTY)
-			_post_event_notification("Salgın hastalık sona erdi.", "success")
+			_post_event_notification(tr("village.world_event.plague.end"), "success")
 			
 		"war_declaration":
 			var trade_disruption := float(effects.get("trade_disruption", 1.0))
@@ -5902,14 +5865,14 @@ func remove_world_event_effects(event: Dictionary) -> void:
 			global_multiplier /= trade_disruption
 			if resource_prod_multiplier.has("metal"):
 				resource_prod_multiplier["metal"] /= military_focus
-			_post_event_notification("Savaş sona erdi.", "success")
+			_post_event_notification(tr("village.world_event.war.end"), "success")
 			
 		"rebellion":
 			var stability_penalty := int(effects.get("stability_penalty", 0))
 			var production_chaos := float(effects.get("production_chaos", 1.0))
 			village_morale = min(100.0, village_morale - stability_penalty)
 			global_multiplier /= production_chaos
-			_post_event_notification("İsyan bastırıldı.", "success")
+			_post_event_notification(tr("village.world_event.rebellion.end"), "success")
 	_check_morale_game_over()
 
 func _enqueue_village_surface_news(
@@ -5942,12 +5905,31 @@ func _post_event_notification(message: String, category: String) -> void:
 	_enqueue_village_surface_news(
 		"village_macro",
 		{"macro_category": category, "message": message},
-		"Dünya Olayı",
+		tr("village.world_event.title"),
 		message,
 		"Köy",
 		Color.WHITE,
 		category
 	)
+
+
+## Event türü için oyuncuya gösterilen ad (çeviri anahtarı yoksa tür kimliği).
+func _village_event_type_name(event_type: String) -> String:
+	var key := "village.event.name.%s" % event_type
+	var text := tr(key)
+	return text if text != key else event_type.capitalize()
+
+
+## Seviye adı (Düşük/Orta/Yüksek) çeviri ile.
+func _event_level_display_name(event_level: int) -> String:
+	match event_level:
+		EventLevel.LOW:
+			return tr("village.event.level.low")
+		EventLevel.MEDIUM:
+			return tr("village.event.level.medium")
+		EventLevel.HIGH:
+			return tr("village.event.level.high")
+	return tr("village.event.level.unknown")
 
 
 func _post_village_news(title: String, content: String, subcategory: String = "warning", color: Color = Color.ORANGE) -> void:
@@ -6101,9 +6083,9 @@ func _check_shortages_and_apply_morale_penalties() -> void:
 			var mi := int(missing)
 			match km:
 				"food":
-					detail_lines.append("Yiyecek günlük ihtiyaçtan %d birim eksik kaldı." % mi)
+					detail_lines.append(tr("village.shortage.food") % mi)
 				"soldier_food":
-					detail_lines.append("Askerlerin erzakının %d birimi karşılanamadı." % mi)
+					detail_lines.append(tr("village.shortage.soldier_food") % mi)
 	var vce := get_node_or_null("/root/VillageCardEffects")
 	if vce and penalty > 0.0:
 		penalty = vce.soften_shortage_penalty(penalty)
@@ -6112,10 +6094,10 @@ func _check_shortages_and_apply_morale_penalties() -> void:
 		if vce:
 			applied_penalty = -vce.adjust_morale_delta(-penalty, "shortage")
 		village_morale = max(0.0, village_morale - applied_penalty)
-		var body := "Temel erzak tam karşılanamadığı için köy morali düştü (toplam −%.0f)." % penalty
+		var body: String = tr("village.shortage.body") % penalty
 		if not detail_lines.is_empty():
 			body += "\n\n" + "\n".join(detail_lines)
-		_post_village_news("Erzak sıkıntısı", body, "warning", Color.ORANGE)
+		_post_village_news(tr("village.shortage.title"), body, "warning", Color.ORANGE)
 	else:
 		# Slow recovery
 		village_morale = min(100.0, village_morale + 1.0)
@@ -6162,22 +6144,22 @@ func _update_events_for_new_day(current_day: int) -> void:
 
 func _present_village_event_news(ev: Dictionary, event_level: int, dur: int, current_day: int) -> void:
 	var t: String = String(ev.get("type", ""))
-	var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
-	var title := "Yeni Olay: %s" % t.capitalize()
-	var msg := "Seviye: %s, Süre: %d gün" % [level_name, dur]
+	var level_name: String = _event_level_display_name(event_level)
+	var title: String = tr("village.event.new.title") % _village_event_type_name(t)
+	var msg: String = tr("village.event.new.body") % [level_name, dur]
 	if t == "raid" and ev.has("raid_attack_day"):
 		var days_until: int = int(ev["raid_attack_day"]) - current_day
 		var attacker: String = String(ev.get("raid_attacker", "Bilinmeyen Haydutlar"))
-		msg = "%s saldırısı %d gün sonra bekleniyor! Askerlerinizi hazırlayın!" % [attacker, days_until]
-		title = "🚨 Baskın Uyarısı!"
+		msg = tr("village.event.raid.body") % [attacker, days_until]
+		title = tr("village.event.raid.title")
 	elif t == "worker_strike" and ev.has("strike_resource"):
-		var res_names: Dictionary = {"wood": "Odun", "stone": "Taş", "food": "Yiyecek"}
+		var res_names: Dictionary = {"wood": LocaleManager.get_resource_name("wood"), "stone": LocaleManager.get_resource_name("stone"), "food": LocaleManager.get_resource_name("food")}
 		var reason_names: Dictionary = {
-			"düşük_moral": "Düşük Moral",
-			"kaynak_eksikliği": "Kaynak Eksikliği",
-			"genel_hoşnutsuzluk": "Genel Hoşnutsuzluk",
+			"düşük_moral": tr("village.event.strike.reason.low_morale"),
+			"kaynak_eksikliği": tr("village.event.strike.reason.shortage"),
+			"genel_hoşnutsuzluk": tr("village.event.strike.reason.discontent"),
 		}
-		msg = "%s - %s üretimi durdu (%s)" % [
+		msg = tr("village.event.strike.body") % [
 			msg,
 			res_names.get(ev["strike_resource"], ev["strike_resource"]),
 			reason_names.get(ev.get("strike_reason", ""), ""),
@@ -6295,7 +6277,7 @@ func _apply_event_effects(ev: Dictionary, from_save_load: bool = false) -> void:
 		else:
 			event_level = EventLevel.HIGH
 	
-	var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
+	var level_name: String = _event_level_display_name(event_level)
 	var multiplier: float = EVENT_LEVEL_MULTIPLIERS.get(event_level, 0.8)
 	var bonus_multiplier: float = EVENT_LEVEL_BONUS_MULTIPLIERS.get(event_level, 1.2)
 	
@@ -6488,7 +6470,7 @@ func _remove_event_effects(ev: Dictionary) -> void:
 		else:
 			event_level = EventLevel.HIGH
 	
-	var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
+	var level_name: String = _event_level_display_name(event_level)
 	var multiplier: float = EVENT_LEVEL_MULTIPLIERS.get(event_level, 0.8)
 	var bonus_multiplier: float = EVENT_LEVEL_BONUS_MULTIPLIERS.get(event_level, 1.2)
 	
@@ -6667,8 +6649,8 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 				_enqueue_village_surface_news(
 					"village_surface_trade_caravan_miss",
 					{"event_type": "trade_caravan_miss"},
-					"📭 Karavan gelmedi",
-					"Komşu yollarda gerilim var; tüccar kafilesi bu hafta köyünüze uğramadı.",
+					tr("village.event.caravan_miss.title"),
+					tr("village.event.caravan_miss.body"),
 					"village",
 					Color(0.85, 0.82, 0.55),
 					"info"
@@ -6692,8 +6674,8 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 				"stone": "Taş",
 				"food": "Yiyecek",
 			}
-			var title := "🔍 Kaynak Keşfi"
-			var content := "Köylüler bir %s deposu buldular! +%d %s eklendi." % [res_names.get(discovered_resource, discovered_resource), amount, res_names.get(discovered_resource, discovered_resource)]
+			var title: String = tr("village.event.discovery.title")
+			var content: String = tr("village.event.discovery.body") % [LocaleManager.get_resource_name(discovered_resource), amount, LocaleManager.get_resource_name(discovered_resource)]
 			_enqueue_village_surface_news(
 				"village_surface_resource_discovery",
 				{"resource": discovered_resource, "amount": amount},
@@ -6711,8 +6693,8 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			var bonus_stone: int = randi_range(2, 5)
 			resource_levels["wood"] = resource_levels.get("wood", 0) + bonus_wood
 			resource_levels["stone"] = resource_levels.get("stone", 0) + bonus_stone
-			var title := "🍀 Bolluk"
-			var content := "İyi bir hasat sezonu geçirdik! +%d odun, +%d taş eklendi." % [bonus_wood, bonus_stone]
+			var title: String = tr("village.event.windfall.title")
+			var content: String = tr("village.event.windfall.body") % [bonus_wood, bonus_stone]
 			_enqueue_village_surface_news(
 				"village_surface_windfall",
 				{"wood": bonus_wood, "stone": bonus_stone},
@@ -6764,13 +6746,13 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			_last_festival_day = day
 		
 		"traveler":
-			var mission_name: String = "yeni bir görev"
+			var mission_name: String = tr("village.event.traveler.default_mission")
 			if mm and mm.has_method("offer_traveler_mission"):
 				var traveler_mission = mm.offer_traveler_mission()
 				if traveler_mission:
 					mission_name = String(traveler_mission.name)
-			var title := "🧳 Seyyah Ziyareti"
-			var content := "Bir seyyah köyünüze uğradı. Görev merkezine bıraktığı not: %s." % mission_name
+			var title: String = tr("village.event.traveler.title")
+			var content: String = tr("village.event.traveler.body") % mission_name
 			_enqueue_village_surface_news(
 				"village_surface_traveler",
 				{"event_type": "traveler", "mission_name": mission_name},
@@ -6791,8 +6773,8 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 			var current: int = resource_levels.get(lost_resource, 0)
 			resource_levels[lost_resource] = max(0, current - loss)
 			var res_names: Dictionary = {"wood": "Odun", "stone": "Taş"}
-			var title := "⚠️ Küçük Kaza"
-			var content := "Köyde küçük bir kaza oldu. -%d %s kaybedildi." % [loss, res_names.get(lost_resource, lost_resource)]
+			var title: String = tr("village.event.accident.title")
+			var content: String = tr("village.event.accident.body") % [loss, LocaleManager.get_resource_name(lost_resource)]
 			_enqueue_village_surface_news(
 				"village_surface_minor_accident",
 				{"resource": lost_resource, "loss": loss},
@@ -6813,8 +6795,8 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 					added_count += 1
 			
 			if added_count > 0:
-				var title := "👥 Göç Dalgası"
-				var content := "%d yeni köylü köyünüze yerleşti!" % added_count
+				var title: String = tr("village.event.immigration.title")
+				var content: String = tr("village.event.immigration.body") % added_count
 				_enqueue_village_surface_news(
 					"village_surface_immigration",
 					{"added_count": added_count},
@@ -6829,8 +6811,8 @@ func _trigger_village_event(event_type: String, day: int) -> void:
 				_enqueue_village_surface_news(
 					"village_surface_immigration_failed",
 					{"reason": "no_housing"},
-					"Göç Dalgası",
-					"Göçmenler geldi ama barınak yetersiz olduğu için geri döndüler.",
+					tr("village.event.immigration.title"),
+					tr("village.event.immigration.failed"),
 					"village",
 					Color.YELLOW,
 					"info"
@@ -7270,7 +7252,7 @@ func get_active_events_summary(current_day: int) -> Array[Dictionary]:
 		var ends := int(ev.get("ends_day", current_day))
 		var days_left: int = max(0, ends - current_day)
 		var event_level: int = ev.get("level", EventLevel.MEDIUM)
-		var level_name: String = EVENT_LEVEL_NAMES.get(event_level, "Bilinmeyen")
+		var level_name: String = _event_level_display_name(event_level)
 		out.append({
 			"type": String(ev.get("type", "")),
 			"severity": float(ev.get("severity", 0.0)),  # Geriye dönük uyumluluk için
