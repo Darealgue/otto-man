@@ -33,14 +33,14 @@ z_index = 25
 script = ExtResource("1_script")
 
 [node name="GPUParticles2D" type="GPUParticles2D" parent="."]
-amount = 0
+amount = 1
 lifetime = 2.0
 process_material = SubResource("ParticleProcessMaterial_rain")
 visibility_rect = Rect2(-7000, -500, 14000, 5000)
 
 [node name="GPUParticles2DOverlap" type="GPUParticles2D" parent="."]
 z_index = 24
-amount = 0
+amount = 1
 lifetime = 2.0
 process_material = SubResource("ParticleProcessMaterial_rain_overlap")
 visibility_rect = Rect2(-7000, -500, 14000, 5000)

@@ -407,8 +407,10 @@ func handle_alert(delta: float) -> void:
 	velocity.x = 0
 	
 	# Play alert animation
-	if sprite.animation != "alert":
-		sprite.play("alert")
+	# Heavy'nin "alert" animasyonu yok: her karede play("alert") hata basıyordu. Varsa onu, yoksa idle'ı oynat.
+	var alert_anim: StringName = &"alert" if sprite.sprite_frames != null and sprite.sprite_frames.has_animation(&"alert") else &"idle"
+	if sprite.animation != alert_anim:
+		sprite.play(alert_anim)
 	
 	# After alert duration, transition to chase
 	if behavior_timer >= alert_duration:

@@ -2390,8 +2390,13 @@ func _place_tutorial_dungeon_near_village(rng: RandomNumberGenerator) -> void:
 	if candidates.is_empty():
 		push_warning("[WorldManager] Tutorial zindani icin uygun hex bulunamadi.")
 		return
+	# Skor rng içeriyor: karşılaştırıcıda her çağrıda farklı çıkıp "bad comparison function" (bozuk sıralama,
+	# potansiyel çökme) üretiyordu. Her aday için BİR KEZ hesapla, sonra sırala.
+	var scored: Dictionary = {}
+	for cand in candidates:
+		scored[cand] = _tutorial_dungeon_tile_score(cand, vq, vr, rng)
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return _tutorial_dungeon_tile_score(a, vq, vr, rng) > _tutorial_dungeon_tile_score(b, vq, vr, rng)
+		return scored[a] > scored[b]
 	)
 	var selected: Dictionary = candidates[0]
 	var sq: int = int(selected.get("q", 0))

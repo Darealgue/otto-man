@@ -118,7 +118,9 @@ static func fade_hide_icon(control: Control, duration: float = FADE_DURATION) ->
 
 
 static func _kill_fade_tween(control: Control) -> void:
-	var existing: Variant = control.get_meta("_fade_tween", null)
+	if not control.has_meta("_fade_tween"):
+		return
+	var existing: Variant = control.get_meta("_fade_tween")
 	if existing is Tween and (existing as Tween).is_valid():
 		(existing as Tween).kill()
 

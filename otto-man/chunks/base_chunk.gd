@@ -45,7 +45,7 @@ func _ready() -> void:
 		print("[BaseChunk] Using tile-based enemy spawn system")
 	
 	# Initialize trap manager
-	trap_manager = $TrapManager
+	trap_manager = get_node_or_null("TrapManager") as TrapManager
 	if trap_manager:
 		var level = 1  # Default level
 		var level_generator = get_tree().get_first_node_in_group("level_generator")
@@ -56,7 +56,7 @@ func _ready() -> void:
 		trap_manager.initialize(chunk_type, level)
 	
 	# Initialize decoration manager
-	decoration_manager = $DecorationManager
+	decoration_manager = get_node_or_null("DecorationManager") as DecorationManager
 	if decoration_manager:
 		var level = 1  # Default level
 		var level_generator = get_tree().get_first_node_in_group("level_generator")

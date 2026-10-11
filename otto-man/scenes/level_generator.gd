@@ -2490,7 +2490,9 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 			output_parent.add_child(decoration_instance)
 			# Keep the spawner alive as a child so signal targets remain valid
 			# (create_decoration_instance connects signals to spawner methods)
-			output_parent.add_child(spawner)
+			# Spawner yukarıda zaten (geçici olarak) eklendi; ikinci add_child "already has a parent" hatası basıyordu.
+			if spawner.get_parent() != output_parent:
+				output_parent.add_child(spawner)
 			var spawn_pos: Vector2 = _compute_decoration_spawn_position(tile_map, cell, spawn_loc)
 			
 			# Check door proximity for gate, pipe and banner decorations (GERÇEK spawn pozisyonu ile)
@@ -3890,7 +3892,7 @@ func unify_terrain() -> void:
 	
 	# Hide original tilemaps (except those containing dark tiles)
 	for chunk in chunks:
-		var chunk_map = chunk.get_node("TileMap")
+		var chunk_map = chunk.get_node_or_null("TileMap")
 		if chunk_map:
 			# Check if this chunk contains dark tiles
 			if not chunk_contains_dark_tiles(chunk_map):

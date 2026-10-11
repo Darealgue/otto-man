@@ -15,7 +15,9 @@ signal close_requested
 @onready var build_house_button: Button = %BuildHouseButton
 @onready var close_button: Button = %CloseButton
 @onready var build_menu_panel: Control = %BuildMenuPanel
-@onready var build_list: GridContainer = %BuildList
+# NOT: BuildMenuUI.tscn'de BuildList'in unique_name_in_owner'ı yok; %BuildList null dönüp dinamik bina kartları
+# hiç eklenmiyordu ("Node not found: %BuildList"). Ada göre ara.
+@onready var build_list: GridContainer = find_child("BuildList", true, false) as GridContainer
 @onready var title_label: Label = get_node_or_null("BuildMenuPanel/Margin/VBoxContainer/TitleLabel")
 
 # Bina Sahne Yolları (WorkerAssignmentUI ile aynı olmalı)

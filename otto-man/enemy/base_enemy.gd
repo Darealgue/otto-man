@@ -1231,9 +1231,12 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 	behavior_timer = 0.0
 	
 	# Play appropriate animation if available
+	# (Davranış adıyla aynı isimde animasyon yoksa Godot her seferinde hata basıyordu: önce var mı bak.)
 	if sprite and sprite.has_method("play"):
-		sprite.play(new_behavior)
-		
+		var frames: SpriteFrames = sprite.get("sprite_frames") as SpriteFrames
+		if frames == null or frames.has_animation(new_behavior):
+			sprite.play(new_behavior)
+
 	# Reset attack cooldown when changing behavior
 	if new_behavior != "attack":
 		can_attack = true

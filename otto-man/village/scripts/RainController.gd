@@ -61,7 +61,7 @@ func _ready() -> void:
 	if not _process_material:
 		return
 	particles.emitting = false
-	particles.amount = 0
+	particles.amount = 1
 	_create_rain_texture_if_needed()
 	_process_material.spread = 8.0
 
@@ -71,7 +71,7 @@ func _ready() -> void:
 			_process_material_overlap = overlap_mat.duplicate() as ParticleProcessMaterial
 			particles_overlap.process_material = _process_material_overlap
 		particles_overlap.emitting = false
-		particles_overlap.amount = 0
+		particles_overlap.amount = 1
 		if particles.texture:
 			particles_overlap.texture = particles.texture
 		if _process_material_overlap:
@@ -358,7 +358,7 @@ func _process(_delta: float) -> void:
 		if particles_overlap and _process_material_overlap:
 			_overlap_target_amount = calculated_amount
 			_overlap_start_time = Time.get_ticks_msec() / 1000.0
-			particles_overlap.amount = calculated_amount
+			particles_overlap.amount = maxi(1, calculated_amount)
 			particles_overlap.emitting = should_emit
 			_overlap_active = true
 			if debug_rain_verbose and (Time.get_ticks_msec() / 1000.0) - _debug_last_update_log >= _debug_interval:
@@ -366,7 +366,7 @@ func _process(_delta: float) -> void:
 				print("[RainDEBUG] OVERLAP START amount=%d should_emit=%s (%.1fs sonra primary güncellenecek)" % [calculated_amount, should_emit, overlap_duration])
 		else:
 			_current_particles_amount = calculated_amount
-			particles.amount = _current_particles_amount
+			particles.amount = maxi(1, _current_particles_amount)
 			particles.emitting = should_emit
 			if debug_rain_verbose and (Time.get_ticks_msec() / 1000.0) - _debug_last_update_log >= _debug_interval:
 				_debug_last_update_log = Time.get_ticks_msec() / 1000.0
@@ -377,7 +377,7 @@ func _process(_delta: float) -> void:
 		if not should_emit:
 			particles_overlap.emitting = false
 			_current_particles_amount = 0
-			particles.amount = 0
+			particles.amount = 1
 			particles.emitting = false
 			_overlap_active = false
 			if debug_rain_verbose:
@@ -389,7 +389,7 @@ func _process(_delta: float) -> void:
 			var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _overlap_start_time
 			if elapsed >= overlap_duration:
 				_current_particles_amount = _overlap_target_amount
-				particles.amount = _current_particles_amount
+				particles.amount = maxi(1, _current_particles_amount)
 				particles.emitting = should_emit
 				particles_overlap.emitting = false
 				_overlap_active = false
