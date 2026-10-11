@@ -152,6 +152,9 @@ func _run() -> void:
 	await _scenario_zincir_yangin_yayilimi()
 	await _scenario_zincir_duvar_carpmasi()
 	await _scenario_zincir_gulle_ziplatan()
+	await _scenario_zincir_mesale_dusman()
+	await _scenario_zincir_tasiyici()
+	await _scenario_zincir_fitil_hatti()
 	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
@@ -1444,6 +1447,108 @@ func _scenario_zincir_gulle_ziplatan() -> void:
 		b_loss[phase] = hb0 - _enemy_hp(b)
 	print("ARENA DBG zincir gulle: komsu hasar gulle'siz=%.1f gulle'li=%.1f" % [b_loss[0], b_loss[1]])
 	_check(b_loss[1] - b_loss[0] >= 8.0, "Zincir (Zıplatan Yumruk + Gülle): fırlayan düşman komşuya çarptı (+%.1f)" % (b_loss[1] - b_loss[0]), "Zincir (Zıplatan Yumruk + Gülle): fırlayan düşman komşuya hasar vermedi (gülle'siz %.1f, gülle'li %.1f)" % [b_loss[0], b_loss[1]])
+	_place_player(2200.0)
+
+## Ateşli Yumruk (gerçek vuruşlar yakar) + Zıplatan Yumruk (gerçek ağır vuruş fırlatır) + Meşale Düşman.
+func _scenario_zincir_mesale_dusman() -> void:
+	if not _want("zincir_mesale_dusman"):
+		return
+	await _items_on(["atesli_yumruk", "ziplatan_yumruk", "mesale_dusman"])
+	await _ground_player(3200.0)
+	var e := _spawn_enemy(3255.0)
+	await _frames(40)
+	e.health = 5000.0
+	await _ground_player(3200.0)
+	e.velocity = Vector2.ZERO
+	e.set_physics_process(false)
+	e.global_position = Vector2(3255.0, e.global_position.y)
+	await _light_hits(3)
+	var burn0 := int(e.burn_remaining_ticks)
+	e.set_physics_process(true)
+	e.direction = -1
+	await _pinned_heavy_hit(e, 3255.0)
+	var max_patches := 0
+	var big := false
+	var peak_up := 0.0
+	for _i in range(200):
+		await physics_frame
+		if is_instance_valid(e):
+			peak_up = maxf(peak_up, -e.velocity.y)
+		max_patches = maxi(max_patches, _count_scripts(_fire_patch))
+		for ch in _arena.get_children():
+			if ch.get_script() != null and String(ch.get_script().resource_path) == _fire_patch and absf(float(ch.radius) - 90.0) < 0.01:
+				big = true
+	print("ARENA DBG zincir mesale: yanma=%d tepe_yukari=%.0f en_cok_iz=%d buyuk_kor=%s" % [burn0, peak_up, max_patches, str(big)])
+	_check(burn0 > 0, "Zincir: gerçek hafif vuruşlar düşmanı yaktı (%d)" % burn0, "Zincir: Ateşli Yumruk düşmanı yakmadı")
+	_check(max_patches >= 1, "Zincir (Meşale Düşman): gerçek ağır vuruşla havaya fırlayan yanan düşman iz bıraktı", "Zincir (Meşale Düşman): fırlatılan yanan düşman iz bırakmadı (tepe yukarı %.0f)" % peak_up)
+	_check(big, "Zincir (Meşale Düşman): yere inince büyük kor birikintisi açıldı", "Zincir (Meşale Düşman): kor birikintisi açılmadı")
+	_place_player(2200.0)
+
+## Zehirli Tırnak (gerçek vuruşlar zehirler) + Taşıyıcı: gerçek kayma zehri sonraki temiz düşmana taşır.
+func _scenario_zincir_tasiyici() -> void:
+	if not _want("zincir_tasiyici"):
+		return
+	await _items_on(["zehirli_tirnak", "tasiyici"])
+	await _ground_player(3600.0)
+	var e1 := _spawn_enemy(3655.0)
+	var e2 := _spawn_enemy(3725.0)   # gerçek kayma ~100 px sürer: e2, kaymanın bittiği yere yakın olmalı
+	await _frames(40)
+	for x in [e1, e2]:
+		x.health = 5000.0
+		x.velocity = Vector2.ZERO
+		x.set_physics_process(false)
+	await _ground_player(3600.0)
+	e1.global_position = Vector2(3655.0, e1.global_position.y)
+	e2.global_position = Vector2(3725.0, e2.global_position.y)
+	await _light_hits(2)
+	var s1 := _poison_stacks_of(e1)
+	_player.global_position = Vector2(3590.0, _player.global_position.y)
+	await _frames(10)
+	_player.set("facing_direction", 1.0)
+	Input.action_press("crouch")
+	var sm = _player.get("state_machine")
+	sm.transition_to("Slide")
+	var in_slide: bool = sm.current_state != null and sm.current_state.name == "Slide"
+	var min_d1 := 99999.0
+	var slide_frames := 0
+	for _i in range(60):
+		await physics_frame
+		min_d1 = minf(min_d1, _player.global_position.distance_to(e1.global_position))
+		if sm.current_state != null and sm.current_state.name == "Slide":
+			slide_frames += 1
+	Input.action_release("crouch")
+	print("ARENA DBG zincir tasiyici: min_mesafe_e1=%.0f kayma_kare=%d oyuncu_x=%.0f e1_x=%.0f" % [min_d1, slide_frames, _player.global_position.x, e1.global_position.x])
+	print("ARENA DBG zincir tasiyici: e1_once=%d kayma=%s e1=%d e2=%d" % [s1, str(in_slide), _poison_stacks_of(e1), _poison_stacks_of(e2)])
+	_check(s1 > 0, "Zincir: gerçek hafif vuruşlar zehir biriktirdi (%d)" % s1, "Zincir: Zehirli Tırnak zehir biriktirmedi")
+	if not in_slide:
+		print("ARENA SKIP: Slide durumuna geçilemedi (test kurulumu), Taşıyıcı zinciri atlandı")
+	else:
+		_check(_poison_stacks_of(e2) >= 1, "Zincir (Taşıyıcı): kayarken alınan zehir sonraki düşmana geçti", "Zincir (Taşıyıcı): zehir geçmedi (e1 %d, e2 %d)" % [_poison_stacks_of(e1), _poison_stacks_of(e2)])
+	_place_player(2200.0)
+
+## Barut Sıçrayışı (gerçek çift zıplama bomba bırakır) + Fitil Hattı: inen bombanın patlaması komşu bombayı erken patlatır.
+func _scenario_zincir_fitil_hatti() -> void:
+	if not _want("zincir_fitil_hatti"):
+		return
+	await _items_on(["barut_sicrayisi", "fitil_hatti"])
+	await _ground_player(3900.0)
+	var bomb_b := Node2D.new()
+	bomb_b.set_script(load("res://effects/jump_bomb.gd"))
+	_arena.add_child(bomb_b)
+	# Gerçek oyuncunun altına yakın, zemine oturmuş (yatay hız 0) komşu bomba; kendi fünyesi 2 sn
+	var floor_y: float = _player.global_position.y
+	bomb_b.setup(Vector2(3935.0, floor_y - 4.0), Vector2.ZERO)
+	var t0 := Time.get_ticks_msec()
+	await _press("jump", 2)
+	await _frames(8)
+	await _press("jump", 2)
+	var gone_at := -1
+	for _i in range(150):
+		await physics_frame
+		if gone_at < 0 and (not is_instance_valid(bomb_b) or bomb_b.is_queued_for_deletion() or bool(bomb_b._exploded)):
+			gone_at = Time.get_ticks_msec() - t0
+	print("ARENA DBG zincir fitil: komsu_bomba_patladi_ms=%d" % gone_at)
+	_check(gone_at >= 0 and gone_at < 1700, "Zincir (Fitil Hattı): gerçek çift zıplama bombasının patlaması komşu bombayı fünyesini beklemeden patlattı (%d ms)" % gone_at, "Zincir (Fitil Hattı): komşu bomba erken patlamadı (%d ms)" % gone_at)
 	_place_player(2200.0)
 
 ## Gerçek ağır vuruşu, düşman SABİT konumdayken indir: düşman hazırlık süresince oyuncuya yürüyüp üstüne binmesin.
