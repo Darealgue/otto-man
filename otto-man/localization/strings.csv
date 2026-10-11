@@ -2714,7 +2714,7 @@ item.fitil_hatti.description,Bir patlamanın yakınındaki bekleyen bombalar ve 
 item.barut_dolgusu.name,Barut Dolgusu,Powder Packing
 item.barut_dolgusu.description,Art arda öldürdükçe patlamaların alanı ve hasarı büyür; öldürme başına %15 en fazla 5 öldürme; 4 sn sürer.,Chained kills grow the area and damage of your explosions: 15% per kill up to 5 kills; lasts 4s.
 item.duvar_carpmasi.name,Duvar Çarpması,Wall Crash
-item.duvar_carpmasi.description,Düşmanı duvara fırlatırsan çarptığı yerde patlar; çevresindeki düşmanlar ve kendisi hasar alır.,An enemy knocked hard into a wall explodes; it and nearby enemies take damage.
+item.duvar_carpmasi.description,Düşmanı duvara doğru savurursan duvarın dibinde patlar; çevresindeki düşmanlar ve kendisi hasar alır.,An enemy you knock toward a nearby wall explodes against it; it and nearby enemies take damage.
 synergy.fuse_chain,bombalar ve barut izleri zincirleme patlar,bombs and powder trails chain-detonate
 synergy.blast_chain,art arda ölümler patlamaları büyütür,chained kills enlarge your blasts
 synergy.slam_juggle,havada tuttuğun düşmanı yere çakarsın,slam the enemy you are juggling

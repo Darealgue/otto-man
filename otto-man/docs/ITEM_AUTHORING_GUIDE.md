@@ -258,6 +258,7 @@ Godot console exe yolu ve komutlar `CLAUDE.md` "Verification discipline" bölüm
    parry için düşman `attack` davranışına geçer geçmez `block`'a bas. Efekt şekilleri: yakın dövüşte hedef
    oyuncunun dibindedir (alev şeridi oyuncudan başlamalı), juggle'daki düşmanın komşuları altta/yerdedir
    (daire yerine yatay mesafe), ve alan efektleri DEĞDİĞİ ANDA uygulanmalı (parry düşmanı hemen savurur).
+4b2. **Gerçek knockback sayıları:** ağır vuruş ~230-260 px/s ama düşman sürtünmeyle yalnızca ~13 px kayar, hafif vuruş ~90 px/s (0.35x). "Duvara çarpınca" türü fiziksel temas bekleyen itemler gerçekte hiç tetiklenmez; knockback anında (`base_enemy.last_knockback_msec` değişince) yön boyunca kısa raycast kullan (bkz. duvar_carpmasi.gd). Zincir (`zincir_*`) arena senaryolarında düşmanı `_pinned_heavy_hit` ile sabitleyip gerçek ağır vuruş uygula.
 4b. **Arena testi (gerçek düşmanlarla):** `powershell -File tools/run_item_arena_test.ps1` → `ARENA OK` beklenir.
    `tools/item_arena_test.gd` gerçek `basic_enemy.tscn` düşmanlarını gerçek zemin/duvar fiziğinde koşturur;
    fizik ve yapay zekaya dayanan item'ları (fırlatma, duvar çarpması, çakma, korku, delirme, düşme bombası,

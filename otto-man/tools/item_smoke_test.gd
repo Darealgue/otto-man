@@ -675,6 +675,7 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 	var crash: Node2D = mk.call(Vector2(3000, 0))
 	crash.current_behavior = "hurt"
 	crash.velocity = Vector2(400, 0)
+	crash.last_knockback_msec = Time.get_ticks_msec()   # gerçekten knockback aldı
 	var crash_neighbor: Node2D = mk.call(Vector2(3050, 0))
 	var wall_item = _active_item(im, "duvar_carpmasi")
 	wall_item.process(player, 0.016)
@@ -686,6 +687,7 @@ func _run_powder_item_checks(im: Node, test_scene: Node, player: Node) -> void:
 	if absf(1000.0 - crash.hp - 12.0) > 0.01 or absf(1000.0 - crash_neighbor.hp - 12.0) > 0.01:
 		_fail("Duvar Çarpması: çarpan ve komşusu 12 hasar almalı (%s / %s)" % [str(1000.0 - crash.hp), str(1000.0 - crash_neighbor.hp)])
 	crash.velocity = Vector2(400, 0)
+	crash.last_knockback_msec = Time.get_ticks_msec()
 	wall_item.process(player, 0.016)
 	crash.velocity = Vector2.ZERO
 	wall_item.process(player, 0.016)
