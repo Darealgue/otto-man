@@ -1858,6 +1858,9 @@ func _build_world_mission_objective_tooltip_lines_at(q: int, r: int) -> PackedSt
 		lines.append(desc)
 	lines.append(tr("wm.tooltip.mission_meta") % [_format_mission_type_for_tooltip(m.mission_type), LocaleManager.get_risk_level_name(String(m.risk_level))])
 	lines.append(tr("wm.tooltip.success_chance") % clampi(int(round(float(m.success_chance) * 100.0)), 0, 100))
+	var days_left_tip: int = int(mm.get_mission_days_left(m)) if mm.has_method("get_mission_days_left") else -1
+	if days_left_tip >= 0:
+		lines.append(tr("wm.tooltip.expires_in") % days_left_tip)
 	var reward_hint: String = _format_mission_rewards_penalties_hint(m)
 	if not reward_hint.is_empty():
 		lines.append(reward_hint)
@@ -3327,9 +3330,50 @@ func _draw_mission_objective_markers() -> void:
 			continue
 		var center: Vector2 = _axial_to_pixel(mq, mr)
 		var badge: Vector2 = center + Vector2(0.0, -14.0)
-		draw_circle(badge, 10.5, Color(0.1, 0.08, 0.05, 0.90))
-		draw_circle(badge, 8.8, Color(1.0, 0.75, 0.12, 0.95), false, 2.0)
-		draw_string(font, badge + Vector2(-2.0, 5.0), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1.0, 0.95, 0.25, 1.0))
+		# Tür rengi + harf (placeholder; sprite gelince değiştirilecek), acil ise kırmızı halka, olay çözümü ise yeşil
+		var mt: int = int(om.get("mission_type", -1))
+		var accent: Color = _mission_marker_color(mt)
+		var days_left: int = int(om.get("days_left", -1))
+		var urgent: bool = days_left >= 0 and days_left <= 2
+		if bool(om.get("is_relief", false)):
+			accent = Color(0.45, 0.9, 0.5, 0.98)
+		draw_circle(badge, 10.5, Color(0.1, 0.08, 0.05, 0.92))
+		draw_circle(badge, 8.8, Color(0.95, 0.25, 0.2, 0.98) if urgent else accent, false, 2.4 if urgent else 2.0)
+		draw_string(font, badge + Vector2(-4.5, 5.5), _mission_marker_glyph(mt), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, accent.lightened(0.2))
+		if days_left >= 0:
+			var tcol: Color = Color(1.0, 0.45, 0.35, 1.0) if urgent else Color(1.0, 0.85, 0.45, 1.0)
+			draw_string(font, badge + Vector2(9.0, 16.0), str(days_left), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, tcol)
+
+## Görev türü -> işaret rengi (placeholder görsel).
+func _mission_marker_color(mission_type: int) -> Color:
+	match mission_type:
+		Mission.MissionType.SAVAŞ:
+			return Color(0.95, 0.4, 0.3, 0.98)
+		Mission.MissionType.KEŞİF:
+			return Color(0.45, 0.8, 1.0, 0.98)
+		Mission.MissionType.DİPLOMASİ:
+			return Color(0.85, 0.7, 1.0, 0.98)
+		Mission.MissionType.TİCARET:
+			return Color(1.0, 0.82, 0.25, 0.98)
+		Mission.MissionType.İSTİHBARAT:
+			return Color(0.6, 0.9, 0.8, 0.98)
+	return Color(1.0, 0.75, 0.12, 0.95)
+
+
+func _mission_marker_glyph(mission_type: int) -> String:
+	match mission_type:
+		Mission.MissionType.SAVAŞ:
+			return "S"
+		Mission.MissionType.KEŞİF:
+			return "K"
+		Mission.MissionType.DİPLOMASİ:
+			return "D"
+		Mission.MissionType.TİCARET:
+			return "T"
+		Mission.MissionType.İSTİHBARAT:
+			return "İ"
+	return "!"
+
 
 func _consume_preview_first_segment() -> void:
 	if _preview_path.size() > 1:

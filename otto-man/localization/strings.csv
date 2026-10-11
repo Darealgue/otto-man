@@ -1361,6 +1361,7 @@ wm.mission.resolve.failure,Görev başarısız; harcadığın kaynak geri dönme
 wm.tooltip.map_mission,Harita görevi,Map mission
 wm.tooltip.mission_meta,Tür: %s | Risk: %s,Type: %s | Risk: %s
 wm.tooltip.success_chance,Başarı şansı: %d%%,Success chance: %d%%
+wm.tooltip.expires_in,Fırsat: %d gün sonra kaçar,Opportunity: expires in %d days
 wm.tooltip.rewards,Ödül: ,Reward: 
 wm.tooltip.penalties,Başarısız: ,Failure: 
 wm.mission_result.title,Görev Sonucu,Mission Result

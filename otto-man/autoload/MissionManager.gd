@@ -2080,6 +2080,9 @@ func get_world_map_mission_objective_markers() -> Array[Dictionary]:
 			"kind": "mission_objective",
 			"mission_id": String(mid),
 			"mission_name": get_mission_display_name(m),
+			"mission_type": int(m.mission_type),
+			"days_left": get_mission_days_left(m),
+			"is_relief": String(mid).begins_with("event_relief_"),
 			"q": int(parts[0]),
 			"r": int(parts[1])
 		})
