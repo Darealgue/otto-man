@@ -795,6 +795,22 @@ village.event.bubble.blessing,☀️ Ne güzel bir gün!,☀️ What a lovely da
 village.event.bubble.strike,✊ Hakkımızı istiyoruz!,✊ We want our due!
 village.event.bubble.disease,🤒 Öhö öhö...,🤒 *cough cough*
 village.event.bubble.bandit,🗡️ Yollar güvenli değil!,🗡️ The roads aren't safe!
+village.event.bubble.famine_2,🌾 Ekmek bile kalmadı.,🌾 There's not even bread left.
+village.event.bubble.famine_3,🌾 Çocuklar aç yatıyor...,🌾 The children go to bed hungry...
+village.event.bubble.pest_2,🐛 Odunlar çürük çıkıyor.,🐛 The timber comes out rotten.
+village.event.bubble.pest_3,🐛 Ağaçları böcek yemiş.,🐛 Bugs have eaten the trees.
+village.event.bubble.wolf_2,🐺 Geceleri ulumaları duyuyorum.,🐺 I hear them howling at night.
+village.event.bubble.wolf_3,🐺 Taş yoluna kimse gitmiyor.,🐺 Nobody goes down the stone road.
+village.event.bubble.storm_2,⛈️ Çatı uçacak!,⛈️ The roof will blow off!
+village.event.bubble.storm_3,⛈️ Rüzgar dayanılmaz.,⛈️ The wind is unbearable.
+village.event.bubble.blessing_2,☀️ Bu hava işe yarar.,☀️ This weather will do us good.
+village.event.bubble.blessing_3,☀️ Toprak cömert bu yıl.,☀️ The land is generous this year.
+village.event.bubble.strike_2,✊ Böyle çalışılmaz!,✊ We can't work like this!
+village.event.bubble.strike_3,✊ Zam istiyoruz!,✊ We want better pay!
+village.event.bubble.disease_2,🤒 Başım dönüyor...,🤒 I feel dizzy...
+village.event.bubble.disease_3,🤒 Hastalık yayılıyor.,🤒 The sickness is spreading.
+village.event.bubble.bandit_2,🗡️ Haydutlar yolları kesti.,🗡️ Bandits cut the roads.
+village.event.bubble.bandit_3,🗡️ Kimse yola çıkmak istemiyor.,🗡️ Nobody wants to travel.
 mission.relief.famine.name,Komşudan Yiyecek İste,Ask the Neighbors for Food
 mission.relief.famine.desc,Kötü hasat köyü zorluyor. Komşu köylerden erzak getirtip kıtlığı hafiflet.,The poor harvest is straining the village. Bring in supplies from neighboring villages to ease the shortage.
 mission.relief.strike.name,Arabulucu Gönder,Send a Mediator
