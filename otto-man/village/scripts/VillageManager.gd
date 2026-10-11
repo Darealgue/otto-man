@@ -3269,7 +3269,7 @@ func _accumulate_gather_trip_mods_from_event(
 		return {"empty_chance": empty_chance, "bonus_yield": bonus_yield}
 	var event_type := String(ev.get("type", ""))
 	var event_level: int = _resolve_event_level(ev)
-	var fail_p: float = _event_level_empty_trip_chance(event_level)
+	var fail_p: float = _event_level_empty_trip_chance(event_level) * _event_mitigation_factor(event_type)
 	match event_type:
 		"drought", "famine":
 			if resource_type == "food":
@@ -5916,6 +5916,27 @@ func _post_event_notification(message: String, category: String) -> void:
 	)
 
 
+## Köy hazırlığı felaketin etkisini azaltır (1.0 = azalma yok). Kurt: her asker %5 (en çok %40).
+## Kıtlık: depoda en az 25 yiyecek varsa %25 daha az boş sefer.
+func _event_mitigation_factor(event_type: String) -> float:
+	match event_type:
+		"wolf_attack":
+			return 1.0 - minf(0.4, float(_count_active_soldiers()) * 0.05)
+		"famine", "drought":
+			return 0.75 if int(resource_levels.get("food", 0)) >= 25 else 1.0
+	return 1.0
+
+
+## Bir köy olayı başlayınca ona özel çözüm görevini ekler.
+func _spawn_relief_for(ev: Dictionary) -> void:
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.has_method("create_event_relief_mission"):
+		return
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var day: int = int(tm.call("get_day")) if tm != null and tm.has_method("get_day") else 0
+	mm.call("create_event_relief_mission", String(ev.get("type", "")), int(ev.get("ends_day", day + 5)))
+
+
 ## Yakında başlayacak eventler (HUD şeridi için): [{type, starts_day}]
 func get_forecast_events() -> Array:
 	var out: Array = []
@@ -6170,6 +6191,7 @@ func _update_events_for_new_day(current_day: int) -> void:
 				started["ends_day"] = int(started.get("ends_day", current_day)) + maxi(0, shift)
 				events_active.append(started)
 				_apply_event_effects(started)
+				_spawn_relief_for(started)
 				_present_village_event_news(started, _resolve_event_level(started), maxi(1, int(started["ends_day"]) - current_day), current_day)
 		else:
 			still_pending.append(pending)
@@ -6186,6 +6208,7 @@ func _update_events_for_new_day(current_day: int) -> void:
 			else:
 				events_active.append(ev)
 				_apply_event_effects(ev)
+				_spawn_relief_for(ev)
 
 # === World Event Effects Integration ===
 # (Duplicate functions removed - using the ones defined earlier)
@@ -6523,6 +6546,9 @@ func _remove_event_effects(ev: Dictionary) -> void:
 	var bonus_multiplier: float = EVENT_LEVEL_BONUS_MULTIPLIERS.get(event_level, 1.2)
 	
 	print("[EVENT DEBUG] 🟢 Removing event: %s (Seviye: %s)" % [t, level_name])
+	var mm_relief: Node = get_node_or_null("/root/MissionManager")
+	if mm_relief != null and mm_relief.has_method("remove_event_relief_missions"):
+		mm_relief.call("remove_event_relief_missions", t)
 	
 	match t:
 		"drought", "famine", "pest", "wolf_attack", "weather_blessing", "worker_strike":
@@ -7068,6 +7094,21 @@ func _show_soldiers_back_from_mission(mission_id: String) -> void:
 func _on_mission_manager_mission_completed(_cariye_id: int, mission_id: String, successful: bool, _results: Dictionary) -> void:
 	# Görevdeki askerleri tekrar ekranda göster
 	_show_soldiers_back_from_mission(mission_id)
+	# Olay çözüm görevi başarıyla bitince ilgili felaket sona erer
+	if mission_id.begins_with("event_relief_") and successful:
+		var relief_type := ""
+		var mm_done: Node = get_node_or_null("/root/MissionManager")
+		if mm_done != null and mm_done.get("missions") != null and (mm_done.missions as Dictionary).has(mission_id):
+			var done_m = mm_done.missions[mission_id]
+			if done_m != null and done_m.has_meta("relief_event_type"):
+				relief_type = String(done_m.get_meta("relief_event_type"))
+		if relief_type.is_empty():
+			for rt in ["worker_strike", "wolf_attack", "famine", "disease", "pest"]:
+				if mission_id.begins_with("event_relief_%s_" % rt):
+					relief_type = rt
+					break
+		if not relief_type.is_empty() and clear_event(relief_type) > 0:
+			_post_village_news(tr("village.event.relief.title"), tr("village.event.relief.body") % _village_event_type_name(relief_type), "success", Color(0.7, 1.0, 0.7))
 	# Haydut Temizliği görevi başarıyla bitince bandit_activity event'ini kapat
 	if mission_id.begins_with("bandit_clear_") and successful:
 		var n = clear_event("bandit_activity")
@@ -7393,6 +7434,7 @@ func trigger_specific_world_event(event_type: String, severity: float = -1.0, du
 	
 	events_active.append(ev)
 	_apply_event_effects(ev)
+	_spawn_relief_for(ev)
 	return true
 
 func _recalculate_building_bonus() -> void:

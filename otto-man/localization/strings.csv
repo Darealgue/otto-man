@@ -795,6 +795,21 @@ village.event.bubble.blessing,☀️ Ne güzel bir gün!,☀️ What a lovely da
 village.event.bubble.strike,✊ Hakkımızı istiyoruz!,✊ We want our due!
 village.event.bubble.disease,🤒 Öhö öhö...,🤒 *cough cough*
 village.event.bubble.bandit,🗡️ Yollar güvenli değil!,🗡️ The roads aren't safe!
+mission.relief.famine.name,Komşudan Yiyecek İste,Ask the Neighbors for Food
+mission.relief.famine.desc,Kötü hasat köyü zorluyor. Komşu köylerden erzak getirtip kıtlığı hafiflet.,The poor harvest is straining the village. Bring in supplies from neighboring villages to ease the shortage.
+mission.relief.strike.name,Arabulucu Gönder,Send a Mediator
+mission.relief.strike.desc,İşçilerle konuşup taleplerini dinle. Başarılı olursan grev sona erer.,"Talk with the workers and hear their demands. If you succeed, the strike ends."
+mission.relief.disease.name,Şifalı Ot Topla,Gather Healing Herbs
+mission.relief.disease.desc,Hastalar için ormandan şifalı ot topla. Başarılı olursan hastalık geçer ve ilaç elde edersin.,Gather healing herbs from the woods for the sick. If you succeed the sickness passes and you gain medicine.
+mission.relief.pest.name,Zararlıyı Temizle,Clear the Pests
+mission.relief.pest.desc,Ağaçlara üşüşen zararlıları temizle. Başarılı olursan salgın biter.,Clear the pests infesting the trees. If you succeed the infestation ends.
+mission.relief.wolf.name,Kurtları Avla,Hunt the Wolves
+mission.relief.wolf.desc,"Taş yollarını kesen kurt sürüsünü avla. Askerler gerekir, kayıp riski var.",Hunt the wolf pack cutting off the stone roads. Soldiers are needed and losses are possible.
+mission.relief.location,Köy çevresi,Around the village
+mission.relief.news.title,Çözüm Fırsatı,A Chance to Respond
+mission.relief.news.body,Görev merkezinde yeni görev: %s. Olay bitince fırsat kaybolur.,New task at the mission center: %s. The chance is lost when the event ends.
+village.event.relief.title,✅ Olay Hafifledi,✅ Crisis Eased
+village.event.relief.body,%s sona erdi. Çabanız işe yaradı.,%s has ended. Your effort paid off.
 village.event.name.famine,Kötü Hasat,Poor Harvest
 village.event.name.drought,Kuraklık,Drought
 village.event.name.pest,Zararlı,Pests

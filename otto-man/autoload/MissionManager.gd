@@ -3352,7 +3352,7 @@ func _on_new_day(day: int):
 ## Sadece bu önekler süreli sayılır; zincir/olay köprüsü/rol/baskın-savunma görevleri asla kaybolmaz.
 const OPPORTUNITY_ID_PREFIXES: Array[String] = [
 	"dynamic_", "traveler_", "generated_", "escort_", "trade_route_",
-	"worldmap_trade_", "worldmap_diplomacy_", "special_",
+	"worldmap_trade_", "worldmap_diplomacy_", "special_", "event_relief_",
 ]
 const OPPORTUNITY_DAYS_DEFAULT: int = 7
 const OPPORTUNITY_DAYS_TRAVELER: int = 5
@@ -4424,6 +4424,82 @@ func _trigger_embargo_between_settlements() -> void:
 	_add_settlement_trade_modifier(pb, 1.0, 3, true, "embargo")
 
 # --- Olay kaynaklı görevler ---
+
+## Köy felaketlerine karşı çıkan çözüm görevleri. Başarıyla biterse VillageManager olayı hafifletir/bitirir
+## (bkz. _on_mission_manager_mission_completed). Olay kendiliğinden biterse görev de kalkar.
+const EVENT_RELIEF_TEMPLATES: Dictionary = {
+	"famine": {
+		"key": "famine", "type": Mission.MissionType.TİCARET, "difficulty": Mission.Difficulty.KOLAY,
+		"duration": 180.0, "success": 0.7, "level": 1, "army": 0,
+		"cost": {"gold": 6}, "rewards": {"food": 10, "reputation": 1}, "penalties": {"gold": -3},
+	},
+	"worker_strike": {
+		"key": "strike", "type": Mission.MissionType.DİPLOMASİ, "difficulty": Mission.Difficulty.ORTA,
+		"duration": 150.0, "success": 0.65, "level": 2, "army": 0,
+		"cost": {"gold": 5}, "rewards": {"reputation": 2}, "penalties": {"reputation": -1},
+	},
+	"disease": {
+		"key": "disease", "type": Mission.MissionType.KEŞİF, "difficulty": Mission.Difficulty.KOLAY,
+		"duration": 180.0, "success": 0.75, "level": 1, "army": 0,
+		"cost": {}, "rewards": {"medicine": 4}, "penalties": {},
+	},
+	"pest": {
+		"key": "pest", "type": Mission.MissionType.KEŞİF, "difficulty": Mission.Difficulty.KOLAY,
+		"duration": 180.0, "success": 0.7, "level": 1, "army": 0,
+		"cost": {"gold": 4}, "rewards": {"wood": 5}, "penalties": {"gold": -2},
+	},
+	"wolf_attack": {
+		"key": "wolf", "type": Mission.MissionType.SAVAŞ, "difficulty": Mission.Difficulty.ORTA,
+		"duration": 200.0, "success": 0.6, "level": 2, "army": 3,
+		"cost": {}, "rewards": {"stone": 5, "reputation": 1}, "penalties": {"army_losses": 1},
+	},
+}
+
+## Bir köy olayı başlayınca çağrılır: o olaya özel çözüm görevi ekler (aynı türden varsa eklemez).
+func create_event_relief_mission(event_type: String, ends_day: int) -> void:
+	var tpl: Dictionary = EVENT_RELIEF_TEMPLATES.get(event_type, {})
+	if tpl.is_empty():
+		return
+	for mid in missions:
+		if String(mid).begins_with("event_relief_%s_" % event_type):
+			return
+	var k: String = String(tpl["key"])
+	var m := Mission.new()
+	m.id = "event_relief_%s_%d" % [event_type, next_mission_id]
+	next_mission_id += 1
+	m.name = tr("mission.relief.%s.name" % k)
+	m.description = tr("mission.relief.%s.desc" % k)
+	m.mission_type = tpl["type"]
+	m.difficulty = tpl["difficulty"]
+	m.duration = float(tpl["duration"])
+	m.success_chance = float(tpl["success"])
+	m.required_cariye_level = int(tpl["level"])
+	m.required_army_size = int(tpl["army"])
+	m.required_resources = (tpl["cost"] as Dictionary).duplicate()
+	m.rewards = (tpl["rewards"] as Dictionary).duplicate()
+	m.penalties = (tpl["penalties"] as Dictionary).duplicate()
+	m.target_location = tr("mission.relief.location")
+	m.status = Mission.Status.MEVCUT
+	m.set_meta("relief_event_type", event_type)
+	m.set_meta(OPPORTUNITY_EXPIRES_META, ends_day)
+	missions[m.id] = m
+	mission_list_changed.emit()
+	post_news("village", tr("mission.relief.news.title"), tr("mission.relief.news.body") % m.name, Color(0.8, 1.0, 0.8), "info")
+
+
+## Olay bittiğinde (kendiliğinden ya da çözüm göreviyle) bekleyen çözüm görevini kaldırır.
+func remove_event_relief_missions(event_type: String) -> void:
+	var to_remove: Array = []
+	for mid in missions:
+		if String(mid).begins_with("event_relief_%s_" % event_type):
+			var m = missions[mid]
+			if m is Mission and m.status == Mission.Status.MEVCUT:
+				to_remove.append(mid)
+	for mid in to_remove:
+		missions.erase(mid)
+	if not to_remove.is_empty():
+		mission_list_changed.emit()
+
 
 func _create_escort_mission(partner: String) -> void:
 	var m = Mission.new()
