@@ -115,6 +115,8 @@ func _refresh() -> void:
 	var signature := ""
 	for e in events:
 		signature += "%s:%d:%s;" % [e["type"], e["days_left"], str(e.get("forecast", false))]
+	if is_instance_valid(vm) and vm.has_method("get_pending_decisions"):
+		signature += "|" + str(vm.call("get_pending_decisions"))
 	if signature == _last_signature and is_instance_valid(_row):
 		_row.visible = not events.is_empty()
 		return
@@ -158,6 +160,16 @@ func _make_chip(event_type: String, days_left: int, forecast: bool = false) -> C
 	var desc := tr(desc_key)
 	panel.tooltip_text = desc if desc != desc_key else name_text
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var vm: Node = get_parent()
+	if not forecast and is_instance_valid(vm) and vm.has_method("get_pending_decisions") and (vm.call("get_pending_decisions") as Array).has(event_type):
+		label.text += "  ❓"
+		panel.tooltip_text += "\n" + tr("village.decision.strip_hint")
+		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		panel.gui_input.connect(func(ev: InputEvent) -> void:
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				var ui: Node = vm.get_node_or_null("EventDecisionUI")
+				if ui != null and ui.has_method("open_for"):
+					ui.call("open_for", event_type))
 	return panel
 
 

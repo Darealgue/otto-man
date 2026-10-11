@@ -2631,6 +2631,9 @@ var events_active: Array[Dictionary] = []
 ## Öncesinde haber verilen eventler: [{event, picked_day, starts_day}] (kaydedilmez; yüklemede kaybolması zararsız)
 var _forecast_events: Array[Dictionary] = []
 const FORECAST_EVENT_TYPES: Array[String] = ["severe_storm", "wolf_attack", "worker_strike"]
+## Oyuncunun karar vermesi beklenen felaketler (event türü listesi). Kart VillageEventDecisionUI'da açılır.
+var _pending_decisions: Array[String] = []
+signal event_decision_queued(event_type: String)
 var _event_cooldowns: Dictionary = {} # type -> day_until
 
 # Event seviyeleri ve çarpanları (fark edilir etkiler için)
@@ -3269,7 +3272,7 @@ func _accumulate_gather_trip_mods_from_event(
 		return {"empty_chance": empty_chance, "bonus_yield": bonus_yield}
 	var event_type := String(ev.get("type", ""))
 	var event_level: int = _resolve_event_level(ev)
-	var fail_p: float = _event_level_empty_trip_chance(event_level) * _event_mitigation_factor(event_type)
+	var fail_p: float = _event_level_empty_trip_chance(event_level) * _event_mitigation_factor(event_type) * float(ev.get("decision_mult", 1.0))
 	match event_type:
 		"drought", "famine":
 			if resource_type == "food":
@@ -5935,6 +5938,36 @@ func _spawn_relief_for(ev: Dictionary) -> void:
 	var tm: Node = get_node_or_null("/root/TimeManager")
 	var day: int = int(tm.call("get_day")) if tm != null and tm.has_method("get_day") else 0
 	mm.call("create_event_relief_mission", String(ev.get("type", "")), int(ev.get("ends_day", day + 5)))
+	var etype := String(ev.get("type", ""))
+	var dscript: Script = load("res://village/scripts/VillageEventDecisions.gd")
+	if dscript != null and bool(dscript.call("has_decision", etype)) and not _pending_decisions.has(etype):
+		_pending_decisions.append(etype)
+		event_decision_queued.emit(etype)
+
+
+func get_pending_decisions() -> Array[String]:
+	return _pending_decisions
+
+
+## Karar kartından bir seçenek seçildi. Başarılıysa true (bedel ödenir, etki uygulanır, haber düşer).
+func resolve_event_decision(event_type: String, option_id: String) -> bool:
+	var dscript: Script = load("res://village/scripts/VillageEventDecisions.gd")
+	if dscript == null:
+		return false
+	var option: Dictionary = dscript.call("find_option", event_type, option_id)
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var day: int = int(tm.call("get_day")) if tm != null and tm.has_method("get_day") else 0
+	if not bool(dscript.call("apply", self, event_type, option, day)):
+		return false
+	_pending_decisions.erase(event_type)
+	var label_key := "village.decision.%s.%s.label" % [event_type, option_id]
+	_post_village_news(
+		tr("village.decision.result.title"),
+		tr("village.decision.result.body") % [_village_event_type_name(event_type), tr(label_key)],
+		"info",
+		Color(0.85, 0.9, 1.0)
+	)
+	return true
 
 
 ## Yakında başlayacak eventler (HUD şeridi için): [{type, starts_day}]
@@ -6546,6 +6579,7 @@ func _remove_event_effects(ev: Dictionary) -> void:
 	var bonus_multiplier: float = EVENT_LEVEL_BONUS_MULTIPLIERS.get(event_level, 1.2)
 	
 	print("[EVENT DEBUG] 🟢 Removing event: %s (Seviye: %s)" % [t, level_name])
+	_pending_decisions.erase(t)
 	var mm_relief: Node = get_node_or_null("/root/MissionManager")
 	if mm_relief != null and mm_relief.has_method("remove_event_relief_missions"):
 		mm_relief.call("remove_event_relief_missions", t)
@@ -8779,6 +8813,12 @@ func _setup_npc_ambient_director() -> void:
 		strip.name = "EventStrip"
 		strip.set_script(strip_script)
 		add_child(strip)
+	var decision_script: Script = load("res://village/scripts/VillageEventDecisionUI.gd")
+	if decision_script != null:
+		var decision_ui := Node.new()
+		decision_ui.name = "EventDecisionUI"
+		decision_ui.set_script(decision_script)
+		add_child(decision_ui)
 
 
 func get_pending_attack_count() -> int:
