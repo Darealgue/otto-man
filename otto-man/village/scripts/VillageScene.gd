@@ -710,13 +710,24 @@ func _on_add_villager_button_pressed() -> void:
 # 	if event.is_action_pressed("ui_cancel") and worker_assignment_ui.visible:
 # 		worker_assignment_ui.hide()
 
+## Görünür bir arayüz öğesi odakta mı? (Gizli panellerdeki düğmeler odakta kalabilir; onlar sayılmaz.)
+func _visible_ui_has_focus() -> bool:
+	var owner_ctrl: Control = get_viewport().gui_get_focus_owner()
+	return owner_ctrl != null and owner_ctrl.is_visible_in_tree()
+
+
 func _input(event: InputEvent) -> void:
 	# Sadece gerçekten açık NPC penceresi varken girişleri blokla.
 	# NPC'ye yakın olmak (aynı hizada overlap) 1/2/3 zaman tuşlarını kilitlememeli.
 	if _is_npc_dialogue_open():
 		return
 	
-	if event.is_action_pressed("open_world_map"):
+	# Numpad'i olmayan klavyeler için: ana Enter de haritayı açar. Odaklı bir arayüz öğesi (popup/menü düğmesi)
+	# varken Enter o arayüze aittir (ui_accept), haritayı açmaz.
+	var is_main_enter: bool = event is InputEventKey and event.pressed and not event.is_echo() \
+		and event.physical_keycode == KEY_ENTER and not _visible_ui_has_focus() \
+		and not get_tree().paused
+	if event.is_action_pressed("open_world_map") or is_main_enter:
 		var scene_manager = get_node_or_null("/root/SceneManager")
 		if scene_manager and scene_manager.has_method("change_to_world_map"):
 			scene_manager.change_to_world_map({"source": "village"})
