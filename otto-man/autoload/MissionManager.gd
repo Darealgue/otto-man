@@ -4456,13 +4456,16 @@ const EVENT_RELIEF_TEMPLATES: Dictionary = {
 }
 
 ## Bir köy olayı başlayınca çağrılır: o olaya özel çözüm görevi ekler (aynı türden varsa eklemez).
-func create_event_relief_mission(event_type: String, ends_day: int) -> void:
+func create_event_relief_mission(event_type: String, ends_day: int) -> bool:
 	var tpl: Dictionary = EVENT_RELIEF_TEMPLATES.get(event_type, {})
 	if tpl.is_empty():
-		return
+		return false
+	# Görevi cariyeler yürütür: köyde hiç cariye yoksa görev çıkmaz (cariye gelince tekrar denenir)
+	if concubines.is_empty():
+		return false
 	for mid in missions:
 		if String(mid).begins_with("event_relief_%s_" % event_type):
-			return
+			return true
 	var k: String = String(tpl["key"])
 	var m := Mission.new()
 	m.id = "event_relief_%s_%d" % [event_type, next_mission_id]
@@ -4485,6 +4488,7 @@ func create_event_relief_mission(event_type: String, ends_day: int) -> void:
 	missions[m.id] = m
 	mission_list_changed.emit()
 	post_news("village", tr("mission.relief.news.title"), tr("mission.relief.news.body") % m.name, Color(0.8, 1.0, 0.8), "info")
+	return true
 
 
 ## Olay bittiğinde (kendiliğinden ya da çözüm göreviyle) bekleyen çözüm görevini kaldırır.

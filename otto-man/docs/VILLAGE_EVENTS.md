@@ -11,16 +11,17 @@
 ## Oyuncuya yansıma
 | Parça | Dosya | Not |
 |---|---|---|
-| Hava tonu | `village/scripts/VillageEventMood.gd` | `EVENT_TINTS`; köylü tepki balonları (`EVENT_BUBBLE_KEYS`) |
-| Aktif event şeridi | `village/scripts/VillageEventStrip.gd` | `EVENT_ICONS` emojileri PLACEHOLDER; ❗ = yarın başlayacak, ❓ = karar bekliyor |
+| Aktif event şeridi | `village/scripts/VillageEventStrip.gd` | `EVENT_ICONS` emojileri PLACEHOLDER; ❗ = yarın başlayacak |
+| Köylü tepki balonları | `village/scripts/VillageEventMood.gd` | `EVENT_BUBBLE_KEYS`; ekrana renk filtresi YOK (denendi, kaldırıldı) |
 | Haber öncesi uyarı | `VillageManager.FORECAST_EVENT_TYPES` | fırtına, kurt, grev bir gün önceden haber verir |
 | Köylü sohbetleri | `village/narrative/VillageNpcAmbientCatalog.gd` | `event_*` etiketleri, aktifken %70 öncelik |
-| Karar kartı | `VillageEventDecisionUI.gd` + `VillageEventDecisions.gd` | seçenekler `OPTIONS` tablosunda |
-| Çözüm görevi | `MissionManager.EVENT_RELIEF_TEMPLATES` | başarıyla biterse olay sona erer |
+| Çözüm görevi (cariye) | `MissionManager.EVENT_RELIEF_TEMPLATES` | köyde cariye varsa çıkar; başarıyla biterse olay sona erer |
+
+Karar kartı (seçim menüsü) denendi ve KALDIRILDI: oyuncu çözümü cariye görevleriyle yapar. Fırtına ve hava bereketi
+için çözüm görevi yoktur (durdurulamaz).
 
 ## Etkiyi azaltanlar
 - `_event_mitigation_factor`: kurt için her asker -%5 (en çok -%40); kıtlıkta depoda >=25 yiyecek -%25.
-- Karar kartı seçimi `ev["decision_mult"]` yazar; `_accumulate_gather_trip_mods_from_event` okur.
 - Salgın (`plague`) artık `production_penalty` ile tüm temel seferleri etkiler.
 
 ## Görev süreleri (fırsat görevleri)
@@ -29,4 +30,4 @@
 - Listede `⏳N` rozeti (<=2 gün `⚠⏳`), detayda "Fırsat: N gün sonra kaçar".
 
 ## Test
-Dev konsol: `trigger_world_event <tür>` ile event başlat. Kart, şerit ve çözüm görevi aynı anda belirir.
+Dev konsol: `trigger_world_event <tür>` ile event başlat; şerit ve çözüm görevi aynı anda belirir (cariye varsa).

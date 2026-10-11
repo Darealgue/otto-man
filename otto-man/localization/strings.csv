@@ -810,44 +810,6 @@ mission.relief.news.title,Çözüm Fırsatı,A Chance to Respond
 mission.relief.news.body,Görev merkezinde yeni görev: %s. Olay bitince fırsat kaybolur.,New task at the mission center: %s. The chance is lost when the event ends.
 village.event.relief.title,✅ Olay Hafifledi,✅ Crisis Eased
 village.event.relief.body,%s sona erdi. Çabanız işe yaradı.,%s has ended. Your effort paid off.
-village.decision.gold,Altın,Gold
-village.decision.cost,Bedel: %s,Cost: %s
-village.decision.later,Sonra karar ver,Decide later
-village.decision.need_soldiers,%d asker gerekir,%d soldiers needed
-village.decision.unavailable.cost,Yeterli kaynağın yok.,You do not have enough resources.
-village.decision.unavailable.soldiers,Yeterli askerin yok.,You do not have enough soldiers.
-village.decision.strip_hint,Karar vermek için tıkla.,Click to make a decision.
-village.decision.result.title,Karar Verildi,Decision Made
-village.decision.result.body,%s için kararın: %s,Your decision for %s: %s
-village.decision.famine.prompt,Hasat kötü gitti ve ambarlar boşalıyor. Köylüler ne yapacağını senden bekliyor.,The harvest has failed and the storehouses are emptying. The villagers look to you for a decision.
-village.decision.famine.ration.label,Depodan dağıt,Hand out from the stores
-village.decision.famine.ration.hint,"Boş sefer şansı yarıya iner, moral biraz yükselir.",Empty trips are halved and morale rises a little.
-village.decision.famine.tighten.label,Kemerleri sıkın,Tighten belts
-village.decision.famine.tighten.hint,Boş sefer şansı biraz azalır ama moral düşer.,Empty trips drop a little but morale falls.
-village.decision.famine.beg.label,Komşudan yardım iste,Ask the neighbors for aid
-village.decision.famine.beg.hint,Kıtlık iki gün kısalır.,The famine is shortened by two days.
-village.decision.worker_strike.prompt,İşçiler işi bıraktı ve taleplerini sıralıyor. Kalabalık gözünü sana dikmiş.,The workers have downed tools and list their demands. The crowd is watching you.
-village.decision.worker_strike.raise.label,Zam ver,Raise their pay
-village.decision.worker_strike.raise.hint,"Grev hemen biter, moral hafif yükselir.",The strike ends at once and morale rises slightly.
-village.decision.worker_strike.suppress.label,Askerle bastır,Suppress with soldiers
-village.decision.worker_strike.suppress.hint,Grev hemen biter ama moral ağır düşer.,The strike ends at once but morale suffers badly.
-village.decision.worker_strike.negotiate.label,Müzakere et,Negotiate
-village.decision.worker_strike.negotiate.hint,Çoğunlukla işe yarar. Olmazsa grev iki gün uzar.,Usually works. If it fails the strike lasts two more days.
-village.decision.wolf_attack.prompt,Kurt sürüsü taş yollarını tutmuş. Köylüler yola çıkmaya korkuyor.,A wolf pack holds the stone roads. The villagers are afraid to set out.
-village.decision.wolf_attack.patrol.label,Asker devriyesi gönder,Send a soldier patrol
-village.decision.wolf_attack.patrol.hint,Boş sefer şansı büyük ölçüde düşer. Bir asker kaybedilebilir.,Empty trips drop sharply. A soldier may be lost.
-village.decision.wolf_attack.trap.label,Tuzak kur,Set traps
-village.decision.wolf_attack.trap.hint,Boş sefer şansı yarıya iner.,Empty trips are halved.
-village.decision.disease.prompt,Hastalık köyde yayılıyor. Hastalar yataktan çıkamıyor.,Sickness is spreading through the village. The sick cannot leave their beds.
-village.decision.disease.medicine.label,İlaç dağıt,Hand out medicine
-village.decision.disease.medicine.hint,Hastalık hemen geçer.,The sickness passes at once.
-village.decision.disease.quarantine.label,Karantina uygula,Impose quarantine
-village.decision.disease.quarantine.hint,Hastalık üç gün kısalır ama moral düşer.,The sickness is shortened by three days but morale falls.
-village.decision.pest.prompt,Zararlılar ağaçlara üşüştü. Odun toplama sekteye uğruyor.,Pests have infested the trees. Wood gathering is suffering.
-village.decision.pest.smoke.label,Duman tüttür,Smoke them out
-village.decision.pest.smoke.hint,Boş sefer şansı yarıya iner.,Empty trips are halved.
-village.decision.pest.fell.label,Hasta ağaçları kes,Fell the infested trees
-village.decision.pest.fell.hint,Zararlı hemen sona erer.,The infestation ends at once.
 village.event.name.famine,Kötü Hasat,Poor Harvest
 village.event.name.drought,Kuraklık,Drought
 village.event.name.pest,Zararlı,Pests
