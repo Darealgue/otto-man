@@ -2632,6 +2632,9 @@ func _build_mission_detail_text(m) -> String:
 		lines.append(tr("mc.mission.detail.difficulty") % m.get_difficulty_name())
 		lines.append(tr("mc.mission.detail.duration") % _format_game_time_minutes(m.duration))
 		lines.append(tr("mc.mission.detail.success_chance") % int(m.success_chance * 100))
+		var days_left: int = mission_manager.get_mission_days_left(m) if mission_manager and mission_manager.has_method("get_mission_days_left") else -1
+		if days_left >= 0 and m.status == Mission.Status.MEVCUT:
+			lines.append(tr("mc.mission.detail.expires_in") % days_left)
 		if String(m.completes_incident_id).length() > 0:
 			var hx = String(m.world_hex_key)
 			if hx.is_empty():

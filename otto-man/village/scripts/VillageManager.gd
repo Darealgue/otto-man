@@ -3322,6 +3322,11 @@ func _get_gather_trip_modifiers(resource_type: String) -> Dictionary:
 						var food_p: float = float(effects.get("food_production", 1.0))
 						if food_p < 1.0:
 							empty_chance = maxf(empty_chance, clampf(1.0 - food_p, 0.0, 0.95))
+						# Salgın: tüm temel kaynak seferlerinde üretim cezası (eskiden sadece moral düşüyordu)
+						if resource_type in BASE_RESOURCE_TYPES and effects.has("production_penalty"):
+							var prod_p: float = float(effects.get("production_penalty", 1.0))
+							if prod_p < 1.0:
+								empty_chance = maxf(empty_chance, clampf(1.0 - prod_p, 0.0, 0.95))
 	var mm := get_node_or_null("/root/MissionManager")
 	if mm != null and mm.has_method("get_external_rate_delta"):
 		var ext_delta: int = int(mm.get_external_rate_delta(resource_type))
@@ -3465,7 +3470,11 @@ func _collect_disaster_hint_from_event(hints: Dictionary, ev: Dictionary, curren
 		for res in BASE_RESOURCE_TYPES:
 			_push_disaster_hint(hints, res, tr("hud.disaster_storm") + days_suffix)
 		return
-	if event_type == "plague" or event_type == "disease":
+	if event_type == "plague":
+		for res in BASE_RESOURCE_TYPES:
+			_push_disaster_hint(hints, res, tr("hud.disaster_plague") + days_suffix)
+		return
+	if event_type == "disease":
 		return
 	if event_type == "weather_blessing":
 		for res in BASE_RESOURCE_TYPES:
@@ -8684,6 +8693,12 @@ func _setup_npc_ambient_director() -> void:
 	_npc_ambient_director.name = "NpcAmbientDirector"
 	_npc_ambient_director.set_script(director_script)
 	add_child(_npc_ambient_director)
+	var mood_script: Script = load("res://village/scripts/VillageEventMood.gd")
+	if mood_script != null:
+		var mood := Node.new()
+		mood.name = "EventMood"
+		mood.set_script(mood_script)
+		add_child(mood)
 
 
 func get_pending_attack_count() -> int:

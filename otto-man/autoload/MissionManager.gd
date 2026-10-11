@@ -3319,6 +3319,7 @@ func prune_time_limited_state_for_day(day: int, silent: bool = false) -> void:
 
 func _on_new_day(day: int):
 	prune_time_limited_state_for_day(day, false)
+	_expire_stale_missions(day)
 
 	# Haritadaki komsu id'leri: WM `get_relation("Köy", ad)` tek kaynak; eski rastgele drift sadece haritada olmayanlara.
 	sync_settlement_relations_from_world_map()
@@ -3345,6 +3346,53 @@ func _on_new_day(day: int):
 		_trigger_plague()
 	if settlements.size() >= 2 and randf() < 0.05:
 		_trigger_embargo_between_settlements()
+
+## Fırsat görevleri: alınmazsa süre dolunca sessizce kaybolur (haber/ceza yok, kaçan fırsat).
+## Sadece bu önekler süreli sayılır; zincir/olay köprüsü/rol/baskın-savunma görevleri asla kaybolmaz.
+const OPPORTUNITY_ID_PREFIXES: Array[String] = [
+	"dynamic_", "traveler_", "generated_", "escort_", "trade_route_",
+	"worldmap_trade_", "worldmap_diplomacy_", "special_",
+]
+const OPPORTUNITY_DAYS_DEFAULT: int = 7
+const OPPORTUNITY_DAYS_TRAVELER: int = 5
+const OPPORTUNITY_EXPIRES_META: String = "opportunity_expires_day"
+
+func _is_opportunity_mission(m: Mission) -> bool:
+	if m == null or m.status != Mission.Status.MEVCUT:
+		return false
+	if m.is_part_of_chain() or int(m.grants_concubine_role) >= 0:
+		return false
+	if String(m.completes_incident_id).length() > 0 or String(m.completes_alliance_aid_settlement_id).length() > 0:
+		return false
+	for p in OPPORTUNITY_ID_PREFIXES:
+		if String(m.id).begins_with(p):
+			return true
+	return false
+
+## Fırsat görevinin kalan günü; süreli değilse -1. İlk görüldüğünde süre damgalanır (kayda meta ile yazılır).
+func get_mission_days_left(m, day: int = -1) -> int:
+	if not (m is Mission) or not _is_opportunity_mission(m):
+		return -1
+	if day < 0:
+		var tm := get_node_or_null("/root/TimeManager")
+		day = int(tm.get_day()) if tm and tm.has_method("get_day") else 0
+	if not m.has_meta(OPPORTUNITY_EXPIRES_META):
+		var ttl: int = OPPORTUNITY_DAYS_TRAVELER if String(m.id).begins_with("traveler_") else OPPORTUNITY_DAYS_DEFAULT
+		m.set_meta(OPPORTUNITY_EXPIRES_META, day + ttl)
+	return maxi(0, int(m.get_meta(OPPORTUNITY_EXPIRES_META)) - day)
+
+func _expire_stale_missions(day: int) -> void:
+	var expired: Array = []
+	for mission_id in missions:
+		var m = missions[mission_id]
+		if not (m is Mission) or not _is_opportunity_mission(m):
+			continue
+		if get_mission_days_left(m, day) <= 0:
+			expired.append(mission_id)
+	for mission_id in expired:
+		missions.erase(mission_id)
+	if not expired.is_empty():
+		mission_list_changed.emit()
 
 func _count_available_non_chain_missions() -> int:
 	var n: int = 0

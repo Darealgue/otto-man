@@ -347,6 +347,7 @@ mc.mission.detail.difficulty,Zorluk: %s,Difficulty: %s
 mc.mission.detail.duration,Süre: %s,Duration: %s
 mc.mission.detail.duration_raw,Süre: %s,Duration: %s
 mc.mission.detail.success_chance,Başarı şansı: %d%%,Success chance: %d%%
+mc.mission.detail.expires_in,Fırsat: %d gün sonra kaçar,Opportunity: expires in %d days
 mc.mission.detail.target,Hedef: %s,Target: %s
 mc.mission.detail.bridge_crisis,Köprü: yerleşim krizi → %s,Bridge: settlement crisis → %s
 mc.mission.detail.bridge_crisis_hex,Köprü: kriz çözümü | %s (%s),Bridge: crisis resolution | %s (%s)
@@ -743,6 +744,22 @@ ambient.conv.festival.a1,Geçen festivali hatırlıyor musun?,Remember the last 
 ambient.conv.festival.b1,Herkes dans etmişti!,Everyone was dancing!
 ambient.conv.guests.a1,Misafirler barınak bekliyor.,Guests are waiting for shelter.
 ambient.conv.guests.b1,Bir ev daha inşa etsek iyi olur.,We should build another house.
+ambient.conv.drought.a1,Kuyular dibe vurdu. Bu güneş bizi kurutacak.,The wells are nearly dry. This sun will wither us.
+ambient.conv.drought.b1,Tarlalar çatlıyor. Yağmur duasına çıksak mı?,The fields are cracking. Should we pray for rain?
+ambient.conv.famine.a1,Tarlada bir şey bitmiyor. Çocuklar aç yatıyor.,Nothing grows in the fields. The children go to bed hungry.
+ambient.conv.famine.b1,Kemerleri sıkın. Toplayıcılar eli boş dönüyor.,Tighten your belts. The gatherers keep coming back empty handed.
+ambient.conv.pest.a1,Ağaçları kurt yemiş. Odun çürük çıkıyor.,Worms have eaten the trees. The timber comes out rotten.
+ambient.conv.pest.b1,Baltalar bile işe yaramıyor. Bir çare bulmalıyız.,Even the axes are no use. We need a remedy.
+ambient.conv.wolf.a1,Kurtlar taş ocağının yolunu tuttu. Kimse gitmek istemiyor.,Wolves hold the road to the quarry. Nobody wants to go.
+ambient.conv.wolf.b1,Geceleri ulumaları kulağımdan gitmiyor.,Their howling rings in my ears at night.
+ambient.conv.strike.a1,Yeter artık. Böyle çalışmayız.,Enough. We will not work like this.
+ambient.conv.strike.b1,Hakkımız verilene kadar kimse kıpırdamıyor.,Nobody lifts a finger until we get our due.
+ambient.conv.storm.a1,Bu fırtına çatıyı uçuracak.,This storm will tear the roof off.
+ambient.conv.storm.b1,Hepiniz içeri girin. Hayvanları da bağlayın.,Everyone inside. Tie down the animals too.
+ambient.conv.blessing.a1,Bu yıl toprak cömert. Ne güzel hava.,The land is generous this year. What fine weather.
+ambient.conv.blessing.b1,Böyle giderse ambarlar taşacak.,At this rate the storehouses will overflow.
+ambient.conv.disease.a1,Yine biri öksürüyor. Hastalık yayılıyor.,Somebody is coughing again. The sickness is spreading.
+ambient.conv.disease.b1,İlaç bulunmazsa kimse ayakta kalmaz.,Without medicine nobody will be left standing.
 demo.teaser.title,Demo Sınırı,Demo Limit
 demo.teaser.body,Bu demo %d oyun günü ile sınırlıdır. Tam sürümde mevsimler harita ve daha derin köy hikâyesi açılır.,This demo is limited to %d game days. The full release unlocks seasons the map and deeper village stories.
 demo.teaser.mentor,"[color=#c9b3ff]Demo süresi doldu[/color], ama loop'u denedin!
