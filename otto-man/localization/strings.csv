@@ -762,6 +762,39 @@ village.event.level.low,Düşük,Low
 village.event.level.medium,Orta,Medium
 village.event.level.high,Yüksek,High
 village.event.level.unknown,Bilinmeyen,Unknown
+village.event.strip.days,⏳ %d gün,⏳ %d days
+village.event.strip.tomorrow,yarın,tomorrow
+village.event.name.plague,Salgın,Plague
+village.event.name.rebellion,İsyan,Rebellion
+village.event.name.trade_boom,Ticaret Patlaması,Trade Boom
+village.event.name.war_declaration,Savaş,War
+village.event.desc.famine,Yiyecek toplama seferleri sık sık eli boş döner.,Food gathering trips often come back empty handed.
+village.event.desc.drought,Yiyecek toplama seferleri sık sık eli boş döner.,Food gathering trips often come back empty handed.
+village.event.desc.pest,Odun toplama seferleri sık sık eli boş döner.,Wood gathering trips often come back empty handed.
+village.event.desc.wolf_attack,Taş toplama seferleri sık sık eli boş döner.,Stone gathering trips often come back empty handed.
+village.event.desc.severe_storm,Tüm temel kaynak seferleri aksar.,All basic gathering trips are disrupted.
+village.event.desc.weather_blessing,Temel kaynak seferleri fazladan getirir.,Basic gathering trips bring back extra.
+village.event.desc.worker_strike,Seçilen kaynağın seferleri tamamen durur.,Trips for the chosen resource stop entirely.
+village.event.desc.disease,"Bazı köylüler hasta. İlaç ya da tıbbiyeci iyileştirir, yoksa moral düşer.","Some villagers are sick. Medicine or a healer cures them, otherwise morale falls."
+village.event.desc.plague,Moral düşer ve tüm temel üretim aksar.,Morale falls and all basic production suffers.
+village.event.desc.bandit_activity,Ticaret aksar. Haydut Temizliği görevi olayı bitirir.,Trade is disrupted. The Bandit Cleanup mission ends it.
+village.event.desc.rebellion,Moral düşer ve üretim kaosa girer.,Morale falls and production falls into chaos.
+village.event.desc.trade_boom,Altın kazançları artar.,Gold earnings rise.
+village.event.desc.war_declaration,Ticaret kesintiye uğrar.,Trade is disrupted.
+village.event.forecast.severe_storm.title,⛈️ Bulutlar toplanıyor,⛈️ Clouds are gathering
+village.event.forecast.severe_storm.body,Gökyüzü kararıyor. Yarın şiddetli bir fırtına bekleniyor.,The sky is darkening. A severe storm is expected tomorrow.
+village.event.forecast.wolf_attack.title,🐺 Ulumalar yaklaşıyor,🐺 Howls are drawing near
+village.event.forecast.wolf_attack.body,Çobanlar taze kurt izleri buldu. Yarın taş yolları tehlikeli olabilir.,Shepherds found fresh wolf tracks. The stone roads may be dangerous tomorrow.
+village.event.forecast.worker_strike.title,✊ İşçiler mırıldanıyor,✊ The workers are grumbling
+village.event.forecast.worker_strike.body,Hoşnutsuzluk büyüyor. Yarın bir grup işçi işi bırakabilir.,Discontent is growing. A group of workers may down tools tomorrow.
+village.event.bubble.famine,🌾 Karnım aç...,🌾 I'm so hungry...
+village.event.bubble.pest,🐛 Böcekler her yerde!,🐛 Bugs everywhere!
+village.event.bubble.wolf,🐺 Ulumaları duydun mu?,🐺 Did you hear the howling?
+village.event.bubble.storm,⛈️ Hepimiz ıslanacağız!,⛈️ We'll all get soaked!
+village.event.bubble.blessing,☀️ Ne güzel bir gün!,☀️ What a lovely day!
+village.event.bubble.strike,✊ Hakkımızı istiyoruz!,✊ We want our due!
+village.event.bubble.disease,🤒 Öhö öhö...,🤒 *cough cough*
+village.event.bubble.bandit,🗡️ Yollar güvenli değil!,🗡️ The roads aren't safe!
 village.event.name.famine,Kötü Hasat,Poor Harvest
 village.event.name.drought,Kuraklık,Drought
 village.event.name.pest,Zararlı,Pests

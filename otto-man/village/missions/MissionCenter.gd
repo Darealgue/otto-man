@@ -2570,7 +2570,13 @@ func _mission_display_name(m) -> String:
 	if m == null:
 		return "?"
 	if mission_manager and mission_manager.has_method("get_mission_display_name"):
-		return mission_manager.get_mission_display_name(m)
+		var base_name: String = mission_manager.get_mission_display_name(m)
+		# Fırsat görevlerinde kalan gün rozeti (yakında kaçacaksa uyarı)
+		if m is Mission and mission_manager.has_method("get_mission_days_left"):
+			var dl: int = mission_manager.get_mission_days_left(m)
+			if dl >= 0:
+				base_name += ("  ⚠⏳%d" if dl <= 2 else "  ⏳%d") % dl
+		return base_name
 	if m is Mission:
 		return m.name
 	if m is Dictionary:

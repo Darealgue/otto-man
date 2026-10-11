@@ -2628,6 +2628,9 @@ var event_severity_max: float = 0.35  # Deprecated: artık kullanılmıyor, leve
 var event_duration_min_days: int = 3
 var event_duration_max_days: int = 14
 var events_active: Array[Dictionary] = []
+## Öncesinde haber verilen eventler: [{event, picked_day, starts_day}] (kaydedilmez; yüklemede kaybolması zararsız)
+var _forecast_events: Array[Dictionary] = []
+const FORECAST_EVENT_TYPES: Array[String] = ["severe_storm", "wolf_attack", "worker_strike"]
 var _event_cooldowns: Dictionary = {} # type -> day_until
 
 # Event seviyeleri ve çarpanları (fark edilir etkiler için)
@@ -5913,6 +5916,31 @@ func _post_event_notification(message: String, category: String) -> void:
 	)
 
 
+## Yakında başlayacak eventler (HUD şeridi için): [{type, starts_day}]
+func get_forecast_events() -> Array:
+	var out: Array = []
+	for p in _forecast_events:
+		var e: Dictionary = p.get("event", {})
+		out.append({"type": String(e.get("type", "")), "starts_day": int(p.get("starts_day", 0))})
+	return out
+
+
+func _post_event_forecast_news(event_type: String) -> void:
+	var tkey := "village.event.forecast.%s.title" % event_type
+	var bkey := "village.event.forecast.%s.body" % event_type
+	if tr(tkey) == tkey:
+		return
+	_enqueue_village_surface_news(
+		"village_forecast_%s" % event_type,
+		{"event_type": event_type, "forecast": true},
+		tr(tkey),
+		tr(bkey),
+		"world",
+		Color(1.0, 0.85, 0.4),
+		"warning"
+	)
+
+
 ## Event türü için oyuncuya gösterilen ad (çeviri anahtarı yoksa tür kimliği).
 func _village_event_type_name(event_type: String) -> String:
 	var key := "village.event.name.%s" % event_type
@@ -6132,12 +6160,32 @@ func _update_events_for_new_day(current_day: int) -> void:
 	# Hastalık kontrolü: Her gün hasta işçileri kontrol et
 	_check_and_heal_sick_workers(current_day)
 
+	# Önceden haber verilen (ertesi güne ertelenmiş) eventler: zamanı gelince başlat
+	var still_pending: Array[Dictionary] = []
+	for pending in _forecast_events:
+		if int(pending.get("starts_day", current_day)) <= current_day:
+			var started: Dictionary = pending.get("event", {})
+			if not started.is_empty():
+				var shift: int = current_day - int(pending.get("picked_day", current_day))
+				started["ends_day"] = int(started.get("ends_day", current_day)) + maxi(0, shift)
+				events_active.append(started)
+				_apply_event_effects(started)
+				_present_village_event_news(started, _resolve_event_level(started), maxi(1, int(started["ends_day"]) - current_day), current_day)
+		else:
+			still_pending.append(pending)
+	_forecast_events = still_pending
+
 	# Maybe trigger new event
 	if randf() < daily_event_chance:
 		var ev = _pick_and_create_event(current_day)
 		if not ev.is_empty():
-			events_active.append(ev)
-			_apply_event_effects(ev)
+			if String(ev.get("type", "")) in FORECAST_EVENT_TYPES:
+				# Önce haber ver, ertesi gün başlasın (oyuncu hazırlanabilsin)
+				_forecast_events.append({"event": ev, "picked_day": current_day, "starts_day": current_day + 1})
+				_post_event_forecast_news(String(ev.get("type", "")))
+			else:
+				events_active.append(ev)
+				_apply_event_effects(ev)
 
 # === World Event Effects Integration ===
 # (Duplicate functions removed - using the ones defined earlier)
@@ -6253,7 +6301,7 @@ func _pick_and_create_event(current_day: int) -> Dictionary:
 		
 		# simple cooldown: 30 days
 		_event_cooldowns[t] = current_day + 30
-		if t != "bandit_activity":
+		if t != "bandit_activity" and not (t in FORECAST_EVENT_TYPES):
 			_present_village_event_news(ev, event_level, dur, current_day)
 		return ev
 	return {}
@@ -8683,6 +8731,12 @@ func _setup_npc_ambient_director() -> void:
 		mood.name = "EventMood"
 		mood.set_script(mood_script)
 		add_child(mood)
+	var strip_script: Script = load("res://village/scripts/VillageEventStrip.gd")
+	if strip_script != null:
+		var strip := Node.new()
+		strip.name = "EventStrip"
+		strip.set_script(strip_script)
+		add_child(strip)
 
 
 func get_pending_attack_count() -> int:
