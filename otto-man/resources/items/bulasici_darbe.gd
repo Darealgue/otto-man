@@ -5,7 +5,8 @@
 extends ItemEffect
 
 const _AoeBurstRingScript = preload("res://effects/aoe_burst_ring.gd")
-const SPREAD_RADIUS := 140.0
+const SPREAD_RADIUS := 140.0   # yatay erişim
+const MAX_VERTICAL := 280.0    # dikey erişim: juggle'daki düşmanın altındaki yer düşmanları da kapsansın
 const MAX_TARGETS := 3
 const RING_COLOR := Color(0.45, 0.95, 0.35, 0.8)
 const COOLDOWN_MSEC := 250
@@ -40,13 +41,15 @@ func _on_player_attack_landed(_attack_type: String, _damage: float, targets: Arr
 func _spread_from(source: Node, im: Node, tree: SceneTree) -> void:
 	var candidates: Array = []
 	for node in tree.get_nodes_in_group("enemies"):
-		if not is_instance_valid(node) or node == source or node.get("current_behavior") == "dead":
+		if node == source or not is_live_enemy(node):
 			continue
 		if not node.has_method("add_poison_stack"):
 			continue
-		var d: float = source.global_position.distance_to(node.global_position)
-		if d <= SPREAD_RADIUS:
-			candidates.append({"node": node, "d": d})
+		# Juggle'da kaynak düşman yerden 100-250 px yukarıdadır; komşular altta, yerdedir. Daire yarıçapı
+		# bunları kaçırıyordu (arena testi yakaladı): yatay mesafe SPREAD_RADIUS, dikey MAX_VERTICAL.
+		var offset: Vector2 = node.global_position - source.global_position
+		if absf(offset.x) <= SPREAD_RADIUS and absf(offset.y) <= MAX_VERTICAL:
+			candidates.append({"node": node, "d": absf(offset.x) + absf(offset.y) * 0.5})
 	candidates.sort_custom(func(a, b): return a["d"] < b["d"])
 	for i in range(mini(MAX_TARGETS, candidates.size())):
 		im.add_poison_stacks(candidates[i]["node"], 1)

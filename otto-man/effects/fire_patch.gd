@@ -11,6 +11,7 @@ var delay: float = 0.0
 
 var _elapsed: float = 0.0
 var _tick: float = 0.0
+var _started: bool = false
 
 func _ready() -> void:
 	z_index = 57
@@ -25,6 +26,11 @@ func _process(delta: float) -> void:
 	if _elapsed - delay >= duration:
 		queue_free()
 		return
+	# Değdiği anda yakmalı: ilk tik'i 0.5 sn beklemek, parry gibi saldırganı hemen geri savuran
+	# durumlarda düşmanın alevin dışına çıkmasına yol açıyordu.
+	if not _started:
+		_started = true
+		_burn_nearby()
 	_tick += delta
 	if _tick >= TICK_INTERVAL:
 		_tick = 0.0

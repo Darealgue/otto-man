@@ -1770,8 +1770,10 @@ func spawn_fire_patch(pos: Vector2, radius: float, duration: float, delay: float
 func spawn_flame_wave(origin: Vector2, dir_x: float, length: float = 270.0, count: int = 6) -> void:
 	var step: float = length / float(count)
 	var side: float = -1.0 if dir_x < 0.0 else 1.0
+	# İlk birikinti origin'e YAKIN başlar (yarım adım): yakın dövüşte saldırgan/vurulan düşman oyuncunun
+	# dibindedir, şerit 1 adım ileride başlarsa onu kaçırıyordu (arena testi gerçek parry'de yakaladı).
 	for i in range(count):
-		spawn_fire_patch(origin + Vector2(side * step * float(i + 1), -8.0), 36.0, 1.6, float(i) * 0.07)
+		spawn_fire_patch(origin + Vector2(side * step * (float(i) + 0.5), -8.0), 36.0, 1.6, float(i) * 0.07)
 
 
 ## Zehir yardımcıları: poison_mastery set bonusu (maks katman, katman başı hasar) burada tek yerde.

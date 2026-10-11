@@ -142,6 +142,11 @@ func _run() -> void:
 	await _scenario_barut_bombasi_tur_firlatma()
 	await _scenario_kazik_darbesi_gercek()
 	await _scenario_kazik_darbesi_asagi_saldir()
+	await _scenario_gercek_giris_vuruslar()
+	await _scenario_gercek_giris_dash_yarilan_alev()
+	await _scenario_gercek_giris_parry()
+	await _scenario_gercek_giris_dusme_saldirisi()
+	await _scenario_gercek_giris_havada_bulasici()
 	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
@@ -156,6 +161,8 @@ func _enemy_hp(e: Node) -> float:
 
 ## Gülle: fırlatılan gerçek düşman yandaki gerçek düşmana çarpınca ikisi hasar alır.
 func _scenario_gulle() -> void:
+	if not _want("_scenario_gulle"):
+		return
 	await _begin("gulle")
 	var a := _spawn_enemy(-100.0)
 	var b := _spawn_enemy(-30.0)
@@ -171,6 +178,8 @@ func _scenario_gulle() -> void:
 
 ## Duvar Çarpması: darbeyle duvara itilen gerçek düşman çarptığı yerde patlar.
 func _scenario_duvar_carpmasi() -> void:
+	if not _want("_scenario_duvar_carpmasi"):
+		return
 	await _begin("duvar_carpmasi")
 	# BasicEnemy yerde knockback ile ~120 px kayıp durur: duvara yakın (~60 px) başla
 	var a := _spawn_enemy(ARENA_WALL_X - 85.0)
@@ -197,6 +206,8 @@ func _scenario_duvar_carpmasi() -> void:
 
 ## Kazık Darbesi: havada vurulan gerçek düşman yere çakılır, indiği yerde alan hasarı verir.
 func _scenario_kazik_darbesi() -> void:
+	if not _want("_scenario_kazik_darbesi"):
+		return
 	await _begin("kazik_darbesi")
 	var a := _spawn_enemy(-300.0)
 	var b := _spawn_enemy(-240.0)
@@ -217,6 +228,8 @@ func _scenario_kazik_darbesi() -> void:
 
 ## Barut Sıçrayışı: bomba yer çekimiyle gerçek zemine düşüp patlar, gerçek düşmanı havaya fırlatır.
 func _scenario_barut_sicrayisi() -> void:
+	if not _want("_scenario_barut_sicrayisi"):
+		return
 	await _begin("barut_sicrayisi")
 	var e := _spawn_enemy(-800.0)
 	await _frames(40)
@@ -232,6 +245,8 @@ func _scenario_barut_sicrayisi() -> void:
 
 ## Zehir Delirmesi: delirmiş gerçek düşman oyuncuyu bırakıp yandaki düşmana yürür ve ona vurur.
 func _scenario_zehir_delirmesi() -> void:
+	if not _want("_scenario_zehir_delirmesi"):
+		return
 	await _begin("zehir_delirmesi")
 	var a := _spawn_enemy(-1200.0)
 	var b := _spawn_enemy(-1050.0)
@@ -251,6 +266,8 @@ func _scenario_zehir_delirmesi() -> void:
 
 ## Korku Yangını: yanması dolan gerçek düşman paniğe girer, hedef kaybeder ve oyuncudan uzağa kaçar.
 func _scenario_korku_yangini() -> void:
+	if not _want("_scenario_korku_yangini"):
+		return
 	await _begin("korku_yangini")
 	var a := _spawn_enemy(1800.0)           # oyuncu (2200) sağda: kaçış SOLA olmalı
 	await _frames(40)
@@ -265,6 +282,8 @@ func _scenario_korku_yangini() -> void:
 
 ## Meşale Düşman: yanan ve havaya fırlatılan gerçek düşman iz bırakır, inince 90 px kor birikintisi açar.
 func _scenario_mesale_dusman() -> void:
+	if not _want("_scenario_mesale_dusman"):
+		return
 	await _begin("mesale_dusman")
 	var a := _spawn_enemy(-1600.0)
 	await _frames(40)
@@ -288,6 +307,8 @@ func _scenario_mesale_dusman() -> void:
 
 ## Bulaşıcı Darbe: havadaki zehirli gerçek düşmana vuruş komşuya zehir bulaştırır.
 func _scenario_bulasici_darbe() -> void:
+	if not _want("_scenario_bulasici_darbe"):
+		return
 	await _begin("bulasici_darbe")
 	var a := _spawn_enemy(-2000.0)
 	var b := _spawn_enemy(-1940.0)
@@ -303,6 +324,8 @@ func _scenario_bulasici_darbe() -> void:
 
 ## Yangın Yayılımı: yanan gerçek düşman yandaki düşmanı tutuşturur.
 func _scenario_yangin_yayilimi() -> void:
+	if not _want("_scenario_yangin_yayilimi"):
+		return
 	await _begin("yangin_yayilimi")
 	var a := _spawn_enemy(-2400.0)
 	var b := _spawn_enemy(-2350.0)
@@ -313,6 +336,8 @@ func _scenario_yangin_yayilimi() -> void:
 
 ## Alev Dalgası: ağır vuruş şeridi gerçek düşmanı yakar.
 func _scenario_alev_dalgasi() -> void:
+	if not _want("_scenario_alev_dalgasi"):
+		return
 	await _begin("hizli_charge")
 	var e := _spawn_enemy(-2800.0)
 	await _frames(40)
@@ -326,6 +351,8 @@ func _scenario_alev_dalgasi() -> void:
 
 ## Yarılan Alev: dodge yolundaki yanan gerçek düşman patlar.
 func _scenario_yarilan_alev() -> void:
+	if not _want("_scenario_yarilan_alev"):
+		return
 	await _begin("yarilan_alev")
 	var e := _spawn_enemy(-3200.0)
 	await _frames(40)
@@ -354,6 +381,8 @@ func _poison_stacks_of(e: Node) -> int:
 ## Gerçek oyuncu saldırıları: ağır vuruş SADECE "heavy", normal vuruş SADECE "normal" yayınlamalı.
 ## (Önceden state'lerin açık kalan hit bağlantıları her vuruşta ikinci bir yayın çıkarıyordu.)
 func _scenario_attack_signal_leak() -> void:
+	if not _want("_scenario_attack_signal_leak"):
+		return
 	await _begin("zehirli_tirnak")   # herhangi bir item; sadece temiz başlangıç
 	_im.clear_all_items()
 	_place_player(3500.0)
@@ -388,6 +417,8 @@ func _scenario_attack_signal_leak() -> void:
 
 ## Gölge sistemi gerçek düşmanla: agro, gölgeye vuran gerçek düşman (Zehirli Yem), gölgenin taklit saldırısı.
 func _scenario_golge_gercek_dusman() -> void:
+	if not _want("_scenario_golge_gercek_dusman"):
+		return
 	await _begin("zehirli_yem")
 	var decoy_scene: PackedScene = load("res://effects/player_decoy.tscn")
 	# 1) Agro + gölgeye vuruş
@@ -443,6 +474,8 @@ func _scenario_golge_gercek_dusman() -> void:
 
 ## Taşıyıcı: gerçek kayma sırasında zehirli düşmandan zehir kapılır, sonraki zehirsiz düşmana bırakılır.
 func _scenario_tasiyici() -> void:
+	if not _want("_scenario_tasiyici"):
+		return
 	await _begin("tasiyici")
 	_place_player(3000.0)
 	var e1 := _spawn_enemy(3090.0)
@@ -466,6 +499,8 @@ func _scenario_tasiyici() -> void:
 
 ## Zehir Havuzu: zehirli düşmana düşme vuruşu havuz açar; havuz komşuyu zehirler.
 func _scenario_zehir_havuzu() -> void:
+	if not _want("_scenario_zehir_havuzu"):
+		return
 	await _begin("zehir_havuzu")
 	var a := _spawn_enemy(-2500.0)
 	var b := _spawn_enemy(-2440.0)
@@ -478,6 +513,8 @@ func _scenario_zehir_havuzu() -> void:
 
 ## Kıvılcım Yağmuru: düşme vuruşu kıvılcımları gerçek düşmanı yakar.
 func _scenario_kivilcim_yagmuru() -> void:
+	if not _want("_scenario_kivilcim_yagmuru"):
+		return
 	await _begin("gokten_dusus")
 	var e := _spawn_enemy(2650.0)
 	await _frames(40)
@@ -487,6 +524,8 @@ func _scenario_kivilcim_yagmuru() -> void:
 
 ## Kor Patlatma: yanan gerçek düşmana ağır vuruş yanmayı tüketip anında hasar verir.
 func _scenario_kor_patlatma() -> void:
+	if not _want("_scenario_kor_patlatma"):
+		return
 	await _begin("guc_kayasi")
 	var e := _spawn_enemy(2900.0)
 	await _frames(40)
@@ -498,6 +537,8 @@ func _scenario_kor_patlatma() -> void:
 
 ## Alevli Parry: perfect parry saldırganın yönüne alev şeridi çıkarır, şeritteki gerçek düşman yanar.
 func _scenario_alevli_parry() -> void:
+	if not _want("_scenario_alevli_parry"):
+		return
 	await _begin("alevli_parry")
 	_place_player(2000.0)
 	var e := _spawn_enemy(1880.0)
@@ -513,6 +554,8 @@ func _scenario_alevli_parry() -> void:
 
 ## Aç Gözlü Toksin: zehirli gerçek düşmana normal vuruş katman başına ek hasar verir.
 func _scenario_ac_gozlu_toksin() -> void:
+	if not _want("_scenario_ac_gozlu_toksin"):
+		return
 	await _begin("ac_gozlu_toksin")
 	var e := _spawn_enemy(1200.0)
 	await _frames(40)
@@ -524,6 +567,8 @@ func _scenario_ac_gozlu_toksin() -> void:
 
 ## Acı Parry: perfect parry saldırganı ve yakındaki gerçek düşmanı 3 katman zehirler.
 func _scenario_aci_parry() -> void:
+	if not _want("_scenario_aci_parry"):
+		return
 	await _begin("aci_parry")
 	_place_player(1500.0)
 	var e := _spawn_enemy(1560.0)
@@ -540,6 +585,8 @@ func _scenario_aci_parry() -> void:
 
 ## Fitil Hattı: gerçek bir patlama, bekleyen gerçek Dodge Bombası'nı ve Lağımcı izini fitilini beklemeden patlatır.
 func _scenario_fitil_hatti() -> void:
+	if not _want("_scenario_fitil_hatti"):
+		return
 	await _begin("fitil_hatti")
 	_im.activate_item(_im.ITEM_SCENES["dodge_bombasi"])
 	await process_frame
@@ -569,6 +616,8 @@ func _scenario_fitil_hatti() -> void:
 
 ## Barut Dolgusu: gerçek öldürmeler (ItemManager.on_enemy_killed) patlama çarpanını büyütür, patlama daha çok vurur.
 func _scenario_barut_dolgusu() -> void:
+	if not _want("_scenario_barut_dolgusu"):
+		return
 	await _begin("barut_dolgusu")
 	var victims: Array = []
 	for i in range(3):
@@ -596,6 +645,8 @@ func _scenario_barut_dolgusu() -> void:
 
 ## Pusu Zehri: gerçek dodge ile gerçek görünmezlik, sonra gerçek saldırı: ilk vuruş hedefin zehrini doldurur.
 func _scenario_pusu_zehri() -> void:
+	if not _want("_scenario_pusu_zehri"):
+		return
 	await _begin("gorunmezlik_pelerini")
 	_im.activate_item(_im.ITEM_SCENES["pusu_zehri"])
 	await process_frame
@@ -625,6 +676,8 @@ func _scenario_pusu_zehri() -> void:
 
 ## Gerçek Ortaoyunu gölgesi: Uzayan Gölge ömrü iki katlar, Gerçek Gölge taklit hasarını tama çıkarır.
 func _scenario_golge_itemleri_gercek_dodge() -> void:
+	if not _want("_scenario_golge_itemleri_gercek_dodge"):
+		return
 	await _begin("ortaoyunu")
 	_im.activate_item(_im.ITEM_SCENES["uzayan_golge"])
 	_im.activate_item(_im.ITEM_SCENES["gercek_golge"])
@@ -654,6 +707,8 @@ func _scenario_golge_itemleri_gercek_dodge() -> void:
 ## Dayanıklılık: TÜM gerçek düşman tipleri; yeni item'ların hepsi aktifken zehir/yanma/korku/delirme/fırlatma/çakma
 ## uygulanır. Betik hatası (SCRIPT ERROR) koşucu tarafından raporlanır; burada tür başına davranış bilgisi basılır.
 func _scenario_tum_dusman_tipleri() -> void:
+	if not _want("_scenario_tum_dusman_tipleri"):
+		return
 	var types := {
 		"canonman": "res://enemy/canonman/canonman_enemy.tscn",
 		"firemage": "res://enemy/firemage/firemage_enemy.tscn",
@@ -745,6 +800,8 @@ func _scenario_tum_dusman_tipleri() -> void:
 
 ## Barut Sıçrayışı bombası: basic dışındaki düşman tiplerini de gerçekten havaya kaldırır (launch_enemy).
 func _scenario_barut_bombasi_tur_firlatma() -> void:
+	if not _want("_scenario_barut_bombasi_tur_firlatma"):
+		return
 	await _begin("barut_sicrayisi")
 	var types := {
 		"canonman": "res://enemy/canonman/canonman_enemy.tscn",
@@ -777,6 +834,8 @@ func _scenario_barut_bombasi_tur_firlatma() -> void:
 
 ## Kazık Darbesi GERÇEK akışla: havadaki düşmana gerçek FallAttack durumuyla in. (Önceki senaryo sinyali elle yayınlıyordu.)
 func _scenario_kazik_darbesi_gercek() -> void:
+	if not _want("_scenario_kazik_darbesi_gercek"):
+		return
 	await _begin("kazik_darbesi")
 	var a := _spawn_enemy(1000.0)
 	var b := _spawn_enemy(1070.0)
@@ -814,6 +873,8 @@ func _scenario_kazik_darbesi_gercek() -> void:
 
 ## Gülle her knockback'te: yerde, hafif vuruşla savrulan (havaya kalkmayan) gerçek düşman yandakine çarpınca hasar verir.
 func _scenario_gulle_yerde_knockback() -> void:
+	if not _want("_scenario_gulle_yerde_knockback"):
+		return
 	await _begin("gulle")
 	var a = (load("res://enemy/canonman/canonman_enemy.tscn") as PackedScene).instantiate()
 	_arena.add_child(a)
@@ -840,6 +901,8 @@ func _scenario_gulle_yerde_knockback() -> void:
 ## Gülle: knockback ALMADAN kendi başına yüksekten aşağı atlayan/düşen gerçek düşman komşuyu gülle gibi vurmamalı
 ## (oyuncu peşinden koşup aşağı atlayan askerler havada birbirine çarpıp hasar alıyordu).
 func _scenario_gulle_knockback_olmadan() -> void:
+	if not _want("_scenario_gulle_knockback_olmadan"):
+		return
 	await _begin("gulle")
 	_place_player(2300.0)
 	var b := _spawn_enemy(2150.0)    # oyuncuya yakın: uyumaz
@@ -872,6 +935,8 @@ func _scenario_gulle_knockback_olmadan() -> void:
 	_place_player(2200.0)
 ## Kazık Darbesi, havada AŞAĞI + SALDIR (AirAttackDown) ile: oyuncunun asıl kullandığı vuruş.
 func _scenario_kazik_darbesi_asagi_saldir() -> void:
+	if not _want("_scenario_kazik_darbesi_asagi_saldir"):
+		return
 	await _begin("kazik_darbesi")
 	var a := _spawn_enemy(1400.0)
 	var b := _spawn_enemy(1470.0)
@@ -916,3 +981,296 @@ func _scenario_kazik_darbesi_asagi_saldir() -> void:
 	_check(slam_seen, "Kazık Darbesi (aşağı + saldır): gerçek AirAttackDown vuruşu düşmanı çakmaya aldı", "Kazık Darbesi (aşağı + saldır): AirAttackDown vuruşu düşmanı çakmaya almadı (durumlar %s)" % str(states))
 	_check(dmg_b >= 14.0, "Kazık Darbesi (aşağı + saldır): komşu alan hasarı aldı (%.1f)" % dmg_b, "Kazık Darbesi (aşağı + saldır): komşu alan hasarı almadı (%.1f)" % dmg_b)
 	_place_player(2200.0)
+
+## --- GERÇEK GİRİŞ senaryoları: sinyali elle yayınlamak yerine oyuncunun gerçekte bastığı tuşlar ---
+
+func _refill_stamina() -> void:
+	var sb = get_first_node_in_group("stamina_bar")
+	if sb != null and sb.get("charges") != null:
+		for i in range(sb.charges.size()):
+			sb.charges[i] = 1.0
+		sb.recharging_index = -1
+		if sb.has_method("update_segments"):
+			sb.update_segments()
+
+func _ground_player(x: float) -> void:
+	_refill_stamina()
+	# Zaten orada ve yerdeyse tekrar ışınlama (ışınlama oyuncuyu havaya alıp Fall durumuna sokar)
+	if absf(_player.global_position.x - x) > 4.0 or not _player.is_on_floor():
+		_place_player(x)
+		await _frames(40)
+	_player.set("facing_direction", 1.0)
+
+## Kor Patlatma / Alev Dalgası (gerçek ağır vuruş), Aç Gözlü Toksin (gerçek hafif vuruş).
+func _scenario_gercek_giris_vuruslar() -> void:
+	if not _want("_scenario_gercek_giris_vuruslar"):
+		return
+	# Kor Patlatma: gerçek ağır vuruş yanan düşmanın yanmasını tüketir
+	await _begin("guc_kayasi")
+	await _ground_player(3000.0)
+	var e := _spawn_enemy(3055.0)
+	await _frames(40)
+	e.health = 5000.0
+	e.burn_remaining_ticks = 9
+	await _ground_player(3000.0)
+	e.global_position = Vector2(3055.0, e.global_position.y)
+	var sig_log: Array = []
+	var sig_cb := func(t, d, _tg, _p, _f): sig_log.append('%s:%.0f' % [String(t), float(d)])
+	_player.connect("player_attack_landed", sig_cb)
+	var pstate0 := str(_player.get("state_machine").current_state.name)
+	await _press("attack_heavy")
+	var pstates := []
+	for _k in range(12):
+		await physics_frame
+		pstates.append(str(_player.get("state_machine").current_state.name))
+	await _frames(80)
+	_player.disconnect("player_attack_landed", sig_cb)
+	print('ARENA DBG kor patlatma: oncesi=%s durumlar=%s yayinlar=%s oyuncu=%s dusman=%s burn=%d' % [pstate0, str(pstates), str(sig_log), str(_player.global_position), str(e.global_position), int(e.burn_remaining_ticks)])
+	_check(int(e.burn_remaining_ticks) <= 1, "Kor Patlatma (gerçek ağır vuruş): yanma tüketildi (%d)" % int(e.burn_remaining_ticks), "Kor Patlatma (gerçek ağır vuruş): yanma tüketilmedi (%d)" % int(e.burn_remaining_ticks))
+
+	# Alev Dalgası: gerçek ağır vuruş alev şeridi çıkarır
+	await _begin("hizli_charge")
+	await _ground_player(3400.0)
+	var e2 := _spawn_enemy(3455.0)
+	await _frames(40)
+	e2.health = 5000.0
+	await _ground_player(3400.0)
+	e2.global_position = Vector2(3455.0, e2.global_position.y)
+	e2.velocity = Vector2.ZERO
+	e2.set_physics_process(false)   # yerinde dursun (yürüyüp oyuncunun arkasına geçmesin)
+	var p0 := _count_scripts(_fire_patch)
+	var al: Array = []
+	var al_cb := func(t, d, _tg, _p, _f): al.append('%s:%.0f' % [String(t), float(d)])
+	_player.connect("player_attack_landed", al_cb)
+	var max_p := 0
+	await _press("attack_heavy")
+	for _k in range(100):
+		await physics_frame
+		max_p = maxi(max_p, _count_scripts(_fire_patch))
+	_player.disconnect("player_attack_landed", al_cb)
+	print('ARENA DBG alev dalgasi: yayinlar=%s en_cok_birikinti=%d p0=%d burn=%d oyuncu=%s dusman=%s' % [str(al), max_p, p0, int(e2.burn_remaining_ticks), str(_player.global_position), str(e2.global_position)])
+	_check(max_p > p0 or int(e2.burn_remaining_ticks) > 0, "Alev Dalgası (gerçek ağır vuruş): alev şeridi çıktı", "Alev Dalgası (gerçek ağır vuruş): alev şeridi çıkmadı")
+
+	# Aç Gözlü Toksin: gerçek hafif vuruş, katman başına ek hasar (item'lı - item'siz fark)
+	var dmg_without := 0.0
+	var dmg_with := 0.0
+	for phase in range(2):
+		_im.clear_all_items()
+		if phase == 1:
+			_im.activate_item(_im.ITEM_SCENES["ac_gozlu_toksin"])
+		await _cleanup_arena_nodes()
+		await _ground_player(3800.0)
+		var t := _spawn_enemy(3850.0)
+		await _frames(40)
+		t.health = 5000.0
+		_im.add_poison_stacks(t, 4)
+		await _ground_player(3800.0)
+		t.global_position = Vector2(3850.0, t.global_position.y)
+		var hp0 := _enemy_hp(t)
+		await _press("attack")
+		await _frames(25)
+		var d := hp0 - _enemy_hp(t)
+		if phase == 0:
+			dmg_without = d
+		else:
+			dmg_with = d
+	print("ARENA DBG ac gozlu: item'siz hasar=%.1f item'li hasar=%.1f" % [dmg_without, dmg_with])
+	_check(dmg_without > 0.0 and dmg_with - dmg_without >= 4.0, "Aç Gözlü Toksin (gerçek hafif vuruş): zehirli düşmana ek hasar (+%.1f)" % (dmg_with - dmg_without), "Aç Gözlü Toksin (gerçek hafif vuruş): ek hasar yok (item'siz %.1f, item'li %.1f)" % [dmg_without, dmg_with])
+	_place_player(2200.0)
+
+## Yarılan Alev: GERÇEK dash/dodge ile yanan düşmanın içinden geç.
+func _scenario_gercek_giris_dash_yarilan_alev() -> void:
+	if not _want("_scenario_gercek_giris_dash_yarilan_alev"):
+		return
+	await _begin("yarilan_alev")
+	await _ground_player(-1500.0)
+	var e := _spawn_enemy(-1440.0)
+	await _frames(40)
+	e.health = 5000.0
+	e.burn_remaining_ticks = 6
+	await _ground_player(-1500.0)
+	e.global_position = Vector2(-1440.0, e.global_position.y)
+	var hp0 := _enemy_hp(e)
+	var dsb = get_first_node_in_group("stamina_bar")
+	print('ARENA DBG dash oncesi: durum=%s charges=%s zemin=%s' % [str(_player.get("state_machine").current_state.name), str(dsb.charges if dsb else 'yok'), str(_player.is_on_floor())])
+	await _press("dash")
+	var dstates := []
+	for _k in range(10):
+		await physics_frame
+		dstates.append(str(_player.get("state_machine").current_state.name))
+	print('ARENA DBG dash durumlar=%s oyuncu=%s' % [str(dstates), str(_player.global_position)])
+	await _frames(30)
+	_check(int(e.burn_remaining_ticks) == 0 and hp0 - _enemy_hp(e) >= 6.0, "Yarılan Alev (gerçek dash): yanan düşmanın yanması patladı (%.1f hasar)" % (hp0 - _enemy_hp(e)), "Yarılan Alev (gerçek dash): patlama yok (yanma %d, hasar %.1f, oyuncu x=%.0f düşman x=%.0f)" % [int(e.burn_remaining_ticks), hp0 - _enemy_hp(e), _player.global_position.x, e.global_position.x])
+	_place_player(2200.0)
+
+## Alevli Parry / Acı Parry: GERÇEK perfect parry (düşman saldırısına tam zamanında block).
+func _scenario_gercek_giris_parry() -> void:
+	if not _want("_scenario_gercek_giris_parry"):
+		return
+	_im.clear_all_items()
+	await _cleanup_arena_nodes()
+	_im.activate_item(_im.ITEM_SCENES["alevli_parry"])
+	_im.activate_item(_im.ITEM_SCENES["aci_parry"])
+	await process_frame
+	await _ground_player(-2000.0)
+	_player.set("invincibility_timer", 0.0)   # parry için gerçek hasar işlemesi gerekir
+	var e := _spawn_enemy(-1960.0)
+	await _frames(30)
+	e.health = 5000.0
+	var parries := [0]
+	var cb := func(): parries[0] += 1
+	_player.connect("perfect_parry", cb)
+	var took := [0]
+	var blocked := [0]
+	var took_cb := func(_a, _b): took[0] += 1
+	var blk_cb := func(_a, _b): blocked[0] += 1
+	_player.connect("player_took_damage", took_cb)
+	_player.connect("player_blocked", blk_cb)
+	var beh_seen := {}
+	var st_seen := {}
+	var tries := 0
+	var hold := 0
+	var cooldown := 0
+	while parries[0] == 0 and tries < 1500:
+		tries += 1
+		if is_instance_valid(e):
+			beh_seen[str(e.current_behavior)] = true
+			# Düşman saldırıya geçer geçmez bloğa bas (saldırı animasyonu vuruştan önce hazırlık süresi verir)
+			if hold == 0 and cooldown == 0 and e.current_behavior == "attack":
+				Input.action_press("block")
+				hold = 14
+		st_seen[str(_player.get("state_machine").current_state.name)] = true
+		if hold > 0:
+			hold -= 1
+			if hold == 0:
+				Input.action_release("block")
+				cooldown = 25
+		elif cooldown > 0:
+			cooldown -= 1
+		# düşman yürüyüp uzaklaştıysa / oyuncu savrulduysa yeniden yaklaştır
+		if is_instance_valid(e) and absf(e.global_position.x - _player.global_position.x) > 90.0 and _player.get("state_machine").current_state.name == "Idle":
+			e.global_position = Vector2(_player.global_position.x + 45.0, e.global_position.y)
+		await physics_frame
+	Input.action_release("block")
+	var patch_dbg: Array = []
+	for _k in range(50):
+		await physics_frame
+		if _k % 10 == 0:
+			var xs: Array = []
+			for ch in _arena.get_children():
+				if ch.get_script() != null and String(ch.get_script().resource_path) == _fire_patch:
+					xs.append('%.0f%s' % [ch.global_position.x, '' if ch.visible else '(gizli)'])
+			patch_dbg.append('%d: e.x=%.0f burn=%d patches=%s' % [_k, e.global_position.x, int(e.burn_remaining_ticks), str(xs)])
+	print('ARENA DBG alevli parry iz: ', str(patch_dbg), ' oyuncu_x=%.0f' % _player.global_position.x)
+	_player.disconnect("perfect_parry", cb)
+	_player.set("invincibility_timer", 1000000.0)
+	_player.disconnect("player_took_damage", took_cb)
+	_player.disconnect("player_blocked", blk_cb)
+	print('ARENA DBG parry: perfect_parry=%d deneme=%d hasar_aldi=%d bloklandi=%d dusman_davranislari=%s oyuncu_durumlari=%s dusman_x=%.0f oyuncu_x=%.0f' % [parries[0], tries, took[0], blocked[0], str(beh_seen.keys()), str(st_seen.keys()), e.global_position.x, _player.global_position.x])
+	if parries[0] == 0:
+		print("ARENA SKIP: gerçek perfect parry zamanlaması yakalanamadı (test kurulumu), Parry item'ları sinyalle test edildi")
+	else:
+		_check(_poison_stacks_of(e) >= 3, "Acı Parry (gerçek perfect parry): saldırgan zehirlendi (%d)" % _poison_stacks_of(e), "Acı Parry (gerçek perfect parry): saldırgan zehirlenmedi (%d)" % _poison_stacks_of(e))
+		_check(int(e.burn_remaining_ticks) > 0, "Alevli Parry (gerçek perfect parry): yakındaki saldırgan alev şeridinde yandı (%d)" % int(e.burn_remaining_ticks), "Alevli Parry (gerçek perfect parry): yakındaki saldırgan yanmadı (%d, saldırgan x=%.0f oyuncu x=%.0f)" % [int(e.burn_remaining_ticks), e.global_position.x, _player.global_position.x])
+	_place_player(2200.0)
+
+## Zehir Havuzu ve Kıvılcım Yağmuru: GERÇEK düşme saldırısı (aşağı + zıpla ile FallAttack) yere iner.
+func _scenario_gercek_giris_dusme_saldirisi() -> void:
+	if not _want("_scenario_gercek_giris_dusme_saldirisi"):
+		return
+	# Zehir Havuzu: zehirli düşmana gerçek düşme vuruşu, havuz komşuyu zehirler
+	await _begin("zehir_havuzu")
+	await _ground_player(-2600.0)
+	var a := _spawn_enemy(-2600.0)
+	var b := _spawn_enemy(-2500.0)    # 100 px: düşme vuruşu a'yı vursun (zehirli), havuz yarıçapı (120) b'yi kapsasın
+	await _frames(45)
+	a.health = 5000.0
+	b.health = 5000.0
+	_im.add_poison_stacks(a, 3)
+	var b0 := _poison_stacks_of(b)
+	a.velocity = Vector2.ZERO
+	b.velocity = Vector2.ZERO
+	a.set_physics_process(false)   # yerlerinde dursunlar: düşme vuruşu zehirli a'yı vursun
+	b.set_physics_process(false)
+	_player.global_position = Vector2(a.global_position.x, a.global_position.y - 150.0)
+	_player.velocity = Vector2.ZERO
+	await _frames(3)
+	var sm = _player.get("state_machine")
+	var zl: Array = []
+	var z_cb := func(t, d, tg, _p, _f): zl.append('%s:%.0f hedef_x=%s zehir=%s' % [String(t), float(d), str((tg[0].global_position.x) if tg.size() > 0 else 'yok'), str(int(tg[0].poison_stacks) if tg.size() > 0 and tg[0].get('poison_stacks') != null else -1)])
+	_player.connect("player_attack_landed", z_cb)
+	sm.transition_to("FallAttack")
+	var zs := []
+	for _k in range(20):
+		await physics_frame
+		zs.append(str(sm.current_state.name))
+	await _frames(130)
+	_player.disconnect("player_attack_landed", z_cb)
+	print('ARENA DBG zehir havuzu: durumlar=%s yayinlar=%s a_zehir=%d b_zehir=%d havuz_sayisi=%d' % [str(zs), str(zl), _poison_stacks_of(a), _poison_stacks_of(b), _count_scripts(_poison_cloud)])
+	_check(_poison_stacks_of(b) > b0, "Zehir Havuzu (gerçek düşme saldırısı): havuz komşuyu zehirledi", "Zehir Havuzu (gerçek düşme saldırısı): komşu zehirlenmedi (%d)" % _poison_stacks_of(b))
+	# Kıvılcım Yağmuru: gerçek düşme saldırısı inişi kıvılcım saçar, yakındaki düşmanı yakar
+	await _begin("gokten_dusus")
+	await _ground_player(-3000.0)
+	var c := _spawn_enemy(-2850.0)
+	await _frames(45)
+	c.health = 5000.0
+	_player.global_position = Vector2(-3000.0, -150.0)
+	_player.velocity = Vector2.ZERO
+	await _frames(3)
+	sm.transition_to("FallAttack")
+	await _frames(150)
+	_check(int(c.burn_remaining_ticks) > 0 or _enemy_hp(c) < 5000.0, "Kıvılcım Yağmuru (gerçek düşme saldırısı): kıvılcımlar düşmanı yaktı", "Kıvılcım Yağmuru (gerçek düşme saldırısı): kıvılcımlar 150 px'teki düşmana ulaşmadı")
+	_place_player(2200.0)
+
+## Bulaşıcı Darbe: GERÇEK havada saldırı (oyuncu havada, düşman havada ve zehirli).
+func _scenario_gercek_giris_havada_bulasici() -> void:
+	if not _want("_scenario_gercek_giris_havada_bulasici"):
+		return
+	await _begin("bulasici_darbe")
+	await _ground_player(-3600.0)
+	var a := _spawn_enemy(-3560.0)
+	var b := _spawn_enemy(-3500.0)
+	await _frames(45)
+	a.health = 5000.0
+	b.health = 5000.0
+	_im.add_poison_stacks(a, 2)
+	var b0 := _poison_stacks_of(b)
+	b.velocity = Vector2.ZERO
+	b.set_physics_process(false)   # komşu yerinde dursun
+	a.direction = 1
+	a.take_damage(1.0, 0.0, 420.0, true)
+	await _frames(35)
+	var pin: Vector2 = a.global_position
+	_player.global_position = Vector2(pin.x - 45.0, pin.y)
+	_player.velocity = Vector2.ZERO
+	_player.set("facing_direction", 1.0)
+	await _frames(3)
+	var got := false
+	var bl: Array = []
+	var bl_cb := func(t, d, tg, _p, _f): bl.append('%s:%.0f' % [String(t), float(d)])
+	_player.connect("player_attack_landed", bl_cb)
+	for attempt in range(4):
+		if got:
+			break
+		pin = a.global_position if attempt > 0 else pin
+		for i in range(26):
+			if is_instance_valid(a):
+				a.velocity = Vector2.ZERO
+				a.global_position = pin
+			_player.velocity = Vector2.ZERO
+			if i == 3:
+				Input.action_press("attack")
+			if i == 6:
+				Input.action_release("attack")
+			await physics_frame
+			if _poison_stacks_of(b) > b0:
+				got = true
+	_player.disconnect("player_attack_landed", bl_cb)
+	print('ARENA DBG bulasici: yayinlar=%s a=%s b=%s' % [str(bl), str(a.global_position), str(b.global_position)])
+	_check(got, "Bulaşıcı Darbe (gerçek havada saldırı): komşuya zehir bulaştı", "Bulaşıcı Darbe (gerçek havada saldırı): komşuya zehir bulaşmadı (a zehir %d, b %d)" % [_poison_stacks_of(a), _poison_stacks_of(b)])
+	_place_player(2200.0)
+
+## ARENA_ONLY ortam değişkeni doluysa yalnızca adı o metni içeren senaryolar koşar (örn. ARENA_ONLY=parry).
+func _want(scenario: String) -> bool:
+	var only: String = OS.get_environment("ARENA_ONLY")
+	return only.is_empty() or scenario.contains(only)

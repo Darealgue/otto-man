@@ -248,6 +248,16 @@ Godot console exe yolu ve komutlar `CLAUDE.md` "Verification discipline" bölüm
    **Gerçekten knockback almış düşmanı** tanımak için `enemy.last_knockback_msec` (base_enemy.take_damage,
    apply_knockback=true) kullan; "hızlı mı, havada mı" diye tahmin etme (kendi başına zıplayan/koşan düşman
    karışır, Gülle'de yaşandı).
+4a2. **Arena testinde GERÇEK GİRİŞ kullan** (`Input.action_press`: attack, attack_heavy, dash, block, down;
+   düşme saldırısı için `state_machine.transition_to("FallAttack")` + oyuncu gerçekten havada olmalı). Sinyali
+   elle yayınlamak "item doğru sinyali dinliyor mu"yu ölçmez. Kurulum tuzakları: oyuncuyu ışınlamak
+   `is_on_floor()`'u bayat bırakır (dodge/düşme saldırısı yerde olmayı ister; ışınlayıp ~40 kare bekle);
+   dash stamina harcar (`_refill_stamina`); gerçek düşman yürüyüp araya girer/uzaklaşır (testin
+   hedefini şansa bırakma: `set_physics_process(false)` ile dondur); uyuyan düşmanın fiziği çalışmaz
+   (oyuncuya yakın tut). `ARENA_ONLY=<ad parçası>` ortam değişkeniyle tek senaryo koşar. Gerçek perfect
+   parry için düşman `attack` davranışına geçer geçmez `block`'a bas. Efekt şekilleri: yakın dövüşte hedef
+   oyuncunun dibindedir (alev şeridi oyuncudan başlamalı), juggle'daki düşmanın komşuları altta/yerdedir
+   (daire yerine yatay mesafe), ve alan efektleri DEĞDİĞİ ANDA uygulanmalı (parry düşmanı hemen savurur).
 4b. **Arena testi (gerçek düşmanlarla):** `powershell -File tools/run_item_arena_test.ps1` → `ARENA OK` beklenir.
    `tools/item_arena_test.gd` gerçek `basic_enemy.tscn` düşmanlarını gerçek zemin/duvar fiziğinde koşturur;
    fizik ve yapay zekaya dayanan item'ları (fırlatma, duvar çarpması, çakma, korku, delirme, düşme bombası,
