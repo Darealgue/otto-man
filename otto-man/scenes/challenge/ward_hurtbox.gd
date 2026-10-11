@@ -8,6 +8,8 @@ extends BaseHurtbox
 
 ## Aynı saldırı kutusunun art arda vurmaması için (BaseHurtbox varsayılanı 0.1 sn çok kısa).
 const HIT_COOLDOWN: float = 0.7
+## Korunan köylü düşman vuruşunun yarısını yer (koruma arenası çok zordu).
+const WARD_DAMAGE_TAKEN_MULT: float = 0.5
 
 var ward: Node = null
 
@@ -32,5 +34,5 @@ func _on_area_entered(hitbox: Area2D) -> void:
 	store_hit_data(hitbox)
 	start_cooldown(hitbox, HIT_COOLDOWN)
 	if is_instance_valid(ward) and ward.has_method("take_damage"):
-		ward.take_damage(hitbox.get_damage())
+		ward.take_damage(hitbox.get_damage() * WARD_DAMAGE_TAKEN_MULT)
 	hurt.emit(hitbox)

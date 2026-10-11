@@ -81,6 +81,15 @@ func _build_hurtbox() -> void:
 	add_child(_hurtbox)
 
 
+## Dalga arası nefes: canı tam doldurur (ölü köylü dirilmez).
+func heal_full() -> void:
+	if is_dead:
+		return
+	health = max_health
+	health_changed.emit(self, health, max_health)
+	queue_redraw()
+
+
 ## Kurtarma ödülü için köylünün görünümü ve adı (DungeonRunState.add_pending_villager_data biçimi).
 func rescue_data() -> Dictionary:
 	var app = _worker.get("appearance") if is_instance_valid(_worker) else null
