@@ -19,9 +19,10 @@ const ENEMY_SCENES: Dictionary = {
 	"summoner": "res://enemy/summoner/summoner_enemy.tscn",
 	"hunter": "res://enemy/hunter/hunter_enemy.tscn",
 }
-const SPAWN_INTERVAL: float = 0.9
+const SPAWN_INTERVAL: float = 1.5
 ## Aynı anda sahnede en fazla bu kadar canlı düşman (fazlası sıraya girer).
-const MAX_ALIVE: int = 9
+# Kolaylaştırma: eskiden 9 (ekranda 9-10 düşman, 3'ü elit) fazla zordu; sırayla karşılanır.
+const MAX_ALIVE: int = 5
 const ENEMY_Z_INDEX: int = 4
 ## Arena ~1800 px genişliğinde; tespit/takip menzili hepsini kapsar
 const ARENA_DETECTION_RANGE: float = 3000.0
@@ -82,9 +83,10 @@ static func _elite_pool(power: int, allow_hunter: bool = true) -> Array[String]:
 ## allow_hunter: avcı sabit zemin ister (gezinme haritası çıkarır); hareketli asansörde kapalıdır.
 static func plan_wave(wave: int, diff: int, allow_hunter: bool = true) -> Array[String]:
 	var power: int = wave + diff
-	var count: int = 3 + wave + diff / 2
-	var elites: int = 0 if power < 3 else clampi((power + 1) / 4, 1, 3)
-	var basics: int = maxi(2 * elites + 3, count - elites)
+	# Kolaylaştırıldı: toplam sayı daha yavaş artar, en çok 2 elit (eskiden 3), basic dolgusu daha az.
+	var count: int = 3 + wave + diff / 3
+	var elites: int = 0 if power < 4 else clampi((power + 2) / 5, 1, 2)
+	var basics: int = maxi(elites + 2, count - elites)
 	var out: Array[String] = []
 	var pool: Array[String] = _elite_pool(power, allow_hunter)
 	var chargers: int = 0

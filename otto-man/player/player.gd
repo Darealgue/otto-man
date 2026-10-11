@@ -1301,6 +1301,18 @@ func wall_jump():
 	# Enable double jump after wall jump
 	enable_double_jump()
 
+## TEŞHİS: düşman vuruşu oyuncuya ulaşıp hasar uygulanamadığında nedenini log'a yazar (saniyede en çok 1 satır).
+## "Düşmanlar bana hasar vuramıyor" şikayetinde godot.log içinde `[DMGDIAG]` satırlarını arayın.
+var _dmgdiag_last_msec: int = 0
+func _dmg_diag(reason: String) -> void:
+	var now: int = Time.get_ticks_msec()
+	if now - _dmgdiag_last_msec < 1000:
+		return
+	_dmgdiag_last_msec = now
+	var st: String = String(state_machine.current_state.name) if state_machine and state_machine.current_state else "?"
+	print("[DMGDIAG] hasar uygulanmadi: %s | durum=%s hurtbox.monitoring=%s hurtbox.monitorable=%s" % [reason, st, str(hurtbox.monitoring) if hurtbox else "?", str(hurtbox.monitorable) if hurtbox else "?"])
+
+
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# Kalkan Küresi balonu hasarı halletti mi? (PlayerHurtbox try_bubble_guard ile işaretler).
 	# Erken return'lerde bayrak asılı kalmasın diye en başta okunup sıfırlanır.
@@ -1308,6 +1320,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	_bubble_guard_hit = false
 	# Check if player is invincible
 	if invincibility_timer > 0:
+		_dmg_diag("invincibility_timer=%.2f" % invincibility_timer)
 		return
 	if hitbox is EnemyHitbox:
 		if hitbox.has_method("is_enabled") and not hitbox.is_enabled():
@@ -1337,6 +1350,7 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	var health_after: float = PlayerStats.get_current_health()
 	var took_damage: bool = health_after < health_before - 0.001
 	if not took_damage:
+		_dmg_diag("emildi/engellendi incoming=%.1f guard_shield=%.1f element_shield=%.1f incoming_mult=%.2f nazar=%s bubble=%s" % [incoming_damage, guard_shield, element_shield, incoming_damage_multiplier, str(nazar_shield_active), str(bubble_handled)])
 		return
 
 	# Only transition to hurt state if not blocking

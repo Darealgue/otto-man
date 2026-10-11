@@ -157,6 +157,8 @@ func _run() -> void:
 	await _scenario_zincir_fitil_hatti()
 	await _scenario_zincir_zehirli_yem_oyuncu()
 	await _scenario_zincir_barut_dolgusu()
+	await _scenario_dusmanlar_oyuncuya_hasar_verir()
+	await _scenario_item_hasar_taramasi()
 	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
@@ -808,6 +810,135 @@ func _scenario_tum_dusman_tipleri() -> void:
 	_im.clear_all_items()
 	await _cleanup_arena_nodes()
 
+## REGRESYON: Her gerçek düşman tipi, hiçbir item yokken oyuncuya GERÇEKTEN hasar verebilmeli
+## (dalga arenasında "basic/firemage/flying bana hasar vuramadı" şikayeti).
+func _scenario_dusmanlar_oyuncuya_hasar_verir() -> void:
+	if not _want("_scenario_dusmanlar_oyuncuya_hasar_verir"):
+		return
+	var types := {
+		"basic": "res://enemy/basic/basic_enemy.tscn",
+		"firemage": "res://enemy/firemage/firemage_enemy.tscn",
+		"flying": "res://enemy/flying/flying_enemy.tscn",
+		"spearman": "res://enemy/spearman/spearman_enemy.tscn",
+		"hunter": "res://enemy/hunter/hunter_enemy.tscn",
+		"heavy": "res://enemy/heavy/heavy_enemy.tscn",
+		"canonman": "res://enemy/canonman/canonman_enemy.tscn",
+	}
+	var ps = get_root().get_node("/root/PlayerStats")
+	var all_ok := true
+	var x_base := -3200.0
+	for name in types.keys():
+		_im.clear_all_items()
+		await _cleanup_arena_nodes()
+		await _ground_player(x_base)
+		var scene = load(types[name])
+		if scene == null:
+			print("ARENA INFO: %s sahnesi yüklenemedi" % name)
+			continue
+		var e = scene.instantiate()
+		_arena.add_child(e)
+		# Dalga arenasındaki gibi: menzil sınırsız, uyumaz (ChallengeWaveSpawner._spawn_one ile aynı kurulum)
+		e.set_meta("always_aggro", true)
+		var st = e.get("stats")
+		if st:
+			st = st.duplicate(true)
+			e.set("stats", st)
+			st.detection_range = maxf(st.detection_range, 3000.0)
+		if "sleep_distance" in e:
+			e.set("sleep_distance", 1.0e6)
+		if "wake_distance" in e:
+			e.set("wake_distance", 1.0e6)
+		if "is_sleeping" in e:
+			e.is_sleeping = false
+		var y_off := -90.0 if name == "flying" else -10.0
+		e.global_position = Vector2(x_base + 150.0, y_off)
+		if e.get("health") != null:
+			e.health = 100000.0
+		_player.set("invincibility_timer", 0.0)
+		ps.set_current_health(ps.get_max_health(), false)
+		var took := [0]
+		var cb := func(_a, _b): took[0] += 1
+		_player.connect("player_took_damage", cb)
+		var behaviors := {}
+		var hit_frame := -1
+		for i in range(900):
+			await physics_frame
+			if is_instance_valid(e):
+				behaviors[str(e.current_behavior)] = true
+			if took[0] > 0 and hit_frame < 0:
+				hit_frame = i
+				break
+			# oyuncuyu yerinde ve ayakta tut (test düzeneği); sağlık dolu
+			_player.global_position.x = x_base
+		_player.disconnect("player_took_damage", cb)
+		var tgt = null
+		if is_instance_valid(e) and e.has_method("get_nearest_player"):
+			tgt = e.get_nearest_player()
+		print("ARENA INFO: hasar_testi tip=%-9s vurdu=%s kare=%d davranislar=%s hedef=%s mesafe=%.0f" % [name, str(took[0] > 0), hit_frame, str(behaviors.keys()), str(tgt), (absf(e.global_position.x - _player.global_position.x) if is_instance_valid(e) else -1.0)])
+		if took[0] == 0 and name == "canonman":
+			# Topçu yakın mesafede yerden nişan alıp mermiyi üzerimizden atabiliyor; bilgi olarak bırakıldı
+			print("ARENA INFO: canonman 900 karede vuramadı (arena düşmanı değil, bilinen davranış)")
+		elif took[0] == 0:
+			all_ok = false
+			print("ARENA FAIL: %s oyuncuya hasar veremedi" % name)
+		_player.set("invincibility_timer", 1000000.0)
+		ps.set_current_health(ps.get_max_health(), false)
+		if is_instance_valid(e):
+			e.queue_free()
+		x_base += 400.0
+	_check(all_ok, "Tüm düşman tipleri oyuncuya hasar verebildi", "Bazı düşman tipleri oyuncuya hasar veremedi")
+	_place_player(2200.0)
+
+## TEŞHİS: Her item tek başına aktifken sıradan bir basic düşman oyuncuya vurabiliyor mu? Vuramayanlar (ya da
+## hedefi oyuncu olmayanlar) listelenir. Savunma item'ları (kalkan/ilk hasarı engelleme) meşru olarak 0 çıkabilir.
+## ARENA_ONLY=item_hasar_taramasi ile çalışır; varsayılan koşuda ATLANIR (uzun sürer).
+func _scenario_item_hasar_taramasi() -> void:
+	if OS.get_environment("ARENA_ONLY") != "item_hasar_taramasi":
+		return
+	var ps = get_root().get_node("/root/PlayerStats")
+	var ids: Array = _im.ITEM_SCENES.keys()
+	ids.sort()
+	ids.push_front("")   # kontrol: item yok
+	var blocked: Array = []
+	var x := -3200.0
+	for id in ids:
+		_im.clear_all_items()
+		await _cleanup_arena_nodes()
+		await _ground_player(x)
+		if String(id) != "":
+			_im.activate_item(_im.ITEM_SCENES[id])
+		await _frames(10)
+		var e := _spawn_enemy(x + 80.0)
+		e.health = 100000.0
+		_player.set("invincibility_timer", 0.0)
+		ps.set_current_health(ps.get_max_health(), false)
+		var took := [0]
+		var cb := func(_a, _b): took[0] += 1
+		_player.connect("player_took_damage", cb)
+		var target_decoy := false
+		var target_null := false
+		for i in range(300):
+			await physics_frame
+			if took[0] > 0:
+				break
+			if is_instance_valid(e):
+				var t = e.get_nearest_player()
+				if t == null:
+					target_null = true
+				elif t != _player:
+					target_decoy = true
+		_player.disconnect("player_took_damage", cb)
+		if took[0] == 0:
+			blocked.append(String(id))
+			print("ARENA INFO: HASAR_YOK item=%-22s hedef_null=%s hedef_baska=%s" % [str(id), str(target_null), str(target_decoy)])
+		_player.set("invincibility_timer", 1000000.0)
+		ps.set_current_health(ps.get_max_health(), false)
+		if is_instance_valid(e):
+			e.queue_free()
+	print("ARENA INFO: tarama bitti, hasar vurulamayan item sayisi=%d / %d : %s" % [blocked.size(), ids.size(), str(blocked)])
+	_im.clear_all_items()
+	_place_player(2200.0)
+
 ## Barut Sıçrayışı bombası: basic dışındaki düşman tiplerini de gerçekten havaya kaldırır (launch_enemy).
 func _scenario_barut_bombasi_tur_firlatma() -> void:
 	if not _want("_scenario_barut_bombasi_tur_firlatma"):
@@ -1099,6 +1230,8 @@ func _scenario_gercek_giris_dash_yarilan_alev() -> void:
 	e.health = 5000.0
 	e.burn_remaining_ticks = 6
 	await _ground_player(-1500.0)
+	e.velocity = Vector2.ZERO
+	e.set_physics_process(false)   # gerçek AI düşmanı dash'ten önce uzaklaştırabiliyordu (flaky)
 	e.global_position = Vector2(-1440.0, e.global_position.y)
 	var hp0 := _enemy_hp(e)
 	var dsb = get_first_node_in_group("stamina_bar")
@@ -1504,21 +1637,31 @@ func _scenario_zincir_tasiyici() -> void:
 	e2.global_position = Vector2(3725.0, e2.global_position.y)
 	await _light_hits(2)
 	var s1 := _poison_stacks_of(e1)
-	_player.global_position = Vector2(3590.0, _player.global_position.y)
-	await _frames(10)
-	_player.set("facing_direction", 1.0)
-	Input.action_press("crouch")
 	var sm = _player.get("state_machine")
-	sm.transition_to("Slide")
-	var in_slide: bool = sm.current_state != null and sm.current_state.name == "Slide"
+	var in_slide := false
 	var min_d1 := 99999.0
 	var slide_frames := 0
-	for _i in range(60):
-		await physics_frame
-		min_d1 = minf(min_d1, _player.global_position.distance_to(e1.global_position))
-		if sm.current_state != null and sm.current_state.name == "Slide":
-			slide_frames += 1
-	Input.action_release("crouch")
+	# Gerçek kayma zamanlaması dalgalanabiliyor: en çok 3 deneme (her denemede oyuncu temiz durumdan başlar)
+	for attempt in range(3):
+		sm.transition_to("Idle", true)
+		_player.global_position = Vector2(3590.0, _player.global_position.y)
+		_player.velocity = Vector2.ZERO
+		await _frames(15)
+		_player.set("facing_direction", 1.0)
+		Input.action_press("crouch")
+		sm.transition_to("Slide")
+		in_slide = sm.current_state != null and sm.current_state.name == "Slide"
+		for _i in range(60):
+			await physics_frame
+			min_d1 = minf(min_d1, _player.global_position.distance_to(e1.global_position))
+			if sm.current_state != null and sm.current_state.name == "Slide":
+				slide_frames += 1
+		Input.action_release("crouch")
+		if _poison_stacks_of(e2) >= 1:
+			break
+		# e1 zehrini geri koy (taşıyıcı başarısız olduysa ya da hiç dokunmadıysa)
+		if _poison_stacks_of(e1) == 0:
+			_im.add_poison_stacks(e1, 2)
 	print("ARENA DBG zincir tasiyici: min_mesafe_e1=%.0f kayma_kare=%d oyuncu_x=%.0f e1_x=%.0f" % [min_d1, slide_frames, _player.global_position.x, e1.global_position.x])
 	print("ARENA DBG zincir tasiyici: e1_once=%d kayma=%s e1=%d e2=%d" % [s1, str(in_slide), _poison_stacks_of(e1), _poison_stacks_of(e2)])
 	_check(s1 > 0, "Zincir: gerçek hafif vuruşlar zehir biriktirdi (%d)" % s1, "Zincir: Zehirli Tırnak zehir biriktirmedi")

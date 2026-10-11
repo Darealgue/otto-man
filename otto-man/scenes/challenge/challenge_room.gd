@@ -9,10 +9,10 @@ class_name ChallengeRoom
 ## köylüler ölürse ödül yok ve haritaya dönülür.
 
 const PLAYER_SCENE: PackedScene = preload("res://player/player.tscn")
-const START_PICKS: int = 3
+const START_PICKS: int = 5   # güçlü başlangıç: arena başında 5 kart seçimi
 const BREAK_SECONDS: float = 3.0
 const WARDS_BASE: int = 3
-const WARD_HEALTH: float = 70.0
+const WARD_HEALTH: float = 140.0   # köylü koruma çok zordu: korunan köylü canı 70 -> 140
 const WARD_SPACING: float = 90.0
 ## Asansör arenası: kat başına yükselme, yükselme süresi, zemin kalınlığı, ulaşılabilecek en yüksek yüzey y'si
 const LIFT_RISE_PER_FLOOR: float = 420.0
@@ -746,12 +746,15 @@ func _on_wave_cleared(index: int, total: int) -> void:
 		await _show_message(tr("challenge.cleared") % index, BREAK_SECONDS)
 		if _finished:
 			return
+		await _pick_between_waves()
+		if _finished:
+			return
 		await _rise_lift()
 		if not _finished:
 			_spawner.start_next_wave()
 		return
 	# Dalga arenasında her dalgadan sonra level-up (kart seçimi); korumada kısa nefes
-	if kind == "dalga":
+	if kind == "dalga" or kind == "koruma":
 		var im: Node = get_node_or_null("/root/ItemManager")
 		if is_instance_valid(im) and im.has_method("queue_item_selections"):
 			im.call("queue_item_selections", 1)
@@ -759,6 +762,14 @@ func _on_wave_cleared(index: int, total: int) -> void:
 	await _show_message(tr("challenge.cleared") % index, BREAK_SECONDS)
 	if not _finished:
 		_spawner.start_next_wave()
+
+
+## Dalgalar arasında 1 kart seçimi (item); seçim bitince devam eder.
+func _pick_between_waves() -> void:
+	var im: Node = get_node_or_null("/root/ItemManager")
+	if is_instance_valid(im) and im.has_method("queue_item_selections"):
+		im.call("queue_item_selections", 1)
+		await im.item_selection_sequence_finished
 
 
 func _on_ward_died(_ward: WardTarget) -> void:
