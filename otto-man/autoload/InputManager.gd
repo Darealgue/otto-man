@@ -959,7 +959,11 @@ func get_tutorial_open_map_hint() -> String:
 		if not g.is_empty():
 			return g
 		return "Back"
-	return get_action_key_name(&"open_world_map")
+	# Köyde ana Enter de haritayı açar (numpad'i olmayan klavyeler için), ipucu ikisini de göstersin
+	var map_key: String = get_action_key_name(&"open_world_map")
+	if map_key == "Num Enter":
+		return "Enter / Num Enter"
+	return map_key
 
 
 func get_tutorial_overview_camera_hint() -> String:
