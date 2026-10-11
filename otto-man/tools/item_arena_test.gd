@@ -155,6 +155,8 @@ func _run() -> void:
 	await _scenario_zincir_mesale_dusman()
 	await _scenario_zincir_tasiyici()
 	await _scenario_zincir_fitil_hatti()
+	await _scenario_zincir_zehirli_yem_oyuncu()
+	await _scenario_zincir_barut_dolgusu()
 	await _scenario_tum_dusman_tipleri()
 
 	_im.clear_all_items()
@@ -1549,6 +1551,74 @@ func _scenario_zincir_fitil_hatti() -> void:
 			gone_at = Time.get_ticks_msec() - t0
 	print("ARENA DBG zincir fitil: komsu_bomba_patladi_ms=%d" % gone_at)
 	_check(gone_at >= 0 and gone_at < 1700, "Zincir (Fitil Hattı): gerçek çift zıplama bombasının patlaması komşu bombayı fünyesini beklemeden patlattı (%d ms)" % gone_at, "Zincir (Fitil Hattı): komşu bomba erken patlamadı (%d ms)" % gone_at)
+	_place_player(2200.0)
+
+## Zehirli Yem: gerçek düşmanın gerçek saldırısı oyuncuyu vurunca bulut çıkar.
+func _scenario_zincir_zehirli_yem_oyuncu() -> void:
+	if not _want("zincir_zehirli_yem_oyuncu"):
+		return
+	await _items_on(["zehirli_yem"])
+	await _ground_player(4300.0)
+	var e := _spawn_enemy(4360.0)
+	await _frames(40)
+	e.health = 5000.0
+	await _ground_player(4300.0)
+	e.global_position = Vector2(4360.0, e.global_position.y)
+	var ps = get_root().get_node("/root/PlayerStats")
+	_player.set("invincibility_timer", 0.0)   # harness oyuncuyu ölümsüz tutar; gerçek hasar işlenmeli
+	var hp0: float = ps.get_current_health()
+	var took := [0]
+	var took_cb := func(_a, _b): took[0] += 1
+	_player.connect("player_took_damage", took_cb)
+	var clouds0 := _count_scripts(_poison_cloud)
+	var hurt := false
+	var behaviors := {}
+	for _i in range(500):
+		await physics_frame
+		behaviors[str(e.current_behavior)] = true
+		if _count_scripts(_poison_cloud) > clouds0:
+			hurt = true
+			break
+	_player.disconnect("player_took_damage", took_cb)
+	_player.set("invincibility_timer", 1000000.0)
+	ps.set_current_health(100.0, false)
+	var hp1: float = ps.get_current_health()
+	print("ARENA DBG zehirli yem oyuncu: bulut=%s hasar_sayisi=%d can %.0f -> %.0f davranislar=%s mesafe=%.0f" % [str(hurt), took[0], hp0, hp1, str(behaviors.keys()), absf(_player.global_position.x - e.global_position.x)])
+	_check(hurt, "Zehirli Yem: gerçek düşman saldırısı oyuncuyu vurunca zehir bulutu çıktı", "Zehirli Yem: oyuncu hasar aldı ama bulut çıkmadı (can %.0f -> %.0f)" % [hp0, hp1])
+	_place_player(2200.0)
+
+## Barut Dolgusu: gerçek hafif vuruşlarla gerçek öldürmeler patlama çarpanını büyütür.
+func _scenario_zincir_barut_dolgusu() -> void:
+	if not _want("zincir_barut_dolgusu"):
+		return
+	await _items_on(["barut_dolgusu"])
+	await _ground_player(4500.0)
+	var victims: Array = []
+	for i in range(3):
+		victims.append(_spawn_enemy(4550.0 + float(i) * 20.0))
+	await _frames(40)
+	await _ground_player(4500.0)
+	for i in range(victims.size()):
+		var v = victims[i]
+		v.health = 1.0
+		v.velocity = Vector2.ZERO
+		v.set_physics_process(false)
+		v.global_position = Vector2(4550.0 + float(i) * 20.0, v.global_position.y)
+	var mult0: float = ExplosionModifiers.damage_mult()
+	await _light_hits(4)
+	# Ölüm geçişi düşmanın kendi fiziğinde işlenir: dondurma testin düzeneği, kapat
+	for v in victims:
+		if is_instance_valid(v):
+			v.set_physics_process(true)
+	await _frames(20)
+	var dead := 0
+	for v in victims:
+		if not is_instance_valid(v) or _enemy_hp(v) <= 0.0:
+			dead += 1
+	var mult1: float = ExplosionModifiers.damage_mult()
+	print("ARENA DBG zincir dolgu: oldu=%d carpan %.2f -> %.2f" % [dead, mult0, mult1])
+	_check(dead >= 1, "Zincir: gerçek vuruşlar düşmanları öldürdü (%d)" % dead, "Zincir: gerçek vuruşlar kimseyi öldürmedi")
+	_check(mult1 > mult0 + 0.01, "Zincir (Barut Dolgusu): gerçek öldürmeler patlama çarpanını büyüttü (%.2f -> %.2f)" % [mult0, mult1], "Zincir (Barut Dolgusu): öldürmeler çarpanı büyütmedi (%.2f -> %.2f)" % [mult0, mult1])
 	_place_player(2200.0)
 
 ## Gerçek ağır vuruşu, düşman SABİT konumdayken indir: düşman hazırlık süresince oyuncuya yürüyüp üstüne binmesin.
