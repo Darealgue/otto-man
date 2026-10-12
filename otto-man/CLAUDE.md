@@ -132,6 +132,13 @@ export preset values are literal strings):
 The main menu footer reads setting 1 at runtime (`MainMenu.gd`, `menu.beta_footer`), so the number
 a playtester reports always matches the build they ran. Do not hardcode it there.
 
+**A third file belongs to every bump: `CHANGELOG.md`.** Add a `## <version> - <date>` section with
+`### TR` and `### EN` lists of player-facing notes (format is described at the top of that file).
+`tools/push_itch.ps1` reads it to build the devlog draft in `docs/devlog/<version>.md` and refuses
+to continue when the section is missing. Pushing to itch.io is done with that script, `-Push` is
+required to actually upload (default is a dry run), and nothing is ever pushed without the user
+asking for it.
+
 ### 🔴 `SaveManager.SAVE_VERSION` IS NOT THE GAME VERSION
 
 They are both `0.1.x` right now, which makes them look like the same thing. They are not, and

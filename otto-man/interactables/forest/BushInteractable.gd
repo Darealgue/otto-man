@@ -39,13 +39,17 @@ func _ready() -> void:
 	# Çalı bir kere oynandıktan sonra bir daha oynanamaz (başarılı olsun ya da olmasın)
 	auto_disable_on_success = true
 	auto_disable_on_failure = true
-	
+	# Artık minigame yok: çalı hafif/ağır/düşme saldırısıyla sökülür (bkz. ResourceHitHarvest).
+	hit_to_harvest = true
+	show_interact_arrow = false
+
 	# Sprite'ları yükle
 	_load_bush_textures()
-	
+
 	_ensure_minimum_nodes()
 	super._ready()
 	_setup_idle_bush_visual()
+	ResourceHitHarvest.attach(self, ResourceType.FOOD, INTERACT_AREA_SIZE, INTERACT_AREA_OFFSET)
 	print("[BushInteractable] _ready() completed. disabled=", _disabled, " monitoring=", monitoring, " monitorable=", monitorable)
 
 func _load_bush_textures() -> void:
@@ -223,6 +227,17 @@ func _add_sheet_animation(frames: SpriteFrames, name: String, texture: Texture2D
 		atlas.region = Rect2(Vector2(frame_width * float(i), 0.0), Vector2(frame_width, float(size.y)))
 		frames.add_frame(name, atlas)
 	return Vector2(frame_width, float(size.y))
+
+## Kapasite dolunca çalı meyvesiz çizimine (berry_bush_end) geçer; ResourceHitHarvest rengi soldurmaz.
+func play_end_animation() -> void:
+	if _highlight_sprite != null and is_instance_valid(_highlight_sprite):
+		_highlight_sprite.visible = false
+	_apply_end_visual()
+
+
+func wants_end_color_fade() -> bool:
+	return false
+
 
 func play_hit_animation() -> void:
 	if _bush_sprite == null or not is_instance_valid(_bush_sprite):

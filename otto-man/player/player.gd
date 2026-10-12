@@ -1190,12 +1190,14 @@ func _collect_damage_pickup(drop: Node) -> void:
 	if kind == "gold":
 		if is_instance_valid(GlobalPlayerData):
 			GlobalPlayerData.credit_run_loot_gold(amount)
+		ResourceGainPopup.show_gain(self, "gold", amount)
 	else:
 		var type := String(drop.get_meta("type", ""))
 		_play_pickup_sfx(drop.global_position if drop is Node2D else global_position)
 		var ps = get_node_or_null("/root/PlayerStats")
 		if ps and ps.has_method("add_carried_resource"):
 			ps.add_carried_resource(type, amount)
+		ResourceGainPopup.show_gain(self, type, amount)
 	drop.queue_free()
 
 

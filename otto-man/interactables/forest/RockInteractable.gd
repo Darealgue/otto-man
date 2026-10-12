@@ -23,9 +23,20 @@ var _highlight_sprite: Sprite2D = null
 func _ready() -> void:
 	minigame_kind = "forest_stone"
 	require_interact_press = true
+	# Artık minigame yok: kaya hafif/ağır/düşme saldırısıyla sökülür (bkz. ResourceHitHarvest).
+	hit_to_harvest = true
+	show_interact_arrow = false
 	_ensure_minimum_nodes()
 	super._ready()
 	_setup_idle_rock_visual()
+	# Vuruş alanı görselin boyunda (idle sprite): oyuncu kayanın hizasında durunca isabet sayılsın.
+	var rock_size := Vector2(150.0, 120.0)
+	if ROCK_IDLE_TEXTURE != null:
+		rock_size = Vector2(
+			maxf(rock_size.x, float(ROCK_IDLE_TEXTURE.get_width())),
+			maxf(rock_size.y, float(ROCK_IDLE_TEXTURE.get_height()))
+		)
+	ResourceHitHarvest.attach(self, ResourceType.STONE, rock_size, Vector2(0.0, -rock_size.y * 0.5))
 
 func _build_minigame_context() -> Dictionary:
 	var ctx := super._build_minigame_context()
@@ -156,6 +167,13 @@ func play_hit_animation() -> void:
 		return
 	_align_sprite_to_bottom("hit")
 	_rock_sprite.play("hit")
+
+## Kapasite dolunca kaya kırılır ve son karede (moloz) kalır; rengi ResourceHitHarvest soldurur.
+func play_end_animation() -> void:
+	if _highlight_sprite != null and is_instance_valid(_highlight_sprite):
+		_highlight_sprite.visible = false
+	play_break_animation()
+
 
 func play_break_animation() -> void:
 	if _rock_sprite == null or not is_instance_valid(_rock_sprite):

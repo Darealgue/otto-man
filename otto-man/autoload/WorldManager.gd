@@ -629,6 +629,79 @@ func is_settlement_discovered(settlement_id: String) -> bool:
 		return false
 	return bool(world_map_settlement_positions[settlement_id].get("discovered", false))
 
+# --- Orman / dağ / akarsu hex hammadde stoğu --------------------------------------------
+# Her bu tür hex'in sınırlı bir hammadde stoğu var (tile["forest_stock"]). Oyuncu ormanda bir
+# düğümü tükettikçe stok düşer; stok zamanla geri dolar. Yenilenme tick'siz hesaplanır:
+# tile["forest_stock_minute"] stokun son güncellendiği oyun dakikası, her
+# FOREST_STOCK_REGEN_MINUTES_PER_UNIT dakikada 1 birim eklenir. Anahtarlar yoksa hex doludur,
+# bu yüzden eski save'ler olduğu gibi çalışır.
+const FOREST_STOCK_MAX: int = 8
+const FOREST_STOCK_REGEN_MINUTES_PER_UNIT: int = 540 # 8 birim = 3 oyun günü (3 * 1440 / 8)
+
+
+func _forest_stock_now_minutes() -> int:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if is_instance_valid(tm) and tm.has_method("get_total_game_minutes"):
+		return int(tm.call("get_total_game_minutes"))
+	return 0
+
+
+## Yenilenme uygulanmış hâlini {"stock": int, "minute": int} olarak verir; karoyu DEĞİŞTİRMEZ.
+func _forest_stock_state(tile: Dictionary) -> Dictionary:
+	var now: int = _forest_stock_now_minutes()
+	if not tile.has("forest_stock"):
+		return {"stock": FOREST_STOCK_MAX, "minute": now}
+	var stock: int = clampi(int(tile.get("forest_stock", FOREST_STOCK_MAX)), 0, FOREST_STOCK_MAX)
+	var minute: int = int(tile.get("forest_stock_minute", now))
+	if stock >= FOREST_STOCK_MAX:
+		return {"stock": FOREST_STOCK_MAX, "minute": now}
+	var gained: int = maxi(0, floori(float(now - minute) / float(FOREST_STOCK_REGEN_MINUTES_PER_UNIT)))
+	if gained > 0:
+		stock = mini(FOREST_STOCK_MAX, stock + gained)
+		minute = now if stock >= FOREST_STOCK_MAX else minute + gained * FOREST_STOCK_REGEN_MINUTES_PER_UNIT
+	return {"stock": stock, "minute": minute}
+
+
+func get_forest_stock_max() -> int:
+	return FOREST_STOCK_MAX
+
+
+## Hex'in şu anki hammadde stoğu (0..FOREST_STOCK_MAX).
+func get_forest_stock_at(q: int, r: int) -> int:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
+		return FOREST_STOCK_MAX
+	var tile: Dictionary = world_map_tiles[key]
+	return int(_forest_stock_state(tile).get("stock", FOREST_STOCK_MAX))
+
+
+## Stokun dolmasına kalan oyun dakikası (zaten doluysa 0).
+func get_forest_stock_minutes_to_full(q: int, r: int) -> int:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
+		return 0
+	var state: Dictionary = _forest_stock_state(world_map_tiles[key])
+	var stock: int = int(state.get("stock", FOREST_STOCK_MAX))
+	if stock >= FOREST_STOCK_MAX:
+		return 0
+	var since: int = maxi(0, _forest_stock_now_minutes() - int(state.get("minute", 0)))
+	return maxi(0, (FOREST_STOCK_MAX - stock) * FOREST_STOCK_REGEN_MINUTES_PER_UNIT - since)
+
+
+## Hex stokundan `amount` birim düşer ve kalan stoğu döndürür.
+func consume_forest_stock_at(q: int, r: int, amount: int = 1) -> int:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
+		return 0
+	var tile: Dictionary = world_map_tiles[key]
+	var state: Dictionary = _forest_stock_state(tile)
+	var stock: int = maxi(0, int(state.get("stock", FOREST_STOCK_MAX)) - maxi(0, amount))
+	tile["forest_stock"] = stock
+	tile["forest_stock_minute"] = int(state.get("minute", _forest_stock_now_minutes()))
+	world_map_tiles[key] = tile
+	return stock
+
+
 func _generate_hex_tiles() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(world_map_seed)

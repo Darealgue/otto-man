@@ -47,11 +47,33 @@ func _ready() -> void:
 	# Ok ipucu da tabandan 64 px yukarıdaydı, yani 600 px'lik ağacın gövdesinin içinde
 	# kayboluyordu. Oyuncunun başının üzerine, gövdenin görünür kısmına alındı.
 	interact_arrow_offset = Vector2(0.0, -240.0)
+	# Artık minigame yok: ağaç hafif/ağır/düşme saldırısıyla sökülür (bkz. ResourceHitHarvest).
+	# minigame_kind eğitimin "türe göre devre dışı bırak" akışı için duruyor, tetiklenmiyor.
+	hit_to_harvest = true
+	show_interact_arrow = false
 	_ensure_minimum_nodes()
 	super._ready()
 	_setup_idle_tree_visual()
 	if placeholder_mode:
 		_apply_placeholder_visual()
+	ResourceHitHarvest.attach(self, ResourceType.WOOD, INTERACT_AREA_SIZE, INTERACT_AREA_OFFSET)
+
+## Vuruş geri bildirimi: "hit" animasyonu (bitince ResourceHitHarvest idle'a döndürür).
+func play_hit_animation() -> void:
+	if _tree_sprite == null or not is_instance_valid(_tree_sprite) or _tree_sprite.sprite_frames == null:
+		return
+	if _tree_sprite.sprite_frames.has_animation("hit"):
+		_tree_sprite.play("hit")
+
+
+## Kapasite dolunca ağaç devrilir ve son karede kalır; rengi ResourceHitHarvest soldurur.
+func play_end_animation() -> void:
+	if _highlight_sprite != null and is_instance_valid(_highlight_sprite):
+		_highlight_sprite.visible = false
+	if _tree_sprite == null or not is_instance_valid(_tree_sprite) or _tree_sprite.sprite_frames == null:
+		return
+	if _tree_sprite.sprite_frames.has_animation("fall"):
+		_tree_sprite.play("fall")
 
 func _build_minigame_context() -> Dictionary:
 	var ctx := super._build_minigame_context()

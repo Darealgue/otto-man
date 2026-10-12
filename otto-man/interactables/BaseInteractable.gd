@@ -12,6 +12,8 @@ const _ArrowHint = preload("res://ui/InteractArrowHint.gd")
 ## Oyuncu yaklaşınca üstte "yukarı bas" ok ikonu göster
 @export var show_interact_arrow: bool = true
 @export var interact_arrow_offset: Vector2 = Vector2(0.0, -64.0)
+## true: etkileşim tuşu minigame başlatmaz; kaynak saldırıyla sökülür (bkz. ResourceHitHarvest).
+@export var hit_to_harvest: bool = false
 
 var _player_overlapping: bool = false
 var _awaiting_result: bool = false
@@ -81,6 +83,8 @@ func _on_body_exited(body: Node) -> void:
 	_player_overlapping = not _tracked_players.is_empty()
 
 func _trigger_interaction() -> void:
+	if hit_to_harvest:
+		return
 	print("[BaseInteractable] _trigger_interaction() called for: ", name, " class=", get_class())
 	print("[BaseInteractable] Current state: _disabled=", _disabled, " _awaiting_result=", _awaiting_result, " monitoring=", monitoring, " monitorable=", monitorable)
 	if _disabled:

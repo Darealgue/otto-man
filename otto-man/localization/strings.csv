@@ -2853,3 +2853,6 @@ synergy.blast_chain,art arda ölümler patlamaları büyütür,chained kills enl
 synergy.slam_juggle,havada tuttuğun düşmanı yere çakarsın,slam the enemy you are juggling
 synergy.cannonball_group,kaldırılan grup birbirine çarpar,a lifted group crashes together
 synergy.jump_blast,her hava zıplaması patlama bırakır,every air jump leaves a blast
+wm.tooltip.stock.full,Hammadde: dolu,Resources: full
+wm.tooltip.stock.partial,Hammadde: %d/%d (~%d gün sonra dolar),Resources: %d/%d (full in ~%d days)
+wm.tooltip.stock.empty,Hammadde tükendi (~%d gün sonra dolar),Resources depleted (refills in ~%d days)

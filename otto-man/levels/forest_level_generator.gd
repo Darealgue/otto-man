@@ -32,6 +32,11 @@ signal level_completed
 @export var chunk_postprocess_min_distance_px: float = 1024.0
 @export var ramp_cooldown_segments: int = 2
 @export_enum("forest", "mountain", "river") var biome_type: String = "forest"
+## Sınırlı bölge: orman/dağ/nehir hex'i start chunk'tan sağa en fazla `zone_chunks_right` chunk
+## uzanır. Solda duvar, sağda duvar + ikinci çıkış portalı vardır; hammadde hex'in stoğuyla
+## sınırlıdır (bkz. WorldManager.get_forest_stock_at). Kapalıysa eski sonsuz üretim çalışır.
+@export var bounded_zone: bool = true
+@export var zone_chunks_right: int = 4
 
 @onready var _tree_interactable_scene: PackedScene = load("res://interactables/forest/TreeInteractable.tscn")
 @onready var _rock_interactable_scene: PackedScene = load("res://interactables/forest/RockInteractable.tscn")
@@ -76,6 +81,32 @@ var _river_water_sprite: Sprite2D = null
 var _prev_player_x_for_river: float = NAN
 var _tutorial_interactables: Array[Node] = []
 var _tutorial_chunks_seeded: Dictionary = {}
+
+# Sınırlı bölge durumu
+const ZONE_EXIT_PORTAL_SCENE: PackedScene = preload("res://chunks/forest/ForestExitPortal.tscn")
+const ZONE_WALL_COLLISION_LAYER: int = 1  # tileset fizik katmanı ile aynı (oyuncu maskesi 5)
+const ZONE_WALL_HALF_HEIGHT: float = 8192.0
+const ZONE_WALL_CENTER_Y: float = -4096.0
+const ZONE_RESOURCE_MIN_SPACING: float = 300.0
+const ZONE_PORTAL_EDGE_MARGIN: float = 500.0  # son chunk'ta portalın duvardan uzaklığı
+const ZONE_PORTAL_RESOURCE_CLEARANCE: float = 420.0
+# Stoktan birim birim dağıtılan chunk sırası (zone chunk indeksi): sona doğru en dolu.
+const ZONE_FILL_ORDER: Array[int] = [3, 2, 1, 0, 3, 2, 1, 3]
+var _zone_active: bool = false
+var _zone_chunks: Array[Node2D] = [] # start hariç, yerleştirme sırasıyla
+var _zone_hex_q: int = 0
+var _zone_hex_r: int = 0
+var _zone_stock_tracked: bool = false # false: eğitim koşusu, stok sistemi devre dışı
+var _zone_left_x: float = 0.0   # oynanabilir bölgenin sol duvarı
+var _zone_right_x: float = 0.0  # oynanabilir bölgenin sağ duvarı
+var _zone_cam_left_x: float = 0.0   # kamera sınırı: duvarın bir padding chunk ötesi
+var _zone_cam_right_x: float = 0.0
+var _zone_portal_global_x: float = NAN
+# Duvarın ötesindeki padding chunk'ları: dekor/düşman/kaynak almaz, siyah örtüyle kapanır; amaç
+# kameranın ileri kaymasında harita kenarının (boşluk, kesik tile) hiç görünmemesi.
+const ZONE_EDGE_FADE_WIDTH: float = 900.0   # duvardan içeri doğru siyahtan saydama geçiş
+const ZONE_EDGE_FADE_WALL_ALPHA: float = 0.85  # duvarın dibindeki opaklık
+const ZONE_EDGE_Z_INDEX: int = 100
 const TUTORIAL_TARGET_WOOD: int = 3
 const TUTORIAL_TARGET_FOOD: int = 3
 
@@ -144,7 +175,8 @@ func _ready() -> void:
 	player = get_tree().get_first_node_in_group("player")
 	_spawn_config = SpawnConfig.new()
 	_apply_biome_settings_from_payload()
-	
+	_zone_active = bounded_zone and zone_chunks_right > 0
+
 	# Initialize resource scenes
 	_resource_scenes = _build_resource_scene_pool_for_biome()
 	_resource_spawn_timer = randi_range(
@@ -541,7 +573,271 @@ func _spawn_initial_path() -> void:
 		_add_next_segment()
 	_add_prev_segment()
 	_sort_active_by_x()
+	_zone_finalize()
 	_tutorial_force_spawn_resources()
+
+
+# --- Sınırlı bölge --------------------------------------------------------------------------
+# Hex ormanı start chunk + zone_chunks_right chunk uzunluğundadır: solda ve sağda duvar, sağ uçta
+# ikinci bir "Köye Dön" portalı. Kaynak sayısı hex'in stoğuna eşittir ve en çok sona konur.
+
+const ZONE_FALLBACK_STOCK: int = 8
+## Bir kaynak düğümünün bitmeden önce verdiği düşüş sayısı (ResourceHitHarvest.DEFAULT_CAPACITY ile aynı).
+const ZONE_NODE_CAPACITY: int = 2
+var _zone_capacity_left: int = 0
+
+func _zone_finalize() -> void:
+	if not _zone_active or _forest_start_chunk == null:
+		return
+	var safety: int = 16
+	while _zone_chunks.size() < zone_chunks_right and safety > 0:
+		_add_next_segment()
+		safety -= 1
+	_sort_active_by_x()
+	_zone_left_x = _forest_start_chunk.position.x
+	_zone_right_x = last_end_x
+	_zone_cam_left_x = _zone_left_x
+	_zone_cam_right_x = _zone_right_x
+	_zone_build_walls()
+	if _zone_chunks.is_empty():
+		return
+	_zone_spawn_padding()
+	_zone_build_edge_fades()
+	# İki portal var; ekranda yalnız sondakinin yön oku kalsın.
+	var start_portal: Node = _forest_start_chunk.get_node_or_null("ForestExitPortal")
+	if start_portal != null and start_portal.has_method("set_direction_arrow_enabled"):
+		start_portal.call("set_direction_arrow_enabled", false)
+	_zone_spawn_end_portal(_zone_chunks.back())
+	# Eğitim koşusu kendi kaynaklarını _tutorial_force_spawn_resources ile koyuyor; hex stoğuna
+	# dokunmasın.
+	if _is_tutorial_forest_run():
+		return
+	var stock: int = _zone_read_stock()
+	if stock <= 0:
+		return
+	var chunk_count: int = _zone_chunks.size()
+	var counts: Array[int] = []
+	counts.resize(chunk_count)
+	counts.fill(0)
+	# Her düğüm ZONE_NODE_CAPACITY düşüş verir (sonra bitiş animasyonu); düğüm sayısı stoğa göre.
+	_zone_capacity_left = stock
+	var node_count: int = ceili(float(stock) / float(ZONE_NODE_CAPACITY))
+	for i in range(node_count):
+		var ci: int = mini(ZONE_FILL_ORDER[i % ZONE_FILL_ORDER.size()], chunk_count - 1)
+		counts[ci] += 1
+	# Sondan başa: sığmayan kaynak bir önceki chunk'a devredilir.
+	var carry: int = 0
+	for ci in range(chunk_count - 1, -1, -1):
+		var want: int = counts[ci] + carry
+		var placed: int = _zone_spawn_resources_in_chunk(_zone_chunks[ci], want)
+		carry = want - placed
+	# Yol üstü ganimet: stok varsa, eskisi gibi yaklaşık 2 chunk'ta bir.
+	for ci in range(1, chunk_count, 2):
+		_maybe_spawn_expedition_loot_pickups(_zone_chunks[ci])
+
+
+func _zone_read_stock() -> int:
+	_zone_stock_tracked = false
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or not wm.has_method("get_forest_stock_at"):
+		return ZONE_FALLBACK_STOCK
+	var pos: Variant = wm.get("world_map_player_pos")
+	if typeof(pos) != TYPE_DICTIONARY:
+		return ZONE_FALLBACK_STOCK
+	_zone_hex_q = int((pos as Dictionary).get("q", 0))
+	_zone_hex_r = int((pos as Dictionary).get("r", 0))
+	_zone_stock_tracked = true
+	return int(wm.call("get_forest_stock_at", _zone_hex_q, _zone_hex_r))
+
+
+func _zone_build_walls() -> void:
+	_zone_add_wall("ZoneWallLeft", _zone_left_x - 32.0)
+	_zone_add_wall("ZoneWallRight", _zone_right_x + 32.0)
+
+
+func _zone_add_wall(wall_name: String, center_x: float) -> void:
+	var body := StaticBody2D.new()
+	body.name = wall_name
+	body.collision_layer = ZONE_WALL_COLLISION_LAYER
+	body.collision_mask = 0
+	# Oyuncu çarpışır ama tutunamaz / duvar zıplaması yapamaz (bkz. wall_slide_state._ray_hits_slideable).
+	body.set_meta("no_wall_slide", true)
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(64.0, ZONE_WALL_HALF_HEIGHT * 2.0)
+	shape.shape = rect
+	body.add_child(shape)
+	body.position = Vector2(center_x, ZONE_WALL_CENTER_Y)
+	add_child(body)
+
+
+func _zone_apply_camera_limits(cam: Camera2D) -> void:
+	if not _zone_active or cam == null:
+		return
+	# ForestSimpleCamera koşu yönüne `look_ahead_x` kadar offset.x ekliyor ve Godot offset'i limitten
+	# SONRA uyguluyor: limit duvara konunca görüntü duvarın ötesine o kadar taşıyordu (solda koşarken
+	# siyah şerit). Limiti look-ahead kadar içeri çekiyoruz; görüntü hiçbir zaman duvarı aşmaz.
+	var look: float = 0.0
+	if "look_ahead_x" in cam:
+		look = absf(float(cam.get("look_ahead_x")))
+	cam.limit_left = int(ceil(to_global(Vector2(_zone_left_x + look, 0.0)).x))
+	cam.limit_right = int(floor(to_global(Vector2(_zone_right_x - look, 0.0)).x))
+
+
+## Duvarların ötesine birer düz chunk koyar (postprocess kuyruğuna girmez, active_chunks'ta yok).
+func _zone_spawn_padding() -> void:
+	var variants = scenes.get("linear", [])
+	if typeof(variants) != TYPE_ARRAY or (variants as Array).is_empty():
+		return
+	var last: Node2D = _zone_chunks.back()
+	var left_pad: Node2D = _zone_instance_padding(variants as Array)
+	if left_pad != null:
+		var start_left: Vector2 = _get_conn_global(_forest_start_chunk, "left")
+		left_pad.position = start_left - _get_conn_local(left_pad, "right")
+		_zone_cam_left_x = left_pad.position.x
+	var right_pad: Node2D = _zone_instance_padding(variants as Array)
+	if right_pad != null:
+		var last_right: Vector2 = _get_conn_global(last, "right")
+		right_pad.position = last_right - _get_conn_local(right_pad, "left")
+		_zone_cam_right_x = right_pad.position.x + _get_size(right_pad).x
+
+
+func _zone_instance_padding(variants: Array) -> Node2D:
+	var scene := variants[randi() % variants.size()] as PackedScene
+	if scene == null:
+		return null
+	var inst := scene.instantiate() as Node2D
+	if inst == null:
+		return null
+	add_child(inst)
+	_apply_unit_size(inst)
+	inst.set_meta("zone_padding", true)
+	return inst
+
+
+## Duvarların dışı tam siyah, içi duvardan itibaren ZONE_EDGE_FADE_WIDTH boyunca siyahtan saydama
+## geçen bant: "harita burada bitiyor" hissi + padding chunk'ları ve kamera sınırı hiç görünmez.
+func _zone_build_edge_fades() -> void:
+	var span: float = ZONE_WALL_HALF_HEIGHT * 2.0
+	var y0: float = ZONE_WALL_CENTER_Y - ZONE_WALL_HALF_HEIGHT
+	# Sol: dış taraf -x. Sağ: dış taraf +x.
+	_zone_add_edge_fade("ZoneEdgeFadeLeft", _zone_left_x, -1.0, absf(_zone_left_x - _zone_cam_left_x) + 2048.0, y0, span)
+	_zone_add_edge_fade("ZoneEdgeFadeRight", _zone_right_x, 1.0, absf(_zone_cam_right_x - _zone_right_x) + 2048.0, y0, span)
+
+
+func _zone_add_edge_fade(fade_name: String, wall_x: float, outward: float, beyond_len: float, y0: float, span: float) -> void:
+	var root := Node2D.new()
+	root.name = fade_name
+	root.z_index = ZONE_EDGE_Z_INDEX
+	# Dış: düz siyah.
+	var solid := Polygon2D.new()
+	var x_far: float = wall_x + outward * beyond_len
+	solid.polygon = PackedVector2Array([
+		Vector2(x_far, y0), Vector2(wall_x, y0), Vector2(wall_x, y0 + span), Vector2(x_far, y0 + span),
+	])
+	solid.color = Color(0.0, 0.0, 0.0, 1.0)
+	root.add_child(solid)
+	# Duvardan içeri doğru degrade: 4 köşe, renk yalnız x'e bağlı.
+	var x_in: float = wall_x - outward * ZONE_EDGE_FADE_WIDTH
+	var grad := Polygon2D.new()
+	grad.polygon = PackedVector2Array([
+		Vector2(wall_x, y0), Vector2(x_in, y0), Vector2(x_in, y0 + span), Vector2(wall_x, y0 + span),
+	])
+	var c_wall := Color(0.0, 0.0, 0.0, ZONE_EDGE_FADE_WALL_ALPHA)
+	var c_in := Color(0.0, 0.0, 0.0, 0.0)
+	grad.vertex_colors = PackedColorArray([c_wall, c_in, c_in, c_wall])
+	root.add_child(grad)
+	add_child(root)
+
+
+func _zone_spawn_end_portal(chunk: Node2D) -> void:
+	if chunk == null or not is_instance_valid(chunk):
+		return
+	var tile_map := chunk.find_child("TileMapLayer", true, false) as TileMapLayer
+	if tile_map == null or tile_map.tile_set == null:
+		return
+	var cells: Array[Vector2i] = _forest_collect_resource_floor_cells(
+		tile_map, tile_map.tile_set, chunk, "decor_anchor", 32.0, ZONE_PORTAL_EDGE_MARGIN
+	)
+	if cells.is_empty():
+		cells = _forest_collect_resource_floor_cells(tile_map, tile_map.tile_set, chunk, "decor_anchor", 32.0, 32.0)
+	if cells.is_empty():
+		push_warning("[ForestGenerator] zone end portal: no floor cell in last chunk")
+		return
+	var best: Vector2 = tile_map.map_to_local(cells[0])
+	for cell in cells:
+		var p: Vector2 = tile_map.map_to_local(cell)
+		if p.x > best.x:
+			best = p
+	var tile_h: float = float(tile_map.tile_set.tile_size.y)
+	var portal := ZONE_EXIT_PORTAL_SCENE.instantiate() as Node2D
+	if portal == null:
+		return
+	# Portal alanı 320 px yüksek ve düğüm merkezinde: zemin üstünden 150 px yukarı.
+	portal.position = best + Vector2(0.0, -(tile_h * 0.5) - 150.0)
+	chunk.add_child(portal)
+	_zone_portal_global_x = chunk.to_global(portal.position).x
+
+
+## `count` kaynağı chunk'ın zeminine, birbirinden ve çıkış portalından uzak koyar; yerleşen sayıyı döner.
+func _zone_spawn_resources_in_chunk(chunk: Node2D, count: int) -> int:
+	if count <= 0 or chunk == null or not is_instance_valid(chunk) or _resource_scenes.is_empty():
+		return 0
+	var tile_map := chunk.find_child("TileMapLayer", true, false) as TileMapLayer
+	if tile_map == null or tile_map.tile_set == null:
+		return 0
+	var cells: Array[Vector2i] = _forest_collect_resource_floor_cells(
+		tile_map, tile_map.tile_set, chunk, "decor_anchor", 280.0, 280.0
+	)
+	if cells.size() < count * 3:
+		cells = _forest_collect_resource_floor_cells(tile_map, tile_map.tile_set, chunk, "decor_anchor", 32.0, 32.0)
+	cells.shuffle()
+	var tile_h: float = float(tile_map.tile_set.tile_size.y)
+	var used: Array[Vector2] = []
+	var placed: int = 0
+	for cell in cells:
+		if placed >= count:
+			break
+		var spawn_pos: Vector2 = tile_map.map_to_local(cell)
+		spawn_pos.y -= tile_h * 0.5
+		spawn_pos.y += 5.0
+		if not is_nan(_zone_portal_global_x):
+			if absf(chunk.to_global(spawn_pos).x - _zone_portal_global_x) < ZONE_PORTAL_RESOURCE_CLEARANCE:
+				continue
+		var too_close: bool = false
+		for existing in used:
+			if spawn_pos.distance_to(existing) < ZONE_RESOURCE_MIN_SPACING:
+				too_close = true
+				break
+		if too_close:
+			continue
+		var scene: PackedScene = _resource_scenes.pick_random()
+		var node := scene.instantiate() as Node2D
+		if node == null:
+			continue
+		node.position = spawn_pos
+		var capacity: int = mini(ZONE_NODE_CAPACITY, _zone_capacity_left)
+		_zone_capacity_left -= capacity
+		node.set_meta("harvest_capacity", maxi(1, capacity))
+		chunk.add_child(node)
+		used.append(spawn_pos)
+		placed += 1
+	return placed
+
+
+## Kaynak düğümü vurularak her söküldüğünde (bkz. ResourceHitHarvest) çağrılır: hex stoğundan 1 birim
+## düşer. false: stok bitti, bu söküş kaynak vermez. Stok izlenmiyorsa (eğitim koşusu, WorldManager
+## yok) sınırsızdır.
+func zone_try_consume_stock() -> bool:
+	if not _zone_active or not _zone_stock_tracked:
+		return true
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or not wm.has_method("get_forest_stock_at") or not wm.has_method("consume_forest_stock_at"):
+		return true
+	if int(wm.call("get_forest_stock_at", _zone_hex_q, _zone_hex_r)) <= 0:
+		return false
+	wm.call("consume_forest_stock_at", _zone_hex_q, _zone_hex_r, 1)
+	return true
 
 
 func _tutorial_force_spawn_resources() -> void:
@@ -728,6 +1024,11 @@ func _forest_on_resource_spawn_chunk(chunk: Node2D) -> void:
 	if chunk == null or not is_instance_valid(chunk):
 		return
 	if chunk.get_meta("is_start_chunk", false):
+		return
+	if _zone_active:
+		# Sınırlı bölgede kaynak zamanlayıcıyla değil, hex stoğuna göre _zone_finalize'da dağıtılır.
+		if not _zone_chunks.has(chunk):
+			_zone_chunks.append(chunk)
 		return
 	var tm := get_node_or_null("/root/TutorialManager")
 	if tm != null and tm.is_village_tutorial_active() and tm.village_core_step == 3:
@@ -1342,6 +1643,10 @@ func _spawn_left_as_needed() -> void:
 func _enforce_player_window() -> void:
 	if active_chunks.size() == 0:
 		return
+	if _zone_active:
+		# Bölge başta tamamen kuruldu (en çok 5 chunk) ve hiçbiri arşive atılmamalı: kaynaklar ve
+		# çıkış portalı chunk'ın çocuğu, arşivden dönen chunk onları geri getirmez.
+		return
 	_sort_active_by_x()
 	var player_idx: int = _find_player_chunk_index()
 	# Window debug messages disabled for cleaner logs
@@ -1427,6 +1732,14 @@ func _cleanup_behind() -> void:
 func _add_next_segment() -> void:
 	_sort_active_by_x()
 	var prev: Node2D = active_chunks.back()
+	if _zone_active:
+		var remaining: int = zone_chunks_right - _zone_chunks.size()
+		if remaining <= 0:
+			return
+		if remaining == 1:
+			# Rampa 2 chunk ekler; son yuvada düz chunk koy ki sınır tam tutsun.
+			_place_continue(prev)
+			return
 	if _ramp_cooldown_next > 0:
 		_ramp_cooldown_next -= 1
 		_place_continue(prev)
@@ -1453,6 +1766,8 @@ func _add_next_segment() -> void:
 		_place_down(prev)
 
 func _add_prev_segment() -> void:
+	if _zone_active:
+		return # sınırlı bölgenin solu duvardır
 	if active_chunks.size() == 0:
 		return
 	_sort_active_by_x()
@@ -1783,6 +2098,7 @@ func _spawn_or_move_player_to_start() -> void:
 					cam.set("_default_zoom", Vector2(1.2, 1.2))
 				(cam as Camera2D).enabled = true
 				(cam as Camera2D).make_current()
+				_zone_apply_camera_limits(cam as Camera2D)
 
 func _setup_overview_camera() -> void:
 	overview_camera = Camera2D.new()

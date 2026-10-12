@@ -18,6 +18,7 @@ var _label_alpha := 0.0
 
 var _arrow_layer: CanvasLayer
 var _arrow: Control
+var _direction_arrow_enabled := true
 
 
 func _ready() -> void:
@@ -84,8 +85,19 @@ func _update_proximity_hint(delta: float) -> void:
 		_hint_icon.modulate.a = _label_alpha
 
 
+## Sınırlı bölgede iki portal var; ekranda iki zıt yönlü ok görünmesin diye yalnız sondakinin oku
+## açık kalır (bkz. ForestLevelGenerator._zone_finalize).
+func set_direction_arrow_enabled(enabled: bool) -> void:
+	_direction_arrow_enabled = enabled
+	if not enabled and _arrow != null:
+		_arrow.visible = false
+
+
 func _update_direction_arrow() -> void:
 	if _arrow == null:
+		return
+	if not _direction_arrow_enabled:
+		_arrow.visible = false
 		return
 	var vp := get_viewport()
 	if vp == null:

@@ -1970,13 +1970,37 @@ func _dungeon_theme_progress_line(dungeon_id: String) -> String:
 
 func _build_biome_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	var terrain: String = String(tile.get("terrain_type", ""))
+	var title: String = ""
 	if terrain == "orman":
-		return PackedStringArray([tr("wm.tooltip.forest.title")])
-	if terrain == "dag":
-		return PackedStringArray([tr("wm.tooltip.mountain.title")])
-	if terrain == "akarsu":
-		return PackedStringArray([tr("wm.tooltip.river.title")])
-	return PackedStringArray()
+		title = tr("wm.tooltip.forest.title")
+	elif terrain == "dag":
+		title = tr("wm.tooltip.mountain.title")
+	elif terrain == "akarsu":
+		title = tr("wm.tooltip.river.title")
+	if title.is_empty():
+		return PackedStringArray()
+	var lines: PackedStringArray = PackedStringArray([title])
+	var stock_line: String = _build_biome_stock_line(tile)
+	if not stock_line.is_empty():
+		lines.append(stock_line)
+	return lines
+
+
+## Hex'in hammadde stoğu: dolu / kısmen / tükendi (+ dolmasına kalan gün).
+func _build_biome_stock_line(tile: Dictionary) -> String:
+	if _world_manager == null or not _world_manager.has_method("get_forest_stock_at"):
+		return ""
+	var hq: int = int(tile.get("q", 0))
+	var hr: int = int(tile.get("r", 0))
+	var stock: int = int(_world_manager.call("get_forest_stock_at", hq, hr))
+	var max_stock: int = int(_world_manager.call("get_forest_stock_max"))
+	if stock >= max_stock:
+		return tr("wm.tooltip.stock.full")
+	var minutes_left: int = int(_world_manager.call("get_forest_stock_minutes_to_full", hq, hr))
+	var days_left: int = maxi(1, ceili(float(minutes_left) / 1440.0))
+	if stock <= 0:
+		return tr("wm.tooltip.stock.empty") % days_left
+	return tr("wm.tooltip.stock.partial") % [stock, max_stock, days_left]
 
 func _build_landmark_hex_tooltip_lines(tile: Dictionary) -> PackedStringArray:
 	var poi: String = String(tile.get("poi_type", ""))
